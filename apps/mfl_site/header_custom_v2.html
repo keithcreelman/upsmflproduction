@@ -346,9 +346,17 @@
   }
 
   (function () {
-    var defaultTheme = "theme-light-blue";
-    var storedTheme = localStorage.getItem("theme_" + year + "_" + league_id) || defaultTheme;
-    document.documentElement.className = storedTheme;
+    var key = "theme_" + year + "_" + league_id;
+    var storedTheme = localStorage.getItem(key) || "";
+    if (storedTheme.toLowerCase().indexOf("light") !== -1) {
+      localStorage.removeItem(key);
+      storedTheme = "";
+    }
+    if (storedTheme) {
+      document.documentElement.className = storedTheme;
+    } else {
+      document.documentElement.removeAttribute("class");
+    }
   })();
 </script>
 
@@ -1172,6 +1180,54 @@
     background: #0f1c33 !important;
     border-color: #2a4470 !important;
     color: #f3f8ff !important;
+  }
+
+  /* Commissioner setup pages */
+  body[id^="body_csetup"] table,
+  body[id^="body_csetup"] .report,
+  body[id^="body_csetup"] .mobile-wrap > .report,
+  body[id^="body_csetup"] .homepagemodule.report {
+    background: #0f1c33 !important;
+    border-color: #2a4470 !important;
+    color: #f3f8ff !important;
+  }
+
+  body[id^="body_csetup"] th,
+  body[id^="body_csetup"] td,
+  body[id^="body_csetup"] label,
+  body[id^="body_csetup"] span,
+  body[id^="body_csetup"] p,
+  body[id^="body_csetup"] a {
+    color: #f3f8ff !important;
+    text-shadow: none !important;
+    font-weight: 700 !important;
+  }
+
+  body[id^="body_csetup"] input[type="text"],
+  body[id^="body_csetup"] input[type="number"],
+  body[id^="body_csetup"] input[type="password"],
+  body[id^="body_csetup"] select,
+  body[id^="body_csetup"] textarea {
+    background: #10203b !important;
+    border: 1px solid #2a4470 !important;
+    color: #f3f8ff !important;
+  }
+
+  body[id^="body_csetup"] input[type="button"],
+  body[id^="body_csetup"] input[type="submit"],
+  body[id^="body_csetup"] button {
+    background: #1f4d93 !important;
+    border: 1px solid #4a75b7 !important;
+    color: #ffffff !important;
+    font-weight: 800 !important;
+  }
+
+  body[id^="body_csetup"] .oddtablerow {
+    background: #12223d !important;
+  }
+
+  body[id^="body_csetup"] .eventablerow {
+    background: #101f38 !important;
   }
 </style>
 
