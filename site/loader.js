@@ -15,6 +15,14 @@
     return (value || "").toString().trim().toLowerCase();
   }
 
+  function deriveRepoBasePath(scriptPathname) {
+    var p = (scriptPathname || "").toString();
+    var marker = "/site/loader.js";
+    var idx = p.lastIndexOf(marker);
+    if (idx >= 0) return p.slice(0, idx);
+    return "";
+  }
+
   function normalizeHtml(partial, html) {
     var out = html || "";
 
@@ -74,7 +82,9 @@
 
   var sourcePath = script.getAttribute("data-ups-path") || PARTIAL_MAP[partial];
   var scriptUrl = new URL(script.src, window.location.href);
-  var sourceUrl = new URL(sourcePath, scriptUrl.origin);
+  var repoBasePath = deriveRepoBasePath(scriptUrl.pathname);
+  var normalizedSourcePath = sourcePath.charAt(0) === "/" ? sourcePath : "/" + sourcePath;
+  var sourceUrl = new URL(repoBasePath + normalizedSourcePath, scriptUrl.origin);
   var version = script.getAttribute("data-ups-v") || scriptUrl.searchParams.get("v") || "";
   if (version) sourceUrl.searchParams.set("v", version);
 
