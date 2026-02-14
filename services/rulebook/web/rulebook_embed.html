@@ -1,0 +1,577 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>UPS Salary Cap Dynasty League Rule Book</title>
+  <style>
+    :root {
+      --bg: #f6f6f3;
+      --panel: #ffffff;
+      --ink: #171717;
+      --muted: #616161;
+      --line: #d8d8d3;
+      --brand: #0f5c4d;
+      --brand-2: #0c3d34;
+      --danger: #9e1c1c;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Avenir Next", "Segoe UI", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 300px at 70% -10%, #dceee8 10%, transparent 60%),
+        radial-gradient(700px 240px at 15% -5%, #efe8da 10%, transparent 60%),
+        var(--bg);
+    }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 24px; }
+    .hero {
+      background: linear-gradient(120deg, var(--brand), var(--brand-2));
+      color: #fff;
+      border-radius: 16px;
+      padding: 18px 20px;
+      box-shadow: 0 8px 22px rgba(12, 61, 52, 0.24);
+      margin-bottom: 16px;
+    }
+    .hero h1 { margin: 0 0 6px; font-size: 26px; letter-spacing: 0.2px; }
+    .hero p { margin: 0; opacity: 0.95; }
+    .bar {
+      display: grid;
+      grid-template-columns: 1fr 220px;
+      gap: 10px;
+      margin: 14px 0 20px;
+    }
+    .input, .select, .textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px 12px;
+      background: var(--panel);
+      color: var(--ink);
+      font-size: 14px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      gap: 14px;
+    }
+    .list, .detail {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      min-height: 560px;
+    }
+    .list { overflow: auto; }
+    .rule-item {
+      padding: 12px;
+      border-bottom: 1px solid #ecece7;
+      cursor: pointer;
+    }
+    .rule-item:last-child { border-bottom: none; }
+    .rule-item.active { background: #eef7f4; }
+    .rule-id { color: var(--brand); font-weight: 700; font-size: 12px; }
+    .rule-title { margin: 2px 0; font-weight: 650; }
+    .rule-meta { color: var(--muted); font-size: 12px; }
+    .detail-inner { padding: 18px; }
+    .pill {
+      display: inline-block;
+      font-size: 12px;
+      color: #fff;
+      background: var(--brand);
+      border-radius: 999px;
+      padding: 4px 9px;
+      margin-right: 6px;
+      margin-bottom: 6px;
+    }
+    .actions {
+      margin-top: 14px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .btn {
+      border: none;
+      border-radius: 10px;
+      padding: 10px 12px;
+      cursor: pointer;
+      font-weight: 650;
+      font-size: 14px;
+    }
+    .btn.primary { background: var(--brand); color: #fff; }
+    .btn.alt { background: #e6efec; color: #0f4f42; }
+    .btn.ghost { background: #f2f2ef; color: #343434; }
+    .error { color: var(--danger); font-size: 12px; margin-top: 6px; }
+    .ok { color: #1d6b22; font-size: 13px; margin-top: 6px; }
+
+    .modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.45);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+      z-index: 50;
+    }
+    .modal.show { display: flex; }
+    .card {
+      width: min(820px, 100%);
+      max-height: 90vh;
+      overflow: auto;
+      background: var(--panel);
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      padding: 16px;
+    }
+    .card h3 { margin: 0 0 4px; }
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .full { grid-column: 1 / -1; }
+    .hint { color: var(--muted); font-size: 12px; }
+
+    @media (max-width: 900px) {
+      .grid { grid-template-columns: 1fr; }
+      .list, .detail { min-height: auto; }
+      .form-grid { grid-template-columns: 1fr; }
+      .bar { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap" id="app">
+    <div class="hero">
+      <h1>UPS Salary Cap Dynasty League Rule Book</h1>
+      <p>Structured, searchable, and owner feedback-ready.</p>
+    </div>
+
+    <div class="bar">
+      <input id="searchInput" class="input" placeholder="Search by rule id, title, category, or keyword">
+      <select id="categoryFilter" class="select">
+        <option value="">All categories</option>
+      </select>
+    </div>
+
+    <div class="grid">
+      <div class="list" id="ruleList"></div>
+      <div class="detail">
+        <div class="detail-inner" id="ruleDetail"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="feedbackModal">
+    <div class="card">
+      <h3 id="modalTitle">Rule Feedback</h3>
+      <div class="hint" id="modalRuleHint"></div>
+
+      <form id="feedbackForm">
+        <div class="form-grid">
+          <div>
+            <label class="hint">Feedback Type</label>
+            <select id="feedbackType" class="select" required>
+              <option value="thought">Thought</option>
+              <option value="change">Suggest Change</option>
+            </select>
+          </div>
+          <div>
+            <label class="hint">Priority</label>
+            <select id="priority" class="select" required>
+              <option value="normal">Normal</option>
+              <option value="high">High</option>
+              <option value="low">Low</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="hint">Impact</label>
+            <select id="impact" class="select" required>
+              <option value="none">None</option>
+              <option value="small">Small</option>
+              <option value="medium">Medium</option>
+              <option value="large">Large</option>
+            </select>
+          </div>
+          <div>
+            <label class="hint">Team (optional)</label>
+            <input id="submitterTeam" class="input" maxlength="80" placeholder="Ex: Real Deal Creel">
+          </div>
+
+          <div class="full">
+            <label class="hint">Summary (15-180 chars)</label>
+            <input id="summary" class="input" minlength="15" maxlength="180" required placeholder="Short clear summary">
+          </div>
+
+          <div class="full">
+            <label class="hint">Rationale (30-1200 chars)</label>
+            <textarea id="rationale" class="textarea" rows="5" minlength="30" maxlength="1200" required placeholder="Why this matters, with context"></textarea>
+          </div>
+
+          <div class="full">
+            <label class="hint">Current text excerpt (optional, max 600)</label>
+            <textarea id="currentExcerpt" class="textarea" rows="3" maxlength="600" placeholder="Paste the current sentence/phrase you are referencing"></textarea>
+          </div>
+
+          <div class="full" id="proposedTextWrap" style="display:none;">
+            <label class="hint">Proposed replacement text (required for change, 30-1200 chars)</label>
+            <textarea id="proposedText" class="textarea" rows="4" maxlength="1200" placeholder="Write the exact proposed language"></textarea>
+          </div>
+
+          <div class="full">
+            <label class="hint">Examples (optional, max 900)</label>
+            <textarea id="examples" class="textarea" rows="3" maxlength="900" placeholder="Optional examples or scenarios"></textarea>
+          </div>
+
+          <div>
+            <label class="hint">Contact name (optional)</label>
+            <input id="contactName" class="input" maxlength="80">
+          </div>
+          <div>
+            <label class="hint">Contact email (optional)</label>
+            <input id="contactEmail" class="input" type="email" maxlength="160">
+          </div>
+        </div>
+
+        <div class="actions">
+          <button type="submit" class="btn primary">Submit Feedback</button>
+          <button type="button" id="cancelFeedback" class="btn ghost">Cancel</button>
+        </div>
+        <div id="formError" class="error"></div>
+        <div id="formOk" class="ok"></div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    // Host page can set window.CCC_RULEBOOK_CONFIG before this script runs.
+    // Optional URL override: ?apiBaseUrl=https://your-api.example.com
+    const queryCfg = new URLSearchParams(window.location.search);
+    window.CCC_RULEBOOK_CONFIG = Object.assign(
+      { apiBaseUrl: '' },
+      window.CCC_RULEBOOK_CONFIG || {}
+    );
+    if (queryCfg.get('apiBaseUrl')) {
+      window.CCC_RULEBOOK_CONFIG.apiBaseUrl = queryCfg.get('apiBaseUrl');
+    }
+    const API_BASE = (window.CCC_RULEBOOK_CONFIG.apiBaseUrl || '').replace(/\/+$/, '');
+    const DEFAULT_RULEBOOK_DATA = {
+      version: 'embedded-fallback-1',
+      league: 'UPS Salary Cap Dynasty League',
+      last_updated: '2026-02-14',
+      rules: [
+        {
+          id: 'R-001',
+          category: 'Governance',
+          title: 'League Purpose',
+          body: 'UPS Salary Cap Dynasty League operates as a dynasty salary-cap format with contracts and cap accounting carried across seasons.',
+          tags: ['governance', 'dynasty']
+        },
+        {
+          id: 'R-004',
+          category: 'Governance',
+          title: 'System Of Record',
+          body: 'Normalized contract records with source metadata are the canonical record for league contract history.',
+          tags: ['record', 'audit']
+        },
+        {
+          id: 'R-011',
+          category: 'Scoring',
+          title: 'Scoring Model',
+          body: 'Scoring is event-based across offense, defense, and special teams using MFL-configured rule tables.',
+          tags: ['scoring', 'idp', 'st']
+        },
+        {
+          id: 'R-019',
+          category: 'Waivers',
+          title: 'Waiver Mode',
+          body: 'Waiver processing uses BBID_FCFS with $1,000 minimum and $1,000 increments in current settings.',
+          tags: ['waivers', 'bbid']
+        },
+        {
+          id: 'R-024',
+          category: 'Draft',
+          title: 'Draft Settings',
+          body: 'Draft is configured live with Rookie player pool and configured time-limit rules.',
+          tags: ['draft', 'rookie']
+        },
+        {
+          id: 'R-027',
+          category: 'Trades',
+          title: 'Trade Expiration',
+          body: 'Default trade expiration is seven days in current league configuration.',
+          tags: ['trades', 'expiration']
+        },
+        {
+          id: 'R-029',
+          category: 'Contracts',
+          title: 'Allowed Contract Types',
+          body: 'Every contract transaction must map to Auction, Extension, MYM, or Restructure.',
+          tags: ['contracts', 'types']
+        },
+        {
+          id: 'R-032',
+          category: 'Contracts',
+          title: 'Restructure Definition',
+          body: 'Any change to current-year salary is a restructure, including front-loaded or back-loaded adjustments.',
+          tags: ['restructure', 'salary']
+        },
+        {
+          id: 'R-035',
+          category: 'Contracts',
+          title: 'MYM Current-Year Restriction',
+          body: 'MYM submissions cannot modify current-season salary when league policy disallows that change.',
+          tags: ['mym', 'validation']
+        },
+        {
+          id: 'R-041',
+          category: 'Data Policy',
+          title: 'Source Attribution',
+          body: 'Each record must retain source_section and source raw context for audit traceability.',
+          tags: ['source', 'audit']
+        },
+        {
+          id: 'R-042',
+          category: 'Data Policy',
+          title: 'XML Payload Required',
+          body: 'Every normalized contract record must retain XML payload for reconstruction.',
+          tags: ['xml', 'payload']
+        },
+        {
+          id: 'R-043',
+          category: 'Data Policy',
+          title: 'Legacy Guaranteed Policy',
+          body: 'Legacy guaranteed handling applies through 2018; 2019+ uses normalized guaranteed with legacy cross-reference support.',
+          tags: ['legacy', 'guaranteed']
+        },
+        {
+          id: 'R-050',
+          category: 'Feedback',
+          title: 'Owner Rule Feedback',
+          body: 'Owners can submit thoughts and change requests through the structured rule feedback workflow.',
+          tags: ['feedback', 'owners']
+        }
+      ]
+    };
+
+    const state = {
+      data: null,
+      filtered: [],
+      selectedId: null,
+      feedbackRuleId: null
+    };
+
+    const els = {
+      ruleList: document.getElementById('ruleList'),
+      ruleDetail: document.getElementById('ruleDetail'),
+      search: document.getElementById('searchInput'),
+      category: document.getElementById('categoryFilter'),
+      modal: document.getElementById('feedbackModal'),
+      modalTitle: document.getElementById('modalTitle'),
+      modalRuleHint: document.getElementById('modalRuleHint'),
+      form: document.getElementById('feedbackForm'),
+      feedbackType: document.getElementById('feedbackType'),
+      proposedWrap: document.getElementById('proposedTextWrap'),
+      error: document.getElementById('formError'),
+      ok: document.getElementById('formOk')
+    };
+
+    function esc(v) {
+      return (v || '').replace(/[&<>"]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
+    }
+
+    function filterRules() {
+      const q = els.search.value.trim().toLowerCase();
+      const c = els.category.value;
+      const rules = (state.data?.rules || []).filter(r => {
+        if (c && r.category !== c) return false;
+        if (!q) return true;
+        const blob = [r.id, r.category, r.title, r.body, ...(r.tags || [])].join(' ').toLowerCase();
+        return blob.includes(q);
+      });
+      state.filtered = rules;
+      if (!rules.find(r => r.id === state.selectedId)) {
+        state.selectedId = rules.length ? rules[0].id : null;
+      }
+      renderList();
+      renderDetail();
+    }
+
+    function renderList() {
+      const html = state.filtered.map(r => `
+        <div class="rule-item ${r.id === state.selectedId ? 'active' : ''}" data-id="${esc(r.id)}">
+          <div class="rule-id">${esc(r.id)}</div>
+          <div class="rule-title">${esc(r.title)}</div>
+          <div class="rule-meta">${esc(r.category)}</div>
+        </div>`).join('');
+      els.ruleList.innerHTML = html || '<div class="rule-item">No rules match your filter.</div>';
+      [...els.ruleList.querySelectorAll('.rule-item[data-id]')].forEach(node => {
+        node.addEventListener('click', () => {
+          state.selectedId = node.getAttribute('data-id');
+          renderList();
+          renderDetail();
+        });
+      });
+    }
+
+    function selectedRule() {
+      return (state.data?.rules || []).find(r => r.id === state.selectedId) || null;
+    }
+
+    function renderDetail() {
+      const r = selectedRule();
+      if (!r) {
+        els.ruleDetail.innerHTML = '<p>No rule selected.</p>';
+        return;
+      }
+      const tags = (r.tags || []).map(t => `<span class="pill">${esc(t)}</span>`).join('');
+      els.ruleDetail.innerHTML = `
+        <div class="rule-id">${esc(r.id)}</div>
+        <h2 style="margin:6px 0 6px;">${esc(r.title)}</h2>
+        <div class="rule-meta" style="margin-bottom:8px;">${esc(r.category)}</div>
+        <div>${tags}</div>
+        <p style="line-height:1.55; margin-top:10px; white-space: pre-line;">${esc(r.body)}</p>
+        <div class="actions">
+          <button class="btn alt" id="btnThought">Submit Thought</button>
+          <button class="btn primary" id="btnChange">Suggest Change</button>
+        </div>`;
+
+      document.getElementById('btnThought').addEventListener('click', () => openFeedbackModal('thought'));
+      document.getElementById('btnChange').addEventListener('click', () => openFeedbackModal('change'));
+    }
+
+    function openFeedbackModal(type) {
+      const r = selectedRule();
+      if (!r) return;
+      state.feedbackRuleId = r.id;
+      els.feedbackType.value = type;
+      handleFeedbackTypeUI();
+      els.modalTitle.textContent = type === 'change' ? 'Suggest Rule Change' : 'Submit Rule Thought';
+      els.modalRuleHint.textContent = `${r.id} - ${r.title}`;
+      els.error.textContent = '';
+      els.ok.textContent = '';
+      els.modal.classList.add('show');
+    }
+
+    function closeFeedbackModal() {
+      els.modal.classList.remove('show');
+      els.form.reset();
+      handleFeedbackTypeUI();
+      els.error.textContent = '';
+      els.ok.textContent = '';
+    }
+
+    function handleFeedbackTypeUI() {
+      const isChange = els.feedbackType.value === 'change';
+      els.proposedWrap.style.display = isChange ? 'block' : 'none';
+      const proposed = document.getElementById('proposedText');
+      proposed.required = isChange;
+      proposed.minLength = isChange ? 30 : 0;
+    }
+
+    async function submitFeedback(ev) {
+      ev.preventDefault();
+      els.error.textContent = '';
+      els.ok.textContent = '';
+
+      const payload = {
+        rule_id: state.feedbackRuleId,
+        feedback_type: els.feedbackType.value,
+        priority: document.getElementById('priority').value,
+        impact: document.getElementById('impact').value,
+        summary: document.getElementById('summary').value.trim(),
+        rationale: document.getElementById('rationale').value.trim(),
+        current_text_excerpt: document.getElementById('currentExcerpt').value.trim(),
+        proposed_text: document.getElementById('proposedText').value.trim(),
+        examples: document.getElementById('examples').value.trim(),
+        contact_name: document.getElementById('contactName').value.trim(),
+        contact_email: document.getElementById('contactEmail').value.trim(),
+        submitter_team: document.getElementById('submitterTeam').value.trim(),
+        wants_followup: Boolean(document.getElementById('contactEmail').value.trim()),
+        submission_format_version: 'v1'
+      };
+
+      try {
+        const res = await fetch(`${API_BASE}/api/rule-feedback`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          const err = data.errors ? data.errors.join(' ') : (data.error || 'Submission failed.');
+          els.error.textContent = err;
+          return;
+        }
+        els.ok.textContent = 'Feedback submitted successfully.';
+        setTimeout(closeFeedbackModal, 900);
+      } catch (_) {
+        els.error.textContent = 'Unable to reach API endpoint.';
+      }
+    }
+
+    async function fetchRulesPayload() {
+      const candidates = [];
+      if (API_BASE) {
+        candidates.push(`${API_BASE}/api/rules`);
+      } else {
+        candidates.push('/api/rules');
+      }
+      candidates.push(new URL('rules.json', window.location.href).toString());
+      candidates.push('./rules.json');
+      candidates.push('/rulebook/rules.json');
+      candidates.push('/services/rulebook/data/rules.json');
+      let lastError = null;
+
+      for (const url of candidates) {
+        try {
+          const res = await fetch(url, { cache: 'no-store' });
+          if (!res.ok) {
+            throw new Error(`HTTP ${res.status} from ${url}`);
+          }
+          return await res.json();
+        } catch (err) {
+          lastError = err;
+        }
+      }
+      if (DEFAULT_RULEBOOK_DATA.rules && DEFAULT_RULEBOOK_DATA.rules.length) {
+        return DEFAULT_RULEBOOK_DATA;
+      }
+      throw lastError || new Error('Unable to load rules payload');
+    }
+
+    async function init() {
+      const data = await fetchRulesPayload();
+      state.data = data;
+
+      const categories = [...new Set((data.rules || []).map(r => r.category))].sort();
+      categories.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c;
+        opt.textContent = c;
+        els.category.appendChild(opt);
+      });
+
+      state.selectedId = (data.rules && data.rules[0]) ? data.rules[0].id : null;
+      filterRules();
+    }
+
+    els.search.addEventListener('input', filterRules);
+    els.category.addEventListener('change', filterRules);
+    document.getElementById('cancelFeedback').addEventListener('click', closeFeedbackModal);
+    els.feedbackType.addEventListener('change', handleFeedbackTypeUI);
+    els.form.addEventListener('submit', submitFeedback);
+    els.modal.addEventListener('click', e => {
+      if (e.target === els.modal) closeFeedbackModal();
+    });
+
+    init().catch((err) => {
+      const msg = err && err.message ? esc(err.message) : 'Unknown error';
+      els.ruleDetail.innerHTML = `<p>Unable to load rules. ${msg}</p>`;
+    });
+  </script>
+</body>
+</html>

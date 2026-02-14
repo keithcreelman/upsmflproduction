@@ -1,0 +1,490 @@
+projection_season,franchise_id,team_name,player_id,player_name,position,nfl_team,normalized_adp,points_adp_proxy,expected_reg_points,expected_reg_ppg,action,projected_pool_ind,projected_salary_2026,projected_perceived_value,expected_points_per_1000_bid,points_model_group,points_model_samples,points_model_method
+2026,0009,C-Town Chivalry,13589,"Allen, Josh",QB,BUF,1.0,1.0,435.3,27.456,expiring_to_pool,1,0,38006.04,11.453,QB,114,inv_sqrt_adp_weighted_linear
+2026,0004,Pure Greatness,16580,"Maye, Drake",QB,NEP,1.0833333333333333,2.0,395.79,27.145,retain_existing,0,8000,0,,QB,114,inv_sqrt_adp_weighted_linear
+2026,0001,L.A. Looks,14777,"Burrow, Joe",QB,CIN,1.1666666666666667,3.0,355.39,24.779,expiring_to_pool,1,0,35186.75,10.1,QB,114,inv_sqrt_adp_weighted_linear
+2026,0009,C-Town Chivalry,16581,"Daniels, Jayden",QB,WAS,1.25,4.0,331.3,23.368,retain_existing,0,12000,0,,QB,114,inv_sqrt_adp_weighted_linear
+2026,0005,HammerTime 🔨 ⏰,15281,"Chase, Ja'Marr",WR,CIN,1.3333333333333333,5.0,286.6,19.85,retain_existing,0,64000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0010,Blake Bombers,16211,"Nacua, Puka",WR,LAR,1.4166666666666667,6.0,286.6,19.85,manual_extension_keep,0,3000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0009,C-Town Chivalry,16185,"Smith-Njigba, Jaxon",WR,SEA,1.5,7.0,286.6,19.85,retain_existing,0,1000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0009,C-Town Chivalry,13593,"Jackson, Lamar",QB,BAL,1.5833333333333335,8.0,285.7,20.698,expiring_to_pool,1,0,30204.14,9.459,QB,114,inv_sqrt_adp_weighted_linear
+2026,0005,HammerTime 🔨 ⏰,14783,"Hurts, Jalen",QB,PHI,1.6666666666666665,9.0,279.4,20.329,retain_existing,0,67000,0,,QB,114,inv_sqrt_adp_weighted_linear
+2026,0004,Pure Greatness,14836,"Jefferson, Justin",WR,MIN,1.75,10.0,268.55,19.231,retain_existing,0,71000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0012,Hawks,13116,"Mahomes, Patrick",QB,KCC,1.9166666666666665,12.0,265.49,19.514,expiring_to_pool,1,0,27452.34,9.671,QB,114,inv_sqrt_adp_weighted_linear
+2026,0007,Sex Manther,16579,"Williams, Caleb",QB,CHI,2.25,16.0,253.45,18.809,retain_existing,0,15000,0,,QB,114,inv_sqrt_adp_weighted_linear
+2026,0011,Cleon Ca$h,14779,"Herbert, Justin",QB,LAC,2.4166666666666665,18.0,249.0,18.548,retain_existing,0,51000,0,,QB,114,inv_sqrt_adp_weighted_linear
+2026,0011,Cleon Ca$h,17032,"Dart, Jaxson",QB,NYG,2.5,19.0,247.04,18.434,retain_existing,0,9000,0,,QB,114,inv_sqrt_adp_weighted_linear
+2026,0011,Cleon Ca$h,16161,"Robinson, Bijan",RB,ATL,1.8333333333333335,11.0,244.12,17.042,manual_extension_keep,0,23000,0,,RB,256,inv_sqrt_adp_weighted_linear
+2026,0006,The Long Haulers,15237,"Lawrence, Trevor",QB,JAC,2.6666666666666665,21.0,243.55,18.23,manual_tag_keep,0,37000,0,,QB,114,inv_sqrt_adp_weighted_linear
+2026,0001,L.A. Looks,15287,"St. Brown, Amon-Ra",WR,DET,2.0833333333333335,14.0,237.37,17.045,manual_tag_keep,0,51000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0010,Blake Bombers,15698,"Purdy, Brock",QB,SFO,3.1666666666666665,27.0,235.53,17.76,retain_existing,0,22000,0,,QB,114,inv_sqrt_adp_weighted_linear
+2026,0001,L.A. Looks,16582,"Nix, Bo",QB,DEN,3.25,28.0,234.45,17.696,retain_existing,0,5000,0,,QB,114,inv_sqrt_adp_weighted_linear
+2026,0011,Cleon Ca$h,14832,"Lamb, CeeDee",WR,DAL,2.1666666666666665,15.0,231.59,16.64,retain_existing,0,64000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0004,Pure Greatness,16162,"Gibbs, Jahmyr",RB,DET,2.0,13.0,228.05,15.972,retain_existing,0,31000,0,,RB,256,inv_sqrt_adp_weighted_linear
+2026,0012,Hawks,12620,"Prescott, Dak",QB,DAL,4.0,37.0,226.79,17.248,manual_tag_keep,0,50000,0,,QB,114,inv_sqrt_adp_weighted_linear
+2026,0011,Cleon Ca$h,16615,"Nabers, Malik",WR,NYG,2.3333333333333335,17.0,221.62,15.94,retain_existing,0,13000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0002,CBP,14782,"Love, Jordan",QB,GBP,4.833333333333333,47.0,221.02,16.91,retain_existing,0,21000,0,,QB,114,inv_sqrt_adp_weighted_linear
+2026,0004,Pure Greatness,13590,"Mayfield, Baker",QB,TBB,5.416666666666667,54.0,217.98,16.732,retain_existing,0,26000,0,,QB,114,inv_sqrt_adp_weighted_linear
+2026,0005,HammerTime 🔨 ⏰,16150,"Stroud, C.J.",QB,HOU,6.166666666666667,63.0,214.83,16.548,rookie_extend_keep,0,18000,0,,QB,114,inv_sqrt_adp_weighted_linear
+2026,0003,Gride,13592,"Darnold, Sam",QB,SEA,6.333333333333333,65.0,214.22,16.512,retain_existing,0,18000,0,,QB,114,inv_sqrt_adp_weighted_linear
+2026,0007,Sex Manther,12611,"Goff, Jared",QB,DET,6.5,67.0,213.64,16.478,expiring_to_pool,1,0,14907.19,14.331,QB,114,inv_sqrt_adp_weighted_linear
+2026,0005,HammerTime 🔨 ⏰,15794,"McBride, Trey",TE,ARI,3.5833333333333335,32.0,208.98,15.218,retain_existing,0,35000,0,,TE,124,inv_sqrt_adp_weighted_linear
+2026,0005,HammerTime 🔨 ⏰,14056,"Murray, Kyler",QB,ARI,8.416666666666666,90.0,208.42,16.172,expiring_to_pool,1,0,13100.34,15.91,QB,114,inv_sqrt_adp_weighted_linear
+2026,0002,CBP,17039,"Shough, Tyler",QB,NOS,8.916666666666666,96.0,207.38,16.111,retain_existing,0,5000,0,,QB,114,inv_sqrt_adp_weighted_linear
+2026,0003,Gride,16148,"Young, Bryce",QB,CAR,9.25,100.0,206.74,16.074,rookie_extend_keep,0,20000,0,,QB,114,inv_sqrt_adp_weighted_linear
+2026,0001,L.A. Looks,9431,"Stafford, Matthew",QB,LAR,9.5,103.0,206.28,16.047,expiring_to_pool,1,0,12330.79,16.729,QB,114,inv_sqrt_adp_weighted_linear
+2026,0005,HammerTime 🔨 ⏰,16583,"Penix Jr., Michael",QB,ATL,10.166666666666666,111.0,205.16,15.981,retain_existing,0,5000,0,,QB,114,inv_sqrt_adp_weighted_linear
+2026,0006,The Long Haulers,14059,"Jones, Daniel",QB,IND,10.5,115.0,204.64,15.951,expiring_to_pool,1,0,11728.92,17.447,QB,114,inv_sqrt_adp_weighted_linear
+2026,0011,Cleon Ca$h,16584,"McCarthy, J.J.",QB,MIN,11.0,121.0,203.91,15.908,retain_existing,0,11000,0,,QB,114,inv_sqrt_adp_weighted_linear
+2026,0009,C-Town Chivalry,16641,"Bowers, Brock",TE,LVR,3.75,34.0,203.86,14.837,retain_existing,0,9000,0,,TE,124,inv_sqrt_adp_weighted_linear
+2026,0005,HammerTime 🔨 ⏰,16152,"Richardson, Anthony",QB,IND,13.083333333333334,146.0,201.37,15.759,retain_existing,0,11000,0,,QB,114,inv_sqrt_adp_weighted_linear
+2026,0009,C-Town Chivalry,14778,"Tagovailoa, Tua",QB,MIA,13.166666666666666,147.0,201.28,15.754,retain_existing,0,15000,0,,QB,114,inv_sqrt_adp_weighted_linear
+2026,0009,C-Town Chivalry,15751,"London, Drake",WR,ATL,2.8333333333333335,23.0,199.96,14.421,retain_existing,0,52000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0005,HammerTime 🔨 ⏰,11150,"Smith, Geno",QB,LVR,16.0,181.0,198.74,15.606,retain_existing,0,1000,0,,QB,114,inv_sqrt_adp_weighted_linear
+2026,0001,L.A. Looks,17031,"Sanders, Shedeur",QB,CLE,17.5,199.0,197.67,15.543,retain_existing,0,2000,0,,QB,114,inv_sqrt_adp_weighted_linear
+2026,0008,Real Deal Creel,15694,"Willis, Malik",QB,GBP,19.0,217.0,196.74,15.488,expiring_to_pool,1,0,8719.18,22.564,QB,114,inv_sqrt_adp_weighted_linear
+2026,0006,The Long Haulers,15238,"Fields, Justin",QB,NYJ,19.333333333333332,221.0,196.55,15.477,expiring_to_pool,1,0,8643.69,22.739,QB,114,inv_sqrt_adp_weighted_linear
+2026,0010,Blake Bombers,12616,"Brissett, Jacoby",QB,ARI,19.416666666666668,222.0,196.5,15.474,expiring_to_pool,1,0,8625.12,22.782,QB,114,inv_sqrt_adp_weighted_linear
+2026,0009,C-Town Chivalry,17033,"Milroe, Jalen",QB,SEA,20.166666666666668,231.0,196.09,15.45,retain_existing,0,5000,0,,QB,114,inv_sqrt_adp_weighted_linear
+2026,0008,Real Deal Creel,10700,"Cousins, Kirk",QB,ATL,21.583333333333332,248.0,195.37,15.408,expiring_to_pool,1,0,8180.75,23.882,QB,114,inv_sqrt_adp_weighted_linear
+2026,0006,The Long Haulers,17034,"Ewers, Quinn",QB,MIA,23.833333333333332,275.0,194.38,15.35,retain_existing,0,2000,0,,QB,114,inv_sqrt_adp_weighted_linear
+2026,0002,CBP,7836,"Rodgers, Aaron",QB,PIT,24.833333333333332,287.0,193.98,15.326,expiring_to_pool,1,0,7626.67,25.434,QB,114,inv_sqrt_adp_weighted_linear
+2026,0008,Real Deal Creel,9064,"Flacco, Joe",QB,CIN,25.25,292.0,193.82,15.317,expiring_to_pool,1,0,7563.48,25.626,QB,114,inv_sqrt_adp_weighted_linear
+2026,0002,CBP,15290,"Collins, Nico",WR,HOU,3.0833333333333335,26.0,192.06,13.867,retain_existing,0,47000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0007,Sex Manther,16384,"Bagent, Tyson",QB,CHI,400.0,400.0,191.17,15.162,expiring_to_pool,1,0,1900.3,100.6,QB,114,inv_sqrt_adp_weighted_linear
+2026,0004,Pure Greatness,16153,"Bennett, Stetson",QB,LAR,400.0,400.0,191.17,15.162,expiring_to_pool,1,0,1900.3,100.6,QB,114,inv_sqrt_adp_weighted_linear
+2026,0003,Gride,10313,"Dalton, Andy",QB,CAR,400.0,400.0,191.17,15.162,expiring_to_pool,1,0,1900.3,100.6,QB,114,inv_sqrt_adp_weighted_linear
+2026,0002,CBP,17037,"Gabriel, Dillon",QB,CLE,400.0,400.0,191.17,15.162,retain_existing,0,2000,0,,QB,114,inv_sqrt_adp_weighted_linear
+2026,0009,C-Town Chivalry,16156,"Haener, Jake",QB,NOS,400.0,400.0,191.17,15.162,expiring_to_pool,1,0,1900.3,100.6,QB,114,inv_sqrt_adp_weighted_linear
+2026,0009,C-Town Chivalry,16151,"Hooker, Hendon",QB,NYJ,400.0,400.0,191.17,15.162,expiring_to_pool,1,0,1900.3,100.6,QB,114,inv_sqrt_adp_weighted_linear
+2026,0002,CBP,17036,"Howard, Will",QB,PIT,400.0,400.0,191.17,15.162,retain_existing,0,2000,0,,QB,114,inv_sqrt_adp_weighted_linear
+2026,0009,C-Town Chivalry,14789,"Huntley, Tyler",QB,BAL,400.0,400.0,191.17,15.162,expiring_to_pool,1,0,1900.3,100.6,QB,114,inv_sqrt_adp_weighted_linear
+2026,0006,The Long Haulers,9207,"Johnson, Josh",QB,WAS,400.0,400.0,191.17,15.162,expiring_to_pool,1,0,1900.3,100.6,QB,114,inv_sqrt_adp_weighted_linear
+2026,0006,The Long Haulers,16149,"Levis, Will",QB,TEN,400.0,400.0,191.17,15.162,expiring_to_pool,1,0,1900.3,100.6,QB,114,inv_sqrt_adp_weighted_linear
+2026,0007,Sex Manther,15702,"McKee, Tanner",QB,PHI,400.0,400.0,191.17,15.162,retain_existing,0,1000,0,,QB,114,inv_sqrt_adp_weighted_linear
+2026,0012,Hawks,15252,"Mills, Davis",QB,HOU,400.0,400.0,191.17,15.162,expiring_to_pool,1,0,1900.3,100.6,QB,114,inv_sqrt_adp_weighted_linear
+2026,0006,The Long Haulers,14067,"Minshew, Gardner",QB,KCC,400.0,400.0,191.17,15.162,expiring_to_pool,1,0,1900.3,100.6,QB,114,inv_sqrt_adp_weighted_linear
+2026,0006,The Long Haulers,15692,"Pickett, Kenny",QB,LVR,400.0,400.0,191.17,15.162,expiring_to_pool,1,0,1900.3,100.6,QB,114,inv_sqrt_adp_weighted_linear
+2026,0002,CBP,16586,"Rattler, Spencer",QB,NOS,400.0,400.0,191.17,15.162,retain_existing,0,2000,0,,QB,114,inv_sqrt_adp_weighted_linear
+2026,0008,Real Deal Creel,7394,"Rivers, Philip",QB,IND,400.0,400.0,191.17,15.162,expiring_to_pool,1,0,1900.3,100.6,QB,114,inv_sqrt_adp_weighted_linear
+2026,0003,Gride,13124,"Rush, Cooper",QB,BAL,400.0,400.0,191.17,15.162,expiring_to_pool,1,0,1900.3,100.6,QB,114,inv_sqrt_adp_weighted_linear
+2026,0010,Blake Bombers,17030,"Ward, Cam",QB,TEN,400.0,400.0,191.17,15.162,retain_existing,0,10000,0,,QB,114,inv_sqrt_adp_weighted_linear
+2026,0008,Real Deal Creel,13113,"Watson, Deshaun",QB,CLE,400.0,400.0,191.17,15.162,retain_existing,0,1000,0,,QB,114,inv_sqrt_adp_weighted_linear
+2026,0001,L.A. Looks,12610,"Wentz, Carson",QB,MIN,400.0,400.0,191.17,15.162,retain_existing,0,1000,0,,QB,114,inv_sqrt_adp_weighted_linear
+2026,0008,Real Deal Creel,12140,"Winston, Jameis",QB,NYG,400.0,400.0,191.17,15.162,expiring_to_pool,1,0,1900.3,100.6,QB,114,inv_sqrt_adp_weighted_linear
+2026,0007,Sex Manther,16167,"Achane, De'Von",RB,MIA,2.75,22.0,185.4,13.133,retain_existing,0,5000,0,,RB,256,inv_sqrt_adp_weighted_linear
+2026,0009,C-Town Chivalry,15762,"Pickens, George",WR,DAL,3.5,31.0,181.55,13.13,expiring_to_pool,1,0,20315.08,8.937,WR,312,inv_sqrt_adp_weighted_linear
+2026,0004,Pure Greatness,17042,"Jeanty, Ashton",RB,LVR,2.9166666666666665,24.0,179.37,12.731,retain_existing,0,15000,0,,RB,256,inv_sqrt_adp_weighted_linear
+2026,0004,Pure Greatness,15754,"Olave, Chris",WR,NOS,3.8333333333333335,35.0,174.81,12.658,retain_existing,0,11000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0008,Real Deal Creel,17071,"McMillan, Tetairoa",WR,CAR,3.9166666666666665,36.0,173.31,12.552,retain_existing,0,7000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0007,Sex Manther,16194,"Rice, Rashee",WR,KCC,4.083333333333333,38.0,170.48,12.354,retain_existing,0,25000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0002,CBP,15753,"Wilson, Garrett",WR,NYJ,4.333333333333333,41.0,166.63,12.083,retain_existing,0,44000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0006,The Long Haulers,14104,"Brown, A.J.",WR,PHI,4.416666666666667,42.0,165.44,12.0,retain_existing,0,56000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0001,L.A. Looks,14802,"Taylor, Jonathan",RB,IND,3.4166666666666665,30.0,165.04,11.778,expiring_to_pool,1,0,20561.33,8.027,RB,256,inv_sqrt_adp_weighted_linear
+2026,0005,HammerTime 🔨 ⏰,16627,"McConkey, Ladd",WR,LAC,4.5,43.0,164.29,11.919,retain_existing,0,5000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0002,CBP,17081,"Egbuka, Emeka",WR,TBB,4.583333333333333,44.0,163.18,11.842,retain_existing,0,5000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0009,C-Town Chivalry,15715,"Cook, James",RB,BUF,3.6666666666666665,33.0,159.39,11.402,retain_existing,0,27000,0,,RB,256,inv_sqrt_adp_weighted_linear
+2026,0009,C-Town Chivalry,14835,"Higgins, Tee",WR,CIN,4.916666666666667,48.0,159.09,11.555,retain_existing,0,24000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0007,Sex Manther,15756,"Williams, Jameson",WR,DET,5.25,52.0,155.49,11.302,expiring_to_pool,1,0,16587.19,9.374,WR,312,inv_sqrt_adp_weighted_linear
+2026,0011,Cleon Ca$h,17104,"Loveland, Colston",TE,CHI,6.75,70.0,153.46,11.08,retain_existing,0,5000,0,,TE,124,inv_sqrt_adp_weighted_linear
+2026,0008,Real Deal Creel,16614,"Harrison Jr., Marvin",WR,ARI,5.583333333333333,56.0,152.27,11.077,retain_existing,0,14000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0006,The Long Haulers,17102,"Warren, Tyler",TE,IND,6.916666666666667,72.0,151.83,10.959,retain_existing,0,5000,0,,TE,124,inv_sqrt_adp_weighted_linear
+2026,0004,Pure Greatness,16618,"Thomas Jr., Brian",WR,JAC,5.666666666666667,57.0,151.52,11.024,retain_existing,0,5000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0007,Sex Manther,16616,"Odunze, Rome",WR,CHI,5.833333333333333,59.0,150.08,10.923,retain_existing,0,10000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0002,CBP,15282,"Smith, DeVonta",WR,PHI,5.916666666666667,60.0,149.39,10.874,manual_tag_keep,0,29000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0010,Blake Bombers,17044,"Hampton, Omarion",RB,LAC,4.25,40.0,148.78,10.695,retain_existing,0,13000,0,,RB,256,inv_sqrt_adp_weighted_linear
+2026,0007,Sex Manther,17103,"Fannin, Harold",TE,CLE,7.416666666666667,78.0,147.35,10.625,retain_existing,0,5000,0,,TE,124,inv_sqrt_adp_weighted_linear
+2026,0011,Cleon Ca$h,16222,"Kraft, Tucker",TE,GBP,7.5,79.0,146.65,10.573,manual_extension_keep,0,3000,0,,TE,124,inv_sqrt_adp_weighted_linear
+2026,0005,HammerTime 🔨 ⏰,17070,"Burden, Luther",WR,CHI,6.416666666666667,66.0,145.56,10.606,retain_existing,0,5000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0009,C-Town Chivalry,16214,"LaPorta, Sam",TE,DET,7.75,82.0,144.64,10.423,manual_extension_keep,0,8000,0,,TE,124,inv_sqrt_adp_weighted_linear
+2026,0004,Pure Greatness,16190,"Flowers, Zay",WR,BAL,6.666666666666667,69.0,143.84,10.485,retain_existing,0,25000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0001,L.A. Looks,16181,"Brown, Chase",RB,CIN,4.666666666666667,45.0,142.76,10.295,manual_extension_keep,0,3000,0,,RB,256,inv_sqrt_adp_weighted_linear
+2026,0010,Blake Bombers,15284,"Waddle, Jaylen",WR,MIA,6.833333333333333,71.0,142.75,10.409,expiring_to_pool,1,0,14539.06,9.818,WR,312,inv_sqrt_adp_weighted_linear
+2026,0008,Real Deal Creel,17043,"Henderson, TreVeyon",RB,NEP,5.083333333333333,50.0,137.68,9.956,retain_existing,0,12000,0,,RB,256,inv_sqrt_adp_weighted_linear
+2026,0008,Real Deal Creel,15789,"Watson, Christian",WR,GBP,7.833333333333333,83.0,137.08,10.011,retain_existing,0,1000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0002,CBP,14102,"Metcalf, DK",WR,PIT,8.0,85.0,136.25,9.953,expiring_to_pool,1,0,13437.16,10.14,WR,312,inv_sqrt_adp_weighted_linear
+2026,0007,Sex Manther,17074,"Hunter, Travis",WR,JAC,8.083333333333334,86.0,135.85,9.925,retain_existing,0,14000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0010,Blake Bombers,15329,"Pitts, Kyle",TE,ATL,9.083333333333334,98.0,135.51,9.742,manual_tag_keep,0,28000,0,,TE,124,inv_sqrt_adp_weighted_linear
+2026,0004,Pure Greatness,16598,"Irving, Bucky",RB,TBB,5.333333333333333,53.0,134.98,9.777,retain_existing,0,2000,0,,RB,256,inv_sqrt_adp_weighted_linear
+2026,0012,Hawks,16206,"Wilson, Michael",WR,ARI,8.333333333333334,89.0,134.68,9.843,retain_existing,0,5000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0001,L.A. Looks,13630,"Sutton, Courtland",WR,DEN,8.5,91.0,133.93,9.79,retain_existing,0,15000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0007,Sex Manther,13130,"McCaffrey, Christian",RB,SFO,5.5,55.0,133.3,9.665,expiring_to_pool,1,0,16205.83,8.225,RB,256,inv_sqrt_adp_weighted_linear
+2026,0005,HammerTime 🔨 ⏰,16186,"Addison, Jordan",WR,MIN,8.75,94.0,132.86,9.715,retain_existing,0,7000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0002,CBP,16622,"Pearsall, Ricky",WR,SFO,8.833333333333334,95.0,132.51,9.691,retain_existing,0,5000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0012,Hawks,16213,"Kincaid, Dalton",TE,BUF,9.833333333333334,107.0,131.3,9.428,retain_existing,0,9000,0,,TE,124,inv_sqrt_adp_weighted_linear
+2026,0012,Hawks,14127,"Meyers, Jakobi",WR,JAC,9.333333333333334,101.0,130.54,9.553,retain_existing,0,4000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0011,Cleon Ca$h,15757,"Robinson, Wan'Dale",WR,NYG,9.583333333333334,104.0,129.62,9.488,retain_existing,0,22000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0003,Gride,14842,"Pittman, Michael",WR,IND,9.75,106.0,129.03,9.447,retain_existing,0,45000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0009,C-Town Chivalry,15708,"Hall, Breece",RB,NYJ,6.0,61.0,128.78,9.364,retain_existing,0,35000,0,,RB,256,inv_sqrt_adp_weighted_linear
+2026,0003,Gride,13635,"Moore, D.J.",WR,CHI,9.916666666666666,108.0,128.45,9.406,retain_existing,0,21000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0004,Pure Greatness,11675,"Adams, Davante",WR,LAR,10.0,109.0,128.17,9.386,retain_existing,0,20000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0010,Blake Bombers,13604,"Barkley, Saquon",RB,PHI,6.083333333333333,62.0,128.09,9.318,expiring_to_pool,1,0,15409.26,8.313,RB,256,inv_sqrt_adp_weighted_linear
+2026,0004,Pure Greatness,16188,"Johnston, Quentin",WR,LAC,10.333333333333334,113.0,127.08,9.31,rookie_extend_keep,0,12000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0010,Blake Bombers,14109,"McLaurin, Terry",WR,WAS,10.583333333333334,116.0,126.3,9.255,retain_existing,0,19000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0012,Hawks,16620,"Worthy, Xavier",WR,KCC,10.75,118.0,125.8,9.22,retain_existing,0,5000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0001,L.A. Looks,14860,"Jennings, Jauan",WR,SFO,10.833333333333334,119.0,125.55,9.203,expiring_to_pool,1,0,11547.06,10.873,WR,312,inv_sqrt_adp_weighted_linear
+2026,0011,Cleon Ca$h,15761,"Shakir, Khalil",WR,BUF,11.25,124.0,124.36,9.119,retain_existing,0,25000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0005,HammerTime 🔨 ⏰,14073,"Jacobs, Josh",RB,GBP,6.583333333333333,68.0,124.28,9.064,expiring_to_pool,1,0,14812.54,8.39,RB,256,inv_sqrt_adp_weighted_linear
+2026,0010,Blake Bombers,16269,"Strange, Brenton",TE,JAC,11.5,127.0,123.6,8.854,retain_existing,0,2000,0,,TE,124,inv_sqrt_adp_weighted_linear
+2026,0001,L.A. Looks,15768,"Pierce, Alec",WR,IND,11.833333333333334,131.0,122.82,9.011,retain_existing,0,2000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0007,Sex Manther,17083,"Higgins, Jayden",WR,HOU,12.083333333333334,134.0,122.19,8.967,retain_existing,0,5000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0010,Blake Bombers,17075,"Golden, Matthew",WR,GBP,12.25,136.0,121.78,8.938,retain_existing,0,5000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0012,Hawks,15710,"Williams, Kyren",RB,LAR,7.0,73.0,121.47,8.877,retain_existing,0,22000,0,,RB,256,inv_sqrt_adp_weighted_linear
+2026,0010,Blake Bombers,16184,"Reed, Jayden",WR,GBP,12.583333333333334,140.0,121.0,8.883,expiring_to_pool,1,0,10714.08,11.294,WR,312,inv_sqrt_adp_weighted_linear
+2026,0012,Hawks,11671,"Evans, Mike",WR,TBB,12.833333333333334,143.0,120.43,8.843,retain_existing,0,24000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0010,Blake Bombers,17051,"Judkins, Quinshon",RB,CLE,7.166666666666667,75.0,120.42,8.808,retain_existing,0,8000,0,,RB,256,inv_sqrt_adp_weighted_linear
+2026,0012,Hawks,17068,"Harvey, RJ",RB,DEN,7.25,76.0,119.92,8.774,retain_existing,0,11000,0,,RB,256,inv_sqrt_adp_weighted_linear
+2026,0008,Real Deal Creel,15711,"Walker III, Kenneth",RB,SEA,7.333333333333333,77.0,119.42,8.741,retain_existing,0,32000,0,,RB,256,inv_sqrt_adp_weighted_linear
+2026,0001,L.A. Looks,12186,"Diggs, Stefon",WR,NEP,13.333333333333334,149.0,119.35,8.767,expiring_to_pool,1,0,10408.38,11.467,WR,312,inv_sqrt_adp_weighted_linear
+2026,0007,Sex Manther,13299,"Kittle, George",TE,SFO,12.666666666666666,141.0,119.21,8.527,retain_existing,0,29000,0,,TE,124,inv_sqrt_adp_weighted_linear
+2026,0010,Blake Bombers,13163,"Godwin, Chris",WR,TBB,13.416666666666666,150.0,119.17,8.755,retain_existing,0,10000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0007,Sex Manther,17099,"Gadsden, Oronde",TE,LAC,12.75,142.0,118.93,8.506,retain_existing,0,4000,0,,TE,124,inv_sqrt_adp_weighted_linear
+2026,0006,The Long Haulers,16192,"Washington, Parker",WR,JAC,13.666666666666666,153.0,118.66,8.719,expiring_to_pool,1,0,10280.67,11.542,WR,312,inv_sqrt_adp_weighted_linear
+2026,0001,L.A. Looks,15799,"Ferguson, Jake",TE,DAL,12.916666666666666,144.0,118.36,8.464,retain_existing,0,21000,0,,TE,124,inv_sqrt_adp_weighted_linear
+2026,0006,The Long Haulers,16187,"Downs, Josh",WR,IND,13.833333333333334,155.0,118.33,8.696,retain_existing,0,12000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0003,Gride,14136,"Samuel, Deebo",WR,WAS,14.166666666666666,159.0,117.68,8.651,retain_existing,0,8000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0003,Gride,16809,"Coker, Jalen",WR,CAR,14.416666666666666,162.0,117.21,8.618,retain_existing,0,1000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0005,HammerTime 🔨 ⏰,15779,"Doubs, Romeo",WR,GBP,14.583333333333334,164.0,116.9,8.596,expiring_to_pool,1,0,9952.32,11.746,WR,312,inv_sqrt_adp_weighted_linear
+2026,0011,Cleon Ca$h,16628,"McMillan, Jalen",WR,TBB,14.75,166.0,116.6,8.575,retain_existing,0,2000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0011,Cleon Ca$h,16193,"Boutte, Kayshon",WR,NEP,15.25,172.0,115.73,8.514,expiring_to_pool,1,0,9732.35,11.891,WR,312,inv_sqrt_adp_weighted_linear
+2026,0006,The Long Haulers,16649,"Johnson, Theo",TE,NYG,13.75,154.0,115.69,8.265,retain_existing,0,5000,0,,TE,124,inv_sqrt_adp_weighted_linear
+2026,0005,HammerTime 🔨 ⏰,16619,"Franklin, Troy",WR,DEN,15.333333333333334,173.0,115.59,8.504,retain_existing,0,5000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0010,Blake Bombers,17082,"Bryant, Pat",WR,DEN,15.416666666666666,174.0,115.45,8.494,retain_existing,0,2000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0007,Sex Manther,12801,"Hill, Tyreek",WR,MIA,15.666666666666666,177.0,115.04,8.466,retain_existing,0,62000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0012,Hawks,17171,"Dike, Chimere",WR,TEN,15.833333333333334,179.0,114.78,8.447,retain_existing,0,5000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0005,HammerTime 🔨 ⏰,15256,"Williams, Javonte",RB,DAL,8.25,88.0,114.53,8.415,expiring_to_pool,1,0,13232.0,8.656,RB,256,inv_sqrt_adp_weighted_linear
+2026,0003,Gride,14861,"Johnson, Juwan",TE,NOS,14.25,160.0,114.21,8.155,expiring_to_pool,1,0,10068.05,11.344,TE,124,inv_sqrt_adp_weighted_linear
+2026,0011,Cleon Ca$h,17072,"Harris, Tre",WR,LAC,16.25,184.0,114.12,8.401,retain_existing,0,5000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0010,Blake Bombers,16080,"Shaheed, Rashid",WR,SEA,16.333333333333332,185.0,114.0,8.392,retain_existing,0,7000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0009,C-Town Chivalry,17073,"Ayomanor, Elic",WR,TEN,16.5,187.0,113.75,8.375,retain_existing,0,2000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0005,HammerTime 🔨 ⏰,17106,"Taylor, Mason",TE,NYJ,14.5,163.0,113.5,8.102,retain_existing,0,2000,0,,TE,124,inv_sqrt_adp_weighted_linear
+2026,0001,L.A. Looks,13671,"Andrews, Mark",TE,BAL,14.666666666666666,165.0,113.04,8.067,expiring_to_pool,1,0,9924.0,11.391,TE,124,inv_sqrt_adp_weighted_linear
+2026,0011,Cleon Ca$h,14833,"Jeudy, Jerry",WR,CLE,18.0,205.0,111.65,8.228,retain_existing,0,1000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0004,Pure Greatness,17098,"Horton, Tory",WR,SEA,18.166666666666668,207.0,111.44,8.213,retain_existing,0,2000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0003,Gride,15253,"Etienne, Travis",RB,JAC,9.0,97.0,111.16,8.191,manual_tag_keep,0,19000,0,,RB,256,inv_sqrt_adp_weighted_linear
+2026,0007,Sex Manther,17080,"Noel, Jaylin",WR,HOU,18.5,211.0,111.02,8.183,retain_existing,0,2000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0011,Cleon Ca$h,17157,"TeSlaa, Isaac",WR,DET,18.666666666666668,213.0,110.81,8.169,retain_existing,0,2000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0008,Real Deal Creel,13674,"Goedert, Dallas",TE,PHI,15.583333333333334,176.0,110.64,7.889,retain_existing,0,7000,0,,TE,124,inv_sqrt_adp_weighted_linear
+2026,0008,Real Deal Creel,16617,"Coleman, Keon",WR,BUF,19.083333333333332,218.0,110.31,8.134,retain_existing,0,5000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0001,L.A. Looks,16626,"Mitchell, Adonai",WR,NYJ,19.5,223.0,109.82,8.099,retain_existing,0,5000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0007,Sex Manther,17134,"Williams, Kyle",WR,NEP,19.833333333333332,227.0,109.44,8.073,retain_existing,0,5000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0012,Hawks,14105,"Brown, Marquise",WR,KCC,20.083333333333332,230.0,109.17,8.054,retain_existing,0,8000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0004,Pure Greatness,16639,"Legette, Xavier",WR,CAR,20.416666666666668,234.0,108.81,8.028,retain_existing,0,2000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0005,HammerTime 🔨 ⏰,15293,"Bateman, Rashod",WR,BAL,20.5,235.0,108.72,8.022,retain_existing,0,5000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0011,Cleon Ca$h,12676,"Henry, Hunter",TE,NEP,16.416666666666668,186.0,108.65,7.74,expiring_to_pool,1,0,9380.16,11.583,TE,124,inv_sqrt_adp_weighted_linear
+2026,0006,The Long Haulers,12626,"Henry, Derrick",RB,BAL,9.666666666666666,105.0,108.54,8.016,retain_existing,0,44000,0,,RB,256,inv_sqrt_adp_weighted_linear
+2026,0004,Pure Greatness,13772,"Schultz, Dalton",TE,HOU,16.583333333333332,188.0,108.27,7.712,retain_existing,0,4000,0,,TE,124,inv_sqrt_adp_weighted_linear
+2026,0002,CBP,14974,"Mooney, Darnell",WR,ATL,21.166666666666668,243.0,108.03,7.974,expiring_to_pool,1,0,8260.88,13.077,WR,312,inv_sqrt_adp_weighted_linear
+2026,0005,HammerTime 🔨 ⏰,14138,"Hockenson, T.J.",TE,MIN,16.833333333333332,191.0,107.72,7.67,expiring_to_pool,1,0,9263.34,11.629,TE,124,inv_sqrt_adp_weighted_linear
+2026,0012,Hawks,13629,"Ridley, Calvin",WR,TEN,21.5,247.0,107.7,7.95,expiring_to_pool,1,0,8196.59,13.14,WR,312,inv_sqrt_adp_weighted_linear
+2026,0012,Hawks,11222,"Allen, Keenan",WR,LAC,21.916666666666668,252.0,107.29,7.922,expiring_to_pool,1,0,8118.3,13.216,WR,312,inv_sqrt_adp_weighted_linear
+2026,0003,Gride,17078,"Bech, Jack",WR,LVR,22.0,253.0,107.21,7.917,retain_existing,0,5000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0006,The Long Haulers,16195,"Wicks, Dontayvion",WR,GBP,22.166666666666668,255.0,107.06,7.906,retain_existing,0,1000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0010,Blake Bombers,17107,"Ferguson, Terrance",TE,LAR,17.25,196.0,106.81,7.603,retain_existing,0,2000,0,,TE,124,inv_sqrt_adp_weighted_linear
+2026,0010,Blake Bombers,16723,"Barner, AJ",TE,SEA,17.333333333333332,197.0,106.64,7.59,retain_existing,0,1000,0,,TE,124,inv_sqrt_adp_weighted_linear
+2026,0006,The Long Haulers,16684,"Washington, Malik",WR,MIA,22.75,262.0,106.52,7.868,retain_existing,0,2000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0011,Cleon Ca$h,16189,"Mims, Marvin",WR,DEN,23.0,265.0,106.3,7.852,expiring_to_pool,1,0,7924.81,13.414,WR,312,inv_sqrt_adp_weighted_linear
+2026,0008,Real Deal Creel,16788,"Vele, Devaughn",WR,NOS,23.166666666666668,267.0,106.15,7.842,expiring_to_pool,1,0,7896.25,13.443,WR,312,inv_sqrt_adp_weighted_linear
+2026,0006,The Long Haulers,16287,"Tucker, Tre",WR,LVR,23.416666666666668,270.0,105.93,7.827,retain_existing,0,1000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0008,Real Deal Creel,16778,"Flournoy, Ryan",WR,DAL,23.583333333333332,272.0,105.79,7.817,expiring_to_pool,1,0,7826.18,13.517,WR,312,inv_sqrt_adp_weighted_linear
+2026,0006,The Long Haulers,13164,"Kupp, Cooper",WR,SEA,23.75,274.0,105.65,7.807,expiring_to_pool,1,0,7798.67,13.547,WR,312,inv_sqrt_adp_weighted_linear
+2026,0002,CBP,15798,"Likely, Isaiah",TE,BAL,17.916666666666668,204.0,105.44,7.501,expiring_to_pool,1,0,8978.92,11.743,TE,124,inv_sqrt_adp_weighted_linear
+2026,0003,Gride,10814,"Anger, Bryan",PN,DAL,400.0,400.0,105.44,7.834,expiring_to_pool,1,0,1900.3,55.486,OFFENSE_ALL,883,inv_sqrt_adp_weighted_linear
+2026,0007,Sex Manther,15911,"Araiza, Matt",PN,KCC,400.0,400.0,105.44,7.834,expiring_to_pool,1,0,1900.3,55.486,OFFENSE_ALL,883,inv_sqrt_adp_weighted_linear
+2026,0005,HammerTime 🔨 ⏰,17241,"Crawshaw, Jeremy",PN,DEN,400.0,400.0,105.44,7.834,expiring_to_pool,1,0,1900.3,55.486,OFFENSE_ALL,883,inv_sqrt_adp_weighted_linear
+2026,0012,Hawks,12842,"Dixon, Riley",PN,TBB,400.0,400.0,105.44,7.834,expiring_to_pool,1,0,1900.3,55.486,OFFENSE_ALL,883,inv_sqrt_adp_weighted_linear
+2026,0003,Gride,15032,"Fox, Jack",PN,DET,400.0,400.0,105.44,7.834,expiring_to_pool,1,0,1900.3,55.486,OFFENSE_ALL,883,inv_sqrt_adp_weighted_linear
+2026,0002,CBP,14489,"Gillan, Jamie",PN,NYG,400.0,400.0,105.44,7.834,expiring_to_pool,1,0,1900.3,55.486,OFFENSE_ALL,883,inv_sqrt_adp_weighted_linear
+2026,0001,L.A. Looks,11383,"Martin, Sam",PN,CAR,400.0,400.0,105.44,7.834,expiring_to_pool,1,0,1900.3,55.486,OFFENSE_ALL,883,inv_sqrt_adp_weighted_linear
+2026,0010,Blake Bombers,17339,"McNamara, Austin",PN,NYJ,400.0,400.0,105.44,7.834,expiring_to_pool,1,0,1900.3,55.486,OFFENSE_ALL,883,inv_sqrt_adp_weighted_linear
+2026,0006,The Long Haulers,12323,"Pinion, Bradley",PN,ATL,400.0,400.0,105.44,7.834,expiring_to_pool,1,0,1900.3,55.486,OFFENSE_ALL,883,inv_sqrt_adp_weighted_linear
+2026,0004,Pure Greatness,16887,"Rehkow, Ryan",PN,CIN,400.0,400.0,105.44,7.834,expiring_to_pool,1,0,1900.3,55.486,OFFENSE_ALL,883,inv_sqrt_adp_weighted_linear
+2026,0008,Real Deal Creel,13791,"Scott, J.K.",PN,LAC,400.0,400.0,105.44,7.834,expiring_to_pool,1,0,1900.3,55.486,OFFENSE_ALL,883,inv_sqrt_adp_weighted_linear
+2026,0009,C-Town Chivalry,16724,"Taylor, Tory",PN,CHI,400.0,400.0,105.44,7.834,retain_existing,0,1000,0,,OFFENSE_ALL,883,inv_sqrt_adp_weighted_linear
+2026,0011,Cleon Ca$h,15051,"Townsend, Tommy",PN,HOU,400.0,400.0,105.44,7.834,expiring_to_pool,1,0,1900.3,55.486,OFFENSE_ALL,883,inv_sqrt_adp_weighted_linear
+2026,0002,CBP,11985,"Way, Tress",PN,WAS,400.0,400.0,105.44,7.834,expiring_to_pool,1,0,1900.3,55.486,OFFENSE_ALL,883,inv_sqrt_adp_weighted_linear
+2026,0008,Real Deal Creel,14122,"Slayton, Darius",WR,NYG,24.083333333333332,278.0,105.37,7.787,expiring_to_pool,1,0,7744.52,13.606,WR,312,inv_sqrt_adp_weighted_linear
+2026,0003,Gride,17079,"Johnson, Tez",WR,TBB,24.25,280.0,105.23,7.778,expiring_to_pool,1,0,7717.86,13.635,WR,312,inv_sqrt_adp_weighted_linear
+2026,0003,Gride,16342,"Douglas, Demario",WR,NEP,24.333333333333332,281.0,105.17,7.773,expiring_to_pool,1,0,7704.63,13.65,WR,312,inv_sqrt_adp_weighted_linear
+2026,0005,HammerTime 🔨 ⏰,14797,"Swift, D'Andre",RB,CHI,10.666666666666666,117.0,105.12,7.789,manual_tag_keep,0,26000,0,,RB,256,inv_sqrt_adp_weighted_linear
+2026,0002,CBP,16629,"Wilson, Roman",WR,PIT,25.333333333333332,293.0,104.38,7.718,retain_existing,0,2000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0006,The Long Haulers,17053,"Marks, Woody",RB,HOU,11.166666666666666,123.0,103.6,7.688,retain_existing,0,2000,0,,RB,256,inv_sqrt_adp_weighted_linear
+2026,0010,Blake Bombers,17105,"Helm, Gunnar",TE,TEN,18.916666666666668,216.0,103.53,7.358,expiring_to_pool,1,0,8738.37,11.848,TE,124,inv_sqrt_adp_weighted_linear
+2026,0007,Sex Manther,15742,"Warren, Jaylen",RB,PIT,11.333333333333334,125.0,103.12,7.656,expiring_to_pool,1,0,11289.48,9.134,RB,256,inv_sqrt_adp_weighted_linear
+2026,0010,Blake Bombers,16593,"Corum, Blake",RB,LAR,11.416666666666666,126.0,102.88,7.64,retain_existing,0,5000,0,,RB,256,inv_sqrt_adp_weighted_linear
+2026,0003,Gride,17066,"Monangai, Kyle",RB,CHI,11.583333333333334,128.0,102.42,7.609,retain_existing,0,2000,0,,RB,256,inv_sqrt_adp_weighted_linear
+2026,0001,L.A. Looks,16169,"Charbonnet, Zach",RB,SEA,11.666666666666666,129.0,102.19,7.594,manual_extension_keep,0,8000,0,,RB,256,inv_sqrt_adp_weighted_linear
+2026,0003,Gride,13192,"Njoku, David",TE,CLE,20.333333333333332,233.0,101.08,7.175,retain_existing,0,27000,0,,TE,124,inv_sqrt_adp_weighted_linear
+2026,0008,Real Deal Creel,16594,"Benson, Trey",RB,ARI,12.333333333333334,137.0,100.46,7.478,retain_existing,0,6000,0,,RB,256,inv_sqrt_adp_weighted_linear
+2026,0001,L.A. Looks,14871,"Parkinson, Colby",TE,LAR,20.916666666666668,240.0,100.14,7.106,expiring_to_pool,1,0,8310.1,12.05,TE,124,inv_sqrt_adp_weighted_linear
+2026,0011,Cleon Ca$h,15259,"Stevenson, Rhamondre",RB,NEP,12.5,139.0,100.05,7.451,expiring_to_pool,1,0,10749.73,9.307,RB,256,inv_sqrt_adp_weighted_linear
+2026,0011,Cleon Ca$h,17108,"Arroyo, Elijah",TE,SEA,21.0,241.0,100.01,7.096,retain_existing,0,2000,0,,TE,124,inv_sqrt_adp_weighted_linear
+2026,0002,CBP,15889,"Okonkwo, Chigoziem",TE,TEN,21.083333333333332,242.0,99.88,7.087,expiring_to_pool,1,0,8277.19,12.067,TE,124,inv_sqrt_adp_weighted_linear
+2026,0011,Cleon Ca$h,16036,"Tonges, Jake",TE,SFO,21.333333333333332,245.0,99.5,7.058,expiring_to_pool,1,0,8228.55,12.092,TE,124,inv_sqrt_adp_weighted_linear
+2026,0006,The Long Haulers,17076,"Bond, Isaiah",WR,CLE,400.0,400.0,99.02,7.342,retain_existing,0,5000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0009,C-Town Chivalry,13418,"Bourne, Kendrick",WR,SFO,400.0,400.0,99.02,7.342,expiring_to_pool,1,0,1900.3,52.108,WR,312,inv_sqrt_adp_weighted_linear
+2026,0009,C-Town Chivalry,15292,"Brown, Dyami",WR,JAC,400.0,400.0,99.02,7.342,retain_existing,0,1000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0007,Sex Manther,16632,"Burton, Jermaine",WR,FA,400.0,400.0,99.02,7.342,retain_existing,0,5000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0007,Sex Manther,17269,"Chism, Efton",WR,NEP,400.0,400.0,99.02,7.342,expiring_to_pool,1,0,1900.3,52.108,WR,312,inv_sqrt_adp_weighted_linear
+2026,0012,Hawks,16636,"Corley, Malachi",WR,CLE,400.0,400.0,99.02,7.342,retain_existing,0,2000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0007,Sex Manther,16204,"Dell, Tank",WR,HOU,400.0,400.0,99.02,7.342,retain_existing,0,1000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0001,L.A. Looks,14108,"Dortch, Greg",WR,ARI,400.0,400.0,99.02,7.342,expiring_to_pool,1,0,1900.3,52.108,WR,312,inv_sqrt_adp_weighted_linear
+2026,0008,Real Deal Creel,13289,"Hollins, Mack",WR,NEP,400.0,400.0,99.02,7.342,expiring_to_pool,1,0,1900.3,52.108,WR,312,inv_sqrt_adp_weighted_linear
+2026,0002,CBP,16201,"Hutchinson, Xavier",WR,HOU,400.0,400.0,99.02,7.342,expiring_to_pool,1,0,1900.3,52.108,WR,312,inv_sqrt_adp_weighted_linear
+2026,0002,CBP,14864,"Johnson, Tyler",WR,NYJ,400.0,400.0,99.02,7.342,expiring_to_pool,1,0,1900.3,52.108,WR,312,inv_sqrt_adp_weighted_linear
+2026,0006,The Long Haulers,17205,"Lambert-Smith, KeAndre",WR,LAC,400.0,400.0,99.02,7.342,expiring_to_pool,1,0,1900.3,52.108,WR,312,inv_sqrt_adp_weighted_linear
+2026,0012,Hawks,17184,"Lane, Jaylin",WR,WAS,400.0,400.0,99.02,7.342,retain_existing,0,2000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0006,The Long Haulers,16635,"McCaffrey, Luke",WR,WAS,400.0,400.0,99.02,7.342,retain_existing,0,2000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0008,Real Deal Creel,15759,"Metchie, John",WR,NYJ,400.0,400.0,99.02,7.342,expiring_to_pool,1,0,1900.3,52.108,WR,312,inv_sqrt_adp_weighted_linear
+2026,0009,C-Town Chivalry,16197,"Mingo, Jonathan",WR,DAL,400.0,400.0,99.02,7.342,expiring_to_pool,1,0,1900.3,52.108,WR,312,inv_sqrt_adp_weighted_linear
+2026,0006,The Long Haulers,17254,"Mumpfield, Konata",WR,LAR,400.0,400.0,99.02,7.342,expiring_to_pool,1,0,1900.3,52.108,WR,312,inv_sqrt_adp_weighted_linear
+2026,0007,Sex Manther,15786,"Nailor, Jalen",WR,MIN,400.0,400.0,99.02,7.342,expiring_to_pool,1,0,1900.3,52.108,WR,312,inv_sqrt_adp_weighted_linear
+2026,0002,CBP,16196,"Perry, A.T.",WR,FA,400.0,400.0,99.02,7.342,expiring_to_pool,1,0,1900.3,52.108,WR,312,inv_sqrt_adp_weighted_linear
+2026,0010,Blake Bombers,16631,"Polk, Ja'Lynn",WR,NOS,400.0,400.0,99.02,7.342,retain_existing,0,2000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0006,The Long Haulers,17077,"Restrepo, Xavier",WR,TEN,400.0,400.0,99.02,7.342,retain_existing,0,2000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0003,Gride,16623,"Rice, Brenden",WR,LVR,400.0,400.0,99.02,7.342,retain_existing,0,2000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0011,Cleon Ca$h,17086,"Royals, Jalen",WR,KCC,400.0,400.0,99.02,7.342,retain_existing,0,2000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0005,HammerTime 🔨 ⏰,16686,"Smith, Ainias",WR,CAR,400.0,400.0,99.02,7.342,retain_existing,0,2000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0004,Pure Greatness,17087,"Thornton, Dont'e",WR,LVR,400.0,400.0,99.02,7.342,retain_existing,0,2000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0008,Real Deal Creel,15787,"Thornton, Tyquan",WR,KCC,400.0,400.0,99.02,7.342,retain_existing,0,1000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0011,Cleon Ca$h,16621,"Walker, Devontez",WR,BAL,400.0,400.0,99.02,7.342,retain_existing,0,2000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0001,L.A. Looks,16630,"Williams, Isaiah",WR,NYJ,400.0,400.0,99.02,7.342,retain_existing,0,1000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0004,Pure Greatness,17096,"Williams, Savion",WR,GBP,400.0,400.0,99.02,7.342,retain_existing,0,2000,0,,WR,312,inv_sqrt_adp_weighted_linear
+2026,0009,C-Town Chivalry,15331,"Freiermuth, Pat",TE,PIT,21.666666666666668,249.0,99.0,7.021,expiring_to_pool,1,0,8165.01,12.125,TE,124,inv_sqrt_adp_weighted_linear
+2026,0006,The Long Haulers,15802,"Otton, Cade",TE,TBB,21.75,250.0,98.88,7.012,retain_existing,0,5000,0,,TE,124,inv_sqrt_adp_weighted_linear
+2026,0005,HammerTime 🔨 ⏰,15394,"Adebo, Paulson",CB,NYG,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0009,C-Town Chivalry,14590,"Al-Shaair, Azeez",LB,HOU,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0010,Blake Bombers,16223,"Anderson, Will",DE,HOU,400.0,400.0,98.55,7.344,retain_existing,0,1000,0,,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0009,C-Town Chivalry,13268,"Anzalone, Alex",LB,DET,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0003,Gride,13759,"Armstrong, Dorance",DE,WAS,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0002,CBP,14217,"Barton, Cody",LB,TEN,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0012,Hawks,16245,"Battle, Jordan",S,CIN,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0004,Pure Greatness,14893,"Baun, Zack",LB,PHI,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0003,Gride,15875,"Belton, Dane",S,NYG,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0007,Sex Manther,16799,"Bethune, Tatum",LB,SFO,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0009,C-Town Chivalry,16700,"Bishop, Cole",S,BUF,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0011,Cleon Ca$h,15355,"Bolton, Nick",LB,KCC,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0007,Sex Manther,15861,"Bonitto, Nik",DE,DEN,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0004,Pure Greatness,14147,"Bosa, Nick",DE,SFO,400.0,400.0,98.55,7.344,retain_existing,0,5000,0,,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0001,L.A. Looks,16244,"Branch, Brian",S,DET,400.0,400.0,98.55,7.344,manual_extension_keep,0,2000,0,,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0004,Pure Greatness,14892,"Brooks, Jordyn",LB,MIA,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0001,L.A. Looks,12688,"Buckner, DeForest",DT,IND,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0012,Hawks,16677,"Bullard, Javon",S,GBP,400.0,400.0,98.55,7.344,retain_existing,0,1000,0,,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0005,HammerTime 🔨 ⏰,14171,"Burns, Brian",DE,NYG,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0005,HammerTime 🔨 ⏰,14170,"Bush, Devin",LB,CLE,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0010,Blake Bombers,12752,"Byard, Kevin",S,CHI,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0006,The Long Haulers,15418,"Bynum, Camryn",S,IND,400.0,400.0,98.55,7.344,retain_existing,0,1000,0,,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0005,HammerTime 🔨 ⏰,16239,"Campbell, Jack",LB,DET,400.0,400.0,98.55,7.344,retain_existing,0,3000,0,,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0007,Sex Manther,17123,"Campbell, Jihaad",LB,PHI,400.0,400.0,98.55,7.344,retain_existing,0,2000,0,,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0012,Hawks,17112,"Carter, Abdul",DE,NYG,400.0,400.0,98.55,7.344,retain_existing,0,2000,0,,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0008,Real Deal Creel,16233,"Carter, Jalen",DT,PHI,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0001,L.A. Looks,14251,"Cashman, Blake",LB,MIN,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0011,Cleon Ca$h,16295,"Conner, Chamarri",S,KCC,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0006,The Long Haulers,15484,"Cooper, Jonathon",DE,DEN,400.0,400.0,98.55,7.344,retain_existing,0,1000,0,,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0007,Sex Manther,14225,"Crosby, Maxx",DE,LVR,400.0,400.0,98.55,7.344,manual_tag_keep,0,11000,0,,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0004,Pure Greatness,15839,"Cross, Nick",S,IND,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0001,L.A. Looks,15001,"Curl, Kamren",S,LAR,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0003,Gride,10768,"David, Lavonte",LB,TBB,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0008,Real Deal Creel,10816,"Davis, Demario",LB,NOS,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0010,Blake Bombers,15817,"Davis, Jordan",DT,PHI,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0004,Pure Greatness,16675,"DeJean, Cooper",CB,PHI,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0010,Blake Bombers,15821,"Dean, Nakobe",LB,PHI,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0002,CBP,14907,"Delpit, Grant",S,CLE,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0012,Hawks,16314,"Dennis, SirVocea",LB,TBB,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0010,Blake Bombers,13697,"Edmunds, Tremaine",LB,CHI,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0002,CBP,14322,"Edwards, T.J.",LB,CHI,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0001,L.A. Looks,13806,"Elliott, DeShon",S,PIT,400.0,400.0,98.55,7.344,retain_existing,0,1000,0,,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0003,Gride,14303,"Elliss, Kaden",LB,ATL,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0001,L.A. Looks,17144,"Emmanwori, Nick",S,SEA,400.0,400.0,98.55,7.344,retain_existing,0,1000,0,,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0011,Cleon Ca$h,13713,"Fitzpatrick, Minkah",S,MIA,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0007,Sex Manther,14224,"Gardner-Johnson, Chauncey",S,CHI,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0004,Pure Greatness,13198,"Garrett, Myles",DE,CLE,400.0,400.0,98.55,7.344,manual_tag_keep,0,10000,0,,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0003,Gride,17121,"Graham, Mason",DT,CLE,400.0,400.0,98.55,7.344,retain_existing,0,1000,0,,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0005,HammerTime 🔨 ⏰,16667,"Gray, Cedric",LB,TEN,400.0,400.0,98.55,7.344,retain_existing,0,1000,0,,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0001,L.A. Looks,17120,"Green, Mike",DE,BAL,400.0,400.0,98.55,7.344,retain_existing,0,2000,0,,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0005,HammerTime 🔨 ⏰,15834,"Hamilton, Kyle",S,BAL,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0002,CBP,14954,"Hawkins, Jaylinn",S,NEP,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0010,Blake Bombers,13284,"Hendrickson, Trey",DE,CIN,400.0,400.0,98.55,7.344,retain_existing,0,3000,0,,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0010,Blake Bombers,16280,"Henley, Daiyan",LB,LAC,400.0,400.0,98.55,7.344,retain_existing,0,2000,0,,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0009,C-Town Chivalry,14940,"Highsmith, Alex",DE,PIT,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0003,Gride,14167,"Hines-Allen, Josh",DE,JAC,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0007,Sex Manther,15452,"Hufanga, Talanoa",S,DEN,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0005,HammerTime 🔨 ⏰,12221,"Hunter, Danielle",DE,HOU,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0004,Pure Greatness,15805,"Hutchinson, Aidan",DE,DET,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0004,Pure Greatness,13714,"James, Derwin",S,LAC,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0010,Blake Bombers,14910,"Jones, Brandon",S,DEN,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0011,Cleon Ca$h,15404,"Jones, Ernest",LB,SEA,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0012,Hawks,15868,"Jones, Marcus",CB,NEP,400.0,400.0,98.55,7.344,retain_existing,0,1000,0,,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0008,Real Deal Creel,15808,"Karlaftis, George",DE,KCC,400.0,400.0,98.55,7.344,retain_existing,0,1000,0,,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0011,Cleon Ca$h,16676,"Kinchens, Kamren",S,LAR,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0010,Blake Bombers,17125,"Knight, Demetrius",LB,CIN,400.0,400.0,98.55,7.344,retain_existing,0,1000,0,,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0009,C-Town Chivalry,15923,"Lake, Quentin",S,LAR,400.0,400.0,98.55,7.344,retain_existing,0,1000,0,,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0001,L.A. Looks,16013,"Landman, Nate",LB,LAR,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0006,The Long Haulers,13700,"Landry, Harold",DE,NEP,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0003,Gride,16672,"Lassiter, Kamari",CB,HOU,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0001,L.A. Looks,16651,"Latu, Laiatu",DE,IND,400.0,400.0,98.55,7.344,retain_existing,0,2000,0,,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0010,Blake Bombers,11769,"Lawrence, Demarcus",DE,SEA,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0011,Cleon Ca$h,15822,"Lloyd, Devin",LB,JAC,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0007,Sex Manther,14179,"Love, Julian",S,SEA,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0012,Hawks,17159,"Martin, Nick",LB,SFO,400.0,400.0,98.55,7.344,retain_existing,0,1000,0,,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0004,Pure Greatness,16263,"Martin, Quan",S,WAS,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0011,Cleon Ca$h,16252,"McDonald, Will",DE,NYJ,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0009,C-Town Chivalry,14908,"McKinney, Xavier",S,GBP,400.0,400.0,98.55,7.344,retain_existing,0,1000,0,,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0008,Real Deal Creel,16670,"McKinstry, Kool-Aid",CB,NOS,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0001,L.A. Looks,15365,"Moehrig, Trevon",S,CAR,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0008,Real Deal Creel,17186,"Moore, Malachi",S,NYJ,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0005,HammerTime 🔨 ⏰,16689,"Murphy, Byron",DT,SEA,400.0,400.0,98.55,7.344,retain_existing,0,1000,0,,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0009,C-Town Chivalry,16725,"Mustapha, Malik",S,SFO,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0003,Gride,14669,"Nixon, Keisean",CB,GBP,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0009,C-Town Chivalry,13813,"Oluokun, Foyesade",LB,JAC,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0003,Gride,15388,"Ossai, Joseph",DE,CIN,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0004,Pure Greatness,16283,"Overshown, DeMarvion",LB,DAL,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0012,Hawks,15351,"Owusu-Koramoah, Jeremiah",LB,CLE,400.0,400.0,98.55,7.344,retain_existing,0,1000,0,,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0001,L.A. Looks,15350,"Parsons, Micah",DE,GBP,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0008,Real Deal Creel,17115,"Pearce, James",DE,ATL,400.0,400.0,98.55,7.344,retain_existing,0,1000,0,,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0012,Hawks,16703,"Phillips, Andru",CB,NYG,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0005,HammerTime 🔨 ⏰,15850,"Pitre, Jalen",S,HOU,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0010,Blake Bombers,14210,"Pratt, Germaine",LB,IND,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0012,Hawks,14896,"Queen, Patrick",LB,PIT,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0006,The Long Haulers,16927,"Redmond, Jalen",DT,MIN,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0012,Hawks,16655,"Robinson, Chop",DE,MIA,400.0,400.0,98.55,7.344,retain_existing,0,2000,0,,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0009,C-Town Chivalry,15076,"Rozeboom, Christian",LB,CAR,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0012,Hawks,16231,"Sanders, Drew",LB,DEN,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0002,CBP,17167,"Sanker, Jonas",S,NOS,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0007,Sex Manther,17147,"Schwesinger, Carson",LB,CLE,400.0,400.0,98.55,7.344,retain_existing,0,1000,0,,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0004,Pure Greatness,14302,"Scott, Nick",S,CAR,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0004,Pure Greatness,17119,"Scourton, Nic",DE,CAR,400.0,400.0,98.55,7.344,retain_existing,0,1000,0,,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0012,Hawks,15428,"Sherwood, Jamien",LB,NYJ,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0011,Cleon Ca$h,14163,"Simmons, Jeffery",DT,TEN,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0006,The Long Haulers,14412,"Singleton, Alex",LB,DEN,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0012,Hawks,16228,"Smith, Nolan",DE,PHI,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0011,Cleon Ca$h,13696,"Smith, Roquan",LB,BAL,400.0,400.0,98.55,7.344,retain_existing,0,1000,0,,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0004,Pure Greatness,16708,"Smith, Tykee",S,TBB,400.0,400.0,98.55,7.344,retain_existing,0,4000,0,,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0011,Cleon Ca$h,17132,"Starks, Malaki",S,BAL,400.0,400.0,98.55,7.344,retain_existing,0,2000,0,,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0006,The Long Haulers,17114,"Stewart, Shemar",DE,CIN,400.0,400.0,98.55,7.344,retain_existing,0,1000,0,,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0006,The Long Haulers,15003,"Stone, Geno",S,CIN,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0009,C-Town Chivalry,17126,"Stutsman, Danny",LB,NOS,400.0,400.0,98.55,7.344,retain_existing,0,1000,0,,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0004,Pure Greatness,14148,"Sweat, Montez",DE,CHI,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0003,Gride,16450,"Thomas, Drake",LB,SEA,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0011,Cleon Ca$h,16652,"Trice, Bralen",DE,ATL,400.0,400.0,98.55,7.344,retain_existing,0,1000,0,,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0007,Sex Manther,16266,"Tuipulotu, Tuli",DE,LAC,400.0,400.0,98.55,7.344,retain_existing,0,4000,0,,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0001,L.A. Looks,16650,"Turner, Dallas",DE,MIN,400.0,400.0,98.55,7.344,retain_existing,0,1000,0,,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0009,C-Town Chivalry,16282,"Turner, Kobie",DT,LAR,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0007,Sex Manther,14249,"Van Ginkel, Andrew",DE,MIN,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0002,CBP,16653,"Verse, Jared",DE,LAR,400.0,400.0,98.55,7.344,retain_existing,0,1000,0,,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0008,Real Deal Creel,10775,"Wagner, Bobby",LB,WAS,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0005,HammerTime 🔨 ⏰,17122,"Walker, Jalon",DE,ATL,400.0,400.0,98.55,7.344,retain_existing,0,1000,0,,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0010,Blake Bombers,15846,"Walker, Quay",LB,GBP,400.0,400.0,98.55,7.344,retain_existing,0,1000,0,,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0011,Cleon Ca$h,15815,"Walker, Travon",DE,JAC,400.0,400.0,98.55,7.344,retain_existing,0,1000,0,,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0004,Pure Greatness,16704,"Wallace, Trevin",LB,CAR,400.0,400.0,98.55,7.344,retain_existing,0,1000,0,,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0012,Hawks,13743,"Warner, Fred",LB,SFO,400.0,400.0,98.55,7.344,retain_existing,0,4000,0,,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0001,L.A. Looks,13214,"Watt, T.J.",DE,PIT,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0010,Blake Bombers,17131,"Watts, Xavier",S,ATL,400.0,400.0,98.55,7.344,retain_existing,0,1000,0,,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0002,CBP,15387,"Werner, Pete",LB,NOS,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0006,The Long Haulers,14168,"White, Devin",LB,LVR,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0002,CBP,12225,"Williams, Leonard",DT,SEA,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0011,Cleon Ca$h,17113,"Williams, Mykel",DE,SFO,400.0,400.0,98.55,7.344,retain_existing,0,2000,0,,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0011,Cleon Ca$h,14221,"Williams, Quincy",LB,NYJ,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0003,Gride,16716,"Wilson, Payton",LB,PIT,400.0,400.0,98.55,7.344,retain_existing,0,1000,0,,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0005,HammerTime 🔨 ⏰,16226,"Wilson, Tyree",DE,LVR,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0008,Real Deal Creel,14909,"Winfield, Antoine",S,TBB,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0006,The Long Haulers,16241,"Witherspoon, Devon",CB,SEA,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0001,L.A. Looks,16276,"Young, Byron",DE,LAR,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0003,Gride,14877,"Young, Chase",DE,NOS,400.0,400.0,98.55,7.344,expiring_to_pool,1,0,2317.92,42.517,IDP,172,inv_sqrt_adp_weighted_linear
+2026,0004,Pure Greatness,11244,"Kelce, Travis",TE,KCC,22.083333333333332,254.0,98.39,6.975,expiring_to_pool,1,0,8087.61,12.166,TE,124,inv_sqrt_adp_weighted_linear
+2026,0010,Blake Bombers,14823,"Dowdle, Rico",RB,CAR,13.25,148.0,98.3,7.335,retain_existing,0,1000,0,,RB,256,inv_sqrt_adp_weighted_linear
+2026,0005,HammerTime 🔨 ⏰,16644,"Sinnott, Ben",TE,WAS,22.833333333333332,263.0,97.34,6.897,retain_existing,0,2000,0,,TE,124,inv_sqrt_adp_weighted_linear
+2026,0001,L.A. Looks,14071,"Montgomery, David",RB,DET,13.916666666666666,156.0,96.88,7.241,retain_existing,0,12000,0,,RB,256,inv_sqrt_adp_weighted_linear
+2026,0010,Blake Bombers,17052,"Tuten, Bhayshul",RB,JAC,14.083333333333334,158.0,96.55,7.218,retain_existing,0,5000,0,,RB,256,inv_sqrt_adp_weighted_linear
+2026,0009,C-Town Chivalry,16747,"Tracy, Tyrone",RB,NYG,14.833333333333334,167.0,95.1,7.122,retain_existing,0,2000,0,,RB,256,inv_sqrt_adp_weighted_linear
+2026,0007,Sex Manther,15255,"Gainwell, Kenneth",RB,PIT,15.0,169.0,94.8,7.102,expiring_to_pool,1,0,9813.12,9.661,RB,256,inv_sqrt_adp_weighted_linear
+2026,0001,L.A. Looks,16212,"Mayer, Michael",TE,LVR,24.916666666666668,288.0,94.69,6.699,expiring_to_pool,1,0,7613.91,12.436,TE,124,inv_sqrt_adp_weighted_linear
+2026,0008,Real Deal Creel,16643,"Sanders, Ja'Tavion",TE,CAR,25.0,289.0,94.59,6.692,retain_existing,0,1000,0,,TE,124,inv_sqrt_adp_weighted_linear
+2026,0012,Hawks,14800,"Dobbins, J.K.",RB,DEN,15.166666666666666,171.0,94.5,7.082,retain_existing,0,9000,0,,RB,256,inv_sqrt_adp_weighted_linear
+2026,0007,Sex Manther,13672,"Gesicki, Mike",TE,CIN,25.083333333333332,290.0,94.49,6.685,expiring_to_pool,1,0,7588.57,12.452,TE,124,inv_sqrt_adp_weighted_linear
+2026,0009,C-Town Chivalry,14085,"Pollard, Tony",RB,TEN,15.75,178.0,93.49,7.014,retain_existing,0,27000,0,,RB,256,inv_sqrt_adp_weighted_linear
+2026,0011,Cleon Ca$h,15712,"Allgeier, Tyler",RB,ATL,15.916666666666666,180.0,93.21,6.996,expiring_to_pool,1,0,9526.35,9.784,RB,256,inv_sqrt_adp_weighted_linear
+2026,0007,Sex Manther,17256,"Croskey-Merritt, Jacory",RB,WAS,16.166666666666668,183.0,92.8,6.969,retain_existing,0,2000,0,,RB,256,inv_sqrt_adp_weighted_linear
+2026,0003,Gride,16165,"Spears, Tyjae",RB,TEN,17.0,193.0,91.51,6.883,expiring_to_pool,1,0,9217.82,9.928,RB,256,inv_sqrt_adp_weighted_linear
+2026,0002,CBP,13132,"Kamara, Alvin",RB,NOS,17.083333333333332,194.0,91.39,6.875,expiring_to_pool,1,0,9195.31,9.939,RB,256,inv_sqrt_adp_weighted_linear
+2026,0011,Cleon Ca$h,13146,"Conner, James",RB,ARI,17.583333333333332,200.0,90.67,6.827,expiring_to_pool,1,0,9063.63,10.004,RB,256,inv_sqrt_adp_weighted_linear
+2026,0001,L.A. Looks,16596,"Allen, Braelon",RB,NYJ,17.666666666666668,201.0,90.55,6.819,retain_existing,0,2000,0,,RB,256,inv_sqrt_adp_weighted_linear
+2026,0001,L.A. Looks,13319,"Jones, Aaron",RB,MIN,18.083333333333332,206.0,89.98,6.781,expiring_to_pool,1,0,8937.44,10.068,RB,256,inv_sqrt_adp_weighted_linear
+2026,0012,Hawks,17048,"Johnson, Kaleb",RB,PIT,18.333333333333332,209.0,89.64,6.759,retain_existing,0,6000,0,,RB,256,inv_sqrt_adp_weighted_linear
+2026,0003,Gride,16757,"Vidal, Kimani",RB,LAC,18.416666666666668,210.0,89.53,6.751,retain_existing,0,2000,0,,RB,256,inv_sqrt_adp_weighted_linear
+2026,0006,The Long Haulers,15716,"Robinson, Brian",RB,SFO,18.583333333333332,212.0,89.32,6.737,expiring_to_pool,1,0,8816.39,10.131,RB,256,inv_sqrt_adp_weighted_linear
+2026,0006,The Long Haulers,15972,"Mason, Jordan",RB,MIN,18.75,214.0,89.1,6.723,retain_existing,0,14000,0,,RB,256,inv_sqrt_adp_weighted_linear
+2026,0001,L.A. Looks,15749,"Pacheco, Isiah",RB,KCC,18.833333333333332,215.0,89.0,6.716,expiring_to_pool,1,0,8757.68,10.163,RB,256,inv_sqrt_adp_weighted_linear
+2026,0007,Sex Manther,16597,"Brooks, Jonathon",RB,CAR,19.166666666666668,219.0,88.58,6.688,retain_existing,0,7000,0,,RB,256,inv_sqrt_adp_weighted_linear
+2026,0001,L.A. Looks,17047,"Sampson, Dylan",RB,CLE,19.25,220.0,88.48,6.681,retain_existing,0,2000,0,,RB,256,inv_sqrt_adp_weighted_linear
+2026,0008,Real Deal Creel,16432,"Wilson, Emanuel",RB,GBP,19.916666666666668,228.0,87.68,6.628,expiring_to_pool,1,0,8516.17,10.296,RB,256,inv_sqrt_adp_weighted_linear
+2026,0001,L.A. Looks,16164,"Bigsby, Tank",RB,PHI,20.0,229.0,87.59,6.622,manual_extension_keep,0,8000,0,,RB,256,inv_sqrt_adp_weighted_linear
+2026,0003,Gride,17046,"Neal, Devin",RB,NOS,20.583333333333332,236.0,86.93,6.578,retain_existing,0,2000,0,,RB,256,inv_sqrt_adp_weighted_linear
+2026,0005,HammerTime 🔨 ⏰,16166,"Tucker, Sean",RB,TBB,21.25,244.0,86.22,6.53,expiring_to_pool,1,0,8244.67,10.458,RB,256,inv_sqrt_adp_weighted_linear
+2026,0004,Pure Greatness,16645,"All, Erick",TE,CIN,400.0,400.0,86.03,6.054,retain_existing,0,2000,0,,TE,124,inv_sqrt_adp_weighted_linear
+2026,0009,C-Town Chivalry,15797,"Dulcich, Greg",TE,MIA,400.0,400.0,86.03,6.054,expiring_to_pool,1,0,1900.3,45.272,TE,124,inv_sqrt_adp_weighted_linear
+2026,0004,Pure Greatness,11247,"Ertz, Zach",TE,WAS,400.0,400.0,86.03,6.054,expiring_to_pool,1,0,1900.3,45.272,TE,124,inv_sqrt_adp_weighted_linear
+2026,0008,Real Deal Creel,14137,"Fant, Noah",TE,CIN,400.0,400.0,86.03,6.054,retain_existing,0,4000,0,,TE,124,inv_sqrt_adp_weighted_linear
+2026,0012,Hawks,17213,"Hawes, Jackson",TE,BUF,400.0,400.0,86.03,6.054,expiring_to_pool,1,0,1900.3,45.272,TE,124,inv_sqrt_adp_weighted_linear
+2026,0009,C-Town Chivalry,12678,"Higbee, Tyler",TE,LAR,400.0,400.0,86.03,6.054,retain_existing,0,1000,0,,TE,124,inv_sqrt_adp_weighted_linear
+2026,0006,The Long Haulers,13424,"Hill, Taysom",TE,NOS,400.0,400.0,86.03,6.054,expiring_to_pool,1,0,1900.3,45.272,TE,124,inv_sqrt_adp_weighted_linear
+2026,0002,CBP,14867,"Kmet, Cole",TE,CHI,400.0,400.0,86.03,6.054,retain_existing,0,6000,0,,TE,124,inv_sqrt_adp_weighted_linear
+2026,0012,Hawks,14143,"Knox, Dawson",TE,BUF,400.0,400.0,86.03,6.054,expiring_to_pool,1,0,1900.3,45.272,TE,124,inv_sqrt_adp_weighted_linear
+2026,0012,Hawks,16221,"Schoonmaker, Luke",TE,DAL,400.0,400.0,86.03,6.054,expiring_to_pool,1,0,1900.3,45.272,TE,124,inv_sqrt_adp_weighted_linear
+2026,0005,HammerTime 🔨 ⏰,13193,"Smith, Jonnu",TE,PIT,400.0,400.0,86.03,6.054,retain_existing,0,6000,0,,TE,124,inv_sqrt_adp_weighted_linear
+2026,0005,HammerTime 🔨 ⏰,16642,"Stover, Cade",TE,HOU,400.0,400.0,86.03,6.054,retain_existing,0,2000,0,,TE,124,inv_sqrt_adp_weighted_linear
+2026,0008,Real Deal Creel,12263,"Waller, Darren",TE,MIA,400.0,400.0,86.03,6.054,expiring_to_pool,1,0,1900.3,45.272,TE,124,inv_sqrt_adp_weighted_linear
+2026,0004,Pure Greatness,16216,"Washington, Darnell",TE,PIT,400.0,400.0,86.03,6.054,expiring_to_pool,1,0,1900.3,45.272,TE,124,inv_sqrt_adp_weighted_linear
+2026,0004,Pure Greatness,15721,"White, Rachaad",RB,TBB,21.833333333333332,251.0,85.62,6.491,expiring_to_pool,1,0,8133.78,10.526,RB,256,inv_sqrt_adp_weighted_linear
+2026,0003,Gride,16174,"Rodriguez, Chris",RB,WAS,22.25,256.0,85.21,6.463,expiring_to_pool,1,0,8057.26,10.576,RB,256,inv_sqrt_adp_weighted_linear
+2026,0009,C-Town Chivalry,13131,"Mixon, Joe",RB,HOU,22.666666666666668,261.0,84.81,6.437,expiring_to_pool,1,0,7982.86,10.624,RB,256,inv_sqrt_adp_weighted_linear
+2026,0009,C-Town Chivalry,16603,"Davis, Ray",RB,BUF,23.083333333333332,266.0,84.42,6.411,retain_existing,0,2000,0,,RB,256,inv_sqrt_adp_weighted_linear
+2026,0008,Real Deal Creel,15254,"Harris, Najee",RB,LAC,23.333333333333332,269.0,84.19,6.396,expiring_to_pool,1,0,7868.0,10.7,RB,256,inv_sqrt_adp_weighted_linear
+2026,0006,The Long Haulers,17059,"Gordon, Ollie",RB,MIA,23.666666666666668,273.0,83.89,6.376,retain_existing,0,2000,0,,RB,256,inv_sqrt_adp_weighted_linear
+2026,0002,CBP,16178,"Mitchell, Keaton",RB,BAL,23.916666666666668,276.0,83.67,6.361,retain_existing,0,1000,0,,RB,256,inv_sqrt_adp_weighted_linear
+2026,0003,Gride,16171,"Miller, Kendre",RB,NOS,24.0,277.0,83.6,6.356,expiring_to_pool,1,0,7757.95,10.776,RB,256,inv_sqrt_adp_weighted_linear
+2026,0006,The Long Haulers,17069,"Blue, Jaydon",RB,DAL,24.166666666666668,279.0,83.46,6.347,retain_existing,0,2000,0,,RB,256,inv_sqrt_adp_weighted_linear
+2026,0009,C-Town Chivalry,16610,"Wright, Jaylen",RB,MIA,24.583333333333332,284.0,83.1,6.323,retain_existing,0,5000,0,,RB,256,inv_sqrt_adp_weighted_linear
+2026,0006,The Long Haulers,17049,"Smith, Brashard",RB,KCC,24.666666666666668,285.0,83.04,6.319,retain_existing,0,2000,0,,RB,256,inv_sqrt_adp_weighted_linear
+2026,0009,C-Town Chivalry,16752,"Davis, Isaiah",RB,NYJ,24.75,286.0,82.97,6.314,retain_existing,0,1000,0,,RB,256,inv_sqrt_adp_weighted_linear
+2026,0012,Hawks,14080,"Singletary, Devin",RB,NYG,25.166666666666668,291.0,82.63,6.292,expiring_to_pool,1,0,7576.0,10.907,RB,256,inv_sqrt_adp_weighted_linear
+2026,0004,Pure Greatness,13138,"Hunt, Kareem",RB,KCC,25.416666666666668,294.0,82.43,6.278,expiring_to_pool,1,0,7538.65,10.934,RB,256,inv_sqrt_adp_weighted_linear
+2026,0008,Real Deal Creel,16688,"Guerendo, Isaac",RB,SFO,25.5,295.0,82.36,6.274,expiring_to_pool,1,0,7526.32,10.943,RB,256,inv_sqrt_adp_weighted_linear
+2026,0004,Pure Greatness,13610,"Chubb, Nick",RB,HOU,25.583333333333332,296.0,82.3,6.27,expiring_to_pool,1,0,7514.05,10.953,RB,256,inv_sqrt_adp_weighted_linear
+2026,0003,Gride,15258,"Carter, Michael",RB,ARI,25.916666666666668,300.0,82.04,6.252,expiring_to_pool,1,0,7465.57,10.989,RB,256,inv_sqrt_adp_weighted_linear
+2026,0006,The Long Haulers,16746,"Ali, Rasheen",RB,BAL,400.0,400.0,76.9,5.91,retain_existing,0,2000,0,,RB,256,inv_sqrt_adp_weighted_linear
+2026,0012,Hawks,17061,"Allen, LeQuint",RB,JAC,400.0,400.0,76.9,5.91,retain_existing,0,2000,0,,RB,256,inv_sqrt_adp_weighted_linear
+2026,0007,Sex Manther,17058,"Brooks, Tahj",RB,CIN,400.0,400.0,76.9,5.91,retain_existing,0,2000,0,,RB,256,inv_sqrt_adp_weighted_linear
+2026,0002,CBP,16385,"Demercado, Emari",RB,ARI,400.0,400.0,76.9,5.91,expiring_to_pool,1,0,1900.3,40.467,RB,256,inv_sqrt_adp_weighted_linear
+2026,0010,Blake Bombers,16595,"Estime, Audric",RB,NOS,400.0,400.0,76.9,5.91,retain_existing,0,2000,0,,RB,256,inv_sqrt_adp_weighted_linear
+2026,0003,Gride,17056,"Etienne, Trevor",RB,CAR,400.0,400.0,76.9,5.91,retain_existing,0,2000,0,,RB,256,inv_sqrt_adp_weighted_linear
+2026,0003,Gride,15713,"Ford, Jerome",RB,CLE,400.0,400.0,76.9,5.91,expiring_to_pool,1,0,1900.3,40.467,RB,256,inv_sqrt_adp_weighted_linear
+2026,0003,Gride,17060,"Giddens, DJ",RB,IND,400.0,400.0,76.9,5.91,retain_existing,0,2000,0,,RB,256,inv_sqrt_adp_weighted_linear
+2026,0003,Gride,15720,"Haskins, Hassan",RB,LAC,400.0,400.0,76.9,5.91,expiring_to_pool,1,0,1900.3,40.467,RB,256,inv_sqrt_adp_weighted_linear
+2026,0010,Blake Bombers,17064,"Hunter, Jarquez",RB,LAR,400.0,400.0,76.9,5.91,retain_existing,0,2000,0,,RB,256,inv_sqrt_adp_weighted_linear
+2026,0007,Sex Manther,17055,"James, Jordan",RB,SFO,400.0,400.0,76.9,5.91,retain_existing,0,2000,0,,RB,256,inv_sqrt_adp_weighted_linear
+2026,0006,The Long Haulers,16175,"Johnson, Roschon",RB,CHI,400.0,400.0,76.9,5.91,retain_existing,0,4000,0,,RB,256,inv_sqrt_adp_weighted_linear
+2026,0009,C-Town Chivalry,14095,"Johnson, Ty",RB,BUF,400.0,400.0,76.9,5.91,expiring_to_pool,1,0,1900.3,40.467,RB,256,inv_sqrt_adp_weighted_linear
+2026,0010,Blake Bombers,16773,"Jordan, Jawhar",RB,HOU,400.0,400.0,76.9,5.91,expiring_to_pool,1,0,1900.3,40.467,RB,256,inv_sqrt_adp_weighted_linear
+2026,0011,Cleon Ca$h,15727,"Knight, Bam",RB,ARI,400.0,400.0,76.9,5.91,expiring_to_pool,1,0,1900.3,40.467,RB,256,inv_sqrt_adp_weighted_linear
+2026,0005,HammerTime 🔨 ⏰,16613,"Laube, Dylan",RB,LVR,400.0,400.0,76.9,5.91,retain_existing,0,2000,0,,RB,256,inv_sqrt_adp_weighted_linear
+2026,0007,Sex Manther,16604,"Lloyd, MarShawn",RB,GBP,400.0,400.0,76.9,5.91,retain_existing,0,5000,0,,RB,256,inv_sqrt_adp_weighted_linear
+2026,0002,CBP,13143,"McNichols, Jeremy",RB,WAS,400.0,400.0,76.9,5.91,expiring_to_pool,1,0,1900.3,40.467,RB,256,inv_sqrt_adp_weighted_linear
+2026,0004,Pure Greatness,12447,"Mostert, Raheem",RB,LVR,400.0,400.0,76.9,5.91,expiring_to_pool,1,0,1900.3,40.467,RB,256,inv_sqrt_adp_weighted_linear
+2026,0001,L.A. Looks,17062,"Sanders, Raheim",RB,CLE,400.0,400.0,76.9,5.91,expiring_to_pool,1,0,1900.3,40.467,RB,256,inv_sqrt_adp_weighted_linear
+2026,0007,Sex Manther,16601,"Shipley, Will",RB,PHI,400.0,400.0,76.9,5.91,retain_existing,0,5000,0,,RB,256,inv_sqrt_adp_weighted_linear
+2026,0003,Gride,17045,"Skattebo, Cam",RB,NYG,400.0,400.0,76.9,5.91,retain_existing,0,5000,0,,RB,256,inv_sqrt_adp_weighted_linear
+2026,0008,Real Deal Creel,16803,"Watson, Blake",RB,TEN,400.0,400.0,76.9,5.91,retain_existing,0,2000,0,,RB,256,inv_sqrt_adp_weighted_linear
+2026,0001,L.A. Looks,16414,"Aubrey, Brandon",PK,DAL,400.0,400.0,59.54,5.803,retain_existing,0,2000,0,,PK,77,inv_sqrt_adp_weighted_linear
+2026,0010,Blake Bombers,16846,"Bates, Jake",PK,DET,400.0,400.0,59.54,5.803,expiring_to_pool,1,0,1900.3,31.332,PK,77,inv_sqrt_adp_weighted_linear
+2026,0008,Real Deal Creel,17220,"Borregales, Andres",PK,NEP,400.0,400.0,59.54,5.803,expiring_to_pool,1,0,1900.3,31.332,PK,77,inv_sqrt_adp_weighted_linear
+2026,0005,HammerTime 🔨 ⏰,11936,"Boswell, Chris",PK,PIT,400.0,400.0,59.54,5.803,expiring_to_pool,1,0,1900.3,31.332,PK,77,inv_sqrt_adp_weighted_linear
+2026,0012,Hawks,15979,"Dicker, Cameron",PK,LAC,400.0,400.0,59.54,5.803,expiring_to_pool,1,0,1900.3,31.332,PK,77,inv_sqrt_adp_weighted_linear
+2026,0012,Hawks,12860,"Fairbairn, Ka'imi",PK,HOU,400.0,400.0,59.54,5.803,expiring_to_pool,1,0,1900.3,31.332,PK,77,inv_sqrt_adp_weighted_linear
+2026,0004,Pure Greatness,16680,"Little, Cam",PK,JAC,400.0,400.0,59.54,5.803,expiring_to_pool,1,0,1900.3,31.332,PK,77,inv_sqrt_adp_weighted_linear
+2026,0011,Cleon Ca$h,17222,"Loop, Tyler",PK,BAL,400.0,400.0,59.54,5.803,expiring_to_pool,1,0,1900.3,31.332,PK,77,inv_sqrt_adp_weighted_linear
+2026,0009,C-Town Chivalry,14717,"McLaughlin, Chase",PK,TBB,400.0,400.0,59.54,5.803,expiring_to_pool,1,0,1900.3,31.332,PK,77,inv_sqrt_adp_weighted_linear
+2026,0003,Gride,15368,"McPherson, Evan",PK,CIN,400.0,400.0,59.54,5.803,expiring_to_pool,1,0,1900.3,31.332,PK,77,inv_sqrt_adp_weighted_linear
+2026,0008,Real Deal Creel,16843,"Mevis, Harrison",PK,LAR,400.0,400.0,59.54,5.803,expiring_to_pool,1,0,1900.3,31.332,PK,77,inv_sqrt_adp_weighted_linear
+2026,0006,The Long Haulers,12437,"Myers, Jason",PK,SEA,400.0,400.0,59.54,5.803,expiring_to_pool,1,0,1900.3,31.332,PK,77,inv_sqrt_adp_weighted_linear
+2026,0007,Sex Manther,13719,"Pineiro, Eddy",PK,SFO,400.0,400.0,59.54,5.803,expiring_to_pool,1,0,1900.3,31.332,PK,77,inv_sqrt_adp_weighted_linear
+2026,0002,CBP,16681,"Reichard, Will",PK,MIN,400.0,400.0,59.54,5.803,expiring_to_pool,1,0,1900.3,31.332,PK,77,inv_sqrt_adp_weighted_linear

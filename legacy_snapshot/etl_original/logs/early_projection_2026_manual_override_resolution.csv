@@ -1,0 +1,18 @@
+override_type,input_name,resolved_player_name,franchise_id,status,confidence,value
+tag,Kyle Pitts,"Pitts, Kyle",0010,applied,1.0,28000
+tag,DeVonta Smith,"Smith, DeVonta",0002,applied,1.0,29000
+tag,Travis Etienne,"Etienne, Travis",0003,applied,1.0,19000
+tag,D'Andre Swift,"Swift, D'Andre",0005,applied,1.0,26000
+tag,Dak Prescott,"Prescott, Dak",0012,applied,1.0,50000
+tag,Amon-Ra St. Brown,"St. Brown, Amon-Ra",0001,applied,1.0,51000
+tag,Myles Garrett,"Garrett, Myles",0004,applied,1.0,10000
+tag,Maxx Crosby,"Crosby, Maxx",0007,applied,1.0,11000
+tag,Trevor Lawrence,"Lawrence, Trevor",0006,applied,1.0,37000
+extension,Bijan Robinson,"Robinson, Bijan",0011,applied,1.0,2
+extension,Puka Nacua,"Nacua, Puka",0010,applied,1.0,2
+extension,Chase Brown,"Brown, Chase",0001,applied,1.0,2
+extension,Zach Charbonnet,"Charbonnet, Zach",0001,applied,1.0,1
+extension,Tucker Kraft,"Kraft, Tucker",0011,applied,1.0,2
+extension,Sam LaPorta,"LaPorta, Sam",0009,applied,1.0,2
+extension,Tank Bigsby,"Bigsby, Tank",0001,applied,1.0,1
+extension,Brian Branch,"Branch, Brian",0001,applied,1.0,1

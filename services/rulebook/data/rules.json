@@ -1,0 +1,616 @@
+{
+  "version": "2026.5",
+  "league": "UPS Salary Cap Dynasty League",
+  "last_updated": "2026-02-14",
+  "sources_considered": [
+    "UPS Rule Book.docx",
+    "UPS Rule Book - Table of Contents.docx",
+    "UPS Contract Rules.docx",
+    "UPS Dynasty League By-Laws.doc.docx",
+    "UPS Dynasty Cap Rulebook 2013.1.docx",
+    "UPS FFL Bylaws V2014.1.pdf",
+    "UPS_Master_Rulebook.html"
+  ],
+  "rules": [
+    {
+      "id": "R-FM-1",
+      "category": "Front Matter",
+      "title": "Official Rulebook",
+      "body": "UPS Salary Cap Dynasty League Rulebook. This is the official operating document for league rules and transactions.",
+      "tags": [
+        "official",
+        "rulebook"
+      ]
+    },
+    {
+      "id": "R-FM-2",
+      "category": "Front Matter",
+      "title": "Commissioner And Version",
+      "body": "Commissioner: Keith Creelman. Version: 2024.2. Last Updated: 8/31/2024.",
+      "tags": [
+        "commissioner",
+        "version"
+      ]
+    },
+    {
+      "id": "R-FM-3",
+      "category": "Front Matter",
+      "title": "Mission Statement",
+      "body": "Our mission is to provide a uniquely kick-ass fantasy football experience that frankly takes a massive dump on any other league ever created. Owners are hand-selected from an elite pool of individuals that have proven on an annual basis that they are dedicated to sacrificing their marriages, career advancement, and any other \u201clife-obstacles\u201d for the betterment of their fantasy football teams and the league itself. Note: While we do encourage commitment, this is all in good fun. We don't really want you to forsake your family... just make sure this is second. \ud83d\ude09",
+      "tags": [
+        "mission",
+        "league-culture"
+      ]
+    },
+    {
+      "id": "R-1.1",
+      "category": "League Overview",
+      "title": "Overview",
+      "body": "The UPS Salary Cap Dynasty League is designed to offer a dynamic and competitive fantasy football experience, combining the strategic depth of salary cap management with the long-term planning required in a dynasty format. This league fosters a community of dedicated owners who are committed to fair play, strategic thinking, and a relentless pursuit of championship glory.",
+      "tags": [
+        "league-overview",
+        "overview"
+      ]
+    },
+    {
+      "id": "R-1.2",
+      "category": "League Overview",
+      "title": "League Structure",
+      "body": "Teams and Divisions:\nThe league consists of 12 teams, divided into 4 divisions.\nDivisions are realigned every 3 years based on each team's historical all-play record.\nDivision Assignments:\nDivision 1: 1/8/9 All-Play\nDivision 2: 2/7/10 All-Play\nDivision 3: 3/6/11 All-Play\nDivision 4: 4/5/12 All-Play\nNew owners entering the league during a realignment year are assigned an All-Play record of .500 and then slotted accordingly. If multiple new owners enter the league simultaneously, a random generator will be used to determine the tiebreaker for All-Play assignment.\nOwners taking over a roster mid-season or after the Free Agent Auction has begun will not have that season's record count toward All-Play.\nFuture Realignment Years: 2026, 2029, 2032, 2035, etc.\nPlayoff Format:\nThe league features two sets of playoffs: the UPS Championship and the Hawktuah Bowl (Toilet Bowl).\nPlayoff seeding is determined by regular-season performance, with division winners guaranteed a top seed.\nScoring System:\nThe league utilizes a custom scoring system tailored to reward strategic depth and player performance. Details of the scoring system are outlined in [Insert Section Number].",
+      "tags": [
+        "league-overview",
+        "league-structure"
+      ]
+    },
+    {
+      "id": "R-1.3",
+      "category": "League Overview",
+      "title": "Expectation of owners",
+      "body": "Owner Expectations:\nAll league members are expected to be active participants throughout the season and the off-season. This includes:\nRegular communication via the Discord App.\nTimely responses to trade offers.\nParticipation in league events, including the Rookie Draft and Free Agent Auction.\nMaintaining awareness of league rules and important league matters.\nActive Participation:\nOwners are required to field a competitive team for the entire fantasy season, regardless of their standing.\nActions that attempt to circumvent the competitive balance of the league, such as collusion or other maneuvers, will be grounds for league dismissal.",
+      "tags": [
+        "expectation-of-owners",
+        "league-overview"
+      ]
+    },
+    {
+      "id": "R-1.4",
+      "category": "League Overview",
+      "title": "League Membership",
+      "body": "Admission Process:\nNew members must complete an admission process, including a baseline quiz to ensure a solid understanding of the league's unique structure and value system. This league differs significantly from standard redraft and dynasty formats, requiring time and effort to grasp fully.\nThe commissioner will subjectively review the results and present them to the league for approval.\nProbation Period:\nNew members are on probation for their first two full seasons.\nThe league will assess the new member\u2019s progress in understanding the rules and value. At the end of the probation period, the league will vote on granting full membership.\nEarly Termination:\nDuring probation, the league can vote to remove a new member if they fail to demonstrate sufficient growth in understanding or if their participation jeopardizes league balance.\nRepeated penalties can also result in early termination of membership.\nDispersal Draft for New Owners:\nWhen a new owner joins the league, existing teams may choose to throw all of their assets (players and future eligible draft picks, excluding 6th round picks) into a player pool to be combined with the new owner\u2019s assets.\nA random generator will determine the snake draft order, and a draft will take place within Discord for all assets in the pool.\nOnce a team commits to the dispersal draft, they cannot withdraw.\nIt is crucial that new owners fully understand the league rules before committing, as they will immediately compete with other owners.",
+      "tags": [
+        "league-membership",
+        "league-overview"
+      ]
+    },
+    {
+      "id": "R-1.5",
+      "category": "League Overview",
+      "title": "Commissioner's Authority",
+      "body": "Decision-Making:\nThe commissioner has full authority on decisions that fall outside the rulebook. In cases where league precedent has been set, this will guide the decision-making process.\nThe commissioner may confer with senior league members or expand discussions to the entire league as deemed necessary.\nBest Interest of the League:\nThe commissioner always acts in the best interest of the league, ensuring fair play and maintaining competitive balance.",
+      "tags": [
+        "commissioner's-authority",
+        "league-overview"
+      ]
+    },
+    {
+      "id": "R-2",
+      "category": "League Calendar",
+      "title": "League Calendar",
+      "body": "January:\nOff-Season after completion of the Fantasy Playoffs.\nFebruary:\nOff-Season.\nMarch:\nNew League Season Begins.\nContracts are rolled forward and updated for the upcoming season.\nThe goal is to have the league up and running by March 1st, but this may extend to March 15th depending on the commissioner\u2019s ability to finalize preparations.\nApril 30:\nFinal Day for Expiring Rookie Extensions.\nMay:\nAnnual Rookie Draft on the Sunday of Memorial Day Weekend.\nThe draft is conducted live and broadcast on Discord.\nIt is the single most important event of the league year, with the draft typically starting around 6:00-6:30 PM and lasting approximately 4 hours. Expect 10-15 trades during the event.\nMandatory League Event.\nJuly:\nLast Weekend of July marks the start of the Free Agent Auction.\nMinimum of 7 Days of Nominations\nMandatory League Event.\n3 Days Prior to FA Auction:\nAuction Roster Lock Date, the deadline for cutting players before the auction.\nAugust:\nWaivers are available at the completion of the FA Auction.\nSeptember:\nLast Sunday before Week 1 is the deadline for Contract Finalization.\nStart of the Fantasy Season.\nNovember:\nKickoff Thanksgiving Trade Deadline.\nDecember:\nWeek 15 of the NFL Season marks the start of the Fantasy Playoffs, lasting 3 weeks.\nSection 3: Roster Management",
+      "tags": [
+        "league-calendar"
+      ]
+    },
+    {
+      "id": "R-3.1",
+      "category": "Roster Management",
+      "title": "Active Roster Size",
+      "body": "Minimum Active Roster Size:\nDuring the fantasy season, the minimum roster size is 27 players.\nAfter the Free Agent Auction, the minimum roster size is 27 players for the rest of the fantasy season.\nMaximum Active Roster Size:\nDuring the Free Agent Auction, the maximum roster size expands to 35 players.\nAfter the Contract Deadline Date, the maximum roster size is 30 players.",
+      "tags": [
+        "active-roster-size",
+        "roster-management"
+      ]
+    },
+    {
+      "id": "R-3.2",
+      "category": "Roster Management",
+      "title": "Injured Reserve (IR)",
+      "body": "Following player designations are eligible placed on the to be placed on the league's IR with 50% automatic cap relief.\nNFL's Injured Reserve (IR or other forms of IR as designated by MFL),\nCOVID-19 IR,\nHoldouts\nSuspended Players:\nFor season-long or remainder of season suspensions occurring in the off-season, the contracts will not roll forward (owner choice). If they occur in-season, then the contract would roll forward, preserving the original process.\nOwner must decide if they\u2019d like the contract to not roll forward prior to the contract deadline date. In this case it will be as though the contract does not exist. Salary will = o for that year and will reset back to it\u2019s original salary prior to suspension after the fact.\nImportant Notes:\nPlayers on IR do not count towards the active roster limit.\nCap penalties may apply for non-compliance with IR rules. Refer to the Penalties section for more details.",
+      "tags": [
+        "injured-reserve",
+        "roster-management"
+      ]
+    },
+    {
+      "id": "R-3.3",
+      "category": "Roster Management",
+      "title": "Taxi Squad",
+      "body": "Eligibility:\nMaximum of 10 players, with a minimum of 1 IDP (Individual Defensive Player).\nOnly players selected in the league\u2019s Rookie Draft, in the 2nd round or later, are eligible for the Taxi Squad for their first three years in the NFL.\nDemotion Deadline:\nEligible players drafted in the Rookie Draft must be demoted to the Taxi Squad no later than the contract deadline date. Trades occurring within the season, the player must be demoted prior to that player\u2019s NFL Team kicking off that week. (Caveat trade occurring just before kickoff, it may not be feasible for the demotion to occur on time. As such, any trade occurring on the day of kickoff we will grant leniency in demotion to the following week.)",
+      "tags": [
+        "roster-management",
+        "taxi-squad"
+      ]
+    },
+    {
+      "id": "R-3.4",
+      "category": "Roster Management",
+      "title": "Starting Lineup Requirements",
+      "body": "Minimum Starting Lineup:\nEach team must field a valid starting lineup each week, consisting of the following positions:\n1 QB\n2 RBs\n2 WRs\n1 TE\n2 Flex (RB/WR/TE)\n1 SuperFlex (QB/RB/WR/TE)\n1 Kicker\n1 Punter\n2 DL (DE or DT)\n2 LB\n2 DB (CB or S)\n1 Defensive Flex\nLineup Submission:\nLineups must be submitted before the kickoff of the first game each week. The platform (MyFantasyLeague) will automatically lock players in starting positions once their respective games begin.\nLineup changes can be submitted up until the start of a player\u2019s game. A player may not be substituted in or a player may not be substituted out once his game occurs.\nNon-Compliance:\nFailure to submit a valid starting lineup by the deadline will result in penalties, as outlined in the Penalties & Other Miscellaneous League Rules section.",
+      "tags": [
+        "roster-management",
+        "starting-lineup-requirements"
+      ]
+    },
+    {
+      "id": "R-3.5",
+      "category": "Roster Management",
+      "title": "Super Flex Rules",
+      "body": "Maximum Number of Starting QBs:\nBeginning with the contract deadline date, all teams are only allowed to carry three (3) starting QBs on their roster at any time.\nThis limit includes any QB on the active roster, as well as those promoted from the taxi squad who become starters.\nExceptions:\nIf a QB on the taxi squad becomes a starter after Week 1, they do not count against the 3 QB maximum.\nIf a QB is promoted from the taxi squad during the season and becomes a starter, they will count against the 3 QB maximum, regardless of their Week 1 status.\nMonitoring Compliance:\nThe league will monitor compliance using depth charts from sources like FantasyPros Depth Charts.\nIf a team has more than 3 starting QBs on their roster, they must get in compliance by the kickoff of the following Thursday\u2019s game. Non-compliance will result in the commissioner dropping the player that created the 4th QB on the roster.",
+      "tags": [
+        "roster-management",
+        "super-flex-rules"
+      ]
+    },
+    {
+      "id": "R-4.1",
+      "category": "Rookie Draft",
+      "title": "Overview",
+      "body": "The Rookie Draft is the biggest event of the year and is mandatory for all owners.\nAny player who would be considered an NFL rookie is eligible for the draft.\nThe draft is conducted live, and participation is expected either in person or via Discord.",
+      "tags": [
+        "overview",
+        "rookie-draft"
+      ]
+    },
+    {
+      "id": "R-4.2",
+      "category": "Rookie Draft",
+      "title": "Draft Rules",
+      "body": "Round 1 Picks:\nMust be kept on the active roster.\nRounds 2-6 Picks:\nTaxi squad eligible.\nRound 6 Picks:\nCannot be traded and must be used to select an IDP player (including kickers and punters).",
+      "tags": [
+        "draft-rules",
+        "rookie-draft"
+      ]
+    },
+    {
+      "id": "R-4.3",
+      "category": "Rookie Draft",
+      "title": "Draft Order",
+      "body": "Rounds 1-5:\nThe draft order for Rounds 1-5 is determined by the prior season's playoff results. Higher finishers in the playoffs will pick later, while lower finishers will pick earlier.\nRound 6:\nThe draft order for Round 6 is determined via a random generator prior to the draft.",
+      "tags": [
+        "draft-order",
+        "rookie-draft"
+      ]
+    },
+    {
+      "id": "R-4.5",
+      "category": "Rookie Draft",
+      "title": "Rookie Draft Salary & Contracts",
+      "body": "Contract Details:\nAll rookies drafted in the league are initially signed to a 3-year contract.\nSalary in table above represents their yearly salary",
+      "tags": [
+        "rookie-draft",
+        "rookie-draft-salary-&-contracts"
+      ]
+    },
+    {
+      "id": "R-4.4",
+      "category": "Rookie Draft",
+      "title": "1st Round Rookie Option (Effective 2025 Draft)",
+      "body": "Introduction of the 1st Round Rookie Option:\nStarting with the 2025 Draft Picks, all first-round picks will receive an \"Option Year\" in addition to the standard 3-year deal.\nEligibility:\nThe Option Year applies only to players selected in the first round of the Rookie Draft, starting with the 2025 draft class.\nExercising the Option Year:\nThe Option Year must be exercised before the contract deadline date of the player's final season under their rookie contract.\nDetails:\nFull details, including salary increases and specific conditions, can be found in the Contract Transactions section [link to section].",
+      "tags": [
+        "1st-round-rookie-option",
+        "rookie-draft"
+      ]
+    },
+    {
+      "id": "R-5.1",
+      "category": "Free Agent Auction",
+      "title": "Auction Overview",
+      "body": "Auction Timing:\nThe Free Agent Auction typically begins on the last weekend of July and lasts approximately one week.\nThis is a mandatory league event, and compliance with auction rules is strictly monitored.\nRoster and Cap Requirements:\nMaximum Roster Size During Auction: 35 players.\nMinimum Roster Size by Completion of Auction: 27 players.\nValid Lineup Requirement: You must be able to submit a valid starting lineup by the completion of the auction.\nSpending Flexibility:\nThe auction system provides a dashboard indicating the maximum amount you can spend to fill your roster.\nFor example, the system might show \"Max you can spend to fill your roster is $20K,\" assuming you are filling all 35 roster spots. However, if you only need the minimum of 27 players, you may have additional spending flexibility, potentially increasing this amount (e.g., to $28K).\nIt is the owner\u2019s responsibility to avoid overbidding during the auction. The system prevents you from spending more than $300K, but it will not account for the minimum roster requirement.\nBidding Process:\nThe auction follows an \"Ebay Proxy Style,\" where each bid needs to remain the highest for 36 hours to win the player.\nOwners are expected to nominate players within a 24-hour period. Missing a nomination incurs escalating penalties, starting at $3K and increasing with each offense.",
+      "tags": [
+        "auction-overview",
+        "free-agent-auction"
+      ]
+    },
+    {
+      "id": "R-5.2",
+      "category": "Free Agent Auction",
+      "title": "Auction Roster Lock Date",
+      "body": "3 Days Prior to Free Agent Auction Start:\nThis is the deadline for cutting players before the auction begins. After this date, rosters are locked until the auction is complete.",
+      "tags": [
+        "auction-roster-lock-date",
+        "free-agent-auction"
+      ]
+    },
+    {
+      "id": "R-5.3",
+      "category": "Free Agent Auction",
+      "title": "Auction Floor",
+      "body": "Salary Cap Floor:\nThe salary cap floor is set at $260K, which must be met by the completion of the auction or by the Contract Deadline Date.\nMaintaining the Cap Floor:\nOnce the floor is reached, if a trade or IR designation occurs that results in a lower salary, the team is still considered compliant.\nOwners if eligible may restructure a contract and front-load it to meet this minimum.\nObjective:\nThe goal is to ensure owners are engaged during the auction and not simply \"sleepwalking\" through it. Providing the option to front-load a contract offers an alternative to forcing teams to bid on players they don't want, while still requiring active roster management. Failing to adhere to this rule indicates a general failure by the owner to put their team in a position to succeed.\nRefer to the Penalties section of the rulebook for non-compliance issues.\n6: Expired Rookie Auction",
+      "tags": [
+        "auction-floor",
+        "free-agent-auction"
+      ]
+    },
+    {
+      "id": "R-6.1",
+      "category": "Expired Rookie Auction",
+      "title": "Eligibility and Overview",
+      "body": "Eligibility:\nAny player with an expired rookie contract that is not extended prior to the deadline will become available via the \u201cExpired Rookie Auction.\u201d\nAuction Timing:\nThe Expired Rookie Auction occurs during the first week in May.",
+      "tags": [
+        "eligibility-and-overview",
+        "expired-rookie-auction"
+      ]
+    },
+    {
+      "id": "R-6.2",
+      "category": "Expired Rookie Auction",
+      "title": "Auction Rules",
+      "body": "Nomination Process:\nThere is a 2-3 day window to nominate a player for the auction.\nThe starting bid must be $1K more than the player\u2019s prior year salary.\nA link will be provided with the valid minimum salary for each player.\nBidding Process:\nThe bidding process mirrors the Free Agent Auction, with the exception that the high bidder must remain the highest for 36 hours to win the player, rather than 24 hours.\nIf there is a change in the high bidder, the 36-hour timer resets.",
+      "tags": [
+        "auction-rules",
+        "expired-rookie-auction"
+      ]
+    },
+    {
+      "id": "R-6.3",
+      "category": "Expired Rookie Auction",
+      "title": "Contract Rules for Auction Winners",
+      "body": "Auction Contract Eligibility:\nAuction contracts follow the same rules as the Free Agent Auction, with contracts ranging from 1 to 3 years.\nIf the contract is more than 1 year, it must be submitted no later than the contract deadline date in September.\nPlayer Retention:\nPlayers won in this auction are not eligible to be cut by any team prior to the Free Agent Auction.\n7: Waivers",
+      "tags": [
+        "contract-rules-for-auction-winners",
+        "expired-rookie-auction"
+      ]
+    },
+    {
+      "id": "R-7.1",
+      "category": "Waivers",
+      "title": "Overview",
+      "body": "Waiver System:\nThe waiver system allows teams to acquire players who are not currently on any roster. There are two primary types of waivers used in the league: Blind Bid Waivers and First-Come, First-Serve (FCFS) Free Agency.",
+      "tags": [
+        "overview",
+        "waivers"
+      ]
+    },
+    {
+      "id": "R-7.2",
+      "category": "Waivers",
+      "title": "Blind Bid Waivers",
+      "body": "Waiver Runs:\nBlind Bid Waivers run on Thursday, Friday, Saturday, and Sunday at 9 AM during the NFL season.\nPlayers are locked after each run until the next waiver period begins.\nSubmitting Bids:\nTeams submit conditional blind bids where they can prioritize multiple waiver claims. The highest bid for each player wins the waiver claim.\nThe blind bid winning amount becomes the player\u2019s salary for the current season.\nTiebreakers:\nIf two teams submit identical bids for the same player, the tiebreaker process is as follows:\nAll Play Record\nOverall Record\nTotal Points\nHead-to-Head Record\nDuring the preseason and up until the completion of Week 1, a custom order based on the prior season\u2019s final draft slot finish is used for tiebreakers.\nBid Processing:\nThe system processes bids top to bottom within each group and accepts the first valid bid, ignoring the rest in that group.\nThe groups are processed without priority over one another, ensuring all bids are evaluated equally.",
+      "tags": [
+        "blind-bid-waivers",
+        "waivers"
+      ]
+    },
+    {
+      "id": "R-7.3",
+      "category": "Waivers",
+      "title": "First-Come, First-Serve (FCFS) Free Agency",
+      "body": "FCFS Availability:\nAfter the Sunday morning waiver run, free agency opens on a first-come, first-serve basis.\nPlayers can be picked up freely until the kickoff of their respective games.\nPlayer Salary:\nAny player acquired via FCFS will have a $1K salary amount for the current season.\nThe default contract length for FCFS acquisitions is 1 year.\nPurpose:\nFCFS ensures that teams can always field a starting lineup, even if they missed a player during the waiver runs.",
+      "tags": [
+        "first-come,-first-serve",
+        "waivers"
+      ]
+    },
+    {
+      "id": "R-7.4",
+      "category": "Waivers",
+      "title": "Waiver Compliance and Responsibilities",
+      "body": "Roster Compliance:\nOwners are responsible for ensuring their roster complies with league rules after making waiver acquisitions.\nTeams must have enough roster space and cap room to accommodate players acquired through waivers.\nContract Terms:\nThe default number of years for a waiver and FCFS acquisition is 1 year unless otherwise stated.\n8: Trades",
+      "tags": [
+        "waiver-compliance-and-responsibilities",
+        "waivers"
+      ]
+    },
+    {
+      "id": "R-8.1",
+      "category": "Trades",
+      "title": "Overview",
+      "body": "Trading Period:\nTrading is allowed during the entire offseason and up until the NFL's Thanksgiving week, which marks the league's trade deadline.\nAfter the trade deadline, no trades are permitted until the start of the offseason.",
+      "tags": [
+        "overview",
+        "trades"
+      ]
+    },
+    {
+      "id": "R-8.2",
+      "category": "Trades",
+      "title": "Eligibility",
+      "body": "Eligible Players:\nAny player with 1 or more years remaining on their contract is eligible to be traded.\nExpired rookies can be traded up until the extension deadline. Other expired contracts are not eligible to be traded.\nDraft Picks:\nAll draft picks for the current draft year, as well as picks for 1 year into the future, are available for trade.\nException: Round 6 picks are not eligible for trade.\nSalary:\nSalary can also be included in trades. Please refer to the Cap Adjustments section for detailed rules on trading salary [link to Cap Adjustments section].",
+      "tags": [
+        "eligibility",
+        "trades"
+      ]
+    },
+    {
+      "id": "R-8.3",
+      "category": "Trades",
+      "title": "Additional Trade Rules",
+      "body": "Compliance:\nAll trades require both teams to immediately comply with roster standards. If a trade results in a team having fewer than the minimum required players for a valid starting lineup or total roster, the team must take immediate action to get back into compliance.\nIf a team is out of compliance, the system will prevent them from submitting a valid lineup, which carries its own penalty.\nIf a trade results in any contracts being out of compliance (such as exceeding contract limits or requiring adjustments), those changes must be made within 24 hours. Failure to correct contract discrepancies within this timeframe could result in penalties.\nTrade Assets Requirement:\nTeams are required to include at least some asset (not salary) in every trade. This rule was implemented to avoid asset-less trades, which caused dissatisfaction among league members.\nThis rule ensures that even during the auction, trades include tangible assets, preventing awkward transactions where players are simply dumped due to roster or budget constraints.\nTrade Review Process:\nAll trades are processed immediately to ensure timely processing.\nAll trades are subject to review to ensure they fall within guidelines and may be subject to reversal.\nExtensions and Salary Compliance:\nIf a player involved in a trade is eligible for an extension, the team trading the player away can agree to apply the extension as part of the trade. This must be stated in the trade comments, or proof of discussion must be provided before the trade is approved.\nAll teams involved in the trade must ensure salary compliance according to the league's salary cap rules.\n9: Contracts",
+      "tags": [
+        "additional-trade-rules",
+        "trades"
+      ]
+    },
+    {
+      "id": "R-9.1",
+      "category": "Contract Management",
+      "title": "Glossary of Contract Terms",
+      "body": "Contract Length:\nThe length of a contract in years from the time the contract was submitted.\nSalary:\nThe current year's salary for a player.\nTotal Contract Value (TCV):\nThe total value of a contract, calculated by multiplying the contract length by the Average Annual Value (AAV).\nAverage Annual Value (AAV):\nThe average salary per year if the total contract value is evenly distributed across the contract length. This is used as the baseline for all contract extensions.\nYears Remaining:\nThe number of seasons remaining for a player under contract.",
+      "tags": [
+        "contract-management",
+        "glossary-of-contract-terms"
+      ]
+    },
+    {
+      "id": "R-9.2",
+      "category": "Contract Management",
+      "title": "Contract Types",
+      "body": "Contract Types:\nVeteran Contracts:\nDefault contract type for players acquired in the Expired Rookie Auction, Free Agent Auction, or Waivers before the contract deadline date.\nContracts are evenly distributed across all contract years.\nDefault Contract Length is 1\nWaiver Wire (WW) Contracts:\nDefault contract type for players picked up off waivers after the contract deadline date.\nContract length is always 1 year.\nRookie Contracts:\nApplies to NFL rookies acquired via the Rookie Draft, Free Agent Auction, or waivers.\nWaiver wire pickups will take on rookie status at the completion of the season if still on the roster or at the time of any in-season contract submission.\nContract Length is always set at 3 for players selected in the Rookie Draft otherwise the default is .\nFront-Loaded Contracts:\nContracts where the first year\u2019s salary is more than the AAV (Average Annual Value).\nCan only be applied to players acquired in the Free Agent Auction, Expired Rookie Auction, or submitted as part of an offseason contract restructure.\nThe contract split must equal the TCV at the completion of the split.\nExample: A 3-year contract with a TCV of $90K could be split as $40K in Year 1, $30K in Year 2, and $20K in Year 3.\nBack-Loaded Contracts:\nContracts where the first year\u2019s salary is less than the AAV.\nCan only be given to players acquired in the Free Agent Auction or Expired Rookie Auction as part of a multi-year contract, or as part of an offseason contract restructure.\nA minimum of 20% of the TCV must be allocated to Year 1.\nExample: A 3-year contract with a TCV of $90K must have at least $18K allocated to Year 1 (20% of $90K). The remaining amount can be split across the remaining years.",
+      "tags": [
+        "contract-management",
+        "contract-types"
+      ]
+    },
+    {
+      "id": "R-9.3",
+      "category": "Contract Management",
+      "title": "Contract Minimums and Maximums",
+      "body": "Maximum Salary:\n$300,000 (No maximum in the off-season up until Roster Cut Date).\nMaximum 3-Year Contracts:\n6 contracts (Excludes 3-Year Rookie Contracts).\nMaximum Loaded Contracts:\n5 contracts (includes Front or Back Loaded contracts).",
+      "tags": [
+        "contract-management",
+        "contract-minimums-and-maximums"
+      ]
+    },
+    {
+      "id": "R-9.4",
+      "category": "Contract Management",
+      "title": "Contract Transactions",
+      "body": "Auction Contracts:\nAny player acquired in the Free Agent Auction, Expired Rookie Auction, or via waivers before the Contract Deadline Date is eligible for a Multi-Year Auction Contract.\nContract Options:\nThe contract may be given as a 2-year or 3-year deal.\nIt can be structured as a Veteran Contract with even distribution or as a Loaded Contract.\nDefault Contract:\nIf no Multi-Year Auction Contract is submitted, the default contract length is 1 year.\nContract Type Default: Veteran or Rookie (if the player is given a MYM in their rookie year).\nMid-Year Multi (MYM):\nConverts 1-Year Contracts into a Multi-Year Contract at the same salary.\nTeams are allowed a maximum of 3 MYMs per season.\nIf the contract is a WW contract, it converts into a Veteran Contract.\nMYMs are not eligible to be loaded.\nEligibility:\nPlayers acquired via the Auction or Pre-Season Waivers that were not given a contract before the contract deadline date.\nThe deadline for this is before the final game ends on Week 2 of the NFL Season.\nPlayers acquired via Waivers during the season, either from their own pickup or after trading for said player. The deadline is 2 weeks from the date the player was acquired from Waivers.\nContract Extensions:\nEligibility:\nPlayers entering the final year of their contract are eligible for an extension up until the contract deadline date.\nPlayers acquired via the Rookie Draft or Preseason Waivers that were not given a contract by the deadline date nor given a MYM by NFL Week 2 may be extended by the end of Week 4.\nPlayers acquired via trade during the season in the final year of their contract must be extended within 4 weeks of acquisition.\nExtension Terms:\nExtensions may be for 1 or 2 years.\nExtensions reset the contract's Total Contract Value (TCV) and guarantees.\nFuture AAV is increased based on the extension schedule:\nSchedule 1 (QB/RB/WR/TE):\n1 Year: +$10,000\n2 Years: +$20,000\nSchedule 2 (DB/LB/DL/Kickers - IDP & Special Teams):\n1 Year: +$3,000\n2 Years: +$5,000\nExamples:\nSchedule 1 Example:\nA player with a 1-year contract remaining at a $17K AAV extends for 1 year. The new AAV for the extended year would be $27K, resulting in a Total Contract Value (TCV) of $44K.\nSchedule 2 Example:\nA player with a 1-year contract remaining at a $10K AAV extends for 2 years. The new AAV for the extended years would be $20K, resulting in a Total Contract Value (TCV) of $50K.",
+      "tags": [
+        "contract-management",
+        "contract-transactions"
+      ]
+    },
+    {
+      "id": "R-9.5",
+      "category": "Contract Management",
+      "title": "Contract Guarantees & Cap Penalties",
+      "body": "Contract Guarantees:\nThe majority of contracts come with a 75% TCV Guarantee Requirement.\nContracts earn on a pro-rata basis over time, with 25% earned each month from October to December. Once the fantasy season is completed and the new season has been rolled over, the player will have earned 100% of that prior year's salary.\nThis schedule does not apply to:\nVeteran & WW Contracts: where the original contract length is 1 year and the salary is less than $5K. These contracts have a 0% guarantee, representing a cap-free cut eligible player.\nTaxi Squad Eligible Players: No guarantee on their contract until promoted to the active roster.\nWW Contracts with a Salary of $5K or more: These contracts are 65% earned, resulting in a 35% cap penalty if dropped before the rollover to the next season.\nCap Penalties:\nCalculated as (TCV * 75%) - Salary Earned.\nCap penalties that occur after the start of the auction are accrued and applied to the following season. Penalties occurring during the offseason up until the Roster Lock Date are applied to the current season.\nExample of Cap Penalties:\nYear 1 Example:\nA contract with a TCV of $100K ($75K guaranteed) that is cut in September incurs a $75K cap penalty. If cut in October, the player would have earned 25% of Year 1 Salary (18.75K), resulting in a total cap penalty of $56.25K.\nYear 2 Example:\nIf the same player is not cut in Year 1 but is cut in October of Year 2, the cap penalty would be calculated based on the guaranteed amount remaining from Year 1 plus any additional guarantees from Year 2.\n10: League Financing",
+      "tags": [
+        "contract-guarantees-&-cap-penalties",
+        "contract-management"
+      ]
+    },
+    {
+      "id": "R-10.1",
+      "category": "League Financing",
+      "title": "Overview",
+      "body": "League Dues:\nEach team is required to pay an annual league fee of $200. This fee covers the league's operating expenses, including the MFL hosting fee in addition to what is entered into the payout pool.",
+      "tags": [
+        "league-financing",
+        "overview"
+      ]
+    },
+    {
+      "id": "R-10.2",
+      "category": "League Financing",
+      "title": "Payment Schedule",
+      "body": "Dues Payment Deadlines:\nHalf of the league dues are owed by the start of the Free Agent Auction.\nThe remaining balance is due by the trading deadline, which falls on Thanksgiving.\nLate Payments:\nTeams that fail to make payments on time will incur a $3,000 cap penalty for each week the payment is late.\nAll penalties accrued up until the contract deadline date apply to the current season. Any penalties accrued after this date are applied to the following season.",
+      "tags": [
+        "league-financing",
+        "payment-schedule"
+      ]
+    },
+    {
+      "id": "R-10.3",
+      "category": "League Financing",
+      "title": "League Payout Structure",
+      "body": "Payouts for the Season:\nMFL Fee: $100 (covers league hosting)\nLeague Champion: $900\nLeague Runner-Up: $450\n3rd Place: $150\nDivision Winners: $50 each (Total: $200)\nWeekly High Score (Weeks 1-17): $30 per week (Total: $510)\nHawktuah Bowl Winner: $90\nAdjustments:\n\u20182024 MFL Fee has been increased from $90 to $100, with $10 subtracted from the Top Points Scorer in the Hawktuah Bowl.",
+      "tags": [
+        "league-financing",
+        "league-payout-structure"
+      ]
+    },
+    {
+      "id": "R-10.4",
+      "category": "League Financing",
+      "title": "Miscellaneous Fees",
+      "body": "Logo Changes:\nTeams wishing to change their team logo will incur a $15 charge to cover the cost of a new owner banner.",
+      "tags": [
+        "league-financing",
+        "miscellaneous-fees"
+      ]
+    },
+    {
+      "id": "R-10.5",
+      "category": "League Financing",
+      "title": "Payment Methods",
+      "body": "Payment Platform:\nAll league dues and fees are to be paid via Venmo to @Keith-Creelman.\n11: Penalties and Miscellaneous League Rules",
+      "tags": [
+        "league-financing",
+        "payment-methods"
+      ]
+    },
+    {
+      "id": "R-11.1",
+      "category": "Penalties and Miscellaneous League Rules",
+      "title": "Overview of Penalties",
+      "body": "Penalties are applied to maintain the competitive balance and integrity of the league. All owners are expected to adhere to the league rules and deadlines to avoid incurring penalties.\nCURRENTLY THIS SECTION WILL BE UNDER REVIEW BY THE COMMISH FOR AN OVERHAUL TO MAKE THIS MORE CONSISTENT ACROSS THE LEAGUE.",
+      "tags": [
+        "overview-of-penalties",
+        "penalties-and-miscellaneous-league-rules"
+      ]
+    },
+    {
+      "id": "R-11.2",
+      "category": "Penalties and Miscellaneous League Rules",
+      "title": "Placeholder for Penalties",
+      "body": "Late Payment Penalties:\nTeams that fail to make dues payments on time will incur a $3,000 cap penalty for each week the payment is late. All penalties accrued up until the contract deadline date apply to the current season. Penalties accrued after this date are applied to the following season.\nFailure to Meet Salary Cap Floor:\nIf a team fails to meet the salary cap floor by the completion of the auction or by the Contract Deadline Date, an immediate cap hit will be applied to bring the team into compliance. Additional penalties may be assessed as specified in the penalty section.\nOverbidding During the Auction:\nIf a team overbids during the Free Agent Auction, and the system prevents them from submitting a valid lineup, the team will be required to restructure contracts to regain compliance. If the owner has already used their maximum allotment of restructures, further penalties will apply. Details will be provided in this section.\nRoster and Contract Compliance Post-Trade:\nIf a trade results in contracts being out of compliance, adjustments must be made within 24 hours to avoid penalties.\nWaiver Wire Cap Penalties:\nPenalties may apply if a player acquired via waivers is later dropped before the Contract Deadline Date. The specific penalties related to waiver wire drops will be detailed here.\nNon-Compliance with Roster Requirements:\nTeams failing to maintain the minimum or maximum roster size by specified deadlines will face cap penalties. The specifics will be detailed here.\nMiscellaneous Penalties:\nAny other penalties that may be applied for various infractions will be captured here. This could include penalties for failing to meet other league requirements, such as participation in mandatory events.",
+      "tags": [
+        "penalties-and-miscellaneous-league-rules",
+        "placeholder-for-penalties"
+      ]
+    },
+    {
+      "id": "R-11.3",
+      "category": "Penalties and Miscellaneous League Rules",
+      "title": "Placeholder for Penalty Details",
+      "body": "Penalty Amounts and Application:\nThis section will detail the specific amounts for each type of penalty and how they are applied.\nAppeal Process:\nThis section will outline the process for appealing penalties, including the timeline for submitting an appeal and how the commissioner and league members will review it.",
+      "tags": [
+        "penalties-and-miscellaneous-league-rules",
+        "placeholder-for-penalty-details"
+      ]
+    },
+    {
+      "id": "R-11.4",
+      "category": "Penalties and Miscellaneous League Rules",
+      "title": "Miscellaneous League Rules",
+      "body": "Jail Bird Rule:\nPlayers whose playing careers are derailed due to legal cases resulting in release from their NFL teams are eligible for cap-free cuts.\nRetired Players Rule:\nRetired players can also be released cap-free. However, if a manager chooses to keep a retired player on their roster, the player\u2019s contract will remain unchanged with no cap relief.\nCompensation for Retired \u201cTier 1\u201d Players (Calvin Johnson Rule):\nSpecific compensation rules apply to retired players who were categorized as \u201cTier 1\u201d based on their performance and contribution to their teams. This section will detail the rules and compensation structure.\nMiscellaneous Adjustments:\nAny other rules that don\u2019t fit into traditional categories or that are unique to certain situations will be captured here",
+      "tags": [
+        "miscellaneous-league-rules",
+        "penalties-and-miscellaneous-league-rules"
+      ]
+    },
+    {
+      "id": "R-D-1",
+      "category": "Data Standards",
+      "title": "Contract Type Field",
+      "body": "Each normalized contract row must contain contract_type with values Auction, Extension, MYM, or Restructure.",
+      "tags": [
+        "data",
+        "contract_type"
+      ]
+    },
+    {
+      "id": "R-D-2",
+      "category": "Data Standards",
+      "title": "Source Traceability Fields",
+      "body": "Each contract row must preserve source_section and source_raw_line (or equivalent) for audit traceability.",
+      "tags": [
+        "data",
+        "source_section",
+        "audit"
+      ]
+    },
+    {
+      "id": "R-D-3",
+      "category": "Data Standards",
+      "title": "XML Payload Retention",
+      "body": "Each contract row must retain xml_payload for reconstruction and historical cross-reference.",
+      "tags": [
+        "data",
+        "xml_payload"
+      ]
+    },
+    {
+      "id": "R-D-4",
+      "category": "Data Standards",
+      "title": "Legacy Guaranteed Handling",
+      "body": "Legacy guaranteed handling applies through 2018. For 2019 forward, normalized guaranteed remains primary while legacy cross-reference is retained.",
+      "tags": [
+        "data",
+        "legacy",
+        "guaranteed"
+      ]
+    },
+    {
+      "id": "R-D-5",
+      "category": "Data Standards",
+      "title": "Duplicate Event Adjudication",
+      "body": "Potential duplicates are adjudicated by event semantics and timestamps. Extension and restructure events can both be valid for the same player.",
+      "tags": [
+        "data",
+        "duplicates",
+        "events"
+      ]
+    },
+    {
+      "id": "R-L-2019-1",
+      "category": "Legacy Contract Addenda",
+      "title": "Legacy Contract Baseline",
+      "body": "Legacy contract guide states maximum contract length of 3 years and defines Rookie, Veteran, Loaded, and WW as contract classes. This is retained for historical cross-reference.",
+      "tags": [
+        "legacy",
+        "contracts",
+        "history"
+      ]
+    },
+    {
+      "id": "R-L-2019-2",
+      "category": "Legacy Contract Addenda",
+      "title": "Legacy Guarantees And Earn Schedule",
+      "body": "Legacy contract guidance references 75% guarantees with earned-salary checkpoints from October through December and cap-penalty treatment based on earned value.",
+      "tags": [
+        "legacy",
+        "guarantees",
+        "cap-penalty"
+      ]
+    },
+    {
+      "id": "R-L-2019-3",
+      "category": "Legacy Contract Addenda",
+      "title": "Grandfathered Contract Concept",
+      "body": "Legacy contract rules describe grandfathered deals under prior cap rules until contract touchpoints (extension, restructure, or release) trigger modern treatment.",
+      "tags": [
+        "legacy",
+        "grandfathered",
+        "contracts"
+      ]
+    },
+    {
+      "id": "R-L-2014-1",
+      "category": "Legacy League Addenda",
+      "title": "Legacy Governance Model (2014)",
+      "body": "2014 bylaws describe a three-member Competition Committee model, conference-based structure, and specific historical voting thresholds. These entries are legacy references, not automatic current policy.",
+      "tags": [
+        "legacy",
+        "governance",
+        "2014"
+      ]
+    },
+    {
+      "id": "R-L-2013-1",
+      "category": "Legacy League Addenda",
+      "title": "Legacy Tag And Contract Flow (2013)",
+      "body": "2013 cap rulebook documents franchise and transition tag bidding windows, compensation rules, and legacy contract-loading formulas used during earlier league eras.",
+      "tags": [
+        "legacy",
+        "tags",
+        "2013"
+      ]
+    },
+    {
+      "id": "R-L-2019-4",
+      "category": "Legacy Contract Addenda",
+      "title": "2019 Mid-Season Restructure Constraint",
+      "body": "Legacy contract file states that beginning in 2019 there is no restructuring allowance for mid-season acquisitions, reinforcing MYM and extension guardrails for in-season pickups.",
+      "tags": [
+        "legacy",
+        "mym",
+        "restructure"
+      ]
+    },
+    {
+      "id": "R-L-2014-2",
+      "category": "Legacy League Addenda",
+      "title": "Legacy Conference Alignment Model",
+      "body": "2014 bylaws include a two-conference, two-division-per-conference model with double-header scheduling. Current structure should use active season governance text unless amended.",
+      "tags": [
+        "legacy",
+        "alignment",
+        "scheduling"
+      ]
+    },
+    {
+      "id": "R-L-2013-2",
+      "category": "Legacy League Addenda",
+      "title": "Legacy Calendar Anchors",
+      "body": "2013 rulebook sets historical calendar anchors for tags, rookie extension deadlines, auction timing, and contract roll-forward mechanics. Used for historical adjudication only.",
+      "tags": [
+        "legacy",
+        "calendar",
+        "history"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,74 @@
+{
+  "manual_tags": [
+    {
+      "player_name": "Kyle Pitts",
+      "salary_k": 28
+    },
+    {
+      "player_name": "DeVonta Smith",
+      "salary_k": 29
+    },
+    {
+      "player_name": "Travis Etienne",
+      "salary_k": 19
+    },
+    {
+      "player_name": "D'Andre Swift",
+      "salary_k": 26
+    },
+    {
+      "player_name": "Dak Prescott",
+      "salary_k": 50
+    },
+    {
+      "player_name": "Amon-Ra St. Brown",
+      "salary_k": 51
+    },
+    {
+      "player_name": "Myles Garrett",
+      "salary_k": 10
+    },
+    {
+      "player_name": "Maxx Crosby",
+      "salary_k": 11
+    },
+    {
+      "player_name": "Trevor Lawrence",
+      "salary_k": 37
+    }
+  ],
+  "manual_extensions": [
+    {
+      "player_name": "Bijan Robinson",
+      "years": 2
+    },
+    {
+      "player_name": "Puka Nacua",
+      "years": 2
+    },
+    {
+      "player_name": "Chase Brown",
+      "years": 2
+    },
+    {
+      "player_name": "Zach Charbonnet",
+      "years": 1
+    },
+    {
+      "player_name": "Tucker Kraft",
+      "years": 2
+    },
+    {
+      "player_name": "Sam LaPorta",
+      "years": 2
+    },
+    {
+      "player_name": "Tank Bigsby",
+      "years": 1
+    },
+    {
+      "player_name": "Brian Branch",
+      "years": 1
+    }
+  ]
+}
