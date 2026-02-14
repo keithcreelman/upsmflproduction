@@ -46,13 +46,79 @@
     --ups-muted: #9fb3d1;
     --ups-brand: #2e63b8;
     --ups-brand-strong: #1f3f78;
-    --ups-accent: #d6deec;
-    --ups-accent-ink: #091327;
+    --ups-accent: #e6b34d;
+    --ups-accent-ink: #102a55;
     --ups-link: #8ec4ff;
     --ups-link-hover: #c0deff;
     --ups-danger: #e36572;
     --ups-success: #25c37d;
     --ups-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+
+    --ups-caption-bg: linear-gradient(135deg, #0f1728 0%, #1c3359 60%, #204f73 100%);
+    --ups-th-bg: #152742;
+    --ups-td-border: #203a5d;
+    --ups-row-odd: #111f35;
+    --ups-row-even: #0f1b30;
+    --ups-warning: #ffd08a;
+    --ups-btn-bg: #1f4d93;
+    --ups-btn-border: #4a75b7;
+    --ups-btn-text: #ffffff;
+
+    --ups-hero-bg: linear-gradient(120deg, #0a1428 0%, #17427f 54%, #24395f 100%);
+    --ups-hero-border: rgba(255, 255, 255, 0.2);
+    --ups-logo-bg: #ffffff;
+    --ups-chip-bg: #10213a;
+    --ups-chip-border: #3a5f89;
+    --ups-chip-text: #e8effa;
+    --ups-chip-hover-bg: #1c3f70;
+    --ups-chip-hover-border: #8fb7ef;
+
+    --ups-scoreboard-bg: #0f1c33;
+    --ups-scoreboard-alt-bg: #10203b;
+    --ups-scoreboard-border: #2a4470;
+    --ups-scoreboard-text: #f3f8ff;
+    --ups-scoreboard-link: #a9d0ff;
+  }
+
+  :root[data-ups-mode="light"] {
+    --ups-bg: #edf2fa;
+    --ups-surface: #ffffff;
+    --ups-surface-alt: #f3f7ff;
+    --ups-border: #9fb2ce;
+    --ups-text: #0f213f;
+    --ups-muted: #445f86;
+    --ups-brand: #24529a;
+    --ups-brand-strong: #183c74;
+    --ups-accent: #e6b34d;
+    --ups-accent-ink: #102a55;
+    --ups-link: #1f4d97;
+    --ups-link-hover: #143a77;
+    --ups-shadow: 0 12px 24px rgba(30, 54, 90, 0.16);
+
+    --ups-caption-bg: linear-gradient(135deg, #e9f1ff 0%, #d8e7ff 56%, #c9defb 100%);
+    --ups-th-bg: #dce9fb;
+    --ups-td-border: #c3d4ec;
+    --ups-row-odd: #f7fbff;
+    --ups-row-even: #edf5ff;
+    --ups-warning: #7a500a;
+    --ups-btn-bg: #1f4d93;
+    --ups-btn-border: #1a3f78;
+    --ups-btn-text: #ffffff;
+
+    --ups-hero-bg: linear-gradient(120deg, #f4f9ff 0%, #e3edff 52%, #d5e5ff 100%);
+    --ups-hero-border: #b7cbe8;
+    --ups-logo-bg: #fefefe;
+    --ups-chip-bg: #e7f0ff;
+    --ups-chip-border: #9db7dc;
+    --ups-chip-text: #112c58;
+    --ups-chip-hover-bg: #d7e6ff;
+    --ups-chip-hover-border: #6d93cc;
+
+    --ups-scoreboard-bg: #f7fbff;
+    --ups-scoreboard-alt-bg: #edf5ff;
+    --ups-scoreboard-border: #aac3e3;
+    --ups-scoreboard-text: #102348;
+    --ups-scoreboard-link: #1f4d97;
   }
 
   /* Core skin normalization */
@@ -83,7 +149,7 @@
 
   .report caption,
   .homepagemodule.report caption {
-    background: linear-gradient(135deg, #0f1728 0%, #1c3359 60%, #204f73 100%);
+    background: var(--ups-caption-bg);
     border-bottom: 1px solid var(--ups-border);
   }
 
@@ -96,32 +162,32 @@
 
   .report th,
   .homepagemodule.report th {
-    background: #152742;
+    background: var(--ups-th-bg);
     color: var(--ups-text);
     border-color: var(--ups-border);
   }
 
   .report td,
   .homepagemodule.report td {
-    border-color: #203a5d;
+    border-color: var(--ups-td-border);
   }
 
   .oddtablerow {
-    background: #111f35;
+    background: var(--ups-row-odd);
   }
 
   .eventablerow {
-    background: #0f1b30;
+    background: var(--ups-row-even);
   }
 
   .warning {
-    color: #ffd8dd;
+    color: var(--ups-warning);
   }
 
   .myfantasyleague_menu,
   .myfantasyleague_menu ul,
   .myfantasyleague_menu li {
-    background-color: #0f1a2d;
+    background-color: var(--ups-surface-alt);
     color: var(--ups-text);
     border-color: var(--ups-border);
   }
@@ -139,8 +205,8 @@
     border-radius: 14px;
     max-width: 1200px;
     color: var(--ups-text);
-    background: linear-gradient(120deg, #0a1428 0%, #17427f 54%, #24395f 100%);
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: var(--ups-hero-bg);
+    border: 1px solid var(--ups-hero-border);
     box-shadow: var(--ups-shadow);
   }
 
@@ -168,7 +234,7 @@
     width: 40px;
     height: 40px;
     border-radius: 8px;
-    background: #fff;
+    background: var(--ups-logo-bg);
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -188,8 +254,8 @@
   }
 
   .ccc-cta {
-    background: #e6b34d;
-    color: #102a55 !important;
+    background: var(--ups-accent);
+    color: var(--ups-accent-ink) !important;
     border: 1px solid #b98527;
     padding: 0.62rem 1rem;
     border-radius: 11px;
@@ -204,9 +270,18 @@
 
   .ccc-cta:hover,
   .ccc-cta:focus {
-    color: #102a55 !important;
+    color: var(--ups-accent-ink) !important;
     background: #f0c465;
     border-color: #cb9c3c;
+  }
+
+  .ccc-theme-toggle {
+    cursor: pointer;
+    font-family: inherit;
+  }
+
+  .ccc-theme-toggle .ups-theme-toggle-label {
+    white-space: nowrap;
   }
 
   .ccc-actions {
@@ -217,9 +292,9 @@
   }
 
   .ccc-pill {
-    background: #e6b34d;
+    background: var(--ups-accent);
     border: 1px solid #b98527;
-    color: #102a55 !important;
+    color: var(--ups-accent-ink) !important;
     padding: 0.56rem 0.95rem;
     border-radius: 12px;
     font-weight: 800;
@@ -233,7 +308,7 @@
   .ccc-pill:hover,
   .ccc-pill:focus {
     background: #f0c465;
-    color: #102a55 !important;
+    color: var(--ups-accent-ink) !important;
   }
 
   .ccc-cta i,
@@ -251,9 +326,9 @@
   }
 
   .ccc-action-btn {
-    border: 1px solid #3a5f89;
-    background: #10213a;
-    color: var(--ups-text);
+    border: 1px solid var(--ups-chip-border);
+    background: var(--ups-chip-bg);
+    color: var(--ups-chip-text);
     font-size: 0.67rem;
     line-height: 1;
     padding: 0.22rem 0.46rem;
@@ -264,9 +339,9 @@
 
   .ccc-action-btn:hover,
   .ccc-action-btn:focus {
-    border-color: #8fb7ef;
-    background: #1c3f70;
-    color: #fff;
+    border-color: var(--ups-chip-hover-border);
+    background: var(--ups-chip-hover-bg);
+    color: var(--ups-text);
   }
 
   .ccc-action-btn.ext {
@@ -274,16 +349,16 @@
   }
 
   .ccc-action-btn.rs {
-    border-color: #c6d3e8;
-    color: #f2f6ff;
+    border-color: var(--ups-chip-border);
+    color: var(--ups-chip-text);
   }
 
   .ccc-popup-actions {
     margin-top: 0.55rem;
     padding: 0.5rem;
-    border: 1px solid #2a4a70;
+    border: 1px solid var(--ups-border);
     border-radius: 9px;
-    background: #0f2039;
+    background: var(--ups-surface-alt);
   }
 
   /* Contract action chips are temporarily disabled on roster/popup views. */
@@ -320,6 +395,41 @@
       justify-content: flex-start;
     }
   }
+
+  .ups-widget-theme-toolbar {
+    margin: 0.45rem 0 0.35rem;
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .ups-widget-theme-btn {
+    border: 1px solid var(--ups-chip-border);
+    background: var(--ups-chip-bg);
+    color: var(--ups-chip-text);
+    border-radius: 10px;
+    font-size: 0.8rem;
+    line-height: 1;
+    font-weight: 800;
+    padding: 0.5rem 0.7rem;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .ups-widget-theme-btn:hover,
+  .ups-widget-theme-btn:focus {
+    border-color: var(--ups-chip-hover-border);
+    background: var(--ups-chip-hover-bg);
+    color: var(--ups-text);
+  }
+
+  #uowMount {
+    border: 1px solid var(--ups-border);
+    background: var(--ups-surface);
+    border-radius: 12px;
+    padding: 0.35rem;
+  }
 </style>
 
 <script>
@@ -345,18 +455,60 @@
     document.documentElement.className = themeName;
   }
 
+  function upsThemeStorageKey() {
+    var y = typeof year !== "undefined" ? year : "";
+    var l = typeof league_id !== "undefined" ? league_id : "";
+    return "ups_mode_" + y + "_" + l;
+  }
+
+  function normalizeUPSMode(mode) {
+    return String(mode || "").toLowerCase() === "light" ? "light" : "dark";
+  }
+
+  function getUPSMode() {
+    return normalizeUPSMode(document.documentElement.getAttribute("data-ups-mode") || "dark");
+  }
+
+  function applyUPSMode(mode, persist) {
+    var nextMode = normalizeUPSMode(mode);
+    document.documentElement.setAttribute("data-ups-mode", nextMode);
+    document.documentElement.style.colorScheme = nextMode;
+    window.UPS_THEME_MODE = nextMode;
+    if (persist) {
+      try {
+        localStorage.setItem(upsThemeStorageKey(), nextMode);
+      } catch (e) {}
+    }
+    try {
+      document.dispatchEvent(new CustomEvent("ups-theme-change", { detail: { mode: nextMode } }));
+    } catch (e) {}
+  }
+
+  window.setUPSMode = function (mode) {
+    applyUPSMode(mode, true);
+  };
+
+  window.toggleUPSMode = function () {
+    applyUPSMode(getUPSMode() === "dark" ? "light" : "dark", true);
+  };
+
   (function () {
     var key = "theme_" + year + "_" + league_id;
     var storedTheme = localStorage.getItem(key) || "";
-    if (storedTheme.toLowerCase().indexOf("light") !== -1) {
-      localStorage.removeItem(key);
-      storedTheme = "";
-    }
     if (storedTheme) {
       document.documentElement.className = storedTheme;
     } else {
       document.documentElement.removeAttribute("class");
     }
+
+    var upsMode = "";
+    try {
+      upsMode = localStorage.getItem(upsThemeStorageKey()) || "";
+    } catch (e) {}
+    if (!upsMode && storedTheme.toLowerCase().indexOf("light") !== -1) {
+      upsMode = "light";
+    }
+    applyUPSMode(upsMode || "dark", false);
   })();
 </script>
 
@@ -440,6 +592,10 @@
         <i class="fa-solid fa-arrow-up-right-from-square"></i>
         Contract Command Center
       </a>
+      <button class="ccc-cta ccc-theme-toggle" id="upsThemeToggle" type="button" aria-pressed="false">
+        <i class="fa-solid fa-circle-half-stroke"></i>
+        <span class="ups-theme-toggle-label">Theme: Dark</span>
+      </button>
     </div>
 
     <div class="ccc-actions">
@@ -451,6 +607,105 @@
     </div>
   </div>
 </div>
+
+<script>
+  (function () {
+    function updateThemeToggleUi() {
+      var mode = typeof window.getUPSMode === "function" ? window.getUPSMode() : "dark";
+      var btn = document.getElementById("upsThemeToggle");
+      if (!btn) return;
+      var label = btn.querySelector(".ups-theme-toggle-label");
+      if (label) label.textContent = mode === "dark" ? "Theme: Dark" : "Theme: Light";
+      btn.setAttribute("aria-pressed", mode === "light" ? "true" : "false");
+      btn.setAttribute("title", mode === "dark" ? "Switch to light mode" : "Switch to dark mode");
+    }
+
+    function ensureWidgetThemeToggle() {
+      var mount = document.getElementById("uowMount");
+      if (!mount || !mount.parentNode) return;
+
+      var toolbar = mount.previousElementSibling;
+      if (!toolbar || !toolbar.classList || !toolbar.classList.contains("ups-widget-theme-toolbar")) {
+        toolbar = document.createElement("div");
+        toolbar.className = "ups-widget-theme-toolbar";
+        toolbar.innerHTML =
+          '<button type="button" id="upsWidgetThemeToggle" class="ups-widget-theme-btn" aria-pressed="false">' +
+          '<i class="fa-solid fa-circle-half-stroke"></i>' +
+          '<span class="ups-theme-toggle-label">Theme: Dark</span>' +
+          "</button>";
+        mount.parentNode.insertBefore(toolbar, mount);
+      }
+
+      var widgetToggle = document.getElementById("upsWidgetThemeToggle");
+      if (widgetToggle && !widgetToggle.dataset.wired) {
+        widgetToggle.dataset.wired = "1";
+        widgetToggle.addEventListener("click", function () {
+          if (typeof window.toggleUPSMode === "function") window.toggleUPSMode();
+        });
+      }
+    }
+
+    function syncWidgetThemeIntoIframe() {
+      var mount = document.getElementById("uowMount");
+      if (!mount) return;
+      var iframe = mount.querySelector("iframe");
+      if (!iframe || !iframe.getAttribute("src")) return;
+      var mode = typeof window.getUPSMode === "function" ? window.getUPSMode() : "dark";
+      try {
+        var src = new URL(iframe.getAttribute("src"), window.location.href);
+        var before = src.toString();
+        src.searchParams.set("THEME", mode);
+        src.searchParams.set("theme", mode);
+        var after = src.toString();
+        if (after !== before) iframe.src = after;
+        if (iframe.contentWindow) iframe.contentWindow.postMessage({ type: "ups-theme", mode: mode }, "*");
+      } catch (e) {}
+    }
+
+    function updateAllThemeToggles() {
+      var mode = typeof window.getUPSMode === "function" ? window.getUPSMode() : "dark";
+      updateThemeToggleUi();
+      var widgetBtn = document.getElementById("upsWidgetThemeToggle");
+      if (widgetBtn) {
+        var label = widgetBtn.querySelector(".ups-theme-toggle-label");
+        if (label) label.textContent = mode === "dark" ? "Theme: Dark" : "Theme: Light";
+        widgetBtn.setAttribute("aria-pressed", mode === "light" ? "true" : "false");
+        widgetBtn.setAttribute("title", mode === "dark" ? "Switch to light mode" : "Switch to dark mode");
+      }
+    }
+
+    function initThemeToggles() {
+      var btn = document.getElementById("upsThemeToggle");
+      if (btn && !btn.dataset.wired) {
+        btn.dataset.wired = "1";
+        btn.addEventListener("click", function () {
+          if (typeof window.toggleUPSMode === "function") window.toggleUPSMode();
+        });
+      }
+      ensureWidgetThemeToggle();
+      updateAllThemeToggles();
+      syncWidgetThemeIntoIframe();
+    }
+
+    var observer = new MutationObserver(function () {
+      ensureWidgetThemeToggle();
+      updateAllThemeToggles();
+      syncWidgetThemeIntoIframe();
+    });
+    observer.observe(document.documentElement, { childList: true, subtree: true });
+
+    document.addEventListener("ups-theme-change", function () {
+      updateAllThemeToggles();
+      syncWidgetThemeIntoIframe();
+    });
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", initThemeToggles);
+    } else {
+      initThemeToggles();
+    }
+  })();
+</script>
 
 <script>
   /* Redirect default scoreboard links to custom HPM scoreboard */
@@ -956,7 +1211,7 @@
 
   .report caption,
   .homepagemodule.report caption {
-    background: linear-gradient(135deg, #0f1728 0%, #1c3359 60%, #204f73 100%) !important;
+    background: var(--ups-caption-bg) !important;
     border-bottom: 1px solid var(--ups-border) !important;
   }
 
@@ -964,21 +1219,21 @@
   .report caption span a,
   .homepagemodule.report caption span,
   .homepagemodule.report caption span a {
-    color: #d9edff !important;
+    color: var(--ups-text) !important;
     text-shadow: none !important;
   }
 
   .report th,
   .homepagemodule.report th {
-    background: #152742 !important;
-    color: #e8effa !important;
+    background: var(--ups-th-bg) !important;
+    color: var(--ups-text) !important;
     border-color: var(--ups-border) !important;
   }
 
   .report td,
   .homepagemodule.report td {
-    color: #d3e4fb !important;
-    border-color: #203a5d !important;
+    color: var(--ups-text) !important;
+    border-color: var(--ups-td-border) !important;
   }
 
   .report td span,
@@ -1006,7 +1261,7 @@
   .homepagemodule.report td a:visited,
   .homepagemodule.report td a:hover,
   .homepagemodule.report td a:focus {
-    color: #9ed3ff !important;
+    color: var(--ups-link) !important;
     text-shadow: none !important;
     opacity: 1 !important;
   }
@@ -1017,26 +1272,28 @@
   .homepagemodule.report input[type="button"],
   .homepagemodule.report input[type="submit"],
   .homepagemodule.report button {
-    color: #ffffff !important;
+    background: var(--ups-btn-bg) !important;
+    border-color: var(--ups-btn-border) !important;
+    color: var(--ups-btn-text) !important;
   }
 
   .oddtablerow {
-    background: #111f35 !important;
+    background: var(--ups-row-odd) !important;
   }
 
   .eventablerow {
-    background: #0f1b30 !important;
+    background: var(--ups-row-even) !important;
   }
 
   .warning,
   .injurystatus {
-    color: #ffd08a !important;
+    color: var(--ups-warning) !important;
   }
 
   /* Fallback for modules that do not use .report classes (Add/Drop, mini scoreboards, etc.) */
   #container-wrap table td,
   #container-wrap table th {
-    color: #d3e4fb !important;
+    color: var(--ups-text) !important;
   }
 
   #container-wrap table td *,
@@ -1054,18 +1311,39 @@
   #container-wrap table th a:visited,
   #container-wrap table th a:hover,
   #container-wrap table th a:focus {
-    color: #9ed3ff !important;
+    color: var(--ups-link) !important;
   }
 
   #container-wrap table input[type="button"],
   #container-wrap table input[type="submit"],
   #container-wrap table button {
-    color: #ffffff !important;
+    background: var(--ups-btn-bg) !important;
+    border-color: var(--ups-btn-border) !important;
+    color: var(--ups-btn-text) !important;
   }
 
   #container-wrap table td,
   #container-wrap table th {
     font-weight: 700 !important;
+  }
+
+  .myfantasyleague_menu,
+  .myfantasyleague_menu ul,
+  .myfantasyleague_menu li {
+    background: var(--ups-surface-alt) !important;
+    border-color: var(--ups-border) !important;
+    color: var(--ups-text) !important;
+  }
+
+  .myfantasyleague_menu a,
+  .myfantasyleague_menu a:visited,
+  .myfantasyleague_menu a:hover,
+  .myfantasyleague_menu a:focus,
+  #tabmenu-wrap a,
+  #tabmenu-wrap a:visited,
+  #tabmenu-wrap a:hover,
+  #tabmenu-wrap a:focus {
+    color: var(--ups-text) !important;
   }
 
   /* Mini scoreboard (MFLBox) dark mode */
@@ -1074,9 +1352,9 @@
   #MFLBoxMatchups,
   #MFLBoxContainer .MFLGameTable,
   #MFLBoxContainer .MFLGameLinks {
-    background: #0f1c33 !important;
-    color: #f3f8ff !important;
-    border-color: #2a4470 !important;
+    background: var(--ups-scoreboard-bg) !important;
+    color: var(--ups-scoreboard-text) !important;
+    border-color: var(--ups-scoreboard-border) !important;
   }
 
   #MFLBoxWrapper td,
@@ -1087,25 +1365,25 @@
   #MFLBoxWrapper .MFLPaceScore,
   #MFLBoxWrapper .MFLBoxPlayerDetailsHeader th,
   #MFLBoxWrapper .MFLBoxPlayerDetailsSubHeader th {
-    color: #f3f8ff !important;
+    color: var(--ups-scoreboard-text) !important;
     font-weight: 700 !important;
   }
 
   #MFLBoxWrapper .MFLLiveScore {
-    color: #ffffff !important;
+    color: var(--ups-scoreboard-text) !important;
     font-weight: 900 !important;
   }
 
   #MFLBoxWrapper input[type="button"] {
-    background: #1f4d93 !important;
-    border-color: #4a75b7 !important;
-    color: #ffffff !important;
+    background: var(--ups-btn-bg) !important;
+    border-color: var(--ups-btn-border) !important;
+    color: var(--ups-btn-text) !important;
     font-weight: 800 !important;
   }
 
   #MFLBoxWrapper .warning {
-    color: #f3f8ff !important;
-    background: #12213b !important;
+    color: var(--ups-scoreboard-text) !important;
+    background: var(--ups-scoreboard-alt-bg) !important;
   }
 
   #MFLBoxContainer .MFLBoxMFLNFL table,
@@ -1114,9 +1392,9 @@
   #MFLBoxNFLCell,
   #MFLBoxWeekCell,
   #MFLBoxContainer .mflBoxCell {
-    background: #10203b !important;
-    color: #f3f8ff !important;
-    border-color: #2a4470 !important;
+    background: var(--ups-scoreboard-alt-bg) !important;
+    color: var(--ups-scoreboard-text) !important;
+    border-color: var(--ups-scoreboard-border) !important;
   }
 
   #MFLBoxContainer .mflBoxCellInactive,
@@ -1131,7 +1409,7 @@
   #MFLBoxContainer .MFLNFLLiveTeam a,
   #MFLBoxContainer .MFLNFLLiveClock,
   #MFLBoxContainer .MFLNFLLiveScore {
-    color: #f3f8ff !important;
+    color: var(--ups-scoreboard-text) !important;
     font-weight: 700 !important;
   }
 
@@ -1142,8 +1420,8 @@
   #body_ajax_ls .scoresummary,
   #body_ajax_ls .ls-matchup,
   #body_ajax_ls table {
-    background: #0f1c33 !important;
-    border-color: #2a4470 !important;
+    background: var(--ups-scoreboard-bg) !important;
+    border-color: var(--ups-scoreboard-border) !important;
   }
 
   #body_ajax_ls th,
@@ -1151,14 +1429,14 @@
   #body_ajax_ls .ls_game_info,
   #body_ajax_ls .ls-matchup *,
   #body_ajax_ls .scoresummary * {
-    color: #f3f8ff !important;
+    color: var(--ups-scoreboard-text) !important;
     font-weight: 700 !important;
     text-shadow: none !important;
   }
 
   #body_ajax_ls a,
   #body_ajax_ls a:visited {
-    color: #a9d0ff !important;
+    color: var(--ups-scoreboard-link) !important;
     font-weight: 700 !important;
   }
 
@@ -1166,20 +1444,20 @@
   #body_ajax_ls .report caption,
   #body_ajax_ls .ls-matchup caption,
   #body_ajax_ls .h2hmatchups caption {
-    background: #13284a !important;
-    color: #ffffff !important;
+    background: var(--ups-caption-bg) !important;
+    color: var(--ups-scoreboard-text) !important;
   }
 
   #body_ajax_ls .oddtablerow,
   #body_ajax_ls .eventablerow {
-    background: #12223d !important;
+    background: var(--ups-scoreboard-alt-bg) !important;
   }
 
   #ScoreDetails,
   #ScoreNFLDetails {
-    background: #0f1c33 !important;
-    border-color: #2a4470 !important;
-    color: #f3f8ff !important;
+    background: var(--ups-scoreboard-bg) !important;
+    border-color: var(--ups-scoreboard-border) !important;
+    color: var(--ups-scoreboard-text) !important;
   }
 
   /* Commissioner setup pages */
@@ -1187,9 +1465,9 @@
   body[id^="body_csetup"] .report,
   body[id^="body_csetup"] .mobile-wrap > .report,
   body[id^="body_csetup"] .homepagemodule.report {
-    background: #0f1c33 !important;
-    border-color: #2a4470 !important;
-    color: #f3f8ff !important;
+    background: var(--ups-surface) !important;
+    border-color: var(--ups-border) !important;
+    color: var(--ups-text) !important;
   }
 
   body[id^="body_csetup"] th,
@@ -1198,7 +1476,7 @@
   body[id^="body_csetup"] span,
   body[id^="body_csetup"] p,
   body[id^="body_csetup"] a {
-    color: #f3f8ff !important;
+    color: var(--ups-text) !important;
     text-shadow: none !important;
     font-weight: 700 !important;
   }
@@ -1208,26 +1486,26 @@
   body[id^="body_csetup"] input[type="password"],
   body[id^="body_csetup"] select,
   body[id^="body_csetup"] textarea {
-    background: #10203b !important;
-    border: 1px solid #2a4470 !important;
-    color: #f3f8ff !important;
+    background: var(--ups-surface-alt) !important;
+    border: 1px solid var(--ups-border) !important;
+    color: var(--ups-text) !important;
   }
 
   body[id^="body_csetup"] input[type="button"],
   body[id^="body_csetup"] input[type="submit"],
   body[id^="body_csetup"] button {
-    background: #1f4d93 !important;
-    border: 1px solid #4a75b7 !important;
-    color: #ffffff !important;
+    background: var(--ups-btn-bg) !important;
+    border: 1px solid var(--ups-btn-border) !important;
+    color: var(--ups-btn-text) !important;
     font-weight: 800 !important;
   }
 
   body[id^="body_csetup"] .oddtablerow {
-    background: #12223d !important;
+    background: var(--ups-row-odd) !important;
   }
 
   body[id^="body_csetup"] .eventablerow {
-    background: #101f38 !important;
+    background: var(--ups-row-even) !important;
   }
 </style>
 
