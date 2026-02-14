@@ -199,15 +199,49 @@
   }
 
   /* Hero / hotlinks */
+  .ups-hero-shell {
+    max-width: 1200px;
+    margin: 0.9rem auto 0.7rem;
+    padding: 0 0.35rem;
+  }
+
+  .ups-hero-shell .banner-container-full {
+    margin: 0;
+    border-radius: 16px;
+    overflow: hidden;
+    border: 1px solid var(--ups-hero-border);
+    box-shadow: var(--ups-shadow);
+    background: #050c17;
+  }
+
+  .ups-hero-shell .banner-container-wrap-full {
+    margin: 0;
+  }
+
+  .ups-hero-shell .full_height_banner {
+    display: block;
+    line-height: 0;
+  }
+
+  .ups-hero-shell .full_height_banner img {
+    display: block;
+    width: 100%;
+    height: auto;
+    min-height: 170px;
+    object-fit: cover;
+  }
+
   .ccc-banner {
-    margin: 0.9rem auto 0.6rem;
+    margin: -1.2rem auto 0;
     padding: 1rem 1.2rem;
     border-radius: 14px;
-    max-width: 1200px;
+    max-width: calc(100% - 1.6rem);
     color: var(--ups-text);
     background: var(--ups-hero-bg);
     border: 1px solid var(--ups-hero-border);
     box-shadow: var(--ups-shadow);
+    position: relative;
+    z-index: 2;
   }
 
   .ccc-banner-inner {
@@ -270,9 +304,9 @@
 
   .ccc-cta:hover,
   .ccc-cta:focus {
-    color: var(--ups-accent) !important;
+    color: #ffffff !important;
     background: var(--ups-brand-strong);
-    border-color: var(--ups-accent);
+    border-color: #6f95cd;
   }
 
   .ccc-theme-toggle {
@@ -308,8 +342,8 @@
   .ccc-pill:hover,
   .ccc-pill:focus {
     background: var(--ups-brand-strong);
-    color: var(--ups-accent) !important;
-    border-color: var(--ups-accent);
+    color: #ffffff !important;
+    border-color: #6f95cd;
   }
 
   .ccc-cta i,
@@ -394,6 +428,25 @@
 
     .ccc-cta-group {
       justify-content: flex-start;
+    }
+
+    .ups-hero-shell {
+      padding: 0 0.25rem;
+    }
+
+    .ccc-banner {
+      margin-top: -0.8rem;
+      max-width: calc(100% - 0.8rem);
+      padding: 0.8rem 0.85rem;
+    }
+
+    .ccc-title-hotlinks {
+      font-size: 1.2rem;
+      letter-spacing: 0.05em;
+    }
+
+    .ccc-actions {
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
     }
   }
 
@@ -537,46 +590,48 @@
 <!---------- LEAGUE BANNER -------------->
 <!-------------------------------------->
 
-<div class="banner-container-full">
-  <div class="banner-container-wrap-full">
-    <a class="full_height_banner" href="//%HOST%/%YEAR%/home/%LEAGUEID%" title="Return to home page">
-      <img src="https://i.ibb.co/Lz5d5Bb4/Chat-GPT-Image-Oct-12-2025-at-08-33-28-AM.png" alt="UPS League Banner">
-    </a>
-  </div>
-</div>
-
-<!-------------------------------------->
-<!------- UPS HOTLINKS SECTION ---------->
-<!-------------------------------------->
-
-<div class="ccc-banner">
-  <div class="ccc-banner-inner">
-    <div class="ccc-text">
-      <div class="ccc-title-row">
-        <span class="ups-logo-wrap">
-          <img class="ups-logo-icon" src="https://i.ibb.co/Kp2L4ZM6/images-2.png" alt="UPS">
-        </span>
-        <span class="ccc-title-hotlinks">UPS Hotlinks</span>
-      </div>
-    </div>
-
-    <div class="ccc-cta-group">
-      <a class="ccc-cta" href="//%HOST%/%YEAR%/home/25625?MODULE=MESSAGE2">
-        <i class="fa-solid fa-arrow-up-right-from-square"></i>
-        Contract Command Center
+<div class="ups-hero-shell">
+  <div class="banner-container-full">
+    <div class="banner-container-wrap-full">
+      <a class="full_height_banner" href="//%HOST%/%YEAR%/home/%LEAGUEID%" title="Return to home page">
+        <img src="https://i.ibb.co/Lz5d5Bb4/Chat-GPT-Image-Oct-12-2025-at-08-33-28-AM.png" alt="UPS League Banner">
       </a>
-      <button class="ccc-cta ccc-theme-toggle" id="upsThemeToggle" type="button" aria-pressed="false">
-        <i class="fa-solid fa-circle-half-stroke"></i>
-        <span class="ups-theme-toggle-label">Theme: Dark</span>
-      </button>
     </div>
+  </div>
 
-    <div class="ccc-actions">
-      <a class="ccc-pill" href="//%HOST%/%YEAR%/lineup?L=%LEAGUEID%"><i class="fa-solid fa-clipboard-list"></i>Submit Lineup</a>
-      <a class="ccc-pill" href="//%HOST%/%YEAR%/add_drop?L=%LEAGUEID%"><i class="fa-solid fa-plus-minus"></i>Add/Drop</a>
-      <a class="ccc-pill" href="//%HOST%/%YEAR%/options?L=74598&amp;O=07"><i class="fa-solid fa-users"></i>Rosters</a>
-      <a class="ccc-pill" href="//%HOST%/%YEAR%/ajax_ls?L=%LEAGUEID%"><i class="fa-solid fa-gauge-high"></i>Scoreboard</a>
-      <a class="ccc-pill" href="//%HOST%/%YEAR%/options?L=%LEAGUEID%&amp;O=05"><i class="fa-solid fa-handshake"></i>Trades</a>
+  <!-------------------------------------->
+  <!------- UPS HOTLINKS SECTION ---------->
+  <!-------------------------------------->
+
+  <div class="ccc-banner">
+    <div class="ccc-banner-inner">
+      <div class="ccc-text">
+        <div class="ccc-title-row">
+          <span class="ups-logo-wrap">
+            <img class="ups-logo-icon" src="https://i.ibb.co/Kp2L4ZM6/images-2.png" alt="UPS">
+          </span>
+          <span class="ccc-title-hotlinks">UPS Hotlinks</span>
+        </div>
+      </div>
+
+      <div class="ccc-cta-group">
+        <a class="ccc-cta" href="//%HOST%/%YEAR%/home/25625?MODULE=MESSAGE2">
+          <i class="fa-solid fa-arrow-up-right-from-square"></i>
+          Contract Command Center
+        </a>
+        <button class="ccc-cta ccc-theme-toggle" id="upsThemeToggle" type="button" aria-pressed="false">
+          <i class="fa-solid fa-circle-half-stroke"></i>
+          <span class="ups-theme-toggle-label">Theme: Dark</span>
+        </button>
+      </div>
+
+      <div class="ccc-actions">
+        <a class="ccc-pill" href="//%HOST%/%YEAR%/lineup?L=%LEAGUEID%"><i class="fa-solid fa-clipboard-list"></i>Submit Lineup</a>
+        <a class="ccc-pill" href="//%HOST%/%YEAR%/add_drop?L=%LEAGUEID%"><i class="fa-solid fa-plus-minus"></i>Add/Drop</a>
+        <a class="ccc-pill" href="//%HOST%/%YEAR%/options?L=74598&amp;O=07"><i class="fa-solid fa-users"></i>Rosters</a>
+        <a class="ccc-pill" href="//%HOST%/%YEAR%/ajax_ls?L=%LEAGUEID%"><i class="fa-solid fa-gauge-high"></i>Scoreboard</a>
+        <a class="ccc-pill" href="//%HOST%/%YEAR%/options?L=%LEAGUEID%&amp;O=05"><i class="fa-solid fa-handshake"></i>Trades</a>
+      </div>
     </div>
   </div>
 </div>
@@ -598,7 +653,14 @@
       if (btn && !btn.dataset.wired) {
         btn.dataset.wired = "1";
         btn.addEventListener("click", function () {
-          if (typeof window.toggleUPSMode === "function") window.toggleUPSMode();
+          if (typeof window.toggleUPSMode === "function") {
+            window.toggleUPSMode();
+            return;
+          }
+          if (typeof window.getUPSMode === "function" && typeof window.setUPSMode === "function") {
+            var next = window.getUPSMode() === "dark" ? "light" : "dark";
+            window.setUPSMode(next);
+          }
         });
       }
       updateThemeToggleUi();
@@ -1238,6 +1300,57 @@
     font-weight: 700 !important;
   }
 
+  #container-wrap input[type="text"],
+  #container-wrap input[type="number"],
+  #container-wrap input[type="password"],
+  #container-wrap input[type="email"],
+  #container-wrap input[type="search"],
+  #container-wrap select,
+  #container-wrap textarea {
+    background: var(--ups-surface-alt) !important;
+    color: var(--ups-text) !important;
+    border: 1px solid var(--ups-border) !important;
+  }
+
+  #container-wrap input::placeholder,
+  #container-wrap textarea::placeholder {
+    color: var(--ups-muted) !important;
+    opacity: 1 !important;
+  }
+
+  #container-wrap .navbuttons a,
+  #container-wrap .reportnavigation a,
+  #container-wrap .pageheader,
+  #container-wrap .pageheader *,
+  #container-wrap .warning,
+  #container-wrap .alert {
+    color: var(--ups-text) !important;
+    text-shadow: none !important;
+  }
+
+  body#body_options_07 #MFLroster table,
+  body#body_options_07 #MFLroster .roster_assets,
+  body#body_options_07 #MFLroster caption,
+  body#body_options_07 #MFLroster th,
+  body#body_options_07 #MFLroster td {
+    background: var(--ups-surface) !important;
+    color: var(--ups-text) !important;
+    border-color: var(--ups-border) !important;
+  }
+
+  body#body_options_07 #MFLroster caption,
+  body#body_options_07 #MFLroster .roster_assets thead th {
+    background: var(--ups-caption-bg) !important;
+  }
+
+  body#body_options_07 #MFLroster tr.oddtablerow {
+    background: var(--ups-row-odd) !important;
+  }
+
+  body#body_options_07 #MFLroster tr.eventablerow {
+    background: var(--ups-row-even) !important;
+  }
+
   .myfantasyleague_menu,
   .myfantasyleague_menu ul,
   .myfantasyleague_menu li {
@@ -1417,6 +1530,20 @@
 
   body[id^="body_csetup"] .eventablerow {
     background: var(--ups-row-even) !important;
+  }
+
+  body[id^="body_csetup"] table {
+    table-layout: auto !important;
+  }
+
+  body[id^="body_csetup"] td,
+  body[id^="body_csetup"] th {
+    padding: 0.38rem 0.45rem !important;
+    vertical-align: middle !important;
+  }
+
+  body[id^="body_csetup"] .mobile-wrap {
+    overflow-x: auto !important;
   }
 </style>
 
