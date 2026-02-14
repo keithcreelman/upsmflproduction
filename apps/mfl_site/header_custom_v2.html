@@ -46,7 +46,7 @@
     --ups-muted: #9fb3d1;
     --ups-brand: #2e63b8;
     --ups-brand-strong: #1f3f78;
-    --ups-accent: #e6b34d;
+    --ups-accent: #f0c465;
     --ups-accent-ink: #102a55;
     --ups-link: #8ec4ff;
     --ups-link-hover: #c0deff;
@@ -89,7 +89,7 @@
     --ups-muted: #445f86;
     --ups-brand: #24529a;
     --ups-brand-strong: #183c74;
-    --ups-accent: #e6b34d;
+    --ups-accent: #f0c465;
     --ups-accent-ink: #102a55;
     --ups-link: #1f4d97;
     --ups-link-hover: #143a77;
@@ -270,9 +270,9 @@
 
   .ccc-cta:hover,
   .ccc-cta:focus {
-    color: var(--ups-accent-ink) !important;
-    background: #f0c465;
-    border-color: #cb9c3c;
+    color: var(--ups-accent) !important;
+    background: var(--ups-brand-strong);
+    border-color: var(--ups-accent);
   }
 
   .ccc-theme-toggle {
@@ -307,8 +307,9 @@
 
   .ccc-pill:hover,
   .ccc-pill:focus {
-    background: #f0c465;
-    color: var(--ups-accent-ink) !important;
+    background: var(--ups-brand-strong);
+    color: var(--ups-accent) !important;
+    border-color: var(--ups-accent);
   }
 
   .ccc-cta i,
@@ -394,34 +395,6 @@
     .ccc-cta-group {
       justify-content: flex-start;
     }
-  }
-
-  .ups-widget-theme-toolbar {
-    margin: 0.45rem 0 0.35rem;
-    display: flex;
-    justify-content: flex-end;
-  }
-
-  .ups-widget-theme-btn {
-    border: 1px solid var(--ups-chip-border);
-    background: var(--ups-chip-bg);
-    color: var(--ups-chip-text);
-    border-radius: 10px;
-    font-size: 0.8rem;
-    line-height: 1;
-    font-weight: 800;
-    padding: 0.5rem 0.7rem;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-  }
-
-  .ups-widget-theme-btn:hover,
-  .ups-widget-theme-btn:focus {
-    border-color: var(--ups-chip-hover-border);
-    background: var(--ups-chip-hover-bg);
-    color: var(--ups-text);
   }
 
   #uowMount {
@@ -620,63 +593,7 @@
       btn.setAttribute("title", mode === "dark" ? "Switch to light mode" : "Switch to dark mode");
     }
 
-    function ensureWidgetThemeToggle() {
-      var mount = document.getElementById("uowMount");
-      if (!mount || !mount.parentNode) return;
-
-      var toolbar = mount.previousElementSibling;
-      if (!toolbar || !toolbar.classList || !toolbar.classList.contains("ups-widget-theme-toolbar")) {
-        toolbar = document.createElement("div");
-        toolbar.className = "ups-widget-theme-toolbar";
-        toolbar.innerHTML =
-          '<button type="button" id="upsWidgetThemeToggle" class="ups-widget-theme-btn" aria-pressed="false">' +
-          '<i class="fa-solid fa-circle-half-stroke"></i>' +
-          '<span class="ups-theme-toggle-label">Theme: Dark</span>' +
-          "</button>";
-        mount.parentNode.insertBefore(toolbar, mount);
-      }
-
-      var widgetToggle = document.getElementById("upsWidgetThemeToggle");
-      if (widgetToggle && !widgetToggle.dataset.wired) {
-        widgetToggle.dataset.wired = "1";
-        widgetToggle.addEventListener("click", function () {
-          if (typeof window.toggleUPSMode === "function") window.toggleUPSMode();
-        });
-      }
-    }
-
-    function syncWidgetThemeIntoIframe() {
-      var mount = document.getElementById("uowMount");
-      if (!mount) return;
-      var iframe = mount.querySelector("iframe");
-      if (!iframe || !iframe.getAttribute("src")) return;
-      var mode = typeof window.getUPSMode === "function" ? window.getUPSMode() : "dark";
-      try {
-        var lastMode = iframe.getAttribute("data-ups-theme-mode") || "";
-        if (lastMode !== mode) {
-          var src = new URL(iframe.getAttribute("src"), window.location.href);
-          src.searchParams.set("THEME", mode);
-          src.searchParams.set("theme", mode);
-          iframe.setAttribute("data-ups-theme-mode", mode);
-          iframe.src = src.toString();
-        }
-        if (iframe.contentWindow) iframe.contentWindow.postMessage({ type: "ups-theme", mode: mode }, "*");
-      } catch (e) {}
-    }
-
-    function updateAllThemeToggles() {
-      var mode = typeof window.getUPSMode === "function" ? window.getUPSMode() : "dark";
-      updateThemeToggleUi();
-      var widgetBtn = document.getElementById("upsWidgetThemeToggle");
-      if (widgetBtn) {
-        var label = widgetBtn.querySelector(".ups-theme-toggle-label");
-        if (label) label.textContent = mode === "dark" ? "Theme: Dark" : "Theme: Light";
-        widgetBtn.setAttribute("aria-pressed", mode === "light" ? "true" : "false");
-        widgetBtn.setAttribute("title", mode === "dark" ? "Switch to light mode" : "Switch to dark mode");
-      }
-    }
-
-    function initThemeToggles() {
+    function initThemeToggle() {
       var btn = document.getElementById("upsThemeToggle");
       if (btn && !btn.dataset.wired) {
         btn.dataset.wired = "1";
@@ -684,35 +601,19 @@
           if (typeof window.toggleUPSMode === "function") window.toggleUPSMode();
         });
       }
-      ensureWidgetThemeToggle();
-      updateAllThemeToggles();
-      syncWidgetThemeIntoIframe();
-    }
-
-    function primeWidgetToggle() {
-      var attempts = 0;
-      var timer = setInterval(function () {
-        attempts += 1;
-        ensureWidgetThemeToggle();
-        updateAllThemeToggles();
-        syncWidgetThemeIntoIframe();
-        if (attempts >= 20) clearInterval(timer);
-      }, 500);
+      updateThemeToggleUi();
     }
 
     document.addEventListener("ups-theme-change", function () {
-      updateAllThemeToggles();
-      syncWidgetThemeIntoIframe();
+      updateThemeToggleUi();
     });
 
     if (document.readyState === "loading") {
       document.addEventListener("DOMContentLoaded", function () {
-        initThemeToggles();
-        primeWidgetToggle();
+        initThemeToggle();
       });
     } else {
-      initThemeToggles();
-      primeWidgetToggle();
+      initThemeToggle();
     }
   })();
 </script>
