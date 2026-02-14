@@ -1,0 +1,9 @@
+.DS_Store
+__pycache__/
+*.pyc
+pipelines/etl/data/
+pipelines/etl/artifacts/
+pipelines/etl/config/runtime.env.live
+*.db
+pipelines/etl/artifacts/*.csv
+services/rulebook/data/rule_feedback.db

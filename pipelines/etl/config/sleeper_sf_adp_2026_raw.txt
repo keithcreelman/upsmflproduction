@@ -1,0 +1,1454 @@
+Sleeper
+LEAGUE SIZE
+12
+POSITION
+PLAYER SEARCH
+Player	
+Sleeper: Dynasty
+1 PPR Superflex ADP
+Market Index
+BUF	1	
+Josh Allen QB BUF
+1.1
+Show Trend »	
++0
+NE	2	
+Drake Maye QB NE
+1.2
+Show Trend »	
++0
+CIN	3	
+Joe Burrow QB CIN
+1.3
+Show Trend »	
+-7
+WAS	4	
+Jayden Daniels QB WAS
+1.4
+Show Trend »	
++1
+CIN	5	
+Ja'Marr Chase WR CIN
+1.5
+Show Trend »	
+-1
+LAR	6	
+Puka Nacua WR LAR
+1.6
+Show Trend »	
+-2
+SEA	7	
+Jaxon Smith-Njigba WR SEA
+1.7
+Show Trend »	
++0
+BAL	8	
+Lamar Jackson QB BAL
+1.8
+Show Trend »	
++4
+PHI	9	
+Jalen Hurts QB PHI
+1.9
+Show Trend »	
+-10
+MIN	10	
+Justin Jefferson WR MIN
+1.10
+Show Trend »	
+-6
+ATL	11	
+Bijan Robinson RB ATL
+1.11
+Show Trend »	
++6
+KC	12	
+Patrick Mahomes QB KC
+1.12
+Show Trend »	
++1
+DET	13	
+Jahmyr Gibbs RB DET
+2.1
+Show Trend »	
++4
+DET	14	
+Amon-Ra St. Brown WR DET
+2.2
+Show Trend »	
++1
+DAL	15	
+CeeDee Lamb WR DAL
+2.3
+Show Trend »	
++1
+CHI	16	
+Caleb Williams QB CHI
+2.4
+Show Trend »	
++4
+NYG	17	
+Malik Nabers WR NYG
+2.5
+Show Trend »	
++2
+LAC	18	
+Justin Herbert QB LAC
+2.6
+Show Trend »	
+-4
+NYG	19	
+Jaxson Dart QB NYG
+2.7
+Show Trend »	
+-11
+RK	20	
+Jeremiyah Love RB RK
+2.8
+Show Trend »	
++2
+JAC	21	
+Trevor Lawrence QB JAC
+2.9
+Show Trend »	
+-4
+MIA	22	
+De'Von Achane RB MIA
+2.10
+Show Trend »	
++2
+ATL	23	
+Drake London WR ATL
+2.11
+Show Trend »	
++0
+LVR	24	
+Ashton Jeanty RB LVR
+2.12
+Show Trend »	
++7
+RK	25	
+Makai Lemon WR RK
+3.1
+Show Trend »	
+-34
+HOU	26	
+Nico Collins WR HOU
+3.2
+Show Trend »	
++0
+SF	27	
+Brock Purdy QB SF
+3.3
+Show Trend »	
+-1
+DEN	28	
+Bo Nix QB DEN
+3.4
+Show Trend »	
+-6
+RK	29	
+Carnell Tate WR RK
+3.5
+Show Trend »	
+-29
+IND	30	
+Jonathan Taylor RB IND
+3.6
+Show Trend »	
++9
+UNS	31	
+George Pickens WR UNS
+3.7
+Show Trend »	
+-5
+ARI	32	
+Trey McBride TE ARI
+3.8
+Show Trend »	
+-3
+BUF	33	
+James Cook RB BUF
+3.9
+Show Trend »	
+-4
+LVR	34	
+Brock Bowers TE LVR
+3.10
+Show Trend »	
++2
+NO	35	
+Chris Olave WR NO
+3.11
+Show Trend »	
+-11
+CAR	36	
+Tetairoa McMillan WR CAR
+3.12
+Show Trend »	
++5
+DAL	37	
+Dak Prescott QB DAL
+4.1
+Show Trend »	
+-6
+KC	38	
+Rashee Rice WR KC
+4.2
+Show Trend »	
++5
+RK	39	
+Fernando Mendoza QB RK
+4.3
+Show Trend »	
++10
+LAC	40	
+Omarion Hampton RB LAC
+4.4
+Show Trend »	
++16
+NYJ	41	
+Garrett Wilson WR NYJ
+4.5
+Show Trend »	
+-12
+PHI	42	
+A.J. Brown WR PHI
+4.6
+Show Trend »	
+-7
+LAC	43	
+Ladd McConkey WR LAC
+4.7
+Show Trend »	
+-9
+TB	44	
+Emeka Egbuka WR TB
+4.8
+Show Trend »	
++4
+CIN	45	
+Chase Brown RB CIN
+4.9
+Show Trend »	
+-11
+RK	46	
+Jordyn Tyson WR RK
+4.10
+Show Trend »	
+-21
+GB	47	
+Jordan Love QB GB
+4.11
+Show Trend »	
++8
+CIN	48	
+Tee Higgins WR CIN
+4.12
+Show Trend »	
++0
+RK	49	
+Jonah Coleman RB RK
+5.1
+Show Trend »	
+-85
+NE	50	
+TreVeyon Henderson RB NE
+5.2
+Show Trend »	
++23
+RK	51	
+Denzel Boston WR RK
+5.3
+Show Trend »	
+-47
+DET	52	
+Jameson Williams WR DET
+5.4
+Show Trend »	
+-13
+TB	53	
+Bucky Irving RB TB
+5.5
+Show Trend »	
++11
+TB	54	
+Baker Mayfield QB TB
+5.6
+Show Trend »	
++0
+SF	55	
+Christian McCaffrey RB SF
+5.7
+Show Trend »	
++10
+ARI	56	
+Marvin Harrison Jr. WR ARI
+5.8
+Show Trend »	
+-29
+JAC	57	
+Brian Thomas Jr. WR JAC
+5.9
+Show Trend »	
+-22
+RK	58	
+KC Concepcion WR RK
+5.10
+Show Trend »	
+-44
+CHI	59	
+Rome Odunze WR CHI
+5.11
+Show Trend »	
+-31
+PHI	60	
+DeVonta Smith WR PHI
+5.12
+Show Trend »	
+-1
+UNS	61	
+Breece Hall RB UNS
+6.1
+Show Trend »	
++23
+PHI	62	
+Saquon Barkley RB PHI
+6.2
+Show Trend »	
++11
+HOU	63	
+C.J. Stroud QB HOU
+6.3
+Show Trend »	
++19
+SEA	65	
+Sam Darnold QB SEA
+6.5
+Show Trend »	
+-4
+CHI	66	
+Luther Burden III WR CHI
+6.6
+Show Trend »	
+-17
+DET	67	
+Jared Goff QB DET
+6.7
+Show Trend »	
++10
+GB	68	
+Josh Jacobs RB GB
+6.8
+Show Trend »	
++27
+BAL	69	
+Zay Flowers WR BAL
+6.9
+Show Trend »	
++19
+CHI	70	
+Colston Loveland TE CHI
+6.10
+Show Trend »	
++10
+MIA	71	
+Jaylen Waddle WR MIA
+6.11
+Show Trend »	
++8
+IND	72	
+Tyler Warren TE IND
+6.12
+Show Trend »	
++2
+LAR	73	
+Kyren Williams RB LAR
+7.1
+Show Trend »	
++2
+RK	74	
+Kenyon Sadiq TE RK
+7.2
+Show Trend »	
+-53
+CLE	75	
+Quinshon Judkins RB CLE
+7.3
+Show Trend »	
++28
+DEN	76	
+RJ Harvey RB DEN
+7.4
+Show Trend »	
+-2
+UNS	77	
+Kenneth Walker III RB UNS
+7.5
+Show Trend »	
++9
+CLE	78	
+Harold Fannin Jr. TE CLE
+7.6
+Show Trend »	
++5
+GB	79	
+Tucker Kraft TE GB
+7.7
+Show Trend »	
+-16
+NYG	80	
+Cameron Skattebo RB NYG
+7.8
+Show Trend »	
+-1
+RK	81	
+Ty Simpson QB RK
+7.9
+Show Trend »	
+-19
+DET	82	
+Sam LaPorta TE DET
+7.10
+Show Trend »	
+N/A
+GB	83	
+Christian Watson WR GB
+7.11
+Show Trend »	
+-24
+PIT	85	
+D.K. Metcalf WR PIT
+8.1
+Show Trend »	
+-21
+JAC	86	
+Travis Hunter WR JAC
+8.2
+Show Trend »	
+-2
+RK	87	
+Jadarian Price RB RK
+8.3
+Show Trend »	
+-14
+UNS	88	
+Javonte Williams RB UNS
+8.4
+Show Trend »	
+-23
+ARI	89	
+Michael Wilson WR ARI
+8.5
+Show Trend »	
+-43
+ARI	90	
+Kyler Murray QB ARI
+8.6
+Show Trend »	
++28
+DEN	91	
+Courtland Sutton WR DEN
+8.7
+Show Trend »	
+-22
+TEN	92	
+Cameron Ward QB TEN
+8.8
+Show Trend »	
++18
+RK	93	
+Emmett Johnson RB RK
+8.9
+Show Trend »	
+-82
+MIN	94	
+Jordan Addison WR MIN
+8.10
+Show Trend »	
+-11
+SF	95	
+Ricky Pearsall WR SF
+8.11
+Show Trend »	
++6
+NO	96	
+Tyler Shough QB NO
+8.12
+Show Trend »	
++30
+UNS	97	
+Travis Etienne RB UNS
+9.1
+Show Trend »	
+-12
+UNS	98	
+Kyle Pitts TE UNS
+9.2
+Show Trend »	
+-51
+RK	99	
+Nicholas Singleton RB RK
+9.3
+Show Trend »	
+N/A
+CAR	100	
+Bryce Young QB CAR
+9.4
+Show Trend »	
++23
+JAC	101	
+Jakobi Meyers WR JAC
+9.5
+Show Trend »	
+-41
+RK	102	
+Eli Stowers TE RK
+9.6
+Show Trend »	
+N/A
+LAR	103	
+Matthew Stafford QB LAR
+9.7
+Show Trend »	
++19
+UNS	104	
+Wan'Dale Robinson WR UNS
+9.8
+Show Trend »	
+-17
+BAL	105	
+Derrick Henry RB BAL
+9.9
+Show Trend »	
++9
+IND	106	
+Michael Pittman Jr. WR IND
+9.10
+Show Trend »	
++9
+BUF	107	
+Dalton Kincaid TE BUF
+9.11
+Show Trend »	
+N/A
+CHI	108	
+D.J. Moore WR CHI
+9.12
+Show Trend »	
+-58
+LAR	109	
+Davante Adams WR LAR
+10.1
+Show Trend »	
+-1
+RK	110	
+Chris Bell WR RK
+10.2
+Show Trend »	
+N/A
+ATL	111	
+Michael Penix Jr. QB ATL
+10.3
+Show Trend »	
++17
+RK	112	
+Elijah Sarratt WR RK
+10.4
+Show Trend »	
+N/A
+LAC	113	
+Quentin Johnston WR LAC
+10.5
+Show Trend »	
+-44
+RK	114	
+Omar Cooper Jr. WR RK
+10.6
+Show Trend »	
+-44
+IND	115	
+Daniel Jones QB IND
+10.7
+Show Trend »	
++24
+WAS	116	
+Terry McLaurin WR WAS
+10.8
+Show Trend »	
++13
+CHI	117	
+D'Andre Swift RB CHI
+10.9
+Show Trend »	
+-6
+KC	118	
+Xavier Worthy WR KC
+10.10
+Show Trend »	
++14
+UNS	119	
+Jauan Jennings WR UNS
+10.11
+Show Trend »	
+-11
+RK	120	
+Zachariah Branch WR RK
+10.12
+Show Trend »	
+-51
+MIN	121	
+J.J. McCarthy QB MIN
+11.1
+Show Trend »	
++35
+RK	122	
+Germie Bernard WR RK
+11.2
+Show Trend »	
+N/A
+HOU	123	
+Woody Marks RB HOU
+11.3
+Show Trend »	
++4
+BUF	124	
+Khalil Shakir WR BUF
+11.4
+Show Trend »	
+-5
+PIT	125	
+Jaylen Warren RB PIT
+11.5
+Show Trend »	
++0
+LAR	126	
+Blake Corum RB LAR
+11.6
+Show Trend »	
+-21
+JAC	127	
+Brenton Strange TE JAC
+11.7
+Show Trend »	
+N/A
+CHI	128	
+Kyle Monangai RB CHI
+11.8
+Show Trend »	
+-18
+SEA	129	
+Zach Charbonnet RB SEA
+11.9
+Show Trend »	
+-6
+RK	130	
+Chris Brazzell II WR RK
+11.10
+Show Trend »	
+N/A
+UNS	131	
+Alec Pierce WR UNS
+11.11
+Show Trend »	
+-13
+RK	133	
+Antonio Williams WR RK
+12.1
+Show Trend »	
+N/A
+HOU	134	
+Jayden Higgins WR HOU
+12.2
+Show Trend »	
++26
+RK	135	
+Ja'Kobi Lane WR RK
+12.3
+Show Trend »	
+N/A
+GB	136	
+Matthew Golden WR GB
+12.4
+Show Trend »	
+-12
+ARI	137	
+Trey Benson RB ARI
+12.5
+Show Trend »	
++0
+RK	138	
+Demond Claiborne RB RK
+12.6
+Show Trend »	
+N/A
+NE	139	
+Rhamondre Stevenson RB NE
+12.7
+Show Trend »	
++0
+GB	140	
+Jayden Reed WR GB
+12.8
+Show Trend »	
++0
+SF	141	
+George Kittle TE SF
+12.9
+Show Trend »	
+N/A
+LAC	142	
+Oronde Gadsden II TE LAC
+12.10
+Show Trend »	
+N/A
+TB	143	
+Mike Evans WR TB
+12.11
+Show Trend »	
++25
+DAL	144	
+Jake Ferguson TE DAL
+12.12
+Show Trend »	
+N/A
+UNS	145	
+Brandon Aiyuk WR UNS
+13.1
+Show Trend »	
+-39
+IND	146	
+Anthony Richardson QB IND
+13.2
+Show Trend »	
+N/A
+UNS	147	
+Tua Tagovailoa QB UNS
+13.3
+Show Trend »	
++33
+UNS	148	
+Rico Dowdle RB UNS
+13.4
+Show Trend »	
+-35
+NE	149	
+Stefon Diggs WR NE
+13.5
+Show Trend »	
++13
+TB	150	
+Chris Godwin WR TB
+13.6
+Show Trend »	
++34
+RK	151	
+Carson Beck QB RK
+13.7
+Show Trend »	
+N/A
+CAR	152	
+Chuba Hubbard RB CAR
+13.8
+Show Trend »	
+-7
+JAC	153	
+Parker Washington WR JAC
+13.9
+Show Trend »	
+-44
+NYG	154	
+Theo Johnson TE NYG
+13.10
+Show Trend »	
+N/A
+IND	155	
+Josh Downs WR IND
+13.11
+Show Trend »	
+-6
+DET	156	
+David Montgomery RB DET
+13.12
+Show Trend »	
+-38
+RK	157	
+Mike Washington Jr. RB RK
+14.1
+Show Trend »	
+-66
+JAC	158	
+Bhayshul Tuten RB JAC
+14.2
+Show Trend »	
++30
+UNS	159	
+Deebo Samuel WR UNS
+14.3
+Show Trend »	
+-27
+NO	160	
+Juwan Johnson TE NO
+14.4
+Show Trend »	
+N/A
+RK	161	
+Malachi Fields WR RK
+14.5
+Show Trend »	
+-9
+CAR	162	
+Jalen Coker WR CAR
+14.6
+Show Trend »	
+-30
+NYJ	163	
+Mason Taylor TE NYJ
+14.7
+Show Trend »	
+N/A
+UNS	164	
+Romeo Doubs WR UNS
+14.8
+Show Trend »	
+-4
+BAL	165	
+Mark Andrews TE BAL
+14.9
+Show Trend »	
+N/A
+TB	166	
+Jalen McMillan WR TB
+14.10
+Show Trend »	
+-96
+NYG	167	
+Tyrone Tracy Jr. RB NYG
+14.11
+Show Trend »	
+-11
+UNS	169	
+Kenneth Gainwell RB UNS
+15.1
+Show Trend »	
+-7
+UNS	171	
+J.K. Dobbins RB UNS
+15.3
+Show Trend »	
+-11
+NE	172	
+Kayshon Boutte WR NE
+15.4
+Show Trend »	
+-67
+DEN	173	
+Troy Franklin WR DEN
+15.5
+Show Trend »	
+-12
+DEN	174	
+Pat Bryant WR DEN
+15.6
+Show Trend »	
++5
+RK	175	
+Max Klare TE RK
+15.7
+Show Trend »	
+N/A
+UNS	176	
+Dallas Goedert TE UNS
+15.8
+Show Trend »	
+N/A
+UNS	177	
+Tyreek Hill WR UNS
+15.9
+Show Trend »	
+-60
+TEN	178	
+Tony Pollard RB TEN
+15.10
+Show Trend »	
++22
+TEN	179	
+Chimere Dike WR TEN
+15.11
+Show Trend »	
+-61
+UNS	180	
+Tyler Allgeier RB UNS
+15.12
+Show Trend »	
+-26
+UNS	181	
+Geno Smith QB UNS
+16.1
+Show Trend »	
+-69
+RK	182	
+Brenen Thompson WR RK
+16.2
+Show Trend »	
+N/A
+WAS	183	
+Jacory Croskey-Merritt RB WAS
+16.3
+Show Trend »	
++4
+LAC	184	
+Tre Harris WR LAC
+16.4
+Show Trend »	
++31
+UNS	185	
+Rashid Shaheed WR UNS
+16.5
+Show Trend »	
+-29
+NE	186	
+Hunter Henry TE NE
+16.6
+Show Trend »	
+N/A
+TEN	187	
+Elic Ayomanor WR TEN
+16.7
+Show Trend »	
+-25
+HOU	188	
+Dalton Schultz TE HOU
+16.8
+Show Trend »	
+N/A
+RK	189	
+CJ Daniels WR RK
+16.9
+Show Trend »	
+N/A
+RK	190	
+Deion Burks WR RK
+16.10
+Show Trend »	
+N/A
+MIN	191	
+T.J. Hockenson TE MIN
+16.11
+Show Trend »	
+N/A
+RK	192	
+Ted Hurst WR RK
+16.12
+Show Trend »	
+N/A
+TEN	193	
+Tyjae Spears RB TEN
+17.1
+Show Trend »	
++38
+NO	194	
+Alvin Kamara RB NO
+17.2
+Show Trend »	
+-9
+RK	195	
+Adam Randall RB RK
+17.3
+Show Trend »	
+N/A
+LAR	196	
+Terrance Ferguson TE LAR
+17.4
+Show Trend »	
+N/A
+SEA	197	
+AJ Barner TE SEA
+17.5
+Show Trend »	
+N/A
+RK	198	
+Jack Endries TE RK
+17.6
+Show Trend »	
+N/A
+CLE	199	
+Shedeur Sanders QB CLE
+17.7
+Show Trend »	
++82
+ARI	200	
+James Conner RB ARI
+17.8
+Show Trend »	
+-53
+NYJ	201	
+Braelon Allen RB NYJ
+17.9
+Show Trend »	
++27
+RK	203	
+Eric McAlister WR RK
+17.11
+Show Trend »	
+N/A
+UNS	204	
+Isaiah Likely TE UNS
+17.12
+Show Trend »	
+N/A
+CLE	205	
+Jerry Jeudy WR CLE
+18.1
+Show Trend »	
+-19
+MIN	206	
+Aaron Jones RB MIN
+18.2
+Show Trend »	
+-27
+SEA	207	
+Tory Horton WR SEA
+18.3
+Show Trend »	
+-15
+HOU	208	
+Nathaniel Dell WR HOU
+18.4
+Show Trend »	
+N/A
+PIT	209	
+Kaleb Johnson RB PIT
+18.5
+Show Trend »	
+-12
+LAC	210	
+Kimani Vidal RB LAC
+18.6
+Show Trend »	
+-19
+HOU	211	
+Jaylin Noel WR HOU
+18.7
+Show Trend »	
+-7
+UNS	212	
+Brian Robinson Jr. RB UNS
+18.8
+Show Trend »	
+-49
+DET	213	
+Isaac TeSlaa WR DET
+18.9
+Show Trend »	
+-17
+MIN	214	
+Jordan Mason RB MIN
+18.10
+Show Trend »	
++47
+UNS	215	
+Isiah Pacheco RB UNS
+18.11
+Show Trend »	
++20
+TEN	216	
+Gunnar Helm TE TEN
+18.12
+Show Trend »	
+N/A
+UNS	217	
+Malik Willis QB UNS
+19.1
+Show Trend »	
+N/A
+BUF	218	
+Keon Coleman WR BUF
+19.2
+Show Trend »	
+-40
+CAR	219	
+Jonathon Brooks RB CAR
+19.3
+Show Trend »	
++9
+CLE	220	
+Dylan Sampson RB CLE
+19.4
+Show Trend »	
++21
+NYJ	221	
+Justin Fields QB NYJ
+19.5
+Show Trend »	
++67
+ARI	222	
+Jacoby Brissett QB ARI
+19.6
+Show Trend »	
+-72
+NYJ	223	
+Adonai Mitchell WR NYJ
+19.7
+Show Trend »	
++25
+RK	225	
+Le'Veon Moss RB RK
+19.9
+Show Trend »	
+N/A
+SF	226	
+Mac Jones QB SF
+19.10
+Show Trend »	
+N/A
+NE	227	
+Kyle Williams WR NE
+19.11
+Show Trend »	
+-36
+GB	228	
+Emanuel Wilson RB GB
+19.12
+Show Trend »	
+-58
+PHI	229	
+Tank Bigsby RB PHI
+20.1
+Show Trend »	
+-54
+UNS	230	
+Marquise Brown WR UNS
+20.2
+Show Trend »	
+-25
+SEA	231	
+Jalen Milroe QB SEA
+20.3
+Show Trend »	
+-80
+RK	232	
+CJ Donaldson RB RK
+20.4
+Show Trend »	
+N/A
+UNS	233	
+David Njoku TE UNS
+20.5
+Show Trend »	
+N/A
+CAR	234	
+Xavier Legette WR CAR
+20.6
+Show Trend »	
+-70
+BAL	235	
+Rashod Bateman WR BAL
+20.7
+Show Trend »	
+N/A
+NO	236	
+Devin Neal RB NO
+20.8
+Show Trend »	
++17
+RK	237	
+J'Mari Taylor RB RK
+20.9
+Show Trend »	
+N/A
+UNS	239	
+Christian Kirk WR UNS
+20.11
+Show Trend »	
+N/A
+LAR	240	
+Colby Parkinson TE LAR
+20.12
+Show Trend »	
+N/A
+SEA	241	
+Elijah Arroyo TE SEA
+21.1
+Show Trend »	
+N/A
+UNS	242	
+Chigoziem Okonkwo TE UNS
+21.2
+Show Trend »	
+N/A
+ATL	243	
+Darnell Mooney WR ATL
+21.3
+Show Trend »	
+-26
+TB	244	
+Sean Tucker RB TB
+21.4
+Show Trend »	
++1
+SF	245	
+Jake Tonges TE SF
+21.5
+Show Trend »	
+N/A
+TEN	247	
+Calvin Ridley WR TEN
+21.7
+Show Trend »	
+-87
+UNS	248	
+Kirk Cousins QB UNS
+21.8
+Show Trend »	
+N/A
+PIT	249	
+Pat Freiermuth TE PIT
+21.9
+Show Trend »	
+N/A
+UNS	250	
+Cade Otton TE UNS
+21.10
+Show Trend »	
+N/A
+UNS	251	
+Rachaad White RB UNS
+21.11
+Show Trend »	
++51
+UNS	252	
+Keenan Allen WR UNS
+21.12
+Show Trend »	
+-28
+LVR	253	
+Jack Bech WR LVR
+22.1
+Show Trend »	
+-11
+KC	254	
+Travis Kelce TE KC
+22.2
+Show Trend »	
+N/A
+GB	255	
+Dontayvion Wicks WR GB
+22.3
+Show Trend »	
+-22
+WAS	256	
+Chris Rodriguez RB WAS
+22.4
+Show Trend »	
+-19
+RK	257	
+Noah Thomas WR RK
+22.5
+Show Trend »	
+N/A
+RK	258	
+Taylen Green QB RK
+22.6
+Show Trend »	
+N/A
+DEN	259	
+Evan Engram TE DEN
+22.7
+Show Trend »	
+N/A
+RK	260	
+Marlin Klein TE RK
+22.8
+Show Trend »	
+N/A
+HOU	261	
+Joe Mixon RB HOU
+22.9
+Show Trend »	
++10
+MIA	262	
+Malik Washington WR MIA
+22.10
+Show Trend »	
+N/A
+WAS	263	
+Ben Sinnott TE WAS
+22.11
+Show Trend »	
+N/A
+RK	264	
+Oscar Delp TE RK
+22.12
+Show Trend »	
+N/A
+DEN	265	
+Marvin Mims Jr. WR DEN
+23.1
+Show Trend »	
+-80
+BUF	266	
+Ray Davis RB BUF
+23.2
+Show Trend »	
+-26
+NO	267	
+Devaughn Vele WR NO
+23.3
+Show Trend »	
+-28
+CLE	268	
+Cedric Tillman WR CLE
+23.4
+Show Trend »	
+-2
+UNS	269	
+Najee Harris RB UNS
+23.5
+Show Trend »	
+-37
+LVR	270	
+Tre Tucker WR LVR
+23.6
+Show Trend »	
+-2
+DAL	272	
+Ryan Flournoy WR DAL
+23.8
+Show Trend »	
+-64
+MIA	273	
+Ollie Gordon II RB MIA
+23.9
+Show Trend »	
++38
+SEA	274	
+Cooper Kupp WR SEA
+23.10
+Show Trend »	
+N/A
+MIA	275	
+Quinn Ewers QB MIA
+23.11
+Show Trend »	
+N/A
+BAL	276	
+Keaton Mitchell RB BAL
+23.12
+Show Trend »	
+-9
+NO	277	
+Kendre Miller RB NO
+24.1
+Show Trend »	
+-58
+NYG	278	
+Darius Slayton WR NYG
+24.2
+Show Trend »	
+N/A
+DAL	279	
+Jaydon Blue RB DAL
+24.3
+Show Trend »	
++35
+TB	280	
+Tez Johnson WR TB
+24.4
+Show Trend »	
+-68
+NE	281	
+Demario Douglas WR NE
+24.5
+Show Trend »	
+-40
+RK	282	
+Josh Cameron WR RK
+24.6
+Show Trend »	
+N/A
+RK	283	
+Joe Fagnano QB RK
+24.7
+Show Trend »	
+N/A
+MIA	284	
+Jaylen Wright RB MIA
+24.8
+Show Trend »	
++6
+KC	285	
+Brashard Smith RB KC
+24.9
+Show Trend »	
++20
+NYJ	286	
+Isaiah Davis RB NYJ
+24.10
+Show Trend »	
++13
+PIT	287	
+Aaron Rodgers QB PIT
+24.11
+Show Trend »	
+N/A
+LVR	288	
+Michael Mayer TE LVR
+24.12
+Show Trend »	
+N/A
+CAR	289	
+Ja'Tavion Sanders TE CAR
+25.1
+Show Trend »	
+N/A
+CIN	290	
+Mike Gesicki TE CIN
+25.2
+Show Trend »	
+N/A
+NYG	291	
+Devin Singletary RB NYG
+25.3
+Show Trend »	
+-83
+UNS	292	
+Joe Flacco QB UNS
+25.4
+Show Trend »	
+N/A
+PIT	293	
+Roman Wilson WR PIT
+25.5
+Show Trend »	
+N/A
+UNS	294	
+Kareem Hunt RB UNS
+25.6
+Show Trend »	
+N/A
+SF	295	
+Isaac Guerendo RB SF
+25.7
+Show Trend »	
+-1
+UNS	296	
+Nick Chubb RB UNS
+25.8
+Show Trend »	
+N/A
+RK	298	
+Aaron Anderson WR RK
+25.10
+Show Trend »	
+N/A
+BUF	299	
+Joshua Palmer WR BUF
+25.11
+Show Trend »	
+-91
+UNS	300	
+Michael Carter RB UNS
+25.12
+Show Trend »	
+N/A
