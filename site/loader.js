@@ -23,8 +23,34 @@
     return "";
   }
 
-  function normalizeHtml(partial, html) {
+  function detectYear() {
+    var m = String(window.location.pathname || "").match(/\/(\d{4})\//);
+    return m ? m[1] : String(new Date().getFullYear());
+  }
+
+  function detectLeagueId() {
+    try {
+      var u = new URL(window.location.href);
+      var q = u.searchParams.get("L");
+      if (q) return String(q);
+    } catch (e) {}
+    var m = String(window.location.pathname || "").match(/\/home\/(\d+)(?:\/|$)/i);
+    return m ? m[1] : "";
+  }
+
+  function applyMflTokens(html) {
     var out = html || "";
+    var host = window.location.host || "";
+    var year = detectYear();
+    var leagueId = detectLeagueId();
+    out = out.replace(/%HOST%/g, host);
+    out = out.replace(/%YEAR%/g, year);
+    if (leagueId) out = out.replace(/%LEAGUEID%/g, leagueId);
+    return out;
+  }
+
+  function normalizeHtml(partial, html) {
+    var out = applyMflTokens(html || "");
 
     // These files were authored for direct MFL header/footer fields where one
     // side opens/closes a shared wrapper. Hosted partial injection should not
