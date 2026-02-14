@@ -18,7 +18,8 @@
       u.searchParams.has("cccSeason") ||
       u.searchParams.has("cccYears");
     if (!hasCcc) return;
-    if (u.searchParams.get("MODULE") !== "MESSAGE16") return;
+    var moduleName = (u.searchParams.get("MODULE") || "").toUpperCase();
+    if (moduleName !== "MESSAGE2" && moduleName !== "MESSAGE16") return;
 
     var h = new URLSearchParams();
     ["cccAction", "cccPlayer", "cccFranchise", "cccSeason", "cccYears"].forEach(function (k) {
@@ -26,7 +27,7 @@
       if (v !== null && v !== undefined && v !== "") h.set(k, v);
     });
 
-    u.search = "?MODULE=MESSAGE16";
+    u.search = "?MODULE=MESSAGE2";
     u.hash = h.toString();
 
     if (u.toString() !== window.location.href) {
@@ -187,9 +188,9 @@
   }
 
   .ccc-cta {
-    background: #2458a5;
-    color: #f5f9ff;
-    border: 1px solid #5e86c4;
+    background: linear-gradient(180deg, #f5cf77 0%, #e6b654 100%);
+    color: #102a55;
+    border: 1px solid #c29332;
     padding: 0.62rem 1rem;
     border-radius: 11px;
     font-weight: 800;
@@ -203,9 +204,9 @@
 
   .ccc-cta:hover,
   .ccc-cta:focus {
-    color: #fff;
-    background: #2f68bd;
-    border-color: #8eaee0;
+    color: #0b2245;
+    background: linear-gradient(180deg, #ffd98a 0%, #eec46a 100%);
+    border-color: #dfb154;
   }
 
   .ccc-actions {
@@ -216,9 +217,9 @@
   }
 
   .ccc-pill {
-    background: linear-gradient(135deg, #101e36 0%, #1c3f6f 100%);
-    border: 1px solid rgba(255, 255, 255, 0.25);
-    color: var(--ups-text);
+    background: linear-gradient(180deg, #f1c86d 0%, #dfae4f 100%);
+    border: 1px solid #b9862a;
+    color: #102a55;
     padding: 0.56rem 0.95rem;
     border-radius: 12px;
     font-weight: 800;
@@ -231,8 +232,8 @@
 
   .ccc-pill:hover,
   .ccc-pill:focus {
-    background: linear-gradient(135deg, #1e4f92 0%, #2e63b8 100%);
-    color: #fff;
+    background: linear-gradient(180deg, #ffd98a 0%, #eec46a 100%);
+    color: #0b2245;
   }
 
   /* Roster quick actions */
@@ -422,13 +423,9 @@
     </div>
 
     <div class="ccc-cta-group">
-      <a class="ccc-cta" href="//%HOST%/%YEAR%/home/25625?MODULE=MESSAGE16">
+      <a class="ccc-cta" href="//%HOST%/%YEAR%/home/25625?MODULE=MESSAGE2">
         <i class="fa-solid fa-arrow-up-right-from-square"></i>
         Contract Command Center
-      </a>
-      <a class="ccc-cta" href="//%HOST%/%YEAR%/home/25625?MODULE=MESSAGE13">
-        <i class="fa-solid fa-trophy"></i>
-        Season Wrap Up &amp; Playoff Preview
       </a>
     </div>
 
@@ -628,7 +625,7 @@
       savePendingAction(action, item);
 
       var u = new URL(location.origin + "/" + year + "/home/" + league_id);
-      u.searchParams.set("MODULE", "MESSAGE16");
+      u.searchParams.set("MODULE", "MESSAGE2");
 
       var h = new URLSearchParams();
       if (payload.cccAction) h.set("cccAction", payload.cccAction);
@@ -834,9 +831,10 @@
 
     function wireMessage16IframeBridge() {
       var qs = new URLSearchParams(location.search || "");
-      if (safeStr(qs.get("MODULE")) !== "MESSAGE16") return;
+      var moduleName = safeStr(qs.get("MODULE")).toUpperCase();
+      if (moduleName !== "MESSAGE2" && moduleName !== "MESSAGE16") return;
 
-      var frame = document.querySelector('iframe[src*="mfl_hpm16_contractcommandcenter"]');
+      var frame = document.querySelector('iframe[src*="contractcommandcenter"]');
       if (!frame) return;
 
       try {
@@ -1097,6 +1095,33 @@
     background: #12213b !important;
   }
 
+  #MFLBoxContainer .MFLBoxMFLNFL table,
+  #MFLBoxContainer .MFLBoxMFLNFL td,
+  #MFLBoxMFLCell,
+  #MFLBoxNFLCell,
+  #MFLBoxWeekCell,
+  #MFLBoxContainer .mflBoxCell {
+    background: #10203b !important;
+    color: #f3f8ff !important;
+    border-color: #2a4470 !important;
+  }
+
+  #MFLBoxContainer .mflBoxCellInactive,
+  #MFLBoxContainer .mflBoxButtonFaded {
+    opacity: 0.75 !important;
+  }
+
+  #MFLBoxContainer .MFLGameLinks td,
+  #MFLBoxContainer .MFLGameLinks a,
+  #MFLBoxContainer .MFLNFLLiveTeam,
+  #MFLBoxContainer .MFLLiveTeam a,
+  #MFLBoxContainer .MFLNFLLiveTeam a,
+  #MFLBoxContainer .MFLNFLLiveClock,
+  #MFLBoxContainer .MFLNFLLiveScore {
+    color: #f3f8ff !important;
+    font-weight: 700 !important;
+  }
+
   /* Full scoreboard page (ajax_ls) dark mode */
   #body_ajax_ls .report,
   #body_ajax_ls .mobile-wrap > .report,
@@ -1122,6 +1147,19 @@
   #body_ajax_ls a:visited {
     color: #a9d0ff !important;
     font-weight: 700 !important;
+  }
+
+  #body_ajax_ls caption,
+  #body_ajax_ls .report caption,
+  #body_ajax_ls .ls-matchup caption,
+  #body_ajax_ls .h2hmatchups caption {
+    background: #13284a !important;
+    color: #ffffff !important;
+  }
+
+  #body_ajax_ls .oddtablerow,
+  #body_ajax_ls .eventablerow {
+    background: #12223d !important;
   }
 
   #ScoreDetails,

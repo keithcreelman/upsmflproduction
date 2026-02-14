@@ -25,7 +25,7 @@
   /* Trade calculator */
   var showCalculator = true;
   var showTopCalculator = false;
-  var calcHeaderName = "Cap Delta";
+  var calcHeaderName = "Salary Delta";
   var hideTilClk = true;
 
   /* Live scoring */
@@ -95,6 +95,44 @@
 <!-- GLOBAL FOOTER -->
 <script src="https://www.mflscripts.com/mfl-apps/global/footer.js?v=1.12"></script>
 <script src="https://mflscripts.com/mfl-apps/playoffs/standingsColumns.js"></script>
+<script>
+  // Normalize roster trade-asset labeling from MFL script output.
+  (function () {
+    function renameBlindBidLabels(root) {
+      var scope = root || document;
+      var nodes = scope.querySelectorAll(
+        "#MFLroster .roster_assets td, #MFLroster .roster_assets th, #MFLroster td, #MFLroster th"
+      );
+      nodes.forEach(function (node) {
+        if (!node || !node.childNodes || !node.childNodes.length) return;
+        for (var i = 0; i < node.childNodes.length; i += 1) {
+          var child = node.childNodes[i];
+          if (!child || child.nodeType !== Node.TEXT_NODE) continue;
+          if (child.nodeValue && child.nodeValue.indexOf("Blind Bidding Dollars") !== -1) {
+            child.nodeValue = child.nodeValue.replace(/Blind Bidding Dollars/gi, "Salary");
+          }
+        }
+      });
+    }
+
+    function initLabelOverride() {
+      if (!document.body || document.body.id !== "body_options_07") return;
+      renameBlindBidLabels(document);
+      var obs = new MutationObserver(function (mutations) {
+        mutations.forEach(function (m) {
+          renameBlindBidLabels(m.target || document);
+        });
+      });
+      obs.observe(document.body, { childList: true, subtree: true });
+    }
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", initLabelOverride);
+    } else {
+      initLabelOverride();
+    }
+  })();
+</script>
 
 </div><!-- CLOSE CONTAINER WRAP FROM HEADER -->
 
