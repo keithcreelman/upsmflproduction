@@ -7,6 +7,34 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="shortcut icon" href="https://www.mflscripts.com/ImageDirectory/script-images/favicon.ico" type="image/x-icon">
 
+<script>
+  // Normalize Contract Command Center deep-links: move ccc* params to hash so MFL doesn't validate them.
+  (function () {
+    var u = new URL(window.location.href || "");
+    var hasCcc =
+      u.searchParams.has("cccAction") ||
+      u.searchParams.has("cccPlayer") ||
+      u.searchParams.has("cccFranchise") ||
+      u.searchParams.has("cccSeason") ||
+      u.searchParams.has("cccYears");
+    if (!hasCcc) return;
+    if (u.searchParams.get("MODULE") !== "MESSAGE16") return;
+
+    var h = new URLSearchParams();
+    ["cccAction", "cccPlayer", "cccFranchise", "cccSeason", "cccYears"].forEach(function (k) {
+      var v = u.searchParams.get(k);
+      if (v !== null && v !== undefined && v !== "") h.set(k, v);
+    });
+
+    u.search = "?MODULE=MESSAGE16";
+    u.hash = h.toString();
+
+    if (u.toString() !== window.location.href) {
+      window.location.replace(u.toString());
+    }
+  })();
+</script>
+
 <style>
   :root {
     --ups-bg: #0b1220;
