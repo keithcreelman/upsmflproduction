@@ -43,12 +43,12 @@
     --ups-border: #27476f;
     --ups-text: #e8effa;
     --ups-muted: #9fb3d1;
-    --ups-brand: #14b8a6;
-    --ups-brand-strong: #0f766e;
-    --ups-accent: #f3b61f;
-    --ups-accent-ink: #1b1300;
-    --ups-link: #59b7ff;
-    --ups-link-hover: #89ccff;
+    --ups-brand: #2e63b8;
+    --ups-brand-strong: #1f3f78;
+    --ups-accent: #d6deec;
+    --ups-accent-ink: #091327;
+    --ups-link: #8ec4ff;
+    --ups-link-hover: #c0deff;
     --ups-danger: #e36572;
     --ups-success: #25c37d;
     --ups-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
@@ -138,7 +138,7 @@
     border-radius: 14px;
     max-width: 1200px;
     color: var(--ups-text);
-    background: linear-gradient(120deg, #0d1728 0%, #154977 48%, #0f766e 100%);
+    background: linear-gradient(120deg, #0a1428 0%, #17427f 54%, #24395f 100%);
     border: 1px solid rgba(255, 255, 255, 0.2);
     box-shadow: var(--ups-shadow);
   }
@@ -187,9 +187,9 @@
   }
 
   .ccc-cta {
-    background: var(--ups-accent);
-    color: var(--ups-accent-ink);
-    border: 1px solid #ffd067;
+    background: #2458a5;
+    color: #f5f9ff;
+    border: 1px solid #5e86c4;
     padding: 0.62rem 1rem;
     border-radius: 11px;
     font-weight: 800;
@@ -203,9 +203,9 @@
 
   .ccc-cta:hover,
   .ccc-cta:focus {
-    color: #000;
-    background: #ffd067;
-    border-color: #ffe6a5;
+    color: #fff;
+    background: #2f68bd;
+    border-color: #8eaee0;
   }
 
   .ccc-actions {
@@ -231,7 +231,7 @@
 
   .ccc-pill:hover,
   .ccc-pill:focus {
-    background: linear-gradient(135deg, #17487e 0%, #168f80 100%);
+    background: linear-gradient(135deg, #1e4f92 0%, #2e63b8 100%);
     color: #fff;
   }
 
@@ -258,18 +258,18 @@
 
   .ccc-action-btn:hover,
   .ccc-action-btn:focus {
-    border-color: #66d7c8;
-    background: #12495f;
+    border-color: #8fb7ef;
+    background: #1c3f70;
     color: #fff;
   }
 
   .ccc-action-btn.ext {
-    border-color: #30b9c2;
+    border-color: #6ea0e4;
   }
 
   .ccc-action-btn.rs {
-    border-color: #f3b61f;
-    color: #ffe39f;
+    border-color: #c6d3e8;
+    color: #f2f6ff;
   }
 
   .ccc-popup-actions {
@@ -278,6 +278,12 @@
     border: 1px solid #2a4a70;
     border-radius: 9px;
     background: #0f2039;
+  }
+
+  /* Contract action chips are temporarily disabled on roster/popup views. */
+  body#body_options_07 .ccc-quick-actions,
+  body#body_options_07 #cccPopupQuickActions {
+    display: none !important;
   }
 
   .ccc-popup-actions-title {
@@ -456,8 +462,8 @@
   var commishTeam = "0004";
 
   var detailsOverlay = "rgba(0,0,0,.7)";
-  var detailsWrapBG = "var(--mobile-wrap-bg,#fff)";
-  var detailsWrapBorder = "#000";
+  var detailsWrapBG = "var(--ups-surface,#111b2e)";
+  var detailsWrapBorder = "var(--ups-border,#27476f)";
   var detailsWrapBorWidh = "0";
   var detailsWrapBoxShdw = "0 0 1.563rem #000";
   var detailsWrapPadding = "0.625rem";
@@ -497,19 +503,19 @@
   var tickerWidth = "calc(71.75rem - 0.375rem)";
   var tickerMargin = "0.625rem auto 0 auto";
   var tickerFont = "Roboto Condensed";
-  var tickerBorder = "var(--ups-brand, #14b8a6)";
-  var bigHeadingBG = "var(--ups-brand-strong, #0f766e)";
+  var tickerBorder = "var(--ups-brand, #2e63b8)";
+  var bigHeadingBG = "var(--ups-brand-strong, #1f3f78)";
   var bigHeadingClr = "#fff";
-  var tickerHeadBG = "#fff";
-  var tickerCogWheel = "var(--ups-brand, #14b8a6)";
+  var tickerHeadBG = "#0f1f3a";
+  var tickerCogWheel = "#7ea9eb";
   var tickerTxtShdw = "transparent";
-  var tickerHeadClr = "var(--ups-brand-strong, #0f766e)";
-  var tickerTxtBG = "#e9f0fb";
-  var tickerTxtClr = "#041222";
-  var tickerTxtWgt = "400";
+  var tickerHeadClr = "#ffffff";
+  var tickerTxtBG = "#0d1830";
+  var tickerTxtClr = "#f3f8ff";
+  var tickerTxtWgt = "700";
   var tickerTxtTrans = "none";
-  var tickerLinkClr = "#0f2d52";
-  var tickerLinkHvr = "#0f766e";
+  var tickerLinkClr = "#a9d0ff";
+  var tickerLinkHvr = "#ffffff";
   var tickerBoxShdw = "0 0 0.063rem 0.063rem rgba(0,0,0,0.1)";
 </script>
 
@@ -519,6 +525,8 @@
    * This adds actionable buttons in O=07 rows and player popup cards.
    */
   (function () {
+    var enableRosterContractActions = false;
+
     function safeStr(v) {
       return v === null || v === undefined ? "" : String(v).trim();
     }
@@ -875,6 +883,7 @@
     }
 
     function initRosterEnhancements() {
+      if (!enableRosterContractActions) return;
       if (document.body.id !== "body_options_07") return;
 
       var attempts = 0;
@@ -1041,6 +1050,85 @@
   #container-wrap table input[type="submit"],
   #container-wrap table button {
     color: #ffffff !important;
+  }
+
+  #container-wrap table td,
+  #container-wrap table th {
+    font-weight: 700 !important;
+  }
+
+  /* Mini scoreboard (MFLBox) dark mode */
+  #MFLBoxWrapper,
+  #MFLBoxContainer,
+  #MFLBoxMatchups,
+  #MFLBoxContainer .MFLGameTable,
+  #MFLBoxContainer .MFLGameLinks {
+    background: #0f1c33 !important;
+    color: #f3f8ff !important;
+    border-color: #2a4470 !important;
+  }
+
+  #MFLBoxWrapper td,
+  #MFLBoxWrapper th,
+  #MFLBoxWrapper .MFLLiveTeam,
+  #MFLBoxWrapper .MFLLiveClock,
+  #MFLBoxWrapper .MFLLiveAbbrev,
+  #MFLBoxWrapper .MFLPaceScore,
+  #MFLBoxWrapper .MFLBoxPlayerDetailsHeader th,
+  #MFLBoxWrapper .MFLBoxPlayerDetailsSubHeader th {
+    color: #f3f8ff !important;
+    font-weight: 700 !important;
+  }
+
+  #MFLBoxWrapper .MFLLiveScore {
+    color: #ffffff !important;
+    font-weight: 900 !important;
+  }
+
+  #MFLBoxWrapper input[type="button"] {
+    background: #1f4d93 !important;
+    border-color: #4a75b7 !important;
+    color: #ffffff !important;
+    font-weight: 800 !important;
+  }
+
+  #MFLBoxWrapper .warning {
+    color: #f3f8ff !important;
+    background: #12213b !important;
+  }
+
+  /* Full scoreboard page (ajax_ls) dark mode */
+  #body_ajax_ls .report,
+  #body_ajax_ls .mobile-wrap > .report,
+  #body_ajax_ls .h2hmatchups,
+  #body_ajax_ls .scoresummary,
+  #body_ajax_ls .ls-matchup,
+  #body_ajax_ls table {
+    background: #0f1c33 !important;
+    border-color: #2a4470 !important;
+  }
+
+  #body_ajax_ls th,
+  #body_ajax_ls td,
+  #body_ajax_ls .ls_game_info,
+  #body_ajax_ls .ls-matchup *,
+  #body_ajax_ls .scoresummary * {
+    color: #f3f8ff !important;
+    font-weight: 700 !important;
+    text-shadow: none !important;
+  }
+
+  #body_ajax_ls a,
+  #body_ajax_ls a:visited {
+    color: #a9d0ff !important;
+    font-weight: 700 !important;
+  }
+
+  #ScoreDetails,
+  #ScoreNFLDetails {
+    background: #0f1c33 !important;
+    border-color: #2a4470 !important;
+    color: #f3f8ff !important;
   }
 </style>
 
