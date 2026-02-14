@@ -652,12 +652,14 @@
       if (!iframe || !iframe.getAttribute("src")) return;
       var mode = typeof window.getUPSMode === "function" ? window.getUPSMode() : "dark";
       try {
-        var src = new URL(iframe.getAttribute("src"), window.location.href);
-        var before = src.toString();
-        src.searchParams.set("THEME", mode);
-        src.searchParams.set("theme", mode);
-        var after = src.toString();
-        if (after !== before) iframe.src = after;
+        var lastMode = iframe.getAttribute("data-ups-theme-mode") || "";
+        if (lastMode !== mode) {
+          var src = new URL(iframe.getAttribute("src"), window.location.href);
+          src.searchParams.set("THEME", mode);
+          src.searchParams.set("theme", mode);
+          iframe.setAttribute("data-ups-theme-mode", mode);
+          iframe.src = src.toString();
+        }
         if (iframe.contentWindow) iframe.contentWindow.postMessage({ type: "ups-theme", mode: mode }, "*");
       } catch (e) {}
     }
@@ -687,12 +689,16 @@
       syncWidgetThemeIntoIframe();
     }
 
-    var observer = new MutationObserver(function () {
-      ensureWidgetThemeToggle();
-      updateAllThemeToggles();
-      syncWidgetThemeIntoIframe();
-    });
-    observer.observe(document.documentElement, { childList: true, subtree: true });
+    function primeWidgetToggle() {
+      var attempts = 0;
+      var timer = setInterval(function () {
+        attempts += 1;
+        ensureWidgetThemeToggle();
+        updateAllThemeToggles();
+        syncWidgetThemeIntoIframe();
+        if (attempts >= 20) clearInterval(timer);
+      }, 500);
+    }
 
     document.addEventListener("ups-theme-change", function () {
       updateAllThemeToggles();
@@ -700,9 +706,13 @@
     });
 
     if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", initThemeToggles);
+      document.addEventListener("DOMContentLoaded", function () {
+        initThemeToggles();
+        primeWidgetToggle();
+      });
     } else {
       initThemeToggles();
+      primeWidgetToggle();
     }
   })();
 </script>
