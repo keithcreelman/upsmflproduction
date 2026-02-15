@@ -1522,9 +1522,33 @@
   }
 
   /* Commissioner setup pages */
+  body#body_commissioner_setup .pagebody,
+  body#body_commissioner_setup,
+  body#body_commissioner_setup #commissioner_setup,
+  body[id^="body_csetup"] .pagebody {
+    background: var(--ups-bg) !important;
+    color: var(--ups-text) !important;
+  }
+
+  body#body_commissioner_setup .pageheader,
+  body[id^="body_csetup"] .pageheader {
+    background: var(--ups-surface-alt) !important;
+    border-bottom: 1px solid var(--ups-border) !important;
+  }
+
+  body#body_commissioner_setup .pageheader *,
+  body[id^="body_csetup"] .pageheader * {
+    color: var(--ups-text) !important;
+    text-shadow: none !important;
+    font-weight: 900 !important;
+  }
+
   body[id^="body_csetup"] table,
+  body#body_commissioner_setup table,
   body[id^="body_csetup"] .report,
+  body#body_commissioner_setup .report,
   body[id^="body_csetup"] .mobile-wrap > .report,
+  body#body_commissioner_setup .mobile-wrap > .report,
   body[id^="body_csetup"] .homepagemodule.report {
     background: var(--ups-surface) !important;
     border-color: var(--ups-border) !important;
@@ -1533,10 +1557,16 @@
 
   body[id^="body_csetup"] th,
   body[id^="body_csetup"] td,
+  body#body_commissioner_setup th,
+  body#body_commissioner_setup td,
   body[id^="body_csetup"] label,
   body[id^="body_csetup"] span,
   body[id^="body_csetup"] p,
-  body[id^="body_csetup"] a {
+  body[id^="body_csetup"] a,
+  body#body_commissioner_setup label,
+  body#body_commissioner_setup span,
+  body#body_commissioner_setup p,
+  body#body_commissioner_setup a {
     color: var(--ups-text) !important;
     text-shadow: none !important;
     font-weight: 700 !important;
@@ -1546,14 +1576,23 @@
   body[id^="body_csetup"] input[type="number"],
   body[id^="body_csetup"] input[type="password"],
   body[id^="body_csetup"] select,
+  body#body_commissioner_setup select,
   body[id^="body_csetup"] textarea {
     background: var(--ups-surface-alt) !important;
     border: 1px solid var(--ups-border) !important;
     color: var(--ups-text) !important;
   }
 
+  body[id^="body_csetup"] option,
+  body#body_commissioner_setup option {
+    background: var(--ups-surface) !important;
+    color: var(--ups-text) !important;
+  }
+
   body[id^="body_csetup"] input[type="button"],
   body[id^="body_csetup"] input[type="submit"],
+  body#body_commissioner_setup input[type="button"],
+  body#body_commissioner_setup input[type="submit"],
   body[id^="body_csetup"] button {
     background: var(--ups-btn-bg) !important;
     border: 1px solid var(--ups-btn-border) !important;
@@ -1566,6 +1605,14 @@
   }
 
   body[id^="body_csetup"] .eventablerow {
+    background: var(--ups-row-even) !important;
+  }
+
+  body#body_commissioner_setup .oddtablerow {
+    background: var(--ups-row-odd) !important;
+  }
+
+  body#body_commissioner_setup .eventablerow {
     background: var(--ups-row-even) !important;
   }
 
