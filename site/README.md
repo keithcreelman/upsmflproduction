@@ -24,6 +24,11 @@ Use jsDelivr so you do not need GitHub Pages enabled.
 <script src="https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@dev/site/loader.js?v=2026.02.15.2" data-ups-partial="hpm-mcm"></script>
 ```
 
+## Contract Command Center (Message 2)
+```html
+<script src="https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@dev/site/ccc/mfl_hpm_embed_loader.js?v=2026.02.15.2"></script>
+```
+
 ## Optional target node form
 If you want to mount into an existing element:
 ```html
