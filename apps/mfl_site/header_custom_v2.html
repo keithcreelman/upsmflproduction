@@ -1533,7 +1533,9 @@
 
   /* Fix \"Top FAQ\" bar contrast (was light-on-light depending on MFL skin). */
   body#body_commissioner_setup .reportnavigation,
-  body[id^="body_csetup"] .reportnavigation {
+  body#body_commissioner_setup .reportNavigation,
+  body[id^="body_csetup"] .reportnavigation,
+  body[id^="body_csetup"] .reportNavigation {
     display: block !important;
     max-width: min(76rem, calc(100% - 1.25rem)) !important;
     margin: 0.75rem auto 0.25rem !important;
@@ -1545,25 +1547,57 @@
   }
 
   body#body_commissioner_setup .reportnavigationheader,
-  body[id^="body_csetup"] .reportnavigationheader {
-    color: var(--ups-muted) !important;
+  body#body_commissioner_setup .reportnavigationHeader,
+  body#body_commissioner_setup .reportNavigationHeader,
+  body[id^="body_csetup"] .reportnavigationheader,
+  body[id^="body_csetup"] .reportnavigationHeader,
+  body[id^="body_csetup"] .reportNavigationHeader {
+    /* Some skins force a white background here; remove it and use high-contrast text. */
+    background: transparent !important;
+    color: var(--ups-text) !important;
     font-weight: 900 !important;
     letter-spacing: 0.04em !important;
     text-transform: uppercase !important;
   }
 
+  /* Some skins set explicit icon colors that don't match link/text color. */
+  body#body_commissioner_setup #container-wrap i,
+  body#body_commissioner_setup #container-wrap svg,
+  body#body_commissioner_setup #container-wrap path,
+  body[id^="body_csetup"] #container-wrap i,
+  body[id^="body_csetup"] #container-wrap svg,
+  body[id^="body_csetup"] #container-wrap path {
+    color: inherit !important;
+    fill: currentColor !important;
+    stroke: currentColor !important;
+  }
+
+  body#body_commissioner_setup #container-wrap svg *,
+  body[id^="body_csetup"] #container-wrap svg * {
+    fill: currentColor !important;
+    stroke: currentColor !important;
+  }
+
   body#body_commissioner_setup .reportnavigation a,
   body#body_commissioner_setup .reportnavigation a:visited,
+  body#body_commissioner_setup .reportNavigation a,
+  body#body_commissioner_setup .reportNavigation a:visited,
   body[id^="body_csetup"] .reportnavigation a,
-  body[id^="body_csetup"] .reportnavigation a:visited {
+  body[id^="body_csetup"] .reportnavigation a:visited,
+  body[id^="body_csetup"] .reportNavigation a,
+  body[id^="body_csetup"] .reportNavigation a:visited {
     color: var(--ups-link) !important;
     font-weight: 800 !important;
   }
 
   body#body_commissioner_setup .reportnavigation a:hover,
   body#body_commissioner_setup .reportnavigation a:focus,
+  body#body_commissioner_setup .reportNavigation a:hover,
+  body#body_commissioner_setup .reportNavigation a:focus,
   body[id^="body_csetup"] .reportnavigation a:hover,
-  body[id^="body_csetup"] .reportnavigation a:focus {
+  body[id^="body_csetup"] .reportnavigation a:focus,
+  body[id^="body_csetup"] .reportNavigation a:hover,
+  body[id^="body_csetup"] .reportNavigation a:focus {
     color: var(--ups-link-hover) !important;
     text-decoration: underline !important;
   }
