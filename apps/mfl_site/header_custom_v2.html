@@ -1543,6 +1543,33 @@
     font-weight: 900 !important;
   }
 
+  /* Commissioner menu links were still low-contrast (visited/inline styles). Force readable defaults. */
+  body#body_commissioner_setup #container-wrap,
+  body#body_commissioner_setup #container-wrap *:not(i):not(svg):not(path),
+  body[id^="body_csetup"] #container-wrap,
+  body[id^="body_csetup"] #container-wrap *:not(i):not(svg):not(path) {
+    color: var(--ups-text) !important;
+    opacity: 1 !important;
+    text-shadow: none !important;
+  }
+
+  body#body_commissioner_setup #container-wrap a,
+  body#body_commissioner_setup #container-wrap a:visited,
+  body[id^="body_csetup"] #container-wrap a,
+  body[id^="body_csetup"] #container-wrap a:visited {
+    color: var(--ups-link) !important;
+    font-weight: 800 !important;
+    text-decoration: none !important;
+  }
+
+  body#body_commissioner_setup #container-wrap a:hover,
+  body#body_commissioner_setup #container-wrap a:focus,
+  body[id^="body_csetup"] #container-wrap a:hover,
+  body[id^="body_csetup"] #container-wrap a:focus {
+    color: var(--ups-link-hover) !important;
+    text-decoration: underline !important;
+  }
+
   body[id^="body_csetup"] table,
   body#body_commissioner_setup table,
   body[id^="body_csetup"] .report,
