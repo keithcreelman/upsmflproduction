@@ -1522,6 +1522,27 @@
     text-decoration: underline !important;
   }
 
+  /* CCC pills/CTAs are not commissioner menu links; keep gold + dark ink instead of the forced link colors. */
+  body#body_commissioner_setup #container-wrap .ccc-cta,
+  body#body_commissioner_setup #container-wrap .ccc-pill,
+  body[id^="body_csetup"] #container-wrap .ccc-cta,
+  body[id^="body_csetup"] #container-wrap .ccc-pill {
+    color: var(--ups-accent-ink) !important;
+    text-decoration: none !important;
+  }
+
+  body#body_commissioner_setup #container-wrap .ccc-cta:hover,
+  body#body_commissioner_setup #container-wrap .ccc-cta:focus,
+  body#body_commissioner_setup #container-wrap .ccc-pill:hover,
+  body#body_commissioner_setup #container-wrap .ccc-pill:focus,
+  body[id^="body_csetup"] #container-wrap .ccc-cta:hover,
+  body[id^="body_csetup"] #container-wrap .ccc-cta:focus,
+  body[id^="body_csetup"] #container-wrap .ccc-pill:hover,
+  body[id^="body_csetup"] #container-wrap .ccc-pill:focus {
+    color: #ffffff !important;
+    text-decoration: none !important;
+  }
+
   /* Make sure commissioner menu links always stay readable, regardless of skin overrides. */
   body#body_commissioner_setup table.two_column_layout a,
   body#body_commissioner_setup table.two_column_layout a:visited,
