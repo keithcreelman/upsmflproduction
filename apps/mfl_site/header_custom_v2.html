@@ -48,7 +48,7 @@
       try {
         var el = document.createElement("div");
         el.id = "upsDebugBadge";
-        el.textContent = "UPS header build: 2026.02.15.3";
+        el.textContent = "UPS header build: 2026.02.15.6";
         el.style.cssText =
           "position:fixed;right:10px;bottom:10px;z-index:999999;" +
           "padding:6px 10px;border-radius:999px;" +
@@ -1546,6 +1546,16 @@
     text-decoration: underline !important;
   }
 
+  body[id^="body_csetup"] .player-info,
+  body[id^="body_csetup_loadrost"] .player-info {
+    color: var(--ups-text) !important;
+  }
+
+  body[id^="body_csetup"] .player-info small,
+  body[id^="body_csetup_loadrost"] .player-info small {
+    color: var(--ups-muted) !important;
+  }
+
   /* CCC pills/CTAs are not commissioner menu links; keep gold + dark ink instead of the forced link colors. */
   body#body_commissioner_setup #container-wrap .ccc-cta,
   body#body_commissioner_setup #container-wrap .ccc-pill,
@@ -1587,8 +1597,9 @@
     padding: 0.55rem 0.75rem !important;
     border: 1px solid var(--ups-border) !important;
     border-radius: 12px !important;
-    background: var(--ups-surface-alt) !important;
+    background: linear-gradient(135deg, rgba(6, 12, 24, 0.95), rgba(20, 36, 63, 0.95)) !important;
     color: var(--ups-text) !important;
+    box-shadow: 0 15px 30px rgba(0, 0, 0, 0.45) !important;
   }
 
   body#body_commissioner_setup .reportnavigationheader,
@@ -1599,10 +1610,11 @@
   body[id^="body_csetup"] .reportNavigationHeader {
     /* Some skins force a white background here; remove it and use high-contrast text. */
     background: transparent !important;
-    color: var(--ups-text) !important;
+    color: var(--ups-report-strong) !important;
     font-weight: 900 !important;
     letter-spacing: 0.04em !important;
     text-transform: uppercase !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4) !important;
   }
 
   body#body_commissioner_setup .reportnavigationheader *,
@@ -1650,8 +1662,21 @@
   body[id^="body_csetup"] .reportnavigation a:visited,
   body[id^="body_csetup"] .reportNavigation a,
   body[id^="body_csetup"] .reportNavigation a:visited {
-    color: var(--ups-link) !important;
+    color: var(--ups-text) !important;
     font-weight: 800 !important;
+  }
+
+  body[id^="body_csetup"] .reportnavigation a,
+  body[id^="body_csetup"] .reportNavigation a {
+    border-radius: 8px;
+    padding: 0.25rem 0.4rem;
+    background: rgba(255, 255, 255, 0.05);
+    transition: background 0.25s ease;
+  }
+
+  body[id^="body_csetup"] .reportnavigation a:hover,
+  body[id^="body_csetup"] .reportNavigation a:hover {
+    background: rgba(255, 255, 255, 0.12);
   }
 
   body#body_commissioner_setup .reportnavigation a:hover,
