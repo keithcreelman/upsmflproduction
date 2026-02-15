@@ -50,6 +50,7 @@
     --ups-accent-ink: #102a55;
     --ups-link: #8ec4ff;
     --ups-link-hover: #c0deff;
+    --ups-report-strong: #ffffff;
     --ups-danger: #e36572;
     --ups-success: #25c37d;
     --ups-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
@@ -93,6 +94,7 @@
     --ups-accent-ink: #102a55;
     --ups-link: #1f4d97;
     --ups-link-hover: #143a77;
+    --ups-report-strong: #0f213f;
     --ups-shadow: 0 12px 24px rgba(30, 54, 90, 0.16);
 
     --ups-caption-bg: linear-gradient(135deg, #e9f1ff 0%, #d8e7ff 56%, #c9defb 100%);
@@ -1216,6 +1218,24 @@
     border-color: var(--ups-td-border) !important;
   }
 
+  /* Hard readability lock for report-heavy pages (Rosters/Reports/Commissioner). */
+  body .pagebody .report th,
+  body .pagebody .homepagemodule.report th,
+  body .pagebody .report td,
+  body .pagebody .homepagemodule.report td {
+    color: var(--ups-report-strong) !important;
+    font-weight: 800 !important;
+    text-shadow: none !important;
+  }
+
+  body .pagebody .report caption span,
+  body .pagebody .report caption span a,
+  body .pagebody .homepagemodule.report caption span,
+  body .pagebody .homepagemodule.report caption span a {
+    color: var(--ups-report-strong) !important;
+    font-weight: 900 !important;
+  }
+
   .report td span,
   .report td div,
   .report td small,
@@ -1348,6 +1368,17 @@
   body#body_options_07 #MFLroster caption,
   body#body_options_07 #MFLroster .roster_assets thead th {
     background: var(--ups-caption-bg) !important;
+  }
+
+  body#body_options_07 #MFLroster th,
+  body#body_options_07 #MFLroster td,
+  body#body_options_07 #MFLroster caption span,
+  body#body_options_07 #MFLroster caption span a,
+  body#body_options_07 #MFLroster td.player,
+  body#body_options_07 #MFLroster td.player a {
+    color: var(--ups-report-strong) !important;
+    font-weight: 800 !important;
+    text-shadow: none !important;
   }
 
   body#body_options_07 #MFLroster tr.oddtablerow {
