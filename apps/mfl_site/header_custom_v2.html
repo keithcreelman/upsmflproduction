@@ -34,6 +34,30 @@
       window.location.replace(u.toString());
     }
   })();
+
+  // Debug helper: add `&UPS_DEBUG=1` to any URL to confirm which header build is loaded.
+  (function () {
+    try {
+      var u = new URL(window.location.href);
+      if (u.searchParams.get("UPS_DEBUG") !== "1") return;
+    } catch (e) {
+      return;
+    }
+    window.__UPS_DEBUG = true;
+    document.addEventListener("DOMContentLoaded", function () {
+      try {
+        var el = document.createElement("div");
+        el.id = "upsDebugBadge";
+        el.textContent = "UPS header build: 2026.02.15.3";
+        el.style.cssText =
+          "position:fixed;right:10px;bottom:10px;z-index:999999;" +
+          "padding:6px 10px;border-radius:999px;" +
+          "background:rgba(0,0,0,0.75);border:1px solid rgba(255,255,255,0.25);" +
+          "color:#fff;font:700 12px/1.2 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;";
+        document.body.appendChild(el);
+      } catch (e) {}
+    });
+  })();
 </script>
 
 <style>
@@ -1581,6 +1605,17 @@
     text-transform: uppercase !important;
   }
 
+  body#body_commissioner_setup .reportnavigationheader *,
+  body#body_commissioner_setup .reportnavigationHeader *,
+  body#body_commissioner_setup .reportNavigationHeader *,
+  body[id^="body_csetup"] .reportnavigationheader *,
+  body[id^="body_csetup"] .reportnavigationHeader *,
+  body[id^="body_csetup"] .reportNavigationHeader * {
+    color: var(--ups-text) !important;
+    opacity: 1 !important;
+    text-shadow: none !important;
+  }
+
   /* Some skins set explicit icon colors that don't match link/text color. */
   body#body_commissioner_setup #container-wrap i,
   body#body_commissioner_setup #container-wrap svg,
@@ -1591,6 +1626,14 @@
     color: inherit !important;
     fill: currentColor !important;
     stroke: currentColor !important;
+  }
+
+  /* MFL icon packs commonly render as pseudo-elements; force them to inherit link color. */
+  body#body_commissioner_setup .reportnavigation a:before,
+  body#body_commissioner_setup .reportNavigation a:before,
+  body[id^="body_csetup"] .reportnavigation a:before,
+  body[id^="body_csetup"] .reportNavigation a:before {
+    color: currentColor !important;
   }
 
   body#body_commissioner_setup #container-wrap svg *,
