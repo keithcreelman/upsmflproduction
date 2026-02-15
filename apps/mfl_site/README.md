@@ -12,6 +12,10 @@
 3. Publish `contract_command_center_bridge.js` to your static host.
 4. In the Contract Command Center template, replace the loader script block with `contract_command_center_loader_patch.html`.
 
+## MCM (MESSAGE15)
+1. In MFL `Setup → Appearance → Home Page Messages → Message 15`, paste the embed snippet from `site/README.md` (`hpm-mcm`).
+2. Header/footer include an `MCM` link to `MODULE=MESSAGE15`.
+
 ## Expected Behavior
 - Consistent league skin across pages.
 - Extension and restructure quick actions on roster pages.

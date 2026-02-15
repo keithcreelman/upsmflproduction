@@ -19,6 +19,11 @@ Use jsDelivr so you do not need GitHub Pages enabled.
 <script src="https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@dev/site/loader.js?v=2026.02.14.4" data-ups-partial="hpm-default"></script>
 ```
 
+## MCM (Message 15)
+```html
+<script src="https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@dev/site/loader.js?v=2026.02.15.1" data-ups-partial="hpm-mcm"></script>
+```
+
 ## Optional target node form
 If you want to mount into an existing element:
 ```html
