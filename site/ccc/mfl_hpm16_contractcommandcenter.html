@@ -423,17 +423,26 @@
     var art = document.getElementById("cccTitleArtImg");
     if (art) art.src = "https://keithcreelman.github.io/ups-league-data/ccc_contracts.svg" + qs;
 
-    // Patch tag tracking JSON seasons so the 2026 tag window can show 2025 expiring contracts.
-    // The upstream tag_tracking.json uses `meta.tracking_for_season` but row.season is the
-    // base season; CCC filters by selected season, so we rewrite seasons at fetch-time.
+    // Patch tag tracking JSON so CCC can show the upcoming season's tag pool:
+    // 1) Redirect to a dev-hosted tag_tracking.json (so we can iterate without touching ups-league-data).
+    // 2) Rewrite row.season to meta.tracking_for_season because CCC filters rows by selected season.
     if (window.fetch && !window.__ups_tag_tracking_fetch_patch) {
       window.__ups_tag_tracking_fetch_patch = true;
       var origFetch = window.fetch.bind(window);
+      var TAG_TRACKING_OVERRIDE_URL =
+        "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@dev/site/ccc/tag_tracking.json";
       window.fetch = function (input, init) {
         var url = "";
         try {
           url = typeof input === "string" ? input : input && input.url ? String(input.url) : "";
         } catch (e) {}
+        var isTagTracking = url && url.indexOf("tag_tracking.json") !== -1;
+        if (isTagTracking) {
+          // Force fresh fetch even if the upstream URL is cached.
+          var bust = v ? "v=" + encodeURIComponent(v) : "v=" + String(Date.now());
+          input = TAG_TRACKING_OVERRIDE_URL + "?" + bust;
+          url = String(input);
+        }
         return origFetch(input, init).then(function (res) {
           try {
             if (!url || url.indexOf("tag_tracking.json") === -1) return res;
