@@ -547,54 +547,6 @@
 </script>
 
 <!-------------------------------------->
-<!---------- SKIN SELECTOR -------------->
-<!-------------------------------------->
-
-<div class="MFLSkinSelection">
-  <i class="fa-regular fa-paintbrush MFLSkinSelectionbtn" aria-hidden="true" title="Select Skin Color"></i>
-  <div class="ThemeSwith_overlay" style="display:none"></div>
-  <div id="myMFLSkinSelection" class="MFLSkinSelection-content" style="display:none">
-    <div id="popup-selectLeagues-caption" style="position:relative">
-      Select Skin
-      <span id="MFLSkinSelectionClose" class="as_close_btn" style="transform:none;top:0;right:0;font-size:0.813rem;font-family:'Open Sans',sans-serif">X</span>
-    </div>
-    <!-- keep existing skin options here -->
-  </div>
-</div>
-
-<script>
-  (function () {
-    var trigger = document.querySelector(".MFLSkinSelectionbtn");
-    var panel = document.getElementById("myMFLSkinSelection");
-    var overlay = document.querySelector(".ThemeSwith_overlay");
-    var closeBtn = document.getElementById("MFLSkinSelectionClose");
-    if (!trigger || !panel || !overlay) return;
-
-    function closePanel() {
-      panel.style.display = "none";
-      overlay.style.display = "none";
-    }
-
-    function openPanel() {
-      panel.style.display = "block";
-      overlay.style.display = "block";
-    }
-
-    trigger.addEventListener("click", function (evt) {
-      evt.preventDefault();
-      if (panel.style.display === "block") {
-        closePanel();
-      } else {
-        openPanel();
-      }
-    });
-
-    if (closeBtn) closeBtn.addEventListener("click", closePanel);
-    overlay.addEventListener("click", closePanel);
-  })();
-</script>
-
-<!-------------------------------------->
 <!---------- LEAGUE BANNER -------------->
 <!-------------------------------------->
 
@@ -1568,6 +1520,100 @@
   body[id^="body_csetup"] #container-wrap a:focus {
     color: var(--ups-link-hover) !important;
     text-decoration: underline !important;
+  }
+
+  /* Make sure commissioner menu links always stay readable, regardless of skin overrides. */
+  body#body_commissioner_setup table.two_column_layout a,
+  body#body_commissioner_setup table.two_column_layout a:visited,
+  body[id^="body_csetup"] table.two_column_layout a,
+  body[id^="body_csetup"] table.two_column_layout a:visited {
+    color: var(--ups-link) !important;
+    font-weight: 800 !important;
+  }
+
+  /* Fix \"Top FAQ\" bar contrast (was light-on-light depending on MFL skin). */
+  body#body_commissioner_setup .reportnavigation,
+  body[id^="body_csetup"] .reportnavigation {
+    display: block !important;
+    max-width: min(76rem, calc(100% - 1.25rem)) !important;
+    margin: 0.75rem auto 0.25rem !important;
+    padding: 0.55rem 0.75rem !important;
+    border: 1px solid var(--ups-border) !important;
+    border-radius: 12px !important;
+    background: var(--ups-surface-alt) !important;
+    color: var(--ups-text) !important;
+  }
+
+  body#body_commissioner_setup .reportnavigationheader,
+  body[id^="body_csetup"] .reportnavigationheader {
+    color: var(--ups-muted) !important;
+    font-weight: 900 !important;
+    letter-spacing: 0.04em !important;
+    text-transform: uppercase !important;
+  }
+
+  body#body_commissioner_setup .reportnavigation a,
+  body#body_commissioner_setup .reportnavigation a:visited,
+  body[id^="body_csetup"] .reportnavigation a,
+  body[id^="body_csetup"] .reportnavigation a:visited {
+    color: var(--ups-link) !important;
+    font-weight: 800 !important;
+  }
+
+  body#body_commissioner_setup .reportnavigation a:hover,
+  body#body_commissioner_setup .reportnavigation a:focus,
+  body[id^="body_csetup"] .reportnavigation a:hover,
+  body[id^="body_csetup"] .reportnavigation a:focus {
+    color: var(--ups-link-hover) !important;
+    text-decoration: underline !important;
+  }
+
+  /* Commissioner Setup layout: use a real two-column grid with breathing room. */
+  body#body_commissioner_setup table.two_column_layout {
+    width: min(76rem, calc(100% - 1.25rem)) !important;
+    margin: 0.65rem auto 1.2rem !important;
+  }
+
+  body#body_commissioner_setup table.two_column_layout > tbody > tr {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 0.9rem !important;
+    align-items: start !important;
+  }
+
+  body#body_commissioner_setup td.two_column_layout {
+    display: block !important;
+    padding: 0 !important;
+  }
+
+  body#body_commissioner_setup td.two_column_layout > table {
+    width: 100% !important;
+    border: 1px solid var(--ups-border) !important;
+    border-radius: 12px !important;
+    overflow: hidden !important;
+    background: var(--ups-surface) !important;
+  }
+
+  body#body_commissioner_setup td.two_column_layout > table th {
+    background: var(--ups-th-bg) !important;
+    color: var(--ups-text) !important;
+    font-weight: 900 !important;
+  }
+
+  body#body_commissioner_setup td.two_column_layout > table td {
+    background: var(--ups-surface) !important;
+  }
+
+  @media (max-width: 60rem) {
+    body#body_commissioner_setup table.two_column_layout > tbody > tr {
+      grid-template-columns: 1fr !important;
+    }
+  }
+
+  /* Icons: ensure they aren't dark-on-dark on commissioner pages. */
+  body#body_commissioner_setup #container-wrap i,
+  body[id^="body_csetup"] #container-wrap i {
+    color: currentColor !important;
   }
 
   body[id^="body_csetup"] table,
