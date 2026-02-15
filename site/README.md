@@ -6,27 +6,27 @@ Use jsDelivr so you do not need GitHub Pages enabled.
 
 ## MFL Header field
 ```html
-<script src="https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@dev/site/loader.js?v=2026.02.15.4" data-ups-partial="header"></script>
+<script src="https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@dev/site/loader.js?v=2026.02.15.5" data-ups-partial="header"></script>
 ```
 
 ## MFL Footer field
 ```html
-<script src="https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@dev/site/loader.js?v=2026.02.15.4" data-ups-partial="footer"></script>
+<script src="https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@dev/site/loader.js?v=2026.02.15.5" data-ups-partial="footer"></script>
 ```
 
 ## Any HPM slot (standard message)
 ```html
-<script src="https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@dev/site/loader.js?v=2026.02.15.4" data-ups-partial="hpm-default"></script>
+<script src="https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@dev/site/loader.js?v=2026.02.15.5" data-ups-partial="hpm-default"></script>
 ```
 
 ## MCM (Message 15)
 ```html
-<script src="https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@dev/site/loader.js?v=2026.02.15.4" data-ups-partial="hpm-mcm"></script>
+<script src="https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@dev/site/loader.js?v=2026.02.15.5" data-ups-partial="hpm-mcm"></script>
 ```
 
 ## Contract Command Center (Message 2)
 ```html
-<script src="https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@dev/site/ccc/mfl_hpm_embed_loader.js?v=2026.02.15.4"></script>
+<script src="https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@dev/site/ccc/mfl_hpm_embed_loader.js?v=2026.02.15.5"></script>
 ```
 
 ## Optional target node form
@@ -34,7 +34,7 @@ If you want to mount into an existing element:
 ```html
 <div id="ups-slot-1"></div>
 <script
-  src="https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@dev/site/loader.js?v=2026.02.15.4"
+  src="https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@dev/site/loader.js?v=2026.02.15.5"
   data-ups-partial="hpm-default"
   data-ups-target-id="ups-slot-1"></script>
 ```

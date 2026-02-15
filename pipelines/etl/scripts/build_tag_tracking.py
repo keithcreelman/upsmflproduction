@@ -89,7 +89,9 @@ def is_non_rookie_contract_status(status: str) -> bool:
     # NOTE: Waiver Wire (WW) 1-year contracts are tag-eligible in UPS. Do not
     # exclude them from the candidate pool; they should show up in the 1-year
     # cohort for the upcoming season's tag window.
-    blocked_fragments = ("ROOKIE", "BL", "FA", "FREE")
+    #
+    # NOTE: Expiring rookies (contract_year=1, status=Rookie) are also eligible.
+    blocked_fragments = ("BL", "FA", "FREE")
     return not any(tok in s for tok in blocked_fragments)
 
 
