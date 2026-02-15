@@ -3,7 +3,19 @@
   "use strict";
 
   var script = document.currentScript;
+  if (!script) {
+    var candidates = Array.prototype.slice.call(
+      document.querySelectorAll('script[data-ups-partial][src*="loader.js"]')
+    );
+    for (var i = candidates.length - 1; i >= 0; i -= 1) {
+      if (!candidates[i].getAttribute("data-ups-bound")) {
+        script = candidates[i];
+        break;
+      }
+    }
+  }
   if (!script) return;
+  script.setAttribute("data-ups-bound", "1");
 
   var PARTIAL_MAP = {
     header: "/apps/mfl_site/header_custom_v2.html",
