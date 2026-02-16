@@ -73,8 +73,32 @@
   const DEBUG_ADMIN =
     (u && (u.searchParams.get("DEBUG_ADMIN") || u.searchParams.get("DEBUG"))) || "";
 
-  const CCC_IFRAME_URL =
+  const DEFAULT_CCC_IFRAME_URL =
     "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@dev/site/ccc/mfl_hpm16_contractcommandcenter.html";
+
+  function getScriptBaseUrl() {
+    try {
+      const s = document.currentScript;
+      if (!s || !s.src) return "";
+      const su = new URL(s.src, window.location.href);
+      const parts = String(su.pathname || "").split("/");
+      parts.pop();
+      su.pathname = parts.join("/") + "/";
+      su.search = "";
+      su.hash = "";
+      return su.toString();
+    } catch (e) {}
+    return "";
+  }
+
+  function resolveIframeUrl() {
+    const explicit = String(window.UPS_CCC_IFRAME_URL || "").trim();
+    if (explicit) return explicit;
+    const base = getScriptBaseUrl();
+    if (base) return base + "mfl_hpm16_contractcommandcenter.html";
+    return DEFAULT_CCC_IFRAME_URL;
+  }
+  const CCC_IFRAME_URL = resolveIframeUrl();
 
   function inferModeFromSystem() {
     if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) return "dark";
@@ -184,8 +208,14 @@
 
   function onMessage(e) {
     if (!iframe.contentWindow || e.source !== iframe.contentWindow) return;
-    // Allow both GitHub Pages and jsDelivr hosting.
-    if (e.origin !== "https://keithcreelman.github.io" && e.origin !== "https://cdn.jsdelivr.net") return;
+    // Allow known CCC hosts.
+    if (
+      e.origin !== "https://keithcreelman.github.io" &&
+      e.origin !== "https://cdn.jsdelivr.net" &&
+      e.origin !== "https://rawcdn.githack.com"
+    ) {
+      return;
+    }
     const data = e.data || {};
     if (!data) return;
     if (data.type === "ccc-height") {

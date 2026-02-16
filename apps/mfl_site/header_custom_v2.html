@@ -48,7 +48,7 @@
       try {
         var el = document.createElement("div");
         el.id = "upsDebugBadge";
-        el.textContent = "UPS header build: 2026.02.16.4";
+        el.textContent = "UPS header build: 2026.02.16.5";
         el.style.cssText =
           "position:fixed;right:10px;bottom:10px;z-index:999999;" +
           "padding:6px 10px;border-radius:999px;" +
@@ -840,14 +840,26 @@
     function loadCccLoader() {
       if (alreadyEmbedded()) return;
       ensureMountNearTop();
-      var s = document.createElement("script");
-      // Pin to a commit to avoid jsDelivr caching surprises.
-      s.src =
-        "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@d1413ac/site/ccc/mfl_hpm_embed_loader.js" +
-        "?v=" +
-        encodeURIComponent(String(Date.now()));
-      s.async = true;
-      document.body.appendChild(s);
+      var cacheKey = encodeURIComponent(String(Date.now()));
+      var loaderCandidates = [
+        "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@dev/site/ccc/mfl_hpm_embed_loader.js?v=" + cacheKey,
+        "https://rawcdn.githack.com/keithcreelman/upsmflproduction/dev/site/ccc/mfl_hpm_embed_loader.js?v=" + cacheKey,
+        // Last fallback: existing GitHub Pages loader.
+        "https://keithcreelman.github.io/ups-league-data/mfl_hpm_embed_loader.js?v=" + cacheKey
+      ];
+
+      function tryLoader(idx) {
+        if (idx >= loaderCandidates.length) return;
+        var s = document.createElement("script");
+        s.src = loaderCandidates[idx];
+        s.async = true;
+        s.onerror = function () {
+          tryLoader(idx + 1);
+        };
+        document.body.appendChild(s);
+      }
+
+      tryLoader(0);
     }
 
     var mod = getModuleName();
@@ -1029,9 +1041,153 @@
   })();
 </script>
 
-	<script>
-	  // Some MFL skins render light-on-light spans inside nav bars; ensure they stay readable in dark mode.
-	  (function () {
+<script>
+  // Rosters page: prepend franchise icon and keep "icon - franchise name" in caption/header.
+  (function () {
+    function safeStr(v) {
+      return v === null || v === undefined ? "" : String(v).trim();
+    }
+
+    function pad4(v) {
+      var d = safeStr(v).replace(/\D/g, "");
+      return d ? d.padStart(4, "0").slice(-4) : "";
+    }
+
+    function isRosterPage() {
+      return !!(document.body && document.body.id === "body_options_07");
+    }
+
+    function isHttpUrl(v) {
+      var s = safeStr(v);
+      return s.indexOf("http://") === 0 || s.indexOf("https://") === 0;
+    }
+
+    function getFidFromTable(table, caption) {
+      var cls = safeStr(table && table.className);
+      var m = cls.match(/franchise_(\d{4})/);
+      if (m) return pad4(m[1]);
+      var capLink =
+        (caption && caption.querySelector("a[class*='franchise_']")) ||
+        (table && table.querySelector("caption a[class*='franchise_']"));
+      if (capLink) {
+        var capClass = safeStr(capLink.className);
+        var m2 = capClass.match(/franchise_(\d{4})/);
+        if (m2) return pad4(m2[1]);
+      }
+      return "";
+    }
+
+    function candidateIconUrls(fid) {
+      if (!fid) return [];
+      var host = window.baseURLStatic || window.baseURLDynamic || "https://www48.myfantasyleague.com";
+      var lid = safeStr(window.league_id || "");
+      var yr = parseInt(safeStr(window.year || ""), 10);
+      if (!lid || !yr) return [];
+      try {
+        var key = "fid_" + fid;
+        var rec = window.franchiseDatabase && window.franchiseDatabase[key];
+        if (rec && isHttpUrl(rec.icon)) return [safeStr(rec.icon)];
+      } catch (e) {}
+      var bases = [
+        host + "/fflnetdynamic" + yr + "/" + lid + "_franchise_icon" + fid,
+        host + "/fflnetdynamic" + (yr - 1) + "/" + lid + "_franchise_icon" + fid,
+        host + "/fflnetdynamic2025/" + lid + "_franchise_icon" + fid,
+        host + "/fflnetdynamic2019/" + lid + "_franchise_icon" + fid
+      ];
+      var out = [];
+      bases.forEach(function (b) {
+        out.push(b + ".jpg");
+        out.push(b + ".png");
+      });
+      return out;
+    }
+
+    function setIconWithFallback(img, urls) {
+      if (!img || !urls || !urls.length) return;
+      var i = 0;
+      function tryNext() {
+        if (i >= urls.length) return;
+        img.src = urls[i];
+        i += 1;
+      }
+      img.onerror = function () {
+        tryNext();
+      };
+      tryNext();
+    }
+
+    function decorateCaption(caption, fid) {
+      if (!caption || !fid) return;
+      var holder = caption.querySelector("a") || caption.querySelector("span") || caption;
+      if (!holder) return;
+      var name = safeStr(holder.getAttribute("data-ups-franchise-name") || holder.textContent || "");
+      if (!name) return;
+      holder.setAttribute("data-ups-franchise-name", name);
+
+      if (caption.classList.contains("ups-roster-caption") && holder.querySelector(".ups-roster-franchise-name")) {
+        return;
+      }
+
+      caption.classList.add("ups-roster-caption");
+      holder.textContent = "";
+
+      var img = document.createElement("img");
+      img.className = "ups-roster-franchise-icon";
+      img.alt = name + " icon";
+      setIconWithFallback(img, candidateIconUrls(fid));
+
+      var dash = document.createElement("span");
+      dash.className = "ups-roster-franchise-dash";
+      dash.textContent = "-";
+
+      var label = document.createElement("span");
+      label.className = "ups-roster-franchise-name";
+      label.textContent = name;
+
+      holder.appendChild(img);
+      holder.appendChild(dash);
+      holder.appendChild(label);
+    }
+
+    function applyRosterFranchiseHeaders() {
+      if (!isRosterPage()) return;
+      var captions = document.querySelectorAll("#MFLroster caption");
+      for (var i = 0; i < captions.length; i += 1) {
+        var caption = captions[i];
+        var table = caption.closest("table");
+        var fid = getFidFromTable(table, caption);
+        decorateCaption(caption, fid);
+      }
+    }
+
+    function init() {
+      if (!isRosterPage()) return;
+      var attempts = 0;
+      var timer = setInterval(function () {
+        attempts += 1;
+        applyRosterFranchiseHeaders();
+        if (attempts >= 20) clearInterval(timer);
+      }, 350);
+
+      var root = document.getElementById("MFLroster") || document.body;
+      if (!root || !window.MutationObserver) return;
+      var observer = new MutationObserver(function () {
+        applyRosterFranchiseHeaders();
+      });
+      observer.observe(root, { childList: true, subtree: true });
+    }
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", init);
+    } else {
+      init();
+    }
+  })();
+</script>
+
+		<script>
+		  // Some MFL skins render light-on-light spans inside nav bars; ensure they stay readable in dark mode.
+		  (function () {
 	    function isRelevantPage() {
 	      var id = String(document.body && document.body.id ? document.body.id : "");
 	      if (id === "body_commissioner_setup" || id.indexOf("body_csetup") === 0) return true;
@@ -1774,6 +1930,58 @@
   body#body_options_07 #MFLroster caption,
   body#body_options_07 #MFLroster .roster_assets thead th {
     background: var(--ups-caption-bg) !important;
+  }
+
+  /* Rosters: franchise header with icon + dash + name */
+  body#body_options_07 #MFLroster caption {
+    padding: 0.5rem 0.8rem !important;
+  }
+
+  body#body_options_07 #MFLroster caption.ups-roster-caption {
+    min-height: 4.55rem !important; /* ~91px reduced by ~30% => ~64px visual target */
+  }
+
+  body#body_options_07 #MFLroster caption.ups-roster-caption > span,
+  body#body_options_07 #MFLroster caption.ups-roster-caption > a {
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.55rem !important;
+    width: 100% !important;
+    white-space: nowrap !important;
+  }
+
+  body#body_options_07 #MFLroster .ups-roster-franchise-icon {
+    height: 64px !important;
+    max-width: 180px !important;
+    width: auto !important;
+    object-fit: contain !important;
+    border-radius: 0.35rem !important;
+    flex: 0 0 auto !important;
+  }
+
+  body#body_options_07 #MFLroster .ups-roster-franchise-dash {
+    color: var(--ups-report-strong) !important;
+    opacity: 0.95 !important;
+    font-weight: 900 !important;
+    font-size: 1.08em !important;
+    line-height: 1 !important;
+    flex: 0 0 auto !important;
+  }
+
+  body#body_options_07 #MFLroster .ups-roster-franchise-name {
+    color: inherit !important;
+    font: inherit !important;
+    letter-spacing: inherit !important;
+    text-shadow: none !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  @media (max-width: 760px) {
+    body#body_options_07 #MFLroster .ups-roster-franchise-icon {
+      height: 46px !important;
+      max-width: 128px !important;
+    }
   }
 
   body#body_options_07 #MFLroster th,
