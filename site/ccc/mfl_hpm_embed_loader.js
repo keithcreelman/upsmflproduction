@@ -69,6 +69,15 @@
   const L = getLeagueId(u);
   const YEAR = getYear(u);
   const FRANCHISE_ID = getFranchiseId(u);
+  const MFL_USER_ID = (function () {
+    try {
+      const c = String(document.cookie || "");
+      const m = c.match(/(?:^|;\s*)MFL_USER_ID=([^;]+)/i);
+      return m && m[1] ? decodeURIComponent(String(m[1])) : "";
+    } catch (e) {
+      return "";
+    }
+  })();
   const MODE_KEY = "ups_mode_" + YEAR + "_" + L;
   const DEBUG_ADMIN =
     (u && (u.searchParams.get("DEBUG_ADMIN") || u.searchParams.get("DEBUG"))) || "";
@@ -166,6 +175,7 @@
       encodeURIComponent(YEAR) +
       "&FRANCHISE_ID=" +
       encodeURIComponent(FRANCHISE_ID) +
+      (MFL_USER_ID ? "&MFL_USER_ID=" + encodeURIComponent(MFL_USER_ID) : "") +
       "&THEME=" +
       encodeURIComponent(theme) +
       (DEBUG_ADMIN ? "&DEBUG_ADMIN=" + encodeURIComponent(DEBUG_ADMIN) : "")

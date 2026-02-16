@@ -928,7 +928,10 @@
     try {
       const c = safeStr(document.cookie || "");
       const m = c.match(/(?:^|;\s*)MFL_USER_ID=([^;]+)/i);
-      return safeStr(m ? m[1] : "");
+      const cookieVal = safeStr(m ? m[1] : "");
+      if (cookieVal) return cookieVal;
+      const u = new URL(window.location.href);
+      return safeStr(u.searchParams.get("MFL_USER_ID") || u.searchParams.get("MFLUSERID") || "");
     } catch (e) {
       return "";
     }
