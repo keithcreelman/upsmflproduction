@@ -48,7 +48,7 @@
       try {
         var el = document.createElement("div");
         el.id = "upsDebugBadge";
-        el.textContent = "UPS header build: 2026.02.16.6";
+        el.textContent = "UPS header build: 2026.02.16.7";
         el.style.cssText =
           "position:fixed;right:10px;bottom:10px;z-index:999999;" +
           "padding:6px 10px;border-radius:999px;" +
@@ -334,17 +334,179 @@
     margin: 0;
   }
 
+  .ups-hero-layout {
+    display: grid;
+    grid-template-columns: minmax(206px, 1fr) minmax(540px, 640px) minmax(206px, 1fr);
+    min-height: 427px;
+    align-items: stretch;
+  }
+
+  .ups-hero-side {
+    background:
+      linear-gradient(180deg, rgba(8, 19, 39, 0.95), rgba(10, 24, 47, 0.92));
+    padding: 0.62rem 0.56rem 0.64rem;
+    display: grid;
+    grid-template-rows: auto 1fr;
+    gap: 0.48rem;
+  }
+
+  .ups-hero-side-left {
+    border-right: 1px solid rgba(255, 255, 255, 0.16);
+  }
+
+  .ups-hero-side-right {
+    border-left: 1px solid rgba(255, 255, 255, 0.16);
+  }
+
+  .ups-hero-side-title {
+    font-size: 0.72rem;
+    line-height: 1;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #e7efff;
+    font-weight: 900;
+  }
+
+  .ups-hero-list {
+    display: grid;
+    gap: 0.24rem;
+    align-content: start;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .ups-hero-list:empty:before {
+    content: "Loading...";
+    color: var(--ups-muted);
+    font-size: 0.78rem;
+    font-weight: 800;
+  }
+
+  .ups-hero-item {
+    display: grid;
+    grid-template-columns: auto 24px 1fr;
+    align-items: center;
+    gap: 0.34rem;
+    padding: 0.26rem 0.34rem;
+    border-radius: 8px;
+    border: 1px solid rgba(108, 149, 205, 0.42);
+    background: rgba(15, 35, 68, 0.9);
+    color: var(--ups-text);
+    min-height: 31px;
+  }
+
+  .ups-hero-item--leader {
+    grid-template-columns: 24px 1fr auto;
+  }
+
+  .ups-hero-year {
+    font-size: 0.72rem;
+    line-height: 1;
+    font-weight: 900;
+    letter-spacing: 0.05em;
+    color: #cfe0fb;
+    min-width: 34px;
+  }
+
+  .ups-hero-icon {
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    object-fit: cover;
+    border: 1px solid rgba(255, 255, 255, 0.26);
+    background: rgba(8, 13, 24, 0.92);
+  }
+
+  .ups-hero-main {
+    min-width: 0;
+    display: grid;
+    gap: 0.04rem;
+  }
+
+  .ups-hero-name {
+    font-size: 0.76rem;
+    line-height: 1.15;
+    font-weight: 900;
+    color: #f3f8ff;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .ups-hero-meta {
+    font-size: 0.65rem;
+    line-height: 1.15;
+    font-weight: 800;
+    color: #9ab6dc;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .ups-hero-trophies {
+    color: #ffd37f;
+  }
+
+  .ups-hero-count {
+    min-width: 24px;
+    height: 24px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.72rem;
+    line-height: 1;
+    font-weight: 900;
+    color: var(--ups-accent-ink);
+    background: var(--ups-accent);
+    border: 1px solid #b98527;
+  }
+
   .ups-hero-shell .full_height_banner {
     display: block;
     line-height: 0;
+    height: 100%;
   }
 
   .ups-hero-shell .full_height_banner img {
     display: block;
     width: 100%;
-    height: auto;
-    min-height: 170px;
+    height: 100%;
+    max-height: 427px;
     object-fit: cover;
+  }
+
+  :root[data-ups-mode="light"] .ups-hero-side {
+    background: linear-gradient(180deg, rgba(228, 239, 255, 0.96), rgba(214, 228, 249, 0.94));
+  }
+
+  :root[data-ups-mode="light"] .ups-hero-side-left {
+    border-right-color: rgba(16, 42, 85, 0.18);
+  }
+
+  :root[data-ups-mode="light"] .ups-hero-side-right {
+    border-left-color: rgba(16, 42, 85, 0.18);
+  }
+
+  :root[data-ups-mode="light"] .ups-hero-side-title {
+    color: #17386f;
+  }
+
+  :root[data-ups-mode="light"] .ups-hero-item {
+    background: rgba(238, 246, 255, 0.96);
+    border-color: rgba(111, 149, 204, 0.46);
+  }
+
+  :root[data-ups-mode="light"] .ups-hero-year {
+    color: #1c4b92;
+  }
+
+  :root[data-ups-mode="light"] .ups-hero-name {
+    color: #112e5d;
+  }
+
+  :root[data-ups-mode="light"] .ups-hero-meta {
+    color: #2e558f;
   }
 
   .ccc-banner {
@@ -606,6 +768,29 @@
   }
 
   @media (max-width: 900px) {
+    .ups-hero-layout {
+      grid-template-columns: 1fr;
+      min-height: 0;
+    }
+
+    .ups-hero-shell .full_height_banner img {
+      height: auto;
+      max-height: none;
+      min-height: 170px;
+    }
+
+    .ups-hero-side-left,
+    .ups-hero-side-right {
+      border-left: 0;
+      border-right: 0;
+      border-top: 1px solid rgba(255, 255, 255, 0.14);
+    }
+
+    :root[data-ups-mode="light"] .ups-hero-side-left,
+    :root[data-ups-mode="light"] .ups-hero-side-right {
+      border-top-color: rgba(16, 42, 85, 0.16);
+    }
+
     .ccc-banner-inner {
       grid-template-columns: 1fr;
     }
@@ -729,9 +914,21 @@
 <div class="ups-hero-shell">
   <div class="banner-container-full">
     <div class="banner-container-wrap-full">
-      <a class="full_height_banner" href="//%HOST%/%YEAR%/home/%LEAGUEID%" title="Return to home page">
-        <img src="https://i.ibb.co/Lz5d5Bb4/Chat-GPT-Image-Oct-12-2025-at-08-33-28-AM.png" alt="UPS League Banner">
-      </a>
+      <div class="ups-hero-layout">
+        <aside class="ups-hero-side ups-hero-side-left" aria-label="Recent champions">
+          <div class="ups-hero-side-title">Last 10 Champions</div>
+          <div id="upsRecentWinners" class="ups-hero-list"></div>
+        </aside>
+
+        <a class="full_height_banner" href="//%HOST%/%YEAR%/home/%LEAGUEID%" title="Return to home page">
+          <img src="https://i.ibb.co/Lz5d5Bb4/Chat-GPT-Image-Oct-12-2025-at-08-33-28-AM.png" alt="UPS League Banner">
+        </a>
+
+        <aside class="ups-hero-side ups-hero-side-right" aria-label="Championship title leaders">
+          <div class="ups-hero-side-title">Title Leaders</div>
+          <div id="upsTitleLeaders" class="ups-hero-list"></div>
+        </aside>
+      </div>
     </div>
   </div>
 
@@ -816,6 +1013,134 @@
       });
     } else {
       initThemeToggle();
+    }
+  })();
+</script>
+
+<script>
+  // Hero side-panels: recent champions + all-time title leaders.
+  (function () {
+    var recentWinners = [
+      { year: 2025, franchise: "Pure Greatness", icon: "https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_icon0004.png", allPlayPct: 0.717, titleNumber: 1 },
+      { year: 2024, franchise: "HammerTime", icon: "https://www48.myfantasyleague.com/fflnetdynamic2025/74598_franchise_icon0005.jpg", allPlayPct: 0.674, titleNumber: 1 },
+      { year: 2023, franchise: "Blake Bombers", icon: "https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_icon0010.png", allPlayPct: 0.690, titleNumber: 3 },
+      { year: 2022, franchise: "Gride", icon: "https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_icon0003.png", allPlayPct: 0.652, titleNumber: 2 },
+      { year: 2021, franchise: "Ulterior Warrior", icon: "https://www48.myfantasyleague.com/fflnetdynamic2025/74598_franchise_icon0001.png", allPlayPct: 0.624, titleNumber: 2 },
+      { year: 2020, franchise: "Sex Manther", icon: "https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_icon0007.png", allPlayPct: 0.655, titleNumber: 2 },
+      { year: 2019, franchise: "Sex Manther", icon: "https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_icon0007.png", allPlayPct: 0.670, titleNumber: 1 },
+      { year: 2018, franchise: "Good in Da Hood", icon: "https://www48.myfantasyleague.com/fflnetdynamic2024/74598_franchise_icon0006.jpg", allPlayPct: 0.744, titleNumber: 2 },
+      { year: 2017, franchise: "Good in Da Hood", icon: "https://www48.myfantasyleague.com/fflnetdynamic2024/74598_franchise_icon0006.jpg", allPlayPct: 0.793, titleNumber: 1 },
+      { year: 2016, franchise: "C-Town Chivalry", icon: "https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_icon0009.png", allPlayPct: 0.776, titleNumber: 1 }
+    ];
+
+    var titleLeaders = [
+      { franchise: "Blake Bombers", icon: "https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_icon0010.png", titles: 3, years: "2011, 2015, 2023" },
+      { franchise: "L.A. Looks", icon: "https://www48.myfantasyleague.com/fflnetdynamic2025/74598_franchise_icon0001.png", titles: 2, years: "2014, 2021" },
+      { franchise: "Gride", icon: "https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_icon0003.png", titles: 2, years: "2012, 2022" },
+      { franchise: "The Long Haulers", icon: "https://www48.myfantasyleague.com/fflnetdynamic2024/74598_franchise_icon0006.jpg", titles: 2, years: "2017, 2018" },
+      { franchise: "Sex Manther", icon: "https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_icon0007.png", titles: 2, years: "2019, 2020" },
+      { franchise: "CBP", icon: "https://www48.myfantasyleague.com/fflnetdynamic2023/74598_franchise_icon0002.png", titles: 1, years: "2013" },
+      { franchise: "Pure Greatness", icon: "https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_icon0004.png", titles: 1, years: "2025" },
+      { franchise: "HammerTime", icon: "https://www48.myfantasyleague.com/fflnetdynamic2025/74598_franchise_icon0005.jpg", titles: 1, years: "2024" },
+      { franchise: "Real Deal Creel", icon: "https://www48.myfantasyleague.com/fflnetdynamic2023/74598_franchise_icon0008.png", titles: 1, years: "2010" },
+      { franchise: "C-Town Chivalry", icon: "https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_icon0009.png", titles: 1, years: "2016" }
+    ];
+
+    function formatPct(value) {
+      var n = parseFloat(value);
+      if (isNaN(n)) return "--";
+      return (n * 100).toFixed(1) + "%";
+    }
+
+    function buildRecentRow(item) {
+      var row = document.createElement("div");
+      row.className = "ups-hero-item";
+
+      var year = document.createElement("div");
+      year.className = "ups-hero-year";
+      year.textContent = String(item.year || "");
+
+      var icon = document.createElement("img");
+      icon.className = "ups-hero-icon";
+      icon.alt = (item.franchise || "Franchise") + " icon";
+      icon.src = String(item.icon || "");
+      icon.loading = "lazy";
+
+      var main = document.createElement("div");
+      main.className = "ups-hero-main";
+
+      var name = document.createElement("div");
+      name.className = "ups-hero-name";
+      name.textContent = String(item.franchise || "");
+
+      var meta = document.createElement("div");
+      meta.className = "ups-hero-meta";
+      meta.innerHTML =
+        "All-Play " + formatPct(item.allPlayPct) + " <span class=\"ups-hero-trophies\">| Title #" + String(item.titleNumber || 1) + " x&#127942;</span>";
+
+      main.appendChild(name);
+      main.appendChild(meta);
+
+      row.appendChild(year);
+      row.appendChild(icon);
+      row.appendChild(main);
+      return row;
+    }
+
+    function buildLeaderRow(item) {
+      var row = document.createElement("div");
+      row.className = "ups-hero-item ups-hero-item--leader";
+
+      var icon = document.createElement("img");
+      icon.className = "ups-hero-icon";
+      icon.alt = (item.franchise || "Franchise") + " icon";
+      icon.src = String(item.icon || "");
+      icon.loading = "lazy";
+
+      var main = document.createElement("div");
+      main.className = "ups-hero-main";
+
+      var name = document.createElement("div");
+      name.className = "ups-hero-name";
+      name.textContent = String(item.franchise || "");
+
+      var meta = document.createElement("div");
+      meta.className = "ups-hero-meta";
+      meta.textContent = String(item.years || "");
+
+      var count = document.createElement("span");
+      count.className = "ups-hero-count";
+      count.textContent = String(item.titles || 0);
+      count.title = String(item.titles || 0) + " title(s)";
+
+      main.appendChild(name);
+      main.appendChild(meta);
+
+      row.appendChild(icon);
+      row.appendChild(main);
+      row.appendChild(count);
+      return row;
+    }
+
+    function render() {
+      var recentEl = document.getElementById("upsRecentWinners");
+      var leadersEl = document.getElementById("upsTitleLeaders");
+      if (!recentEl || !leadersEl) return;
+      recentEl.innerHTML = "";
+      leadersEl.innerHTML = "";
+
+      for (var i = 0; i < recentWinners.length; i += 1) {
+        recentEl.appendChild(buildRecentRow(recentWinners[i]));
+      }
+      for (var j = 0; j < titleLeaders.length; j += 1) {
+        leadersEl.appendChild(buildLeaderRow(titleLeaders[j]));
+      }
+    }
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", render);
+    } else {
+      render();
     }
   })();
 </script>
