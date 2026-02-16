@@ -971,7 +971,7 @@
   }
 
   function normalizeTagRow(r) {
-    return {
+    const out = {
       league_id: safeStr(r.league_id || r.L || r.leagueId),
       season: normalizeSeasonValue(r.season || r.year),
       franchise_id: pad4(r.franchise_id || r.franchiseId),
@@ -1006,6 +1006,12 @@
       tracking_context: safeStr(r.tracking_context || "in-season"),
       scoring_weeks_used: safeStr(r.scoring_weeks_used),
     };
+    if (isTagHardExcluded(out)) {
+      out.is_tag_eligible = 0;
+      out.eligibility_reason =
+        out.eligibility_reason || "Superflex keeper; must enter free-agent market.";
+    }
+    return out;
   }
 
   function submissionNaturalKey(r) {
@@ -5516,13 +5522,9 @@
     }
 
     if (state.activeModule === "tag") {
-      const scopedTagTrackingAllowed = scopedTagTracking.filter((r) => !isTagHardExcluded(r));
-      const seasonTagTrackingAllowed = (seasonTagTracking || []).filter(
-        (r) => !isTagHardExcluded(r)
-      );
-      const tagEligibleRows = scopedTagTrackingAllowed.filter((r) => safeInt(r.is_tag_eligible) === 1);
-      const tagEligibleAll = seasonTagTrackingAllowed.filter((r) => safeInt(r.is_tag_eligible) === 1);
-      const tagIneligibleRows = buildTagIneligibleOneYearRows(seasonTagTrackingAllowed);
+      const tagEligibleRows = scopedTagTracking.filter((r) => safeInt(r.is_tag_eligible) === 1);
+      const tagEligibleAll = (seasonTagTracking || []).filter((r) => safeInt(r.is_tag_eligible) === 1);
+      const tagIneligibleRows = buildTagIneligibleOneYearRows(seasonTagTracking || []);
       const ppgMin = clampInt(state.ppgMinGames || 8, 1, 18);
       const ppgPool =
         state.tagTrackingMeta && Array.isArray(state.tagTrackingMeta.ppg_pool)
@@ -5535,7 +5537,7 @@
           : sortRows(tagEligibleRows, "tagTier", "asc");
       const teamNameSource =
         (tagRows[0] && tagRows[0].franchise_name) ||
-        (scopedTagTrackingAllowed[0] && scopedTagTrackingAllowed[0].franchise_name) ||
+        (positionFilteredTagTracking[0] && positionFilteredTagTracking[0].franchise_name) ||
         "";
       const teamName = showAllTeams ? "All Teams" : safeStr(teamNameSource || "Team");
 
@@ -5550,7 +5552,7 @@
           tagTrackingFilterSeason || state.calendarContractSeason || season,
           selectedTeamId,
           showAllTeams,
-          scopedTagTrackingAllowed
+          positionFilteredTagTracking
         );
       if (tabSummary)
         tabSummary.innerHTML = renderTagSummaryPage(
@@ -5560,13 +5562,13 @@
           !!state.tagCalcOpen,
           state.tagTrackingMeta || {},
           state.tagSummarySide || "ALL",
-          seasonTagTrackingAllowed
+          seasonTagTracking || []
         );
       if (tabCostCalc)
         tabCostCalc.innerHTML = renderTagCostCalcPage(
           state.tagTrackingMeta || {},
           state.tagSummarySide || "ALL",
-          seasonTagTrackingAllowed
+          seasonTagTracking || []
         );
       if (tabEligible) tabEligible.innerHTML = renderTable(tagRows, "eligible");
       if (tabIneligible) tabIneligible.innerHTML = renderTagIneligibleList(tagIneligibleRows);
