@@ -1,0 +1,772 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>UPS Standings</title>
+  <style>
+    :root {
+      --bg: #061a3a;
+      --panel: #0d2b57;
+      --line: #2a4f86;
+      --text: #e8effa;
+      --muted: #b9c8e2;
+      --gold: #e7be59;
+      --navy: #05224f;
+      --warn: #ff8a65;
+    }
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: transparent;
+      color: var(--text);
+      font-family: "Open Sans", Arial, sans-serif;
+    }
+    .wrap {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 10px;
+    }
+    .card {
+      background: linear-gradient(180deg, rgba(14,44,88,0.98), rgba(8,29,61,0.98));
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 10px 24px rgba(0,0,0,0.35);
+    }
+    .head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(5, 24, 52, 0.55);
+      flex-wrap: wrap;
+    }
+    .title {
+      font-size: 20px;
+      font-weight: 900;
+      letter-spacing: 0.04em;
+    }
+    .sub {
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 700;
+    }
+    .controls {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: flex-end;
+    }
+    .toggles {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .btn {
+      border: 1px solid var(--line);
+      background: #123768;
+      color: var(--text);
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-weight: 800;
+      cursor: pointer;
+      font-size: 12px;
+    }
+    .btn.active {
+      background: var(--gold);
+      color: var(--navy);
+      border-color: #d8aa41;
+    }
+    .field {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 700;
+    }
+    .select {
+      border: 1px solid var(--line);
+      background: #0e2c58;
+      color: var(--text);
+      border-radius: 8px;
+      padding: 5px 8px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .toggleWrap {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 700;
+    }
+    .toggleWrap input {
+      accent-color: var(--gold);
+    }
+    .tableWrap {
+      overflow: auto;
+      max-height: 70vh;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 980px;
+    }
+    th, td {
+      border-bottom: 1px solid rgba(42,79,134,0.65);
+      padding: 8px 10px;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+    th {
+      color: #ffdf87;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      font-size: 11px;
+      background: rgba(9,33,67,0.8);
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      user-select: none;
+    }
+    th.is-sortable {
+      cursor: pointer;
+    }
+    th .sort {
+      opacity: 0.7;
+      margin-left: 4px;
+      font-size: 10px;
+    }
+    th.is-sorted .sort {
+      opacity: 1;
+      color: #fff7d8;
+    }
+    tr:nth-child(even) td {
+      background: rgba(255,255,255,0.02);
+    }
+    tr.divisionHeader td {
+      background: rgba(13, 47, 93, 0.9) !important;
+      color: #ffdf87;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .frRow {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 180px;
+    }
+    .icon {
+      width: 22px;
+      height: 22px;
+      object-fit: cover;
+      border-radius: 50%;
+      border: 1px solid rgba(255,255,255,0.2);
+      background: rgba(255,255,255,0.06);
+      flex: 0 0 auto;
+    }
+    .num {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+    .muted {
+      color: var(--muted);
+    }
+    .tbFlag {
+      display: inline-block;
+      margin-left: 6px;
+      border: 1px solid rgba(255,138,101,0.7);
+      color: #ffd4c6;
+      background: rgba(255,138,101,0.16);
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 900;
+      letter-spacing: 0.02em;
+      padding: 1px 6px;
+      cursor: help;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="head">
+        <div>
+          <div class="title">Standings Snapshot</div>
+          <div class="sub" id="metaLine">Loading...</div>
+        </div>
+        <div class="controls">
+          <div class="toggles">
+            <button class="btn active" data-view="records">W-L-T</button>
+            <button class="btn" data-view="pct">Percentages</button>
+            <button class="btn" data-view="points">Points</button>
+            <button class="btn" data-view="division">Division Race</button>
+            <button class="btn" data-view="wildcard">Wildcard Race</button>
+          </div>
+          <label class="field">Season
+            <select id="seasonSelect" class="select"></select>
+          </label>
+          <label id="showLeadersWrap" class="toggleWrap" style="display:none;">
+            <input id="showLeadersChk" type="checkbox" />
+            Show Division Leaders
+          </label>
+        </div>
+      </div>
+      <div class="tableWrap">
+        <table>
+          <thead id="thead"></thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      "use strict";
+
+      const $ = (s) => document.querySelector(s);
+      const safe = (v) => (v === null || v === undefined ? "" : String(v));
+      const n = (v, d = 0) => {
+        const x = Number(v);
+        return Number.isFinite(x) ? x : d;
+      };
+      const esc = (s) =>
+        safe(s)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#39;");
+      const eqNum = (a, b) => Math.abs(n(a) - n(b)) < 1e-9;
+      const cmpDesc = (a, b) => n(b) - n(a);
+      const cmpText = (a, b) => safe(a).localeCompare(safe(b));
+
+      const u = new URL(window.location.href);
+      const L = safe(u.searchParams.get("L") || "25625");
+      const SOURCE_L = safe(u.searchParams.get("SOURCE_L") || u.searchParams.get("DATA_L") || "74598");
+      const YEAR = Number(safe(u.searchParams.get("YEAR") || "2026")) || 2026;
+
+      const state = {
+        leagueId: L,
+        sourceLeagueId: SOURCE_L,
+        season: YEAR,
+        requestedSeason: YEAR,
+        rows: [],
+        meta: {},
+        view: "records",
+        sortKey: "franchise",
+        sortDir: "asc",
+        showDivisionLeaders: false,
+      };
+
+      function pctFromWlt(o) {
+        const w = n(o && o.w, 0);
+        const l = n(o && o.l, 0);
+        const t = n(o && o.t, 0);
+        const g = w + l + t;
+        return g > 0 ? (w + 0.5 * t) / g : 0;
+      }
+
+      function fmtWlt(o) {
+        const w = n(o && o.w, 0), l = n(o && o.l, 0), t = n(o && o.t, 0);
+        return `${w}-${l}-${t}`;
+      }
+
+      function fmtPct(v) { return n(v, 0).toFixed(3); }
+
+      function fmtNum(v) {
+        const x = n(v, 0);
+        return Number.isInteger(x) ? x.toLocaleString() : x.toFixed(1);
+      }
+
+      function normalizeRows(rows) {
+        return (rows || []).map((r) => ({
+          franchise_id: safe(r.franchise_id),
+          franchise_name: safe(r.franchise_name),
+          icon: safe(r.icon || r.logo),
+          logo: safe(r.logo),
+          division: safe(r.division),
+          division_name: safe(r.division_name || (r.division ? `Division ${r.division}` : "Division")),
+          all_play: r.all_play || { w: 0, l: 0, t: 0 },
+          all_play_pct: n(r.all_play_pct, pctFromWlt(r.all_play)),
+          overall: r.overall || { w: 0, l: 0, t: 0 },
+          overall_pct: n(r.overall_pct, pctFromWlt(r.overall)),
+          divisional: r.divisional || { w: 0, l: 0, t: 0 },
+          divisional_pct: n(r.divisional_pct, pctFromWlt(r.divisional)),
+          points_for: n(r.points_for, 0),
+          off_points: n(r.off_points, 0),
+          def_points: n(r.def_points, 0),
+          potential_points: n(r.potential_points, 0),
+          efficiency: n(r.efficiency, 0),
+          h2h: r.h2h || {},
+        }));
+      }
+
+      function hasPlayedGames(rows) {
+        return (rows || []).some((r) => {
+          const overallGames = n(r.overall && r.overall.w) + n(r.overall && r.overall.l) + n(r.overall && r.overall.t);
+          return overallGames > 0 || n(r.points_for) > 0;
+        });
+      }
+
+      async function fetchSeasonSnapshot(sourceLeagueId, hostLeagueId, year) {
+        const candidateLeagueIds = Array.from(
+          new Set([
+            safe(sourceLeagueId),
+            safe(hostLeagueId),
+            "74598",
+            "25625",
+          ].filter(Boolean))
+        );
+        const candidates = candidateLeagueIds.map((leagueId) => `./standings_${leagueId}_${year}.json`);
+        for (const path of candidates) {
+          try {
+            const res = await fetch(path, { cache: "no-store" });
+            if (!res.ok) continue;
+            const j = await res.json();
+            return j;
+          } catch (e) {}
+        }
+        return null;
+      }
+
+      async function loadSeason(year, allowFallback) {
+        const y = Number(year) || YEAR;
+        let payload = await fetchSeasonSnapshot(state.sourceLeagueId, state.leagueId, y);
+        let loadedYear = y;
+        if (!payload && allowFallback) {
+          payload = await fetchSeasonSnapshot(state.sourceLeagueId, state.leagueId, y - 1);
+          loadedYear = y - 1;
+        }
+        if (!payload) {
+          state.rows = [];
+          state.meta = {};
+          state.season = y;
+          render();
+          return;
+        }
+
+        let rows = normalizeRows(payload && payload.rows);
+        if (allowFallback && !hasPlayedGames(rows)) {
+          const fallback = await fetchSeasonSnapshot(state.sourceLeagueId, state.leagueId, y - 1);
+          const fallbackRows = normalizeRows(fallback && fallback.rows);
+          if (fallback && hasPlayedGames(fallbackRows)) {
+            payload = fallback;
+            rows = fallbackRows;
+            loadedYear = y - 1;
+          }
+        }
+
+        state.rows = rows;
+        state.meta = payload && payload.meta ? payload.meta : {};
+        state.season = loadedYear;
+
+        const seasonSelect = $("#seasonSelect");
+        if (seasonSelect) seasonSelect.value = String(loadedYear);
+        render();
+      }
+
+      function buildSeasonOptions() {
+        const opts = [state.requestedSeason, state.requestedSeason - 1];
+        const uniq = Array.from(new Set(opts.filter((v) => Number.isFinite(v) && v > 0)));
+        const seasonSelect = $("#seasonSelect");
+        if (!seasonSelect) return;
+        seasonSelect.innerHTML = uniq
+          .map((y) => `<option value="${y}">${y}</option>`)
+          .join("");
+      }
+
+      function iconFranchiseCell(r) {
+        return `
+          <div class="frRow">
+            <img class="icon" alt="" src="${esc(r.icon || r.logo || "")}" onerror="this.style.display='none'"/>
+            <span>${esc(r.franchise_name || r.franchise_id || "")}</span>
+          </div>
+        `;
+      }
+
+      function getSortValue(row, key) {
+        if (key === "franchise") return safe(row.franchise_name || row.franchise_id);
+        if (key === "all_play_wlt") return pctFromWlt(row.all_play);
+        if (key === "overall_wlt") return pctFromWlt(row.overall);
+        if (key === "divisional_wlt") return pctFromWlt(row.divisional);
+        if (key === "all_play_pct") return n(row.all_play_pct);
+        if (key === "overall_pct") return n(row.overall_pct);
+        if (key === "divisional_pct") return n(row.divisional_pct);
+        if (key === "points_for") return n(row.points_for);
+        if (key === "off_points") return n(row.off_points);
+        if (key === "def_points") return n(row.def_points);
+        if (key === "potential_points") return n(row.potential_points);
+        if (key === "efficiency") return n(row.efficiency);
+        if (key === "division") return safe(row.division_name || row.division);
+        return safe(row[key]);
+      }
+
+      function sortRows(rows) {
+        const key = state.sortKey || "franchise";
+        const dir = state.sortDir === "desc" ? -1 : 1;
+        const arr = (rows || []).slice();
+        arr.sort((a, b) => {
+          const av = getSortValue(a, key);
+          const bv = getSortValue(b, key);
+          let cmp = 0;
+          if (typeof av === "number" && typeof bv === "number") {
+            cmp = av === bv ? 0 : av > bv ? 1 : -1;
+          } else {
+            cmp = safe(av).localeCompare(safe(bv));
+          }
+          if (cmp === 0) {
+            cmp = safe(a.franchise_name).localeCompare(safe(b.franchise_name));
+          }
+          return cmp * dir;
+        });
+        return arr;
+      }
+
+      function headCell(key, label, sortable) {
+        const isSorted = sortable && state.sortKey === key;
+        const arrow = !sortable ? "" : isSorted ? (state.sortDir === "asc" ? "▲" : "▼") : "↕";
+        return `<th class="${sortable ? "is-sortable" : ""} ${isSorted ? "is-sorted" : ""}" ${sortable ? `data-sort-key="${esc(key)}"` : ""}>${esc(label)}${sortable ? ` <span class="sort">${arrow}</span>` : ""}</th>`;
+      }
+
+      function h2hPctInCluster(row, cluster) {
+        const map = row && row.h2h ? row.h2h : {};
+        let w = 0, l = 0, t = 0, g = 0;
+        (cluster || []).forEach((opp) => {
+          if (!opp || opp.franchise_id === row.franchise_id) return;
+          const rec = map[opp.franchise_id] || null;
+          if (!rec) return;
+          const rw = n(rec.w, 0);
+          const rl = n(rec.l, 0);
+          const rt = n(rec.t, 0);
+          const rg = n(rec.games, rw + rl + rt);
+          w += rw; l += rl; t += rt; g += rg;
+        });
+        return g > 0 ? (w + 0.5 * t) / g : -1;
+      }
+
+      function rankDivisionGroup(groupRows) {
+        const base = (groupRows || []).slice().sort((a, b) =>
+          cmpDesc(a.overall_pct, b.overall_pct) ||
+          cmpDesc(a.divisional_pct, b.divisional_pct) ||
+          cmpText(a.franchise_name, b.franchise_name)
+        );
+
+        const buckets = [];
+        base.forEach((r) => {
+          const key = `${fmtPct(r.overall_pct)}|${fmtPct(r.divisional_pct)}`;
+          let bucket = buckets.find((b) => b.key === key);
+          if (!bucket) {
+            bucket = { key, rows: [] };
+            buckets.push(bucket);
+          }
+          bucket.rows.push({ ...r, _tb_note: "" });
+        });
+
+        const ranked = [];
+        buckets.forEach((bucket) => {
+          const cluster = bucket.rows;
+          if (cluster.length === 1) {
+            ranked.push(cluster[0]);
+            return;
+          }
+
+          cluster.forEach((r) => {
+            r._cluster_h2h_pct = h2hPctInCluster(r, cluster);
+          });
+
+          cluster.sort((a, b) =>
+            cmpDesc(a._cluster_h2h_pct, b._cluster_h2h_pct) ||
+            cmpDesc(a.points_for, b.points_for) ||
+            cmpDesc(a.all_play_pct, b.all_play_pct) ||
+            cmpText(a.franchise_name, b.franchise_name)
+          );
+
+          for (let i = 1; i < cluster.length; i += 1) {
+            const prev = cluster[i - 1];
+            const curr = cluster[i];
+            if (!eqNum(prev.overall_pct, curr.overall_pct)) continue;
+            if (!eqNum(prev.divisional_pct, curr.divisional_pct)) continue;
+            if (!eqNum(prev._cluster_h2h_pct, curr._cluster_h2h_pct)) {
+              curr._tb_note = "Tiebreaker used: Head-to-head record among tied teams.";
+            } else if (!eqNum(prev.points_for, curr.points_for)) {
+              curr._tb_note = "Tiebreaker used: Total points scored.";
+            } else if (!eqNum(prev.all_play_pct, curr.all_play_pct)) {
+              curr._tb_note = "Tiebreaker used: All-play winning percentage.";
+            } else {
+              curr._tb_note = "Tie remains after configured tiebreakers.";
+            }
+          }
+
+          ranked.push(...cluster);
+        });
+
+        ranked.forEach((r, idx) => {
+          r.division_rank = idx + 1;
+          r.is_division_leader = idx === 0;
+        });
+        return ranked;
+      }
+
+      function buildDivisionRace(rows) {
+        const byDiv = new Map();
+        (rows || []).forEach((r) => {
+          const key = safe(r.division || "NA");
+          if (!byDiv.has(key)) byDiv.set(key, []);
+          byDiv.get(key).push(r);
+        });
+
+        const divisions = Array.from(byDiv.keys()).sort((a, b) => cmpText(a, b));
+        return divisions.map((divKey) => {
+          const group = byDiv.get(divKey) || [];
+          const ranked = rankDivisionGroup(group);
+          const divName = ranked[0] ? safe(ranked[0].division_name || `Division ${divKey}`) : `Division ${divKey}`;
+          return { division: divKey, division_name: divName, rows: ranked };
+        });
+      }
+
+      function buildWildcardRace(rows, showLeaders) {
+        const divisionRace = buildDivisionRace(rows);
+        const leaderSet = new Set();
+        divisionRace.forEach((d) => {
+          if (d.rows && d.rows[0]) leaderSet.add(d.rows[0].franchise_id);
+        });
+
+        const pool = (rows || []).map((r) => ({
+          ...r,
+          is_division_leader: leaderSet.has(r.franchise_id),
+          _tb_note: "",
+        }));
+        const filtered = showLeaders ? pool : pool.filter((r) => !r.is_division_leader);
+
+        filtered.sort((a, b) =>
+          cmpDesc(a.all_play_pct, b.all_play_pct) ||
+          cmpDesc(n(a.all_play && a.all_play.w), n(b.all_play && b.all_play.w)) ||
+          cmpDesc(a.overall_pct, b.overall_pct) ||
+          cmpDesc(a.points_for, b.points_for) ||
+          cmpText(a.franchise_name, b.franchise_name)
+        );
+
+        for (let i = 1; i < filtered.length; i += 1) {
+          const prev = filtered[i - 1];
+          const curr = filtered[i];
+          if (!eqNum(prev.all_play_pct, curr.all_play_pct)) continue;
+          if (n(prev.all_play && prev.all_play.w) !== n(curr.all_play && curr.all_play.w)) {
+            curr._tb_note = "Wildcard tiebreaker: All-play wins.";
+          } else if (!eqNum(prev.overall_pct, curr.overall_pct)) {
+            curr._tb_note = "Wildcard tiebreaker: Overall winning percentage.";
+          } else if (!eqNum(prev.points_for, curr.points_for)) {
+            curr._tb_note = "Wildcard tiebreaker: Total points scored.";
+          } else {
+            curr._tb_note = "Wildcard tie remains after configured tiebreakers.";
+          }
+        }
+
+        filtered.forEach((r, idx) => {
+          r.wildcard_rank = idx + 1;
+        });
+        return filtered;
+      }
+
+      function renderStandard(view) {
+        const cols = view === "records"
+          ? [
+              { key: "franchise", label: "Franchise" },
+              { key: "all_play_wlt", label: "All Play" },
+              { key: "overall_wlt", label: "Overall" },
+              { key: "divisional_wlt", label: "Divisional" },
+            ]
+          : view === "pct"
+          ? [
+              { key: "franchise", label: "Franchise" },
+              { key: "all_play_pct", label: "All Play %" },
+              { key: "overall_pct", label: "Overall %" },
+              { key: "divisional_pct", label: "Divisional %" },
+            ]
+          : [
+              { key: "franchise", label: "Franchise" },
+              { key: "points_for", label: "PF" },
+              { key: "off_points", label: "Off Pts" },
+              { key: "def_points", label: "Def Pts" },
+              { key: "potential_points", label: "Potential" },
+              { key: "efficiency", label: "Efficiency" },
+            ];
+
+        $("#thead").innerHTML = `<tr>${cols.map((c) => headCell(c.key, c.label, true)).join("")}</tr>`;
+        const sorted = sortRows(state.rows || []);
+        $("#tbody").innerHTML = sorted
+          .map((r) => {
+            const row = cols
+              .map((c) => {
+                if (c.key === "franchise") return `<td>${iconFranchiseCell(r)}</td>`;
+                if (c.key === "all_play_wlt") return `<td class="num">${fmtWlt(r.all_play)}</td>`;
+                if (c.key === "overall_wlt") return `<td class="num">${fmtWlt(r.overall)}</td>`;
+                if (c.key === "divisional_wlt") return `<td class="num">${fmtWlt(r.divisional)}</td>`;
+                if (c.key === "all_play_pct") return `<td class="num">${fmtPct(r.all_play_pct)}</td>`;
+                if (c.key === "overall_pct") return `<td class="num">${fmtPct(r.overall_pct)}</td>`;
+                if (c.key === "divisional_pct") return `<td class="num">${fmtPct(r.divisional_pct)}</td>`;
+                return `<td class="num">${fmtNum(r[c.key])}</td>`;
+              })
+              .join("");
+            return `<tr>${row}</tr>`;
+          })
+          .join("");
+      }
+
+      function renderDivisionRace() {
+        const divisions = buildDivisionRace(state.rows || []);
+        $("#thead").innerHTML =
+          "<tr>" +
+          headCell("division", "Division", false) +
+          headCell("rank", "Rank", false) +
+          headCell("franchise", "Franchise", false) +
+          headCell("overall_pct", "Overall %", false) +
+          headCell("divisional_pct", "Div %", false) +
+          headCell("h2h", "H2H %", false) +
+          headCell("points_for", "PF", false) +
+          headCell("all_play_pct", "All Play %", false) +
+          headCell("tb", "TB Notice", false) +
+          "</tr>";
+
+        const body = [];
+        divisions.forEach((d) => {
+          body.push(`<tr class="divisionHeader"><td colspan="9">${esc(d.division_name)}</td></tr>`);
+          (d.rows || []).forEach((r) => {
+            const h2h = n(r._cluster_h2h_pct, -1);
+            const h2hTxt = h2h >= 0 ? fmtPct(h2h) : "—";
+            const tb = r._tb_note
+              ? `<span class="tbFlag" title="${esc(r._tb_note)}">TB</span>`
+              : "";
+            body.push(
+              `<tr>` +
+                `<td>${esc(r.division || "")}</td>` +
+                `<td class="num">${n(r.division_rank, 0)}</td>` +
+                `<td>${iconFranchiseCell(r)}</td>` +
+                `<td class="num">${fmtPct(r.overall_pct)}</td>` +
+                `<td class="num">${fmtPct(r.divisional_pct)}</td>` +
+                `<td class="num">${h2hTxt}</td>` +
+                `<td class="num">${fmtNum(r.points_for)}</td>` +
+                `<td class="num">${fmtPct(r.all_play_pct)}</td>` +
+                `<td>${tb}</td>` +
+              `</tr>`
+            );
+          });
+        });
+        $("#tbody").innerHTML = body.join("");
+      }
+
+      function renderWildcardRace() {
+        const rows = buildWildcardRace(state.rows || [], !!state.showDivisionLeaders);
+        $("#thead").innerHTML =
+          "<tr>" +
+          headCell("seed", "Seed", false) +
+          headCell("franchise", "Franchise", false) +
+          headCell("division", "Division", false) +
+          headCell("all_play_wlt", "All Play", false) +
+          headCell("all_play_pct", "All Play %", false) +
+          headCell("overall_pct", "Overall %", false) +
+          headCell("points_for", "PF", false) +
+          headCell("leader", "Leader", false) +
+          headCell("tb", "TB Notice", false) +
+          "</tr>";
+
+        $("#tbody").innerHTML = rows
+          .map((r) => {
+            const leader = r.is_division_leader ? "Yes" : "No";
+            const tb = r._tb_note
+              ? `<span class="tbFlag" title="${esc(r._tb_note)}">TB</span>`
+              : "";
+            return (
+              `<tr>` +
+                `<td class="num">${n(r.wildcard_rank, 0)}</td>` +
+                `<td>${iconFranchiseCell(r)}</td>` +
+                `<td>${esc(r.division_name || r.division || "")}</td>` +
+                `<td class="num">${fmtWlt(r.all_play)}</td>` +
+                `<td class="num">${fmtPct(r.all_play_pct)}</td>` +
+                `<td class="num">${fmtPct(r.overall_pct)}</td>` +
+                `<td class="num">${fmtNum(r.points_for)}</td>` +
+                `<td>${leader}</td>` +
+                `<td>${tb}</td>` +
+              `</tr>`
+            );
+          })
+          .join("");
+      }
+
+      function renderMeta() {
+        const m = state.meta || {};
+        $("#metaLine").textContent = `L ${safe(m.league_id || state.sourceLeagueId || state.leagueId)} | Season ${safe(m.season || state.season)} | Updated ${safe(m.generated_at_utc || "")}`;
+      }
+
+      function render() {
+        renderMeta();
+        document.querySelectorAll(".btn[data-view]").forEach((b) => {
+          b.classList.toggle("active", b.getAttribute("data-view") === state.view);
+        });
+        const showLeadersWrap = $("#showLeadersWrap");
+        if (showLeadersWrap) showLeadersWrap.style.display = state.view === "wildcard" ? "" : "none";
+        if (state.view === "records" || state.view === "pct" || state.view === "points") {
+          renderStandard(state.view);
+        } else if (state.view === "division") {
+          renderDivisionRace();
+        } else {
+          renderWildcardRace();
+        }
+      }
+
+      document.addEventListener("click", (e) => {
+        const viewBtn = e.target && e.target.closest ? e.target.closest(".btn[data-view]") : null;
+        if (viewBtn) {
+          state.view = safe(viewBtn.getAttribute("data-view") || "records");
+          if (state.view !== "wildcard") state.showDivisionLeaders = false;
+          render();
+          return;
+        }
+        const th = e.target && e.target.closest ? e.target.closest("th[data-sort-key]") : null;
+        if (!th) return;
+        const key = safe(th.getAttribute("data-sort-key"));
+        if (!key) return;
+        if (state.sortKey === key) {
+          state.sortDir = state.sortDir === "asc" ? "desc" : "asc";
+        } else {
+          state.sortKey = key;
+          state.sortDir = key === "franchise" ? "asc" : "desc";
+        }
+        render();
+      });
+
+      const seasonSelect = $("#seasonSelect");
+      if (seasonSelect) {
+        seasonSelect.addEventListener("change", async (e) => {
+          const y = Number(safe(e.target.value || state.season)) || state.season;
+          await loadSeason(y, false);
+        });
+      }
+
+      const showLeadersChk = $("#showLeadersChk");
+      if (showLeadersChk) {
+        showLeadersChk.checked = false;
+        showLeadersChk.addEventListener("change", (e) => {
+          state.showDivisionLeaders = !!e.target.checked;
+          if (state.view === "wildcard") render();
+        });
+      }
+
+      async function init() {
+        buildSeasonOptions();
+        await loadSeason(state.requestedSeason, true);
+      }
+
+      init();
+    })();
+  </script>
+</body>
+</html>

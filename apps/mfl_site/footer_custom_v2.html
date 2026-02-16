@@ -25,7 +25,7 @@
   /* Trade calculator */
   var showCalculator = true;
   var showTopCalculator = false;
-  var calcHeaderName = "Cap Delta";
+  var calcHeaderName = "Salary Delta";
   var hideTilClk = true;
 
   /* Live scoring */
@@ -95,6 +95,44 @@
 <!-- GLOBAL FOOTER -->
 <script src="https://www.mflscripts.com/mfl-apps/global/footer.js?v=1.12"></script>
 <script src="https://mflscripts.com/mfl-apps/playoffs/standingsColumns.js"></script>
+<script>
+  // Normalize roster trade-asset labeling from MFL script output.
+  (function () {
+    function renameBlindBidLabels(root) {
+      var scope = root || document;
+      var nodes = scope.querySelectorAll(
+        "#MFLroster .roster_assets td, #MFLroster .roster_assets th, #MFLroster td, #MFLroster th"
+      );
+      nodes.forEach(function (node) {
+        if (!node || !node.childNodes || !node.childNodes.length) return;
+        for (var i = 0; i < node.childNodes.length; i += 1) {
+          var child = node.childNodes[i];
+          if (!child || child.nodeType !== Node.TEXT_NODE) continue;
+          if (child.nodeValue && child.nodeValue.indexOf("Blind Bidding Dollars") !== -1) {
+            child.nodeValue = child.nodeValue.replace(/Blind Bidding Dollars/gi, "Salary");
+          }
+        }
+      });
+    }
+
+    function initLabelOverride() {
+      if (!document.body || document.body.id !== "body_options_07") return;
+      renameBlindBidLabels(document);
+      var obs = new MutationObserver(function (mutations) {
+        mutations.forEach(function (m) {
+          renameBlindBidLabels(m.target || document);
+        });
+      });
+      obs.observe(document.body, { childList: true, subtree: true });
+    }
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", initLabelOverride);
+    } else {
+      initLabelOverride();
+    }
+  })();
+</script>
 
 </div><!-- CLOSE CONTAINER WRAP FROM HEADER -->
 
@@ -102,10 +140,11 @@
   .ups-footer {
     margin-top: 1rem;
     background:
-      radial-gradient(circle at 90% 20%, rgba(20, 184, 166, 0.18), transparent 38%),
+      radial-gradient(circle at 90% 20%, rgba(84, 130, 198, 0.2), transparent 40%),
       linear-gradient(180deg, #0d1728 0%, #0a1220 100%);
     border-top: 1px solid rgba(85, 140, 197, 0.45);
-    color: #dce8fa;
+    color: #eef4ff;
+    font-weight: 700;
   }
 
   .ups-footer-wrap {
@@ -167,7 +206,7 @@
   }
 
   .ups-footer-heading {
-    color: #f3b61f;
+    color: #d9e7ff;
     font-size: 0.76rem;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -181,7 +220,7 @@
   }
 
   .ups-footer-links a {
-    color: #b8d7ff;
+    color: #e5efff;
     text-decoration: none;
     font-weight: 700;
     line-height: 1.2;
@@ -189,7 +228,7 @@
 
   .ups-footer-links a:hover,
   .ups-footer-links a:focus {
-    color: #7de8d9;
+    color: #ffffff;
     text-decoration: underline;
   }
 
@@ -240,8 +279,8 @@
         <div class="ups-footer-heading">Franchise</div>
         <div class="ups-footer-links">
           <a href="//%HOST%/%YEAR%/accounting_report?L=%LEAGUEID%">Accounting</a>
-          <a href="//%HOST%/%YEAR%/options?L=%LEAGUEID%&amp;O=03">Transactions</a>
-          <a href="//%HOST%/%YEAR%/options?L=%LEAGUEID%&amp;O=07">League Rosters</a>
+          <a href="//%HOST%/%YEAR%/options?L=74598&amp;O=03">Transactions</a>
+          <a href="//%HOST%/%YEAR%/options?L=74598&amp;O=07">League Rosters</a>
           <a href="//%HOST%/%YEAR%/options?L=%LEAGUEID%&amp;O=26">By-Laws</a>
         </div>
       </section>
@@ -261,8 +300,9 @@
         <div class="ups-footer-links">
           <a href="//%HOST%/%YEAR%/options?L=%LEAGUEID%&amp;O=52">Draft</a>
           <a href="//%HOST%/%YEAR%/ajax_ls?L=%LEAGUEID%">Scoreboard</a>
-          <a href="//%HOST%/%YEAR%/options?L=%LEAGUEID%&amp;O=17">Draft Results</a>
+          <a href="//%HOST%/%YEAR%/options?L=74598&amp;O=17">Draft Results</a>
           <a href="//%HOST%/%YEAR%/options?L=%LEAGUEID%&amp;O=101">Power Rank</a>
+          <a href="//%HOST%/%YEAR%/home/%LEAGUEID%?MODULE=MESSAGE15">MCM</a>
         </div>
       </section>
     </div>

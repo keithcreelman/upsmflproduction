@@ -1,0 +1,23 @@
+<style>
+  /* Minimal host wrapper; the MCM UI lives in an iframe for CSS isolation. */
+  .ups-mcm-shell {
+    margin: 0.75rem auto;
+    max-width: 1200px;
+  }
+
+  .ups-mcm-frame {
+    width: 100%;
+    border: 1px solid rgba(39, 71, 111, 0.7);
+    border-radius: 14px;
+    background: transparent;
+    overflow: hidden;
+  }
+</style>
+
+<div class="ups-mcm-shell">
+  <div id="mcmMount"></div>
+  <script
+    src="https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@dev/site/mcm_embed_loader.js?v=2026.02.15.1"
+    data-mcm-target-id="mcmMount"></script>
+</div>
+

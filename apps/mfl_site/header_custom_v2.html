@@ -7,6 +7,59 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="shortcut icon" href="https://www.mflscripts.com/ImageDirectory/script-images/favicon.ico" type="image/x-icon">
 
+<script>
+  // Normalize Contract Command Center deep-links: move ccc* params to hash so MFL doesn't validate them.
+  (function () {
+    var u = new URL(window.location.href || "");
+    var hasCcc =
+      u.searchParams.has("cccAction") ||
+      u.searchParams.has("cccPlayer") ||
+      u.searchParams.has("cccFranchise") ||
+      u.searchParams.has("cccSeason") ||
+      u.searchParams.has("cccYears");
+    if (!hasCcc) return;
+    var moduleName = (u.searchParams.get("MODULE") || "").toUpperCase();
+    if (moduleName !== "MESSAGE2" && moduleName !== "MESSAGE16") return;
+
+    var h = new URLSearchParams();
+    ["cccAction", "cccPlayer", "cccFranchise", "cccSeason", "cccYears"].forEach(function (k) {
+      var v = u.searchParams.get(k);
+      if (v !== null && v !== undefined && v !== "") h.set(k, v);
+    });
+
+    u.search = "?MODULE=MESSAGE2";
+    u.hash = h.toString();
+
+    if (u.toString() !== window.location.href) {
+      window.location.replace(u.toString());
+    }
+  })();
+
+  // Debug helper: add `&UPS_DEBUG=1` to any URL to confirm which header build is loaded.
+  (function () {
+    try {
+      var u = new URL(window.location.href);
+      if (u.searchParams.get("UPS_DEBUG") !== "1") return;
+    } catch (e) {
+      return;
+    }
+    window.__UPS_DEBUG = true;
+    document.addEventListener("DOMContentLoaded", function () {
+      try {
+        var el = document.createElement("div");
+        el.id = "upsDebugBadge";
+        el.textContent = "UPS header build: 2026.02.16.16";
+        el.style.cssText =
+          "position:fixed;right:10px;bottom:10px;z-index:999999;" +
+          "padding:6px 10px;border-radius:999px;" +
+          "background:rgba(0,0,0,0.75);border:1px solid rgba(255,255,255,0.25);" +
+          "color:#fff;font:700 12px/1.2 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;";
+        document.body.appendChild(el);
+      } catch (e) {}
+    });
+  })();
+</script>
+
 <style>
   :root {
     --ups-bg: #0b1220;
@@ -15,15 +68,83 @@
     --ups-border: #27476f;
     --ups-text: #e8effa;
     --ups-muted: #9fb3d1;
-    --ups-brand: #14b8a6;
-    --ups-brand-strong: #0f766e;
-    --ups-accent: #f3b61f;
-    --ups-accent-ink: #1b1300;
-    --ups-link: #59b7ff;
-    --ups-link-hover: #89ccff;
+    --ups-brand: #2e63b8;
+    --ups-brand-strong: #1f3f78;
+    --ups-accent: #f0c465;
+    --ups-accent-ink: #102a55;
+    --ups-link: #8ec4ff;
+    --ups-link-hover: #c0deff;
+    --ups-report-strong: #ffffff;
     --ups-danger: #e36572;
     --ups-success: #25c37d;
     --ups-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+
+    --ups-caption-bg: linear-gradient(135deg, #0f1728 0%, #1c3359 60%, #204f73 100%);
+    --ups-th-bg: #152742;
+    --ups-td-border: #203a5d;
+    --ups-row-odd: #111f35;
+    --ups-row-even: #0f1b30;
+    --ups-warning: #d33642;
+    --ups-btn-bg: #1f4d93;
+    --ups-btn-border: #4a75b7;
+    --ups-btn-text: #ffffff;
+
+    --ups-hero-bg: linear-gradient(120deg, #0a1428 0%, #17427f 54%, #24395f 100%);
+    --ups-hero-border: rgba(255, 255, 255, 0.2);
+    --ups-logo-bg: #ffffff;
+    --ups-chip-bg: #10213a;
+    --ups-chip-border: #3a5f89;
+    --ups-chip-text: #e8effa;
+    --ups-chip-hover-bg: #1c3f70;
+    --ups-chip-hover-border: #8fb7ef;
+
+    --ups-scoreboard-bg: #0f1c33;
+    --ups-scoreboard-alt-bg: #10203b;
+    --ups-scoreboard-border: #2a4470;
+    --ups-scoreboard-text: #f3f8ff;
+    --ups-scoreboard-link: #a9d0ff;
+  }
+
+  :root[data-ups-mode="light"] {
+    --ups-bg: #edf2fa;
+    --ups-surface: #ffffff;
+    --ups-surface-alt: #f3f7ff;
+    --ups-border: #9fb2ce;
+    --ups-text: #0f213f;
+    --ups-muted: #445f86;
+    --ups-brand: #24529a;
+    --ups-brand-strong: #183c74;
+    --ups-accent: #f0c465;
+    --ups-accent-ink: #102a55;
+    --ups-link: #1f4d97;
+    --ups-link-hover: #143a77;
+    --ups-report-strong: #0f213f;
+    --ups-shadow: 0 12px 24px rgba(30, 54, 90, 0.16);
+
+    --ups-caption-bg: linear-gradient(135deg, #e9f1ff 0%, #d8e7ff 56%, #c9defb 100%);
+    --ups-th-bg: #dce9fb;
+    --ups-td-border: #c3d4ec;
+    --ups-row-odd: #f7fbff;
+    --ups-row-even: #edf5ff;
+    --ups-warning: #b4232d;
+    --ups-btn-bg: #1f4d93;
+    --ups-btn-border: #1a3f78;
+    --ups-btn-text: #ffffff;
+
+    --ups-hero-bg: linear-gradient(120deg, #f4f9ff 0%, #e3edff 52%, #d5e5ff 100%);
+    --ups-hero-border: #b7cbe8;
+    --ups-logo-bg: #fefefe;
+    --ups-chip-bg: #e7f0ff;
+    --ups-chip-border: #9db7dc;
+    --ups-chip-text: #112c58;
+    --ups-chip-hover-bg: #d7e6ff;
+    --ups-chip-hover-border: #6d93cc;
+
+    --ups-scoreboard-bg: #f7fbff;
+    --ups-scoreboard-alt-bg: #edf5ff;
+    --ups-scoreboard-border: #aac3e3;
+    --ups-scoreboard-text: #102348;
+    --ups-scoreboard-link: #1f4d97;
   }
 
   /* Core skin normalization */
@@ -54,7 +175,7 @@
 
   .report caption,
   .homepagemodule.report caption {
-    background: linear-gradient(135deg, #0f1728 0%, #1c3359 60%, #204f73 100%);
+    background: var(--ups-caption-bg);
     border-bottom: 1px solid var(--ups-border);
   }
 
@@ -67,32 +188,122 @@
 
   .report th,
   .homepagemodule.report th {
-    background: #152742;
+    background: var(--ups-th-bg);
     color: var(--ups-text);
     border-color: var(--ups-border);
   }
 
   .report td,
   .homepagemodule.report td {
-    border-color: #203a5d;
+    border-color: var(--ups-td-border);
+  }
+
+  /* MFL "select franchise" bars (and other report form toolbars) were light-on-light. */
+  form.reportform,
+  #container-wrap form.reportform {
+    background: var(--ups-surface-alt) !important;
+    color: var(--ups-text) !important;
+    border: 1px solid var(--ups-border) !important;
+    border-radius: 12px !important;
+    padding: 0.55rem 0.75rem !important;
+  }
+
+  form.reportform select,
+  form.reportform textarea,
+  form.reportform input[type="text"],
+  form.reportform input[type="number"],
+  form.reportform input[type="search"] {
+    background: var(--ups-surface) !important;
+    color: var(--ups-text) !important;
+    border: 1px solid var(--ups-border) !important;
+  }
+
+  form.reportform input[type="submit"],
+  form.reportform input[type="button"],
+  form.reportform button {
+    background: var(--ups-accent) !important;
+    color: var(--ups-accent-ink) !important;
+    border: 1px solid #b98527 !important;
+    border-radius: 10px !important;
+    font-weight: 900 !important;
+    letter-spacing: 0.02em !important;
+  }
+
+  form.reportform input[type="submit"]:hover,
+  form.reportform input[type="button"]:hover,
+  form.reportform button:hover {
+    background: var(--ups-brand-strong) !important;
+    color: #ffffff !important;
+    border-color: #6f95cd !important;
+  }
+
+  /* Prevent light-on-light helper spans inside commissioner/report forms. */
+  form.reportform span,
+  form.reportform span * {
+    color: var(--ups-report-strong) !important;
+    text-shadow: none !important;
+  }
+
+	  /* Add/Drop custom rows: keep player-info readable on dark rows. */
+	  .add-drop-player-row {
+	    color: var(--ups-text) !important;
+	  }
+
+	  .add-drop-player-row .player-info,
+	  .add-drop-player-row .player-info strong,
+	  .add-drop-player-row .player-info b {
+	    color: var(--ups-text) !important;
+	    font-weight: 800 !important;
+	  }
+
+  .add-drop-player-row .player-info small {
+    color: var(--ups-muted) !important;
+    font-weight: 800 !important;
+  }
+
+  /* Add/Drop projected points column (and its pseudo labels) */
+  .add-drop-player-row .player-wproj,
+  .add-drop-player-row .player-wproj *,
+  .add-drop-player-row .player-wproj::before,
+  .add-drop-player-row .player-wproj::after {
+    color: var(--ups-text) !important;
+    text-shadow: none !important;
+  }
+
+  .add-drop-player-row .player-wproj .proj,
+  .add-drop-player-row .player-wproj .projpts,
+  .add-drop-player-row .player-wproj .projPts,
+  .add-drop-player-row .player-wproj .player-proj,
+  .add-drop-player-row .player-wproj .player-projpts {
+    color: var(--ups-accent) !important;
+    font-weight: 900 !important;
+  }
+
+  .add-drop-player-row .player-wproj.hide-col-proj::before,
+  .add-drop-player-row .player-wproj.hide-col-proj::after {
+    color: var(--ups-muted) !important;
+    opacity: 1 !important;
+    font-weight: 900 !important;
+    letter-spacing: 0.06em !important;
+    text-transform: uppercase !important;
   }
 
   .oddtablerow {
-    background: #111f35;
+    background: var(--ups-row-odd);
   }
 
   .eventablerow {
-    background: #0f1b30;
+    background: var(--ups-row-even);
   }
 
   .warning {
-    color: #ffd8dd;
+    color: var(--ups-warning);
   }
 
   .myfantasyleague_menu,
   .myfantasyleague_menu ul,
   .myfantasyleague_menu li {
-    background-color: #0f1a2d;
+    background-color: var(--ups-surface-alt);
     color: var(--ups-text);
     border-color: var(--ups-border);
   }
@@ -104,15 +315,241 @@
   }
 
   /* Hero / hotlinks */
+  .ups-hero-shell {
+    max-width: 1200px;
+    margin: 0.9rem auto 0.45rem;
+    padding: 0 0.35rem;
+  }
+
+  .ups-hotlinks-shell {
+    max-width: 1200px;
+    margin: 0.65rem auto 0.7rem;
+    padding: 0 0.35rem;
+  }
+
+  .ups-hero-shell .banner-container-full {
+    margin: 0;
+    border-radius: 16px;
+    overflow: hidden;
+    border: 1px solid var(--ups-hero-border);
+    box-shadow: var(--ups-shadow);
+    background: #050c17;
+  }
+
+  .ups-hero-shell .banner-container-wrap-full {
+    margin: 0;
+  }
+
+  .ups-hero-layout {
+    display: grid;
+    grid-template-columns: minmax(206px, 1fr) minmax(540px, 640px) minmax(206px, 1fr);
+    min-height: 427px;
+    align-items: stretch;
+  }
+
+  .ups-hero-side {
+    background:
+      linear-gradient(180deg, rgba(8, 19, 39, 0.95), rgba(10, 24, 47, 0.92));
+    padding: 0.62rem 0.56rem 0.64rem;
+    display: grid;
+    grid-template-rows: auto 1fr;
+    gap: 0.48rem;
+  }
+
+  .ups-hero-side-left {
+    border-right: 1px solid rgba(255, 255, 255, 0.16);
+  }
+
+  .ups-hero-side-right {
+    border-left: 1px solid rgba(255, 255, 255, 0.16);
+  }
+
+  .ups-hero-side-title {
+    font-size: 0.72rem;
+    line-height: 1;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #e7efff;
+    font-weight: 900;
+  }
+
+  .ups-hero-list {
+    display: grid;
+    gap: 0.24rem;
+    align-content: start;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .ups-hero-list:empty:before {
+    content: "Loading...";
+    color: var(--ups-muted);
+    font-size: 0.78rem;
+    font-weight: 800;
+  }
+
+  .ups-hero-item {
+    display: grid;
+    grid-template-columns: auto 24px 1fr;
+    align-items: center;
+    gap: 0.34rem;
+    padding: 0.26rem 0.34rem;
+    border-radius: 8px;
+    border: 1px solid rgba(108, 149, 205, 0.42);
+    background: rgba(15, 35, 68, 0.9);
+    color: var(--ups-text);
+    min-height: 31px;
+  }
+
+  .ups-hero-item--leader {
+    grid-template-columns: 1fr auto;
+  }
+
+  .ups-hero-item--champ {
+    grid-template-columns: auto 1fr;
+  }
+
+  .ups-hero-year {
+    font-size: 0.72rem;
+    line-height: 1;
+    font-weight: 900;
+    letter-spacing: 0.05em;
+    color: #cfe0fb;
+    min-width: 34px;
+  }
+
+  .ups-hero-icon {
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    object-fit: cover;
+    border: 1px solid rgba(255, 255, 255, 0.26);
+    background: rgba(8, 13, 24, 0.92);
+  }
+
+  .ups-hero-main {
+    min-width: 0;
+    display: grid;
+    gap: 0.04rem;
+  }
+
+  .ups-hero-name {
+    font-size: 0.76rem;
+    line-height: 1.15;
+    font-weight: 900;
+    color: #f3f8ff;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .ups-hero-meta {
+    font-size: 0.65rem;
+    line-height: 1.15;
+    font-weight: 800;
+    color: #9ab6dc;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .ups-hero-trophies {
+    color: #ffd37f;
+  }
+
+  .ups-hero-count {
+    min-width: 24px;
+    height: 24px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.72rem;
+    line-height: 1;
+    font-weight: 900;
+    color: var(--ups-accent-ink);
+    background: var(--ups-accent);
+    border: 1px solid #b98527;
+  }
+
+  .ups-hero-shell .full_height_banner {
+    display: block;
+    line-height: 0;
+    height: 100%;
+  }
+
+  .ups-hero-shell .full_height_banner img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    max-height: 427px;
+    object-fit: cover;
+  }
+
+  :root[data-ups-mode="light"] .ups-hero-side {
+    background: linear-gradient(180deg, rgba(228, 239, 255, 0.96), rgba(214, 228, 249, 0.94));
+  }
+
+  :root[data-ups-mode="light"] .ups-hero-side-left {
+    border-right-color: rgba(16, 42, 85, 0.18);
+  }
+
+  :root[data-ups-mode="light"] .ups-hero-side-right {
+    border-left-color: rgba(16, 42, 85, 0.18);
+  }
+
+  :root[data-ups-mode="light"] .ups-hero-side-title {
+    color: #17386f;
+  }
+
+  :root[data-ups-mode="light"] .ups-hero-item {
+    background: rgba(238, 246, 255, 0.96);
+    border-color: rgba(111, 149, 204, 0.46);
+  }
+
+  :root[data-ups-mode="light"] .ups-hero-year {
+    color: #1c4b92;
+  }
+
+  :root[data-ups-mode="light"] .ups-hero-name {
+    color: #112e5d;
+  }
+
+  :root[data-ups-mode="light"] .ups-hero-meta {
+    color: #2e558f;
+  }
+
   .ccc-banner {
-    margin: 0.9rem auto 0.6rem;
+    margin: 0;
     padding: 1rem 1.2rem;
     border-radius: 14px;
-    max-width: 1200px;
+    width: 100%;
+    box-sizing: border-box;
     color: var(--ups-text);
-    background: linear-gradient(120deg, #0d1728 0%, #154977 48%, #0f766e 100%);
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: var(--ups-hero-bg);
+    border: 1px solid var(--ups-hero-border);
     box-shadow: var(--ups-shadow);
+    position: relative;
+    z-index: 2;
+  }
+
+  /* Keep CCC visually on the same blue page background instead of a white block. */
+  #cccMount {
+    max-width: min(76rem, calc(100% - 1.1rem));
+    margin: 0.35rem auto 1rem;
+    padding: 0.5rem;
+    border-radius: 14px;
+    border: 1px solid rgba(228, 239, 255, 0.72);
+    background: linear-gradient(180deg, rgba(6, 16, 34, 0.92), rgba(8, 20, 40, 0.9));
+    box-shadow: 0 16px 28px rgba(1, 7, 20, 0.42);
+  }
+
+  #cccMount iframe {
+    display: block;
+    width: 100%;
+    background: transparent !important;
+    border: 0 !important;
+    border-radius: 10px;
   }
 
   .ccc-banner-inner {
@@ -126,6 +563,7 @@
     display: inline-flex;
     align-items: center;
     gap: 0.7rem;
+    flex-wrap: wrap;
   }
 
   .ccc-title-hotlinks {
@@ -135,11 +573,53 @@
     text-transform: uppercase;
   }
 
+  .ups-franchise {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    margin-left: 0.35rem;
+    padding-left: 0.55rem;
+    border-left: 1px solid rgba(255, 255, 255, 0.25);
+    font-size: 1.1rem;
+    font-weight: 900;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--ups-text);
+  }
+
+  .ups-franchise[hidden] {
+    display: none !important;
+  }
+
+  .ups-franchise:before {
+    content: "-";
+    margin-right: 0.25rem;
+    opacity: 0.95;
+  }
+
+  .ups-franchise-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    object-fit: cover;
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid rgba(255, 255, 255, 0.22);
+  }
+
+  :root[data-ups-mode="light"] .ups-franchise {
+    border-left-color: rgba(16, 42, 85, 0.25);
+  }
+
+  :root[data-ups-mode="light"] .ups-franchise-icon {
+    background: rgba(255, 255, 255, 0.9);
+    border-color: rgba(16, 42, 85, 0.18);
+  }
+
   .ups-logo-wrap {
     width: 40px;
     height: 40px;
     border-radius: 8px;
-    background: #fff;
+    background: var(--ups-logo-bg);
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -158,10 +638,11 @@
     justify-content: flex-end;
   }
 
-  .ccc-cta {
+  .ccc-cta,
+  .pagebody .ccc-cta {
     background: var(--ups-accent);
-    color: var(--ups-accent-ink);
-    border: 1px solid #ffd067;
+    color: var(--ups-accent-ink) !important;
+    border: 1px solid #b98527;
     padding: 0.62rem 1rem;
     border-radius: 11px;
     font-weight: 800;
@@ -174,10 +655,21 @@
   }
 
   .ccc-cta:hover,
-  .ccc-cta:focus {
-    color: #000;
-    background: #ffd067;
-    border-color: #ffe6a5;
+  .ccc-cta:focus,
+  .pagebody .ccc-cta:hover,
+  .pagebody .ccc-cta:focus {
+    color: #ffffff !important;
+    background: var(--ups-brand-strong);
+    border-color: #6f95cd;
+  }
+
+  .ccc-theme-toggle {
+    cursor: pointer;
+    font-family: inherit;
+  }
+
+  .ccc-theme-toggle .ups-theme-toggle-label {
+    white-space: nowrap;
   }
 
   .ccc-actions {
@@ -187,10 +679,11 @@
     gap: 0.62rem;
   }
 
-  .ccc-pill {
-    background: linear-gradient(135deg, #101e36 0%, #1c3f6f 100%);
-    border: 1px solid rgba(255, 255, 255, 0.25);
-    color: var(--ups-text);
+  .ccc-pill,
+  .pagebody .ccc-pill {
+    background: var(--ups-accent);
+    border: 1px solid #b98527;
+    color: var(--ups-accent-ink) !important;
     padding: 0.56rem 0.95rem;
     border-radius: 12px;
     font-weight: 800;
@@ -202,9 +695,17 @@
   }
 
   .ccc-pill:hover,
-  .ccc-pill:focus {
-    background: linear-gradient(135deg, #17487e 0%, #168f80 100%);
-    color: #fff;
+  .ccc-pill:focus,
+  .pagebody .ccc-pill:hover,
+  .pagebody .ccc-pill:focus {
+    background: var(--ups-brand-strong);
+    color: #ffffff !important;
+    border-color: #6f95cd;
+  }
+
+  .ccc-cta i,
+  .ccc-pill i {
+    color: inherit !important;
   }
 
   /* Roster quick actions */
@@ -217,9 +718,9 @@
   }
 
   .ccc-action-btn {
-    border: 1px solid #3a5f89;
-    background: #10213a;
-    color: var(--ups-text);
+    border: 1px solid var(--ups-chip-border);
+    background: var(--ups-chip-bg);
+    color: var(--ups-chip-text);
     font-size: 0.67rem;
     line-height: 1;
     padding: 0.22rem 0.46rem;
@@ -230,26 +731,32 @@
 
   .ccc-action-btn:hover,
   .ccc-action-btn:focus {
-    border-color: #66d7c8;
-    background: #12495f;
-    color: #fff;
+    border-color: var(--ups-chip-hover-border);
+    background: var(--ups-chip-hover-bg);
+    color: var(--ups-text);
   }
 
   .ccc-action-btn.ext {
-    border-color: #30b9c2;
+    border-color: #6ea0e4;
   }
 
   .ccc-action-btn.rs {
-    border-color: #f3b61f;
-    color: #ffe39f;
+    border-color: var(--ups-chip-border);
+    color: var(--ups-chip-text);
   }
 
   .ccc-popup-actions {
     margin-top: 0.55rem;
     padding: 0.5rem;
-    border: 1px solid #2a4a70;
+    border: 1px solid var(--ups-border);
     border-radius: 9px;
-    background: #0f2039;
+    background: var(--ups-surface-alt);
+  }
+
+  /* Contract action chips are temporarily disabled on roster/popup views. */
+  body#body_options_07 .ccc-quick-actions,
+  body#body_options_07 #cccPopupQuickActions {
+    display: none !important;
   }
 
   .ccc-popup-actions-title {
@@ -272,13 +779,164 @@
   }
 
   @media (max-width: 900px) {
+    .ups-hero-layout {
+      display: block;
+      grid-template-columns: 1fr;
+      min-height: 0;
+    }
+
+    .ups-hero-side-left,
+    .ups-hero-side-right {
+      display: none !important;
+    }
+
+    .ups-hero-shell .banner-container-full {
+      border-radius: 12px;
+    }
+
+    .ups-hero-shell .full_height_banner {
+      display: block;
+    }
+
+    .ups-hero-shell .full_height_banner img {
+      display: block;
+      width: 100%;
+      height: auto;
+      max-height: none;
+      min-height: 0;
+      aspect-ratio: 640 / 427;
+      object-fit: cover;
+      object-position: center;
+    }
+
     .ccc-banner-inner {
       grid-template-columns: 1fr;
+      gap: 0.65rem;
+    }
+
+    .ccc-title-row {
+      gap: 0.5rem;
     }
 
     .ccc-cta-group {
-      justify-content: flex-start;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 0.45rem;
+      width: 100%;
     }
+
+    .ccc-cta-group .ccc-cta:first-child {
+      grid-column: 1 / -1;
+    }
+
+    .ccc-cta,
+    .pagebody .ccc-cta {
+      justify-content: center;
+      min-height: 42px;
+      padding: 0.58rem 0.72rem;
+    }
+
+    .ccc-pill,
+    .pagebody .ccc-pill {
+      justify-content: center;
+      min-height: 42px;
+      padding: 0.52rem 0.6rem;
+      font-size: 0.9rem;
+    }
+
+    .ups-franchise {
+      margin-left: 0;
+      padding-left: 0;
+      border-left: 0;
+      width: 100%;
+      font-size: 0.95rem;
+    }
+
+    .ups-hero-shell,
+    .ups-hotlinks-shell {
+      padding: 0 0.25rem;
+    }
+
+    .ups-hotlinks-shell {
+      margin: 0.55rem auto 0.65rem;
+    }
+
+    .ccc-banner {
+      padding: 0.75rem 0.78rem;
+    }
+
+    .ccc-title-hotlinks {
+      font-size: 1.12rem;
+      letter-spacing: 0.05em;
+    }
+
+    .ccc-actions {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.5rem;
+    }
+
+    #container-wrap .reportnavigation a,
+    #container-wrap .reportNavigation a {
+      display: inline-flex;
+      align-items: center;
+      min-height: 38px;
+      padding: 0.3rem 0.45rem !important;
+    }
+
+    #container-wrap input[type="text"],
+    #container-wrap input[type="number"],
+    #container-wrap input[type="password"],
+    #container-wrap input[type="email"],
+    #container-wrap input[type="search"],
+    #container-wrap select,
+    #container-wrap textarea {
+      font-size: 16px !important;
+      min-height: 40px;
+    }
+
+    form.reportform input[type="submit"],
+    form.reportform input[type="button"],
+    form.reportform button {
+      min-height: 42px;
+      width: 100%;
+    }
+  }
+
+  @media (max-width: 560px) {
+    .ccc-cta-group {
+      grid-template-columns: 1fr;
+    }
+
+    .ccc-theme-toggle {
+      width: 100%;
+      justify-content: center;
+    }
+
+    .ccc-actions {
+      grid-template-columns: 1fr;
+    }
+
+    .ups-logo-wrap {
+      width: 34px;
+      height: 34px;
+    }
+
+    .ups-franchise-icon {
+      width: 24px;
+      height: 24px;
+      border-radius: 6px;
+    }
+
+    .ccc-title-hotlinks {
+      font-size: 1.02rem;
+    }
+  }
+
+  #uowMount {
+    border: 1px solid var(--ups-border);
+    background: var(--ups-surface);
+    border-radius: 12px;
+    padding: 0.35rem;
   }
 </style>
 
@@ -305,58 +963,60 @@
     document.documentElement.className = themeName;
   }
 
+  function upsThemeStorageKey() {
+    var y = typeof year !== "undefined" ? year : "";
+    var l = typeof league_id !== "undefined" ? league_id : "";
+    return "ups_mode_" + y + "_" + l;
+  }
+
+  function normalizeUPSMode(mode) {
+    return String(mode || "").toLowerCase() === "light" ? "light" : "dark";
+  }
+
+  function getUPSMode() {
+    return normalizeUPSMode(document.documentElement.getAttribute("data-ups-mode") || "dark");
+  }
+
+  function applyUPSMode(mode, persist) {
+    var nextMode = normalizeUPSMode(mode);
+    document.documentElement.setAttribute("data-ups-mode", nextMode);
+    document.documentElement.style.colorScheme = nextMode;
+    window.UPS_THEME_MODE = nextMode;
+    if (persist) {
+      try {
+        localStorage.setItem(upsThemeStorageKey(), nextMode);
+      } catch (e) {}
+    }
+    try {
+      document.dispatchEvent(new CustomEvent("ups-theme-change", { detail: { mode: nextMode } }));
+    } catch (e) {}
+  }
+
+  window.setUPSMode = function (mode) {
+    applyUPSMode(mode, true);
+  };
+
+  window.toggleUPSMode = function () {
+    applyUPSMode(getUPSMode() === "dark" ? "light" : "dark", true);
+  };
+
   (function () {
-    var defaultTheme = "theme-light-blue";
-    var storedTheme = localStorage.getItem("theme_" + year + "_" + league_id) || defaultTheme;
-    document.documentElement.className = storedTheme;
-  })();
-</script>
-
-<!-------------------------------------->
-<!---------- SKIN SELECTOR -------------->
-<!-------------------------------------->
-
-<div class="MFLSkinSelection">
-  <i class="fa-regular fa-paintbrush MFLSkinSelectionbtn" aria-hidden="true" title="Select Skin Color"></i>
-  <div class="ThemeSwith_overlay" style="display:none"></div>
-  <div id="myMFLSkinSelection" class="MFLSkinSelection-content" style="display:none">
-    <div id="popup-selectLeagues-caption" style="position:relative">
-      Select Skin
-      <span id="MFLSkinSelectionClose" class="as_close_btn" style="transform:none;top:0;right:0;font-size:0.813rem;font-family:'Open Sans',sans-serif">X</span>
-    </div>
-    <!-- keep existing skin options here -->
-  </div>
-</div>
-
-<script>
-  (function () {
-    var trigger = document.querySelector(".MFLSkinSelectionbtn");
-    var panel = document.getElementById("myMFLSkinSelection");
-    var overlay = document.querySelector(".ThemeSwith_overlay");
-    var closeBtn = document.getElementById("MFLSkinSelectionClose");
-    if (!trigger || !panel || !overlay) return;
-
-    function closePanel() {
-      panel.style.display = "none";
-      overlay.style.display = "none";
+    var key = "theme_" + year + "_" + league_id;
+    var storedTheme = localStorage.getItem(key) || "";
+    if (storedTheme) {
+      document.documentElement.className = storedTheme;
+    } else {
+      document.documentElement.removeAttribute("class");
     }
 
-    function openPanel() {
-      panel.style.display = "block";
-      overlay.style.display = "block";
+    var upsMode = "";
+    try {
+      upsMode = localStorage.getItem(upsThemeStorageKey()) || "";
+    } catch (e) {}
+    if (!upsMode && storedTheme.toLowerCase().indexOf("light") !== -1) {
+      upsMode = "light";
     }
-
-    trigger.addEventListener("click", function (evt) {
-      evt.preventDefault();
-      if (panel.style.display === "block") {
-        closePanel();
-      } else {
-        openPanel();
-      }
-    });
-
-    if (closeBtn) closeBtn.addEventListener("click", closePanel);
-    overlay.addEventListener("click", closePanel);
+    applyUPSMode(upsMode || "dark", false);
   })();
 </script>
 
@@ -364,60 +1024,1399 @@
 <!---------- LEAGUE BANNER -------------->
 <!-------------------------------------->
 
-<div class="banner-container-full">
-  <div class="banner-container-wrap-full">
-    <a class="full_height_banner" href="//%HOST%/%YEAR%/home/%LEAGUEID%" title="Return to home page">
-      <img src="https://i.ibb.co/Lz5d5Bb4/Chat-GPT-Image-Oct-12-2025-at-08-33-28-AM.png" alt="UPS League Banner">
-    </a>
+<div class="ups-hero-shell">
+  <div class="banner-container-full">
+    <div class="banner-container-wrap-full">
+      <div class="ups-hero-layout">
+        <aside class="ups-hero-side ups-hero-side-left" aria-label="Recent champions">
+          <div class="ups-hero-side-title">Last 10 Champions</div>
+          <div id="upsRecentWinners" class="ups-hero-list"></div>
+        </aside>
+
+        <a class="full_height_banner" href="//%HOST%/%YEAR%/home/%LEAGUEID%" title="Return to home page">
+          <img src="https://i.ibb.co/Lz5d5Bb4/Chat-GPT-Image-Oct-12-2025-at-08-33-28-AM.png" alt="UPS League Banner">
+        </a>
+
+        <aside class="ups-hero-side ups-hero-side-right" aria-label="Championship title leaders">
+          <div class="ups-hero-side-title">Title Leaders</div>
+          <div id="upsTitleLeaders" class="ups-hero-list"></div>
+        </aside>
+      </div>
+    </div>
   </div>
 </div>
 
 <!-------------------------------------->
 <!------- UPS HOTLINKS SECTION ---------->
 <!-------------------------------------->
-
-<div class="ccc-banner">
-  <div class="ccc-banner-inner">
-    <div class="ccc-text">
-      <div class="ccc-title-row">
-        <span class="ups-logo-wrap">
-          <img class="ups-logo-icon" src="https://i.ibb.co/Kp2L4ZM6/images-2.png" alt="UPS">
-        </span>
-        <span class="ccc-title-hotlinks">UPS Hotlinks</span>
+<div class="ups-hotlinks-shell">
+  <div class="ccc-banner">
+    <div class="ccc-banner-inner">
+      <div class="ccc-text">
+        <div class="ccc-title-row">
+          <span class="ups-logo-wrap">
+            <img class="ups-logo-icon" src="https://i.ibb.co/Kp2L4ZM6/images-2.png" alt="UPS">
+          </span>
+          <span class="ccc-title-hotlinks">UPS Hotlinks</span>
+          <span id="upsFranchiseIdentity" class="ups-franchise" hidden>
+            <img id="upsFranchiseIcon" class="ups-franchise-icon" alt="Franchise Icon">
+            <span id="upsFranchiseName"></span>
+          </span>
+        </div>
       </div>
-    </div>
 
-    <div class="ccc-cta-group">
-      <a class="ccc-cta" href="//%HOST%/%YEAR%/home/%LEAGUEID%?MODULE=MESSAGE16">
-        <i class="fa-solid fa-arrow-up-right-from-square"></i>
-        Contract Command Center
-      </a>
-      <a class="ccc-cta" href="//%HOST%/%YEAR%/home/%LEAGUEID%?MODULE=MESSAGE13">
-        <i class="fa-solid fa-trophy"></i>
-        Season Wrap Up &amp; Playoff Preview
-      </a>
-    </div>
+      <div class="ccc-cta-group">
+        <a class="ccc-cta" href="//%HOST%/%YEAR%/home/25625?MODULE=MESSAGE2">
+          <i class="fa-solid fa-arrow-up-right-from-square"></i>
+          Contract Command Center
+        </a>
+        <button class="ccc-cta ccc-theme-toggle" id="upsThemeToggle" type="button" aria-pressed="false">
+          <i class="fa-solid fa-circle-half-stroke"></i>
+          <span class="ups-theme-toggle-label">Theme: Dark</span>
+        </button>
+      </div>
 
-    <div class="ccc-actions">
-      <a class="ccc-pill" href="//%HOST%/%YEAR%/lineup?L=%LEAGUEID%"><i class="fa-solid fa-clipboard-list"></i>Submit Lineup</a>
-      <a class="ccc-pill" href="//%HOST%/%YEAR%/add_drop?L=%LEAGUEID%"><i class="fa-solid fa-plus-minus"></i>Add/Drop</a>
-      <a class="ccc-pill" href="//%HOST%/%YEAR%/options?L=%LEAGUEID%&amp;O=07"><i class="fa-solid fa-users"></i>Rosters</a>
-      <a class="ccc-pill" href="//%HOST%/%YEAR%/ajax_ls?L=%LEAGUEID%"><i class="fa-solid fa-gauge-high"></i>Scoreboard</a>
-      <a class="ccc-pill" href="//%HOST%/%YEAR%/options?L=%LEAGUEID%&amp;O=05"><i class="fa-solid fa-handshake"></i>Trades</a>
+      <div class="ccc-actions">
+        <a class="ccc-pill" href="//%HOST%/%YEAR%/lineup?L=%LEAGUEID%"><i class="fa-solid fa-clipboard-list"></i>Submit Lineup</a>
+        <a class="ccc-pill" href="//%HOST%/%YEAR%/add_drop?L=%LEAGUEID%"><i class="fa-solid fa-plus-minus"></i>Add/Drop</a>
+        <a class="ccc-pill" href="//%HOST%/%YEAR%/options?L=%LEAGUEID%&amp;O=07"><i class="fa-solid fa-users"></i>Rosters</a>
+        <a class="ccc-pill" href="//%HOST%/%YEAR%/ajax_ls?L=%LEAGUEID%"><i class="fa-solid fa-gauge-high"></i>Scoreboard</a>
+        <a class="ccc-pill" href="//%HOST%/%YEAR%/options?L=%LEAGUEID%&amp;O=05"><i class="fa-solid fa-handshake"></i>Trades</a>
+      </div>
     </div>
   </div>
 </div>
 
 <script>
-  /* Redirect default scoreboard links to custom HPM scoreboard */
-  var lsmHPM = "8";
-  var lsmHPMurl = baseURLDynamic + "/" + year + "/options?L=" + league_id + "&O=247&SEQNO=" + lsmHPM;
-  $(document).ready(function () {
-    $('a[href*="ajax_ls?L"]').each(function () {
-      $(this).removeClass("scoringLinkDisable");
-      $(this).attr("href", lsmHPMurl);
+  (function () {
+    function updateThemeToggleUi() {
+      var mode = typeof window.getUPSMode === "function" ? window.getUPSMode() : "dark";
+      var btn = document.getElementById("upsThemeToggle");
+      if (!btn) return;
+      var label = btn.querySelector(".ups-theme-toggle-label");
+      if (label) label.textContent = mode === "dark" ? "Theme: Dark" : "Theme: Light";
+      btn.setAttribute("aria-pressed", mode === "light" ? "true" : "false");
+      btn.setAttribute("title", mode === "dark" ? "Switch to light mode" : "Switch to dark mode");
+    }
+
+    function initThemeToggle() {
+      var btn = document.getElementById("upsThemeToggle");
+      if (btn && !btn.dataset.wired) {
+        btn.dataset.wired = "1";
+        btn.addEventListener("click", function () {
+          if (typeof window.toggleUPSMode === "function") {
+            window.toggleUPSMode();
+            return;
+          }
+          if (typeof window.getUPSMode === "function" && typeof window.setUPSMode === "function") {
+            var next = window.getUPSMode() === "dark" ? "light" : "dark";
+            window.setUPSMode(next);
+          }
+        });
+      }
+      updateThemeToggleUi();
+    }
+
+    document.addEventListener("ups-theme-change", function () {
+      updateThemeToggleUi();
     });
-  });
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", function () {
+        initThemeToggle();
+      });
+    } else {
+      initThemeToggle();
+    }
+  })();
+</script>
+
+<script>
+  // Hero side-panels: recent champions + all-time title leaders.
+  (function () {
+    var fallbackRecentWinners = [
+      { year: 2025, franchise: "Brian Cutting", icon: "https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_icon0004.png", allPlayPct: 0.717, titleNumber: 1 },
+      { year: 2024, franchise: "Eric Martel", icon: "https://www48.myfantasyleague.com/fflnetdynamic2025/74598_franchise_icon0005.jpg", allPlayPct: 0.674, titleNumber: 1 },
+      { year: 2023, franchise: "Shawn Blake", icon: "https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_icon0010.png", allPlayPct: 0.690, titleNumber: 3 },
+      { year: 2022, franchise: "Matt Gerardi", icon: "https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_icon0003.png", allPlayPct: 0.652, titleNumber: 1 },
+      { year: 2021, franchise: "Ryan Bousquet", icon: "https://www45.myfantasyleague.com/fflnetdynamic2014/30590_franchise_icon0001.jpg", allPlayPct: 0.624, titleNumber: 2 },
+      { year: 2020, franchise: "Josh Martel", icon: "https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_icon0007.png", allPlayPct: 0.655, titleNumber: 2 },
+      { year: 2019, franchise: "Josh Martel", icon: "https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_icon0007.png", allPlayPct: 0.670, titleNumber: 1 },
+      { year: 2018, franchise: "Steve Bousquet", icon: "https://www48.myfantasyleague.com/fflnetdynamic2024/74598_franchise_icon0006.jpg", allPlayPct: 0.744, titleNumber: 2 },
+      { year: 2017, franchise: "Steve Bousquet", icon: "https://www48.myfantasyleague.com/fflnetdynamic2024/74598_franchise_icon0006.jpg", allPlayPct: 0.793, titleNumber: 1 },
+      { year: 2016, franchise: "Bear Dunn", icon: "https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_icon0009.png", allPlayPct: 0.776, titleNumber: 1 }
+    ];
+
+    var fallbackTitleLeaders = [
+      { franchise: "Shawn Blake", icon: "https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_icon0010.png", titles: 3, years: "2011, 2015, 2023" },
+      { franchise: "Ryan Bousquet", icon: "https://www45.myfantasyleague.com/fflnetdynamic2014/30590_franchise_icon0001.jpg", titles: 2, years: "2014, 2021" },
+      { franchise: "Josh Martel", icon: "https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_icon0007.png", titles: 2, years: "2019, 2020" },
+      { franchise: "Steve Bousquet", icon: "http://i1218.photobucket.com/albums/dd420/creelmank/Team%20Minis/GoodinDaHoodMINI.png", titles: 2, years: "2017, 2018" },
+      { franchise: "Brian Cutting", icon: "https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_icon0004.png", titles: 1, years: "2025" },
+      { franchise: "Eric Martel", icon: "https://www48.myfantasyleague.com/fflnetdynamic2022/74598_franchise_logo0005.png", titles: 1, years: "2024" },
+      { franchise: "Matt Gerardi", icon: "https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_icon0003.png", titles: 1, years: "2022" },
+      { franchise: "Bear Dunn", icon: "https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_icon0009.png", titles: 1, years: "2016" },
+      { franchise: "Derrick Whitman", icon: "https://www48.myfantasyleague.com/fflnetdynamic2022/74598_franchise_icon0002.png", titles: 1, years: "2013" },
+      { franchise: "Kris Lake", icon: "https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_icon0003.png", titles: 1, years: "2012" }
+    ];
+
+    function formatPct(value) {
+      var n = parseFloat(value);
+      if (isNaN(n)) return "--";
+      return (n * 100).toFixed(1) + "%";
+    }
+
+    function buildRecentRow(item) {
+      var row = document.createElement("div");
+      row.className = "ups-hero-item ups-hero-item--champ";
+
+      var year = document.createElement("div");
+      year.className = "ups-hero-year";
+      year.textContent = String(item.year || "");
+
+      var main = document.createElement("div");
+      main.className = "ups-hero-main";
+
+      var name = document.createElement("div");
+      name.className = "ups-hero-name";
+      name.textContent = String(item.franchise || "");
+
+      var meta = document.createElement("div");
+      meta.className = "ups-hero-meta";
+      meta.innerHTML =
+        "All-Play " + formatPct(item.allPlayPct) + " <span class=\"ups-hero-trophies\">| Title #" + String(item.titleNumber || 1) + " x&#127942;</span>";
+
+      main.appendChild(name);
+      main.appendChild(meta);
+
+      row.appendChild(year);
+      row.appendChild(main);
+      return row;
+    }
+
+    function buildLeaderRow(item) {
+      var row = document.createElement("div");
+      row.className = "ups-hero-item ups-hero-item--leader";
+
+      var main = document.createElement("div");
+      main.className = "ups-hero-main";
+
+      var name = document.createElement("div");
+      name.className = "ups-hero-name";
+      name.textContent = String(item.franchise || "");
+
+      var meta = document.createElement("div");
+      meta.className = "ups-hero-meta";
+      meta.textContent = String(item.years || "");
+
+      var count = document.createElement("span");
+      count.className = "ups-hero-count";
+      count.textContent = String(item.titles || 0);
+      count.title = String(item.titles || 0) + " title(s)";
+
+      main.appendChild(name);
+      main.appendChild(meta);
+
+      row.appendChild(main);
+      row.appendChild(count);
+      return row;
+    }
+
+    function normalizeRecentRows(rows) {
+      if (!Array.isArray(rows)) return [];
+      return rows
+        .map(function (item) {
+          var iconRaw = String(item && item.icon || "");
+          var icon = iconRaw.replace(/^http:\/\//i, "https://");
+          return {
+            year: parseInt(item && item.year, 10) || 0,
+            franchise: String(item && item.franchise || ""),
+            icon: icon,
+            allPlayPct:
+              item && item.allPlayPct !== undefined
+                ? item.allPlayPct
+                : item && item.all_play_pct !== undefined
+                ? item.all_play_pct
+                : 0,
+            titleNumber:
+              item && item.titleNumber !== undefined
+                ? item.titleNumber
+                : item && item.title_number !== undefined
+                ? item.title_number
+                : 1
+          };
+        })
+        .filter(function (item) {
+          return item.year > 0 && item.franchise;
+        });
+    }
+
+    function normalizeLeaderRows(rows) {
+      if (!Array.isArray(rows)) return [];
+      return rows
+        .map(function (item) {
+          var iconRaw = String(item && item.icon || "");
+          var icon = iconRaw.replace(/^http:\/\//i, "https://");
+          return {
+            franchise: String(item && item.franchise || ""),
+            icon: icon,
+            titles: parseInt(item && item.titles, 10) || 0,
+            years: String(item && item.years || "")
+          };
+        })
+        .filter(function (item) {
+          return item.franchise;
+        });
+    }
+
+    function render(recentWinners, titleLeaders) {
+      var recentEl = document.getElementById("upsRecentWinners");
+      var leadersEl = document.getElementById("upsTitleLeaders");
+      if (!recentEl || !leadersEl) return;
+      recentEl.innerHTML = "";
+      leadersEl.innerHTML = "";
+
+      for (var i = 0; i < recentWinners.length; i += 1) {
+        recentEl.appendChild(buildRecentRow(recentWinners[i]));
+      }
+      for (var j = 0; j < titleLeaders.length; j += 1) {
+        leadersEl.appendChild(buildLeaderRow(titleLeaders[j]));
+      }
+    }
+
+    function readPayload(raw) {
+      if (!raw || typeof raw !== "object") return null;
+      var recent = normalizeRecentRows(raw.recent_winners || raw.recentWinners || []);
+      var leaders = normalizeLeaderRows(raw.title_leaders || raw.titleLeaders || []);
+      if (!recent.length || !leaders.length) return null;
+      return { recent: recent, leaders: leaders };
+    }
+
+    function loadDynamicPanels() {
+      var cacheKey = String(Date.now());
+      var candidates = [
+        "https://rawcdn.githack.com/keithcreelman/upsmflproduction/dev/site/champions_panels.json?v=" + cacheKey,
+        "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@dev/site/champions_panels.json?v=" + cacheKey
+      ];
+
+      function attempt(idx) {
+        if (idx >= candidates.length) {
+          render(fallbackRecentWinners, fallbackTitleLeaders);
+          return;
+        }
+        fetch(candidates[idx], { cache: "no-store" })
+          .then(function (res) {
+            if (!res.ok) throw new Error("HTTP " + res.status);
+            return res.json();
+          })
+          .then(function (json) {
+            var payload = readPayload(json);
+            if (!payload) throw new Error("Invalid champion panel payload");
+            render(payload.recent, payload.leaders);
+          })
+          .catch(function () {
+            attempt(idx + 1);
+          });
+      }
+
+      attempt(0);
+    }
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", loadDynamicPanels);
+    } else {
+      loadDynamicPanels();
+    }
+  })();
+</script>
+
+<script>
+  // CCC embed helper for MFL home-page messages:
+  // MFL sometimes injects message HTML with innerHTML, which makes <script> tags inert.
+  // Loading the CCC embed loader from the header ensures it executes.
+  (function () {
+    if (window.__ups_ccc_header_autoload) return;
+    window.__ups_ccc_header_autoload = true;
+
+    function safeUpper(v) {
+      return String(v || "").trim().toUpperCase();
+    }
+
+    function getModuleName() {
+      try {
+        var u = new URL(window.location.href);
+        return safeUpper(u.searchParams.get("MODULE") || "");
+      } catch (e) {
+        return "";
+      }
+    }
+
+    function alreadyEmbedded() {
+      return !!document.querySelector('iframe[src*="mfl_hpm16_contractcommandcenter.html"]');
+    }
+
+    function ensureMountNearTop() {
+      var mount = document.getElementById("cccMount");
+      if (mount) return mount;
+      mount = document.createElement("div");
+      mount.id = "cccMount";
+      var anchor =
+        document.querySelector(".ups-hero-shell") ||
+        document.querySelector(".ccc-banner") ||
+        document.getElementById("container-wrap") ||
+        document.body;
+      if (anchor && anchor.parentNode) {
+        anchor.parentNode.insertBefore(mount, anchor.nextSibling);
+      } else {
+        document.body.appendChild(mount);
+      }
+      return mount;
+    }
+
+    function loadCccLoader() {
+      if (alreadyEmbedded()) return;
+      ensureMountNearTop();
+      var cacheKey = encodeURIComponent(String(Date.now()));
+      var loaderCandidates = [
+        "https://rawcdn.githack.com/keithcreelman/upsmflproduction/dev/site/ccc/mfl_hpm_embed_loader.js?v=" + cacheKey,
+        "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@dev/site/ccc/mfl_hpm_embed_loader.js?v=" + cacheKey
+      ];
+
+      function tryLoader(idx) {
+        if (idx >= loaderCandidates.length) return;
+        var s = document.createElement("script");
+        s.src = loaderCandidates[idx];
+        s.async = true;
+        s.onerror = function () {
+          tryLoader(idx + 1);
+        };
+        document.body.appendChild(s);
+      }
+
+      tryLoader(0);
+    }
+
+    var mod = getModuleName();
+    if (mod !== "MESSAGE2" && mod !== "MESSAGE16") return;
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", function () {
+        loadCccLoader();
+      });
+    } else {
+      loadCccLoader();
+    }
+  })();
+</script>
+
+<script>
+  // Show current franchise identity (icon + team name) in the Hotlinks header.
+  (function () {
+    function pad4(v) {
+      var d = String(v || "").replace(/\D/g, "");
+      return d ? d.padStart(4, "0").slice(-4) : "";
+    }
+
+    function tryUrlParam(name) {
+      try {
+        var u = new URL(window.location.href);
+        var v = u.searchParams.get(name);
+        return v == null ? "" : String(v);
+      } catch (e) {
+        return "";
+      }
+    }
+
+    function getFid() {
+      var fid = pad4(window.FRANCHISE_ID || window.franchise_id || "");
+      if (fid && fid !== "0000") return fid;
+
+      // Commissioner pages often run as franchise_id=0000.
+      // Use URL param or the "Select Franchise" control when present.
+      fid = pad4(tryUrlParam("FRANCHISE_ID") || tryUrlParam("FRANCHISE") || tryUrlParam("F") || "");
+      if (fid && fid !== "0000") return fid;
+
+      try {
+        var sel =
+          document.querySelector('form.reportform select[name="FRANCHISE"]') ||
+          document.querySelector('form[name="SELECT_FRANCHISE"] select[name="FRANCHISE"]');
+        if (sel && sel.value) {
+          fid = pad4(sel.value);
+          if (fid && fid !== "0000") return fid;
+        }
+      } catch (e) {}
+
+      return "";
+    }
+
+    function getFranchiseName(fid) {
+      try {
+        var key = "fid_" + fid;
+        if (
+          window.franchiseDatabase &&
+          window.franchiseDatabase[key] &&
+          window.franchiseDatabase[key].name
+        ) {
+          return String(window.franchiseDatabase[key].name || "").trim();
+        }
+      } catch (e) {}
+      // Fallback: read the selected franchise name from the reportform dropdown.
+      try {
+        var sel =
+          document.querySelector('form.reportform select[name="FRANCHISE"]') ||
+          document.querySelector('form[name="SELECT_FRANCHISE"] select[name="FRANCHISE"]');
+        if (sel && sel.options && sel.selectedIndex >= 0) {
+          var opt = sel.options[sel.selectedIndex];
+          var txt = opt ? String(opt.text || "").trim() : "";
+          if (txt) return txt;
+        }
+      } catch (e) {}
+      return "";
+    }
+
+    function isHttpUrl(v) {
+      var s = String(v || "").trim();
+      return s.indexOf("http://") === 0 || s.indexOf("https://") === 0;
+    }
+
+    function candidateIconUrls(fid) {
+      var host = window.baseURLStatic || window.baseURLDynamic || "https://www48.myfantasyleague.com";
+      var lid = String(window.league_id || "").trim();
+      var yr = parseInt(String(window.year || ""), 10);
+      if (!yr) return [];
+      var leagueIds = [];
+      function addLeagueId(v) {
+        var s = String(v || "").replace(/\D/g, "");
+        if (!s || leagueIds.indexOf(s) !== -1) return;
+        leagueIds.push(s);
+      }
+      addLeagueId(lid);
+      addLeagueId("74598");
+      if (!leagueIds.length) return [];
+      var out = [];
+      var seen = {};
+      function push(url) {
+        var s = String(url || "").trim();
+        if (!s) return;
+        s = s.replace(/^http:\/\//i, "https://");
+        if (seen[s]) return;
+        seen[s] = 1;
+        out.push(s);
+      }
+      try {
+        var key = "fid_" + fid;
+        var rec = window.franchiseDatabase && window.franchiseDatabase[key];
+        if (rec && isHttpUrl(rec.icon)) push(rec.icon);
+        if (rec && isHttpUrl(rec.logo)) push(rec.logo);
+      } catch (e) {}
+      var bases = [];
+      leagueIds.forEach(function (curLid) {
+        bases.push(host + "/fflnetdynamic" + yr + "/" + curLid + "_franchise_icon" + fid);
+        bases.push(host + "/fflnetdynamic" + (yr - 1) + "/" + curLid + "_franchise_icon" + fid);
+        bases.push(host + "/fflnetdynamic2025/" + curLid + "_franchise_icon" + fid);
+        bases.push(host + "/fflnetdynamic2019/" + curLid + "_franchise_icon" + fid);
+        bases.push(host + "/fflnetdynamic" + yr + "/" + curLid + "_franchise_logo" + fid);
+        bases.push(host + "/fflnetdynamic" + (yr - 1) + "/" + curLid + "_franchise_logo" + fid);
+        bases.push(host + "/fflnetdynamic2025/" + curLid + "_franchise_logo" + fid);
+        bases.push(host + "/fflnetdynamic2019/" + curLid + "_franchise_logo" + fid);
+      });
+      bases.forEach(function (b) {
+        push(b + ".png");
+        push(b + ".jpg");
+        push(b + ".jpeg");
+        push(b + ".gif");
+      });
+      return out;
+    }
+
+    function setIconWithFallback(img, urls) {
+      if (!img) return;
+      var list = Array.isArray(urls) ? urls.filter(Boolean) : [];
+      if (!list.length) {
+        img.style.display = "none";
+        img.removeAttribute("src");
+        return;
+      }
+      var i = 0;
+      function tryNext() {
+        if (i >= list.length) {
+          img.removeAttribute("src");
+          img.style.display = "none";
+          return;
+        }
+        img.style.display = "";
+        img.src = list[i];
+        i += 1;
+      }
+      img.onload = function () {
+        img.style.display = "";
+      };
+      img.onerror = function () {
+        tryNext();
+      };
+      tryNext();
+    }
+
+    function initOnce() {
+      var wrap = document.getElementById("upsFranchiseIdentity");
+      var nameEl = document.getElementById("upsFranchiseName");
+      var iconEl = document.getElementById("upsFranchiseIcon");
+      if (!wrap || !nameEl || !iconEl) return;
+
+      var fid = getFid();
+      if (!fid) return false;
+
+      var name = getFranchiseName(fid);
+      if (!name) return false;
+
+      nameEl.textContent = name;
+      wrap.hidden = false;
+      setIconWithFallback(iconEl, candidateIconUrls(fid));
+      return true;
+    }
+
+    function attempt(retries) {
+      if (initOnce()) return;
+      if (retries <= 0) return;
+      setTimeout(function () {
+        attempt(retries - 1);
+      }, 250);
+    }
+
+    function wireSelect() {
+      try {
+        var sel =
+          document.querySelector('form.reportform select[name="FRANCHISE"]') ||
+          document.querySelector('form[name="SELECT_FRANCHISE"] select[name="FRANCHISE"]');
+        if (!sel || sel.dataset.upsWired) return;
+        sel.dataset.upsWired = "1";
+        sel.addEventListener("change", function () {
+          attempt(12);
+        });
+      } catch (e) {}
+    }
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", function () {
+        wireSelect();
+        attempt(24);
+      });
+    } else {
+      wireSelect();
+      attempt(24);
+    }
+
+    // Late-load fallback for pages where globals populate after other scripts.
+    window.addEventListener("load", function () {
+      wireSelect();
+      attempt(24);
+    });
+  })();
+</script>
+
+<script>
+  // Rosters page: prepend franchise icon and keep "icon - franchise name" in caption/header.
+  (function () {
+    function safeStr(v) {
+      return v === null || v === undefined ? "" : String(v).trim();
+    }
+
+    function htmlEsc(v) {
+      return safeStr(v)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
+    function pad4(v) {
+      var d = safeStr(v).replace(/\D/g, "");
+      return d ? d.padStart(4, "0").slice(-4) : "";
+    }
+
+    function isRosterPage() {
+      var bodyId = safeStr(document.body && document.body.id).toLowerCase();
+      if (bodyId.indexOf("body_options_07") === 0) return true;
+      try {
+        var u = new URL(window.location.href);
+        var o = safeStr(u.searchParams.get("O"));
+        if (o === "07") return true;
+      } catch (e) {}
+      return false;
+    }
+
+    function isHttpUrl(v) {
+      var s = safeStr(v);
+      return s.indexOf("http://") === 0 || s.indexOf("https://") === 0;
+    }
+
+    function getFidFromTable(table, caption) {
+      var cls = safeStr(table && table.className);
+      var m = cls.match(/franchise_(\d{1,4})/);
+      if (m) return pad4(m[1]);
+      var capLink =
+        (caption && caption.querySelector("a[class*='franchise_']")) ||
+        (table && table.querySelector("caption a[class*='franchise_']"));
+      if (capLink) {
+        var capClass = safeStr(capLink.className);
+        var m2 = capClass.match(/franchise_(\d{1,4})/);
+        if (m2) return pad4(m2[1]);
+        var href = safeStr(capLink.getAttribute("href"));
+        var mHref = href.match(/[?&](?:FRANCHISE_ID|FRANCHISE|F)=([0-9]{1,4})/i);
+        if (mHref) return pad4(mHref[1]);
+      }
+      var tableFid = safeStr(table && table.getAttribute("data-franchise-id"));
+      if (tableFid) return pad4(tableFid);
+      return "";
+    }
+
+    function candidateIconUrls(fid) {
+      if (!fid) return [];
+      var host = window.baseURLStatic || window.baseURLDynamic || "https://www48.myfantasyleague.com";
+      var lid = safeStr(window.league_id || "");
+      var yr = parseInt(safeStr(window.year || ""), 10);
+      if (!yr) return [];
+      var leagueIds = [];
+      function addLeagueId(v) {
+        var s = safeStr(v).replace(/\D/g, "");
+        if (!s || leagueIds.indexOf(s) !== -1) return;
+        leagueIds.push(s);
+      }
+      addLeagueId(lid);
+      addLeagueId("74598");
+      if (!leagueIds.length) return [];
+      var out = [];
+      var seen = {};
+      function push(url) {
+        var s = safeStr(url).replace(/^http:\/\//i, "https://");
+        if (!s || seen[s]) return;
+        seen[s] = 1;
+        out.push(s);
+      }
+      try {
+        var key = "fid_" + fid;
+        var rec = window.franchiseDatabase && window.franchiseDatabase[key];
+        if (rec && isHttpUrl(rec.icon)) push(rec.icon);
+        if (rec && isHttpUrl(rec.logo)) push(rec.logo);
+      } catch (e) {}
+      var bases = [];
+      leagueIds.forEach(function (curLid) {
+        bases.push(host + "/fflnetdynamic" + yr + "/" + curLid + "_franchise_icon" + fid);
+        bases.push(host + "/fflnetdynamic" + (yr - 1) + "/" + curLid + "_franchise_icon" + fid);
+        bases.push(host + "/fflnetdynamic2025/" + curLid + "_franchise_icon" + fid);
+        bases.push(host + "/fflnetdynamic2019/" + curLid + "_franchise_icon" + fid);
+        bases.push(host + "/fflnetdynamic" + yr + "/" + curLid + "_franchise_logo" + fid);
+        bases.push(host + "/fflnetdynamic" + (yr - 1) + "/" + curLid + "_franchise_logo" + fid);
+        bases.push(host + "/fflnetdynamic2025/" + curLid + "_franchise_logo" + fid);
+        bases.push(host + "/fflnetdynamic2019/" + curLid + "_franchise_logo" + fid);
+      });
+      bases.forEach(function (b) {
+        push(b + ".png");
+        push(b + ".jpg");
+        push(b + ".jpeg");
+        push(b + ".gif");
+      });
+      return out;
+    }
+
+    function setIconWithFallback(img, urls) {
+      if (!img) return;
+      var list = Array.isArray(urls) ? urls.filter(Boolean) : [];
+      if (!list.length) {
+        img.style.display = "none";
+        img.removeAttribute("src");
+        return;
+      }
+      var i = 0;
+      function tryNext() {
+        if (i >= list.length) {
+          img.removeAttribute("src");
+          img.style.display = "none";
+          var next = img.nextElementSibling;
+          if (next && next.classList && next.classList.contains("ups-roster-franchise-dash")) {
+            next.style.display = "none";
+          }
+          return;
+        }
+        img.style.display = "";
+        img.src = list[i];
+        i += 1;
+      }
+      img.onload = function () {
+        img.style.display = "";
+        var next = img.nextElementSibling;
+        if (next && next.classList && next.classList.contains("ups-roster-franchise-dash")) {
+          next.style.display = "";
+        }
+      };
+      img.onerror = function () {
+        tryNext();
+      };
+      tryNext();
+    }
+
+    function decorateCaption(caption, fid) {
+      if (!caption || !fid) return;
+      var holder = caption.querySelector("a") || caption.querySelector("span") || caption;
+      if (!holder) return;
+      var name = safeStr(holder.getAttribute("data-ups-franchise-name") || holder.textContent || "");
+      if (!name) return;
+      holder.setAttribute("data-ups-franchise-name", name);
+
+      if (caption.classList.contains("ups-roster-caption") && holder.querySelector(".ups-roster-franchise-name")) {
+        return;
+      }
+
+      caption.classList.add("ups-roster-caption");
+      holder.textContent = "";
+
+      var img = document.createElement("img");
+      img.className = "ups-roster-franchise-icon";
+      img.alt = name + " icon";
+      setIconWithFallback(img, candidateIconUrls(fid));
+
+      var dash = document.createElement("span");
+      dash.className = "ups-roster-franchise-dash";
+      dash.textContent = "-";
+
+      var label = document.createElement("span");
+      label.className = "ups-roster-franchise-name";
+      label.textContent = name;
+
+      holder.appendChild(img);
+      holder.appendChild(dash);
+      holder.appendChild(label);
+    }
+
+    function applyRosterFranchiseHeaders() {
+      if (!isRosterPage()) return;
+      var captions = document.querySelectorAll("caption");
+      for (var i = 0; i < captions.length; i += 1) {
+        var caption = captions[i];
+        var table = caption.closest("table");
+        var fid = getFidFromTable(table, caption);
+        if (!fid) continue;
+        decorateCaption(caption, fid);
+      }
+    }
+
+    function init() {
+      if (!isRosterPage()) return;
+      var attempts = 0;
+      var timer = setInterval(function () {
+        attempts += 1;
+        applyRosterFranchiseHeaders();
+        if (attempts >= 20) clearInterval(timer);
+      }, 350);
+
+      var root = document.getElementById("MFLroster") || document.body;
+      if (!root || !window.MutationObserver) return;
+      var observer = new MutationObserver(function () {
+        applyRosterFranchiseHeaders();
+      });
+      observer.observe(root, { childList: true, subtree: true });
+    }
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", init);
+    } else {
+      init();
+    }
+  })();
+</script>
+
+<script>
+/*
+UPS COMPACT STANDINGS
+Works on:
+• Standings page
+• Home page standings module
+Replaces bulky default grid with compact toggle view + franchise icons
+*/
+
+(function () {
+  function safeStr(v) { return v === null || v === undefined ? "" : String(v).trim(); }
+  function htmlEsc(v) { return safeStr(v).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;"); }
+  function pad4(v) { var d = safeStr(v).replace(/\D/g, ""); return d ? d.padStart(4, "0").slice(-4) : ""; }
+
+  function moduleFromUrl() {
+    try { var u = new URL(window.location.href); return safeStr(u.searchParams.get("MODULE")).toLowerCase(); }
+    catch (e) { return ""; }
+  }
+
+  function normalizeHeader(t) {
+    return safeStr(t).toLowerCase().replace(/&nbsp;/g, " ")
+      .replace(/[^a-z0-9%]+/g, " ").replace(/\s+/g, " ").trim();
+  }
+
+  function parseNumber(txt) {
+    var m = safeStr(txt).replace(/,/g, "").match(/-?\d+(?:\.\d+)?/);
+    return m ? Number(m[0]) : null;
+  }
+
+  function parseWltText(txt) {
+    var m = safeStr(txt).match(/(\d+)\s*[-/]\s*(\d+)\s*[-/]\s*(\d+)/);
+    if (!m) return null;
+    return { w: Number(m[1]), l: Number(m[2]), t: Number(m[3]) };
+  }
+
+  function pctFromWlt(wlt) {
+    if (!wlt) return null;
+    var g = Number(wlt.w || 0) + Number(wlt.l || 0) + Number(wlt.t || 0);
+    if (!g) return null;
+    return (Number(wlt.w || 0) + Number(wlt.t || 0) * 0.5) / g;
+  }
+
+  function fmtWlt(wlt) { if (!wlt) return " - "; return [wlt.w, wlt.l, wlt.t].join("-"); }
+  function fmtPct(v) { if (v === null || v === undefined || isNaN(Number(v))) return " - "; return Number(v).toFixed(3); }
+
+  function isStandingsPage() {
+    var mod = moduleFromUrl();
+    if (mod === "standings") return true;
+    if (document.getElementById("standings")) return true;
+    try {
+      var u = new URL(window.location.href);
+      var o = safeStr(u.searchParams.get("O"));
+      if (o === "03" || o === "3" || o === "31") return true;
+    } catch (e) {}
+    var bodyId = safeStr(document.body && document.body.id).toLowerCase();
+    if (bodyId.indexOf("body_options_03") === 0 || bodyId.indexOf("body_options_31") === 0) return true;
+    if (bodyId.indexOf("standings") !== -1) return true;
+    var probe = document.querySelector("table.report th, .report table th");
+    if (probe) {
+      var txt = normalizeHeader(probe.textContent || "");
+      if (txt.indexOf("all play") !== -1 || txt.indexOf("franchise") !== -1) return true;
+    }
+    return false;
+  }
+
+  function findStandingsTable() {
+    var hp = document.querySelector("table.homepagemodule.report#standings");
+    if (hp) return hp;
+    var candidates = Array.from(document.querySelectorAll(
+      "#container-wrap table.report, #container-wrap .report table, table.report"
+    ));
+    for (var i = 0; i < candidates.length; i += 1) {
+      var t = candidates[i];
+      var headers = Array.from(t.querySelectorAll("thead th, tr:first-child th, tr:first-child td"))
+        .map(function (el) { return normalizeHeader(el.textContent || ""); })
+        .filter(Boolean)
+        .join(" | ");
+      var caption = normalizeHeader((t.querySelector("caption") || {}).textContent || "");
+      if (headers && /franchise|team|all play|overall|division|record|w l t|ap /.test(headers)) return t;
+      if (caption && /standings|all play|overall/.test(caption)) return t;
+    }
+    return candidates[0] || null;
+  }
+
+  function findIndexByRegex(headersNorm, regexes, used) {
+    for (var r = 0; r < regexes.length; r += 1) {
+      var re = regexes[r];
+      for (var i = 0; i < headersNorm.length; i += 1) {
+        if (used && used[i]) continue;
+        if (re.test(headersNorm[i])) return i;
+      }
+    }
+    return -1;
+  }
+
+  function buildColumnMap(headers) {
+    var used = {};
+    var c = {};
+    c.team = findIndexByRegex(headers, [/^franchise$/, /^team$/, /franchise|team/], used);
+    if (c.team >= 0) used[c.team] = 1;
+
+    c.allplayCombined = findIndexByRegex(headers, [/all ?play.*w.*l.*t/, /all ?play/], used);
+    if (c.allplayCombined >= 0) used[c.allplayCombined] = 1;
+    c.divCombined = findIndexByRegex(headers, [/div.*w.*l.*t/, /division.*w.*l.*t/, /divisional/], used);
+    if (c.divCombined >= 0) used[c.divCombined] = 1;
+    c.overallCombined = findIndexByRegex(headers, [/overall.*w.*l.*t/, /^record$/, /w l t/], used);
+    if (c.overallCombined >= 0) used[c.overallCombined] = 1;
+
+    c.allplayW = findIndexByRegex(headers, [/all ?play.*\bw\b/, /^ap w$/, /^apw$/], used);
+    if (c.allplayW >= 0) used[c.allplayW] = 1;
+    c.allplayL = findIndexByRegex(headers, [/all ?play.*\bl\b/, /^ap l$/, /^apl$/], used);
+    if (c.allplayL >= 0) used[c.allplayL] = 1;
+    c.allplayT = findIndexByRegex(headers, [/all ?play.*\bt\b/, /^ap t$/, /^apt$/], used);
+    if (c.allplayT >= 0) used[c.allplayT] = 1;
+
+    c.divW = findIndexByRegex(headers, [/div.*\bw\b/, /^dw$/], used);
+    if (c.divW >= 0) used[c.divW] = 1;
+    c.divL = findIndexByRegex(headers, [/div.*\bl\b/, /^dl$/], used);
+    if (c.divL >= 0) used[c.divL] = 1;
+    c.divT = findIndexByRegex(headers, [/div.*\bt\b/, /^dt$/], used);
+    if (c.divT >= 0) used[c.divT] = 1;
+
+    c.overallW = findIndexByRegex(headers, [/^w$/, /^wins$/], used);
+    if (c.overallW >= 0) used[c.overallW] = 1;
+    c.overallL = findIndexByRegex(headers, [/^l$/, /^losses$/], used);
+    if (c.overallL >= 0) used[c.overallL] = 1;
+    c.overallT = findIndexByRegex(headers, [/^t$/, /^ties$/], used);
+    if (c.overallT >= 0) used[c.overallT] = 1;
+
+    c.allplayPct = findIndexByRegex(headers, [/all ?play.*(%|pct)/, /^ap pct$/, /^appct$/], null);
+    c.overallPct = findIndexByRegex(headers, [/overall.*(%|pct)/, /^pct$/, /^win %$/, /^win pct$/], null);
+    c.divPct = findIndexByRegex(headers, [/div.*(%|pct)/], null);
+
+    c.pointsFor = findIndexByRegex(headers, [/^pf$/, /points for/, /pts for/], null);
+    c.offPoints = findIndexByRegex(headers, [/off.*points/, /off points/, /off pts/], null);
+    c.defPoints = findIndexByRegex(headers, [/def.*points/, /def points/, /def pts/], null);
+    c.potential = findIndexByRegex(headers, [/potential points/, /pot points/, /^pp$/], null);
+    c.efficiency = findIndexByRegex(headers, [/efficiency/, /eff rating/, /^eff$/], null);
+    return c;
+  }
+
+  function readCell(row, idx) {
+    if (!row || idx < 0 || !row.cells || idx >= row.cells.length) return "";
+    return safeStr(row.cells[idx].textContent || "");
+  }
+
+  function franchiseNameFromDatabase(fid) {
+    var id = pad4(fid);
+    if (!id) return "";
+    try {
+      var db = window.franchiseDatabase || {};
+      var rec = db["fid_" + id] || db[id];
+      return safeStr(rec && (rec.name || rec.franchise_name || rec.abbrev || ""));
+    } catch (e) {}
+    return "";
+  }
+
+  function extractFranchiseFromFiconCell(row) {
+    var cell = row && row.cells ? row.cells[0] : null;
+    if (!cell) return { id: "", name: "" };
+    var a = cell.querySelector("a[href]");
+    if (a) {
+      var href = safeStr(a.getAttribute("href"));
+      var m = href.match(/[?&](?:FRANCHISE_ID|FRANCHISE|F)=([0-9]{1,4})/i);
+      if (m) return { id: pad4(m[1]), name: "" };
+    }
+    var img = cell.querySelector("img[src]");
+    if (img) {
+      var src = safeStr(img.getAttribute("src"));
+      var mSrc = src.match(/_franchise_(?:icon|logo)(\d{1,4})/i);
+      if (mSrc) return { id: pad4(mSrc[1]), name: "" };
+    }
+    return { id: "", name: "" };
+  }
+
+  function extractFranchise(row, teamIdx) {
+    var teamCell = teamIdx >= 0 && row.cells && row.cells[teamIdx] ? row.cells[teamIdx] : row.cells[0];
+    if (!teamCell) return { id: "", name: "" };
+    var link = teamCell.querySelector("a");
+    var text = safeStr(teamCell.textContent || "");
+    var fid = "";
+    if (link) {
+      var cls = safeStr(link.className);
+      var mCls = cls.match(/franchise_(\d{1,4})/i);
+      if (mCls) fid = pad4(mCls[1]);
+      if (!fid) {
+        var href = safeStr(link.getAttribute("href"));
+        var mHref = href.match(/[?&](?:FRANCHISE_ID|FRANCHISE|F)=([0-9]{1,4})/i);
+        if (mHref) fid = pad4(mHref[1]);
+      }
+    }
+    if (!text && row && row.cells) {
+      for (var i = 0; i < row.cells.length; i += 1) {
+        var candidate = safeStr(row.cells[i].textContent || "");
+        if (!candidate) continue;
+        if (/^\d+(\.\d+)?$/.test(candidate)) continue;
+        if (/^\d+\s*[-/]\s*\d+\s*[-/]\s*\d+$/.test(candidate)) continue;
+        if (/^(w|l|t|pf|pa|pct|points?)$/i.test(candidate)) continue;
+        text = candidate;
+        break;
+      }
+    }
+    if (!text && fid) text = franchiseNameFromDatabase(fid);
+    return { id: fid, name: text };
+  }
+
+  function candidateIconUrls(fid) {
+    function isUrl(v) { return /^https?:\/\//i.test(safeStr(v)); }
+    if (!fid) return [];
+    var host = window.baseURLStatic || window.baseURLDynamic || "https://www48.myfantasyleague.com";
+    var lid = safeStr(window.league_id || "");
+    var yr = parseInt(safeStr(window.year || ""), 10);
+    if (!yr) return [];
+    var leagueIds = [];
+    function addLeagueId(v) {
+      var s = safeStr(v).replace(/\D/g, "");
+      if (!s || leagueIds.indexOf(s) !== -1) return;
+      leagueIds.push(s);
+    }
+    addLeagueId(lid);
+    addLeagueId("74598");
+    if (!leagueIds.length) return [];
+    var out = [];
+    var seen = {};
+    function push(url) {
+      var s = safeStr(url).replace(/^http:\/\//i, "https://");
+      if (!s || seen[s]) return;
+      seen[s] = 1;
+      out.push(s);
+    }
+    try {
+      var key = "fid_" + fid;
+      var rec = window.franchiseDatabase && window.franchiseDatabase[key];
+      if (rec && isUrl(rec.icon)) push(rec.icon);
+      if (rec && isUrl(rec.logo)) push(rec.logo);
+    } catch (e) {}
+    leagueIds.forEach(function (curLid) {
+      [
+        host + "/fflnetdynamic" + yr + "/" + curLid + "_franchise_icon" + fid,
+        host + "/fflnetdynamic" + (yr - 1) + "/" + curLid + "_franchise_icon" + fid,
+        host + "/fflnetdynamic2025/" + curLid + "_franchise_icon" + fid,
+        host + "/fflnetdynamic2019/" + curLid + "_franchise_icon" + fid,
+        host + "/fflnetdynamic" + yr + "/" + curLid + "_franchise_logo" + fid,
+        host + "/fflnetdynamic" + (yr - 1) + "/" + curLid + "_franchise_logo" + fid,
+        host + "/fflnetdynamic2025/" + curLid + "_franchise_logo" + fid,
+        host + "/fflnetdynamic2019/" + curLid + "_franchise_logo" + fid
+      ].forEach(function (base) {
+        push(base + ".png");
+        push(base + ".jpg");
+        push(base + ".jpeg");
+        push(base + ".gif");
+      });
+    });
+    return out;
+  }
+
+  function setIconWithFallback(img, urls) {
+    var list = Array.isArray(urls) ? urls.filter(Boolean) : [];
+    if (!img || !list.length) {
+      if (img) img.style.display = "none";
+      return;
+    }
+    var i = 0;
+    function next() {
+      if (i >= list.length) {
+        img.style.display = "none";
+        img.removeAttribute("src");
+        return;
+      }
+      img.style.display = "";
+      img.src = list[i];
+      i += 1;
+    }
+    img.onload = function () { img.style.display = ""; };
+    img.onerror = function () { next(); };
+    next();
+  }
+
+  function buildRowData(row, map) {
+    var fr = extractFranchise(row, map.team);
+    if (!fr.id && (!fr.name || map.team < 0)) fr = extractFranchiseFromFiconCell(row);
+    if (!fr.id && !fr.name) return null;
+    if (!fr.name) fr.name = "Franchise " + (fr.id || "");
+
+    var allplay = parseWltText(readCell(row, map.allplayCombined));
+    if (!allplay && map.allplayW >= 0 && map.allplayL >= 0 && map.allplayT >= 0) {
+      allplay = {
+        w: Number(parseNumber(readCell(row, map.allplayW)) || 0),
+        l: Number(parseNumber(readCell(row, map.allplayL)) || 0),
+        t: Number(parseNumber(readCell(row, map.allplayT)) || 0)
+      };
+    }
+
+    var overall = parseWltText(readCell(row, map.overallCombined));
+    if (!overall && map.overallW >= 0 && map.overallL >= 0 && map.overallT >= 0) {
+      overall = {
+        w: Number(parseNumber(readCell(row, map.overallW)) || 0),
+        l: Number(parseNumber(readCell(row, map.overallL)) || 0),
+        t: Number(parseNumber(readCell(row, map.overallT)) || 0)
+      };
+    }
+
+    var div = parseWltText(readCell(row, map.divCombined));
+    if (!div && map.divW >= 0 && map.divL >= 0 && map.divT >= 0) {
+      div = {
+        w: Number(parseNumber(readCell(row, map.divW)) || 0),
+        l: Number(parseNumber(readCell(row, map.divL)) || 0),
+        t: Number(parseNumber(readCell(row, map.divT)) || 0)
+      };
+    }
+
+    var allPct = parseNumber(readCell(row, map.allplayPct));
+    if (allPct !== null && allPct > 1) allPct = allPct / 100;
+    if (allPct === null) allPct = pctFromWlt(allplay);
+    var ovPct = parseNumber(readCell(row, map.overallPct));
+    if (ovPct !== null && ovPct > 1) ovPct = ovPct / 100;
+    if (ovPct === null) ovPct = pctFromWlt(overall);
+    var divPct = parseNumber(readCell(row, map.divPct));
+    if (divPct !== null && divPct > 1) divPct = divPct / 100;
+    if (divPct === null) divPct = pctFromWlt(div);
+
+    return {
+      franchiseId: fr.id,
+      franchiseName: fr.name,
+      allplay: allplay,
+      overall: overall,
+      div: div,
+      allPct: allPct,
+      overallPct: ovPct,
+      divPct: divPct,
+      pointsFor: parseNumber(readCell(row, map.pointsFor)),
+      offPoints: parseNumber(readCell(row, map.offPoints)),
+      defPoints: parseNumber(readCell(row, map.defPoints)),
+      potential: parseNumber(readCell(row, map.potential)),
+      efficiency: parseNumber(readCell(row, map.efficiency))
+    };
+  }
+
+  function buildRows(table, map) {
+    var trs = Array.from(table.querySelectorAll("tbody tr"));
+    if (!trs.length) trs = Array.from(table.querySelectorAll("tr")).slice(1);
+    var out = [];
+    trs.forEach(function (tr) {
+      var rec = buildRowData(tr, map);
+      if (!rec || !rec.franchiseName) return;
+      if (/totals?|average/i.test(rec.franchiseName)) return;
+      out.push(rec);
+    });
+    return out;
+  }
+
+  function formatMetric(v) {
+    if (v === null || v === undefined || isNaN(Number(v))) return " - ";
+    var n = Number(v);
+    return Number.isInteger(n) ? n.toLocaleString() : n.toFixed(1);
+  }
+
+  function renderCompact(wrapper, rows, view) {
+    var isRecords = view === "records";
+    var isPct = view === "pct";
+    var head = isRecords
+      ? "<th>All Play</th><th>Overall</th><th>Divisional</th>"
+      : isPct
+      ? "<th>All Play %</th><th>Overall %</th><th>Divisional %</th>"
+      : "<th>PF</th><th>Off Pts</th><th>Def Pts</th><th>Potential</th><th>Efficiency</th>";
+
+    var body = rows.map(function (r) {
+      var extra = isRecords
+        ? "<td>" + fmtWlt(r.allplay) + "</td><td>" + fmtWlt(r.overall) + "</td><td>" + fmtWlt(r.div) + "</td>"
+        : isPct
+        ? "<td>" + fmtPct(r.allPct) + "</td><td>" + fmtPct(r.overallPct) + "</td><td>" + fmtPct(r.divPct) + "</td>"
+        : "<td>" + formatMetric(r.pointsFor) + "</td><td>" + formatMetric(r.offPoints) + "</td><td>" + formatMetric(r.defPoints) +
+          "</td><td>" + formatMetric(r.potential) + "</td><td>" + formatMetric(r.efficiency) + "</td>";
+      return '<tr><td><div class="ups-standings-franchise"><img class="ups-standings-icon" alt="" data-fid="' +
+        htmlEsc(r.franchiseId || "") + '" /><span class="ups-standings-name">' + htmlEsc(r.franchiseName) +
+        "</span></div></td>" + extra + "</tr>";
+    }).join("");
+
+    wrapper.querySelector(".ups-standings-table").innerHTML =
+      "<thead><tr><th>Franchise</th>" + head + "</tr></thead><tbody>" + body + "</tbody>";
+
+    Array.from(wrapper.querySelectorAll(".ups-standings-toggle")).forEach(function (btn) {
+      var v = safeStr(btn.getAttribute("data-view") || "");
+      btn.classList.toggle("is-active", v === view);
+    });
+
+    Array.from(wrapper.querySelectorAll(".ups-standings-icon")).forEach(function (img) {
+      var fid = pad4(img.getAttribute("data-fid"));
+      if (!fid) {
+        img.style.display = "none";
+        return;
+      }
+      setIconWithFallback(img, candidateIconUrls(fid));
+    });
+  }
+
+  function initCompactStandings() {
+    var table = findStandingsTable();
+    if (!table) return;
+    if (table.dataset.upsStandingsDone === "1") return;
+    var rows = [];
+    var map = null;
+    var parseTable = function (candidate) {
+      if (!candidate) return { rows: [], map: null };
+      var headersLocal = Array.from(candidate.querySelectorAll("thead th, tr:first-child th, tr:first-child td"))
+        .map(function (el) { return normalizeHeader(el.textContent || ""); });
+      if (!headersLocal.length) return { rows: [], map: null };
+      var mapLocal = buildColumnMap(headersLocal);
+      var rowsLocal = buildRows(candidate, mapLocal);
+      return { rows: rowsLocal, map: mapLocal };
+    };
+    var best = parseTable(table);
+    rows = best.rows;
+    map = best.map;
+    if (rows.length < 2) {
+      var allCandidates = Array.from(document.querySelectorAll("#container-wrap table.report, #container-wrap .report table, table.report"));
+      allCandidates.forEach(function (candidate) {
+        var parsed = parseTable(candidate);
+        if (parsed.rows.length > rows.length) {
+          table = candidate;
+          rows = parsed.rows;
+          map = parsed.map;
+        }
+      });
+    }
+    if (rows.length < 2 || !map) return;
+
+    var existing = document.getElementById("ups-standings-compact");
+    if (existing) existing.remove();
+
+    var wrapper = document.createElement("section");
+    wrapper.id = "ups-standings-compact";
+    wrapper.innerHTML =
+      '<div class="ups-standings-header">' +
+      '<div class="ups-standings-title">Standings Snapshot</div>' +
+      '<div class="ups-standings-controls">' +
+      '<button type="button" class="ups-standings-toggle" data-view="records">W-L-T</button>' +
+      '<button type="button" class="ups-standings-toggle" data-view="pct">Percentages</button>' +
+      '<button type="button" class="ups-standings-toggle" data-view="points">Points</button>' +
+      "</div></div>" +
+      '<div class="ups-standings-table-wrap"><table class="ups-standings-table"></table></div>';
+
+    var report = table.closest(".report, .homepagemodule.report") || table;
+    report.parentNode.insertBefore(wrapper, report);
+
+    var view = "records";
+    try {
+      var saved = sessionStorage.getItem("ups_standings_view");
+      if (saved === "records" || saved === "pct" || saved === "points") view = saved;
+    } catch (e) {}
+    renderCompact(wrapper, rows, view);
+
+    wrapper.addEventListener("click", function (e) {
+      var btn = e.target && e.target.closest ? e.target.closest(".ups-standings-toggle") : null;
+      if (!btn) return;
+      var next = safeStr(btn.getAttribute("data-view") || "records");
+      renderCompact(wrapper, rows, next);
+      try { sessionStorage.setItem("ups_standings_view", next); } catch (err) {}
+    });
+
+    report.style.display = "none";
+    table.dataset.upsStandingsDone = "1";
+  }
+
+  function init() {
+    if (!isStandingsPage()) return;
+    var attempts = 0;
+    var timer = setInterval(function () {
+      attempts += 1;
+      initCompactStandings();
+      if (attempts >= 25) clearInterval(timer);
+    }, 250);
+    if (window.MutationObserver) {
+      var root = document.getElementById("container-wrap") || document.body;
+      if (root) {
+        var obs = new MutationObserver(function () { initCompactStandings(); });
+        obs.observe(root, { childList: true, subtree: true });
+      }
+    }
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
+})();
+</script>
+
+		<script>
+		  // Some MFL skins render light-on-light spans/divs; force readable contrast.
+		  (function () {
+	    function isRelevantPage() {
+	      var id = String(document.body && document.body.id ? document.body.id : "");
+	      if (id === "body_commissioner_setup" || id.indexOf("body_csetup") === 0) return true;
+	      try {
+	        if (
+	          document.querySelector("form.reportform") ||
+	          document.querySelector(".reportnavigation, .reportNavigation, .reportnavigationheader, .reportNavigationHeader")
+	        ) {
+	          return true;
+	        }
+	      } catch (e) {}
+	      return false;
+	    }
+
+	    function parseRgb(s) {
+	      var m = String(s || "").match(/rgba?\\((\\d+),\\s*(\\d+),\\s*(\\d+)(?:,\\s*([0-9.]+))?\\)/i);
+	      if (!m) return null;
+	      return {
+	        r: parseInt(m[1], 10),
+	        g: parseInt(m[2], 10),
+	        b: parseInt(m[3], 10),
+	        a: m[4] ? parseFloat(m[4]) : 1
+	      };
+	    }
+
+	    function isWhite(c) {
+	      if (!c) return false;
+	      return c.r >= 245 && c.g >= 245 && c.b >= 245 && (c.a == null || c.a >= 0.85);
+	    }
+
+	    function isLightText(c) {
+	      if (!c) return false;
+	      return c.r >= 210 && c.g >= 210 && c.b >= 210 && (c.a == null || c.a >= 0.75);
+	    }
+
+	    function patchNode(el) {
+	      if (!el || el.dataset.upsSpanFixed === "1") return;
+	      var cs = window.getComputedStyle(el);
+	      var bg = parseRgb(cs.backgroundColor);
+	      if (!isWhite(bg)) return;
+	      var fg = parseRgb(cs.color);
+	      if (!isLightText(fg)) return;
+	      el.style.backgroundColor = "rgba(15, 27, 48, 0.85)";
+	      el.style.color = "var(--ups-text)";
+	      el.style.borderRadius = "10px";
+	      el.dataset.upsSpanFixed = "1";
+	    }
+
+	    function fixSpanContrast() {
+	      if (!isRelevantPage()) return;
+	      var root = document.getElementById("container-wrap") || document;
+	      var nodes = root.querySelectorAll("span, td, div");
+	      for (var i = 0; i < nodes.length; i += 1) {
+	        patchNode(nodes[i]);
+	      }
+	    }
+
+	    var scheduleTimer = null;
+	    function scheduleFix() {
+	      if (scheduleTimer) return;
+	      scheduleTimer = setTimeout(function () {
+	        scheduleTimer = null;
+	        fixSpanContrast();
+	      }, 80);
+	    }
+
+	    function init() {
+	      fixSpanContrast();
+	      setTimeout(fixSpanContrast, 350);
+	      setTimeout(fixSpanContrast, 900);
+	      if (!window.MutationObserver) return;
+	      var root = document.getElementById("container-wrap") || document.body;
+	      if (!root) return;
+	      var observer = new MutationObserver(scheduleFix);
+	      observer.observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ["style", "class"] });
+	    }
+
+	    if (document.readyState === "loading") {
+	      document.addEventListener("DOMContentLoaded", init);
+	    } else {
+	      init();
+	    }
+	  })();
+	</script>
+
+<script>
+  /* Optional redirect to custom HPM scoreboard.
+     Leave disabled by default so Scoreboard opens native ajax_ls page. */
+  var UPS_USE_CUSTOM_SCOREBOARD_HPM = false;
+  if (UPS_USE_CUSTOM_SCOREBOARD_HPM) {
+    var lsmHPM = "8";
+    var lsmHPMurl = baseURLDynamic + "/" + year + "/options?L=" + league_id + "&O=247&SEQNO=" + lsmHPM;
+    $(document).ready(function () {
+      $('a[href*="ajax_ls?L"]').each(function () {
+        $(this).removeClass("scoringLinkDisable");
+        $(this).attr("href", lsmHPMurl);
+      });
+    });
+  }
 
   /* Required/intentional non-default global settings */
   var useREM = true;
@@ -428,8 +2427,8 @@
   var commishTeam = "0004";
 
   var detailsOverlay = "rgba(0,0,0,.7)";
-  var detailsWrapBG = "var(--mobile-wrap-bg,#fff)";
-  var detailsWrapBorder = "#000";
+  var detailsWrapBG = "var(--ups-surface,#111b2e)";
+  var detailsWrapBorder = "var(--ups-border,#27476f)";
   var detailsWrapBorWidh = "0";
   var detailsWrapBoxShdw = "0 0 1.563rem #000";
   var detailsWrapPadding = "0.625rem";
@@ -469,19 +2468,19 @@
   var tickerWidth = "calc(71.75rem - 0.375rem)";
   var tickerMargin = "0.625rem auto 0 auto";
   var tickerFont = "Roboto Condensed";
-  var tickerBorder = "var(--ups-brand, #14b8a6)";
-  var bigHeadingBG = "var(--ups-brand-strong, #0f766e)";
+  var tickerBorder = "var(--ups-brand, #2e63b8)";
+  var bigHeadingBG = "var(--ups-brand-strong, #1f3f78)";
   var bigHeadingClr = "#fff";
-  var tickerHeadBG = "#fff";
-  var tickerCogWheel = "var(--ups-brand, #14b8a6)";
+  var tickerHeadBG = "#0f1f3a";
+  var tickerCogWheel = "#7ea9eb";
   var tickerTxtShdw = "transparent";
-  var tickerHeadClr = "var(--ups-brand-strong, #0f766e)";
-  var tickerTxtBG = "#e9f0fb";
-  var tickerTxtClr = "#041222";
-  var tickerTxtWgt = "400";
+  var tickerHeadClr = "#ffffff";
+  var tickerTxtBG = "#0d1830";
+  var tickerTxtClr = "#f3f8ff";
+  var tickerTxtWgt = "700";
   var tickerTxtTrans = "none";
-  var tickerLinkClr = "#0f2d52";
-  var tickerLinkHvr = "#0f766e";
+  var tickerLinkClr = "#a9d0ff";
+  var tickerLinkHvr = "#ffffff";
   var tickerBoxShdw = "0 0 0.063rem 0.063rem rgba(0,0,0,0.1)";
 </script>
 
@@ -491,6 +2490,8 @@
    * This adds actionable buttons in O=07 rows and player popup cards.
    */
   (function () {
+    var enableRosterContractActions = false;
+
     function safeStr(v) {
       return v === null || v === undefined ? "" : String(v).trim();
     }
@@ -581,8 +2582,28 @@
     }
 
     function buildActionUrl(action, item) {
+      var payload = {
+        cccAction: safeStr(action).toLowerCase(),
+        cccPlayer: safeStr(item && item.playerId),
+        cccFranchise: pad4(item && item.franchiseId),
+        cccSeason: safeStr(year),
+        cccYears: Math.max(1, Math.min(2, parseInt(item && item.years, 10) || 1))
+      };
+
       savePendingAction(action, item);
-      return location.origin + "/" + year + "/home/" + league_id + "?MODULE=MESSAGE16";
+
+      var u = new URL(location.origin + "/" + year + "/home/" + league_id);
+      u.searchParams.set("MODULE", "MESSAGE2");
+
+      var h = new URLSearchParams();
+      if (payload.cccAction) h.set("cccAction", payload.cccAction);
+      if (payload.cccPlayer) h.set("cccPlayer", payload.cccPlayer);
+      if (payload.cccFranchise) h.set("cccFranchise", payload.cccFranchise);
+      if (payload.cccSeason) h.set("cccSeason", payload.cccSeason);
+      if (payload.cccAction === "extension") h.set("cccYears", safeStr(payload.cccYears));
+      u.hash = h.toString();
+
+      return u.toString();
     }
 
     function rookieLike(value) {
@@ -778,9 +2799,10 @@
 
     function wireMessage16IframeBridge() {
       var qs = new URLSearchParams(location.search || "");
-      if (safeStr(qs.get("MODULE")) !== "MESSAGE16") return;
+      var moduleName = safeStr(qs.get("MODULE")).toUpperCase();
+      if (moduleName !== "MESSAGE2" && moduleName !== "MESSAGE16") return;
 
-      var frame = document.querySelector('iframe[src*="mfl_hpm16_contractcommandcenter"]');
+      var frame = document.querySelector('iframe[src*="contractcommandcenter"]');
       if (!frame) return;
 
       try {
@@ -788,17 +2810,22 @@
         src.searchParams.set("L", safeStr(league_id));
         src.searchParams.set("YEAR", safeStr(year));
 
-        var actionQuery = safeStr(qs.get("cccAction"));
-        var playerQuery = safeStr(qs.get("cccPlayer"));
+        var hashQs = new URLSearchParams((location.hash || "").replace(/^#/, ""));
+        var actionQuery = safeStr(qs.get("cccAction")) || safeStr(hashQs.get("cccAction"));
+        var playerQuery = safeStr(qs.get("cccPlayer")) || safeStr(hashQs.get("cccPlayer"));
+        var franchiseQuery = safeStr(qs.get("cccFranchise")) || safeStr(hashQs.get("cccFranchise"));
+        var seasonQuery = safeStr(qs.get("cccSeason")) || safeStr(hashQs.get("cccSeason"));
+        var yearsQuery = safeStr(qs.get("cccYears")) || safeStr(hashQs.get("cccYears"));
+
         var hasQueryAction = !!(actionQuery && playerQuery);
         var pending = hasQueryAction ? null : getPendingAction();
 
         if (hasQueryAction) {
           src.searchParams.set("cccAction", actionQuery);
           src.searchParams.set("cccPlayer", playerQuery);
-          if (safeStr(qs.get("cccFranchise"))) src.searchParams.set("cccFranchise", safeStr(qs.get("cccFranchise")));
-          if (safeStr(qs.get("cccSeason"))) src.searchParams.set("cccSeason", safeStr(qs.get("cccSeason")));
-          if (safeStr(qs.get("cccYears"))) src.searchParams.set("cccYears", safeStr(qs.get("cccYears")));
+          if (franchiseQuery) src.searchParams.set("cccFranchise", franchiseQuery);
+          if (seasonQuery) src.searchParams.set("cccSeason", seasonQuery);
+          if (yearsQuery) src.searchParams.set("cccYears", yearsQuery);
         } else if (pending) {
           src.searchParams.set("cccAction", pending.action);
           src.searchParams.set("cccPlayer", pending.playerId);
@@ -816,12 +2843,17 @@
 
         if (event.data.type === "ccc-height") {
           var h = Number(event.data.height || 0);
-          if (h > 0) frame.style.height = Math.max(960, Math.ceil(h) + 24) + "px";
+          if (h > 0) {
+            var next = Math.max(960, Math.ceil(h));
+            var now = parseInt(String(frame.style.height || "0").replace(/[^0-9]/g, ""), 10) || 0;
+            if (Math.abs(next - now) >= 2) frame.style.height = next + "px";
+          }
         }
       });
     }
 
     function initRosterEnhancements() {
+      if (!enableRosterContractActions) return;
       if (document.body.id !== "body_options_07") return;
 
       var attempts = 0;
@@ -883,7 +2915,7 @@
 
   .report caption,
   .homepagemodule.report caption {
-    background: linear-gradient(135deg, #0f1728 0%, #1c3359 60%, #204f73 100%) !important;
+    background: var(--ups-caption-bg) !important;
     border-bottom: 1px solid var(--ups-border) !important;
   }
 
@@ -891,21 +2923,39 @@
   .report caption span a,
   .homepagemodule.report caption span,
   .homepagemodule.report caption span a {
-    color: #d9edff !important;
+    color: var(--ups-text) !important;
     text-shadow: none !important;
   }
 
   .report th,
   .homepagemodule.report th {
-    background: #152742 !important;
-    color: #e8effa !important;
+    background: var(--ups-th-bg) !important;
+    color: var(--ups-text) !important;
     border-color: var(--ups-border) !important;
   }
 
   .report td,
   .homepagemodule.report td {
-    color: #d3e4fb !important;
-    border-color: #203a5d !important;
+    color: var(--ups-text) !important;
+    border-color: var(--ups-td-border) !important;
+  }
+
+  /* Hard readability lock for report-heavy pages (Rosters/Reports/Commissioner). */
+  body .pagebody .report th,
+  body .pagebody .homepagemodule.report th,
+  body .pagebody .report td,
+  body .pagebody .homepagemodule.report td {
+    color: var(--ups-report-strong) !important;
+    font-weight: 800 !important;
+    text-shadow: none !important;
+  }
+
+  body .pagebody .report caption span,
+  body .pagebody .report caption span a,
+  body .pagebody .homepagemodule.report caption span,
+  body .pagebody .homepagemodule.report caption span a {
+    color: var(--ups-report-strong) !important;
+    font-weight: 900 !important;
   }
 
   .report td span,
@@ -933,7 +2983,7 @@
   .homepagemodule.report td a:visited,
   .homepagemodule.report td a:hover,
   .homepagemodule.report td a:focus {
-    color: #9ed3ff !important;
+    color: var(--ups-link) !important;
     text-shadow: none !important;
     opacity: 1 !important;
   }
@@ -944,26 +2994,47 @@
   .homepagemodule.report input[type="button"],
   .homepagemodule.report input[type="submit"],
   .homepagemodule.report button {
-    color: #ffffff !important;
+    background: var(--ups-btn-bg) !important;
+    border-color: var(--ups-btn-border) !important;
+    color: var(--ups-btn-text) !important;
   }
 
   .oddtablerow {
-    background: #111f35 !important;
+    background: var(--ups-row-odd) !important;
   }
 
   .eventablerow {
-    background: #0f1b30 !important;
+    background: var(--ups-row-even) !important;
   }
 
   .warning,
   .injurystatus {
-    color: #ffd08a !important;
+    color: var(--ups-warning) !important;
+  }
+
+  /* Scoreboard/menu headings: warnings must be red, menu/back links dark blue. */
+  #container-wrap h3.warning,
+  #container-wrap h3.warning *,
+  #container-wrap .warning h3,
+  #container-wrap .warning h3 * {
+    color: #ffffff !important;
+    background: #b4232d !important;
+    border-color: #8f1b24 !important;
+    text-shadow: none !important;
+  }
+
+  #container-wrap h3.menu,
+  #container-wrap h3.menu *,
+  #container-wrap h3.menu a,
+  #container-wrap h3.menu a:visited {
+    color: var(--ups-accent-ink) !important;
+    text-shadow: none !important;
   }
 
   /* Fallback for modules that do not use .report classes (Add/Drop, mini scoreboards, etc.) */
   #container-wrap table td,
   #container-wrap table th {
-    color: #d3e4fb !important;
+    color: var(--ups-text) !important;
   }
 
   #container-wrap table td *,
@@ -981,13 +3052,803 @@
   #container-wrap table th a:visited,
   #container-wrap table th a:hover,
   #container-wrap table th a:focus {
-    color: #9ed3ff !important;
+    color: var(--ups-link) !important;
   }
 
   #container-wrap table input[type="button"],
   #container-wrap table input[type="submit"],
   #container-wrap table button {
+    background: var(--ups-btn-bg) !important;
+    border-color: var(--ups-btn-border) !important;
+    color: var(--ups-btn-text) !important;
+  }
+
+  #container-wrap table td,
+  #container-wrap table th {
+    font-weight: 700 !important;
+  }
+
+  #ups-standings-compact {
+    width: min(76rem, calc(100% - 1.25rem));
+    margin: 0.7rem auto 0.9rem;
+    border: 1px solid var(--ups-border);
+    border-radius: 12px;
+    background: linear-gradient(180deg, rgba(11, 21, 38, 0.95), rgba(15, 29, 51, 0.94));
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.34);
+    overflow: hidden;
+  }
+
+  #ups-standings-compact .ups-standings-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.58rem 0.72rem;
+    border-bottom: 1px solid var(--ups-border);
+    background: rgba(8, 17, 32, 0.65);
+  }
+
+  #ups-standings-compact .ups-standings-title {
+    color: var(--ups-text);
+    font-weight: 900;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    font-size: 0.78rem;
+  }
+
+  #ups-standings-compact .ups-standings-controls {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 0.34rem;
+  }
+
+  #ups-standings-compact .ups-standings-toggle {
+    border: 1px solid #7f97bd;
+    border-radius: 999px;
+    background: rgba(26, 52, 92, 0.85);
+    color: var(--ups-text);
+    font-weight: 800;
+    font-size: 0.72rem;
+    padding: 0.3rem 0.58rem;
+    cursor: pointer;
+  }
+
+  #ups-standings-compact .ups-standings-toggle.is-active {
+    background: var(--ups-accent);
+    border-color: #cf9f41;
+    color: var(--ups-accent-ink);
+  }
+
+  #ups-standings-compact .ups-standings-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  #ups-standings-compact .ups-standings-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 660px;
+  }
+
+  #ups-standings-compact .ups-standings-table th,
+  #ups-standings-compact .ups-standings-table td {
+    border: 1px solid var(--ups-td-border);
+    padding: 0.42rem 0.5rem;
+    color: var(--ups-text);
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  #ups-standings-compact .ups-standings-table th {
+    background: var(--ups-th-bg);
+    font-weight: 900;
+    letter-spacing: 0.02em;
+  }
+
+  #ups-standings-compact .ups-standings-table td:first-child,
+  #ups-standings-compact .ups-standings-table th:first-child {
+    text-align: left;
+  }
+
+  #ups-standings-compact .ups-standings-franchise {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.44rem;
+  }
+
+  #ups-standings-compact .ups-standings-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 6px;
+    object-fit: cover;
+    border: 1px solid rgba(255, 255, 255, 0.24);
+    background: rgba(6, 10, 18, 0.7);
+  }
+
+  #ups-standings-compact .ups-standings-name {
+    font-weight: 800;
+  }
+
+  @media (max-width: 760px) {
+    #ups-standings-compact {
+      margin: 0.55rem auto 0.8rem;
+    }
+    #ups-standings-compact .ups-standings-header {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+  }
+
+  #container-wrap input[type="text"],
+  #container-wrap input[type="number"],
+  #container-wrap input[type="password"],
+  #container-wrap input[type="email"],
+  #container-wrap input[type="search"],
+  #container-wrap select,
+  #container-wrap textarea {
+    background: var(--ups-surface-alt) !important;
+    color: var(--ups-text) !important;
+    border: 1px solid var(--ups-border) !important;
+  }
+
+  #container-wrap input::placeholder,
+  #container-wrap textarea::placeholder {
+    color: var(--ups-muted) !important;
+    opacity: 1 !important;
+  }
+
+  #container-wrap .navbuttons a,
+  #container-wrap .reportnavigation a,
+  #container-wrap .pageheader,
+  #container-wrap .pageheader *,
+  #container-wrap .warning,
+  #container-wrap .alert {
+    color: var(--ups-text) !important;
+    text-shadow: none !important;
+  }
+
+  body#body_options_07 #MFLroster table,
+  body#body_options_07 #MFLroster .roster_assets,
+  body#body_options_07 #MFLroster caption,
+  body#body_options_07 #MFLroster th,
+  body#body_options_07 #MFLroster td {
+    background: var(--ups-surface) !important;
+    color: var(--ups-text) !important;
+    border-color: var(--ups-border) !important;
+  }
+
+  body#body_options_07 #MFLroster {
+    display: block !important;
+    max-height: 72vh !important;
+    overflow: auto !important;
+    overscroll-behavior: contain !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-gutter: stable;
+  }
+
+  body#body_options_07 #MFLroster caption,
+  body#body_options_07 #MFLroster .roster_assets thead th {
+    background: var(--ups-caption-bg) !important;
+  }
+
+  /* Rosters: franchise header with icon + dash + name */
+  body#body_options_07 #MFLroster caption {
+    padding: 0.5rem 0.8rem !important;
+  }
+
+  body#body_options_07 #MFLroster caption.ups-roster-caption {
+    min-height: 4.55rem !important; /* ~91px reduced by ~30% => ~64px visual target */
+  }
+
+  body#body_options_07 #MFLroster caption.ups-roster-caption > span,
+  body#body_options_07 #MFLroster caption.ups-roster-caption > a {
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.55rem !important;
+    width: 100% !important;
+    white-space: nowrap !important;
+  }
+
+  body#body_options_07 #MFLroster .ups-roster-franchise-icon {
+    height: 64px !important;
+    max-width: 180px !important;
+    width: auto !important;
+    object-fit: contain !important;
+    border-radius: 0.35rem !important;
+    flex: 0 0 auto !important;
+  }
+
+  body#body_options_07 #MFLroster .ups-roster-franchise-dash {
+    color: var(--ups-report-strong) !important;
+    opacity: 0.95 !important;
+    font-weight: 900 !important;
+    font-size: 1.08em !important;
+    line-height: 1 !important;
+    flex: 0 0 auto !important;
+  }
+
+  body#body_options_07 #MFLroster .ups-roster-franchise-name {
+    color: inherit !important;
+    font: inherit !important;
+    letter-spacing: inherit !important;
+    text-shadow: none !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  @media (max-width: 760px) {
+    body#body_options_07 #MFLroster .ups-roster-franchise-icon {
+      height: 46px !important;
+      max-width: 128px !important;
+    }
+  }
+
+  body#body_options_07 #MFLroster th,
+  body#body_options_07 #MFLroster td,
+  body#body_options_07 #MFLroster caption span,
+  body#body_options_07 #MFLroster caption span a,
+  body#body_options_07 #MFLroster td.player,
+  body#body_options_07 #MFLroster td.player a {
+    color: var(--ups-report-strong) !important;
+    font-weight: 800 !important;
+    text-shadow: none !important;
+  }
+
+  body#body_options_07 #MFLroster tr.oddtablerow {
+    background: var(--ups-row-odd) !important;
+  }
+
+  body#body_options_07 #MFLroster tr.eventablerow {
+    background: var(--ups-row-even) !important;
+  }
+
+  .myfantasyleague_menu,
+  .myfantasyleague_menu ul,
+  .myfantasyleague_menu li {
+    background: var(--ups-surface-alt) !important;
+    border-color: var(--ups-border) !important;
+    color: var(--ups-text) !important;
+  }
+
+  .myfantasyleague_menu a,
+  .myfantasyleague_menu a:visited,
+  .myfantasyleague_menu a:hover,
+  .myfantasyleague_menu a:focus,
+  #tabmenu-wrap a,
+  #tabmenu-wrap a:visited,
+  #tabmenu-wrap a:hover,
+  #tabmenu-wrap a:focus {
+    color: var(--ups-text) !important;
+  }
+
+  /* Mini scoreboard (MFLBox) dark mode */
+  #MFLBoxWrapper,
+  #MFLBoxContainer,
+  #MFLBoxMatchups,
+  #MFLBoxContainer .MFLGameTable,
+  #MFLBoxContainer .MFLGameLinks {
+    background: var(--ups-scoreboard-bg) !important;
+    color: var(--ups-scoreboard-text) !important;
+    border-color: var(--ups-scoreboard-border) !important;
+  }
+
+  #MFLBoxWrapper td,
+  #MFLBoxWrapper th,
+  #MFLBoxWrapper .MFLLiveTeam,
+  #MFLBoxWrapper .MFLLiveClock,
+  #MFLBoxWrapper .MFLLiveAbbrev,
+  #MFLBoxWrapper .MFLPaceScore,
+  #MFLBoxWrapper .MFLBoxPlayerDetailsHeader th,
+  #MFLBoxWrapper .MFLBoxPlayerDetailsSubHeader th {
+    color: var(--ups-scoreboard-text) !important;
+    font-weight: 700 !important;
+  }
+
+  #MFLBoxWrapper .MFLLiveScore {
+    color: var(--ups-scoreboard-text) !important;
+    font-weight: 900 !important;
+  }
+
+  #MFLBoxWrapper input[type="button"] {
+    background: var(--ups-btn-bg) !important;
+    border-color: var(--ups-btn-border) !important;
+    color: var(--ups-btn-text) !important;
+    font-weight: 800 !important;
+  }
+
+  #MFLBoxWrapper .warning {
+    color: var(--ups-scoreboard-text) !important;
+    background: var(--ups-scoreboard-alt-bg) !important;
+  }
+
+  #MFLBoxContainer .MFLBoxMFLNFL table,
+  #MFLBoxContainer .MFLBoxMFLNFL td,
+  #MFLBoxMFLCell,
+  #MFLBoxNFLCell,
+  #MFLBoxWeekCell,
+  #MFLBoxContainer .mflBoxCell {
+    background: var(--ups-scoreboard-alt-bg) !important;
+    color: var(--ups-scoreboard-text) !important;
+    border-color: var(--ups-scoreboard-border) !important;
+  }
+
+  #MFLBoxContainer .mflBoxCellInactive,
+  #MFLBoxContainer .mflBoxButtonFaded {
+    opacity: 0.75 !important;
+  }
+
+  #MFLBoxContainer .MFLGameLinks td,
+  #MFLBoxContainer .MFLGameLinks a,
+  #MFLBoxContainer .MFLNFLLiveTeam,
+  #MFLBoxContainer .MFLLiveTeam a,
+  #MFLBoxContainer .MFLNFLLiveTeam a,
+  #MFLBoxContainer .MFLNFLLiveClock,
+  #MFLBoxContainer .MFLNFLLiveScore {
+    color: var(--ups-scoreboard-text) !important;
+    font-weight: 700 !important;
+  }
+
+  /* Full scoreboard page (ajax_ls) dark mode */
+  #body_ajax_ls .report,
+  #body_ajax_ls .mobile-wrap > .report,
+  #body_ajax_ls .h2hmatchups,
+  #body_ajax_ls .scoresummary,
+  #body_ajax_ls .ls-matchup,
+  #body_ajax_ls table {
+    background: var(--ups-scoreboard-bg) !important;
+    border-color: var(--ups-scoreboard-border) !important;
+  }
+
+  #body_ajax_ls th,
+  #body_ajax_ls td,
+  #body_ajax_ls .ls_game_info,
+  #body_ajax_ls .ls-matchup *,
+  #body_ajax_ls .scoresummary * {
+    color: var(--ups-scoreboard-text) !important;
+    font-weight: 700 !important;
+    text-shadow: none !important;
+  }
+
+  #body_ajax_ls a,
+  #body_ajax_ls a:visited {
+    color: var(--ups-scoreboard-link) !important;
+    font-weight: 700 !important;
+  }
+
+  /* Keep CCC pills/CTAs dark-ink on gold on scoreboard pages. */
+  #body_ajax_ls .ccc-pill,
+  #body_ajax_ls .ccc-pill:visited,
+  #body_ajax_ls .ccc-cta,
+  #body_ajax_ls .ccc-cta:visited {
+    color: var(--ups-accent-ink) !important;
+    text-decoration: none !important;
+  }
+
+  #body_ajax_ls .ccc-pill:hover,
+  #body_ajax_ls .ccc-pill:focus,
+  #body_ajax_ls .ccc-cta:hover,
+  #body_ajax_ls .ccc-cta:focus {
     color: #ffffff !important;
+  }
+
+  #body_ajax_ls caption,
+  #body_ajax_ls .report caption,
+  #body_ajax_ls .ls-matchup caption,
+  #body_ajax_ls .h2hmatchups caption {
+    background: var(--ups-caption-bg) !important;
+    color: var(--ups-scoreboard-text) !important;
+  }
+
+  #body_ajax_ls .oddtablerow,
+  #body_ajax_ls .eventablerow {
+    background: var(--ups-scoreboard-alt-bg) !important;
+  }
+
+  #ScoreDetails,
+  #ScoreNFLDetails {
+    background: var(--ups-scoreboard-bg) !important;
+    border-color: var(--ups-scoreboard-border) !important;
+    color: var(--ups-scoreboard-text) !important;
+  }
+
+  /* Commissioner setup pages */
+  body#body_commissioner_setup .pagebody,
+  body#body_commissioner_setup,
+  body#body_commissioner_setup #commissioner_setup,
+  body[id^="body_csetup"] .pagebody {
+    background: var(--ups-bg) !important;
+    color: var(--ups-text) !important;
+  }
+
+  body#body_commissioner_setup .pageheader,
+  body[id^="body_csetup"] .pageheader {
+    background: var(--ups-surface-alt) !important;
+    border-bottom: 1px solid var(--ups-border) !important;
+  }
+
+  body#body_commissioner_setup .pageheader *,
+  body[id^="body_csetup"] .pageheader * {
+    color: var(--ups-text) !important;
+    text-shadow: none !important;
+    font-weight: 900 !important;
+  }
+
+  /* Commissioner menu links were still low-contrast (visited/inline styles). Force readable defaults. */
+  body#body_commissioner_setup #container-wrap,
+  body#body_commissioner_setup #container-wrap *:not(i):not(svg):not(path),
+  body[id^="body_csetup"] #container-wrap,
+  body[id^="body_csetup"] #container-wrap *:not(i):not(svg):not(path) {
+    color: var(--ups-text) !important;
+    opacity: 1 !important;
+    text-shadow: none !important;
+  }
+
+  body#body_commissioner_setup #container-wrap form.reportform span,
+  body#body_commissioner_setup #container-wrap form.reportform span *,
+  body[id^="body_csetup"] #container-wrap form.reportform span,
+  body[id^="body_csetup"] #container-wrap form.reportform span *,
+  body#body_commissioner_setup #container-wrap .reportnavigation span,
+  body#body_commissioner_setup #container-wrap .reportNavigation span,
+  body[id^="body_csetup"] #container-wrap .reportnavigation span,
+  body[id^="body_csetup"] #container-wrap .reportNavigation span {
+    color: var(--ups-report-strong) !important;
+    text-shadow: none !important;
+  }
+
+  body#body_commissioner_setup #container-wrap a,
+  body#body_commissioner_setup #container-wrap a:visited,
+  body[id^="body_csetup"] #container-wrap a,
+  body[id^="body_csetup"] #container-wrap a:visited {
+    color: var(--ups-link) !important;
+    font-weight: 800 !important;
+    text-decoration: none !important;
+  }
+
+  body#body_commissioner_setup #container-wrap a:hover,
+  body#body_commissioner_setup #container-wrap a:focus,
+  body[id^="body_csetup"] #container-wrap a:hover,
+  body[id^="body_csetup"] #container-wrap a:focus {
+    color: var(--ups-link-hover) !important;
+    text-decoration: underline !important;
+  }
+
+  body[id^="body_csetup"] .player-info,
+  body[id^="body_csetup_loadrost"] .player-info {
+    color: var(--ups-text) !important;
+  }
+
+  body[id^="body_csetup"] .player-info small,
+  body[id^="body_csetup_loadrost"] .player-info small {
+    color: var(--ups-muted) !important;
+  }
+
+  /* CCC pills/CTAs are not commissioner menu links; keep gold + dark ink instead of the forced link colors. */
+  body#body_commissioner_setup #container-wrap .ccc-cta,
+  body#body_commissioner_setup #container-wrap .ccc-pill,
+  body[id^="body_csetup"] #container-wrap .ccc-cta,
+  body[id^="body_csetup"] #container-wrap .ccc-pill {
+    color: var(--ups-accent-ink) !important;
+    text-decoration: none !important;
+  }
+
+  body#body_commissioner_setup #container-wrap .ccc-cta:hover,
+  body#body_commissioner_setup #container-wrap .ccc-cta:focus,
+  body#body_commissioner_setup #container-wrap .ccc-pill:hover,
+  body#body_commissioner_setup #container-wrap .ccc-pill:focus,
+  body[id^="body_csetup"] #container-wrap .ccc-cta:hover,
+  body[id^="body_csetup"] #container-wrap .ccc-cta:focus,
+  body[id^="body_csetup"] #container-wrap .ccc-pill:hover,
+  body[id^="body_csetup"] #container-wrap .ccc-pill:focus {
+    color: #ffffff !important;
+    text-decoration: none !important;
+  }
+
+  /* Make sure commissioner menu links always stay readable, regardless of skin overrides. */
+  body#body_commissioner_setup table.two_column_layout a,
+  body#body_commissioner_setup table.two_column_layout a:visited,
+  body[id^="body_csetup"] table.two_column_layout a,
+  body[id^="body_csetup"] table.two_column_layout a:visited {
+    color: var(--ups-link) !important;
+    font-weight: 800 !important;
+  }
+
+  /* Fix \"Top FAQ\" bar contrast (was light-on-light depending on MFL skin). */
+  body#body_commissioner_setup .reportnavigation,
+  body#body_commissioner_setup .reportNavigation,
+  body[id^="body_csetup"] .reportnavigation,
+  body[id^="body_csetup"] .reportNavigation {
+    display: block !important;
+    max-width: min(76rem, calc(100% - 1.25rem)) !important;
+    margin: 0.75rem auto 0.25rem !important;
+    padding: 0.55rem 0.75rem !important;
+    border: 1px solid var(--ups-border) !important;
+    border-radius: 12px !important;
+    background: linear-gradient(135deg, rgba(6, 12, 24, 0.95), rgba(20, 36, 63, 0.95)) !important;
+    color: var(--ups-text) !important;
+    box-shadow: 0 15px 30px rgba(0, 0, 0, 0.45) !important;
+  }
+
+  body#body_commissioner_setup .reportnavigationheader,
+  body#body_commissioner_setup .reportnavigationHeader,
+  body#body_commissioner_setup .reportNavigationHeader,
+  body[id^="body_csetup"] .reportnavigationheader,
+  body[id^="body_csetup"] .reportnavigationHeader,
+  body[id^="body_csetup"] .reportNavigationHeader {
+    /* Some skins force a white background here; remove it and use high-contrast text. */
+    background: transparent !important;
+    color: var(--ups-report-strong) !important;
+    font-weight: 900 !important;
+    letter-spacing: 0.04em !important;
+    text-transform: uppercase !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4) !important;
+  }
+
+  body#body_commissioner_setup .reportnavigationheader *,
+  body#body_commissioner_setup .reportnavigationHeader *,
+  body#body_commissioner_setup .reportNavigationHeader *,
+  body[id^="body_csetup"] .reportnavigationheader *,
+  body[id^="body_csetup"] .reportnavigationHeader *,
+  body[id^="body_csetup"] .reportNavigationHeader * {
+    color: var(--ups-text) !important;
+    opacity: 1 !important;
+    text-shadow: none !important;
+  }
+
+  /* Some skins set explicit icon colors that don't match link/text color. */
+  body#body_commissioner_setup #container-wrap i,
+  body#body_commissioner_setup #container-wrap svg,
+  body#body_commissioner_setup #container-wrap path,
+  body[id^="body_csetup"] #container-wrap i,
+  body[id^="body_csetup"] #container-wrap svg,
+  body[id^="body_csetup"] #container-wrap path {
+    color: inherit !important;
+    fill: currentColor !important;
+    stroke: currentColor !important;
+  }
+
+  /* MFL icon packs commonly render as pseudo-elements; force them to inherit link color. */
+  body#body_commissioner_setup .reportnavigation a:before,
+  body#body_commissioner_setup .reportNavigation a:before,
+  body[id^="body_csetup"] .reportnavigation a:before,
+  body[id^="body_csetup"] .reportNavigation a:before {
+    color: currentColor !important;
+  }
+
+  body#body_commissioner_setup #container-wrap svg *,
+  body[id^="body_csetup"] #container-wrap svg * {
+    fill: currentColor !important;
+    stroke: currentColor !important;
+  }
+
+  body#body_commissioner_setup .reportnavigation a,
+  body#body_commissioner_setup .reportnavigation a:visited,
+  body#body_commissioner_setup .reportNavigation a,
+  body#body_commissioner_setup .reportNavigation a:visited,
+  body[id^="body_csetup"] .reportnavigation a,
+  body[id^="body_csetup"] .reportnavigation a:visited,
+  body[id^="body_csetup"] .reportNavigation a,
+  body[id^="body_csetup"] .reportNavigation a:visited {
+    color: var(--ups-text) !important;
+    font-weight: 800 !important;
+  }
+
+  body[id^="body_csetup"] .reportnavigation a,
+  body[id^="body_csetup"] .reportNavigation a {
+    border-radius: 8px;
+    padding: 0.25rem 0.4rem;
+    background: rgba(255, 255, 255, 0.05);
+    transition: background 0.25s ease;
+  }
+
+  body[id^="body_csetup"] .reportnavigation a:hover,
+  body[id^="body_csetup"] .reportNavigation a:hover {
+    background: rgba(255, 255, 255, 0.12);
+  }
+
+  body#body_commissioner_setup .reportnavigation a:hover,
+  body#body_commissioner_setup .reportnavigation a:focus,
+  body#body_commissioner_setup .reportNavigation a:hover,
+  body#body_commissioner_setup .reportNavigation a:focus,
+  body[id^="body_csetup"] .reportnavigation a:hover,
+  body[id^="body_csetup"] .reportnavigation a:focus,
+  body[id^="body_csetup"] .reportNavigation a:hover,
+  body[id^="body_csetup"] .reportNavigation a:focus {
+    color: var(--ups-link-hover) !important;
+    text-decoration: underline !important;
+  }
+
+  /* Commissioner Setup layout: use a real two-column grid with breathing room. */
+  body#body_commissioner_setup table.two_column_layout {
+    width: min(76rem, calc(100% - 1.25rem)) !important;
+    margin: 0.65rem auto 1.2rem !important;
+  }
+
+  body#body_commissioner_setup table.two_column_layout > tbody > tr {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 0.9rem !important;
+    align-items: start !important;
+  }
+
+  body#body_commissioner_setup td.two_column_layout {
+    display: block !important;
+    padding: 0 !important;
+  }
+
+  body#body_commissioner_setup td.two_column_layout > table {
+    width: 100% !important;
+    border: 1px solid var(--ups-border) !important;
+    border-radius: 12px !important;
+    overflow: hidden !important;
+    background: var(--ups-surface) !important;
+  }
+
+  body#body_commissioner_setup td.two_column_layout > table th {
+    background: var(--ups-th-bg) !important;
+    color: var(--ups-text) !important;
+    font-weight: 900 !important;
+  }
+
+  body#body_commissioner_setup td.two_column_layout > table td {
+    background: var(--ups-surface) !important;
+  }
+
+  @media (max-width: 60rem) {
+    body#body_commissioner_setup table.two_column_layout > tbody > tr {
+      grid-template-columns: 1fr !important;
+    }
+  }
+
+  /* Icons: ensure they aren't dark-on-dark on commissioner pages. */
+  body#body_commissioner_setup #container-wrap i,
+  body[id^="body_csetup"] #container-wrap i {
+    color: currentColor !important;
+  }
+
+  body[id^="body_csetup"] table,
+  body#body_commissioner_setup table,
+  body[id^="body_csetup"] .report,
+  body#body_commissioner_setup .report,
+  body[id^="body_csetup"] .mobile-wrap > .report,
+  body#body_commissioner_setup .mobile-wrap > .report,
+  body[id^="body_csetup"] .homepagemodule.report {
+    background: var(--ups-surface) !important;
+    border-color: var(--ups-border) !important;
+    color: var(--ups-text) !important;
+  }
+
+  body[id^="body_csetup"] th,
+  body[id^="body_csetup"] td,
+  body#body_commissioner_setup th,
+  body#body_commissioner_setup td,
+  body[id^="body_csetup"] label,
+  body[id^="body_csetup"] span,
+  body[id^="body_csetup"] p,
+  body[id^="body_csetup"] a,
+  body#body_commissioner_setup label,
+  body#body_commissioner_setup span,
+  body#body_commissioner_setup p,
+  body#body_commissioner_setup a {
+    color: var(--ups-text) !important;
+    text-shadow: none !important;
+    font-weight: 700 !important;
+  }
+
+  body[id^="body_csetup"] input[type="text"],
+  body[id^="body_csetup"] input[type="number"],
+  body[id^="body_csetup"] input[type="password"],
+  body[id^="body_csetup"] select,
+  body#body_commissioner_setup select,
+  body[id^="body_csetup"] textarea {
+    background: var(--ups-surface-alt) !important;
+    border: 1px solid var(--ups-border) !important;
+    color: var(--ups-text) !important;
+  }
+
+  body[id^="body_csetup"] option,
+  body#body_commissioner_setup option {
+    background: var(--ups-surface) !important;
+    color: var(--ups-text) !important;
+  }
+
+  body[id^="body_csetup"] input[type="button"],
+  body[id^="body_csetup"] input[type="submit"],
+  body#body_commissioner_setup input[type="button"],
+  body#body_commissioner_setup input[type="submit"],
+  body[id^="body_csetup"] button {
+    background: var(--ups-btn-bg) !important;
+    border: 1px solid var(--ups-btn-border) !important;
+    color: var(--ups-btn-text) !important;
+    font-weight: 800 !important;
+  }
+
+  body[id^="body_csetup"] .oddtablerow {
+    background: var(--ups-row-odd) !important;
+  }
+
+  body[id^="body_csetup"] .eventablerow {
+    background: var(--ups-row-even) !important;
+  }
+
+  body#body_commissioner_setup .oddtablerow {
+    background: var(--ups-row-odd) !important;
+  }
+
+  body#body_commissioner_setup .eventablerow {
+    background: var(--ups-row-even) !important;
+  }
+
+  /* League Setup / Next Steps table had dark text on dark blue cells. Force high contrast. */
+  body#body_commissioner_setup #container-wrap #commissioner_setup td,
+  body#body_commissioner_setup #container-wrap #commissioner_setup td *,
+  body[id^="body_csetup"] #container-wrap #commissioner_setup td,
+  body[id^="body_csetup"] #container-wrap #commissioner_setup td * {
+    color: var(--ups-text) !important;
+    text-shadow: none !important;
+    opacity: 1 !important;
+  }
+
+  body#body_commissioner_setup #container-wrap #commissioner_setup td a,
+  body#body_commissioner_setup #container-wrap #commissioner_setup td a:visited,
+  body[id^="body_csetup"] #container-wrap #commissioner_setup td a,
+  body[id^="body_csetup"] #container-wrap #commissioner_setup td a:visited {
+    color: var(--ups-link-hover) !important;
+    font-weight: 800 !important;
+  }
+
+  body[id^="body_csetup"] table {
+    table-layout: auto !important;
+  }
+
+  body[id^="body_csetup"] td,
+  body[id^="body_csetup"] th {
+    padding: 0.38rem 0.45rem !important;
+    vertical-align: middle !important;
+  }
+
+  body[id^="body_csetup"] .mobile-wrap {
+    overflow-x: auto !important;
+  }
+
+  /* ------------------------------ */
+  /* Roster Page Position Styling   */
+  /* ------------------------------ */
+  /* Color stripe on each player row based on position. */
+  body#body_options_07 #MFLroster td.player {
+    position: relative;
+    padding-left: 0.85rem !important;
+  }
+  body#body_options_07 #MFLroster td.player:before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 0.3rem;
+    border-radius: 0.15rem;
+    background: rgba(143, 183, 239, 0.35);
+  }
+  body#body_options_07 #MFLroster td.player:before {
+    background: rgba(143, 183, 239, 0.35);
+  }
+  body#body_options_07 #MFLroster td.player a.position_qb { box-shadow: inset 0.35rem 0 0 rgba(119, 184, 255, 0.35); }
+  body#body_options_07 #MFLroster td.player a.position_rb { box-shadow: inset 0.35rem 0 0 rgba(37, 195, 125, 0.35); }
+  body#body_options_07 #MFLroster td.player a.position_wr { box-shadow: inset 0.35rem 0 0 rgba(240, 196, 101, 0.35); }
+  body#body_options_07 #MFLroster td.player a.position_te { box-shadow: inset 0.35rem 0 0 rgba(208, 124, 255, 0.35); }
+  body#body_options_07 #MFLroster td.player a.position_pk,
+  body#body_options_07 #MFLroster td.player a.position_pn { box-shadow: inset 0.35rem 0 0 rgba(159, 179, 209, 0.35); }
+  body#body_options_07 #MFLroster td.player a.position_dt,
+  body#body_options_07 #MFLroster td.player a.position_de { box-shadow: inset 0.35rem 0 0 rgba(255, 122, 122, 0.35); }
+  body#body_options_07 #MFLroster td.player a.position_lb { box-shadow: inset 0.35rem 0 0 rgba(255, 184, 107, 0.35); }
+  body#body_options_07 #MFLroster td.player a.position_cb,
+  body#body_options_07 #MFLroster td.player a.position_s { box-shadow: inset 0.35rem 0 0 rgba(126, 240, 255, 0.35); }
+
+  /* Stronger separator when a new position group starts. */
+  body#body_options_07 #MFLroster tr.newposition td {
+    border-top: 2px solid rgba(142, 196, 255, 0.55) !important;
+  }
+  body#body_options_07 #MFLroster tr.newposition td.player:before {
+    width: 0.45rem;
   }
 </style>
 

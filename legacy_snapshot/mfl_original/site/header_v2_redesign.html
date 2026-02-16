@@ -1,0 +1,998 @@
+<!------------------------------------------------------>
+<!----------------- Start #1 - Header ------------------>
+<!------------------------------------------------------>
+
+<link rel="dns-prefetch" href="https://www.mflscripts.com">
+<link rel="preconnect" href="https://www.mflscripts.com" crossorigin>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="shortcut icon" href="https://www.mflscripts.com/ImageDirectory/script-images/favicon.ico" type="image/x-icon">
+
+<style>
+  :root {
+    --ups-bg: #0b1220;
+    --ups-surface: #111b2e;
+    --ups-surface-alt: #16253f;
+    --ups-border: #27476f;
+    --ups-text: #e8effa;
+    --ups-muted: #9fb3d1;
+    --ups-brand: #14b8a6;
+    --ups-brand-strong: #0f766e;
+    --ups-accent: #f3b61f;
+    --ups-accent-ink: #1b1300;
+    --ups-link: #59b7ff;
+    --ups-link-hover: #89ccff;
+    --ups-danger: #e36572;
+    --ups-success: #25c37d;
+    --ups-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+  }
+
+  /* Core skin normalization */
+  body,
+  .pagebody,
+  #container-wrap {
+    background: var(--ups-bg);
+    color: var(--ups-text);
+  }
+
+  a {
+    color: var(--ups-link);
+  }
+
+  a:hover,
+  a:focus {
+    color: var(--ups-link-hover);
+  }
+
+  .report,
+  .homepagemodule.report,
+  .mobile-wrap table.report,
+  .mobile-wrap .report {
+    border: 1px solid var(--ups-border);
+    background: var(--ups-surface);
+    box-shadow: none;
+  }
+
+  .report caption,
+  .homepagemodule.report caption {
+    background: linear-gradient(135deg, #0f1728 0%, #1c3359 60%, #204f73 100%);
+    border-bottom: 1px solid var(--ups-border);
+  }
+
+  .report caption span,
+  .homepagemodule.report caption span {
+    color: var(--ups-text);
+    font-weight: 800;
+    letter-spacing: 0.02em;
+  }
+
+  .report th,
+  .homepagemodule.report th {
+    background: #152742;
+    color: var(--ups-text);
+    border-color: var(--ups-border);
+  }
+
+  .report td,
+  .homepagemodule.report td {
+    border-color: #203a5d;
+  }
+
+  .oddtablerow {
+    background: #111f35;
+  }
+
+  .eventablerow {
+    background: #0f1b30;
+  }
+
+  .warning {
+    color: #ffd8dd;
+  }
+
+  .myfantasyleague_menu,
+  .myfantasyleague_menu ul,
+  .myfantasyleague_menu li {
+    background-color: #0f1a2d;
+    color: var(--ups-text);
+    border-color: var(--ups-border);
+  }
+
+  /* Tab icon fix */
+  #tabmenu-wrap li#tab7 a:before,
+  #tabmenu-wrap #tab_title.tab7:before {
+    content: "\f155";
+  }
+
+  /* Hero / hotlinks */
+  .ccc-banner {
+    margin: 0.9rem auto 0.6rem;
+    padding: 1rem 1.2rem;
+    border-radius: 14px;
+    max-width: 1200px;
+    color: var(--ups-text);
+    background: linear-gradient(120deg, #0d1728 0%, #154977 48%, #0f766e 100%);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: var(--ups-shadow);
+  }
+
+  .ccc-banner-inner {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 0.85rem 1rem;
+    align-items: center;
+  }
+
+  .ccc-title-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.7rem;
+  }
+
+  .ccc-title-hotlinks {
+    font-size: 1.55rem;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .ups-logo-wrap {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    background: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+  }
+
+  .ups-logo-icon {
+    max-width: 100%;
+    max-height: 100%;
+  }
+
+  .ccc-cta-group {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+    justify-content: flex-end;
+  }
+
+  .ccc-cta {
+    background: var(--ups-accent);
+    color: var(--ups-accent-ink);
+    border: 1px solid #ffd067;
+    padding: 0.62rem 1rem;
+    border-radius: 11px;
+    font-weight: 800;
+    letter-spacing: 0.01em;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.38rem;
+    box-shadow: none;
+  }
+
+  .ccc-cta:hover,
+  .ccc-cta:focus {
+    color: #000;
+    background: #ffd067;
+    border-color: #ffe6a5;
+  }
+
+  .ccc-actions {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 0.62rem;
+  }
+
+  .ccc-pill {
+    background: linear-gradient(135deg, #101e36 0%, #1c3f6f 100%);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    color: var(--ups-text);
+    padding: 0.56rem 0.95rem;
+    border-radius: 12px;
+    font-weight: 800;
+    font-size: 0.96rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.42rem;
+    text-decoration: none;
+  }
+
+  .ccc-pill:hover,
+  .ccc-pill:focus {
+    background: linear-gradient(135deg, #17487e 0%, #168f80 100%);
+    color: #fff;
+  }
+
+  /* Roster quick actions */
+  .ccc-quick-actions {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin-left: 0.5rem;
+    vertical-align: middle;
+  }
+
+  .ccc-action-btn {
+    border: 1px solid #3a5f89;
+    background: #10213a;
+    color: var(--ups-text);
+    font-size: 0.67rem;
+    line-height: 1;
+    padding: 0.22rem 0.46rem;
+    border-radius: 999px;
+    cursor: pointer;
+    font-weight: 800;
+  }
+
+  .ccc-action-btn:hover,
+  .ccc-action-btn:focus {
+    border-color: #66d7c8;
+    background: #12495f;
+    color: #fff;
+  }
+
+  .ccc-action-btn.ext {
+    border-color: #30b9c2;
+  }
+
+  .ccc-action-btn.rs {
+    border-color: #f3b61f;
+    color: #ffe39f;
+  }
+
+  .ccc-popup-actions {
+    margin-top: 0.55rem;
+    padding: 0.5rem;
+    border: 1px solid #2a4a70;
+    border-radius: 9px;
+    background: #0f2039;
+  }
+
+  .ccc-popup-actions-title {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--ups-muted);
+    margin-bottom: 0.35rem;
+    font-weight: 800;
+  }
+
+  .ccc-popup-actions .ccc-quick-actions {
+    margin-left: 0;
+  }
+
+  .ccc-popup-actions-note {
+    margin-top: 0.35rem;
+    font-size: 0.68rem;
+    color: var(--ups-muted);
+  }
+
+  @media (max-width: 900px) {
+    .ccc-banner-inner {
+      grid-template-columns: 1fr;
+    }
+
+    .ccc-cta-group {
+      justify-content: flex-start;
+    }
+  }
+</style>
+
+<script>
+  document.title = "UPS Salary Cap Dynasty League";
+
+  /* Font size + theme persistence */
+  window.increaseFont = true;
+  (function () {
+    try {
+      var key = "fontSize_" + year + "_" + league_id;
+      if (localStorage.hasOwnProperty(key)) {
+        var setStyle = localStorage.getItem(key);
+        if (setStyle && setStyle !== "undefined") {
+          document.documentElement.setAttribute("style", setStyle);
+        }
+      }
+    } catch (e) {}
+  })();
+
+  function setTheme(year, league_id, themeName) {
+    if (typeof themeName !== "string") return;
+    localStorage.setItem("theme_" + year + "_" + league_id, themeName);
+    document.documentElement.className = themeName;
+  }
+
+  (function () {
+    var defaultTheme = "theme-light-blue";
+    var storedTheme = localStorage.getItem("theme_" + year + "_" + league_id) || defaultTheme;
+    document.documentElement.className = storedTheme;
+  })();
+</script>
+
+<!-------------------------------------->
+<!---------- SKIN SELECTOR -------------->
+<!-------------------------------------->
+
+<div class="MFLSkinSelection">
+  <i class="fa-regular fa-paintbrush MFLSkinSelectionbtn" aria-hidden="true" title="Select Skin Color"></i>
+  <div class="ThemeSwith_overlay" style="display:none"></div>
+  <div id="myMFLSkinSelection" class="MFLSkinSelection-content" style="display:none">
+    <div id="popup-selectLeagues-caption" style="position:relative">
+      Select Skin
+      <span id="MFLSkinSelectionClose" class="as_close_btn" style="transform:none;top:0;right:0;font-size:0.813rem;font-family:'Open Sans',sans-serif">X</span>
+    </div>
+    <!-- keep existing skin options here -->
+  </div>
+</div>
+
+<script>
+  (function () {
+    var trigger = document.querySelector(".MFLSkinSelectionbtn");
+    var panel = document.getElementById("myMFLSkinSelection");
+    var overlay = document.querySelector(".ThemeSwith_overlay");
+    var closeBtn = document.getElementById("MFLSkinSelectionClose");
+    if (!trigger || !panel || !overlay) return;
+
+    function closePanel() {
+      panel.style.display = "none";
+      overlay.style.display = "none";
+    }
+
+    function openPanel() {
+      panel.style.display = "block";
+      overlay.style.display = "block";
+    }
+
+    trigger.addEventListener("click", function (evt) {
+      evt.preventDefault();
+      if (panel.style.display === "block") {
+        closePanel();
+      } else {
+        openPanel();
+      }
+    });
+
+    if (closeBtn) closeBtn.addEventListener("click", closePanel);
+    overlay.addEventListener("click", closePanel);
+  })();
+</script>
+
+<!-------------------------------------->
+<!---------- LEAGUE BANNER -------------->
+<!-------------------------------------->
+
+<div class="banner-container-full">
+  <div class="banner-container-wrap-full">
+    <a class="full_height_banner" href="//%HOST%/%YEAR%/home/%LEAGUEID%" title="Return to home page">
+      <img src="https://i.ibb.co/Lz5d5Bb4/Chat-GPT-Image-Oct-12-2025-at-08-33-28-AM.png" alt="UPS League Banner">
+    </a>
+  </div>
+</div>
+
+<!-------------------------------------->
+<!------- UPS HOTLINKS SECTION ---------->
+<!-------------------------------------->
+
+<div class="ccc-banner">
+  <div class="ccc-banner-inner">
+    <div class="ccc-text">
+      <div class="ccc-title-row">
+        <span class="ups-logo-wrap">
+          <img class="ups-logo-icon" src="https://i.ibb.co/Kp2L4ZM6/images-2.png" alt="UPS">
+        </span>
+        <span class="ccc-title-hotlinks">UPS Hotlinks</span>
+      </div>
+    </div>
+
+    <div class="ccc-cta-group">
+      <a class="ccc-cta" href="//%HOST%/%YEAR%/home/%LEAGUEID%?MODULE=MESSAGE16">
+        <i class="fa-solid fa-arrow-up-right-from-square"></i>
+        Contract Command Center
+      </a>
+      <a class="ccc-cta" href="//%HOST%/%YEAR%/home/%LEAGUEID%?MODULE=MESSAGE13">
+        <i class="fa-solid fa-trophy"></i>
+        Season Wrap Up &amp; Playoff Preview
+      </a>
+    </div>
+
+    <div class="ccc-actions">
+      <a class="ccc-pill" href="//%HOST%/%YEAR%/lineup?L=%LEAGUEID%"><i class="fa-solid fa-clipboard-list"></i>Submit Lineup</a>
+      <a class="ccc-pill" href="//%HOST%/%YEAR%/add_drop?L=%LEAGUEID%"><i class="fa-solid fa-plus-minus"></i>Add/Drop</a>
+      <a class="ccc-pill" href="//%HOST%/%YEAR%/options?L=%LEAGUEID%&amp;O=07"><i class="fa-solid fa-users"></i>Rosters</a>
+      <a class="ccc-pill" href="//%HOST%/%YEAR%/ajax_ls?L=%LEAGUEID%"><i class="fa-solid fa-gauge-high"></i>Scoreboard</a>
+      <a class="ccc-pill" href="//%HOST%/%YEAR%/options?L=%LEAGUEID%&amp;O=05"><i class="fa-solid fa-handshake"></i>Trades</a>
+    </div>
+  </div>
+</div>
+
+<script>
+  /* Redirect default scoreboard links to custom HPM scoreboard */
+  var lsmHPM = "8";
+  var lsmHPMurl = baseURLDynamic + "/" + year + "/options?L=" + league_id + "&O=247&SEQNO=" + lsmHPM;
+  $(document).ready(function () {
+    $('a[href*="ajax_ls?L"]').each(function () {
+      $(this).removeClass("scoringLinkDisable");
+      $(this).attr("href", lsmHPMurl);
+    });
+  });
+
+  /* Required/intentional non-default global settings */
+  var useREM = true;
+  var add_abilities_link = true;
+  var add_seedings_link = true;
+  var SetHPMability = 18;
+  var SetHPMseeding = 11;
+  var commishTeam = "0004";
+
+  var detailsOverlay = "rgba(0,0,0,.7)";
+  var detailsWrapBG = "var(--mobile-wrap-bg,#fff)";
+  var detailsWrapBorder = "#000";
+  var detailsWrapBorWidh = "0";
+  var detailsWrapBoxShdw = "0 0 1.563rem #000";
+  var detailsWrapPadding = "0.625rem";
+  var detailsWrapRadius = "0.188rem";
+
+  var load_mobileMenu_script = true;
+  var load_chat_enhanced = true;
+  var load_popup = true;
+  var load_mini_boxscore = true;
+  var load_marquee = true;
+  var load_lineups_submit_script = true;
+  var load_lineups_submit_scriptV3 = true;
+  var load_tabs_script = true;
+  var load_tabs_versionTwo = true;
+
+  var tickerHomePageOnly = false;
+  var tickerName = "Headlines";
+  var responsiveTicker = true;
+  var tickerSize = "medium";
+  var tickerLastPlayoffWeek = 17;
+  var tickerSpeedDefault = 2;
+  var tickerDelay = 3;
+  var tickerContent = [];
+
+  var includeFranchiseIcons = true;
+  var includeLatestArticles = 5;
+  var includeTopPlayerStats = 5;
+  var includeTopPlayerPts = 5;
+  var includeLastWeekResults = true;
+  var includeNextWeekMatchups = true;
+
+  var includeLiveLeaders = 5;
+  var includeNflMatchups = true;
+  var includeNflMatchupLeaders = true;
+  var includeFantasyMatchups = true;
+
+  var tickerWidth = "calc(71.75rem - 0.375rem)";
+  var tickerMargin = "0.625rem auto 0 auto";
+  var tickerFont = "Roboto Condensed";
+  var tickerBorder = "var(--ups-brand, #14b8a6)";
+  var bigHeadingBG = "var(--ups-brand-strong, #0f766e)";
+  var bigHeadingClr = "#fff";
+  var tickerHeadBG = "#fff";
+  var tickerCogWheel = "var(--ups-brand, #14b8a6)";
+  var tickerTxtShdw = "transparent";
+  var tickerHeadClr = "var(--ups-brand-strong, #0f766e)";
+  var tickerTxtBG = "#e9f0fb";
+  var tickerTxtClr = "#041222";
+  var tickerTxtWgt = "400";
+  var tickerTxtTrans = "none";
+  var tickerLinkClr = "#0f2d52";
+  var tickerLinkHvr = "#0f766e";
+  var tickerBoxShdw = "0 0 0.063rem 0.063rem rgba(0,0,0,0.1)";
+</script>
+
+<script>
+  /*
+   * Deep-link + roster/popup quick actions for Extension/Restructure.
+   * This adds actionable buttons in O=07 rows and player popup cards.
+   */
+  (function () {
+    function safeStr(v) {
+      return v === null || v === undefined ? "" : String(v).trim();
+    }
+
+    function pad4(fid) {
+      var d = safeStr(fid).replace(/\D/g, "");
+      return d ? d.padStart(4, "0").slice(-4) : "";
+    }
+
+    function parsePidFromHref(href) {
+      try {
+        var u = new URL(href, location.origin);
+        return safeStr(u.searchParams.get("P"));
+      } catch (e) {
+        return "";
+      }
+    }
+
+    function parseMoney(text) {
+      var clean = safeStr(text).replace(/[^0-9.-]/g, "");
+      var n = parseFloat(clean);
+      return isNaN(n) ? 0 : n;
+    }
+
+    function getFidFromRow(row) {
+      var table = row ? row.closest("table") : null;
+      if (!table) return "";
+
+      var cls = safeStr(table.className);
+      var m = cls.match(/franchise_(\d{4})/);
+      if (m) return pad4(m[1]);
+
+      var capLink = table.querySelector("caption a[class*='franchise_']");
+      if (capLink) {
+        var capClass = safeStr(capLink.className);
+        var m2 = capClass.match(/franchise_(\d{4})/);
+        if (m2) return pad4(m2[1]);
+      }
+      return "";
+    }
+
+    function pendingActionKey() {
+      return "ccc_pending_action_" + safeStr(year) + "_" + safeStr(league_id);
+    }
+
+    function savePendingAction(action, item) {
+      try {
+        var payload = {
+          action: safeStr(action).toLowerCase(),
+          playerId: safeStr(item && item.playerId),
+          franchiseId: pad4(item && item.franchiseId),
+          years: Math.max(1, Math.min(2, parseInt(item && item.years, 10) || 1)),
+          ts: Date.now()
+        };
+        if (!payload.action || !payload.playerId) return;
+        localStorage.setItem(pendingActionKey(), JSON.stringify(payload));
+      } catch (e) {}
+    }
+
+    function getPendingAction() {
+      try {
+        var raw = localStorage.getItem(pendingActionKey());
+        if (!raw) return null;
+        var parsed = JSON.parse(raw);
+        if (!parsed || !parsed.action || !parsed.playerId) return null;
+
+        var ageMs = Date.now() - (parseInt(parsed.ts, 10) || 0);
+        if (ageMs > 30 * 60 * 1000) {
+          localStorage.removeItem(pendingActionKey());
+          return null;
+        }
+
+        return {
+          action: safeStr(parsed.action).toLowerCase(),
+          playerId: safeStr(parsed.playerId),
+          franchiseId: pad4(parsed.franchiseId),
+          years: Math.max(1, Math.min(2, parseInt(parsed.years, 10) || 1))
+        };
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function clearPendingAction() {
+      try {
+        localStorage.removeItem(pendingActionKey());
+      } catch (e) {}
+    }
+
+    function buildActionUrl(action, item) {
+      savePendingAction(action, item);
+      return location.origin + "/" + year + "/home/" + league_id + "?MODULE=MESSAGE16";
+    }
+
+    function rookieLike(value) {
+      var s = safeStr(value).toLowerCase();
+      return s === "r" || s.indexOf("r-") === 0 || s.indexOf("rookie") !== -1;
+    }
+
+    function computeEligibility(contract) {
+      var years = parseInt(contract.years, 10) || 0;
+      var salary = parseMoney(contract.salary);
+      var statusLower = safeStr(contract.status).toLowerCase();
+      var infoLower = safeStr(contract.info).toLowerCase();
+      var noFurtherExt =
+        infoLower.indexOf("no further extensions") !== -1 ||
+        infoLower.indexOf("not eligible for tag or extension") !== -1;
+      var expiredRookie =
+        infoLower.indexOf("expired rookie") !== -1 ||
+        (rookieLike(contract.status) && years <= 0);
+
+      return {
+        extensionEligible: (years === 1 || expiredRookie) && !statusLower.includes("tag") && !noFurtherExt,
+        restructureEligible: years >= 2 && years <= 3 && salary > 1000 && !rookieLike(contract.status)
+      };
+    }
+
+    var rosterEligibilityByPid = new Map();
+
+    function scanRosterEligibility() {
+      if (document.body.id !== "body_options_07") return;
+
+      var rows = Array.from(document.querySelectorAll("#body_options_07 tr"));
+      rows.forEach(function (row) {
+        var cell = row.querySelector("td.player");
+        if (!cell) return;
+
+        var playerLink = cell.querySelector('a[href*="player?L="]');
+        if (!playerLink) return;
+
+        var pid = parsePidFromHref(playerLink.getAttribute("href") || "");
+        if (!pid) return;
+
+        var salaryCell = row.querySelector("td.salary");
+        var yearsCell = row.querySelector("td.contractyear");
+        var statusCell = row.querySelector("td.contractstatus");
+        var infoCell = row.querySelector("td.contractinfo");
+
+        if (!salaryCell || !yearsCell || !statusCell || !infoCell) return;
+
+        var fid = getFidFromRow(row);
+        var contract = {
+          salary: salaryCell.textContent,
+          years: yearsCell.textContent,
+          status: statusCell.textContent,
+          info: infoCell.textContent
+        };
+        var elig = computeEligibility(contract);
+
+        rosterEligibilityByPid.set(pid, {
+          playerId: pid,
+          playerName: safeStr(playerLink.textContent),
+          franchiseId: fid,
+          years: parseInt(contract.years, 10) || 0,
+          salary: parseMoney(contract.salary),
+          status: safeStr(contract.status),
+          info: safeStr(contract.info),
+          extensionEligible: elig.extensionEligible,
+          restructureEligible: elig.restructureEligible
+        });
+      });
+    }
+
+    function renderRosterQuickActions() {
+      if (document.body.id !== "body_options_07") return;
+
+      var rows = Array.from(document.querySelectorAll("#body_options_07 tr"));
+      rows.forEach(function (row) {
+        var cell = row.querySelector("td.player");
+        if (!cell) return;
+
+        if (cell.querySelector(".ccc-quick-actions")) return;
+
+        var playerLink = cell.querySelector('a[href*="player?L="]');
+        if (!playerLink) return;
+
+        var pid = parsePidFromHref(playerLink.getAttribute("href") || "");
+        if (!pid) return;
+
+        var info = rosterEligibilityByPid.get(pid);
+        if (!info) return;
+        if (!info.extensionEligible && !info.restructureEligible) return;
+
+        var wrap = document.createElement("span");
+        wrap.className = "ccc-quick-actions";
+
+        if (info.extensionEligible) {
+          var ext = document.createElement("button");
+          ext.type = "button";
+          ext.className = "ccc-action-btn ext";
+          ext.textContent = "Extension";
+          ext.setAttribute("data-ccc-action", "extension");
+          ext.setAttribute("data-ccc-pid", pid);
+          ext.setAttribute("data-ccc-fid", info.franchiseId || "");
+          wrap.appendChild(ext);
+        }
+
+        if (info.restructureEligible) {
+          var rs = document.createElement("button");
+          rs.type = "button";
+          rs.className = "ccc-action-btn rs";
+          rs.textContent = "Restructure";
+          rs.setAttribute("data-ccc-action", "restructure");
+          rs.setAttribute("data-ccc-pid", pid);
+          rs.setAttribute("data-ccc-fid", info.franchiseId || "");
+          wrap.appendChild(rs);
+        }
+
+        cell.appendChild(wrap);
+      });
+    }
+
+    function extractPopupPid(popupRoot) {
+      if (!popupRoot) return "";
+      var a = popupRoot.querySelector('a[href*="player?L="]');
+      if (!a) return "";
+      return parsePidFromHref(a.getAttribute("href") || "");
+    }
+
+    function renderPopupQuickActions() {
+      var popup = document.getElementById("MFLPlayerPopupContainer");
+      if (!popup) return;
+
+      var pid = extractPopupPid(popup);
+      if (!pid) return;
+
+      var info = rosterEligibilityByPid.get(pid);
+      var existing = popup.querySelector("#cccPopupQuickActions");
+
+      if (!info || (!info.extensionEligible && !info.restructureEligible)) {
+        if (existing) existing.remove();
+        return;
+      }
+
+      var panel = existing || document.createElement("div");
+      panel.id = "cccPopupQuickActions";
+      panel.className = "ccc-popup-actions";
+
+      var html = '<div class="ccc-popup-actions-title">Contract Actions</div><span class="ccc-quick-actions">';
+
+      if (info.extensionEligible) {
+        html +=
+          '<button type="button" class="ccc-action-btn ext" data-ccc-action="extension" data-ccc-pid="' +
+          pid +
+          '" data-ccc-fid="' +
+          (info.franchiseId || "") +
+          '">Extension</button>';
+      }
+
+      if (info.restructureEligible) {
+        html +=
+          '<button type="button" class="ccc-action-btn rs" data-ccc-action="restructure" data-ccc-pid="' +
+          pid +
+          '" data-ccc-fid="' +
+          (info.franchiseId || "") +
+          '">Restructure</button>';
+      }
+
+      html += '</span><div class="ccc-popup-actions-note">Opens Contract Command Center with this player preloaded.</div>';
+      panel.innerHTML = html;
+
+      if (!existing) {
+        var target = popup.querySelector("table") || popup;
+        target.parentNode.insertBefore(panel, target.nextSibling);
+      }
+    }
+
+    function onQuickActionClick(evt) {
+      var btn = evt.target && evt.target.closest ? evt.target.closest(".ccc-action-btn[data-ccc-action]") : null;
+      if (!btn) return;
+      evt.preventDefault();
+      evt.stopPropagation();
+
+      var action = safeStr(btn.getAttribute("data-ccc-action")).toLowerCase();
+      var pid = safeStr(btn.getAttribute("data-ccc-pid"));
+      var fid = pad4(btn.getAttribute("data-ccc-fid"));
+      if (!action || !pid) return;
+
+      location.href = buildActionUrl(action, {
+        playerId: pid,
+        franchiseId: fid,
+        years: 1
+      });
+    }
+
+    function wireMessage16IframeBridge() {
+      var qs = new URLSearchParams(location.search || "");
+      if (safeStr(qs.get("MODULE")) !== "MESSAGE16") return;
+
+      var frame = document.querySelector('iframe[src*="mfl_hpm16_contractcommandcenter"]');
+      if (!frame) return;
+
+      try {
+        var src = new URL(frame.getAttribute("src"), location.href);
+        src.searchParams.set("L", safeStr(league_id));
+        src.searchParams.set("YEAR", safeStr(year));
+
+        var actionQuery = safeStr(qs.get("cccAction"));
+        var playerQuery = safeStr(qs.get("cccPlayer"));
+        var hasQueryAction = !!(actionQuery && playerQuery);
+        var pending = hasQueryAction ? null : getPendingAction();
+
+        if (hasQueryAction) {
+          src.searchParams.set("cccAction", actionQuery);
+          src.searchParams.set("cccPlayer", playerQuery);
+          if (safeStr(qs.get("cccFranchise"))) src.searchParams.set("cccFranchise", safeStr(qs.get("cccFranchise")));
+          if (safeStr(qs.get("cccSeason"))) src.searchParams.set("cccSeason", safeStr(qs.get("cccSeason")));
+          if (safeStr(qs.get("cccYears"))) src.searchParams.set("cccYears", safeStr(qs.get("cccYears")));
+        } else if (pending) {
+          src.searchParams.set("cccAction", pending.action);
+          src.searchParams.set("cccPlayer", pending.playerId);
+          if (pending.franchiseId) src.searchParams.set("cccFranchise", pending.franchiseId);
+          src.searchParams.set("cccSeason", safeStr(year));
+          if (pending.action === "extension") src.searchParams.set("cccYears", safeStr(pending.years));
+          clearPendingAction();
+        }
+
+        frame.setAttribute("src", src.toString());
+      } catch (e) {}
+
+      window.addEventListener("message", function (event) {
+        if (!event || !event.data) return;
+
+        if (event.data.type === "ccc-height") {
+          var h = Number(event.data.height || 0);
+          if (h > 0) frame.style.height = Math.max(960, Math.ceil(h) + 24) + "px";
+        }
+      });
+    }
+
+    function initRosterEnhancements() {
+      if (document.body.id !== "body_options_07") return;
+
+      var attempts = 0;
+      var timer = setInterval(function () {
+        attempts += 1;
+        scanRosterEligibility();
+        renderRosterQuickActions();
+        renderPopupQuickActions();
+        if (attempts >= 18) clearInterval(timer);
+      }, 400);
+
+      var observer = new MutationObserver(function () {
+        scanRosterEligibility();
+        renderRosterQuickActions();
+        renderPopupQuickActions();
+      });
+      observer.observe(document.body, { childList: true, subtree: true });
+
+      document.addEventListener("click", onQuickActionClick, true);
+    }
+
+    function init() {
+      initRosterEnhancements();
+      wireMessage16IframeBridge();
+    }
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", init);
+    } else {
+      init();
+    }
+  })();
+</script>
+
+<!-------------------------------------->
+<!---------- HEADER SECTION 6 ---------->
+<!-------------------------------------->
+
+<div class="ticker-wrapper"></div>
+<div id="MFLBoxWrapper"></div>
+
+<script>
+  var deactivate_all_offseason = false;
+</script>
+
+<script src="https://www.mflscripts.com/mfl-apps/global/header.js?v=1.60"></script>
+<link rel="stylesheet" type="text/css" href="https://www.mflscripts.com/mfl-apps/global/css/300x50-icons.css">
+
+<style id="ups-theme-postload-overrides">
+  /* Force contrast after MFL scripts/CSS load */
+  .report,
+  .homepagemodule.report,
+  .mobile-wrap table.report,
+  .mobile-wrap .report {
+    background: var(--ups-surface) !important;
+    border: 1px solid var(--ups-border) !important;
+    color: var(--ups-text) !important;
+  }
+
+  .report caption,
+  .homepagemodule.report caption {
+    background: linear-gradient(135deg, #0f1728 0%, #1c3359 60%, #204f73 100%) !important;
+    border-bottom: 1px solid var(--ups-border) !important;
+  }
+
+  .report caption span,
+  .report caption span a,
+  .homepagemodule.report caption span,
+  .homepagemodule.report caption span a {
+    color: #d9edff !important;
+    text-shadow: none !important;
+  }
+
+  .report th,
+  .homepagemodule.report th {
+    background: #152742 !important;
+    color: #e8effa !important;
+    border-color: var(--ups-border) !important;
+  }
+
+  .report td,
+  .homepagemodule.report td {
+    color: #d3e4fb !important;
+    border-color: #203a5d !important;
+  }
+
+  .report td span,
+  .report td div,
+  .report td small,
+  .report td strong,
+  .report td b,
+  .report td em,
+  .homepagemodule.report td span,
+  .homepagemodule.report td div,
+  .homepagemodule.report td small,
+  .homepagemodule.report td strong,
+  .homepagemodule.report td b,
+  .homepagemodule.report td em {
+    color: inherit !important;
+    opacity: 1 !important;
+    text-shadow: none !important;
+  }
+
+  .report td a,
+  .report td a:visited,
+  .report td a:hover,
+  .report td a:focus,
+  .homepagemodule.report td a,
+  .homepagemodule.report td a:visited,
+  .homepagemodule.report td a:hover,
+  .homepagemodule.report td a:focus {
+    color: #9ed3ff !important;
+    text-shadow: none !important;
+    opacity: 1 !important;
+  }
+
+  .report input[type="button"],
+  .report input[type="submit"],
+  .report button,
+  .homepagemodule.report input[type="button"],
+  .homepagemodule.report input[type="submit"],
+  .homepagemodule.report button {
+    color: #ffffff !important;
+  }
+
+  .oddtablerow {
+    background: #111f35 !important;
+  }
+
+  .eventablerow {
+    background: #0f1b30 !important;
+  }
+
+  .warning,
+  .injurystatus {
+    color: #ffd08a !important;
+  }
+
+  /* Fallback for modules that do not use .report classes (Add/Drop, mini scoreboards, etc.) */
+  #container-wrap table td,
+  #container-wrap table th {
+    color: #d3e4fb !important;
+  }
+
+  #container-wrap table td *,
+  #container-wrap table th * {
+    color: inherit !important;
+    opacity: 1 !important;
+    text-shadow: none !important;
+  }
+
+  #container-wrap table td a,
+  #container-wrap table td a:visited,
+  #container-wrap table td a:hover,
+  #container-wrap table td a:focus,
+  #container-wrap table th a,
+  #container-wrap table th a:visited,
+  #container-wrap table th a:hover,
+  #container-wrap table th a:focus {
+    color: #9ed3ff !important;
+  }
+
+  #container-wrap table input[type="button"],
+  #container-wrap table input[type="submit"],
+  #container-wrap table button {
+    color: #ffffff !important;
+  }
+</style>
+
+<div id="container-wrap"><!-- ENTER ALL HPMS AFTER THIS AND CLOSE IN FOOTER -->
+
+<!------------------------------------------------------>
+<!------------------ End #1 - Header ------------------->
+<!------------------------------------------------------>

@@ -1,0 +1,21 @@
+<!-- Replace the existing loader script in mfl_hpm16_contractcommandcenter.html with this block -->
+<script>
+  (function () {
+    var params = new URLSearchParams(window.location.search || "");
+    var v = params.get("cache") || params.get("v") || "";
+    var qs = v ? "?v=" + encodeURIComponent(v) : "";
+
+    var css = document.getElementById("cccCss");
+    if (css) css.href = "https://keithcreelman.github.io/ups-league-data/ccc.css" + qs;
+
+    function add(src) {
+      var s = document.createElement("script");
+      s.src = src;
+      s.defer = true;
+      document.body.appendChild(s);
+    }
+
+    add("https://keithcreelman.github.io/ups-league-data/ccc.js" + qs);
+    add("https://keithcreelman.github.io/ups-league-data/ccc_bridge.js" + qs);
+  })();
+</script>

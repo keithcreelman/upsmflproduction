@@ -1,0 +1,520 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Man Crush Monday</title>
+  <style>
+    :root {
+      --bg: #f7f2ea;
+      --paper: #fffdf8;
+      --ink: #1b1a18;
+      --muted: #5a544b;
+      --line: rgba(27, 26, 24, 0.12);
+      --brand: #b72a2a;
+      --brand2: #5b1f1f;
+      --accent: #1f6f5b;
+      --danger: #9a1e1e;
+      --shadow: 0 14px 36px rgba(27, 26, 24, 0.18);
+      --radius: 16px;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 380px at 20% -10%, rgba(183, 42, 42, 0.18) 12%, transparent 60%),
+        radial-gradient(900px 320px at 80% -10%, rgba(31, 111, 91, 0.14) 12%, transparent 60%),
+        linear-gradient(180deg, rgba(255, 253, 248, 0.9), rgba(247, 242, 234, 0.95)),
+        var(--bg);
+      font-family: "Baskerville", "Palatino", "Georgia", serif;
+    }
+
+    a { color: var(--brand); }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 22px; }
+
+    .hero {
+      border-radius: 18px;
+      padding: 18px 18px 16px;
+      color: #fff;
+      box-shadow: var(--shadow);
+      background:
+        radial-gradient(520px 180px at 20% 0%, rgba(255,255,255,0.25) 10%, transparent 65%),
+        linear-gradient(120deg, var(--brand), var(--brand2));
+      border: 1px solid rgba(255,255,255,0.18);
+      overflow: hidden;
+      position: relative;
+    }
+    .hero h1 { margin: 0 0 4px; font-size: 28px; letter-spacing: 0.3px; }
+    .hero p { margin: 0; opacity: 0.95; font-family: "Avenir Next", "Helvetica Neue", sans-serif; }
+    .hero small { display: block; opacity: 0.85; margin-top: 10px; font-family: "Avenir Next", "Helvetica Neue", sans-serif; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 14px;
+      margin-top: 14px;
+    }
+
+    .panel {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 16px;
+      box-shadow: 0 6px 18px rgba(27, 26, 24, 0.06);
+    }
+
+    .panel h2 {
+      margin: 0 0 10px;
+      font-size: 18px;
+      letter-spacing: 0.2px;
+    }
+
+    .pill {
+      display: inline-block;
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-family: "Avenir Next", "Helvetica Neue", sans-serif;
+      background: rgba(31, 111, 91, 0.12);
+      color: #11463a;
+      border: 1px solid rgba(31, 111, 91, 0.22);
+    }
+
+    .muted { color: var(--muted); font-family: "Avenir Next", "Helvetica Neue", sans-serif; }
+    .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .spacer { height: 10px; }
+
+    .cards {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .card {
+      border: 1px solid rgba(27, 26, 24, 0.11);
+      border-radius: 14px;
+      padding: 12px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.75), rgba(255,255,255,0.35));
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card h3 { margin: 0 0 6px; font-size: 16px; }
+    .meta { font-size: 12px; color: var(--muted); font-family: "Avenir Next", "Helvetica Neue", sans-serif; }
+    .voteRow { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 10px; }
+
+    .btn {
+      border: none;
+      border-radius: 12px;
+      padding: 9px 11px;
+      cursor: pointer;
+      font-family: "Avenir Next", "Helvetica Neue", sans-serif;
+      font-weight: 700;
+      font-size: 13px;
+    }
+    .btn.primary { background: var(--accent); color: #fff; }
+    .btn.ghost { background: rgba(27, 26, 24, 0.06); color: var(--ink); }
+    .btn.primary:disabled { opacity: 0.55; cursor: not-allowed; }
+
+    .input, .select, .textarea {
+      width: 100%;
+      border: 1px solid rgba(27, 26, 24, 0.14);
+      border-radius: 12px;
+      padding: 10px 12px;
+      background: #fff;
+      color: var(--ink);
+      font-size: 14px;
+      font-family: "Avenir Next", "Helvetica Neue", sans-serif;
+    }
+
+    .formGrid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .full { grid-column: 1 / -1; }
+    label { display: block; margin-bottom: 6px; font-size: 12px; color: var(--muted); font-family: "Avenir Next", "Helvetica Neue", sans-serif; }
+    .hint { font-size: 12px; color: var(--muted); font-family: "Avenir Next", "Helvetica Neue", sans-serif; }
+
+    .notice {
+      border-left: 4px solid rgba(183, 42, 42, 0.65);
+      background: rgba(183, 42, 42, 0.08);
+      padding: 10px 12px;
+      border-radius: 12px;
+      font-family: "Avenir Next", "Helvetica Neue", sans-serif;
+      font-size: 13px;
+    }
+
+    .error { color: var(--danger); font-family: "Avenir Next", "Helvetica Neue", sans-serif; font-size: 13px; }
+    .ok { color: #1b6a2a; font-family: "Avenir Next", "Helvetica Neue", sans-serif; font-size: 13px; }
+
+    .dot {
+      width: 10px; height: 10px; border-radius: 999px;
+      background: rgba(255,255,255,0.35);
+      position: absolute;
+      filter: blur(0.2px);
+      opacity: 0.7;
+      animation: floaty 8s ease-in-out infinite;
+    }
+    @keyframes floaty {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
+    }
+
+    @media (max-width: 940px) {
+      .grid { grid-template-columns: 1fr; }
+      .cards { grid-template-columns: 1fr; }
+      .formGrid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="hero">
+      <div class="dot" style="left: 14px; top: 18px;"></div>
+      <div class="dot" style="left: 70%; top: 14px; animation-delay: -1.2s;"></div>
+      <div class="dot" style="left: 92%; top: 56px; animation-delay: -2.4s;"></div>
+      <h1>Man Crush Monday</h1>
+      <p>Weekly nominations. Weekly voting. Year-end playoffs.</p>
+      <small>Adults only. Be respectful. No scraping: links and optional image URLs are provided by nominators.</small>
+    </div>
+
+    <div class="grid">
+      <div class="panel">
+        <div class="row">
+          <h2 style="margin:0;">This Week</h2>
+          <span id="weekPill" class="pill">Loading…</span>
+        </div>
+        <div class="spacer"></div>
+        <div id="ballot" class="cards"></div>
+        <div class="spacer"></div>
+        <div class="row">
+          <button id="refreshBtn" class="btn ghost">Refresh</button>
+          <span id="voteMsg" class="muted"></span>
+        </div>
+        <div id="voteErr" class="error" style="margin-top:8px;"></div>
+      </div>
+
+      <div class="panel">
+        <h2>Crush of the Day</h2>
+        <div id="botd" class="card">
+          <div class="meta">Loading…</div>
+        </div>
+
+        <div class="spacer"></div>
+        <h2>Nominate Someone</h2>
+        <div class="notice">
+          Only nominate adults (18+), public figures, and content suitable for a league group chat. No doxxing, no harassment.
+        </div>
+        <div class="spacer"></div>
+        <form id="nomForm">
+          <div class="formGrid">
+            <div>
+              <label for="displayName">Name</label>
+              <input id="displayName" class="input" maxlength="80" required placeholder="Full name / stage name">
+            </div>
+            <div>
+              <label for="genre">Genre</label>
+              <select id="genre" class="select" required></select>
+            </div>
+            <div class="full">
+              <label for="primaryUrl">Public link (required)</label>
+              <input id="primaryUrl" class="input" maxlength="500" required placeholder="https://… (Wikipedia, official site, profile)">
+            </div>
+            <div class="full">
+              <label for="imageUrl">Image URL (optional)</label>
+              <input id="imageUrl" class="input" maxlength="500" placeholder="https://… (only if you have rights to use it)">
+              <div class="hint" style="margin-top:6px;">Tip: keeping this blank is fine. The app does not fetch photos automatically.</div>
+            </div>
+            <div class="full">
+              <label for="notes">Notes (optional)</label>
+              <textarea id="notes" class="textarea" rows="3" maxlength="500" placeholder="Why they belong in this genre, fun facts, etc."></textarea>
+            </div>
+            <div class="full">
+              <label>
+                <input id="attAdult" type="checkbox" required>
+                <span class="hint">I confirm the nominee is 18+.</span>
+              </label>
+              <label>
+                <input id="attRespectful" type="checkbox" required>
+                <span class="hint">I confirm this nomination is respectful and not harassing.</span>
+              </label>
+            </div>
+          </div>
+          <div class="spacer"></div>
+          <div class="row">
+            <button id="nomBtn" class="btn primary" type="submit">Submit Nomination</button>
+            <span id="nomMsg" class="muted"></span>
+          </div>
+          <div id="nomErr" class="error" style="margin-top:8px;"></div>
+        </form>
+      </div>
+    </div>
+
+    <div class="spacer"></div>
+    <div class="panel">
+      <div class="row">
+        <h2 style="margin:0;">This Week’s Results</h2>
+        <span class="muted" id="resultsHint"></span>
+      </div>
+      <div class="spacer"></div>
+      <div id="results" class="cards"></div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = (() => {
+      const p = new URLSearchParams(location.search);
+      const override = p.get("api");
+      if (override) return override.replace(/\/+$/, "");
+      return "";
+    })();
+
+    const el = (id) => document.getElementById(id);
+    const safeText = (v) => (v == null ? "" : String(v));
+
+    async function apiGet(path) {
+      const res = await fetch(API_BASE + path, { headers: { "Accept": "application/json" } });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.ok === false) {
+        const msg = data.error || (data.errors ? data.errors.join(" ") : "Request failed.");
+        throw new Error(msg);
+      }
+      return data;
+    }
+
+    async function apiPost(path, payload) {
+      const res = await fetch(API_BASE + path, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.ok === false) {
+        const msg = data.error || (data.errors ? data.errors.join(" ") : "Request failed.");
+        throw new Error(msg);
+      }
+      return data;
+    }
+
+    function nomineeCard(n, { showVote = true } = {}) {
+      const votes = typeof n.votes === "number" ? n.votes : null;
+      const gname = (n.genre && n.genre.name) ? n.genre.name : safeText(n.genre_id || "");
+      const url = safeText(n.primary_url || "");
+      const hasUrl = /^https?:\/\//.test(url);
+
+      const img = safeText(n.image_url || "");
+      const hasImg = /^https?:\/\//.test(img);
+
+      const wrapper = document.createElement("div");
+      wrapper.className = "card";
+
+      const h = document.createElement("h3");
+      h.textContent = safeText(n.display_name || "");
+      wrapper.appendChild(h);
+
+      const meta = document.createElement("div");
+      meta.className = "meta";
+      meta.innerHTML = `${gname}${hasUrl ? ` · <a href="${url}" target="_blank" rel="noreferrer">link</a>` : ""}`;
+      wrapper.appendChild(meta);
+
+      if (hasImg) {
+        const imgEl = document.createElement("img");
+        imgEl.src = img;
+        imgEl.alt = safeText(n.display_name || "Nominee");
+        imgEl.loading = "lazy";
+        imgEl.referrerPolicy = "no-referrer";
+        imgEl.style.width = "100%";
+        imgEl.style.marginTop = "10px";
+        imgEl.style.borderRadius = "12px";
+        imgEl.style.border = "1px solid rgba(27, 26, 24, 0.10)";
+        wrapper.appendChild(imgEl);
+      }
+
+      const voteRow = document.createElement("div");
+      voteRow.className = "voteRow";
+
+      const left = document.createElement("div");
+      left.className = "meta";
+      left.textContent = votes == null ? "" : `${votes} vote${votes === 1 ? "" : "s"}`;
+      voteRow.appendChild(left);
+
+      if (showVote) {
+        const b = document.createElement("button");
+        b.className = "btn primary";
+        b.textContent = "Vote";
+        b.addEventListener("click", async () => {
+          el("voteErr").textContent = "";
+          el("voteMsg").textContent = "Submitting vote…";
+          b.disabled = true;
+          try {
+            const payload = { nominee_id: n.id };
+            if (n.matchup_key && n.matchup_key !== "regular") payload.matchup_key = n.matchup_key;
+            const resp = await apiPost("/api/vote", payload);
+            el("voteMsg").textContent = `Voted for ${resp.nominee_name}.`;
+            await loadBallot();
+            await loadResults();
+          } catch (e) {
+            el("voteErr").textContent = e.message;
+            el("voteMsg").textContent = "";
+            b.disabled = false;
+          }
+        });
+        voteRow.appendChild(b);
+      }
+
+      wrapper.appendChild(voteRow);
+      return wrapper;
+    }
+
+    async function loadConfig() {
+      const cfg = await apiGet("/api/config");
+      const genres = cfg.genres || [];
+      const sel = el("genre");
+      sel.innerHTML = "";
+      for (const g of genres) {
+        const opt = document.createElement("option");
+        opt.value = g.id;
+        opt.textContent = g.name;
+        sel.appendChild(opt);
+      }
+    }
+
+    async function loadWeek() {
+      const w = await apiGet("/api/week");
+      const week = w.week;
+      const label = week.phase === "regular"
+        ? `Week ${week.week_no} · ${week.genre.name}`
+        : `Week ${week.week_no} · Playoffs`;
+      el("weekPill").textContent = label;
+      el("resultsHint").textContent = week.phase === "regular" ? `(${week.week_start} to ${week.week_end} UTC)` : "";
+    }
+
+    async function loadBotd() {
+      const data = await apiGet("/api/babe-of-the-day");
+      const n = data.nominee;
+      const box = el("botd");
+      box.innerHTML = "";
+      if (!n) {
+        box.innerHTML = '<div class="meta">No nominees yet.</div>';
+        return;
+      }
+      const card = nomineeCard(n, { showVote: false });
+      const top = document.createElement("div");
+      top.className = "meta";
+      top.textContent = `Picked for ${n.date_utc} (UTC)`;
+      box.appendChild(top);
+      box.appendChild(card);
+    }
+
+    async function loadBallot() {
+      const data = await apiGet("/api/ballot");
+      const list = data.ballot || [];
+      const matchups = data.matchups || [];
+      const ballot = el("ballot");
+      ballot.innerHTML = "";
+      if (!list.length && !matchups.length) {
+        ballot.innerHTML = '<div class="muted">No nominees for this week yet. Submit a nomination.</div>';
+        return;
+      }
+      if (matchups.length) {
+        const round = data.round ? `${data.round.name}` : "Playoffs";
+        for (const m of matchups) {
+          const head = document.createElement("div");
+          head.className = "meta";
+          head.style.gridColumn = "1 / -1";
+          head.textContent = `${round} · ${m.matchup_key}`;
+          ballot.appendChild(head);
+          for (const c of (m.candidates || [])) ballot.appendChild(nomineeCard(c, { showVote: true }));
+        }
+        return;
+      }
+      for (const n of list) ballot.appendChild(nomineeCard(n, { showVote: true }));
+    }
+
+    async function loadResults() {
+      const data = await apiGet("/api/results");
+      const list = data.results || [];
+      const matchups = data.matchups || [];
+      const box = el("results");
+      box.innerHTML = "";
+      if (!list.length && !matchups.length) {
+        box.innerHTML = '<div class="muted">No votes recorded yet.</div>';
+        return;
+      }
+      if (matchups.length) {
+        const round = data.round ? `${data.round.name}` : "Playoffs";
+        for (const m of matchups) {
+          const head = document.createElement("div");
+          head.className = "meta";
+          head.style.gridColumn = "1 / -1";
+          const winner = (m.candidates || []).find(c => c.id === m.winner_nominee_id);
+          head.textContent = `${round} · ${m.matchup_key}${winner ? ` · Winner: ${winner.display_name}` : ""}`;
+          box.appendChild(head);
+          for (const c of (m.candidates || [])) box.appendChild(nomineeCard(c, { showVote: false }));
+        }
+        return;
+      }
+      for (const n of list) box.appendChild(nomineeCard(n, { showVote: false }));
+    }
+
+    function setNomState({ msg = "", err = "", busy = false } = {}) {
+      el("nomMsg").textContent = msg;
+      el("nomErr").textContent = err;
+      el("nomBtn").disabled = busy;
+    }
+
+    async function onNomSubmit(evt) {
+      evt.preventDefault();
+      setNomState({ msg: "Submitting…", err: "", busy: true });
+      try {
+        await apiPost("/api/nominations", {
+          display_name: el("displayName").value,
+          genre_id: el("genre").value,
+          primary_url: el("primaryUrl").value,
+          image_url: el("imageUrl").value,
+          notes: el("notes").value,
+          attestation_adult: el("attAdult").checked,
+          attestation_respectful: el("attRespectful").checked
+        });
+        setNomState({ msg: "Submitted for review.", err: "", busy: false });
+        el("nomForm").reset();
+      } catch (e) {
+        setNomState({ msg: "", err: e.message, busy: false });
+      }
+    }
+
+    async function boot() {
+      el("refreshBtn").addEventListener("click", async () => {
+        el("voteErr").textContent = "";
+        el("voteMsg").textContent = "Refreshing…";
+        try {
+          await loadWeek();
+          await loadBallot();
+          await loadBotd();
+          await loadResults();
+          el("voteMsg").textContent = "";
+        } catch (e) {
+          el("voteErr").textContent = e.message;
+          el("voteMsg").textContent = "";
+        }
+      });
+      el("nomForm").addEventListener("submit", onNomSubmit);
+
+      try {
+        await loadConfig();
+        await loadWeek();
+        await loadBallot();
+        await loadBotd();
+        await loadResults();
+      } catch (e) {
+        el("voteErr").textContent = e.message;
+      }
+    }
+
+    boot();
+  </script>
+</body>
+</html>

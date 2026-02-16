@@ -1,22 +1,19 @@
-# MFL Production Package
+# MFL Development Package
 
-This is the cleaned production-ready project structure for UPS MFL operations.
+This is the active development workspace aligned to the production structure.
 
-## Top-Level Layout
-- `apps/mfl_site`: MFL header/footer and command-center bridge assets.
-- `pipelines/etl`: ETL scripts, configs, runtime inputs, and generated artifacts.
-- `services/rulebook`: rulebook API, embed UI, and rule dataset.
-- `docs`: lineage, runbooks, and release controls.
-- `scripts`: validation helpers for release checks.
+## What Is Included
+- Same clean layout as production (`apps`, `pipelines`, `services`, `docs`, `scripts`).
+- `legacy_snapshot/` with original pre-clean project copies:
+  - `legacy_snapshot/etl_original`
+  - `legacy_snapshot/mfl_original`
+  - `legacy_snapshot/rulebook_original`
 
-## Quick Start
-1. Set environment variables from `pipelines/etl/config/runtime.env.example`.
-2. Place ETL input files in `pipelines/etl/inputs`.
-3. Run ETL scripts from `pipelines/etl/scripts`.
-4. Start the rulebook API with:
-   - `python3 services/rulebook/api/rulebook_api.py --host 0.0.0.0 --port 8787 --cors-origin "*"`
+## Development Workflow
+1. Build and test changes in this folder.
+2. Run `scripts/validate_release.sh`.
+3. Promote only validated files into production.
 
-## Release Safety
-- Read `docs/OPERATIONS_RUNBOOK.md` before deployment.
-- Run `scripts/validate_release.sh` before promoting a build.
-- Keep runtime databases and output artifacts out of source control.
+## Purpose
+- `Development` is for iteration, migration, and backfills.
+- `Production` is for stable, deployable code and controlled runtime data.
