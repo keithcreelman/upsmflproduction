@@ -13,6 +13,15 @@
     return m ? m[1] : "25625";
   }
 
+  function detectSourceLeagueId(urlObj, scriptEl) {
+    const scriptPref = safeStr(scriptEl && scriptEl.getAttribute("data-standings-source-league-id"));
+    if (scriptPref) return scriptPref;
+    if (!urlObj) return "74598";
+    const q = safeStr(urlObj.searchParams.get("SOURCE_L") || urlObj.searchParams.get("DATA_L"));
+    if (q) return q;
+    return "74598";
+  }
+
   function detectYear(urlObj) {
     if (!urlObj) return "2026";
     const q = safeStr(urlObj.searchParams.get("YEAR"));
@@ -44,6 +53,7 @@
     }
   })();
   const L = detectLeagueId(hostUrl);
+  const SOURCE_L = detectSourceLeagueId(hostUrl, script);
   const YEAR = detectYear(hostUrl);
   const cacheKey = (function () {
     try {
@@ -74,6 +84,7 @@
 
   const src = new URL(scriptBaseHtml(script && script.src ? script.src : ""), window.location.href);
   src.searchParams.set("L", L);
+  src.searchParams.set("SOURCE_L", SOURCE_L);
   src.searchParams.set("YEAR", YEAR);
   if (cacheKey) src.searchParams.set("v", cacheKey);
   iframe.src = src.toString();

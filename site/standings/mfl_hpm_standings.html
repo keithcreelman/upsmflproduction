@@ -251,10 +251,12 @@
 
       const u = new URL(window.location.href);
       const L = safe(u.searchParams.get("L") || "25625");
+      const SOURCE_L = safe(u.searchParams.get("SOURCE_L") || u.searchParams.get("DATA_L") || "74598");
       const YEAR = Number(safe(u.searchParams.get("YEAR") || "2026")) || 2026;
 
       const state = {
         leagueId: L,
+        sourceLeagueId: SOURCE_L,
         season: YEAR,
         requestedSeason: YEAR,
         rows: [],
@@ -315,11 +317,16 @@
         });
       }
 
-      async function fetchSeasonSnapshot(leagueId, year) {
-        const candidates = [
-          `./standings_${leagueId}_${year}.json`,
-          `./standings_25625_${year}.json`,
-        ];
+      async function fetchSeasonSnapshot(sourceLeagueId, hostLeagueId, year) {
+        const candidateLeagueIds = Array.from(
+          new Set([
+            safe(sourceLeagueId),
+            safe(hostLeagueId),
+            "74598",
+            "25625",
+          ].filter(Boolean))
+        );
+        const candidates = candidateLeagueIds.map((leagueId) => `./standings_${leagueId}_${year}.json`);
         for (const path of candidates) {
           try {
             const res = await fetch(path, { cache: "no-store" });
@@ -333,10 +340,10 @@
 
       async function loadSeason(year, allowFallback) {
         const y = Number(year) || YEAR;
-        let payload = await fetchSeasonSnapshot(state.leagueId, y);
+        let payload = await fetchSeasonSnapshot(state.sourceLeagueId, state.leagueId, y);
         let loadedYear = y;
         if (!payload && allowFallback) {
-          payload = await fetchSeasonSnapshot(state.leagueId, y - 1);
+          payload = await fetchSeasonSnapshot(state.sourceLeagueId, state.leagueId, y - 1);
           loadedYear = y - 1;
         }
         if (!payload) {
@@ -349,7 +356,7 @@
 
         let rows = normalizeRows(payload && payload.rows);
         if (allowFallback && !hasPlayedGames(rows)) {
-          const fallback = await fetchSeasonSnapshot(state.leagueId, y - 1);
+          const fallback = await fetchSeasonSnapshot(state.sourceLeagueId, state.leagueId, y - 1);
           const fallbackRows = normalizeRows(fallback && fallback.rows);
           if (fallback && hasPlayedGames(fallbackRows)) {
             payload = fallback;
@@ -696,7 +703,7 @@
 
       function renderMeta() {
         const m = state.meta || {};
-        $("#metaLine").textContent = `L ${safe(m.league_id || state.leagueId)} | Season ${safe(m.season || state.season)} | Updated ${safe(m.generated_at_utc || "")}`;
+        $("#metaLine").textContent = `L ${safe(m.league_id || state.sourceLeagueId || state.leagueId)} | Season ${safe(m.season || state.season)} | Updated ${safe(m.generated_at_utc || "")}`;
       }
 
       function render() {

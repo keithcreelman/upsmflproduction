@@ -30,6 +30,8 @@ python3 "$SCRIPT_DIR/build_roster_rollforward_csv.py" --db-path "$MFL_DB_PATH" -
 python3 "$SCRIPT_DIR/build_roster_import_xml.py" --in-csv "$MFL_ETL_ARTIFACT_DIR/mfl_roster_import_2026.csv" --season 2026 --db-path "$MFL_DB_PATH" --salaries-out "$MFL_ETL_ARTIFACT_DIR/mfl_roster_import_2026_salaries.xml" --rosters-out "$MFL_ETL_ARTIFACT_DIR/mfl_roster_overlay_2026.xml"
 python3 "$SCRIPT_DIR/build_standings_snapshot.py" --league-id 25625 --season 2025 --out "$ROOT_DIR/site/standings/standings_25625_2025.json"
 python3 "$SCRIPT_DIR/build_standings_snapshot.py" --league-id 25625 --season 2026 --out "$ROOT_DIR/site/standings/standings_25625_2026.json"
+python3 "$SCRIPT_DIR/build_standings_snapshot.py" --league-id 74598 --season 2025 --out "$ROOT_DIR/site/standings/standings_74598_2025.json"
+python3 "$SCRIPT_DIR/build_standings_snapshot.py" --league-id 74598 --season 2026 --out "$ROOT_DIR/site/standings/standings_74598_2026.json"
 python3 "$SCRIPT_DIR/build_player_points_history_json.py" --db-path "$MFL_DB_PATH" --target-season 2026 --years-back 3 --out-path "$ROOT_DIR/site/ccc/player_points_history.json"
 python3 "$SCRIPT_DIR/build_tag_submissions_json.py" --db-path "$MFL_DB_PATH" --out-path "$ROOT_DIR/site/ccc/tag_submissions.json"
 python3 "$SCRIPT_DIR/build_restructure_submissions_json.py" --db-path "$MFL_DB_PATH" --out-path "$ROOT_DIR/site/ccc/restructure_submissions.json"
