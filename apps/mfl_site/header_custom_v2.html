@@ -48,7 +48,7 @@
       try {
         var el = document.createElement("div");
         el.id = "upsDebugBadge";
-        el.textContent = "UPS header build: 2026.02.16.13";
+        el.textContent = "UPS header build: 2026.02.16.14";
         el.style.cssText =
           "position:fixed;right:10px;bottom:10px;z-index:999999;" +
           "padding:6px 10px;border-radius:999px;" +
@@ -1483,7 +1483,16 @@
       var host = window.baseURLStatic || window.baseURLDynamic || "https://www48.myfantasyleague.com";
       var lid = String(window.league_id || "").trim();
       var yr = parseInt(String(window.year || ""), 10);
-      if (!lid || !yr) return [];
+      if (!yr) return [];
+      var leagueIds = [];
+      function addLeagueId(v) {
+        var s = String(v || "").replace(/\D/g, "");
+        if (!s || leagueIds.indexOf(s) !== -1) return;
+        leagueIds.push(s);
+      }
+      addLeagueId(lid);
+      addLeagueId("74598");
+      if (!leagueIds.length) return [];
       var out = [];
       var seen = {};
       function push(url) {
@@ -1500,16 +1509,17 @@
         if (rec && isHttpUrl(rec.icon)) push(rec.icon);
         if (rec && isHttpUrl(rec.logo)) push(rec.logo);
       } catch (e) {}
-      var bases = [
-        host + "/fflnetdynamic" + yr + "/" + lid + "_franchise_icon" + fid,
-        host + "/fflnetdynamic" + (yr - 1) + "/" + lid + "_franchise_icon" + fid,
-        host + "/fflnetdynamic2025/" + lid + "_franchise_icon" + fid,
-        host + "/fflnetdynamic2019/" + lid + "_franchise_icon" + fid,
-        host + "/fflnetdynamic" + yr + "/" + lid + "_franchise_logo" + fid,
-        host + "/fflnetdynamic" + (yr - 1) + "/" + lid + "_franchise_logo" + fid,
-        host + "/fflnetdynamic2025/" + lid + "_franchise_logo" + fid,
-        host + "/fflnetdynamic2019/" + lid + "_franchise_logo" + fid
-      ];
+      var bases = [];
+      leagueIds.forEach(function (curLid) {
+        bases.push(host + "/fflnetdynamic" + yr + "/" + curLid + "_franchise_icon" + fid);
+        bases.push(host + "/fflnetdynamic" + (yr - 1) + "/" + curLid + "_franchise_icon" + fid);
+        bases.push(host + "/fflnetdynamic2025/" + curLid + "_franchise_icon" + fid);
+        bases.push(host + "/fflnetdynamic2019/" + curLid + "_franchise_icon" + fid);
+        bases.push(host + "/fflnetdynamic" + yr + "/" + curLid + "_franchise_logo" + fid);
+        bases.push(host + "/fflnetdynamic" + (yr - 1) + "/" + curLid + "_franchise_logo" + fid);
+        bases.push(host + "/fflnetdynamic2025/" + curLid + "_franchise_logo" + fid);
+        bases.push(host + "/fflnetdynamic2019/" + curLid + "_franchise_logo" + fid);
+      });
       bases.forEach(function (b) {
         push(b + ".png");
         push(b + ".jpg");
@@ -1611,6 +1621,15 @@
       return v === null || v === undefined ? "" : String(v).trim();
     }
 
+    function htmlEsc(v) {
+      return safeStr(v)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
     function pad4(v) {
       var d = safeStr(v).replace(/\D/g, "");
       return d ? d.padStart(4, "0").slice(-4) : "";
@@ -1657,7 +1676,16 @@
       var host = window.baseURLStatic || window.baseURLDynamic || "https://www48.myfantasyleague.com";
       var lid = safeStr(window.league_id || "");
       var yr = parseInt(safeStr(window.year || ""), 10);
-      if (!lid || !yr) return [];
+      if (!yr) return [];
+      var leagueIds = [];
+      function addLeagueId(v) {
+        var s = safeStr(v).replace(/\D/g, "");
+        if (!s || leagueIds.indexOf(s) !== -1) return;
+        leagueIds.push(s);
+      }
+      addLeagueId(lid);
+      addLeagueId("74598");
+      if (!leagueIds.length) return [];
       var out = [];
       var seen = {};
       function push(url) {
@@ -1672,16 +1700,17 @@
         if (rec && isHttpUrl(rec.icon)) push(rec.icon);
         if (rec && isHttpUrl(rec.logo)) push(rec.logo);
       } catch (e) {}
-      var bases = [
-        host + "/fflnetdynamic" + yr + "/" + lid + "_franchise_icon" + fid,
-        host + "/fflnetdynamic" + (yr - 1) + "/" + lid + "_franchise_icon" + fid,
-        host + "/fflnetdynamic2025/" + lid + "_franchise_icon" + fid,
-        host + "/fflnetdynamic2019/" + lid + "_franchise_icon" + fid,
-        host + "/fflnetdynamic" + yr + "/" + lid + "_franchise_logo" + fid,
-        host + "/fflnetdynamic" + (yr - 1) + "/" + lid + "_franchise_logo" + fid,
-        host + "/fflnetdynamic2025/" + lid + "_franchise_logo" + fid,
-        host + "/fflnetdynamic2019/" + lid + "_franchise_logo" + fid
-      ];
+      var bases = [];
+      leagueIds.forEach(function (curLid) {
+        bases.push(host + "/fflnetdynamic" + yr + "/" + curLid + "_franchise_icon" + fid);
+        bases.push(host + "/fflnetdynamic" + (yr - 1) + "/" + curLid + "_franchise_icon" + fid);
+        bases.push(host + "/fflnetdynamic2025/" + curLid + "_franchise_icon" + fid);
+        bases.push(host + "/fflnetdynamic2019/" + curLid + "_franchise_icon" + fid);
+        bases.push(host + "/fflnetdynamic" + yr + "/" + curLid + "_franchise_logo" + fid);
+        bases.push(host + "/fflnetdynamic" + (yr - 1) + "/" + curLid + "_franchise_logo" + fid);
+        bases.push(host + "/fflnetdynamic2025/" + curLid + "_franchise_logo" + fid);
+        bases.push(host + "/fflnetdynamic2019/" + curLid + "_franchise_logo" + fid);
+      });
       bases.forEach(function (b) {
         push(b + ".png");
         push(b + ".jpg");
@@ -1787,6 +1816,498 @@
         applyRosterFranchiseHeaders();
       });
       observer.observe(root, { childList: true, subtree: true });
+    }
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", init);
+    } else {
+      init();
+    }
+  })();
+</script>
+
+<script>
+  // Standings page: replace busy default grid with compact views + franchise icons.
+  (function () {
+    function safeStr(v) {
+      return v === null || v === undefined ? "" : String(v).trim();
+    }
+
+    function htmlEsc(v) {
+      return safeStr(v)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
+    function pad4(v) {
+      var d = safeStr(v).replace(/\D/g, "");
+      return d ? d.padStart(4, "0").slice(-4) : "";
+    }
+
+    function moduleFromUrl() {
+      try {
+        var u = new URL(window.location.href);
+        return safeStr(u.searchParams.get("MODULE")).toLowerCase();
+      } catch (e) {
+        return "";
+      }
+    }
+
+    function isStandingsPage() {
+      var mod = moduleFromUrl();
+      if (mod === "standings") return true;
+      var bodyId = safeStr(document.body && document.body.id).toLowerCase();
+      if (bodyId.indexOf("standings") !== -1) return true;
+      return false;
+    }
+
+    function isHttpUrl(v) {
+      var s = safeStr(v);
+      return s.indexOf("http://") === 0 || s.indexOf("https://") === 0;
+    }
+
+    function normalizeHeader(t) {
+      return safeStr(t)
+        .toLowerCase()
+        .replace(/&nbsp;/g, " ")
+        .replace(/[^a-z0-9%]+/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+    }
+
+    function parseNumber(txt) {
+      var m = safeStr(txt).replace(/,/g, "").match(/-?\d+(?:\.\d+)?/);
+      return m ? Number(m[0]) : null;
+    }
+
+    function parseWltText(txt) {
+      var m = safeStr(txt).match(/(\d+)\s*[-/]\s*(\d+)\s*[-/]\s*(\d+)/);
+      if (!m) return null;
+      return { w: Number(m[1]), l: Number(m[2]), t: Number(m[3]) };
+    }
+
+    function pctFromWlt(wlt) {
+      if (!wlt) return null;
+      var g = Number(wlt.w || 0) + Number(wlt.l || 0) + Number(wlt.t || 0);
+      if (!g) return null;
+      return (Number(wlt.w || 0) + Number(wlt.t || 0) * 0.5) / g;
+    }
+
+    function fmtWlt(wlt) {
+      if (!wlt) return " - ";
+      return [wlt.w, wlt.l, wlt.t].join("-");
+    }
+
+    function fmtPct(v) {
+      if (v === null || v === undefined || isNaN(Number(v))) return " - ";
+      return Number(v).toFixed(3);
+    }
+
+    function findIndexByRegex(headersNorm, regexes, used) {
+      for (var r = 0; r < regexes.length; r += 1) {
+        var re = regexes[r];
+        for (var i = 0; i < headersNorm.length; i += 1) {
+          if (used && used[i]) continue;
+          if (re.test(headersNorm[i])) return i;
+        }
+      }
+      return -1;
+    }
+
+    function findStandingsTable() {
+      var candidates = Array.from(
+        document.querySelectorAll(
+          "#container-wrap table.report, #container-wrap .report table, table.report"
+        )
+      );
+      for (var i = 0; i < candidates.length; i += 1) {
+        var t = candidates[i];
+        var headers = Array.from(t.querySelectorAll("thead th, tr:first-child th, tr:first-child td"))
+          .map(function (el) {
+            return normalizeHeader(el.textContent || "");
+          })
+          .filter(Boolean)
+          .join(" | ");
+        if (!headers) continue;
+        if (/franchise|team/.test(headers) && (/all play|division|overall|points/.test(headers))) {
+          return t;
+        }
+      }
+      return candidates[0] || null;
+    }
+
+    function buildColumnMap(headers) {
+      var used = {};
+      var c = {};
+      c.team = findIndexByRegex(headers, [/^franchise$/, /^team$/, /franchise|team/], used);
+      if (c.team >= 0) used[c.team] = 1;
+
+      c.allplayCombined = findIndexByRegex(headers, [/all ?play.*w.*l.*t/, /all ?play/], used);
+      if (c.allplayCombined >= 0) used[c.allplayCombined] = 1;
+      c.divCombined = findIndexByRegex(headers, [/div.*w.*l.*t/, /division.*w.*l.*t/, /divisional/], used);
+      if (c.divCombined >= 0) used[c.divCombined] = 1;
+      c.overallCombined = findIndexByRegex(headers, [/overall.*w.*l.*t/, /^record$/, /w l t/], used);
+      if (c.overallCombined >= 0) used[c.overallCombined] = 1;
+
+      c.allplayW = findIndexByRegex(headers, [/all ?play.*\bw\b/, /^ap w$/, /^apw$/], used);
+      if (c.allplayW >= 0) used[c.allplayW] = 1;
+      c.allplayL = findIndexByRegex(headers, [/all ?play.*\bl\b/, /^ap l$/, /^apl$/], used);
+      if (c.allplayL >= 0) used[c.allplayL] = 1;
+      c.allplayT = findIndexByRegex(headers, [/all ?play.*\bt\b/, /^ap t$/, /^apt$/], used);
+      if (c.allplayT >= 0) used[c.allplayT] = 1;
+
+      c.divW = findIndexByRegex(headers, [/div.*\bw\b/, /^dw$/], used);
+      if (c.divW >= 0) used[c.divW] = 1;
+      c.divL = findIndexByRegex(headers, [/div.*\bl\b/, /^dl$/], used);
+      if (c.divL >= 0) used[c.divL] = 1;
+      c.divT = findIndexByRegex(headers, [/div.*\bt\b/, /^dt$/], used);
+      if (c.divT >= 0) used[c.divT] = 1;
+
+      c.overallW = findIndexByRegex(headers, [/^w$/, /^wins$/], used);
+      if (c.overallW >= 0) used[c.overallW] = 1;
+      c.overallL = findIndexByRegex(headers, [/^l$/, /^losses$/], used);
+      if (c.overallL >= 0) used[c.overallL] = 1;
+      c.overallT = findIndexByRegex(headers, [/^t$/, /^ties$/], used);
+      if (c.overallT >= 0) used[c.overallT] = 1;
+
+      c.allplayPct = findIndexByRegex(headers, [/all ?play.*(%|pct)/, /^ap pct$/, /^appct$/], null);
+      c.overallPct = findIndexByRegex(headers, [/overall.*(%|pct)/, /^pct$/, /^win %$/, /^win pct$/], null);
+      c.divPct = findIndexByRegex(headers, [/div.*(%|pct)/], null);
+
+      c.pointsFor = findIndexByRegex(headers, [/^pf$/, /points for/, /pts for/], null);
+      c.offPoints = findIndexByRegex(headers, [/off.*points/, /off points/, /off pts/], null);
+      c.defPoints = findIndexByRegex(headers, [/def.*points/, /def points/, /def pts/], null);
+      c.potential = findIndexByRegex(headers, [/potential points/, /pot points/, /^pp$/], null);
+      c.efficiency = findIndexByRegex(headers, [/efficiency/, /eff rating/, /^eff$/], null);
+      return c;
+    }
+
+    function readCell(row, idx) {
+      if (!row || idx < 0 || !row.cells || idx >= row.cells.length) return "";
+      return safeStr(row.cells[idx].textContent || "");
+    }
+
+    function extractFranchise(row, teamIdx) {
+      var teamCell = teamIdx >= 0 && row.cells && row.cells[teamIdx] ? row.cells[teamIdx] : row.cells[0];
+      if (!teamCell) return { id: "", name: "" };
+      var link = teamCell.querySelector("a");
+      var text = safeStr(teamCell.textContent || "");
+      var fid = "";
+      if (link) {
+        var cls = safeStr(link.className);
+        var mCls = cls.match(/franchise_(\d{1,4})/i);
+        if (mCls) fid = pad4(mCls[1]);
+        if (!fid) {
+          var href = safeStr(link.getAttribute("href"));
+          var mHref = href.match(/[?&](?:FRANCHISE_ID|FRANCHISE|F)=([0-9]{1,4})/i);
+          if (mHref) fid = pad4(mHref[1]);
+        }
+      }
+      return { id: fid, name: text };
+    }
+
+    function candidateIconUrls(fid) {
+      if (!fid) return [];
+      var host = window.baseURLStatic || window.baseURLDynamic || "https://www48.myfantasyleague.com";
+      var lid = safeStr(window.league_id || "");
+      var yr = parseInt(safeStr(window.year || ""), 10);
+      if (!yr) return [];
+      var leagueIds = [];
+      function addLeagueId(v) {
+        var s = safeStr(v).replace(/\D/g, "");
+        if (!s || leagueIds.indexOf(s) !== -1) return;
+        leagueIds.push(s);
+      }
+      addLeagueId(lid);
+      addLeagueId("74598");
+      if (!leagueIds.length) return [];
+      var out = [];
+      var seen = {};
+      function push(url) {
+        var s = safeStr(url).replace(/^http:\/\//i, "https://");
+        if (!s || seen[s]) return;
+        seen[s] = 1;
+        out.push(s);
+      }
+      try {
+        var key = "fid_" + fid;
+        var rec = window.franchiseDatabase && window.franchiseDatabase[key];
+        if (rec && isHttpUrl(rec.icon)) push(rec.icon);
+        if (rec && isHttpUrl(rec.logo)) push(rec.logo);
+      } catch (e) {}
+      leagueIds.forEach(function (curLid) {
+        [
+          host + "/fflnetdynamic" + yr + "/" + curLid + "_franchise_icon" + fid,
+          host + "/fflnetdynamic" + (yr - 1) + "/" + curLid + "_franchise_icon" + fid,
+          host + "/fflnetdynamic2025/" + curLid + "_franchise_icon" + fid,
+          host + "/fflnetdynamic2019/" + curLid + "_franchise_icon" + fid,
+          host + "/fflnetdynamic" + yr + "/" + curLid + "_franchise_logo" + fid,
+          host + "/fflnetdynamic" + (yr - 1) + "/" + curLid + "_franchise_logo" + fid,
+          host + "/fflnetdynamic2025/" + curLid + "_franchise_logo" + fid,
+          host + "/fflnetdynamic2019/" + curLid + "_franchise_logo" + fid
+        ].forEach(function (base) {
+          push(base + ".png");
+          push(base + ".jpg");
+          push(base + ".jpeg");
+          push(base + ".gif");
+        });
+      });
+      return out;
+    }
+
+    function setIconWithFallback(img, urls) {
+      var list = Array.isArray(urls) ? urls.filter(Boolean) : [];
+      if (!img || !list.length) {
+        if (img) img.style.display = "none";
+        return;
+      }
+      var i = 0;
+      function next() {
+        if (i >= list.length) {
+          img.style.display = "none";
+          img.removeAttribute("src");
+          return;
+        }
+        img.style.display = "";
+        img.src = list[i];
+        i += 1;
+      }
+      img.onload = function () {
+        img.style.display = "";
+      };
+      img.onerror = function () {
+        next();
+      };
+      next();
+    }
+
+    function buildRowData(row, map) {
+      var fr = extractFranchise(row, map.team);
+      if (!fr.name) return null;
+
+      var allplay = parseWltText(readCell(row, map.allplayCombined));
+      if (!allplay && map.allplayW >= 0 && map.allplayL >= 0 && map.allplayT >= 0) {
+        allplay = {
+          w: Number(parseNumber(readCell(row, map.allplayW)) || 0),
+          l: Number(parseNumber(readCell(row, map.allplayL)) || 0),
+          t: Number(parseNumber(readCell(row, map.allplayT)) || 0)
+        };
+      }
+
+      var overall = parseWltText(readCell(row, map.overallCombined));
+      if (!overall && map.overallW >= 0 && map.overallL >= 0 && map.overallT >= 0) {
+        overall = {
+          w: Number(parseNumber(readCell(row, map.overallW)) || 0),
+          l: Number(parseNumber(readCell(row, map.overallL)) || 0),
+          t: Number(parseNumber(readCell(row, map.overallT)) || 0)
+        };
+      }
+
+      var div = parseWltText(readCell(row, map.divCombined));
+      if (!div && map.divW >= 0 && map.divL >= 0 && map.divT >= 0) {
+        div = {
+          w: Number(parseNumber(readCell(row, map.divW)) || 0),
+          l: Number(parseNumber(readCell(row, map.divL)) || 0),
+          t: Number(parseNumber(readCell(row, map.divT)) || 0)
+        };
+      }
+
+      var allPct = parseNumber(readCell(row, map.allplayPct));
+      if (allPct !== null && allPct > 1) allPct = allPct / 100;
+      if (allPct === null) allPct = pctFromWlt(allplay);
+
+      var ovPct = parseNumber(readCell(row, map.overallPct));
+      if (ovPct !== null && ovPct > 1) ovPct = ovPct / 100;
+      if (ovPct === null) ovPct = pctFromWlt(overall);
+
+      var divPct = parseNumber(readCell(row, map.divPct));
+      if (divPct !== null && divPct > 1) divPct = divPct / 100;
+      if (divPct === null) divPct = pctFromWlt(div);
+
+      return {
+        franchiseId: fr.id,
+        franchiseName: fr.name,
+        allplay: allplay,
+        overall: overall,
+        div: div,
+        allPct: allPct,
+        overallPct: ovPct,
+        divPct: divPct,
+        pointsFor: parseNumber(readCell(row, map.pointsFor)),
+        offPoints: parseNumber(readCell(row, map.offPoints)),
+        defPoints: parseNumber(readCell(row, map.defPoints)),
+        potential: parseNumber(readCell(row, map.potential)),
+        efficiency: parseNumber(readCell(row, map.efficiency))
+      };
+    }
+
+    function buildRows(table, map) {
+      var trs = Array.from(table.querySelectorAll("tbody tr"));
+      if (!trs.length) trs = Array.from(table.querySelectorAll("tr")).slice(1);
+      var out = [];
+      trs.forEach(function (tr) {
+        var rec = buildRowData(tr, map);
+        if (!rec || !rec.franchiseName) return;
+        if (/totals?|average/i.test(rec.franchiseName)) return;
+        out.push(rec);
+      });
+      return out;
+    }
+
+    function formatMetric(v) {
+      if (v === null || v === undefined || isNaN(Number(v))) return " - ";
+      var n = Number(v);
+      return Number.isInteger(n) ? n.toLocaleString() : n.toFixed(1);
+    }
+
+    function renderCompact(wrapper, rows, view) {
+      var isRecords = view === "records";
+      var isPct = view === "pct";
+      var isPoints = view === "points";
+      var head = isRecords
+        ? "<th>All Play</th><th>Overall</th><th>Divisional</th>"
+        : isPct
+        ? "<th>All Play %</th><th>Overall %</th><th>Divisional %</th>"
+        : "<th>PF</th><th>Off Pts</th><th>Def Pts</th><th>Potential</th><th>Efficiency</th>";
+
+      var body = rows
+        .map(function (r) {
+          var extra = isRecords
+            ? "<td>" +
+              fmtWlt(r.allplay) +
+              "</td><td>" +
+              fmtWlt(r.overall) +
+              "</td><td>" +
+              fmtWlt(r.div) +
+              "</td>"
+            : isPct
+            ? "<td>" +
+              fmtPct(r.allPct) +
+              "</td><td>" +
+              fmtPct(r.overallPct) +
+              "</td><td>" +
+              fmtPct(r.divPct) +
+              "</td>"
+            : "<td>" +
+              formatMetric(r.pointsFor) +
+              "</td><td>" +
+              formatMetric(r.offPoints) +
+              "</td><td>" +
+              formatMetric(r.defPoints) +
+              "</td><td>" +
+              formatMetric(r.potential) +
+              "</td><td>" +
+              formatMetric(r.efficiency) +
+              "</td>";
+
+          var rowHtml =
+            '<tr><td><div class="ups-standings-franchise"><img class="ups-standings-icon" alt="" data-fid="' +
+            htmlEsc(r.franchiseId || "") +
+            '" /><span class="ups-standings-name">' +
+            htmlEsc(r.franchiseName) +
+            "</span></div></td>" +
+            extra +
+            "</tr>";
+          return rowHtml;
+        })
+        .join("");
+
+      wrapper.querySelector(".ups-standings-table").innerHTML =
+        "<thead><tr><th>Franchise</th>" +
+        head +
+        "</tr></thead><tbody>" +
+        body +
+        "</tbody>";
+
+      Array.from(wrapper.querySelectorAll(".ups-standings-toggle")).forEach(function (btn) {
+        var v = safeStr(btn.getAttribute("data-view") || "");
+        btn.classList.toggle("is-active", v === view);
+      });
+
+      Array.from(wrapper.querySelectorAll(".ups-standings-icon")).forEach(function (img) {
+        var fid = pad4(img.getAttribute("data-fid"));
+        if (!fid) {
+          img.style.display = "none";
+          return;
+        }
+        setIconWithFallback(img, candidateIconUrls(fid));
+      });
+    }
+
+    function initCompactStandings() {
+      if (!isStandingsPage()) return;
+      var table = findStandingsTable();
+      if (!table) return;
+      if (table.dataset.upsStandingsDone === "1") return;
+
+      var headers = Array.from(table.querySelectorAll("thead th, tr:first-child th, tr:first-child td"))
+        .map(function (el) {
+          return normalizeHeader(el.textContent || "");
+        });
+      if (!headers.length) return;
+      var map = buildColumnMap(headers);
+      var rows = buildRows(table, map);
+      if (rows.length < 2) return;
+
+      var existing = document.getElementById("ups-standings-compact");
+      if (existing) existing.remove();
+
+      var wrapper = document.createElement("section");
+      wrapper.id = "ups-standings-compact";
+      wrapper.innerHTML =
+        '<div class="ups-standings-header">' +
+        '<div class="ups-standings-title">Standings Snapshot</div>' +
+        '<div class="ups-standings-controls">' +
+        '<button type="button" class="ups-standings-toggle" data-view="records">W-L-T</button>' +
+        '<button type="button" class="ups-standings-toggle" data-view="pct">Percentages</button>' +
+        '<button type="button" class="ups-standings-toggle" data-view="points">Points</button>' +
+        "</div></div>" +
+        '<div class="ups-standings-table-wrap"><table class="ups-standings-table"></table></div>';
+
+      var report = table.closest(".report, .homepagemodule.report") || table;
+      report.parentNode.insertBefore(wrapper, report);
+
+      var view = "records";
+      try {
+        var saved = sessionStorage.getItem("ups_standings_view");
+        if (saved === "records" || saved === "pct" || saved === "points") view = saved;
+      } catch (e) {}
+      renderCompact(wrapper, rows, view);
+
+      wrapper.addEventListener("click", function (e) {
+        var btn = e.target && e.target.closest ? e.target.closest(".ups-standings-toggle") : null;
+        if (!btn) return;
+        var next = safeStr(btn.getAttribute("data-view") || "records");
+        renderCompact(wrapper, rows, next);
+        try {
+          sessionStorage.setItem("ups_standings_view", next);
+        } catch (err) {}
+      });
+
+      report.style.display = "none";
+      table.dataset.upsStandingsDone = "1";
+    }
+
+    function init() {
+      if (!isStandingsPage()) return;
+      var attempts = 0;
+      var timer = setInterval(function () {
+        attempts += 1;
+        initCompactStandings();
+        if (attempts >= 25) clearInterval(timer);
+      }, 250);
+      if (window.MutationObserver) {
+        var root = document.getElementById("container-wrap") || document.body;
+        if (root) {
+          var obs = new MutationObserver(function () {
+            initCompactStandings();
+          });
+          obs.observe(root, { childList: true, subtree: true });
+        }
+      }
     }
 
     if (document.readyState === "loading") {
@@ -2548,6 +3069,117 @@
   #container-wrap table td,
   #container-wrap table th {
     font-weight: 700 !important;
+  }
+
+  #ups-standings-compact {
+    width: min(76rem, calc(100% - 1.25rem));
+    margin: 0.7rem auto 0.9rem;
+    border: 1px solid var(--ups-border);
+    border-radius: 12px;
+    background: linear-gradient(180deg, rgba(11, 21, 38, 0.95), rgba(15, 29, 51, 0.94));
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.34);
+    overflow: hidden;
+  }
+
+  #ups-standings-compact .ups-standings-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.58rem 0.72rem;
+    border-bottom: 1px solid var(--ups-border);
+    background: rgba(8, 17, 32, 0.65);
+  }
+
+  #ups-standings-compact .ups-standings-title {
+    color: var(--ups-text);
+    font-weight: 900;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    font-size: 0.78rem;
+  }
+
+  #ups-standings-compact .ups-standings-controls {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 0.34rem;
+  }
+
+  #ups-standings-compact .ups-standings-toggle {
+    border: 1px solid #7f97bd;
+    border-radius: 999px;
+    background: rgba(26, 52, 92, 0.85);
+    color: var(--ups-text);
+    font-weight: 800;
+    font-size: 0.72rem;
+    padding: 0.3rem 0.58rem;
+    cursor: pointer;
+  }
+
+  #ups-standings-compact .ups-standings-toggle.is-active {
+    background: var(--ups-accent);
+    border-color: #cf9f41;
+    color: var(--ups-accent-ink);
+  }
+
+  #ups-standings-compact .ups-standings-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  #ups-standings-compact .ups-standings-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 660px;
+  }
+
+  #ups-standings-compact .ups-standings-table th,
+  #ups-standings-compact .ups-standings-table td {
+    border: 1px solid var(--ups-td-border);
+    padding: 0.42rem 0.5rem;
+    color: var(--ups-text);
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  #ups-standings-compact .ups-standings-table th {
+    background: var(--ups-th-bg);
+    font-weight: 900;
+    letter-spacing: 0.02em;
+  }
+
+  #ups-standings-compact .ups-standings-table td:first-child,
+  #ups-standings-compact .ups-standings-table th:first-child {
+    text-align: left;
+  }
+
+  #ups-standings-compact .ups-standings-franchise {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.44rem;
+  }
+
+  #ups-standings-compact .ups-standings-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 6px;
+    object-fit: cover;
+    border: 1px solid rgba(255, 255, 255, 0.24);
+    background: rgba(6, 10, 18, 0.7);
+  }
+
+  #ups-standings-compact .ups-standings-name {
+    font-weight: 800;
+  }
+
+  @media (max-width: 760px) {
+    #ups-standings-compact {
+      margin: 0.55rem auto 0.8rem;
+    }
+    #ups-standings-compact .ups-standings-header {
+      flex-direction: column;
+      align-items: flex-start;
+    }
   }
 
   #container-wrap input[type="text"],

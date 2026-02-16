@@ -71,7 +71,7 @@
   // Fallbacks if page URL lacks ?L= or YEAR=
   const DEFAULT_LEAGUE_ID = "74598";
   const DEFAULT_YEAR = "2026";
-  const APP_VERSION = "v0.9.0-dev";
+  const APP_VERSION = "v0.9.1-dev";
   const COMMISH_FRANCHISE_ID = "0008";
   const FORCE_SEASON_ROLLOVER = true;
 
@@ -788,6 +788,34 @@
     return [];
   }
 
+  function deriveHistoricalRestructureSubmissions(rows) {
+    const seen = new Set();
+    const out = [];
+    (rows || []).forEach((raw) => {
+      const r = normalizeSubmissionRow(raw);
+      const marker = `${safeStr(r.contract_status)} ${safeStr(r.contract_info)} ${safeStr(
+        r.source
+      )}`.toLowerCase();
+      if (!/restructure|restructured/.test(marker)) return;
+      const key = [
+        normalizeSeasonValue(r.season),
+        pad4(r.franchise_id),
+        safeStr(r.player_id),
+        safeStr(r.submitted_at_utc),
+        safeStr(r.contract_info),
+      ].join("|");
+      if (!key || seen.has(key)) return;
+      seen.add(key);
+      out.push(r);
+    });
+    out.sort((a, b) => {
+      const ad = parseDate(a.submitted_at_utc) || new Date(0);
+      const bd = parseDate(b.submitted_at_utc) || new Date(0);
+      return bd - ad;
+    });
+    return out;
+  }
+
   function normalizeSubmissionRow(r) {
     return {
       submission_id: safeStr(r.submission_id || r.id),
@@ -1203,7 +1231,6 @@
   function canRestructureRow(row) {
     const years = safeInt(row.contract_year);
     if (years <= 1 || years > 3) return false;
-    if (safeInt(row.salary) <= 1000) return false;
     if (rookieLike(row.contract_status)) return false;
     return true;
   }
@@ -3165,38 +3192,60 @@
     };
   }
 
-  function projectExtensionRowForward(row) {
+  function replaceContractInfoAav(contractInfo, nextAav) {
+    const info = safeStr(contractInfo);
+    const aavVal = safeInt(nextAav);
+    if (!info || aavVal <= 0) return info;
+    if (/AAV\s+/i.test(info)) {
+      return info.replace(/AAV\s+[^|]+/i, `AAV ${formatK(aavVal)}`);
+    }
+    return info;
+  }
+
+  function projectContractRowForward(row) {
     if (!row) return null;
     const years = safeInt(row.contract_year);
     const expired = isExpiredRookieLike(row);
-    const rookie = rookieLike(row.contract_status);
-    if (years <= 0) return expired ? { ...row, contract_year: 0 } : null;
+    const rookie = rookieLike(row.contract_status) || rookieLike(row.mym_acq_type);
+    if (years <= 0) return expired || rookie ? { ...row, contract_year: 0 } : null;
     if (years === 1) {
       // 1-year veterans roll off. 1-year rookies become expired rookies (0) next season.
-      if (expired || rookie) return { ...row, contract_year: 0 };
+      if (expired || rookie) return { ...row, contract_year: 0, _rolled_forward: 1 };
       return null;
     }
 
     const parsed = parseContractAmounts(row.contract_info, years, safeInt(row.salary) || 1000);
-    const nextSalary = safeInt(parsed.y2 || row.salary);
+    const nextSalary = safeInt(parsed.y2 || parsed.y1 || row.salary);
+    const nextYears = Math.max(0, years - 1);
+    const nextAav = nextSalary > 0 ? nextSalary : safeInt(row.aav || row.salary);
     return {
       ...row,
-      contract_year: Math.max(0, years - 1),
+      contract_year: nextYears,
       salary: nextSalary > 0 ? nextSalary : safeInt(row.salary),
+      aav: nextAav,
+      contract_info: replaceContractInfoAav(row.contract_info, nextAav),
       _rolled_forward: 1,
     };
   }
 
-  function projectExtensionRowsForSeason(rows, baseSeason, contractSeason) {
+  function projectContractRowsForSeason(rows, baseSeason, contractSeason) {
     const base = safeInt(normalizeSeasonValue(baseSeason));
     const contract = safeInt(normalizeSeasonValue(contractSeason));
-    if (!base || !contract || contract <= base) return rows.slice();
+    if (!base || !contract || contract <= base) return (rows || []).slice();
     const out = [];
     (rows || []).forEach((r) => {
-      const p = projectExtensionRowForward(r);
+      const p = projectContractRowForward(r);
       if (p) out.push(p);
     });
     return out;
+  }
+
+  function projectExtensionRowForward(row) {
+    return projectContractRowForward(row);
+  }
+
+  function projectExtensionRowsForSeason(rows, baseSeason, contractSeason) {
+    return projectContractRowsForSeason(rows, baseSeason, contractSeason);
   }
 
   function renderExtensionsSummary(teamName, rows) {
@@ -5085,8 +5134,13 @@
       searchBoxEl.value = safeStr(state.search || "");
     }
 
-    const seasonEligibility = eligibility.filter(
+    const seasonEligibilityRaw = eligibility.filter(
       (r) => !season || normalizeSeasonValue(r.season) === season
+    );
+    const seasonEligibility = projectContractRowsForSeason(
+      seasonEligibilityRaw,
+      baseSeason,
+      contractSeason
     );
     const allMymSubmissions = buildSubmittedRows(eligibility, submissions, meta);
     const seasonMymSubmissions = allMymSubmissions.filter(
@@ -5324,11 +5378,7 @@
     }
 
     if (state.activeModule === "expiredrookie") {
-      const projectedLeagueRows = projectExtensionRowsForSeason(
-        seasonEligibility,
-        baseSeason,
-        contractSeason
-      );
+      const projectedLeagueRows = seasonEligibility.slice();
       projectedLeagueRows.forEach((r) => {
         const d = getExtensionDeadlineDateForRow(
           r,
@@ -6651,6 +6701,9 @@
           restructureRows = normalizeSubmissions(restructureRaw);
         } catch (e) {}
       }
+      if (!restructureRows.length) {
+        restructureRows = deriveHistoricalRestructureSubmissions(state.payload.submissions || []);
+      }
       state.restructureSubmissions = restructureRows;
       let tagRows = [];
       let tagMeta = {};
@@ -7028,7 +7081,7 @@
       moduleTagsChip.addEventListener("click", () => {
         switchModule("tag");
         sortState.tab = "eligible";
-        sortState.key = "player";
+        sortState.key = "tagTier";
         sortState.dir = "asc";
         resetAllTablePages();
         setTab("eligible");

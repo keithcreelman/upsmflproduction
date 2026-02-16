@@ -26,5 +26,7 @@ python3 "$SCRIPT_DIR/load_mym_submissions_2025.py" --db-path "$MFL_DB_PATH"
 
 python3 "$SCRIPT_DIR/build_auction_value_model.py" --db-path "$MFL_DB_PATH" --start-year 2025 --end-year 2025 --current-season 2025
 python3 "$SCRIPT_DIR/build_early_projection.py" --db-path "$MFL_DB_PATH" --adp-source sleeper_sf --tag-tracking-json "$MFL_TAG_TRACKING_JSON" --tag-exclusions-json "$MFL_TAG_EXCLUSIONS_JSON"
+python3 "$SCRIPT_DIR/build_tag_submissions_json.py" --db-path "$MFL_DB_PATH" --out-path "$ROOT_DIR/site/ccc/tag_submissions.json"
+python3 "$SCRIPT_DIR/build_restructure_submissions_json.py" --db-path "$MFL_DB_PATH" --out-path "$ROOT_DIR/site/ccc/restructure_submissions.json"
 
 echo "Pipeline complete. Artifacts in: $MFL_ETL_ARTIFACT_DIR"
