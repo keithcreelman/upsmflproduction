@@ -4982,8 +4982,18 @@
     const seasonRestructureSubmissions = (state.restructureSubmissions || [])
       .map((r) => normalizeSubmissionRow(r))
       .filter((r) => !season || normalizeSeasonValue(r.season) === season);
+    // Tag tracking rows are generated for a base season, but represent the following
+    // season's tag pool (meta.tracking_for_season). If the host page defaults YEAR to
+    // the base season (or omits it), prefer tracking_for_season so the tag pool shows up.
+    const tagTrackingSeason = normalizeSeasonValue(
+      (state.tagTrackingMeta &&
+        (state.tagTrackingMeta.tracking_for_season ||
+          state.tagTrackingMeta.trackingForSeason)) ||
+        ""
+    );
+    const tagTrackingFilterSeason = tagTrackingSeason || season;
     const seasonTagTracking = (state.tagTrackingRows || []).filter(
-      (r) => !season || normalizeSeasonValue(r.season) === season
+      (r) => !tagTrackingFilterSeason || normalizeSeasonValue(r.season) === tagTrackingFilterSeason
     );
     const mymSubmissionSeasons = buildSubmissionSeasonList(allMymSubmissions);
     if (state.activeModule === "mym") {
@@ -5096,6 +5106,7 @@
         const scoringWeeks =
           (state.tagTrackingRows[0] && safeStr(state.tagTrackingRows[0].scoring_weeks_used)) || "";
         if (scoringWeeks) metaText += ` | scoring weeks: ${scoringWeeks}`;
+        if (tagTrackingFilterSeason) metaText += ` | tag pool season: ${tagTrackingFilterSeason}`;
       }
       if (isAdminDebugEnabled() && state.adminDebug) {
         const d = state.adminDebug;
