@@ -231,8 +231,6 @@ def fetch_candidates(conn, season: int) -> List[Dict[str, Any]]:
     rows = []
     for r in conn.execute(sql, (season,)).fetchall():
         contract_status = safe_str(r[9])
-        if not is_non_rookie_contract_status(contract_status):
-            continue
         rows.append(
             {
                 "season": safe_int(r[0], season),
@@ -702,6 +700,7 @@ def build_rows(
     conn,
     season: int,
     exclude_tag_season: int,
+    tracking_for_season: int,
     prior_aav_map: Dict[str, int],
     week1_aav_by_pos: Dict[str, List[Dict[str, Any]]],
 ) -> List[Dict[str, Any]]:
@@ -740,6 +739,7 @@ def build_rows(
         tag_bid = 0
         formula = ""
         bump_applied = 0
+        used_fallback = False
 
         if rule:
             if rule.rank_max is None:
@@ -759,9 +759,18 @@ def build_rows(
                     tag_bid = round_up_1000(prior_aav * 1.10)
                     bump_applied = 1
                     formula += " | 10% prior AAV bump (rounded up)"
+        else:
+            # UPS rulebook expectation: all expiring 1-year deals (including rookies) are valid tag options
+            # unless excluded by prior tagging/special circumstances.
+            # If a player falls outside tier ranks (or has no rank), we still need a non-zero tag salary.
+            used_fallback = True
+            base = prior_aav if prior_aav > 0 else safe_int(c.get("salary"), 0)
+            base_bid = max(1000, base + 1000)
+            tag_bid = base_bid
+            formula = "Fallback: prior AAV + 1,000" if prior_aav > 0 else "Fallback: salary + 1,000"
 
         was_tagged_prev = pid in tagged_prev
-        is_eligible = 1 if (rule is not None and tier > 0 and tag_bid > 0) else 0
+        is_eligible = 1 if tag_bid > 0 else 0
         eligibility_reason = ""
         if not is_eligible:
             if rank <= 0:
@@ -774,13 +783,16 @@ def build_rows(
                 eligibility_reason = "Could not compute tag bid."
             else:
                 eligibility_reason = "Not eligible."
+        elif used_fallback:
+            eligibility_reason = "Unranked for tier rules; using fallback tag salary."
         if was_tagged_prev:
             is_eligible = 0
             eligibility_reason = f"Tagged in {exclude_tag_season} (ineligible)."
 
         row = {
             "league_id": league_id,
-            "season": season,
+            "season": tracking_for_season,
+            "base_season": season,
             "franchise_id": c["franchise_id"],
             "franchise_name": c["franchise_name"],
             "player_id": c["player_id"],
@@ -853,7 +865,7 @@ def build_meta(
         "exclude_tagged_season": exclude_tag_season,
         "calc_breakdown": calc_breakdown or {},
         "ppg_pool": ppg_pool or [],
-        "notes": "Tracking uses current season scoring and non-rookie expiring contracts (contract_year=1). Excludes players tagged in the specified prior season.",
+        "notes": "Tracking uses current season scoring and expiring contracts (contract_year=1), including rookies. Excludes players tagged in the specified prior season.",
     }
 
 
@@ -889,6 +901,7 @@ def main() -> int:
             conn,
             season,
             exclude_tag_season,
+            tracking_for_season,
             prior_aav_map,
             week1_aav_by_pos,
         )

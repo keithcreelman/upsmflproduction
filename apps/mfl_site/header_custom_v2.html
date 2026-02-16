@@ -48,7 +48,7 @@
       try {
         var el = document.createElement("div");
         el.id = "upsDebugBadge";
-        el.textContent = "UPS header build: 2026.02.16.3";
+        el.textContent = "UPS header build: 2026.02.16.4";
         el.style.cssText =
           "position:fixed;right:10px;bottom:10px;z-index:999999;" +
           "padding:6px 10px;border-radius:999px;" +
@@ -237,13 +237,17 @@
     border-color: #6f95cd !important;
   }
 
-  /* Add/Drop custom rows: keep player-info readable on dark rows. */
-  .add-drop-player-row .player-info,
-  .add-drop-player-row .player-info strong,
-  .add-drop-player-row .player-info b {
-    color: var(--ups-text) !important;
-    font-weight: 800 !important;
-  }
+	  /* Add/Drop custom rows: keep player-info readable on dark rows. */
+	  .add-drop-player-row {
+	    color: var(--ups-text) !important;
+	  }
+
+	  .add-drop-player-row .player-info,
+	  .add-drop-player-row .player-info strong,
+	  .add-drop-player-row .player-info b {
+	    color: var(--ups-text) !important;
+	    font-weight: 800 !important;
+	  }
 
   .add-drop-player-row .player-info small {
     color: var(--ups-muted) !important;
@@ -1025,13 +1029,22 @@
   })();
 </script>
 
-<script>
-  // Some MFL skins render white-background spans inside nav bars; ensure they stay readable in dark mode.
-  (function () {
-    function isCsetupPage() {
-      var id = String(document.body && document.body.id ? document.body.id : "");
-      return id === "body_commissioner_setup" || id.indexOf("body_csetup") === 0;
-    }
+	<script>
+	  // Some MFL skins render light-on-light spans inside nav bars; ensure they stay readable in dark mode.
+	  (function () {
+	    function isRelevantPage() {
+	      var id = String(document.body && document.body.id ? document.body.id : "");
+	      if (id === "body_commissioner_setup" || id.indexOf("body_csetup") === 0) return true;
+	      try {
+	        if (
+	          document.querySelector("form.reportform") ||
+	          document.querySelector(".reportnavigation, .reportNavigation, .reportnavigationheader, .reportNavigationHeader")
+	        ) {
+	          return true;
+	        }
+	      } catch (e) {}
+	      return false;
+	    }
 
     function parseRgb(s) {
       var m = String(s || "").match(/rgba?\\((\\d+),\\s*(\\d+),\\s*(\\d+)(?:,\\s*([0-9.]+))?\\)/i);
@@ -1039,27 +1052,34 @@
       return { r: parseInt(m[1], 10), g: parseInt(m[2], 10), b: parseInt(m[3], 10), a: m[4] ? parseFloat(m[4]) : 1 };
     }
 
-    function isWhite(c) {
-      if (!c) return false;
-      return c.r >= 250 && c.g >= 250 && c.b >= 250 && (c.a == null || c.a >= 0.95);
-    }
+	    function isWhite(c) {
+	      if (!c) return false;
+	      return c.r >= 245 && c.g >= 245 && c.b >= 245 && (c.a == null || c.a >= 0.85);
+	    }
 
-    function fixSpans() {
-      if (!isCsetupPage()) return;
-      var root = document.getElementById("container-wrap") || document;
-      var spans = root.querySelectorAll("span");
-      for (var i = 0; i < spans.length; i += 1) {
-        var el = spans[i];
-        if (!el) continue;
-        var cs = window.getComputedStyle(el);
-        var bg = parseRgb(cs.backgroundColor);
-        if (!isWhite(bg)) continue;
-        // Dark pill background with UPS light text.
-        el.style.backgroundColor = "rgba(15, 27, 48, 0.85)";
-        el.style.color = "var(--ups-text)";
-        el.style.borderRadius = "10px";
-      }
-    }
+	    function isLightText(c) {
+	      if (!c) return false;
+	      return c.r >= 225 && c.g >= 225 && c.b >= 225 && (c.a == null || c.a >= 0.85);
+	    }
+
+	    function fixSpans() {
+	      if (!isRelevantPage()) return;
+	      var root = document.getElementById("container-wrap") || document;
+	      var spans = root.querySelectorAll("span");
+	      for (var i = 0; i < spans.length; i += 1) {
+	        var el = spans[i];
+	        if (!el) continue;
+	        var cs = window.getComputedStyle(el);
+	        var bg = parseRgb(cs.backgroundColor);
+	        if (!isWhite(bg)) continue;
+	        var fg = parseRgb(cs.color);
+	        if (!isLightText(fg)) continue;
+	        // Dark pill background with UPS light text.
+	        el.style.backgroundColor = "rgba(15, 27, 48, 0.85)";
+	        el.style.color = "var(--ups-text)";
+	        el.style.borderRadius = "10px";
+	      }
+	    }
 
     if (document.readyState === "loading") {
       document.addEventListener("DOMContentLoaded", function () {
