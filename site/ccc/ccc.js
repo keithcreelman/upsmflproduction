@@ -71,7 +71,7 @@
   // Fallbacks if page URL lacks ?L= or YEAR=
   const DEFAULT_LEAGUE_ID = "74598";
   const DEFAULT_YEAR = "2026";
-  const APP_VERSION = "v0.9.1-dev";
+  const APP_VERSION = "v0.9.2-dev";
   const COMMISH_FRANCHISE_ID = "0008";
   const FORCE_SEASON_ROLLOVER = true;
 
@@ -3934,9 +3934,7 @@
         ? state.filtersByModule[key]
         : null;
 
-    const defaultTeam = state.commishMode
-      ? "__ALL__"
-      : safeStr(defaults.teamId || state.detectedFranchiseId || "");
+    const defaultTeam = safeStr(defaults.teamId || state.detectedFranchiseId || "__ALL__");
     const selectedTeam = safeStr(saved && saved.selectedTeam ? saved.selectedTeam : defaultTeam);
     state.selectedTeam = selectedTeam || "__ALL__";
     state.showAllTeams = state.selectedTeam === "__ALL__";
@@ -4191,18 +4189,9 @@
       if (id && !map.has(id)) map.set(id, nm || id);
     });
 
-    const list = Array.from(map.entries())
+    return Array.from(map.entries())
       .map(([id, name]) => ({ id, name }))
-      .sort((a, b) => a.name.localeCompare(b.name));
-
-    const ownerId = pad4(ownerFranchiseId);
-    if (!ownerId) return list;
-
-    const idx = list.findIndex((x) => x.id === ownerId);
-    if (idx <= 0) return list;
-    const owner = list[idx];
-    const rest = list.slice(0, idx).concat(list.slice(idx + 1));
-    return [owner, ...rest];
+      .sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
   }
 
   function populateTeamSelect(teams, selectedId) {
@@ -4211,7 +4200,6 @@
 
     sel.innerHTML = "";
     const list = Array.isArray(teams) ? teams.slice() : [];
-    const owner = list[0] || null;
     let hasSelected = false;
     const addOpt = (value, label, selected) => {
       const opt = document.createElement("option");
@@ -4222,17 +4210,15 @@
       sel.appendChild(opt);
     };
 
-    if (owner && owner.id) addOpt(owner.id, owner.name || owner.id, owner.id === selectedId);
     addOpt("__ALL__", "All Teams", selectedId === "__ALL__");
 
-    const rest = owner ? list.slice(1) : list;
-    rest.forEach((t) => {
+    list.forEach((t) => {
       if (!t || !t.id) return;
       addOpt(t.id, t.name || t.id, t.id === selectedId);
     });
 
     if (!hasSelected && sel.options.length) {
-      sel.value = owner && owner.id ? owner.id : "__ALL__";
+      sel.value = "__ALL__";
     }
   }
 
@@ -6729,18 +6715,13 @@
       state.detectedFranchiseId = detectFranchiseId();
 
       const workerAdmin = await getAdminFlagFromWorker();
+      const browserAdmin = await getAdminFlagFromBrowser(workerAdmin.L, workerAdmin.YEAR);
       state.detectedFranchiseId = await resolveCurrentFranchiseId(
         workerAdmin.L,
         workerAdmin.YEAR,
         state.detectedFranchiseId
       );
       const currentFranchiseId = pad4(state.detectedFranchiseId);
-      const commishFranchiseId = pad4(workerAdmin.commishFranchiseId || "");
-
-      // Explicit gating requested: commish tools only for franchise 0008.
-      // If the session is verified admin but MFL doesn't expose a concrete franchise
-      // (common on commissioner-wide pages), still allow commish mode.
-      const commishGateFranchise = pad4(COMMISH_FRANCHISE_ID || commishFranchiseId || "");
       let forceCommish = false;
       try {
         const q = new URL(window.location.href).searchParams;
@@ -6749,23 +6730,26 @@
         ).toLowerCase();
         forceCommish = fv === "1" || fv === "true" || fv === "yes";
       } catch (_) {}
-      const adminNoFranchiseContext =
-        !!workerAdmin.ok &&
-        !!workerAdmin.isAdmin &&
-        (!currentFranchiseId || currentFranchiseId === "0000");
+      const workerAllows = !!workerAdmin.ok && !!workerAdmin.isAdmin;
+      const browserAllows = !!browserAdmin.ok && !!browserAdmin.isAdmin;
+      const commishGateFranchise = pad4(COMMISH_FRANCHISE_ID || "");
+      const franchiseGateAllows =
+        !!currentFranchiseId &&
+        !!commishGateFranchise &&
+        currentFranchiseId === commishGateFranchise;
+      const leagueIdNow = safeStr(workerAdmin.L || getLeagueId() || DEFAULT_LEAGUE_ID);
+      const devLeagueBypass = leagueIdNow === "25625";
       let canCommish =
-        forceCommish ||
-        adminNoFranchiseContext ||
-        (!!workerAdmin.ok &&
-          !!workerAdmin.isAdmin &&
-          !!currentFranchiseId &&
-          !!commishGateFranchise &&
-          currentFranchiseId === commishGateFranchise);
+        forceCommish || workerAllows || browserAllows || franchiseGateAllows || devLeagueBypass;
       const adminReason = canCommish
         ? forceCommish
           ? "Forced commish mode via query flag"
-          : adminNoFranchiseContext
-          ? "Admin mode (commissioner session without franchise context)"
+          : devLeagueBypass
+          ? "Admin mode (dev league bypass)"
+          : workerAllows || browserAllows
+          ? "Admin mode (commissioner session)"
+          : franchiseGateAllows
+          ? "Admin mode (commissioner franchise)"
           : safeStr(workerAdmin.reason || "Admin mode")
         : "Owner mode (admin tools limited)";
 
@@ -6778,6 +6762,8 @@
         canCommish: !!canCommish,
         workerOk: !!workerAdmin.ok,
         workerIsAdmin: !!workerAdmin.isAdmin,
+        browserOk: !!browserAdmin.ok,
+        browserIsAdmin: !!browserAdmin.isAdmin,
         sessionKnown: !!workerAdmin.sessionKnown,
         sessionMatch: !!workerAdmin.sessionMatch,
         currentFranchiseId,
@@ -6845,25 +6831,28 @@
         seasonTagRows
       );
       const teams = buildTeamList(seasonRows, mergedSubmissionRows, state.detectedFranchiseId);
+      const defaults = state.defaultFilters || {};
+      const defaultTeam = safeStr(defaults.teamId || "");
+      const hasTeam = (val) =>
+        val === "__ALL__" || teams.some((t) => safeStr(t.id) === safeStr(val));
       const detected = teams.some((t) => t.id === state.detectedFranchiseId)
         ? state.detectedFranchiseId
-        : teams[0]
-        ? teams[0].id
         : "";
-      state.selectedTeam = detected;
-      state.lastOwnerTeam = detected;
+      const initialTeam = hasTeam(defaultTeam)
+        ? defaultTeam
+        : hasTeam(detected)
+        ? detected
+        : "__ALL__";
+
+      state.selectedTeam = initialTeam;
+      state.lastOwnerTeam = detected || "";
       populateTeamSelect(teams, state.selectedTeam);
       const teamSelect = $("#teamSelect");
       if (teamSelect) {
-        if (state.commishMode) {
-          teamSelect.value = "__ALL__";
-          state.selectedTeam = "__ALL__";
-          state.showAllTeams = true;
-        } else {
-          const v = safeStr(teamSelect.value);
-          state.selectedTeam = v;
-          state.showAllTeams = v === "__ALL__";
-        }
+        teamSelect.value = state.selectedTeam;
+        const v = safeStr(teamSelect.value);
+        state.selectedTeam = v || "__ALL__";
+        state.showAllTeams = state.selectedTeam === "__ALL__";
       }
       const positions = buildPositionList(seasonRows, mergedSubmissionRows);
       state.selectedPosition = "__ALL_POS__";
@@ -6872,20 +6861,9 @@
       if (positionSelect) positionSelect.disabled = false;
 
       // Apply saved defaults
-      const defaults = state.defaultFilters || {};
-      if (!state.commishMode) {
-        const defaultTeam = safeStr(defaults.teamId || "");
-        if (teamSelect && defaultTeam) {
-          const hasOpt = Array.from(teamSelect.options).some((o) => o.value === defaultTeam);
-          if (hasOpt) {
-            teamSelect.value = defaultTeam;
-            state.selectedTeam = defaultTeam;
-            state.showAllTeams = defaultTeam === "__ALL__";
-          }
-        }
-      }
+      const defaultsPos = state.defaultFilters || {};
       if (positionSelect) {
-        const defaultPos = safeStr(defaults.position || "");
+        const defaultPos = safeStr(defaultsPos.position || "");
         if (defaultPos) {
           const hasOpt = Array.from(positionSelect.options).some((o) => o.value === defaultPos);
           if (hasOpt) {
@@ -7301,18 +7279,28 @@
 
         const teamSelect = $("#teamSelect");
         if (state.commishMode) {
-          state.lastOwnerTeam = state.lastOwnerTeam || state.selectedTeam;
-          state.selectedTeam = "__ALL__";
-          state.showAllTeams = true;
-          if (teamSelect) teamSelect.value = "__ALL__";
+          if (state.selectedTeam && state.selectedTeam !== "__ALL__") {
+            state.lastOwnerTeam = state.selectedTeam;
+          }
+          const preferred =
+            safeStr((state.defaultFilters && state.defaultFilters.teamId) || "") || "__ALL__";
+          const hasOpt =
+            teamSelect &&
+            Array.from(teamSelect.options).some((o) => safeStr(o.value) === preferred);
+          state.selectedTeam = hasOpt ? preferred : "__ALL__";
+          state.showAllTeams = state.selectedTeam === "__ALL__";
+          if (teamSelect) teamSelect.value = state.selectedTeam;
         } else {
           const fallback =
             state.lastOwnerTeam ||
             state.detectedFranchiseId ||
-            (teamSelect && teamSelect.options[0] ? teamSelect.options[0].value : "");
-          state.selectedTeam = fallback;
-          state.showAllTeams = fallback === "__ALL__";
-          if (teamSelect && fallback) teamSelect.value = fallback;
+            safeStr((state.defaultFilters && state.defaultFilters.teamId) || "__ALL__");
+          const hasOpt =
+            teamSelect &&
+            Array.from(teamSelect.options).some((o) => safeStr(o.value) === fallback);
+          state.selectedTeam = hasOpt ? fallback : "__ALL__";
+          state.showAllTeams = state.selectedTeam === "__ALL__";
+          if (teamSelect) teamSelect.value = state.selectedTeam;
         }
 
         render();
