@@ -48,7 +48,7 @@
       try {
         var el = document.createElement("div");
         el.id = "upsDebugBadge";
-        el.textContent = "UPS header build: 2026.02.16.1";
+        el.textContent = "UPS header build: 2026.02.16.2";
         el.style.cssText =
           "position:fixed;right:10px;bottom:10px;z-index:999999;" +
           "padding:6px 10px;border-radius:999px;" +
@@ -248,6 +248,33 @@
   .add-drop-player-row .player-info small {
     color: var(--ups-muted) !important;
     font-weight: 800 !important;
+  }
+
+  /* Add/Drop projected points column (and its pseudo labels) */
+  .add-drop-player-row .player-wproj,
+  .add-drop-player-row .player-wproj *,
+  .add-drop-player-row .player-wproj::before,
+  .add-drop-player-row .player-wproj::after {
+    color: var(--ups-text) !important;
+    text-shadow: none !important;
+  }
+
+  .add-drop-player-row .player-wproj .proj,
+  .add-drop-player-row .player-wproj .projpts,
+  .add-drop-player-row .player-wproj .projPts,
+  .add-drop-player-row .player-wproj .player-proj,
+  .add-drop-player-row .player-wproj .player-projpts {
+    color: var(--ups-accent) !important;
+    font-weight: 900 !important;
+  }
+
+  .add-drop-player-row .player-wproj.hide-col-proj::before,
+  .add-drop-player-row .player-wproj.hide-col-proj::after {
+    color: var(--ups-muted) !important;
+    opacity: 1 !important;
+    font-weight: 900 !important;
+    letter-spacing: 0.06em !important;
+    text-transform: uppercase !important;
   }
 
   .oddtablerow {
@@ -771,11 +798,36 @@
       return d ? d.padStart(4, "0").slice(-4) : "";
     }
 
+    function tryUrlParam(name) {
+      try {
+        var u = new URL(window.location.href);
+        var v = u.searchParams.get(name);
+        return v == null ? "" : String(v);
+      } catch (e) {
+        return "";
+      }
+    }
+
     function getFid() {
       var fid = pad4(window.FRANCHISE_ID || window.franchise_id || "");
-      // Hide for commissioner/visitors.
-      if (!fid || fid === "0000") return "";
-      return fid;
+      if (fid && fid !== "0000") return fid;
+
+      // Commissioner pages often run as franchise_id=0000.
+      // Use URL param or the "Select Franchise" control when present.
+      fid = pad4(tryUrlParam("FRANCHISE_ID") || tryUrlParam("FRANCHISE") || tryUrlParam("F") || "");
+      if (fid && fid !== "0000") return fid;
+
+      try {
+        var sel =
+          document.querySelector('form.reportform select[name="FRANCHISE"]') ||
+          document.querySelector('form[name="SELECT_FRANCHISE"] select[name="FRANCHISE"]');
+        if (sel && sel.value) {
+          fid = pad4(sel.value);
+          if (fid && fid !== "0000") return fid;
+        }
+      } catch (e) {}
+
+      return "";
     }
 
     function getFranchiseName(fid) {
@@ -789,7 +841,23 @@
           return String(window.franchiseDatabase[key].name || "").trim();
         }
       } catch (e) {}
+      // Fallback: read the selected franchise name from the reportform dropdown.
+      try {
+        var sel =
+          document.querySelector('form.reportform select[name="FRANCHISE"]') ||
+          document.querySelector('form[name="SELECT_FRANCHISE"] select[name="FRANCHISE"]');
+        if (sel && sel.options && sel.selectedIndex >= 0) {
+          var opt = sel.options[sel.selectedIndex];
+          var txt = opt ? String(opt.text || "").trim() : "";
+          if (txt) return txt;
+        }
+      } catch (e) {}
       return "";
+    }
+
+    function isHttpUrl(v) {
+      var s = String(v || "").trim();
+      return s.indexOf("http://") === 0 || s.indexOf("https://") === 0;
     }
 
     function candidateIconUrls(fid) {
@@ -797,6 +865,11 @@
       var lid = String(window.league_id || "").trim();
       var yr = parseInt(String(window.year || ""), 10);
       if (!lid || !yr) return [];
+      try {
+        var key = "fid_" + fid;
+        var rec = window.franchiseDatabase && window.franchiseDatabase[key];
+        if (rec && isHttpUrl(rec.icon)) return [String(rec.icon)];
+      } catch (e) {}
       var bases = [
         host + "/fflnetdynamic" + yr + "/" + lid + "_franchise_icon" + fid,
         host + "/fflnetdynamic" + (yr - 1) + "/" + lid + "_franchise_icon" + fid,
@@ -826,27 +899,109 @@
       tryNext();
     }
 
-    function init() {
+    function initOnce() {
       var wrap = document.getElementById("upsFranchiseIdentity");
       var nameEl = document.getElementById("upsFranchiseName");
       var iconEl = document.getElementById("upsFranchiseIcon");
       if (!wrap || !nameEl || !iconEl) return;
 
       var fid = getFid();
-      if (!fid) return;
+      if (!fid) return false;
 
       var name = getFranchiseName(fid);
-      if (!name) return;
+      if (!name) return false;
 
       nameEl.textContent = name;
       wrap.hidden = false;
       setIconWithFallback(iconEl, candidateIconUrls(fid));
+      return true;
+    }
+
+    function attempt(retries) {
+      if (initOnce()) return;
+      if (retries <= 0) return;
+      setTimeout(function () {
+        attempt(retries - 1);
+      }, 250);
+    }
+
+    function wireSelect() {
+      try {
+        var sel =
+          document.querySelector('form.reportform select[name="FRANCHISE"]') ||
+          document.querySelector('form[name="SELECT_FRANCHISE"] select[name="FRANCHISE"]');
+        if (!sel || sel.dataset.upsWired) return;
+        sel.dataset.upsWired = "1";
+        sel.addEventListener("change", function () {
+          attempt(12);
+        });
+      } catch (e) {}
     }
 
     if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", init);
+      document.addEventListener("DOMContentLoaded", function () {
+        wireSelect();
+        attempt(24);
+      });
     } else {
-      init();
+      wireSelect();
+      attempt(24);
+    }
+
+    // Late-load fallback for pages where globals populate after other scripts.
+    window.addEventListener("load", function () {
+      wireSelect();
+      attempt(24);
+    });
+  })();
+</script>
+
+<script>
+  // Some MFL skins render white-background spans inside nav bars; ensure they stay readable in dark mode.
+  (function () {
+    function isCsetupPage() {
+      var id = String(document.body && document.body.id ? document.body.id : "");
+      return id === "body_commissioner_setup" || id.indexOf("body_csetup") === 0;
+    }
+
+    function parseRgb(s) {
+      var m = String(s || "").match(/rgba?\\((\\d+),\\s*(\\d+),\\s*(\\d+)(?:,\\s*([0-9.]+))?\\)/i);
+      if (!m) return null;
+      return { r: parseInt(m[1], 10), g: parseInt(m[2], 10), b: parseInt(m[3], 10), a: m[4] ? parseFloat(m[4]) : 1 };
+    }
+
+    function isWhite(c) {
+      if (!c) return false;
+      return c.r >= 250 && c.g >= 250 && c.b >= 250 && (c.a == null || c.a >= 0.95);
+    }
+
+    function fixSpans() {
+      if (!isCsetupPage()) return;
+      var root = document.getElementById("container-wrap") || document;
+      var spans = root.querySelectorAll("span");
+      for (var i = 0; i < spans.length; i += 1) {
+        var el = spans[i];
+        if (!el) continue;
+        var cs = window.getComputedStyle(el);
+        var bg = parseRgb(cs.backgroundColor);
+        if (!isWhite(bg)) continue;
+        // Dark pill background with UPS light text.
+        el.style.backgroundColor = "rgba(15, 27, 48, 0.85)";
+        el.style.color = "var(--ups-text)";
+        el.style.borderRadius = "10px";
+      }
+    }
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", function () {
+        fixSpans();
+        setTimeout(fixSpans, 600);
+        setTimeout(fixSpans, 1600);
+      });
+    } else {
+      fixSpans();
+      setTimeout(fixSpans, 600);
+      setTimeout(fixSpans, 1600);
     }
   })();
 </script>
