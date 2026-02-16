@@ -405,6 +405,10 @@
     grid-template-columns: 24px 1fr auto;
   }
 
+  .ups-hero-item--champ {
+    grid-template-columns: auto 1fr;
+  }
+
   .ups-hero-year {
     font-size: 0.72rem;
     line-height: 1;
@@ -1061,17 +1065,11 @@
 
     function buildRecentRow(item) {
       var row = document.createElement("div");
-      row.className = "ups-hero-item";
+      row.className = "ups-hero-item ups-hero-item--champ";
 
       var year = document.createElement("div");
       year.className = "ups-hero-year";
       year.textContent = String(item.year || "");
-
-      var icon = document.createElement("img");
-      icon.className = "ups-hero-icon";
-      icon.alt = (item.franchise || "Franchise") + " icon";
-      icon.src = String(item.icon || "");
-      icon.loading = "lazy";
 
       var main = document.createElement("div");
       main.className = "ups-hero-main";
@@ -1089,7 +1087,6 @@
       main.appendChild(meta);
 
       row.appendChild(year);
-      row.appendChild(icon);
       row.appendChild(main);
       return row;
     }

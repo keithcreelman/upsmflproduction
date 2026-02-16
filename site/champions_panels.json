@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at": "2026-02-15 23:17:11",
+    "generated_at": "2026-02-15 23:36:37",
     "source": "metadata_finalstandings + standings + metadata_franchise"
   },
   "recent_winners": [
@@ -94,13 +94,6 @@
       "years": "2011, 2015, 2023"
     },
     {
-      "franchise_id": "0001",
-      "franchise": "L.A. Looks",
-      "icon": "https://www48.myfantasyleague.com/fflnetdynamic2025/74598_franchise_icon0001.png",
-      "titles": 2,
-      "years": "2014, 2021"
-    },
-    {
       "franchise_id": "0003",
       "franchise": "Gride",
       "icon": "https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_icon0003.png",
@@ -108,11 +101,11 @@
       "years": "2012, 2022"
     },
     {
-      "franchise_id": "0006",
-      "franchise": "The Long Haulers",
-      "icon": "https://www48.myfantasyleague.com/fflnetdynamic2024/74598_franchise_icon0006.jpg",
+      "franchise_id": "0001",
+      "franchise": "Ulterior Warrior",
+      "icon": "https://www45.myfantasyleague.com/fflnetdynamic2014/30590_franchise_icon0001.jpg",
       "titles": 2,
-      "years": "2017, 2018"
+      "years": "2014, 2021"
     },
     {
       "franchise_id": "0007",
@@ -122,11 +115,11 @@
       "years": "2019, 2020"
     },
     {
-      "franchise_id": "0002",
-      "franchise": "CBP",
-      "icon": "https://www48.myfantasyleague.com/fflnetdynamic2023/74598_franchise_icon0002.png",
-      "titles": 1,
-      "years": "2013"
+      "franchise_id": "0006",
+      "franchise": "Good in Da Hood",
+      "icon": "http://i1218.photobucket.com/albums/dd420/creelmank/Team%20Minis/GoodinDaHoodMINI.png",
+      "titles": 2,
+      "years": "2017, 2018"
     },
     {
       "franchise_id": "0004",
@@ -138,16 +131,9 @@
     {
       "franchise_id": "0005",
       "franchise": "HammerTime \ud83d\udd28 \u23f0",
-      "icon": "https://www48.myfantasyleague.com/fflnetdynamic2025/74598_franchise_icon0005.jpg",
+      "icon": "https://www48.myfantasyleague.com/fflnetdynamic2022/74598_franchise_logo0005.png",
       "titles": 1,
       "years": "2024"
-    },
-    {
-      "franchise_id": "0008",
-      "franchise": "Real Deal Creel",
-      "icon": "https://www48.myfantasyleague.com/fflnetdynamic2023/74598_franchise_icon0008.png",
-      "titles": 1,
-      "years": "2010"
     },
     {
       "franchise_id": "0009",
@@ -155,6 +141,20 @@
       "icon": "https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_icon0009.png",
       "titles": 1,
       "years": "2016"
+    },
+    {
+      "franchise_id": "0002",
+      "franchise": "DBCA",
+      "icon": "https://www48.myfantasyleague.com/fflnetdynamic2022/74598_franchise_icon0002.png",
+      "titles": 1,
+      "years": "2013"
+    },
+    {
+      "franchise_id": "0008",
+      "franchise": "R-11",
+      "icon": "https://www45.myfantasyleague.com/fflnetdynamic2010/60671_franchise_icon0008.png",
+      "titles": 1,
+      "years": "2010"
     }
   ]
 }

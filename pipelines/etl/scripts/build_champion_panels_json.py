@@ -98,37 +98,49 @@ def fetch_recent_winners(conn, lookback: int) -> List[Dict[str, Any]]:
 def fetch_title_leaders(conn) -> List[Dict[str, Any]]:
     sql = """
     WITH champs AS (
-      SELECT year, franchise_id
+      SELECT
+        year,
+        franchise_id,
+        franchise AS champion_name
       FROM metadata_finalstandings
       WHERE final_finish = 1
     ),
     totals AS (
       SELECT
-        franchise_id,
+        c.franchise_id,
         COUNT(*) AS titles,
-        GROUP_CONCAT(year, ', ') AS years
-      FROM champs
-      GROUP BY franchise_id
-    ),
-    latest_meta AS (
-      SELECT
-        franchise_id,
-        franchise_name,
-        COALESCE(icon, logo, '') AS icon,
-        ROW_NUMBER() OVER (PARTITION BY franchise_id ORDER BY season DESC) AS rn
-      FROM metadata_franchise
+        MAX(c.year) AS latest_title_year,
+        (
+          SELECT GROUP_CONCAT(x.year, ', ')
+          FROM (
+            SELECT year
+            FROM champs c2
+            WHERE c2.franchise_id = c.franchise_id
+            ORDER BY year
+          ) x
+        ) AS years,
+        (
+          SELECT c3.champion_name
+          FROM champs c3
+          WHERE c3.franchise_id = c.franchise_id
+          ORDER BY c3.year DESC
+          LIMIT 1
+        ) AS latest_champion_name
+      FROM champs c
+      GROUP BY c.franchise_id
     )
     SELECT
       t.franchise_id,
-      COALESCE(lm.franchise_name, t.franchise_id) AS franchise_name,
-      COALESCE(lm.icon, '') AS icon,
+      COALESCE(mf.franchise_name, t.latest_champion_name, t.franchise_id) AS franchise_name,
+      COALESCE(mf.icon, mf.logo, '') AS icon,
       t.titles,
-      t.years
+      t.years,
+      t.latest_title_year
     FROM totals t
-    LEFT JOIN latest_meta lm
-      ON lm.franchise_id = t.franchise_id
-     AND lm.rn = 1
-    ORDER BY t.titles DESC, t.franchise_id ASC
+    LEFT JOIN metadata_franchise mf
+      ON mf.franchise_id = t.franchise_id
+     AND CAST(mf.season AS INT) = t.latest_title_year
+    ORDER BY t.titles DESC, t.latest_title_year DESC, t.franchise_id ASC
     """
     out: List[Dict[str, Any]] = []
     for row in conn.execute(sql).fetchall():
