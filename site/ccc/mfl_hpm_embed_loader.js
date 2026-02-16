@@ -101,8 +101,9 @@
   const CCC_IFRAME_URL = resolveIframeUrl();
 
   function inferModeFromSystem() {
+    // Default to dark so CCC blends with the league's blue/dark shell.
     if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) return "dark";
-    return "light";
+    return "dark";
   }
 
   function getHostMode() {

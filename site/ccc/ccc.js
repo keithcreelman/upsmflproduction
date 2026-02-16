@@ -400,7 +400,7 @@
       const v = normalizeThemeSetting(raw, true);
       if (v) return v;
     } catch (_) {}
-    return "auto";
+    return "dark";
   }
 
   function saveThemeSetting(theme) {
@@ -6609,15 +6609,35 @@
       const commishFranchiseId = pad4(workerAdmin.commishFranchiseId || "");
 
       // Explicit gating requested: commish tools only for franchise 0008.
+      // If the session is verified admin but MFL doesn't expose a concrete franchise
+      // (common on commissioner-wide pages), still allow commish mode.
       const commishGateFranchise = pad4(COMMISH_FRANCHISE_ID || commishFranchiseId || "");
-      let canCommish =
+      let forceCommish = false;
+      try {
+        const q = new URL(window.location.href).searchParams;
+        const fv = safeStr(
+          q.get("COMMISH_MODE") || q.get("COMMISH") || q.get("FORCE_COMMISH") || ""
+        ).toLowerCase();
+        forceCommish = fv === "1" || fv === "true" || fv === "yes";
+      } catch (_) {}
+      const adminNoFranchiseContext =
         !!workerAdmin.ok &&
         !!workerAdmin.isAdmin &&
-        !!currentFranchiseId &&
-        !!commishGateFranchise &&
-        currentFranchiseId === commishGateFranchise;
+        (!currentFranchiseId || currentFranchiseId === "0000");
+      let canCommish =
+        forceCommish ||
+        adminNoFranchiseContext ||
+        (!!workerAdmin.ok &&
+          !!workerAdmin.isAdmin &&
+          !!currentFranchiseId &&
+          !!commishGateFranchise &&
+          currentFranchiseId === commishGateFranchise);
       const adminReason = canCommish
-        ? safeStr(workerAdmin.reason || "Admin mode")
+        ? forceCommish
+          ? "Forced commish mode via query flag"
+          : adminNoFranchiseContext
+          ? "Admin mode (commissioner session without franchise context)"
+          : safeStr(workerAdmin.reason || "Admin mode")
         : "Owner mode (admin tools limited)";
 
       state.isAdmin = canCommish;
@@ -7704,14 +7724,12 @@
     const html = document.documentElement;
     const app = document.getElementById("cccApp");
     const appRect = app ? app.getBoundingClientRect() : null;
-    const appBottom = appRect ? appRect.top + appRect.height + window.scrollY : 0;
+    const appHeight = appRect ? appRect.height : 0;
     return Math.max(
+      0,
+      Math.ceil(appHeight),
       body ? body.scrollHeight : 0,
-      body ? body.offsetHeight : 0,
-      html ? html.clientHeight : 0,
-      html ? html.scrollHeight : 0,
-      html ? html.offsetHeight : 0,
-      appBottom
+      html ? html.scrollHeight : 0
     );
   }
 

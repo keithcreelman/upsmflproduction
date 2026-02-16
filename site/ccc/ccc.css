@@ -211,8 +211,9 @@
 
 /* ===== CCC base scope ===== */
 #cccApp{
-  background: var(--bg);
+  background: transparent;
   border-radius: var(--radius);
+  border: 1px solid rgba(228, 239, 255, 0.66);
 }
 
 #cccApp * { box-sizing:border-box; }

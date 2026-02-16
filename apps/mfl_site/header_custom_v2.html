@@ -48,7 +48,7 @@
       try {
         var el = document.createElement("div");
         el.id = "upsDebugBadge";
-        el.textContent = "UPS header build: 2026.02.16.5";
+        el.textContent = "UPS header build: 2026.02.16.6";
         el.style.cssText =
           "position:fixed;right:10px;bottom:10px;z-index:999999;" +
           "padding:6px 10px;border-radius:999px;" +
@@ -237,6 +237,13 @@
     border-color: #6f95cd !important;
   }
 
+  /* Prevent light-on-light helper spans inside commissioner/report forms. */
+  form.reportform span,
+  form.reportform span * {
+    color: var(--ups-report-strong) !important;
+    text-shadow: none !important;
+  }
+
 	  /* Add/Drop custom rows: keep player-info readable on dark rows. */
 	  .add-drop-player-row {
 	    color: var(--ups-text) !important;
@@ -351,6 +358,25 @@
     box-shadow: var(--ups-shadow);
     position: relative;
     z-index: 2;
+  }
+
+  /* Keep CCC visually on the same blue page background instead of a white block. */
+  #cccMount {
+    max-width: min(76rem, calc(100% - 1.1rem));
+    margin: 0.35rem auto 1rem;
+    padding: 0.5rem;
+    border-radius: 14px;
+    border: 1px solid rgba(228, 239, 255, 0.72);
+    background: linear-gradient(180deg, rgba(6, 16, 34, 0.92), rgba(8, 20, 40, 0.9));
+    box-shadow: 0 16px 28px rgba(1, 7, 20, 0.42);
+  }
+
+  #cccMount iframe {
+    display: block;
+    width: 100%;
+    background: transparent !important;
+    border: 0 !important;
+    border-radius: 10px;
   }
 
   .ccc-banner-inner {
@@ -1186,7 +1212,7 @@
 </script>
 
 		<script>
-		  // Some MFL skins render light-on-light spans inside nav bars; ensure they stay readable in dark mode.
+		  // Some MFL skins render light-on-light spans/divs; force readable contrast.
 		  (function () {
 	    function isRelevantPage() {
 	      var id = String(document.body && document.body.id ? document.body.id : "");
@@ -1202,11 +1228,16 @@
 	      return false;
 	    }
 
-    function parseRgb(s) {
-      var m = String(s || "").match(/rgba?\\((\\d+),\\s*(\\d+),\\s*(\\d+)(?:,\\s*([0-9.]+))?\\)/i);
-      if (!m) return null;
-      return { r: parseInt(m[1], 10), g: parseInt(m[2], 10), b: parseInt(m[3], 10), a: m[4] ? parseFloat(m[4]) : 1 };
-    }
+	    function parseRgb(s) {
+	      var m = String(s || "").match(/rgba?\\((\\d+),\\s*(\\d+),\\s*(\\d+)(?:,\\s*([0-9.]+))?\\)/i);
+	      if (!m) return null;
+	      return {
+	        r: parseInt(m[1], 10),
+	        g: parseInt(m[2], 10),
+	        b: parseInt(m[3], 10),
+	        a: m[4] ? parseFloat(m[4]) : 1
+	      };
+	    }
 
 	    function isWhite(c) {
 	      if (!c) return false;
@@ -1215,41 +1246,58 @@
 
 	    function isLightText(c) {
 	      if (!c) return false;
-	      return c.r >= 225 && c.g >= 225 && c.b >= 225 && (c.a == null || c.a >= 0.85);
+	      return c.r >= 210 && c.g >= 210 && c.b >= 210 && (c.a == null || c.a >= 0.75);
 	    }
 
-	    function fixSpans() {
+	    function patchNode(el) {
+	      if (!el || el.dataset.upsSpanFixed === "1") return;
+	      var cs = window.getComputedStyle(el);
+	      var bg = parseRgb(cs.backgroundColor);
+	      if (!isWhite(bg)) return;
+	      var fg = parseRgb(cs.color);
+	      if (!isLightText(fg)) return;
+	      el.style.backgroundColor = "rgba(15, 27, 48, 0.85)";
+	      el.style.color = "var(--ups-text)";
+	      el.style.borderRadius = "10px";
+	      el.dataset.upsSpanFixed = "1";
+	    }
+
+	    function fixSpanContrast() {
 	      if (!isRelevantPage()) return;
 	      var root = document.getElementById("container-wrap") || document;
-	      var spans = root.querySelectorAll("span");
-	      for (var i = 0; i < spans.length; i += 1) {
-	        var el = spans[i];
-	        if (!el) continue;
-	        var cs = window.getComputedStyle(el);
-	        var bg = parseRgb(cs.backgroundColor);
-	        if (!isWhite(bg)) continue;
-	        var fg = parseRgb(cs.color);
-	        if (!isLightText(fg)) continue;
-	        // Dark pill background with UPS light text.
-	        el.style.backgroundColor = "rgba(15, 27, 48, 0.85)";
-	        el.style.color = "var(--ups-text)";
-	        el.style.borderRadius = "10px";
+	      var nodes = root.querySelectorAll("span, td, div");
+	      for (var i = 0; i < nodes.length; i += 1) {
+	        patchNode(nodes[i]);
 	      }
 	    }
 
-    if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", function () {
-        fixSpans();
-        setTimeout(fixSpans, 600);
-        setTimeout(fixSpans, 1600);
-      });
-    } else {
-      fixSpans();
-      setTimeout(fixSpans, 600);
-      setTimeout(fixSpans, 1600);
-    }
-  })();
-</script>
+	    var scheduleTimer = null;
+	    function scheduleFix() {
+	      if (scheduleTimer) return;
+	      scheduleTimer = setTimeout(function () {
+	        scheduleTimer = null;
+	        fixSpanContrast();
+	      }, 80);
+	    }
+
+	    function init() {
+	      fixSpanContrast();
+	      setTimeout(fixSpanContrast, 350);
+	      setTimeout(fixSpanContrast, 900);
+	      if (!window.MutationObserver) return;
+	      var root = document.getElementById("container-wrap") || document.body;
+	      if (!root) return;
+	      var observer = new MutationObserver(scheduleFix);
+	      observer.observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ["style", "class"] });
+	    }
+
+	    if (document.readyState === "loading") {
+	      document.addEventListener("DOMContentLoaded", init);
+	    } else {
+	      init();
+	    }
+	  })();
+	</script>
 
 <script>
   /* Redirect default scoreboard links to custom HPM scoreboard */
@@ -1687,7 +1735,11 @@
 
         if (event.data.type === "ccc-height") {
           var h = Number(event.data.height || 0);
-          if (h > 0) frame.style.height = Math.max(960, Math.ceil(h) + 24) + "px";
+          if (h > 0) {
+            var next = Math.max(960, Math.ceil(h));
+            var now = parseInt(String(frame.style.height || "0").replace(/[^0-9]/g, ""), 10) || 0;
+            if (Math.abs(next - now) >= 2) frame.style.height = next + "px";
+          }
         }
       });
     }
