@@ -1739,6 +1739,62 @@ body.ccc-modalOpen #devNoticeModal *{
   color: var(--text);
 }
 
+.ccc-releasePanel{
+  margin-top: 12px;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+}
+
+.ccc-releaseList{
+  display: grid;
+  gap: 10px;
+}
+
+.ccc-releaseItem{
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: var(--surface-3);
+}
+
+.ccc-releaseTop{
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ccc-releaseVersion{
+  font-weight: 900;
+  color: var(--text);
+}
+
+.ccc-releaseDate{
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.ccc-releaseTitle{
+  margin-top: 4px;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.ccc-releaseChanges{
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+
+.ccc-releaseChanges li{
+  margin: 4px 0;
+  color: var(--text);
+}
+
+.ccc-releaseEmpty{
+  color: var(--muted);
+  font-size: 13px;
+}
+
 #cccApp[data-theme="light"] .ccc-version,
 #cccApp[data-theme="auto"] .ccc-version{
   border-color: rgba(17,24,39,.18);

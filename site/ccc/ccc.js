@@ -11,6 +11,7 @@
   const TAG_TRACKING_URL = "./tag_tracking.json";
   const TAG_SUBMISSIONS_URL = "./tag_submissions.json";
   const PLAYER_POINTS_HISTORY_URL = "./player_points_history.json";
+  const RELEASE_LOG_URL = "./ccc_release_log.json";
   const TAG_EXCLUDED_PLAYER_IDS = new Set(["14056"]); // Kyler Murray (Superflex keeper) must hit FA.
   const TAG_EXCLUDED_NAME_MATCHES = ["kyler murray", "murray, kyler", "calamari"];
   const SEASON_CAP_PER_TEAM = 5;
@@ -86,7 +87,28 @@
   // Fallbacks if page URL lacks ?L= or YEAR=
   const DEFAULT_LEAGUE_ID = "74598";
   const DEFAULT_YEAR = "2026";
-  const APP_VERSION = "v0.9.5-dev";
+  const APP_VERSION = "v1.0.0";
+  const DEFAULT_RELEASE_LOG = [
+    {
+      version: "v1.0.0",
+      released_on: "2026-02-16",
+      title: "Production rollout",
+      changes: [
+        "Deployed current CCC and standings updates to production.",
+        "Standings now source data from production league snapshots.",
+        "Added release log tracking in Settings for ongoing version control.",
+      ],
+    },
+    {
+      version: "v0.9.5-dev",
+      released_on: "2026-02-16",
+      title: "Dev stabilization",
+      changes: [
+        "Added standings race views and sortable standings columns.",
+        "Added Kyler Murray/Calamari hard exclusion handling for tags.",
+      ],
+    },
+  ];
   const COMMISH_FRANCHISE_ID = "0008";
   const FORCE_SEASON_ROLLOVER = true;
 
@@ -937,6 +959,24 @@
       return rows.map(normalizeTagSubmissionRow);
     }
     return [];
+  }
+
+  function normalizeReleaseLogRows(raw) {
+    const rows = Array.isArray(raw)
+      ? raw
+      : raw && typeof raw === "object" && Array.isArray(raw.rows)
+      ? raw.rows
+      : [];
+    return rows
+      .map((r) => ({
+        version: safeStr(r.version || r.tag || ""),
+        released_on: safeStr(r.released_on || r.date || ""),
+        title: safeStr(r.title || r.summary || ""),
+        changes: Array.isArray(r.changes)
+          ? r.changes.map((x) => safeStr(x)).filter(Boolean)
+          : [],
+      }))
+      .filter((r) => r.version || r.released_on || r.title || r.changes.length);
   }
 
   function mergeTagSubmissions(externalRows, localMap) {
@@ -3713,6 +3753,45 @@
     `;
   }
 
+  function renderReleaseLogPanel() {
+    const rows = Array.isArray(state.releaseLogRows) ? state.releaseLogRows.slice(0, 15) : [];
+    if (!rows.length) {
+      return `
+        <div class="ccc-adminPanel ccc-releasePanel">
+          <div class="ccc-adminTitle">Release Log</div>
+          <div class="ccc-releaseEmpty">No release entries available yet.</div>
+        </div>
+      `;
+    }
+    const items = rows
+      .map((row) => {
+        const version = htmlEsc(row.version || "Unversioned");
+        const date = htmlEsc(row.released_on || "");
+        const title = htmlEsc(row.title || "");
+        const changes = (row.changes || [])
+          .slice(0, 6)
+          .map((c) => `<li>${htmlEsc(c)}</li>`)
+          .join("");
+        return `
+          <article class="ccc-releaseItem">
+            <div class="ccc-releaseTop">
+              <span class="ccc-releaseVersion">${version}</span>
+              <span class="ccc-releaseDate">${date}</span>
+            </div>
+            ${title ? `<div class="ccc-releaseTitle">${title}</div>` : ""}
+            ${changes ? `<ul class="ccc-releaseChanges">${changes}</ul>` : ""}
+          </article>
+        `;
+      })
+      .join("");
+    return `
+      <div class="ccc-adminPanel ccc-releasePanel">
+        <div class="ccc-adminTitle">Release Log</div>
+        <div class="ccc-releaseList">${items}</div>
+      </div>
+    `;
+  }
+
   function renderCommishModulePage() {
     const canCommish = !!state.canCommishMode;
     const season = normalizeSeasonValue(state.selectedSeason);
@@ -3779,6 +3858,10 @@
       <div class="ccc-adminPanel ccc-adminPanel--hero" style="display:block;">
         <div class="ccc-adminTitle">Settings</div>
         <div class="ccc-adminGrid">
+          <div class="ccc-field ccc-field-col">
+            <div class="ccc-adminConsoleTitle">Current Version</div>
+            <div class="ccc-releaseVersion">${htmlEsc(APP_VERSION)}</div>
+          </div>
           <button id="refreshBtn" class="ccc-btn" type="button" data-admin-action="refresh">Refresh Data</button>
           <div class="ccc-field">
             Theme
@@ -3813,6 +3896,7 @@
     return `
       <div class="ccc-summaryPage">
         ${adminPanel}
+        ${renderReleaseLogPanel()}
       </div>
     `;
   }
@@ -4028,6 +4112,7 @@
     tagTrackingRows: [],
     tagTrackingMeta: {},
     playerPointsRows: [],
+    releaseLogRows: DEFAULT_RELEASE_LOG.slice(),
     isAdmin: false,
     canCommishMode: false,
     commishMode: false,
@@ -6924,8 +7009,11 @@
       const tagSubBust = (TAG_SUBMISSIONS_URL.includes("?") ? "&" : "?") + "v=" + Date.now();
       const pointsBust =
         (PLAYER_POINTS_HISTORY_URL.includes("?") ? "&" : "?") + "v=" + Date.now();
+      const releaseLogBust =
+        (RELEASE_LOG_URL.includes("?") ? "&" : "?") + "v=" + Date.now();
 
-      const [res, subRes, restructureSubRes, tagRes, tagSubRes, pointsRes] = await Promise.all([
+      const [res, subRes, restructureSubRes, tagRes, tagSubRes, pointsRes, releaseLogRes] =
+        await Promise.all([
         fetch(MYM_JSON_URL + bust, { cache: "no-store" }),
         fetch(MYM_SUBMISSIONS_URL + subBust, { cache: "no-store" }).catch(() => null),
         fetch(RESTRUCTURE_SUBMISSIONS_URL + restructureBust, { cache: "no-store" }).catch(
@@ -6934,6 +7022,7 @@
         fetch(TAG_TRACKING_URL + tagBust, { cache: "no-store" }).catch(() => null),
         fetch(TAG_SUBMISSIONS_URL + tagSubBust, { cache: "no-store" }).catch(() => null),
         fetch(PLAYER_POINTS_HISTORY_URL + pointsBust, { cache: "no-store" }).catch(() => null),
+        fetch(RELEASE_LOG_URL + releaseLogBust, { cache: "no-store" }).catch(() => null),
       ]);
       if (!res.ok) throw new Error("MYM JSON HTTP " + res.status);
 
@@ -6988,6 +7077,15 @@
         } catch (e) {}
       }
       state.playerPointsRows = pointsRows;
+      let releaseRows = DEFAULT_RELEASE_LOG.slice();
+      if (releaseLogRes && releaseLogRes.ok) {
+        try {
+          const releaseRaw = await releaseLogRes.json();
+          const normalizedReleaseRows = normalizeReleaseLogRows(releaseRaw);
+          if (normalizedReleaseRows.length) releaseRows = normalizedReleaseRows;
+        } catch (e) {}
+      }
+      state.releaseLogRows = releaseRows;
       applyLocalOverrides(state.payload.eligibility);
 
       state.detectedFranchiseId = detectFranchiseId();

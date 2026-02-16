@@ -1,0 +1,23 @@
+{
+  "rows": [
+    {
+      "version": "v1.0.0",
+      "released_on": "2026-02-16",
+      "title": "Production rollout",
+      "changes": [
+        "Deployed the current CCC and standings work to production.",
+        "Standings now default to production-source snapshots.",
+        "Added Settings release log with visible in-app version tracking."
+      ]
+    },
+    {
+      "version": "v0.9.5-dev",
+      "released_on": "2026-02-16",
+      "title": "Dev stabilization",
+      "changes": [
+        "Added sortable standings table views and race views.",
+        "Added tag hard-exclusion handling for Kyler Murray / Calamari."
+      ]
+    }
+  ]
+}
