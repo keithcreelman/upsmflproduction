@@ -87,8 +87,18 @@
   // Fallbacks if page URL lacks ?L= or YEAR=
   const DEFAULT_LEAGUE_ID = "74598";
   const DEFAULT_YEAR = "2026";
-  const APP_VERSION = "v1.0.0";
+  const APP_VERSION = "v1.0.1";
   const DEFAULT_RELEASE_LOG = [
+    {
+      version: "v1.0.1",
+      released_on: "2026-02-16",
+      title: "2026 pre-launch warning and test-mode submissions",
+      changes: [
+        "Added one-time per-session 2026 development warning modal.",
+        "Restricted live contract submissions to franchise 0008 only.",
+        "All other franchises now save MYM and restructure submissions in local test mode.",
+      ],
+    },
     {
       version: "v1.0.0",
       released_on: "2026-02-16",
