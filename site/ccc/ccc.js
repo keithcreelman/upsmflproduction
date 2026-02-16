@@ -11,8 +11,8 @@
   const TAG_TRACKING_URL = "./tag_tracking.json";
   const TAG_SUBMISSIONS_URL = "./tag_submissions.json";
   const PLAYER_POINTS_HISTORY_URL = "./player_points_history.json";
-  const TAG_EXCLUDED_PLAYER_IDS = new Set(["12175"]); // Calamari (Amari Cooper) is a Superflex keeper and must hit FA.
-  const TAG_EXCLUDED_NAME_MATCHES = ["calamari", "cooper, amari", "amari cooper"];
+  const TAG_EXCLUDED_PLAYER_IDS = new Set(["14056"]); // Kyler Murray (Superflex keeper) must hit FA.
+  const TAG_EXCLUDED_NAME_MATCHES = ["kyler murray", "murray, kyler", "calamari"];
   const SEASON_CAP_PER_TEAM = 5;
   const RESTRUCTURE_CAP_PER_TEAM = 3;
   const MYM_EVENTS_BY_SEASON = {
@@ -86,7 +86,7 @@
   // Fallbacks if page URL lacks ?L= or YEAR=
   const DEFAULT_LEAGUE_ID = "74598";
   const DEFAULT_YEAR = "2026";
-  const APP_VERSION = "v0.9.4-dev";
+  const APP_VERSION = "v0.9.5-dev";
   const COMMISH_FRANCHISE_ID = "0008";
   const FORCE_SEASON_ROLLOVER = true;
 
