@@ -1,0 +1,318 @@
+<!------------------------------------------------------>
+<!----------------- Start #20 - Footer ----------------->
+<!------------------------------------------------------>
+
+<script>
+  /*
+   * Footer config kept intentionally lean.
+   * Defaults from footer.js are used unless a value is explicitly needed.
+   */
+
+  /* Rosters */
+  var tradeViewPermission = true;
+  var showTradesDefault = false;
+  var fid_commish = "0007";
+  var showNav = false;
+  var showMFLdefaultBtn = true;
+  var showAllstatus = false;
+  var rosCapdisplay = "4";
+  var leagueTypeNormal = false; /* contracts/salary league */
+  var rosEnableSwipe = true;
+  var SetLeftColumnWidth = "9.375";
+  var SetCaptionIconWidth = "15.625";
+  var RosterEnableMedia = true;
+
+  /* Trade calculator */
+  var showCalculator = true;
+  var showTopCalculator = false;
+  var calcHeaderName = "Salary Delta";
+  var hideTilClk = true;
+
+  /* Live scoring */
+  var ls_scoreboardName = "UPS SCD";
+  var ls_commish_id = "0007";
+  var ls_loader = false;
+  var largeLeagueSB = false;
+  var showTeamName = false;
+  var showTeamIcon = true;
+  var ls_includeProjections = true;
+  var ls_includeInjuryStatus = true;
+  var ls_excludeIR = true;
+  var ls_excludeTaxi = false;
+  var ls_popup_abbrev_name_icon = 2;
+  var ls_orig_proj_when_final = true;
+  var ls_popup_status = true;
+  var ls_box_abbrev_name_icon = 2;
+  var ls_hide_bye_teams = false;
+  var ls_show_win_probability = true;
+  var BreakRows = 1;
+  var is_Allplay = false;
+  var fixedWidthBox = false;
+  var setBoxWidth = "9.375";
+
+  /* Footer JS modules */
+  var load_moduleExpand_script = true;
+  var load_replace_mflScoring_h2h = false;
+  var load_standingSettings_script = true;
+  var load_popupAddon_script = true;
+  var load_notification_script = true;
+  var load_rosters_script = true;
+  var load_draftHistory_script = true;
+  var load_standingsHistory_script = true;
+  var load_playoffsHistory_script = true;
+  var load_tradesHistory_script = true;
+  var load_topsHistory_script = true;
+  var load_contractHistory_script = true;
+  var load_history_script = true;
+  var load_irReport_script = true;
+  var load_diceRoll_script = true;
+
+  /* Popup addon + notifications */
+  var enableAddonNewPM = true;
+  var enableAddonNewPost = true;
+  var enableAddonPoll = true;
+  var enableAddonTrade = true;
+  var includeVisitorNotification = true;
+  var includeTradeNotification = true;
+  var includeIRNotification = true;
+  var includeMsgBoardNotification = true;
+
+  var mflBoxAllPlayId = "0004";
+  var checkEverySecond_notificationVisitor = 60;
+  var sameVisitor_notification_interval = 5 * 60;
+  var trade_notification_interval = 60 * 60;
+  var notification_duration_seconds = 1.5;
+</script>
+
+<!-- REQUIRED HTML FOR MFL POPUP ADD-ON -->
+<div id="message_board_check" style="display:none"><module name="MESSAGE_BOARD_SUMMARY"></module></div>
+<div id="poll_check" style="display:none">
+  <module name="POLL_SUMMARY"></module>
+  <module name="POLL"></module>
+</div>
+<div id="trade_check" style="display:none"><module name="TRADES"></module></div>
+
+<!-- GLOBAL FOOTER -->
+<script src="https://www.mflscripts.com/mfl-apps/global/footer.js?v=1.12"></script>
+<script src="https://mflscripts.com/mfl-apps/playoffs/standingsColumns.js"></script>
+<script>
+  // Normalize roster trade-asset labeling from MFL script output.
+  (function () {
+    function renameBlindBidLabels(root) {
+      var scope = root || document;
+      var nodes = scope.querySelectorAll(
+        "#MFLroster .roster_assets td, #MFLroster .roster_assets th, #MFLroster td, #MFLroster th"
+      );
+      nodes.forEach(function (node) {
+        if (!node || !node.childNodes || !node.childNodes.length) return;
+        for (var i = 0; i < node.childNodes.length; i += 1) {
+          var child = node.childNodes[i];
+          if (!child || child.nodeType !== Node.TEXT_NODE) continue;
+          if (child.nodeValue && child.nodeValue.indexOf("Blind Bidding Dollars") !== -1) {
+            child.nodeValue = child.nodeValue.replace(/Blind Bidding Dollars/gi, "Salary");
+          }
+        }
+      });
+    }
+
+    function initLabelOverride() {
+      if (!document.body || document.body.id !== "body_options_07") return;
+      renameBlindBidLabels(document);
+      var obs = new MutationObserver(function (mutations) {
+        mutations.forEach(function (m) {
+          renameBlindBidLabels(m.target || document);
+        });
+      });
+      obs.observe(document.body, { childList: true, subtree: true });
+    }
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", initLabelOverride);
+    } else {
+      initLabelOverride();
+    }
+  })();
+</script>
+
+</div><!-- CLOSE CONTAINER WRAP FROM HEADER -->
+
+<style>
+  .ups-footer {
+    margin-top: 1rem;
+    background:
+      radial-gradient(circle at 90% 20%, rgba(84, 130, 198, 0.2), transparent 40%),
+      linear-gradient(180deg, #0d1728 0%, #0a1220 100%);
+    border-top: 1px solid rgba(85, 140, 197, 0.45);
+    color: #eef4ff;
+    font-weight: 700;
+  }
+
+  .ups-footer-wrap {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 1rem 0.95rem 1.2rem;
+    display: grid;
+    gap: 0.9rem;
+  }
+
+  .ups-champion {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    gap: 0.8rem;
+    background: linear-gradient(135deg, #1e273a 0%, #44351f 52%, #6f4d1b 100%);
+    border: 1px solid rgba(243, 182, 31, 0.5);
+    border-radius: 12px;
+    padding: 0.6rem 0.75rem;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+  }
+
+  .ups-champion img {
+    width: 72px;
+    height: 72px;
+    border-radius: 8px;
+    object-fit: cover;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: #000;
+  }
+
+  .ups-champion-title {
+    color: #ffe5a7;
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-weight: 800;
+    margin-bottom: 0.18rem;
+  }
+
+  .ups-champion-name {
+    color: #fff4cf;
+    font-size: 1.02rem;
+    font-weight: 900;
+    line-height: 1.2;
+  }
+
+  .ups-footer-grid {
+    display: grid;
+    gap: 0.65rem;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  }
+
+  .ups-footer-card {
+    background: linear-gradient(180deg, #0f1d34 0%, #0d1930 100%);
+    border: 1px solid #28466f;
+    border-radius: 10px;
+    padding: 0.62rem 0.68rem;
+  }
+
+  .ups-footer-heading {
+    color: #d9e7ff;
+    font-size: 0.76rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-weight: 900;
+    margin-bottom: 0.45rem;
+  }
+
+  .ups-footer-links {
+    display: grid;
+    gap: 0.3rem;
+  }
+
+  .ups-footer-links a {
+    color: #e5efff;
+    text-decoration: none;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+
+  .ups-footer-links a:hover,
+  .ups-footer-links a:focus {
+    color: #ffffff;
+    text-decoration: underline;
+  }
+
+  .ups-footer-meta {
+    color: #9fb3d1;
+    font-size: 0.72rem;
+    border-top: 1px solid rgba(92, 129, 173, 0.35);
+    padding-top: 0.55rem;
+  }
+
+  @media (max-width: 640px) {
+    .ups-footer-wrap {
+      padding: 0.85rem 0.65rem 1rem;
+    }
+
+    .ups-champion {
+      grid-template-columns: 1fr;
+      text-align: center;
+      justify-items: center;
+    }
+  }
+</style>
+
+<footer class="ups-footer">
+  <div class="ups-footer-wrap">
+    <div class="ups-champion">
+      <img
+        src="https://www48.myfantasyleague.com/fflnetdynamic2025/74598_franchise_icon0005.jpg"
+        alt="Defending Champion">
+      <div>
+        <div class="ups-champion-title">Defending Champion</div>
+        <div class="ups-champion-name">HammerTime</div>
+      </div>
+    </div>
+
+    <div class="ups-footer-grid">
+      <section class="ups-footer-card">
+        <div class="ups-footer-heading">Management</div>
+        <div class="ups-footer-links">
+          <a href="//%HOST%/%YEAR%/options?L=%LEAGUEID%&amp;O=02">Submit Lineup</a>
+          <a href="//%HOST%/%YEAR%/add_drop?L=%LEAGUEID%">Add/Drop</a>
+          <a href="//%HOST%/%YEAR%/options?L=%LEAGUEID%&amp;O=05">Trades</a>
+          <a href="//%HOST%/%YEAR%/csetup?L=%LEAGUEID%&amp;C=FRANCHISE">Setup</a>
+        </div>
+      </section>
+
+      <section class="ups-footer-card">
+        <div class="ups-footer-heading">Franchise</div>
+        <div class="ups-footer-links">
+          <a href="//%HOST%/%YEAR%/accounting_report?L=%LEAGUEID%">Accounting</a>
+          <a href="//%HOST%/%YEAR%/options?L=74598&amp;O=03">Transactions</a>
+          <a href="//%HOST%/%YEAR%/options?L=74598&amp;O=07">League Rosters</a>
+          <a href="//%HOST%/%YEAR%/options?L=%LEAGUEID%&amp;O=26">By-Laws</a>
+        </div>
+      </section>
+
+      <section class="ups-footer-card">
+        <div class="ups-footer-heading">Stats</div>
+        <div class="ups-footer-links">
+          <a href="//%HOST%/%YEAR%/options?L=%LEAGUEID%&amp;O=08">Sortable Stats</a>
+          <a href="//%HOST%/%YEAR%/top?L=%LEAGUEID%&amp;SEARCHTYPE=ADVANCED&amp;COUNT=30&amp;CATEGORY=freeagent&amp;POSITION=*&amp;DISPLAY=points&amp;TEAM=*">Free Agents</a>
+          <a href="//%HOST%/%YEAR%/fantasy_box_score?L=%LEAGUEID%">Box Scores</a>
+          <a href="//%HOST%/%YEAR%/depth_chart?L=%LEAGUEID%">Depth Charts</a>
+        </div>
+      </section>
+
+      <section class="ups-footer-card">
+        <div class="ups-footer-heading">Features</div>
+        <div class="ups-footer-links">
+          <a href="//%HOST%/%YEAR%/options?L=%LEAGUEID%&amp;O=52">Draft</a>
+          <a href="//%HOST%/%YEAR%/ajax_ls?L=%LEAGUEID%">Scoreboard</a>
+          <a href="//%HOST%/%YEAR%/options?L=74598&amp;O=17">Draft Results</a>
+          <a href="//%HOST%/%YEAR%/options?L=%LEAGUEID%&amp;O=101">Power Rank</a>
+          <a href="//%HOST%/%YEAR%/home/%LEAGUEID%?MODULE=MESSAGE15">MCM</a>
+        </div>
+      </section>
+    </div>
+
+    <div class="ups-footer-meta">
+      UPS Salary Cap Dynasty League
+    </div>
+  </div>
+</footer>
+
+<!------------------------------------------------------>
+<!------------------ End #20 - Footer ------------------>
+<!------------------------------------------------------>

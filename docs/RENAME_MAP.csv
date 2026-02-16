@@ -1,0 +1,18 @@
+old_path,new_path,notes
+etl/build_adp_auction_value_model.py,pipelines/etl/scripts/build_auction_value_model.py,Renamed and path-hardened
+etl/build_early_projection_2026.py,pipelines/etl/scripts/build_early_projection.py,Renamed and path-hardened
+etl/extract_discord_contracts.py,pipelines/etl/scripts/ingest_discord_contracts.py,Renamed and path-hardened
+etl/load_contract_logs_2019_2021.py,pipelines/etl/scripts/ingest_contract_logs_2019_2021.py,Renamed and path-hardened
+etl/load_2025_mym_into_v3.py,pipelines/etl/scripts/load_mym_submissions_2025.py,Renamed and argparse added
+etl/migrate_contracts_xml_legacy.py,pipelines/etl/scripts/migrate_legacy_contract_xml.py,Renamed and path-hardened
+etl/config/*,pipelines/etl/config/*,Relocated
+etl/logs/*,pipelines/etl/artifacts/*,Relocated as runtime outputs
+mfl/site/header_v2_redesign.html,apps/mfl_site/header_custom_v2.html,Renamed
+mfl/site/footer_v2_redesign.html,apps/mfl_site/footer_custom_v2.html,Renamed
+mfl/site/ccc_bridge.js,apps/mfl_site/contract_command_center_bridge.js,Renamed
+mfl/site/ccc_hpm16_loader_patch.html,apps/mfl_site/contract_command_center_loader_patch.html,Renamed
+rulebook/rulebook_api.py,services/rulebook/api/rulebook_api.py,Relocated and path-hardened
+rulebook/ccc_rulebook_embed.html,services/rulebook/web/rulebook_embed.html,Renamed/relocated
+rulebook/build_ups_rulebook_json.py,services/rulebook/tools/build_rulebook_json.py,Renamed/relocated and path-hardened
+rulebook/rules.json,services/rulebook/data/rules.json,Relocated
+rulebook/ccc_rulebook.db,services/rulebook/data/rule_feedback.db,Renamed runtime DB

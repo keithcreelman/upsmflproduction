@@ -1,0 +1,33 @@
+# macOS
+.DS_Store
+._*
+.Spotlight-V100
+.Trashes
+
+# Runtime data (never commit)
+pipelines/etl/data/
+pipelines/etl/inputs/*.xlsx
+pipelines/etl/inputs/*.csv
+pipelines/etl/artifacts/
+services/rulebook/data/feedback.db
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+scripts/scheduler/logs/
+*.log
+
+# Node / Cloudflare
+node_modules/
+.wrangler/

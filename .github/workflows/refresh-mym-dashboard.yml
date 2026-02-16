@@ -1,0 +1,67 @@
+name: Refresh MYM Dashboard JSON
+
+on:
+  workflow_dispatch:
+  repository_dispatch:
+    types: [refresh-mym-json]
+  schedule:
+    - cron: "20 * * * *"
+
+concurrency:
+  group: refresh-mym-dashboard
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Refresh JSON from MFL
+        env:
+          MFL_COOKIE: ${{ secrets.MFL_COOKIE }}
+          MFL_LEAGUE_ID: ${{ secrets.MFL_LEAGUE_ID }}
+        run: |
+          if [ -z "${MFL_COOKIE}" ]; then
+            echo "Missing required secret: MFL_COOKIE"
+            exit 1
+          fi
+          if [ -z "${MFL_LEAGUE_ID}" ]; then
+            echo "Missing required secret: MFL_LEAGUE_ID"
+            exit 1
+          fi
+          python pipelines/etl/scripts/refresh_mym_dashboard_from_mfl.py \
+            --json-path site/ccc/mym_dashboard.json
+
+      - name: Commit and push if changed
+        run: |
+          if git diff --quiet -- site/ccc/mym_dashboard.json; then
+            echo "No JSON changes to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add site/ccc/mym_dashboard.json
+          git commit -m "Auto-refresh MYM dashboard JSON from MFL"
+          for attempt in 1 2 3; do
+            git pull --rebase origin main
+            if git push origin HEAD:main; then
+              echo "Push succeeded on attempt ${attempt}."
+              exit 0
+            fi
+            echo "Push attempt ${attempt} failed; retrying..."
+            sleep 2
+          done
+          echo "Failed to push after 3 attempts."
+          exit 1
