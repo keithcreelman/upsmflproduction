@@ -48,7 +48,7 @@
       try {
         var el = document.createElement("div");
         el.id = "upsDebugBadge";
-        el.textContent = "UPS header build: 2026.02.16.2";
+        el.textContent = "UPS header build: 2026.02.16.3";
         el.style.cssText =
           "position:fixed;right:10px;bottom:10px;z-index:999999;" +
           "padding:6px 10px;border-radius:999px;" +
@@ -786,6 +786,75 @@
       });
     } else {
       initThemeToggle();
+    }
+  })();
+</script>
+
+<script>
+  // CCC embed helper for MFL home-page messages:
+  // MFL sometimes injects message HTML with innerHTML, which makes <script> tags inert.
+  // Loading the CCC embed loader from the header ensures it executes.
+  (function () {
+    if (window.__ups_ccc_header_autoload) return;
+    window.__ups_ccc_header_autoload = true;
+
+    function safeUpper(v) {
+      return String(v || "").trim().toUpperCase();
+    }
+
+    function getModuleName() {
+      try {
+        var u = new URL(window.location.href);
+        return safeUpper(u.searchParams.get("MODULE") || "");
+      } catch (e) {
+        return "";
+      }
+    }
+
+    function alreadyEmbedded() {
+      return !!document.querySelector('iframe[src*="mfl_hpm16_contractcommandcenter.html"]');
+    }
+
+    function ensureMountNearTop() {
+      var mount = document.getElementById("cccMount");
+      if (mount) return mount;
+      mount = document.createElement("div");
+      mount.id = "cccMount";
+      var anchor =
+        document.querySelector(".ups-hero-shell") ||
+        document.querySelector(".ccc-banner") ||
+        document.getElementById("container-wrap") ||
+        document.body;
+      if (anchor && anchor.parentNode) {
+        anchor.parentNode.insertBefore(mount, anchor.nextSibling);
+      } else {
+        document.body.appendChild(mount);
+      }
+      return mount;
+    }
+
+    function loadCccLoader() {
+      if (alreadyEmbedded()) return;
+      ensureMountNearTop();
+      var s = document.createElement("script");
+      // Pin to a commit to avoid jsDelivr caching surprises.
+      s.src =
+        "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@d1413ac/site/ccc/mfl_hpm_embed_loader.js" +
+        "?v=" +
+        encodeURIComponent(String(Date.now()));
+      s.async = true;
+      document.body.appendChild(s);
+    }
+
+    var mod = getModuleName();
+    if (mod !== "MESSAGE2" && mod !== "MESSAGE16") return;
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", function () {
+        loadCccLoader();
+      });
+    } else {
+      loadCccLoader();
     }
   })();
 </script>
