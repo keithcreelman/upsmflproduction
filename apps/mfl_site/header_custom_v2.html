@@ -48,7 +48,7 @@
       try {
         var el = document.createElement("div");
         el.id = "upsDebugBadge";
-        el.textContent = "UPS header build: 2026.02.16.9";
+        el.textContent = "UPS header build: 2026.02.16.10";
         el.style.cssText =
           "position:fixed;right:10px;bottom:10px;z-index:999999;" +
           "padding:6px 10px;border-radius:999px;" +
@@ -402,7 +402,7 @@
   }
 
   .ups-hero-item--leader {
-    grid-template-columns: 24px 1fr auto;
+    grid-template-columns: 1fr auto;
   }
 
   .ups-hero-item--champ {
@@ -1149,15 +1149,15 @@
 
     var fallbackTitleLeaders = [
       { franchise: "Blake Bombers", icon: "https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_icon0010.png", titles: 3, years: "2011, 2015, 2023" },
-      { franchise: "L.A. Looks", icon: "https://www48.myfantasyleague.com/fflnetdynamic2025/74598_franchise_icon0001.png", titles: 2, years: "2014, 2021" },
       { franchise: "Gride", icon: "https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_icon0003.png", titles: 2, years: "2012, 2022" },
-      { franchise: "The Long Haulers", icon: "https://www48.myfantasyleague.com/fflnetdynamic2024/74598_franchise_icon0006.jpg", titles: 2, years: "2017, 2018" },
+      { franchise: "Ulterior Warrior", icon: "https://www45.myfantasyleague.com/fflnetdynamic2014/30590_franchise_icon0001.jpg", titles: 2, years: "2014, 2021" },
       { franchise: "Sex Manther", icon: "https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_icon0007.png", titles: 2, years: "2019, 2020" },
-      { franchise: "CBP", icon: "https://www48.myfantasyleague.com/fflnetdynamic2023/74598_franchise_icon0002.png", titles: 1, years: "2013" },
+      { franchise: "Good in Da Hood", icon: "http://i1218.photobucket.com/albums/dd420/creelmank/Team%20Minis/GoodinDaHoodMINI.png", titles: 2, years: "2017, 2018" },
       { franchise: "Pure Greatness", icon: "https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_icon0004.png", titles: 1, years: "2025" },
-      { franchise: "HammerTime", icon: "https://www48.myfantasyleague.com/fflnetdynamic2025/74598_franchise_icon0005.jpg", titles: 1, years: "2024" },
-      { franchise: "Real Deal Creel", icon: "https://www48.myfantasyleague.com/fflnetdynamic2023/74598_franchise_icon0008.png", titles: 1, years: "2010" },
-      { franchise: "C-Town Chivalry", icon: "https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_icon0009.png", titles: 1, years: "2016" }
+      { franchise: "HammerTime", icon: "https://www48.myfantasyleague.com/fflnetdynamic2022/74598_franchise_logo0005.png", titles: 1, years: "2024" },
+      { franchise: "C-Town Chivalry", icon: "https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_icon0009.png", titles: 1, years: "2016" },
+      { franchise: "DBCA", icon: "https://www48.myfantasyleague.com/fflnetdynamic2022/74598_franchise_icon0002.png", titles: 1, years: "2013" },
+      { franchise: "R-11", icon: "https://www45.myfantasyleague.com/fflnetdynamic2010/60671_franchise_icon0008.png", titles: 1, years: "2010" }
     ];
 
     function formatPct(value) {
@@ -1198,12 +1198,6 @@
       var row = document.createElement("div");
       row.className = "ups-hero-item ups-hero-item--leader";
 
-      var icon = document.createElement("img");
-      icon.className = "ups-hero-icon";
-      icon.alt = (item.franchise || "Franchise") + " icon";
-      icon.src = String(item.icon || "");
-      icon.loading = "lazy";
-
       var main = document.createElement("div");
       main.className = "ups-hero-main";
 
@@ -1223,7 +1217,6 @@
       main.appendChild(name);
       main.appendChild(meta);
 
-      row.appendChild(icon);
       row.appendChild(main);
       row.appendChild(count);
       return row;
