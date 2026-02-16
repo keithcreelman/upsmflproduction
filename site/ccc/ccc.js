@@ -11,6 +11,8 @@
   const TAG_TRACKING_URL = "./tag_tracking.json";
   const TAG_SUBMISSIONS_URL = "./tag_submissions.json";
   const PLAYER_POINTS_HISTORY_URL = "./player_points_history.json";
+  const TAG_EXCLUDED_PLAYER_IDS = new Set(["12175"]); // Calamari (Amari Cooper) is a Superflex keeper and must hit FA.
+  const TAG_EXCLUDED_NAME_MATCHES = ["calamari", "cooper, amari", "amari cooper"];
   const SEASON_CAP_PER_TEAM = 5;
   const RESTRUCTURE_CAP_PER_TEAM = 3;
   const MYM_EVENTS_BY_SEASON = {
@@ -84,7 +86,7 @@
   // Fallbacks if page URL lacks ?L= or YEAR=
   const DEFAULT_LEAGUE_ID = "74598";
   const DEFAULT_YEAR = "2026";
-  const APP_VERSION = "v0.9.3-dev";
+  const APP_VERSION = "v0.9.4-dev";
   const COMMISH_FRANCHISE_ID = "0008";
   const FORCE_SEASON_ROLLOVER = true;
 
@@ -547,6 +549,13 @@
     };
   }
 
+  function getAllowedHighlightModes(moduleKey) {
+    const key = safeStr(moduleKey || "").toLowerCase();
+    if (key === "tag") return ["tier", "team", "position"];
+    if (key === "expiredrookie") return ["team", "position"];
+    return ["position", "team"];
+  }
+
   function rememberHighlightForModule(moduleKey) {
     const key = safeStr(moduleKey || "").toLowerCase();
     if (!key) return;
@@ -570,25 +579,35 @@
   function applyHighlightSetting() {
     const app = $("#cccApp");
     const enabled = !!state.rowHighlightEnabled;
-    const mode = normalizeHighlightMode(state.rowHighlightMode);
-    const appliesToTagTracking = state.activeModule === "tag" && state.activeTab === "eligible";
-    if (app) app.setAttribute("data-highlight", appliesToTagTracking && enabled ? mode : "none");
+    const allowedModes = getAllowedHighlightModes(state.activeModule || "default");
+    let mode = normalizeHighlightMode(state.rowHighlightMode);
+    if (!allowedModes.includes(mode)) {
+      mode = allowedModes[0] || "position";
+      state.rowHighlightMode = mode;
+    }
+    const appliesToRowHighlight =
+      (state.activeModule === "tag" || state.activeModule === "expiredrookie") &&
+      state.activeTab === "eligible";
+    if (app) app.setAttribute("data-highlight", appliesToRowHighlight && enabled ? mode : "none");
     const chk = $("#rowHighlightChk");
     if (chk) {
       chk.checked = enabled;
-      chk.disabled = !appliesToTagTracking;
+      chk.disabled = !appliesToRowHighlight;
     }
     const sel = $("#rowHighlightModeSelect");
     if (sel) {
       sel.value = mode;
-      sel.disabled = !appliesToTagTracking || !enabled;
+      sel.disabled = !appliesToRowHighlight || !enabled;
     }
     const seg = $("#rowHighlightSeg");
     if (seg) {
       seg.querySelectorAll(".seg").forEach((btn) => {
-        const isActive = btn.getAttribute("data-highlight") === mode;
+        const btnMode = safeStr(btn.getAttribute("data-highlight")).toLowerCase();
+        const isAllowed = allowedModes.includes(btnMode);
+        const isActive = btnMode === mode;
+        btn.style.display = isAllowed ? "" : "none";
         btn.classList.toggle("is-active", isActive);
-        btn.disabled = !appliesToTagTracking || !enabled;
+        btn.disabled = !isAllowed || !appliesToRowHighlight || !enabled;
       });
     }
   }
@@ -1376,6 +1395,14 @@
     if (tierVal) classes.push(`tier-${tierVal}`);
     if (fid) classes.push(`team-${fid}`);
     return classes.join(" ");
+  }
+
+  function isTagHardExcluded(row) {
+    const pid = safeStr(row && row.player_id);
+    if (pid && TAG_EXCLUDED_PLAYER_IDS.has(pid)) return true;
+    const nm = safeStr(row && row.player_name).toLowerCase();
+    if (!nm) return false;
+    return TAG_EXCLUDED_NAME_MATCHES.some((needle) => nm.includes(needle));
   }
 
   function canManageTagForFranchise(franchiseId) {
@@ -2266,6 +2293,24 @@
       <div class="ccc-summaryControls">
         <span class="ccc-navTitle">Submission Season</span>
         <select class="ccc-select" data-mym-submission-season="1">${opts}</select>
+      </div>
+    `;
+  }
+
+  function renderRestructureSubmissionSeasonControls(options, selected) {
+    const list = Array.isArray(options) ? options.filter(Boolean) : [];
+    if (!list.length) return "";
+    const opts = list
+      .map((s) => {
+        const val = htmlEsc(s);
+        const isSel = normalizeSeasonValue(s) === normalizeSeasonValue(selected);
+        return `<option value="${val}"${isSel ? " selected" : ""}>${val}</option>`;
+      })
+      .join("");
+    return `
+      <div class="ccc-summaryControls">
+        <span class="ccc-navTitle">Submission Season</span>
+        <select class="ccc-select" data-restructure-submission-season="1">${opts}</select>
       </div>
     `;
   }
@@ -4028,6 +4073,7 @@
     commishViewMode: "A",
     lastOwnerTeam: "",
     mymSubmissionSeason: "",
+    restructureSubmissionSeason: "",
     filtersByModule: {},
   };
 
@@ -4068,7 +4114,11 @@
         ? state.filtersByModule[key]
         : null;
 
-    const defaultTeam = safeStr(defaults.teamId || state.detectedFranchiseId || "__ALL__");
+    const ownerOrAll = safeStr(state.detectedFranchiseId || "__ALL__");
+    let defaultTeam = safeStr(defaults.teamId || ownerOrAll);
+    if (key === "mym" || key === "restructure" || key === "expiredrookie") {
+      defaultTeam = state.canCommishMode ? "__ALL__" : ownerOrAll;
+    }
     const selectedTeam = safeStr(saved && saved.selectedTeam ? saved.selectedTeam : defaultTeam);
     state.selectedTeam = selectedTeam || "__ALL__";
     state.showAllTeams = state.selectedTeam === "__ALL__";
@@ -4096,6 +4146,16 @@
     }
     setHighlightForModule(state.activeModule || "default");
     applyFiltersForModule(state.activeModule || "default");
+    if (
+      state.activeModule &&
+      (state.activeModule === "mym" ||
+        state.activeModule === "restructure" ||
+        state.activeModule === "expiredrookie") &&
+      state.canCommishMode
+    ) {
+      state.selectedTeam = "__ALL__";
+      state.showAllTeams = true;
+    }
   }
 
   function normalizeSeasonValue(v) {
@@ -4952,6 +5012,9 @@
         if (summaryTab) summaryTab.style.display = "none";
         if (submittedTab) submittedTab.style.display = "none";
       }
+      if (state.activeModule === "restructure" || state.activeModule === "mym") {
+        if (summaryTab) summaryTab.style.display = "none";
+      }
       if (eligibleTab)
         eligibleTab.textContent =
           state.activeModule === "extensions"
@@ -4961,11 +5024,7 @@
             : "Eligible";
       if (submittedTab)
         submittedTab.textContent =
-          state.activeModule === "restructure"
-            ? "Restructure - Submitted"
-            : state.activeModule === "extensions"
-            ? "Finalized Submissions"
-            : "MYM - Submitted";
+          state.activeModule === "extensions" ? "Finalized Submissions" : "Submissions";
     }
   }
 
@@ -5291,9 +5350,12 @@
     const seasonMymSubmissions = allMymSubmissions.filter(
       (r) => !season || normalizeSeasonValue(r.season) === season
     );
-    const seasonRestructureSubmissions = (state.restructureSubmissions || [])
-      .map((r) => normalizeSubmissionRow(r))
-      .filter((r) => !season || normalizeSeasonValue(r.season) === season);
+    const allRestructureSubmissions = (state.restructureSubmissions || []).map((r) =>
+      normalizeSubmissionRow(r)
+    );
+    const seasonRestructureSubmissions = allRestructureSubmissions.filter(
+      (r) => !season || normalizeSeasonValue(r.season) === season
+    );
     // Tag tracking rows are generated for a base season, but represent the following
     // season's tag pool (meta.tracking_for_season). If the host page defaults YEAR to
     // the base season (or omits it), prefer tracking_for_season so the tag pool shows up.
@@ -5320,6 +5382,22 @@
     const mymSubmissionRows = mymSubmissionSeason
       ? allMymSubmissions.filter((r) => normalizeSeasonValue(r.season) === mymSubmissionSeason)
       : allMymSubmissions.slice();
+    const restructureSubmissionSeasons = buildSubmissionSeasonList(allRestructureSubmissions);
+    if (state.activeModule === "restructure") {
+      if (
+        !state.restructureSubmissionSeason ||
+        (state.restructureSubmissionSeason &&
+          !restructureSubmissionSeasons.includes(state.restructureSubmissionSeason))
+      ) {
+        state.restructureSubmissionSeason = restructureSubmissionSeasons[0] || "";
+      }
+    }
+    const restructureSubmissionSeason = state.restructureSubmissionSeason;
+    const restructureSubmissionRows = restructureSubmissionSeason
+      ? allRestructureSubmissions.filter(
+          (r) => normalizeSeasonValue(r.season) === restructureSubmissionSeason
+        )
+      : allRestructureSubmissions.slice();
 
 
     state.teamColorMap = buildTeamColorMap(
@@ -5338,6 +5416,9 @@
     const teamFilteredRestructureSubmissions = showAllTeams
       ? seasonRestructureSubmissions
       : seasonRestructureSubmissions.filter((r) => pad4(r.franchise_id) === selectedTeamId);
+    const teamFilteredRestructureSubmissionsForTab = showAllTeams
+      ? restructureSubmissionRows
+      : restructureSubmissionRows.filter((r) => pad4(r.franchise_id) === selectedTeamId);
     const teamFilteredMymSubmissionsForTab = showAllTeams
       ? mymSubmissionRows
       : mymSubmissionRows.filter((r) => pad4(r.franchise_id) === selectedTeamId);
@@ -5361,6 +5442,12 @@
       selectedPosition === "__ALL_POS__"
         ? teamFilteredRestructureSubmissions
         : teamFilteredRestructureSubmissions.filter((r) => posKeyFromRow(r) === selectedPosition);
+    const positionFilteredRestructureSubmissionsForTab =
+      selectedPosition === "__ALL_POS__"
+        ? teamFilteredRestructureSubmissionsForTab
+        : teamFilteredRestructureSubmissionsForTab.filter(
+            (r) => posKeyFromRow(r) === selectedPosition
+          );
     const positionFilteredTagTracking =
       selectedPosition === "__ALL_POS__"
         ? teamFilteredTagTracking
@@ -5378,8 +5465,12 @@
     const moduleSubmittedForTab =
       state.activeModule === "mym" && state.activeTab === "submitted"
         ? teamFilteredMymSubmissionsForTab
-        : state.activeModule === "mym"
+      : state.activeModule === "mym"
         ? positionFilteredMymSubmissionsForTab
+      : state.activeModule === "restructure" && state.activeTab === "submitted"
+        ? teamFilteredRestructureSubmissionsForTab
+      : state.activeModule === "restructure"
+        ? positionFilteredRestructureSubmissionsForTab
         : moduleSubmittedBase;
     const scopedTagTracking = searchLower
       ? positionFilteredTagTracking.filter((r) =>
@@ -5425,11 +5516,13 @@
     }
 
     if (state.activeModule === "tag") {
-      const tagEligibleRows = scopedTagTracking.filter((r) => safeInt(r.is_tag_eligible) === 1);
-      const tagEligibleAll = (seasonTagTracking || []).filter(
-        (r) => safeInt(r.is_tag_eligible) === 1
+      const scopedTagTrackingAllowed = scopedTagTracking.filter((r) => !isTagHardExcluded(r));
+      const seasonTagTrackingAllowed = (seasonTagTracking || []).filter(
+        (r) => !isTagHardExcluded(r)
       );
-      const tagIneligibleRows = buildTagIneligibleOneYearRows(seasonTagTracking || []);
+      const tagEligibleRows = scopedTagTrackingAllowed.filter((r) => safeInt(r.is_tag_eligible) === 1);
+      const tagEligibleAll = seasonTagTrackingAllowed.filter((r) => safeInt(r.is_tag_eligible) === 1);
+      const tagIneligibleRows = buildTagIneligibleOneYearRows(seasonTagTrackingAllowed);
       const ppgMin = clampInt(state.ppgMinGames || 8, 1, 18);
       const ppgPool =
         state.tagTrackingMeta && Array.isArray(state.tagTrackingMeta.ppg_pool)
@@ -5442,7 +5535,7 @@
           : sortRows(tagEligibleRows, "tagTier", "asc");
       const teamNameSource =
         (tagRows[0] && tagRows[0].franchise_name) ||
-        (positionFilteredTagTracking[0] && positionFilteredTagTracking[0].franchise_name) ||
+        (scopedTagTrackingAllowed[0] && scopedTagTrackingAllowed[0].franchise_name) ||
         "";
       const teamName = showAllTeams ? "All Teams" : safeStr(teamNameSource || "Team");
 
@@ -5457,7 +5550,7 @@
           tagTrackingFilterSeason || state.calendarContractSeason || season,
           selectedTeamId,
           showAllTeams,
-          positionFilteredTagTracking
+          scopedTagTrackingAllowed
         );
       if (tabSummary)
         tabSummary.innerHTML = renderTagSummaryPage(
@@ -5467,13 +5560,13 @@
           !!state.tagCalcOpen,
           state.tagTrackingMeta || {},
           state.tagSummarySide || "ALL",
-          seasonTagTracking || []
+          seasonTagTrackingAllowed
         );
       if (tabCostCalc)
         tabCostCalc.innerHTML = renderTagCostCalcPage(
           state.tagTrackingMeta || {},
           state.tagSummarySide || "ALL",
-          seasonTagTracking || []
+          seasonTagTrackingAllowed
         );
       if (tabEligible) tabEligible.innerHTML = renderTable(tagRows, "eligible");
       if (tabIneligible) tabIneligible.innerHTML = renderTagIneligibleList(tagIneligibleRows);
@@ -5487,12 +5580,16 @@
       syncTabLabels();
       syncModuleChipSelection();
       syncCommishConsole(scopedEligibility);
-      if (summary) summary.innerHTML = landing;
-      if (tabSummary) tabSummary.innerHTML = landing;
+      if (cccTabs) cccTabs.style.display = "none";
+      if (summary) {
+        summary.style.display = "";
+        summary.innerHTML = landing;
+      }
+      if (tabSummary) tabSummary.innerHTML = "";
       if (tabCostCalc) tabCostCalc.innerHTML = "";
-      if (tabEligible) tabEligible.innerHTML = landing;
+      if (tabEligible) tabEligible.innerHTML = "";
       if (tabIneligible) tabIneligible.innerHTML = "";
-      if (tabSubmitted) tabSubmitted.innerHTML = landing;
+      if (tabSubmitted) tabSubmitted.innerHTML = "";
       updateModuleStatusChips();
       return;
     }
@@ -5645,15 +5742,21 @@
     // Keep commish console list aligned with current team/position/search filters.
     syncCommishConsole(scopedEligibility);
     if (summary) {
-      summary.innerHTML = renderSummary(
-        teamName,
-        positionFilteredEligibility,
-        eligibleRows,
-        usedCount,
-        remainingCount,
-        asOfDate,
-        !!asOfDate
-      );
+      if (state.activeModule === "restructure") {
+        summary.style.display = "none";
+        summary.innerHTML = "";
+      } else {
+        summary.style.display = "";
+        summary.innerHTML = renderSummary(
+          teamName,
+          positionFilteredEligibility,
+          eligibleRows,
+          usedCount,
+          remainingCount,
+          asOfDate,
+          !!asOfDate
+        );
+      }
     }
     if (tabSummary) {
       tabSummary.innerHTML =
@@ -5674,6 +5777,12 @@
     if (tabSubmitted) {
       if (state.activeModule === "mym") {
         const header = renderMymSubmissionSeasonControls(mymSubmissionSeasons, mymSubmissionSeason);
+        tabSubmitted.innerHTML = header + renderTable(submittedRows, "submitted");
+      } else if (state.activeModule === "restructure") {
+        const header = renderRestructureSubmissionSeasonControls(
+          restructureSubmissionSeasons,
+          restructureSubmissionSeason
+        );
         tabSubmitted.innerHTML = header + renderTable(submittedRows, "submitted");
       } else {
         tabSubmitted.innerHTML = renderTable(submittedRows, "submitted");
@@ -7818,6 +7927,10 @@
       }
       if (target.getAttribute("data-mym-submission-season") === "1") {
         state.mymSubmissionSeason = normalizeSeasonValue(target.value);
+        render();
+      }
+      if (target.getAttribute("data-restructure-submission-season") === "1") {
+        state.restructureSubmissionSeason = normalizeSeasonValue(target.value);
         render();
       }
       if (target.getAttribute("data-tag-submission-season") === "1") {

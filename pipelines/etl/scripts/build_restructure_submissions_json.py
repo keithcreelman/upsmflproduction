@@ -42,7 +42,7 @@ def normalize_pos(v: Any) -> str:
     return raw
 
 
-def fetch_rows(conn, season_filter: int | None) -> List[Dict[str, Any]]:
+def fetch_table_rows(conn, season_filter: int | None) -> List[Dict[str, Any]]:
     sql = """
     SELECT
       league_id,
@@ -93,6 +93,91 @@ def fetch_rows(conn, season_filter: int | None) -> List[Dict[str, Any]]:
     return out
 
 
+def fetch_forum_rows(conn, season_filter: int | None) -> List[Dict[str, Any]]:
+    sql = """
+    SELECT
+      CAST(cf.season AS TEXT) AS season,
+      COALESCE(cf.franchise_id, '') AS franchise_id,
+      COALESCE(cf.franchise_name, '') AS franchise_name,
+      COALESCE(cf.player_id, '') AS player_id,
+      COALESCE(cf.player_name, '') AS player_name,
+      COALESCE(p.position, '') AS position,
+      COALESCE(cf.per_year, 0) AS salary,
+      COALESCE(cf.option, 0) AS contract_year,
+      COALESCE(cf.contract_status, 'Restructure') AS contract_status,
+      COALESCE(cf.xml_payload, '') AS contract_info,
+      COALESCE(cf.created_at_norm, cf.created_at, '') AS submitted_at_utc
+    FROM contract_forum_export_v3_all cf
+    LEFT JOIN players p
+      ON CAST(p.player_id AS TEXT) = CAST(cf.player_id AS TEXT)
+    WHERE LOWER(COALESCE(cf.contract_style, '')) = 'restructure'
+      AND COALESCE(cf.player_id, '') <> ''
+    """
+    params: List[Any] = []
+    if season_filter:
+        sql += " AND CAST(cf.season AS INTEGER) = ?"
+        params.append(int(season_filter))
+    sql += " ORDER BY COALESCE(cf.created_at_norm, cf.created_at, '') DESC, cf.season DESC, cf.franchise_id ASC, cf.player_name ASC"
+
+    out: List[Dict[str, Any]] = []
+    for row in conn.execute(sql, params).fetchall():
+        out.append(
+            {
+                "league_id": "74598",
+                "season": safe_str(row[0]),
+                "franchise_id": safe_str(row[1]).zfill(4)[-4:],
+                "franchise_name": safe_str(row[2]),
+                "player_id": safe_str(row[3]),
+                "player_name": safe_str(row[4]),
+                "position": normalize_pos(row[5]),
+                "salary": safe_int(row[6]),
+                "contract_year": safe_int(row[7]),
+                "contract_status": safe_str(row[8] or "Restructure"),
+                "contract_info": safe_str(row[9]),
+                "submitted_at_utc": safe_str(row[10]),
+                "commish_override_flag": 0,
+                "override_as_of_date": "",
+                "source": "contract_forum_export_v3_all",
+            }
+        )
+    return out
+
+
+def merge_rows(primary_rows: List[Dict[str, Any]], secondary_rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    seen = set()
+    out: List[Dict[str, Any]] = []
+
+    def key_for(row: Dict[str, Any]) -> str:
+        return "|".join(
+            [
+                safe_str(row.get("season")),
+                safe_str(row.get("franchise_id")),
+                safe_str(row.get("player_id")),
+                safe_str(row.get("submitted_at_utc")),
+                str(safe_int(row.get("salary"))),
+                str(safe_int(row.get("contract_year"))),
+            ]
+        )
+
+    for row in primary_rows + secondary_rows:
+        k = key_for(row)
+        if not k or k in seen:
+            continue
+        seen.add(k)
+        out.append(row)
+
+    out.sort(
+        key=lambda r: (
+            safe_str(r.get("submitted_at_utc")),
+            safe_int(r.get("season")),
+            safe_str(r.get("franchise_id")),
+            safe_str(r.get("player_name")),
+        ),
+        reverse=True,
+    )
+    return out
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--db-path", default=DEFAULT_DB_PATH)
@@ -108,14 +193,16 @@ def main() -> int:
 
     conn = get_conn(args.db_path)
     try:
-        rows = fetch_rows(conn, args.season if args.season else None)
+        table_rows = fetch_table_rows(conn, args.season if args.season else None)
+        forum_rows = fetch_forum_rows(conn, args.season if args.season else None)
+        rows = merge_rows(table_rows, forum_rows)
     finally:
         conn.close()
 
     doc = {
         "meta": {
             "generated_at_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "source": "restructure_submissions table",
+            "source": "restructure_submissions + contract_forum_export_v3_all",
             "season_filter": int(args.season) if args.season else None,
             "count": len(rows),
         },
