@@ -48,7 +48,7 @@
       try {
         var el = document.createElement("div");
         el.id = "upsDebugBadge";
-        el.textContent = "UPS header build: 2026.02.16.8";
+        el.textContent = "UPS header build: 2026.02.16.9";
         el.style.cssText =
           "position:fixed;right:10px;bottom:10px;z-index:999999;" +
           "padding:6px 10px;border-radius:999px;" +
@@ -780,34 +780,76 @@
 
   @media (max-width: 900px) {
     .ups-hero-layout {
+      display: block;
       grid-template-columns: 1fr;
       min-height: 0;
     }
 
-    .ups-hero-shell .full_height_banner img {
-      height: auto;
-      max-height: none;
-      min-height: 170px;
-    }
-
     .ups-hero-side-left,
     .ups-hero-side-right {
-      border-left: 0;
-      border-right: 0;
-      border-top: 1px solid rgba(255, 255, 255, 0.14);
+      display: none !important;
     }
 
-    :root[data-ups-mode="light"] .ups-hero-side-left,
-    :root[data-ups-mode="light"] .ups-hero-side-right {
-      border-top-color: rgba(16, 42, 85, 0.16);
+    .ups-hero-shell .banner-container-full {
+      border-radius: 12px;
+    }
+
+    .ups-hero-shell .full_height_banner {
+      display: block;
+    }
+
+    .ups-hero-shell .full_height_banner img {
+      display: block;
+      width: 100%;
+      height: auto;
+      max-height: none;
+      min-height: 0;
+      aspect-ratio: 640 / 427;
+      object-fit: cover;
+      object-position: center;
     }
 
     .ccc-banner-inner {
       grid-template-columns: 1fr;
+      gap: 0.65rem;
+    }
+
+    .ccc-title-row {
+      gap: 0.5rem;
     }
 
     .ccc-cta-group {
-      justify-content: flex-start;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 0.45rem;
+      width: 100%;
+    }
+
+    .ccc-cta-group .ccc-cta:first-child {
+      grid-column: 1 / -1;
+    }
+
+    .ccc-cta,
+    .pagebody .ccc-cta {
+      justify-content: center;
+      min-height: 42px;
+      padding: 0.58rem 0.72rem;
+    }
+
+    .ccc-pill,
+    .pagebody .ccc-pill {
+      justify-content: center;
+      min-height: 42px;
+      padding: 0.52rem 0.6rem;
+      font-size: 0.9rem;
+    }
+
+    .ups-franchise {
+      margin-left: 0;
+      padding-left: 0;
+      border-left: 0;
+      width: 100%;
+      font-size: 0.95rem;
     }
 
     .ups-hero-shell,
@@ -815,17 +857,78 @@
       padding: 0 0.25rem;
     }
 
+    .ups-hotlinks-shell {
+      margin: 0.55rem auto 0.65rem;
+    }
+
     .ccc-banner {
-      padding: 0.8rem 0.85rem;
+      padding: 0.75rem 0.78rem;
     }
 
     .ccc-title-hotlinks {
-      font-size: 1.2rem;
+      font-size: 1.12rem;
       letter-spacing: 0.05em;
     }
 
     .ccc-actions {
-      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.5rem;
+    }
+
+    #container-wrap .reportnavigation a,
+    #container-wrap .reportNavigation a {
+      display: inline-flex;
+      align-items: center;
+      min-height: 38px;
+      padding: 0.3rem 0.45rem !important;
+    }
+
+    #container-wrap input[type="text"],
+    #container-wrap input[type="number"],
+    #container-wrap input[type="password"],
+    #container-wrap input[type="email"],
+    #container-wrap input[type="search"],
+    #container-wrap select,
+    #container-wrap textarea {
+      font-size: 16px !important;
+      min-height: 40px;
+    }
+
+    form.reportform input[type="submit"],
+    form.reportform input[type="button"],
+    form.reportform button {
+      min-height: 42px;
+      width: 100%;
+    }
+  }
+
+  @media (max-width: 560px) {
+    .ccc-cta-group {
+      grid-template-columns: 1fr;
+    }
+
+    .ccc-theme-toggle {
+      width: 100%;
+      justify-content: center;
+    }
+
+    .ccc-actions {
+      grid-template-columns: 1fr;
+    }
+
+    .ups-logo-wrap {
+      width: 34px;
+      height: 34px;
+    }
+
+    .ups-franchise-icon {
+      width: 24px;
+      height: 24px;
+      border-radius: 6px;
+    }
+
+    .ccc-title-hotlinks {
+      font-size: 1.02rem;
     }
   }
 
