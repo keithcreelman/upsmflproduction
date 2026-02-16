@@ -48,7 +48,7 @@
       try {
         var el = document.createElement("div");
         el.id = "upsDebugBadge";
-        el.textContent = "UPS header build: 2026.02.16.15";
+        el.textContent = "UPS header build: 2026.02.16.16";
         el.style.cssText =
           "position:fixed;right:10px;bottom:10px;z-index:999999;" +
           "padding:6px 10px;border-radius:999px;" +
@@ -1903,8 +1903,9 @@ Replaces bulky default grid with compact toggle view + franchise icons
         .map(function (el) { return normalizeHeader(el.textContent || ""); })
         .filter(Boolean)
         .join(" | ");
-      if (!headers) continue;
-      if (/franchise|team/.test(headers) && (/all play|division|overall|points/.test(headers))) return t;
+      var caption = normalizeHeader((t.querySelector("caption") || {}).textContent || "");
+      if (headers && /franchise|team|all play|overall|division|record|w l t|ap /.test(headers)) return t;
+      if (caption && /standings|all play|overall/.test(caption)) return t;
     }
     return candidates[0] || null;
   }
@@ -1971,6 +1972,17 @@ Replaces bulky default grid with compact toggle view + franchise icons
     return safeStr(row.cells[idx].textContent || "");
   }
 
+  function franchiseNameFromDatabase(fid) {
+    var id = pad4(fid);
+    if (!id) return "";
+    try {
+      var db = window.franchiseDatabase || {};
+      var rec = db["fid_" + id] || db[id];
+      return safeStr(rec && (rec.name || rec.franchise_name || rec.abbrev || ""));
+    } catch (e) {}
+    return "";
+  }
+
   function extractFranchiseFromFiconCell(row) {
     var cell = row && row.cells ? row.cells[0] : null;
     if (!cell) return { id: "", name: "" };
@@ -2005,6 +2017,18 @@ Replaces bulky default grid with compact toggle view + franchise icons
         if (mHref) fid = pad4(mHref[1]);
       }
     }
+    if (!text && row && row.cells) {
+      for (var i = 0; i < row.cells.length; i += 1) {
+        var candidate = safeStr(row.cells[i].textContent || "");
+        if (!candidate) continue;
+        if (/^\d+(\.\d+)?$/.test(candidate)) continue;
+        if (/^\d+\s*[-/]\s*\d+\s*[-/]\s*\d+$/.test(candidate)) continue;
+        if (/^(w|l|t|pf|pa|pct|points?)$/i.test(candidate)) continue;
+        text = candidate;
+        break;
+      }
+    }
+    if (!text && fid) text = franchiseNameFromDatabase(fid);
     return { id: fid, name: text };
   }
 
@@ -2202,12 +2226,32 @@ Replaces bulky default grid with compact toggle view + franchise icons
     var table = findStandingsTable();
     if (!table) return;
     if (table.dataset.upsStandingsDone === "1") return;
-    var headers = Array.from(table.querySelectorAll("thead th, tr:first-child th, tr:first-child td"))
-      .map(function (el) { return normalizeHeader(el.textContent || ""); });
-    if (!headers.length) return;
-    var map = buildColumnMap(headers);
-    var rows = buildRows(table, map);
-    if (rows.length < 2) return;
+    var rows = [];
+    var map = null;
+    var parseTable = function (candidate) {
+      if (!candidate) return { rows: [], map: null };
+      var headersLocal = Array.from(candidate.querySelectorAll("thead th, tr:first-child th, tr:first-child td"))
+        .map(function (el) { return normalizeHeader(el.textContent || ""); });
+      if (!headersLocal.length) return { rows: [], map: null };
+      var mapLocal = buildColumnMap(headersLocal);
+      var rowsLocal = buildRows(candidate, mapLocal);
+      return { rows: rowsLocal, map: mapLocal };
+    };
+    var best = parseTable(table);
+    rows = best.rows;
+    map = best.map;
+    if (rows.length < 2) {
+      var allCandidates = Array.from(document.querySelectorAll("#container-wrap table.report, #container-wrap .report table, table.report"));
+      allCandidates.forEach(function (candidate) {
+        var parsed = parseTable(candidate);
+        if (parsed.rows.length > rows.length) {
+          table = candidate;
+          rows = parsed.rows;
+          map = parsed.map;
+        }
+      });
+    }
+    if (rows.length < 2 || !map) return;
 
     var existing = document.getElementById("ups-standings-compact");
     if (existing) existing.remove();

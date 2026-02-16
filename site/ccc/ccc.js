@@ -13,9 +13,21 @@
   const SEASON_CAP_PER_TEAM = 5;
   const RESTRUCTURE_CAP_PER_TEAM = 3;
   const MYM_EVENTS_BY_SEASON = {
-    "2024": { contract_deadline: "2024-09-01", season_complete: "2024-12-30" },
-    "2025": { contract_deadline: "2025-08-31", season_complete: "2025-12-29" },
-    "2026": { contract_deadline: "2026-09-06", season_complete: "2026-12-29" },
+    "2024": {
+      contract_deadline: "2024-09-01",
+      expired_rookie_deadline: "2024-09-01",
+      season_complete: "2024-12-30",
+    },
+    "2025": {
+      contract_deadline: "2025-08-31",
+      expired_rookie_deadline: "2025-08-31",
+      season_complete: "2025-12-29",
+    },
+    "2026": {
+      contract_deadline: "2026-09-06",
+      expired_rookie_deadline: "2026-09-06",
+      season_complete: "2026-12-29",
+    },
   };
   const EXTENSION_RATES_BY_SEASON = {
     "2024": { QB: { 1: 10000, 2: 20000 }, RB: { 1: 10000, 2: 20000 }, WR: { 1: 10000, 2: 20000 }, TE: { 1: 10000, 2: 20000 }, DL: { 1: 3000, 2: 5000 }, LB: { 1: 3000, 2: 5000 }, DB: { 1: 3000, 2: 5000 }, PK: { 1: 3000, 2: 5000 }, P: { 1: 3000, 2: 5000 } },
@@ -71,7 +83,7 @@
   // Fallbacks if page URL lacks ?L= or YEAR=
   const DEFAULT_LEAGUE_ID = "74598";
   const DEFAULT_YEAR = "2026";
-  const APP_VERSION = "v0.9.2-dev";
+  const APP_VERSION = "v0.9.3-dev";
   const COMMISH_FRANCHISE_ID = "0008";
   const FORCE_SEASON_ROLLOVER = true;
 
@@ -3205,13 +3217,18 @@
   function projectContractRowForward(row) {
     if (!row) return null;
     const years = safeInt(row.contract_year);
-    const expired = isExpiredRookieLike(row);
     const rookie = rookieLike(row.contract_status) || rookieLike(row.mym_acq_type);
-    if (years <= 0) return expired || rookie ? { ...row, contract_year: 0 } : null;
+    if (years <= 0) return { ...row, contract_year: 0, _rolled_forward: 1 };
     if (years === 1) {
-      // 1-year veterans roll off. 1-year rookies become expired rookies (0) next season.
-      if (expired || rookie) return { ...row, contract_year: 0, _rolled_forward: 1 };
-      return null;
+      // Roll all 1-year contracts to 0 for offseason planning.
+      const nextStatus =
+        rookie && !isExpiredRookieRow(row) ? "Expired Rookie" : safeStr(row.contract_status);
+      return {
+        ...row,
+        contract_year: 0,
+        contract_status: nextStatus || safeStr(row.contract_status),
+        _rolled_forward: 1,
+      };
     }
 
     const parsed = parseContractAmounts(row.contract_info, years, safeInt(row.salary) || 1000);
@@ -3317,10 +3334,63 @@
     `;
   }
 
-  function renderExtensionsExpiredRookieDraftPage(rows, priorPointsByPlayer, opts) {
+  function getExpiredRookieDeadlineDateForRow(row, season) {
+    const s = normalizeSeasonValue(
+      (season || (row && row.season) || state.selectedSeason || DEFAULT_YEAR)
+    );
+    const evt =
+      MYM_EVENTS_BY_SEASON[s] ||
+      MYM_EVENTS_BY_SEASON[String(safeInt(s) - 1)] ||
+      MYM_EVENTS_BY_SEASON[DEFAULT_YEAR] ||
+      {};
+    return parseYMDDate(evt.expired_rookie_deadline || evt.contract_deadline || "");
+  }
+
+  function isExpiredRookieDraftCandidate(row) {
+    if (!row) return false;
+    const years = safeInt(row.contract_year);
+    const rookieContract = rookieLike(row.contract_status) || rookieLike(row.mym_acq_type);
+    if (!rookieContract) return false;
+    if (years > 0) return false;
+    if (isExtendedByCurrentOwner(row)) return false;
+    return true;
+  }
+
+  function buildRecentPointsByPlayer(tagRows, maxYears) {
+    const cap = Math.max(1, safeInt(maxYears) || 3);
+    const byPlayerSeason = new Map();
+    (tagRows || []).forEach((r) => {
+      const pid = safeStr(r && r.player_id);
+      const season = normalizeSeasonValue(r && r.season);
+      if (!pid || !season) return;
+      const pts = Number(r && r.points_total);
+      const key = `${pid}|${season}`;
+      if (!byPlayerSeason.has(key) || pts > byPlayerSeason.get(key)) {
+        byPlayerSeason.set(key, isNaN(pts) ? 0 : pts);
+      }
+    });
+
+    const out = {};
+    byPlayerSeason.forEach((points, key) => {
+      const parts = key.split("|");
+      const pid = safeStr(parts[0]);
+      const season = normalizeSeasonValue(parts[1]);
+      if (!pid || !season) return;
+      if (!out[pid]) out[pid] = [];
+      out[pid].push({ season, points });
+    });
+
+    Object.keys(out).forEach((pid) => {
+      out[pid].sort((a, b) => safeInt(b.season) - safeInt(a.season));
+      out[pid] = out[pid].slice(0, cap);
+    });
+    return out;
+  }
+
+  function renderExtensionsExpiredRookieDraftPage(rows, pointsHistoryByPlayer, opts) {
     const title = safeStr(opts && opts.title ? opts.title : "Leaguewide Expired Rookie Draft");
     const expired = (rows || [])
-      .filter((r) => isExpiredRookieLike(r))
+      .filter((r) => isExpiredRookieDraftCandidate(r))
       .sort(
         (a, b) =>
           safeStr(a.franchise_name || a.franchise_id).localeCompare(
@@ -3334,17 +3404,26 @@
       .map((r) => {
         const style = buildTeamStyle(r);
         const pid = safeStr(r.player_id);
-        const priorPts = Number(
-          (priorPointsByPlayer && priorPointsByPlayer[pid] !== undefined
-            ? priorPointsByPlayer[pid]
-            : r.points_total) || 0
-        );
+        const pts = Array.isArray(pointsHistoryByPlayer && pointsHistoryByPlayer[pid])
+          ? pointsHistoryByPlayer[pid]
+          : [];
+        const pts1 = pts[0]
+          ? `${pts[0].season}: ${Number(pts[0].points || 0).toFixed(1)}`
+          : "—";
+        const pts2 = pts[1]
+          ? `${pts[1].season}: ${Number(pts[1].points || 0).toFixed(1)}`
+          : "—";
+        const pts3 = pts[2]
+          ? `${pts[2].season}: ${Number(pts[2].points || 0).toFixed(1)}`
+          : "—";
         return `
           <tr class="${buildRowClass(r, posKeyFromRow(r))}"${style ? ` style="${style}"` : ""}>
             <td>${htmlEsc(r.franchise_name || r.franchise_id)}</td>
             <td class="playerCell">${htmlEsc(r.player_name)}</td>
             <td>${htmlEsc(posKeyFromRow(r))}</td>
-            <td class="cell-num">${priorPts.toFixed(1)}</td>
+            <td class="cell-num">${htmlEsc(pts1)}</td>
+            <td class="cell-num">${htmlEsc(pts2)}</td>
+            <td class="cell-num">${htmlEsc(pts3)}</td>
             <td class="cell-num">${safeInt(r.salary).toLocaleString()}</td>
             <td class="muted">${htmlEsc(safeStr(r.extension_deadline || "TBD"))}</td>
           </tr>
@@ -3357,7 +3436,7 @@
       </div>
       <div class="ccc-tableWrap" data-table="costcalc">
         <table class="ccc-table">
-          <thead><tr><th>Team</th><th>Player</th><th>Pos</th><th>Prior Pts</th><th>Sal</th><th>Deadline</th></tr></thead>
+          <thead><tr><th>Team</th><th>Player</th><th>Pos</th><th>Pts Yr-1</th><th>Pts Yr-2</th><th>Pts Yr-3</th><th>Sal</th><th>Deadline To Extend</th></tr></thead>
           <tbody>${body}</tbody>
         </table>
       </div>
@@ -4122,7 +4201,31 @@
       const s = normalizeSeasonValue(r.season);
       if (s) set.add(s);
     });
+    let maxSeason = 0;
+    set.forEach((s) => {
+      const n = safeInt(s);
+      if (n > maxSeason) maxSeason = n;
+    });
+    if (maxSeason) set.add(String(maxSeason + 1));
     return Array.from(set).sort((a, b) => safeInt(b) - safeInt(a));
+  }
+
+  function resolveSourceSeasonForProjection(rows, targetSeason) {
+    const target = safeInt(normalizeSeasonValue(targetSeason));
+    const seasons = Array.from(
+      new Set(
+        (rows || [])
+          .map((r) => safeInt(normalizeSeasonValue(r && r.season)))
+          .filter((n) => n > 0)
+      )
+    ).sort((a, b) => b - a);
+    if (!seasons.length) return normalizeSeasonValue(targetSeason || DEFAULT_YEAR);
+    if (target && seasons.includes(target)) return String(target);
+    if (target) {
+      const prior = seasons.find((n) => n <= target);
+      if (prior) return String(prior);
+    }
+    return String(seasons[0]);
   }
 
   function buildSubmissionSeasonList(rows) {
@@ -5120,13 +5223,14 @@
       searchBoxEl.value = safeStr(state.search || "");
     }
 
+    const projectionSourceSeason = resolveSourceSeasonForProjection(eligibility, season);
     const seasonEligibilityRaw = eligibility.filter(
-      (r) => !season || normalizeSeasonValue(r.season) === season
+      (r) => !projectionSourceSeason || normalizeSeasonValue(r.season) === projectionSourceSeason
     );
     const seasonEligibility = projectContractRowsForSeason(
       seasonEligibilityRaw,
-      baseSeason,
-      contractSeason
+      projectionSourceSeason,
+      season
     );
     const allMymSubmissions = buildSubmittedRows(eligibility, submissions, meta);
     const seasonMymSubmissions = allMymSubmissions.filter(
@@ -5366,19 +5470,14 @@
     if (state.activeModule === "expiredrookie") {
       const projectedLeagueRows = seasonEligibility.slice();
       projectedLeagueRows.forEach((r) => {
-        const d = getExtensionDeadlineDateForRow(
+        const d = getExpiredRookieDeadlineDateForRow(
           r,
           normalizeSeasonValue(r.season || state.selectedSeason)
         );
         r.extension_deadline = d ? fmtYMDDate(d) : "";
         r._extension_deadline_ts = d ? d.getTime() : 0;
       });
-      const priorPointsByPlayer = {};
-      (seasonTagTracking || []).forEach((r) => {
-        const pid = safeStr(r.player_id);
-        if (!pid) return;
-        priorPointsByPlayer[pid] = Number(r.points_total || 0);
-      });
+      const pointsHistoryByPlayer = buildRecentPointsByPlayer(state.tagTrackingRows || [], 3);
 
       let filtered = projectedLeagueRows.slice();
       if (!showAllTeams) {
@@ -5392,7 +5491,7 @@
           safeStr(r.player_name).toLowerCase().includes(searchLower)
         );
       }
-      filtered = filtered.filter((r) => isExpiredRookieLike(r));
+      filtered = filtered.filter((r) => isExpiredRookieDraftCandidate(r));
 
       const teamName = showAllTeams
         ? "Leaguewide"
@@ -5414,7 +5513,7 @@
       if (tabSummary) tabSummary.innerHTML = "";
       if (tabCostCalc) tabCostCalc.innerHTML = "";
       if (tabEligible)
-        tabEligible.innerHTML = renderExtensionsExpiredRookieDraftPage(filtered, priorPointsByPlayer, {
+        tabEligible.innerHTML = renderExtensionsExpiredRookieDraftPage(filtered, pointsHistoryByPlayer, {
           title,
         });
       if (tabIneligible) tabIneligible.innerHTML = "";
@@ -6615,11 +6714,6 @@
       must("#rowHighlightChk");
       must("#rowHighlightModeSelect");
       must("#adminBadge");
-      must("#adminControls");
-      must("#asOfInput");
-      must("#asOfApplyBtn");
-      must("#asOfResetBtn");
-      must("#asOfSeasonSelect");
       must("#clearBtn");
       must("#teamFilterWrap");
 
@@ -6777,7 +6871,8 @@
       if (commishChk) commishChk.checked = !!state.commishMode;
 
       $("#adminBadge").style.display = state.commishMode ? "" : "none";
-      $("#adminControls").style.display = state.commishMode ? "flex" : "none";
+      const adminControlsEl = $("#adminControls");
+      if (adminControlsEl) adminControlsEl.style.display = state.commishMode ? "flex" : "none";
 
       if (state.canCommishMode) {
         const savedAsOf = loadAsOfOverrideState();
@@ -6789,14 +6884,16 @@
           state.asOfDate = now;
           state.asOfOverrideActive = false;
         }
-        $("#asOfInput").value = fmtForDatetimeLocal(state.asOfDate);
+        const asOfInputEl = $("#asOfInput");
+        if (asOfInputEl) asOfInputEl.value = fmtForDatetimeLocal(state.asOfDate);
         state.asOfDraft = state.asOfDate ? new Date(state.asOfDate.getTime()) : null;
       } else {
         state.asOfDate = null;
         state.asOfOverrideActive = false;
         state.asOfDraft = null;
         clearAsOfOverrideState();
-        $("#asOfInput").value = "";
+        const asOfInputEl = $("#asOfInput");
+        if (asOfInputEl) asOfInputEl.value = "";
       }
 
       const seasons = buildSeasonList(
@@ -6810,7 +6907,7 @@
         ? requestedSeason
         : seasons[0] || requestedSeason;
       state.selectedSeason = seasonSelected;
-      if (state.commishMode) {
+      if (state.commishMode && $("#asOfSeasonSelect")) {
         populateAsOfSeasonSelect(seasons, state.asOfSeasonOverride);
       }
 
@@ -7354,7 +7451,8 @@
         state.asOfDate = now;
         state.asOfOverrideActive = false;
         state.asOfDraft = now;
-        $("#asOfInput").value = fmtForDatetimeLocal(now);
+        const asOfInputEl = $("#asOfInput");
+        if (asOfInputEl) asOfInputEl.value = fmtForDatetimeLocal(now);
         saveAsOfOverrideState(state.asOfDate, state.asOfOverrideActive);
         render();
       });
