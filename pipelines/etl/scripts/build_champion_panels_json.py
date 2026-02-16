@@ -40,13 +40,26 @@ def safe_float(v: Any, default: float = 0.0) -> float:
 
 def fetch_recent_winners(conn, lookback: int) -> List[Dict[str, Any]]:
     sql = """
-    WITH champs AS (
-      SELECT year, franchise_id, franchise AS franchise_name
-      FROM metadata_finalstandings
-      WHERE final_finish = 1
+    WITH champs_raw AS (
+      SELECT
+        fs.year,
+        printf('%04d', CAST(fs.franchise_id AS INT)) AS franchise_id,
+        fs.franchise AS champion_name
+      FROM metadata_finalstandings fs
+      WHERE fs.final_finish = 1
+    ),
+    champs AS (
+      SELECT
+        c.year,
+        c.franchise_id,
+        COALESCE(NULLIF(TRIM(f.owner_name), ''), c.champion_name, c.franchise_id) AS winner_name
+      FROM champs_raw c
+      LEFT JOIN franchises f
+        ON CAST(f.season AS INT) = c.year
+       AND printf('%04d', CAST(f.franchise_id AS INT)) = c.franchise_id
     ),
     ordered AS (
-      SELECT year, franchise_id, franchise_name
+      SELECT year, franchise_id, winner_name
       FROM champs
       ORDER BY year DESC
       LIMIT ?
@@ -55,11 +68,11 @@ def fetch_recent_winners(conn, lookback: int) -> List[Dict[str, Any]]:
       SELECT
         o.year,
         o.franchise_id,
-        o.franchise_name,
+        o.winner_name,
         (
           SELECT COUNT(*)
           FROM champs c2
-          WHERE c2.franchise_id = o.franchise_id
+          WHERE c2.winner_name = o.winner_name
             AND c2.year <= o.year
         ) AS title_number
       FROM ordered o
@@ -67,17 +80,17 @@ def fetch_recent_winners(conn, lookback: int) -> List[Dict[str, Any]]:
     SELECT
       w.year,
       w.franchise_id,
-      w.franchise_name,
+      w.winner_name,
       COALESCE(s.allplay_pct, 0) AS allplay_pct,
       COALESCE(mf.icon, mf.logo, '') AS icon,
       w.title_number
     FROM with_titles w
     LEFT JOIN standings s
-      ON s.season = w.year
-     AND s.franchise_id = w.franchise_id
+      ON CAST(s.season AS INT) = w.year
+     AND printf('%04d', CAST(s.franchise_id AS INT)) = w.franchise_id
     LEFT JOIN metadata_franchise mf
-      ON mf.season = w.year
-     AND mf.franchise_id = w.franchise_id
+      ON CAST(mf.season AS INT) = w.year
+     AND printf('%04d', CAST(mf.franchise_id AS INT)) = w.franchise_id
     ORDER BY w.year DESC
     """
     out: List[Dict[str, Any]] = []
@@ -99,15 +112,22 @@ def fetch_title_leaders(conn) -> List[Dict[str, Any]]:
     sql = """
     WITH champs AS (
       SELECT
-        year,
-        franchise_id,
-        franchise AS champion_name
-      FROM metadata_finalstandings
-      WHERE final_finish = 1
+        fs.year,
+        printf('%04d', CAST(fs.franchise_id AS INT)) AS franchise_id,
+        COALESCE(NULLIF(TRIM(f.owner_name), ''), fs.franchise, printf('%04d', CAST(fs.franchise_id AS INT))) AS owner_name,
+        COALESCE(mf.icon, mf.logo, '') AS icon
+      FROM metadata_finalstandings fs
+      LEFT JOIN franchises f
+        ON CAST(f.season AS INT) = fs.year
+       AND printf('%04d', CAST(f.franchise_id AS INT)) = printf('%04d', CAST(fs.franchise_id AS INT))
+      LEFT JOIN metadata_franchise mf
+        ON CAST(mf.season AS INT) = fs.year
+       AND printf('%04d', CAST(mf.franchise_id AS INT)) = printf('%04d', CAST(fs.franchise_id AS INT))
+      WHERE fs.final_finish = 1
     ),
     totals AS (
       SELECT
-        c.franchise_id,
+        c.owner_name,
         COUNT(*) AS titles,
         MAX(c.year) AS latest_title_year,
         (
@@ -115,32 +135,37 @@ def fetch_title_leaders(conn) -> List[Dict[str, Any]]:
           FROM (
             SELECT year
             FROM champs c2
-            WHERE c2.franchise_id = c.franchise_id
+            WHERE c2.owner_name = c.owner_name
             ORDER BY year
           ) x
         ) AS years,
         (
-          SELECT c3.champion_name
+          SELECT c3.franchise_id
           FROM champs c3
-          WHERE c3.franchise_id = c.franchise_id
+          WHERE c3.owner_name = c.owner_name
           ORDER BY c3.year DESC
           LIMIT 1
-        ) AS latest_champion_name
+        ) AS latest_franchise_id,
+        (
+          SELECT c3.icon
+          FROM champs c3
+          WHERE c3.owner_name = c.owner_name
+          ORDER BY c3.year DESC
+          LIMIT 1
+        ) AS latest_icon
       FROM champs c
-      GROUP BY c.franchise_id
+      GROUP BY c.owner_name
     )
     SELECT
-      t.franchise_id,
-      COALESCE(mf.franchise_name, t.latest_champion_name, t.franchise_id) AS franchise_name,
-      COALESCE(mf.icon, mf.logo, '') AS icon,
+      t.latest_franchise_id,
+      t.owner_name AS franchise_name,
+      COALESCE(t.latest_icon, '') AS icon,
       t.titles,
       t.years,
       t.latest_title_year
     FROM totals t
-    LEFT JOIN metadata_franchise mf
-      ON mf.franchise_id = t.franchise_id
-     AND CAST(mf.season AS INT) = t.latest_title_year
-    ORDER BY t.titles DESC, t.latest_title_year DESC, t.franchise_id ASC
+    ORDER BY t.titles DESC, t.latest_title_year DESC, t.owner_name ASC
+    LIMIT 10
     """
     out: List[Dict[str, Any]] = []
     for row in conn.execute(sql).fetchall():
@@ -179,7 +204,7 @@ def main() -> int:
     doc = {
         "meta": {
             "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "source": "metadata_finalstandings + standings + metadata_franchise",
+            "source": "metadata_finalstandings + standings + metadata_franchise + franchises(owner_name)",
         },
         "recent_winners": recent,
         "title_leaders": leaders,
