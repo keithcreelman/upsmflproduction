@@ -48,7 +48,7 @@
       try {
         var el = document.createElement("div");
         el.id = "upsDebugBadge";
-        el.textContent = "UPS header build: 2026.02.16.7";
+        el.textContent = "UPS header build: 2026.02.16.8";
         el.style.cssText =
           "position:fixed;right:10px;bottom:10px;z-index:999999;" +
           "padding:6px 10px;border-radius:999px;" +
@@ -84,7 +84,7 @@
     --ups-td-border: #203a5d;
     --ups-row-odd: #111f35;
     --ups-row-even: #0f1b30;
-    --ups-warning: #ffd08a;
+    --ups-warning: #d33642;
     --ups-btn-bg: #1f4d93;
     --ups-btn-border: #4a75b7;
     --ups-btn-text: #ffffff;
@@ -126,7 +126,7 @@
     --ups-td-border: #c3d4ec;
     --ups-row-odd: #f7fbff;
     --ups-row-even: #edf5ff;
-    --ups-warning: #7a500a;
+    --ups-warning: #b4232d;
     --ups-btn-bg: #1f4d93;
     --ups-btn-border: #1a3f78;
     --ups-btn-text: #ffffff;
@@ -1391,35 +1391,64 @@
       var lid = String(window.league_id || "").trim();
       var yr = parseInt(String(window.year || ""), 10);
       if (!lid || !yr) return [];
+      var out = [];
+      var seen = {};
+      function push(url) {
+        var s = String(url || "").trim();
+        if (!s) return;
+        s = s.replace(/^http:\/\//i, "https://");
+        if (seen[s]) return;
+        seen[s] = 1;
+        out.push(s);
+      }
       try {
         var key = "fid_" + fid;
         var rec = window.franchiseDatabase && window.franchiseDatabase[key];
-        if (rec && isHttpUrl(rec.icon)) return [String(rec.icon)];
+        if (rec && isHttpUrl(rec.icon)) push(rec.icon);
+        if (rec && isHttpUrl(rec.logo)) push(rec.logo);
       } catch (e) {}
       var bases = [
         host + "/fflnetdynamic" + yr + "/" + lid + "_franchise_icon" + fid,
         host + "/fflnetdynamic" + (yr - 1) + "/" + lid + "_franchise_icon" + fid,
         host + "/fflnetdynamic2025/" + lid + "_franchise_icon" + fid,
         host + "/fflnetdynamic2019/" + lid + "_franchise_icon" + fid,
+        host + "/fflnetdynamic" + yr + "/" + lid + "_franchise_logo" + fid,
+        host + "/fflnetdynamic" + (yr - 1) + "/" + lid + "_franchise_logo" + fid,
+        host + "/fflnetdynamic2025/" + lid + "_franchise_logo" + fid,
+        host + "/fflnetdynamic2019/" + lid + "_franchise_logo" + fid
       ];
-      var out = [];
       bases.forEach(function (b) {
-        out.push(b + ".jpg");
-        out.push(b + ".png");
+        push(b + ".png");
+        push(b + ".jpg");
+        push(b + ".jpeg");
+        push(b + ".gif");
       });
       return out;
     }
 
     function setIconWithFallback(img, urls) {
-      if (!img || !urls || !urls.length) return;
+      if (!img) return;
+      var list = Array.isArray(urls) ? urls.filter(Boolean) : [];
+      if (!list.length) {
+        img.style.display = "none";
+        img.removeAttribute("src");
+        return;
+      }
       var i = 0;
       function tryNext() {
-        if (i >= urls.length) return;
-        img.src = urls[i];
+        if (i >= list.length) {
+          img.removeAttribute("src");
+          img.style.display = "none";
+          return;
+        }
+        img.style.display = "";
+        img.src = list[i];
         i += 1;
       }
+      img.onload = function () {
+        img.style.display = "";
+      };
       img.onerror = function () {
-        // Try next format/year.
         tryNext();
       };
       tryNext();
@@ -1536,33 +1565,69 @@
       var lid = safeStr(window.league_id || "");
       var yr = parseInt(safeStr(window.year || ""), 10);
       if (!lid || !yr) return [];
+      var out = [];
+      var seen = {};
+      function push(url) {
+        var s = safeStr(url).replace(/^http:\/\//i, "https://");
+        if (!s || seen[s]) return;
+        seen[s] = 1;
+        out.push(s);
+      }
       try {
         var key = "fid_" + fid;
         var rec = window.franchiseDatabase && window.franchiseDatabase[key];
-        if (rec && isHttpUrl(rec.icon)) return [safeStr(rec.icon)];
+        if (rec && isHttpUrl(rec.icon)) push(rec.icon);
+        if (rec && isHttpUrl(rec.logo)) push(rec.logo);
       } catch (e) {}
       var bases = [
         host + "/fflnetdynamic" + yr + "/" + lid + "_franchise_icon" + fid,
         host + "/fflnetdynamic" + (yr - 1) + "/" + lid + "_franchise_icon" + fid,
         host + "/fflnetdynamic2025/" + lid + "_franchise_icon" + fid,
-        host + "/fflnetdynamic2019/" + lid + "_franchise_icon" + fid
+        host + "/fflnetdynamic2019/" + lid + "_franchise_icon" + fid,
+        host + "/fflnetdynamic" + yr + "/" + lid + "_franchise_logo" + fid,
+        host + "/fflnetdynamic" + (yr - 1) + "/" + lid + "_franchise_logo" + fid,
+        host + "/fflnetdynamic2025/" + lid + "_franchise_logo" + fid,
+        host + "/fflnetdynamic2019/" + lid + "_franchise_logo" + fid
       ];
-      var out = [];
       bases.forEach(function (b) {
-        out.push(b + ".jpg");
-        out.push(b + ".png");
+        push(b + ".png");
+        push(b + ".jpg");
+        push(b + ".jpeg");
+        push(b + ".gif");
       });
       return out;
     }
 
     function setIconWithFallback(img, urls) {
-      if (!img || !urls || !urls.length) return;
+      if (!img) return;
+      var list = Array.isArray(urls) ? urls.filter(Boolean) : [];
+      if (!list.length) {
+        img.style.display = "none";
+        img.removeAttribute("src");
+        return;
+      }
       var i = 0;
       function tryNext() {
-        if (i >= urls.length) return;
-        img.src = urls[i];
+        if (i >= list.length) {
+          img.removeAttribute("src");
+          img.style.display = "none";
+          var next = img.nextElementSibling;
+          if (next && next.classList && next.classList.contains("ups-roster-franchise-dash")) {
+            next.style.display = "none";
+          }
+          return;
+        }
+        img.style.display = "";
+        img.src = list[i];
         i += 1;
       }
+      img.onload = function () {
+        img.style.display = "";
+        var next = img.nextElementSibling;
+        if (next && next.classList && next.classList.contains("ups-roster-franchise-dash")) {
+          next.style.display = "";
+        }
+      };
       img.onerror = function () {
         tryNext();
       };
@@ -2336,6 +2401,25 @@
     color: var(--ups-warning) !important;
   }
 
+  /* Scoreboard/menu headings: warnings must be red, menu/back links dark blue. */
+  #container-wrap h3.warning,
+  #container-wrap h3.warning *,
+  #container-wrap .warning h3,
+  #container-wrap .warning h3 * {
+    color: #ffffff !important;
+    background: #b4232d !important;
+    border-color: #8f1b24 !important;
+    text-shadow: none !important;
+  }
+
+  #container-wrap h3.menu,
+  #container-wrap h3.menu *,
+  #container-wrap h3.menu a,
+  #container-wrap h3.menu a:visited {
+    color: var(--ups-accent-ink) !important;
+    text-shadow: none !important;
+  }
+
   /* Fallback for modules that do not use .report classes (Add/Drop, mini scoreboards, etc.) */
   #container-wrap table td,
   #container-wrap table th {
@@ -2607,6 +2691,22 @@
   #body_ajax_ls a:visited {
     color: var(--ups-scoreboard-link) !important;
     font-weight: 700 !important;
+  }
+
+  /* Keep CCC pills/CTAs dark-ink on gold on scoreboard pages. */
+  #body_ajax_ls .ccc-pill,
+  #body_ajax_ls .ccc-pill:visited,
+  #body_ajax_ls .ccc-cta,
+  #body_ajax_ls .ccc-cta:visited {
+    color: var(--ups-accent-ink) !important;
+    text-decoration: none !important;
+  }
+
+  #body_ajax_ls .ccc-pill:hover,
+  #body_ajax_ls .ccc-pill:focus,
+  #body_ajax_ls .ccc-cta:hover,
+  #body_ajax_ls .ccc-cta:focus {
+    color: #ffffff !important;
   }
 
   #body_ajax_ls caption,
