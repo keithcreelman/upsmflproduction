@@ -48,7 +48,7 @@
       try {
         var el = document.createElement("div");
         el.id = "upsDebugBadge";
-        el.textContent = "UPS header build: 2026.02.16.12";
+        el.textContent = "UPS header build: 2026.02.16.13";
         el.style.cssText =
           "position:fixed;right:10px;bottom:10px;z-index:999999;" +
           "padding:6px 10px;border-radius:999px;" +
@@ -1295,10 +1295,8 @@
     function loadDynamicPanels() {
       var cacheKey = String(Date.now());
       var candidates = [
-        "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@dc1364f/site/champions_panels.json?v=" + cacheKey,
-        "https://rawcdn.githack.com/keithcreelman/upsmflproduction/dc1364f/site/champions_panels.json?v=" + cacheKey,
-        "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@dev/site/champions_panels.json?v=" + cacheKey,
-        "https://rawcdn.githack.com/keithcreelman/upsmflproduction/dev/site/champions_panels.json?v=" + cacheKey
+        "https://rawcdn.githack.com/keithcreelman/upsmflproduction/dev/site/champions_panels.json?v=" + cacheKey,
+        "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@dev/site/champions_panels.json?v=" + cacheKey
       ];
 
       function attempt(idx) {
@@ -1380,10 +1378,8 @@
       ensureMountNearTop();
       var cacheKey = encodeURIComponent(String(Date.now()));
       var loaderCandidates = [
-        "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@dc1364f/site/ccc/mfl_hpm_embed_loader.js?v=" + cacheKey,
-        "https://rawcdn.githack.com/keithcreelman/upsmflproduction/dc1364f/site/ccc/mfl_hpm_embed_loader.js?v=" + cacheKey,
-        "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@dev/site/ccc/mfl_hpm_embed_loader.js?v=" + cacheKey,
-        "https://rawcdn.githack.com/keithcreelman/upsmflproduction/dev/site/ccc/mfl_hpm_embed_loader.js?v=" + cacheKey
+        "https://rawcdn.githack.com/keithcreelman/upsmflproduction/dev/site/ccc/mfl_hpm_embed_loader.js?v=" + cacheKey,
+        "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@dev/site/ccc/mfl_hpm_embed_loader.js?v=" + cacheKey
       ];
 
       function tryLoader(idx) {

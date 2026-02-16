@@ -83,7 +83,7 @@
     (u && (u.searchParams.get("DEBUG_ADMIN") || u.searchParams.get("DEBUG"))) || "";
 
   const DEFAULT_CCC_IFRAME_URL =
-    "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@dev/site/ccc/mfl_hpm16_contractcommandcenter.html";
+    "https://rawcdn.githack.com/keithcreelman/upsmflproduction/dev/site/ccc/mfl_hpm16_contractcommandcenter.html";
 
   function getScriptBaseUrl() {
     try {
@@ -100,9 +100,47 @@
     return "";
   }
 
+  function jsDelivrScriptToGithackHtml(scriptSrc) {
+    try {
+      const su = new URL(scriptSrc, window.location.href);
+      if (!/cdn\.jsdelivr\.net$/i.test(String(su.hostname || ""))) return "";
+      const parts = String(su.pathname || "").split("/").filter(Boolean);
+      if (parts.length < 5 || parts[0] !== "gh") return "";
+
+      const owner = parts[1];
+      const repoRef = parts[2];
+      const at = repoRef.lastIndexOf("@");
+      if (at <= 0 || at >= repoRef.length - 1) return "";
+      const repo = repoRef.slice(0, at);
+      const ref = repoRef.slice(at + 1);
+      const dirParts = parts.slice(3, -1);
+      if (!dirParts.length) return "";
+
+      return (
+        "https://rawcdn.githack.com/" +
+        encodeURIComponent(owner) +
+        "/" +
+        encodeURIComponent(repo) +
+        "/" +
+        encodeURIComponent(ref) +
+        "/" +
+        dirParts.map(encodeURIComponent).join("/") +
+        "/mfl_hpm16_contractcommandcenter.html"
+      );
+    } catch (e) {}
+    return "";
+  }
+
   function resolveIframeUrl() {
     const explicit = String(window.UPS_CCC_IFRAME_URL || "").trim();
     if (explicit) return explicit;
+    try {
+      const s = document.currentScript;
+      if (s && s.src) {
+        const fromJsDelivr = jsDelivrScriptToGithackHtml(s.src);
+        if (fromJsDelivr) return fromJsDelivr;
+      }
+    } catch (e) {}
     const base = getScriptBaseUrl();
     if (base) return base + "mfl_hpm16_contractcommandcenter.html";
     return DEFAULT_CCC_IFRAME_URL;
