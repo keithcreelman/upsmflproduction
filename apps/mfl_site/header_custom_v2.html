@@ -1020,7 +1020,7 @@
 <script>
   // Hero side-panels: recent champions + all-time title leaders.
   (function () {
-    var recentWinners = [
+    var fallbackRecentWinners = [
       { year: 2025, franchise: "Pure Greatness", icon: "https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_icon0004.png", allPlayPct: 0.717, titleNumber: 1 },
       { year: 2024, franchise: "HammerTime", icon: "https://www48.myfantasyleague.com/fflnetdynamic2025/74598_franchise_icon0005.jpg", allPlayPct: 0.674, titleNumber: 1 },
       { year: 2023, franchise: "Blake Bombers", icon: "https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_icon0010.png", allPlayPct: 0.690, titleNumber: 3 },
@@ -1033,7 +1033,7 @@
       { year: 2016, franchise: "C-Town Chivalry", icon: "https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_icon0009.png", allPlayPct: 0.776, titleNumber: 1 }
     ];
 
-    var titleLeaders = [
+    var fallbackTitleLeaders = [
       { franchise: "Blake Bombers", icon: "https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_icon0010.png", titles: 3, years: "2011, 2015, 2023" },
       { franchise: "L.A. Looks", icon: "https://www48.myfantasyleague.com/fflnetdynamic2025/74598_franchise_icon0001.png", titles: 2, years: "2014, 2021" },
       { franchise: "Gride", icon: "https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_icon0003.png", titles: 2, years: "2012, 2022" },
@@ -1122,7 +1122,54 @@
       return row;
     }
 
-    function render() {
+    function normalizeRecentRows(rows) {
+      if (!Array.isArray(rows)) return [];
+      return rows
+        .map(function (item) {
+          var iconRaw = String(item && item.icon || "");
+          var icon = iconRaw.replace(/^http:\/\//i, "https://");
+          return {
+            year: parseInt(item && item.year, 10) || 0,
+            franchise: String(item && item.franchise || ""),
+            icon: icon,
+            allPlayPct:
+              item && item.allPlayPct !== undefined
+                ? item.allPlayPct
+                : item && item.all_play_pct !== undefined
+                ? item.all_play_pct
+                : 0,
+            titleNumber:
+              item && item.titleNumber !== undefined
+                ? item.titleNumber
+                : item && item.title_number !== undefined
+                ? item.title_number
+                : 1
+          };
+        })
+        .filter(function (item) {
+          return item.year > 0 && item.franchise;
+        });
+    }
+
+    function normalizeLeaderRows(rows) {
+      if (!Array.isArray(rows)) return [];
+      return rows
+        .map(function (item) {
+          var iconRaw = String(item && item.icon || "");
+          var icon = iconRaw.replace(/^http:\/\//i, "https://");
+          return {
+            franchise: String(item && item.franchise || ""),
+            icon: icon,
+            titles: parseInt(item && item.titles, 10) || 0,
+            years: String(item && item.years || "")
+          };
+        })
+        .filter(function (item) {
+          return item.franchise;
+        });
+    }
+
+    function render(recentWinners, titleLeaders) {
       var recentEl = document.getElementById("upsRecentWinners");
       var leadersEl = document.getElementById("upsTitleLeaders");
       if (!recentEl || !leadersEl) return;
@@ -1137,10 +1184,49 @@
       }
     }
 
+    function readPayload(raw) {
+      if (!raw || typeof raw !== "object") return null;
+      var recent = normalizeRecentRows(raw.recent_winners || raw.recentWinners || []);
+      var leaders = normalizeLeaderRows(raw.title_leaders || raw.titleLeaders || []);
+      if (!recent.length || !leaders.length) return null;
+      return { recent: recent, leaders: leaders };
+    }
+
+    function loadDynamicPanels() {
+      var cacheKey = String(Date.now());
+      var candidates = [
+        "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@dev/site/champions_panels.json?v=" + cacheKey,
+        "https://rawcdn.githack.com/keithcreelman/upsmflproduction/dev/site/champions_panels.json?v=" + cacheKey,
+        "https://keithcreelman.github.io/ups-league-data/champions_panels.json?v=" + cacheKey
+      ];
+
+      function attempt(idx) {
+        if (idx >= candidates.length) {
+          render(fallbackRecentWinners, fallbackTitleLeaders);
+          return;
+        }
+        fetch(candidates[idx], { cache: "no-store" })
+          .then(function (res) {
+            if (!res.ok) throw new Error("HTTP " + res.status);
+            return res.json();
+          })
+          .then(function (json) {
+            var payload = readPayload(json);
+            if (!payload) throw new Error("Invalid champion panel payload");
+            render(payload.recent, payload.leaders);
+          })
+          .catch(function () {
+            attempt(idx + 1);
+          });
+      }
+
+      attempt(0);
+    }
+
     if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", render);
+      document.addEventListener("DOMContentLoaded", loadDynamicPanels);
     } else {
-      render();
+      loadDynamicPanels();
     }
   })();
 </script>
@@ -1405,7 +1491,14 @@
     }
 
     function isRosterPage() {
-      return !!(document.body && document.body.id === "body_options_07");
+      var bodyId = safeStr(document.body && document.body.id).toLowerCase();
+      if (bodyId.indexOf("body_options_07") === 0) return true;
+      try {
+        var u = new URL(window.location.href);
+        var o = safeStr(u.searchParams.get("O"));
+        if (o === "07") return true;
+      } catch (e) {}
+      return false;
     }
 
     function isHttpUrl(v) {
@@ -1415,16 +1508,21 @@
 
     function getFidFromTable(table, caption) {
       var cls = safeStr(table && table.className);
-      var m = cls.match(/franchise_(\d{4})/);
+      var m = cls.match(/franchise_(\d{1,4})/);
       if (m) return pad4(m[1]);
       var capLink =
         (caption && caption.querySelector("a[class*='franchise_']")) ||
         (table && table.querySelector("caption a[class*='franchise_']"));
       if (capLink) {
         var capClass = safeStr(capLink.className);
-        var m2 = capClass.match(/franchise_(\d{4})/);
+        var m2 = capClass.match(/franchise_(\d{1,4})/);
         if (m2) return pad4(m2[1]);
+        var href = safeStr(capLink.getAttribute("href"));
+        var mHref = href.match(/[?&](?:FRANCHISE_ID|FRANCHISE|F)=([0-9]{1,4})/i);
+        if (mHref) return pad4(mHref[1]);
       }
+      var tableFid = safeStr(table && table.getAttribute("data-franchise-id"));
+      if (tableFid) return pad4(tableFid);
       return "";
     }
 
@@ -1502,11 +1600,12 @@
 
     function applyRosterFranchiseHeaders() {
       if (!isRosterPage()) return;
-      var captions = document.querySelectorAll("#MFLroster caption");
+      var captions = document.querySelectorAll("caption");
       for (var i = 0; i < captions.length; i += 1) {
         var caption = captions[i];
         var table = caption.closest("table");
         var fid = getFidFromTable(table, caption);
+        if (!fid) continue;
         decorateCaption(caption, fid);
       }
     }
@@ -2304,6 +2403,15 @@
     border-color: var(--ups-border) !important;
   }
 
+  body#body_options_07 #MFLroster {
+    display: block !important;
+    max-height: 72vh !important;
+    overflow: auto !important;
+    overscroll-behavior: contain !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-gutter: stable;
+  }
+
   body#body_options_07 #MFLroster caption,
   body#body_options_07 #MFLroster .roster_assets thead th {
     background: var(--ups-caption-bg) !important;
@@ -2542,6 +2650,18 @@
   body[id^="body_csetup"] #container-wrap *:not(i):not(svg):not(path) {
     color: var(--ups-text) !important;
     opacity: 1 !important;
+    text-shadow: none !important;
+  }
+
+  body#body_commissioner_setup #container-wrap form.reportform span,
+  body#body_commissioner_setup #container-wrap form.reportform span *,
+  body[id^="body_csetup"] #container-wrap form.reportform span,
+  body[id^="body_csetup"] #container-wrap form.reportform span *,
+  body#body_commissioner_setup #container-wrap .reportnavigation span,
+  body#body_commissioner_setup #container-wrap .reportNavigation span,
+  body[id^="body_csetup"] #container-wrap .reportnavigation span,
+  body[id^="body_csetup"] #container-wrap .reportNavigation span {
+    color: var(--ups-report-strong) !important;
     text-shadow: none !important;
   }
 

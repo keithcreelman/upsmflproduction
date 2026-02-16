@@ -9,6 +9,7 @@
   const MYM_SUBMISSIONS_URL = "./mym_submissions.json";
   const RESTRUCTURE_SUBMISSIONS_URL = "./restructure_submissions.json";
   const TAG_TRACKING_URL = "./tag_tracking.json";
+  const TAG_SUBMISSIONS_URL = "./tag_submissions.json";
   const SEASON_CAP_PER_TEAM = 5;
   const RESTRUCTURE_CAP_PER_TEAM = 3;
   const MYM_EVENTS_BY_SEASON = {
@@ -69,7 +70,8 @@
 
   // Fallbacks if page URL lacks ?L= or YEAR=
   const DEFAULT_LEAGUE_ID = "74598";
-  const DEFAULT_YEAR = "2025";
+  const DEFAULT_YEAR = "2026";
+  const APP_VERSION = "v0.9.0-dev";
   const COMMISH_FRANCHISE_ID = "0008";
   const FORCE_SEASON_ROLLOVER = true;
 
@@ -209,7 +211,7 @@
   function getTagDeadlineInfo(season) {
     const s = safeInt(normalizeSeasonValue(season));
     if (!s) return null;
-    const year = s + 1;
+    const year = s;
     const memorial = getMemorialDay(year);
     if (!memorial) return null;
     const rookieDraft = addDays(memorial, -1);
@@ -445,16 +447,18 @@
 
   function normalizeHighlightMode(mode) {
     const v = safeStr(mode).toLowerCase();
-    return v === "team" ? "team" : "position";
+    if (v === "team") return "team";
+    if (v === "tier") return "tier";
+    return "position";
   }
 
   function loadHighlightSettings() {
     try {
       const raw = localStorage.getItem(LOCAL_HIGHLIGHT_KEY);
-      if (!raw) return { enabled: true, mode: "position", byModule: {} };
+      if (!raw) return { enabled: true, mode: "tier", byModule: {} };
       const obj = JSON.parse(raw);
       const enabled = obj && obj.enabled !== undefined ? !!obj.enabled : true;
-      const mode = normalizeHighlightMode(obj && obj.mode ? obj.mode : "position");
+      const mode = normalizeHighlightMode(obj && obj.mode ? obj.mode : "tier");
       const byModuleRaw = obj && typeof obj.byModule === "object" ? obj.byModule : {};
       const byModule = {};
       Object.keys(byModuleRaw || {}).forEach((key) => {
@@ -467,7 +471,7 @@
       });
       return { enabled, mode, byModule };
     } catch (e) {
-      return { enabled: true, mode: "position", byModule: {} };
+      return { enabled: true, mode: "tier", byModule: {} };
     }
   }
 
@@ -517,7 +521,7 @@
     const defEnabled =
       state && state.highlightDefault ? !!state.highlightDefault.enabled : true;
     const defMode = normalizeHighlightMode(
-      state && state.highlightDefault ? state.highlightDefault.mode : "position"
+      state && state.highlightDefault ? state.highlightDefault.mode : "tier"
     );
     if (!key || !state || !state.highlightByModule) {
       return { enabled: defEnabled, mode: defMode };
@@ -824,6 +828,67 @@
       return rows.map(normalizeTagRow);
     }
     return [];
+  }
+
+  function normalizeTagSubmissionRow(r) {
+    return {
+      league_id: safeStr(r.league_id || r.L || r.leagueId),
+      season: normalizeSeasonValue(r.season || r.year),
+      franchise_id: pad4(r.franchise_id || r.franchiseId),
+      franchise_name: safeStr(r.franchise_name || r.franchiseName),
+      player_id: safeStr(r.player_id || r.playerId || r.id),
+      player_name: safeStr(r.player_name || r.playerName || r.name),
+      pos: safeStr(r.pos || r.position || r.positional_grouping),
+      side: safeStr(r.side || r.tag_side || "OFFENSE").toUpperCase(),
+      tag_salary: safeInt(r.tag_salary || r.tag_bid || r.salary),
+      submitted_at_utc: safeStr(r.submitted_at_utc || r.submitted_at || r.submittedAt),
+      payload: r && typeof r.payload === "object" ? r.payload : null,
+    };
+  }
+
+  function normalizeTagSubmissions(raw) {
+    if (!raw) return [];
+    if (Array.isArray(raw)) return raw.map(normalizeTagSubmissionRow);
+    if (raw && typeof raw === "object") {
+      const rows = Array.isArray(raw.rows)
+        ? raw.rows
+        : Array.isArray(raw.submissions)
+        ? raw.submissions
+        : [];
+      return rows.map(normalizeTagSubmissionRow);
+    }
+    return [];
+  }
+
+  function mergeTagSubmissions(externalRows, localMap) {
+    const out = {};
+    (externalRows || []).forEach((r) => {
+      const season = normalizeSeasonValue(r.season);
+      const fid = pad4(r.franchise_id);
+      const side = safeStr(r.side || "OFFENSE").toUpperCase();
+      if (!season || !fid) return;
+      const baseKey = buildTagSelectionKey(season, fid, side);
+      const playerId = safeStr(r.player_id);
+      const key = out[baseKey] && playerId ? `${baseKey}|${playerId}` : baseKey;
+      out[key] = {
+        league_id: safeStr(r.league_id),
+        season,
+        franchise_id: fid,
+        franchise_name: safeStr(r.franchise_name),
+        player_id: safeStr(r.player_id),
+        player_name: safeStr(r.player_name),
+        pos: safeStr(r.pos),
+        side,
+        submitted_at_utc: safeStr(r.submitted_at_utc),
+        tag_salary: safeInt(r.tag_salary),
+        payload: r.payload || null,
+      };
+    });
+    Object.keys(localMap || {}).forEach((k) => {
+      if (!k) return;
+      out[k] = localMap[k];
+    });
+    return out;
   }
 
   function normalizeTagRow(r) {
@@ -1245,9 +1310,11 @@
 
   function buildRowClass(row, posOverride) {
     const posVal = safeClassToken(posOverride || posKeyFromRow(row) || row.pos || "");
+    const tierVal = safeClassToken(safeInt(row && row.tag_tier ? row.tag_tier : 0));
     const fid = safeClassToken(pad4(row && row.franchise_id ? row.franchise_id : ""));
     const classes = [];
     if (posVal) classes.push(`pos-${posVal}`);
+    if (tierVal) classes.push(`tier-${tierVal}`);
     if (fid) classes.push(`team-${fid}`);
     return classes.join(" ");
   }
@@ -1423,8 +1490,8 @@
 
   const sortState = {
     tab: "eligible",
-    key: "acquired",
-    dir: "desc", // asc | desc
+    key: "tagTier",
+    dir: "asc", // asc | desc
   };
 
   function compareVals(a, b, dir) {
@@ -1498,6 +1565,17 @@
         const bidA = safeInt(ra.tag_bid || ra.tag_salary || 0);
         const bidB = safeInt(rb.tag_bid || rb.tag_salary || 0);
         const bidCmp = compareVals(bidA, bidB, dir);
+        if (bidCmp !== 0) return bidCmp;
+      }
+      if (state.activeModule === "tag" && key === "tagTier") {
+        const tierA = safeInt(ra.tag_tier || 99999);
+        const tierB = safeInt(rb.tag_tier || 99999);
+        const tierCmp = compareVals(tierA, tierB, dir);
+        if (tierCmp !== 0) return tierCmp;
+        // Within each tier, default to highest tag salary first.
+        const bidA = safeInt(ra.tag_bid || ra.tag_salary || 0);
+        const bidB = safeInt(rb.tag_bid || rb.tag_salary || 0);
+        const bidCmp = compareVals(bidA, bidB, "desc");
         if (bidCmp !== 0) return bidCmp;
       }
       const a = getSortValue(ra, key);
@@ -2565,8 +2643,13 @@
       return `<div class="ccc-summaryPage">${top}<div class="ccc-tableWrap" style="padding:12px;">No tag tracking rows.</div></div>`;
     }
 
+    const baseSeasonForTag = state.calendarBaseSeason || getBaseSeasonValue(state.selectedSeason);
+    const nowForTag = state.calendarNow || getEffectiveNow(baseSeasonForTag);
+    const tagWindowOpen = state.commishMode || isTagActiveForSeason(baseSeasonForTag, nowForTag);
+
     const canTagFromSummary = (r) => {
       if (!canManageTagForFranchise(r.franchise_id)) return false;
+      if (!tagWindowOpen && !state.commishMode) return false;
       return true;
     };
 
@@ -2578,7 +2661,22 @@
       const selected = state.tagSelections[key];
       const isSelected = !!selected && safeStr(selected.player_id) === safeStr(r.player_id);
       const isLocked = !state.commishMode && !!selected && !isSelected && limit <= 1;
-      const tagLabel = isSelected ? "Selected" : isLocked ? "Locked" : "Tag";
+      const tagClosed = !tagWindowOpen && !state.commishMode;
+      const tagLabel = tagClosed
+        ? isSelected
+          ? "Selected"
+          : "Tag Closed"
+        : isSelected
+        ? "Selected"
+        : isLocked
+        ? "Locked"
+        : "Tag";
+      const tagDisabled = tagClosed || isLocked;
+      const tagTitle = tagClosed
+        ? "Tagging window is closed"
+        : isLocked
+        ? "Tag already used for this side"
+        : "";
       return `
         <button
           type="button"
@@ -2592,7 +2690,8 @@
           data-player-id="${htmlEsc(r.player_id)}"
           data-player-name="${htmlEsc(r.player_name)}"
           data-pos="${htmlEsc(posKeyFromRow(r))}"
-          ${isLocked ? "disabled" : ""}
+          ${tagDisabled ? "disabled" : ""}
+          ${tagTitle ? `title="${htmlEsc(tagTitle)}"` : ""}
         >${tagLabel}</button>
       `;
     };
@@ -3440,11 +3539,14 @@
       })
       .join("");
 
+    const toggleAttrs = canCommish
+      ? ""
+      : "disabled title='Manual updates are commissioner-only'";
     const adminPanel = `
       <div class="ccc-adminPanel ccc-adminPanel--hero" style="display:block;">
-        <div class="ccc-adminTitle">Admin Controls</div>
+        <div class="ccc-adminTitle">Settings</div>
         <div class="ccc-adminGrid">
-          <button id="refreshBtn" class="ccc-btn" type="button" data-admin-action="refresh">Refresh (use if rosters are not refreshed)</button>
+          <button id="refreshBtn" class="ccc-btn" type="button" data-admin-action="refresh">Refresh Data</button>
           <div class="ccc-field">
             Theme
             <select id="themeSelect" class="ccc-select" data-admin-theme="1">
@@ -3465,28 +3567,19 @@
             Default Rows
             <select class="ccc-select" data-admin-default="rows">${rowOptions}</select>
           </div>
-          <button class="ccc-btn" type="button" data-admin-action="bug" disabled title="Coming soon">Report a Bug (coming soon)</button>
+          <div class="ccc-field ccc-field-col">
+            <div class="ccc-adminConsoleTitle">Manual Contract Tool</div>
+            <button id="commishConsoleBtn" type="button" class="ccc-pageBtn" data-commish-console-toggle="1" ${toggleAttrs}>
+              ${state.commishConsoleOpen ? "Hide" : "Show"} Manual Contract Tool
+            </button>
+          </div>
         </div>
-      </div>
-    `;
-
-    const toggleAttrs = canCommish
-      ? ""
-      : "disabled title='Admin console is commissioner-only'";
-    const consoleBlock = `
-      <div class="ccc-adminConsoleCard">
-        <div class="ccc-adminConsoleTitle">Admin Console</div>
-        <div class="muted" style="margin-bottom:10px;">Manual contract update tool (commissioner-only).</div>
-        <button type="button" class="ccc-pageBtn" data-commish-console-toggle="1" ${toggleAttrs}>
-          ${state.commishConsoleOpen ? "Hide" : "Show"} Admin Console
-        </button>
       </div>
     `;
 
     return `
       <div class="ccc-summaryPage">
         ${adminPanel}
-        ${consoleBlock}
       </div>
     `;
   }
@@ -3755,6 +3848,16 @@
     filtersByModule: {},
   };
 
+  // Default tag module row highlighting to tier-based colors.
+  if (!state.highlightByModule.tag || normalizeHighlightMode(state.highlightByModule.tag.mode) !== "tier") {
+    state.highlightByModule.tag = { enabled: true, mode: "tier" };
+    saveHighlightSettings(
+      state.highlightDefault.enabled,
+      state.highlightDefault.mode,
+      state.highlightByModule
+    );
+  }
+
   function currentFilterSnapshot() {
     return {
       selectedTeam: safeStr(state.selectedTeam || ""),
@@ -3802,6 +3905,14 @@
     if (prevModule) saveFiltersForModule(prevModule);
     rememberHighlightForModule(state.activeModule || "default");
     state.activeModule = state.activeModule === nextModule ? "" : nextModule;
+    if (state.activeModule === "tag") {
+      sortState.tab = "eligible";
+      sortState.key = "tagTier";
+      sortState.dir = "asc";
+    } else if (state.activeModule && sortState.tab === "eligible") {
+      sortState.key = "acquired";
+      sortState.dir = "desc";
+    }
     setHighlightForModule(state.activeModule || "default");
     applyFiltersForModule(state.activeModule || "default");
   }
@@ -4637,17 +4748,14 @@
     } else {
       if (ineligibleTab) ineligibleTab.style.display = "none";
       if (costTab) {
-        if (state.activeModule === "extensions") {
-          costTab.style.display = "";
-          costTab.textContent = "Expired Rookie Draft";
-          costTab.style.order = "3";
-          if (summaryTab) summaryTab.style.order = "2";
-        } else {
-          costTab.style.display = "none";
-        }
+        costTab.style.display = "none";
       }
       if (state.activeModule === "expiredrookie") {
         if (costTab) costTab.style.display = "none";
+        if (summaryTab) summaryTab.style.display = "none";
+        if (submittedTab) submittedTab.style.display = "none";
+      }
+      if (state.activeModule === "extensions") {
         if (summaryTab) summaryTab.style.display = "none";
         if (submittedTab) submittedTab.style.display = "none";
       }
@@ -4748,7 +4856,9 @@
       !!state.canCommishMode && !!state.commishMode && state.activeModule === "commish";
     if (toggleBtn) {
       toggleBtn.style.display = canShow ? "" : "none";
-      toggleBtn.textContent = state.commishConsoleOpen ? "Hide Admin Console" : "Admin Console";
+      toggleBtn.textContent = state.commishConsoleOpen
+        ? "Hide Manual Contract Tool"
+        : "Show Manual Contract Tool";
     }
 
     const isVisible = canShow && !!state.commishConsoleOpen;
@@ -5078,8 +5188,8 @@
         )
       : positionFilteredTagTracking.slice();
 
-    const built = meta && meta.generated_at ? safeStr(meta.generated_at) : "";
-    const minSeason = meta && meta.min_season ? safeStr(meta.min_season) : "";
+    const versionEl = $("#cccVersion");
+    if (versionEl) versionEl.textContent = APP_VERSION;
 
 	    if (cccMeta) {
 	      let metaText =
@@ -5093,23 +5203,14 @@
 	            : state.activeModule === "expiredrookie"
 	            ? "Expired Rookie Draft"
 	            : state.activeModule === "commish"
-	            ? "Admin"
+	            ? "Settings"
 	            : "MYM"
-	        }` +
-	        (built ? ` | built: ${built}` : "") +
-	        (minSeason ? ` | min season: ${minSeason}` : "") +
-        (state.commishMode && state.adminReason ? ` | ${state.adminReason}` : "");
+	        }` + (state.commishMode && state.adminReason ? ` | ${state.adminReason}` : "");
       if (state.commishMode && state.asOfOverrideActive && state.asOfDate) {
         metaText += ` | as-of: ${fmtLocalYMDHM(state.asOfDate)}`;
       }
       if (state.commishMode && state.asOfSeasonOverride) {
         metaText += ` | as-of season: ${state.asOfSeasonOverride}`;
-      }
-      if (state.activeModule === "tag") {
-        const scoringWeeks =
-          (state.tagTrackingRows[0] && safeStr(state.tagTrackingRows[0].scoring_weeks_used)) || "";
-        if (scoringWeeks) metaText += ` | scoring weeks: ${scoringWeeks}`;
-        if (tagTrackingFilterSeason) metaText += ` | tag pool season: ${tagTrackingFilterSeason}`;
       }
       if (isAdminDebugEnabled() && state.adminDebug) {
         const d = state.adminDebug;
@@ -5136,11 +5237,10 @@
           ? state.tagTrackingMeta.ppg_pool
           : null;
       computePpgRanks(tagEligibleAll, ppgPool, !!state.ppgMinGamesEnabled, ppgMin);
-      const tagRows = sortRows(
-        tagEligibleRows,
-        sortState.tab === "eligible" ? sortState.key : "tagRank",
-        sortState.tab === "eligible" ? sortState.dir : "asc"
-      );
+      const tagRows =
+        sortState.tab === "eligible"
+          ? sortRows(tagEligibleRows, sortState.key, sortState.dir)
+          : sortRows(tagEligibleRows, "tagTier", "asc");
       const teamNameSource =
         (tagRows[0] && tagRows[0].franchise_name) ||
         (positionFilteredTagTracking[0] && positionFilteredTagTracking[0].franchise_name) ||
@@ -5155,7 +5255,7 @@
         summary.innerHTML = renderTagSummary(
           teamName,
           tagRows,
-          season,
+          tagTrackingFilterSeason || state.calendarContractSeason || season,
           selectedTeamId,
           showAllTeams,
           positionFilteredTagTracking
@@ -5199,48 +5299,6 @@
     }
 
     if (state.activeModule === "extensions") {
-      const extensionProjectedRows = projectExtensionRowsForSeason(
-        scopedEligibility,
-        baseSeason,
-        contractSeason
-      );
-      const extensionProjectedLeagueRows = projectExtensionRowsForSeason(
-        seasonEligibility,
-        baseSeason,
-        contractSeason
-      );
-      extensionProjectedRows.forEach((r) => {
-        const d = getExtensionDeadlineDateForRow(
-          r,
-          normalizeSeasonValue(r.season || state.selectedSeason)
-        );
-        r.extension_deadline = d ? fmtYMDDate(d) : "";
-        r._extension_deadline_ts = d ? d.getTime() : 0;
-      });
-      extensionProjectedLeagueRows.forEach((r) => {
-        const d = getExtensionDeadlineDateForRow(
-          r,
-          normalizeSeasonValue(r.season || state.selectedSeason)
-        );
-        r.extension_deadline = d ? fmtYMDDate(d) : "";
-        r._extension_deadline_ts = d ? d.getTime() : 0;
-      });
-      const priorPointsByPlayer = {};
-      (seasonTagTracking || []).forEach((r) => {
-        const pid = safeStr(r.player_id);
-        if (!pid) return;
-        priorPointsByPlayer[pid] = Number(r.points_total || 0);
-      });
-      const extensionRows = sortRows(
-        extensionProjectedRows.filter((r) => canExtendRow(r)),
-        sortState.tab === "eligible" ? sortState.key : "deadline",
-        sortState.tab === "eligible" ? sortState.dir : "asc"
-      );
-      const teamNameSource =
-        (extensionRows[0] && extensionRows[0].franchise_name) ||
-        (extensionProjectedRows[0] && extensionProjectedRows[0].franchise_name) ||
-        "";
-      const teamName = showAllTeams ? "All Teams" : safeStr(teamNameSource || "Team");
       syncTabLabels();
       syncModuleChipSelection();
       syncCommishConsole(scopedEligibility);
@@ -5248,15 +5306,19 @@
         summary.style.display = "none";
         summary.innerHTML = "";
       }
-      if (tabSummary) tabSummary.innerHTML = renderExtensionsSummary(teamName, extensionRows);
-      if (tabCostCalc)
-        tabCostCalc.innerHTML = renderExtensionsExpiredRookieDraftPage(
-          extensionProjectedLeagueRows,
-          priorPointsByPlayer
-        );
-      if (tabEligible) tabEligible.innerHTML = renderExtensionsTable(extensionRows, "eligible");
+      const comingSoon = `
+        <div class="ccc-comingSoon">
+          <div class="ccc-comingSoonTitle">Extensions - Coming Soon</div>
+          <div class="ccc-comingSoonBody">
+            Extension workflows are being rebuilt in this release. Use the Expired Rookie Draft module for now.
+          </div>
+        </div>
+      `;
+      if (tabSummary) tabSummary.innerHTML = "";
+      if (tabCostCalc) tabCostCalc.innerHTML = "";
+      if (tabEligible) tabEligible.innerHTML = comingSoon;
       if (tabIneligible) tabIneligible.innerHTML = "";
-      if (tabSubmitted) tabSubmitted.innerHTML = renderExtensionsSubmittedPage(season);
+      if (tabSubmitted) tabSubmitted.innerHTML = "";
       updateModuleStatusChips();
       return;
     }
@@ -5793,7 +5855,8 @@
     if (title) title.textContent = "Submit Tag Selection";
 
     const baseSeason = state.calendarBaseSeason || getBaseSeasonValue(state.selectedSeason);
-    const deadlineInfo = getTagDeadlineInfo(baseSeason);
+    const tagSeason = baseSeason || normalizeSeasonValue(state.selectedSeason || DEFAULT_YEAR);
+    const deadlineInfo = getTagDeadlineInfo(tagSeason);
     const deadlineTxt = deadlineInfo ? fmtYMDDate(deadlineInfo.tagDeadline) : "TBD";
 
     const sub = $("#tagModalSub");
@@ -5843,7 +5906,7 @@
 
     const removeBtn = $("#tagRemoveBtn");
     if (removeBtn) {
-      const pastDeadline = isTagDeadlinePassed(baseSeason);
+      const pastDeadline = isTagDeadlinePassed(tagSeason);
       const canRemoveAfterDeadline = !!state.commishMode;
       const showRemove = isSubmitted && (!pastDeadline || canRemoveAfterDeadline);
       removeBtn.style.display = showRemove ? "" : "none";
@@ -6555,14 +6618,16 @@
       const restructureBust =
         (RESTRUCTURE_SUBMISSIONS_URL.includes("?") ? "&" : "?") + "v=" + Date.now();
       const tagBust = (TAG_TRACKING_URL.includes("?") ? "&" : "?") + "v=" + Date.now();
+      const tagSubBust = (TAG_SUBMISSIONS_URL.includes("?") ? "&" : "?") + "v=" + Date.now();
 
-      const [res, subRes, restructureSubRes, tagRes] = await Promise.all([
+      const [res, subRes, restructureSubRes, tagRes, tagSubRes] = await Promise.all([
         fetch(MYM_JSON_URL + bust, { cache: "no-store" }),
         fetch(MYM_SUBMISSIONS_URL + subBust, { cache: "no-store" }).catch(() => null),
         fetch(RESTRUCTURE_SUBMISSIONS_URL + restructureBust, { cache: "no-store" }).catch(
           () => null
         ),
         fetch(TAG_TRACKING_URL + tagBust, { cache: "no-store" }).catch(() => null),
+        fetch(TAG_SUBMISSIONS_URL + tagSubBust, { cache: "no-store" }).catch(() => null),
       ]);
       if (!res.ok) throw new Error("MYM JSON HTTP " + res.status);
 
@@ -6598,6 +6663,14 @@
       }
       state.tagTrackingRows = tagRows;
       state.tagTrackingMeta = tagMeta;
+      let historicalTagSubRows = [];
+      if (tagSubRes && tagSubRes.ok) {
+        try {
+          const tagSubRaw = await tagSubRes.json();
+          historicalTagSubRows = normalizeTagSubmissions(tagSubRaw);
+        } catch (e) {}
+      }
+      state.tagSubmissions = mergeTagSubmissions(historicalTagSubRows, state.tagSubmissions || {});
       applyLocalOverrides(state.payload.eligibility);
 
       state.detectedFranchiseId = detectFranchiseId();
@@ -7028,7 +7101,7 @@
     if (rowHighlightModeSelect)
       rowHighlightModeSelect.addEventListener("change", (e) => {
         const v = safeStr(e.target.value || "position").toLowerCase();
-        state.rowHighlightMode = v === "team" ? "team" : "position";
+        state.rowHighlightMode = normalizeHighlightMode(v);
         rememberHighlightForModule(state.activeModule || "default");
         applyHighlightSetting();
       });
@@ -7039,7 +7112,7 @@
         const btn = e.target && e.target.closest ? e.target.closest(".seg") : null;
         if (!btn || btn.disabled) return;
         const v = safeStr(btn.getAttribute("data-highlight") || "").toLowerCase();
-        state.rowHighlightMode = v === "team" ? "team" : "position";
+        state.rowHighlightMode = normalizeHighlightMode(v);
         rememberHighlightForModule(state.activeModule || "default");
         applyHighlightSetting();
       });

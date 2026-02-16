@@ -27,6 +27,7 @@
         <div class="ccc-subtag">Contract tools for salary planning, submissions, and offseason actions.</div>
         <div id="cccMeta" class="ccc-sub">Loading…</div>
       </div>
+      <div id="cccVersion" class="ccc-version">v0.9.0-dev</div>
 
     </div>
 
@@ -38,7 +39,7 @@
       <button id="moduleRestructuresChip" class="ccc-chipBtn" type="button" data-module="restructure">Restructures</button>
       <button id="moduleAuctionChip" class="ccc-chipBtn disabled" type="button" data-module="auction" title="Placeholder for future module">Auction Contracts</button>
       <button id="moduleMymChip" class="ccc-chipBtn primary" type="button" data-module="mym" data-tool="mym">MYM</button>
-      <button id="moduleCommishChip" class="ccc-chipBtn" type="button" data-module="commish">Admin</button>
+      <button id="moduleCommishChip" class="ccc-chipBtn" type="button" data-module="commish">Settings</button>
     </div>
 
       <div class="ccc-controls">
@@ -134,10 +135,12 @@
         <div class="ccc-seg" id="rowHighlightSeg">
           <button class="seg" type="button" data-highlight="position">Position</button>
           <button class="seg" type="button" data-highlight="team">Team</button>
+          <button class="seg" type="button" data-highlight="tier">Tier</button>
         </div>
         <select id="rowHighlightModeSelect" class="ccc-select" style="display:none;">
           <option value="position">Position</option>
           <option value="team">Team</option>
+          <option value="tier">Tier</option>
         </select>
 
         <button id="clearBtn" class="ccc-btn ghost" type="button" title="Reset filters">Clear</button>

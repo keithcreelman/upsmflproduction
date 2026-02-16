@@ -736,6 +736,9 @@ def build_rows(
         rank_band = ""
         base_bid = 0
         prior_aav = safe_int(prior_aav_map.get(pid), 0)
+        salary_now = safe_int(c.get("salary"), 0)
+        bump_base = max(prior_aav, salary_now)
+        bump_floor = round_up_1000(bump_base * 1.10) if bump_base > 0 else 0
         tag_bid = 0
         formula = ""
         bump_applied = 0
@@ -749,25 +752,27 @@ def build_rows(
 
             if pos_group == "PK":
                 base_bid = max(1000, prior_aav + 1000)
-                tag_bid = base_bid
+                tag_bid = max(base_bid, bump_floor)
                 formula = "K/P rule: prior AAV + 1,000"
             else:
                 base_bid = safe_int(tier_bid_map.get((pos_group, tier)), 0)
                 tag_bid = base_bid
                 formula = rule.rule_label
-                if prior_aav >= base_bid and prior_aav > 0:
-                    tag_bid = round_up_1000(prior_aav * 1.10)
-                    bump_applied = 1
-                    formula += " | 10% prior AAV bump (rounded up)"
+            if bump_floor > 0 and bump_floor > tag_bid:
+                tag_bid = bump_floor
+                bump_applied = 1
+                formula += " | 10% salary floor (rounded up)"
         else:
             # UPS rulebook expectation: all expiring 1-year deals (including rookies) are valid tag options
             # unless excluded by prior tagging/special circumstances.
             # If a player falls outside tier ranks (or has no rank), we still need a non-zero tag salary.
             used_fallback = True
-            base = prior_aav if prior_aav > 0 else safe_int(c.get("salary"), 0)
-            base_bid = max(1000, base + 1000)
-            tag_bid = base_bid
-            formula = "Fallback: prior AAV + 1,000" if prior_aav > 0 else "Fallback: salary + 1,000"
+            base = bump_base if bump_base > 0 else safe_int(c.get("salary"), 0)
+            base_bid = max(1000, base)
+            tag_bid = max(base_bid, bump_floor)
+            formula = "Fallback: salary baseline"
+            if bump_floor > base_bid:
+                formula += " | 10% salary floor (rounded up)"
 
         was_tagged_prev = pid in tagged_prev
         is_eligible = 1 if tag_bid > 0 else 0
