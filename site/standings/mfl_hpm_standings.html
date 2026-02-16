@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>UPS Standings</title>
+  <style>
+    :root {
+      --bg: #061a3a;
+      --panel: #0d2b57;
+      --line: #2a4f86;
+      --text: #e8effa;
+      --muted: #b9c8e2;
+      --gold: #e7be59;
+      --navy: #05224f;
+    }
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: transparent;
+      color: var(--text);
+      font-family: "Open Sans", Arial, sans-serif;
+    }
+    .wrap {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 10px;
+    }
+    .card {
+      background: linear-gradient(180deg, rgba(14,44,88,0.98), rgba(8,29,61,0.98));
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 10px 24px rgba(0,0,0,0.35);
+    }
+    .head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(5, 24, 52, 0.55);
+    }
+    .title {
+      font-size: 20px;
+      font-weight: 900;
+      letter-spacing: 0.04em;
+    }
+    .sub {
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 700;
+    }
+    .toggles {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .btn {
+      border: 1px solid var(--line);
+      background: #123768;
+      color: var(--text);
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-weight: 800;
+      cursor: pointer;
+      font-size: 12px;
+    }
+    .btn.active {
+      background: var(--gold);
+      color: var(--navy);
+      border-color: #d8aa41;
+    }
+    .tableWrap {
+      overflow: auto;
+      max-height: 70vh;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 900px;
+    }
+    th, td {
+      border-bottom: 1px solid rgba(42,79,134,0.65);
+      padding: 8px 10px;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+    th {
+      color: #ffdf87;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      font-size: 11px;
+      background: rgba(9,33,67,0.8);
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+    tr:nth-child(even) td {
+      background: rgba(255,255,255,0.02);
+    }
+    .frRow {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .icon {
+      width: 22px;
+      height: 22px;
+      object-fit: cover;
+      border-radius: 50%;
+      border: 1px solid rgba(255,255,255,0.2);
+      background: rgba(255,255,255,0.06);
+    }
+    .num {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+    .muted {
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="head">
+        <div>
+          <div class="title">Standings Snapshot</div>
+          <div class="sub" id="metaLine">Loading...</div>
+        </div>
+        <div class="toggles">
+          <button class="btn active" data-view="records">W-L-T</button>
+          <button class="btn" data-view="pct">Percentages</button>
+          <button class="btn" data-view="points">Points</button>
+        </div>
+      </div>
+      <div class="tableWrap">
+        <table>
+          <thead id="thead"></thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      "use strict";
+      const $ = (s) => document.querySelector(s);
+      const safe = (v) => (v === null || v === undefined ? "" : String(v));
+      const n = (v, d = 0) => {
+        const x = Number(v);
+        return Number.isFinite(x) ? x : d;
+      };
+      const esc = (s) =>
+        safe(s)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#39;");
+
+      const u = new URL(window.location.href);
+      const L = safe(u.searchParams.get("L") || "25625");
+      const YEAR = safe(u.searchParams.get("YEAR") || "2026");
+      const snapshotPath = `./standings_${L}_${YEAR}.json`;
+      const fallbackPath = "./standings_25625_2026.json";
+      let state = { view: "records", rows: [], meta: {} };
+
+      function fmtWlt(o) {
+        const w = n(o && o.w, 0), l = n(o && o.l, 0), t = n(o && o.t, 0);
+        return `${w}-${l}-${t}`;
+      }
+      function fmtPct(v) { return n(v, 0).toFixed(3); }
+      function fmtNum(v) {
+        const x = n(v, 0);
+        return Number.isInteger(x) ? x.toLocaleString() : x.toFixed(1);
+      }
+
+      function render() {
+        const rows = Array.isArray(state.rows) ? state.rows : [];
+        const view = state.view || "records";
+        const head = view === "records"
+          ? "<tr><th>Franchise</th><th>All Play</th><th>Overall</th><th>Divisional</th></tr>"
+          : view === "pct"
+          ? "<tr><th>Franchise</th><th>All Play %</th><th>Overall %</th><th>Divisional %</th></tr>"
+          : "<tr><th>Franchise</th><th>PF</th><th>Off Pts</th><th>Def Pts</th><th>Potential</th><th>Efficiency</th></tr>";
+        $("#thead").innerHTML = head;
+
+        $("#tbody").innerHTML = rows.map((r) => {
+          const icon = esc(r.icon || r.logo || "");
+          const fr = `
+            <div class="frRow">
+              <img class="icon" alt="" src="${icon}" onerror="this.style.display='none'"/>
+              <span>${esc(r.franchise_name || r.franchise_id || "")}</span>
+            </div>
+          `;
+          const cols = view === "records"
+            ? `<td class="num">${fmtWlt(r.all_play)}</td><td class="num">${fmtWlt(r.overall)}</td><td class="num">${fmtWlt(r.divisional)}</td>`
+            : view === "pct"
+            ? `<td class="num">${fmtPct(r.all_play_pct)}</td><td class="num">${fmtPct(r.overall_pct)}</td><td class="num">${fmtPct(r.divisional_pct)}</td>`
+            : `<td class="num">${fmtNum(r.points_for)}</td><td class="num">${fmtNum(r.off_points)}</td><td class="num">${fmtNum(r.def_points)}</td><td class="num">${fmtNum(r.potential_points)}</td><td class="num">${fmtNum(r.efficiency)}</td>`;
+          return `<tr><td>${fr}</td>${cols}</tr>`;
+        }).join("");
+
+        document.querySelectorAll(".btn[data-view]").forEach((b) => {
+          b.classList.toggle("active", b.getAttribute("data-view") === view);
+        });
+
+        const m = state.meta || {};
+        $("#metaLine").textContent = `L ${safe(m.league_id || L)} | Season ${safe(m.season || YEAR)} | Updated ${safe(m.generated_at_utc || "")}`;
+      }
+
+      async function loadData() {
+        let payload = null;
+        try {
+          payload = await fetch(snapshotPath, { cache: "no-store" }).then((r) => (r.ok ? r.json() : null));
+        } catch (e) {}
+        if (!payload) {
+          payload = await fetch(fallbackPath, { cache: "no-store" }).then((r) => r.json());
+        }
+        state.rows = payload && Array.isArray(payload.rows) ? payload.rows : [];
+        state.meta = payload && payload.meta ? payload.meta : {};
+        render();
+      }
+
+      document.addEventListener("click", (e) => {
+        const btn = e.target && e.target.closest ? e.target.closest(".btn[data-view]") : null;
+        if (!btn) return;
+        state.view = safe(btn.getAttribute("data-view") || "records");
+        render();
+      });
+
+      loadData();
+    })();
+  </script>
+</body>
+</html>

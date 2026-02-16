@@ -10,6 +10,7 @@
   const RESTRUCTURE_SUBMISSIONS_URL = "./restructure_submissions.json";
   const TAG_TRACKING_URL = "./tag_tracking.json";
   const TAG_SUBMISSIONS_URL = "./tag_submissions.json";
+  const PLAYER_POINTS_HISTORY_URL = "./player_points_history.json";
   const SEASON_CAP_PER_TEAM = 5;
   const RESTRUCTURE_CAP_PER_TEAM = 3;
   const MYM_EVENTS_BY_SEASON = {
@@ -868,6 +869,25 @@
       return rows.map(normalizeTagRow);
     }
     return [];
+  }
+
+  function normalizePlayerPointsRows(raw) {
+    if (!raw) return [];
+    const rows =
+      Array.isArray(raw)
+        ? raw
+        : Array.isArray(raw.rows)
+        ? raw.rows
+        : Array.isArray(raw.player_points)
+        ? raw.player_points
+        : [];
+    return rows
+      .map((r) => ({
+        player_id: safeStr(r && (r.player_id || r.playerId || r.id)),
+        season: normalizeSeasonValue(r && (r.season || r.year)),
+        points_total: Number((r && (r.points_total || r.points || r.total_points)) || 0),
+      }))
+      .filter((r) => r.player_id && r.season);
   }
 
   function normalizeTagSubmissionRow(r) {
@@ -3252,7 +3272,10 @@
     const out = [];
     (rows || []).forEach((r) => {
       const p = projectContractRowForward(r);
-      if (p) out.push(p);
+      if (!p) return;
+      p._source_season = normalizeSeasonValue(r && r.season);
+      p.season = String(contract);
+      out.push(p);
     });
     return out;
   }
@@ -3356,12 +3379,40 @@
     return true;
   }
 
-  function buildRecentPointsByPlayer(tagRows, maxYears) {
+  function buildRecentPointsByPlayer(tagRows, maxYears, selectedSeason, tagMeta, historyRows) {
     const cap = Math.max(1, safeInt(maxYears) || 3);
+    const selected = safeInt(normalizeSeasonValue(selectedSeason || state.selectedSeason || DEFAULT_YEAR));
+    const metaSeason = safeInt(
+      normalizeSeasonValue(
+        (tagMeta && (tagMeta.season || tagMeta.base_season || tagMeta.baseSeason)) || ""
+      )
+    );
+    const trackingFor = safeInt(
+      normalizeSeasonValue(
+        (tagMeta && (tagMeta.tracking_for_season || tagMeta.trackingForSeason)) || ""
+      )
+    );
     const byPlayerSeason = new Map();
-    (tagRows || []).forEach((r) => {
+    (historyRows || []).forEach((r) => {
       const pid = safeStr(r && r.player_id);
       const season = normalizeSeasonValue(r && r.season);
+      if (!pid || !season) return;
+      const pts = Number(r && r.points_total);
+      const key = `${pid}|${season}`;
+      if (!byPlayerSeason.has(key) || pts > byPlayerSeason.get(key)) {
+        byPlayerSeason.set(key, isNaN(pts) ? 0 : pts);
+      }
+    });
+    (tagRows || []).forEach((r) => {
+      const pid = safeStr(r && r.player_id);
+      let seasonNum = safeInt(normalizeSeasonValue(r && r.season));
+      if (!seasonNum) return;
+      if (trackingFor && metaSeason && seasonNum === trackingFor) {
+        seasonNum = metaSeason;
+      } else if (selected && seasonNum === selected) {
+        seasonNum = selected - 1;
+      }
+      const season = String(seasonNum);
       if (!pid || !season) return;
       const pts = Number(r && r.points_total);
       const key = `${pid}|${season}`;
@@ -3376,19 +3427,27 @@
       const pid = safeStr(parts[0]);
       const season = normalizeSeasonValue(parts[1]);
       if (!pid || !season) return;
-      if (!out[pid]) out[pid] = [];
-      out[pid].push({ season, points });
+      if (!out[pid]) out[pid] = {};
+      out[pid][season] = points;
     });
 
     Object.keys(out).forEach((pid) => {
-      out[pid].sort((a, b) => safeInt(b.season) - safeInt(a.season));
-      out[pid] = out[pid].slice(0, cap);
+      const seasons = Object.keys(out[pid]).sort((a, b) => safeInt(b) - safeInt(a));
+      const trimmed = {};
+      seasons.slice(0, cap).forEach((s) => {
+        trimmed[s] = out[pid][s];
+      });
+      out[pid] = trimmed;
     });
     return out;
   }
 
   function renderExtensionsExpiredRookieDraftPage(rows, pointsHistoryByPlayer, opts) {
     const title = safeStr(opts && opts.title ? opts.title : "Leaguewide Expired Rookie Draft");
+    const selected = safeInt(normalizeSeasonValue((opts && opts.season) || state.selectedSeason || DEFAULT_YEAR));
+    const y1 = selected > 0 ? String(selected - 1) : "Yr-1";
+    const y2 = selected > 1 ? String(selected - 2) : "Yr-2";
+    const y3 = selected > 2 ? String(selected - 3) : "Yr-3";
     const expired = (rows || [])
       .filter((r) => isExpiredRookieDraftCandidate(r))
       .sort(
@@ -3404,18 +3463,13 @@
       .map((r) => {
         const style = buildTeamStyle(r);
         const pid = safeStr(r.player_id);
-        const pts = Array.isArray(pointsHistoryByPlayer && pointsHistoryByPlayer[pid])
-          ? pointsHistoryByPlayer[pid]
-          : [];
-        const pts1 = pts[0]
-          ? `${pts[0].season}: ${Number(pts[0].points || 0).toFixed(1)}`
-          : "—";
-        const pts2 = pts[1]
-          ? `${pts[1].season}: ${Number(pts[1].points || 0).toFixed(1)}`
-          : "—";
-        const pts3 = pts[2]
-          ? `${pts[2].season}: ${Number(pts[2].points || 0).toFixed(1)}`
-          : "—";
+        const pts = pointsHistoryByPlayer && pointsHistoryByPlayer[pid] ? pointsHistoryByPlayer[pid] : {};
+        const p1 = pts[y1];
+        const p2 = pts[y2];
+        const p3 = pts[y3];
+        const pts1 = p1 === undefined || p1 === null ? "—" : Number(p1).toFixed(1);
+        const pts2 = p2 === undefined || p2 === null ? "—" : Number(p2).toFixed(1);
+        const pts3 = p3 === undefined || p3 === null ? "—" : Number(p3).toFixed(1);
         return `
           <tr class="${buildRowClass(r, posKeyFromRow(r))}"${style ? ` style="${style}"` : ""}>
             <td>${htmlEsc(r.franchise_name || r.franchise_id)}</td>
@@ -3436,7 +3490,7 @@
       </div>
       <div class="ccc-tableWrap" data-table="costcalc">
         <table class="ccc-table">
-          <thead><tr><th>Team</th><th>Player</th><th>Pos</th><th>Pts Yr-1</th><th>Pts Yr-2</th><th>Pts Yr-3</th><th>Sal</th><th>Deadline To Extend</th></tr></thead>
+          <thead><tr><th>Team</th><th>Player</th><th>Pos</th><th>${htmlEsc(y1)}</th><th>${htmlEsc(y2)}</th><th>${htmlEsc(y3)}</th><th>Sal</th><th>Deadline To Extend</th></tr></thead>
           <tbody>${body}</tbody>
         </table>
       </div>
@@ -3922,6 +3976,7 @@
     restructureSubmissions: [],
     tagTrackingRows: [],
     tagTrackingMeta: {},
+    playerPointsRows: [],
     isAdmin: false,
     canCommishMode: false,
     commishMode: false,
@@ -5477,7 +5532,13 @@
         r.extension_deadline = d ? fmtYMDDate(d) : "";
         r._extension_deadline_ts = d ? d.getTime() : 0;
       });
-      const pointsHistoryByPlayer = buildRecentPointsByPlayer(state.tagTrackingRows || [], 3);
+      const pointsHistoryByPlayer = buildRecentPointsByPlayer(
+        state.tagTrackingRows || [],
+        3,
+        season,
+        state.tagTrackingMeta || {},
+        state.playerPointsRows || []
+      );
 
       let filtered = projectedLeagueRows.slice();
       if (!showAllTeams) {
@@ -5515,6 +5576,7 @@
       if (tabEligible)
         tabEligible.innerHTML = renderExtensionsExpiredRookieDraftPage(filtered, pointsHistoryByPlayer, {
           title,
+          season,
         });
       if (tabIneligible) tabIneligible.innerHTML = "";
       if (tabSubmitted) tabSubmitted.innerHTML = "";
@@ -6749,8 +6811,10 @@
         (RESTRUCTURE_SUBMISSIONS_URL.includes("?") ? "&" : "?") + "v=" + Date.now();
       const tagBust = (TAG_TRACKING_URL.includes("?") ? "&" : "?") + "v=" + Date.now();
       const tagSubBust = (TAG_SUBMISSIONS_URL.includes("?") ? "&" : "?") + "v=" + Date.now();
+      const pointsBust =
+        (PLAYER_POINTS_HISTORY_URL.includes("?") ? "&" : "?") + "v=" + Date.now();
 
-      const [res, subRes, restructureSubRes, tagRes, tagSubRes] = await Promise.all([
+      const [res, subRes, restructureSubRes, tagRes, tagSubRes, pointsRes] = await Promise.all([
         fetch(MYM_JSON_URL + bust, { cache: "no-store" }),
         fetch(MYM_SUBMISSIONS_URL + subBust, { cache: "no-store" }).catch(() => null),
         fetch(RESTRUCTURE_SUBMISSIONS_URL + restructureBust, { cache: "no-store" }).catch(
@@ -6758,6 +6822,7 @@
         ),
         fetch(TAG_TRACKING_URL + tagBust, { cache: "no-store" }).catch(() => null),
         fetch(TAG_SUBMISSIONS_URL + tagSubBust, { cache: "no-store" }).catch(() => null),
+        fetch(PLAYER_POINTS_HISTORY_URL + pointsBust, { cache: "no-store" }).catch(() => null),
       ]);
       if (!res.ok) throw new Error("MYM JSON HTTP " + res.status);
 
@@ -6804,6 +6869,14 @@
         } catch (e) {}
       }
       state.tagSubmissions = mergeTagSubmissions(historicalTagSubRows, state.tagSubmissions || {});
+      let pointsRows = [];
+      if (pointsRes && pointsRes.ok) {
+        try {
+          const pointsRaw = await pointsRes.json();
+          pointsRows = normalizePlayerPointsRows(pointsRaw);
+        } catch (e) {}
+      }
+      state.playerPointsRows = pointsRows;
       applyLocalOverrides(state.payload.eligibility);
 
       state.detectedFranchiseId = detectFranchiseId();
@@ -6911,8 +6984,17 @@
         populateAsOfSeasonSelect(seasons, state.asOfSeasonOverride);
       }
 
-      const seasonRows = state.payload.eligibility.filter(
-        (r) => normalizeSeasonValue(r.season) === state.selectedSeason
+      const projectionSourceSeason = resolveSourceSeasonForProjection(
+        state.payload.eligibility,
+        state.selectedSeason
+      );
+      const seasonRowsRaw = state.payload.eligibility.filter(
+        (r) => !projectionSourceSeason || normalizeSeasonValue(r.season) === projectionSourceSeason
+      );
+      const seasonRows = projectContractRowsForSeason(
+        seasonRowsRaw,
+        projectionSourceSeason,
+        state.selectedSeason
       );
       const seasonSubmissionRows = state.payload.submissions.filter(
         (r) => normalizeSeasonValue(r.season) === state.selectedSeason

@@ -21,7 +21,8 @@
     header: "/apps/mfl_site/header_custom_v2.html",
     footer: "/apps/mfl_site/footer_custom_v2.html",
     "hpm-default": "/site/hpm-default.html",
-    "hpm-mcm": "/site/hpm-mcm.html"
+    "hpm-mcm": "/site/hpm-mcm.html",
+    "hpm-standings": "/site/hpm-standings.html"
   };
 
   function safeLower(value) {
