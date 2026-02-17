@@ -61,6 +61,13 @@ Each entry should include:
 **Files Modified**:
 - `site/ccc/ccc.js`
 
+**Release / Branch Notes**:
+- Main commit: `c21a7ed` (pushed to `origin/main`).
+- Dev branch was non-fast-forward and rejected direct push.
+- Applied the same change to `dev` via cherry-pick in a temporary git worktree:
+  - Dev commit: `2e037af` (pushed to `origin/dev`).
+- Reason for worktree: local uncommitted files in main workspace prevented direct branch checkout.
+
 ---
 
 ## 2026-02-16T23:19:00Z | Codex | feature
@@ -78,3 +85,31 @@ Each entry should include:
 
 **Files Modified**:
 - `apps/mfl_site/header_custom_v2.html`
+
+**Release / Branch Notes**:
+- Main commit: `b256bc2` (pushed to `origin/main`).
+- Dev received the same change via cherry-pick:
+  - Initial cherry-pick had a merge conflict in `apps/mfl_site/header_custom_v2.html`.
+  - Conflict was resolved by restoring the new header version ("theirs" for that cherry-pick context).
+  - Dev commit: `a6ede30` (pushed to `origin/dev`).
+
+---
+
+## 2026-02-16T23:20:52Z | Codex | docs
+
+**Summary**: Backfilled this AI change log with missing Codex entries and release context.
+
+**What this does**:
+- Documents the missing CCC fix and marquee feature entries.
+- Adds explicit branch/deployment history (main + dev commits, cherry-picks, and conflict handling).
+- Clarifies what was restored and why during dev sync.
+
+**Files Modified**:
+- `docs/ai-change-log.md`
+
+**Release / Branch Notes**:
+- Main commit: `a35deed` (pushed to `origin/main`).
+- Dev did not contain `docs/ai-change-log.md` at that point (file missing/deleted in dev history).
+- Cherry-pick onto `dev` produced a modify/delete conflict on `docs/ai-change-log.md`.
+- Conflict resolution restored/created `docs/ai-change-log.md` on `dev` and continued cherry-pick.
+- Dev commit: `0d5dece` (pushed to `origin/dev`).
