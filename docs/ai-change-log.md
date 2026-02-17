@@ -46,3 +46,35 @@ Each entry should include:
 - `scripts/smoke_test_operational.sh` (fixed script filenames)
 - `.gitignore` (new)
 - `README.md` (new)
+
+---
+
+## 2026-02-16T23:03:00Z | Codex | fix
+
+**Summary**: Contract Command Center eligibility and tags table UX cleanup.
+
+**What this does**:
+- Prevents restructure options for players already at the $1,000 floor.
+- Prevents tagged players from appearing in Expired Rookie Draft candidates.
+- Reorders and tightens the Tags table so the most important controls and identity fields appear first.
+
+**Files Modified**:
+- `site/ccc/ccc.js`
+
+---
+
+## 2026-02-16T23:19:00Z | Codex | feature
+
+**Summary**: Replaced the old chaotic headline ticker with a structured UPS marquee.
+
+**What this does**:
+- Disables legacy third-party marquee behavior and injects a custom 4-lane marquee.
+- Adds lanes for:
+  - First 24 rookie draft picks
+  - Champions Ring of Honor (2010-2026 chronology)
+  - Highest scoring expiring rookie
+  - Submitted tagged players
+- Uses existing UPS data feeds (champions JSON + CCC JSON) and MFL draft results API with graceful fallback.
+
+**Files Modified**:
+- `apps/mfl_site/header_custom_v2.html`
