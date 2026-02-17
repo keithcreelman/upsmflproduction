@@ -192,6 +192,65 @@
       padding: 1px 6px;
       cursor: help;
     }
+    /* Division Race Module */
+    .div-module { padding: 8px 12px; }
+    .div-module-controls {
+      display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
+    }
+    .div-module-controls .btn { font-size: 11px; padding: 4px 10px; }
+    .div-group { margin-bottom: 14px; }
+    .div-group-header {
+      background: rgba(13, 47, 93, 0.9);
+      color: #ffdf87;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      font-size: 12px;
+      padding: 7px 10px;
+      border-radius: 6px 6px 0 0;
+      border-bottom: 2px solid var(--gold);
+    }
+    .div-table { width: 100%; border-collapse: collapse; min-width: 0; }
+    .div-table th {
+      color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em;
+      font-size: 10px; padding: 5px 8px; text-align: left;
+      background: rgba(9,33,67,0.6); border-bottom: 1px solid var(--line);
+      font-weight: 700;
+    }
+    .div-table th.num { text-align: right; }
+    .div-table td { padding: 7px 8px; font-size: 13px; border-bottom: 1px solid rgba(42,79,134,0.4); }
+    .div-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+    .div-table tr.div-row { cursor: pointer; transition: background 0.15s; }
+    .div-table tr.div-row:hover { background: rgba(231,190,89,0.08); }
+    .div-table tr.div-row-expanded { background: rgba(231,190,89,0.06); }
+    .div-h2h-inline { font-size: 11px; color: var(--muted); white-space: nowrap; }
+    .div-h2h-inline .h2h-pair { margin-right: 6px; }
+    .div-h2h-inline .h2h-w { color: #a5d6a7; }
+    .div-h2h-inline .h2h-l { color: #ef9a9a; }
+    .div-h2h-inline .h2h-e { color: var(--muted); }
+    .div-dropdown { display: none; }
+    .div-dropdown.open { display: table-row; }
+    .div-dropdown-inner {
+      padding: 8px 12px 10px 12px;
+      background: rgba(5, 24, 52, 0.7);
+      border-bottom: 2px solid var(--line);
+    }
+    .div-dropdown-title {
+      font-size: 11px; font-weight: 800; color: var(--gold);
+      margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.03em;
+    }
+    .div-dd-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 4px 16px;
+    }
+    .div-dd-rec {
+      font-size: 12px; display: flex; justify-content: space-between; gap: 8px;
+      padding: 2px 0; border-bottom: 1px solid rgba(42,79,134,0.25);
+    }
+    .div-dd-opp { color: var(--text); }
+    .div-dd-wlt { font-variant-numeric: tabular-nums; font-weight: 700; }
+    .pf-rel-pos { color: #a5d6a7; }
+    .pf-rel-neg { color: #ef9a9a; }
     /* H2H Matrix */
     .h2h-col-header {
       text-align: center;
@@ -353,6 +412,9 @@
         sortKey: "franchise",
         sortDir: "asc",
         showDivisionLeaders: false,
+        divMode: "raw",
+        pointsMode: "raw",
+        expandedRow: null,
       };
 
       function pctFromWlt(o) {
@@ -373,6 +435,25 @@
       function fmtNum(v) {
         const x = n(v, 0);
         return Number.isInteger(x) ? x.toLocaleString() : x.toFixed(1);
+      }
+
+      function leagueAvgPF(rows) {
+        if (!rows || !rows.length) return 0;
+        var sum = 0;
+        rows.forEach(function (r) { sum += n(r.points_for, 0); });
+        return sum / rows.length;
+      }
+
+      function fmtRel(val, avg) {
+        var diff = val - avg;
+        var sign = diff >= 0 ? "+" : "";
+        return sign + diff.toFixed(1);
+      }
+
+      function getDivisionMates(row, allRows) {
+        return (allRows || []).filter(function (r) {
+          return r.division === row.division && r.franchise_id !== row.franchise_id;
+        });
       }
 
       function normalizeRows(rows) {
@@ -674,6 +755,34 @@
       }
 
       function renderStandard(view) {
+        // Points view: show relativity toggle
+        var pointsToggleWrap = document.getElementById("pointsModeWrap");
+        if (view === "points") {
+          if (!pointsToggleWrap) {
+            pointsToggleWrap = document.createElement("div");
+            pointsToggleWrap.id = "pointsModeWrap";
+            pointsToggleWrap.className = "div-module-controls";
+            pointsToggleWrap.style.padding = "6px 12px 0";
+            pointsToggleWrap.innerHTML =
+              '<button class="btn pts-toggle' + (state.pointsMode === "raw" ? " active" : "") + '" data-pts-mode="raw">Raw</button>'
+              + '<button class="btn pts-toggle' + (state.pointsMode === "rel" ? " active" : "") + '" data-pts-mode="rel">vs Avg</button>';
+            $(".tableWrap").insertBefore(pointsToggleWrap, $("table"));
+          } else {
+            pointsToggleWrap.style.display = "";
+            pointsToggleWrap.querySelectorAll(".pts-toggle").forEach(function (b) {
+              b.classList.toggle("active", b.getAttribute("data-pts-mode") === state.pointsMode);
+            });
+          }
+        } else if (pointsToggleWrap) {
+          pointsToggleWrap.style.display = "none";
+        }
+
+        const isRel = view === "points" && state.pointsMode === "rel";
+        const avgPF = isRel ? leagueAvgPF(state.rows || []) : 0;
+        const avgOff = isRel ? (function () { var s=0; (state.rows||[]).forEach(function(r){s+=n(r.off_points,0);}); return s/((state.rows||[]).length||1); })() : 0;
+        const avgDef = isRel ? (function () { var s=0; (state.rows||[]).forEach(function(r){s+=n(r.def_points,0);}); return s/((state.rows||[]).length||1); })() : 0;
+        const avgPP = isRel ? (function () { var s=0; (state.rows||[]).forEach(function(r){s+=n(r.potential_points,0);}); return s/((state.rows||[]).length||1); })() : 0;
+
         const cols = view === "records"
           ? [
               { key: "franchise", label: "Franchise", hide: "" },
@@ -690,10 +799,10 @@
             ]
           : [
               { key: "franchise", label: "Franchise", hide: "" },
-              { key: "points_for", label: "PF", hide: "" },
-              { key: "off_points", label: "Off Pts", hide: "hide-mobile-sm" },
-              { key: "def_points", label: "Def Pts", hide: "hide-mobile" },
-              { key: "potential_points", label: "Potential", hide: "hide-mobile" },
+              { key: "points_for", label: isRel ? "PF vs Avg" : "PF", hide: "" },
+              { key: "off_points", label: isRel ? "Off vs Avg" : "Off Pts", hide: "hide-mobile-sm" },
+              { key: "def_points", label: isRel ? "Def vs Avg" : "Def Pts", hide: "hide-mobile" },
+              { key: "potential_points", label: isRel ? "PP vs Avg" : "Potential", hide: "hide-mobile" },
               { key: "efficiency", label: "Efficiency", hide: "hide-mobile-sm" },
             ];
 
@@ -716,6 +825,10 @@
                 if (c.key === "all_play_pct") return `<td class="num ${c.hide}">${fmtPct(r.all_play_pct)}</td>`;
                 if (c.key === "overall_pct") return `<td class="num ${c.hide}">${fmtPct(r.overall_pct)}</td>`;
                 if (c.key === "divisional_pct") return `<td class="num ${c.hide}">${fmtPct(r.divisional_pct)}</td>`;
+                if (isRel && c.key === "points_for") { var d=r.points_for-avgPF; return `<td class="num ${c.hide} ${d>=0?"pf-rel-pos":"pf-rel-neg"}">${d>=0?"+":""}${d.toFixed(1)}</td>`; }
+                if (isRel && c.key === "off_points") { var d=r.off_points-avgOff; return `<td class="num ${c.hide} ${d>=0?"pf-rel-pos":"pf-rel-neg"}">${d>=0?"+":""}${d.toFixed(1)}</td>`; }
+                if (isRel && c.key === "def_points") { var d=r.def_points-avgDef; return `<td class="num ${c.hide} ${d>=0?"pf-rel-pos":"pf-rel-neg"}">${d>=0?"+":""}${d.toFixed(1)}</td>`; }
+                if (isRel && c.key === "potential_points") { var d=r.potential_points-avgPP; return `<td class="num ${c.hide} ${d>=0?"pf-rel-pos":"pf-rel-neg"}">${d>=0?"+":""}${d.toFixed(1)}</td>`; }
                 return `<td class="num ${c.hide}">${fmtNum(r[c.key])}</td>`;
               })
               .join("");
@@ -726,52 +839,124 @@
 
       function renderDivisionRace() {
         const divisions = buildDivisionRace(state.rows || []);
-        $("#thead").innerHTML =
-          "<tr>" +
-          headCell("division", "Division", false) +
-          headCell("rank", "Rank", false) +
-          headCell("franchise", "Franchise", true) +
-          headCell("overall_pct", "Overall %", true) +
-          headCell("divisional_pct", "Div %", true) +
-          headCell("h2h", "H2H %", false) +
-          headCell("points_for", "PF", true) +
-          headCell("all_play_pct", "All Play %", true) +
-          headCell("tb", "TB Notice", false) +
-          "</tr>";
+        const allRows = state.rows || [];
+        const avgPF = leagueAvgPF(allRows);
+        const isPct = state.divMode === "pct";
 
-        // Apply hide-mobile classes to header cells
-        const thEls = document.querySelectorAll("#thead th");
-        if (thEls[0]) thEls[0].classList.add("hide-mobile");  // Division code
-        if (thEls[8]) thEls[8].classList.add("hide-mobile");   // TB Notice
+        // Build into tableWrap directly — no thead/tbody for this module
+        $("#thead").innerHTML = "";
+        $("#tbody").innerHTML = "";
 
-        const body = [];
-        divisions.forEach((d) => {
-          body.push(`<tr class="divisionHeader"><td colspan="9">${esc(d.division_name)}</td></tr>`);
-          const groupRows = state.sortKey && state.sortKey !== "franchise" && state.sortKey !== "rank"
-            ? sortRows(d.rows || [])
-            : (d.rows || []);
-          groupRows.forEach((r) => {
-            const h2h = n(r._cluster_h2h_pct, -1);
-            const h2hTxt = h2h >= 0 ? fmtPct(h2h) : "—";
-            const tb = r._tb_note
-              ? `<span class="tbFlag" title="${esc(r._tb_note)}">TB</span>`
-              : "";
-            body.push(
-              `<tr>` +
-                `<td class="hide-mobile">${esc(r.division || "")}</td>` +
-                `<td class="num">${n(r.division_rank, 0)}</td>` +
-                `<td>${iconFranchiseCell(r)}</td>` +
-                `<td class="num">${fmtPct(r.overall_pct)}</td>` +
-                `<td class="num">${fmtPct(r.divisional_pct)}</td>` +
-                `<td class="num">${h2hTxt}</td>` +
-                `<td class="num">${fmtNum(r.points_for)}</td>` +
-                `<td class="num">${fmtPct(r.all_play_pct)}</td>` +
-                `<td class="hide-mobile">${tb}</td>` +
-              `</tr>`
-            );
+        var wrap = $(".tableWrap");
+        // Remove previous div module if exists
+        var prev = wrap.querySelector(".div-module");
+        if (prev) prev.remove();
+
+        var mod = document.createElement("div");
+        mod.className = "div-module";
+
+        // RAW ↔ % toggle
+        var controls = '<div class="div-module-controls">'
+          + '<button class="btn div-toggle' + (!isPct ? " active" : "") + '" data-div-mode="raw">RAW</button>'
+          + '<button class="btn div-toggle' + (isPct ? " active" : "") + '" data-div-mode="pct">%</button>'
+          + '</div>';
+        mod.innerHTML = controls;
+
+        divisions.forEach(function (d) {
+          var g = document.createElement("div");
+          g.className = "div-group";
+          var headerHtml = '<div class="div-group-header">' + esc(d.division_name) + '</div>';
+
+          // Table
+          var cols;
+          if (isPct) {
+            cols = '<tr><th>Team</th><th class="num">Overall %</th><th class="num">Div %</th>'
+              + '<th class="num">All-Play %</th><th class="num">PF vs Avg</th></tr>';
+          } else {
+            cols = '<tr><th>Team</th><th class="num">Overall</th><th class="num">Divisional</th>'
+              + '<th>Div H2H</th><th class="num">PF</th><th class="num">All Play</th></tr>';
+          }
+
+          var bodyRows = "";
+          (d.rows || []).forEach(function (r) {
+            var fid = r.franchise_id;
+            var isExpanded = state.expandedRow === fid;
+            var expandCls = isExpanded ? " div-row-expanded" : "";
+
+            if (isPct) {
+              var pfRel = fmtRel(r.points_for, avgPF);
+              var pfCls = r.points_for >= avgPF ? "pf-rel-pos" : "pf-rel-neg";
+              bodyRows += '<tr class="div-row' + expandCls + '" data-fid="' + esc(fid) + '">'
+                + '<td>' + esc(r.franchise_name) + '</td>'
+                + '<td class="num">' + fmtPct(r.overall_pct) + '</td>'
+                + '<td class="num">' + fmtPct(r.divisional_pct) + '</td>'
+                + '<td class="num">' + fmtPct(r.all_play_pct) + '</td>'
+                + '<td class="num ' + pfCls + '">' + pfRel + '</td>'
+                + '</tr>';
+            } else {
+              // Build inline div H2H
+              var mates = getDivisionMates(r, allRows);
+              var h2hHtml = '<span class="div-h2h-inline">';
+              mates.forEach(function (m) {
+                var rec = (r.h2h || {})[m.franchise_id];
+                if (rec && n(rec.games, 0) > 0) {
+                  var p = n(rec.pct, 0.5);
+                  var cls = p > 0.5 ? "h2h-w" : p < 0.5 ? "h2h-l" : "h2h-e";
+                  // Abbreviate opponent name to first word or first 6 chars
+                  var abbr = (m.franchise_name || "").split(/[\s\u00a0]/)[0].substring(0, 8);
+                  h2hHtml += '<span class="h2h-pair"><span class="' + cls + '">' + esc(abbr) + ' ' + n(rec.w,0) + '-' + n(rec.l,0) + '</span></span> ';
+                }
+              });
+              h2hHtml += '</span>';
+
+              bodyRows += '<tr class="div-row' + expandCls + '" data-fid="' + esc(fid) + '">'
+                + '<td>' + esc(r.franchise_name) + '</td>'
+                + '<td class="num">' + fmtWlt(r.overall) + '</td>'
+                + '<td class="num">' + fmtWlt(r.divisional) + '</td>'
+                + '<td>' + h2hHtml + '</td>'
+                + '<td class="num">' + fmtNum(r.points_for) + '</td>'
+                + '<td class="num">' + fmtWlt(r.all_play) + '</td>'
+                + '</tr>';
+            }
+
+            // Dropdown row (full H2H vs all opponents)
+            var ddColspan = isPct ? 5 : 6;
+            var ddStyle = isExpanded ? ' class="div-dropdown open"' : ' class="div-dropdown"';
+            bodyRows += '<tr' + ddStyle + ' data-dd-fid="' + esc(fid) + '">'
+              + '<td colspan="' + ddColspan + '">'
+              + '<div class="div-dropdown-inner">'
+              + '<div class="div-dropdown-title">All H2H Records — ' + esc(r.franchise_name) + '</div>'
+              + '<div class="div-dd-grid">';
+
+            // All opponents sorted by name
+            var opps = allRows.filter(function (o) { return o.franchise_id !== fid; })
+              .slice().sort(function (a, b) { return safe(a.franchise_name).localeCompare(safe(b.franchise_name)); });
+            opps.forEach(function (opp) {
+              var rec = (r.h2h || {})[opp.franchise_id];
+              var wlt = rec && n(rec.games, 0) > 0 ? (n(rec.w,0) + '-' + n(rec.l,0) + '-' + n(rec.t,0)) : '—';
+              var p = rec ? n(rec.pct, 0.5) : 0.5;
+              var cls = (!rec || n(rec.games,0) === 0) ? "" : (p > 0.5 ? "h2h-w" : p < 0.5 ? "h2h-l" : "h2h-e");
+              var divTag = opp.division === r.division ? ' ★' : '';
+              bodyRows += '<div class="div-dd-rec">'
+                + '<span class="div-dd-opp">' + esc(opp.franchise_name) + divTag + '</span>'
+                + '<span class="div-dd-wlt ' + cls + '">' + wlt + '</span>'
+                + '</div>';
+            });
+
+            bodyRows += '</div></div></td></tr>';
           });
+
+          g.innerHTML = headerHtml
+            + '<table class="div-table">'
+            + '<thead>' + cols + '</thead>'
+            + '<tbody>' + bodyRows + '</tbody>'
+            + '</table>';
+          mod.appendChild(g);
         });
-        $("#tbody").innerHTML = body.join("");
+
+        // Hide the main table, show module
+        $("table").style.display = "none";
+        wrap.appendChild(mod);
       }
 
       function renderWildcardRace() {
@@ -874,24 +1059,67 @@
         if (showLeadersWrap) showLeadersWrap.style.display = state.view === "wildcard" ? "" : "none";
         const tbl = document.querySelector("table");
         if (tbl) tbl.classList.toggle("h2h-table", state.view === "h2h");
+
+        // Clean up div module when leaving division view
+        var prevMod = document.querySelector(".div-module");
+        if (prevMod && state.view !== "division") {
+          prevMod.remove();
+          if (tbl) tbl.style.display = "";
+        }
+
         if (state.view === "records" || state.view === "pct" || state.view === "points") {
+          if (tbl) tbl.style.display = "";
           renderStandard(state.view);
         } else if (state.view === "division") {
           renderDivisionRace();
         } else if (state.view === "h2h") {
+          if (tbl) tbl.style.display = "";
           renderH2H();
         } else {
+          if (tbl) tbl.style.display = "";
           renderWildcardRace();
         }
       }
 
       document.addEventListener("click", (e) => {
+        // Division module: RAW ↔ % toggle
+        const divToggle = e.target && e.target.closest ? e.target.closest(".div-toggle") : null;
+        if (divToggle) {
+          state.divMode = safe(divToggle.getAttribute("data-div-mode") || "raw");
+          state.expandedRow = null;
+          render();
+          return;
+        }
+        // Division module: row click → expand/collapse dropdown
+        const divRow = e.target && e.target.closest ? e.target.closest("tr.div-row") : null;
+        if (divRow) {
+          var fid = safe(divRow.getAttribute("data-fid"));
+          state.expandedRow = state.expandedRow === fid ? null : fid;
+          // Toggle without full re-render for speed
+          document.querySelectorAll("tr.div-dropdown").forEach(function (dd) {
+            var ddFid = safe(dd.getAttribute("data-dd-fid"));
+            dd.classList.toggle("open", ddFid === state.expandedRow);
+          });
+          document.querySelectorAll("tr.div-row").forEach(function (row) {
+            row.classList.toggle("div-row-expanded", safe(row.getAttribute("data-fid")) === state.expandedRow);
+          });
+          return;
+        }
+        // Points module: Raw ↔ vs Avg toggle
+        const ptsToggle = e.target && e.target.closest ? e.target.closest(".pts-toggle") : null;
+        if (ptsToggle) {
+          state.pointsMode = safe(ptsToggle.getAttribute("data-pts-mode") || "raw");
+          render();
+          return;
+        }
+        // View mode buttons
         const viewBtn = e.target && e.target.closest ? e.target.closest(".btn[data-view]") : null;
         if (viewBtn) {
           state.view = safe(viewBtn.getAttribute("data-view") || "records");
           if (state.view !== "wildcard") state.showDivisionLeaders = false;
           state.sortKey = "franchise";
           state.sortDir = "asc";
+          state.expandedRow = null;
           render();
           return;
         }
