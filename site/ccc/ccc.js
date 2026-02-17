@@ -1392,6 +1392,7 @@
     const years = safeInt(row.contract_year);
     if (years <= 1 || years > 3) return false;
     if (rookieLike(row.contract_status)) return false;
+    if (safeInt(row.salary) <= 1000) return false;
     return true;
   }
 
@@ -3525,8 +3526,13 @@
 
   function isExpiredRookieDraftCandidate(row) {
     if (!row) return false;
+    const statusText = `${safeStr(row.contract_status)} ${safeStr(row.contract_info)}`.toLowerCase();
+    if (statusText.includes("tag")) return false;
     const years = safeInt(row.contract_year);
-    const rookieContract = rookieLike(row.contract_status) || rookieLike(row.mym_acq_type);
+    const rookieContract =
+      rookieLike(row.contract_status) ||
+      rookieLike(row.mym_acq_type) ||
+      rookieLike(row.contract_info);
     if (!rookieContract) return false;
     if (years > 0) return false;
     if (isExtendedByCurrentOwner(row)) return false;
@@ -4113,10 +4119,10 @@
           <tr class="${rowClass}"${rowStyle ? ` style="${rowStyle}"` : ""}>
             <td>${tagBtn}${submittedTag}</td>
             <td class="cell-num">${safeInt(r.tag_tier) || "—"}</td>
-            <td class="cell-num">${safeInt(r.tag_bid || r.tag_salary).toLocaleString()}</td>
-            <td>${htmlEsc(r.franchise_name || r.franchise_id)}</td>
             <td>${htmlEsc(posKeyFromRow(r))}</td>
             <td class="playerCell">${htmlEsc(r.player_name)}</td>
+            <td class="cell-num">${safeInt(r.tag_bid || r.tag_salary).toLocaleString()}</td>
+            <td>${htmlEsc(r.franchise_name || r.franchise_id)}</td>
             <td class="cell-num">${safeInt(r.aav).toLocaleString()}</td>
             <td class="cell-num">${Number(r.points_total || 0).toFixed(1)}</td>
             <td class="cell-num">${safeInt(r.pos_rank) || "—"}</td>
@@ -4135,12 +4141,12 @@
         <table class="ccc-table">
           <thead>
             <tr>
-              <th style="min-width:120px;">Tag</th>
+              <th style="min-width:84px;">Tag</th>
               ${sortTh("tagTier", "Tier", "", "is-num")}
-              ${sortTh("tagBid", "Tag $", "min-width:120px;", "is-num")}
-              ${sortTh("team", "Tm")}
               ${sortTh("pos", "Pos")}
               ${sortTh("player", "Player")}
+              ${sortTh("tagBid", "Tag $", "min-width:110px;", "is-num")}
+              ${sortTh("team", "Tm")}
               ${sortTh("aav", "AAV", "", "is-num")}
               ${sortTh("points", "Pts", "", "is-num")}
               ${sortTh("tagRank", "Pos Rk", "", "is-num")}
