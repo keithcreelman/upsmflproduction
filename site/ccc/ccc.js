@@ -82,13 +82,33 @@
   };
 
   // Cloudflare Worker: { ok:true, isAdmin:true/false, reason:"...", emailCount:n }
-  const ADMIN_WORKER_URL = "https://ups-league-data.keith-creelman.workers.dev/";
+  const ADMIN_WORKER_URL = "https://upsmflproduction.keith-creelman.workers.dev/";
 
   // Fallbacks if page URL lacks ?L= or YEAR=
   const DEFAULT_LEAGUE_ID = "74598";
   const DEFAULT_YEAR = "2026";
-  const APP_VERSION = "v1.0.0";
+  const APP_VERSION = "v1.0.2";
   const DEFAULT_RELEASE_LOG = [
+    {
+      version: "v1.0.2",
+      released_on: "2026-02-16",
+      title: "Production routing + CCC cleanup",
+      changes: [
+        "Fixed production hotlink routing so Contract Command Center uses the active league id.",
+        "Removed non-functional Clear button from module controls in CCC.",
+        "Bumped CCC production version references to v1.0.2.",
+      ],
+    },
+    {
+      version: "v1.0.1",
+      released_on: "2026-02-16",
+      title: "2026 pre-launch warning and test-mode submissions",
+      changes: [
+        "Added one-time per-session 2026 development warning modal.",
+        "Restricted live contract submissions to franchise 0008 only.",
+        "All other franchises now save MYM and restructure submissions in local test mode.",
+      ],
+    },
     {
       version: "v1.0.0",
       released_on: "2026-02-16",
@@ -113,12 +133,12 @@
   const FORCE_SEASON_ROLLOVER = true;
 
   // MYM submit endpoint
-  const OFFER_MYM_URL = "https://ups-league-data.keith-creelman.workers.dev/offer-mym";
+  const OFFER_MYM_URL = "https://upsmflproduction.keith-creelman.workers.dev/offer-mym";
   const OFFER_RESTRUCTURE_URL =
-    "https://ups-league-data.keith-creelman.workers.dev/offer-restructure";
+    "https://upsmflproduction.keith-creelman.workers.dev/offer-restructure";
   const COMMISH_CONTRACT_UPDATE_URL =
-    "https://ups-league-data.keith-creelman.workers.dev/commish-contract-update";
-  const ROSTER_REFRESH_URL = "https://ups-league-data.keith-creelman.workers.dev/refresh-mym-json";
+    "https://upsmflproduction.keith-creelman.workers.dev/commish-contract-update";
+  const ROSTER_REFRESH_URL = "https://upsmflproduction.keith-creelman.workers.dev/refresh-mym-json";
 
   // ======================================================
   // 2) DOM + SAFE HELPERS
@@ -296,8 +316,10 @@
   const HOST_THEME_PREFIX = "ups_mode_";
   const LOCAL_HIGHLIGHT_KEY = "ccc_row_highlight_v1";
   const LOCAL_DEFAULT_FILTERS_KEY = "ccc_default_filters_v1";
-  const SESSION_DEV_NOTICE_KEY = "ccc_dev_notice_seen_v1";
+  const SESSION_DEV_NOTICE_KEY = "ccc_dev_notice_seen_2026_v2";
   const LOCAL_ASOF_SEASON_KEY = "ccc_asof_season_v1";
+  const LOCAL_TEST_MYM_SUBMISSIONS_KEY = "ccc_test_mym_submissions_v1";
+  const LOCAL_TEST_RESTRUCTURE_SUBMISSIONS_KEY = "ccc_test_restructure_submissions_v1";
 
   function loadLocalOverrides() {
     try {
@@ -313,6 +335,48 @@
   function saveLocalOverrides(overrides) {
     try {
       localStorage.setItem(LOCAL_OVERRIDE_KEY, JSON.stringify(overrides || {}));
+    } catch (e) {}
+  }
+
+  function loadLocalTestMymSubmissions() {
+    try {
+      const raw = localStorage.getItem(LOCAL_TEST_MYM_SUBMISSIONS_KEY);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      const rows = normalizeSubmissions(parsed);
+      return rows.map(normalizeSubmissionRow);
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function saveLocalTestMymSubmissions(rows) {
+    try {
+      localStorage.setItem(
+        LOCAL_TEST_MYM_SUBMISSIONS_KEY,
+        JSON.stringify({ rows: Array.isArray(rows) ? rows : [] })
+      );
+    } catch (e) {}
+  }
+
+  function loadLocalTestRestructureSubmissions() {
+    try {
+      const raw = localStorage.getItem(LOCAL_TEST_RESTRUCTURE_SUBMISSIONS_KEY);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      const rows = normalizeSubmissions(parsed);
+      return rows.map(normalizeSubmissionRow);
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function saveLocalTestRestructureSubmissions(rows) {
+    try {
+      localStorage.setItem(
+        LOCAL_TEST_RESTRUCTURE_SUBMISSIONS_KEY,
+        JSON.stringify({ rows: Array.isArray(rows) ? rows : [] })
+      );
     } catch (e) {}
   }
 
@@ -808,6 +872,15 @@
     } catch (e) {
       return false;
     }
+  }
+
+  function getActiveFranchiseId() {
+    return pad4(state && state.detectedFranchiseId);
+  }
+
+  function canSubmitLiveContracts() {
+    // During development, only franchise 0008 can submit live updates.
+    return getActiveFranchiseId() === pad4(COMMISH_FRANCHISE_ID);
   }
 
   // ======================================================
@@ -4954,7 +5027,7 @@
 
   function applyPostSubmitLocalUpdate(row, payload, out) {
     const pid = safeStr(row && row.player_id);
-    if (!pid) return;
+    if (!pid) return null;
 
     const post = (out && out.postCheck) || {};
     const statusFinal = safeStr(post.contractStatus || payload.contract_status || "MYM");
@@ -5013,14 +5086,15 @@
       submitted_at_utc: payload.submitted_at_utc || new Date().toISOString(),
       commish_override_flag: safeInt(payload.commish_override_flag) ? 1 : 0,
       override_as_of_date: safeStr(payload.override_as_of_date || ""),
-      source: "local-submit",
+      source: safeStr(payload.source || "local-submit"),
     });
     state.payload.submissions = [localSubmission, ...existingSubs];
+    return localSubmission;
   }
 
   function applyPostRestructureLocalUpdate(row, payload, out) {
     const pid = safeStr(row && row.player_id);
-    if (!pid) return;
+    if (!pid) return null;
 
     const post = (out && out.postCheck) || {};
     const salaryFinal = safeInt(post.salary || payload.salary || row.salary);
@@ -5055,9 +5129,10 @@
       submitted_at_utc: payload.submitted_at_utc || new Date().toISOString(),
       commish_override_flag: safeInt(payload.commish_override_flag) ? 1 : 0,
       override_as_of_date: safeStr(payload.override_as_of_date || ""),
-      source: "local-restructure-submit",
+      source: safeStr(payload.source || "local-restructure-submit"),
     });
     state.restructureSubmissions = [localSubmission, ...existing];
+    return localSubmission;
   }
 
   function computeSubmissionUsageByTeam(rows) {
@@ -6207,6 +6282,18 @@
   function openDevNotice() {
     const modal = $("#devNoticeModal");
     if (!modal) return;
+    const canLive = canSubmitLiveContracts();
+    const subEl = $("#devNoticeSub");
+    const bodyEl = $("#devNoticeBody");
+    if (subEl) {
+      subEl.textContent =
+        "UPS is currently under development for the 2026 season and is not live yet.";
+    }
+    if (bodyEl) {
+      bodyEl.textContent = canLive
+        ? "Go-live is expected no later than 3/1/2026. Expect ongoing website changes while development continues. Your session has franchise 0008 access, so live submissions are enabled. Other franchises remain test-mode only."
+        : "Go-live is expected no later than 3/1/2026. Expect ongoing website changes while development continues. You can submit contracts in test mode only until launch. Live submissions are restricted to franchise 0008 for now.";
+    }
     modal.dataset.opened = "1";
     modal.classList.add("is-open");
     document.body.classList.add("ccc-modalOpen");
@@ -6480,14 +6567,7 @@
   async function submitMYMContract() {
   const row = mymModalState.row;
   if (!row) return;
-  if (!state.commishMode) {
-    const err = $("#mymModalErr");
-    if (err) {
-      err.style.display = "";
-      err.textContent = "Submissions are disabled while the app is still under development.";
-    }
-    return;
-  }
+  const canLiveSubmit = canSubmitLiveContracts();
 
   const L = getLeagueId() || DEFAULT_LEAGUE_ID;
   const YEAR = getYear() || DEFAULT_YEAR;
@@ -6529,8 +6609,28 @@
         : "",
     tcv: safeInt(calc.tcv),
     type: "MYM",
-    year: String(YEAR)
+    year: String(YEAR),
+    source: canLiveSubmit ? "live-submit" : "local-test-submit",
+    test_mode: canLiveSubmit ? 0 : 1,
   };
+
+  if (!canLiveSubmit) {
+    const testInfo = `${safeStr(payload.contract_info)}${payload.contract_info ? " | " : ""}TEST MODE`;
+    applyPostSubmitLocalUpdate(row, payload, {
+      postCheck: {
+        contractStatus: `${safeStr(payload.contract_status)} (TEST)`,
+        contractYear: safeInt(payload.contract_year),
+        contractInfo: testInfo,
+      },
+    });
+    const persistedRows = (state.payload.submissions || []).filter(
+      (r) => safeStr(r.source) === "local-test-submit"
+    );
+    saveLocalTestMymSubmissions(persistedRows);
+    closeMYMModal();
+    render();
+    return;
+  }
 
   console.log("[MYM submit payload]", payload);
 
@@ -6820,14 +6920,7 @@
     const row = restructureModalState.row;
     const calc = renderRestructureModalSummary();
     if (!row || !calc) return;
-    if (!state.commishMode) {
-      const err = $("#rsModalErr");
-      if (err) {
-        err.style.display = "";
-        err.textContent = "Submissions are disabled while the app is still under development.";
-      }
-      return;
-    }
+    const canLiveSubmit = canSubmitLiveContracts();
 
     const season = normalizeSeasonValue(state.selectedSeason || getYear() || DEFAULT_YEAR);
     const fid = pad4(row.franchise_id);
@@ -6836,7 +6929,7 @@
       .filter(
         (r) => normalizeSeasonValue(r.season) === season && pad4(r.franchise_id) === fid
       ).length;
-    if (usedCount >= RESTRUCTURE_CAP_PER_TEAM && !state.commishMode) {
+    if (usedCount >= RESTRUCTURE_CAP_PER_TEAM && !canLiveSubmit) {
       const capErr = $("#rsModalErr");
       if (capErr) {
         capErr.style.display = "";
@@ -6882,7 +6975,28 @@
         state.commishMode && state.asOfOverrideActive && state.asOfDate
           ? fmtLocalYMDHM(state.asOfDate)
           : "",
+      source: canLiveSubmit ? "live-restructure-submit" : "local-test-restructure-submit",
+      test_mode: canLiveSubmit ? 0 : 1,
     };
+
+    if (!canLiveSubmit) {
+      const testInfo = `${safeStr(payload.contract_info)}${payload.contract_info ? " | " : ""}TEST MODE`;
+      applyPostRestructureLocalUpdate(row, payload, {
+        postCheck: {
+          salary: safeInt(payload.salary),
+          contractStatus: `${safeStr(payload.contract_status)} (TEST)`,
+          contractYear: safeInt(payload.contract_year),
+          contractInfo: testInfo,
+        },
+      });
+      const persistedRows = (state.restructureSubmissions || []).filter(
+        (r) => safeStr(r.source) === "local-test-restructure-submit"
+      );
+      saveLocalTestRestructureSubmissions(persistedRows);
+      closeRestructureModal();
+      render();
+      return;
+    }
 
     console.log("[Restructure submit payload]", payload);
 
@@ -6978,7 +7092,6 @@
       must("#rowHighlightChk");
       must("#rowHighlightModeSelect");
       must("#adminBadge");
-      must("#clearBtn");
       must("#teamFilterWrap");
 
       applyThemeSetting(state.theme);
@@ -7044,7 +7157,11 @@
           subRows = normalizeSubmissions(subRaw);
         } catch (e) {}
       }
-      state.payload.submissions = subRows.length ? subRows : payloadSubRows;
+      const baseSubmissions = subRows.length ? subRows : payloadSubRows;
+      const localTestMymRows = loadLocalTestMymSubmissions();
+      state.payload.submissions = localTestMymRows.length
+        ? [...localTestMymRows, ...baseSubmissions]
+        : baseSubmissions;
       let restructureRows = [];
       if (restructureSubRes && restructureSubRes.ok) {
         try {
@@ -7055,7 +7172,10 @@
       if (!restructureRows.length) {
         restructureRows = deriveHistoricalRestructureSubmissions(state.payload.submissions || []);
       }
-      state.restructureSubmissions = restructureRows;
+      const localTestRestructureRows = loadLocalTestRestructureSubmissions();
+      state.restructureSubmissions = localTestRestructureRows.length
+        ? [...localTestRestructureRows, ...restructureRows]
+        : restructureRows;
       let tagRows = [];
       let tagMeta = {};
       if (tagRes && tagRes.ok) {
@@ -7709,16 +7829,6 @@
         render();
       });
 
-    const clearBtn = $("#clearBtn");
-    if (clearBtn)
-      clearBtn.addEventListener("click", () => {
-        $("#searchBox").value = "";
-        state.search = "";
-        saveFiltersForModule(state.activeModule || "default");
-        resetAllTablePages();
-        render();
-      });
-
     // Admin as-of
     const asOfInput = $("#asOfInput");
     if (asOfInput)
@@ -8290,15 +8400,23 @@
     document.addEventListener("DOMContentLoaded", () => {
       wireHostThemeMessages();
       wireEvents();
-      load();
+      const loadPromise = load();
       startAutoHeightMessaging();
-      maybeShowDevNotice();
+      if (loadPromise && typeof loadPromise.finally === "function") {
+        loadPromise.finally(() => maybeShowDevNotice());
+      } else {
+        maybeShowDevNotice();
+      }
     });
   } else {
     wireHostThemeMessages();
     wireEvents();
-    load();
+    const loadPromise = load();
     startAutoHeightMessaging();
-    maybeShowDevNotice();
+    if (loadPromise && typeof loadPromise.finally === "function") {
+      loadPromise.finally(() => maybeShowDevNotice());
+    } else {
+      maybeShowDevNotice();
+    }
   }
 })();

@@ -1088,7 +1088,7 @@
       </div>
 
       <div class="ccc-cta-group">
-        <a class="ccc-cta" href="//%HOST%/%YEAR%/home/25625?MODULE=MESSAGE2">
+        <a class="ccc-cta" href="//%HOST%/%YEAR%/home/%LEAGUEID%?MODULE=MESSAGE2">
           <i class="fa-solid fa-arrow-up-right-from-square"></i>
           Contract Command Center
         </a>
@@ -1317,8 +1317,8 @@
     function loadDynamicPanels() {
       var cacheKey = String(Date.now());
       var candidates = [
-        "https://rawcdn.githack.com/keithcreelman/upsmflproduction/v1.0.1/site/champions_panels.json?v=" + cacheKey,
-        "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@v1.0.1/site/champions_panels.json?v=" + cacheKey
+        "https://rawcdn.githack.com/keithcreelman/upsmflproduction/v1.0.2/site/champions_panels.json?v=" + cacheKey,
+        "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@v1.0.2/site/champions_panels.json?v=" + cacheKey
       ];
 
       function attempt(idx) {
@@ -1400,8 +1400,8 @@
       ensureMountNearTop();
       var cacheKey = encodeURIComponent(String(Date.now()));
       var loaderCandidates = [
-        "https://rawcdn.githack.com/keithcreelman/upsmflproduction/v1.0.1/site/ccc/mfl_hpm_embed_loader.js?v=" + cacheKey,
-        "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@v1.0.1/site/ccc/mfl_hpm_embed_loader.js?v=" + cacheKey
+        "https://rawcdn.githack.com/keithcreelman/upsmflproduction/v1.0.2/site/ccc/mfl_hpm_embed_loader.js?v=" + cacheKey,
+        "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@v1.0.2/site/ccc/mfl_hpm_embed_loader.js?v=" + cacheKey
       ];
 
       function tryLoader(idx) {
@@ -3260,7 +3260,7 @@ Replaces bulky default grid with compact toggle view + franchise icons
   function boot() {
     var selectedYear = getYear();
     var leagueId = getLeagueId();
-    var version = "v1.0.1";
+    var version = "v1.0.2";
     var cacheKey = String(Date.now());
     var baseCandidates = [
       "https://rawcdn.githack.com/keithcreelman/upsmflproduction/" + version + "/",
