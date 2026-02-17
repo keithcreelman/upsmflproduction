@@ -315,11 +315,12 @@
   }
 
   /* Hero / hotlinks */
-  .ups-hero-shell {
-    max-width: 1200px;
-    margin: 0.9rem auto 0.45rem;
-    padding: 0 0.35rem;
-  }
+.ups-hero-shell {
+  max-width: 1200px;
+  margin: 0.9rem auto 0.45rem;
+  padding: 0 0.35rem;
+  position: relative;
+}
 
   .ups-hotlinks-shell {
     max-width: 1200px;
@@ -336,9 +337,29 @@
     background: #050c17;
   }
 
-  .ups-hero-shell .banner-container-wrap-full {
-    margin: 0;
-  }
+.ups-hero-shell .banner-container-wrap-full {
+  margin: 0;
+}
+
+.ups-dev-banner {
+  position: absolute;
+  top: 0.6rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  background: rgba(255, 0, 0, 0.9);
+  color: white;
+  padding: 0.25rem 1rem;
+  border-radius: 12px;
+  font-size: 72px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: max-content;
+}
 
   .ups-hero-layout {
     display: grid;
@@ -1025,6 +1046,7 @@
 <!-------------------------------------->
 
 <div class="ups-hero-shell">
+  <div class="ups-dev-banner" id="upsDevBanner">TEST</div>
   <div class="banner-container-full">
     <div class="banner-container-wrap-full">
       <div class="ups-hero-layout">
@@ -1295,8 +1317,8 @@
     function loadDynamicPanels() {
       var cacheKey = String(Date.now());
       var candidates = [
-        "https://rawcdn.githack.com/keithcreelman/upsmflproduction/dev/site/champions_panels.json?v=" + cacheKey,
-        "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@dev/site/champions_panels.json?v=" + cacheKey
+        "https://rawcdn.githack.com/keithcreelman/upsmflproduction/v1.0.1/site/champions_panels.json?v=" + cacheKey,
+        "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@v1.0.1/site/champions_panels.json?v=" + cacheKey
       ];
 
       function attempt(idx) {
@@ -1378,8 +1400,8 @@
       ensureMountNearTop();
       var cacheKey = encodeURIComponent(String(Date.now()));
       var loaderCandidates = [
-        "https://rawcdn.githack.com/keithcreelman/upsmflproduction/dev/site/ccc/mfl_hpm_embed_loader.js?v=" + cacheKey,
-        "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@dev/site/ccc/mfl_hpm_embed_loader.js?v=" + cacheKey
+        "https://rawcdn.githack.com/keithcreelman/upsmflproduction/v1.0.1/site/ccc/mfl_hpm_embed_loader.js?v=" + cacheKey,
+        "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@v1.0.1/site/ccc/mfl_hpm_embed_loader.js?v=" + cacheKey
       ];
 
       function tryLoader(idx) {
@@ -2438,7 +2460,7 @@ Replaces bulky default grid with compact toggle view + franchise icons
   var load_chat_enhanced = true;
   var load_popup = true;
   var load_mini_boxscore = true;
-  var load_marquee = true;
+  var load_marquee = false;
   var load_lineups_submit_script = true;
   var load_lineups_submit_scriptV3 = true;
   var load_tabs_script = true;
@@ -2892,7 +2914,7 @@ Replaces bulky default grid with compact toggle view + franchise icons
 <!---------- HEADER SECTION 6 ---------->
 <!-------------------------------------->
 
-<div class="ticker-wrapper"></div>
+<div id="upsMarquee" class="ups-marquee-shell" aria-live="polite"></div>
 <div id="MFLBoxWrapper"></div>
 
 <script>
@@ -2900,6 +2922,461 @@ Replaces bulky default grid with compact toggle view + franchise icons
 </script>
 
 <script src="https://www.mflscripts.com/mfl-apps/global/header.js?v=1.60"></script>
+<style id="ups-marquee-style">
+  .ups-marquee-shell {
+    max-width: 1148px;
+    margin: 0.5rem auto 0.25rem;
+    border: 1px solid var(--ups-border);
+    border-radius: 12px;
+    background: linear-gradient(180deg, var(--ups-scoreboard-bg), var(--ups-scoreboard-alt-bg));
+    box-shadow: var(--ups-shadow);
+    overflow: hidden;
+  }
+
+  .ups-marquee-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.55rem 0.8rem;
+    border-bottom: 1px solid var(--ups-scoreboard-border);
+    background: rgba(9, 20, 40, 0.55);
+  }
+
+  .ups-marquee-title {
+    color: var(--ups-scoreboard-text);
+    font-weight: 900;
+    font-size: 0.92rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .ups-marquee-subtitle {
+    color: var(--ups-muted);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+  }
+
+  .ups-marquee-lanes {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .ups-marquee-lane {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    align-items: center;
+    min-height: 42px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .ups-marquee-lane:first-child {
+    border-top: 0;
+  }
+
+  .ups-marquee-label {
+    align-self: stretch;
+    display: flex;
+    align-items: center;
+    padding: 0.45rem 0.7rem;
+    font-size: 0.76rem;
+    font-weight: 900;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #d7e7ff;
+    border-right: 1px solid rgba(255, 255, 255, 0.1);
+    background: linear-gradient(130deg, rgba(30, 62, 110, 0.85), rgba(20, 44, 82, 0.7));
+    white-space: nowrap;
+  }
+
+  .ups-marquee-body {
+    color: var(--ups-scoreboard-text);
+    font-size: 0.84rem;
+    font-weight: 700;
+    white-space: nowrap;
+    overflow-x: auto;
+    scrollbar-width: thin;
+    padding: 0.4rem 0.7rem;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .ups-marquee-body::-webkit-scrollbar {
+    height: 6px;
+  }
+
+  .ups-marquee-body::-webkit-scrollbar-thumb {
+    background: rgba(167, 193, 230, 0.45);
+    border-radius: 999px;
+  }
+
+  @media (max-width: 900px) {
+    .ups-marquee-lane {
+      grid-template-columns: 1fr;
+      min-height: 0;
+    }
+
+    .ups-marquee-label {
+      border-right: 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      font-size: 0.73rem;
+      padding: 0.4rem 0.6rem;
+    }
+
+    .ups-marquee-body {
+      font-size: 0.8rem;
+      padding: 0.4rem 0.6rem;
+    }
+
+    .ups-marquee-subtitle {
+      display: none;
+    }
+  }
+</style>
+<script>
+(function () {
+  var mount = document.getElementById("upsMarquee");
+  if (!mount) return;
+
+  function safeStr(v) {
+    return v === null || v === undefined ? "" : String(v);
+  }
+
+  function safeInt(v) {
+    var n = parseInt(String(v).replace(/[^\d-]/g, ""), 10);
+    return isNaN(n) ? 0 : n;
+  }
+
+  function htmlEsc(v) {
+    return safeStr(v)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  function pad2(v) {
+    return String(v).padStart(2, "0");
+  }
+
+  function getLeagueId() {
+    try {
+      var u = new URL(window.location.href);
+      var q = u.searchParams.get("L");
+      if (q) return q;
+    } catch (e) {}
+    if (typeof league_id !== "undefined" && league_id) return String(league_id);
+    return "74598";
+  }
+
+  function getYear() {
+    try {
+      var u = new URL(window.location.href);
+      var q = u.searchParams.get("YEAR");
+      if (q) return q;
+    } catch (e) {}
+    if (typeof year !== "undefined" && year) return String(year);
+    var m = String(window.location.pathname || "").match(/\/(\d{4})\//);
+    return m ? m[1] : String(new Date().getFullYear());
+  }
+
+  function fetchFirstJson(urls) {
+    function attempt(i) {
+      if (i >= urls.length) return Promise.reject(new Error("all fetch candidates failed"));
+      return fetch(urls[i], { cache: "no-store" })
+        .then(function (res) {
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          return res.json();
+        })
+        .catch(function () {
+          return attempt(i + 1);
+        });
+    }
+    return attempt(0);
+  }
+
+  function collectDraftPicks(node, out) {
+    if (!node) return;
+    if (Array.isArray(node)) {
+      for (var i = 0; i < node.length; i += 1) collectDraftPicks(node[i], out);
+      return;
+    }
+    if (typeof node !== "object") return;
+    var hasRound = node.round !== undefined;
+    var hasPick = node.pick !== undefined;
+    var hasFranchise = node.franchise !== undefined || node.franchise_id !== undefined;
+    if (hasRound && hasPick && hasFranchise) {
+      out.push({
+        round: safeInt(node.round),
+        pick: safeInt(node.pick),
+        franchise: safeStr(node.franchise || node.franchise_id || ""),
+        player: safeStr(node.player || node.player_name || "")
+      });
+    }
+    var keys = Object.keys(node);
+    for (var k = 0; k < keys.length; k += 1) collectDraftPicks(node[keys[k]], out);
+  }
+
+  function normalizeDraftPicks(raw) {
+    var out = [];
+    collectDraftPicks(raw, out);
+    out = out
+      .filter(function (p) {
+        return p.round > 0 && p.pick > 0 && p.franchise;
+      })
+      .sort(function (a, b) {
+        return a.round - b.round || a.pick - b.pick;
+      });
+    var seen = {};
+    var unique = [];
+    for (var i = 0; i < out.length; i += 1) {
+      var key = out[i].round + "|" + out[i].pick + "|" + out[i].franchise;
+      if (seen[key]) continue;
+      seen[key] = 1;
+      unique.push(out[i]);
+    }
+    return unique.slice(0, 24);
+  }
+
+  function buildFranchiseMap(tagTrackingRows) {
+    var map = {};
+    (tagTrackingRows || []).forEach(function (r) {
+      var fid = safeStr(r && r.franchise_id).replace(/\D/g, "").padStart(4, "0").slice(-4);
+      if (!fid) return;
+      if (!map[fid]) map[fid] = safeStr(r && r.franchise_name) || fid;
+    });
+    return map;
+  }
+
+  function buildRingOfHonorText(championsPayload) {
+    var yearToWinner = {};
+    var recent = championsPayload && championsPayload.recent_winners;
+    var leaders = championsPayload && championsPayload.title_leaders;
+
+    if (Array.isArray(recent)) {
+      recent.forEach(function (r) {
+        var y = safeInt(r && r.year);
+        if (y) yearToWinner[y] = safeStr(r.franchise || "");
+      });
+    }
+
+    if (Array.isArray(leaders)) {
+      leaders.forEach(function (r) {
+        var owner = safeStr(r && r.franchise);
+        safeStr(r && r.years)
+          .split(",")
+          .forEach(function (rawYear) {
+            var y = safeInt(rawYear);
+            if (!y) return;
+            if (!yearToWinner[y]) yearToWinner[y] = owner;
+          });
+      });
+    }
+
+    var parts = [];
+    for (var y = 2010; y <= 2026; y += 1) {
+      parts.push(y + ": " + (yearToWinner[y] || "TBD"));
+    }
+    return parts.join("  •  ");
+  }
+
+  function buildTopExpiringRookieText(tagTrackingRows) {
+    var best = null;
+    (tagTrackingRows || []).forEach(function (r) {
+      var years = safeInt(r && r.contract_year);
+      var statusText =
+        (safeStr(r && r.contract_status) + " " + safeStr(r && r.contract_info)).toLowerCase();
+      if (years > 1) return;
+      if (statusText.indexOf("rookie") === -1) return;
+      var pts = Number(r && r.points_total || 0);
+      if (!best || pts > best.pts) {
+        best = {
+          name: safeStr(r && r.player_name),
+          team: safeStr(r && r.franchise_name),
+          pts: pts
+        };
+      }
+    });
+    if (!best) return "No expiring rookie candidates yet.";
+    return (
+      best.name +
+      " (" +
+      best.team +
+      ")  •  " +
+      best.pts.toFixed(1) +
+      " pts"
+    );
+  }
+
+  function buildTaggedPlayersText(tagSubs) {
+    if (!Array.isArray(tagSubs) || !tagSubs.length) return "No submitted tags yet.";
+    var maxSeason = 0;
+    tagSubs.forEach(function (r) {
+      var s = safeInt(r && (r.season || r.year));
+      if (s > maxSeason) maxSeason = s;
+    });
+    var scoped = tagSubs.filter(function (r) {
+      var s = safeInt(r && (r.season || r.year));
+      return maxSeason ? s === maxSeason : true;
+    });
+    var names = scoped
+      .slice()
+      .sort(function (a, b) {
+        return safeStr(a && a.franchise_name).localeCompare(safeStr(b && b.franchise_name)) ||
+          safeStr(a && a.player_name).localeCompare(safeStr(b && b.player_name));
+      })
+      .slice(0, 24)
+      .map(function (r) {
+        var player = safeStr(r && r.player_name);
+        var team = safeStr(r && r.franchise_name);
+        return player && team ? player + " (" + team + ")" : player || team;
+      })
+      .filter(Boolean);
+    var suffix = scoped.length > names.length ? "  •  +" + (scoped.length - names.length) + " more" : "";
+    return maxSeason + " submitted tags (" + scoped.length + "): " + names.join("  •  ") + suffix;
+  }
+
+  function render(lanes, draftYear) {
+    var laneHtml = lanes
+      .map(function (lane) {
+        return (
+          '<div class="ups-marquee-lane">' +
+          '<div class="ups-marquee-label">' + htmlEsc(lane.label) + "</div>" +
+          '<div class="ups-marquee-body">' + htmlEsc(lane.body) + "</div>" +
+          "</div>"
+        );
+      })
+      .join("");
+
+    mount.innerHTML =
+      '<div class="ups-marquee-header">' +
+      '<div class="ups-marquee-title">UPS League Pulse</div>' +
+      '<div class="ups-marquee-subtitle">Draft / Champions / Expiring Rookies / Tags • ' + htmlEsc(String(draftYear || "")) + "</div>" +
+      "</div>" +
+      '<div class="ups-marquee-lanes">' + laneHtml + "</div>";
+  }
+
+  function boot() {
+    var selectedYear = getYear();
+    var leagueId = getLeagueId();
+    var version = "v1.0.1";
+    var cacheKey = String(Date.now());
+    var baseCandidates = [
+      "https://rawcdn.githack.com/keithcreelman/upsmflproduction/" + version + "/",
+      "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@" + version + "/"
+    ];
+
+    var championsPromise = fetchFirstJson(
+      baseCandidates.map(function (base) {
+        return base + "site/champions_panels.json?v=" + cacheKey;
+      })
+    ).catch(function () {
+      return {};
+    });
+
+    var tagTrackingPromise = fetchFirstJson(
+      baseCandidates.map(function (base) {
+        return base + "site/ccc/tag_tracking.json?v=" + cacheKey;
+      })
+    ).catch(function () {
+      return { rows: [] };
+    });
+
+    var tagSubPromise = fetchFirstJson(
+      baseCandidates.map(function (base) {
+        return base + "site/ccc/tag_submissions.json?v=" + cacheKey;
+      })
+    ).catch(function () {
+      return { rows: [] };
+    });
+
+    var draftPromise = fetchFirstJson([
+      "https://api.myfantasyleague.com/" +
+        encodeURIComponent(selectedYear) +
+        "/export?TYPE=draftResults&L=" +
+        encodeURIComponent(leagueId) +
+        "&JSON=1&_=" +
+        cacheKey
+    ]).catch(function () {
+      return {};
+    });
+
+    Promise.all([championsPromise, tagTrackingPromise, tagSubPromise, draftPromise]).then(function (all) {
+      var champions = all[0] || {};
+      var trackingRaw = all[1] || {};
+      var tagSubsRaw = all[2] || {};
+      var draftRaw = all[3] || {};
+
+      var tagTrackingRows = Array.isArray(trackingRaw)
+        ? trackingRaw
+        : Array.isArray(trackingRaw.rows)
+        ? trackingRaw.rows
+        : Array.isArray(trackingRaw.tag_tracking)
+        ? trackingRaw.tag_tracking
+        : [];
+
+      var tagSubs = Array.isArray(tagSubsRaw)
+        ? tagSubsRaw
+        : Array.isArray(tagSubsRaw.rows)
+        ? tagSubsRaw.rows
+        : Array.isArray(tagSubsRaw.submissions)
+        ? tagSubsRaw.submissions
+        : [];
+
+      var fidToName = buildFranchiseMap(tagTrackingRows);
+      var rookiePicks = normalizeDraftPicks(draftRaw);
+      var rookieText = rookiePicks.length
+        ? rookiePicks
+            .map(function (p) {
+              var pickNo = p.round + "." + pad2(p.pick);
+              var team = fidToName[p.franchise] || p.franchise;
+              var player = p.player || "On the Clock";
+              return pickNo + " " + team + " - " + player;
+            })
+            .join("  •  ")
+        : "No rookie draft picks available yet.";
+
+      var lanes = [
+        { label: "Rookie Draft (First 24)", body: rookieText },
+        { label: "Champions Ring Of Honor (2010-2026)", body: buildRingOfHonorText(champions) },
+        { label: "Highest Scoring Expiring Rookie", body: buildTopExpiringRookieText(tagTrackingRows) },
+        { label: "Submitted Tagged Players", body: buildTaggedPlayersText(tagSubs) }
+      ];
+      render(lanes, selectedYear);
+    }).catch(function () {
+      render(
+        [
+          { label: "Rookie Draft (First 24)", body: "Unable to load draft data." },
+          { label: "Champions Ring Of Honor (2010-2026)", body: "Unable to load champions data." },
+          { label: "Highest Scoring Expiring Rookie", body: "Unable to load expiring rookie data." },
+          { label: "Submitted Tagged Players", body: "Unable to load tag submission data." }
+        ],
+        selectedYear
+      );
+    });
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", boot);
+  } else {
+    boot();
+  }
+})();
+</script>
+<script>
+(function () {
+  var banner = document.getElementById("upsDevBanner");
+  if (!banner) return;
+  var href = String(window.location.href || "");
+  var isDevLoader = !!document.querySelector('script[src*="@dev/site/loader.js"]');
+  var isTestLeague =
+    /[?&]L=25625(?:[&#]|$)/.test(href) ||
+    /\/home\/25625(?:[/?#]|$)/.test(href);
+  if (!isDevLoader && !isTestLeague) return;
+  banner.style.display = "flex";
+})();
+</script>
 <link rel="stylesheet" type="text/css" href="https://www.mflscripts.com/mfl-apps/global/css/300x50-icons.css">
 
 <style id="ups-theme-postload-overrides">
