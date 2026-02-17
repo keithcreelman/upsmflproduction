@@ -113,3 +113,21 @@ Each entry should include:
 - Cherry-pick onto `dev` produced a modify/delete conflict on `docs/ai-change-log.md`.
 - Conflict resolution restored/created `docs/ai-change-log.md` on `dev` and continued cherry-pick.
 - Dev commit: `0d5dece` (pushed to `origin/dev`).
+
+---
+
+## 2026-02-16T23:26:00Z | Codex | fix
+
+**Summary**: Corrected production CCC routing, removed dead Clear control, and advanced CCC versioning.
+
+**What this does**:
+- Fixed UPS Hotlinks "Contract Command Center" CTA to use `%LEAGUEID%` instead of hardcoded dev league `25625`.
+- Removed the non-functional module `Clear` button from CCC UI and removed its JS wiring.
+- Bumped CCC version to `v1.0.2` and aligned header/loader references to that version.
+- Added `v1.0.2` release notes to the in-app CCC release log panel.
+
+**Files Modified**:
+- `apps/mfl_site/header_custom_v2.html`
+- `site/ccc/ccc.js`
+- `site/ccc/mfl_hpm16_contractcommandcenter.html`
+- `site/ccc/mfl_hpm_embed_loader.js`

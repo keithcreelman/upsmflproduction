@@ -87,8 +87,18 @@
   // Fallbacks if page URL lacks ?L= or YEAR=
   const DEFAULT_LEAGUE_ID = "74598";
   const DEFAULT_YEAR = "2026";
-  const APP_VERSION = "v1.0.1";
+  const APP_VERSION = "v1.0.2";
   const DEFAULT_RELEASE_LOG = [
+    {
+      version: "v1.0.2",
+      released_on: "2026-02-16",
+      title: "Production routing + CCC cleanup",
+      changes: [
+        "Fixed production hotlink routing so Contract Command Center uses the active league id.",
+        "Removed non-functional Clear button from module controls in CCC.",
+        "Bumped CCC production version references to v1.0.2.",
+      ],
+    },
     {
       version: "v1.0.1",
       released_on: "2026-02-16",
@@ -7082,7 +7092,6 @@
       must("#rowHighlightChk");
       must("#rowHighlightModeSelect");
       must("#adminBadge");
-      must("#clearBtn");
       must("#teamFilterWrap");
 
       applyThemeSetting(state.theme);
@@ -7815,16 +7824,6 @@
     if (searchBox)
       searchBox.addEventListener("input", (e) => {
         state.search = e.target.value;
-        saveFiltersForModule(state.activeModule || "default");
-        resetAllTablePages();
-        render();
-      });
-
-    const clearBtn = $("#clearBtn");
-    if (clearBtn)
-      clearBtn.addEventListener("click", () => {
-        $("#searchBox").value = "";
-        state.search = "";
         saveFiltersForModule(state.activeModule || "default");
         resetAllTablePages();
         render();
