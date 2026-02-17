@@ -251,6 +251,88 @@
     .div-dd-wlt { font-variant-numeric: tabular-nums; font-weight: 700; }
     .pf-rel-pos { color: #a5d6a7; }
     .pf-rel-neg { color: #ef9a9a; }
+    /* Playoff Preview Module */
+    .po-module { padding: 10px 12px; }
+    .po-section { margin-bottom: 16px; }
+    .po-section-title {
+      font-size: 12px; font-weight: 900; text-transform: uppercase;
+      letter-spacing: 0.04em; color: #ffdf87; margin-bottom: 8px;
+      padding-bottom: 4px; border-bottom: 1px solid var(--line);
+    }
+    .po-seed-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 7px 10px; border-bottom: 1px solid rgba(42,79,134,0.35);
+      transition: background 0.15s;
+    }
+    .po-seed-row:hover { background: rgba(231,190,89,0.06); }
+    .po-seed-num {
+      font-size: 18px; font-weight: 900; color: var(--gold);
+      min-width: 28px; text-align: center; flex: 0 0 auto;
+    }
+    .po-seed-team { flex: 1; min-width: 0; }
+    .po-seed-name { font-size: 13px; font-weight: 700; }
+    .po-seed-why {
+      font-size: 11px; color: var(--muted); margin-top: 2px;
+      white-space: normal; line-height: 1.3;
+    }
+    .po-seed-badge {
+      display: inline-block; font-size: 10px; font-weight: 800;
+      padding: 1px 7px; border-radius: 999px; margin-right: 6px;
+      letter-spacing: 0.02em; vertical-align: middle;
+    }
+    .po-badge-dw {
+      background: rgba(231,190,89,0.2); color: #ffdf87;
+      border: 1px solid rgba(231,190,89,0.5);
+    }
+    .po-badge-wc {
+      background: rgba(100,181,246,0.15); color: #90caf9;
+      border: 1px solid rgba(100,181,246,0.4);
+    }
+    .po-badge-bye {
+      background: rgba(165,214,167,0.15); color: #a5d6a7;
+      border: 1px solid rgba(165,214,167,0.4);
+    }
+    .po-stats {
+      display: flex; gap: 12px; flex: 0 0 auto;
+      font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums;
+    }
+    .po-stats span { white-space: nowrap; }
+    .po-matchup {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 10px; margin-bottom: 6px;
+      background: rgba(5, 24, 52, 0.5);
+      border: 1px solid rgba(42,79,134,0.4);
+      border-radius: 8px;
+    }
+    .po-matchup-seed {
+      font-size: 14px; font-weight: 900; color: var(--gold);
+      min-width: 22px; text-align: center;
+    }
+    .po-matchup-team {
+      flex: 1; font-size: 13px; font-weight: 700; min-width: 0;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .po-matchup-vs {
+      font-size: 11px; font-weight: 900; color: var(--muted);
+      padding: 0 4px; flex: 0 0 auto;
+    }
+    .po-bye-note {
+      font-size: 11px; color: var(--muted); font-style: italic;
+      padding: 4px 10px;
+    }
+    .po-hawk-title {
+      color: var(--warn); border-bottom-color: rgba(255,138,101,0.4);
+    }
+    .po-hawk-seed-num { color: var(--warn); }
+    @media (max-width: 720px) {
+      .po-stats { gap: 8px; font-size: 10px; }
+      .po-seed-row { gap: 6px; padding: 6px 8px; }
+      .po-seed-num { font-size: 15px; min-width: 22px; }
+      .po-matchup { padding: 6px 8px; }
+    }
+    @media (max-width: 480px) {
+      .po-stats { display: none; }
+    }
     /* H2H Matrix */
     .h2h-col-header {
       text-align: center;
@@ -350,12 +432,9 @@
         </div>
         <div class="controls">
           <div class="toggles">
-            <button class="btn active" data-view="records">W-L-T</button>
-            <button class="btn" data-view="pct">Percentages</button>
-            <button class="btn" data-view="points">Points</button>
-            <button class="btn" data-view="division">Division Race</button>
-            <button class="btn" data-view="wildcard">Wildcard Race</button>
-            <button class="btn" data-view="h2h">H2H</button>
+            <button class="btn active" data-view="division">Divisional</button>
+            <button class="btn" data-view="points">Points Breakdown</button>
+            <button class="btn" data-view="playoff">Playoff Preview</button>
           </div>
           <label class="field">Season
             <select id="seasonSelect" class="select"></select>
@@ -408,7 +487,7 @@
         requestedSeason: YEAR,
         rows: [],
         meta: {},
-        view: "records",
+        view: "division",
         sortKey: "franchise",
         sortDir: "asc",
         showDivisionLeaders: false,
@@ -434,7 +513,7 @@
 
       function fmtNum(v) {
         const x = n(v, 0);
-        return Number.isInteger(x) ? x.toLocaleString() : x.toFixed(1);
+        return x.toLocaleString(undefined, { minimumFractionDigits: Number.isInteger(x) ? 0 : 1, maximumFractionDigits: 1 });
       }
 
       function leagueAvgPF(rows) {
@@ -680,7 +759,7 @@
             } else if (!eqNum(prev.all_play_pct, curr.all_play_pct)) {
               curr._tb_note = "Tiebreaker used: All-play winning percentage.";
             } else {
-              curr._tb_note = "Tie remains after configured tiebreakers.";
+              curr._tb_note = "Tiebreaker used: Power rank (commissioner discretion).";
             }
           }
 
@@ -727,22 +806,39 @@
 
         filtered.sort((a, b) =>
           cmpDesc(a.all_play_pct, b.all_play_pct) ||
-          cmpDesc(n(a.all_play && a.all_play.w), n(b.all_play && b.all_play.w)) ||
-          cmpDesc(a.overall_pct, b.overall_pct) ||
           cmpDesc(a.points_for, b.points_for) ||
+          cmpDesc(a.overall_pct, b.overall_pct) ||
           cmpText(a.franchise_name, b.franchise_name)
         );
+
+        // H2H sub-sort within tied clusters
+        for (let start = 0; start < filtered.length; ) {
+          let end = start + 1;
+          while (
+            end < filtered.length &&
+            eqNum(filtered[end].all_play_pct, filtered[start].all_play_pct) &&
+            eqNum(filtered[end].points_for, filtered[start].points_for) &&
+            eqNum(filtered[end].overall_pct, filtered[start].overall_pct)
+          ) end++;
+          if (end - start > 1) {
+            const cluster = filtered.slice(start, end);
+            cluster.forEach((r) => { r._wc_h2h_pct = h2hPctInCluster(r, cluster); });
+            cluster.sort((a, b) => cmpDesc(a._wc_h2h_pct, b._wc_h2h_pct) || cmpText(a.franchise_name, b.franchise_name));
+            for (let i = 0; i < cluster.length; i++) filtered[start + i] = cluster[i];
+          }
+          start = end;
+        }
 
         for (let i = 1; i < filtered.length; i += 1) {
           const prev = filtered[i - 1];
           const curr = filtered[i];
           if (!eqNum(prev.all_play_pct, curr.all_play_pct)) continue;
-          if (n(prev.all_play && prev.all_play.w) !== n(curr.all_play && curr.all_play.w)) {
-            curr._tb_note = "Wildcard tiebreaker: All-play wins.";
+          if (!eqNum(prev.points_for, curr.points_for)) {
+            curr._tb_note = "Wildcard tiebreaker: Total points scored.";
           } else if (!eqNum(prev.overall_pct, curr.overall_pct)) {
             curr._tb_note = "Wildcard tiebreaker: Overall winning percentage.";
-          } else if (!eqNum(prev.points_for, curr.points_for)) {
-            curr._tb_note = "Wildcard tiebreaker: Total points scored.";
+          } else if (prev._wc_h2h_pct !== undefined && !eqNum(prev._wc_h2h_pct, curr._wc_h2h_pct)) {
+            curr._tb_note = "Wildcard tiebreaker: Head-to-head record among tied teams.";
           } else {
             curr._tb_note = "Wildcard tie remains after configured tiebreakers.";
           }
@@ -752,6 +848,129 @@
           r.wildcard_rank = idx + 1;
         });
         return filtered;
+      }
+
+      /* ── Playoff Seeding Engine ── */
+      function buildPlayoffSeeding(rows) {
+        // Step 1: Identify division winners via existing rankDivisionGroup
+        var divRace = buildDivisionRace(rows);
+        var divWinners = [];
+        var nonWinners = [];
+        var divWinnerIds = new Set();
+
+        divRace.forEach(function (d) {
+          if (d.rows && d.rows[0]) {
+            var w = { ...d.rows[0], _po_path: "DIV", _po_div: d.division_name };
+            divWinners.push(w);
+            divWinnerIds.add(w.franchise_id);
+          }
+        });
+
+        // Step 2: Build wild card pool (non-winners), sorted by WC tiebreakers
+        var wcPool = (rows || []).filter(function (r) {
+          return !divWinnerIds.has(r.franchise_id);
+        }).map(function (r) {
+          return { ...r, _po_path: "WC", _tb_note: "" };
+        });
+
+        // WC sort: All-Play% → PF → Overall%
+        wcPool.sort(function (a, b) {
+          return cmpDesc(a.all_play_pct, b.all_play_pct)
+            || cmpDesc(a.points_for, b.points_for)
+            || cmpDesc(a.overall_pct, b.overall_pct)
+            || cmpText(a.franchise_name, b.franchise_name);
+        });
+
+        // H2H sub-sort within WC tied clusters
+        for (var start = 0; start < wcPool.length; ) {
+          var end = start + 1;
+          while (
+            end < wcPool.length &&
+            eqNum(wcPool[end].all_play_pct, wcPool[start].all_play_pct) &&
+            eqNum(wcPool[end].points_for, wcPool[start].points_for) &&
+            eqNum(wcPool[end].overall_pct, wcPool[start].overall_pct)
+          ) end++;
+          if (end - start > 1) {
+            var cl = wcPool.slice(start, end);
+            cl.forEach(function (r) { r._wc_h2h_pct = h2hPctInCluster(r, cl); });
+            cl.sort(function (a, b) { return cmpDesc(a._wc_h2h_pct, b._wc_h2h_pct) || cmpText(a.franchise_name, b.franchise_name); });
+            for (var i = 0; i < cl.length; i++) wcPool[start + i] = cl[i];
+          }
+          start = end;
+        }
+
+        var wildCards = wcPool.slice(0, 2);
+        wildCards.forEach(function (r) { r._po_path = "WC"; });
+
+        // Step 3: Combine 6 playoff teams, sort ALL by all-play
+        var allSix = divWinners.concat(wildCards);
+        allSix.sort(function (a, b) {
+          return cmpDesc(a.all_play_pct, b.all_play_pct)
+            || cmpDesc(a.points_for, b.points_for)
+            || cmpText(a.franchise_name, b.franchise_name);
+        });
+
+        // Step 4: Enforce constraint — top 2 seeds MUST be division winners
+        // Find div winners in the sorted list and ensure they get seeds 1-2
+        var dwInTop = [];
+        var wcInAll = [];
+        allSix.forEach(function (r) {
+          if (r._po_path === "DIV") dwInTop.push(r);
+          else wcInAll.push(r);
+        });
+
+        // Seed list: first 2 must be DW sorted by all-play, then remaining sorted by all-play
+        var seeded = [];
+        // Top-2 DW by all-play
+        dwInTop.sort(function (a, b) {
+          return cmpDesc(a.all_play_pct, b.all_play_pct)
+            || cmpDesc(a.points_for, b.points_for)
+            || cmpText(a.franchise_name, b.franchise_name);
+        });
+        seeded.push(dwInTop[0], dwInTop[1]);
+
+        // Remaining: the other DWs + WCs, sorted by all-play
+        var rest = dwInTop.slice(2).concat(wcInAll);
+        rest.sort(function (a, b) {
+          return cmpDesc(a.all_play_pct, b.all_play_pct)
+            || cmpDesc(a.points_for, b.points_for)
+            || cmpText(a.franchise_name, b.franchise_name);
+        });
+        seeded = seeded.concat(rest);
+
+        // Step 5: Assign seed numbers and "why" explanations
+        seeded.forEach(function (r, idx) {
+          r._po_seed = idx + 1;
+          var why = [];
+          if (r._po_path === "DIV") {
+            why.push("Div winner (" + esc(r._po_div || r.division_name) + ")");
+          } else {
+            why.push("Wild card");
+          }
+          why.push("All-Play: " + fmtPct(r.all_play_pct) + " (" + fmtWlt(r.all_play) + ")");
+          if (r._po_seed <= 2) why.push("BYE — Round 1");
+          if (r._tb_note) why.push(r._tb_note);
+          r._po_why = why.join(" · ");
+        });
+
+        // Step 6: Consolation bowl — bottom 6 teams
+        var playoffIds = new Set(seeded.map(function (r) { return r.franchise_id; }));
+        var consolation = (rows || []).filter(function (r) {
+          return !playoffIds.has(r.franchise_id);
+        }).map(function (r) { return { ...r, _po_path: "HAWK" }; });
+
+        consolation.sort(function (a, b) {
+          return cmpDesc(a.all_play_pct, b.all_play_pct)
+            || cmpDesc(a.points_for, b.points_for)
+            || cmpText(a.franchise_name, b.franchise_name);
+        });
+
+        consolation.forEach(function (r, idx) {
+          r._po_seed = idx + 1;
+          r._po_why = "All-Play: " + fmtPct(r.all_play_pct) + " (" + fmtWlt(r.all_play) + ")";
+        });
+
+        return { playoff: seeded, consolation: consolation };
       }
 
       function renderStandard(view) {
@@ -959,6 +1178,100 @@
         wrap.appendChild(mod);
       }
 
+      /* ── Playoff Preview Renderer ── */
+      function renderPlayoffPreview() {
+        var data = buildPlayoffSeeding(state.rows || []);
+        var playoff = data.playoff;   // seeds 1-6
+        var consolation = data.consolation; // seeds 1-6 (Hawk Tuah)
+
+        $("#thead").innerHTML = "";
+        $("#tbody").innerHTML = "";
+
+        var wrap = $(".tableWrap");
+        var prev = wrap.querySelector(".po-module");
+        if (prev) prev.remove();
+
+        var mod = document.createElement("div");
+        mod.className = "po-module";
+
+        // Helper: build a seed row
+        function seedRow(r, isHawk) {
+          var numCls = isHawk ? "po-seed-num po-hawk-seed-num" : "po-seed-num";
+          var badge = "";
+          if (r._po_path === "DIV") badge = '<span class="po-seed-badge po-badge-dw">DIV</span>';
+          else if (r._po_path === "WC") badge = '<span class="po-seed-badge po-badge-wc">WC</span>';
+          if (!isHawk && r._po_seed <= 2) badge += '<span class="po-seed-badge po-badge-bye">BYE</span>';
+
+          return '<div class="po-seed-row">'
+            + '<div class="' + numCls + '">#' + r._po_seed + '</div>'
+            + '<div class="po-seed-team">'
+            +   '<div class="po-seed-name">' + badge + esc(r.franchise_name) + '</div>'
+            +   '<div class="po-seed-why">' + esc(r._po_why) + '</div>'
+            + '</div>'
+            + '<div class="po-stats">'
+            +   '<span>' + fmtWlt(r.all_play) + ' AP</span>'
+            +   '<span>' + fmtNum(r.points_for) + ' PF</span>'
+            +   '<span>' + fmtPct(r.all_play_pct) + '</span>'
+            + '</div>'
+            + '</div>';
+        }
+
+        // Helper: build a matchup card
+        function matchupCard(a, b) {
+          return '<div class="po-matchup">'
+            + '<span class="po-matchup-seed">#' + a._po_seed + '</span>'
+            + '<span class="po-matchup-team">' + esc(a.franchise_name) + '</span>'
+            + '<span class="po-matchup-vs">VS</span>'
+            + '<span class="po-matchup-team" style="text-align:right">' + esc(b.franchise_name) + '</span>'
+            + '<span class="po-matchup-seed">#' + b._po_seed + '</span>'
+            + '</div>';
+        }
+
+        var html = "";
+
+        // ─── Playoff Seeds ───
+        html += '<div class="po-section">'
+          + '<div class="po-section-title">Projected Playoff Seeds</div>';
+        playoff.forEach(function (r) { html += seedRow(r, false); });
+        html += '</div>';
+
+        // ─── Round 1 Matchups ───
+        // #1 and #2 have byes, #3v#6, #4v#5
+        html += '<div class="po-section">'
+          + '<div class="po-section-title">Round 1 — Matchups</div>'
+          + '<div class="po-bye-note">#1 ' + esc(playoff[0].franchise_name) + ' and #2 ' + esc(playoff[1].franchise_name) + ' receive first-round byes</div>'
+          + matchupCard(playoff[2], playoff[5])   // 3v6
+          + matchupCard(playoff[3], playoff[4]);   // 4v5
+        html += '</div>';
+
+        // ─── Reseeding note ───
+        html += '<div class="po-section">'
+          + '<div class="po-section-title">Bracket Rules</div>'
+          + '<div class="po-bye-note">Reseed every round — lowest remaining seed plays highest remaining seed.</div>'
+          + '</div>';
+
+        // ─── Hawk Tuah Consolation Bowl ───
+        if (consolation.length > 0) {
+          html += '<div class="po-section">'
+            + '<div class="po-section-title po-hawk-title">Hawk Tuah Consolation Bowl</div>';
+          consolation.forEach(function (r) { html += seedRow(r, true); });
+
+          // Consolation matchups: same bracket — #1&#2 byes, 3v6, 4v5
+          if (consolation.length >= 6) {
+            html += '<div style="margin-top:8px">'
+              + '<div class="po-bye-note">#1 ' + esc(consolation[0].franchise_name) + ' and #2 ' + esc(consolation[1].franchise_name) + ' receive first-round byes</div>'
+              + matchupCard(consolation[2], consolation[5])
+              + matchupCard(consolation[3], consolation[4])
+              + '</div>';
+          }
+          html += '</div>';
+        }
+
+        mod.innerHTML = html;
+        $("table").style.display = "none";
+        wrap.appendChild(mod);
+      }
+
       function renderWildcardRace() {
         const rows = buildWildcardRace(state.rows || [], !!state.showDivisionLeaders);
         $("#thead").innerHTML =
@@ -1060,10 +1373,15 @@
         const tbl = document.querySelector("table");
         if (tbl) tbl.classList.toggle("h2h-table", state.view === "h2h");
 
-        // Clean up div module when leaving division view
-        var prevMod = document.querySelector(".div-module");
-        if (prevMod && state.view !== "division") {
-          prevMod.remove();
+        // Clean up custom modules when leaving their views
+        var prevDivMod = document.querySelector(".div-module");
+        if (prevDivMod && state.view !== "division") {
+          prevDivMod.remove();
+          if (tbl) tbl.style.display = "";
+        }
+        var prevPoMod = document.querySelector(".po-module");
+        if (prevPoMod && state.view !== "playoff") {
+          prevPoMod.remove();
           if (tbl) tbl.style.display = "";
         }
 
@@ -1072,6 +1390,8 @@
           renderStandard(state.view);
         } else if (state.view === "division") {
           renderDivisionRace();
+        } else if (state.view === "playoff") {
+          renderPlayoffPreview();
         } else if (state.view === "h2h") {
           if (tbl) tbl.style.display = "";
           renderH2H();
