@@ -77,6 +77,7 @@
 
   const iframe = document.createElement("iframe");
   iframe.style.width = "100%";
+  iframe.style.maxWidth = "100%";
   iframe.style.height = "960px";
   iframe.style.border = "0";
   iframe.setAttribute("loading", "lazy");
@@ -91,4 +92,10 @@
 
   mount.innerHTML = "";
   mount.appendChild(iframe);
+
+  window.addEventListener("message", function (e) {
+    if (e.data && e.data.type === "ups-standings-height" && typeof e.data.height === "number") {
+      iframe.style.height = Math.max(400, e.data.height) + "px";
+    }
+  });
 })();
