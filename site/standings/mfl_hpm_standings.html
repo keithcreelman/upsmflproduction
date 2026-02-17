@@ -192,6 +192,93 @@
       padding: 1px 6px;
       cursor: help;
     }
+    /* H2H Matrix */
+    .h2h-col-header {
+      text-align: center;
+      padding: 6px 4px;
+      min-width: 52px;
+    }
+    .h2h-icon {
+      width: 18px;
+      height: 18px;
+      display: block;
+      margin: 0 auto 2px;
+    }
+    .h2h-abbrev {
+      font-size: 9px;
+      letter-spacing: 0.02em;
+      line-height: 1.1;
+    }
+    .h2h-cell {
+      text-align: center;
+      font-size: 11px;
+      padding: 6px 3px;
+    }
+    .h2h-self {
+      background: rgba(42, 79, 134, 0.3);
+      text-align: center;
+      color: var(--muted);
+    }
+    .h2h-win {
+      background: rgba(76, 175, 80, 0.15);
+      color: #a5d6a7;
+    }
+    .h2h-loss {
+      background: rgba(244, 67, 54, 0.12);
+      color: #ef9a9a;
+    }
+    .h2h-even {
+      background: transparent;
+    }
+    table.h2h-table {
+      min-width: 1100px;
+    }
+    table.h2h-table td:first-child,
+    table.h2h-table th:first-child {
+      position: sticky;
+      left: 0;
+      z-index: 2;
+      background: rgba(9, 33, 67, 0.95);
+    }
+    /* Mobile responsive */
+    @media (max-width: 960px) {
+      .wrap { padding: 6px; }
+      .head { padding: 8px 10px; flex-direction: column; align-items: flex-start; }
+      .controls { width: 100%; justify-content: flex-start; }
+      .title { font-size: 18px; }
+      .tableWrap {
+        margin-left: -6px;
+        margin-right: -6px;
+        padding: 0 6px;
+        overscroll-behavior: contain;
+        -webkit-overflow-scrolling: touch;
+      }
+      table { min-width: 720px; }
+    }
+    @media (max-width: 720px) {
+      table { min-width: 580px; }
+      th, td { padding: 6px 6px; font-size: 12px; }
+      th { font-size: 10px; }
+      .frRow { min-width: 140px; gap: 6px; }
+      .icon { width: 18px; height: 18px; }
+      .btn { padding: 5px 8px; font-size: 11px; }
+      .hide-mobile { display: none !important; }
+    }
+    @media (max-width: 480px) {
+      table { min-width: 420px; }
+      th, td { padding: 5px 4px; font-size: 11px; }
+      .frRow { min-width: 120px; }
+      .icon { width: 16px; height: 16px; }
+      .title { font-size: 16px; }
+      .sub { font-size: 10px; }
+      .btn { padding: 4px 7px; font-size: 10px; }
+      .toggles { gap: 4px; }
+      .h2h-cell { font-size: 9px; padding: 4px 2px; }
+      .h2h-col-header { min-width: 40px; padding: 4px 2px; }
+      .h2h-icon { width: 14px; height: 14px; }
+      .h2h-abbrev { font-size: 8px; }
+      .hide-mobile-sm { display: none !important; }
+    }
   </style>
 </head>
 <body>
@@ -209,6 +296,7 @@
             <button class="btn" data-view="points">Points</button>
             <button class="btn" data-view="division">Division Race</button>
             <button class="btn" data-view="wildcard">Wildcard Race</button>
+            <button class="btn" data-view="h2h">H2H</button>
           </div>
           <label class="field">Season
             <select id="seasonSelect" class="select"></select>
@@ -407,6 +495,15 @@
         if (key === "potential_points") return n(row.potential_points);
         if (key === "efficiency") return n(row.efficiency);
         if (key === "division") return safe(row.division_name || row.division);
+        if (key === "h2h_total_wins") {
+          var map = row.h2h || {};
+          var tw = 0;
+          Object.keys(map).forEach(function (k) { tw += n((map[k] || {}).w, 0); });
+          return tw;
+        }
+        if (key === "seed") return n(row.wildcard_rank, 999);
+        if (key === "rank") return n(row.division_rank, 999);
+        if (key === "leader") return row.is_division_leader ? 0 : 1;
         return safe(row[key]);
       }
 
@@ -579,41 +676,47 @@
       function renderStandard(view) {
         const cols = view === "records"
           ? [
-              { key: "franchise", label: "Franchise" },
-              { key: "all_play_wlt", label: "All Play" },
-              { key: "overall_wlt", label: "Overall" },
-              { key: "divisional_wlt", label: "Divisional" },
+              { key: "franchise", label: "Franchise", hide: "" },
+              { key: "all_play_wlt", label: "All Play", hide: "" },
+              { key: "overall_wlt", label: "Overall", hide: "" },
+              { key: "divisional_wlt", label: "Divisional", hide: "hide-mobile" },
             ]
           : view === "pct"
           ? [
-              { key: "franchise", label: "Franchise" },
-              { key: "all_play_pct", label: "All Play %" },
-              { key: "overall_pct", label: "Overall %" },
-              { key: "divisional_pct", label: "Divisional %" },
+              { key: "franchise", label: "Franchise", hide: "" },
+              { key: "all_play_pct", label: "All Play %", hide: "" },
+              { key: "overall_pct", label: "Overall %", hide: "" },
+              { key: "divisional_pct", label: "Divisional %", hide: "hide-mobile" },
             ]
           : [
-              { key: "franchise", label: "Franchise" },
-              { key: "points_for", label: "PF" },
-              { key: "off_points", label: "Off Pts" },
-              { key: "def_points", label: "Def Pts" },
-              { key: "potential_points", label: "Potential" },
-              { key: "efficiency", label: "Efficiency" },
+              { key: "franchise", label: "Franchise", hide: "" },
+              { key: "points_for", label: "PF", hide: "" },
+              { key: "off_points", label: "Off Pts", hide: "hide-mobile-sm" },
+              { key: "def_points", label: "Def Pts", hide: "hide-mobile" },
+              { key: "potential_points", label: "Potential", hide: "hide-mobile" },
+              { key: "efficiency", label: "Efficiency", hide: "hide-mobile-sm" },
             ];
 
-        $("#thead").innerHTML = `<tr>${cols.map((c) => headCell(c.key, c.label, true)).join("")}</tr>`;
+        $("#thead").innerHTML = `<tr>${cols.map((c) => {
+          const cls = c.hide ? ` class="${c.hide}"` : "";
+          const isSorted = state.sortKey === c.key;
+          const arrow = isSorted ? (state.sortDir === "asc" ? "▲" : "▼") : "↕";
+          return `<th class="is-sortable ${isSorted ? "is-sorted" : ""} ${c.hide}" data-sort-key="${esc(c.key)}">${esc(c.label)} <span class="sort">${arrow}</span></th>`;
+        }).join("")}</tr>`;
         const sorted = sortRows(state.rows || []);
         $("#tbody").innerHTML = sorted
           .map((r) => {
             const row = cols
               .map((c) => {
-                if (c.key === "franchise") return `<td>${iconFranchiseCell(r)}</td>`;
-                if (c.key === "all_play_wlt") return `<td class="num">${fmtWlt(r.all_play)}</td>`;
-                if (c.key === "overall_wlt") return `<td class="num">${fmtWlt(r.overall)}</td>`;
-                if (c.key === "divisional_wlt") return `<td class="num">${fmtWlt(r.divisional)}</td>`;
-                if (c.key === "all_play_pct") return `<td class="num">${fmtPct(r.all_play_pct)}</td>`;
-                if (c.key === "overall_pct") return `<td class="num">${fmtPct(r.overall_pct)}</td>`;
-                if (c.key === "divisional_pct") return `<td class="num">${fmtPct(r.divisional_pct)}</td>`;
-                return `<td class="num">${fmtNum(r[c.key])}</td>`;
+                const cls = c.hide ? ` class="${c.hide}${c.key !== "franchise" ? " num" : ""}"` : (c.key !== "franchise" ? ' class="num"' : "");
+                if (c.key === "franchise") return `<td${c.hide ? ' class="' + c.hide + '"' : ""}>${iconFranchiseCell(r)}</td>`;
+                if (c.key === "all_play_wlt") return `<td class="num ${c.hide}">${fmtWlt(r.all_play)}</td>`;
+                if (c.key === "overall_wlt") return `<td class="num ${c.hide}">${fmtWlt(r.overall)}</td>`;
+                if (c.key === "divisional_wlt") return `<td class="num ${c.hide}">${fmtWlt(r.divisional)}</td>`;
+                if (c.key === "all_play_pct") return `<td class="num ${c.hide}">${fmtPct(r.all_play_pct)}</td>`;
+                if (c.key === "overall_pct") return `<td class="num ${c.hide}">${fmtPct(r.overall_pct)}</td>`;
+                if (c.key === "divisional_pct") return `<td class="num ${c.hide}">${fmtPct(r.divisional_pct)}</td>`;
+                return `<td class="num ${c.hide}">${fmtNum(r[c.key])}</td>`;
               })
               .join("");
             return `<tr>${row}</tr>`;
@@ -627,19 +730,27 @@
           "<tr>" +
           headCell("division", "Division", false) +
           headCell("rank", "Rank", false) +
-          headCell("franchise", "Franchise", false) +
-          headCell("overall_pct", "Overall %", false) +
-          headCell("divisional_pct", "Div %", false) +
+          headCell("franchise", "Franchise", true) +
+          headCell("overall_pct", "Overall %", true) +
+          headCell("divisional_pct", "Div %", true) +
           headCell("h2h", "H2H %", false) +
-          headCell("points_for", "PF", false) +
-          headCell("all_play_pct", "All Play %", false) +
+          headCell("points_for", "PF", true) +
+          headCell("all_play_pct", "All Play %", true) +
           headCell("tb", "TB Notice", false) +
           "</tr>";
+
+        // Apply hide-mobile classes to header cells
+        const thEls = document.querySelectorAll("#thead th");
+        if (thEls[0]) thEls[0].classList.add("hide-mobile");  // Division code
+        if (thEls[8]) thEls[8].classList.add("hide-mobile");   // TB Notice
 
         const body = [];
         divisions.forEach((d) => {
           body.push(`<tr class="divisionHeader"><td colspan="9">${esc(d.division_name)}</td></tr>`);
-          (d.rows || []).forEach((r) => {
+          const groupRows = state.sortKey && state.sortKey !== "franchise" && state.sortKey !== "rank"
+            ? sortRows(d.rows || [])
+            : (d.rows || []);
+          groupRows.forEach((r) => {
             const h2h = n(r._cluster_h2h_pct, -1);
             const h2hTxt = h2h >= 0 ? fmtPct(h2h) : "—";
             const tb = r._tb_note
@@ -647,7 +758,7 @@
               : "";
             body.push(
               `<tr>` +
-                `<td>${esc(r.division || "")}</td>` +
+                `<td class="hide-mobile">${esc(r.division || "")}</td>` +
                 `<td class="num">${n(r.division_rank, 0)}</td>` +
                 `<td>${iconFranchiseCell(r)}</td>` +
                 `<td class="num">${fmtPct(r.overall_pct)}</td>` +
@@ -655,7 +766,7 @@
                 `<td class="num">${h2hTxt}</td>` +
                 `<td class="num">${fmtNum(r.points_for)}</td>` +
                 `<td class="num">${fmtPct(r.all_play_pct)}</td>` +
-                `<td>${tb}</td>` +
+                `<td class="hide-mobile">${tb}</td>` +
               `</tr>`
             );
           });
@@ -668,17 +779,26 @@
         $("#thead").innerHTML =
           "<tr>" +
           headCell("seed", "Seed", false) +
-          headCell("franchise", "Franchise", false) +
-          headCell("division", "Division", false) +
-          headCell("all_play_wlt", "All Play", false) +
-          headCell("all_play_pct", "All Play %", false) +
-          headCell("overall_pct", "Overall %", false) +
-          headCell("points_for", "PF", false) +
+          headCell("franchise", "Franchise", true) +
+          headCell("division", "Division", true) +
+          headCell("all_play_wlt", "All Play", true) +
+          headCell("all_play_pct", "All Play %", true) +
+          headCell("overall_pct", "Overall %", true) +
+          headCell("points_for", "PF", true) +
           headCell("leader", "Leader", false) +
           headCell("tb", "TB Notice", false) +
           "</tr>";
 
-        $("#tbody").innerHTML = rows
+        // Apply hide-mobile classes to header cells
+        const thEls = document.querySelectorAll("#thead th");
+        if (thEls[7]) thEls[7].classList.add("hide-mobile");  // Leader
+        if (thEls[8]) thEls[8].classList.add("hide-mobile");   // TB Notice
+
+        const sorted = state.sortKey && state.sortKey !== "seed"
+          ? sortRows(rows)
+          : rows;
+
+        $("#tbody").innerHTML = sorted
           .map((r) => {
             const leader = r.is_division_leader ? "Yes" : "No";
             const tb = r._tb_note
@@ -693,12 +813,51 @@
                 `<td class="num">${fmtPct(r.all_play_pct)}</td>` +
                 `<td class="num">${fmtPct(r.overall_pct)}</td>` +
                 `<td class="num">${fmtNum(r.points_for)}</td>` +
-                `<td>${leader}</td>` +
-                `<td>${tb}</td>` +
+                `<td class="hide-mobile">${leader}</td>` +
+                `<td class="hide-mobile">${tb}</td>` +
               `</tr>`
             );
           })
           .join("");
+      }
+
+      function renderH2H() {
+        const sorted = sortRows(state.rows || []);
+        let headerHtml = headCell("franchise", "Franchise", true);
+        sorted.forEach(function (col) {
+          const abbrev = esc((col.franchise_name || "").substring(0, 4));
+          const iconUrl = esc(col.icon || col.logo || "");
+          headerHtml += '<th class="h2h-col-header" title="' + esc(col.franchise_name) + '">'
+            + '<img class="icon h2h-icon" alt="" src="' + iconUrl + '" onerror="this.style.display=\'none\'" />'
+            + '<div class="h2h-abbrev">' + abbrev + '</div>'
+            + '</th>';
+        });
+        headerHtml += headCell("h2h_total_wins", "Total", true);
+        $("#thead").innerHTML = "<tr>" + headerHtml + "</tr>";
+
+        let bodyHtml = "";
+        sorted.forEach(function (row) {
+          let rowHtml = "<td>" + iconFranchiseCell(row) + "</td>";
+          let totalW = 0;
+          sorted.forEach(function (col) {
+            if (col.franchise_id === row.franchise_id) {
+              rowHtml += '<td class="h2h-self">&mdash;</td>';
+            } else {
+              const rec = (row.h2h || {})[col.franchise_id];
+              if (rec && n(rec.games, 0) > 0) {
+                const pct = n(rec.pct, 0.5);
+                const cls = pct > 0.5 ? "h2h-win" : pct < 0.5 ? "h2h-loss" : "h2h-even";
+                rowHtml += '<td class="num h2h-cell ' + cls + '">' + fmtWlt(rec) + '</td>';
+                totalW += n(rec.w, 0);
+              } else {
+                rowHtml += '<td class="num h2h-cell muted">&mdash;</td>';
+              }
+            }
+          });
+          rowHtml += '<td class="num">' + totalW + '</td>';
+          bodyHtml += "<tr>" + rowHtml + "</tr>";
+        });
+        $("#tbody").innerHTML = bodyHtml;
       }
 
       function renderMeta() {
@@ -713,10 +872,14 @@
         });
         const showLeadersWrap = $("#showLeadersWrap");
         if (showLeadersWrap) showLeadersWrap.style.display = state.view === "wildcard" ? "" : "none";
+        const tbl = document.querySelector("table");
+        if (tbl) tbl.classList.toggle("h2h-table", state.view === "h2h");
         if (state.view === "records" || state.view === "pct" || state.view === "points") {
           renderStandard(state.view);
         } else if (state.view === "division") {
           renderDivisionRace();
+        } else if (state.view === "h2h") {
+          renderH2H();
         } else {
           renderWildcardRace();
         }
@@ -727,6 +890,8 @@
         if (viewBtn) {
           state.view = safe(viewBtn.getAttribute("data-view") || "records");
           if (state.view !== "wildcard") state.showDivisionLeaders = false;
+          state.sortKey = "franchise";
+          state.sortDir = "asc";
           render();
           return;
         }
@@ -759,6 +924,19 @@
           if (state.view === "wildcard") render();
         });
       }
+
+      function postHeight() {
+        try {
+          var h = document.documentElement.scrollHeight;
+          if (window.parent !== window) {
+            window.parent.postMessage({ type: "ups-standings-height", height: h }, "*");
+          }
+        } catch (e) {}
+      }
+
+      var _origRender = render;
+      render = function () { _origRender(); setTimeout(postHeight, 50); };
+      window.addEventListener("resize", postHeight);
 
       async function init() {
         buildSeasonOptions();
