@@ -66,6 +66,13 @@ def fetch_json(year: int, league_id: str, type_name: str) -> Dict[str, Any]:
         return json.loads(resp.read().decode("utf-8"))
 
 
+def fetch_json_with_params(year: int, params: Dict[str, Any]) -> Dict[str, Any]:
+    qs = urllib.parse.urlencode(params)
+    url = f"{API_BASE}/{year}/export?{qs}"
+    with urllib.request.urlopen(url, timeout=30) as resp:
+        return json.loads(resp.read().decode("utf-8"))
+
+
 def parse_wlt(text: str) -> Dict[str, int]:
     raw = safe_str(text)
     parts = raw.replace("/", "-").split("-")
@@ -122,6 +129,98 @@ def build_h2h_from_schedule(schedule_payload: Dict[str, Any]) -> Dict[str, Dict[
     return h2h
 
 
+def is_def_position(pos: str) -> bool:
+    p = safe_str(pos).upper()
+    if not p:
+        return False
+    defensive = {
+        "DL",
+        "DE",
+        "DT",
+        "LB",
+        "ILB",
+        "OLB",
+        "MLB",
+        "DB",
+        "CB",
+        "S",
+        "SS",
+        "FS",
+        "NT",
+        "EDGE",
+        "IDP",
+        "DEF",
+        "DST",
+    }
+    return p in defensive
+
+
+def build_player_position_map(players_payload: Dict[str, Any]) -> Dict[str, str]:
+    out: Dict[str, str] = {}
+    players = as_list((players_payload.get("players") or {}).get("player"))
+    for p in players:
+        pid = safe_str((p or {}).get("id"))
+        if not pid:
+            continue
+        out[pid] = safe_str((p or {}).get("position")).upper()
+    return out
+
+
+def build_weekly_breakdowns(
+    weekly_results_payload: Dict[str, Any], player_pos: Dict[str, str]
+) -> Dict[str, Dict[str, Dict[str, float]]]:
+    weekly_scores: Dict[str, Dict[str, float]] = {}
+    weekly_off: Dict[str, Dict[str, float]] = {}
+    weekly_def: Dict[str, Dict[str, float]] = {}
+    weekly_potential: Dict[str, Dict[str, float]] = {}
+
+    root = weekly_results_payload.get("allWeeklyResults") or weekly_results_payload
+    weeks = as_list((root or {}).get("weeklyResults"))
+    for week in weeks:
+        week_no = safe_int((week or {}).get("week"), 0)
+        if week_no <= 0:
+            continue
+        wk = str(week_no)
+        weekly_scores.setdefault(wk, {})
+        weekly_off.setdefault(wk, {})
+        weekly_def.setdefault(wk, {})
+        weekly_potential.setdefault(wk, {})
+
+        matchups = as_list((week or {}).get("matchup"))
+        for matchup in matchups:
+            franchises = as_list((matchup or {}).get("franchise"))
+            for fr in franchises:
+                fid = pad4((fr or {}).get("id"))
+                if not fid:
+                    continue
+
+                weekly_scores[wk][fid] = safe_float((fr or {}).get("score"), 0.0)
+                weekly_potential[wk][fid] = safe_float((fr or {}).get("opt_pts"), 0.0)
+
+                off_sum = 0.0
+                def_sum = 0.0
+                for pl in as_list((fr or {}).get("player")):
+                    if safe_str((pl or {}).get("status")).lower() != "starter":
+                        continue
+                    pid = safe_str((pl or {}).get("id"))
+                    pscore = safe_float((pl or {}).get("score"), 0.0)
+                    pos = player_pos.get(pid, "")
+                    if is_def_position(pos):
+                        def_sum += pscore
+                    else:
+                        off_sum += pscore
+
+                weekly_off[wk][fid] = off_sum
+                weekly_def[wk][fid] = def_sum
+
+    return {
+        "weeklyScores": weekly_scores,
+        "weeklyOffPoints": weekly_off,
+        "weeklyDefPoints": weekly_def,
+        "weeklyPotentialPoints": weekly_potential,
+    }
+
+
 def build_weekly_payloads(schedule_payload: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
     weekly_scores: Dict[str, Dict[str, float]] = {}
     weekly_matchups: Dict[str, List[Dict[str, Any]]] = {}
@@ -173,6 +272,12 @@ def main() -> int:
     standings_payload = fetch_json(args.season, args.league_id, "leagueStandings")
     league_payload = fetch_json(args.season, args.league_id, "league")
     schedule_payload = fetch_json(args.season, args.league_id, "schedule")
+    players_payload = fetch_json_with_params(
+        args.season, {"TYPE": "players", "L": args.league_id, "DETAILS": "1", "JSON": "1"}
+    )
+    weekly_results_payload = fetch_json_with_params(
+        args.season, {"TYPE": "weeklyResults", "L": args.league_id, "W": "YTD", "JSON": "1"}
+    )
 
     standings_rows = as_list((standings_payload.get("leagueStandings") or {}).get("franchise"))
     league = league_payload.get("league") or {}
@@ -202,6 +307,8 @@ def main() -> int:
 
     h2h_map = build_h2h_from_schedule(schedule_payload)
     weekly_payloads = build_weekly_payloads(schedule_payload)
+    player_pos = build_player_position_map(players_payload)
+    weekly_breakdowns = build_weekly_breakdowns(weekly_results_payload, player_pos)
 
     rows: List[Dict[str, Any]] = []
     for r in standings_rows:
@@ -250,14 +357,29 @@ def main() -> int:
     franchise_ids = [safe_str(r.get("franchise_id")) for r in rows if safe_str(r.get("franchise_id"))]
     weekly_scores = weekly_payloads["weeklyScores"]
     weekly_matchups = weekly_payloads["weeklyMatchups"]
+    weekly_off = weekly_breakdowns["weeklyOffPoints"]
+    weekly_def = weekly_breakdowns["weeklyDefPoints"]
+    weekly_potential = weekly_breakdowns["weeklyPotentialPoints"]
+    # Prefer weeklyResults score feed when available, fallback to schedule feed.
+    if weekly_breakdowns["weeklyScores"]:
+        weekly_scores = weekly_breakdowns["weeklyScores"]
     max_week = 17
     for wk in range(1, max_week + 1):
         wk_key = str(wk)
         weekly_scores.setdefault(wk_key, {})
         weekly_matchups.setdefault(wk_key, [])
+        weekly_off.setdefault(wk_key, {})
+        weekly_def.setdefault(wk_key, {})
+        weekly_potential.setdefault(wk_key, {})
         for fid in franchise_ids:
             if fid not in weekly_scores[wk_key]:
                 weekly_scores[wk_key][fid] = 0.0
+            if fid not in weekly_off[wk_key]:
+                weekly_off[wk_key][fid] = 0.0
+            if fid not in weekly_def[wk_key]:
+                weekly_def[wk_key][fid] = 0.0
+            if fid not in weekly_potential[wk_key]:
+                weekly_potential[wk_key][fid] = 0.0
 
     out = {
         "meta": {
@@ -269,6 +391,9 @@ def main() -> int:
         "rows": rows,
         "weeklyScores": weekly_scores,
         "weeklyMatchups": weekly_matchups,
+        "weeklyOffPoints": weekly_off,
+        "weeklyDefPoints": weekly_def,
+        "weeklyPotentialPoints": weekly_potential,
     }
 
     out_path = Path(args.out)

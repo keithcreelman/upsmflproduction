@@ -524,6 +524,9 @@
         expandedRow: null,
         weeklyScores: {},
         weeklyMatchups: {},
+        weeklyOffPoints: {},
+        weeklyDefPoints: {},
+        weeklyPotentialPoints: {},
         range: "regular",
         ddMode: "h2h",
         expandedMatchup: null,
@@ -604,6 +607,15 @@
           total += n(wk[franchiseId], 0);
         }
         return total;
+      }
+
+      function avgPerWeekFromMap(rows, ws, startWeek, endWeek) {
+        var len = Math.max(1, endWeek - startWeek + 1);
+        var sum = 0;
+        (rows || []).forEach(function (r) {
+          sum += pointsInRange(r.franchise_id, ws, startWeek, endWeek);
+        });
+        return (sum / Math.max(1, (rows || []).length)) / len;
       }
 
       function normalizeRows(rows) {
@@ -688,6 +700,9 @@
           state.season = y;
           state.weeklyScores = {};
           state.weeklyMatchups = {};
+          state.weeklyOffPoints = {};
+          state.weeklyDefPoints = {};
+          state.weeklyPotentialPoints = {};
           cleanupBeforeRender();
           render();
           return;
@@ -709,6 +724,9 @@
         state.season = loadedYear;
         state.weeklyScores = payload && payload.weeklyScores ? payload.weeklyScores : {};
         state.weeklyMatchups = payload && payload.weeklyMatchups ? payload.weeklyMatchups : {};
+        state.weeklyOffPoints = payload && payload.weeklyOffPoints ? payload.weeklyOffPoints : {};
+        state.weeklyDefPoints = payload && payload.weeklyDefPoints ? payload.weeklyDefPoints : {};
+        state.weeklyPotentialPoints = payload && payload.weeklyPotentialPoints ? payload.weeklyPotentialPoints : {};
 
         const seasonSelect = $("#seasonSelect");
         if (seasonSelect) seasonSelect.value = String(loadedYear);
@@ -1126,16 +1144,18 @@
         const avgPP = isRel ? (function () { var s=0; (state.rows||[]).forEach(function(r){s+=n(r.potential_points,0);}); return s/((state.rows||[]).length||1); })() : 0;
         // Compute range-aware points-per-week baselines.
         const hasWeekly = isRel && Object.keys(state.weeklyScores).length > 0;
+        const hasWeeklyOff = isRel && Object.keys(state.weeklyOffPoints || {}).length > 0;
+        const hasWeeklyDef = isRel && Object.keys(state.weeklyDefPoints || {}).length > 0;
+        const hasWeeklyPotential = isRel && Object.keys(state.weeklyPotentialPoints || {}).length > 0;
         var rangeLen = Math.max(1, (rng[1] - rng[0] + 1));
         var avgPFPerWeek = 0;
-        if (hasWeekly) {
-          var rangeSum = 0;
-          (state.rows || []).forEach(function (r) {
-            rangeSum += pointsInRange(r.franchise_id, state.weeklyScores, rng[0], rng[1]);
-          });
-          var rangeAvgTotal = rangeSum / Math.max(1, (state.rows || []).length);
-          avgPFPerWeek = rangeAvgTotal / rangeLen;
-        }
+        var avgOffPerWeek = 0;
+        var avgDefPerWeek = 0;
+        var avgPotentialPerWeek = 0;
+        if (hasWeekly) avgPFPerWeek = avgPerWeekFromMap(state.rows || [], state.weeklyScores, rng[0], rng[1]);
+        if (hasWeeklyOff) avgOffPerWeek = avgPerWeekFromMap(state.rows || [], state.weeklyOffPoints, rng[0], rng[1]);
+        if (hasWeeklyDef) avgDefPerWeek = avgPerWeekFromMap(state.rows || [], state.weeklyDefPoints, rng[0], rng[1]);
+        if (hasWeeklyPotential) avgPotentialPerWeek = avgPerWeekFromMap(state.rows || [], state.weeklyPotentialPoints, rng[0], rng[1]);
 
         const cols = view === "records"
           ? [
@@ -1154,9 +1174,9 @@
           : [
               { key: "franchise", label: "Franchise", hide: "" },
               { key: "points_for", label: isRel ? (hasWeekly ? "PF/wk vs Avg" : "PF vs Avg") : "PF", hide: "" },
-              { key: "off_points", label: isRel ? "Off vs Avg" : "Off Pts", hide: "" },
-              { key: "def_points", label: isRel ? "Def vs Avg" : "Def Pts", hide: "" },
-              { key: "potential_points", label: isRel ? "PP vs Avg" : "Potential", hide: "hide-mobile" },
+              { key: "off_points", label: isRel ? (hasWeeklyOff ? "Off/wk vs Avg" : "Off vs Avg") : "Off Pts", hide: "" },
+              { key: "def_points", label: isRel ? (hasWeeklyDef ? "Def/wk vs Avg" : "Def vs Avg") : "Def Pts", hide: "" },
+              { key: "potential_points", label: isRel ? (hasWeeklyPotential ? "PP/wk vs Avg" : "PP vs Avg") : "Potential", hide: "hide-mobile" },
               { key: "efficiency", label: "Efficiency", hide: "hide-mobile" },
             ];
 
@@ -1166,7 +1186,48 @@
           const arrow = isSorted ? (state.sortDir === "asc" ? "▲" : "▼") : "↕";
           return `<th class="is-sortable ${isSorted ? "is-sorted" : ""} ${c.hide}" data-sort-key="${esc(c.key)}">${esc(c.label)} <span class="sort">${arrow}</span></th>`;
         }).join("")}</tr>`;
-        const sorted = sortRows(state.rows || []);
+        const sorted = (function () {
+          const key = state.sortKey || "franchise";
+          const dir = state.sortDir === "desc" ? -1 : 1;
+          const arr = (state.rows || []).slice();
+          arr.sort(function (a, b) {
+            var av, bv;
+            if (view === "points" && isRel) {
+              if (key === "points_for" && hasWeekly) {
+                av = (pointsInRange(a.franchise_id, state.weeklyScores, rng[0], rng[1]) / rangeLen) - avgPFPerWeek;
+                bv = (pointsInRange(b.franchise_id, state.weeklyScores, rng[0], rng[1]) / rangeLen) - avgPFPerWeek;
+              } else if (key === "off_points" && hasWeeklyOff) {
+                av = (pointsInRange(a.franchise_id, state.weeklyOffPoints, rng[0], rng[1]) / rangeLen) - avgOffPerWeek;
+                bv = (pointsInRange(b.franchise_id, state.weeklyOffPoints, rng[0], rng[1]) / rangeLen) - avgOffPerWeek;
+              } else if (key === "def_points" && hasWeeklyDef) {
+                av = (pointsInRange(a.franchise_id, state.weeklyDefPoints, rng[0], rng[1]) / rangeLen) - avgDefPerWeek;
+                bv = (pointsInRange(b.franchise_id, state.weeklyDefPoints, rng[0], rng[1]) / rangeLen) - avgDefPerWeek;
+              } else if (key === "potential_points" && hasWeeklyPotential) {
+                av = (pointsInRange(a.franchise_id, state.weeklyPotentialPoints, rng[0], rng[1]) / rangeLen) - avgPotentialPerWeek;
+                bv = (pointsInRange(b.franchise_id, state.weeklyPotentialPoints, rng[0], rng[1]) / rangeLen) - avgPotentialPerWeek;
+              } else if (key === "off_points") {
+                av = a.off_points - avgOff; bv = b.off_points - avgOff;
+              } else if (key === "def_points") {
+                av = a.def_points - avgDef; bv = b.def_points - avgDef;
+              } else if (key === "potential_points") {
+                av = a.potential_points - avgPP; bv = b.potential_points - avgPP;
+              } else if (key === "points_for") {
+                av = a.points_for - avgPF; bv = b.points_for - avgPF;
+              } else {
+                av = getSortValue(a, key); bv = getSortValue(b, key);
+              }
+            } else {
+              av = getSortValue(a, key); bv = getSortValue(b, key);
+            }
+
+            var cmp = 0;
+            if (typeof av === "number" && typeof bv === "number") cmp = av === bv ? 0 : av > bv ? 1 : -1;
+            else cmp = safe(av).localeCompare(safe(bv));
+            if (cmp === 0) cmp = safe(a.franchise_name).localeCompare(safe(b.franchise_name));
+            return cmp * dir;
+          });
+          return arr;
+        })();
         $("#tbody").innerHTML = sorted
           .map((r) => {
             const row = cols
@@ -1188,12 +1249,24 @@
                   var d=r.points_for-avgPF; return `<td class="num ${c.hide} ${d>=0?"pf-rel-pos":"pf-rel-neg"}">${d>=0?"+":""}${d.toFixed(1)}</td>`;
                 }
                 if (isRel && c.key === "off_points") {
+                  if (hasWeeklyOff) {
+                    var d=(pointsInRange(r.franchise_id, state.weeklyOffPoints, rng[0], rng[1]) / rangeLen)-avgOffPerWeek;
+                    return `<td class="num ${c.hide} ${d>=0?"pf-rel-pos":"pf-rel-neg"}">${d>=0?"+":""}${d.toFixed(1)} /wk</td>`;
+                  }
                   var d=r.off_points-avgOff; return `<td class="num ${c.hide} ${d>=0?"pf-rel-pos":"pf-rel-neg"}">${d>=0?"+":""}${d.toFixed(1)}</td>`;
                 }
                 if (isRel && c.key === "def_points") {
+                  if (hasWeeklyDef) {
+                    var d=(pointsInRange(r.franchise_id, state.weeklyDefPoints, rng[0], rng[1]) / rangeLen)-avgDefPerWeek;
+                    return `<td class="num ${c.hide} ${d>=0?"pf-rel-pos":"pf-rel-neg"}">${d>=0?"+":""}${d.toFixed(1)} /wk</td>`;
+                  }
                   var d=r.def_points-avgDef; return `<td class="num ${c.hide} ${d>=0?"pf-rel-pos":"pf-rel-neg"}">${d>=0?"+":""}${d.toFixed(1)}</td>`;
                 }
                 if (isRel && c.key === "potential_points") {
+                  if (hasWeeklyPotential) {
+                    var d=(pointsInRange(r.franchise_id, state.weeklyPotentialPoints, rng[0], rng[1]) / rangeLen)-avgPotentialPerWeek;
+                    return `<td class="num ${c.hide} ${d>=0?"pf-rel-pos":"pf-rel-neg"}">${d>=0?"+":""}${d.toFixed(1)} /wk</td>`;
+                  }
                   var d=r.potential_points-avgPP; return `<td class="num ${c.hide} ${d>=0?"pf-rel-pos":"pf-rel-neg"}">${d>=0?"+":""}${d.toFixed(1)}</td>`;
                 }
                 return `<td class="num ${c.hide}">${fmtNum(r[c.key])}</td>`;
