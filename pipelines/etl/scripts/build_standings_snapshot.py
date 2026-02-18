@@ -122,6 +122,47 @@ def build_h2h_from_schedule(schedule_payload: Dict[str, Any]) -> Dict[str, Dict[
     return h2h
 
 
+def build_weekly_payloads(schedule_payload: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
+    weekly_scores: Dict[str, Dict[str, float]] = {}
+    weekly_matchups: Dict[str, List[Dict[str, Any]]] = {}
+
+    weekly = as_list((schedule_payload.get("schedule") or {}).get("weeklySchedule"))
+    for idx, week in enumerate(weekly, start=1):
+        week_no = safe_int((week or {}).get("week"), idx)
+        week_key = str(week_no)
+        weekly_scores.setdefault(week_key, {})
+        weekly_matchups.setdefault(week_key, [])
+
+        for matchup in as_list((week or {}).get("matchup")):
+            franchises = as_list((matchup or {}).get("franchise"))
+            if len(franchises) != 2:
+                continue
+
+            home = franchises[0] or {}
+            away = franchises[1] or {}
+
+            home_id = pad4(home.get("id"))
+            away_id = pad4(away.get("id"))
+            if not home_id or not away_id:
+                continue
+
+            home_score = safe_float(home.get("score"), 0.0)
+            away_score = safe_float(away.get("score"), 0.0)
+
+            weekly_scores[week_key][home_id] = home_score
+            weekly_scores[week_key][away_id] = away_score
+            weekly_matchups[week_key].append(
+                {
+                    "home": home_id,
+                    "away": away_id,
+                    "homeScore": home_score,
+                    "awayScore": away_score,
+                }
+            )
+
+    return {"weeklyScores": weekly_scores, "weeklyMatchups": weekly_matchups}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--league-id", default="25625")
@@ -160,6 +201,7 @@ def main() -> int:
         }
 
     h2h_map = build_h2h_from_schedule(schedule_payload)
+    weekly_payloads = build_weekly_payloads(schedule_payload)
 
     rows: List[Dict[str, Any]] = []
     for r in standings_rows:
@@ -212,6 +254,8 @@ def main() -> int:
             "source": "mfl_export",
         },
         "rows": rows,
+        "weeklyScores": weekly_payloads["weeklyScores"],
+        "weeklyMatchups": weekly_payloads["weeklyMatchups"],
     }
 
     out_path = Path(args.out)
