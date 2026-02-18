@@ -246,6 +246,19 @@ def main() -> int:
         )
     )
 
+    # Ensure every week has every franchise for deterministic all-play comparisons.
+    franchise_ids = [safe_str(r.get("franchise_id")) for r in rows if safe_str(r.get("franchise_id"))]
+    weekly_scores = weekly_payloads["weeklyScores"]
+    weekly_matchups = weekly_payloads["weeklyMatchups"]
+    max_week = 17
+    for wk in range(1, max_week + 1):
+        wk_key = str(wk)
+        weekly_scores.setdefault(wk_key, {})
+        weekly_matchups.setdefault(wk_key, [])
+        for fid in franchise_ids:
+            if fid not in weekly_scores[wk_key]:
+                weekly_scores[wk_key][fid] = 0.0
+
     out = {
         "meta": {
             "league_id": safe_str(args.league_id),
@@ -254,8 +267,8 @@ def main() -> int:
             "source": "mfl_export",
         },
         "rows": rows,
-        "weeklyScores": weekly_payloads["weeklyScores"],
-        "weeklyMatchups": weekly_payloads["weeklyMatchups"],
+        "weeklyScores": weekly_scores,
+        "weeklyMatchups": weekly_matchups,
     }
 
     out_path = Path(args.out)

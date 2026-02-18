@@ -582,9 +582,8 @@
         var w = 0, l = 0, t = 0;
         for (var wk = startWeek; wk <= endWeek; wk++) {
           var scores = (ws || {})[String(wk)] || {};
-          var ts = n(scores[teamId], -1);
-          var os = n(scores[oppId], -1);
-          if (ts < 0 || os < 0) continue;
+          var ts = n(scores[teamId], 0);
+          var os = n(scores[oppId], 0);
           if (ts > os) w++;
           else if (ts < os) l++;
           else t++;
