@@ -597,6 +597,15 @@
         return [1, 14]; // "regular" default
       }
 
+      function pointsInRange(franchiseId, ws, startWeek, endWeek) {
+        var total = 0;
+        for (var w = startWeek; w <= endWeek; w++) {
+          var wk = (ws || {})[String(w)] || {};
+          total += n(wk[franchiseId], 0);
+        }
+        return total;
+      }
+
       function normalizeRows(rows) {
         return (rows || []).map((r) => ({
           franchise_id: safe(r.franchise_id),
@@ -1115,16 +1124,17 @@
         const avgOff = isRel ? (function () { var s=0; (state.rows||[]).forEach(function(r){s+=n(r.off_points,0);}); return s/((state.rows||[]).length||1); })() : 0;
         const avgDef = isRel ? (function () { var s=0; (state.rows||[]).forEach(function(r){s+=n(r.def_points,0);}); return s/((state.rows||[]).length||1); })() : 0;
         const avgPP = isRel ? (function () { var s=0; (state.rows||[]).forEach(function(r){s+=n(r.potential_points,0);}); return s/((state.rows||[]).length||1); })() : 0;
-        // Compute league-wide avg weeks played for per-week delta
+        // Compute range-aware points-per-week baselines.
         const hasWeekly = isRel && Object.keys(state.weeklyScores).length > 0;
-        var leagueWeeks = 1;
+        var rangeLen = Math.max(1, (rng[1] - rng[0] + 1));
+        var avgPFPerWeek = 0;
         if (hasWeekly) {
-          var twp = 0, tc = 0;
+          var rangeSum = 0;
           (state.rows || []).forEach(function (r) {
-            var wp = weeksPlayed(r.franchise_id, state.weeklyScores, rng[0], rng[1]);
-            if (wp > 0) { twp += wp; tc++; }
+            rangeSum += pointsInRange(r.franchise_id, state.weeklyScores, rng[0], rng[1]);
           });
-          leagueWeeks = tc > 0 ? twp / tc : 1;
+          var rangeAvgTotal = rangeSum / Math.max(1, (state.rows || []).length);
+          avgPFPerWeek = rangeAvgTotal / rangeLen;
         }
 
         const cols = view === "records"
@@ -1144,9 +1154,9 @@
           : [
               { key: "franchise", label: "Franchise", hide: "" },
               { key: "points_for", label: isRel ? (hasWeekly ? "PF/wk vs Avg" : "PF vs Avg") : "PF", hide: "" },
-              { key: "off_points", label: isRel ? (hasWeekly ? "Off/wk vs Avg" : "Off vs Avg") : "Off Pts", hide: "" },
-              { key: "def_points", label: isRel ? (hasWeekly ? "Def/wk vs Avg" : "Def vs Avg") : "Def Pts", hide: "" },
-              { key: "potential_points", label: isRel ? (hasWeekly ? "PP/wk vs Avg" : "PP vs Avg") : "Potential", hide: "hide-mobile" },
+              { key: "off_points", label: isRel ? "Off vs Avg" : "Off Pts", hide: "" },
+              { key: "def_points", label: isRel ? "Def vs Avg" : "Def Pts", hide: "" },
+              { key: "potential_points", label: isRel ? "PP vs Avg" : "Potential", hide: "hide-mobile" },
               { key: "efficiency", label: "Efficiency", hide: "hide-mobile" },
             ];
 
@@ -1170,23 +1180,20 @@
                 if (c.key === "overall_pct") return `<td class="num ${c.hide}">${fmtPct(r.overall_pct)}</td>`;
                 if (c.key === "divisional_pct") return `<td class="num ${c.hide}">${fmtPct(r.divisional_pct)}</td>`;
                 if (isRel && c.key === "points_for") {
-                  var wp = hasWeekly ? weeksPlayed(r.franchise_id, state.weeklyScores, rng[0], rng[1]) : 0;
-                  if (wp > 0) { var d=(r.points_for/wp)-(avgPF/leagueWeeks); return `<td class="num ${c.hide} ${d>=0?"pf-rel-pos":"pf-rel-neg"}">${d>=0?"+":""}${d.toFixed(1)} /wk</td>`; }
+                  if (hasWeekly) {
+                    var teamPFPerWeek = pointsInRange(r.franchise_id, state.weeklyScores, rng[0], rng[1]) / rangeLen;
+                    var d = teamPFPerWeek - avgPFPerWeek;
+                    return `<td class="num ${c.hide} ${d>=0?"pf-rel-pos":"pf-rel-neg"}">${d>=0?"+":""}${d.toFixed(1)} /wk</td>`;
+                  }
                   var d=r.points_for-avgPF; return `<td class="num ${c.hide} ${d>=0?"pf-rel-pos":"pf-rel-neg"}">${d>=0?"+":""}${d.toFixed(1)}</td>`;
                 }
                 if (isRel && c.key === "off_points") {
-                  var wp = hasWeekly ? weeksPlayed(r.franchise_id, state.weeklyScores, rng[0], rng[1]) : 0;
-                  if (wp > 0) { var d=(r.off_points/wp)-(avgOff/leagueWeeks); return `<td class="num ${c.hide} ${d>=0?"pf-rel-pos":"pf-rel-neg"}">${d>=0?"+":""}${d.toFixed(1)} /wk</td>`; }
                   var d=r.off_points-avgOff; return `<td class="num ${c.hide} ${d>=0?"pf-rel-pos":"pf-rel-neg"}">${d>=0?"+":""}${d.toFixed(1)}</td>`;
                 }
                 if (isRel && c.key === "def_points") {
-                  var wp = hasWeekly ? weeksPlayed(r.franchise_id, state.weeklyScores, rng[0], rng[1]) : 0;
-                  if (wp > 0) { var d=(r.def_points/wp)-(avgDef/leagueWeeks); return `<td class="num ${c.hide} ${d>=0?"pf-rel-pos":"pf-rel-neg"}">${d>=0?"+":""}${d.toFixed(1)} /wk</td>`; }
                   var d=r.def_points-avgDef; return `<td class="num ${c.hide} ${d>=0?"pf-rel-pos":"pf-rel-neg"}">${d>=0?"+":""}${d.toFixed(1)}</td>`;
                 }
                 if (isRel && c.key === "potential_points") {
-                  var wp = hasWeekly ? weeksPlayed(r.franchise_id, state.weeklyScores, rng[0], rng[1]) : 0;
-                  if (wp > 0) { var d=(r.potential_points/wp)-(avgPP/leagueWeeks); return `<td class="num ${c.hide} ${d>=0?"pf-rel-pos":"pf-rel-neg"}">${d>=0?"+":""}${d.toFixed(1)} /wk</td>`; }
                   var d=r.potential_points-avgPP; return `<td class="num ${c.hide} ${d>=0?"pf-rel-pos":"pf-rel-neg"}">${d>=0?"+":""}${d.toFixed(1)}</td>`;
                 }
                 return `<td class="num ${c.hide}">${fmtNum(r[c.key])}</td>`;
