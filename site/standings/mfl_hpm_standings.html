@@ -251,6 +251,29 @@
     .div-dd-wlt { font-variant-numeric: tabular-nums; font-weight: 700; }
     .pf-rel-pos { color: #a5d6a7; }
     .pf-rel-neg { color: #ef9a9a; }
+    /* Range Selector */
+    .range-selector {
+      display: inline-flex; gap: 0; border-radius: 999px; overflow: hidden;
+      border: 1px solid var(--line); margin-left: auto;
+    }
+    .range-btn {
+      border: none; background: #0e2c58; color: var(--muted);
+      padding: 5px 12px; font-size: 11px; font-weight: 700;
+      cursor: pointer; white-space: nowrap;
+      border-right: 1px solid var(--line);
+    }
+    .range-btn:last-child { border-right: none; }
+    .range-btn.active { background: #1a4a7a; color: var(--text); }
+    /* Points sub-tabs */
+    .points-tabs {
+      display: flex; gap: 0; margin: 0 12px; border-bottom: 2px solid var(--line);
+    }
+    .points-tab {
+      background: transparent; border: none; color: var(--muted);
+      padding: 6px 14px; font-size: 12px; font-weight: 700; cursor: pointer;
+      border-bottom: 2px solid transparent; margin-bottom: -2px;
+    }
+    .points-tab.active { color: var(--gold); border-bottom-color: var(--gold); }
     /* Playoff Preview Module */
     .po-module { padding: 10px 12px; }
     .po-section { margin-bottom: 16px; }
@@ -439,6 +462,11 @@
           <label class="field">Season
             <select id="seasonSelect" class="select"></select>
           </label>
+          <div class="range-selector" id="rangeSelector">
+            <button class="range-btn active" data-range="regular">Regular (1-14)</button>
+            <button class="range-btn" data-range="playoffs">Playoffs (15-17)</button>
+            <button class="range-btn" data-range="full">Full (1-17)</button>
+          </div>
           <label id="showLeadersWrap" class="toggleWrap" style="display:none;">
             <input id="showLeadersChk" type="checkbox" />
             Show Division Leaders
@@ -494,6 +522,12 @@
         divMode: "raw",
         pointsMode: "raw",
         expandedRow: null,
+        weeklyScores: {},
+        weeklyMatchups: {},
+        range: "regular",
+        ddMode: "h2h",
+        expandedMatchup: null,
+        pointsTab: "points",
       };
 
       function pctFromWlt(o) {
@@ -533,6 +567,35 @@
         return (allRows || []).filter(function (r) {
           return r.division === row.division && r.franchise_id !== row.franchise_id;
         });
+      }
+
+      function weeksPlayed(franchiseId, ws, startWeek, endWeek) {
+        var count = 0;
+        for (var w = startWeek; w <= endWeek; w++) {
+          var wk = (ws || {})[String(w)] || {};
+          if (n(wk[franchiseId], 0) > 0) count++;
+        }
+        return count;
+      }
+
+      function computeAllPlayVsOpp(teamId, oppId, ws, startWeek, endWeek) {
+        var w = 0, l = 0, t = 0;
+        for (var wk = startWeek; wk <= endWeek; wk++) {
+          var scores = (ws || {})[String(wk)] || {};
+          var ts = n(scores[teamId], -1);
+          var os = n(scores[oppId], -1);
+          if (ts < 0 || os < 0) continue;
+          if (ts > os) w++;
+          else if (ts < os) l++;
+          else t++;
+        }
+        return { w: w, l: l, t: t };
+      }
+
+      function rangeWeeks(range) {
+        if (range === "playoffs") return [15, 17];
+        if (range === "full") return [1, 17];
+        return [1, 14]; // "regular" default
       }
 
       function normalizeRows(rows) {
@@ -586,6 +649,23 @@
         return null;
       }
 
+      function cleanupBeforeRender() {
+        // Tear down custom module DOM
+        var dm = document.querySelector(".div-module");
+        if (dm) dm.remove();
+        var pm = document.querySelector(".po-module");
+        if (pm) pm.remove();
+        var tbl = document.querySelector("table");
+        if (tbl) tbl.style.display = "";
+        $("#thead").innerHTML = "";
+        $("#tbody").innerHTML = "";
+        // Reset sub-view state
+        state.expandedRow = null;
+        state.expandedMatchup = null;
+        state.divMode = "raw";
+        state.pointsMode = "raw";
+      }
+
       async function loadSeason(year, allowFallback) {
         const y = Number(year) || YEAR;
         let payload = await fetchSeasonSnapshot(state.sourceLeagueId, state.leagueId, y);
@@ -598,6 +678,9 @@
           state.rows = [];
           state.meta = {};
           state.season = y;
+          state.weeklyScores = {};
+          state.weeklyMatchups = {};
+          cleanupBeforeRender();
           render();
           return;
         }
@@ -616,9 +699,12 @@
         state.rows = rows;
         state.meta = payload && payload.meta ? payload.meta : {};
         state.season = loadedYear;
+        state.weeklyScores = payload && payload.weeklyScores ? payload.weeklyScores : {};
+        state.weeklyMatchups = payload && payload.weeklyMatchups ? payload.weeklyMatchups : {};
 
         const seasonSelect = $("#seasonSelect");
         if (seasonSelect) seasonSelect.value = String(loadedYear);
+        cleanupBeforeRender();
         render();
       }
 
@@ -996,11 +1082,51 @@
           pointsToggleWrap.style.display = "none";
         }
 
+        // Points sub-tabs: Points | Weekly High Scorer
+        var pointsTabWrap = document.getElementById("pointsTabWrap");
+        if (view === "points") {
+          if (!pointsTabWrap) {
+            pointsTabWrap = document.createElement("div");
+            pointsTabWrap.id = "pointsTabWrap";
+            pointsTabWrap.className = "points-tabs";
+            pointsTabWrap.innerHTML =
+              '<button class="points-tab' + (state.pointsTab === "points" ? " active" : "") + '" data-pts-tab="points">Points</button>'
+              + '<button class="points-tab' + (state.pointsTab === "highscorer" ? " active" : "") + '" data-pts-tab="highscorer">Weekly High Scorer</button>';
+            $(".tableWrap").insertBefore(pointsTabWrap, $("table"));
+          } else {
+            pointsTabWrap.style.display = "";
+            pointsTabWrap.querySelectorAll(".points-tab").forEach(function (b) {
+              b.classList.toggle("active", b.getAttribute("data-pts-tab") === state.pointsTab);
+            });
+          }
+        } else if (pointsTabWrap) {
+          pointsTabWrap.style.display = "none";
+        }
+
+        // If High Scorer tab active, delegate to that renderer
+        if (view === "points" && state.pointsTab === "highscorer") {
+          if (pointsToggleWrap) pointsToggleWrap.style.display = "none";
+          renderWeeklyHighScorer();
+          return;
+        }
+
         const isRel = view === "points" && state.pointsMode === "rel";
+        const rng = rangeWeeks(state.range);
         const avgPF = isRel ? leagueAvgPF(state.rows || []) : 0;
         const avgOff = isRel ? (function () { var s=0; (state.rows||[]).forEach(function(r){s+=n(r.off_points,0);}); return s/((state.rows||[]).length||1); })() : 0;
         const avgDef = isRel ? (function () { var s=0; (state.rows||[]).forEach(function(r){s+=n(r.def_points,0);}); return s/((state.rows||[]).length||1); })() : 0;
         const avgPP = isRel ? (function () { var s=0; (state.rows||[]).forEach(function(r){s+=n(r.potential_points,0);}); return s/((state.rows||[]).length||1); })() : 0;
+        // Compute league-wide avg weeks played for per-week delta
+        const hasWeekly = isRel && Object.keys(state.weeklyScores).length > 0;
+        var leagueWeeks = 1;
+        if (hasWeekly) {
+          var twp = 0, tc = 0;
+          (state.rows || []).forEach(function (r) {
+            var wp = weeksPlayed(r.franchise_id, state.weeklyScores, rng[0], rng[1]);
+            if (wp > 0) { twp += wp; tc++; }
+          });
+          leagueWeeks = tc > 0 ? twp / tc : 1;
+        }
 
         const cols = view === "records"
           ? [
@@ -1018,11 +1144,11 @@
             ]
           : [
               { key: "franchise", label: "Franchise", hide: "" },
-              { key: "points_for", label: isRel ? "PF vs Avg" : "PF", hide: "" },
-              { key: "off_points", label: isRel ? "Off vs Avg" : "Off Pts", hide: "hide-mobile-sm" },
-              { key: "def_points", label: isRel ? "Def vs Avg" : "Def Pts", hide: "hide-mobile" },
-              { key: "potential_points", label: isRel ? "PP vs Avg" : "Potential", hide: "hide-mobile" },
-              { key: "efficiency", label: "Efficiency", hide: "hide-mobile-sm" },
+              { key: "points_for", label: isRel ? (hasWeekly ? "PF/wk vs Avg" : "PF vs Avg") : "PF", hide: "" },
+              { key: "off_points", label: isRel ? (hasWeekly ? "Off/wk vs Avg" : "Off vs Avg") : "Off Pts", hide: "" },
+              { key: "def_points", label: isRel ? (hasWeekly ? "Def/wk vs Avg" : "Def vs Avg") : "Def Pts", hide: "" },
+              { key: "potential_points", label: isRel ? (hasWeekly ? "PP/wk vs Avg" : "PP vs Avg") : "Potential", hide: "hide-mobile" },
+              { key: "efficiency", label: "Efficiency", hide: "hide-mobile" },
             ];
 
         $("#thead").innerHTML = `<tr>${cols.map((c) => {
@@ -1044,16 +1170,86 @@
                 if (c.key === "all_play_pct") return `<td class="num ${c.hide}">${fmtPct(r.all_play_pct)}</td>`;
                 if (c.key === "overall_pct") return `<td class="num ${c.hide}">${fmtPct(r.overall_pct)}</td>`;
                 if (c.key === "divisional_pct") return `<td class="num ${c.hide}">${fmtPct(r.divisional_pct)}</td>`;
-                if (isRel && c.key === "points_for") { var d=r.points_for-avgPF; return `<td class="num ${c.hide} ${d>=0?"pf-rel-pos":"pf-rel-neg"}">${d>=0?"+":""}${d.toFixed(1)}</td>`; }
-                if (isRel && c.key === "off_points") { var d=r.off_points-avgOff; return `<td class="num ${c.hide} ${d>=0?"pf-rel-pos":"pf-rel-neg"}">${d>=0?"+":""}${d.toFixed(1)}</td>`; }
-                if (isRel && c.key === "def_points") { var d=r.def_points-avgDef; return `<td class="num ${c.hide} ${d>=0?"pf-rel-pos":"pf-rel-neg"}">${d>=0?"+":""}${d.toFixed(1)}</td>`; }
-                if (isRel && c.key === "potential_points") { var d=r.potential_points-avgPP; return `<td class="num ${c.hide} ${d>=0?"pf-rel-pos":"pf-rel-neg"}">${d>=0?"+":""}${d.toFixed(1)}</td>`; }
+                if (isRel && c.key === "points_for") {
+                  var wp = hasWeekly ? weeksPlayed(r.franchise_id, state.weeklyScores, rng[0], rng[1]) : 0;
+                  if (wp > 0) { var d=(r.points_for/wp)-(avgPF/leagueWeeks); return `<td class="num ${c.hide} ${d>=0?"pf-rel-pos":"pf-rel-neg"}">${d>=0?"+":""}${d.toFixed(1)} /wk</td>`; }
+                  var d=r.points_for-avgPF; return `<td class="num ${c.hide} ${d>=0?"pf-rel-pos":"pf-rel-neg"}">${d>=0?"+":""}${d.toFixed(1)}</td>`;
+                }
+                if (isRel && c.key === "off_points") {
+                  var wp = hasWeekly ? weeksPlayed(r.franchise_id, state.weeklyScores, rng[0], rng[1]) : 0;
+                  if (wp > 0) { var d=(r.off_points/wp)-(avgOff/leagueWeeks); return `<td class="num ${c.hide} ${d>=0?"pf-rel-pos":"pf-rel-neg"}">${d>=0?"+":""}${d.toFixed(1)} /wk</td>`; }
+                  var d=r.off_points-avgOff; return `<td class="num ${c.hide} ${d>=0?"pf-rel-pos":"pf-rel-neg"}">${d>=0?"+":""}${d.toFixed(1)}</td>`;
+                }
+                if (isRel && c.key === "def_points") {
+                  var wp = hasWeekly ? weeksPlayed(r.franchise_id, state.weeklyScores, rng[0], rng[1]) : 0;
+                  if (wp > 0) { var d=(r.def_points/wp)-(avgDef/leagueWeeks); return `<td class="num ${c.hide} ${d>=0?"pf-rel-pos":"pf-rel-neg"}">${d>=0?"+":""}${d.toFixed(1)} /wk</td>`; }
+                  var d=r.def_points-avgDef; return `<td class="num ${c.hide} ${d>=0?"pf-rel-pos":"pf-rel-neg"}">${d>=0?"+":""}${d.toFixed(1)}</td>`;
+                }
+                if (isRel && c.key === "potential_points") {
+                  var wp = hasWeekly ? weeksPlayed(r.franchise_id, state.weeklyScores, rng[0], rng[1]) : 0;
+                  if (wp > 0) { var d=(r.potential_points/wp)-(avgPP/leagueWeeks); return `<td class="num ${c.hide} ${d>=0?"pf-rel-pos":"pf-rel-neg"}">${d>=0?"+":""}${d.toFixed(1)} /wk</td>`; }
+                  var d=r.potential_points-avgPP; return `<td class="num ${c.hide} ${d>=0?"pf-rel-pos":"pf-rel-neg"}">${d>=0?"+":""}${d.toFixed(1)}</td>`;
+                }
                 return `<td class="num ${c.hide}">${fmtNum(r[c.key])}</td>`;
               })
               .join("");
             return `<tr>${row}</tr>`;
           })
           .join("");
+      }
+
+      function renderWeeklyHighScorer() {
+        var ws = state.weeklyScores || {};
+        var franchiseHighWeeks = {}; // {fid: [{week, score}, ...]}
+
+        // Weeks 1-14 only (regular season)
+        for (var w = 1; w <= 14; w++) {
+          var weekData = ws[String(w)] || {};
+          var maxScore = -1;
+          var maxFids = [];
+          Object.keys(weekData).forEach(function (fid) {
+            var sc = n(weekData[fid], 0);
+            if (sc > maxScore) { maxScore = sc; maxFids = [fid]; }
+            else if (sc === maxScore && sc > 0) { maxFids.push(fid); }
+          });
+          maxFids.forEach(function (fid) {
+            if (!franchiseHighWeeks[fid]) franchiseHighWeeks[fid] = [];
+            franchiseHighWeeks[fid].push({ week: w, score: maxScore });
+          });
+        }
+
+        var ranked = (state.rows || []).map(function (r) {
+          var hw = franchiseHighWeeks[r.franchise_id] || [];
+          return { ...r, highWeeks: hw, highCount: hw.length, winnings: hw.length * 30 };
+        });
+        ranked.sort(function (a, b) {
+          return b.highCount - a.highCount || b.points_for - a.points_for;
+        });
+
+        $("#thead").innerHTML = '<tr>'
+          + '<th>Team</th>'
+          + '<th>High-Score Weeks</th>'
+          + '<th class="num">Count</th>'
+          + '<th class="num">Winnings</th>'
+          + '</tr>';
+
+        var noData = Object.keys(ws).length === 0;
+        if (noData) {
+          $("#tbody").innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:20px;">Weekly score data not available. Regenerate standings snapshot to enable this feature.</td></tr>';
+          return;
+        }
+
+        $("#tbody").innerHTML = ranked.map(function (r) {
+          var weeksStr = r.highWeeks.map(function (hw) {
+            return 'Wk' + hw.week + ' (' + fmtNum(hw.score) + ')';
+          }).join(', ') || '&mdash;';
+          return '<tr>'
+            + '<td>' + iconFranchiseCell(r) + '</td>'
+            + '<td style="white-space:normal;font-size:12px;">' + weeksStr + '</td>'
+            + '<td class="num">' + r.highCount + '</td>'
+            + '<td class="num">$' + fmtNum(r.winnings) + '</td>'
+            + '</tr>';
+        }).join('');
       }
 
       function renderDivisionRace() {
@@ -1138,23 +1334,39 @@
                 + '</tr>';
             }
 
-            // Dropdown row (full H2H vs all opponents)
+            // Dropdown row (H2H or All-Play vs all opponents)
             var ddColspan = isPct ? 5 : 6;
             var ddStyle = isExpanded ? ' class="div-dropdown open"' : ' class="div-dropdown"';
+            var isAP = state.ddMode === "allplay";
+            var ddTitle = isAP ? "All-Play vs Opponent — " : "All H2H Records — ";
+            var rng = rangeWeeks(state.range);
             bodyRows += '<tr' + ddStyle + ' data-dd-fid="' + esc(fid) + '">'
               + '<td colspan="' + ddColspan + '">'
               + '<div class="div-dropdown-inner">'
-              + '<div class="div-dropdown-title">All H2H Records — ' + esc(r.franchise_name) + '</div>'
+              + '<div class="div-module-controls" style="margin-bottom:6px">'
+              + '<button class="btn dd-mode-toggle' + (!isAP ? " active" : "") + '" data-dd-mode="h2h">H2H</button>'
+              + '<button class="btn dd-mode-toggle' + (isAP ? " active" : "") + '" data-dd-mode="allplay">All-Play</button>'
+              + '</div>'
+              + '<div class="div-dropdown-title">' + ddTitle + esc(r.franchise_name) + '</div>'
               + '<div class="div-dd-grid">';
 
             // All opponents sorted by name
             var opps = allRows.filter(function (o) { return o.franchise_id !== fid; })
               .slice().sort(function (a, b) { return safe(a.franchise_name).localeCompare(safe(b.franchise_name)); });
             opps.forEach(function (opp) {
-              var rec = (r.h2h || {})[opp.franchise_id];
-              var wlt = rec && n(rec.games, 0) > 0 ? (n(rec.w,0) + '-' + n(rec.l,0) + '-' + n(rec.t,0)) : '—';
-              var p = rec ? n(rec.pct, 0.5) : 0.5;
-              var cls = (!rec || n(rec.games,0) === 0) ? "" : (p > 0.5 ? "h2h-w" : p < 0.5 ? "h2h-l" : "h2h-e");
+              var wlt, p, cls;
+              if (isAP && Object.keys(state.weeklyScores).length > 0) {
+                var apRec = computeAllPlayVsOpp(fid, opp.franchise_id, state.weeklyScores, rng[0], rng[1]);
+                var apGames = apRec.w + apRec.l + apRec.t;
+                wlt = apGames > 0 ? (apRec.w + '-' + apRec.l + '-' + apRec.t) : '—';
+                p = apGames > 0 ? (apRec.w + 0.5 * apRec.t) / apGames : 0.5;
+                cls = apGames === 0 ? "" : (p > 0.5 ? "h2h-w" : p < 0.5 ? "h2h-l" : "h2h-e");
+              } else {
+                var rec = (r.h2h || {})[opp.franchise_id];
+                wlt = rec && n(rec.games, 0) > 0 ? (n(rec.w,0) + '-' + n(rec.l,0) + '-' + n(rec.t,0)) : '—';
+                p = rec ? n(rec.pct, 0.5) : 0.5;
+                cls = (!rec || n(rec.games,0) === 0) ? "" : (p > 0.5 ? "h2h-w" : p < 0.5 ? "h2h-l" : "h2h-e");
+              }
               var divTag = opp.division === r.division ? ' ★' : '';
               bodyRows += '<div class="div-dd-rec">'
                 + '<span class="div-dd-opp">' + esc(opp.franchise_name) + divTag + '</span>'
@@ -1216,15 +1428,77 @@
             + '</div>';
         }
 
-        // Helper: build a matchup card
+        // Helper: build a matchup card (clickable with dropdown)
         function matchupCard(a, b) {
-          return '<div class="po-matchup">'
+          var mkey = a.franchise_id + "-" + b.franchise_id;
+          var isExp = state.expandedMatchup === mkey;
+          var card = '<div class="po-matchup po-matchup-clickable" data-matchup="' + esc(mkey) + '" style="cursor:pointer">'
             + '<span class="po-matchup-seed">#' + a._po_seed + '</span>'
             + '<span class="po-matchup-team">' + esc(a.franchise_name) + '</span>'
             + '<span class="po-matchup-vs">VS</span>'
             + '<span class="po-matchup-team" style="text-align:right">' + esc(b.franchise_name) + '</span>'
             + '<span class="po-matchup-seed">#' + b._po_seed + '</span>'
             + '</div>';
+          if (isExp) {
+            card += matchupDropdown(a, b);
+          }
+          return card;
+        }
+
+        // Expanded dropdown for a matchup: reg-season meetings + tale of the tape
+        function matchupDropdown(a, b) {
+          var dd = '<div style="padding:8px 10px; background:rgba(5,24,52,0.7); border:1px solid var(--line); border-top:none; border-radius:0 0 8px 8px; margin-top:-7px; margin-bottom:6px;">';
+          // Regular season meetings (weeks 1-14)
+          dd += '<div class="div-dropdown-title">Regular Season Meetings</div>';
+          var meetings = 0;
+          for (var w = 1; w <= 14; w++) {
+            var wm = (state.weeklyMatchups || {})[String(w)] || [];
+            for (var mi = 0; mi < wm.length; mi++) {
+              var m = wm[mi];
+              var aScore = -1, bScore = -1;
+              if (m.home === a.franchise_id && m.away === b.franchise_id) {
+                aScore = m.homeScore; bScore = m.awayScore;
+              } else if (m.home === b.franchise_id && m.away === a.franchise_id) {
+                aScore = m.awayScore; bScore = m.homeScore;
+              }
+              if (aScore >= 0) {
+                var winCls = aScore > bScore ? "pf-rel-pos" : aScore < bScore ? "pf-rel-neg" : "";
+                dd += '<div style="font-size:12px; padding:2px 0; border-bottom:1px solid rgba(42,79,134,0.2);">'
+                  + 'Week ' + w + ': <span class="' + winCls + '">' + esc(a.franchise_name) + ' ' + fmtNum(aScore) + '</span>'
+                  + ' &ndash; <span class="' + (aScore < bScore ? "pf-rel-pos" : aScore > bScore ? "pf-rel-neg" : "") + '">'
+                  + fmtNum(bScore) + ' ' + esc(b.franchise_name) + '</span></div>';
+                meetings++;
+              }
+            }
+          }
+          if (meetings === 0) {
+            dd += '<div class="po-bye-note">No regular-season meetings found.</div>';
+          }
+          // Tale of the tape: per-week averages
+          var rng = rangeWeeks(state.range);
+          var aWp = weeksPlayed(a.franchise_id, state.weeklyScores, 1, 14);
+          var bWp = weeksPlayed(b.franchise_id, state.weeklyScores, 1, 14);
+          if (aWp > 0 && bWp > 0) {
+            dd += '<div class="div-dropdown-title" style="margin-top:8px;">Tale of the Tape (per week, regular season)</div>';
+            dd += '<table class="div-table" style="margin-bottom:0;"><thead><tr>'
+              + '<th></th><th class="num">' + esc(a.franchise_name) + '</th>'
+              + '<th class="num">' + esc(b.franchise_name) + '</th></tr></thead><tbody>';
+            var stats = [
+              ["PF/wk", a.points_for / aWp, b.points_for / bWp],
+              ["OP/wk", a.off_points / aWp, b.off_points / bWp],
+              ["DP/wk", a.def_points / aWp, b.def_points / bWp],
+            ];
+            stats.forEach(function (s) {
+              var aCls = s[1] > s[2] ? "pf-rel-pos" : s[1] < s[2] ? "pf-rel-neg" : "";
+              var bCls = s[2] > s[1] ? "pf-rel-pos" : s[2] < s[1] ? "pf-rel-neg" : "";
+              dd += '<tr><td style="font-size:12px;">' + s[0] + '</td>'
+                + '<td class="num ' + aCls + '" style="font-size:12px;">' + fmtNum(s[1]) + '</td>'
+                + '<td class="num ' + bCls + '" style="font-size:12px;">' + fmtNum(s[2]) + '</td></tr>';
+            });
+            dd += '</tbody></table>';
+          }
+          dd += '</div>';
+          return dd;
         }
 
         var html = "";
@@ -1368,6 +1642,10 @@
         document.querySelectorAll(".btn[data-view]").forEach((b) => {
           b.classList.toggle("active", b.getAttribute("data-view") === state.view);
         });
+        // Update range selector active state
+        document.querySelectorAll(".range-btn").forEach(function (b) {
+          b.classList.toggle("active", b.getAttribute("data-range") === state.range);
+        });
         const showLeadersWrap = $("#showLeadersWrap");
         if (showLeadersWrap) showLeadersWrap.style.display = state.view === "wildcard" ? "" : "none";
         const tbl = document.querySelector("table");
@@ -1383,6 +1661,15 @@
         if (prevPoMod && state.view !== "playoff") {
           prevPoMod.remove();
           if (tbl) tbl.style.display = "";
+        }
+        // Hide points-mode toggle and sub-tabs when not in Points Breakdown
+        var ptsModeEl = document.getElementById("pointsModeWrap");
+        if (ptsModeEl && state.view !== "points") {
+          ptsModeEl.style.display = "none";
+        }
+        var ptsTabEl = document.getElementById("pointsTabWrap");
+        if (ptsTabEl && state.view !== "points") {
+          ptsTabEl.style.display = "none";
         }
 
         if (state.view === "records" || state.view === "pct" || state.view === "points") {
@@ -1402,6 +1689,35 @@
       }
 
       document.addEventListener("click", (e) => {
+        // Range selector
+        var rangeBtn = e.target && e.target.closest ? e.target.closest(".range-btn") : null;
+        if (rangeBtn) {
+          state.range = safe(rangeBtn.getAttribute("data-range") || "regular");
+          render();
+          return;
+        }
+        // Dropdown mode toggle (H2H ↔ All-Play)
+        var ddModeBtn = e.target && e.target.closest ? e.target.closest(".dd-mode-toggle") : null;
+        if (ddModeBtn) {
+          state.ddMode = safe(ddModeBtn.getAttribute("data-dd-mode") || "h2h");
+          render();
+          return;
+        }
+        // Playoff matchup expand/collapse
+        var poMatchup = e.target && e.target.closest ? e.target.closest(".po-matchup-clickable") : null;
+        if (poMatchup) {
+          var mkey = safe(poMatchup.getAttribute("data-matchup"));
+          state.expandedMatchup = state.expandedMatchup === mkey ? null : mkey;
+          render();
+          return;
+        }
+        // Points sub-tab
+        var ptsTab = e.target && e.target.closest ? e.target.closest(".points-tab") : null;
+        if (ptsTab) {
+          state.pointsTab = safe(ptsTab.getAttribute("data-pts-tab") || "points");
+          render();
+          return;
+        }
         // Division module: RAW ↔ % toggle
         const divToggle = e.target && e.target.closest ? e.target.closest(".div-toggle") : null;
         if (divToggle) {
@@ -1440,6 +1756,9 @@
           state.sortKey = "franchise";
           state.sortDir = "asc";
           state.expandedRow = null;
+          state.expandedMatchup = null;
+          state.pointsTab = "points";
+          state.ddMode = "h2h";
           render();
           return;
         }
