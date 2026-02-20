@@ -5356,6 +5356,68 @@
     }
   }
 
+  function buildSubmissionId(prefix, payload) {
+    const seed = [
+      safeStr(prefix),
+      safeStr(payload && payload.L),
+      safeStr(payload && payload.YEAR),
+      safeStr(payload && payload.player_id),
+      safeStr(payload && payload.salary),
+      safeStr(payload && payload.contract_year),
+      safeStr(payload && payload.submitted_at_utc),
+    ].join("|");
+    let hash = 0;
+    for (let i = 0; i < seed.length; i += 1) {
+      hash = (hash * 31 + seed.charCodeAt(i)) | 0;
+    }
+    return `${safeStr(prefix) || "ccc"}-${Math.abs(hash).toString(36)}`;
+  }
+
+  async function fetchWithTimeout(url, options, timeoutMs) {
+    const ms = Math.max(1000, safeInt(timeoutMs || 15000));
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), ms);
+    try {
+      return await fetch(url, { ...(options || {}), signal: controller.signal });
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  function parseMutationResult(text) {
+    try {
+      const out = text ? JSON.parse(text) : {};
+      const details =
+        out && typeof out.details === "object" && out.details ? out.details : {};
+      return {
+        raw: out || {},
+        status: safeStr(out && out.status).toLowerCase(),
+        submission_id: safeStr(out && out.submission_id),
+        details,
+      };
+    } catch (e) {
+      return { raw: {}, status: "", submission_id: "", details: {} };
+    }
+  }
+
+  function isMutationSuccessStatus(status) {
+    return status === "import_ok_log_dispatched" || status === "import_ok_log_failed";
+  }
+
+  function getMutationErrorMessage(status, details, fallbackText, httpStatus) {
+    const reason = safeStr(details && details.reason);
+    const upstreamPreview = safeStr(details && details.upstreamPreview).slice(0, 280);
+    if (status === "validation_fail") return reason || "Validation failed.";
+    if (status === "import_rejected") return reason || upstreamPreview || "MFL import rejected request.";
+    if (status === "import_no_change") return reason || "No contract change detected after import.";
+    if (status === "verify_unavailable")
+      return reason || "Import submitted but verification export was unavailable.";
+    if (reason) return reason;
+    if (upstreamPreview) return upstreamPreview;
+    if (fallbackText) return safeStr(fallbackText).slice(0, 280);
+    return `Request failed (HTTP ${httpStatus || 0})`;
+  }
+
   async function submitCommishContractUpdate() {
     if (!state.canCommishMode || !state.commishMode) return;
     const row = getCommishSelectedRow();
@@ -5394,6 +5456,7 @@
       commish_override_flag: state.asOfOverrideActive ? 1 : 0,
       override_as_of_date: state.asOfOverrideActive && state.asOfDate ? fmtLocalYMDHM(state.asOfDate) : "",
     };
+    payload.submission_id = buildSubmissionId("commish", payload);
 
     const btn = $("#commishApplyBtn");
     if (btn) {
@@ -5405,38 +5468,42 @@
     try {
       const url =
         `${COMMISH_CONTRACT_UPDATE_URL}?L=${encodeURIComponent(L)}&YEAR=${encodeURIComponent(YEAR)}`;
-      let res = await fetch(url, {
+      let res = await fetchWithTimeout(
+        url,
+        {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
-      });
+        },
+        15000
+      );
       if (!res.ok) {
         const form = new URLSearchParams();
         Object.entries(payload).forEach(([k, v]) => form.set(k, String(v)));
-        res = await fetch(url, {
-          method: "POST",
-          headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
-          body: form.toString(),
-        });
+        res = await fetchWithTimeout(
+          url,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
+            body: form.toString(),
+          },
+          15000
+        );
       }
 
       const text = await res.text();
-      let out = {};
-      try {
-        out = text ? JSON.parse(text) : {};
-      } catch (_) {}
+      const parsed = parseMutationResult(text);
+      const out = parsed.raw;
+      const status = parsed.status;
+      const details = parsed.details;
 
-      if (!res.ok || out.ok !== true) {
-        const msg =
-          safeStr(out.reason) ||
-          safeStr(out.error) ||
-          safeStr(out.upstreamPreview).slice(0, 220) ||
-          `Update failed (HTTP ${res.status})`;
+      if (!res.ok || !isMutationSuccessStatus(status)) {
+        const msg = getMutationErrorMessage(status, details, text, res.status);
         setCommishMessage(msg, true);
         return;
       }
 
-      const post = (out && out.postCheck) || {};
+      const post = (details && details.postCheck) || (out && out.postCheck) || {};
       const salaryFinal = safeInt(post.salary || payload.salary);
       const yearFinal = safeInt(post.contractYear || payload.contract_year);
       const statusFinal = safeStr(post.contractStatus || payload.contract_status);
@@ -5451,7 +5518,12 @@
       });
 
       state.commishFormDirty = false;
-      setCommishMessage(`Saved ${safeStr(row.player_name)} successfully.`, false);
+      const okMsg =
+        safeStr(details.reason) ||
+        (status === "import_ok_log_failed"
+          ? `Saved ${safeStr(row.player_name)} (log dispatch failed).`
+          : `Saved ${safeStr(row.player_name)} successfully.`);
+      setCommishMessage(okMsg, false);
       render();
     } catch (e) {
       setCommishMessage(safeStr(e && e.message ? e.message : e), true);
@@ -6640,6 +6712,7 @@
     source: canLiveSubmit ? "live-submit" : "local-test-submit",
     test_mode: canLiveSubmit ? 0 : 1,
   };
+  payload.submission_id = buildSubmissionId("mym", payload);
 
   if (!canLiveSubmit) {
     const testInfo = `${safeStr(payload.contract_info)}${payload.contract_info ? " | " : ""}TEST MODE`;
@@ -6671,39 +6744,40 @@
     const url =
       `${OFFER_MYM_URL}?L=${encodeURIComponent(L)}&YEAR=${encodeURIComponent(YEAR)}`;
 
-    let res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
+    let res = await fetchWithTimeout(
+      url,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      },
+      15000
+    );
 
     // Fallback for endpoints that parse form bodies instead of JSON.
     if (!res.ok) {
       const form = new URLSearchParams();
       Object.entries(payload).forEach(([k, v]) => form.set(k, String(v)));
-      res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
-        body: form.toString()
-      });
+      res = await fetchWithTimeout(
+        url,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
+          body: form.toString()
+        },
+        15000
+      );
     }
 
     // Worker might return JSON OR text on error
     const text = await res.text();
-    let out = {};
-    try { out = text ? JSON.parse(text) : {}; } catch (_) {}
+    const parsed = parseMutationResult(text);
+    const out = parsed.raw;
+    const status = parsed.status;
+    const details = parsed.details;
 
-    if (!res.ok || out.ok !== true) {
-      const msg =
-        (out &&
-          (out.error ||
-            (out.reason
-              ? out.upstreamPreview
-                ? `${out.reason}: ${String(out.upstreamPreview).slice(0, 280)}`
-                : out.reason
-              : ""))) ||
-        (text && text.slice(0, 300)) ||
-        `Submit failed (HTTP ${res.status})`;
+    if (!res.ok || !isMutationSuccessStatus(status)) {
+      const msg = getMutationErrorMessage(status, details, text, res.status);
 
       if (err) {
         err.style.display = "";
@@ -6712,17 +6786,25 @@
       return; // do NOT close modal on failure
     }
 
-    if (out && out.preCheck) {
-      console.log("[MYM preCheck]", out.preCheck);
+    if (details && details.preCheck) {
+      console.log("[MYM preCheck]", details.preCheck);
     }
-    if (out && out.postCheck) {
-      console.log("[MYM postCheck]", out.postCheck);
+    if (details && details.postCheck) {
+      console.log("[MYM postCheck]", details.postCheck);
     }
-    if (out && out.submitDebug) {
-      console.log("[MYM submitDebug]", out.submitDebug);
+    if (details && details.submitDebug) {
+      console.log("[MYM submitDebug]", details.submitDebug);
+    }
+    if (status === "import_ok_log_failed") {
+      console.warn("[MYM] Import succeeded but log dispatch failed", details);
     }
 
-    applyPostSubmitLocalUpdate(row, payload, out);
+    applyPostSubmitLocalUpdate(row, payload, {
+      ...out,
+      postCheck: (details && details.postCheck) || out.postCheck,
+      preCheck: (details && details.preCheck) || out.preCheck,
+      submitDebug: (details && details.submitDebug) || out.submitDebug,
+    });
     closeMYMModal();
     render();
   } catch (e) {
@@ -7005,6 +7087,7 @@
       source: canLiveSubmit ? "live-restructure-submit" : "local-test-restructure-submit",
       test_mode: canLiveSubmit ? 0 : 1,
     };
+    payload.submission_id = buildSubmissionId("restructure", payload);
 
     if (!canLiveSubmit) {
       const testInfo = `${safeStr(payload.contract_info)}${payload.contract_info ? " | " : ""}TEST MODE`;
@@ -7030,39 +7113,38 @@
     try {
       const url =
         `${OFFER_RESTRUCTURE_URL}?L=${encodeURIComponent(L)}&YEAR=${encodeURIComponent(YEAR)}`;
-      let res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      let res = await fetchWithTimeout(
+        url,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        },
+        15000
+      );
 
       if (!res.ok) {
         const form = new URLSearchParams();
         Object.entries(payload).forEach(([k, v]) => form.set(k, String(v)));
-        res = await fetch(url, {
-          method: "POST",
-          headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
-          body: form.toString(),
-        });
+        res = await fetchWithTimeout(
+          url,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
+            body: form.toString(),
+          },
+          15000
+        );
       }
 
       const text = await res.text();
-      let out = {};
-      try {
-        out = text ? JSON.parse(text) : {};
-      } catch (_) {}
+      const parsed = parseMutationResult(text);
+      const out = parsed.raw;
+      const status = parsed.status;
+      const details = parsed.details;
 
-      if (!res.ok || out.ok !== true) {
-        const msg =
-          (out &&
-            (out.error ||
-              (out.reason
-                ? out.upstreamPreview
-                  ? `${out.reason}: ${String(out.upstreamPreview).slice(0, 280)}`
-                  : out.reason
-                : ""))) ||
-          (text && text.slice(0, 300)) ||
-          `Submit failed (HTTP ${res.status})`;
+      if (!res.ok || !isMutationSuccessStatus(status)) {
+        const msg = getMutationErrorMessage(status, details, text, res.status);
         if (err) {
           err.style.display = "";
           err.textContent = msg;
@@ -7070,11 +7152,19 @@
         return;
       }
 
-      if (out && out.preCheck) console.log("[Restructure preCheck]", out.preCheck);
-      if (out && out.postCheck) console.log("[Restructure postCheck]", out.postCheck);
-      if (out && out.submitDebug) console.log("[Restructure submitDebug]", out.submitDebug);
+      if (details && details.preCheck) console.log("[Restructure preCheck]", details.preCheck);
+      if (details && details.postCheck) console.log("[Restructure postCheck]", details.postCheck);
+      if (details && details.submitDebug) console.log("[Restructure submitDebug]", details.submitDebug);
+      if (status === "import_ok_log_failed") {
+        console.warn("[Restructure] Import succeeded but log dispatch failed", details);
+      }
 
-      applyPostRestructureLocalUpdate(row, payload, out);
+      applyPostRestructureLocalUpdate(row, payload, {
+        ...out,
+        postCheck: (details && details.postCheck) || out.postCheck,
+        preCheck: (details && details.preCheck) || out.preCheck,
+        submitDebug: (details && details.submitDebug) || out.submitDebug,
+      });
       closeRestructureModal();
       render();
     } catch (e) {
