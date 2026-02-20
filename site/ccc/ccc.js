@@ -84,9 +84,13 @@
   // Cloudflare Worker: { ok:true, isAdmin:true/false, reason:"...", emailCount:n }
   const ADMIN_WORKER_URL = "https://upsmflproduction.keith-creelman.workers.dev/";
 
-  // Fallbacks if page URL lacks ?L= or YEAR=
-  const DEFAULT_LEAGUE_ID = "74598";
-  const DEFAULT_YEAR = "2026";
+  // Runtime defaults can be injected by host shell; avoid hard-coded league binding.
+  const DEFAULT_LEAGUE_ID = String(
+    window.UPS_CCC_DEFAULT_LEAGUE_ID || window.league_id || window.LEAGUE_ID || ""
+  ).trim();
+  const DEFAULT_YEAR = String(
+    window.UPS_CCC_DEFAULT_YEAR || window.year || window.YEAR || new Date().getFullYear()
+  ).trim();
   const APP_VERSION = "v1.0.2";
   const DEFAULT_RELEASE_LOG = [
     {
@@ -477,8 +481,8 @@
   }
 
   function hostThemeStorageKey() {
-    const y = safeStr(getYear() || DEFAULT_YEAR);
-    const l = safeStr(getLeagueId() || DEFAULT_LEAGUE_ID);
+    const y = safeStr(getResolvedYear() || DEFAULT_YEAR);
+    const l = safeStr(getResolvedLeagueId() || DEFAULT_LEAGUE_ID);
     return HOST_THEME_PREFIX + y + "_" + l;
   }
 
@@ -776,10 +780,15 @@
   function getLeagueId() {
     try {
       const u = new URL(window.location.href);
-      return u.searchParams.get("L") || "";
+      const q = safeStr(u.searchParams.get("L"));
+      if (q) return q;
     } catch (e) {
-      return "";
+      // fall through
     }
+    const globalLeague = safeStr(window.league_id || window.LEAGUE_ID || "");
+    if (globalLeague) return globalLeague;
+    const m = safeStr(window.location.pathname).match(/\/home\/(\d+)(?:\/|$)/i);
+    return m && m[1] ? m[1] : "";
   }
 
   function getYear() {
@@ -791,6 +800,24 @@
 
     const m = window.location.pathname.match(/\/(\d{4})\//);
     return m ? m[1] : DEFAULT_YEAR;
+  }
+
+  let runtimeContextCache = null;
+  function getRuntimeContext() {
+    if (runtimeContextCache) return runtimeContextCache;
+    runtimeContextCache = {
+      leagueId: safeStr(getLeagueId() || DEFAULT_LEAGUE_ID),
+      year: safeStr(getYear() || DEFAULT_YEAR),
+    };
+    return runtimeContextCache;
+  }
+
+  function getResolvedLeagueId() {
+    return getRuntimeContext().leagueId;
+  }
+
+  function getResolvedYear() {
+    return getRuntimeContext().year;
   }
 
   function detectFranchiseId() {
