@@ -14,20 +14,29 @@
     }
   }
 
+  const RUNTIME_DEFAULTS = {
+    leagueId: String(window.UPS_CCC_DEFAULT_LEAGUE_ID || "").trim(),
+    year: String(window.UPS_CCC_DEFAULT_YEAR || new Date().getFullYear()).trim(),
+  };
+
   function getLeagueId(u) {
-    if (!u) return "74598";
-    const q = u.searchParams.get("L");
+    const q = u ? String(u.searchParams.get("L") || "").trim() : "";
     if (q) return q;
+    const globalLeague = String(window.league_id || window.LEAGUE_ID || "").trim();
+    if (globalLeague) return globalLeague;
     const m = String(window.location.pathname || "").match(/\/home\/(\d+)(?:\/|$)/i);
-    return m ? m[1] : "74598";
+    if (m && m[1]) return m[1];
+    return RUNTIME_DEFAULTS.leagueId;
   }
 
   function getYear(u) {
-    if (!u) return "2025";
-    const q = u.searchParams.get("YEAR");
+    const q = u ? String(u.searchParams.get("YEAR") || "").trim() : "";
     if (q) return q;
+    const globalYear = String(window.year || window.YEAR || "").trim();
+    if (globalYear) return globalYear;
     const m = String(window.location.pathname || "").match(/\/(\d{4})\//);
-    return m ? m[1] : "2025";
+    if (m && m[1]) return m[1];
+    return RUNTIME_DEFAULTS.year;
   }
 
   function getFranchiseId(u) {
@@ -66,9 +75,17 @@
   }
 
   const u = getUrl();
-  const L = getLeagueId(u);
-  const YEAR = getYear(u);
-  const FRANCHISE_ID = getFranchiseId(u);
+  function resolveRuntimeContext(urlObj) {
+    return {
+      L: getLeagueId(urlObj),
+      YEAR: getYear(urlObj),
+      FRANCHISE_ID: getFranchiseId(urlObj),
+    };
+  }
+  const runtime = resolveRuntimeContext(u);
+  const L = runtime.L;
+  const YEAR = runtime.YEAR;
+  const FRANCHISE_ID = runtime.FRANCHISE_ID;
   const MFL_USER_ID = (function () {
     try {
       const c = String(document.cookie || "");
