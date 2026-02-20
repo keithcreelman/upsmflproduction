@@ -165,7 +165,10 @@ def main() -> int:
         "count": len(submissions),
     }
 
-    json_path.write_text(json.dumps(doc, indent=2), encoding="utf-8")
+    json_path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = json_path.with_suffix(json_path.suffix + ".tmp")
+    tmp_path.write_text(json.dumps(doc, indent=2), encoding="utf-8")
+    tmp_path.replace(json_path)
     print(f"Logged restructure submission for player {entry['player_id']} ({entry['player_name']}).")
     print(f"Wrote {json_path}.")
     return 0
