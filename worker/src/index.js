@@ -826,25 +826,38 @@ export default {
         path === "/offer-restructure" ||
         path === "/commish-contract-update"
       ) {
-        if (request.method !== "POST") {
-          return new Response(
-            JSON.stringify({ ok: false, reason: "Method not allowed" }),
-            { status: 405, headers: { "content-type": "application/json", ...corsHeaders } }
+        const mutationResponse = (status, submissionId, details, httpStatus = 200) =>
+          new Response(
+            JSON.stringify({
+              status,
+              submission_id: String(submissionId || "").trim(),
+              details: details || {},
+            }),
+            { status: httpStatus, headers: { "content-type": "application/json", ...corsHeaders } }
           );
+
+        if (request.method !== "POST") {
+          return mutationResponse("validation_fail", "", { reason: "Method not allowed" }, 405);
         }
 
-        const ct = request.headers.get("content-type") || "";
         let body = {};
-        if (ct.includes("application/json")) {
-          body = await request.json();
-        } else {
-          const raw = await request.text();
-          const p = new URLSearchParams(raw);
-          body = Object.fromEntries(p.entries());
+        const ct = request.headers.get("content-type") || "";
+        try {
+          if (ct.includes("application/json")) {
+            body = await request.json();
+          } else {
+            const raw = await request.text();
+            const p = new URLSearchParams(raw);
+            body = Object.fromEntries(p.entries());
+          }
+        } catch (e) {
+          return mutationResponse("validation_fail", "", {
+            reason: `Could not parse request body: ${e?.message || String(e)}`,
+          });
         }
 
         const leagueId = String(L || body.L || body.leagueId || "").trim();
-        const year = String(YEAR || body.YEAR || body.year || "2025").trim();
+        const year = String(YEAR || body.YEAR || body.year || "").trim();
         const playerId = String(body.player_id || body.playerId || "").trim();
         const playerName = String(body.player_name || body.playerName || "").trim();
         const franchiseId = String(body.franchise_id || body.franchiseId || "").trim();
@@ -878,25 +891,56 @@ export default {
           return raw === "1" || raw === "true" || raw === "yes" ? 1 : 0;
         })();
 
-        if (!leagueId || !playerId || !salary || !contractYear) {
-          return new Response(
-            JSON.stringify({
-              ok: false,
-              reason: "Missing required fields (L, player_id, salary, contract_year)",
-            }),
-            { status: 400, headers: { "content-type": "application/json", ...corsHeaders } }
-          );
+        const providedSubmissionId = String(body.submission_id || body.submissionId || "").trim();
+        const submissionId =
+          providedSubmissionId ||
+          (await sha256Hex(
+            [
+              path,
+              leagueId,
+              year,
+              playerId,
+              salary,
+              contractYear,
+              contractInfo,
+              submittedAtUtc,
+            ].join("|")
+          )).slice(0, 24);
+
+        const salaryNum = Number(salary);
+        const contractYearNum = Number(contractYear);
+        const missingFields = [];
+        if (!leagueId) missingFields.push("league_id");
+        if (!year) missingFields.push("year");
+        if (!playerId) missingFields.push("player_id");
+        if (!salary) missingFields.push("salary");
+        if (!contractYear) missingFields.push("contract_year");
+        if (!contractInfo) missingFields.push("contract_info");
+        if (missingFields.length) {
+          return mutationResponse("validation_fail", submissionId, {
+            reason: "Missing required fields",
+            missing_fields: missingFields,
+          });
+        }
+        if (!Number.isFinite(salaryNum) || salaryNum < 0) {
+          return mutationResponse("validation_fail", submissionId, {
+            reason: "salary must be a non-negative number",
+          });
+        }
+        if (!Number.isFinite(contractYearNum) || contractYearNum <= 0) {
+          return mutationResponse("validation_fail", submissionId, {
+            reason: "contract_year must be a positive number",
+          });
         }
 
         if (isManualContractUpdate) {
           const adminState = await getLeagueAdminState(leagueId, year);
           if (!adminState.ok || !adminState.isAdmin) {
-            return new Response(
-              JSON.stringify({
-                ok: false,
-                reason: "Only league admin can perform manual contract updates",
-              }),
-              { status: 403, headers: { "content-type": "application/json", ...corsHeaders } }
+            return mutationResponse(
+              "validation_fail",
+              submissionId,
+              { reason: "Only league admin can perform manual contract updates" },
+              403
             );
           }
         }
@@ -921,7 +965,7 @@ export default {
             `<player ${attrs.join(" ")} />` +
             `</leagueUnit></salaries>`
           );
-        };
+        }
 
         const rookieLike = (raw) => {
           const val = String(raw || "").trim().toLowerCase();
@@ -1077,6 +1121,7 @@ export default {
         let dataXmlUsed = "";
         let statusUsed = "";
         let anyChanged = false;
+        let verifyAvailable = preCheck !== null;
 
         for (const statusCandidate of statusAttempts) {
           const dataXml = makeDataXml(statusCandidate);
@@ -1109,6 +1154,7 @@ export default {
             (String(preCheck.contractYear || "") !== String(verifyAfter.contractYear || "") ||
               String(preCheck.contractInfo || "") !== String(verifyAfter.contractInfo || "") ||
               String(preCheck.contractStatus || "") !== String(verifyAfter.contractStatus || ""));
+          if (verifyAfter !== null) verifyAvailable = true;
 
           importAttempts.push({
             statusTried: statusCandidate || "(none)",
@@ -1153,6 +1199,7 @@ export default {
               commish_override_flag: commishOverrideFlag,
               override_as_of_date: overrideAsOfDate,
               source: sourceTag,
+              submission_id: submissionId,
             });
           } catch (e) {
             logDispatch = {
@@ -1164,32 +1211,50 @@ export default {
           }
         }
 
-        return new Response(
-          JSON.stringify({
-            ok: looksOk,
-            reason: looksOk
+        let mutationStatus = "import_rejected";
+        if (!looksOk) {
+          mutationStatus = "import_rejected";
+        } else if (!verifyAvailable) {
+          mutationStatus = "verify_unavailable";
+        } else if (!anyChanged) {
+          mutationStatus = "import_no_change";
+        } else if (isManualContractUpdate) {
+          mutationStatus = "import_ok_log_dispatched";
+        } else if (logDispatch.ok) {
+          mutationStatus = "import_ok_log_dispatched";
+        } else {
+          mutationStatus = "import_ok_log_failed";
+        }
+
+        return mutationResponse(mutationStatus, submissionId, {
+          reason:
+            mutationStatus === "import_ok_log_dispatched"
               ? isManualContractUpdate
                 ? "Manual contract update submitted to MFL"
-                : "Submitted to MFL"
-              : "MFL import rejected request",
-            upstreamStatus: mflRes ? mflRes.status : 0,
-            upstreamPreview: text.slice(0, 800),
-            preCheck,
-            postCheck,
-            submitDebug: {
-              targetImportUrl,
-              contentType: "application/x-www-form-urlencoded;charset=UTF-8",
-              formFields: { TYPE: "salaries", L: leagueId, APPEND: "1" },
-              statusUsed,
-              playerStatusLookup,
-              dataXml: dataXmlUsed,
-              importAttempts,
-              isManualContractUpdate,
-              logDispatch,
-            },
-          }),
-          { status: 200, headers: { "content-type": "application/json", ...corsHeaders } }
-        );
+                : "Submitted to MFL and logged"
+              : mutationStatus === "import_ok_log_failed"
+                ? "Submitted to MFL but submission log dispatch failed"
+                : mutationStatus === "import_no_change"
+                  ? "MFL accepted request but no contract change was observed"
+                  : mutationStatus === "verify_unavailable"
+                    ? "Submitted to MFL but verification export was unavailable"
+                    : "MFL import rejected request",
+          upstreamStatus: mflRes ? mflRes.status : 0,
+          upstreamPreview: text.slice(0, 800),
+          preCheck,
+          postCheck,
+          submitDebug: {
+            targetImportUrl,
+            contentType: "application/x-www-form-urlencoded;charset=UTF-8",
+            formFields: { TYPE: "salaries", L: leagueId, APPEND: "1" },
+            statusUsed,
+            playerStatusLookup,
+            dataXml: dataXmlUsed,
+            importAttempts,
+            isManualContractUpdate,
+            logDispatch,
+          },
+        });
       }
 
       const adminState = await getLeagueAdminState(L, YEAR);
