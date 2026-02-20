@@ -1502,7 +1502,7 @@
     }
 
     function candidateIconUrls(fid) {
-      var host = window.baseURLStatic || window.baseURLDynamic || "https://www48.myfantasyleague.com";
+      var host = window.baseURLStatic || window.baseURLDynamic || (window.location ? window.location.origin : "");
       var lid = String(window.league_id || "").trim();
       var yr = parseInt(String(window.year || ""), 10);
       if (!yr) return [];
@@ -1513,7 +1513,6 @@
         leagueIds.push(s);
       }
       addLeagueId(lid);
-      addLeagueId("74598");
       if (!leagueIds.length) return [];
       var out = [];
       var seen = {};
@@ -1695,7 +1694,7 @@
 
     function candidateIconUrls(fid) {
       if (!fid) return [];
-      var host = window.baseURLStatic || window.baseURLDynamic || "https://www48.myfantasyleague.com";
+      var host = window.baseURLStatic || window.baseURLDynamic || (window.location ? window.location.origin : "");
       var lid = safeStr(window.league_id || "");
       var yr = parseInt(safeStr(window.year || ""), 10);
       if (!yr) return [];
@@ -1706,7 +1705,6 @@
         leagueIds.push(s);
       }
       addLeagueId(lid);
-      addLeagueId("74598");
       if (!leagueIds.length) return [];
       var out = [];
       var seen = {};
@@ -2057,7 +2055,7 @@ Replaces bulky default grid with compact toggle view + franchise icons
   function candidateIconUrls(fid) {
     function isUrl(v) { return /^https?:\/\//i.test(safeStr(v)); }
     if (!fid) return [];
-    var host = window.baseURLStatic || window.baseURLDynamic || "https://www48.myfantasyleague.com";
+    var host = window.baseURLStatic || window.baseURLDynamic || (window.location ? window.location.origin : "");
     var lid = safeStr(window.league_id || "");
     var yr = parseInt(safeStr(window.year || ""), 10);
     if (!yr) return [];
@@ -2068,7 +2066,6 @@ Replaces bulky default grid with compact toggle view + franchise icons
       leagueIds.push(s);
     }
     addLeagueId(lid);
-    addLeagueId("74598");
     if (!leagueIds.length) return [];
     var out = [];
     var seen = {};
@@ -3067,7 +3064,7 @@ Replaces bulky default grid with compact toggle view + franchise icons
       if (q) return q;
     } catch (e) {}
     if (typeof league_id !== "undefined" && league_id) return String(league_id);
-    return "74598";
+    return "";
   }
 
   function getYear() {
