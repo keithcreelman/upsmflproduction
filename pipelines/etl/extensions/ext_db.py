@@ -7,6 +7,11 @@ Tables (per Step 5 spec):
     3. contracts_current    — single active snapshot per (player_id, franchise_id)
     4. ext_raw_payloads     — raw API response storage (Phase 0 + Phase 1)
 
+Phase 1 tables (raw ingestion — Step 1):
+    5. dim_franchise        — franchise identity (from TYPE=league)
+    6. dim_player           — player identity (from TYPE=players DETAILS=1)
+    7. roster_snapshot      — current roster with raw contract fields (from TYPE=rosters)
+
 All tables are created in the existing mfl_database.db (same SQLite DB).
 Migrations are idempotent (CREATE IF NOT EXISTS).
 """
@@ -152,6 +157,129 @@ CREATE INDEX IF NOT EXISTS idx_ext_raw_payloads_season_type
 
 
 # ---------------------------------------------------------------------------
+# Phase 1 schema definitions (Step 1 raw ingestion)
+# ---------------------------------------------------------------------------
+
+_SCHEMA_DIM_FRANCHISE = """
+CREATE TABLE IF NOT EXISTS dim_franchise (
+    franchise_id    TEXT PRIMARY KEY,
+    franchise_name  TEXT,
+    franchise_abbrev TEXT,
+    owner_name      TEXT,
+    username        TEXT,
+    division        TEXT,
+    logo_url        TEXT
+);
+"""
+
+_SCHEMA_DIM_PLAYER = """
+CREATE TABLE IF NOT EXISTS dim_player (
+    player_id       TEXT PRIMARY KEY,
+    player_name     TEXT,
+    position        TEXT,
+    nfl_team        TEXT,
+    nfl_draft_year  TEXT
+);
+"""
+
+_SCHEMA_ROSTER_SNAPSHOT = """
+CREATE TABLE IF NOT EXISTS roster_snapshot (
+    nfl_season          INTEGER NOT NULL,
+    franchise_id        TEXT NOT NULL,
+    player_id           TEXT NOT NULL,
+    roster_status       TEXT,
+    contract_status     TEXT,
+    contract_year       INTEGER,
+    salary              INTEGER,
+    contract_info_raw   TEXT,
+    UNIQUE (nfl_season, franchise_id, player_id)
+);
+"""
+
+_INDEX_ROSTER_SNAPSHOT_1 = """
+CREATE INDEX IF NOT EXISTS idx_roster_snapshot_season
+    ON roster_snapshot (nfl_season);
+"""
+
+_INDEX_ROSTER_SNAPSHOT_2 = """
+CREATE INDEX IF NOT EXISTS idx_roster_snapshot_player
+    ON roster_snapshot (player_id);
+"""
+
+
+# ---------------------------------------------------------------------------
+# Phase 2 schema definitions (Step 1 contract parsing)
+# ---------------------------------------------------------------------------
+
+_SCHEMA_ROSTER_SNAPSHOT_PARSED = """
+CREATE TABLE IF NOT EXISTS roster_snapshot_parsed (
+    -- Key (mirrors roster_snapshot)
+    nfl_season              INTEGER NOT NULL,
+    franchise_id            TEXT NOT NULL,
+    player_id               TEXT NOT NULL,
+
+    -- Source fields (carried forward for convenience)
+    contract_status         TEXT,
+    contract_year           INTEGER,
+    salary                  INTEGER,
+    contract_info_raw       TEXT,
+
+    -- Parsed / derived fields (Step 1 spec — names locked)
+    contract_length         INTEGER,
+    total_contract_value    INTEGER,
+    aav_current             INTEGER,
+    aav_future              INTEGER,
+    year_salary_breakdown_json TEXT,
+    extension_history_json  TEXT,
+    contract_guarantee      INTEGER,
+    no_extension_flag       INTEGER NOT NULL DEFAULT 0,
+
+    -- Parsing diagnostics
+    parse_warnings          TEXT,
+
+    UNIQUE (nfl_season, franchise_id, player_id)
+);
+"""
+
+_INDEX_ROSTER_SNAPSHOT_PARSED_1 = """
+CREATE INDEX IF NOT EXISTS idx_roster_snapshot_parsed_season
+    ON roster_snapshot_parsed (nfl_season);
+"""
+
+_INDEX_ROSTER_SNAPSHOT_PARSED_2 = """
+CREATE INDEX IF NOT EXISTS idx_roster_snapshot_parsed_player
+    ON roster_snapshot_parsed (player_id);
+"""
+
+
+# ---------------------------------------------------------------------------
+# Phase 2 — extension_blocks table
+# ---------------------------------------------------------------------------
+# Source of truth for no_extension_flag.
+# no_extension_flag is NOT parsed from contract_info_raw.
+# It is derived exclusively from this table (block_type = 'NO_EXTENSION', active = 1).
+
+_SCHEMA_EXTENSION_BLOCKS = """
+CREATE TABLE IF NOT EXISTS extension_blocks (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    nfl_season  INTEGER NOT NULL,
+    player_id   TEXT NOT NULL,
+    block_type  TEXT NOT NULL DEFAULT 'NO_EXTENSION',
+    active      INTEGER NOT NULL DEFAULT 1,
+    reason      TEXT,
+    created_at  TEXT,
+    created_by  TEXT,
+    UNIQUE (nfl_season, player_id, block_type)
+);
+"""
+
+_INDEX_EXTENSION_BLOCKS_1 = """
+CREATE INDEX IF NOT EXISTS idx_extension_blocks_season_player
+    ON extension_blocks (nfl_season, player_id, active);
+"""
+
+
+# ---------------------------------------------------------------------------
 # Migration runner
 # ---------------------------------------------------------------------------
 
@@ -164,6 +292,18 @@ _ALL_MIGRATIONS = [
     ("contracts_current table", _SCHEMA_CONTRACTS_CURRENT),
     ("ext_raw_payloads table", _SCHEMA_RAW_PAYLOADS),
     ("ext_raw_payloads index (season/type)", _INDEX_RAW_PAYLOADS_1),
+    # Phase 1 tables
+    ("dim_franchise table", _SCHEMA_DIM_FRANCHISE),
+    ("dim_player table", _SCHEMA_DIM_PLAYER),
+    ("roster_snapshot table", _SCHEMA_ROSTER_SNAPSHOT),
+    ("roster_snapshot index (season)", _INDEX_ROSTER_SNAPSHOT_1),
+    ("roster_snapshot index (player)", _INDEX_ROSTER_SNAPSHOT_2),
+    # Phase 2 tables
+    ("roster_snapshot_parsed table", _SCHEMA_ROSTER_SNAPSHOT_PARSED),
+    ("roster_snapshot_parsed index (season)", _INDEX_ROSTER_SNAPSHOT_PARSED_1),
+    ("roster_snapshot_parsed index (player)", _INDEX_ROSTER_SNAPSHOT_PARSED_2),
+    ("extension_blocks table", _SCHEMA_EXTENSION_BLOCKS),
+    ("extension_blocks index (season/player/active)", _INDEX_EXTENSION_BLOCKS_1),
 ]
 
 
@@ -198,6 +338,11 @@ def verify_schema(conn: sqlite3.Connection) -> dict:
         "contract_versions",
         "contracts_current",
         "ext_raw_payloads",
+        "dim_franchise",
+        "dim_player",
+        "roster_snapshot",
+        "roster_snapshot_parsed",
+        "extension_blocks",
     ]
     cur = conn.cursor()
     result = {}
