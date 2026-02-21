@@ -17,7 +17,7 @@
 
       var u = new URL(window.location.href || "");
       var moduleName = String(u.searchParams.get("MODULE") || "").toUpperCase();
-      if (moduleName !== "MESSAGE2" && moduleName !== "MESSAGE16") return;
+      if (moduleName !== "MESSAGE2") return;
       if (String(u.searchParams.get("UPS_ALLOW_DEV_CCC") || "") === "1") return;
 
       var m = String(u.pathname || "").match(/\/home\/(\d+)(?:\/|$)/i);
@@ -40,7 +40,7 @@
       u.searchParams.has("cccYears");
     if (!hasCcc) return;
     var moduleName = (u.searchParams.get("MODULE") || "").toUpperCase();
-    if (moduleName !== "MESSAGE2" && moduleName !== "MESSAGE16") return;
+    if (moduleName !== "MESSAGE2") return;
 
     var h = new URLSearchParams();
     ["cccAction", "cccPlayer", "cccFranchise", "cccSeason", "cccYears"].forEach(function (k) {
@@ -1688,7 +1688,7 @@
     normalizeHeaderHotlinksToCurrentLeague();
 
     var mod = getModuleName();
-    if (mod !== "MESSAGE2" && mod !== "MESSAGE16") return;
+    if (mod !== "MESSAGE2") return;
     normalizeCccAnchorsToMain();
 
     if (document.readyState === "loading") {
@@ -3170,10 +3170,10 @@ Replaces bulky default grid with compact toggle view + franchise icons
       });
     }
 
-    function wireMessage16IframeBridge() {
+    function wireMessage2IframeBridge() {
       var qs = new URLSearchParams(location.search || "");
       var moduleName = safeStr(qs.get("MODULE")).toUpperCase();
-      if (moduleName !== "MESSAGE2" && moduleName !== "MESSAGE16") return;
+      if (moduleName !== "MESSAGE2") return;
 
       var frame = document.querySelector('iframe[src*="contractcommandcenter"]');
       if (!frame) return;
@@ -3250,7 +3250,7 @@ Replaces bulky default grid with compact toggle view + franchise icons
 
     function init() {
       initRosterEnhancements();
-      wireMessage16IframeBridge();
+      wireMessage2IframeBridge();
     }
 
     if (document.readyState === "loading") {
