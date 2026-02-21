@@ -8,6 +8,27 @@
 <link rel="shortcut icon" href="https://www.mflscripts.com/ImageDirectory/script-images/favicon.ico" type="image/x-icon">
 
 <script>
+  // Hard redirect guard: never allow CCC message routes to stay on leaked dev league.
+  (function () {
+    try {
+      var prodLeague = String(window.UPS_CCC_PROD_LEAGUE_ID || "74598").replace(/\D/g, "");
+      var devLeague = String(window.UPS_DEV_LEAGUE_ID || "25625").replace(/\D/g, "");
+      if (!prodLeague || !devLeague || prodLeague === devLeague) return;
+
+      var u = new URL(window.location.href || "");
+      var moduleName = String(u.searchParams.get("MODULE") || "").toUpperCase();
+      if (moduleName !== "MESSAGE2" && moduleName !== "MESSAGE16") return;
+      if (String(u.searchParams.get("UPS_ALLOW_DEV_CCC") || "") === "1") return;
+
+      var m = String(u.pathname || "").match(/\/home\/(\d+)(?:\/|$)/i);
+      var pathLeague = m && m[1] ? String(m[1]) : "";
+      if (pathLeague !== devLeague) return;
+
+      u.pathname = String(u.pathname || "").replace(/\/home\/\d+(?:\/|$)/i, "/home/" + prodLeague);
+      window.location.replace(u.toString());
+    } catch (e) {}
+  })();
+
   // Normalize Contract Command Center deep-links: move ccc* params to hash so MFL doesn't validate them.
   (function () {
     var u = new URL(window.location.href || "");
@@ -1642,19 +1663,23 @@
     document.addEventListener(
       "click",
       function (evt) {
-        var a = evt && evt.target && evt.target.closest ? evt.target.closest("a[href]") : null;
-        if (!a) return;
-        var href = String(a.getAttribute("href") || "").trim();
-        if (!href) return;
-        var isCta = a.classList && a.classList.contains("ccc-cta");
-        var label = safeStr(a.textContent || "").toLowerCase();
+        var el =
+          evt && evt.target && evt.target.closest
+            ? evt.target.closest('a[href], button, [role="button"], [data-ups-hotlink="ccc"]')
+            : null;
+        if (!el) return;
+        var href = el.tagName === "A" ? String(el.getAttribute("href") || "").trim() : "";
+        var isCta = el.classList && el.classList.contains("ccc-cta");
+        var isHotlink = safeStr(el.getAttribute && el.getAttribute("data-ups-hotlink")) === "ccc";
+        var label = safeStr(el.textContent || "").toLowerCase();
         var isLabeledCcc = label.indexOf("contract command center") !== -1;
-        var isCccLink = isCccCandidateHref(href);
-        if (!isCta && !isLabeledCcc && !isCccLink) return;
+        var isCccLink = href ? isCccCandidateHref(href) : false;
+        if (!isCta && !isHotlink && !isLabeledCcc && !isCccLink) return;
 
         var canonical = buildCanonicalCccRouteUrl();
         if (!canonical) return;
         evt.preventDefault();
+        evt.stopPropagation();
         window.location.assign(canonical);
       },
       true
