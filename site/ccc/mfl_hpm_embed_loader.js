@@ -100,7 +100,7 @@
     (u && (u.searchParams.get("DEBUG_ADMIN") || u.searchParams.get("DEBUG"))) || "";
 
   const DEFAULT_CCC_IFRAME_URL =
-    "https://rawcdn.githack.com/keithcreelman/upsmflproduction/v1.0.2/site/ccc/mfl_hpm16_contractcommandcenter.html";
+    "https://rawcdn.githack.com/keithcreelman/upsmflproduction/main/site/ccc/mfl_hpm16_contractcommandcenter.html";
 
   function getScriptBaseUrl() {
     try {
