@@ -1389,14 +1389,14 @@
         var q = safeStr(u.searchParams.get("L") || "");
         if (q) return q;
       } catch (e) {}
-      var g = safeStr(window.league_id || window.LEAGUE_ID || "");
-      if (g && g !== "25625") return g;
+
       var m = safeStr(window.location.pathname).match(/\/home\/(\d+)(?:\/|$)/i);
       var pathLeague = m && m[1] ? safeStr(m[1]) : "";
-      if (cookieLeague && pathLeague && cookieLeague !== pathLeague) return cookieLeague;
       if (pathLeague) return pathLeague;
+      var g = safeStr(window.league_id || window.LEAGUE_ID || "");
+      if (g) return g;
       if (cookieLeague) return cookieLeague;
-      return g;
+      return "";
     }
 
     function getCurrentYear() {
