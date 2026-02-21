@@ -1414,6 +1414,31 @@
       return changed;
     }
 
+    function normalizeCccUrlToMain(raw) {
+      var next = String(raw || "").trim();
+      if (!next) return "";
+      next = next.replace(
+        /rawcdn\.githack\.com\/keithcreelman\/upsmflproduction\/(?:dev|v[0-9][^/]*|ext-[^/]+)\//i,
+        "rawcdn.githack.com/keithcreelman/upsmflproduction/main/"
+      );
+      next = next.replace(
+        /cdn\.jsdelivr\.net\/gh\/keithcreelman\/upsmflproduction@(?:dev|v[0-9][^/]*|ext-[^/]+)/i,
+        "cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main"
+      );
+      return next;
+    }
+
+    function normalizeCccAnchorsToMain() {
+      var links = document.querySelectorAll('a[href*="upsmflproduction"], a[href*="contractcommandcenter"]');
+      for (var i = 0; i < links.length; i++) {
+        var a = links[i];
+        var href = String(a.getAttribute("href") || "").trim();
+        if (!href) continue;
+        var next = normalizeCccUrlToMain(href);
+        if (next !== href) a.setAttribute("href", next);
+      }
+    }
+
     function ensureMountNearTop() {
       var mount = document.getElementById("cccMount");
       if (mount) return mount;
@@ -1465,9 +1490,28 @@
 
     var mod = getModuleName();
     if (mod !== "MESSAGE2" && mod !== "MESSAGE16") return;
+    normalizeCccAnchorsToMain();
+
+    document.addEventListener(
+      "click",
+      function (evt) {
+        var a = evt && evt.target && evt.target.closest ? evt.target.closest("a[href]") : null;
+        if (!a) return;
+        var href = String(a.getAttribute("href") || "").trim();
+        if (!href) return;
+        var next = normalizeCccUrlToMain(href);
+        if (next !== href) {
+          evt.preventDefault();
+          a.setAttribute("href", next);
+          window.location.assign(next);
+        }
+      },
+      true
+    );
 
     if (document.readyState === "loading") {
       document.addEventListener("DOMContentLoaded", function () {
+        normalizeCccAnchorsToMain();
         loadCccLoader();
       });
     } else {
