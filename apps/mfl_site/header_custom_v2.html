@@ -1373,8 +1373,30 @@
       }
     }
 
-    function alreadyEmbedded() {
-      return !!document.querySelector('iframe[src*="mfl_hpm16_contractcommandcenter.html"]');
+    function getEmbeddedFrame() {
+      return document.querySelector('iframe[src*="mfl_hpm16_contractcommandcenter.html"]');
+    }
+
+    function normalizeEmbeddedFrameToMain(frame) {
+      if (!frame) return false;
+      var raw = String(frame.getAttribute("src") || "").trim();
+      if (!raw) return false;
+      var next = raw;
+
+      next = next.replace(
+        /rawcdn\.githack\.com\/keithcreelman\/upsmflproduction\/(?:dev|v[0-9][^/]*|ext-[^/]+)\//i,
+        "rawcdn.githack.com/keithcreelman/upsmflproduction/main/"
+      );
+      next = next.replace(
+        /cdn\.jsdelivr\.net\/gh\/keithcreelman\/upsmflproduction@(?:dev|v[0-9][^/]*|ext-[^/]+)/i,
+        "cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main"
+      );
+
+      if (next !== raw) {
+        frame.setAttribute("src", next);
+        return true;
+      }
+      return false;
     }
 
     function ensureMountNearTop() {
@@ -1396,7 +1418,11 @@
     }
 
     function loadCccLoader() {
-      if (alreadyEmbedded()) return;
+      var embedded = getEmbeddedFrame();
+      if (embedded) {
+        normalizeEmbeddedFrameToMain(embedded);
+        return;
+      }
       ensureMountNearTop();
       var cacheKey = encodeURIComponent(String(Date.now()));
       var loaderCandidates = [
