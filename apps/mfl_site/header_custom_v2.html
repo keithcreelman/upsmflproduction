@@ -1357,9 +1357,11 @@
   // MFL sometimes injects message HTML with innerHTML, which makes <script> tags inert.
   // Loading the CCC embed loader from the header ensures it executes.
   (function () {
-    var CCC_HEADER_BUILD = "2026.02.21.4";
+    var CCC_HEADER_BUILD = "2026.02.21.5";
     if (window.__ups_ccc_header_autoload === CCC_HEADER_BUILD) return;
     window.__ups_ccc_header_autoload = CCC_HEADER_BUILD;
+    var CCC_PROD_LEAGUE_ID = String(window.UPS_CCC_PROD_LEAGUE_ID || "74598").replace(/\D/g, "");
+    var CCC_DEV_LEAGUE_ID = String(window.UPS_DEV_LEAGUE_ID || "25625").replace(/\D/g, "");
 
     function safeUpper(v) {
       return String(v || "").trim().toUpperCase();
@@ -1367,6 +1369,11 @@
 
     function safeStr(v) {
       return String(v || "").trim();
+    }
+
+    function readPathLeagueId() {
+      var m = safeStr(window.location.pathname).match(/\/home\/(\d+)(?:\/|$)/i);
+      return m && m[1] ? safeStr(m[1]) : "";
     }
 
     function getCurrentLeagueId() {
@@ -1385,19 +1392,25 @@
         }
       } catch (e) {}
 
+      var pathLeague = readPathLeagueId();
+      var globalLeague = safeStr(window.league_id || window.LEAGUE_ID || "");
+
       try {
         var u = new URL(window.location.href);
         var q = safeStr(u.searchParams.get("L") || "");
-        if (q) return q;
+        if (q && q !== CCC_DEV_LEAGUE_ID) return q;
+        if (q && q === CCC_DEV_LEAGUE_ID) {
+          if (pathLeague && pathLeague !== q) return pathLeague;
+          if (globalLeague && globalLeague !== q) return globalLeague;
+          if (cookieLeague && cookieLeague !== q) return cookieLeague;
+          return q;
+        }
       } catch (e) {}
 
-      var m = safeStr(window.location.pathname).match(/\/home\/(\d+)(?:\/|$)/i);
-      var pathLeague = m && m[1] ? safeStr(m[1]) : "";
       if (pathLeague) return pathLeague;
-      var g = safeStr(window.league_id || window.LEAGUE_ID || "");
-      if (g) return g;
+      if (globalLeague) return globalLeague;
       if (cookieLeague) return cookieLeague;
-      return "";
+      return CCC_PROD_LEAGUE_ID || "";
     }
 
     function getCurrentYear() {
@@ -1444,7 +1457,8 @@
       }
 
       setHref("a.full_height_banner", origin + "/" + y + "/home/" + l);
-      setHref('a[data-ups-hotlink="ccc"], a.ccc-cta[href*="MODULE=MESSAGE2"]', origin + "/" + y + "/home/" + l + "?MODULE=MESSAGE2");
+      var canonicalCcc = buildCanonicalCccRouteUrl();
+      setHref('a[data-ups-hotlink="ccc"], a.ccc-cta[href*="MODULE=MESSAGE2"]', canonicalCcc || (origin + "/" + y + "/home/" + l + "?MODULE=MESSAGE2"));
       setHref('a.ccc-pill[href*="/lineup"]', origin + "/" + y + "/lineup?L=" + l);
       setHref('a.ccc-pill[href*="/add_drop"]', origin + "/" + y + "/add_drop?L=" + l);
       setHref('a.ccc-pill[href*="/ajax_ls"]', origin + "/" + y + "/ajax_ls?L=" + l);
@@ -2822,15 +2836,25 @@ Replaces bulky default grid with compact toggle view + franchise icons
     }
 
     function getActiveLeagueId() {
+      var devLeague = String(window.UPS_DEV_LEAGUE_ID || "25625").replace(/\D/g, "");
+      var prodLeague = String(window.UPS_CCC_PROD_LEAGUE_ID || "74598").replace(/\D/g, "");
+      var pathLeague = "";
+      var globalLeague = typeof league_id !== "undefined" && league_id ? safeStr(league_id) : "";
+      var m = safeStr(window.location.pathname).match(/\/home\/(\d+)(?:\/|$)/i);
+      if (m && m[1]) pathLeague = safeStr(m[1]);
       try {
         var u = new URL(window.location.href);
         var q = safeStr(u.searchParams.get("L"));
-        if (q) return q;
+        if (q && q !== devLeague) return q;
+        if (q && q === devLeague) {
+          if (pathLeague && pathLeague !== q) return pathLeague;
+          if (globalLeague && globalLeague !== q) return globalLeague;
+          return q;
+        }
       } catch (e) {}
-      var m = safeStr(window.location.pathname).match(/\/home\/(\d+)(?:\/|$)/i);
-      if (m && m[1]) return safeStr(m[1]);
-      if (typeof league_id !== "undefined" && league_id) return safeStr(league_id);
-      return "";
+      if (pathLeague) return pathLeague;
+      if (globalLeague) return globalLeague;
+      return prodLeague || "";
     }
 
     function getActiveYear() {
