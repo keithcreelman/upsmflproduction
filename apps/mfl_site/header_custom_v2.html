@@ -1364,6 +1364,60 @@
       return String(v || "").trim().toUpperCase();
     }
 
+    function safeStr(v) {
+      return String(v || "").trim();
+    }
+
+    function getCurrentLeagueId() {
+      var g = safeStr(window.league_id || window.LEAGUE_ID || "");
+      if (g) return g;
+      try {
+        var u = new URL(window.location.href);
+        var q = safeStr(u.searchParams.get("L") || "");
+        if (q) return q;
+      } catch (e) {}
+      var m = safeStr(window.location.pathname).match(/\/home\/(\d+)(?:\/|$)/i);
+      return m && m[1] ? safeStr(m[1]) : "";
+    }
+
+    function getCurrentYear() {
+      var g = safeStr(window.year || window.YEAR || "");
+      if (g) return g;
+      try {
+        var u = new URL(window.location.href);
+        var q = safeStr(u.searchParams.get("YEAR") || "");
+        if (q) return q;
+      } catch (e) {}
+      var m = safeStr(window.location.pathname).match(/\/(\d{4})\//);
+      if (m && m[1]) return safeStr(m[1]);
+      return String(new Date().getFullYear());
+    }
+
+    function buildCanonicalCccRouteUrl() {
+      var L = getCurrentLeagueId();
+      var YEAR = getCurrentYear();
+      if (!L || !YEAR) return "";
+      return (
+        window.location.origin +
+        "/" +
+        encodeURIComponent(YEAR) +
+        "/home/" +
+        encodeURIComponent(L) +
+        "?MODULE=MESSAGE2&UPS_CCC_FORCE_MAIN=1"
+      );
+    }
+
+    function isForceMainRequested() {
+      try {
+        var u = new URL(window.location.href);
+        if (safeStr(u.searchParams.get("UPS_CCC_FORCE_MAIN")) === "1") return true;
+        var h = new URLSearchParams(safeStr(window.location.hash).replace(/^#/, ""));
+        return safeStr(h.get("UPS_CCC_FORCE_MAIN")) === "1";
+      } catch (e) {
+        return false;
+      }
+    }
+
     function getModuleName() {
       try {
         var u = new URL(window.location.href);
@@ -1387,13 +1441,23 @@
       if (!raw) return false;
       var next = raw;
 
+      if (/keithcreelman\.github\.io\/upsmflproduction/i.test(next)) {
+        var q = "";
+        try {
+          q = String(new URL(next, window.location.href).search || "");
+        } catch (e) {}
+        next =
+          "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/ccc/mfl_hpm16_contractcommandcenter.html" +
+          q;
+      }
+
       next = next.replace(
-        /rawcdn\.githack\.com\/keithcreelman\/upsmflproduction\/(?:dev|v[0-9][^/]*|ext-[^/]+)\//i,
-        "rawcdn.githack.com/keithcreelman/upsmflproduction/main/"
+        /https?:\/\/rawcdn\.githack\.com\/keithcreelman\/upsmflproduction\/(?:main|dev|v[0-9][^/]*|ext-[^/]+)\//i,
+        "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/"
       );
       next = next.replace(
-        /cdn\.jsdelivr\.net\/gh\/keithcreelman\/upsmflproduction@(?:dev|v[0-9][^/]*|ext-[^/]+)/i,
-        "cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main"
+        /https?:\/\/cdn\.jsdelivr\.net\/gh\/keithcreelman\/upsmflproduction@(?:dev|v[0-9][^/]*|ext-[^/]+)/i,
+        "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main"
       );
 
       if (next !== raw) {
@@ -1417,19 +1481,36 @@
     function normalizeCccUrlToMain(raw) {
       var next = String(raw || "").trim();
       if (!next) return "";
+      if (/keithcreelman\.github\.io\/upsmflproduction/i.test(next)) {
+        return buildCanonicalCccRouteUrl() || next;
+      }
       next = next.replace(
-        /rawcdn\.githack\.com\/keithcreelman\/upsmflproduction\/(?:dev|v[0-9][^/]*|ext-[^/]+)\//i,
-        "rawcdn.githack.com/keithcreelman/upsmflproduction/main/"
+        /https?:\/\/rawcdn\.githack\.com\/keithcreelman\/upsmflproduction\/(?:main|dev|v[0-9][^/]*|ext-[^/]+)\//i,
+        "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/"
       );
       next = next.replace(
-        /cdn\.jsdelivr\.net\/gh\/keithcreelman\/upsmflproduction@(?:dev|v[0-9][^/]*|ext-[^/]+)/i,
-        "cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main"
+        /https?:\/\/cdn\.jsdelivr\.net\/gh\/keithcreelman\/upsmflproduction@(?:dev|v[0-9][^/]*|ext-[^/]+)/i,
+        "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main"
       );
       return next;
     }
 
+    function isCccCandidateHref(href) {
+      var s = safeStr(href).toLowerCase();
+      if (!s) return false;
+      return (
+        s.indexOf("contractcommandcenter") !== -1 ||
+        s.indexOf("/site/ccc/") !== -1 ||
+        s.indexOf("mfl_hpm_embed_loader.js") !== -1 ||
+        s.indexOf("mfl_hpm16_contractcommandcenter.html") !== -1 ||
+        s.indexOf("keithcreelman.github.io/upsmflproduction") !== -1
+      );
+    }
+
     function normalizeCccAnchorsToMain() {
-      var links = document.querySelectorAll('a[href*="upsmflproduction"], a[href*="contractcommandcenter"]');
+      var links = document.querySelectorAll(
+        'a[href*="upsmflproduction"], a[href*="contractcommandcenter"], a[href*="keithcreelman.github.io/upsmflproduction"]'
+      );
       for (var i = 0; i < links.length; i++) {
         var a = links[i];
         var href = String(a.getAttribute("href") || "").trim();
@@ -1457,21 +1538,38 @@
       return mount;
     }
 
-    function loadCccLoader() {
-      window.UPS_CCC_IFRAME_URL =
-        "https://rawcdn.githack.com/keithcreelman/upsmflproduction/main/site/ccc/mfl_hpm16_contractcommandcenter.html";
+    function clearLegacyCccEmbeds() {
+      var nodes = document.querySelectorAll(
+        'iframe[src], script[src*="mfl_hpm_embed_loader.js"], script[src*="ccc.js"], script[src*="ccc_bridge.js"]'
+      );
+      for (var i = 0; i < nodes.length; i++) {
+        var n = nodes[i];
+        var src = safeStr(n.getAttribute("src") || "");
+        if (!src) continue;
+        if (!isCccCandidateHref(src) && src.toLowerCase().indexOf("upsmflproduction") === -1) continue;
+        if (n.parentNode) n.parentNode.removeChild(n);
+      }
+      var mount = document.getElementById("cccMount");
+      if (mount) mount.innerHTML = "";
+    }
 
+    function loadCccLoader() {
+      var forceMain = isForceMainRequested();
+      window.UPS_CCC_IFRAME_URL =
+        "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/ccc/mfl_hpm16_contractcommandcenter.html";
+
+      if (forceMain) clearLegacyCccEmbeds();
       normalizeAllEmbeddedFramesToMain();
       var embedded = getEmbeddedFrame();
-      if (embedded) {
+      if (embedded && !forceMain) {
         normalizeEmbeddedFrameToMain(embedded);
         return;
       }
       ensureMountNearTop();
       var cacheKey = encodeURIComponent(String(Date.now()));
       var loaderCandidates = [
-        "https://rawcdn.githack.com/keithcreelman/upsmflproduction/main/site/ccc/mfl_hpm_embed_loader.js?v=" + cacheKey,
-        "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/ccc/mfl_hpm_embed_loader.js?v=" + cacheKey
+        "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/ccc/mfl_hpm_embed_loader.js?v=" + cacheKey,
+        "https://rawcdn.githack.com/keithcreelman/upsmflproduction/main/site/ccc/mfl_hpm_embed_loader.js?v=" + cacheKey
       ];
 
       function tryLoader(idx) {
@@ -1488,10 +1586,6 @@
       tryLoader(0);
     }
 
-    var mod = getModuleName();
-    if (mod !== "MESSAGE2" && mod !== "MESSAGE16") return;
-    normalizeCccAnchorsToMain();
-
     document.addEventListener(
       "click",
       function (evt) {
@@ -1499,15 +1593,23 @@
         if (!a) return;
         var href = String(a.getAttribute("href") || "").trim();
         if (!href) return;
-        var next = normalizeCccUrlToMain(href);
-        if (next !== href) {
-          evt.preventDefault();
-          a.setAttribute("href", next);
-          window.location.assign(next);
-        }
+        var isCta = a.classList && a.classList.contains("ccc-cta");
+        var label = safeStr(a.textContent || "").toLowerCase();
+        var isLabeledCcc = label.indexOf("contract command center") !== -1;
+        var isCccLink = isCccCandidateHref(href);
+        if (!isCta && !isLabeledCcc && !isCccLink) return;
+
+        var canonical = buildCanonicalCccRouteUrl();
+        if (!canonical) return;
+        evt.preventDefault();
+        window.location.assign(canonical);
       },
       true
     );
+
+    var mod = getModuleName();
+    if (mod !== "MESSAGE2" && mod !== "MESSAGE16") return;
+    normalizeCccAnchorsToMain();
 
     if (document.readyState === "loading") {
       document.addEventListener("DOMContentLoaded", function () {
