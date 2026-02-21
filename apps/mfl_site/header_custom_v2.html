@@ -1374,7 +1374,11 @@
     }
 
     function getEmbeddedFrame() {
-      return document.querySelector('iframe[src*="mfl_hpm16_contractcommandcenter.html"]');
+      return (
+        document.querySelector(
+          'iframe[src*="mfl_hpm16_contractcommandcenter.html"], iframe[src*="contractcommandcenter"], iframe[src*="/site/ccc/"]'
+        ) || null
+      );
     }
 
     function normalizeEmbeddedFrameToMain(frame) {
@@ -1399,6 +1403,17 @@
       return false;
     }
 
+    function normalizeAllEmbeddedFramesToMain() {
+      var frames = document.querySelectorAll(
+        'iframe[src*="contractcommandcenter"], iframe[src*="/site/ccc/"], iframe[src*="upsmflproduction"]'
+      );
+      var changed = false;
+      for (var i = 0; i < frames.length; i++) {
+        changed = normalizeEmbeddedFrameToMain(frames[i]) || changed;
+      }
+      return changed;
+    }
+
     function ensureMountNearTop() {
       var mount = document.getElementById("cccMount");
       if (mount) return mount;
@@ -1418,6 +1433,10 @@
     }
 
     function loadCccLoader() {
+      window.UPS_CCC_IFRAME_URL =
+        "https://rawcdn.githack.com/keithcreelman/upsmflproduction/main/site/ccc/mfl_hpm16_contractcommandcenter.html";
+
+      normalizeAllEmbeddedFramesToMain();
       var embedded = getEmbeddedFrame();
       if (embedded) {
         normalizeEmbeddedFrameToMain(embedded);
