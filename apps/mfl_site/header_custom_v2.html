@@ -1088,7 +1088,7 @@
       </div>
 
       <div class="ccc-cta-group">
-        <a class="ccc-cta" href="//%HOST%/%YEAR%/home/%LEAGUEID%?MODULE=MESSAGE2">
+        <a class="ccc-cta" data-ups-hotlink="ccc" href="//%HOST%/%YEAR%/home/%LEAGUEID%?MODULE=MESSAGE2">
           <i class="fa-solid fa-arrow-up-right-from-square"></i>
           Contract Command Center
         </a>
@@ -1357,8 +1357,9 @@
   // MFL sometimes injects message HTML with innerHTML, which makes <script> tags inert.
   // Loading the CCC embed loader from the header ensures it executes.
   (function () {
-    if (window.__ups_ccc_header_autoload) return;
-    window.__ups_ccc_header_autoload = true;
+    var CCC_HEADER_BUILD = "2026.02.21.4";
+    if (window.__ups_ccc_header_autoload === CCC_HEADER_BUILD) return;
+    window.__ups_ccc_header_autoload = CCC_HEADER_BUILD;
 
     function safeUpper(v) {
       return String(v || "").trim().toUpperCase();
@@ -1400,8 +1401,6 @@
     }
 
     function getCurrentYear() {
-      var g = safeStr(window.year || window.YEAR || "");
-      if (g) return g;
       try {
         var u = new URL(window.location.href);
         var q = safeStr(u.searchParams.get("YEAR") || "");
@@ -1409,6 +1408,8 @@
       } catch (e) {}
       var m = safeStr(window.location.pathname).match(/\/(\d{4})\//);
       if (m && m[1]) return safeStr(m[1]);
+      var g = safeStr(window.year || window.YEAR || "");
+      if (g) return g;
       return String(new Date().getFullYear());
     }
 
@@ -1424,6 +1425,31 @@
         encodeURIComponent(L) +
         "?MODULE=MESSAGE2"
       );
+    }
+
+    function normalizeHeaderHotlinksToCurrentLeague() {
+      var L = getCurrentLeagueId();
+      var YEAR = getCurrentYear();
+      if (!L || !YEAR) return;
+
+      var origin = window.location.origin;
+      var y = encodeURIComponent(YEAR);
+      var l = encodeURIComponent(L);
+
+      function setHref(selector, href) {
+        var nodes = document.querySelectorAll(selector);
+        for (var i = 0; i < nodes.length; i++) {
+          nodes[i].setAttribute("href", href);
+        }
+      }
+
+      setHref("a.full_height_banner", origin + "/" + y + "/home/" + l);
+      setHref('a[data-ups-hotlink="ccc"], a.ccc-cta[href*="MODULE=MESSAGE2"]', origin + "/" + y + "/home/" + l + "?MODULE=MESSAGE2");
+      setHref('a.ccc-pill[href*="/lineup"]', origin + "/" + y + "/lineup?L=" + l);
+      setHref('a.ccc-pill[href*="/add_drop"]', origin + "/" + y + "/add_drop?L=" + l);
+      setHref('a.ccc-pill[href*="/ajax_ls"]', origin + "/" + y + "/ajax_ls?L=" + l);
+      setHref('a.ccc-pill[href*="/options"][href*="O=07"]', origin + "/" + y + "/options?L=" + l + "&O=07");
+      setHref('a.ccc-pill[href*="/options"][href*="O=05"]', origin + "/" + y + "/options?L=" + l + "&O=05");
     }
 
     function getModuleName() {
@@ -1610,16 +1636,20 @@
       true
     );
 
+    normalizeHeaderHotlinksToCurrentLeague();
+
     var mod = getModuleName();
     if (mod !== "MESSAGE2" && mod !== "MESSAGE16") return;
     normalizeCccAnchorsToMain();
 
     if (document.readyState === "loading") {
       document.addEventListener("DOMContentLoaded", function () {
+        normalizeHeaderHotlinksToCurrentLeague();
         normalizeCccAnchorsToMain();
         loadCccLoader();
       });
     } else {
+      normalizeHeaderHotlinksToCurrentLeague();
       loadCccLoader();
     }
   })();
@@ -1696,9 +1726,24 @@
     }
 
     function candidateIconUrls(fid) {
-      var host = window.baseURLStatic || window.baseURLDynamic || "https://www48.myfantasyleague.com";
-      var lid = String(window.league_id || "").trim();
-      var yr = parseInt(String(window.year || ""), 10);
+      var host = window.baseURLStatic || window.baseURLDynamic || (window.location ? window.location.origin : "");
+      var lid = "";
+      var yr = 0;
+      try {
+        var u = new URL(window.location.href);
+        lid = String(u.searchParams.get("L") || "").trim();
+        yr = parseInt(String(u.searchParams.get("YEAR") || ""), 10) || 0;
+      } catch (e) {}
+      if (!lid) {
+        var lm = String(window.location.pathname || "").match(/\/home\/(\d+)(?:\/|$)/i);
+        if (lm && lm[1]) lid = String(lm[1]).trim();
+      }
+      if (!yr) {
+        var ym = String(window.location.pathname || "").match(/\/(\d{4})\//);
+        if (ym && ym[1]) yr = parseInt(String(ym[1]), 10) || 0;
+      }
+      if (!lid) lid = String(window.league_id || "").trim();
+      if (!yr) yr = parseInt(String(window.year || ""), 10) || 0;
       if (!yr) return [];
       var leagueIds = [];
       function addLeagueId(v) {
@@ -1707,7 +1752,6 @@
         leagueIds.push(s);
       }
       addLeagueId(lid);
-      addLeagueId("74598");
       if (!leagueIds.length) return [];
       var out = [];
       var seen = {};
@@ -1889,9 +1933,24 @@
 
     function candidateIconUrls(fid) {
       if (!fid) return [];
-      var host = window.baseURLStatic || window.baseURLDynamic || "https://www48.myfantasyleague.com";
-      var lid = safeStr(window.league_id || "");
-      var yr = parseInt(safeStr(window.year || ""), 10);
+      var host = window.baseURLStatic || window.baseURLDynamic || (window.location ? window.location.origin : "");
+      var lid = "";
+      var yr = 0;
+      try {
+        var u = new URL(window.location.href);
+        lid = safeStr(u.searchParams.get("L") || "");
+        yr = parseInt(safeStr(u.searchParams.get("YEAR") || ""), 10) || 0;
+      } catch (e) {}
+      if (!lid) {
+        var lm = safeStr(window.location.pathname).match(/\/home\/(\d+)(?:\/|$)/i);
+        if (lm && lm[1]) lid = safeStr(lm[1]);
+      }
+      if (!yr) {
+        var ym = safeStr(window.location.pathname).match(/\/(\d{4})\//);
+        if (ym && ym[1]) yr = parseInt(safeStr(ym[1]), 10) || 0;
+      }
+      if (!lid) lid = safeStr(window.league_id || "");
+      if (!yr) yr = parseInt(safeStr(window.year || ""), 10) || 0;
       if (!yr) return [];
       var leagueIds = [];
       function addLeagueId(v) {
@@ -1900,7 +1959,6 @@
         leagueIds.push(s);
       }
       addLeagueId(lid);
-      addLeagueId("74598");
       if (!leagueIds.length) return [];
       var out = [];
       var seen = {};
@@ -2251,9 +2309,24 @@ Replaces bulky default grid with compact toggle view + franchise icons
   function candidateIconUrls(fid) {
     function isUrl(v) { return /^https?:\/\//i.test(safeStr(v)); }
     if (!fid) return [];
-    var host = window.baseURLStatic || window.baseURLDynamic || "https://www48.myfantasyleague.com";
-    var lid = safeStr(window.league_id || "");
-    var yr = parseInt(safeStr(window.year || ""), 10);
+    var host = window.baseURLStatic || window.baseURLDynamic || (window.location ? window.location.origin : "");
+    var lid = "";
+    var yr = 0;
+    try {
+      var u = new URL(window.location.href);
+      lid = safeStr(u.searchParams.get("L") || "");
+      yr = parseInt(safeStr(u.searchParams.get("YEAR") || ""), 10) || 0;
+    } catch (e) {}
+    if (!lid) {
+      var lm = safeStr(window.location.pathname).match(/\/home\/(\d+)(?:\/|$)/i);
+      if (lm && lm[1]) lid = safeStr(lm[1]);
+    }
+    if (!yr) {
+      var ym = safeStr(window.location.pathname).match(/\/(\d{4})\//);
+      if (ym && ym[1]) yr = parseInt(safeStr(ym[1]), 10) || 0;
+    }
+    if (!lid) lid = safeStr(window.league_id || "");
+    if (!yr) yr = parseInt(safeStr(window.year || ""), 10) || 0;
     if (!yr) return [];
     var leagueIds = [];
     function addLeagueId(v) {
@@ -2262,7 +2335,6 @@ Replaces bulky default grid with compact toggle view + franchise icons
       leagueIds.push(s);
     }
     addLeagueId(lid);
-    addLeagueId("74598");
     if (!leagueIds.length) return [];
     var out = [];
     var seen = {};
@@ -2749,8 +2821,32 @@ Replaces bulky default grid with compact toggle view + franchise icons
       return "";
     }
 
+    function getActiveLeagueId() {
+      try {
+        var u = new URL(window.location.href);
+        var q = safeStr(u.searchParams.get("L"));
+        if (q) return q;
+      } catch (e) {}
+      var m = safeStr(window.location.pathname).match(/\/home\/(\d+)(?:\/|$)/i);
+      if (m && m[1]) return safeStr(m[1]);
+      if (typeof league_id !== "undefined" && league_id) return safeStr(league_id);
+      return "";
+    }
+
+    function getActiveYear() {
+      try {
+        var u = new URL(window.location.href);
+        var q = safeStr(u.searchParams.get("YEAR"));
+        if (q) return q;
+      } catch (e) {}
+      var m = safeStr(window.location.pathname).match(/\/(\d{4})\//);
+      if (m && m[1]) return safeStr(m[1]);
+      if (typeof year !== "undefined" && year) return safeStr(year);
+      return String(new Date().getFullYear());
+    }
+
     function pendingActionKey() {
-      return "ccc_pending_action_" + safeStr(year) + "_" + safeStr(league_id);
+      return "ccc_pending_action_" + safeStr(getActiveYear()) + "_" + safeStr(getActiveLeagueId());
     }
 
     function savePendingAction(action, item) {
@@ -2798,17 +2894,19 @@ Replaces bulky default grid with compact toggle view + franchise icons
     }
 
     function buildActionUrl(action, item) {
+      var activeYear = getActiveYear();
+      var activeLeague = getActiveLeagueId();
       var payload = {
         cccAction: safeStr(action).toLowerCase(),
         cccPlayer: safeStr(item && item.playerId),
         cccFranchise: pad4(item && item.franchiseId),
-        cccSeason: safeStr(year),
+        cccSeason: safeStr(activeYear),
         cccYears: Math.max(1, Math.min(2, parseInt(item && item.years, 10) || 1))
       };
 
       savePendingAction(action, item);
 
-      var u = new URL(location.origin + "/" + year + "/home/" + league_id);
+      var u = new URL(location.origin + "/" + activeYear + "/home/" + activeLeague);
       u.searchParams.set("MODULE", "MESSAGE2");
 
       var h = new URLSearchParams();
@@ -3023,8 +3121,8 @@ Replaces bulky default grid with compact toggle view + franchise icons
 
       try {
         var src = new URL(frame.getAttribute("src"), location.href);
-        src.searchParams.set("L", safeStr(league_id));
-        src.searchParams.set("YEAR", safeStr(year));
+        src.searchParams.set("L", safeStr(getActiveLeagueId()));
+        src.searchParams.set("YEAR", safeStr(getActiveYear()));
 
         var hashQs = new URLSearchParams((location.hash || "").replace(/^#/, ""));
         var actionQuery = safeStr(qs.get("cccAction")) || safeStr(hashQs.get("cccAction"));
@@ -3046,7 +3144,7 @@ Replaces bulky default grid with compact toggle view + franchise icons
           src.searchParams.set("cccAction", pending.action);
           src.searchParams.set("cccPlayer", pending.playerId);
           if (pending.franchiseId) src.searchParams.set("cccFranchise", pending.franchiseId);
-          src.searchParams.set("cccSeason", safeStr(year));
+          src.searchParams.set("cccSeason", safeStr(getActiveYear()));
           if (pending.action === "extension") src.searchParams.set("cccYears", safeStr(pending.years));
           clearPendingAction();
         }
@@ -3260,8 +3358,10 @@ Replaces bulky default grid with compact toggle view + franchise icons
       var q = u.searchParams.get("L");
       if (q) return q;
     } catch (e) {}
+    var m = String(window.location.pathname || "").match(/\/home\/(\d+)(?:\/|$)/i);
+    if (m && m[1]) return String(m[1]);
     if (typeof league_id !== "undefined" && league_id) return String(league_id);
-    return "74598";
+    return "";
   }
 
   function getYear() {
@@ -3270,9 +3370,10 @@ Replaces bulky default grid with compact toggle view + franchise icons
       var q = u.searchParams.get("YEAR");
       if (q) return q;
     } catch (e) {}
-    if (typeof year !== "undefined" && year) return String(year);
     var m = String(window.location.pathname || "").match(/\/(\d{4})\//);
-    return m ? m[1] : String(new Date().getFullYear());
+    if (m && m[1]) return String(m[1]);
+    if (typeof year !== "undefined" && year) return String(year);
+    return String(new Date().getFullYear());
   }
 
   function fetchFirstJson(urls) {
@@ -3564,9 +3665,14 @@ Replaces bulky default grid with compact toggle view + franchise icons
   if (!banner) return;
   var href = String(window.location.href || "");
   var isDevLoader = !!document.querySelector('script[src*="@dev/site/loader.js"]');
-  var isTestLeague =
-    /[?&]L=25625(?:[&#]|$)/.test(href) ||
-    /\/home\/25625(?:[/?#]|$)/.test(href);
+  var devLeagueId = String(window.UPS_DEV_LEAGUE_ID || "").replace(/\D/g, "");
+  var isTestLeague = false;
+  if (devLeagueId) {
+    var esc = devLeagueId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    var byParam = new RegExp("[?&]L=" + esc + "(?:[&#]|$)");
+    var byPath = new RegExp("/home/" + esc + "(?:[/?#]|$)");
+    isTestLeague = byParam.test(href) || byPath.test(href);
+  }
   if (!isDevLoader && !isTestLeague) return;
   banner.style.display = "flex";
 })();
