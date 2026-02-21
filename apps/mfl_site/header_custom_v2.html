@@ -1483,6 +1483,9 @@
       );
     }
 
+    var CCC_MAIN_IFRAME_URL =
+      "https://rawcdn.githack.com/keithcreelman/upsmflproduction/main/site/ccc/mfl_hpm16_contractcommandcenter.html";
+
     function normalizeEmbeddedFrameToMain(frame) {
       if (!frame) return false;
       var raw = String(frame.getAttribute("src") || "").trim();
@@ -1494,10 +1497,13 @@
         try {
           q = String(new URL(next, window.location.href).search || "");
         } catch (e) {}
-        next =
-          "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/ccc/mfl_hpm16_contractcommandcenter.html" +
-          q;
+        next = CCC_MAIN_IFRAME_URL + q;
       }
+
+      next = next.replace(
+        /https?:\/\/(?:rawcdn\.githack\.com\/keithcreelman\/upsmflproduction\/(?:main|dev|v[0-9][^/]*|ext-[^/]+)|cdn\.jsdelivr\.net\/gh\/keithcreelman\/upsmflproduction@(?:main|dev|v[0-9][^/]*|ext-[^/]+))\/site\/ccc\/mfl_hpm16_contractcommandcenter\.html/i,
+        CCC_MAIN_IFRAME_URL
+      );
 
       next = next.replace(
         /https?:\/\/rawcdn\.githack\.com\/keithcreelman\/upsmflproduction\/(?:main|dev|v[0-9][^/]*|ext-[^/]+)\//i,
@@ -1532,6 +1538,10 @@
       if (/keithcreelman\.github\.io\/upsmflproduction/i.test(next)) {
         return buildCanonicalCccRouteUrl() || next;
       }
+      next = next.replace(
+        /https?:\/\/(?:rawcdn\.githack\.com\/keithcreelman\/upsmflproduction\/(?:main|dev|v[0-9][^/]*|ext-[^/]+)|cdn\.jsdelivr\.net\/gh\/keithcreelman\/upsmflproduction@(?:main|dev|v[0-9][^/]*|ext-[^/]+))\/site\/ccc\/mfl_hpm16_contractcommandcenter\.html/i,
+        CCC_MAIN_IFRAME_URL
+      );
       next = next.replace(
         /https?:\/\/rawcdn\.githack\.com\/keithcreelman\/upsmflproduction\/(?:main|dev|v[0-9][^/]*|ext-[^/]+)\//i,
         "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/"
@@ -1603,7 +1613,7 @@
 
     function loadCccLoader() {
       window.UPS_CCC_IFRAME_URL =
-        "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/ccc/mfl_hpm16_contractcommandcenter.html";
+        CCC_MAIN_IFRAME_URL;
 
       clearLegacyCccEmbeds();
       normalizeAllEmbeddedFramesToMain();
