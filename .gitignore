@@ -31,3 +31,6 @@ scripts/scheduler/logs/
 # Node / Cloudflare
 node_modules/
 .wrangler/
+
+# Local-only Claude tooling
+.claude/
