@@ -1554,17 +1554,11 @@
     }
 
     function loadCccLoader() {
-      var forceMain = isForceMainRequested();
       window.UPS_CCC_IFRAME_URL =
         "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/ccc/mfl_hpm16_contractcommandcenter.html";
 
-      if (forceMain) clearLegacyCccEmbeds();
+      clearLegacyCccEmbeds();
       normalizeAllEmbeddedFramesToMain();
-      var embedded = getEmbeddedFrame();
-      if (embedded && !forceMain) {
-        normalizeEmbeddedFrameToMain(embedded);
-        return;
-      }
       ensureMountNearTop();
       var cacheKey = encodeURIComponent(String(Date.now()));
       var loaderCandidates = [
@@ -1575,6 +1569,7 @@
       function tryLoader(idx) {
         if (idx >= loaderCandidates.length) return;
         var s = document.createElement("script");
+        s.setAttribute("data-ups-ccc-loader", "1");
         s.src = loaderCandidates[idx];
         s.async = true;
         s.onerror = function () {
@@ -1609,6 +1604,13 @@
 
     var mod = getModuleName();
     if (mod !== "MESSAGE2" && mod !== "MESSAGE16") return;
+    if (!isForceMainRequested()) {
+      try {
+        var forcedUrl = new URL(window.location.href);
+        forcedUrl.searchParams.set("UPS_CCC_FORCE_MAIN", "1");
+        window.history.replaceState(null, "", forcedUrl.toString());
+      } catch (e) {}
+    }
     normalizeCccAnchorsToMain();
 
     if (document.readyState === "loading") {
