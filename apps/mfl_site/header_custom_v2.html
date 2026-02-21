@@ -1369,15 +1369,34 @@
     }
 
     function getCurrentLeagueId() {
-      var g = safeStr(window.league_id || window.LEAGUE_ID || "");
-      if (g) return g;
+      var cookieLeague = "";
+      try {
+        var raw = safeStr(document.cookie || "");
+        if (raw) {
+          raw.split(";").forEach(function (part) {
+            var p = safeStr(part);
+            if (!p) return;
+            var idx = p.indexOf("=");
+            var key = idx >= 0 ? safeStr(p.slice(0, idx)) : safeStr(p);
+            var val = idx >= 0 ? safeStr(p.slice(idx + 1)) : "";
+            if (key === "MFL_LAST_LEAGUE_ID" && val) cookieLeague = decodeURIComponent(val);
+          });
+        }
+      } catch (e) {}
+
       try {
         var u = new URL(window.location.href);
         var q = safeStr(u.searchParams.get("L") || "");
         if (q) return q;
       } catch (e) {}
+      var g = safeStr(window.league_id || window.LEAGUE_ID || "");
+      if (g && g !== "25625") return g;
       var m = safeStr(window.location.pathname).match(/\/home\/(\d+)(?:\/|$)/i);
-      return m && m[1] ? safeStr(m[1]) : "";
+      var pathLeague = m && m[1] ? safeStr(m[1]) : "";
+      if (cookieLeague && pathLeague && cookieLeague !== pathLeague) return cookieLeague;
+      if (pathLeague) return pathLeague;
+      if (cookieLeague) return cookieLeague;
+      return g;
     }
 
     function getCurrentYear() {
@@ -1403,19 +1422,8 @@
         encodeURIComponent(YEAR) +
         "/home/" +
         encodeURIComponent(L) +
-        "?MODULE=MESSAGE2&UPS_CCC_FORCE_MAIN=1"
+        "?MODULE=MESSAGE2"
       );
-    }
-
-    function isForceMainRequested() {
-      try {
-        var u = new URL(window.location.href);
-        if (safeStr(u.searchParams.get("UPS_CCC_FORCE_MAIN")) === "1") return true;
-        var h = new URLSearchParams(safeStr(window.location.hash).replace(/^#/, ""));
-        return safeStr(h.get("UPS_CCC_FORCE_MAIN")) === "1";
-      } catch (e) {
-        return false;
-      }
     }
 
     function getModuleName() {
@@ -1604,13 +1612,6 @@
 
     var mod = getModuleName();
     if (mod !== "MESSAGE2" && mod !== "MESSAGE16") return;
-    if (!isForceMainRequested()) {
-      try {
-        var forcedUrl = new URL(window.location.href);
-        forcedUrl.searchParams.set("UPS_CCC_FORCE_MAIN", "1");
-        window.history.replaceState(null, "", forcedUrl.toString());
-      } catch (e) {}
-    }
     normalizeCccAnchorsToMain();
 
     if (document.readyState === "loading") {
