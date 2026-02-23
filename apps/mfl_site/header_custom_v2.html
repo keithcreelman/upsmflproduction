@@ -1505,10 +1505,18 @@
       }
     }
 
+    function removeAllNodes(selector) {
+      var nodes = document.querySelectorAll(selector);
+      for (var i = 0; i < nodes.length; i++) {
+        var n = nodes[i];
+        if (n && n.parentNode) n.parentNode.removeChild(n);
+      }
+    }
+
     function dedupeMessage2UpsShells() {
       removeDuplicateNodes(".ups-hero-shell");
       removeDuplicateNodes(".ups-hotlinks-shell");
-      removeDuplicateNodes("#upsMarquee");
+      removeAllNodes("#upsMarquee, .ups-marquee-shell");
       removeDuplicateNodes("#upsDevBanner");
     }
 
@@ -3288,7 +3296,6 @@ Replaces bulky default grid with compact toggle view + franchise icons
 <!---------- HEADER SECTION 6 ---------->
 <!-------------------------------------->
 
-<div id="upsMarquee" class="ups-marquee-shell" aria-live="polite"></div>
 <div id="MFLBoxWrapper"></div>
 
 <script>
