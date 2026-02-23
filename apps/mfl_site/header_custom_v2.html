@@ -3820,16 +3820,6 @@ Replaces bulky default grid with compact toggle view + franchise icons
 <link rel="stylesheet" type="text/css" href="https://www.mflscripts.com/mfl-apps/global/css/300x50-icons.css">
 
 <style id="ups-theme-postload-overrides">
-  /* Reassert shell width after MFL skin CSS loads (it can reset #container-wrap to full width). */
-  body #container-wrap {
-    width: min(var(--ups-shell-max), calc(100% - (var(--ups-shell-gutter) * 2))) !important;
-    max-width: none !important;
-    margin: 0 auto 1rem !important;
-    padding: 0 var(--ups-shell-gutter) !important;
-    box-sizing: border-box !important;
-    display: block !important;
-  }
-
   /* Force contrast after MFL scripts/CSS load */
   .report,
   .homepagemodule.report,
