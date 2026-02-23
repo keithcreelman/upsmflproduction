@@ -1378,7 +1378,7 @@
   // MFL sometimes injects message HTML with innerHTML, which makes <script> tags inert.
   // Loading the CCC embed loader from the header ensures it executes.
   (function () {
-    var CCC_HEADER_BUILD = "2026.02.21.5";
+    var CCC_HEADER_BUILD = "2026.02.21.6";
     if (window.__ups_ccc_header_autoload === CCC_HEADER_BUILD) return;
     window.__ups_ccc_header_autoload = CCC_HEADER_BUILD;
     var CCC_PROD_LEAGUE_ID = String(window.UPS_CCC_PROD_LEAGUE_ID || "74598").replace(/\D/g, "");
@@ -1494,6 +1494,22 @@
       } catch (e) {
         return "";
       }
+    }
+
+    function removeDuplicateNodes(selector) {
+      var nodes = document.querySelectorAll(selector);
+      if (!nodes || nodes.length <= 1) return;
+      for (var i = 1; i < nodes.length; i++) {
+        var n = nodes[i];
+        if (n && n.parentNode) n.parentNode.removeChild(n);
+      }
+    }
+
+    function dedupeMessage2UpsShells() {
+      removeDuplicateNodes(".ups-hero-shell");
+      removeDuplicateNodes(".ups-hotlinks-shell");
+      removeDuplicateNodes("#upsMarquee");
+      removeDuplicateNodes("#upsDevBanner");
     }
 
     function getEmbeddedFrame() {
@@ -1689,17 +1705,24 @@
 
     var mod = getModuleName();
     if (mod !== "MESSAGE2") return;
+    dedupeMessage2UpsShells();
     normalizeCccAnchorsToMain();
 
     if (document.readyState === "loading") {
       document.addEventListener("DOMContentLoaded", function () {
+        dedupeMessage2UpsShells();
         normalizeHeaderHotlinksToCurrentLeague();
         normalizeCccAnchorsToMain();
         loadCccLoader();
+        setTimeout(dedupeMessage2UpsShells, 300);
+        setTimeout(dedupeMessage2UpsShells, 1200);
       });
     } else {
+      dedupeMessage2UpsShells();
       normalizeHeaderHotlinksToCurrentLeague();
       loadCccLoader();
+      setTimeout(dedupeMessage2UpsShells, 300);
+      setTimeout(dedupeMessage2UpsShells, 1200);
     }
   })();
 </script>
