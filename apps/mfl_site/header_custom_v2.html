@@ -353,6 +353,15 @@
     box-sizing: border-box;
   }
 
+  /* CCC message page only: center the UPS header shells without changing the
+     home-page HPM alignment behavior. */
+  body.ups-message2-ccc .ups-hero-shell,
+  body.ups-message2-ccc .ups-hotlinks-shell {
+    max-width: 76rem;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
   .ups-hero-shell .banner-container-full {
     margin: 0;
     border-radius: 16px;
@@ -584,6 +593,7 @@
     max-width: min(76rem, calc(100% - 1.1rem));
     margin: 0.35rem auto 1rem;
     padding: 0.5rem;
+    box-sizing: border-box;
     border-radius: 14px;
     border: 1px solid rgba(228, 239, 255, 0.72);
     background: linear-gradient(180deg, rgba(6, 16, 34, 0.92), rgba(8, 20, 40, 0.9));
@@ -1500,6 +1510,15 @@
       }
     }
 
+    function enableMessage2CccChromeClass() {
+      try {
+        document.documentElement.classList.add("ups-message2-ccc");
+      } catch (e) {}
+      try {
+        if (document.body) document.body.classList.add("ups-message2-ccc");
+      } catch (e) {}
+    }
+
     function removeDuplicateNodes(selector) {
       var nodes = document.querySelectorAll(selector);
       if (!nodes || nodes.length <= 1) return;
@@ -1798,6 +1817,7 @@
 
     var mod = getModuleName();
     if (mod !== "MESSAGE2") return;
+    enableMessage2CccChromeClass();
     dedupeMessage2UpsShells();
     normalizeCccAnchorsToMain();
     normalizeAllEmbeddedFramesToMain();
@@ -1805,6 +1825,7 @@
 
     if (document.readyState === "loading") {
       document.addEventListener("DOMContentLoaded", function () {
+        enableMessage2CccChromeClass();
         dedupeMessage2UpsShells();
         normalizeHeaderHotlinksToCurrentLeague();
         normalizeCccAnchorsToMain();
@@ -1817,6 +1838,7 @@
         setTimeout(normalizeAllEmbeddedFramesToMain, 1200);
       });
     } else {
+      enableMessage2CccChromeClass();
       dedupeMessage2UpsShells();
       normalizeHeaderHotlinksToCurrentLeague();
       normalizeAllEmbeddedFramesToMain();
@@ -3864,6 +3886,30 @@ Replaces bulky default grid with compact toggle view + franchise icons
 <link rel="stylesheet" type="text/css" href="https://www.mflscripts.com/mfl-apps/global/css/300x50-icons.css">
 
 <style id="ups-theme-postload-overrides">
+  /* CCC Message2 host page should keep the UPS dark-blue shell around the
+     centered CCC iframe container instead of MFL's default white background. */
+  html.ups-message2-ccc,
+  body.ups-message2-ccc,
+  body.ups-message2-ccc .pagebody,
+  body.ups-message2-ccc #container-wrap,
+  body.ups-message2-ccc .mobile-wrap {
+    background: var(--ups-bg) !important;
+  }
+
+  body.ups-message2-ccc .mobile-wrap {
+    padding-top: 0.35rem !important;
+    padding-bottom: 0.75rem !important;
+    box-sizing: border-box !important;
+  }
+
+  body.ups-message2-ccc .ups-hero-shell,
+  body.ups-message2-ccc .ups-hotlinks-shell {
+    max-width: 76rem !important;
+    width: 100% !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+  }
+
   /* Force contrast after MFL scripts/CSS load */
   .report,
   .homepagemodule.report,
