@@ -1607,6 +1607,43 @@
       return changed;
     }
 
+    function watchCccFramesOnMessage2() {
+      if (!window.MutationObserver || watchCccFramesOnMessage2._started) return;
+      watchCccFramesOnMessage2._started = true;
+
+      var root = document.documentElement || document.body;
+      if (!root) return;
+
+      var obs = new MutationObserver(function (mutations) {
+        var shouldNormalize = false;
+        for (var i = 0; i < mutations.length; i++) {
+          var m = mutations[i];
+          if (!m) continue;
+          if (m.type === "attributes" && m.attributeName === "src") {
+            shouldNormalize = true;
+            break;
+          }
+          if (m.type === "childList" && ((m.addedNodes && m.addedNodes.length) || (m.removedNodes && m.removedNodes.length))) {
+            shouldNormalize = true;
+            break;
+          }
+        }
+        if (shouldNormalize) normalizeAllEmbeddedFramesToMain();
+      });
+
+      try {
+        obs.observe(root, {
+          childList: true,
+          subtree: true,
+          attributes: true,
+          attributeFilter: ["src"]
+        });
+        setTimeout(function () {
+          try { obs.disconnect(); } catch (e) {}
+        }, 8000);
+      } catch (e) {}
+    }
+
     function normalizeCccUrlToMain(raw) {
       var next = String(raw || "").trim();
       if (!next) return "";
@@ -1763,22 +1800,32 @@
     if (mod !== "MESSAGE2") return;
     dedupeMessage2UpsShells();
     normalizeCccAnchorsToMain();
+    normalizeAllEmbeddedFramesToMain();
+    watchCccFramesOnMessage2();
 
     if (document.readyState === "loading") {
       document.addEventListener("DOMContentLoaded", function () {
         dedupeMessage2UpsShells();
         normalizeHeaderHotlinksToCurrentLeague();
         normalizeCccAnchorsToMain();
+        normalizeAllEmbeddedFramesToMain();
+        watchCccFramesOnMessage2();
         loadCccLoader();
         setTimeout(dedupeMessage2UpsShells, 300);
+        setTimeout(normalizeAllEmbeddedFramesToMain, 300);
         setTimeout(dedupeMessage2UpsShells, 1200);
+        setTimeout(normalizeAllEmbeddedFramesToMain, 1200);
       });
     } else {
       dedupeMessage2UpsShells();
       normalizeHeaderHotlinksToCurrentLeague();
+      normalizeAllEmbeddedFramesToMain();
+      watchCccFramesOnMessage2();
       loadCccLoader();
       setTimeout(dedupeMessage2UpsShells, 300);
+      setTimeout(normalizeAllEmbeddedFramesToMain, 300);
       setTimeout(dedupeMessage2UpsShells, 1200);
+      setTimeout(normalizeAllEmbeddedFramesToMain, 1200);
     }
   })();
 </script>
