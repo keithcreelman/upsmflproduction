@@ -1509,6 +1509,30 @@
       }
     }
 
+    // MESSAGE2 can contain stale copied header shells inside the message body.
+    // Preserve the real top-page shell (outside #container-wrap) when possible.
+    function removeDuplicateNodesPreferHeader(selector) {
+      var nodes = Array.prototype.slice.call(document.querySelectorAll(selector) || []);
+      if (!nodes || nodes.length <= 1) return;
+
+      var keep = null;
+      for (var i = 0; i < nodes.length; i++) {
+        var n = nodes[i];
+        if (!n || !n.closest) continue;
+        if (!n.closest("#container-wrap")) {
+          keep = n;
+          break;
+        }
+      }
+      if (!keep) keep = nodes[0];
+
+      for (var j = 0; j < nodes.length; j++) {
+        var node = nodes[j];
+        if (!node || node === keep) continue;
+        if (node.parentNode) node.parentNode.removeChild(node);
+      }
+    }
+
     function removeAllNodes(selector) {
       var nodes = document.querySelectorAll(selector);
       for (var i = 0; i < nodes.length; i++) {
@@ -1518,10 +1542,10 @@
     }
 
     function dedupeMessage2UpsShells() {
-      removeDuplicateNodes(".ups-hero-shell");
-      removeDuplicateNodes(".ups-hotlinks-shell");
+      removeDuplicateNodesPreferHeader(".ups-hero-shell");
+      removeDuplicateNodesPreferHeader(".ups-hotlinks-shell");
       removeAllNodes("#upsMarquee, .ups-marquee-shell");
-      removeDuplicateNodes("#upsDevBanner");
+      removeDuplicateNodesPreferHeader("#upsDevBanner");
     }
 
     function getEmbeddedFrame() {
@@ -1661,6 +1685,22 @@
     }
 
     function loadCccLoader() {
+      var existingFrame = getEmbeddedFrame();
+      if (existingFrame) {
+        normalizeEmbeddedFrameToMain(existingFrame);
+        return;
+      }
+
+      // If MESSAGE2 body already includes the canonical embed loader script,
+      // do not clear/reload it again from the header (prevents slow double load).
+      var hasBodyEmbedLoader = !!document.querySelector(
+        'script[src*="mfl_hpm_embed_loader.js"]:not([data-ups-ccc-loader])'
+      );
+      if (hasBodyEmbedLoader) {
+        ensureMountNearTop();
+        return;
+      }
+
       window.UPS_CCC_IFRAME_URL =
         CCC_MAIN_IFRAME_URL;
 
