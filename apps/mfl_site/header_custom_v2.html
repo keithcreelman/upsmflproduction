@@ -338,7 +338,7 @@
   /* Hero / hotlinks */
 .ups-hero-shell {
   max-width: none;
-  width: min(100%, calc(100vw - 0.7rem));
+  width: 100%;
   margin: 0.9rem auto 0.45rem;
   padding: 0 0.35rem;
   box-sizing: border-box;
@@ -347,7 +347,7 @@
 
   .ups-hotlinks-shell {
     max-width: none;
-    width: min(100%, calc(100vw - 0.7rem));
+    width: 100%;
     margin: 0.65rem auto 0.7rem;
     padding: 0 0.35rem;
     box-sizing: border-box;
@@ -1510,6 +1510,22 @@
       }
     }
 
+    function enableHomeShellClass() {
+      var path = "";
+      try {
+        path = String(window.location.pathname || "");
+      } catch (e) {
+        path = "";
+      }
+      if (!/\/home\/\d+/i.test(path)) return;
+      try {
+        document.documentElement.classList.add("ups-home-shell");
+      } catch (e) {}
+      try {
+        if (document.body) document.body.classList.add("ups-home-shell");
+      } catch (e) {}
+    }
+
     function enableMessage2CccChromeClass() {
       try {
         document.documentElement.classList.add("ups-message2-ccc");
@@ -1814,6 +1830,7 @@
     );
 
     normalizeHeaderHotlinksToCurrentLeague();
+    enableHomeShellClass();
 
     var mod = getModuleName();
     if (mod !== "MESSAGE2") return;
@@ -1825,6 +1842,7 @@
 
     if (document.readyState === "loading") {
       document.addEventListener("DOMContentLoaded", function () {
+        enableHomeShellClass();
         enableMessage2CccChromeClass();
         dedupeMessage2UpsShells();
         normalizeHeaderHotlinksToCurrentLeague();
@@ -1838,6 +1856,7 @@
         setTimeout(normalizeAllEmbeddedFramesToMain, 1200);
       });
     } else {
+      enableHomeShellClass();
       enableMessage2CccChromeClass();
       dedupeMessage2UpsShells();
       normalizeHeaderHotlinksToCurrentLeague();
@@ -3886,6 +3905,15 @@ Replaces bulky default grid with compact toggle view + franchise icons
 <link rel="stylesheet" type="text/css" href="https://www.mflscripts.com/mfl-apps/global/css/300x50-icons.css">
 
 <style id="ups-theme-postload-overrides">
+  /* Home / CCC pages: prevent horizontal overflow from shifting the entire
+     page content (hero/hotlinks + HPMs) off-center. */
+  html.ups-home-shell,
+  body.ups-home-shell,
+  body.ups-home-shell .pagebody,
+  body.ups-home-shell .mobile-wrap {
+    overflow-x: hidden !important;
+  }
+
   /* CCC Message2 host page should keep the UPS dark-blue shell around the
      centered CCC iframe container instead of MFL's default white background. */
   html.ups-message2-ccc,
