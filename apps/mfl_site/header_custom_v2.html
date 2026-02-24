@@ -3859,7 +3859,10 @@ Replaces bulky default grid with compact toggle view + franchise icons
       rosterUiState.years = prune(rosterUiState.years, sets.years);
       rosterUiState.contractTypes = prune(rosterUiState.contractTypes, sets.contractTypes);
 
-      renderMultiSelectOptions(toolbar.querySelector("#upsRosterTeams"), sets.teams, rosterUiState.teams);
+      var teamItems = [{ value: "__ALL__", label: "All Teams" }].concat(sets.teams || []);
+      var teamSelected = (rosterUiState.teams && rosterUiState.teams.length) ? rosterUiState.teams : ["__ALL__"];
+
+      renderMultiSelectOptions(toolbar.querySelector("#upsRosterTeams"), teamItems, teamSelected);
       renderMultiSelectOptions(toolbar.querySelector("#upsRosterDivisions"), sets.divisions, rosterUiState.divisions);
       renderMultiSelectOptions(toolbar.querySelector("#upsRosterPositions"), sets.positions, rosterUiState.positions);
       renderMultiSelectOptions(toolbar.querySelector("#upsRosterYears"), sets.years, rosterUiState.years);
@@ -3871,7 +3874,7 @@ Replaces bulky default grid with compact toggle view + franchise icons
       var yearsSel = toolbar.querySelector("#upsRosterYears");
       var typesSel = toolbar.querySelector("#upsRosterTypes");
 
-      if (teamsSel) teamsSel.size = Math.max(4, Math.min(12, (sets.teams || []).length || 4));
+      if (teamsSel) teamsSel.size = Math.max(4, Math.min(12, ((sets.teams || []).length + 1) || 4));
       if (divSel) divSel.size = Math.max(3, Math.min(6, (sets.divisions || []).length || 3));
       if (posSel) posSel.size = Math.max(4, Math.min(10, (sets.positions || []).length || 4));
       if (yearsSel) yearsSel.size = Math.max(3, Math.min(5, (sets.years || []).length || 3));
@@ -3930,6 +3933,13 @@ Replaces bulky default grid with compact toggle view + franchise icons
           if (!el) return;
           el.addEventListener("change", function () {
             var values = selectedMultiValues(el);
+            if (stateKey === "teams") {
+              if (values.indexOf("__ALL__") !== -1) {
+                values = [];
+              } else {
+                values = values.filter(function (v) { return safeStr(v) !== "__ALL__"; });
+              }
+            }
             rosterUiState[stateKey] = uniq(values.map(function (v) {
               return normalizeFn ? normalizeFn(v) : safeStr(v);
             }).filter(Boolean));
@@ -3961,11 +3971,6 @@ Replaces bulky default grid with compact toggle view + franchise icons
 
       var searchInputNow = toolbar.querySelector("#upsRosterSearch");
       if (searchInputNow && searchInputNow.value !== rosterUiState.search) searchInputNow.value = rosterUiState.search;
-      setMultiSelectValues(toolbar.querySelector("#upsRosterTeams"), rosterUiState.teams);
-      setMultiSelectValues(toolbar.querySelector("#upsRosterDivisions"), rosterUiState.divisions);
-      setMultiSelectValues(toolbar.querySelector("#upsRosterPositions"), rosterUiState.positions);
-      setMultiSelectValues(toolbar.querySelector("#upsRosterYears"), rosterUiState.years);
-      setMultiSelectValues(toolbar.querySelector("#upsRosterTypes"), rosterUiState.contractTypes);
 
       toolbar.classList.toggle("is-filtering", isFilterActive());
       return toolbar;
@@ -4300,8 +4305,13 @@ Replaces bulky default grid with compact toggle view + franchise icons
         table.classList.toggle("ups-roster-no-match", filterActive && visibleMatchCount === 0);
         table.hidden = filterActive && visibleMatchCount === 0;
 
+        var wrap = table.closest(".mobile-wrap");
+        if (wrap && wrap.querySelector("table.report") === table) {
+          wrap.hidden = !!table.hidden;
+        }
+
         var hostCell = table.closest("td.two_column_layout");
-        if (hostCell && hostCell.querySelector("table.report") === table) {
+        if (hostCell && hostCell.querySelectorAll("table.report").length === 1 && hostCell.querySelector("table.report") === table) {
           hostCell.hidden = !!table.hidden;
         }
 
@@ -5282,6 +5292,43 @@ Replaces bulky default grid with compact toggle view + franchise icons
     max-height: none !important;
     overflow: visible !important;
     overscroll-behavior: auto !important;
+  }
+
+  /* Roster layout: replace MFLScripts tabbed/team-strip UI with a single-page roster list.
+     This makes toolbar filters (team/division/etc.) work predictably and removes the icon-strip scrollbar. */
+  body#body_options_07 #MFLroster td.icon_column,
+  body#body_options_07 #MFLroster td.two_column.left_column,
+  body#body_options_07 #MFLroster #roster_column_left,
+  body#body_options_07 #MFLroster #roster_column_middle,
+  body#body_options_07 #MFLroster #rosterTradeLinkDIV {
+    display: none !important;
+  }
+
+  body#body_options_07 #MFLroster #rosSwipe,
+  body#body_options_07 #MFLroster #noSwipe {
+    width: 100% !important;
+    table-layout: auto !important;
+  }
+
+  body#body_options_07 #MFLroster td.two_column.right_column {
+    width: 100% !important;
+    display: block !important;
+    vertical-align: top !important;
+  }
+
+  body#body_options_07 #MFLroster #roster_column_right {
+    display: block !important;
+    width: 100% !important;
+  }
+
+  body#body_options_07 #MFLroster #roster_column_right .mobile-wrap {
+    display: block !important;
+    margin: 0 0 0.75rem 0 !important;
+    width: 100% !important;
+  }
+
+  body#body_options_07 #MFLroster #roster_column_right .mobile-wrap[hidden] {
+    display: none !important;
   }
 
   body#body_options_07 #MFLroster caption,
