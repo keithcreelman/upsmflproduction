@@ -6073,6 +6073,56 @@ Replaces bulky default grid with compact toggle view + franchise icons
     color: var(--ups-text) !important;
   }
 
+  /* Mobile MFL hamburger/menu trigger: pin to upper-left and match UPS colors. */
+  @media (max-width: 760px) {
+    .myfantasyleague_menu {
+      position: fixed !important;
+      top: calc(env(safe-area-inset-top, 0px) + 0.45rem) !important;
+      left: 0.45rem !important;
+      right: auto !important;
+      z-index: 10060 !important;
+      width: auto !important;
+      max-width: calc(100vw - 0.9rem) !important;
+      border: 1px solid var(--ups-border) !important;
+      border-radius: 12px !important;
+      background: var(--ups-surface-alt) !important;
+      background: color-mix(in srgb, var(--ups-surface-alt) 88%, transparent) !important;
+      box-shadow: 0 8px 18px rgba(0, 0, 0, 0.28) !important;
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+    }
+
+    .myfantasyleague_menu > span {
+      color: var(--ups-text) !important;
+      font-weight: 900 !important;
+      letter-spacing: 0.04em !important;
+    }
+
+    .myfantasyleague_menu > label,
+    .myfantasyleague_menu > label[for="sub0"] {
+      background: var(--ups-accent) !important;
+      border: 1px solid #b98527 !important;
+      border-radius: 10px !important;
+      box-shadow: none !important;
+    }
+
+    .myfantasyleague_menu > label > span,
+    .myfantasyleague_menu > label > span::before,
+    .myfantasyleague_menu > label > span::after {
+      background: var(--ups-accent-ink) !important;
+      border-color: var(--ups-accent-ink) !important;
+    }
+
+    .myfantasyleague_menu > ul {
+      margin-top: 0.35rem !important;
+      border: 1px solid var(--ups-border) !important;
+      border-radius: 12px !important;
+      background: var(--ups-surface-alt) !important;
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35) !important;
+      overflow: hidden;
+    }
+  }
+
   /* Mini scoreboard (MFLBox) dark mode */
   #MFLBoxWrapper,
   #MFLBoxContainer,
