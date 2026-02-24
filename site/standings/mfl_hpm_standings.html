@@ -73,6 +73,28 @@
       margin-left: auto;
       justify-content: flex-end;
     }
+    @media only screen and (min-width: 56.25em) {
+      .head {
+        flex-wrap: nowrap;
+      }
+      .head > div:first-child {
+        flex: 0 0 auto;
+      }
+      .controls {
+        width: auto;
+        flex: 1 1 auto;
+        min-width: 0;
+        justify-content: space-between;
+        align-items: flex-start;
+      }
+      .controls-right {
+        flex: 0 0 auto;
+        margin-left: 14px;
+        padding-left: 14px;
+        border-left: 1px solid rgba(42,79,134,0.45);
+        align-items: flex-end;
+      }
+    }
     .toggles {
       display: flex;
       gap: 6px;
@@ -1235,6 +1257,7 @@
         if (key === "points_for") return n(row.points_for);
         if (key === "off_points") return n(row.off_points);
         if (key === "def_points") return n(row.def_points);
+        if (key === "all_play_wins") return n(row.all_play && row.all_play.w);
         if (key === "potential_points") return n(row.potential_points);
         if (key === "efficiency") return n(row.efficiency);
         if (key === "division") return safe(row.division_name || row.division);
@@ -1597,6 +1620,7 @@
         const avgPF = isRel ? leagueAvgPF(viewRows) : 0;
         const avgOff = isRel ? (function () { var s=0; (viewRows||[]).forEach(function(r){s+=n(r.off_points,0);}); return s/((viewRows||[]).length||1); })() : 0;
         const avgDef = isRel ? (function () { var s=0; (viewRows||[]).forEach(function(r){s+=n(r.def_points,0);}); return s/((viewRows||[]).length||1); })() : 0;
+        const avgAPWins = isRel ? (function () { var s=0; (viewRows||[]).forEach(function(r){s+=n(r.all_play && r.all_play.w,0);}); return s/((viewRows||[]).length||1); })() : 0;
         const avgPP = isRel ? (function () { var s=0; (viewRows||[]).forEach(function(r){s+=n(r.potential_points,0);}); return s/((viewRows||[]).length||1); })() : 0;
         const avgEff = isRel ? (function () { var s=0; (viewRows||[]).forEach(function(r){s+=n(r.efficiency,0);}); return s/((viewRows||[]).length||1); })() : 0;
         // Compute range-aware points-per-week baselines.
@@ -1633,6 +1657,7 @@
               { key: "points_for", label: isRel ? (hasWeekly ? "PF/wk vs Avg" : "PF vs Avg") : "PF", hide: "" },
               { key: "off_points", label: isRel ? (hasWeeklyOff ? "Off/wk vs Avg" : "Off vs Avg") : "Off Pts", hide: "" },
               { key: "def_points", label: isRel ? (hasWeeklyDef ? "Def/wk vs Avg" : "Def vs Avg") : "Def Pts", hide: "" },
+              { key: "all_play_wins", label: isRel ? "All-Play W vs Avg" : "All-Play Wins", hide: "" },
               { key: "potential_points", label: isRel ? (hasWeeklyPotential ? "PP/wk vs Avg" : "PP vs Avg") : "Potential", hide: "hide-mobile" },
               { key: "efficiency", label: isRel ? "Eff vs Avg" : "Efficiency", hide: "hide-mobile" },
             ];
@@ -1709,6 +1734,8 @@
                 av = a.off_points - avgOff; bv = b.off_points - avgOff;
               } else if (key === "def_points") {
                 av = a.def_points - avgDef; bv = b.def_points - avgDef;
+              } else if (key === "all_play_wins") {
+                av = n(a.all_play && a.all_play.w, 0) - avgAPWins; bv = n(b.all_play && b.all_play.w, 0) - avgAPWins;
               } else if (key === "potential_points") {
                 av = a.potential_points - avgPP; bv = b.potential_points - avgPP;
               } else if (key === "points_for") {
@@ -1766,12 +1793,18 @@
                   }
                   var d=r.def_points-avgDef; return `<td class="num ${c.hide} ${d>=0?"pf-rel-pos":"pf-rel-neg"}">${d>=0?"+":""}${d.toFixed(1)}</td>`;
                 }
+                if (isRel && c.key === "all_play_wins") {
+                  var d=n(r.all_play && r.all_play.w,0)-avgAPWins; return `<td class="num ${c.hide} ${d>=0?"pf-rel-pos":"pf-rel-neg"}">${d>=0?"+":""}${d.toFixed(1)}</td>`;
+                }
                 if (isRel && c.key === "potential_points") {
                   if (hasWeeklyPotential) {
                     var d=(pointsInRange(r.franchise_id, state.weeklyPotentialPoints, rng[0], rng[1]) / rangeLen)-avgPotentialPerWeek;
                     return `<td class="num ${c.hide} ${d>=0?"pf-rel-pos":"pf-rel-neg"}">${d>=0?"+":""}${d.toFixed(1)} /wk</td>`;
                   }
                   var d=r.potential_points-avgPP; return `<td class="num ${c.hide} ${d>=0?"pf-rel-pos":"pf-rel-neg"}">${d>=0?"+":""}${d.toFixed(1)}</td>`;
+                }
+                if (c.key === "all_play_wins") {
+                  return `<td class="num ${c.hide}">${n(r.all_play && r.all_play.w,0)}</td>`;
                 }
                 if (isRel && c.key === "efficiency") {
                   var d = n(r.efficiency, 0) - avgEff;
