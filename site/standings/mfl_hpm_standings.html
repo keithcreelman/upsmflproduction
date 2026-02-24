@@ -264,6 +264,19 @@
     }
     .range-btn:last-child { border-right: none; }
     .range-btn.active { background: #1a4a7a; color: var(--text); }
+    .range-advanced {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+    .range-advanced .field {
+      white-space: nowrap;
+    }
+    .range-advanced .select {
+      min-width: 66px;
+    }
     /* Points sub-tabs */
     .points-tabs {
       display: flex; gap: 0; margin: 0 12px; border-bottom: 2px solid var(--line);
@@ -457,7 +470,6 @@
           <div class="toggles">
             <button class="btn active" data-view="division">Divisional</button>
             <button class="btn" data-view="points">Points Breakdown</button>
-            <button class="btn" data-view="playoff">Playoff Preview</button>
           </div>
           <label class="field">Season
             <select id="seasonSelect" class="select"></select>
@@ -466,6 +478,17 @@
             <button class="range-btn active" data-range="regular">Regular (1-14)</button>
             <button class="range-btn" data-range="playoffs">Playoffs (15-17)</button>
             <button class="range-btn" data-range="full">Full (1-17)</button>
+          </div>
+          <div class="range-advanced">
+            <label class="field">Start
+              <select id="rangeStartSelect" class="select"></select>
+            </label>
+            <label class="field">End
+              <select id="rangeEndSelect" class="select"></select>
+            </label>
+            <label id="modeSelectWrap" class="field" style="display:none;">Mode
+              <select id="modeSelect" class="select"></select>
+            </label>
           </div>
           <label id="showLeadersWrap" class="toggleWrap" style="display:none;">
             <input id="showLeadersChk" type="checkbox" />
@@ -528,6 +551,8 @@
         weeklyDefPoints: {},
         weeklyPotentialPoints: {},
         range: "regular",
+        rangeStartWeek: 1,
+        rangeEndWeek: 14,
         ddMode: "h2h",
         expandedMatchup: null,
         pointsTab: "points",
@@ -600,6 +625,107 @@
         return [1, 14]; // "regular" default
       }
 
+      function clampWeek(v) {
+        var out = Math.max(1, Math.min(17, parseInt(v, 10) || 1));
+        return out;
+      }
+
+      function applyRangePreset(name) {
+        var bounds = rangeWeeks(name);
+        state.range = safe(name || "regular");
+        state.rangeStartWeek = bounds[0];
+        state.rangeEndWeek = bounds[1];
+      }
+
+      function syncRangePresetFromWeeks() {
+        var sW = clampWeek(state.rangeStartWeek);
+        var eW = clampWeek(state.rangeEndWeek);
+        if (sW > eW) {
+          var tmp = sW; sW = eW; eW = tmp;
+        }
+        state.rangeStartWeek = sW;
+        state.rangeEndWeek = eW;
+        if (sW === 1 && eW === 14) state.range = "regular";
+        else if (sW === 15 && eW === 17) state.range = "playoffs";
+        else if (sW === 1 && eW === 17) state.range = "full";
+        else state.range = "custom";
+      }
+
+      function currentRangeWeeks() {
+        syncRangePresetFromWeeks();
+        return [state.rangeStartWeek, state.rangeEndWeek];
+      }
+
+      function populateWeekSelects() {
+        var startSel = document.getElementById("rangeStartSelect");
+        var endSel = document.getElementById("rangeEndSelect");
+        if (!startSel || !endSel) return;
+        if (startSel.dataset.built === "1" && endSel.dataset.built === "1") return;
+        var opts = [];
+        for (var w = 1; w <= 17; w += 1) {
+          opts.push('<option value="' + w + '">Week ' + w + '</option>');
+        }
+        startSel.innerHTML = opts.join("");
+        endSel.innerHTML = opts.join("");
+        startSel.dataset.built = "1";
+        endSel.dataset.built = "1";
+      }
+
+      function syncRangeControls() {
+        populateWeekSelects();
+        syncRangePresetFromWeeks();
+        document.querySelectorAll(".range-btn").forEach(function (b) {
+          var key = safe(b.getAttribute("data-range"));
+          b.classList.toggle("active", key === state.range);
+        });
+        var startSel = document.getElementById("rangeStartSelect");
+        var endSel = document.getElementById("rangeEndSelect");
+        if (startSel) startSel.value = String(state.rangeStartWeek);
+        if (endSel) endSel.value = String(state.rangeEndWeek);
+      }
+
+      function syncModeSelect() {
+        var wrap = document.getElementById("modeSelectWrap");
+        var sel = document.getElementById("modeSelect");
+        if (!wrap || !sel) return;
+
+        var modeType = "";
+        var opts = [];
+        if (state.view === "division") {
+          modeType = "division";
+          opts = [
+            { value: "raw", label: "Raw" },
+            { value: "pct", label: "%" }
+          ];
+        } else if (state.view === "points" && state.pointsTab === "points") {
+          modeType = "points";
+          opts = [
+            { value: "raw", label: "Raw" },
+            { value: "rel", label: "vs Avg" }
+          ];
+        } else {
+          wrap.style.display = "none";
+          sel.innerHTML = "";
+          sel.dataset.modeType = "";
+          return;
+        }
+
+        wrap.style.display = "";
+        if (sel.dataset.modeType !== modeType) {
+          sel.innerHTML = opts.map(function (opt) {
+            return '<option value="' + esc(opt.value) + '">' + esc(opt.label) + '</option>';
+          }).join("");
+          sel.dataset.modeType = modeType;
+        }
+
+        var current = modeType === "division" ? safe(state.divMode || "raw") : safe(state.pointsMode || "raw");
+        var valid = opts.some(function (opt) { return opt.value === current; });
+        if (!valid) current = opts[0].value;
+        if (modeType === "division") state.divMode = current;
+        else state.pointsMode = current;
+        if (sel.value !== current) sel.value = current;
+      }
+
       function pointsInRange(franchiseId, ws, startWeek, endWeek) {
         var total = 0;
         for (var w = startWeek; w <= endWeek; w++) {
@@ -616,6 +742,173 @@
           sum += pointsInRange(r.franchise_id, ws, startWeek, endWeek);
         });
         return (sum / Math.max(1, (rows || []).length)) / len;
+      }
+
+      function cloneH2HMap(map) {
+        var out = {};
+        Object.keys(map || {}).forEach(function (oppId) {
+          var rec = map[oppId] || {};
+          out[oppId] = {
+            w: n(rec.w, 0),
+            l: n(rec.l, 0),
+            t: n(rec.t, 0),
+            games: n(rec.games, n(rec.w, 0) + n(rec.l, 0) + n(rec.t, 0)),
+            pct: n(rec.pct, 0),
+          };
+        });
+        return out;
+      }
+
+      function emptyWlt() { return { w: 0, l: 0, t: 0 }; }
+
+      function bumpWlt(rec, side, oppSide) {
+        if (!rec) return;
+        if (side > oppSide) rec.w += 1;
+        else if (side < oppSide) rec.l += 1;
+        else rec.t += 1;
+      }
+
+      function upsertH2H(row, oppId) {
+        if (!row.h2h) row.h2h = {};
+        if (!row.h2h[oppId]) row.h2h[oppId] = { w: 0, l: 0, t: 0, games: 0, pct: 0 };
+        return row.h2h[oppId];
+      }
+
+      function finalizeH2HMap(row) {
+        Object.keys(row.h2h || {}).forEach(function (oppId) {
+          var rec = row.h2h[oppId];
+          rec.games = n(rec.w, 0) + n(rec.l, 0) + n(rec.t, 0);
+          rec.pct = rec.games > 0 ? (n(rec.w, 0) + 0.5 * n(rec.t, 0)) / rec.games : 0;
+        });
+      }
+
+      function deriveRowsForRange(baseRows, startWeek, endWeek) {
+        var rows = (baseRows || []).map(function (r) {
+          return {
+            franchise_id: safe(r.franchise_id),
+            franchise_name: safe(r.franchise_name),
+            icon: safe(r.icon),
+            logo: safe(r.logo),
+            division: safe(r.division),
+            division_name: safe(r.division_name),
+            all_play: { w: n(r.all_play && r.all_play.w, 0), l: n(r.all_play && r.all_play.l, 0), t: n(r.all_play && r.all_play.t, 0) },
+            all_play_pct: n(r.all_play_pct, 0),
+            overall: { w: n(r.overall && r.overall.w, 0), l: n(r.overall && r.overall.l, 0), t: n(r.overall && r.overall.t, 0) },
+            overall_pct: n(r.overall_pct, 0),
+            divisional: { w: n(r.divisional && r.divisional.w, 0), l: n(r.divisional && r.divisional.l, 0), t: n(r.divisional && r.divisional.t, 0) },
+            divisional_pct: n(r.divisional_pct, 0),
+            points_for: n(r.points_for, 0),
+            off_points: n(r.off_points, 0),
+            def_points: n(r.def_points, 0),
+            potential_points: n(r.potential_points, 0),
+            efficiency: n(r.efficiency, 0),
+            h2h: cloneH2HMap(r.h2h || {}),
+          };
+        });
+
+        var byId = {};
+        rows.forEach(function (r) { byId[r.franchise_id] = r; });
+
+        var hasWeeklyScores = Object.keys(state.weeklyScores || {}).length > 0;
+        var hasWeeklyMatchups = Object.keys(state.weeklyMatchups || {}).length > 0;
+        var hasWeeklyOff = Object.keys(state.weeklyOffPoints || {}).length > 0;
+        var hasWeeklyDef = Object.keys(state.weeklyDefPoints || {}).length > 0;
+        var hasWeeklyPotential = Object.keys(state.weeklyPotentialPoints || {}).length > 0;
+
+        if (hasWeeklyScores) {
+          rows.forEach(function (r) {
+            r.all_play = emptyWlt();
+            r.points_for = 0;
+          });
+        }
+        if (hasWeeklyMatchups) {
+          rows.forEach(function (r) {
+            r.overall = emptyWlt();
+            r.divisional = emptyWlt();
+            r.h2h = {};
+          });
+        }
+        if (hasWeeklyOff) rows.forEach(function (r) { r.off_points = 0; });
+        if (hasWeeklyDef) rows.forEach(function (r) { r.def_points = 0; });
+        if (hasWeeklyPotential) rows.forEach(function (r) { r.potential_points = 0; });
+
+        var sW = clampWeek(startWeek);
+        var eW = clampWeek(endWeek);
+        if (sW > eW) { var tmp = sW; sW = eW; eW = tmp; }
+
+        function sumMapIntoRows(mapObj, key) {
+          for (var w = sW; w <= eW; w += 1) {
+            var wk = (mapObj || {})[String(w)] || {};
+            Object.keys(wk).forEach(function (fid) {
+              var row = byId[fid];
+              if (!row) return;
+              row[key] += n(wk[fid], 0);
+            });
+          }
+        }
+
+        if (hasWeeklyScores) sumMapIntoRows(state.weeklyScores, "points_for");
+        if (hasWeeklyOff) sumMapIntoRows(state.weeklyOffPoints, "off_points");
+        if (hasWeeklyDef) sumMapIntoRows(state.weeklyDefPoints, "def_points");
+        if (hasWeeklyPotential) sumMapIntoRows(state.weeklyPotentialPoints, "potential_points");
+
+        if (hasWeeklyScores) {
+          for (var w1 = sW; w1 <= eW; w1 += 1) {
+            var wkScores = (state.weeklyScores || {})[String(w1)] || {};
+            var entries = Object.keys(wkScores).filter(function (fid) { return !!byId[fid]; }).map(function (fid) {
+              return { fid: fid, score: n(wkScores[fid], 0) };
+            });
+            if (!entries.length) continue;
+            var anyPlayed = entries.some(function (e) { return Math.abs(e.score) > 0; });
+            if (!anyPlayed) continue;
+            for (var i = 0; i < entries.length; i += 1) {
+              for (var j = i + 1; j < entries.length; j += 1) {
+                var a = entries[i], b = entries[j];
+                bumpWlt(byId[a.fid].all_play, a.score, b.score);
+                bumpWlt(byId[b.fid].all_play, b.score, a.score);
+              }
+            }
+          }
+        }
+
+        if (hasWeeklyMatchups) {
+          for (var w2 = sW; w2 <= eW; w2 += 1) {
+            var wm = (state.weeklyMatchups || {})[String(w2)] || [];
+            (wm || []).forEach(function (m) {
+              var home = byId[safe(m.home)];
+              var away = byId[safe(m.away)];
+              if (!home || !away) return;
+              var hs = n(m.homeScore, 0);
+              var as = n(m.awayScore, 0);
+              if (Math.abs(hs) === 0 && Math.abs(as) === 0) return;
+
+              bumpWlt(home.overall, hs, as);
+              bumpWlt(away.overall, as, hs);
+
+              var hRec = upsertH2H(home, away.franchise_id);
+              var aRec = upsertH2H(away, home.franchise_id);
+              bumpWlt(hRec, hs, as);
+              bumpWlt(aRec, as, hs);
+
+              if (safe(home.division) === safe(away.division)) {
+                bumpWlt(home.divisional, hs, as);
+                bumpWlt(away.divisional, as, hs);
+              }
+            });
+          }
+        }
+
+        rows.forEach(function (r) {
+          r.all_play_pct = pctFromWlt(r.all_play);
+          r.overall_pct = pctFromWlt(r.overall);
+          r.divisional_pct = pctFromWlt(r.divisional);
+          finalizeH2HMap(r);
+          if (n(r.potential_points, 0) > 0) {
+            r.efficiency = (n(r.points_for, 0) / n(r.potential_points, 1)) * 100;
+          }
+        });
+
+        return rows;
       }
 
       function normalizeRows(rows) {
@@ -1086,25 +1379,9 @@
       }
 
       function renderStandard(view) {
-        // Points view: show relativity toggle
+        // Points view mode is controlled by the top-right Mode select.
         var pointsToggleWrap = document.getElementById("pointsModeWrap");
-        if (view === "points") {
-          if (!pointsToggleWrap) {
-            pointsToggleWrap = document.createElement("div");
-            pointsToggleWrap.id = "pointsModeWrap";
-            pointsToggleWrap.className = "div-module-controls";
-            pointsToggleWrap.style.padding = "6px 12px 0";
-            pointsToggleWrap.innerHTML =
-              '<button class="btn pts-toggle' + (state.pointsMode === "raw" ? " active" : "") + '" data-pts-mode="raw">Raw</button>'
-              + '<button class="btn pts-toggle' + (state.pointsMode === "rel" ? " active" : "") + '" data-pts-mode="rel">vs Avg</button>';
-            $(".tableWrap").insertBefore(pointsToggleWrap, $("table"));
-          } else {
-            pointsToggleWrap.style.display = "";
-            pointsToggleWrap.querySelectorAll(".pts-toggle").forEach(function (b) {
-              b.classList.toggle("active", b.getAttribute("data-pts-mode") === state.pointsMode);
-            });
-          }
-        } else if (pointsToggleWrap) {
+        if (pointsToggleWrap) {
           pointsToggleWrap.style.display = "none";
         }
 
@@ -1137,11 +1414,13 @@
         }
 
         const isRel = view === "points" && state.pointsMode === "rel";
-        const rng = rangeWeeks(state.range);
-        const avgPF = isRel ? leagueAvgPF(state.rows || []) : 0;
-        const avgOff = isRel ? (function () { var s=0; (state.rows||[]).forEach(function(r){s+=n(r.off_points,0);}); return s/((state.rows||[]).length||1); })() : 0;
-        const avgDef = isRel ? (function () { var s=0; (state.rows||[]).forEach(function(r){s+=n(r.def_points,0);}); return s/((state.rows||[]).length||1); })() : 0;
-        const avgPP = isRel ? (function () { var s=0; (state.rows||[]).forEach(function(r){s+=n(r.potential_points,0);}); return s/((state.rows||[]).length||1); })() : 0;
+        const rng = currentRangeWeeks();
+        const viewRows = deriveRowsForRange(state.rows || [], rng[0], rng[1]);
+        const avgPF = isRel ? leagueAvgPF(viewRows) : 0;
+        const avgOff = isRel ? (function () { var s=0; (viewRows||[]).forEach(function(r){s+=n(r.off_points,0);}); return s/((viewRows||[]).length||1); })() : 0;
+        const avgDef = isRel ? (function () { var s=0; (viewRows||[]).forEach(function(r){s+=n(r.def_points,0);}); return s/((viewRows||[]).length||1); })() : 0;
+        const avgPP = isRel ? (function () { var s=0; (viewRows||[]).forEach(function(r){s+=n(r.potential_points,0);}); return s/((viewRows||[]).length||1); })() : 0;
+        const avgEff = isRel ? (function () { var s=0; (viewRows||[]).forEach(function(r){s+=n(r.efficiency,0);}); return s/((viewRows||[]).length||1); })() : 0;
         // Compute range-aware points-per-week baselines.
         const hasWeekly = isRel && Object.keys(state.weeklyScores).length > 0;
         const hasWeeklyOff = isRel && Object.keys(state.weeklyOffPoints || {}).length > 0;
@@ -1177,7 +1456,7 @@
               { key: "off_points", label: isRel ? (hasWeeklyOff ? "Off/wk vs Avg" : "Off vs Avg") : "Off Pts", hide: "" },
               { key: "def_points", label: isRel ? (hasWeeklyDef ? "Def/wk vs Avg" : "Def vs Avg") : "Def Pts", hide: "" },
               { key: "potential_points", label: isRel ? (hasWeeklyPotential ? "PP/wk vs Avg" : "PP vs Avg") : "Potential", hide: "hide-mobile" },
-              { key: "efficiency", label: "Efficiency", hide: "hide-mobile" },
+              { key: "efficiency", label: isRel ? "Eff vs Avg" : "Efficiency", hide: "hide-mobile" },
             ];
 
         $("#thead").innerHTML = `<tr>${cols.map((c) => {
@@ -1189,7 +1468,7 @@
         const sorted = (function () {
           const key = state.sortKey || "franchise";
           const dir = state.sortDir === "desc" ? -1 : 1;
-          const arr = (state.rows || []).slice();
+          const arr = (viewRows || []).slice();
           arr.sort(function (a, b) {
             var av, bv;
             if (view === "points" && isRel) {
@@ -1213,6 +1492,8 @@
                 av = a.potential_points - avgPP; bv = b.potential_points - avgPP;
               } else if (key === "points_for") {
                 av = a.points_for - avgPF; bv = b.points_for - avgPF;
+              } else if (key === "efficiency") {
+                av = a.efficiency - avgEff; bv = b.efficiency - avgEff;
               } else {
                 av = getSortValue(a, key); bv = getSortValue(b, key);
               }
@@ -1269,6 +1550,10 @@
                   }
                   var d=r.potential_points-avgPP; return `<td class="num ${c.hide} ${d>=0?"pf-rel-pos":"pf-rel-neg"}">${d>=0?"+":""}${d.toFixed(1)}</td>`;
                 }
+                if (isRel && c.key === "efficiency") {
+                  var d = n(r.efficiency, 0) - avgEff;
+                  return `<td class="num ${c.hide} ${d>=0?"pf-rel-pos":"pf-rel-neg"}">${d>=0?"+":""}${d.toFixed(1)}</td>`;
+                }
                 return `<td class="num ${c.hide}">${fmtNum(r[c.key])}</td>`;
               })
               .join("");
@@ -1280,9 +1565,9 @@
       function renderWeeklyHighScorer() {
         var ws = state.weeklyScores || {};
         var franchiseHighWeeks = {}; // {fid: [{week, score}, ...]}
+        var rng = currentRangeWeeks();
 
-        // Weeks 1-14 only (regular season)
-        for (var w = 1; w <= 14; w++) {
+        for (var w = rng[0]; w <= rng[1]; w++) {
           var weekData = ws[String(w)] || {};
           var maxScore = -1;
           var maxFids = [];
@@ -1297,7 +1582,8 @@
           });
         }
 
-        var ranked = (state.rows || []).map(function (r) {
+        var rangeRows = deriveRowsForRange(state.rows || [], rng[0], rng[1]);
+        var ranked = (rangeRows || []).map(function (r) {
           var hw = franchiseHighWeeks[r.franchise_id] || [];
           return { ...r, highWeeks: hw, highCount: hw.length, winnings: hw.length * 30 };
         });
@@ -1332,8 +1618,9 @@
       }
 
       function renderDivisionRace() {
-        const divisions = buildDivisionRace(state.rows || []);
-        const allRows = state.rows || [];
+        const rng = currentRangeWeeks();
+        const allRows = deriveRowsForRange(state.rows || [], rng[0], rng[1]);
+        const divisions = buildDivisionRace(allRows);
         const avgPF = leagueAvgPF(allRows);
         const isPct = state.divMode === "pct";
 
@@ -1349,12 +1636,7 @@
         var mod = document.createElement("div");
         mod.className = "div-module";
 
-        // RAW ↔ % toggle
-        var controls = '<div class="div-module-controls">'
-          + '<button class="btn div-toggle' + (!isPct ? " active" : "") + '" data-div-mode="raw">RAW</button>'
-          + '<button class="btn div-toggle' + (isPct ? " active" : "") + '" data-div-mode="pct">%</button>'
-          + '</div>';
-        mod.innerHTML = controls;
+        mod.innerHTML = "";
 
         divisions.forEach(function (d) {
           var g = document.createElement("div");
@@ -1418,7 +1700,6 @@
             var ddStyle = isExpanded ? ' class="div-dropdown open"' : ' class="div-dropdown"';
             var isAP = state.ddMode === "allplay";
             var ddTitle = isAP ? "All-Play vs Opponent — " : "All H2H Records — ";
-            var rng = rangeWeeks(state.range);
             bodyRows += '<tr' + ddStyle + ' data-dd-fid="' + esc(fid) + '">'
               + '<td colspan="' + ddColspan + '">'
               + '<div class="div-dropdown-inner">'
@@ -1717,13 +1998,12 @@
       }
 
       function render() {
+        if (state.view === "playoff") state.view = "division";
+        syncRangeControls();
+        syncModeSelect();
         renderMeta();
         document.querySelectorAll(".btn[data-view]").forEach((b) => {
           b.classList.toggle("active", b.getAttribute("data-view") === state.view);
-        });
-        // Update range selector active state
-        document.querySelectorAll(".range-btn").forEach(function (b) {
-          b.classList.toggle("active", b.getAttribute("data-range") === state.range);
         });
         const showLeadersWrap = $("#showLeadersWrap");
         if (showLeadersWrap) showLeadersWrap.style.display = state.view === "wildcard" ? "" : "none";
@@ -1771,7 +2051,9 @@
         // Range selector
         var rangeBtn = e.target && e.target.closest ? e.target.closest(".range-btn") : null;
         if (rangeBtn) {
-          state.range = safe(rangeBtn.getAttribute("data-range") || "regular");
+          applyRangePreset(safe(rangeBtn.getAttribute("data-range") || "regular"));
+          state.expandedRow = null;
+          state.expandedMatchup = null;
           render();
           return;
         }
@@ -1868,6 +2150,41 @@
         showLeadersChk.addEventListener("change", (e) => {
           state.showDivisionLeaders = !!e.target.checked;
           if (state.view === "wildcard") render();
+        });
+      }
+
+      const rangeStartSelect = $("#rangeStartSelect");
+      if (rangeStartSelect) {
+        rangeStartSelect.addEventListener("change", function (e) {
+          state.rangeStartWeek = clampWeek(e.target.value);
+          syncRangePresetFromWeeks();
+          state.expandedRow = null;
+          state.expandedMatchup = null;
+          render();
+        });
+      }
+
+      const rangeEndSelect = $("#rangeEndSelect");
+      if (rangeEndSelect) {
+        rangeEndSelect.addEventListener("change", function (e) {
+          state.rangeEndWeek = clampWeek(e.target.value);
+          syncRangePresetFromWeeks();
+          state.expandedRow = null;
+          state.expandedMatchup = null;
+          render();
+        });
+      }
+
+      const modeSelect = $("#modeSelect");
+      if (modeSelect) {
+        modeSelect.addEventListener("change", function (e) {
+          var val = safe(e.target && e.target.value || "raw");
+          if (state.view === "division") {
+            state.divMode = (val === "pct" ? "pct" : "raw");
+          } else if (state.view === "points") {
+            state.pointsMode = (val === "rel" ? "rel" : "raw");
+          }
+          render();
         });
       }
 
