@@ -3988,8 +3988,8 @@ Replaces bulky default grid with compact toggle view + franchise icons
         var wireMulti = function (id, stateKey, normalizeFn) {
           var el = toolbar.querySelector(id);
           if (!el) return;
-          el.addEventListener("change", function () {
-            var values = selectedMultiValues(el);
+
+          function commitValues(values) {
             if (stateKey === "teams") {
               if (values.indexOf("__ALL__") !== -1) {
                 values = [];
@@ -4004,6 +4004,41 @@ Replaces bulky default grid with compact toggle view + franchise icons
             applyRosterViewState();
             renderRosterSummaries();
             updateToolbarStatus();
+          }
+
+          el.addEventListener("change", function () {
+            commitValues(selectedMultiValues(el));
+          });
+
+          // Native multi-select requires Cmd/Ctrl to deselect. Toggle on direct click so users
+          // can click again to remove a selection.
+          el.addEventListener("mousedown", function (evt) {
+            var target = evt && evt.target;
+            if (!target || target.tagName !== "OPTION") return;
+
+            // Let keyboard/multi-modifier behavior work normally when explicitly used.
+            if (evt.metaKey || evt.ctrlKey || evt.shiftKey || evt.altKey) return;
+
+            evt.preventDefault();
+
+            var priorScrollTop = el.scrollTop;
+            var wasSelected = !!target.selected;
+            target.selected = !wasSelected;
+
+            // "All Teams" is exclusive; selecting it clears others visually before commit.
+            if (stateKey === "teams" && safeStr(target.value) === "__ALL__" && target.selected) {
+              Array.prototype.forEach.call(el.options || [], function (opt) {
+                if (opt !== target) opt.selected = false;
+              });
+            } else if (stateKey === "teams" && safeStr(target.value) !== "__ALL__" && target.selected) {
+              Array.prototype.forEach.call(el.options || [], function (opt) {
+                if (safeStr(opt.value) === "__ALL__") opt.selected = false;
+              });
+            }
+
+            el.focus();
+            el.scrollTop = priorScrollTop;
+            commitValues(selectedMultiValues(el));
           });
         };
 
