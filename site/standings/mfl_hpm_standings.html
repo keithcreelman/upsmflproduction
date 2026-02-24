@@ -1668,7 +1668,7 @@
               + '<th class="num">All-Play %</th><th class="num">PF vs Avg</th></tr>';
           } else {
             cols = '<tr><th>Team</th><th class="num">Overall</th><th class="num">Divisional</th>'
-              + '<th>Div H2H</th><th class="num">PF</th><th class="num">All Play</th></tr>';
+              + '<th>Div H2H</th><th class="num">All Play</th><th class="num">PF</th></tr>';
           }
 
           var bodyRows = "";
@@ -1708,8 +1708,8 @@
                 + '<td class="num">' + fmtWlt(r.overall) + '</td>'
                 + '<td class="num">' + fmtWlt(r.divisional) + '</td>'
                 + '<td>' + h2hHtml + '</td>'
-                + '<td class="num">' + fmtNum(r.points_for) + '</td>'
                 + '<td class="num">' + fmtWlt(r.all_play) + '</td>'
+                + '<td class="num">' + fmtNum(r.points_for) + '</td>'
                 + '</tr>';
             }
 
