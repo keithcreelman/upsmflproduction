@@ -3662,7 +3662,10 @@ Replaces bulky default grid with compact toggle view + franchise icons
 
       var caption = table.querySelector("caption");
       var captionLink = caption && caption.querySelector("a[class*='franchise_']");
-      fid = extractFidFromNode(captionLink || caption) || fid;
+      fid =
+        extractFidFromNode(table) ||
+        extractFidFromNode(captionLink || caption) ||
+        fid;
 
       var franchiseDbKey = fid ? ("fid_" + fid) : "";
       var franchiseMeta = (typeof franchiseDatabase !== "undefined" && franchiseDbKey && franchiseDatabase && franchiseDatabase[franchiseDbKey]) ? franchiseDatabase[franchiseDbKey] : null;
@@ -3670,6 +3673,7 @@ Replaces bulky default grid with compact toggle view + franchise icons
       teamName =
         safeStr(table.getAttribute("data-ups-team-name")) ||
         safeStr(franchiseMeta && franchiseMeta.name) ||
+        safeStr(caption && caption.querySelector && caption.querySelector("img[alt]") && caption.querySelector("img[alt]").getAttribute("alt")) ||
         normalizeText((caption && caption.textContent) || "").replace(/^-\s*/, "");
 
       divisionId =
@@ -3860,6 +3864,18 @@ Replaces bulky default grid with compact toggle view + franchise icons
       renderMultiSelectOptions(toolbar.querySelector("#upsRosterPositions"), sets.positions, rosterUiState.positions);
       renderMultiSelectOptions(toolbar.querySelector("#upsRosterYears"), sets.years, rosterUiState.years);
       renderMultiSelectOptions(toolbar.querySelector("#upsRosterTypes"), sets.contractTypes, rosterUiState.contractTypes);
+
+      var teamsSel = toolbar.querySelector("#upsRosterTeams");
+      var divSel = toolbar.querySelector("#upsRosterDivisions");
+      var posSel = toolbar.querySelector("#upsRosterPositions");
+      var yearsSel = toolbar.querySelector("#upsRosterYears");
+      var typesSel = toolbar.querySelector("#upsRosterTypes");
+
+      if (teamsSel) teamsSel.size = Math.max(4, Math.min(12, (sets.teams || []).length || 4));
+      if (divSel) divSel.size = Math.max(3, Math.min(6, (sets.divisions || []).length || 3));
+      if (posSel) posSel.size = Math.max(4, Math.min(10, (sets.positions || []).length || 4));
+      if (yearsSel) yearsSel.size = Math.max(3, Math.min(5, (sets.years || []).length || 3));
+      if (typesSel) typesSel.size = Math.max(4, Math.min(10, (sets.contractTypes || []).length || 4));
     }
 
     function ensureToolbar() {
@@ -5263,11 +5279,9 @@ Replaces bulky default grid with compact toggle view + franchise icons
 
   body#body_options_07 #MFLroster {
     display: block !important;
-    max-height: 72vh !important;
-    overflow: auto !important;
-    overscroll-behavior: contain !important;
-    -webkit-overflow-scrolling: touch !important;
-    scrollbar-gutter: stable;
+    max-height: none !important;
+    overflow: visible !important;
+    overscroll-behavior: auto !important;
   }
 
   body#body_options_07 #MFLroster caption,
@@ -5372,7 +5386,6 @@ Replaces bulky default grid with compact toggle view + franchise icons
     line-height: 1.2;
     resize: vertical;
     overflow-y: auto;
-    scrollbar-gutter: stable;
     -webkit-appearance: listbox;
     appearance: auto;
   }
