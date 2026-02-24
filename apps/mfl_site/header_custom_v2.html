@@ -2399,6 +2399,15 @@ Replaces bulky default grid with compact toggle view + franchise icons
     catch (e) { return ""; }
   }
 
+  function optionFromUrl() {
+    try { var u = new URL(window.location.href); return safeStr(u.searchParams.get("O")); }
+    catch (e) { return ""; }
+  }
+
+  function isHomePath() {
+    return /\/\d{4}\/home\/\d+/i.test(safeStr(window.location.pathname));
+  }
+
   function normalizeHeader(t) {
     return safeStr(t).toLowerCase().replace(/&nbsp;/g, " ")
       .replace(/[^a-z0-9%]+/g, " ").replace(/\s+/g, " ").trim();
@@ -2428,20 +2437,13 @@ Replaces bulky default grid with compact toggle view + franchise icons
   function isStandingsPage() {
     var mod = moduleFromUrl();
     if (mod === "standings") return true;
-    if (document.getElementById("standings")) return true;
-    try {
-      var u = new URL(window.location.href);
-      var o = safeStr(u.searchParams.get("O"));
-      if (o === "03" || o === "3" || o === "31") return true;
-    } catch (e) {}
+    var o = optionFromUrl();
+    if (o === "03" || o === "3" || o === "31") return true;
     var bodyId = safeStr(document.body && document.body.id).toLowerCase();
     if (bodyId.indexOf("body_options_03") === 0 || bodyId.indexOf("body_options_31") === 0) return true;
-    if (bodyId.indexOf("standings") !== -1) return true;
-    var probe = document.querySelector("table.report th, .report table th");
-    if (probe) {
-      var txt = normalizeHeader(probe.textContent || "");
-      if (txt.indexOf("all play") !== -1 || txt.indexOf("franchise") !== -1) return true;
-    }
+    if (!isHomePath()) return false;
+    if (document.querySelector("table.homepagemodule.report#standings")) return true;
+    if (document.getElementById("standings")) return true;
     return false;
   }
 
@@ -2879,6 +2881,60 @@ Replaces bulky default grid with compact toggle view + franchise icons
     document.addEventListener("DOMContentLoaded", init);
   } else {
     init();
+  }
+})();
+</script>
+
+<script>
+/* Hide homepage tab menu when only one tab is present. */
+(function () {
+  function visibleTabCount() {
+    var wrap = document.getElementById("tabmenu-wrap");
+    if (!wrap) return -1;
+    var items = Array.prototype.filter.call(wrap.querySelectorAll("li"), function (li) {
+      if (!li) return false;
+      var txt = String(li.textContent || "").replace(/\s+/g, " ").trim();
+      if (!txt) return false;
+      var cs = window.getComputedStyle ? window.getComputedStyle(li) : null;
+      if (cs && (cs.display === "none" || cs.visibility === "hidden")) return false;
+      return !!(li.offsetParent || (cs && cs.position === "fixed"));
+    });
+    if (items.length) return items.length;
+    var links = Array.prototype.filter.call(wrap.querySelectorAll("a"), function (a) {
+      if (!a) return false;
+      var txt = String(a.textContent || "").replace(/\s+/g, " ").trim();
+      if (!txt) return false;
+      var cs = window.getComputedStyle ? window.getComputedStyle(a) : null;
+      if (cs && (cs.display === "none" || cs.visibility === "hidden")) return false;
+      return !!(a.offsetParent || (cs && cs.position === "fixed"));
+    });
+    return links.length;
+  }
+
+  function applyTabMenuVisibility() {
+    var wrap = document.getElementById("tabmenu-wrap");
+    if (!wrap) return;
+    var title = document.getElementById("tab_title");
+    var count = visibleTabCount();
+    var hide = count >= 0 && count <= 1;
+    wrap.style.display = hide ? "none" : "";
+    if (title) title.style.display = hide ? "none" : "";
+  }
+
+  var tries = 0;
+  var timer = setInterval(function () {
+    tries += 1;
+    applyTabMenuVisibility();
+    if (tries >= 40) clearInterval(timer);
+  }, 250);
+
+  if (window.MutationObserver) {
+    var root = document.body || document.documentElement;
+    if (root) {
+      var obs = new MutationObserver(function () { applyTabMenuVisibility(); });
+      try { obs.observe(root, { childList: true, subtree: true }); } catch (e) {}
+      setTimeout(function () { try { obs.disconnect(); } catch (e) {} }, 15000);
+    }
   }
 })();
 </script>

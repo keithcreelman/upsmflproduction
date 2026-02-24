@@ -60,6 +60,18 @@
       flex-wrap: wrap;
       align-items: center;
       justify-content: flex-end;
+      width: 100%;
+    }
+    .controls-left,
+    .controls-right {
+      display: inline-flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .controls-right {
+      margin-left: auto;
+      justify-content: flex-end;
     }
     .toggles {
       display: flex;
@@ -285,6 +297,42 @@
     .range-advanced .select {
       min-width: 66px;
     }
+    .pts-row { cursor: pointer; }
+    .pts-row:hover { background: rgba(231,190,89,0.06); }
+    .pts-row-expanded { background: rgba(231,190,89,0.04); }
+    .pts-dropdown { display: none; }
+    .pts-dropdown.open { display: table-row; }
+    .pts-dropdown-inner {
+      padding: 8px 10px 10px;
+      background: rgba(5, 24, 52, 0.6);
+      border-bottom: 1px solid rgba(42,79,134,0.35);
+    }
+    .pts-dropdown-title {
+      font-size: 11px;
+      font-weight: 800;
+      color: var(--gold);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    .pts-week-table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 0;
+    }
+    .pts-week-table th,
+    .pts-week-table td {
+      font-size: 11px;
+      padding: 4px 6px;
+      border-bottom: 1px solid rgba(42,79,134,0.25);
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+    .pts-week-table th:first-child,
+    .pts-week-table td:first-child {
+      text-align: left;
+      white-space: nowrap;
+    }
     /* Points sub-tabs */
     .points-tabs {
       display: flex; gap: 0; margin: 0 12px; border-bottom: 2px solid var(--line);
@@ -430,6 +478,7 @@
       .wrap { padding: 6px; }
       .head { padding: 8px 10px; flex-direction: column; align-items: flex-start; }
       .controls { width: 100%; justify-content: flex-start; }
+      .controls-right { margin-left: 0; justify-content: flex-start; width: 100%; }
       .range-stack { margin-left: 0; align-items: flex-start; min-width: 0; width: 100%; }
       .range-selector { margin-left: 0; }
       .range-advanced { justify-content: flex-start; }
@@ -478,35 +527,39 @@
           <div class="sub" id="metaLine">Loading...</div>
         </div>
         <div class="controls">
-          <div class="toggles">
-            <button class="btn active" data-view="division">Divisional</button>
-            <button class="btn" data-view="points">Points Breakdown</button>
-          </div>
-          <label class="field">Season
-            <select id="seasonSelect" class="select"></select>
-          </label>
-          <div class="range-stack">
-            <div class="range-selector" id="rangeSelector">
-              <button class="range-btn active" data-range="regular">Regular (1-14)</button>
-              <button class="range-btn" data-range="playoffs">Playoffs (15-17)</button>
-              <button class="range-btn" data-range="full">Full (1-17)</button>
+          <div class="controls-left">
+            <div class="toggles">
+              <button class="btn active" data-view="division">Divisional</button>
+              <button class="btn" data-view="points">Points Breakdown</button>
             </div>
-            <div class="range-advanced">
-              <label class="field">Start
-                <select id="rangeStartSelect" class="select"></select>
-              </label>
-              <label class="field">End
-                <select id="rangeEndSelect" class="select"></select>
-              </label>
-              <label id="modeSelectWrap" class="field" style="display:none;">Mode
-                <select id="modeSelect" class="select"></select>
-              </label>
-            </div>
+            <label class="field">Season
+              <select id="seasonSelect" class="select"></select>
+            </label>
           </div>
-          <label id="showLeadersWrap" class="toggleWrap" style="display:none;">
-            <input id="showLeadersChk" type="checkbox" />
-            Show Division Leaders
-          </label>
+          <div class="controls-right">
+            <div class="range-stack">
+              <div class="range-selector" id="rangeSelector">
+                <button class="range-btn active" data-range="regular">Regular (1-14)</button>
+                <button class="range-btn" data-range="playoffs">Playoffs (15-17)</button>
+                <button class="range-btn" data-range="full">Full (1-17)</button>
+              </div>
+              <div class="range-advanced">
+                <label class="field">Start
+                  <select id="rangeStartSelect" class="select"></select>
+                </label>
+                <label class="field">End
+                  <select id="rangeEndSelect" class="select"></select>
+                </label>
+                <label id="modeSelectWrap" class="field" style="display:none;">Mode
+                  <select id="modeSelect" class="select"></select>
+                </label>
+              </div>
+            </div>
+            <label id="showLeadersWrap" class="toggleWrap" style="display:none;">
+              <input id="showLeadersChk" type="checkbox" />
+              Show Division Leaders
+            </label>
+          </div>
         </div>
       </div>
       <div class="tableWrap">
@@ -588,6 +641,7 @@
         ddMode: "h2h",
         expandedMatchup: null,
         pointsTab: "points",
+        expandedPointsRow: null,
       };
 
       function pctFromWlt(o) {
@@ -621,6 +675,37 @@
         var diff = val - avg;
         var sign = diff >= 0 ? "+" : "";
         return sign + diff.toFixed(1);
+      }
+
+      function deriveAbbrevFromName(name) {
+        var txt = safe(name).replace(/\s+/g, " ").trim();
+        if (!txt) return "";
+        var parts = txt.split(" ").filter(Boolean);
+        if (parts.length >= 2) {
+          var initials = parts.map(function (p) {
+            return safe(p).replace(/[^A-Za-z0-9]/g, "").charAt(0).toUpperCase();
+          }).filter(Boolean).join("");
+          if (initials) return initials.slice(0, 4);
+        }
+        return txt.replace(/[^A-Za-z0-9]/g, "").slice(0, 4).toUpperCase();
+      }
+
+      function rowAbbrev(r) {
+        var raw = safe(r && (r.abbrev || r.franchise_abbrev || r.team_abbrev));
+        if (raw) return raw;
+        return deriveAbbrevFromName(r && r.franchise_name);
+      }
+
+      function weekMapValue(mapObj, fid, week) {
+        var wk = (mapObj || {})[String(week)] || {};
+        return n(wk[fid], 0);
+      }
+
+      function weekEfficiencyPct(fid, week) {
+        var pf = weekMapValue(state.weeklyScores, fid, week);
+        var pp = weekMapValue(state.weeklyPotentialPoints, fid, week);
+        if (pp <= 0) return null;
+        return (pf / pp) * 100;
       }
 
       function getDivisionMates(row, allRows) {
@@ -819,6 +904,7 @@
           return {
             franchise_id: safe(r.franchise_id),
             franchise_name: safe(r.franchise_name),
+            abbrev: safe(r.abbrev),
             icon: safe(r.icon),
             logo: safe(r.logo),
             division: safe(r.division),
@@ -947,6 +1033,7 @@
         return (rows || []).map((r) => ({
           franchise_id: safe(r.franchise_id),
           franchise_name: safe(r.franchise_name),
+          abbrev: safe(r.abbrev),
           icon: safe(r.icon || r.logo),
           logo: safe(r.logo),
           division: safe(r.division),
@@ -1009,6 +1096,7 @@
         // Reset sub-view state
         state.expandedRow = null;
         state.expandedMatchup = null;
+        state.expandedPointsRow = null;
         state.divMode = "raw";
         state.pointsMode = "raw";
       }
@@ -1498,6 +1586,49 @@
               { key: "efficiency", label: isRel ? "Eff vs Avg" : "Efficiency", hide: "hide-mobile" },
             ];
 
+        function buildPointsWeekDropdown(r, colspan) {
+          var startW = rng[0];
+          var endW = rng[1];
+          var hasWeeklyAny = Object.keys(state.weeklyScores || {}).length > 0
+            || Object.keys(state.weeklyOffPoints || {}).length > 0
+            || Object.keys(state.weeklyDefPoints || {}).length > 0
+            || Object.keys(state.weeklyPotentialPoints || {}).length > 0;
+          var open = state.expandedPointsRow === safe(r.franchise_id);
+          var rowsHtml = "";
+
+          if (!hasWeeklyAny) {
+            rowsHtml = '<tr><td colspan="6" style="text-align:left;color:var(--muted)">Weekly breakdown data not available in this snapshot.</td></tr>';
+          } else {
+            for (var w = startW; w <= endW; w += 1) {
+              var pf = weekMapValue(state.weeklyScores, r.franchise_id, w);
+              var off = weekMapValue(state.weeklyOffPoints, r.franchise_id, w);
+              var def = weekMapValue(state.weeklyDefPoints, r.franchise_id, w);
+              var pp = weekMapValue(state.weeklyPotentialPoints, r.franchise_id, w);
+              var eff = weekEfficiencyPct(r.franchise_id, w);
+              rowsHtml += '<tr>'
+                + '<td>Week ' + w + '</td>'
+                + '<td>' + fmtNum(pf) + '</td>'
+                + '<td>' + fmtNum(off) + '</td>'
+                + '<td>' + fmtNum(def) + '</td>'
+                + '<td>' + fmtNum(pp) + '</td>'
+                + '<td>' + (eff === null ? '&mdash;' : fmtNum(eff) + '%') + '</td>'
+                + '</tr>';
+            }
+          }
+
+          return '<tr class="pts-dropdown' + (open ? ' open' : '') + '" data-pts-fid="' + esc(r.franchise_id) + '">'
+            + '<td colspan="' + colspan + '">'
+            + '<div class="pts-dropdown-inner">'
+            + '<div class="pts-dropdown-title">' + esc(r.franchise_name) + ' · Weekly Breakdown (Weeks ' + startW + '-' + endW + ')</div>'
+            + '<table class="pts-week-table">'
+            + '<thead><tr><th>Week</th><th>PF</th><th>Off</th><th>Def</th><th>Potential</th><th>Eff</th></tr></thead>'
+            + '<tbody>' + rowsHtml + '</tbody>'
+            + '</table>'
+            + '</div>'
+            + '</td>'
+            + '</tr>';
+        }
+
         $("#thead").innerHTML = `<tr>${cols.map((c) => {
           const cls = c.hide ? ` class="${c.hide}"` : "";
           const isSorted = state.sortKey === c.key;
@@ -1550,6 +1681,8 @@
         })();
         $("#tbody").innerHTML = sorted
           .map((r) => {
+            var isPointsRow = view === "points";
+            var isPtsExpanded = isPointsRow && state.expandedPointsRow === safe(r.franchise_id);
             const row = cols
               .map((c) => {
                 const cls = c.hide ? ` class="${c.hide}${c.key !== "franchise" ? " num" : ""}"` : (c.key !== "franchise" ? ' class="num"' : "");
@@ -1596,7 +1729,9 @@
                 return `<td class="num ${c.hide}">${fmtNum(r[c.key])}</td>`;
               })
               .join("");
-            return `<tr>${row}</tr>`;
+            var out = '<tr' + (isPointsRow ? (' class="pts-row' + (isPtsExpanded ? ' pts-row-expanded' : '') + '" data-fid="' + esc(r.franchise_id) + '"') : '') + '>' + row + '</tr>';
+            if (isPointsRow) out += buildPointsWeekDropdown(r, cols.length);
+            return out;
           })
           .join("");
       }
@@ -1717,8 +1852,7 @@
                 if (rec && n(rec.games, 0) > 0) {
                   var p = n(rec.pct, 0.5);
                   var cls = p > 0.5 ? "h2h-w" : p < 0.5 ? "h2h-l" : "h2h-e";
-                  // Abbreviate opponent name to first word or first 6 chars
-                  var abbr = (m.franchise_name || "").split(/[\s\u00a0]/)[0].substring(0, 8);
+                  var abbr = rowAbbrev(m);
                   h2hHtml += '<span class="h2h-pair"><span class="' + cls + '">' + esc(abbr) + ' ' + n(rec.w,0) + '-' + n(rec.l,0) + '</span></span> ';
                 }
               });
@@ -1996,7 +2130,7 @@
         const sorted = sortRows(state.rows || []);
         let headerHtml = headCell("franchise", "Franchise", true);
         sorted.forEach(function (col) {
-          const abbrev = esc((col.franchise_name || "").substring(0, 4));
+          const abbrev = esc(rowAbbrev(col));
           const iconUrl = esc(col.icon || col.logo || "");
           headerHtml += '<th class="h2h-col-header" title="' + esc(col.franchise_name) + '">'
             + '<img class="icon h2h-icon" alt="" src="' + iconUrl + '" onerror="this.style.display=\'none\'" />'
@@ -2093,6 +2227,7 @@
           applyRangePreset(safe(rangeBtn.getAttribute("data-range") || "regular"));
           state.expandedRow = null;
           state.expandedMatchup = null;
+          state.expandedPointsRow = null;
           render();
           return;
         }
@@ -2115,6 +2250,7 @@
         var ptsTab = e.target && e.target.closest ? e.target.closest(".points-tab") : null;
         if (ptsTab) {
           state.pointsTab = safe(ptsTab.getAttribute("data-pts-tab") || "points");
+          state.expandedPointsRow = null;
           render();
           return;
         }
@@ -2141,6 +2277,19 @@
           });
           return;
         }
+        // Points table: row click toggles weekly breakdown dropdown
+        const ptsRow = e.target && e.target.closest ? e.target.closest("tr.pts-row") : null;
+        if (ptsRow && state.view === "points" && state.pointsTab === "points") {
+          var ptsFid = safe(ptsRow.getAttribute("data-fid"));
+          state.expandedPointsRow = state.expandedPointsRow === ptsFid ? null : ptsFid;
+          document.querySelectorAll("tr.pts-row").forEach(function (rowEl) {
+            rowEl.classList.toggle("pts-row-expanded", safe(rowEl.getAttribute("data-fid")) === state.expandedPointsRow);
+          });
+          document.querySelectorAll("tr.pts-dropdown").forEach(function (dd) {
+            dd.classList.toggle("open", safe(dd.getAttribute("data-pts-fid")) === state.expandedPointsRow);
+          });
+          return;
+        }
         // Points module: Raw ↔ vs Avg toggle
         const ptsToggle = e.target && e.target.closest ? e.target.closest(".pts-toggle") : null;
         if (ptsToggle) {
@@ -2157,6 +2306,7 @@
           state.sortDir = "asc";
           state.expandedRow = null;
           state.expandedMatchup = null;
+          state.expandedPointsRow = null;
           state.pointsTab = "points";
           state.ddMode = "h2h";
           render();
@@ -2199,6 +2349,7 @@
           syncRangePresetFromWeeks();
           state.expandedRow = null;
           state.expandedMatchup = null;
+          state.expandedPointsRow = null;
           render();
         });
       }
@@ -2210,6 +2361,7 @@
           syncRangePresetFromWeeks();
           state.expandedRow = null;
           state.expandedMatchup = null;
+          state.expandedPointsRow = null;
           render();
         });
       }

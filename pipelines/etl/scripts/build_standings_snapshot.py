@@ -324,6 +324,7 @@ def main() -> int:
         division_id = safe_str((r or {}).get("division"))
         franchise_meta[fid] = {
             "name": safe_str((r or {}).get("name")) or fid,
+            "abbrev": safe_str((r or {}).get("abbrev")),
             "icon": safe_str((r or {}).get("icon")),
             "logo": safe_str((r or {}).get("logo")),
             "division": division_id,
@@ -350,6 +351,7 @@ def main() -> int:
             {
                 "franchise_id": fid,
                 "franchise_name": safe_str(meta.get("name")) or fid,
+                "abbrev": safe_str(meta.get("abbrev")),
                 "icon": safe_str(meta.get("icon")),
                 "logo": safe_str(meta.get("logo")),
                 "division": safe_str(meta.get("division")),
