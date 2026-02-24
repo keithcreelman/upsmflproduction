@@ -3836,45 +3836,7 @@ Replaces bulky default grid with compact toggle view + franchise icons
       cell.dataset.upsContractUi = "1";
       cell.classList.add("ups-contractinfo-cell");
       cell.setAttribute("title", raw);
-      cell.textContent = "";
-
-      var stack = document.createElement("div");
-      stack.className = "ups-contract-stack";
-
-      var chips = document.createElement("div");
-      chips.className = "ups-contract-chips";
-      parsed.chips.forEach(function (token) {
-        chips.appendChild(makeChip(token));
-      });
-
-      if (!parsed.chips.length && parsed.extras.length) {
-        var fallback = document.createElement("span");
-        fallback.className = "ups-contract-chip";
-        fallback.textContent = parsed.extras[0];
-        chips.appendChild(fallback);
-      }
-
-      stack.appendChild(chips);
-
-      var fullText = raw;
-      var extraText = parsed.extras.join(" | ");
-      if (extraText && extraText !== raw) {
-        var btn = document.createElement("button");
-        btn.type = "button";
-        btn.className = "ups-contract-more";
-        btn.setAttribute("aria-expanded", "false");
-        btn.textContent = "More";
-
-        var details = document.createElement("div");
-        details.className = "ups-contract-fulltext";
-        details.hidden = true;
-        details.textContent = fullText;
-
-        stack.appendChild(btn);
-        stack.appendChild(details);
-      }
-
-      cell.appendChild(stack);
+      cell.textContent = raw;
     }
 
     function ensureTaxiHeaderButton(table, row, count) {
@@ -3922,8 +3884,9 @@ Replaces bulky default grid with compact toggle view + franchise icons
 
       var collapsed = getTaxiCollapsed(table);
       btn.setAttribute("aria-expanded", collapsed ? "false" : "true");
-      btn.querySelector(".ups-roster-taxi-label").textContent = rawLabel;
-      btn.querySelector(".ups-roster-taxi-count").textContent = String(Number(count || 0)) + " players";
+      btn.querySelector(".ups-roster-taxi-label").textContent = (collapsed ? "Show " : "Hide ") + rawLabel;
+      btn.querySelector(".ups-roster-taxi-count").textContent = String(Number(count || 0));
+      btn.setAttribute("title", rawLabel + " (" + String(Number(count || 0)) + " players)");
     }
 
     function markPlayerRow(row, isTaxi) {
@@ -3991,58 +3954,7 @@ Replaces bulky default grid with compact toggle view + franchise icons
       if (!caption) return;
 
       var meta = caption.querySelector(".ups-roster-caption-meta");
-      if (!meta) {
-        meta = document.createElement("div");
-        meta.className = "ups-roster-caption-meta";
-        caption.appendChild(meta);
-      }
-      meta.textContent = "";
-
-      var rows = Array.from(table.querySelectorAll("tr"));
-      var mainPlayers = 0;
-      var visiblePlayers = 0;
-      var taxiPlayers = Number(table.getAttribute("data-ups-taxi-count") || "0") || 0;
-      var totalSalary = null;
-      var salaryCap = null;
-      var warningLabels = [];
-
-      rows.forEach(function (row) {
-        if (row.querySelector("td.player")) {
-          var isTaxi = row.getAttribute("data-ups-taxi-row") === "1";
-          if (!isTaxi) mainPlayers += 1;
-          if (!row.hidden) visiblePlayers += 1;
-        }
-
-        if (row.classList.contains("total_salary_row")) {
-          var moneyCell = row.querySelector("th.salary, td.salary, .salary") || row;
-          totalSalary = parseMoney(moneyCell.textContent || row.textContent || "");
-        } else if (row.classList.contains("salary_cap_row")) {
-          var capCell = row.querySelector("th.salary, td.salary, .salary") || row;
-          salaryCap = parseMoney(capCell.textContent || row.textContent || "");
-        } else if (row.classList.contains("salary_warning_row")) {
-          var label = classifyWarningText(row.textContent || "");
-          if (label && warningLabels.indexOf(label) === -1) warningLabels.push(label);
-        }
-      });
-
-      meta.appendChild(buildSummaryChip("Players", String(mainPlayers), "neutral"));
-      if (taxiPlayers > 0) meta.appendChild(buildSummaryChip("Taxi", String(taxiPlayers), "neutral"));
-
-      if (Number.isFinite(totalSalary) && Number.isFinite(salaryCap)) {
-        meta.appendChild(buildSummaryChip("Cap", formatMoneyCompact(totalSalary) + " / " + formatMoneyCompact(salaryCap), "neutral"));
-        var delta = totalSalary - salaryCap;
-        var tone = delta > 0 ? "danger" : delta < 0 ? "success" : "neutral";
-        var label = delta > 0 ? "Over" : delta < 0 ? "Space" : "Delta";
-        meta.appendChild(buildSummaryChip(label, formatDeltaCompact(Math.abs(delta)), tone));
-      }
-
-      warningLabels.forEach(function (label) {
-        meta.appendChild(buildSummaryChip("Alert", label, label === "Invalid" ? "danger" : "warning"));
-      });
-
-      if (isFilterActive()) {
-        meta.appendChild(buildSummaryChip("Matches", String(visiblePlayers), visiblePlayers > 0 ? "info" : "warning"));
-      }
+      if (meta) meta.remove();
     }
 
     function renderRosterSummaries() {
@@ -4093,9 +4005,25 @@ Replaces bulky default grid with compact toggle view + franchise icons
         });
 
         table.classList.toggle("ups-roster-no-match", filterActive && visibleMatchCount === 0);
+        table.hidden = filterActive && visibleMatchCount === 0;
+
+        var hostCell = table.closest("td.two_column_layout");
+        if (hostCell && hostCell.querySelector("table.report") === table) {
+          hostCell.hidden = !!table.hidden;
+        }
 
         var toggle = table.querySelector(".ups-roster-taxi-toggle");
         if (toggle) toggle.setAttribute("aria-expanded", (!taxiCollapsed || filterActive) ? "true" : "false");
+      });
+
+      Array.from(document.querySelectorAll("#body_options_07 table.two_column_layout > tbody > tr")).forEach(function (layoutRow) {
+        var cells = Array.prototype.filter.call(layoutRow.children || [], function (child) {
+          return child && child.tagName === "TD" && /\btwo_column_layout\b/.test(safeStr(child.className));
+        });
+        if (!cells.length) return;
+        var hasRosterCell = cells.some(function (cell) { return !!cell.querySelector("table.report"); });
+        if (!hasRosterCell) return;
+        layoutRow.hidden = cells.every(function (cell) { return cell.hidden; });
       });
     }
 
@@ -5174,11 +5102,7 @@ Replaces bulky default grid with compact toggle view + franchise icons
   }
 
   body#body_options_07 #MFLroster .ups-roster-caption-meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.28rem;
-    width: 100%;
-    margin-top: 0.35rem;
+    display: none !important;
   }
 
   body#body_options_07 #MFLroster .ups-roster-summary-chip {
@@ -5250,12 +5174,19 @@ Replaces bulky default grid with compact toggle view + franchise icons
     justify-content: space-between;
     align-items: center;
     gap: 0.6rem;
-    border: 0 !important;
-    background: transparent !important;
+    border: 1px solid rgba(143, 183, 239, 0.28) !important;
+    border-radius: 0.55rem !important;
+    background: rgba(16, 33, 58, 0.18) !important;
     color: var(--ups-report-strong) !important;
-    padding: 0.5rem 0.65rem !important;
+    padding: 0.48rem 0.62rem !important;
     font-weight: 900 !important;
     cursor: pointer;
+    margin: 0.22rem 0.25rem !important;
+  }
+
+  :root[data-ups-mode="light"] body#body_options_07 #MFLroster .ups-roster-taxi-toggle {
+    border-color: rgba(116, 149, 196, 0.35) !important;
+    background: rgba(255, 255, 255, 0.42) !important;
   }
 
   body#body_options_07 #MFLroster .ups-roster-taxi-left {
@@ -5283,6 +5214,8 @@ Replaces bulky default grid with compact toggle view + franchise icons
     border-radius: 999px;
     padding: 0.12rem 0.45rem;
     background: rgba(16, 33, 58, 0.22);
+    min-width: 2.1rem;
+    text-align: center;
   }
 
   body#body_options_07 #MFLroster table.report.ups-roster-no-match caption {
@@ -5389,7 +5322,8 @@ Replaces bulky default grid with compact toggle view + franchise icons
     color: var(--ups-text) !important;
     font-weight: 700 !important;
     font-size: 0.82rem !important;
-    line-height: 1.2 !important;
+    line-height: 1.28 !important;
+    white-space: normal !important;
   }
 
   body#body_options_07 #MFLroster td.contractinfo.ups-contractinfo-cell.is-empty {
@@ -5464,6 +5398,14 @@ Replaces bulky default grid with compact toggle view + franchise icons
     line-height: 1.28;
     white-space: normal;
     overflow-wrap: anywhere;
+  }
+
+  /* Contract UI reverted to single-line text; hide legacy chip controls if they exist
+     from cached/previous DOM mutations. */
+  body#body_options_07 #MFLroster .ups-contract-chips,
+  body#body_options_07 #MFLroster .ups-contract-more,
+  body#body_options_07 #MFLroster .ups-contract-fulltext {
+    display: none !important;
   }
 
   @media (max-width: 980px) {

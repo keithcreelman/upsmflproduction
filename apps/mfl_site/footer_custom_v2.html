@@ -9,11 +9,11 @@
    */
 
   /* Rosters */
-  var tradeViewPermission = true;
+  var tradeViewPermission = false; /* roster-only mode */
   var showTradesDefault = false;
   var fid_commish = "0007";
   var showNav = false;
-  var showMFLdefaultBtn = true;
+  var showMFLdefaultBtn = false; /* roster-only mode */
   var showAllstatus = false;
   var rosCapdisplay = "4";
   var leagueTypeNormal = false; /* contracts/salary league */
@@ -23,7 +23,7 @@
   var RosterEnableMedia = true;
 
   /* Trade calculator */
-  var showCalculator = true;
+  var showCalculator = false; /* roster-only mode */
   var showTopCalculator = false;
   var calcHeaderName = "Salary Delta";
   var hideTilClk = true;
@@ -56,7 +56,7 @@
   var load_standingSettings_script = true;
   var load_popupAddon_script = true;
   var load_notification_script = true;
-  var load_rosters_script = true;
+  var load_rosters_script = false; /* load local fork below */
   var load_draftHistory_script = true;
   var load_standingsHistory_script = true;
   var load_playoffsHistory_script = true;
@@ -95,6 +95,15 @@
 <!-- GLOBAL FOOTER -->
 <script src="https://www.mflscripts.com/mfl-apps/global/footer.js?v=1.12"></script>
 <script src="https://mflscripts.com/mfl-apps/playoffs/standingsColumns.js"></script>
+<script>
+  (function () {
+    var sha = window.UPS_RELEASE_SHA || "main";
+    var s = document.createElement("script");
+    s.src = "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@" + sha + "/site/rosters/mflscripts_rosters_fork.js";
+    var anchor = document.currentScript;
+    anchor.parentNode.insertBefore(s, anchor);
+  })();
+</script>
 <script>
   // Normalize roster trade-asset labeling from MFL script output.
   (function () {
