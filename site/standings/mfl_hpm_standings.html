@@ -736,14 +736,45 @@
         return { w: w, l: l, t: t };
       }
 
+      function inferredSeasonEndWeek() {
+        var ew = n(state.meta && state.meta.end_week, 0);
+        if (ew > 0) return ew;
+        var legacy = n(state.meta && state.meta.endWeek, 0);
+        if (legacy > 0) return legacy;
+        return 17;
+      }
+
+      function inferredRegularEndWeek() {
+        var rw = n(state.meta && state.meta.last_regular_season_week, 0);
+        if (rw > 0) return rw;
+        var legacy = n(state.meta && state.meta.lastRegularSeasonWeek, 0);
+        if (legacy > 0) return legacy;
+        var end = inferredSeasonEndWeek();
+        return end >= 17 ? 14 : 13;
+      }
+
+      function inferredStartWeek() {
+        var sw = n(state.meta && state.meta.start_week, 0);
+        if (sw > 0) return sw;
+        var legacy = n(state.meta && state.meta.startWeek, 0);
+        if (legacy > 0) return legacy;
+        return 1;
+      }
+
       function rangeWeeks(range) {
-        if (range === "playoffs") return [15, 17];
-        if (range === "full") return [1, 17];
-        return [1, 14]; // "regular" default
+        var start = inferredStartWeek();
+        var end = inferredSeasonEndWeek();
+        var regularEnd = inferredRegularEndWeek();
+        var playoffStart = Math.min(end, regularEnd + 1);
+        if (range === "playoffs") return [playoffStart, end];
+        if (range === "full") return [start, end];
+        return [start, regularEnd]; // "regular" default
       }
 
       function clampWeek(v) {
-        var out = Math.max(1, Math.min(17, parseInt(v, 10) || 1));
+        var minW = inferredStartWeek();
+        var maxW = inferredSeasonEndWeek();
+        var out = Math.max(minW, Math.min(maxW, parseInt(v, 10) || minW));
         return out;
       }
 
@@ -762,9 +793,12 @@
         }
         state.rangeStartWeek = sW;
         state.rangeEndWeek = eW;
-        if (sW === 1 && eW === 14) state.range = "regular";
-        else if (sW === 15 && eW === 17) state.range = "playoffs";
-        else if (sW === 1 && eW === 17) state.range = "full";
+        var reg = rangeWeeks("regular");
+        var po = rangeWeeks("playoffs");
+        var full = rangeWeeks("full");
+        if (sW === reg[0] && eW === reg[1]) state.range = "regular";
+        else if (sW === po[0] && eW === po[1]) state.range = "playoffs";
+        else if (sW === full[0] && eW === full[1]) state.range = "full";
         else state.range = "custom";
       }
 
@@ -777,23 +811,32 @@
         var startSel = document.getElementById("rangeStartSelect");
         var endSel = document.getElementById("rangeEndSelect");
         if (!startSel || !endSel) return;
-        if (startSel.dataset.built === "1" && endSel.dataset.built === "1") return;
+        var minW = inferredStartWeek();
+        var maxW = inferredSeasonEndWeek();
+        var stamp = String(minW) + "-" + String(maxW);
+        if (startSel.dataset.built === stamp && endSel.dataset.built === stamp) return;
         var opts = [];
-        for (var w = 1; w <= 17; w += 1) {
+        for (var w = minW; w <= maxW; w += 1) {
           opts.push('<option value="' + w + '">Week ' + w + '</option>');
         }
         startSel.innerHTML = opts.join("");
         endSel.innerHTML = opts.join("");
-        startSel.dataset.built = "1";
-        endSel.dataset.built = "1";
+        startSel.dataset.built = stamp;
+        endSel.dataset.built = stamp;
       }
 
       function syncRangeControls() {
         populateWeekSelects();
         syncRangePresetFromWeeks();
+        var reg = rangeWeeks("regular");
+        var po = rangeWeeks("playoffs");
+        var full = rangeWeeks("full");
         document.querySelectorAll(".range-btn").forEach(function (b) {
           var key = safe(b.getAttribute("data-range"));
           b.classList.toggle("active", key === state.range);
+          if (key === "regular") b.textContent = "Regular (" + reg[0] + "-" + reg[1] + ")";
+          else if (key === "playoffs") b.textContent = "Playoffs (" + po[0] + "-" + po[1] + ")";
+          else if (key === "full") b.textContent = "Full (" + full[0] + "-" + full[1] + ")";
         });
         var startSel = document.getElementById("rangeStartSelect");
         var endSel = document.getElementById("rangeEndSelect");
@@ -1142,6 +1185,14 @@
         state.weeklyOffPoints = payload && payload.weeklyOffPoints ? payload.weeklyOffPoints : {};
         state.weeklyDefPoints = payload && payload.weeklyDefPoints ? payload.weeklyDefPoints : {};
         state.weeklyPotentialPoints = payload && payload.weeklyPotentialPoints ? payload.weeklyPotentialPoints : {};
+
+        if (state.range === "regular" || state.range === "playoffs" || state.range === "full") {
+          applyRangePreset(state.range);
+        } else {
+          state.rangeStartWeek = clampWeek(state.rangeStartWeek);
+          state.rangeEndWeek = clampWeek(state.rangeEndWeek);
+          syncRangePresetFromWeeks();
+        }
 
         const seasonSelect = $("#seasonSelect");
         if (seasonSelect) seasonSelect.value = String(loadedYear);
