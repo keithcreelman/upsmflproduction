@@ -543,6 +543,25 @@
       const L = safe(u.searchParams.get("L") || "25625");
       const SOURCE_L = safe(u.searchParams.get("SOURCE_L") || u.searchParams.get("DATA_L") || "74598");
       const YEAR = Number(safe(u.searchParams.get("YEAR") || "2026")) || 2026;
+      const HISTORICAL_LEAGUE_BY_SEASON = {
+        2010: "60671",
+        2011: "40832",
+        2012: "37227",
+        2013: "42721",
+        2014: "30590",
+        2015: "29015",
+        2016: "27191",
+        2017: "74598",
+        2018: "74598",
+        2019: "74598",
+        2020: "74598",
+        2021: "74598",
+        2022: "74598",
+        2023: "74598",
+        2024: "74598",
+        2025: "74598",
+        2026: "74598",
+      };
 
       const state = {
         leagueId: L,
@@ -955,8 +974,10 @@
       }
 
       async function fetchSeasonSnapshot(sourceLeagueId, hostLeagueId, year) {
+        const mappedLeagueId = safe(HISTORICAL_LEAGUE_BY_SEASON[Number(year)] || "");
         const candidateLeagueIds = Array.from(
           new Set([
+            mappedLeagueId,
             safe(sourceLeagueId),
             safe(hostLeagueId),
             "74598",

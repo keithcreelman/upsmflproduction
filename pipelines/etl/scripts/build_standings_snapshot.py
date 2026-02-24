@@ -6,7 +6,10 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+import os
+import time
 import urllib.parse
+import urllib.error
 import urllib.request
 from pathlib import Path
 from typing import Any, Dict, List
@@ -17,6 +20,7 @@ ETL_ROOT = SCRIPT_DIR.parent
 ROOT_DIR = ETL_ROOT.parent.parent
 DEFAULT_OUT = ROOT_DIR / "site" / "standings" / "standings_25625_2026.json"
 API_BASE = "https://api.myfantasyleague.com"
+API_BASE_OVERRIDE = (os.environ.get("MFL_API_BASE") or "").strip()
 
 
 def safe_str(v: Any) -> str:
@@ -61,16 +65,37 @@ def pct_from_wlt(w: int, l: int, t: int) -> float:
 
 def fetch_json(year: int, league_id: str, type_name: str) -> Dict[str, Any]:
     qs = urllib.parse.urlencode({"TYPE": type_name, "L": league_id, "JSON": "1"})
-    url = f"{API_BASE}/{year}/export?{qs}"
-    with urllib.request.urlopen(url, timeout=30) as resp:
-        return json.loads(resp.read().decode("utf-8"))
+    api_base = API_BASE_OVERRIDE or API_BASE
+    url = f"{api_base}/{year}/export?{qs}"
+    return fetch_url_json(url)
 
 
 def fetch_json_with_params(year: int, params: Dict[str, Any]) -> Dict[str, Any]:
     qs = urllib.parse.urlencode(params)
-    url = f"{API_BASE}/{year}/export?{qs}"
-    with urllib.request.urlopen(url, timeout=30) as resp:
-        return json.loads(resp.read().decode("utf-8"))
+    api_base = API_BASE_OVERRIDE or API_BASE
+    url = f"{api_base}/{year}/export?{qs}"
+    return fetch_url_json(url)
+
+
+def fetch_url_json(url: str, retries: int = 4, timeout: int = 30) -> Dict[str, Any]:
+    last_err: Exception | None = None
+    for attempt in range(retries + 1):
+        try:
+            with urllib.request.urlopen(url, timeout=timeout) as resp:
+                return json.loads(resp.read().decode("utf-8"))
+        except urllib.error.HTTPError as e:
+            last_err = e
+            if e.code not in (429, 500, 502, 503, 504) or attempt >= retries:
+                raise
+            time.sleep(min(20, 2 + (attempt * 3)))
+        except Exception as e:
+            last_err = e
+            if attempt >= retries:
+                raise
+            time.sleep(min(10, 1 + attempt))
+    if last_err:
+        raise last_err
+    raise RuntimeError("Failed to fetch JSON")
 
 
 def parse_wlt(text: str) -> Dict[str, int]:
