@@ -33,6 +33,20 @@
   function scriptBaseHtml(scriptSrc) {
     try {
       const su = new URL(scriptSrc, window.location.href);
+
+      // jsDelivr serves the standings HTML file as source text in some MFL embeds.
+      // Keep the loader on jsDelivr if desired, but force the iframe HTML to rawcdn.
+      const jsd = safeStr(su.pathname).match(
+        /^\/gh\/keithcreelman\/upsmflproduction@([^/]+)\/site\/standings\/mfl_hpm_embed_loader\.js$/i
+      );
+      if (/cdn\.jsdelivr\.net$/i.test(safeStr(su.hostname)) && jsd) {
+        return (
+          "https://rawcdn.githack.com/keithcreelman/upsmflproduction/" +
+          jsd[1] +
+          "/site/standings/mfl_hpm_standings.html"
+        );
+      }
+
       const parts = safeStr(su.pathname).split("/");
       parts.pop();
       su.pathname = parts.join("/") + "/mfl_hpm_standings.html";
@@ -40,7 +54,7 @@
       su.hash = "";
       return su.toString();
     } catch (e) {
-      return "https://rawcdn.githack.com/keithcreelman/upsmflproduction/dev/site/standings/mfl_hpm_standings.html";
+      return "https://rawcdn.githack.com/keithcreelman/upsmflproduction/main/site/standings/mfl_hpm_standings.html";
     }
   }
 
