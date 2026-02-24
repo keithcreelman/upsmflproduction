@@ -3700,7 +3700,7 @@ Replaces bulky default grid with compact toggle view + franchise icons
       if (!yearsText) return "";
       var yearsNum = parseInt(yearsText, 10);
       if (!Number.isFinite(yearsNum)) return "";
-      if (yearsNum >= 3) return "3+";
+      if (yearsNum >= 3) return "3";
       if (yearsNum < 0) return "";
       return String(yearsNum);
     }
@@ -3810,16 +3810,30 @@ Replaces bulky default grid with compact toggle view + franchise icons
 
           var yearsBucket = safeStr(row.getAttribute("data-ups-contract-years-bucket"));
           if (yearsBucket) {
-            yearsMap[yearsBucket] = { value: yearsBucket, label: yearsBucket === "3+" ? "3+ years" : (yearsBucket + " year" + (yearsBucket === "1" ? "" : "s")) };
+            yearsMap[yearsBucket] = { value: yearsBucket, label: yearsBucket + " year" + (yearsBucket === "1" ? "" : "s") };
           }
 
           var typeKey = safeStr(row.getAttribute("data-ups-contract-type-key"));
           var typeLabel = safeStr(row.getAttribute("data-ups-contract-type-label"));
-          if (typeKey && typeLabel) typeMap[typeKey] = { value: typeKey, label: typeLabel };
+          if (typeKey && typeLabel) {
+            var groupLabel = "All Other";
+            if (typeKey.indexOf("rookie") !== -1) {
+              groupLabel = "Rookie";
+            } else if (
+              typeKey === "fl" ||
+              typeKey === "bl" ||
+              typeKey.indexOf("front") !== -1 ||
+              typeKey.indexOf("back") !== -1 ||
+              typeKey.indexOf("load") !== -1
+            ) {
+              groupLabel = "Loaded";
+            }
+            typeMap[typeKey] = { value: typeKey, label: typeLabel, groupLabel: groupLabel };
+          }
         });
       });
 
-      var yearOrder = { "3+": 0, "2": 1, "1": 2, "0": 3 };
+      var yearOrder = { "3": 0, "2": 1, "1": 2, "0": 3 };
       function sortByLabel(a, b) { return safeStr(a.label).localeCompare(safeStr(b.label)); }
 
       return {
@@ -3835,7 +3849,12 @@ Replaces bulky default grid with compact toggle view + franchise icons
         years: Object.keys(yearsMap).map(function (k) { return yearsMap[k]; }).sort(function (a, b) {
           return (yearOrder[a.value] || 99) - (yearOrder[b.value] || 99);
         }),
-        contractTypes: Object.keys(typeMap).map(function (k) { return typeMap[k]; }).sort(sortByLabel)
+        contractTypes: Object.keys(typeMap).map(function (k) { return typeMap[k]; }).sort(function (a, b) {
+          var groupOrder = { "Rookie": 0, "Loaded": 1, "All Other": 2 };
+          var ag = safeStr(a.groupLabel || "All Other");
+          var bg = safeStr(b.groupLabel || "All Other");
+          return (groupOrder[ag] || 99) - (groupOrder[bg] || 99) || sortByLabel(a, b);
+        })
       };
     }
 
@@ -3894,6 +3913,43 @@ Replaces bulky default grid with compact toggle view + franchise icons
       setMultiSelectValues(select, selectedValues || []);
     }
 
+    function renderContractTypesSelectOptions(select, items, selectedValues) {
+      if (!select) return;
+
+      var sig = (items || []).map(function (it) {
+        return [safeStr(it.value), safeStr(it.label), safeStr(it.groupLabel || "All Other")].join(":");
+      }).join("|");
+
+      if (select.dataset.upsSig !== sig) {
+        var html = [];
+        var groups = { "Rookie": [], "Loaded": [], "All Other": [] };
+
+        (items || []).forEach(function (it) {
+          var g = safeStr(it.groupLabel || "All Other");
+          if (!groups[g]) groups[g] = [];
+          groups[g].push(it);
+        });
+
+        ["Rookie", "Loaded", "All Other"].forEach(function (groupName) {
+          var opts = groups[groupName] || [];
+          if (!opts.length) return;
+          var gLabel = groupName.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+          html.push('<optgroup label="' + gLabel + '">');
+          opts.forEach(function (it) {
+            var value = safeStr(it.value).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+            var label = safeStr(it.label).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+            html.push('<option value="' + value + '">' + label + '</option>');
+          });
+          html.push("</optgroup>");
+        });
+
+        select.innerHTML = html.join("");
+        select.dataset.upsSig = sig;
+      }
+
+      setMultiSelectValues(select, selectedValues || []);
+    }
+
     function renderMultiSelectOptions(select, items, selectedValues) {
       if (!select) return;
       var sig = (items || []).map(function (it) { return safeStr(it.value) + ":" + safeStr(it.label); }).join("|");
@@ -3929,7 +3985,7 @@ Replaces bulky default grid with compact toggle view + franchise icons
       renderTeamsSelectOptions(toolbar.querySelector("#upsRosterTeams"), teamItems, teamSelected);
       renderMultiSelectOptions(toolbar.querySelector("#upsRosterPositions"), sets.positions, rosterUiState.positions);
       renderMultiSelectOptions(toolbar.querySelector("#upsRosterYears"), sets.years, rosterUiState.years);
-      renderMultiSelectOptions(toolbar.querySelector("#upsRosterTypes"), sets.contractTypes, rosterUiState.contractTypes);
+      renderContractTypesSelectOptions(toolbar.querySelector("#upsRosterTypes"), sets.contractTypes, rosterUiState.contractTypes);
 
       var teamsSel = toolbar.querySelector("#upsRosterTeams");
       var posSel = toolbar.querySelector("#upsRosterPositions");
@@ -4092,7 +4148,7 @@ Replaces bulky default grid with compact toggle view + franchise icons
         else matchedActive += 1;
 
         var yb = safeStr(row.getAttribute("data-ups-contract-years-bucket") || "");
-        if (yb === "3+") matchedY3 += 1;
+        if (yb === "3") matchedY3 += 1;
         else if (yb === "2") matchedY2 += 1;
         else if (yb === "1") matchedY1 += 1;
       });
@@ -4106,9 +4162,7 @@ Replaces bulky default grid with compact toggle view + franchise icons
       parts.push("Active " + String(matchedActive));
       parts.push("Taxi " + String(matchedTaxi));
       parts.push("IR " + String(matchedIr));
-      parts.push("3+Y " + String(matchedY3));
-      parts.push("2Y " + String(matchedY2));
-      parts.push("1Y " + String(matchedY1));
+      parts.push("Contract Years: 3yr " + String(matchedY3) + ", 2yr " + String(matchedY2) + ", 1yr " + String(matchedY1));
       if (rosterUiState.teams && rosterUiState.teams.length) parts.push("Teams: " + rosterUiState.teams.length);
       if (rosterUiState.positions && rosterUiState.positions.length) parts.push("Pos: " + rosterUiState.positions.join(", "));
       if (rosterUiState.years && rosterUiState.years.length) parts.push("Years: " + rosterUiState.years.join(", "));
@@ -5437,6 +5491,13 @@ Replaces bulky default grid with compact toggle view + franchise icons
     display: none !important;
   }
 
+  /* Hide legacy MFLScripts taxi/IR show-hide anchors; keep only UPS taxi toggle button */
+  body#body_options_07 #MFLroster a.show_toggler_taxi,
+  body#body_options_07 #MFLroster a.hide_toggler_taxi {
+    display: none !important;
+    pointer-events: none !important;
+  }
+
   body#body_options_07 #MFLroster caption,
   body#body_options_07 #MFLroster .roster_assets thead th {
     background: var(--ups-caption-bg) !important;
@@ -5742,6 +5803,21 @@ Replaces bulky default grid with compact toggle view + franchise icons
 
     body#body_options_07 #MFLroster .ups-roster-caption-meta {
       gap: 0.22rem;
+    }
+  }
+
+  /* Mobile roster columns: hide Bye + Acq, keep Contract Info visible */
+  @media (max-width: 760px) {
+    body#body_options_07 #MFLroster th.week,
+    body#body_options_07 #MFLroster td.week,
+    body#body_options_07 #MFLroster th.drafted,
+    body#body_options_07 #MFLroster td.drafted {
+      display: none !important;
+    }
+
+    body#body_options_07 #MFLroster th.contractinfo,
+    body#body_options_07 #MFLroster td.contractinfo {
+      display: table-cell !important;
     }
   }
 
