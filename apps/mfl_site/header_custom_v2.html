@@ -1813,7 +1813,12 @@
             : null;
         if (!el) return;
         var href = el.tagName === "A" ? String(el.getAttribute("href") || "").trim() : "";
-        var isCta = el.classList && el.classList.contains("ccc-cta");
+        var isThemeToggle =
+          (el.id && el.id === "upsThemeToggle") ||
+          !!(el.classList && el.classList.contains("ccc-theme-toggle"));
+        if (isThemeToggle) return;
+
+        var isCta = el.tagName === "A" && el.classList && el.classList.contains("ccc-cta");
         var isHotlink = safeStr(el.getAttribute && el.getAttribute("data-ups-hotlink")) === "ccc";
         var label = safeStr(el.textContent || "").toLowerCase();
         var isLabeledCcc = label.indexOf("contract command center") !== -1;
