@@ -3558,7 +3558,9 @@ Replaces bulky default grid with compact toggle view + franchise icons
       if (!select) return [];
       return Array.prototype.map.call(select.selectedOptions || [], function (opt) {
         return safeStr(opt && opt.value);
-      }).filter(Boolean);
+      }).filter(Boolean).filter(function (v) {
+        return v !== "__GROUP__";
+      });
     }
 
     function setMultiSelectValues(select, values) {
@@ -3897,13 +3899,12 @@ Replaces bulky default grid with compact toggle view + franchise icons
         order.forEach(function (gKey) {
           var group = groups[gKey];
           var gLabel = safeStr(group.label).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-          html.push('<optgroup label="' + gLabel + '">');
+          html.push('<option value="__GROUP__" disabled data-ups-group-header="1">' + gLabel + '</option>');
           group.options.forEach(function (it) {
             var value = safeStr(it.value).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
             var label = safeStr(it.label).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
             html.push('<option value="' + value + '">' + label + '</option>');
           });
-          html.push("</optgroup>");
         });
 
         select.innerHTML = html.join("");
@@ -3934,13 +3935,12 @@ Replaces bulky default grid with compact toggle view + franchise icons
           var opts = groups[groupName] || [];
           if (!opts.length) return;
           var gLabel = groupName.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-          html.push('<optgroup label="' + gLabel + '">');
+          html.push('<option value="__GROUP__" disabled data-ups-group-header="1">' + gLabel + '</option>');
           opts.forEach(function (it) {
             var value = safeStr(it.value).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
             var label = safeStr(it.label).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
             html.push('<option value="' + value + '">' + label + '</option>');
           });
-          html.push("</optgroup>");
         });
 
         select.innerHTML = html.join("");
@@ -4031,7 +4031,7 @@ Replaces bulky default grid with compact toggle view + franchise icons
             "</label>" +
             '<button type="button" class="ups-roster-toolbar-reset" data-ups-roster-clear="1">Reset</button>' +
           "</div>" +
-          '<div class="ups-roster-toolbar-help">Tip: click options on/off to multi-select (Cmd/Ctrl still works too).</div>' +
+          '<div class="ups-roster-toolbar-help">Tip: click options on/off to toggle multiple selections (Cmd/Ctrl still works too).</div>' +
           '<div class="ups-roster-toolbar-status" id="upsRosterToolbarStatus">Showing all players</div>';
 
         anchor.parentNode.insertBefore(toolbar, anchor);
@@ -4071,6 +4071,7 @@ Replaces bulky default grid with compact toggle view + franchise icons
           el.addEventListener("mousedown", function (evt) {
             var target = evt && evt.target;
             if (!target || target.tagName !== "OPTION") return;
+            if (target.disabled || safeStr(target.getAttribute("data-ups-group-header")) === "1") return;
 
             // Let keyboard/multi-modifier behavior work normally when explicitly used.
             if (evt.metaKey || evt.ctrlKey || evt.shiftKey || evt.altKey) return;
@@ -4324,8 +4325,8 @@ Replaces bulky default grid with compact toggle view + franchise icons
       var collapsed = getTaxiCollapsed(table);
       btn.setAttribute("aria-expanded", collapsed ? "false" : "true");
       btn.querySelector(".ups-roster-taxi-label").textContent = (collapsed ? "Show " : "Hide ") + rawLabel;
-      btn.querySelector(".ups-roster-taxi-count").textContent = String(Number(count || 0)) + " players";
-      btn.setAttribute("title", rawLabel + " (" + String(Number(count || 0)) + " players)");
+      btn.querySelector(".ups-roster-taxi-count").textContent = "";
+      btn.setAttribute("title", (collapsed ? "Show " : "Hide ") + rawLabel);
     }
 
     function markPlayerRow(row, isTaxi) {
@@ -4445,7 +4446,7 @@ Replaces bulky default grid with compact toggle view + franchise icons
         Array.from(table.querySelectorAll("tr")).forEach(function (row) {
           if (row.querySelector("td.player")) {
             var match = rowMatchesFilters(row);
-            var hideByTaxi = !filterActive && taxiCollapsed && row.getAttribute("data-ups-taxi-row") === "1";
+            var hideByTaxi = taxiCollapsed && row.getAttribute("data-ups-taxi-row") === "1";
             row.hidden = !match || hideByTaxi;
             if (!row.hidden) visibleMatchCount += 1;
             return;
@@ -4457,7 +4458,7 @@ Replaces bulky default grid with compact toggle view + franchise icons
           }
 
           if (row.getAttribute("data-ups-taxi-row") === "1" || row.getAttribute("data-ups-taxi-summary-row") === "1") {
-            row.hidden = !filterActive && taxiCollapsed;
+            row.hidden = taxiCollapsed;
             return;
           }
 
@@ -4478,7 +4479,7 @@ Replaces bulky default grid with compact toggle view + franchise icons
         }
 
         var toggle = table.querySelector(".ups-roster-taxi-toggle");
-        if (toggle) toggle.setAttribute("aria-expanded", (!taxiCollapsed || filterActive) ? "true" : "false");
+        if (toggle) toggle.setAttribute("aria-expanded", taxiCollapsed ? "false" : "true");
       });
 
       Array.from(document.querySelectorAll("#body_options_07 table.two_column_layout > tbody > tr")).forEach(function (layoutRow) {
@@ -5608,6 +5609,25 @@ Replaces bulky default grid with compact toggle view + franchise icons
     padding: 0.15rem 0.2rem;
   }
 
+  #upsRosterToolbar select[multiple] option[data-ups-group-header="1"] {
+    font-weight: 900;
+    color: var(--ups-report-strong);
+    background: rgba(26, 52, 92, 0.28);
+    border-top: 1px solid rgba(143, 183, 239, 0.28);
+    border-bottom: 1px solid rgba(143, 183, 239, 0.16);
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    padding-top: 0.22rem;
+    padding-bottom: 0.18rem;
+  }
+
+  :root[data-ups-mode="light"] #upsRosterToolbar select[multiple] option[data-ups-group-header="1"] {
+    color: #143457;
+    background: rgba(221, 234, 252, 0.92);
+    border-top-color: rgba(121, 156, 204, 0.35);
+    border-bottom-color: rgba(121, 156, 204, 0.2);
+  }
+
   #upsRosterToolbar #upsRosterSearch {
     min-width: min(22rem, 58vw);
   }
@@ -5715,7 +5735,7 @@ Replaces bulky default grid with compact toggle view + franchise icons
   body#body_options_07 #MFLroster .ups-roster-taxi-toggle {
     width: 100%;
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-start;
     align-items: center;
     gap: 0.6rem;
     border: 1px solid rgba(143, 183, 239, 0.28) !important;
@@ -5724,6 +5744,7 @@ Replaces bulky default grid with compact toggle view + franchise icons
     color: var(--ups-report-strong) !important;
     padding: 0.48rem 0.62rem !important;
     font-weight: 900 !important;
+    font-size: 0.86rem !important;
     cursor: pointer;
     margin: 0.22rem 0.25rem !important;
   }
@@ -5736,11 +5757,11 @@ Replaces bulky default grid with compact toggle view + franchise icons
   body#body_options_07 #MFLroster .ups-roster-taxi-left {
     display: inline-flex;
     align-items: center;
-    gap: 0.4rem;
+    gap: 0;
   }
 
   body#body_options_07 #MFLroster .ups-roster-taxi-caret {
-    display: inline-block;
+    display: none;
     width: 0.9rem;
     text-align: center;
     transition: transform 120ms ease;
@@ -5751,16 +5772,7 @@ Replaces bulky default grid with compact toggle view + franchise icons
   }
 
   body#body_options_07 #MFLroster .ups-roster-taxi-count {
-    font-size: 0.72rem;
-    font-weight: 800;
-    color: var(--ups-muted) !important;
-    border: 1px solid rgba(143, 183, 239, 0.28);
-    border-radius: 999px;
-    padding: 0.12rem 0.45rem;
-    background: rgba(16, 33, 58, 0.22);
-    min-width: 0;
-    white-space: nowrap;
-    text-align: center;
+    display: none !important;
   }
 
   body#body_options_07 #MFLroster table.report.ups-roster-no-match caption {

@@ -256,6 +256,14 @@
       display: inline-flex; gap: 0; border-radius: 999px; overflow: hidden;
       border: 1px solid var(--line); margin-left: auto;
     }
+    .range-stack {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 6px;
+      margin-left: auto;
+      min-width: max-content;
+    }
     .range-btn {
       border: none; background: #0e2c58; color: var(--muted);
       padding: 5px 12px; font-size: 11px; font-weight: 700;
@@ -422,6 +430,9 @@
       .wrap { padding: 6px; }
       .head { padding: 8px 10px; flex-direction: column; align-items: flex-start; }
       .controls { width: 100%; justify-content: flex-start; }
+      .range-stack { margin-left: 0; align-items: flex-start; min-width: 0; width: 100%; }
+      .range-selector { margin-left: 0; }
+      .range-advanced { justify-content: flex-start; }
       .title { font-size: 18px; }
       .tableWrap {
         margin-left: -6px;
@@ -474,21 +485,23 @@
           <label class="field">Season
             <select id="seasonSelect" class="select"></select>
           </label>
-          <div class="range-selector" id="rangeSelector">
-            <button class="range-btn active" data-range="regular">Regular (1-14)</button>
-            <button class="range-btn" data-range="playoffs">Playoffs (15-17)</button>
-            <button class="range-btn" data-range="full">Full (1-17)</button>
-          </div>
-          <div class="range-advanced">
-            <label class="field">Start
-              <select id="rangeStartSelect" class="select"></select>
-            </label>
-            <label class="field">End
-              <select id="rangeEndSelect" class="select"></select>
-            </label>
-            <label id="modeSelectWrap" class="field" style="display:none;">Mode
-              <select id="modeSelect" class="select"></select>
-            </label>
+          <div class="range-stack">
+            <div class="range-selector" id="rangeSelector">
+              <button class="range-btn active" data-range="regular">Regular (1-14)</button>
+              <button class="range-btn" data-range="playoffs">Playoffs (15-17)</button>
+              <button class="range-btn" data-range="full">Full (1-17)</button>
+            </div>
+            <div class="range-advanced">
+              <label class="field">Start
+                <select id="rangeStartSelect" class="select"></select>
+              </label>
+              <label class="field">End
+                <select id="rangeEndSelect" class="select"></select>
+              </label>
+              <label id="modeSelectWrap" class="field" style="display:none;">Mode
+                <select id="modeSelect" class="select"></select>
+              </label>
+            </div>
           </div>
           <label id="showLeadersWrap" class="toggleWrap" style="display:none;">
             <input id="showLeadersChk" type="checkbox" />
@@ -1028,7 +1041,12 @@
       }
 
       function buildSeasonOptions() {
-        const opts = [state.requestedSeason, state.requestedSeason - 1];
+        const firstSeason = 2010;
+        const topSeason = Math.max(firstSeason, Number(state.requestedSeason) || YEAR);
+        const opts = [];
+        for (let y = topSeason; y >= firstSeason; y -= 1) {
+          opts.push(y);
+        }
         const uniq = Array.from(new Set(opts.filter((v) => Number.isFinite(v) && v > 0)));
         const seasonSelect = $("#seasonSelect");
         if (!seasonSelect) return;
