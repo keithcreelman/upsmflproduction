@@ -1053,6 +1053,14 @@
     if (typeof themeName !== "string") return;
     localStorage.setItem("theme_" + year + "_" + league_id, themeName);
     document.documentElement.className = themeName;
+    try {
+      var inferredMode = String(themeName || "").toLowerCase().indexOf("light") !== -1 ? "light" : "dark";
+      if (typeof applyUPSMode === "function") {
+        applyUPSMode(inferredMode, true);
+      } else {
+        document.documentElement.setAttribute("data-ups-mode", inferredMode);
+      }
+    } catch (e) {}
   }
 
   function upsThemeStorageKey() {
@@ -1109,6 +1117,21 @@
       upsMode = "light";
     }
     applyUPSMode(upsMode || "dark", false);
+
+    if (window.MutationObserver) {
+      var htmlEl = document.documentElement;
+      var lastClass = htmlEl.className || "";
+      var htmlClassObs = new MutationObserver(function () {
+        var nextClass = htmlEl.className || "";
+        if (nextClass === lastClass) return;
+        lastClass = nextClass;
+        var inferred = nextClass.toLowerCase().indexOf("light") !== -1 ? "light" : "dark";
+        if (inferred !== getUPSMode()) {
+          applyUPSMode(inferred, false);
+        }
+      });
+      htmlClassObs.observe(htmlEl, { attributes: true, attributeFilter: ["class"] });
+    }
   })();
 </script>
 
