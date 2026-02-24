@@ -3793,7 +3793,12 @@ Replaces bulky default grid with compact toggle view + franchise icons
       getRosterTables().forEach(function (table) {
         var meta = resolveTeamMetaForTable(table);
         if (meta.fid) {
-          teamMap[meta.fid] = { value: meta.fid, label: meta.teamName || meta.fid };
+          teamMap[meta.fid] = {
+            value: meta.fid,
+            label: meta.teamName || meta.fid,
+            groupId: safeStr(meta.divisionId || ""),
+            groupLabel: safeStr(meta.divisionName || "")
+          };
         }
         if (meta.divisionId) {
           divMap[meta.divisionId] = { value: meta.divisionId, label: meta.divisionName || ("Division " + meta.divisionId) };
@@ -3818,7 +3823,11 @@ Replaces bulky default grid with compact toggle view + franchise icons
       function sortByLabel(a, b) { return safeStr(a.label).localeCompare(safeStr(b.label)); }
 
       return {
-        teams: Object.keys(teamMap).map(function (k) { return teamMap[k]; }).sort(sortByLabel),
+        teams: Object.keys(teamMap).map(function (k) { return teamMap[k]; }).sort(function (a, b) {
+          var ag = safeStr(a.groupLabel || a.groupId || "");
+          var bg = safeStr(b.groupLabel || b.groupId || "");
+          return ag.localeCompare(bg) || sortByLabel(a, b);
+        }),
         divisions: Object.keys(divMap).map(function (k) { return divMap[k]; }).sort(sortByLabel),
         positions: ["QB","RB","WR","TE","PK","PN","DT","DE","LB","CB","S"]
           .filter(function (p) { return !!posMap[p]; })
@@ -3828,6 +3837,61 @@ Replaces bulky default grid with compact toggle view + franchise icons
         }),
         contractTypes: Object.keys(typeMap).map(function (k) { return typeMap[k]; }).sort(sortByLabel)
       };
+    }
+
+    function renderTeamsSelectOptions(select, items, selectedValues) {
+      if (!select) return;
+
+      var sig = (items || []).map(function (it) {
+        return [
+          safeStr(it.value),
+          safeStr(it.label),
+          safeStr(it.groupId || ""),
+          safeStr(it.groupLabel || "")
+        ].join(":");
+      }).join("|");
+
+      if (select.dataset.upsSig !== sig) {
+        var html = [];
+        var groups = Object.create(null);
+        var order = [];
+
+        (items || []).forEach(function (it) {
+          if (safeStr(it.value) === "__ALL__") {
+            var allVal = safeStr(it.value).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+            var allLabel = safeStr(it.label).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+            html.push('<option value="' + allVal + '">' + allLabel + '</option>');
+            return;
+          }
+
+          var gKey = safeStr(it.groupId || it.groupLabel || "Other");
+          if (!groups[gKey]) {
+            groups[gKey] = {
+              label: safeStr(it.groupLabel || it.groupId || "Other"),
+              options: []
+            };
+            order.push(gKey);
+          }
+          groups[gKey].options.push(it);
+        });
+
+        order.forEach(function (gKey) {
+          var group = groups[gKey];
+          var gLabel = safeStr(group.label).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+          html.push('<optgroup label="' + gLabel + '">');
+          group.options.forEach(function (it) {
+            var value = safeStr(it.value).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+            var label = safeStr(it.label).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+            html.push('<option value="' + value + '">' + label + '</option>');
+          });
+          html.push("</optgroup>");
+        });
+
+        select.innerHTML = html.join("");
+        select.dataset.upsSig = sig;
+      }
+
+      setMultiSelectValues(select, selectedValues || []);
     }
 
     function renderMultiSelectOptions(select, items, selectedValues) {
@@ -3854,7 +3918,7 @@ Replaces bulky default grid with compact toggle view + franchise icons
       }
 
       rosterUiState.teams = prune(rosterUiState.teams, sets.teams);
-      rosterUiState.divisions = prune(rosterUiState.divisions, sets.divisions);
+      rosterUiState.divisions = [];
       rosterUiState.positions = prune(rosterUiState.positions, sets.positions);
       rosterUiState.years = prune(rosterUiState.years, sets.years);
       rosterUiState.contractTypes = prune(rosterUiState.contractTypes, sets.contractTypes);
@@ -3862,20 +3926,17 @@ Replaces bulky default grid with compact toggle view + franchise icons
       var teamItems = [{ value: "__ALL__", label: "All Teams" }].concat(sets.teams || []);
       var teamSelected = (rosterUiState.teams && rosterUiState.teams.length) ? rosterUiState.teams : ["__ALL__"];
 
-      renderMultiSelectOptions(toolbar.querySelector("#upsRosterTeams"), teamItems, teamSelected);
-      renderMultiSelectOptions(toolbar.querySelector("#upsRosterDivisions"), sets.divisions, rosterUiState.divisions);
+      renderTeamsSelectOptions(toolbar.querySelector("#upsRosterTeams"), teamItems, teamSelected);
       renderMultiSelectOptions(toolbar.querySelector("#upsRosterPositions"), sets.positions, rosterUiState.positions);
       renderMultiSelectOptions(toolbar.querySelector("#upsRosterYears"), sets.years, rosterUiState.years);
       renderMultiSelectOptions(toolbar.querySelector("#upsRosterTypes"), sets.contractTypes, rosterUiState.contractTypes);
 
       var teamsSel = toolbar.querySelector("#upsRosterTeams");
-      var divSel = toolbar.querySelector("#upsRosterDivisions");
       var posSel = toolbar.querySelector("#upsRosterPositions");
       var yearsSel = toolbar.querySelector("#upsRosterYears");
       var typesSel = toolbar.querySelector("#upsRosterTypes");
 
       if (teamsSel) teamsSel.size = Math.max(4, Math.min(12, ((sets.teams || []).length + 1) || 4));
-      if (divSel) divSel.size = Math.max(3, Math.min(6, (sets.divisions || []).length || 3));
       if (posSel) posSel.size = Math.max(4, Math.min(10, (sets.positions || []).length || 4));
       if (yearsSel) yearsSel.size = Math.max(3, Math.min(5, (sets.years || []).length || 3));
       if (typesSel) typesSel.size = Math.max(4, Math.min(10, (sets.contractTypes || []).length || 4));
@@ -3899,10 +3960,6 @@ Replaces bulky default grid with compact toggle view + franchise icons
             '<label class="ups-roster-toolbar-field">' +
               '<span>Teams</span>' +
               '<select id="upsRosterTeams" multiple size="6"></select>' +
-            "</label>" +
-            '<label class="ups-roster-toolbar-field">' +
-              '<span>Divisions</span>' +
-              '<select id="upsRosterDivisions" multiple size="4"></select>' +
             "</label>" +
             '<label class="ups-roster-toolbar-field">' +
               '<span>Positions</span>' +
@@ -3961,7 +4018,6 @@ Replaces bulky default grid with compact toggle view + franchise icons
         }
 
         wireMulti("#upsRosterTeams", "teams", function (v) { return safeStr(v); });
-        wireMulti("#upsRosterDivisions", "divisions", function (v) { return safeStr(v); });
         wireMulti("#upsRosterPositions", "positions", function (v) { return safeStr(v).toUpperCase(); });
         wireMulti("#upsRosterYears", "years", function (v) { return safeStr(v); });
         wireMulti("#upsRosterTypes", "contractTypes", function (v) { return lowerText(v); });
@@ -3983,22 +4039,42 @@ Replaces bulky default grid with compact toggle view + franchise icons
       if (!status) return;
 
       var allRows = Array.from(document.querySelectorAll("#body_options_07 table.report tr"));
-      var totalPlayers = 0;
-      var visiblePlayers = 0;
+      var totalPlayers = 0, matchedPlayers = 0;
+      var matchedActive = 0, matchedTaxi = 0, matchedIr = 0;
+      var matchedY3 = 0, matchedY2 = 0, matchedY1 = 0;
+
       allRows.forEach(function (row) {
         if (!row.querySelector("td.player")) return;
         totalPlayers += 1;
-        if (!row.hidden) visiblePlayers += 1;
+        var match = rowMatchesFilters(row);
+        if (!match) return;
+        matchedPlayers += 1;
+
+        var isTaxi = row.getAttribute("data-ups-taxi-row") === "1";
+        var isIr = !!(row.classList && row.classList.contains("IRtoggle"));
+        if (isTaxi) matchedTaxi += 1;
+        else if (isIr) matchedIr += 1;
+        else matchedActive += 1;
+
+        var yb = safeStr(row.getAttribute("data-ups-contract-years-bucket") || "");
+        if (yb === "3+") matchedY3 += 1;
+        else if (yb === "2") matchedY2 += 1;
+        else if (yb === "1") matchedY1 += 1;
       });
 
-      if (!isFilterActive()) {
-        status.textContent = "Showing all players";
-        return;
+      var parts = [];
+      if (isFilterActive()) {
+        parts.push(String(matchedPlayers) + " / " + String(totalPlayers) + " players");
+      } else {
+        parts.push(String(totalPlayers) + " players");
       }
-
-      var parts = [String(visiblePlayers) + " / " + String(totalPlayers) + " players"];
+      parts.push("Active " + String(matchedActive));
+      parts.push("Taxi " + String(matchedTaxi));
+      parts.push("IR " + String(matchedIr));
+      parts.push("3+Y " + String(matchedY3));
+      parts.push("2Y " + String(matchedY2));
+      parts.push("1Y " + String(matchedY1));
       if (rosterUiState.teams && rosterUiState.teams.length) parts.push("Teams: " + rosterUiState.teams.length);
-      if (rosterUiState.divisions && rosterUiState.divisions.length) parts.push("Div: " + rosterUiState.divisions.length);
       if (rosterUiState.positions && rosterUiState.positions.length) parts.push("Pos: " + rosterUiState.positions.join(", "));
       if (rosterUiState.years && rosterUiState.years.length) parts.push("Years: " + rosterUiState.years.join(", "));
       if (rosterUiState.contractTypes && rosterUiState.contractTypes.length) parts.push("Types: " + rosterUiState.contractTypes.length);
@@ -4011,7 +4087,6 @@ Replaces bulky default grid with compact toggle view + franchise icons
         rosterUiState.search ||
         (rosterUiState.positions && rosterUiState.positions.length) ||
         (rosterUiState.teams && rosterUiState.teams.length) ||
-        (rosterUiState.divisions && rosterUiState.divisions.length) ||
         (rosterUiState.years && rosterUiState.years.length) ||
         (rosterUiState.contractTypes && rosterUiState.contractTypes.length)
       );
@@ -4258,13 +4333,11 @@ Replaces bulky default grid with compact toggle view + franchise icons
       var name = safeStr(row.getAttribute("data-ups-player-name") || "");
       var pos = safeStr(row.getAttribute("data-ups-player-pos") || "").toUpperCase();
       var teamId = safeStr(row.getAttribute("data-ups-team-id") || "");
-      var divisionId = safeStr(row.getAttribute("data-ups-division-id") || "");
       var yearsBucket = safeStr(row.getAttribute("data-ups-contract-years-bucket") || "");
       var typeKey = lowerText(row.getAttribute("data-ups-contract-type-key") || "");
       if (rosterUiState.search && name.indexOf(rosterUiState.search) === -1) return false;
       if (rosterUiState.positions && rosterUiState.positions.length && rosterUiState.positions.indexOf(pos) === -1) return false;
       if (rosterUiState.teams && rosterUiState.teams.length && rosterUiState.teams.indexOf(teamId) === -1) return false;
-      if (rosterUiState.divisions && rosterUiState.divisions.length && rosterUiState.divisions.indexOf(divisionId) === -1) return false;
       if (rosterUiState.years && rosterUiState.years.length && rosterUiState.years.indexOf(yearsBucket) === -1) return false;
       if (rosterUiState.contractTypes && rosterUiState.contractTypes.length && rosterUiState.contractTypes.indexOf(typeKey) === -1) return false;
       return true;
@@ -4360,13 +4433,11 @@ Replaces bulky default grid with compact toggle view + franchise icons
         if (toolbar) {
           var searchEl = toolbar.querySelector("#upsRosterSearch");
           var teamsEl = toolbar.querySelector("#upsRosterTeams");
-          var divsEl = toolbar.querySelector("#upsRosterDivisions");
           var posEl = toolbar.querySelector("#upsRosterPositions");
           var yearsEl = toolbar.querySelector("#upsRosterYears");
           var typesEl = toolbar.querySelector("#upsRosterTypes");
           if (searchEl) searchEl.value = "";
           setMultiSelectValues(teamsEl, []);
-          setMultiSelectValues(divsEl, []);
           setMultiSelectValues(posEl, []);
           setMultiSelectValues(yearsEl, []);
           setMultiSelectValues(typesEl, []);
@@ -4419,7 +4490,7 @@ Replaces bulky default grid with compact toggle view + franchise icons
         if (savedSearch) rosterUiState.search = lowerText(savedSearch);
         rosterUiState.positions = loadStoredList("ups_roster_positions").map(function (v) { return safeStr(v).toUpperCase(); });
         rosterUiState.teams = loadStoredList("ups_roster_teams");
-        rosterUiState.divisions = loadStoredList("ups_roster_divisions");
+        rosterUiState.divisions = [];
         rosterUiState.years = loadStoredList("ups_roster_years");
         rosterUiState.contractTypes = loadStoredList("ups_roster_contract_types").map(lowerText);
         if (!rosterUiState.positions.length) {
