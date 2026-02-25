@@ -7064,6 +7064,56 @@ Replaces bulky default grid with compact toggle view + franchise icons
     overflow-x: auto !important;
   }
 
+  /* Franchise Abilities (O=93): the horizontal/frozen table wrapper can render
+     black-on-dark content and near-invisible checkboxes under our global theme overrides. */
+  body#body_options_93 .mobile-wrap.hz-table-scroll,
+  body#body_options_93 .mobile-wrap.hz-table-scroll table,
+  body#body_options_93 .mobile-wrap.hz-table-scroll .report {
+    background: var(--ups-surface) !important;
+    color: var(--ups-report-strong) !important;
+    border-color: var(--ups-border) !important;
+  }
+
+  body#body_options_93 .mobile-wrap.hz-table-scroll th,
+  body#body_options_93 .mobile-wrap.hz-table-scroll td {
+    background: transparent !important;
+    color: var(--ups-report-strong) !important;
+    border-color: var(--ups-td-border) !important;
+    text-shadow: none !important;
+    opacity: 1 !important;
+  }
+
+  body#body_options_93 .mobile-wrap.hz-table-scroll *,
+  body#body_options_93 .mobile-wrap.hz-table-scroll font {
+    color: inherit !important;
+    text-shadow: none !important;
+    opacity: 1 !important;
+  }
+
+  body#body_options_93 .mobile-wrap.hz-table-scroll a,
+  body#body_options_93 .mobile-wrap.hz-table-scroll a:visited {
+    color: var(--ups-link) !important;
+    font-weight: 800 !important;
+  }
+
+  body#body_options_93 .mobile-wrap.hz-table-scroll input[type="checkbox"] {
+    -webkit-appearance: checkbox !important;
+    appearance: auto !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    accent-color: var(--ups-accent) !important;
+    width: 16px !important;
+    height: 16px !important;
+    filter: none !important;
+  }
+
+  body#body_options_93 .mobile-wrap.hz-table-scroll input[type="text"],
+  body#body_options_93 .mobile-wrap.hz-table-scroll select {
+    background: var(--ups-surface-alt) !important;
+    color: var(--ups-report-strong) !important;
+    border: 1px solid var(--ups-border) !important;
+  }
+
   /* ------------------------------ */
   /* Roster Page Position Styling   */
   /* ------------------------------ */
