@@ -147,6 +147,10 @@
 
 <style>
   .ups-footer {
+    display: block !important;
+    visibility: visible !important;
+    clear: both;
+    width: 100%;
     margin-top: 1rem;
     background:
       radial-gradient(circle at 90% 20%, rgba(84, 130, 198, 0.2), transparent 40%),
@@ -213,6 +217,11 @@
     font-size: 0.72rem;
     border-top: 1px solid rgba(92, 129, 173, 0.35);
     padding-top: 0.55rem;
+  }
+
+  /* Replace the stock MFL footer links with the UPS footer. */
+  .pagefooter {
+    display: none !important;
   }
 
   @media (max-width: 640px) {

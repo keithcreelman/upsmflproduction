@@ -1782,6 +1782,18 @@
           safeInt(r._extension_deadline_ts) ||
           (parseDate(r.extension_deadline || r.mym_deadline) || new Date("2999-01-01")).getTime()
         );
+      case "ptsY1": {
+        const n = Number(r._expired_pts_y1);
+        return Number.isFinite(n) ? n : -1;
+      }
+      case "ptsY2": {
+        const n = Number(r._expired_pts_y2);
+        return Number.isFinite(n) ? n : -1;
+      }
+      case "ptsY3": {
+        const n = Number(r._expired_pts_y3);
+        return Number.isFinite(n) ? n : -1;
+      }
       default:
         return safeStr(r.player_name).toLowerCase();
     }
@@ -3647,23 +3659,52 @@
     const y3 = selected > 2 ? String(selected - 3) : "Yr-3";
     const expired = (rows || [])
       .filter((r) => isExpiredRookieDraftCandidate(r))
-      .sort(
-        (a, b) =>
-          safeStr(a.franchise_name || a.franchise_id).localeCompare(
-            safeStr(b.franchise_name || b.franchise_id)
-          ) || safeStr(a.player_name).localeCompare(safeStr(b.player_name))
-      );
-    if (!expired.length) {
-      return `<div class="ccc-tableWrap" style="padding:12px;">No expired rookie draft candidates in this view.</div>`;
-    }
-    const body = expired
       .map((r) => {
-        const style = buildTeamStyle(r);
         const pid = safeStr(r.player_id);
         const pts = pointsHistoryByPlayer && pointsHistoryByPlayer[pid] ? pointsHistoryByPlayer[pid] : {};
         const p1 = pts[y1];
         const p2 = pts[y2];
         const p3 = pts[y3];
+        r._expired_pts_y1 = p1 === undefined || p1 === null ? null : Number(p1);
+        r._expired_pts_y2 = p2 === undefined || p2 === null ? null : Number(p2);
+        r._expired_pts_y3 = p3 === undefined || p3 === null ? null : Number(p3);
+        return r;
+      });
+    if (!expired.length) {
+      return `<div class="ccc-tableWrap" style="padding:12px;">No expired rookie draft candidates in this view.</div>`;
+    }
+    const expiredSortKeyRaw = safeStr(sortState.tab === "eligible" ? sortState.key : "team");
+    const expiredSortKey = {
+      team: "team",
+      player: "player",
+      pos: "pos",
+      salary: "salary",
+      deadline: "deadline",
+      ptsY1: "ptsY1",
+      ptsY2: "ptsY2",
+      ptsY3: "ptsY3",
+    }[expiredSortKeyRaw] || "team";
+    const expiredSortDir = sortState.tab === "eligible" ? sortState.dir : "asc";
+    const sortedExpired = sortRows(expired, expiredSortKey, expiredSortDir);
+
+    const sortTh = function (key, label, extraClass) {
+      const isSorted = sortState.tab === "eligible" && sortState.key === key;
+      const className = ["is-sortable", isSorted ? "is-sorted" : "", extraClass || ""]
+        .join(" ")
+        .trim();
+      const ariaSort = isSorted ? (sortState.dir === "asc" ? "ascending" : "descending") : "none";
+      return `<th data-sort="${key}" aria-sort="${ariaSort}" class="${className}">${label} <span class="sort">${sortIcon(
+        "eligible",
+        key
+      )}</span></th>`;
+    };
+
+    const body = sortedExpired
+      .map((r) => {
+        const style = buildTeamStyle(r);
+        const p1 = r._expired_pts_y1;
+        const p2 = r._expired_pts_y2;
+        const p3 = r._expired_pts_y3;
         const pts1 = p1 === undefined || p1 === null ? "—" : Number(p1).toFixed(1);
         const pts2 = p2 === undefined || p2 === null ? "—" : Number(p2).toFixed(1);
         const pts3 = p3 === undefined || p3 === null ? "—" : Number(p3).toFixed(1);
@@ -3685,9 +3726,17 @@
       <div class="ccc-summaryControls">
         <span class="ccc-navTitle">${htmlEsc(title)}</span>
       </div>
-      <div class="ccc-tableWrap" data-table="costcalc">
+      <div class="ccc-tableWrap" data-table="eligible">
         <table class="ccc-table">
-          <thead><tr><th>Team</th><th>Player</th><th>Pos</th><th>${htmlEsc(y1)}</th><th>${htmlEsc(y2)}</th><th>${htmlEsc(y3)}</th><th>Sal</th><th>Deadline To Extend</th></tr></thead>
+          <thead><tr>${sortTh("team", "Team")}${sortTh("player", "Player")}${sortTh("pos", "Pos")}${sortTh(
+      "ptsY1",
+      htmlEsc(y1),
+      "is-num"
+    )}${sortTh("ptsY2", htmlEsc(y2), "is-num")}${sortTh("ptsY3", htmlEsc(y3), "is-num")}${sortTh(
+      "salary",
+      "Sal",
+      "is-num"
+    )}${sortTh("deadline", "Deadline To Extend")}</tr></thead>
           <tbody>${body}</tbody>
         </table>
       </div>
@@ -4314,9 +4363,13 @@
     const ownerOrAll = safeStr(state.detectedFranchiseId || "__ALL__");
     let defaultTeam = safeStr(defaults.teamId || ownerOrAll);
     if (key === "mym" || key === "restructure" || key === "expiredrookie") {
-      defaultTeam = state.canCommishMode ? "__ALL__" : ownerOrAll;
+      defaultTeam = ownerOrAll;
     }
-    const selectedTeam = safeStr(saved && saved.selectedTeam ? saved.selectedTeam : defaultTeam);
+    const forceOwnerDefaultTeam =
+      key === "mym" || key === "restructure" || key === "expiredrookie";
+    const selectedTeam = safeStr(
+      forceOwnerDefaultTeam ? defaultTeam : saved && saved.selectedTeam ? saved.selectedTeam : defaultTeam
+    );
     state.selectedTeam = selectedTeam || "__ALL__";
     state.showAllTeams = state.selectedTeam === "__ALL__";
     state.selectedPosition = safeStr(
@@ -4343,16 +4396,6 @@
     }
     setHighlightForModule(state.activeModule || "default");
     applyFiltersForModule(state.activeModule || "default");
-    if (
-      state.activeModule &&
-      (state.activeModule === "mym" ||
-        state.activeModule === "restructure" ||
-        state.activeModule === "expiredrookie") &&
-      state.canCommishMode
-    ) {
-      state.selectedTeam = "__ALL__";
-      state.showAllTeams = true;
-    }
   }
 
   function normalizeSeasonValue(v) {
@@ -7485,6 +7528,16 @@
         state.selectedTeam = v || "__ALL__";
         state.showAllTeams = state.selectedTeam === "__ALL__";
       }
+      if (
+        (state.activeModule === "mym" ||
+          state.activeModule === "restructure" ||
+          state.activeModule === "expiredrookie") &&
+        detected
+      ) {
+        state.selectedTeam = detected;
+        state.showAllTeams = false;
+        if (teamSelect) teamSelect.value = detected;
+      }
       const positions = buildPositionList(seasonRows, mergedSubmissionRows);
       state.selectedPosition = "__ALL_POS__";
       populatePositionSelect(positions, state.selectedPosition);
@@ -7513,8 +7566,19 @@
 
       // default sort per tab
       sortState.tab = "eligible";
-      sortState.key = state.activeModule === "tag" ? "player" : "acquired";
-      sortState.dir = state.activeModule === "tag" ? "asc" : "desc";
+      if (state.activeModule === "tag") {
+        sortState.key = "player";
+        sortState.dir = "asc";
+      } else if (state.activeModule === "restructure") {
+        sortState.key = "salary";
+        sortState.dir = "desc";
+      } else if (state.activeModule === "expiredrookie") {
+        sortState.key = "team";
+        sortState.dir = "asc";
+      } else {
+        sortState.key = "acquired";
+        sortState.dir = "desc";
+      }
 
       render();
 
@@ -7737,6 +7801,9 @@
 	    if (moduleExpiredRookieChip)
 	      moduleExpiredRookieChip.addEventListener("click", () => {
 	        switchModule("expiredrookie");
+	        sortState.tab = "eligible";
+	        sortState.key = "team";
+	        sortState.dir = "asc";
 	        resetAllTablePages();
 	        setTab("eligible");
 	        render();

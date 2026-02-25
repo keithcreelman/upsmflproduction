@@ -1119,6 +1119,62 @@
     border-radius: 12px;
     padding: 0.35rem;
   }
+
+  .ups-collapsible-module {
+    width: min(76rem, calc(100% - 1.25rem));
+    margin: 0.7rem auto 0.9rem;
+    border: 1px solid var(--ups-border);
+    border-radius: 12px;
+    background: var(--ups-surface);
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.2);
+    overflow: hidden;
+  }
+
+  .ups-collapsible-module-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.58rem 0.72rem;
+    border-bottom: 1px solid var(--ups-border);
+    background: linear-gradient(180deg, var(--ups-surface-alt) 0%, var(--ups-surface) 100%);
+  }
+
+  .ups-collapsible-module-title {
+    color: var(--ups-text);
+    font-weight: 900;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    font-size: 0.78rem;
+  }
+
+  .ups-collapsible-module-toggle {
+    border: 1px solid var(--ups-border);
+    border-radius: 999px;
+    background: var(--ups-btn-bg);
+    color: var(--ups-btn-text);
+    font-weight: 900;
+    font-size: 0.78rem;
+    width: 2rem;
+    height: 2rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+  }
+
+  .ups-collapsible-module-body {
+    padding: 0.35rem;
+  }
+
+  .ups-collapsible-module-body > #uowMount {
+    border: 0;
+    background: transparent;
+    border-radius: 0;
+    padding: 0;
+  }
 </style>
 
 <script>
@@ -3020,6 +3076,165 @@ Replaces bulky default grid with compact toggle view + franchise icons
     document.addEventListener("DOMContentLoaded", init);
   } else {
     init();
+  }
+})();
+</script>
+
+<script>
+/* Mobile-only collapsible shells for homepage modules (standings snapshot + owner widget). */
+(function () {
+  var MOBILE_MAX = 900;
+  var KEYS = {
+    standings: "ups_mod_standings_mobile_v1",
+    ownerHub: "ups_mod_ownerhub_mobile_v1"
+  };
+
+  function isMobileLayout() {
+    try {
+      return window.matchMedia ? window.matchMedia("(max-width: " + MOBILE_MAX + "px)").matches : window.innerWidth <= MOBILE_MAX;
+    } catch (e) {
+      return window.innerWidth <= MOBILE_MAX;
+    }
+  }
+
+  function readPref(key) {
+    try { return sessionStorage.getItem(key) || ""; } catch (e) { return ""; }
+  }
+
+  function writePref(key, collapsed) {
+    try { sessionStorage.setItem(key, collapsed ? "closed" : "open"); } catch (e) {}
+  }
+
+  function resolveCollapsed(key, mobileDefault) {
+    var saved = readPref(key);
+    if (saved === "closed") return true;
+    if (saved === "open") return false;
+    return !!mobileDefault;
+  }
+
+  function setChevronButton(btn, collapsed) {
+    if (!btn) return;
+    btn.textContent = collapsed ? "▸" : "▾";
+    btn.setAttribute("aria-expanded", collapsed ? "false" : "true");
+    btn.setAttribute("title", collapsed ? "Expand module" : "Collapse module");
+  }
+
+  function applyStandingsCollapsed(wrapper, collapsed, persist) {
+    if (!wrapper) return;
+    var next = isMobileLayout() ? !!collapsed : false;
+    wrapper.setAttribute("data-collapsed-mobile", next ? "1" : "0");
+    setChevronButton(wrapper.querySelector(".ups-standings-mobile-toggle"), next);
+    if (persist) writePref(KEYS.standings, next);
+  }
+
+  function applyOwnerHubCollapsed(shell, collapsed, persist) {
+    if (!shell) return;
+    var next = isMobileLayout() ? !!collapsed : false;
+    shell.setAttribute("data-collapsed-mobile", next ? "1" : "0");
+    var body = shell.querySelector(".ups-collapsible-module-body");
+    if (body) body.hidden = next;
+    setChevronButton(shell.querySelector(".ups-collapsible-module-toggle"), next);
+    if (persist) writePref(KEYS.ownerHub, next);
+  }
+
+  function ensureStandingsCollapse() {
+    var wrapper = document.getElementById("ups-standings-compact");
+    if (!wrapper) return;
+    var header = wrapper.querySelector(".ups-standings-header");
+    var title = wrapper.querySelector(".ups-standings-title");
+    if (!header || !title) return;
+
+    var main = header.querySelector(".ups-standings-header-main");
+    if (!main) {
+      main = document.createElement("div");
+      main.className = "ups-standings-header-main";
+      header.insertBefore(main, header.firstChild);
+      main.appendChild(title);
+    } else if (!main.contains(title)) {
+      main.appendChild(title);
+    }
+
+    var btn = header.querySelector(".ups-standings-mobile-toggle");
+    if (!btn) {
+      btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "ups-standings-mobile-toggle";
+      btn.setAttribute("aria-label", "Toggle standings snapshot");
+      main.appendChild(btn);
+    }
+    if (!btn.dataset.wired) {
+      btn.dataset.wired = "1";
+      btn.addEventListener("click", function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        var collapsed = wrapper.getAttribute("data-collapsed-mobile") === "1";
+        applyStandingsCollapsed(wrapper, !collapsed, true);
+      });
+    }
+
+    applyStandingsCollapsed(wrapper, resolveCollapsed(KEYS.standings, true), false);
+  }
+
+  function ensureOwnerHubCollapse() {
+    var mount = document.getElementById("uowMount");
+    if (!mount || !mount.parentNode) return;
+
+    var shell = mount.closest ? mount.closest("#ups-owner-hub-shell") : null;
+    if (!shell) {
+      shell = document.createElement("section");
+      shell.id = "ups-owner-hub-shell";
+      shell.className = "ups-collapsible-module";
+      shell.innerHTML =
+        '<div class="ups-collapsible-module-header">' +
+          '<div class="ups-collapsible-module-title">Owner Hub</div>' +
+          '<button type="button" class="ups-collapsible-module-toggle" aria-label="Toggle owner hub"></button>' +
+        '</div>' +
+        '<div class="ups-collapsible-module-body"></div>';
+      mount.parentNode.insertBefore(shell, mount);
+      shell.querySelector(".ups-collapsible-module-body").appendChild(mount);
+    }
+
+    var btn = shell.querySelector(".ups-collapsible-module-toggle");
+    if (btn && !btn.dataset.wired) {
+      btn.dataset.wired = "1";
+      btn.addEventListener("click", function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        var collapsed = shell.getAttribute("data-collapsed-mobile") === "1";
+        applyOwnerHubCollapsed(shell, !collapsed, true);
+      });
+    }
+
+    applyOwnerHubCollapsed(shell, resolveCollapsed(KEYS.ownerHub, true), false);
+  }
+
+  function syncAll() {
+    ensureStandingsCollapse();
+    ensureOwnerHubCollapse();
+  }
+
+  var tries = 0;
+  var timer = setInterval(function () {
+    tries += 1;
+    syncAll();
+    if (tries >= 50) clearInterval(timer);
+  }, 250);
+
+  if (window.MutationObserver) {
+    var root = document.body || document.documentElement;
+    if (root) {
+      var obs = new MutationObserver(function () { syncAll(); });
+      try { obs.observe(root, { childList: true, subtree: true }); } catch (e) {}
+      setTimeout(function () { try { obs.disconnect(); } catch (e) {} }, 30000);
+    }
+  }
+
+  window.addEventListener("resize", syncAll);
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", syncAll);
+  } else {
+    syncAll();
   }
 })();
 </script>
@@ -5528,6 +5743,36 @@ Replaces bulky default grid with compact toggle view + franchise icons
     gap: 0.34rem;
   }
 
+  #ups-standings-compact .ups-standings-header-main {
+    display: inline-flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    min-width: 0;
+  }
+
+  #ups-standings-compact .ups-standings-mobile-toggle {
+    display: none;
+    border: 1px solid var(--ups-standings-toggle-border);
+    border-radius: 999px;
+    background: var(--ups-standings-toggle-bg);
+    color: var(--ups-text);
+    font-weight: 900;
+    font-size: 0.9rem;
+    width: 2rem;
+    height: 2rem;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+  }
+
+  #ups-standings-compact[data-collapsed-mobile="1"] .ups-standings-controls,
+  #ups-standings-compact[data-collapsed-mobile="1"] .ups-standings-table-wrap {
+    display: none;
+  }
+
   #ups-standings-compact .ups-standings-toggle {
     border: 1px solid var(--ups-standings-toggle-border);
     border-radius: 999px;
@@ -5601,7 +5846,18 @@ Replaces bulky default grid with compact toggle view + franchise icons
     }
     #ups-standings-compact .ups-standings-header {
       flex-direction: column;
-      align-items: flex-start;
+      align-items: stretch;
+      gap: 0.45rem;
+    }
+    #ups-standings-compact .ups-standings-header-main {
+      width: 100%;
+      display: flex;
+    }
+    #ups-standings-compact .ups-standings-mobile-toggle {
+      display: inline-flex;
+    }
+    #ups-standings-compact .ups-standings-controls {
+      width: 100%;
     }
   }
 
@@ -6223,31 +6479,46 @@ Replaces bulky default grid with compact toggle view + franchise icons
       margin: 0 !important;
       transform: none !important;
       z-index: 10060 !important;
-      width: auto !important;
-      max-width: calc(100vw - 0.9rem) !important;
-      border: 1px solid var(--ups-border) !important;
-      border-radius: 12px !important;
-      background: var(--ups-surface-alt) !important;
-      background: color-mix(in srgb, var(--ups-surface-alt) 88%, transparent) !important;
-      box-shadow: 0 8px 18px rgba(0, 0, 0, 0.28) !important;
-      backdrop-filter: blur(4px);
-      -webkit-backdrop-filter: blur(4px);
+      width: 52px !important;
+      min-width: 52px !important;
+      height: 52px !important;
+      max-width: 52px !important;
+      border: 0 !important;
+      border-radius: 0 !important;
+      background: transparent !important;
+      box-shadow: none !important;
+      padding: 0 !important;
+      overflow: visible !important;
     }
 
     .myfantasyleague_menu > span,
     .myfantasyleague_menu span:first-child {
-      color: var(--ups-text) !important;
-      font-weight: 900 !important;
-      letter-spacing: 0.04em !important;
+      display: none !important;
     }
 
     .myfantasyleague_menu > label,
     .myfantasyleague_menu > label[for="sub0"],
     .myfantasyleague_menu label[for="sub0"] {
+      position: fixed !important;
+      top: calc(env(safe-area-inset-top, 0px) + 0.45rem) !important;
+      left: 0.45rem !important;
+      right: auto !important;
+      bottom: auto !important;
+      width: 48px !important;
+      height: 48px !important;
+      min-width: 48px !important;
+      min-height: 48px !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      transform: none !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      z-index: 10061 !important;
       background: var(--ups-accent) !important;
       border: 1px solid #b98527 !important;
       border-radius: 10px !important;
-      box-shadow: none !important;
+      box-shadow: 0 8px 18px rgba(0, 0, 0, 0.28) !important;
     }
 
     .myfantasyleague_menu > label > span,
@@ -6261,12 +6532,18 @@ Replaces bulky default grid with compact toggle view + franchise icons
     }
 
     .myfantasyleague_menu > ul {
-      margin-top: 0.35rem !important;
+      position: fixed !important;
+      top: calc(env(safe-area-inset-top, 0px) + 3.45rem) !important;
+      left: 0.45rem !important;
+      right: 0.45rem !important;
+      margin-top: 0 !important;
       border: 1px solid var(--ups-border) !important;
       border-radius: 12px !important;
       background: var(--ups-surface-alt) !important;
       box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35) !important;
-      overflow: hidden;
+      overflow: auto !important;
+      max-height: calc(100vh - env(safe-area-inset-top, 0px) - 4.1rem) !important;
+      z-index: 10062 !important;
     }
   }
 
