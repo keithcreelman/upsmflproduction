@@ -7814,35 +7814,6 @@
     render();
   }
 
-  let lastTouchSortSig = "";
-  let lastTouchSortAt = 0;
-
-  function handleDelegatedSortEvent(e, isTouch) {
-    const th = e.target && e.target.closest ? e.target.closest("th[data-sort]") : null;
-    if (!th) return false;
-
-    const wrap = th.closest ? th.closest(".ccc-tableWrap") : null;
-    if (!wrap) return false;
-
-    const tableMode = safeStr(wrap.getAttribute("data-table") || "eligible");
-    const sortKey = safeStr(th.getAttribute("data-sort") || "");
-    if (!sortKey) return false;
-
-    const sig = `${tableMode}:${sortKey}`;
-    const now = Date.now();
-    if (!isTouch && lastTouchSortSig === sig && now - lastTouchSortAt < 800) {
-      return true;
-    }
-
-    if (isTouch) {
-      lastTouchSortSig = sig;
-      lastTouchSortAt = now;
-    }
-
-    handleHeaderSortClick(th, tableMode);
-    return true;
-  }
-
   function wireEvents() {
     const moduleTagsChip = $("#moduleTagsChip");
     if (moduleTagsChip)
@@ -8185,16 +8156,14 @@
     document.addEventListener(
       "click",
       (e) => {
-        handleDelegatedSortEvent(e, false);
-      },
-      true
-    );
+        const th = e.target && e.target.closest ? e.target.closest("th[data-sort]") : null;
+        if (!th) return;
 
-    document.addEventListener(
-      "pointerup",
-      (e) => {
-        if (!e || e.pointerType !== "touch") return;
-        handleDelegatedSortEvent(e, true);
+        const wrap = th.closest ? th.closest(".ccc-tableWrap") : null;
+        if (!wrap) return;
+
+        const tableMode = wrap.getAttribute("data-table") || "eligible";
+        handleHeaderSortClick(th, tableMode);
       },
       true
     );
