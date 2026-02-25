@@ -5268,6 +5268,71 @@
         submittedTab.textContent =
           state.activeModule === "extensions" ? "Finalized Submissions" : "Submissions";
     }
+    syncTagReportsControl();
+  }
+
+  function isTagReportsMobileMode() {
+    try {
+      return !!(window.matchMedia && window.matchMedia("(max-width: 520px)").matches);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function closeTagReportsMenu() {
+    const wrap = $("#cccTagReportsWrap");
+    const toggle = $("#cccTagReportsToggle");
+    const menu = $("#cccTagReportsMenu");
+    if (menu) menu.hidden = true;
+    if (wrap) wrap.classList.remove("is-open");
+    if (toggle) toggle.setAttribute("aria-expanded", "false");
+  }
+
+  function syncTagReportsControl() {
+    const cccTabs = $("#cccTabs");
+    const wrap = $("#cccTagReportsWrap");
+    const toggle = $("#cccTagReportsToggle");
+    const menu = $("#cccTagReportsMenu");
+    if (!cccTabs || !wrap || !toggle || !menu) return;
+
+    const enabled = state.activeModule === "tag" && isTagReportsMobileMode();
+    if (enabled) {
+      cccTabs.setAttribute("data-tag-reports-mobile", "1");
+    } else {
+      cccTabs.removeAttribute("data-tag-reports-mobile");
+    }
+    wrap.hidden = !enabled;
+    if (!enabled) {
+      closeTagReportsMenu();
+      return;
+    }
+
+    const reportTabs = ["summary", "costcalc", "ineligible", "submitted"];
+    const activeReportTab = reportTabs.includes(safeStr(state.activeTab)) ? safeStr(state.activeTab) : "";
+
+    const reportLabelByTab = {
+      summary: "Summary",
+      costcalc: "Cost Calc",
+      ineligible: "Ineligible",
+      submitted: "Finalized Submissions",
+    };
+    ["summary", "costcalc", "ineligible", "submitted"].forEach((tab) => {
+      const menuBtn = menu.querySelector(`.ccc-tab-report-item[data-report-tab="${tab}"]`);
+      const sourceTabBtn = cccTabs.querySelector(`.ccc-tab[data-tab="${tab}"]`);
+      if (!menuBtn) return;
+      const sourceVisible = !!(sourceTabBtn && sourceTabBtn.style.display !== "none");
+      menuBtn.hidden = !sourceVisible;
+      menuBtn.classList.toggle("is-active", activeReportTab === tab);
+      menuBtn.setAttribute("aria-pressed", activeReportTab === tab ? "true" : "false");
+      const label = safeStr((sourceTabBtn && sourceTabBtn.textContent) || reportLabelByTab[tab] || tab);
+      menuBtn.textContent = label;
+    });
+
+    wrap.classList.toggle("is-active", !!activeReportTab);
+    toggle.setAttribute(
+      "aria-label",
+      activeReportTab ? `Reports: ${reportLabelByTab[activeReportTab] || activeReportTab}` : "Reports"
+    );
   }
 
   function syncModuleChipSelection() {
@@ -7725,6 +7790,7 @@
     if (tabSubmitted) tabSubmitted.style.display = tab === "submitted" ? "" : "none";
 
     $$(".ccc-tab").forEach((b) => b.classList.toggle("active", b.dataset.tab === tab));
+    syncTagReportsControl();
     applyHighlightSetting();
   }
 
@@ -7746,6 +7812,37 @@
     }
 
     render();
+  }
+
+  let lastTouchSortSig = "";
+  let lastTouchSortAt = 0;
+
+  function handleDelegatedSortEvent(e, isTouch) {
+    const th = e.target && e.target.closest ? e.target.closest("th[data-sort]") : null;
+    if (!th) return false;
+
+    const wrap = th.closest ? th.closest(".ccc-tableWrap") : null;
+    if (!wrap) return false;
+
+    const tableMode = safeStr(wrap.getAttribute("data-table") || "eligible");
+    const sortKey = safeStr(th.getAttribute("data-sort") || "");
+    if (!sortKey) return false;
+
+    const sig = `${tableMode}:${sortKey}`;
+    const now = Date.now();
+    if (!isTouch && lastTouchSortSig === sig && now - lastTouchSortAt < 800) {
+      return true;
+    }
+
+    if (isTouch) {
+      lastTouchSortSig = sig;
+      lastTouchSortAt = now;
+      if (e.cancelable) e.preventDefault();
+      if (e.stopPropagation) e.stopPropagation();
+    }
+
+    handleHeaderSortClick(th, tableMode);
+    return true;
   }
 
   function wireEvents() {
@@ -7903,10 +8000,38 @@
     // Tabs
     $$(".ccc-tab").forEach((btn) =>
       btn.addEventListener("click", () => {
+        closeTagReportsMenu();
         setTab(btn.dataset.tab);
         render();
       })
     );
+
+    const cccTagReportsToggle = $("#cccTagReportsToggle");
+    if (cccTagReportsToggle)
+      cccTagReportsToggle.addEventListener("click", (e) => {
+        e.preventDefault();
+        const wrap = $("#cccTagReportsWrap");
+        const menu = $("#cccTagReportsMenu");
+        if (!wrap || !menu || wrap.hidden) return;
+        const nextOpen = !!menu.hidden;
+        menu.hidden = !nextOpen;
+        wrap.classList.toggle("is-open", nextOpen);
+        cccTagReportsToggle.setAttribute("aria-expanded", nextOpen ? "true" : "false");
+      });
+
+    const cccTagReportsMenu = $("#cccTagReportsMenu");
+    if (cccTagReportsMenu)
+      cccTagReportsMenu.addEventListener("click", (e) => {
+        const btn =
+          e.target && e.target.closest ? e.target.closest(".ccc-tab-report-item[data-report-tab]") : null;
+        if (!btn || btn.hidden) return;
+        e.preventDefault();
+        const tab = safeStr(btn.getAttribute("data-report-tab") || "");
+        if (!tab) return;
+        closeTagReportsMenu();
+        setTab(tab);
+        render();
+      });
 
     // Filters
     const teamSelect = $("#teamSelect");
@@ -8062,14 +8187,27 @@
     document.addEventListener(
       "click",
       (e) => {
-        const th = e.target && e.target.closest ? e.target.closest("th[data-sort]") : null;
-        if (!th) return;
+        handleDelegatedSortEvent(e, false);
+      },
+      true
+    );
 
-        const wrap = th.closest ? th.closest(".ccc-tableWrap") : null;
-        if (!wrap) return;
+    document.addEventListener(
+      "touchend",
+      (e) => {
+        handleDelegatedSortEvent(e, true);
+      },
+      true
+    );
 
-        const tableMode = wrap.getAttribute("data-table") || "eligible";
-        handleHeaderSortClick(th, tableMode);
+    document.addEventListener(
+      "click",
+      (e) => {
+        const wrap = $("#cccTagReportsWrap");
+        const menu = $("#cccTagReportsMenu");
+        if (!wrap || !menu || wrap.hidden || menu.hidden) return;
+        const inside = e.target && e.target.closest ? e.target.closest("#cccTagReportsWrap") : null;
+        if (!inside) closeTagReportsMenu();
       },
       true
     );
