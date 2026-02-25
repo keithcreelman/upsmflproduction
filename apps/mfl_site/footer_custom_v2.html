@@ -172,6 +172,7 @@
     display: grid;
     grid-template-columns: 1fr;
     align-items: start;
+    justify-items: center;
     gap: 0.8rem;
     background: linear-gradient(135deg, #1e273a 0%, #44351f 52%, #6f4d1b 100%);
     border: 1px solid rgba(243, 182, 31, 0.5);
@@ -181,7 +182,7 @@
   }
 
   .ups-champion img {
-    width: 100%;
+    width: min(100%, 760px);
     height: auto;
     border-radius: 10px;
     object-fit: contain;
@@ -212,6 +213,11 @@
     justify-items: start;
   }
 
+  /* The banner image already contains the champion text; hide duplicate caption copy. */
+  .ups-champion-copy {
+    display: none;
+  }
+
   .ups-footer-meta {
     color: #9fb3d1;
     font-size: 0.72rem;
@@ -233,6 +239,10 @@
       grid-template-columns: 1fr;
       text-align: center;
       justify-items: center;
+    }
+
+    .ups-champion img {
+      width: 100%;
     }
 
     .ups-champion-copy {
