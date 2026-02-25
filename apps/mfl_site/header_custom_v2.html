@@ -800,6 +800,59 @@
     color: inherit !important;
   }
 
+  .ccc-owner-actions-wrap {
+    position: relative;
+    display: none;
+  }
+
+  .ccc-owner-actions-toggle {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .ccc-owner-actions-menu {
+    position: absolute;
+    top: calc(100% + 0.35rem);
+    right: 0;
+    min-width: 220px;
+    display: none;
+    gap: 0.35rem;
+    padding: 0.42rem;
+    border-radius: 12px;
+    border: 1px solid var(--ups-border);
+    background: var(--ups-surface-alt);
+    box-shadow: 0 12px 22px rgba(0, 0, 0, 0.34);
+    z-index: 30;
+  }
+
+  .ccc-owner-actions-wrap.is-open .ccc-owner-actions-menu {
+    display: grid;
+  }
+
+  .ccc-owner-actions-menu a,
+  .pagebody .ccc-owner-actions-menu a {
+    background: var(--ups-accent);
+    border: 1px solid #b98527;
+    color: var(--ups-accent-ink) !important;
+    padding: 0.5rem 0.65rem;
+    border-radius: 10px;
+    font-weight: 800;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    justify-content: flex-start;
+  }
+
+  .ccc-owner-actions-menu a:hover,
+  .ccc-owner-actions-menu a:focus,
+  .pagebody .ccc-owner-actions-menu a:hover,
+  .pagebody .ccc-owner-actions-menu a:focus {
+    background: var(--ups-brand-strong);
+    border-color: #6f95cd;
+    color: #ffffff !important;
+  }
+
   /* Roster quick actions */
   .ccc-quick-actions {
     display: inline-flex;
@@ -918,7 +971,7 @@
     }
 
     .ccc-cta-group .ccc-cta:first-child {
-      grid-column: 1 / -1;
+      grid-column: auto;
     }
 
     .ccc-cta,
@@ -963,8 +1016,34 @@
     }
 
     .ccc-actions {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 0.5rem;
+    }
+
+    .ccc-owner-actions-wrap {
+      display: block;
+    }
+
+    .ccc-pill[data-owner-action] {
+      display: none !important;
+    }
+
+    .ccc-theme-toggle {
+      min-height: 38px !important;
+      min-width: 38px;
+      padding: 0.45rem 0.55rem !important;
+      justify-content: center !important;
+      align-self: start;
+    }
+
+    .ccc-theme-toggle .ups-theme-toggle-label {
+      display: none;
+    }
+
+    .ccc-owner-actions-menu {
+      right: auto;
+      left: 0;
+      min-width: min(16rem, calc(100vw - 2rem));
     }
 
     #container-wrap .reportnavigation a,
@@ -996,16 +1075,26 @@
 
   @media (max-width: 560px) {
     .ccc-cta-group {
-      grid-template-columns: 1fr;
+      grid-template-columns: minmax(0, 1fr) auto;
     }
 
     .ccc-theme-toggle {
-      width: 100%;
+      width: auto;
       justify-content: center;
     }
 
     .ccc-actions {
-      grid-template-columns: 1fr;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .ccc-owner-actions-wrap {
+      grid-column: 1 / -1;
+    }
+
+    .ccc-owner-actions-menu {
+      left: 0;
+      right: 0;
+      min-width: 0;
     }
 
     .ups-logo-wrap {
@@ -1193,11 +1282,21 @@
       </div>
 
       <div class="ccc-actions">
-        <a class="ccc-pill" href="//%HOST%/%YEAR%/lineup?L=%LEAGUEID%"><i class="fa-solid fa-clipboard-list"></i>Submit Lineup</a>
-        <a class="ccc-pill" href="//%HOST%/%YEAR%/add_drop?L=%LEAGUEID%"><i class="fa-solid fa-plus-minus"></i>Add/Drop</a>
+        <div class="ccc-owner-actions-wrap" id="upsOwnerActionsWrap">
+          <button class="ccc-pill ccc-owner-actions-toggle" id="upsOwnerActionsToggle" type="button" aria-expanded="false" aria-controls="upsOwnerActionsMenu">
+            <i class="fa-solid fa-user-gear"></i>Owner Actions
+          </button>
+          <div class="ccc-owner-actions-menu" id="upsOwnerActionsMenu" hidden>
+            <a href="//%HOST%/%YEAR%/lineup?L=%LEAGUEID%"><i class="fa-solid fa-clipboard-list"></i>Submit Lineup</a>
+            <a href="//%HOST%/%YEAR%/add_drop?L=%LEAGUEID%"><i class="fa-solid fa-plus-minus"></i>Add/Drop</a>
+            <a href="//%HOST%/%YEAR%/options?L=%LEAGUEID%&amp;O=05"><i class="fa-solid fa-handshake"></i>Trades</a>
+          </div>
+        </div>
+        <a class="ccc-pill" data-owner-action="lineup" href="//%HOST%/%YEAR%/lineup?L=%LEAGUEID%"><i class="fa-solid fa-clipboard-list"></i>Submit Lineup</a>
+        <a class="ccc-pill" data-owner-action="adddrop" href="//%HOST%/%YEAR%/add_drop?L=%LEAGUEID%"><i class="fa-solid fa-plus-minus"></i>Add/Drop</a>
         <a class="ccc-pill" href="//%HOST%/%YEAR%/options?L=%LEAGUEID%&amp;O=07"><i class="fa-solid fa-users"></i>Rosters</a>
         <a class="ccc-pill" href="//%HOST%/%YEAR%/ajax_ls?L=%LEAGUEID%"><i class="fa-solid fa-gauge-high"></i>Scoreboard</a>
-        <a class="ccc-pill" href="//%HOST%/%YEAR%/options?L=%LEAGUEID%&amp;O=05"><i class="fa-solid fa-handshake"></i>Trades</a>
+        <a class="ccc-pill" data-owner-action="trades" href="//%HOST%/%YEAR%/options?L=%LEAGUEID%&amp;O=05"><i class="fa-solid fa-handshake"></i>Trades</a>
       </div>
     </div>
   </div>
@@ -1233,6 +1332,44 @@
       updateThemeToggleUi();
     }
 
+    function initOwnerActionsMenu() {
+      var wrap = document.getElementById("upsOwnerActionsWrap");
+      var btn = document.getElementById("upsOwnerActionsToggle");
+      var menu = document.getElementById("upsOwnerActionsMenu");
+      if (!wrap || !btn || !menu || btn.dataset.wired) return;
+      btn.dataset.wired = "1";
+
+      function setOpen(next) {
+        var open = !!next;
+        wrap.classList.toggle("is-open", open);
+        btn.setAttribute("aria-expanded", open ? "true" : "false");
+        if (open) menu.removeAttribute("hidden");
+        else menu.setAttribute("hidden", "");
+      }
+
+      btn.addEventListener("click", function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        setOpen(!wrap.classList.contains("is-open"));
+      });
+
+      menu.addEventListener("click", function () {
+        setOpen(false);
+      });
+
+      document.addEventListener("click", function (e) {
+        if (!wrap.contains(e.target)) setOpen(false);
+      });
+
+      document.addEventListener("keydown", function (e) {
+        if (e.key === "Escape") setOpen(false);
+      });
+
+      window.addEventListener("resize", function () {
+        if (window.innerWidth > 900) setOpen(false);
+      });
+    }
+
     document.addEventListener("ups-theme-change", function () {
       updateThemeToggleUi();
     });
@@ -1240,9 +1377,11 @@
     if (document.readyState === "loading") {
       document.addEventListener("DOMContentLoaded", function () {
         initThemeToggle();
+        initOwnerActionsMenu();
       });
     } else {
       initThemeToggle();
+      initOwnerActionsMenu();
     }
   })();
 </script>
@@ -6074,12 +6213,15 @@ Replaces bulky default grid with compact toggle view + franchise icons
   }
 
   /* Mobile MFL hamburger/menu trigger: pin to upper-left and match UPS colors. */
-  @media (max-width: 760px) {
+  @media (max-width: 980px) {
     .myfantasyleague_menu {
       position: fixed !important;
       top: calc(env(safe-area-inset-top, 0px) + 0.45rem) !important;
       left: 0.45rem !important;
       right: auto !important;
+      bottom: auto !important;
+      margin: 0 !important;
+      transform: none !important;
       z-index: 10060 !important;
       width: auto !important;
       max-width: calc(100vw - 0.9rem) !important;
@@ -6092,14 +6234,16 @@ Replaces bulky default grid with compact toggle view + franchise icons
       -webkit-backdrop-filter: blur(4px);
     }
 
-    .myfantasyleague_menu > span {
+    .myfantasyleague_menu > span,
+    .myfantasyleague_menu span:first-child {
       color: var(--ups-text) !important;
       font-weight: 900 !important;
       letter-spacing: 0.04em !important;
     }
 
     .myfantasyleague_menu > label,
-    .myfantasyleague_menu > label[for="sub0"] {
+    .myfantasyleague_menu > label[for="sub0"],
+    .myfantasyleague_menu label[for="sub0"] {
       background: var(--ups-accent) !important;
       border: 1px solid #b98527 !important;
       border-radius: 10px !important;
@@ -6108,7 +6252,10 @@ Replaces bulky default grid with compact toggle view + franchise icons
 
     .myfantasyleague_menu > label > span,
     .myfantasyleague_menu > label > span::before,
-    .myfantasyleague_menu > label > span::after {
+    .myfantasyleague_menu > label > span::after,
+    .myfantasyleague_menu label[for="sub0"] > span,
+    .myfantasyleague_menu label[for="sub0"] > span::before,
+    .myfantasyleague_menu label[for="sub0"] > span::after {
       background: var(--ups-accent-ink) !important;
       border-color: var(--ups-accent-ink) !important;
     }

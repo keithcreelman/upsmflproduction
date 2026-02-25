@@ -166,23 +166,24 @@
 
   .ups-champion {
     display: grid;
-    grid-template-columns: auto 1fr;
-    align-items: center;
+    grid-template-columns: 1fr;
+    align-items: start;
     gap: 0.8rem;
     background: linear-gradient(135deg, #1e273a 0%, #44351f 52%, #6f4d1b 100%);
     border: 1px solid rgba(243, 182, 31, 0.5);
     border-radius: 12px;
-    padding: 0.6rem 0.75rem;
+    padding: 0.65rem 0.75rem 0.75rem;
     box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
   }
 
   .ups-champion img {
-    width: 72px;
-    height: 72px;
-    border-radius: 8px;
-    object-fit: cover;
+    width: 100%;
+    height: auto;
+    border-radius: 10px;
+    object-fit: contain;
     border: 1px solid rgba(255, 255, 255, 0.2);
     background: #000;
+    display: block;
   }
 
   .ups-champion-title {
@@ -199,6 +200,12 @@
     font-size: 1.02rem;
     font-weight: 900;
     line-height: 1.2;
+  }
+
+  .ups-champion-copy {
+    display: grid;
+    gap: 0.12rem;
+    justify-items: start;
   }
 
   .ups-footer-meta {
@@ -218,6 +225,10 @@
       text-align: center;
       justify-items: center;
     }
+
+    .ups-champion-copy {
+      justify-items: center;
+    }
   }
 </style>
 
@@ -225,11 +236,11 @@
   <div class="ups-footer-wrap">
     <div class="ups-champion">
       <img
-        src="https://www48.myfantasyleague.com/fflnetdynamic2025/74598_franchise_icon0005.jpg"
-        alt="Defending Champion">
-      <div>
-        <div class="ups-champion-title">Defending Champion</div>
-        <div class="ups-champion-name">HammerTime</div>
+        src="https://i.ibb.co/27kgwKfJ/image.png"
+        alt="2026 UPS Champion Pure Greatness">
+      <div class="ups-champion-copy">
+        <div class="ups-champion-title">2026 UPS Champion</div>
+        <div class="ups-champion-name">Pure Greatness</div>
       </div>
     </div>
 
