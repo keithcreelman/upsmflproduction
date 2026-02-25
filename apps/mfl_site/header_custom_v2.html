@@ -3088,6 +3088,9 @@ Replaces bulky default grid with compact toggle view + franchise icons
     standings: "ups_mod_standings_mobile_v1",
     ownerHub: "ups_mod_ownerhub_mobile_v1"
   };
+  var mobileRuntimeStarted = false;
+  var mobileObserver = null;
+  var syncQueued = false;
 
   function isMobileLayout() {
     try {
@@ -3213,28 +3216,53 @@ Replaces bulky default grid with compact toggle view + franchise icons
     ensureOwnerHubCollapse();
   }
 
-  var tries = 0;
-  var timer = setInterval(function () {
-    tries += 1;
-    syncAll();
-    if (tries >= 50) clearInterval(timer);
-  }, 250);
-
-  if (window.MutationObserver) {
-    var root = document.body || document.documentElement;
-    if (root) {
-      var obs = new MutationObserver(function () { syncAll(); });
-      try { obs.observe(root, { childList: true, subtree: true }); } catch (e) {}
-      setTimeout(function () { try { obs.disconnect(); } catch (e) {} }, 30000);
-    }
+  function scheduleSync() {
+    if (syncQueued) return;
+    syncQueued = true;
+    setTimeout(function () {
+      syncQueued = false;
+      syncAll();
+    }, 50);
   }
 
-  window.addEventListener("resize", syncAll);
+  function startMobileRuntime() {
+    if (mobileRuntimeStarted || !isMobileLayout()) return;
+    mobileRuntimeStarted = true;
+
+    var tries = 0;
+    var timer = setInterval(function () {
+      tries += 1;
+      syncAll();
+      if (tries >= 50) clearInterval(timer);
+    }, 250);
+
+    if (window.MutationObserver) {
+      var root = document.body || document.documentElement;
+      if (root) {
+        mobileObserver = new MutationObserver(function () { scheduleSync(); });
+        try { mobileObserver.observe(root, { childList: true, subtree: true }); } catch (e) {}
+        setTimeout(function () {
+          try {
+            if (mobileObserver) mobileObserver.disconnect();
+          } catch (e) {}
+          mobileObserver = null;
+        }, 15000);
+      }
+    }
+
+    syncAll();
+  }
+
+  window.addEventListener("resize", function () {
+    if (!isMobileLayout()) return;
+    startMobileRuntime();
+    scheduleSync();
+  });
 
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", syncAll);
+    document.addEventListener("DOMContentLoaded", startMobileRuntime);
   } else {
-    syncAll();
+    startMobileRuntime();
   }
 })();
 </script>
