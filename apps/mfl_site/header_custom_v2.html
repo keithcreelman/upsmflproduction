@@ -3268,6 +3268,120 @@ Replaces bulky default grid with compact toggle view + franchise icons
 </script>
 
 <script>
+/* Franchise Abilities (O=93): if MFL's horizontal/frozen-table wrapper paints over the
+   controls under our theme, flatten it back to a plain scrollable table so checkboxes
+   remain visible and usable. */
+(function () {
+  function isFranchiseAbilitiesPage() {
+    return !!(document.body && document.body.id === "body_options_93");
+  }
+
+  function scoreTable(table) {
+    if (!table) return -1;
+    var checkboxes = table.querySelectorAll('input[type="checkbox"]').length;
+    var inputs = table.querySelectorAll("input, select, textarea").length;
+    var labels = table.querySelectorAll("label").length;
+    var cells = table.querySelectorAll("td, th").length;
+    return (checkboxes * 10) + (inputs * 4) + (labels * 2) + Math.min(cells, 500);
+  }
+
+  function bestInteractiveTable(root) {
+    if (!root) return null;
+    var tables = Array.prototype.slice.call(root.querySelectorAll("table"));
+    if (!tables.length) return null;
+    var best = null;
+    var bestScore = -1;
+    tables.forEach(function (t) {
+      var s = scoreTable(t);
+      if (s > bestScore) {
+        bestScore = s;
+        best = t;
+      }
+    });
+    return bestScore > 0 ? best : null;
+  }
+
+  function flattenWrapper(wrap) {
+    if (!wrap || wrap.dataset.upsO93Flattened === "1") return;
+    var table = bestInteractiveTable(wrap);
+    if (!table) return;
+
+    // Preserve the real interactive table and remove the frozen/overlay clones.
+    wrap.dataset.upsO93Flattened = "1";
+    wrap.classList.add("ups-o93-plain-wrap");
+    wrap.classList.remove("hz-table-scroll");
+
+    try {
+      wrap.replaceChildren(table);
+    } catch (e) {
+      while (wrap.firstChild) wrap.removeChild(wrap.firstChild);
+      wrap.appendChild(table);
+    }
+
+    try { wrap.removeAttribute("style"); } catch (e) {}
+    try { table.removeAttribute("style"); } catch (e) {}
+
+    var descendants = table.querySelectorAll("*");
+    Array.prototype.forEach.call(descendants, function (el) {
+      // Remove inline layout constraints that come from frozen-table clones.
+      if (!el || !el.style) return;
+      if (el.tagName === "INPUT" || el.tagName === "SELECT" || el.tagName === "TEXTAREA") return;
+      if (el.tagName === "IMG") return;
+      el.style.left = "";
+      el.style.top = "";
+      el.style.right = "";
+      el.style.bottom = "";
+      el.style.transform = "";
+      el.style.position = "";
+      el.style.zIndex = "";
+      el.style.width = "";
+      el.style.height = "";
+      el.style.minWidth = "";
+      el.style.maxWidth = "";
+      el.style.minHeight = "";
+      el.style.maxHeight = "";
+      el.style.overflow = "";
+      el.style.clip = "";
+      el.style.clipPath = "";
+      el.style.opacity = "";
+      el.style.visibility = "";
+    });
+  }
+
+  function repair() {
+    if (!isFranchiseAbilitiesPage()) return;
+    var wraps = document.querySelectorAll(".mobile-wrap.hz-table-scroll, .mobile-wrap.ups-o93-plain-wrap");
+    Array.prototype.forEach.call(wraps, function (wrap) {
+      if (wrap.classList.contains("ups-o93-plain-wrap")) return;
+      flattenWrapper(wrap);
+    });
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", repair);
+  } else {
+    repair();
+  }
+
+  var attempts = 0;
+  var timer = setInterval(function () {
+    attempts += 1;
+    repair();
+    if (attempts >= 40) clearInterval(timer);
+  }, 250);
+
+  if (window.MutationObserver) {
+    var root = document.body || document.documentElement;
+    if (root) {
+      var obs = new MutationObserver(function () { repair(); });
+      try { obs.observe(root, { childList: true, subtree: true }); } catch (e) {}
+      setTimeout(function () { try { obs.disconnect(); } catch (e) {} }, 15000);
+    }
+  }
+})();
+</script>
+
+<script>
 /* Hide homepage tab menu when only one tab is present. */
 (function () {
   function visibleTabCount() {
@@ -7112,6 +7226,30 @@ Replaces bulky default grid with compact toggle view + franchise icons
     background: var(--ups-surface-alt) !important;
     color: var(--ups-report-strong) !important;
     border: 1px solid var(--ups-border) !important;
+  }
+
+  body#body_options_93 .mobile-wrap.ups-o93-plain-wrap {
+    overflow: auto !important;
+    max-width: 100% !important;
+    position: relative !important;
+    background: var(--ups-surface) !important;
+    border: 1px solid var(--ups-border) !important;
+  }
+
+  body#body_options_93 .mobile-wrap.ups-o93-plain-wrap > table,
+  body#body_options_93 .mobile-wrap.ups-o93-plain-wrap .report {
+    width: max-content !important;
+    min-width: 100% !important;
+    table-layout: auto !important;
+    position: relative !important;
+    z-index: 2 !important;
+    background: var(--ups-surface) !important;
+  }
+
+  body#body_options_93 .mobile-wrap.ups-o93-plain-wrap::before,
+  body#body_options_93 .mobile-wrap.ups-o93-plain-wrap::after {
+    content: none !important;
+    display: none !important;
   }
 
   /* ------------------------------ */
