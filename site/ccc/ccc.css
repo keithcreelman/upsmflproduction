@@ -946,75 +946,6 @@ table.ccc-table tbody tr.pos-DB .ccc-btn-offer{ background: rgba(249,115,22,.20)
   box-shadow: 0 6px 14px rgba(15,23,42,.18);
 }
 
-.ccc-tab-report-wrap{
-  position: relative;
-  display: none;
-}
-
-.ccc-tab-report-toggle{
-  border: 1px solid var(--line);
-  background: var(--surface-1);
-  color: var(--text);
-  border-radius: 999px;
-  padding: 10px 14px;
-  cursor:pointer;
-  font-weight: 1000;
-  font-size: 13px;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.ccc-tab-report-toggle::after{
-  content: "▾";
-  font-size: 12px;
-  line-height: 1;
-}
-
-.ccc-tab-report-wrap.is-open .ccc-tab-report-toggle::after{
-  content: "▴";
-}
-
-.ccc-tab-report-wrap.is-active .ccc-tab-report-toggle{
-  background: var(--accent);
-  border-color: var(--accent-border);
-  color: #fff;
-  box-shadow: 0 6px 14px rgba(15,23,42,.18);
-}
-
-.ccc-tab-report-menu{
-  position: absolute;
-  top: calc(100% + 8px);
-  left: 0;
-  min-width: 220px;
-  z-index: 20;
-  display: grid;
-  gap: 6px;
-  padding: 8px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--surface-2);
-  box-shadow: var(--shadow-soft);
-}
-
-.ccc-tab-report-item{
-  border: 1px solid var(--line);
-  background: var(--surface-1);
-  color: var(--text);
-  border-radius: 10px;
-  padding: 9px 10px;
-  cursor:pointer;
-  text-align: left;
-  font-weight: 900;
-  font-size: 12px;
-}
-
-.ccc-tab-report-item.is-active{
-  border-color: var(--accent-border);
-  background: var(--accent-soft);
-  color: var(--text-strong);
-}
-
 .ccc-displayInline{
   display:flex;
   align-items:center;
@@ -1186,9 +1117,6 @@ table.ccc-table thead th:last-child{
 
 table.ccc-table thead th.is-sortable{
   cursor: pointer;
-  touch-action: manipulation;
-  -webkit-tap-highlight-color: transparent;
-  user-select: none;
 }
 
 table.ccc-table thead th.is-sortable:hover{
@@ -1705,32 +1633,6 @@ body.ccc-modalOpen #devNoticeModal *{
   .ccc-titleArtImg{ width: 100px; }
   .ccc-inputGrid{
     grid-template-columns: 1fr;
-  }
-
-  #cccTabs[data-tag-reports-mobile="1"] .ccc-tab[data-tab="summary"],
-  #cccTabs[data-tag-reports-mobile="1"] .ccc-tab[data-tab="costcalc"],
-  #cccTabs[data-tag-reports-mobile="1"] .ccc-tab[data-tab="ineligible"],
-  #cccTabs[data-tag-reports-mobile="1"] .ccc-tab[data-tab="submitted"]{
-    display: none !important;
-  }
-
-  #cccTabs[data-tag-reports-mobile="1"] .ccc-tab-report-wrap{
-    display: inline-flex;
-    align-items: center;
-  }
-
-  #cccTabs[data-tag-reports-mobile="1"] #displayInline{
-    width: 100%;
-    margin-left: 0;
-    border-left: 0;
-    border-top: 1px solid var(--line);
-    padding-top: 10px;
-  }
-
-  #cccTabs[data-tag-reports-mobile="1"] .ccc-tab-report-menu{
-    left: 0;
-    right: 0;
-    min-width: 0;
   }
 }
 
