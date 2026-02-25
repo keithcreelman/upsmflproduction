@@ -7837,8 +7837,6 @@
     if (isTouch) {
       lastTouchSortSig = sig;
       lastTouchSortAt = now;
-      if (e.cancelable) e.preventDefault();
-      if (e.stopPropagation) e.stopPropagation();
     }
 
     handleHeaderSortClick(th, tableMode);
@@ -8193,8 +8191,9 @@
     );
 
     document.addEventListener(
-      "touchend",
+      "pointerup",
       (e) => {
+        if (!e || e.pointerType !== "touch") return;
         handleDelegatedSortEvent(e, true);
       },
       true
