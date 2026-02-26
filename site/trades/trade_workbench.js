@@ -366,6 +366,34 @@
     return safeStr(params.get("data"));
   }
 
+  function getApiUrlFromQuery() {
+    var params = new URLSearchParams(window.location.search || "");
+    return safeStr(params.get("api"));
+  }
+
+  function buildApiRequestUrlFromQuery() {
+    var apiUrl = getApiUrlFromQuery();
+    if (!apiUrl) return "";
+
+    var params = new URLSearchParams(window.location.search || "");
+    var finalUrl = resolveRelativeUrl(apiUrl);
+    try {
+      var u = new URL(finalUrl, window.location.href);
+      var forwardKeys = ["L", "YEAR", "F", "FRANCHISE_ID", "franchise_id", "EXT_URL", "extension_previews_url"];
+      var i;
+      for (i = 0; i < forwardKeys.length; i += 1) {
+        var k = forwardKeys[i];
+        if (u.searchParams.has(k)) continue;
+        var v = safeStr(params.get(k));
+        if (v) u.searchParams.set(k, v);
+      }
+      finalUrl = u.toString();
+    } catch (e) {
+      // ignore URL parsing issues and use the raw value
+    }
+    return finalUrl;
+  }
+
   function resolveRelativeUrl(url) {
     try {
       return new URL(url, window.location.href).toString();
@@ -386,6 +414,11 @@
     var queryDataUrl = getDataUrlFromQuery();
     if (queryDataUrl) {
       return fetchJson(resolveRelativeUrl(queryDataUrl));
+    }
+
+    var queryApiUrl = buildApiRequestUrlFromQuery();
+    if (queryApiUrl) {
+      return fetchJson(queryApiUrl);
     }
 
     return fetchJson(resolveRelativeUrl(SAMPLE_DATA_URL));

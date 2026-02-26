@@ -7,6 +7,7 @@ Static custom trade UI for UPS salary-cap trades.
 - `trade_workbench.css` — UI styles (desktop + mobile)
 - `trade_workbench.js` — state, filters, trade logic, payload preview
 - `trade_workbench_sample.json` — sample data payload for local/demo use
+- `extension_previews_2026.json` — exported extension preview rows (success-only) for worker/API merge
 
 ## What It Does (MVP)
 - Two-team trade builder (players + draft picks)
@@ -21,7 +22,8 @@ Static custom trade UI for UPS salary-cap trades.
 The app loads data from:
 1. `window.UPS_TRADE_WORKBENCH_DATA` (if present)
 2. `?data=<url>` query param
-3. `trade_workbench_sample.json` fallback
+3. `?api=<worker-url>` query param (auto-forwards `L`, `YEAR`, `F`)
+4. `trade_workbench_sample.json` fallback
 
 Preferred shape:
 
@@ -79,11 +81,16 @@ Optional columns shown in option labels/payload:
 - `new_aav_future`
 - `new_TCV`
 
-## Next Wiring Step (recommended)
-Create one endpoint (worker/API) that returns a normalized payload:
-- rosters + picks by franchise
-- extension preview rows from `extension_previews`
-- franchise metadata (name/abbrev/icon)
+## Worker/API (implemented)
+Worker route:
+- `GET /trade-workbench?L=<leagueId>&YEAR=<season>[&F=<franchiseId>]`
 
-Then open the page with:
-- `trade_workbench.html?data=https://<your-api>/trade-workbench?L=74598&YEAR=2026`
+It returns a normalized payload for this UI by combining:
+- MFL `league` export (franchise metadata)
+- MFL `rosters` export (players/contracts/salaries)
+- MFL `assets` export (draft picks; requires worker `MFL_COOKIE`)
+- static `extension_previews_<season>.json`
+
+Open the page with either pattern:
+- `trade_workbench.html?api=https://<your-worker>/trade-workbench&L=74598&YEAR=2026`
+- `trade_workbench.html?data=https://<your-worker>/trade-workbench?L=74598&YEAR=2026`
