@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>UPS Trade Workbench</title>
+  <meta name="color-scheme" content="dark light">
+  <link rel="stylesheet" href="./trade_workbench.css">
+</head>
+<body>
+  <div id="twbApp" class="twb-shell" aria-live="polite">
+    <header class="twb-hero">
+      <div class="twb-hero-copy">
+        <p class="twb-kicker">UPS Custom Trade Workflow</p>
+        <h1>Trade Workbench</h1>
+        <p class="twb-subtitle">
+          Build trades with players and picks, calculate traded salary (half of outgoing non-Taxi salary), and mark extension options for the acquiring team.
+        </p>
+      </div>
+      <div class="twb-hero-actions">
+        <button type="button" id="twbCopyPayloadBtn" class="twb-btn twb-btn-primary">Copy Trade Payload</button>
+        <button type="button" id="twbResetBtn" class="twb-btn twb-btn-ghost">Reset Trade</button>
+      </div>
+    </header>
+
+    <section class="twb-toolbar" aria-label="Trade setup and filters">
+      <div class="twb-toolbar-grid">
+        <div class="twb-card twb-card-tight">
+          <h2>Teams</h2>
+          <div class="twb-field-grid twb-field-grid-2">
+            <label class="twb-field">
+              <span>Your Team</span>
+              <select id="twbLeftTeamSelect"></select>
+            </label>
+            <label class="twb-field">
+              <span>Trade Partner</span>
+              <select id="twbRightTeamSelect"></select>
+            </label>
+          </div>
+        </div>
+
+        <div class="twb-card twb-card-tight twb-filters-card">
+          <div class="twb-card-head-inline">
+            <h2>Filters</h2>
+            <button type="button" id="twbClearFiltersBtn" class="twb-link-btn">Clear</button>
+          </div>
+          <div class="twb-field-grid twb-field-grid-3">
+            <label class="twb-field twb-field-grow">
+              <span>Search</span>
+              <input id="twbSearchInput" type="search" placeholder="Player, team, pick, contract info">
+            </label>
+            <label class="twb-field">
+              <span>Min Years</span>
+              <select id="twbYearsMinSelect"></select>
+            </label>
+            <label class="twb-field">
+              <span>Max Years</span>
+              <select id="twbYearsMaxSelect"></select>
+            </label>
+          </div>
+          <div class="twb-chip-block" id="twbPositionChips" aria-label="Position filters"></div>
+          <div class="twb-filter-bottom">
+            <details class="twb-filter-panel">
+              <summary>Contract Types</summary>
+              <div id="twbContractTypeOptions" class="twb-checkbox-grid"></div>
+            </details>
+            <div class="twb-toggle-group" id="twbBooleanToggles"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <main class="twb-main" aria-label="Trade builder">
+      <section class="twb-board" id="twbBoard"></section>
+
+      <aside class="twb-summary" id="twbSummary" aria-label="Trade summary">
+        <div class="twb-card twb-summary-card">
+          <div class="twb-card-head-inline">
+            <h2>Trade Summary</h2>
+            <div id="twbSummaryStatus" class="twb-status-pill">Draft</div>
+          </div>
+          <div id="twbSummaryContent"></div>
+        </div>
+
+        <div class="twb-card twb-payload-card">
+          <div class="twb-card-head-inline">
+            <h2>Payload Preview</h2>
+            <button type="button" id="twbCopyPayloadBtn2" class="twb-link-btn">Copy</button>
+          </div>
+          <pre id="twbPayloadPreview" class="twb-payload-preview">Loading…</pre>
+        </div>
+      </aside>
+    </main>
+  </div>
+
+  <template id="twbTeamPanelTemplate">
+    <section class="twb-team-panel twb-card">
+      <header class="twb-team-header">
+        <div class="twb-team-title-wrap">
+          <div class="twb-team-eyebrow"></div>
+          <h2 class="twb-team-title"></h2>
+          <div class="twb-team-meta"></div>
+        </div>
+        <div class="twb-team-stats"></div>
+      </header>
+
+      <div class="twb-trade-salary-box">
+        <div class="twb-trade-salary-labels">
+          <div class="twb-trade-salary-title">Traded Salary</div>
+          <div class="twb-trade-salary-help">$1K units · Max is half of selected non-Taxi outgoing player salary</div>
+        </div>
+        <label class="twb-trade-salary-input-wrap">
+          <span>$</span>
+          <input type="number" min="0" step="1" class="twb-trade-salary-input" inputmode="numeric">
+          <span>K</span>
+        </label>
+        <div class="twb-trade-salary-max"></div>
+      </div>
+
+      <div class="twb-team-toolbar">
+        <button type="button" class="twb-link-btn twb-team-select-all">Select Visible</button>
+        <button type="button" class="twb-link-btn twb-team-clear-visible">Clear Visible</button>
+        <button type="button" class="twb-link-btn twb-team-expand-all">Expand All</button>
+        <button type="button" class="twb-link-btn twb-team-collapse-all">Collapse All</button>
+      </div>
+
+      <div class="twb-team-groups"></div>
+    </section>
+  </template>
+
+  <template id="twbGroupTemplate">
+    <details class="twb-group" open>
+      <summary class="twb-group-summary">
+        <span class="twb-group-label"></span>
+        <span class="twb-group-badges"></span>
+      </summary>
+      <div class="twb-group-body">
+        <div class="twb-table-wrap">
+          <table class="twb-table">
+            <thead>
+              <tr>
+                <th class="twb-col-select">In</th>
+                <th class="twb-col-ext">Extend</th>
+                <th class="twb-col-player">Player / Asset</th>
+                <th class="twb-col-salary">Salary</th>
+                <th class="twb-col-years">Years</th>
+                <th class="twb-col-contract">Contract Info</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </details>
+  </template>
+
+  <script src="./trade_workbench.js" defer></script>
+</body>
+</html>

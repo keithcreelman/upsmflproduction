@@ -1,0 +1,490 @@
+{
+  "league_id": "74598",
+  "season": 2026,
+  "generated_at": "2026-02-26T18:05:00Z",
+  "source": "sample",
+  "teams": [
+    {
+      "franchise_id": "0008",
+      "franchise_name": "Real Deal Creel",
+      "franchise_abbrev": "RDC",
+      "is_default": true,
+      "assets": [
+        {
+          "type": "PLAYER",
+          "player_id": "13113",
+          "player_name": "Watson, Deshaun",
+          "nfl_team": "CLE",
+          "position": "QB",
+          "salary": 1000,
+          "years": 2,
+          "contract_type": "Veteran",
+          "contract_info": "CL 3| TCV 3K| AAV 1K",
+          "taxi": false
+        },
+        {
+          "type": "PLAYER",
+          "player_id": "15711",
+          "player_name": "Walker III, Kenneth",
+          "nfl_team": "SEA",
+          "position": "RB",
+          "salary": 32000,
+          "years": 1,
+          "contract_type": "Veteran",
+          "contract_info": "CL 3| TCV 76K| AAV 32K| Y1-12, Y2-32, Y3-32",
+          "taxi": false
+        },
+        {
+          "type": "PLAYER",
+          "player_id": "17043",
+          "player_name": "Henderson, TreVeyon",
+          "nfl_team": "NEP",
+          "position": "RB",
+          "salary": 12000,
+          "years": 2,
+          "contract_type": "Rookie",
+          "contract_info": "CL 3| TCV 36K| AAV 12K",
+          "taxi": false
+        },
+        {
+          "type": "PLAYER",
+          "player_id": "16803",
+          "player_name": "Watson, Blake",
+          "nfl_team": "TEN",
+          "position": "RB",
+          "salary": 0,
+          "years": null,
+          "contract_type": "Taxi",
+          "contract_info": "Taxi Squad",
+          "taxi": true
+        },
+        {
+          "type": "PLAYER",
+          "player_id": "16617",
+          "player_name": "Coleman, Keon",
+          "nfl_team": "BUF",
+          "position": "WR",
+          "salary": 5000,
+          "years": 1,
+          "contract_type": "Rookie",
+          "contract_info": "CL 3| TCV 15K| AAV 5K",
+          "taxi": false
+        },
+        {
+          "type": "PLAYER",
+          "player_id": "16614",
+          "player_name": "Harrison Jr., Marvin",
+          "nfl_team": "ARI",
+          "position": "WR",
+          "salary": 14000,
+          "years": 1,
+          "contract_type": "Rookie",
+          "contract_info": "CL 3| TCV 42K| AAV 14K",
+          "taxi": false,
+          "injury": "Q"
+        },
+        {
+          "type": "PLAYER",
+          "player_id": "14137",
+          "player_name": "Fant, Noah",
+          "nfl_team": "CIN",
+          "position": "TE",
+          "salary": 4000,
+          "years": 1,
+          "contract_type": "Veteran",
+          "contract_info": "CL 3| TCV 12K| AAV 4K| Y1-4, Y2-4, Y3-4",
+          "taxi": false
+        },
+        {
+          "type": "PLAYER",
+          "player_id": "16233",
+          "player_name": "Carter, Jalen",
+          "nfl_team": "PHI",
+          "position": "DT",
+          "salary": 0,
+          "years": null,
+          "contract_type": "Taxi",
+          "contract_info": "Taxi Squad",
+          "taxi": true
+        },
+        {
+          "type": "PLAYER",
+          "player_id": "15808",
+          "player_name": "Karlaftis, George",
+          "nfl_team": "KCC",
+          "position": "DE",
+          "salary": 1000,
+          "years": 2,
+          "contract_type": "Veteran",
+          "contract_info": "CL 3| TCV 3K| AAV 1K",
+          "taxi": false
+        },
+        {
+          "type": "PLAYER",
+          "player_id": "10816",
+          "player_name": "Davis, Demario",
+          "nfl_team": "NOS",
+          "position": "LB",
+          "salary": 1000,
+          "years": 0,
+          "contract_type": "WW",
+          "contract_info": "CL 1|",
+          "taxi": false
+        },
+        {
+          "type": "PLAYER",
+          "player_id": "16289",
+          "player_name": "Moore, Malachi",
+          "nfl_team": "NYJ",
+          "position": "S",
+          "salary": 1000,
+          "years": 0,
+          "contract_type": "WW",
+          "contract_info": "CL 1|",
+          "taxi": false
+        },
+        {
+          "type": "PICK",
+          "asset_id": "pick:2026-1-04",
+          "description": "Year 2026 Draft Pick 1.04",
+          "pick_season": 2026,
+          "pick_round": 1,
+          "pick_slot": "1.04"
+        },
+        {
+          "type": "PICK",
+          "asset_id": "pick:2026-1-09",
+          "description": "Year 2026 Draft Pick 1.09",
+          "pick_season": 2026,
+          "pick_round": 1,
+          "pick_slot": "1.09"
+        },
+        {
+          "type": "PICK",
+          "asset_id": "pick:2026-2-09",
+          "description": "Year 2026 Draft Pick 2.09",
+          "pick_season": 2026,
+          "pick_round": 2,
+          "pick_slot": "2.09"
+        },
+        {
+          "type": "PICK",
+          "asset_id": "pick:2027-r1-from-rdc",
+          "description": "Year 2027 Round 1 Draft Pick from Real Deal Creel",
+          "pick_season": 2027,
+          "pick_round": 1,
+          "pick_slot": "R1"
+        }
+      ]
+    },
+    {
+      "franchise_id": "0011",
+      "franchise_name": "Ulterior Warrior",
+      "franchise_abbrev": "UW",
+      "assets": [
+        {
+          "type": "PLAYER",
+          "player_id": "17072",
+          "player_name": "Harris, Tre",
+          "nfl_team": "LAC",
+          "position": "WR",
+          "salary": 0,
+          "years": null,
+          "contract_type": "Taxi",
+          "contract_info": "Taxi Squad",
+          "taxi": true
+        },
+        {
+          "type": "PLAYER",
+          "player_id": "16628",
+          "player_name": "McMillan, Jalen",
+          "nfl_team": "TBB",
+          "position": "WR",
+          "salary": 0,
+          "years": null,
+          "contract_type": "Taxi",
+          "contract_info": "Taxi Squad",
+          "taxi": true
+        },
+        {
+          "type": "PLAYER",
+          "player_id": "15789",
+          "player_name": "Watson, Christian",
+          "nfl_team": "GBP",
+          "position": "WR",
+          "salary": 1000,
+          "years": 2,
+          "contract_type": "Veteran",
+          "contract_info": "CL 3| TCV 3K| AAV 1K",
+          "taxi": false
+        },
+        {
+          "type": "PLAYER",
+          "player_id": "14777",
+          "player_name": "Burrow, Joe",
+          "nfl_team": "CIN",
+          "position": "QB",
+          "salary": 46000,
+          "years": 1,
+          "contract_type": "Tag",
+          "contract_info": "CL 1| TCV 46K| AAV 46K| No Further Extensions",
+          "taxi": false
+        },
+        {
+          "type": "PLAYER",
+          "player_id": "15202",
+          "player_name": "Nabers, Malik",
+          "nfl_team": "NYG",
+          "position": "WR",
+          "salary": 16000,
+          "years": 2,
+          "contract_type": "Rookie",
+          "contract_info": "CL 3| TCV 48K| AAV 16K",
+          "taxi": false
+        },
+        {
+          "type": "PLAYER",
+          "player_id": "15751",
+          "player_name": "Bowers, Brock",
+          "nfl_team": "LVR",
+          "position": "TE",
+          "salary": 13000,
+          "years": 2,
+          "contract_type": "Rookie",
+          "contract_info": "CL 3| TCV 39K| AAV 13K",
+          "taxi": false
+        },
+        {
+          "type": "PLAYER",
+          "player_id": "15277",
+          "player_name": "Achane, De'Von",
+          "nfl_team": "MIA",
+          "position": "RB",
+          "salary": 21000,
+          "years": 1,
+          "contract_type": "Veteran",
+          "contract_info": "CL 2| TCV 42K| AAV 21K",
+          "taxi": false
+        },
+        {
+          "type": "PLAYER",
+          "player_id": "17108",
+          "player_name": "Arroyo, Elijah",
+          "nfl_team": "SEA",
+          "position": "TE",
+          "salary": 0,
+          "years": null,
+          "contract_type": "Taxi",
+          "contract_info": "Taxi Squad",
+          "taxi": true
+        },
+        {
+          "type": "PLAYER",
+          "player_id": "17113",
+          "player_name": "Williams, Mykel",
+          "nfl_team": "SFO",
+          "position": "DE",
+          "salary": 0,
+          "years": null,
+          "contract_type": "Taxi",
+          "contract_info": "Taxi Squad",
+          "taxi": true,
+          "injury": "Q"
+        },
+        {
+          "type": "PLAYER",
+          "player_id": "16841",
+          "player_name": "Kinchens, Kamren",
+          "nfl_team": "LAR",
+          "position": "S",
+          "salary": 1000,
+          "years": 0,
+          "contract_type": "WW",
+          "contract_info": "CL 1|",
+          "taxi": false
+        },
+        {
+          "type": "PLAYER",
+          "player_id": "16809",
+          "player_name": "Cooper, Chop",
+          "nfl_team": "MIA",
+          "position": "DE",
+          "salary": 3000,
+          "years": 1,
+          "contract_type": "Rookie",
+          "contract_info": "CL 3| TCV 9K| AAV 3K",
+          "taxi": false
+        },
+        {
+          "type": "PICK",
+          "asset_id": "pick:2026-1-01",
+          "description": "Year 2026 Draft Pick 1.01",
+          "pick_season": 2026,
+          "pick_round": 1,
+          "pick_slot": "1.01"
+        },
+        {
+          "type": "PICK",
+          "asset_id": "pick:2026-2-07",
+          "description": "Year 2026 Draft Pick 2.07",
+          "pick_season": 2026,
+          "pick_round": 2,
+          "pick_slot": "2.07"
+        },
+        {
+          "type": "PICK",
+          "asset_id": "pick:2026-3-07",
+          "description": "Year 2026 Draft Pick 3.07",
+          "pick_season": 2026,
+          "pick_round": 3,
+          "pick_slot": "3.07"
+        },
+        {
+          "type": "PICK",
+          "asset_id": "pick:2026-4-10",
+          "description": "Year 2026 Draft Pick 4.10",
+          "pick_season": 2026,
+          "pick_round": 4,
+          "pick_slot": "4.10"
+        }
+      ]
+    },
+    {
+      "franchise_id": "0001",
+      "franchise_name": "L.A. Looks",
+      "franchise_abbrev": "LAL",
+      "assets": [
+        {
+          "type": "PLAYER",
+          "player_id": "14777",
+          "player_name": "Burrow, Joe",
+          "nfl_team": "CIN",
+          "position": "QB",
+          "salary": 35000,
+          "years": 1,
+          "contract_type": "BL",
+          "contract_info": "CL 2| TCV 50K| AAV 25K| Y1-15K, Y2-35K| No Further Extension Allowed",
+          "taxi": false
+        },
+        {
+          "type": "PLAYER",
+          "player_id": "15280",
+          "player_name": "LaPorta, Sam",
+          "nfl_team": "DET",
+          "position": "TE",
+          "salary": 15000,
+          "years": 1,
+          "contract_type": "Rookie",
+          "contract_info": "CL 2| TCV 30K| AAV 15K",
+          "taxi": false
+        },
+        {
+          "type": "PICK",
+          "asset_id": "pick:2026-1-11",
+          "description": "Year 2026 Draft Pick 1.11",
+          "pick_season": 2026,
+          "pick_round": 1,
+          "pick_slot": "1.11"
+        }
+      ]
+    }
+  ],
+  "extension_previews": [
+    {
+      "id": 901,
+      "nfl_season": 2026,
+      "franchise_id": "0008",
+      "player_id": "15711",
+      "preview_ts": "2026-02-26 11:45:00",
+      "extension_term": "1YR",
+      "loaded_indicator": "NONE",
+      "new_contract_status": "EXT1",
+      "new_aav_future": 42000,
+      "new_TCV": 118000,
+      "preview_contract_info_string": "CL 4| TCV 118K| AAV 29K| ...",
+      "success": 1,
+      "player_name": "Walker III, Kenneth",
+      "position": "RB"
+    },
+    {
+      "id": 902,
+      "nfl_season": 2026,
+      "franchise_id": "0008",
+      "player_id": "15711",
+      "preview_ts": "2026-02-26 11:45:00",
+      "extension_term": "2YR",
+      "loaded_indicator": "FL",
+      "new_contract_status": "EXT2-FL",
+      "new_aav_future": 52000,
+      "new_TCV": 170000,
+      "preview_contract_info_string": "CL 5| TCV 170K| AAV 34K| ...",
+      "success": 1,
+      "player_name": "Walker III, Kenneth",
+      "position": "RB"
+    },
+    {
+      "id": 903,
+      "nfl_season": 2026,
+      "franchise_id": "0008",
+      "player_id": "14137",
+      "preview_ts": "2026-02-26 10:18:00",
+      "extension_term": "1YR",
+      "loaded_indicator": "NONE",
+      "new_contract_status": "EXT1",
+      "new_aav_future": 14000,
+      "new_TCV": 26000,
+      "preview_contract_info_string": "CL 4| TCV 26K| AAV 6K| ...",
+      "success": 1,
+      "player_name": "Fant, Noah",
+      "position": "TE"
+    },
+    {
+      "id": 904,
+      "nfl_season": 2026,
+      "franchise_id": "0011",
+      "player_id": "15277",
+      "preview_ts": "2026-02-26 09:54:00",
+      "extension_term": "1YR",
+      "loaded_indicator": "NONE",
+      "new_contract_status": "EXT1",
+      "new_aav_future": 31000,
+      "new_TCV": 73000,
+      "preview_contract_info_string": "CL 3| TCV 73K| AAV 24K| ...",
+      "success": 1,
+      "player_name": "Achane, De'Von",
+      "position": "RB"
+    },
+    {
+      "id": 905,
+      "nfl_season": 2026,
+      "franchise_id": "0011",
+      "player_id": "15751",
+      "preview_ts": "2026-02-26 09:55:00",
+      "extension_term": "2YR",
+      "loaded_indicator": "NONE",
+      "new_contract_status": "EXT2",
+      "new_aav_future": 23000,
+      "new_TCV": 82000,
+      "preview_contract_info_string": "CL 4| TCV 82K| AAV 20K| ...",
+      "success": 1,
+      "player_name": "Bowers, Brock",
+      "position": "TE"
+    },
+    {
+      "id": 906,
+      "nfl_season": 2026,
+      "franchise_id": "0011",
+      "player_id": "14777",
+      "preview_ts": "2026-02-26 09:56:00",
+      "extension_term": "1YR",
+      "loaded_indicator": "NONE",
+      "new_contract_status": "EXT1",
+      "new_aav_future": 56000,
+      "new_TCV": 102000,
+      "preview_contract_info_string": "Preview generated but likely blocked by no-further-extension flag in contract rules",
+      "success": 0,
+      "player_name": "Burrow, Joe",
+      "position": "QB"
+    }
+  ]
+}
