@@ -171,6 +171,34 @@ summary:focus-visible {
   padding: 0.75rem;
 }
 
+.twb-teams-card {
+  background:
+    linear-gradient(155deg, rgba(33, 55, 98, 0.96), rgba(14, 22, 40, 0.94)),
+    radial-gradient(circle at 90% 15%, rgba(244, 195, 105, 0.1), transparent 45%);
+  border-color: rgba(244, 195, 105, 0.22);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 223, 160, 0.08),
+    0 10px 25px rgba(0, 0, 0, 0.22);
+}
+
+.twb-teams-card h2 {
+  color: #ffe1a0;
+}
+
+.twb-filters-card {
+  background:
+    linear-gradient(160deg, rgba(14, 43, 54, 0.96), rgba(11, 23, 34, 0.95)),
+    radial-gradient(circle at 15% 10%, rgba(86, 215, 154, 0.1), transparent 55%);
+  border-color: rgba(86, 215, 154, 0.2);
+  box-shadow:
+    inset 0 1px 0 rgba(151, 255, 205, 0.06),
+    0 10px 25px rgba(0, 0, 0, 0.22);
+}
+
+.twb-filters-card h2 {
+  color: #bff3df;
+}
+
 .twb-card h2 {
   margin: 0;
   font-size: 0.9rem;
@@ -339,6 +367,61 @@ summary:focus-visible {
   margin-bottom: 0.65rem;
 }
 
+.twb-team-brand {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.7rem;
+  align-items: start;
+  min-width: 0;
+}
+
+.twb-team-logo-shell {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  border: 1px solid rgba(130, 165, 210, 0.22);
+  background: linear-gradient(180deg, rgba(18, 31, 56, 0.9), rgba(9, 16, 30, 0.95));
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.twb-team-logo {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  background: rgba(0, 0, 0, 0.14);
+}
+
+.twb-team-logo-fallback {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 0.25rem;
+  text-align: center;
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  color: #cde4ff;
+  opacity: 0;
+}
+
+.twb-team-logo-shell.twb-team-logo-missing .twb-team-logo-fallback {
+  opacity: 1;
+}
+
+.twb-team-logo-shell.twb-team-logo-missing .twb-team-logo {
+  display: none;
+}
+
+.twb-team-title-wrap {
+  min-width: 0;
+}
+
 .twb-team-eyebrow {
   color: var(--twb-text-soft);
   text-transform: uppercase;
@@ -430,10 +513,18 @@ summary:focus-visible {
   background: transparent;
   text-align: right;
   font-weight: 900;
+  appearance: textfield;
+  -moz-appearance: textfield;
 }
 
 .twb-trade-salary-input:focus {
   outline: none;
+}
+
+.twb-trade-salary-input::-webkit-outer-spin-button,
+.twb-trade-salary-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 
 .twb-trade-salary-max {
@@ -474,6 +565,18 @@ summary:focus-visible {
   justify-content: space-between;
   gap: 0.6rem;
   user-select: none;
+}
+
+.twb-group-summary::after {
+  content: "▸";
+  color: var(--twb-text-soft);
+  font-size: 0.8rem;
+  transition: transform 120ms ease;
+  flex: 0 0 auto;
+}
+
+.twb-group[open] .twb-group-summary::after {
+  transform: rotate(90deg);
 }
 
 .twb-group-summary::-webkit-details-marker {
@@ -660,6 +763,13 @@ summary:focus-visible {
 .twb-summary-card,
 .twb-payload-card {
   padding: 0.85rem;
+}
+
+.twb-card-caption {
+  margin: -0.1rem 0 0.6rem;
+  color: var(--twb-text-soft);
+  font-size: 0.72rem;
+  line-height: 1.3;
 }
 
 .twb-status-pill {

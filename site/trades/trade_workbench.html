@@ -25,7 +25,7 @@
 
     <section class="twb-toolbar" aria-label="Trade setup and filters">
       <div class="twb-toolbar-grid">
-        <div class="twb-card twb-card-tight">
+        <div class="twb-card twb-card-tight twb-teams-card">
           <h2>Teams</h2>
           <div class="twb-field-grid twb-field-grid-2">
             <label class="twb-field">
@@ -84,9 +84,10 @@
 
         <div class="twb-card twb-payload-card">
           <div class="twb-card-head-inline">
-            <h2>Payload Preview</h2>
-            <button type="button" id="twbCopyPayloadBtn2" class="twb-link-btn">Copy</button>
+            <h2>Integration JSON (Advanced)</h2>
+            <button type="button" id="twbCopyPayloadBtn2" class="twb-link-btn">Copy JSON</button>
           </div>
+          <p class="twb-card-caption">This is a backend/integration payload preview. It does not submit a trade to MFL yet.</p>
           <pre id="twbPayloadPreview" class="twb-payload-preview">Loading…</pre>
         </div>
       </aside>
@@ -96,10 +97,16 @@
   <template id="twbTeamPanelTemplate">
     <section class="twb-team-panel twb-card">
       <header class="twb-team-header">
-        <div class="twb-team-title-wrap">
-          <div class="twb-team-eyebrow"></div>
-          <h2 class="twb-team-title"></h2>
-          <div class="twb-team-meta"></div>
+        <div class="twb-team-brand">
+          <div class="twb-team-logo-shell" aria-hidden="true">
+            <img class="twb-team-logo" alt="">
+            <div class="twb-team-logo-fallback"></div>
+          </div>
+          <div class="twb-team-title-wrap">
+            <div class="twb-team-eyebrow"></div>
+            <h2 class="twb-team-title"></h2>
+            <div class="twb-team-meta"></div>
+          </div>
         </div>
         <div class="twb-team-stats"></div>
       </header>
@@ -111,7 +118,7 @@
         </div>
         <label class="twb-trade-salary-input-wrap">
           <span>$</span>
-          <input type="number" min="0" step="1" class="twb-trade-salary-input" inputmode="numeric">
+          <input type="text" class="twb-trade-salary-input" inputmode="numeric" pattern="[0-9]*" autocomplete="off">
           <span>K</span>
         </label>
         <div class="twb-trade-salary-max"></div>
@@ -129,7 +136,7 @@
   </template>
 
   <template id="twbGroupTemplate">
-    <details class="twb-group" open>
+    <details class="twb-group">
       <summary class="twb-group-summary">
         <span class="twb-group-label"></span>
         <span class="twb-group-badges"></span>

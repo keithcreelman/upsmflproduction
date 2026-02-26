@@ -933,14 +933,41 @@
     var title = node.querySelector(".twb-team-title");
     var eyebrow = node.querySelector(".twb-team-eyebrow");
     var meta = node.querySelector(".twb-team-meta");
+    var logo = node.querySelector(".twb-team-logo");
+    var logoFallback = node.querySelector(".twb-team-logo-fallback");
+    var logoShell = node.querySelector(".twb-team-logo-shell");
     var statsWrap = node.querySelector(".twb-team-stats");
     var groupsWrap = node.querySelector(".twb-team-groups");
     var salaryInput = node.querySelector(".twb-trade-salary-input");
     var salaryMax = node.querySelector(".twb-trade-salary-max");
 
+    var teamAbbrev = safeStr(team.franchise_abbrev || team.franchise_id);
     eyebrow.textContent = side === "left" ? "Your Side" : "Trade Partner";
     title.textContent = team.franchise_name;
-    meta.textContent = team.franchise_abbrev + (team.icon_url ? " · Icon configured" : "");
+    meta.textContent = teamAbbrev || team.franchise_id;
+
+    if (logoFallback) {
+      logoFallback.textContent = teamAbbrev || safeStr(team.franchise_name).slice(0, 3).toUpperCase();
+    }
+    if (logo && safeStr(team.icon_url)) {
+      logo.src = safeStr(team.icon_url);
+      logo.alt = team.franchise_name + " logo";
+      logo.loading = "lazy";
+      logo.referrerPolicy = "no-referrer";
+      logo.hidden = false;
+      logo.addEventListener("error", function () {
+        this.hidden = true;
+        if (logoShell) logoShell.classList.add("twb-team-logo-missing");
+      }, { once: true });
+      logo.addEventListener("load", function () {
+        this.hidden = false;
+        if (logoShell) logoShell.classList.remove("twb-team-logo-missing");
+      }, { once: true });
+    } else if (logo) {
+      logo.removeAttribute("src");
+      logo.hidden = true;
+      if (logoShell) logoShell.classList.add("twb-team-logo-missing");
+    }
 
     var teamStats = deriveTeamStats(team);
     statsWrap.appendChild(renderMiniStat("Players", teamStats.players));
@@ -1002,7 +1029,8 @@
 
     details.setAttribute("data-team-id", teamId);
     details.setAttribute("data-group-key", group.key);
-    if (state.collapsed[teamId][group.key]) details.open = false;
+    var hasStoredCollapsedState = Object.prototype.hasOwnProperty.call(state.collapsed[teamId], group.key);
+    details.open = hasStoredCollapsedState ? !state.collapsed[teamId][group.key] : false;
 
     details.querySelector(".twb-group-label").textContent = group.label;
 
@@ -1470,6 +1498,12 @@
       note.textContent = "Trade has assets on both sides and traded salary entries are within the calculated max values. This is a UI-level validation only; roster/cap compliance rules can be added next.";
       section.appendChild(note);
     }
+
+    var submitNote = document.createElement("div");
+    submitNote.className = "twb-summary-note";
+    submitNote.style.marginTop = "0.55rem";
+    submitNote.textContent = "Submission is not wired yet. This screen builds and validates the trade payload that your backend can store, review, and later send to MFL or your custom approval workflow.";
+    section.appendChild(submitNote);
 
     return section;
   }
