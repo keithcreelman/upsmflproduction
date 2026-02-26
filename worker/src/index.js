@@ -970,14 +970,69 @@ export default {
       };
 
       const parseMyFranchiseId = (myFrPayload) => {
-        const cand =
-          myFrPayload?.franchise?.id ||
-          myFrPayload?.myfranchise?.id ||
-          myFrPayload?.myfranchise?.franchise?.id ||
-          myFrPayload?.franchise?.franchise_id ||
-          myFrPayload?.myfranchise?.franchise_id ||
-          "";
-        return padFranchiseId(cand);
+        const directCandidates = [
+          myFrPayload?.franchise?.id,
+          myFrPayload?.franchise?.franchise_id,
+          myFrPayload?.myfranchise?.id,
+          myFrPayload?.myfranchise?.franchise_id,
+          myFrPayload?.myfranchise?.franchise?.id,
+          myFrPayload?.myfranchise?.franchise?.franchise_id,
+          myFrPayload?.myfranchise?.franchise?.[0]?.id,
+          myFrPayload?.myfranchise?.franchise?.[0]?.franchise_id,
+          myFrPayload?.myFranchise?.id,
+          myFrPayload?.myFranchise?.franchise_id,
+          myFrPayload?.myFranchise?.franchise?.id,
+          myFrPayload?.myFranchise?.franchise?.franchise_id,
+          myFrPayload?.myFranchise?.franchise?.[0]?.id,
+          myFrPayload?.myFranchise?.franchise?.[0]?.franchise_id,
+        ];
+        for (const c of directCandidates) {
+          const id = padFranchiseId(c);
+          if (id) return id;
+        }
+
+        const seen = new Set();
+        const visit = (node, trustIds = false) => {
+          if (!node) return "";
+          if (Array.isArray(node)) {
+            for (const item of node) {
+              const got = visit(item, trustIds);
+              if (got) return got;
+            }
+            return "";
+          }
+          if (typeof node !== "object") {
+            return trustIds ? padFranchiseId(node) : "";
+          }
+          if (seen.has(node)) return "";
+          seen.add(node);
+
+          const byFranchiseField = padFranchiseId(
+            node?.franchise_id || node?.franchiseId || node?.franchiseID || ""
+          );
+          if (byFranchiseField) return byFranchiseField;
+
+          if (trustIds) {
+            const byId = padFranchiseId(node?.id || "");
+            if (byId) return byId;
+          }
+
+          const priorityKeys = ["myfranchise", "myFranchise", "franchise", "user_franchise", "userfranchise"];
+          for (const key of priorityKeys) {
+            if (!(key in node)) continue;
+            const got = visit(node[key], true);
+            if (got) return got;
+          }
+
+          for (const [key, value] of Object.entries(node)) {
+            if (priorityKeys.includes(key)) continue;
+            const got = visit(value, trustIds || /franchise/i.test(String(key)));
+            if (got) return got;
+          }
+          return "";
+        };
+
+        return visit(myFrPayload, false);
       };
 
       const fetchPlayersByIdsChunked = async (season, leagueId, playerIds) => {
