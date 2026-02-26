@@ -7376,6 +7376,69 @@ Replaces bulky default grid with compact toggle view + franchise icons
     height: auto !important;
   }
 
+  /* O=93 actual table is a single .hz-main-table with frozen first-column cells.
+     Re-enable that first column explicitly after we flatten the wrapper. */
+  body#body_options_93 .mobile-wrap.ups-o93-plain-wrap .hz-main-table th.fixed-side,
+  body#body_options_93 .mobile-wrap.ups-o93-plain-wrap .hz-main-table td.fixed-side {
+    display: table-cell !important;
+    position: sticky !important;
+    left: 0 !important;
+    z-index: 5 !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    min-width: 5.8rem !important;
+    width: 5.8rem !important;
+    max-width: 5.8rem !important;
+    overflow: visible !important;
+    clip: auto !important;
+    clip-path: none !important;
+    background: var(--ups-surface) !important;
+    color: var(--ups-report-strong) !important;
+  }
+
+  body#body_options_93 .mobile-wrap.ups-o93-plain-wrap .hz-main-table thead th.fixed-side {
+    background: var(--ups-th-bg) !important;
+    z-index: 7 !important;
+  }
+
+  body#body_options_93 .mobile-wrap.ups-o93-plain-wrap .hz-main-table tbody th.fixed-side {
+    z-index: 6 !important;
+  }
+
+  body#body_options_93 .mobile-wrap.ups-o93-plain-wrap .hz-main-table th.fixed-side.has-ficon {
+    padding: 0.18rem !important;
+    text-align: center !important;
+    vertical-align: middle !important;
+  }
+
+  body#body_options_93 .mobile-wrap.ups-o93-plain-wrap .hz-main-table th.fixed-side.has-ficon a {
+    display: block !important;
+    width: 100% !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    line-height: 0 !important;
+  }
+
+  body#body_options_93 .mobile-wrap.ups-o93-plain-wrap .hz-main-table th.fixed-side.has-ficon .franchiseicon {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    width: auto !important;
+    max-width: 100% !important;
+    max-height: 2.45rem !important;
+    height: auto !important;
+    margin: 0 auto !important;
+    object-fit: contain !important;
+    border: 0 !important;
+  }
+
+  body#body_options_93 .mobile-wrap.ups-o93-plain-wrap .hz-main-table .hz-hide-shadow::before,
+  body#body_options_93 .mobile-wrap.ups-o93-plain-wrap .hz-main-table .hz-hide-shadow::after {
+    content: none !important;
+    display: none !important;
+    box-shadow: none !important;
+  }
+
   body#body_options_93 .mobile-wrap.ups-o93-plain-wrap::before,
   body#body_options_93 .mobile-wrap.ups-o93-plain-wrap::after {
     content: none !important;
