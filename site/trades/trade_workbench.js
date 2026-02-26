@@ -4,6 +4,9 @@
   var SAMPLE_DATA_URL = "./trade_workbench_sample.json";
   var STORAGE_KEY = "ups-trade-workbench-state-v1";
   var GROUP_ORDER = ["QB", "RB", "WR", "TE", "PK", "PN", "DT", "DE", "LB", "CB", "S", "DL", "DB", "PICKS", "OTHER"];
+  var heightSyncInstalled = false;
+  var heightPostTimer = 0;
+  var lastPostedHeight = 0;
 
   var state = {
     data: null,
@@ -406,6 +409,88 @@
     var res = await fetch(url, { cache: "no-store" });
     if (!res.ok) throw new Error("HTTP " + res.status + " for " + url);
     return res.json();
+  }
+
+  function getDocHeight() {
+    var doc = document.documentElement;
+    var body = document.body;
+    var h = 0;
+    if (doc) {
+      h = Math.max(h, doc.scrollHeight || 0, doc.offsetHeight || 0, doc.clientHeight || 0);
+    }
+    if (body) {
+      h = Math.max(h, body.scrollHeight || 0, body.offsetHeight || 0, body.clientHeight || 0);
+    }
+    if (els && els.app) {
+      h = Math.max(h, els.app.scrollHeight || 0, els.app.offsetHeight || 0);
+    }
+    return Math.max(320, Math.ceil(h));
+  }
+
+  function postParentHeight(force) {
+    if (window.parent === window) return;
+    var h = getDocHeight();
+    if (!force && h === lastPostedHeight) return;
+    lastPostedHeight = h;
+    try {
+      window.parent.postMessage({ type: "twb-height", height: h }, "*");
+    } catch (e) {
+      // ignore cross-window messaging errors
+    }
+  }
+
+  function scheduleParentHeightPost() {
+    if (window.parent === window) return;
+    if (heightPostTimer) return;
+    heightPostTimer = window.setTimeout(function () {
+      heightPostTimer = 0;
+      postParentHeight(false);
+    }, 0);
+  }
+
+  function installHeightSync() {
+    if (heightSyncInstalled) return;
+    heightSyncInstalled = true;
+    if (window.parent === window) return;
+
+    if (window.addEventListener) {
+      window.addEventListener("resize", scheduleParentHeightPost, false);
+      window.addEventListener("load", function () {
+        postParentHeight(true);
+      }, false);
+    }
+
+    if (window.MutationObserver && document.body) {
+      try {
+        var mo = new MutationObserver(function () {
+          scheduleParentHeightPost();
+        });
+        mo.observe(document.body, {
+          childList: true,
+          subtree: true,
+          attributes: true
+        });
+      } catch (e) {
+        // noop
+      }
+    }
+
+    if (window.ResizeObserver) {
+      try {
+        var ro = new ResizeObserver(function () {
+          scheduleParentHeightPost();
+        });
+        if (document.body) ro.observe(document.body);
+        if (document.documentElement) ro.observe(document.documentElement);
+      } catch (e) {
+        // noop
+      }
+    }
+
+    postParentHeight(true);
+    window.setTimeout(function () { postParentHeight(true); }, 150);
+    window.setTimeout(function () { postParentHeight(true); }, 700);
+    window.setTimeout(function () { postParentHeight(true); }, 2000);
   }
 
   async function loadData() {
@@ -1408,6 +1493,7 @@
     renderBoard();
     renderSummary();
     persistState();
+    scheduleParentHeightPost();
   }
 
   function toggleAsset(teamId, assetId, checked) {
@@ -1766,11 +1852,13 @@
     if (els.payloadPreview) {
       els.payloadPreview.textContent = "{}";
     }
+    scheduleParentHeightPost();
   }
 
   async function boot() {
     collectDomRefs();
     if (!els.app) return;
+    installHeightSync();
     restoreState();
 
     els.board.innerHTML = '<div class="twb-loading">Loading trade workbench…</div>';
@@ -1792,9 +1880,11 @@
         buildTradePayload: buildTradePayload,
         rerender: rerender
       };
+      postParentHeight(true);
     } catch (err) {
       showError(err);
       console.error("Trade Workbench load failed", err);
+      postParentHeight(true);
     }
   }
 
