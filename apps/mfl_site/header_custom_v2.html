@@ -3301,27 +3301,39 @@ Replaces bulky default grid with compact toggle view + franchise icons
     return bestScore > 0 ? best : null;
   }
 
-  function flattenWrapper(wrap) {
-    if (!wrap || wrap.dataset.upsO93Flattened === "1") return;
-    var table = bestInteractiveTable(wrap);
-    if (!table) return;
+  function scoreFranchiseTable(table) {
+    if (!table) return -1;
+    var imgs = table.querySelectorAll("img").length;
+    var checkboxes = table.querySelectorAll('input[type="checkbox"]').length;
+    var cells = table.querySelectorAll("td, th").length;
+    var rows = table.querySelectorAll("tr").length;
+    var txt = String(table.textContent || "").replace(/\s+/g, " ").toLowerCase();
+    var hasFranchiseHeader = txt.indexOf("franchise") >= 0;
+    return (imgs * 25) + (hasFranchiseHeader ? 30 : 0) + Math.min(cells, 200) + Math.min(rows * 2, 80) - (checkboxes * 8);
+  }
 
-    // Preserve the real interactive table and remove the frozen/overlay clones.
-    wrap.dataset.upsO93Flattened = "1";
-    wrap.classList.add("ups-o93-plain-wrap");
-    wrap.classList.remove("hz-table-scroll");
+  function bestFranchiseTable(root, exclude) {
+    if (!root) return null;
+    var tables = Array.prototype.slice.call(root.querySelectorAll("table"));
+    var best = null;
+    var bestScore = -1;
+    tables.forEach(function (t) {
+      if (!t || t === exclude) return;
+      var s = scoreFranchiseTable(t);
+      if (s > bestScore) {
+        bestScore = s;
+        best = t;
+      }
+    });
+    // Require a meaningful image-bearing table to avoid grabbing another header clone.
+    if (!best) return null;
+    if (best.querySelectorAll("img").length < 2) return null;
+    return best;
+  }
 
-    try {
-      wrap.replaceChildren(table);
-    } catch (e) {
-      while (wrap.firstChild) wrap.removeChild(wrap.firstChild);
-      wrap.appendChild(table);
-    }
-
-    try { wrap.removeAttribute("style"); } catch (e) {}
-    try { table.removeAttribute("style"); } catch (e) {}
-
-    var descendants = table.querySelectorAll("*");
+  function scrubInlineLayout(root) {
+    if (!root) return;
+    var descendants = root.querySelectorAll("*");
     Array.prototype.forEach.call(descendants, function (el) {
       // Remove inline layout constraints that come from frozen-table clones.
       if (!el || !el.style) return;
@@ -3346,6 +3358,47 @@ Replaces bulky default grid with compact toggle view + franchise icons
       el.style.opacity = "";
       el.style.visibility = "";
     });
+  }
+
+  function flattenWrapper(wrap) {
+    if (!wrap || wrap.dataset.upsO93Flattened === "1") return;
+    var table = bestInteractiveTable(wrap);
+    if (!table) return;
+    var franchiseTable = bestFranchiseTable(wrap, table);
+
+    // Preserve the real interactive table and remove the frozen/overlay clones.
+    wrap.dataset.upsO93Flattened = "1";
+    wrap.classList.add("ups-o93-plain-wrap");
+    wrap.classList.remove("hz-table-scroll");
+
+    var nextRoot = table;
+    if (franchiseTable && franchiseTable !== table) {
+      var grid = document.createElement("div");
+      grid.className = "ups-o93-plain-grid";
+      var left = document.createElement("div");
+      left.className = "ups-o93-plain-left";
+      var right = document.createElement("div");
+      right.className = "ups-o93-plain-main";
+      left.appendChild(franchiseTable);
+      right.appendChild(table);
+      grid.appendChild(left);
+      grid.appendChild(right);
+      nextRoot = grid;
+    }
+
+    try {
+      wrap.replaceChildren(nextRoot);
+    } catch (e) {
+      while (wrap.firstChild) wrap.removeChild(wrap.firstChild);
+      wrap.appendChild(nextRoot);
+    }
+
+    try { wrap.removeAttribute("style"); } catch (e) {}
+    try { table.removeAttribute("style"); } catch (e) {}
+    if (franchiseTable && franchiseTable !== table) {
+      try { franchiseTable.removeAttribute("style"); } catch (e) {}
+    }
+    scrubInlineLayout(wrap);
   }
 
   function repair() {
@@ -7236,14 +7289,51 @@ Replaces bulky default grid with compact toggle view + franchise icons
     border: 1px solid var(--ups-border) !important;
   }
 
+  body#body_options_93 .mobile-wrap.ups-o93-plain-wrap > .ups-o93-plain-grid {
+    display: flex !important;
+    align-items: flex-start !important;
+    gap: 0 !important;
+    width: max-content !important;
+    min-width: 100% !important;
+  }
+
+  body#body_options_93 .mobile-wrap.ups-o93-plain-wrap > .ups-o93-plain-grid > .ups-o93-plain-left {
+    flex: 0 0 auto !important;
+    position: sticky !important;
+    left: 0 !important;
+    z-index: 4 !important;
+    background: var(--ups-surface) !important;
+    border-right: 1px solid var(--ups-border) !important;
+  }
+
+  body#body_options_93 .mobile-wrap.ups-o93-plain-wrap > .ups-o93-plain-grid > .ups-o93-plain-main {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    position: relative !important;
+    z-index: 2 !important;
+  }
+
   body#body_options_93 .mobile-wrap.ups-o93-plain-wrap > table,
-  body#body_options_93 .mobile-wrap.ups-o93-plain-wrap .report {
+  body#body_options_93 .mobile-wrap.ups-o93-plain-wrap .report,
+  body#body_options_93 .mobile-wrap.ups-o93-plain-wrap .ups-o93-plain-grid table {
     width: max-content !important;
     min-width: 100% !important;
     table-layout: auto !important;
     position: relative !important;
-    z-index: 2 !important;
     background: var(--ups-surface) !important;
+  }
+
+  body#body_options_93 .mobile-wrap.ups-o93-plain-wrap .ups-o93-plain-left table {
+    min-width: 0 !important;
+    width: auto !important;
+  }
+
+  body#body_options_93 .mobile-wrap.ups-o93-plain-wrap .ups-o93-plain-left img {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    max-width: 92px !important;
+    height: auto !important;
   }
 
   body#body_options_93 .mobile-wrap.ups-o93-plain-wrap::before,
