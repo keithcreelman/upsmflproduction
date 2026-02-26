@@ -55,3 +55,5 @@ if(document.querySelector("#body_options_07")&&document.querySelector("td.two_co
     initRosterOnlyPatch();
   }
 })();
+/* UPS trade offer patch loader (deployed via UPS_RELEASE_SHA) */
+(function(){if(window.__upsTradeOfferPatchLoader)return;window.__upsTradeOfferPatchLoader=!0;var t=window.UPS_RELEASE_SHA||"main",e="https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@"+t+"/site/rosters/ups_trade_offer_patch.js",r=document.createElement("script");r.src=e,r.async=!0,r.onerror=function(){var e=document.createElement("script");e.src="https://rawcdn.githack.com/keithcreelman/upsmflproduction/"+t+"/site/rosters/ups_trade_offer_patch.js",e.async=!0,(document.head||document.documentElement).appendChild(e)},(document.head||document.documentElement).appendChild(r)})();
