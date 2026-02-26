@@ -2,7 +2,7 @@
   "use strict";
 
   var SAMPLE_DATA_URL = "./trade_workbench_sample.json";
-  var STORAGE_KEY = "ups-trade-workbench-state-v1";
+  var STORAGE_KEY = "ups-trade-workbench-state-v2";
   var GROUP_ORDER = ["QB", "RB", "WR", "TE", "PK", "PN", "DT", "DE", "LB", "CB", "S", "DL", "DB", "PICKS", "OTHER"];
   var heightSyncInstalled = false;
   var heightPostTimer = 0;
