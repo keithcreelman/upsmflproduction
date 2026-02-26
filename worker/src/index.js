@@ -770,10 +770,11 @@ export default {
         return Number.isFinite(n) ? n : fallback;
       };
       const padFranchiseId = (v) =>
-        String(v == null ? "" : v)
-          .replace(/\D/g, "")
-          .padStart(4, "0")
-          .slice(-4);
+      {
+        const digits = String(v == null ? "" : v).replace(/\D/g, "");
+        if (!digits) return "";
+        return digits.padStart(4, "0").slice(-4);
+      };
       const firstTruthy = (...vals) => {
         for (const v of vals) {
           const s = safeStr(v);
@@ -1001,43 +1002,63 @@ export default {
       const fetchExtensionPreviewRows = async (season, queryParams) => {
         const extUrlParam = safeStr(queryParams.get("EXT_URL") || queryParams.get("extension_previews_url"));
         const baseUrl = safeStr(env.TRADE_EXTENSION_PREVIEWS_BASE_URL || "https://keithcreelman.github.io/upsmflproduction/site/trades").replace(/\/+$/, "");
-        const extUrl = extUrlParam || `${baseUrl}/extension_previews_${encodeURIComponent(String(season))}.json`;
-        try {
-          const res = await fetch(extUrl, {
-            headers: { "Cache-Control": "no-store" },
-            cf: { cacheTtl: 0, cacheEverything: false },
-          });
-          if (!res.ok) {
+        const fileName = `extension_previews_${encodeURIComponent(String(season))}.json`;
+        const candidates = [];
+        if (extUrlParam) {
+          candidates.push(extUrlParam);
+        } else {
+          candidates.push(`${baseUrl}/${fileName}`);
+          candidates.push(`https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/trades/${fileName}`);
+        }
+        let lastErr = null;
+        for (const extUrl of candidates) {
+          try {
+            const res = await fetch(extUrl, {
+              headers: { "Cache-Control": "no-store" },
+              cf: { cacheTtl: 0, cacheEverything: false },
+            });
+            if (!res.ok) {
+              lastErr = {
+                ok: false,
+                status: res.status,
+                url: extUrl,
+                rows: [],
+                error: `HTTP ${res.status}`,
+              };
+              continue;
+            }
+            const payload = await res.json();
+            const rows = Array.isArray(payload)
+              ? payload
+              : Array.isArray(payload?.rows)
+                ? payload.rows
+                : [];
             return {
+              ok: true,
+              status: 200,
+              url: extUrl,
+              rows,
+              meta: payload?.meta || null,
+            };
+          } catch (e) {
+            lastErr = {
               ok: false,
-              status: res.status,
+              status: 0,
               url: extUrl,
               rows: [],
-              error: `HTTP ${res.status}`,
+              error: `fetch_failed: ${e?.message || String(e)}`,
             };
           }
-          const payload = await res.json();
-          const rows = Array.isArray(payload)
-            ? payload
-            : Array.isArray(payload?.rows)
-              ? payload.rows
-              : [];
-          return {
-            ok: true,
-            status: 200,
-            url: extUrl,
-            rows,
-            meta: payload?.meta || null,
-          };
-        } catch (e) {
-          return {
+        }
+        return (
+          lastErr || {
             ok: false,
             status: 0,
-            url: extUrl,
+            url: "",
             rows: [],
-            error: `fetch_failed: ${e?.message || String(e)}`,
-          };
-        }
+            error: "no_extension_preview_url_candidates",
+          }
+        );
       };
 
       if (path === "/trade-workbench" && request.method === "GET") {
