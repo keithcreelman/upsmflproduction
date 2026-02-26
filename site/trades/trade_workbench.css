@@ -376,6 +376,47 @@ summary:focus-visible {
   min-width: 0;
 }
 
+.twb-discovery-panel {
+  display: grid;
+  gap: 0.6rem;
+  align-content: start;
+}
+
+.twb-discovery-list {
+  display: grid;
+  gap: 0.38rem;
+  max-height: 980px;
+  overflow: auto;
+  padding-right: 0.15rem;
+}
+
+.twb-discovery-item {
+  text-align: left;
+  border: 1px solid rgba(121, 153, 195, 0.16);
+  border-radius: 9px;
+  background: rgba(9, 16, 30, 0.78);
+  padding: 0.45rem 0.5rem;
+  cursor: pointer;
+  display: grid;
+  gap: 0.16rem;
+}
+
+.twb-discovery-item:hover {
+  border-color: rgba(101, 188, 255, 0.34);
+  background: rgba(17, 34, 62, 0.78);
+}
+
+.twb-discovery-item-title {
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: #d9edff;
+}
+
+.twb-discovery-item-meta {
+  font-size: 0.69rem;
+  color: var(--twb-text-soft);
+}
+
 .twb-team-header {
   display: grid;
   grid-template-columns: 1fr auto;

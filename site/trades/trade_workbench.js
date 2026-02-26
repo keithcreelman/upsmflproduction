@@ -2,7 +2,7 @@
   "use strict";
 
   var SAMPLE_DATA_URL = "./trade_workbench_sample.json";
-  var STORAGE_KEY = "ups-trade-workbench-state-v4";
+  var STORAGE_KEY = "ups-trade-workbench-state-v5";
   var GROUP_ORDER = ["QB", "RB", "WR", "TE", "PK", "PN", "DT", "DE", "LB", "CB", "S", "DL", "DB", "PICKS", "OTHER"];
   var POSITION_FILTER_GROUPS = [
     { key: "OFF", label: "OFF", hint: "QB RB WR TE", positions: { QB: true, RB: true, WR: true, TE: true } },
@@ -991,6 +991,15 @@
     return "";
   }
 
+  function getLockedLeftTeamId() {
+    var teams = (state.data && state.data.teams) || [];
+    var i;
+    for (i = 0; i < teams.length; i += 1) {
+      if (teams[i] && teams[i].is_default) return teams[i].franchise_id;
+    }
+    return "";
+  }
+
   function ensureSelectionMaps(teamId) {
     if (!state.selections[teamId]) state.selections[teamId] = {};
     if (!state.extensions[teamId]) state.extensions[teamId] = {};
@@ -1140,6 +1149,7 @@
     var out = [];
     var i;
     for (i = 0; i < assets.length; i += 1) {
+      if (!isTradeEligibleAsset(assets[i])) continue;
       if (assetMatchesFilters(assets[i])) out.push(assets[i]);
     }
     return out;
@@ -1209,22 +1219,33 @@
     left.innerHTML = "";
     right.innerHTML = "";
     var teams = state.data.teams || [];
+    var lockedLeftId = getLockedLeftTeamId();
+    var leftTeam = null;
     var i;
-    for (i = 0; i < teams.length; i += 1) {
-      var t = teams[i];
-      var label = t.franchise_name;
-      left.appendChild(optionEl(t.franchise_id, label));
-      right.appendChild(optionEl(t.franchise_id, label));
+    if (lockedLeftId) {
+      state.leftTeamId = lockedLeftId;
+      leftTeam = getTeamById(lockedLeftId);
+      left.appendChild(optionEl(lockedLeftId, leftTeam ? leftTeam.franchise_name : lockedLeftId));
+      left.disabled = true;
+    } else {
+      left.disabled = false;
+      for (i = 0; i < teams.length; i += 1) {
+        left.appendChild(optionEl(teams[i].franchise_id, teams[i].franchise_name));
+      }
+      if (!state.leftTeamId || !getTeamById(state.leftTeamId)) {
+        state.leftTeamId = teams[0] ? teams[0].franchise_id : "";
+      }
     }
 
-    if (!state.leftTeamId || !getTeamById(state.leftTeamId)) {
-      state.leftTeamId = teams[0] ? teams[0].franchise_id : "";
+    right.appendChild(optionEl("", "Select Team..."));
+    for (i = 0; i < teams.length; i += 1) {
+      var t = teams[i];
+      if (t.franchise_id === state.leftTeamId) continue;
+      right.appendChild(optionEl(t.franchise_id, t.franchise_name));
     }
+
     if (!state.rightTeamId || !getTeamById(state.rightTeamId) || state.rightTeamId === state.leftTeamId) {
-      state.rightTeamId = teams[1] ? teams[1].franchise_id : (teams[0] ? teams[0].franchise_id : "");
-    }
-    if (state.leftTeamId && state.rightTeamId && state.leftTeamId === state.rightTeamId && teams.length > 1) {
-      state.rightTeamId = teams[1].franchise_id;
+      state.rightTeamId = "";
     }
 
     left.value = state.leftTeamId;
@@ -1356,16 +1377,105 @@
 
     var leftTeam = getTeamById(state.leftTeamId);
     var rightTeam = getTeamById(state.rightTeamId);
-    if (!leftTeam || !rightTeam) {
+    if (!leftTeam) {
       var empty = document.createElement("div");
       empty.className = "twb-empty-state";
-      empty.textContent = "Select two teams to begin building a trade.";
+      empty.textContent = "Select your team to begin building a trade.";
       board.appendChild(empty);
       return;
     }
 
     board.appendChild(renderTeamPanel(leftTeam, "left"));
-    board.appendChild(renderTeamPanel(rightTeam, "right"));
+    if (rightTeam) {
+      board.appendChild(renderTeamPanel(rightTeam, "right"));
+    } else {
+      board.appendChild(renderDiscoveryPanel(leftTeam));
+    }
+  }
+
+  function collectDiscoverableMatches(leftTeamId) {
+    var out = [];
+    var teams = (state.data && state.data.teams) || [];
+    var i;
+    for (i = 0; i < teams.length; i += 1) {
+      var team = teams[i];
+      if (!team || team.franchise_id === leftTeamId) continue;
+      var assets = team.assets || [];
+      var j;
+      for (j = 0; j < assets.length; j += 1) {
+        var a = assets[j];
+        if (!a || !isTradeEligibleAsset(a)) continue;
+        if (!assetMatchesFilters(a)) continue;
+        out.push({ team: team, asset: a });
+      }
+    }
+    out.sort(function (x, y) {
+      var tCmp = compareText(x.team.franchise_name, y.team.franchise_name);
+      if (tCmp) return tCmp;
+      if (x.asset.type !== y.asset.type) return x.asset.type === "PLAYER" ? -1 : 1;
+      if (x.asset.type === "PLAYER") return compareText(x.asset.player_name, y.asset.player_name);
+      return compareText(x.asset.description, y.asset.description);
+    });
+    return out;
+  }
+
+  function renderDiscoveryPanel(leftTeam) {
+    var panel = document.createElement("section");
+    panel.className = "twb-team-panel twb-card twb-discovery-panel";
+
+    var h = document.createElement("h2");
+    h.className = "twb-team-title";
+    h.textContent = "Find Trade Partner";
+    panel.appendChild(h);
+
+    var searchVal = safeStr(state.filters.search);
+    var helper = document.createElement("div");
+    helper.className = "twb-summary-note";
+    if (!searchVal) {
+      helper.textContent = "Select a trade partner above, or type a player/pick in Search to scan all other teams.";
+      panel.appendChild(helper);
+      return panel;
+    }
+
+    var matches = collectDiscoverableMatches(leftTeam.franchise_id);
+    if (!matches.length) {
+      helper.textContent = "No matching assets found across other teams for this search/filter.";
+      panel.appendChild(helper);
+      return panel;
+    }
+
+    var cap = 120;
+    var shown = matches.slice(0, cap);
+    helper.textContent =
+      "Search matches across all teams: " + shown.length + (matches.length > cap ? " of " + matches.length : "") +
+      ". Click one to set Trade Partner and add it to the offer.";
+    panel.appendChild(helper);
+
+    var list = document.createElement("div");
+    list.className = "twb-discovery-list";
+    var i;
+    for (i = 0; i < shown.length; i += 1) {
+      var m = shown[i];
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "twb-discovery-item";
+      btn.setAttribute("data-action", "choose-discovery-match");
+      btn.setAttribute("data-team-id", m.team.franchise_id);
+      btn.setAttribute("data-asset-id", m.asset.asset_id);
+
+      var title = m.asset.type === "PLAYER"
+        ? buildPlayerLabel(m.asset)
+        : safeStr(m.asset.description || "Draft Pick");
+      var meta = m.team.franchise_name + " · " +
+        (m.asset.type === "PLAYER"
+          ? moneyFmt(m.asset.salary) + " · Yrs " + (m.asset.years == null ? "-" : m.asset.years)
+          : "Draft Pick");
+      btn.innerHTML = '<span class="twb-discovery-item-title">' + escapeHtml(title) + '</span>' +
+        '<span class="twb-discovery-item-meta">' + escapeHtml(meta) + "</span>";
+      list.appendChild(btn);
+    }
+    panel.appendChild(list);
+    return panel;
   }
 
   function renderMiniStat(label, value) {
@@ -1859,8 +1969,12 @@
     var issues = [];
     var teams = payload.teams || [];
     if (teams.length === 2) {
-      if (!(teams[0].selected_assets || []).length) issues.push("Left side has no selected assets.");
-      if (!(teams[1].selected_assets || []).length) issues.push("Right side has no selected assets.");
+      var leftId = safeStr(teams[0].franchise_id);
+      var rightId = safeStr(teams[1].franchise_id);
+      if (!leftId) issues.push("Your team is not selected.");
+      if (!rightId) issues.push("Select a trade partner.");
+      if (leftId && !(teams[0].selected_assets || []).length) issues.push("Your side has no selected assets.");
+      if (rightId && !(teams[1].selected_assets || []).length) issues.push("Trade partner side has no selected assets.");
       if (teams[0].traded_salary_adjustment_k > teams[0].traded_salary_adjustment_max_k) issues.push("Left traded salary exceeds max.");
       if (teams[1].traded_salary_adjustment_k > teams[1].traded_salary_adjustment_max_k) issues.push("Right traded salary exceeds max.");
     }
@@ -1904,7 +2018,7 @@
     section.className = "twb-summary-section";
     var title = document.createElement("h3");
     title.className = "twb-summary-section-title";
-    title.textContent = item.side + (item.team ? " · " + item.team.franchise_abbrev : "");
+    title.textContent = item.side + (item.team ? " · " + item.team.franchise_name : " · None Selected");
     section.appendChild(title);
 
     var list = document.createElement("div");
@@ -1913,13 +2027,10 @@
     var maxK = getTradeSalaryMaxK(item.id);
     var enteredK = safeInt(state.tradeSalaryK[item.id], 0);
 
-    list.appendChild(summaryRow("Selected Assets", String(totals.selectedCount)));
     list.appendChild(summaryRow("Selected Players", String(totals.selectedPlayers)));
     list.appendChild(summaryRow("Selected Picks", String(totals.selectedPicks)));
-    list.appendChild(summaryRow("Non-Taxi Salary", kFmtFromDollars(totals.selectedNonTaxiSalary)));
-    list.appendChild(summaryRow("Taxi Excluded", String(totals.selectedTaxiPlayers), totals.selectedTaxiPlayers ? "warn" : ""));
+    list.appendChild(summaryRow("Salary Entered", String(enteredK) + "K", enteredK > maxK ? "bad" : "good"));
     list.appendChild(summaryRow("Trade Salary Max", String(maxK) + "K"));
-    list.appendChild(summaryRow("Trade Salary Entered", String(enteredK) + "K", enteredK > maxK ? "bad" : "good"));
     section.appendChild(list);
 
     var extReqs = getChosenExtensionRequests(item.id);
@@ -2152,32 +2263,16 @@
   function bindEvents() {
     els.leftTeamSelect.addEventListener("change", function () {
       state.leftTeamId = safeStr(this.value);
-      if (state.leftTeamId === state.rightTeamId) {
-        var teams = state.data.teams || [];
-        var i;
-        for (i = 0; i < teams.length; i += 1) {
-          if (teams[i].franchise_id !== state.leftTeamId) {
-            state.rightTeamId = teams[i].franchise_id;
-            break;
-          }
-        }
-      }
+      if (state.leftTeamId === state.rightTeamId) state.rightTeamId = "";
+      initTeamSelectors();
       rerender();
       refreshOfferInbox();
     });
 
     els.rightTeamSelect.addEventListener("change", function () {
       state.rightTeamId = safeStr(this.value);
-      if (state.rightTeamId === state.leftTeamId) {
-        var teams = state.data.teams || [];
-        var i;
-        for (i = 0; i < teams.length; i += 1) {
-          if (teams[i].franchise_id !== state.rightTeamId) {
-            state.leftTeamId = teams[i].franchise_id;
-            break;
-          }
-        }
-      }
+      if (state.rightTeamId === state.leftTeamId) state.rightTeamId = "";
+      initTeamSelectors();
       rerender();
       refreshOfferInbox();
     });
@@ -2308,8 +2403,12 @@
 
     els.board.addEventListener("click", function (evt) {
       var target = evt.target;
-      if (!target) return;
-      var action = target.getAttribute("data-action");
+      var action = "";
+      while (target && target !== els.board) {
+        action = target.getAttribute && target.getAttribute("data-action");
+        if (action) break;
+        target = target.parentNode;
+      }
       if (!action) return;
       var teamId = safeStr(target.getAttribute("data-team-id"));
       if (action === "team-select-visible") {
@@ -2324,6 +2423,22 @@
       } else if (action === "team-collapse-all") {
         teamSetAllGroups(teamId, false);
         rerender();
+      } else if (action === "choose-discovery-match") {
+        var pickedTeamId = safeStr(target.getAttribute("data-team-id"));
+        var pickedAssetId = safeStr(target.getAttribute("data-asset-id"));
+        if (!pickedTeamId || pickedTeamId === state.leftTeamId) return;
+        state.rightTeamId = pickedTeamId;
+        ensureSelectionMaps(pickedTeamId);
+        if (pickedAssetId) {
+          var pickedAsset = getAssetById(pickedTeamId, pickedAssetId);
+          if (pickedAsset && isTradeEligibleAsset(pickedAsset)) {
+            state.selections[pickedTeamId][pickedAssetId] = true;
+          }
+        }
+        clampTradeSalaryForTeam(pickedTeamId);
+        initTeamSelectors();
+        rerender();
+        refreshOfferInbox();
       }
     });
   }
@@ -2359,26 +2474,14 @@
   function seedInitialTeams() {
     var teams = state.data.teams || [];
     if (!teams.length) return;
-    if (!state.leftTeamId || !getTeamById(state.leftTeamId)) {
-      var defaultTeam = null;
-      var i;
-      for (i = 0; i < teams.length; i += 1) {
-        if (teams[i].is_default) {
-          defaultTeam = teams[i];
-          break;
-        }
-      }
-      state.leftTeamId = (defaultTeam || teams[0]).franchise_id;
+    var lockedLeft = getLockedLeftTeamId();
+    if (lockedLeft) {
+      state.leftTeamId = lockedLeft;
+    } else if (!state.leftTeamId || !getTeamById(state.leftTeamId)) {
+      state.leftTeamId = teams[0].franchise_id;
     }
     if (!state.rightTeamId || !getTeamById(state.rightTeamId) || state.rightTeamId === state.leftTeamId) {
-      var j;
-      for (j = 0; j < teams.length; j += 1) {
-        if (teams[j].franchise_id !== state.leftTeamId) {
-          state.rightTeamId = teams[j].franchise_id;
-          break;
-        }
-      }
-      if (!state.rightTeamId) state.rightTeamId = state.leftTeamId;
+      state.rightTeamId = "";
     }
   }
 
