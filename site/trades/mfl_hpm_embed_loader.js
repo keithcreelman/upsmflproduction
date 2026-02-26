@@ -82,9 +82,50 @@
     }
   }
 
+  function jsDelivrScriptToGithackHtml(scriptSrc) {
+    try {
+      var su = new URL(scriptSrc, window.location.href);
+      if (!/cdn\.jsdelivr\.net$/i.test(String(su.hostname || ""))) return "";
+      var parts = String(su.pathname || "").split("/").filter(Boolean);
+      if (parts.length < 5 || parts[0] !== "gh") return "";
+
+      var owner = parts[1];
+      var repoRef = parts[2];
+      var at = repoRef.lastIndexOf("@");
+      if (at <= 0 || at >= repoRef.length - 1) return "";
+      var repo = repoRef.slice(0, at);
+      var ref = repoRef.slice(at + 1);
+      var dirParts = parts.slice(3, -1);
+      if (!dirParts.length) return "";
+
+      return (
+        "https://rawcdn.githack.com/" +
+        encodeURIComponent(owner) +
+        "/" +
+        encodeURIComponent(repo) +
+        "/" +
+        encodeURIComponent(ref) +
+        "/" +
+        dirParts.map(encodeURIComponent).join("/") +
+        "/trade_workbench.html"
+      );
+    } catch (e) {
+      return "";
+    }
+  }
+
   function resolveIframeUrl() {
     var explicit = safeStr(window.UPS_TWB_IFRAME_URL || window.UPS_TRADE_WORKBENCH_IFRAME_URL);
     if (explicit) return explicit;
+    try {
+      var s = document.currentScript;
+      if (s && s.src) {
+        var fromJsDelivr = jsDelivrScriptToGithackHtml(s.src);
+        if (fromJsDelivr) return fromJsDelivr;
+      }
+    } catch (e) {
+      // noop
+    }
     var base = getScriptBaseUrl();
     if (base) return base + "trade_workbench.html";
     return "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/trades/trade_workbench.html";
@@ -173,4 +214,3 @@
     window.addEventListener("message", onMessage, false);
   }
 })();
-
