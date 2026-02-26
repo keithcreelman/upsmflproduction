@@ -2,8 +2,15 @@
   "use strict";
 
   var SAMPLE_DATA_URL = "./trade_workbench_sample.json";
-  var STORAGE_KEY = "ups-trade-workbench-state-v2";
+  var STORAGE_KEY = "ups-trade-workbench-state-v3";
   var GROUP_ORDER = ["QB", "RB", "WR", "TE", "PK", "PN", "DT", "DE", "LB", "CB", "S", "DL", "DB", "PICKS", "OTHER"];
+  var POSITION_FILTER_GROUPS = [
+    { key: "OFF", label: "OFF", hint: "QB RB WR TE", positions: { QB: true, RB: true, WR: true, TE: true } },
+    { key: "DL", label: "DL", hint: "DE DT", positions: { DE: true, DT: true, DL: true } },
+    { key: "LB", label: "LB", hint: "LB", positions: { LB: true } },
+    { key: "DB", label: "DB", hint: "CB S", positions: { CB: true, S: true, DB: true } },
+    { key: "ST", label: "ST", hint: "PK PN", positions: { PK: true, PN: true } }
+  ];
   var heightSyncInstalled = false;
   var heightPostTimer = 0;
   var lastPostedHeight = 0;
@@ -26,7 +33,20 @@
       showPicks: true,
       onlyExtensionEligible: false
     },
-    collapsed: {}
+    collapsed: {},
+    submit: {
+      busy: false,
+      message: "No offer submitted yet.",
+      tone: ""
+    },
+    offers: {
+      loading: false,
+      error: "",
+      incoming: [],
+      outgoing: [],
+      counts: null,
+      lastLoadedAt: ""
+    }
   };
 
   var els = {};
@@ -132,6 +152,50 @@
     if (pos === "WR") return "twb-pill-position-wr";
     if (pos === "TE") return "twb-pill-position-te";
     if (pos === "DT" || pos === "DE" || pos === "LB" || pos === "CB" || pos === "S" || pos === "DL" || pos === "DB") return "twb-pill-position-def";
+    return "";
+  }
+
+  function getPositionFilterGroupForPosition(pos) {
+    var p = safeStr(pos).toUpperCase();
+    var i;
+    for (i = 0; i < POSITION_FILTER_GROUPS.length; i += 1) {
+      if (POSITION_FILTER_GROUPS[i].positions[p]) return POSITION_FILTER_GROUPS[i];
+    }
+    return null;
+  }
+
+  function getAvailablePositionFilterGroups() {
+    var available = {};
+    var rawPositions = (((state || {}).data || {}).filtersMeta || {}).positions || [];
+    var i;
+    for (i = 0; i < rawPositions.length; i += 1) {
+      var grp = getPositionFilterGroupForPosition(rawPositions[i]);
+      if (grp) available[grp.key] = true;
+    }
+    var out = [];
+    for (i = 0; i < POSITION_FILTER_GROUPS.length; i += 1) {
+      if (available[POSITION_FILTER_GROUPS[i].key]) out.push(POSITION_FILTER_GROUPS[i]);
+    }
+    return out;
+  }
+
+  function isRookieContractType(contractType) {
+    var s = safeStr(contractType).toLowerCase();
+    return s.indexOf("rookie") !== -1 || s === "r" || s.indexOf("mym - rookie") !== -1;
+  }
+
+  function isTradeEligibleAsset(asset) {
+    if (!asset) return false;
+    if (asset.type !== "PLAYER") return true;
+    if (asset.years === 0 && !isRookieContractType(asset.contract_type)) return false;
+    return true;
+  }
+
+  function getTradeIneligibleReason(asset) {
+    if (!asset) return "";
+    if (asset.type === "PLAYER" && asset.years === 0 && !isRookieContractType(asset.contract_type)) {
+      return "Ineligible: 0 years left and not a rookie contract";
+    }
     return "";
   }
 
@@ -352,11 +416,11 @@
       },
       teams: teams,
       extension_previews: raw.extension_previews || raw.extensionPreviews || [],
-      filtersMeta: {
-        positions: uniqueSorted(allPositions),
-        contractTypes: uniqueSorted(allContractTypes),
-        maxYears: Math.max(maxYears, 4)
-      },
+          filtersMeta: {
+            positions: uniqueSorted(allPositions),
+            contractTypes: uniqueSorted(allContractTypes),
+            maxYears: 3
+          },
       stats: {
         teamCount: teams.length,
         assetCount: allAssetsCount
@@ -509,6 +573,220 @@
     return fetchJson(resolveRelativeUrl(SAMPLE_DATA_URL));
   }
 
+  function resolveTradeOffersApiUrl() {
+    var explicit = safeStr(window.UPS_TRADE_OFFERS_API || window.UPS_TRADE_WORKBENCH_OFFERS_API);
+    if (explicit) return resolveRelativeUrl(explicit);
+
+    var apiUrl = buildApiRequestUrlFromQuery();
+    if (apiUrl) {
+      try {
+        var u = new URL(apiUrl, window.location.href);
+        u.search = "";
+        u.hash = "";
+        u.pathname = String(u.pathname || "").replace(/\/trade-workbench\/?$/i, "/trade-offers");
+        return u.toString();
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    return "https://upsmflproduction.keith-creelman.workers.dev/trade-offers";
+  }
+
+  async function fetchJsonRequest(url, options) {
+    var res = await fetch(url, options || {});
+    var text = await res.text();
+    var data = null;
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch (e) {
+      data = null;
+    }
+    if (!res.ok) {
+      var errMsg = (data && (data.error || data.reason)) || ("HTTP " + res.status);
+      var err = new Error(errMsg);
+      err.status = res.status;
+      err.data = data;
+      err.responseText = text;
+      throw err;
+    }
+    return data;
+  }
+
+  function isoToLocalShort(iso) {
+    var s = safeStr(iso);
+    if (!s) return "";
+    var d = new Date(s);
+    if (isNaN(d.getTime())) return s;
+    try {
+      return d.toLocaleString();
+    } catch (e) {
+      return s;
+    }
+  }
+
+  function setSubmitStatus(message, tone) {
+    state.submit.message = safeStr(message) || "";
+    state.submit.tone = safeStr(tone) || "";
+  }
+
+  function renderOffersSections(payload) {
+    if (!els.offersList || !els.offersCounts || !els.submitOfferBtn || !els.submitOfferStatus) return;
+
+    var isReady = !!(payload && payload.validation && payload.validation.status === "ready");
+    els.submitOfferBtn.disabled = !!state.submit.busy || !isReady;
+    els.submitOfferBtn.textContent = state.submit.busy ? "Submitting…" : "Submit Offer";
+
+    els.submitOfferStatus.textContent = state.submit.message || "No offer submitted yet.";
+    els.submitOfferStatus.className = "twb-summary-note";
+    if (state.submit.tone) {
+      els.submitOfferStatus.className += " twb-submit-status-" + state.submit.tone;
+    }
+
+    if (state.offers.loading) {
+      els.offersCounts.textContent = "Loading…";
+      els.offersList.innerHTML = '<div class="twb-summary-note">Loading offers…</div>';
+      return;
+    }
+    if (state.offers.error) {
+      els.offersCounts.textContent = "Inbox Error";
+      els.offersList.innerHTML = '<div class="twb-error-state">' + escapeHtml(state.offers.error) + '</div>';
+      return;
+    }
+
+    var counts = state.offers.counts || {};
+    var incomingPending = safeInt(counts.incoming_pending, 0);
+    var outgoingPending = safeInt(counts.outgoing_pending, 0);
+    els.offersCounts.textContent = "In " + incomingPending + " · Out " + outgoingPending;
+
+    function sectionHtml(title, items, emptyText) {
+      var html = '<section class="twb-offers-section"><h3 class="twb-offers-section-title">' + escapeHtml(title) + "</h3>";
+      if (!items || !items.length) {
+        html += '<div class="twb-summary-note">' + escapeHtml(emptyText) + "</div></section>";
+        return html;
+      }
+      html += '<div class="twb-offers-items">';
+      var i;
+      for (i = 0; i < items.length; i += 1) {
+        var item = items[i] || {};
+        var status = safeStr(item.status || "PENDING").toLowerCase();
+        var summary = item.summary || {};
+        var titleLine =
+          escapeHtml(safeStr(item.from_franchise_name || item.from_franchise_id)) +
+          " → " +
+          escapeHtml(safeStr(item.to_franchise_name || item.to_franchise_id));
+        var meta =
+          escapeHtml(isoToLocalShort(item.created_at)) +
+          " · Assets " +
+          escapeHtml(String(safeInt(summary.from_asset_count, 0))) +
+          "/" +
+          escapeHtml(String(safeInt(summary.to_asset_count, 0))) +
+          (summary.extension_request_count != null
+            ? " · Ext " + escapeHtml(String(safeInt(summary.extension_request_count, 0)))
+            : "");
+
+        html += '<div class="twb-offer-item">';
+        html += '<div class="twb-offer-item-head">';
+        html += '<div><div class="twb-offer-item-title">' + titleLine + "</div>";
+        html += '<div class="twb-offer-item-meta">' + meta + "</div></div>";
+        html += '<div class="twb-offer-status ' + escapeHtml(status) + '">' + escapeHtml(status) + "</div>";
+        html += "</div>";
+        if (safeStr(item.message)) {
+          html += '<div class="twb-offer-item-message">' + escapeHtml(item.message) + "</div>";
+        }
+        html += "</div>";
+      }
+      html += "</div></section>";
+      return html;
+    }
+
+    els.offersList.innerHTML =
+      sectionHtml("Incoming", state.offers.incoming, "No incoming offers for the selected team.") +
+      sectionHtml("Outgoing", state.offers.outgoing, "No outgoing offers for the selected team.");
+  }
+
+  async function refreshOfferInbox() {
+    if (!state.data || !state.leftTeamId || !els.offersList) return;
+    state.offers.loading = true;
+    state.offers.error = "";
+    renderOffersSections(buildTradePayload());
+
+    try {
+      var apiUrl = new URL(resolveTradeOffersApiUrl(), window.location.href);
+      apiUrl.searchParams.set("L", safeStr(state.data.meta.league_id));
+      apiUrl.searchParams.set("YEAR", String(state.data.meta.season || ""));
+      apiUrl.searchParams.set("FRANCHISE_ID", safeStr(state.leftTeamId));
+      apiUrl.searchParams.set("include_payload", "0");
+      apiUrl.searchParams.set("limit", "12");
+
+      var data = await fetchJsonRequest(apiUrl.toString(), { cache: "no-store" });
+      state.offers.loading = false;
+      state.offers.error = "";
+      state.offers.incoming = Array.isArray(data.incoming) ? data.incoming : [];
+      state.offers.outgoing = Array.isArray(data.outgoing) ? data.outgoing : [];
+      state.offers.counts = data.counts || {};
+      state.offers.lastLoadedAt = new Date().toISOString();
+    } catch (err) {
+      state.offers.loading = false;
+      state.offers.error = err && err.message ? err.message : String(err);
+      state.offers.incoming = [];
+      state.offers.outgoing = [];
+      state.offers.counts = null;
+    }
+    renderOffersSections(buildTradePayload());
+    scheduleParentHeightPost();
+  }
+
+  async function submitOfferToQueue() {
+    if (state.submit.busy) return;
+    var payload = buildTradePayload();
+    if (!payload.validation || payload.validation.status !== "ready") {
+      setSubmitStatus("Trade is not ready. Select assets on both sides and keep traded salary within max.", "warn");
+      renderOffersSections(payload);
+      return;
+    }
+    var leftTeam = getTeamById(state.leftTeamId);
+    var rightTeam = getTeamById(state.rightTeamId);
+    if (!leftTeam || !rightTeam) {
+      setSubmitStatus("Select both teams before submitting.", "warn");
+      renderOffersSections(payload);
+      return;
+    }
+
+    state.submit.busy = true;
+    setSubmitStatus("Submitting offer to UPS inbox…", "");
+    renderOffersSections(payload);
+
+    try {
+      var apiUrl = new URL(resolveTradeOffersApiUrl(), window.location.href);
+      var body = {
+        league_id: safeStr(state.data.meta.league_id),
+        season: state.data.meta.season || null,
+        from_franchise_id: safeStr(state.leftTeamId),
+        to_franchise_id: safeStr(state.rightTeamId),
+        from_franchise_name: leftTeam.franchise_name,
+        to_franchise_name: rightTeam.franchise_name,
+        message: els.offerMessageInput ? safeStr(els.offerMessageInput.value).slice(0, 2000) : "",
+        payload: payload,
+        source: "trade-workbench-ui"
+      };
+      var res = await fetchJsonRequest(apiUrl.toString(), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+      setSubmitStatus("Offer submitted: " + safeStr((res.offer || {}).id || "saved") + " (custom queue).", "good");
+      if (els.offerMessageInput) els.offerMessageInput.value = "";
+      await refreshOfferInbox();
+    } catch (err) {
+      setSubmitStatus("Submit failed: " + (err && err.message ? err.message : String(err)), "bad");
+      renderOffersSections(payload);
+    } finally {
+      state.submit.busy = false;
+      renderOffersSections(buildTradePayload());
+    }
+  }
+
   function getTeamById(teamId) {
     var teams = (state.data && state.data.teams) || [];
     var i;
@@ -615,6 +893,10 @@
     for (i = 0; i < assets.length; i += 1) {
       var a = assets[i];
       if (!selectedMap[a.asset_id]) continue;
+      if (!isTradeEligibleAsset(a)) {
+        delete selectedMap[a.asset_id];
+        continue;
+      }
       out.selectedCount += 1;
       if (a.type === "PICK") {
         out.selectedPicks += 1;
@@ -657,7 +939,8 @@
       if (f.onlyExtensionEligible && !asset.extension_eligible) return false;
 
       if (activeFilterCount(f.activePositions) > 0) {
-        if (!f.activePositions[safeStr(asset.position).toUpperCase()]) return false;
+        var posGroup = getPositionFilterGroupForPosition(asset.position);
+        if (!posGroup || !f.activePositions[posGroup.key]) return false;
       }
 
       if (activeFilterCount(f.activeContractTypes) > 0) {
@@ -756,7 +1039,7 @@
     var i;
     for (i = 0; i < teams.length; i += 1) {
       var t = teams[i];
-      var label = t.franchise_name + " (" + t.franchise_abbrev + ")";
+      var label = t.franchise_name;
       left.appendChild(optionEl(t.franchise_id, label));
       right.appendChild(optionEl(t.franchise_id, label));
     }
@@ -776,7 +1059,7 @@
   }
 
   function initYearFilters() {
-    var maxYears = state.data.filtersMeta.maxYears || 4;
+    var maxYears = 3;
     var i;
     var selects = [els.yearsMinSelect, els.yearsMaxSelect];
     for (i = 0; i < selects.length; i += 1) {
@@ -797,8 +1080,8 @@
     var wrap = els.positionChips;
     if (!wrap) return;
     wrap.innerHTML = "";
-    var positions = state.data.filtersMeta.positions || [];
-    if (!positions.length) {
+    var groups = getAvailablePositionFilterGroups();
+    if (!groups.length) {
       var empty = document.createElement("div");
       empty.className = "twb-summary-note";
       empty.textContent = "No positions found in loaded data.";
@@ -806,15 +1089,15 @@
       return;
     }
     var i;
-    for (i = 0; i < positions.length; i += 1) {
-      var pos = positions[i];
+    for (i = 0; i < groups.length; i += 1) {
+      var grp = groups[i];
       var btn = document.createElement("button");
       btn.type = "button";
       btn.className = "twb-chip";
       btn.setAttribute("data-action", "toggle-position-filter");
-      btn.setAttribute("data-position", pos);
-      btn.setAttribute("aria-pressed", state.filters.activePositions[pos] ? "true" : "false");
-      btn.textContent = pos;
+      btn.setAttribute("data-position", grp.key);
+      btn.setAttribute("aria-pressed", state.filters.activePositions[grp.key] ? "true" : "false");
+      btn.innerHTML = '<span class="twb-chip-main">' + escapeHtml(grp.label) + '</span><span class="twb-chip-sub">' + escapeHtml(grp.hint) + '</span>';
       wrap.appendChild(btn);
     }
   }
@@ -942,9 +1225,9 @@
     var salaryMax = node.querySelector(".twb-trade-salary-max");
 
     var teamAbbrev = safeStr(team.franchise_abbrev || team.franchise_id);
-    eyebrow.textContent = side === "left" ? "Your Side" : "Trade Partner";
+    eyebrow.textContent = "";
     title.textContent = team.franchise_name;
-    meta.textContent = teamAbbrev || team.franchise_id;
+    meta.textContent = "";
 
     if (logoFallback) {
       logoFallback.textContent = teamAbbrev || safeStr(team.franchise_name).slice(0, 3).toUpperCase();
@@ -1139,11 +1422,13 @@
   function renderAssetRow(team, asset) {
     var teamId = team.franchise_id;
     var selected = !!(state.selections[teamId] && state.selections[teamId][asset.asset_id]);
+    var eligible = isTradeEligibleAsset(asset);
     var tr = document.createElement("tr");
     tr.setAttribute("data-asset-id", asset.asset_id);
     tr.setAttribute("data-team-id", teamId);
     if (selected) tr.className = "twb-row-selected";
     if (asset.taxi) tr.className = (tr.className ? tr.className + " " : "") + "twb-row-taxi";
+    if (!eligible) tr.className = (tr.className ? tr.className + " " : "") + "twb-row-ineligible";
 
     var tdSelect = document.createElement("td");
     tdSelect.className = "twb-col-select";
@@ -1152,6 +1437,7 @@
     cb.type = "checkbox";
     cb.className = "twb-asset-select";
     cb.checked = selected;
+    cb.disabled = !eligible;
     cb.setAttribute("data-action", "toggle-asset");
     cb.setAttribute("data-team-id", teamId);
     cb.setAttribute("data-asset-id", asset.asset_id);
@@ -1211,6 +1497,13 @@
       sub.textContent = subText;
       main.appendChild(sub);
     }
+    var ineligibleReason = getTradeIneligibleReason(asset);
+    if (ineligibleReason) {
+      var ruleNote = document.createElement("div");
+      ruleNote.className = "twb-asset-sub twb-asset-sub-warn";
+      ruleNote.textContent = ineligibleReason;
+      main.appendChild(ruleNote);
+    }
 
     tdPlayer.appendChild(main);
     tr.appendChild(tdPlayer);
@@ -1245,7 +1538,12 @@
     var assets = team.assets || [];
     var i;
     for (i = 0; i < assets.length; i += 1) {
-      if (map[assets[i].asset_id]) out.push(assets[i]);
+      if (!map[assets[i].asset_id]) continue;
+      if (!isTradeEligibleAsset(assets[i])) {
+        delete map[assets[i].asset_id];
+        continue;
+      }
+      out.push(assets[i]);
     }
     return out;
   }
@@ -1427,6 +1725,7 @@
     summaryEl.appendChild(renderTradeMetaSection(payload));
 
     els.payloadPreview.textContent = JSON.stringify(payload, null, 2);
+    renderOffersSections(payload);
   }
 
   function renderSideSummarySection(item) {
@@ -1502,7 +1801,7 @@
     var submitNote = document.createElement("div");
     submitNote.className = "twb-summary-note";
     submitNote.style.marginTop = "0.55rem";
-    submitNote.textContent = "Submission is not wired yet. This screen builds and validates the trade payload that your backend can store, review, and later send to MFL or your custom approval workflow.";
+    submitNote.textContent = "Submit Offer stores a pending trade in the UPS custom offer queue and shows it in the recipient team's inbox. MFL trade submission/acceptance processing is still a later integration step.";
     section.appendChild(submitNote);
 
     return section;
@@ -1532,7 +1831,11 @@
 
   function toggleAsset(teamId, assetId, checked) {
     ensureSelectionMaps(teamId);
-    if (checked) state.selections[teamId][assetId] = true;
+    if (checked) {
+      var asset = getAssetById(teamId, assetId);
+      if (!isTradeEligibleAsset(asset)) return;
+      state.selections[teamId][assetId] = true;
+    }
     else {
       delete state.selections[teamId][assetId];
       if (state.extensions[teamId]) delete state.extensions[teamId][assetId];
@@ -1585,7 +1888,10 @@
       var cb = checkboxes[i];
       var aid = cb.getAttribute("data-asset-id");
       if (!aid) continue;
-      if (shouldSelect) state.selections[teamId][aid] = true;
+      if (shouldSelect) {
+        if (cb.disabled) continue;
+        state.selections[teamId][aid] = true;
+      }
       else {
         delete state.selections[teamId][aid];
         if (state.extensions[teamId]) delete state.extensions[teamId][aid];
@@ -1686,6 +1992,7 @@
         }
       }
       rerender();
+      refreshOfferInbox();
     });
 
     els.rightTeamSelect.addEventListener("change", function () {
@@ -1701,6 +2008,7 @@
         }
       }
       rerender();
+      refreshOfferInbox();
     });
 
     els.searchInput.addEventListener("input", function () {
@@ -1730,6 +2038,17 @@
       resetTrade();
       rerender();
     });
+
+    if (els.refreshOffersBtn) {
+      els.refreshOffersBtn.addEventListener("click", function () {
+        refreshOfferInbox();
+      });
+    }
+    if (els.submitOfferBtn) {
+      els.submitOfferBtn.addEventListener("click", function () {
+        submitOfferToQueue();
+      });
+    }
 
     els.toolbar.addEventListener("click", function (evt) {
       var target = evt.target;
@@ -1849,6 +2168,12 @@
     els.summaryContent = q("twbSummaryContent");
     els.summaryStatus = q("twbSummaryStatus");
     els.payloadPreview = q("twbPayloadPreview");
+    els.offerMessageInput = q("twbOfferMessageInput");
+    els.submitOfferBtn = q("twbSubmitOfferBtn");
+    els.submitOfferStatus = q("twbSubmitOfferStatus");
+    els.offersCounts = q("twbOffersCounts");
+    els.offersList = q("twbOffersList");
+    els.refreshOffersBtn = q("twbRefreshOffersBtn");
   }
 
   function seedInitialTeams() {
@@ -1886,6 +2211,9 @@
     if (els.payloadPreview) {
       els.payloadPreview.textContent = "{}";
     }
+    if (els.offersList) {
+      els.offersList.innerHTML = "";
+    }
     scheduleParentHeightPost();
   }
 
@@ -1907,12 +2235,15 @@
       bindEvents();
       state.uiReady = true;
       rerender();
+      refreshOfferInbox();
 
       window.upsTradeWorkbench = {
         state: state,
         normalizeData: normalizeData,
         buildTradePayload: buildTradePayload,
-        rerender: rerender
+        rerender: rerender,
+        refreshOfferInbox: refreshOfferInbox,
+        submitOfferToQueue: submitOfferToQueue
       };
       postParentHeight(true);
     } catch (err) {

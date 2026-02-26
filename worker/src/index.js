@@ -25,7 +25,8 @@ export default {
         path !== "/offer-mym" &&
         path !== "/offer-restructure" &&
         path !== "/commish-contract-update" &&
-        path !== "/trade-workbench"
+        path !== "/trade-workbench" &&
+        !path.startsWith("/trade-offers")
       ) {
         return new Response(
           JSON.stringify({ ok: false, isAdmin: false, reason: "Missing L param" }),
@@ -603,7 +604,7 @@ export default {
       // ---------- Cookie ----------
       const cookie = env.MFL_COOKIE || "";
       if (!cookie) {
-        if (path === "/trade-workbench") {
+        if (path === "/trade-workbench" || path.startsWith("/trade-offers")) {
           // Allow public trade workbench payloads (league/rosters/players) without a commish cookie.
           // Draft picks (assets export) and default-franchise detection may be unavailable and are surfaced as warnings.
         } else {
@@ -1060,6 +1061,410 @@ export default {
           }
         );
       };
+
+      const githubRepoOwner = String(env.GITHUB_REPO_OWNER || "keithcreelman").trim();
+      const githubRepoName = String(env.GITHUB_REPO_NAME || "upsmflproduction").trim();
+      const githubPat = String(env.GITHUB_PAT || "").trim();
+      const githubApiBase =
+        `https://api.github.com/repos/${encodeURIComponent(githubRepoOwner)}` +
+        `/${encodeURIComponent(githubRepoName)}`;
+
+      const utf8ToBase64 = (text) => {
+        const bytes = new TextEncoder().encode(String(text || ""));
+        let binary = "";
+        const chunk = 0x8000;
+        for (let i = 0; i < bytes.length; i += chunk) {
+          binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+        }
+        return btoa(binary);
+      };
+
+      const base64ToUtf8 = (b64) => {
+        const clean = String(b64 || "").replace(/\s/g, "");
+        const binary = atob(clean);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+        return new TextDecoder().decode(bytes);
+      };
+
+      const githubApiRequest = async (method, apiPath, body) => {
+        if (!githubPat) {
+          return { ok: false, status: 0, error: "Missing GITHUB_PAT worker secret", data: null, textPreview: "" };
+        }
+        const target = apiPath.startsWith("http") ? apiPath : `${githubApiBase}${apiPath}`;
+        let res;
+        let text = "";
+        try {
+          res = await fetch(target, {
+            method,
+            headers: {
+              Authorization: `Bearer ${githubPat}`,
+              Accept: "application/vnd.github+json",
+              "Content-Type": "application/json",
+              "User-Agent": "upsmflproduction-worker",
+              "X-GitHub-Api-Version": "2022-11-28",
+            },
+            body: body == null ? undefined : JSON.stringify(body),
+            cf: { cacheTtl: 0, cacheEverything: false },
+          });
+          text = await res.text();
+        } catch (e) {
+          return {
+            ok: false,
+            status: 0,
+            error: `fetch_failed: ${e?.message || String(e)}`,
+            data: null,
+            textPreview: "",
+            url: target,
+          };
+        }
+        let data = null;
+        try {
+          data = text ? JSON.parse(text) : null;
+        } catch (_) {
+          data = null;
+        }
+        return {
+          ok: !!res.ok,
+          status: res.status,
+          data,
+          textPreview: String(text || "").slice(0, 600),
+          url: target,
+          error: res.ok ? "" : (data?.message || `HTTP ${res.status}`),
+        };
+      };
+
+      const tradeOffersFilePath = (leagueId, season) =>
+        `site/trades/trade_offers_${encodeURIComponent(String(leagueId || ""))}_${encodeURIComponent(
+          String(season || "")
+        )}.json`;
+
+      const emptyTradeOffersDoc = (leagueId, season) => ({
+        meta: {
+          schema_version: 1,
+          league_id: String(leagueId || ""),
+          season: Number(season || 0) || 0,
+          updated_at: new Date().toISOString(),
+          row_count: 0,
+          source: "worker-trade-offers",
+        },
+        offers: [],
+      });
+
+      const normalizeTradeOffersDoc = (raw, leagueId, season) => {
+        const doc = raw && typeof raw === "object" ? raw : {};
+        const out = emptyTradeOffersDoc(leagueId, season);
+        out.meta = {
+          ...out.meta,
+          ...(doc.meta && typeof doc.meta === "object" ? doc.meta : {}),
+          league_id: String(leagueId || ""),
+          season: Number(season || 0) || 0,
+        };
+        out.offers = Array.isArray(doc.offers) ? doc.offers.filter(Boolean) : [];
+        out.meta.row_count = out.offers.length;
+        return out;
+      };
+
+      const readTradeOffersDoc = async (leagueId, season) => {
+        const filePath = tradeOffersFilePath(leagueId, season);
+        if (!githubPat) {
+          const publicUrl = `https://cdn.jsdelivr.net/gh/${encodeURIComponent(githubRepoOwner)}/${encodeURIComponent(
+            githubRepoName
+          )}@main/${filePath}`;
+          try {
+            const res = await fetch(publicUrl, {
+              headers: { "Cache-Control": "no-store" },
+              cf: { cacheTtl: 0, cacheEverything: false },
+            });
+            if (!res.ok) {
+              if (res.status === 404) {
+                return { ok: true, exists: false, sha: "", filePath, doc: emptyTradeOffersDoc(leagueId, season) };
+              }
+              return { ok: false, exists: false, sha: "", filePath, error: `HTTP ${res.status}` };
+            }
+            const payload = await res.json();
+            return {
+              ok: true,
+              exists: true,
+              sha: "",
+              filePath,
+              doc: normalizeTradeOffersDoc(payload, leagueId, season),
+            };
+          } catch (e) {
+            return { ok: false, exists: false, sha: "", filePath, error: `fetch_failed: ${e?.message || String(e)}` };
+          }
+        }
+
+        const apiRes = await githubApiRequest(
+          "GET",
+          `/contents/${filePath}?ref=${encodeURIComponent(String(env.GITHUB_REPO_BRANCH || "main").trim() || "main")}`
+        );
+        if (!apiRes.ok && apiRes.status === 404) {
+          return { ok: true, exists: false, sha: "", filePath, doc: emptyTradeOffersDoc(leagueId, season) };
+        }
+        if (!apiRes.ok) {
+          return {
+            ok: false,
+            exists: false,
+            sha: "",
+            filePath,
+            error: apiRes.error || "GitHub contents GET failed",
+            upstreamStatus: apiRes.status,
+            upstreamPreview: apiRes.textPreview,
+          };
+        }
+        try {
+          const rawContent = base64ToUtf8(apiRes.data?.content || "");
+          const parsed = rawContent ? JSON.parse(rawContent) : {};
+          return {
+            ok: true,
+            exists: true,
+            sha: String(apiRes.data?.sha || ""),
+            filePath,
+            doc: normalizeTradeOffersDoc(parsed, leagueId, season),
+          };
+        } catch (e) {
+          return { ok: false, exists: true, sha: "", filePath, error: `parse_failed: ${e?.message || String(e)}` };
+        }
+      };
+
+      const writeTradeOffersDoc = async (leagueId, season, doc, prevSha, message) => {
+        const filePath = tradeOffersFilePath(leagueId, season);
+        if (!githubPat) {
+          return { ok: false, error: "Missing GITHUB_PAT worker secret", filePath };
+        }
+        const normalized = normalizeTradeOffersDoc(doc, leagueId, season);
+        normalized.meta.updated_at = new Date().toISOString();
+        normalized.meta.row_count = Array.isArray(normalized.offers) ? normalized.offers.length : 0;
+        const body = {
+          message: String(message || "Update trade offers queue"),
+          content: utf8ToBase64(JSON.stringify(normalized, null, 2) + "\n"),
+          branch: String(env.GITHUB_REPO_BRANCH || "main").trim() || "main",
+        };
+        if (prevSha) body.sha = String(prevSha);
+        const apiRes = await githubApiRequest("PUT", `/contents/${filePath}`, body);
+        if (!apiRes.ok) {
+          return {
+            ok: false,
+            error: apiRes.error || "GitHub contents PUT failed",
+            upstreamStatus: apiRes.status,
+            upstreamPreview: apiRes.textPreview,
+            filePath,
+          };
+        }
+        return {
+          ok: true,
+          filePath,
+          commitSha: String(apiRes.data?.commit?.sha || ""),
+          contentSha: String(apiRes.data?.content?.sha || ""),
+          doc: normalized,
+        };
+      };
+
+      const summarizeOfferPayload = (payload) => {
+        const teams = Array.isArray(payload?.teams) ? payload.teams : [];
+        const left = teams.find((t) => safeStr(t?.role).toLowerCase() === "left") || teams[0] || {};
+        const right = teams.find((t) => safeStr(t?.role).toLowerCase() === "right") || teams[1] || {};
+        const leftAssets = Array.isArray(left?.selected_assets) ? left.selected_assets : [];
+        const rightAssets = Array.isArray(right?.selected_assets) ? right.selected_assets : [];
+        const extReqs = Array.isArray(payload?.extension_requests) ? payload.extension_requests : [];
+        return {
+          from_asset_count: leftAssets.length,
+          to_asset_count: rightAssets.length,
+          from_trade_salary_k: safeInt(left?.traded_salary_adjustment_k, 0),
+          to_trade_salary_k: safeInt(right?.traded_salary_adjustment_k, 0),
+          extension_request_count: extReqs.length,
+        };
+      };
+
+      const offerStatusNormalized = (v, fallback = "") => {
+        const s = safeStr(v);
+        if (s) return s.toUpperCase();
+        const fb = safeStr(fallback);
+        return fb ? fb.toUpperCase() : "";
+      };
+
+      const sanitizeOfferForList = (offer, includePayload) => {
+        const out = { ...(offer || {}) };
+        out.status = offerStatusNormalized(out.status, "PENDING");
+        if (!includePayload) delete out.payload;
+        return out;
+      };
+
+      if (path === "/trade-offers" && request.method === "GET") {
+        const leagueId = safeStr(url.searchParams.get("L") || L || "");
+        const season = safeStr(url.searchParams.get("YEAR") || YEAR || "");
+        if (!leagueId) return jsonOut(400, { ok: false, error: "Missing L param" });
+        if (!season) return jsonOut(400, { ok: false, error: "Missing YEAR param" });
+
+        const franchiseId = padFranchiseId(
+          url.searchParams.get("FRANCHISE_ID") ||
+            url.searchParams.get("F") ||
+            url.searchParams.get("franchise_id") ||
+            ""
+        );
+        const includePayload = ["1", "true", "yes"].includes(
+          safeStr(url.searchParams.get("include_payload")).toLowerCase()
+        );
+        const statusFilter = offerStatusNormalized(url.searchParams.get("status"), "");
+        const limit = Math.max(1, Math.min(100, safeInt(url.searchParams.get("limit"), 20)));
+
+        const loaded = await readTradeOffersDoc(leagueId, season);
+        if (!loaded.ok) {
+          return jsonOut(500, {
+            ok: false,
+            error: loaded.error || "Failed to load trade offers",
+            storage_path: loaded.filePath || tradeOffersFilePath(leagueId, season),
+          });
+        }
+
+        const allOffers = (loaded.doc?.offers || [])
+          .map((o) => ({ ...(o || {}), status: offerStatusNormalized(o?.status, "PENDING") }))
+          .sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")));
+
+        const applyStatus = (rows) =>
+          !safeStr(statusFilter)
+            ? rows
+            : rows.filter((o) => offerStatusNormalized(o.status, "PENDING") === statusFilter);
+
+        const related = franchiseId
+          ? allOffers.filter(
+              (o) => padFranchiseId(o.from_franchise_id) === franchiseId || padFranchiseId(o.to_franchise_id) === franchiseId
+            )
+          : allOffers.slice();
+        const incoming = franchiseId
+          ? allOffers.filter((o) => padFranchiseId(o.to_franchise_id) === franchiseId)
+          : [];
+        const outgoing = franchiseId
+          ? allOffers.filter((o) => padFranchiseId(o.from_franchise_id) === franchiseId)
+          : [];
+
+        const incomingFiltered = applyStatus(incoming).slice(0, limit).map((o) => sanitizeOfferForList(o, includePayload));
+        const outgoingFiltered = applyStatus(outgoing).slice(0, limit).map((o) => sanitizeOfferForList(o, includePayload));
+        const relatedFiltered = applyStatus(related).slice(0, limit).map((o) => sanitizeOfferForList(o, includePayload));
+
+        return jsonOut(200, {
+          ok: true,
+          league_id: leagueId,
+          season: safeInt(season, Number(season) || 0),
+          franchise_id: franchiseId || "",
+          storage_path: loaded.filePath,
+          counts: {
+            total: allOffers.length,
+            related_total: related.length,
+            incoming_total: incoming.length,
+            outgoing_total: outgoing.length,
+            incoming_pending: incoming.filter((o) => offerStatusNormalized(o.status, "PENDING") === "PENDING").length,
+            outgoing_pending: outgoing.filter((o) => offerStatusNormalized(o.status, "PENDING") === "PENDING").length,
+          },
+          incoming: incomingFiltered,
+          outgoing: outgoingFiltered,
+          offers: relatedFiltered,
+          generated_at: new Date().toISOString(),
+        });
+      }
+
+      if (path === "/trade-offers" && request.method === "POST") {
+        let body = null;
+        try {
+          body = await request.json();
+        } catch (_) {
+          return jsonOut(400, { ok: false, error: "Invalid JSON payload." });
+        }
+
+        const payload = body?.payload && typeof body.payload === "object" ? body.payload : null;
+        const leagueId = safeStr(body?.league_id || payload?.league_id || L || "");
+        const season = safeStr(body?.season || payload?.season || YEAR || "");
+        const fromFranchiseId = padFranchiseId(body?.from_franchise_id || payload?.ui?.left_team_id || "");
+        const toFranchiseId = padFranchiseId(body?.to_franchise_id || payload?.ui?.right_team_id || "");
+        const fromFranchiseName = safeStr(body?.from_franchise_name);
+        const toFranchiseName = safeStr(body?.to_franchise_name);
+        const message = safeStr(body?.message).slice(0, 2000);
+        const validationStatus = safeStr(payload?.validation?.status).toLowerCase();
+
+        if (!leagueId) return jsonOut(400, { ok: false, error: "league_id is required" });
+        if (!season) return jsonOut(400, { ok: false, error: "season is required" });
+        if (!fromFranchiseId) return jsonOut(400, { ok: false, error: "from_franchise_id is required" });
+        if (!toFranchiseId) return jsonOut(400, { ok: false, error: "to_franchise_id is required" });
+        if (fromFranchiseId === toFranchiseId) return jsonOut(400, { ok: false, error: "Teams must be different" });
+        if (!payload) return jsonOut(400, { ok: false, error: "payload is required" });
+        if (validationStatus && validationStatus !== "ready") {
+          return jsonOut(400, { ok: false, error: "Trade payload is not ready to submit" });
+        }
+
+        const nowIso = new Date().toISOString();
+        const makeOffer = () => ({
+          id: `TWB-${(crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`).toString()}`,
+          league_id: leagueId,
+          season: safeInt(season, Number(season) || 0),
+          status: "PENDING",
+          created_at: nowIso,
+          updated_at: nowIso,
+          from_franchise_id: fromFranchiseId,
+          to_franchise_id: toFranchiseId,
+          from_franchise_name: fromFranchiseName || fromFranchiseId,
+          to_franchise_name: toFranchiseName || toFranchiseId,
+          message,
+          source: safeStr(body?.source || "trade-workbench-ui"),
+          summary: summarizeOfferPayload(payload),
+          payload,
+        });
+
+        let saveOut = null;
+        let createdOffer = null;
+        let attempts = 0;
+        while (attempts < 2) {
+          attempts += 1;
+          const loaded = await readTradeOffersDoc(leagueId, season);
+          if (!loaded.ok) {
+            return jsonOut(500, {
+              ok: false,
+              error: loaded.error || "Failed to load trade offers store",
+              storage_path: loaded.filePath || tradeOffersFilePath(leagueId, season),
+            });
+          }
+          const doc = normalizeTradeOffersDoc(loaded.doc, leagueId, season);
+          createdOffer = makeOffer();
+          doc.offers.push(createdOffer);
+          saveOut = await writeTradeOffersDoc(
+            leagueId,
+            season,
+            doc,
+            loaded.sha,
+            `feat(trades): store trade offer ${createdOffer.id}`
+          );
+          if (saveOut.ok) break;
+          // Retry once on GitHub SHA/contention failures.
+          if (attempts >= 2) break;
+        }
+
+        if (!saveOut || !saveOut.ok) {
+          return jsonOut(500, {
+            ok: false,
+            error: saveOut?.error || "Failed to save trade offer",
+            storage_path: saveOut?.filePath || tradeOffersFilePath(leagueId, season),
+            upstreamStatus: saveOut?.upstreamStatus || 0,
+          });
+        }
+
+        const savedDoc = saveOut.doc || emptyTradeOffersDoc(leagueId, season);
+        const allOffers = Array.isArray(savedDoc.offers) ? savedDoc.offers : [];
+        return jsonOut(201, {
+          ok: true,
+          offer: sanitizeOfferForList(createdOffer, true),
+          storage_path: saveOut.filePath,
+          storage_commit_sha: saveOut.commitSha || "",
+          counts: {
+            total: allOffers.length,
+            pending: allOffers.filter((o) => offerStatusNormalized(o?.status, "PENDING") === "PENDING").length,
+            incoming_pending_for_recipient: allOffers.filter(
+              (o) =>
+                padFranchiseId(o?.to_franchise_id) === toFranchiseId &&
+                offerStatusNormalized(o?.status, "PENDING") === "PENDING"
+            ).length,
+          },
+        });
+      }
 
       if (path === "/trade-workbench" && request.method === "GET") {
         const season = safeStr(url.searchParams.get("YEAR") || YEAR || "");
