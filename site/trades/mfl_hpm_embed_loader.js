@@ -46,7 +46,51 @@
     return String(new Date().getFullYear());
   }
 
-  function getFranchiseId(u) {
+  function getCookieString() {
+    try {
+      return safeStr(document.cookie || "");
+    } catch (e) {
+      return "";
+    }
+  }
+
+  function getFranchiseIdFromCookies(leagueId, year) {
+    var lid = safeStr(leagueId).replace(/\D/g, "");
+    if (!lid) return "";
+    var yy = safeStr(year).replace(/\D/g, "");
+    var raw = getCookieString();
+    if (!raw) return "";
+
+    var re = /(?:^|;\s*)MFLPlayerPopup_(\d{4})_(\d+)_(\d{1,4})=/g;
+    var m;
+    var hits = [];
+    while ((m = re.exec(raw))) {
+      var hitYear = safeStr(m[1]);
+      var hitLeague = safeStr(m[2]).replace(/\D/g, "");
+      var hitFr = pad4(m[3]);
+      if (!hitLeague || hitLeague !== lid) continue;
+      if (!hitFr || hitFr === "0000") continue;
+      hits.push({ year: hitYear, franchise_id: hitFr });
+    }
+    if (!hits.length) return "";
+
+    var i;
+    if (yy) {
+      for (i = 0; i < hits.length; i += 1) {
+        if (hits[i].year === yy) return hits[i].franchise_id;
+      }
+    }
+    hits.sort(function (a, b) {
+      var ay = parseInt(a.year, 10);
+      var by = parseInt(b.year, 10);
+      if (!isFinite(ay)) ay = 0;
+      if (!isFinite(by)) by = 0;
+      return by - ay;
+    });
+    return hits[0].franchise_id;
+  }
+
+  function getFranchiseId(u, leagueId, year) {
     var globals = [window.FRANCHISE_ID, window.franchise_id, window.franchiseId, window.fid];
     var i;
     for (i = 0; i < globals.length; i += 1) {
@@ -63,7 +107,9 @@
       if (q) return q;
     }
     var m = safeStr(window.location.pathname).match(/\/home\/\d+\/(\d{1,4})(?:\/|$)/i);
-    return m && m[1] ? pad4(m[1]) : "";
+    if (m && m[1]) return pad4(m[1]);
+
+    return getFranchiseIdFromCookies(leagueId, year);
   }
 
   function getScriptBaseUrl() {
@@ -176,10 +222,12 @@
   }
 
   var pageUrl = getUrl();
+  var leagueId = getLeagueId(pageUrl);
+  var year = getYear(pageUrl);
   var context = {
-    L: getLeagueId(pageUrl),
-    YEAR: getYear(pageUrl),
-    F: getFranchiseId(pageUrl)
+    L: leagueId,
+    YEAR: year,
+    F: getFranchiseId(pageUrl, leagueId, year)
   };
   var iframeUrl = resolveIframeUrl();
   var apiUrl = resolveApiUrl();
