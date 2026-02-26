@@ -3298,7 +3298,11 @@ Replaces bulky default grid with compact toggle view + franchise icons
         best = t;
       }
     });
-    return bestScore > 0 ? best : null;
+    if (!(bestScore > 0 && best)) return null;
+    var checkboxCount = best.querySelectorAll('input[type="checkbox"]').length;
+    var inputCount = best.querySelectorAll("input, select, textarea").length;
+    if (checkboxCount < 4 && inputCount < 4) return null;
+    return best;
   }
 
   function scoreFranchiseTable(table) {
@@ -3326,6 +3330,33 @@ Replaces bulky default grid with compact toggle view + franchise icons
       }
     });
     // Require a meaningful image-bearing table to avoid grabbing another header clone.
+    if (!best) return null;
+    if (best.querySelectorAll("img").length < 2) return null;
+    return best;
+  }
+
+  function nearestFranchiseSiblingTable(wrap, exclude) {
+    if (!wrap || !wrap.parentNode) return null;
+    var parent = wrap.parentNode;
+    var siblings = Array.prototype.slice.call(parent.children || []);
+    var best = null;
+    var bestScore = -1;
+    siblings.forEach(function (node) {
+      if (!node || node === wrap) return;
+      if (node.nodeType !== 1) return;
+      var tables = node.tagName === "TABLE" ? [node] : Array.prototype.slice.call(node.querySelectorAll ? node.querySelectorAll("table") : []);
+      tables.forEach(function (t) {
+        if (!t || t === exclude) return;
+        var cls = String(t.className || "");
+        // Favor MFL frozen/hz helper tables.
+        var hzBoost = /(^|\\s)hz[-_]/i.test(cls) || /hz-/i.test(cls) ? 40 : 0;
+        var score = scoreFranchiseTable(t) + hzBoost;
+        if (score > bestScore) {
+          bestScore = score;
+          best = t;
+        }
+      });
+    });
     if (!best) return null;
     if (best.querySelectorAll("img").length < 2) return null;
     return best;
@@ -3365,6 +3396,11 @@ Replaces bulky default grid with compact toggle view + franchise icons
     var table = bestInteractiveTable(wrap);
     if (!table) return;
     var franchiseTable = bestFranchiseTable(wrap, table);
+    var franchiseSiblingTable = null;
+    if (!franchiseTable || franchiseTable === table) {
+      franchiseSiblingTable = nearestFranchiseSiblingTable(wrap, table);
+      franchiseTable = franchiseSiblingTable || franchiseTable;
+    }
 
     // Preserve the real interactive table and remove the frozen/overlay clones.
     wrap.dataset.upsO93Flattened = "1";
@@ -3379,7 +3415,11 @@ Replaces bulky default grid with compact toggle view + franchise icons
       left.className = "ups-o93-plain-left";
       var right = document.createElement("div");
       right.className = "ups-o93-plain-main";
-      left.appendChild(franchiseTable);
+      if (franchiseSiblingTable && franchiseSiblingTable === franchiseTable) {
+        left.appendChild(franchiseTable.cloneNode(true));
+      } else {
+        left.appendChild(franchiseTable);
+      }
       right.appendChild(table);
       grid.appendChild(left);
       grid.appendChild(right);
@@ -3395,7 +3435,7 @@ Replaces bulky default grid with compact toggle view + franchise icons
 
     try { wrap.removeAttribute("style"); } catch (e) {}
     try { table.removeAttribute("style"); } catch (e) {}
-    if (franchiseTable && franchiseTable !== table) {
+    if (franchiseTable && franchiseTable !== table && !franchiseSiblingTable) {
       try { franchiseTable.removeAttribute("style"); } catch (e) {}
     }
     scrubInlineLayout(wrap);
