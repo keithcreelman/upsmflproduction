@@ -901,6 +901,57 @@ summary:focus-visible {
   white-space: pre-wrap;
 }
 
+.twb-offer-actions {
+  margin-top: 0.5rem;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.35rem;
+}
+
+.twb-offer-action-btn {
+  border-radius: 8px;
+  padding: 0.38rem 0.42rem;
+  font-size: 0.69rem;
+  line-height: 1.1;
+  justify-content: center;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.twb-offer-action-btn:hover {
+  transform: none;
+}
+
+.twb-offer-action-btn[disabled] {
+  cursor: default;
+  opacity: 0.65;
+}
+
+.twb-offer-action-accept {
+  border-color: rgba(86, 215, 154, 0.22);
+  background: rgba(86, 215, 154, 0.08);
+  color: #cbffe7;
+}
+
+.twb-offer-action-reject {
+  border-color: rgba(255, 141, 141, 0.22);
+  background: rgba(255, 141, 141, 0.07);
+  color: #ffd1d1;
+}
+
+.twb-offer-action-counter {
+  border-color: rgba(244, 195, 105, 0.24);
+  background: rgba(244, 195, 105, 0.08);
+  color: #ffe3ad;
+}
+
+.twb-offer-action-note {
+  margin-top: 0.32rem;
+  color: var(--twb-text-soft);
+  font-size: 0.68rem;
+  line-height: 1.25;
+}
+
 .twb-offer-status {
   border-radius: 999px;
   padding: 0.12rem 0.4rem;
@@ -923,6 +974,12 @@ summary:focus-visible {
   border-color: rgba(86, 215, 154, 0.24);
   background: rgba(86, 215, 154, 0.09);
   color: #c9ffe5;
+}
+
+.twb-offer-status.countered {
+  border-color: rgba(244, 195, 105, 0.24);
+  background: rgba(244, 195, 105, 0.09);
+  color: #ffe0a0;
 }
 
 .twb-offer-status.rejected,
@@ -1195,6 +1252,10 @@ summary:focus-visible {
 
   .twb-ext-box {
     min-width: 0;
+  }
+
+  .twb-offer-actions {
+    grid-template-columns: 1fr;
   }
 }
 

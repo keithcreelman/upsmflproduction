@@ -1466,6 +1466,174 @@ export default {
         });
       }
 
+      if (path === "/trade-offers/action" && request.method === "POST") {
+        let body = null;
+        try {
+          body = await request.json();
+        } catch (_) {
+          return jsonOut(400, { ok: false, error: "Invalid JSON payload." });
+        }
+
+        const leagueId = safeStr(body?.league_id || L || "");
+        const season = safeStr(body?.season || YEAR || "");
+        const offerId = safeStr(body?.offer_id);
+        const action = offerStatusNormalized(body?.action, "");
+        const actingFranchiseId = padFranchiseId(body?.acting_franchise_id || body?.franchise_id || "");
+        const actionMessage = safeStr(body?.message).slice(0, 2000);
+
+        if (!leagueId) return jsonOut(400, { ok: false, error: "league_id is required" });
+        if (!season) return jsonOut(400, { ok: false, error: "season is required" });
+        if (!offerId) return jsonOut(400, { ok: false, error: "offer_id is required" });
+        if (!["ACCEPT", "REJECT", "COUNTER"].includes(action)) {
+          return jsonOut(400, { ok: false, error: "action must be ACCEPT, REJECT, or COUNTER" });
+        }
+
+        let saveOut = null;
+        let updatedOffer = null;
+        let counterOffer = null;
+        let attempts = 0;
+
+        while (attempts < 2) {
+          attempts += 1;
+          const loaded = await readTradeOffersDoc(leagueId, season);
+          if (!loaded.ok) {
+            return jsonOut(500, {
+              ok: false,
+              error: loaded.error || "Failed to load trade offers store",
+              storage_path: loaded.filePath || tradeOffersFilePath(leagueId, season),
+            });
+          }
+          const doc = normalizeTradeOffersDoc(loaded.doc, leagueId, season);
+          const offers = Array.isArray(doc.offers) ? doc.offers : [];
+          const idx = offers.findIndex((o) => safeStr(o?.id) === offerId);
+          if (idx === -1) return jsonOut(404, { ok: false, error: "Offer not found" });
+
+          const nowIso = new Date().toISOString();
+          const target = offers[idx];
+          target.status = offerStatusNormalized(target.status, "PENDING");
+
+          if (target.status !== "PENDING") {
+            return jsonOut(409, {
+              ok: false,
+              error: `Offer is already ${target.status}`,
+              offer: sanitizeOfferForList(target, false),
+            });
+          }
+
+          if (actingFranchiseId && action !== "COUNTER") {
+            const recipientId = padFranchiseId(target.to_franchise_id);
+            if (recipientId && actingFranchiseId !== recipientId) {
+              return jsonOut(403, { ok: false, error: "Only the recipient team can accept/reject this offer" });
+            }
+          }
+
+          if (action === "ACCEPT" || action === "REJECT") {
+            target.status = action === "ACCEPT" ? "ACCEPTED" : "REJECTED";
+            target.updated_at = nowIso;
+            target.acted_at = nowIso;
+            if (actingFranchiseId) target.acted_by_franchise_id = actingFranchiseId;
+            if (actionMessage) target.action_message = actionMessage;
+            updatedOffer = { ...target };
+          } else if (action === "COUNTER") {
+            const counter = body?.counter_offer && typeof body.counter_offer === "object" ? body.counter_offer : {};
+            const counterPayload =
+              counter?.payload && typeof counter.payload === "object"
+                ? counter.payload
+                : body?.payload && typeof body.payload === "object"
+                  ? body.payload
+                  : null;
+            const validationStatus = safeStr(counterPayload?.validation?.status).toLowerCase();
+            const fromFranchiseId = padFranchiseId(
+              counter?.from_franchise_id || counterPayload?.ui?.left_team_id || actingFranchiseId || ""
+            );
+            const toFranchiseId = padFranchiseId(
+              counter?.to_franchise_id || counterPayload?.ui?.right_team_id || target.from_franchise_id || ""
+            );
+            const fromFranchiseName = safeStr(counter?.from_franchise_name);
+            const toFranchiseName = safeStr(counter?.to_franchise_name);
+            const counterMessage = safeStr(counter?.message || actionMessage).slice(0, 2000);
+
+            if (!counterPayload) return jsonOut(400, { ok: false, error: "counter_offer.payload is required" });
+            if (validationStatus && validationStatus !== "ready") {
+              return jsonOut(400, { ok: false, error: "Counter payload is not ready" });
+            }
+            if (!fromFranchiseId || !toFranchiseId) {
+              return jsonOut(400, { ok: false, error: "Counter offer team ids are required" });
+            }
+            if (fromFranchiseId === toFranchiseId) {
+              return jsonOut(400, { ok: false, error: "Counter offer teams must be different" });
+            }
+            if (actingFranchiseId && actingFranchiseId !== padFranchiseId(target.to_franchise_id)) {
+              return jsonOut(403, { ok: false, error: "Only the recipient team can counter this offer" });
+            }
+
+            const rootId = safeStr(target.thread_root_offer_id || target.id);
+            counterOffer = {
+              id: `TWB-${(crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`).toString()}`,
+              league_id: leagueId,
+              season: safeInt(season, Number(season) || 0),
+              status: "PENDING",
+              created_at: nowIso,
+              updated_at: nowIso,
+              from_franchise_id: fromFranchiseId,
+              to_franchise_id: toFranchiseId,
+              from_franchise_name: fromFranchiseName || fromFranchiseId,
+              to_franchise_name: toFranchiseName || toFranchiseId,
+              message: counterMessage,
+              source: safeStr(counter?.source || body?.source || "trade-workbench-ui-counter"),
+              summary: summarizeOfferPayload(counterPayload),
+              payload: counterPayload,
+              counter_of_offer_id: target.id,
+              thread_root_offer_id: rootId,
+            };
+
+            target.status = "COUNTERED";
+            target.updated_at = nowIso;
+            target.acted_at = nowIso;
+            if (actingFranchiseId) target.acted_by_franchise_id = actingFranchiseId;
+            target.counter_offer_id = counterOffer.id;
+            if (counterMessage) target.action_message = counterMessage;
+            if (!safeStr(target.thread_root_offer_id)) target.thread_root_offer_id = rootId;
+            offers.push(counterOffer);
+            updatedOffer = { ...target };
+          }
+
+          saveOut = await writeTradeOffersDoc(
+            leagueId,
+            season,
+            doc,
+            loaded.sha,
+            `feat(trades): ${action.toLowerCase()} trade offer ${offerId}`
+          );
+          if (saveOut.ok) break;
+          if (attempts >= 2) break;
+        }
+
+        if (!saveOut || !saveOut.ok) {
+          return jsonOut(500, {
+            ok: false,
+            error: saveOut?.error || "Failed to update trade offer",
+            storage_path: saveOut?.filePath || tradeOffersFilePath(leagueId, season),
+            upstreamStatus: saveOut?.upstreamStatus || 0,
+          });
+        }
+
+        const savedDoc = saveOut.doc || emptyTradeOffersDoc(leagueId, season);
+        const allOffers = Array.isArray(savedDoc.offers) ? savedDoc.offers : [];
+        return jsonOut(200, {
+          ok: true,
+          action,
+          offer: sanitizeOfferForList(updatedOffer, true),
+          counter_offer: counterOffer ? sanitizeOfferForList(counterOffer, true) : null,
+          storage_path: saveOut.filePath,
+          storage_commit_sha: saveOut.commitSha || "",
+          counts: {
+            total: allOffers.length,
+            pending: allOffers.filter((o) => offerStatusNormalized(o?.status, "PENDING") === "PENDING").length,
+          },
+        });
+      }
+
       if (path === "/trade-workbench" && request.method === "GET") {
         const season = safeStr(url.searchParams.get("YEAR") || YEAR || "");
         const leagueId = safeStr(url.searchParams.get("L") || L || "");

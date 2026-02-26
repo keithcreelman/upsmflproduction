@@ -2,7 +2,7 @@
   "use strict";
 
   var SAMPLE_DATA_URL = "./trade_workbench_sample.json";
-  var STORAGE_KEY = "ups-trade-workbench-state-v3";
+  var STORAGE_KEY = "ups-trade-workbench-state-v4";
   var GROUP_ORDER = ["QB", "RB", "WR", "TE", "PK", "PN", "DT", "DE", "LB", "CB", "S", "DL", "DB", "PICKS", "OTHER"];
   var POSITION_FILTER_GROUPS = [
     { key: "OFF", label: "OFF", hint: "QB RB WR TE", positions: { QB: true, RB: true, WR: true, TE: true } },
@@ -45,7 +45,10 @@
       incoming: [],
       outgoing: [],
       counts: null,
-      lastLoadedAt: ""
+      lastLoadedAt: "",
+      actionBusy: false,
+      actionOfferId: "",
+      actionType: ""
     }
   };
 
@@ -593,6 +596,18 @@
     return "https://upsmflproduction.keith-creelman.workers.dev/trade-offers";
   }
 
+  function resolveTradeOffersActionApiUrl() {
+    try {
+      var u = new URL(resolveTradeOffersApiUrl(), window.location.href);
+      u.search = "";
+      u.hash = "";
+      u.pathname = String(u.pathname || "").replace(/\/trade-offers\/?$/i, "/trade-offers/action");
+      return u.toString();
+    } catch (e) {
+      return "https://upsmflproduction.keith-creelman.workers.dev/trade-offers/action";
+    }
+  }
+
   async function fetchJsonRequest(url, options) {
     var res = await fetch(url, options || {});
     var text = await res.text();
@@ -630,6 +645,12 @@
     state.submit.tone = safeStr(tone) || "";
   }
 
+  function setOfferActionBusy(isBusy, offerId, actionType) {
+    state.offers.actionBusy = !!isBusy;
+    state.offers.actionOfferId = isBusy ? safeStr(offerId) : "";
+    state.offers.actionType = isBusy ? safeStr(actionType).toUpperCase() : "";
+  }
+
   function renderOffersSections(payload) {
     if (!els.offersList || !els.offersCounts || !els.submitOfferBtn || !els.submitOfferStatus) return;
 
@@ -659,13 +680,15 @@
     var outgoingPending = safeInt(counts.outgoing_pending, 0);
     els.offersCounts.textContent = "In " + incomingPending + " · Out " + outgoingPending;
 
-    function sectionHtml(title, items, emptyText) {
+    function sectionHtml(title, items, emptyText, direction) {
       var html = '<section class="twb-offers-section"><h3 class="twb-offers-section-title">' + escapeHtml(title) + "</h3>";
       if (!items || !items.length) {
         html += '<div class="twb-summary-note">' + escapeHtml(emptyText) + "</div></section>";
         return html;
       }
       html += '<div class="twb-offers-items">';
+      var busyOfferId = safeStr(state.offers.actionOfferId);
+      var busyActionType = safeStr(state.offers.actionType).toLowerCase();
       var i;
       for (i = 0; i < items.length; i += 1) {
         var item = items[i] || {};
@@ -694,6 +717,67 @@
         if (safeStr(item.message)) {
           html += '<div class="twb-offer-item-message">' + escapeHtml(item.message) + "</div>";
         }
+        if (safeStr(item.action_message)) {
+          html += '<div class="twb-offer-item-message"><strong>Action:</strong> ' + escapeHtml(item.action_message) + "</div>";
+        }
+        var isIncomingPending = direction === "incoming" && status === "pending";
+        if (isIncomingPending) {
+          var itemId = safeStr(item.id);
+          var isBusyForThis = !!(state.offers.actionBusy && busyOfferId && busyOfferId === itemId);
+          var acceptBusy = isBusyForThis && busyActionType === "accept";
+          var rejectBusy = isBusyForThis && busyActionType === "reject";
+          var counterBusy = isBusyForThis && busyActionType === "counter";
+          var disableAttr = state.offers.actionBusy ? ' disabled aria-disabled="true"' : "";
+          html += '<div class="twb-offer-actions">';
+          html +=
+            '<button type="button" class="twb-btn twb-btn-ghost twb-offer-action-btn twb-offer-action-accept" data-action="offer-action" data-offer-action="ACCEPT" data-offer-id="' +
+            escapeHtml(itemId) +
+            '" data-offer-from-id="' +
+            escapeHtml(safeStr(item.from_franchise_id)) +
+            '" data-offer-to-id="' +
+            escapeHtml(safeStr(item.to_franchise_id)) +
+            '" data-offer-from-name="' +
+            escapeHtml(safeStr(item.from_franchise_name || item.from_franchise_id)) +
+            '" data-offer-to-name="' +
+            escapeHtml(safeStr(item.to_franchise_name || item.to_franchise_id)) +
+            '"' +
+            disableAttr +
+            ">" +
+            escapeHtml(acceptBusy ? "Accepting…" : "Accept") +
+            "</button>";
+          html +=
+            '<button type="button" class="twb-btn twb-btn-ghost twb-offer-action-btn twb-offer-action-reject" data-action="offer-action" data-offer-action="REJECT" data-offer-id="' +
+            escapeHtml(itemId) +
+            '" data-offer-from-id="' +
+            escapeHtml(safeStr(item.from_franchise_id)) +
+            '" data-offer-to-id="' +
+            escapeHtml(safeStr(item.to_franchise_id)) +
+            '"' +
+            disableAttr +
+            ">" +
+            escapeHtml(rejectBusy ? "Rejecting…" : "Reject") +
+            "</button>";
+          html +=
+            '<button type="button" class="twb-btn twb-btn-ghost twb-offer-action-btn twb-offer-action-counter" data-action="offer-action" data-offer-action="COUNTER" data-offer-id="' +
+            escapeHtml(itemId) +
+            '" data-offer-from-id="' +
+            escapeHtml(safeStr(item.from_franchise_id)) +
+            '" data-offer-to-id="' +
+            escapeHtml(safeStr(item.to_franchise_id)) +
+            '" data-offer-from-name="' +
+            escapeHtml(safeStr(item.from_franchise_name || item.from_franchise_id)) +
+            '" data-offer-to-name="' +
+            escapeHtml(safeStr(item.to_franchise_name || item.to_franchise_id)) +
+            '"' +
+            disableAttr +
+            ">" +
+            escapeHtml(counterBusy ? "Countering…" : "Counter") +
+            "</button>";
+          html += "</div>";
+          html += '<div class="twb-offer-action-note">Counter uses the current builder selections and salary adjustments.</div>';
+        } else if (status === "countered" && safeStr(item.counter_offer_id)) {
+          html += '<div class="twb-offer-action-note">Countered by ' + escapeHtml(safeStr(item.counter_offer_id)) + ".</div>";
+        }
         html += "</div>";
       }
       html += "</div></section>";
@@ -701,8 +785,8 @@
     }
 
     els.offersList.innerHTML =
-      sectionHtml("Incoming", state.offers.incoming, "No incoming offers for the selected team.") +
-      sectionHtml("Outgoing", state.offers.outgoing, "No outgoing offers for the selected team.");
+      sectionHtml("Incoming", state.offers.incoming, "No incoming offers for the selected team.", "incoming") +
+      sectionHtml("Outgoing", state.offers.outgoing, "No outgoing offers for the selected team.", "outgoing");
   }
 
   async function refreshOfferInbox() {
@@ -783,6 +867,100 @@
       renderOffersSections(payload);
     } finally {
       state.submit.busy = false;
+      renderOffersSections(buildTradePayload());
+    }
+  }
+
+  async function performOfferAction(actionType, meta) {
+    actionType = safeStr(actionType).toUpperCase();
+    meta = meta || {};
+    if (!actionType || !meta.offerId) return;
+    if (state.offers.actionBusy) return;
+    if (!state.data || !state.leftTeamId) return;
+
+    var leagueId = safeStr((state.data.meta || {}).league_id);
+    var season = state.data.meta ? state.data.meta.season : null;
+    var actingTeam = getTeamById(state.leftTeamId);
+    if (!actingTeam) {
+      setSubmitStatus("Select your team before acting on an offer.", "warn");
+      renderOffersSections(buildTradePayload());
+      return;
+    }
+
+    var body = {
+      league_id: leagueId,
+      season: season,
+      offer_id: safeStr(meta.offerId),
+      action: actionType,
+      acting_franchise_id: safeStr(state.leftTeamId)
+    };
+
+    var messageText = els.offerMessageInput ? safeStr(els.offerMessageInput.value).slice(0, 2000) : "";
+    if (messageText) body.message = messageText;
+
+    if (actionType === "COUNTER") {
+      var expectedLeft = pad4(meta.offerToId);
+      var expectedRight = pad4(meta.offerFromId);
+      if (expectedLeft && pad4(state.leftTeamId) !== expectedLeft || expectedRight && pad4(state.rightTeamId) !== expectedRight) {
+        if (expectedLeft) state.leftTeamId = expectedLeft;
+        if (expectedRight) state.rightTeamId = expectedRight;
+        setSubmitStatus(
+          "Counter setup synced to this offer. Build the counter package, then click Counter again.",
+          "warn"
+        );
+        rerender();
+        refreshOfferInbox();
+        return;
+      }
+
+      var counterPayload = buildTradePayload();
+      if (!counterPayload.validation || counterPayload.validation.status !== "ready") {
+        setSubmitStatus("Counter trade is not ready. Select assets on both sides and keep traded salary within max.", "warn");
+        renderOffersSections(counterPayload);
+        return;
+      }
+
+      var counterLeft = getTeamById(state.leftTeamId);
+      var counterRight = getTeamById(state.rightTeamId);
+      body.counter_offer = {
+        from_franchise_id: safeStr(state.leftTeamId),
+        to_franchise_id: safeStr(state.rightTeamId),
+        from_franchise_name: counterLeft ? counterLeft.franchise_name : safeStr(state.leftTeamId),
+        to_franchise_name: counterRight ? counterRight.franchise_name : safeStr(state.rightTeamId),
+        message: messageText,
+        payload: counterPayload,
+        source: "trade-workbench-ui-counter"
+      };
+    }
+
+    setOfferActionBusy(true, meta.offerId, actionType);
+    setSubmitStatus(
+      actionType === "ACCEPT" ? "Accepting offer in UPS custom queue…" : actionType === "REJECT" ? "Rejecting offer in UPS custom queue…" : "Submitting counter offer to UPS custom queue…",
+      ""
+    );
+    renderOffersSections(buildTradePayload());
+
+    try {
+      var res = await fetchJsonRequest(resolveTradeOffersActionApiUrl(), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+      if (actionType === "COUNTER") {
+        var counterId = safeStr((res.counter_offer || {}).id || "");
+        setSubmitStatus("Counter submitted" + (counterId ? ": " + counterId : "") + " (custom queue).", "good");
+      } else if (actionType === "ACCEPT") {
+        setSubmitStatus("Offer accepted in UPS custom queue. MFL processing is still a separate integration step.", "good");
+      } else {
+        setSubmitStatus("Offer rejected in UPS custom queue.", "good");
+      }
+      if (els.offerMessageInput) els.offerMessageInput.value = "";
+      await refreshOfferInbox();
+    } catch (err) {
+      setSubmitStatus(actionType + " failed: " + (err && err.message ? err.message : String(err)), "bad");
+      renderOffersSections(buildTradePayload());
+    } finally {
+      setOfferActionBusy(false, "", "");
       renderOffersSections(buildTradePayload());
     }
   }
@@ -937,11 +1115,6 @@
     if (asset.type === "PLAYER") {
       if (!f.showTaxi && asset.taxi) return false;
       if (f.onlyExtensionEligible && !asset.extension_eligible) return false;
-
-      if (activeFilterCount(f.activePositions) > 0) {
-        var posGroup = getPositionFilterGroupForPosition(asset.position);
-        if (!posGroup || !f.activePositions[posGroup.key]) return false;
-      }
 
       if (activeFilterCount(f.activeContractTypes) > 0) {
         if (!f.activeContractTypes[safeStr(asset.contract_type)]) return false;
@@ -1161,7 +1334,6 @@
     els.searchInput.value = safeStr(state.filters.search);
     initTeamSelectors();
     initYearFilters();
-    initPositionChips();
     initContractTypeFilters();
     initBooleanToggles();
   }
@@ -1174,7 +1346,6 @@
     if (els.searchInput && els.searchInput.value !== safeStr(state.filters.search)) {
       els.searchInput.value = safeStr(state.filters.search);
     }
-    initPositionChips();
     initContractTypeFilters();
     initBooleanToggles();
   }
@@ -2050,18 +2221,6 @@
       });
     }
 
-    els.toolbar.addEventListener("click", function (evt) {
-      var target = evt.target;
-      if (!target) return;
-      var action = target.getAttribute("data-action");
-      if (action === "toggle-position-filter") {
-        var pos = safeStr(target.getAttribute("data-position")).toUpperCase();
-        if (state.filters.activePositions[pos]) delete state.filters.activePositions[pos];
-        else state.filters.activePositions[pos] = true;
-        rerender();
-      }
-    });
-
     els.toolbar.addEventListener("change", function (evt) {
       var target = evt.target;
       if (!target) return;
@@ -2078,6 +2237,27 @@
         rerender();
       }
     });
+
+    if (els.offersList) {
+      els.offersList.addEventListener("click", function (evt) {
+        var node = evt.target;
+        while (node && node !== els.offersList) {
+          var action = node.getAttribute && node.getAttribute("data-action");
+          if (action === "offer-action") {
+            evt.preventDefault();
+            performOfferAction(safeStr(node.getAttribute("data-offer-action")), {
+              offerId: safeStr(node.getAttribute("data-offer-id")),
+              offerFromId: safeStr(node.getAttribute("data-offer-from-id")),
+              offerToId: safeStr(node.getAttribute("data-offer-to-id")),
+              offerFromName: safeStr(node.getAttribute("data-offer-from-name")),
+              offerToName: safeStr(node.getAttribute("data-offer-to-name"))
+            });
+            return;
+          }
+          node = node.parentNode;
+        }
+      });
+    }
 
     els.board.addEventListener("change", function (evt) {
       var target = evt.target;
