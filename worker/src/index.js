@@ -24,7 +24,8 @@ export default {
         !path.startsWith("/mcm") &&
         path !== "/offer-mym" &&
         path !== "/offer-restructure" &&
-        path !== "/commish-contract-update"
+        path !== "/commish-contract-update" &&
+        path !== "/trade-workbench"
       ) {
         return new Response(
           JSON.stringify({ ok: false, isAdmin: false, reason: "Missing L param" }),
@@ -602,10 +603,15 @@ export default {
       // ---------- Cookie ----------
       const cookie = env.MFL_COOKIE || "";
       if (!cookie) {
+        if (path === "/trade-workbench") {
+          // Allow public trade workbench payloads (league/rosters/players) without a commish cookie.
+          // Draft picks (assets export) and default-franchise detection may be unavailable and are surfaced as warnings.
+        } else {
         return new Response(
           JSON.stringify({ ok: false, isAdmin: false, reason: "Missing MFL_COOKIE secret" }),
           { status: 500, headers: { "content-type": "application/json", ...corsHeaders } }
         );
+        }
       }
       const normalizeCookieValue = (raw) => {
         let v = String(raw || "").trim();
@@ -623,7 +629,9 @@ export default {
       const sessionByApiKey = !!commishApiKey && !!browserApiKey && browserApiKey === commishApiKey;
       const sessionKnown = !!browserCookieValue || (!!commishApiKey && !!browserApiKey);
       const sessionMatch = sessionByCookie || sessionByApiKey;
-      const cookieHeader = cookie.includes("=") ? cookie : `MFL_USER_ID=${cookie}`;
+      const cookieHeader = cookie
+        ? (cookie.includes("=") ? cookie : `MFL_USER_ID=${cookie}`)
+        : "";
 
       const getLeagueAdminState = async (leagueId, year) => {
         const mflUrl = `https://api.myfantasyleague.com/${encodeURIComponent(
@@ -812,7 +820,7 @@ export default {
           `https://api.myfantasyleague.com/${encodeURIComponent(String(year || YEAR || "2025"))}` +
           `/export?${qs.toString()}`;
         const headers = { "User-Agent": "upsmflproduction-worker" };
-        if (options.useCookie !== false) headers.Cookie = cookieHeader;
+        if (options.useCookie !== false && cookieHeader) headers.Cookie = cookieHeader;
 
         let res;
         let text = "";
