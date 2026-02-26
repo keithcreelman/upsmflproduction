@@ -216,9 +216,38 @@
     (document.head || document.documentElement).appendChild(style);
   }
 
+  function hasTradeOfferDom() {
+    return (
+      document.querySelectorAll("table.trade-twocolumn-table").length > 0 ||
+      document.querySelectorAll("td.trade-bbid-amt").length > 0 ||
+      document.querySelectorAll("input[name^='bbid']").length > 0
+    );
+  }
+
+  function getTradeOfferForm() {
+    var forms = document.getElementsByTagName("form");
+    var i;
+
+    for (i = 0; i < forms.length; i += 1) {
+      var action = String(forms[i].getAttribute("action") || "").toLowerCase();
+      if (action.indexOf("trade_offer") !== -1) return forms[i];
+    }
+
+    var bbid = document.querySelector("input[name^='bbid']");
+    if (bbid) {
+      var parent = bbid;
+      while (parent && parent.nodeType === 1) {
+        if (parent.tagName === "FORM") return parent;
+        parent = parent.parentNode;
+      }
+    }
+
+    return null;
+  }
+
   function isTradeOfferPage() {
     if (!document.body || document.body.id !== "body_options_05") return false;
-    return !!document.querySelector("form[action*='/trade_offer']");
+    return hasTradeOfferDom() || !!getTradeOfferForm();
   }
 
   function closestTag(node, tagName) {
@@ -494,7 +523,7 @@
   }
 
   function installSubmitConversion() {
-    var form = document.querySelector("form[action*='/trade_offer']");
+    var form = getTradeOfferForm();
     if (!form || form.getAttribute("data-ups-trade-submit-hook") === "1") return;
     form.setAttribute("data-ups-trade-submit-hook", "1");
 
@@ -524,18 +553,32 @@
     if (!isTradeOfferPage()) return;
     if (document.body.getAttribute("data-ups-trade-page-enhanced") === "1") return;
     injectStyles();
-    document.body.setAttribute("data-ups-trade-page-enhanced", "1");
 
     var tables = document.querySelectorAll("table.trade-twocolumn-table");
     Array.prototype.forEach.call(tables, decorateTradeTable);
     installSubmitConversion();
+    document.body.setAttribute("data-ups-trade-page-enhanced", "1");
+  }
+
+  function watchTradeOfferDom() {
+    if (!document.body || document.body.id !== "body_options_05") return;
+    if (document.body.__upsTradeOfferPatchObserver) return;
+    var obs = new MutationObserver(function () {
+      if (document.body.getAttribute("data-ups-trade-page-enhanced") === "1") return;
+      initTradeOfferPatch();
+    });
+    obs.observe(document.body, { childList: true, subtree: true });
+    document.body.__upsTradeOfferPatchObserver = obs;
   }
 
   function init() {
     if (!document.body) return;
+    window.__upsTradeOfferPatchVersion = "2026-02-26b";
     if (document.body.id === "body_options_05") {
       initTradeOfferPatch();
       window.setTimeout(initTradeOfferPatch, 500);
+      window.setTimeout(initTradeOfferPatch, 1500);
+      watchTradeOfferDom();
     }
   }
 
