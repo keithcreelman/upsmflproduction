@@ -1,3 +1,8 @@
 name = "upsmflproduction"
 main = "src/index.js"
 compatibility_date = "2026-02-02"
+
+[vars]
+GITHUB_REPO_OWNER = "keithcreelman"
+GITHUB_REPO_NAME = "ups-league-data"
+GITHUB_REPO_BRANCH = "main"
