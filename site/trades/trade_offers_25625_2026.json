@@ -1,0 +1,126 @@
+{
+  "meta": {
+    "schema_version": 1,
+    "league_id": "25625",
+    "season": 2026,
+    "updated_at": "2026-02-27T22:58:19.164Z",
+    "row_count": 1,
+    "source": "worker-trade-offers"
+  },
+  "offers": [
+    {
+      "id": "TWB-7b650723-6c70-46af-af7b-0e5635d417bd",
+      "league_id": "25625",
+      "season": 2026,
+      "status": "PENDING",
+      "created_at": "2026-02-27T22:58:19.104Z",
+      "updated_at": "2026-02-27T22:58:19.104Z",
+      "from_franchise_id": "0008",
+      "to_franchise_id": "0011",
+      "from_franchise_name": "Real Deal Creel",
+      "to_franchise_name": "Cleon Ca$h",
+      "message": "You extend Robinson, Bijan 2 years, new AAV $35K, TCV $85K, contract info CL 3|TCV 85K|AAV 15K, 35K|Y1-15K, Y2-35K, Y3-35K|Ext: Cash|GTD: 64K | User comments \"BDE\"",
+      "source": "trade-workbench-ui",
+      "summary": {
+        "from_asset_count": 1,
+        "to_asset_count": 1,
+        "from_trade_salary_k": 0,
+        "to_trade_salary_k": 0,
+        "extension_request_count": 1
+      },
+      "payload": {
+        "schema_version": 1,
+        "generated_at": "2026-02-27T22:58:19.001Z",
+        "source": "ups-trade-workbench",
+        "league_id": "25625",
+        "season": 2026,
+        "teams": [
+          {
+            "role": "left",
+            "franchise_id": "0008",
+            "franchise_name": "Real Deal Creel",
+            "selected_assets": [
+              {
+                "asset_id": "player:16594",
+                "type": "PLAYER",
+                "player_id": "16594",
+                "player_name": "Benson, Trey",
+                "description": null,
+                "position": "RB",
+                "nfl_team": "ARI",
+                "salary": 6000,
+                "years": 0,
+                "contract_type": "Rookie",
+                "contract_info": "CL 3| TCV 18K| AAV 6K",
+                "taxi": false
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 3,
+            "selected_non_taxi_salary_dollars": 6000
+          },
+          {
+            "role": "right",
+            "franchise_id": "0011",
+            "franchise_name": "Cleon Ca$h",
+            "selected_assets": [
+              {
+                "asset_id": "player:16161",
+                "type": "PLAYER",
+                "player_id": "16161",
+                "player_name": "Robinson, Bijan",
+                "description": null,
+                "position": "RB",
+                "nfl_team": "ATL",
+                "salary": 15000,
+                "years": 1,
+                "contract_type": "Rookie",
+                "contract_info": "CL 3| TCV 55K| AAV 15K",
+                "taxi": false
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 7,
+            "selected_non_taxi_salary_dollars": 15000
+          }
+        ],
+        "extension_requests": [
+          {
+            "player_id": "16161",
+            "player_name": "Robinson, Bijan",
+            "from_franchise_id": "0011",
+            "to_franchise_id": "0008",
+            "applies_to_acquirer": true,
+            "option_key": "2YR|NONE",
+            "extension_term": "2YR",
+            "loaded_indicator": "NONE",
+            "preview_id": 1118,
+            "preview_contract_info_string": "CL 3|TCV 85K|AAV 15K, 35K|Y1-15K, Y2-35K, Y3-35K|Ext: Cash|GTD: 64K",
+            "new_contract_status": "EXT2",
+            "new_TCV": 85000,
+            "new_aav_future": 35000
+          }
+        ],
+        "filters": {
+          "search": "",
+          "activeContractTypes": {},
+          "yearsMin": "",
+          "yearsMax": "",
+          "showTaxi": true,
+          "showPicks": true,
+          "onlyExtensionEligible": false
+        },
+        "ui": {
+          "left_team_id": "0008",
+          "right_team_id": "0011"
+        },
+        "validation": {
+          "status": "ready",
+          "issues": []
+        }
+      }
+    }
+  ]
+}
