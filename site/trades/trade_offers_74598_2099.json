@@ -1,0 +1,56 @@
+{
+  "meta": {
+    "schema_version": 1,
+    "league_id": "74598",
+    "season": 2099,
+    "updated_at": "2026-02-27T01:49:24.511Z",
+    "row_count": 1,
+    "source": "worker-trade-offers"
+  },
+  "offers": [
+    {
+      "id": "TWB-b99e96de-93f1-4820-8cbd-1fb1abd3d4a5",
+      "league_id": "74598",
+      "season": 2099,
+      "status": "PENDING",
+      "created_at": "2026-02-27T01:49:24.438Z",
+      "updated_at": "2026-02-27T01:49:24.438Z",
+      "from_franchise_id": "0001",
+      "to_franchise_id": "0002",
+      "from_franchise_name": "Smoke Test A",
+      "to_franchise_name": "Smoke Test B",
+      "message": "PAT smoke test from Codex",
+      "source": "codex-smoke-test",
+      "summary": {
+        "from_asset_count": 0,
+        "to_asset_count": 0,
+        "from_trade_salary_k": 0,
+        "to_trade_salary_k": 0,
+        "extension_request_count": 0
+      },
+      "payload": {
+        "league_id": "74598",
+        "season": "2099",
+        "ui": {
+          "left_team_id": "0001",
+          "right_team_id": "0002"
+        },
+        "validation": {
+          "status": "ready"
+        },
+        "assets": {
+          "left": {
+            "players": [],
+            "picks": [],
+            "traded_salary_k": 0
+          },
+          "right": {
+            "players": [],
+            "picks": [],
+            "traded_salary_k": 0
+          }
+        }
+      }
+    }
+  ]
+}
