@@ -26,7 +26,8 @@ export default {
         path !== "/offer-restructure" &&
         path !== "/commish-contract-update" &&
         path !== "/trade-workbench" &&
-        !path.startsWith("/trade-offers")
+        !path.startsWith("/trade-offers") &&
+        path !== "/trade-pending"
       ) {
         return new Response(
           JSON.stringify({ ok: false, isAdmin: false, reason: "Missing L param" }),
@@ -850,12 +851,13 @@ export default {
           data = null;
         }
         const parsedOk = !!data && typeof data === "object";
+        const payloadErr = parsedOk ? mflErrorFromJsonPayload(data) : "";
         return {
-          ok: !!res.ok && parsedOk,
+          ok: !!res.ok && parsedOk && !payloadErr,
           status: res.status,
           url: urlOut,
           data,
-          error: parsedOk ? "" : "non_json_response",
+          error: payloadErr || (parsedOk ? "" : "non_json_response"),
           textPreview: String(text || "").slice(0, 500),
         };
       };
@@ -1370,6 +1372,22 @@ export default {
         );
       };
 
+      const mflErrorFromJsonPayload = (payload) => {
+        if (!payload || typeof payload !== "object") return "";
+        const err = payload.error;
+        if (!err) return "";
+        if (typeof err === "string") return err;
+        if (typeof err === "object") {
+          const keys = ["$t", "message", "reason", "error", "detail", "details"];
+          for (const k of keys) {
+            const v = err[k];
+            if (v != null && String(v).trim()) return String(v).trim();
+          }
+          return JSON.stringify(err);
+        }
+        return String(err);
+      };
+
       const isLikelyMflImportSuccess = (res, text) =>
         !!res?.ok && !looksLikeMflImportError(text);
 
@@ -1409,7 +1427,7 @@ export default {
         return targetImportUrl;
       };
 
-      const postMflImportForm = async (season, formFields, probeFields) => {
+      const postMflImportForm = async (season, formFields, probeFields, requestOptions = {}) => {
         const form = new URLSearchParams();
         for (const [k, v] of Object.entries(formFields || {})) {
           if (v == null) continue;
@@ -1418,17 +1436,30 @@ export default {
           form.set(k, s);
         }
         const targetImportUrl = await resolveMflImportTargetUrl(season, probeFields || formFields);
+        const method = safeStr(requestOptions.method || "POST").toUpperCase() === "GET" ? "GET" : "POST";
+        let requestUrl = targetImportUrl;
+        if (method === "GET") {
+          try {
+            const u = new URL(targetImportUrl);
+            for (const [k, v] of form.entries()) u.searchParams.set(k, v);
+            requestUrl = u.toString();
+          } catch (_) {
+            requestUrl = targetImportUrl;
+          }
+        }
         let res;
         let text = "";
         try {
-          res = await fetch(targetImportUrl, {
-            method: "POST",
+          res = await fetch(requestUrl, {
+            method,
             headers: {
               Cookie: cookieHeader,
-              "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
               "User-Agent": "upsmflproduction-worker",
+              ...(method === "POST"
+                ? { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" }
+                : {}),
             },
-            body: form.toString(),
+            body: method === "POST" ? form.toString() : undefined,
             redirect: "manual",
             cf: { cacheTtl: 0, cacheEverything: false },
           });
@@ -1440,21 +1471,28 @@ export default {
             status: 0,
             text: "",
             upstreamPreview: "",
-            targetImportUrl,
+            targetImportUrl: requestUrl,
             formFields: Object.fromEntries(form.entries()),
             error: `fetch_failed: ${e?.message || String(e)}`,
           };
         }
-        const requestOk = isLikelyMflImportSuccess(res, text);
+        let parsedJson = null;
+        try {
+          parsedJson = text ? JSON.parse(text) : null;
+        } catch (_) {
+          parsedJson = null;
+        }
+        const payloadErr = parsedJson ? mflErrorFromJsonPayload(parsedJson) : "";
+        const requestOk = isLikelyMflImportSuccess(res, text) && !payloadErr;
         return {
           ok: requestOk,
           requestOk,
           status: res.status,
           text,
           upstreamPreview: String(text || "").slice(0, 1200),
-          targetImportUrl,
+          targetImportUrl: requestUrl,
           formFields: Object.fromEntries(form.entries()),
-          error: requestOk ? "" : `MFL import failed (HTTP ${res.status})`,
+          error: requestOk ? "" : (payloadErr || `MFL import failed (HTTP ${res.status})`),
         };
       };
 
@@ -1634,6 +1672,44 @@ export default {
           willReceive,
           salaryNets,
           isValid: !!willGiveUp.length && !!willReceive.length,
+        };
+      };
+
+      const pendingTradesRows = (pendingTradesPayload) => {
+        const root = pendingTradesPayload?.pendingTrades || pendingTradesPayload?.pendingtrades || {};
+        return asArray(
+          root?.pendingTrade ||
+            root?.pendingtrade ||
+            root?.trade ||
+            root?.trades
+        ).filter(Boolean);
+      };
+
+      const normalizePendingTradeRow = (row) => {
+        const tradeId = String(row?.trade_id || row?.tradeId || row?.id || "").replace(/\D/g, "");
+        const fromId = padFranchiseId(
+          row?.offeringteam ||
+            row?.from_franchise_id ||
+            row?.offeredfrom ||
+            row?.franchise_id ||
+            row?.franchise
+        );
+        const toId = padFranchiseId(
+          row?.offeredto ||
+            row?.to_franchise_id ||
+            row?.target_franchise_id ||
+            row?.to
+        );
+        const ts = safeInt(row?.timestamp || row?.created || row?.created_at, 0);
+        return {
+          trade_id: tradeId,
+          from_franchise_id: fromId,
+          to_franchise_id: toId,
+          timestamp: ts,
+          comments: safeStr(row?.comments),
+          will_give_up: safeStr(row?.will_give_up || row?.willGiveUp),
+          will_receive: safeStr(row?.will_receive || row?.willReceive),
+          raw: row,
         };
       };
 
@@ -1936,6 +2012,48 @@ export default {
         });
       }
 
+      if (path === "/trade-pending" && request.method === "GET") {
+        const leagueId = safeStr(url.searchParams.get("L") || L || "");
+        const season = safeStr(url.searchParams.get("YEAR") || YEAR || "");
+        const franchiseId = padFranchiseId(
+          url.searchParams.get("FRANCHISE_ID") ||
+            url.searchParams.get("F") ||
+            url.searchParams.get("franchise_id") ||
+            ""
+        );
+        if (!leagueId) return jsonOut(400, { ok: false, error: "Missing L param" });
+        if (!season) return jsonOut(400, { ok: false, error: "Missing YEAR param" });
+
+        const extra = {};
+        if (franchiseId) extra.FRANCHISE_ID = franchiseId;
+        const pendingRes = await mflExportJson(season, leagueId, "pendingTrades", extra, { useCookie: true });
+        if (!pendingRes.ok) {
+          return jsonOut(502, {
+            ok: false,
+            error: "Failed to load pendingTrades from MFL",
+            upstream: {
+              status: pendingRes.status,
+              url: pendingRes.url,
+              error: pendingRes.error,
+              preview: pendingRes.textPreview,
+            },
+          });
+        }
+        return jsonOut(200, {
+          ok: true,
+          league_id: leagueId,
+          season: safeInt(season, Number(season) || 0),
+          franchise_id: franchiseId,
+          source: "worker:/trade-pending",
+          pending_trades: pendingRes.data || {},
+          upstream: {
+            status: pendingRes.status,
+            url: pendingRes.url,
+          },
+          generated_at: new Date().toISOString(),
+        });
+      }
+
       if (path === "/trade-offers" && request.method === "POST") {
         let body = null;
         try {
@@ -2015,7 +2133,8 @@ export default {
           const importRes = await postMflImportForm(
             season,
             importFields,
-            { TYPE: "tradeProposal", L: leagueId, FRANCHISE_ID: fromFranchiseId }
+            importFields,
+            { method: "GET" }
           );
 
           if (!importRes.requestOk) {
@@ -2030,7 +2149,53 @@ export default {
             });
           }
 
-          const tradeId = extractTradeIdFromImportText(importRes.text);
+          let tradeId = extractTradeIdFromImportText(importRes.text);
+          let pendingLookup = {
+            ok: false,
+            matched: false,
+            match_count: 0,
+            rows_count: 0,
+            matched_trade_id: "",
+          };
+          const pendingRes = await mflExportJson(
+            season,
+            leagueId,
+            "pendingTrades",
+            { FRANCHISE_ID: fromFranchiseId },
+            { useCookie: true }
+          );
+          if (pendingRes.ok) {
+            const rows = pendingTradesRows(pendingRes.data).map(normalizePendingTradeRow);
+            const metaPrefix = "[UPS_TWB_META:";
+            const fromToMatches = rows.filter(
+              (r) =>
+                r.from_franchise_id === fromFranchiseId &&
+                r.to_franchise_id === toFranchiseId
+            );
+            const exactMatches = fromToMatches.filter((r) => r.comments.includes(metaPrefix));
+            const bestList = exactMatches.length ? exactMatches : fromToMatches;
+            bestList.sort((a, b) => b.timestamp - a.timestamp);
+            const best = bestList[0] || null;
+            if (best && !tradeId) tradeId = safeStr(best.trade_id);
+            pendingLookup = {
+              ok: true,
+              matched: !!best,
+              match_count: bestList.length,
+              rows_count: rows.length,
+              matched_trade_id: best ? safeStr(best.trade_id) : "",
+              upstream_status: pendingRes.status,
+            };
+          } else {
+            pendingLookup = {
+              ok: false,
+              matched: false,
+              match_count: 0,
+              rows_count: 0,
+              matched_trade_id: "",
+              error: pendingRes.error || "pendingTrades lookup failed",
+              upstream_status: pendingRes.status,
+            };
+          }
           return jsonOut(201, {
             ok: true,
             mode: "direct_mfl",
@@ -2051,6 +2216,7 @@ export default {
               upstream_status: importRes.status,
               upstream_preview: importRes.upstreamPreview,
               target_import_url: importRes.targetImportUrl,
+              pending_lookup: pendingLookup,
             },
             invalid_assets: {
               left: proposalAssets.leftTokensOut.invalid,
@@ -2204,7 +2370,8 @@ export default {
             const proposalImport = await postMflImportForm(
               season,
               importFields,
-              { TYPE: "tradeProposal", L: leagueId, FRANCHISE_ID: fromFranchiseId }
+              importFields,
+              { method: "GET" }
             );
             if (!proposalImport.requestOk) {
               return {
@@ -2220,6 +2387,54 @@ export default {
                 },
               };
             }
+            let tradeIdOut = extractTradeIdFromImportText(proposalImport.text);
+            let pendingLookup = {
+              ok: false,
+              matched: false,
+              match_count: 0,
+              rows_count: 0,
+              matched_trade_id: "",
+            };
+            const pendingRes = await mflExportJson(
+              season,
+              leagueId,
+              "pendingTrades",
+              { FRANCHISE_ID: fromFranchiseId },
+              { useCookie: true }
+            );
+            if (pendingRes.ok) {
+              const rows = pendingTradesRows(pendingRes.data).map(normalizePendingTradeRow);
+              const metaPrefix = "[UPS_TWB_META:";
+              const fromToMatches = rows.filter(
+                (r) =>
+                  r.from_franchise_id === fromFranchiseId &&
+                  r.to_franchise_id === toFranchiseId
+              );
+              const exactMatches = fromToMatches.filter((r) => r.comments.includes(metaPrefix));
+              const bestList = exactMatches.length ? exactMatches : fromToMatches;
+              bestList.sort((a, b) => b.timestamp - a.timestamp);
+              const best = bestList[0] || null;
+              if (best && !tradeIdOut) tradeIdOut = safeStr(best.trade_id);
+              pendingLookup = {
+                ok: true,
+                matched: !!best,
+                match_count: bestList.length,
+                rows_count: rows.length,
+                matched_trade_id: best ? safeStr(best.trade_id) : "",
+                upstream_status: pendingRes.status,
+              };
+            } else {
+              pendingLookup = {
+                ok: false,
+                matched: false,
+                match_count: 0,
+                rows_count: 0,
+                matched_trade_id: "",
+                error: pendingRes.error || "pendingTrades lookup failed",
+                upstream_status: pendingRes.status,
+              };
+            }
+
             return {
               ok: true,
               proposal: {
@@ -2231,10 +2446,11 @@ export default {
                 salary_net_k: proposalAssets.salaryNets,
               },
               mfl: {
-                trade_id: extractTradeIdFromImportText(proposalImport.text),
+                trade_id: tradeIdOut || "",
                 upstream_status: proposalImport.status,
                 upstream_preview: proposalImport.upstreamPreview,
                 target_import_url: proposalImport.targetImportUrl,
+                pending_lookup: pendingLookup,
               },
               invalid_assets: {
                 left: proposalAssets.leftTokensOut.invalid,
@@ -2277,7 +2493,15 @@ export default {
                 FRANCHISE_ID: actingFranchiseId,
                 COMMENTS: actionMessage || "Countered in UPS Trade Workbench",
               },
-              { TYPE: "tradeResponse", L: leagueId, FRANCHISE_ID: actingFranchiseId }
+              {
+                TYPE: "tradeResponse",
+                L: leagueId,
+                TRADE_ID: mflTradeId,
+                RESPONSE: "reject",
+                FRANCHISE_ID: actingFranchiseId,
+                COMMENTS: actionMessage || "Countered in UPS Trade Workbench",
+              },
+              { method: "GET" }
             );
             if (!rejectImport.requestOk) {
               return jsonOut(502, {
@@ -2346,7 +2570,15 @@ export default {
               FRANCHISE_ID: actingFranchiseId,
               COMMENTS: actionMessage,
             },
-            { TYPE: "tradeResponse", L: leagueId, FRANCHISE_ID: actingFranchiseId }
+            {
+              TYPE: "tradeResponse",
+              L: leagueId,
+              TRADE_ID: mflTradeId,
+              RESPONSE: action.toLowerCase(),
+              FRANCHISE_ID: actingFranchiseId,
+              COMMENTS: actionMessage,
+            },
+            { method: "GET" }
           );
 
           if (!responseImport.requestOk) {
