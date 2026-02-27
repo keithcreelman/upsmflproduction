@@ -84,6 +84,11 @@ Optional columns shown in option labels/payload:
 ## Worker/API (implemented)
 Worker route:
 - `GET /trade-workbench?L=<leagueId>&YEAR=<season>[&F=<franchiseId>]`
+- `POST /trade-offers` with `direct_mfl=true` to submit a live `tradeProposal` import to MFL
+- `POST /trade-offers/action` with `direct_mfl=true` and `trade_id` to run `tradeResponse`
+  - on `action=ACCEPT`, if `payload` is included it also runs:
+    - `salaryAdj` import for traded salary settlement
+    - `salaries` import for selected extension requests
 
 It returns a normalized payload for this UI by combining:
 - MFL `league` export (franchise metadata)

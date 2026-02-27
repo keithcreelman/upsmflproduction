@@ -127,6 +127,12 @@
     return !!fallback;
   }
 
+  function isDirectMflMode() {
+    if (window.UPS_TWB_DIRECT_MFL != null) return parseBool(window.UPS_TWB_DIRECT_MFL, true);
+    if (window.UPS_TRADE_WORKBENCH_DIRECT_MFL != null) return parseBool(window.UPS_TRADE_WORKBENCH_DIRECT_MFL, true);
+    return true;
+  }
+
   function assetGroupKey(asset) {
     if (!asset) return "OTHER";
     if (asset.type === "PICK") return "PICKS";
@@ -617,6 +623,9 @@
     if (/missing github_pat/i.test(msg)) {
       return prefix + ": Missing GITHUB_PAT worker secret.";
     }
+    if (/missing mfl_cookie/i.test(msg)) {
+      return prefix + ": Missing MFL_COOKIE worker secret.";
+    }
     return prefix + ": " + msg;
   }
 
@@ -713,10 +722,11 @@
 
   function renderOffersSections(payload) {
     if (!els.offersList || !els.offersCounts || !els.submitOfferBtn || !els.submitOfferStatus) return;
+    var directMfl = isDirectMflMode();
 
     var isReady = !!(payload && payload.validation && payload.validation.status === "ready");
     els.submitOfferBtn.disabled = !!state.submit.busy || !isReady;
-    els.submitOfferBtn.textContent = state.submit.busy ? "Submitting…" : "Submit Offer";
+    els.submitOfferBtn.textContent = state.submit.busy ? "Submitting…" : (directMfl ? "Submit to MFL" : "Submit Offer");
 
     els.submitOfferStatus.textContent = state.submit.message || "No offer submitted yet.";
     els.submitOfferStatus.className = "twb-summary-note";
@@ -732,6 +742,13 @@
     if (state.offers.error) {
       els.offersCounts.textContent = "Inbox Error";
       els.offersList.innerHTML = '<div class="twb-error-state">' + escapeHtml(state.offers.error) + '</div>';
+      return;
+    }
+
+    if (directMfl) {
+      els.offersCounts.textContent = "Direct MFL";
+      els.offersList.innerHTML =
+        '<div class="twb-summary-note">Offers submit directly to MFL. Inbox/actions here are disabled in direct mode.</div>';
       return;
     }
 
@@ -852,6 +869,16 @@
 
   async function refreshOfferInbox() {
     if (!state.data || !state.leftTeamId || !els.offersList) return;
+    if (isDirectMflMode()) {
+      state.offers.loading = false;
+      state.offers.error = "";
+      state.offers.incoming = [];
+      state.offers.outgoing = [];
+      state.offers.counts = { incoming_pending: 0, outgoing_pending: 0 };
+      renderOffersSections(buildTradePayload());
+      scheduleParentHeightPost();
+      return;
+    }
     state.offers.loading = true;
     state.offers.error = "";
     renderOffersSections(buildTradePayload());
@@ -884,6 +911,7 @@
 
   async function submitOfferToQueue() {
     if (state.submit.busy) return;
+    var directMfl = isDirectMflMode();
     var payload = buildTradePayload();
     if (!payload.validation || payload.validation.status !== "ready") {
       setSubmitStatus("Trade is not ready. Select assets on both sides and keep traded salary within max.", "warn");
@@ -899,7 +927,7 @@
     }
 
     state.submit.busy = true;
-    setSubmitStatus("Submitting offer to UPS inbox…", "");
+    setSubmitStatus(directMfl ? "Submitting offer to MFL…" : "Submitting offer to UPS inbox…", "");
     renderOffersSections(payload);
 
     try {
@@ -915,16 +943,26 @@
         to_franchise_name: rightTeam.franchise_name,
         message: structuredMessage,
         payload: payload,
-        source: "trade-workbench-ui"
+        source: "trade-workbench-ui",
+        direct_mfl: directMfl,
+        submit_mode: directMfl ? "mfl" : "queue"
       };
       var res = await fetchJsonRequest(apiUrl.toString(), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body)
       });
-      setSubmitStatus("Offer submitted: " + safeStr((res.offer || {}).id || "saved") + " (custom queue).", "good");
+      if (directMfl) {
+        var mflTradeId = safeStr((res.mfl || {}).trade_id);
+        setSubmitStatus(
+          "Offer submitted to MFL" + (mflTradeId ? " (Trade ID " + mflTradeId + ")." : "."),
+          "good"
+        );
+      } else {
+        setSubmitStatus("Offer submitted: " + safeStr((res.offer || {}).id || "saved") + " (custom queue).", "good");
+      }
       if (els.offerMessageInput) els.offerMessageInput.value = "";
-      await refreshOfferInbox();
+      if (!directMfl) await refreshOfferInbox();
     } catch (err) {
       setSubmitStatus(friendlyOfferError("Submit failed", err), "bad");
       renderOffersSections(payload);
@@ -2158,14 +2196,18 @@
     } else {
       var note = document.createElement("div");
       note.className = "twb-summary-note";
-      note.textContent = "Trade is ready for queue submission.";
+      note.textContent = isDirectMflMode()
+        ? "Trade is ready for direct MFL submission."
+        : "Trade is ready for queue submission.";
       section.appendChild(note);
     }
 
     var submitNote = document.createElement("div");
     submitNote.className = "twb-summary-note";
     submitNote.style.marginTop = "0.55rem";
-    submitNote.textContent = "Submit Offer writes this deal to the UPS offer queue. MFL execution remains a separate integration step.";
+    submitNote.textContent = isDirectMflMode()
+      ? "Submit sends this deal to MFL tradeProposal. Accepting in MFL can then run salary adjustments/extensions via direct trade actions."
+      : "Submit Offer writes this deal to the UPS offer queue. MFL execution remains a separate integration step.";
     section.appendChild(submitNote);
 
     return section;

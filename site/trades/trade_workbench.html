@@ -83,10 +83,10 @@
 
         <div class="twb-card twb-offers-card">
           <div class="twb-card-head-inline">
-            <h2>Offer Queue</h2>
+            <h2>Offer Actions</h2>
             <button type="button" id="twbRefreshOffersBtn" class="twb-link-btn">Refresh</button>
           </div>
-          <p class="twb-card-caption">Extension instructions are auto-prefixed in the offer message before user comments.</p>
+          <p class="twb-card-caption">Extension instructions are auto-prefixed in the offer message before user comments. Direct mode submits to MFL.</p>
           <label class="twb-field">
             <span>Message to Other Owner (Optional)</span>
             <textarea id="twbOfferMessageInput" rows="3" placeholder="Add context or conditions to this trade offer"></textarea>
@@ -106,7 +106,7 @@
           </div>
           <details class="twb-advanced-panel">
             <summary>Show Integration Payload</summary>
-            <p class="twb-card-caption">This is the backend payload preview. Submit Offer only writes to the UPS queue right now.</p>
+            <p class="twb-card-caption">This is the backend payload preview used for API submission and post-accept processing.</p>
             <pre id="twbPayloadPreview" class="twb-payload-preview">Loading…</pre>
           </details>
         </div>
