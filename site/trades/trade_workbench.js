@@ -4,13 +4,6 @@
   var SAMPLE_DATA_URL = "./trade_workbench_sample.json";
   var STORAGE_KEY = "ups-trade-workbench-state-v5";
   var GROUP_ORDER = ["QB", "RB", "WR", "TE", "PK", "PN", "DT", "DE", "LB", "CB", "S", "DL", "DB", "PICKS", "OTHER"];
-  var POSITION_FILTER_GROUPS = [
-    { key: "OFF", label: "OFF", hint: "QB RB WR TE", positions: { QB: true, RB: true, WR: true, TE: true } },
-    { key: "DL", label: "DL", hint: "DE DT", positions: { DE: true, DT: true, DL: true } },
-    { key: "LB", label: "LB", hint: "LB", positions: { LB: true } },
-    { key: "DB", label: "DB", hint: "CB S", positions: { CB: true, S: true, DB: true } },
-    { key: "ST", label: "ST", hint: "PK PN", positions: { PK: true, PN: true } }
-  ];
   var heightSyncInstalled = false;
   var heightPostTimer = 0;
   var lastPostedHeight = 0;
@@ -25,7 +18,6 @@
     tradeSalaryK: {},
     filters: {
       search: "",
-      activePositions: {},
       activeContractTypes: {},
       yearsMin: "",
       yearsMax: "",
@@ -146,40 +138,6 @@
   function groupSortValue(groupKey) {
     var idx = GROUP_ORDER.indexOf(groupKey);
     return idx === -1 ? 999 : idx;
-  }
-
-  function positionPillClass(pos) {
-    pos = safeStr(pos).toUpperCase();
-    if (pos === "QB") return "twb-pill-position-qb";
-    if (pos === "RB") return "twb-pill-position-rb";
-    if (pos === "WR") return "twb-pill-position-wr";
-    if (pos === "TE") return "twb-pill-position-te";
-    if (pos === "DT" || pos === "DE" || pos === "LB" || pos === "CB" || pos === "S" || pos === "DL" || pos === "DB") return "twb-pill-position-def";
-    return "";
-  }
-
-  function getPositionFilterGroupForPosition(pos) {
-    var p = safeStr(pos).toUpperCase();
-    var i;
-    for (i = 0; i < POSITION_FILTER_GROUPS.length; i += 1) {
-      if (POSITION_FILTER_GROUPS[i].positions[p]) return POSITION_FILTER_GROUPS[i];
-    }
-    return null;
-  }
-
-  function getAvailablePositionFilterGroups() {
-    var available = {};
-    var rawPositions = (((state || {}).data || {}).filtersMeta || {}).positions || [];
-    var i;
-    for (i = 0; i < rawPositions.length; i += 1) {
-      var grp = getPositionFilterGroupForPosition(rawPositions[i]);
-      if (grp) available[grp.key] = true;
-    }
-    var out = [];
-    for (i = 0; i < POSITION_FILTER_GROUPS.length; i += 1) {
-      if (available[POSITION_FILTER_GROUPS[i].key]) out.push(POSITION_FILTER_GROUPS[i]);
-    }
-    return out;
   }
 
   function isRookieContractType(contractType) {
@@ -1088,6 +1046,7 @@
 
       if (parsed.filters && typeof parsed.filters === "object") {
         state.filters = Object.assign(state.filters, parsed.filters);
+        if (state.filters.activePositions) delete state.filters.activePositions;
       }
       state.selections = parsed.selections && typeof parsed.selections === "object" ? parsed.selections : state.selections;
       state.extensions = parsed.extensions && typeof parsed.extensions === "object" ? parsed.extensions : state.extensions;
@@ -1351,32 +1310,6 @@
     els.yearsMaxSelect.value = safeStr(state.filters.yearsMax);
   }
 
-  function initPositionChips() {
-    var wrap = els.positionChips;
-    if (!wrap) return;
-    wrap.innerHTML = "";
-    var groups = getAvailablePositionFilterGroups();
-    if (!groups.length) {
-      var empty = document.createElement("div");
-      empty.className = "twb-summary-note";
-      empty.textContent = "No positions found in loaded data.";
-      wrap.appendChild(empty);
-      return;
-    }
-    var i;
-    for (i = 0; i < groups.length; i += 1) {
-      var grp = groups[i];
-      var btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "twb-chip";
-      btn.setAttribute("data-action", "toggle-position-filter");
-      btn.setAttribute("data-position", grp.key);
-      btn.setAttribute("aria-pressed", state.filters.activePositions[grp.key] ? "true" : "false");
-      btn.innerHTML = '<span class="twb-chip-main">' + escapeHtml(grp.label) + '</span><span class="twb-chip-sub">' + escapeHtml(grp.hint) + '</span>';
-      wrap.appendChild(btn);
-    }
-  }
-
   function initContractTypeFilters() {
     var wrap = els.contractTypeOptions;
     if (!wrap) return;
@@ -1586,13 +1519,12 @@
     var salaryInput = node.querySelector(".twb-trade-salary-input");
     var salaryMax = node.querySelector(".twb-trade-salary-max");
 
-    var teamAbbrev = safeStr(team.franchise_abbrev || team.franchise_id);
     eyebrow.textContent = "";
     title.textContent = team.franchise_name;
     meta.textContent = "";
 
     if (logoFallback) {
-      logoFallback.textContent = teamAbbrev || safeStr(team.franchise_name).slice(0, 3).toUpperCase();
+      logoFallback.textContent = "No Logo";
     }
     if (logo && safeStr(team.icon_url)) {
       logo.src = safeStr(team.icon_url);
@@ -1824,7 +1756,7 @@
       line.appendChild(pillPick);
     } else if (asset.position) {
       var pillPos = document.createElement("span");
-      pillPos.className = "twb-pill " + positionPillClass(asset.position);
+      pillPos.className = "twb-pill twb-pill-position";
       pillPos.textContent = asset.position;
       line.appendChild(pillPos);
     }
@@ -2099,7 +2031,7 @@
     section.className = "twb-summary-section";
     var title = document.createElement("h3");
     title.className = "twb-summary-section-title";
-    title.textContent = item.side + (item.team ? " · " + item.team.franchise_name : " · None Selected");
+    title.textContent = item.side + (item.team ? "" : " · None Selected");
     section.appendChild(title);
 
     var list = document.createElement("div");
@@ -2109,13 +2041,15 @@
     var enteredK = safeInt(state.tradeSalaryK[item.id], 0);
     var tradedK = getNetTradeSalaryK(item.id);
     var tradedText = (tradedK > 0 ? "+" : "") + String(tradedK) + "K";
+    var tradedTone = tradedK > 0 ? "good" : tradedK < 0 ? "warn" : "";
 
     list.appendChild(summaryRow("Selected Players", String(totals.selectedPlayers)));
     list.appendChild(summaryRow("Selected Picks", String(totals.selectedPicks)));
-    list.appendChild(summaryRow("Traded Salary", tradedText, tradedK ? "good" : ""));
-    list.appendChild(summaryRow("Entered Adjustment", String(enteredK) + "K", enteredK > maxK ? "bad" : "good"));
-    list.appendChild(summaryRow("Max Adjustment", String(maxK) + "K"));
+    list.appendChild(summaryRow("Salary Traded", tradedText, tradedTone));
+    list.appendChild(summaryRow("Traded Salary Entered", String(enteredK) + "K", enteredK > maxK ? "bad" : enteredK ? "good" : ""));
+    list.appendChild(summaryRow("Traded Salary Max", String(maxK) + "K"));
     section.appendChild(list);
+    section.appendChild(renderSelectedAssetsBlock(item.id));
 
     var extReqs = getChosenExtensionRequests(item.id);
     if (extReqs.length) {
@@ -2130,13 +2064,42 @@
       for (j = 0; j < extReqs.length; j += 1) {
         var li = document.createElement("li");
         var toTeam = getTeamById(extReqs[j].applies_to_team_id);
-        li.textContent = extReqs[j].asset.player_name + " → " + (toTeam ? toTeam.franchise_abbrev : extReqs[j].applies_to_team_id) + " · " + extReqs[j].option.label;
+        li.textContent = extReqs[j].asset.player_name + " → " + (toTeam ? toTeam.franchise_name : extReqs[j].applies_to_team_id) + " · " + extReqs[j].option.label;
         ul.appendChild(li);
       }
       section.appendChild(ul);
     }
 
     return section;
+  }
+
+  function renderSelectedAssetsBlock(teamId) {
+    var details = document.createElement("details");
+    details.className = "twb-summary-assets";
+
+    var selected = getSelectedAssets(teamId);
+    var summary = document.createElement("summary");
+    summary.textContent = "Selected Assets (" + selected.length + ")";
+    details.appendChild(summary);
+
+    if (!selected.length) {
+      var empty = document.createElement("div");
+      empty.className = "twb-summary-note";
+      empty.textContent = "No assets selected.";
+      details.appendChild(empty);
+      return details;
+    }
+
+    var list = document.createElement("ul");
+    list.className = "twb-summary-assets-list";
+    var i;
+    for (i = 0; i < selected.length; i += 1) {
+      var li = document.createElement("li");
+      li.textContent = offerAssetLabel(selected[i]);
+      list.appendChild(li);
+    }
+    details.appendChild(list);
+    return details;
   }
 
   function renderTradeMetaSection(payload) {
@@ -2160,14 +2123,14 @@
     } else {
       var note = document.createElement("div");
       note.className = "twb-summary-note";
-      note.textContent = "Trade has assets on both sides and traded salary entries are within the calculated max values. This is a UI-level validation only; roster/cap compliance rules can be added next.";
+      note.textContent = "Trade is ready for queue submission.";
       section.appendChild(note);
     }
 
     var submitNote = document.createElement("div");
     submitNote.className = "twb-summary-note";
     submitNote.style.marginTop = "0.55rem";
-    submitNote.textContent = "Submit Offer stores a pending trade in the UPS custom offer queue and shows it in the recipient team's inbox. MFL trade submission/acceptance processing is still a later integration step.";
+    submitNote.textContent = "Submit Offer writes this deal to the UPS offer queue. MFL execution remains a separate integration step.";
     section.appendChild(submitNote);
 
     return section;
@@ -2290,7 +2253,6 @@
 
   function resetFilterState() {
     state.filters.search = "";
-    state.filters.activePositions = {};
     state.filters.activeContractTypes = {};
     state.filters.yearsMin = "";
     state.filters.yearsMax = "";
@@ -2541,7 +2503,6 @@
     els.searchInput = q("twbSearchInput");
     els.yearsMinSelect = q("twbYearsMinSelect");
     els.yearsMaxSelect = q("twbYearsMaxSelect");
-    els.positionChips = q("twbPositionChips");
     els.contractTypeOptions = q("twbContractTypeOptions");
     els.booleanToggles = q("twbBooleanToggles");
     els.clearFiltersBtn = q("twbClearFiltersBtn");

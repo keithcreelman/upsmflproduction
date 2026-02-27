@@ -18,7 +18,7 @@
         </p>
       </div>
       <div class="twb-hero-actions">
-        <button type="button" id="twbCopyPayloadBtn" class="twb-btn twb-btn-primary">Copy Trade Payload</button>
+        <button type="button" id="twbCopyPayloadBtn" class="twb-btn twb-btn-primary">Copy Offer JSON</button>
         <button type="button" id="twbResetBtn" class="twb-btn twb-btn-ghost">Reset Trade</button>
       </div>
     </header>
@@ -33,7 +33,7 @@
               <select id="twbLeftTeamSelect"></select>
             </label>
             <label class="twb-field">
-              <span>Trade Partner</span>
+              <span>Partner Team</span>
               <select id="twbRightTeamSelect"></select>
             </label>
           </div>
@@ -104,8 +104,11 @@
             <h2>Integration JSON (Advanced)</h2>
             <button type="button" id="twbCopyPayloadBtn2" class="twb-link-btn">Copy JSON</button>
           </div>
-          <p class="twb-card-caption">This is a backend/integration payload preview. It does not submit a trade to MFL yet.</p>
-          <pre id="twbPayloadPreview" class="twb-payload-preview">Loading…</pre>
+          <details class="twb-advanced-panel">
+            <summary>Show Integration Payload</summary>
+            <p class="twb-card-caption">This is the backend payload preview. Submit Offer only writes to the UPS queue right now.</p>
+            <pre id="twbPayloadPreview" class="twb-payload-preview">Loading…</pre>
+          </details>
         </div>
       </aside>
     </main>
@@ -134,9 +137,7 @@
           <div class="twb-trade-salary-help">$1K units · Max is half of selected non-Taxi outgoing player salary</div>
         </div>
         <label class="twb-trade-salary-input-wrap">
-          <span>$</span>
-          <input type="text" class="twb-trade-salary-input" inputmode="numeric" pattern="[0-9]*" autocomplete="off">
-          <span>K</span>
+          <input type="text" class="twb-trade-salary-input" inputmode="numeric" pattern="[0-9]*" autocomplete="off" placeholder="0">
         </label>
         <div class="twb-trade-salary-max"></div>
       </div>
