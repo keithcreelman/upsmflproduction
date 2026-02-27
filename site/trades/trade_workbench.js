@@ -680,6 +680,37 @@
     return html;
   }
 
+  function extensionYearsText(termRaw) {
+    var term = safeStr(termRaw).toUpperCase();
+    if (!term) return "unknown term";
+    var m = term.match(/(\d+)/);
+    if (!m) return termRaw || term;
+    var n = safeInt(m[1], 0);
+    if (!n) return termRaw || term;
+    return String(n) + " year" + (n === 1 ? "" : "s");
+  }
+
+  function composeStructuredOfferMessage(payload, userMessage) {
+    var parts = [];
+    var extReqs = Array.isArray((payload || {}).extension_requests) ? payload.extension_requests : [];
+    var i;
+    for (i = 0; i < extReqs.length; i += 1) {
+      var req = extReqs[i] || {};
+      var playerName = safeStr(req.player_name || "Player");
+      var yearsText = extensionYearsText(req.extension_term || req.option_key || "");
+      var aavText = req.new_aav_future == null ? "n/a" : kFmtFromDollars(req.new_aav_future);
+      var tcvText = req.new_TCV == null ? "n/a" : kFmtFromDollars(req.new_TCV);
+      var contractInfo = safeStr(req.preview_contract_info_string || req.new_contract_status || "");
+      var sentence = "You extend " + playerName + " " + yearsText + ", new AAV " + aavText + ", TCV " + tcvText;
+      if (contractInfo) sentence += ", contract info " + contractInfo;
+      parts.push(sentence);
+    }
+
+    var user = safeStr(userMessage);
+    if (user) parts.push('User comments "' + user + '"');
+    return parts.join(" | ");
+  }
+
   function renderOffersSections(payload) {
     if (!els.offersList || !els.offersCounts || !els.submitOfferBtn || !els.submitOfferStatus) return;
 
@@ -873,6 +904,8 @@
 
     try {
       var apiUrl = new URL(resolveTradeOffersApiUrl(), window.location.href);
+      var userMessage = els.offerMessageInput ? safeStr(els.offerMessageInput.value).slice(0, 2000) : "";
+      var structuredMessage = composeStructuredOfferMessage(payload, userMessage);
       var body = {
         league_id: safeStr(state.data.meta.league_id),
         season: state.data.meta.season || null,
@@ -880,7 +913,7 @@
         to_franchise_id: safeStr(state.rightTeamId),
         from_franchise_name: leftTeam.franchise_name,
         to_franchise_name: rightTeam.franchise_name,
-        message: els.offerMessageInput ? safeStr(els.offerMessageInput.value).slice(0, 2000) : "",
+        message: structuredMessage,
         payload: payload,
         source: "trade-workbench-ui"
       };
@@ -926,7 +959,7 @@
     };
 
     var messageText = els.offerMessageInput ? safeStr(els.offerMessageInput.value).slice(0, 2000) : "";
-    if (messageText) body.message = messageText;
+    if (messageText && actionType !== "COUNTER") body.message = messageText;
 
     if (actionType === "COUNTER") {
       var expectedLeft = pad4(meta.offerToId);
@@ -949,6 +982,8 @@
         renderOffersSections(counterPayload);
         return;
       }
+      var counterStructuredMessage = composeStructuredOfferMessage(counterPayload, messageText);
+      if (counterStructuredMessage) body.message = counterStructuredMessage;
 
       var counterLeft = getTeamById(state.leftTeamId);
       var counterRight = getTeamById(state.rightTeamId);
@@ -957,7 +992,7 @@
         to_franchise_id: safeStr(state.rightTeamId),
         from_franchise_name: counterLeft ? counterLeft.franchise_name : safeStr(state.leftTeamId),
         to_franchise_name: counterRight ? counterRight.franchise_name : safeStr(state.rightTeamId),
-        message: messageText,
+        message: counterStructuredMessage,
         payload: counterPayload,
         source: "trade-workbench-ui-counter"
       };
