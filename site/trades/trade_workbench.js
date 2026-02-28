@@ -1820,7 +1820,6 @@
   function buildValidationSummary(payload) {
     var issues = [];
     var teams = payload.teams || [];
-    var recon = payload.salary_reconciliation || {};
     if (teams.length === 2) {
       var leftId = safeStr(teams[0].franchise_id);
       var rightId = safeStr(teams[1].franchise_id);
@@ -1830,12 +1829,6 @@
       if (rightId && !(teams[1].selected_assets || []).length) issues.push("Trade partner side has no selected assets.");
       if (teams[0].traded_salary_adjustment_k > teams[0].traded_salary_adjustment_max_k) issues.push("Left traded salary exceeds max.");
       if (teams[1].traded_salary_adjustment_k > teams[1].traded_salary_adjustment_max_k) issues.push("Right traded salary exceeds max.");
-      if (safeInt((recon.left || {}).over_cap_dollars, 0) > 0) {
-        issues.push((safeStr((recon.left || {}).franchise_name) || "Your team") + " is over cap.");
-      }
-      if (safeInt((recon.right || {}).over_cap_dollars, 0) > 0) {
-        issues.push((safeStr((recon.right || {}).franchise_name) || "Partner team") + " is over cap.");
-      }
     }
     return {
       status: issues.length ? "draft" : "ready",
@@ -2136,10 +2129,10 @@
     var right = recon.right || {};
     var alerts = [];
     if (safeInt(left.over_cap_dollars, 0) > 0) {
-      alerts.push((safeStr(left.franchise_name) || "Your team") + " Over Cap by " + formatDollarsAsKLabel(left.over_cap_dollars));
+      alerts.push((safeStr(left.franchise_name) || "Your team") + " Over Cap by " + formatDollarsAsKLabel(left.over_cap_dollars) + " (approval allowed)");
     }
     if (safeInt(right.over_cap_dollars, 0) > 0) {
-      alerts.push((safeStr(right.franchise_name) || "Partner team") + " Over Cap by " + formatDollarsAsKLabel(right.over_cap_dollars));
+      alerts.push((safeStr(right.franchise_name) || "Partner team") + " Over Cap by " + formatDollarsAsKLabel(right.over_cap_dollars) + " (approval allowed)");
     }
 
     var i;
