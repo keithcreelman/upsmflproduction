@@ -273,6 +273,13 @@
     if (pageUrl) {
       var debug = safeStr(pageUrl.searchParams.get("DEBUG_TWB") || pageUrl.searchParams.get("DEBUG"));
       if (debug) url.searchParams.set("DEBUG_TWB", debug);
+      var passthroughKeys = ["twb_load_offer", "twb_mode"];
+      var i;
+      for (i = 0; i < passthroughKeys.length; i += 1) {
+        var key = passthroughKeys[i];
+        var v = safeStr(pageUrl.searchParams.get(key));
+        if (v && !url.searchParams.get(key)) url.searchParams.set(key, v);
+      }
     }
     if (directMflMode && !url.searchParams.get("DIRECT_MFL")) url.searchParams.set("DIRECT_MFL", directMflMode);
     if (releaseRef) url.searchParams.set("v", releaseRef);

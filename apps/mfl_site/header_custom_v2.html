@@ -56,6 +56,134 @@
     }
   })();
 
+  // Hard redirect shim: force Option 5 trade pages into Trade War Room (Option 6).
+  (function () {
+    function s(v) {
+      return v == null ? "" : String(v).trim();
+    }
+    function isOptionParam(v, n) {
+      var x = s(v).replace(/^0+/, "");
+      return x === String(n);
+    }
+    function extractOfferKeyFromUrl(u) {
+      var keys = [
+        "TRADEID", "tradeid", "TRADE_ID", "trade_id",
+        "TID", "tid", "OFFERID", "offerid", "UID", "uid"
+      ];
+      var i;
+      for (i = 0; i < keys.length; i += 1) {
+        var v = s(u.searchParams.get(keys[i]));
+        if (v) return v;
+      }
+      return "";
+    }
+    function extractOfferKeyFromDom() {
+      try {
+        var els = document.querySelectorAll(
+          'input[type="hidden"],input[name*="trade" i],input[name*="offer" i],a[href*="trade" i],a[href*="offer" i]'
+        );
+        var i;
+        for (i = 0; i < els.length; i += 1) {
+          var node = els[i];
+          var raw =
+            s(node.value) + " " +
+            s(node.getAttribute("name")) + " " +
+            s(node.getAttribute("id")) + " " +
+            s(node.getAttribute("href"));
+          var m = raw.match(/(?:tradeid|TRADEID|trade_id|offerid|OFFERID|tid|TID)[^0-9]*([0-9]+)/);
+          if (m && m[1]) return m[1];
+        }
+        var html = s(document.documentElement && document.documentElement.innerHTML).slice(0, 500000);
+        var m2 = html.match(/(?:tradeid|TRADEID|trade_id|offerid|OFFERID|tid|TID)[^0-9]{0,12}([0-9]+)/);
+        return m2 && m2[1] ? m2[1] : "";
+      } catch (e) {
+        return "";
+      }
+    }
+    function showFallbackBanner(targetUrl) {
+      try {
+        if (!document.body) return;
+        if (document.getElementById("upsTwbO5Fallback")) return;
+        var box = document.createElement("div");
+        box.id = "upsTwbO5Fallback";
+        box.style.cssText =
+          "position:fixed;left:12px;right:12px;top:12px;z-index:999999;" +
+          "padding:10px 12px;border-radius:10px;" +
+          "background:#fff4d6;border:1px solid #dba74a;color:#4a2f00;" +
+          "font:700 13px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;";
+        var a = document.createElement("a");
+        a.href = targetUrl;
+        a.textContent = "Open Trade War Room";
+        a.style.cssText = "margin-left:8px;color:#1f4d97;font-weight:900;text-decoration:underline;";
+        box.appendChild(document.createTextNode("Trade War Room: Could not detect trade id."));
+        box.appendChild(a);
+        document.body.appendChild(box);
+      } catch (e) {}
+    }
+    function runShim() {
+      try {
+        var u = new URL(window.location.href || "");
+        var href = s(window.location.href).toLowerCase();
+        var bodyId = s(document.body && document.body.id).toLowerCase();
+        var optionVal =
+          s(u.searchParams.get("O")) ||
+          s(u.searchParams.get("o")) ||
+          s(u.searchParams.get("OPTION")) ||
+          s(u.searchParams.get("option"));
+
+        var isOption6 =
+          isOptionParam(optionVal, 6) ||
+          /[?&](?:o|option)=0?6(?:&|$)/i.test(href) ||
+          bodyId === "body_options_06";
+        if (isOption6) {
+          try { sessionStorage.removeItem("twb_redirected_from_o5"); } catch (e) {}
+          return;
+        }
+
+        var option5ByDom =
+          bodyId === "body_options_05" ||
+          !!document.querySelector('form[action*="trade_offer" i],table.trade-twocolumn-table');
+        var isOption5 =
+          isOptionParam(optionVal, 5) ||
+          /[?&](?:o|option)=0?5(?:&|$)/i.test(href) ||
+          option5ByDom;
+        if (!isOption5) return;
+
+        var target = new URL(u.toString());
+        target.searchParams.set("O", "06");
+        target.searchParams.delete("OPTION");
+
+        var offerKey = extractOfferKeyFromUrl(u) || extractOfferKeyFromDom();
+        if (offerKey) {
+          target.searchParams.set("twb_load_offer", offerKey);
+          target.searchParams.set("twb_mode", "counter");
+        }
+
+        var guardKey = "twb_redirected_from_o5";
+        var guardVal = "";
+        try { guardVal = s(sessionStorage.getItem(guardKey)); } catch (e) {}
+        var guardToken = offerKey || "NO_OFFER_KEY";
+        if (guardVal === guardToken) {
+          if (!offerKey) showFallbackBanner(target.toString());
+          return;
+        }
+        try { sessionStorage.setItem(guardKey, guardToken); } catch (e) {}
+
+        if (!offerKey) {
+          showFallbackBanner(target.toString());
+          return;
+        }
+        window.location.replace(target.toString());
+      } catch (e) {}
+    }
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", runShim, { once: true });
+    } else {
+      runShim();
+    }
+  })();
+
   // Debug helper: add `&UPS_DEBUG=1` to any URL to confirm which header build is loaded.
   (function () {
     try {

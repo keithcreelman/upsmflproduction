@@ -914,6 +914,116 @@
     ).replace(/\D/g, "");
   }
 
+  function getUrlParam(name) {
+    try {
+      var u = new URL(window.location.href || "");
+      return safeStr(u.searchParams.get(name));
+    } catch (e) {
+      return "";
+    }
+  }
+
+  function stripOfferLoadParamsFromUrl() {
+    try {
+      var u = new URL(window.location.href || "");
+      var before = u.toString();
+      u.searchParams.delete("twb_load_offer");
+      u.searchParams.delete("twb_mode");
+      var after = u.toString();
+      if (after !== before && window.history && window.history.replaceState) {
+        window.history.replaceState({}, "", after);
+      }
+    } catch (e) {
+      // noop
+    }
+  }
+
+  function flattenOfferCollections(res) {
+    var pools = [];
+    if (res && Array.isArray(res.incoming)) pools = pools.concat(res.incoming);
+    if (res && Array.isArray(res.outgoing)) pools = pools.concat(res.outgoing);
+    if (res && Array.isArray(res.offers)) pools = pools.concat(res.offers);
+    return pools;
+  }
+
+  function findOfferByLoadKey(rows, loadKey) {
+    var list = Array.isArray(rows) ? rows : [];
+    var exact = safeStr(loadKey);
+    var digits = exact.replace(/\D/g, "");
+    var i;
+    for (i = 0; i < list.length; i += 1) {
+      var o = list[i] || {};
+      if (safeStr(o.id) === exact) return o;
+      if (digits) {
+        var mflId = safeStr(o.mfl_trade_id || o.trade_id || ((o.mfl || {}).trade_id)).replace(/\D/g, "");
+        if (mflId && mflId === digits) return o;
+      }
+    }
+    return null;
+  }
+
+  async function fetchOfferById(loadKey) {
+    var leagueId = safeStr(state.data && state.data.meta ? state.data.meta.league_id : "");
+    var season = safeStr(state.data && state.data.meta ? state.data.meta.season : "");
+    var franchiseId = pad4(state.leftTeamId);
+    if (!leagueId || !season || !safeStr(loadKey)) {
+      return { ok: false, reason: "Offer lookup is missing league context." };
+    }
+
+    async function requestOffers(scoped) {
+      var url = new URL(resolveTradeOffersApiUrl(), window.location.href);
+      url.searchParams.set("L", leagueId);
+      url.searchParams.set("YEAR", season);
+      url.searchParams.set("status", "PENDING");
+      url.searchParams.set("include_payload", "1");
+      url.searchParams.set("limit", "300");
+      if (scoped && franchiseId) url.searchParams.set("FRANCHISE_ID", franchiseId);
+      return fetchJsonRequest(url.toString());
+    }
+
+    var scopedRes = await requestOffers(true);
+    var match = findOfferByLoadKey(flattenOfferCollections(scopedRes), loadKey);
+    if (!match) {
+      var globalRes = await requestOffers(false);
+      match = findOfferByLoadKey(flattenOfferCollections(globalRes), loadKey);
+    }
+    if (!match) return { ok: false, reason: "Offer no longer available in MFL." };
+    if (!isOfferLivePending(match)) return { ok: false, reason: "Offer no longer available in MFL." };
+    if (!match.payload || typeof match.payload !== "object") {
+      return { ok: false, reason: "Offer payload is unavailable." };
+    }
+    return { ok: true, offer: match };
+  }
+
+  async function hydrateOfferFromUrlIfNeeded() {
+    var loadKey = getUrlParam("twb_load_offer");
+    if (!loadKey) return;
+    var mode = safeStr(getUrlParam("twb_mode")).toLowerCase();
+
+    setSubmitStatus("Loading trade offer…", "");
+    renderSummary();
+    try {
+      var out = await fetchOfferById(loadKey);
+      if (!out.ok || !out.offer) {
+        setSubmitStatus(out && out.reason ? out.reason : "Offer no longer available in MFL.", "warn");
+        renderSummary();
+        return;
+      }
+      loadOfferIntoWorkbench(out.offer.payload);
+      if (mode === "counter") {
+        setSubmitStatus("Counter Offer Draft loaded.", "");
+      } else {
+        setSubmitStatus("Offer loaded in Trade War Room.", "");
+      }
+      renderSummary();
+    } catch (err) {
+      setSubmitStatus(friendlyOfferError("Offer load failed", err), "bad");
+      renderSummary();
+    } finally {
+      stripOfferLoadParamsFromUrl();
+    }
+  }
+
   function normalizeOffersForBanner(rows) {
     var src = Array.isArray(rows) ? rows : [];
     var out = [];
@@ -976,7 +1086,10 @@
     }
 
     state.offers.actionBusy = true;
-    var actionLabel = normalizedAction === "REVOKE" ? "Revoking" : "Rejecting";
+    var actionLabel = "Processing";
+    if (normalizedAction === "REVOKE") actionLabel = "Revoking";
+    else if (normalizedAction === "REJECT") actionLabel = "Rejecting";
+    else if (normalizedAction === "ACCEPT") actionLabel = "Accepting";
     setSubmitStatus(actionLabel + " offer in MFL…", "");
     renderSummary();
     renderBannerOffers();
@@ -998,7 +1111,10 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body)
       });
-      var okText = normalizedAction === "REVOKE" ? "Offer revoked in MFL." : "Offer rejected in MFL.";
+      var okText = "Offer processed in MFL.";
+      if (normalizedAction === "REVOKE") okText = "Offer revoked in MFL.";
+      else if (normalizedAction === "REJECT") okText = "Offer rejected in MFL.";
+      else if (normalizedAction === "ACCEPT") okText = "Offer accepted in MFL.";
       setSubmitStatus(okText, "good");
       await refreshBannerOffers(true);
       if (res && res.mode && safeStr(res.mode).toLowerCase() !== "direct_mfl") {
@@ -1088,6 +1204,9 @@
       counterBtn.disabled = !hasPayload || !!state.offers.actionBusy;
       actions.appendChild(counterBtn);
       if (bucket === "received") {
+        actions.appendChild(
+          createOfferActionButton("offer-accept", "Accept", safeStr(offer.id), bucket, false)
+        );
         actions.appendChild(
           createOfferActionButton("offer-reject", "Reject", safeStr(offer.id), bucket, true)
         );
@@ -3146,6 +3265,7 @@
             action === "build-counter" ||
             action === "counter-offer" ||
             action === "offer-counter" ||
+            action === "offer-accept" ||
             action === "offer-reject" ||
             action === "offer-revoke"
           ) {
@@ -3154,20 +3274,20 @@
             var bucket = safeStr(node.getAttribute("data-offer-bucket")) || "received";
             var offerId = safeStr(node.getAttribute("data-offer-id"));
             var offer = getOfferFromBannerState(bucket, offerId);
-            if (!offer || !offer.payload) {
-              if (action === "offer-reject" || action === "offer-revoke") {
-                performOfferAction(action === "offer-revoke" ? "REVOKE" : "REJECT", {
-                  bucket: bucket,
-                  offer: offer
-                });
-              } else {
-                setSubmitStatus("Could not load that offer payload.", "bad");
-                renderSummary();
-              }
+            if (!offer) {
+              setSubmitStatus("Offer no longer available in MFL.", "warn");
+              renderSummary();
+              return;
+            }
+            if (!offer.payload && (action === "offer-counter" || action === "build-counter" || action === "counter-offer" || action === "load-offer")) {
+              setSubmitStatus("Could not load that offer payload.", "bad");
+              renderSummary();
               return;
             }
 
-            if (action === "offer-reject") {
+            if (action === "offer-accept") {
+              performOfferAction("ACCEPT", { bucket: bucket, offer: offer });
+            } else if (action === "offer-reject") {
               performOfferAction("REJECT", { bucket: bucket, offer: offer });
             } else if (action === "offer-revoke") {
               performOfferAction("REVOKE", { bucket: bucket, offer: offer });
@@ -3281,7 +3401,8 @@
       bindEvents();
       state.uiReady = true;
       rerender();
-      refreshBannerOffers(true);
+      await refreshBannerOffers(true);
+      await hydrateOfferFromUrlIfNeeded();
 
       window.upsTradeWorkbench = {
         state: state,
@@ -3290,7 +3411,8 @@
         rerender: rerender,
         submitOfferToQueue: submitOfferToQueue,
         loadOfferIntoWorkbench: loadOfferIntoWorkbench,
-        refreshBannerOffers: refreshBannerOffers
+        refreshBannerOffers: refreshBannerOffers,
+        hydrateOfferFromUrlIfNeeded: hydrateOfferFromUrlIfNeeded
       };
       window.loadOfferIntoWorkbench = loadOfferIntoWorkbench;
       postParentHeight(true);
