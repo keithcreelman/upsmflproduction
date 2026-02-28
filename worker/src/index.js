@@ -1993,38 +1993,37 @@ export default {
 
       const parsePreTradeExtensionLines = (commentText) => {
         const text = safeStr(commentText);
-        if (!text) return [];
-        const lines = text
-          .split(/\r?\n/)
-          .map((line) => safeStr(line))
-          .filter((line) => /^pre-trade extension:/i.test(line));
+        if (!text) return { entries: [], triggerCount: 0, parseFailedCount: 0 };
+        const normalizedText = text.replace(/\r/g, "\n");
+        const triggerMatches = normalizedText.match(/pre[\s-]*trade\s*extension\s*:/gi) || [];
+        const triggerCount = triggerMatches.length;
         const out = [];
-        for (const line of lines) {
-          const m = line.match(/^pre-trade extension:\s*extend\s+(.+?)\s+([0-9]+)\s*-\s*year\b(.*)$/i);
-          if (!m) {
-            out.push({
-              raw_line: line,
-              parse_error: "parse_failed",
-            });
-            continue;
-          }
-          const playerName = safeStr(m[1]);
-          const years = safeInt(m[2], 0);
-          const rest = safeStr(m[3]);
+        const re = /pre[\s-]*trade\s*extension\s*:\s*extend\s+(.+?)\s+([0-9]{1,2})\s*(?:-|–|—|‑|\s)?\s*year(?:s)?\b([^.\n\r]*)/gi;
+        let match;
+        while ((match = re.exec(normalizedText))) {
+          const rawLine = safeStr(match[0]);
+          const playerName = safeStr(match[1]);
+          const years = safeInt(match[2], 0);
+          const rest = safeStr(match[3]);
           const newLength = safeInt((rest.match(/new\s+length\s+([0-9]+)/i) || [])[1], 0);
           const newAavK = safeInt((rest.match(/new\s+aav\s+([0-9]+)/i) || [])[1], 0);
           const newTcvK = safeInt((rest.match(/new\s+tcv\s+([0-9]+)/i) || [])[1], 0);
           out.push({
-            raw_line: line,
+            raw_line: rawLine,
             player_name: playerName,
             extension_term: years > 0 ? `${years}YR` : "",
             new_contract_length: newLength > 0 ? newLength : null,
             new_aav_future: newAavK > 0 ? newAavK * 1000 : null,
             new_TCV: newTcvK > 0 ? newTcvK * 1000 : null,
-            parse_error: years > 0 && playerName ? "" : "parse_failed",
+            parse_error: years > 0 && playerName ? "" : "term_not_parsed",
           });
         }
-        return out;
+        const parseFailedCount = Math.max(0, triggerCount - out.length);
+        return {
+          entries: out,
+          triggerCount,
+          parseFailedCount,
+        };
       };
 
       const parseMoneyKFromText = (text, label) => {
@@ -2138,6 +2137,7 @@ export default {
         queryParams,
         offerComment,
         offerMeta,
+        tradeId,
       }) => {
         const out = {
           expected_extension_count: 0,
@@ -2149,24 +2149,141 @@ export default {
           payload && typeof payload === "object"
             ? JSON.parse(JSON.stringify(payload))
             : {};
+        const commentSources = [
+          safeStr(offerComment),
+          safeStr(inputPayload.comment),
+          safeStr(inputPayload.comments),
+          safeStr(inputPayload.message),
+          safeStr(inputPayload.notes),
+          safeStr(inputPayload.raw_comment),
+        ].filter(Boolean);
+        const combinedComment = commentSources.join("\n");
         const existing = Array.isArray(inputPayload.extension_requests) ? inputPayload.extension_requests : [];
         if (existing.length) {
           out.expected_extension_count = existing.length;
           out.prepared_count = existing.length;
           out.payload = inputPayload;
+          try {
+            console.log(
+              "[TWB][extensions][context]",
+              JSON.stringify({
+                trade_id: safeStr(tradeId),
+                timestamp_utc: new Date().toISOString(),
+                extension_trigger_found: true,
+                source: "payload.extension_requests",
+                comment_sources_count: commentSources.length,
+              })
+            );
+          } catch (_) {
+            // noop
+          }
           return out;
         }
 
         const indexes = buildPlayerSelectionIndexes(inputPayload);
         const meta =
           (offerMeta && typeof offerMeta === "object" ? offerMeta : null) ||
-          parseTradeMetaTagFromComments(offerComment || inputPayload.comment || "");
+          parseTradeMetaTagFromComments(combinedComment || "");
         const metaExt = Array.isArray(meta?.ext) ? meta.ext : [];
         const prepared = [];
+        const parsedLinesBundle = parsePreTradeExtensionLines(combinedComment || "");
+        const parsedLines = Array.isArray(parsedLinesBundle.entries) ? parsedLinesBundle.entries : [];
+        const triggerCount = safeInt(parsedLinesBundle.triggerCount, 0);
+        const parseFailedCount = safeInt(parsedLinesBundle.parseFailedCount, 0);
+
+        const attemptFromComments = async (sourceLabel) => {
+          const validLines = parsedLines.filter((line) => !line.parse_error);
+          out.source = sourceLabel;
+          out.expected_extension_count = Math.max(out.expected_extension_count, triggerCount || validLines.length);
+          if (!triggerCount && !validLines.length) return;
+
+          if (parseFailedCount > 0 && !validLines.length) {
+            out.skipped_rows.push({
+              reason: "extension_parse_failed",
+              trigger_count: triggerCount,
+              parse_failed_count: parseFailedCount,
+              raw_comment_excerpt: safeStr(combinedComment).slice(0, 500),
+            });
+          }
+
+          var i;
+          for (i = 0; i < parsedLines.length; i += 1) {
+            if (!parsedLines[i].parse_error) continue;
+            out.skipped_rows.push({
+              reason: "term_not_parsed",
+              raw_line: parsedLines[i].raw_line,
+              player_name: parsedLines[i].player_name,
+            });
+          }
+
+          if (!validLines.length) return;
+          const previewRes = await fetchExtensionPreviewRows(season, queryParams || new URLSearchParams());
+          const previewRows = previewRes.ok && Array.isArray(previewRes.rows) ? previewRes.rows : [];
+          if (!previewRows.length) {
+            for (const line of validLines) {
+              out.skipped_rows.push({
+                reason: "extension_previews_unavailable",
+                player_name: line.player_name,
+                extension_term: line.extension_term,
+              });
+            }
+            return;
+          }
+
+          for (const line of validLines) {
+            const keys = nameVariants(line.player_name);
+            let selection = null;
+            for (const key of keys) {
+              if (indexes.byNameKey[key]) {
+                selection = indexes.byNameKey[key];
+                break;
+              }
+            }
+            if (!selection) {
+              out.skipped_rows.push({
+                reason: "player_not_resolved",
+                player_name: line.player_name,
+                extension_term: line.extension_term,
+              });
+              continue;
+            }
+            const preview = pickExtensionPreviewByTerm(
+              previewRows,
+              selection.player_id,
+              line.extension_term
+            );
+            if (!preview) {
+              out.skipped_rows.push({
+                reason: "not_eligible",
+                player_id: selection.player_id,
+                player_name: selection.player_name,
+                extension_term: line.extension_term,
+              });
+              continue;
+            }
+            const req = buildExtensionRequestFromPreview(
+              line,
+              selection,
+              preview,
+              indexes.leftId,
+              indexes.rightId
+            );
+            if (!safeStr(req.preview_contract_info_string)) {
+              out.skipped_rows.push({
+                reason: "payload_invalid",
+                player_id: selection.player_id,
+                player_name: selection.player_name,
+                extension_term: line.extension_term,
+              });
+              continue;
+            }
+            prepared.push(req);
+          }
+        };
 
         if (metaExt.length) {
           out.source = "twb_meta";
-          out.expected_extension_count = metaExt.length;
+          out.expected_extension_count = Math.max(out.expected_extension_count, metaExt.length);
           for (const item of metaExt) {
             const playerId = String(item?.player_id || "").replace(/\D/g, "");
             if (!playerId) {
@@ -2185,79 +2302,34 @@ export default {
             }
             prepared.push(req);
           }
-        } else {
-          const parsedLines = parsePreTradeExtensionLines(offerComment || inputPayload.comment || "");
-          const validLines = parsedLines.filter((line) => !line.parse_error);
-          out.source = validLines.length ? "comment_lines" : "none";
-          out.expected_extension_count = validLines.length;
-          if (validLines.length) {
-            const previewRes = await fetchExtensionPreviewRows(season, queryParams || new URLSearchParams());
-            const previewRows = previewRes.ok && Array.isArray(previewRes.rows) ? previewRes.rows : [];
-            if (!previewRows.length) {
-              for (const line of validLines) {
-                out.skipped_rows.push({
-                  reason: "extension_previews_unavailable",
-                  player_name: line.player_name,
-                  extension_term: line.extension_term,
-                });
-              }
-            } else {
-              for (const line of validLines) {
-                const keys = nameVariants(line.player_name);
-                let selection = null;
-                for (const key of keys) {
-                  if (indexes.byNameKey[key]) {
-                    selection = indexes.byNameKey[key];
-                    break;
-                  }
-                }
-                if (!selection) {
-                  out.skipped_rows.push({
-                    reason: "player_name_not_matched",
-                    player_name: line.player_name,
-                    extension_term: line.extension_term,
-                  });
-                  continue;
-                }
-                const preview = pickExtensionPreviewByTerm(
-                  previewRows,
-                  selection.player_id,
-                  line.extension_term
-                );
-                if (!preview) {
-                  out.skipped_rows.push({
-                    reason: "preview_not_found_for_player_term",
-                    player_id: selection.player_id,
-                    player_name: selection.player_name,
-                    extension_term: line.extension_term,
-                  });
-                  continue;
-                }
-                const req = buildExtensionRequestFromPreview(
-                  line,
-                  selection,
-                  preview,
-                  indexes.leftId,
-                  indexes.rightId
-                );
-                if (!safeStr(req.preview_contract_info_string)) {
-                  out.skipped_rows.push({
-                    reason: "missing_preview_contract_info_string",
-                    player_id: selection.player_id,
-                    player_name: selection.player_name,
-                    extension_term: line.extension_term,
-                  });
-                  continue;
-                }
-                prepared.push(req);
-              }
-            }
+          if (!prepared.length) {
+            await attemptFromComments("twb_meta+comment_fallback");
           }
+        } else {
+          await attemptFromComments(triggerCount > 0 ? "comment_lines" : "none");
         }
 
         inputPayload.extension_requests = prepared;
         out.prepared_count = prepared.length;
         out.payload = inputPayload;
+        try {
+          console.log(
+            "[TWB][extensions][context]",
+            JSON.stringify({
+              trade_id: safeStr(tradeId),
+              timestamp_utc: new Date().toISOString(),
+              raw_comment_text: safeStr(combinedComment).slice(0, 500),
+              extension_trigger_found: triggerCount > 0 || metaExt.length > 0,
+              parsed_trigger_count: triggerCount,
+              parsed_extension_count: parsedLines.length,
+              prepared_extension_count: out.prepared_count,
+              source: out.source,
+              skip_reason: (out.skipped_rows[0] && (out.skipped_rows[0].reason || out.skipped_rows[0].parse_error)) || "",
+            })
+          );
+        } catch (_) {
+          // noop
+        }
         return out;
       };
 
@@ -3179,6 +3251,7 @@ export default {
         const preparationSkipped = Array.isArray(options?.preparation_skipped_rows)
           ? options.preparation_skipped_rows
           : [];
+        const tradeId = safeStr(options?.trade_id);
         if (!extReqs.length) {
           const reason = expectedExtensionCount > 0
             ? "expected_extensions_missing_from_payload"
@@ -3187,6 +3260,7 @@ export default {
             console.log(
               "[TWB][extensions][skip]",
               JSON.stringify({
+                trade_id: tradeId,
                 timestamp_utc: new Date().toISOString(),
                 league_id: safeStr(leagueId),
                 season: safeStr(season),
@@ -3231,7 +3305,8 @@ export default {
         try {
           console.log(
             "[TWB][extensions][prepare]",
-            JSON.stringify({
+              JSON.stringify({
+              trade_id: tradeId,
               timestamp_utc: new Date().toISOString(),
               league_id: safeStr(leagueId),
               season: safeStr(season),
@@ -3285,7 +3360,8 @@ export default {
         try {
           console.log(
             "[TWB][extensions][post]",
-            JSON.stringify({
+              JSON.stringify({
+              trade_id: tradeId,
               timestamp_utc: new Date().toISOString(),
               league_id: safeStr(leagueId),
               season: safeStr(season),
@@ -3324,6 +3400,7 @@ export default {
               console.log(
                 "[TWB][extensions][verify]",
                 JSON.stringify({
+                  trade_id: tradeId,
                   timestamp_utc: new Date().toISOString(),
                   league_id: safeStr(leagueId),
                   season: safeStr(season),
@@ -4030,9 +4107,19 @@ export default {
               : null;
         const offerComment = safeStr(
           body?.offer_comment ||
+          body?.offer_comments ||
           body?.offer_message ||
+          body?.comments ||
           body?.comment ||
+          body?.notes ||
           body?.message ||
+          (payload && (
+            payload.raw_comment ||
+            payload.comments ||
+            payload.comment ||
+            payload.message ||
+            payload.notes
+          )) ||
           ""
         );
         const offerMeta =
@@ -4371,6 +4458,7 @@ export default {
                 queryParams: url.searchParams,
                 offerComment,
                 offerMeta,
+                tradeId: mflTradeId,
               });
               if (extensionPreparation && extensionPreparation.payload) {
                 payload = extensionPreparation.payload;
@@ -4379,6 +4467,7 @@ export default {
               extensionsOut = await applyExtensionsFromPayload(leagueId, season, payload, {
                 expected_extension_count: safeInt(extensionPreparation?.expected_extension_count, 0),
                 preparation_skipped_rows: extensionPreparation?.skipped_rows || [],
+                trade_id: mflTradeId,
               });
             } else {
               salaryAdjOut = {
