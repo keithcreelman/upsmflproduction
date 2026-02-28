@@ -143,10 +143,7 @@
   }
 
   function isDirectMflMode() {
-    var fromQuery = getDirectMflFromQuery();
-    if (fromQuery) return parseBool(fromQuery, true);
-    if (window.UPS_TWB_DIRECT_MFL != null) return parseBool(window.UPS_TWB_DIRECT_MFL, true);
-    if (window.UPS_TRADE_WORKBENCH_DIRECT_MFL != null) return parseBool(window.UPS_TRADE_WORKBENCH_DIRECT_MFL, true);
+    // Queue mode is retired: always submit directly to MFL.
     return true;
   }
 
@@ -689,7 +686,7 @@
 
   async function submitOfferToQueue() {
     if (state.submit.busy) return;
-    var directMfl = isDirectMflMode();
+    var directMfl = true;
     var payload = buildTradePayload();
     if (!payload.validation || payload.validation.status !== "ready") {
       setSubmitStatus("Trade is not ready. Select assets on both sides and keep traded salary within max.", "warn");
@@ -705,7 +702,7 @@
     }
 
     state.submit.busy = true;
-    setSubmitStatus(directMfl ? "Submitting offer to MFL…" : "Submitting offer…", "");
+    setSubmitStatus("Submitting offer to MFL…", "");
     renderSummary();
 
     try {
@@ -722,23 +719,19 @@
         message: structuredMessage,
         payload: payload,
         source: "trade-workbench-ui",
-        direct_mfl: directMfl,
-        submit_mode: directMfl ? "mfl" : "queue"
+        direct_mfl: true,
+        submit_mode: "mfl"
       };
       var res = await fetchJsonRequest(apiUrl.toString(), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body)
       });
-      if (directMfl) {
-        var mflTradeId = safeStr((res.mfl || {}).trade_id);
-        setSubmitStatus(
-          "Offer submitted to MFL" + (mflTradeId ? " (Trade ID " + mflTradeId + ")." : "."),
-          "good"
-        );
-      } else {
-        setSubmitStatus("Offer submitted.", "good");
-      }
+      var mflTradeId = safeStr((res.mfl || {}).trade_id);
+      setSubmitStatus(
+        "Offer submitted to MFL" + (mflTradeId ? " (Trade ID " + mflTradeId + ")." : "."),
+        "good"
+      );
       if (els.offerMessageInput) els.offerMessageInput.value = "";
     } catch (err) {
       setSubmitStatus(friendlyOfferError("Submit failed", err), "bad");

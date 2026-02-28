@@ -2156,13 +2156,8 @@ export default {
         const toFranchiseName = safeStr(body?.to_franchise_name);
         const message = safeStr(body?.message).slice(0, 2000);
         const validationStatus = safeStr(payload?.validation?.status).toLowerCase();
-        const storageMode = safeStr(env.TRADE_OFFERS_MODE || env.TRADE_OFFERS_STORAGE_MODE || "queue").toLowerCase();
-        const submitMode = safeStr(body?.submit_mode || body?.mode).toLowerCase();
-        const directMfl =
-          parseBoolFlag(body?.direct_mfl) ||
-          submitMode === "mfl" ||
-          submitMode === "direct_mfl" ||
-          storageMode === "mfl";
+        // Queue mode is retired: always submit directly to MFL.
+        const directMfl = true;
 
         if (!leagueId) return jsonOut(400, { ok: false, error: "league_id is required" });
         if (!season) return jsonOut(400, { ok: false, error: "season is required" });
@@ -2406,14 +2401,8 @@ export default {
         const actingFranchiseId = padFranchiseId(body?.acting_franchise_id || body?.franchise_id || "");
         const actionMessage = safeStr(body?.message).slice(0, 2000);
         const mflTradeId = String(body?.trade_id || body?.mfl_trade_id || body?.TRADE_ID || "").replace(/\D/g, "");
-        const storageMode = safeStr(env.TRADE_OFFERS_MODE || env.TRADE_OFFERS_STORAGE_MODE || "queue").toLowerCase();
-        const submitMode = safeStr(body?.submit_mode || body?.mode).toLowerCase();
-        const directMfl =
-          parseBoolFlag(body?.direct_mfl) ||
-          submitMode === "mfl" ||
-          submitMode === "direct_mfl" ||
-          storageMode === "mfl" ||
-          !!mflTradeId;
+        // Queue mode is retired: direct MFL actions only.
+        const directMfl = true;
         const payload =
           body?.payload && typeof body.payload === "object"
             ? body.payload
