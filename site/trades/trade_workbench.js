@@ -2079,8 +2079,9 @@
   function getLockedLeftTeamId() {
     if (isCommissionerLockoutOff()) return "";
     var meta = (state.data && state.data.meta) || {};
-    var loggedIn = pad4(meta.logged_in_franchise_id || meta.default_franchise_id || "");
+    var loggedIn = pad4(meta.logged_in_franchise_id || "");
     if (loggedIn && getTeamById(loggedIn)) return loggedIn;
+    if (!loggedIn) return "";
     var teams = (state.data && state.data.teams) || [];
     var i;
     for (i = 0; i < teams.length; i += 1) {
