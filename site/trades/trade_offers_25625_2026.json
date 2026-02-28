@@ -3,8 +3,8 @@
     "schema_version": 1,
     "league_id": "25625",
     "season": 2026,
-    "updated_at": "2026-02-28T04:11:17.243Z",
-    "row_count": 5,
+    "updated_at": "2026-02-28T04:13:32.765Z",
+    "row_count": 6,
     "source": "worker-trade-offers"
   },
   "offers": [
@@ -558,6 +558,81 @@
       "status": "PENDING",
       "created_at": "2026-02-28T04:11:17.187Z",
       "updated_at": "2026-02-28T04:11:17.187Z",
+      "from_franchise_id": "0008",
+      "to_franchise_id": "0011",
+      "from_franchise_name": "Real Deal Creel",
+      "to_franchise_name": "Cleon Ca$h",
+      "message": "test from curl",
+      "source": "codex-debug",
+      "summary": {
+        "from_asset_count": 1,
+        "to_asset_count": 1,
+        "from_trade_salary_k": 0,
+        "to_trade_salary_k": 0,
+        "extension_request_count": 0
+      },
+      "payload": {
+        "schema_version": 1,
+        "league_id": "25625",
+        "season": 2026,
+        "teams": [
+          {
+            "role": "left",
+            "franchise_id": "0008",
+            "selected_assets": [
+              {
+                "asset_id": "player:16594",
+                "type": "PLAYER",
+                "player_id": "16594",
+                "player_name": "Benson, Trey",
+                "salary": 6000,
+                "years": 0,
+                "contract_type": "Rookie",
+                "taxi": false
+              }
+            ],
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 3,
+            "selected_non_taxi_salary_dollars": 6000
+          },
+          {
+            "role": "right",
+            "franchise_id": "0011",
+            "selected_assets": [
+              {
+                "asset_id": "player:16161",
+                "type": "PLAYER",
+                "player_id": "16161",
+                "player_name": "Robinson, Bijan",
+                "salary": 15000,
+                "years": 1,
+                "contract_type": "Rookie",
+                "taxi": false
+              }
+            ],
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 7,
+            "selected_non_taxi_salary_dollars": 15000
+          }
+        ],
+        "extension_requests": [],
+        "ui": {
+          "left_team_id": "0008",
+          "right_team_id": "0011"
+        },
+        "validation": {
+          "status": "ready",
+          "issues": []
+        }
+      }
+    },
+    {
+      "id": "TWB-7a3b5474-e8ce-4207-beae-52f843ede9ac",
+      "league_id": "25625",
+      "season": 2026,
+      "status": "PENDING",
+      "created_at": "2026-02-28T04:13:32.353Z",
+      "updated_at": "2026-02-28T04:13:32.353Z",
       "from_franchise_id": "0008",
       "to_franchise_id": "0011",
       "from_franchise_name": "Real Deal Creel",
