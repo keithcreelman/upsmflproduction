@@ -182,7 +182,7 @@
       if (!dirParts.length) return "";
 
       return (
-        "https://rawcdn.githack.com/" +
+        "https://raw.githack.com/" +
         encodeURIComponent(owner) +
         "/" +
         encodeURIComponent(repo) +
@@ -200,8 +200,6 @@
   function resolveIframeUrl() {
     var explicit = safeStr(window.UPS_TWB_IFRAME_URL || window.UPS_TRADE_WORKBENCH_IFRAME_URL);
     if (explicit) return explicit;
-    var base = getScriptBaseUrl();
-    if (base) return base + "trade_workbench.html";
     try {
       var s = document.currentScript;
       if (s && s.src) {
@@ -211,6 +209,8 @@
     } catch (e) {
       // noop
     }
+    var base = getScriptBaseUrl();
+    if (base) return base + "trade_workbench.html";
     return "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/trades/trade_workbench.html";
   }
 
