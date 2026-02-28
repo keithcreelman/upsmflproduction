@@ -2629,30 +2629,129 @@ export default {
         ).filter(Boolean);
       };
 
+      const readPendingTradeField = (row, candidateKeys) => {
+        if (!row || typeof row !== "object") return "";
+        const directKeys = Array.isArray(candidateKeys) ? candidateKeys : [];
+        for (const key of directKeys) {
+          const value = safeStr(row?.[key]);
+          if (value) return value;
+        }
+        const lowered = {};
+        for (const [k, v] of Object.entries(row || {})) {
+          lowered[String(k || "").toLowerCase()] = v;
+        }
+        for (const key of directKeys) {
+          const value = safeStr(lowered[String(key || "").toLowerCase()]);
+          if (value) return value;
+        }
+        return "";
+      };
+
+      const extractPendingTradeComment = (row) => {
+        const direct = readPendingTradeField(row, [
+          "comments",
+          "comment",
+          "notes",
+          "note",
+          "message",
+          "msg",
+          "trade_comment",
+          "trade_comments",
+          "offer_comment",
+          "offer_comments",
+          "comments_text",
+          "comment_text",
+        ]);
+        if (direct) return direct;
+        const fallbackEntries = Object.entries(row || {}).filter(([k, v]) => {
+          if (!safeStr(v)) return false;
+          return /(comment|message|note)/i.test(String(k || ""));
+        });
+        if (!fallbackEntries.length) return "";
+        fallbackEntries.sort((a, b) => safeStr(b[1]).length - safeStr(a[1]).length);
+        return safeStr(fallbackEntries[0][1]);
+      };
+
       const normalizePendingTradeRow = (row) => {
-        const tradeId = String(row?.trade_id || row?.tradeId || row?.id || "").replace(/\D/g, "");
+        const tradeId = String(
+          readPendingTradeField(row, [
+            "trade_id",
+            "tradeId",
+            "TRADE_ID",
+            "tradeid",
+            "id",
+            "proposal_id",
+            "proposalId",
+            "pending_trade_id",
+            "pendingTradeId",
+          ])
+        ).replace(/\D/g, "");
         const fromId = padFranchiseId(
-          row?.offeringteam ||
-            row?.from_franchise_id ||
-            row?.offeredfrom ||
-            row?.franchise_id ||
-            row?.franchise
+          readPendingTradeField(row, [
+            "offeringteam",
+            "offering_team",
+            "offeringteamid",
+            "offering_team_id",
+            "offeredfrom",
+            "from_franchise_id",
+            "fromfranchiseid",
+            "franchise_id",
+            "franchise",
+            "from",
+            "from_team_id",
+            "fromteamid",
+          ])
         );
         const toId = padFranchiseId(
-          row?.offeredto ||
-            row?.to_franchise_id ||
-            row?.target_franchise_id ||
-            row?.to
+          readPendingTradeField(row, [
+            "offeredto",
+            "offered_to",
+            "to_franchise_id",
+            "tofranchiseid",
+            "target_franchise_id",
+            "targetfranchiseid",
+            "to",
+            "to_team_id",
+            "toteamid",
+          ])
         );
-        const ts = safeInt(row?.timestamp || row?.created || row?.created_at, 0);
+        const ts = safeInt(
+          readPendingTradeField(row, [
+            "timestamp",
+            "created",
+            "created_at",
+            "create_time",
+            "createdAt",
+            "offerTime",
+          ]),
+          0
+        );
+        const commentsRaw = extractPendingTradeComment(row);
         return {
           trade_id: tradeId,
           from_franchise_id: fromId,
           to_franchise_id: toId,
           timestamp: ts,
-          comments: safeStr(row?.comments),
-          will_give_up: safeStr(row?.will_give_up || row?.willGiveUp),
-          will_receive: safeStr(row?.will_receive || row?.willReceive),
+          comments: commentsRaw,
+          raw_comment: commentsRaw,
+          will_give_up: readPendingTradeField(row, [
+            "will_give_up",
+            "willGiveUp",
+            "WILL_GIVE_UP",
+            "offer_from",
+            "offered_from",
+            "offering_assets",
+            "offeringPlayers",
+          ]),
+          will_receive: readPendingTradeField(row, [
+            "will_receive",
+            "willReceive",
+            "WILL_RECEIVE",
+            "offer_to",
+            "offered_to",
+            "requested_assets",
+            "requestedPlayers",
+          ]),
           raw: row,
         };
       };
@@ -2749,7 +2848,7 @@ export default {
         if (!candidates.length) return null;
         if (candidates.length === 1) return candidates[0];
 
-        const rowComment = stripTradeMetaTagFromComments(row?.comments);
+        const rowComment = stripTradeMetaTagFromComments(row?.raw_comment || row?.comments);
         const rowCommentLower = rowComment.toLowerCase();
         if (rowCommentLower) {
           for (const c of candidates) {
@@ -2784,7 +2883,7 @@ export default {
         const toId = padFranchiseId(row?.to_franchise_id);
         const tradeId = safeStr(row?.trade_id).replace(/\D/g, "");
         const createdAt = timestampToIso(row?.timestamp);
-        const commentsRaw = safeStr(row?.comments);
+        const commentsRaw = safeStr(row?.raw_comment || row?.comments);
         const commentsClean = stripTradeMetaTagFromComments(commentsRaw);
         const meta = parseTradeMetaTagFromComments(commentsRaw);
         const fromName =
@@ -2906,7 +3005,7 @@ export default {
         const dedupe = new Set();
         const normalized = [];
         for (const row of pendingRowsAll) {
-          const key = safeStr(row.trade_id) || [row.from_franchise_id, row.to_franchise_id, row.timestamp, row.comments].join("|");
+          const key = safeStr(row.trade_id) || [row.from_franchise_id, row.to_franchise_id, row.timestamp, row.raw_comment || row.comments].join("|");
           if (dedupe.has(key)) continue;
           dedupe.add(key);
           const stored = matchStoredOfferForPendingRow(row, storedIndexes);
@@ -4207,7 +4306,9 @@ export default {
                 r.from_franchise_id === fromFranchiseId &&
                 r.to_franchise_id === toFranchiseId
             );
-            const exactMatches = fromToMatches.filter((r) => r.comments.includes(metaPrefix));
+            const exactMatches = fromToMatches.filter((r) =>
+              safeStr(r.raw_comment || r.comments).includes(metaPrefix)
+            );
             const bestList = exactMatches.length ? exactMatches : fromToMatches;
             bestList.sort((a, b) => b.timestamp - a.timestamp);
             const best = bestList[0] || null;
@@ -4379,7 +4480,7 @@ export default {
             : body?.offer_payload && typeof body.offer_payload === "object"
               ? body.offer_payload
               : null;
-        const offerComment = safeStr(
+        let offerComment = safeStr(
           body?.offer_comment ||
           body?.offer_comments ||
           body?.offer_raw_comment ||
@@ -4398,17 +4499,17 @@ export default {
           )) ||
           ""
         );
-        const offerWillGiveUp = safeStr(
+        let offerWillGiveUp = safeStr(
           body?.offer_will_give_up ||
           body?.will_give_up ||
           body?.WILL_GIVE_UP
         );
-        const offerWillReceive = safeStr(
+        let offerWillReceive = safeStr(
           body?.offer_will_receive ||
           body?.will_receive ||
           body?.WILL_RECEIVE
         );
-        const offerMeta =
+        let offerMeta =
           body?.offer_twb_meta && typeof body.offer_twb_meta === "object"
             ? body.offer_twb_meta
             : null;
@@ -4537,7 +4638,9 @@ export default {
                   r.from_franchise_id === fromFranchiseId &&
                   r.to_franchise_id === toFranchiseId
               );
-              const exactMatches = fromToMatches.filter((r) => r.comments.includes(metaPrefix));
+              const exactMatches = fromToMatches.filter((r) =>
+                safeStr(r.raw_comment || r.comments).includes(metaPrefix)
+              );
               const bestList = exactMatches.length ? exactMatches : fromToMatches;
               bestList.sort((a, b) => b.timestamp - a.timestamp);
               const best = bestList[0] || null;
@@ -4690,47 +4793,79 @@ export default {
             return jsonOut(400, { ok: false, error: "trade_id is required for direct MFL actions" });
           }
 
+          let resolvedOfferFromFranchiseId = offerFromFranchiseId;
+          let resolvedOfferToFranchiseId = offerToFranchiseId;
+          let acceptPendingRow = null;
+          if (action === "ACCEPT") {
+            try {
+              const pendingRes = await mflExportJson(
+                season,
+                leagueId,
+                "pendingTrades",
+                { FRANCHISE_ID: actingFranchiseId },
+                { useCookie: true }
+              );
+              if (pendingRes.ok) {
+                const rows = pendingTradesRows(pendingRes.data).map(normalizePendingTradeRow);
+                acceptPendingRow = rows.find(
+                  (r) => String(r?.trade_id || "").replace(/\D/g, "") === mflTradeId
+                ) || null;
+                if (acceptPendingRow) {
+                  const pendingComment = safeStr(
+                    acceptPendingRow.raw_comment || acceptPendingRow.comments
+                  );
+                  if (pendingComment) {
+                    if (!offerComment) offerComment = pendingComment;
+                    if (!offerMeta) offerMeta = parseTradeMetaTagFromComments(pendingComment);
+                  }
+                  if (!offerWillGiveUp) offerWillGiveUp = safeStr(acceptPendingRow.will_give_up);
+                  if (!offerWillReceive) offerWillReceive = safeStr(acceptPendingRow.will_receive);
+                  if (!resolvedOfferFromFranchiseId) {
+                    resolvedOfferFromFranchiseId = padFranchiseId(
+                      acceptPendingRow.from_franchise_id
+                    );
+                  }
+                  if (!resolvedOfferToFranchiseId) {
+                    resolvedOfferToFranchiseId = padFranchiseId(
+                      acceptPendingRow.to_franchise_id
+                    );
+                  }
+                }
+              }
+            } catch (_) {
+              // noop
+            }
+          }
+
           // Ensure finalize payload exists for ACCEPT flows even when stored queue payload is missing.
           if (action === "ACCEPT" && (!payload || !Array.isArray(payload?.teams) || !payload.teams.length)) {
             let rebuiltPayload = null;
-            if (offerWillGiveUp && offerWillReceive && offerFromFranchiseId && offerToFranchiseId) {
+            if (
+              offerWillGiveUp &&
+              offerWillReceive &&
+              resolvedOfferFromFranchiseId &&
+              resolvedOfferToFranchiseId
+            ) {
               rebuiltPayload = buildPayloadFromOfferTokens({
                 leagueId,
                 season,
-                fromFranchiseId: offerFromFranchiseId,
-                toFranchiseId: offerToFranchiseId,
+                fromFranchiseId: resolvedOfferFromFranchiseId,
+                toFranchiseId: resolvedOfferToFranchiseId,
                 willGiveUp: offerWillGiveUp,
                 willReceive: offerWillReceive,
                 comment: offerComment,
               });
             }
-            if (!rebuiltPayload) {
-              try {
-                const pendingRes = await mflExportJson(
-                  season,
-                  leagueId,
-                  "pendingTrades",
-                  { FRANCHISE_ID: actingFranchiseId },
-                  { useCookie: true }
-                );
-                if (pendingRes.ok) {
-                  const rows = pendingTradesRows(pendingRes.data).map(normalizePendingTradeRow);
-                  const row = rows.find((r) => String(r?.trade_id || "").replace(/\D/g, "") === mflTradeId);
-                  if (row) {
-                    rebuiltPayload = buildPayloadFromOfferTokens({
-                      leagueId,
-                      season,
-                      fromFranchiseId: row.from_franchise_id || offerFromFranchiseId,
-                      toFranchiseId: row.to_franchise_id || offerToFranchiseId,
-                      willGiveUp: row.will_give_up || offerWillGiveUp,
-                      willReceive: row.will_receive || offerWillReceive,
-                      comment: row.comments || offerComment,
-                    });
-                  }
-                }
-              } catch (_) {
-                // noop
-              }
+            if (!rebuiltPayload && acceptPendingRow) {
+              rebuiltPayload = buildPayloadFromOfferTokens({
+                leagueId,
+                season,
+                fromFranchiseId: acceptPendingRow.from_franchise_id || resolvedOfferFromFranchiseId,
+                toFranchiseId: acceptPendingRow.to_franchise_id || resolvedOfferToFranchiseId,
+                willGiveUp: acceptPendingRow.will_give_up || offerWillGiveUp,
+                willReceive: acceptPendingRow.will_receive || offerWillReceive,
+                comment: acceptPendingRow.raw_comment || acceptPendingRow.comments || offerComment,
+              });
             }
             if (rebuiltPayload) {
               payload = rebuiltPayload;
