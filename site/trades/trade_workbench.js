@@ -140,7 +140,22 @@
     return !!fallback;
   }
 
+  function getDirectMflFromQuery() {
+    try {
+      var params = new URLSearchParams(window.location.search || "");
+      return safeStr(
+        params.get("DIRECT_MFL") ||
+        params.get("direct_mfl") ||
+        params.get("UPS_TWB_DIRECT_MFL")
+      );
+    } catch (e) {
+      return "";
+    }
+  }
+
   function isDirectMflMode() {
+    var fromQuery = getDirectMflFromQuery();
+    if (fromQuery) return parseBool(fromQuery, true);
     if (window.UPS_TWB_DIRECT_MFL != null) return parseBool(window.UPS_TWB_DIRECT_MFL, true);
     if (window.UPS_TRADE_WORKBENCH_DIRECT_MFL != null) return parseBool(window.UPS_TRADE_WORKBENCH_DIRECT_MFL, true);
     return true;

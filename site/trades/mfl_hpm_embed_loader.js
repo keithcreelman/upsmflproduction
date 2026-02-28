@@ -5,6 +5,15 @@
     return v == null ? "" : String(v).trim();
   }
 
+  function parseBool(v, fallback) {
+    if (typeof v === "boolean") return v;
+    var s = safeStr(v).toLowerCase();
+    if (!s) return !!fallback;
+    if (s === "1" || s === "true" || s === "yes" || s === "on") return true;
+    if (s === "0" || s === "false" || s === "no" || s === "off") return false;
+    return !!fallback;
+  }
+
   function pad4(v) {
     var d = safeStr(v).replace(/\D/g, "");
     if (!d) return "";
@@ -104,10 +113,13 @@
           u.searchParams.get("F") ||
           u.searchParams.get("FR")
       );
-      if (q) return q;
+      if (q && q !== "0000") return q;
     }
     var m = safeStr(window.location.pathname).match(/\/home\/\d+\/(\d{1,4})(?:\/|$)/i);
-    if (m && m[1]) return pad4(m[1]);
+    if (m && m[1]) {
+      var pathF = pad4(m[1]);
+      if (pathF && pathF !== "0000") return pathF;
+    }
 
     return getFranchiseIdFromCookies(leagueId, year);
   }
@@ -218,6 +230,22 @@
     return safeStr(window.UPS_TWB_API || window.UPS_TRADE_WORKBENCH_API || "https://upsmflproduction.keith-creelman.workers.dev/trade-workbench");
   }
 
+  function resolveDirectMflMode(pageUrl) {
+    var globals = [window.UPS_TWB_DIRECT_MFL, window.UPS_TRADE_WORKBENCH_DIRECT_MFL];
+    var i;
+    for (i = 0; i < globals.length; i += 1) {
+      if (globals[i] == null) continue;
+      return parseBool(globals[i], true) ? "1" : "0";
+    }
+    if (pageUrl) {
+      var q = pageUrl.searchParams.get("DIRECT_MFL") ||
+        pageUrl.searchParams.get("direct_mfl") ||
+        pageUrl.searchParams.get("UPS_TWB_DIRECT_MFL");
+      if (q != null && safeStr(q) !== "") return parseBool(q, true) ? "1" : "0";
+    }
+    return "";
+  }
+
   function ensureMount() {
     var mount =
       document.getElementById("twbMount") ||
@@ -230,7 +258,7 @@
     return mount;
   }
 
-  function buildIframeSrc(iframeUrl, apiUrl, context, pageUrl, releaseRef) {
+  function buildIframeSrc(iframeUrl, apiUrl, context, pageUrl, releaseRef, directMflMode) {
     var url;
     try {
       url = new URL(iframeUrl, window.location.href);
@@ -240,12 +268,13 @@
     if (apiUrl && !url.searchParams.get("api")) url.searchParams.set("api", apiUrl);
     if (context.L && !url.searchParams.get("L")) url.searchParams.set("L", context.L);
     if (context.YEAR && !url.searchParams.get("YEAR")) url.searchParams.set("YEAR", context.YEAR);
-    if (context.F && !url.searchParams.get("F")) url.searchParams.set("F", context.F);
+    if (context.F && context.F !== "0000" && !url.searchParams.get("F")) url.searchParams.set("F", context.F);
 
     if (pageUrl) {
       var debug = safeStr(pageUrl.searchParams.get("DEBUG_TWB") || pageUrl.searchParams.get("DEBUG"));
       if (debug) url.searchParams.set("DEBUG_TWB", debug);
     }
+    if (directMflMode && !url.searchParams.get("DIRECT_MFL")) url.searchParams.set("DIRECT_MFL", directMflMode);
     if (releaseRef) url.searchParams.set("v", releaseRef);
     url.searchParams.set("embed", "1");
     return url.toString();
@@ -270,6 +299,7 @@
   };
   var iframeUrl = resolveIframeUrl();
   var apiUrl = resolveApiUrl();
+  var directMflMode = resolveDirectMflMode(pageUrl);
   var mount = ensureMount();
 
   mount.innerHTML = "";
@@ -287,7 +317,7 @@
   iframe.setAttribute("loading", "lazy");
   iframe.setAttribute("scrolling", "no");
   iframe.setAttribute("title", "UPS Trade Workbench");
-  iframe.src = buildIframeSrc(iframeUrl, apiUrl, context, pageUrl, releaseRef);
+  iframe.src = buildIframeSrc(iframeUrl, apiUrl, context, pageUrl, releaseRef, directMflMode);
   mount.appendChild(iframe);
 
   function onMessage(ev) {
