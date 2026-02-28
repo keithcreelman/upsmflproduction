@@ -936,16 +936,16 @@ summary:focus-visible {
 
 .twb-team-brand {
   display: grid;
-  grid-template-columns: 72px;
+  grid-template-columns: 84px;
   gap: 0;
   align-items: center;
   min-width: 0;
 }
 
 .twb-team-logo-shell {
-  width: 72px;
-  height: 72px;
-  border-radius: 12px;
+  width: 84px;
+  height: 84px;
+  border-radius: 14px;
   border: 0;
   background: transparent;
   display: grid;
@@ -987,15 +987,17 @@ summary:focus-visible {
 
 .twb-asset-toggle {
   display: inline-flex;
-  gap: 0.2rem;
+  gap: 0.16rem;
   align-items: center;
   justify-self: end;
   align-self: start;
   border: 1px solid rgba(142, 189, 255, 0.42);
   border-radius: 999px;
-  padding: 0.22rem;
+  padding: 0.18rem;
   background: rgba(4, 10, 22, 0.95);
   box-shadow: inset 0 1px 0 rgba(176, 209, 255, 0.1);
+  max-width: 100%;
+  flex-wrap: nowrap;
 }
 
 .twb-asset-toggle-btn {
@@ -1003,11 +1005,12 @@ summary:focus-visible {
   background: transparent;
   color: #c9ddfa;
   border-radius: 999px;
-  padding: 0.38rem 0.86rem;
-  font-size: 0.82rem;
+  padding: 0.34rem 0.64rem;
+  font-size: 0.79rem;
   font-weight: 800;
   line-height: 1.2;
   cursor: pointer;
+  white-space: nowrap;
 }
 
 .twb-asset-toggle-btn.is-active {
@@ -1743,16 +1746,16 @@ summary:focus-visible {
   }
 
   .twb-team-brand {
-    grid-template-columns: 64px;
+    grid-template-columns: 72px;
   }
 
   .twb-team-logo-shell {
-    width: 64px;
-    height: 64px;
+    width: 72px;
+    height: 72px;
   }
 
   .twb-asset-toggle {
-    justify-self: start;
+    justify-self: end;
   }
 
   .twb-trade-salary-box {
@@ -1916,12 +1919,22 @@ summary:focus-visible {
   }
 
   .twb-team-brand {
-    grid-template-columns: 56px;
+    grid-template-columns: 64px;
   }
 
   .twb-team-logo-shell {
-    width: 56px;
-    height: 56px;
+    width: 64px;
+    height: 64px;
+  }
+}
+
+@media (max-width: 520px) {
+  .twb-team-header {
+    grid-template-columns: 1fr;
+  }
+
+  .twb-asset-toggle {
+    justify-self: start;
   }
 }
 

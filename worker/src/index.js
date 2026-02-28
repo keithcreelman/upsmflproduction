@@ -2456,6 +2456,8 @@ export default {
         if (!season) return jsonOut(400, { ok: false, error: "Missing YEAR/season param" });
 
         const franchiseId = padFranchiseId(
+          url.searchParams.get("acting_franchise_id") ||
+            url.searchParams.get("ACTING_FRANCHISE_ID") ||
           url.searchParams.get("FRANCHISE_ID") ||
             url.searchParams.get("franchise_id") ||
             url.searchParams.get("F") ||
@@ -2519,6 +2521,8 @@ export default {
             ""
         );
         const franchiseId = padFranchiseId(
+          url.searchParams.get("acting_franchise_id") ||
+            url.searchParams.get("ACTING_FRANCHISE_ID") ||
           url.searchParams.get("FRANCHISE_ID") ||
             url.searchParams.get("franchise_id") ||
             url.searchParams.get("F") ||
@@ -2588,6 +2592,8 @@ export default {
         const leagueId = safeStr(url.searchParams.get("L") || L || "");
         const season = safeStr(url.searchParams.get("YEAR") || YEAR || "");
         const franchiseId = padFranchiseId(
+          url.searchParams.get("acting_franchise_id") ||
+            url.searchParams.get("ACTING_FRANCHISE_ID") ||
           url.searchParams.get("FRANCHISE_ID") ||
             url.searchParams.get("F") ||
             url.searchParams.get("franchise_id") ||
@@ -3433,7 +3439,34 @@ export default {
         const { rosterAssetsByFranchise, allPlayerIds } = parseRostersExport(rostersRes.data);
         const playersById = await fetchPlayersByIdsChunked(season, leagueId, allPlayerIds);
         const pickAssetsByFranchise = assetsRes.ok ? parseAssetsExportPicks(assetsRes.data) : {};
-        const myFranchiseId = requestedDefaultFranchiseId || (myFrRes.ok ? parseMyFranchiseId(myFrRes.data) : "");
+        const loggedInFranchiseId = myFrRes.ok ? parseMyFranchiseId(myFrRes.data) : "";
+        const commissionerLockoutRaw = safeStr(
+          firstTruthy(
+            leagueRoot?.commissioner_lockout,
+            leagueRoot?.commissionerLockout,
+            leagueRoot?.commish_lockout,
+            leagueRoot?.commishLockout,
+            leagueRoot?.franchise_lockout,
+            leagueRoot?.franchiseLockout
+          )
+        ).toUpperCase();
+        let commissionerLockout =
+          commissionerLockoutRaw === "N" || commissionerLockoutRaw === "0" || commissionerLockoutRaw === "NO"
+            ? "N"
+            : commissionerLockoutRaw === "Y" || commissionerLockoutRaw === "1" || commissionerLockoutRaw === "YES"
+              ? "Y"
+              : "";
+        if (!commissionerLockout) {
+          commissionerLockout =
+            requestedDefaultFranchiseId &&
+            loggedInFranchiseId &&
+            requestedDefaultFranchiseId !== loggedInFranchiseId
+              ? "N"
+              : "Y";
+        }
+        const activeFranchiseId = commissionerLockout === "N"
+          ? (requestedDefaultFranchiseId || loggedInFranchiseId || "")
+          : (loggedInFranchiseId || requestedDefaultFranchiseId || "");
 
         // Merge player identity/position data into roster assets.
         for (const [franchiseId, assets] of Object.entries(rosterAssetsByFranchise)) {
@@ -3474,7 +3507,7 @@ export default {
             franchise_abbrev: meta.franchise_abbrev,
             icon_url: meta.icon_url,
             available_salary_dollars: meta.available_salary_dollars,
-            is_default: !!myFranchiseId && franchiseId === myFranchiseId,
+            is_default: !!activeFranchiseId && franchiseId === activeFranchiseId,
             assets: [...playerAssets, ...pickAssets],
           };
         });
@@ -3519,7 +3552,10 @@ export default {
           teams,
           extension_previews: extRes.rows || [],
           meta: {
-            default_franchise_id: myFranchiseId || "",
+            default_franchise_id: activeFranchiseId || "",
+            active_franchise_id: activeFranchiseId || "",
+            logged_in_franchise_id: loggedInFranchiseId || "",
+            commissioner_lockout: commissionerLockout,
             salary_cap_dollars: leagueSalaryCapDollars,
             counts: {
               teams: teams.length,

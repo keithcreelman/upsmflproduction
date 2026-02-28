@@ -2,7 +2,7 @@
   "use strict";
 
   var SAMPLE_DATA_URL = "./trade_workbench_sample.json";
-  var STORAGE_KEY = "ups-trade-workbench-state-v7";
+  var STORAGE_KEY = "ups-trade-workbench-state-v8";
   var GROUP_ORDER = ["QB", "RB", "WR", "TE", "PK", "PN", "DT", "DE", "LB", "CB", "S", "DL", "DB", "PICKS", "OTHER"];
   var heightSyncInstalled = false;
   var heightPostTimer = 0;
@@ -11,6 +11,7 @@
   var state = {
     data: null,
     uiReady: false,
+    activeFranchiseId: "",
     leftTeamId: "",
     rightTeamId: "",
     selections: {},
@@ -507,7 +508,40 @@
         season: safeInt(raw.season || raw.year, 0),
         generated_at: safeStr(raw.generated_at || raw.generatedAt || ""),
         source: safeStr(raw.source || "sample"),
-        salary_cap_dollars: salaryCapDollars
+        salary_cap_dollars: salaryCapDollars,
+        default_franchise_id: pad4(
+          (raw.meta && (
+            raw.meta.default_franchise_id ||
+            raw.meta.defaultFranchiseId
+          )) ||
+          raw.default_franchise_id ||
+          raw.defaultFranchiseId
+        ),
+        active_franchise_id: pad4(
+          (raw.meta && (
+            raw.meta.active_franchise_id ||
+            raw.meta.activeFranchiseId
+          )) ||
+          raw.active_franchise_id ||
+          raw.activeFranchiseId
+        ),
+        logged_in_franchise_id: pad4(
+          (raw.meta && (
+            raw.meta.logged_in_franchise_id ||
+            raw.meta.loggedInFranchiseId
+          )) ||
+          raw.logged_in_franchise_id ||
+          raw.loggedInFranchiseId
+        ),
+        commissioner_lockout: safeStr(
+          (raw.meta && (
+            raw.meta.commissioner_lockout ||
+            raw.meta.commissionerLockout
+          )) ||
+          raw.commissioner_lockout ||
+          raw.commissionerLockout ||
+          ""
+        ).toUpperCase() === "N" ? "N" : "Y"
       },
       teams: teams,
       extension_previews: raw.extension_previews || raw.extensionPreviews || [],
@@ -541,7 +575,7 @@
     var finalUrl = resolveRelativeUrl(apiUrl);
     try {
       var u = new URL(finalUrl, window.location.href);
-      var forwardKeys = ["L", "YEAR", "F", "FRANCHISE_ID", "franchise_id", "EXT_URL", "extension_previews_url"];
+      var forwardKeys = ["L", "YEAR", "F", "FRANCHISE_ID", "franchise_id", "acting_franchise_id", "ACTING_FRANCHISE_ID", "EXT_URL", "extension_previews_url"];
       var i;
       for (i = 0; i < forwardKeys.length; i += 1) {
         var k = forwardKeys[i];
@@ -886,7 +920,7 @@
     var toId = pad4(offer && offer.to_franchise_id);
     if (!fromId || !toId || !getTeamById(fromId) || !getTeamById(toId) || fromId === toId) return null;
 
-    var actingTeamId = pad4(options.actingTeamId || state.leftTeamId);
+    var actingTeamId = pad4(options.actingTeamId || getActiveFranchiseId() || state.leftTeamId);
     var keepOriginal = !!options.keepOriginalOrientation;
     var leftId = keepOriginal
       ? fromId
@@ -979,6 +1013,10 @@
 
   function getOfferPayloadForWorkbench(offer, options) {
     options = options || {};
+    if (options.forcePerspective) {
+      var rebuiltForced = buildPayloadFromOfferTokens(offer, options);
+      if (rebuiltForced) return rebuiltForced;
+    }
     if (offer && offer.payload && typeof offer.payload === "object") {
       var directPayload = getTradePayloadFromInput(offer.payload);
       if (directPayload) return directPayload;
@@ -1247,9 +1285,26 @@
     return 0;
   }
 
+  function getFranchiseNameById(franchiseId) {
+    var id = pad4(franchiseId);
+    if (!id) return "";
+    var team = getTeamById(id);
+    return safeStr(team && team.franchise_name);
+  }
+
   function getOfferOpponentLabel(offer, bucket) {
-    if (bucket === "offered") return safeStr((offer || {}).to_franchise_name) || "Opponent";
-    return safeStr((offer || {}).from_franchise_name) || "Opponent";
+    var o = offer || {};
+    var opponentName = "";
+    var opponentId = "";
+    if (bucket === "offered") {
+      opponentName = safeStr(o.to_franchise_name);
+      opponentId = pad4(o.to_franchise_id);
+    } else {
+      opponentName = safeStr(o.from_franchise_name);
+      opponentId = pad4(o.from_franchise_id);
+    }
+    if (opponentName) return opponentName;
+    return getFranchiseNameById(opponentId) || opponentId || "Opponent";
   }
 
   function getOfferTradeId(offer) {
@@ -1312,7 +1367,7 @@
   async function fetchOfferById(loadKey) {
     var leagueId = safeStr(state.data && state.data.meta ? state.data.meta.league_id : "");
     var season = safeStr(state.data && state.data.meta ? state.data.meta.season : "");
-    var franchiseId = pad4(state.leftTeamId);
+    var franchiseId = getActiveFranchiseId();
     if (!leagueId || !season || !safeStr(loadKey)) {
       return { ok: false, reason: "Offer lookup is missing league context." };
     }
@@ -1324,7 +1379,10 @@
       url.searchParams.set("status", "PENDING");
       url.searchParams.set("include_payload", "1");
       url.searchParams.set("limit", "300");
-      if (scoped && franchiseId) url.searchParams.set("FRANCHISE_ID", franchiseId);
+      if (scoped && franchiseId) {
+        url.searchParams.set("FRANCHISE_ID", franchiseId);
+        url.searchParams.set("acting_franchise_id", franchiseId);
+      }
       return fetchJsonRequest(url.toString());
     }
 
@@ -1371,8 +1429,9 @@
         return;
       }
       var payloadForLoad = getOfferPayloadForWorkbench(out.offer, {
-        actingTeamId: state.leftTeamId,
-        keepOriginalOrientation: false
+        actingTeamId: getActiveFranchiseId(),
+        keepOriginalOrientation: false,
+        forcePerspective: mode === "counter"
       });
       if (!payloadForLoad) {
         setSubmitStatus("Offer payload is unavailable.", "bad");
@@ -1444,8 +1503,9 @@
       return;
     }
     var payload = getOfferPayloadForWorkbench(offer, {
-      actingTeamId: state.leftTeamId,
-      keepOriginalOrientation: false
+      actingTeamId: getActiveFranchiseId(),
+      keepOriginalOrientation: false,
+      forcePerspective: true
     });
     if (!payload) {
       setSubmitStatus("Counter Offer Draft is unavailable for this offer payload.", "bad");
@@ -1478,7 +1538,7 @@
 
     var leagueId = safeStr(state.data && state.data.meta ? state.data.meta.league_id : "");
     var season = safeStr(state.data && state.data.meta ? state.data.meta.season : "");
-    var actingFranchiseId = pad4(state.leftTeamId);
+    var actingFranchiseId = getActiveFranchiseId();
     var tradeId = getOfferTradeId(offer);
     if (!leagueId || !season || !actingFranchiseId || !tradeId) {
       setSubmitStatus("Offer action failed: missing trade routing fields.", "bad");
@@ -1582,10 +1642,10 @@
 
       var title = document.createElement("div");
       title.className = "twb-banner-offer-title";
-      title.textContent =
-        getOfferOpponentLabel(offer, bucket) +
-        " · " +
-        normalizeOfferStatus(offer.status);
+      var opponentLabel = getOfferOpponentLabel(offer, bucket);
+      title.textContent = bucket === "offered"
+        ? ("Pending vs " + opponentLabel)
+        : ("Pending from " + opponentLabel);
 
       var meta = document.createElement("div");
       meta.className = "twb-banner-offer-meta";
@@ -1610,21 +1670,21 @@
 
       var actions = document.createElement("div");
       actions.className = "twb-banner-offer-actions";
-      var counterBtn = createOfferActionButton(
-        "offer-counter",
-        "Counter",
-        safeStr(offer.id),
-        bucket,
-        false
-      );
-      counterBtn.disabled = !hasPayload || !!state.offers.actionBusy;
-      actions.appendChild(counterBtn);
       if (bucket === "received") {
+        var counterBtn = createOfferActionButton(
+          "offer-counter",
+          "Counter",
+          safeStr(offer.id),
+          bucket,
+          false
+        );
+        counterBtn.disabled = !hasPayload || !!state.offers.actionBusy;
+        actions.appendChild(counterBtn);
         actions.appendChild(
           createOfferActionButton("offer-accept", "Accept", safeStr(offer.id), bucket, false)
         );
         actions.appendChild(
-          createOfferActionButton("offer-reject", "Reject", safeStr(offer.id), bucket, true)
+          createOfferActionButton("offer-reject", "Decline", safeStr(offer.id), bucket, true)
         );
       } else {
         actions.appendChild(
@@ -1647,7 +1707,7 @@
     var meta = state.data && state.data.meta ? state.data.meta : {};
     var leagueId = safeStr(meta.league_id);
     var season = safeStr(meta.season);
-    var franchiseId = pad4(state.leftTeamId);
+    var franchiseId = getActiveFranchiseId();
     if (!leagueId || !season || !franchiseId) {
       state.offers.offered = [];
       state.offers.received = [];
@@ -1672,6 +1732,7 @@
       offerUrl.searchParams.set("L", leagueId);
       offerUrl.searchParams.set("YEAR", season);
       offerUrl.searchParams.set("FRANCHISE_ID", franchiseId);
+      offerUrl.searchParams.set("acting_franchise_id", franchiseId);
       offerUrl.searchParams.set("status", "PENDING");
       offerUrl.searchParams.set("include_payload", "1");
       offerUrl.searchParams.set("limit", "300");
@@ -1795,13 +1856,21 @@
   async function submitOfferToQueue() {
     if (state.submit.busy) return;
     var payload = buildTradePayload();
+    var leftTeam = getTeamById(state.leftTeamId);
+    var rightTeam = getTeamById(state.rightTeamId);
+    var activeFranchiseId = getActiveFranchiseId();
+    if (activeFranchiseId && state.leftTeamId !== activeFranchiseId && getTeamById(activeFranchiseId)) {
+      state.leftTeamId = activeFranchiseId;
+      leftTeam = getTeamById(state.leftTeamId);
+      if (state.rightTeamId === state.leftTeamId) state.rightTeamId = "";
+      rightTeam = getTeamById(state.rightTeamId);
+      payload = buildTradePayload();
+    }
     if (!payload.validation || payload.validation.status !== "ready") {
       setSubmitStatus("Trade is not ready. Select assets on both sides and keep traded salary within max.", "warn");
       renderSummary();
       return;
     }
-    var leftTeam = getTeamById(state.leftTeamId);
-    var rightTeam = getTeamById(state.rightTeamId);
     if (!leftTeam || !rightTeam) {
       setSubmitStatus("Select both teams before submitting.", "warn");
       renderSummary();
@@ -1822,7 +1891,7 @@
       var body = {
         league_id: safeStr(state.data.meta.league_id),
         season: state.data.meta.season || null,
-        from_franchise_id: safeStr(state.leftTeamId),
+        from_franchise_id: safeStr(activeFranchiseId || state.leftTeamId),
         to_franchise_id: safeStr(state.rightTeamId),
         from_franchise_name: leftTeam.franchise_name,
         to_franchise_name: rightTeam.franchise_name,
@@ -1968,7 +2037,50 @@
     return "";
   }
 
+  function isCommissionerLockoutOff() {
+    var lockout = safeStr(state.data && state.data.meta ? state.data.meta.commissioner_lockout : "").toUpperCase();
+    return lockout === "N";
+  }
+
+  function getActiveFranchiseId() {
+    var teams = (state.data && state.data.teams) || [];
+    var active = pad4(state.activeFranchiseId);
+    if (active && getTeamById(active)) return active;
+    active = pad4(state.leftTeamId);
+    if (active && getTeamById(active)) return active;
+
+    var meta = (state.data && state.data.meta) || {};
+    var candidates = [
+      meta.active_franchise_id,
+      meta.default_franchise_id,
+      meta.logged_in_franchise_id
+    ];
+    var i;
+    for (i = 0; i < candidates.length; i += 1) {
+      var id = pad4(candidates[i]);
+      if (id && getTeamById(id)) return id;
+    }
+    return teams[0] ? teams[0].franchise_id : "";
+  }
+
+  function setActiveFranchiseId(teamId, opts) {
+    opts = opts || {};
+    var id = pad4(teamId);
+    if (!id || !getTeamById(id)) return false;
+    state.activeFranchiseId = id;
+    if (opts.syncLeft !== false) {
+      state.leftTeamId = id;
+      if (state.rightTeamId === id) state.rightTeamId = "";
+    }
+    state.offers.key = "";
+    return true;
+  }
+
   function getLockedLeftTeamId() {
+    if (isCommissionerLockoutOff()) return "";
+    var meta = (state.data && state.data.meta) || {};
+    var loggedIn = pad4(meta.logged_in_franchise_id || meta.default_franchise_id || "");
+    if (loggedIn && getTeamById(loggedIn)) return loggedIn;
     var teams = (state.data && state.data.teams) || [];
     var i;
     for (i = 0; i < teams.length; i += 1) {
@@ -2006,6 +2118,10 @@
       state.tradeSalaryK = parsed.tradeSalaryK && typeof parsed.tradeSalaryK === "object" ? parsed.tradeSalaryK : state.tradeSalaryK;
       state.assetView = parsed.assetView && typeof parsed.assetView === "object" ? parsed.assetView : state.assetView;
       state.collapsed = parsed.collapsed && typeof parsed.collapsed === "object" ? parsed.collapsed : state.collapsed;
+      state.activeFranchiseId = safeStr(parsed.activeFranchiseId);
+      if (!state.activeFranchiseId) {
+        state.activeFranchiseId = safeStr(localStorage.getItem("twb_active_franchise_id"));
+      }
       state.leftTeamId = safeStr(parsed.leftTeamId);
       state.rightTeamId = safeStr(parsed.rightTeamId);
       state.mobileTab = safeStr(parsed.mobileTab) || state.mobileTab;
@@ -2020,6 +2136,7 @@
       localStorage.setItem(
         STORAGE_KEY,
         JSON.stringify({
+          activeFranchiseId: state.activeFranchiseId,
           leftTeamId: state.leftTeamId,
           rightTeamId: state.rightTeamId,
           selections: state.selections,
@@ -2031,6 +2148,7 @@
           mobileTab: state.mobileTab
         })
       );
+      localStorage.setItem("twb_active_franchise_id", safeStr(state.activeFranchiseId));
     } catch (e) {
       // ignore quota errors
     }
@@ -2194,10 +2312,11 @@
     right.innerHTML = "";
     var teams = state.data.teams || [];
     var lockedLeftId = getLockedLeftTeamId();
+    var activeId = getActiveFranchiseId();
     var leftTeam = null;
     var i;
     if (lockedLeftId) {
-      state.leftTeamId = lockedLeftId;
+      setActiveFranchiseId(lockedLeftId, { syncLeft: true });
       leftTeam = getTeamById(lockedLeftId);
       left.appendChild(optionEl(lockedLeftId, leftTeam ? leftTeam.franchise_name : lockedLeftId));
       left.disabled = true;
@@ -2206,9 +2325,12 @@
       for (i = 0; i < teams.length; i += 1) {
         left.appendChild(optionEl(teams[i].franchise_id, teams[i].franchise_name));
       }
-      if (!state.leftTeamId || !getTeamById(state.leftTeamId)) {
-        state.leftTeamId = teams[0] ? teams[0].franchise_id : "";
+      if (!activeId || !getTeamById(activeId)) {
+        activeId = state.leftTeamId && getTeamById(state.leftTeamId)
+          ? state.leftTeamId
+          : (teams[0] ? teams[0].franchise_id : "");
       }
+      setActiveFranchiseId(activeId, { syncLeft: true });
     }
 
     right.appendChild(optionEl("", "Select Team..."));
@@ -3599,8 +3721,7 @@
 
   function bindEvents() {
     els.leftTeamSelect.addEventListener("change", function () {
-      state.leftTeamId = safeStr(this.value);
-      if (state.leftTeamId === state.rightTeamId) state.rightTeamId = "";
+      setActiveFranchiseId(safeStr(this.value), { syncLeft: true });
       initTeamSelectors();
       rerender();
       refreshBannerOffers(true);
@@ -3889,7 +4010,7 @@
               performOfferAction("COUNTER", { bucket: bucket, offer: offer });
             } else {
               var payload = getOfferPayloadForWorkbench(offer, {
-                actingTeamId: state.leftTeamId,
+                actingTeamId: getActiveFranchiseId(),
                 keepOriginalOrientation: false
               });
               if (!payload) {
@@ -3966,10 +4087,26 @@
     var teams = state.data.teams || [];
     if (!teams.length) return;
     var lockedLeft = getLockedLeftTeamId();
+    var meta = (state.data && state.data.meta) || {};
+    var preferredFromMeta = pad4(
+      meta.active_franchise_id ||
+      meta.default_franchise_id ||
+      meta.logged_in_franchise_id ||
+      ""
+    );
+    var preferredActive = pad4(
+      preferredFromMeta ||
+      state.activeFranchiseId ||
+      state.leftTeamId ||
+      ""
+    );
+    if (!preferredActive || !getTeamById(preferredActive)) {
+      preferredActive = teams[0].franchise_id;
+    }
     if (lockedLeft) {
-      state.leftTeamId = lockedLeft;
-    } else if (!state.leftTeamId || !getTeamById(state.leftTeamId)) {
-      state.leftTeamId = teams[0].franchise_id;
+      setActiveFranchiseId(lockedLeft, { syncLeft: true });
+    } else {
+      setActiveFranchiseId(preferredActive, { syncLeft: true });
     }
     if (!state.rightTeamId || !getTeamById(state.rightTeamId) || state.rightTeamId === state.leftTeamId) {
       state.rightTeamId = "";
