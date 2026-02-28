@@ -39,6 +39,13 @@
       received: [],
       key: ""
     },
+    reviewContext: {
+      kind: "draft",
+      offerBucket: "",
+      offerId: "",
+      tradeId: "",
+      offer: null
+    },
     mobileTab: "your",
     counterMode: false,
     counterSourceOffer: null,
@@ -1223,6 +1230,53 @@
     state.submit.canRetry = false;
   }
 
+  function setReviewContext(kind, options) {
+    options = options || {};
+    var offer = options.offer || null;
+    state.reviewContext = {
+      kind: safeStr(kind) || "draft",
+      offerBucket: safeStr(options.offerBucket),
+      offerId: safeStr(options.offerId || (offer && offer.id)),
+      tradeId: safeStr(options.tradeId || (offer && getOfferTradeId(offer))),
+      offer: offer || null
+    };
+  }
+
+  function getPrimarySubmitIntent(payload) {
+    var ready = !!(payload && payload.validation && payload.validation.status === "ready");
+    var ctx = state.reviewContext || {};
+    var kind = safeStr(ctx.kind) || (state.counterMode ? "counter" : "draft");
+    var intent = {
+      kind: kind,
+      label: "Submit Offer",
+      busyLabel: "Submitting…",
+      disabled: !ready || !state.rightTeamId,
+      mode: "submit"
+    };
+    if (kind === "counter") {
+      intent.label = "Submit Counter";
+      intent.busyLabel = "Submitting Counter…";
+      intent.disabled = !ready || !state.rightTeamId;
+      intent.mode = "submit";
+      return intent;
+    }
+    if (kind === "incoming") {
+      intent.label = "Accept Trade";
+      intent.busyLabel = "Accepting…";
+      intent.disabled = !safeStr(ctx.tradeId) || state.offers.actionBusy;
+      intent.mode = "accept";
+      return intent;
+    }
+    if (kind === "outgoing") {
+      intent.label = "Revoke Offer";
+      intent.busyLabel = "Revoking…";
+      intent.disabled = !safeStr(ctx.tradeId) || state.offers.actionBusy;
+      intent.mode = "revoke";
+      return intent;
+    }
+    return intent;
+  }
+
   function moveToOfferReview() {
     state.mobileTab = "review";
     window.setTimeout(function () {
@@ -1272,6 +1326,26 @@
     state.rightTeamId = rightId;
     state.counterMode = !!options.counterMode;
     state.counterSourceOffer = state.counterMode ? (options.counterSourceOffer || state.counterSourceOffer || null) : null;
+    if (state.counterMode) {
+      setReviewContext("counter", {
+        offer: options.sourceOffer || options.counterSourceOffer || null,
+        offerBucket: safeStr(options.offerBucket || "received"),
+        tradeId: safeStr(options.tradeId)
+      });
+    } else {
+      var loadedKind = safeStr(options.reviewKind);
+      if (!loadedKind) {
+        var bucket = safeStr(options.offerBucket).toLowerCase();
+        if (bucket === "received") loadedKind = "incoming";
+        else if (bucket === "offered") loadedKind = "outgoing";
+        else loadedKind = "draft";
+      }
+      setReviewContext(loadedKind, {
+        offer: options.sourceOffer || null,
+        offerBucket: safeStr(options.offerBucket),
+        tradeId: safeStr(options.tradeId)
+      });
+    }
 
     resetFilterState();
     state.selections = {};
@@ -1489,10 +1563,20 @@
         renderSummary();
         return;
       }
+      var activeId = getActiveFranchiseId();
+      var offerBucket = "";
+      if (activeId && pad4(out.offer.to_franchise_id) === activeId) offerBucket = "received";
+      else if (activeId && pad4(out.offer.from_franchise_id) === activeId) offerBucket = "offered";
       loadOfferIntoWorkbench(payloadForLoad, {
         counterMode: mode === "counter",
         loadedMessage: mode === "counter" ? "Counter Offer Draft loaded." : "Offer loaded in Trade War Room.",
-        counterSourceOffer: mode === "counter" ? out.offer : null
+        counterSourceOffer: mode === "counter" ? out.offer : null,
+        sourceOffer: out.offer,
+        offerBucket: offerBucket,
+        tradeId: getOfferTradeId(out.offer),
+        reviewKind: mode === "counter"
+          ? "counter"
+          : (offerBucket === "received" ? "incoming" : (offerBucket === "offered" ? "outgoing" : "draft"))
       });
       if (mode === "counter") {
         setSubmitStatus("Counter Offer Draft loaded.", "");
@@ -1546,6 +1630,38 @@
     return btn;
   }
 
+  function summarizePostAcceptResult(res) {
+    var salaryAdj = res && res.salary_adjustments ? res.salary_adjustments : {};
+    var ext = res && res.extensions ? res.extensions : {};
+    var verification = ext && ext.verification ? ext.verification : {};
+    var parts = [];
+    var tone = "good";
+    if (salaryAdj && salaryAdj.skipped) {
+      parts.push("Salary adjustments: skipped");
+    } else if (salaryAdj && salaryAdj.ok) {
+      parts.push("Salary adjustments: posted " + String((salaryAdj.rows || []).length));
+    } else {
+      tone = "warn";
+      parts.push("Salary adjustments: failed");
+    }
+
+    if (ext && ext.skipped) {
+      parts.push("Extensions: skipped");
+    } else if (ext && ext.ok) {
+      var checked = safeInt(verification.checked_players, (ext.applied || []).length);
+      var matched = safeInt(verification.matched_players, checked);
+      parts.push("Extensions verified: " + String(matched) + "/" + String(checked));
+    } else {
+      tone = "warn";
+      parts.push("Extensions: failed");
+    }
+
+    return {
+      tone: tone,
+      text: parts.join(" · ")
+    };
+  }
+
   function loadCounterDraftFromOffer(meta) {
     var offer = meta && meta.offer ? meta.offer : null;
     if (!offer) {
@@ -1566,7 +1682,11 @@
     var loaded = loadOfferIntoWorkbench(payload, {
       counterMode: true,
       loadedMessage: "Counter Offer Draft loaded.",
-      counterSourceOffer: offer
+      counterSourceOffer: offer,
+      sourceOffer: offer,
+      offerBucket: "received",
+      tradeId: getOfferTradeId(offer),
+      reviewKind: "counter"
     });
     if (loaded) setSubmitStatus("Counter Offer Draft loaded.", "");
   }
@@ -1641,12 +1761,29 @@
       if (normalizedAction === "REVOKE") okText = "Offer revoked in MFL.";
       else if (normalizedAction === "REJECT") okText = "Offer rejected in MFL.";
       else if (normalizedAction === "ACCEPT") okText = "Offer accepted in MFL.";
-      setSubmitStatus(okText, "good");
+      if (normalizedAction === "ACCEPT") {
+        var postSummary = summarizePostAcceptResult(res);
+        if (postSummary.text) okText += " " + postSummary.text + ".";
+        setSubmitStatus(okText, postSummary.tone || "good");
+      } else {
+        setSubmitStatus(okText, "good");
+      }
       await refreshBannerOffers(true);
       if (res && res.mode && safeStr(res.mode).toLowerCase() !== "direct_mfl") {
         setSubmitStatus(okText + " (non-direct mode response)", "warn");
       }
     } catch (err) {
+      try {
+        console.error("[TWB] Offer action failed diagnostics:", {
+          action: normalizedAction,
+          message: err && err.message,
+          status: err && err.status,
+          data: err && err.data,
+          responseText: err && err.responseText
+        });
+      } catch (e) {
+        // noop
+      }
       setSubmitStatus(friendlyOfferError("Offer action failed", err), "bad");
     } finally {
       state.offers.actionBusy = false;
@@ -1845,6 +1982,33 @@
 
   function friendlyOfferError(prefix, err) {
     var msg = err && err.message ? String(err.message) : String(err);
+    var data = err && err.data && typeof err.data === "object" ? err.data : null;
+    var errorType = safeStr(data && data.error_type).toLowerCase();
+    if (errorType === "trade_proposal_import_failed") {
+      var diag = data && data.diagnostics ? data.diagnostics : {};
+      var mflResp = diag && diag.mfl_response ? diag.mfl_response : {};
+      var reason = safeStr(data.reason || mflResp.reason_snippet || msg || "MFL rejected the proposal");
+      var httpStatus = safeInt(mflResp.http_status || data.upstreamStatus || err.status, 0);
+      var ts = safeStr(diag.timestamp_utc || data.timestamp_utc);
+      var out = "Trade proposal rejected by MFL.";
+      if (reason) out += " Reason: " + reason;
+      if (httpStatus) out += " (HTTP " + httpStatus + (ts ? " @ " + ts : "") + ")";
+      return out;
+    }
+    if (errorType === "validation_pre_post") {
+      var valReason = safeStr(
+        (data && data.diagnostics && data.diagnostics.reason) ||
+        data.reason ||
+        msg
+      );
+      return "Validation failed before POST: " + valReason;
+    }
+    if (errorType === "salary_contract_import_failure") {
+      var details = data && data.diagnostics ? data.diagnostics : {};
+      var ts2 = safeStr(details.timestamp_utc || data.timestamp_utc);
+      var reason2 = safeStr(msg || data.error || "salary/contract import failure");
+      return "Salary/contract import failure after trade response: " + reason2 + (ts2 ? " @ " + ts2 : "");
+    }
     if (/bad credentials/i.test(msg)) {
       return prefix + ": invalid GITHUB_PAT worker secret (GitHub returned Bad credentials).";
     }
@@ -1998,6 +2162,16 @@
       await refreshBannerOffers(true);
       rerender();
     } catch (err) {
+      try {
+        console.error("[TWB] Submit failed diagnostics:", {
+          message: err && err.message,
+          status: err && err.status,
+          data: err && err.data,
+          responseText: err && err.responseText
+        });
+      } catch (e) {
+        // noop
+      }
       setSubmitStatus(friendlyOfferError("Submit failed", err), "bad");
       state.submit.canRetry = !!state.submit.lastRequestBody;
     } finally {
@@ -2053,12 +2227,43 @@
       await refreshBannerOffers(true);
       rerender();
     } catch (err) {
+      try {
+        console.error("[TWB] Retry failed diagnostics:", {
+          message: err && err.message,
+          status: err && err.status,
+          data: err && err.data,
+          responseText: err && err.responseText
+        });
+      } catch (e) {
+        // noop
+      }
       setSubmitStatus(friendlyOfferError("Submit failed", err), "bad");
       state.submit.canRetry = !!state.submit.lastRequestBody;
     } finally {
       state.submit.busy = false;
       renderSummary();
     }
+  }
+
+  function runPrimarySubmitAction() {
+    var payload = buildTradePayload();
+    var intent = getPrimarySubmitIntent(payload);
+    if (intent.mode === "accept" || intent.mode === "revoke") {
+      var ctx = state.reviewContext || {};
+      var bucket = safeStr(ctx.offerBucket) || (intent.mode === "accept" ? "received" : "offered");
+      var offer = ctx.offer || getOfferFromBannerState(bucket, ctx.offerId);
+      if (!offer) {
+        setSubmitStatus("Offer no longer available in MFL.", "warn");
+        renderSummary();
+        return;
+      }
+      performOfferAction(intent.mode === "accept" ? "ACCEPT" : "REVOKE", {
+        bucket: bucket,
+        offer: offer
+      });
+      return;
+    }
+    submitOfferToQueue();
   }
 
 
@@ -3561,13 +3766,15 @@
 
   function renderSubmitArea(payload) {
     if (!els.submitOfferBtn || !els.submitOfferStatus) return;
-    var ready = payload.validation.status === "ready";
-    els.submitOfferBtn.disabled = !!state.submit.busy || !ready;
-    els.submitOfferBtn.textContent = state.submit.busy ? "Submitting…" : "Submit Offer";
+    var intent = getPrimarySubmitIntent(payload);
+    var isBusy = !!state.submit.busy || !!state.offers.actionBusy;
+    els.submitOfferBtn.disabled = isBusy || !!intent.disabled;
+    els.submitOfferBtn.textContent = isBusy ? intent.busyLabel : intent.label;
+    els.submitOfferBtn.setAttribute("data-submit-intent", intent.mode);
     if (els.submitRetryBtn) {
       var showRetry = !!state.submit.canRetry;
       els.submitRetryBtn.hidden = !showRetry;
-      els.submitRetryBtn.disabled = !!state.submit.busy;
+      els.submitRetryBtn.disabled = isBusy;
     }
     els.submitOfferStatus.textContent = state.submit.message || "No offer submitted yet.";
     els.submitOfferStatus.className = "twb-summary-note";
@@ -3736,6 +3943,7 @@
     if (resetPartnerTeam) state.rightTeamId = "";
     state.counterMode = false;
     state.counterSourceOffer = null;
+    setReviewContext("draft", {});
     state.mobileTab = "your";
     resetSubmitUiState("No offer submitted yet.", "");
     if (resetMessage && els.offerMessageInput) els.offerMessageInput.value = "";
@@ -3835,7 +4043,7 @@
 
     if (els.submitOfferBtn) {
       els.submitOfferBtn.addEventListener("click", function () {
-        submitOfferToQueue();
+        runPrimarySubmitAction();
       });
     }
     if (els.submitRetryBtn) {
@@ -4079,7 +4287,15 @@
                 renderSummary();
                 return;
               }
-              loadOfferIntoWorkbench(payload);
+              loadOfferIntoWorkbench(payload, {
+                sourceOffer: offer,
+                offerBucket: bucket,
+                tradeId: getOfferTradeId(offer),
+                reviewKind: bucket === "received" ? "incoming" : (bucket === "offered" ? "outgoing" : "draft"),
+                loadedMessage: bucket === "received"
+                  ? "Incoming offer loaded. Review and accept."
+                  : (bucket === "offered" ? "Offered trade loaded. You can revoke it." : "Offer loaded.")
+              });
             }
             var dd = node.closest && node.closest("details");
             if (dd) dd.removeAttribute("open");

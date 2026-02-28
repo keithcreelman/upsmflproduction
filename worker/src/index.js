@@ -1688,6 +1688,130 @@ export default {
         };
       };
 
+      const trimDiagText = (value, maxLen = 50000) => {
+        const raw = String(value == null ? "" : value);
+        if (!raw) return "";
+        return raw.length > maxLen ? raw.slice(0, maxLen) : raw;
+      };
+
+      const extractMflReasonSnippet = (value) => {
+        const text = safeStr(value)
+          .replace(/<[^>]+>/g, " ")
+          .replace(/\s+/g, " ")
+          .trim();
+        if (!text) return "";
+        const m = text.match(
+          /(error[^.]*|invalid[^.]*|not authorized[^.]*|not allowed[^.]*|cannot[^.]*|failed[^.]*)/i
+        );
+        return safeStr(m && m[0] ? m[0] : text).slice(0, 320);
+      };
+
+      const buildTradeProposalFailureDiagnostics = ({
+        errorType,
+        leagueId,
+        season,
+        actingFranchiseId,
+        counterpartyFranchiseId,
+        tradeProposalPayload,
+        importRes,
+        firstRes,
+        retriedWithoutFranchiseId,
+      }) => {
+        const nowIso = new Date().toISOString();
+        const primary = importRes || {};
+        const first = firstRes || null;
+        return {
+          error_type: safeStr(errorType || "trade_proposal_import_failed"),
+          timestamp_utc: nowIso,
+          acting_franchise_id: safeStr(actingFranchiseId),
+          counterparty_franchise_id: safeStr(counterpartyFranchiseId),
+          league_id: safeStr(leagueId),
+          season: safeStr(season),
+          trade_proposal_payload:
+            tradeProposalPayload && typeof tradeProposalPayload === "object"
+              ? tradeProposalPayload
+              : {},
+          mfl_response: {
+            http_status: safeInt(primary.status, 0),
+            body_text: trimDiagText(primary.text || primary.upstreamPreview || primary.error || ""),
+            reason_snippet: extractMflReasonSnippet(
+              primary.text || primary.upstreamPreview || primary.error || ""
+            ),
+            target_import_url: safeStr(primary.targetImportUrl),
+            form_fields: primary.formFields || {},
+          },
+          initial_attempt_response:
+            retriedWithoutFranchiseId && first
+              ? {
+                  http_status: safeInt(first.status, 0),
+                  body_text: trimDiagText(first.text || first.upstreamPreview || first.error || ""),
+                  reason_snippet: extractMflReasonSnippet(
+                    first.text || first.upstreamPreview || first.error || ""
+                  ),
+                  target_import_url: safeStr(first.targetImportUrl),
+                  form_fields: first.formFields || {},
+                }
+              : null,
+          retried_without_franchise_id: !!retriedWithoutFranchiseId,
+        };
+      };
+
+      const buildValidationFailureDiagnostics = ({
+        reason,
+        leagueId,
+        season,
+        actingFranchiseId,
+        counterpartyFranchiseId,
+        tradeProposalPayload,
+      }) => ({
+        error_type: "validation_pre_post",
+        timestamp_utc: new Date().toISOString(),
+        reason: safeStr(reason || "validation_failed_before_post"),
+        acting_franchise_id: safeStr(actingFranchiseId),
+        counterparty_franchise_id: safeStr(counterpartyFranchiseId),
+        league_id: safeStr(leagueId),
+        season: safeStr(season),
+        trade_proposal_payload:
+          tradeProposalPayload && typeof tradeProposalPayload === "object"
+            ? tradeProposalPayload
+            : {},
+      });
+
+      const buildSalaryContractImportFailureDiagnostics = ({
+        leagueId,
+        season,
+        actingFranchiseId,
+        counterpartyFranchiseId,
+        action,
+        tradeId,
+        payload,
+        salaryAdjustments,
+        extensions,
+      }) => ({
+        error_type: "salary_contract_import_failure",
+        timestamp_utc: new Date().toISOString(),
+        action: safeStr(action),
+        trade_id: safeStr(tradeId),
+        acting_franchise_id: safeStr(actingFranchiseId),
+        counterparty_franchise_id: safeStr(counterpartyFranchiseId),
+        league_id: safeStr(leagueId),
+        season: safeStr(season),
+        trade_payload:
+          payload && typeof payload === "object"
+            ? payload
+            : {},
+        salary_adjustments: salaryAdjustments || {},
+        extensions: extensions || {},
+      });
+
+      const logTradeProposalFailure = (details) => {
+        try {
+          console.error("[TWB][tradeProposal][error]", JSON.stringify(details || {}));
+        } catch (_) {
+          console.error("[TWB][tradeProposal][error]", details || {});
+        }
+      };
+
       const extractTradeIdFromImportText = (text) => {
         const raw = String(text || "");
         if (!raw) return "";
@@ -2275,6 +2399,62 @@ export default {
         return byId;
       };
 
+      const normalizeSalarySnapshotRow = (row) => {
+        const src = row || {};
+        return {
+          salary: safeStr(src.salary),
+          contractYear: safeStr(src.contractYear || src.contractyear),
+          contractInfo: safeStr(src.contractInfo || src.contractinfo),
+          contractStatus: safeStr(src.contractStatus || src.contractstatus),
+        };
+      };
+
+      const buildExtensionPostImportVerification = (beforeMap, expectedRows, afterMap) => {
+        const expectedByPlayer = {};
+        for (const row of expectedRows || []) {
+          const id = String(row?.player_id || "").replace(/\D/g, "");
+          if (!id) continue;
+          expectedByPlayer[id] = {
+            salary: safeStr(row?.salary),
+            contractYear: safeStr(row?.contractYear),
+            contractInfo: safeStr(row?.contractInfo),
+            contractStatus: safeStr(row?.contractStatus),
+          };
+        }
+
+        const rows = [];
+        let matched = 0;
+        let mismatched = 0;
+        for (const [playerId, expected] of Object.entries(expectedByPlayer)) {
+          const before = normalizeSalarySnapshotRow(beforeMap?.[playerId]);
+          const after = normalizeSalarySnapshotRow(afterMap?.[playerId]);
+          const cmp = {
+            salary: safeStr(after.salary) === safeStr(expected.salary),
+            contractYear: safeStr(after.contractYear) === safeStr(expected.contractYear),
+            contractInfo: safeStr(after.contractInfo) === safeStr(expected.contractInfo),
+            contractStatus: safeStr(after.contractStatus) === safeStr(expected.contractStatus),
+          };
+          const allMatch = !!(cmp.salary && cmp.contractYear && cmp.contractInfo && cmp.contractStatus);
+          if (allMatch) matched += 1;
+          else mismatched += 1;
+          rows.push({
+            player_id: playerId,
+            before,
+            expected,
+            after,
+            matches: cmp,
+            all_match: allMatch,
+          });
+        }
+        return {
+          checked_players: rows.length,
+          matched_players: matched,
+          mismatched_players: mismatched,
+          rows,
+          ok: mismatched === 0,
+        };
+      };
+
       const parseMoneyTokenToDollars = (raw, options = {}) => {
         if (raw == null) return null;
         if (typeof raw === "number" && Number.isFinite(raw)) return Math.round(raw);
@@ -2693,6 +2873,15 @@ export default {
         }
         const salariesByPlayer = parseSalariesExportByPlayer(salariesRes.data);
         const plan = buildExtensionSalariesXmlFromPayload(payload, salariesByPlayer);
+        const trackedPlayerIds = new Set(
+          (plan.applied || [])
+            .map((row) => String(row?.player_id || "").replace(/\D/g, ""))
+            .filter(Boolean)
+        );
+        const beforeSnapshot = {};
+        for (const playerId of trackedPlayerIds.values()) {
+          beforeSnapshot[playerId] = normalizeSalarySnapshotRow(salariesByPlayer[playerId]);
+        }
         if (!plan.xml) {
           return {
             ok: true,
@@ -2700,6 +2889,15 @@ export default {
             reason: "no_valid_extension_rows",
             applied: plan.applied,
             skipped_rows: plan.skipped,
+            before_snapshot: beforeSnapshot,
+            verification: {
+              ok: true,
+              checked_players: 0,
+              matched_players: 0,
+              mismatched_players: 0,
+              rows: [],
+              reason: "no_valid_extension_rows",
+            },
           };
         }
         const importRes = await postMflImportForm(
@@ -2712,8 +2910,48 @@ export default {
           },
           { TYPE: "salaries", L: leagueId, APPEND: "1" }
         );
-        return {
+        let postSalariesRes = null;
+        let afterSnapshot = {};
+        let verification = {
           ok: !!importRes.requestOk,
+          checked_players: 0,
+          matched_players: 0,
+          mismatched_players: 0,
+          rows: [],
+          reason: "verification_not_run",
+        };
+        if (importRes.requestOk) {
+          postSalariesRes = await mflExportJson(season, leagueId, "salaries");
+          if (postSalariesRes.ok) {
+            const afterByPlayer = parseSalariesExportByPlayer(postSalariesRes.data);
+            for (const playerId of trackedPlayerIds.values()) {
+              afterSnapshot[playerId] = normalizeSalarySnapshotRow(afterByPlayer[playerId]);
+            }
+            verification = buildExtensionPostImportVerification(
+              beforeSnapshot,
+              plan.applied,
+              afterByPlayer
+            );
+          } else {
+            verification = {
+              ok: false,
+              checked_players: 0,
+              matched_players: 0,
+              mismatched_players: 0,
+              rows: [],
+              reason: "failed_post_import_salaries_export",
+              upstream: {
+                status: postSalariesRes.status,
+                error: postSalariesRes.error,
+                url: postSalariesRes.url,
+                preview: postSalariesRes.textPreview,
+              },
+            };
+          }
+        }
+        const finalOk = !!importRes.requestOk && !!verification.ok;
+        return {
+          ok: finalOk,
           skipped: false,
           applied: plan.applied,
           skipped_rows: plan.skipped,
@@ -2722,7 +2960,21 @@ export default {
           upstreamPreview: importRes.upstreamPreview,
           targetImportUrl: importRes.targetImportUrl,
           formFields: importRes.formFields,
-          error: importRes.requestOk ? "" : importRes.error || "salaries import failed",
+          error: importRes.requestOk
+            ? (verification.ok ? "" : "salaries import verification failed")
+            : importRes.error || "salaries import failed",
+          before_snapshot: beforeSnapshot,
+          after_snapshot: afterSnapshot,
+          verification,
+          post_import_salaries_export: postSalariesRes
+            ? {
+                ok: !!postSalariesRes.ok,
+                status: postSalariesRes.status,
+                url: postSalariesRes.url,
+                error: postSalariesRes.error,
+                preview: postSalariesRes.textPreview,
+              }
+            : null,
         };
       };
 
@@ -3065,7 +3317,25 @@ export default {
         if (fromFranchiseId === toFranchiseId) return jsonOut(400, { ok: false, error: "Teams must be different" });
         if (!payload) return jsonOut(400, { ok: false, error: "payload is required" });
         if (validationStatus && validationStatus !== "ready") {
-          return jsonOut(400, { ok: false, error: "Trade payload is not ready to submit" });
+          const diagnostics = buildValidationFailureDiagnostics({
+            reason: "trade_payload_not_ready",
+            leagueId,
+            season,
+            actingFranchiseId: fromFranchiseId,
+            counterpartyFranchiseId: toFranchiseId,
+            tradeProposalPayload: {
+              request_body: body,
+              payload,
+              validation_status: validationStatus,
+              validation_issues: payload?.validation?.issues || [],
+            },
+          });
+          return jsonOut(400, {
+            ok: false,
+            error_type: "validation_pre_post",
+            error: "Trade payload is not ready to submit",
+            diagnostics,
+          });
         }
 
         if (directMfl) {
@@ -3077,9 +3347,26 @@ export default {
           const willGiveUp = proposalAssets.willGiveUp;
           const willReceive = proposalAssets.willReceive;
           if (!willGiveUp.length || !willReceive.length) {
+            const diagnostics = buildValidationFailureDiagnostics({
+              reason: "invalid_trade_assets_for_mfl",
+              leagueId,
+              season,
+              actingFranchiseId: fromFranchiseId,
+              counterpartyFranchiseId: toFranchiseId,
+              tradeProposalPayload: {
+                request_body: body,
+                payload,
+                invalid_assets: {
+                  left: proposalAssets.leftTokensOut.invalid,
+                  right: proposalAssets.rightTokensOut.invalid,
+                },
+              },
+            });
             return jsonOut(400, {
               ok: false,
+              error_type: "validation_pre_post",
               error: "Could not build valid MFL trade assets for both sides",
+              diagnostics,
               invalid_assets: {
                 left: proposalAssets.leftTokensOut.invalid,
                 right: proposalAssets.rightTokensOut.invalid,
@@ -3116,10 +3403,34 @@ export default {
           const importRes = proposalSubmit.importRes;
 
           if (!proposalSubmit.ok) {
+            const diagnostics = buildTradeProposalFailureDiagnostics({
+              errorType: "trade_proposal_import_failed",
+              leagueId,
+              season,
+              actingFranchiseId: fromFranchiseId,
+              counterpartyFranchiseId: toFranchiseId,
+              tradeProposalPayload: {
+                request_body: body,
+                payload,
+                import_fields: importFields,
+                will_give_up: willGiveUp,
+                will_receive: willReceive,
+              },
+              importRes,
+              firstRes: proposalSubmit.firstRes,
+              retriedWithoutFranchiseId: proposalSubmit.retriedWithoutFranchiseId,
+            });
+            logTradeProposalFailure(diagnostics);
             return jsonOut(502, {
               ok: false,
               mode: "direct_mfl",
-              error: "MFL tradeProposal import failed",
+              error_type: "trade_proposal_import_failed",
+              error: "Trade proposal rejected by MFL.",
+              reason:
+                diagnostics?.mfl_response?.reason_snippet ||
+                importRes.error ||
+                "MFL tradeProposal import failed",
+              diagnostics,
               upstreamStatus: importRes.status,
               upstreamPreview: importRes.upstreamPreview,
               upstreamPreviewInitial:
@@ -3330,9 +3641,25 @@ export default {
           const runDirectProposal = async (proposalPayload, fromFranchiseId, toFranchiseId, comments) => {
             const proposalAssets = buildTradeProposalAssetLists(proposalPayload || {});
             if (!proposalAssets.isValid) {
+              const diagnostics = buildValidationFailureDiagnostics({
+                reason: "invalid_trade_assets_for_mfl",
+                leagueId,
+                season,
+                actingFranchiseId: fromFranchiseId,
+                counterpartyFranchiseId: toFranchiseId,
+                tradeProposalPayload: {
+                  payload: proposalPayload,
+                  invalid_assets: {
+                    left: proposalAssets.leftTokensOut.invalid,
+                    right: proposalAssets.rightTokensOut.invalid,
+                  },
+                },
+              });
               return {
                 ok: false,
+                error_type: "validation_pre_post",
                 error: "Could not build valid MFL trade assets for both sides",
+                diagnostics,
                 invalid_assets: {
                   left: proposalAssets.leftTokensOut.invalid,
                   right: proposalAssets.rightTokensOut.invalid,
@@ -3360,9 +3687,32 @@ export default {
             );
             const proposalImport = proposalSubmit.importRes;
             if (!proposalSubmit.ok) {
+              const diagnostics = buildTradeProposalFailureDiagnostics({
+                errorType: "trade_proposal_import_failed",
+                leagueId,
+                season,
+                actingFranchiseId: fromFranchiseId,
+                counterpartyFranchiseId: toFranchiseId,
+                tradeProposalPayload: {
+                  payload: proposalPayload,
+                  import_fields: importFields,
+                  will_give_up: proposalAssets.willGiveUp,
+                  will_receive: proposalAssets.willReceive,
+                },
+                importRes: proposalImport,
+                firstRes: proposalSubmit.firstRes,
+                retriedWithoutFranchiseId: proposalSubmit.retriedWithoutFranchiseId,
+              });
+              logTradeProposalFailure(diagnostics);
               return {
                 ok: false,
-                error: "MFL tradeProposal import failed",
+                error_type: "trade_proposal_import_failed",
+                error: "Trade proposal rejected by MFL.",
+                reason:
+                  diagnostics?.mfl_response?.reason_snippet ||
+                  proposalImport.error ||
+                  "MFL tradeProposal import failed",
+                diagnostics,
                 upstreamStatus: proposalImport.status,
                 upstreamPreview: proposalImport.upstreamPreview,
                 upstreamPreviewInitial:
@@ -3521,6 +3871,7 @@ export default {
                 ok: false,
                 mode: "direct_mfl",
                 action: "COUNTER",
+                error_type: safeStr(proposalOut.error_type || "trade_proposal_import_failed"),
                 error: proposalOut.error || "Counter proposal failed",
                 rejected_trade: {
                   trade_id: mflTradeId,
@@ -3579,6 +3930,7 @@ export default {
               ok: false,
               mode: "direct_mfl",
               action,
+              error_type: "trade_response_import_failed",
               error: "MFL tradeResponse import failed",
               upstreamStatus: responseImport.status,
               upstreamPreview: responseImport.upstreamPreview,
@@ -3615,6 +3967,71 @@ export default {
             }
           }
 
+          let postVerifyTransactions = null;
+          let postVerifySalaries = null;
+          if (action === "ACCEPT") {
+            const txRes = await mflExportJson(season, leagueId, "transactions", {}, { useCookie: true });
+            postVerifyTransactions = {
+              ok: !!txRes.ok,
+              status: txRes.status,
+              url: txRes.url,
+              error: txRes.error,
+              preview: txRes.textPreview,
+            };
+            const salRes = await mflExportJson(season, leagueId, "salaries", {}, { useCookie: true });
+            postVerifySalaries = {
+              ok: !!salRes.ok,
+              status: salRes.status,
+              url: salRes.url,
+              error: salRes.error,
+              preview: salRes.textPreview,
+            };
+          }
+
+          if (action === "ACCEPT" && (!salaryAdjOut.ok || !extensionsOut.ok)) {
+            const counterpartyFromPayload = padFranchiseId(
+              payload?.ui?.left_team_id === actingFranchiseId
+                ? payload?.ui?.right_team_id
+                : payload?.ui?.left_team_id
+            );
+            const diagnostics = buildSalaryContractImportFailureDiagnostics({
+              leagueId,
+              season,
+              actingFranchiseId,
+              counterpartyFranchiseId: counterpartyFromPayload,
+              action,
+              tradeId: mflTradeId,
+              payload,
+              salaryAdjustments: salaryAdjOut,
+              extensions: extensionsOut,
+            });
+            try {
+              console.error("[TWB][postAcceptImport][error]", JSON.stringify(diagnostics));
+            } catch (_) {
+              console.error("[TWB][postAcceptImport][error]", diagnostics);
+            }
+            return jsonOut(502, {
+              ok: false,
+              mode: "direct_mfl",
+              action,
+              error_type: "salary_contract_import_failure",
+              error: "Salary/contract import failed after MFL trade response.",
+              diagnostics,
+              response: {
+                upstream_status: responseImport.status,
+                upstream_preview: responseImport.upstreamPreview,
+                target_import_url: responseImport.targetImportUrl,
+                form_fields: responseImport.formFields,
+              },
+              salary_adjustments: salaryAdjOut,
+              extensions: extensionsOut,
+              post_verify: {
+                transactions_export: postVerifyTransactions,
+                salaries_export: postVerifySalaries,
+              },
+            });
+          }
+
           return jsonOut(200, {
             ok: true,
             mode: "direct_mfl",
@@ -3628,6 +4045,10 @@ export default {
             },
             salary_adjustments: salaryAdjOut,
             extensions: extensionsOut,
+            post_verify: {
+              transactions_export: postVerifyTransactions,
+              salaries_export: postVerifySalaries,
+            },
           });
         }
 
