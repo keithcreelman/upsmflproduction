@@ -2801,6 +2801,16 @@ Replaces bulky default grid with compact toggle view + franchise icons
     catch (e) { return ""; }
   }
 
+  function isOptionsPage() {
+    var bodyId = safeStr(document.body && document.body.id).toLowerCase();
+    if (bodyId.indexOf("body_options_") === 0) return true;
+    var path = safeStr(window.location.pathname).toLowerCase();
+    if (path.indexOf("/options") !== -1 || path.indexOf("/select_franchise") !== -1) return true;
+    var o = optionFromUrl();
+    if (o) return true;
+    return false;
+  }
+
   function isHomePath() {
     return /\/\d{4}\/home\/\d+/i.test(safeStr(window.location.pathname));
   }
@@ -2832,12 +2842,10 @@ Replaces bulky default grid with compact toggle view + franchise icons
   function fmtPct(v) { if (v === null || v === undefined || isNaN(Number(v))) return " - "; return Number(v).toFixed(3); }
 
   function isStandingsPage() {
+    // Never replace native MFL options pages; options should remain authoritative.
+    if (isOptionsPage()) return false;
     var mod = moduleFromUrl();
     if (mod === "standings") return true;
-    var o = optionFromUrl();
-    if (o === "03" || o === "3" || o === "31") return true;
-    var bodyId = safeStr(document.body && document.body.id).toLowerCase();
-    if (bodyId.indexOf("body_options_03") === 0 || bodyId.indexOf("body_options_31") === 0) return true;
     if (!isHomePath()) return false;
     if (document.querySelector("table.homepagemodule.report#standings")) return true;
     if (document.getElementById("standings")) return true;

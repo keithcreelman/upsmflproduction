@@ -2,7 +2,7 @@
   "use strict";
 
   var SAMPLE_DATA_URL = "./trade_workbench_sample.json";
-  var STORAGE_KEY = "ups-trade-workbench-state-v8";
+  var STORAGE_KEY_PREFIX = "ups-trade-workbench-state-v9";
   var GROUP_ORDER = ["QB", "RB", "WR", "TE", "PK", "PN", "DT", "DE", "LB", "CB", "S", "DL", "DB", "PICKS", "OTHER"];
   var heightSyncInstalled = false;
   var heightPostTimer = 0;
@@ -50,6 +50,35 @@
   };
 
   var els = {};
+
+  function computeStorageKey() {
+    var leagueId = "unknown";
+    var season = "unknown";
+    var route = "page";
+    try {
+      var u = new URL(window.location.href || "");
+      leagueId = safeStr(
+        u.searchParams.get("L") ||
+          u.searchParams.get("league_id") ||
+          (safeStr(u.pathname).match(/\/home\/(\d+)(?:\/|$)/i) || [])[1] ||
+          "unknown"
+      ).replace(/\D/g, "") || "unknown";
+      season = safeStr(
+        u.searchParams.get("YEAR") ||
+          (safeStr(u.pathname).match(/\/(\d{4})\//) || [])[1] ||
+          "unknown"
+      ).replace(/\D/g, "") || "unknown";
+      var moduleName = safeStr(u.searchParams.get("MODULE")).toUpperCase();
+      var optionName = safeStr(u.searchParams.get("O")).replace(/\D/g, "");
+      if (moduleName) route = "module_" + moduleName;
+      else if (optionName) route = "option_" + optionName;
+    } catch (e) {
+      // use defaults
+    }
+    return [STORAGE_KEY_PREFIX, leagueId, season, route].join(":");
+  }
+
+  var STORAGE_KEY = computeStorageKey();
 
   function q(id) {
     return document.getElementById(id);
@@ -1292,6 +1321,20 @@
     return safeStr(team && team.franchise_name);
   }
 
+  function getFranchiseDisplayLabel(franchiseId) {
+    var id = pad4(franchiseId);
+    var name = getFranchiseNameById(id);
+    if (name) return name;
+    if (id) return "Franchise " + id;
+    return "Opponent";
+  }
+
+  function isLikelyFranchiseIdName(rawName) {
+    var s = safeStr(rawName);
+    if (!s) return false;
+    return /^[0-9]{1,4}$/.test(s) || /^franchise\s*[0-9]{1,4}$/i.test(s);
+  }
+
   function getOfferOpponentLabel(offer, bucket) {
     var o = offer || {};
     var opponentName = "";
@@ -1303,8 +1346,16 @@
       opponentName = safeStr(o.from_franchise_name);
       opponentId = pad4(o.from_franchise_id);
     }
-    if (opponentName) return opponentName;
-    return getFranchiseNameById(opponentId) || opponentId || "Opponent";
+    if (opponentName && !isLikelyFranchiseIdName(opponentName)) return opponentName;
+    return getFranchiseDisplayLabel(opponentId);
+  }
+
+  function getFranchiseLabelFromOfferFields(nameValue, idValue, fallbackLabel) {
+    var explicitName = safeStr(nameValue);
+    var id = pad4(idValue);
+    if (explicitName && !isLikelyFranchiseIdName(explicitName)) return explicitName;
+    if (id) return getFranchiseDisplayLabel(id);
+    return safeStr(fallbackLabel || "Opponent");
   }
 
   function getOfferTradeId(offer) {
@@ -3325,12 +3376,21 @@
     els.counterSourceContent.innerHTML = "";
 
     var summary = document.createElement("p");
-    var opponent = safeStr(offer.from_franchise_name || "Opponent");
+    var opponent = getFranchiseLabelFromOfferFields(
+      offer.from_franchise_name,
+      offer.from_franchise_id,
+      "Opponent"
+    );
+    var destination = getFranchiseLabelFromOfferFields(
+      offer.to_franchise_name,
+      offer.to_franchise_id,
+      "Your Team"
+    );
     var tradeId = safeStr(offer.proposal_id || offer.trade_id || offer.mfl_trade_id || "").replace(/\D/g, "");
     summary.textContent =
       opponent +
       " to " +
-      safeStr(offer.to_franchise_name || "Your Team") +
+      destination +
       (tradeId ? " · Trade ID " + tradeId : "");
     els.counterSourceContent.appendChild(summary);
 
