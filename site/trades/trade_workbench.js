@@ -621,7 +621,12 @@
       data = null;
     }
     if (!res.ok) {
-      var errMsg = (data && (data.error || data.reason)) || ("HTTP " + res.status);
+      var textSummary = safeStr(text)
+        .replace(/<[^>]+>/g, " ")
+        .replace(/\s+/g, " ")
+        .slice(0, 220);
+      var errMsg = (data && (data.error || data.reason)) ||
+        (textSummary ? ("HTTP " + res.status + ": " + textSummary) : ("HTTP " + res.status));
       var err = new Error(errMsg);
       err.status = res.status;
       err.data = data;

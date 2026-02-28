@@ -1199,13 +1199,21 @@ export default {
         } catch (_) {
           data = null;
         }
+        const textPreview = String(text || "").slice(0, 600);
+        const textLine = textPreview
+          .replace(/<[^>]+>/g, " ")
+          .replace(/\s+/g, " ")
+          .trim()
+          .slice(0, 180);
         return {
           ok: !!res.ok,
           status: res.status,
           data,
-          textPreview: String(text || "").slice(0, 600),
+          textPreview,
           url: target,
-          error: res.ok ? "" : (data?.message || `HTTP ${res.status}`),
+          error: res.ok
+            ? ""
+            : (data?.message || (textLine ? `HTTP ${res.status}: ${textLine}` : `HTTP ${res.status}`)),
         };
       };
 
@@ -1409,6 +1417,16 @@ export default {
       const isLikelyMflImportSuccess = (res, text) =>
         !!res?.ok && !looksLikeMflImportError(text);
 
+      const isImpersonationLockoutImportError = (importRes) => {
+        const preview = safeStr(
+          importRes?.upstreamPreview ||
+            importRes?.text ||
+            importRes?.error
+        ).toLowerCase();
+        if (!preview) return false;
+        return preview.includes("impersonate") && preview.includes("lockout");
+      };
+
       const resolveMflImportTargetUrl = async (season, probeFields) => {
         const baseImportUrl =
           `https://api.myfantasyleague.com/${encodeURIComponent(String(season || YEAR || "2025"))}` +
@@ -1511,6 +1529,55 @@ export default {
           targetImportUrl: requestUrl,
           formFields: Object.fromEntries(form.entries()),
           error: requestOk ? "" : (payloadErr || `MFL import failed (HTTP ${res.status})`),
+        };
+      };
+
+      const postTradeProposalImportWithFallback = async (season, importFields) => {
+        const initialFields = { ...(importFields || {}) };
+        const firstRes = await postMflImportForm(
+          season,
+          initialFields,
+          initialFields,
+          { method: "GET" }
+        );
+        if (firstRes.requestOk) {
+          return {
+            ok: true,
+            importRes: firstRes,
+            firstRes,
+            retriedWithoutFranchiseId: false,
+            usedFranchiseId: !!safeStr(initialFields.FRANCHISE_ID),
+          };
+        }
+
+        const canRetryWithoutFranchiseId =
+          !!safeStr(initialFields.FRANCHISE_ID) &&
+          isImpersonationLockoutImportError(firstRes);
+        if (!canRetryWithoutFranchiseId) {
+          return {
+            ok: false,
+            importRes: firstRes,
+            firstRes,
+            retriedWithoutFranchiseId: false,
+            usedFranchiseId: !!safeStr(initialFields.FRANCHISE_ID),
+          };
+        }
+
+        const retryFields = { ...initialFields };
+        delete retryFields.FRANCHISE_ID;
+        const retryRes = await postMflImportForm(
+          season,
+          retryFields,
+          retryFields,
+          { method: "GET" }
+        );
+        return {
+          ok: !!retryRes.requestOk,
+          importRes: retryRes,
+          firstRes,
+          retryRes,
+          retriedWithoutFranchiseId: true,
+          usedFranchiseId: false,
         };
       };
 
@@ -2148,20 +2215,24 @@ export default {
           );
           if (expiresUnix > 0) importFields.EXPIRES = String(expiresUnix);
 
-          const importRes = await postMflImportForm(
+          const proposalSubmit = await postTradeProposalImportWithFallback(
             season,
-            importFields,
-            importFields,
-            { method: "GET" }
+            importFields
           );
+          const importRes = proposalSubmit.importRes;
 
-          if (!importRes.requestOk) {
+          if (!proposalSubmit.ok) {
             return jsonOut(502, {
               ok: false,
               mode: "direct_mfl",
               error: "MFL tradeProposal import failed",
               upstreamStatus: importRes.status,
               upstreamPreview: importRes.upstreamPreview,
+              upstreamPreviewInitial:
+                proposalSubmit.retriedWithoutFranchiseId && proposalSubmit.firstRes
+                  ? proposalSubmit.firstRes.upstreamPreview
+                  : "",
+              retriedWithoutFranchiseId: !!proposalSubmit.retriedWithoutFranchiseId,
               targetImportUrl: importRes.targetImportUrl,
               formFields: importRes.formFields,
             });
@@ -2234,6 +2305,8 @@ export default {
               upstream_status: importRes.status,
               upstream_preview: importRes.upstreamPreview,
               target_import_url: importRes.targetImportUrl,
+              retried_without_franchise_id: !!proposalSubmit.retriedWithoutFranchiseId,
+              used_franchise_id: !!proposalSubmit.usedFranchiseId,
               pending_lookup: pendingLookup,
             },
             invalid_assets: {
@@ -2295,6 +2368,7 @@ export default {
             error: saveOut?.error || "Failed to save trade offer",
             storage_path: saveOut?.filePath || tradeOffersFilePath(leagueId, season),
             upstreamStatus: saveOut?.upstreamStatus || 0,
+            upstreamPreview: saveOut?.upstreamPreview || "",
           });
         }
 
@@ -2385,18 +2459,22 @@ export default {
               COMMENTS: commentsOut,
               FRANCHISE_ID: fromFranchiseId,
             };
-            const proposalImport = await postMflImportForm(
+            const proposalSubmit = await postTradeProposalImportWithFallback(
               season,
-              importFields,
-              importFields,
-              { method: "GET" }
+              importFields
             );
-            if (!proposalImport.requestOk) {
+            const proposalImport = proposalSubmit.importRes;
+            if (!proposalSubmit.ok) {
               return {
                 ok: false,
                 error: "MFL tradeProposal import failed",
                 upstreamStatus: proposalImport.status,
                 upstreamPreview: proposalImport.upstreamPreview,
+                upstreamPreviewInitial:
+                  proposalSubmit.retriedWithoutFranchiseId && proposalSubmit.firstRes
+                    ? proposalSubmit.firstRes.upstreamPreview
+                    : "",
+                retriedWithoutFranchiseId: !!proposalSubmit.retriedWithoutFranchiseId,
                 targetImportUrl: proposalImport.targetImportUrl,
                 formFields: proposalImport.formFields,
                 invalid_assets: {
@@ -2468,6 +2546,8 @@ export default {
                 upstream_status: proposalImport.status,
                 upstream_preview: proposalImport.upstreamPreview,
                 target_import_url: proposalImport.targetImportUrl,
+                retried_without_franchise_id: !!proposalSubmit.retriedWithoutFranchiseId,
+                used_franchise_id: !!proposalSubmit.usedFranchiseId,
                 pending_lookup: pendingLookup,
               },
               invalid_assets: {
@@ -2788,6 +2868,7 @@ export default {
             error: saveOut?.error || "Failed to update trade offer",
             storage_path: saveOut?.filePath || tradeOffersFilePath(leagueId, season),
             upstreamStatus: saveOut?.upstreamStatus || 0,
+            upstreamPreview: saveOut?.upstreamPreview || "",
           });
         }
 
