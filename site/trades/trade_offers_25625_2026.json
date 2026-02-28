@@ -3,8 +3,8 @@
     "schema_version": 1,
     "league_id": "25625",
     "season": 2026,
-    "updated_at": "2026-02-27T23:18:17.100Z",
-    "row_count": 3,
+    "updated_at": "2026-02-28T04:06:02.752Z",
+    "row_count": 4,
     "source": "worker-trade-offers"
   },
   "offers": [
@@ -343,6 +343,207 @@
         "ui": {
           "left_team_id": "0008",
           "right_team_id": "0011"
+        },
+        "validation": {
+          "status": "ready",
+          "issues": []
+        }
+      }
+    },
+    {
+      "id": "TWB-afbca1f0-ac6a-4e20-ba05-660d09e97a79",
+      "league_id": "25625",
+      "season": 2026,
+      "status": "PENDING",
+      "created_at": "2026-02-28T04:06:02.692Z",
+      "updated_at": "2026-02-28T04:06:02.692Z",
+      "from_franchise_id": "0008",
+      "to_franchise_id": "0011",
+      "from_franchise_name": "Real Deal Creel",
+      "to_franchise_name": "Cleon Ca$h",
+      "message": "You extend Benson, Trey 2 years, new AAV $26K, TCV $58K, contract info CL 3|TCV 58K|AAV 6K, 26K|Y1-6K, Y2-26K, Y3-26K|Ext: RealDeal|GTD: 44K | You extend Robinson, Bijan 2 years, new AAV $35K, TCV $85K, contract info CL 3|TCV 85K|AAV 15K, 35K|Y1-15K, Y2-35K, Y3-35K|Ext: Cash|GTD: 64K | You extend Nabers, Malik 2 years, new AAV $33K, TCV $79K, contract info CL 3|TCV 79K|AAV 13K, 33K|Y1-13K, Y2-33K, Y3-33K|Ext: Cash|GTD: 59K | User comments \"yo\"",
+      "source": "trade-workbench-ui",
+      "summary": {
+        "from_asset_count": 2,
+        "to_asset_count": 2,
+        "from_trade_salary_k": 3,
+        "to_trade_salary_k": 14,
+        "extension_request_count": 3
+      },
+      "payload": {
+        "schema_version": 1,
+        "generated_at": "2026-02-28T04:06:02.577Z",
+        "source": "ups-trade-workbench",
+        "league_id": "25625",
+        "season": 2026,
+        "teams": [
+          {
+            "role": "left",
+            "franchise_id": "0008",
+            "franchise_name": "Real Deal Creel",
+            "selected_assets": [
+              {
+                "asset_id": "player:17043",
+                "type": "PLAYER",
+                "player_id": "17043",
+                "player_name": "Henderson, TreVeyon",
+                "description": null,
+                "position": "RB",
+                "nfl_team": "NEP",
+                "salary": 12000,
+                "years": 0,
+                "contract_type": "Rookie",
+                "contract_info": "CL 3| TCV 36K| AAV 12K | Option Eligible",
+                "taxi": false
+              },
+              {
+                "asset_id": "player:16594",
+                "type": "PLAYER",
+                "player_id": "16594",
+                "player_name": "Benson, Trey",
+                "description": null,
+                "position": "RB",
+                "nfl_team": "ARI",
+                "salary": 6000,
+                "years": 0,
+                "contract_type": "Rookie",
+                "contract_info": "CL 3| TCV 18K| AAV 6K",
+                "taxi": false
+              }
+            ],
+            "traded_salary_adjustment_dollars": 3000,
+            "traded_salary_adjustment_k": 3,
+            "traded_salary_adjustment_max_k": 9,
+            "selected_non_taxi_salary_dollars": 18000
+          },
+          {
+            "role": "right",
+            "franchise_id": "0011",
+            "franchise_name": "Cleon Ca$h",
+            "selected_assets": [
+              {
+                "asset_id": "player:16161",
+                "type": "PLAYER",
+                "player_id": "16161",
+                "player_name": "Robinson, Bijan",
+                "description": null,
+                "position": "RB",
+                "nfl_team": "ATL",
+                "salary": 15000,
+                "years": 1,
+                "contract_type": "Rookie",
+                "contract_info": "CL 3| TCV 55K| AAV 15K",
+                "taxi": false
+              },
+              {
+                "asset_id": "player:16615",
+                "type": "PLAYER",
+                "player_id": "16615",
+                "player_name": "Nabers, Malik",
+                "description": null,
+                "position": "WR",
+                "nfl_team": "NYG",
+                "salary": 13000,
+                "years": 0,
+                "contract_type": "Rookie",
+                "contract_info": "CL 3| TCV 39K| AAV 13K",
+                "taxi": false
+              }
+            ],
+            "traded_salary_adjustment_dollars": 14000,
+            "traded_salary_adjustment_k": 14,
+            "traded_salary_adjustment_max_k": 14,
+            "selected_non_taxi_salary_dollars": 28000
+          }
+        ],
+        "extension_requests": [
+          {
+            "player_id": "16594",
+            "player_name": "Benson, Trey",
+            "from_franchise_id": "0008",
+            "to_franchise_id": "0011",
+            "applies_to_acquirer": true,
+            "option_key": "2YR|NONE",
+            "extension_term": "2YR",
+            "loaded_indicator": "NONE",
+            "preview_id": 1066,
+            "preview_contract_info_string": "CL 3|TCV 58K|AAV 6K, 26K|Y1-6K, Y2-26K, Y3-26K|Ext: RealDeal|GTD: 44K",
+            "new_contract_status": "EXT2",
+            "new_TCV": 58000,
+            "new_aav_future": 26000
+          },
+          {
+            "player_id": "16161",
+            "player_name": "Robinson, Bijan",
+            "from_franchise_id": "0011",
+            "to_franchise_id": "0008",
+            "applies_to_acquirer": true,
+            "option_key": "2YR|NONE",
+            "extension_term": "2YR",
+            "loaded_indicator": "NONE",
+            "preview_id": 1118,
+            "preview_contract_info_string": "CL 3|TCV 85K|AAV 15K, 35K|Y1-15K, Y2-35K, Y3-35K|Ext: Cash|GTD: 64K",
+            "new_contract_status": "EXT2",
+            "new_TCV": 85000,
+            "new_aav_future": 35000
+          },
+          {
+            "player_id": "16615",
+            "player_name": "Nabers, Malik",
+            "from_franchise_id": "0011",
+            "to_franchise_id": "0008",
+            "applies_to_acquirer": true,
+            "option_key": "2YR|NONE",
+            "extension_term": "2YR",
+            "loaded_indicator": "NONE",
+            "preview_id": 1130,
+            "preview_contract_info_string": "CL 3|TCV 79K|AAV 13K, 33K|Y1-13K, Y2-33K, Y3-33K|Ext: Cash|GTD: 59K",
+            "new_contract_status": "EXT2",
+            "new_TCV": 79000,
+            "new_aav_future": 33000
+          }
+        ],
+        "filters": {
+          "search": "",
+          "activeContractTypes": {},
+          "yearsMin": "",
+          "yearsMax": "",
+          "showTaxi": true,
+          "showPicks": true,
+          "onlyExtensionEligible": false
+        },
+        "ui": {
+          "left_team_id": "0008",
+          "right_team_id": "0011"
+        },
+        "salary_reconciliation": {
+          "left": {
+            "franchise_id": "0008",
+            "franchise_name": "Real Deal Creel",
+            "outgoing_dollars": 18000,
+            "incoming_dollars": 28000,
+            "trade_salary_adjustment_k": 3,
+            "trade_salary_adjustment_max_k": 9,
+            "net_trade_salary_k": -11,
+            "net_cap_change_dollars": 1000,
+            "available_salary_before_dollars": null,
+            "available_salary_after_dollars": null,
+            "over_cap_dollars": 0
+          },
+          "right": {
+            "franchise_id": "0011",
+            "franchise_name": "Cleon Ca$h",
+            "outgoing_dollars": 28000,
+            "incoming_dollars": 18000,
+            "trade_salary_adjustment_k": 14,
+            "trade_salary_adjustment_max_k": 14,
+            "net_trade_salary_k": 11,
+            "net_cap_change_dollars": -1000,
+            "available_salary_before_dollars": null,
+            "available_salary_after_dollars": null,
+            "over_cap_dollars": 0
+          },
+          "has_over_cap": false
         },
         "validation": {
           "status": "ready",
