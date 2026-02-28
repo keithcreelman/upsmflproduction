@@ -5497,6 +5497,76 @@ Replaces bulky default grid with compact toggle view + franchise icons
 <div id="MFLBoxWrapper"></div>
 
 <script>
+  // UPS offseason shim: define before legacy modules (header.js) reference `is_offseason`.
+  (function () {
+    function safeStr(v) {
+      return v == null ? "" : String(v).trim();
+    }
+
+    function parseYMDLocal(s) {
+      var raw = safeStr(s);
+      if (!raw) return null;
+      var m = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (!m) return null;
+      var y = parseInt(m[1], 10);
+      var mo = parseInt(m[2], 10) - 1;
+      var d = parseInt(m[3], 10);
+      var dt = new Date(y, mo, d);
+      return isFinite(dt.getTime()) ? dt : null;
+    }
+
+    // Prefer injected nfs events table if present.
+    var injectedNfs = window.UPS_EVENTS || window.nfs_events || window.NFS_EVENTS || null;
+    if (injectedNfs && typeof injectedNfs === "object") {
+      window.UPS_EVENTS = injectedNfs;
+    }
+
+    // Fallback known UPS events when host has not injected window.UPS_EVENTS yet.
+    var fallbackEvents = {
+      "2024": { ups_contract_deadline: "2024-09-01", ups_season_complete: "2024-12-30" },
+      "2025": { ups_contract_deadline: "2025-08-31", ups_season_complete: "2025-12-29" },
+      "2026": { ups_contract_deadline: "2026-09-06", ups_season_complete: "2026-12-29" }
+    };
+    if (!window.UPS_EVENTS || typeof window.UPS_EVENTS !== "object") {
+      window.UPS_EVENTS = fallbackEvents;
+    }
+
+    var pathMatch = safeStr(window.location.pathname).match(/\/(\d{4})\//);
+    var siteSeason = pathMatch ? parseInt(pathMatch[1], 10) : new Date().getFullYear();
+    var currentYear = new Date().getFullYear();
+    var today = new Date();
+
+    var eventsForSeason = (window.UPS_EVENTS && window.UPS_EVENTS[String(siteSeason)]) || null;
+    var deadlineRaw = eventsForSeason && (
+      eventsForSeason.ups_contract_deadline ||
+      eventsForSeason.contract_deadline ||
+      eventsForSeason.UPS_CONTRACT_DEADLINE
+    );
+    var deadlineDate = parseYMDLocal(deadlineRaw);
+
+    var isOffseason = true;
+    if (siteSeason < currentYear) {
+      isOffseason = true;
+    } else if (siteSeason > currentYear) {
+      isOffseason = true;
+    } else {
+      // siteSeason === currentYear: offseason until contract deadline. Fail-safe true if unknown.
+      isOffseason = deadlineDate ? (today < deadlineDate) : true;
+    }
+
+    window.is_offseason = !!isOffseason;
+    window.UPS_IS_OFFSEASON = !!isOffseason;
+    window.UPS_IS_OFFSEASON_META = {
+      siteSeason: siteSeason,
+      currentYear: currentYear,
+      todayISO: today.toISOString(),
+      deadline: safeStr(deadlineRaw),
+      resolvedFromEvents: !!eventsForSeason
+    };
+  })();
+
+  // Legacy globals expected by mflscripts header.js.
+  var is_offseason = window.is_offseason;
   var deactivate_all_offseason = false;
 </script>
 
