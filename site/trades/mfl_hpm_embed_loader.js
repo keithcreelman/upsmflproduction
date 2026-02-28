@@ -316,7 +316,7 @@
   iframe.style.background = "transparent";
   iframe.setAttribute("loading", "lazy");
   iframe.setAttribute("scrolling", "no");
-  iframe.setAttribute("title", "UPS Trade Workbench");
+  iframe.setAttribute("title", "UPS Trade War Room");
   iframe.src = buildIframeSrc(iframeUrl, apiUrl, context, pageUrl, releaseRef, directMflMode);
   mount.appendChild(iframe);
 

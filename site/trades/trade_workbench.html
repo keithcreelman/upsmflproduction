@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>UPS Trade Workbench</title>
+  <title>UPS Trade War Room</title>
   <meta name="color-scheme" content="dark light">
   <link rel="stylesheet" href="./trade_workbench.css">
 </head>
@@ -12,14 +12,24 @@
     <header class="twb-hero">
       <div class="twb-hero-copy">
         <p class="twb-kicker">UPS Custom Trade Workflow</p>
-        <h1>Trade Workbench</h1>
+        <h1>Trade War Room</h1>
         <p class="twb-subtitle">
           Build and submit trade offers with players, picks, traded salary, and extension options.
         </p>
       </div>
       <div class="twb-hero-actions">
-        <button type="button" id="twbCopyPayloadBtn" class="twb-btn twb-btn-primary">Copy Offer JSON</button>
-        <button type="button" id="twbResetBtn" class="twb-btn twb-btn-ghost">Reset Trade</button>
+        <details class="twb-banner-offers" id="twbOfferedDropdown">
+          <summary class="twb-banner-offers-summary">
+            Trades Offered <span id="twbOfferedCount" class="twb-banner-offers-count">0</span>
+          </summary>
+          <div id="twbOfferedList" class="twb-banner-offers-list"></div>
+        </details>
+        <details class="twb-banner-offers" id="twbReceivedDropdown">
+          <summary class="twb-banner-offers-summary">
+            Trades Received <span id="twbReceivedCount" class="twb-banner-offers-count">0</span>
+          </summary>
+          <div id="twbReceivedList" class="twb-banner-offers-list"></div>
+        </details>
       </div>
     </header>
 
@@ -87,9 +97,12 @@
       </section>
 
       <section id="twbOfferCart" class="twb-card twb-offer-cart-card" aria-label="Current trade offer">
-        <div class="twb-card-head-inline">
+        <div class="twb-card-head-inline twb-offer-cart-head">
           <h2>Offer Review</h2>
-          <div class="twb-status-pill twb-status-pill-muted" id="twbOfferCartStatus">Draft</div>
+          <div class="twb-offer-cart-head-actions">
+            <div class="twb-status-pill twb-status-pill-muted" id="twbOfferCartStatus">Draft</div>
+            <button type="button" id="twbResetTradeReviewBtn" class="twb-btn twb-btn-primary twb-reset-offer-btn">Reset Trade</button>
+          </div>
         </div>
         <div class="twb-offer-cart-grid">
           <section class="twb-offer-cart-side">
