@@ -11,8 +11,8 @@
   // Hard redirect guard: never allow CCC message routes to stay on leaked dev league.
   (function () {
     try {
-      var prodLeague = String(window.UPS_CCC_PROD_LEAGUE_ID || "74598").replace(/\D/g, "");
-      var devLeague = String(window.UPS_DEV_LEAGUE_ID || "25625").replace(/\D/g, "");
+      var prodLeague = String(window.UPS_CCC_PROD_LEAGUE_ID == null ? "" : window.UPS_CCC_PROD_LEAGUE_ID).replace(/\D/g, "");
+      var devLeague = String(window.UPS_DEV_LEAGUE_ID == null ? "" : window.UPS_DEV_LEAGUE_ID).replace(/\D/g, "");
       if (!prodLeague || !devLeague || prodLeague === devLeague) return;
 
       var u = new URL(window.location.href || "");
@@ -77,7 +77,24 @@
       if (pathMatch && pathMatch[1]) return s(pathMatch[1]).replace(/\D/g, "");
       var g = s(window.league_id || window.LEAGUE_ID || "").replace(/\D/g, "");
       if (g) return g;
-      var fallback = s(window.UPS_CCC_PROD_LEAGUE_ID || "74598").replace(/\D/g, "");
+      try {
+        var raw = s(document.cookie || "");
+        if (raw) {
+          var parts = raw.split(";");
+          for (var i = 0; i < parts.length; i += 1) {
+            var p = s(parts[i]);
+            if (!p) continue;
+            var eq = p.indexOf("=");
+            var key = eq >= 0 ? s(p.slice(0, eq)) : p;
+            var val = eq >= 0 ? s(p.slice(eq + 1)) : "";
+            if (key === "MFL_LAST_LEAGUE_ID" && val) {
+              var fromCookie = decodeURIComponent(val).replace(/\D/g, "");
+              if (fromCookie) return fromCookie;
+            }
+          }
+        }
+      } catch (e) {}
+      var fallback = s(window.UPS_CCC_PROD_LEAGUE_ID == null ? "" : window.UPS_CCC_PROD_LEAGUE_ID).replace(/\D/g, "");
       return fallback;
     }
     function readYear(u) {
@@ -94,10 +111,11 @@
       try {
         u = new URL(window.location.href || "");
       } catch (e) {
-        return window.location.origin + "/2026/home/25625?MODULE=MESSAGE6=N";
+        return window.location.href;
       }
-      var league = readLeagueId(u) || "25625";
-      var year = readYear(u) || "2026";
+      var league = readLeagueId(u);
+      if (!league) return window.location.href;
+      var year = readYear(u) || String(new Date().getFullYear());
       return (
         window.location.origin +
         "/" +
@@ -1816,11 +1834,11 @@
   // MFL sometimes injects message HTML with innerHTML, which makes <script> tags inert.
   // Loading the CCC embed loader from the header ensures it executes.
   (function () {
-    var CCC_HEADER_BUILD = "2026.02.21.6";
+    var CCC_HEADER_BUILD = "2026.02.28.1";
     if (window.__ups_ccc_header_autoload === CCC_HEADER_BUILD) return;
     window.__ups_ccc_header_autoload = CCC_HEADER_BUILD;
-    var CCC_PROD_LEAGUE_ID = String(window.UPS_CCC_PROD_LEAGUE_ID || "74598").replace(/\D/g, "");
-    var CCC_DEV_LEAGUE_ID = String(window.UPS_DEV_LEAGUE_ID || "25625").replace(/\D/g, "");
+    var CCC_PROD_LEAGUE_ID = String(window.UPS_CCC_PROD_LEAGUE_ID == null ? "" : window.UPS_CCC_PROD_LEAGUE_ID).replace(/\D/g, "");
+    var CCC_DEV_LEAGUE_ID = String(window.UPS_DEV_LEAGUE_ID == null ? "" : window.UPS_DEV_LEAGUE_ID).replace(/\D/g, "");
 
     function safeUpper(v) {
       return String(v || "").trim().toUpperCase();
@@ -1857,19 +1875,15 @@
       try {
         var u = new URL(window.location.href);
         var q = safeStr(u.searchParams.get("L") || "");
-        if (q && q !== CCC_DEV_LEAGUE_ID) return q;
-        if (q && q === CCC_DEV_LEAGUE_ID) {
-          if (pathLeague && pathLeague !== q) return pathLeague;
-          if (globalLeague && globalLeague !== q) return globalLeague;
-          if (cookieLeague && cookieLeague !== q) return cookieLeague;
-          return q;
-        }
+        if (q) return q;
       } catch (e) {}
 
       if (pathLeague) return pathLeague;
       if (globalLeague) return globalLeague;
       if (cookieLeague) return cookieLeague;
-      return CCC_PROD_LEAGUE_ID || "";
+      if (CCC_PROD_LEAGUE_ID) return CCC_PROD_LEAGUE_ID;
+      if (CCC_DEV_LEAGUE_ID) return CCC_DEV_LEAGUE_ID;
+      return "";
     }
 
     function getCurrentYear() {
@@ -3935,8 +3949,8 @@ Replaces bulky default grid with compact toggle view + franchise icons
     }
 
     function getActiveLeagueId() {
-      var devLeague = String(window.UPS_DEV_LEAGUE_ID || "25625").replace(/\D/g, "");
-      var prodLeague = String(window.UPS_CCC_PROD_LEAGUE_ID || "74598").replace(/\D/g, "");
+      var devLeague = String(window.UPS_DEV_LEAGUE_ID == null ? "" : window.UPS_DEV_LEAGUE_ID).replace(/\D/g, "");
+      var prodLeague = String(window.UPS_CCC_PROD_LEAGUE_ID == null ? "" : window.UPS_CCC_PROD_LEAGUE_ID).replace(/\D/g, "");
       var pathLeague = "";
       var globalLeague = typeof league_id !== "undefined" && league_id ? safeStr(league_id) : "";
       var m = safeStr(window.location.pathname).match(/\/home\/(\d+)(?:\/|$)/i);
@@ -3944,15 +3958,11 @@ Replaces bulky default grid with compact toggle view + franchise icons
       try {
         var u = new URL(window.location.href);
         var q = safeStr(u.searchParams.get("L"));
-        if (q && q !== devLeague) return q;
-        if (q && q === devLeague) {
-          if (pathLeague && pathLeague !== q) return pathLeague;
-          if (globalLeague && globalLeague !== q) return globalLeague;
-          return q;
-        }
+        if (q) return q;
       } catch (e) {}
       if (pathLeague) return pathLeague;
       if (globalLeague) return globalLeague;
+      if (devLeague) return devLeague;
       return prodLeague || "";
     }
 
