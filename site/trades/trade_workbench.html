@@ -69,10 +69,59 @@
       </div>
     </section>
 
-    <main class="twb-main" aria-label="Trade builder">
-      <section class="twb-board" id="twbBoard"></section>
+    <nav id="twbMobileTabs" class="twb-mobile-tabs" aria-label="Trade workbench sections">
+      <button type="button" class="twb-mobile-tab-btn is-active" data-action="mobile-tab" data-mobile-tab="your">Your Assets</button>
+      <button type="button" class="twb-mobile-tab-btn" data-action="mobile-tab" data-mobile-tab="partner">Partner Assets</button>
+      <button type="button" class="twb-mobile-tab-btn" data-action="mobile-tab" data-mobile-tab="review">Review Offer</button>
+      <button type="button" class="twb-mobile-tab-btn" data-action="mobile-tab" data-mobile-tab="inbox">Inbox</button>
+    </nav>
 
-      <aside class="twb-summary" id="twbSummary" aria-label="Trade summary">
+    <main class="twb-main" aria-label="Trade builder">
+      <section id="twbYourAssetsPanel" class="twb-assets-column twb-assets-column-left" aria-label="Your assets">
+        <header class="twb-section-head">
+          <h2>Your Team Assets</h2>
+          <p>Browse and select what you want to send.</p>
+        </header>
+        <section class="twb-roster-shell">
+          <section class="twb-board" id="twbBoard"></section>
+        </section>
+      </section>
+
+      <section id="twbOfferCart" class="twb-card twb-offer-cart-card" aria-label="Current trade offer">
+        <div class="twb-card-head-inline">
+          <h2>Offer Cart</h2>
+          <div class="twb-status-pill twb-status-pill-muted" id="twbOfferCartStatus">Draft</div>
+        </div>
+        <p class="twb-card-caption">Live view of the exact trade package. Remove any item here to deselect it from the roster tables.</p>
+        <div class="twb-offer-cart-grid">
+          <section class="twb-offer-cart-side">
+            <header class="twb-offer-cart-side-head">
+              <h3 id="twbOfferCartLeftTitle">You Send</h3>
+              <button type="button" class="twb-link-btn" data-action="cart-clear-side" data-side="left">Clear Side</button>
+            </header>
+            <div id="twbOfferCartLeftList" class="twb-offer-cart-list"></div>
+          </section>
+          <section class="twb-offer-cart-side">
+            <header class="twb-offer-cart-side-head">
+              <h3 id="twbOfferCartRightTitle">You Receive</h3>
+              <button type="button" class="twb-link-btn" data-action="cart-clear-side" data-side="right">Clear Side</button>
+            </header>
+            <div id="twbOfferCartRightList" class="twb-offer-cart-list"></div>
+          </section>
+        </div>
+        <div id="twbOfferCartStats" class="twb-offer-cart-stats"></div>
+      </section>
+
+      <section id="twbPartnerAssetsPanel" class="twb-assets-column twb-assets-column-right" aria-label="Partner assets and actions">
+        <header class="twb-section-head">
+          <h2>Partner Team Assets</h2>
+          <p>Select what you want to receive, then review and submit.</p>
+        </header>
+        <section class="twb-roster-shell">
+          <section class="twb-board" id="twbPartnerBoard"></section>
+        </section>
+
+        <aside class="twb-summary" id="twbSummary" aria-label="Trade summary">
         <div class="twb-card twb-summary-card">
           <div class="twb-card-head-inline">
             <h2>Trade Summary</h2>
@@ -94,7 +143,7 @@
           </label>
           <div class="twb-offers-submit-row">
             <button type="button" id="twbSubmitOfferBtn" class="twb-btn twb-btn-primary">Submit Offer</button>
-            <div id="twbOffersCounts" class="twb-status-pill twb-status-pill-muted">Inbox</div>
+            <div id="twbOffersCounts" class="twb-status-pill twb-status-pill-muted">Incoming</div>
           </div>
           <div id="twbSubmitOfferStatus" class="twb-summary-note">No offer submitted yet.</div>
           <div id="twbOffersList" class="twb-offers-list" aria-live="polite"></div>
@@ -111,8 +160,13 @@
             <pre id="twbPayloadPreview" class="twb-payload-preview">Loading…</pre>
           </details>
         </div>
-      </aside>
+        </aside>
+      </section>
     </main>
+
+    <button type="button" id="twbOfferCartMobileTray" class="twb-offer-cart-mobile-tray" hidden>
+      Review Offer
+    </button>
   </div>
 
   <template id="twbTeamPanelTemplate">
