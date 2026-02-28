@@ -16,6 +16,7 @@
     selections: {},
     extensions: {},
     tradeSalaryK: {},
+    assetView: {},
     filters: {
       search: "",
       activeContractTypes: {},
@@ -804,6 +805,7 @@
       state.selections = parsed.selections && typeof parsed.selections === "object" ? parsed.selections : state.selections;
       state.extensions = parsed.extensions && typeof parsed.extensions === "object" ? parsed.extensions : state.extensions;
       state.tradeSalaryK = parsed.tradeSalaryK && typeof parsed.tradeSalaryK === "object" ? parsed.tradeSalaryK : state.tradeSalaryK;
+      state.assetView = parsed.assetView && typeof parsed.assetView === "object" ? parsed.assetView : state.assetView;
       state.collapsed = parsed.collapsed && typeof parsed.collapsed === "object" ? parsed.collapsed : state.collapsed;
       state.leftTeamId = safeStr(parsed.leftTeamId);
       state.rightTeamId = safeStr(parsed.rightTeamId);
@@ -824,6 +826,7 @@
           selections: state.selections,
           extensions: state.extensions,
           tradeSalaryK: state.tradeSalaryK,
+          assetView: state.assetView,
           collapsed: state.collapsed,
           filters: state.filters,
           mobileTab: state.mobileTab
@@ -906,17 +909,20 @@
     return count;
   }
 
-  function assetMatchesFilters(asset, teamId) {
+  function assetMatchesFilters(asset, teamId, overrides) {
     var f = state.filters;
+    overrides = overrides || {};
+    var showPicks = overrides.showPicks != null ? !!overrides.showPicks : !!f.showPicks;
+    var showTaxi = overrides.showTaxi != null ? !!overrides.showTaxi : !!f.showTaxi;
     if (!asset) return false;
 
     if (asset.type === "PICK") {
-      if (!f.showPicks) return false;
+      if (!showPicks) return false;
       if (f.onlyExtensionEligible) return false;
     }
 
     if (asset.type === "PLAYER") {
-      if (!f.showTaxi && asset.taxi) return false;
+      if (!showTaxi && asset.taxi) return false;
       if (f.onlyExtensionEligible && !asset.extension_eligible) return false;
 
       if (activeFilterCount(f.activeContractTypes) > 0) {
@@ -937,15 +943,45 @@
     return true;
   }
 
+  function getAssetView(teamId) {
+    var view = safeStr(state.assetView && state.assetView[teamId]).toLowerCase();
+    if (view === "picks" || view === "taxi") return view;
+    return "players";
+  }
+
+  function setAssetView(teamId, view) {
+    if (!teamId) return;
+    var normalized = safeStr(view).toLowerCase();
+    if (normalized !== "picks" && normalized !== "taxi") normalized = "players";
+    if (!state.assetView || typeof state.assetView !== "object") state.assetView = {};
+    state.assetView[teamId] = normalized;
+  }
+
+  function assetMatchesFiltersWithView(asset, teamId, view) {
+    var normalized = safeStr(view).toLowerCase();
+    var overrides = {};
+    if (normalized === "picks") overrides.showPicks = true;
+    if (normalized === "taxi") overrides.showTaxi = true;
+    return assetMatchesFilters(asset, teamId, overrides);
+  }
+
   function getVisibleAssetsForTeam(teamId) {
     var team = getTeamById(teamId);
     if (!team) return [];
     var assets = team.assets || [];
+    var view = getAssetView(teamId);
     var out = [];
     var i;
     for (i = 0; i < assets.length; i += 1) {
-      if (!isTradeEligibleAsset(assets[i])) continue;
-      if (assetMatchesFilters(assets[i], teamId)) out.push(assets[i]);
+      var asset = assets[i];
+      if (!isTradeEligibleAsset(asset)) continue;
+      if (view === "picks") {
+        if (asset.type === "PICK") out.push(asset);
+        continue;
+      }
+      if (view === "players" && asset.type === "PICK") continue;
+      if (view === "taxi" && !(asset.type === "PLAYER" && !!asset.taxi)) continue;
+      if (assetMatchesFiltersWithView(asset, teamId, view)) out.push(asset);
     }
     return out;
   }
@@ -1247,6 +1283,7 @@
     var logo = node.querySelector(".twb-team-logo");
     var logoFallback = node.querySelector(".twb-team-logo-fallback");
     var logoShell = node.querySelector(".twb-team-logo-shell");
+    var assetToggle = node.querySelector(".twb-asset-toggle");
     var groupsWrap = node.querySelector(".twb-team-groups");
     var salaryInput = node.querySelector(".twb-trade-salary-input");
     var salaryMaxValue = node.querySelector(".twb-trade-salary-max-value");
@@ -1286,6 +1323,7 @@
     var maxK = getTradeSalaryMaxK(team.franchise_id);
     if (salaryMaxValue) salaryMaxValue.textContent = String(maxK) + "K";
 
+    bindAssetViewToggle(assetToggle, team.franchise_id);
     bindTeamToolbarButtons(node, team.franchise_id);
 
     var visibleAssets = getVisibleAssetsForTeam(team.franchise_id);
@@ -1317,6 +1355,21 @@
     if (collapseAll) {
       collapseAll.setAttribute("data-action", "team-collapse-all");
       collapseAll.setAttribute("data-team-id", teamId);
+    }
+  }
+
+  function bindAssetViewToggle(toggleWrap, teamId) {
+    if (!toggleWrap || !toggleWrap.querySelectorAll) return;
+    var currentView = getAssetView(teamId);
+    var buttons = toggleWrap.querySelectorAll(".twb-asset-toggle-btn");
+    var i;
+    for (i = 0; i < buttons.length; i += 1) {
+      var btn = buttons[i];
+      var view = safeStr(btn.getAttribute("data-view")).toLowerCase();
+      var active = view === currentView;
+      btn.setAttribute("data-team-id", teamId);
+      btn.classList.toggle("is-active", active);
+      btn.setAttribute("aria-selected", active ? "true" : "false");
     }
   }
 
@@ -2128,9 +2181,7 @@
     var statusPill = els.summaryStatus;
     var ready = payload.validation.status === "ready";
     statusPill.textContent = ready ? "Ready" : "Draft";
-    statusPill.style.background = ready ? "rgba(86, 215, 154, 0.14)" : "rgba(120, 176, 255, 0.12)";
-    statusPill.style.borderColor = ready ? "rgba(86, 215, 154, 0.24)" : "rgba(120, 176, 255, 0.22)";
-    statusPill.style.color = ready ? "#c9ffe5" : "#cae7ff";
+    statusPill.className = "twb-status-pill " + (ready ? "is-ready" : "is-draft");
 
     var recon = payload.salary_reconciliation || {};
     var salaryGrid = document.createElement("div");
@@ -2440,6 +2491,10 @@
         rerender();
       } else if (action === "team-collapse-all") {
         teamSetAllGroups(teamId, false);
+        rerender();
+      } else if (action === "asset-view") {
+        var view = safeStr(target.getAttribute("data-view"));
+        setAssetView(teamId, view);
         rerender();
       } else if (action === "choose-discovery-match") {
         var pickedTeamId = safeStr(target.getAttribute("data-team-id"));

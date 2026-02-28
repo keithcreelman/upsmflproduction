@@ -113,7 +113,7 @@
           <div id="twbSummary" class="twb-offer-salary-summary">
             <div class="twb-card-head-inline">
               <h3>Salary Reconciliation</h3>
-              <div id="twbSummaryStatus" class="twb-status-pill">Draft</div>
+              <div id="twbSummaryStatus" class="twb-status-pill is-draft">Draft</div>
             </div>
             <div id="twbSummaryContent"></div>
           </div>
@@ -171,6 +171,14 @@
             <h2 class="twb-team-title"></h2>
             <div class="twb-team-meta"></div>
           </div>
+        </div>
+        <div class="twb-asset-toggle" role="tablist" aria-label="Asset view">
+          <button type="button" class="twb-asset-toggle-btn is-active"
+                  data-action="asset-view" data-view="players" aria-selected="true">Players</button>
+          <button type="button" class="twb-asset-toggle-btn"
+                  data-action="asset-view" data-view="picks" aria-selected="false">Picks</button>
+          <button type="button" class="twb-asset-toggle-btn"
+                  data-action="asset-view" data-view="taxi" aria-selected="false">Taxi</button>
         </div>
       </header>
 

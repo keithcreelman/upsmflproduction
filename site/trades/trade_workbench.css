@@ -832,6 +832,40 @@ summary:focus-visible {
   margin-top: 0.2rem;
 }
 
+.twb-asset-toggle {
+  display: inline-flex;
+  gap: 0.14rem;
+  align-items: center;
+  justify-self: end;
+  align-self: start;
+  border: 1px solid rgba(121, 153, 195, 0.24);
+  border-radius: 999px;
+  padding: 0.16rem;
+  background: rgba(7, 13, 26, 0.72);
+}
+
+.twb-asset-toggle-btn {
+  border: 0;
+  background: transparent;
+  color: var(--twb-text-soft);
+  border-radius: 999px;
+  padding: 0.27rem 0.62rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+.twb-asset-toggle-btn.is-active {
+  background: rgba(120, 176, 255, 0.26);
+  color: #ecf6ff;
+}
+
+.twb-asset-toggle-btn:focus-visible {
+  outline: 2px solid rgba(129, 196, 255, 0.72);
+  outline-offset: 1px;
+}
+
 .twb-trade-salary-box {
   border: 1px solid rgba(99, 132, 179, 0.2);
   border-radius: 14px;
@@ -1200,6 +1234,38 @@ summary:focus-visible {
   font-weight: 800;
 }
 
+.twb-status-pill.is-ready {
+  background: rgba(86, 215, 154, 0.14);
+  border-color: rgba(86, 215, 154, 0.24);
+  color: #c9ffe5;
+}
+
+.twb-status-pill.is-draft {
+  background: rgba(120, 176, 255, 0.12);
+  border-color: rgba(120, 176, 255, 0.22);
+  color: #cae7ff;
+}
+
+@media (prefers-color-scheme: light) {
+  .twb-status-pill {
+    background: #e2e8f0;
+    border-color: #cbd5e1;
+    color: #0f172a;
+  }
+
+  .twb-status-pill.is-ready {
+    background: #dcfce7;
+    border-color: #22c55e;
+    color: #14532d;
+  }
+
+  .twb-status-pill.is-draft {
+    background: #dbeafe;
+    border-color: #60a5fa;
+    color: #1e3a8a;
+  }
+}
+
 .twb-summary-section + .twb-summary-section {
   margin-top: 0.7rem;
   padding-top: 0.7rem;
@@ -1394,6 +1460,10 @@ summary:focus-visible {
 
   .twb-team-logo-shell {
     width: min(100%, 220px);
+  }
+
+  .twb-asset-toggle {
+    justify-self: start;
   }
 
   .twb-trade-salary-box {
