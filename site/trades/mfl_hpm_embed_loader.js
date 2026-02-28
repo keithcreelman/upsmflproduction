@@ -128,6 +128,43 @@
     }
   }
 
+  function getReleaseRefFromScriptSrc(scriptSrc) {
+    try {
+      var su = new URL(scriptSrc, window.location.href);
+      var parts = String(su.pathname || "").split("/").filter(Boolean);
+      if (parts.length < 3 || parts[0] !== "gh") return "";
+      var repoRef = parts[2];
+      var at = repoRef.lastIndexOf("@");
+      if (at <= 0 || at >= repoRef.length - 1) return "";
+      return safeStr(repoRef.slice(at + 1));
+    } catch (e) {
+      return "";
+    }
+  }
+
+  function resolveReleaseRef() {
+    var globals = [
+      window.UPS_RELEASE_SHA,
+      window.UPS_TWB_RELEASE_SHA,
+      window.UPS_TRADE_WORKBENCH_RELEASE_SHA
+    ];
+    var i;
+    for (i = 0; i < globals.length; i += 1) {
+      var g = safeStr(globals[i]);
+      if (g) return g;
+    }
+    try {
+      var s = document.currentScript;
+      if (s && s.src) {
+        var ref = getReleaseRefFromScriptSrc(s.src);
+        if (ref) return ref;
+      }
+    } catch (e) {
+      // noop
+    }
+    return "";
+  }
+
   function jsDelivrScriptToGithackHtml(scriptSrc) {
     try {
       var su = new URL(scriptSrc, window.location.href);
@@ -163,6 +200,8 @@
   function resolveIframeUrl() {
     var explicit = safeStr(window.UPS_TWB_IFRAME_URL || window.UPS_TRADE_WORKBENCH_IFRAME_URL);
     if (explicit) return explicit;
+    var base = getScriptBaseUrl();
+    if (base) return base + "trade_workbench.html";
     try {
       var s = document.currentScript;
       if (s && s.src) {
@@ -172,8 +211,6 @@
     } catch (e) {
       // noop
     }
-    var base = getScriptBaseUrl();
-    if (base) return base + "trade_workbench.html";
     return "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/trades/trade_workbench.html";
   }
 
@@ -193,7 +230,7 @@
     return mount;
   }
 
-  function buildIframeSrc(iframeUrl, apiUrl, context, pageUrl) {
+  function buildIframeSrc(iframeUrl, apiUrl, context, pageUrl, releaseRef) {
     var url;
     try {
       url = new URL(iframeUrl, window.location.href);
@@ -209,6 +246,7 @@
       var debug = safeStr(pageUrl.searchParams.get("DEBUG_TWB") || pageUrl.searchParams.get("DEBUG"));
       if (debug) url.searchParams.set("DEBUG_TWB", debug);
     }
+    if (releaseRef) url.searchParams.set("v", releaseRef);
     url.searchParams.set("embed", "1");
     return url.toString();
   }
@@ -222,6 +260,7 @@
   }
 
   var pageUrl = getUrl();
+  var releaseRef = resolveReleaseRef();
   var leagueId = getLeagueId(pageUrl);
   var year = getYear(pageUrl);
   var context = {
@@ -248,7 +287,7 @@
   iframe.setAttribute("loading", "lazy");
   iframe.setAttribute("scrolling", "no");
   iframe.setAttribute("title", "UPS Trade Workbench");
-  iframe.src = buildIframeSrc(iframeUrl, apiUrl, context, pageUrl);
+  iframe.src = buildIframeSrc(iframeUrl, apiUrl, context, pageUrl, releaseRef);
   mount.appendChild(iframe);
 
   function onMessage(ev) {
