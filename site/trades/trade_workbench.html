@@ -33,44 +33,22 @@
       </div>
     </header>
 
-    <section class="twb-toolbar" aria-label="Trade setup and filters">
-      <div class="twb-toolbar-grid">
-        <div class="twb-card twb-card-tight twb-teams-card">
-          <h2>Teams</h2>
-          <div class="twb-field-grid twb-field-grid-2">
-            <label class="twb-field">
-              <span>Your Team</span>
-              <select id="twbLeftTeamSelect"></select>
-            </label>
-            <label class="twb-field">
-              <span>Partner Team</span>
-              <select id="twbRightTeamSelect"></select>
-            </label>
-          </div>
-        </div>
-
-        <div class="twb-card twb-card-tight twb-filters-card">
-          <div class="twb-card-head-inline">
-            <h2>Filters</h2>
-            <button type="button" id="twbClearFiltersBtn" class="twb-link-btn">Clear</button>
-          </div>
-          <div class="twb-field-grid twb-field-grid-3">
-            <label class="twb-field twb-field-grow">
-              <span>Search</span>
-              <input id="twbSearchInput" type="search" placeholder="Player, team, pick">
-            </label>
-            <label class="twb-field">
-              <span>Min Years</span>
-              <select id="twbYearsMinSelect"></select>
-            </label>
-            <label class="twb-field">
-              <span>Max Years</span>
-              <select id="twbYearsMaxSelect"></select>
-            </label>
-          </div>
-          <div class="twb-filter-bottom">
-            <div class="twb-toggle-group" id="twbBooleanToggles"></div>
-          </div>
+    <section class="twb-toolbar" aria-label="Trade setup">
+      <div class="twb-card twb-card-tight twb-setup-card">
+        <div class="twb-setup-row">
+          <label class="twb-field">
+            <span>Your Team</span>
+            <select id="twbLeftTeamSelect"></select>
+          </label>
+          <label class="twb-field">
+            <span>Partner Team</span>
+            <select id="twbRightTeamSelect"></select>
+          </label>
+          <label class="twb-field twb-field-grow">
+            <span>Search</span>
+            <input id="twbSearchInput" type="search" placeholder="Search player, team, pick">
+          </label>
+          <button type="button" id="twbClearFiltersBtn" class="twb-link-btn twb-setup-clear-btn">Clear Search</button>
         </div>
       </div>
     </section>
@@ -221,8 +199,6 @@
                 <th class="twb-col-select">In</th>
                 <th class="twb-col-player">Player / Asset</th>
                 <th class="twb-col-salary">Salary</th>
-                <th class="twb-col-years">Years</th>
-                <th class="twb-col-contract">Type</th>
               </tr>
             </thead>
             <tbody></tbody>

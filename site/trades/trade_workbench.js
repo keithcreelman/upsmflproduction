@@ -18,12 +18,7 @@
     tradeSalaryK: {},
     assetView: {},
     filters: {
-      search: "",
-      yearsMin: "",
-      yearsMax: "",
-      showTaxi: true,
-      showPicks: true,
-      onlyExtensionEligible: false
+      search: ""
     },
     collapsed: {},
     submit: {
@@ -1596,6 +1591,11 @@
         state.filters = Object.assign(state.filters, parsed.filters);
         if (state.filters.activePositions) delete state.filters.activePositions;
         if (state.filters.activeContractTypes) delete state.filters.activeContractTypes;
+        if (state.filters.yearsMin) delete state.filters.yearsMin;
+        if (state.filters.yearsMax) delete state.filters.yearsMax;
+        if (state.filters.showTaxi != null) delete state.filters.showTaxi;
+        if (state.filters.showPicks != null) delete state.filters.showPicks;
+        if (state.filters.onlyExtensionEligible != null) delete state.filters.onlyExtensionEligible;
       }
       state.selections = parsed.selections && typeof parsed.selections === "object" ? parsed.selections : state.selections;
       state.extensions = parsed.extensions && typeof parsed.extensions === "object" ? parsed.extensions : state.extensions;
@@ -1696,32 +1696,12 @@
     return thisEntered - otherEntered;
   }
 
-  function assetMatchesFilters(asset, teamId, overrides) {
+  function assetMatchesFilters(asset) {
     var f = state.filters;
-    overrides = overrides || {};
-    var showPicks = overrides.showPicks != null ? !!overrides.showPicks : !!f.showPicks;
-    var showTaxi = overrides.showTaxi != null ? !!overrides.showTaxi : !!f.showTaxi;
     if (!asset) return false;
 
-    if (asset.type === "PICK") {
-      if (!showPicks) return false;
-      if (f.onlyExtensionEligible) return false;
-    }
-
-    if (asset.type === "PLAYER") {
-      if (!showTaxi && asset.taxi) return false;
-      if (f.onlyExtensionEligible && !asset.extension_eligible) return false;
-
-      var yearsMin = safeStr(f.yearsMin);
-      var yearsMax = safeStr(f.yearsMax);
-      if (yearsMin && asset.years != null && asset.years < safeInt(yearsMin, 0)) return false;
-      if (yearsMax && asset.years != null && asset.years > safeInt(yearsMax, 99)) return false;
-      if ((yearsMin || yearsMax) && asset.years == null) return false;
-    }
-
     var search = safeStr(f.search).toLowerCase();
-    var skipSearchForTeam = !!teamId && teamId === state.leftTeamId;
-    if (!skipSearchForTeam && search && asset.search_text.indexOf(search) === -1) return false;
+    if (search && asset.search_text.indexOf(search) === -1) return false;
 
     return true;
   }
@@ -1740,14 +1720,6 @@
     state.assetView[teamId] = normalized;
   }
 
-  function assetMatchesFiltersWithView(asset, teamId, view) {
-    var normalized = safeStr(view).toLowerCase();
-    var overrides = {};
-    if (normalized === "picks") overrides.showPicks = true;
-    if (normalized === "taxi") overrides.showTaxi = true;
-    return assetMatchesFilters(asset, teamId, overrides);
-  }
-
   function getVisibleAssetsForTeam(teamId) {
     var team = getTeamById(teamId);
     if (!team) return [];
@@ -1759,12 +1731,12 @@
       var asset = assets[i];
       if (!isTradeEligibleAsset(asset)) continue;
       if (view === "picks") {
-        if (asset.type === "PICK") out.push(asset);
+        if (asset.type === "PICK" && assetMatchesFilters(asset)) out.push(asset);
         continue;
       }
       if (view === "players" && asset.type === "PICK") continue;
       if (view === "taxi" && !(asset.type === "PLAYER" && !!asset.taxi)) continue;
-      if (assetMatchesFiltersWithView(asset, teamId, view)) out.push(asset);
+      if (assetMatchesFilters(asset)) out.push(asset);
     }
     return out;
   }
@@ -1850,70 +1822,17 @@
     right.value = state.rightTeamId;
   }
 
-  function initYearFilters() {
-    var maxYears = 3;
-    var i;
-    var selects = [els.yearsMinSelect, els.yearsMaxSelect];
-    for (i = 0; i < selects.length; i += 1) {
-      var s = selects[i];
-      if (!s) continue;
-      s.innerHTML = "";
-      s.appendChild(optionEl("", "Any"));
-      var y;
-      for (y = 0; y <= maxYears; y += 1) {
-        s.appendChild(optionEl(String(y), String(y)));
-      }
-    }
-    els.yearsMinSelect.value = safeStr(state.filters.yearsMin);
-    els.yearsMaxSelect.value = safeStr(state.filters.yearsMax);
-  }
-
-  function initBooleanToggles() {
-    var wrap = els.booleanToggles;
-    if (!wrap) return;
-    wrap.innerHTML = "";
-    var defs = [
-      { key: "showTaxi", label: "Show Taxi" },
-      { key: "showPicks", label: "Show Picks" },
-      { key: "onlyExtensionEligible", label: "Pre-trade extension eligible" }
-    ];
-    var i;
-    for (i = 0; i < defs.length; i += 1) {
-      var def = defs[i];
-      var id = "twb-toggle-" + def.key;
-      var label = document.createElement("label");
-      label.className = "twb-toggle";
-      label.setAttribute("for", id);
-      var input = document.createElement("input");
-      input.type = "checkbox";
-      input.id = id;
-      input.checked = !!state.filters[def.key];
-      input.setAttribute("data-action", "toggle-bool-filter");
-      input.setAttribute("data-filter-key", def.key);
-      var span = document.createElement("span");
-      span.textContent = def.label;
-      label.appendChild(input);
-      label.appendChild(span);
-      wrap.appendChild(label);
-    }
-  }
-
   function initializeControlsFromState() {
     els.searchInput.value = safeStr(state.filters.search);
     initTeamSelectors();
-    initYearFilters();
-    initBooleanToggles();
   }
 
   function syncControlsLightweight() {
     if (els.leftTeamSelect) els.leftTeamSelect.value = state.leftTeamId;
     if (els.rightTeamSelect) els.rightTeamSelect.value = state.rightTeamId;
-    if (els.yearsMinSelect) els.yearsMinSelect.value = safeStr(state.filters.yearsMin);
-    if (els.yearsMaxSelect) els.yearsMaxSelect.value = safeStr(state.filters.yearsMax);
     if (els.searchInput && els.searchInput.value !== safeStr(state.filters.search)) {
       els.searchInput.value = safeStr(state.filters.search);
     }
-    initBooleanToggles();
   }
 
   function renderBoard() {
@@ -2079,11 +1998,27 @@
     bindAssetViewToggle(assetToggle, team.franchise_id);
     bindTeamToolbarButtons(node, team.franchise_id);
 
+    var currentView = getAssetView(team.franchise_id);
     var visibleAssets = getVisibleAssetsForTeam(team.franchise_id);
     if (!visibleAssets.length) {
       var empty = document.createElement("div");
       empty.className = "twb-empty-state";
-      empty.textContent = "No assets match current filters for this team.";
+      if (currentView === "taxi") {
+        var hasTaxi = false;
+        var taxiAssets = team.assets || [];
+        var tx;
+        for (tx = 0; tx < taxiAssets.length; tx += 1) {
+          if (taxiAssets[tx] && taxiAssets[tx].type === "PLAYER" && taxiAssets[tx].taxi) {
+            hasTaxi = true;
+            break;
+          }
+        }
+        empty.textContent = hasTaxi ? "No Taxi Squad players match your search." : "No Taxi Squad players.";
+      } else if (currentView === "picks") {
+        empty.textContent = "No draft picks match your search.";
+      } else {
+        empty.textContent = "No assets match your search.";
+      }
       groupsWrap.appendChild(empty);
       return node;
     }
@@ -2238,22 +2173,6 @@
     }
 
     main.appendChild(line);
-
-    var subText = "";
-    if (asset.type === "PLAYER") {
-      var pieces = [];
-      if (asset.injury) pieces.push(asset.injury);
-      if (asset.notes) pieces.push(asset.notes);
-      subText = pieces.join(" · ");
-    } else {
-      subText = "";
-    }
-    if (subText) {
-      var sub = document.createElement("div");
-      sub.className = "twb-asset-sub";
-      sub.textContent = subText;
-      main.appendChild(sub);
-    }
     var ineligibleReason = getTradeIneligibleReason(asset);
     if (ineligibleReason) {
       var ruleNote = document.createElement("div");
@@ -2268,20 +2187,34 @@
     var tdSalary = document.createElement("td");
     tdSalary.className = "twb-col-salary";
     tdSalary.setAttribute("data-label", "Salary");
-    tdSalary.innerHTML = '<span class="twb-money">' + (asset.type === "PLAYER" ? escapeHtml(moneyFmt(asset.salary)) : "—") + '</span>';
+    if (asset.type === "PLAYER") {
+      var moneyStack = document.createElement("div");
+      moneyStack.className = "twb-money-stack";
+      var moneyMain = document.createElement("div");
+      moneyMain.className = "twb-money-main";
+      moneyMain.textContent = moneyFmt(asset.salary);
+      var metaLine = document.createElement("div");
+      metaLine.className = "twb-money-meta";
+      var yearsText = asset.years == null ? "—" : String(asset.years);
+      var contractType = safeStr(asset.contract_type) || "—";
+      metaLine.textContent = "Years: " + yearsText + " · " + contractType;
+      moneyStack.appendChild(moneyMain);
+      moneyStack.appendChild(metaLine);
+      tdSalary.appendChild(moneyStack);
+    } else {
+      var pickMoney = document.createElement("div");
+      pickMoney.className = "twb-money-stack";
+      var pickMain = document.createElement("div");
+      pickMain.className = "twb-money-main";
+      pickMain.textContent = "—";
+      var pickMeta = document.createElement("div");
+      pickMeta.className = "twb-money-meta";
+      pickMeta.textContent = "Rookie pick";
+      pickMoney.appendChild(pickMain);
+      pickMoney.appendChild(pickMeta);
+      tdSalary.appendChild(pickMoney);
+    }
     tr.appendChild(tdSalary);
-
-    var tdYears = document.createElement("td");
-    tdYears.className = "twb-col-years";
-    tdYears.setAttribute("data-label", "Years");
-    tdYears.innerHTML = '<span class="twb-years">' + (asset.type === "PLAYER" && asset.years != null ? escapeHtml(String(asset.years)) : "—") + '</span>';
-    tr.appendChild(tdYears);
-
-    var tdContract = document.createElement("td");
-    tdContract.className = "twb-col-contract";
-    tdContract.setAttribute("data-label", "Type");
-    tdContract.innerHTML = '<div class="twb-contract-info">' + escapeHtml(asset.type === "PICK" ? "Pick" : (asset.contract_type || "—")) + '</div>';
-    tr.appendChild(tdContract);
 
     return tr;
   }
@@ -3142,16 +3075,10 @@
 
   function resetFilterState() {
     state.filters.search = "";
-    state.filters.yearsMin = "";
-    state.filters.yearsMax = "";
-    state.filters.showTaxi = true;
-    state.filters.showPicks = true;
-    state.filters.onlyExtensionEligible = false;
   }
 
   function clearFilters() {
     resetFilterState();
-    state.rightTeamId = "";
   }
 
   function resetTrade(options) {
@@ -3232,16 +3159,6 @@
       rerender();
     });
 
-    els.yearsMinSelect.addEventListener("change", function () {
-      state.filters.yearsMin = safeStr(this.value);
-      rerender();
-    });
-
-    els.yearsMaxSelect.addEventListener("change", function () {
-      state.filters.yearsMax = safeStr(this.value);
-      rerender();
-    });
-
     els.clearFiltersBtn.addEventListener("click", function () {
       clearFilters();
       rerender();
@@ -3319,17 +3236,6 @@
         closeExtensionModal();
       });
     }
-
-    els.toolbar.addEventListener("change", function (evt) {
-      var target = evt.target;
-      if (!target) return;
-      var action = target.getAttribute("data-action");
-      if (action === "toggle-bool-filter") {
-        var key = safeStr(target.getAttribute("data-filter-key"));
-        if (key) state.filters[key] = !!target.checked;
-        rerender();
-      }
-    });
 
     function handleBoardChange(target) {
       if (!target) return;
@@ -3535,9 +3441,6 @@
     els.leftTeamSelect = q("twbLeftTeamSelect");
     els.rightTeamSelect = q("twbRightTeamSelect");
     els.searchInput = q("twbSearchInput");
-    els.yearsMinSelect = q("twbYearsMinSelect");
-    els.yearsMaxSelect = q("twbYearsMaxSelect");
-    els.booleanToggles = q("twbBooleanToggles");
     els.clearFiltersBtn = q("twbClearFiltersBtn");
     els.copyPayloadBtn = q("twbCopyPayloadBtn");
     els.copyPayloadBtn2 = q("twbCopyPayloadBtn2");

@@ -304,12 +304,6 @@ summary:focus-visible {
   margin-top: 0.95rem;
 }
 
-.twb-toolbar-grid {
-  display: grid;
-  gap: 0.9rem;
-  grid-template-columns: 1.05fr 1.95fr;
-}
-
 .twb-card {
   background: linear-gradient(180deg, rgba(12, 22, 40, 0.92), rgba(8, 16, 29, 0.95));
   border: 1px solid var(--twb-border);
@@ -322,32 +316,21 @@ summary:focus-visible {
   padding: 0.75rem;
 }
 
-.twb-teams-card {
+.twb-setup-card {
   background:
     linear-gradient(155deg, rgba(33, 55, 98, 0.96), rgba(14, 22, 40, 0.94)),
-    radial-gradient(circle at 90% 15%, rgba(244, 195, 105, 0.1), transparent 45%);
+    radial-gradient(circle at 10% 10%, rgba(244, 195, 105, 0.1), transparent 48%);
   border-color: rgba(244, 195, 105, 0.22);
   box-shadow:
     inset 0 1px 0 rgba(255, 223, 160, 0.08),
     0 10px 25px rgba(0, 0, 0, 0.22);
 }
 
-.twb-teams-card h2 {
-  color: #ffe1a0;
-}
-
-.twb-filters-card {
-  background:
-    linear-gradient(160deg, rgba(14, 43, 54, 0.96), rgba(11, 23, 34, 0.95)),
-    radial-gradient(circle at 15% 10%, rgba(86, 215, 154, 0.1), transparent 55%);
-  border-color: rgba(86, 215, 154, 0.2);
-  box-shadow:
-    inset 0 1px 0 rgba(151, 255, 205, 0.06),
-    0 10px 25px rgba(0, 0, 0, 0.22);
-}
-
-.twb-filters-card h2 {
-  color: #bff3df;
+.twb-setup-row {
+  display: grid;
+  grid-template-columns: minmax(170px, 0.8fr) minmax(170px, 0.8fr) minmax(220px, 1.8fr) auto;
+  gap: 0.6rem;
+  align-items: end;
 }
 
 .twb-card h2 {
@@ -394,6 +377,16 @@ summary:focus-visible {
 
 .twb-field-grow {
   min-width: 14rem;
+}
+
+.twb-setup-clear-btn {
+  border: 1px solid rgba(127, 163, 209, 0.35);
+  border-radius: 10px;
+  background: rgba(8, 15, 29, 0.65);
+  color: #d3e8ff;
+  min-height: 2.25rem;
+  padding: 0.42rem 0.7rem;
+  align-self: end;
 }
 
 .twb-chip-block {
@@ -1211,8 +1204,7 @@ summary:focus-visible {
 }
 
 .twb-col-select,
-.twb-col-salary,
-.twb-col-years {
+.twb-col-salary {
   white-space: nowrap;
 }
 
@@ -1291,20 +1283,22 @@ summary:focus-visible {
   color: #d8e8ff;
 }
 
-.twb-contract-info {
-  color: var(--twb-text-dim);
-  font-size: 0.72rem;
-  line-height: 1.25;
-  word-break: break-word;
+.twb-money-stack {
+  display: grid;
+  gap: 0.05rem;
 }
 
-.twb-money {
-  font-weight: 800;
+.twb-money-main {
+  font-weight: 900;
+  font-size: 0.92rem;
+  color: #e9f4ff;
 }
 
-.twb-years {
-  color: var(--twb-text);
-  font-weight: 700;
+.twb-money-meta {
+  color: var(--twb-text-soft);
+  font-size: 0.68rem;
+  line-height: 1.15;
+  white-space: nowrap;
 }
 
 .twb-ext-modal-dialog {
@@ -1699,8 +1693,8 @@ summary:focus-visible {
 }
 
 @media (max-width: 900px) {
-  .twb-toolbar-grid {
-    grid-template-columns: 1fr;
+  .twb-setup-row {
+    grid-template-columns: 1fr 1fr;
   }
 
   .twb-hero {
@@ -1719,12 +1713,8 @@ summary:focus-visible {
       "right";
   }
 
-  .twb-filter-bottom {
-    grid-template-columns: 1fr;
-  }
-
-  .twb-field-grid-3 {
-    grid-template-columns: 1fr 1fr 1fr;
+  .twb-field-grow {
+    grid-column: 1 / -1;
   }
 
   .twb-team-header {
@@ -1837,7 +1827,7 @@ summary:focus-visible {
     grid-template-columns: 1fr;
   }
 
-  .twb-checkbox-grid {
+  .twb-setup-row {
     grid-template-columns: 1fr;
   }
 
@@ -1896,8 +1886,7 @@ summary:focus-visible {
   }
 
   .twb-col-select,
-  .twb-col-salary,
-  .twb-col-years {
+  .twb-col-salary {
     width: auto;
   }
 
