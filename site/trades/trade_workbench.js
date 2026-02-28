@@ -73,6 +73,17 @@
     return isFinite(n) ? n : (fallback == null ? 0 : fallback);
   }
 
+  function safeMoneyInt(v, fallback) {
+    if (typeof v === "number" && isFinite(v)) return Math.round(v);
+    var s = safeStr(v);
+    if (!s) return fallback == null ? null : fallback;
+    var cleaned = s.replace(/[^0-9.-]/g, "");
+    if (!cleaned || cleaned === "-" || cleaned === ".") return fallback == null ? null : fallback;
+    var n = Number(cleaned);
+    if (!isFinite(n)) return fallback == null ? null : fallback;
+    return Math.round(n);
+  }
+
   function pad4(v) {
     var digits = safeStr(v).replace(/\D/g, "");
     if (!digits) return "";
@@ -341,6 +352,12 @@
           franchise_abbrev: safeStr(rt.franchise_abbrev || rt.abbrev || teamId),
           icon_url: safeStr(rt.icon_url || rt.franchise_logo || rt.logo || ""),
           is_default: parseBool(rt.is_default || rt.my_team, false),
+          available_salary_dollars: safeMoneyInt(
+            rt.available_salary_dollars != null
+              ? rt.available_salary_dollars
+              : (rt.salary_cap_amount_dollars != null ? rt.salary_cap_amount_dollars : rt.salaryCapAmount),
+            null
+          ),
           assets: []
         };
         var assets = Array.isArray(rt.assets) ? rt.assets : [];
@@ -369,6 +386,12 @@
           franchise_abbrev: safeStr(rf.franchise_abbrev || rf.abbrev || fId),
           icon_url: safeStr(rf.icon_url || rf.logo || ""),
           is_default: parseBool(rf.is_default || rf.my_team, false),
+          available_salary_dollars: safeMoneyInt(
+            rf.available_salary_dollars != null
+              ? rf.available_salary_dollars
+              : (rf.salary_cap_amount_dollars != null ? rf.salary_cap_amount_dollars : rf.salaryCapAmount),
+            null
+          ),
           assets: []
         };
         var rosterAssets = rostersByTeam[fId] || [];
@@ -403,12 +426,27 @@
       }
     }
 
+    var salaryCapDollars = safeMoneyInt(
+      (raw.meta && (
+        raw.meta.salary_cap_dollars ||
+        raw.meta.salary_cap_amount_dollars ||
+        raw.meta.auction_start_amount ||
+        raw.meta.auctionStartAmount
+      )) ||
+      raw.salary_cap_dollars ||
+      raw.salary_cap_amount_dollars ||
+      raw.auction_start_amount ||
+      raw.auctionStartAmount,
+      0
+    );
+
     return {
       meta: {
         league_id: safeStr(raw.league_id || raw.leagueId),
         season: safeInt(raw.season || raw.year, 0),
         generated_at: safeStr(raw.generated_at || raw.generatedAt || ""),
-        source: safeStr(raw.source || "sample")
+        source: safeStr(raw.source || "sample"),
+        salary_cap_dollars: salaryCapDollars
       },
       teams: teams,
       extension_previews: raw.extension_previews || raw.extensionPreviews || [],
@@ -1203,108 +1241,61 @@
   async function submitOfferToQueue() {
     if (state.submit.busy) return;
     var directMfl = isDirectMflMode();
-    var counterMode = !directMfl && hasActiveCounterDraft();
     var payload = buildTradePayload();
     if (!payload.validation || payload.validation.status !== "ready") {
       setSubmitStatus("Trade is not ready. Select assets on both sides and keep traded salary within max.", "warn");
-      renderOffersSections(payload);
+      renderSummary();
       return;
     }
     var leftTeam = getTeamById(state.leftTeamId);
     var rightTeam = getTeamById(state.rightTeamId);
     if (!leftTeam || !rightTeam) {
       setSubmitStatus("Select both teams before submitting.", "warn");
-      renderOffersSections(payload);
+      renderSummary();
       return;
     }
 
     state.submit.busy = true;
-    setSubmitStatus(
-      counterMode
-        ? "Submitting counter offer to UPS inbox…"
-        : (directMfl ? "Submitting offer to MFL…" : "Submitting offer to UPS inbox…"),
-      ""
-    );
-    renderOffersSections(payload);
+    setSubmitStatus(directMfl ? "Submitting offer to MFL…" : "Submitting offer…", "");
+    renderSummary();
 
     try {
       var userMessage = els.offerMessageInput ? safeStr(els.offerMessageInput.value).slice(0, 2000) : "";
       var structuredMessage = composeStructuredOfferMessage(payload, userMessage);
-
-      if (counterMode) {
-        var counter = state.counterDraft || {};
-        var expectedLeft = pad4(counter.fromFranchiseId);
-        var expectedRight = pad4(counter.toFranchiseId);
-        if ((expectedLeft && pad4(state.leftTeamId) !== expectedLeft) || (expectedRight && pad4(state.rightTeamId) !== expectedRight)) {
-          throw new Error("Counter teams are out of sync. Click Build Counter on the offer again.");
-        }
-        if (!safeStr(counter.offerId)) {
-          throw new Error("Counter offer id is missing. Click Build Counter again.");
-        }
-
-        var counterBody = {
-          league_id: safeStr(state.data.meta.league_id),
-          season: state.data.meta.season || null,
-          offer_id: safeStr(counter.offerId),
-          action: "COUNTER",
-          acting_franchise_id: safeStr(state.leftTeamId),
-          message: structuredMessage,
-          counter_offer: {
-            from_franchise_id: safeStr(state.leftTeamId),
-            to_franchise_id: safeStr(state.rightTeamId),
-            from_franchise_name: leftTeam.franchise_name,
-            to_franchise_name: rightTeam.franchise_name,
-            message: structuredMessage,
-            payload: payload,
-            source: "trade-workbench-ui-counter"
-          }
-        };
-        var counterRes = await fetchJsonRequest(resolveTradeOffersActionApiUrl(), {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(counterBody)
-        });
-        var counterId = safeStr((counterRes.counter_offer || {}).id || "");
-        setSubmitStatus("Counter submitted" + (counterId ? ": " + counterId : "") + ".", "good");
-        clearCounterDraft();
+      var apiUrl = new URL(resolveTradeOffersApiUrl(), window.location.href);
+      var body = {
+        league_id: safeStr(state.data.meta.league_id),
+        season: state.data.meta.season || null,
+        from_franchise_id: safeStr(state.leftTeamId),
+        to_franchise_id: safeStr(state.rightTeamId),
+        from_franchise_name: leftTeam.franchise_name,
+        to_franchise_name: rightTeam.franchise_name,
+        message: structuredMessage,
+        payload: payload,
+        source: "trade-workbench-ui",
+        direct_mfl: directMfl,
+        submit_mode: directMfl ? "mfl" : "queue"
+      };
+      var res = await fetchJsonRequest(apiUrl.toString(), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+      if (directMfl) {
+        var mflTradeId = safeStr((res.mfl || {}).trade_id);
+        setSubmitStatus(
+          "Offer submitted to MFL" + (mflTradeId ? " (Trade ID " + mflTradeId + ")." : "."),
+          "good"
+        );
       } else {
-        var apiUrl = new URL(resolveTradeOffersApiUrl(), window.location.href);
-        var body = {
-          league_id: safeStr(state.data.meta.league_id),
-          season: state.data.meta.season || null,
-          from_franchise_id: safeStr(state.leftTeamId),
-          to_franchise_id: safeStr(state.rightTeamId),
-          from_franchise_name: leftTeam.franchise_name,
-          to_franchise_name: rightTeam.franchise_name,
-          message: structuredMessage,
-          payload: payload,
-          source: "trade-workbench-ui",
-          direct_mfl: directMfl,
-          submit_mode: directMfl ? "mfl" : "queue"
-        };
-        var res = await fetchJsonRequest(apiUrl.toString(), {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body)
-        });
-        if (directMfl) {
-          var mflTradeId = safeStr((res.mfl || {}).trade_id);
-          setSubmitStatus(
-            "Offer submitted to MFL" + (mflTradeId ? " (Trade ID " + mflTradeId + ")." : "."),
-            "good"
-          );
-        } else {
-          setSubmitStatus("Offer submitted: " + safeStr((res.offer || {}).id || "saved") + " (custom queue).", "good");
-        }
+        setSubmitStatus("Offer submitted.", "good");
       }
       if (els.offerMessageInput) els.offerMessageInput.value = "";
-      if (!directMfl) await refreshOfferInbox();
     } catch (err) {
       setSubmitStatus(friendlyOfferError("Submit failed", err), "bad");
-      renderOffersSections(payload);
     } finally {
       state.submit.busy = false;
-      renderOffersSections(buildTradePayload());
+      renderSummary();
     }
   }
 
@@ -1905,7 +1896,7 @@
     var statsWrap = node.querySelector(".twb-team-stats");
     var groupsWrap = node.querySelector(".twb-team-groups");
     var salaryInput = node.querySelector(".twb-trade-salary-input");
-    var salaryMax = node.querySelector(".twb-trade-salary-max");
+    var salaryMaxValue = node.querySelector(".twb-trade-salary-max-value");
 
     eyebrow.textContent = "";
     title.textContent = team.franchise_name;
@@ -1935,20 +1926,17 @@
     }
 
     var teamStats = deriveTeamStats(team);
-    statsWrap.appendChild(renderMiniStat("Players", teamStats.players));
-    statsWrap.appendChild(renderMiniStat("Picks", teamStats.picks));
-    statsWrap.appendChild(renderMiniStat("Ext Eligible", teamStats.extEligible));
+    statsWrap.appendChild(renderMiniStat("◦", teamStats.players));
+    statsWrap.appendChild(renderMiniStat("◆", teamStats.picks));
+    statsWrap.appendChild(renderMiniStat("✦", teamStats.extEligible));
 
     salaryInput.value = safeStr(state.tradeSalaryK[team.franchise_id]);
     salaryInput.setAttribute("data-action", "set-trade-salary");
     salaryInput.setAttribute("data-team-id", team.franchise_id);
     salaryInput.setAttribute("max", String(getTradeSalaryMaxK(team.franchise_id)));
 
-    var totals = getTeamTotals(team.franchise_id);
     var maxK = getTradeSalaryMaxK(team.franchise_id);
-    salaryMax.textContent =
-      "Max " + maxK + "K based on selected non-Taxi player salary " + kFmtFromDollars(totals.selectedNonTaxiSalary) +
-      (totals.selectedTaxiPlayers ? " (Taxi excluded: " + totals.selectedTaxiPlayers + ")" : "");
+    if (salaryMaxValue) salaryMaxValue.textContent = String(maxK) + "K";
 
     bindTeamToolbarButtons(node, team.franchise_id);
 
@@ -1971,19 +1959,17 @@
   }
 
   function bindTeamToolbarButtons(panel, teamId) {
-    var selectVisible = panel.querySelector(".twb-team-select-all");
-    var clearVisible = panel.querySelector(".twb-team-clear-visible");
     var expandAll = panel.querySelector(".twb-team-expand-all");
     var collapseAll = panel.querySelector(".twb-team-collapse-all");
 
-    selectVisible.setAttribute("data-action", "team-select-visible");
-    selectVisible.setAttribute("data-team-id", teamId);
-    clearVisible.setAttribute("data-action", "team-clear-visible");
-    clearVisible.setAttribute("data-team-id", teamId);
-    expandAll.setAttribute("data-action", "team-expand-all");
-    expandAll.setAttribute("data-team-id", teamId);
-    collapseAll.setAttribute("data-action", "team-collapse-all");
-    collapseAll.setAttribute("data-team-id", teamId);
+    if (expandAll) {
+      expandAll.setAttribute("data-action", "team-expand-all");
+      expandAll.setAttribute("data-team-id", teamId);
+    }
+    if (collapseAll) {
+      collapseAll.setAttribute("data-action", "team-collapse-all");
+      collapseAll.setAttribute("data-team-id", teamId);
+    }
   }
 
   function renderAssetGroup(team, group) {
@@ -2013,9 +1999,9 @@
       }
     }
 
-    var badgeText = group.assets.length + " visible";
-    if (selectedCount) badgeText += " · " + selectedCount + " selected";
-    if (extCount) badgeText += " · " + extCount + " ext";
+    var badgeText = "◦ " + group.assets.length;
+    if (selectedCount) badgeText += " · ✓ " + selectedCount;
+    if (extCount) badgeText += " · ✦ " + extCount;
     details.querySelector(".twb-group-badges").textContent = badgeText;
 
     var tbody = details.querySelector("tbody");
@@ -2262,6 +2248,81 @@
     return out;
   }
 
+  function sumTeamCommittedSalary(teamId) {
+    var team = getTeamById(teamId);
+    if (!team) return 0;
+    var assets = team.assets || [];
+    var total = 0;
+    var i;
+    for (i = 0; i < assets.length; i += 1) {
+      var asset = assets[i];
+      if (!asset || asset.type !== "PLAYER") continue;
+      if (asset.taxi) continue;
+      total += safeInt(asset.salary, 0);
+    }
+    return total;
+  }
+
+  function resolveTeamAvailableSalaryDollars(teamId) {
+    var team = getTeamById(teamId);
+    if (!team) return null;
+    if (team.available_salary_dollars != null) {
+      return safeInt(team.available_salary_dollars, 0);
+    }
+    var cap = safeInt(state.data && state.data.meta ? state.data.meta.salary_cap_dollars : 0, 0);
+    if (cap > 0) {
+      return cap - sumTeamCommittedSalary(teamId);
+    }
+    return null;
+  }
+
+  function buildSalaryReconciliation(leftTeam, rightTeam, leftTotals, rightTotals, leftTradeK, rightTradeK) {
+    var leftAvailableBefore = resolveTeamAvailableSalaryDollars(state.leftTeamId);
+    var rightAvailableBefore = resolveTeamAvailableSalaryDollars(state.rightTeamId);
+    var leftOutgoing = safeInt(leftTotals.selectedNonTaxiSalary, 0);
+    var rightOutgoing = safeInt(rightTotals.selectedNonTaxiSalary, 0);
+    var leftIncoming = rightOutgoing;
+    var rightIncoming = leftOutgoing;
+    var leftNetTradeK = leftTradeK - rightTradeK;
+    var rightNetTradeK = rightTradeK - leftTradeK;
+    var leftNetChange = leftOutgoing - leftIncoming - (leftNetTradeK * 1000);
+    var rightNetChange = rightOutgoing - rightIncoming - (rightNetTradeK * 1000);
+    var leftAvailableAfter = leftAvailableBefore == null ? null : leftAvailableBefore + leftNetChange;
+    var rightAvailableAfter = rightAvailableBefore == null ? null : rightAvailableBefore + rightNetChange;
+    var leftOverCap = leftAvailableAfter != null && leftAvailableAfter < 0 ? Math.abs(leftAvailableAfter) : 0;
+    var rightOverCap = rightAvailableAfter != null && rightAvailableAfter < 0 ? Math.abs(rightAvailableAfter) : 0;
+
+    return {
+      left: {
+        franchise_id: leftTeam ? leftTeam.franchise_id : "",
+        franchise_name: leftTeam ? leftTeam.franchise_name : "",
+        outgoing_dollars: leftOutgoing,
+        incoming_dollars: leftIncoming,
+        trade_salary_adjustment_k: leftTradeK,
+        trade_salary_adjustment_max_k: getTradeSalaryMaxK(state.leftTeamId),
+        net_trade_salary_k: leftNetTradeK,
+        net_cap_change_dollars: leftNetChange,
+        available_salary_before_dollars: leftAvailableBefore,
+        available_salary_after_dollars: leftAvailableAfter,
+        over_cap_dollars: leftOverCap
+      },
+      right: {
+        franchise_id: rightTeam ? rightTeam.franchise_id : "",
+        franchise_name: rightTeam ? rightTeam.franchise_name : "",
+        outgoing_dollars: rightOutgoing,
+        incoming_dollars: rightIncoming,
+        trade_salary_adjustment_k: rightTradeK,
+        trade_salary_adjustment_max_k: getTradeSalaryMaxK(state.rightTeamId),
+        net_trade_salary_k: rightNetTradeK,
+        net_cap_change_dollars: rightNetChange,
+        available_salary_before_dollars: rightAvailableBefore,
+        available_salary_after_dollars: rightAvailableAfter,
+        over_cap_dollars: rightOverCap
+      },
+      has_over_cap: leftOverCap > 0 || rightOverCap > 0
+    };
+  }
+
   function buildTradePayload() {
     var leftTeam = getTeamById(state.leftTeamId);
     var rightTeam = getTeamById(state.rightTeamId);
@@ -2313,6 +2374,14 @@
       }
     };
 
+    payload.salary_reconciliation = buildSalaryReconciliation(
+      leftTeam,
+      rightTeam,
+      leftTotals,
+      rightTotals,
+      leftTradeK,
+      rightTradeK
+    );
     payload.validation = buildValidationSummary(payload);
     return payload;
   }
@@ -2369,6 +2438,7 @@
   function buildValidationSummary(payload) {
     var issues = [];
     var teams = payload.teams || [];
+    var recon = payload.salary_reconciliation || {};
     if (teams.length === 2) {
       var leftId = safeStr(teams[0].franchise_id);
       var rightId = safeStr(teams[1].franchise_id);
@@ -2378,6 +2448,12 @@
       if (rightId && !(teams[1].selected_assets || []).length) issues.push("Trade partner side has no selected assets.");
       if (teams[0].traded_salary_adjustment_k > teams[0].traded_salary_adjustment_max_k) issues.push("Left traded salary exceeds max.");
       if (teams[1].traded_salary_adjustment_k > teams[1].traded_salary_adjustment_max_k) issues.push("Right traded salary exceeds max.");
+      if (safeInt((recon.left || {}).over_cap_dollars, 0) > 0) {
+        issues.push((safeStr((recon.left || {}).franchise_name) || "Your team") + " is over cap.");
+      }
+      if (safeInt((recon.right || {}).over_cap_dollars, 0) > 0) {
+        issues.push((safeStr((recon.right || {}).franchise_name) || "Partner team") + " is over cap.");
+      }
     }
     return {
       status: issues.length ? "draft" : "ready",
@@ -2397,6 +2473,144 @@
     el.textContent = text;
   }
 
+  function formatKLabel(k) {
+    return String(safeInt(k, 0)) + "K";
+  }
+
+  function formatDollarsAsKLabel(dollars) {
+    if (dollars == null) return "—";
+    return formatKLabel(Math.round(safeInt(dollars, 0) / 1000));
+  }
+
+  function getAssetExtensionOption(teamId, asset) {
+    if (!asset || asset.type !== "PLAYER") return null;
+    var extState = state.extensions[teamId] && state.extensions[teamId][asset.asset_id];
+    if (!extState || !extState.enabled) return null;
+    var options = Array.isArray(asset.extension_options) ? asset.extension_options : [];
+    if (!options.length) return null;
+    var optionKey = safeStr(extState.option_key);
+    var i;
+    for (i = 0; i < options.length; i += 1) {
+      if (safeStr(options[i].option_key) === optionKey) return options[i];
+    }
+    return options[0];
+  }
+
+  function extensionTypeLabel(termRaw) {
+    var term = safeStr(termRaw).toUpperCase();
+    var match = term.match(/(\d+)/);
+    var years = match ? safeInt(match[1], 0) : 0;
+    if (!years) return safeStr(termRaw) || "Extension";
+    return String(years) + "-Year Extension";
+  }
+
+  function renderOfferCartPlayerCard(teamId, asset) {
+    var item = document.createElement("article");
+    item.className = "twb-offer-cart-item twb-offer-cart-item-player";
+
+    var head = document.createElement("div");
+    head.className = "twb-offer-cart-item-head";
+
+    var copy = document.createElement("div");
+    copy.className = "twb-offer-cart-item-copy";
+
+    var name = document.createElement("div");
+    name.className = "twb-offer-cart-item-name";
+    name.textContent = safeStr(asset.player_name || "Player");
+    copy.appendChild(name);
+
+    var meta = document.createElement("div");
+    meta.className = "twb-offer-cart-item-meta";
+    meta.textContent = [safeStr(asset.nfl_team), safeStr(asset.position)].join(" ").trim() || "Player";
+    copy.appendChild(meta);
+    head.appendChild(copy);
+
+    var remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "twb-offer-cart-item-remove";
+    remove.setAttribute("data-action", "cart-remove-asset");
+    remove.setAttribute("data-team-id", teamId);
+    remove.setAttribute("data-asset-id", asset.asset_id);
+    remove.setAttribute("aria-label", "Remove " + safeStr(asset.player_name || "player"));
+    remove.textContent = "Remove";
+    head.appendChild(remove);
+    item.appendChild(head);
+
+    var contract = document.createElement("div");
+    contract.className = "twb-offer-player-grid";
+    contract.appendChild(offerPlayerMetric("Current Salary", formatDollarsAsKLabel(asset.salary)));
+    contract.appendChild(offerPlayerMetric("Years Remaining", asset.years == null ? "—" : String(asset.years)));
+    contract.appendChild(offerPlayerMetric("Contract Type", safeStr(asset.contract_type) || "—"));
+    contract.appendChild(offerPlayerMetric("Contract Info", safeStr(asset.contract_info) || "—"));
+    item.appendChild(contract);
+
+    if (asset.taxi) {
+      var taxi = document.createElement("div");
+      taxi.className = "twb-offer-player-note";
+      taxi.textContent = "Taxi";
+      item.appendChild(taxi);
+    }
+
+    var option = getAssetExtensionOption(teamId, asset);
+    if (option) {
+      var ext = document.createElement("div");
+      ext.className = "twb-offer-extension";
+      ext.appendChild(offerPlayerMetric("Extension Type", extensionTypeLabel(option.extension_term)));
+      if (option.new_aav_future != null) {
+        ext.appendChild(offerPlayerMetric("New AAV", formatDollarsAsKLabel(option.new_aav_future)));
+      }
+      if (option.new_TCV != null) {
+        ext.appendChild(offerPlayerMetric("New TCV", formatDollarsAsKLabel(option.new_TCV)));
+      }
+      item.appendChild(ext);
+    }
+
+    return item;
+  }
+
+  function offerPlayerMetric(label, value) {
+    var row = document.createElement("div");
+    row.className = "twb-offer-player-metric";
+    var l = document.createElement("span");
+    l.className = "twb-offer-player-metric-label";
+    l.textContent = label;
+    var v = document.createElement("span");
+    v.className = "twb-offer-player-metric-value";
+    v.textContent = value;
+    row.appendChild(l);
+    row.appendChild(v);
+    return row;
+  }
+
+  function renderOfferCartPickCard(teamId, asset) {
+    var item = document.createElement("article");
+    item.className = "twb-offer-cart-item twb-offer-cart-item-pick";
+
+    var head = document.createElement("div");
+    head.className = "twb-offer-cart-item-head";
+    var name = document.createElement("div");
+    name.className = "twb-offer-cart-item-name";
+    name.textContent = safeStr(asset.description || "Draft Pick");
+    head.appendChild(name);
+
+    var remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "twb-offer-cart-item-remove";
+    remove.setAttribute("data-action", "cart-remove-asset");
+    remove.setAttribute("data-team-id", teamId);
+    remove.setAttribute("data-asset-id", asset.asset_id);
+    remove.setAttribute("aria-label", "Remove draft pick");
+    remove.textContent = "Remove";
+    head.appendChild(remove);
+    item.appendChild(head);
+
+    var meta = document.createElement("div");
+    meta.className = "twb-offer-cart-item-meta";
+    meta.textContent = safeStr(asset.contract_info || "Pick");
+    item.appendChild(meta);
+    return item;
+  }
+
   function renderOfferCartSide(teamId, listEl) {
     if (!listEl) return;
     listEl.innerHTML = "";
@@ -2412,72 +2626,21 @@
     var i;
     for (i = 0; i < selected.length; i += 1) {
       var asset = selected[i];
-      var item = document.createElement("article");
-      item.className = "twb-offer-cart-item";
-
-      var head = document.createElement("div");
-      head.className = "twb-offer-cart-item-head";
-
-      var badge = document.createElement("span");
-      badge.className = "twb-pill " + (asset.type === "PICK" ? "twb-pill-pick" : "twb-pill-position");
-      badge.textContent = asset.type === "PICK" ? "PICK" : (safeStr(asset.position) || "PLAYER");
-      head.appendChild(badge);
-
-      var name = document.createElement("div");
-      name.className = "twb-offer-cart-item-name";
-      name.textContent = asset.type === "PICK" ? safeStr(asset.description || "Draft Pick") : buildPlayerLabel(asset);
-      head.appendChild(name);
-
-      var remove = document.createElement("button");
-      remove.type = "button";
-      remove.className = "twb-offer-cart-item-remove";
-      remove.setAttribute("data-action", "cart-remove-asset");
-      remove.setAttribute("data-team-id", teamId);
-      remove.setAttribute("data-asset-id", asset.asset_id);
-      remove.setAttribute("aria-label", "Remove " + (asset.type === "PICK" ? safeStr(asset.description || "draft pick") : safeStr(asset.player_name || "player")));
-      remove.textContent = "×";
-      head.appendChild(remove);
-
-      item.appendChild(head);
-
-      var meta = document.createElement("div");
-      meta.className = "twb-offer-cart-item-meta";
-      if (asset.type === "PICK") {
-        meta.textContent = safeStr(asset.contract_info || "Draft pick");
-      } else {
-        var years = asset.years == null ? "-" : String(asset.years);
-        meta.textContent = moneyFmt(asset.salary) + " · Years " + years + (asset.contract_type ? " · " + asset.contract_type : "");
-      }
-      item.appendChild(meta);
-
-      var tags = document.createElement("div");
-      tags.className = "twb-offer-cart-item-tags";
-      if (asset.taxi) {
-        var taxiTag = document.createElement("span");
-        taxiTag.className = "twb-pill twb-pill-taxi";
-        taxiTag.textContent = "Taxi Excluded";
-        tags.appendChild(taxiTag);
-      }
-      if (state.extensions[teamId] && state.extensions[teamId][asset.asset_id] && state.extensions[teamId][asset.asset_id].enabled) {
-        var extTag = document.createElement("span");
-        extTag.className = "twb-pill";
-        extTag.textContent = "Extension";
-        tags.appendChild(extTag);
-      }
-      if (tags.childNodes.length) item.appendChild(tags);
+      var item = asset.type === "PICK"
+        ? renderOfferCartPickCard(teamId, asset)
+        : renderOfferCartPlayerCard(teamId, asset);
       listEl.appendChild(item);
     }
   }
 
-  function cartStat(label, value, tone) {
+  function cartStat(icon, value) {
     var card = document.createElement("div");
     card.className = "twb-offer-cart-stat";
-    var l = document.createElement("div");
-    l.className = "twb-offer-cart-stat-label";
-    l.textContent = label;
+    var l = document.createElement("span");
+    l.className = "twb-offer-cart-stat-icon";
+    l.textContent = icon;
     var v = document.createElement("div");
     v.className = "twb-offer-cart-stat-value";
-    if (tone) v.className += " " + tone;
     v.textContent = value;
     card.appendChild(l);
     card.appendChild(v);
@@ -2503,19 +2666,15 @@
       var leftEnteredK = safeInt(state.tradeSalaryK[state.leftTeamId], 0);
       var rightEnteredK = safeInt(state.tradeSalaryK[state.rightTeamId], 0);
       var extCount = safeInt((payload && payload.extension_requests ? payload.extension_requests.length : 0), 0);
-      els.offerCartStats.appendChild(cartStat("Players", String(leftTotals.selectedPlayers + rightTotals.selectedPlayers)));
-      els.offerCartStats.appendChild(cartStat("Picks", String(leftTotals.selectedPicks + rightTotals.selectedPicks)));
-      els.offerCartStats.appendChild(cartStat("Salary Entered", leftEnteredK + "K / " + rightEnteredK + "K"));
-      els.offerCartStats.appendChild(cartStat("Salary Max", leftMaxK + "K / " + rightMaxK + "K"));
-      els.offerCartStats.appendChild(cartStat("Extension Flags", String(extCount)));
+      els.offerCartStats.appendChild(cartStat("◦", String(leftTotals.selectedPlayers + rightTotals.selectedPlayers)));
+      els.offerCartStats.appendChild(cartStat("◆", String(leftTotals.selectedPicks + rightTotals.selectedPicks)));
+      els.offerCartStats.appendChild(cartStat("↔", leftEnteredK + "K / " + rightEnteredK + "K"));
+      els.offerCartStats.appendChild(cartStat("⌂", leftMaxK + "K / " + rightMaxK + "K"));
+      els.offerCartStats.appendChild(cartStat("✦", String(extCount)));
     }
 
     if (els.offerCartStatus) {
-      if (!isDirectMflMode() && hasActiveCounterDraft()) {
-        els.offerCartStatus.textContent = "Counter Mode";
-      } else {
-        els.offerCartStatus.textContent = payload.validation.status === "ready" ? "Ready" : "Draft";
-      }
+      els.offerCartStatus.textContent = payload.validation.status === "ready" ? "Ready" : "Draft";
     }
   }
 
@@ -2528,6 +2687,8 @@
       return;
     }
     var tab = safeStr(state.mobileTab) || "your";
+    if (tab !== "your" && tab !== "partner" && tab !== "review") tab = "your";
+    state.mobileTab = tab;
     els.app.setAttribute("data-mobile-tab", tab);
     if (els.mobileTabButtons && els.mobileTabButtons.length) {
       var i;
@@ -2552,9 +2713,9 @@
         els.offerCartMobileTray.textContent =
           "Review Offer · " +
           (leftTotals.selectedPlayers + rightTotals.selectedPlayers) +
-          "P / " +
+          " players / " +
           (leftTotals.selectedPicks + rightTotals.selectedPicks) +
-          "Pk · " +
+          " picks · " +
           leftEnteredK +
           "K/" +
           rightEnteredK +
@@ -2564,85 +2725,7 @@
     }
   }
 
-  function renderSummary() {
-    var summaryEl = els.summaryContent;
-    if (!summaryEl) return;
-    summaryEl.innerHTML = "";
-
-    var payload = buildTradePayload();
-    var statusPill = els.summaryStatus;
-    var ready = payload.validation.status === "ready";
-    var counterMode = !isDirectMflMode() && hasActiveCounterDraft();
-    statusPill.textContent = counterMode ? "Counter Mode" : (ready ? "Ready" : "Draft");
-    statusPill.style.background = ready ? "rgba(86, 215, 154, 0.14)" : "rgba(120, 176, 255, 0.12)";
-    statusPill.style.borderColor = ready ? "rgba(86, 215, 154, 0.24)" : "rgba(120, 176, 255, 0.22)";
-    statusPill.style.color = ready ? "#c9ffe5" : "#cae7ff";
-
-    var leftTotals = getTeamTotals(state.leftTeamId);
-    var rightTotals = getTeamTotals(state.rightTeamId);
-    var leftMaxK = getTradeSalaryMaxK(state.leftTeamId);
-    var rightMaxK = getTradeSalaryMaxK(state.rightTeamId);
-    var leftEnteredK = safeInt(state.tradeSalaryK[state.leftTeamId], 0);
-    var rightEnteredK = safeInt(state.tradeSalaryK[state.rightTeamId], 0);
-    var leftNetK = getNetTradeSalaryK(state.leftTeamId);
-    var rightNetK = getNetTradeSalaryK(state.rightTeamId);
-    var extCount = safeInt((payload.extension_requests || []).length, 0);
-    var selectedPlayers = leftTotals.selectedPlayers + rightTotals.selectedPlayers;
-    var selectedPicks = leftTotals.selectedPicks + rightTotals.selectedPicks;
-
-    var scoreSection = document.createElement("section");
-    scoreSection.className = "twb-summary-section";
-    var scoreTitle = document.createElement("h3");
-    scoreTitle.className = "twb-summary-section-title";
-    scoreTitle.textContent = "At a Glance";
-    scoreSection.appendChild(scoreTitle);
-
-    var scoreList = document.createElement("div");
-    scoreList.className = "twb-summary-list";
-    scoreList.appendChild(summaryRow("Traded Salary (You / Partner)", leftEnteredK + "K / " + rightEnteredK + "K", ready ? "good" : ""));
-    scoreList.appendChild(summaryRow("Max Allowed (You / Partner)", leftMaxK + "K / " + rightMaxK + "K"));
-    scoreList.appendChild(summaryRow("Net Salary (You / Partner)", formatSignedK(leftNetK) + " / " + formatSignedK(rightNetK)));
-    scoreList.appendChild(summaryRow("Selected Players", String(selectedPlayers)));
-    scoreList.appendChild(summaryRow("Selected Picks", String(selectedPicks)));
-    scoreList.appendChild(summaryRow("Extension Flags", String(extCount)));
-    scoreSection.appendChild(scoreList);
-    summaryEl.appendChild(scoreSection);
-
-    var validationSection = document.createElement("section");
-    validationSection.className = "twb-summary-section";
-    var validationTitle = document.createElement("h3");
-    validationTitle.className = "twb-summary-section-title";
-    validationTitle.textContent = "Validation";
-    validationSection.appendChild(validationTitle);
-
-    if (payload.validation.issues && payload.validation.issues.length) {
-      var ul = document.createElement("ul");
-      ul.className = "twb-ext-list";
-      var i;
-      for (i = 0; i < payload.validation.issues.length; i += 1) {
-        var li = document.createElement("li");
-        li.textContent = payload.validation.issues[i];
-        ul.appendChild(li);
-      }
-      validationSection.appendChild(ul);
-    } else {
-      var validationNote = document.createElement("div");
-      validationNote.className = "twb-summary-note";
-      validationNote.textContent = counterMode
-        ? "Counter package is ready to submit."
-        : (isDirectMflMode() ? "Trade is ready for direct MFL submission." : "Trade is ready for queue submission.");
-      validationSection.appendChild(validationNote);
-    }
-
-    summaryEl.appendChild(validationSection);
-
-    renderOfferCart(payload);
-    updateMobileTabVisibility(payload);
-    if (els.payloadPreview) els.payloadPreview.textContent = JSON.stringify(payload, null, 2);
-    renderOffersSections(payload);
-  }
-
-  function summaryRow(label, value, tone) {
+  function renderSalaryLine(label, value, tone) {
     var row = document.createElement("div");
     row.className = "twb-summary-row";
     var l = document.createElement("div");
@@ -2654,6 +2737,121 @@
     row.appendChild(l);
     row.appendChild(v);
     return row;
+  }
+
+  function renderSalaryTeamBlock(title, sideData) {
+    var block = document.createElement("section");
+    block.className = "twb-salary-side";
+
+    var h = document.createElement("h4");
+    h.className = "twb-salary-side-title";
+    h.textContent = title;
+    block.appendChild(h);
+
+    block.appendChild(renderSalaryLine("Going Out", formatDollarsAsKLabel(sideData.outgoing_dollars)));
+    block.appendChild(renderSalaryLine("Coming In", formatDollarsAsKLabel(sideData.incoming_dollars)));
+    block.appendChild(
+      renderSalaryLine(
+        "Trade Salary",
+        formatKLabel(sideData.trade_salary_adjustment_k) + " / " + formatKLabel(sideData.trade_salary_adjustment_max_k)
+      )
+    );
+    block.appendChild(renderSalaryLine("Net Change", formatSignedK(Math.round(safeInt(sideData.net_cap_change_dollars, 0) / 1000))));
+    block.appendChild(
+      renderSalaryLine(
+        "Available",
+        sideData.available_salary_before_dollars == null ? "—" : formatDollarsAsKLabel(sideData.available_salary_before_dollars)
+      )
+    );
+    block.appendChild(
+      renderSalaryLine(
+        "Post-Trade",
+        sideData.available_salary_after_dollars == null ? "—" : formatDollarsAsKLabel(sideData.available_salary_after_dollars),
+        safeInt(sideData.over_cap_dollars, 0) > 0 ? "bad" : "good"
+      )
+    );
+    return block;
+  }
+
+  function renderOfferAlerts(payload) {
+    if (!els.offerAlerts) return;
+    els.offerAlerts.innerHTML = "";
+    var recon = payload.salary_reconciliation || {};
+    var left = recon.left || {};
+    var right = recon.right || {};
+    var alerts = [];
+    if (safeInt(left.over_cap_dollars, 0) > 0) {
+      alerts.push((safeStr(left.franchise_name) || "Your team") + " Over Cap by " + formatDollarsAsKLabel(left.over_cap_dollars));
+    }
+    if (safeInt(right.over_cap_dollars, 0) > 0) {
+      alerts.push((safeStr(right.franchise_name) || "Partner team") + " Over Cap by " + formatDollarsAsKLabel(right.over_cap_dollars));
+    }
+
+    var i;
+    for (i = 0; i < alerts.length; i += 1) {
+      var alert = document.createElement("div");
+      alert.className = "twb-offer-alert twb-offer-alert-bad";
+      alert.textContent = alerts[i];
+      els.offerAlerts.appendChild(alert);
+    }
+
+    if (!alerts.length && payload.validation && Array.isArray(payload.validation.issues) && payload.validation.issues.length) {
+      for (i = 0; i < payload.validation.issues.length && i < 2; i += 1) {
+        var note = document.createElement("div");
+        note.className = "twb-offer-alert";
+        note.textContent = payload.validation.issues[i];
+        els.offerAlerts.appendChild(note);
+      }
+    }
+  }
+
+  function renderSubmitArea(payload) {
+    if (!els.submitOfferBtn || !els.submitOfferStatus) return;
+    var ready = payload.validation.status === "ready";
+    els.submitOfferBtn.disabled = !!state.submit.busy || !ready;
+    els.submitOfferBtn.textContent = state.submit.busy ? "Submitting…" : "Submit Offer";
+    els.submitOfferStatus.textContent = state.submit.message || "No offer submitted yet.";
+    els.submitOfferStatus.className = "twb-summary-note";
+    if (state.submit.tone) {
+      els.submitOfferStatus.className += " twb-submit-status-" + state.submit.tone;
+    }
+  }
+
+  function renderSummary() {
+    var summaryEl = els.summaryContent;
+    if (!summaryEl) return;
+    summaryEl.innerHTML = "";
+
+    var payload = buildTradePayload();
+    var statusPill = els.summaryStatus;
+    var ready = payload.validation.status === "ready";
+    statusPill.textContent = ready ? "Ready" : "Draft";
+    statusPill.style.background = ready ? "rgba(86, 215, 154, 0.14)" : "rgba(120, 176, 255, 0.12)";
+    statusPill.style.borderColor = ready ? "rgba(86, 215, 154, 0.24)" : "rgba(120, 176, 255, 0.22)";
+    statusPill.style.color = ready ? "#c9ffe5" : "#cae7ff";
+
+    var recon = payload.salary_reconciliation || {};
+    var salaryGrid = document.createElement("div");
+    salaryGrid.className = "twb-salary-grid";
+    salaryGrid.appendChild(
+      renderSalaryTeamBlock(
+        safeStr((recon.left || {}).franchise_name) || "Your Team",
+        recon.left || {}
+      )
+    );
+    salaryGrid.appendChild(
+      renderSalaryTeamBlock(
+        safeStr((recon.right || {}).franchise_name) || "Trade Partner",
+        recon.right || {}
+      )
+    );
+    summaryEl.appendChild(salaryGrid);
+
+    renderOfferCart(payload);
+    renderOfferAlerts(payload);
+    renderSubmitArea(payload);
+    updateMobileTabVisibility(payload);
+    if (els.payloadPreview) els.payloadPreview.textContent = JSON.stringify(payload, null, 2);
   }
 
   function rerender() {
@@ -2733,36 +2931,6 @@
     clampTradeSalaryForTeam(teamId);
   }
 
-  function teamSelectVisible(teamId, shouldSelect) {
-    ensureSelectionMaps(teamId);
-    var panel = null;
-    var panels = getRenderedTeamPanels();
-    var p;
-    for (p = 0; p < panels.length; p += 1) {
-      if (safeStr(panels[p].getAttribute("data-team-id")) === teamId) {
-        panel = panels[p];
-        break;
-      }
-    }
-    if (!panel) return;
-    var checkboxes = panel.querySelectorAll('input[data-action="toggle-asset"]');
-    var i;
-    for (i = 0; i < checkboxes.length; i += 1) {
-      var cb = checkboxes[i];
-      var aid = cb.getAttribute("data-asset-id");
-      if (!aid) continue;
-      if (shouldSelect) {
-        if (cb.disabled) continue;
-        state.selections[teamId][aid] = true;
-      }
-      else {
-        delete state.selections[teamId][aid];
-        if (state.extensions[teamId]) delete state.extensions[teamId][aid];
-      }
-    }
-    clampTradeSalaryForTeam(teamId);
-  }
-
   function teamSetAllGroups(teamId, openValue) {
     ensureSelectionMaps(teamId);
     var panel = null;
@@ -2798,7 +2966,6 @@
   function clearFilters() {
     resetFilterState();
     state.rightTeamId = "";
-    cancelCounterDraft("Counter draft cleared.");
   }
 
   function resetTrade() {
@@ -2850,19 +3017,15 @@
     els.leftTeamSelect.addEventListener("change", function () {
       state.leftTeamId = safeStr(this.value);
       if (state.leftTeamId === state.rightTeamId) state.rightTeamId = "";
-      if (hasActiveCounterDraft()) cancelCounterDraft("Counter draft cleared because teams changed.");
       initTeamSelectors();
       rerender();
-      refreshOfferInbox();
     });
 
     els.rightTeamSelect.addEventListener("change", function () {
       state.rightTeamId = safeStr(this.value);
       if (state.rightTeamId === state.leftTeamId) state.rightTeamId = "";
-      if (hasActiveCounterDraft()) cancelCounterDraft("Counter draft cleared because teams changed.");
       initTeamSelectors();
       rerender();
-      refreshOfferInbox();
     });
 
     els.searchInput.addEventListener("input", function () {
@@ -2893,22 +3056,6 @@
       rerender();
     });
 
-    if (els.refreshOffersBtn) {
-      els.refreshOffersBtn.addEventListener("click", function () {
-        refreshOfferInbox();
-      });
-    }
-    if (els.counterModeBanner) {
-      els.counterModeBanner.addEventListener("click", function (evt) {
-        var target = evt.target;
-        if (!target) return;
-        var action = safeStr(target.getAttribute("data-action"));
-        if (action === "cancel-counter-mode") {
-          cancelCounterDraft("Counter draft cleared.");
-          rerender();
-        }
-      });
-    }
     if (els.submitOfferBtn) {
       els.submitOfferBtn.addEventListener("click", function () {
         submitOfferToQueue();
@@ -2931,27 +3078,6 @@
         rerender();
       }
     });
-
-    if (els.offersList) {
-      els.offersList.addEventListener("click", function (evt) {
-        var node = evt.target;
-        while (node && node !== els.offersList) {
-          var action = node.getAttribute && node.getAttribute("data-action");
-          if (action === "offer-action") {
-            evt.preventDefault();
-            performOfferAction(safeStr(node.getAttribute("data-offer-action")), {
-              offerId: safeStr(node.getAttribute("data-offer-id")),
-              offerFromId: safeStr(node.getAttribute("data-offer-from-id")),
-              offerToId: safeStr(node.getAttribute("data-offer-to-id")),
-              offerFromName: safeStr(node.getAttribute("data-offer-from-name")),
-              offerToName: safeStr(node.getAttribute("data-offer-to-name"))
-            });
-            return;
-          }
-          node = node.parentNode;
-        }
-      });
-    }
 
     function handleBoardChange(target) {
       if (!target) return;
@@ -3007,13 +3133,7 @@
       }
       if (!action) return;
       var teamId = safeStr(target.getAttribute("data-team-id"));
-      if (action === "team-select-visible") {
-        teamSelectVisible(teamId, true);
-        rerender();
-      } else if (action === "team-clear-visible") {
-        teamSelectVisible(teamId, false);
-        rerender();
-      } else if (action === "team-expand-all") {
+      if (action === "team-expand-all") {
         teamSetAllGroups(teamId, true);
         rerender();
       } else if (action === "team-collapse-all") {
@@ -3023,7 +3143,6 @@
         var pickedTeamId = safeStr(target.getAttribute("data-team-id"));
         var pickedAssetId = safeStr(target.getAttribute("data-asset-id"));
         if (!pickedTeamId || pickedTeamId === state.leftTeamId) return;
-        if (hasActiveCounterDraft()) cancelCounterDraft("Counter draft cleared because trade partner changed.");
         resetFilterState();
         state.rightTeamId = pickedTeamId;
         ensureSelectionMaps(pickedTeamId);
@@ -3036,7 +3155,6 @@
         clampTradeSalaryForTeam(pickedTeamId);
         initTeamSelectors();
         rerender();
-        refreshOfferInbox();
       }
     }
 
@@ -3133,6 +3251,8 @@
     els.offerCartRightTitle = q("twbOfferCartRightTitle");
     els.offerCartStats = q("twbOfferCartStats");
     els.offerCartStatus = q("twbOfferCartStatus");
+    els.offerAlerts = q("twbOfferAlerts");
+    els.offerSalaryPanel = q("twbOfferSalaryPanel");
     els.offerCartMobileTray = q("twbOfferCartMobileTray");
     els.mobileTabs = q("twbMobileTabs");
     els.mobileTabButtons = els.mobileTabs ? els.mobileTabs.querySelectorAll('[data-action="mobile-tab"]') : [];
@@ -3143,10 +3263,6 @@
     els.offerMessageInput = q("twbOfferMessageInput");
     els.submitOfferBtn = q("twbSubmitOfferBtn");
     els.submitOfferStatus = q("twbSubmitOfferStatus");
-    els.offersCounts = q("twbOffersCounts");
-    els.offersList = q("twbOffersList");
-    els.refreshOffersBtn = q("twbRefreshOffersBtn");
-    els.counterModeBanner = q("twbCounterModeBanner");
   }
 
   function seedInitialTeams() {
@@ -3173,9 +3289,6 @@
     if (els.payloadPreview) {
       els.payloadPreview.textContent = "{}";
     }
-    if (els.offersList) {
-      els.offersList.innerHTML = "";
-    }
     scheduleParentHeightPost();
   }
 
@@ -3198,17 +3311,13 @@
       bindEvents();
       state.uiReady = true;
       rerender();
-      refreshOfferInbox();
 
       window.upsTradeWorkbench = {
         state: state,
         normalizeData: normalizeData,
         buildTradePayload: buildTradePayload,
         rerender: rerender,
-        refreshOfferInbox: refreshOfferInbox,
-        submitOfferToQueue: submitOfferToQueue,
-        loadCounterDraftFromOffer: loadCounterDraftFromOffer,
-        clearCounterDraft: clearCounterDraft
+        submitOfferToQueue: submitOfferToQueue
       };
       postParentHeight(true);
     } catch (err) {

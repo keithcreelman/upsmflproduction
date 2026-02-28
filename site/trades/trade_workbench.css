@@ -411,7 +411,7 @@ summary:focus-visible {
 }
 
 .twb-offer-cart-card {
-  padding: 1rem;
+  padding: 1.1rem;
   border-color: rgba(244, 195, 105, 0.34);
   background:
     linear-gradient(170deg, rgba(24, 27, 44, 0.96), rgba(12, 16, 30, 0.96)),
@@ -422,21 +422,23 @@ summary:focus-visible {
 }
 
 .twb-offer-cart-card h2 {
-  font-size: 1.06rem;
+  font-size: 1.2rem;
   color: #ffe2a8;
+  text-transform: none;
+  letter-spacing: 0.01em;
 }
 
 .twb-offer-cart-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.62rem;
+  gap: 0.72rem;
 }
 
 .twb-offer-cart-side {
   border: 1px solid rgba(127, 163, 209, 0.26);
-  border-radius: 12px;
+  border-radius: 14px;
   background: rgba(8, 14, 27, 0.72);
-  padding: 0.5rem;
+  padding: 0.65rem;
 }
 
 .twb-offer-cart-side-head {
@@ -449,36 +451,40 @@ summary:focus-visible {
 
 .twb-offer-cart-side-head h3 {
   margin: 0;
-  font-size: 0.9rem;
+  font-size: 1rem;
   color: #dcecff;
 }
 
 .twb-offer-cart-list {
   display: grid;
-  gap: 0.36rem;
-  max-height: 390px;
+  gap: 0.5rem;
+  max-height: 460px;
   overflow: auto;
-  padding-right: 0.08rem;
+  padding-right: 0.12rem;
 }
 
 .twb-offer-cart-item {
   border: 1px solid rgba(118, 153, 199, 0.2);
-  border-radius: 10px;
+  border-radius: 12px;
   background: rgba(9, 16, 31, 0.8);
-  padding: 0.42rem 0.46rem;
+  padding: 0.62rem 0.66rem;
   display: grid;
-  gap: 0.22rem;
+  gap: 0.45rem;
 }
 
 .twb-offer-cart-item-head {
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: 1fr auto;
   align-items: center;
-  gap: 0.36rem;
+  gap: 0.5rem;
+}
+
+.twb-offer-cart-item-copy {
+  min-width: 0;
 }
 
 .twb-offer-cart-item-name {
-  font-size: 0.84rem;
+  font-size: 1.02rem;
   font-weight: 800;
   color: var(--twb-text);
   min-width: 0;
@@ -487,19 +493,19 @@ summary:focus-visible {
 
 .twb-offer-cart-item-meta {
   color: var(--twb-text-soft);
-  font-size: 0.76rem;
+  font-size: 0.86rem;
   line-height: 1.25;
 }
 
 .twb-offer-cart-item-remove {
-  border: 1px solid rgba(255, 141, 141, 0.34);
-  background: rgba(255, 141, 141, 0.12);
-  color: #ffd2d2;
-  border-radius: 999px;
-  width: 1.5rem;
-  height: 1.5rem;
-  font-weight: 900;
-  line-height: 1;
+  border: 1px solid rgba(255, 141, 141, 0.42);
+  background: rgba(255, 141, 141, 0.15);
+  color: #ffe2e2;
+  border-radius: 10px;
+  min-height: 2rem;
+  padding: 0.28rem 0.6rem;
+  font-weight: 800;
+  font-size: 0.78rem;
   cursor: pointer;
 }
 
@@ -507,49 +513,165 @@ summary:focus-visible {
   background: rgba(255, 141, 141, 0.2);
 }
 
-.twb-offer-cart-item-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.26rem;
+.twb-offer-player-grid {
+  display: grid;
+  gap: 0.38rem;
+}
+
+.twb-offer-player-metric {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.6rem;
+  border-bottom: 1px solid rgba(121, 153, 195, 0.14);
+  padding-bottom: 0.26rem;
+}
+
+.twb-offer-player-metric:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.twb-offer-player-metric-label {
+  color: var(--twb-text-soft);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.twb-offer-player-metric-value {
+  color: #f0f6ff;
+  font-size: 0.86rem;
+  font-weight: 800;
+  text-align: right;
+}
+
+.twb-offer-player-note {
+  color: #ffd98d;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.twb-offer-extension {
+  border: 1px solid rgba(244, 195, 105, 0.34);
+  border-radius: 10px;
+  background: rgba(50, 38, 15, 0.48);
+  padding: 0.48rem 0.52rem;
+  display: grid;
+  gap: 0.34rem;
+}
+
+.twb-offer-cart-item-pick {
+  background: rgba(15, 28, 50, 0.74);
+  border-color: rgba(120, 176, 255, 0.3);
 }
 
 .twb-offer-cart-empty {
   border: 1px dashed rgba(127, 163, 209, 0.26);
   border-radius: 10px;
-  padding: 0.75rem 0.7rem;
+  padding: 1rem 0.9rem;
   color: var(--twb-text-soft);
-  font-size: 0.76rem;
+  font-size: 0.84rem;
   background: rgba(8, 14, 27, 0.5);
 }
 
 .twb-offer-cart-stats {
-  margin-top: 0.62rem;
+  margin-top: 0.72rem;
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 0.46rem;
+  gap: 0.5rem;
 }
 
 .twb-offer-cart-stat {
   border: 1px solid rgba(127, 163, 209, 0.24);
-  border-radius: 10px;
+  border-radius: 12px;
   background: rgba(7, 13, 26, 0.68);
-  padding: 0.46rem 0.5rem;
+  padding: 0.5rem 0.55rem;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 0.5rem;
 }
 
-.twb-offer-cart-stat-label {
-  color: var(--twb-text-soft);
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-weight: 800;
+.twb-offer-cart-stat-icon {
+  color: #ffe4af;
+  font-size: 0.86rem;
+  font-weight: 900;
 }
 
 .twb-offer-cart-stat-value {
-  margin-top: 0.16rem;
   color: #edf5ff;
-  font-size: 0.98rem;
+  font-size: 0.92rem;
   font-weight: 900;
   letter-spacing: 0.01em;
+}
+
+.twb-offer-alerts {
+  margin-top: 0.72rem;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.twb-offer-alert {
+  border-radius: 12px;
+  border: 1px solid rgba(244, 195, 105, 0.28);
+  background: rgba(244, 195, 105, 0.13);
+  color: #ffe6b6;
+  padding: 0.72rem 0.86rem;
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
+.twb-offer-alert-bad {
+  border-color: rgba(255, 99, 99, 0.62);
+  background: rgba(150, 24, 24, 0.54);
+  color: #ffe2e2;
+  font-size: 1.03rem;
+  letter-spacing: 0.02em;
+}
+
+.twb-offer-salary-panel {
+  margin-top: 0.72rem;
+  border-color: rgba(120, 176, 255, 0.28);
+}
+
+.twb-offer-salary-panel h3 {
+  margin: 0;
+  color: #dcecff;
+  text-transform: uppercase;
+  font-size: 0.88rem;
+  letter-spacing: 0.03em;
+}
+
+.twb-salary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.twb-salary-side {
+  border: 1px solid rgba(121, 153, 195, 0.2);
+  border-radius: 12px;
+  background: rgba(7, 13, 26, 0.65);
+  padding: 0.58rem 0.62rem;
+  display: grid;
+  gap: 0.42rem;
+}
+
+.twb-salary-side-title {
+  margin: 0;
+  font-size: 0.88rem;
+  color: #e7f2ff;
+}
+
+.twb-offer-submit-card {
+  margin-top: 0.72rem;
+  border-color: rgba(244, 195, 105, 0.32);
+  background: linear-gradient(180deg, rgba(24, 21, 12, 0.86), rgba(8, 12, 20, 0.9));
+}
+
+.twb-offer-submit-card textarea {
+  resize: vertical;
+  min-height: 84px;
 }
 
 .twb-offer-cart-mobile-tray {
@@ -728,25 +850,20 @@ summary:focus-visible {
 
 .twb-trade-salary-box {
   border: 1px solid rgba(99, 132, 179, 0.2);
-  border-radius: 12px;
-  padding: 0.65rem;
+  border-radius: 14px;
+  padding: 0.8rem;
   background: rgba(6, 12, 24, 0.66);
   display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 0.6rem;
-  align-items: center;
+  grid-template-columns: auto 1fr;
+  gap: 0.7rem;
+  align-items: end;
 }
 
 .twb-trade-salary-title {
   font-weight: 900;
   letter-spacing: 0.02em;
-}
-
-.twb-trade-salary-help {
-  font-size: 0.72rem;
-  color: var(--twb-text-soft);
-  margin-top: 0.12rem;
-  line-height: 1.25;
+  color: #e7f2ff;
+  font-size: 1rem;
 }
 
 .twb-trade-salary-input-wrap {
@@ -759,15 +876,17 @@ summary:focus-visible {
   border-radius: 10px;
   border: 1px solid rgba(127, 163, 209, 0.22);
   background: rgba(13, 24, 44, 0.9);
+  justify-self: end;
 }
 
 .twb-trade-salary-input {
-  width: 6.2rem;
-  padding: 0.45rem 0.35rem;
+  width: 6.8rem;
+  padding: 0.56rem 0.35rem;
   border: 0;
   background: transparent;
   text-align: center;
   font-weight: 900;
+  font-size: 1.28rem;
   appearance: textfield;
   -moz-appearance: textfield;
 }
@@ -782,17 +901,49 @@ summary:focus-visible {
   margin: 0;
 }
 
+.twb-trade-salary-unit {
+  color: #ffe4ac;
+  font-size: 1.08rem;
+  font-weight: 900;
+  padding-right: 0.34rem;
+}
+
 .twb-trade-salary-max {
   grid-column: 1 / -1;
-  color: var(--twb-text-dim);
-  font-size: 0.74rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.45rem;
+  border-top: 1px solid rgba(121, 153, 195, 0.16);
+  padding-top: 0.48rem;
+}
+
+.twb-trade-salary-max-label {
+  color: var(--twb-text-soft);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.twb-trade-salary-max-value {
+  color: #ffe4af;
+  font-size: 1.06rem;
+  font-weight: 900;
 }
 
 .twb-team-toolbar {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem 0.7rem;
+  gap: 0.5rem;
   margin: 0.7rem 0 0.45rem;
+}
+
+.twb-team-toolbar .twb-link-btn {
+  border: 1px solid rgba(127, 163, 209, 0.22);
+  border-radius: 999px;
+  background: rgba(9, 17, 31, 0.72);
+  color: #cfe7ff;
+  padding: 0.32rem 0.72rem;
+  font-size: 0.76rem;
 }
 
 .twb-team-groups {
@@ -1081,7 +1232,7 @@ summary:focus-visible {
 .twb-offers-submit-row {
   margin-top: 0.6rem;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.5rem;
   align-items: center;
 }
@@ -1622,6 +1773,10 @@ summary:focus-visible {
   .twb-offer-cart-stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .twb-salary-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 760px) {
@@ -1636,7 +1791,7 @@ summary:focus-visible {
 
   .twb-mobile-tabs {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 0.34rem;
     margin-top: 0.55rem;
   }
@@ -1675,13 +1830,7 @@ summary:focus-visible {
   #twbApp[data-mobile-tab="partner"] #twbOfferCart,
   #twbApp[data-mobile-tab="partner"] #twbYourAssetsPanel,
   #twbApp[data-mobile-tab="review"] #twbYourAssetsPanel,
-  #twbApp[data-mobile-tab="review"] #twbPartnerAssetsPanel .twb-roster-shell,
-  #twbApp[data-mobile-tab="inbox"] #twbYourAssetsPanel,
-  #twbApp[data-mobile-tab="inbox"] #twbOfferCart,
-  #twbApp[data-mobile-tab="inbox"] #twbPartnerAssetsPanel .twb-roster-shell,
-  #twbApp[data-mobile-tab="inbox"] #twbPartnerAssetsPanel .twb-summary-card,
-  #twbApp[data-mobile-tab="inbox"] #twbPartnerAssetsPanel .twb-payload-card,
-  #twbApp[data-mobile-tab="inbox"] #twbPartnerAssetsPanel .twb-section-head {
+  #twbApp[data-mobile-tab="review"] #twbPartnerAssetsPanel {
     display: none;
   }
 

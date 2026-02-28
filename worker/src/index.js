@@ -771,6 +771,15 @@ export default {
         const n = Number.parseInt(String(v == null ? "" : v), 10);
         return Number.isFinite(n) ? n : fallback;
       };
+      const safeMoneyInt = (v, fallback = null) => {
+        if (typeof v === "number" && Number.isFinite(v)) return Math.round(v);
+        const s = String(v == null ? "" : v).trim();
+        if (!s) return fallback;
+        const cleaned = s.replace(/[^0-9.-]/g, "");
+        if (!cleaned || cleaned === "-" || cleaned === ".") return fallback;
+        const n = Number.parseFloat(cleaned);
+        return Number.isFinite(n) ? Math.round(n) : fallback;
+      };
       const padFranchiseId = (v) =>
       {
         const digits = String(v == null ? "" : v).replace(/\D/g, "");
@@ -882,6 +891,15 @@ export default {
               fr?.logo,
               fr?.logoURL,
               fr?.logoUrl
+            ),
+            available_salary_dollars: safeMoneyInt(
+              firstTruthy(
+                fr?.salaryCapAmount,
+                fr?.salary_cap_amount,
+                fr?.salaryCapAvailable,
+                fr?.salaryCapRoom
+              ),
+              null
             ),
           });
         }
@@ -2839,6 +2857,15 @@ export default {
         }
 
         const leagueFranchises = parseLeagueFranchises(leagueRes.data);
+        const leagueRoot = leagueRes.data?.league || leagueRes.data || {};
+        const leagueSalaryCapDollars = safeMoneyInt(
+          firstTruthy(
+            leagueRoot?.auctionStartAmount,
+            leagueRoot?.salaryCapAmount,
+            leagueRoot?.salary_cap_amount
+          ),
+          0
+        );
         const { rosterAssetsByFranchise, allPlayerIds } = parseRostersExport(rostersRes.data);
         const playersById = await fetchPlayersByIdsChunked(season, leagueId, allPlayerIds);
         const pickAssetsByFranchise = assetsRes.ok ? parseAssetsExportPicks(assetsRes.data) : {};
@@ -2882,6 +2909,7 @@ export default {
             franchise_name: meta.franchise_name,
             franchise_abbrev: meta.franchise_abbrev,
             icon_url: meta.icon_url,
+            available_salary_dollars: meta.available_salary_dollars,
             is_default: !!myFranchiseId && franchiseId === myFranchiseId,
             assets: [...playerAssets, ...pickAssets],
           };
@@ -2923,10 +2951,12 @@ export default {
           season: safeInt(season, Number(season) || 0),
           generated_at: new Date().toISOString(),
           source: "worker:/trade-workbench",
+          salary_cap_dollars: leagueSalaryCapDollars,
           teams,
           extension_previews: extRes.rows || [],
           meta: {
             default_franchise_id: myFranchiseId || "",
+            salary_cap_dollars: leagueSalaryCapDollars,
             counts: {
               teams: teams.length,
               roster_players: allPlayerIds.length,

@@ -14,7 +14,7 @@
         <p class="twb-kicker">UPS Custom Trade Workflow</p>
         <h1>Trade Workbench</h1>
         <p class="twb-subtitle">
-          Build trades with players and picks, calculate traded salary (half of outgoing non-Taxi salary), and mark extension options for the acquiring team.
+          Build and submit trade offers with players, picks, traded salary, and extension options.
         </p>
       </div>
       <div class="twb-hero-actions">
@@ -73,7 +73,6 @@
       <button type="button" class="twb-mobile-tab-btn is-active" data-action="mobile-tab" data-mobile-tab="your">Your Assets</button>
       <button type="button" class="twb-mobile-tab-btn" data-action="mobile-tab" data-mobile-tab="partner">Partner Assets</button>
       <button type="button" class="twb-mobile-tab-btn" data-action="mobile-tab" data-mobile-tab="review">Review Offer</button>
-      <button type="button" class="twb-mobile-tab-btn" data-action="mobile-tab" data-mobile-tab="inbox">Inbox</button>
     </nav>
 
     <main class="twb-main" aria-label="Trade builder">
@@ -92,7 +91,6 @@
           <h2>Offer Cart</h2>
           <div class="twb-status-pill twb-status-pill-muted" id="twbOfferCartStatus">Draft</div>
         </div>
-        <p class="twb-card-caption">Live view of the exact trade package. Remove any item here to deselect it from the roster tables.</p>
         <div class="twb-offer-cart-grid">
           <section class="twb-offer-cart-side">
             <header class="twb-offer-cart-side-head">
@@ -110,6 +108,28 @@
           </section>
         </div>
         <div id="twbOfferCartStats" class="twb-offer-cart-stats"></div>
+        <div id="twbOfferAlerts" class="twb-offer-alerts" aria-live="polite"></div>
+
+        <section id="twbOfferSalaryPanel" class="twb-offer-salary-panel twb-card twb-card-tight" aria-label="Salary reconciliation">
+          <div id="twbSummary" class="twb-offer-salary-summary">
+            <div class="twb-card-head-inline">
+              <h3>Salary Reconciliation</h3>
+              <div id="twbSummaryStatus" class="twb-status-pill">Draft</div>
+            </div>
+            <div id="twbSummaryContent"></div>
+          </div>
+        </section>
+
+        <section class="twb-offer-submit-card twb-card twb-card-tight" aria-label="Submit trade offer">
+          <label class="twb-field">
+            <span>Message (Optional)</span>
+            <textarea id="twbOfferMessageInput" rows="3" placeholder="Add context or conditions to this trade offer"></textarea>
+          </label>
+          <div class="twb-offers-submit-row">
+            <button type="button" id="twbSubmitOfferBtn" class="twb-btn twb-btn-primary">Submit Offer</button>
+          </div>
+          <div id="twbSubmitOfferStatus" class="twb-summary-note">No offer submitted yet.</div>
+        </section>
       </section>
 
       <section id="twbPartnerAssetsPanel" class="twb-assets-column twb-assets-column-right" aria-label="Partner assets and actions">
@@ -120,35 +140,6 @@
         <section class="twb-roster-shell">
           <section class="twb-board" id="twbPartnerBoard"></section>
         </section>
-
-        <aside class="twb-summary" id="twbSummary" aria-label="Trade summary">
-        <div class="twb-card twb-summary-card">
-          <div class="twb-card-head-inline">
-            <h2>Trade Summary</h2>
-            <div id="twbSummaryStatus" class="twb-status-pill">Draft</div>
-          </div>
-          <div id="twbSummaryContent"></div>
-        </div>
-
-        <div class="twb-card twb-offers-card">
-          <div class="twb-card-head-inline">
-            <h2>Trade Proposals</h2>
-            <button type="button" id="twbRefreshOffersBtn" class="twb-link-btn">Refresh</button>
-          </div>
-          <p class="twb-card-caption">Incoming proposals are shown with full trade details. Use Build Counter to load an offer back into the workbench.</p>
-          <div id="twbCounterModeBanner" class="twb-counter-mode" hidden></div>
-          <label class="twb-field">
-            <span>Message to Other Owner (Optional)</span>
-            <textarea id="twbOfferMessageInput" rows="3" placeholder="Add context or conditions to this trade offer"></textarea>
-          </label>
-          <div class="twb-offers-submit-row">
-            <button type="button" id="twbSubmitOfferBtn" class="twb-btn twb-btn-primary">Submit Offer</button>
-            <div id="twbOffersCounts" class="twb-status-pill twb-status-pill-muted">Incoming</div>
-          </div>
-          <div id="twbSubmitOfferStatus" class="twb-summary-note">No offer submitted yet.</div>
-          <div id="twbOffersList" class="twb-offers-list" aria-live="polite"></div>
-        </div>
-
         <div class="twb-card twb-payload-card">
           <div class="twb-card-head-inline">
             <h2>Integration JSON (Advanced)</h2>
@@ -160,7 +151,6 @@
             <pre id="twbPayloadPreview" class="twb-payload-preview">Loading…</pre>
           </details>
         </div>
-        </aside>
       </section>
     </main>
 
@@ -187,19 +177,18 @@
       </header>
 
       <div class="twb-trade-salary-box">
-        <div class="twb-trade-salary-labels">
-          <div class="twb-trade-salary-title">Traded Salary</div>
-          <div class="twb-trade-salary-help">$1K units · Max is half of selected non-Taxi outgoing player salary</div>
-        </div>
+        <div class="twb-trade-salary-title">Trade Salary</div>
         <label class="twb-trade-salary-input-wrap">
           <input type="text" class="twb-trade-salary-input" inputmode="numeric" pattern="[0-9]*" autocomplete="off" placeholder="0">
+          <span class="twb-trade-salary-unit">K</span>
         </label>
-        <div class="twb-trade-salary-max"></div>
+        <div class="twb-trade-salary-max">
+          <span class="twb-trade-salary-max-label">Max Eligible Salary</span>
+          <strong class="twb-trade-salary-max-value">0K</strong>
+        </div>
       </div>
 
       <div class="twb-team-toolbar">
-        <button type="button" class="twb-link-btn twb-team-select-all">Select Visible</button>
-        <button type="button" class="twb-link-btn twb-team-clear-visible">Clear Visible</button>
         <button type="button" class="twb-link-btn twb-team-expand-all">Expand All</button>
         <button type="button" class="twb-link-btn twb-team-collapse-all">Collapse All</button>
       </div>
