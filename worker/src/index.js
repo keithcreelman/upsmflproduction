@@ -4240,7 +4240,9 @@ export default {
         const offerComment = safeStr(
           body?.offer_comment ||
           body?.offer_comments ||
+          body?.offer_raw_comment ||
           body?.offer_message ||
+          body?.raw_comment ||
           body?.comments ||
           body?.comment ||
           body?.notes ||

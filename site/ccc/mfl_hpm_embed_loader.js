@@ -100,7 +100,7 @@
     (u && (u.searchParams.get("DEBUG_ADMIN") || u.searchParams.get("DEBUG"))) || "";
 
   const DEFAULT_CCC_IFRAME_URL =
-    "https://rawcdn.githack.com/keithcreelman/upsmflproduction/main/site/ccc/mfl_hpm16_contractcommandcenter.html";
+    "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/ccc/mfl_hpm16_contractcommandcenter.html";
 
   function getScriptBaseUrl() {
     try {
@@ -134,11 +134,11 @@
       if (!dirParts.length) return "";
 
       return (
-        "https://rawcdn.githack.com/" +
+        "https://cdn.jsdelivr.net/gh/" +
         encodeURIComponent(owner) +
         "/" +
         encodeURIComponent(repo) +
-        "/" +
+        "@" +
         encodeURIComponent(ref) +
         "/" +
         dirParts.map(encodeURIComponent).join("/") +
@@ -163,6 +163,14 @@
     return DEFAULT_CCC_IFRAME_URL;
   }
   const CCC_IFRAME_URL = resolveIframeUrl();
+  const ALLOWED_IFRAME_ORIGINS = (function () {
+    const out = ["https://cdn.jsdelivr.net", "https://keithcreelman.github.io"];
+    try {
+      const u = new URL(CCC_IFRAME_URL, window.location.href);
+      if (u.origin && out.indexOf(u.origin) === -1) out.push(u.origin);
+    } catch (e) {}
+    return out;
+  })();
 
   function inferModeFromSystem() {
     // Default to dark so CCC blends with the league's blue/dark shell.
@@ -274,14 +282,7 @@
 
   function onMessage(e) {
     if (!iframe.contentWindow || e.source !== iframe.contentWindow) return;
-    // Allow known CCC hosts.
-    if (
-      e.origin !== "https://keithcreelman.github.io" &&
-      e.origin !== "https://cdn.jsdelivr.net" &&
-      e.origin !== "https://rawcdn.githack.com"
-    ) {
-      return;
-    }
+    if (ALLOWED_IFRAME_ORIGINS.indexOf(String(e.origin || "")) === -1) return;
     const data = e.data || {};
     if (!data) return;
     if (data.type === "ccc-height") {

@@ -1764,7 +1764,10 @@
         action: normalizedAction,
         acting_franchise_id: actingFranchiseId,
         payload: getOfferPayloadForWorkbench(offer, { keepOriginalOrientation: true }) || null,
-        offer_comment: safeStr(offer.raw_comment || offer.comment || offer.message),
+        offer_comment: safeStr(offer.raw_comment || offer.comments || offer.comment || offer.message || offer.notes),
+        offer_comments: safeStr(offer.comments || offer.comment || offer.raw_comment || offer.message || offer.notes),
+        offer_notes: safeStr(offer.notes || offer.comment || offer.comments || offer.raw_comment || offer.message),
+        offer_raw_comment: safeStr(offer.raw_comment || offer.comments || offer.comment || offer.message || offer.notes),
         offer_twb_meta: offer && offer.twb_meta ? offer.twb_meta : null,
         offer_from_franchise_id: safeStr(offer.from_franchise_id),
         offer_to_franchise_id: safeStr(offer.to_franchise_id),
@@ -2031,7 +2034,7 @@
       var reason = safeStr(data.reason || mflResp.reason_snippet || msg || "MFL rejected the proposal");
       var httpStatus = safeInt(mflResp.http_status || data.upstreamStatus || err.status, 0);
       var ts = safeStr(diag.timestamp_utc || data.timestamp_utc);
-      var out = "Trade proposal rejected by MFL.";
+      var out = prefix + ": Trade proposal rejected by MFL.";
       if (reason) out += " Reason: " + reason;
       if (httpStatus) out += " (HTTP " + httpStatus + (ts ? " @ " + ts : "") + ")";
       return out;
@@ -2042,7 +2045,7 @@
         data.reason ||
         msg
       );
-      return "Validation failed before POST: " + valReason;
+      return prefix + ": Validation failed before POST: " + valReason;
     }
     if (errorType === "salary_contract_import_failure") {
       var details = data && data.diagnostics ? data.diagnostics : {};
@@ -2051,7 +2054,7 @@
       var salaryReason = safeStr((details.salary_adjustments || {}).error);
       var reason2 = safeStr(msg || data.error || "salary/contract import failure");
       var detail = extReason || salaryReason;
-      return "Salary/contract import failure after trade response: " +
+      return prefix + ": Salary/contract import failure after trade response: " +
         reason2 +
         (detail ? " (" + detail + ")" : "") +
         (ts2 ? " @ " + ts2 : "");
