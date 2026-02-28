@@ -3,8 +3,8 @@
     "schema_version": 1,
     "league_id": "74598",
     "season": 2026,
-    "updated_at": "2026-02-27T16:59:11.270Z",
-    "row_count": 3,
+    "updated_at": "2026-02-28T04:18:03.624Z",
+    "row_count": 4,
     "source": "worker-trade-offers"
   },
   "offers": [
@@ -339,6 +339,100 @@
         "ui": {
           "left_team_id": "0008",
           "right_team_id": "0011"
+        },
+        "validation": {
+          "status": "ready",
+          "issues": []
+        }
+      }
+    },
+    {
+      "id": "TWB-c78a4d7f-1d80-46f7-ae51-cc2fda17bd1f",
+      "league_id": "74598",
+      "season": 2026,
+      "status": "PENDING",
+      "created_at": "2026-02-28T04:18:03.544Z",
+      "updated_at": "2026-02-28T04:18:03.544Z",
+      "from_franchise_id": "0010",
+      "to_franchise_id": "0009",
+      "from_franchise_name": "Blake Bombers",
+      "to_franchise_name": "C-Town Chivalry",
+      "message": "debug submit",
+      "source": "codex-debug",
+      "summary": {
+        "from_asset_count": 1,
+        "to_asset_count": 1,
+        "from_trade_salary_k": 0,
+        "to_trade_salary_k": 0,
+        "extension_request_count": 0
+      },
+      "payload": {
+        "schema_version": 1,
+        "league_id": "74598",
+        "season": 2026,
+        "teams": [
+          {
+            "role": "left",
+            "franchise_id": "0010",
+            "franchise_name": "Blake Bombers",
+            "selected_assets": [
+              {
+                "asset_id": "player:16211",
+                "type": "PLAYER",
+                "player_id": "16211",
+                "player_name": "Nacua, Puka",
+                "description": null,
+                "position": "WR",
+                "nfl_team": "LAR",
+                "salary": 2000,
+                "years": 2,
+                "contract_type": "Rookie",
+                "contract_info": "CL 3| TCV 6K| AAV 2K",
+                "taxi": false
+              }
+            ],
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 1,
+            "selected_non_taxi_salary_dollars": 2000
+          },
+          {
+            "role": "right",
+            "franchise_id": "0009",
+            "franchise_name": "C-Town Chivalry",
+            "selected_assets": [
+              {
+                "asset_id": "player:16581",
+                "type": "PLAYER",
+                "player_id": "16581",
+                "player_name": "Daniels, Jayden",
+                "description": null,
+                "position": "QB",
+                "nfl_team": "WAS",
+                "salary": 12000,
+                "years": 1,
+                "contract_type": "Rookie",
+                "contract_info": "CL 3| TCV 36K| AAV 12K",
+                "taxi": false
+              }
+            ],
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 6,
+            "selected_non_taxi_salary_dollars": 12000
+          }
+        ],
+        "extension_requests": [],
+        "filters": {
+          "search": "",
+          "activeContractTypes": {},
+          "yearsMin": "",
+          "yearsMax": "",
+          "showTaxi": true,
+          "showPicks": true,
+          "onlyExtensionEligible": false
+        },
+        "ui": {
+          "left_team_id": "0010",
+          "right_team_id": "0009"
         },
         "validation": {
           "status": "ready",
