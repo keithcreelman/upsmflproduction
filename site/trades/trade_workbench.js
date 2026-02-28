@@ -1768,9 +1768,12 @@
         offer_comments: safeStr(offer.comments || offer.comment || offer.raw_comment || offer.message || offer.notes),
         offer_notes: safeStr(offer.notes || offer.comment || offer.comments || offer.raw_comment || offer.message),
         offer_raw_comment: safeStr(offer.raw_comment || offer.comments || offer.comment || offer.message || offer.notes),
+        offer_message: safeStr(offer.message || offer.comment || offer.comments || offer.raw_comment || offer.notes),
         offer_twb_meta: offer && offer.twb_meta ? offer.twb_meta : null,
         offer_from_franchise_id: safeStr(offer.from_franchise_id),
         offer_to_franchise_id: safeStr(offer.to_franchise_id),
+        offer_will_give_up: safeStr(offer.will_give_up),
+        offer_will_receive: safeStr(offer.will_receive),
         direct_mfl: true
       };
       var res = await fetchJsonRequest(actionUrl, {

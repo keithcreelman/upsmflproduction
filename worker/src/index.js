@@ -1960,6 +1960,136 @@ export default {
         return `BB_${text}`;
       };
 
+      const parseTradeTokenList = (raw) => {
+        const text = safeStr(raw);
+        if (!text) return [];
+        return text
+          .split(/\s*,\s*/)
+          .map((s) => safeStr(s).toUpperCase())
+          .filter(Boolean);
+      };
+
+      const parseBlindBidKFromToken = (token) => {
+        const raw = safeStr(token).toUpperCase();
+        if (!raw || !raw.startsWith("BB_")) return 0;
+        const n = Number(raw.slice(3));
+        if (!Number.isFinite(n) || n <= 0) return 0;
+        return Math.round(n);
+      };
+
+      const pickDescriptionFromToken = (token, season) => {
+        const up = safeStr(token).toUpperCase();
+        if (!up) return "Rookie Pick";
+        const dp = up.match(/^DP_(\d+)_(\d+)$/);
+        if (dp) {
+          const round = safeInt(dp[1], 0) + 1;
+          const pick = safeInt(dp[2], 0) + 1;
+          const yearText = safeStr(season) || "";
+          return `${yearText} Rookie ${round}.${String(pick).padStart(2, "0")}`.trim();
+        }
+        const fp = up.match(/^FP_[A-Z0-9]+_(\d{4})_(\d+)$/);
+        if (fp) {
+          const year = safeStr(fp[1]);
+          const round = safeInt(fp[2], 0);
+          return `${year} Rookie Round ${round}`.trim();
+        }
+        return up;
+      };
+
+      const buildSelectedAssetsFromTokens = (tokens, season) => {
+        const selectedAssets = [];
+        let tradedSalaryK = 0;
+        const seen = new Set();
+        const list = Array.isArray(tokens) ? tokens : [];
+        for (const tokenRaw of list) {
+          const token = safeStr(tokenRaw).toUpperCase();
+          if (!token || seen.has(token)) continue;
+          seen.add(token);
+          if (token.startsWith("BB_")) {
+            tradedSalaryK += parseBlindBidKFromToken(token);
+            continue;
+          }
+          if (token.startsWith("DP_") || token.startsWith("FP_")) {
+            selectedAssets.push({
+              asset_id: `pick:${token}`,
+              type: "PICK",
+              description: pickDescriptionFromToken(token, season),
+            });
+            continue;
+          }
+          if (/^[0-9]+$/.test(token)) {
+            selectedAssets.push({
+              asset_id: `player:${token}`,
+              type: "PLAYER",
+              player_id: token,
+              player_name: "",
+              salary: 0,
+              years: 0,
+              contract_type: "",
+              contract_info: "",
+              taxi: false,
+            });
+          }
+        }
+        return {
+          selected_assets: selectedAssets,
+          traded_salary_adjustment_k: tradedSalaryK,
+          traded_salary_adjustment_dollars: tradedSalaryK * 1000,
+        };
+      };
+
+      const buildPayloadFromOfferTokens = ({
+        leagueId,
+        season,
+        fromFranchiseId,
+        toFranchiseId,
+        willGiveUp,
+        willReceive,
+        comment,
+      }) => {
+        const fromId = padFranchiseId(fromFranchiseId);
+        const toId = padFranchiseId(toFranchiseId);
+        if (!fromId || !toId || fromId === toId) return null;
+        const leftTokens = parseTradeTokenList(willGiveUp);
+        const rightTokens = parseTradeTokenList(willReceive);
+        const left = buildSelectedAssetsFromTokens(leftTokens, season);
+        const right = buildSelectedAssetsFromTokens(rightTokens, season);
+        if (!leftTokens.length || !rightTokens.length) return null;
+        return {
+          schema_version: 1,
+          generated_at: new Date().toISOString(),
+          source: "trade_action_offer_token_rebuild",
+          league_id: safeStr(leagueId),
+          season: safeInt(season, Number(season) || 0),
+          comment: safeStr(comment),
+          teams: [
+            {
+              role: "left",
+              franchise_id: fromId,
+              franchise_name: fromId,
+              selected_assets: left.selected_assets,
+              traded_salary_adjustment_k: left.traded_salary_adjustment_k,
+              traded_salary_adjustment_dollars: left.traded_salary_adjustment_dollars,
+              selected_non_taxi_salary_dollars: 0,
+            },
+            {
+              role: "right",
+              franchise_id: toId,
+              franchise_name: toId,
+              selected_assets: right.selected_assets,
+              traded_salary_adjustment_k: right.traded_salary_adjustment_k,
+              traded_salary_adjustment_dollars: right.traded_salary_adjustment_dollars,
+              selected_non_taxi_salary_dollars: 0,
+            },
+          ],
+          extension_requests: [],
+          ui: {
+            left_team_id: fromId,
+            right_team_id: toId,
+          },
+        };
+      };
+
       const buildTradeMetaTag = (payload, fromFranchiseId, toFranchiseId) => {
         const { left, right } = tradeSidesFromPayload(payload);
         const nets = salaryNetBySideK(left, right);
@@ -4221,6 +4351,18 @@ export default {
         const offerId = safeStr(body?.offer_id || body?.proposal_id);
         const action = offerStatusNormalized(body?.action, "");
         const actingFranchiseId = padFranchiseId(body?.acting_franchise_id || body?.franchise_id || "");
+        const offerFromFranchiseId = padFranchiseId(
+          body?.offer_from_franchise_id ||
+            body?.from_franchise_id ||
+            body?.fromFranchiseId ||
+            ""
+        );
+        const offerToFranchiseId = padFranchiseId(
+          body?.offer_to_franchise_id ||
+            body?.to_franchise_id ||
+            body?.toFranchiseId ||
+            ""
+        );
         const actionMessage = safeStr(body?.message).slice(0, 2000);
         const mflTradeId = String(
           body?.trade_id ||
@@ -4255,6 +4397,16 @@ export default {
             payload.notes
           )) ||
           ""
+        );
+        const offerWillGiveUp = safeStr(
+          body?.offer_will_give_up ||
+          body?.will_give_up ||
+          body?.WILL_GIVE_UP
+        );
+        const offerWillReceive = safeStr(
+          body?.offer_will_receive ||
+          body?.will_receive ||
+          body?.WILL_RECEIVE
         );
         const offerMeta =
           body?.offer_twb_meta && typeof body.offer_twb_meta === "object"
@@ -4536,6 +4688,72 @@ export default {
           }
           if (!mflTradeId) {
             return jsonOut(400, { ok: false, error: "trade_id is required for direct MFL actions" });
+          }
+
+          // Ensure finalize payload exists for ACCEPT flows even when stored queue payload is missing.
+          if (action === "ACCEPT" && (!payload || !Array.isArray(payload?.teams) || !payload.teams.length)) {
+            let rebuiltPayload = null;
+            if (offerWillGiveUp && offerWillReceive && offerFromFranchiseId && offerToFranchiseId) {
+              rebuiltPayload = buildPayloadFromOfferTokens({
+                leagueId,
+                season,
+                fromFranchiseId: offerFromFranchiseId,
+                toFranchiseId: offerToFranchiseId,
+                willGiveUp: offerWillGiveUp,
+                willReceive: offerWillReceive,
+                comment: offerComment,
+              });
+            }
+            if (!rebuiltPayload) {
+              try {
+                const pendingRes = await mflExportJson(
+                  season,
+                  leagueId,
+                  "pendingTrades",
+                  { FRANCHISE_ID: actingFranchiseId },
+                  { useCookie: true }
+                );
+                if (pendingRes.ok) {
+                  const rows = pendingTradesRows(pendingRes.data).map(normalizePendingTradeRow);
+                  const row = rows.find((r) => String(r?.trade_id || "").replace(/\D/g, "") === mflTradeId);
+                  if (row) {
+                    rebuiltPayload = buildPayloadFromOfferTokens({
+                      leagueId,
+                      season,
+                      fromFranchiseId: row.from_franchise_id || offerFromFranchiseId,
+                      toFranchiseId: row.to_franchise_id || offerToFranchiseId,
+                      willGiveUp: row.will_give_up || offerWillGiveUp,
+                      willReceive: row.will_receive || offerWillReceive,
+                      comment: row.comments || offerComment,
+                    });
+                  }
+                }
+              } catch (_) {
+                // noop
+              }
+            }
+            if (rebuiltPayload) {
+              payload = rebuiltPayload;
+              if (!safeStr(payload.comment)) payload.comment = offerComment;
+              try {
+                console.log(
+                  "[TWB][accept][payload_rebuild]",
+                  JSON.stringify({
+                    timestamp_utc: new Date().toISOString(),
+                    trade_id: safeStr(mflTradeId),
+                    league_id: safeStr(leagueId),
+                    season: safeStr(season),
+                    source: "offer_tokens",
+                    left_team_id: safeStr(payload?.ui?.left_team_id),
+                    right_team_id: safeStr(payload?.ui?.right_team_id),
+                    left_assets: (payload?.teams?.[0]?.selected_assets || []).length,
+                    right_assets: (payload?.teams?.[1]?.selected_assets || []).length,
+                  })
+                );
+              } catch (_) {
+                // noop
+              }
+            }
           }
 
           const responseImport = await postMflImportForm(
