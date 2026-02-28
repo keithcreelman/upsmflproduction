@@ -34,6 +34,7 @@
     },
     offers: {
       busy: false,
+      actionBusy: false,
       error: "",
       offered: [],
       received: [],
@@ -632,6 +633,33 @@
     return "https://upsmflproduction.keith-creelman.workers.dev/trade-offers";
   }
 
+  function resolveTradeOffersActionApiUrl() {
+    var explicit = safeStr(window.UPS_TRADE_OFFERS_ACTION_API || window.UPS_TRADE_WORKBENCH_OFFERS_ACTION_API);
+    if (explicit) return resolveRelativeUrl(explicit);
+
+    var listUrl = resolveTradeOffersApiUrl();
+    try {
+      var u = new URL(listUrl, window.location.href);
+      u.search = "";
+      u.hash = "";
+      u.pathname = String(u.pathname || "").replace(/\/trade-offers\/?$/i, "/trade-offers/action");
+      return u.toString();
+    } catch (e) {
+      return "https://upsmflproduction.keith-creelman.workers.dev/trade-offers/action";
+    }
+  }
+
+  function normalizeOfferStatus(v) {
+    var s = safeStr(v).toUpperCase();
+    return s || "PENDING";
+  }
+
+  function isOfferLivePending(offer) {
+    var status = normalizeOfferStatus(offer && offer.status);
+    if (status !== "PENDING") return false;
+    return offer && offer.mfl_present === true;
+  }
+
   function shortDateLabel(iso) {
     var s = safeStr(iso);
     if (!s) return "Unknown";
@@ -878,6 +906,113 @@
     return safeStr((offer || {}).from_franchise_name) || "Opponent";
   }
 
+  function getOfferTradeId(offer) {
+    return safeStr(
+      (offer || {}).mfl_trade_id ||
+      (offer || {}).trade_id ||
+      (((offer || {}).mfl || {}).trade_id)
+    ).replace(/\D/g, "");
+  }
+
+  function normalizeOffersForBanner(rows) {
+    var src = Array.isArray(rows) ? rows : [];
+    var out = [];
+    var i;
+    for (i = 0; i < src.length; i += 1) {
+      var offer = src[i] || {};
+      if (!isOfferLivePending(offer)) continue;
+      out.push(offer);
+    }
+    return out;
+  }
+
+  function createOfferActionButton(action, label, offerId, bucket, bad) {
+    var btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "twb-banner-offer-action-btn" + (bad ? " is-bad" : "");
+    btn.textContent = label;
+    btn.setAttribute("data-action", action);
+    btn.setAttribute("data-offer-id", offerId);
+    btn.setAttribute("data-offer-bucket", bucket);
+    if (state.offers.actionBusy) btn.disabled = true;
+    return btn;
+  }
+
+  function loadCounterDraftFromOffer(meta) {
+    var offer = meta && meta.offer ? meta.offer : null;
+    if (!offer || !offer.payload) {
+      setSubmitStatus("Counter draft is unavailable for this offer payload.", "bad");
+      renderSummary();
+      return;
+    }
+    var loaded = loadOfferIntoWorkbench(offer.payload);
+    if (loaded) setSubmitStatus("Counter draft loaded. Edit and submit when ready.", "");
+  }
+
+  async function performOfferAction(action, meta) {
+    var normalizedAction = normalizeOfferStatus(action);
+    if (!normalizedAction || state.offers.actionBusy) return;
+    var offer = meta && meta.offer ? meta.offer : null;
+    var bucket = safeStr(meta && meta.bucket);
+    if (!offer) {
+      setSubmitStatus("Offer action failed: offer not found.", "bad");
+      renderSummary();
+      return;
+    }
+
+    if (normalizedAction === "COUNTER") {
+      loadCounterDraftFromOffer({ offer: offer, bucket: bucket });
+      return;
+    }
+
+    var leagueId = safeStr(state.data && state.data.meta ? state.data.meta.league_id : "");
+    var season = safeStr(state.data && state.data.meta ? state.data.meta.season : "");
+    var actingFranchiseId = pad4(state.leftTeamId);
+    var tradeId = getOfferTradeId(offer);
+    if (!leagueId || !season || !actingFranchiseId || !tradeId) {
+      setSubmitStatus("Offer action failed: missing trade routing fields.", "bad");
+      renderSummary();
+      return;
+    }
+
+    state.offers.actionBusy = true;
+    var actionLabel = normalizedAction === "REVOKE" ? "Revoking" : "Rejecting";
+    setSubmitStatus(actionLabel + " offer in MFL…", "");
+    renderSummary();
+    renderBannerOffers();
+
+    try {
+      var actionUrl = resolveTradeOffersActionApiUrl();
+      var body = {
+        league_id: leagueId,
+        season: season,
+        offer_id: safeStr(offer.id),
+        trade_id: tradeId,
+        action: normalizedAction,
+        acting_franchise_id: actingFranchiseId,
+        payload: offer.payload || null,
+        direct_mfl: true
+      };
+      var res = await fetchJsonRequest(actionUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+      var okText = normalizedAction === "REVOKE" ? "Offer revoked in MFL." : "Offer rejected in MFL.";
+      setSubmitStatus(okText, "good");
+      await refreshBannerOffers(true);
+      if (res && res.mode && safeStr(res.mode).toLowerCase() !== "direct_mfl") {
+        setSubmitStatus(okText + " (non-direct mode response)", "warn");
+      }
+    } catch (err) {
+      setSubmitStatus(friendlyOfferError("Offer action failed", err), "bad");
+    } finally {
+      state.offers.actionBusy = false;
+      renderSummary();
+      renderBannerOffers();
+    }
+  }
+
   function renderBannerOfferList(listEl, offers, bucket) {
     if (!listEl) return;
     listEl.innerHTML = "";
@@ -909,19 +1044,16 @@
     var i;
     for (i = 0; i < offers.length; i += 1) {
       var offer = offers[i] || {};
-      var btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "twb-banner-offer-item";
-      btn.setAttribute("data-action", "load-offer");
-      btn.setAttribute("data-offer-id", safeStr(offer.id));
-      btn.setAttribute("data-offer-bucket", bucket);
+      var hasPayload = !!(offer && typeof offer.payload === "object");
+      var card = document.createElement("article");
+      card.className = "twb-banner-offer-item";
 
       var title = document.createElement("div");
       title.className = "twb-banner-offer-title";
       title.textContent =
         getOfferOpponentLabel(offer, bucket) +
         " · " +
-        (safeStr(offer.status) || "PENDING");
+        normalizeOfferStatus(offer.status);
 
       var meta = document.createElement("div");
       meta.className = "twb-banner-offer-meta";
@@ -933,9 +1065,39 @@
         offerAssetCount(offer, "right") +
         " assets";
 
-      btn.appendChild(title);
-      btn.appendChild(meta);
-      listEl.appendChild(btn);
+      var openBtn = document.createElement("button");
+      openBtn.type = "button";
+      openBtn.className = "twb-banner-offer-main";
+      openBtn.setAttribute("data-action", "load-offer");
+      openBtn.setAttribute("data-offer-id", safeStr(offer.id));
+      openBtn.setAttribute("data-offer-bucket", bucket);
+      openBtn.disabled = !hasPayload;
+      openBtn.appendChild(title);
+      openBtn.appendChild(meta);
+      card.appendChild(openBtn);
+
+      var actions = document.createElement("div");
+      actions.className = "twb-banner-offer-actions";
+      var counterBtn = createOfferActionButton(
+        "offer-counter",
+        "Counter",
+        safeStr(offer.id),
+        bucket,
+        false
+      );
+      counterBtn.disabled = !hasPayload || !!state.offers.actionBusy;
+      actions.appendChild(counterBtn);
+      if (bucket === "received") {
+        actions.appendChild(
+          createOfferActionButton("offer-reject", "Reject", safeStr(offer.id), bucket, true)
+        );
+      } else {
+        actions.appendChild(
+          createOfferActionButton("offer-revoke", "Revoke", safeStr(offer.id), bucket, true)
+        );
+      }
+      card.appendChild(actions);
+      listEl.appendChild(card);
     }
   }
 
@@ -979,8 +1141,8 @@
       offerUrl.searchParams.set("include_payload", "1");
       offerUrl.searchParams.set("limit", "50");
       var res = await fetchJsonRequest(offerUrl.toString());
-      state.offers.offered = Array.isArray(res && res.outgoing) ? res.outgoing : [];
-      state.offers.received = Array.isArray(res && res.incoming) ? res.incoming : [];
+      state.offers.offered = normalizeOffersForBanner(res && res.outgoing);
+      state.offers.received = normalizeOffersForBanner(res && res.incoming);
       state.offers.key = key;
     } catch (err) {
       state.offers.offered = [];
@@ -2979,17 +3141,41 @@
             node = node.parentNode;
             continue;
           }
-          if (action === "load-offer" || action === "build-counter" || action === "counter-offer") {
+          if (
+            action === "load-offer" ||
+            action === "build-counter" ||
+            action === "counter-offer" ||
+            action === "offer-counter" ||
+            action === "offer-reject" ||
+            action === "offer-revoke"
+          ) {
             evt.preventDefault();
+            evt.stopPropagation();
             var bucket = safeStr(node.getAttribute("data-offer-bucket")) || "received";
             var offerId = safeStr(node.getAttribute("data-offer-id"));
             var offer = getOfferFromBannerState(bucket, offerId);
             if (!offer || !offer.payload) {
-              setSubmitStatus("Could not load that offer payload.", "bad");
-              renderSummary();
+              if (action === "offer-reject" || action === "offer-revoke") {
+                performOfferAction(action === "offer-revoke" ? "REVOKE" : "REJECT", {
+                  bucket: bucket,
+                  offer: offer
+                });
+              } else {
+                setSubmitStatus("Could not load that offer payload.", "bad");
+                renderSummary();
+              }
               return;
             }
-            loadOfferIntoWorkbench(offer.payload);
+
+            if (action === "offer-reject") {
+              performOfferAction("REJECT", { bucket: bucket, offer: offer });
+            } else if (action === "offer-revoke") {
+              performOfferAction("REVOKE", { bucket: bucket, offer: offer });
+            } else if (action === "offer-counter" || action === "build-counter" || action === "counter-offer") {
+              performOfferAction("COUNTER", { bucket: bucket, offer: offer });
+            } else {
+              loadOfferIntoWorkbench(offer.payload);
+            }
             var dd = node.closest && node.closest("details");
             if (dd) dd.removeAttribute("open");
             return;

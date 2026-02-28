@@ -168,13 +168,23 @@ summary:focus-visible {
 }
 
 .twb-banner-offer-item {
-  text-align: left;
   width: 100%;
   border: 1px solid rgba(123, 158, 204, 0.3);
   border-radius: 10px;
   background: rgba(8, 15, 29, 0.9);
   color: #d8e9ff;
-  padding: 0.48rem 0.56rem;
+  padding: 0.46rem 0.5rem;
+  display: grid;
+  gap: 0.38rem;
+}
+
+.twb-banner-offer-main {
+  text-align: left;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 0;
   display: grid;
   gap: 0.18rem;
   cursor: pointer;
@@ -185,6 +195,15 @@ summary:focus-visible {
   background: rgba(18, 32, 56, 0.95);
 }
 
+.twb-banner-offer-main:hover .twb-banner-offer-title {
+  text-decoration: underline;
+}
+
+.twb-banner-offer-main:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
 .twb-banner-offer-title {
   font-size: 0.82rem;
   font-weight: 900;
@@ -193,6 +212,38 @@ summary:focus-visible {
 .twb-banner-offer-meta {
   font-size: 0.72rem;
   color: #a9bfdc;
+}
+
+.twb-banner-offer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.twb-banner-offer-action-btn {
+  border: 1px solid rgba(121, 153, 195, 0.34);
+  border-radius: 999px;
+  background: rgba(6, 12, 24, 0.82);
+  color: #dbeaff;
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.03em;
+  padding: 0.26rem 0.6rem;
+  cursor: pointer;
+}
+
+.twb-banner-offer-action-btn:hover {
+  border-color: rgba(244, 195, 105, 0.55);
+}
+
+.twb-banner-offer-action-btn.is-bad {
+  border-color: rgba(239, 68, 68, 0.55);
+  color: #ffd8d8;
+}
+
+.twb-banner-offer-action-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .twb-banner-offers-empty {
@@ -851,26 +902,26 @@ summary:focus-visible {
 
 .twb-team-header {
   display: grid;
-  grid-template-columns: minmax(0, 3.2fr) minmax(150px, 1fr);
-  gap: 0.7rem;
+  grid-template-columns: 1fr auto;
+  gap: 0.75rem;
   align-items: start;
   margin-bottom: 0.65rem;
 }
 
 .twb-team-brand {
   display: grid;
-  grid-template-columns: 1fr;
-  gap: 0.7rem;
-  align-items: start;
+  grid-template-columns: 64px 1fr;
+  gap: 0.75rem;
+  align-items: center;
   min-width: 0;
 }
 
 .twb-team-logo-shell {
-  width: min(100%, 280px);
-  aspect-ratio: 1 / 1;
+  width: 64px;
+  height: 64px;
   border-radius: 12px;
-  border: 1px solid rgba(130, 165, 210, 0.22);
-  background: linear-gradient(180deg, rgba(18, 31, 56, 0.9), rgba(9, 16, 30, 0.95));
+  border: 0;
+  background: transparent;
   display: grid;
   place-items: center;
   overflow: hidden;
@@ -883,7 +934,7 @@ summary:focus-visible {
   height: 100%;
   object-fit: contain;
   display: block;
-  background: rgba(0, 0, 0, 0.14);
+  background: transparent;
 }
 
 .twb-team-logo-fallback {
@@ -909,7 +960,8 @@ summary:focus-visible {
 }
 
 .twb-team-title-wrap {
-  display: none;
+  display: grid;
+  gap: 0.1rem;
 }
 
 .twb-team-eyebrow:empty,
@@ -1396,6 +1448,17 @@ summary:focus-visible {
     border-color: #f59e0b;
   }
 
+  .twb-banner-offer-action-btn {
+    background: #ffffff;
+    border-color: #cbd5e1;
+    color: #0f172a;
+  }
+
+  .twb-banner-offer-action-btn.is-bad {
+    border-color: #ef4444;
+    color: #991b1b;
+  }
+
   .twb-banner-offer-meta,
   .twb-banner-offers-empty {
     color: #334155;
@@ -1602,15 +1665,11 @@ summary:focus-visible {
   }
 
   .twb-team-header {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr auto;
   }
 
   .twb-team-brand {
-    grid-template-columns: 1fr;
-  }
-
-  .twb-team-logo-shell {
-    width: min(100%, 220px);
+    grid-template-columns: 64px 1fr;
   }
 
   .twb-asset-toggle {
@@ -1684,10 +1743,6 @@ summary:focus-visible {
 
   .twb-offer-cart-mobile-tray[hidden] {
     display: none;
-  }
-
-  .twb-team-logo-shell {
-    width: min(100%, 180px);
   }
 
   .twb-banner-offers {

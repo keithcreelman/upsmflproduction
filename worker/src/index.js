@@ -960,6 +960,103 @@ export default {
       };
 
       const parseAssetsExportPicks = (assetsPayload) => {
+        const extractPickToken = (input) => {
+          const s = safeStr(input).toUpperCase();
+          if (!s) return "";
+          const m = s.match(/\b(DP_[0-9]{1,2}_[0-9]{1,2}|FP_[0-9]{4}_[0-9]{4}_[0-9]{1,2})\b/);
+          return m ? m[1] : "";
+        };
+
+        const rookieLabelFromDescription = (description, pickKey, seasonValue) => {
+          const raw = safeStr(description);
+          let m = raw.match(/Year\s*(\d{4})\s*Draft Pick\s*(\d+)\.(\d+)/i);
+          if (m) return `${m[1]} Rookie ${m[2]}.${String(m[3]).padStart(2, "0")}`;
+          m = raw.match(/(\d{4}).*?Round\s*(\d+).*?Pick\s*(\d+)/i);
+          if (m) return `${m[1]} Rookie ${m[2]}.${String(m[3]).padStart(2, "0")}`;
+
+          const token = extractPickToken(pickKey);
+          if (/^DP_/.test(token)) {
+            const parts = token.split("_");
+            const round = safeInt(parts[1], 0) + 1;
+            const slot = safeInt(parts[2], 0) + 1;
+            return `${safeInt(seasonValue, 0)} Rookie ${round}.${String(slot).padStart(2, "0")}`;
+          }
+          if (/^FP_/.test(token)) {
+            const parts = token.split("_");
+            const year = safeInt(parts[2], 0);
+            const round = safeInt(parts[3], 0);
+            if (year && round) return `${year} Rookie Round ${round}`;
+          }
+          return raw || "Rookie Pick";
+        };
+
+        const readPickKey = (row) => {
+          const direct = [
+            row?.pick,
+            row?.id,
+            row?.asset_id,
+            row?.pick_key,
+            row?.token,
+            row?.key,
+            row?.label,
+            row?.name,
+            row?.description,
+          ];
+          for (const v of direct) {
+            const token = extractPickToken(v);
+            if (token) return token;
+          }
+          const year = safeInt(row?.year || row?.season, 0);
+          const round = safeInt(row?.round || row?.draft_round, 0);
+          const slot = safeInt(row?.slot || row?.pick_slot || row?.pick_no || row?.pick_number || row?.pick, 0);
+          if (year && round && slot) {
+            return `PICK_${year}_${round}_${slot}`;
+          }
+          return "";
+        };
+
+        const gatherPickCandidates = (franchiseNode) => {
+          const out = [];
+          const seen = new Set();
+          const maybePush = (node) => {
+            if (!node || typeof node !== "object") return;
+            if (seen.has(node)) return;
+            seen.add(node);
+            const token = readPickKey(node);
+            const hasShape =
+              token ||
+              node?.round != null ||
+              node?.draft_round != null ||
+              node?.pick_slot != null ||
+              node?.pick_number != null ||
+              safeStr(node?.description || node?.name || node?.label);
+            if (hasShape) out.push(node);
+          };
+          const visit = (node, keyHint, depth) => {
+            if (!node || depth > 7) return;
+            if (Array.isArray(node)) {
+              for (const item of node) visit(item, keyHint, depth + 1);
+              return;
+            }
+            if (typeof node !== "object") return;
+            const key = safeStr(keyHint).toLowerCase();
+            if (
+              key.includes("draftpick") ||
+              key === "pick" ||
+              key.endsWith("picks") ||
+              key.includes("futureyear") ||
+              key.includes("currentyear")
+            ) {
+              maybePush(node);
+            }
+            for (const [childKey, childVal] of Object.entries(node)) {
+              visit(childVal, childKey, depth + 1);
+            }
+          };
+          visit(franchiseNode, "", 0);
+          return out;
+        };
+
         const franchiseRows = asArray(assetsPayload?.assets?.franchise || assetsPayload?.franchise).filter(Boolean);
         const out = {};
         for (const fr of franchiseRows) {
@@ -969,21 +1066,29 @@ export default {
           const seen = new Set();
           const pushPicks = (pickRows) => {
             for (const p of asArray(pickRows).filter(Boolean)) {
-              const pickKey = safeStr(p?.pick || p?.id || p?.asset_id);
-              const description = safeStr(p?.description || p?.name || pickKey || "Draft Pick");
-              const key = pickKey || description;
+              const pickKey = readPickKey(p);
+              const description = rookieLabelFromDescription(
+                safeStr(p?.description || p?.name || p?.label || pickKey || "Rookie Pick"),
+                pickKey,
+                assetsPayload?.assets?.year || assetsPayload?.year || 0
+              );
+              const key = pickKey || safeStr(description).toUpperCase().replace(/[^A-Z0-9_.-]/g, "_");
               if (!key || seen.has(key)) continue;
               seen.add(key);
               rows.push({
                 type: "PICK",
                 asset_id: `pick:${key}`,
-                pick_key: pickKey || description,
+                pick_key: key,
                 description,
               });
             }
           };
           pushPicks(fr?.currentYearDraftPicks?.draftPick || fr?.currentYearDraftPicks?.draftpick);
+          pushPicks(fr?.currentYearDraftPick?.draftPick || fr?.currentYearDraftPick?.draftpick);
           pushPicks(fr?.futureYearDraftPicks?.draftPick || fr?.futureYearDraftPicks?.draftpick);
+          pushPicks(fr?.futureYearDraftPick?.draftPick || fr?.futureYearDraftPick?.draftpick);
+          pushPicks(fr?.draftPicks?.draftPick || fr?.draftPicks?.draftpick);
+          pushPicks(gatherPickCandidates(fr));
           out[franchiseId] = rows;
         }
         return out;
@@ -2051,8 +2156,97 @@ export default {
           });
         }
 
+        const normalizeTokenList = (csv) =>
+          safeStr(csv)
+            .split(",")
+            .map((x) => safeStr(x).toUpperCase())
+            .filter(Boolean)
+            .sort();
+
+        const tokenKeyFromList = (list) =>
+          asArray(list)
+            .map((x) => safeStr(x).toUpperCase())
+            .filter(Boolean)
+            .sort()
+            .join(",");
+
+        const pendingLookup = {
+          ok: false,
+          rows_count: 0,
+          upstream_status: 0,
+          error: "",
+        };
+        const pendingRows = [];
+        const pendingByTradeId = new Map();
+        if (cookieHeader) {
+          const extra = {};
+          if (franchiseId) extra.FRANCHISE_ID = franchiseId;
+          const pendingRes = await mflExportJson(season, leagueId, "pendingTrades", extra, { useCookie: true });
+          pendingLookup.ok = !!pendingRes.ok;
+          pendingLookup.rows_count = pendingRes.ok
+            ? pendingTradesRows(pendingRes.data).filter(Boolean).length
+            : 0;
+          pendingLookup.upstream_status = pendingRes.status || 0;
+          pendingLookup.error = pendingRes.ok ? "" : safeStr(pendingRes.error || "pendingTrades lookup failed");
+          if (pendingRes.ok) {
+            const rowsNorm = pendingTradesRows(pendingRes.data).map(normalizePendingTradeRow);
+            for (const row of rowsNorm) {
+              pendingRows.push(row);
+              if (row.trade_id) pendingByTradeId.set(row.trade_id, row);
+            }
+          }
+        } else {
+          pendingLookup.error = "Missing MFL_COOKIE worker secret";
+        }
+
+        const annotateOfferWithMfl = (offer) => {
+          const o = { ...(offer || {}) };
+          o.status = offerStatusNormalized(o.status, "PENDING");
+          o.mfl_trade_id = safeStr(o.mfl_trade_id || o.trade_id || "") || null;
+          o.mfl_present = false;
+          o.mfl_status = o.status === "PENDING" ? "UNKNOWN" : o.status;
+
+          if (o.status !== "PENDING" || !pendingLookup.ok) return o;
+
+          let match = null;
+          if (o.mfl_trade_id && pendingByTradeId.has(o.mfl_trade_id)) {
+            match = pendingByTradeId.get(o.mfl_trade_id);
+          }
+
+          const fromId = padFranchiseId(o.from_franchise_id);
+          const toId = padFranchiseId(o.to_franchise_id);
+          if (!match && fromId && toId) {
+            const candidates = pendingRows.filter(
+              (r) => r.from_franchise_id === fromId && r.to_franchise_id === toId
+            );
+            if (candidates.length === 1) {
+              match = candidates[0];
+            } else if (candidates.length > 1 && o.payload) {
+              const built = buildTradeProposalAssetLists(o.payload);
+              const giveKey = tokenKeyFromList(built.willGiveUp);
+              const receiveKey = tokenKeyFromList(built.willReceive);
+              for (const row of candidates) {
+                const rowGiveKey = normalizeTokenList(row.will_give_up).join(",");
+                const rowReceiveKey = normalizeTokenList(row.will_receive).join(",");
+                if (giveKey && receiveKey && rowGiveKey === giveKey && rowReceiveKey === receiveKey) {
+                  match = row;
+                  break;
+                }
+              }
+            }
+          }
+
+          if (match) {
+            o.mfl_present = true;
+            o.mfl_status = "PENDING";
+            if (match.trade_id) o.mfl_trade_id = match.trade_id;
+          }
+
+          return o;
+        };
+
         const allOffers = (loaded.doc?.offers || [])
-          .map((o) => ({ ...(o || {}), status: offerStatusNormalized(o?.status, "PENDING") }))
+          .map((o) => annotateOfferWithMfl(o))
           .sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")));
 
         const applyStatus = (rows) =>
@@ -2082,6 +2276,7 @@ export default {
           season: safeInt(season, Number(season) || 0),
           franchise_id: franchiseId || "",
           storage_path: loaded.filePath,
+          pending_lookup: pendingLookup,
           counts: {
             total: allOffers.length,
             related_total: related.length,
@@ -2089,6 +2284,16 @@ export default {
             outgoing_total: outgoing.length,
             incoming_pending: incoming.filter((o) => offerStatusNormalized(o.status, "PENDING") === "PENDING").length,
             outgoing_pending: outgoing.filter((o) => offerStatusNormalized(o.status, "PENDING") === "PENDING").length,
+            incoming_mfl_present_pending: incoming.filter(
+              (o) =>
+                offerStatusNormalized(o.status, "PENDING") === "PENDING" &&
+                o.mfl_present === true
+            ).length,
+            outgoing_mfl_present_pending: outgoing.filter(
+              (o) =>
+                offerStatusNormalized(o.status, "PENDING") === "PENDING" &&
+                o.mfl_present === true
+            ).length,
           },
           incoming: incomingFiltered,
           outgoing: outgoingFiltered,
