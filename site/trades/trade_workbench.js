@@ -8,18 +8,6 @@
   var heightPostTimer = 0;
   var lastPostedHeight = 0;
 
-  function emptyCounterDraft() {
-    return {
-      active: false,
-      offerId: "",
-      fromFranchiseId: "",
-      toFranchiseId: "",
-      fromFranchiseName: "",
-      toFranchiseName: "",
-      loadedAt: ""
-    };
-  }
-
   var state = {
     data: null,
     uiReady: false,
@@ -43,19 +31,7 @@
       message: "No offer submitted yet.",
       tone: ""
     },
-    mobileTab: "your",
-    counterDraft: emptyCounterDraft(),
-    offers: {
-      loading: false,
-      error: "",
-      incoming: [],
-      outgoing: [],
-      counts: null,
-      lastLoadedAt: "",
-      actionBusy: false,
-      actionOfferId: "",
-      actionType: ""
-    }
+    mobileTab: "your"
   };
 
   var els = {};
@@ -307,6 +283,14 @@
     asset.nfl_team = safeStr(raw.nfl_team || raw.team);
     asset.position = safeStr(raw.position || raw.pos).toUpperCase();
     asset.salary = safeInt(raw.salary, 0);
+    asset.aav_current = safeMoneyInt(
+      raw.aav_current != null
+        ? raw.aav_current
+        : (raw.aav != null
+            ? raw.aav
+            : (raw.aavCurrent != null ? raw.aavCurrent : raw.current_aav)),
+      null
+    );
     asset.years = raw.years == null || raw.years === "" ? null : safeInt(raw.years, 0);
     asset.contract_type = safeStr(raw.contract_type || raw.contractstatus || raw.contractStatus || raw.type_label || raw.contract);
     asset.contract_info = safeStr(raw.contract_info || raw.contractInfo || raw.details);
@@ -627,18 +611,6 @@
     return "https://upsmflproduction.keith-creelman.workers.dev/trade-offers";
   }
 
-  function resolveTradeOffersActionApiUrl() {
-    try {
-      var u = new URL(resolveTradeOffersApiUrl(), window.location.href);
-      u.search = "";
-      u.hash = "";
-      u.pathname = String(u.pathname || "").replace(/\/trade-offers\/?$/i, "/trade-offers/action");
-      return u.toString();
-    } catch (e) {
-      return "https://upsmflproduction.keith-creelman.workers.dev/trade-offers/action";
-    }
-  }
-
   async function fetchJsonRequest(url, options) {
     var res = await fetch(url, options || {});
     var text = await res.text();
@@ -659,66 +631,9 @@
     return data;
   }
 
-  function isoToLocalShort(iso) {
-    var s = safeStr(iso);
-    if (!s) return "";
-    var d = new Date(s);
-    if (isNaN(d.getTime())) return s;
-    try {
-      return d.toLocaleString();
-    } catch (e) {
-      return s;
-    }
-  }
-
   function setSubmitStatus(message, tone) {
     state.submit.message = safeStr(message) || "";
     state.submit.tone = safeStr(tone) || "";
-  }
-
-  function setOfferActionBusy(isBusy, offerId, actionType) {
-    state.offers.actionBusy = !!isBusy;
-    state.offers.actionOfferId = isBusy ? safeStr(offerId) : "";
-    state.offers.actionType = isBusy ? safeStr(actionType).toUpperCase() : "";
-  }
-
-  function hasActiveCounterDraft() {
-    return !!(state.counterDraft && state.counterDraft.active && safeStr(state.counterDraft.offerId));
-  }
-
-  function clearCounterDraft() {
-    state.counterDraft = emptyCounterDraft();
-  }
-
-  function cancelCounterDraft(note) {
-    if (!hasActiveCounterDraft()) return;
-    clearCounterDraft();
-    if (note) setSubmitStatus(note, "warn");
-  }
-
-  function ensureCounterTeamsStillMatch() {
-    if (!hasActiveCounterDraft()) return;
-    var expectedLeft = pad4(state.counterDraft.fromFranchiseId);
-    var expectedRight = pad4(state.counterDraft.toFranchiseId);
-    if (expectedLeft && expectedRight && (pad4(state.leftTeamId) !== expectedLeft || pad4(state.rightTeamId) !== expectedRight)) {
-      clearCounterDraft();
-    }
-  }
-
-  function findOfferById(offerId) {
-    var id = safeStr(offerId);
-    if (!id) return null;
-    var lists = [state.offers.incoming || [], state.offers.outgoing || []];
-    var i;
-    var j;
-    for (i = 0; i < lists.length; i += 1) {
-      var items = lists[i];
-      for (j = 0; j < items.length; j += 1) {
-        var item = items[j] || {};
-        if (safeStr(item.id) === id) return item;
-      }
-    }
-    return null;
   }
 
   function friendlyOfferError(prefix, err) {
@@ -733,262 +648,6 @@
       return prefix + ": Missing MFL_COOKIE worker secret.";
     }
     return prefix + ": " + msg;
-  }
-
-  function offerAssetLabel(asset) {
-    asset = asset || {};
-    if (safeStr(asset.type).toUpperCase() === "PICK") {
-      return safeStr(asset.description || asset.pick_key || asset.asset_id || "Draft Pick");
-    }
-    var bits = [];
-    bits.push(safeStr(asset.player_name || asset.asset_id || "Player"));
-    if (safeStr(asset.position)) bits.push("(" + safeStr(asset.position) + ")");
-    if (safeStr(asset.salary)) bits.push(moneyFmt(asset.salary));
-    return bits.join(" ");
-  }
-
-  function summarizeOfferTeam(teamObj) {
-    teamObj = teamObj || {};
-    var selected = Array.isArray(teamObj.selected_assets) ? teamObj.selected_assets : [];
-    var players = 0;
-    var picks = 0;
-    var i;
-    for (i = 0; i < selected.length; i += 1) {
-      if (safeStr((selected[i] || {}).type).toUpperCase() === "PICK") picks += 1;
-      else players += 1;
-    }
-    return {
-      selected_assets: selected,
-      players: players,
-      picks: picks,
-      traded_salary_adjustment_k: safeInt(teamObj.traded_salary_adjustment_k, 0)
-    };
-  }
-
-  function offerPayloadTeamById(payload, franchiseId, fallbackIndex) {
-    var teams = Array.isArray((payload || {}).teams) ? payload.teams : [];
-    var paddedId = pad4(franchiseId);
-    var i;
-    if (paddedId) {
-      for (i = 0; i < teams.length; i += 1) {
-        if (pad4((teams[i] || {}).franchise_id) === paddedId) return teams[i];
-      }
-    }
-    if (fallbackIndex != null && teams[fallbackIndex]) return teams[fallbackIndex];
-    return null;
-  }
-
-  function offerTeamDetailHtml(title, teamObj, modifierClass) {
-    var summary = summarizeOfferTeam(teamObj || {});
-    var selected = summary.selected_assets;
-    var html = '<div class="twb-offer-detail-team ' + escapeHtml(modifierClass || "") + '">';
-    html += '<div class="twb-offer-detail-team-title">' + escapeHtml(title) + "</div>";
-    html += '<div class="twb-offer-detail-team-meta">';
-    html +=
-      "Players " +
-      escapeHtml(String(summary.players)) +
-      " · Picks " +
-      escapeHtml(String(summary.picks)) +
-      " · Salary Adj " +
-      escapeHtml(String(summary.traded_salary_adjustment_k)) +
-      "K";
-    html += "</div>";
-    if (!selected.length) {
-      html += '<div class="twb-summary-note">No assets selected.</div>';
-      html += "</div>";
-      return html;
-    }
-
-    var limit = 10;
-    html += '<ul class="twb-offer-detail-assets">';
-    var i;
-    for (i = 0; i < selected.length && i < limit; i += 1) {
-      html += "<li>" + escapeHtml(offerAssetLabel(selected[i])) + "</li>";
-    }
-    html += "</ul>";
-    if (selected.length > limit) {
-      html += '<div class="twb-offer-detail-overflow">+' + escapeHtml(String(selected.length - limit)) + " more assets</div>";
-    }
-    html += "</div>";
-    return html;
-  }
-
-  function offerDetailHtml(item, direction) {
-    var payload = (item || {}).payload || {};
-    var fromId = safeStr(item.from_franchise_id);
-    var toId = safeStr(item.to_franchise_id);
-    var fromTeam = offerPayloadTeamById(payload, fromId, 0) || {};
-    var toTeam = offerPayloadTeamById(payload, toId, 1) || {};
-    var summary = item.summary || {};
-
-    var sendTitle = "You Send";
-    var getTitle = "You Get";
-    var sendTeam = fromTeam;
-    var getTeam = toTeam;
-
-    if (direction === "incoming") {
-      sendTeam = toTeam;
-      getTeam = fromTeam;
-    } else if (direction !== "outgoing") {
-      sendTitle = "From Team";
-      getTitle = "To Team";
-    }
-
-    var html = '<div class="twb-offer-detail">';
-    html += '<div class="twb-offer-detail-grid">';
-    html += offerTeamDetailHtml(getTitle, getTeam, "twb-offer-detail-get");
-    html += offerTeamDetailHtml(sendTitle, sendTeam, "twb-offer-detail-send");
-    html += "</div>";
-
-    var extReqs = Array.isArray(payload.extension_requests) ? payload.extension_requests : [];
-    if (extReqs.length) {
-      var extNames = [];
-      var i;
-      for (i = 0; i < extReqs.length && i < 3; i += 1) {
-        extNames.push(safeStr((extReqs[i] || {}).player_name || "Player"));
-      }
-      var extLabel = extNames.join(", ");
-      if (extReqs.length > 3) extLabel += " +" + (extReqs.length - 3);
-      html += '<div class="twb-offer-detail-ext">Extensions: ' + escapeHtml(extLabel) + "</div>";
-    } else if (summary.extension_request_count != null && safeInt(summary.extension_request_count, 0) > 0) {
-      html += '<div class="twb-offer-detail-ext">Extensions: ' + escapeHtml(String(safeInt(summary.extension_request_count, 0))) + "</div>";
-    }
-    html += "</div>";
-    return html;
-  }
-
-  function findPlayerAssetById(teamId, playerId) {
-    var digits = safeStr(playerId).replace(/\D/g, "");
-    if (!digits) return null;
-    var team = getTeamById(teamId);
-    var assets = team && Array.isArray(team.assets) ? team.assets : [];
-    var i;
-    for (i = 0; i < assets.length; i += 1) {
-      var a = assets[i] || {};
-      if (safeStr(a.player_id) === digits) return a;
-    }
-    return null;
-  }
-
-  function resolveOfferAssetToTeamAssetId(teamId, offerAsset) {
-    var team = getTeamById(teamId);
-    var assets = team && Array.isArray(team.assets) ? team.assets : [];
-    if (!assets.length) return "";
-
-    var type = safeStr((offerAsset || {}).type).toUpperCase();
-    var desiredAssetId = safeStr((offerAsset || {}).asset_id);
-    var desiredPlayerId = safeStr((offerAsset || {}).player_id).replace(/\D/g, "");
-    var desiredDescription = safeStr((offerAsset || {}).description).toLowerCase();
-    var i;
-    for (i = 0; i < assets.length; i += 1) {
-      var candidate = assets[i] || {};
-      if (!isTradeEligibleAsset(candidate)) continue;
-      if (desiredAssetId && safeStr(candidate.asset_id) === desiredAssetId) return safeStr(candidate.asset_id);
-      if (type === "PLAYER" && desiredPlayerId && safeStr(candidate.player_id) === desiredPlayerId) return safeStr(candidate.asset_id);
-      if (type === "PICK" && desiredDescription && safeStr(candidate.description).toLowerCase() === desiredDescription) {
-        return safeStr(candidate.asset_id);
-      }
-    }
-    return "";
-  }
-
-  function applyOfferPayloadToWorkbench(payload) {
-    var teams = Array.isArray((payload || {}).teams) ? payload.teams : [];
-    var i;
-    for (i = 0; i < teams.length; i += 1) {
-      var teamObj = teams[i] || {};
-      var teamId = pad4(teamObj.franchise_id);
-      if (!teamId || !getTeamById(teamId)) continue;
-      ensureSelectionMaps(teamId);
-      var selected = Array.isArray(teamObj.selected_assets) ? teamObj.selected_assets : [];
-      var j;
-      for (j = 0; j < selected.length; j += 1) {
-        var resolvedAssetId = resolveOfferAssetToTeamAssetId(teamId, selected[j]);
-        if (resolvedAssetId) state.selections[teamId][resolvedAssetId] = true;
-      }
-      var tradeK = safeInt(teamObj.traded_salary_adjustment_k, 0);
-      state.tradeSalaryK[teamId] = tradeK > 0 ? String(tradeK) : "";
-    }
-
-    var extensionRequests = Array.isArray((payload || {}).extension_requests) ? payload.extension_requests : [];
-    for (i = 0; i < extensionRequests.length; i += 1) {
-      var req = extensionRequests[i] || {};
-      var fromTeamId = pad4(req.from_franchise_id);
-      if (!fromTeamId) continue;
-      ensureSelectionMaps(fromTeamId);
-      var playerAsset = findPlayerAssetById(fromTeamId, req.player_id);
-      if (!playerAsset || !isTradeEligibleAsset(playerAsset)) continue;
-      state.selections[fromTeamId][playerAsset.asset_id] = true;
-      state.extensions[fromTeamId][playerAsset.asset_id] = {
-        enabled: true,
-        option_key: safeStr(req.option_key)
-      };
-    }
-  }
-
-  function loadCounterDraftFromOffer(meta) {
-    meta = meta || {};
-    var offer = findOfferById(meta.offerId);
-    if (!offer) {
-      setSubmitStatus("Offer details are not available. Refresh inbox and try counter again.", "bad");
-      return false;
-    }
-    var counterFromId = pad4(meta.offerToId || offer.to_franchise_id);
-    var counterToId = pad4(meta.offerFromId || offer.from_franchise_id);
-    if (!counterFromId || !counterToId || counterFromId === counterToId) {
-      setSubmitStatus("Counter setup failed: invalid from/to teams.", "bad");
-      return false;
-    }
-    if (!getTeamById(counterFromId) || !getTeamById(counterToId)) {
-      setSubmitStatus("Counter setup failed: one or both teams are missing from this workbench dataset.", "bad");
-      return false;
-    }
-
-    resetTrade();
-    resetFilterState();
-    state.leftTeamId = counterFromId;
-    state.rightTeamId = counterToId;
-    initTeamSelectors();
-    applyOfferPayloadToWorkbench(offer.payload || {});
-    clampTradeSalaryForTeam(counterFromId);
-    clampTradeSalaryForTeam(counterToId);
-
-    state.counterDraft = {
-      active: true,
-      offerId: safeStr(offer.id),
-      fromFranchiseId: counterFromId,
-      toFranchiseId: counterToId,
-      fromFranchiseName: safeStr(meta.offerToName || offer.to_franchise_name || counterFromId),
-      toFranchiseName: safeStr(meta.offerFromName || offer.from_franchise_name || counterToId),
-      loadedAt: new Date().toISOString()
-    };
-
-    state.mobileTab = "review";
-    setSubmitStatus("Counter draft loaded. Adjust assets/salary, then click Submit Counter.", "good");
-    return true;
-  }
-
-  function renderCounterDraftBanner() {
-    if (!els.counterModeBanner) return;
-    if (isDirectMflMode() || !hasActiveCounterDraft()) {
-      els.counterModeBanner.hidden = true;
-      els.counterModeBanner.innerHTML = "";
-      return;
-    }
-    var fromName = safeStr(state.counterDraft.fromFranchiseName || state.counterDraft.fromFranchiseId || "Your team");
-    var toName = safeStr(state.counterDraft.toFranchiseName || state.counterDraft.toFranchiseId || "Partner");
-    var shortId = safeStr(state.counterDraft.offerId).replace(/^TWB-/, "");
-    if (shortId.length > 8) shortId = shortId.slice(0, 8);
-    els.counterModeBanner.hidden = false;
-    els.counterModeBanner.innerHTML =
-      '<div class="twb-counter-mode-head">' +
-      '<span class="twb-counter-mode-title">Counter Mode Active</span>' +
-      '<button type="button" class="twb-link-btn twb-counter-mode-cancel" data-action="cancel-counter-mode">Cancel</button>' +
-      "</div>" +
-      '<div class="twb-counter-mode-copy">' +
-      "Countering offer " + escapeHtml(shortId || safeStr(state.counterDraft.offerId)) + ": " +
-      escapeHtml(fromName) + " → " + escapeHtml(toName) +
-      "</div>";
   }
 
   function extensionYearsText(termRaw) {
@@ -1020,222 +679,6 @@
     var user = safeStr(userMessage);
     if (user) parts.push('User comments "' + user + '"');
     return parts.join(" | ");
-  }
-
-  function renderOffersSections(payload) {
-    if (!els.offersList || !els.offersCounts || !els.submitOfferBtn || !els.submitOfferStatus) return;
-    var directMfl = isDirectMflMode();
-    ensureCounterTeamsStillMatch();
-    var counterMode = !directMfl && hasActiveCounterDraft();
-
-    var isReady = !!(payload && payload.validation && payload.validation.status === "ready");
-    els.submitOfferBtn.disabled = !!state.submit.busy || !isReady;
-    if (state.submit.busy) {
-      els.submitOfferBtn.textContent = "Submitting…";
-    } else if (counterMode) {
-      els.submitOfferBtn.textContent = "Submit Counter";
-    } else {
-      els.submitOfferBtn.textContent = directMfl ? "Submit to MFL" : "Submit Offer";
-    }
-
-    els.submitOfferStatus.textContent = state.submit.message || "No offer submitted yet.";
-    els.submitOfferStatus.className = "twb-summary-note";
-    if (state.submit.tone) {
-      els.submitOfferStatus.className += " twb-submit-status-" + state.submit.tone;
-    }
-    renderCounterDraftBanner();
-
-    if (state.offers.loading) {
-      els.offersCounts.textContent = "Loading…";
-      els.offersCounts.className = "twb-status-pill twb-status-pill-muted";
-      els.offersList.innerHTML = '<div class="twb-summary-note">Loading offers…</div>';
-      return;
-    }
-    if (state.offers.error) {
-      els.offersCounts.textContent = "Inbox Error";
-      els.offersCounts.className = "twb-status-pill twb-status-pill-muted";
-      els.offersList.innerHTML = '<div class="twb-error-state">' + escapeHtml(state.offers.error) + '</div>';
-      return;
-    }
-
-    if (directMfl) {
-      els.offersCounts.textContent = "Direct MFL";
-      els.offersCounts.className = "twb-status-pill twb-status-pill-muted";
-      els.offersList.innerHTML =
-        '<div class="twb-summary-note">Offers submit directly to MFL. Inbox/actions here are disabled in direct mode.</div>';
-      return;
-    }
-
-    var counts = state.offers.counts || {};
-    var incomingPending = safeInt(counts.incoming_pending, 0);
-    els.offersCounts.textContent = counterMode ? "Counter Loaded" : ("Incoming " + incomingPending);
-    els.offersCounts.className = "twb-status-pill twb-status-pill-muted" + (counterMode ? " twb-status-pill-counter" : "");
-
-    function sectionHtml(title, items, emptyText, direction) {
-      var pendingCount = 0;
-      var i;
-      if (Array.isArray(items)) {
-        for (i = 0; i < items.length; i += 1) {
-          if (safeStr((items[i] || {}).status).toLowerCase() === "pending") pendingCount += 1;
-        }
-      }
-      var html = '<section class="twb-offers-section twb-offers-section-' + escapeHtml(direction || "all") + '">';
-      html += '<h3 class="twb-offers-section-title">' + escapeHtml(title);
-      html += '<span class="twb-offers-section-count">' + escapeHtml(String(Array.isArray(items) ? items.length : 0)) + "</span>";
-      html += "</h3>";
-      if (pendingCount) {
-        html += '<div class="twb-offers-section-note">' + escapeHtml(String(pendingCount)) + " pending action</div>";
-      }
-      if (!items || !items.length) {
-        html += '<div class="twb-summary-note">' + escapeHtml(emptyText) + "</div></section>";
-        return html;
-      }
-      html += '<div class="twb-offers-items">';
-      var busyOfferId = safeStr(state.offers.actionOfferId);
-      var busyActionType = safeStr(state.offers.actionType).toLowerCase();
-      for (i = 0; i < items.length; i += 1) {
-        var item = items[i] || {};
-        var status = safeStr(item.status || "PENDING").toLowerCase();
-        var summary = item.summary || {};
-        var itemId = safeStr(item.id);
-        var isBusyForThis = !!(state.offers.actionBusy && busyOfferId && busyOfferId === itemId);
-        var acceptBusy = isBusyForThis && busyActionType === "accept";
-        var rejectBusy = isBusyForThis && busyActionType === "reject";
-        var disableAttr = state.offers.actionBusy ? ' disabled aria-disabled="true"' : "";
-        var titleLine =
-          escapeHtml(safeStr(item.from_franchise_name || item.from_franchise_id)) +
-          " → " +
-          escapeHtml(safeStr(item.to_franchise_name || item.to_franchise_id));
-        var meta =
-          escapeHtml(isoToLocalShort(item.created_at)) +
-          " · Assets " +
-          escapeHtml(String(safeInt(summary.from_asset_count, 0))) +
-          "/" +
-          escapeHtml(String(safeInt(summary.to_asset_count, 0))) +
-          (summary.extension_request_count != null
-            ? " · Ext " + escapeHtml(String(safeInt(summary.extension_request_count, 0)))
-            : "");
-
-        var cardClass = "twb-offer-item twb-offer-item-" + escapeHtml(status);
-        if (direction === "incoming" && status === "pending") cardClass += " twb-offer-item-priority";
-        html += '<div class="' + cardClass + '">';
-        html += '<div class="twb-offer-item-head">';
-        html += '<div><div class="twb-offer-item-title">' + titleLine + "</div>";
-        html += '<div class="twb-offer-item-meta">' + meta + "</div></div>";
-        html += '<div class="twb-offer-status ' + escapeHtml(status) + '">' + escapeHtml(status) + "</div>";
-        html += "</div>";
-        if (safeStr(item.message)) {
-          html += '<div class="twb-offer-item-message">' + escapeHtml(item.message) + "</div>";
-        }
-        html += offerDetailHtml(item, direction);
-        if (safeStr(item.action_message)) {
-          html += '<div class="twb-offer-item-message"><strong>Action:</strong> ' + escapeHtml(item.action_message) + "</div>";
-        }
-        var isIncomingPending = direction === "incoming" && status === "pending";
-        if (isIncomingPending) {
-          html += '<div class="twb-offer-actions">';
-          html +=
-            '<button type="button" class="twb-btn twb-btn-ghost twb-offer-action-btn twb-offer-action-accept" data-action="offer-action" data-offer-action="ACCEPT" data-offer-id="' +
-            escapeHtml(itemId) +
-            '" data-offer-from-id="' +
-            escapeHtml(safeStr(item.from_franchise_id)) +
-            '" data-offer-to-id="' +
-            escapeHtml(safeStr(item.to_franchise_id)) +
-            '" data-offer-from-name="' +
-            escapeHtml(safeStr(item.from_franchise_name || item.from_franchise_id)) +
-            '" data-offer-to-name="' +
-            escapeHtml(safeStr(item.to_franchise_name || item.to_franchise_id)) +
-            '"' +
-            disableAttr +
-            ">" +
-            escapeHtml(acceptBusy ? "Accepting…" : "Accept") +
-            "</button>";
-          html +=
-            '<button type="button" class="twb-btn twb-btn-ghost twb-offer-action-btn twb-offer-action-reject" data-action="offer-action" data-offer-action="REJECT" data-offer-id="' +
-            escapeHtml(itemId) +
-            '" data-offer-from-id="' +
-            escapeHtml(safeStr(item.from_franchise_id)) +
-            '" data-offer-to-id="' +
-            escapeHtml(safeStr(item.to_franchise_id)) +
-            '"' +
-            disableAttr +
-            ">" +
-            escapeHtml(rejectBusy ? "Rejecting…" : "Reject") +
-            "</button>";
-          html +=
-            '<button type="button" class="twb-btn twb-btn-ghost twb-offer-action-btn twb-offer-action-counter" data-action="offer-action" data-offer-action="COUNTER" data-offer-id="' +
-            escapeHtml(itemId) +
-            '" data-offer-from-id="' +
-            escapeHtml(safeStr(item.from_franchise_id)) +
-            '" data-offer-to-id="' +
-            escapeHtml(safeStr(item.to_franchise_id)) +
-            '" data-offer-from-name="' +
-            escapeHtml(safeStr(item.from_franchise_name || item.from_franchise_id)) +
-            '" data-offer-to-name="' +
-            escapeHtml(safeStr(item.to_franchise_name || item.to_franchise_id)) +
-            '"' +
-            disableAttr +
-            ">" +
-            "Build Counter" +
-            "</button>";
-          html += "</div>";
-          html += '<div class="twb-offer-action-note">Build Counter loads teams/assets from this offer into the workbench so you can edit and submit a counter.</div>';
-        } else if (status === "countered" && safeStr(item.counter_offer_id)) {
-          html += '<div class="twb-offer-action-note">Countered by ' + escapeHtml(safeStr(item.counter_offer_id)) + ".</div>";
-        }
-        html += "</div>";
-      }
-      html += "</div></section>";
-      return html;
-    }
-
-    els.offersList.innerHTML =
-      sectionHtml("Incoming", state.offers.incoming, "No incoming offers for the selected team.", "incoming");
-  }
-
-  async function refreshOfferInbox() {
-    if (!state.data || !state.leftTeamId || !els.offersList) return;
-    if (isDirectMflMode()) {
-      state.offers.loading = false;
-      state.offers.error = "";
-      state.offers.incoming = [];
-      state.offers.outgoing = [];
-      state.offers.counts = { incoming_pending: 0, outgoing_pending: 0 };
-      renderOffersSections(buildTradePayload());
-      scheduleParentHeightPost();
-      return;
-    }
-    state.offers.loading = true;
-    state.offers.error = "";
-    renderOffersSections(buildTradePayload());
-
-    try {
-      var apiUrl = new URL(resolveTradeOffersApiUrl(), window.location.href);
-      apiUrl.searchParams.set("L", safeStr(state.data.meta.league_id));
-      apiUrl.searchParams.set("YEAR", String(state.data.meta.season || ""));
-      apiUrl.searchParams.set("FRANCHISE_ID", safeStr(state.leftTeamId));
-      apiUrl.searchParams.set("include_payload", "1");
-      apiUrl.searchParams.set("limit", "12");
-
-      var data = await fetchJsonRequest(apiUrl.toString(), { cache: "no-store" });
-      state.offers.loading = false;
-      state.offers.error = "";
-      state.offers.incoming = Array.isArray(data.incoming) ? data.incoming : [];
-      state.offers.outgoing = [];
-      state.offers.counts = {
-        incoming_pending: safeInt((data.counts || {}).incoming_pending, 0),
-        outgoing_pending: 0
-      };
-      state.offers.lastLoadedAt = new Date().toISOString();
-    } catch (err) {
-      state.offers.loading = false;
-      state.offers.error = err && err.message ? err.message : String(err);
-      state.offers.incoming = [];
-      state.offers.outgoing = [];
-      state.offers.counts = null;
-    }
-    renderOffersSections(buildTradePayload());
-    scheduleParentHeightPost();
   }
 
   async function submitOfferToQueue() {
@@ -1299,77 +742,6 @@
     }
   }
 
-  async function performOfferAction(actionType, meta) {
-    actionType = safeStr(actionType).toUpperCase();
-    meta = meta || {};
-    if (!actionType || !meta.offerId) return;
-    if (actionType === "COUNTER") {
-      if (loadCounterDraftFromOffer(meta)) {
-        rerender();
-        if (els.board && els.board.scrollIntoView) {
-          try {
-            els.board.scrollIntoView({ behavior: "smooth", block: "start" });
-          } catch (e) {
-            els.board.scrollIntoView(true);
-          }
-        }
-      }
-      return;
-    }
-    if (state.offers.actionBusy) return;
-    if (!state.data || !state.leftTeamId) return;
-
-    var leagueId = safeStr((state.data.meta || {}).league_id);
-    var season = state.data.meta ? state.data.meta.season : null;
-    var actingTeam = getTeamById(state.leftTeamId);
-    if (!actingTeam) {
-      setSubmitStatus("Select your team before acting on an offer.", "warn");
-      renderOffersSections(buildTradePayload());
-      return;
-    }
-
-    var body = {
-      league_id: leagueId,
-      season: season,
-      offer_id: safeStr(meta.offerId),
-      action: actionType,
-      acting_franchise_id: safeStr(state.leftTeamId)
-    };
-
-    var messageText = els.offerMessageInput ? safeStr(els.offerMessageInput.value).slice(0, 2000) : "";
-    if (messageText) body.message = messageText;
-
-    setOfferActionBusy(true, meta.offerId, actionType);
-    setSubmitStatus(
-      actionType === "ACCEPT" ? "Accepting offer in UPS custom queue…" : "Rejecting offer in UPS custom queue…",
-      ""
-    );
-    renderOffersSections(buildTradePayload());
-
-    try {
-      var res = await fetchJsonRequest(resolveTradeOffersActionApiUrl(), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body)
-      });
-      if (actionType === "ACCEPT") {
-        setSubmitStatus("Offer accepted in UPS custom queue. MFL processing is still a separate integration step.", "good");
-      } else {
-        setSubmitStatus("Offer rejected in UPS custom queue.", "good");
-      }
-      if (hasActiveCounterDraft() && safeStr(state.counterDraft.offerId) === safeStr(meta.offerId)) {
-        clearCounterDraft();
-      }
-      if (els.offerMessageInput) els.offerMessageInput.value = "";
-      await refreshOfferInbox();
-    } catch (err) {
-      setSubmitStatus(friendlyOfferError(actionType + " failed", err), "bad");
-      renderOffersSections(buildTradePayload());
-    } finally {
-      setOfferActionBusy(false, "", "");
-      renderOffersSections(buildTradePayload());
-    }
-  }
 
   function getTeamById(teamId) {
     var teams = (state.data && state.data.teams) || [];
@@ -1604,22 +976,6 @@
       out.push({ key: gk, label: gk === "PICKS" ? "Draft Picks" : gk, assets: groups[gk] });
     }
     return out;
-  }
-
-  function deriveTeamStats(team) {
-    var assets = (team && team.assets) || [];
-    var players = 0;
-    var picks = 0;
-    var extEligible = 0;
-    var i;
-    for (i = 0; i < assets.length; i += 1) {
-      if (assets[i].type === "PICK") picks += 1;
-      else {
-        players += 1;
-        if (assets[i].extension_eligible) extEligible += 1;
-      }
-    }
-    return { players: players, picks: picks, extEligible: extEligible };
   }
 
   function optionEl(value, label) {
@@ -1871,13 +1227,6 @@
     return panel;
   }
 
-  function renderMiniStat(label, value) {
-    var div = document.createElement("div");
-    div.className = "twb-mini-stat";
-    div.innerHTML = '<span class="twb-mini-stat-label">' + escapeHtml(label) + '</span><span class="twb-mini-stat-value">' + escapeHtml(String(value)) + '</span>';
-    return div;
-  }
-
   function renderTeamPanel(team, side) {
     ensureSelectionMaps(team.franchise_id);
     clampTradeSalaryForTeam(team.franchise_id);
@@ -1893,7 +1242,6 @@
     var logo = node.querySelector(".twb-team-logo");
     var logoFallback = node.querySelector(".twb-team-logo-fallback");
     var logoShell = node.querySelector(".twb-team-logo-shell");
-    var statsWrap = node.querySelector(".twb-team-stats");
     var groupsWrap = node.querySelector(".twb-team-groups");
     var salaryInput = node.querySelector(".twb-trade-salary-input");
     var salaryMaxValue = node.querySelector(".twb-trade-salary-max-value");
@@ -1924,11 +1272,6 @@
       logo.hidden = true;
       if (logoShell) logoShell.classList.add("twb-team-logo-missing");
     }
-
-    var teamStats = deriveTeamStats(team);
-    statsWrap.appendChild(renderMiniStat("◦", teamStats.players));
-    statsWrap.appendChild(renderMiniStat("◆", teamStats.picks));
-    statsWrap.appendChild(renderMiniStat("✦", teamStats.extEligible));
 
     salaryInput.value = safeStr(state.tradeSalaryK[team.franchise_id]);
     salaryInput.setAttribute("data-action", "set-trade-salary");
@@ -1983,28 +1326,10 @@
     var hasStoredCollapsedState = Object.prototype.hasOwnProperty.call(state.collapsed[teamId], group.key);
     details.open = hasStoredCollapsedState ? !state.collapsed[teamId][group.key] : false;
 
-    details.querySelector(".twb-group-label").textContent = group.label;
-
-    var selectedMap = state.selections[teamId] || {};
-    var selectedCount = 0;
-    var extCount = 0;
-    var i;
-    for (i = 0; i < group.assets.length; i += 1) {
-      var asset = group.assets[i];
-      if (selectedMap[asset.asset_id]) {
-        selectedCount += 1;
-        if (state.extensions[teamId] && state.extensions[teamId][asset.asset_id] && state.extensions[teamId][asset.asset_id].enabled) {
-          extCount += 1;
-        }
-      }
-    }
-
-    var badgeText = "◦ " + group.assets.length;
-    if (selectedCount) badgeText += " · ✓ " + selectedCount;
-    if (extCount) badgeText += " · ✦ " + extCount;
-    details.querySelector(".twb-group-badges").textContent = badgeText;
+    details.querySelector(".twb-group-label").textContent = group.label + " (" + group.assets.length + ")";
 
     var tbody = details.querySelector("tbody");
+    var i;
     for (i = 0; i < group.assets.length; i += 1) {
       tbody.appendChild(renderAssetRow(team, group.assets[i]));
     }
@@ -2152,12 +1477,11 @@
     var subText = "";
     if (asset.type === "PLAYER") {
       var pieces = [];
-      if (asset.contract_type) pieces.push(asset.contract_type);
       if (asset.injury) pieces.push(asset.injury);
       if (asset.notes) pieces.push(asset.notes);
       subText = pieces.join(" · ");
     } else {
-      subText = asset.contract_info || "Tradeable draft asset";
+      subText = "";
     }
     if (subText) {
       var sub = document.createElement("div");
@@ -2190,8 +1514,8 @@
 
     var tdContract = document.createElement("td");
     tdContract.className = "twb-col-contract";
-    tdContract.setAttribute("data-label", "Contract Info");
-    tdContract.innerHTML = '<div class="twb-contract-info">' + escapeHtml(asset.contract_info || (asset.type === "PICK" ? "Draft pick" : "")) + '</div>';
+    tdContract.setAttribute("data-label", "Type");
+    tdContract.innerHTML = '<div class="twb-contract-info">' + escapeHtml(asset.type === "PICK" ? "Pick" : (asset.contract_type || "—")) + '</div>';
     tr.appendChild(tdContract);
 
     return tr;
@@ -2539,9 +1863,9 @@
     var contract = document.createElement("div");
     contract.className = "twb-offer-player-grid";
     contract.appendChild(offerPlayerMetric("Current Salary", formatDollarsAsKLabel(asset.salary)));
+    contract.appendChild(offerPlayerMetric("Current AAV", asset.aav_current == null ? "—" : formatDollarsAsKLabel(asset.aav_current)));
     contract.appendChild(offerPlayerMetric("Years Remaining", asset.years == null ? "—" : String(asset.years)));
     contract.appendChild(offerPlayerMetric("Contract Type", safeStr(asset.contract_type) || "—"));
-    contract.appendChild(offerPlayerMetric("Contract Info", safeStr(asset.contract_info) || "—"));
     item.appendChild(contract);
 
     if (asset.taxi) {
@@ -2555,7 +1879,10 @@
     if (option) {
       var ext = document.createElement("div");
       ext.className = "twb-offer-extension";
-      ext.appendChild(offerPlayerMetric("Extension Type", extensionTypeLabel(option.extension_term)));
+      var extTitle = document.createElement("div");
+      extTitle.className = "twb-offer-extension-title";
+      extTitle.textContent = extensionTypeLabel(option.extension_term);
+      ext.appendChild(extTitle);
       if (option.new_aav_future != null) {
         ext.appendChild(offerPlayerMetric("New AAV", formatDollarsAsKLabel(option.new_aav_future)));
       }
@@ -2606,7 +1933,7 @@
 
     var meta = document.createElement("div");
     meta.className = "twb-offer-cart-item-meta";
-    meta.textContent = safeStr(asset.contract_info || "Pick");
+    meta.textContent = "Draft Pick";
     item.appendChild(meta);
     return item;
   }
@@ -2633,20 +1960,6 @@
     }
   }
 
-  function cartStat(icon, value) {
-    var card = document.createElement("div");
-    card.className = "twb-offer-cart-stat";
-    var l = document.createElement("span");
-    l.className = "twb-offer-cart-stat-icon";
-    l.textContent = icon;
-    var v = document.createElement("div");
-    v.className = "twb-offer-cart-stat-value";
-    v.textContent = value;
-    card.appendChild(l);
-    card.appendChild(v);
-    return card;
-  }
-
   function renderOfferCart(payload) {
     if (!els.offerCart) return;
     var leftTeam = getTeamById(state.leftTeamId);
@@ -2656,22 +1969,6 @@
 
     renderOfferCartSide(state.leftTeamId, els.offerCartLeftList);
     renderOfferCartSide(state.rightTeamId, els.offerCartRightList);
-
-    if (els.offerCartStats) {
-      els.offerCartStats.innerHTML = "";
-      var leftTotals = getTeamTotals(state.leftTeamId);
-      var rightTotals = getTeamTotals(state.rightTeamId);
-      var leftMaxK = getTradeSalaryMaxK(state.leftTeamId);
-      var rightMaxK = getTradeSalaryMaxK(state.rightTeamId);
-      var leftEnteredK = safeInt(state.tradeSalaryK[state.leftTeamId], 0);
-      var rightEnteredK = safeInt(state.tradeSalaryK[state.rightTeamId], 0);
-      var extCount = safeInt((payload && payload.extension_requests ? payload.extension_requests.length : 0), 0);
-      els.offerCartStats.appendChild(cartStat("◦", String(leftTotals.selectedPlayers + rightTotals.selectedPlayers)));
-      els.offerCartStats.appendChild(cartStat("◆", String(leftTotals.selectedPicks + rightTotals.selectedPicks)));
-      els.offerCartStats.appendChild(cartStat("↔", leftEnteredK + "K / " + rightEnteredK + "K"));
-      els.offerCartStats.appendChild(cartStat("⌂", leftMaxK + "K / " + rightMaxK + "K"));
-      els.offerCartStats.appendChild(cartStat("✦", String(extCount)));
-    }
 
     if (els.offerCartStatus) {
       els.offerCartStatus.textContent = payload.validation.status === "ready" ? "Ready" : "Draft";
@@ -3249,7 +2546,6 @@
     els.offerCartRightList = q("twbOfferCartRightList");
     els.offerCartLeftTitle = q("twbOfferCartLeftTitle");
     els.offerCartRightTitle = q("twbOfferCartRightTitle");
-    els.offerCartStats = q("twbOfferCartStats");
     els.offerCartStatus = q("twbOfferCartStatus");
     els.offerAlerts = q("twbOfferAlerts");
     els.offerSalaryPanel = q("twbOfferSalaryPanel");

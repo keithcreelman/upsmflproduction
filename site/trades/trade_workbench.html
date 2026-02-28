@@ -47,7 +47,7 @@
           <div class="twb-field-grid twb-field-grid-3">
             <label class="twb-field twb-field-grow">
               <span>Search</span>
-              <input id="twbSearchInput" type="search" placeholder="Player, team, pick, contract info">
+              <input id="twbSearchInput" type="search" placeholder="Player, team, pick">
             </label>
             <label class="twb-field">
               <span>Min Years</span>
@@ -88,7 +88,7 @@
 
       <section id="twbOfferCart" class="twb-card twb-offer-cart-card" aria-label="Current trade offer">
         <div class="twb-card-head-inline">
-          <h2>Offer Cart</h2>
+          <h2>Offer Review</h2>
           <div class="twb-status-pill twb-status-pill-muted" id="twbOfferCartStatus">Draft</div>
         </div>
         <div class="twb-offer-cart-grid">
@@ -107,7 +107,6 @@
             <div id="twbOfferCartRightList" class="twb-offer-cart-list"></div>
           </section>
         </div>
-        <div id="twbOfferCartStats" class="twb-offer-cart-stats"></div>
         <div id="twbOfferAlerts" class="twb-offer-alerts" aria-live="polite"></div>
 
         <section id="twbOfferSalaryPanel" class="twb-offer-salary-panel twb-card twb-card-tight" aria-label="Salary reconciliation">
@@ -173,7 +172,6 @@
             <div class="twb-team-meta"></div>
           </div>
         </div>
-        <div class="twb-team-stats"></div>
       </header>
 
       <div class="twb-trade-salary-box">
@@ -201,7 +199,6 @@
     <details class="twb-group">
       <summary class="twb-group-summary">
         <span class="twb-group-label"></span>
-        <span class="twb-group-badges"></span>
       </summary>
       <div class="twb-group-body">
         <div class="twb-table-wrap">
@@ -213,7 +210,7 @@
                 <th class="twb-col-player">Player / Asset</th>
                 <th class="twb-col-salary">Salary</th>
                 <th class="twb-col-years">Years</th>
-                <th class="twb-col-contract">Contract Info</th>
+                <th class="twb-col-contract">Type</th>
               </tr>
             </thead>
             <tbody></tbody>

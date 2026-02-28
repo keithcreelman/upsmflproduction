@@ -412,20 +412,27 @@ summary:focus-visible {
 
 .twb-offer-cart-card {
   padding: 1.1rem;
-  border-color: rgba(244, 195, 105, 0.34);
-  background:
-    linear-gradient(170deg, rgba(24, 27, 44, 0.96), rgba(12, 16, 30, 0.96)),
-    radial-gradient(circle at 82% 8%, rgba(244, 195, 105, 0.12), transparent 55%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 223, 160, 0.08),
-    0 18px 34px rgba(0, 0, 0, 0.32);
+  border-color: #d4dde8;
+  background: #ffffff;
+  color: #0f172a;
+  box-shadow: 0 14px 28px rgba(2, 6, 23, 0.16);
 }
 
 .twb-offer-cart-card h2 {
   font-size: 1.2rem;
-  color: #ffe2a8;
+  color: #0f172a;
   text-transform: none;
   letter-spacing: 0.01em;
+}
+
+.twb-offer-cart-card .twb-link-btn {
+  color: #1d4ed8;
+}
+
+.twb-offer-cart-card .twb-status-pill {
+  background: #e2e8f0;
+  border-color: #cbd5e1;
+  color: #1e293b;
 }
 
 .twb-offer-cart-grid {
@@ -435,9 +442,9 @@ summary:focus-visible {
 }
 
 .twb-offer-cart-side {
-  border: 1px solid rgba(127, 163, 209, 0.26);
+  border: 1px solid #d7e0ea;
   border-radius: 14px;
-  background: rgba(8, 14, 27, 0.72);
+  background: #f8fafc;
   padding: 0.65rem;
 }
 
@@ -452,7 +459,7 @@ summary:focus-visible {
 .twb-offer-cart-side-head h3 {
   margin: 0;
   font-size: 1rem;
-  color: #dcecff;
+  color: #0f172a;
 }
 
 .twb-offer-cart-list {
@@ -464,9 +471,9 @@ summary:focus-visible {
 }
 
 .twb-offer-cart-item {
-  border: 1px solid rgba(118, 153, 199, 0.2);
+  border: 1px solid #d7e0ea;
   border-radius: 12px;
-  background: rgba(9, 16, 31, 0.8);
+  background: #ffffff;
   padding: 0.62rem 0.66rem;
   display: grid;
   gap: 0.45rem;
@@ -486,21 +493,21 @@ summary:focus-visible {
 .twb-offer-cart-item-name {
   font-size: 1.02rem;
   font-weight: 800;
-  color: var(--twb-text);
+  color: #0f172a;
   min-width: 0;
   word-break: break-word;
 }
 
 .twb-offer-cart-item-meta {
-  color: var(--twb-text-soft);
+  color: #334155;
   font-size: 0.86rem;
   line-height: 1.25;
 }
 
 .twb-offer-cart-item-remove {
-  border: 1px solid rgba(255, 141, 141, 0.42);
-  background: rgba(255, 141, 141, 0.15);
-  color: #ffe2e2;
+  border: 1px solid #f0b4b4;
+  background: #fff5f5;
+  color: #7f1d1d;
   border-radius: 10px;
   min-height: 2rem;
   padding: 0.28rem 0.6rem;
@@ -522,7 +529,7 @@ summary:focus-visible {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 0.6rem;
-  border-bottom: 1px solid rgba(121, 153, 195, 0.14);
+  border-bottom: 1px solid #e2e8f0;
   padding-bottom: 0.26rem;
 }
 
@@ -532,77 +539,52 @@ summary:focus-visible {
 }
 
 .twb-offer-player-metric-label {
-  color: var(--twb-text-soft);
+  color: #475569;
   font-size: 0.74rem;
   font-weight: 700;
   letter-spacing: 0.02em;
 }
 
 .twb-offer-player-metric-value {
-  color: #f0f6ff;
+  color: #0f172a;
   font-size: 0.86rem;
   font-weight: 800;
   text-align: right;
 }
 
 .twb-offer-player-note {
-  color: #ffd98d;
+  color: #92400e;
   font-size: 0.75rem;
   font-weight: 800;
 }
 
 .twb-offer-extension {
-  border: 1px solid rgba(244, 195, 105, 0.34);
+  border: 1px solid #f5ddb0;
   border-radius: 10px;
-  background: rgba(50, 38, 15, 0.48);
+  background: #fff7e6;
   padding: 0.48rem 0.52rem;
   display: grid;
   gap: 0.34rem;
 }
 
+.twb-offer-extension-title {
+  font-size: 0.88rem;
+  font-weight: 900;
+  color: #9a3412;
+}
+
 .twb-offer-cart-item-pick {
-  background: rgba(15, 28, 50, 0.74);
-  border-color: rgba(120, 176, 255, 0.3);
+  background: #f2f7ff;
+  border-color: #bfd6ff;
 }
 
 .twb-offer-cart-empty {
-  border: 1px dashed rgba(127, 163, 209, 0.26);
+  border: 1px dashed #d1d9e5;
   border-radius: 10px;
   padding: 1rem 0.9rem;
-  color: var(--twb-text-soft);
+  color: #64748b;
   font-size: 0.84rem;
-  background: rgba(8, 14, 27, 0.5);
-}
-
-.twb-offer-cart-stats {
-  margin-top: 0.72rem;
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 0.5rem;
-}
-
-.twb-offer-cart-stat {
-  border: 1px solid rgba(127, 163, 209, 0.24);
-  border-radius: 12px;
-  background: rgba(7, 13, 26, 0.68);
-  padding: 0.5rem 0.55rem;
-  display: grid;
-  grid-template-columns: auto 1fr;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.twb-offer-cart-stat-icon {
-  color: #ffe4af;
-  font-size: 0.86rem;
-  font-weight: 900;
-}
-
-.twb-offer-cart-stat-value {
-  color: #edf5ff;
-  font-size: 0.92rem;
-  font-weight: 900;
-  letter-spacing: 0.01em;
+  background: #f8fafc;
 }
 
 .twb-offer-alerts {
@@ -613,30 +595,34 @@ summary:focus-visible {
 
 .twb-offer-alert {
   border-radius: 12px;
-  border: 1px solid rgba(244, 195, 105, 0.28);
-  background: rgba(244, 195, 105, 0.13);
-  color: #ffe6b6;
+  border: 1px solid #fde68a;
+  background: #fffbeb;
+  color: #854d0e;
   padding: 0.72rem 0.86rem;
-  font-size: 0.95rem;
-  font-weight: 800;
+  font-size: 0.92rem;
+  font-weight: 700;
 }
 
 .twb-offer-alert-bad {
-  border-color: rgba(255, 99, 99, 0.62);
-  background: rgba(150, 24, 24, 0.54);
-  color: #ffe2e2;
-  font-size: 1.03rem;
-  letter-spacing: 0.02em;
+  border-color: #ef4444;
+  background: #dc2626;
+  color: #ffffff;
+  padding: 0.95rem 1rem;
+  font-size: 1.15rem;
+  font-weight: 900;
+  letter-spacing: 0.01em;
 }
 
 .twb-offer-salary-panel {
   margin-top: 0.72rem;
-  border-color: rgba(120, 176, 255, 0.28);
+  border-color: #d4dde8;
+  background: #ffffff;
+  color: #0f172a;
 }
 
 .twb-offer-salary-panel h3 {
   margin: 0;
-  color: #dcecff;
+  color: #0f172a;
   text-transform: uppercase;
   font-size: 0.88rem;
   letter-spacing: 0.03em;
@@ -648,10 +634,16 @@ summary:focus-visible {
   gap: 0.6rem;
 }
 
+.twb-offer-salary-panel .twb-status-pill {
+  background: #e2e8f0;
+  border-color: #cbd5e1;
+  color: #1e293b;
+}
+
 .twb-salary-side {
-  border: 1px solid rgba(121, 153, 195, 0.2);
+  border: 1px solid #d7e0ea;
   border-radius: 12px;
-  background: rgba(7, 13, 26, 0.65);
+  background: #f8fafc;
   padding: 0.58rem 0.62rem;
   display: grid;
   gap: 0.42rem;
@@ -660,18 +652,38 @@ summary:focus-visible {
 .twb-salary-side-title {
   margin: 0;
   font-size: 0.88rem;
-  color: #e7f2ff;
+  color: #0f172a;
+}
+
+.twb-offer-salary-panel .twb-summary-row .label {
+  color: #475569;
+}
+
+.twb-offer-salary-panel .twb-summary-row .value {
+  color: #0f172a;
 }
 
 .twb-offer-submit-card {
   margin-top: 0.72rem;
-  border-color: rgba(244, 195, 105, 0.32);
-  background: linear-gradient(180deg, rgba(24, 21, 12, 0.86), rgba(8, 12, 20, 0.9));
+  border-color: #d4dde8;
+  background: #ffffff;
+  color: #0f172a;
 }
 
 .twb-offer-submit-card textarea {
   resize: vertical;
   min-height: 84px;
+  background: #ffffff;
+  color: #0f172a;
+  border-color: #cbd5e1;
+}
+
+.twb-offer-submit-card .twb-field > span {
+  color: #334155;
+}
+
+.twb-offer-submit-card .twb-summary-note {
+  color: #475569;
 }
 
 .twb-offer-cart-mobile-tray {
@@ -818,34 +830,6 @@ summary:focus-visible {
   color: var(--twb-text-soft);
   font-size: 0.75rem;
   margin-top: 0.2rem;
-}
-
-.twb-team-stats {
-  display: grid;
-  gap: 0.35rem;
-  width: min(100%, 220px);
-  justify-self: end;
-}
-
-.twb-mini-stat {
-  display: inline-flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 0.75rem;
-  min-width: 0;
-  padding: 0.35rem 0.45rem;
-  border-radius: 8px;
-  border: 1px solid rgba(132, 166, 210, 0.18);
-  background: rgba(7, 13, 26, 0.55);
-  font-size: 0.74rem;
-}
-
-.twb-mini-stat-label {
-  color: var(--twb-text-soft);
-}
-
-.twb-mini-stat-value {
-  font-weight: 800;
 }
 
 .twb-trade-salary-box {
@@ -1001,12 +985,6 @@ summary:focus-visible {
 .twb-group-label {
   font-weight: 900;
   letter-spacing: 0.02em;
-}
-
-.twb-group-badges {
-  color: var(--twb-text-soft);
-  font-size: 0.73rem;
-  font-weight: 700;
 }
 
 .twb-group-body {
@@ -1167,66 +1145,8 @@ summary:focus-visible {
   font-size: 0.72rem;
 }
 
-.twb-summary {
-  position: sticky;
-  top: 0.6rem;
-  display: grid;
-  gap: 0.72rem;
-}
-
-.twb-summary-card,
 .twb-payload-card {
   padding: 0.92rem;
-}
-
-.twb-offers-card {
-  padding: 0.85rem;
-  border-color: rgba(244, 195, 105, 0.26);
-  background:
-    linear-gradient(180deg, rgba(30, 26, 13, 0.93), rgba(13, 14, 9, 0.97));
-  box-shadow:
-    inset 0 1px 0 rgba(255, 223, 160, 0.08),
-    0 10px 25px rgba(0, 0, 0, 0.22);
-}
-
-.twb-offers-card textarea {
-  resize: vertical;
-  min-height: 70px;
-}
-
-.twb-counter-mode {
-  margin: 0.4rem 0 0.7rem;
-  border: 1px solid rgba(246, 199, 112, 0.38);
-  border-radius: 10px;
-  background: rgba(246, 199, 112, 0.12);
-  padding: 0.45rem 0.55rem;
-}
-
-.twb-counter-mode-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.45rem;
-}
-
-.twb-counter-mode-title {
-  color: #ffe5b0;
-  font-size: 0.76rem;
-  font-weight: 900;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.twb-counter-mode-copy {
-  margin-top: 0.16rem;
-  color: #f6d9a1;
-  font-size: 0.73rem;
-  line-height: 1.3;
-}
-
-.twb-counter-mode-cancel {
-  padding: 0;
-  font-size: 0.72rem;
 }
 
 .twb-offers-submit-row {
@@ -1249,283 +1169,16 @@ summary:focus-visible {
   color: #ffe4af;
 }
 
-.twb-status-pill-counter {
-  background: rgba(246, 199, 112, 0.2);
-  border-color: rgba(246, 199, 112, 0.4);
-  color: #ffe7bc;
-}
-
 .twb-submit-status-good {
-  color: #bbf8de;
+  color: #166534;
 }
 
 .twb-submit-status-bad {
-  color: #ffc2c2;
+  color: #b91c1c;
 }
 
 .twb-submit-status-warn {
-  color: #ffe09d;
-}
-
-.twb-offers-list {
-  margin-top: 0.7rem;
-  display: grid;
-  gap: 0.65rem;
-}
-
-.twb-offers-section {
-  border: 1px solid rgba(121, 153, 195, 0.18);
-  border-radius: 12px;
-  background: rgba(7, 13, 26, 0.56);
-  padding: 0.6rem;
-}
-
-.twb-offers-section-incoming {
-  border-color: rgba(244, 195, 105, 0.26);
-  background: linear-gradient(180deg, rgba(24, 21, 12, 0.72), rgba(7, 13, 26, 0.62));
-}
-
-.twb-offers-section-outgoing {
-  border-color: rgba(125, 170, 234, 0.24);
-}
-
-.twb-offers-section-title {
-  margin: 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.45rem;
-  font-size: 0.77rem;
-  color: #d7e9ff;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  font-weight: 800;
-}
-
-.twb-offers-section-count {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 1.45rem;
-  height: 1.45rem;
-  border-radius: 999px;
-  padding: 0 0.4rem;
-  background: rgba(88, 136, 215, 0.24);
-  border: 1px solid rgba(88, 136, 215, 0.4);
-  color: #d7ebff;
-  font-size: 0.71rem;
-}
-
-.twb-offers-section-note {
-  margin: 0.28rem 0 0.45rem;
-  color: #f4d799;
-  font-size: 0.69rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  font-weight: 800;
-}
-
-.twb-offers-items {
-  display: grid;
-  gap: 0.5rem;
-}
-
-.twb-offer-item {
-  border-radius: 10px;
-  border: 1px solid rgba(121, 153, 195, 0.16);
-  background: rgba(9, 16, 30, 0.78);
-  padding: 0.52rem 0.58rem;
-}
-
-.twb-offer-item-priority {
-  border-color: rgba(246, 199, 112, 0.42);
-  box-shadow: inset 3px 0 0 rgba(246, 199, 112, 0.62);
-}
-
-.twb-offer-item-head {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 0.35rem;
-  align-items: start;
-  font-size: 0.76rem;
-}
-
-.twb-offer-item-title {
-  font-weight: 900;
-  color: var(--twb-text);
-}
-
-.twb-offer-item-meta {
-  color: var(--twb-text-soft);
-  font-size: 0.69rem;
-  margin-top: 0.2rem;
-}
-
-.twb-offer-item-message {
-  margin-top: 0.42rem;
-  color: var(--twb-text-dim);
-  font-size: 0.72rem;
-  line-height: 1.35;
-  white-space: pre-wrap;
-  border-left: 2px solid rgba(125, 170, 234, 0.3);
-  padding-left: 0.45rem;
-}
-
-.twb-offer-detail {
-  margin-top: 0.45rem;
-  border: 1px solid rgba(121, 153, 195, 0.16);
-  border-radius: 10px;
-  background: rgba(6, 11, 22, 0.74);
-  padding: 0.42rem 0.46rem;
-}
-
-.twb-offer-detail-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.42rem;
-}
-
-.twb-offer-detail-team {
-  border: 1px solid rgba(121, 153, 195, 0.16);
-  border-radius: 9px;
-  background: rgba(9, 16, 31, 0.8);
-  padding: 0.34rem 0.4rem;
-}
-
-.twb-offer-detail-team.twb-offer-detail-get {
-  border-color: rgba(92, 208, 145, 0.32);
-  background: rgba(18, 38, 30, 0.52);
-}
-
-.twb-offer-detail-team.twb-offer-detail-send {
-  border-color: rgba(244, 195, 105, 0.32);
-  background: rgba(43, 35, 16, 0.52);
-}
-
-.twb-offer-detail-team-title {
-  font-size: 0.7rem;
-  font-weight: 900;
-  color: #e3efff;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.twb-offer-detail-team-meta {
-  margin-top: 0.16rem;
-  font-size: 0.68rem;
-  color: var(--twb-text-soft);
-}
-
-.twb-offer-detail-assets {
-  margin: 0.28rem 0 0;
-  padding-left: 0.95rem;
-  display: grid;
-  gap: 0.14rem;
-  color: var(--twb-text-dim);
-  font-size: 0.7rem;
-}
-
-.twb-offer-detail-overflow {
-  margin-top: 0.24rem;
-  color: var(--twb-text-soft);
-  font-size: 0.68rem;
-  font-weight: 700;
-}
-
-.twb-offer-detail-ext {
-  margin-top: 0.44rem;
-  font-size: 0.69rem;
-  color: #ffe3ad;
-  font-weight: 700;
-}
-
-.twb-offer-actions {
-  margin-top: 0.58rem;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.4rem;
-}
-
-.twb-offer-action-btn {
-  border-radius: 9px;
-  padding: 0.44rem 0.48rem;
-  font-size: 0.7rem;
-  line-height: 1.1;
-  justify-content: center;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-weight: 900;
-}
-
-.twb-offer-action-btn:hover {
-  transform: none;
-}
-
-.twb-offer-action-btn[disabled] {
-  cursor: default;
-  opacity: 0.65;
-}
-
-.twb-offer-action-accept {
-  border-color: rgba(86, 215, 154, 0.22);
-  background: rgba(86, 215, 154, 0.08);
-  color: #cbffe7;
-}
-
-.twb-offer-action-reject {
-  border-color: rgba(255, 141, 141, 0.22);
-  background: rgba(255, 141, 141, 0.07);
-  color: #ffd1d1;
-}
-
-.twb-offer-action-counter {
-  border-color: rgba(244, 195, 105, 0.24);
-  background: rgba(244, 195, 105, 0.08);
-  color: #ffe3ad;
-}
-
-.twb-offer-action-note {
-  margin-top: 0.35rem;
-  color: var(--twb-text-soft);
-  font-size: 0.69rem;
-  line-height: 1.3;
-}
-
-.twb-offer-status {
-  border-radius: 999px;
-  padding: 0.13rem 0.44rem;
-  border: 1px solid rgba(121, 153, 195, 0.15);
-  background: rgba(120, 176, 255, 0.08);
-  color: #cfe9ff;
-  font-size: 0.67rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.twb-offer-status.pending {
-  border-color: rgba(244, 195, 105, 0.24);
-  background: rgba(244, 195, 105, 0.09);
-  color: #ffe0a0;
-}
-
-.twb-offer-status.accepted {
-  border-color: rgba(86, 215, 154, 0.24);
-  background: rgba(86, 215, 154, 0.09);
-  color: #c9ffe5;
-}
-
-.twb-offer-status.countered {
-  border-color: rgba(244, 195, 105, 0.24);
-  background: rgba(244, 195, 105, 0.09);
-  color: #ffe0a0;
-}
-
-.twb-offer-status.rejected,
-.twb-offer-status.cancelled {
-  border-color: rgba(255, 141, 141, 0.24);
-  background: rgba(255, 141, 141, 0.08);
-  color: #ffd0d0;
+  color: #a16207;
 }
 
 .twb-card-caption {
@@ -1700,10 +1353,6 @@ summary:focus-visible {
   .twb-assets-column-right {
     grid-area: right;
   }
-
-  .twb-offer-cart-stats {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
 }
 
 @media (max-width: 900px) {
@@ -1735,10 +1384,6 @@ summary:focus-visible {
     grid-template-columns: 1fr 1fr 1fr;
   }
 
-  .twb-summary {
-    position: static;
-  }
-
   .twb-team-header {
     grid-template-columns: 1fr;
   }
@@ -1751,16 +1396,6 @@ summary:focus-visible {
     width: min(100%, 220px);
   }
 
-  .twb-team-stats {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    width: 100%;
-    justify-self: stretch;
-  }
-
-  .twb-mini-stat {
-    min-width: 0;
-  }
-
   .twb-trade-salary-box {
     grid-template-columns: 1fr;
     align-items: start;
@@ -1768,10 +1403,6 @@ summary:focus-visible {
 
   .twb-offer-cart-grid {
     grid-template-columns: 1fr;
-  }
-
-  .twb-offer-cart-stats {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .twb-salary-grid {
@@ -1819,10 +1450,6 @@ summary:focus-visible {
 
   .twb-offer-cart-card {
     padding: 0.8rem;
-  }
-
-  .twb-offer-cart-stats {
-    grid-template-columns: 1fr;
   }
 
   #twbApp[data-mobile-tab="your"] #twbOfferCart,
@@ -1912,14 +1539,6 @@ summary:focus-visible {
 
   .twb-ext-box {
     min-width: 0;
-  }
-
-  .twb-offer-actions {
-    grid-template-columns: 1fr;
-  }
-
-  .twb-offer-detail-grid {
-    grid-template-columns: 1fr;
   }
 
   .twb-offer-cart-mobile-tray {
