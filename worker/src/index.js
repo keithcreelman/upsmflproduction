@@ -2359,7 +2359,7 @@ export default {
         const toFranchiseId = padFranchiseId(body?.to_franchise_id || payload?.ui?.right_team_id || "");
         const fromFranchiseName = safeStr(body?.from_franchise_name);
         const toFranchiseName = safeStr(body?.to_franchise_name);
-        const message = safeStr(body?.message).slice(0, 2000);
+        const message = safeStr(body?.message || body?.comment || payload?.comment).slice(0, 2000);
         const validationStatus = safeStr(payload?.validation?.status).toLowerCase();
         // Queue mode is retired: always submit directly to MFL.
         const directMfl = true;
@@ -2500,6 +2500,7 @@ export default {
               comments: commentsOut,
               salary_net_k: proposalAssets.salaryNets,
             },
+            submitted_comment: message,
             mfl: {
               trade_id: tradeId || "",
               upstream_status: importRes.status,

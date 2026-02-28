@@ -136,7 +136,12 @@
           /[?&](?:o|option)=0?6(?:&|$)/i.test(href) ||
           bodyId === "body_options_06";
         if (isOption6) {
-          try { sessionStorage.removeItem("twb_redirected_from_o5"); } catch (e) {}
+          try {
+            sessionStorage.removeItem("twb_redirect_from_o5");
+            sessionStorage.removeItem("twb_redirected_from_o5");
+            sessionStorage.removeItem("twb_mode");
+            sessionStorage.removeItem("twb_o5_redirect_guard");
+          } catch (e) {}
           return;
         }
 
@@ -159,7 +164,7 @@
           target.searchParams.set("twb_mode", "counter");
         }
 
-        var guardKey = "twb_redirected_from_o5";
+        var guardKey = "twb_o5_redirect_guard";
         var guardVal = "";
         try { guardVal = s(sessionStorage.getItem(guardKey)); } catch (e) {}
         var guardToken = offerKey || "NO_OFFER_KEY";
@@ -167,7 +172,12 @@
           if (!offerKey) showFallbackBanner(target.toString());
           return;
         }
-        try { sessionStorage.setItem(guardKey, guardToken); } catch (e) {}
+        try {
+          sessionStorage.setItem(guardKey, guardToken);
+          sessionStorage.setItem("twb_redirect_from_o5", offerKey || "");
+          sessionStorage.setItem("twb_redirected_from_o5", offerKey || "");
+          sessionStorage.setItem("twb_mode", "counter");
+        } catch (e) {}
 
         if (!offerKey) {
           showFallbackBanner(target.toString());
@@ -1473,14 +1483,14 @@
           <div class="ccc-owner-actions-menu" id="upsOwnerActionsMenu" hidden>
             <a href="//%HOST%/%YEAR%/lineup?L=%LEAGUEID%"><i class="fa-solid fa-clipboard-list"></i>Submit Lineup</a>
             <a href="//%HOST%/%YEAR%/add_drop?L=%LEAGUEID%"><i class="fa-solid fa-plus-minus"></i>Add/Drop</a>
-            <a href="//%HOST%/%YEAR%/options?L=%LEAGUEID%&amp;O=05"><i class="fa-solid fa-handshake"></i>Trades</a>
+            <a href="//%HOST%/%YEAR%/options?L=%LEAGUEID%&amp;O=06"><i class="fa-solid fa-handshake"></i>Trades</a>
           </div>
         </div>
         <a class="ccc-pill" data-owner-action="lineup" href="//%HOST%/%YEAR%/lineup?L=%LEAGUEID%"><i class="fa-solid fa-clipboard-list"></i>Submit Lineup</a>
         <a class="ccc-pill" data-owner-action="adddrop" href="//%HOST%/%YEAR%/add_drop?L=%LEAGUEID%"><i class="fa-solid fa-plus-minus"></i>Add/Drop</a>
         <a class="ccc-pill" href="//%HOST%/%YEAR%/options?L=%LEAGUEID%&amp;O=07"><i class="fa-solid fa-users"></i>Rosters</a>
         <a class="ccc-pill" href="//%HOST%/%YEAR%/ajax_ls?L=%LEAGUEID%"><i class="fa-solid fa-gauge-high"></i>Scoreboard</a>
-        <a class="ccc-pill" data-owner-action="trades" href="//%HOST%/%YEAR%/options?L=%LEAGUEID%&amp;O=05"><i class="fa-solid fa-handshake"></i>Trades</a>
+        <a class="ccc-pill" data-owner-action="trades" href="//%HOST%/%YEAR%/options?L=%LEAGUEID%&amp;O=06"><i class="fa-solid fa-handshake"></i>Trades</a>
       </div>
     </div>
   </div>
@@ -1880,7 +1890,7 @@
       setHref('a.ccc-pill[href*="/add_drop"]', origin + "/" + y + "/add_drop?L=" + l);
       setHref('a.ccc-pill[href*="/ajax_ls"]', origin + "/" + y + "/ajax_ls?L=" + l);
       setHref('a.ccc-pill[href*="/options"][href*="O=07"]', origin + "/" + y + "/options?L=" + l + "&O=07");
-      setHref('a.ccc-pill[href*="/options"][href*="O=05"]', origin + "/" + y + "/options?L=" + l + "&O=05");
+      setHref('a.ccc-pill[href*="/options"][href*="O=06"]', origin + "/" + y + "/options?L=" + l + "&O=06");
     }
 
     function getModuleName() {

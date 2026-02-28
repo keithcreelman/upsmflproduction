@@ -2,7 +2,7 @@
   "use strict";
 
   var SAMPLE_DATA_URL = "./trade_workbench_sample.json";
-  var STORAGE_KEY = "ups-trade-workbench-state-v6";
+  var STORAGE_KEY = "ups-trade-workbench-state-v7";
   var GROUP_ORDER = ["QB", "RB", "WR", "TE", "PK", "PN", "DT", "DE", "LB", "CB", "S", "DL", "DB", "PICKS", "OTHER"];
   var heightSyncInstalled = false;
   var heightPostTimer = 0;
@@ -19,7 +19,6 @@
     assetView: {},
     filters: {
       search: "",
-      activeContractTypes: {},
       yearsMin: "",
       yearsMax: "",
       showTaxi: true,
@@ -40,7 +39,13 @@
       received: [],
       key: ""
     },
-    mobileTab: "your"
+    mobileTab: "your",
+    counterMode: false,
+    extensionModal: {
+      teamId: "",
+      assetId: "",
+      optionKey: ""
+    }
   };
 
   var els = {};
@@ -97,18 +102,64 @@
     }
   }
 
-  function shortPickLabel(desc) {
+  function shortPickLabel(desc, assetId, seasonHint) {
     var raw = safeStr(desc);
-    if (!raw) return "Rookie Pick";
+    var token = normalizePickKey(assetId || "");
+    var rawUpper = raw.toUpperCase();
+    var currentSeason = safeInt(seasonHint, 0);
+    var round = 0;
+    var pick = 0;
+    var year = 0;
+
+    if (token.indexOf("DP_") === 0) {
+      var dp = token.match(/^DP_(\d+)_(\d+)$/i);
+      if (dp) {
+        round = safeInt(dp[1], 0) + 1;
+        pick = safeInt(dp[2], 0) + 1;
+        year = currentSeason || safeInt((raw.match(/(\d{4})/) || [])[1], 0);
+      }
+    } else if (token.indexOf("FP_") === 0) {
+      var fp = token.match(/^FP_[A-Z0-9]+_(\d{4})_(\d+)$/i);
+      if (fp) {
+        year = safeInt(fp[1], 0);
+        round = safeInt(fp[2], 0);
+      }
+    }
+
+    if (!round || !pick) {
+      var yearDraft = raw.match(/Year\s*(\d{4})\s*Draft Pick\s*(\d+)\.(\d+)/i);
+      if (yearDraft) {
+        year = safeInt(yearDraft[1], 0);
+        round = safeInt(yearDraft[2], 0);
+        pick = safeInt(yearDraft[3], 0);
+      }
+    }
+
+    if (!round || !pick) {
+      var roundPick = raw.match(/(\d{4}).*?Round\s*(\d+).*?Pick\s*(\d+)/i);
+      if (roundPick) {
+        year = safeInt(roundPick[1], 0);
+        round = safeInt(roundPick[2], 0);
+        pick = safeInt(roundPick[3], 0);
+      }
+    }
+
+    if (round && pick) {
+      var y = year || currentSeason;
+      var yText = y ? String(y) + " " : "";
+      return yText + "Rookie " + round + "." + String(pick).padStart(2, "0");
+    }
+
+    if (!raw) return currentSeason ? String(currentSeason) + " Rookie Pick" : "Rookie Pick";
     var cleaned = raw
       .replace(/\s*\([^)]*drafted[^)]*\)\s*/ig, " ")
       .replace(/\s*[-|]\s*drafted.*$/ig, "")
       .replace(/\s+/g, " ")
       .trim();
-    var m = cleaned.match(/Year\s*(\d{4})\s*Draft Pick\s*(\d+)\.(\d+)/i);
-    if (m) return m[1] + " Rookie " + m[2] + "." + String(m[3]).padStart(2, "0");
-    m = cleaned.match(/(\d{4}).*?Round\s*(\d+).*?Pick\s*(\d+)/i);
-    if (m) return m[1] + " Rookie " + m[2] + "." + String(m[3]).padStart(2, "0");
+    if (!cleaned && currentSeason) return String(currentSeason) + " Rookie Pick";
+    if (rawUpper.indexOf("DP_") === 0 || rawUpper.indexOf("FP_") === 0) {
+      return currentSeason ? String(currentSeason) + " Rookie Pick" : "Rookie Pick";
+    }
     return cleaned || raw;
   }
 
@@ -282,7 +333,11 @@
     if (type === "PICK") {
       asset.asset_id = asset.asset_id || ("pick:" + safeStr(raw.pick_key || raw.description || raw.asset_id));
       asset.description = safeStr(raw.description || raw.label || "Draft Pick");
-      asset.pick_display = shortPickLabel(asset.description);
+      asset.pick_display = shortPickLabel(
+        asset.description,
+        asset.asset_id || raw.pick_key || raw.asset_id,
+        raw.pick_season || raw.season
+      );
       asset.pick_season = safeInt(raw.pick_season || raw.season, 0);
       asset.pick_round = safeInt(raw.pick_round || raw.round, 0);
       asset.pick_slot = safeStr(raw.pick_slot || raw.slot || raw.pick);
@@ -829,7 +884,8 @@
     }, 0);
   }
 
-  function loadOfferIntoWorkbench(offerPayload) {
+  function loadOfferIntoWorkbench(offerPayload, options) {
+    options = options || {};
     var payload = getTradePayloadFromInput(offerPayload);
     if (!payload || typeof payload !== "object") {
       setSubmitStatus("Could not load offer payload.", "bad");
@@ -862,13 +918,17 @@
 
     state.leftTeamId = leftId;
     state.rightTeamId = rightId;
+    state.counterMode = !!options.counterMode;
 
     resetFilterState();
     state.selections = {};
     state.extensions = {};
     state.tradeSalaryK = {};
     state.collapsed = {};
-    resetSubmitUiState("Offer loaded. Review and submit.", "");
+    resetSubmitUiState(
+      safeStr(options.loadedMessage) || (state.counterMode ? "Counter Offer Draft loaded." : "Offer loaded. Review and submit."),
+      ""
+    );
     if (els.offerMessageInput) els.offerMessageInput.value = "";
 
     ensureSelectionMaps(state.leftTeamId);
@@ -997,8 +1057,22 @@
 
   async function hydrateOfferFromUrlIfNeeded() {
     var loadKey = getUrlParam("twb_load_offer");
+    if (!loadKey) {
+      try {
+        loadKey = safeStr(sessionStorage.getItem("twb_redirect_from_o5") || sessionStorage.getItem("twb_redirected_from_o5"));
+      } catch (e) {
+        loadKey = "";
+      }
+    }
     if (!loadKey) return;
     var mode = safeStr(getUrlParam("twb_mode")).toLowerCase();
+    if (!mode) {
+      try {
+        mode = safeStr(sessionStorage.getItem("twb_mode"));
+      } catch (e2) {
+        mode = "";
+      }
+    }
 
     setSubmitStatus("Loading trade offer…", "");
     renderSummary();
@@ -1009,7 +1083,10 @@
         renderSummary();
         return;
       }
-      loadOfferIntoWorkbench(out.offer.payload);
+      loadOfferIntoWorkbench(out.offer.payload, {
+        counterMode: mode === "counter",
+        loadedMessage: mode === "counter" ? "Counter Offer Draft loaded." : "Offer loaded in Trade War Room."
+      });
       if (mode === "counter") {
         setSubmitStatus("Counter Offer Draft loaded.", "");
       } else {
@@ -1020,6 +1097,13 @@
       setSubmitStatus(friendlyOfferError("Offer load failed", err), "bad");
       renderSummary();
     } finally {
+      try {
+        sessionStorage.removeItem("twb_redirect_from_o5");
+        sessionStorage.removeItem("twb_redirected_from_o5");
+        sessionStorage.removeItem("twb_mode");
+      } catch (e3) {
+        // noop
+      }
       stripOfferLoadParamsFromUrl();
     }
   }
@@ -1051,12 +1135,15 @@
   function loadCounterDraftFromOffer(meta) {
     var offer = meta && meta.offer ? meta.offer : null;
     if (!offer || !offer.payload) {
-      setSubmitStatus("Counter draft is unavailable for this offer payload.", "bad");
+      setSubmitStatus("Counter Offer Draft is unavailable for this offer payload.", "bad");
       renderSummary();
       return;
     }
-    var loaded = loadOfferIntoWorkbench(offer.payload);
-    if (loaded) setSubmitStatus("Counter draft loaded. Edit and submit when ready.", "");
+    var loaded = loadOfferIntoWorkbench(offer.payload, {
+      counterMode: true,
+      loadedMessage: "Counter Offer Draft loaded."
+    });
+    if (loaded) setSubmitStatus("Counter Offer Draft loaded.", "");
   }
 
   async function performOfferAction(action, meta) {
@@ -1329,40 +1416,55 @@
     return prefix + ": " + msg;
   }
 
-  function extensionYearsText(termRaw) {
+  function extensionYearsCount(termRaw) {
     var term = safeStr(termRaw).toUpperCase();
-    if (!term) return "unknown term";
     var m = term.match(/(\d+)/);
-    if (!m) return termRaw || term;
-    var n = safeInt(m[1], 0);
-    if (!n) return termRaw || term;
-    return String(n) + " year" + (n === 1 ? "" : "s");
+    return m ? safeInt(m[1], 0) : 0;
   }
 
-  function composeStructuredOfferMessage(payload, userMessage) {
-    var parts = [];
+  function dollarsToKInt(v) {
+    if (v == null) return null;
+    return Math.round(safeInt(v, 0) / 1000);
+  }
+
+  function buildExtensionSummaryLines(payload) {
+    var out = [];
     var extReqs = Array.isArray((payload || {}).extension_requests) ? payload.extension_requests : [];
     var i;
     for (i = 0; i < extReqs.length; i += 1) {
       var req = extReqs[i] || {};
-      var playerName = safeStr(req.player_name || "Player");
-      var yearsText = extensionYearsText(req.extension_term || req.option_key || "");
-      var aavText = req.new_aav_future == null ? "n/a" : kFmtFromDollars(req.new_aav_future);
-      var tcvText = req.new_TCV == null ? "n/a" : kFmtFromDollars(req.new_TCV);
-      var contractInfo = safeStr(req.preview_contract_info_string || req.new_contract_status || "");
-      var sentence = "You extend " + playerName + " " + yearsText + ", new AAV " + aavText + ", TCV " + tcvText;
-      if (contractInfo) sentence += ", contract info " + contractInfo;
-      parts.push(sentence);
+      var years = extensionYearsCount(req.extension_term || req.option_key || "");
+      if (!years) years = 1;
+      var newLen = req.new_contract_length == null ? "—" : String(safeInt(req.new_contract_length, 0));
+      var aavK = dollarsToKInt(req.new_aav_future);
+      var tcvK = dollarsToKInt(req.new_TCV);
+      var player = safeStr(req.player_name || "Player");
+      out.push(
+        "Pre-trade extension: Extend " +
+          player +
+          " " +
+          years +
+          "-year | New length " +
+          newLen +
+          " | New AAV " +
+          (aavK == null ? "—" : String(aavK) + "K") +
+          " | New TCV " +
+          (tcvK == null ? "—" : String(tcvK) + "K")
+      );
     }
+    return out;
+  }
 
-    var user = safeStr(userMessage);
-    if (user) parts.push('User comments "' + user + '"');
-    return parts.join(" | ");
+  function composeTradeMessage(userComment, extensionLines) {
+    var user = safeStr(userComment);
+    var lines = Array.isArray(extensionLines) ? extensionLines.filter(function (v) { return !!safeStr(v); }) : [];
+    if (user && lines.length) return user + "\n\n" + lines.join("\n");
+    if (user) return user;
+    return lines.join("\n");
   }
 
   async function submitOfferToQueue() {
     if (state.submit.busy) return;
-    var directMfl = true;
     var payload = buildTradePayload();
     if (!payload.validation || payload.validation.status !== "ready") {
       setSubmitStatus("Trade is not ready. Select assets on both sides and keep traded salary within max.", "warn");
@@ -1383,7 +1485,10 @@
 
     try {
       var userMessage = els.offerMessageInput ? safeStr(els.offerMessageInput.value).slice(0, 2000) : "";
-      var structuredMessage = composeStructuredOfferMessage(payload, userMessage);
+      var extensionLines = buildExtensionSummaryLines(payload);
+      var finalMessage = composeTradeMessage(userMessage, extensionLines);
+      payload.comment = finalMessage;
+      console.log("[TWB] Final message sent to MFL:", finalMessage);
       var apiUrl = new URL(resolveTradeOffersApiUrl(), window.location.href);
       var body = {
         league_id: safeStr(state.data.meta.league_id),
@@ -1392,7 +1497,8 @@
         to_franchise_id: safeStr(state.rightTeamId),
         from_franchise_name: leftTeam.franchise_name,
         to_franchise_name: rightTeam.franchise_name,
-        message: structuredMessage,
+        message: finalMessage,
+        comment: finalMessage,
         payload: payload,
         source: "trade-workbench-ui",
         direct_mfl: true,
@@ -1403,12 +1509,31 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body)
       });
-      var mflTradeId = safeStr((res.mfl || {}).trade_id);
-      setSubmitStatus(
-        "Offer submitted to MFL" + (mflTradeId ? " (Trade ID " + mflTradeId + ")." : "."),
-        "good"
+      var echoedMessage = safeStr(
+        (res && res.proposal && res.proposal.comments) ||
+        (res && res.offer && res.offer.message) ||
+        (res && res.comment) ||
+        (res && res.message)
       );
-      if (els.offerMessageInput) els.offerMessageInput.value = "";
+      console.log("[TWB] Submit response message echo:", echoedMessage);
+      if (finalMessage && (!echoedMessage || echoedMessage.indexOf(finalMessage) === -1)) {
+        console.error("[TWB] Comment verification failed. MFL echo did not contain the submitted message.", {
+          sent: finalMessage,
+          echoed: echoedMessage,
+          response: res
+        });
+      }
+      var mflTradeId = safeStr((res.mfl || {}).trade_id);
+      resetTrade({
+        resetPartnerTeam: true,
+        resetMessage: true,
+        resetExtensions: true,
+        resetSalary: true
+      });
+      setSubmitStatus("Offer submitted to MFL" + (mflTradeId ? " (Trade ID " + mflTradeId + ")." : "."), "good");
+      initTeamSelectors();
+      await refreshBannerOffers(true);
+      rerender();
     } catch (err) {
       setSubmitStatus(friendlyOfferError("Submit failed", err), "bad");
     } finally {
@@ -1470,6 +1595,7 @@
       if (parsed.filters && typeof parsed.filters === "object") {
         state.filters = Object.assign(state.filters, parsed.filters);
         if (state.filters.activePositions) delete state.filters.activePositions;
+        if (state.filters.activeContractTypes) delete state.filters.activeContractTypes;
       }
       state.selections = parsed.selections && typeof parsed.selections === "object" ? parsed.selections : state.selections;
       state.extensions = parsed.extensions && typeof parsed.extensions === "object" ? parsed.extensions : state.extensions;
@@ -1570,14 +1696,6 @@
     return thisEntered - otherEntered;
   }
 
-  function activeFilterCount(mapObj) {
-    var keys = Object.keys(mapObj || {});
-    var count = 0;
-    var i;
-    for (i = 0; i < keys.length; i += 1) if (mapObj[keys[i]]) count += 1;
-    return count;
-  }
-
   function assetMatchesFilters(asset, teamId, overrides) {
     var f = state.filters;
     overrides = overrides || {};
@@ -1593,10 +1711,6 @@
     if (asset.type === "PLAYER") {
       if (!showTaxi && asset.taxi) return false;
       if (f.onlyExtensionEligible && !asset.extension_eligible) return false;
-
-      if (activeFilterCount(f.activeContractTypes) > 0) {
-        if (!f.activeContractTypes[safeStr(asset.contract_type)]) return false;
-      }
 
       var yearsMin = safeStr(f.yearsMin);
       var yearsMax = safeStr(f.yearsMax);
@@ -1754,31 +1868,6 @@
     els.yearsMaxSelect.value = safeStr(state.filters.yearsMax);
   }
 
-  function initContractTypeFilters() {
-    var wrap = els.contractTypeOptions;
-    if (!wrap) return;
-    wrap.innerHTML = "";
-    var types = state.data.filtersMeta.contractTypes || [];
-    var i;
-    for (i = 0; i < types.length; i += 1) {
-      var id = "twb-ct-" + i;
-      var label = document.createElement("label");
-      label.className = "twb-check";
-      label.setAttribute("for", id);
-      var input = document.createElement("input");
-      input.type = "checkbox";
-      input.id = id;
-      input.setAttribute("data-action", "toggle-contract-type-filter");
-      input.setAttribute("data-contract-type", types[i]);
-      input.checked = !!state.filters.activeContractTypes[types[i]];
-      var text = document.createElement("span");
-      text.textContent = types[i];
-      label.appendChild(input);
-      label.appendChild(text);
-      wrap.appendChild(label);
-    }
-  }
-
   function initBooleanToggles() {
     var wrap = els.booleanToggles;
     if (!wrap) return;
@@ -1786,7 +1875,7 @@
     var defs = [
       { key: "showTaxi", label: "Show Taxi" },
       { key: "showPicks", label: "Show Picks" },
-      { key: "onlyExtensionEligible", label: "Ext Eligible Only" }
+      { key: "onlyExtensionEligible", label: "Pre-trade extension eligible" }
     ];
     var i;
     for (i = 0; i < defs.length; i += 1) {
@@ -1813,7 +1902,6 @@
     els.searchInput.value = safeStr(state.filters.search);
     initTeamSelectors();
     initYearFilters();
-    initContractTypeFilters();
     initBooleanToggles();
   }
 
@@ -1825,7 +1913,6 @@
     if (els.searchInput && els.searchInput.value !== safeStr(state.filters.search)) {
       els.searchInput.value = safeStr(state.filters.search);
     }
-    initContractTypeFilters();
     initBooleanToggles();
   }
 
@@ -1946,20 +2033,17 @@
     node.setAttribute("data-team-id", team.franchise_id);
     node.setAttribute("data-side", side);
 
-    var title = node.querySelector(".twb-team-title");
-    var eyebrow = node.querySelector(".twb-team-eyebrow");
-    var meta = node.querySelector(".twb-team-meta");
     var logo = node.querySelector(".twb-team-logo");
     var logoFallback = node.querySelector(".twb-team-logo-fallback");
     var logoShell = node.querySelector(".twb-team-logo-shell");
+    var teamNameA11y = node.querySelector(".twb-team-name-a11y");
     var assetToggle = node.querySelector(".twb-asset-toggle");
     var groupsWrap = node.querySelector(".twb-team-groups");
     var salaryInput = node.querySelector(".twb-trade-salary-input");
     var salaryMaxValue = node.querySelector(".twb-trade-salary-max-value");
 
-    eyebrow.textContent = "";
-    title.textContent = team.franchise_name;
-    meta.textContent = "";
+    if (teamNameA11y) teamNameA11y.textContent = team.franchise_name;
+    if (logoShell) logoShell.setAttribute("aria-label", team.franchise_name);
 
     if (logoFallback) {
       logoFallback.textContent = "No Logo";
@@ -2079,66 +2163,6 @@
     return teamPos ? name + " " + teamPos : name;
   }
 
-  function renderExtensionCell(teamId, asset, selected) {
-    var td = document.createElement("td");
-    td.className = "twb-col-ext";
-    td.setAttribute("data-label", "Extend");
-
-    if (asset.type !== "PLAYER") {
-      td.innerHTML = '<span class="twb-ext-none">—</span>';
-      return td;
-    }
-
-    if (!asset.extension_eligible || !asset.extension_options.length) {
-      td.innerHTML = '<span class="twb-ext-none">Not eligible</span>';
-      return td;
-    }
-
-    var extState = (state.extensions[teamId] && state.extensions[teamId][asset.asset_id]) || { enabled: false, option_key: "" };
-    var box = document.createElement("div");
-    box.className = "twb-ext-box";
-
-    var ctl = document.createElement("label");
-    ctl.className = "twb-ext-ctl";
-    var cb = document.createElement("input");
-    cb.type = "checkbox";
-    cb.checked = !!extState.enabled;
-    cb.disabled = !selected;
-    cb.setAttribute("data-action", "toggle-extension");
-    cb.setAttribute("data-team-id", teamId);
-    cb.setAttribute("data-asset-id", asset.asset_id);
-    var span = document.createElement("span");
-    span.textContent = selected ? "Extend for acquirer" : "Select player first";
-    ctl.appendChild(cb);
-    ctl.appendChild(span);
-    box.appendChild(ctl);
-
-    var select = document.createElement("select");
-    select.className = "twb-ext-select";
-    select.disabled = !selected || !extState.enabled;
-    select.setAttribute("data-action", "set-extension-option");
-    select.setAttribute("data-team-id", teamId);
-    select.setAttribute("data-asset-id", asset.asset_id);
-
-    var defaultKey = safeStr(extState.option_key);
-    if (!defaultKey && asset.extension_options[0]) defaultKey = safeStr(asset.extension_options[0].option_key || "");
-    select.appendChild(optionEl("", "Choose term"));
-
-    var i;
-    for (i = 0; i < asset.extension_options.length; i += 1) {
-      var opt = asset.extension_options[i];
-      var label = opt.label;
-      if (opt.new_aav_future != null) label += " · AAV " + kFmtFromDollars(opt.new_aav_future);
-      var option = optionEl(opt.option_key, label);
-      if (defaultKey && opt.option_key === defaultKey) option.selected = true;
-      select.appendChild(option);
-    }
-
-    box.appendChild(select);
-    td.appendChild(box);
-    return td;
-  }
-
   function renderAssetRow(team, asset) {
     var teamId = team.franchise_id;
     var selected = !!(state.selections[teamId] && state.selections[teamId][asset.asset_id]);
@@ -2163,8 +2187,6 @@
     cb.setAttribute("data-asset-id", asset.asset_id);
     tdSelect.appendChild(cb);
     tr.appendChild(tdSelect);
-
-    tr.appendChild(renderExtensionCell(teamId, asset, selected));
 
     var tdPlayer = document.createElement("td");
     tdPlayer.className = "twb-col-player";
@@ -2198,6 +2220,22 @@
     name.className = "twb-asset-name";
     name.textContent = asset.type === "PICK" ? safeStr(asset.pick_display || asset.description || "Rookie Pick") : buildPlayerLabel(asset);
     line.appendChild(name);
+
+    if (asset.type === "PLAYER" && asset.extension_eligible && asset.extension_options.length) {
+      var extBtn = document.createElement("button");
+      extBtn.type = "button";
+      extBtn.className = "twb-ext-inline-btn";
+      extBtn.setAttribute("data-action", "open-extension-modal");
+      extBtn.setAttribute("data-team-id", teamId);
+      extBtn.setAttribute("data-asset-id", asset.asset_id);
+      var extOption = getAssetExtensionOption(teamId, asset);
+      extBtn.textContent = extOption
+        ? "Pre-trade extension: " + extensionTypeLabel(extOption.extension_term)
+        : "Pre-trade extension";
+      extBtn.disabled = !selected;
+      if (!selected) extBtn.setAttribute("title", "Select player first");
+      line.appendChild(extBtn);
+    }
 
     main.appendChild(line);
 
@@ -2479,6 +2517,7 @@
         preview_id: req.option.preview_id,
         preview_contract_info_string: req.option.preview_contract_info_string || null,
         new_contract_status: req.option.new_contract_status || null,
+        new_contract_length: req.option.new_contract_length == null ? null : req.option.new_contract_length,
         new_TCV: req.option.new_TCV == null ? null : req.option.new_TCV,
         new_aav_future: req.option.new_aav_future == null ? null : req.option.new_aav_future
       });
@@ -2548,6 +2587,129 @@
     return String(years) + "-Year Extension";
   }
 
+  function getExtensionModalAsset() {
+    if (!state.extensionModal) return null;
+    var teamId = safeStr(state.extensionModal.teamId);
+    var assetId = safeStr(state.extensionModal.assetId);
+    if (!teamId || !assetId) return null;
+    return getAssetById(teamId, assetId);
+  }
+
+  function renderExtensionModalPreview(teamId, asset, optionKey) {
+    if (!els.extModalPreview) return;
+    if (!asset || asset.type !== "PLAYER") {
+      els.extModalPreview.textContent = "";
+      return;
+    }
+
+    var options = Array.isArray(asset.extension_options) ? asset.extension_options : [];
+    var option = null;
+    var i;
+    for (i = 0; i < options.length; i += 1) {
+      if (safeStr(options[i].option_key) === safeStr(optionKey)) {
+        option = options[i];
+        break;
+      }
+    }
+
+    if (!option) {
+      els.extModalPreview.textContent = "Pre-trade extension is off.";
+      return;
+    }
+
+    var lines = [];
+    lines.push("Pre-trade extension: " + extensionTypeLabel(option.extension_term));
+    lines.push("New length " + (option.new_contract_length == null ? "—" : String(option.new_contract_length)));
+    lines.push("New AAV " + (option.new_aav_future == null ? "—" : formatDollarsAsKLabel(option.new_aav_future)));
+    lines.push("New TCV " + (option.new_TCV == null ? "—" : formatDollarsAsKLabel(option.new_TCV)));
+    els.extModalPreview.textContent = lines.join(" | ");
+  }
+
+  function openExtensionModal(teamId, assetId) {
+    ensureSelectionMaps(teamId);
+    var asset = getAssetById(teamId, assetId);
+    if (!asset || asset.type !== "PLAYER") return;
+    if (!asset.extension_eligible || !Array.isArray(asset.extension_options) || !asset.extension_options.length) return;
+    if (!(state.selections[teamId] && state.selections[teamId][assetId])) return;
+    if (!els.extensionModal || !els.extModalOptionSelect || !els.extModalSaveBtn) return;
+
+    state.extensionModal.teamId = teamId;
+    state.extensionModal.assetId = assetId;
+
+    if (els.extModalPlayer) {
+      els.extModalPlayer.textContent = safeStr(asset.player_name || "Player");
+    }
+
+    var extState = (state.extensions[teamId] && state.extensions[teamId][assetId]) || { enabled: false, option_key: "" };
+    var defaultKey = extState.enabled ? safeStr(extState.option_key) : "";
+    if (!defaultKey && asset.extension_options[0]) defaultKey = safeStr(asset.extension_options[0].option_key || "");
+
+    els.extModalOptionSelect.innerHTML = "";
+    els.extModalOptionSelect.appendChild(optionEl("", "Off"));
+    var i;
+    for (i = 0; i < asset.extension_options.length; i += 1) {
+      var opt = asset.extension_options[i];
+      var label = extensionTypeLabel(opt.extension_term);
+      if (opt.new_aav_future != null) label += " · New AAV " + formatDollarsAsKLabel(opt.new_aav_future);
+      if (opt.new_TCV != null) label += " · New TCV " + formatDollarsAsKLabel(opt.new_TCV);
+      els.extModalOptionSelect.appendChild(optionEl(safeStr(opt.option_key), label));
+    }
+
+    els.extModalOptionSelect.value = extState.enabled ? defaultKey : "";
+    state.extensionModal.optionKey = safeStr(els.extModalOptionSelect.value);
+    renderExtensionModalPreview(teamId, asset, state.extensionModal.optionKey);
+
+    if (typeof els.extensionModal.showModal === "function") {
+      els.extensionModal.showModal();
+    } else {
+      els.extensionModal.setAttribute("open", "open");
+    }
+    window.setTimeout(function () {
+      try {
+        els.extModalOptionSelect.focus();
+      } catch (e) {
+        // noop
+      }
+    }, 0);
+  }
+
+  function closeExtensionModal() {
+    if (!els.extensionModal) return;
+    if (typeof els.extensionModal.close === "function") {
+      try {
+        els.extensionModal.close();
+      } catch (e) {
+        // noop
+      }
+    } else {
+      els.extensionModal.removeAttribute("open");
+    }
+    state.extensionModal.teamId = "";
+    state.extensionModal.assetId = "";
+    state.extensionModal.optionKey = "";
+  }
+
+  function saveExtensionModal() {
+    var teamId = safeStr(state.extensionModal.teamId);
+    var assetId = safeStr(state.extensionModal.assetId);
+    var optionKey = safeStr(els.extModalOptionSelect ? els.extModalOptionSelect.value : "");
+    if (!teamId || !assetId) {
+      closeExtensionModal();
+      return;
+    }
+    if (!optionKey) {
+      setExtensionEnabled(teamId, assetId, false);
+      if (state.extensions[teamId] && state.extensions[teamId][assetId]) {
+        state.extensions[teamId][assetId].option_key = "";
+      }
+    } else {
+      setExtensionOption(teamId, assetId, optionKey);
+      setExtensionEnabled(teamId, assetId, true);
+    }
+    closeExtensionModal();
+    rerender();
+  }
+
   function renderOfferCartPlayerCard(teamId, asset) {
     var item = document.createElement("article");
     item.className = "twb-offer-cart-item twb-offer-cart-item-player";
@@ -2601,7 +2763,7 @@
       ext.className = "twb-offer-extension";
       var extTitle = document.createElement("div");
       extTitle.className = "twb-offer-extension-title";
-      extTitle.textContent = extensionTypeLabel(option.extension_term);
+      extTitle.textContent = "Pre-trade extension · " + extensionTypeLabel(option.extension_term);
       ext.appendChild(extTitle);
       if (option.new_aav_future != null) {
         ext.appendChild(offerPlayerMetric("New AAV", formatDollarsAsKLabel(option.new_aav_future)));
@@ -2692,7 +2854,11 @@
 
     if (els.offerCartStatus) {
       var ready = payload.validation.status === "ready";
-      els.offerCartStatus.textContent = ready ? "Ready" : "Draft";
+      if (ready) {
+        els.offerCartStatus.textContent = state.counterMode ? "Counter Ready" : "Ready";
+      } else {
+        els.offerCartStatus.textContent = state.counterMode ? "Counter Offer Draft" : "Draft";
+      }
       els.offerCartStatus.className = "twb-status-pill " + (ready ? "is-ready" : "is-draft");
     }
   }
@@ -2844,7 +3010,11 @@
     var payload = buildTradePayload();
     var statusPill = els.summaryStatus;
     var ready = payload.validation.status === "ready";
-    statusPill.textContent = ready ? "Ready" : "Draft";
+    if (ready) {
+      statusPill.textContent = state.counterMode ? "Counter Ready" : "Ready";
+    } else {
+      statusPill.textContent = state.counterMode ? "Counter Offer Draft" : "Draft";
+    }
     statusPill.className = "twb-status-pill " + (ready ? "is-ready" : "is-draft");
 
     var recon = payload.salary_reconciliation || {};
@@ -2972,7 +3142,6 @@
 
   function resetFilterState() {
     state.filters.search = "";
-    state.filters.activeContractTypes = {};
     state.filters.yearsMin = "";
     state.filters.yearsMax = "";
     state.filters.showTaxi = true;
@@ -2985,13 +3154,23 @@
     state.rightTeamId = "";
   }
 
-  function resetTrade() {
+  function resetTrade(options) {
+    options = options || {};
+    var resetPartnerTeam = options.resetPartnerTeam !== false;
+    var resetMessage = options.resetMessage !== false;
+    var resetExtensions = options.resetExtensions !== false;
+    var resetSalary = options.resetSalary !== false;
+
     state.selections = {};
-    state.extensions = {};
-    state.tradeSalaryK = {};
+    if (resetExtensions) state.extensions = {};
+    if (resetSalary) state.tradeSalaryK = {};
     state.collapsed = {};
+    if (resetPartnerTeam) state.rightTeamId = "";
+    state.counterMode = false;
+    state.mobileTab = "your";
     resetSubmitUiState("No offer submitted yet.", "");
-    if (els.offerMessageInput) els.offerMessageInput.value = "";
+    if (resetMessage && els.offerMessageInput) els.offerMessageInput.value = "";
+    closeExtensionModal();
   }
 
   function copyPayloadToClipboard() {
@@ -3073,13 +3252,25 @@
 
     if (els.resetBtn) {
       els.resetBtn.addEventListener("click", function () {
-        resetTrade();
+        resetTrade({
+          resetPartnerTeam: true,
+          resetMessage: true,
+          resetExtensions: true,
+          resetSalary: true
+        });
+        initTeamSelectors();
         rerender();
       });
     }
     if (els.resetTradeReviewBtn) {
       els.resetTradeReviewBtn.addEventListener("click", function () {
-        resetTrade();
+        resetTrade({
+          resetPartnerTeam: true,
+          resetMessage: true,
+          resetExtensions: true,
+          resetSalary: true
+        });
+        initTeamSelectors();
         rerender();
       });
     }
@@ -3090,16 +3281,49 @@
       });
     }
 
+    if (els.extModalOptionSelect) {
+      els.extModalOptionSelect.addEventListener("change", function () {
+        state.extensionModal.optionKey = safeStr(this.value);
+        renderExtensionModalPreview(
+          safeStr(state.extensionModal.teamId),
+          getExtensionModalAsset(),
+          state.extensionModal.optionKey
+        );
+      });
+    }
+
+    if (els.extModalSaveBtn) {
+      els.extModalSaveBtn.addEventListener("click", function () {
+        saveExtensionModal();
+      });
+    }
+
+    if (els.extensionModal) {
+      els.extensionModal.addEventListener("click", function (evt) {
+        var node = evt.target;
+        while (node && node !== els.extensionModal) {
+          var act = node.getAttribute && node.getAttribute("data-action");
+          if (act === "ext-modal-cancel") {
+            evt.preventDefault();
+            closeExtensionModal();
+            return;
+          }
+          node = node.parentNode;
+        }
+        if (evt.target === els.extensionModal) {
+          closeExtensionModal();
+        }
+      });
+      els.extensionModal.addEventListener("cancel", function (evt) {
+        evt.preventDefault();
+        closeExtensionModal();
+      });
+    }
+
     els.toolbar.addEventListener("change", function (evt) {
       var target = evt.target;
       if (!target) return;
       var action = target.getAttribute("data-action");
-      if (action === "toggle-contract-type-filter") {
-        var ct = safeStr(target.getAttribute("data-contract-type"));
-        if (target.checked) state.filters.activeContractTypes[ct] = true;
-        else delete state.filters.activeContractTypes[ct];
-        rerender();
-      }
       if (action === "toggle-bool-filter") {
         var key = safeStr(target.getAttribute("data-filter-key"));
         if (key) state.filters[key] = !!target.checked;
@@ -3116,20 +3340,6 @@
         teamId = safeStr(target.getAttribute("data-team-id"));
         assetId = safeStr(target.getAttribute("data-asset-id"));
         toggleAsset(teamId, assetId, !!target.checked);
-        rerender();
-        return;
-      }
-      if (action === "toggle-extension") {
-        teamId = safeStr(target.getAttribute("data-team-id"));
-        assetId = safeStr(target.getAttribute("data-asset-id"));
-        setExtensionEnabled(teamId, assetId, !!target.checked);
-        rerender();
-        return;
-      }
-      if (action === "set-extension-option") {
-        teamId = safeStr(target.getAttribute("data-team-id"));
-        assetId = safeStr(target.getAttribute("data-asset-id"));
-        setExtensionOption(teamId, assetId, target.value);
         rerender();
         return;
       }
@@ -3167,6 +3377,13 @@
       } else if (action === "team-collapse-all") {
         teamSetAllGroups(teamId, false);
         rerender();
+      } else if (action === "open-extension-modal") {
+        evt.preventDefault();
+        evt.stopPropagation();
+        openExtensionModal(
+          safeStr(target.getAttribute("data-team-id")),
+          safeStr(target.getAttribute("data-asset-id"))
+        );
       } else if (action === "asset-view") {
         var view = safeStr(target.getAttribute("data-view"));
         setAssetView(teamId, view);
@@ -3320,7 +3537,6 @@
     els.searchInput = q("twbSearchInput");
     els.yearsMinSelect = q("twbYearsMinSelect");
     els.yearsMaxSelect = q("twbYearsMaxSelect");
-    els.contractTypeOptions = q("twbContractTypeOptions");
     els.booleanToggles = q("twbBooleanToggles");
     els.clearFiltersBtn = q("twbClearFiltersBtn");
     els.copyPayloadBtn = q("twbCopyPayloadBtn");
@@ -3353,6 +3569,11 @@
     els.offerMessageInput = q("twbOfferMessageInput");
     els.submitOfferBtn = q("twbSubmitOfferBtn");
     els.submitOfferStatus = q("twbSubmitOfferStatus");
+    els.extensionModal = q("twbExtensionModal");
+    els.extModalPlayer = q("twbExtModalPlayer");
+    els.extModalOptionSelect = q("twbExtModalOptionSelect");
+    els.extModalPreview = q("twbExtModalPreview");
+    els.extModalSaveBtn = q("twbExtModalSaveBtn");
   }
 
   function seedInitialTeams() {
@@ -3397,6 +3618,14 @@
       if (!state.data.teams.length) throw new Error("No teams in data payload.");
 
       seedInitialTeams();
+      if (!getUrlParam("twb_load_offer")) {
+        resetTrade({
+          resetPartnerTeam: true,
+          resetMessage: true,
+          resetExtensions: true,
+          resetSalary: true
+        });
+      }
       initializeControlsFromState();
       bindEvents();
       state.uiReady = true;

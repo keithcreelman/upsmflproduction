@@ -14,7 +14,7 @@
         <p class="twb-kicker">UPS Custom Trade Workflow</p>
         <h1>Trade War Room</h1>
         <p class="twb-subtitle">
-          Build and submit trade offers with players, picks, traded salary, and extension options.
+          Build and submit trade offers with players, picks, traded salary, and pre-trade extensions.
         </p>
       </div>
       <div class="twb-hero-actions">
@@ -69,10 +69,6 @@
             </label>
           </div>
           <div class="twb-filter-bottom">
-            <details class="twb-filter-panel">
-              <summary>Contract Types</summary>
-              <div id="twbContractTypeOptions" class="twb-checkbox-grid"></div>
-            </details>
             <div class="twb-toggle-group" id="twbBooleanToggles"></div>
           </div>
         </div>
@@ -175,14 +171,10 @@
     <section class="twb-team-panel twb-card">
       <header class="twb-team-header">
         <div class="twb-team-brand">
-          <div class="twb-team-logo-shell" aria-hidden="true">
+          <div class="twb-team-logo-shell" role="img" aria-label="Team">
             <img class="twb-team-logo" alt="">
             <div class="twb-team-logo-fallback"></div>
-          </div>
-          <div class="twb-team-title-wrap">
-            <div class="twb-team-eyebrow"></div>
-            <h2 class="twb-team-title"></h2>
-            <div class="twb-team-meta"></div>
+            <span class="twb-visually-hidden twb-team-name-a11y"></span>
           </div>
         </div>
         <div class="twb-asset-toggle" role="tablist" aria-label="Asset view">
@@ -227,7 +219,6 @@
             <thead>
               <tr>
                 <th class="twb-col-select">In</th>
-                <th class="twb-col-ext">Extend</th>
                 <th class="twb-col-player">Player / Asset</th>
                 <th class="twb-col-salary">Salary</th>
                 <th class="twb-col-years">Years</th>
@@ -240,6 +231,29 @@
       </div>
     </details>
   </template>
+
+  <dialog id="twbExtensionModal" class="twb-ext-modal-dialog" aria-labelledby="twbExtModalTitle">
+    <form method="dialog" class="twb-ext-modal-shell">
+      <header class="twb-ext-modal-head">
+        <h3 id="twbExtModalTitle">Pre-trade extension</h3>
+        <button type="button" class="twb-ext-modal-close" data-action="ext-modal-cancel" aria-label="Close">×</button>
+      </header>
+      <div class="twb-ext-modal-body">
+        <div id="twbExtModalPlayer" class="twb-ext-modal-player">Player</div>
+        <label class="twb-field">
+          <span>Pre-trade extension</span>
+          <select id="twbExtModalOptionSelect">
+            <option value="">Off</option>
+          </select>
+        </label>
+        <div id="twbExtModalPreview" class="twb-ext-modal-preview"></div>
+      </div>
+      <footer class="twb-ext-modal-actions">
+        <button type="button" class="twb-btn twb-btn-ghost" data-action="ext-modal-cancel">Cancel</button>
+        <button type="button" id="twbExtModalSaveBtn" class="twb-btn twb-btn-primary">Save</button>
+      </footer>
+    </form>
+  </dialog>
 
   <script src="./trade_workbench.js" defer></script>
 </body>

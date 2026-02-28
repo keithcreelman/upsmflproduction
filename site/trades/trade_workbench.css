@@ -66,6 +66,18 @@ summary:focus-visible {
   outline-offset: 2px;
 }
 
+.twb-visually-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
 .twb-shell {
   max-width: 1500px;
   margin: 0 auto;
@@ -428,10 +440,10 @@ summary:focus-visible {
 
 .twb-filter-bottom {
   margin-top: 0.6rem;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  display: flex;
   gap: 0.7rem;
-  align-items: start;
+  align-items: center;
+  justify-content: flex-end;
 }
 
 .twb-filter-panel {
@@ -910,15 +922,15 @@ summary:focus-visible {
 
 .twb-team-brand {
   display: grid;
-  grid-template-columns: 64px 1fr;
-  gap: 0.75rem;
+  grid-template-columns: 72px;
+  gap: 0;
   align-items: center;
   min-width: 0;
 }
 
 .twb-team-logo-shell {
-  width: 64px;
-  height: 64px;
+  width: 72px;
+  height: 72px;
   border-radius: 12px;
   border: 0;
   background: transparent;
@@ -957,36 +969,6 @@ summary:focus-visible {
 
 .twb-team-logo-shell.twb-team-logo-missing .twb-team-logo {
   display: none;
-}
-
-.twb-team-title-wrap {
-  display: grid;
-  gap: 0.1rem;
-}
-
-.twb-team-eyebrow:empty,
-.twb-team-meta:empty {
-  display: none;
-}
-
-.twb-team-eyebrow {
-  color: var(--twb-text-soft);
-  text-transform: uppercase;
-  font-size: 0.68rem;
-  letter-spacing: 0.12em;
-  font-weight: 800;
-}
-
-.twb-team-title {
-  margin: 0;
-  font-size: 1.18rem;
-  line-height: 1.1;
-}
-
-.twb-team-meta {
-  color: var(--twb-text-soft);
-  font-size: 0.75rem;
-  margin-top: 0.2rem;
 }
 
 .twb-asset-toggle {
@@ -1193,7 +1175,7 @@ summary:focus-visible {
 .twb-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 610px;
+  min-width: 520px;
 }
 
 .twb-table th,
@@ -1229,7 +1211,6 @@ summary:focus-visible {
 }
 
 .twb-col-select,
-.twb-col-ext,
 .twb-col-salary,
 .twb-col-years {
   white-space: nowrap;
@@ -1257,6 +1238,23 @@ summary:focus-visible {
 .twb-asset-name {
   font-weight: 800;
   color: var(--twb-text);
+}
+
+.twb-ext-inline-btn {
+  border: 1px solid rgba(240, 196, 101, 0.42);
+  background: rgba(240, 196, 101, 0.12);
+  color: #ffe6b3;
+  border-radius: 999px;
+  padding: 0.14rem 0.48rem;
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+}
+
+.twb-ext-inline-btn:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
 }
 
 .twb-asset-sub {
@@ -1309,33 +1307,76 @@ summary:focus-visible {
   font-weight: 700;
 }
 
-.twb-ext-box {
-  display: grid;
-  gap: 0.25rem;
-  min-width: 9.5rem;
+.twb-ext-modal-dialog {
+  border: 0;
+  padding: 0;
+  border-radius: 14px;
+  background: transparent;
+  width: min(540px, calc(100vw - 1.5rem));
+  max-width: 100%;
 }
 
-.twb-ext-ctl {
+.twb-ext-modal-dialog::backdrop {
+  background: rgba(2, 6, 23, 0.7);
+}
+
+.twb-ext-modal-shell {
+  margin: 0;
+  border: 1px solid rgba(121, 153, 195, 0.34);
+  border-radius: 14px;
+  background: #0a172d;
+  color: #eaf3ff;
+  padding: 0.72rem;
+  display: grid;
+  gap: 0.7rem;
+}
+
+.twb-ext-modal-head {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
-  font-size: 0.72rem;
-  color: var(--twb-text-dim);
+  justify-content: space-between;
+  gap: 0.5rem;
 }
 
-.twb-ext-ctl input {
+.twb-ext-modal-head h3 {
   margin: 0;
-  accent-color: #f4c369;
+  font-size: 1rem;
 }
 
-.twb-ext-select {
-  font-size: 0.7rem;
-  padding: 0.32rem 0.38rem;
+.twb-ext-modal-close {
+  border: 0;
+  background: transparent;
+  color: #cde4ff;
+  font-size: 1.25rem;
+  font-weight: 800;
+  cursor: pointer;
+  line-height: 1;
 }
 
-.twb-ext-none {
-  color: var(--twb-text-soft);
-  font-size: 0.72rem;
+.twb-ext-modal-body {
+  display: grid;
+  gap: 0.62rem;
+}
+
+.twb-ext-modal-player {
+  font-size: 0.98rem;
+  font-weight: 900;
+}
+
+.twb-ext-modal-preview {
+  border: 1px solid rgba(121, 153, 195, 0.24);
+  border-radius: 10px;
+  background: rgba(6, 12, 24, 0.65);
+  padding: 0.52rem 0.56rem;
+  color: #cde4ff;
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.twb-ext-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
 }
 
 .twb-payload-card {
@@ -1477,6 +1518,28 @@ summary:focus-visible {
     color: #7c2d12;
     background: #fde68a;
     box-shadow: inset 0 0 0 1px #f59e0b;
+  }
+
+  .twb-ext-inline-btn {
+    background: #fff7ed;
+    border-color: #f59e0b;
+    color: #9a3412;
+  }
+
+  .twb-ext-modal-shell {
+    background: #ffffff;
+    color: #0f172a;
+    border-color: #cbd5e1;
+  }
+
+  .twb-ext-modal-close {
+    color: #334155;
+  }
+
+  .twb-ext-modal-preview {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+    color: #334155;
   }
 }
 
@@ -1669,7 +1732,12 @@ summary:focus-visible {
   }
 
   .twb-team-brand {
-    grid-template-columns: 64px 1fr;
+    grid-template-columns: 64px;
+  }
+
+  .twb-team-logo-shell {
+    width: 64px;
+    height: 64px;
   }
 
   .twb-asset-toggle {
@@ -1828,16 +1896,22 @@ summary:focus-visible {
   }
 
   .twb-col-select,
-  .twb-col-ext {
+  .twb-col-salary,
+  .twb-col-years {
     width: auto;
-  }
-
-  .twb-ext-box {
-    min-width: 0;
   }
 
   .twb-offer-cart-mobile-tray {
     display: block;
+  }
+
+  .twb-team-brand {
+    grid-template-columns: 56px;
+  }
+
+  .twb-team-logo-shell {
+    width: 56px;
+    height: 56px;
   }
 }
 
