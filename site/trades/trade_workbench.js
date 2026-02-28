@@ -3394,6 +3394,7 @@
           ) {
             evt.preventDefault();
             evt.stopPropagation();
+            if (evt.stopImmediatePropagation) evt.stopImmediatePropagation();
             var bucket = safeStr(node.getAttribute("data-offer-bucket")) || "received";
             var offerId = safeStr(node.getAttribute("data-offer-id"));
             var offer = getOfferFromBannerState(bucket, offerId);
@@ -3415,6 +3416,12 @@
             } else if (action === "offer-revoke") {
               performOfferAction("REVOKE", { bucket: bucket, offer: offer });
             } else if (action === "offer-counter" || action === "build-counter" || action === "counter-offer") {
+              try {
+                sessionStorage.setItem("twb_counter_offer_id", safeStr(offerId));
+                sessionStorage.setItem("twb_mode", "counter");
+              } catch (e) {
+                // noop
+              }
               performOfferAction("COUNTER", { bucket: bucket, offer: offer });
             } else {
               loadOfferIntoWorkbench(offer.payload);
