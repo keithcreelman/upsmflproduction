@@ -868,6 +868,35 @@ summary:focus-visible {
   color: #475569;
 }
 
+.twb-debug-wrap {
+  margin-top: 0.5rem;
+  border: 1px solid #d1d9e6;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.twb-debug-wrap summary {
+  cursor: pointer;
+  padding: 0.5rem 0.6rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.twb-debug-pre {
+  margin: 0;
+  padding: 0.6rem;
+  max-height: 280px;
+  overflow: auto;
+  border-top: 1px solid #d1d9e6;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: #0f172a;
+  background: #ffffff;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .twb-offer-cart-mobile-tray {
   position: fixed;
   left: 0.7rem;

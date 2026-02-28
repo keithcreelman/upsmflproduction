@@ -28,7 +28,8 @@
       tone: "",
       lastRequestBody: null,
       lastRequestUrl: "",
-      canRetry: false
+      canRetry: false,
+      acceptDebug: null
     },
     offers: {
       busy: false,
@@ -1228,6 +1229,7 @@
     state.submit.lastRequestBody = null;
     state.submit.lastRequestUrl = "";
     state.submit.canRetry = false;
+    state.submit.acceptDebug = null;
   }
 
   function setReviewContext(kind, options) {
@@ -1705,6 +1707,7 @@
   async function performOfferAction(action, meta) {
     var normalizedAction = normalizeOfferStatus(action);
     if (!normalizedAction || state.offers.actionBusy) return;
+    if (normalizedAction !== "ACCEPT") setAcceptDebug(null);
     var offer = meta && meta.offer ? meta.offer : null;
     var bucket = safeStr(meta && meta.bucket);
     if (!offer) {
@@ -1780,6 +1783,14 @@
         var postSummary = summarizePostAcceptResult(res);
         if (postSummary.text) okText += " " + postSummary.text + ".";
         setSubmitStatus(okText, postSummary.tone || "good");
+        setAcceptDebug(res && res.accept_debug ? res.accept_debug : null);
+        if (res && res.accept_debug) {
+          try {
+            console.log("[TWB][accept][debug]", res.accept_debug);
+          } catch (e0) {
+            // noop
+          }
+        }
       } else {
         setSubmitStatus(okText, "good");
       }
@@ -1788,6 +1799,17 @@
         setSubmitStatus(okText + " (non-direct mode response)", "warn");
       }
     } catch (err) {
+      if (normalizedAction === "ACCEPT") {
+        var debugFromErr = err && err.data && err.data.accept_debug ? err.data.accept_debug : null;
+        setAcceptDebug(debugFromErr);
+        if (debugFromErr) {
+          try {
+            console.log("[TWB][accept][debug][error]", debugFromErr);
+          } catch (e00) {
+            // noop
+          }
+        }
+      }
       try {
         console.error("[TWB] Offer action failed diagnostics:", {
           action: normalizedAction,
@@ -1995,6 +2017,10 @@
     state.submit.tone = safeStr(tone) || "";
   }
 
+  function setAcceptDebug(debugObj) {
+    state.submit.acceptDebug = debugObj && typeof debugObj === "object" ? debugObj : null;
+  }
+
   function friendlyOfferError(prefix, err) {
     var msg = err && err.message ? String(err.message) : String(err);
     var data = err && err.data && typeof err.data === "object" ? err.data : null;
@@ -2091,6 +2117,7 @@
 
   async function submitOfferToQueue() {
     if (state.submit.busy) return;
+    setAcceptDebug(null);
     var payload = buildTradePayload();
     var leftTeam = getTeamById(state.leftTeamId);
     var rightTeam = getTeamById(state.rightTeamId);
@@ -2203,6 +2230,7 @@
 
   async function retryLastSubmitRequest() {
     if (state.submit.busy) return;
+    setAcceptDebug(null);
     if (!state.submit.lastRequestBody || !state.submit.lastRequestUrl) {
       submitOfferToQueue();
       return;
@@ -3802,6 +3830,16 @@
     if (state.submit.tone) {
       els.submitOfferStatus.className += " twb-submit-status-" + state.submit.tone;
     }
+    if (els.submitDebugWrap && els.submitDebugPre) {
+      var debugObj = state.submit.acceptDebug;
+      var hasDebug = !!(debugObj && typeof debugObj === "object");
+      els.submitDebugWrap.hidden = !hasDebug;
+      if (hasDebug) {
+        els.submitDebugPre.textContent = JSON.stringify(debugObj, null, 2);
+      } else {
+        els.submitDebugPre.textContent = "";
+      }
+    }
   }
 
   function renderSummary() {
@@ -4374,6 +4412,8 @@
     els.submitOfferBtn = q("twbSubmitOfferBtn");
     els.submitRetryBtn = q("twbSubmitRetryBtn");
     els.submitOfferStatus = q("twbSubmitOfferStatus");
+    els.submitDebugWrap = q("twbSubmitDebugWrap");
+    els.submitDebugPre = q("twbSubmitDebugPre");
     els.extensionModal = q("twbExtensionModal");
     els.extModalPlayer = q("twbExtModalPlayer");
     els.extModalOptionSelect = q("twbExtModalOptionSelect");

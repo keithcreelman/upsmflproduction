@@ -1804,6 +1804,33 @@ export default {
         extensions: extensions || {},
       });
 
+      const hostFromUrl = (urlValue) => {
+        const raw = safeStr(urlValue);
+        if (!raw) return "";
+        try {
+          return safeStr(new URL(raw).host);
+        } catch (_) {
+          return "";
+        }
+      };
+
+      const buildImportAttemptDebug = ({
+        step,
+        endpointUrl,
+        httpStatus,
+        responseText,
+        parsedError,
+        payloadXml,
+      }) => ({
+        step: safeStr(step),
+        endpoint_url: safeStr(endpointUrl),
+        endpoint_host: hostFromUrl(endpointUrl),
+        http_status: safeInt(httpStatus, 0),
+        response_excerpt: safeStr(responseText).slice(0, 500),
+        parsed_error: safeStr(parsedError),
+        payload_xml: payloadXml == null ? null : safeStr(payloadXml),
+      });
+
       const logTradeProposalFailure = (details) => {
         try {
           console.error("[TWB][tradeProposal][error]", JSON.stringify(details || {}));
@@ -2143,6 +2170,10 @@ export default {
           expected_extension_count: 0,
           prepared_count: 0,
           source: "existing_payload",
+          comment_field_used: "",
+          raw_comment_excerpt: "",
+          extension_trigger_found: false,
+          parse_rows: [],
           skipped_rows: [],
         };
         const inputPayload =
@@ -2150,18 +2181,30 @@ export default {
             ? JSON.parse(JSON.stringify(payload))
             : {};
         const commentSources = [
-          safeStr(offerComment),
-          safeStr(inputPayload.comment),
-          safeStr(inputPayload.comments),
-          safeStr(inputPayload.message),
-          safeStr(inputPayload.notes),
-          safeStr(inputPayload.raw_comment),
-        ].filter(Boolean);
-        const combinedComment = commentSources.join("\n");
+          { field: "offer_comment", text: safeStr(offerComment) },
+          { field: "payload.comment", text: safeStr(inputPayload.comment) },
+          { field: "payload.comments", text: safeStr(inputPayload.comments) },
+          { field: "payload.notes", text: safeStr(inputPayload.notes) },
+          { field: "payload.message", text: safeStr(inputPayload.message) },
+          { field: "payload.raw_comment", text: safeStr(inputPayload.raw_comment) },
+        ].filter((row) => !!row.text);
+        const primaryComment = commentSources[0] || { field: "", text: "" };
+        const combinedComment = commentSources.map((row) => row.text).join("\n");
+        out.comment_field_used = primaryComment.field || "none";
+        out.raw_comment_excerpt = safeStr(primaryComment.text || combinedComment).slice(0, 500);
         const existing = Array.isArray(inputPayload.extension_requests) ? inputPayload.extension_requests : [];
         if (existing.length) {
           out.expected_extension_count = existing.length;
           out.prepared_count = existing.length;
+          out.extension_trigger_found = true;
+          out.parse_rows = existing.map((row) => ({
+            source: "payload.extension_requests",
+            parsed_player_name: safeStr(row?.player_name),
+            parsed_term: safeStr(row?.extension_term),
+            resolved_player_id: String(row?.player_id || "").replace(/\D/g, ""),
+            eligibility: "eligible",
+            reason: "",
+          }));
           out.payload = inputPayload;
           try {
             console.log(
@@ -2190,6 +2233,7 @@ export default {
         const parsedLines = Array.isArray(parsedLinesBundle.entries) ? parsedLinesBundle.entries : [];
         const triggerCount = safeInt(parsedLinesBundle.triggerCount, 0);
         const parseFailedCount = safeInt(parsedLinesBundle.parseFailedCount, 0);
+        out.extension_trigger_found = triggerCount > 0 || metaExt.length > 0;
 
         const attemptFromComments = async (sourceLabel) => {
           const validLines = parsedLines.filter((line) => !line.parse_error);
@@ -2204,6 +2248,14 @@ export default {
               parse_failed_count: parseFailedCount,
               raw_comment_excerpt: safeStr(combinedComment).slice(0, 500),
             });
+            out.parse_rows.push({
+              source: sourceLabel,
+              parsed_player_name: "",
+              parsed_term: "",
+              resolved_player_id: "",
+              eligibility: "unknown",
+              reason: "extension_parse_failed",
+            });
           }
 
           var i;
@@ -2213,6 +2265,14 @@ export default {
               reason: "term_not_parsed",
               raw_line: parsedLines[i].raw_line,
               player_name: parsedLines[i].player_name,
+            });
+            out.parse_rows.push({
+              source: sourceLabel,
+              parsed_player_name: safeStr(parsedLines[i].player_name),
+              parsed_term: safeStr(parsedLines[i].extension_term),
+              resolved_player_id: "",
+              eligibility: "unknown",
+              reason: "term_not_parsed",
             });
           }
 
@@ -2225,6 +2285,14 @@ export default {
                 reason: "extension_previews_unavailable",
                 player_name: line.player_name,
                 extension_term: line.extension_term,
+              });
+              out.parse_rows.push({
+                source: sourceLabel,
+                parsed_player_name: safeStr(line.player_name),
+                parsed_term: safeStr(line.extension_term),
+                resolved_player_id: "",
+                eligibility: "unknown",
+                reason: "extension_previews_unavailable",
               });
             }
             return;
@@ -2245,6 +2313,14 @@ export default {
                 player_name: line.player_name,
                 extension_term: line.extension_term,
               });
+              out.parse_rows.push({
+                source: sourceLabel,
+                parsed_player_name: safeStr(line.player_name),
+                parsed_term: safeStr(line.extension_term),
+                resolved_player_id: "",
+                eligibility: "unknown",
+                reason: "player_not_resolved",
+              });
               continue;
             }
             const preview = pickExtensionPreviewByTerm(
@@ -2258,6 +2334,14 @@ export default {
                 player_id: selection.player_id,
                 player_name: selection.player_name,
                 extension_term: line.extension_term,
+              });
+              out.parse_rows.push({
+                source: sourceLabel,
+                parsed_player_name: safeStr(line.player_name),
+                parsed_term: safeStr(line.extension_term),
+                resolved_player_id: safeStr(selection.player_id),
+                eligibility: "not_eligible",
+                reason: "not_eligible",
               });
               continue;
             }
@@ -2275,8 +2359,24 @@ export default {
                 player_name: selection.player_name,
                 extension_term: line.extension_term,
               });
+              out.parse_rows.push({
+                source: sourceLabel,
+                parsed_player_name: safeStr(line.player_name),
+                parsed_term: safeStr(line.extension_term),
+                resolved_player_id: safeStr(selection.player_id),
+                eligibility: "eligible",
+                reason: "payload_invalid",
+              });
               continue;
             }
+            out.parse_rows.push({
+              source: sourceLabel,
+              parsed_player_name: safeStr(line.player_name),
+              parsed_term: safeStr(line.extension_term),
+              resolved_player_id: safeStr(selection.player_id),
+              eligibility: "eligible",
+              reason: "",
+            });
             prepared.push(req);
           }
         };
@@ -2288,18 +2388,50 @@ export default {
             const playerId = String(item?.player_id || "").replace(/\D/g, "");
             if (!playerId) {
               out.skipped_rows.push({ reason: "no_player_id", item });
+              out.parse_rows.push({
+                source: "twb_meta",
+                parsed_player_name: safeStr(item?.player_name),
+                parsed_term: safeStr(item?.extension_term),
+                resolved_player_id: "",
+                eligibility: "unknown",
+                reason: "no_player_id",
+              });
               continue;
             }
             const selection = indexes.byId[playerId];
             if (!selection) {
               out.skipped_rows.push({ reason: "player_not_in_selected_assets", player_id: playerId, item });
+              out.parse_rows.push({
+                source: "twb_meta",
+                parsed_player_name: safeStr(item?.player_name),
+                parsed_term: safeStr(item?.extension_term),
+                resolved_player_id: safeStr(playerId),
+                eligibility: "unknown",
+                reason: "player_not_in_selected_assets",
+              });
               continue;
             }
             const req = buildExtensionRequestFromPreview(item, selection, item, indexes.leftId, indexes.rightId);
             if (!safeStr(req.preview_contract_info_string)) {
               out.skipped_rows.push({ reason: "missing_preview_contract_info_string", player_id: playerId, item });
+              out.parse_rows.push({
+                source: "twb_meta",
+                parsed_player_name: safeStr(item?.player_name || selection?.player_name),
+                parsed_term: safeStr(item?.extension_term),
+                resolved_player_id: safeStr(playerId),
+                eligibility: "eligible",
+                reason: "payload_invalid",
+              });
               continue;
             }
+            out.parse_rows.push({
+              source: "twb_meta",
+              parsed_player_name: safeStr(item?.player_name || selection?.player_name),
+              parsed_term: safeStr(item?.extension_term),
+              resolved_player_id: safeStr(playerId),
+              eligibility: "eligible",
+              reason: "",
+            });
             prepared.push(req);
           }
           if (!prepared.length) {
@@ -4426,12 +4558,57 @@ export default {
           );
 
           if (!responseImport.requestOk) {
+            const acceptDebugEarly = action === "ACCEPT"
+              ? {
+                  trade_context: {
+                    timestamp_utc: new Date().toISOString(),
+                    league_id: safeStr(leagueId),
+                    season: safeStr(season),
+                    mfl_base_host: hostFromUrl(responseImport?.targetImportUrl),
+                    acting_franchise_id: safeStr(actingFranchiseId),
+                    counterparty_franchise_id: "",
+                    trade_key: safeStr(mflTradeId || offerId || body?.proposal_id || body?.offer_id),
+                  },
+                  comment_source: {
+                    field: "offer_comment",
+                    raw_comment_text: safeStr(offerComment).slice(0, 500),
+                    extension_trigger_found: false,
+                  },
+                  extension_parse: {
+                    requested_count: 0,
+                    prepared_count: 0,
+                    rows: [],
+                  },
+                  import_attempts: [
+                    buildImportAttemptDebug({
+                      step: "trade_response_import",
+                      endpointUrl: responseImport?.targetImportUrl,
+                      httpStatus: responseImport?.status,
+                      responseText: responseImport?.upstreamPreview,
+                      parsedError: extractMflReasonSnippet(responseImport?.upstreamPreview || responseImport?.error || ""),
+                      payloadXml: null,
+                    }),
+                  ],
+                  final_summary: {
+                    salary_adjustments: { attempted: 0, posted: 0, failed: 0 },
+                    extensions: { attempted: 0, posted: 0, failed: 0, skipped: 0, skip_reasons: [] },
+                  },
+                }
+              : null;
+            if (acceptDebugEarly) {
+              try {
+                console.log("[TWB][accept][debug]", JSON.stringify(acceptDebugEarly));
+              } catch (_) {
+                // noop
+              }
+            }
             return jsonOut(502, {
               ok: false,
               mode: "direct_mfl",
               action,
               error_type: "trade_response_import_failed",
               error: "MFL tradeResponse import failed",
+              accept_debug: acceptDebugEarly,
               upstreamStatus: responseImport.status,
               upstreamPreview: responseImport.upstreamPreview,
               targetImportUrl: responseImport.targetImportUrl,
@@ -4507,6 +4684,102 @@ export default {
             };
           }
 
+          let acceptDebug = null;
+          if (action === "ACCEPT") {
+            const salaryRows = Array.isArray(salaryAdjOut?.rows) ? salaryAdjOut.rows : [];
+            const salaryAttempted = salaryRows.length;
+            const salaryPosted = salaryAdjOut && salaryAdjOut.ok ? salaryAttempted : 0;
+            const salaryFailed = Math.max(0, salaryAttempted - salaryPosted);
+            const extAppliedRows = Array.isArray(extensionsOut?.applied) ? extensionsOut.applied : [];
+            const extSkippedRows = Array.isArray(extensionsOut?.skipped_rows) ? extensionsOut.skipped_rows : [];
+            const extAttempted = Math.max(
+              safeInt(extensionPreparation?.expected_extension_count, 0),
+              extAppliedRows.length + extSkippedRows.length
+            );
+            const extPosted = extensionsOut && extensionsOut.ok ? extAppliedRows.length : 0;
+            const extFailed = Math.max(0, extAttempted - extPosted - extSkippedRows.length);
+            const extSkipReasons = Array.from(
+              new Set(
+                extSkippedRows
+                  .map((row) => safeStr(row?.reason || row?.parse_error))
+                  .filter(Boolean)
+              )
+            );
+            const counterpartyFromPayload = padFranchiseId(
+              payload?.ui?.left_team_id === actingFranchiseId
+                ? payload?.ui?.right_team_id
+                : payload?.ui?.left_team_id
+            );
+            acceptDebug = {
+              trade_context: {
+                timestamp_utc: new Date().toISOString(),
+                league_id: safeStr(leagueId),
+                season: safeStr(season),
+                mfl_base_host: hostFromUrl(responseImport?.targetImportUrl),
+                acting_franchise_id: safeStr(actingFranchiseId),
+                counterparty_franchise_id: safeStr(counterpartyFromPayload),
+                trade_key: safeStr(mflTradeId || offerId || body?.proposal_id || body?.offer_id),
+              },
+              comment_source: {
+                field: safeStr(extensionPreparation?.comment_field_used || "unknown"),
+                raw_comment_text: safeStr(extensionPreparation?.raw_comment_excerpt || offerComment).slice(0, 500),
+                extension_trigger_found: !!(extensionPreparation?.extension_trigger_found),
+              },
+              extension_parse: {
+                requested_count: safeInt(extensionPreparation?.expected_extension_count, 0),
+                prepared_count: safeInt(extensionPreparation?.prepared_count, 0),
+                rows: Array.isArray(extensionPreparation?.parse_rows)
+                  ? extensionPreparation.parse_rows
+                  : [],
+              },
+              import_attempts: [
+                buildImportAttemptDebug({
+                  step: "trade_response_import",
+                  endpointUrl: responseImport?.targetImportUrl,
+                  httpStatus: responseImport?.status,
+                  responseText: responseImport?.upstreamPreview,
+                  parsedError: extractMflReasonSnippet(responseImport?.upstreamPreview || responseImport?.error || ""),
+                  payloadXml: null,
+                }),
+                buildImportAttemptDebug({
+                  step: "salary_adjustment_import",
+                  endpointUrl: salaryAdjOut?.targetImportUrl,
+                  httpStatus: salaryAdjOut?.upstreamStatus,
+                  responseText: salaryAdjOut?.upstreamPreview,
+                  parsedError: extractMflReasonSnippet(salaryAdjOut?.upstreamPreview || salaryAdjOut?.error || ""),
+                  payloadXml: salaryAdjOut?.dataXml || null,
+                }),
+                buildImportAttemptDebug({
+                  step: "extension_contract_import",
+                  endpointUrl: extensionsOut?.targetImportUrl,
+                  httpStatus: extensionsOut?.upstreamStatus,
+                  responseText: extensionsOut?.upstreamPreview,
+                  parsedError: extractMflReasonSnippet(extensionsOut?.upstreamPreview || extensionsOut?.error || ""),
+                  payloadXml: extensionsOut?.dataXml || null,
+                }),
+              ],
+              final_summary: {
+                salary_adjustments: {
+                  attempted: salaryAttempted,
+                  posted: salaryPosted,
+                  failed: salaryFailed,
+                },
+                extensions: {
+                  attempted: extAttempted,
+                  posted: extPosted,
+                  failed: extFailed,
+                  skipped: extSkippedRows.length,
+                  skip_reasons: extSkipReasons,
+                },
+              },
+            };
+            try {
+              console.log("[TWB][accept][debug]", JSON.stringify(acceptDebug));
+            } catch (_) {
+              // noop
+            }
+          }
+
           if (action === "ACCEPT" && (!salaryAdjOut.ok || !extensionsOut.ok)) {
             const counterpartyFromPayload = padFranchiseId(
               payload?.ui?.left_team_id === actingFranchiseId
@@ -4545,6 +4818,7 @@ export default {
               salary_adjustments: salaryAdjOut,
               extensions: extensionsOut,
               extension_preparation: extensionPreparation,
+              accept_debug: acceptDebug,
               post_verify: {
                 transactions_export: postVerifyTransactions,
                 salaries_export: postVerifySalaries,
@@ -4566,6 +4840,7 @@ export default {
             salary_adjustments: salaryAdjOut,
             extensions: extensionsOut,
             extension_preparation: extensionPreparation,
+            accept_debug: acceptDebug,
             post_verify: {
               transactions_export: postVerifyTransactions,
               salaries_export: postVerifySalaries,
