@@ -28,6 +28,7 @@ export default {
         path !== "/trade-workbench" &&
         !path.startsWith("/trade-offers") &&
         path !== "/trade-pending" &&
+        path !== "/salary-alignment-check" &&
         !path.startsWith("/api/trades/proposals")
       ) {
         return new Response(
@@ -2274,24 +2275,275 @@ export default {
         return byId;
       };
 
-      const findPlayerRowInPayload = (payload, playerId) => {
-        const pid = String(playerId || "").replace(/\D/g, "");
-        if (!pid) return null;
-        const teams = Array.isArray(payload?.teams) ? payload.teams : [];
-        for (const t of teams) {
-          const selected = Array.isArray(t?.selected_assets) ? t.selected_assets : [];
-          for (const a of selected) {
-            const apid = String(a?.player_id || "").replace(/\D/g, "");
-            if (apid && apid === pid) return a;
+      const parseMoneyTokenToDollars = (raw, options = {}) => {
+        if (raw == null) return null;
+        if (typeof raw === "number" && Number.isFinite(raw)) return Math.round(raw);
+        const text = safeStr(raw);
+        if (!text) return null;
+        const upper = text.toUpperCase().replace(/\s+/g, "");
+        const match = upper.match(/^(-?\d+(?:\.\d+)?)([KM]?)$/);
+        if (!match) {
+          const fallback = safeMoneyInt(text, null);
+          return fallback == null ? null : Math.round(fallback);
+        }
+        const base = Number.parseFloat(match[1]);
+        if (!Number.isFinite(base)) return null;
+        const unit = match[2];
+        if (unit === "K") return Math.round(base * 1000);
+        if (unit === "M") return Math.round(base * 1000000);
+        if (options.assumeKIfNoUnit && Math.abs(base) < 1000) return Math.round(base * 1000);
+        return Math.round(base);
+      };
+
+      const parseSalaryByYearMapInput = (rawMap) => {
+        const out = {};
+        const push = (yearRaw, salaryRaw) => {
+          const yearNum = safeInt(yearRaw, NaN);
+          if (!Number.isFinite(yearNum) || yearNum <= 0) return;
+          const salaryNum = parseMoneyTokenToDollars(salaryRaw, { assumeKIfNoUnit: false });
+          if (!Number.isFinite(salaryNum) || salaryNum < 0) return;
+          out[String(yearNum)] = Math.round(salaryNum);
+        };
+        if (!rawMap) return out;
+        if (Array.isArray(rawMap)) {
+          for (let i = 0; i < rawMap.length; i += 1) {
+            const item = rawMap[i];
+            if (item == null) continue;
+            if (typeof item === "object" && !Array.isArray(item)) {
+              const year = item.year ?? item.contractYear ?? item.contract_year ?? item.y ?? i + 1;
+              const salary = item.salary ?? item.amount ?? item.value ?? item.dollars;
+              push(year, salary);
+            } else {
+              push(i + 1, item);
+            }
+          }
+          return out;
+        }
+        if (typeof rawMap === "object") {
+          for (const [k, v] of Object.entries(rawMap)) {
+            if (v && typeof v === "object" && !Array.isArray(v)) {
+              const year = v.year ?? v.contractYear ?? v.contract_year ?? k;
+              const salary = v.salary ?? v.amount ?? v.value ?? v.dollars;
+              push(year, salary);
+              continue;
+            }
+            push(k, v);
           }
         }
-        return null;
+        return out;
+      };
+
+      const parseContractInfoYearSalaries = (contractInfo) => {
+        const byYear = {};
+        const text = safeStr(contractInfo);
+        if (!text) return byYear;
+        const re = /\bY\s*([0-9]{1,2})\s*[-:]\s*(\$?[0-9][0-9,.\s]*[KkMm]?)/g;
+        let match;
+        while ((match = re.exec(text))) {
+          const yearNum = safeInt(match[1], NaN);
+          if (!Number.isFinite(yearNum) || yearNum <= 0) continue;
+          const salaryNum = parseMoneyTokenToDollars(match[2], { assumeKIfNoUnit: true });
+          if (!Number.isFinite(salaryNum) || salaryNum < 0) continue;
+          byYear[String(yearNum)] = Math.round(salaryNum);
+        }
+        return byYear;
+      };
+
+      const maxYearInSalaryByYear = (salaryByYear) => {
+        const years = Object.keys(salaryByYear || {})
+          .map((k) => safeInt(k, NaN))
+          .filter((n) => Number.isFinite(n) && n > 0);
+        if (!years.length) return null;
+        return Math.max(...years);
+      };
+
+      const levelLoadSalaryByYear = (contractLength, perYearSalary, totalSalary) => {
+        const len = safeInt(contractLength, NaN);
+        if (!Number.isFinite(len) || len <= 0) return {};
+        const out = {};
+        const perYear = parseMoneyTokenToDollars(perYearSalary, { assumeKIfNoUnit: false });
+        if (Number.isFinite(perYear) && perYear >= 0) {
+          for (let y = 1; y <= len; y += 1) out[String(y)] = Math.round(perYear);
+          return out;
+        }
+        const total = parseMoneyTokenToDollars(totalSalary, { assumeKIfNoUnit: false });
+        if (!Number.isFinite(total) || total < 0) return {};
+        const base = Math.floor(total / len);
+        let remainder = total - base * len;
+        for (let y = 1; y <= len; y += 1) {
+          const bump = remainder > 0 ? 1 : 0;
+          out[String(y)] = base + bump;
+          if (remainder > 0) remainder -= 1;
+        }
+        return out;
+      };
+
+      const salaryByYearToSortedPairs = (salaryByYear) =>
+        Object.keys(salaryByYear || {})
+          .map((k) => safeInt(k, NaN))
+          .filter((n) => Number.isFinite(n) && n > 0)
+          .sort((a, b) => a - b)
+          .map((yearNum) => ({
+            year: yearNum,
+            salary: safeInt(salaryByYear[String(yearNum)], 0),
+          }));
+
+      const computeExtensionSalaryPlan = (req, current, payloadPlayer) => {
+        const plan = {
+          ok: false,
+          confidence: "none",
+          source: "",
+          reason: "",
+          warnings: [],
+          diagnostics: {},
+          salary_by_year: {},
+          salary_to_send: null,
+          contract_year: null,
+          contract_length: null,
+          contract_info: "",
+          contract_status: "",
+        };
+
+        const contractYearText = safeStr(
+          current?.contractYear || payloadPlayer?.contractYear || payloadPlayer?.contractyear || req?.contract_year || req?.contractYear
+        );
+        const contractYear = safeInt(contractYearText, NaN);
+        if (!Number.isFinite(contractYear) || contractYear <= 0) {
+          plan.reason = "invalid_contract_year";
+          plan.diagnostics.contract_year_raw = contractYearText;
+          return plan;
+        }
+        plan.contract_year = contractYear;
+
+        const contractInfoText = safeStr(req?.preview_contract_info_string || current?.contractInfo);
+        if (!contractInfoText) {
+          plan.reason = "missing_contract_info";
+          return plan;
+        }
+        plan.contract_info = contractInfoText;
+        plan.contract_status = safeStr(req?.new_contract_status || current?.contractStatus);
+
+        const contractLengthFromPreview = contractLengthFromInfo(contractInfoText);
+
+        const structuredCandidates = [
+          req?.salary_by_year,
+          req?.salaryByYear,
+          req?.new_salary_by_year,
+          req?.newSalaryByYear,
+          req?.yearly_salaries,
+          req?.yearlySalaries,
+          req?.year_salaries,
+          req?.yearSalaries,
+        ];
+        let structuredMap = {};
+        for (const candidate of structuredCandidates) {
+          const parsed = parseSalaryByYearMapInput(candidate);
+          if (Object.keys(parsed).length) {
+            structuredMap = parsed;
+            break;
+          }
+        }
+
+        const contractInfoMap = parseContractInfoYearSalaries(contractInfoText);
+        const fallbackMap = levelLoadSalaryByYear(
+          contractLengthFromPreview || maxYearInSalaryByYear(contractInfoMap),
+          req?.new_aav_future ?? req?.newAavFuture ?? null,
+          req?.new_TCV ?? req?.newTcv ?? null
+        );
+
+        let salaryByYear = {};
+        let source = "";
+        let confidence = "none";
+        if (Object.keys(structuredMap).length) {
+          salaryByYear = { ...structuredMap };
+          source = "extension_request_structured_map";
+          confidence = "high";
+        } else if (Object.keys(contractInfoMap).length) {
+          salaryByYear = { ...contractInfoMap };
+          source = "contract_info_y_fields";
+          confidence = "high";
+        } else if (Object.keys(fallbackMap).length) {
+          salaryByYear = { ...fallbackMap };
+          source = "fallback_level_load";
+          confidence = "low";
+        }
+        if (!Object.keys(salaryByYear).length) {
+          plan.reason = "missing_salary_by_year";
+          return plan;
+        }
+
+        if (Object.keys(contractInfoMap).length) {
+          for (const [yearText, contractInfoSalary] of Object.entries(contractInfoMap)) {
+            const existing = salaryByYear[yearText];
+            if (existing == null) {
+              salaryByYear[yearText] = contractInfoSalary;
+              continue;
+            }
+            if (safeInt(existing, -1) !== safeInt(contractInfoSalary, -2)) {
+              plan.warnings.push(`salary_by_year_conflict_for_y${yearText}`);
+              salaryByYear[yearText] = contractInfoSalary;
+              source = source === "contract_info_y_fields" ? source : `${source}+contract_info_override`;
+            }
+          }
+        }
+
+        const contractLength =
+          contractLengthFromPreview != null ? contractLengthFromPreview : maxYearInSalaryByYear(salaryByYear);
+        plan.contract_length = contractLength;
+
+        if (contractLength != null && contractYear > contractLength) {
+          plan.reason = "contract_year_exceeds_contract_length";
+          plan.source = source;
+          plan.confidence = confidence;
+          plan.salary_by_year = salaryByYear;
+          return plan;
+        }
+
+        const salaryToSend = safeInt(salaryByYear[String(contractYear)], NaN);
+        if (!Number.isFinite(salaryToSend) || salaryToSend < 0) {
+          plan.reason = "missing_salary_for_contract_year";
+          plan.source = source;
+          plan.confidence = confidence;
+          plan.salary_by_year = salaryByYear;
+          return plan;
+        }
+
+        if (Object.keys(contractInfoMap).length) {
+          const fromInfo = safeInt(contractInfoMap[String(contractYear)], NaN);
+          if (Number.isFinite(fromInfo) && fromInfo >= 0 && fromInfo !== salaryToSend) {
+            plan.warnings.push("salary_overridden_to_contract_info_year_value");
+            salaryByYear[String(contractYear)] = fromInfo;
+          }
+        }
+
+        const finalSalary = safeInt(salaryByYear[String(contractYear)], NaN);
+        if (!Number.isFinite(finalSalary) || finalSalary < 0) {
+          plan.reason = "invalid_final_salary_for_contract_year";
+          plan.source = source;
+          plan.confidence = confidence;
+          plan.salary_by_year = salaryByYear;
+          return plan;
+        }
+
+        plan.ok = true;
+        plan.source = source;
+        plan.confidence = confidence;
+        plan.salary_by_year = salaryByYear;
+        plan.salary_to_send = finalSalary;
+        plan.diagnostics = {
+          current_salary_export: safeStr(current?.salary),
+          contract_year_raw: contractYearText,
+          salary_by_year_pairs: salaryByYearToSortedPairs(salaryByYear),
+          fallback_used: source === "fallback_level_load",
+        };
+        return plan;
       };
 
       const buildExtensionSalariesXmlFromPayload = (payload, salariesByPlayer) => {
         const extReqs = Array.isArray(payload?.extension_requests) ? payload.extension_requests : [];
         const applied = [];
         const skipped = [];
+        const strictConfidenceMode = safeStr(env?.STRICT_EXTENSION_SALARY_ALIGNMENT || "1") !== "0";
         for (const req of extReqs) {
           const playerId = String(req?.player_id || "").replace(/\D/g, "");
           if (!playerId) {
@@ -2300,16 +2552,30 @@ export default {
           }
           const current = salariesByPlayer[playerId] || {};
           const payloadPlayer = findPlayerRowInPayload(payload, playerId) || {};
-          const salaryText = safeStr(current.salary || payloadPlayer.salary);
-          const contractYearText = safeStr(current.contractYear || "1");
-          const contractInfoText = safeStr(req?.preview_contract_info_string || current.contractInfo);
-          const contractStatusText = safeStr(req?.new_contract_status || current.contractStatus);
-
-          if (!salaryText || !contractYearText || !contractInfoText) {
+          const plan = computeExtensionSalaryPlan(req, current, payloadPlayer);
+          if (!plan.ok) {
             skipped.push({
               player_id: playerId,
               player_name: safeStr(req?.player_name),
-              reason: "missing_salary_contract_fields",
+              reason: plan.reason || "unresolved_salary_alignment",
+              diagnostics: plan.diagnostics,
+              salary_by_year: plan.salary_by_year,
+              source: plan.source,
+              confidence: plan.confidence,
+              warnings: plan.warnings,
+            });
+            continue;
+          }
+          if (strictConfidenceMode && plan.confidence !== "high") {
+            skipped.push({
+              player_id: playerId,
+              player_name: safeStr(req?.player_name),
+              reason: "low_confidence_salary_by_year",
+              diagnostics: plan.diagnostics,
+              salary_by_year: plan.salary_by_year,
+              source: plan.source,
+              confidence: plan.confidence,
+              warnings: plan.warnings,
             });
             continue;
           }
@@ -2317,10 +2583,15 @@ export default {
           applied.push({
             player_id: playerId,
             player_name: safeStr(req?.player_name),
-            salary: salaryText,
-            contractYear: contractYearText,
-            contractInfo: contractInfoText,
-            contractStatus: contractStatusText,
+            salary: String(plan.salary_to_send),
+            contractYear: String(plan.contract_year),
+            contractInfo: plan.contract_info,
+            contractStatus: plan.contract_status,
+            salary_by_year: plan.salary_by_year,
+            salary_by_year_source: plan.source,
+            confidence: plan.confidence,
+            warnings: plan.warnings,
+            diagnostics: plan.diagnostics,
           });
         }
 
@@ -2346,6 +2617,20 @@ export default {
           applied,
           skipped,
         };
+      };
+
+      const findPlayerRowInPayload = (payload, playerId) => {
+        const pid = String(playerId || "").replace(/\D/g, "");
+        if (!pid) return null;
+        const teams = Array.isArray(payload?.teams) ? payload.teams : [];
+        for (const t of teams) {
+          const selected = Array.isArray(t?.selected_assets) ? t.selected_assets : [];
+          for (const a of selected) {
+            const apid = String(a?.player_id || "").replace(/\D/g, "");
+            if (apid && apid === pid) return a;
+          }
+        }
+        return null;
       };
 
       const applySalaryAdjFromPayload = async (leagueId, season, payload, tradeId) => {
@@ -2440,6 +2725,127 @@ export default {
           error: importRes.requestOk ? "" : importRes.error || "salaries import failed",
         };
       };
+
+      const buildSalaryAlignmentDiagnostics = (salariesPayload, filterPlayerIds = null) => {
+        const salariesRoot = salariesPayload?.salaries || salariesPayload || {};
+        const leagueUnit = salariesRoot?.leagueUnit || salariesRoot?.leagueunit || {};
+        const players = asArray(leagueUnit?.player || leagueUnit?.players).filter(Boolean);
+        const includeId = (id) => {
+          if (!filterPlayerIds || !filterPlayerIds.size) return true;
+          return filterPlayerIds.has(id);
+        };
+        const out = {
+          analyzed_players: 0,
+          missing_required_fields: [],
+          unresolved_contract_year_salary: [],
+          mismatches: [],
+          matches: 0,
+        };
+        for (const p of players) {
+          const playerId = String(p?.id || "").replace(/\D/g, "");
+          if (!playerId || !includeId(playerId)) continue;
+          out.analyzed_players += 1;
+          const salaryText = safeStr(p?.salary);
+          const contractYearText = safeStr(p?.contractYear || p?.contractyear);
+          const contractInfoText = safeStr(p?.contractInfo || p?.contractinfo);
+          if (!salaryText || !contractYearText || !contractInfoText) {
+            out.missing_required_fields.push({
+              player_id: playerId,
+              salary: salaryText,
+              contractYear: contractYearText,
+              contractInfo: contractInfoText,
+            });
+            continue;
+          }
+          const contractYear = safeInt(contractYearText, NaN);
+          const salaryNow = parseMoneyTokenToDollars(salaryText, { assumeKIfNoUnit: false });
+          if (!Number.isFinite(contractYear) || contractYear <= 0 || !Number.isFinite(salaryNow) || salaryNow < 0) {
+            out.missing_required_fields.push({
+              player_id: playerId,
+              salary: salaryText,
+              contractYear: contractYearText,
+              contractInfo: contractInfoText,
+            });
+            continue;
+          }
+          const yearMap = parseContractInfoYearSalaries(contractInfoText);
+          const expected = yearMap[String(contractYear)];
+          if (!Number.isFinite(expected)) {
+            out.unresolved_contract_year_salary.push({
+              player_id: playerId,
+              contractYear: contractYear,
+              salary: salaryNow,
+              contractInfo: contractInfoText,
+            });
+            continue;
+          }
+          if (safeInt(expected, -1) !== safeInt(salaryNow, -2)) {
+            out.mismatches.push({
+              player_id: playerId,
+              contractYear: contractYear,
+              salary_actual: salaryNow,
+              salary_expected: expected,
+              delta: salaryNow - expected,
+              contractInfo: contractInfoText,
+              salary_by_year: salaryByYearToSortedPairs(yearMap),
+            });
+          } else {
+            out.matches += 1;
+          }
+        }
+        out.ok = out.mismatches.length === 0;
+        return out;
+      };
+
+      if (path === "/salary-alignment-check" && request.method === "GET") {
+        const leagueId = safeStr(url.searchParams.get("L") || L || "");
+        const season = safeStr(url.searchParams.get("YEAR") || YEAR || "");
+        if (!leagueId) return jsonOut(400, { ok: false, error: "Missing L param" });
+        if (!season) return jsonOut(400, { ok: false, error: "Missing YEAR param" });
+        const playerFilterRaw = safeStr(
+          url.searchParams.get("PLAYER_IDS") ||
+            url.searchParams.get("player_ids") ||
+            url.searchParams.get("PLAYER_ID") ||
+            url.searchParams.get("player_id") ||
+            url.searchParams.get("P") ||
+            ""
+        );
+        const playerFilter = new Set(
+          playerFilterRaw
+            .split(/[,\s]+/)
+            .map((v) => String(v || "").replace(/\D/g, ""))
+            .filter(Boolean)
+        );
+        const salariesRes = await mflExportJson(season, leagueId, "salaries");
+        if (!salariesRes.ok) {
+          return jsonOut(502, {
+            ok: false,
+            error: "Failed to load salaries export from MFL",
+            upstream: {
+              status: salariesRes.status,
+              url: salariesRes.url,
+              error: salariesRes.error,
+              preview: salariesRes.textPreview,
+            },
+          });
+        }
+        const report = buildSalaryAlignmentDiagnostics(
+          salariesRes.data,
+          playerFilter.size ? playerFilter : null
+        );
+        return jsonOut(200, {
+          ok: true,
+          league_id: leagueId,
+          season: safeInt(season, Number(season) || 0),
+          player_filter: playerFilter.size ? Array.from(playerFilter.values()) : [],
+          report,
+          upstream: {
+            status: salariesRes.status,
+            url: salariesRes.url,
+          },
+          generated_at: new Date().toISOString(),
+        });
+      }
 
       if (
         (path === "/trade-offers" || path === "/api/trades/proposals") &&
