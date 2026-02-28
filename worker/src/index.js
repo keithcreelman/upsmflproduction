@@ -1950,11 +1950,16 @@ export default {
           },
           ext: extReqs.map((r) => ({
             player_id: String(r?.player_id || "").replace(/\D/g, ""),
+            player_name: safeStr(r?.player_name),
+            from_franchise_id: padFranchiseId(r?.from_franchise_id),
             to_franchise_id: padFranchiseId(r?.to_franchise_id),
             option_key: safeStr(r?.option_key),
             extension_term: safeStr(r?.extension_term),
             new_contract_status: safeStr(r?.new_contract_status),
             preview_contract_info_string: safeStr(r?.preview_contract_info_string),
+            new_contract_length: safeInt(r?.new_contract_length, 0),
+            new_TCV: safeInt(r?.new_TCV, 0),
+            new_aav_future: safeInt(r?.new_aav_future, 0),
           })),
         };
         return `[UPS_TWB_META:${base64UrlFromUtf8(JSON.stringify(compact))}]`;
@@ -1965,6 +1970,295 @@ export default {
         const tag = buildTradeMetaTag(payload, fromFranchiseId, toFranchiseId);
         const out = base ? `${base} ${tag}` : tag;
         return out.slice(0, 2000);
+      };
+
+      const normalizeNameKey = (value) =>
+        safeStr(value)
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "");
+
+      const nameVariants = (value) => {
+        const raw = safeStr(value);
+        if (!raw) return [];
+        const out = new Set();
+        out.add(normalizeNameKey(raw));
+        const comma = raw.split(",");
+        if (comma.length >= 2) {
+          const last = safeStr(comma[0]);
+          const first = safeStr(comma.slice(1).join(" "));
+          if (first && last) out.add(normalizeNameKey(`${first} ${last}`));
+        }
+        return Array.from(out).filter(Boolean);
+      };
+
+      const parsePreTradeExtensionLines = (commentText) => {
+        const text = safeStr(commentText);
+        if (!text) return [];
+        const lines = text
+          .split(/\r?\n/)
+          .map((line) => safeStr(line))
+          .filter((line) => /^pre-trade extension:/i.test(line));
+        const out = [];
+        for (const line of lines) {
+          const m = line.match(/^pre-trade extension:\s*extend\s+(.+?)\s+([0-9]+)\s*-\s*year\b(.*)$/i);
+          if (!m) {
+            out.push({
+              raw_line: line,
+              parse_error: "parse_failed",
+            });
+            continue;
+          }
+          const playerName = safeStr(m[1]);
+          const years = safeInt(m[2], 0);
+          const rest = safeStr(m[3]);
+          const newLength = safeInt((rest.match(/new\s+length\s+([0-9]+)/i) || [])[1], 0);
+          const newAavK = safeInt((rest.match(/new\s+aav\s+([0-9]+)/i) || [])[1], 0);
+          const newTcvK = safeInt((rest.match(/new\s+tcv\s+([0-9]+)/i) || [])[1], 0);
+          out.push({
+            raw_line: line,
+            player_name: playerName,
+            extension_term: years > 0 ? `${years}YR` : "",
+            new_contract_length: newLength > 0 ? newLength : null,
+            new_aav_future: newAavK > 0 ? newAavK * 1000 : null,
+            new_TCV: newTcvK > 0 ? newTcvK * 1000 : null,
+            parse_error: years > 0 && playerName ? "" : "parse_failed",
+          });
+        }
+        return out;
+      };
+
+      const parseMoneyKFromText = (text, label) => {
+        const re = new RegExp(`${label}\\s*([0-9][0-9,.]*)\\s*K`, "i");
+        const m = safeStr(text).match(re);
+        if (!m || !m[1]) return null;
+        const n = Number(String(m[1]).replace(/,/g, ""));
+        if (!Number.isFinite(n) || n <= 0) return null;
+        return Math.round(n * 1000);
+      };
+
+      const buildPlayerSelectionIndexes = (payload) => {
+        const byId = {};
+        const byNameKey = {};
+        const sides = tradeSidesFromPayload(payload);
+        const teams = [sides.left, sides.right];
+        for (const side of teams) {
+          const sideId = padFranchiseId(side?.franchise_id);
+          const selected = Array.isArray(side?.selected_assets) ? side.selected_assets : [];
+          for (const a of selected) {
+            if (safeStr(a?.type).toUpperCase() !== "PLAYER") continue;
+            const playerId = String(a?.player_id || "").replace(/\D/g, "");
+            if (!playerId) continue;
+            const row = {
+              player_id: playerId,
+              player_name: safeStr(a?.player_name),
+              from_franchise_id: sideId,
+              asset: a,
+            };
+            byId[playerId] = row;
+            for (const key of nameVariants(row.player_name)) {
+              if (!byNameKey[key]) byNameKey[key] = row;
+            }
+          }
+        }
+        return { byId, byNameKey, leftId: padFranchiseId(sides.left?.franchise_id), rightId: padFranchiseId(sides.right?.franchise_id) };
+      };
+
+      const resolveOpposingTeamId = (fromFranchiseId, leftId, rightId) => {
+        if (fromFranchiseId && leftId && rightId) {
+          if (fromFranchiseId === leftId) return rightId;
+          if (fromFranchiseId === rightId) return leftId;
+        }
+        return fromFranchiseId === leftId ? rightId : leftId;
+      };
+
+      const pickExtensionPreviewByTerm = (rows, playerId, term) => {
+        const pid = String(playerId || "").replace(/\D/g, "");
+        const t = safeStr(term).toUpperCase();
+        if (!pid || !Array.isArray(rows) || !rows.length || !t) return null;
+        const matches = rows.filter((r) => String(r?.player_id || "").replace(/\D/g, "") === pid);
+        if (!matches.length) return null;
+        const termMatches = matches.filter((r) => safeStr(r?.extension_term).toUpperCase() === t);
+        const candidateList = termMatches.length ? termMatches : matches;
+        const preferredNone = candidateList.find(
+          (r) => safeStr(r?.loaded_indicator || "NONE").toUpperCase() === "NONE"
+        );
+        return preferredNone || candidateList[0] || null;
+      };
+
+      const buildExtensionRequestFromPreview = (seed, selection, preview, leftId, rightId) => {
+        const fromFranchiseId = padFranchiseId(seed?.from_franchise_id || selection?.from_franchise_id);
+        const toFranchiseId = padFranchiseId(seed?.to_franchise_id || resolveOpposingTeamId(fromFranchiseId, leftId, rightId));
+        const extensionTerm = safeStr(seed?.extension_term || preview?.extension_term).toUpperCase();
+        const previewInfo = safeStr(
+          seed?.preview_contract_info_string ||
+          preview?.preview_contract_info_string ||
+          preview?.new_contract_info ||
+          preview?.contract_info
+        );
+        const optionKey = safeStr(seed?.option_key || preview?.option_key);
+        const loadedIndicator = safeStr(
+          preview?.loaded_indicator ||
+          (optionKey.split("|")[1] || "NONE")
+        ).toUpperCase();
+        const parsedTcv = parseMoneyKFromText(previewInfo, "TCV");
+        return {
+          player_id: String(selection?.player_id || "").replace(/\D/g, ""),
+          player_name: safeStr(seed?.player_name || selection?.player_name),
+          from_franchise_id: fromFranchiseId,
+          to_franchise_id: toFranchiseId,
+          applies_to_acquirer: true,
+          option_key: optionKey || (extensionTerm ? `${extensionTerm}|${loadedIndicator || "NONE"}` : ""),
+          extension_term: extensionTerm,
+          loaded_indicator: loadedIndicator || "NONE",
+          preview_id: preview?.preview_id == null ? null : safeInt(preview.preview_id, 0),
+          preview_contract_info_string: previewInfo,
+          new_contract_status: safeStr(seed?.new_contract_status || preview?.new_contract_status),
+          new_contract_length:
+            seed?.new_contract_length != null && safeInt(seed.new_contract_length, 0) > 0
+              ? safeInt(seed.new_contract_length, 0)
+              : (safeInt(preview?.new_contract_length, 0) > 0
+                  ? safeInt(preview.new_contract_length, 0)
+                  : contractLengthFromInfo(previewInfo)),
+          new_TCV:
+            seed?.new_TCV != null && safeInt(seed.new_TCV, 0) > 0
+              ? safeInt(seed.new_TCV, 0)
+              : (safeInt(preview?.new_TCV, 0) > 0
+                  ? safeInt(preview.new_TCV, 0)
+                  : parsedTcv),
+          new_aav_future:
+            seed?.new_aav_future != null && safeInt(seed.new_aav_future, 0) > 0
+              ? safeInt(seed.new_aav_future, 0)
+              : (safeInt(preview?.new_aav_future, 0) > 0 ? safeInt(preview.new_aav_future, 0) : null),
+        };
+      };
+
+      const prepareExtensionRequestsFromOfferContext = async ({
+        payload,
+        season,
+        queryParams,
+        offerComment,
+        offerMeta,
+      }) => {
+        const out = {
+          expected_extension_count: 0,
+          prepared_count: 0,
+          source: "existing_payload",
+          skipped_rows: [],
+        };
+        const inputPayload =
+          payload && typeof payload === "object"
+            ? JSON.parse(JSON.stringify(payload))
+            : {};
+        const existing = Array.isArray(inputPayload.extension_requests) ? inputPayload.extension_requests : [];
+        if (existing.length) {
+          out.expected_extension_count = existing.length;
+          out.prepared_count = existing.length;
+          out.payload = inputPayload;
+          return out;
+        }
+
+        const indexes = buildPlayerSelectionIndexes(inputPayload);
+        const meta =
+          (offerMeta && typeof offerMeta === "object" ? offerMeta : null) ||
+          parseTradeMetaTagFromComments(offerComment || inputPayload.comment || "");
+        const metaExt = Array.isArray(meta?.ext) ? meta.ext : [];
+        const prepared = [];
+
+        if (metaExt.length) {
+          out.source = "twb_meta";
+          out.expected_extension_count = metaExt.length;
+          for (const item of metaExt) {
+            const playerId = String(item?.player_id || "").replace(/\D/g, "");
+            if (!playerId) {
+              out.skipped_rows.push({ reason: "no_player_id", item });
+              continue;
+            }
+            const selection = indexes.byId[playerId];
+            if (!selection) {
+              out.skipped_rows.push({ reason: "player_not_in_selected_assets", player_id: playerId, item });
+              continue;
+            }
+            const req = buildExtensionRequestFromPreview(item, selection, item, indexes.leftId, indexes.rightId);
+            if (!safeStr(req.preview_contract_info_string)) {
+              out.skipped_rows.push({ reason: "missing_preview_contract_info_string", player_id: playerId, item });
+              continue;
+            }
+            prepared.push(req);
+          }
+        } else {
+          const parsedLines = parsePreTradeExtensionLines(offerComment || inputPayload.comment || "");
+          const validLines = parsedLines.filter((line) => !line.parse_error);
+          out.source = validLines.length ? "comment_lines" : "none";
+          out.expected_extension_count = validLines.length;
+          if (validLines.length) {
+            const previewRes = await fetchExtensionPreviewRows(season, queryParams || new URLSearchParams());
+            const previewRows = previewRes.ok && Array.isArray(previewRes.rows) ? previewRes.rows : [];
+            if (!previewRows.length) {
+              for (const line of validLines) {
+                out.skipped_rows.push({
+                  reason: "extension_previews_unavailable",
+                  player_name: line.player_name,
+                  extension_term: line.extension_term,
+                });
+              }
+            } else {
+              for (const line of validLines) {
+                const keys = nameVariants(line.player_name);
+                let selection = null;
+                for (const key of keys) {
+                  if (indexes.byNameKey[key]) {
+                    selection = indexes.byNameKey[key];
+                    break;
+                  }
+                }
+                if (!selection) {
+                  out.skipped_rows.push({
+                    reason: "player_name_not_matched",
+                    player_name: line.player_name,
+                    extension_term: line.extension_term,
+                  });
+                  continue;
+                }
+                const preview = pickExtensionPreviewByTerm(
+                  previewRows,
+                  selection.player_id,
+                  line.extension_term
+                );
+                if (!preview) {
+                  out.skipped_rows.push({
+                    reason: "preview_not_found_for_player_term",
+                    player_id: selection.player_id,
+                    player_name: selection.player_name,
+                    extension_term: line.extension_term,
+                  });
+                  continue;
+                }
+                const req = buildExtensionRequestFromPreview(
+                  line,
+                  selection,
+                  preview,
+                  indexes.leftId,
+                  indexes.rightId
+                );
+                if (!safeStr(req.preview_contract_info_string)) {
+                  out.skipped_rows.push({
+                    reason: "missing_preview_contract_info_string",
+                    player_id: selection.player_id,
+                    player_name: selection.player_name,
+                    extension_term: line.extension_term,
+                  });
+                  continue;
+                }
+                prepared.push(req);
+              }
+            }
+          }
+        }
+
+        inputPayload.extension_requests = prepared;
+        out.prepared_count = prepared.length;
+        out.payload = inputPayload;
+        return out;
       };
 
       const buildTradeProposalAssetLists = (payload) => {
@@ -2824,6 +3118,21 @@ export default {
           };
         }
         const dataXml = buildSalaryAdjXml(rows);
+        try {
+          console.log(
+            "[TWB][salaryAdj][prepare]",
+            JSON.stringify({
+              timestamp_utc: new Date().toISOString(),
+              league_id: safeStr(leagueId),
+              season: safeStr(season),
+              trade_id: safeStr(tradeId),
+              rows,
+              payload_xml: dataXml,
+            })
+          );
+        } catch (_) {
+          // noop
+        }
         const importRes = await postMflImportForm(
           season,
           {
@@ -2833,6 +3142,24 @@ export default {
           },
           { TYPE: "salaryAdj", L: leagueId }
         );
+        try {
+          console.log(
+            "[TWB][salaryAdj][post]",
+            JSON.stringify({
+              timestamp_utc: new Date().toISOString(),
+              league_id: safeStr(leagueId),
+              season: safeStr(season),
+              trade_id: safeStr(tradeId),
+              post_url: importRes.targetImportUrl,
+              post_status: safeInt(importRes.status, 0),
+              post_response_excerpt: safeStr(importRes.upstreamPreview).slice(0, 600),
+              ok: !!importRes.requestOk,
+              rows,
+            })
+          );
+        } catch (_) {
+          // noop
+        }
         return {
           ok: !!importRes.requestOk,
           skipped: false,
@@ -2846,15 +3173,38 @@ export default {
         };
       };
 
-      const applyExtensionsFromPayload = async (leagueId, season, payload) => {
+      const applyExtensionsFromPayload = async (leagueId, season, payload, options = {}) => {
         const extReqs = Array.isArray(payload?.extension_requests) ? payload.extension_requests : [];
+        const expectedExtensionCount = Math.max(0, safeInt(options?.expected_extension_count, 0));
+        const preparationSkipped = Array.isArray(options?.preparation_skipped_rows)
+          ? options.preparation_skipped_rows
+          : [];
         if (!extReqs.length) {
+          const reason = expectedExtensionCount > 0
+            ? "expected_extensions_missing_from_payload"
+            : "no_extension_requests";
+          try {
+            console.log(
+              "[TWB][extensions][skip]",
+              JSON.stringify({
+                timestamp_utc: new Date().toISOString(),
+                league_id: safeStr(leagueId),
+                season: safeStr(season),
+                expected_extension_count: expectedExtensionCount,
+                reason,
+                skipped_rows: preparationSkipped,
+              })
+            );
+          } catch (_) {
+            // noop
+          }
           return {
-            ok: true,
+            ok: expectedExtensionCount === 0,
             skipped: true,
-            reason: "no_extension_requests",
+            reason,
             applied: [],
-            skipped_rows: [],
+            skipped_rows: preparationSkipped,
+            expected_extension_count: expectedExtensionCount,
           };
         }
         const salariesRes = await mflExportJson(season, leagueId, "salaries");
@@ -2878,26 +3228,48 @@ export default {
             .map((row) => String(row?.player_id || "").replace(/\D/g, ""))
             .filter(Boolean)
         );
+        try {
+          console.log(
+            "[TWB][extensions][prepare]",
+            JSON.stringify({
+              timestamp_utc: new Date().toISOString(),
+              league_id: safeStr(leagueId),
+              season: safeStr(season),
+              expected_extension_count: expectedExtensionCount,
+              resolved_extension_count: (plan.applied || []).length,
+              skipped_count: (plan.skipped || []).length + preparationSkipped.length,
+              applied_rows: plan.applied,
+              skipped_rows: (plan.skipped || []).concat(preparationSkipped),
+              payload_xml: plan.xml,
+            })
+          );
+        } catch (_) {
+          // noop
+        }
         const beforeSnapshot = {};
         for (const playerId of trackedPlayerIds.values()) {
           beforeSnapshot[playerId] = normalizeSalarySnapshotRow(salariesByPlayer[playerId]);
         }
         if (!plan.xml) {
+          const reason = expectedExtensionCount > 0
+            ? "expected_extensions_resolved_to_no_valid_rows"
+            : "no_valid_extension_rows";
           return {
-            ok: true,
+            ok: expectedExtensionCount === 0,
             skipped: true,
-            reason: "no_valid_extension_rows",
+            reason,
             applied: plan.applied,
-            skipped_rows: plan.skipped,
+            skipped_rows: plan.skipped.concat(preparationSkipped),
             before_snapshot: beforeSnapshot,
             verification: {
-              ok: true,
+              ok: expectedExtensionCount === 0,
               checked_players: 0,
               matched_players: 0,
               mismatched_players: 0,
               rows: [],
-              reason: "no_valid_extension_rows",
+              reason,
             },
+            expected_extension_count: expectedExtensionCount,
           };
         }
         const importRes = await postMflImportForm(
@@ -2910,6 +3282,22 @@ export default {
           },
           { TYPE: "salaries", L: leagueId, APPEND: "1" }
         );
+        try {
+          console.log(
+            "[TWB][extensions][post]",
+            JSON.stringify({
+              timestamp_utc: new Date().toISOString(),
+              league_id: safeStr(leagueId),
+              season: safeStr(season),
+              post_url: importRes.targetImportUrl,
+              post_status: safeInt(importRes.status, 0),
+              post_response_excerpt: safeStr(importRes.upstreamPreview).slice(0, 600),
+              ok: !!importRes.requestOk,
+            })
+          );
+        } catch (_) {
+          // noop
+        }
         let postSalariesRes = null;
         let afterSnapshot = {};
         let verification = {
@@ -2932,6 +3320,19 @@ export default {
               plan.applied,
               afterByPlayer
             );
+            try {
+              console.log(
+                "[TWB][extensions][verify]",
+                JSON.stringify({
+                  timestamp_utc: new Date().toISOString(),
+                  league_id: safeStr(leagueId),
+                  season: safeStr(season),
+                  verification,
+                })
+              );
+            } catch (_) {
+              // noop
+            }
           } else {
             verification = {
               ok: false,
@@ -2954,7 +3355,7 @@ export default {
           ok: finalOk,
           skipped: false,
           applied: plan.applied,
-          skipped_rows: plan.skipped,
+          skipped_rows: plan.skipped.concat(preparationSkipped),
           dataXml: plan.xml,
           upstreamStatus: importRes.status,
           upstreamPreview: importRes.upstreamPreview,
@@ -2975,6 +3376,7 @@ export default {
                 preview: postSalariesRes.textPreview,
               }
             : null,
+          expected_extension_count: expectedExtensionCount,
         };
       };
 
@@ -3620,12 +4022,23 @@ export default {
         ).replace(/\D/g, "");
         // Queue mode is retired: direct MFL actions only.
         const directMfl = true;
-        const payload =
+        let payload =
           body?.payload && typeof body.payload === "object"
             ? body.payload
             : body?.offer_payload && typeof body.offer_payload === "object"
               ? body.offer_payload
               : null;
+        const offerComment = safeStr(
+          body?.offer_comment ||
+          body?.offer_message ||
+          body?.comment ||
+          body?.message ||
+          ""
+        );
+        const offerMeta =
+          body?.offer_twb_meta && typeof body.offer_twb_meta === "object"
+            ? body.offer_twb_meta
+            : null;
 
         if (!leagueId) return jsonOut(400, { ok: false, error: "league_id is required" });
         if (!season) return jsonOut(400, { ok: false, error: "season is required" });
@@ -3949,10 +4362,24 @@ export default {
             skipped: true,
             reason: "not_run",
           };
+          let extensionPreparation = null;
           if (action === "ACCEPT") {
             if (payload) {
+              extensionPreparation = await prepareExtensionRequestsFromOfferContext({
+                payload,
+                season,
+                queryParams: url.searchParams,
+                offerComment,
+                offerMeta,
+              });
+              if (extensionPreparation && extensionPreparation.payload) {
+                payload = extensionPreparation.payload;
+              }
               salaryAdjOut = await applySalaryAdjFromPayload(leagueId, season, payload, mflTradeId);
-              extensionsOut = await applyExtensionsFromPayload(leagueId, season, payload);
+              extensionsOut = await applyExtensionsFromPayload(leagueId, season, payload, {
+                expected_extension_count: safeInt(extensionPreparation?.expected_extension_count, 0),
+                preparation_skipped_rows: extensionPreparation?.skipped_rows || [],
+              });
             } else {
               salaryAdjOut = {
                 ok: true,
@@ -3960,9 +4387,12 @@ export default {
                 reason: "missing_payload_for_finalize",
               };
               extensionsOut = {
-                ok: true,
+                ok: false,
                 skipped: true,
                 reason: "missing_payload_for_finalize",
+                skipped_rows: [
+                  { reason: "missing_payload_for_finalize" },
+                ],
               };
             }
           }
@@ -4025,6 +4455,7 @@ export default {
               },
               salary_adjustments: salaryAdjOut,
               extensions: extensionsOut,
+              extension_preparation: extensionPreparation,
               post_verify: {
                 transactions_export: postVerifyTransactions,
                 salaries_export: postVerifySalaries,
@@ -4045,6 +4476,7 @@ export default {
             },
             salary_adjustments: salaryAdjOut,
             extensions: extensionsOut,
+            extension_preparation: extensionPreparation,
             post_verify: {
               transactions_export: postVerifyTransactions,
               salaries_export: postVerifySalaries,

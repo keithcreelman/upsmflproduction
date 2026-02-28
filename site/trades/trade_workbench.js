@@ -1633,6 +1633,7 @@
   function summarizePostAcceptResult(res) {
     var salaryAdj = res && res.salary_adjustments ? res.salary_adjustments : {};
     var ext = res && res.extensions ? res.extensions : {};
+    var extPrep = res && res.extension_preparation ? res.extension_preparation : {};
     var verification = ext && ext.verification ? ext.verification : {};
     var parts = [];
     var tone = "good";
@@ -1646,7 +1647,17 @@
     }
 
     if (ext && ext.skipped) {
-      parts.push("Extensions: skipped");
+      var skipReason = safeStr(ext.reason);
+      var skipRows = Array.isArray(ext.skipped_rows) ? ext.skipped_rows : [];
+      var firstSkip = skipRows[0] || {};
+      var firstSkipReason = safeStr(firstSkip.reason || firstSkip.parse_error);
+      var expectedCount = safeInt(ext.expected_extension_count, safeInt(extPrep.expected_extension_count, 0));
+      var detailBits = [];
+      if (expectedCount > 0) detailBits.push(String(expectedCount) + " expected");
+      if (firstSkipReason) detailBits.push(firstSkipReason);
+      if (skipReason) detailBits.push(skipReason);
+      parts.push("Extensions: skipped" + (detailBits.length ? " (" + detailBits.join(" · ") + ")" : ""));
+      tone = tone === "good" ? "warn" : tone;
     } else if (ext && ext.ok) {
       var checked = safeInt(verification.checked_players, (ext.applied || []).length);
       var matched = safeInt(verification.matched_players, checked);
@@ -1750,6 +1761,10 @@
         action: normalizedAction,
         acting_franchise_id: actingFranchiseId,
         payload: getOfferPayloadForWorkbench(offer, { keepOriginalOrientation: true }) || null,
+        offer_comment: safeStr(offer.raw_comment || offer.comment || offer.message),
+        offer_twb_meta: offer && offer.twb_meta ? offer.twb_meta : null,
+        offer_from_franchise_id: safeStr(offer.from_franchise_id),
+        offer_to_franchise_id: safeStr(offer.to_franchise_id),
         direct_mfl: true
       };
       var res = await fetchJsonRequest(actionUrl, {
@@ -2006,8 +2021,14 @@
     if (errorType === "salary_contract_import_failure") {
       var details = data && data.diagnostics ? data.diagnostics : {};
       var ts2 = safeStr(details.timestamp_utc || data.timestamp_utc);
+      var extReason = safeStr((details.extensions || {}).reason);
+      var salaryReason = safeStr((details.salary_adjustments || {}).error);
       var reason2 = safeStr(msg || data.error || "salary/contract import failure");
-      return "Salary/contract import failure after trade response: " + reason2 + (ts2 ? " @ " + ts2 : "");
+      var detail = extReason || salaryReason;
+      return "Salary/contract import failure after trade response: " +
+        reason2 +
+        (detail ? " (" + detail + ")" : "") +
+        (ts2 ? " @ " + ts2 : "");
     }
     if (/bad credentials/i.test(msg)) {
       return prefix + ": invalid GITHUB_PAT worker secret (GitHub returned Bad credentials).";
