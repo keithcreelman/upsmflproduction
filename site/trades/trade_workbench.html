@@ -78,6 +78,10 @@
             <button type="button" id="twbResetTradeReviewBtn" class="twb-btn twb-btn-primary twb-reset-offer-btn">Reset Trade</button>
           </div>
         </div>
+        <section id="twbCounterSourcePanel" class="twb-counter-source-panel" hidden aria-label="Original offer">
+          <h3>Original Offer</h3>
+          <div id="twbCounterSourceContent"></div>
+        </section>
         <div class="twb-offer-cart-grid">
           <section class="twb-offer-cart-side">
             <header class="twb-offer-cart-side-head">
@@ -113,6 +117,7 @@
           </label>
           <div class="twb-offers-submit-row">
             <button type="button" id="twbSubmitOfferBtn" class="twb-btn twb-btn-primary">Submit Offer</button>
+            <button type="button" id="twbSubmitRetryBtn" class="twb-btn twb-btn-ghost" hidden>Try Again</button>
           </div>
           <div id="twbSubmitOfferStatus" class="twb-summary-note">No offer submitted yet.</div>
         </section>

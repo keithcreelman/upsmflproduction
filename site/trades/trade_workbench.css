@@ -596,6 +596,27 @@ summary:focus-visible {
   color: #1e293b;
 }
 
+.twb-counter-source-panel {
+  border: 1px solid #d7e0ea;
+  border-radius: 12px;
+  background: #f8fafc;
+  padding: 0.58rem 0.66rem;
+  margin-bottom: 0.72rem;
+}
+
+.twb-counter-source-panel h3 {
+  margin: 0 0 0.32rem;
+  font-size: 0.92rem;
+  color: #0f172a;
+}
+
+.twb-counter-source-panel p {
+  margin: 0.18rem 0 0;
+  color: #334155;
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
 .twb-offer-cart-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

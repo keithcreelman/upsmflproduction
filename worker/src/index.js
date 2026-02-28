@@ -27,7 +27,8 @@ export default {
         path !== "/commish-contract-update" &&
         path !== "/trade-workbench" &&
         !path.startsWith("/trade-offers") &&
-        path !== "/trade-pending"
+        path !== "/trade-pending" &&
+        !path.startsWith("/api/trades/proposals")
       ) {
         return new Response(
           JSON.stringify({ ok: false, isAdmin: false, reason: "Missing L param" }),
@@ -1903,6 +1904,317 @@ export default {
         };
       };
 
+      const decodeBase64UrlUtf8 = (value) => {
+        const raw = safeStr(value).replace(/-/g, "+").replace(/_/g, "/");
+        if (!raw) return "";
+        const padded = raw + "===".slice((raw.length + 3) % 4);
+        try {
+          return base64ToUtf8(padded);
+        } catch (_) {
+          return "";
+        }
+      };
+
+      const parseTradeMetaTagFromComments = (comments) => {
+        const text = safeStr(comments);
+        if (!text) return null;
+        const m = text.match(/\[UPS_TWB_META:([A-Za-z0-9_-]+)\]/);
+        if (!m || !m[1]) return null;
+        const decoded = decodeBase64UrlUtf8(m[1]);
+        if (!decoded) return null;
+        try {
+          const parsed = JSON.parse(decoded);
+          return parsed && typeof parsed === "object" ? parsed : null;
+        } catch (_) {
+          return null;
+        }
+      };
+
+      const stripTradeMetaTagFromComments = (comments) =>
+        safeStr(comments)
+          .replace(/\s*\[UPS_TWB_META:[A-Za-z0-9_-]+\]\s*/g, " ")
+          .replace(/\s+/g, " ")
+          .trim();
+
+      const timestampToIso = (value) => {
+        const ts = safeInt(value, 0);
+        if (!ts) return "";
+        const ms = ts > 1000000000000 ? ts : ts * 1000;
+        const d = new Date(ms);
+        return Number.isFinite(d.getTime()) ? d.toISOString() : "";
+      };
+
+      const parseLeagueFranchiseNameMap = (leaguePayload) => {
+        const leagueRoot = leaguePayload?.league || leaguePayload || {};
+        const rows = asArray(
+          leagueRoot?.franchise ||
+            leagueRoot?.franchises ||
+            leagueRoot?.teams ||
+            leagueRoot?.franchiseunit
+        ).filter(Boolean);
+        const out = {};
+        for (const row of rows) {
+          const id = padFranchiseId(row?.id || row?.franchise_id || row?.franchise);
+          if (!id) continue;
+          const name = safeStr(
+            row?.name ||
+              row?.franchise_name ||
+              row?.franchiseName ||
+              row?.team_name
+          );
+          if (name) out[id] = name;
+        }
+        return out;
+      };
+
+      const pendingMatchKeyFromOffer = (offer) =>
+        [padFranchiseId(offer?.from_franchise_id), padFranchiseId(offer?.to_franchise_id)].join("|");
+
+      const buildStoredOfferIndexes = (offers) => {
+        const byTradeId = new Map();
+        const byPair = new Map();
+        const list = Array.isArray(offers) ? offers : [];
+        for (const raw of list) {
+          const o = raw && typeof raw === "object" ? raw : {};
+          const tradeId = String(o?.mfl_trade_id || o?.trade_id || "").replace(/\D/g, "");
+          if (tradeId && !byTradeId.has(tradeId)) byTradeId.set(tradeId, o);
+          const pairKey = pendingMatchKeyFromOffer(o);
+          if (!pairKey || pairKey === "|") continue;
+          if (!byPair.has(pairKey)) byPair.set(pairKey, []);
+          byPair.get(pairKey).push(o);
+        }
+        return { byTradeId, byPair };
+      };
+
+      const matchStoredOfferForPendingRow = (row, storedIndexes) => {
+        const tradeId = safeStr(row?.trade_id).replace(/\D/g, "");
+        if (tradeId && storedIndexes.byTradeId.has(tradeId)) {
+          return storedIndexes.byTradeId.get(tradeId);
+        }
+        const pairKey = [padFranchiseId(row?.from_franchise_id), padFranchiseId(row?.to_franchise_id)].join("|");
+        const candidates = storedIndexes.byPair.get(pairKey) || [];
+        if (!candidates.length) return null;
+        if (candidates.length === 1) return candidates[0];
+
+        const rowComment = stripTradeMetaTagFromComments(row?.comments);
+        const rowCommentLower = rowComment.toLowerCase();
+        if (rowCommentLower) {
+          for (const c of candidates) {
+            const cMessage = safeStr(c?.message || c?.comment || c?.action_message || "").toLowerCase();
+            if (!cMessage) continue;
+            if (cMessage === rowCommentLower) return c;
+          }
+        }
+
+        const rowTs = safeInt(row?.timestamp, 0);
+        if (rowTs) {
+          let best = candidates[0];
+          let bestDelta = Number.POSITIVE_INFINITY;
+          for (const c of candidates) {
+            const cTsMs = Date.parse(String(c?.created_at || c?.updated_at || ""));
+            const cTs = Number.isFinite(cTsMs) ? Math.round(cTsMs / 1000) : 0;
+            if (!cTs) continue;
+            const delta = Math.abs(cTs - rowTs);
+            if (delta < bestDelta) {
+              best = c;
+              bestDelta = delta;
+            }
+          }
+          return best;
+        }
+
+        return candidates[0];
+      };
+
+      const normalizePendingProposal = (row, franchiseNames, includePayload, storedOffer) => {
+        const fromId = padFranchiseId(row?.from_franchise_id);
+        const toId = padFranchiseId(row?.to_franchise_id);
+        const tradeId = safeStr(row?.trade_id).replace(/\D/g, "");
+        const createdAt = timestampToIso(row?.timestamp);
+        const commentsRaw = safeStr(row?.comments);
+        const commentsClean = stripTradeMetaTagFromComments(commentsRaw);
+        const meta = parseTradeMetaTagFromComments(commentsRaw);
+        const fromName =
+          safeStr(
+            (franchiseNames && franchiseNames[fromId]) ||
+              row?.raw?.offeringteamname ||
+              row?.raw?.offering_team_name ||
+              row?.raw?.from_franchise_name
+          ) || fromId;
+        const toName =
+          safeStr(
+            (franchiseNames && franchiseNames[toId]) ||
+              row?.raw?.offeredtoname ||
+              row?.raw?.to_franchise_name
+          ) || toId;
+        const stored = storedOffer && typeof storedOffer === "object" ? storedOffer : {};
+        const out = {
+          id: safeStr(stored.id) || (tradeId ? `MFL-${tradeId}` : `MFL-${fromId}-${toId}-${safeInt(row?.timestamp, 0)}`),
+          proposal_id: tradeId || "",
+          mfl_trade_id: tradeId || null,
+          trade_id: tradeId || null,
+          status: "PENDING",
+          mfl_present: true,
+          mfl_status: "PENDING",
+          from_franchise_id: fromId,
+          to_franchise_id: toId,
+          from_franchise_name: fromName,
+          to_franchise_name: toName,
+          created_ts: safeInt(row?.timestamp, 0),
+          created_at: createdAt || null,
+          comment: commentsClean || commentsRaw || "",
+          raw_comment: commentsRaw || "",
+          message: commentsClean || commentsRaw || "",
+          will_give_up: safeStr(row?.will_give_up),
+          will_receive: safeStr(row?.will_receive),
+          twb_meta: meta,
+          source: safeStr(stored.source || "mfl_pendingTrades"),
+          summary: stored && typeof stored.summary === "object" ? stored.summary : null,
+        };
+        if (includePayload && stored && stored.payload && typeof stored.payload === "object") {
+          out.payload = stored.payload;
+        }
+        return out;
+      };
+
+      const loadLivePendingProposals = async ({
+        leagueId,
+        season,
+        franchiseId,
+        includePayload,
+        statusFilter,
+        limit,
+      }) => {
+        if (!cookieHeader) {
+          return {
+            ok: false,
+            status: 500,
+            error: "Missing MFL_COOKIE worker secret",
+            pendingLookup: {
+              ok: false,
+              rows_count: 0,
+              upstream_status: 0,
+              error: "Missing MFL_COOKIE worker secret",
+            },
+            proposals: [],
+            incoming: [],
+            outgoing: [],
+            related: [],
+          };
+        }
+
+        const extra = {};
+        if (franchiseId) extra.FRANCHISE_ID = franchiseId;
+        const pendingRes = await mflExportJson(season, leagueId, "pendingTrades", extra, { useCookie: true });
+        if (!pendingRes.ok) {
+          return {
+            ok: false,
+            status: 502,
+            error: "Failed to load pendingTrades from MFL",
+            pendingLookup: {
+              ok: false,
+              rows_count: 0,
+              upstream_status: pendingRes.status || 0,
+              error: safeStr(pendingRes.error || "pendingTrades lookup failed"),
+            },
+            upstream: {
+              status: pendingRes.status || 0,
+              url: pendingRes.url || "",
+              error: pendingRes.error || "",
+              preview: pendingRes.textPreview || "",
+            },
+            proposals: [],
+            incoming: [],
+            outgoing: [],
+            related: [],
+          };
+        }
+
+        let franchiseNames = {};
+        try {
+          const leagueRes = await mflExportJson(season, leagueId, "league");
+          if (leagueRes.ok) franchiseNames = parseLeagueFranchiseNameMap(leagueRes.data);
+        } catch (_) {
+          franchiseNames = {};
+        }
+
+        let storedOffers = [];
+        try {
+          const loaded = await readTradeOffersDoc(leagueId, season);
+          if (loaded.ok) storedOffers = Array.isArray(loaded.doc?.offers) ? loaded.doc.offers : [];
+        } catch (_) {
+          storedOffers = [];
+        }
+        const storedIndexes = buildStoredOfferIndexes(storedOffers);
+
+        const pendingRowsAll = pendingTradesRows(pendingRes.data)
+          .map(normalizePendingTradeRow)
+          .filter((r) => !!safeStr(r.trade_id || r.from_franchise_id || r.to_franchise_id));
+        const dedupe = new Set();
+        const normalized = [];
+        for (const row of pendingRowsAll) {
+          const key = safeStr(row.trade_id) || [row.from_franchise_id, row.to_franchise_id, row.timestamp, row.comments].join("|");
+          if (dedupe.has(key)) continue;
+          dedupe.add(key);
+          const stored = matchStoredOfferForPendingRow(row, storedIndexes);
+          normalized.push(normalizePendingProposal(row, franchiseNames, includePayload, stored));
+        }
+        normalized.sort((a, b) => {
+          const aTs = safeInt(a.created_ts, 0);
+          const bTs = safeInt(b.created_ts, 0);
+          if (aTs !== bTs) return bTs - aTs;
+          return safeStr(b.proposal_id).localeCompare(safeStr(a.proposal_id));
+        });
+
+        const related = franchiseId
+          ? normalized.filter(
+              (o) =>
+                padFranchiseId(o.from_franchise_id) === franchiseId ||
+                padFranchiseId(o.to_franchise_id) === franchiseId
+            )
+          : normalized.slice();
+        const incoming = franchiseId
+          ? normalized.filter((o) => padFranchiseId(o.to_franchise_id) === franchiseId)
+          : [];
+        const outgoing = franchiseId
+          ? normalized.filter((o) => padFranchiseId(o.from_franchise_id) === franchiseId)
+          : [];
+
+        const filterByStatus = (rows) => {
+          const normalizedStatus = offerStatusNormalized(statusFilter, "");
+          if (!normalizedStatus) return rows;
+          if (normalizedStatus !== "PENDING") return [];
+          return rows;
+        };
+        const maxRows = Math.max(1, Math.min(300, safeInt(limit, 50)));
+
+        return {
+          ok: true,
+          status: 200,
+          pendingLookup: {
+            ok: true,
+            rows_count: normalized.length,
+            upstream_status: pendingRes.status || 0,
+            error: "",
+          },
+          proposals: filterByStatus(related).slice(0, maxRows),
+          incoming: filterByStatus(incoming).slice(0, maxRows),
+          outgoing: filterByStatus(outgoing).slice(0, maxRows),
+          related: filterByStatus(related).slice(0, maxRows),
+          counts: {
+            total: normalized.length,
+            related_total: related.length,
+            incoming_total: incoming.length,
+            outgoing_total: outgoing.length,
+            incoming_pending: incoming.length,
+            outgoing_pending: outgoing.length,
+            incoming_mfl_present_pending: incoming.length,
+            outgoing_mfl_present_pending: outgoing.length,
+          },
+          generatedAt: new Date().toISOString(),
+        };
+      };
+
       const buildSalaryAdjRowsFromPayload = (payload, tradeId) => {
         const { left, right } = tradeSidesFromPayload(payload);
         const leftId = padFranchiseId(left?.franchise_id);
@@ -2129,176 +2441,146 @@ export default {
         };
       };
 
-      if (path === "/trade-offers" && request.method === "GET") {
+      if (
+        (path === "/trade-offers" || path === "/api/trades/proposals") &&
+        request.method === "GET"
+      ) {
         const leagueId = safeStr(url.searchParams.get("L") || L || "");
-        const season = safeStr(url.searchParams.get("YEAR") || YEAR || "");
+        const season = safeStr(
+          url.searchParams.get("YEAR") ||
+            url.searchParams.get("season") ||
+            YEAR ||
+            ""
+        );
         if (!leagueId) return jsonOut(400, { ok: false, error: "Missing L param" });
-        if (!season) return jsonOut(400, { ok: false, error: "Missing YEAR param" });
+        if (!season) return jsonOut(400, { ok: false, error: "Missing YEAR/season param" });
 
         const franchiseId = padFranchiseId(
           url.searchParams.get("FRANCHISE_ID") ||
-            url.searchParams.get("F") ||
             url.searchParams.get("franchise_id") ||
+            url.searchParams.get("F") ||
             ""
         );
         const includePayload = ["1", "true", "yes"].includes(
           safeStr(url.searchParams.get("include_payload")).toLowerCase()
         );
         const statusFilter = offerStatusNormalized(url.searchParams.get("status"), "");
-        const limit = Math.max(1, Math.min(100, safeInt(url.searchParams.get("limit"), 20)));
+        const limit = Math.max(1, Math.min(300, safeInt(url.searchParams.get("limit"), 50)));
 
-        const loaded = await readTradeOffersDoc(leagueId, season);
-        if (!loaded.ok) {
-          return jsonOut(500, {
+        const live = await loadLivePendingProposals({
+          leagueId,
+          season,
+          franchiseId,
+          includePayload,
+          statusFilter,
+          limit,
+        });
+        if (!live.ok) {
+          return jsonOut(live.status || 502, {
             ok: false,
-            error: loaded.error || "Failed to load trade offers",
-            storage_path: loaded.filePath || tradeOffersFilePath(leagueId, season),
+            error: live.error || "Failed to load pending trades from MFL",
+            pending_lookup: live.pendingLookup || {
+              ok: false,
+              rows_count: 0,
+              upstream_status: 0,
+              error: live.error || "pendingTrades lookup failed",
+            },
+            upstream: live.upstream || null,
           });
         }
 
-        const normalizeTokenList = (csv) =>
-          safeStr(csv)
-            .split(",")
-            .map((x) => safeStr(x).toUpperCase())
-            .filter(Boolean)
-            .sort();
-
-        const tokenKeyFromList = (list) =>
-          asArray(list)
-            .map((x) => safeStr(x).toUpperCase())
-            .filter(Boolean)
-            .sort()
-            .join(",");
-
-        const pendingLookup = {
-          ok: false,
-          rows_count: 0,
-          upstream_status: 0,
-          error: "",
-        };
-        const pendingRows = [];
-        const pendingByTradeId = new Map();
-        if (cookieHeader) {
-          const extra = {};
-          if (franchiseId) extra.FRANCHISE_ID = franchiseId;
-          const pendingRes = await mflExportJson(season, leagueId, "pendingTrades", extra, { useCookie: true });
-          pendingLookup.ok = !!pendingRes.ok;
-          pendingLookup.rows_count = pendingRes.ok
-            ? pendingTradesRows(pendingRes.data).filter(Boolean).length
-            : 0;
-          pendingLookup.upstream_status = pendingRes.status || 0;
-          pendingLookup.error = pendingRes.ok ? "" : safeStr(pendingRes.error || "pendingTrades lookup failed");
-          if (pendingRes.ok) {
-            const rowsNorm = pendingTradesRows(pendingRes.data).map(normalizePendingTradeRow);
-            for (const row of rowsNorm) {
-              pendingRows.push(row);
-              if (row.trade_id) pendingByTradeId.set(row.trade_id, row);
-            }
-          }
-        } else {
-          pendingLookup.error = "Missing MFL_COOKIE worker secret";
-        }
-
-        const annotateOfferWithMfl = (offer) => {
-          const o = { ...(offer || {}) };
-          o.status = offerStatusNormalized(o.status, "PENDING");
-          o.mfl_trade_id = safeStr(o.mfl_trade_id || o.trade_id || "") || null;
-          o.mfl_present = false;
-          o.mfl_status = o.status === "PENDING" ? "UNKNOWN" : o.status;
-
-          if (o.status !== "PENDING" || !pendingLookup.ok) return o;
-
-          let match = null;
-          if (o.mfl_trade_id && pendingByTradeId.has(o.mfl_trade_id)) {
-            match = pendingByTradeId.get(o.mfl_trade_id);
-          }
-
-          const fromId = padFranchiseId(o.from_franchise_id);
-          const toId = padFranchiseId(o.to_franchise_id);
-          if (!match && fromId && toId) {
-            const candidates = pendingRows.filter(
-              (r) => r.from_franchise_id === fromId && r.to_franchise_id === toId
-            );
-            if (candidates.length === 1) {
-              match = candidates[0];
-            } else if (candidates.length > 1 && o.payload) {
-              const built = buildTradeProposalAssetLists(o.payload);
-              const giveKey = tokenKeyFromList(built.willGiveUp);
-              const receiveKey = tokenKeyFromList(built.willReceive);
-              for (const row of candidates) {
-                const rowGiveKey = normalizeTokenList(row.will_give_up).join(",");
-                const rowReceiveKey = normalizeTokenList(row.will_receive).join(",");
-                if (giveKey && receiveKey && rowGiveKey === giveKey && rowReceiveKey === receiveKey) {
-                  match = row;
-                  break;
-                }
-              }
-            }
-          }
-
-          if (match) {
-            o.mfl_present = true;
-            o.mfl_status = "PENDING";
-            if (match.trade_id) o.mfl_trade_id = match.trade_id;
-          }
-
-          return o;
-        };
-
-        const allOffers = (loaded.doc?.offers || [])
-          .map((o) => annotateOfferWithMfl(o))
-          .sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")));
-
-        const applyStatus = (rows) =>
-          !safeStr(statusFilter)
-            ? rows
-            : rows.filter((o) => offerStatusNormalized(o.status, "PENDING") === statusFilter);
-
-        const related = franchiseId
-          ? allOffers.filter(
-              (o) => padFranchiseId(o.from_franchise_id) === franchiseId || padFranchiseId(o.to_franchise_id) === franchiseId
-            )
-          : allOffers.slice();
-        const incoming = franchiseId
-          ? allOffers.filter((o) => padFranchiseId(o.to_franchise_id) === franchiseId)
-          : [];
-        const outgoing = franchiseId
-          ? allOffers.filter((o) => padFranchiseId(o.from_franchise_id) === franchiseId)
-          : [];
-
-        const incomingFiltered = applyStatus(incoming).slice(0, limit).map((o) => sanitizeOfferForList(o, includePayload));
-        const outgoingFiltered = applyStatus(outgoing).slice(0, limit).map((o) => sanitizeOfferForList(o, includePayload));
-        const relatedFiltered = applyStatus(related).slice(0, limit).map((o) => sanitizeOfferForList(o, includePayload));
-
         return jsonOut(200, {
           ok: true,
+          server: safeStr(url.host),
           league_id: leagueId,
           season: safeInt(season, Number(season) || 0),
           franchise_id: franchiseId || "",
-          storage_path: loaded.filePath,
-          pending_lookup: pendingLookup,
-          counts: {
-            total: allOffers.length,
-            related_total: related.length,
-            incoming_total: incoming.length,
-            outgoing_total: outgoing.length,
-            incoming_pending: incoming.filter((o) => offerStatusNormalized(o.status, "PENDING") === "PENDING").length,
-            outgoing_pending: outgoing.filter((o) => offerStatusNormalized(o.status, "PENDING") === "PENDING").length,
-            incoming_mfl_present_pending: incoming.filter(
-              (o) =>
-                offerStatusNormalized(o.status, "PENDING") === "PENDING" &&
-                o.mfl_present === true
-            ).length,
-            outgoing_mfl_present_pending: outgoing.filter(
-              (o) =>
-                offerStatusNormalized(o.status, "PENDING") === "PENDING" &&
-                o.mfl_present === true
-            ).length,
-          },
-          incoming: incomingFiltered,
-          outgoing: outgoingFiltered,
-          offers: relatedFiltered,
-          generated_at: new Date().toISOString(),
+          source: "worker:live_mfl_pending_trades",
+          pending_lookup: live.pendingLookup,
+          counts: live.counts,
+          proposals: live.proposals,
+          incoming: live.incoming,
+          outgoing: live.outgoing,
+          offers: live.related,
+          generated_at: live.generatedAt || new Date().toISOString(),
+        });
+      }
+
+      if (path.startsWith("/api/trades/proposals/") && request.method === "GET") {
+        const proposalId = safeStr(path.split("/").pop());
+        if (!proposalId || proposalId === "action") {
+          return jsonOut(400, { ok: false, error: "proposal_id is required" });
+        }
+        const leagueId = safeStr(url.searchParams.get("L") || L || "");
+        const season = safeStr(
+          url.searchParams.get("YEAR") ||
+            url.searchParams.get("season") ||
+            YEAR ||
+            ""
+        );
+        const franchiseId = padFranchiseId(
+          url.searchParams.get("FRANCHISE_ID") ||
+            url.searchParams.get("franchise_id") ||
+            url.searchParams.get("F") ||
+            ""
+        );
+        if (!leagueId) return jsonOut(400, { ok: false, error: "Missing L param" });
+        if (!season) return jsonOut(400, { ok: false, error: "Missing YEAR/season param" });
+
+        const live = await loadLivePendingProposals({
+          leagueId,
+          season,
+          franchiseId,
+          includePayload: true,
+          statusFilter: "PENDING",
+          limit: 300,
+        });
+        if (!live.ok) {
+          return jsonOut(live.status || 502, {
+            ok: false,
+            error: live.error || "Failed to load pending trades from MFL",
+            pending_lookup: live.pendingLookup || {
+              ok: false,
+              rows_count: 0,
+              upstream_status: 0,
+              error: live.error || "pendingTrades lookup failed",
+            },
+            upstream: live.upstream || null,
+          });
+        }
+
+        const keyRaw = proposalId;
+        const keyDigits = keyRaw.replace(/\D/g, "");
+        const proposal = (live.proposals || []).find((p) => {
+          const id = safeStr(p && p.id);
+          const pid = safeStr(p && p.proposal_id);
+          const tid = safeStr(p && p.trade_id);
+          return (
+            id === keyRaw ||
+            pid === keyRaw ||
+            tid === keyRaw ||
+            (keyDigits &&
+              (pid.replace(/\D/g, "") === keyDigits ||
+                tid.replace(/\D/g, "") === keyDigits ||
+                id.replace(/\D/g, "") === keyDigits))
+          );
+        });
+
+        if (!proposal) {
+          return jsonOut(404, {
+            ok: false,
+            error: "Proposal not found or no longer pending in MFL",
+            proposal_id: keyRaw,
+          });
+        }
+
+        return jsonOut(200, {
+          ok: true,
+          server: safeStr(url.host),
+          league_id: leagueId,
+          season: safeInt(season, Number(season) || 0),
+          franchise_id: franchiseId || "",
+          proposal,
         });
       }
 
@@ -2344,7 +2626,7 @@ export default {
         });
       }
 
-      if (path === "/trade-offers" && request.method === "POST") {
+      if ((path === "/trade-offers" || path === "/api/trades/proposals") && request.method === "POST") {
         let body = null;
         try {
           body = await request.json();
@@ -2592,7 +2874,7 @@ export default {
         });
       }
 
-      if (path === "/trade-offers/action" && request.method === "POST") {
+      if ((path === "/trade-offers/action" || path === "/api/trades/proposals/action") && request.method === "POST") {
         let body = null;
         try {
           body = await request.json();
@@ -2602,11 +2884,17 @@ export default {
 
         const leagueId = safeStr(body?.league_id || L || "");
         const season = safeStr(body?.season || YEAR || "");
-        const offerId = safeStr(body?.offer_id);
+        const offerId = safeStr(body?.offer_id || body?.proposal_id);
         const action = offerStatusNormalized(body?.action, "");
         const actingFranchiseId = padFranchiseId(body?.acting_franchise_id || body?.franchise_id || "");
         const actionMessage = safeStr(body?.message).slice(0, 2000);
-        const mflTradeId = String(body?.trade_id || body?.mfl_trade_id || body?.TRADE_ID || "").replace(/\D/g, "");
+        const mflTradeId = String(
+          body?.trade_id ||
+            body?.mfl_trade_id ||
+            body?.TRADE_ID ||
+            body?.proposal_id ||
+            ""
+        ).replace(/\D/g, "");
         // Queue mode is retired: direct MFL actions only.
         const directMfl = true;
         const payload =
