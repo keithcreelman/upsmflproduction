@@ -1818,6 +1818,14 @@
       if (!offerMeta && offerRawCommentText) {
         offerMeta = parseTradeMetaFromComment(offerRawCommentText);
       }
+      var explicitOfferExtensionRequests = [];
+      if (normalizedAction === "ACCEPT") {
+        if (reviewPayload && Array.isArray(reviewPayload.extension_requests) && reviewPayload.extension_requests.length) {
+          explicitOfferExtensionRequests = clone(reviewPayload.extension_requests);
+        } else if (offerMeta && Array.isArray(offerMeta.ext) && offerMeta.ext.length) {
+          explicitOfferExtensionRequests = clone(offerMeta.ext);
+        }
+      }
       var body = {
         league_id: leagueId,
         season: season,
@@ -1833,10 +1841,7 @@
         offer_raw_comment: offerRawCommentText,
         offer_message: safeStr(offer.message || offer.comment || offer.comments || offer.raw_comment || offer.notes),
         offer_twb_meta: offerMeta,
-        offer_extension_requests:
-          normalizedAction === "ACCEPT" && reviewPayload && Array.isArray(reviewPayload.extension_requests)
-            ? reviewPayload.extension_requests
-            : [],
+        offer_extension_requests: explicitOfferExtensionRequests,
         offer_from_franchise_id: safeStr(offer.from_franchise_id),
         offer_to_franchise_id: safeStr(offer.to_franchise_id),
         offer_will_give_up: safeStr(offer.will_give_up),
