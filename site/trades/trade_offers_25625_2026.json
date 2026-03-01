@@ -3,8 +3,8 @@
     "schema_version": 1,
     "league_id": "25625",
     "season": 2026,
-    "updated_at": "2026-02-28T11:18:15.262Z",
-    "row_count": 7,
+    "updated_at": "2026-03-01T12:01:10.443Z",
+    "row_count": 8,
     "source": "worker-trade-offers"
   },
   "offers": [
@@ -901,6 +901,180 @@
           "issues": []
         }
       }
+    },
+    {
+      "id": "MFL-1041",
+      "league_id": "25625",
+      "season": 2026,
+      "status": "PENDING",
+      "created_at": "2026-03-01T12:01:10.443Z",
+      "updated_at": "2026-03-01T12:01:10.443Z",
+      "from_franchise_id": "0011",
+      "to_franchise_id": "0009",
+      "from_franchise_name": "Cleon Ca$h",
+      "to_franchise_name": "C-Town Chivalry",
+      "message": "Pre-trade extension: Extend McDonald, Will 1-year | New length 2 | New AAV 4K | New TCV 5K",
+      "comment": "Pre-trade extension: Extend McDonald, Will 1-year | New length 2 | New AAV 4K | New TCV 5K",
+      "comments": "Pre-trade extension: Extend McDonald, Will 1-year | New length 2 | New AAV 4K | New TCV 5K",
+      "raw_comment": "[UPS_TWB_META:eyJ2IjoxLCJ0cyI6IjIwMjYtMDMtMDFUMTI6MDE6MDguNjI4WiIsImxlYWd1ZV9pZCI6IjI1NjI1Iiwic2Vhc29uIjoyMDI2LCJmcm9tIjoiMDAxMSIsInRvIjoiMDAwOSIsInNhbGFyeV9uZXRfayI6eyJsZWZ0IjotMiwicmlnaHQiOjJ9LCJleHQiOlt7InBsYXllcl9pZCI6IjE2MjUyIiwicGxheWVyX25hbWUiOiJNY0RvbmFsZCwgV2lsbCIsImZyb21fZnJhbmNoaXNlX2lkIjoiMDAxMSIsInRvX2ZyYW5jaGlzZV9pZCI6IjAwMDkiLCJvcHRpb25fa2V5IjoiMVlSfE5PTkUiLCJleHRlbnNpb25fdGVybSI6IjFZUiIsIm5ld19jb250cmFjdF9zdGF0dXMiOiJFWFQxIiwibmV3X2NvbnRyYWN0X2xlbmd0aCI6MiwibmV3X1RDViI6NTAwMCwibmV3X2Fhdl9mdXR1cmUiOjQwMDB9XX0] Pre-trade extension: Extend McDonald, Will 1-year | New length 2 | New AAV 4K | New TCV 5K\n\n[UPS_TWB_INTENT_BEGIN]\nUPS_OUTBOX_ID:1\nUPS_PAYLOAD_HASH:e6fc1146a42c4d3ac8f6e08c248c80968c4dc825fd9aa0181712f83dfa09d3a6\nUPS_XML_EXT:PHNhbGFyaWVzPjxsZWFndWVVbml0IHVuaXQ9IkxFQUdVRSI-PHBsYXllciBpZD0iMTYyNTIiIHNhbGFyeT0iMTAwMCIgY29udHJhY3RZZWFyPSIxIiBjb250cmFjdEluZm89IkNMIDJ8VENWIDVLfEFBViAxSywgNEt8WTEtMUssIFkyLTRLfEV4dDogQ2FzaHxHVEQ6IDRLIiBjb250cmFjdFN0YXR1cz0iRVhUMSIgLz48L2xlYWd1ZVVuaXQ-PC9zYWxhcmllcz4\nUPS_XML_SALADJ:PHNhbGFyeV9hZGp1c3RtZW50cz48c2FsYXJ5X2FkanVzdG1lbnQgZnJhbmNoaXNlX2lkPSIwMDExIiBhbW91bnQ9Ii0yMDAwIiBleHBsYW5hdGlvbj0iVVBTIHRyYWRlZCBzYWxhcnkgc2V0dGxlbWVudDogbmV0IC0ySyIvPjxzYWxhcnlfYWRqdXN0bWVudCBmcmFuY2hpc2VfaWQ9IjAwMDkiIGFtb3VudD0iMjAwMCIgZXhwbGFuYXRpb249IlVQUyB0cmFkZWQgc2FsYXJ5IHNldHRsZW1lbnQ6IG5ldCArMksiLz48L3NhbGFyeV9hZGp1c3RtZW50cz4\n[UPS_TWB_INTENT_END]",
+      "will_give_up": "16252",
+      "will_receive": "16649,BB_2000",
+      "source": "trade-workbench-ui",
+      "summary": {
+        "from_asset_count": 1,
+        "to_asset_count": 1,
+        "from_trade_salary_k": 0,
+        "to_trade_salary_k": 2,
+        "extension_request_count": 1
+      },
+      "payload": {
+        "schema_version": 1,
+        "generated_at": "2026-03-01T12:01:06.907Z",
+        "source": "ups-trade-workbench",
+        "league_id": "25625",
+        "season": 2026,
+        "teams": [
+          {
+            "role": "left",
+            "franchise_id": "0011",
+            "franchise_name": "Cleon Ca$h",
+            "selected_assets": [
+              {
+                "asset_id": "player:16252",
+                "type": "PLAYER",
+                "player_id": "16252",
+                "player_name": "McDonald, Will",
+                "description": null,
+                "position": "DE",
+                "nfl_team": "NYJ",
+                "salary": 1000,
+                "years": 1,
+                "contract_type": "Rookie",
+                "contract_info": "CL 3| TCV 3K| AAV 1K",
+                "taxi": false
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 0,
+            "selected_non_taxi_salary_dollars": 1000
+          },
+          {
+            "role": "right",
+            "franchise_id": "0009",
+            "franchise_name": "C-Town Chivalry",
+            "selected_assets": [
+              {
+                "asset_id": "player:16649",
+                "type": "PLAYER",
+                "player_id": "16649",
+                "player_name": "Johnson, Theo",
+                "description": null,
+                "position": "TE",
+                "nfl_team": "NYG",
+                "salary": 5000,
+                "years": 0,
+                "contract_type": "Rookie",
+                "contract_info": "CL 3| TCV 15K| AAV 5K| Y1-5, Y2-5, Y3-5",
+                "taxi": false
+              }
+            ],
+            "traded_salary_adjustment_dollars": 2000,
+            "traded_salary_adjustment_k": 2,
+            "traded_salary_adjustment_max_k": 2,
+            "selected_non_taxi_salary_dollars": 5000
+          }
+        ],
+        "extension_requests": [
+          {
+            "player_id": "16252",
+            "player_name": "McDonald, Will",
+            "from_franchise_id": "0011",
+            "to_franchise_id": "0009",
+            "applies_to_acquirer": true,
+            "option_key": "1YR|NONE",
+            "extension_term": "1YR",
+            "loaded_indicator": "NONE",
+            "preview_id": 1125,
+            "preview_contract_info_string": "CL 2|TCV 5K|AAV 1K, 4K|Y1-1K, Y2-4K|Ext: Cash|GTD: 4K",
+            "new_contract_status": "EXT1",
+            "new_contract_length": 2,
+            "new_TCV": 5000,
+            "new_aav_future": 4000
+          }
+        ],
+        "filters": {
+          "search": ""
+        },
+        "ui": {
+          "left_team_id": "0011",
+          "right_team_id": "0009"
+        },
+        "salary_reconciliation": {
+          "left": {
+            "franchise_id": "0011",
+            "franchise_name": "Cleon Ca$h",
+            "outgoing_dollars": 1000,
+            "incoming_dollars": 5000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 0,
+            "net_trade_salary_k": -2,
+            "net_cap_change_dollars": -2000,
+            "available_salary_before_dollars": 12000,
+            "available_salary_after_dollars": 10000,
+            "over_cap_dollars": 0
+          },
+          "right": {
+            "franchise_id": "0009",
+            "franchise_name": "C-Town Chivalry",
+            "outgoing_dollars": 5000,
+            "incoming_dollars": 1000,
+            "trade_salary_adjustment_k": 2,
+            "trade_salary_adjustment_max_k": 2,
+            "net_trade_salary_k": 2,
+            "net_cap_change_dollars": 2000,
+            "available_salary_before_dollars": 15000,
+            "available_salary_after_dollars": 17000,
+            "over_cap_dollars": 0
+          },
+          "has_over_cap": false
+        },
+        "validation": {
+          "status": "ready",
+          "issues": []
+        },
+        "comment": "Pre-trade extension: Extend McDonald, Will 1-year | New length 2 | New AAV 4K | New TCV 5K"
+      },
+      "twb_meta": {
+        "v": 1,
+        "ts": "2026-03-01T12:01:08.628Z",
+        "league_id": "25625",
+        "season": 2026,
+        "from": "0011",
+        "to": "0009",
+        "salary_net_k": {
+          "left": -2,
+          "right": 2
+        },
+        "ext": [
+          {
+            "player_id": "16252",
+            "player_name": "McDonald, Will",
+            "from_franchise_id": "0011",
+            "to_franchise_id": "0009",
+            "option_key": "1YR|NONE",
+            "extension_term": "1YR",
+            "new_contract_status": "EXT1",
+            "new_contract_length": 2,
+            "new_TCV": 5000,
+            "new_aav_future": 4000
+          }
+        ]
+      },
+      "mfl_trade_id": "1041",
+      "trade_id": "1041",
+      "mfl_present": true,
+      "mfl_status": "PENDING"
     }
   ]
 }
