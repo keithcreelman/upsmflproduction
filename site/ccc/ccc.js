@@ -7400,7 +7400,8 @@
         !!commishGateFranchise &&
         currentFranchiseId === commishGateFranchise;
       const leagueIdNow = safeStr(workerAdmin.L || getLeagueId() || DEFAULT_LEAGUE_ID);
-      const devLeagueBypass = leagueIdNow === "25625";
+      const devBypassFlag = safeStr(window.UPS_DEV_ADMIN_BYPASS || "").toLowerCase();
+      const devLeagueBypass = devBypassFlag === "1" || devBypassFlag === "true" || devBypassFlag === "yes";
       let canCommish =
         forceCommish || workerAllows || browserAllows || franchiseGateAllows || devLeagueBypass;
       const adminReason = canCommish

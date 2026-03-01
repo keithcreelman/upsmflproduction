@@ -121,6 +121,10 @@
     "hpm-standings": "/site/hpm-standings.html"
   };
 
+  function safeStr(value) {
+    return (value == null ? "" : String(value)).trim();
+  }
+
   function safeLower(value) {
     return (value || "").toString().trim().toLowerCase();
   }
@@ -133,19 +137,59 @@
     return "";
   }
 
+  function getLeagueContext() {
+    var ctx = {
+      host: safeStr(window.location.host || ""),
+      season: "",
+      leagueId: "",
+      baseUrl: ""
+    };
+    try {
+      var u = new URL(window.location.href || "");
+      var path = safeStr(u.pathname);
+      var season = safeStr(
+        u.searchParams.get("YEAR") ||
+          u.searchParams.get("season") ||
+          (path.match(/\/(\d{4})(?:\/|$)/) || [])[1] ||
+          ""
+      ).replace(/\D/g, "");
+      var leagueId = safeStr(
+        u.searchParams.get("L") ||
+          u.searchParams.get("league_id") ||
+          (path.match(/\/home\/(\d+)(?:\/|$)/i) || [])[1] ||
+          ""
+      ).replace(/\D/g, "");
+      ctx.host = safeStr(u.host || ctx.host);
+      ctx.season = season;
+      ctx.leagueId = leagueId;
+      if (ctx.host) {
+        var protocol = safeStr(u.protocol || window.location.protocol || "https:");
+        ctx.baseUrl = protocol + "//" + ctx.host + (ctx.season ? ("/" + ctx.season) : "");
+      }
+    } catch (e) {
+      var pathFallback = safeStr(window.location.pathname);
+      ctx.season = safeStr((pathFallback.match(/\/(\d{4})(?:\/|$)/) || [])[1]).replace(/\D/g, "");
+      ctx.leagueId = safeStr((pathFallback.match(/\/home\/(\d+)(?:\/|$)/i) || [])[1]).replace(/\D/g, "");
+      if (ctx.host) {
+        var protocolFallback = safeStr(window.location.protocol || "https:");
+        ctx.baseUrl = protocolFallback + "//" + ctx.host + (ctx.season ? ("/" + ctx.season) : "");
+      }
+    }
+    return ctx;
+  }
+
+  if (typeof window.getLeagueContext !== "function") {
+    window.getLeagueContext = getLeagueContext;
+  }
+
   function detectYear() {
-    var m = String(window.location.pathname || "").match(/\/(\d{4})\//);
-    return m ? m[1] : String(new Date().getFullYear());
+    var ctx = getLeagueContext();
+    return ctx.season || String(new Date().getFullYear());
   }
 
   function detectLeagueId() {
-    try {
-      var u = new URL(window.location.href);
-      var q = u.searchParams.get("L");
-      if (q) return String(q);
-    } catch (e) {}
-    var m = String(window.location.pathname || "").match(/\/home\/(\d+)(?:\/|$)/i);
-    return m ? m[1] : "";
+    var ctx = getLeagueContext();
+    return ctx.leagueId || "";
   }
 
   function applyMflTokens(html) {

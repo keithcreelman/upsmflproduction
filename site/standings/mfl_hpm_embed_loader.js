@@ -6,28 +6,43 @@
   }
 
   function detectLeagueId(urlObj) {
-    if (!urlObj) return "25625";
+    try {
+      if (typeof window.getLeagueContext === "function") {
+        const ctx = window.getLeagueContext();
+        const leagueFromCtx = safeStr(ctx && (ctx.leagueId || ctx.league_id));
+        if (leagueFromCtx) return leagueFromCtx;
+      }
+    } catch (eCtx) {}
+    if (!urlObj) return "";
     const q = safeStr(urlObj.searchParams.get("L"));
     if (q) return q;
     const m = safeStr(window.location.pathname).match(/\/home\/(\d+)(?:\/|$)/i);
-    return m ? m[1] : "25625";
+    return m ? m[1] : "";
   }
 
   function detectSourceLeagueId(urlObj, scriptEl) {
     const scriptPref = safeStr(scriptEl && scriptEl.getAttribute("data-standings-source-league-id"));
     if (scriptPref) return scriptPref;
-    if (!urlObj) return "74598";
+    const currentLeague = detectLeagueId(urlObj);
+    if (!urlObj) return currentLeague;
     const q = safeStr(urlObj.searchParams.get("SOURCE_L") || urlObj.searchParams.get("DATA_L"));
     if (q) return q;
-    return "74598";
+    return currentLeague;
   }
 
   function detectYear(urlObj) {
-    if (!urlObj) return "2026";
+    try {
+      if (typeof window.getLeagueContext === "function") {
+        const ctx = window.getLeagueContext();
+        const seasonFromCtx = safeStr(ctx && (ctx.season || ctx.year));
+        if (seasonFromCtx) return seasonFromCtx;
+      }
+    } catch (eCtx) {}
+    if (!urlObj) return String(new Date().getUTCFullYear());
     const q = safeStr(urlObj.searchParams.get("YEAR"));
     if (q) return q;
     const m = safeStr(window.location.pathname).match(/\/(\d{4})\//);
-    return m ? m[1] : "2026";
+    return m ? m[1] : String(new Date().getUTCFullYear());
   }
 
   function scriptBaseHtml(scriptSrc) {

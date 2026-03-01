@@ -59,23 +59,73 @@
 
   var els = {};
 
+  function getLeagueContext() {
+    var ctx = {
+      host: "",
+      season: "",
+      leagueId: "",
+      baseUrl: ""
+    };
+    try {
+      if (typeof window.getLeagueContext === "function") {
+        var upstream = window.getLeagueContext();
+        if (upstream && typeof upstream === "object") {
+          ctx.host = safeStr(upstream.host || window.location.host || "");
+          ctx.season = safeStr(upstream.season).replace(/\D/g, "");
+          ctx.leagueId = safeStr(upstream.leagueId || upstream.league_id).replace(/\D/g, "");
+          ctx.baseUrl = safeStr(upstream.baseUrl || upstream.base_url);
+          if (!ctx.baseUrl && ctx.host) {
+            var upstreamProtocol = safeStr(window.location.protocol || "https:");
+            ctx.baseUrl = upstreamProtocol + "//" + ctx.host + (ctx.season ? ("/" + ctx.season) : "");
+          }
+          if (ctx.host || ctx.season || ctx.leagueId || ctx.baseUrl) return ctx;
+        }
+      }
+    } catch (eUpstream) {
+      // fall through to local parsing
+    }
+    try {
+      var u = new URL(window.location.href || "");
+      ctx.host = safeStr(u.host || window.location.host || "");
+      var season = safeStr(
+        u.searchParams.get("YEAR") ||
+          u.searchParams.get("season") ||
+          (safeStr(u.pathname).match(/\/(\d{4})(?:\/|$)/) || [])[1] ||
+          ""
+      ).replace(/\D/g, "");
+      var leagueId = safeStr(
+        u.searchParams.get("L") ||
+          u.searchParams.get("league_id") ||
+          u.searchParams.get("leagueId") ||
+          (safeStr(u.pathname).match(/\/home\/(\d+)(?:\/|$)/i) || [])[1] ||
+          ""
+      ).replace(/\D/g, "");
+      ctx.season = season;
+      ctx.leagueId = leagueId;
+      if (ctx.host) {
+        var protocol = safeStr(u.protocol || window.location.protocol || "https:");
+        ctx.baseUrl = protocol + "//" + ctx.host + (ctx.season ? ("/" + ctx.season) : "");
+      }
+    } catch (e) {
+      var path = safeStr(window.location.pathname);
+      ctx.host = safeStr(window.location.host || "");
+      ctx.season = safeStr((path.match(/\/(\d{4})(?:\/|$)/) || [])[1]).replace(/\D/g, "");
+      ctx.leagueId = safeStr((path.match(/\/home\/(\d+)(?:\/|$)/i) || [])[1]).replace(/\D/g, "");
+      if (ctx.host) {
+        var protocolFallback = safeStr(window.location.protocol || "https:");
+        ctx.baseUrl = protocolFallback + "//" + ctx.host + (ctx.season ? ("/" + ctx.season) : "");
+      }
+    }
+    return ctx;
+  }
+
   function computeStorageKey() {
-    var leagueId = "unknown";
-    var season = "unknown";
+    var leagueCtx = getLeagueContext();
+    var leagueId = leagueCtx.leagueId || "unknown";
+    var season = leagueCtx.season || "unknown";
     var route = "page";
     try {
       var u = new URL(window.location.href || "");
-      leagueId = safeStr(
-        u.searchParams.get("L") ||
-          u.searchParams.get("league_id") ||
-          (safeStr(u.pathname).match(/\/home\/(\d+)(?:\/|$)/i) || [])[1] ||
-          "unknown"
-      ).replace(/\D/g, "") || "unknown";
-      season = safeStr(
-        u.searchParams.get("YEAR") ||
-          (safeStr(u.pathname).match(/\/(\d{4})\//) || [])[1] ||
-          "unknown"
-      ).replace(/\D/g, "") || "unknown";
       var moduleName = safeStr(u.searchParams.get("MODULE")).toUpperCase();
       var optionName = safeStr(u.searchParams.get("O")).replace(/\D/g, "");
       if (moduleName) route = "module_" + moduleName;
@@ -184,24 +234,8 @@
   }
 
   function resolveTwbDataCacheKey() {
-    var season = "";
-    var league = "";
-    try {
-      var params = new URLSearchParams(window.location.search || "");
-      season = safeStr(params.get("YEAR") || params.get("season"));
-      league = safeStr(params.get("L") || params.get("league_id"));
-    } catch (e) {
-      // noop
-    }
-    if (!season) {
-      var seasonMatch = safeStr(window.location.pathname).match(/\/(\d{4})\//);
-      season = seasonMatch ? safeStr(seasonMatch[1]) : "";
-    }
-    if (!league) {
-      var leagueMatch = safeStr(window.location.pathname).match(/\/home\/(\d+)/i);
-      league = leagueMatch ? safeStr(leagueMatch[1]) : "";
-    }
-    return "twb:lastData:" + (league || "unknown") + ":" + (season || "unknown");
+    var leagueCtx = getLeagueContext();
+    return "twb:lastData:" + (leagueCtx.leagueId || "unknown") + ":" + (leagueCtx.season || "unknown");
   }
 
   function readCachedTwbData() {
@@ -723,6 +757,7 @@
     if (!apiUrl) return "";
 
     var params = new URLSearchParams(window.location.search || "");
+    var leagueCtx = getLeagueContext();
     var finalUrl = resolveRelativeUrl(apiUrl);
     try {
       var u = new URL(finalUrl, window.location.href);
@@ -734,6 +769,8 @@
         var v = safeStr(params.get(k));
         if (v) u.searchParams.set(k, v);
       }
+      if (!u.searchParams.get("L") && leagueCtx.leagueId) u.searchParams.set("L", leagueCtx.leagueId);
+      if (!u.searchParams.get("YEAR") && leagueCtx.season) u.searchParams.set("YEAR", leagueCtx.season);
       finalUrl = u.toString();
     } catch (e) {
       // ignore URL parsing issues and use the raw value
@@ -902,16 +939,17 @@
       }
       return u.toString();
     } catch (e) {
-      return "https://upsmflproduction.keith-creelman.workers.dev/refresh/after-trade";
+      return "";
     }
   }
 
   async function triggerAfterTradeRefresh(args) {
     args = args && typeof args === "object" ? args : {};
+    var leagueCtx = getLeagueContext();
     var meta = state.data && state.data.meta ? state.data.meta : {};
     var body = {
-      league_id: safeStr(meta.league_id),
-      season: safeStr(meta.season),
+      league_id: safeStr(args.league_id || meta.league_id || leagueCtx.leagueId),
+      season: safeStr(args.season || meta.season || leagueCtx.season),
       trade_id: safeStr(args.trade_id || args.tradeId || ""),
       acting_franchise_id: getActiveFranchiseId(),
       dispatch_refresh_mym_json: true,
@@ -1409,20 +1447,26 @@
 
   function getOfferPayloadForWorkbench(offer, options) {
     options = options || {};
+    var keepOriginalOrientation = !!options.keepOriginalOrientation;
+    var actingTeamId = pad4(options.actingTeamId || getActiveFranchiseId() || state.leftTeamId);
     if (options.forcePerspective) {
       var rebuiltForced = buildPayloadFromOfferTokens(offer, options);
-      if (rebuiltForced) return rebuiltForced;
+      if (rebuiltForced) {
+        return orientPayloadForWorkbench(rebuiltForced, actingTeamId, keepOriginalOrientation);
+      }
     }
     if (offer && offer.payload && typeof offer.payload === "object") {
       var directPayload = getTradePayloadFromInput(offer.payload);
-      if (directPayload) return directPayload;
+      if (directPayload) {
+        return orientPayloadForWorkbench(directPayload, actingTeamId, keepOriginalOrientation);
+      }
     }
     if (offer && offer._twb_payload_cache && typeof offer._twb_payload_cache === "object") {
-      return offer._twb_payload_cache;
+      return orientPayloadForWorkbench(offer._twb_payload_cache, actingTeamId, keepOriginalOrientation);
     }
     var rebuilt = buildPayloadFromOfferTokens(offer, options);
     if (offer && rebuilt) offer._twb_payload_cache = rebuilt;
-    return rebuilt;
+    return orientPayloadForWorkbench(rebuilt, actingTeamId, keepOriginalOrientation);
   }
 
   function offerCanHydratePayload(offer) {
@@ -1469,6 +1513,50 @@
     if (!offerPayload || typeof offerPayload !== "object") return null;
     if (offerPayload.payload && typeof offerPayload.payload === "object") return offerPayload.payload;
     return offerPayload;
+  }
+
+  function swapPayloadSides(payload) {
+    var out = clone(payload);
+    var teams = Array.isArray(out.teams) ? out.teams : [];
+    var leftIndex = -1;
+    var rightIndex = -1;
+    var i;
+    for (i = 0; i < teams.length; i += 1) {
+      var role = safeStr(teams[i] && teams[i].role).toLowerCase();
+      if (role === "left" && leftIndex === -1) leftIndex = i;
+      else if (role === "right" && rightIndex === -1) rightIndex = i;
+    }
+    if (leftIndex === -1 || rightIndex === -1) return out;
+
+    var leftTeam = clone(teams[leftIndex] || {});
+    var rightTeam = clone(teams[rightIndex] || {});
+    leftTeam.role = "right";
+    rightTeam.role = "left";
+    teams[leftIndex] = rightTeam;
+    teams[rightIndex] = leftTeam;
+    out.teams = teams;
+
+    if (!out.ui || typeof out.ui !== "object") out.ui = {};
+    out.ui.left_team_id = safeStr(rightTeam.franchise_id || out.ui.left_team_id);
+    out.ui.right_team_id = safeStr(leftTeam.franchise_id || out.ui.right_team_id);
+    return out;
+  }
+
+  function orientPayloadForWorkbench(payloadInput, actingTeamId, keepOriginalOrientation) {
+    var payload = getTradePayloadFromInput(payloadInput);
+    if (!payload || typeof payload !== "object") return null;
+    var out = clone(payload);
+    if (keepOriginalOrientation) return out;
+
+    var actorId = pad4(actingTeamId || getActiveFranchiseId());
+    if (!actorId) return out;
+    var leftSide = getPayloadSideByRole(out, "left");
+    var rightSide = getPayloadSideByRole(out, "right");
+    var leftId = pad4(leftSide && leftSide.franchise_id);
+    var rightId = pad4(rightSide && rightSide.franchise_id);
+    if (!leftId || !rightId || !leftSide || !rightSide) return out;
+    if (actorId === rightId) return swapPayloadSides(out);
+    return out;
   }
 
   function normalizePickKey(value) {
@@ -1851,8 +1939,9 @@
   }
 
   async function fetchOfferById(loadKey) {
-    var leagueId = safeStr(state.data && state.data.meta ? state.data.meta.league_id : "");
-    var season = safeStr(state.data && state.data.meta ? state.data.meta.season : "");
+    var leagueCtx = getLeagueContext();
+    var leagueId = safeStr(state.data && state.data.meta ? state.data.meta.league_id : "") || leagueCtx.leagueId;
+    var season = safeStr(state.data && state.data.meta ? state.data.meta.season : "") || leagueCtx.season;
     var franchiseId = getActiveFranchiseId();
     if (!leagueId || !season || !safeStr(loadKey)) {
       return { ok: false, reason: "Offer lookup is missing league context." };
@@ -2131,6 +2220,13 @@
     else if (normalizedAction === "REJECT") actionLabel = "Rejecting";
     else if (normalizedAction === "ACCEPT") actionLabel = "Accepting";
     setSubmitStatus(actionLabel + " offer in MFL…", "");
+    if (normalizedAction === "ACCEPT") {
+      showFeedbackModal(
+        "Processing Trade",
+        "Processing... Trading contracts are being processed.",
+        "warn"
+      );
+    }
     renderSummary();
     renderBannerOffers();
 
@@ -2321,6 +2417,13 @@
         // noop
       }
       setSubmitStatus(friendlyOfferError("Offer action failed", err), "bad");
+      if (normalizedAction === "ACCEPT") {
+        showFeedbackModal(
+          "Trade Failed",
+          friendlyOfferError("Offer action failed", err),
+          "bad"
+        );
+      }
     } finally {
       state.offers.actionBusy = false;
       state.offers.actionBusyKey = "";
@@ -2429,8 +2532,9 @@
 
   async function refreshBannerOffers(force) {
     var meta = state.data && state.data.meta ? state.data.meta : {};
-    var leagueId = safeStr(meta.league_id);
-    var season = safeStr(meta.season);
+    var leagueCtx = getLeagueContext();
+    var leagueId = safeStr(meta.league_id) || leagueCtx.leagueId;
+    var season = safeStr(meta.season) || leagueCtx.season;
     var franchiseId = getActiveFranchiseId();
     if (!leagueId || !season || !franchiseId) {
       state.offers.offered = [];

@@ -14,26 +14,40 @@
   }
 
   function getLeagueId(u) {
-    if (!u) return "74598";
+    try {
+      if (typeof window.getLeagueContext === "function") {
+        var ctx = window.getLeagueContext();
+        var leagueFromCtx = String((ctx && (ctx.leagueId || ctx.league_id)) || "").trim();
+        if (leagueFromCtx) return leagueFromCtx;
+      }
+    } catch (eCtx) {}
+    if (!u) return "";
     var q = u.searchParams.get("L");
     if (q) return q;
     var m = String(window.location.pathname || "").match(/\/home\/(\d+)(?:\/|$)/i);
-    return m ? m[1] : "74598";
+    return m ? m[1] : "";
   }
 
   function getYear(u) {
-    if (!u) return String(new Date().getFullYear());
+    try {
+      if (typeof window.getLeagueContext === "function") {
+        var ctx = window.getLeagueContext();
+        var seasonFromCtx = String((ctx && (ctx.season || ctx.year)) || "").trim();
+        if (seasonFromCtx) return seasonFromCtx;
+      }
+    } catch (eCtx) {}
+    if (!u) return String(new Date().getUTCFullYear());
     var q = u.searchParams.get("YEAR");
     if (q) return q;
     var m = String(window.location.pathname || "").match(/\/(\d{4})\//);
-    return m ? m[1] : String(new Date().getFullYear());
+    return m ? m[1] : String(new Date().getUTCFullYear());
   }
 
   function getOrigin() {
     try {
       return String(window.location.origin || "").replace(/\/+$/, "");
     } catch (e) {
-      return "https://www48.myfantasyleague.com";
+      return "";
     }
   }
 

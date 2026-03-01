@@ -15,7 +15,13 @@ export default {
       const url = new URL(request.url);
       const path = url.pathname || "/";
       const L = url.searchParams.get("L") || "";
-      const YEAR = url.searchParams.get("YEAR") || "2025";
+      const defaultSeason = String(new Date().getUTCFullYear());
+      const pathYearMatch = String(path || "").match(/\/(\d{4})(?:\/|$)/);
+      const YEAR = String(
+        url.searchParams.get("YEAR") ||
+          (pathYearMatch ? pathYearMatch[1] : defaultSeason) ||
+          defaultSeason
+      ).trim() || defaultSeason;
       const browserMflUserId = String(url.searchParams.get("MFL_USER_ID") || "").trim();
       const browserApiKey = String(url.searchParams.get("APIKEY") || "").trim();
 
@@ -898,7 +904,7 @@ export default {
         if (options.useCookie !== false && cookieHeader) headers.Cookie = cookieHeader;
 
         const baseHost =
-          `https://api.myfantasyleague.com/${encodeURIComponent(String(year || YEAR || "2025"))}`;
+          `https://api.myfantasyleague.com/${encodeURIComponent(String(year || YEAR || new Date().getUTCFullYear()))}`;
 
         const withKeyQs = new URLSearchParams(baseQs.toString());
         const wantsApiKey = !!options.includeApiKey;
@@ -2164,7 +2170,7 @@ export default {
 
       const resolveMflImportTargetUrl = async (season, probeFields) => {
         const baseImportUrl =
-          `https://api.myfantasyleague.com/${encodeURIComponent(String(season || YEAR || "2025"))}` +
+          `https://api.myfantasyleague.com/${encodeURIComponent(String(season || YEAR || new Date().getUTCFullYear()))}` +
           "/import";
         const probeQs = new URLSearchParams();
         for (const [k, v] of Object.entries(probeFields || {})) {
@@ -8904,7 +8910,7 @@ export default {
         }
 
         const leagueId = String(L || "").trim();
-        const year = String(YEAR || "2025").trim();
+        const year = String(YEAR || new Date().getUTCFullYear()).trim();
         const adminState = await getLeagueAdminState(leagueId, year);
         if (!adminState.ok) {
           return new Response(
