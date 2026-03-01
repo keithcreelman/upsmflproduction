@@ -2041,7 +2041,10 @@
             trade_id: safeStr(res && res.trade_id),
             extensions_reason: safeStr(res && res.extensions && res.extensions.reason),
             extensions_ok: !!(res && res.extensions && res.extensions.ok),
-            salary_ok: !!(res && res.salary_adjustments && res.salary_adjustments.ok)
+            salary_ok: !!(res && res.salary_adjustments && res.salary_adjustments.ok),
+            outbox_id: safeStr(res && res.outbox && res.outbox.outbox_id),
+            outbox_status: safeStr(res && res.outbox && res.outbox.status),
+            outbox_hash: safeStr(res && res.outbox && res.outbox.payload_hash)
           });
         } catch (eLogRes) {
           // noop
