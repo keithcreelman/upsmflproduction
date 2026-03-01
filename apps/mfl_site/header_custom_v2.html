@@ -2116,8 +2116,15 @@
       );
     }
 
+    function getCccReleaseRef() {
+      var releaseRef = safeStr(window.UPS_RELEASE_SHA || "main") || "main";
+      return encodeURIComponent(releaseRef);
+    }
+
     var CCC_MAIN_IFRAME_URL =
-      "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/ccc/mfl_hpm16_contractcommandcenter.html";
+      "https://rawcdn.githack.com/keithcreelman/upsmflproduction/" +
+      getCccReleaseRef() +
+      "/site/ccc/mfl_hpm16_contractcommandcenter.html";
 
     function normalizeEmbeddedFrameToMain(frame) {
       if (!frame) return false;
@@ -2292,16 +2299,6 @@
         return;
       }
 
-      // If MESSAGE2 body already includes the canonical embed loader script,
-      // do not clear/reload it again from the header (prevents slow double load).
-      var hasBodyEmbedLoader = !!document.querySelector(
-        'script[src*="mfl_hpm_embed_loader.js"]:not([data-ups-ccc-loader])'
-      );
-      if (hasBodyEmbedLoader) {
-        ensureMountNearTop();
-        return;
-      }
-
       window.UPS_CCC_IFRAME_URL =
         CCC_MAIN_IFRAME_URL;
 
@@ -2469,19 +2466,22 @@
       return mount;
     }
 
-    function hasBodyRwbEmbedLoader() {
-      return !!document.querySelector('script[src*="/site/rosters/mfl_hpm_embed_loader.js"]:not([data-ups-rwb-loader])');
+    function clearLegacyRwbEmbeds() {
+      var scripts = document.querySelectorAll('script[src*="/site/rosters/mfl_hpm_embed_loader.js"]');
+      for (var i = 0; i < scripts.length; i += 1) {
+        var n = scripts[i];
+        if (n && n.parentNode) n.parentNode.removeChild(n);
+      }
+      try {
+        delete window.UPS_RWB_INIT;
+      } catch (e) {
+        window.UPS_RWB_INIT = undefined;
+      }
     }
 
     function loadRwbLoader() {
-      if (typeof window.UPS_RWB_INIT === "function") {
-        window.UPS_RWB_INIT();
-        return;
-      }
-
-      if (hasBodyRwbEmbedLoader()) return;
-
       ensureMountNearTop();
+      clearLegacyRwbEmbeds();
       window.UPS_RWB_LEAGUE_ID = getCurrentLeagueId();
       window.UPS_RWB_YEAR = getCurrentYear();
 
@@ -2586,16 +2586,19 @@
       return mount;
     }
 
-    function hasBodyTwbEmbedLoader() {
-      return !!document.querySelector(
-        'script[src*="/site/trades/mfl_hpm_embed_loader.js"]:not([data-ups-twb-loader])'
-      );
+    function clearLegacyTwbEmbeds() {
+      var scripts = document.querySelectorAll('script[src*="/site/trades/mfl_hpm_embed_loader.js"]');
+      for (var i = 0; i < scripts.length; i += 1) {
+        var n = scripts[i];
+        if (n && n.parentNode) n.parentNode.removeChild(n);
+      }
+      var mount = document.getElementById("twbMount") || document.getElementById("tradeWorkbenchMount");
+      if (mount) mount.innerHTML = "";
     }
 
     function loadTwbLoader() {
-      if (hasBodyTwbEmbedLoader()) return;
-
       ensureMountNearTop();
+      clearLegacyTwbEmbeds();
       window.UPS_TWB_LEAGUE_ID = getCurrentLeagueId();
       window.UPS_TWB_YEAR = getCurrentYear();
 
