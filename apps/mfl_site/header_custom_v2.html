@@ -4411,7 +4411,8 @@ Replaces bulky default grid with compact toggle view + franchise icons
       teams: [],
       divisions: [],
       years: [],
-      contractTypes: []
+      contractTypes: [],
+      sort: "default"
     };
     var observerMuteUntil = 0;
 
@@ -4487,6 +4488,7 @@ Replaces bulky default grid with compact toggle view + franchise icons
         sessionStorage.setItem("ups_roster_divisions", JSON.stringify(rosterUiState.divisions || []));
         sessionStorage.setItem("ups_roster_years", JSON.stringify(rosterUiState.years || []));
         sessionStorage.setItem("ups_roster_contract_types", JSON.stringify(rosterUiState.contractTypes || []));
+        sessionStorage.setItem("ups_roster_sort", safeStr(rosterUiState.sort || "default"));
       } catch (e) {}
     }
 
@@ -4665,6 +4667,42 @@ Replaces bulky default grid with compact toggle view + franchise icons
       } catch (e) {}
       table.setAttribute("data-ups-taxi-collapsed", "1");
       return true;
+    }
+
+    function setTeamCollapsed(table, collapsed) {
+      if (!table) return;
+      table.setAttribute("data-ups-team-collapsed", collapsed ? "1" : "0");
+      try {
+        var key = getRosterTableKey(table);
+        if (key) sessionStorage.setItem("ups_roster_team_" + key, collapsed ? "1" : "0");
+      } catch (e) {}
+    }
+
+    function getTeamCollapsed(table) {
+      if (!table) return false;
+      var current = safeStr(table.getAttribute("data-ups-team-collapsed"));
+      if (current === "0" || current === "1") return current === "1";
+      try {
+        var saved = sessionStorage.getItem("ups_roster_team_" + getRosterTableKey(table));
+        if (saved === "0" || saved === "1") {
+          table.setAttribute("data-ups-team-collapsed", saved);
+          return saved === "1";
+        }
+      } catch (e) {}
+      var mobileDefault = !!(window.matchMedia && window.matchMedia("(max-width: 760px)").matches);
+      table.setAttribute("data-ups-team-collapsed", mobileDefault ? "1" : "0");
+      return mobileDefault;
+    }
+
+    function updateTeamCollapseUi(table, displayCollapsed) {
+      if (!table) return;
+      var collapsed = typeof displayCollapsed === "boolean" ? displayCollapsed : getTeamCollapsed(table);
+      table.setAttribute("data-ups-team-display-collapsed", collapsed ? "1" : "0");
+      var btn = table.querySelector(".ups-roster-team-toggle");
+      if (!btn) return;
+      btn.setAttribute("aria-expanded", collapsed ? "false" : "true");
+      btn.textContent = collapsed ? "Expand" : "Collapse";
+      btn.setAttribute("title", collapsed ? "Expand team roster" : "Collapse team roster");
     }
 
     function buildSummaryChip(label, value, tone) {
@@ -4871,6 +4909,199 @@ Replaces bulky default grid with compact toggle view + franchise icons
       setMultiSelectValues(select, selectedValues || []);
     }
 
+    function renderJumpOptions(select, items) {
+      if (!select) return;
+      var sig = (items || []).map(function (it) { return safeStr(it.value) + ":" + safeStr(it.label); }).join("|");
+      if (select.dataset.upsSig !== sig) {
+        var html = ['<option value="">Jump to team...</option>'];
+        (items || []).forEach(function (it) {
+          var value = safeStr(it.value).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+          var label = safeStr(it.label).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+          html.push('<option value="' + value + '">' + label + '</option>');
+        });
+        select.innerHTML = html.join("");
+        select.dataset.upsSig = sig;
+      }
+    }
+
+    function sortMetricForRow(row, mode) {
+      if (!row) return 0;
+      if (mode === "salary_desc" || mode === "salary_asc") {
+        var salaryCell = row.querySelector("td.salary");
+        return Number(parseMoney(salaryCell && salaryCell.textContent) || 0);
+      }
+      if (mode === "years_desc" || mode === "years_asc") {
+        var yearsCell = row.querySelector("td.contractyear");
+        var yearsNum = parseInt(safeStr(yearsCell && yearsCell.textContent), 10);
+        return Number.isFinite(yearsNum) ? yearsNum : 0;
+      }
+      if (mode === "points_desc" || mode === "points_asc") {
+        var pointsCell = row.querySelector("td.points");
+        var pointsTxt = safeStr(pointsCell && pointsCell.textContent).replace(/,/g, "");
+        var pointsNum = parseFloat(pointsTxt);
+        return Number.isFinite(pointsNum) ? pointsNum : 0;
+      }
+      return 0;
+    }
+
+    function sortRows(rows, mode) {
+      var list = (rows || []).slice();
+      if (!list.length) return list;
+
+      if (!mode || mode === "default") {
+        list.sort(function (a, b) {
+          var ao = parseInt(safeStr(a.getAttribute("data-ups-original-order")), 10);
+          var bo = parseInt(safeStr(b.getAttribute("data-ups-original-order")), 10);
+          if (!Number.isFinite(ao)) ao = 0;
+          if (!Number.isFinite(bo)) bo = 0;
+          return ao - bo;
+        });
+        return list;
+      }
+
+      list.sort(function (a, b) {
+        if (mode === "name_asc" || mode === "name_desc") {
+          var an = safeStr(a.getAttribute("data-ups-player-name"));
+          var bn = safeStr(b.getAttribute("data-ups-player-name"));
+          var cmpName = an.localeCompare(bn);
+          return mode === "name_desc" ? -cmpName : cmpName;
+        }
+
+        var av = sortMetricForRow(a, mode);
+        var bv = sortMetricForRow(b, mode);
+        var cmp = av - bv;
+        if (mode === "salary_desc" || mode === "years_desc" || mode === "points_desc") cmp *= -1;
+        if (cmp !== 0) return cmp;
+
+        var an2 = safeStr(a.getAttribute("data-ups-player-name"));
+        var bn2 = safeStr(b.getAttribute("data-ups-player-name"));
+        return an2.localeCompare(bn2);
+      });
+      return list;
+    }
+
+    function replaceRowBlock(tbody, currentRows, nextRows) {
+      if (!tbody || !currentRows || !currentRows.length || !nextRows || !nextRows.length) return;
+      if (currentRows.length === nextRows.length) {
+        var identical = true;
+        for (var i = 0; i < currentRows.length; i += 1) {
+          if (currentRows[i] !== nextRows[i]) {
+            identical = false;
+            break;
+          }
+        }
+        if (identical) return;
+      }
+      var endAnchor = currentRows[currentRows.length - 1].nextSibling;
+      var frag = document.createDocumentFragment();
+      nextRows.forEach(function (row) { frag.appendChild(row); });
+      tbody.insertBefore(frag, endAnchor);
+    }
+
+    function sortTableRows(table) {
+      if (!table) return;
+      var mode = safeStr(rosterUiState.sort || "default").toLowerCase();
+      var tbody = table.tBodies && table.tBodies[0];
+      if (!tbody) return;
+
+      var allPlayers = Array.from(tbody.querySelectorAll('tr[data-ups-player-row="1"]'));
+      if (!allPlayers.length) return;
+
+      var activeRows = allPlayers.filter(function (row) {
+        return row.getAttribute("data-ups-taxi-row") !== "1";
+      });
+      var taxiRows = allPlayers.filter(function (row) {
+        return row.getAttribute("data-ups-taxi-row") === "1";
+      });
+
+      var sortedActive = sortRows(activeRows, mode);
+      var sortedTaxi = sortRows(taxiRows, mode);
+      replaceRowBlock(tbody, activeRows, sortedActive);
+      replaceRowBlock(tbody, taxiRows, sortedTaxi);
+    }
+
+    function collectVisibleRosterRows() {
+      return Array.from(document.querySelectorAll('#body_options_07 table.report tr[data-ups-player-row="1"]'))
+        .filter(function (row) {
+          var table = row.closest("table.report");
+          return table && !table.hidden && !row.hidden;
+        })
+        .map(function (row) {
+          var table = row.closest("table.report");
+          var meta = resolveTeamMetaForTable(table);
+          var playerLink = row.querySelector("td.player a");
+          return {
+            team_id: safeStr(meta.fid),
+            team_name: safeStr(meta.teamName),
+            division: safeStr(meta.divisionName),
+            player: normalizeText((playerLink && playerLink.textContent) || (row.querySelector("td.player") && row.querySelector("td.player").textContent) || ""),
+            position: safeStr(row.getAttribute("data-ups-player-pos") || ""),
+            salary: safeStr(row.querySelector("td.salary") && row.querySelector("td.salary").textContent),
+            years_left: safeStr(row.querySelector("td.contractyear") && row.querySelector("td.contractyear").textContent),
+            contract_type: safeStr(row.querySelector("td.contractstatus") && row.querySelector("td.contractstatus").textContent),
+            points: safeStr(row.querySelector("td.points") && row.querySelector("td.points").textContent),
+            bye: safeStr(row.querySelector("td.week") && row.querySelector("td.week").textContent),
+            special: safeStr(row.querySelector("td.contractinfo") && row.querySelector("td.contractinfo").textContent)
+          };
+        });
+    }
+
+    function csvEscape(value) {
+      var s = safeStr(value);
+      if (s.indexOf('"') !== -1) s = s.replace(/"/g, '""');
+      if (/[",\n]/.test(s)) return '"' + s + '"';
+      return s;
+    }
+
+    function rowsToCsv(rows) {
+      if (!rows || !rows.length) return "team_id,team_name,division,player,position,salary,years_left,contract_type,points,bye,special\n";
+      var headers = ["team_id","team_name","division","player","position","salary","years_left","contract_type","points","bye","special"];
+      var lines = [headers.join(",")];
+      rows.forEach(function (row) {
+        lines.push(headers.map(function (h) { return csvEscape(row[h]); }).join(","));
+      });
+      return lines.join("\n") + "\n";
+    }
+
+    function downloadTextFile(filename, text, mimeType) {
+      var blob = new Blob([text], { type: mimeType || "text/plain;charset=utf-8" });
+      var url = URL.createObjectURL(blob);
+      var link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(function () {
+        URL.revokeObjectURL(url);
+      }, 0);
+    }
+
+    function copyTextToClipboard(text) {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        return navigator.clipboard.writeText(text);
+      }
+      return new Promise(function (resolve, reject) {
+        var ta = document.createElement("textarea");
+        ta.value = text;
+        ta.setAttribute("readonly", "readonly");
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        try {
+          var ok = document.execCommand("copy");
+          ta.remove();
+          if (ok) resolve();
+          else reject(new Error("copy failed"));
+        } catch (err) {
+          ta.remove();
+          reject(err);
+        }
+      });
+    }
+
     function syncToolbarFilterControls(toolbar) {
       if (!toolbar) return;
       var sets = buildToolbarOptionSets();
@@ -4893,16 +5124,19 @@ Replaces bulky default grid with compact toggle view + franchise icons
       renderMultiSelectOptions(toolbar.querySelector("#upsRosterPositions"), sets.positions, rosterUiState.positions);
       renderMultiSelectOptions(toolbar.querySelector("#upsRosterYears"), sets.years, rosterUiState.years);
       renderContractTypesSelectOptions(toolbar.querySelector("#upsRosterTypes"), sets.contractTypes, rosterUiState.contractTypes);
+      renderJumpOptions(toolbar.querySelector("#upsRosterJump"), sets.teams || []);
 
       var teamsSel = toolbar.querySelector("#upsRosterTeams");
       var posSel = toolbar.querySelector("#upsRosterPositions");
       var yearsSel = toolbar.querySelector("#upsRosterYears");
       var typesSel = toolbar.querySelector("#upsRosterTypes");
+      var sortSel = toolbar.querySelector("#upsRosterSort");
 
       if (teamsSel) teamsSel.size = Math.max(4, Math.min(12, ((sets.teams || []).length + 1) || 4));
       if (posSel) posSel.size = Math.max(4, Math.min(10, (sets.positions || []).length || 4));
       if (yearsSel) yearsSel.size = Math.max(3, Math.min(5, (sets.years || []).length || 3));
       if (typesSel) typesSel.size = Math.max(4, Math.min(10, (sets.contractTypes || []).length || 4));
+      if (sortSel && sortSel.value !== rosterUiState.sort) sortSel.value = rosterUiState.sort || "default";
     }
 
     function ensureToolbar() {
@@ -4936,9 +5170,30 @@ Replaces bulky default grid with compact toggle view + franchise icons
               '<span>Contract Type</span>' +
               '<select id="upsRosterTypes" multiple size="6"></select>' +
             "</label>" +
+            '<label class="ups-roster-toolbar-field ups-roster-toolbar-field-compact">' +
+              '<span>Sort By</span>' +
+              '<select id="upsRosterSort">' +
+                '<option value="default">Default</option>' +
+                '<option value="salary_desc">Salary (High to Low)</option>' +
+                '<option value="salary_asc">Salary (Low to High)</option>' +
+                '<option value="years_desc">Years Left (High to Low)</option>' +
+                '<option value="years_asc">Years Left (Low to High)</option>' +
+                '<option value="points_desc">Points (High to Low)</option>' +
+                '<option value="points_asc">Points (Low to High)</option>' +
+                '<option value="name_asc">Player Name (A to Z)</option>' +
+              "</select>" +
+            "</label>" +
+            '<label class="ups-roster-toolbar-field ups-roster-toolbar-field-compact">' +
+              '<span>Jump To Team</span>' +
+              '<select id="upsRosterJump"></select>' +
+            "</label>" +
+            '<div class="ups-roster-toolbar-actions">' +
+              '<button type="button" class="ups-roster-toolbar-btn" data-ups-roster-export="csv">Download CSV</button>' +
+              '<button type="button" class="ups-roster-toolbar-btn" data-ups-roster-export="json">Copy JSON</button>' +
+            "</div>" +
             '<button type="button" class="ups-roster-toolbar-reset" data-ups-roster-clear="1">Reset</button>' +
           "</div>" +
-          '<div class="ups-roster-toolbar-help">Tip: click options on/off to toggle multiple selections (Cmd/Ctrl still works too).</div>' +
+          '<div class="ups-roster-toolbar-help">Tip: click options on/off to toggle multiple selections (Cmd/Ctrl still works too). Use Jump To Team for quick navigation.</div>' +
           '<div class="ups-roster-toolbar-status" id="upsRosterToolbarStatus">Showing all players</div>';
 
         anchor.parentNode.insertBefore(toolbar, anchor);
@@ -5016,6 +5271,36 @@ Replaces bulky default grid with compact toggle view + franchise icons
           });
         }
 
+        var sortInput = toolbar.querySelector("#upsRosterSort");
+        if (sortInput) {
+          sortInput.addEventListener("change", function () {
+            rosterUiState.sort = safeStr(sortInput.value || "default").toLowerCase() || "default";
+            saveRosterFilterState();
+            applyRosterViewState();
+            renderRosterSummaries();
+            updateToolbarStatus();
+          });
+        }
+
+        var jumpInput = toolbar.querySelector("#upsRosterJump");
+        if (jumpInput) {
+          jumpInput.addEventListener("change", function () {
+            var fid = safeStr(jumpInput.value);
+            if (!fid) return;
+            var table = document.querySelector('#body_options_07 table.report[data-ups-team-id="' + fid + '"]');
+            if (!table) return;
+            setTeamCollapsed(table, false);
+            applyRosterViewState();
+            var card = table.closest(".mobile-wrap") || table;
+            try {
+              card.scrollIntoView({ behavior: "smooth", block: "start" });
+            } catch (e) {
+              card.scrollIntoView(true);
+            }
+            jumpInput.value = "";
+          });
+        }
+
         wireMulti("#upsRosterTeams", "teams", function (v) { return safeStr(v); });
         wireMulti("#upsRosterPositions", "positions", function (v) { return safeStr(v).toUpperCase(); });
         wireMulti("#upsRosterYears", "years", function (v) { return safeStr(v); });
@@ -5026,6 +5311,8 @@ Replaces bulky default grid with compact toggle view + franchise icons
 
       var searchInputNow = toolbar.querySelector("#upsRosterSearch");
       if (searchInputNow && searchInputNow.value !== rosterUiState.search) searchInputNow.value = rosterUiState.search;
+      var sortInputNow = toolbar.querySelector("#upsRosterSort");
+      if (sortInputNow && sortInputNow.value !== rosterUiState.sort) sortInputNow.value = rosterUiState.sort || "default";
 
       toolbar.classList.toggle("is-filtering", isFilterActive());
       return toolbar;
@@ -5075,6 +5362,7 @@ Replaces bulky default grid with compact toggle view + franchise icons
       if (rosterUiState.positions && rosterUiState.positions.length) parts.push("Pos: " + rosterUiState.positions.join(", "));
       if (rosterUiState.years && rosterUiState.years.length) parts.push("Years: " + rosterUiState.years.join(", "));
       if (rosterUiState.contractTypes && rosterUiState.contractTypes.length) parts.push("Types: " + rosterUiState.contractTypes.length);
+      if (rosterUiState.sort && rosterUiState.sort !== "default") parts.push("Sort: " + rosterUiState.sort.replace(/_/g, " "));
       if (rosterUiState.search) parts.push('"' + rosterUiState.search + '"');
       status.textContent = parts.join(" • ");
     }
@@ -5265,6 +5553,63 @@ Replaces bulky default grid with compact toggle view + franchise icons
       if (!row.querySelector("td.player")) return;
       row.dataset.upsRosterRowUi = "1";
       row.classList.add("ups-roster-data-row");
+      if (!row.hasAttribute("data-ups-original-order")) {
+        row.setAttribute("data-ups-original-order", String(Number(row.rowIndex || 0)));
+      }
+    }
+
+    function annotateTableCellLabels(table) {
+      if (!table || table.dataset.upsCellLabels === "1") return;
+      var headerRow = Array.from(table.querySelectorAll("tr")).find(function (row) {
+        return !!row.querySelector("th");
+      });
+      if (!headerRow) return;
+
+      var headerCells = Array.from(headerRow.querySelectorAll("th,td"));
+      var labelsByClass = Object.create(null);
+      var labelsByIndex = Object.create(null);
+
+      headerCells.forEach(function (cell, idx) {
+        var label = normalizeText(cell.textContent || "");
+        if (!label) return;
+        labelsByIndex[String(idx)] = label;
+        safeStr(cell.className).split(/\s+/).filter(Boolean).forEach(function (cls) {
+          if (!labelsByClass[cls]) labelsByClass[cls] = label;
+        });
+      });
+
+      Array.from(table.querySelectorAll('tr[data-ups-player-row="1"]')).forEach(function (row) {
+        Array.from(row.querySelectorAll("td")).forEach(function (cell, idx) {
+          var label = "";
+          safeStr(cell.className).split(/\s+/).some(function (cls) {
+            if (labelsByClass[cls]) {
+              label = labelsByClass[cls];
+              return true;
+            }
+            return false;
+          });
+          if (!label) label = labelsByIndex[String(idx)] || "";
+          if (!label) label = "Value";
+          cell.setAttribute("data-ups-label", label);
+        });
+      });
+
+      table.dataset.upsCellLabels = "1";
+    }
+
+    function ensureRowDetailsToggle(row) {
+      if (!row || row.getAttribute("data-ups-player-row") !== "1") return;
+      var playerCell = row.querySelector("td.player");
+      if (!playerCell) return;
+      if (playerCell.querySelector(".ups-roster-row-more")) return;
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "ups-roster-row-more";
+      btn.textContent = "More";
+      btn.setAttribute("aria-expanded", "false");
+      btn.setAttribute("title", "Show more player details");
+      playerCell.appendChild(btn);
+      if (!row.hasAttribute("data-ups-row-expanded")) row.setAttribute("data-ups-row-expanded", "0");
     }
 
     function decorateTaxiSection(table) {
@@ -5314,9 +5659,75 @@ Replaces bulky default grid with compact toggle view + franchise icons
       if (!table) return;
       var caption = table.querySelector("caption");
       if (!caption) return;
+      caption.classList.add("ups-roster-caption");
+
+      var wrap = table.closest(".mobile-wrap");
+      if (wrap) {
+        wrap.classList.add("ups-roster-team-card");
+        var teamMeta = resolveTeamMetaForTable(table);
+        if (teamMeta.fid) wrap.setAttribute("data-ups-team-id", teamMeta.fid);
+        if (teamMeta.teamName) wrap.setAttribute("data-ups-team-name", teamMeta.teamName);
+      }
 
       var meta = caption.querySelector(".ups-roster-caption-meta");
-      if (meta) meta.remove();
+      if (!meta) {
+        meta = document.createElement("div");
+        meta.className = "ups-roster-caption-meta";
+        caption.appendChild(meta);
+      }
+      meta.textContent = "";
+
+      var playerRows = Array.from(table.querySelectorAll('tr[data-ups-player-row="1"]'));
+      var totalPlayers = playerRows.length;
+      var visiblePlayers = playerRows.filter(function (row) { return !row.hidden; }).length;
+      var taxiCountAttr = parseInt(safeStr(table.getAttribute("data-ups-taxi-count")), 10);
+      var taxiCount = Number.isFinite(taxiCountAttr) ? taxiCountAttr : playerRows.filter(function (row) {
+        return row.getAttribute("data-ups-taxi-row") === "1";
+      }).length;
+      var salaryTotal = 0;
+
+      playerRows.forEach(function (row) {
+        var salaryCell = row.querySelector("td.salary");
+        var salaryNum = parseMoney(salaryCell && salaryCell.textContent);
+        if (Number.isFinite(salaryNum)) salaryTotal += salaryNum;
+      });
+
+      var warningTexts = Array.from(table.querySelectorAll("tr .warning, tr b.warning"))
+        .map(function (node) { return normalizeText(node.textContent || ""); })
+        .filter(Boolean);
+      var capTone = "success";
+      var capValue = "Compliant";
+
+      if (warningTexts.length) {
+        var joined = warningTexts.join(" | ");
+        var warningType = classifyWarningText(joined);
+        if (warningType === "Over Cap") {
+          capTone = "danger";
+          var capAmount = parseMoney(joined);
+          capValue = capAmount != null ? ("Over " + formatMoneyCompact(Math.abs(capAmount))) : "Over Cap";
+        } else if (warningType === "Invalid") {
+          capTone = "warning";
+          capValue = "Invalid Roster";
+        } else {
+          capTone = "warning";
+          capValue = "Needs Review";
+        }
+      }
+
+      var playersLabel = isFilterActive() ? (String(visiblePlayers) + "/" + String(totalPlayers)) : String(totalPlayers);
+      meta.appendChild(buildSummaryChip("Players", playersLabel, "info"));
+      meta.appendChild(buildSummaryChip("Salary", formatMoneyCompact(salaryTotal), "neutral"));
+      meta.appendChild(buildSummaryChip("Taxi", String(taxiCount), "neutral"));
+      meta.appendChild(buildSummaryChip("Status", capValue, capTone));
+
+      var toggle = caption.querySelector(".ups-roster-team-toggle");
+      if (!toggle) {
+        toggle = document.createElement("button");
+        toggle.type = "button";
+        toggle.className = "ups-roster-team-toggle";
+        caption.appendChild(toggle);
+      }
+      updateTeamCollapseUi(table);
     }
 
     function renderRosterSummaries() {
@@ -5347,8 +5758,10 @@ Replaces bulky default grid with compact toggle view + franchise icons
       if (root) root.classList.toggle("ups-roster-filter-active", filterActive);
 
       getRosterTables().forEach(function (table) {
+        sortTableRows(table);
         var taxiCollapsed = getTaxiCollapsed(table);
         var visibleMatchCount = 0;
+        var teamCollapsed = getTeamCollapsed(table);
 
         Array.from(table.querySelectorAll("tr")).forEach(function (row) {
           if (row.querySelector("td.player")) {
@@ -5374,6 +5787,11 @@ Replaces bulky default grid with compact toggle view + franchise icons
 
         table.classList.toggle("ups-roster-no-match", filterActive && visibleMatchCount === 0);
         table.hidden = filterActive && visibleMatchCount === 0;
+
+        var body = table.tBodies && table.tBodies[0];
+        var effectiveCollapsed = !filterActive && teamCollapsed;
+        if (body) body.hidden = effectiveCollapsed;
+        updateTeamCollapseUi(table, effectiveCollapsed);
 
         var wrap = table.closest(".mobile-wrap");
         if (wrap && wrap.querySelector("table.report") === table) {
@@ -5409,11 +5827,16 @@ Replaces bulky default grid with compact toggle view + franchise icons
           var infoCell = row.querySelector("td.contractinfo");
           if (infoCell) enhanceContractInfoCell(infoCell);
           markPlayerRow(row, false);
+          ensureRowDetailsToggle(row);
         });
         decorateTaxiSection(table);
         Array.from(table.querySelectorAll('tr[data-ups-taxi-row="1"]')).forEach(function (row) {
-          if (row.querySelector("td.player")) markPlayerRow(row, true);
+          if (row.querySelector("td.player")) {
+            markPlayerRow(row, true);
+            ensureRowDetailsToggle(row);
+          }
         });
+        annotateTableCellLabels(table);
       });
     }
 
@@ -5426,6 +5849,7 @@ Replaces bulky default grid with compact toggle view + franchise icons
         rosterUiState.divisions = [];
         rosterUiState.years = [];
         rosterUiState.contractTypes = [];
+        rosterUiState.sort = "default";
         var toolbar = ensureToolbar();
         if (toolbar) {
           var searchEl = toolbar.querySelector("#upsRosterSearch");
@@ -5433,16 +5857,48 @@ Replaces bulky default grid with compact toggle view + franchise icons
           var posEl = toolbar.querySelector("#upsRosterPositions");
           var yearsEl = toolbar.querySelector("#upsRosterYears");
           var typesEl = toolbar.querySelector("#upsRosterTypes");
+          var sortEl = toolbar.querySelector("#upsRosterSort");
           if (searchEl) searchEl.value = "";
           setMultiSelectValues(teamsEl, []);
           setMultiSelectValues(posEl, []);
           setMultiSelectValues(yearsEl, []);
           setMultiSelectValues(typesEl, []);
+          if (sortEl) sortEl.value = "default";
         }
         saveRosterFilterState();
         applyRosterViewState();
         renderRosterSummaries();
         updateToolbarStatus();
+        return;
+      }
+
+      var exportBtn = e.target && e.target.closest ? e.target.closest("[data-ups-roster-export]") : null;
+      if (exportBtn) {
+        var mode = safeStr(exportBtn.getAttribute("data-ups-roster-export")).toLowerCase();
+        var rows = collectVisibleRosterRows();
+        var timestamp = new Date().toISOString().replace(/[:T]/g, "-").slice(0, 16);
+        if (mode === "csv") {
+          downloadTextFile("ups-rosters-" + timestamp + ".csv", rowsToCsv(rows), "text/csv;charset=utf-8");
+        } else if (mode === "json") {
+          var json = JSON.stringify(rows, null, 2);
+          copyTextToClipboard(json).then(function () {
+            updateToolbarStatus();
+          }).catch(function () {
+            downloadTextFile("ups-rosters-" + timestamp + ".json", json, "application/json;charset=utf-8");
+          });
+        }
+        return;
+      }
+
+      var teamToggle = e.target && e.target.closest ? e.target.closest(".ups-roster-team-toggle") : null;
+      if (teamToggle) {
+        var tableForTeam = teamToggle.closest("table.report");
+        if (tableForTeam) {
+          setTeamCollapsed(tableForTeam, !getTeamCollapsed(tableForTeam));
+          applyRosterViewState();
+          renderRosterSummaries();
+          updateToolbarStatus();
+        }
         return;
       }
 
@@ -5455,6 +5911,18 @@ Replaces bulky default grid with compact toggle view + franchise icons
           renderRosterSummaries();
           updateToolbarStatus();
         }
+        return;
+      }
+
+      var rowMoreBtn = e.target && e.target.closest ? e.target.closest(".ups-roster-row-more") : null;
+      if (rowMoreBtn) {
+        var row = rowMoreBtn.closest("tr[data-ups-player-row='1']");
+        if (!row) return;
+        var expanded = row.getAttribute("data-ups-row-expanded") === "1";
+        row.setAttribute("data-ups-row-expanded", expanded ? "0" : "1");
+        rowMoreBtn.setAttribute("aria-expanded", expanded ? "false" : "true");
+        rowMoreBtn.textContent = expanded ? "More" : "Less";
+        rowMoreBtn.setAttribute("title", expanded ? "Show more player details" : "Hide extra player details");
         return;
       }
 
@@ -5490,11 +5958,16 @@ Replaces bulky default grid with compact toggle view + franchise icons
         rosterUiState.divisions = [];
         rosterUiState.years = loadStoredList("ups_roster_years");
         rosterUiState.contractTypes = loadStoredList("ups_roster_contract_types").map(lowerText);
+        var savedSort = safeStr(sessionStorage.getItem("ups_roster_sort"));
+        if (savedSort) rosterUiState.sort = savedSort.toLowerCase();
         if (!rosterUiState.positions.length) {
           var savedPos = sessionStorage.getItem("ups_roster_position");
           if (savedPos && safeStr(savedPos).toUpperCase() !== "ALL") {
             rosterUiState.positions = [safeStr(savedPos).toUpperCase()];
           }
+        }
+        if (!/^(default|salary_desc|salary_asc|years_desc|years_asc|points_desc|points_asc|name_asc)$/.test(rosterUiState.sort)) {
+          rosterUiState.sort = "default";
         }
       } catch (e) {}
 
@@ -6528,6 +7001,18 @@ Replaces bulky default grid with compact toggle view + franchise icons
     display: none !important;
   }
 
+  body#body_options_07 #MFLroster #roster_column_right .mobile-wrap.ups-roster-team-card {
+    border: 1px solid var(--ups-border) !important;
+    border-radius: 12px !important;
+    overflow: hidden !important;
+    background: linear-gradient(180deg, var(--ups-surface), var(--ups-surface-alt)) !important;
+    box-shadow: var(--ups-shadow);
+  }
+
+  body#body_options_07 #MFLroster table.report[data-ups-team-display-collapsed="1"] > tbody {
+    display: none !important;
+  }
+
   /* Hide legacy MFLScripts taxi/IR show-hide anchors; keep only UPS taxi toggle button */
   body#body_options_07 #MFLroster a.show_toggler_taxi,
   body#body_options_07 #MFLroster a.hide_toggler_taxi {
@@ -6543,6 +7028,14 @@ Replaces bulky default grid with compact toggle view + franchise icons
   /* Rosters: franchise header with icon + dash + name */
   body#body_options_07 #MFLroster caption {
     padding: 0.5rem 0.8rem !important;
+  }
+
+  body#body_options_07 #MFLroster table.report > tbody > tr:first-child th {
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 6 !important;
+    background: var(--ups-th-bg) !important;
+    box-shadow: inset 0 -1px 0 var(--ups-border);
   }
 
   body#body_options_07 #MFLroster caption.ups-roster-caption {
@@ -6611,6 +7104,10 @@ Replaces bulky default grid with compact toggle view + franchise icons
     min-width: 9rem;
   }
 
+  #upsRosterToolbar .ups-roster-toolbar-field-compact {
+    min-width: 12rem;
+  }
+
   #upsRosterToolbar .ups-roster-toolbar-field > span {
     color: var(--ups-muted);
     font-size: 0.72rem;
@@ -6668,6 +7165,27 @@ Replaces bulky default grid with compact toggle view + franchise icons
     min-width: min(22rem, 58vw);
   }
 
+  #upsRosterToolbar #upsRosterSort,
+  #upsRosterToolbar #upsRosterJump {
+    min-width: 12rem;
+  }
+
+  #upsRosterToolbar .ups-roster-toolbar-actions {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem;
+    align-self: end;
+  }
+
+  #upsRosterToolbar .ups-roster-toolbar-btn {
+    min-height: 2.05rem;
+    border-radius: 999px !important;
+    padding: 0.35rem 0.7rem !important;
+    font-size: 0.74rem !important;
+    font-weight: 800 !important;
+  }
+
   #upsRosterToolbar .ups-roster-toolbar-reset {
     min-height: 2.05rem;
     border-radius: 999px !important;
@@ -6702,7 +7220,11 @@ Replaces bulky default grid with compact toggle view + franchise icons
   }
 
   body#body_options_07 #MFLroster .ups-roster-caption-meta {
-    display: none !important;
+    display: flex !important;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.28rem;
+    margin-top: 0.32rem;
   }
 
   body#body_options_07 #MFLroster .ups-roster-summary-chip {
@@ -6760,6 +7282,36 @@ Replaces bulky default grid with compact toggle view + franchise icons
   body#body_options_07 #MFLroster .ups-roster-summary-value {
     color: inherit;
     font-weight: 900;
+  }
+
+  body#body_options_07 #MFLroster .ups-roster-team-toggle {
+    margin-top: 0.3rem;
+    border: 1px solid rgba(143, 183, 239, 0.36) !important;
+    background: rgba(16, 33, 58, 0.26) !important;
+    color: var(--ups-report-strong) !important;
+    border-radius: 999px !important;
+    padding: 0.18rem 0.58rem !important;
+    font-size: 0.68rem !important;
+    font-weight: 900 !important;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+
+  body#body_options_07 #MFLroster .ups-roster-row-more {
+    display: none;
+    margin-left: 0.45rem;
+    border: 1px solid var(--ups-border) !important;
+    background: rgba(16, 33, 58, 0.24) !important;
+    color: var(--ups-link) !important;
+    border-radius: 999px !important;
+    padding: 0.08rem 0.42rem !important;
+    font-size: 0.64rem !important;
+    font-weight: 900 !important;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    cursor: pointer;
+    vertical-align: middle;
   }
 
   /* Rosters: Taxi Squad collapse toggle */
@@ -6830,6 +7382,13 @@ Replaces bulky default grid with compact toggle view + franchise icons
       min-width: 100%;
     }
 
+    #upsRosterToolbar .ups-roster-toolbar-field-compact,
+    #upsRosterToolbar #upsRosterSort,
+    #upsRosterToolbar #upsRosterJump {
+      min-width: 100%;
+      width: 100%;
+    }
+
     #upsRosterToolbar #upsRosterSearch {
       min-width: 100%;
     }
@@ -6844,6 +7403,11 @@ Replaces bulky default grid with compact toggle view + franchise icons
       align-self: stretch;
     }
 
+    #upsRosterToolbar .ups-roster-toolbar-actions {
+      width: 100%;
+      justify-content: flex-start;
+    }
+
     body#body_options_07 #MFLroster .ups-roster-franchise-icon {
       height: 46px !important;
       max-width: 128px !important;
@@ -6854,7 +7418,7 @@ Replaces bulky default grid with compact toggle view + franchise icons
     }
   }
 
-  /* Mobile roster columns: hide Bye + Acq, keep Contract Info visible */
+  /* Mobile roster columns: keep a compact primary row, expose extra details with More/Less */
   @media (max-width: 760px) {
     body#body_options_07 #MFLroster th.week,
     body#body_options_07 #MFLroster td.week,
@@ -6863,9 +7427,22 @@ Replaces bulky default grid with compact toggle view + franchise icons
       display: none !important;
     }
 
+    body#body_options_07 #MFLroster th.points,
+    body#body_options_07 #MFLroster td.points,
     body#body_options_07 #MFLroster th.contractinfo,
     body#body_options_07 #MFLroster td.contractinfo {
+      display: none !important;
+    }
+
+    body#body_options_07 #MFLroster tr[data-ups-player-row="1"][data-ups-row-expanded="1"] td.points,
+    body#body_options_07 #MFLroster tr[data-ups-player-row="1"][data-ups-row-expanded="1"] td.contractinfo {
       display: table-cell !important;
+    }
+
+    body#body_options_07 #MFLroster .ups-roster-row-more {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
     }
   }
 
