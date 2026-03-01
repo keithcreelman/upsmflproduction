@@ -3,8 +3,8 @@
     "schema_version": 1,
     "league_id": "25625",
     "season": 2026,
-    "updated_at": "2026-03-01T12:33:31.688Z",
-    "row_count": 7,
+    "updated_at": "2026-03-01T12:34:06.425Z",
+    "row_count": 8,
     "source": "worker-trade-outbox"
   },
   "rows": [
@@ -978,6 +978,147 @@
       "season": "2026",
       "updated_ts": "2026-03-01T12:33:31.626Z",
       "id": "7"
+    },
+    {
+      "created_ts": "2026-03-01T12:34:06.361Z",
+      "trade_id": "1044",
+      "action_type": "ACCEPT",
+      "from_franchise_id": "0006",
+      "to_franchise_id": "0007",
+      "payload_xml_extensions": "<salaries><leagueUnit unit=\"LEAGUE\"><player id=\"16616\" salary=\"20000\" contractYear=\"2\" contractInfo=\"CL 2|TCV 30K|AAV 10K, 20K|Y1-10K, Y2-20K|Ext: SEX|GTD: 23K\" contractStatus=\"EXT1\" /></leagueUnit></salaries>",
+      "payload_xml_salary_adj": "<salary_adjustments><salary_adjustment franchise_id=\"0006\" amount=\"7000\" explanation=\"UPS traded salary settlement (trade 1044): net +7K\"/><salary_adjustment franchise_id=\"0007\" amount=\"-7000\" explanation=\"UPS traded salary settlement (trade 1044): net -7K\"/></salary_adjustments>",
+      "payload_xml_salary_trade": "",
+      "payload_json": {
+        "schema_version": 1,
+        "generated_at": "2026-03-01T12:33:30.050Z",
+        "source": "ups-trade-workbench",
+        "league_id": "25625",
+        "season": 2026,
+        "teams": [
+          {
+            "role": "left",
+            "franchise_id": "0006",
+            "franchise_name": "The Long Haulers",
+            "selected_assets": [
+              {
+                "asset_id": "player:16614",
+                "type": "PLAYER",
+                "player_id": "16614",
+                "player_name": "Harrison Jr., Marvin",
+                "description": null,
+                "position": "WR",
+                "nfl_team": "ARI",
+                "salary": 14000,
+                "years": 0,
+                "contract_type": "Rookie",
+                "contract_info": "CL 3| TCV 42K| AAV 14K",
+                "taxi": false
+              }
+            ],
+            "traded_salary_adjustment_dollars": 7000,
+            "traded_salary_adjustment_k": 7,
+            "traded_salary_adjustment_max_k": 7,
+            "selected_non_taxi_salary_dollars": 14000
+          },
+          {
+            "role": "right",
+            "franchise_id": "0007",
+            "franchise_name": "Sex Manther",
+            "selected_assets": [
+              {
+                "asset_id": "player:16616",
+                "type": "PLAYER",
+                "player_id": "16616",
+                "player_name": "Odunze, Rome",
+                "description": null,
+                "position": "WR",
+                "nfl_team": "CHI",
+                "salary": 10000,
+                "years": 0,
+                "contract_type": "Rookie",
+                "contract_info": "CL 3| TCV 30K| AAV 10K",
+                "taxi": false
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 5,
+            "selected_non_taxi_salary_dollars": 10000
+          }
+        ],
+        "extension_requests": [
+          {
+            "player_id": "16616",
+            "player_name": "Odunze, Rome",
+            "from_franchise_id": "0007",
+            "to_franchise_id": "0006",
+            "applies_to_acquirer": true,
+            "option_key": "1YR|NONE",
+            "extension_term": "1YR",
+            "loaded_indicator": "NONE",
+            "preview_id": 1053,
+            "preview_contract_info_string": "CL 2|TCV 30K|AAV 10K, 20K|Y1-10K, Y2-20K|Ext: SEX|GTD: 23K",
+            "new_contract_status": "EXT1",
+            "new_contract_length": 2,
+            "new_TCV": 30000,
+            "new_aav_future": 20000
+          }
+        ],
+        "filters": {
+          "search": ""
+        },
+        "ui": {
+          "left_team_id": "0006",
+          "right_team_id": "0007"
+        },
+        "salary_reconciliation": {
+          "left": {
+            "franchise_id": "0006",
+            "franchise_name": "The Long Haulers",
+            "outgoing_dollars": 14000,
+            "incoming_dollars": 10000,
+            "trade_salary_adjustment_k": 7,
+            "trade_salary_adjustment_max_k": 7,
+            "net_trade_salary_k": 7,
+            "net_cap_change_dollars": -3000,
+            "available_salary_before_dollars": -72000,
+            "available_salary_after_dollars": -75000,
+            "over_cap_dollars": 75000
+          },
+          "right": {
+            "franchise_id": "0007",
+            "franchise_name": "Sex Manther",
+            "outgoing_dollars": 10000,
+            "incoming_dollars": 14000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 5,
+            "net_trade_salary_k": -7,
+            "net_cap_change_dollars": 3000,
+            "available_salary_before_dollars": -81000,
+            "available_salary_after_dollars": -78000,
+            "over_cap_dollars": 78000
+          },
+          "has_over_cap": true
+        },
+        "validation": {
+          "status": "ready",
+          "issues": []
+        },
+        "comment": "Pre-trade extension: Extend Odunze, Rome 1-year | New length 2 | New AAV 20K | New TCV 30K",
+        "comments": "[UPS_TWB_META:eyJ2IjoxLCJ0cyI6IjIwMjYtMDMtMDFUMTI6MzM6MzAuOTk5WiIsImxlYWd1ZV9pZCI6IjI1NjI1Iiwic2Vhc29uIjoyMDI2LCJmcm9tIjoiMDAwNiIsInRvIjoiMDAwNyIsInNhbGFyeV9uZXRfayI6eyJsZWZ0Ijo3LCJyaWdodCI6LTd9LCJleHQiOlt7InBsYXllcl9pZCI6IjE2NjE2IiwicGxheWVyX25hbWUiOiJPZHVuemUsIFJvbWUiLCJmcm9tX2ZyYW5jaGlzZV9pZCI6IjAwMDciLCJ0b19mcmFuY2hpc2VfaWQiOiIwMDA2Iiwib3B0aW9uX2tleSI6IjFZUnxOT05FIiwiZXh0ZW5zaW9uX3Rlcm0iOiIxWVIiLCJuZXdfY29udHJhY3Rfc3RhdHVzIjoiRVhUMSIsIm5ld19jb250cmFjdF9sZW5ndGgiOjIsIm5ld19UQ1YiOjMwMDAwLCJuZXdfYWF2X2Z1dHVyZSI6MjAwMDB9XX0] Pre-trade extension: Extend Odunze, Rome 1-year",
+        "raw_comment": "[UPS_TWB_META:eyJ2IjoxLCJ0cyI6IjIwMjYtMDMtMDFUMTI6MzM6MzAuOTk5WiIsImxlYWd1ZV9pZCI6IjI1NjI1Iiwic2Vhc29uIjoyMDI2LCJmcm9tIjoiMDAwNiIsInRvIjoiMDAwNyIsInNhbGFyeV9uZXRfayI6eyJsZWZ0Ijo3LCJyaWdodCI6LTd9LCJleHQiOlt7InBsYXllcl9pZCI6IjE2NjE2IiwicGxheWVyX25hbWUiOiJPZHVuemUsIFJvbWUiLCJmcm9tX2ZyYW5jaGlzZV9pZCI6IjAwMDciLCJ0b19mcmFuY2hpc2VfaWQiOiIwMDA2Iiwib3B0aW9uX2tleSI6IjFZUnxOT05FIiwiZXh0ZW5zaW9uX3Rlcm0iOiIxWVIiLCJuZXdfY29udHJhY3Rfc3RhdHVzIjoiRVhUMSIsIm5ld19jb250cmFjdF9sZW5ndGgiOjIsIm5ld19UQ1YiOjMwMDAwLCJuZXdfYWF2X2Z1dHVyZSI6MjAwMDB9XX0] Pre-trade extension: Extend Odunze, Rome 1-year",
+        "message": "[UPS_TWB_META:eyJ2IjoxLCJ0cyI6IjIwMjYtMDMtMDFUMTI6MzM6MzAuOTk5WiIsImxlYWd1ZV9pZCI6IjI1NjI1Iiwic2Vhc29uIjoyMDI2LCJmcm9tIjoiMDAwNiIsInRvIjoiMDAwNyIsInNhbGFyeV9uZXRfayI6eyJsZWZ0Ijo3LCJyaWdodCI6LTd9LCJleHQiOlt7InBsYXllcl9pZCI6IjE2NjE2IiwicGxheWVyX25hbWUiOiJPZHVuemUsIFJvbWUiLCJmcm9tX2ZyYW5jaGlzZV9pZCI6IjAwMDciLCJ0b19mcmFuY2hpc2VfaWQiOiIwMDA2Iiwib3B0aW9uX2tleSI6IjFZUnxOT05FIiwiZXh0ZW5zaW9uX3Rlcm0iOiIxWVIiLCJuZXdfY29udHJhY3Rfc3RhdHVzIjoiRVhUMSIsIm5ld19jb250cmFjdF9sZW5ndGgiOjIsIm5ld19UQ1YiOjMwMDAwLCJuZXdfYWF2X2Z1dHVyZSI6MjAwMDB9XX0] Pre-trade extension: Extend Odunze, Rome 1-year",
+        "notes": "[UPS_TWB_META:eyJ2IjoxLCJ0cyI6IjIwMjYtMDMtMDFUMTI6MzM6MzAuOTk5WiIsImxlYWd1ZV9pZCI6IjI1NjI1Iiwic2Vhc29uIjoyMDI2LCJmcm9tIjoiMDAwNiIsInRvIjoiMDAwNyIsInNhbGFyeV9uZXRfayI6eyJsZWZ0Ijo3LCJyaWdodCI6LTd9LCJleHQiOlt7InBsYXllcl9pZCI6IjE2NjE2IiwicGxheWVyX25hbWUiOiJPZHVuemUsIFJvbWUiLCJmcm9tX2ZyYW5jaGlzZV9pZCI6IjAwMDciLCJ0b19mcmFuY2hpc2VfaWQiOiIwMDA2Iiwib3B0aW9uX2tleSI6IjFZUnxOT05FIiwiZXh0ZW5zaW9uX3Rlcm0iOiIxWVIiLCJuZXdfY29udHJhY3Rfc3RhdHVzIjoiRVhUMSIsIm5ld19jb250cmFjdF9sZW5ndGgiOjIsIm5ld19UQ1YiOjMwMDAwLCJuZXdfYWF2X2Z1dHVyZSI6MjAwMDB9XX0] Pre-trade extension: Extend Odunze, Rome 1-year"
+      },
+      "comment_trailer": "[UPS_TWB_INTENT_BEGIN]\nUPS_OUTBOX_ID:\nUPS_PAYLOAD_HASH:44d185919e9573f50d0d6bdffac060ede3cf98b217e52c8e18cb1a3a77cecca6\nUPS_XML_EXT:PHNhbGFyaWVzPjxsZWFndWVVbml0IHVuaXQ9IkxFQUdVRSI-PHBsYXllciBpZD0iMTY2MTYiIHNhbGFyeT0iMjAwMDAiIGNvbnRyYWN0WWVhcj0iMiIgY29udHJhY3RJbmZvPSJDTCAyfFRDViAzMEt8QUFWIDEwSywgMjBLfFkxLTEwSywgWTItMjBLfEV4dDogU0VYfEdURDogMjNLIiBjb250cmFjdFN0YXR1cz0iRVhUMSIgLz48L2xlYWd1ZVVuaXQ-PC9zYWxhcmllcz4\n[UPS_TWB_INTENT_END]",
+      "payload_hash": "44d185919e9573f50d0d6bdffac060ede3cf98b217e52c8e18cb1a3a77cecca6",
+      "status": "PENDING",
+      "mfl_post_response_snip": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n\n<status>OK</status>",
+      "mfl_verify_response_snip": "",
+      "league_id": "25625",
+      "season": "2026",
+      "updated_ts": "2026-03-01T12:34:06.361Z",
+      "id": "8"
     }
   ]
 }
