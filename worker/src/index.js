@@ -4099,7 +4099,7 @@ export default {
         return out;
       };
 
-      const verifyExpectedSalaryAdjustmentsInExport = (expectedRows, exportPayload) => {
+      const verifyExpectedSalaryAdjustmentsInRows = (expectedRows, actualRowsInput) => {
         const expected = Array.isArray(expectedRows) ? expectedRows : [];
         if (!expected.length) {
           return {
@@ -4110,9 +4110,7 @@ export default {
             rows: [],
           };
         }
-        const actualRows = collectSalaryAdjustmentExportRows(
-          exportPayload?.salaryAdjustments || exportPayload?.salaryadjustments || exportPayload || {}
-        );
+        const actualRows = Array.isArray(actualRowsInput) ? actualRowsInput : [];
         const matchByRow = expected.map((row) => {
           const matched = actualRows.some((act) => {
             if (padFranchiseId(act.franchise_id) !== padFranchiseId(row.franchise_id)) return false;
@@ -4133,6 +4131,13 @@ export default {
           mismatched_count: Math.max(0, expected.length - matchedCount),
           rows: matchByRow,
         };
+      };
+
+      const verifyExpectedSalaryAdjustmentsInExport = (expectedRows, exportPayload) => {
+        const actualRows = collectSalaryAdjustmentExportRows(
+          exportPayload?.salaryAdjustments || exportPayload?.salaryadjustments || exportPayload || {}
+        );
+        return verifyExpectedSalaryAdjustmentsInRows(expectedRows, actualRows);
       };
 
       const buildExtensionPostImportVerification = (beforeMap, expectedRows, afterMap) => {
@@ -4668,24 +4673,26 @@ export default {
           ok: !!importRes.requestOk,
           reason: importRes.requestOk ? "verification_not_run" : "import_failed",
           expected_count: rows.length,
-          matched_count: importRes.requestOk ? 0 : 0,
-          mismatched_count: importRes.requestOk ? rows.length : rows.length,
+          matched_count: 0,
+          mismatched_count: rows.length,
           rows: rows.map((r) => ({ ...r, matched: false })),
         };
         let verifySalaryAdjRes = null;
-        if (importRes.requestOk) {
+        const runVerify = async () => {
+          const verifyDelays = [0, 1300, 2600];
           const sleepMs = (ms) =>
             new Promise((resolve) => {
               setTimeout(resolve, Math.max(0, safeInt(ms, 0)));
             });
-          const verifyDelays = [0, 1300, 2600];
+          let finalVerification = verification;
+          let finalVerifyRes = verifySalaryAdjRes;
           for (let i = 0; i < verifyDelays.length; i += 1) {
             if (verifyDelays[i] > 0) {
               await sleepMs(verifyDelays[i]);
             }
-            verifySalaryAdjRes = await mflExportJson(season, leagueId, "salaryAdjustments", {}, { useCookie: true });
-            if (!verifySalaryAdjRes.ok) {
-              verification = {
+            finalVerifyRes = await mflExportJson(season, leagueId, "salaryAdjustments", {}, { useCookie: true });
+            if (!finalVerifyRes.ok) {
+              finalVerification = {
                 ok: false,
                 reason: "failed_post_import_salary_adjustments_export",
                 expected_count: rows.length,
@@ -4694,18 +4701,92 @@ export default {
                 rows: rows.map((r) => ({ ...r, matched: false })),
                 attempt: i + 1,
                 upstream: {
-                  status: verifySalaryAdjRes.status,
-                  error: verifySalaryAdjRes.error,
-                  url: verifySalaryAdjRes.url,
-                  preview: verifySalaryAdjRes.textPreview,
+                  status: finalVerifyRes.status,
+                  error: finalVerifyRes.error,
+                  url: finalVerifyRes.url,
+                  preview: finalVerifyRes.textPreview,
                 },
               };
               continue;
             }
-            verification = verifyExpectedSalaryAdjustmentsInExport(rows, verifySalaryAdjRes.data);
-            verification.reason = verification.ok ? "" : "expected_salary_adjustments_missing_from_export";
-            verification.attempt = i + 1;
-            if (verification.ok) break;
+            finalVerification = verifyExpectedSalaryAdjustmentsInExport(rows, finalVerifyRes.data);
+            finalVerification.reason = finalVerification.ok ? "" : "expected_salary_adjustments_missing_from_export";
+            finalVerification.attempt = i + 1;
+            if (finalVerification.ok) break;
+          }
+          if (!finalVerification.ok) {
+            const expectedFranchises = Array.from(
+              new Set(rows.map((r) => padFranchiseId(r.franchise_id)).filter(Boolean))
+            );
+            const fallbackActualRows = [];
+            for (const fid of expectedFranchises) {
+              const variants = [{ FRANCHISE_ID: fid }, { FRANCHISE: fid }];
+              for (const params of variants) {
+                const byFrRes = await mflExportJson(
+                  season,
+                  leagueId,
+                  "salaryAdjustments",
+                  params,
+                  { useCookie: true }
+                );
+                if (!byFrRes.ok) continue;
+                const rowsFromPayload = collectSalaryAdjustmentExportRows(
+                  byFrRes.data?.salaryAdjustments || byFrRes.data?.salaryadjustments || byFrRes.data || {}
+                );
+                fallbackActualRows.push(...rowsFromPayload);
+              }
+            }
+            if (fallbackActualRows.length) {
+              const fallbackVerification = verifyExpectedSalaryAdjustmentsInRows(rows, fallbackActualRows);
+              fallbackVerification.reason = fallbackVerification.ok
+                ? ""
+                : "expected_salary_adjustments_missing_from_export";
+              fallbackVerification.fallback_scope = "franchise_scoped_export";
+              if (fallbackVerification.ok) {
+                finalVerification = fallbackVerification;
+              }
+            }
+          }
+          return { finalVerification, finalVerifyRes };
+        };
+        if (importRes.requestOk) {
+          const verifyOut = await runVerify();
+          verification = verifyOut.finalVerification;
+          verifySalaryAdjRes = verifyOut.finalVerifyRes;
+          if (!verification.ok) {
+            const retryGetRes = await postMflImportForm(
+              season,
+              {
+                TYPE: "salaryAdj",
+                L: leagueId,
+                DATA: dataXml,
+              },
+              { TYPE: "salaryAdj", L: leagueId },
+              { method: "GET" }
+            );
+            try {
+              console.log(
+                "[TWB][salaryAdj][retry_get]",
+                JSON.stringify({
+                  timestamp_utc: new Date().toISOString(),
+                  league_id: safeStr(leagueId),
+                  season: safeStr(season),
+                  trade_id: safeStr(tradeId),
+                  post_url: retryGetRes.targetImportUrl,
+                  post_status: safeInt(retryGetRes.status, 0),
+                  post_response_excerpt: safeStr(retryGetRes.upstreamPreview).slice(0, 600),
+                  ok: !!retryGetRes.requestOk,
+                })
+              );
+            } catch (_) {
+              // noop
+            }
+            if (retryGetRes.requestOk) {
+              importRes = retryGetRes;
+              const verifyOutAfterRetry = await runVerify();
+              verification = verifyOutAfterRetry.finalVerification;
+              verifySalaryAdjRes = verifyOutAfterRetry.finalVerifyRes;
+            }
           }
           try {
             console.log(
@@ -4982,6 +5063,43 @@ export default {
         }
         let statuslessRetryUsed = false;
         const allowStatuslessRetry = safeStr(env?.TWB_EXT_RETRY_WITHOUT_STATUS || "0") === "1";
+        if (importRes.requestOk && !verification.ok) {
+          const retryGetRes = await postMflImportForm(
+            season,
+            {
+              TYPE: "salaries",
+              L: leagueId,
+              APPEND: "1",
+              DATA: dataXmlUsed,
+            },
+            { TYPE: "salaries", L: leagueId, APPEND: "1" },
+            { method: "GET" }
+          );
+          try {
+            console.log(
+              "[TWB][extensions][retry_get]",
+              JSON.stringify({
+                trade_id: tradeId,
+                timestamp_utc: new Date().toISOString(),
+                league_id: safeStr(leagueId),
+                season: safeStr(season),
+                post_url: retryGetRes.targetImportUrl,
+                post_status: safeInt(retryGetRes.status, 0),
+                post_response_excerpt: safeStr(retryGetRes.upstreamPreview).slice(0, 600),
+                ok: !!retryGetRes.requestOk,
+              })
+            );
+          } catch (_) {
+            // noop
+          }
+          if (retryGetRes.requestOk) {
+            importRes = retryGetRes;
+            const retryGetVerify = await verifyExtensionRows();
+            postSalariesRes = retryGetVerify.postSalariesRes;
+            afterSnapshot = retryGetVerify.afterSnapshot;
+            verification = retryGetVerify.verification;
+          }
+        }
         if (
           allowStatuslessRetry &&
           importRes.requestOk &&
