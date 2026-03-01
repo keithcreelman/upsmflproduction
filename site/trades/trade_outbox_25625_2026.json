@@ -3,7 +3,7 @@
     "schema_version": 1,
     "league_id": "25625",
     "season": 2026,
-    "updated_at": "2026-03-01T13:31:26.042Z",
+    "updated_at": "2026-03-01T13:31:26.928Z",
     "row_count": 9,
     "source": "worker-trade-outbox"
   },
@@ -1122,7 +1122,7 @@
     },
     {
       "created_ts": "2026-03-01T13:31:25.986Z",
-      "trade_id": "",
+      "trade_id": "1045",
       "action_type": "SUBMIT",
       "from_franchise_id": "0011",
       "to_franchise_id": "0007",
@@ -1247,14 +1247,14 @@
         },
         "comment": "Pre-trade extension: Extend Chism, Efton 1-year | New length 2 | New AAV 11K | New TCV 12K"
       },
-      "comment_trailer": "",
+      "comment_trailer": "[UPS_TWB_INTENT_BEGIN]\nUPS_OUTBOX_ID:9\nUPS_PAYLOAD_HASH:e8d3336350e3b67cf1fc34bfb2f90fdf95f1d2bfa65953e778f224aee27fc982\nUPS_XML_EXT:PHNhbGFyaWVzPjxsZWFndWVVbml0IHVuaXQ9IkxFQUdVRSI-PHBsYXllciBpZD0iMTcyNjkiIHNhbGFyeT0iMTEwMDAiIGNvbnRyYWN0WWVhcj0iMiIgY29udHJhY3RJbmZvPSJDTCAyfFRDViAxMkt8QUFWIDFLLCAxMUt8WTEtMUssIFkyLTExS3xFeHQ6IFNFWHxHVEQ6IDlLIiBjb250cmFjdFN0YXR1cz0iRVhUMSIgLz48L2xlYWd1ZVVuaXQ-PC9zYWxhcmllcz4\n[UPS_TWB_INTENT_END]",
       "payload_hash": "e8d3336350e3b67cf1fc34bfb2f90fdf95f1d2bfa65953e778f224aee27fc982",
-      "status": "PENDING",
-      "mfl_post_response_snip": "",
-      "mfl_verify_response_snip": "",
+      "status": "POSTED",
+      "mfl_post_response_snip": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n\n<status>OK</status>",
+      "mfl_verify_response_snip": "{\"ok\":true,\"matched\":true,\"match_count\":1,\"rows_count\":1,\"matched_trade_id\":\"1045\",\"upstream_status\":200}",
       "league_id": "25625",
       "season": "2026",
-      "updated_ts": "2026-03-01T13:31:25.986Z",
+      "updated_ts": "2026-03-01T13:31:26.853Z",
       "id": "9"
     }
   ]
