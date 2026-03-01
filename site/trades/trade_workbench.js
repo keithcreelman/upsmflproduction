@@ -801,6 +801,21 @@
     }
   }
 
+  function resolveTradeOutboxReplayApiUrl() {
+    var explicit = safeStr(window.UPS_TRADE_OUTBOX_REPLAY_API || window.UPS_TRADE_WORKBENCH_OUTBOX_REPLAY_API);
+    if (explicit) return resolveRelativeUrl(explicit);
+    var actionUrl = resolveTradeOffersActionApiUrl();
+    try {
+      var u = new URL(actionUrl, window.location.href);
+      u.search = "";
+      u.hash = "";
+      u.pathname = String(u.pathname || "").replace(/\/trade-offers\/action\/?$/i, "/trade-outbox/replay");
+      return u.toString();
+    } catch (e) {
+      return "https://upsmflproduction.keith-creelman.workers.dev/trade-outbox/replay";
+    }
+  }
+
   function normalizeOfferStatus(v) {
     var s = safeStr(v).toUpperCase();
     return s || "PENDING";
@@ -814,6 +829,7 @@
 
   function stripTradeMetaTag(text) {
     return safeStr(text)
+      .replace(/\[UPS_TWB_INTENT_BEGIN\][\s\S]*?\[UPS_TWB_INTENT_END\]/gi, " ")
       .replace(/\s*\[UPS_TWB_META:[A-Za-z0-9_-]+\]\s*/g, " ")
       .replace(/\s+/g, " ")
       .trim();
@@ -1816,6 +1832,18 @@
       parts.push("Extensions: failed");
     }
 
+    var outbox = res && res.outbox ? res.outbox : {};
+    var outboxId = safeStr(outbox.outbox_id);
+    var outboxStatus = safeStr(outbox.status);
+    var outboxHash = safeStr(outbox.payload_hash);
+    if (outboxId || outboxHash) {
+      var outboxBits = [];
+      if (outboxStatus) outboxBits.push(outboxStatus);
+      if (outboxId) outboxBits.push("id " + outboxId);
+      if (outboxHash) outboxBits.push("hash " + outboxHash.slice(0, 10));
+      parts.push("Outbox: " + outboxBits.join(" · "));
+    }
+
     return {
       tone: tone,
       text: parts.join(" · ")
@@ -2256,6 +2284,18 @@
     return data;
   }
 
+  async function replayOutbox(criteria) {
+    var body = criteria && typeof criteria === "object" ? clone(criteria) : {};
+    if (!safeStr(body.league_id) && state.data && state.data.meta) body.league_id = safeStr(state.data.meta.league_id);
+    if (!safeStr(body.season) && state.data && state.data.meta) body.season = safeStr(state.data.meta.season);
+    var replayUrl = resolveTradeOutboxReplayApiUrl();
+    return fetchJsonRequest(replayUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
+  }
+
   function setSubmitStatus(message, tone) {
     state.submit.message = safeStr(message) || "";
     state.submit.tone = safeStr(tone) || "";
@@ -2449,7 +2489,19 @@
       state.submit.lastRequestBody = null;
       state.submit.lastRequestUrl = "";
       state.submit.canRetry = false;
-      setSubmitStatus("Offer submitted to MFL" + (mflTradeId ? " (Trade ID " + mflTradeId + ")." : "."), "good");
+      var outbox = res && res.outbox ? res.outbox : {};
+      var outboxId = safeStr(outbox.outbox_id);
+      var outboxHash = safeStr(outbox.payload_hash);
+      var outboxStatus = safeStr(outbox.status);
+      var outboxText = "";
+      if (outboxId || outboxHash) {
+        outboxText =
+          " Outbox: " +
+          [outboxStatus, outboxId ? ("id " + outboxId) : "", outboxHash ? ("hash " + outboxHash.slice(0, 10)) : ""]
+            .filter(Boolean)
+            .join(" · ");
+      }
+      setSubmitStatus("Offer submitted to MFL" + (mflTradeId ? " (Trade ID " + mflTradeId + ")." : ".") + outboxText, "good");
       initTeamSelectors();
       await refreshBannerOffers(true);
       rerender();
@@ -4744,6 +4796,7 @@
         buildTradePayload: buildTradePayload,
         rerender: rerender,
         submitOfferToQueue: submitOfferToQueue,
+        replayOutbox: replayOutbox,
         loadOfferIntoWorkbench: loadOfferIntoWorkbench,
         refreshBannerOffers: refreshBannerOffers,
         hydrateOfferFromUrlIfNeeded: hydrateOfferFromUrlIfNeeded

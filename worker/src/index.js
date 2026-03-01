@@ -27,9 +27,11 @@ export default {
         path !== "/commish-contract-update" &&
         path !== "/trade-workbench" &&
         !path.startsWith("/trade-offers") &&
+        !path.startsWith("/trade-outbox") &&
         path !== "/trade-pending" &&
         path !== "/salary-alignment-check" &&
-        !path.startsWith("/api/trades/proposals")
+        !path.startsWith("/api/trades/proposals") &&
+        !path.startsWith("/api/trades/outbox")
       ) {
         return new Response(
           JSON.stringify({ ok: false, isAdmin: false, reason: "Missing L param" }),
@@ -1451,6 +1453,464 @@ export default {
         };
       };
 
+      const tradeOutboxFilePath = (leagueId, season) =>
+        `site/trades/trade_outbox_${encodeURIComponent(String(leagueId || ""))}_${encodeURIComponent(
+          String(season || "")
+        )}.json`;
+
+      const emptyTradeOutboxDoc = (leagueId, season) => ({
+        meta: {
+          schema_version: 1,
+          league_id: String(leagueId || ""),
+          season: Number(season || 0) || 0,
+          updated_at: new Date().toISOString(),
+          row_count: 0,
+          source: "worker-trade-outbox",
+        },
+        rows: [],
+      });
+
+      const normalizeTradeOutboxDoc = (raw, leagueId, season) => {
+        const doc = raw && typeof raw === "object" ? raw : {};
+        const out = emptyTradeOutboxDoc(leagueId, season);
+        out.meta = {
+          ...out.meta,
+          ...(doc.meta && typeof doc.meta === "object" ? doc.meta : {}),
+          league_id: String(leagueId || ""),
+          season: Number(season || 0) || 0,
+        };
+        out.rows = Array.isArray(doc.rows) ? doc.rows.filter(Boolean) : [];
+        out.meta.row_count = out.rows.length;
+        return out;
+      };
+
+      const readTradeOutboxDoc = async (leagueId, season) => {
+        const filePath = tradeOutboxFilePath(leagueId, season);
+        if (!githubPat) {
+          const publicUrl = `https://cdn.jsdelivr.net/gh/${encodeURIComponent(githubRepoOwner)}/${encodeURIComponent(
+            githubRepoName
+          )}@main/${filePath}`;
+          try {
+            const res = await fetch(publicUrl, {
+              headers: { "Cache-Control": "no-store" },
+              cf: { cacheTtl: 0, cacheEverything: false },
+            });
+            if (!res.ok) {
+              if (res.status === 404) {
+                return { ok: true, exists: false, sha: "", filePath, doc: emptyTradeOutboxDoc(leagueId, season) };
+              }
+              return { ok: false, exists: false, sha: "", filePath, error: `HTTP ${res.status}` };
+            }
+            const payload = await res.json();
+            return {
+              ok: true,
+              exists: true,
+              sha: "",
+              filePath,
+              doc: normalizeTradeOutboxDoc(payload, leagueId, season),
+            };
+          } catch (e) {
+            return { ok: false, exists: false, sha: "", filePath, error: `fetch_failed: ${e?.message || String(e)}` };
+          }
+        }
+
+        const apiRes = await githubApiRequest(
+          "GET",
+          `/contents/${filePath}?ref=${encodeURIComponent(String(env.GITHUB_REPO_BRANCH || "main").trim() || "main")}`
+        );
+        if (!apiRes.ok && apiRes.status === 404) {
+          return { ok: true, exists: false, sha: "", filePath, doc: emptyTradeOutboxDoc(leagueId, season) };
+        }
+        if (!apiRes.ok) {
+          return {
+            ok: false,
+            exists: false,
+            sha: "",
+            filePath,
+            error: apiRes.error || "GitHub contents GET failed",
+            upstreamStatus: apiRes.status,
+            upstreamPreview: apiRes.textPreview,
+          };
+        }
+        try {
+          const rawContent = base64ToUtf8(apiRes.data?.content || "");
+          const parsed = rawContent ? JSON.parse(rawContent) : {};
+          return {
+            ok: true,
+            exists: true,
+            sha: String(apiRes.data?.sha || ""),
+            filePath,
+            doc: normalizeTradeOutboxDoc(parsed, leagueId, season),
+          };
+        } catch (e) {
+          return { ok: false, exists: true, sha: "", filePath, error: `parse_failed: ${e?.message || String(e)}` };
+        }
+      };
+
+      const writeTradeOutboxDoc = async (leagueId, season, doc, prevSha, message) => {
+        const filePath = tradeOutboxFilePath(leagueId, season);
+        if (!githubPat) {
+          return { ok: false, error: "Missing GITHUB_PAT worker secret", filePath };
+        }
+        const normalized = normalizeTradeOutboxDoc(doc, leagueId, season);
+        normalized.meta.updated_at = new Date().toISOString();
+        normalized.meta.row_count = Array.isArray(normalized.rows) ? normalized.rows.length : 0;
+        const body = {
+          message: String(message || "Update trade outbox"),
+          content: utf8ToBase64(JSON.stringify(normalized, null, 2) + "\n"),
+          branch: String(env.GITHUB_REPO_BRANCH || "main").trim() || "main",
+        };
+        if (prevSha) body.sha = String(prevSha);
+        const apiRes = await githubApiRequest("PUT", `/contents/${filePath}`, body);
+        if (!apiRes.ok) {
+          return {
+            ok: false,
+            error: apiRes.error || "GitHub contents PUT failed",
+            upstreamStatus: apiRes.status,
+            upstreamPreview: apiRes.textPreview,
+            filePath,
+          };
+        }
+        return {
+          ok: true,
+          filePath,
+          commitSha: String(apiRes.data?.commit?.sha || ""),
+          contentSha: String(apiRes.data?.content?.sha || ""),
+          doc: normalized,
+        };
+      };
+
+      const base64UrlFromUtf8 = (text) =>
+        utf8ToBase64(text).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+
+      const decodeBase64UrlUtf8 = (value) => {
+        const raw = safeStr(value).replace(/-/g, "+").replace(/_/g, "/");
+        if (!raw) return "";
+        const padded = raw + "===".slice((raw.length + 3) % 4);
+        try {
+          return base64ToUtf8(padded);
+        } catch (_) {
+          return "";
+        }
+      };
+
+      const OUTBOX_TRAILER_BEGIN = "[UPS_TWB_INTENT_BEGIN]";
+      const OUTBOX_TRAILER_END = "[UPS_TWB_INTENT_END]";
+
+      const buildOutboxTrailerText = ({
+        outboxId,
+        payloadHash,
+        payloadXmlExtensions,
+        payloadXmlSalaryAdj,
+        payloadXmlSalaryTrade,
+      }) => {
+        const lines = [
+          OUTBOX_TRAILER_BEGIN,
+          `UPS_OUTBOX_ID:${safeStr(outboxId)}`,
+          `UPS_PAYLOAD_HASH:${safeStr(payloadHash)}`,
+        ];
+        const appendEncodedLineIfSmallEnough = (key, xmlText, maxEncodedLen = 360) => {
+          const xml = safeStr(xmlText);
+          if (!xml) return;
+          const encoded = base64UrlFromUtf8(xml);
+          if (encoded.length > maxEncodedLen) return;
+          lines.push(`${key}:${encoded}`);
+        };
+        appendEncodedLineIfSmallEnough("UPS_XML_EXT", payloadXmlExtensions);
+        appendEncodedLineIfSmallEnough("UPS_XML_SALADJ", payloadXmlSalaryAdj);
+        appendEncodedLineIfSmallEnough("UPS_XML_SALTR", payloadXmlSalaryTrade);
+        lines.push(OUTBOX_TRAILER_END);
+        return lines.join("\n");
+      };
+
+      const parseOutboxTrailerFromComment = (commentText) => {
+        const text = safeStr(commentText);
+        if (!text) return null;
+        const re = /\[UPS_TWB_INTENT_BEGIN\]([\s\S]*?)\[UPS_TWB_INTENT_END\]/i;
+        const m = text.match(re);
+        if (!m || !m[1]) return null;
+        const body = safeStr(m[1]);
+        const lines = body
+          .split(/\r?\n/)
+          .map((v) => safeStr(v))
+          .filter(Boolean);
+        const map = {};
+        for (const line of lines) {
+          const idx = line.indexOf(":");
+          if (idx <= 0) continue;
+          const key = safeStr(line.slice(0, idx)).toUpperCase();
+          const value = safeStr(line.slice(idx + 1));
+          if (!key) continue;
+          map[key] = value;
+        }
+        return {
+          outbox_id: safeStr(map.UPS_OUTBOX_ID),
+          payload_hash: safeStr(map.UPS_PAYLOAD_HASH),
+          payload_xml_extensions: decodeBase64UrlUtf8(map.UPS_XML_EXT),
+          payload_xml_salary_adj: decodeBase64UrlUtf8(map.UPS_XML_SALADJ),
+          payload_xml_salary_trade: decodeBase64UrlUtf8(map.UPS_XML_SALTR),
+          raw_block: m[0],
+        };
+      };
+
+      const outboxDbBinding = () => {
+        const db = env.TWB_OUTBOX_DB || env.TWB_DB || env.DB || null;
+        if (!db || typeof db.prepare !== "function") return null;
+        return db;
+      };
+
+      const ensureOutboxTable = async (db) => {
+        if (!db) return { ok: false, error: "no_db_binding" };
+        try {
+          await db.exec(`
+            CREATE TABLE IF NOT EXISTS twb_trade_outbox (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              created_ts TEXT NOT NULL,
+              updated_ts TEXT NOT NULL,
+              league_id TEXT NOT NULL,
+              season TEXT NOT NULL,
+              trade_id TEXT,
+              action_type TEXT NOT NULL,
+              from_franchise_id TEXT,
+              to_franchise_id TEXT,
+              payload_xml_extensions TEXT,
+              payload_xml_salary_adj TEXT,
+              payload_xml_salary_trade TEXT,
+              payload_json TEXT,
+              comment_trailer TEXT,
+              payload_hash TEXT,
+              status TEXT NOT NULL DEFAULT 'PENDING',
+              mfl_post_response_snip TEXT,
+              mfl_verify_response_snip TEXT
+            );
+          `);
+          await db.exec(
+            "CREATE INDEX IF NOT EXISTS idx_twb_trade_outbox_lookup ON twb_trade_outbox(league_id, season, trade_id, payload_hash, status);"
+          );
+          return { ok: true };
+        } catch (e) {
+          return { ok: false, error: `d1_schema_failed: ${e?.message || String(e)}` };
+        }
+      };
+
+      const normalizeOutboxRow = (row) => {
+        const item = row && typeof row === "object" ? { ...row } : {};
+        item.id = String(item.id == null ? "" : item.id);
+        item.payload_hash = safeStr(item.payload_hash);
+        item.trade_id = safeStr(item.trade_id).replace(/\D/g, "");
+        item.status = offerStatusNormalized(item.status, "PENDING");
+        item.action_type = safeStr(item.action_type || "SUBMIT").toUpperCase();
+        item.payload_xml_extensions = safeStr(item.payload_xml_extensions);
+        item.payload_xml_salary_adj = safeStr(item.payload_xml_salary_adj);
+        item.payload_xml_salary_trade = safeStr(item.payload_xml_salary_trade);
+        item.comment_trailer = safeStr(item.comment_trailer);
+        item.mfl_post_response_snip = safeStr(item.mfl_post_response_snip);
+        item.mfl_verify_response_snip = safeStr(item.mfl_verify_response_snip);
+        if (typeof item.payload_json === "string") {
+          try {
+            item.payload_json = item.payload_json ? JSON.parse(item.payload_json) : null;
+          } catch (_) {
+            item.payload_json = null;
+          }
+        } else if (!item.payload_json || typeof item.payload_json !== "object") {
+          item.payload_json = null;
+        }
+        return item;
+      };
+
+      const writeOutboxRow = async ({
+        mode,
+        leagueId,
+        season,
+        row,
+        where,
+      }) => {
+        const db = outboxDbBinding();
+        const nowIso = new Date().toISOString();
+        const normalizedRow = normalizeOutboxRow({
+          ...row,
+          league_id: safeStr(leagueId),
+          season: safeStr(season),
+          updated_ts: nowIso,
+        });
+
+        if (db) {
+          const schema = await ensureOutboxTable(db);
+          if (!schema.ok) return { ok: false, backend: "sqlite", error: schema.error };
+          try {
+            if (mode === "insert") {
+              const createdTs = safeStr(normalizedRow.created_ts || nowIso);
+              const stmt = db.prepare(`
+                INSERT INTO twb_trade_outbox
+                (created_ts, updated_ts, league_id, season, trade_id, action_type, from_franchise_id, to_franchise_id,
+                 payload_xml_extensions, payload_xml_salary_adj, payload_xml_salary_trade, payload_json, comment_trailer,
+                 payload_hash, status, mfl_post_response_snip, mfl_verify_response_snip)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              `);
+              const run = await stmt
+                .bind(
+                  createdTs,
+                  nowIso,
+                  safeStr(leagueId),
+                  safeStr(season),
+                  safeStr(normalizedRow.trade_id),
+                  safeStr(normalizedRow.action_type || "SUBMIT"),
+                  safeStr(normalizedRow.from_franchise_id),
+                  safeStr(normalizedRow.to_franchise_id),
+                  safeStr(normalizedRow.payload_xml_extensions),
+                  safeStr(normalizedRow.payload_xml_salary_adj),
+                  safeStr(normalizedRow.payload_xml_salary_trade),
+                  normalizedRow.payload_json ? JSON.stringify(normalizedRow.payload_json) : "",
+                  safeStr(normalizedRow.comment_trailer),
+                  safeStr(normalizedRow.payload_hash),
+                  safeStr(normalizedRow.status || "PENDING"),
+                  safeStr(normalizedRow.mfl_post_response_snip).slice(0, 1000),
+                  safeStr(normalizedRow.mfl_verify_response_snip).slice(0, 1000)
+                )
+                .run();
+              const newId = String(run?.meta?.last_row_id || "");
+              return { ok: true, backend: "sqlite", id: newId || "", row: { ...normalizedRow, id: newId || "" } };
+            }
+
+            const targetId = safeStr(where && where.id);
+            if (!targetId) return { ok: false, backend: "sqlite", error: "missing_outbox_id_for_update" };
+            const stmt = db.prepare(`
+              UPDATE twb_trade_outbox
+              SET updated_ts=?, trade_id=?, action_type=?, from_franchise_id=?, to_franchise_id=?,
+                  payload_xml_extensions=?, payload_xml_salary_adj=?, payload_xml_salary_trade=?,
+                  payload_json=?, comment_trailer=?, payload_hash=?, status=?, mfl_post_response_snip=?, mfl_verify_response_snip=?
+              WHERE id=?
+            `);
+            await stmt
+              .bind(
+                nowIso,
+                safeStr(normalizedRow.trade_id),
+                safeStr(normalizedRow.action_type || "SUBMIT"),
+                safeStr(normalizedRow.from_franchise_id),
+                safeStr(normalizedRow.to_franchise_id),
+                safeStr(normalizedRow.payload_xml_extensions),
+                safeStr(normalizedRow.payload_xml_salary_adj),
+                safeStr(normalizedRow.payload_xml_salary_trade),
+                normalizedRow.payload_json ? JSON.stringify(normalizedRow.payload_json) : "",
+                safeStr(normalizedRow.comment_trailer),
+                safeStr(normalizedRow.payload_hash),
+                safeStr(normalizedRow.status || "PENDING"),
+                safeStr(normalizedRow.mfl_post_response_snip).slice(0, 1000),
+                safeStr(normalizedRow.mfl_verify_response_snip).slice(0, 1000),
+                targetId
+              )
+              .run();
+            return { ok: true, backend: "sqlite", id: targetId, row: { ...normalizedRow, id: targetId } };
+          } catch (e) {
+            return { ok: false, backend: "sqlite", error: `d1_write_failed: ${e?.message || String(e)}` };
+          }
+        }
+
+        const loaded = await readTradeOutboxDoc(leagueId, season);
+        if (!loaded.ok) return { ok: false, backend: "file", error: loaded.error || "outbox_read_failed" };
+        const doc = normalizeTradeOutboxDoc(loaded.doc, leagueId, season);
+        const rows = Array.isArray(doc.rows) ? doc.rows : [];
+        if (mode === "insert") {
+          const maxId = rows.reduce((max, r) => {
+            const n = Number(String(r && r.id || "").replace(/\D/g, ""));
+            return Number.isFinite(n) && n > max ? n : max;
+          }, 0);
+          const newId = String(maxId + 1);
+          rows.push({
+            ...normalizedRow,
+            id: newId,
+            created_ts: safeStr(normalizedRow.created_ts || nowIso),
+          });
+          const save = await writeTradeOutboxDoc(
+            leagueId,
+            season,
+            doc,
+            loaded.sha,
+            `feat(trades): append outbox row ${newId}`
+          );
+          if (!save.ok) return { ok: false, backend: "file", error: save.error || "outbox_write_failed" };
+          return { ok: true, backend: "file", id: newId, row: rows[rows.length - 1] };
+        }
+        const targetId = safeStr(where && where.id);
+        if (!targetId) return { ok: false, backend: "file", error: "missing_outbox_id_for_update" };
+        const idx = rows.findIndex((r) => safeStr(r && r.id) === targetId);
+        if (idx < 0) return { ok: false, backend: "file", error: "outbox_row_not_found" };
+        rows[idx] = {
+          ...(rows[idx] || {}),
+          ...normalizedRow,
+          id: targetId,
+          created_ts: safeStr((rows[idx] || {}).created_ts || normalizedRow.created_ts || nowIso),
+        };
+        const save = await writeTradeOutboxDoc(
+          leagueId,
+          season,
+          doc,
+          loaded.sha,
+          `feat(trades): update outbox row ${targetId}`
+        );
+        if (!save.ok) return { ok: false, backend: "file", error: save.error || "outbox_write_failed" };
+        return { ok: true, backend: "file", id: targetId, row: rows[idx] };
+      };
+
+      const findOutboxRow = async ({
+        leagueId,
+        season,
+        id,
+        tradeId,
+        payloadHash,
+      }) => {
+        const cleanId = safeStr(id);
+        const cleanTradeId = safeStr(tradeId).replace(/\D/g, "");
+        const cleanHash = safeStr(payloadHash);
+
+        const db = outboxDbBinding();
+        if (db) {
+          const schema = await ensureOutboxTable(db);
+          if (!schema.ok) return { ok: false, backend: "sqlite", error: schema.error, row: null };
+          try {
+            let row = null;
+            if (cleanId) {
+              row = await db.prepare("SELECT * FROM twb_trade_outbox WHERE id = ?").bind(cleanId).first();
+            }
+            if (!row && cleanTradeId) {
+              row = await db
+                .prepare("SELECT * FROM twb_trade_outbox WHERE league_id=? AND season=? AND trade_id=? ORDER BY id DESC LIMIT 1")
+                .bind(safeStr(leagueId), safeStr(season), cleanTradeId)
+                .first();
+            }
+            if (!row && cleanHash) {
+              row = await db
+                .prepare("SELECT * FROM twb_trade_outbox WHERE league_id=? AND season=? AND payload_hash=? ORDER BY id DESC LIMIT 1")
+                .bind(safeStr(leagueId), safeStr(season), cleanHash)
+                .first();
+            }
+            return { ok: true, backend: "sqlite", row: row ? normalizeOutboxRow(row) : null };
+          } catch (e) {
+            return { ok: false, backend: "sqlite", error: `d1_read_failed: ${e?.message || String(e)}`, row: null };
+          }
+        }
+
+        const loaded = await readTradeOutboxDoc(leagueId, season);
+        if (!loaded.ok) return { ok: false, backend: "file", error: loaded.error || "outbox_read_failed", row: null };
+        const doc = normalizeTradeOutboxDoc(loaded.doc, leagueId, season);
+        const rows = (Array.isArray(doc.rows) ? doc.rows : []).map((r) => normalizeOutboxRow(r));
+        let row = null;
+        if (cleanId) row = rows.find((r) => safeStr(r.id) === cleanId) || null;
+        if (!row && cleanTradeId) {
+          row =
+            rows
+              .filter((r) => safeStr(r.trade_id).replace(/\D/g, "") === cleanTradeId)
+              .sort((a, b) => safeStr(b.updated_ts).localeCompare(safeStr(a.updated_ts)))[0] || null;
+        }
+        if (!row && cleanHash) {
+          row =
+            rows
+              .filter((r) => safeStr(r.payload_hash) === cleanHash)
+              .sort((a, b) => safeStr(b.updated_ts).localeCompare(safeStr(a.updated_ts)))[0] || null;
+        }
+        return { ok: true, backend: "file", row: row || null };
+      };
+
       const summarizeOfferPayload = (payload) => {
         const teams = Array.isArray(payload?.teams) ? payload.teams : [];
         const left = teams.find((t) => safeStr(t?.role).toLowerCase() === "left") || teams[0] || {};
@@ -1874,9 +2334,6 @@ export default {
         return "";
       };
 
-      const base64UrlFromUtf8 = (text) =>
-        utf8ToBase64(text).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
-
       const pickTokenFromAsset = (asset) => {
         const candidates = [
           safeStr(asset?.pick_key),
@@ -2121,13 +2578,111 @@ export default {
         return `[UPS_TWB_META:${base64UrlFromUtf8(JSON.stringify(compact))}]`;
       };
 
-      const appendTradeMetaTagToComments = (comments, payload, fromFranchiseId, toFranchiseId) => {
+      const appendTradeMetaTagToComments = (
+        comments,
+        payload,
+        fromFranchiseId,
+        toFranchiseId,
+        outboxTrailerText = ""
+      ) => {
         const base = safeStr(comments);
         const tag = buildTradeMetaTag(payload, fromFranchiseId, toFranchiseId);
-        if (!base) return tag.slice(0, 2000);
-        const roomForBase = 2000 - tag.length - 1;
-        if (roomForBase <= 0) return tag.slice(0, 2000);
-        return `${tag} ${base.slice(0, roomForBase)}`;
+        const trailer = safeStr(outboxTrailerText);
+        if (!trailer) {
+          if (!base) return tag.slice(0, 2000);
+          const roomForBase = 2000 - tag.length - 1;
+          if (roomForBase <= 0) return tag.slice(0, 2000);
+          return `${tag} ${base.slice(0, roomForBase)}`;
+        }
+        const trailerBlock = `\n\n${trailer}`;
+        const roomForBody = 2000 - tag.length - trailerBlock.length - 1;
+        if (roomForBody <= 0) return `${tag}${trailerBlock}`.slice(0, 2000);
+        return `${tag} ${base.slice(0, roomForBody)}${trailerBlock}`;
+      };
+
+      const buildTradeIntentBundleFromPayload = async ({
+        leagueId,
+        season,
+        tradeId,
+        actionType,
+        fromFranchiseId,
+        toFranchiseId,
+        payload,
+        commentTrailerHint,
+      }) => {
+        const normalizedPayload =
+          payload && typeof payload === "object"
+            ? JSON.parse(JSON.stringify(payload))
+            : {};
+        const salaryAdjRows = buildSalaryAdjRowsFromPayload(normalizedPayload, tradeId);
+        const salaryAdjXml = salaryAdjRows.length ? buildSalaryAdjXml(salaryAdjRows) : "";
+
+        let extensionXml = "";
+        let extensionApplied = [];
+        let extensionSkipped = [];
+        let salariesSource = {
+          ok: false,
+          status: 0,
+          error: "",
+          url: "",
+        };
+        const extReqs = Array.isArray(normalizedPayload?.extension_requests)
+          ? normalizedPayload.extension_requests
+          : [];
+        if (extReqs.length) {
+          const salariesRes = await mflExportJson(season, leagueId, "salaries");
+          salariesSource = {
+            ok: !!salariesRes.ok,
+            status: safeInt(salariesRes.status, 0),
+            error: safeStr(salariesRes.error),
+            url: safeStr(salariesRes.url),
+          };
+          if (salariesRes.ok) {
+            const salariesByPlayer = parseSalariesExportByPlayer(salariesRes.data);
+            const plan = buildExtensionSalariesXmlFromPayload(normalizedPayload, salariesByPlayer);
+            extensionXml = safeStr(plan.xml);
+            extensionApplied = Array.isArray(plan.applied) ? plan.applied : [];
+            extensionSkipped = Array.isArray(plan.skipped) ? plan.skipped : [];
+          } else {
+            extensionSkipped = extReqs.map((row) => ({
+              reason: "failed_to_load_salaries_export",
+              player_id: safeStr(row?.player_id).replace(/\D/g, ""),
+              player_name: safeStr(row?.player_name),
+            }));
+          }
+        }
+
+        const canonical = {
+          v: 1,
+          league_id: safeStr(leagueId),
+          season: safeStr(season),
+          trade_id: safeStr(tradeId),
+          action_type: safeStr(actionType || "SUBMIT").toUpperCase(),
+          from_franchise_id: safeStr(fromFranchiseId),
+          to_franchise_id: safeStr(toFranchiseId),
+          payload_xml_extensions: extensionXml,
+          payload_xml_salary_adj: salaryAdjXml,
+          payload_xml_salary_trade: "",
+        };
+        const payloadHash = await sha256Hex(JSON.stringify(canonical));
+        const trailer = buildOutboxTrailerText({
+          outboxId: "",
+          payloadHash,
+          payloadXmlExtensions: extensionXml,
+          payloadXmlSalaryAdj: salaryAdjXml,
+          payloadXmlSalaryTrade: "",
+        });
+        return {
+          canonical,
+          payload_hash: payloadHash,
+          payload_xml_extensions: extensionXml,
+          payload_xml_salary_adj: salaryAdjXml,
+          payload_xml_salary_trade: "",
+          extension_applied: extensionApplied,
+          extension_skipped: extensionSkipped,
+          salaries_source: salariesSource,
+          comment_trailer: safeStr(commentTrailerHint || trailer),
+        };
       };
 
       const normalizeNameKey = (value) =>
@@ -2818,17 +3373,6 @@ export default {
         };
       };
 
-      const decodeBase64UrlUtf8 = (value) => {
-        const raw = safeStr(value).replace(/-/g, "+").replace(/_/g, "/");
-        if (!raw) return "";
-        const padded = raw + "===".slice((raw.length + 3) % 4);
-        try {
-          return base64ToUtf8(padded);
-        } catch (_) {
-          return "";
-        }
-      };
-
       const parseTradeMetaTagFromComments = (comments) => {
         const text = safeStr(comments);
         if (!text) return null;
@@ -2846,6 +3390,7 @@ export default {
 
       const stripTradeMetaTagFromComments = (comments) =>
         safeStr(comments)
+          .replace(/\[UPS_TWB_INTENT_BEGIN\][\s\S]*?\[UPS_TWB_INTENT_END\]/gi, " ")
           .replace(/\s*\[UPS_TWB_META:[A-Za-z0-9_-]+\]\s*/g, " ")
           .replace(/\s+/g, " ")
           .trim();
@@ -4484,11 +5029,83 @@ export default {
             });
           }
 
+          const intentBundle = await buildTradeIntentBundleFromPayload({
+            leagueId,
+            season,
+            tradeId: "",
+            actionType: "SUBMIT",
+            fromFranchiseId,
+            toFranchiseId,
+            payload,
+          });
+
+          let outboxId = "";
+          let outboxBackend = "";
+          let outboxWriteError = "";
+          const initialOutboxWrite = await writeOutboxRow({
+            mode: "insert",
+            leagueId,
+            season,
+            row: {
+              created_ts: new Date().toISOString(),
+              trade_id: "",
+              action_type: "SUBMIT",
+              from_franchise_id: fromFranchiseId,
+              to_franchise_id: toFranchiseId,
+              payload_xml_extensions: intentBundle.payload_xml_extensions,
+              payload_xml_salary_adj: intentBundle.payload_xml_salary_adj,
+              payload_xml_salary_trade: intentBundle.payload_xml_salary_trade,
+              payload_json: payload,
+              comment_trailer: "",
+              payload_hash: intentBundle.payload_hash,
+              status: "PENDING",
+              mfl_post_response_snip: "",
+              mfl_verify_response_snip: "",
+            },
+          });
+          if (initialOutboxWrite.ok) {
+            outboxId = safeStr(initialOutboxWrite.id);
+            outboxBackend = safeStr(initialOutboxWrite.backend);
+          } else {
+            outboxWriteError = safeStr(initialOutboxWrite.error);
+            outboxBackend = safeStr(initialOutboxWrite.backend);
+          }
+
+          const outboxTrailer = buildOutboxTrailerText({
+            outboxId,
+            payloadHash: intentBundle.payload_hash,
+            payloadXmlExtensions: intentBundle.payload_xml_extensions,
+            payloadXmlSalaryAdj: intentBundle.payload_xml_salary_adj,
+            payloadXmlSalaryTrade: intentBundle.payload_xml_salary_trade,
+          });
+
+          if (outboxId) {
+            await writeOutboxRow({
+              mode: "update",
+              leagueId,
+              season,
+              where: { id: outboxId },
+              row: {
+                trade_id: "",
+                payload_xml_extensions: intentBundle.payload_xml_extensions,
+                payload_xml_salary_adj: intentBundle.payload_xml_salary_adj,
+                payload_xml_salary_trade: intentBundle.payload_xml_salary_trade,
+                payload_json: payload,
+                comment_trailer: outboxTrailer,
+                payload_hash: intentBundle.payload_hash,
+                status: "PENDING",
+                mfl_post_response_snip: "",
+                mfl_verify_response_snip: "",
+              },
+            });
+          }
+
           const commentsOut = appendTradeMetaTagToComments(
             message,
             payload,
             fromFranchiseId,
-            toFranchiseId
+            toFranchiseId,
+            outboxTrailer
           );
 
           const importFields = {
@@ -4531,6 +5148,26 @@ export default {
               retriedWithoutFranchiseId: proposalSubmit.retriedWithoutFranchiseId,
             });
             logTradeProposalFailure(diagnostics);
+            if (outboxId) {
+              await writeOutboxRow({
+                mode: "update",
+                leagueId,
+                season,
+                where: { id: outboxId },
+                row: {
+                  trade_id: "",
+                  payload_xml_extensions: intentBundle.payload_xml_extensions,
+                  payload_xml_salary_adj: intentBundle.payload_xml_salary_adj,
+                  payload_xml_salary_trade: intentBundle.payload_xml_salary_trade,
+                  payload_json: payload,
+                  comment_trailer: outboxTrailer,
+                  payload_hash: intentBundle.payload_hash,
+                  status: "FAILED",
+                  mfl_post_response_snip: trimDiagText(importRes.upstreamPreview || importRes.error || "", 1000),
+                  mfl_verify_response_snip: "",
+                },
+              });
+            }
             return jsonOut(502, {
               ok: false,
               mode: "direct_mfl",
@@ -4550,6 +5187,13 @@ export default {
               retriedWithoutFranchiseId: !!proposalSubmit.retriedWithoutFranchiseId,
               targetImportUrl: importRes.targetImportUrl,
               formFields: importRes.formFields,
+              outbox: {
+                outbox_id: outboxId || "",
+                payload_hash: intentBundle.payload_hash,
+                backend: outboxBackend || "",
+                status: outboxId ? "FAILED" : "NOT_PERSISTED",
+                write_error: outboxWriteError || "",
+              },
             });
           }
 
@@ -4605,6 +5249,26 @@ export default {
           const resolvedTradeId = String(
             tradeId || pendingLookup.matched_trade_id || ""
           ).replace(/\D/g, "");
+          if (outboxId) {
+            await writeOutboxRow({
+              mode: "update",
+              leagueId,
+              season,
+              where: { id: outboxId },
+              row: {
+                trade_id: resolvedTradeId,
+                payload_xml_extensions: intentBundle.payload_xml_extensions,
+                payload_xml_salary_adj: intentBundle.payload_xml_salary_adj,
+                payload_xml_salary_trade: intentBundle.payload_xml_salary_trade,
+                payload_json: payload,
+                comment_trailer: outboxTrailer,
+                payload_hash: intentBundle.payload_hash,
+                status: "POSTED",
+                mfl_post_response_snip: trimDiagText(importRes.upstreamPreview || "", 1000),
+                mfl_verify_response_snip: trimDiagText(JSON.stringify(pendingLookup || {}), 1000),
+              },
+            });
+          }
           const syncOut = await syncDirectMflOfferToStorage({
             leagueId,
             season,
@@ -4652,6 +5316,13 @@ export default {
             },
             stored_offer: syncOut.storedOffer ? sanitizeOfferForList(syncOut.storedOffer, true) : null,
             storage_sync: syncOut.storageSync,
+            outbox: {
+              outbox_id: outboxId || "",
+              payload_hash: intentBundle.payload_hash,
+              backend: outboxBackend || "",
+              status: outboxId ? "POSTED" : "NOT_PERSISTED",
+              write_error: outboxWriteError || "",
+            },
           });
         }
 
@@ -4804,6 +5475,8 @@ export default {
           body?.offer_twb_meta && typeof body.offer_twb_meta === "object"
             ? body.offer_twb_meta
             : null;
+        let offerTrailerMeta = parseOutboxTrailerFromComment(offerComment);
+        let acceptOutboxRow = null;
         const offerExtensionRequests = Array.isArray(body?.offer_extension_requests)
           ? body.offer_extension_requests.filter((row) => row && typeof row === "object")
           : [];
@@ -4847,11 +5520,82 @@ export default {
                 },
               };
             }
+            const intentBundle = await buildTradeIntentBundleFromPayload({
+              leagueId,
+              season,
+              tradeId: "",
+              actionType: "SUBMIT",
+              fromFranchiseId,
+              toFranchiseId,
+              payload: proposalPayload || {},
+            });
+            let outboxId = "";
+            let outboxBackend = "";
+            let outboxWriteError = "";
+            const outboxInsert = await writeOutboxRow({
+              mode: "insert",
+              leagueId,
+              season,
+              row: {
+                created_ts: new Date().toISOString(),
+                trade_id: "",
+                action_type: "SUBMIT",
+                from_franchise_id: fromFranchiseId,
+                to_franchise_id: toFranchiseId,
+                payload_xml_extensions: intentBundle.payload_xml_extensions,
+                payload_xml_salary_adj: intentBundle.payload_xml_salary_adj,
+                payload_xml_salary_trade: intentBundle.payload_xml_salary_trade,
+                payload_json: proposalPayload || {},
+                comment_trailer: "",
+                payload_hash: intentBundle.payload_hash,
+                status: "PENDING",
+                mfl_post_response_snip: "",
+                mfl_verify_response_snip: "",
+              },
+            });
+            if (outboxInsert.ok) {
+              outboxId = safeStr(outboxInsert.id);
+              outboxBackend = safeStr(outboxInsert.backend);
+            } else {
+              outboxWriteError = safeStr(outboxInsert.error);
+              outboxBackend = safeStr(outboxInsert.backend);
+            }
+            const outboxTrailer = buildOutboxTrailerText({
+              outboxId,
+              payloadHash: intentBundle.payload_hash,
+              payloadXmlExtensions: intentBundle.payload_xml_extensions,
+              payloadXmlSalaryAdj: intentBundle.payload_xml_salary_adj,
+              payloadXmlSalaryTrade: intentBundle.payload_xml_salary_trade,
+            });
+            if (outboxId) {
+              await writeOutboxRow({
+                mode: "update",
+                leagueId,
+                season,
+                where: { id: outboxId },
+                row: {
+                  trade_id: "",
+                  action_type: "SUBMIT",
+                  from_franchise_id: fromFranchiseId,
+                  to_franchise_id: toFranchiseId,
+                  payload_xml_extensions: intentBundle.payload_xml_extensions,
+                  payload_xml_salary_adj: intentBundle.payload_xml_salary_adj,
+                  payload_xml_salary_trade: intentBundle.payload_xml_salary_trade,
+                  payload_json: proposalPayload || {},
+                  comment_trailer: outboxTrailer,
+                  payload_hash: intentBundle.payload_hash,
+                  status: "PENDING",
+                  mfl_post_response_snip: "",
+                  mfl_verify_response_snip: "",
+                },
+              });
+            }
             const commentsOut = appendTradeMetaTagToComments(
               comments,
               proposalPayload || {},
               fromFranchiseId,
-              toFranchiseId
+              toFranchiseId,
+              outboxTrailer
             );
             const importFields = {
               TYPE: "tradeProposal",
@@ -4885,6 +5629,29 @@ export default {
                 retriedWithoutFranchiseId: proposalSubmit.retriedWithoutFranchiseId,
               });
               logTradeProposalFailure(diagnostics);
+              if (outboxId) {
+                await writeOutboxRow({
+                  mode: "update",
+                  leagueId,
+                  season,
+                  where: { id: outboxId },
+                  row: {
+                    trade_id: "",
+                    action_type: "SUBMIT",
+                    from_franchise_id: fromFranchiseId,
+                    to_franchise_id: toFranchiseId,
+                    payload_xml_extensions: intentBundle.payload_xml_extensions,
+                    payload_xml_salary_adj: intentBundle.payload_xml_salary_adj,
+                    payload_xml_salary_trade: intentBundle.payload_xml_salary_trade,
+                    payload_json: proposalPayload || {},
+                    comment_trailer: outboxTrailer,
+                    payload_hash: intentBundle.payload_hash,
+                    status: "FAILED",
+                    mfl_post_response_snip: trimDiagText(proposalImport.upstreamPreview || proposalImport.error || "", 1000),
+                    mfl_verify_response_snip: "",
+                  },
+                });
+              }
               return {
                 ok: false,
                 error_type: "trade_proposal_import_failed",
@@ -4906,6 +5673,13 @@ export default {
                 invalid_assets: {
                   left: proposalAssets.leftTokensOut.invalid,
                   right: proposalAssets.rightTokensOut.invalid,
+                },
+                outbox: {
+                  outbox_id: outboxId || "",
+                  payload_hash: intentBundle.payload_hash,
+                  backend: outboxBackend || "",
+                  status: outboxId ? "FAILED" : "NOT_PERSISTED",
+                  write_error: outboxWriteError || "",
                 },
               };
             }
@@ -4961,6 +5735,29 @@ export default {
             const resolvedTradeId = String(
               tradeIdOut || pendingLookup.matched_trade_id || ""
             ).replace(/\D/g, "");
+            if (outboxId) {
+              await writeOutboxRow({
+                mode: "update",
+                leagueId,
+                season,
+                where: { id: outboxId },
+                row: {
+                  trade_id: resolvedTradeId,
+                  action_type: "SUBMIT",
+                  from_franchise_id: fromFranchiseId,
+                  to_franchise_id: toFranchiseId,
+                  payload_xml_extensions: intentBundle.payload_xml_extensions,
+                  payload_xml_salary_adj: intentBundle.payload_xml_salary_adj,
+                  payload_xml_salary_trade: intentBundle.payload_xml_salary_trade,
+                  payload_json: proposalPayload || {},
+                  comment_trailer: outboxTrailer,
+                  payload_hash: intentBundle.payload_hash,
+                  status: "POSTED",
+                  mfl_post_response_snip: trimDiagText(proposalImport.upstreamPreview || "", 1000),
+                  mfl_verify_response_snip: trimDiagText(JSON.stringify(pendingLookup || {}), 1000),
+                },
+              });
+            }
             const syncOut = await syncDirectMflOfferToStorage({
               leagueId,
               season,
@@ -5005,6 +5802,13 @@ export default {
                 ? sanitizeOfferForList(syncOut.storedOffer, true)
                 : null,
               storage_sync: syncOut.storageSync,
+              outbox: {
+                outbox_id: outboxId || "",
+                payload_hash: intentBundle.payload_hash,
+                backend: outboxBackend || "",
+                status: outboxId ? "POSTED" : "NOT_PERSISTED",
+                write_error: outboxWriteError || "",
+              },
             };
           };
 
@@ -5102,6 +5906,7 @@ export default {
               invalid_assets: proposalOut.invalid_assets,
               stored_offer: proposalOut.stored_offer || null,
               storage_sync: proposalOut.storage_sync || null,
+              outbox: proposalOut.outbox || null,
             });
           }
 
@@ -5228,6 +6033,35 @@ export default {
               }
             } catch (_) {
               // noop
+            }
+            offerTrailerMeta = parseOutboxTrailerFromComment(offerComment);
+            if (offerTrailerMeta && (offerTrailerMeta.outbox_id || offerTrailerMeta.payload_hash)) {
+              const outboxLookup = await findOutboxRow({
+                leagueId,
+                season,
+                id: offerTrailerMeta.outbox_id,
+                tradeId: mflTradeId,
+                payloadHash: offerTrailerMeta.payload_hash,
+              });
+              if (outboxLookup && outboxLookup.ok && outboxLookup.row) {
+                acceptOutboxRow = outboxLookup.row;
+                if ((!payload || typeof payload !== "object") && acceptOutboxRow.payload_json) {
+                  payload = JSON.parse(JSON.stringify(acceptOutboxRow.payload_json));
+                } else if (payload && typeof payload === "object" && acceptOutboxRow.payload_json) {
+                  const payloadExt = Array.isArray(payload?.extension_requests)
+                    ? payload.extension_requests
+                    : [];
+                  const outboxExt = Array.isArray(acceptOutboxRow.payload_json?.extension_requests)
+                    ? acceptOutboxRow.payload_json.extension_requests
+                    : [];
+                  if (!payloadExt.length && outboxExt.length) {
+                    payload.extension_requests = JSON.parse(JSON.stringify(outboxExt));
+                  }
+                }
+                if (!offerComment && acceptOutboxRow.comment_trailer) {
+                  offerComment = safeStr(acceptOutboxRow.comment_trailer);
+                }
+              }
             }
           }
           if (action === "ACCEPT" && payload && typeof payload === "object" && offerComment) {
@@ -5370,6 +6204,94 @@ export default {
               targetImportUrl: responseImport.targetImportUrl,
               formFields: responseImport.formFields,
             });
+          }
+
+          let acceptOutboxId = safeStr(acceptOutboxRow && acceptOutboxRow.id);
+          let acceptOutboxBackend = "";
+          let acceptOutboxWriteError = "";
+          let acceptIntentBundle = {
+            payload_hash: safeStr(offerTrailerMeta && offerTrailerMeta.payload_hash),
+            payload_xml_extensions: safeStr(offerTrailerMeta && offerTrailerMeta.payload_xml_extensions),
+            payload_xml_salary_adj: safeStr(offerTrailerMeta && offerTrailerMeta.payload_xml_salary_adj),
+            payload_xml_salary_trade: safeStr(offerTrailerMeta && offerTrailerMeta.payload_xml_salary_trade),
+            comment_trailer: safeStr(offerTrailerMeta && offerTrailerMeta.raw_block),
+          };
+          if (action === "ACCEPT" && payload && typeof payload === "object") {
+            const builtIntent = await buildTradeIntentBundleFromPayload({
+              leagueId,
+              season,
+              tradeId: mflTradeId,
+              actionType: "ACCEPT",
+              fromFranchiseId: resolvedOfferFromFranchiseId,
+              toFranchiseId: resolvedOfferToFranchiseId,
+              payload,
+              commentTrailerHint: acceptIntentBundle.comment_trailer,
+            });
+            acceptIntentBundle = {
+              ...acceptIntentBundle,
+              ...builtIntent,
+              comment_trailer: safeStr(acceptIntentBundle.comment_trailer || builtIntent.comment_trailer),
+            };
+          }
+          if (action === "ACCEPT") {
+            if (acceptOutboxId) {
+              const upd = await writeOutboxRow({
+                mode: "update",
+                leagueId,
+                season,
+                where: { id: acceptOutboxId },
+                row: {
+                  trade_id: mflTradeId,
+                  action_type: "ACCEPT",
+                  from_franchise_id: resolvedOfferFromFranchiseId,
+                  to_franchise_id: resolvedOfferToFranchiseId,
+                  payload_xml_extensions: acceptIntentBundle.payload_xml_extensions,
+                  payload_xml_salary_adj: acceptIntentBundle.payload_xml_salary_adj,
+                  payload_xml_salary_trade: acceptIntentBundle.payload_xml_salary_trade,
+                  payload_json: payload || null,
+                  comment_trailer: acceptIntentBundle.comment_trailer,
+                  payload_hash: acceptIntentBundle.payload_hash,
+                  status: "PENDING",
+                  mfl_post_response_snip: trimDiagText(responseImport.upstreamPreview || "", 1000),
+                  mfl_verify_response_snip: "",
+                },
+              });
+              if (!upd.ok) {
+                acceptOutboxWriteError = safeStr(upd.error);
+                acceptOutboxBackend = safeStr(upd.backend);
+              } else {
+                acceptOutboxBackend = safeStr(upd.backend);
+              }
+            } else {
+              const ins = await writeOutboxRow({
+                mode: "insert",
+                leagueId,
+                season,
+                row: {
+                  created_ts: new Date().toISOString(),
+                  trade_id: mflTradeId,
+                  action_type: "ACCEPT",
+                  from_franchise_id: resolvedOfferFromFranchiseId,
+                  to_franchise_id: resolvedOfferToFranchiseId,
+                  payload_xml_extensions: acceptIntentBundle.payload_xml_extensions,
+                  payload_xml_salary_adj: acceptIntentBundle.payload_xml_salary_adj,
+                  payload_xml_salary_trade: acceptIntentBundle.payload_xml_salary_trade,
+                  payload_json: payload || null,
+                  comment_trailer: acceptIntentBundle.comment_trailer,
+                  payload_hash: acceptIntentBundle.payload_hash,
+                  status: "PENDING",
+                  mfl_post_response_snip: trimDiagText(responseImport.upstreamPreview || "", 1000),
+                  mfl_verify_response_snip: "",
+                },
+              });
+              if (ins.ok) {
+                acceptOutboxId = safeStr(ins.id);
+                acceptOutboxBackend = safeStr(ins.backend);
+              } else {
+                acceptOutboxWriteError = safeStr(ins.error);
+                acceptOutboxBackend = safeStr(ins.backend);
+              }
+            }
           }
 
           let salaryAdjOut = {
@@ -5538,6 +6460,42 @@ export default {
           }
 
           if (action === "ACCEPT" && (!salaryAdjOut.ok || !extensionsOut.ok)) {
+            if (acceptOutboxId) {
+              await writeOutboxRow({
+                mode: "update",
+                leagueId,
+                season,
+                where: { id: acceptOutboxId },
+                row: {
+                  trade_id: mflTradeId,
+                  action_type: "ACCEPT",
+                  from_franchise_id: resolvedOfferFromFranchiseId,
+                  to_franchise_id: resolvedOfferToFranchiseId,
+                  payload_xml_extensions: acceptIntentBundle.payload_xml_extensions,
+                  payload_xml_salary_adj: acceptIntentBundle.payload_xml_salary_adj,
+                  payload_xml_salary_trade: acceptIntentBundle.payload_xml_salary_trade,
+                  payload_json: payload || null,
+                  comment_trailer: acceptIntentBundle.comment_trailer,
+                  payload_hash: acceptIntentBundle.payload_hash,
+                  status: "FAILED",
+                  mfl_post_response_snip: trimDiagText(
+                    JSON.stringify({
+                      trade_response: responseImport?.upstreamPreview || "",
+                      salary: salaryAdjOut?.upstreamPreview || salaryAdjOut?.error || "",
+                      extensions: extensionsOut?.upstreamPreview || extensionsOut?.error || "",
+                    }),
+                    1000
+                  ),
+                  mfl_verify_response_snip: trimDiagText(
+                    JSON.stringify({
+                      transactions_export: postVerifyTransactions || null,
+                      salaries_export: postVerifySalaries || null,
+                    }),
+                    1000
+                  ),
+                },
+              });
+            }
             const counterpartyFromPayload = padFranchiseId(
               payload?.ui?.left_team_id === actingFranchiseId
                 ? payload?.ui?.right_team_id
@@ -5576,9 +6534,53 @@ export default {
               extensions: extensionsOut,
               extension_preparation: extensionPreparation,
               accept_debug: acceptDebug,
+              outbox: {
+                outbox_id: acceptOutboxId || "",
+                payload_hash: safeStr(acceptIntentBundle.payload_hash),
+                backend: acceptOutboxBackend || "",
+                status: acceptOutboxId ? "FAILED" : "NOT_PERSISTED",
+                write_error: acceptOutboxWriteError || "",
+              },
               post_verify: {
                 transactions_export: postVerifyTransactions,
                 salaries_export: postVerifySalaries,
+              },
+            });
+          }
+
+          if (action === "ACCEPT" && acceptOutboxId) {
+            await writeOutboxRow({
+              mode: "update",
+              leagueId,
+              season,
+              where: { id: acceptOutboxId },
+              row: {
+                trade_id: mflTradeId,
+                action_type: "ACCEPT",
+                from_franchise_id: resolvedOfferFromFranchiseId,
+                to_franchise_id: resolvedOfferToFranchiseId,
+                payload_xml_extensions: acceptIntentBundle.payload_xml_extensions,
+                payload_xml_salary_adj: acceptIntentBundle.payload_xml_salary_adj,
+                payload_xml_salary_trade: acceptIntentBundle.payload_xml_salary_trade,
+                payload_json: payload || null,
+                comment_trailer: acceptIntentBundle.comment_trailer,
+                payload_hash: acceptIntentBundle.payload_hash,
+                status: "VERIFIED",
+                mfl_post_response_snip: trimDiagText(
+                  JSON.stringify({
+                    trade_response: responseImport?.upstreamPreview || "",
+                    salary: salaryAdjOut?.upstreamPreview || salaryAdjOut?.error || "",
+                    extensions: extensionsOut?.upstreamPreview || extensionsOut?.error || "",
+                  }),
+                  1000
+                ),
+                mfl_verify_response_snip: trimDiagText(
+                  JSON.stringify({
+                    transactions_export: postVerifyTransactions || null,
+                    salaries_export: postVerifySalaries || null,
+                  }),
+                  1000
+                ),
               },
             });
           }
@@ -5598,6 +6600,13 @@ export default {
             extensions: extensionsOut,
             extension_preparation: extensionPreparation,
             accept_debug: acceptDebug,
+            outbox: {
+              outbox_id: acceptOutboxId || "",
+              payload_hash: safeStr(acceptIntentBundle.payload_hash),
+              backend: acceptOutboxBackend || "",
+              status: acceptOutboxId ? "VERIFIED" : "NOT_PERSISTED",
+              write_error: acceptOutboxWriteError || "",
+            },
             post_verify: {
               transactions_export: postVerifyTransactions,
               salaries_export: postVerifySalaries,
@@ -5753,6 +6762,203 @@ export default {
           counts: {
             total: allOffers.length,
             pending: allOffers.filter((o) => offerStatusNormalized(o?.status, "PENDING") === "PENDING").length,
+          },
+        });
+      }
+
+      if ((path === "/trade-outbox" || path === "/api/trades/outbox") && request.method === "GET") {
+        const leagueId = safeStr(url.searchParams.get("L") || L || "");
+        const season = safeStr(url.searchParams.get("YEAR") || YEAR || "");
+        const outboxId = safeStr(url.searchParams.get("OUTBOX_ID") || url.searchParams.get("outbox_id"));
+        const tradeId = safeStr(url.searchParams.get("TRADE_ID") || url.searchParams.get("trade_id")).replace(/\D/g, "");
+        const payloadHash = safeStr(url.searchParams.get("PAYLOAD_HASH") || url.searchParams.get("payload_hash"));
+        if (!leagueId) return jsonOut(400, { ok: false, error: "Missing L param" });
+        if (!season) return jsonOut(400, { ok: false, error: "Missing YEAR param" });
+        const lookup = await findOutboxRow({
+          leagueId,
+          season,
+          id: outboxId,
+          tradeId,
+          payloadHash,
+        });
+        if (!lookup.ok) {
+          return jsonOut(500, { ok: false, error: lookup.error || "outbox lookup failed", backend: lookup.backend || "" });
+        }
+        return jsonOut(200, {
+          ok: true,
+          league_id: leagueId,
+          season: safeInt(season, Number(season) || 0),
+          backend: lookup.backend || "",
+          row: lookup.row || null,
+        });
+      }
+
+      if ((path === "/trade-outbox/replay" || path === "/api/trades/outbox/replay") && request.method === "POST") {
+        let body = null;
+        try {
+          body = await request.json();
+        } catch (_) {
+          return jsonOut(400, { ok: false, error: "Invalid JSON payload." });
+        }
+        const leagueId = safeStr(body?.league_id || L || "");
+        const season = safeStr(body?.season || YEAR || "");
+        const outboxId = safeStr(body?.outbox_id);
+        const tradeId = safeStr(body?.trade_id || body?.mfl_trade_id || "").replace(/\D/g, "");
+        const payloadHash = safeStr(body?.payload_hash);
+        if (!leagueId) return jsonOut(400, { ok: false, error: "league_id is required" });
+        if (!season) return jsonOut(400, { ok: false, error: "season is required" });
+        if (!outboxId && !tradeId && !payloadHash) {
+          return jsonOut(400, {
+            ok: false,
+            error: "One of outbox_id, trade_id, or payload_hash is required",
+          });
+        }
+        const lookup = await findOutboxRow({
+          leagueId,
+          season,
+          id: outboxId,
+          tradeId,
+          payloadHash,
+        });
+        if (!lookup.ok) {
+          return jsonOut(500, {
+            ok: false,
+            error: lookup.error || "outbox lookup failed",
+            backend: lookup.backend || "",
+          });
+        }
+        const row = lookup.row ? normalizeOutboxRow(lookup.row) : null;
+        if (!row) {
+          return jsonOut(404, {
+            ok: false,
+            error: "Outbox row not found",
+            league_id: leagueId,
+            season: safeInt(season, Number(season) || 0),
+          });
+        }
+        if (!cookieHeader) {
+          return jsonOut(500, { ok: false, error: "Missing MFL_COOKIE worker secret for replay" });
+        }
+
+        const replayImports = [];
+        const runReplayImport = async (step, fields, fallbackGetFields = fields) => {
+          const importRes = await postMflImportForm(
+            season,
+            fields,
+            fallbackGetFields
+          );
+          replayImports.push({
+            step,
+            ok: !!importRes.requestOk,
+            status: importRes.status,
+            target_import_url: importRes.targetImportUrl,
+            preview: trimDiagText(importRes.upstreamPreview || importRes.error || "", 500),
+          });
+          return importRes;
+        };
+
+        let salaryAdjXml = safeStr(row.payload_xml_salary_adj);
+        let salaryTradeXml = safeStr(row.payload_xml_salary_trade);
+        let extensionXml = safeStr(row.payload_xml_extensions);
+        if (row.payload_json && (!salaryAdjXml || !extensionXml)) {
+          const rebuilt = await buildTradeIntentBundleFromPayload({
+            leagueId,
+            season,
+            tradeId: safeStr(row.trade_id || tradeId),
+            actionType: safeStr(row.action_type || "ACCEPT"),
+            fromFranchiseId: safeStr(row.from_franchise_id),
+            toFranchiseId: safeStr(row.to_franchise_id),
+            payload: row.payload_json,
+            commentTrailerHint: safeStr(row.comment_trailer),
+          });
+          if (!salaryAdjXml) salaryAdjXml = safeStr(rebuilt.payload_xml_salary_adj);
+          if (!salaryTradeXml) salaryTradeXml = safeStr(rebuilt.payload_xml_salary_trade);
+          if (!extensionXml) extensionXml = safeStr(rebuilt.payload_xml_extensions);
+        }
+
+        if (salaryAdjXml) {
+          await runReplayImport(
+            "salary_adjustments",
+            { TYPE: "salaryAdj", L: leagueId, DATA: salaryAdjXml },
+            { TYPE: "salaryAdj", L: leagueId }
+          );
+        }
+        if (salaryTradeXml) {
+          await runReplayImport(
+            "salary_trade",
+            { TYPE: "salaryAdj", L: leagueId, DATA: salaryTradeXml },
+            { TYPE: "salaryAdj", L: leagueId }
+          );
+        }
+        if (extensionXml) {
+          await runReplayImport(
+            "extensions",
+            { TYPE: "salaries", L: leagueId, APPEND: "1", DATA: extensionXml },
+            { TYPE: "salaries", L: leagueId, APPEND: "1" }
+          );
+        }
+
+        const allPostsOk = replayImports.every((r) => !!r.ok);
+        const verifySalaries = await mflExportJson(season, leagueId, "salaries", {}, { useCookie: true });
+        const verifyTransactions = await mflExportJson(season, leagueId, "transactions", {}, { useCookie: true });
+        const verifyOk = !!verifySalaries.ok && !!verifyTransactions.ok;
+        const nextStatus = allPostsOk && verifyOk ? "VERIFIED" : "FAILED";
+
+        const updateReplay = await writeOutboxRow({
+          mode: "update",
+          leagueId,
+          season,
+          where: { id: row.id },
+          row: {
+            trade_id: safeStr(row.trade_id || tradeId),
+            action_type: safeStr(row.action_type || "ACCEPT"),
+            from_franchise_id: safeStr(row.from_franchise_id),
+            to_franchise_id: safeStr(row.to_franchise_id),
+            payload_xml_extensions: extensionXml,
+            payload_xml_salary_adj: salaryAdjXml,
+            payload_xml_salary_trade: salaryTradeXml,
+            payload_json: row.payload_json || null,
+            comment_trailer: safeStr(row.comment_trailer),
+            payload_hash: safeStr(row.payload_hash),
+            status: nextStatus,
+            mfl_post_response_snip: trimDiagText(JSON.stringify(replayImports), 1000),
+            mfl_verify_response_snip: trimDiagText(
+              JSON.stringify({
+                salaries_status: verifySalaries.status,
+                salaries_ok: !!verifySalaries.ok,
+                transactions_status: verifyTransactions.status,
+                transactions_ok: !!verifyTransactions.ok,
+              }),
+              1000
+            ),
+          },
+        });
+
+        return jsonOut(200, {
+          ok: nextStatus === "VERIFIED",
+          league_id: leagueId,
+          season: safeInt(season, Number(season) || 0),
+          outbox: {
+            outbox_id: safeStr(row.id),
+            payload_hash: safeStr(row.payload_hash),
+            status: nextStatus,
+            backend: safeStr(updateReplay.backend || lookup.backend || ""),
+            write_error: updateReplay.ok ? "" : safeStr(updateReplay.error),
+          },
+          replay_imports: replayImports,
+          verify: {
+            salaries_export: {
+              ok: !!verifySalaries.ok,
+              status: verifySalaries.status,
+              error: verifySalaries.error || "",
+              preview: verifySalaries.textPreview || "",
+            },
+            transactions_export: {
+              ok: !!verifyTransactions.ok,
+              status: verifyTransactions.status,
+              error: verifyTransactions.error || "",
+              preview: verifyTransactions.textPreview || "",
+            },
           },
         });
       }
