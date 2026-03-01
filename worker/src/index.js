@@ -2669,7 +2669,7 @@ export default {
           payload && typeof payload === "object"
             ? JSON.parse(JSON.stringify(payload))
             : {};
-        const salaryAdjRows = buildSalaryAdjRowsFromPayload(normalizedPayload, tradeId);
+        const salaryAdjRows = buildSalaryAdjRowsFromPayload(normalizedPayload, tradeId, season);
         const salaryAdjXml = salaryAdjRows.length ? buildSalaryAdjXml(salaryAdjRows) : "";
 
         let extensionXml = "";
@@ -3919,7 +3919,16 @@ export default {
         return { storedOffer, storageSync };
       };
 
-      const buildSalaryAdjRowsFromPayload = (payload, tradeId) => {
+      const buildTradeAdjustmentRef = (season, tradeId) => {
+        const seasonText = safeStr(season).replace(/\D/g, "");
+        const tradeDigits = safeStr(tradeId).replace(/\D/g, "");
+        if (seasonText && tradeDigits) return `trade_${seasonText}${tradeDigits}`;
+        if (tradeDigits) return `trade_${tradeDigits}`;
+        if (seasonText) return `trade_${seasonText}`;
+        return "trade_unknown";
+      };
+
+      const buildSalaryAdjRowsFromPayload = (payload, tradeId, season) => {
         const { left, right } = tradeSidesFromPayload(payload);
         const leftId = padFranchiseId(left?.franchise_id);
         const rightId = padFranchiseId(right?.franchise_id);
@@ -3927,17 +3936,17 @@ export default {
         const nets = salaryNetBySideK(left, right);
         if (!nets.left_net_k) return [];
         const amount = nets.left_net_k * 1000;
-        const suffix = tradeId ? ` (trade ${tradeId})` : "";
+        const txRef = buildTradeAdjustmentRef(season, tradeId);
         return [
           {
             franchise_id: leftId,
             amount,
-            explanation: `UPS traded salary settlement${suffix}: net ${nets.left_net_k > 0 ? "+" : ""}${nets.left_net_k}K`,
+            explanation: `UPS traded salary settlement (${txRef}): net ${nets.left_net_k > 0 ? "+" : ""}${nets.left_net_k}K`,
           },
           {
             franchise_id: rightId,
             amount: -amount,
-            explanation: `UPS traded salary settlement${suffix}: net ${nets.right_net_k > 0 ? "+" : ""}${nets.right_net_k}K`,
+            explanation: `UPS traded salary settlement (${txRef}): net ${nets.right_net_k > 0 ? "+" : ""}${nets.right_net_k}K`,
           },
         ];
       };
@@ -4578,7 +4587,7 @@ export default {
       };
 
       const applySalaryAdjFromPayload = async (leagueId, season, payload, tradeId) => {
-        const rows = buildSalaryAdjRowsFromPayload(payload, tradeId);
+        const rows = buildSalaryAdjRowsFromPayload(payload, tradeId, season);
         if (!rows.length) {
           return {
             ok: true,
@@ -4947,7 +4956,9 @@ export default {
           verification = primaryVerify.verification;
         }
         let statuslessRetryUsed = false;
+        const allowStatuslessRetry = safeStr(env?.TWB_EXT_RETRY_WITHOUT_STATUS || "0") === "1";
         if (
+          allowStatuslessRetry &&
           importRes.requestOk &&
           !verification.ok &&
           plan.xml_without_status &&
@@ -6733,7 +6744,7 @@ export default {
               if (extensionPreparation && extensionPreparation.payload) {
                 payload = extensionPreparation.payload;
               }
-              const plannedSalaryAdjRows = buildSalaryAdjRowsFromPayload(payload, mflTradeId);
+              const plannedSalaryAdjRows = buildSalaryAdjRowsFromPayload(payload, mflTradeId, season);
               const plannedExtCount = Array.isArray(payload?.extension_requests)
                 ? payload.extension_requests.length
                 : 0;
