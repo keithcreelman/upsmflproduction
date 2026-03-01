@@ -2187,6 +2187,7 @@
         var postSummary = summarizePostAcceptResult(res);
         if (postSummary.text) okText += " " + postSummary.text + ".";
         setSubmitStatus(okText, postSummary.tone || "good");
+        showFeedbackModal("Offer Accepted", okText, postSummary.tone || "good");
         setAcceptDebug(res && res.accept_debug ? res.accept_debug : null);
         if (res && res.accept_debug) {
           try {
@@ -2213,6 +2214,13 @@
         }
       } else {
         setSubmitStatus(okText, "good");
+        if (normalizedAction === "REVOKE") {
+          showFeedbackModal("Offer Revoked", okText, "good");
+        } else if (normalizedAction === "REJECT") {
+          showFeedbackModal("Offer Rejected", okText, "good");
+        } else {
+          showFeedbackModal("Trade Update", okText, "good");
+        }
       }
       await refreshBannerOffers(true);
       if (res && res.mode && safeStr(res.mode).toLowerCase() !== "direct_mfl") {
@@ -2449,6 +2457,40 @@
     state.submit.tone = safeStr(tone) || "";
   }
 
+  function closeFeedbackModal() {
+    if (!els.feedbackModal) return;
+    if (typeof els.feedbackModal.close === "function") {
+      try {
+        els.feedbackModal.close();
+      } catch (e) {
+        // noop
+      }
+    } else {
+      els.feedbackModal.removeAttribute("open");
+    }
+  }
+
+  function showFeedbackModal(title, message, tone) {
+    if (!els.feedbackModal || !els.feedbackModalMessage || !els.feedbackModalTitle) return;
+    els.feedbackModalTitle.textContent = safeStr(title) || "Trade Update";
+    els.feedbackModalMessage.textContent = safeStr(message) || "";
+    var shell = els.feedbackModalShell;
+    if (shell) {
+      shell.classList.remove("is-good", "is-bad", "is-warn");
+      var safeTone = safeStr(tone);
+      if (safeTone) shell.classList.add("is-" + safeTone);
+    }
+    if (typeof els.feedbackModal.showModal === "function") {
+      try {
+        els.feedbackModal.showModal();
+        return;
+      } catch (e) {
+        // noop
+      }
+    }
+    els.feedbackModal.setAttribute("open", "open");
+  }
+
   function setAcceptDebug(debugObj) {
     state.submit.acceptDebug = debugObj && typeof debugObj === "object" ? debugObj : null;
   }
@@ -2652,7 +2694,9 @@
             .filter(Boolean)
             .join(" · ");
       }
-      setSubmitStatus("Offer submitted to MFL" + (mflTradeId ? " (Trade ID " + mflTradeId + ")." : ".") + outboxText, "good");
+      var submitOkMessage = "Offer submitted to MFL" + (mflTradeId ? " (Trade ID " + mflTradeId + ")." : ".") + outboxText;
+      setSubmitStatus(submitOkMessage, "good");
+      showFeedbackModal("Offer Submitted", submitOkMessage, "good");
       initTeamSelectors();
       await refreshBannerOffers(true);
       rerender();
@@ -2718,7 +2762,9 @@
       state.submit.lastRequestBody = null;
       state.submit.lastRequestUrl = "";
       state.submit.canRetry = false;
-      setSubmitStatus("Offer submitted to MFL" + (mflTradeId ? " (Trade ID " + mflTradeId + ")." : "."), "good");
+      var retryOkMessage = "Offer submitted to MFL" + (mflTradeId ? " (Trade ID " + mflTradeId + ")." : ".");
+      setSubmitStatus(retryOkMessage, "good");
+      showFeedbackModal("Offer Submitted", retryOkMessage, "good");
       initTeamSelectors();
       await refreshBannerOffers(true);
       rerender();
@@ -3578,18 +3624,37 @@
   }
 
   function buildSalaryReconciliation(leftTeam, rightTeam, leftTotals, rightTotals, leftTradeK, rightTradeK) {
+    var salaryCap = safeInt(state.data && state.data.meta ? state.data.meta.salary_cap_dollars : 0, 0);
     var leftAvailableBefore = resolveTeamAvailableSalaryDollars(state.leftTeamId);
     var rightAvailableBefore = resolveTeamAvailableSalaryDollars(state.rightTeamId);
     var leftOutgoing = safeInt(leftTotals.selectedNonTaxiSalary, 0);
     var rightOutgoing = safeInt(rightTotals.selectedNonTaxiSalary, 0);
     var leftIncoming = rightOutgoing;
     var rightIncoming = leftOutgoing;
-    var leftNetTradeK = leftTradeK - rightTradeK;
-    var rightNetTradeK = rightTradeK - leftTradeK;
-    var leftNetChange = leftOutgoing - leftIncoming - (leftNetTradeK * 1000);
-    var rightNetChange = rightOutgoing - rightIncoming - (rightNetTradeK * 1000);
-    var leftAvailableAfter = leftAvailableBefore == null ? null : leftAvailableBefore + leftNetChange;
-    var rightAvailableAfter = rightAvailableBefore == null ? null : rightAvailableBefore + rightNetChange;
+    var leftSalaryTradeAdjustmentDollars = (leftTradeK - rightTradeK) * 1000;
+    var rightSalaryTradeAdjustmentDollars = (rightTradeK - leftTradeK) * 1000;
+
+    var leftStartingSalary = salaryCap > 0 && leftAvailableBefore != null
+      ? salaryCap - safeInt(leftAvailableBefore, 0)
+      : sumTeamCommittedSalary(state.leftTeamId);
+    var rightStartingSalary = salaryCap > 0 && rightAvailableBefore != null
+      ? salaryCap - safeInt(rightAvailableBefore, 0)
+      : sumTeamCommittedSalary(state.rightTeamId);
+
+    var leftNetSalaryAdjustment = leftIncoming - leftOutgoing + leftSalaryTradeAdjustmentDollars;
+    var rightNetSalaryAdjustment = rightIncoming - rightOutgoing + rightSalaryTradeAdjustmentDollars;
+    var leftNewSalary = safeInt(leftStartingSalary, 0) + leftNetSalaryAdjustment;
+    var rightNewSalary = safeInt(rightStartingSalary, 0) + rightNetSalaryAdjustment;
+
+    var leftAvailableAfter = salaryCap > 0
+      ? salaryCap - leftNewSalary
+      : (leftAvailableBefore == null ? null : safeInt(leftAvailableBefore, 0) - leftNetSalaryAdjustment);
+    var rightAvailableAfter = salaryCap > 0
+      ? salaryCap - rightNewSalary
+      : (rightAvailableBefore == null ? null : safeInt(rightAvailableBefore, 0) - rightNetSalaryAdjustment);
+
+    var leftNetChange = -leftNetSalaryAdjustment;
+    var rightNetChange = -rightNetSalaryAdjustment;
     var leftOverCap = leftAvailableAfter != null && leftAvailableAfter < 0 ? Math.abs(leftAvailableAfter) : 0;
     var rightOverCap = rightAvailableAfter != null && rightAvailableAfter < 0 ? Math.abs(rightAvailableAfter) : 0;
 
@@ -3597,11 +3662,16 @@
       left: {
         franchise_id: leftTeam ? leftTeam.franchise_id : "",
         franchise_name: leftTeam ? leftTeam.franchise_name : "",
+        salary_cap_dollars: salaryCap > 0 ? salaryCap : null,
+        starting_salary_dollars: leftStartingSalary,
         outgoing_dollars: leftOutgoing,
         incoming_dollars: leftIncoming,
+        salary_trade_adjustment_dollars: leftSalaryTradeAdjustmentDollars,
+        net_salary_adjustment_dollars: leftNetSalaryAdjustment,
+        new_salary_dollars: leftNewSalary,
         trade_salary_adjustment_k: leftTradeK,
         trade_salary_adjustment_max_k: getTradeSalaryMaxK(state.leftTeamId),
-        net_trade_salary_k: leftNetTradeK,
+        net_trade_salary_k: safeInt(leftSalaryTradeAdjustmentDollars / 1000, 0),
         net_cap_change_dollars: leftNetChange,
         available_salary_before_dollars: leftAvailableBefore,
         available_salary_after_dollars: leftAvailableAfter,
@@ -3610,11 +3680,16 @@
       right: {
         franchise_id: rightTeam ? rightTeam.franchise_id : "",
         franchise_name: rightTeam ? rightTeam.franchise_name : "",
+        salary_cap_dollars: salaryCap > 0 ? salaryCap : null,
+        starting_salary_dollars: rightStartingSalary,
         outgoing_dollars: rightOutgoing,
         incoming_dollars: rightIncoming,
+        salary_trade_adjustment_dollars: rightSalaryTradeAdjustmentDollars,
+        net_salary_adjustment_dollars: rightNetSalaryAdjustment,
+        new_salary_dollars: rightNewSalary,
         trade_salary_adjustment_k: rightTradeK,
         trade_salary_adjustment_max_k: getTradeSalaryMaxK(state.rightTeamId),
-        net_trade_salary_k: rightNetTradeK,
+        net_trade_salary_k: safeInt(rightSalaryTradeAdjustmentDollars / 1000, 0),
         net_cap_change_dollars: rightNetChange,
         available_salary_before_dollars: rightAvailableBefore,
         available_salary_after_dollars: rightAvailableAfter,
@@ -4194,54 +4269,158 @@
     return row;
   }
 
+  function formatDollarsPlainLabel(dollars) {
+    if (dollars == null) return "—";
+    try {
+      return safeInt(dollars, 0).toLocaleString("en-US");
+    } catch (e) {
+      return String(safeInt(dollars, 0));
+    }
+  }
+
+  function formatSignedDollarsPlainLabel(dollars) {
+    if (dollars == null) return "—";
+    var n = safeInt(dollars, 0);
+    var abs = Math.abs(n);
+    var base;
+    try {
+      base = abs.toLocaleString("en-US");
+    } catch (e) {
+      base = String(abs);
+    }
+    if (n > 0) return "+" + base;
+    if (n < 0) return "-" + base;
+    return "0";
+  }
+
   function renderSalaryTeamBlock(title, sideData) {
     var block = document.createElement("section");
     block.className = "twb-salary-side";
+    var overCap = safeInt(sideData.over_cap_dollars, 0) > 0;
+    if (overCap) block.className += " is-over-cap";
 
     var h = document.createElement("h4");
     h.className = "twb-salary-side-title";
     h.textContent = title;
     block.appendChild(h);
 
-    block.appendChild(renderSalaryLine("Going Out", formatDollarsAsKLabel(sideData.outgoing_dollars)));
-    block.appendChild(renderSalaryLine("Coming In", formatDollarsAsKLabel(sideData.incoming_dollars)));
     block.appendChild(
       renderSalaryLine(
-        "Trade Salary",
-        formatKLabel(sideData.trade_salary_adjustment_k) + " / " + formatKLabel(sideData.trade_salary_adjustment_max_k)
+        "Starting Salary",
+        formatDollarsPlainLabel(sideData.starting_salary_dollars)
       )
     );
-    block.appendChild(renderSalaryLine("Net Change", formatSignedK(Math.round(safeInt(sideData.net_cap_change_dollars, 0) / 1000))));
+    block.appendChild(renderSalaryLine("Incoming Salary", formatDollarsPlainLabel(sideData.incoming_dollars)));
+    block.appendChild(renderSalaryLine("Exiting Salary", formatDollarsPlainLabel(sideData.outgoing_dollars)));
+    block.appendChild(
+      renderSalaryLine("Salary Trade Adjustment", formatSignedDollarsPlainLabel(sideData.salary_trade_adjustment_dollars))
+    );
+    if (safeInt(sideData.salary_trade_adjustment_dollars, 0) < 0) {
+      var adjHint = document.createElement("div");
+      adjHint.className = "twb-salary-adjustment-hint";
+      adjHint.textContent = "Negative implies receiving salary relief.";
+      block.appendChild(adjHint);
+    }
+    block.appendChild(
+      renderSalaryLine("Net Adjustment", formatDollarsPlainLabel(sideData.net_salary_adjustment_dollars))
+    );
+    block.appendChild(renderSalaryLine("New Salary", formatDollarsPlainLabel(sideData.new_salary_dollars)));
     block.appendChild(
       renderSalaryLine(
-        "Available",
-        sideData.available_salary_before_dollars == null ? "—" : formatDollarsAsKLabel(sideData.available_salary_before_dollars)
+        "Available Salary",
+        sideData.available_salary_after_dollars == null ? "—" : formatDollarsPlainLabel(sideData.available_salary_after_dollars),
+        overCap ? "bad" : "good"
       )
     );
-    block.appendChild(
-      renderSalaryLine(
-        "Post-Trade",
-        sideData.available_salary_after_dollars == null ? "—" : formatDollarsAsKLabel(sideData.available_salary_after_dollars),
-        safeInt(sideData.over_cap_dollars, 0) > 0 ? "bad" : "good"
-      )
-    );
+
+    if (overCap) {
+      var overCapEl = document.createElement("div");
+      overCapEl.className = "twb-salary-over-cap-indicator";
+      overCapEl.textContent = "OVER CAP BY $" + formatDollarsPlainLabel(sideData.over_cap_dollars);
+      block.appendChild(overCapEl);
+    }
+
     return block;
+  }
+
+  function renderTradeSummaryColumn(title, items) {
+    var wrap = document.createElement("section");
+    wrap.className = "twb-trade-summary-side";
+    var h = document.createElement("h4");
+    h.className = "twb-trade-summary-side-title";
+    h.textContent = title;
+    wrap.appendChild(h);
+
+    var list = document.createElement("ul");
+    list.className = "twb-trade-summary-list";
+    var rows = Array.isArray(items) ? items : [];
+    if (!rows.length) {
+      var liEmpty = document.createElement("li");
+      liEmpty.className = "twb-trade-summary-item is-empty";
+      liEmpty.textContent = "None";
+      list.appendChild(liEmpty);
+    } else {
+      var i;
+      for (i = 0; i < rows.length; i += 1) {
+        var li = document.createElement("li");
+        li.className = "twb-trade-summary-item";
+        li.textContent = rows[i];
+        list.appendChild(li);
+      }
+    }
+    wrap.appendChild(list);
+    return wrap;
+  }
+
+  function summarizeAssetForTradeSummary(asset) {
+    if (!asset || typeof asset !== "object") return "";
+    if (safeStr(asset.type).toUpperCase() === "PLAYER") return safeStr(asset.player_name);
+    if (safeStr(asset.type).toUpperCase() === "PICK") return safeStr(asset.description || asset.asset_id);
+    return safeStr(asset.player_name || asset.description || asset.asset_id);
+  }
+
+  function renderTradeSummary(payload) {
+    if (!els.tradeSummaryContent) return;
+    els.tradeSummaryContent.innerHTML = "";
+
+    var teams = Array.isArray((payload || {}).teams) ? payload.teams : [];
+    var leftTeam = teams[0] || {};
+    var rightTeam = teams[1] || {};
+    var reconLeft = ((payload || {}).salary_reconciliation || {}).left || {};
+
+    var sendItems = [];
+    var receiveItems = [];
+    var i;
+    var leftAssets = Array.isArray(leftTeam.selected_assets) ? leftTeam.selected_assets : [];
+    var rightAssets = Array.isArray(rightTeam.selected_assets) ? rightTeam.selected_assets : [];
+
+    for (i = 0; i < leftAssets.length; i += 1) {
+      var sendLabel = summarizeAssetForTradeSummary(leftAssets[i]);
+      if (sendLabel) sendItems.push(sendLabel);
+    }
+    for (i = 0; i < rightAssets.length; i += 1) {
+      var receiveLabel = summarizeAssetForTradeSummary(rightAssets[i]);
+      if (receiveLabel) receiveItems.push(receiveLabel);
+    }
+
+    var salaryAdj = safeInt(reconLeft.salary_trade_adjustment_dollars, 0);
+    if (salaryAdj > 0) {
+      sendItems.push("Trade Salary: " + moneyFmt(salaryAdj));
+    } else if (salaryAdj < 0) {
+      receiveItems.push("Salary Relief: " + moneyFmt(Math.abs(salaryAdj)));
+    }
+
+    var grid = document.createElement("div");
+    grid.className = "twb-trade-summary-grid";
+    grid.appendChild(renderTradeSummaryColumn("You Send", sendItems));
+    grid.appendChild(renderTradeSummaryColumn("You Receive", receiveItems));
+    els.tradeSummaryContent.appendChild(grid);
   }
 
   function renderOfferAlerts(payload) {
     if (!els.offerAlerts) return;
     els.offerAlerts.innerHTML = "";
-    var recon = payload.salary_reconciliation || {};
-    var left = recon.left || {};
-    var right = recon.right || {};
     var alerts = [];
-    if (safeInt(left.over_cap_dollars, 0) > 0) {
-      alerts.push((safeStr(left.franchise_name) || "Your team") + " Over The Cap - Warning · " + formatDollarsAsKLabel(left.over_cap_dollars));
-    }
-    if (safeInt(right.over_cap_dollars, 0) > 0) {
-      alerts.push((safeStr(right.franchise_name) || "Partner team") + " Over The Cap - Warning · " + formatDollarsAsKLabel(right.over_cap_dollars));
-    }
-
     var i;
     for (i = 0; i < alerts.length; i += 1) {
       var alert = document.createElement("div");
@@ -4321,6 +4500,7 @@
     );
     summaryEl.appendChild(salaryGrid);
 
+    renderTradeSummary(payload);
     renderOfferCart(payload);
     renderOfferAlerts(payload);
     renderSubmitArea(payload);
@@ -4454,6 +4634,7 @@
     resetSubmitUiState("No offer submitted yet.", "");
     if (resetMessage && els.offerMessageInput) els.offerMessageInput.value = "";
     closeExtensionModal();
+    closeFeedbackModal();
   }
 
   function copyPayloadToClipboard() {
@@ -4594,6 +4775,22 @@
       els.extensionModal.addEventListener("cancel", function (evt) {
         evt.preventDefault();
         closeExtensionModal();
+      });
+    }
+
+    if (els.feedbackModalCloseBtn) {
+      els.feedbackModalCloseBtn.addEventListener("click", function (evt) {
+        evt.preventDefault();
+        closeFeedbackModal();
+      });
+    }
+    if (els.feedbackModal) {
+      els.feedbackModal.addEventListener("cancel", function (evt) {
+        evt.preventDefault();
+        closeFeedbackModal();
+      });
+      els.feedbackModal.addEventListener("click", function (evt) {
+        if (evt.target === els.feedbackModal) closeFeedbackModal();
       });
     }
 
@@ -4854,6 +5051,8 @@
     els.summary = q("twbSummary");
     els.summaryContent = q("twbSummaryContent");
     els.summaryStatus = q("twbSummaryStatus");
+    els.tradeSummaryPanel = q("twbTradeSummaryPanel");
+    els.tradeSummaryContent = q("twbTradeSummaryContent");
     els.payloadPreview = q("twbPayloadPreview");
     els.offerMessageInput = q("twbOfferMessageInput");
     els.submitOfferBtn = q("twbSubmitOfferBtn");
@@ -4866,6 +5065,11 @@
     els.extModalOptionSelect = q("twbExtModalOptionSelect");
     els.extModalPreview = q("twbExtModalPreview");
     els.extModalSaveBtn = q("twbExtModalSaveBtn");
+    els.feedbackModal = q("twbFeedbackModal");
+    els.feedbackModalShell = els.feedbackModal ? els.feedbackModal.querySelector(".twb-feedback-modal-shell") : null;
+    els.feedbackModalTitle = q("twbFeedbackModalTitle");
+    els.feedbackModalMessage = q("twbFeedbackModalMessage");
+    els.feedbackModalCloseBtn = q("twbFeedbackModalCloseBtn");
   }
 
   function seedInitialTeams() {

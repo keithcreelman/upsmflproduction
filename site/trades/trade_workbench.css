@@ -826,9 +826,15 @@ summary:focus-visible {
   border: 1px solid #d7e0ea;
   border-radius: 12px;
   background: #f8fafc;
-  padding: 0.58rem 0.62rem;
+  padding: 0.64rem 0.68rem;
   display: grid;
-  gap: 0.42rem;
+  gap: 0.46rem;
+}
+
+.twb-salary-side.is-over-cap {
+  border-color: #dc2626;
+  background: #fff1f2;
+  box-shadow: inset 0 0 0 1px rgba(220, 38, 38, 0.15);
 }
 
 .twb-salary-side-title {
@@ -839,10 +845,84 @@ summary:focus-visible {
 
 .twb-offer-salary-panel .twb-summary-row .label {
   color: #475569;
+  font-size: 0.8rem;
 }
 
 .twb-offer-salary-panel .twb-summary-row .value {
   color: #0f172a;
+  font-size: 0.9rem;
+}
+
+.twb-salary-adjustment-hint {
+  margin-top: -0.1rem;
+  font-size: 0.74rem;
+  color: #7c2d12;
+  font-weight: 700;
+}
+
+.twb-salary-over-cap-indicator {
+  margin-top: 0.2rem;
+  border-radius: 8px;
+  border: 1px solid #fecaca;
+  background: #dc2626;
+  color: #fff;
+  padding: 0.42rem 0.5rem;
+  font-size: 0.79rem;
+  font-weight: 900;
+  letter-spacing: 0.01em;
+}
+
+.twb-trade-summary-panel {
+  margin-top: 0.72rem;
+  border-color: #d4dde8;
+  background: #ffffff;
+  color: #0f172a;
+}
+
+.twb-trade-summary-panel h3 {
+  margin: 0;
+  color: #0f172a;
+  text-transform: uppercase;
+  font-size: 0.88rem;
+  letter-spacing: 0.03em;
+}
+
+.twb-trade-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.twb-trade-summary-side {
+  border: 1px solid #d7e0ea;
+  border-radius: 12px;
+  background: #f8fafc;
+  padding: 0.58rem 0.62rem;
+}
+
+.twb-trade-summary-side-title {
+  margin: 0 0 0.42rem;
+  font-size: 0.85rem;
+  color: #0f172a;
+}
+
+.twb-trade-summary-list {
+  margin: 0;
+  padding-left: 1rem;
+  display: grid;
+  gap: 0.28rem;
+}
+
+.twb-trade-summary-item {
+  color: #1e293b;
+  font-size: 0.84rem;
+}
+
+.twb-trade-summary-item.is-empty {
+  list-style: none;
+  margin-left: -1rem;
+  color: #64748b;
+  font-style: italic;
 }
 
 .twb-offer-submit-card {
@@ -1426,6 +1506,60 @@ summary:focus-visible {
   gap: 0.5rem;
 }
 
+.twb-feedback-modal-dialog {
+  border: 0;
+  padding: 0;
+  border-radius: 14px;
+  background: transparent;
+  width: min(440px, calc(100vw - 1.5rem));
+  max-width: 100%;
+}
+
+.twb-feedback-modal-dialog::backdrop {
+  background: rgba(2, 6, 23, 0.72);
+}
+
+.twb-feedback-modal-shell {
+  margin: 0;
+  border: 1px solid rgba(121, 153, 195, 0.34);
+  border-radius: 14px;
+  background: #0a172d;
+  color: #eaf3ff;
+  padding: 0.78rem;
+  display: grid;
+  gap: 0.72rem;
+}
+
+.twb-feedback-modal-shell.is-good {
+  border-color: rgba(34, 197, 94, 0.6);
+}
+
+.twb-feedback-modal-shell.is-warn {
+  border-color: rgba(245, 158, 11, 0.7);
+}
+
+.twb-feedback-modal-shell.is-bad {
+  border-color: rgba(239, 68, 68, 0.72);
+}
+
+.twb-feedback-modal-head h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.twb-feedback-modal-message {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: #d9e8ff;
+}
+
+.twb-feedback-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
 .twb-payload-card {
   padding: 0.92rem;
 }
@@ -1586,6 +1720,16 @@ summary:focus-visible {
   .twb-ext-modal-preview {
     background: #f8fafc;
     border-color: #cbd5e1;
+    color: #334155;
+  }
+
+  .twb-feedback-modal-shell {
+    background: #ffffff;
+    color: #0f172a;
+    border-color: #cbd5e1;
+  }
+
+  .twb-feedback-modal-message {
     color: #334155;
   }
 }
@@ -1797,6 +1941,10 @@ summary:focus-visible {
   }
 
   .twb-salary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .twb-trade-summary-grid {
     grid-template-columns: 1fr;
   }
 }

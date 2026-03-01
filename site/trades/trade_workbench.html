@@ -110,6 +110,13 @@
           </div>
         </section>
 
+        <section id="twbTradeSummaryPanel" class="twb-trade-summary-panel twb-card twb-card-tight" aria-label="Trade summary">
+          <div class="twb-card-head-inline">
+            <h3>Trade Summary</h3>
+          </div>
+          <div id="twbTradeSummaryContent"></div>
+        </section>
+
         <section class="twb-offer-submit-card twb-card twb-card-tight" aria-label="Submit trade offer">
           <label class="twb-field">
             <span>Message (Optional)</span>
@@ -236,6 +243,20 @@
       <footer class="twb-ext-modal-actions">
         <button type="button" class="twb-btn twb-btn-ghost" data-action="ext-modal-cancel">Cancel</button>
         <button type="button" id="twbExtModalSaveBtn" class="twb-btn twb-btn-primary">Save</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <dialog id="twbFeedbackModal" class="twb-feedback-modal-dialog" aria-labelledby="twbFeedbackModalTitle">
+    <form method="dialog" class="twb-feedback-modal-shell">
+      <header class="twb-feedback-modal-head">
+        <h3 id="twbFeedbackModalTitle">Trade Update</h3>
+      </header>
+      <div class="twb-feedback-modal-body">
+        <p id="twbFeedbackModalMessage" class="twb-feedback-modal-message"></p>
+      </div>
+      <footer class="twb-feedback-modal-actions">
+        <button type="button" id="twbFeedbackModalCloseBtn" class="twb-btn twb-btn-primary">OK</button>
       </footer>
     </form>
   </dialog>
