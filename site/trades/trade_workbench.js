@@ -723,26 +723,93 @@
     window.setTimeout(function () { postParentHeight(true); }, 2000);
   }
 
-  async function loadData() {
-    if (window.UPS_TRADE_WORKBENCH_DATA) return window.UPS_TRADE_WORKBENCH_DATA;
+  function withNoCacheUrl(rawUrl) {
+    var resolved = resolveRelativeUrl(rawUrl);
+    try {
+      var u = new URL(resolved, window.location.href);
+      u.searchParams.set("NO_CACHE", "1");
+      u.searchParams.set("_twb_refresh", String(Date.now()));
+      return u.toString();
+    } catch (e) {
+      var sep = resolved.indexOf("?") === -1 ? "?" : "&";
+      return resolved + sep + "NO_CACHE=1&_twb_refresh=" + encodeURIComponent(String(Date.now()));
+    }
+  }
+
+  async function loadData(options) {
+    options = options || {};
+    var forceReload = !!options.forceReload;
+    if (!forceReload && window.UPS_TRADE_WORKBENCH_DATA) return window.UPS_TRADE_WORKBENCH_DATA;
 
     var queryDataUrl = getDataUrlFromQuery();
     if (queryDataUrl) {
-      return fetchJson(resolveRelativeUrl(queryDataUrl));
+      return fetchJson(forceReload ? withNoCacheUrl(queryDataUrl) : resolveRelativeUrl(queryDataUrl));
     }
 
     var queryApiUrl = buildApiRequestUrlFromQuery();
     if (queryApiUrl) {
-      return fetchJson(queryApiUrl);
+      return fetchJson(forceReload ? withNoCacheUrl(queryApiUrl) : queryApiUrl);
     }
 
-    return fetchJson(resolveRelativeUrl(SAMPLE_DATA_URL));
+    return fetchJson(forceReload ? withNoCacheUrl(SAMPLE_DATA_URL) : resolveRelativeUrl(SAMPLE_DATA_URL));
   }
 
-  async function refreshWorkbenchDataAfterTrade() {
+  function resolveAfterTradeRefreshApiUrl() {
+    var explicit = safeStr(window.UPS_TRADE_AFTER_REFRESH_API || window.UPS_TRADE_WORKBENCH_AFTER_REFRESH_API);
+    if (explicit) return resolveRelativeUrl(explicit);
+
+    var actionUrl = resolveTradeOffersActionApiUrl();
+    try {
+      var u = new URL(actionUrl, window.location.href);
+      u.search = "";
+      u.hash = "";
+      var path = String(u.pathname || "");
+      if (/\/trade-offers\/action\/?$/i.test(path)) {
+        u.pathname = path.replace(/\/trade-offers\/action\/?$/i, "/refresh/after-trade");
+      } else if (/\/api\/trades\/proposals\/action\/?$/i.test(path)) {
+        u.pathname = path.replace(/\/api\/trades\/proposals\/action\/?$/i, "/api/trades/refresh-after-trade");
+      } else {
+        u.pathname = "/refresh/after-trade";
+      }
+      return u.toString();
+    } catch (e) {
+      return "https://upsmflproduction.keith-creelman.workers.dev/refresh/after-trade";
+    }
+  }
+
+  async function triggerAfterTradeRefresh(args) {
+    args = args && typeof args === "object" ? args : {};
+    var meta = state.data && state.data.meta ? state.data.meta : {};
+    var body = {
+      league_id: safeStr(meta.league_id),
+      season: safeStr(meta.season),
+      trade_id: safeStr(args.trade_id || args.tradeId || ""),
+      acting_franchise_id: getActiveFranchiseId(),
+      dispatch_refresh_mym_json: true,
+      reconcile_extensions: false
+    };
+    var url = resolveAfterTradeRefreshApiUrl();
+    if (!body.league_id || !body.season || !url) return null;
+    try {
+      var u = new URL(url, window.location.href);
+      if (!u.searchParams.get("L")) u.searchParams.set("L", body.league_id);
+      if (!u.searchParams.get("YEAR")) u.searchParams.set("YEAR", body.season);
+      url = u.toString();
+    } catch (e) {
+      // noop
+    }
+    return fetchJsonRequest(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
+  }
+
+  async function refreshWorkbenchDataAfterTrade(options) {
+    options = options || {};
     var previousActiveId = getActiveFranchiseId();
     var previousRightId = safeStr(state.rightTeamId);
-    var raw = await loadData();
+    var raw = await loadData({ forceReload: true });
     state.data = normalizeData(raw);
     if (!state.data.teams || !state.data.teams.length) {
       throw new Error("No teams in refreshed payload.");
@@ -2069,6 +2136,16 @@
           } catch (e0) {
             // noop
           }
+        }
+        try {
+          var afterRefreshRes = await triggerAfterTradeRefresh({
+            trade_id: safeStr(res && res.trade_id)
+          });
+          if (afterRefreshRes && afterRefreshRes.ok === false) {
+            console.warn("[TWB] After-trade refresh hook returned non-ok payload:", afterRefreshRes);
+          }
+        } catch (afterRefreshErr) {
+          console.warn("[TWB] After-trade refresh hook failed:", afterRefreshErr);
         }
         try {
           await refreshWorkbenchDataAfterTrade();
