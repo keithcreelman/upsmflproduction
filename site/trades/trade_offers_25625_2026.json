@@ -3,8 +3,8 @@
     "schema_version": 1,
     "league_id": "25625",
     "season": 2026,
-    "updated_at": "2026-03-01T12:01:10.443Z",
-    "row_count": 8,
+    "updated_at": "2026-03-01T12:17:35.436Z",
+    "row_count": 9,
     "source": "worker-trade-offers"
   },
   "offers": [
@@ -1073,6 +1073,180 @@
       },
       "mfl_trade_id": "1041",
       "trade_id": "1041",
+      "mfl_present": true,
+      "mfl_status": "PENDING"
+    },
+    {
+      "id": "MFL-1042",
+      "league_id": "25625",
+      "season": 2026,
+      "status": "PENDING",
+      "created_at": "2026-03-01T12:17:35.436Z",
+      "updated_at": "2026-03-01T12:17:35.436Z",
+      "from_franchise_id": "0011",
+      "to_franchise_id": "0008",
+      "from_franchise_name": "Cleon Ca$h",
+      "to_franchise_name": "Real Deal Creel",
+      "message": "Pre-trade extension: Extend Kraft, Tucker 2-year | New length 3 | New AAV 22K | New TCV 46K",
+      "comment": "Pre-trade extension: Extend Kraft, Tucker 2-year | New length 3 | New AAV 22K | New TCV 46K",
+      "comments": "Pre-trade extension: Extend Kraft, Tucker 2-year | New length 3 | New AAV 22K | New TCV 46K",
+      "raw_comment": "[UPS_TWB_META:eyJ2IjoxLCJ0cyI6IjIwMjYtMDMtMDFUMTI6MTc6MzQuNjYxWiIsImxlYWd1ZV9pZCI6IjI1NjI1Iiwic2Vhc29uIjoyMDI2LCJmcm9tIjoiMDAxMSIsInRvIjoiMDAwOCIsInNhbGFyeV9uZXRfayI6eyJsZWZ0IjotNSwicmlnaHQiOjV9LCJleHQiOlt7InBsYXllcl9pZCI6IjE2MjIyIiwicGxheWVyX25hbWUiOiJLcmFmdCwgVHVja2VyIiwiZnJvbV9mcmFuY2hpc2VfaWQiOiIwMDExIiwidG9fZnJhbmNoaXNlX2lkIjoiMDAwOCIsIm9wdGlvbl9rZXkiOiIyWVJ8Tk9ORSIsImV4dGVuc2lvbl90ZXJtIjoiMllSIiwibmV3X2NvbnRyYWN0X3N0YXR1cyI6IkVYVDIiLCJuZXdfY29udHJhY3RfbGVuZ3RoIjozLCJuZXdfVENWIjo0NjAwMCwibmV3X2Fhdl9mdXR1cmUiOjIyMDAwfV19] Pre-trade extension: Extend Kraft, Tucker 2-year | New length 3 | New AAV 22K | New TCV 46K\n\n[UPS_TWB_INTENT_BEGIN]\nUPS_OUTBOX_ID:3\nUPS_PAYLOAD_HASH:0018b0a4807cfc42709683970a2d9f7883d428789be524eaa9d3f509dc32afe6\nUPS_XML_EXT:PHNhbGFyaWVzPjxsZWFndWVVbml0IHVuaXQ9IkxFQUdVRSI-PHBsYXllciBpZD0iMTYyMjIiIHNhbGFyeT0iMjAwMCIgY29udHJhY3RZZWFyPSIxIiBjb250cmFjdEluZm89IkNMIDN8VENWIDQ2S3xBQVYgMkssIDIyS3xZMS0ySywgWTItMjJLLCBZMy0yMkt8RXh0OiBDYXNofEdURDogMzVLIiBjb250cmFjdFN0YXR1cz0iRVhUMiIgLz48L2xlYWd1ZVVuaXQ-PC9zYWxhcmllcz4\nUPS_XML_SALADJ:PHNhbGFyeV9hZGp1c3RtZW50cz48c2FsYXJ5X2FkanVzdG1lbnQgZnJhbmNoaXNlX2lkPSIwMDExIiBhbW91bnQ9Ii01MDAwIiBleHBsYW5hdGlvbj0iVVBTIHRyYWRlZCBzYWxhcnkgc2V0dGxlbWVudDogbmV0IC01SyIvPjxzYWxhcnlfYWRqdXN0bWVudCBmcmFuY2hpc2VfaWQ9IjAwMDgiIGFtb3VudD0iNTAwMCIgZXhwbGFuYXRpb249IlVQUyB0cmFkZWQgc2FsYXJ5IHNldHRsZW1lbnQ6IG5ldCArNUsiLz48L3NhbGFyeV9hZGp1c3RtZW50cz4\n[UPS_TWB_INTENT_END]",
+      "will_give_up": "16222",
+      "will_receive": "17030,BB_5000",
+      "source": "trade-workbench-ui",
+      "summary": {
+        "from_asset_count": 1,
+        "to_asset_count": 1,
+        "from_trade_salary_k": 0,
+        "to_trade_salary_k": 5,
+        "extension_request_count": 1
+      },
+      "payload": {
+        "schema_version": 1,
+        "generated_at": "2026-03-01T12:17:33.761Z",
+        "source": "ups-trade-workbench",
+        "league_id": "25625",
+        "season": 2026,
+        "teams": [
+          {
+            "role": "left",
+            "franchise_id": "0011",
+            "franchise_name": "Cleon Ca$h",
+            "selected_assets": [
+              {
+                "asset_id": "player:16222",
+                "type": "PLAYER",
+                "player_id": "16222",
+                "player_name": "Kraft, Tucker",
+                "description": null,
+                "position": "TE",
+                "nfl_team": "GBP",
+                "salary": 2000,
+                "years": 1,
+                "contract_type": "Rookie",
+                "contract_info": "CL 3| TCV 6K| AAV 2K",
+                "taxi": false
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 1,
+            "selected_non_taxi_salary_dollars": 2000
+          },
+          {
+            "role": "right",
+            "franchise_id": "0008",
+            "franchise_name": "Real Deal Creel",
+            "selected_assets": [
+              {
+                "asset_id": "player:17030",
+                "type": "PLAYER",
+                "player_id": "17030",
+                "player_name": "Ward, Cam",
+                "description": null,
+                "position": "QB",
+                "nfl_team": "TEN",
+                "salary": 10000,
+                "years": 0,
+                "contract_type": "Rookie",
+                "contract_info": "CL 3| TCV 30K| AAV 10K | Option Eligible",
+                "taxi": false
+              }
+            ],
+            "traded_salary_adjustment_dollars": 5000,
+            "traded_salary_adjustment_k": 5,
+            "traded_salary_adjustment_max_k": 5,
+            "selected_non_taxi_salary_dollars": 10000
+          }
+        ],
+        "extension_requests": [
+          {
+            "player_id": "16222",
+            "player_name": "Kraft, Tucker",
+            "from_franchise_id": "0011",
+            "to_franchise_id": "0008",
+            "applies_to_acquirer": true,
+            "option_key": "2YR|NONE",
+            "extension_term": "2YR",
+            "loaded_indicator": "NONE",
+            "preview_id": 1124,
+            "preview_contract_info_string": "CL 3|TCV 46K|AAV 2K, 22K|Y1-2K, Y2-22K, Y3-22K|Ext: Cash|GTD: 35K",
+            "new_contract_status": "EXT2",
+            "new_contract_length": 3,
+            "new_TCV": 46000,
+            "new_aav_future": 22000
+          }
+        ],
+        "filters": {
+          "search": ""
+        },
+        "ui": {
+          "left_team_id": "0011",
+          "right_team_id": "0008"
+        },
+        "salary_reconciliation": {
+          "left": {
+            "franchise_id": "0011",
+            "franchise_name": "Cleon Ca$h",
+            "outgoing_dollars": 2000,
+            "incoming_dollars": 10000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 1,
+            "net_trade_salary_k": -5,
+            "net_cap_change_dollars": -3000,
+            "available_salary_before_dollars": 8000,
+            "available_salary_after_dollars": 5000,
+            "over_cap_dollars": 0
+          },
+          "right": {
+            "franchise_id": "0008",
+            "franchise_name": "Real Deal Creel",
+            "outgoing_dollars": 10000,
+            "incoming_dollars": 2000,
+            "trade_salary_adjustment_k": 5,
+            "trade_salary_adjustment_max_k": 5,
+            "net_trade_salary_k": 5,
+            "net_cap_change_dollars": 3000,
+            "available_salary_before_dollars": 88000,
+            "available_salary_after_dollars": 91000,
+            "over_cap_dollars": 0
+          },
+          "has_over_cap": false
+        },
+        "validation": {
+          "status": "ready",
+          "issues": []
+        },
+        "comment": "Pre-trade extension: Extend Kraft, Tucker 2-year | New length 3 | New AAV 22K | New TCV 46K"
+      },
+      "twb_meta": {
+        "v": 1,
+        "ts": "2026-03-01T12:17:34.661Z",
+        "league_id": "25625",
+        "season": 2026,
+        "from": "0011",
+        "to": "0008",
+        "salary_net_k": {
+          "left": -5,
+          "right": 5
+        },
+        "ext": [
+          {
+            "player_id": "16222",
+            "player_name": "Kraft, Tucker",
+            "from_franchise_id": "0011",
+            "to_franchise_id": "0008",
+            "option_key": "2YR|NONE",
+            "extension_term": "2YR",
+            "new_contract_status": "EXT2",
+            "new_contract_length": 3,
+            "new_TCV": 46000,
+            "new_aav_future": 22000
+          }
+        ]
+      },
+      "mfl_trade_id": "1042",
+      "trade_id": "1042",
       "mfl_present": true,
       "mfl_status": "PENDING"
     }
