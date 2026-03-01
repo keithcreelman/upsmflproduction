@@ -739,6 +739,32 @@
     return fetchJson(resolveRelativeUrl(SAMPLE_DATA_URL));
   }
 
+  async function refreshWorkbenchDataAfterTrade() {
+    var previousActiveId = getActiveFranchiseId();
+    var previousRightId = safeStr(state.rightTeamId);
+    var raw = await loadData();
+    state.data = normalizeData(raw);
+    if (!state.data.teams || !state.data.teams.length) {
+      throw new Error("No teams in refreshed payload.");
+    }
+
+    seedInitialTeams();
+    if (previousActiveId && getTeamById(previousActiveId)) {
+      setActiveFranchiseId(previousActiveId, { syncLeft: true });
+    }
+    if (
+      previousRightId &&
+      previousRightId !== state.leftTeamId &&
+      getTeamById(previousRightId)
+    ) {
+      state.rightTeamId = previousRightId;
+    }
+    initTeamSelectors();
+    setReviewContext("draft", {});
+    state.counterMode = false;
+    state.counterSourceOffer = null;
+  }
+
   function resolveTradeOffersApiUrl() {
     var explicit = safeStr(window.UPS_TRADE_OFFERS_API || window.UPS_TRADE_WORKBENCH_OFFERS_API);
     if (explicit) return resolveRelativeUrl(explicit);
@@ -1796,6 +1822,12 @@
           } catch (e0) {
             // noop
           }
+        }
+        try {
+          await refreshWorkbenchDataAfterTrade();
+        } catch (refreshErr) {
+          console.error("[TWB] Post-accept roster refresh failed:", refreshErr);
+          setSubmitStatus(okText + " Roster refresh failed; reload page.", "warn");
         }
       } else {
         setSubmitStatus(okText, "good");

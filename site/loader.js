@@ -2,6 +2,61 @@
 (function () {
   "use strict";
 
+  // Early global shim for legacy scripts that reference bare `is_offseason`.
+  (function ensureOffseasonGlobal() {
+    function safeStr(v) {
+      return v == null ? "" : String(v).trim();
+    }
+    function parseYmd(s) {
+      var raw = safeStr(s);
+      var m = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (!m) return null;
+      var d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+      return Number.isFinite(d.getTime()) ? d : null;
+    }
+
+    var m = String(window.location.pathname || "").match(/\/(\d{4})\//);
+    var siteSeason = m ? parseInt(m[1], 10) : new Date().getFullYear();
+    var currentYear = new Date().getFullYear();
+    var today = new Date();
+    var events =
+      (window.UPS_EVENTS && typeof window.UPS_EVENTS === "object" && window.UPS_EVENTS) ||
+      (window.nfs_events && typeof window.nfs_events === "object" && window.nfs_events) ||
+      (window.NFS_EVENTS && typeof window.NFS_EVENTS === "object" && window.NFS_EVENTS) ||
+      {};
+    if (!window.UPS_EVENTS || typeof window.UPS_EVENTS !== "object") {
+      window.UPS_EVENTS = events;
+    }
+
+    var seasonEvents = (events && events[String(siteSeason)]) || null;
+    var deadlineRaw = seasonEvents && (
+      seasonEvents.ups_contract_deadline ||
+      seasonEvents.contract_deadline ||
+      seasonEvents.UPS_CONTRACT_DEADLINE
+    );
+    var deadlineDt = parseYmd(deadlineRaw);
+    var isOffseason = true;
+    if (siteSeason < currentYear) {
+      isOffseason = true;
+    } else if (siteSeason > currentYear) {
+      isOffseason = true;
+    } else {
+      isOffseason = deadlineDt ? (today < deadlineDt) : true;
+    }
+
+    window.is_offseason = !!isOffseason;
+    window.UPS_IS_OFFSEASON = !!isOffseason;
+    if (!window.UPS_IS_OFFSEASON_META || typeof window.UPS_IS_OFFSEASON_META !== "object") {
+      window.UPS_IS_OFFSEASON_META = {
+        siteSeason: siteSeason,
+        currentYear: currentYear,
+        todayISO: today.toISOString(),
+        deadline: safeStr(deadlineRaw),
+        resolvedFromEvents: !!seasonEvents
+      };
+    }
+  })();
+
   var script = document.currentScript;
   if (!script) {
     var candidates = Array.prototype.slice.call(
