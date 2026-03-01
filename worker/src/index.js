@@ -880,12 +880,13 @@ export default {
       };
 
       const mflExportJson = async (year, leagueId, type, extraParams = {}, options = {}) => {
+        const cacheBust = options.cacheBust !== false;
         const baseQs = new URLSearchParams({
           TYPE: String(type || "").trim(),
           L: String(leagueId || "").trim(),
           JSON: "1",
-          _: String(Date.now()),
         });
+        if (cacheBust) baseQs.set("_", String(Date.now()));
         for (const [k, v] of Object.entries(extraParams || {})) {
           if (v == null) continue;
           const s = String(v).trim();
@@ -930,6 +931,28 @@ export default {
           fallback_without_apikey_error: second.error || "",
           fallback_without_apikey_status: safeInt(second.status, 0),
         };
+      };
+
+      const mflExportJsonWithRetry = async (
+        year,
+        leagueId,
+        type,
+        extraParams = {},
+        options = {}
+      ) => {
+        const first = await mflExportJson(year, leagueId, type, extraParams, options);
+        if (first.ok) return first;
+        const status = safeInt(first.status, 0);
+        const errText = safeStr(first.error).toLowerCase();
+        const shouldRetry =
+          status === 429 ||
+          status === 502 ||
+          status === 503 ||
+          status === 504 ||
+          errText.includes("api key validation failed");
+        if (!shouldRetry) return first;
+        await new Promise((resolve) => setTimeout(resolve, 250));
+        return mflExportJson(year, leagueId, type, extraParams, { ...options, cacheBust: false });
       };
 
       const parseLeagueFranchises = (leaguePayload) => {
@@ -8401,12 +8424,10 @@ export default {
         );
         const disableCache = safeStr(url.searchParams.get("NO_CACHE")) === "1";
         let cachedTradeWorkbench = null;
-        if (!disableCache) {
-          try {
-            cachedTradeWorkbench = await caches.default.match(cacheKey);
-          } catch (_) {
-            cachedTradeWorkbench = null;
-          }
+        try {
+          cachedTradeWorkbench = await caches.default.match(cacheKey);
+        } catch (_) {
+          cachedTradeWorkbench = null;
         }
 
         const staleFallbackResponse = async (reasonCode, upstreamMeta) => {
@@ -8443,10 +8464,10 @@ export default {
         );
 
         const [leagueRes, rostersRes, assetsRes, myFrRes, extRes] = await Promise.all([
-          mflExportJson(season, leagueId, "league", {}, { includeApiKey: true, useCookie: true }),
-          mflExportJson(season, leagueId, "rosters", {}, { includeApiKey: true, useCookie: true }),
-          mflExportJson(season, leagueId, "assets", {}, { includeApiKey: true, useCookie: true }),
-          mflExportJson(season, leagueId, "myfranchise", {}, { includeApiKey: true, useCookie: true }),
+          mflExportJsonWithRetry(season, leagueId, "league", {}, { includeApiKey: false, useCookie: true }),
+          mflExportJsonWithRetry(season, leagueId, "rosters", {}, { includeApiKey: false, useCookie: true }),
+          mflExportJsonWithRetry(season, leagueId, "assets", {}, { includeApiKey: true, useCookie: true }),
+          mflExportJsonWithRetry(season, leagueId, "myfranchise", {}, { includeApiKey: true, useCookie: true }),
           fetchExtensionPreviewRows(season, url.searchParams),
         ]);
 
@@ -8746,9 +8767,9 @@ export default {
         }
 
         const [leagueRes, rostersRes, salariesRes, pendingRes] = await Promise.all([
-          mflExportJson(season, leagueId, "league", {}, { includeApiKey: true, useCookie: true }),
-          mflExportJson(season, leagueId, "rosters", {}, { includeApiKey: true, useCookie: true }),
-          mflExportJson(season, leagueId, "salaries", {}, { includeApiKey: true, useCookie: true }),
+          mflExportJsonWithRetry(season, leagueId, "league", {}, { includeApiKey: false, useCookie: true }),
+          mflExportJsonWithRetry(season, leagueId, "rosters", {}, { includeApiKey: false, useCookie: true }),
+          mflExportJsonWithRetry(season, leagueId, "salaries", {}, { includeApiKey: false, useCookie: true }),
           mflExportJson(
             season,
             leagueId,
