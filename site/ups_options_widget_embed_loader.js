@@ -13,6 +13,15 @@
     return String(v || "").toLowerCase();
   }
 
+  function parseBool(v, fallback) {
+    if (typeof v === "boolean") return v;
+    var s = String(v || "").trim().toLowerCase();
+    if (!s) return !!fallback;
+    if (s === "1" || s === "true" || s === "yes" || s === "on") return true;
+    if (s === "0" || s === "false" || s === "no" || s === "off") return false;
+    return !!fallback;
+  }
+
   function getLeagueId(u) {
     try {
       if (typeof window.getLeagueContext === "function") {
@@ -508,10 +517,37 @@
     stack.className = "uow-mod-stack";
     mount.appendChild(stack);
 
-    var modules = [
-      { key: "message17", title: "Countdown Timer", type: "message17", defaultCollapsed: false },
-      { key: "owner_activity", title: "Owner Activity", type: "owner_activity", defaultCollapsed: true }
-    ];
+    var showCountdown = parseBool(window.UPS_UOW_SHOW_COUNTDOWN, true);
+    var showOwnerActivity = parseBool(window.UPS_UOW_SHOW_OWNER_ACTIVITY, true);
+    var countdownCollapsed = parseBool(window.UPS_UOW_COUNTDOWN_COLLAPSED, false);
+    var ownerCollapsed = parseBool(window.UPS_UOW_OWNER_ACTIVITY_COLLAPSED, false);
+
+    var modules = [];
+    if (showCountdown) {
+      modules.push({
+        key: "message17",
+        title: "Countdown Timer",
+        type: "message17",
+        defaultCollapsed: countdownCollapsed
+      });
+    }
+    if (showOwnerActivity) {
+      modules.push({
+        key: "owner_activity",
+        title: "Owner Activity",
+        type: "owner_activity",
+        defaultCollapsed: ownerCollapsed
+      });
+    }
+
+    if (!modules.length) {
+      modules.push({
+        key: "message17",
+        title: "Countdown Timer",
+        type: "message17",
+        defaultCollapsed: false
+      });
+    }
 
     modules.forEach(function (config) {
       var card = createModuleCard(config);
