@@ -122,6 +122,49 @@
     return JSON.parse(JSON.stringify(obj));
   }
 
+  function resolveTwbDataCacheKey() {
+    var season = "";
+    var league = "";
+    try {
+      var params = new URLSearchParams(window.location.search || "");
+      season = safeStr(params.get("YEAR") || params.get("season"));
+      league = safeStr(params.get("L") || params.get("league_id"));
+    } catch (e) {
+      // noop
+    }
+    if (!season) {
+      var seasonMatch = safeStr(window.location.pathname).match(/\/(\d{4})\//);
+      season = seasonMatch ? safeStr(seasonMatch[1]) : "";
+    }
+    if (!league) {
+      var leagueMatch = safeStr(window.location.pathname).match(/\/home\/(\d+)/i);
+      league = leagueMatch ? safeStr(leagueMatch[1]) : "";
+    }
+    return "twb:lastData:" + (league || "unknown") + ":" + (season || "unknown");
+  }
+
+  function readCachedTwbData() {
+    try {
+      var key = resolveTwbDataCacheKey();
+      var raw = localStorage.getItem(key);
+      if (!raw) return null;
+      var parsed = JSON.parse(raw);
+      return parsed && typeof parsed === "object" ? parsed : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function writeCachedTwbData(data) {
+    try {
+      if (!data || typeof data !== "object") return;
+      var key = resolveTwbDataCacheKey();
+      localStorage.setItem(key, JSON.stringify(data));
+    } catch (e) {
+      // noop
+    }
+  }
+
   function moneyFmt(n) {
     var value = safeInt(n, 0);
     try {
@@ -741,17 +784,32 @@
     var forceReload = !!options.forceReload;
     if (!forceReload && window.UPS_TRADE_WORKBENCH_DATA) return window.UPS_TRADE_WORKBENCH_DATA;
 
+    var fetchWithFallback = async function (url) {
+      try {
+        var payload = await fetchJson(url);
+        writeCachedTwbData(payload);
+        return payload;
+      } catch (err) {
+        var cached = readCachedTwbData();
+        if (cached) {
+          console.warn("[TWB] Falling back to cached payload after fetch error:", err);
+          return cached;
+        }
+        throw err;
+      }
+    };
+
     var queryDataUrl = getDataUrlFromQuery();
     if (queryDataUrl) {
-      return fetchJson(forceReload ? withNoCacheUrl(queryDataUrl) : resolveRelativeUrl(queryDataUrl));
+      return fetchWithFallback(forceReload ? withNoCacheUrl(queryDataUrl) : resolveRelativeUrl(queryDataUrl));
     }
 
     var queryApiUrl = buildApiRequestUrlFromQuery();
     if (queryApiUrl) {
-      return fetchJson(forceReload ? withNoCacheUrl(queryApiUrl) : queryApiUrl);
+      return fetchWithFallback(forceReload ? withNoCacheUrl(queryApiUrl) : queryApiUrl);
     }
 
-    return fetchJson(forceReload ? withNoCacheUrl(SAMPLE_DATA_URL) : resolveRelativeUrl(SAMPLE_DATA_URL));
+    return fetchWithFallback(forceReload ? withNoCacheUrl(SAMPLE_DATA_URL) : resolveRelativeUrl(SAMPLE_DATA_URL));
   }
 
   function resolveAfterTradeRefreshApiUrl() {
