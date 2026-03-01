@@ -3,7 +3,7 @@
     "schema_version": 1,
     "league_id": "25625",
     "season": 2026,
-    "updated_at": "2026-03-01T13:06:06.669Z",
+    "updated_at": "2026-03-01T13:11:36.564Z",
     "row_count": 8,
     "source": "worker-trade-outbox"
   },
@@ -1117,7 +1117,7 @@
       "mfl_verify_response_snip": "{\"salaries_status\":200,\"salaries_ok\":true,\"salary_adjustments_status\":200,\"salary_adjustments_ok\":true,\"transactions_status\":200,\"transactions_ok\":true,\"extension_verification\":{\"checked_players\":1,\"matched_players\":0,\"mismatched_players\":1,\"rows\":[{\"player_id\":\"16616\",\"before\":{\"salary\":\"\",\"contractYear\":\"\",\"contractInfo\":\"\",\"contractStatus\":\"\"},\"expected\":{\"salary\":\"20000\",\"contractYear\":\"2\",\"contractInfo\":\"CL 2|TCV 30K|AAV 10K, 20K|Y1-10K, Y2-20K|Ext: SEX|GTD: 23K\",\"contractStatus\":\"EXT1\"},\"after\":{\"salary\":\"10000\",\"contractYear\":\"2\",\"contractInfo\":\"CL 3| TCV 30K| AAV 10K\",\"contractStatus\":\"Rookie\"},\"matches\":{\"salary\":false,\"contractYear\":true,\"contractInfo\":false,\"contractStatus\":false},\"all_match\":false}],\"ok\":false},\"salary_adjustment_verification\":{\"ok\":false,\"expected_count\":2,\"matched_count\":0,\"mismatched_count\":2,\"rows\":[{\"franchise_id\":\"0006\",\"amount\":7000,\"explanation\":\"UPS traded salary settlement (trade 1044): net +7K\",\"matched\":false},{\"franchise_id\":\"0007\",\"amount\":-70",
       "league_id": "25625",
       "season": "2026",
-      "updated_ts": "2026-03-01T13:06:06.615Z",
+      "updated_ts": "2026-03-01T13:11:36.519Z",
       "id": "8"
     }
   ]
