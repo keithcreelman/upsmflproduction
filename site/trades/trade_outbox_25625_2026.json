@@ -3,7 +3,7 @@
     "schema_version": 1,
     "league_id": "25625",
     "season": 2026,
-    "updated_at": "2026-03-01T18:01:39.098Z",
+    "updated_at": "2026-03-01T18:01:39.999Z",
     "row_count": 15,
     "source": "worker-trade-outbox"
   },
@@ -1956,7 +1956,7 @@
     },
     {
       "created_ts": "2026-03-01T18:01:39.031Z",
-      "trade_id": "",
+      "trade_id": "1048",
       "action_type": "SUBMIT",
       "from_franchise_id": "0004",
       "to_franchise_id": "0006",
@@ -2127,14 +2127,14 @@
         },
         "comment": "Pre-trade extension: Extend Thomas Jr., Brian 2-year | New length 3 | New AAV 25K | New TCV 55K\nPre-trade extension: Extend Tracy, Tyrone 2-year | New length 3 | New AAV 22K | New TCV 46K\nPre-trade extension: Extend Odunze, Rome 2-year | New length 3 | New AAV 30K | New TCV 70K"
       },
-      "comment_trailer": "",
+      "comment_trailer": "[UPS_TWB_INTENT_BEGIN]\nUPS_OUTBOX_ID:15\nUPS_PAYLOAD_HASH:951aafacba2085b29a41783f5ecdd7d8b17841beaf2bb54f8899b34ab0823f00\n[UPS_TWB_INTENT_END]",
       "payload_hash": "951aafacba2085b29a41783f5ecdd7d8b17841beaf2bb54f8899b34ab0823f00",
-      "status": "PENDING",
-      "mfl_post_response_snip": "",
-      "mfl_verify_response_snip": "",
+      "status": "POSTED",
+      "mfl_post_response_snip": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n\n<status>OK</status>",
+      "mfl_verify_response_snip": "{\"ok\":true,\"matched\":true,\"match_count\":1,\"rows_count\":1,\"matched_trade_id\":\"1048\",\"upstream_status\":200}",
       "league_id": "25625",
       "season": "2026",
-      "updated_ts": "2026-03-01T18:01:39.031Z",
+      "updated_ts": "2026-03-01T18:01:39.938Z",
       "id": "15"
     }
   ]
