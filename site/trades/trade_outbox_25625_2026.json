@@ -3,8 +3,8 @@
     "schema_version": 1,
     "league_id": "25625",
     "season": 2026,
-    "updated_at": "2026-03-01T13:31:54.479Z",
-    "row_count": 10,
+    "updated_at": "2026-03-01T13:35:02.517Z",
+    "row_count": 11,
     "source": "worker-trade-outbox"
   },
   "rows": [
@@ -1397,6 +1397,143 @@
       "season": "2026",
       "updated_ts": "2026-03-01T13:31:54.424Z",
       "id": "10"
+    },
+    {
+      "created_ts": "2026-03-01T13:35:02.443Z",
+      "trade_id": "",
+      "action_type": "SUBMIT",
+      "from_franchise_id": "0012",
+      "to_franchise_id": "0001",
+      "payload_xml_extensions": "<salaries><leagueUnit unit=\"LEAGUE\"><player id=\"16655\" salary=\"7000\" contractYear=\"2\" contractInfo=\"CL 3|TCV 16K|AAV 2K, 7K|Y1-2K, Y2-7K, Y3-7K|Ext: Hawk|GTD: 12K\" contractStatus=\"EXT2\" /></leagueUnit></salaries>",
+      "payload_xml_salary_adj": "<salary_adjustments><salary_adjustment franchise_id=\"0012\" amount=\"-13000\" explanation=\"UPS traded salary settlement (trade_2026): net -13K\"/><salary_adjustment franchise_id=\"0001\" amount=\"13000\" explanation=\"UPS traded salary settlement (trade_2026): net +13K\"/></salary_adjustments>",
+      "payload_xml_salary_trade": "",
+      "payload_json": {
+        "schema_version": 1,
+        "generated_at": "2026-03-01T13:35:01.650Z",
+        "source": "ups-trade-workbench",
+        "league_id": "25625",
+        "season": 2026,
+        "teams": [
+          {
+            "role": "left",
+            "franchise_id": "0012",
+            "franchise_name": "Hawks",
+            "selected_assets": [
+              {
+                "asset_id": "player:16655",
+                "type": "PLAYER",
+                "player_id": "16655",
+                "player_name": "Robinson, Chop",
+                "description": null,
+                "position": "DE",
+                "nfl_team": "MIA",
+                "salary": 2000,
+                "years": 0,
+                "contract_type": "Rookie",
+                "contract_info": "CL 3| TCV 6K| AAV 2K",
+                "taxi": false
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 1,
+            "selected_non_taxi_salary_dollars": 2000
+          },
+          {
+            "role": "right",
+            "franchise_id": "0001",
+            "franchise_name": "L.A. Looks",
+            "selected_assets": [
+              {
+                "asset_id": "player:13671",
+                "type": "PLAYER",
+                "player_id": "13671",
+                "player_name": "Andrews, Mark",
+                "description": null,
+                "position": "TE",
+                "nfl_team": "BAL",
+                "salary": 27000,
+                "years": 1,
+                "contract_type": "Veteran",
+                "contract_info": "CL 3| TCV 63K| AAV 27K| Y1-9K, Y2-27K, Y3-27K| Ext: Blake, UW",
+                "taxi": false
+              }
+            ],
+            "traded_salary_adjustment_dollars": 13000,
+            "traded_salary_adjustment_k": 13,
+            "traded_salary_adjustment_max_k": 13,
+            "selected_non_taxi_salary_dollars": 27000
+          }
+        ],
+        "extension_requests": [
+          {
+            "player_id": "16655",
+            "player_name": "Robinson, Chop",
+            "from_franchise_id": "0012",
+            "to_franchise_id": "0001",
+            "applies_to_acquirer": true,
+            "option_key": "2YR|NONE",
+            "extension_term": "2YR",
+            "loaded_indicator": "NONE",
+            "preview_id": 1154,
+            "preview_contract_info_string": "CL 3|TCV 16K|AAV 2K, 7K|Y1-2K, Y2-7K, Y3-7K|Ext: Hawk|GTD: 12K",
+            "new_contract_status": "EXT2",
+            "new_contract_length": 3,
+            "new_TCV": 16000,
+            "new_aav_future": 7000
+          }
+        ],
+        "filters": {
+          "search": ""
+        },
+        "ui": {
+          "left_team_id": "0012",
+          "right_team_id": "0001"
+        },
+        "salary_reconciliation": {
+          "left": {
+            "franchise_id": "0012",
+            "franchise_name": "Hawks",
+            "outgoing_dollars": 2000,
+            "incoming_dollars": 27000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 1,
+            "net_trade_salary_k": -13,
+            "net_cap_change_dollars": -12000,
+            "available_salary_before_dollars": 10000,
+            "available_salary_after_dollars": -2000,
+            "over_cap_dollars": 2000
+          },
+          "right": {
+            "franchise_id": "0001",
+            "franchise_name": "L.A. Looks",
+            "outgoing_dollars": 27000,
+            "incoming_dollars": 2000,
+            "trade_salary_adjustment_k": 13,
+            "trade_salary_adjustment_max_k": 13,
+            "net_trade_salary_k": 13,
+            "net_cap_change_dollars": 12000,
+            "available_salary_before_dollars": -17000,
+            "available_salary_after_dollars": -5000,
+            "over_cap_dollars": 5000
+          },
+          "has_over_cap": true
+        },
+        "validation": {
+          "status": "ready",
+          "issues": []
+        },
+        "comment": "Pre-trade extension: Extend Robinson, Chop 2-year | New length 3 | New AAV 7K | New TCV 16K"
+      },
+      "comment_trailer": "",
+      "payload_hash": "e8f7f2f28d984cbfa3b298a623356a2d1e3980e3c590bd7364c24ace1cea373b",
+      "status": "PENDING",
+      "mfl_post_response_snip": "",
+      "mfl_verify_response_snip": "",
+      "league_id": "25625",
+      "season": "2026",
+      "updated_ts": "2026-03-01T13:35:02.443Z",
+      "id": "11"
     }
   ]
 }
