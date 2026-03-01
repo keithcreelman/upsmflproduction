@@ -6102,6 +6102,166 @@ Replaces bulky default grid with compact toggle view + franchise icons
   var deactivate_all_offseason = false;
 </script>
 
+<script>
+  // Guard MFL export fetches against short-term 429 bursts so header.js fails soft.
+  (function () {
+    var originalFetch = window.fetch;
+    if (typeof originalFetch !== "function") return;
+    if (window.__UPS_MFL_EXPORT_GUARD_INSTALLED__) return;
+    window.__UPS_MFL_EXPORT_GUARD_INSTALLED__ = true;
+
+    var CACHE_KEY = "ups_mfl_export_cache_v1";
+    var BACKOFF_KEY = "ups_mfl_export_backoff_v1";
+    var MAX_ENTRIES = 80;
+    var BACKOFF_MS = 45000;
+
+    function nowMs() {
+      return Date.now();
+    }
+
+    function safeJsonParse(raw, fallback) {
+      try { return JSON.parse(String(raw || "")); } catch (e) { return fallback; }
+    }
+
+    function safeJsonStringify(value) {
+      try { return JSON.stringify(value); } catch (e) { return "{}"; }
+    }
+
+    function readStore(key) {
+      try {
+        return safeJsonParse(localStorage.getItem(key), {});
+      } catch (e) {
+        return {};
+      }
+    }
+
+    function writeStore(key, value) {
+      try {
+        localStorage.setItem(key, safeJsonStringify(value || {}));
+      } catch (e) {
+        // ignore storage quota/privacy errors
+      }
+    }
+
+    function normalizeExportKey(urlObj) {
+      var p = new URLSearchParams(urlObj.search || "");
+      var out = [];
+      var keys = [];
+      p.forEach(function (_v, k) {
+        if (k === "_" || k === "JSON") return;
+        keys.push(k);
+      });
+      keys.sort();
+      for (var i = 0; i < keys.length; i += 1) {
+        out.push(keys[i] + "=" + (p.get(keys[i]) || ""));
+      }
+      return urlObj.origin + urlObj.pathname + "?" + out.join("&");
+    }
+
+    function isMflExportUrl(urlObj) {
+      if (!urlObj) return false;
+      var host = String(urlObj.hostname || "").toLowerCase();
+      if (host.indexOf("myfantasyleague.com") === -1) return false;
+      return /\/export$/i.test(String(urlObj.pathname || ""));
+    }
+
+    function cacheGet(key) {
+      var cache = readStore(CACHE_KEY);
+      var row = cache && cache[key];
+      return row && typeof row === "object" ? row : null;
+    }
+
+    function cacheSet(key, status, text) {
+      if (!key || !text) return;
+      var cache = readStore(CACHE_KEY);
+      var row = {
+        ts: nowMs(),
+        status: status || 200,
+        text: String(text),
+      };
+      cache[key] = row;
+      var keys = Object.keys(cache).sort(function (a, b) {
+        var ta = cache[a] && cache[a].ts ? cache[a].ts : 0;
+        var tb = cache[b] && cache[b].ts ? cache[b].ts : 0;
+        return tb - ta;
+      });
+      for (var i = MAX_ENTRIES; i < keys.length; i += 1) {
+        delete cache[keys[i]];
+      }
+      writeStore(CACHE_KEY, cache);
+    }
+
+    function backoffUntilGet(key) {
+      var map = readStore(BACKOFF_KEY);
+      return Number(map && map[key] || 0);
+    }
+
+    function backoffUntilSet(key, untilTs) {
+      var map = readStore(BACKOFF_KEY);
+      map[key] = Number(untilTs || 0);
+      writeStore(BACKOFF_KEY, map);
+    }
+
+    function staleResponse(text, reason) {
+      return new Response(String(text || "{}"), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json; charset=utf-8",
+          "X-UPS-MFL-Guard": String(reason || "stale-cache"),
+        },
+      });
+    }
+
+    window.fetch = function (input, init) {
+      var reqInit = init || {};
+      var method = String(reqInit.method || "GET").toUpperCase();
+      var urlObj = null;
+      try {
+        urlObj = new URL(typeof input === "string" ? input : (input && input.url) || "", window.location.href);
+      } catch (e) {
+        urlObj = null;
+      }
+      if (method !== "GET" || !isMflExportUrl(urlObj)) {
+        return originalFetch.apply(this, arguments);
+      }
+
+      var key = normalizeExportKey(urlObj);
+      var now = nowMs();
+      var backoffUntil = backoffUntilGet(key);
+      var cached = cacheGet(key);
+      if (backoffUntil > now && cached && cached.text) {
+        return Promise.resolve(staleResponse(cached.text, "backoff-cache"));
+      }
+
+      return originalFetch.apply(this, arguments).then(function (res) {
+        if (res && res.status === 429) {
+          backoffUntilSet(key, nowMs() + BACKOFF_MS);
+          if (cached && cached.text) {
+            console.warn("[UPS][MFL-Guard] 429 on export; serving cached payload for", key);
+            return staleResponse(cached.text, "429-cache");
+          }
+          return res;
+        }
+        if (res && res.ok) {
+          try {
+            res.clone().text().then(function (txt) {
+              if (!txt) return;
+              cacheSet(key, res.status, txt);
+            }).catch(function () {});
+          } catch (e) {}
+        }
+        return res;
+      }).catch(function (err) {
+        if (cached && cached.text) {
+          console.warn("[UPS][MFL-Guard] fetch error; serving cached payload for", key, err);
+          return staleResponse(cached.text, "error-cache");
+        }
+        throw err;
+      });
+    };
+  })();
+</script>
+
 <script src="https://www.mflscripts.com/mfl-apps/global/header.js?v=1.60"></script>
 <style id="ups-marquee-style">
   .ups-marquee-shell {
