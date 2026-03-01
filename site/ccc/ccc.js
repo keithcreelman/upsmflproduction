@@ -4321,7 +4321,119 @@
     mymSubmissionSeason: "",
     restructureSubmissionSeason: "",
     filtersByModule: {},
+    primaryMode: "action",
   };
+
+  function primaryModeStorageKey() {
+    const league = safeStr(getLeagueId() || DEFAULT_LEAGUE_ID || "league");
+    const season = safeStr(getYearFromUrl() || DEFAULT_YEAR || "season");
+    return `ccc:primary_mode:${league}:${season}`;
+  }
+
+  function loadPrimaryMode() {
+    try {
+      const v = safeStr(localStorage.getItem(primaryModeStorageKey())).toLowerCase();
+      return v === "reports" ? "reports" : "action";
+    } catch (_) {
+      return "action";
+    }
+  }
+
+  function savePrimaryMode(mode) {
+    try {
+      localStorage.setItem(primaryModeStorageKey(), mode === "reports" ? "reports" : "action");
+    } catch (_) {}
+  }
+
+  function setPrimaryMode(mode) {
+    state.primaryMode = mode === "reports" ? "reports" : "action";
+    savePrimaryMode(state.primaryMode);
+    $$(".ccc-primaryTab").forEach((btn) =>
+      btn.classList.toggle("is-active", safeStr(btn.getAttribute("data-mode")) === state.primaryMode)
+    );
+  }
+
+  function renderActionPanel(moduleLabel, eligibleCount) {
+    return `
+      <div class="ccc-modeCard">
+        <div class="ccc-modeTitle">Action Mode</div>
+        <div class="ccc-modeSub">Fast path: choose action, pick player, configure terms, then submit.</div>
+        <div class="ccc-modeGrid">
+          <div class="ccc-modeStat"><div class="label">Action</div><div class="value">${htmlEsc(moduleLabel)}</div></div>
+          <div class="ccc-modeStat"><div class="label">Status</div><div class="value">Draft</div></div>
+          <div class="ccc-modeStat"><div class="label">Eligible Players</div><div class="value">${safeInt(eligibleCount)}</div></div>
+          <div class="ccc-modeStat"><div class="label">Primary CTA</div><div class="value">Submit</div></div>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderReportsPanel(submittedRows) {
+    const rows = (submittedRows || [])
+      .slice()
+      .sort((a, b) => (parseDate(b.submitted_at_utc) || new Date(0)) - (parseDate(a.submitted_at_utc) || new Date(0)))
+      .slice(0, 5);
+    const recent = rows.length
+      ? rows
+          .map((r) => {
+            const when = formatSubmittedValue(r.submitted_at_utc);
+            return `<div class="ccc-recentRow"><span>${htmlEsc(r.player_name || "Player")} · ${htmlEsc(
+              r.franchise_name || `Franchise ${pad4(r.franchise_id)}`
+            )}</span><span>${htmlEsc(when.date || "")}</span></div>`;
+          })
+          .join("")
+      : `<div class="ccc-recentRow"><span>No submissions yet.</span><span>—</span></div>`;
+    return `
+      <div class="ccc-modeCard">
+        <div class="ccc-modeTitle">Reports Mode</div>
+        <div class="ccc-modeSub">Diagnostics and audit details are separated from action flow.</div>
+        <div class="ccc-modeGrid">
+          <div class="ccc-modeStat"><div class="label">Recent Submissions</div><div class="value">${safeInt(
+            submittedRows.length
+          )}</div></div>
+          <div class="ccc-modeStat"><div class="label">Details Available</div><div class="value">Payload + Eligibility</div></div>
+          <div class="ccc-modeStat"><div class="label">Audit</div><div class="value">Copy / Export</div></div>
+          <div class="ccc-modeStat"><div class="label">Health</div><div class="value">Live</div></div>
+        </div>
+        <div class="ccc-recentList">${recent}</div>
+      </div>
+    `;
+  }
+
+  function applyPrimaryModeLayout(submittedRows) {
+    const mode = state.primaryMode === "reports" ? "reports" : "action";
+    const cccTabs = $("#cccTabs");
+    const summary = $("#summary");
+    const tabSummary = $("#tabSummary");
+    const tabCostCalc = $("#tabCostCalc");
+    const tabEligible = $("#tabEligible");
+    const tabIneligible = $("#tabIneligible");
+    const tabSubmitted = $("#tabSubmitted");
+    const actionPanel = $("#cccActionPanel");
+    const reportsPanel = $("#cccReportsPanel");
+    const moduleLabel = getModuleLabel();
+
+    if (actionPanel) actionPanel.style.display = mode === "action" ? "" : "none";
+    if (reportsPanel) reportsPanel.style.display = mode === "reports" ? "" : "none";
+    if (actionPanel && mode === "action") actionPanel.innerHTML = renderActionPanel(moduleLabel, (tabEligible && tabEligible.querySelectorAll("tbody tr").length) || 0);
+    if (reportsPanel && mode === "reports") reportsPanel.innerHTML = renderReportsPanel(submittedRows || []);
+
+    if (mode === "action") {
+      if (cccTabs) cccTabs.style.display = "none";
+      if (summary) summary.style.display = "";
+      if (tabSummary) tabSummary.style.display = "none";
+      if (tabCostCalc) tabCostCalc.style.display = "none";
+      if (tabEligible) tabEligible.style.display = "";
+      if (tabIneligible) tabIneligible.style.display = "none";
+      if (tabSubmitted) tabSubmitted.style.display = "none";
+      state.activeTab = "eligible";
+    } else {
+      if (cccTabs) cccTabs.style.display = "";
+      if (summary) summary.style.display = "none";
+      if (state.activeTab === "eligible") state.activeTab = "submitted";
+      setTab(state.activeTab || "submitted");
+    }
+  }
 
   // Default tag module row highlighting to tier-based colors.
   if (!state.highlightByModule.tag || normalizeHighlightMode(state.highlightByModule.tag.mode) !== "tier") {
@@ -5603,11 +5715,15 @@
       if (tabSubmitted) tabSubmitted.innerHTML = "";
       if (cccTabs) cccTabs.style.display = "none";
       if (cccMain) cccMain.style.display = "none";
+      if (cccPrimaryTabs) cccPrimaryTabs.style.display = "none";
+      if (actionPanel) actionPanel.style.display = "none";
+      if (reportsPanel) reportsPanel.style.display = "none";
       syncModuleChipSelection();
       updateModuleStatusChips();
       return;
     }
 
+    if (cccPrimaryTabs) cccPrimaryTabs.style.display = "";
     if (cccTabs) cccTabs.style.display = "";
     if (cccMain) cccMain.style.display = "";
     if (summary) summary.style.display = "";
@@ -5881,6 +5997,7 @@
       if (tabEligible) tabEligible.innerHTML = renderTable(tagRows, "eligible");
       if (tabIneligible) tabIneligible.innerHTML = renderTagIneligibleList(tagIneligibleRows);
       if (tabSubmitted) tabSubmitted.innerHTML = renderTagFinalizedSubmissionsPage(season);
+      applyPrimaryModeLayout((state.tagSubmissions || []).filter((r) => normalizeSeasonValue(r.season) === season));
       updateModuleStatusChips();
       return;
     }
@@ -5891,6 +6008,8 @@
       syncModuleChipSelection();
       syncCommishConsole(scopedEligibility);
       if (cccTabs) cccTabs.style.display = "none";
+      if (actionPanel) actionPanel.style.display = "none";
+      if (reportsPanel) reportsPanel.style.display = "none";
       if (summary) {
         summary.style.display = "";
         summary.innerHTML = landing;
@@ -5900,6 +6019,7 @@
       if (tabEligible) tabEligible.innerHTML = "";
       if (tabIneligible) tabIneligible.innerHTML = "";
       if (tabSubmitted) tabSubmitted.innerHTML = "";
+      if (cccPrimaryTabs) cccPrimaryTabs.style.display = "none";
       updateModuleStatusChips();
       return;
     }
@@ -5925,6 +6045,7 @@
       if (tabEligible) tabEligible.innerHTML = comingSoon;
       if (tabIneligible) tabIneligible.innerHTML = "";
       if (tabSubmitted) tabSubmitted.innerHTML = "";
+      applyPrimaryModeLayout([]);
       updateModuleStatusChips();
       return;
     }
@@ -5987,6 +6108,7 @@
         });
       if (tabIneligible) tabIneligible.innerHTML = "";
       if (tabSubmitted) tabSubmitted.innerHTML = "";
+      applyPrimaryModeLayout([]);
       updateModuleStatusChips();
       return;
     }
@@ -6098,6 +6220,7 @@
         tabSubmitted.innerHTML = renderTable(submittedRows, "submitted");
       }
     }
+    applyPrimaryModeLayout(submittedRowsRaw);
     updateModuleStatusChips();
   }
 
@@ -7230,6 +7353,9 @@
     try {
       must("#cccMeta");
       must("#cccMain");
+      must("#cccPrimaryTabs");
+      must("#cccActionPanel");
+      must("#cccReportsPanel");
       must("#cccTabs");
       must("#tabSummary");
       must("#tabCostCalc");
@@ -7256,6 +7382,7 @@
 
       applyThemeSetting(state.theme);
       applyHighlightSetting();
+      setPrimaryMode(loadPrimaryMode());
 
       // Modal required elements
       must("#mymModal");
@@ -7902,6 +8029,14 @@
     });
 
     // Tabs
+    $$(".ccc-primaryTab").forEach((btn) =>
+      btn.addEventListener("click", () => {
+        const mode = safeStr(btn.getAttribute("data-mode"));
+        setPrimaryMode(mode);
+        render();
+      })
+    );
+
     $$(".ccc-tab").forEach((btn) =>
       btn.addEventListener("click", () => {
         setTab(btn.dataset.tab);

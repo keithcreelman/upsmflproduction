@@ -117,7 +117,7 @@
     return "";
   }
 
-  function jsDelivrScriptToGithackHtml(scriptSrc) {
+  function jsDelivrScriptToRawGithackHtml(scriptSrc) {
     try {
       const su = new URL(scriptSrc, window.location.href);
       if (!/cdn\.jsdelivr\.net$/i.test(String(su.hostname || ""))) return "";
@@ -133,12 +133,14 @@
       const dirParts = parts.slice(3, -1);
       if (!dirParts.length) return "";
 
+      // jsDelivr often serves this HTML with text/plain + nosniff.
+      // Keep loader JS on jsDelivr, but force HTML document via rawcdn.githack.
       return (
-        "https://cdn.jsdelivr.net/gh/" +
+        "https://rawcdn.githack.com/" +
         encodeURIComponent(owner) +
         "/" +
         encodeURIComponent(repo) +
-        "@" +
+        "/" +
         encodeURIComponent(ref) +
         "/" +
         dirParts.map(encodeURIComponent).join("/") +
@@ -154,7 +156,7 @@
     try {
       const s = document.currentScript;
       if (s && s.src) {
-        const fromJsDelivr = jsDelivrScriptToGithackHtml(s.src);
+        const fromJsDelivr = jsDelivrScriptToRawGithackHtml(s.src);
         if (fromJsDelivr) return fromJsDelivr;
       }
     } catch (e) {}

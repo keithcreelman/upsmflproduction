@@ -88,6 +88,11 @@
   </div>
 
   <div id="cccMain" class="ccc-main">
+    <div id="cccPrimaryTabs" class="ccc-primaryTabs">
+      <button class="ccc-primaryTab is-active" type="button" data-mode="action">Action</button>
+      <button class="ccc-primaryTab" type="button" data-mode="reports">Reports</button>
+    </div>
+
     <div id="moduleFilters" class="ccc-filterWrap">
       <div class="ccc-filterSection" data-section="filters">
         <div class="ccc-filterTitle">Filters</div>
@@ -105,6 +110,9 @@
         </div>
       </div>
     </div>
+
+    <div id="cccActionPanel" class="ccc-modePanel"></div>
+    <div id="cccReportsPanel" class="ccc-modePanel" style="display:none;"></div>
 
     <div id="summary" class="ccc-summary"></div>
 

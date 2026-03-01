@@ -247,6 +247,97 @@
   box-shadow: var(--shadow);
 }
 
+.ccc-primaryTabs{
+  display:flex;
+  gap:8px;
+  margin-bottom:12px;
+}
+
+.ccc-primaryTab{
+  border:1px solid var(--line);
+  background:var(--surface-3);
+  color:var(--text);
+  padding:8px 12px;
+  border-radius:999px;
+  font-weight:800;
+  cursor:pointer;
+}
+
+.ccc-primaryTab.is-active{
+  background:var(--accent-soft);
+  border-color:var(--accent-border);
+  color:var(--text-strong);
+}
+
+.ccc-modePanel{
+  margin-bottom:12px;
+}
+
+.ccc-modeCard{
+  border:1px solid var(--line);
+  background:var(--surface-2);
+  border-radius:12px;
+  padding:12px;
+}
+
+.ccc-modeTitle{
+  font-weight:900;
+  color:var(--text-strong);
+  margin-bottom:6px;
+}
+
+.ccc-modeSub{
+  color:var(--muted);
+  font-size:12px;
+  margin-bottom:8px;
+}
+
+.ccc-modeGrid{
+  display:grid;
+  grid-template-columns: repeat(4,minmax(0,1fr));
+  gap:8px;
+}
+
+.ccc-modeStat{
+  border:1px solid var(--line);
+  border-radius:10px;
+  padding:8px;
+  background:var(--surface-1);
+}
+
+.ccc-modeStat .label{
+  color:var(--muted);
+  font-size:11px;
+  font-weight:700;
+}
+
+.ccc-modeStat .value{
+  color:var(--text-strong);
+  font-weight:900;
+  margin-top:2px;
+}
+
+.ccc-recentList{
+  margin-top:10px;
+  display:grid;
+  gap:6px;
+}
+
+.ccc-recentRow{
+  display:flex;
+  justify-content:space-between;
+  gap:8px;
+  font-size:12px;
+  border:1px solid var(--line);
+  border-radius:8px;
+  padding:7px 8px;
+  background:var(--surface-1);
+}
+
+@media (max-width: 900px){
+  .ccc-modeGrid{ grid-template-columns: repeat(2,minmax(0,1fr)); }
+}
+
 .ccc-topRow{
   display:flex;
   align-items:flex-start;
