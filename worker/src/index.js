@@ -1304,6 +1304,57 @@ export default {
         );
       };
 
+      const remapExtensionPreviewRowsToCurrentOwners = (rows, rosterAssetsByFranchise, franchiseMetaById) => {
+        const list = Array.isArray(rows) ? rows : [];
+        if (!list.length) return { rows: [], remapped_count: 0 };
+
+        const ownerByPlayerId = {};
+        for (const [franchiseIdRaw, assets] of Object.entries(rosterAssetsByFranchise || {})) {
+          const franchiseId = padFranchiseId(franchiseIdRaw);
+          if (!franchiseId) continue;
+          const arr = Array.isArray(assets) ? assets : [];
+          for (const asset of arr) {
+            if (!asset || safeStr(asset.type).toUpperCase() !== "PLAYER") continue;
+            const playerId = String(asset.player_id || asset.id || "").replace(/\D/g, "");
+            if (!playerId) continue;
+            ownerByPlayerId[playerId] = franchiseId;
+          }
+        }
+
+        let remappedCount = 0;
+        const out = list.map((row) => {
+          if (!row || typeof row !== "object") return row;
+          const next = { ...row };
+          const playerId = String(next.player_id || "").replace(/\D/g, "");
+          if (!playerId) return next;
+
+          const currentOwner = ownerByPlayerId[playerId] || "";
+          const previewOwner = padFranchiseId(next.franchise_id || next.franchiseId || "");
+          if (!currentOwner || !previewOwner || currentOwner === previewOwner) return next;
+
+          remappedCount += 1;
+          next.original_franchise_id = previewOwner;
+          next.franchise_id = currentOwner;
+          if (franchiseMetaById && franchiseMetaById[currentOwner]) {
+            const meta = franchiseMetaById[currentOwner];
+            next.franchise_name = safeStr(meta.franchise_name || next.franchise_name || currentOwner);
+            const abbr = safeStr(meta.franchise_abbrev || "");
+            if (abbr && safeStr(next.preview_contract_info_string)) {
+              next.preview_contract_info_string = safeStr(next.preview_contract_info_string).replace(
+                /(\|Ext:\s*)([^|]+)(\|?)/i,
+                `$1${abbr}$3`
+              );
+            }
+          }
+          return next;
+        });
+
+        return {
+          rows: out,
+          remapped_count: remappedCount,
+        };
+      };
+
       const githubRepoOwner = String(env.GITHUB_REPO_OWNER || "keithcreelman").trim();
       const githubRepoName = String(env.GITHUB_REPO_NAME || "upsmflproduction").trim();
       const githubPat = String(env.GITHUB_PAT || "").trim();
@@ -2680,6 +2731,8 @@ export default {
         outboxTrailerText = ""
       ) => {
         const base = safeStr(comments);
+        const includeCommentMeta = safeStr(env?.TWB_INCLUDE_COMMENT_META || "0") === "1";
+        if (!includeCommentMeta) return base.slice(0, 2000);
         const tag = buildTradeMetaTag(payload, fromFranchiseId, toFranchiseId);
         const trailer = safeStr(outboxTrailerText);
         if (!trailer) {
@@ -3970,8 +4023,9 @@ export default {
       const formatDollarsAsMflImportK = (dollars, precision = 3) => {
         const n = Number(dollars);
         if (!Number.isFinite(n)) return "0";
-        const k = n / 1000;
-        let text = k.toFixed(Math.max(0, safeInt(precision, 3)));
+        const rounded = Math.round(n);
+        if (Math.abs(n - rounded) < 1e-9) return String(rounded);
+        let text = n.toFixed(Math.max(0, safeInt(precision, 3)));
         text = text.replace(/\.?0+$/, "");
         if (!text || text === "-0") text = "0";
         return text;
@@ -8497,6 +8551,12 @@ export default {
           franchiseMetaById[fr.franchise_id] = fr;
         }
 
+        const extRowsNormalized = remapExtensionPreviewRowsToCurrentOwners(
+          extRes.rows || [],
+          rosterAssetsByFranchise,
+          franchiseMetaById
+        );
+
         const franchiseIds = new Set([
           ...Object.keys(franchiseMetaById),
           ...Object.keys(rosterAssetsByFranchise),
@@ -8561,7 +8621,7 @@ export default {
           source: "worker:/trade-workbench",
           salary_cap_dollars: leagueSalaryCapDollars,
           teams,
-          extension_previews: extRes.rows || [],
+          extension_previews: extRowsNormalized.rows || [],
           meta: {
             default_franchise_id: activeFranchiseId || "",
             active_franchise_id: activeFranchiseId || "",
@@ -8575,7 +8635,8 @@ export default {
                 (acc, arr) => acc + asArray(arr).length,
                 0
               ),
-              extension_preview_rows: Array.isArray(extRes.rows) ? extRes.rows.length : 0,
+              extension_preview_rows: Array.isArray(extRowsNormalized.rows) ? extRowsNormalized.rows.length : 0,
+              extension_preview_rows_owner_remapped: safeInt(extRowsNormalized.remapped_count, 0),
             },
             upstream: {
               league: { status: leagueRes.status, url: leagueRes.url },
