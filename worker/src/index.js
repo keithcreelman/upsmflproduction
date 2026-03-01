@@ -4642,7 +4642,7 @@ export default {
         } catch (_) {
           // noop
         }
-        const importRes = await postMflImportForm(
+        let importRes = await postMflImportForm(
           season,
           {
             TYPE: "salaryAdj",
