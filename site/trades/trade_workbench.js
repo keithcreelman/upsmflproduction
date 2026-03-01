@@ -1862,7 +1862,12 @@
               : 0,
             explicit_extension_requests: Array.isArray(body.offer_extension_requests)
               ? body.offer_extension_requests.length
-              : 0
+              : 0,
+            has_offer_twb_meta: !!body.offer_twb_meta,
+            offer_twb_meta_ext: Array.isArray(body.offer_twb_meta && body.offer_twb_meta.ext)
+              ? body.offer_twb_meta.ext.length
+              : 0,
+            has_offer_comment: !!safeStr(body.offer_comment)
           });
         } catch (eLogReq) {
           // noop

@@ -2915,9 +2915,18 @@ export default {
         const toId = padFranchiseId(row?.to_franchise_id);
         const tradeId = safeStr(row?.trade_id).replace(/\D/g, "");
         const createdAt = timestampToIso(row?.timestamp);
-        const commentsRaw = safeStr(row?.raw_comment || row?.comments);
+        const stored = storedOffer && typeof storedOffer === "object" ? storedOffer : {};
+        const storedCommentsRaw = safeStr(
+          stored.raw_comment ||
+            stored.comments ||
+            stored.comment ||
+            stored.message
+        );
+        const commentsRaw = safeStr(row?.raw_comment || row?.comments || storedCommentsRaw);
         const commentsClean = stripTradeMetaTagFromComments(commentsRaw);
-        const meta = parseTradeMetaTagFromComments(commentsRaw);
+        const meta =
+          parseTradeMetaTagFromComments(commentsRaw) ||
+          (stored.twb_meta && typeof stored.twb_meta === "object" ? stored.twb_meta : null);
         const fromName =
           safeStr(
             (franchiseNames && franchiseNames[fromId]) ||
@@ -2931,7 +2940,6 @@ export default {
               row?.raw?.offeredtoname ||
               row?.raw?.to_franchise_name
           ) || toId;
-        const stored = storedOffer && typeof storedOffer === "object" ? storedOffer : {};
         const out = {
           id: safeStr(stored.id) || (tradeId ? `MFL-${tradeId}` : `MFL-${fromId}-${toId}-${safeInt(row?.timestamp, 0)}`),
           proposal_id: tradeId || "",
@@ -2949,8 +2957,8 @@ export default {
           comment: commentsClean || commentsRaw || "",
           raw_comment: commentsRaw || "",
           message: commentsClean || commentsRaw || "",
-          will_give_up: safeStr(row?.will_give_up),
-          will_receive: safeStr(row?.will_receive),
+          will_give_up: safeStr(row?.will_give_up || stored.will_give_up),
+          will_receive: safeStr(row?.will_receive || stored.will_receive),
           twb_meta: meta,
           source: safeStr(stored.source || "mfl_pendingTrades"),
           summary: stored && typeof stored.summary === "object" ? stored.summary : null,
