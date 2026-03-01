@@ -4314,19 +4314,42 @@ export default {
             salary: safeInt(salaryByYear[String(yearNum)], 0),
           }));
 
-      const normalizeExtensionContractStatusForImport = (requestedStatus, currentStatus) => {
-        const current = safeStr(currentStatus).trim();
-        // Prefer the live MFL-exported status for extension imports.
-        // This keeps values like "Rookie" stable and avoids internal EXT* hints.
-        if (current) return current;
-        const requested = safeStr(requestedStatus).trim();
-        if (!requested) return "";
-        const upper = requested.toUpperCase();
-        // EXT* is internal UPS metadata, not a stable MFL contractStatus value.
-        if (/^EXT[0-9]*$/.test(upper) || upper === "EXT" || upper === "NONE" || upper === "N/A") {
-          return "";
+      const normalizeExtensionContractStatusForImport = (req, currentStatus) => {
+        const requestedRaw = safeStr(
+          req?.new_contract_status || req?.contract_status || req?.contractStatus || ""
+        ).trim();
+        const requested = requestedRaw.toUpperCase();
+        if (/^EXT1$/.test(requested)) return "EXT1";
+        if (/^EXT2$/.test(requested)) return "EXT2";
+        if (/^EXT2-BL$/.test(requested)) return "EXT2-BL";
+        if (/^EXT2-FL$/.test(requested)) return "EXT2-FL";
+
+        const optionKey = safeStr(req?.option_key || req?.optionKey).toUpperCase();
+        const termToken = safeStr(
+          req?.extension_term || req?.extensionTerm || req?.term || ""
+        ).toUpperCase();
+
+        const term =
+          termToken.startsWith("2") || optionKey.startsWith("2YR")
+            ? 2
+            : termToken.startsWith("1") || optionKey.startsWith("1YR")
+              ? 1
+              : 0;
+
+        if (term === 1) return "EXT1";
+        if (term === 2) {
+          // Loaded 2-year extensions use explicit BL/FL suffixes.
+          if (optionKey.includes("|BL")) return "EXT2-BL";
+          if (optionKey.includes("|FL")) return "EXT2-FL";
+          return "EXT2";
         }
-        return requested;
+
+        // Last resort for malformed input: keep explicit EXT* if present; otherwise map by current if possible.
+        if (requested.startsWith("EXT")) return requestedRaw || requested;
+        const current = safeStr(currentStatus).toUpperCase();
+        if (current.includes("BL")) return "EXT2-BL";
+        if (current.includes("FL")) return "EXT2-FL";
+        return "EXT2";
       };
 
       const computeExtensionSalaryPlan = (req, current, payloadPlayer) => {
@@ -4362,10 +4385,7 @@ export default {
           return plan;
         }
         plan.contract_info = contractInfoText;
-        plan.contract_status = normalizeExtensionContractStatusForImport(
-          req?.new_contract_status,
-          current?.contractStatus
-        );
+        plan.contract_status = normalizeExtensionContractStatusForImport(req, current?.contractStatus);
 
         const contractLengthFromPreview = contractLengthFromInfo(contractInfoText);
 
@@ -4480,6 +4500,8 @@ export default {
           contract_status_requested: safeStr(req?.new_contract_status),
           contract_status_selected: safeStr(plan.contract_status),
           contract_status_current: safeStr(current?.contractStatus),
+          option_key: safeStr(req?.option_key || req?.optionKey),
+          extension_term: safeStr(req?.extension_term || req?.extensionTerm || req?.term),
           salary_by_year_pairs: salaryByYearToSortedPairs(salaryByYear),
           fallback_used: source === "fallback_level_load",
         };
