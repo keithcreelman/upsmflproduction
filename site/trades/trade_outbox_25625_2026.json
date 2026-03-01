@@ -3,7 +3,7 @@
     "schema_version": 1,
     "league_id": "25625",
     "season": 2026,
-    "updated_at": "2026-03-01T12:39:44.340Z",
+    "updated_at": "2026-03-01T12:54:08.027Z",
     "row_count": 8,
     "source": "worker-trade-outbox"
   },
@@ -1113,11 +1113,11 @@
       "comment_trailer": "[UPS_TWB_INTENT_BEGIN]\nUPS_OUTBOX_ID:\nUPS_PAYLOAD_HASH:44d185919e9573f50d0d6bdffac060ede3cf98b217e52c8e18cb1a3a77cecca6\nUPS_XML_EXT:PHNhbGFyaWVzPjxsZWFndWVVbml0IHVuaXQ9IkxFQUdVRSI-PHBsYXllciBpZD0iMTY2MTYiIHNhbGFyeT0iMjAwMDAiIGNvbnRyYWN0WWVhcj0iMiIgY29udHJhY3RJbmZvPSJDTCAyfFRDViAzMEt8QUFWIDEwSywgMjBLfFkxLTEwSywgWTItMjBLfEV4dDogU0VYfEdURDogMjNLIiBjb250cmFjdFN0YXR1cz0iRVhUMSIgLz48L2xlYWd1ZVVuaXQ-PC9zYWxhcmllcz4\n[UPS_TWB_INTENT_END]",
       "payload_hash": "44d185919e9573f50d0d6bdffac060ede3cf98b217e52c8e18cb1a3a77cecca6",
       "status": "FAILED",
-      "mfl_post_response_snip": "{\"reason\":\"requires_commish_cookie\",\"admin_state\":{\"ok\":true,\"isAdmin\":false,\"reason\":\"No private owner data visible (not commish)\",\"emailCount\":1,\"commishFranchiseId\":\"0000\",\"mflHttp\":200}}",
+      "mfl_post_response_snip": "{\"reason\":\"requires_commish_cookie\",\"admin_state\":{\"ok\":true,\"isAdmin\":false,\"reason\":\"No private owner data visible (not commish)\",\"emailCount\":0,\"commishFranchiseId\":\"0000\",\"mflHttp\":200}}",
       "mfl_verify_response_snip": "{\"expected_extensions\":1,\"expected_salary_adjustments\":2}",
       "league_id": "25625",
       "season": "2026",
-      "updated_ts": "2026-03-01T12:39:44.287Z",
+      "updated_ts": "2026-03-01T12:54:07.978Z",
       "id": "8"
     }
   ]
