@@ -3099,6 +3099,188 @@ export default {
         };
       };
 
+      const findStoredOfferForDirectAction = (offers, lookup = {}) => {
+        const list = Array.isArray(offers) ? offers : [];
+        if (!list.length) return null;
+        const tradeId = safeStr(lookup?.tradeId).replace(/\D/g, "");
+        const offerId = safeStr(lookup?.offerId);
+        const fromId = padFranchiseId(lookup?.fromFranchiseId);
+        const toId = padFranchiseId(lookup?.toFranchiseId);
+        const actingId = padFranchiseId(lookup?.actingFranchiseId);
+
+        if (tradeId) {
+          const byTrade = list.find(
+            (o) =>
+              String(o?.mfl_trade_id || o?.trade_id || "").replace(/\D/g, "") === tradeId
+          );
+          if (byTrade) return byTrade;
+        }
+        if (offerId) {
+          const byId = list.find((o) => safeStr(o?.id) === offerId);
+          if (byId) return byId;
+        }
+        if (fromId && toId) {
+          const pendingPair = list.filter(
+            (o) =>
+              padFranchiseId(o?.from_franchise_id) === fromId &&
+              padFranchiseId(o?.to_franchise_id) === toId &&
+              offerStatusNormalized(o?.status, "PENDING") === "PENDING"
+          );
+          if (pendingPair.length === 1) return pendingPair[0];
+          if (pendingPair.length > 1) {
+            pendingPair.sort((a, b) =>
+              safeStr(b?.updated_at || b?.created_at).localeCompare(
+                safeStr(a?.updated_at || a?.created_at)
+              )
+            );
+            return pendingPair[0];
+          }
+        }
+        if (actingId) {
+          const relatedPending = list.filter((o) => {
+            const status = offerStatusNormalized(o?.status, "PENDING");
+            if (status !== "PENDING") return false;
+            return (
+              padFranchiseId(o?.from_franchise_id) === actingId ||
+              padFranchiseId(o?.to_franchise_id) === actingId
+            );
+          });
+          if (relatedPending.length === 1) return relatedPending[0];
+        }
+        return null;
+      };
+
+      const syncDirectMflOfferToStorage = async ({
+        leagueId,
+        season,
+        offerId,
+        resolvedTradeId,
+        fromFranchiseId,
+        toFranchiseId,
+        fromFranchiseName,
+        toFranchiseName,
+        message,
+        commentsOut,
+        willGiveUp,
+        willReceive,
+        payload,
+        source,
+      }) => {
+        if (!githubPat) {
+          return {
+            storedOffer: null,
+            storageSync: {
+              ok: false,
+              skipped: true,
+              reason: "missing_github_pat",
+            },
+          };
+        }
+
+        let attempts = 0;
+        let storedOffer = null;
+        let storageSync = {
+          ok: false,
+          skipped: true,
+          reason: "not_attempted",
+        };
+        while (attempts < 2) {
+          attempts += 1;
+          const loaded = await readTradeOffersDoc(leagueId, season);
+          if (!loaded.ok) {
+            storageSync = {
+              ok: false,
+              skipped: true,
+              reason: loaded.error || "storage_read_failed",
+            };
+            break;
+          }
+          const doc = normalizeTradeOffersDoc(loaded.doc, leagueId, season);
+          const offers = Array.isArray(doc.offers) ? doc.offers : [];
+          const existing = findStoredOfferForDirectAction(offers, {
+            tradeId: resolvedTradeId,
+            offerId,
+            fromFranchiseId,
+            toFranchiseId,
+          });
+          const idx = existing ? offers.indexOf(existing) : -1;
+
+          const nowIso = new Date().toISOString();
+          const normalizedId =
+            safeStr(existing?.id) ||
+            (resolvedTradeId
+              ? `MFL-${resolvedTradeId}`
+              : `TWB-${(crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`).toString()}`);
+          const rawComment = safeStr(commentsOut);
+          const cleanComment = stripTradeMetaTagFromComments(rawComment);
+          const twbMeta = parseTradeMetaTagFromComments(rawComment);
+          const giveUpCsv = Array.isArray(willGiveUp)
+            ? willGiveUp.filter(Boolean).join(",")
+            : safeStr(willGiveUp);
+          const receiveCsv = Array.isArray(willReceive)
+            ? willReceive.filter(Boolean).join(",")
+            : safeStr(willReceive);
+
+          const nextOffer = {
+            ...(existing || {}),
+            id: normalizedId,
+            league_id: leagueId,
+            season: safeInt(season, Number(season) || 0),
+            status: "PENDING",
+            created_at: safeStr(existing?.created_at) || nowIso,
+            updated_at: nowIso,
+            from_franchise_id: fromFranchiseId,
+            to_franchise_id: toFranchiseId,
+            from_franchise_name: fromFranchiseName || fromFranchiseId,
+            to_franchise_name: toFranchiseName || toFranchiseId,
+            message: message || cleanComment || rawComment,
+            comment: cleanComment || rawComment,
+            comments: cleanComment || rawComment,
+            raw_comment: rawComment,
+            will_give_up: giveUpCsv,
+            will_receive: receiveCsv,
+            source: safeStr(source || "trade-workbench-ui"),
+            summary: summarizeOfferPayload(payload),
+            payload,
+            twb_meta: twbMeta,
+            mfl_trade_id: resolvedTradeId || null,
+            trade_id: resolvedTradeId || null,
+            mfl_present: true,
+            mfl_status: "PENDING",
+          };
+
+          if (idx >= 0) offers[idx] = nextOffer;
+          else offers.push(nextOffer);
+
+          const saveOut = await writeTradeOffersDoc(
+            leagueId,
+            season,
+            doc,
+            loaded.sha,
+            `feat(trades): sync direct mfl offer ${normalizedId}`
+          );
+          if (saveOut.ok) {
+            storedOffer = nextOffer;
+            storageSync = {
+              ok: true,
+              skipped: false,
+              reason: "",
+              storage_path: saveOut.filePath,
+              storage_commit_sha: saveOut.commitSha || "",
+            };
+            break;
+          }
+          storageSync = {
+            ok: false,
+            skipped: false,
+            reason: saveOut.error || "storage_write_failed",
+            upstream_status: saveOut.upstreamStatus || 0,
+          };
+        }
+
+        return { storedOffer, storageSync };
+      };
+
       const buildSalaryAdjRowsFromPayload = (payload, tradeId) => {
         const { left, right } = tradeSidesFromPayload(payload);
         const leftId = padFranchiseId(left?.franchise_id);
@@ -3641,14 +3823,21 @@ export default {
       const applyExtensionsFromPayload = async (leagueId, season, payload, options = {}) => {
         const extReqs = Array.isArray(payload?.extension_requests) ? payload.extension_requests : [];
         const expectedExtensionCount = Math.max(0, safeInt(options?.expected_extension_count, 0));
+        const extensionTriggerFound = !!options?.extension_trigger_found;
         const preparationSkipped = Array.isArray(options?.preparation_skipped_rows)
           ? options.preparation_skipped_rows
           : [];
         const tradeId = safeStr(options?.trade_id);
         if (!extReqs.length) {
-          const reason = expectedExtensionCount > 0
-            ? "expected_extensions_missing_from_payload"
-            : "no_extension_requests";
+          let reason = "no_extension_requests";
+          let isFailure = false;
+          if (extensionTriggerFound) {
+            reason = "extension_trigger_found_but_unresolved";
+            isFailure = true;
+          } else if (expectedExtensionCount > 0) {
+            reason = "expected_extensions_missing_from_payload";
+            isFailure = true;
+          }
           try {
             console.log(
               "[TWB][extensions][skip]",
@@ -3658,6 +3847,7 @@ export default {
                 league_id: safeStr(leagueId),
                 season: safeStr(season),
                 expected_extension_count: expectedExtensionCount,
+                extension_trigger_found: extensionTriggerFound,
                 reason,
                 skipped_rows: preparationSkipped,
               })
@@ -3666,12 +3856,13 @@ export default {
             // noop
           }
           return {
-            ok: expectedExtensionCount === 0,
+            ok: !isFailure,
             skipped: true,
             reason,
             applied: [],
             skipped_rows: preparationSkipped,
             expected_extension_count: expectedExtensionCount,
+            extension_trigger_found: extensionTriggerFound,
           };
         }
         const salariesRes = await mflExportJson(season, leagueId, "salaries");
@@ -3719,18 +3910,24 @@ export default {
           beforeSnapshot[playerId] = normalizeSalarySnapshotRow(salariesByPlayer[playerId]);
         }
         if (!plan.xml) {
-          const reason = expectedExtensionCount > 0
-            ? "expected_extensions_resolved_to_no_valid_rows"
-            : "no_valid_extension_rows";
+          let reason = "no_valid_extension_rows";
+          let isFailure = false;
+          if (extensionTriggerFound) {
+            reason = "extension_trigger_found_but_no_valid_rows";
+            isFailure = true;
+          } else if (expectedExtensionCount > 0) {
+            reason = "expected_extensions_resolved_to_no_valid_rows";
+            isFailure = true;
+          }
           return {
-            ok: expectedExtensionCount === 0,
+            ok: !isFailure,
             skipped: true,
             reason,
             applied: plan.applied,
             skipped_rows: plan.skipped.concat(preparationSkipped),
             before_snapshot: beforeSnapshot,
             verification: {
-              ok: expectedExtensionCount === 0,
+              ok: !isFailure,
               checked_players: 0,
               matched_players: 0,
               mismatched_players: 0,
@@ -3738,6 +3935,7 @@ export default {
               reason,
             },
             expected_extension_count: expectedExtensionCount,
+            extension_trigger_found: extensionTriggerFound,
           };
         }
         const importRes = await postMflImportForm(
@@ -3847,6 +4045,7 @@ export default {
               }
             : null,
           expected_extension_count: expectedExtensionCount,
+          extension_trigger_found: extensionTriggerFound,
         };
       };
 
@@ -4175,6 +4374,7 @@ export default {
         const season = safeStr(body?.season || payload?.season || YEAR || "");
         const fromFranchiseId = padFranchiseId(body?.from_franchise_id || payload?.ui?.left_team_id || "");
         const toFranchiseId = padFranchiseId(body?.to_franchise_id || payload?.ui?.right_team_id || "");
+        const offerId = safeStr(body?.offer_id || body?.proposal_id || body?.id || "");
         const fromFranchiseName = safeStr(body?.from_franchise_name);
         const toFranchiseName = safeStr(body?.to_franchise_name);
         const message = safeStr(body?.message || body?.comment || payload?.comment).slice(0, 2000);
@@ -4364,6 +4564,25 @@ export default {
               upstream_status: pendingRes.status,
             };
           }
+          const resolvedTradeId = String(
+            tradeId || pendingLookup.matched_trade_id || ""
+          ).replace(/\D/g, "");
+          const syncOut = await syncDirectMflOfferToStorage({
+            leagueId,
+            season,
+            offerId,
+            resolvedTradeId,
+            fromFranchiseId,
+            toFranchiseId,
+            fromFranchiseName,
+            toFranchiseName,
+            message,
+            commentsOut,
+            willGiveUp,
+            willReceive,
+            payload,
+            source: safeStr(body?.source || "trade-workbench-ui"),
+          });
           return jsonOut(201, {
             ok: true,
             mode: "direct_mfl",
@@ -4393,6 +4612,8 @@ export default {
               left: proposalAssets.leftTokensOut.invalid,
               right: proposalAssets.rightTokensOut.invalid,
             },
+            stored_offer: syncOut.storedOffer ? sanitizeOfferForList(syncOut.storedOffer, true) : null,
+            storage_sync: syncOut.storageSync,
           });
         }
 
@@ -4696,6 +4917,25 @@ export default {
                 upstream_status: pendingRes.status,
               };
             }
+            const resolvedTradeId = String(
+              tradeIdOut || pendingLookup.matched_trade_id || ""
+            ).replace(/\D/g, "");
+            const syncOut = await syncDirectMflOfferToStorage({
+              leagueId,
+              season,
+              offerId: "",
+              resolvedTradeId,
+              fromFranchiseId,
+              toFranchiseId,
+              fromFranchiseName: "",
+              toFranchiseName: "",
+              message: comments,
+              commentsOut,
+              willGiveUp: proposalAssets.willGiveUp,
+              willReceive: proposalAssets.willReceive,
+              payload: proposalPayload || {},
+              source: safeStr(body?.source || "trade-workbench-ui"),
+            });
 
             return {
               ok: true,
@@ -4720,6 +4960,10 @@ export default {
                 left: proposalAssets.leftTokensOut.invalid,
                 right: proposalAssets.rightTokensOut.invalid,
               },
+              stored_offer: syncOut.storedOffer
+                ? sanitizeOfferForList(syncOut.storedOffer, true)
+                : null,
+              storage_sync: syncOut.storageSync,
             };
           };
 
@@ -4815,6 +5059,8 @@ export default {
               counter_offer: proposalOut.proposal,
               mfl: proposalOut.mfl,
               invalid_assets: proposalOut.invalid_assets,
+              stored_offer: proposalOut.stored_offer || null,
+              storage_sync: proposalOut.storage_sync || null,
             });
           }
 
@@ -4827,8 +5073,63 @@ export default {
 
           let resolvedOfferFromFranchiseId = offerFromFranchiseId;
           let resolvedOfferToFranchiseId = offerToFranchiseId;
+          let acceptStoredOffer = null;
           let acceptPendingRow = null;
           if (action === "ACCEPT") {
+            try {
+              const loaded = await readTradeOffersDoc(leagueId, season);
+              if (loaded.ok) {
+                const offers = Array.isArray(loaded.doc?.offers) ? loaded.doc.offers : [];
+                acceptStoredOffer = findStoredOfferForDirectAction(offers, {
+                  tradeId: mflTradeId,
+                  offerId,
+                  fromFranchiseId: resolvedOfferFromFranchiseId,
+                  toFranchiseId: resolvedOfferToFranchiseId,
+                  actingFranchiseId,
+                });
+                if (acceptStoredOffer) {
+                  if ((!payload || typeof payload !== "object") && acceptStoredOffer.payload && typeof acceptStoredOffer.payload === "object") {
+                    payload = JSON.parse(JSON.stringify(acceptStoredOffer.payload));
+                  }
+                  if (!offerComment) {
+                    offerComment = safeStr(
+                      acceptStoredOffer.raw_comment ||
+                        acceptStoredOffer.comments ||
+                        acceptStoredOffer.comment ||
+                        acceptStoredOffer.message
+                    );
+                  }
+                  if (!offerMeta) {
+                    offerMeta =
+                      (acceptStoredOffer.twb_meta && typeof acceptStoredOffer.twb_meta === "object"
+                        ? acceptStoredOffer.twb_meta
+                        : null) ||
+                      parseTradeMetaTagFromComments(
+                        safeStr(
+                          acceptStoredOffer.raw_comment ||
+                            acceptStoredOffer.comments ||
+                            acceptStoredOffer.comment ||
+                            acceptStoredOffer.message
+                        )
+                      );
+                  }
+                  if (!offerWillGiveUp) offerWillGiveUp = safeStr(acceptStoredOffer.will_give_up);
+                  if (!offerWillReceive) offerWillReceive = safeStr(acceptStoredOffer.will_receive);
+                  if (!resolvedOfferFromFranchiseId) {
+                    resolvedOfferFromFranchiseId = padFranchiseId(
+                      acceptStoredOffer.from_franchise_id
+                    );
+                  }
+                  if (!resolvedOfferToFranchiseId) {
+                    resolvedOfferToFranchiseId = padFranchiseId(
+                      acceptStoredOffer.to_franchise_id
+                    );
+                  }
+                }
+              }
+            } catch (_) {
+              // noop
+            }
             try {
               const pendingRes = await mflExportJson(
                 season,
@@ -5037,6 +5338,7 @@ export default {
               salaryAdjOut = await applySalaryAdjFromPayload(leagueId, season, payload, mflTradeId);
               extensionsOut = await applyExtensionsFromPayload(leagueId, season, payload, {
                 expected_extension_count: safeInt(extensionPreparation?.expected_extension_count, 0),
+                extension_trigger_found: !!(extensionPreparation?.extension_trigger_found),
                 preparation_skipped_rows: extensionPreparation?.skipped_rows || [],
                 trade_id: mflTradeId,
               });
