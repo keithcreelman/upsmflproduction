@@ -3,7 +3,7 @@
     "schema_version": 1,
     "league_id": "25625",
     "season": 2026,
-    "updated_at": "2026-03-01T12:31:12.359Z",
+    "updated_at": "2026-03-01T12:31:13.842Z",
     "row_count": 5,
     "source": "worker-trade-outbox"
   },
@@ -566,7 +566,7 @@
     },
     {
       "created_ts": "2026-03-01T12:31:12.295Z",
-      "trade_id": "",
+      "trade_id": "1043",
       "action_type": "SUBMIT",
       "from_franchise_id": "0008",
       "to_franchise_id": "0006",
@@ -691,14 +691,14 @@
         },
         "comment": "Pre-trade extension: Extend Harrison Jr., Marvin 2-year | New length 3 | New AAV 34K | New TCV 82K"
       },
-      "comment_trailer": "",
+      "comment_trailer": "[UPS_TWB_INTENT_BEGIN]\nUPS_OUTBOX_ID:5\nUPS_PAYLOAD_HASH:c8d3807cd74c6e83ad05d546f2a29bc997280e816ec6690732b7921c1a5f28c6\nUPS_XML_EXT:PHNhbGFyaWVzPjxsZWFndWVVbml0IHVuaXQ9IkxFQUdVRSI-PHBsYXllciBpZD0iMTY2MTQiIHNhbGFyeT0iMzQwMDAiIGNvbnRyYWN0WWVhcj0iMiIgY29udHJhY3RJbmZvPSJDTCAzfFRDViA4Mkt8QUFWIDE0SywgMzRLfFkxLTE0SywgWTItMzRLLCBZMy0zNEt8RXh0OiBSZWFsRGVhbHxHVEQ6IDYySyIgY29udHJhY3RTdGF0dXM9IkVYVDIiIC8-PC9sZWFndWVVbml0Pjwvc2FsYXJpZXM-\nUPS_XML_SALADJ:PHNhbGFyeV9hZGp1c3RtZW50cz48c2FsYXJ5X2FkanVzdG1lbnQgZnJhbmNoaXNlX2lkPSIwMDA4IiBhbW91bnQ9IjUwMDAiIGV4cGxhbmF0aW9uPSJVUFMgdHJhZGVkIHNhbGFyeSBzZXR0bGVtZW50OiBuZXQgKzVLIi8-PHNhbGFyeV9hZGp1c3RtZW50IGZyYW5jaGlzZV9pZD0iMDAwNiIgYW1vdW50PSItNTAwMCIgZXhwbGFuYXRpb249IlVQUyB0cmFkZWQgc2FsYXJ5IHNldHRsZW1lbnQ6IG5ldCAtNUsiLz48L3NhbGFyeV9hZGp1c3RtZW50cz4\n[UPS_TWB_INTENT_END]",
       "payload_hash": "c8d3807cd74c6e83ad05d546f2a29bc997280e816ec6690732b7921c1a5f28c6",
-      "status": "PENDING",
-      "mfl_post_response_snip": "",
-      "mfl_verify_response_snip": "",
+      "status": "POSTED",
+      "mfl_post_response_snip": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n\n<status>OK</status>",
+      "mfl_verify_response_snip": "{\"ok\":true,\"matched\":true,\"match_count\":1,\"rows_count\":1,\"matched_trade_id\":\"1043\",\"upstream_status\":200}",
       "league_id": "25625",
       "season": "2026",
-      "updated_ts": "2026-03-01T12:31:12.295Z",
+      "updated_ts": "2026-03-01T12:31:13.435Z",
       "id": "5"
     }
   ]
