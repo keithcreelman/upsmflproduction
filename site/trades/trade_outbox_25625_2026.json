@@ -3,7 +3,7 @@
     "schema_version": 1,
     "league_id": "25625",
     "season": 2026,
-    "updated_at": "2026-03-01T12:17:34.215Z",
+    "updated_at": "2026-03-01T12:17:34.963Z",
     "row_count": 3,
     "source": "worker-trade-outbox"
   },
@@ -288,7 +288,7 @@
     },
     {
       "created_ts": "2026-03-01T12:17:34.142Z",
-      "trade_id": "",
+      "trade_id": "1042",
       "action_type": "SUBMIT",
       "from_franchise_id": "0011",
       "to_franchise_id": "0008",
@@ -413,14 +413,14 @@
         },
         "comment": "Pre-trade extension: Extend Kraft, Tucker 2-year | New length 3 | New AAV 22K | New TCV 46K"
       },
-      "comment_trailer": "",
+      "comment_trailer": "[UPS_TWB_INTENT_BEGIN]\nUPS_OUTBOX_ID:3\nUPS_PAYLOAD_HASH:0018b0a4807cfc42709683970a2d9f7883d428789be524eaa9d3f509dc32afe6\nUPS_XML_EXT:PHNhbGFyaWVzPjxsZWFndWVVbml0IHVuaXQ9IkxFQUdVRSI-PHBsYXllciBpZD0iMTYyMjIiIHNhbGFyeT0iMjAwMCIgY29udHJhY3RZZWFyPSIxIiBjb250cmFjdEluZm89IkNMIDN8VENWIDQ2S3xBQVYgMkssIDIyS3xZMS0ySywgWTItMjJLLCBZMy0yMkt8RXh0OiBDYXNofEdURDogMzVLIiBjb250cmFjdFN0YXR1cz0iRVhUMiIgLz48L2xlYWd1ZVVuaXQ-PC9zYWxhcmllcz4\nUPS_XML_SALADJ:PHNhbGFyeV9hZGp1c3RtZW50cz48c2FsYXJ5X2FkanVzdG1lbnQgZnJhbmNoaXNlX2lkPSIwMDExIiBhbW91bnQ9Ii01MDAwIiBleHBsYW5hdGlvbj0iVVBTIHRyYWRlZCBzYWxhcnkgc2V0dGxlbWVudDogbmV0IC01SyIvPjxzYWxhcnlfYWRqdXN0bWVudCBmcmFuY2hpc2VfaWQ9IjAwMDgiIGFtb3VudD0iNTAwMCIgZXhwbGFuYXRpb249IlVQUyB0cmFkZWQgc2FsYXJ5IHNldHRsZW1lbnQ6IG5ldCArNUsiLz48L3NhbGFyeV9hZGp1c3RtZW50cz4\n[UPS_TWB_INTENT_END]",
       "payload_hash": "0018b0a4807cfc42709683970a2d9f7883d428789be524eaa9d3f509dc32afe6",
-      "status": "PENDING",
-      "mfl_post_response_snip": "",
-      "mfl_verify_response_snip": "",
+      "status": "POSTED",
+      "mfl_post_response_snip": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n\n<status>OK</status>",
+      "mfl_verify_response_snip": "{\"ok\":true,\"matched\":true,\"match_count\":1,\"rows_count\":1,\"matched_trade_id\":\"1042\",\"upstream_status\":200}",
       "league_id": "25625",
       "season": "2026",
-      "updated_ts": "2026-03-01T12:17:34.142Z",
+      "updated_ts": "2026-03-01T12:17:34.904Z",
       "id": "3"
     }
   ]
