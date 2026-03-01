@@ -3292,6 +3292,1610 @@ Replaces bulky default grid with compact toggle view + franchise icons
   })();
 </script>
 
+<script>
+  // Rosters page: normalize contract details and add roster filters.
+  (function () {
+    if (window.__ups_roster_contract_ui_v2) return;
+    window.__ups_roster_contract_ui_v2 = true;
+
+    var rosterUiState = {
+      search: "",
+      positions: [],
+      teams: [],
+      divisions: [],
+      years: [],
+      contractTypes: [],
+      sort: "default"
+    };
+    var observerMuteUntil = 0;
+
+    function safeStr(v) {
+      return v === null || v === undefined ? "" : String(v).trim();
+    }
+
+    function muteMutationObserver(ms) {
+      var dur = Number(ms || 0);
+      observerMuteUntil = Date.now() + (dur > 0 ? dur : 120);
+    }
+
+    function isRosterPage() {
+      var bodyId = safeStr(document.body && document.body.id).toLowerCase();
+      if (bodyId.indexOf("body_options_07") === 0) return true;
+      try {
+        var u = new URL(window.location.href);
+        return safeStr(u.searchParams.get("O")) === "07";
+      } catch (e) {
+        return false;
+      }
+    }
+
+    function normalizeText(v) {
+      return safeStr(v)
+        .replace(/\u00a0/g, " ")
+        .replace(/\s*\|\s*/g, " | ")
+        .replace(/\s+/g, " ")
+        .replace(/\s+\|/g, " |")
+        .replace(/\|\s+/g, "| ")
+        .trim();
+    }
+
+    function lowerText(v) {
+      return normalizeText(v).toLowerCase();
+    }
+
+    function uniq(values) {
+      var seen = Object.create(null);
+      var out = [];
+      (values || []).forEach(function (v) {
+        var key = safeStr(v);
+        if (!key || seen[key]) return;
+        seen[key] = true;
+        out.push(key);
+      });
+      return out;
+    }
+
+    function selectedMultiValues(select) {
+      if (!select) return [];
+      return Array.prototype.map.call(select.selectedOptions || [], function (opt) {
+        return safeStr(opt && opt.value);
+      }).filter(Boolean).filter(function (v) {
+        return v !== "__GROUP__";
+      });
+    }
+
+    function setMultiSelectValues(select, values) {
+      if (!select) return;
+      var wanted = Object.create(null);
+      (values || []).forEach(function (v) { wanted[safeStr(v)] = true; });
+      Array.prototype.forEach.call(select.options || [], function (opt) {
+        opt.selected = !!wanted[safeStr(opt.value)];
+      });
+    }
+
+    function saveRosterFilterState() {
+      try {
+        sessionStorage.setItem("ups_roster_search", rosterUiState.search || "");
+        sessionStorage.setItem("ups_roster_positions", JSON.stringify(rosterUiState.positions || []));
+        sessionStorage.setItem("ups_roster_teams", JSON.stringify(rosterUiState.teams || []));
+        sessionStorage.setItem("ups_roster_divisions", JSON.stringify(rosterUiState.divisions || []));
+        sessionStorage.setItem("ups_roster_years", JSON.stringify(rosterUiState.years || []));
+        sessionStorage.setItem("ups_roster_contract_types", JSON.stringify(rosterUiState.contractTypes || []));
+        sessionStorage.setItem("ups_roster_sort", safeStr(rosterUiState.sort || "default"));
+      } catch (e) {}
+    }
+
+    function loadStoredList(key) {
+      try {
+        var raw = sessionStorage.getItem(key);
+        if (!raw) return [];
+        var parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? uniq(parsed.map(safeStr).filter(Boolean)) : [];
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function textAfterPrefix(part, rx) {
+      var m = part.match(rx);
+      return m ? safeStr(m[1]) : "";
+    }
+
+    function parseMoney(text) {
+      var raw = safeStr(text).replace(/\u2212/g, "-");
+      if (!raw) return null;
+      var match = raw.match(/\$?\s*-?\d[\d,]*(?:\.\d+)?|\$-?\d[\d,]*(?:\.\d+)?/);
+      if (!match) return null;
+      var cleaned = match[0].replace(/\$/g, "").replace(/,/g, "").replace(/\s+/g, "");
+      var n = Number(cleaned);
+      return Number.isFinite(n) ? n : null;
+    }
+
+    function formatMoneyCompact(n) {
+      if (!Number.isFinite(n)) return "";
+      var sign = n < 0 ? "-" : "";
+      var abs = Math.abs(Math.round(n));
+      if (abs >= 1000 && abs % 1000 === 0) return sign + "$" + String(abs / 1000) + "K";
+      return sign + "$" + abs.toLocaleString();
+    }
+
+    function formatDeltaCompact(n) {
+      if (!Number.isFinite(n)) return "";
+      var sign = n > 0 ? "+" : n < 0 ? "-" : "";
+      var abs = Math.abs(Math.round(n));
+      if (abs >= 1000 && abs % 1000 === 0) return sign + String(abs / 1000) + "K";
+      return sign + abs.toLocaleString();
+    }
+
+    function positionFromRow(row) {
+      if (!row) return "";
+      var link = row.querySelector("td.player a");
+      if (!link) return "";
+      var m = safeStr(link.className).match(/\bposition_([a-z]+)\b/i);
+      return m ? safeStr(m[1]).toUpperCase() : "";
+    }
+
+    function playerNameFromRow(row) {
+      if (!row) return "";
+      var link = row.querySelector("td.player a");
+      if (!link) return "";
+      return lowerText(link.textContent || "");
+    }
+
+    function extractFidFromNode(node) {
+      if (!node) return "";
+      var cls = safeStr(node.className);
+      var m = cls.match(/franchise_(\d{1,4})/i);
+      if (m && m[1]) return m[1].padStart(4, "0");
+      var href = safeStr(node.getAttribute && node.getAttribute("href"));
+      m = href.match(/[?&]F=(\d{1,4})\b/i);
+      if (m && m[1]) return m[1].padStart(4, "0");
+      return "";
+    }
+
+    function resolveTeamMetaForTable(table) {
+      if (!table) return { fid: "", teamName: "", divisionId: "", divisionName: "" };
+
+      var fid = safeStr(table.getAttribute("data-ups-team-id"));
+      var teamName = safeStr(table.getAttribute("data-ups-team-name"));
+      var divisionId = safeStr(table.getAttribute("data-ups-division-id"));
+      var divisionName = safeStr(table.getAttribute("data-ups-division-name"));
+      if (fid && teamName && divisionId && divisionName) {
+        return { fid: fid, teamName: teamName, divisionId: divisionId, divisionName: divisionName };
+      }
+
+      var caption = table.querySelector("caption");
+      var captionLink = caption && caption.querySelector("a[class*='franchise_']");
+      fid =
+        extractFidFromNode(table) ||
+        extractFidFromNode(captionLink || caption) ||
+        fid;
+
+      var franchiseDbKey = fid ? ("fid_" + fid) : "";
+      var franchiseMeta = (typeof franchiseDatabase !== "undefined" && franchiseDbKey && franchiseDatabase && franchiseDatabase[franchiseDbKey]) ? franchiseDatabase[franchiseDbKey] : null;
+
+      teamName =
+        safeStr(table.getAttribute("data-ups-team-name")) ||
+        safeStr(franchiseMeta && franchiseMeta.name) ||
+        safeStr(caption && caption.querySelector && caption.querySelector("img[alt]") && caption.querySelector("img[alt]").getAttribute("alt")) ||
+        normalizeText((caption && caption.textContent) || "").replace(/^-\s*/, "");
+
+      divisionId =
+        safeStr(table.getAttribute("data-ups-division-id")) ||
+        safeStr(franchiseMeta && franchiseMeta.division);
+
+      var divMeta = (typeof leagueDivisions !== "undefined" && leagueDivisions && divisionId && leagueDivisions[divisionId]) ? leagueDivisions[divisionId] : null;
+      divisionName =
+        safeStr(table.getAttribute("data-ups-division-name")) ||
+        safeStr(divMeta && divMeta.name) ||
+        (divisionId ? ("Division " + divisionId) : "");
+
+      if (fid) table.setAttribute("data-ups-team-id", fid);
+      if (teamName) table.setAttribute("data-ups-team-name", teamName);
+      if (divisionId) table.setAttribute("data-ups-division-id", divisionId);
+      if (divisionName) table.setAttribute("data-ups-division-name", divisionName);
+
+      return { fid: fid, teamName: teamName, divisionId: divisionId, divisionName: divisionName };
+    }
+
+    function yearsBucketFromRow(row) {
+      var yearsCell = row && row.querySelector("td.contractyear");
+      var yearsText = safeStr(yearsCell && yearsCell.textContent);
+      if (!yearsText) return "";
+      var yearsNum = parseInt(yearsText, 10);
+      if (!Number.isFinite(yearsNum)) return "";
+      if (yearsNum >= 3) return "3";
+      if (yearsNum < 0) return "";
+      return String(yearsNum);
+    }
+
+    function getRosterTables() {
+      return Array.from(document.querySelectorAll("#body_options_07 table.report"));
+    }
+
+    function getRosterHost() {
+      return (
+        document.getElementById("MFLroster") ||
+        document.querySelector("#body_options_07 table.two_column_layout") ||
+        document.querySelector("#body_options_07 table.report")
+      );
+    }
+
+    function getRosterRoot() {
+      return document.getElementById("MFLroster") || document.getElementById("options_07") || document.body;
+    }
+
+    function getRosterTableKey(table) {
+      if (!table) return "";
+      var existing = safeStr(table.getAttribute("data-ups-roster-key"));
+      if (existing) return existing;
+
+      var captionLink = table.querySelector("caption a[class*='franchise_']");
+      var cls = safeStr(captionLink && captionLink.className);
+      var m = cls.match(/franchise_(\d{1,4})/i);
+      var key = m ? ("fid_" + m[1].padStart(4, "0")) : ("idx_" + Math.random().toString(36).slice(2, 9));
+      table.setAttribute("data-ups-roster-key", key);
+      return key;
+    }
+
+    function setTaxiCollapsed(table, collapsed) {
+      if (!table) return;
+      table.setAttribute("data-ups-taxi-collapsed", collapsed ? "1" : "0");
+      try {
+        var key = getRosterTableKey(table);
+        if (key) sessionStorage.setItem("ups_roster_taxi_" + key, collapsed ? "1" : "0");
+      } catch (e) {}
+    }
+
+    function getTaxiCollapsed(table) {
+      if (!table) return true;
+      var current = safeStr(table.getAttribute("data-ups-taxi-collapsed"));
+      if (current === "0" || current === "1") return current === "1";
+      try {
+        var saved = sessionStorage.getItem("ups_roster_taxi_" + getRosterTableKey(table));
+        if (saved === "0" || saved === "1") {
+          table.setAttribute("data-ups-taxi-collapsed", saved);
+          return saved === "1";
+        }
+      } catch (e) {}
+      table.setAttribute("data-ups-taxi-collapsed", "1");
+      return true;
+    }
+
+    function setTeamCollapsed(table, collapsed) {
+      if (!table) return;
+      table.setAttribute("data-ups-team-collapsed", collapsed ? "1" : "0");
+      try {
+        var key = getRosterTableKey(table);
+        if (key) sessionStorage.setItem("ups_roster_team_" + key, collapsed ? "1" : "0");
+      } catch (e) {}
+    }
+
+    function getTeamCollapsed(table) {
+      if (!table) return false;
+      var current = safeStr(table.getAttribute("data-ups-team-collapsed"));
+      if (current === "0" || current === "1") return current === "1";
+      try {
+        var saved = sessionStorage.getItem("ups_roster_team_" + getRosterTableKey(table));
+        if (saved === "0" || saved === "1") {
+          table.setAttribute("data-ups-team-collapsed", saved);
+          return saved === "1";
+        }
+      } catch (e) {}
+      var mobileDefault = !!(window.matchMedia && window.matchMedia("(max-width: 760px)").matches);
+      table.setAttribute("data-ups-team-collapsed", mobileDefault ? "1" : "0");
+      return mobileDefault;
+    }
+
+    function updateTeamCollapseUi(table, displayCollapsed) {
+      if (!table) return;
+      var collapsed = typeof displayCollapsed === "boolean" ? displayCollapsed : getTeamCollapsed(table);
+      table.setAttribute("data-ups-team-display-collapsed", collapsed ? "1" : "0");
+      var btn = table.querySelector(".ups-roster-team-toggle");
+      if (!btn) return;
+      btn.setAttribute("aria-expanded", collapsed ? "false" : "true");
+      btn.textContent = collapsed ? "Expand" : "Collapse";
+      btn.setAttribute("title", collapsed ? "Expand team roster" : "Collapse team roster");
+    }
+
+    function buildSummaryChip(label, value, tone) {
+      var chip = document.createElement("span");
+      chip.className = "ups-roster-summary-chip" + (tone ? " is-" + tone : "");
+
+      var labelEl = document.createElement("span");
+      labelEl.className = "ups-roster-summary-label";
+      labelEl.textContent = safeStr(label);
+
+      var valueEl = document.createElement("span");
+      valueEl.className = "ups-roster-summary-value";
+      valueEl.textContent = safeStr(value);
+
+      chip.appendChild(labelEl);
+      chip.appendChild(valueEl);
+      return chip;
+    }
+
+    function classifyWarningText(text) {
+      var s = lowerText(text);
+      if (!s) return "";
+      if (s.indexOf("invalid roster") !== -1) return "Invalid";
+      if (s.indexOf("salary cap") !== -1 && s.indexOf("exceeded") !== -1) return "Over Cap";
+      return "Warning";
+    }
+
+    function buildToolbarOptionSets() {
+      var teamMap = Object.create(null);
+      var divMap = Object.create(null);
+      var posMap = Object.create(null);
+      var typeMap = Object.create(null);
+      var yearsMap = Object.create(null);
+
+      getRosterTables().forEach(function (table) {
+        var meta = resolveTeamMetaForTable(table);
+        if (meta.fid) {
+          teamMap[meta.fid] = {
+            value: meta.fid,
+            label: meta.teamName || meta.fid,
+            groupId: safeStr(meta.divisionId || ""),
+            groupLabel: safeStr(meta.divisionName || "")
+          };
+        }
+        if (meta.divisionId) {
+          divMap[meta.divisionId] = { value: meta.divisionId, label: meta.divisionName || ("Division " + meta.divisionId) };
+        }
+
+        Array.from(table.querySelectorAll('tr[data-ups-player-row="1"]')).forEach(function (row) {
+          var pos = safeStr(row.getAttribute("data-ups-player-pos")).toUpperCase();
+          if (pos) posMap[pos] = { value: pos, label: pos };
+
+          var yearsBucket = safeStr(row.getAttribute("data-ups-contract-years-bucket"));
+          if (yearsBucket) {
+            yearsMap[yearsBucket] = { value: yearsBucket, label: yearsBucket + " year" + (yearsBucket === "1" ? "" : "s") };
+          }
+
+          var typeKey = safeStr(row.getAttribute("data-ups-contract-type-key"));
+          var typeLabel = safeStr(row.getAttribute("data-ups-contract-type-label"));
+          if (typeKey && typeLabel) {
+            var groupLabel = "All Other";
+            if (typeKey.indexOf("rookie") !== -1) {
+              groupLabel = "Rookie";
+            } else if (
+              typeKey === "fl" ||
+              typeKey === "bl" ||
+              typeKey.indexOf("front") !== -1 ||
+              typeKey.indexOf("back") !== -1 ||
+              typeKey.indexOf("load") !== -1
+            ) {
+              groupLabel = "Loaded";
+            }
+            typeMap[typeKey] = { value: typeKey, label: typeLabel, groupLabel: groupLabel };
+          }
+        });
+      });
+
+      var yearOrder = { "3": 0, "2": 1, "1": 2, "0": 3 };
+      function sortByLabel(a, b) { return safeStr(a.label).localeCompare(safeStr(b.label)); }
+
+      return {
+        teams: Object.keys(teamMap).map(function (k) { return teamMap[k]; }).sort(function (a, b) {
+          var ag = safeStr(a.groupLabel || a.groupId || "");
+          var bg = safeStr(b.groupLabel || b.groupId || "");
+          return ag.localeCompare(bg) || sortByLabel(a, b);
+        }),
+        divisions: Object.keys(divMap).map(function (k) { return divMap[k]; }).sort(sortByLabel),
+        positions: ["QB","RB","WR","TE","PK","PN","DT","DE","LB","CB","S"]
+          .filter(function (p) { return !!posMap[p]; })
+          .map(function (p) { return posMap[p]; }),
+        years: Object.keys(yearsMap).map(function (k) { return yearsMap[k]; }).sort(function (a, b) {
+          return (yearOrder[a.value] || 99) - (yearOrder[b.value] || 99);
+        }),
+        contractTypes: Object.keys(typeMap).map(function (k) { return typeMap[k]; }).sort(function (a, b) {
+          var groupOrder = { "Rookie": 0, "Loaded": 1, "All Other": 2 };
+          var ag = safeStr(a.groupLabel || "All Other");
+          var bg = safeStr(b.groupLabel || "All Other");
+          return (groupOrder[ag] || 99) - (groupOrder[bg] || 99) || sortByLabel(a, b);
+        })
+      };
+    }
+
+    function renderTeamsSelectOptions(select, items, selectedValues) {
+      if (!select) return;
+
+      var sig = (items || []).map(function (it) {
+        return [
+          safeStr(it.value),
+          safeStr(it.label),
+          safeStr(it.groupId || ""),
+          safeStr(it.groupLabel || "")
+        ].join(":");
+      }).join("|");
+
+      if (select.dataset.upsSig !== sig) {
+        var html = [];
+        var groups = Object.create(null);
+        var order = [];
+
+        (items || []).forEach(function (it) {
+          if (safeStr(it.value) === "__ALL__") {
+            var allVal = safeStr(it.value).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+            var allLabel = safeStr(it.label).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+            html.push('<option value="' + allVal + '">' + allLabel + '</option>');
+            return;
+          }
+
+          var gKey = safeStr(it.groupId || it.groupLabel || "Other");
+          if (!groups[gKey]) {
+            groups[gKey] = {
+              label: safeStr(it.groupLabel || it.groupId || "Other"),
+              options: []
+            };
+            order.push(gKey);
+          }
+          groups[gKey].options.push(it);
+        });
+
+        order.forEach(function (gKey) {
+          var group = groups[gKey];
+          var gLabel = safeStr(group.label).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+          html.push('<option value="__GROUP__" disabled data-ups-group-header="1">' + gLabel + '</option>');
+          group.options.forEach(function (it) {
+            var value = safeStr(it.value).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+            var label = safeStr(it.label).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+            html.push('<option value="' + value + '">' + label + '</option>');
+          });
+        });
+
+        select.innerHTML = html.join("");
+        select.dataset.upsSig = sig;
+      }
+
+      setMultiSelectValues(select, selectedValues || []);
+    }
+
+    function renderContractTypesSelectOptions(select, items, selectedValues) {
+      if (!select) return;
+
+      var sig = (items || []).map(function (it) {
+        return [safeStr(it.value), safeStr(it.label), safeStr(it.groupLabel || "All Other")].join(":");
+      }).join("|");
+
+      if (select.dataset.upsSig !== sig) {
+        var html = [];
+        var groups = { "Rookie": [], "Loaded": [], "All Other": [] };
+
+        (items || []).forEach(function (it) {
+          var g = safeStr(it.groupLabel || "All Other");
+          if (!groups[g]) groups[g] = [];
+          groups[g].push(it);
+        });
+
+        ["Rookie", "Loaded", "All Other"].forEach(function (groupName) {
+          var opts = groups[groupName] || [];
+          if (!opts.length) return;
+          var gLabel = groupName.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+          html.push('<option value="__GROUP__" disabled data-ups-group-header="1">' + gLabel + '</option>');
+          opts.forEach(function (it) {
+            var value = safeStr(it.value).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+            var label = safeStr(it.label).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+            html.push('<option value="' + value + '">' + label + '</option>');
+          });
+        });
+
+        select.innerHTML = html.join("");
+        select.dataset.upsSig = sig;
+      }
+
+      setMultiSelectValues(select, selectedValues || []);
+    }
+
+    function renderMultiSelectOptions(select, items, selectedValues) {
+      if (!select) return;
+      var sig = (items || []).map(function (it) { return safeStr(it.value) + ":" + safeStr(it.label); }).join("|");
+      if (select.dataset.upsSig !== sig) {
+        select.innerHTML = (items || []).map(function (it) {
+          var value = safeStr(it.value).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+          var label = safeStr(it.label).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+          return '<option value="' + value + '">' + label + '</option>';
+        }).join("");
+        select.dataset.upsSig = sig;
+      }
+      setMultiSelectValues(select, selectedValues || []);
+    }
+
+    function renderJumpOptions(select, items) {
+      if (!select) return;
+      var sig = (items || []).map(function (it) { return safeStr(it.value) + ":" + safeStr(it.label); }).join("|");
+      if (select.dataset.upsSig !== sig) {
+        var html = ['<option value="">Jump to team...</option>'];
+        (items || []).forEach(function (it) {
+          var value = safeStr(it.value).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+          var label = safeStr(it.label).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+          html.push('<option value="' + value + '">' + label + '</option>');
+        });
+        select.innerHTML = html.join("");
+        select.dataset.upsSig = sig;
+      }
+    }
+
+    function sortMetricForRow(row, mode) {
+      if (!row) return 0;
+      if (mode === "salary_desc" || mode === "salary_asc") {
+        var salaryCell = row.querySelector("td.salary");
+        return Number(parseMoney(salaryCell && salaryCell.textContent) || 0);
+      }
+      if (mode === "years_desc" || mode === "years_asc") {
+        var yearsCell = row.querySelector("td.contractyear");
+        var yearsNum = parseInt(safeStr(yearsCell && yearsCell.textContent), 10);
+        return Number.isFinite(yearsNum) ? yearsNum : 0;
+      }
+      if (mode === "points_desc" || mode === "points_asc") {
+        var pointsCell = row.querySelector("td.points");
+        var pointsTxt = safeStr(pointsCell && pointsCell.textContent).replace(/,/g, "");
+        var pointsNum = parseFloat(pointsTxt);
+        return Number.isFinite(pointsNum) ? pointsNum : 0;
+      }
+      return 0;
+    }
+
+    function sortRows(rows, mode) {
+      var list = (rows || []).slice();
+      if (!list.length) return list;
+
+      if (!mode || mode === "default") {
+        list.sort(function (a, b) {
+          var ao = parseInt(safeStr(a.getAttribute("data-ups-original-order")), 10);
+          var bo = parseInt(safeStr(b.getAttribute("data-ups-original-order")), 10);
+          if (!Number.isFinite(ao)) ao = 0;
+          if (!Number.isFinite(bo)) bo = 0;
+          return ao - bo;
+        });
+        return list;
+      }
+
+      list.sort(function (a, b) {
+        if (mode === "name_asc" || mode === "name_desc") {
+          var an = safeStr(a.getAttribute("data-ups-player-name"));
+          var bn = safeStr(b.getAttribute("data-ups-player-name"));
+          var cmpName = an.localeCompare(bn);
+          return mode === "name_desc" ? -cmpName : cmpName;
+        }
+
+        var av = sortMetricForRow(a, mode);
+        var bv = sortMetricForRow(b, mode);
+        var cmp = av - bv;
+        if (mode === "salary_desc" || mode === "years_desc" || mode === "points_desc") cmp *= -1;
+        if (cmp !== 0) return cmp;
+
+        var an2 = safeStr(a.getAttribute("data-ups-player-name"));
+        var bn2 = safeStr(b.getAttribute("data-ups-player-name"));
+        return an2.localeCompare(bn2);
+      });
+      return list;
+    }
+
+    function replaceRowBlock(tbody, currentRows, nextRows) {
+      if (!tbody || !currentRows || !currentRows.length || !nextRows || !nextRows.length) return;
+      if (currentRows.length === nextRows.length) {
+        var identical = true;
+        for (var i = 0; i < currentRows.length; i += 1) {
+          if (currentRows[i] !== nextRows[i]) {
+            identical = false;
+            break;
+          }
+        }
+        if (identical) return;
+      }
+      var endAnchor = currentRows[currentRows.length - 1].nextSibling;
+      var frag = document.createDocumentFragment();
+      nextRows.forEach(function (row) { frag.appendChild(row); });
+      tbody.insertBefore(frag, endAnchor);
+    }
+
+    function sortTableRows(table) {
+      if (!table) return;
+      var mode = safeStr(rosterUiState.sort || "default").toLowerCase();
+      var tbody = table.tBodies && table.tBodies[0];
+      if (!tbody) return;
+
+      var allPlayers = Array.from(tbody.querySelectorAll('tr[data-ups-player-row="1"]'));
+      if (!allPlayers.length) return;
+
+      var activeRows = allPlayers.filter(function (row) {
+        return row.getAttribute("data-ups-taxi-row") !== "1";
+      });
+      var taxiRows = allPlayers.filter(function (row) {
+        return row.getAttribute("data-ups-taxi-row") === "1";
+      });
+
+      var sortedActive = sortRows(activeRows, mode);
+      var sortedTaxi = sortRows(taxiRows, mode);
+      replaceRowBlock(tbody, activeRows, sortedActive);
+      replaceRowBlock(tbody, taxiRows, sortedTaxi);
+    }
+
+    function collectVisibleRosterRows() {
+      return Array.from(document.querySelectorAll('#body_options_07 table.report tr[data-ups-player-row="1"]'))
+        .filter(function (row) {
+          var table = row.closest("table.report");
+          return table && !table.hidden && !row.hidden;
+        })
+        .map(function (row) {
+          var table = row.closest("table.report");
+          var meta = resolveTeamMetaForTable(table);
+          var playerLink = row.querySelector("td.player a");
+          return {
+            team_id: safeStr(meta.fid),
+            team_name: safeStr(meta.teamName),
+            division: safeStr(meta.divisionName),
+            player: normalizeText((playerLink && playerLink.textContent) || (row.querySelector("td.player") && row.querySelector("td.player").textContent) || ""),
+            position: safeStr(row.getAttribute("data-ups-player-pos") || ""),
+            salary: safeStr(row.querySelector("td.salary") && row.querySelector("td.salary").textContent),
+            years_left: safeStr(row.querySelector("td.contractyear") && row.querySelector("td.contractyear").textContent),
+            contract_type: safeStr(row.querySelector("td.contractstatus") && row.querySelector("td.contractstatus").textContent),
+            points: safeStr(row.querySelector("td.points") && row.querySelector("td.points").textContent),
+            bye: safeStr(row.querySelector("td.week") && row.querySelector("td.week").textContent),
+            special: safeStr(row.querySelector("td.contractinfo") && row.querySelector("td.contractinfo").textContent)
+          };
+        });
+    }
+
+    function csvEscape(value) {
+      var s = safeStr(value);
+      if (s.indexOf('"') !== -1) s = s.replace(/"/g, '""');
+      if (/[",\n]/.test(s)) return '"' + s + '"';
+      return s;
+    }
+
+    function rowsToCsv(rows) {
+      if (!rows || !rows.length) return "team_id,team_name,division,player,position,salary,years_left,contract_type,points,bye,special\n";
+      var headers = ["team_id","team_name","division","player","position","salary","years_left","contract_type","points","bye","special"];
+      var lines = [headers.join(",")];
+      rows.forEach(function (row) {
+        lines.push(headers.map(function (h) { return csvEscape(row[h]); }).join(","));
+      });
+      return lines.join("\n") + "\n";
+    }
+
+    function downloadTextFile(filename, text, mimeType) {
+      var blob = new Blob([text], { type: mimeType || "text/plain;charset=utf-8" });
+      var url = URL.createObjectURL(blob);
+      var link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(function () {
+        URL.revokeObjectURL(url);
+      }, 0);
+    }
+
+    function copyTextToClipboard(text) {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        return navigator.clipboard.writeText(text);
+      }
+      return new Promise(function (resolve, reject) {
+        var ta = document.createElement("textarea");
+        ta.value = text;
+        ta.setAttribute("readonly", "readonly");
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        try {
+          var ok = document.execCommand("copy");
+          ta.remove();
+          if (ok) resolve();
+          else reject(new Error("copy failed"));
+        } catch (err) {
+          ta.remove();
+          reject(err);
+        }
+      });
+    }
+
+    function syncToolbarFilterControls(toolbar) {
+      if (!toolbar) return;
+      var sets = buildToolbarOptionSets();
+      function prune(selected, items) {
+        var allowed = Object.create(null);
+        (items || []).forEach(function (it) { allowed[safeStr(it.value)] = true; });
+        return uniq((selected || []).filter(function (v) { return !!allowed[safeStr(v)]; }));
+      }
+
+      rosterUiState.teams = prune(rosterUiState.teams, sets.teams);
+      rosterUiState.divisions = [];
+      rosterUiState.positions = prune(rosterUiState.positions, sets.positions);
+      rosterUiState.years = prune(rosterUiState.years, sets.years);
+      rosterUiState.contractTypes = prune(rosterUiState.contractTypes, sets.contractTypes);
+
+      var teamItems = [{ value: "__ALL__", label: "All Teams" }].concat(sets.teams || []);
+      var teamSelected = (rosterUiState.teams && rosterUiState.teams.length) ? rosterUiState.teams : ["__ALL__"];
+
+      renderTeamsSelectOptions(toolbar.querySelector("#upsRosterTeams"), teamItems, teamSelected);
+      renderMultiSelectOptions(toolbar.querySelector("#upsRosterPositions"), sets.positions, rosterUiState.positions);
+      renderMultiSelectOptions(toolbar.querySelector("#upsRosterYears"), sets.years, rosterUiState.years);
+      renderContractTypesSelectOptions(toolbar.querySelector("#upsRosterTypes"), sets.contractTypes, rosterUiState.contractTypes);
+      renderJumpOptions(toolbar.querySelector("#upsRosterJump"), sets.teams || []);
+
+      var teamsSel = toolbar.querySelector("#upsRosterTeams");
+      var posSel = toolbar.querySelector("#upsRosterPositions");
+      var yearsSel = toolbar.querySelector("#upsRosterYears");
+      var typesSel = toolbar.querySelector("#upsRosterTypes");
+      var sortSel = toolbar.querySelector("#upsRosterSort");
+
+      if (teamsSel) teamsSel.size = Math.max(4, Math.min(12, ((sets.teams || []).length + 1) || 4));
+      if (posSel) posSel.size = Math.max(4, Math.min(10, (sets.positions || []).length || 4));
+      if (yearsSel) yearsSel.size = Math.max(3, Math.min(5, (sets.years || []).length || 3));
+      if (typesSel) typesSel.size = Math.max(4, Math.min(10, (sets.contractTypes || []).length || 4));
+      if (sortSel && sortSel.value !== rosterUiState.sort) sortSel.value = rosterUiState.sort || "default";
+    }
+
+    function ensureToolbar() {
+      var anchor = getRosterHost();
+      if (!anchor) return null;
+
+      var toolbar = document.getElementById("upsRosterToolbar");
+      if (!toolbar) {
+        toolbar = document.createElement("section");
+        toolbar.id = "upsRosterToolbar";
+        toolbar.className = "ups-roster-toolbar";
+        toolbar.innerHTML =
+          '<div class="ups-roster-toolbar-left">' +
+            '<label class="ups-roster-toolbar-field">' +
+              '<span>Search</span>' +
+              '<input type="search" id="upsRosterSearch" placeholder="Player name" autocomplete="off" />' +
+            "</label>" +
+            '<label class="ups-roster-toolbar-field">' +
+              '<span>Teams</span>' +
+              '<select id="upsRosterTeams" multiple size="6"></select>' +
+            "</label>" +
+            '<label class="ups-roster-toolbar-field">' +
+              '<span>Positions</span>' +
+              '<select id="upsRosterPositions" multiple size="6"></select>' +
+            "</label>" +
+            '<label class="ups-roster-toolbar-field">' +
+              '<span>Years Left</span>' +
+              '<select id="upsRosterYears" multiple size="4"></select>' +
+            "</label>" +
+            '<label class="ups-roster-toolbar-field">' +
+              '<span>Contract Type</span>' +
+              '<select id="upsRosterTypes" multiple size="6"></select>' +
+            "</label>" +
+            '<label class="ups-roster-toolbar-field ups-roster-toolbar-field-compact">' +
+              '<span>Sort By</span>' +
+              '<select id="upsRosterSort">' +
+                '<option value="default">Default</option>' +
+                '<option value="salary_desc">Salary (High to Low)</option>' +
+                '<option value="salary_asc">Salary (Low to High)</option>' +
+                '<option value="years_desc">Years Left (High to Low)</option>' +
+                '<option value="years_asc">Years Left (Low to High)</option>' +
+                '<option value="points_desc">Points (High to Low)</option>' +
+                '<option value="points_asc">Points (Low to High)</option>' +
+                '<option value="name_asc">Player Name (A to Z)</option>' +
+              "</select>" +
+            "</label>" +
+            '<label class="ups-roster-toolbar-field ups-roster-toolbar-field-compact">' +
+              '<span>Jump To Team</span>' +
+              '<select id="upsRosterJump"></select>' +
+            "</label>" +
+            '<div class="ups-roster-toolbar-actions">' +
+              '<button type="button" class="ups-roster-toolbar-btn" data-ups-roster-export="csv">Download CSV</button>' +
+              '<button type="button" class="ups-roster-toolbar-btn" data-ups-roster-export="json">Copy JSON</button>' +
+            "</div>" +
+            '<button type="button" class="ups-roster-toolbar-reset" data-ups-roster-clear="1">Reset</button>' +
+          "</div>" +
+          '<div class="ups-roster-toolbar-help">Tip: click options on/off to toggle multiple selections (Cmd/Ctrl still works too). Use Jump To Team for quick navigation.</div>' +
+          '<div class="ups-roster-toolbar-status" id="upsRosterToolbarStatus">Showing all players</div>';
+
+        anchor.parentNode.insertBefore(toolbar, anchor);
+      }
+
+      if (toolbar.dataset.upsWired !== "1") {
+        toolbar.dataset.upsWired = "1";
+
+        var searchInput = toolbar.querySelector("#upsRosterSearch");
+        var wireMulti = function (id, stateKey, normalizeFn) {
+          var el = toolbar.querySelector(id);
+          if (!el) return;
+
+          function commitValues(values) {
+            if (stateKey === "teams") {
+              if (values.indexOf("__ALL__") !== -1) {
+                values = [];
+              } else {
+                values = values.filter(function (v) { return safeStr(v) !== "__ALL__"; });
+              }
+            }
+            rosterUiState[stateKey] = uniq(values.map(function (v) {
+              return normalizeFn ? normalizeFn(v) : safeStr(v);
+            }).filter(Boolean));
+            saveRosterFilterState();
+            applyRosterViewState();
+            renderRosterSummaries();
+            updateToolbarStatus();
+          }
+
+          el.addEventListener("change", function () {
+            commitValues(selectedMultiValues(el));
+          });
+
+          // Native multi-select requires Cmd/Ctrl to deselect. Toggle on direct click so users
+          // can click again to remove a selection.
+          el.addEventListener("mousedown", function (evt) {
+            var target = evt && evt.target;
+            if (!target || target.tagName !== "OPTION") return;
+            if (target.disabled || safeStr(target.getAttribute("data-ups-group-header")) === "1") return;
+
+            // Let keyboard/multi-modifier behavior work normally when explicitly used.
+            if (evt.metaKey || evt.ctrlKey || evt.shiftKey || evt.altKey) return;
+
+            evt.preventDefault();
+
+            var priorScrollTop = el.scrollTop;
+            var wasSelected = !!target.selected;
+            target.selected = !wasSelected;
+
+            // "All Teams" is exclusive; selecting it clears others visually before commit.
+            if (stateKey === "teams" && safeStr(target.value) === "__ALL__" && target.selected) {
+              Array.prototype.forEach.call(el.options || [], function (opt) {
+                if (opt !== target) opt.selected = false;
+              });
+            } else if (stateKey === "teams" && safeStr(target.value) !== "__ALL__" && target.selected) {
+              Array.prototype.forEach.call(el.options || [], function (opt) {
+                if (safeStr(opt.value) === "__ALL__") opt.selected = false;
+              });
+            }
+
+            el.focus();
+            el.scrollTop = priorScrollTop;
+            commitValues(selectedMultiValues(el));
+          });
+        };
+
+        if (searchInput) {
+          searchInput.addEventListener("input", function () {
+            rosterUiState.search = lowerText(searchInput.value || "");
+            saveRosterFilterState();
+            applyRosterViewState();
+            renderRosterSummaries();
+            updateToolbarStatus();
+          });
+        }
+
+        var sortInput = toolbar.querySelector("#upsRosterSort");
+        if (sortInput) {
+          sortInput.addEventListener("change", function () {
+            rosterUiState.sort = safeStr(sortInput.value || "default").toLowerCase() || "default";
+            saveRosterFilterState();
+            applyRosterViewState();
+            renderRosterSummaries();
+            updateToolbarStatus();
+          });
+        }
+
+        var jumpInput = toolbar.querySelector("#upsRosterJump");
+        if (jumpInput) {
+          jumpInput.addEventListener("change", function () {
+            var fid = safeStr(jumpInput.value);
+            if (!fid) return;
+            var table = document.querySelector('#body_options_07 table.report[data-ups-team-id="' + fid + '"]');
+            if (!table) return;
+            setTeamCollapsed(table, false);
+            applyRosterViewState();
+            var card = table.closest(".mobile-wrap") || table;
+            try {
+              card.scrollIntoView({ behavior: "smooth", block: "start" });
+            } catch (e) {
+              card.scrollIntoView(true);
+            }
+            jumpInput.value = "";
+          });
+        }
+
+        wireMulti("#upsRosterTeams", "teams", function (v) { return safeStr(v); });
+        wireMulti("#upsRosterPositions", "positions", function (v) { return safeStr(v).toUpperCase(); });
+        wireMulti("#upsRosterYears", "years", function (v) { return safeStr(v); });
+        wireMulti("#upsRosterTypes", "contractTypes", function (v) { return lowerText(v); });
+      }
+
+      syncToolbarFilterControls(toolbar);
+
+      var searchInputNow = toolbar.querySelector("#upsRosterSearch");
+      if (searchInputNow && searchInputNow.value !== rosterUiState.search) searchInputNow.value = rosterUiState.search;
+      var sortInputNow = toolbar.querySelector("#upsRosterSort");
+      if (sortInputNow && sortInputNow.value !== rosterUiState.sort) sortInputNow.value = rosterUiState.sort || "default";
+
+      toolbar.classList.toggle("is-filtering", isFilterActive());
+      return toolbar;
+    }
+
+    function updateToolbarStatus() {
+      var toolbar = document.getElementById("upsRosterToolbar");
+      if (!toolbar) return;
+      var status = toolbar.querySelector("#upsRosterToolbarStatus");
+      if (!status) return;
+
+      var allRows = Array.from(document.querySelectorAll("#body_options_07 table.report tr"));
+      var totalPlayers = 0, matchedPlayers = 0;
+      var matchedActive = 0, matchedTaxi = 0, matchedIr = 0;
+      var matchedY3 = 0, matchedY2 = 0, matchedY1 = 0;
+
+      allRows.forEach(function (row) {
+        if (!row.querySelector("td.player")) return;
+        totalPlayers += 1;
+        var match = rowMatchesFilters(row);
+        if (!match) return;
+        matchedPlayers += 1;
+
+        var isTaxi = row.getAttribute("data-ups-taxi-row") === "1";
+        var isIr = !!(row.classList && row.classList.contains("IRtoggle"));
+        if (isTaxi) matchedTaxi += 1;
+        else if (isIr) matchedIr += 1;
+        else matchedActive += 1;
+
+        var yb = safeStr(row.getAttribute("data-ups-contract-years-bucket") || "");
+        if (yb === "3") matchedY3 += 1;
+        else if (yb === "2") matchedY2 += 1;
+        else if (yb === "1") matchedY1 += 1;
+      });
+
+      var parts = [];
+      if (isFilterActive()) {
+        parts.push(String(matchedPlayers) + " / " + String(totalPlayers) + " players");
+      } else {
+        parts.push(String(totalPlayers) + " players");
+      }
+      parts.push("Active " + String(matchedActive));
+      parts.push("Taxi " + String(matchedTaxi));
+      parts.push("IR " + String(matchedIr));
+      parts.push("Contract Years: 3yr " + String(matchedY3) + ", 2yr " + String(matchedY2) + ", 1yr " + String(matchedY1));
+      if (rosterUiState.teams && rosterUiState.teams.length) parts.push("Teams: " + rosterUiState.teams.length);
+      if (rosterUiState.positions && rosterUiState.positions.length) parts.push("Pos: " + rosterUiState.positions.join(", "));
+      if (rosterUiState.years && rosterUiState.years.length) parts.push("Years: " + rosterUiState.years.join(", "));
+      if (rosterUiState.contractTypes && rosterUiState.contractTypes.length) parts.push("Types: " + rosterUiState.contractTypes.length);
+      if (rosterUiState.sort && rosterUiState.sort !== "default") parts.push("Sort: " + rosterUiState.sort.replace(/_/g, " "));
+      if (rosterUiState.search) parts.push('"' + rosterUiState.search + '"');
+      status.textContent = parts.join(" • ");
+    }
+
+    function isFilterActive() {
+      return !!(
+        rosterUiState.search ||
+        (rosterUiState.positions && rosterUiState.positions.length) ||
+        (rosterUiState.teams && rosterUiState.teams.length) ||
+        (rosterUiState.years && rosterUiState.years.length) ||
+        (rosterUiState.contractTypes && rosterUiState.contractTypes.length)
+      );
+    }
+
+    function parseContractParts(raw) {
+      var out = { chips: [], extras: [] };
+      if (!raw) return out;
+
+      var parts = raw.split("|").map(function (p) { return safeStr(p); }).filter(Boolean);
+      if (!parts.length) {
+        out.extras.push(raw);
+        return out;
+      }
+
+      parts.forEach(function (part) {
+        var lower = part.toLowerCase();
+        var value = "";
+
+        if (/^cl\b/i.test(part)) {
+          value = textAfterPrefix(part, /^cl\s*(.*)$/i);
+          out.chips.push({ label: "CL", value: value || "?", tone: "neutral" });
+          return;
+        }
+        if (/^tcv\b/i.test(part)) {
+          value = textAfterPrefix(part, /^tcv\s*(.*)$/i);
+          out.chips.push({ label: "TCV", value: value || "?", tone: "neutral" });
+          return;
+        }
+        if (/^aav\b/i.test(part)) {
+          value = textAfterPrefix(part, /^aav\s*(.*)$/i);
+          out.chips.push({ label: "AAV", value: value || "?", tone: "neutral" });
+          return;
+        }
+        if (/^ext\s*:/i.test(part)) {
+          value = textAfterPrefix(part, /^ext\s*:\s*(.*)$/i);
+          out.chips.push({ label: "Ext", value: value || "Yes", tone: "accent" });
+          return;
+        }
+        if (/^gtd\s*:/i.test(part)) {
+          value = textAfterPrefix(part, /^gtd\s*:\s*(.*)$/i);
+          out.chips.push({ label: "GTD", value: value || "Yes", tone: "accent" });
+          return;
+        }
+        if (lower.indexOf("option eligible") !== -1) {
+          out.chips.push({ label: "Option", value: "Eligible", tone: "accent" });
+          return;
+        }
+        if (lower.indexOf("no further extension") !== -1 || lower.indexOf("no further extensions") !== -1) {
+          out.chips.push({ label: "Ext", value: "Locked", tone: "accent" });
+          return;
+        }
+        if (/^y\d+\s*-/i.test(part)) {
+          out.extras.push(part);
+          return;
+        }
+
+        out.extras.push(part);
+      });
+
+      return out;
+    }
+
+    function makeChip(token) {
+      var chip = document.createElement("span");
+      chip.className = "ups-contract-chip" + (token.tone === "accent" ? " is-accent" : "");
+
+      var label = document.createElement("span");
+      label.className = "ups-contract-chip-label";
+      label.textContent = safeStr(token.label);
+
+      var val = document.createElement("span");
+      val.className = "ups-contract-chip-value";
+      val.textContent = safeStr(token.value);
+
+      chip.appendChild(label);
+      chip.appendChild(val);
+      return chip;
+    }
+
+    function enhanceContractInfoCell(cell) {
+      if (!cell || cell.dataset.upsContractUi === "1") return;
+
+      var raw = normalizeText(cell.textContent || "");
+      if (!raw) {
+        cell.dataset.upsContractUi = "1";
+        cell.classList.add("ups-contractinfo-cell", "is-empty");
+        return;
+      }
+
+      var parsed = parseContractParts(raw);
+      if (!parsed.chips.length && !parsed.extras.length) {
+        cell.dataset.upsContractUi = "1";
+        return;
+      }
+
+      cell.dataset.upsContractUi = "1";
+      cell.classList.add("ups-contractinfo-cell");
+      cell.setAttribute("title", raw);
+      cell.textContent = raw;
+    }
+
+    function ensureTaxiHeaderButton(table, row, count) {
+      if (!table || !row) return;
+      var cell = row.querySelector("th,td");
+      if (!cell) return;
+
+      row.setAttribute("data-ups-taxi-header", "1");
+      row.classList.add("ups-roster-taxi-header-row");
+
+      var rawLabel = safeStr(cell.getAttribute("data-ups-taxi-label") || "");
+      if (!rawLabel) {
+        rawLabel = normalizeText(cell.textContent || "") || "Taxi Squad";
+        cell.setAttribute("data-ups-taxi-label", rawLabel);
+      }
+
+      var btn = cell.querySelector(".ups-roster-taxi-toggle");
+      if (!btn) {
+        cell.textContent = "";
+        btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "ups-roster-taxi-toggle";
+
+        var left = document.createElement("span");
+        left.className = "ups-roster-taxi-left";
+
+        var caret = document.createElement("span");
+        caret.className = "ups-roster-taxi-caret";
+        caret.setAttribute("aria-hidden", "true");
+        caret.textContent = "▸";
+
+        var label = document.createElement("span");
+        label.className = "ups-roster-taxi-label";
+
+        left.appendChild(caret);
+        left.appendChild(label);
+
+        var countEl = document.createElement("span");
+        countEl.className = "ups-roster-taxi-count";
+
+        btn.appendChild(left);
+        btn.appendChild(countEl);
+        cell.appendChild(btn);
+      }
+
+      var collapsed = getTaxiCollapsed(table);
+      btn.setAttribute("aria-expanded", collapsed ? "false" : "true");
+      btn.querySelector(".ups-roster-taxi-label").textContent = (collapsed ? "Show " : "Hide ") + rawLabel;
+      btn.querySelector(".ups-roster-taxi-count").textContent = "";
+      btn.setAttribute("title", (collapsed ? "Show " : "Hide ") + rawLabel);
+    }
+
+    function markPlayerRow(row, isTaxi) {
+      if (!row || !row.querySelector("td.player")) return;
+      var table = row.closest("table.report");
+      var meta = resolveTeamMetaForTable(table);
+      var yearsBucket = yearsBucketFromRow(row);
+      var yearsCell = row.querySelector("td.contractyear");
+      var yearsRaw = safeStr(yearsCell && yearsCell.textContent);
+      var typeCell = row.querySelector("td.contractstatus");
+      var typeLabel = normalizeText((typeCell && typeCell.textContent) || "");
+      row.classList.add("ups-roster-data-row");
+      row.setAttribute("data-ups-player-row", "1");
+      row.setAttribute("data-ups-player-name", playerNameFromRow(row));
+      row.setAttribute("data-ups-player-pos", positionFromRow(row));
+      row.setAttribute("data-ups-team-id", safeStr(meta.fid));
+      row.setAttribute("data-ups-team-name", lowerText(meta.teamName || ""));
+      row.setAttribute("data-ups-division-id", safeStr(meta.divisionId));
+      row.setAttribute("data-ups-division-name", lowerText(meta.divisionName || ""));
+      row.setAttribute("data-ups-contract-years", yearsRaw);
+      row.setAttribute("data-ups-contract-years-bucket", yearsBucket);
+      row.setAttribute("data-ups-contract-type-label", typeLabel);
+      row.setAttribute("data-ups-contract-type-key", lowerText(typeLabel));
+      if (isTaxi) row.setAttribute("data-ups-taxi-row", "1");
+    }
+
+    function markPrimaryColumns(row) {
+      if (!row || row.dataset.upsRosterRowUi === "1") return;
+      if (!row.querySelector("td.player")) return;
+      row.dataset.upsRosterRowUi = "1";
+      row.classList.add("ups-roster-data-row");
+      if (!row.hasAttribute("data-ups-original-order")) {
+        row.setAttribute("data-ups-original-order", String(Number(row.rowIndex || 0)));
+      }
+    }
+
+    function annotateTableCellLabels(table) {
+      if (!table || table.dataset.upsCellLabels === "1") return;
+      var headerRow = Array.from(table.querySelectorAll("tr")).find(function (row) {
+        return !!row.querySelector("th");
+      });
+      if (!headerRow) return;
+
+      var headerCells = Array.from(headerRow.querySelectorAll("th,td"));
+      var labelsByClass = Object.create(null);
+      var labelsByIndex = Object.create(null);
+
+      headerCells.forEach(function (cell, idx) {
+        var label = normalizeText(cell.textContent || "");
+        if (!label) return;
+        labelsByIndex[String(idx)] = label;
+        safeStr(cell.className).split(/\s+/).filter(Boolean).forEach(function (cls) {
+          if (!labelsByClass[cls]) labelsByClass[cls] = label;
+        });
+      });
+
+      Array.from(table.querySelectorAll('tr[data-ups-player-row="1"]')).forEach(function (row) {
+        Array.from(row.querySelectorAll("td")).forEach(function (cell, idx) {
+          var label = "";
+          safeStr(cell.className).split(/\s+/).some(function (cls) {
+            if (labelsByClass[cls]) {
+              label = labelsByClass[cls];
+              return true;
+            }
+            return false;
+          });
+          if (!label) label = labelsByIndex[String(idx)] || "";
+          if (!label) label = "Value";
+          cell.setAttribute("data-ups-label", label);
+        });
+      });
+
+      table.dataset.upsCellLabels = "1";
+    }
+
+    function ensureRowDetailsToggle(row) {
+      if (!row || row.getAttribute("data-ups-player-row") !== "1") return;
+      var playerCell = row.querySelector("td.player");
+      if (!playerCell) return;
+      if (playerCell.querySelector(".ups-roster-row-more")) return;
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "ups-roster-row-more";
+      btn.textContent = "More";
+      btn.setAttribute("aria-expanded", "false");
+      btn.setAttribute("title", "Show more player details");
+      playerCell.appendChild(btn);
+      if (!row.hasAttribute("data-ups-row-expanded")) row.setAttribute("data-ups-row-expanded", "0");
+    }
+
+    function decorateTaxiSection(table) {
+      if (!table) return;
+      var rows = Array.from(table.querySelectorAll("tr"));
+      var inTaxi = false;
+      var taxiHeader = null;
+      var taxiCount = 0;
+
+      rows.forEach(function (row) {
+        row.removeAttribute("data-ups-taxi-header");
+        row.removeAttribute("data-ups-taxi-summary-row");
+        row.removeAttribute("data-ups-taxi-row");
+      });
+
+      rows.forEach(function (row) {
+        var rowText = normalizeText(row.textContent || "");
+        var hasToggle = !!row.querySelector(".ups-roster-taxi-toggle");
+
+        if (!inTaxi && (hasToggle || /^taxi squad$/i.test(rowText))) {
+          inTaxi = true;
+          taxiHeader = row;
+          row.setAttribute("data-ups-taxi-header", "1");
+          return;
+        }
+
+        if (!inTaxi) return;
+
+        row.setAttribute("data-ups-taxi-row", "1");
+        if (row.querySelector("td.player")) taxiCount += 1;
+
+        if (/total players on taxi squad/i.test(rowText)) {
+          row.setAttribute("data-ups-taxi-summary-row", "1");
+          inTaxi = false;
+        }
+      });
+
+      if (taxiHeader) {
+        table.setAttribute("data-ups-taxi-count", String(taxiCount));
+        ensureTaxiHeaderButton(table, taxiHeader, taxiCount);
+      } else {
+        table.removeAttribute("data-ups-taxi-count");
+      }
+    }
+
+    function renderRosterSummary(table) {
+      if (!table) return;
+      var caption = table.querySelector("caption");
+      if (!caption) return;
+      caption.classList.add("ups-roster-caption");
+
+      var wrap = table.closest(".mobile-wrap");
+      if (wrap) {
+        wrap.classList.add("ups-roster-team-card");
+        var teamMeta = resolveTeamMetaForTable(table);
+        if (teamMeta.fid) wrap.setAttribute("data-ups-team-id", teamMeta.fid);
+        if (teamMeta.teamName) wrap.setAttribute("data-ups-team-name", teamMeta.teamName);
+      }
+
+      var meta = caption.querySelector(".ups-roster-caption-meta");
+      if (!meta) {
+        meta = document.createElement("div");
+        meta.className = "ups-roster-caption-meta";
+        caption.appendChild(meta);
+      }
+      meta.textContent = "";
+
+      var playerRows = Array.from(table.querySelectorAll('tr[data-ups-player-row="1"]'));
+      var totalPlayers = playerRows.length;
+      var visiblePlayers = playerRows.filter(function (row) { return !row.hidden; }).length;
+      var taxiCountAttr = parseInt(safeStr(table.getAttribute("data-ups-taxi-count")), 10);
+      var taxiCount = Number.isFinite(taxiCountAttr) ? taxiCountAttr : playerRows.filter(function (row) {
+        return row.getAttribute("data-ups-taxi-row") === "1";
+      }).length;
+      var salaryTotal = 0;
+
+      playerRows.forEach(function (row) {
+        var salaryCell = row.querySelector("td.salary");
+        var salaryNum = parseMoney(salaryCell && salaryCell.textContent);
+        if (Number.isFinite(salaryNum)) salaryTotal += salaryNum;
+      });
+
+      var warningTexts = Array.from(table.querySelectorAll("tr .warning, tr b.warning"))
+        .map(function (node) { return normalizeText(node.textContent || ""); })
+        .filter(Boolean);
+      var capTone = "success";
+      var capValue = "Compliant";
+
+      if (warningTexts.length) {
+        var joined = warningTexts.join(" | ");
+        var warningType = classifyWarningText(joined);
+        if (warningType === "Over Cap") {
+          capTone = "danger";
+          var capAmount = parseMoney(joined);
+          capValue = capAmount != null ? ("Over " + formatMoneyCompact(Math.abs(capAmount))) : "Over Cap";
+        } else if (warningType === "Invalid") {
+          capTone = "warning";
+          capValue = "Invalid Roster";
+        } else {
+          capTone = "warning";
+          capValue = "Needs Review";
+        }
+      }
+
+      var playersLabel = isFilterActive() ? (String(visiblePlayers) + "/" + String(totalPlayers)) : String(totalPlayers);
+      meta.appendChild(buildSummaryChip("Players", playersLabel, "info"));
+      meta.appendChild(buildSummaryChip("Salary", formatMoneyCompact(salaryTotal), "neutral"));
+      meta.appendChild(buildSummaryChip("Taxi", String(taxiCount), "neutral"));
+      meta.appendChild(buildSummaryChip("Status", capValue, capTone));
+
+      var toggle = caption.querySelector(".ups-roster-team-toggle");
+      if (!toggle) {
+        toggle = document.createElement("button");
+        toggle.type = "button";
+        toggle.className = "ups-roster-team-toggle";
+        caption.appendChild(toggle);
+      }
+      updateTeamCollapseUi(table);
+    }
+
+    function renderRosterSummaries() {
+      if (!isRosterPage()) return;
+      muteMutationObserver(150);
+      getRosterTables().forEach(renderRosterSummary);
+    }
+
+    function rowMatchesFilters(row) {
+      if (!row || row.getAttribute("data-ups-player-row") !== "1") return true;
+      var name = safeStr(row.getAttribute("data-ups-player-name") || "");
+      var pos = safeStr(row.getAttribute("data-ups-player-pos") || "").toUpperCase();
+      var teamId = safeStr(row.getAttribute("data-ups-team-id") || "");
+      var yearsBucket = safeStr(row.getAttribute("data-ups-contract-years-bucket") || "");
+      var typeKey = lowerText(row.getAttribute("data-ups-contract-type-key") || "");
+      if (rosterUiState.search && name.indexOf(rosterUiState.search) === -1) return false;
+      if (rosterUiState.positions && rosterUiState.positions.length && rosterUiState.positions.indexOf(pos) === -1) return false;
+      if (rosterUiState.teams && rosterUiState.teams.length && rosterUiState.teams.indexOf(teamId) === -1) return false;
+      if (rosterUiState.years && rosterUiState.years.length && rosterUiState.years.indexOf(yearsBucket) === -1) return false;
+      if (rosterUiState.contractTypes && rosterUiState.contractTypes.length && rosterUiState.contractTypes.indexOf(typeKey) === -1) return false;
+      return true;
+    }
+
+    function applyRosterViewState() {
+      if (!isRosterPage()) return;
+      var filterActive = isFilterActive();
+      var root = getRosterRoot();
+      if (root) root.classList.toggle("ups-roster-filter-active", filterActive);
+
+      getRosterTables().forEach(function (table) {
+        sortTableRows(table);
+        var taxiCollapsed = getTaxiCollapsed(table);
+        var visibleMatchCount = 0;
+        var teamCollapsed = getTeamCollapsed(table);
+
+        Array.from(table.querySelectorAll("tr")).forEach(function (row) {
+          if (row.querySelector("td.player")) {
+            var match = rowMatchesFilters(row);
+            var hideByTaxi = taxiCollapsed && row.getAttribute("data-ups-taxi-row") === "1";
+            row.hidden = !match || hideByTaxi;
+            if (!row.hidden) visibleMatchCount += 1;
+            return;
+          }
+
+          if (row.getAttribute("data-ups-taxi-header") === "1") {
+            row.hidden = false;
+            return;
+          }
+
+          if (row.getAttribute("data-ups-taxi-row") === "1" || row.getAttribute("data-ups-taxi-summary-row") === "1") {
+            row.hidden = taxiCollapsed;
+            return;
+          }
+
+          row.hidden = false;
+        });
+
+        table.classList.toggle("ups-roster-no-match", filterActive && visibleMatchCount === 0);
+        table.hidden = filterActive && visibleMatchCount === 0;
+
+        var body = table.tBodies && table.tBodies[0];
+        var effectiveCollapsed = !filterActive && teamCollapsed;
+        if (body) body.hidden = effectiveCollapsed;
+        updateTeamCollapseUi(table, effectiveCollapsed);
+
+        var wrap = table.closest(".mobile-wrap");
+        if (wrap && wrap.querySelector("table.report") === table) {
+          wrap.hidden = !!table.hidden;
+        }
+
+        var hostCell = table.closest("td.two_column_layout");
+        if (hostCell && hostCell.querySelectorAll("table.report").length === 1 && hostCell.querySelector("table.report") === table) {
+          hostCell.hidden = !!table.hidden;
+        }
+
+        var toggle = table.querySelector(".ups-roster-taxi-toggle");
+        if (toggle) toggle.setAttribute("aria-expanded", taxiCollapsed ? "false" : "true");
+      });
+
+      Array.from(document.querySelectorAll("#body_options_07 table.two_column_layout > tbody > tr")).forEach(function (layoutRow) {
+        var cells = Array.prototype.filter.call(layoutRow.children || [], function (child) {
+          return child && child.tagName === "TD" && /\btwo_column_layout\b/.test(safeStr(child.className));
+        });
+        if (!cells.length) return;
+        var hasRosterCell = cells.some(function (cell) { return !!cell.querySelector("table.report"); });
+        if (!hasRosterCell) return;
+        layoutRow.hidden = cells.every(function (cell) { return cell.hidden; });
+      });
+    }
+
+    function enhanceRosterTables() {
+      if (!isRosterPage()) return;
+
+      getRosterTables().forEach(function (table) {
+        Array.from(table.querySelectorAll("tr")).forEach(function (row) {
+          markPrimaryColumns(row);
+          var infoCell = row.querySelector("td.contractinfo");
+          if (infoCell) enhanceContractInfoCell(infoCell);
+          markPlayerRow(row, false);
+          ensureRowDetailsToggle(row);
+        });
+        decorateTaxiSection(table);
+        Array.from(table.querySelectorAll('tr[data-ups-taxi-row="1"]')).forEach(function (row) {
+          if (row.querySelector("td.player")) {
+            markPlayerRow(row, true);
+            ensureRowDetailsToggle(row);
+          }
+        });
+        annotateTableCellLabels(table);
+      });
+    }
+
+    function onClick(e) {
+      var clearBtn = e.target && e.target.closest ? e.target.closest("[data-ups-roster-clear='1']") : null;
+      if (clearBtn) {
+        rosterUiState.search = "";
+        rosterUiState.positions = [];
+        rosterUiState.teams = [];
+        rosterUiState.divisions = [];
+        rosterUiState.years = [];
+        rosterUiState.contractTypes = [];
+        rosterUiState.sort = "default";
+        var toolbar = ensureToolbar();
+        if (toolbar) {
+          var searchEl = toolbar.querySelector("#upsRosterSearch");
+          var teamsEl = toolbar.querySelector("#upsRosterTeams");
+          var posEl = toolbar.querySelector("#upsRosterPositions");
+          var yearsEl = toolbar.querySelector("#upsRosterYears");
+          var typesEl = toolbar.querySelector("#upsRosterTypes");
+          var sortEl = toolbar.querySelector("#upsRosterSort");
+          if (searchEl) searchEl.value = "";
+          setMultiSelectValues(teamsEl, []);
+          setMultiSelectValues(posEl, []);
+          setMultiSelectValues(yearsEl, []);
+          setMultiSelectValues(typesEl, []);
+          if (sortEl) sortEl.value = "default";
+        }
+        saveRosterFilterState();
+        applyRosterViewState();
+        renderRosterSummaries();
+        updateToolbarStatus();
+        return;
+      }
+
+      var exportBtn = e.target && e.target.closest ? e.target.closest("[data-ups-roster-export]") : null;
+      if (exportBtn) {
+        var mode = safeStr(exportBtn.getAttribute("data-ups-roster-export")).toLowerCase();
+        var rows = collectVisibleRosterRows();
+        var timestamp = new Date().toISOString().replace(/[:T]/g, "-").slice(0, 16);
+        if (mode === "csv") {
+          downloadTextFile("ups-rosters-" + timestamp + ".csv", rowsToCsv(rows), "text/csv;charset=utf-8");
+        } else if (mode === "json") {
+          var json = JSON.stringify(rows, null, 2);
+          copyTextToClipboard(json).then(function () {
+            updateToolbarStatus();
+          }).catch(function () {
+            downloadTextFile("ups-rosters-" + timestamp + ".json", json, "application/json;charset=utf-8");
+          });
+        }
+        return;
+      }
+
+      var teamToggle = e.target && e.target.closest ? e.target.closest(".ups-roster-team-toggle") : null;
+      if (teamToggle) {
+        var tableForTeam = teamToggle.closest("table.report");
+        if (tableForTeam) {
+          setTeamCollapsed(tableForTeam, !getTeamCollapsed(tableForTeam));
+          applyRosterViewState();
+          renderRosterSummaries();
+          updateToolbarStatus();
+        }
+        return;
+      }
+
+      var taxiToggle = e.target && e.target.closest ? e.target.closest(".ups-roster-taxi-toggle") : null;
+      if (taxiToggle) {
+        var table = taxiToggle.closest("table.report");
+        if (table) {
+          setTaxiCollapsed(table, !getTaxiCollapsed(table));
+          applyRosterViewState();
+          renderRosterSummaries();
+          updateToolbarStatus();
+        }
+        return;
+      }
+
+      var rowMoreBtn = e.target && e.target.closest ? e.target.closest(".ups-roster-row-more") : null;
+      if (rowMoreBtn) {
+        var row = rowMoreBtn.closest("tr[data-ups-player-row='1']");
+        if (!row) return;
+        var expanded = row.getAttribute("data-ups-row-expanded") === "1";
+        row.setAttribute("data-ups-row-expanded", expanded ? "0" : "1");
+        rowMoreBtn.setAttribute("aria-expanded", expanded ? "false" : "true");
+        rowMoreBtn.textContent = expanded ? "More" : "Less";
+        rowMoreBtn.setAttribute("title", expanded ? "Show more player details" : "Hide extra player details");
+        return;
+      }
+
+      var btn = e.target && e.target.closest ? e.target.closest(".ups-contract-more") : null;
+      if (!btn) return;
+      var stack = btn.closest(".ups-contract-stack");
+      if (!stack) return;
+      var details = stack.querySelector(".ups-contract-fulltext");
+      if (!details) return;
+      var open = btn.getAttribute("aria-expanded") === "true";
+      btn.setAttribute("aria-expanded", open ? "false" : "true");
+      btn.textContent = open ? "More" : "Less";
+      details.hidden = open;
+      stack.classList.toggle("is-expanded", !open);
+    }
+
+    function refreshRosterUi() {
+      enhanceRosterTables();
+      ensureToolbar();
+      applyRosterViewState();
+      renderRosterSummaries();
+      updateToolbarStatus();
+    }
+
+    function init() {
+      if (!isRosterPage()) return;
+
+      try {
+        var savedSearch = sessionStorage.getItem("ups_roster_search");
+        if (savedSearch) rosterUiState.search = lowerText(savedSearch);
+        rosterUiState.positions = loadStoredList("ups_roster_positions").map(function (v) { return safeStr(v).toUpperCase(); });
+        rosterUiState.teams = loadStoredList("ups_roster_teams");
+        rosterUiState.divisions = [];
+        rosterUiState.years = loadStoredList("ups_roster_years");
+        rosterUiState.contractTypes = loadStoredList("ups_roster_contract_types").map(lowerText);
+        var savedSort = safeStr(sessionStorage.getItem("ups_roster_sort"));
+        if (savedSort) rosterUiState.sort = savedSort.toLowerCase();
+        if (!rosterUiState.positions.length) {
+          var savedPos = sessionStorage.getItem("ups_roster_position");
+          if (savedPos && safeStr(savedPos).toUpperCase() !== "ALL") {
+            rosterUiState.positions = [safeStr(savedPos).toUpperCase()];
+          }
+        }
+        if (!/^(default|salary_desc|salary_asc|years_desc|years_asc|points_desc|points_asc|name_asc)$/.test(rosterUiState.sort)) {
+          rosterUiState.sort = "default";
+        }
+      } catch (e) {}
+
+      refreshRosterUi();
+      document.addEventListener("click", onClick, true);
+      document.addEventListener("input", function (evt) {
+        var el = evt && evt.target;
+        if (!el || el.id !== "upsRosterSearch") return;
+        saveRosterFilterState();
+      }, true);
+
+      if (!window.MutationObserver) return;
+      var root = getRosterRoot();
+      if (!root) return;
+
+      var pending = false;
+      var obs = new MutationObserver(function () {
+        if (Date.now() < observerMuteUntil) return;
+        if (pending) return;
+        pending = true;
+        setTimeout(function () {
+          pending = false;
+          refreshRosterUi();
+        }, 80);
+      });
+      obs.observe(root, { childList: true, subtree: true });
+    }
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", init);
+    } else {
+      init();
+    }
+  })();
+</script>
 <!-------------------------------------->
 <!---------- HEADER SECTION 6 ---------->
 <!-------------------------------------->
@@ -4085,11 +5689,65 @@ Replaces bulky default grid with compact toggle view + franchise icons
 
   body#body_options_07 #MFLroster {
     display: block !important;
-    max-height: 72vh !important;
-    overflow: auto !important;
-    overscroll-behavior: contain !important;
-    -webkit-overflow-scrolling: touch !important;
-    scrollbar-gutter: stable;
+    max-height: none !important;
+    overflow: visible !important;
+    overscroll-behavior: auto !important;
+  }
+
+  /* Roster layout: replace MFLScripts tabbed/team-strip UI with a single-page roster list.
+     This makes toolbar filters (team/division/etc.) work predictably and removes the icon-strip scrollbar. */
+  body#body_options_07 #MFLroster td.icon_column,
+  body#body_options_07 #MFLroster td.two_column.left_column,
+  body#body_options_07 #MFLroster #roster_column_left,
+  body#body_options_07 #MFLroster #roster_column_middle,
+  body#body_options_07 #MFLroster #rosterTradeLinkDIV {
+    display: none !important;
+  }
+
+  body#body_options_07 #MFLroster #rosSwipe,
+  body#body_options_07 #MFLroster #noSwipe {
+    width: 100% !important;
+    table-layout: auto !important;
+  }
+
+  body#body_options_07 #MFLroster td.two_column.right_column {
+    width: 100% !important;
+    display: block !important;
+    vertical-align: top !important;
+  }
+
+  body#body_options_07 #MFLroster #roster_column_right {
+    display: block !important;
+    width: 100% !important;
+  }
+
+  body#body_options_07 #MFLroster #roster_column_right .mobile-wrap {
+    display: block !important;
+    margin: 0 0 0.75rem 0 !important;
+    width: 100% !important;
+  }
+
+  body#body_options_07 #MFLroster #roster_column_right .mobile-wrap[hidden] {
+    display: none !important;
+  }
+
+  body#body_options_07 #MFLroster #roster_column_right .mobile-wrap.ups-roster-team-card {
+    border: 1px solid var(--ups-border) !important;
+    border-radius: 12px !important;
+    overflow: hidden !important;
+    background: linear-gradient(180deg, var(--ups-surface), var(--ups-surface-alt)) !important;
+    box-shadow: var(--ups-shadow);
+  }
+
+  body#body_options_07 #MFLroster table.report[data-ups-team-display-collapsed="1"] > tbody {
+    display: none !important;
+  }
+
+  /* Hide legacy MFLScripts taxi/IR show-hide anchors; keep only UPS taxi toggle button */
+  body#body_options_07 #MFLroster a.show_toggler_taxi,
+  body#body_options_07 #MFLroster a.hide_toggler_taxi {
+    display: none !important;
+    pointer-events: none !important;
   }
 
   body#body_options_07 #MFLroster caption,
@@ -4100,6 +5758,14 @@ Replaces bulky default grid with compact toggle view + franchise icons
   /* Rosters: franchise header with icon + dash + name */
   body#body_options_07 #MFLroster caption {
     padding: 0.5rem 0.8rem !important;
+  }
+
+  body#body_options_07 #MFLroster table.report > tbody > tr:first-child th {
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 6 !important;
+    background: var(--ups-th-bg) !important;
+    box-shadow: inset 0 -1px 0 var(--ups-border);
   }
 
   body#body_options_07 #MFLroster caption.ups-roster-caption {
@@ -4142,10 +5808,370 @@ Replaces bulky default grid with compact toggle view + franchise icons
     text-overflow: ellipsis !important;
   }
 
+  /* Rosters: toolbar for search + position filtering */
+  #upsRosterToolbar {
+    width: min(76rem, calc(100% - 1.25rem));
+    margin: 0.55rem auto 0.75rem;
+    border: 1px solid var(--ups-border);
+    border-radius: 12px;
+    background: linear-gradient(180deg, var(--ups-surface), var(--ups-surface-alt));
+    box-shadow: var(--ups-shadow);
+    padding: 0.55rem 0.7rem;
+    display: grid;
+    gap: 0.42rem;
+  }
+
+  #upsRosterToolbar .ups-roster-toolbar-left {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 0.45rem;
+  }
+
+  #upsRosterToolbar .ups-roster-toolbar-field {
+    display: grid;
+    gap: 0.18rem;
+    min-width: 9rem;
+  }
+
+  #upsRosterToolbar .ups-roster-toolbar-field-compact {
+    min-width: 12rem;
+  }
+
+  #upsRosterToolbar .ups-roster-toolbar-field > span {
+    color: var(--ups-muted);
+    font-size: 0.72rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  #upsRosterToolbar input,
+  #upsRosterToolbar select {
+    min-height: 2.05rem;
+    border-radius: 8px;
+    border: 1px solid var(--ups-border);
+    background: var(--ups-surface);
+    color: var(--ups-text);
+    padding: 0.35rem 0.55rem;
+    font-weight: 700;
+  }
+
+  #upsRosterToolbar select[multiple] {
+    min-height: 7.25rem;
+    max-height: 9.5rem;
+    padding: 0.2rem 0.25rem;
+    line-height: 1.2;
+    resize: vertical;
+    overflow-y: auto;
+    -webkit-appearance: listbox;
+    appearance: auto;
+  }
+
+  #upsRosterToolbar select[multiple] option {
+    padding: 0.15rem 0.2rem;
+  }
+
+  #upsRosterToolbar select[multiple] option[data-ups-group-header="1"] {
+    font-weight: 900;
+    color: var(--ups-report-strong);
+    background: rgba(26, 52, 92, 0.28);
+    border-top: 1px solid rgba(143, 183, 239, 0.28);
+    border-bottom: 1px solid rgba(143, 183, 239, 0.16);
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    padding-top: 0.22rem;
+    padding-bottom: 0.18rem;
+  }
+
+  :root[data-ups-mode="light"] #upsRosterToolbar select[multiple] option[data-ups-group-header="1"] {
+    color: #143457;
+    background: rgba(221, 234, 252, 0.92);
+    border-top-color: rgba(121, 156, 204, 0.35);
+    border-bottom-color: rgba(121, 156, 204, 0.2);
+  }
+
+  #upsRosterToolbar #upsRosterSearch {
+    min-width: min(22rem, 58vw);
+  }
+
+  #upsRosterToolbar #upsRosterSort,
+  #upsRosterToolbar #upsRosterJump {
+    min-width: 12rem;
+  }
+
+  #upsRosterToolbar .ups-roster-toolbar-actions {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem;
+    align-self: end;
+  }
+
+  #upsRosterToolbar .ups-roster-toolbar-btn {
+    min-height: 2.05rem;
+    border-radius: 999px !important;
+    padding: 0.35rem 0.7rem !important;
+    font-size: 0.74rem !important;
+    font-weight: 800 !important;
+  }
+
+  #upsRosterToolbar .ups-roster-toolbar-reset {
+    min-height: 2.05rem;
+    border-radius: 999px !important;
+    padding: 0.35rem 0.8rem !important;
+    font-size: 0.78rem !important;
+    font-weight: 800 !important;
+    align-self: end;
+  }
+
+  #upsRosterToolbar .ups-roster-toolbar-status {
+    color: var(--ups-muted);
+    font-size: 0.78rem;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+
+  #upsRosterToolbar .ups-roster-toolbar-help {
+    color: var(--ups-muted);
+    font-size: 0.72rem;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+
+  #upsRosterToolbar.is-filtering .ups-roster-toolbar-status {
+    color: var(--ups-text);
+  }
+
+  /* Rosters: franchise caption summary chips */
+  body#body_options_07 #MFLroster caption.ups-roster-caption {
+    text-align: left !important;
+    white-space: normal !important;
+  }
+
+  body#body_options_07 #MFLroster .ups-roster-caption-meta {
+    display: flex !important;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.28rem;
+    margin-top: 0.32rem;
+  }
+
+  body#body_options_07 #MFLroster .ups-roster-summary-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    border-radius: 999px;
+    border: 1px solid rgba(143, 183, 239, 0.35);
+    background: rgba(16, 33, 58, 0.32);
+    color: var(--ups-report-strong);
+    padding: 0.14rem 0.42rem;
+    font-size: 0.68rem;
+    font-weight: 800;
+    line-height: 1.2;
+  }
+
+  :root[data-ups-mode="light"] body#body_options_07 #MFLroster .ups-roster-summary-chip {
+    border-color: rgba(116, 149, 196, 0.35);
+    background: rgba(255, 255, 255, 0.45);
+    color: var(--ups-text);
+  }
+
+  body#body_options_07 #MFLroster .ups-roster-summary-chip.is-warning {
+    border-color: rgba(240, 196, 101, 0.55);
+    background: rgba(240, 196, 101, 0.16);
+  }
+
+  body#body_options_07 #MFLroster .ups-roster-summary-chip.is-danger {
+    border-color: rgba(227, 101, 114, 0.55);
+    background: rgba(227, 101, 114, 0.14);
+    color: #ffd7dc;
+  }
+
+  :root[data-ups-mode="light"] body#body_options_07 #MFLroster .ups-roster-summary-chip.is-danger {
+    color: #8d1f2b;
+  }
+
+  body#body_options_07 #MFLroster .ups-roster-summary-chip.is-success {
+    border-color: rgba(37, 195, 125, 0.55);
+    background: rgba(37, 195, 125, 0.14);
+  }
+
+  body#body_options_07 #MFLroster .ups-roster-summary-chip.is-info {
+    border-color: rgba(119, 184, 255, 0.55);
+    background: rgba(119, 184, 255, 0.12);
+  }
+
+  body#body_options_07 #MFLroster .ups-roster-summary-label {
+    color: var(--ups-muted);
+    font-weight: 900;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  body#body_options_07 #MFLroster .ups-roster-summary-value {
+    color: inherit;
+    font-weight: 900;
+  }
+
+  body#body_options_07 #MFLroster .ups-roster-team-toggle {
+    margin-top: 0.3rem;
+    border: 1px solid rgba(143, 183, 239, 0.36) !important;
+    background: rgba(16, 33, 58, 0.26) !important;
+    color: var(--ups-report-strong) !important;
+    border-radius: 999px !important;
+    padding: 0.18rem 0.58rem !important;
+    font-size: 0.68rem !important;
+    font-weight: 900 !important;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+
+  body#body_options_07 #MFLroster .ups-roster-row-more {
+    display: none;
+    margin-left: 0.45rem;
+    border: 1px solid var(--ups-border) !important;
+    background: rgba(16, 33, 58, 0.24) !important;
+    color: var(--ups-link) !important;
+    border-radius: 999px !important;
+    padding: 0.08rem 0.42rem !important;
+    font-size: 0.64rem !important;
+    font-weight: 900 !important;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    cursor: pointer;
+    vertical-align: middle;
+  }
+
+  /* Rosters: Taxi Squad collapse toggle */
+  body#body_options_07 #MFLroster tr.ups-roster-taxi-header-row th,
+  body#body_options_07 #MFLroster tr.ups-roster-taxi-header-row td {
+    padding: 0 !important;
+  }
+
+  body#body_options_07 #MFLroster .ups-roster-taxi-toggle {
+    width: 100%;
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 0.6rem;
+    border: 1px solid rgba(143, 183, 239, 0.28) !important;
+    border-radius: 0.55rem !important;
+    background: rgba(16, 33, 58, 0.18) !important;
+    color: var(--ups-report-strong) !important;
+    padding: 0.48rem 0.62rem !important;
+    font-weight: 900 !important;
+    font-size: 0.86rem !important;
+    cursor: pointer;
+    margin: 0.22rem 0.25rem !important;
+  }
+
+  :root[data-ups-mode="light"] body#body_options_07 #MFLroster .ups-roster-taxi-toggle {
+    border-color: rgba(116, 149, 196, 0.35) !important;
+    background: rgba(255, 255, 255, 0.42) !important;
+  }
+
+  body#body_options_07 #MFLroster .ups-roster-taxi-left {
+    display: inline-flex;
+    align-items: center;
+    gap: 0;
+  }
+
+  body#body_options_07 #MFLroster .ups-roster-taxi-caret {
+    display: none;
+    width: 0.9rem;
+    text-align: center;
+    transition: transform 120ms ease;
+  }
+
+  body#body_options_07 #MFLroster .ups-roster-taxi-toggle[aria-expanded="true"] .ups-roster-taxi-caret {
+    transform: rotate(90deg);
+  }
+
+  body#body_options_07 #MFLroster .ups-roster-taxi-count {
+    display: none !important;
+  }
+
+  body#body_options_07 #MFLroster table.report.ups-roster-no-match caption {
+    opacity: 0.82;
+  }
+
   @media (max-width: 760px) {
+    #upsRosterToolbar {
+      width: min(76rem, calc(100% - 0.75rem));
+      padding: 0.5rem 0.55rem;
+    }
+
+    #upsRosterToolbar .ups-roster-toolbar-left {
+      align-items: stretch;
+      gap: 0.35rem;
+    }
+
+    #upsRosterToolbar .ups-roster-toolbar-field {
+      min-width: 100%;
+    }
+
+    #upsRosterToolbar .ups-roster-toolbar-field-compact,
+    #upsRosterToolbar #upsRosterSort,
+    #upsRosterToolbar #upsRosterJump {
+      min-width: 100%;
+      width: 100%;
+    }
+
+    #upsRosterToolbar #upsRosterSearch {
+      min-width: 100%;
+    }
+
+    #upsRosterToolbar select[multiple] {
+      min-height: 6.4rem;
+      max-height: 8rem;
+    }
+
+    #upsRosterToolbar .ups-roster-toolbar-reset {
+      justify-self: start;
+      align-self: stretch;
+    }
+
+    #upsRosterToolbar .ups-roster-toolbar-actions {
+      width: 100%;
+      justify-content: flex-start;
+    }
     body#body_options_07 #MFLroster .ups-roster-franchise-icon {
       height: 46px !important;
       max-width: 128px !important;
+    }
+
+    body#body_options_07 #MFLroster .ups-roster-caption-meta {
+      gap: 0.22rem;
+    }
+  }
+
+  /* Mobile roster columns: keep a compact primary row, expose extra details with More/Less */
+  @media (max-width: 760px) {
+    body#body_options_07 #MFLroster th.week,
+    body#body_options_07 #MFLroster td.week,
+    body#body_options_07 #MFLroster th.drafted,
+    body#body_options_07 #MFLroster td.drafted {
+      display: none !important;
+    }
+
+    body#body_options_07 #MFLroster th.points,
+    body#body_options_07 #MFLroster td.points,
+    body#body_options_07 #MFLroster th.contractinfo,
+    body#body_options_07 #MFLroster td.contractinfo {
+      display: none !important;
+    }
+
+    body#body_options_07 #MFLroster tr[data-ups-player-row="1"][data-ups-row-expanded="1"] td.points,
+    body#body_options_07 #MFLroster tr[data-ups-player-row="1"][data-ups-row-expanded="1"] td.contractinfo {
+      display: table-cell !important;
+    }
+
+    body#body_options_07 #MFLroster .ups-roster-row-more {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
     }
   }
 
