@@ -3,8 +3,8 @@
     "schema_version": 1,
     "league_id": "25625",
     "season": 2026,
-    "updated_at": "2026-03-01T18:01:40.477Z",
-    "row_count": 15,
+    "updated_at": "2026-03-01T18:18:56.278Z",
+    "row_count": 16,
     "source": "worker-trade-offers"
   },
   "offers": [
@@ -2312,6 +2312,155 @@
       "twb_meta": null,
       "mfl_trade_id": "1048",
       "trade_id": "1048",
+      "mfl_present": true,
+      "mfl_status": "PENDING"
+    },
+    {
+      "id": "TWB-2783d2e6-250d-4362-87d2-f920a8d9c4ec",
+      "league_id": "25625",
+      "season": 2026,
+      "status": "PENDING",
+      "created_at": "2026-03-01T18:18:56.278Z",
+      "updated_at": "2026-03-01T18:18:56.278Z",
+      "from_franchise_id": "0006",
+      "to_franchise_id": "0009",
+      "from_franchise_name": "The Long Haulers",
+      "to_franchise_name": "C-Town Chivalry",
+      "message": "Pre-trade extension: Extend Young, Bryce 2-year | New length 3 | New AAV 33K | New TCV 79K",
+      "comment": "Pre-trade extension: Extend Young, Bryce 2-year | New length 3 | New AAV 33K | New TCV 79K",
+      "comments": "Pre-trade extension: Extend Young, Bryce 2-year | New length 3 | New AAV 33K | New TCV 79K",
+      "raw_comment": "Pre-trade extension: Extend Young, Bryce 2-year | New length 3 | New AAV 33K | New TCV 79K",
+      "will_give_up": "17048",
+      "will_receive": "16148,BB_6000",
+      "source": "trade-workbench-ui",
+      "summary": {
+        "from_asset_count": 1,
+        "to_asset_count": 1,
+        "from_trade_salary_k": 0,
+        "to_trade_salary_k": 6,
+        "extension_request_count": 1
+      },
+      "payload": {
+        "schema_version": 1,
+        "generated_at": "2026-03-01T18:18:53.843Z",
+        "source": "ups-trade-workbench",
+        "league_id": "25625",
+        "season": 2026,
+        "teams": [
+          {
+            "role": "left",
+            "franchise_id": "0006",
+            "franchise_name": "The Long Haulers",
+            "selected_assets": [
+              {
+                "asset_id": "player:17048",
+                "type": "PLAYER",
+                "player_id": "17048",
+                "player_name": "17048",
+                "description": null,
+                "position": null,
+                "nfl_team": null,
+                "salary": 6000,
+                "years": 0,
+                "contract_type": "Rookie",
+                "contract_info": "CL 3| TCV 18K| AAV 6K | Option Eligible",
+                "taxi": false
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 3,
+            "selected_non_taxi_salary_dollars": 6000
+          },
+          {
+            "role": "right",
+            "franchise_id": "0009",
+            "franchise_name": "C-Town Chivalry",
+            "selected_assets": [
+              {
+                "asset_id": "player:16148",
+                "type": "PLAYER",
+                "player_id": "16148",
+                "player_name": "Young, Bryce",
+                "description": null,
+                "position": "QB",
+                "nfl_team": "CAR",
+                "salary": 13000,
+                "years": 1,
+                "contract_type": "Rookie",
+                "contract_info": "CL 3| TCV 39K| AAV 13K",
+                "taxi": false
+              }
+            ],
+            "traded_salary_adjustment_dollars": 6000,
+            "traded_salary_adjustment_k": 6,
+            "traded_salary_adjustment_max_k": 6,
+            "selected_non_taxi_salary_dollars": 13000
+          }
+        ],
+        "extension_requests": [
+          {
+            "player_id": "16148",
+            "player_name": "Young, Bryce",
+            "from_franchise_id": "0009",
+            "to_franchise_id": "0006",
+            "applies_to_acquirer": true,
+            "option_key": "2YR|NONE",
+            "extension_term": "2YR",
+            "loaded_indicator": "NONE",
+            "preview_id": 974,
+            "preview_contract_info_string": "CL 3|TCV 79K|AAV 13K, 33K|Y1-13K, Y2-33K, Y3-33K|Ext: 0009|GTD: 59K",
+            "new_contract_status": "EXT2",
+            "new_contract_length": 3,
+            "new_TCV": 79000,
+            "new_aav_future": 33000
+          }
+        ],
+        "filters": {
+          "search": ""
+        },
+        "ui": {
+          "left_team_id": "0006",
+          "right_team_id": "0009"
+        },
+        "salary_reconciliation": {
+          "left": {
+            "franchise_id": "0006",
+            "franchise_name": "The Long Haulers",
+            "outgoing_dollars": 6000,
+            "incoming_dollars": 13000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 3,
+            "net_trade_salary_k": -6,
+            "net_cap_change_dollars": -1000,
+            "available_salary_before_dollars": -81000,
+            "available_salary_after_dollars": -82000,
+            "over_cap_dollars": 82000
+          },
+          "right": {
+            "franchise_id": "0009",
+            "franchise_name": "C-Town Chivalry",
+            "outgoing_dollars": 13000,
+            "incoming_dollars": 6000,
+            "trade_salary_adjustment_k": 6,
+            "trade_salary_adjustment_max_k": 6,
+            "net_trade_salary_k": 6,
+            "net_cap_change_dollars": 1000,
+            "available_salary_before_dollars": 7000,
+            "available_salary_after_dollars": 8000,
+            "over_cap_dollars": 0
+          },
+          "has_over_cap": true
+        },
+        "validation": {
+          "status": "ready",
+          "issues": []
+        },
+        "comment": "Pre-trade extension: Extend Young, Bryce 2-year | New length 3 | New AAV 33K | New TCV 79K"
+      },
+      "twb_meta": null,
+      "mfl_trade_id": null,
+      "trade_id": null,
       "mfl_present": true,
       "mfl_status": "PENDING"
     }
