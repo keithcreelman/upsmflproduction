@@ -3,7 +3,7 @@
     "schema_version": 1,
     "league_id": "25625",
     "season": 2026,
-    "updated_at": "2026-03-01T12:54:08.027Z",
+    "updated_at": "2026-03-01T13:05:18.930Z",
     "row_count": 8,
     "source": "worker-trade-outbox"
   },
@@ -1113,11 +1113,11 @@
       "comment_trailer": "[UPS_TWB_INTENT_BEGIN]\nUPS_OUTBOX_ID:\nUPS_PAYLOAD_HASH:44d185919e9573f50d0d6bdffac060ede3cf98b217e52c8e18cb1a3a77cecca6\nUPS_XML_EXT:PHNhbGFyaWVzPjxsZWFndWVVbml0IHVuaXQ9IkxFQUdVRSI-PHBsYXllciBpZD0iMTY2MTYiIHNhbGFyeT0iMjAwMDAiIGNvbnRyYWN0WWVhcj0iMiIgY29udHJhY3RJbmZvPSJDTCAyfFRDViAzMEt8QUFWIDEwSywgMjBLfFkxLTEwSywgWTItMjBLfEV4dDogU0VYfEdURDogMjNLIiBjb250cmFjdFN0YXR1cz0iRVhUMSIgLz48L2xlYWd1ZVVuaXQ-PC9zYWxhcmllcz4\n[UPS_TWB_INTENT_END]",
       "payload_hash": "44d185919e9573f50d0d6bdffac060ede3cf98b217e52c8e18cb1a3a77cecca6",
       "status": "FAILED",
-      "mfl_post_response_snip": "{\"reason\":\"requires_commish_cookie\",\"admin_state\":{\"ok\":true,\"isAdmin\":false,\"reason\":\"No private owner data visible (not commish)\",\"emailCount\":0,\"commishFranchiseId\":\"0000\",\"mflHttp\":200}}",
-      "mfl_verify_response_snip": "{\"expected_extensions\":1,\"expected_salary_adjustments\":2}",
+      "mfl_post_response_snip": "[{\"step\":\"salary_adjustments\",\"ok\":true,\"status\":200,\"target_import_url\":\"https://www48.myfantasyleague.com/2026/import?TYPE=salaryAdj&L=25625\",\"preview\":\"\"},{\"step\":\"extensions\",\"ok\":true,\"status\":200,\"target_import_url\":\"https://www48.myfantasyleague.com/2026/import?TYPE=salaries&L=25625&APPEND=1\",\"preview\":\"\"}]",
+      "mfl_verify_response_snip": "{\"salaries_status\":200,\"salaries_ok\":true,\"salary_adjustments_status\":200,\"salary_adjustments_ok\":true,\"transactions_status\":200,\"transactions_ok\":true,\"extension_verification\":{\"checked_players\":1,\"matched_players\":0,\"mismatched_players\":1,\"rows\":[{\"player_id\":\"16616\",\"before\":{\"salary\":\"\",\"contractYear\":\"\",\"contractInfo\":\"\",\"contractStatus\":\"\"},\"expected\":{\"salary\":\"20000\",\"contractYear\":\"2\",\"contractInfo\":\"CL 2|TCV 30K|AAV 10K, 20K|Y1-10K, Y2-20K|Ext: SEX|GTD: 23K\",\"contractStatus\":\"EXT1\"},\"after\":{\"salary\":\"10000\",\"contractYear\":\"2\",\"contractInfo\":\"CL 3| TCV 30K| AAV 10K\",\"contractStatus\":\"Rookie\"},\"matches\":{\"salary\":false,\"contractYear\":true,\"contractInfo\":false,\"contractStatus\":false},\"all_match\":false}],\"ok\":false},\"salary_adjustment_verification\":{\"ok\":false,\"expected_count\":2,\"matched_count\":0,\"mismatched_count\":2,\"rows\":[{\"franchise_id\":\"0006\",\"amount\":7000,\"explanation\":\"UPS traded salary settlement (trade 1044): net +7K\",\"matched\":false},{\"franchise_id\":\"0007\",\"amount\":-70",
       "league_id": "25625",
       "season": "2026",
-      "updated_ts": "2026-03-01T12:54:07.978Z",
+      "updated_ts": "2026-03-01T13:05:18.872Z",
       "id": "8"
     }
   ]
