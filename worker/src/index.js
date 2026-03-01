@@ -891,22 +891,36 @@ export default {
           `https://api.myfantasyleague.com/${encodeURIComponent(String(year || YEAR || "2025"))}`;
 
         const withKeyQs = new URLSearchParams(baseQs.toString());
-        if (options.includeApiKey) {
+        const wantsApiKey = !!options.includeApiKey;
+        if (wantsApiKey) {
           const apiKey = safeStr(env.MFL_APIKEY || "");
-          if (!apiKey) {
-            return {
-              ok: false,
-              status: 0,
-              url: `${baseHost}/export?${withKeyQs.toString()}`,
-              error: "missing_worker_mfl_apikey",
-              data: null,
-              textPreview: "",
-            };
-          }
-          withKeyQs.set("APIKEY", apiKey);
+          if (apiKey) withKeyQs.set("APIKEY", apiKey);
         }
         const withKeyUrl = `${baseHost}/export?${withKeyQs.toString()}`;
-        return fetchMflJson(withKeyUrl, headers);
+        const first = await fetchMflJson(withKeyUrl, headers);
+        if (!wantsApiKey) return first;
+        if (first.ok) return first;
+        const firstErr = safeStr(first.error).toLowerCase();
+        const invalidApiKey =
+          firstErr.indexOf("api key validation failed") !== -1 ||
+          firstErr.indexOf("missing_worker_mfl_apikey") !== -1 ||
+          firstErr.indexOf("invalid apikey") !== -1;
+        if (!invalidApiKey) return first;
+        const noKeyUrl = `${baseHost}/export?${baseQs.toString()}`;
+        const second = await fetchMflJson(noKeyUrl, headers);
+        if (second.ok) {
+          return {
+            ...second,
+            fallback_without_apikey: true,
+            fallback_reason: first.error || "APIKEY rejected",
+          };
+        }
+        return {
+          ...first,
+          fallback_without_apikey_attempted: true,
+          fallback_without_apikey_error: second.error || "",
+          fallback_without_apikey_status: safeInt(second.status, 0),
+        };
       };
 
       const parseLeagueFranchises = (leaguePayload) => {
