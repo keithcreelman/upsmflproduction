@@ -3,8 +3,8 @@
     "schema_version": 1,
     "league_id": "25625",
     "season": 2026,
-    "updated_at": "2026-03-01T18:01:39.999Z",
-    "row_count": 15,
+    "updated_at": "2026-03-01T18:02:07.741Z",
+    "row_count": 16,
     "source": "worker-trade-outbox"
   },
   "rows": [
@@ -2136,6 +2136,193 @@
       "season": "2026",
       "updated_ts": "2026-03-01T18:01:39.938Z",
       "id": "15"
+    },
+    {
+      "created_ts": "2026-03-01T18:02:07.680Z",
+      "trade_id": "1048",
+      "action_type": "ACCEPT",
+      "from_franchise_id": "0004",
+      "to_franchise_id": "0006",
+      "payload_xml_extensions": "<salaries><leagueUnit unit=\"LEAGUE\"><player id=\"16618\" salary=\"25000\" contractYear=\"2\" contractInfo=\"CL 3|TCV 55K|AAV 5K, 25K|Y1-5K, Y2-25K, Y3-25K|Ext: PG|GTD: 41K\" contractStatus=\"EXT2\" /><player id=\"16747\" salary=\"22000\" contractYear=\"2\" contractInfo=\"CL 3|TCV 46K|AAV 2K, 22K|Y1-2K, Y2-22K, Y3-22K|Ext: 0006|GTD: 35K\" contractStatus=\"EXT2\" /><player id=\"16616\" salary=\"30000\" contractYear=\"2\" contractInfo=\"CL 3|TCV 70K|AAV 10K, 30K|Y1-10K, Y2-30K, Y3-30K|Ext: 0006|GTD: 53K\" contractStatus=\"EXT2\" /></leagueUnit></salaries>",
+      "payload_xml_salary_adj": "<salary_adjustments><salary_adjustment franchise_id=\"0004\" amount=\"-6000\" explanation=\"UPS traded salary settlement (trade_20261048): net -6K\"/><salary_adjustment franchise_id=\"0006\" amount=\"6000\" explanation=\"UPS traded salary settlement (trade_20261048): net +6K\"/></salary_adjustments>",
+      "payload_xml_salary_trade": "",
+      "payload_json": {
+        "schema_version": 1,
+        "generated_at": "2026-03-01T18:01:38.610Z",
+        "source": "ups-trade-workbench",
+        "league_id": "25625",
+        "season": 2026,
+        "teams": [
+          {
+            "role": "left",
+            "franchise_id": "0004",
+            "franchise_name": "Pure Greatness",
+            "selected_assets": [
+              {
+                "asset_id": "player:16618",
+                "type": "PLAYER",
+                "player_id": "16618",
+                "player_name": "Thomas Jr., Brian",
+                "description": null,
+                "position": "WR",
+                "nfl_team": "JAC",
+                "salary": 5000,
+                "years": 0,
+                "contract_type": "Rookie",
+                "contract_info": "CL 3| TCV 15K| AAV 5K",
+                "taxi": false
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 2,
+            "selected_non_taxi_salary_dollars": 5000
+          },
+          {
+            "role": "right",
+            "franchise_id": "0006",
+            "franchise_name": "The Long Haulers",
+            "selected_assets": [
+              {
+                "asset_id": "player:16747",
+                "type": "PLAYER",
+                "player_id": "16747",
+                "player_name": "Tracy, Tyrone",
+                "description": null,
+                "position": "RB",
+                "nfl_team": "NYG",
+                "salary": 2000,
+                "years": 0,
+                "contract_type": "Rookie",
+                "contract_info": "CL 3| TCV 6K| AAV 2K",
+                "taxi": false
+              },
+              {
+                "asset_id": "player:16616",
+                "type": "PLAYER",
+                "player_id": "16616",
+                "player_name": "Odunze, Rome",
+                "description": null,
+                "position": "WR",
+                "nfl_team": "CHI",
+                "salary": 10000,
+                "years": 0,
+                "contract_type": "Rookie",
+                "contract_info": "CL 3| TCV 30K| AAV 10K",
+                "taxi": false
+              }
+            ],
+            "traded_salary_adjustment_dollars": 6000,
+            "traded_salary_adjustment_k": 6,
+            "traded_salary_adjustment_max_k": 6,
+            "selected_non_taxi_salary_dollars": 12000
+          }
+        ],
+        "extension_requests": [
+          {
+            "player_id": "16618",
+            "player_name": "Thomas Jr., Brian",
+            "from_franchise_id": "0004",
+            "to_franchise_id": "0006",
+            "applies_to_acquirer": true,
+            "option_key": "2YR|NONE",
+            "extension_term": "2YR",
+            "loaded_indicator": "NONE",
+            "preview_id": 1006,
+            "preview_contract_info_string": "CL 3|TCV 55K|AAV 5K, 25K|Y1-5K, Y2-25K, Y3-25K|Ext: PG|GTD: 41K",
+            "new_contract_status": "EXT2",
+            "new_contract_length": 3,
+            "new_TCV": 55000,
+            "new_aav_future": 25000
+          },
+          {
+            "player_id": "16747",
+            "player_name": "Tracy, Tyrone",
+            "from_franchise_id": "0006",
+            "to_franchise_id": "0004",
+            "applies_to_acquirer": true,
+            "option_key": "2YR|NONE",
+            "extension_term": "2YR",
+            "loaded_indicator": "NONE",
+            "preview_id": 1092,
+            "preview_contract_info_string": "CL 3|TCV 46K|AAV 2K, 22K|Y1-2K, Y2-22K, Y3-22K|Ext: 0006|GTD: 35K",
+            "new_contract_status": "EXT2",
+            "new_contract_length": 3,
+            "new_TCV": 46000,
+            "new_aav_future": 22000
+          },
+          {
+            "player_id": "16616",
+            "player_name": "Odunze, Rome",
+            "from_franchise_id": "0006",
+            "to_franchise_id": "0004",
+            "applies_to_acquirer": true,
+            "option_key": "2YR|NONE",
+            "extension_term": "2YR",
+            "loaded_indicator": "NONE",
+            "preview_id": 1054,
+            "preview_contract_info_string": "CL 3|TCV 70K|AAV 10K, 30K|Y1-10K, Y2-30K, Y3-30K|Ext: 0006|GTD: 53K",
+            "new_contract_status": "EXT2",
+            "new_contract_length": 3,
+            "new_TCV": 70000,
+            "new_aav_future": 30000
+          }
+        ],
+        "filters": {
+          "search": ""
+        },
+        "ui": {
+          "left_team_id": "0004",
+          "right_team_id": "0006"
+        },
+        "salary_reconciliation": {
+          "left": {
+            "franchise_id": "0004",
+            "franchise_name": "Pure Greatness",
+            "outgoing_dollars": 5000,
+            "incoming_dollars": 12000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 2,
+            "net_trade_salary_k": -6,
+            "net_cap_change_dollars": -1000,
+            "available_salary_before_dollars": -24000,
+            "available_salary_after_dollars": -25000,
+            "over_cap_dollars": 25000
+          },
+          "right": {
+            "franchise_id": "0006",
+            "franchise_name": "The Long Haulers",
+            "outgoing_dollars": 12000,
+            "incoming_dollars": 5000,
+            "trade_salary_adjustment_k": 6,
+            "trade_salary_adjustment_max_k": 6,
+            "net_trade_salary_k": 6,
+            "net_cap_change_dollars": 1000,
+            "available_salary_before_dollars": -68000,
+            "available_salary_after_dollars": -67000,
+            "over_cap_dollars": 67000
+          },
+          "has_over_cap": true
+        },
+        "validation": {
+          "status": "ready",
+          "issues": []
+        },
+        "comment": "Pre-trade extension: Extend Thomas Jr., Brian 2-year | New length 3 | New AAV 25K | New TCV 55K\nPre-trade extension: Extend Tracy, Tyrone 2-year | New length 3 | New AAV 22K | New TCV 46K\nPre-trade extension: Extend Odunze, Rome 2-year | New length 3 | New AAV 30K | New TCV 70K",
+        "comments": "Pre-trade extension: Extend Thomas Jr., Brian 2-year",
+        "raw_comment": "Pre-trade extension: Extend Thomas Jr., Brian 2-year",
+        "message": "Pre-trade extension: Extend Thomas Jr., Brian 2-year",
+        "notes": "Pre-trade extension: Extend Thomas Jr., Brian 2-year"
+      },
+      "comment_trailer": "[UPS_TWB_INTENT_BEGIN]\nUPS_OUTBOX_ID:\nUPS_PAYLOAD_HASH:5d447dbf258656262aea2e3d1baa2f85314603812692a4f5841335d91d582b6e\n[UPS_TWB_INTENT_END]",
+      "payload_hash": "5d447dbf258656262aea2e3d1baa2f85314603812692a4f5841335d91d582b6e",
+      "status": "PENDING",
+      "mfl_post_response_snip": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n\n<status>OK</status>",
+      "mfl_verify_response_snip": "",
+      "league_id": "25625",
+      "season": "2026",
+      "updated_ts": "2026-03-01T18:02:07.680Z",
+      "id": "16"
     }
   ]
 }
