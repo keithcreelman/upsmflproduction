@@ -4667,9 +4667,17 @@ export default {
             // noop
           }
         }
-        const finalOk = !!importRes.requestOk && !!verification.ok;
+        const strictVerifyMode = safeStr(env?.TWB_EXT_VERIFY_STRICT || "0") === "1";
+        const requestOk = !!importRes.requestOk;
+        const verificationOk = !!verification.ok;
+        const verificationSoftFailed = requestOk && !verificationOk;
+        const finalOk = requestOk && (verificationOk || !strictVerifyMode);
         return {
           ok: finalOk,
+          request_ok: requestOk,
+          verification_ok: verificationOk,
+          verification_soft_failed: verificationSoftFailed,
+          strict_verify: strictVerifyMode,
           skipped: false,
           applied: plan.applied,
           skipped_rows: plan.skipped.concat(preparationSkipped),
@@ -4678,9 +4686,12 @@ export default {
           upstreamPreview: importRes.upstreamPreview,
           targetImportUrl: importRes.targetImportUrl,
           formFields: importRes.formFields,
-          error: importRes.requestOk
-            ? (verification.ok ? "" : "salaries import verification failed")
+          error: requestOk
+            ? (verificationOk ? "" : strictVerifyMode ? "salaries import verification failed" : "")
             : importRes.error || "salaries import failed",
+          reason: requestOk
+            ? (verificationOk ? "" : strictVerifyMode ? "salaries_import_verification_failed" : "verification_pending")
+            : "salaries_import_failed",
           before_snapshot: beforeSnapshot,
           after_snapshot: afterSnapshot,
           verification,
@@ -6614,6 +6625,12 @@ export default {
             });
           }
 
+          const acceptVerified =
+            action === "ACCEPT"
+              ? !!salaryAdjOut?.ok && !(extensionsOut && extensionsOut.verification_ok === false)
+              : true;
+          const acceptOutboxStatus = acceptVerified ? "VERIFIED" : "POSTED";
+
           if (action === "ACCEPT" && acceptOutboxId) {
             await writeOutboxRow({
               mode: "update",
@@ -6631,7 +6648,7 @@ export default {
                 payload_json: payload || null,
                 comment_trailer: acceptIntentBundle.comment_trailer,
                 payload_hash: acceptIntentBundle.payload_hash,
-                status: "VERIFIED",
+                status: acceptOutboxStatus,
                 mfl_post_response_snip: trimDiagText(
                   JSON.stringify({
                     trade_response: responseImport?.upstreamPreview || "",
@@ -6670,7 +6687,7 @@ export default {
               outbox_id: acceptOutboxId || "",
               payload_hash: safeStr(acceptIntentBundle.payload_hash),
               backend: acceptOutboxBackend || "",
-              status: acceptOutboxId ? "VERIFIED" : "NOT_PERSISTED",
+              status: acceptOutboxId ? acceptOutboxStatus : "NOT_PERSISTED",
               write_error: acceptOutboxWriteError || "",
             },
             post_verify: {

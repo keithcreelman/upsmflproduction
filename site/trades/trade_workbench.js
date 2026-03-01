@@ -1826,7 +1826,17 @@
     } else if (ext && ext.ok) {
       var checked = safeInt(verification.checked_players, (ext.applied || []).length);
       var matched = safeInt(verification.matched_players, checked);
-      parts.push("Extensions verified: " + String(matched) + "/" + String(checked));
+      var verifyPending = verification && verification.ok === false;
+      if (verifyPending) {
+        tone = tone === "good" ? "warn" : tone;
+        var verifyReason = safeStr(verification.reason || ext.reason);
+        parts.push(
+          "Extensions posted; verification pending" +
+            (verifyReason ? " (" + verifyReason + ")" : "")
+        );
+      } else {
+        parts.push("Extensions verified: " + String(matched) + "/" + String(checked));
+      }
     } else {
       tone = "warn";
       parts.push("Extensions: failed");
