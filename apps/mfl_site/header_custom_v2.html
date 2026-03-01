@@ -1580,12 +1580,14 @@
           <div class="ccc-owner-actions-menu" id="upsOwnerActionsMenu" hidden>
             <a href="//%HOST%/%YEAR%/lineup?L=%LEAGUEID%"><i class="fa-solid fa-clipboard-list"></i>Submit Lineup</a>
             <a href="//%HOST%/%YEAR%/add_drop?L=%LEAGUEID%"><i class="fa-solid fa-plus-minus"></i>Add/Drop</a>
+            <a data-owner-action="rosters" href="//%HOST%/%YEAR%/home/%LEAGUEID%?MODULE=MESSAGE5"><i class="fa-solid fa-users"></i>Rosters</a>
             <a data-owner-action="trades" href="//%HOST%/%YEAR%/home/%LEAGUEID%?MODULE=MESSAGE6=N"><i class="fa-solid fa-handshake"></i>Trades</a>
+            <a data-owner-action="old-roster" href="//%HOST%/%YEAR%/options?L=%LEAGUEID%&amp;O=07"><i class="fa-solid fa-table-list"></i>Old Roster</a>
           </div>
         </div>
         <a class="ccc-pill" data-owner-action="lineup" href="//%HOST%/%YEAR%/lineup?L=%LEAGUEID%"><i class="fa-solid fa-clipboard-list"></i>Submit Lineup</a>
         <a class="ccc-pill" data-owner-action="adddrop" href="//%HOST%/%YEAR%/add_drop?L=%LEAGUEID%"><i class="fa-solid fa-plus-minus"></i>Add/Drop</a>
-        <a class="ccc-pill" href="//%HOST%/%YEAR%/options?L=%LEAGUEID%&amp;O=07"><i class="fa-solid fa-users"></i>Rosters</a>
+        <a class="ccc-pill" data-owner-action="rosters" href="//%HOST%/%YEAR%/home/%LEAGUEID%?MODULE=MESSAGE5"><i class="fa-solid fa-users"></i>Rosters</a>
         <a class="ccc-pill" href="//%HOST%/%YEAR%/ajax_ls?L=%LEAGUEID%"><i class="fa-solid fa-gauge-high"></i>Scoreboard</a>
         <a class="ccc-pill" data-owner-action="trades" href="//%HOST%/%YEAR%/home/%LEAGUEID%?MODULE=MESSAGE6=N"><i class="fa-solid fa-handshake"></i>Trades</a>
       </div>
@@ -1976,6 +1978,21 @@
     }
     window.getWarRoomUrl = buildCanonicalWarRoomRouteUrl;
 
+    function buildCanonicalRosterWorkbenchRouteUrl() {
+      var L = getCurrentLeagueId();
+      var YEAR = getCurrentYear();
+      if (!L || !YEAR) return "";
+      return (
+        window.location.origin +
+        "/" +
+        encodeURIComponent(YEAR) +
+        "/home/" +
+        encodeURIComponent(L) +
+        "?MODULE=MESSAGE5"
+      );
+    }
+    window.getRosterWorkbenchUrl = buildCanonicalRosterWorkbenchRouteUrl;
+
     function normalizeHeaderHotlinksToCurrentLeague() {
       var L = getCurrentLeagueId();
       var YEAR = getCurrentYear();
@@ -1998,7 +2015,11 @@
       setHref('a.ccc-pill[href*="/lineup"]', origin + "/" + y + "/lineup?L=" + l);
       setHref('a.ccc-pill[href*="/add_drop"]', origin + "/" + y + "/add_drop?L=" + l);
       setHref('a.ccc-pill[href*="/ajax_ls"]', origin + "/" + y + "/ajax_ls?L=" + l);
-      setHref('a.ccc-pill[href*="/options"][href*="O=07"]', origin + "/" + y + "/options?L=" + l + "&O=07");
+      var canonicalRosterWorkbench = buildCanonicalRosterWorkbenchRouteUrl();
+      if (canonicalRosterWorkbench) {
+        setHref('a[data-owner-action="rosters"]', canonicalRosterWorkbench);
+      }
+      setHref('a[data-owner-action="old-roster"]', origin + "/" + y + "/options?L=" + l + "&O=07");
       var canonicalWarRoom = buildCanonicalWarRoomRouteUrl();
       if (canonicalWarRoom) {
         setHref('a[data-owner-action="trades"]', canonicalWarRoom);
@@ -2377,6 +2398,121 @@
       setTimeout(normalizeAllEmbeddedFramesToMain, 300);
       setTimeout(dedupeMessage2UpsShells, 1200);
       setTimeout(normalizeAllEmbeddedFramesToMain, 1200);
+    }
+  })();
+</script>
+
+<script>
+  // Roster Workbench embed helper for MESSAGE5.
+  (function () {
+    var RWB_HEADER_BUILD = "2026.03.01.2";
+    if (window.__ups_rwb_header_autoload === RWB_HEADER_BUILD) return;
+    window.__ups_rwb_header_autoload = RWB_HEADER_BUILD;
+
+    function safeStr(v) {
+      return String(v || "").trim();
+    }
+
+    function safeUpper(v) {
+      return safeStr(v).toUpperCase();
+    }
+
+    function getModuleName() {
+      try {
+        var u = new URL(window.location.href);
+        return safeUpper(u.searchParams.get("MODULE") || "");
+      } catch (e) {
+        return "";
+      }
+    }
+
+    function getCurrentLeagueId() {
+      try {
+        var u = new URL(window.location.href);
+        var q = safeStr(u.searchParams.get("L") || "");
+        if (q) return q.replace(/\D/g, "");
+      } catch (e) {}
+      var m = safeStr(window.location.pathname).match(/\/home\/(\d+)(?:\/|$)/i);
+      if (m && m[1]) return safeStr(m[1]).replace(/\D/g, "");
+      var g = safeStr(window.league_id || window.LEAGUE_ID || "");
+      if (g) return g.replace(/\D/g, "");
+      return "";
+    }
+
+    function getCurrentYear() {
+      try {
+        var u = new URL(window.location.href);
+        var q = safeStr(u.searchParams.get("YEAR") || "");
+        if (q) return q.replace(/\D/g, "");
+      } catch (e) {}
+      var m = safeStr(window.location.pathname).match(/\/(\d{4})\//);
+      if (m && m[1]) return safeStr(m[1]);
+      var g = safeStr(window.year || window.YEAR || "");
+      if (g) return g.replace(/\D/g, "");
+      return String(new Date().getFullYear());
+    }
+
+    function ensureMountNearTop() {
+      var mount = document.getElementById("roster-workbench");
+      if (mount) return mount;
+      mount = document.createElement("div");
+      mount.id = "roster-workbench";
+      var anchor =
+        document.querySelector(".ups-hotlinks-shell") ||
+        document.getElementById("container-wrap") ||
+        document.body;
+      if (anchor && anchor.parentNode) {
+        anchor.parentNode.insertBefore(mount, anchor.nextSibling);
+      } else {
+        document.body.appendChild(mount);
+      }
+      return mount;
+    }
+
+    function hasBodyRwbEmbedLoader() {
+      return !!document.querySelector('script[src*="/site/rosters/mfl_hpm_embed_loader.js"]:not([data-ups-rwb-loader])');
+    }
+
+    function loadRwbLoader() {
+      if (typeof window.UPS_RWB_INIT === "function") {
+        window.UPS_RWB_INIT();
+        return;
+      }
+
+      if (hasBodyRwbEmbedLoader()) return;
+
+      ensureMountNearTop();
+      window.UPS_RWB_LEAGUE_ID = getCurrentLeagueId();
+      window.UPS_RWB_YEAR = getCurrentYear();
+
+      var releaseRef = safeStr(window.UPS_RELEASE_SHA || "main") || "main";
+      var cacheKey = encodeURIComponent(String(Date.now()));
+      var candidates = [
+        "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@" + releaseRef + "/site/rosters/mfl_hpm_embed_loader.js?v=" + cacheKey,
+        "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/rosters/mfl_hpm_embed_loader.js?v=" + cacheKey
+      ];
+
+      function tryLoader(idx) {
+        if (idx >= candidates.length) return;
+        var s = document.createElement("script");
+        s.setAttribute("data-ups-rwb-loader", "1");
+        s.src = candidates[idx];
+        s.async = true;
+        s.onerror = function () {
+          tryLoader(idx + 1);
+        };
+        document.body.appendChild(s);
+      }
+
+      tryLoader(0);
+    }
+
+    if (getModuleName() !== "MESSAGE5") return;
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", loadRwbLoader);
+    } else {
+      loadRwbLoader();
     }
   })();
 </script>
