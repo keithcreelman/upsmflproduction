@@ -4315,13 +4315,16 @@ export default {
           }));
 
       const normalizeExtensionContractStatusForImport = (requestedStatus, currentStatus) => {
-        const requested = safeStr(requestedStatus).trim();
         const current = safeStr(currentStatus).trim();
-        if (!requested) return current;
+        // Prefer the live MFL-exported status for extension imports.
+        // This keeps values like "Rookie" stable and avoids internal EXT* hints.
+        if (current) return current;
+        const requested = safeStr(requestedStatus).trim();
+        if (!requested) return "";
         const upper = requested.toUpperCase();
         // EXT* is internal UPS metadata, not a stable MFL contractStatus value.
         if (/^EXT[0-9]*$/.test(upper) || upper === "EXT" || upper === "NONE" || upper === "N/A") {
-          return current;
+          return "";
         }
         return requested;
       };
