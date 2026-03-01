@@ -3,14 +3,14 @@
     "schema_version": 1,
     "league_id": "25625",
     "season": 2026,
-    "updated_at": "2026-03-01T12:01:08.191Z",
+    "updated_at": "2026-03-01T12:01:09.841Z",
     "row_count": 1,
     "source": "worker-trade-outbox"
   },
   "rows": [
     {
       "created_ts": "2026-03-01T12:01:07.500Z",
-      "trade_id": "",
+      "trade_id": "1041",
       "action_type": "SUBMIT",
       "from_franchise_id": "0011",
       "to_franchise_id": "0009",
@@ -137,12 +137,12 @@
       },
       "comment_trailer": "[UPS_TWB_INTENT_BEGIN]\nUPS_OUTBOX_ID:1\nUPS_PAYLOAD_HASH:e6fc1146a42c4d3ac8f6e08c248c80968c4dc825fd9aa0181712f83dfa09d3a6\nUPS_XML_EXT:PHNhbGFyaWVzPjxsZWFndWVVbml0IHVuaXQ9IkxFQUdVRSI-PHBsYXllciBpZD0iMTYyNTIiIHNhbGFyeT0iMTAwMCIgY29udHJhY3RZZWFyPSIxIiBjb250cmFjdEluZm89IkNMIDJ8VENWIDVLfEFBViAxSywgNEt8WTEtMUssIFkyLTRLfEV4dDogQ2FzaHxHVEQ6IDRLIiBjb250cmFjdFN0YXR1cz0iRVhUMSIgLz48L2xlYWd1ZVVuaXQ-PC9zYWxhcmllcz4\nUPS_XML_SALADJ:PHNhbGFyeV9hZGp1c3RtZW50cz48c2FsYXJ5X2FkanVzdG1lbnQgZnJhbmNoaXNlX2lkPSIwMDExIiBhbW91bnQ9Ii0yMDAwIiBleHBsYW5hdGlvbj0iVVBTIHRyYWRlZCBzYWxhcnkgc2V0dGxlbWVudDogbmV0IC0ySyIvPjxzYWxhcnlfYWRqdXN0bWVudCBmcmFuY2hpc2VfaWQ9IjAwMDkiIGFtb3VudD0iMjAwMCIgZXhwbGFuYXRpb249IlVQUyB0cmFkZWQgc2FsYXJ5IHNldHRsZW1lbnQ6IG5ldCArMksiLz48L3NhbGFyeV9hZGp1c3RtZW50cz4\n[UPS_TWB_INTENT_END]",
       "payload_hash": "e6fc1146a42c4d3ac8f6e08c248c80968c4dc825fd9aa0181712f83dfa09d3a6",
-      "status": "PENDING",
-      "mfl_post_response_snip": "",
-      "mfl_verify_response_snip": "",
+      "status": "POSTED",
+      "mfl_post_response_snip": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n\n<status>OK</status>",
+      "mfl_verify_response_snip": "{\"ok\":true,\"matched\":true,\"match_count\":1,\"rows_count\":1,\"matched_trade_id\":\"1041\",\"upstream_status\":200}",
       "league_id": "25625",
       "season": "2026",
-      "updated_ts": "2026-03-01T12:01:08.133Z",
+      "updated_ts": "2026-03-01T12:01:09.764Z",
       "id": "1"
     }
   ]
