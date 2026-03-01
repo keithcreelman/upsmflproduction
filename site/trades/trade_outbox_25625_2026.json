@@ -3,8 +3,8 @@
     "schema_version": 1,
     "league_id": "25625",
     "season": 2026,
-    "updated_at": "2026-03-01T19:07:12.383Z",
-    "row_count": 19,
+    "updated_at": "2026-03-01T19:16:26.939Z",
+    "row_count": 20,
     "source": "worker-trade-outbox"
   },
   "rows": [
@@ -2938,6 +2938,167 @@
       "season": "2026",
       "updated_ts": "2026-03-01T19:07:12.312Z",
       "id": "19"
+    },
+    {
+      "created_ts": "2026-03-01T19:16:26.870Z",
+      "trade_id": "",
+      "action_type": "SUBMIT",
+      "from_franchise_id": "0004",
+      "to_franchise_id": "0011",
+      "payload_xml_extensions": "<salaries><leagueUnit unit=\"LEAGUE\"><player id=\"16581\" salary=\"32000\" contractYear=\"2\" contractInfo=\"CL 3|TCV 76K|AAV 12K, 32K|Y1-12K, Y2-32K, Y3-32K|Ext: 0004|GTD: 57K\" contractStatus=\"EXT2\" /></leagueUnit></salaries>",
+      "payload_xml_salary_adj": "<salary_adjustments><salary_adjustment franchise_id=\"0004\" amount=\"-6000\" explanation=\"UPS traded salary settlement (trade_2026): net -6K\"/><salary_adjustment franchise_id=\"0011\" amount=\"6000\" explanation=\"UPS traded salary settlement (trade_2026): net +6K\"/></salary_adjustments>",
+      "payload_xml_salary_trade": "",
+      "payload_json": {
+        "schema_version": 1,
+        "generated_at": "2026-03-01T19:16:26.134Z",
+        "source": "ups-trade-workbench",
+        "league_id": "25625",
+        "season": 2026,
+        "teams": [
+          {
+            "role": "left",
+            "franchise_id": "0004",
+            "franchise_name": "Pure Greatness",
+            "selected_assets": [
+              {
+                "asset_id": "player:16581",
+                "type": "PLAYER",
+                "player_id": "16581",
+                "player_name": "Daniels, Jayden",
+                "description": null,
+                "position": "QB",
+                "nfl_team": "WAS",
+                "salary": 12000,
+                "years": 0,
+                "contract_type": "Rookie",
+                "contract_info": "CL 3| TCV 36K| AAV 12K",
+                "taxi": false
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 6,
+            "selected_non_taxi_salary_dollars": 12000
+          },
+          {
+            "role": "right",
+            "franchise_id": "0011",
+            "franchise_name": "Cleon Ca$h",
+            "selected_assets": [
+              {
+                "asset_id": "player:17071",
+                "type": "PLAYER",
+                "player_id": "17071",
+                "player_name": "McMillan, Tetairoa",
+                "description": null,
+                "position": "WR",
+                "nfl_team": "CAR",
+                "salary": 7000,
+                "years": 0,
+                "contract_type": "Rookie",
+                "contract_info": "CL 3| TCV 21K| AAV 7K | Option Eligible",
+                "taxi": false
+              },
+              {
+                "asset_id": "player:17081",
+                "type": "PLAYER",
+                "player_id": "17081",
+                "player_name": "Egbuka, Emeka",
+                "description": null,
+                "position": "WR",
+                "nfl_team": "TBB",
+                "salary": 5000,
+                "years": 0,
+                "contract_type": "Rookie",
+                "contract_info": "CL 3| TCV 15K| AAV 5K",
+                "taxi": false
+              }
+            ],
+            "traded_salary_adjustment_dollars": 6000,
+            "traded_salary_adjustment_k": 6,
+            "traded_salary_adjustment_max_k": 6,
+            "selected_non_taxi_salary_dollars": 12000
+          }
+        ],
+        "extension_requests": [
+          {
+            "player_id": "16581",
+            "player_name": "Daniels, Jayden",
+            "from_franchise_id": "0004",
+            "to_franchise_id": "0011",
+            "applies_to_acquirer": true,
+            "option_key": "2YR|NONE",
+            "extension_term": "2YR",
+            "loaded_indicator": "NONE",
+            "preview_id": 1086,
+            "preview_contract_info_string": "CL 3|TCV 76K|AAV 12K, 32K|Y1-12K, Y2-32K, Y3-32K|Ext: 0004|GTD: 57K",
+            "new_contract_status": "EXT2",
+            "new_contract_length": 3,
+            "new_TCV": 76000,
+            "new_aav_future": 32000
+          }
+        ],
+        "filters": {
+          "search": ""
+        },
+        "ui": {
+          "left_team_id": "0004",
+          "right_team_id": "0011"
+        },
+        "salary_reconciliation": {
+          "left": {
+            "franchise_id": "0004",
+            "franchise_name": "Pure Greatness",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 371000,
+            "outgoing_dollars": 12000,
+            "incoming_dollars": 12000,
+            "salary_trade_adjustment_dollars": -6000,
+            "net_salary_adjustment_dollars": -6000,
+            "new_salary_dollars": 365000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 6,
+            "net_trade_salary_k": -6,
+            "net_cap_change_dollars": 6000,
+            "available_salary_before_dollars": -71000,
+            "available_salary_after_dollars": -65000,
+            "over_cap_dollars": 65000
+          },
+          "right": {
+            "franchise_id": "0011",
+            "franchise_name": "Cleon Ca$h",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 287000,
+            "outgoing_dollars": 12000,
+            "incoming_dollars": 12000,
+            "salary_trade_adjustment_dollars": 6000,
+            "net_salary_adjustment_dollars": 6000,
+            "new_salary_dollars": 293000,
+            "trade_salary_adjustment_k": 6,
+            "trade_salary_adjustment_max_k": 6,
+            "net_trade_salary_k": 6,
+            "net_cap_change_dollars": -6000,
+            "available_salary_before_dollars": 13000,
+            "available_salary_after_dollars": 7000,
+            "over_cap_dollars": 0
+          },
+          "has_over_cap": true
+        },
+        "validation": {
+          "status": "ready",
+          "issues": []
+        },
+        "comment": "Pre-trade extension: Extend Daniels, Jayden 2-year | New length 3 | New AAV 32K | New TCV 76K"
+      },
+      "comment_trailer": "",
+      "payload_hash": "9d984d46312ea7824002c2045b71db38842844a2193202bbcae9c7855a5cacdf",
+      "status": "PENDING",
+      "mfl_post_response_snip": "",
+      "mfl_verify_response_snip": "",
+      "league_id": "25625",
+      "season": "2026",
+      "updated_ts": "2026-03-01T19:16:26.870Z",
+      "id": "20"
     }
   ]
 }
