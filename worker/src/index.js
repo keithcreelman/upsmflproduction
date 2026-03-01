@@ -2113,7 +2113,6 @@ export default {
             option_key: safeStr(r?.option_key),
             extension_term: safeStr(r?.extension_term),
             new_contract_status: safeStr(r?.new_contract_status),
-            preview_contract_info_string: safeStr(r?.preview_contract_info_string),
             new_contract_length: safeInt(r?.new_contract_length, 0),
             new_TCV: safeInt(r?.new_TCV, 0),
             new_aav_future: safeInt(r?.new_aav_future, 0),
@@ -2125,8 +2124,10 @@ export default {
       const appendTradeMetaTagToComments = (comments, payload, fromFranchiseId, toFranchiseId) => {
         const base = safeStr(comments);
         const tag = buildTradeMetaTag(payload, fromFranchiseId, toFranchiseId);
-        const out = base ? `${base} ${tag}` : tag;
-        return out.slice(0, 2000);
+        if (!base) return tag.slice(0, 2000);
+        const roomForBase = 2000 - tag.length - 1;
+        if (roomForBase <= 0) return tag.slice(0, 2000);
+        return `${tag} ${base.slice(0, roomForBase)}`;
       };
 
       const normalizeNameKey = (value) =>
@@ -2323,42 +2324,67 @@ export default {
         out.comment_field_used = primaryComment.field || "none";
         out.raw_comment_excerpt = safeStr(primaryComment.text || combinedComment).slice(0, 500);
         const existing = Array.isArray(inputPayload.extension_requests) ? inputPayload.extension_requests : [];
-        if (existing.length) {
-          out.expected_extension_count = existing.length;
-          out.prepared_count = existing.length;
-          out.extension_trigger_found = true;
-          out.parse_rows = existing.map((row) => ({
-            source: "payload.extension_requests",
-            parsed_player_name: safeStr(row?.player_name),
-            parsed_term: safeStr(row?.extension_term),
-            resolved_player_id: String(row?.player_id || "").replace(/\D/g, ""),
-            eligibility: "eligible",
-            reason: "",
-          }));
-          out.payload = inputPayload;
-          try {
-            console.log(
-              "[TWB][extensions][context]",
-              JSON.stringify({
-                trade_id: safeStr(tradeId),
-                timestamp_utc: new Date().toISOString(),
-                extension_trigger_found: true,
-                source: "payload.extension_requests",
-                comment_sources_count: commentSources.length,
-              })
-            );
-          } catch (_) {
-            // noop
-          }
-          return out;
-        }
-
         const indexes = buildPlayerSelectionIndexes(inputPayload);
         const meta =
           (offerMeta && typeof offerMeta === "object" ? offerMeta : null) ||
           parseTradeMetaTagFromComments(combinedComment || "");
         const metaExt = Array.isArray(meta?.ext) ? meta.ext : [];
         const prepared = [];
+        const preparedByPlayerId = {};
+        if (existing.length) {
+          out.expected_extension_count = existing.length;
+          out.extension_trigger_found = true;
+          for (const row of existing) {
+            const playerId = String(row?.player_id || "").replace(/\D/g, "");
+            const hasPreview = !!safeStr(row?.preview_contract_info_string);
+            if (playerId && hasPreview) {
+              prepared.push(JSON.parse(JSON.stringify(row)));
+              preparedByPlayerId[playerId] = true;
+              out.parse_rows.push({
+                source: "payload.extension_requests",
+                parsed_player_name: safeStr(row?.player_name),
+                parsed_term: safeStr(row?.extension_term),
+                resolved_player_id: playerId,
+                eligibility: "eligible",
+                reason: "",
+              });
+              continue;
+            }
+            out.skipped_rows.push({
+              reason: hasPreview ? "no_player_id" : "missing_preview_contract_info_string",
+              player_id: playerId,
+              player_name: safeStr(row?.player_name),
+            });
+            out.parse_rows.push({
+              source: "payload.extension_requests",
+              parsed_player_name: safeStr(row?.player_name),
+              parsed_term: safeStr(row?.extension_term),
+              resolved_player_id: playerId,
+              eligibility: hasPreview ? "unknown" : "eligible",
+              reason: hasPreview ? "no_player_id" : "payload_incomplete",
+            });
+          }
+          if (prepared.length === existing.length) {
+            out.prepared_count = prepared.length;
+            out.payload = inputPayload;
+            try {
+              console.log(
+                "[TWB][extensions][context]",
+                JSON.stringify({
+                  trade_id: safeStr(tradeId),
+                  timestamp_utc: new Date().toISOString(),
+                  extension_trigger_found: true,
+                  source: "payload.extension_requests",
+                  comment_sources_count: commentSources.length,
+                  prepared_extension_count: prepared.length,
+                })
+              );
+            } catch (_) {
+              // noop
+            }
+            return out;
+          }
+        }
         const parsedLinesBundle = parsePreTradeExtensionLines(combinedComment || "");
         const parsedLines = Array.isArray(parsedLinesBundle.entries) ? parsedLinesBundle.entries : [];
         const triggerCount = safeInt(parsedLinesBundle.triggerCount, 0);
@@ -2499,6 +2525,7 @@ export default {
               });
               continue;
             }
+            if (preparedByPlayerId[String(selection.player_id || "").replace(/\D/g, "")]) continue;
             out.parse_rows.push({
               source: sourceLabel,
               parsed_player_name: safeStr(line.player_name),
@@ -2508,6 +2535,7 @@ export default {
               reason: "",
             });
             prepared.push(req);
+            preparedByPlayerId[String(selection.player_id || "").replace(/\D/g, "")] = true;
           }
         };
 
@@ -2554,6 +2582,7 @@ export default {
               });
               continue;
             }
+            if (preparedByPlayerId[playerId]) continue;
             out.parse_rows.push({
               source: "twb_meta",
               parsed_player_name: safeStr(item?.player_name || selection?.player_name),
@@ -2563,6 +2592,7 @@ export default {
               reason: "",
             });
             prepared.push(req);
+            preparedByPlayerId[playerId] = true;
           }
           if (!prepared.length) {
             await attemptFromComments("twb_meta+comment_fallback");
@@ -5110,6 +5140,17 @@ export default {
                 if (acceptStoredOffer) {
                   if ((!payload || typeof payload !== "object") && acceptStoredOffer.payload && typeof acceptStoredOffer.payload === "object") {
                     payload = JSON.parse(JSON.stringify(acceptStoredOffer.payload));
+                  }
+                  if (payload && typeof payload === "object" && acceptStoredOffer.payload && typeof acceptStoredOffer.payload === "object") {
+                    const payloadExt = Array.isArray(payload?.extension_requests)
+                      ? payload.extension_requests
+                      : [];
+                    const storedExt = Array.isArray(acceptStoredOffer.payload?.extension_requests)
+                      ? acceptStoredOffer.payload.extension_requests
+                      : [];
+                    if (!payloadExt.length && storedExt.length) {
+                      payload.extension_requests = JSON.parse(JSON.stringify(storedExt));
+                    }
                   }
                   if (!offerComment) {
                     offerComment = safeStr(

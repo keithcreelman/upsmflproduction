@@ -844,6 +844,47 @@
     }
   }
 
+  function normalizePlayerNameKey(value) {
+    return safeStr(value)
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "");
+  }
+
+  function playerNameVariants(value) {
+    var raw = safeStr(value);
+    if (!raw) return [];
+    var out = {};
+    var direct = normalizePlayerNameKey(raw);
+    if (direct) out[direct] = 1;
+    var parts = raw.split(",");
+    if (parts.length >= 2) {
+      var last = safeStr(parts[0]);
+      var first = safeStr(parts.slice(1).join(" "));
+      var flipped = normalizePlayerNameKey(first + " " + last);
+      if (flipped) out[flipped] = 1;
+    }
+    return Object.keys(out);
+  }
+
+  function parsePreTradeExtensionCommentLines(commentText) {
+    var text = safeStr(commentText);
+    if (!text) return [];
+    var normalizedText = text.replace(/\r/g, "\n");
+    var re = /pre[\s-]*trade\s*extension\s*:\s*extend\s+(.+?)\s+([0-9]{1,2})\s*(?:-|–|—|‑|\s)?\s*year(?:s)?\b/gi;
+    var out = [];
+    var match;
+    while ((match = re.exec(normalizedText))) {
+      var years = safeInt(match[2], 0);
+      out.push({
+        player_name: safeStr(match[1]),
+        extension_term: years > 0 ? String(years) + "YR" : "",
+        raw_line: safeStr(match[0]),
+        parse_error: !years || !safeStr(match[1])
+      });
+    }
+    return out;
+  }
+
   function parseTradeTokenList(csv) {
     return safeStr(csv)
       .split(",")
@@ -977,6 +1018,76 @@
     return out;
   }
 
+  function buildExtensionRequestsFromComment(commentText, leftTeamId, rightTeamId, leftSelectedAssets, rightSelectedAssets) {
+    var parsed = parsePreTradeExtensionCommentLines(commentText);
+    if (!parsed.length) return [];
+    var leftByName = {};
+    var rightByName = {};
+    var i;
+    for (i = 0; i < leftSelectedAssets.length; i += 1) {
+      if (!leftSelectedAssets[i] || leftSelectedAssets[i].type !== "PLAYER") continue;
+      var leftVariants = playerNameVariants(leftSelectedAssets[i].player_name);
+      var lv;
+      for (lv = 0; lv < leftVariants.length; lv += 1) {
+        leftByName[leftVariants[lv]] = leftSelectedAssets[i];
+      }
+    }
+    for (i = 0; i < rightSelectedAssets.length; i += 1) {
+      if (!rightSelectedAssets[i] || rightSelectedAssets[i].type !== "PLAYER") continue;
+      var rightVariants = playerNameVariants(rightSelectedAssets[i].player_name);
+      var rv;
+      for (rv = 0; rv < rightVariants.length; rv += 1) {
+        rightByName[rightVariants[rv]] = rightSelectedAssets[i];
+      }
+    }
+
+    var out = [];
+    var seenPlayer = {};
+    for (i = 0; i < parsed.length; i += 1) {
+      var row = parsed[i];
+      if (!row || row.parse_error) continue;
+      var variants = playerNameVariants(row.player_name);
+      var asset = null;
+      var fromTeamId = "";
+      var j;
+      for (j = 0; j < variants.length; j += 1) {
+        if (!asset && leftByName[variants[j]]) {
+          asset = leftByName[variants[j]];
+          fromTeamId = leftTeamId;
+        }
+        if (!asset && rightByName[variants[j]]) {
+          asset = rightByName[variants[j]];
+          fromTeamId = rightTeamId;
+        }
+        if (asset) break;
+      }
+      if (!asset) continue;
+      var playerId = safeStr(asset.player_id).replace(/\D/g, "");
+      if (!playerId || seenPlayer[playerId]) continue;
+      var option = extensionPreviewForAssetOption(asset, "", row.extension_term);
+      if (!option) continue;
+      var toTeamId = fromTeamId === leftTeamId ? rightTeamId : leftTeamId;
+      seenPlayer[playerId] = 1;
+      out.push({
+        player_id: playerId,
+        player_name: safeStr(asset.player_name),
+        from_franchise_id: fromTeamId,
+        to_franchise_id: toTeamId,
+        applies_to_acquirer: true,
+        option_key: safeStr(option.option_key || row.extension_term + "|NONE"),
+        extension_term: safeStr(option.extension_term || row.extension_term),
+        loaded_indicator: safeStr(option.loaded_indicator || "NONE"),
+        preview_id: option.preview_id == null ? null : safeInt(option.preview_id, 0),
+        preview_contract_info_string: safeStr(option.preview_contract_info_string),
+        new_contract_status: safeStr(option.new_contract_status),
+        new_contract_length: option.new_contract_length == null ? null : safeInt(option.new_contract_length, 0),
+        new_TCV: option.new_TCV == null ? null : safeInt(option.new_TCV, 0),
+        new_aav_future: option.new_aav_future == null ? null : safeInt(option.new_aav_future, 0)
+      });
+    }
+    return out;
+  }
+
   function buildPayloadFromOfferTokens(offer, options) {
     options = options || {};
     var fromId = pad4(offer && offer.from_franchise_id);
@@ -1021,7 +1132,8 @@
 
     if (!leftAssets.length || !rightAssets.length) return null;
 
-    var meta = (offer && offer.twb_meta) || parseTradeMetaFromComment((offer && (offer.raw_comment || offer.comment || offer.message)) || "");
+    var offerComment = safeStr(offer && (offer.raw_comment || offer.comment || offer.message || offer.notes));
+    var meta = (offer && offer.twb_meta) || parseTradeMetaFromComment(offerComment);
     var extensionReqs = buildExtensionRequestsFromMeta(
       meta && Array.isArray(meta.ext) ? meta.ext : [],
       leftId,
@@ -1029,6 +1141,15 @@
       leftAssets,
       rightAssets
     );
+    if (!extensionReqs.length && offerComment) {
+      extensionReqs = buildExtensionRequestsFromComment(
+        offerComment,
+        leftId,
+        rightId,
+        leftAssets,
+        rightAssets
+      );
+    }
     var payload = {
       schema_version: 1,
       generated_at: new Date().toISOString(),
@@ -1822,6 +1943,8 @@
       if (normalizedAction === "ACCEPT") {
         if (reviewPayload && Array.isArray(reviewPayload.extension_requests) && reviewPayload.extension_requests.length) {
           explicitOfferExtensionRequests = clone(reviewPayload.extension_requests);
+        } else if (actionPayload && Array.isArray(actionPayload.extension_requests) && actionPayload.extension_requests.length) {
+          explicitOfferExtensionRequests = clone(actionPayload.extension_requests);
         } else if (offerMeta && Array.isArray(offerMeta.ext) && offerMeta.ext.length) {
           explicitOfferExtensionRequests = clone(offerMeta.ext);
         }
@@ -2231,7 +2354,7 @@
   function composeTradeMessage(userComment, extensionLines) {
     var user = safeStr(userComment);
     var lines = Array.isArray(extensionLines) ? extensionLines.filter(function (v) { return !!safeStr(v); }) : [];
-    if (user && lines.length) return user + "\n\n" + lines.join("\n");
+    if (user && lines.length) return lines.join("\n") + "\n\n" + user;
     if (user) return user;
     return lines.join("\n");
   }
