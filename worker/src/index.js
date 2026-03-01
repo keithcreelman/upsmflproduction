@@ -4766,6 +4766,9 @@ export default {
           body?.offer_twb_meta && typeof body.offer_twb_meta === "object"
             ? body.offer_twb_meta
             : null;
+        const offerExtensionRequests = Array.isArray(body?.offer_extension_requests)
+          ? body.offer_extension_requests.filter((row) => row && typeof row === "object")
+          : [];
 
         if (!leagueId) return jsonOut(400, { ok: false, error: "league_id is required" });
         if (!season) return jsonOut(400, { ok: false, error: "season is required" });
@@ -5076,6 +5079,15 @@ export default {
           let acceptStoredOffer = null;
           let acceptPendingRow = null;
           if (action === "ACCEPT") {
+            if (offerExtensionRequests.length) {
+              if (!payload || typeof payload !== "object") payload = {};
+              const payloadExt = Array.isArray(payload?.extension_requests)
+                ? payload.extension_requests
+                : [];
+              if (!payloadExt.length) {
+                payload.extension_requests = JSON.parse(JSON.stringify(offerExtensionRequests));
+              }
+            }
             try {
               const loaded = await readTradeOffersDoc(leagueId, season);
               if (loaded.ok) {

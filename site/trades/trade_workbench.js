@@ -1781,6 +1781,43 @@
 
     try {
       var actionUrl = resolveTradeOffersActionApiUrl();
+      var actionPayload = getOfferPayloadForWorkbench(offer, { keepOriginalOrientation: true }) || null;
+      var reviewPayload = null;
+      if (normalizedAction === "ACCEPT") {
+        reviewPayload = buildTradePayload();
+        if (reviewPayload && typeof reviewPayload === "object") {
+          var reviewExtReqs = Array.isArray(reviewPayload.extension_requests) ? reviewPayload.extension_requests : [];
+          var actionExtReqs = actionPayload && Array.isArray(actionPayload.extension_requests)
+            ? actionPayload.extension_requests
+            : [];
+          if (reviewExtReqs.length && !actionExtReqs.length) {
+            if (!actionPayload || typeof actionPayload !== "object") {
+              actionPayload = {};
+            } else {
+              actionPayload = clone(actionPayload);
+            }
+            actionPayload.extension_requests = clone(reviewExtReqs);
+          }
+          if (actionPayload && typeof actionPayload === "object") {
+            if (!safeStr(actionPayload.comment) && safeStr(reviewPayload.comment)) {
+              actionPayload.comment = safeStr(reviewPayload.comment);
+            }
+            if (!safeStr(actionPayload.comments) && safeStr(reviewPayload.comments)) {
+              actionPayload.comments = safeStr(reviewPayload.comments);
+            }
+            if (!safeStr(actionPayload.raw_comment) && safeStr(reviewPayload.raw_comment)) {
+              actionPayload.raw_comment = safeStr(reviewPayload.raw_comment);
+            }
+          }
+        }
+      }
+      var offerRawCommentText = safeStr(
+        offer.raw_comment || offer.comments || offer.comment || offer.message || offer.notes
+      );
+      var offerMeta = offer && offer.twb_meta ? offer.twb_meta : null;
+      if (!offerMeta && offerRawCommentText) {
+        offerMeta = parseTradeMetaFromComment(offerRawCommentText);
+      }
       var body = {
         league_id: leagueId,
         season: season,
@@ -1789,13 +1826,17 @@
         trade_id: tradeId,
         action: normalizedAction,
         acting_franchise_id: actingFranchiseId,
-        payload: getOfferPayloadForWorkbench(offer, { keepOriginalOrientation: true }) || null,
-        offer_comment: safeStr(offer.raw_comment || offer.comments || offer.comment || offer.message || offer.notes),
+        payload: actionPayload,
+        offer_comment: offerRawCommentText,
         offer_comments: safeStr(offer.comments || offer.comment || offer.raw_comment || offer.message || offer.notes),
         offer_notes: safeStr(offer.notes || offer.comment || offer.comments || offer.raw_comment || offer.message),
-        offer_raw_comment: safeStr(offer.raw_comment || offer.comments || offer.comment || offer.message || offer.notes),
+        offer_raw_comment: offerRawCommentText,
         offer_message: safeStr(offer.message || offer.comment || offer.comments || offer.raw_comment || offer.notes),
-        offer_twb_meta: offer && offer.twb_meta ? offer.twb_meta : null,
+        offer_twb_meta: offerMeta,
+        offer_extension_requests:
+          normalizedAction === "ACCEPT" && reviewPayload && Array.isArray(reviewPayload.extension_requests)
+            ? reviewPayload.extension_requests
+            : [],
         offer_from_franchise_id: safeStr(offer.from_franchise_id),
         offer_to_franchise_id: safeStr(offer.to_franchise_id),
         offer_will_give_up: safeStr(offer.will_give_up),
