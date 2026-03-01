@@ -891,27 +891,22 @@ export default {
           `https://api.myfantasyleague.com/${encodeURIComponent(String(year || YEAR || "2025"))}`;
 
         const withKeyQs = new URLSearchParams(baseQs.toString());
-        if (options.includeApiKey && env.MFL_APIKEY) {
-          withKeyQs.set("APIKEY", String(env.MFL_APIKEY));
+        if (options.includeApiKey) {
+          const apiKey = safeStr(env.MFL_APIKEY || "");
+          if (!apiKey) {
+            return {
+              ok: false,
+              status: 0,
+              url: `${baseHost}/export?${withKeyQs.toString()}`,
+              error: "missing_worker_mfl_apikey",
+              data: null,
+              textPreview: "",
+            };
+          }
+          withKeyQs.set("APIKEY", apiKey);
         }
         const withKeyUrl = `${baseHost}/export?${withKeyQs.toString()}`;
-        const primary = await fetchMflJson(withKeyUrl, headers);
-
-        const keyRejected =
-          !!options.includeApiKey &&
-          !!env.MFL_APIKEY &&
-          /api key validation failed/i.test(String(primary.error || ""));
-        if (!keyRejected) return primary;
-
-        const withoutKeyQs = new URLSearchParams(baseQs.toString());
-        const withoutKeyUrl = `${baseHost}/export?${withoutKeyQs.toString()}`;
-        const retry = await fetchMflJson(withoutKeyUrl, headers);
-        retry.apiKeyFallback = {
-          attempted: true,
-          primary_status: primary.status,
-          primary_error: primary.error || "",
-        };
-        return retry;
+        return fetchMflJson(withKeyUrl, headers);
       };
 
       const parseLeagueFranchises = (leaguePayload) => {
