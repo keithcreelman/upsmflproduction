@@ -34,24 +34,65 @@
       seasonEvents.contract_deadline ||
       seasonEvents.UPS_CONTRACT_DEADLINE
     );
+    var seasonCompleteRaw = seasonEvents && (
+      seasonEvents.ups_season_complete ||
+      seasonEvents.season_complete ||
+      seasonEvents.UPS_SEASON_COMPLETE
+    );
     var deadlineDt = parseYmd(deadlineRaw);
+    var seasonCompleteDt = parseYmd(seasonCompleteRaw);
     var isOffseason = true;
     if (siteSeason < currentYear) {
       isOffseason = true;
     } else if (siteSeason > currentYear) {
       isOffseason = true;
     } else {
-      isOffseason = deadlineDt ? (today < deadlineDt) : true;
+      if (!deadlineDt) {
+        isOffseason = true;
+      } else if (today < deadlineDt) {
+        isOffseason = true;
+      } else if (seasonCompleteDt && today > seasonCompleteDt) {
+        isOffseason = true;
+      } else {
+        isOffseason = false;
+      }
     }
 
     window.is_offseason = !!isOffseason;
     window.UPS_IS_OFFSEASON = !!isOffseason;
+    if (!window.MFLGlobalCache || typeof window.MFLGlobalCache !== "object") {
+      window.MFLGlobalCache = {
+        onReady: function (cb) {
+          if (typeof cb === "function") {
+            try { cb(); } catch (e) {}
+          }
+        },
+        get: function () { return null; },
+        set: function () {},
+        remove: function () {}
+      };
+    } else if (typeof window.MFLGlobalCache.onReady !== "function") {
+      window.MFLGlobalCache.onReady = function (cb) {
+        if (typeof cb === "function") {
+          try { cb(); } catch (e) {}
+        }
+      };
+    }
+    if (!Array.isArray(window.reportNflByeWeeks_ar)) window.reportNflByeWeeks_ar = [];
+    if (!Array.isArray(window.reportNflByeWeeksArray)) window.reportNflByeWeeksArray = window.reportNflByeWeeks_ar;
+    try {
+      if (typeof window.eval === "function") {
+        window.eval("var is_offseason = " + (window.is_offseason ? "true" : "false") + ";");
+        window.eval("var reportNflByeWeeks_ar = window.reportNflByeWeeks_ar || [];");
+      }
+    } catch (e) {}
     if (!window.UPS_IS_OFFSEASON_META || typeof window.UPS_IS_OFFSEASON_META !== "object") {
       window.UPS_IS_OFFSEASON_META = {
         siteSeason: siteSeason,
         currentYear: currentYear,
         todayISO: today.toISOString(),
         deadline: safeStr(deadlineRaw),
+        seasonComplete: safeStr(seasonCompleteRaw),
         resolvedFromEvents: !!seasonEvents
       };
     }

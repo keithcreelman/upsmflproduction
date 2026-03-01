@@ -8,12 +8,51 @@
 <link rel="shortcut icon" href="https://www.mflscripts.com/ImageDirectory/script-images/favicon.ico" type="image/x-icon">
 
 <script>
-  // CUSTOM TABS DISABLED: prevent legacy global lookups from throwing on MFL pages.
+  // Legacy global safety guards (custom tabs removed; keep no-op shims to avoid hard crashes).
   (function () {
-    if (typeof window.MFL_customTabs_FakeTabs === "undefined") window.MFL_customTabs_FakeTabs = null;
-    if (typeof window.MFL_customTabs === "undefined") window.MFL_customTabs = null;
-    if (typeof window.customTabs === "undefined") window.customTabs = null;
-    if (typeof window.FakeTabs === "undefined") window.FakeTabs = null;
+    function noop() {}
+    var fakeTabsShim = {
+      onReady: function (cb) {
+        if (typeof cb === "function") {
+          try { cb(); } catch (e) {}
+        }
+      },
+      init: noop,
+      mount: noop,
+      destroy: noop
+    };
+    if (!window.MFL_customTabs_FakeTabs || typeof window.MFL_customTabs_FakeTabs !== "object") {
+      window.MFL_customTabs_FakeTabs = fakeTabsShim;
+    }
+    if (!window.MFL_customTabs || typeof window.MFL_customTabs !== "object") {
+      window.MFL_customTabs = window.MFL_customTabs_FakeTabs;
+    }
+    if (!window.customTabs || typeof window.customTabs !== "object") {
+      window.customTabs = window.MFL_customTabs_FakeTabs;
+    }
+    if (!window.FakeTabs || typeof window.FakeTabs !== "object") {
+      window.FakeTabs = window.MFL_customTabs_FakeTabs;
+    }
+    if (!window.MFLGlobalCache || typeof window.MFLGlobalCache !== "object") {
+      window.MFLGlobalCache = {
+        onReady: function (cb) {
+          if (typeof cb === "function") {
+            try { cb(); } catch (e) {}
+          }
+        },
+        get: function () { return null; },
+        set: noop,
+        remove: noop
+      };
+    } else if (typeof window.MFLGlobalCache.onReady !== "function") {
+      window.MFLGlobalCache.onReady = function (cb) {
+        if (typeof cb === "function") {
+          try { cb(); } catch (e) {}
+        }
+      };
+    }
+    if (!Array.isArray(window.reportNflByeWeeks_ar)) window.reportNflByeWeeks_ar = [];
+    if (!Array.isArray(window.reportNflByeWeeksArray)) window.reportNflByeWeeksArray = window.reportNflByeWeeks_ar;
   })();
 
   // Hard redirect guard: never allow CCC message routes to stay on leaked dev league.
@@ -2856,6 +2895,8 @@ Replaces bulky default grid with compact toggle view + franchise icons
     if (isOptionsPage()) return false;
     var mod = moduleFromUrl();
     if (mod === "standings") return true;
+    // Do not inject standings snapshot into non-standings MESSAGE pages.
+    if (mod && mod !== "home") return false;
     if (!isHomePath()) return false;
     if (document.querySelector("table.homepagemodule.report#standings")) return true;
     if (document.getElementById("standings")) return true;
@@ -2878,7 +2919,7 @@ Replaces bulky default grid with compact toggle view + franchise icons
       if (headers && /franchise|team|all play|overall|division|record|w l t|ap /.test(headers)) return t;
       if (caption && /standings|all play|overall/.test(caption)) return t;
     }
-    return candidates[0] || null;
+    return null;
   }
 
   function findIndexByRegex(headersNorm, regexes, used) {
@@ -5542,7 +5583,13 @@ Replaces bulky default grid with compact toggle view + franchise icons
       eventsForSeason.contract_deadline ||
       eventsForSeason.UPS_CONTRACT_DEADLINE
     );
+    var seasonCompleteRaw = eventsForSeason && (
+      eventsForSeason.ups_season_complete ||
+      eventsForSeason.season_complete ||
+      eventsForSeason.UPS_SEASON_COMPLETE
+    );
     var deadlineDate = parseYMDLocal(deadlineRaw);
+    var seasonCompleteDate = parseYMDLocal(seasonCompleteRaw);
 
     var isOffseason = true;
     if (siteSeason < currentYear) {
@@ -5550,8 +5597,18 @@ Replaces bulky default grid with compact toggle view + franchise icons
     } else if (siteSeason > currentYear) {
       isOffseason = true;
     } else {
-      // siteSeason === currentYear: offseason until contract deadline. Fail-safe true if unknown.
-      isOffseason = deadlineDate ? (today < deadlineDate) : true;
+      // siteSeason === currentYear:
+      // offseason until contract deadline; offseason again after season complete.
+      // Fail-safe true if deadline is missing.
+      if (!deadlineDate) {
+        isOffseason = true;
+      } else if (today < deadlineDate) {
+        isOffseason = true;
+      } else if (seasonCompleteDate && today > seasonCompleteDate) {
+        isOffseason = true;
+      } else {
+        isOffseason = false;
+      }
     }
 
     window.is_offseason = !!isOffseason;
@@ -5561,12 +5618,14 @@ Replaces bulky default grid with compact toggle view + franchise icons
       currentYear: currentYear,
       todayISO: today.toISOString(),
       deadline: safeStr(deadlineRaw),
+      seasonComplete: safeStr(seasonCompleteRaw),
       resolvedFromEvents: !!eventsForSeason
     };
   })();
 
   // Legacy globals expected by mflscripts header.js.
   var is_offseason = window.is_offseason;
+  var reportNflByeWeeks_ar = window.reportNflByeWeeks_ar;
   var deactivate_all_offseason = false;
 </script>
 

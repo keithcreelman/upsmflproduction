@@ -42,6 +42,23 @@
     return safeLower(u.searchParams.get("MODULE"));
   }
 
+  function getOptionValue(u) {
+    if (!u) return "";
+    return safeLower(u.searchParams.get("O") || u.searchParams.get("OPTION"));
+  }
+
+  function isOptionsRoute(u) {
+    var path = safeLower(window.location.pathname || "");
+    if (path.indexOf("/options") !== -1 || path.indexOf("/select_franchise") !== -1) return true;
+    if (getOptionValue(u)) return true;
+    var bodyId = safeLower((document.body && document.body.id) || "");
+    return bodyId.indexOf("body_options_") === 0;
+  }
+
+  function isHomeLeagueRoute() {
+    return /\/\d{4}\/home\/\d+/i.test(String(window.location.pathname || ""));
+  }
+
   function getOwnerActivityWeek(u) {
     if (u) {
       var q = Number(u.searchParams.get("W"));
@@ -492,14 +509,32 @@
   function shouldUseModuleStack() {
     if (!isMflContext()) return false;
     if (!u) return false;
+    if (isOptionsRoute(u)) return false;
+    if (!isHomeLeagueRoute()) return false;
     // Preserve standalone MESSAGE17 page behavior; use countdown widget there to avoid module recursion.
     if (MODULE_NAME === "message17") return false;
+    // Only mount Owner Hub stack on true league home (no module selected).
+    if (MODULE_NAME) return false;
     // If this loader is executing inside an embedded module page, do not create nested module stacks.
     if (window.top !== window.self && u.searchParams.get("UPS_UOW_EMBED") === "1") return false;
     return true;
   }
 
+  function shouldSkipMountCompletely() {
+    if (!isMflContext()) return false;
+    if (!u) return false;
+    if (isOptionsRoute(u)) return true;
+    // Never inject on explicit module pages except MESSAGE17 fallback mode.
+    if (MODULE_NAME && MODULE_NAME !== "message17") return true;
+    return false;
+  }
+
   var mount = ensureMount();
+
+  if (shouldSkipMountCompletely()) {
+    mount.innerHTML = "";
+    return;
+  }
 
   if (shouldUseModuleStack()) {
     mountModuleStack(mount);

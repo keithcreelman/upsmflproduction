@@ -1289,7 +1289,7 @@
       return intent;
     }
     if (kind === "incoming") {
-      intent.label = "Accept Trade";
+      intent.label = "Accept Offer";
       intent.busyLabel = "Accepting…";
       intent.disabled = !safeStr(ctx.tradeId) || state.offers.actionBusy;
       intent.mode = "accept";
@@ -1848,6 +1848,26 @@
         offer_will_receive: safeStr(offer.will_receive),
         direct_mfl: true
       };
+      if (normalizedAction === "ACCEPT") {
+        try {
+          console.log("[TWB][accept][request]", {
+            url: actionUrl,
+            league_id: body.league_id,
+            season: body.season,
+            trade_id: body.trade_id,
+            acting_franchise_id: body.acting_franchise_id,
+            has_payload: !!body.payload,
+            payload_extension_requests: Array.isArray(body.payload && body.payload.extension_requests)
+              ? body.payload.extension_requests.length
+              : 0,
+            explicit_extension_requests: Array.isArray(body.offer_extension_requests)
+              ? body.offer_extension_requests.length
+              : 0
+          });
+        } catch (eLogReq) {
+          // noop
+        }
+      }
       var res = await fetchJsonRequest(actionUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1858,6 +1878,18 @@
       else if (normalizedAction === "REJECT") okText = "Offer rejected in MFL.";
       else if (normalizedAction === "ACCEPT") okText = "Offer accepted in MFL.";
       if (normalizedAction === "ACCEPT") {
+        try {
+          console.log("[TWB][accept][response]", {
+            ok: !!(res && res.ok),
+            action: safeStr(res && res.action),
+            trade_id: safeStr(res && res.trade_id),
+            extensions_reason: safeStr(res && res.extensions && res.extensions.reason),
+            extensions_ok: !!(res && res.extensions && res.extensions.ok),
+            salary_ok: !!(res && res.salary_adjustments && res.salary_adjustments.ok)
+          });
+        } catch (eLogRes) {
+          // noop
+        }
         var postSummary = summarizePostAcceptResult(res);
         if (postSummary.text) okText += " " + postSummary.text + ".";
         setSubmitStatus(okText, postSummary.tone || "good");
