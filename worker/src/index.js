@@ -25,6 +25,7 @@ export default {
         path !== "/offer-mym" &&
         path !== "/offer-restructure" &&
         path !== "/commish-contract-update" &&
+        path !== "/roster-workbench" &&
         path !== "/trade-workbench" &&
         !path.startsWith("/trade-offers") &&
         !path.startsWith("/trade-outbox") &&
@@ -609,8 +610,8 @@ export default {
       // ---------- Cookie ----------
       const cookie = env.MFL_COOKIE || "";
       if (!cookie) {
-        if (path === "/trade-workbench" || path.startsWith("/trade-offers")) {
-          // Allow public trade workbench payloads (league/rosters/players) without a commish cookie.
+        if (path === "/roster-workbench" || path === "/trade-workbench" || path.startsWith("/trade-offers")) {
+          // Allow public roster/trade workbench payloads (league/rosters/players) without a commish cookie.
           // Draft picks (assets export) and default-franchise detection may be unavailable and are surfaced as warnings.
         } else {
         return new Response(
@@ -816,6 +817,20 @@ export default {
         return contractYear;
       };
 
+      const redactUrlSecrets = (rawUrl) => {
+        try {
+          const u = new URL(String(rawUrl || ""));
+          const secretKeys = ["APIKEY", "MFL_USER_ID", "COMMISH_API_KEY"];
+          for (const key of secretKeys) {
+            if (!u.searchParams.has(key)) continue;
+            u.searchParams.set(key, "[redacted]");
+          }
+          return u.toString();
+        } catch (_) {
+          return safeStr(rawUrl);
+        }
+      };
+
       const mflExportJson = async (year, leagueId, type, extraParams = {}, options = {}) => {
         const qs = new URLSearchParams({
           TYPE: String(type || "").trim(),
@@ -835,6 +850,7 @@ export default {
         const urlOut =
           `https://api.myfantasyleague.com/${encodeURIComponent(String(year || YEAR || "2025"))}` +
           `/export?${qs.toString()}`;
+        const safeUrlOut = redactUrlSecrets(urlOut);
         const headers = { "User-Agent": "upsmflproduction-worker" };
         if (options.useCookie !== false && cookieHeader) headers.Cookie = cookieHeader;
 
@@ -850,7 +866,7 @@ export default {
           return {
             ok: false,
             status: 0,
-            url: urlOut,
+            url: safeUrlOut,
             error: `fetch_failed: ${e?.message || String(e)}`,
             data: null,
             textPreview: "",
@@ -868,7 +884,7 @@ export default {
         return {
           ok: !!res.ok && parsedOk && !payloadErr,
           status: res.status,
-          url: urlOut,
+          url: safeUrlOut,
           data,
           error: payloadErr || (parsedOk ? "" : "non_json_response"),
           textPreview: String(text || "").slice(0, 500),
@@ -938,6 +954,7 @@ export default {
               contract_type: isTaxi ? "Taxi" : contractStatus,
               contract_info: safeStr(p?.contractInfo || p?.contractinfo),
               taxi: isTaxi,
+              roster_status: status,
               notes: safeStr(p?.drafted || ""),
             });
           }
@@ -7012,6 +7029,308 @@ export default {
         });
       }
 
+      if (path === "/roster-workbench" && request.method === "GET") {
+        const season = safeStr(url.searchParams.get("YEAR") || YEAR || "");
+        const leagueId = safeStr(url.searchParams.get("L") || L || "");
+        if (!leagueId) return jsonOut(400, { ok: false, error: "Missing L param" });
+        if (!season) return jsonOut(400, { ok: false, error: "Missing YEAR param" });
+
+        const cacheKey = new Request(
+          `https://upsmfl-roster-workbench.local/cache?L=${encodeURIComponent(leagueId)}&YEAR=${encodeURIComponent(season)}`,
+          { method: "GET" }
+        );
+        const disableCache = safeStr(url.searchParams.get("NO_CACHE")) === "1";
+        if (!disableCache) {
+          try {
+            const cached = await caches.default.match(cacheKey);
+            if (cached) return cached;
+          } catch (_) {}
+        }
+
+        const parseSalaryRows = (payload) => {
+          const out = {};
+          const rows = asArray(payload?.salaries?.leagueUnit?.player).filter(Boolean);
+          for (const row of rows) {
+            const pid = String(row?.id || "").replace(/\D/g, "");
+            if (!pid || pid === "0000") continue;
+            const salaryRaw = safeStr(row?.salary);
+            const contractYearRaw = safeStr(row?.contractYear);
+            const contractStatusRaw = safeStr(row?.contractStatus);
+            const contractInfoRaw = safeStr(row?.contractInfo);
+            if (!salaryRaw && !contractYearRaw && !contractStatusRaw && !contractInfoRaw) continue;
+            out[pid] = {
+              salary: salaryRaw ? safeInt(salaryRaw, 0) : null,
+              contractYear: contractYearRaw ? safeInt(contractYearRaw, 0) : null,
+              contractStatus: contractStatusRaw || null,
+              contractInfo: contractInfoRaw || null,
+            };
+          }
+          return out;
+        };
+
+        const parsePlayerScoresRows = (payload) => {
+          const out = {};
+          const rows = asArray(payload?.playerScores?.playerScore).filter(Boolean);
+          for (const row of rows) {
+            const pid = String(row?.id || "").replace(/\D/g, "");
+            if (!pid) continue;
+            const score = Number.parseFloat(String(row?.score || "").replace(/[^0-9.-]/g, ""));
+            out[pid] = Number.isFinite(score) ? score : 0;
+          }
+          return out;
+        };
+
+        const fetchNflByeWeeksMap = async (year) => {
+          const qs = new URLSearchParams({ TYPE: "nflByeWeeks", JSON: "1", _: String(Date.now()) });
+          if (env.MFL_APIKEY) qs.set("APIKEY", String(env.MFL_APIKEY));
+          const targetUrl = `https://api.myfantasyleague.com/${encodeURIComponent(String(year || season))}/export?${qs.toString()}`;
+          try {
+            const res = await fetch(targetUrl, {
+              headers: { "User-Agent": "upsmflproduction-worker" },
+              cf: { cacheTtl: 0, cacheEverything: false },
+            });
+            if (!res.ok) {
+              return {
+                ok: false,
+                year: String(year || season),
+                map: {},
+                status: res.status,
+                url: redactUrlSecrets(targetUrl),
+              };
+            }
+            const data = await res.json();
+            const rows = asArray(data?.nflByeWeeks?.team).filter(Boolean);
+            const map = {};
+            let hasAnyBye = false;
+            for (const row of rows) {
+              const team = safeStr(row?.id).toUpperCase();
+              if (!team) continue;
+              const bye = safeStr(row?.bye_week || "");
+              if (bye) hasAnyBye = true;
+              map[team] = bye;
+            }
+            return {
+              ok: true,
+              year: String(year || season),
+              map,
+              hasAnyBye,
+              status: 200,
+              url: redactUrlSecrets(targetUrl),
+            };
+          } catch (e) {
+            return {
+              ok: false,
+              year: String(year || season),
+              map: {},
+              status: 0,
+              url: redactUrlSecrets(targetUrl),
+              error: `fetch_failed: ${e?.message || String(e)}`,
+            };
+          }
+        };
+
+        const [leagueRes, rostersRes, salariesRes] = await Promise.all([
+          mflExportJson(season, leagueId, "league", {}, { includeApiKey: true, useCookie: true }),
+          mflExportJson(season, leagueId, "rosters", {}, { includeApiKey: true, useCookie: true }),
+          mflExportJson(season, leagueId, "salaries", {}, { includeApiKey: true, useCookie: true }),
+        ]);
+
+        if (!leagueRes.ok) {
+          return jsonOut(502, {
+            ok: false,
+            error: "Failed to load MFL league export",
+            upstream: {
+              type: "league",
+              status: leagueRes.status,
+              url: leagueRes.url,
+              error: leagueRes.error,
+              preview: leagueRes.textPreview,
+            },
+          });
+        }
+        if (!rostersRes.ok) {
+          return jsonOut(502, {
+            ok: false,
+            error: "Failed to load MFL rosters export",
+            upstream: {
+              type: "rosters",
+              status: rostersRes.status,
+              url: rostersRes.url,
+              error: rostersRes.error,
+              preview: rostersRes.textPreview,
+            },
+          });
+        }
+
+        const scoreCurrentRes = await mflExportJson(
+          season,
+          leagueId,
+          "playerScores",
+          { W: "YTD" },
+          { includeApiKey: true, useCookie: false }
+        );
+        let scoreYear = String(season);
+        let scoresByPlayer = scoreCurrentRes.ok ? parsePlayerScoresRows(scoreCurrentRes.data) : {};
+        if (!Object.keys(scoresByPlayer).length) {
+          const fallbackScoreYear = String(safeInt(season, Number(season) || 0) - 1);
+          if (fallbackScoreYear && fallbackScoreYear !== String(season)) {
+            const scorePrevRes = await mflExportJson(
+              fallbackScoreYear,
+              leagueId,
+              "playerScores",
+              { W: "YTD" },
+              { includeApiKey: true, useCookie: false }
+            );
+            if (scorePrevRes.ok) {
+              const nextMap = parsePlayerScoresRows(scorePrevRes.data);
+              if (Object.keys(nextMap).length) {
+                scoresByPlayer = nextMap;
+                scoreYear = fallbackScoreYear;
+              }
+            }
+          }
+        }
+
+        const byeCurrent = await fetchNflByeWeeksMap(season);
+        let byeYear = String(season);
+        let byesByTeam = byeCurrent.map || {};
+        if (!(byeCurrent.ok && byeCurrent.hasAnyBye)) {
+          const fallbackByeYear = String(safeInt(season, Number(season) || 0) - 1);
+          if (fallbackByeYear && fallbackByeYear !== String(season)) {
+            const byePrev = await fetchNflByeWeeksMap(fallbackByeYear);
+            if (byePrev.ok && byePrev.hasAnyBye) {
+              byesByTeam = byePrev.map || {};
+              byeYear = fallbackByeYear;
+            }
+          }
+        }
+
+        const leagueFranchises = parseLeagueFranchises(leagueRes.data);
+        const leagueRoot = leagueRes.data?.league || leagueRes.data || {};
+        const salaryCapDollars = safeMoneyInt(
+          firstTruthy(
+            leagueRoot?.auctionStartAmount,
+            leagueRoot?.salaryCapAmount,
+            leagueRoot?.salary_cap_amount
+          ),
+          0
+        );
+        const { rosterAssetsByFranchise, allPlayerIds } = parseRostersExport(rostersRes.data);
+        const playersById = await fetchPlayersByIdsChunked(season, leagueId, allPlayerIds);
+        const salaryByPlayer = salariesRes.ok ? parseSalaryRows(salariesRes.data) : {};
+
+        const franchiseMetaById = {};
+        for (const fr of leagueFranchises) {
+          franchiseMetaById[fr.franchise_id] = fr;
+        }
+        const franchiseIds = new Set([
+          ...Object.keys(franchiseMetaById),
+          ...Object.keys(rosterAssetsByFranchise),
+        ]);
+
+        const teams = Array.from(franchiseIds).map((franchiseId) => {
+          const meta = franchiseMetaById[franchiseId] || {
+            franchise_id: franchiseId,
+            franchise_name: franchiseId,
+            franchise_abbrev: franchiseId,
+            icon_url: "",
+          };
+          const rawAssets = asArray(rosterAssetsByFranchise[franchiseId]).filter(Boolean);
+          const players = rawAssets
+            .filter((asset) => safeStr(asset?.type).toUpperCase() === "PLAYER")
+            .map((asset, idx) => {
+              const playerId = String(asset?.player_id || "").replace(/\D/g, "");
+              const pMeta = playersById[playerId] || {};
+              const overlay = salaryByPlayer[playerId] || null;
+              const salary = overlay && overlay.salary != null ? safeInt(overlay.salary, 0) : safeInt(asset?.salary, 0);
+              const years = overlay && overlay.contractYear != null
+                ? safeInt(overlay.contractYear, 0)
+                : (asset?.years == null ? 0 : safeInt(asset?.years, 0));
+              const type = safeStr(overlay?.contractStatus || asset?.contract_type || "");
+              const special = safeStr(overlay?.contractInfo || asset?.contract_info || "");
+              const nflTeam = safeStr(pMeta?.nfl_team || "").toUpperCase();
+              const statusRaw = safeStr(asset?.roster_status || "").toUpperCase();
+              const status = statusRaw || (asset?.taxi ? "TAXI_SQUAD" : "ROSTER");
+              const isTaxi = status.includes("TAXI");
+              const isIr = status.includes("IR");
+              return {
+                id: playerId,
+                order: idx,
+                name: safeStr(pMeta?.player_name || playerId),
+                position: safeStr(pMeta?.position || "").toUpperCase() || "-",
+                nfl_team: nflTeam,
+                points: Number.isFinite(scoresByPlayer[playerId]) ? scoresByPlayer[playerId] : 0,
+                bye: safeStr(byesByTeam[nflTeam] || ""),
+                salary,
+                years,
+                type: type || "-",
+                special: special || "-",
+                status,
+                is_taxi: isTaxi,
+                is_ir: isIr,
+              };
+            });
+
+          const taxiCount = players.reduce((acc, p) => acc + (p.is_taxi ? 1 : 0), 0);
+          const capTotal = players.reduce((acc, p) => acc + safeInt(p.salary, 0), 0);
+          const compliant = salaryCapDollars > 0 ? capTotal <= salaryCapDollars : true;
+          const complianceLabel = compliant
+            ? "Compliant"
+            : `Over $${Math.max(0, capTotal - salaryCapDollars).toLocaleString("en-US")}`;
+
+          return {
+            franchise_id: franchiseId,
+            franchise_name: meta.franchise_name,
+            franchise_abbrev: meta.franchise_abbrev,
+            icon_url: meta.icon_url,
+            players,
+            summary: {
+              players: players.length,
+              taxi: taxiCount,
+              cap_total_dollars: capTotal,
+              compliance: {
+                ok: compliant,
+                label: complianceLabel,
+              },
+            },
+          };
+        });
+
+        teams.sort((a, b) => safeStr(a.franchise_name).localeCompare(safeStr(b.franchise_name)));
+
+        const payload = {
+          ok: true,
+          league_id: leagueId,
+          season: safeInt(season, Number(season) || 0),
+          generated_at: new Date().toISOString(),
+          source: "worker:/roster-workbench",
+          salary_cap_dollars: salaryCapDollars,
+          points_year: scoreYear,
+          bye_year: byeYear,
+          teams,
+          meta: {
+            counts: {
+              teams: teams.length,
+              roster_players: allPlayerIds.length,
+            },
+            upstream: {
+              league: { status: leagueRes.status, url: leagueRes.url },
+              rosters: { status: rostersRes.status, url: rostersRes.url },
+              salaries: { status: salariesRes.status, url: salariesRes.url, ok: salariesRes.ok },
+              player_scores: { status: scoreCurrentRes.status, url: scoreCurrentRes.url, ok: scoreCurrentRes.ok },
+              bye_weeks: { status: byeCurrent.status || 0, url: byeCurrent.url || "", ok: !!byeCurrent.ok },
+            },
+          },
+        };
+
+        const response = jsonOut(200, payload);
+        response.headers.set("Cache-Control", "public, max-age=60");
+        if (!disableCache) {
+          try { await caches.default.put(cacheKey, response.clone()); } catch (_) {}
+        }
+        return response;
+      }
+
       if (path === "/trade-workbench" && request.method === "GET") {
         const season = safeStr(url.searchParams.get("YEAR") || YEAR || "");
         const leagueId = safeStr(url.searchParams.get("L") || L || "");
@@ -7027,10 +7346,10 @@ export default {
         );
 
         const [leagueRes, rostersRes, assetsRes, myFrRes, extRes] = await Promise.all([
-          mflExportJson(season, leagueId, "league"),
-          mflExportJson(season, leagueId, "rosters"),
-          mflExportJson(season, leagueId, "assets"),
-          mflExportJson(season, leagueId, "myfranchise"),
+          mflExportJson(season, leagueId, "league", {}, { includeApiKey: true, useCookie: true }),
+          mflExportJson(season, leagueId, "rosters", {}, { includeApiKey: true, useCookie: true }),
+          mflExportJson(season, leagueId, "assets", {}, { includeApiKey: true, useCookie: true }),
+          mflExportJson(season, leagueId, "myfranchise", {}, { includeApiKey: true, useCookie: true }),
           fetchExtensionPreviewRows(season, url.searchParams),
         ]);
 

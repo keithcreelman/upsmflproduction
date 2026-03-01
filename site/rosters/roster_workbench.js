@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var BUILD = "2026.03.01.4";
+  var BUILD = "2026.03.01.5";
   var BOOT_FLAG = "__ups_roster_workbench_boot_" + BUILD;
   if (window[BOOT_FLAG]) {
     if (typeof window.UPS_RWB_INIT === "function") window.UPS_RWB_INIT();
@@ -65,6 +65,12 @@
     var n = parseInt(v, 10);
     if (!isFinite(n)) return fallback == null ? 0 : fallback;
     return n;
+  }
+
+  function pad4(v) {
+    var digits = safeStr(v).replace(/\D/g, "");
+    if (!digits) return "";
+    return ("0000" + digits).slice(-4);
   }
 
   function parseMoney(v) {
@@ -137,6 +143,15 @@
 
   function isCurrentMobile() {
     return !!(window.matchMedia && window.matchMedia("(max-width: 760px)").matches);
+  }
+
+  function parseBool(v, fallback) {
+    if (typeof v === "boolean") return v;
+    var s = safeStr(v).toLowerCase();
+    if (!s) return !!fallback;
+    if (s === "1" || s === "true" || s === "yes" || s === "on") return true;
+    if (s === "0" || s === "false" || s === "no" || s === "off") return false;
+    return !!fallback;
   }
 
   function detectContext() {
@@ -253,13 +268,60 @@
   }
 
   function fetchJson(url) {
+    var opts = arguments.length > 1 && arguments[1] ? arguments[1] : {};
     return fetch(url, {
-      credentials: "include",
-      cache: "no-store"
+      credentials: opts.credentials || "include",
+      cache: opts.cache || "no-store",
+      headers: opts.headers || {}
     }).then(function (res) {
-      if (!res.ok) throw new Error("HTTP " + res.status + " for " + url);
-      return res.json();
+      return res.text().then(function (text) {
+        if (!res.ok) throw new Error("HTTP " + res.status + " for " + url);
+        try {
+          return JSON.parse(text || "{}");
+        } catch (e) {
+          throw new Error("Invalid JSON from " + url);
+        }
+      });
     });
+  }
+
+  function resolveWorkerApiEndpoint() {
+    var candidates = [
+      window.UPS_RWB_API,
+      window.UPS_ROSTER_WORKBENCH_API,
+      window.UPS_RWB_API_BASE,
+      window.UPS_ROSTER_WORKBENCH_API_BASE
+    ];
+    for (var i = 0; i < candidates.length; i += 1) {
+      var raw = safeStr(candidates[i]);
+      if (!raw) continue;
+      try {
+        var u = new URL(raw, window.location.href);
+        if (!/\/roster-workbench\/?$/i.test(safeStr(u.pathname))) {
+          u.pathname = safeStr(u.pathname).replace(/\/+$/, "") + "/roster-workbench";
+        }
+        return u.toString();
+      } catch (e) {
+        return raw;
+      }
+    }
+    return "https://upsmflproduction.keith-creelman.workers.dev/roster-workbench";
+  }
+
+  function useDirectMflMode() {
+    var globals = [window.UPS_RWB_DIRECT_MFL, window.UPS_ROSTER_WORKBENCH_DIRECT_MFL];
+    for (var i = 0; i < globals.length; i += 1) {
+      if (globals[i] == null) continue;
+      return parseBool(globals[i], false);
+    }
+    try {
+      var u = new URL(window.location.href || "");
+      var q = u.searchParams.get("DIRECT_MFL") ||
+        u.searchParams.get("UPS_RWB_DIRECT_MFL") ||
+        u.searchParams.get("UPS_ROSTER_WORKBENCH_DIRECT_MFL");
+      if (q != null && q !== "") return parseBool(q, false);
+    } catch (e) {}
+    return false;
   }
 
   function toScoreMap(payload) {
@@ -508,6 +570,88 @@
       return safeStr(a.name).localeCompare(safeStr(b.name));
     });
 
+    return teams;
+  }
+
+  function toWorkerPlayer(row, fallbackTeamName, orderIndex) {
+    var p = row || {};
+    var id = safeStr(p.id || p.player_id);
+    var nflTeam = safeStr(p.nfl_team || p.nflTeam || p.team).toUpperCase();
+    var status = normalizeStatus(p.status || p.roster_status);
+    var isTaxi = !!p.is_taxi || !!p.isTaxi || status === "TAXI_SQUAD";
+    var isIr = !!p.is_ir || !!p.isIr || status === "INJURED_RESERVE";
+    return {
+      id: id,
+      teamName: fallbackTeamName,
+      order: safeInt(p.order, orderIndex),
+      name: normalizePlayerName(p.name || p.player_name || ("Player " + id)),
+      position: safeStr(p.position).toUpperCase() || "-",
+      nflTeam: nflTeam,
+      points: safeNum(p.points, 0),
+      bye: safeStr(p.bye),
+      salary: safeInt(p.salary, 0),
+      years: safeInt(p.years, 0),
+      type: safeStr(p.type || p.contract_type || "-") || "-",
+      special: safeStr(p.special || p.contract_info || "-") || "-",
+      status: status,
+      isTaxi: isTaxi,
+      isIr: isIr
+    };
+  }
+
+  function buildTeamsFromWorkerPayload(payload) {
+    var rows = asArray(payload && payload.teams);
+    var salaryCap = safeInt(payload && payload.salary_cap_dollars, 0);
+    var teams = [];
+
+    for (var i = 0; i < rows.length; i += 1) {
+      var team = rows[i] || {};
+      var id = pad4(team.franchise_id || team.id);
+      if (!id) continue;
+      var name = safeStr(team.franchise_name || team.name || ("Team " + id));
+      var playersRaw = asArray(team.players);
+      var players = [];
+      var x;
+      for (x = 0; x < playersRaw.length; x += 1) {
+        players.push(toWorkerPlayer(playersRaw[x], name, x));
+      }
+
+      var capTotalFromPlayers = players.reduce(function (acc, p) {
+        return acc + safeInt(p.salary, 0);
+      }, 0);
+      var taxiFromPlayers = players.reduce(function (acc, p) {
+        return acc + (p.isTaxi ? 1 : 0);
+      }, 0);
+
+      var summary = team.summary || {};
+      var capTotal = summary.cap_total_dollars == null
+        ? (summary.capTotal == null ? capTotalFromPlayers : safeInt(summary.capTotal, capTotalFromPlayers))
+        : safeInt(summary.cap_total_dollars, capTotalFromPlayers);
+      var taxiCount = summary.taxi == null ? taxiFromPlayers : safeInt(summary.taxi, taxiFromPlayers);
+      var complianceRaw = summary.compliance || deriveCompliance(capTotal, salaryCap);
+      var compliance = {
+        ok: complianceRaw.ok == null ? true : !!complianceRaw.ok,
+        label: safeStr(complianceRaw.label) || (complianceRaw.ok ? "Compliant" : "Out of compliance")
+      };
+
+      teams.push({
+        id: id,
+        fid: id,
+        name: name,
+        logo: safeStr(team.icon_url || team.logo || ""),
+        players: players,
+        summary: {
+          players: summary.players == null ? players.length : safeInt(summary.players, players.length),
+          taxi: taxiCount,
+          capTotal: capTotal,
+          compliance: compliance
+        }
+      });
+    }
+
+    teams.sort(function (a, b) {
+      return safeStr(a.name).localeCompare(safeStr(b.name));
+    });
     return teams;
   }
 
@@ -1240,7 +1384,7 @@
     return attempt(0);
   }
 
-  function loadData(ctx) {
+  function loadDataFromDirectExports(ctx) {
     var leagueUrl = buildExportUrl(ctx.hostOrigin, ctx.year, "league", { L: ctx.leagueId });
     var rostersUrl = buildExportUrl(ctx.hostOrigin, ctx.year, "rosters", { L: ctx.leagueId });
     var salariesUrl = buildExportUrl(ctx.hostOrigin, ctx.year, "salaries", { L: ctx.leagueId });
@@ -1281,13 +1425,57 @@
     });
   }
 
+  function loadDataFromWorkerApi(ctx) {
+    var endpoint = resolveWorkerApiEndpoint();
+    var url = new URL(endpoint, window.location.href);
+    url.searchParams.set("L", String(ctx.leagueId));
+    url.searchParams.set("YEAR", String(ctx.year));
+    return fetchJson(url.toString(), { credentials: "omit", cache: "no-store" }).then(function (payload) {
+      if (!payload || payload.ok !== true) {
+        var errMsg = safeStr(payload && payload.error) || "Worker API returned an error payload";
+        throw new Error(errMsg);
+      }
+      var teams = buildTeamsFromWorkerPayload(payload);
+      if (!teams.length) {
+        throw new Error("Worker API returned no teams");
+      }
+      return {
+        teams: teams,
+        pointsYear: safeStr(payload.points_year || ctx.year) || ctx.year,
+        leagueMeta: {
+          capAmount: safeInt(payload.salary_cap_dollars, 0),
+          franchises: Object.create(null)
+        }
+      };
+    });
+  }
+
+  function summarizeError(err) {
+    if (!err) return "unknown error";
+    return safeStr(err.message || err) || "unknown error";
+  }
+
+  function loadData(ctx) {
+    if (useDirectMflMode()) {
+      return loadDataFromDirectExports(ctx);
+    }
+    return loadDataFromWorkerApi(ctx).catch(function (workerErr) {
+      return loadDataFromDirectExports(ctx).catch(function (directErr) {
+        throw new Error(
+          "Worker API failed (" + summarizeError(workerErr) + "). " +
+          "Direct export fallback failed (" + summarizeError(directErr) + ")."
+        );
+      });
+    });
+  }
+
   function renderError(message) {
     if (els.teamList) {
       els.teamList.innerHTML =
         '<div class="rwb-error">' +
           escapeHtml(message) +
           '<br><br>' +
-          'If this league blocks export access without an API key, define <code>window.UPS_MFL_APIKEY</code> before loading this module.' +
+          'If this persists, verify <code>window.UPS_RWB_API</code> points at your Worker <code>/roster-workbench</code> endpoint.' +
         '</div>';
     }
     renderStatus("Load failed", true);
