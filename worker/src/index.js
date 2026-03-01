@@ -831,33 +831,12 @@ export default {
         }
       };
 
-      const mflExportJson = async (year, leagueId, type, extraParams = {}, options = {}) => {
-        const qs = new URLSearchParams({
-          TYPE: String(type || "").trim(),
-          L: String(leagueId || "").trim(),
-          JSON: "1",
-          _: String(Date.now()),
-        });
-        for (const [k, v] of Object.entries(extraParams || {})) {
-          if (v == null) continue;
-          const s = String(v).trim();
-          if (!s) continue;
-          qs.set(k, s);
-        }
-        if (options.includeApiKey && env.MFL_APIKEY) {
-          qs.set("APIKEY", String(env.MFL_APIKEY));
-        }
-        const urlOut =
-          `https://api.myfantasyleague.com/${encodeURIComponent(String(year || YEAR || "2025"))}` +
-          `/export?${qs.toString()}`;
-        const safeUrlOut = redactUrlSecrets(urlOut);
-        const headers = { "User-Agent": "upsmflproduction-worker" };
-        if (options.useCookie !== false && cookieHeader) headers.Cookie = cookieHeader;
-
+      const fetchMflJson = async (rawUrl, headers) => {
+        const safeUrl = redactUrlSecrets(rawUrl);
         let res;
         let text = "";
         try {
-          res = await fetch(urlOut, {
+          res = await fetch(rawUrl, {
             headers,
             cf: { cacheTtl: 0, cacheEverything: false },
           });
@@ -866,7 +845,7 @@ export default {
           return {
             ok: false,
             status: 0,
-            url: safeUrlOut,
+            url: safeUrl,
             error: `fetch_failed: ${e?.message || String(e)}`,
             data: null,
             textPreview: "",
@@ -884,11 +863,55 @@ export default {
         return {
           ok: !!res.ok && parsedOk && !payloadErr,
           status: res.status,
-          url: safeUrlOut,
+          url: safeUrl,
           data,
           error: payloadErr || (parsedOk ? "" : "non_json_response"),
           textPreview: String(text || "").slice(0, 500),
         };
+      };
+
+      const mflExportJson = async (year, leagueId, type, extraParams = {}, options = {}) => {
+        const baseQs = new URLSearchParams({
+          TYPE: String(type || "").trim(),
+          L: String(leagueId || "").trim(),
+          JSON: "1",
+          _: String(Date.now()),
+        });
+        for (const [k, v] of Object.entries(extraParams || {})) {
+          if (v == null) continue;
+          const s = String(v).trim();
+          if (!s) continue;
+          baseQs.set(k, s);
+        }
+
+        const headers = { "User-Agent": "upsmflproduction-worker" };
+        if (options.useCookie !== false && cookieHeader) headers.Cookie = cookieHeader;
+
+        const baseHost =
+          `https://api.myfantasyleague.com/${encodeURIComponent(String(year || YEAR || "2025"))}`;
+
+        const withKeyQs = new URLSearchParams(baseQs.toString());
+        if (options.includeApiKey && env.MFL_APIKEY) {
+          withKeyQs.set("APIKEY", String(env.MFL_APIKEY));
+        }
+        const withKeyUrl = `${baseHost}/export?${withKeyQs.toString()}`;
+        const primary = await fetchMflJson(withKeyUrl, headers);
+
+        const keyRejected =
+          !!options.includeApiKey &&
+          !!env.MFL_APIKEY &&
+          /api key validation failed/i.test(String(primary.error || ""));
+        if (!keyRejected) return primary;
+
+        const withoutKeyQs = new URLSearchParams(baseQs.toString());
+        const withoutKeyUrl = `${baseHost}/export?${withoutKeyQs.toString()}`;
+        const retry = await fetchMflJson(withoutKeyUrl, headers);
+        retry.apiKeyFallback = {
+          attempted: true,
+          primary_status: primary.status,
+          primary_error: primary.error || "",
+        };
+        return retry;
       };
 
       const parseLeagueFranchises = (leaguePayload) => {
@@ -7099,7 +7122,6 @@ export default {
 
         const fetchNflByeWeeksMap = async (year) => {
           const qs = new URLSearchParams({ TYPE: "nflByeWeeks", JSON: "1", _: String(Date.now()) });
-          if (env.MFL_APIKEY) qs.set("APIKEY", String(env.MFL_APIKEY));
           const targetUrl = `https://api.myfantasyleague.com/${encodeURIComponent(String(year || season))}/export?${qs.toString()}`;
           try {
             const res = await fetch(targetUrl, {
