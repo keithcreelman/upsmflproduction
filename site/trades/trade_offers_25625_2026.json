@@ -3,8 +3,8 @@
     "schema_version": 1,
     "league_id": "25625",
     "season": 2026,
-    "updated_at": "2026-03-01T12:33:32.243Z",
-    "row_count": 11,
+    "updated_at": "2026-03-01T13:31:27.399Z",
+    "row_count": 12,
     "source": "worker-trade-offers"
   },
   "offers": [
@@ -1595,6 +1595,180 @@
       },
       "mfl_trade_id": "1044",
       "trade_id": "1044",
+      "mfl_present": true,
+      "mfl_status": "PENDING"
+    },
+    {
+      "id": "MFL-1045",
+      "league_id": "25625",
+      "season": 2026,
+      "status": "PENDING",
+      "created_at": "2026-03-01T13:31:27.399Z",
+      "updated_at": "2026-03-01T13:31:27.399Z",
+      "from_franchise_id": "0011",
+      "to_franchise_id": "0007",
+      "from_franchise_name": "Cleon Ca$h",
+      "to_franchise_name": "Sex Manther",
+      "message": "Pre-trade extension: Extend Chism, Efton 1-year | New length 2 | New AAV 11K | New TCV 12K",
+      "comment": "Pre-trade extension: Extend Chism, Efton 1-year | New length 2 | New AAV 11K | New TCV 12K",
+      "comments": "Pre-trade extension: Extend Chism, Efton 1-year | New length 2 | New AAV 11K | New TCV 12K",
+      "raw_comment": "[UPS_TWB_META:eyJ2IjoxLCJ0cyI6IjIwMjYtMDMtMDFUMTM6MzE6MjYuNTg3WiIsImxlYWd1ZV9pZCI6IjI1NjI1Iiwic2Vhc29uIjoyMDI2LCJmcm9tIjoiMDAxMSIsInRvIjoiMDAwNyIsInNhbGFyeV9uZXRfayI6eyJsZWZ0Ijo3LCJyaWdodCI6LTd9LCJleHQiOlt7InBsYXllcl9pZCI6IjE3MjY5IiwicGxheWVyX25hbWUiOiJDaGlzbSwgRWZ0b24iLCJmcm9tX2ZyYW5jaGlzZV9pZCI6IjAwMDciLCJ0b19mcmFuY2hpc2VfaWQiOiIwMDExIiwib3B0aW9uX2tleSI6IjFZUnxOT05FIiwiZXh0ZW5zaW9uX3Rlcm0iOiIxWVIiLCJuZXdfY29udHJhY3Rfc3RhdHVzIjoiRVhUMSIsIm5ld19jb250cmFjdF9sZW5ndGgiOjIsIm5ld19UQ1YiOjEyMDAwLCJuZXdfYWF2X2Z1dHVyZSI6MTEwMDB9XX0] Pre-trade extension: Extend Chism, Efton 1-year | New length 2 | New AAV 11K | New TCV 12K\n\n[UPS_TWB_INTENT_BEGIN]\nUPS_OUTBOX_ID:9\nUPS_PAYLOAD_HASH:e8d3336350e3b67cf1fc34bfb2f90fdf95f1d2bfa65953e778f224aee27fc982\nUPS_XML_EXT:PHNhbGFyaWVzPjxsZWFndWVVbml0IHVuaXQ9IkxFQUdVRSI-PHBsYXllciBpZD0iMTcyNjkiIHNhbGFyeT0iMTEwMDAiIGNvbnRyYWN0WWVhcj0iMiIgY29udHJhY3RJbmZvPSJDTCAyfFRDViAxMkt8QUFWIDFLLCAxMUt8WTEtMUssIFkyLTExS3xFeHQ6IFNFWHxHVEQ6IDlLIiBjb250cmFjdFN0YXR1cz0iRVhUMSIgLz48L2xlYWd1ZVVuaXQ-PC9zYWxhcmllcz4\n[UPS_TWB_INTENT_END]",
+      "will_give_up": "17074,BB_7000",
+      "will_receive": "17269",
+      "source": "trade-workbench-ui",
+      "summary": {
+        "from_asset_count": 1,
+        "to_asset_count": 1,
+        "from_trade_salary_k": 7,
+        "to_trade_salary_k": 0,
+        "extension_request_count": 1
+      },
+      "payload": {
+        "schema_version": 1,
+        "generated_at": "2026-03-01T13:31:25.430Z",
+        "source": "ups-trade-workbench",
+        "league_id": "25625",
+        "season": 2026,
+        "teams": [
+          {
+            "role": "left",
+            "franchise_id": "0011",
+            "franchise_name": "Cleon Ca$h",
+            "selected_assets": [
+              {
+                "asset_id": "player:17074",
+                "type": "PLAYER",
+                "player_id": "17074",
+                "player_name": "Hunter, Travis",
+                "description": null,
+                "position": "WR",
+                "nfl_team": "JAC",
+                "salary": 14000,
+                "years": 0,
+                "contract_type": "Rookie",
+                "contract_info": "CL 3| TCV 42K| AAV 14K | Option Eligible",
+                "taxi": false
+              }
+            ],
+            "traded_salary_adjustment_dollars": 7000,
+            "traded_salary_adjustment_k": 7,
+            "traded_salary_adjustment_max_k": 7,
+            "selected_non_taxi_salary_dollars": 14000
+          },
+          {
+            "role": "right",
+            "franchise_id": "0007",
+            "franchise_name": "Sex Manther",
+            "selected_assets": [
+              {
+                "asset_id": "player:17269",
+                "type": "PLAYER",
+                "player_id": "17269",
+                "player_name": "Chism, Efton",
+                "description": null,
+                "position": "WR",
+                "nfl_team": "NEP",
+                "salary": 1000,
+                "years": 0,
+                "contract_type": "MYM - Rookie",
+                "contract_info": "CL 2| TCV 2K| AAV 1K| Y1-1K, Y2-1K| GTD: 1K",
+                "taxi": false
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 0,
+            "selected_non_taxi_salary_dollars": 1000
+          }
+        ],
+        "extension_requests": [
+          {
+            "player_id": "17269",
+            "player_name": "Chism, Efton",
+            "from_franchise_id": "0007",
+            "to_franchise_id": "0011",
+            "applies_to_acquirer": true,
+            "option_key": "1YR|NONE",
+            "extension_term": "1YR",
+            "loaded_indicator": "NONE",
+            "preview_id": 1055,
+            "preview_contract_info_string": "CL 2|TCV 12K|AAV 1K, 11K|Y1-1K, Y2-11K|Ext: SEX|GTD: 9K",
+            "new_contract_status": "EXT1",
+            "new_contract_length": 2,
+            "new_TCV": 12000,
+            "new_aav_future": 11000
+          }
+        ],
+        "filters": {
+          "search": ""
+        },
+        "ui": {
+          "left_team_id": "0011",
+          "right_team_id": "0007"
+        },
+        "salary_reconciliation": {
+          "left": {
+            "franchise_id": "0011",
+            "franchise_name": "Cleon Ca$h",
+            "outgoing_dollars": 14000,
+            "incoming_dollars": 1000,
+            "trade_salary_adjustment_k": 7,
+            "trade_salary_adjustment_max_k": 7,
+            "net_trade_salary_k": 7,
+            "net_cap_change_dollars": 6000,
+            "available_salary_before_dollars": 0,
+            "available_salary_after_dollars": 6000,
+            "over_cap_dollars": 0
+          },
+          "right": {
+            "franchise_id": "0007",
+            "franchise_name": "Sex Manther",
+            "outgoing_dollars": 1000,
+            "incoming_dollars": 14000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 0,
+            "net_trade_salary_k": -7,
+            "net_cap_change_dollars": -6000,
+            "available_salary_before_dollars": -85000,
+            "available_salary_after_dollars": -91000,
+            "over_cap_dollars": 91000
+          },
+          "has_over_cap": true
+        },
+        "validation": {
+          "status": "ready",
+          "issues": []
+        },
+        "comment": "Pre-trade extension: Extend Chism, Efton 1-year | New length 2 | New AAV 11K | New TCV 12K"
+      },
+      "twb_meta": {
+        "v": 1,
+        "ts": "2026-03-01T13:31:26.587Z",
+        "league_id": "25625",
+        "season": 2026,
+        "from": "0011",
+        "to": "0007",
+        "salary_net_k": {
+          "left": 7,
+          "right": -7
+        },
+        "ext": [
+          {
+            "player_id": "17269",
+            "player_name": "Chism, Efton",
+            "from_franchise_id": "0007",
+            "to_franchise_id": "0011",
+            "option_key": "1YR|NONE",
+            "extension_term": "1YR",
+            "new_contract_status": "EXT1",
+            "new_contract_length": 2,
+            "new_TCV": 12000,
+            "new_aav_future": 11000
+          }
+        ]
+      },
+      "mfl_trade_id": "1045",
+      "trade_id": "1045",
       "mfl_present": true,
       "mfl_status": "PENDING"
     }
