@@ -3,7 +3,7 @@
     "schema_version": 1,
     "league_id": "25625",
     "season": 2026,
-    "updated_at": "2026-03-01T12:18:00.354Z",
+    "updated_at": "2026-03-01T12:18:35.553Z",
     "row_count": 4,
     "source": "worker-trade-outbox"
   },
@@ -556,12 +556,12 @@
       },
       "comment_trailer": "[UPS_TWB_INTENT_BEGIN]\nUPS_OUTBOX_ID:\nUPS_PAYLOAD_HASH:dd303064edd3ccd52ded86c910ad36624b3f78b670db5e7b0790d6bb1e24c12c\nUPS_XML_EXT:PHNhbGFyaWVzPjxsZWFndWVVbml0IHVuaXQ9IkxFQUdVRSI-PHBsYXllciBpZD0iMTYyMjIiIHNhbGFyeT0iMjAwMCIgY29udHJhY3RZZWFyPSIxIiBjb250cmFjdEluZm89IkNMIDN8VENWIDQ2S3xBQVYgMkssIDIyS3xZMS0ySywgWTItMjJLLCBZMy0yMkt8RXh0OiBDYXNofEdURDogMzVLIiBjb250cmFjdFN0YXR1cz0iRVhUMiIgLz48L2xlYWd1ZVVuaXQ-PC9zYWxhcmllcz4\n[UPS_TWB_INTENT_END]",
       "payload_hash": "dd303064edd3ccd52ded86c910ad36624b3f78b670db5e7b0790d6bb1e24c12c",
-      "status": "FAILED",
-      "mfl_post_response_snip": "{\"trade_response\":\"<?xml version=\\\"1.0\\\" encoding=\\\"utf-8\\\"?>\\n\\n<status>OK</status>\\n\",\"salary\":\"\",\"extensions\":\"salaries import verification failed\"}",
-      "mfl_verify_response_snip": "{\"transactions_export\":{\"ok\":true,\"status\":200,\"url\":\"https://api.myfantasyleague.com/2026/export?TYPE=transactions&L=25625&JSON=1&_=1772367480013\",\"error\":\"\",\"preview\":\"{\\\"transactions\\\":{\\\"transaction\\\":[{\\\"comments\\\":\\\"[UPS_TWB_META:eyJ2IjoxLCJ0cyI6IjIwMjYtMDMtMDFUMTI6MTc6MzQuNjYxWiIsImxlYWd1ZV9pZCI6IjI1NjI1Iiwic2Vhc29uIjoyMDI2LCJmcm9tIjoiMDAxMSIsInRvIjoiMDAwOCIsInNhbGFyeV9uZXRfayI6eyJsZWZ0IjotNSwicmlnaHQiOjV9LCJleHQiOlt7InBsYXllcl9pZCI6IjE2MjIyIiwicGxheWVyX25hbWUiOiJLcmFmdCwgVHVja2VyIiwiZnJvbV9mcmFuY2hpc2VfaWQiOiIwMDExIiwidG9fZnJhbmNoaXNlX2lkIjoiMDAwOCIsIm9wdGlvbl9rZXkiOiIyWVJ8Tk9ORSIsImV4dGVuc2lvbl90ZXJtIjoiMllSIiwibmV3X2NvbnRyYWN0X3N0YXR1cyI6IkVYVDIiLCJuZXdfY29ud\"},\"salaries_export\":{\"ok\":true,\"status\":200,\"url\":\"https://api.myfantasyleague.com/2026/export?TYPE=salaries&L=25625&JSON=1&_=1772367480168\",\"error\":\"\",\"preview\":\"{\\\"encoding\\\":\\\"utf-8\\\",\\\"salaries\\\":{\\\"leagueUnit\\\":{\\\"unit\\\":\\\"LEAGUE\\\",\\\"player\\\":[{\\\"contractStatus\\\":\\\"WW\\\",\\\"salary\\\":\\\"1000\\\",\\\"id\\\":\\\"0000\\\",\\\"contract",
+      "status": "VERIFIED",
+      "mfl_post_response_snip": "[{\"step\":\"salary_adjustments\",\"ok\":true,\"status\":200,\"target_import_url\":\"https://www48.myfantasyleague.com/2026/import?TYPE=salaryAdj&L=25625\",\"preview\":\"\"},{\"step\":\"extensions\",\"ok\":true,\"status\":200,\"target_import_url\":\"https://www48.myfantasyleague.com/2026/import?TYPE=salaries&L=25625&APPEND=1\",\"preview\":\"\"}]",
+      "mfl_verify_response_snip": "{\"salaries_status\":200,\"salaries_ok\":true,\"transactions_status\":200,\"transactions_ok\":true}",
       "league_id": "25625",
       "season": "2026",
-      "updated_ts": "2026-03-01T12:18:00.282Z",
+      "updated_ts": "2026-03-01T12:18:35.505Z",
       "id": "4"
     }
   ]
