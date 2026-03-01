@@ -3,7 +3,7 @@
     "schema_version": 1,
     "league_id": "74598",
     "season": 2026,
-    "updated_at": "2026-03-01T12:13:50.237Z",
+    "updated_at": "2026-03-01T12:13:50.989Z",
     "row_count": 1,
     "source": "worker-trade-outbox"
   },
@@ -135,14 +135,14 @@
         },
         "comment": "Pre-trade extension: Extend Franklin, Troy 2-year | New length 3 | New AAV 25K | New TCV 55K"
       },
-      "comment_trailer": "",
+      "comment_trailer": "[UPS_TWB_INTENT_BEGIN]\nUPS_OUTBOX_ID:1\nUPS_PAYLOAD_HASH:7ea4217fd195eae6929ef1b078b4ce8bbcbd2129a4f01c246d1ce9d8ea2ea4f2\nUPS_XML_EXT:PHNhbGFyaWVzPjxsZWFndWVVbml0IHVuaXQ9IkxFQUdVRSI-PHBsYXllciBpZD0iMTY2MTkiIHNhbGFyeT0iNTAwMCIgY29udHJhY3RZZWFyPSIxIiBjb250cmFjdEluZm89IkNMIDN8VENWIDU1S3xBQVYgNUssIDI1S3xZMS01SywgWTItMjVLLCBZMy0yNUt8RXh0OiDwn5SoIOKPsHxHVEQ6IDQxSyIgY29udHJhY3RTdGF0dXM9IkVYVDIiIC8-PC9sZWFndWVVbml0Pjwvc2FsYXJpZXM-\nUPS_XML_SALADJ:PHNhbGFyeV9hZGp1c3RtZW50cz48c2FsYXJ5X2FkanVzdG1lbnQgZnJhbmNoaXNlX2lkPSIwMDA1IiBhbW91bnQ9Ii0xMjAwMCIgZXhwbGFuYXRpb249IlVQUyB0cmFkZWQgc2FsYXJ5IHNldHRsZW1lbnQ6IG5ldCAtMTJLIi8-PHNhbGFyeV9hZGp1c3RtZW50IGZyYW5jaGlzZV9pZD0iMDAwMSIgYW1vdW50PSIxMjAwMCIgZXhwbGFuYXRpb249IlVQUyB0cmFkZWQgc2FsYXJ5IHNldHRsZW1lbnQ6IG5ldCArMTJLIi8-PC9zYWxhcnlfYWRqdXN0bWVudHM-\n[UPS_TWB_INTENT_END]",
       "payload_hash": "7ea4217fd195eae6929ef1b078b4ce8bbcbd2129a4f01c246d1ce9d8ea2ea4f2",
-      "status": "PENDING",
-      "mfl_post_response_snip": "",
+      "status": "FAILED",
+      "mfl_post_response_snip": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n\n<error>The Franchise You Are Attempting To Trade With Does Not Have Trading Rights Because The League Commissioner Has Revoked Them.</error>",
       "mfl_verify_response_snip": "",
       "league_id": "74598",
       "season": "2026",
-      "updated_ts": "2026-03-01T12:13:50.187Z",
+      "updated_ts": "2026-03-01T12:13:50.927Z",
       "id": "1"
     }
   ]
