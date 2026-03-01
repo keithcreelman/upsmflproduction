@@ -3,7 +3,7 @@
     "schema_version": 1,
     "league_id": "25625",
     "season": 2026,
-    "updated_at": "2026-03-01T19:06:48.685Z",
+    "updated_at": "2026-03-01T19:06:49.241Z",
     "row_count": 18,
     "source": "worker-trade-outbox"
   },
@@ -2688,14 +2688,14 @@
         },
         "comment": "Pre-trade extension: Extend Pearsall, Ricky 2-year | New length 3 | New AAV 25K | New TCV 55K\nPre-trade extension: Extend Miller, Kendre 2-year | New length 3 | New AAV 25K | New TCV 55K\nPre-trade extension: Extend Nacua, Puka 2-year | New length 3 | New AAV 22K | New TCV 46K\nPre-trade extension: Extend Kraft, Tucker 2-year | New length 3 | New AAV 22K | New TCV 46K"
       },
-      "comment_trailer": "",
+      "comment_trailer": "[UPS_TWB_INTENT_BEGIN]\nUPS_OUTBOX_ID:18\nUPS_PAYLOAD_HASH:21e42e3cf4a8688a18d8143ff2aa9d560bc81666aee2fc5d294222639ebefe4a\n[UPS_TWB_INTENT_END]",
       "payload_hash": "21e42e3cf4a8688a18d8143ff2aa9d560bc81666aee2fc5d294222639ebefe4a",
       "status": "PENDING",
       "mfl_post_response_snip": "",
       "mfl_verify_response_snip": "",
       "league_id": "25625",
       "season": "2026",
-      "updated_ts": "2026-03-01T19:06:48.607Z",
+      "updated_ts": "2026-03-01T19:06:49.178Z",
       "id": "18"
     }
   ]
