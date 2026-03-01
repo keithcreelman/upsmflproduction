@@ -707,12 +707,18 @@ export default {
           }
         } catch (_) {}
 
+        const commishCookieMatch = String(cookieHeader || "").match(/(?:^|;\s*)MFL_IS_COMMISH=([^;]+)/i);
+        const hasCommishCookieFlag = !!(commishCookieMatch && safeStr(commishCookieMatch[1]));
+        const isAdmin = emailCount > 1 || hasCommishCookieFlag;
+
         return {
           ok: true,
-          isAdmin: emailCount > 1,
+          isAdmin,
           reason: emailCount > 1
             ? "Private owner data visible (commish)"
-            : "No private owner data visible (not commish)",
+            : hasCommishCookieFlag
+              ? "Commish cookie flag present (MFL_IS_COMMISH)"
+              : "No private owner data visible (not commish)",
           emailCount,
           commishFranchiseId,
           mflHttp: 200,
