@@ -4921,7 +4921,13 @@
     if (els.partnerBoard) els.partnerBoard.innerHTML = '<div class="twb-loading">Loading partner assets…</div>';
 
     try {
-      var raw = await loadData();
+      var raw;
+      try {
+        raw = await loadData();
+      } catch (firstErr) {
+        await new Promise(function (resolve) { setTimeout(resolve, 350); });
+        raw = await loadData();
+      }
       state.data = normalizeData(raw);
       if (!state.data.teams.length) throw new Error("No teams in data payload.");
 
