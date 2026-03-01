@@ -3,7 +3,7 @@
     "schema_version": 1,
     "league_id": "25625",
     "season": 2026,
-    "updated_at": "2026-03-01T17:45:12.357Z",
+    "updated_at": "2026-03-01T17:45:12.904Z",
     "row_count": 13,
     "source": "worker-trade-outbox"
   },
@@ -1803,14 +1803,14 @@
         },
         "comment": "Pre-trade extension: Extend Taylor, Tory 1-year | New length 2 | New AAV 4K | New TCV 5K"
       },
-      "comment_trailer": "",
+      "comment_trailer": "[UPS_TWB_INTENT_BEGIN]\nUPS_OUTBOX_ID:13\nUPS_PAYLOAD_HASH:ce140016d2ad67e1f4ae8cc1b557c52081f6fbf528bd916ea00f9def9d78121d\nUPS_XML_EXT:PHNhbGFyaWVzPjxsZWFndWVVbml0IHVuaXQ9IkxFQUdVRSI-PHBsYXllciBpZD0iMTY3MjQiIHNhbGFyeT0iNCIgY29udHJhY3RZZWFyPSIyIiBjb250cmFjdEluZm89IkNMIDJ8VENWIDVLfEFBViAxSywgNEt8WTEtMUssIFkyLTRLfEV4dDogQ1R3bnxHVEQ6IDRLIiBjb250cmFjdFN0YXR1cz0iRVhUMSIgLz48L2xlYWd1ZVVuaXQ-PC9zYWxhcmllcz4\n[UPS_TWB_INTENT_END]",
       "payload_hash": "ce140016d2ad67e1f4ae8cc1b557c52081f6fbf528bd916ea00f9def9d78121d",
       "status": "PENDING",
       "mfl_post_response_snip": "",
       "mfl_verify_response_snip": "",
       "league_id": "25625",
       "season": "2026",
-      "updated_ts": "2026-03-01T17:45:12.287Z",
+      "updated_ts": "2026-03-01T17:45:12.804Z",
       "id": "13"
     }
   ]
