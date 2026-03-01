@@ -3,7 +3,7 @@
     "schema_version": 1,
     "league_id": "25625",
     "season": 2026,
-    "updated_at": "2026-03-01T12:01:07.569Z",
+    "updated_at": "2026-03-01T12:01:08.191Z",
     "row_count": 1,
     "source": "worker-trade-outbox"
   },
@@ -135,14 +135,14 @@
         },
         "comment": "Pre-trade extension: Extend McDonald, Will 1-year | New length 2 | New AAV 4K | New TCV 5K"
       },
-      "comment_trailer": "",
+      "comment_trailer": "[UPS_TWB_INTENT_BEGIN]\nUPS_OUTBOX_ID:1\nUPS_PAYLOAD_HASH:e6fc1146a42c4d3ac8f6e08c248c80968c4dc825fd9aa0181712f83dfa09d3a6\nUPS_XML_EXT:PHNhbGFyaWVzPjxsZWFndWVVbml0IHVuaXQ9IkxFQUdVRSI-PHBsYXllciBpZD0iMTYyNTIiIHNhbGFyeT0iMTAwMCIgY29udHJhY3RZZWFyPSIxIiBjb250cmFjdEluZm89IkNMIDJ8VENWIDVLfEFBViAxSywgNEt8WTEtMUssIFkyLTRLfEV4dDogQ2FzaHxHVEQ6IDRLIiBjb250cmFjdFN0YXR1cz0iRVhUMSIgLz48L2xlYWd1ZVVuaXQ-PC9zYWxhcmllcz4\nUPS_XML_SALADJ:PHNhbGFyeV9hZGp1c3RtZW50cz48c2FsYXJ5X2FkanVzdG1lbnQgZnJhbmNoaXNlX2lkPSIwMDExIiBhbW91bnQ9Ii0yMDAwIiBleHBsYW5hdGlvbj0iVVBTIHRyYWRlZCBzYWxhcnkgc2V0dGxlbWVudDogbmV0IC0ySyIvPjxzYWxhcnlfYWRqdXN0bWVudCBmcmFuY2hpc2VfaWQ9IjAwMDkiIGFtb3VudD0iMjAwMCIgZXhwbGFuYXRpb249IlVQUyB0cmFkZWQgc2FsYXJ5IHNldHRsZW1lbnQ6IG5ldCArMksiLz48L3NhbGFyeV9hZGp1c3RtZW50cz4\n[UPS_TWB_INTENT_END]",
       "payload_hash": "e6fc1146a42c4d3ac8f6e08c248c80968c4dc825fd9aa0181712f83dfa09d3a6",
       "status": "PENDING",
       "mfl_post_response_snip": "",
       "mfl_verify_response_snip": "",
       "league_id": "25625",
       "season": "2026",
-      "updated_ts": "2026-03-01T12:01:07.500Z",
+      "updated_ts": "2026-03-01T12:01:08.133Z",
       "id": "1"
     }
   ]
