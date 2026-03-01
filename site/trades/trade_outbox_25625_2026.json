@@ -3,7 +3,7 @@
     "schema_version": 1,
     "league_id": "25625",
     "season": 2026,
-    "updated_at": "2026-03-01T18:18:54.296Z",
+    "updated_at": "2026-03-01T18:18:54.804Z",
     "row_count": 17,
     "source": "worker-trade-outbox"
   },
@@ -2451,14 +2451,14 @@
         },
         "comment": "Pre-trade extension: Extend Young, Bryce 2-year | New length 3 | New AAV 33K | New TCV 79K"
       },
-      "comment_trailer": "",
+      "comment_trailer": "[UPS_TWB_INTENT_BEGIN]\nUPS_OUTBOX_ID:17\nUPS_PAYLOAD_HASH:a261bd5a6574bc24947be9999df1068e4c7388ffa4a866547de5fc942c353a7e\n[UPS_TWB_INTENT_END]",
       "payload_hash": "a261bd5a6574bc24947be9999df1068e4c7388ffa4a866547de5fc942c353a7e",
       "status": "PENDING",
       "mfl_post_response_snip": "",
       "mfl_verify_response_snip": "",
       "league_id": "25625",
       "season": "2026",
-      "updated_ts": "2026-03-01T18:18:54.224Z",
+      "updated_ts": "2026-03-01T18:18:54.729Z",
       "id": "17"
     }
   ]
