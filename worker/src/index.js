@@ -2663,6 +2663,38 @@ export default {
           "comment_text",
         ]);
         if (direct) return direct;
+        const allStringValues = [];
+        const seen = new Set();
+        const visit = (node, depth = 0) => {
+          if (node == null || depth > 6) return;
+          if (typeof node === "string") {
+            const text = safeStr(node);
+            if (text) allStringValues.push(text);
+            return;
+          }
+          if (typeof node !== "object") return;
+          if (seen.has(node)) return;
+          seen.add(node);
+          if (Array.isArray(node)) {
+            for (const item of node) visit(item, depth + 1);
+            return;
+          }
+          for (const value of Object.values(node)) visit(value, depth + 1);
+        };
+        visit(row, 0);
+        if (allStringValues.length) {
+          const withMeta = allStringValues.find((v) => /\[UPS_TWB_META:/i.test(v));
+          if (withMeta) return withMeta;
+          const withTrigger = allStringValues.find((v) => /pre[\s-]*trade\s*extension\s*:/i.test(v));
+          if (withTrigger) return withTrigger;
+          const likelyTradeMessage = allStringValues.find(
+            (v) =>
+              /extend/i.test(v) &&
+              /year/i.test(v) &&
+              !/^(DP_|FP_|BB_)/i.test(v)
+          );
+          if (likelyTradeMessage) return likelyTradeMessage;
+        }
         const fallbackEntries = Object.entries(row || {}).filter(([k, v]) => {
           if (!safeStr(v)) return false;
           return /(comment|message|note)/i.test(String(k || ""));
@@ -4835,6 +4867,13 @@ export default {
             } catch (_) {
               // noop
             }
+          }
+          if (action === "ACCEPT" && payload && typeof payload === "object" && offerComment) {
+            if (!safeStr(payload.comment)) payload.comment = offerComment;
+            if (!safeStr(payload.comments)) payload.comments = offerComment;
+            if (!safeStr(payload.raw_comment)) payload.raw_comment = offerComment;
+            if (!safeStr(payload.message)) payload.message = offerComment;
+            if (!safeStr(payload.notes)) payload.notes = offerComment;
           }
 
           // Ensure finalize payload exists for ACCEPT flows even when stored queue payload is missing.
