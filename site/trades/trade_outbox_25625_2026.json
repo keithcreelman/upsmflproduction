@@ -3,7 +3,7 @@
     "schema_version": 1,
     "league_id": "25625",
     "season": 2026,
-    "updated_at": "2026-03-01T19:16:26.939Z",
+    "updated_at": "2026-03-01T19:16:27.934Z",
     "row_count": 20,
     "source": "worker-trade-outbox"
   },
@@ -2941,7 +2941,7 @@
     },
     {
       "created_ts": "2026-03-01T19:16:26.870Z",
-      "trade_id": "",
+      "trade_id": "1051",
       "action_type": "SUBMIT",
       "from_franchise_id": "0004",
       "to_franchise_id": "0011",
@@ -3090,14 +3090,14 @@
         },
         "comment": "Pre-trade extension: Extend Daniels, Jayden 2-year | New length 3 | New AAV 32K | New TCV 76K"
       },
-      "comment_trailer": "",
+      "comment_trailer": "[UPS_TWB_INTENT_BEGIN]\nUPS_OUTBOX_ID:20\nUPS_PAYLOAD_HASH:9d984d46312ea7824002c2045b71db38842844a2193202bbcae9c7855a5cacdf\nUPS_XML_EXT:PHNhbGFyaWVzPjxsZWFndWVVbml0IHVuaXQ9IkxFQUdVRSI-PHBsYXllciBpZD0iMTY1ODEiIHNhbGFyeT0iMzIwMDAiIGNvbnRyYWN0WWVhcj0iMiIgY29udHJhY3RJbmZvPSJDTCAzfFRDViA3Nkt8QUFWIDEySywgMzJLfFkxLTEySywgWTItMzJLLCBZMy0zMkt8RXh0OiAwMDA0fEdURDogNTdLIiBjb250cmFjdFN0YXR1cz0iRVhUMiIgLz48L2xlYWd1ZVVuaXQ-PC9zYWxhcmllcz4\n[UPS_TWB_INTENT_END]",
       "payload_hash": "9d984d46312ea7824002c2045b71db38842844a2193202bbcae9c7855a5cacdf",
-      "status": "PENDING",
-      "mfl_post_response_snip": "",
-      "mfl_verify_response_snip": "",
+      "status": "POSTED",
+      "mfl_post_response_snip": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n\n<status>OK</status>",
+      "mfl_verify_response_snip": "{\"ok\":true,\"matched\":true,\"match_count\":1,\"rows_count\":1,\"matched_trade_id\":\"1051\",\"upstream_status\":200}",
       "league_id": "25625",
       "season": "2026",
-      "updated_ts": "2026-03-01T19:16:26.870Z",
+      "updated_ts": "2026-03-01T19:16:27.860Z",
       "id": "20"
     }
   ]
