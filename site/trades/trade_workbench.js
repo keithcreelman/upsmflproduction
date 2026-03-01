@@ -112,6 +112,67 @@
     return Math.round(n);
   }
 
+  function parseContractMoneyTokenToDollars(token) {
+    var raw = safeStr(token);
+    if (!raw) return null;
+    var hasK = /k/i.test(raw);
+    var cleaned = raw.replace(/[^0-9.-]/gi, "");
+    if (!cleaned || cleaned === "-" || cleaned === ".") return null;
+    var n = Number(cleaned);
+    if (!isFinite(n)) return null;
+    if (hasK || Math.abs(n) < 1000) return Math.round(n * 1000);
+    return Math.round(n);
+  }
+
+  function parseContractMoneyListToDollars(text) {
+    var src = safeStr(text);
+    if (!src) return [];
+    var out = [];
+    var re = /-?\d+(?:\.\d+)?\s*K?/ig;
+    var m;
+    while ((m = re.exec(src)) !== null) {
+      var val = parseContractMoneyTokenToDollars(m[0]);
+      if (val != null) out.push(val);
+    }
+    return out;
+  }
+
+  function parseContractInfoSummary(contractInfo) {
+    var text = safeStr(contractInfo);
+    var summary = {
+      contract_length: null,
+      aav_values_dollars: [],
+      aav_current_dollars: null,
+      y_by_year_dollars: {}
+    };
+    if (!text) return summary;
+
+    var clMatch = text.match(/(?:^|\|)\s*CL\s*(\d+)/i);
+    if (clMatch) {
+      var cl = parseInt(clMatch[1], 10);
+      if (isFinite(cl) && cl > 0) summary.contract_length = cl;
+    }
+
+    var aavMatch = text.match(/(?:^|\|)\s*AAV\s*([^|]+)/i);
+    if (aavMatch) {
+      summary.aav_values_dollars = parseContractMoneyListToDollars(aavMatch[1]);
+      if (summary.aav_values_dollars.length) {
+        summary.aav_current_dollars = summary.aav_values_dollars[0];
+      }
+    }
+
+    var yRe = /Y\s*(\d+)\s*-\s*([0-9]+(?:\.[0-9]+)?\s*K?)/ig;
+    var ym;
+    while ((ym = yRe.exec(text)) !== null) {
+      var yearNum = parseInt(ym[1], 10);
+      var sal = parseContractMoneyTokenToDollars(ym[2]);
+      if (isFinite(yearNum) && yearNum > 0 && sal != null) {
+        summary.y_by_year_dollars[String(yearNum)] = sal;
+      }
+    }
+    return summary;
+  }
+
   function pad4(v) {
     var digits = safeStr(v).replace(/\D/g, "");
     if (!digits) return "";
@@ -449,6 +510,16 @@
             : (raw.aavCurrent != null ? raw.aavCurrent : raw.current_aav)),
       null
     );
+    asset.contract_year = null;
+    if (raw.contract_year != null || raw.contractYear != null) {
+      var cy = safeInt(raw.contract_year != null ? raw.contract_year : raw.contractYear, 0);
+      asset.contract_year = cy > 0 ? cy : null;
+    }
+    asset.contract_length = null;
+    if (raw.contract_length != null || raw.contractLength != null) {
+      var cl = safeInt(raw.contract_length != null ? raw.contract_length : raw.contractLength, 0);
+      asset.contract_length = cl > 0 ? cl : null;
+    }
     asset.years = raw.years == null || raw.years === "" ? null : safeInt(raw.years, 0);
     asset.contract_type = safeStr(raw.contract_type || raw.contractstatus || raw.contractStatus || raw.type_label || raw.contract);
     asset.contract_info = safeStr(raw.contract_info || raw.contractInfo || raw.details);
@@ -3423,6 +3494,39 @@
     return teamPos ? name + " " + teamPos : name;
   }
 
+  function resolveAssetDisplayContractMetrics(asset) {
+    var info = parseContractInfoSummary(asset && asset.contract_info);
+    var contractLength = safeInt(asset && asset.contract_length, 0);
+    if (!contractLength && info.contract_length) contractLength = safeInt(info.contract_length, 0);
+
+    var contractYear = safeInt(asset && asset.contract_year, 0);
+    if (contractYear <= 0) contractYear = 0;
+
+    var yearsRemaining = asset && asset.years != null ? safeInt(asset.years, 0) : null;
+    if (contractLength > 0) {
+      if (contractYear > 0 && contractYear <= contractLength) {
+        yearsRemaining = Math.max(contractLength - contractYear, 0);
+      } else if (yearsRemaining === 0 && contractLength > 1) {
+        // Some payloads encode years as contract-year index (0-based) instead of years remaining.
+        yearsRemaining = contractLength - 1;
+      }
+    }
+
+    var currentAav = asset && asset.aav_current != null ? safeInt(asset.aav_current, 0) : null;
+    if (currentAav == null && info.aav_current_dollars != null) {
+      currentAav = safeInt(info.aav_current_dollars, 0);
+    }
+    if (currentAav == null && asset && safeInt(asset.salary, 0) > 0) {
+      currentAav = safeInt(asset.salary, 0);
+    }
+
+    return {
+      years_remaining: yearsRemaining,
+      current_aav_dollars: currentAav,
+      contract_type: safeStr(asset && asset.contract_type) || "—"
+    };
+  }
+
   function renderAssetRow(team, asset) {
     var teamId = team.franchise_id;
     var selected = !!(state.selections[teamId] && state.selections[teamId][asset.asset_id]);
@@ -3513,6 +3617,7 @@
     tdSalary.className = "twb-col-salary";
     tdSalary.setAttribute("data-label", "Salary");
     if (asset.type === "PLAYER") {
+      var contractMetrics = resolveAssetDisplayContractMetrics(asset);
       var moneyStack = document.createElement("div");
       moneyStack.className = "twb-money-stack";
       var moneyMain = document.createElement("div");
@@ -3520,8 +3625,8 @@
       moneyMain.textContent = moneyFmt(asset.salary);
       var metaLine = document.createElement("div");
       metaLine.className = "twb-money-meta";
-      var yearsText = asset.years == null ? "—" : String(asset.years);
-      var contractType = safeStr(asset.contract_type) || "—";
+      var yearsText = contractMetrics.years_remaining == null ? "—" : String(contractMetrics.years_remaining);
+      var contractType = contractMetrics.contract_type;
       metaLine.textContent = "Years: " + yearsText + " · " + contractType;
       moneyStack.appendChild(moneyMain);
       moneyStack.appendChild(metaLine);
@@ -3998,6 +4103,7 @@
   }
 
   function renderOfferCartPlayerCard(teamId, asset) {
+    var contractMetrics = resolveAssetDisplayContractMetrics(asset);
     var item = document.createElement("article");
     item.className = "twb-offer-cart-item twb-offer-cart-item-player";
 
@@ -4032,9 +4138,19 @@
     var contract = document.createElement("div");
     contract.className = "twb-offer-player-grid";
     contract.appendChild(offerPlayerMetric("Current Salary", formatDollarsAsKLabel(asset.salary)));
-    contract.appendChild(offerPlayerMetric("Current AAV", asset.aav_current == null ? "—" : formatDollarsAsKLabel(asset.aav_current)));
-    contract.appendChild(offerPlayerMetric("Years Remaining", asset.years == null ? "—" : String(asset.years)));
-    contract.appendChild(offerPlayerMetric("Contract Type", safeStr(asset.contract_type) || "—"));
+    contract.appendChild(
+      offerPlayerMetric(
+        "Current AAV",
+        contractMetrics.current_aav_dollars == null ? "—" : formatDollarsAsKLabel(contractMetrics.current_aav_dollars)
+      )
+    );
+    contract.appendChild(
+      offerPlayerMetric(
+        "Years Remaining",
+        contractMetrics.years_remaining == null ? "—" : String(contractMetrics.years_remaining)
+      )
+    );
+    contract.appendChild(offerPlayerMetric("Contract Type", contractMetrics.contract_type));
     item.appendChild(contract);
 
     if (asset.taxi) {
