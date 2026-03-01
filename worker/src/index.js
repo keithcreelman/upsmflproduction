@@ -3987,6 +3987,131 @@ export default {
         return safeInt(n, 0);
       };
 
+      const xmlAttrUnescape = (value) =>
+        safeStr(value)
+          .replace(/&quot;/g, "\"")
+          .replace(/&apos;/g, "'")
+          .replace(/&lt;/g, "<")
+          .replace(/&gt;/g, ">")
+          .replace(/&amp;/g, "&");
+
+      const parseXmlAttrs = (chunk) => {
+        const out = {};
+        const re = /([A-Za-z0-9_:-]+)\s*=\s*"([^"]*)"/g;
+        let m;
+        while ((m = re.exec(safeStr(chunk)))) {
+          out[String(m[1] || "").toLowerCase()] = xmlAttrUnescape(m[2]);
+        }
+        return out;
+      };
+
+      const parseExpectedExtensionRowsFromXml = (xmlText) => {
+        const rows = [];
+        const text = safeStr(xmlText);
+        if (!text) return rows;
+        const re = /<player\b([^>]*?)\/?>/gi;
+        let m;
+        while ((m = re.exec(text))) {
+          const attrs = parseXmlAttrs(m[1]);
+          const id = String(attrs.id || "").replace(/\D/g, "");
+          if (!id) continue;
+          rows.push({
+            player_id: id,
+            salary: safeStr(attrs.salary),
+            contractYear: safeStr(attrs.contractyear || attrs.contractYear),
+            contractInfo: safeStr(attrs.contractinfo || attrs.contractInfo),
+            contractStatus: safeStr(attrs.contractstatus || attrs.contractStatus),
+          });
+        }
+        return rows;
+      };
+
+      const parseExpectedSalaryAdjRowsFromXml = (xmlText) => {
+        const rows = [];
+        const text = safeStr(xmlText);
+        if (!text) return rows;
+        const re = /<salary_adjustment\b([^>]*?)\/?>/gi;
+        let m;
+        while ((m = re.exec(text))) {
+          const attrs = parseXmlAttrs(m[1]);
+          const franchiseId = padFranchiseId(attrs.franchise_id || attrs.franchiseid || attrs.franchise || attrs.id || "");
+          const amount = safeInt(parseMoneyTokenToDollars(attrs.amount, { assumeKIfNoUnit: false }), NaN);
+          if (!franchiseId || !Number.isFinite(amount)) continue;
+          rows.push({
+            franchise_id: franchiseId,
+            amount,
+            explanation: safeStr(attrs.explanation),
+          });
+        }
+        return rows;
+      };
+
+      const collectSalaryAdjustmentExportRows = (node, out = []) => {
+        if (!node) return out;
+        if (Array.isArray(node)) {
+          for (const item of node) collectSalaryAdjustmentExportRows(item, out);
+          return out;
+        }
+        if (typeof node !== "object") return out;
+        const rawFranchiseId =
+          node.franchise_id ??
+          node.franchiseId ??
+          node.franchise ??
+          node.franchiseid ??
+          node.id ??
+          "";
+        const rawAmount = node.amount ?? node.value ?? node.adjustment ?? "";
+        const explanation = safeStr(node.explanation || node.note || node.notes || node.reason || "");
+        const franchiseId = padFranchiseId(rawFranchiseId);
+        const amount = safeInt(parseMoneyTokenToDollars(rawAmount, { assumeKIfNoUnit: false }), NaN);
+        if (franchiseId && Number.isFinite(amount)) {
+          out.push({
+            franchise_id: franchiseId,
+            amount,
+            explanation,
+          });
+        }
+        for (const v of Object.values(node)) collectSalaryAdjustmentExportRows(v, out);
+        return out;
+      };
+
+      const verifyExpectedSalaryAdjustmentsInExport = (expectedRows, exportPayload) => {
+        const expected = Array.isArray(expectedRows) ? expectedRows : [];
+        if (!expected.length) {
+          return {
+            ok: true,
+            expected_count: 0,
+            matched_count: 0,
+            mismatched_count: 0,
+            rows: [],
+          };
+        }
+        const actualRows = collectSalaryAdjustmentExportRows(
+          exportPayload?.salaryAdjustments || exportPayload?.salaryadjustments || exportPayload || {}
+        );
+        const matchByRow = expected.map((row) => {
+          const matched = actualRows.some((act) => {
+            if (padFranchiseId(act.franchise_id) !== padFranchiseId(row.franchise_id)) return false;
+            if (safeInt(act.amount, NaN) !== safeInt(row.amount, NaN)) return false;
+            const wantExp = safeStr(row.explanation);
+            if (!wantExp) return true;
+            return safeStr(act.explanation).indexOf(wantExp) !== -1;
+          });
+          return {
+            ...row,
+            matched,
+          };
+        });
+        const matchedCount = matchByRow.filter((r) => r.matched).length;
+        return {
+          ok: matchedCount === expected.length,
+          expected_count: expected.length,
+          matched_count: matchedCount,
+          mismatched_count: Math.max(0, expected.length - matchedCount),
+          rows: matchByRow,
+        };
+      };
+
       const buildExtensionPostImportVerification = (beforeMap, expectedRows, afterMap) => {
         const expectedByPlayer = {};
         for (const row of expectedRows || []) {
@@ -6418,13 +6543,56 @@ export default {
               if (extensionPreparation && extensionPreparation.payload) {
                 payload = extensionPreparation.payload;
               }
-              salaryAdjOut = await applySalaryAdjFromPayload(leagueId, season, payload, mflTradeId);
-              extensionsOut = await applyExtensionsFromPayload(leagueId, season, payload, {
-                expected_extension_count: safeInt(extensionPreparation?.expected_extension_count, 0),
-                extension_trigger_found: !!(extensionPreparation?.extension_trigger_found),
-                preparation_skipped_rows: extensionPreparation?.skipped_rows || [],
-                trade_id: mflTradeId,
-              });
+              const plannedSalaryAdjRows = buildSalaryAdjRowsFromPayload(payload, mflTradeId);
+              const plannedExtCount = Array.isArray(payload?.extension_requests)
+                ? payload.extension_requests.length
+                : 0;
+              const needsPrivilegedImports = plannedSalaryAdjRows.length > 0 || plannedExtCount > 0;
+              let adminStateForImports = { ok: true, isAdmin: true, reason: "not_checked" };
+              if (needsPrivilegedImports) {
+                adminStateForImports = await getLeagueAdminState(leagueId, season);
+              }
+              if (needsPrivilegedImports && (!adminStateForImports.ok || !adminStateForImports.isAdmin)) {
+                salaryAdjOut = {
+                  ok: false,
+                  skipped: true,
+                  reason: "requires_commish_cookie",
+                  error:
+                    "MFL_COOKIE lacks commissioner privileges required for salary adjustments/extensions",
+                  rows: plannedSalaryAdjRows,
+                  admin_state: adminStateForImports,
+                };
+                extensionsOut = {
+                  ok: false,
+                  skipped: true,
+                  reason: "requires_commish_cookie",
+                  error:
+                    "MFL_COOKIE lacks commissioner privileges required for salary adjustments/extensions",
+                  applied: [],
+                  skipped_rows: (extensionPreparation?.skipped_rows || []).concat([
+                    { reason: "requires_commish_cookie" },
+                  ]),
+                  expected_extension_count: safeInt(extensionPreparation?.expected_extension_count, 0),
+                  extension_trigger_found: !!(extensionPreparation?.extension_trigger_found),
+                  verification: {
+                    ok: false,
+                    reason: "requires_commish_cookie",
+                    checked_players: 0,
+                    matched_players: 0,
+                    mismatched_players: 0,
+                    rows: [],
+                  },
+                  admin_state: adminStateForImports,
+                };
+              } else {
+                salaryAdjOut = await applySalaryAdjFromPayload(leagueId, season, payload, mflTradeId);
+                extensionsOut = await applyExtensionsFromPayload(leagueId, season, payload, {
+                  expected_extension_count: safeInt(extensionPreparation?.expected_extension_count, 0),
+                  extension_trigger_found: !!(extensionPreparation?.extension_trigger_found),
+                  preparation_skipped_rows: extensionPreparation?.skipped_rows || [],
+                  trade_id: mflTradeId,
+                });
+              }
             } else {
               salaryAdjOut = {
                 ok: true,
@@ -6982,6 +7150,70 @@ export default {
           if (!extensionXml) extensionXml = safeStr(rebuilt.payload_xml_extensions);
         }
 
+        const expectedExtensionRows = parseExpectedExtensionRowsFromXml(extensionXml);
+        const expectedSalaryAdjRows = parseExpectedSalaryAdjRowsFromXml(salaryAdjXml).concat(
+          parseExpectedSalaryAdjRowsFromXml(salaryTradeXml)
+        );
+        const needsPrivilegedImports =
+          expectedExtensionRows.length > 0 || expectedSalaryAdjRows.length > 0;
+        let replayAdminState = { ok: true, isAdmin: true, reason: "not_checked" };
+        if (needsPrivilegedImports) {
+          replayAdminState = await getLeagueAdminState(leagueId, season);
+        }
+        if (needsPrivilegedImports && (!replayAdminState.ok || !replayAdminState.isAdmin)) {
+          const adminReason = safeStr(replayAdminState.reason || "requires_commish_cookie");
+          const updateNoAdmin = await writeOutboxRow({
+            mode: "update",
+            leagueId,
+            season,
+            where: { id: row.id },
+            row: {
+              trade_id: safeStr(row.trade_id || tradeId),
+              action_type: safeStr(row.action_type || "ACCEPT"),
+              from_franchise_id: safeStr(row.from_franchise_id),
+              to_franchise_id: safeStr(row.to_franchise_id),
+              payload_xml_extensions: extensionXml,
+              payload_xml_salary_adj: salaryAdjXml,
+              payload_xml_salary_trade: salaryTradeXml,
+              payload_json: row.payload_json || null,
+              comment_trailer: safeStr(row.comment_trailer),
+              payload_hash: safeStr(row.payload_hash),
+              status: "FAILED",
+              mfl_post_response_snip: trimDiagText(
+                JSON.stringify({
+                  reason: "requires_commish_cookie",
+                  admin_state: replayAdminState,
+                }),
+                1000
+              ),
+              mfl_verify_response_snip: trimDiagText(
+                JSON.stringify({
+                  expected_extensions: expectedExtensionRows.length,
+                  expected_salary_adjustments: expectedSalaryAdjRows.length,
+                }),
+                1000
+              ),
+            },
+          });
+          return jsonOut(412, {
+            ok: false,
+            error_type: "requires_commish_cookie",
+            error: "MFL_COOKIE lacks commissioner privileges required for replay imports",
+            admin_state: replayAdminState,
+            expected: {
+              extensions: expectedExtensionRows.length,
+              salary_adjustments: expectedSalaryAdjRows.length,
+            },
+            outbox: {
+              outbox_id: safeStr(row.id),
+              payload_hash: safeStr(row.payload_hash),
+              status: "FAILED",
+              backend: updateNoAdmin.backend || lookup.backend || "",
+              write_error: updateNoAdmin.ok ? "" : safeStr(updateNoAdmin.error),
+            },
+          });
+        }
+
         if (salaryAdjXml) {
           await runReplayImport(
             "salary_adjustments",
@@ -7006,8 +7238,69 @@ export default {
 
         const allPostsOk = replayImports.every((r) => !!r.ok);
         const verifySalaries = await mflExportJson(season, leagueId, "salaries", {}, { useCookie: true });
+        const verifySalaryAdjustments = await mflExportJson(
+          season,
+          leagueId,
+          "salaryAdjustments",
+          {},
+          { useCookie: true }
+        );
         const verifyTransactions = await mflExportJson(season, leagueId, "transactions", {}, { useCookie: true });
-        const verifyOk = !!verifySalaries.ok && !!verifyTransactions.ok;
+        let extensionVerification = {
+          ok: expectedExtensionRows.length === 0,
+          reason: expectedExtensionRows.length ? "verification_not_run" : "no_expected_extension_rows",
+          checked_players: 0,
+          matched_players: 0,
+          mismatched_players: 0,
+          rows: [],
+        };
+        if (expectedExtensionRows.length && verifySalaries.ok) {
+          const afterByPlayer = parseSalariesExportByPlayer(verifySalaries.data);
+          extensionVerification = buildExtensionPostImportVerification({}, expectedExtensionRows, afterByPlayer);
+        } else if (expectedExtensionRows.length && !verifySalaries.ok) {
+          extensionVerification = {
+            ok: false,
+            reason: "failed_post_import_salaries_export",
+            checked_players: 0,
+            matched_players: 0,
+            mismatched_players: expectedExtensionRows.length,
+            rows: [],
+          };
+        }
+
+        let salaryAdjustmentVerification = {
+          ok: expectedSalaryAdjRows.length === 0,
+          reason: expectedSalaryAdjRows.length ? "verification_not_run" : "no_expected_salary_adjustments",
+          expected_count: expectedSalaryAdjRows.length,
+          matched_count: 0,
+          mismatched_count: expectedSalaryAdjRows.length,
+          rows: [],
+        };
+        if (expectedSalaryAdjRows.length && verifySalaryAdjustments.ok) {
+          salaryAdjustmentVerification = verifyExpectedSalaryAdjustmentsInExport(
+            expectedSalaryAdjRows,
+            verifySalaryAdjustments.data
+          );
+          salaryAdjustmentVerification.reason = salaryAdjustmentVerification.ok
+            ? ""
+            : "expected_salary_adjustments_missing_from_export";
+        } else if (expectedSalaryAdjRows.length && !verifySalaryAdjustments.ok) {
+          salaryAdjustmentVerification = {
+            ok: false,
+            reason: "failed_post_import_salary_adjustments_export",
+            expected_count: expectedSalaryAdjRows.length,
+            matched_count: 0,
+            mismatched_count: expectedSalaryAdjRows.length,
+            rows: [],
+          };
+        }
+
+        const verifyOk =
+          !!verifySalaries.ok &&
+          !!verifyTransactions.ok &&
+          !!verifySalaryAdjustments.ok &&
+          !!extensionVerification.ok &&
+          !!salaryAdjustmentVerification.ok;
         const nextStatus = allPostsOk && verifyOk ? "VERIFIED" : "FAILED";
 
         const updateReplay = await writeOutboxRow({
@@ -7032,8 +7325,12 @@ export default {
               JSON.stringify({
                 salaries_status: verifySalaries.status,
                 salaries_ok: !!verifySalaries.ok,
+                salary_adjustments_status: verifySalaryAdjustments.status,
+                salary_adjustments_ok: !!verifySalaryAdjustments.ok,
                 transactions_status: verifyTransactions.status,
                 transactions_ok: !!verifyTransactions.ok,
+                extension_verification: extensionVerification,
+                salary_adjustment_verification: salaryAdjustmentVerification,
               }),
               1000
             ),
@@ -7059,12 +7356,20 @@ export default {
               error: verifySalaries.error || "",
               preview: verifySalaries.textPreview || "",
             },
+            salary_adjustments_export: {
+              ok: !!verifySalaryAdjustments.ok,
+              status: verifySalaryAdjustments.status,
+              error: verifySalaryAdjustments.error || "",
+              preview: verifySalaryAdjustments.textPreview || "",
+            },
             transactions_export: {
               ok: !!verifyTransactions.ok,
               status: verifyTransactions.status,
               error: verifyTransactions.error || "",
               preview: verifyTransactions.textPreview || "",
             },
+            extension_verification: extensionVerification,
+            salary_adjustment_verification: salaryAdjustmentVerification,
           },
         });
       }

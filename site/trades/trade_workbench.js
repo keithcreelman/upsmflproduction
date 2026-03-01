@@ -2348,6 +2348,9 @@
       var salaryReason = safeStr((details.salary_adjustments || {}).error);
       var reason2 = safeStr(msg || data.error || "salary/contract import failure");
       var detail = extReason || salaryReason;
+      if ((extReason + " " + salaryReason).toLowerCase().indexOf("requires_commish_cookie") !== -1) {
+        return prefix + ": Commissioner MFL cookie is required for salary adjustments/extensions.";
+      }
       return prefix + ": Salary/contract import failure after trade response: " +
         reason2 +
         (detail ? " (" + detail + ")" : "") +
