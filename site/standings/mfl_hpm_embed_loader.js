@@ -49,13 +49,14 @@
     try {
       const su = new URL(scriptSrc, window.location.href);
 
-      // Prefer jsDelivr for standings HTML to avoid rawcdn CORS/404 failures.
+      // jsDelivr serves this .html as text/plain+nosniff, which renders source text
+      // in iframes. Keep loader JS on jsDelivr, but fetch HTML via rawcdn.githack.
       const jsd = safeStr(su.pathname).match(
         /^\/gh\/keithcreelman\/upsmflproduction@([^/]+)\/site\/standings\/mfl_hpm_embed_loader\.js$/i
       );
       if (/cdn\.jsdelivr\.net$/i.test(safeStr(su.hostname)) && jsd) {
         return (
-          "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@" +
+          "https://rawcdn.githack.com/keithcreelman/upsmflproduction/" +
           jsd[1] +
           "/site/standings/mfl_hpm_standings.html"
         );
