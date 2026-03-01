@@ -3933,6 +3933,20 @@ export default {
         };
       };
 
+      const normalizeContractInfoForCompare = (value) =>
+        safeStr(value)
+          .toUpperCase()
+          .replace(/\s+/g, "")
+          .replace(/[|]+/g, "|");
+
+      const normalizeStatusForCompare = (value) => safeStr(value).toUpperCase();
+
+      const normalizeMoneyForCompare = (value) => {
+        const n = parseMoneyTokenToDollars(value, { assumeKIfNoUnit: false });
+        if (n == null || !Number.isFinite(n)) return null;
+        return safeInt(n, 0);
+      };
+
       const buildExtensionPostImportVerification = (beforeMap, expectedRows, afterMap) => {
         const expectedByPlayer = {};
         for (const row of expectedRows || []) {
@@ -3952,11 +3966,31 @@ export default {
         for (const [playerId, expected] of Object.entries(expectedByPlayer)) {
           const before = normalizeSalarySnapshotRow(beforeMap?.[playerId]);
           const after = normalizeSalarySnapshotRow(afterMap?.[playerId]);
+          const expectedSalaryN = normalizeMoneyForCompare(expected.salary);
+          const afterSalaryN = normalizeMoneyForCompare(after.salary);
+          const expectedYearN = safeInt(expected.contractYear, NaN);
+          const afterYearN = safeInt(after.contractYear, NaN);
+          const expectedInfoN = normalizeContractInfoForCompare(expected.contractInfo);
+          const afterInfoN = normalizeContractInfoForCompare(after.contractInfo);
+          const expectedStatusN = normalizeStatusForCompare(expected.contractStatus);
+          const afterStatusN = normalizeStatusForCompare(after.contractStatus);
           const cmp = {
-            salary: safeStr(after.salary) === safeStr(expected.salary),
-            contractYear: safeStr(after.contractYear) === safeStr(expected.contractYear),
-            contractInfo: safeStr(after.contractInfo) === safeStr(expected.contractInfo),
-            contractStatus: safeStr(after.contractStatus) === safeStr(expected.contractStatus),
+            salary:
+              expectedSalaryN == null || afterSalaryN == null
+                ? safeStr(after.salary) === safeStr(expected.salary)
+                : expectedSalaryN === afterSalaryN,
+            contractYear:
+              Number.isFinite(expectedYearN) && Number.isFinite(afterYearN)
+                ? expectedYearN === afterYearN
+                : safeStr(after.contractYear) === safeStr(expected.contractYear),
+            contractInfo:
+              expectedInfoN && afterInfoN
+                ? expectedInfoN === afterInfoN
+                : safeStr(after.contractInfo) === safeStr(expected.contractInfo),
+            contractStatus:
+              expectedStatusN && afterStatusN
+                ? expectedStatusN === afterStatusN
+                : safeStr(after.contractStatus) === safeStr(expected.contractStatus),
           };
           const allMatch = !!(cmp.salary && cmp.contractYear && cmp.contractInfo && cmp.contractStatus);
           if (allMatch) matched += 1;
@@ -4559,9 +4593,37 @@ export default {
           reason: "verification_not_run",
         };
         if (importRes.requestOk) {
-          postSalariesRes = await mflExportJson(season, leagueId, "salaries");
-          if (postSalariesRes.ok) {
+          const sleepMs = (ms) =>
+            new Promise((resolve) => {
+              setTimeout(resolve, Math.max(0, safeInt(ms, 0)));
+            });
+          const verifyDelays = [0, 1300, 2600];
+          let verifyAttempt = 0;
+          for (verifyAttempt = 0; verifyAttempt < verifyDelays.length; verifyAttempt += 1) {
+            if (verifyDelays[verifyAttempt] > 0) {
+              await sleepMs(verifyDelays[verifyAttempt]);
+            }
+            postSalariesRes = await mflExportJson(season, leagueId, "salaries");
+            if (!postSalariesRes.ok) {
+              verification = {
+                ok: false,
+                checked_players: 0,
+                matched_players: 0,
+                mismatched_players: 0,
+                rows: [],
+                reason: "failed_post_import_salaries_export",
+                attempt: verifyAttempt + 1,
+                upstream: {
+                  status: postSalariesRes.status,
+                  error: postSalariesRes.error,
+                  url: postSalariesRes.url,
+                  preview: postSalariesRes.textPreview,
+                },
+              };
+              continue;
+            }
             const afterByPlayer = parseSalariesExportByPlayer(postSalariesRes.data);
+            afterSnapshot = {};
             for (const playerId of trackedPlayerIds.values()) {
               afterSnapshot[playerId] = normalizeSalarySnapshotRow(afterByPlayer[playerId]);
             }
@@ -4570,35 +4632,22 @@ export default {
               plan.applied,
               afterByPlayer
             );
-            try {
-              console.log(
-                "[TWB][extensions][verify]",
-                JSON.stringify({
-                  trade_id: tradeId,
-                  timestamp_utc: new Date().toISOString(),
-                  league_id: safeStr(leagueId),
-                  season: safeStr(season),
-                  verification,
-                })
-              );
-            } catch (_) {
-              // noop
-            }
-          } else {
-            verification = {
-              ok: false,
-              checked_players: 0,
-              matched_players: 0,
-              mismatched_players: 0,
-              rows: [],
-              reason: "failed_post_import_salaries_export",
-              upstream: {
-                status: postSalariesRes.status,
-                error: postSalariesRes.error,
-                url: postSalariesRes.url,
-                preview: postSalariesRes.textPreview,
-              },
-            };
+            verification.attempt = verifyAttempt + 1;
+            if (verification.ok) break;
+          }
+          try {
+            console.log(
+              "[TWB][extensions][verify]",
+              JSON.stringify({
+                trade_id: tradeId,
+                timestamp_utc: new Date().toISOString(),
+                league_id: safeStr(leagueId),
+                season: safeStr(season),
+                verification,
+              })
+            );
+          } catch (_) {
+            // noop
           }
         }
         const finalOk = !!importRes.requestOk && !!verification.ok;
