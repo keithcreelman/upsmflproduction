@@ -3,8 +3,8 @@
     "schema_version": 1,
     "league_id": "25625",
     "season": 2026,
-    "updated_at": "2026-03-01T16:47:00.719Z",
-    "row_count": 12,
+    "updated_at": "2026-03-01T17:45:12.357Z",
+    "row_count": 13,
     "source": "worker-trade-outbox"
   },
   "rows": [
@@ -1675,6 +1675,143 @@
       "season": "2026",
       "updated_ts": "2026-03-01T13:36:00.879Z",
       "id": "12"
+    },
+    {
+      "created_ts": "2026-03-01T17:45:12.287Z",
+      "trade_id": "",
+      "action_type": "SUBMIT",
+      "from_franchise_id": "0008",
+      "to_franchise_id": "0009",
+      "payload_xml_extensions": "<salaries><leagueUnit unit=\"LEAGUE\"><player id=\"16724\" salary=\"4\" contractYear=\"2\" contractInfo=\"CL 2|TCV 5K|AAV 1K, 4K|Y1-1K, Y2-4K|Ext: CTwn|GTD: 4K\" contractStatus=\"EXT1\" /></leagueUnit></salaries>",
+      "payload_xml_salary_adj": "<salary_adjustments><salary_adjustment franchise_id=\"0008\" amount=\"6\" explanation=\"UPS traded salary settlement (trade_2026): net +6K\"/><salary_adjustment franchise_id=\"0009\" amount=\"-6\" explanation=\"UPS traded salary settlement (trade_2026): net -6K\"/></salary_adjustments>",
+      "payload_xml_salary_trade": "",
+      "payload_json": {
+        "schema_version": 1,
+        "generated_at": "2026-03-01T17:45:11.906Z",
+        "source": "ups-trade-workbench",
+        "league_id": "25625",
+        "season": 2026,
+        "teams": [
+          {
+            "role": "left",
+            "franchise_id": "0008",
+            "franchise_name": "Real Deal Creel",
+            "selected_assets": [
+              {
+                "asset_id": "player:16148",
+                "type": "PLAYER",
+                "player_id": "16148",
+                "player_name": "Young, Bryce",
+                "description": null,
+                "position": "QB",
+                "nfl_team": "CAR",
+                "salary": 13000,
+                "years": 1,
+                "contract_type": "Rookie",
+                "contract_info": "CL 3| TCV 39K| AAV 13K",
+                "taxi": false
+              }
+            ],
+            "traded_salary_adjustment_dollars": 6000,
+            "traded_salary_adjustment_k": 6,
+            "traded_salary_adjustment_max_k": 6,
+            "selected_non_taxi_salary_dollars": 13000
+          },
+          {
+            "role": "right",
+            "franchise_id": "0009",
+            "franchise_name": "C-Town Chivalry",
+            "selected_assets": [
+              {
+                "asset_id": "player:16724",
+                "type": "PLAYER",
+                "player_id": "16724",
+                "player_name": "Taylor, Tory",
+                "description": null,
+                "position": "PN",
+                "nfl_team": "CHI",
+                "salary": 1000,
+                "years": 0,
+                "contract_type": "Rookie",
+                "contract_info": "CL 3| TCV 3K| AAV 1K",
+                "taxi": false
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 0,
+            "selected_non_taxi_salary_dollars": 1000
+          }
+        ],
+        "extension_requests": [
+          {
+            "player_id": "16724",
+            "player_name": "Taylor, Tory",
+            "from_franchise_id": "0009",
+            "to_franchise_id": "0008",
+            "applies_to_acquirer": true,
+            "option_key": "1YR|NONE",
+            "extension_term": "1YR",
+            "loaded_indicator": "NONE",
+            "preview_id": 1089,
+            "preview_contract_info_string": "CL 2|TCV 5K|AAV 1K, 4K|Y1-1K, Y2-4K|Ext: CTwn|GTD: 4K",
+            "new_contract_status": "EXT1",
+            "new_contract_length": 2,
+            "new_TCV": 5000,
+            "new_aav_future": 4000
+          }
+        ],
+        "filters": {
+          "search": ""
+        },
+        "ui": {
+          "left_team_id": "0008",
+          "right_team_id": "0009"
+        },
+        "salary_reconciliation": {
+          "left": {
+            "franchise_id": "0008",
+            "franchise_name": "Real Deal Creel",
+            "outgoing_dollars": 13000,
+            "incoming_dollars": 1000,
+            "trade_salary_adjustment_k": 6,
+            "trade_salary_adjustment_max_k": 6,
+            "net_trade_salary_k": 6,
+            "net_cap_change_dollars": 6000,
+            "available_salary_before_dollars": 105000,
+            "available_salary_after_dollars": 111000,
+            "over_cap_dollars": 0
+          },
+          "right": {
+            "franchise_id": "0009",
+            "franchise_name": "C-Town Chivalry",
+            "outgoing_dollars": 1000,
+            "incoming_dollars": 13000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 0,
+            "net_trade_salary_k": -6,
+            "net_cap_change_dollars": -6000,
+            "available_salary_before_dollars": 19000,
+            "available_salary_after_dollars": 13000,
+            "over_cap_dollars": 0
+          },
+          "has_over_cap": false
+        },
+        "validation": {
+          "status": "ready",
+          "issues": []
+        },
+        "comment": "Pre-trade extension: Extend Taylor, Tory 1-year | New length 2 | New AAV 4K | New TCV 5K"
+      },
+      "comment_trailer": "",
+      "payload_hash": "ce140016d2ad67e1f4ae8cc1b557c52081f6fbf528bd916ea00f9def9d78121d",
+      "status": "PENDING",
+      "mfl_post_response_snip": "",
+      "mfl_verify_response_snip": "",
+      "league_id": "25625",
+      "season": "2026",
+      "updated_ts": "2026-03-01T17:45:12.287Z",
+      "id": "13"
     }
   ]
 }
