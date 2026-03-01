@@ -7,8 +7,15 @@
 
 <div class="ups-standings-shell">
   <div id="upsStandingsMount"></div>
-  <script
-    src="https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@dev/site/standings/mfl_hpm_embed_loader.js?v=2026.02.16.16"
-    data-standings-target-id="upsStandingsMount"
-    data-standings-source-league-id="74598"></script>
+  <script>
+    (function () {
+      var sha = window.UPS_RELEASE_SHA || "23b2249";
+      var s = document.createElement("script");
+      s.src = "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@" + sha + "/site/standings/mfl_hpm_embed_loader.js";
+      s.setAttribute("data-standings-target-id", "upsStandingsMount");
+      s.setAttribute("data-standings-source-league-id", "74598");
+      var anchor = document.currentScript;
+      anchor.parentNode.insertBefore(s, anchor);
+    })();
+  </script>
 </div>
