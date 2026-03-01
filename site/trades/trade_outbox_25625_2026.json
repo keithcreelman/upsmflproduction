@@ -3,8 +3,8 @@
     "schema_version": 1,
     "league_id": "25625",
     "season": 2026,
-    "updated_at": "2026-03-01T17:45:13.853Z",
-    "row_count": 13,
+    "updated_at": "2026-03-01T17:45:49.025Z",
+    "row_count": 14,
     "source": "worker-trade-outbox"
   },
   "rows": [
@@ -1812,6 +1812,147 @@
       "season": "2026",
       "updated_ts": "2026-03-01T17:45:13.780Z",
       "id": "13"
+    },
+    {
+      "created_ts": "2026-03-01T17:45:48.971Z",
+      "trade_id": "1047",
+      "action_type": "ACCEPT",
+      "from_franchise_id": "0008",
+      "to_franchise_id": "0009",
+      "payload_xml_extensions": "<salaries><leagueUnit unit=\"LEAGUE\"><player id=\"16724\" salary=\"4\" contractYear=\"2\" contractInfo=\"CL 2|TCV 5K|AAV 1K, 4K|Y1-1K, Y2-4K|Ext: CTwn|GTD: 4K\" contractStatus=\"EXT1\" /></leagueUnit></salaries>",
+      "payload_xml_salary_adj": "<salary_adjustments><salary_adjustment franchise_id=\"0008\" amount=\"6\" explanation=\"UPS traded salary settlement (trade_20261047): net +6K\"/><salary_adjustment franchise_id=\"0009\" amount=\"-6\" explanation=\"UPS traded salary settlement (trade_20261047): net -6K\"/></salary_adjustments>",
+      "payload_xml_salary_trade": "",
+      "payload_json": {
+        "schema_version": 1,
+        "generated_at": "2026-03-01T17:45:11.906Z",
+        "source": "ups-trade-workbench",
+        "league_id": "25625",
+        "season": 2026,
+        "teams": [
+          {
+            "role": "left",
+            "franchise_id": "0008",
+            "franchise_name": "Real Deal Creel",
+            "selected_assets": [
+              {
+                "asset_id": "player:16148",
+                "type": "PLAYER",
+                "player_id": "16148",
+                "player_name": "Young, Bryce",
+                "description": null,
+                "position": "QB",
+                "nfl_team": "CAR",
+                "salary": 13000,
+                "years": 1,
+                "contract_type": "Rookie",
+                "contract_info": "CL 3| TCV 39K| AAV 13K",
+                "taxi": false
+              }
+            ],
+            "traded_salary_adjustment_dollars": 6000,
+            "traded_salary_adjustment_k": 6,
+            "traded_salary_adjustment_max_k": 6,
+            "selected_non_taxi_salary_dollars": 13000
+          },
+          {
+            "role": "right",
+            "franchise_id": "0009",
+            "franchise_name": "C-Town Chivalry",
+            "selected_assets": [
+              {
+                "asset_id": "player:16724",
+                "type": "PLAYER",
+                "player_id": "16724",
+                "player_name": "Taylor, Tory",
+                "description": null,
+                "position": "PN",
+                "nfl_team": "CHI",
+                "salary": 1000,
+                "years": 0,
+                "contract_type": "Rookie",
+                "contract_info": "CL 3| TCV 3K| AAV 1K",
+                "taxi": false
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 0,
+            "selected_non_taxi_salary_dollars": 1000
+          }
+        ],
+        "extension_requests": [
+          {
+            "player_id": "16724",
+            "player_name": "Taylor, Tory",
+            "from_franchise_id": "0009",
+            "to_franchise_id": "0008",
+            "applies_to_acquirer": true,
+            "option_key": "1YR|NONE",
+            "extension_term": "1YR",
+            "loaded_indicator": "NONE",
+            "preview_id": 1089,
+            "preview_contract_info_string": "CL 2|TCV 5K|AAV 1K, 4K|Y1-1K, Y2-4K|Ext: CTwn|GTD: 4K",
+            "new_contract_status": "EXT1",
+            "new_contract_length": 2,
+            "new_TCV": 5000,
+            "new_aav_future": 4000
+          }
+        ],
+        "filters": {
+          "search": ""
+        },
+        "ui": {
+          "left_team_id": "0008",
+          "right_team_id": "0009"
+        },
+        "salary_reconciliation": {
+          "left": {
+            "franchise_id": "0008",
+            "franchise_name": "Real Deal Creel",
+            "outgoing_dollars": 13000,
+            "incoming_dollars": 1000,
+            "trade_salary_adjustment_k": 6,
+            "trade_salary_adjustment_max_k": 6,
+            "net_trade_salary_k": 6,
+            "net_cap_change_dollars": 6000,
+            "available_salary_before_dollars": 105000,
+            "available_salary_after_dollars": 111000,
+            "over_cap_dollars": 0
+          },
+          "right": {
+            "franchise_id": "0009",
+            "franchise_name": "C-Town Chivalry",
+            "outgoing_dollars": 1000,
+            "incoming_dollars": 13000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 0,
+            "net_trade_salary_k": -6,
+            "net_cap_change_dollars": -6000,
+            "available_salary_before_dollars": 19000,
+            "available_salary_after_dollars": 13000,
+            "over_cap_dollars": 0
+          },
+          "has_over_cap": false
+        },
+        "validation": {
+          "status": "ready",
+          "issues": []
+        },
+        "comment": "Pre-trade extension: Extend Taylor, Tory 1-year | New length 2 | New AAV 4K | New TCV 5K",
+        "comments": "[UPS_TWB_META:eyJ2IjoxLCJ0cyI6IjIwMjYtMDMtMDFUMTc6NDU6MTMuNDMyWiIsImxlYWd1ZV9pZCI6IjI1NjI1Iiwic2Vhc29uIjoyMDI2LCJmcm9tIjoiMDAwOCIsInRvIjoiMDAwOSIsInNhbGFyeV9uZXRfayI6eyJsZWZ0Ijo2LCJyaWdodCI6LTZ9LCJleHQiOlt7InBsYXllcl9pZCI6IjE2NzI0IiwicGxheWVyX25hbWUiOiJUYXlsb3IsIFRvcnkiLCJmcm9tX2ZyYW5jaGlzZV9pZCI6IjAwMDkiLCJ0b19mcmFuY2hpc2VfaWQiOiIwMDA4Iiwib3B0aW9uX2tleSI6IjFZUnxOT05FIiwiZXh0ZW5zaW9uX3Rlcm0iOiIxWVIiLCJuZXdfY29udHJhY3Rfc3RhdHVzIjoiRVhUMSIsIm5ld19jb250cmFjdF9sZW5ndGgiOjIsIm5ld19UQ1YiOjUwMDAsIm5ld19hYXZfZnV0dXJlIjo0MDAwfV19] Pre-trade extension: Extend Taylor, Tory 1-year",
+        "raw_comment": "[UPS_TWB_META:eyJ2IjoxLCJ0cyI6IjIwMjYtMDMtMDFUMTc6NDU6MTMuNDMyWiIsImxlYWd1ZV9pZCI6IjI1NjI1Iiwic2Vhc29uIjoyMDI2LCJmcm9tIjoiMDAwOCIsInRvIjoiMDAwOSIsInNhbGFyeV9uZXRfayI6eyJsZWZ0Ijo2LCJyaWdodCI6LTZ9LCJleHQiOlt7InBsYXllcl9pZCI6IjE2NzI0IiwicGxheWVyX25hbWUiOiJUYXlsb3IsIFRvcnkiLCJmcm9tX2ZyYW5jaGlzZV9pZCI6IjAwMDkiLCJ0b19mcmFuY2hpc2VfaWQiOiIwMDA4Iiwib3B0aW9uX2tleSI6IjFZUnxOT05FIiwiZXh0ZW5zaW9uX3Rlcm0iOiIxWVIiLCJuZXdfY29udHJhY3Rfc3RhdHVzIjoiRVhUMSIsIm5ld19jb250cmFjdF9sZW5ndGgiOjIsIm5ld19UQ1YiOjUwMDAsIm5ld19hYXZfZnV0dXJlIjo0MDAwfV19] Pre-trade extension: Extend Taylor, Tory 1-year",
+        "message": "[UPS_TWB_META:eyJ2IjoxLCJ0cyI6IjIwMjYtMDMtMDFUMTc6NDU6MTMuNDMyWiIsImxlYWd1ZV9pZCI6IjI1NjI1Iiwic2Vhc29uIjoyMDI2LCJmcm9tIjoiMDAwOCIsInRvIjoiMDAwOSIsInNhbGFyeV9uZXRfayI6eyJsZWZ0Ijo2LCJyaWdodCI6LTZ9LCJleHQiOlt7InBsYXllcl9pZCI6IjE2NzI0IiwicGxheWVyX25hbWUiOiJUYXlsb3IsIFRvcnkiLCJmcm9tX2ZyYW5jaGlzZV9pZCI6IjAwMDkiLCJ0b19mcmFuY2hpc2VfaWQiOiIwMDA4Iiwib3B0aW9uX2tleSI6IjFZUnxOT05FIiwiZXh0ZW5zaW9uX3Rlcm0iOiIxWVIiLCJuZXdfY29udHJhY3Rfc3RhdHVzIjoiRVhUMSIsIm5ld19jb250cmFjdF9sZW5ndGgiOjIsIm5ld19UQ1YiOjUwMDAsIm5ld19hYXZfZnV0dXJlIjo0MDAwfV19] Pre-trade extension: Extend Taylor, Tory 1-year",
+        "notes": "[UPS_TWB_META:eyJ2IjoxLCJ0cyI6IjIwMjYtMDMtMDFUMTc6NDU6MTMuNDMyWiIsImxlYWd1ZV9pZCI6IjI1NjI1Iiwic2Vhc29uIjoyMDI2LCJmcm9tIjoiMDAwOCIsInRvIjoiMDAwOSIsInNhbGFyeV9uZXRfayI6eyJsZWZ0Ijo2LCJyaWdodCI6LTZ9LCJleHQiOlt7InBsYXllcl9pZCI6IjE2NzI0IiwicGxheWVyX25hbWUiOiJUYXlsb3IsIFRvcnkiLCJmcm9tX2ZyYW5jaGlzZV9pZCI6IjAwMDkiLCJ0b19mcmFuY2hpc2VfaWQiOiIwMDA4Iiwib3B0aW9uX2tleSI6IjFZUnxOT05FIiwiZXh0ZW5zaW9uX3Rlcm0iOiIxWVIiLCJuZXdfY29udHJhY3Rfc3RhdHVzIjoiRVhUMSIsIm5ld19jb250cmFjdF9sZW5ndGgiOjIsIm5ld19UQ1YiOjUwMDAsIm5ld19hYXZfZnV0dXJlIjo0MDAwfV19] Pre-trade extension: Extend Taylor, Tory 1-year"
+      },
+      "comment_trailer": "[UPS_TWB_INTENT_BEGIN]\nUPS_OUTBOX_ID:\nUPS_PAYLOAD_HASH:f63162ec9ee7f547e1d0cdf483f85f5bf5b56447d7f6f46c39042159358d1f92\nUPS_XML_EXT:PHNhbGFyaWVzPjxsZWFndWVVbml0IHVuaXQ9IkxFQUdVRSI-PHBsYXllciBpZD0iMTY3MjQiIHNhbGFyeT0iNCIgY29udHJhY3RZZWFyPSIyIiBjb250cmFjdEluZm89IkNMIDJ8VENWIDVLfEFBViAxSywgNEt8WTEtMUssIFkyLTRLfEV4dDogQ1R3bnxHVEQ6IDRLIiBjb250cmFjdFN0YXR1cz0iRVhUMSIgLz48L2xlYWd1ZVVuaXQ-PC9zYWxhcmllcz4\n[UPS_TWB_INTENT_END]",
+      "payload_hash": "f63162ec9ee7f547e1d0cdf483f85f5bf5b56447d7f6f46c39042159358d1f92",
+      "status": "PENDING",
+      "mfl_post_response_snip": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n\n<status>OK</status>",
+      "mfl_verify_response_snip": "",
+      "league_id": "25625",
+      "season": "2026",
+      "updated_ts": "2026-03-01T17:45:48.971Z",
+      "id": "14"
     }
   ]
 }
