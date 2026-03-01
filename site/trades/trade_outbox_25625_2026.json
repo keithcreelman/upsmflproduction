@@ -3,7 +3,7 @@
     "schema_version": 1,
     "league_id": "25625",
     "season": 2026,
-    "updated_at": "2026-03-01T12:33:30.518Z",
+    "updated_at": "2026-03-01T12:33:31.688Z",
     "row_count": 7,
     "source": "worker-trade-outbox"
   },
@@ -844,7 +844,7 @@
     },
     {
       "created_ts": "2026-03-01T12:33:30.447Z",
-      "trade_id": "",
+      "trade_id": "1044",
       "action_type": "SUBMIT",
       "from_franchise_id": "0006",
       "to_franchise_id": "0007",
@@ -969,14 +969,14 @@
         },
         "comment": "Pre-trade extension: Extend Odunze, Rome 1-year | New length 2 | New AAV 20K | New TCV 30K"
       },
-      "comment_trailer": "",
+      "comment_trailer": "[UPS_TWB_INTENT_BEGIN]\nUPS_OUTBOX_ID:7\nUPS_PAYLOAD_HASH:ffe3e35870ef1fd54988de469b44b6b477cba7ab9862f322aa74a95245a7960f\nUPS_XML_EXT:PHNhbGFyaWVzPjxsZWFndWVVbml0IHVuaXQ9IkxFQUdVRSI-PHBsYXllciBpZD0iMTY2MTYiIHNhbGFyeT0iMjAwMDAiIGNvbnRyYWN0WWVhcj0iMiIgY29udHJhY3RJbmZvPSJDTCAyfFRDViAzMEt8QUFWIDEwSywgMjBLfFkxLTEwSywgWTItMjBLfEV4dDogU0VYfEdURDogMjNLIiBjb250cmFjdFN0YXR1cz0iRVhUMSIgLz48L2xlYWd1ZVVuaXQ-PC9zYWxhcmllcz4\nUPS_XML_SALADJ:PHNhbGFyeV9hZGp1c3RtZW50cz48c2FsYXJ5X2FkanVzdG1lbnQgZnJhbmNoaXNlX2lkPSIwMDA2IiBhbW91bnQ9IjcwMDAiIGV4cGxhbmF0aW9uPSJVUFMgdHJhZGVkIHNhbGFyeSBzZXR0bGVtZW50OiBuZXQgKzdLIi8-PHNhbGFyeV9hZGp1c3RtZW50IGZyYW5jaGlzZV9pZD0iMDAwNyIgYW1vdW50PSItNzAwMCIgZXhwbGFuYXRpb249IlVQUyB0cmFkZWQgc2FsYXJ5IHNldHRsZW1lbnQ6IG5ldCAtN0siLz48L3NhbGFyeV9hZGp1c3RtZW50cz4\n[UPS_TWB_INTENT_END]",
       "payload_hash": "ffe3e35870ef1fd54988de469b44b6b477cba7ab9862f322aa74a95245a7960f",
-      "status": "PENDING",
-      "mfl_post_response_snip": "",
-      "mfl_verify_response_snip": "",
+      "status": "POSTED",
+      "mfl_post_response_snip": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n\n<status>OK</status>",
+      "mfl_verify_response_snip": "{\"ok\":true,\"matched\":true,\"match_count\":1,\"rows_count\":1,\"matched_trade_id\":\"1044\",\"upstream_status\":200}",
       "league_id": "25625",
       "season": "2026",
-      "updated_ts": "2026-03-01T12:33:30.447Z",
+      "updated_ts": "2026-03-01T12:33:31.626Z",
       "id": "7"
     }
   ]
