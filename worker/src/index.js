@@ -4108,9 +4108,8 @@ export default {
           const matched = actualRows.some((act) => {
             if (padFranchiseId(act.franchise_id) !== padFranchiseId(row.franchise_id)) return false;
             if (safeInt(act.amount, NaN) !== safeInt(row.amount, NaN)) return false;
-            const wantExp = safeStr(row.explanation);
-            if (!wantExp) return true;
-            return safeStr(act.explanation).indexOf(wantExp) !== -1;
+            // Explanation text can be rewritten by MFL; franchise+amount is the stable match key.
+            return true;
           });
           return {
             ...row,
@@ -4306,6 +4305,18 @@ export default {
             salary: safeInt(salaryByYear[String(yearNum)], 0),
           }));
 
+      const normalizeExtensionContractStatusForImport = (requestedStatus, currentStatus) => {
+        const requested = safeStr(requestedStatus).trim();
+        const current = safeStr(currentStatus).trim();
+        if (!requested) return current;
+        const upper = requested.toUpperCase();
+        // EXT* is internal UPS metadata, not a stable MFL contractStatus value.
+        if (/^EXT[0-9]*$/.test(upper) || upper === "EXT" || upper === "NONE" || upper === "N/A") {
+          return current;
+        }
+        return requested;
+      };
+
       const computeExtensionSalaryPlan = (req, current, payloadPlayer) => {
         const plan = {
           ok: false,
@@ -4339,7 +4350,10 @@ export default {
           return plan;
         }
         plan.contract_info = contractInfoText;
-        plan.contract_status = safeStr(req?.new_contract_status || current?.contractStatus);
+        plan.contract_status = normalizeExtensionContractStatusForImport(
+          req?.new_contract_status,
+          current?.contractStatus
+        );
 
         const contractLengthFromPreview = contractLengthFromInfo(contractInfoText);
 
@@ -4451,10 +4465,34 @@ export default {
         plan.diagnostics = {
           current_salary_export: safeStr(current?.salary),
           contract_year_raw: contractYearText,
+          contract_status_requested: safeStr(req?.new_contract_status),
+          contract_status_selected: safeStr(plan.contract_status),
+          contract_status_current: safeStr(current?.contractStatus),
           salary_by_year_pairs: salaryByYearToSortedPairs(salaryByYear),
           fallback_used: source === "fallback_level_load",
         };
         return plan;
+      };
+
+      const buildExtensionSalariesXmlFromRows = (rows, options = {}) => {
+        const appliedRows = Array.isArray(rows) ? rows.filter(Boolean) : [];
+        if (!appliedRows.length) return "";
+        const omitContractStatus = !!options.omit_contract_status;
+        const playersXml = appliedRows
+          .map((row) => {
+            const attrs = [
+              `id="${xmlAttrEscape(row.player_id)}"`,
+              `salary="${xmlAttrEscape(row.salary)}"`,
+              `contractYear="${xmlAttrEscape(row.contractYear)}"`,
+              `contractInfo="${xmlAttrEscape(row.contractInfo)}"`,
+            ];
+            if (!omitContractStatus && row.contractStatus) {
+              attrs.push(`contractStatus="${xmlAttrEscape(row.contractStatus)}"`);
+            }
+            return `<player ${attrs.join(" ")} />`;
+          })
+          .join("");
+        return `<salaries><leagueUnit unit="LEAGUE">${playersXml}</leagueUnit></salaries>`;
       };
 
       const buildExtensionSalariesXmlFromPayload = (payload, salariesByPlayer) => {
@@ -4514,24 +4552,12 @@ export default {
         }
 
         if (!applied.length) {
-          return { xml: "", applied, skipped };
+          return { xml: "", xml_without_status: "", applied, skipped };
         }
 
-        const playersXml = applied
-          .map((row) => {
-            const attrs = [
-              `id="${xmlAttrEscape(row.player_id)}"`,
-              `salary="${xmlAttrEscape(row.salary)}"`,
-              `contractYear="${xmlAttrEscape(row.contractYear)}"`,
-              `contractInfo="${xmlAttrEscape(row.contractInfo)}"`,
-            ];
-            if (row.contractStatus) attrs.push(`contractStatus="${xmlAttrEscape(row.contractStatus)}"`);
-            return `<player ${attrs.join(" ")} />`;
-          })
-          .join("");
-
         return {
-          xml: `<salaries><leagueUnit unit="LEAGUE">${playersXml}</leagueUnit></salaries>`,
+          xml: buildExtensionSalariesXmlFromRows(applied, { omit_contract_status: false }),
+          xml_without_status: buildExtensionSalariesXmlFromRows(applied, { omit_contract_status: true }),
           applied,
           skipped,
         };
@@ -4604,8 +4630,73 @@ export default {
         } catch (_) {
           // noop
         }
-        return {
+        let verification = {
           ok: !!importRes.requestOk,
+          reason: importRes.requestOk ? "verification_not_run" : "import_failed",
+          expected_count: rows.length,
+          matched_count: importRes.requestOk ? 0 : 0,
+          mismatched_count: importRes.requestOk ? rows.length : rows.length,
+          rows: rows.map((r) => ({ ...r, matched: false })),
+        };
+        let verifySalaryAdjRes = null;
+        if (importRes.requestOk) {
+          const sleepMs = (ms) =>
+            new Promise((resolve) => {
+              setTimeout(resolve, Math.max(0, safeInt(ms, 0)));
+            });
+          const verifyDelays = [0, 1300, 2600];
+          for (let i = 0; i < verifyDelays.length; i += 1) {
+            if (verifyDelays[i] > 0) {
+              await sleepMs(verifyDelays[i]);
+            }
+            verifySalaryAdjRes = await mflExportJson(season, leagueId, "salaryAdjustments", {}, { useCookie: true });
+            if (!verifySalaryAdjRes.ok) {
+              verification = {
+                ok: false,
+                reason: "failed_post_import_salary_adjustments_export",
+                expected_count: rows.length,
+                matched_count: 0,
+                mismatched_count: rows.length,
+                rows: rows.map((r) => ({ ...r, matched: false })),
+                attempt: i + 1,
+                upstream: {
+                  status: verifySalaryAdjRes.status,
+                  error: verifySalaryAdjRes.error,
+                  url: verifySalaryAdjRes.url,
+                  preview: verifySalaryAdjRes.textPreview,
+                },
+              };
+              continue;
+            }
+            verification = verifyExpectedSalaryAdjustmentsInExport(rows, verifySalaryAdjRes.data);
+            verification.reason = verification.ok ? "" : "expected_salary_adjustments_missing_from_export";
+            verification.attempt = i + 1;
+            if (verification.ok) break;
+          }
+          try {
+            console.log(
+              "[TWB][salaryAdj][verify]",
+              JSON.stringify({
+                timestamp_utc: new Date().toISOString(),
+                league_id: safeStr(leagueId),
+                season: safeStr(season),
+                trade_id: safeStr(tradeId),
+                verification,
+              })
+            );
+          } catch (_) {
+            // noop
+          }
+        }
+        const strictVerify = safeStr(env?.TWB_SALADJ_VERIFY_STRICT || "1") !== "0";
+        const requestOk = !!importRes.requestOk;
+        const finalOk = requestOk && (verification.ok || !strictVerify);
+        return {
+          ok: finalOk,
+          request_ok: requestOk,
+          verification_ok: !!verification.ok,
+          verification_soft_failed: requestOk && !verification.ok,
+          strict_verify: strictVerify,
           skipped: false,
           rows,
           upstreamStatus: importRes.status,
@@ -4613,7 +4704,22 @@ export default {
           targetImportUrl: importRes.targetImportUrl,
           formFields: importRes.formFields,
           dataXml,
-          error: importRes.requestOk ? "" : importRes.error || "salaryAdj import failed",
+          error: requestOk
+            ? (verification.ok ? "" : strictVerify ? "salaryAdj import verification failed" : "")
+            : importRes.error || "salaryAdj import failed",
+          reason: requestOk
+            ? (verification.ok ? "" : strictVerify ? "salary_adj_verification_failed" : "verification_pending")
+            : "salary_adj_import_failed",
+          verification,
+          post_import_salary_adjustments_export: verifySalaryAdjRes
+            ? {
+                ok: !!verifySalaryAdjRes.ok,
+                status: verifySalaryAdjRes.status,
+                url: verifySalaryAdjRes.url,
+                error: verifySalaryAdjRes.error,
+                preview: verifySalaryAdjRes.textPreview,
+              }
+            : null,
         };
       };
 
@@ -4735,7 +4841,8 @@ export default {
             extension_trigger_found: extensionTriggerFound,
           };
         }
-        const importRes = await postMflImportForm(
+        let dataXmlUsed = plan.xml;
+        let importRes = await postMflImportForm(
           season,
           {
             TYPE: "salaries",
@@ -4762,6 +4869,67 @@ export default {
         } catch (_) {
           // noop
         }
+        const verifyExtensionRows = async () => {
+          let postSalariesResLocal = null;
+          let afterSnapshotLocal = {};
+          let verificationLocal = {
+            ok: !!importRes.requestOk,
+            checked_players: 0,
+            matched_players: 0,
+            mismatched_players: 0,
+            rows: [],
+            reason: "verification_not_run",
+          };
+          if (importRes.requestOk) {
+            const sleepMs = (ms) =>
+              new Promise((resolve) => {
+                setTimeout(resolve, Math.max(0, safeInt(ms, 0)));
+              });
+            const verifyDelays = [0, 1300, 2600];
+            let verifyAttempt = 0;
+            for (verifyAttempt = 0; verifyAttempt < verifyDelays.length; verifyAttempt += 1) {
+              if (verifyDelays[verifyAttempt] > 0) {
+                await sleepMs(verifyDelays[verifyAttempt]);
+              }
+              postSalariesResLocal = await mflExportJson(season, leagueId, "salaries");
+              if (!postSalariesResLocal.ok) {
+                verificationLocal = {
+                  ok: false,
+                  checked_players: 0,
+                  matched_players: 0,
+                  mismatched_players: 0,
+                  rows: [],
+                  reason: "failed_post_import_salaries_export",
+                  attempt: verifyAttempt + 1,
+                  upstream: {
+                    status: postSalariesResLocal.status,
+                    error: postSalariesResLocal.error,
+                    url: postSalariesResLocal.url,
+                    preview: postSalariesResLocal.textPreview,
+                  },
+                };
+                continue;
+              }
+              const afterByPlayer = parseSalariesExportByPlayer(postSalariesResLocal.data);
+              afterSnapshotLocal = {};
+              for (const playerId of trackedPlayerIds.values()) {
+                afterSnapshotLocal[playerId] = normalizeSalarySnapshotRow(afterByPlayer[playerId]);
+              }
+              verificationLocal = buildExtensionPostImportVerification(
+                beforeSnapshot,
+                plan.applied,
+                afterByPlayer
+              );
+              verificationLocal.attempt = verifyAttempt + 1;
+              if (verificationLocal.ok) break;
+            }
+          }
+          return {
+            postSalariesRes: postSalariesResLocal,
+            afterSnapshot: afterSnapshotLocal,
+            verification: verificationLocal,
+          };
+        };
         let postSalariesRes = null;
         let afterSnapshot = {};
         let verification = {
@@ -4773,64 +4941,71 @@ export default {
           reason: "verification_not_run",
         };
         if (importRes.requestOk) {
-          const sleepMs = (ms) =>
-            new Promise((resolve) => {
-              setTimeout(resolve, Math.max(0, safeInt(ms, 0)));
-            });
-          const verifyDelays = [0, 1300, 2600];
-          let verifyAttempt = 0;
-          for (verifyAttempt = 0; verifyAttempt < verifyDelays.length; verifyAttempt += 1) {
-            if (verifyDelays[verifyAttempt] > 0) {
-              await sleepMs(verifyDelays[verifyAttempt]);
-            }
-            postSalariesRes = await mflExportJson(season, leagueId, "salaries");
-            if (!postSalariesRes.ok) {
-              verification = {
-                ok: false,
-                checked_players: 0,
-                matched_players: 0,
-                mismatched_players: 0,
-                rows: [],
-                reason: "failed_post_import_salaries_export",
-                attempt: verifyAttempt + 1,
-                upstream: {
-                  status: postSalariesRes.status,
-                  error: postSalariesRes.error,
-                  url: postSalariesRes.url,
-                  preview: postSalariesRes.textPreview,
-                },
-              };
-              continue;
-            }
-            const afterByPlayer = parseSalariesExportByPlayer(postSalariesRes.data);
-            afterSnapshot = {};
-            for (const playerId of trackedPlayerIds.values()) {
-              afterSnapshot[playerId] = normalizeSalarySnapshotRow(afterByPlayer[playerId]);
-            }
-            verification = buildExtensionPostImportVerification(
-              beforeSnapshot,
-              plan.applied,
-              afterByPlayer
-            );
-            verification.attempt = verifyAttempt + 1;
-            if (verification.ok) break;
-          }
+          const primaryVerify = await verifyExtensionRows();
+          postSalariesRes = primaryVerify.postSalariesRes;
+          afterSnapshot = primaryVerify.afterSnapshot;
+          verification = primaryVerify.verification;
+        }
+        let statuslessRetryUsed = false;
+        if (
+          importRes.requestOk &&
+          !verification.ok &&
+          plan.xml_without_status &&
+          plan.xml_without_status !== plan.xml
+        ) {
+          const retryRes = await postMflImportForm(
+            season,
+            {
+              TYPE: "salaries",
+              L: leagueId,
+              APPEND: "1",
+              DATA: plan.xml_without_status,
+            },
+            { TYPE: "salaries", L: leagueId, APPEND: "1" }
+          );
           try {
             console.log(
-              "[TWB][extensions][verify]",
+              "[TWB][extensions][retry_without_status]",
               JSON.stringify({
                 trade_id: tradeId,
                 timestamp_utc: new Date().toISOString(),
                 league_id: safeStr(leagueId),
                 season: safeStr(season),
-                verification,
+                post_url: retryRes.targetImportUrl,
+                post_status: safeInt(retryRes.status, 0),
+                post_response_excerpt: safeStr(retryRes.upstreamPreview).slice(0, 600),
+                ok: !!retryRes.requestOk,
               })
             );
           } catch (_) {
             // noop
           }
+          if (retryRes.requestOk) {
+            statuslessRetryUsed = true;
+            dataXmlUsed = plan.xml_without_status;
+            importRes = retryRes;
+            const retryVerify = await verifyExtensionRows();
+            postSalariesRes = retryVerify.postSalariesRes;
+            afterSnapshot = retryVerify.afterSnapshot;
+            verification = retryVerify.verification;
+          }
         }
-        const strictVerifyMode = safeStr(env?.TWB_EXT_VERIFY_STRICT || "0") === "1";
+        try {
+          console.log(
+            "[TWB][extensions][verify]",
+            JSON.stringify({
+              trade_id: tradeId,
+              timestamp_utc: new Date().toISOString(),
+              league_id: safeStr(leagueId),
+              season: safeStr(season),
+              statusless_retry_used: statuslessRetryUsed,
+              verification,
+            })
+          );
+        } catch (_) {
+          // noop
+        }
+        const strictVerifyMode = safeStr(env?.TWB_EXT_VERIFY_STRICT || "1") !== "0";
         const requestOk = !!importRes.requestOk;
         const verificationOk = !!verification.ok;
         const verificationSoftFailed = requestOk && !verificationOk;
@@ -4844,7 +5019,7 @@ export default {
           skipped: false,
           applied: plan.applied,
           skipped_rows: plan.skipped.concat(preparationSkipped),
-          dataXml: plan.xml,
+          dataXml: dataXmlUsed,
           upstreamStatus: importRes.status,
           upstreamPreview: importRes.upstreamPreview,
           targetImportUrl: importRes.targetImportUrl,
