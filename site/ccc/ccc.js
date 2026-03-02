@@ -4336,6 +4336,7 @@
       selectedSubmissionId: "",
       detailsOpen: false,
       currentPayload: null,
+      actionFilter: "all",
     },
   };
 
@@ -4389,11 +4390,11 @@
 
   function getActionTypeOptions() {
     return [
-      { type: "extend", label: "Extend Player", module: "expiredrookie", disabled: false },
-      { type: "restructure", label: "Restructure Player", module: "restructure", disabled: false },
-      { type: "mym", label: "MYM", module: "mym", disabled: false },
       { type: "tag", label: "Tag Player", module: "tag", disabled: false },
+      { type: "extend", label: "Extend Player", module: "extensions", disabled: false },
+      { type: "restructure", label: "Restructure", module: "restructure", disabled: false },
       { type: "auction", label: "Auction Contract", module: "auction", disabled: true },
+      { type: "mym", label: "MYM", module: "mym", disabled: false },
     ];
   }
 
@@ -4638,6 +4639,33 @@
     }
   }
 
+  function getActionCardDesc(type) {
+    if (type === "extend") return "Add years to an eligible player's contract.";
+    if (type === "restructure") return "Redistribute salary across remaining years.";
+    if (type === "mym") return "Offer a mid-year multi-year contract.";
+    if (type === "tag") return "Apply a franchise tag to retain a player.";
+    if (type === "auction") return "Coming soon.";
+    return "";
+  }
+
+  function getPlayerMetaForAction(actionType, row) {
+    const pos = safeStr(posKeyFromRow(row));
+    const team = safeStr(row.franchise_name || `Franchise ${pad4(row.franchise_id)}`);
+    if (actionType === "tag") {
+      const tagCost = safeInt(row.tag_bid || row.tag_salary || 0);
+      return { pos, line: `${team} · Tag Cost: ${tagCost.toLocaleString()}` };
+    }
+    if (actionType === "restructure") {
+      return { pos, line: `${team} · Salary: ${safeInt(row.salary).toLocaleString()} · ${safeInt(row.contract_year)}yr` };
+    }
+    if (actionType === "mym") {
+      return { pos, line: `${team} · TCV: ${safeInt(row.salary).toLocaleString()} · ${safeInt(row.contract_year)}yr` };
+    }
+    // extend
+    const aav = safeInt(row.salary);
+    return { pos, line: `${team} · AAV: ${aav.toLocaleString()} · ${safeInt(row.contract_year)}yr` };
+  }
+
   function renderActionPanel(viewModel) {
     const actionType = normalizeActionType(
       state.actionFlow.actionType || (viewModel && viewModel.defaultActionType) || "extend"
@@ -4651,16 +4679,19 @@
     const currentReceipt = state.actionFlow.lastReceipt || null;
     const selectedTerm = safeStr(state.actionFlow.selectedTerm || "");
 
-    const actionButtons = options
+    /* Step 1 — Action Dropdown (single selector) */
+    const actionDropdownOptions = options
       .map((opt) => {
-        const active = opt.type === actionType;
+        const selected = opt.type === actionType;
         const disabled = !!opt.disabled;
-        return `<button type="button" class="ccc-flowActionBtn${active ? " is-active" : ""}" data-action-flow-set-action="${htmlEsc(
-          opt.type
-        )}"${disabled ? " disabled" : ""}>${htmlEsc(opt.label)}</button>`;
+        const suffix = disabled ? " (Coming Soon)" : "";
+        return `<option value="${htmlEsc(opt.type)}"${selected ? " selected" : ""}${disabled ? " disabled" : ""}>${htmlEsc(opt.label)}${suffix}</option>`;
       })
       .join("");
+    const actionDropdownHint = getActionCardDesc(actionType);
 
+    /* Step 2 — Player List with inline search */
+    const searchVal = safeStr(state.search || "");
     const playerRows = candidates.length
       ? candidates
           .slice(0, 60)
@@ -4668,33 +4699,31 @@
             const isSelected =
               safeStr(r.player_id) === safeStr(state.actionFlow.selectedPlayerId) &&
               pad4(r.franchise_id) === pad4(state.actionFlow.selectedFranchiseId);
+            const meta = getPlayerMetaForAction(actionType, r);
             return `
               <button type="button" class="ccc-flowPlayerBtn${isSelected ? " is-active" : ""}"
                 data-action-flow-select-player="1"
                 data-player-id="${htmlEsc(r.player_id)}"
                 data-franchise-id="${htmlEsc(pad4(r.franchise_id))}">
                 <span class="name">${htmlEsc(r.player_name || "")}</span>
-                <span class="meta">${htmlEsc(
-                  `${safeStr(posKeyFromRow(r))} · ${safeInt(r.salary).toLocaleString()} · ${safeStr(
-                    r.franchise_name || `Franchise ${pad4(r.franchise_id)}`
-                  )}`
-                )}</span>
+                <span class="meta"><span class="ccc-posPill">${htmlEsc(meta.pos)}</span> ${htmlEsc(meta.line)}</span>
               </button>
             `;
           })
           .join("")
       : `<div class="ccc-flowEmpty">No eligible players for this action with current filters.</div>`;
 
+    /* Step 3 — Configure Terms */
     let configureBlock = `<div class="ccc-flowMuted">No extra configuration required.</div>`;
     if (actionType === "extend" || actionType === "mym") {
       const terms = actionType === "extend"
         ? [
-            { key: "1YR", label: "1-Year" },
-            { key: "2YR", label: "2-Year" },
+            { key: "1YR", label: "1-Year Extension" },
+            { key: "2YR", label: "2-Year Extension" },
           ]
         : [
-            { key: "2YR", label: "2-Year" },
-            { key: "3YR", label: "3-Year" },
+            { key: "2YR", label: "2-Year (MYM-2)" },
+            { key: "3YR", label: "3-Year (MYM-3)" },
           ];
       configureBlock = `
         <div class="ccc-flowTermRow">
@@ -4709,40 +4738,54 @@
         </div>
       `;
     } else if (actionType === "restructure") {
-      configureBlock = `<div class="ccc-flowMuted">Restructure values are set in the configure modal before submit.</div>`;
+      configureBlock = `<div class="ccc-flowMuted">Select a player, then submit to open the restructure configurator.</div>`;
     } else if (actionType === "tag") {
-      configureBlock = `<div class="ccc-flowMuted">Tag submission opens the review modal for confirmation.</div>`;
-    } else if (actionType === "auction") {
-      configureBlock = `<div class="ccc-flowMuted">Auction contract flow is not available yet.</div>`;
+      configureBlock = `<div class="ccc-flowMuted">Tag cost is system-calculated. Submit to confirm.</div>`;
     }
 
+    /* Step 4 — Review & Submit (Before/After 2-column) */
     const currentList = preview.current.length
       ? `<ul class="ccc-flowList">${preview.current.map((line) => `<li>${htmlEsc(line)}</li>`).join("")}</ul>`
-      : `<div class="ccc-flowMuted">No current contract snapshot.</div>`;
+      : `<div class="ccc-flowMuted">Select a player to see contract details.</div>`;
     const proposedList = preview.proposed.length
       ? `<ul class="ccc-flowList">${preview.proposed.map((line) => `<li>${htmlEsc(line)}</li>`).join("")}</ul>`
-      : `<div class="ccc-flowMuted">No proposed snapshot yet.</div>`;
+      : `<div class="ccc-flowMuted">Proposed contract will appear here.</div>`;
     const changesList = preview.changes.length
       ? `<ul class="ccc-flowList">${preview.changes.map((line) => `<li>${htmlEsc(line)}</li>`).join("")}</ul>`
-      : `<div class="ccc-flowMuted">No changes computed yet.</div>`;
+      : "";
+
+    const isSubmitDisabled = !selectedRow || !preview.submitEnabled || state.actionFlow.busy || actionType === "auction";
+
+    const receiptBlock = currentReceipt
+      ? (statusClass === "submitted"
+        ? `<div class="ccc-successCard"><div class="ccc-flowReceipt">Receipt: ${htmlEsc(currentReceipt)}</div></div>`
+        : `<div class="ccc-flowReceipt">Receipt: ${htmlEsc(currentReceipt)}</div>`)
+      : "";
 
     return `
       <div class="ccc-modeCard ccc-modeCard-action">
-        <div class="ccc-modeTitle">Action Mode</div>
-        <div class="ccc-modeSub">Choose action, pick player, configure terms, review, and submit.</div>
+        <div class="ccc-modeTitle">Action</div>
+        <div class="ccc-modeSub">Select an action, choose a player, configure terms, and submit.</div>
 
         <section class="ccc-flowSection">
           <div class="ccc-flowTitle">1. Choose Action</div>
-          <div class="ccc-flowActionRow">${actionButtons}</div>
+          <div class="ccc-actionDropdownWrap">
+            <select class="ccc-actionDropdown" data-action-flow-dropdown="1">${actionDropdownOptions}</select>
+            <p class="ccc-actionDropdownHint">${htmlEsc(actionDropdownHint)}</p>
+          </div>
         </section>
 
         <section class="ccc-flowSection">
-          <div class="ccc-flowTitle">2. Pick Player</div>
+          <div class="ccc-flowTitle">2. Select Player</div>
+          <div class="ccc-flowSearch">
+            <input class="ccc-input" type="text" placeholder="Search players..." value="${htmlEsc(searchVal)}"
+              data-action-flow-search="1" />
+          </div>
           <div class="ccc-flowPlayerList">${playerRows}</div>
         </section>
 
         <section class="ccc-flowSection">
-          <div class="ccc-flowTitle">3. Configure Terms</div>
+          <div class="ccc-flowTitle">3. Configure</div>
           ${configureBlock}
         </section>
 
@@ -4756,31 +4799,21 @@
           </div>
           <div class="ccc-flowPreviewGrid">
             <div class="ccc-flowPreviewCol">
-              <div class="ccc-flowPreviewTitle">Current Contract</div>
+              <div class="ccc-flowPreviewTitle">Current</div>
               ${currentList}
             </div>
             <div class="ccc-flowPreviewCol">
-              <div class="ccc-flowPreviewTitle">Proposed Contract</div>
+              <div class="ccc-flowPreviewTitle">Proposed</div>
               ${proposedList}
             </div>
-            <div class="ccc-flowPreviewCol">
-              <div class="ccc-flowPreviewTitle">What Changes</div>
-              ${changesList}
-            </div>
           </div>
-          <div class="ccc-flowActions">
-            <button type="button" class="ccc-pageBtn" data-action-flow-back="1"${selectedRow ? "" : " disabled"}>Back</button>
-            <button type="button" class="ccc-btn" data-action-flow-submit="1"${
-              !selectedRow || !preview.submitEnabled || state.actionFlow.busy || actionType === "auction"
-                ? " disabled"
-                : ""
+          ${changesList ? `<div class="ccc-flowChanges"><div class="ccc-flowPreviewTitle">What Changes</div>${changesList}</div>` : ""}
+          <div class="ccc-flowActions" style="margin-top:0.55rem;">
+            <button type="button" class="ccc-submitBtn" data-action-flow-submit="1"${
+              isSubmitDisabled ? " disabled" : ""
             }>${htmlEsc(state.actionFlow.busy ? "Submitting..." : preview.submitLabel)}</button>
           </div>
-          ${
-            currentReceipt
-              ? `<div class="ccc-flowReceipt">Receipt: ${htmlEsc(currentReceipt)}</div>`
-              : ""
-          }
+          ${receiptBlock}
         </section>
       </div>
     `;
@@ -4814,24 +4847,62 @@
       .sort((a, b) => (parseDate(b.submitted_at_utc) || new Date(0)) - (parseDate(a.submitted_at_utc) || new Date(0)));
   }
 
+  function getAllSubmissionRows(season) {
+    const s = normalizeSeasonValue(season || state.selectedSeason);
+    const tagRows = Object.values(state.tagSubmissions || {}).filter(
+      (r) => normalizeSeasonValue(r.season) === s
+    );
+    const extRows = Object.values(state.extensionSubmissions || {}).filter(
+      (r) => normalizeSeasonValue(r && r.season) === s
+    );
+    const rstRows = (state.restructureSubmissions || []).filter(
+      (r) => normalizeSeasonValue(r.season) === s
+    );
+    const mymRows = (state.payload.submissions || []).filter(
+      (r) => normalizeSeasonValue(r.season) === s
+    );
+    return [].concat(tagRows, extRows, rstRows, mymRows);
+  }
+
   function renderReportsPanel(viewModel) {
     const allRows = normalizeReportsRows(
       (viewModel && viewModel.allSubmissionRows) || (viewModel && viewModel.submittedRows) || []
     );
-    if (!safeStr(state.reportsView.selectedSubmissionId) && allRows.length) {
-      state.reportsView.selectedSubmissionId = safeStr(allRows[0].id);
-    }
-    const selected = allRows.find((r) => safeStr(r.id) === safeStr(state.reportsView.selectedSubmissionId)) || allRows[0] || null;
-    state.reportsView.currentPayload = selected ? selected.raw : null;
-    const listHtml = allRows.length
+
+    /* Action-type filter */
+    const filterKey = safeStr(state.reportsView.actionFilter || "all");
+    const filteredRows = filterKey === "all"
       ? allRows
+      : allRows.filter((r) => r.action === filterKey);
+
+    if (!safeStr(state.reportsView.selectedSubmissionId) && filteredRows.length) {
+      state.reportsView.selectedSubmissionId = safeStr(filteredRows[0].id);
+    }
+    const selected = filteredRows.find((r) => safeStr(r.id) === safeStr(state.reportsView.selectedSubmissionId)) || filteredRows[0] || null;
+    state.reportsView.currentPayload = selected ? selected.raw : null;
+
+    /* Filter pills */
+    const filterOptions = [
+      { key: "all", label: "All Actions" },
+      { key: "Tag", label: "Tags" },
+      { key: "Extend", label: "Extensions" },
+      { key: "Restructure", label: "Restructures" },
+      { key: "Auction", label: "Auction" },
+      { key: "MYM", label: "MYM" },
+    ];
+    const filterPills = filterOptions
+      .map((f) => `<button type="button" class="ccc-reportFilterPill${filterKey === f.key ? " is-active" : ""}" data-report-action-filter="${htmlEsc(f.key)}">${htmlEsc(f.label)}</button>`)
+      .join("");
+
+    const listHtml = filteredRows.length
+      ? filteredRows
           .slice(0, 25)
           .map((r) => {
             const when = formatSubmittedValue(r.submitted_at_utc);
             const active = selected && safeStr(selected.id) === safeStr(r.id);
             return `
               <button type="button" class="ccc-reportRow${active ? " is-active" : ""}" data-report-select="${htmlEsc(r.id)}">
-                <span class="top">${htmlEsc(`${r.action} · ${r.player_name}`)}</span>
+                <span class="top"><span class="ccc-actionPill">${htmlEsc(r.action)}</span>${htmlEsc(r.player_name)}</span>
                 <span class="meta">${htmlEsc(
                   `${r.franchise_name || `Franchise ${r.franchise_id}`} · ${when.date || "N/A"} ${when.time || ""}`
                 )}</span>
@@ -4839,7 +4910,7 @@
             `;
           })
           .join("")
-      : `<div class="ccc-flowEmpty">No submissions yet.</div>`;
+      : `<div class="ccc-flowEmpty">No submissions for this filter.</div>`;
 
     const health = (viewModel && viewModel.health) || {};
     const detailsRows = selected
@@ -4848,7 +4919,7 @@
           <div><span>Action</span><strong>${htmlEsc(selected.action)}</strong></div>
           <div><span>Player</span><strong>${htmlEsc(selected.player_name)}</strong></div>
           <div><span>Team</span><strong>${htmlEsc(selected.franchise_name || `Franchise ${selected.franchise_id}`)}</strong></div>
-          <div><span>Pos</span><strong>${htmlEsc(selected.position || "—")}</strong></div>
+          <div><span>Position</span><strong>${htmlEsc(selected.position || "—")}</strong></div>
           <div><span>Salary</span><strong>${safeInt(selected.salary).toLocaleString()}</strong></div>
           <div><span>Years</span><strong>${safeInt(selected.contract_year)}</strong></div>
           <div><span>Status</span><strong>${htmlEsc(selected.contract_status || "—")}</strong></div>
@@ -4864,17 +4935,20 @@
 
     return `
       <div class="ccc-modeCard ccc-modeCard-reports">
-        <div class="ccc-modeTitle">Reports Mode</div>
-        <div class="ccc-modeSub">Recent submissions, detailed diagnostics, and roster health.</div>
+        <div class="ccc-modeTitle">Reports & Audit</div>
+        <div class="ccc-modeSub">Historical submissions, diagnostics, and roster health.</div>
+
+        <div class="ccc-reportFilterRow">${filterPills}</div>
+
         <div class="ccc-modeGrid">
-          <div class="ccc-modeStat"><div class="label">Recent Submissions</div><div class="value">${safeInt(
-            allRows.length
+          <div class="ccc-modeStat"><div class="label">Submissions</div><div class="value">${safeInt(
+            filteredRows.length
           )}</div></div>
-          <div class="ccc-modeStat"><div class="label">Eligible Players</div><div class="value">${safeInt(
+          <div class="ccc-modeStat"><div class="label">Eligible</div><div class="value">${safeInt(
             health.eligibleCount || 0
           )}</div></div>
           <div class="ccc-modeStat"><div class="label">Last Refresh</div><div class="value">${htmlEsc(
-            safeStr(health.lastRefresh || "Unknown")
+            safeStr(health.lastRefresh || "—")
           )}</div></div>
           <div class="ccc-modeStat"><div class="label">Health</div><div class="value">${htmlEsc(
             safeStr(health.healthLabel || "Live")
@@ -4882,36 +4956,41 @@
         </div>
 
         <div class="ccc-reportsGrid">
-          <section class="ccc-flowSection">
-            <div class="ccc-flowTitle">Recent Submissions</div>
-            <div class="ccc-reportList">${listHtml}</div>
-          </section>
-          <section class="ccc-flowSection">
-            <div class="ccc-flowTitle">Submission Details</div>
-            ${detailsRows}
-          </section>
-          <section class="ccc-flowSection">
-            <div class="ccc-flowTitle">Roster / Eligibility Health</div>
-            <div class="ccc-reportHealth">
-              <div>Eligible Extensions: <strong>${safeInt(health.eligibleExtensions || 0)}</strong></div>
-              <div>Eligible Restructures: <strong>${safeInt(health.eligibleRestructures || 0)}</strong></div>
-              <div>Teams in Scope: <strong>${safeInt(health.teamCount || 0)}</strong></div>
-            </div>
-            <div class="ccc-flowActions">
-              <button type="button" class="ccc-pageBtn" data-report-refresh="1">Refresh Data</button>
-            </div>
-          </section>
-          <section class="ccc-flowSection">
-            <div class="ccc-flowTitle">Audit Export</div>
-            <div class="ccc-flowActions">
-              <button type="button" class="ccc-pageBtn" data-report-copy="1"${
-                selected ? "" : " disabled"
-              }>Copy Receipt</button>
-              <button type="button" class="ccc-pageBtn" data-report-download="1"${
-                selected ? "" : " disabled"
-              }>Download JSON</button>
-            </div>
-          </section>
+          <div class="ccc-reportsColumns">
+            <section class="ccc-flowSection">
+              <div class="ccc-flowTitle">Recent Submissions</div>
+              <div class="ccc-reportList">${listHtml}</div>
+            </section>
+            <section class="ccc-flowSection">
+              <div class="ccc-flowTitle">Submission Details</div>
+              ${detailsRows}
+            </section>
+          </div>
+
+          <div class="ccc-reportsColumns">
+            <section class="ccc-flowSection">
+              <div class="ccc-flowTitle">Roster Health</div>
+              <div class="ccc-reportHealth">
+                <div>Eligible Extensions: <strong>${safeInt(health.eligibleExtensions || 0)}</strong></div>
+                <div>Eligible Restructures: <strong>${safeInt(health.eligibleRestructures || 0)}</strong></div>
+                <div>Teams in Scope: <strong>${safeInt(health.teamCount || 0)}</strong></div>
+              </div>
+              <div class="ccc-flowActions" style="margin-top:0.55rem;">
+                <button type="button" class="ccc-pageBtn" data-report-refresh="1">Refresh Data</button>
+              </div>
+            </section>
+            <section class="ccc-flowSection ccc-auditCard">
+              <div class="ccc-flowTitle">Audit Export</div>
+              <div class="ccc-flowActions">
+                <button type="button" class="ccc-pageBtn" data-report-copy="1"${
+                  selected ? "" : " disabled"
+                }>Copy Receipt</button>
+                <button type="button" class="ccc-pageBtn" data-report-download="1"${
+                  selected ? "" : " disabled"
+                }>Download JSON</button>
+              </div>
+            </section>
+          </div>
         </div>
       </div>
     `;
@@ -4928,12 +5007,16 @@
     const tabSubmitted = $("#tabSubmitted");
     const actionPanel = $("#cccActionPanel");
     const reportsPanel = $("#cccReportsPanel");
+    const moduleFilters = $("#moduleFilters");
     const model = viewModel || {};
 
     if (actionPanel) actionPanel.style.display = mode === "action" ? "" : "none";
     if (reportsPanel) reportsPanel.style.display = mode === "reports" ? "" : "none";
     if (actionPanel && mode === "action") actionPanel.innerHTML = renderActionPanel(model);
     if (reportsPanel && mode === "reports") reportsPanel.innerHTML = renderReportsPanel(model);
+
+    /* Hide global filters in action mode — search is now inline */
+    if (moduleFilters) moduleFilters.style.display = mode === "action" ? "none" : "";
 
     if (mode === "action") {
       if (cccTabs) cccTabs.style.display = "none";
@@ -4967,7 +5050,7 @@
     if (key === "mym") return "mym";
     if (key === "tag") return "tag";
     if (key === "auction") return "auction";
-    return "expiredrookie";
+    return "extensions";
   }
 
   function setActionFlowStatus(status, message, receipt) {
@@ -6688,9 +6771,7 @@
         submittedRows: Object.values(state.tagSubmissions || {}).filter(
           (r) => normalizeSeasonValue(r.season) === season
         ),
-        allSubmissionRows: Object.values(state.tagSubmissions || {}).filter(
-          (r) => normalizeSeasonValue(r.season) === season
-        ),
+        allSubmissionRows: getAllSubmissionRows(season),
         health: {
           eligibleCount: safeInt(tagRows.length),
           eligibleExtensions: safeInt(tagEligibleRows.length),
@@ -6755,9 +6836,7 @@
         submittedRows: Object.values(state.extensionSubmissions || {}).filter(
           (r) => normalizeSeasonValue(r && r.season) === season
         ),
-        allSubmissionRows: Object.values(state.extensionSubmissions || {}).filter(
-          (r) => normalizeSeasonValue(r && r.season) === season
-        ),
+        allSubmissionRows: getAllSubmissionRows(season),
         health: {
           eligibleCount: safeInt(sortedExtensionRows.length),
           eligibleExtensions: safeInt(sortedExtensionRows.length),
@@ -6838,9 +6917,7 @@
         submittedRows: Object.values(state.extensionSubmissions || {}).filter(
           (r) => normalizeSeasonValue(r && r.season) === season
         ),
-        allSubmissionRows: Object.values(state.extensionSubmissions || {}).filter(
-          (r) => normalizeSeasonValue(r && r.season) === season
-        ),
+        allSubmissionRows: getAllSubmissionRows(season),
         health: {
           eligibleCount: safeInt(filtered.length),
           eligibleExtensions: safeInt(filtered.length),
@@ -6967,10 +7044,7 @@
       season,
       eligibleRows,
       submittedRows: submittedRowsRaw,
-      allSubmissionRows:
-        state.activeModule === "restructure"
-          ? (seasonRestructureSubmissions || []).slice()
-          : (seasonMymSubmissions || []).slice(),
+      allSubmissionRows: getAllSubmissionRows(season),
       health: {
         eligibleCount: safeInt(eligibleRows.length),
         eligibleExtensions: safeInt(scopedEligibility.filter((r) => canExtendRow(r)).length),
@@ -8453,6 +8527,14 @@
       resetAllTablePages();
       setTab("eligible");
 
+      /* Action-first: auto-select default module if none set */
+      if (!state.activeModule) {
+        const defaultAction = normalizeActionType(state.actionFlow.actionType || "extend");
+        const defaultModule = moduleForActionType(defaultAction);
+        state.activeModule = defaultModule;
+        state.actionFlow.actionType = defaultAction;
+      }
+
       // default sort per tab
       sortState.tab = "eligible";
       if (state.activeModule === "tag") {
@@ -8888,6 +8970,81 @@
       },
       true
     );
+
+    /* Inline search handler for Action mode player search */
+    (function () {
+      var searchTimeout = null;
+      document.addEventListener("input", function (e) {
+        var input = e.target && e.target.closest ? e.target.closest("[data-action-flow-search='1']") : null;
+        if (!input) return;
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(function () {
+          state.search = safeStr(input.value).trim();
+          render();
+        }, 200);
+      }, true);
+    })();
+
+    /* Action dropdown change handler */
+    document.addEventListener(
+      "change",
+      (e) => {
+        const dropdown =
+          e.target && e.target.closest ? e.target.closest("[data-action-flow-dropdown='1']") : null;
+        if (!dropdown) return;
+        const nextType = normalizeActionType(dropdown.value);
+        state.actionFlow.actionType = nextType;
+        state.actionFlow.selectedPlayerId = "";
+        state.actionFlow.selectedFranchiseId = "";
+        state.actionFlow.lastReceipt = null;
+        state.actionFlow.status = "draft";
+        state.actionFlow.statusMessage = "";
+        const targetModule = moduleForActionType(nextType);
+        if (targetModule && targetModule !== "auction" && state.activeModule !== targetModule) {
+          switchModule(targetModule);
+          resetAllTablePages();
+          setTab("eligible");
+        }
+        render();
+      },
+      true
+    );
+
+    /* Reports Action Type filter pill click */
+    document.addEventListener(
+      "click",
+      (e) => {
+        const pill =
+          e.target && e.target.closest ? e.target.closest("[data-report-action-filter]") : null;
+        if (!pill) return;
+        state.reportsView.actionFilter = safeStr(pill.getAttribute("data-report-action-filter") || "all");
+        state.reportsView.selectedSubmissionId = "";
+        render();
+      },
+      true
+    );
+
+    /* Hero utility links — Settings + Expired Rookie Draft */
+    const cccSettingsLink = $("#cccSettingsLink");
+    if (cccSettingsLink)
+      cccSettingsLink.addEventListener("click", () => {
+        switchModule("commish");
+        resetAllTablePages();
+        setTab("eligible");
+        render();
+      });
+
+    const cccExpiredRookieLink = $("#cccExpiredRookieLink");
+    if (cccExpiredRookieLink)
+      cccExpiredRookieLink.addEventListener("click", () => {
+        switchModule("expiredrookie");
+        sortState.tab = "eligible";
+        sortState.key = "team";
+        sortState.dir = "asc";
+        resetAllTablePages();
+        setTab("eligible");
+        render();
+      });
 
     document.addEventListener(
       "click",
