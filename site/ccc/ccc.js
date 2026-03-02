@@ -4322,6 +4322,21 @@
     restructureSubmissionSeason: "",
     filtersByModule: {},
     primaryMode: "action",
+    actionFlow: {
+      actionType: "extend",
+      selectedPlayerId: "",
+      selectedFranchiseId: "",
+      selectedTerm: "",
+      status: "draft",
+      statusMessage: "",
+      lastReceipt: null,
+      busy: false,
+    },
+    reportsView: {
+      selectedSubmissionId: "",
+      detailsOpen: false,
+      currentPayload: null,
+    },
   };
 
   function primaryModeStorageKey() {
@@ -4353,54 +4368,556 @@
     );
   }
 
-  function renderActionPanel(moduleLabel, eligibleCount) {
-    return `
-      <div class="ccc-modeCard">
-        <div class="ccc-modeTitle">Action Mode</div>
-        <div class="ccc-modeSub">Fast path: choose action, pick player, configure terms, then submit.</div>
-        <div class="ccc-modeGrid">
-          <div class="ccc-modeStat"><div class="label">Action</div><div class="value">${htmlEsc(moduleLabel)}</div></div>
-          <div class="ccc-modeStat"><div class="label">Status</div><div class="value">Draft</div></div>
-          <div class="ccc-modeStat"><div class="label">Eligible Players</div><div class="value">${safeInt(eligibleCount)}</div></div>
-          <div class="ccc-modeStat"><div class="label">Primary CTA</div><div class="value">Submit</div></div>
-        </div>
-      </div>
-    `;
+  function getModuleLabel(moduleKey) {
+    const key = safeStr(moduleKey || state.activeModule).toLowerCase();
+    if (key === "tag") return "Tags";
+    if (key === "restructure") return "Restructure";
+    if (key === "extensions") return "Extensions";
+    if (key === "expiredrookie") return "Expired Rookie Draft";
+    if (key === "commish") return "Settings";
+    return "MYM";
   }
 
-  function renderReportsPanel(submittedRows) {
-    const rows = (submittedRows || [])
-      .slice()
-      .sort((a, b) => (parseDate(b.submitted_at_utc) || new Date(0)) - (parseDate(a.submitted_at_utc) || new Date(0)))
-      .slice(0, 5);
-    const recent = rows.length
-      ? rows
+  function normalizeActionType(v) {
+    const key = safeStr(v).toLowerCase();
+    if (key === "restructure") return "restructure";
+    if (key === "mym") return "mym";
+    if (key === "tag") return "tag";
+    if (key === "auction") return "auction";
+    return "extend";
+  }
+
+  function getActionTypeOptions() {
+    return [
+      { type: "extend", label: "Extend Player", module: "expiredrookie", disabled: false },
+      { type: "restructure", label: "Restructure Player", module: "restructure", disabled: false },
+      { type: "mym", label: "MYM", module: "mym", disabled: false },
+      { type: "tag", label: "Tag Player", module: "tag", disabled: false },
+      { type: "auction", label: "Auction Contract", module: "auction", disabled: true },
+    ];
+  }
+
+  function getRowsForCurrentFilters(rows) {
+    let out = Array.isArray(rows) ? rows.slice() : [];
+    const selectedTeamId = pad4(state.selectedTeam);
+    const selectedPosition = safeStr(state.selectedPosition || "__ALL_POS__");
+    const searchLower = safeStr(state.search || "").trim().toLowerCase();
+    if (!state.showAllTeams && selectedTeamId) {
+      out = out.filter((r) => pad4(r.franchise_id) === selectedTeamId);
+    }
+    if (selectedPosition && selectedPosition !== "__ALL_POS__") {
+      out = out.filter((r) => posKeyFromRow(r) === selectedPosition);
+    }
+    if (searchLower) {
+      out = out.filter((r) => safeStr(r.player_name).toLowerCase().includes(searchLower));
+    }
+    return out;
+  }
+
+  function getActionCandidates(viewModel) {
+    function sortCandidates(rows) {
+      return (rows || [])
+        .slice()
+        .sort((a, b) => {
+          const teamA = safeStr(a.franchise_name || a.franchise_id).toLowerCase();
+          const teamB = safeStr(b.franchise_name || b.franchise_id).toLowerCase();
+          if (teamA !== teamB) return teamA.localeCompare(teamB);
+          return safeStr(a.player_name).toLowerCase().localeCompare(safeStr(b.player_name).toLowerCase());
+        });
+    }
+    const actionType = normalizeActionType(state.actionFlow.actionType);
+    const season = normalizeSeasonValue((viewModel && viewModel.season) || state.selectedSeason);
+    const seasonRows = getRowsForCurrentFilters(
+      (state.payload.eligibility || []).filter(
+        (r) => normalizeSeasonValue(r.season) === season
+      )
+    );
+    const nowRef = state.calendarNow || getEffectiveNow(season);
+    const baseSeason = state.calendarBaseSeason || getBaseSeasonValue(season);
+    if (actionType === "restructure") {
+      const usageByTeam = computeSubmissionUsageByTeam(
+        (state.restructureSubmissions || []).filter(
+          (r) => normalizeSeasonValue(r.season) === season
+        )
+      );
+      const activeNow = state.commishMode || isRestructureActiveForSeason(baseSeason, nowRef);
+      return sortCandidates(seasonRows.filter((r) => {
+        if (!canRestructureRow(r)) return false;
+        if (!activeNow) return false;
+        const fid = pad4(r.franchise_id);
+        return (usageByTeam.get(fid) || 0) < RESTRUCTURE_CAP_PER_TEAM;
+      }));
+    }
+    if (actionType === "mym") {
+      const activeNow = state.commishMode || isMymActiveForSeason(baseSeason, nowRef);
+      if (!activeNow) return [];
+      return sortCandidates(seasonRows.filter((r) => safeInt(r._eligibleEffective) === 1));
+    }
+    if (actionType === "tag") {
+      const tagSeason = normalizeSeasonValue((viewModel && viewModel.tagSeason) || season);
+      const tagRows = getRowsForCurrentFilters(
+        (state.tagTrackingRows || []).filter((r) => normalizeSeasonValue(r.season) === tagSeason)
+      );
+      return sortCandidates(tagRows.filter((r) => safeInt(r.is_tag_eligible) === 1));
+    }
+    if (actionType === "extend") {
+      return sortCandidates(seasonRows.filter((r) => canExtendRow(r)));
+    }
+    return [];
+  }
+
+  function findActionSelectedRow(candidates) {
+    const pid = safeStr(state.actionFlow.selectedPlayerId);
+    const fid = pad4(state.actionFlow.selectedFranchiseId);
+    if (!pid) return null;
+    return (
+      (candidates || []).find(
+        (r) => safeStr(r.player_id) === pid && pad4(r.franchise_id) === fid
+      ) || null
+    );
+  }
+
+  function formatActionStatus() {
+    const status = safeStr(state.actionFlow.status || "draft").toLowerCase();
+    if (status === "submitted") return "Submitted";
+    if (status === "failed") return "Failed";
+    if (status === "ready") return "Ready to submit";
+    if (status === "busy") return "Submitting";
+    return "Draft";
+  }
+
+  function buildActionPreview(actionType, row) {
+    if (!row) {
+      return {
+        current: [],
+        proposed: [],
+        changes: [],
+        submitEnabled: false,
+        submitLabel: "Submit",
+        statusHint: "Pick a player to continue.",
+      };
+    }
+    if (actionType === "mym") {
+      const years = safeStr(state.actionFlow.selectedTerm || "2YR") === "3YR" ? 3 : 2;
+      const calc = buildContractInfo(safeInt(row.salary), years);
+      return {
+        current: [
+          `Salary: ${safeInt(row.salary).toLocaleString()}`,
+          `Years Remaining: ${safeInt(row.contract_year)}`,
+          `Status: ${safeStr(row.contract_status || "")}`,
+          `Contract: ${safeStr(row.contract_info || "—")}`,
+        ],
+        proposed: [
+          `Salary (Y1): ${safeInt(row.salary).toLocaleString()}`,
+          `Years Remaining: ${calc.years}`,
+          `Status: ${rookieLike(row.contract_status) ? "MYM - Rookie" : "MYM - Vet"}`,
+          `Contract: ${calc.contractInfo}`,
+        ],
+        changes: [
+          `New contract length: ${calc.years}`,
+          `TCV: ${safeInt(calc.tcv).toLocaleString()} | AAV: ${safeInt(calc.aav).toLocaleString()}`,
+          `Guaranteed: ${safeInt(calc.gtd).toLocaleString()}`,
+        ],
+        submitEnabled: true,
+        submitLabel: "Submit",
+        statusHint: "Ready to submit contract.",
+      };
+    }
+    if (actionType === "restructure") {
+      const years = safeInt(row.contract_year) >= 3 ? 3 : 2;
+      const parsed = parseContractAmounts(row.contract_info, years, safeInt(row.salary) || 1000);
+      const tcv = Math.max(years * 1000, parsed.tcv);
+      const y1 = Math.max(1000, parsed.y1 || safeInt(row.salary) || 1000);
+      const y2 = years === 3 ? Math.max(1000, parsed.y2 || safeInt(row.salary) || 1000) : Math.max(1000, parsed.y2 || tcv - y1);
+      const calc = calcRestructureOffer(years, tcv, y1, y2, extractExtSuffix(row.contract_info));
+      return {
+        current: [
+          `Salary: ${safeInt(row.salary).toLocaleString()}`,
+          `Years Remaining: ${safeInt(row.contract_year)}`,
+          `Status: ${safeStr(row.contract_status || "")}`,
+          `Contract: ${safeStr(row.contract_info || "—")}`,
+        ],
+        proposed: calc && calc.ok
+          ? [
+              `Salary (Y1): ${safeInt(calc.y1).toLocaleString()}`,
+              `Years Remaining: ${safeInt(calc.years)}`,
+              `Status: ${safeStr(row.contract_status || "")}`,
+              `Contract: ${safeStr(calc.contractInfo || "—")}`,
+            ]
+          : ["Use Configure to set Year 1/Year 2 values."],
+        changes: [
+          "Restructure requires final input review.",
+          "Submit opens the full restructure configurator.",
+        ],
+        submitEnabled: true,
+        submitLabel: "Open Configure",
+        statusHint: "Configure terms, then submit.",
+      };
+    }
+    if (actionType === "tag") {
+      const tagSalary = safeInt(row.tag_bid || row.tag_salary || 0);
+      return {
+        current: [
+          `Current Salary: ${safeInt(row.salary).toLocaleString()}`,
+          `Position: ${safeStr(posKeyFromRow(row))}`,
+          `Team: ${safeStr(row.franchise_name || row.franchise_id)}`,
+        ],
+        proposed: [
+          `Tag Salary: ${tagSalary.toLocaleString()}`,
+          `Contract Year: 1`,
+          `Status: Tag`,
+        ],
+        changes: [
+          `Tier: ${safeInt(row.tag_tier || 0) || "—"}`,
+          `Formula: ${safeStr(row.tag_formula || "—")}`,
+        ],
+        submitEnabled: true,
+        submitLabel: "Open Configure",
+        statusHint: "Open tag modal to finalize.",
+      };
+    }
+    // extend
+    const yearsToAdd = safeStr(state.actionFlow.selectedTerm || "1YR") === "2YR" ? 2 : 1;
+    const preview = buildExtensionPreview(row, yearsToAdd, null);
+    const payload = preview && preview.payload ? preview.payload : {};
+    return {
+      current: [
+        `Salary: ${safeInt(row.salary).toLocaleString()}`,
+        `Years Remaining: ${safeInt(row.contract_year)}`,
+        `Status: ${safeStr(row.contract_status || "")}`,
+        `Contract: ${safeStr(row.contract_info || "—")}`,
+      ],
+      proposed: [
+        `Salary: ${safeInt(payload.salary).toLocaleString()}`,
+        `Years Remaining: ${safeInt(payload.contract_year)}`,
+        `Status: ${safeStr(payload.contract_status || "EXT")}`,
+        `Contract: ${safeStr(payload.contract_info || "—")}`,
+      ],
+      changes: (preview && preview.lines ? preview.lines.slice(0, 4) : []).map((line) => safeStr(line)),
+      submitEnabled: true,
+      submitLabel: "Submit",
+      statusHint: "Ready to submit extension.",
+    };
+  }
+
+  function ensureActionFlowDefaults(actionType, candidates) {
+    const normalizedType = normalizeActionType(actionType);
+    state.actionFlow.actionType = normalizedType;
+    if (
+      normalizedType === "mym" &&
+      (safeStr(state.actionFlow.selectedTerm) !== "2YR" &&
+        safeStr(state.actionFlow.selectedTerm) !== "3YR")
+    ) {
+      state.actionFlow.selectedTerm = "2YR";
+    } else if (
+      normalizedType === "extend" &&
+      (safeStr(state.actionFlow.selectedTerm) !== "1YR" &&
+        safeStr(state.actionFlow.selectedTerm) !== "2YR")
+    ) {
+      state.actionFlow.selectedTerm = "1YR";
+    } else if (normalizedType !== "mym" && normalizedType !== "extend") {
+      state.actionFlow.selectedTerm = "";
+    }
+    const selected = findActionSelectedRow(candidates);
+    if (!selected) {
+      state.actionFlow.selectedPlayerId = "";
+      state.actionFlow.selectedFranchiseId = "";
+      if (!state.actionFlow.busy && state.actionFlow.status !== "failed") {
+        state.actionFlow.status = "draft";
+        if (!safeStr(state.actionFlow.statusMessage)) {
+          state.actionFlow.statusMessage = "Choose a player to continue.";
+        }
+      }
+    } else if (
+      !state.actionFlow.busy &&
+      state.actionFlow.status !== "submitted" &&
+      state.actionFlow.status !== "failed"
+    ) {
+      state.actionFlow.status = "ready";
+      state.actionFlow.statusMessage = "Ready to submit.";
+    }
+  }
+
+  function renderActionPanel(viewModel) {
+    const actionType = normalizeActionType(
+      state.actionFlow.actionType || (viewModel && viewModel.defaultActionType) || "extend"
+    );
+    const options = getActionTypeOptions();
+    const candidates = getActionCandidates(viewModel || {});
+    ensureActionFlowDefaults(actionType, candidates);
+    const selectedRow = findActionSelectedRow(candidates);
+    const preview = buildActionPreview(actionType, selectedRow);
+    const statusClass = safeStr(state.actionFlow.status || "draft").toLowerCase();
+    const currentReceipt = state.actionFlow.lastReceipt || null;
+    const selectedTerm = safeStr(state.actionFlow.selectedTerm || "");
+
+    const actionButtons = options
+      .map((opt) => {
+        const active = opt.type === actionType;
+        const disabled = !!opt.disabled;
+        return `<button type="button" class="ccc-flowActionBtn${active ? " is-active" : ""}" data-action-flow-set-action="${htmlEsc(
+          opt.type
+        )}"${disabled ? " disabled" : ""}>${htmlEsc(opt.label)}</button>`;
+      })
+      .join("");
+
+    const playerRows = candidates.length
+      ? candidates
+          .slice(0, 60)
           .map((r) => {
-            const when = formatSubmittedValue(r.submitted_at_utc);
-            return `<div class="ccc-recentRow"><span>${htmlEsc(r.player_name || "Player")} · ${htmlEsc(
-              r.franchise_name || `Franchise ${pad4(r.franchise_id)}`
-            )}</span><span>${htmlEsc(when.date || "")}</span></div>`;
+            const isSelected =
+              safeStr(r.player_id) === safeStr(state.actionFlow.selectedPlayerId) &&
+              pad4(r.franchise_id) === pad4(state.actionFlow.selectedFranchiseId);
+            return `
+              <button type="button" class="ccc-flowPlayerBtn${isSelected ? " is-active" : ""}"
+                data-action-flow-select-player="1"
+                data-player-id="${htmlEsc(r.player_id)}"
+                data-franchise-id="${htmlEsc(pad4(r.franchise_id))}">
+                <span class="name">${htmlEsc(r.player_name || "")}</span>
+                <span class="meta">${htmlEsc(
+                  `${safeStr(posKeyFromRow(r))} · ${safeInt(r.salary).toLocaleString()} · ${safeStr(
+                    r.franchise_name || `Franchise ${pad4(r.franchise_id)}`
+                  )}`
+                )}</span>
+              </button>
+            `;
           })
           .join("")
-      : `<div class="ccc-recentRow"><span>No submissions yet.</span><span>—</span></div>`;
-    return `
-      <div class="ccc-modeCard">
-        <div class="ccc-modeTitle">Reports Mode</div>
-        <div class="ccc-modeSub">Diagnostics and audit details are separated from action flow.</div>
-        <div class="ccc-modeGrid">
-          <div class="ccc-modeStat"><div class="label">Recent Submissions</div><div class="value">${safeInt(
-            submittedRows.length
-          )}</div></div>
-          <div class="ccc-modeStat"><div class="label">Details Available</div><div class="value">Payload + Eligibility</div></div>
-          <div class="ccc-modeStat"><div class="label">Audit</div><div class="value">Copy / Export</div></div>
-          <div class="ccc-modeStat"><div class="label">Health</div><div class="value">Live</div></div>
+      : `<div class="ccc-flowEmpty">No eligible players for this action with current filters.</div>`;
+
+    let configureBlock = `<div class="ccc-flowMuted">No extra configuration required.</div>`;
+    if (actionType === "extend" || actionType === "mym") {
+      const terms = actionType === "extend"
+        ? [
+            { key: "1YR", label: "1-Year" },
+            { key: "2YR", label: "2-Year" },
+          ]
+        : [
+            { key: "2YR", label: "2-Year" },
+            { key: "3YR", label: "3-Year" },
+          ];
+      configureBlock = `
+        <div class="ccc-flowTermRow">
+          ${terms
+            .map(
+              (term) =>
+                `<button type="button" class="ccc-flowTermBtn${selectedTerm === term.key ? " is-active" : ""}" data-action-flow-term="${htmlEsc(
+                  term.key
+                )}">${htmlEsc(term.label)}</button>`
+            )
+            .join("")}
         </div>
-        <div class="ccc-recentList">${recent}</div>
+      `;
+    } else if (actionType === "restructure") {
+      configureBlock = `<div class="ccc-flowMuted">Restructure values are set in the configure modal before submit.</div>`;
+    } else if (actionType === "tag") {
+      configureBlock = `<div class="ccc-flowMuted">Tag submission opens the review modal for confirmation.</div>`;
+    } else if (actionType === "auction") {
+      configureBlock = `<div class="ccc-flowMuted">Auction contract flow is not available yet.</div>`;
+    }
+
+    const currentList = preview.current.length
+      ? `<ul class="ccc-flowList">${preview.current.map((line) => `<li>${htmlEsc(line)}</li>`).join("")}</ul>`
+      : `<div class="ccc-flowMuted">No current contract snapshot.</div>`;
+    const proposedList = preview.proposed.length
+      ? `<ul class="ccc-flowList">${preview.proposed.map((line) => `<li>${htmlEsc(line)}</li>`).join("")}</ul>`
+      : `<div class="ccc-flowMuted">No proposed snapshot yet.</div>`;
+    const changesList = preview.changes.length
+      ? `<ul class="ccc-flowList">${preview.changes.map((line) => `<li>${htmlEsc(line)}</li>`).join("")}</ul>`
+      : `<div class="ccc-flowMuted">No changes computed yet.</div>`;
+
+    return `
+      <div class="ccc-modeCard ccc-modeCard-action">
+        <div class="ccc-modeTitle">Action Mode</div>
+        <div class="ccc-modeSub">Choose action, pick player, configure terms, review, and submit.</div>
+
+        <section class="ccc-flowSection">
+          <div class="ccc-flowTitle">1. Choose Action</div>
+          <div class="ccc-flowActionRow">${actionButtons}</div>
+        </section>
+
+        <section class="ccc-flowSection">
+          <div class="ccc-flowTitle">2. Pick Player</div>
+          <div class="ccc-flowPlayerList">${playerRows}</div>
+        </section>
+
+        <section class="ccc-flowSection">
+          <div class="ccc-flowTitle">3. Configure Terms</div>
+          ${configureBlock}
+        </section>
+
+        <section class="ccc-flowSection ccc-flowPreviewSection">
+          <div class="ccc-flowTitle">4. Review & Submit</div>
+          <div class="ccc-flowStatusRow">
+            <span class="ccc-statusPill ccc-status-${htmlEsc(statusClass)}">${htmlEsc(formatActionStatus())}</span>
+            <span class="ccc-flowHint">${htmlEsc(
+              safeStr(state.actionFlow.statusMessage || preview.statusHint || "")
+            )}</span>
+          </div>
+          <div class="ccc-flowPreviewGrid">
+            <div class="ccc-flowPreviewCol">
+              <div class="ccc-flowPreviewTitle">Current Contract</div>
+              ${currentList}
+            </div>
+            <div class="ccc-flowPreviewCol">
+              <div class="ccc-flowPreviewTitle">Proposed Contract</div>
+              ${proposedList}
+            </div>
+            <div class="ccc-flowPreviewCol">
+              <div class="ccc-flowPreviewTitle">What Changes</div>
+              ${changesList}
+            </div>
+          </div>
+          <div class="ccc-flowActions">
+            <button type="button" class="ccc-pageBtn" data-action-flow-back="1"${selectedRow ? "" : " disabled"}>Back</button>
+            <button type="button" class="ccc-btn" data-action-flow-submit="1"${
+              !selectedRow || !preview.submitEnabled || state.actionFlow.busy || actionType === "auction"
+                ? " disabled"
+                : ""
+            }>${htmlEsc(state.actionFlow.busy ? "Submitting..." : preview.submitLabel)}</button>
+          </div>
+          ${
+            currentReceipt
+              ? `<div class="ccc-flowReceipt">Receipt: ${htmlEsc(currentReceipt)}</div>`
+              : ""
+          }
+        </section>
       </div>
     `;
   }
 
-  function applyPrimaryModeLayout(submittedRows) {
+  function toSubmissionActionLabel(row) {
+    const source = safeStr(row.source || "").toLowerCase();
+    if (source.includes("restructure")) return "Restructure";
+    if (safeStr(row.extension_term || row.years_to_add || "").trim()) return "Extend";
+    if (source.includes("tag") || safeStr(row.tag_formula || "").trim()) return "Tag";
+    return "MYM";
+  }
+
+  function normalizeReportsRows(rows) {
+    return (rows || [])
+      .map((r) => ({
+        id: safeStr(r.submission_id || `${safeStr(r.player_id)}-${safeStr(r.submitted_at_utc || "")}`),
+        action: toSubmissionActionLabel(r),
+        submitted_at_utc: safeStr(r.submitted_at_utc || ""),
+        player_name: safeStr(r.player_name || ""),
+        franchise_name: safeStr(r.franchise_name || (r.franchise_id ? `Franchise ${pad4(r.franchise_id)}` : "")),
+        franchise_id: pad4(r.franchise_id),
+        position: safeStr(r.position || r.pos || ""),
+        salary: safeInt(r.salary),
+        contract_year: safeInt(r.contract_year),
+        contract_status: safeStr(r.contract_status || ""),
+        contract_info: safeStr(r.contract_info || ""),
+        payload: r.payload || null,
+        raw: r,
+      }))
+      .sort((a, b) => (parseDate(b.submitted_at_utc) || new Date(0)) - (parseDate(a.submitted_at_utc) || new Date(0)));
+  }
+
+  function renderReportsPanel(viewModel) {
+    const allRows = normalizeReportsRows(
+      (viewModel && viewModel.allSubmissionRows) || (viewModel && viewModel.submittedRows) || []
+    );
+    if (!safeStr(state.reportsView.selectedSubmissionId) && allRows.length) {
+      state.reportsView.selectedSubmissionId = safeStr(allRows[0].id);
+    }
+    const selected = allRows.find((r) => safeStr(r.id) === safeStr(state.reportsView.selectedSubmissionId)) || allRows[0] || null;
+    state.reportsView.currentPayload = selected ? selected.raw : null;
+    const listHtml = allRows.length
+      ? allRows
+          .slice(0, 25)
+          .map((r) => {
+            const when = formatSubmittedValue(r.submitted_at_utc);
+            const active = selected && safeStr(selected.id) === safeStr(r.id);
+            return `
+              <button type="button" class="ccc-reportRow${active ? " is-active" : ""}" data-report-select="${htmlEsc(r.id)}">
+                <span class="top">${htmlEsc(`${r.action} · ${r.player_name}`)}</span>
+                <span class="meta">${htmlEsc(
+                  `${r.franchise_name || `Franchise ${r.franchise_id}`} · ${when.date || "N/A"} ${when.time || ""}`
+                )}</span>
+              </button>
+            `;
+          })
+          .join("")
+      : `<div class="ccc-flowEmpty">No submissions yet.</div>`;
+
+    const health = (viewModel && viewModel.health) || {};
+    const detailsRows = selected
+      ? `
+        <div class="ccc-reportDetailsGrid">
+          <div><span>Action</span><strong>${htmlEsc(selected.action)}</strong></div>
+          <div><span>Player</span><strong>${htmlEsc(selected.player_name)}</strong></div>
+          <div><span>Team</span><strong>${htmlEsc(selected.franchise_name || `Franchise ${selected.franchise_id}`)}</strong></div>
+          <div><span>Pos</span><strong>${htmlEsc(selected.position || "—")}</strong></div>
+          <div><span>Salary</span><strong>${safeInt(selected.salary).toLocaleString()}</strong></div>
+          <div><span>Years</span><strong>${safeInt(selected.contract_year)}</strong></div>
+          <div><span>Status</span><strong>${htmlEsc(selected.contract_status || "—")}</strong></div>
+          <div><span>Submitted</span><strong>${htmlEsc(selected.submitted_at_utc || "—")}</strong></div>
+        </div>
+        <div class="ccc-reportContractInfo">${htmlEsc(selected.contract_info || "No contract info provided.")}</div>
+        <details class="ccc-reportPayload">
+          <summary>Submission Payload</summary>
+          <pre>${htmlEsc(JSON.stringify(selected.raw || {}, null, 2))}</pre>
+        </details>
+      `
+      : `<div class="ccc-flowEmpty">Select a submission to inspect details.</div>`;
+
+    return `
+      <div class="ccc-modeCard ccc-modeCard-reports">
+        <div class="ccc-modeTitle">Reports Mode</div>
+        <div class="ccc-modeSub">Recent submissions, detailed diagnostics, and roster health.</div>
+        <div class="ccc-modeGrid">
+          <div class="ccc-modeStat"><div class="label">Recent Submissions</div><div class="value">${safeInt(
+            allRows.length
+          )}</div></div>
+          <div class="ccc-modeStat"><div class="label">Eligible Players</div><div class="value">${safeInt(
+            health.eligibleCount || 0
+          )}</div></div>
+          <div class="ccc-modeStat"><div class="label">Last Refresh</div><div class="value">${htmlEsc(
+            safeStr(health.lastRefresh || "Unknown")
+          )}</div></div>
+          <div class="ccc-modeStat"><div class="label">Health</div><div class="value">${htmlEsc(
+            safeStr(health.healthLabel || "Live")
+          )}</div></div>
+        </div>
+
+        <div class="ccc-reportsGrid">
+          <section class="ccc-flowSection">
+            <div class="ccc-flowTitle">Recent Submissions</div>
+            <div class="ccc-reportList">${listHtml}</div>
+          </section>
+          <section class="ccc-flowSection">
+            <div class="ccc-flowTitle">Submission Details</div>
+            ${detailsRows}
+          </section>
+          <section class="ccc-flowSection">
+            <div class="ccc-flowTitle">Roster / Eligibility Health</div>
+            <div class="ccc-reportHealth">
+              <div>Eligible Extensions: <strong>${safeInt(health.eligibleExtensions || 0)}</strong></div>
+              <div>Eligible Restructures: <strong>${safeInt(health.eligibleRestructures || 0)}</strong></div>
+              <div>Teams in Scope: <strong>${safeInt(health.teamCount || 0)}</strong></div>
+            </div>
+            <div class="ccc-flowActions">
+              <button type="button" class="ccc-pageBtn" data-report-refresh="1">Refresh Data</button>
+            </div>
+          </section>
+          <section class="ccc-flowSection">
+            <div class="ccc-flowTitle">Audit Export</div>
+            <div class="ccc-flowActions">
+              <button type="button" class="ccc-pageBtn" data-report-copy="1"${
+                selected ? "" : " disabled"
+              }>Copy Receipt</button>
+              <button type="button" class="ccc-pageBtn" data-report-download="1"${
+                selected ? "" : " disabled"
+              }>Download JSON</button>
+            </div>
+          </section>
+        </div>
+      </div>
+    `;
+  }
+
+  function applyPrimaryModeLayout(viewModel) {
     const mode = state.primaryMode === "reports" ? "reports" : "action";
     const cccTabs = $("#cccTabs");
     const summary = $("#summary");
@@ -4411,19 +4928,19 @@
     const tabSubmitted = $("#tabSubmitted");
     const actionPanel = $("#cccActionPanel");
     const reportsPanel = $("#cccReportsPanel");
-    const moduleLabel = getModuleLabel();
+    const model = viewModel || {};
 
     if (actionPanel) actionPanel.style.display = mode === "action" ? "" : "none";
     if (reportsPanel) reportsPanel.style.display = mode === "reports" ? "" : "none";
-    if (actionPanel && mode === "action") actionPanel.innerHTML = renderActionPanel(moduleLabel, (tabEligible && tabEligible.querySelectorAll("tbody tr").length) || 0);
-    if (reportsPanel && mode === "reports") reportsPanel.innerHTML = renderReportsPanel(submittedRows || []);
+    if (actionPanel && mode === "action") actionPanel.innerHTML = renderActionPanel(model);
+    if (reportsPanel && mode === "reports") reportsPanel.innerHTML = renderReportsPanel(model);
 
     if (mode === "action") {
       if (cccTabs) cccTabs.style.display = "none";
-      if (summary) summary.style.display = "";
+      if (summary) summary.style.display = "none";
       if (tabSummary) tabSummary.style.display = "none";
       if (tabCostCalc) tabCostCalc.style.display = "none";
-      if (tabEligible) tabEligible.style.display = "";
+      if (tabEligible) tabEligible.style.display = "none";
       if (tabIneligible) tabIneligible.style.display = "none";
       if (tabSubmitted) tabSubmitted.style.display = "none";
       state.activeTab = "eligible";
@@ -4432,6 +4949,160 @@
       if (summary) summary.style.display = "none";
       if (state.activeTab === "eligible") state.activeTab = "submitted";
       setTab(state.activeTab || "submitted");
+    }
+  }
+
+  function actionTypeForModule(moduleKey) {
+    const key = safeStr(moduleKey || "").toLowerCase();
+    if (key === "restructure") return "restructure";
+    if (key === "mym") return "mym";
+    if (key === "tag") return "tag";
+    if (key === "extensions" || key === "expiredrookie") return "extend";
+    return normalizeActionType(state.actionFlow.actionType || "extend");
+  }
+
+  function moduleForActionType(actionType) {
+    const key = normalizeActionType(actionType);
+    if (key === "restructure") return "restructure";
+    if (key === "mym") return "mym";
+    if (key === "tag") return "tag";
+    if (key === "auction") return "auction";
+    return "expiredrookie";
+  }
+
+  function setActionFlowStatus(status, message, receipt) {
+    state.actionFlow.status = safeStr(status || "draft").toLowerCase();
+    state.actionFlow.statusMessage = safeStr(message || "");
+    if (receipt) state.actionFlow.lastReceipt = safeStr(receipt);
+  }
+
+  function ensureExtensionSelectionForAction(row, yearsToAdd) {
+    const season = normalizeSeasonValue(row.season || state.selectedSeason || getYear() || DEFAULT_YEAR);
+    const fid = pad4(row.franchise_id);
+    const pid = safeStr(row.player_id);
+    const key = buildExtensionSelectionKey(season, fid, pid);
+    const existing = state.extensionSelections[key] || {};
+    state.extensionSelections[key] = {
+      league_id: safeStr(getLeagueId() || DEFAULT_LEAGUE_ID),
+      season,
+      franchise_id: fid,
+      franchise_name: safeStr(row.franchise_name || fid),
+      player_id: pid,
+      player_name: safeStr(row.player_name),
+      pos: posKeyFromRow(row),
+      years_to_add: Math.max(1, Math.min(2, safeInt(yearsToAdd) || 1)),
+      row_snapshot: {
+        season,
+        franchise_id: fid,
+        franchise_name: safeStr(row.franchise_name || fid),
+        player_id: pid,
+        player_name: safeStr(row.player_name),
+        positional_grouping: safeStr(row.positional_grouping || row.position),
+        position: safeStr(row.position || row.positional_grouping),
+        salary: safeInt(row.salary),
+        contract_year: safeInt(row.contract_year),
+        contract_status: safeStr(row.contract_status),
+        contract_info: safeStr(row.contract_info),
+        acquired_date: safeStr(row.acquired_date),
+        mym_deadline: safeStr(row.mym_deadline),
+        mym_acq_type: safeStr(row.mym_acq_type),
+      },
+      at: Date.now(),
+      source: safeStr(existing.source || "action_mode"),
+    };
+    saveExtensionSelections(state.extensionSelections);
+    return key;
+  }
+
+  async function runActionFlowSubmit() {
+    if (state.actionFlow.busy) return;
+    const actionType = normalizeActionType(state.actionFlow.actionType);
+    const candidates = getActionCandidates({ season: normalizeSeasonValue(state.selectedSeason) });
+    const row = findActionSelectedRow(candidates);
+    if (!row) {
+      setActionFlowStatus("failed", "Select a player before submitting.");
+      render();
+      return;
+    }
+
+    state.actionFlow.busy = true;
+    setActionFlowStatus("busy", "Submitting...");
+    render();
+
+    try {
+      if (actionType === "mym") {
+        const before = safeInt((state.payload.submissions || []).length);
+        mymModalState.row = row;
+        mymModalState.years = safeStr(state.actionFlow.selectedTerm || "2YR") === "3YR" ? 3 : 2;
+        await submitMYMContract();
+        const after = safeInt((state.payload.submissions || []).length);
+        if (after > before) {
+          setActionFlowStatus(
+            "submitted",
+            "Contract submitted successfully.",
+            `${safeStr(row.player_name)} · MYM`
+          );
+        } else {
+          setActionFlowStatus("failed", "Submit did not complete. Review details and try again.");
+        }
+      } else if (actionType === "extend") {
+        const yearsToAdd = safeStr(state.actionFlow.selectedTerm || "1YR") === "2YR" ? 2 : 1;
+        const key = ensureExtensionSelectionForAction(row, yearsToAdd);
+        const beforeAt = safeStr(
+          state.extensionSubmissions[key] && state.extensionSubmissions[key].submitted_at_utc
+        );
+        extensionModalState.key = key;
+        extensionModalState.yearsToAdd = yearsToAdd;
+        submitExtensionSelection();
+        const afterAt = safeStr(
+          state.extensionSubmissions[key] && state.extensionSubmissions[key].submitted_at_utc
+        );
+        if (afterAt && afterAt !== beforeAt) {
+          setActionFlowStatus(
+            "submitted",
+            "Extension submitted successfully.",
+            `${safeStr(row.player_name)} · ${yearsToAdd}YR`
+          );
+        } else {
+          setActionFlowStatus(
+            "failed",
+            "Extension submission failed validation. Open details in Reports."
+          );
+        }
+      } else if (actionType === "restructure") {
+        openRestructureModal(row);
+        setActionFlowStatus("ready", "Configure values in the modal, then submit restructure.");
+      } else if (actionType === "tag") {
+        const season = normalizeSeasonValue(state.selectedSeason || getYear() || DEFAULT_YEAR);
+        const fid = pad4(row.franchise_id);
+        const pos = safeStr(posKeyFromRow(row));
+        const side = ["QB", "RB", "WR", "TE", "K", "PK", "P"].includes(pos) ? "OFFENSE" : "DEFENSE";
+        const key = buildTagSelectionKey(season, fid, side);
+        state.tagSelections[key] = {
+          league_id: safeStr(getLeagueId() || DEFAULT_LEAGUE_ID),
+          season,
+          franchise_id: fid,
+          franchise_name: safeStr(row.franchise_name || fid),
+          player_id: safeStr(row.player_id),
+          player_name: safeStr(row.player_name),
+          pos,
+          side,
+          at: Date.now(),
+        };
+        saveTagSelections(state.tagSelections);
+        openTagModal(key);
+        setActionFlowStatus("ready", "Tag modal opened. Confirm to finalize.");
+      } else {
+        setActionFlowStatus("failed", "Auction contract flow is not available yet.");
+      }
+    } catch (e) {
+      setActionFlowStatus(
+        "failed",
+        safeStr(e && e.message ? e.message : "Submit failed.")
+      );
+    } finally {
+      state.actionFlow.busy = false;
+      render();
     }
   }
 
@@ -4508,6 +5179,15 @@
     }
     setHighlightForModule(state.activeModule || "default");
     applyFiltersForModule(state.activeModule || "default");
+    if (state.activeModule) {
+      state.actionFlow.actionType = actionTypeForModule(state.activeModule);
+      state.actionFlow.selectedPlayerId = "";
+      state.actionFlow.selectedFranchiseId = "";
+      state.actionFlow.status = "draft";
+      state.actionFlow.statusMessage = "";
+      state.actionFlow.lastReceipt = null;
+      state.reportsView.selectedSubmissionId = "";
+    }
   }
 
   function normalizeSeasonValue(v) {
@@ -5364,7 +6044,6 @@
       }
       if (state.activeModule === "extensions") {
         if (summaryTab) summaryTab.style.display = "none";
-        if (submittedTab) submittedTab.style.display = "none";
       }
       if (state.activeModule === "restructure" || state.activeModule === "mym") {
         if (summaryTab) summaryTab.style.display = "none";
@@ -5696,6 +6375,7 @@
     const cccError = $("#cccError");
     const cccMain = $("#cccMain");
     const cccTabs = $("#cccTabs");
+    const cccPrimaryTabs = $("#cccPrimaryTabs");
     const cccMeta = $("#cccMeta");
     const summary = $("#summary");
     const tabSummary = $("#tabSummary");
@@ -5703,6 +6383,8 @@
     const tabEligible = $("#tabEligible");
     const tabIneligible = $("#tabIneligible");
     const tabSubmitted = $("#tabSubmitted");
+    const actionPanel = $("#cccActionPanel");
+    const reportsPanel = $("#cccReportsPanel");
 
     if (cccError) cccError.textContent = "";
 
@@ -5997,7 +6679,29 @@
       if (tabEligible) tabEligible.innerHTML = renderTable(tagRows, "eligible");
       if (tabIneligible) tabIneligible.innerHTML = renderTagIneligibleList(tagIneligibleRows);
       if (tabSubmitted) tabSubmitted.innerHTML = renderTagFinalizedSubmissionsPage(season);
-      applyPrimaryModeLayout((state.tagSubmissions || []).filter((r) => normalizeSeasonValue(r.season) === season));
+      applyPrimaryModeLayout({
+        moduleLabel: getModuleLabel("tag"),
+        defaultActionType: "tag",
+        season,
+        tagSeason: tagTrackingFilterSeason || season,
+        eligibleRows: tagRows,
+        submittedRows: Object.values(state.tagSubmissions || {}).filter(
+          (r) => normalizeSeasonValue(r.season) === season
+        ),
+        allSubmissionRows: Object.values(state.tagSubmissions || {}).filter(
+          (r) => normalizeSeasonValue(r.season) === season
+        ),
+        health: {
+          eligibleCount: safeInt(tagRows.length),
+          eligibleExtensions: safeInt(tagEligibleRows.length),
+          eligibleRestructures: 0,
+          teamCount: new Set(
+            (seasonTagTracking || []).map((r) => pad4(r.franchise_id)).filter(Boolean)
+          ).size,
+          lastRefresh: safeStr((state.payload.meta && state.payload.meta.built) || ""),
+          healthLabel: "Tracking",
+        },
+      });
       updateModuleStatusChips();
       return;
     }
@@ -6032,20 +6736,38 @@
         summary.style.display = "none";
         summary.innerHTML = "";
       }
-      const comingSoon = `
-        <div class="ccc-comingSoon">
-          <div class="ccc-comingSoonTitle">Extensions - Coming Soon</div>
-          <div class="ccc-comingSoonBody">
-            Extension workflows are being rebuilt in this release. Use the Expired Rookie Draft module for now.
-          </div>
-        </div>
-      `;
+      const extensionRows = scopedEligibility.filter((r) => canExtendRow(r));
+      const sortedExtensionRows = sortRows(
+        extensionRows,
+        sortState.tab === "eligible" ? sortState.key : "deadline",
+        sortState.tab === "eligible" ? sortState.dir : "asc"
+      );
       if (tabSummary) tabSummary.innerHTML = "";
       if (tabCostCalc) tabCostCalc.innerHTML = "";
-      if (tabEligible) tabEligible.innerHTML = comingSoon;
+      if (tabEligible) tabEligible.innerHTML = renderExtensionsTable(sortedExtensionRows, "eligible");
       if (tabIneligible) tabIneligible.innerHTML = "";
-      if (tabSubmitted) tabSubmitted.innerHTML = "";
-      applyPrimaryModeLayout([]);
+      if (tabSubmitted) tabSubmitted.innerHTML = renderExtensionsSubmittedPage(season);
+      applyPrimaryModeLayout({
+        moduleLabel: getModuleLabel("extensions"),
+        defaultActionType: "extend",
+        season,
+        eligibleRows: sortedExtensionRows,
+        submittedRows: Object.values(state.extensionSubmissions || {}).filter(
+          (r) => normalizeSeasonValue(r && r.season) === season
+        ),
+        allSubmissionRows: Object.values(state.extensionSubmissions || {}).filter(
+          (r) => normalizeSeasonValue(r && r.season) === season
+        ),
+        health: {
+          eligibleCount: safeInt(sortedExtensionRows.length),
+          eligibleExtensions: safeInt(sortedExtensionRows.length),
+          eligibleRestructures: 0,
+          teamCount: new Set(sortedExtensionRows.map((r) => pad4(r.franchise_id)).filter(Boolean))
+            .size,
+          lastRefresh: safeStr((state.payload.meta && state.payload.meta.built) || ""),
+          healthLabel: "Live",
+        },
+      });
       updateModuleStatusChips();
       return;
     }
@@ -6108,7 +6830,26 @@
         });
       if (tabIneligible) tabIneligible.innerHTML = "";
       if (tabSubmitted) tabSubmitted.innerHTML = "";
-      applyPrimaryModeLayout([]);
+      applyPrimaryModeLayout({
+        moduleLabel: getModuleLabel("expiredrookie"),
+        defaultActionType: "extend",
+        season,
+        eligibleRows: filtered,
+        submittedRows: Object.values(state.extensionSubmissions || {}).filter(
+          (r) => normalizeSeasonValue(r && r.season) === season
+        ),
+        allSubmissionRows: Object.values(state.extensionSubmissions || {}).filter(
+          (r) => normalizeSeasonValue(r && r.season) === season
+        ),
+        health: {
+          eligibleCount: safeInt(filtered.length),
+          eligibleExtensions: safeInt(filtered.length),
+          eligibleRestructures: 0,
+          teamCount: new Set(filtered.map((r) => pad4(r.franchise_id)).filter(Boolean)).size,
+          lastRefresh: safeStr((state.payload.meta && state.payload.meta.built) || ""),
+          healthLabel: "Live",
+        },
+      });
       updateModuleStatusChips();
       return;
     }
@@ -6220,7 +6961,27 @@
         tabSubmitted.innerHTML = renderTable(submittedRows, "submitted");
       }
     }
-    applyPrimaryModeLayout(submittedRowsRaw);
+    applyPrimaryModeLayout({
+      moduleLabel: getModuleLabel(state.activeModule),
+      defaultActionType: actionTypeForModule(state.activeModule),
+      season,
+      eligibleRows,
+      submittedRows: submittedRowsRaw,
+      allSubmissionRows:
+        state.activeModule === "restructure"
+          ? (seasonRestructureSubmissions || []).slice()
+          : (seasonMymSubmissions || []).slice(),
+      health: {
+        eligibleCount: safeInt(eligibleRows.length),
+        eligibleExtensions: safeInt(scopedEligibility.filter((r) => canExtendRow(r)).length),
+        eligibleRestructures: safeInt(scopedEligibility.filter((r) => canRestructureRow(r)).length),
+        teamCount: new Set(
+          (seasonEligibility || []).map((r) => pad4(r.franchise_id)).filter(Boolean)
+        ).size,
+        lastRefresh: safeStr((meta && meta.built) || ""),
+        healthLabel: "Live",
+      },
+    });
     updateModuleStatusChips();
   }
 
@@ -8042,6 +8803,147 @@
         setTab(btn.dataset.tab);
         render();
       })
+    );
+
+    document.addEventListener(
+      "click",
+      (e) => {
+        const actionBtn =
+          e.target && e.target.closest ? e.target.closest("[data-action-flow-set-action]") : null;
+        if (!actionBtn) return;
+        const nextType = normalizeActionType(actionBtn.getAttribute("data-action-flow-set-action"));
+        state.actionFlow.actionType = nextType;
+        state.actionFlow.selectedPlayerId = "";
+        state.actionFlow.selectedFranchiseId = "";
+        state.actionFlow.lastReceipt = null;
+        state.actionFlow.status = "draft";
+        state.actionFlow.statusMessage = "";
+        const targetModule = moduleForActionType(nextType);
+        if (targetModule && targetModule !== "auction" && state.activeModule !== targetModule) {
+          switchModule(targetModule);
+          resetAllTablePages();
+          setTab("eligible");
+        }
+        render();
+      },
+      true
+    );
+
+    document.addEventListener(
+      "click",
+      (e) => {
+        const rowBtn =
+          e.target && e.target.closest ? e.target.closest("[data-action-flow-select-player='1']") : null;
+        if (!rowBtn) return;
+        state.actionFlow.selectedPlayerId = safeStr(rowBtn.getAttribute("data-player-id"));
+        state.actionFlow.selectedFranchiseId = pad4(rowBtn.getAttribute("data-franchise-id"));
+        state.actionFlow.status = "ready";
+        state.actionFlow.statusMessage = "Ready to submit.";
+        render();
+      },
+      true
+    );
+
+    document.addEventListener(
+      "click",
+      (e) => {
+        const termBtn =
+          e.target && e.target.closest ? e.target.closest("[data-action-flow-term]") : null;
+        if (!termBtn) return;
+        state.actionFlow.selectedTerm = safeStr(termBtn.getAttribute("data-action-flow-term"));
+        if (!state.actionFlow.busy) {
+          state.actionFlow.status = "ready";
+          state.actionFlow.statusMessage = "Ready to submit.";
+        }
+        render();
+      },
+      true
+    );
+
+    document.addEventListener(
+      "click",
+      (e) => {
+        const backBtn =
+          e.target && e.target.closest ? e.target.closest("[data-action-flow-back='1']") : null;
+        if (!backBtn) return;
+        state.actionFlow.selectedPlayerId = "";
+        state.actionFlow.selectedFranchiseId = "";
+        state.actionFlow.status = "draft";
+        state.actionFlow.statusMessage = "Choose a player to continue.";
+        state.actionFlow.lastReceipt = null;
+        render();
+      },
+      true
+    );
+
+    document.addEventListener(
+      "click",
+      (e) => {
+        const submitBtn =
+          e.target && e.target.closest ? e.target.closest("[data-action-flow-submit='1']") : null;
+        if (!submitBtn) return;
+        e.preventDefault();
+        e.stopPropagation();
+        runActionFlowSubmit();
+      },
+      true
+    );
+
+    document.addEventListener(
+      "click",
+      async (e) => {
+        const selectBtn =
+          e.target && e.target.closest ? e.target.closest("[data-report-select]") : null;
+        if (selectBtn) {
+          state.reportsView.selectedSubmissionId = safeStr(selectBtn.getAttribute("data-report-select"));
+          render();
+          return;
+        }
+
+        const refreshBtn =
+          e.target && e.target.closest ? e.target.closest("[data-report-refresh='1']") : null;
+        if (refreshBtn) {
+          await handleRosterRefreshClick();
+          render();
+          return;
+        }
+
+        const copyBtn =
+          e.target && e.target.closest ? e.target.closest("[data-report-copy='1']") : null;
+        if (copyBtn) {
+          const payload = state.reportsView.currentPayload || null;
+          if (!payload) return;
+          const text = JSON.stringify(payload, null, 2);
+          try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              await navigator.clipboard.writeText(text);
+            }
+            setActionFlowStatus("submitted", "Receipt copied to clipboard.");
+          } catch (_) {
+            setActionFlowStatus("failed", "Copy failed. Browser clipboard blocked.");
+          }
+          render();
+          return;
+        }
+
+        const downloadBtn =
+          e.target && e.target.closest ? e.target.closest("[data-report-download='1']") : null;
+        if (downloadBtn) {
+          const payload = state.reportsView.currentPayload || null;
+          if (!payload) return;
+          const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          const submissionId = safeStr(payload.submission_id || "submission");
+          a.href = url;
+          a.download = `${submissionId}.json`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          URL.revokeObjectURL(url);
+        }
+      },
+      true
     );
 
     // Filters
