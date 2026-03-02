@@ -1,3 +1,4 @@
+<meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <link id="cccCss" rel="stylesheet" href="./ccc.css">
 <style>
@@ -10,35 +11,38 @@
 
 <div id="cccApp">
   <div class="ccc-hero">
-    <div class="ccc-topRow">
-      <div class="ccc-brand">
-        <div class="ccc-titleRow">
-          <div class="ccc-title">
-            Contract Command Center
-            <span id="adminBadge" class="badge" style="display:none;">ADMIN</span>
-          </div>
-          <img
-            id="cccTitleArtImg"
-            class="ccc-titleArtImg"
-            src="./ccc_contracts.svg"
-            alt="Contracts illustration"
-          />
-        </div>
-        <div class="ccc-subtag">Contract tools for salary planning, submissions, and offseason actions.</div>
-        <div id="cccMeta" class="ccc-sub">Loading…</div>
+    <div class="ccc-hero-inner">
+      <div class="ccc-hero-copy">
+        <p class="ccc-kicker">UPS Contract Workflow</p>
+        <h1 class="ccc-title">
+          Contract Command Center
+          <span id="adminBadge" class="badge" style="display:none;">ADMIN</span>
+        </h1>
+        <p class="ccc-subtitle">Manage extensions, restructures, and contract adjustments.</p>
+        <div id="cccMeta" class="ccc-meta">Loading…</div>
       </div>
-      <div id="cccVersion" class="ccc-version">v1.0.1</div>
-
+      <div class="ccc-hero-actions">
+        <div id="cccVersion" class="ccc-version">v1.0.1</div>
+        <div id="cccPendingCount" class="ccc-pendingBanner" style="display:none;">
+          <span class="ccc-pendingLabel">Pending</span>
+          <span id="cccPendingNum" class="ccc-pendingCount">0</span>
+        </div>
+        <div class="ccc-heroLinks">
+          <button id="cccExpiredRookieLink" class="ccc-heroLink" type="button">Expired Rookie Draft</button>
+          <button id="cccSettingsLink" class="ccc-heroLink" type="button">Settings</button>
+        </div>
+      </div>
     </div>
 
-    <div class="ccc-nav">
+    <!-- Module chips hidden in action-first model; switchModule() still works via dropdown/links -->
+    <div id="cccChipNav" class="ccc-nav" style="display:none;">
       <span class="ccc-navTitle">Modules</span>
       <button id="moduleTagsChip" class="ccc-chipBtn primary" type="button" data-module="tag" data-tool="tags">Tags</button>
       <button id="moduleExtensionsChip" class="ccc-chipBtn primary" type="button" data-module="extensions">Extensions</button>
-      <button id="moduleExpiredRookieChip" class="ccc-chipBtn primary" type="button" data-module="expiredrookie">Expired Rookie Draft</button>
       <button id="moduleRestructuresChip" class="ccc-chipBtn" type="button" data-module="restructure">Restructures</button>
       <button id="moduleAuctionChip" class="ccc-chipBtn disabled" type="button" data-module="auction" title="Placeholder for future module">Auction Contracts</button>
       <button id="moduleMymChip" class="ccc-chipBtn primary" type="button" data-module="mym" data-tool="mym">MYM</button>
+      <button id="moduleExpiredRookieChip" class="ccc-chipBtn" type="button" data-module="expiredrookie">Expired Rookie Draft</button>
       <button id="moduleCommishChip" class="ccc-chipBtn" type="button" data-module="commish">Settings</button>
     </div>
 
