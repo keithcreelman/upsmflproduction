@@ -15,7 +15,7 @@
   const TAG_EXCLUDED_PLAYER_IDS = new Set(["14056"]); // Kyler Murray (Superflex keeper) must hit FA.
   const TAG_EXCLUDED_NAME_MATCHES = ["kyler murray", "murray, kyler", "calamari"];
   const SEASON_CAP_PER_TEAM = 5;
-  const RESTRUCTURE_CAP_PER_TEAM = 3;
+  const RESTRUCTURE_CAP_PER_TEAM = 4;
   const MYM_EVENTS_BY_SEASON = {
     "2024": {
       contract_deadline: "2024-09-01",
@@ -1517,6 +1517,13 @@
     return { tcv, y1, y2, y3 };
   }
 
+  function getAavDisplayFromContractInfo(contractInfo) {
+    const text = safeStr(contractInfo);
+    if (!text) return "";
+    const m = text.match(/(?:^|\|)\s*AAV\s*([^|]+)/i);
+    return m ? safeStr(m[1]) : "";
+  }
+
   function getTagBidDetails(row) {
     const baseBid = safeInt(row && (row.tag_bid || row.tag_salary || row.tag_base_bid));
     const priorAav = safeInt(row && (row.prior_aav_week1 || row.prior_aav || row.aav));
@@ -1525,11 +1532,31 @@
         row.prior_salary_week1 ||
         row.prior_salary ||
         row.prior_contract_salary ||
+        row.prior_year_salary ||
+        row.prev_year_salary ||
         row.prev_salary
       )
     );
     const salaryNow = safeInt(row && row.salary);
-    const bumpBase = Math.max(priorAav, priorSalary, salaryNow);
+    const contractYears = Math.max(1, safeInt(row && row.contract_year) || 1);
+    const contractInfo = safeStr(row && row.contract_info);
+    const parsedContract = parseContractAmounts(contractInfo, contractYears, salaryNow || 1000);
+    const contractInfoAav = getAavDisplayFromContractInfo(contractInfo)
+      .split(",")
+      .map((token) => roundToK(parseContractMoneyToken(token)))
+      .reduce((maxVal, val) => (val > maxVal ? val : maxVal), 0);
+    const contractInfoMaxYear = Math.max(
+      safeInt(parsedContract && parsedContract.y1),
+      safeInt(parsedContract && parsedContract.y2),
+      safeInt(parsedContract && parsedContract.y3)
+    );
+    const bumpBase = Math.max(
+      priorAav,
+      priorSalary,
+      salaryNow,
+      contractInfoAav,
+      contractInfoMaxYear
+    );
     const bumpFloor = bumpBase > 0 ? Math.ceil((bumpBase * 1.1) / 1000) * 1000 : 0;
     const tagBid = Math.max(baseBid, bumpFloor);
     const bumpApplied = bumpFloor > 0 && tagBid > baseBid;
@@ -2178,7 +2205,7 @@
     const snapshotLabel = isRestructureMode ? "Restructure Snapshot" : "MYM Snapshot";
     const usedLabel = isRestructureMode ? "Restructures Used" : "MYM Used";
     const remainingLabel = isRestructureMode ? "Restructures Remaining" : "MYM Remaining";
-    const capHint = isRestructureMode ? "cap: 3 per offseason" : "cap: 5 per season";
+    const capHint = isRestructureMode ? `cap: ${RESTRUCTURE_CAP_PER_TEAM} per offseason` : "cap: 5 per season";
     const soonestHint = isRestructureMode ? "offseason window closes" : "earliest eligible deadline";
     const deadlineLabel = isRestructureMode ? "Window Ends" : "Soonest Deadline";
 
@@ -2600,16 +2627,25 @@
       const selections = getTagSelectionsForTeam(season, selectedTeamId);
       if (selections.length) {
         const selectionItems = selections
-          .map(
-            (sel) => `
+          .map((sel) => {
+            const hasSubmission = !!state.tagSubmissions[safeStr(sel.key)];
+            const pastDeadline = isTagDeadlinePassed(normalizeSeasonValue(sel.season || season));
+            const disabled = hasSubmission && pastDeadline && !state.commishMode;
+            const label = hasSubmission ? "Unsubmit" : "Clear";
+            const title = disabled
+              ? "Tag deadline has passed"
+              : hasSubmission
+              ? "Remove submitted tag"
+              : "Clear draft selection";
+            return `
               <span class="pill">${htmlEsc(sel.side)}: ${htmlEsc(sel.player_name)} (${htmlEsc(
               sel.pos
             )})</span>
-              <button type="button" class="ccc-pageBtn" data-tag-clear="1" data-tag-key="${htmlEsc(
+              <button type="button" class="ccc-pageBtn" data-tag-unsubmit="1" data-tag-key="${htmlEsc(
                 sel.key
-              )}">Clear</button>
+              )}" ${disabled ? "disabled" : ""} title="${htmlEsc(title)}">${label}</button>
             `
-          )
+          })
           .join("");
         selectionsHtml = `
           <div class="muted" style="font-size:12px; margin-top:8px; display:flex; flex-wrap:wrap; gap:8px; align-items:center;">
@@ -3458,7 +3494,9 @@
     const extSuffix = extOwners.length ? `| Ext: ${extOwners.join(", ")}` : "";
     const extAav = safeInt(yearSalaries[1] || salaryNow);
     const aavDisplay = expiredRookie
-      ? formatK(Math.round(tcv / Math.max(1, totalYears)))
+      ? totalYears > 1
+        ? `${formatK(safeInt(yearSalaries[0] || 0))},${formatK(extAav)}`
+        : formatK(safeInt(yearSalaries[0] || 0))
       : `${formatK(salaryNow)},${formatK(extAav)}`;
     const contractInfo = `CL ${totalYears}| TCV ${formatK(tcv)}| AAV ${aavDisplay}| ${yearParts}| GTD: ${formatK(
       gtd
@@ -4233,23 +4271,45 @@
           ? `Tag already used for ${side}`
           : "";
         const tagTitleEsc = tagTitle ? htmlEsc(tagTitle) : "";
+        const canUnsubmit = isSelected || isSubmitted;
+        const unsubmitDisabled = isSubmitted && tagClosed && !state.commishMode;
+        const unsubmitLabel = isSubmitted ? "Unsubmit" : "Clear";
+        const unsubmitTitle = unsubmitDisabled
+          ? "Tag deadline has passed"
+          : isSubmitted
+          ? "Remove submitted tag"
+          : "Clear draft selection";
         const tagBtn = canTag
           ? `
-          <button
-            type="button"
-            class="${tagBtnClass}"
-            data-tag-action="1"
-            data-tag-side="${htmlEsc(side)}"
-            data-tag-limit="${limit}"
-            data-season="${htmlEsc(season)}"
-            data-franchise-id="${htmlEsc(pad4(r.franchise_id))}"
-            data-franchise-name="${htmlEsc(r.franchise_name || "")}"
-            data-player-id="${htmlEsc(r.player_id)}"
-            data-player-name="${htmlEsc(r.player_name)}"
-            data-pos="${htmlEsc(posKeyFromRow(r))}"
-            ${tagDisabled ? `disabled` : ``}
-            ${tagTitleEsc ? `title="${tagTitleEsc}"` : ``}
-          >${tagLabel}</button>
+          <div class="ccc-tagActions">
+            <button
+              type="button"
+              class="${tagBtnClass}"
+              data-tag-action="1"
+              data-tag-side="${htmlEsc(side)}"
+              data-tag-limit="${limit}"
+              data-season="${htmlEsc(season)}"
+              data-franchise-id="${htmlEsc(pad4(r.franchise_id))}"
+              data-franchise-name="${htmlEsc(r.franchise_name || "")}"
+              data-player-id="${htmlEsc(r.player_id)}"
+              data-player-name="${htmlEsc(r.player_name)}"
+              data-pos="${htmlEsc(posKeyFromRow(r))}"
+              ${tagDisabled ? `disabled` : ``}
+              ${tagTitleEsc ? `title="${tagTitleEsc}"` : ``}
+            >${tagLabel}</button>
+            ${
+              canUnsubmit
+                ? `<button
+              type="button"
+              class="ccc-pageBtn ccc-tagUnsubmitBtn"
+              data-tag-unsubmit="1"
+              data-tag-key="${htmlEsc(key)}"
+              ${unsubmitDisabled ? "disabled" : ""}
+              title="${htmlEsc(unsubmitTitle)}"
+            >${htmlEsc(unsubmitLabel)}</button>`
+                : ""
+            }
+          </div>
         `
           : `<span class="muted">—</span>`;
         const posKeyRaw = posKeyFromRow(r);
@@ -4620,6 +4680,15 @@
     }
     if (actionType === "restructure") {
       const rsCalc = restructureModalState.calc;
+      const season = normalizeSeasonValue(row.season || state.selectedSeason);
+      const usageByTeam = computeSubmissionUsageByTeam(
+        (state.restructureSubmissions || []).filter(
+          (s) => normalizeSeasonValue(s.season) === season
+        )
+      );
+      const used = usageByTeam.get(pad4(row.franchise_id)) || 0;
+      const contractSeason = getContractSeasonValue(season);
+      const deadlineDate = getContractDeadlineDate(contractSeason);
       return {
         current: [
           `Salary: ${safeInt(row.salary).toLocaleString()}`,
@@ -4636,7 +4705,8 @@
             ]
           : [],
         changes: [
-          "Restructure requires final input review.",
+          `Deadline: ${deadlineDate ? fmtYMDDate(deadlineDate) : "TBD"}`,
+          `Restructures Used: ${used}/${RESTRUCTURE_CAP_PER_TEAM}`,
           "Submit opens the full restructure configurator.",
         ],
         submitEnabled: true,
@@ -4746,14 +4816,13 @@
       return { pos, line: team };
     }
     if (actionType === "restructure") {
-      return { pos, line: `${team} · ${safeInt(row.contract_year)}yr` };
+      return { pos, line: team };
     }
     if (actionType === "mym") {
       return { pos, line: `${team} · TCV: ${safeInt(row.salary).toLocaleString()} · ${safeInt(row.contract_year)}yr` };
     }
     // extend
-    const aav = safeInt(row.aav || row.salary);
-    return { pos, line: `${team} · AAV: ${aav.toLocaleString()} · ${safeInt(row.contract_year)}yr` };
+    return { pos, line: team };
   }
 
   function renderActionPanel(viewModel) {
@@ -4768,6 +4837,15 @@
     const statusClass = safeStr(state.actionFlow.status || "draft").toLowerCase();
     const currentReceipt = state.actionFlow.lastReceipt || null;
     const selectedTerm = safeStr(state.actionFlow.selectedTerm || "");
+    const restructureUsageByTeam =
+      actionType === "restructure"
+        ? computeSubmissionUsageByTeam(
+            (state.restructureSubmissions || []).filter(
+              (s) =>
+                normalizeSeasonValue(s.season) === normalizeSeasonValue(state.selectedSeason)
+            )
+          )
+        : new Map();
 
     /* Step 1 — Action Dropdown (single selector) */
     const actionDropdownOptions = options
@@ -4809,9 +4887,19 @@
             headlineHtml = `<span class="headline-row"><span class="headline headline-money headline-tag-cost">Tag: $${htmlEsc(tagCost.toLocaleString())}</span><span class="headline headline-deadline headline-right">Deadline: ${htmlEsc(dlText)}</span></span>`;
           } else if (actionType === "restructure") {
             const remainingTcv = getRemainingTcvForRow(r);
-            headlineHtml = `<span class="headline headline-money">Remaining TCV: $${htmlEsc(
-              remainingTcv.toLocaleString()
-            )}</span>`;
+            const dlSeason = normalizeSeasonValue(r.season || state.selectedSeason);
+            const contractSeason = getContractSeasonValue(dlSeason);
+            const dlDate = getContractDeadlineDate(contractSeason);
+            const dlText = dlDate ? fmtYMDDate(dlDate) : "TBD";
+            const used = restructureUsageByTeam.get(pad4(r.franchise_id)) || 0;
+            headlineHtml =
+              `<span class="headline-row">` +
+              `<span class="headline headline-deadline">Deadline: ${htmlEsc(dlText)}</span>` +
+              `<span class="headline headline-deadline headline-aav headline-right">Remaining TCV: $${htmlEsc(
+                remainingTcv.toLocaleString()
+              )}</span>` +
+              `</span>` +
+              `<span class="headline-sub">Restructures Used: ${used}/${RESTRUCTURE_CAP_PER_TEAM}</span>`;
           }
           return `
             <button type="button" class="ccc-flowPlayerBtn${isSelected ? " is-active" : ""}"
@@ -4829,11 +4917,9 @@
       playerRows = `<div class="ccc-flowEmpty">No eligible players for this action with current filters.</div>`;
     }
 
-    /* Step 3 — Configure Terms */
-    let configureBlock;
-    if (!actionType) {
-      configureBlock = `<div class="ccc-flowLocked">Select an action above to continue.</div>`;
-    } else if (actionType === "extend" || actionType === "mym") {
+    const showConfigureSection = actionType === "extend" || actionType === "mym";
+    let configureBlock = "";
+    if (showConfigureSection) {
       const terms = actionType === "extend"
         ? [
             { key: "1YR", label: "1-Year Extension" },
@@ -4855,15 +4941,9 @@
             .join("")}
         </div>
       `;
-    } else if (actionType === "restructure") {
-      configureBlock = `<div class="ccc-flowMuted">Select a player, then submit to open the restructure configurator.</div>`;
-    } else if (actionType === "tag") {
-      configureBlock = `<div class="ccc-flowMuted">Tag cost is system-calculated. Submit to confirm.</div>`;
-    } else {
-      configureBlock = `<div class="ccc-flowMuted">No extra configuration required.</div>`;
     }
 
-    /* Step 4 — Review & Confirm (Before/After 2-column) */
+    /* Review & Confirm (Before/After 2-column) */
     let step4Block;
     if (!actionType) {
       step4Block = `<div class="ccc-flowLocked">Select an action above to continue.</div>`;
@@ -4878,6 +4958,29 @@
         ? `<ul class="ccc-flowList">${preview.changes.map((line) => `<li>${htmlEsc(line)}</li>`).join("")}</ul>`
         : "";
       const isSubmitDisabled = !selectedRow || !preview.submitEnabled || state.actionFlow.busy || actionType === "auction";
+      let tagUnsubmitButton = "";
+      if (actionType === "tag" && selectedRow) {
+        const season = normalizeSeasonValue(selectedRow.season || state.selectedSeason);
+        const side = safeStr(selectedRow.tag_side || "OFFENSE");
+        const key = buildTagSelectionKey(season, selectedRow.franchise_id, side);
+        const hasTagSelection = !!state.tagSelections[key];
+        const hasTagSubmission = !!state.tagSubmissions[key];
+        if (hasTagSelection || hasTagSubmission) {
+          const pastDeadline = isTagDeadlinePassed(season);
+          const disabled = hasTagSubmission && pastDeadline && !state.commishMode;
+          const title = disabled
+            ? "Tag deadline has passed"
+            : hasTagSubmission
+            ? "Remove submitted tag selection"
+            : "Clear draft tag selection";
+          tagUnsubmitButton =
+            `<button type="button" class="ccc-pageBtn" data-action-flow-tag-unsubmit="1" data-tag-key="${htmlEsc(
+              key
+            )}" ${disabled ? "disabled" : ""} title="${htmlEsc(title)}">` +
+            `${hasTagSubmission ? "Unsubmit Tag" : "Clear Selection"}` +
+            `</button>`;
+        }
+      }
       const receiptBlock = currentReceipt
         ? (statusClass === "submitted"
           ? `<div class="ccc-successCard"><div class="ccc-flowReceipt">Receipt: ${htmlEsc(currentReceipt)}</div></div>`
@@ -4902,6 +5005,7 @@
         </div>
         ${changesList ? `<div class="ccc-flowChanges"><div class="ccc-flowPreviewTitle">What Changes</div>${changesList}</div>` : ""}
         <div class="ccc-flowActions" style="margin-top:0.55rem;">
+          ${tagUnsubmitButton}
           <button type="button" class="ccc-submitBtn" data-action-flow-submit="1"${
             isSubmitDisabled ? " disabled" : ""
           }>${htmlEsc(state.actionFlow.busy ? "Submitting..." : preview.submitLabel)}</button>
@@ -4913,10 +5017,10 @@
     return `
       <div class="ccc-modeCard ccc-modeCard-action">
         <div class="ccc-modeTitle">Action</div>
-        <div class="ccc-modeSub">Select an action, choose a player, configure terms, and submit.</div>
+        <div class="ccc-modeSub">Select an action, choose a player, review, and submit.</div>
 
         <section class="ccc-flowSection">
-          <div class="ccc-flowTitle">1. Choose Action</div>
+          <div class="ccc-flowTitle">Choose Action</div>
           <div class="ccc-actionDropdownWrap">
             <select class="ccc-actionDropdown" data-action-flow-dropdown="1">${actionDropdownOptions}</select>
             ${actionDropdownHint ? `<p class="ccc-actionDropdownHint">${htmlEsc(actionDropdownHint)}</p>` : ""}
@@ -4924,7 +5028,7 @@
         </section>
 
         <section class="ccc-flowSection${!actionType ? " ccc-flowSection-locked" : ""}">
-          <div class="ccc-flowTitle">2. Select Player</div>
+          <div class="ccc-flowTitle">Select Player</div>
           ${actionType ? `<div class="ccc-flowSearch">
             <input class="ccc-input" type="text" placeholder="Search player or position..." value="${htmlEsc(searchVal)}"
               data-action-flow-search="1" />
@@ -4932,13 +5036,17 @@
           <div class="ccc-flowPlayerList">${playerRows}</div>
         </section>
 
-        <section class="ccc-flowSection${!actionType ? " ccc-flowSection-locked" : ""}">
-          <div class="ccc-flowTitle">3. Configure</div>
+        ${
+          showConfigureSection
+            ? `<section class="ccc-flowSection${!actionType ? " ccc-flowSection-locked" : ""}">
+          <div class="ccc-flowTitle">Configure</div>
           ${configureBlock}
-        </section>
+        </section>`
+            : ``
+        }
 
         <section class="ccc-flowSection ccc-flowPreviewSection${!actionType ? " ccc-flowSection-locked" : ""}">
-          <div class="ccc-flowTitle">4. Review &amp; Confirm</div>
+          <div class="ccc-flowTitle">Review &amp; Confirm</div>
           ${step4Block}
         </section>
       </div>
@@ -6260,6 +6368,41 @@
     return localSubmission;
   }
 
+  function applyPostExtensionLocalUpdate(selectionKey, row, payload, out) {
+    const pid = safeStr(row && row.player_id);
+    if (!pid) return null;
+
+    const post = (out && out.postCheck) || {};
+    const salaryFinal = safeInt(post.salary || payload.salary || row.salary);
+    const statusFinal = safeStr(post.contractStatus || payload.contract_status || row.contract_status);
+    const yearFinal = safeInt(post.contractYear || payload.contract_year || row.contract_year);
+    const infoFinal = safeStr(post.contractInfo || payload.contract_info || row.contract_info);
+
+    (state.payload.eligibility || []).forEach((r) => {
+      if (safeStr(r.player_id) !== pid) return;
+      r.salary = salaryFinal;
+      if (yearFinal > 0) r.contract_year = yearFinal;
+      if (statusFinal) r.contract_status = statusFinal;
+      if (infoFinal) r.contract_info = infoFinal;
+    });
+
+    const key = safeStr(selectionKey);
+    if (!key) return null;
+    const existing = state.extensionSubmissions[key] || {};
+    state.extensionSubmissions[key] = {
+      ...existing,
+      ...payload,
+      salary: salaryFinal,
+      contract_year: yearFinal,
+      contract_status: statusFinal,
+      contract_info: infoFinal,
+      submitted_at_utc: payload.submitted_at_utc || new Date().toISOString(),
+      source: safeStr(payload.source || existing.source || "local-extension-submit"),
+      submission_id: safeStr(payload.submission_id || existing.submission_id || ""),
+    };
+    return state.extensionSubmissions[key];
+  }
+
   function computeSubmissionUsageByTeam(rows) {
     const map = new Map();
     (rows || []).forEach((r) => {
@@ -7408,12 +7551,13 @@
     if (kpiRow) {
       const totalYears = preview.totalYears || 0;
       const tcv = preview.tcv || 0;
+      const aavText = getAavDisplayFromContractInfo(preview.payload && preview.payload.contract_info);
       const aav = totalYears > 0 ? Math.round(tcv / totalYears) : 0;
       const gtd = preview.gtd || 0;
       kpiRow.style.display = "";
       const clEl = $("#extKpiCL"); if (clEl) clEl.textContent = String(totalYears);
       const tcvEl = $("#extKpiTCV"); if (tcvEl) tcvEl.textContent = formatK(tcv);
-      const aavEl = $("#extKpiAAV"); if (aavEl) aavEl.textContent = formatK(aav);
+      const aavEl = $("#extKpiAAV"); if (aavEl) aavEl.textContent = aavText || formatK(aav);
       const gtdEl = $("#extKpiGTD"); if (gtdEl) gtdEl.textContent = formatK(gtd);
     }
 
@@ -7550,7 +7694,7 @@
     renderExtensionModalPreview();
   }
 
-  function submitExtensionSelection() {
+  async function submitExtensionSelection() {
     if (!canSubmitExtension()) return;
     const key = safeStr(extensionModalState.key);
     if (!key) return;
@@ -7558,9 +7702,16 @@
     if (!sel) return;
     const row = findExtensionRow(sel);
     if (!row) return;
+    const canLiveSubmit = canSubmitLiveContracts();
 
     const btn = $("#extSubmitBtn");
     if (btn) { btn.disabled = true; btn.textContent = "Submitting..."; }
+    const err = $("#extModalErr");
+    if (err) {
+      err.style.display = "none";
+      err.textContent = "";
+      err.classList.remove("ok");
+    }
 
     const out = renderExtensionModalPreview();
     if (!out) {
@@ -7579,19 +7730,104 @@
       if (btn) { btn.disabled = false; btn.textContent = "Submit Extension"; }
       return;
     }
-    state.extensionSubmissions[key] = {
+
+    const L = getLeagueId() || DEFAULT_LEAGUE_ID;
+    const YEAR = getYear() || DEFAULT_YEAR;
+    const payload = {
       ...preview.payload,
+      L: String(L),
+      YEAR: String(YEAR),
+      leagueId: String(L),
+      year: String(YEAR),
+      type: "MANUAL_CONTRACT_UPDATE",
       submitted_at_utc: new Date().toISOString(),
+      commish_override_flag: state.commishMode && state.asOfOverrideActive && state.asOfDate ? 1 : 0,
+      override_as_of_date:
+        state.commishMode && state.asOfOverrideActive && state.asOfDate
+          ? fmtLocalYMDHM(state.asOfDate)
+          : "",
+      source: canLiveSubmit ? "live-extension-submit" : "local-test-extension-submit",
+      test_mode: canLiveSubmit ? 0 : 1,
     };
-    saveExtensionSubmissions(state.extensionSubmissions);
-    const err = $("#extModalErr");
-    if (err) {
-      err.style.display = "";
-      err.textContent = "Extension selection submitted locally.";
-      err.classList.add("ok");
+    payload.submission_id = buildSubmissionId("extension", payload);
+
+    if (!canLiveSubmit) {
+      applyPostExtensionLocalUpdate(key, row, payload, {
+        postCheck: {
+          salary: safeInt(payload.salary),
+          contractStatus: `${safeStr(payload.contract_status)} (TEST)`,
+          contractYear: safeInt(payload.contract_year),
+          contractInfo: `${safeStr(payload.contract_info)}${payload.contract_info ? " | " : ""}TEST MODE`,
+        },
+      });
+      saveExtensionSubmissions(state.extensionSubmissions);
+      closeExtensionModal();
+      setActionFlowStatus("submitted", "Extension saved in test mode.", `${safeStr(row.player_name)} · EXT`);
+      render();
+      return;
     }
-    if (btn) { btn.textContent = "Submitted"; }
-    render();
+
+    try {
+      const url =
+        `${COMMISH_CONTRACT_UPDATE_URL}?L=${encodeURIComponent(L)}&YEAR=${encodeURIComponent(YEAR)}`;
+      let res = await fetchWithTimeout(
+        url,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        },
+        15000
+      );
+
+      if (!res.ok) {
+        const form = new URLSearchParams();
+        Object.entries(payload).forEach(([k, v]) => form.set(k, String(v)));
+        res = await fetchWithTimeout(
+          url,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
+            body: form.toString(),
+          },
+          15000
+        );
+      }
+
+      const text = await res.text();
+      const parsed = parseMutationResult(text);
+      const mutationStatus = parsed.status;
+      const details = parsed.details;
+
+      if (!res.ok || !isMutationSuccessStatus(mutationStatus)) {
+        const msg = getMutationErrorMessage(mutationStatus, details, text, res.status);
+        if (err) {
+          err.style.display = "";
+          err.textContent = msg;
+        }
+        setActionFlowStatus("failed", msg);
+        return;
+      }
+
+      applyPostExtensionLocalUpdate(key, row, payload, {
+        ...(parsed.raw || {}),
+        postCheck: (details && details.postCheck) || (parsed.raw && parsed.raw.postCheck) || {},
+        preCheck: (details && details.preCheck) || (parsed.raw && parsed.raw.preCheck) || {},
+      });
+      saveExtensionSubmissions(state.extensionSubmissions);
+      closeExtensionModal();
+      setActionFlowStatus("submitted", "Extension submitted to MFL.", `${safeStr(row.player_name)} · EXT`);
+      render();
+    } catch (e) {
+      const msg = e && e.message ? e.message : String(e);
+      if (err) {
+        err.style.display = "";
+        err.textContent = msg;
+      }
+      setActionFlowStatus("failed", msg);
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = "Submit Extension"; }
+    }
   }
 
   function openDevNotice() {
@@ -7806,11 +8042,37 @@
   function removeTagSelection() {
     const key = safeStr(tagModalState.key);
     if (!key) return;
-    delete state.tagSelections[key];
-    delete state.tagSubmissions[key];
+    unsubmitTagSelectionByKey(key, false);
+  }
+
+  function unsubmitTagSelectionByKey(key, skipConfirm) {
+    const selKey = safeStr(key);
+    if (!selKey) return false;
+    const selection = state.tagSelections[selKey] || state.tagSubmissions[selKey];
+    if (!selection) return false;
+    const season = normalizeSeasonValue(selection.season || state.selectedSeason);
+    const hasSubmission = !!state.tagSubmissions[selKey];
+    if (hasSubmission && isTagDeadlinePassed(season) && !state.commishMode) return false;
+
+    if (!skipConfirm) {
+      const promptText = hasSubmission
+        ? `Unsubmit tag for ${safeStr(selection.player_name)}?`
+        : `Clear tag selection for ${safeStr(selection.player_name)}?`;
+      if (!window.confirm(promptText)) return false;
+    }
+
+    delete state.tagSelections[selKey];
+    delete state.tagSubmissions[selKey];
     saveTagSelections(state.tagSelections);
     saveTagSubmissions(state.tagSubmissions);
-    closeTagModal();
+
+    if (safeStr(tagModalState.key) === selKey) {
+      closeTagModal();
+    } else {
+      render();
+    }
+    setActionFlowStatus("draft", hasSubmission ? "Tag unsubmitted." : "Tag selection cleared.");
+    return true;
   }
 
   function setModalOption(years) {
@@ -8214,11 +8476,9 @@
       originalAav = safeInt(row.salary);
     }
     const tcv = originalAav * years;
-    const y1 = Math.max(1000, parsed.y1 || safeInt(row.salary) || 1000);
-    const y2Default =
-      years === 3
-        ? Math.max(1000, parsed.y2 || safeInt(row.salary) || 1000)
-        : Math.max(1000, tcv - y1);
+    const evenSplit = Math.max(1000, roundToK(Math.round(tcv / Math.max(1, years))));
+    const y1 = evenSplit;
+    const y2Default = years === 3 ? evenSplit : Math.max(1000, tcv - y1);
 
     restructureModalState.open = true;
     restructureModalState.row = row;
@@ -8304,7 +8564,7 @@
       const capErr = $("#rsModalErr");
       if (capErr) {
         capErr.style.display = "";
-        capErr.textContent = "Restructure cap reached (3 per offseason for this franchise).";
+        capErr.textContent = `Restructure cap reached (${RESTRUCTURE_CAP_PER_TEAM} per offseason for this franchise).`;
       }
       return;
     }
@@ -8366,6 +8626,7 @@
       );
       saveLocalTestRestructureSubmissions(persistedRows);
       closeRestructureModal();
+      setActionFlowStatus("submitted", "Restructure saved in test mode.", `${safeStr(row.player_name)} · RS`);
       render();
       return;
     }
@@ -8428,12 +8689,14 @@
         submitDebug: (details && details.submitDebug) || out.submitDebug,
       });
       closeRestructureModal();
+      setActionFlowStatus("submitted", "Restructure submitted to MFL.", `${safeStr(row.player_name)} · RS`);
       render();
     } catch (e) {
       if (err) {
         err.style.display = "";
         err.textContent = e && e.message ? e.message : String(e);
       }
+      setActionFlowStatus("failed", e && e.message ? e.message : String(e));
     } finally {
       if (btn) {
         btn.disabled = false;
@@ -9699,7 +9962,9 @@
       "click",
       (e) => {
         const btn =
-          e.target && e.target.closest ? e.target.closest("[data-tag-clear='1']") : null;
+          e.target && e.target.closest
+            ? e.target.closest("[data-tag-clear='1'], [data-tag-unsubmit='1'], [data-action-flow-tag-unsubmit='1']")
+            : null;
         if (!btn) return;
 
         e.preventDefault();
@@ -9708,9 +9973,7 @@
 
         const key = safeStr(btn.getAttribute("data-tag-key"));
         if (!key) return;
-        delete state.tagSelections[key];
-        saveTagSelections(state.tagSelections);
-        render();
+        unsubmitTagSelectionByKey(key, false);
       },
       true
     );

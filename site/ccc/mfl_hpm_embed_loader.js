@@ -234,12 +234,45 @@
     } catch (e) {}
   }
 
+  function findHotlinksShell() {
+    return (
+      document.querySelector(".ups-hotlinks-shell") ||
+      document.querySelector("#upsHotlinks") ||
+      document.querySelector("[data-ups-hotlinks]") ||
+      document.querySelector(".ups-hotlinks")
+    );
+  }
+
+  function ensureMountPlacement(mountEl) {
+    if (!mountEl) return;
+    const hotlinks = findHotlinksShell();
+    if (hotlinks && hotlinks.parentNode) {
+      if (hotlinks.nextElementSibling !== mountEl) {
+        hotlinks.parentNode.insertBefore(mountEl, hotlinks.nextSibling);
+      }
+      return;
+    }
+    if (mountEl.parentNode !== document.body) {
+      document.body.appendChild(mountEl);
+    }
+  }
+
   let mount = document.getElementById("cccMount");
   if (!mount) {
     mount = document.createElement("div");
     mount.id = "cccMount";
     document.body.appendChild(mount);
   }
+  ensureMountPlacement(mount);
+  window.setTimeout(function () {
+    ensureMountPlacement(mount);
+  }, 0);
+  window.setTimeout(function () {
+    ensureMountPlacement(mount);
+  }, 1200);
+  window.addEventListener("load", function () {
+    ensureMountPlacement(mount);
+  });
 
   function getScriptCacheKey() {
     try {
