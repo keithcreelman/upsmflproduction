@@ -2039,7 +2039,7 @@
     function getCccReleaseRef() {
       // Keep CCC on latest main by default, even when other modules are pinned.
       // Set `window.UPS_CCC_RELEASE_SHA` to pin CCC explicitly when needed.
-      var releaseRef = safeStr(window.UPS_CCC_RELEASE_SHA || "main") || "main";
+      var releaseRef = safeStr(window.UPS_CCC_RELEASE_SHA || window.UPS_RELEASE_SHA || "main") || "main";
       return encodeURIComponent(releaseRef);
     }
 
@@ -2063,18 +2063,18 @@
       }
 
       next = next.replace(
-        /https?:\/\/(?:rawcdn\.githack\.com\/keithcreelman\/upsmflproduction\/(?:main|dev|v[0-9][^/]*|ext-[^/]+)|cdn\.jsdelivr\.net\/gh\/keithcreelman\/upsmflproduction@(?:main|dev|v[0-9][^/]*|ext-[^/]+))\/site\/ccc\/mfl_hpm16_contractcommandcenter\.html/i,
+        /https?:\/\/(?:rawcdn\.githack\.com\/keithcreelman\/upsmflproduction\/[^/]+|cdn\.jsdelivr\.net\/gh\/keithcreelman\/upsmflproduction@[^/]+)\/site\/ccc\/mfl_hpm16_contractcommandcenter\.html/i,
         CCC_MAIN_IFRAME_URL
       );
 
       if (!/\/site\/ccc\/mfl_hpm16_contractcommandcenter\.html(?:[?#]|$)/i.test(next)) {
         next = next.replace(
-          /https?:\/\/rawcdn\.githack\.com\/keithcreelman\/upsmflproduction\/(?:main|dev|v[0-9][^/]*|ext-[^/]+)\//i,
+          /https?:\/\/rawcdn\.githack\.com\/keithcreelman\/upsmflproduction\/[^/]+\//i,
           "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/"
         );
       }
       next = next.replace(
-        /https?:\/\/cdn\.jsdelivr\.net\/gh\/keithcreelman\/upsmflproduction@(?:dev|v[0-9][^/]*|ext-[^/]+)/i,
+        /https?:\/\/cdn\.jsdelivr\.net\/gh\/keithcreelman\/upsmflproduction@[^/]+/i,
         "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main"
       );
 
@@ -2140,17 +2140,17 @@
         return buildCanonicalCccRouteUrl() || next;
       }
       next = next.replace(
-        /https?:\/\/(?:rawcdn\.githack\.com\/keithcreelman\/upsmflproduction\/(?:main|dev|v[0-9][^/]*|ext-[^/]+)|cdn\.jsdelivr\.net\/gh\/keithcreelman\/upsmflproduction@(?:main|dev|v[0-9][^/]*|ext-[^/]+))\/site\/ccc\/mfl_hpm16_contractcommandcenter\.html/i,
+        /https?:\/\/(?:rawcdn\.githack\.com\/keithcreelman\/upsmflproduction\/[^/]+|cdn\.jsdelivr\.net\/gh\/keithcreelman\/upsmflproduction@[^/]+)\/site\/ccc\/mfl_hpm16_contractcommandcenter\.html/i,
         CCC_MAIN_IFRAME_URL
       );
       if (!/\/site\/ccc\/mfl_hpm16_contractcommandcenter\.html(?:[?#]|$)/i.test(next)) {
         next = next.replace(
-          /https?:\/\/rawcdn\.githack\.com\/keithcreelman\/upsmflproduction\/(?:main|dev|v[0-9][^/]*|ext-[^/]+)\//i,
+          /https?:\/\/rawcdn\.githack\.com\/keithcreelman\/upsmflproduction\/[^/]+\//i,
           "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/"
         );
       }
       next = next.replace(
-        /https?:\/\/cdn\.jsdelivr\.net\/gh\/keithcreelman\/upsmflproduction@(?:dev|v[0-9][^/]*|ext-[^/]+)/i,
+        /https?:\/\/cdn\.jsdelivr\.net\/gh\/keithcreelman\/upsmflproduction@[^/]+/i,
         "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main"
       );
       return next;
@@ -2228,7 +2228,7 @@
       normalizeAllEmbeddedFramesToMain();
       ensureMountNearTop();
       var cacheKey = encodeURIComponent(String(Date.now()));
-      var releaseRef = safeStr(window.UPS_CCC_RELEASE_SHA || "main") || "main";
+      var releaseRef = safeStr(window.UPS_CCC_RELEASE_SHA || window.UPS_RELEASE_SHA || "main") || "main";
       var loaderCandidates = [
         "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@" + releaseRef + "/site/ccc/mfl_hpm_embed_loader.js?v=" + cacheKey,
         "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/ccc/mfl_hpm_embed_loader.js?v=" + cacheKey

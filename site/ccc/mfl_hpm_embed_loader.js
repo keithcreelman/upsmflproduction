@@ -102,6 +102,23 @@
   const DEFAULT_CCC_IFRAME_URL =
     "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/ccc/mfl_hpm16_contractcommandcenter.html";
 
+  function safeStr(v) {
+    return String(v == null ? "" : v).trim();
+  }
+
+  function getDesiredReleaseRef() {
+    return safeStr(window.UPS_CCC_RELEASE_SHA || window.UPS_RELEASE_SHA || "") || "main";
+  }
+
+  function buildRawCccUrlFromRef(ref) {
+    const release = encodeURIComponent(safeStr(ref) || "main");
+    return (
+      "https://rawcdn.githack.com/keithcreelman/upsmflproduction/" +
+      release +
+      "/site/ccc/mfl_hpm16_contractcommandcenter.html"
+    );
+  }
+
   function getScriptBaseUrl() {
     try {
       const s = document.currentScript;
@@ -151,7 +168,12 @@
   }
 
   function resolveIframeUrl() {
-    const explicit = String(window.UPS_CCC_IFRAME_URL || "").trim();
+    const releaseRef = getDesiredReleaseRef();
+    const hasReleaseOverride =
+      safeStr(window.UPS_CCC_RELEASE_SHA || "") || safeStr(window.UPS_RELEASE_SHA || "");
+    if (hasReleaseOverride) return buildRawCccUrlFromRef(releaseRef);
+
+    const explicit = safeStr(window.UPS_CCC_IFRAME_URL || "");
     if (explicit) return explicit;
     try {
       const s = document.currentScript;
@@ -165,6 +187,8 @@
     return DEFAULT_CCC_IFRAME_URL;
   }
   const CCC_IFRAME_URL = resolveIframeUrl();
+  window.UPS_CCC_EFFECTIVE_REF = getDesiredReleaseRef();
+  window.UPS_CCC_EFFECTIVE_IFRAME_URL = CCC_IFRAME_URL;
   const ALLOWED_IFRAME_ORIGINS = (function () {
     const out = ["https://cdn.jsdelivr.net", "https://keithcreelman.github.io"];
     try {
