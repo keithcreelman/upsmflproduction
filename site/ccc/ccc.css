@@ -829,6 +829,13 @@
   color:var(--text-strong);
 }
 
+.ccc-flowPlayerBtn .ccc-tagCost{
+  font-size:1.05rem;
+  font-weight:900;
+  color:var(--accent3);
+  letter-spacing:-0.01em;
+}
+
 .ccc-flowPlayerBtn .meta{
   font-size:0.76rem;
   color:var(--muted);
@@ -907,6 +914,12 @@
   display:grid;
   gap:0.28rem;
   font-size:0.78rem;
+}
+
+.ccc-flowList .ccc-flowHighlight{
+  font-size:0.88rem;
+  font-weight:900;
+  color:var(--accent3);
 }
 
 .ccc-flowMuted,

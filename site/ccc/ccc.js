@@ -4442,11 +4442,15 @@
     }
     const actionType = normalizeActionType(state.actionFlow.actionType);
     const season = normalizeSeasonValue((viewModel && viewModel.season) || state.selectedSeason);
-    const seasonRows = getRowsForCurrentFilters(
-      (state.payload.eligibility || []).filter(
-        (r) => normalizeSeasonValue(r.season) === season
-      )
+    /* Resolve source season and project rows forward — mirrors render() logic
+       so that when selectedSeason is 2026 but data is from 2025, the rows
+       are projected correctly rather than returning an empty set. */
+    const projectionSource = resolveSourceSeasonForProjection(state.payload.eligibility || [], season);
+    const rawSeasonRows = (state.payload.eligibility || []).filter(
+      (r) => normalizeSeasonValue(r.season) === projectionSource
     );
+    const projectedRows = projectContractRowsForSeason(rawSeasonRows, projectionSource, season);
+    const seasonRows = getRowsForCurrentFilters(projectedRows);
     const nowRef = state.calendarNow || getEffectiveNow(season);
     const baseSeason = state.calendarBaseSeason || getBaseSeasonValue(season);
     if (actionType === "restructure") {
@@ -4578,7 +4582,7 @@
           `Team: ${safeStr(row.franchise_name || row.franchise_id)}`,
         ],
         proposed: [
-          `Tag Salary: ${tagSalary.toLocaleString()}`,
+          `__HIGHLIGHT__Tag Salary: $${tagSalary.toLocaleString()}`,
           `Contract Year: 1`,
           `Status: Tag`,
         ],
@@ -4667,7 +4671,7 @@
     const team = safeStr(row.franchise_name || `Franchise ${pad4(row.franchise_id)}`);
     if (actionType === "tag") {
       const tagCost = safeInt(row.tag_bid || row.tag_salary || 0);
-      return { pos, line: `${team} · Tag Cost: ${tagCost.toLocaleString()}` };
+      return { pos, line: team, tagCost: tagCost.toLocaleString() };
     }
     if (actionType === "restructure") {
       return { pos, line: `${team} · Salary: ${safeInt(row.salary).toLocaleString()} · ${safeInt(row.contract_year)}yr` };
@@ -4724,6 +4728,7 @@
               data-player-id="${htmlEsc(r.player_id)}"
               data-franchise-id="${htmlEsc(pad4(r.franchise_id))}">
               <span class="name">${htmlEsc(r.player_name || "")}</span>
+              ${meta.tagCost ? `<span class="ccc-tagCost">Tag Cost: $${htmlEsc(meta.tagCost)}</span>` : ""}
               <span class="meta"><span class="ccc-posPill">${htmlEsc(meta.pos)}</span> ${htmlEsc(meta.line)}</span>
             </button>
           `;
@@ -4772,14 +4777,20 @@
     if (!actionType) {
       step4Block = `<div class="ccc-flowLocked">Select an action above to continue.</div>`;
     } else {
+      const flowLi = (line) => {
+        if (typeof line === "string" && line.startsWith("__HIGHLIGHT__")) {
+          return `<li class="ccc-flowHighlight">${htmlEsc(line.slice(13))}</li>`;
+        }
+        return `<li>${htmlEsc(line)}</li>`;
+      };
       const currentList = preview.current.length
-        ? `<ul class="ccc-flowList">${preview.current.map((line) => `<li>${htmlEsc(line)}</li>`).join("")}</ul>`
+        ? `<ul class="ccc-flowList">${preview.current.map(flowLi).join("")}</ul>`
         : `<div class="ccc-flowMuted">Select a player to see contract details.</div>`;
       const proposedList = preview.proposed.length
-        ? `<ul class="ccc-flowList">${preview.proposed.map((line) => `<li>${htmlEsc(line)}</li>`).join("")}</ul>`
+        ? `<ul class="ccc-flowList">${preview.proposed.map(flowLi).join("")}</ul>`
         : `<div class="ccc-flowMuted">Proposed contract will appear here.</div>`;
       const changesList = preview.changes.length
-        ? `<ul class="ccc-flowList">${preview.changes.map((line) => `<li>${htmlEsc(line)}</li>`).join("")}</ul>`
+        ? `<ul class="ccc-flowList">${preview.changes.map(flowLi).join("")}</ul>`
         : "";
       const isSubmitDisabled = !selectedRow || !preview.submitEnabled || state.actionFlow.busy || actionType === "auction";
       const receiptBlock = currentReceipt
@@ -9290,26 +9301,27 @@
 
         const teamSelect = $("#teamSelect");
         if (state.commishMode) {
+          /* Admin mode ON → always show ALL teams */
           if (state.selectedTeam && state.selectedTeam !== "__ALL__") {
             state.lastOwnerTeam = state.selectedTeam;
           }
-          const preferred =
-            safeStr((state.defaultFilters && state.defaultFilters.teamId) || "") || "__ALL__";
-          const hasOpt =
-            teamSelect &&
-            Array.from(teamSelect.options).some((o) => safeStr(o.value) === preferred);
-          state.selectedTeam = hasOpt ? preferred : "__ALL__";
-          state.showAllTeams = state.selectedTeam === "__ALL__";
-          if (teamSelect) teamSelect.value = state.selectedTeam;
+          state.selectedTeam = "__ALL__";
+          state.showAllTeams = true;
+          if (teamSelect) teamSelect.value = "__ALL__";
         } else {
-          const fallback =
+          /* Admin mode OFF → revert to owner's franchise */
+          const ownerTeam =
             state.lastOwnerTeam ||
             state.detectedFranchiseId ||
-            safeStr((state.defaultFilters && state.defaultFilters.teamId) || "__ALL__");
-          const hasOpt =
-            teamSelect &&
-            Array.from(teamSelect.options).some((o) => safeStr(o.value) === fallback);
-          state.selectedTeam = hasOpt ? fallback : "__ALL__";
+            safeStr((state.defaultFilters && state.defaultFilters.teamId) || "");
+          if (ownerTeam) {
+            const hasOpt =
+              teamSelect &&
+              Array.from(teamSelect.options).some((o) => safeStr(o.value) === ownerTeam);
+            state.selectedTeam = hasOpt ? ownerTeam : "__ALL__";
+          } else {
+            state.selectedTeam = "__ALL__";
+          }
           state.showAllTeams = state.selectedTeam === "__ALL__";
           if (teamSelect) teamSelect.value = state.selectedTeam;
         }

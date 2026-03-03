@@ -214,7 +214,17 @@
   if (!mount) {
     mount = document.createElement("div");
     mount.id = "cccMount";
-    document.body.appendChild(mount);
+
+    const anchor =
+      document.querySelector(".ups-hotlinks-shell") ||
+      document.getElementById("container-wrap") ||
+      document.body;
+
+    if (anchor && anchor.parentNode) {
+      anchor.parentNode.insertBefore(mount, anchor.nextSibling);
+    } else {
+      document.body.appendChild(mount);
+    }
   }
 
   function getScriptCacheKey() {
