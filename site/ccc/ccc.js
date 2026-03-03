@@ -1426,6 +1426,13 @@
   }
 
   function canRestructureRow(row) {
+    if (!row) return false;
+    /* Prefer explicit flag if present in payload */
+    const flag = row.restructure_eligible;
+    if (flag !== undefined && flag !== null && flag !== "") {
+      return flag === 1 || flag === "1" || flag === "Y" || flag === true;
+    }
+    /* Fallback: heuristic */
     const years = safeInt(row.contract_year);
     if (years <= 1 || years > 3) return false;
     if (rookieLike(row.contract_status)) return false;
@@ -4323,7 +4330,7 @@
     filtersByModule: {},
     primaryMode: "action",
     actionFlow: {
-      actionType: "extend",
+      actionType: "",
       selectedPlayerId: "",
       selectedFranchiseId: "",
       selectedTerm: "",
@@ -4336,7 +4343,11 @@
       selectedSubmissionId: "",
       detailsOpen: false,
       currentPayload: null,
-      actionFilter: "all",
+      reportType: "all",    /* decoupled from actionFlow — replaces actionFilter */
+      sortKey: "submitted_at_utc",
+      sortDir: "desc",
+      colFilters: { team: "", action: "" },
+      search: "",
     },
   };
 
@@ -4380,16 +4391,19 @@
   }
 
   function normalizeActionType(v) {
+    if (!v || !safeStr(v).trim()) return "";
     const key = safeStr(v).toLowerCase();
     if (key === "restructure") return "restructure";
     if (key === "mym") return "mym";
     if (key === "tag") return "tag";
     if (key === "auction") return "auction";
-    return "extend";
+    if (key === "extend") return "extend";
+    return "";
   }
 
   function getActionTypeOptions() {
     return [
+      { type: "", label: "Select an action\u2026", module: "", disabled: false, placeholder: true },
       { type: "tag", label: "Tag Player", module: "tag", disabled: false },
       { type: "extend", label: "Extend Player", module: "extensions", disabled: false },
       { type: "restructure", label: "Restructure", module: "restructure", disabled: false },
@@ -4520,8 +4534,8 @@
           `Guaranteed: ${safeInt(calc.gtd).toLocaleString()}`,
         ],
         submitEnabled: true,
-        submitLabel: "Submit",
-        statusHint: "Ready to submit contract.",
+        submitLabel: "Confirm Submission",
+        statusHint: "Review and confirm your MYM contract.",
       };
     }
     if (actionType === "restructure") {
@@ -4551,8 +4565,8 @@
           "Submit opens the full restructure configurator.",
         ],
         submitEnabled: true,
-        submitLabel: "Open Configure",
-        statusHint: "Configure terms, then submit.",
+        submitLabel: "Review",
+        statusHint: "Review and confirm your restructure submission.",
       };
     }
     if (actionType === "tag") {
@@ -4573,8 +4587,8 @@
           `Formula: ${safeStr(row.tag_formula || "—")}`,
         ],
         submitEnabled: true,
-        submitLabel: "Open Configure",
-        statusHint: "Open tag modal to finalize.",
+        submitLabel: "Review",
+        statusHint: "Review and confirm your tag submission.",
       };
     }
     // extend
@@ -4596,8 +4610,8 @@
       ],
       changes: (preview && preview.lines ? preview.lines.slice(0, 4) : []).map((line) => safeStr(line)),
       submitEnabled: true,
-      submitLabel: "Submit",
-      statusHint: "Ready to submit extension.",
+      submitLabel: "Confirm Submission",
+      statusHint: "Review and confirm your extension selection.",
     };
   }
 
@@ -4635,7 +4649,7 @@
       state.actionFlow.status !== "failed"
     ) {
       state.actionFlow.status = "ready";
-      state.actionFlow.statusMessage = "Ready to submit.";
+      state.actionFlow.statusMessage = "";  /* let statusHint carry the guidance */
     }
   }
 
@@ -4667,14 +4681,14 @@
   }
 
   function renderActionPanel(viewModel) {
-    const actionType = normalizeActionType(
-      state.actionFlow.actionType || (viewModel && viewModel.defaultActionType) || "extend"
-    );
+    /* Use state.actionFlow.actionType directly — do NOT fall back to viewModel.defaultActionType
+       so that the placeholder state is preserved when no action has been chosen. */
+    const actionType = normalizeActionType(state.actionFlow.actionType);
     const options = getActionTypeOptions();
-    const candidates = getActionCandidates(viewModel || {});
-    ensureActionFlowDefaults(actionType, candidates);
-    const selectedRow = findActionSelectedRow(candidates);
-    const preview = buildActionPreview(actionType, selectedRow);
+    const candidates = actionType ? getActionCandidates(viewModel || {}) : [];
+    if (actionType) ensureActionFlowDefaults(actionType, candidates);
+    const selectedRow = actionType ? findActionSelectedRow(candidates) : null;
+    const preview = actionType ? buildActionPreview(actionType, selectedRow) : { current: [], proposed: [], changes: [], submitLabel: "", statusHint: "", submitEnabled: false };
     const statusClass = safeStr(state.actionFlow.status || "draft").toLowerCase();
     const currentReceipt = state.actionFlow.lastReceipt || null;
     const selectedTerm = safeStr(state.actionFlow.selectedTerm || "");
@@ -4683,39 +4697,47 @@
     const actionDropdownOptions = options
       .map((opt) => {
         const selected = opt.type === actionType;
-        const disabled = !!opt.disabled;
-        const suffix = disabled ? " (Coming Soon)" : "";
-        return `<option value="${htmlEsc(opt.type)}"${selected ? " selected" : ""}${disabled ? " disabled" : ""}>${htmlEsc(opt.label)}${suffix}</option>`;
+        const isPlaceholder = !!opt.placeholder;
+        const disabled = !!opt.disabled || isPlaceholder;
+        const suffix = opt.disabled && !isPlaceholder ? " (Coming Soon)" : "";
+        return `<option value="${htmlEsc(opt.type)}"${selected ? " selected" : ""}${disabled ? " disabled" : ""}${isPlaceholder ? " hidden" : ""}>${htmlEsc(opt.label)}${suffix}</option>`;
       })
       .join("");
-    const actionDropdownHint = getActionCardDesc(actionType);
+    const actionDropdownHint = actionType ? getActionCardDesc(actionType) : "";
 
     /* Step 2 — Player List with inline search */
     const searchVal = safeStr(state.search || "");
-    const playerRows = candidates.length
-      ? candidates
-          .slice(0, 60)
-          .map((r) => {
-            const isSelected =
-              safeStr(r.player_id) === safeStr(state.actionFlow.selectedPlayerId) &&
-              pad4(r.franchise_id) === pad4(state.actionFlow.selectedFranchiseId);
-            const meta = getPlayerMetaForAction(actionType, r);
-            return `
-              <button type="button" class="ccc-flowPlayerBtn${isSelected ? " is-active" : ""}"
-                data-action-flow-select-player="1"
-                data-player-id="${htmlEsc(r.player_id)}"
-                data-franchise-id="${htmlEsc(pad4(r.franchise_id))}">
-                <span class="name">${htmlEsc(r.player_name || "")}</span>
-                <span class="meta"><span class="ccc-posPill">${htmlEsc(meta.pos)}</span> ${htmlEsc(meta.line)}</span>
-              </button>
-            `;
-          })
-          .join("")
-      : `<div class="ccc-flowEmpty">No eligible players for this action with current filters.</div>`;
+    let playerRows;
+    if (!actionType) {
+      playerRows = `<div class="ccc-flowLocked">Select an action above to continue.</div>`;
+    } else if (candidates.length) {
+      playerRows = candidates
+        .slice(0, 60)
+        .map((r) => {
+          const isSelected =
+            safeStr(r.player_id) === safeStr(state.actionFlow.selectedPlayerId) &&
+            pad4(r.franchise_id) === pad4(state.actionFlow.selectedFranchiseId);
+          const meta = getPlayerMetaForAction(actionType, r);
+          return `
+            <button type="button" class="ccc-flowPlayerBtn${isSelected ? " is-active" : ""}"
+              data-action-flow-select-player="1"
+              data-player-id="${htmlEsc(r.player_id)}"
+              data-franchise-id="${htmlEsc(pad4(r.franchise_id))}">
+              <span class="name">${htmlEsc(r.player_name || "")}</span>
+              <span class="meta"><span class="ccc-posPill">${htmlEsc(meta.pos)}</span> ${htmlEsc(meta.line)}</span>
+            </button>
+          `;
+        })
+        .join("");
+    } else {
+      playerRows = `<div class="ccc-flowEmpty">No eligible players for this action with current filters.</div>`;
+    }
 
     /* Step 3 — Configure Terms */
-    let configureBlock = `<div class="ccc-flowMuted">No extra configuration required.</div>`;
-    if (actionType === "extend" || actionType === "mym") {
+    let configureBlock;
+    if (!actionType) {
+      configureBlock = `<div class="ccc-flowLocked">Select an action above to continue.</div>`;
+    } else if (actionType === "extend" || actionType === "mym") {
       const terms = actionType === "extend"
         ? [
             { key: "1YR", label: "1-Year Extension" },
@@ -4741,26 +4763,56 @@
       configureBlock = `<div class="ccc-flowMuted">Select a player, then submit to open the restructure configurator.</div>`;
     } else if (actionType === "tag") {
       configureBlock = `<div class="ccc-flowMuted">Tag cost is system-calculated. Submit to confirm.</div>`;
+    } else {
+      configureBlock = `<div class="ccc-flowMuted">No extra configuration required.</div>`;
     }
 
-    /* Step 4 — Review & Submit (Before/After 2-column) */
-    const currentList = preview.current.length
-      ? `<ul class="ccc-flowList">${preview.current.map((line) => `<li>${htmlEsc(line)}</li>`).join("")}</ul>`
-      : `<div class="ccc-flowMuted">Select a player to see contract details.</div>`;
-    const proposedList = preview.proposed.length
-      ? `<ul class="ccc-flowList">${preview.proposed.map((line) => `<li>${htmlEsc(line)}</li>`).join("")}</ul>`
-      : `<div class="ccc-flowMuted">Proposed contract will appear here.</div>`;
-    const changesList = preview.changes.length
-      ? `<ul class="ccc-flowList">${preview.changes.map((line) => `<li>${htmlEsc(line)}</li>`).join("")}</ul>`
-      : "";
-
-    const isSubmitDisabled = !selectedRow || !preview.submitEnabled || state.actionFlow.busy || actionType === "auction";
-
-    const receiptBlock = currentReceipt
-      ? (statusClass === "submitted"
-        ? `<div class="ccc-successCard"><div class="ccc-flowReceipt">Receipt: ${htmlEsc(currentReceipt)}</div></div>`
-        : `<div class="ccc-flowReceipt">Receipt: ${htmlEsc(currentReceipt)}</div>`)
-      : "";
+    /* Step 4 — Review & Confirm (Before/After 2-column) */
+    let step4Block;
+    if (!actionType) {
+      step4Block = `<div class="ccc-flowLocked">Select an action above to continue.</div>`;
+    } else {
+      const currentList = preview.current.length
+        ? `<ul class="ccc-flowList">${preview.current.map((line) => `<li>${htmlEsc(line)}</li>`).join("")}</ul>`
+        : `<div class="ccc-flowMuted">Select a player to see contract details.</div>`;
+      const proposedList = preview.proposed.length
+        ? `<ul class="ccc-flowList">${preview.proposed.map((line) => `<li>${htmlEsc(line)}</li>`).join("")}</ul>`
+        : `<div class="ccc-flowMuted">Proposed contract will appear here.</div>`;
+      const changesList = preview.changes.length
+        ? `<ul class="ccc-flowList">${preview.changes.map((line) => `<li>${htmlEsc(line)}</li>`).join("")}</ul>`
+        : "";
+      const isSubmitDisabled = !selectedRow || !preview.submitEnabled || state.actionFlow.busy || actionType === "auction";
+      const receiptBlock = currentReceipt
+        ? (statusClass === "submitted"
+          ? `<div class="ccc-successCard"><div class="ccc-flowReceipt">Receipt: ${htmlEsc(currentReceipt)}</div></div>`
+          : `<div class="ccc-flowReceipt">Receipt: ${htmlEsc(currentReceipt)}</div>`)
+        : "";
+      step4Block = `
+        <div class="ccc-flowStatusRow">
+          <span class="ccc-statusPill ccc-status-${htmlEsc(statusClass)}">${htmlEsc(formatActionStatus())}</span>
+          <span class="ccc-flowHint">${htmlEsc(
+            safeStr(state.actionFlow.statusMessage || preview.statusHint || "")
+          )}</span>
+        </div>
+        <div class="ccc-flowPreviewGrid">
+          <div class="ccc-flowPreviewCol">
+            <div class="ccc-flowPreviewTitle">Current</div>
+            ${currentList}
+          </div>
+          <div class="ccc-flowPreviewCol">
+            <div class="ccc-flowPreviewTitle">Proposed</div>
+            ${proposedList}
+          </div>
+        </div>
+        ${changesList ? `<div class="ccc-flowChanges"><div class="ccc-flowPreviewTitle">What Changes</div>${changesList}</div>` : ""}
+        <div class="ccc-flowActions" style="margin-top:0.55rem;">
+          <button type="button" class="ccc-submitBtn" data-action-flow-submit="1"${
+            isSubmitDisabled ? " disabled" : ""
+          }>${htmlEsc(state.actionFlow.busy ? "Submitting..." : preview.submitLabel)}</button>
+        </div>
+        ${receiptBlock}
+      `;
+    }
 
     return `
       <div class="ccc-modeCard ccc-modeCard-action">
@@ -4771,49 +4823,27 @@
           <div class="ccc-flowTitle">1. Choose Action</div>
           <div class="ccc-actionDropdownWrap">
             <select class="ccc-actionDropdown" data-action-flow-dropdown="1">${actionDropdownOptions}</select>
-            <p class="ccc-actionDropdownHint">${htmlEsc(actionDropdownHint)}</p>
+            ${actionDropdownHint ? `<p class="ccc-actionDropdownHint">${htmlEsc(actionDropdownHint)}</p>` : ""}
           </div>
         </section>
 
-        <section class="ccc-flowSection">
+        <section class="ccc-flowSection${!actionType ? " ccc-flowSection-locked" : ""}">
           <div class="ccc-flowTitle">2. Select Player</div>
-          <div class="ccc-flowSearch">
+          ${actionType ? `<div class="ccc-flowSearch">
             <input class="ccc-input" type="text" placeholder="Search players..." value="${htmlEsc(searchVal)}"
               data-action-flow-search="1" />
-          </div>
+          </div>` : ""}
           <div class="ccc-flowPlayerList">${playerRows}</div>
         </section>
 
-        <section class="ccc-flowSection">
+        <section class="ccc-flowSection${!actionType ? " ccc-flowSection-locked" : ""}">
           <div class="ccc-flowTitle">3. Configure</div>
           ${configureBlock}
         </section>
 
-        <section class="ccc-flowSection ccc-flowPreviewSection">
-          <div class="ccc-flowTitle">4. Review & Submit</div>
-          <div class="ccc-flowStatusRow">
-            <span class="ccc-statusPill ccc-status-${htmlEsc(statusClass)}">${htmlEsc(formatActionStatus())}</span>
-            <span class="ccc-flowHint">${htmlEsc(
-              safeStr(state.actionFlow.statusMessage || preview.statusHint || "")
-            )}</span>
-          </div>
-          <div class="ccc-flowPreviewGrid">
-            <div class="ccc-flowPreviewCol">
-              <div class="ccc-flowPreviewTitle">Current</div>
-              ${currentList}
-            </div>
-            <div class="ccc-flowPreviewCol">
-              <div class="ccc-flowPreviewTitle">Proposed</div>
-              ${proposedList}
-            </div>
-          </div>
-          ${changesList ? `<div class="ccc-flowChanges"><div class="ccc-flowPreviewTitle">What Changes</div>${changesList}</div>` : ""}
-          <div class="ccc-flowActions" style="margin-top:0.55rem;">
-            <button type="button" class="ccc-submitBtn" data-action-flow-submit="1"${
-              isSubmitDisabled ? " disabled" : ""
-            }>${htmlEsc(state.actionFlow.busy ? "Submitting..." : preview.submitLabel)}</button>
-          </div>
-          ${receiptBlock}
+        <section class="ccc-flowSection ccc-flowPreviewSection${!actionType ? " ccc-flowSection-locked" : ""}">
+          <div class="ccc-flowTitle">4. Review &amp; Confirm</div>
+          ${step4Block}
         </section>
       </div>
     `;
@@ -4865,54 +4895,104 @@
   }
 
   function renderReportsPanel(viewModel) {
+    /* ── 1. Raw rows — always all-teams (getAllSubmissionRows has no team gating) ── */
     const allRows = normalizeReportsRows(
       (viewModel && viewModel.allSubmissionRows) || (viewModel && viewModel.submittedRows) || []
     );
 
-    /* Action-type filter */
-    const filterKey = safeStr(state.reportsView.actionFilter || "all");
-    const filteredRows = filterKey === "all"
-      ? allRows
-      : allRows.filter((r) => r.action === filterKey);
+    /* ── 2. Filter chain (all independent of action-flow state) ── */
+    const rv = state.reportsView;
+    const reportType  = safeStr(rv.reportType  || "all");
+    const colTeam     = safeStr((rv.colFilters && rv.colFilters.team)   || "");
+    const colAction   = safeStr((rv.colFilters && rv.colFilters.action) || "");
+    const searchLower = safeStr(rv.search || "").trim().toLowerCase();
+    const sortKey     = safeStr(rv.sortKey || "submitted_at_utc");
+    const sortDir     = safeStr(rv.sortDir || "desc");
 
-    if (!safeStr(state.reportsView.selectedSubmissionId) && filteredRows.length) {
-      state.reportsView.selectedSubmissionId = safeStr(filteredRows[0].id);
+    let rows = allRows.slice();
+    if (reportType !== "all") rows = rows.filter((r) => r.action === reportType);
+    if (colTeam)              rows = rows.filter((r) => r.franchise_name === colTeam);
+    if (colAction)            rows = rows.filter((r) => r.action === colAction);
+    if (searchLower)          rows = rows.filter((r) =>
+      `${r.player_name} ${r.franchise_name} ${r.action}`.toLowerCase().includes(searchLower)
+    );
+
+    /* Sort */
+    rows = rows.slice().sort((a, b) => {
+      let va, vb;
+      if (sortKey === "submitted_at_utc") {
+        va = parseDate(a.submitted_at_utc) || new Date(0);
+        vb = parseDate(b.submitted_at_utc) || new Date(0);
+      } else if (sortKey === "salary") {
+        va = safeInt(a.salary); vb = safeInt(b.salary);
+      } else {
+        va = safeStr(a[sortKey] || "").toLowerCase();
+        vb = safeStr(b[sortKey] || "").toLowerCase();
+      }
+      if (va < vb) return sortDir === "asc" ? -1 : 1;
+      if (va > vb) return sortDir === "asc" ? 1 : -1;
+      return 0;
+    });
+
+    /* Update selected */
+    if (!safeStr(rv.selectedSubmissionId) && rows.length) {
+      rv.selectedSubmissionId = safeStr(rows[0].id);
     }
-    const selected = filteredRows.find((r) => safeStr(r.id) === safeStr(state.reportsView.selectedSubmissionId)) || filteredRows[0] || null;
-    state.reportsView.currentPayload = selected ? selected.raw : null;
+    const selected = rows.find((r) => safeStr(r.id) === safeStr(rv.selectedSubmissionId)) || rows[0] || null;
+    rv.currentPayload = selected ? selected.raw : null;
 
-    /* Filter pills */
-    const filterOptions = [
-      { key: "all", label: "All Actions" },
-      { key: "Tag", label: "Tags" },
-      { key: "Extend", label: "Extensions" },
+    /* ── 3. Report Type dropdown (independent of Action dropdown) ── */
+    const reportTypeOptions = [
+      { key: "all",         label: "All Actions" },
+      { key: "Tag",         label: "Tags" },
+      { key: "Extend",      label: "Extensions" },
       { key: "Restructure", label: "Restructures" },
-      { key: "Auction", label: "Auction" },
-      { key: "MYM", label: "MYM" },
-    ];
-    const filterPills = filterOptions
-      .map((f) => `<button type="button" class="ccc-reportFilterPill${filterKey === f.key ? " is-active" : ""}" data-report-action-filter="${htmlEsc(f.key)}">${htmlEsc(f.label)}</button>`)
-      .join("");
+      { key: "MYM",         label: "MYM" },
+    ].map((opt) =>
+      `<option value="${htmlEsc(opt.key)}"${reportType === opt.key ? " selected" : ""}>${htmlEsc(opt.label)}</option>`
+    ).join("");
 
-    const listHtml = filteredRows.length
-      ? filteredRows
-          .slice(0, 25)
-          .map((r) => {
-            const when = formatSubmittedValue(r.submitted_at_utc);
-            const active = selected && safeStr(selected.id) === safeStr(r.id);
-            return `
-              <button type="button" class="ccc-reportRow${active ? " is-active" : ""}" data-report-select="${htmlEsc(r.id)}">
-                <span class="top"><span class="ccc-actionPill">${htmlEsc(r.action)}</span>${htmlEsc(r.player_name)}</span>
-                <span class="meta">${htmlEsc(
-                  `${r.franchise_name || `Franchise ${r.franchise_id}`} · ${when.date || "N/A"} ${when.time || ""}`
-                )}</span>
-              </button>
-            `;
-          })
-          .join("")
-      : `<div class="ccc-flowEmpty">No submissions for this filter.</div>`;
+    /* ── 4. Column filter unique value lists ── */
+    const uniqueTeams   = [...new Set(allRows.map((r) => r.franchise_name).filter(Boolean))].sort();
+    const uniqueActions = [...new Set(allRows.map((r) => r.action).filter(Boolean))].sort();
 
-    const health = (viewModel && viewModel.health) || {};
+    const colFilterDrop = (field, values, current) => {
+      const opts = [`<option value="">All</option>`]
+        .concat(values.map((v) => `<option value="${htmlEsc(v)}"${current === v ? " selected" : ""}>${htmlEsc(v)}</option>`))
+        .join("");
+      return `
+        <details class="ccc-colFilter" data-col-filter-wrap="${htmlEsc(field)}">
+          <summary class="ccc-colFilterToggle" title="Filter">▾</summary>
+          <div class="ccc-colFilterDrop">
+            <select class="ccc-colFilterSel" data-col-filter="${htmlEsc(field)}">${opts}</select>
+          </div>
+        </details>`;
+    };
+
+    /* ── 5. Sort header helper ── */
+    const rSortTh = (key, label, extra) => {
+      const active = sortKey === key;
+      const icon = active ? (sortDir === "asc" ? " ▲" : " ▼") : "";
+      const cls = ["ccc-rTh is-sortable", active ? "is-sorted" : "", extra || ""].join(" ").trim();
+      return `<th class="${cls}" data-report-sort="${htmlEsc(key)}">${htmlEsc(label)}${icon}</th>`;
+    };
+
+    /* ── 6. Table body ── */
+    const tableBody = rows.length
+      ? rows.slice(0, 100).map((r) => {
+          const when = formatSubmittedValue(r.submitted_at_utc);
+          const isActive = selected && safeStr(selected.id) === safeStr(r.id);
+          return `<tr class="ccc-rRow${isActive ? " is-active" : ""}" data-report-select="${htmlEsc(r.id)}" style="cursor:pointer;">
+            <td>${htmlEsc(when.date || "—")}</td>
+            <td>${htmlEsc(r.franchise_name || `Franchise ${r.franchise_id}`)}</td>
+            <td><strong>${htmlEsc(r.player_name)}</strong></td>
+            <td><span class="ccc-actionPill">${htmlEsc(r.action)}</span></td>
+            <td>${htmlEsc(r.position || "—")}</td>
+          </tr>`;
+        }).join("")
+      : `<tr><td colspan="5" class="ccc-flowEmpty">No submissions match the current filters.</td></tr>`;
+
+    /* ── 7. Detail panel ── */
     const detailsRows = selected
       ? `
         <div class="ccc-reportDetailsGrid">
@@ -4922,7 +5002,7 @@
           <div><span>Position</span><strong>${htmlEsc(selected.position || "—")}</strong></div>
           <div><span>Salary</span><strong>${safeInt(selected.salary).toLocaleString()}</strong></div>
           <div><span>Years</span><strong>${safeInt(selected.contract_year)}</strong></div>
-          <div><span>Status</span><strong>${htmlEsc(selected.contract_status || "—")}</strong></div>
+          <div><span>Contract</span><strong>${htmlEsc(selected.contract_status || "—")}</strong></div>
           <div><span>Submitted</span><strong>${htmlEsc(selected.submitted_at_utc || "—")}</strong></div>
         </div>
         <div class="ccc-reportContractInfo">${htmlEsc(selected.contract_info || "No contract info provided.")}</div>
@@ -4931,66 +5011,75 @@
           <pre>${htmlEsc(JSON.stringify(selected.raw || {}, null, 2))}</pre>
         </details>
       `
-      : `<div class="ccc-flowEmpty">Select a submission to inspect details.</div>`;
+      : `<div class="ccc-flowEmpty">Select a row to inspect details.</div>`;
+
+    const health = (viewModel && viewModel.health) || {};
 
     return `
       <div class="ccc-modeCard ccc-modeCard-reports">
-        <div class="ccc-modeTitle">Reports & Audit</div>
+        <div class="ccc-modeTitle">Reports &amp; Audit</div>
         <div class="ccc-modeSub">Historical submissions, diagnostics, and roster health.</div>
 
-        <div class="ccc-reportFilterRow">${filterPills}</div>
-
-        <div class="ccc-modeGrid">
-          <div class="ccc-modeStat"><div class="label">Submissions</div><div class="value">${safeInt(
-            filteredRows.length
-          )}</div></div>
-          <div class="ccc-modeStat"><div class="label">Eligible</div><div class="value">${safeInt(
-            health.eligibleCount || 0
-          )}</div></div>
-          <div class="ccc-modeStat"><div class="label">Last Refresh</div><div class="value">${htmlEsc(
-            safeStr(health.lastRefresh || "—")
-          )}</div></div>
-          <div class="ccc-modeStat"><div class="label">Health</div><div class="value">${htmlEsc(
-            safeStr(health.healthLabel || "Live")
-          )}</div></div>
+        <div class="ccc-reportControlRow">
+          <label class="ccc-reportControlLabel">Report Type</label>
+          <select class="ccc-reportTypeSelect" data-report-type-select="1">${reportTypeOptions}</select>
+          <input class="ccc-reportSearch" type="text" placeholder="Search player, team, action…"
+            value="${htmlEsc(safeStr(rv.search || ""))}" data-report-search="1" />
         </div>
 
-        <div class="ccc-reportsGrid">
-          <div class="ccc-reportsColumns">
-            <section class="ccc-flowSection">
-              <div class="ccc-flowTitle">Recent Submissions</div>
-              <div class="ccc-reportList">${listHtml}</div>
-            </section>
-            <section class="ccc-flowSection">
-              <div class="ccc-flowTitle">Submission Details</div>
-              ${detailsRows}
-            </section>
-          </div>
+        <div class="ccc-modeGrid">
+          <div class="ccc-modeStat"><div class="label">Showing</div><div class="value">${rows.length}</div></div>
+          <div class="ccc-modeStat"><div class="label">Total</div><div class="value">${allRows.length}</div></div>
+          <div class="ccc-modeStat"><div class="label">Ext Eligible</div><div class="value">${safeInt(health.eligibleExtensions || 0)}</div></div>
+          <div class="ccc-modeStat"><div class="label">Rst Eligible</div><div class="value">${safeInt(health.eligibleRestructures || 0)}</div></div>
+        </div>
 
-          <div class="ccc-reportsColumns">
-            <section class="ccc-flowSection">
-              <div class="ccc-flowTitle">Roster Health</div>
-              <div class="ccc-reportHealth">
-                <div>Eligible Extensions: <strong>${safeInt(health.eligibleExtensions || 0)}</strong></div>
-                <div>Eligible Restructures: <strong>${safeInt(health.eligibleRestructures || 0)}</strong></div>
-                <div>Teams in Scope: <strong>${safeInt(health.teamCount || 0)}</strong></div>
-              </div>
-              <div class="ccc-flowActions" style="margin-top:0.55rem;">
-                <button type="button" class="ccc-pageBtn" data-report-refresh="1">Refresh Data</button>
-              </div>
-            </section>
-            <section class="ccc-flowSection ccc-auditCard">
-              <div class="ccc-flowTitle">Audit Export</div>
-              <div class="ccc-flowActions">
-                <button type="button" class="ccc-pageBtn" data-report-copy="1"${
-                  selected ? "" : " disabled"
-                }>Copy Receipt</button>
-                <button type="button" class="ccc-pageBtn" data-report-download="1"${
-                  selected ? "" : " disabled"
-                }>Download JSON</button>
-              </div>
-            </section>
+        <section class="ccc-flowSection ccc-reportTableSection">
+          <div class="ccc-flowTitle">Submissions</div>
+          <div class="ccc-reportTableWrap">
+            <table class="ccc-reportTable">
+              <thead>
+                <tr>
+                  ${rSortTh("submitted_at_utc", "Date")}
+                  <th class="ccc-rTh">${"Team"}${colFilterDrop("team", uniqueTeams, colTeam)}</th>
+                  ${rSortTh("player_name", "Player")}
+                  <th class="ccc-rTh">${"Action"}${colFilterDrop("action", uniqueActions, colAction)}</th>
+                  ${rSortTh("position", "Pos")}
+                </tr>
+              </thead>
+              <tbody>${tableBody}</tbody>
+            </table>
           </div>
+        </section>
+
+        <section class="ccc-flowSection">
+          <div class="ccc-flowTitle">Submission Details</div>
+          ${detailsRows}
+        </section>
+
+        <div class="ccc-reportsGrid">
+          <section class="ccc-flowSection">
+            <div class="ccc-flowTitle">Roster Health</div>
+            <div class="ccc-reportHealth">
+              <div>Eligible Extensions: <strong>${safeInt(health.eligibleExtensions || 0)}</strong></div>
+              <div>Eligible Restructures: <strong>${safeInt(health.eligibleRestructures || 0)}</strong></div>
+              <div>Teams in Scope: <strong>${safeInt(health.teamCount || 0)}</strong></div>
+            </div>
+            <div class="ccc-flowActions" style="margin-top:0.55rem;">
+              <button type="button" class="ccc-pageBtn" data-report-refresh="1">Refresh Data</button>
+            </div>
+          </section>
+          <section class="ccc-flowSection ccc-auditCard">
+            <div class="ccc-flowTitle">Audit Export</div>
+            <div class="ccc-flowActions">
+              <button type="button" class="ccc-pageBtn" data-report-copy="1"${
+                selected ? "" : " disabled"
+              }>Copy Receipt</button>
+              <button type="button" class="ccc-pageBtn" data-report-download="1"${
+                selected ? "" : " disabled"
+              }>Download JSON</button>
+            </div>
+          </section>
         </div>
       </div>
     `;
@@ -5041,11 +5130,13 @@
     if (key === "mym") return "mym";
     if (key === "tag") return "tag";
     if (key === "extensions" || key === "expiredrookie") return "extend";
-    return normalizeActionType(state.actionFlow.actionType || "extend");
+    /* Empty/unknown module — return current actionFlow type without forcing a default */
+    return normalizeActionType(state.actionFlow.actionType);
   }
 
   function moduleForActionType(actionType) {
     const key = normalizeActionType(actionType);
+    if (!key) return "";
     if (key === "restructure") return "restructure";
     if (key === "mym") return "mym";
     if (key === "tag") return "tag";
@@ -5325,6 +5416,12 @@
 
   function canExtendRow(row) {
     if (!row) return false;
+    /* Prefer explicit flag if present in payload */
+    const flag = row.extension_eligible;
+    if (flag !== undefined && flag !== null && flag !== "") {
+      return flag === 1 || flag === "1" || flag === "Y" || flag === true;
+    }
+    /* Fallback: heuristic */
     const years = safeInt(row.contract_year);
     if (!(years === 1 || isExpiredRookieLike(row))) return false;
     const status = safeStr(row.contract_status).toLowerCase();
@@ -6472,6 +6569,9 @@
     if (cccError) cccError.textContent = "";
 
     if (!state.activeModule) {
+      /* In action-first mode, no active module just means no action chosen yet —
+         show the primary tabs + action panel with the placeholder/locked state.
+         Only the legacy tab/table UI gets hidden. */
       if (summary) summary.innerHTML = "";
       if (tabSummary) tabSummary.innerHTML = "";
       if (tabCostCalc) tabCostCalc.innerHTML = "";
@@ -6479,13 +6579,11 @@
       if (tabIneligible) tabIneligible.innerHTML = "";
       if (tabSubmitted) tabSubmitted.innerHTML = "";
       if (cccTabs) cccTabs.style.display = "none";
-      if (cccMain) cccMain.style.display = "none";
-      if (cccPrimaryTabs) cccPrimaryTabs.style.display = "none";
-      if (actionPanel) actionPanel.style.display = "none";
-      if (reportsPanel) reportsPanel.style.display = "none";
+      if (cccPrimaryTabs) cccPrimaryTabs.style.display = "";
+      if (cccMain) cccMain.style.display = "";
       syncModuleChipSelection();
       updateModuleStatusChips();
-      return;
+      /* Fall through to render action panel with empty/locked state */
     }
 
     if (cccPrimaryTabs) cccPrimaryTabs.style.display = "";
@@ -8527,14 +8625,6 @@
       resetAllTablePages();
       setTab("eligible");
 
-      /* Action-first: auto-select default module if none set */
-      if (!state.activeModule) {
-        const defaultAction = normalizeActionType(state.actionFlow.actionType || "extend");
-        const defaultModule = moduleForActionType(defaultAction);
-        state.activeModule = defaultModule;
-        state.actionFlow.actionType = defaultAction;
-      }
-
       // default sort per tab
       sortState.tab = "eligible";
       if (state.activeModule === "tag") {
@@ -8920,7 +9010,7 @@
         state.actionFlow.selectedPlayerId = safeStr(rowBtn.getAttribute("data-player-id"));
         state.actionFlow.selectedFranchiseId = pad4(rowBtn.getAttribute("data-franchise-id"));
         state.actionFlow.status = "ready";
-        state.actionFlow.statusMessage = "Ready to submit.";
+        state.actionFlow.statusMessage = "";  /* let statusHint show action-specific guidance */
         render();
       },
       true
@@ -8935,7 +9025,7 @@
         state.actionFlow.selectedTerm = safeStr(termBtn.getAttribute("data-action-flow-term"));
         if (!state.actionFlow.busy) {
           state.actionFlow.status = "ready";
-          state.actionFlow.statusMessage = "Ready to submit.";
+          state.actionFlow.statusMessage = "";  /* let statusHint show action-specific guidance */
         }
         render();
       },
@@ -9010,37 +9100,65 @@
       true
     );
 
-    /* Reports Action Type filter pill click */
-    document.addEventListener(
-      "click",
-      (e) => {
-        const pill =
-          e.target && e.target.closest ? e.target.closest("[data-report-action-filter]") : null;
-        if (!pill) return;
-        state.reportsView.actionFilter = safeStr(pill.getAttribute("data-report-action-filter") || "all");
-        state.reportsView.selectedSubmissionId = "";
-        render();
-      },
-      true
-    );
+    /* Reports: Report Type select */
+    document.addEventListener("change", (e) => {
+      const sel = e.target && e.target.closest ? e.target.closest("[data-report-type-select='1']") : null;
+      if (!sel) return;
+      state.reportsView.reportType = safeStr(sel.value || "all");
+      state.reportsView.selectedSubmissionId = "";
+      render();
+    }, true);
+
+    /* Reports: column filter selects */
+    document.addEventListener("change", (e) => {
+      const sel = e.target && e.target.closest ? e.target.closest("[data-col-filter]") : null;
+      if (!sel) return;
+      const field = safeStr(sel.getAttribute("data-col-filter") || "");
+      if (!field) return;
+      if (!state.reportsView.colFilters) state.reportsView.colFilters = {};
+      state.reportsView.colFilters[field] = safeStr(sel.value || "");
+      state.reportsView.selectedSubmissionId = "";
+      /* Close the <details> popover after selection */
+      const wrap = sel.closest("[data-col-filter-wrap]");
+      if (wrap && wrap.open !== undefined) wrap.open = false;
+      render();
+    }, true);
+
+    /* Reports: global search input */
+    (function () {
+      let reportSearchTimeout;
+      document.addEventListener("input", (e) => {
+        const inp = e.target && e.target.closest ? e.target.closest("[data-report-search='1']") : null;
+        if (!inp) return;
+        clearTimeout(reportSearchTimeout);
+        reportSearchTimeout = setTimeout(() => {
+          state.reportsView.search = safeStr(inp.value || "").trim();
+          state.reportsView.selectedSubmissionId = "";
+          render();
+        }, 200);
+      }, true);
+    })();
+
+    /* Reports: sortable column header click */
+    document.addEventListener("click", (e) => {
+      const th = e.target && e.target.closest ? e.target.closest("[data-report-sort]") : null;
+      if (!th) return;
+      const key = safeStr(th.getAttribute("data-report-sort") || "");
+      if (!key) return;
+      if (state.reportsView.sortKey === key) {
+        state.reportsView.sortDir = state.reportsView.sortDir === "asc" ? "desc" : "asc";
+      } else {
+        state.reportsView.sortKey = key;
+        state.reportsView.sortDir = "asc";
+      }
+      render();
+    }, true);
 
     /* Hero utility links — Settings + Expired Rookie Draft */
     const cccSettingsLink = $("#cccSettingsLink");
     if (cccSettingsLink)
       cccSettingsLink.addEventListener("click", () => {
         switchModule("commish");
-        resetAllTablePages();
-        setTab("eligible");
-        render();
-      });
-
-    const cccExpiredRookieLink = $("#cccExpiredRookieLink");
-    if (cccExpiredRookieLink)
-      cccExpiredRookieLink.addEventListener("click", () => {
-        switchModule("expiredrookie");
-        sortState.tab = "eligible";
-        sortState.key = "team";
-        sortState.dir = "asc";
         resetAllTablePages();
         setTab("eligible");
         render();
