@@ -3377,7 +3377,7 @@
       lines.push(`${nextSeason}: ${safeInt(yearSalaries[1]).toLocaleString()}`);
       if (totalYears > 2) lines.push(`${secondSeason}: ${safeInt(yearSalaries[2]).toLocaleString()}`);
     }
-    lines.push(`TCV: ${tcv.toLocaleString()} | GTD: ${gtd.toLocaleString()}`);
+    lines.push(`TCV: ${tcv.toLocaleString()} | GTD: ${formatK(gtd)}`);
     lines.push(`Raise Applied (${years}Y): +${raise.toLocaleString()}`);
     if (minY1Violation) lines.push(`ERROR: Year 1 must be at least ${minY1.toLocaleString()} (20% of TCV, rounded up).`);
 
@@ -4531,7 +4531,7 @@
         changes: [
           `New contract length: ${calc.years}`,
           `TCV: ${safeInt(calc.tcv).toLocaleString()} | AAV: ${safeInt(calc.aav).toLocaleString()}`,
-          `Guaranteed: ${safeInt(calc.gtd).toLocaleString()}`,
+          `Guaranteed: ${formatK(calc.gtd)}`,
         ],
         submitEnabled: true,
         submitLabel: "Confirm Submission",
@@ -4539,12 +4539,7 @@
       };
     }
     if (actionType === "restructure") {
-      const years = safeInt(row.contract_year) >= 3 ? 3 : 2;
-      const parsed = parseContractAmounts(row.contract_info, years, safeInt(row.salary) || 1000);
-      const tcv = Math.max(years * 1000, parsed.tcv);
-      const y1 = Math.max(1000, parsed.y1 || safeInt(row.salary) || 1000);
-      const y2 = years === 3 ? Math.max(1000, parsed.y2 || safeInt(row.salary) || 1000) : Math.max(1000, parsed.y2 || tcv - y1);
-      const calc = calcRestructureOffer(years, tcv, y1, y2, extractExtSuffix(row.contract_info));
+      const rsCalc = restructureModalState.calc;
       return {
         current: [
           `Salary: ${safeInt(row.salary).toLocaleString()}`,
@@ -4552,14 +4547,14 @@
           `Status: ${safeStr(row.contract_status || "")}`,
           `Contract: ${safeStr(row.contract_info || "—")}`,
         ],
-        proposed: calc && calc.ok
+        proposed: rsCalc
           ? [
-              `Salary (Y1): ${safeInt(calc.y1).toLocaleString()}`,
-              `Years Remaining: ${safeInt(calc.years)}`,
+              `Salary (Y1): ${safeInt(rsCalc.y1).toLocaleString()}`,
+              `Years Remaining: ${safeInt(rsCalc.years)}`,
               `Status: ${safeStr(row.contract_status || "")}`,
-              `Contract: ${safeStr(calc.contractInfo || "—")}`,
+              `Contract: ${safeStr(rsCalc.contractInfo || "—")}`,
             ]
-          : ["Use Configure to set Year 1/Year 2 values."],
+          : [],
         changes: [
           "Restructure requires final input review.",
           "Submit opens the full restructure configurator.",
@@ -4610,8 +4605,8 @@
       ],
       changes: (preview && preview.lines ? preview.lines.slice(0, 4) : []).map((line) => safeStr(line)),
       submitEnabled: true,
-      submitLabel: "Confirm Submission",
-      statusHint: "Review and confirm your extension selection.",
+      submitLabel: "Review Extension",
+      statusHint: "Open review to finalize extension.",
     };
   }
 
@@ -4718,12 +4713,20 @@
             safeStr(r.player_id) === safeStr(state.actionFlow.selectedPlayerId) &&
             pad4(r.franchise_id) === pad4(state.actionFlow.selectedFranchiseId);
           const meta = getPlayerMetaForAction(actionType, r);
+          let headlineHtml = "";
+          if (actionType === "extend") {
+            const dlSeason = normalizeSeasonValue(r.season || state.selectedSeason);
+            const dlDate = getExtensionDeadlineDateForRow(r, dlSeason);
+            const dlText = dlDate ? fmtYMDDate(dlDate) : safeStr(r.extension_deadline || "TBD");
+            headlineHtml = `<span class="headline">Deadline: ${htmlEsc(dlText)}</span>`;
+          }
           return `
             <button type="button" class="ccc-flowPlayerBtn${isSelected ? " is-active" : ""}"
               data-action-flow-select-player="1"
               data-player-id="${htmlEsc(r.player_id)}"
               data-franchise-id="${htmlEsc(pad4(r.franchise_id))}">
               <span class="name">${htmlEsc(r.player_name || "")}</span>
+              ${headlineHtml}
               <span class="meta"><span class="ccc-posPill">${htmlEsc(meta.pos)}</span> ${htmlEsc(meta.line)}</span>
             </button>
           `;
@@ -5222,27 +5225,8 @@
       } else if (actionType === "extend") {
         const yearsToAdd = safeStr(state.actionFlow.selectedTerm || "1YR") === "2YR" ? 2 : 1;
         const key = ensureExtensionSelectionForAction(row, yearsToAdd);
-        const beforeAt = safeStr(
-          state.extensionSubmissions[key] && state.extensionSubmissions[key].submitted_at_utc
-        );
-        extensionModalState.key = key;
-        extensionModalState.yearsToAdd = yearsToAdd;
-        submitExtensionSelection();
-        const afterAt = safeStr(
-          state.extensionSubmissions[key] && state.extensionSubmissions[key].submitted_at_utc
-        );
-        if (afterAt && afterAt !== beforeAt) {
-          setActionFlowStatus(
-            "submitted",
-            "Extension submitted successfully.",
-            `${safeStr(row.player_name)} · ${yearsToAdd}YR`
-          );
-        } else {
-          setActionFlowStatus(
-            "failed",
-            "Extension submission failed validation. Open details in Reports."
-          );
-        }
+        openExtensionModal(key);
+        setActionFlowStatus("ready", "Review extension in the modal, then confirm.");
       } else if (actionType === "restructure") {
         openRestructureModal(row);
         setActionFlowStatus("ready", "Configure values in the modal, then submit restructure.");
@@ -7166,7 +7150,9 @@
 
   function formatK(n) {
     const v = safeInt(n);
-    return v % 1000 === 0 ? `${v / 1000}K` : `${v}`;
+    if (v % 1000 === 0) return `${v / 1000}K`;
+    const d = (v / 1000).toFixed(2).replace(/\.?0+$/, "");
+    return `${d}K`;
   }
 
   function computeGuarantee(salary, years) {
@@ -7221,7 +7207,7 @@
     $("#mymYears").textContent = String(calc.years);
     $("#mymTCV").textContent = safeInt(calc.tcv).toLocaleString();
     $("#mymAAV").textContent = safeInt(calc.aav).toLocaleString();
-    $("#mymGTD").textContent = safeInt(calc.gtd).toLocaleString();
+    $("#mymGTD").textContent = formatK(calc.gtd);
     $("#mymContractInfo").textContent = calc.contractInfo;
 
     const pill = $("#mymAsOfPill");
@@ -7319,16 +7305,29 @@
     const payloadEl = $("#extModalPreview");
     if (payloadEl) payloadEl.textContent = JSON.stringify(preview.payload, null, 2);
 
+    const kpiRow = $("#extModalKpis");
+    if (kpiRow) {
+      const totalYears = preview.totalYears || 0;
+      const tcv = preview.tcv || 0;
+      const aav = totalYears > 0 ? Math.round(tcv / totalYears) : 0;
+      const gtd = preview.gtd || 0;
+      kpiRow.style.display = "";
+      const clEl = $("#extKpiCL"); if (clEl) clEl.textContent = String(totalYears);
+      const tcvEl = $("#extKpiTCV"); if (tcvEl) tcvEl.textContent = formatK(tcv);
+      const aavEl = $("#extKpiAAV"); if (aavEl) aavEl.textContent = formatK(aav);
+      const gtdEl = $("#extKpiGTD"); if (gtdEl) gtdEl.textContent = formatK(gtd);
+    }
+
+    const loadedNow = countTeamLoadedContracts(row.franchise_id, row.season);
+    const isLoadedNew =
+      preview.expiredRookie &&
+      preview.yearSalaries.length > 1 &&
+      safeInt(preview.yearSalaries[0]) !== safeInt(preview.yearSalaries[1]);
+    const loadedProjected = loadedNow + (isLoadedNew ? 1 : 0);
+    const loadedCapFail = preview.expiredRookie && isLoadedNew && loadedProjected > 5;
+
     const err = $("#extModalErr");
     if (err) {
-      const loadedNow = countTeamLoadedContracts(row.franchise_id, row.season);
-      const isLoadedNew =
-        preview.expiredRookie &&
-        preview.yearSalaries.length > 1 &&
-        safeInt(preview.yearSalaries[0]) !== safeInt(preview.yearSalaries[1]);
-      const loadedProjected = loadedNow + (isLoadedNew ? 1 : 0);
-      const loadedCapFail = preview.expiredRookie && isLoadedNew && loadedProjected > 5;
-
       const messages = [];
       if (!eligibility.ok) messages.push(eligibility.reason);
       if (preview.minY1Violation)
@@ -7346,6 +7345,12 @@
         err.textContent = "";
       }
     }
+
+    const extSubmitBtn = $("#extSubmitBtn");
+    if (extSubmitBtn) {
+      extSubmitBtn.disabled = !eligibility.ok || !!preview.minY1Violation || !!loadedCapFail;
+    }
+
     return { row, preview, eligibility };
   }
 
@@ -7399,6 +7404,9 @@
       err.classList.remove("ok");
     }
 
+    const extSubmitBtnInit = $("#extSubmitBtn");
+    if (extSubmitBtnInit) extSubmitBtnInit.disabled = true;
+
     renderExtensionModalPreview();
     modal.classList.add("is-open");
     modal.setAttribute("aria-hidden", "false");
@@ -7444,14 +7452,22 @@
   }
 
   function submitExtensionSelection() {
+    if (!canSubmitExtension()) return;
     const key = safeStr(extensionModalState.key);
     if (!key) return;
     const sel = state.extensionSelections[key];
     if (!sel) return;
     const row = findExtensionRow(sel);
     if (!row) return;
+
+    const btn = $("#extSubmitBtn");
+    if (btn) { btn.disabled = true; btn.textContent = "Submitting..."; }
+
     const out = renderExtensionModalPreview();
-    if (!out) return;
+    if (!out) {
+      if (btn) { btn.disabled = false; btn.textContent = "Submit Extension"; }
+      return;
+    }
     const preview = out.preview;
     const eligibility = out.eligibility;
     const loadedNow = countTeamLoadedContracts(row.franchise_id, row.season);
@@ -7461,6 +7477,7 @@
       safeInt(preview.yearSalaries[0]) !== safeInt(preview.yearSalaries[1]);
     const loadedProjected = loadedNow + (isLoadedNew ? 1 : 0);
     if (!eligibility.ok || preview.minY1Violation || (preview.expiredRookie && isLoadedNew && loadedProjected > 5)) {
+      if (btn) { btn.disabled = false; btn.textContent = "Submit Extension"; }
       return;
     }
     state.extensionSubmissions[key] = {
@@ -7474,6 +7491,7 @@
       err.textContent = "Extension selection submitted locally.";
       err.classList.add("ok");
     }
+    if (btn) { btn.textContent = "Submitted"; }
     render();
   }
 
@@ -7923,7 +7941,38 @@
     years: 2,
     extSuffix: "",
     calc: null,
+    originalAav: 0,
   };
+
+  function invalidateRestructureState() {
+    restructureModalState.calc = null;
+    restructureModalState.originalAav = 0;
+  }
+
+  function canSubmitRestructure() {
+    return !!(restructureModalState.calc && restructureModalState.calc.ok);
+  }
+
+  function canSubmitExtension() {
+    if (!extensionModalState.open || !extensionModalState.key) return false;
+    const key = safeStr(extensionModalState.key);
+    const sel = state.extensionSelections[key];
+    if (!sel) return false;
+    const row = findExtensionRow(sel);
+    if (!row) return false;
+    const eligibility = getExtensionEligibility(row, extensionModalState.yearsToAdd);
+    if (!eligibility.ok) return false;
+    const preview = buildExtensionPreview(row, extensionModalState.yearsToAdd, getExtensionCustomYearsFromInputs());
+    if (preview.minY1Violation) return false;
+    if (preview.expiredRookie) {
+      const loadedNow = countTeamLoadedContracts(row.franchise_id, row.season);
+      const isLoadedNew =
+        preview.yearSalaries.length > 1 &&
+        safeInt(preview.yearSalaries[0]) !== safeInt(preview.yearSalaries[1]);
+      if (isLoadedNew && (loadedNow + 1) > 5) return false;
+    }
+    return true;
+  }
 
   function ensureRestructureModalExists() {
     const modal = $("#restructureModal");
@@ -7931,16 +7980,16 @@
     return modal;
   }
 
-  function calcRestructureOffer(years, tcvRaw, y1Raw, y2Raw, extSuffix) {
+  function calcRestructureOffer(years, y1Raw, y2Raw, extSuffix, originalAav) {
     const yearsInt = safeInt(years) >= 3 ? 3 : 2;
-    const tcv = safeInt(tcvRaw);
+    const aav = safeInt(originalAav);
+    const tcv = aav * yearsInt;
     const y1 = safeInt(y1Raw);
     const y2Input = safeInt(y2Raw);
     const errors = [];
 
-    const minTcv = yearsInt === 2 ? 2000 : 3000;
-    if (tcv < minTcv || !isStep1000(tcv)) {
-      errors.push(`TCV must be in 1,000 increments and at least ${minTcv.toLocaleString()}.`);
+    if (!aav || aav < 1000) {
+      errors.push("Original AAV could not be determined.");
     }
     if (!isStep1000(y1)) {
       errors.push("Year 1 must be in 1,000 increments.");
@@ -7972,7 +8021,6 @@
       return { ok: false, error: errors[0], years: yearsInt, tcv, y1, y2, y3 };
     }
 
-    const aav = Math.round(tcv / yearsInt);
     const gtd = tcv > 4000 ? Math.round(tcv * 0.75) : Math.max(0, tcv - y1);
     const yearParts = [`Y1-${formatK(y1)}`, `Y2-${formatK(y2)}`];
     if (yearsInt === 3) yearParts.push(`Y3-${formatK(y3)}`);
@@ -8015,20 +8063,21 @@
 
     const calc = calcRestructureOffer(
       years,
-      tcvInput ? tcvInput.value : 0,
       y1Input ? y1Input.value : 0,
       y2Input ? y2Input.value : 0,
-      restructureModalState.extSuffix
+      restructureModalState.extSuffix,
+      restructureModalState.originalAav
     );
     restructureModalState.calc = calc.ok ? calc : null;
 
     if (calc.ok) {
+      if (tcvInput) tcvInput.value = String(calc.tcv);
       if (y2Input && years === 2) y2Input.value = String(calc.y2);
       if (y3Input) y3Input.value = years === 3 ? String(calc.y3) : "";
       $("#rsYears").textContent = String(calc.years);
       $("#rsTCV").textContent = safeInt(calc.tcv).toLocaleString();
       $("#rsAAV").textContent = safeInt(calc.aav).toLocaleString();
-      $("#rsGTD").textContent = safeInt(calc.gtd).toLocaleString();
+      $("#rsGTD").textContent = formatK(calc.gtd);
       $("#rsContractInfo").textContent = calc.contractInfo;
       if (err) {
         err.style.display = "none";
@@ -8056,27 +8105,41 @@
     ensureRestructureModalExists();
     const years = safeInt(row.contract_year) >= 3 ? 3 : 2;
     const parsed = parseContractAmounts(row.contract_info, years, safeInt(row.salary) || 1000);
-    const tcv = Math.max(years * 1000, parsed.tcv);
+    const originalCl = safeInt(row.contract_year);
+    let aavSource = "";
+    let originalAav = 0;
+    if (safeInt(row.aav)) {
+      originalAav = safeInt(row.aav);
+      aavSource = "row.aav";
+    } else if (originalCl > 0 && parsed.tcv > 0) {
+      originalAav = Math.round(parsed.tcv / originalCl);
+      aavSource = "derived_from_tcv";
+    } else {
+      originalAav = safeInt(row.salary);
+      aavSource = "salary_fallback";
+    }
+    const tcv = originalAav * years;
     const y1 = Math.max(1000, parsed.y1 || safeInt(row.salary) || 1000);
     const y2Default =
       years === 3
         ? Math.max(1000, parsed.y2 || safeInt(row.salary) || 1000)
-        : Math.max(1000, parsed.y2 || tcv - y1);
+        : Math.max(1000, tcv - y1);
 
     restructureModalState.open = true;
     restructureModalState.row = row;
     restructureModalState.years = years;
     restructureModalState.extSuffix = extractExtSuffix(row.contract_info);
     restructureModalState.calc = null;
+    restructureModalState.originalAav = originalAav;
 
     const title = $("#rsModalTitle");
     if (title) title.textContent = `Restructure Contract - ${safeStr(row.player_name)}`;
     const sub = $("#rsModalSub");
     if (sub) {
       sub.textContent =
-        `Current CL: ${safeInt(row.contract_year)} | Current Salary: ${safeInt(row.salary).toLocaleString()} | Team: ${safeStr(
+        `Current CL: ${originalCl} | AAV: ${formatK(originalAav)} | Current Salary: ${safeInt(row.salary).toLocaleString()} | Team: ${safeStr(
           row.franchise_name || row.franchise_id
-        )}`;
+        )} | [debug: AAV from ${aavSource}]`;
     }
     const extBadge = $("#rsExtBadge");
     if (extBadge) {
@@ -8089,7 +8152,11 @@
       }
     }
 
-    $("#rsTcvInput").value = String(tcv);
+    const tcvInput = $("#rsTcvInput");
+    if (tcvInput) {
+      tcvInput.value = String(tcv);
+      tcvInput.disabled = true;
+    }
     $("#rsYear1Input").value = String(y1);
     $("#rsYear2Input").value = String(y2Default);
     $("#rsYear3Input").value = "";
@@ -8122,6 +8189,7 @@
     restructureModalState.open = false;
     restructureModalState.row = null;
     restructureModalState.calc = null;
+    restructureModalState.originalAav = 0;
   }
 
   async function submitRestructureContract() {
@@ -8990,6 +9058,9 @@
         state.actionFlow.lastReceipt = null;
         state.actionFlow.status = "draft";
         state.actionFlow.statusMessage = "";
+        invalidateRestructureState();
+        if (restructureModalState.open) closeRestructureModal();
+        if (extensionModalState.open) closeExtensionModal();
         const targetModule = moduleForActionType(nextType);
         if (targetModule && targetModule !== "auction" && state.activeModule !== targetModule) {
           switchModule(targetModule);
@@ -9011,6 +9082,7 @@
         state.actionFlow.selectedFranchiseId = pad4(rowBtn.getAttribute("data-franchise-id"));
         state.actionFlow.status = "ready";
         state.actionFlow.statusMessage = "";  /* let statusHint show action-specific guidance */
+        invalidateRestructureState();
         render();
       },
       true
@@ -9837,6 +9909,25 @@
 
     const rsSubmitBtn = $("#rsSubmitBtn");
     if (rsSubmitBtn) rsSubmitBtn.addEventListener("click", () => submitRestructureContract());
+
+    const seasonSelect = $("#seasonSelect");
+    if (seasonSelect) {
+      seasonSelect.addEventListener("change", () => {
+        const newSeason = normalizeSeasonValue(seasonSelect.value);
+        if (newSeason && newSeason !== state.selectedSeason) {
+          state.selectedSeason = newSeason;
+          invalidateRestructureState();
+          if (restructureModalState.open) closeRestructureModal();
+          if (extensionModalState.open) closeExtensionModal();
+          state.actionFlow.selectedPlayerId = "";
+          state.actionFlow.selectedFranchiseId = "";
+          state.actionFlow.status = "draft";
+          state.actionFlow.statusMessage = "";
+          state.actionFlow.lastReceipt = null;
+          render();
+        }
+      });
+    }
   }
 
   // ======================================================
