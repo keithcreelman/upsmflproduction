@@ -1145,6 +1145,10 @@
       tag_salary: safeInt(r.tag_salary),
       tag_bid_bump_applied: safeInt(r.tag_bid_bump_applied),
       prior_aav_week1: safeInt(r.prior_aav_week1),
+      prior_aav: safeInt(r.prior_aav),
+      prior_salary_week1: safeInt(r.prior_salary_week1),
+      prior_salary: safeInt(r.prior_salary),
+      prior_contract_salary: safeInt(r.prior_contract_salary),
       tag_side: safeStr(r.tag_side),
       tag_limit_per_side: safeInt(r.tag_limit_per_side || 1),
       is_tag_eligible: safeInt(r.is_tag_eligible || 0),
@@ -1513,6 +1517,54 @@
     return { tcv, y1, y2, y3 };
   }
 
+  function getTagBidDetails(row) {
+    const baseBid = safeInt(row && (row.tag_bid || row.tag_salary || row.tag_base_bid));
+    const priorAav = safeInt(row && (row.prior_aav_week1 || row.prior_aav || row.aav));
+    const priorSalary = safeInt(
+      row && (
+        row.prior_salary_week1 ||
+        row.prior_salary ||
+        row.prior_contract_salary ||
+        row.prev_salary
+      )
+    );
+    const salaryNow = safeInt(row && row.salary);
+    const bumpBase = Math.max(priorAav, priorSalary, salaryNow);
+    const bumpFloor = bumpBase > 0 ? Math.ceil((bumpBase * 1.1) / 1000) * 1000 : 0;
+    const tagBid = Math.max(baseBid, bumpFloor);
+    const bumpApplied = bumpFloor > 0 && tagBid > baseBid;
+    let formula = safeStr(row && row.tag_formula);
+    if (bumpApplied && !/10%/i.test(formula)) {
+      formula = formula
+        ? `${formula} | 10% salary floor (rounded up)`
+        : "10% salary floor (rounded up)";
+    }
+    return { tagBid, baseBid, bumpFloor, bumpApplied, formula };
+  }
+
+  function getEffectiveTagSalary(row) {
+    return getTagBidDetails(row).tagBid;
+  }
+
+  function getEffectiveTagFormula(row) {
+    return getTagBidDetails(row).formula;
+  }
+
+  function getTagDeadlineDateForSeason(season) {
+    const info = getTagDeadlineInfo(season);
+    return info && info.tagDeadline ? info.tagDeadline : null;
+  }
+
+  function getRemainingTcvForRow(row) {
+    if (!row) return 0;
+    const years = Math.max(1, safeInt(row.contract_year));
+    const salary = Math.max(0, safeInt(row.salary));
+    const parsed = parseContractAmounts(row.contract_info, years, salary || 1000);
+    const parsedTcv = safeInt(parsed && parsed.tcv);
+    if (parsedTcv > 0) return parsedTcv;
+    return salary > 0 ? salary * years : 0;
+  }
+
   function isStep1000(v) {
     const n = safeInt(v);
     return n > 0 && n % 1000 === 0;
@@ -1774,13 +1826,13 @@
       case "tagTier":
         return safeInt(r.tag_tier || 99999);
       case "tagSalary":
-        return safeInt(r.tag_salary);
+        return getEffectiveTagSalary(r);
       case "tagBid":
-        return safeInt(r.tag_bid || r.tag_salary);
+        return getEffectiveTagSalary(r);
       case "priorAav":
         return safeInt(r.prior_aav_week1 || r.aav);
       case "tagFormula":
-        return safeStr(r.tag_formula).toLowerCase();
+        return safeStr(getEffectiveTagFormula(r)).toLowerCase();
       case "contractYear":
         return safeInt(r.contract_year);
       case "status":
@@ -1821,8 +1873,8 @@
         const nameB = safeStr(rb.player_name).toLowerCase();
         const nameCmp = compareVals(nameA, nameB, dir);
         if (nameCmp !== 0) return nameCmp;
-        const bidA = safeInt(ra.tag_bid || ra.tag_salary || 0);
-        const bidB = safeInt(rb.tag_bid || rb.tag_salary || 0);
+        const bidA = getEffectiveTagSalary(ra);
+        const bidB = getEffectiveTagSalary(rb);
         const bidCmp = compareVals(bidA, bidB, dir);
         if (bidCmp !== 0) return bidCmp;
       }
@@ -1832,8 +1884,8 @@
         const tierCmp = compareVals(tierA, tierB, dir);
         if (tierCmp !== 0) return tierCmp;
         // Within each tier, default to highest tag salary first.
-        const bidA = safeInt(ra.tag_bid || ra.tag_salary || 0);
-        const bidB = safeInt(rb.tag_bid || rb.tag_salary || 0);
+        const bidA = getEffectiveTagSalary(ra);
+        const bidB = getEffectiveTagSalary(rb);
         const bidCmp = compareVals(bidA, bidB, "desc");
         if (bidCmp !== 0) return bidCmp;
       }
@@ -2726,7 +2778,7 @@
       const pos = safeStr(r.positional_grouping || r.position || "NA").toUpperCase();
       const rec = byPos.get(pos) || { pos, count: 0, total: 0, tier1: 0, tier2: 0, tier3: 0 };
       rec.count += 1;
-      rec.total += safeInt(r.tag_bid || r.tag_salary);
+      rec.total += getEffectiveTagSalary(r);
       const t = safeInt(r.tag_tier);
       if (t === 1) rec.tier1 += 1;
       else if (t === 2) rec.tier2 += 1;
@@ -2743,7 +2795,7 @@
       const team = safeStr(r.franchise_name || r.franchise_id || "Team");
       const rec = byTeam.get(team) || { team, count: 0, total: 0, tier1: 0, tier2: 0, tier3: 0 };
       rec.count += 1;
-      rec.total += safeInt(r.tag_bid || r.tag_salary);
+      rec.total += getEffectiveTagSalary(r);
       const t = safeInt(r.tag_tier);
       if (t === 1) rec.tier1 += 1;
       else if (t === 2) rec.tier2 += 1;
@@ -2937,7 +2989,7 @@
       const key = buildTagSelectionKey(season, r.franchise_id, side);
       const selected = state.tagSelections[key];
       const isSelected = !!selected && safeStr(selected.player_id) === safeStr(r.player_id);
-      const isLocked = !state.commishMode && !!selected && !isSelected && limit <= 1;
+      const isLocked = !state.commishMode && !!selected && !isSelected && limit <= 1 && !tagWindowOpen;
       const tagClosed = !tagWindowOpen && !state.commishMode;
       const tagLabel = tagClosed
         ? isSelected
@@ -3041,7 +3093,7 @@
                       <td class="playerCell">${htmlEsc(p.player_name)}</td>
                       <td>${htmlEsc(posKeyFromRow(p))}</td>
                       <td class="cell-num">${safeInt(p.tag_tier) || "—"}</td>
-                      <td class="cell-num">${safeInt(p.tag_bid || p.tag_salary).toLocaleString()}</td>
+                      <td class="cell-num">${getEffectiveTagSalary(p).toLocaleString()}</td>
                       <td>${action}</td>
                     </tr>
                   `;
@@ -3147,7 +3199,7 @@
                 <td class="playerCell">${htmlEsc(p.player_name)}</td>
                 <td>${htmlEsc(p.franchise_name || p.franchise_id)}</td>
                 <td class="cell-num">${safeInt(p.tag_tier) || "—"}</td>
-                <td class="cell-num">${safeInt(p.tag_bid || p.tag_salary).toLocaleString()}</td>
+                <td class="cell-num">${getEffectiveTagSalary(p).toLocaleString()}</td>
                 <td>${action}</td>
               </tr>
             `;
@@ -4156,7 +4208,7 @@
         const selected = state.tagSelections[key];
         const isSelected = !!selected && safeStr(selected.player_id) === safeStr(r.player_id);
         const lockEnforced = !state.commishMode;
-        const isLocked = lockEnforced && !!selected && !isSelected && limit <= 1;
+        const isLocked = lockEnforced && !!selected && !isSelected && limit <= 1 && !tagWindowOpen;
         const submission = state.tagSubmissions[key];
         const isSubmitted =
           !!submission && safeStr(submission.player_id) === safeStr(r.player_id);
@@ -4225,14 +4277,14 @@
             <td class="cell-num">${safeInt(r.tag_tier) || "—"}</td>
             <td>${htmlEsc(posKeyFromRow(r))}</td>
             <td class="playerCell">${htmlEsc(r.player_name)}</td>
-            <td class="cell-num">${safeInt(r.tag_bid || r.tag_salary).toLocaleString()}</td>
+            <td class="cell-num">${getEffectiveTagSalary(r).toLocaleString()}</td>
             <td>${htmlEsc(r.franchise_name || r.franchise_id)}</td>
             <td class="cell-num">${safeInt(r.aav).toLocaleString()}</td>
             <td class="cell-num">${Number(r.points_total || 0).toFixed(1)}</td>
             <td class="cell-num">${safeInt(r.pos_rank) || "—"}</td>
             <td class="cell-num">${ppgDisplay}</td>
             <td class="cell-num">${ppgRankCell}</td>
-            <td class="muted">${htmlEsc(r.tag_formula || "")}</td>
+            <td class="muted">${htmlEsc(getEffectiveTagFormula(r) || "")}</td>
           </tr>
         `;
       })
@@ -4427,15 +4479,30 @@
     let out = Array.isArray(rows) ? rows.slice() : [];
     const selectedTeamId = pad4(state.selectedTeam);
     const selectedPosition = safeStr(state.selectedPosition || "__ALL_POS__");
-    const searchLower = safeStr(state.search || "").trim().toLowerCase();
+    const searchTokens = safeStr(state.search || "")
+      .toLowerCase()
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean);
     if (!state.showAllTeams && selectedTeamId) {
       out = out.filter((r) => pad4(r.franchise_id) === selectedTeamId);
     }
     if (selectedPosition && selectedPosition !== "__ALL_POS__") {
       out = out.filter((r) => posKeyFromRow(r) === selectedPosition);
     }
-    if (searchLower) {
-      out = out.filter((r) => safeStr(r.player_name).toLowerCase().includes(searchLower));
+    if (searchTokens.length) {
+      out = out.filter((r) => {
+        const searchHaystack = [
+          safeStr(r.player_name),
+          safeStr(posKeyFromRow(r)),
+          safeStr(r.position),
+          safeStr(r.positional_grouping),
+          safeStr(r.franchise_name),
+        ]
+          .join(" ")
+          .toLowerCase();
+        return searchTokens.every((token) => searchHaystack.includes(token));
+      });
     }
     return out;
   }
@@ -4578,7 +4645,8 @@
       };
     }
     if (actionType === "tag") {
-      const tagSalary = safeInt(row.tag_bid || row.tag_salary || 0);
+      const tagSalary = getEffectiveTagSalary(row);
+      const tagDeadline = getTagDeadlineDateForSeason(normalizeSeasonValue(row.season || state.selectedSeason));
       return {
         current: [
           `Current Salary: ${safeInt(row.salary).toLocaleString()}`,
@@ -4592,11 +4660,12 @@
         ],
         changes: [
           `Tier: ${safeInt(row.tag_tier || 0) || "—"}`,
-          `Formula: ${safeStr(row.tag_formula || "—")}`,
+          `Formula: ${safeStr(getEffectiveTagFormula(row) || "—")}`,
+          `Deadline: ${tagDeadline ? fmtYMDDate(tagDeadline) : "TBD"}`,
         ],
         submitEnabled: true,
         submitLabel: "Review",
-        statusHint: "Review and confirm your tag submission.",
+        statusHint: "Review and confirm your tag submission. You may resubmit until the deadline.",
       };
     }
     // extend
@@ -4674,17 +4743,16 @@
     const pos = safeStr(posKeyFromRow(row));
     const team = safeStr(row.franchise_name || `Franchise ${pad4(row.franchise_id)}`);
     if (actionType === "tag") {
-      const tagCost = safeInt(row.tag_bid || row.tag_salary || 0);
-      return { pos, line: `${team} · Tag Cost: ${tagCost.toLocaleString()}` };
+      return { pos, line: team };
     }
     if (actionType === "restructure") {
-      return { pos, line: `${team} · Salary: ${safeInt(row.salary).toLocaleString()} · ${safeInt(row.contract_year)}yr` };
+      return { pos, line: `${team} · ${safeInt(row.contract_year)}yr` };
     }
     if (actionType === "mym") {
       return { pos, line: `${team} · TCV: ${safeInt(row.salary).toLocaleString()} · ${safeInt(row.contract_year)}yr` };
     }
     // extend
-    const aav = safeInt(row.salary);
+    const aav = safeInt(row.aav || row.salary);
     return { pos, line: `${team} · AAV: ${aav.toLocaleString()} · ${safeInt(row.contract_year)}yr` };
   }
 
@@ -4731,11 +4799,18 @@
             const dlSeason = normalizeSeasonValue(r.season || state.selectedSeason);
             const dlDate = getExtensionDeadlineDateForRow(r, dlSeason);
             const dlText = dlDate ? fmtYMDDate(dlDate) : safeStr(r.extension_deadline || "TBD");
-            headlineHtml = `<span class="headline headline-deadline">Deadline: ${htmlEsc(dlText)}</span>`;
+            const aav = safeInt(r.aav || r.salary);
+            headlineHtml = `<span class="headline-row"><span class="headline headline-deadline">Deadline: ${htmlEsc(dlText)}</span><span class="headline headline-aav headline-right">AAV: $${htmlEsc(aav.toLocaleString())}</span></span>`;
           } else if (actionType === "tag") {
-            const tagCost = safeInt(r.tag_bid || r.tag_salary || 0);
-            headlineHtml = `<span class="headline headline-money">Tag: $${htmlEsc(
-              tagCost.toLocaleString()
+            const tagCost = getEffectiveTagSalary(r);
+            const dlSeason = normalizeSeasonValue(r.season || state.selectedSeason);
+            const dlDate = getTagDeadlineDateForSeason(dlSeason);
+            const dlText = dlDate ? fmtYMDDate(dlDate) : "TBD";
+            headlineHtml = `<span class="headline-row"><span class="headline headline-money headline-tag-cost">Tag: $${htmlEsc(tagCost.toLocaleString())}</span><span class="headline headline-deadline headline-right">Deadline: ${htmlEsc(dlText)}</span></span>`;
+          } else if (actionType === "restructure") {
+            const remainingTcv = getRemainingTcvForRow(r);
+            headlineHtml = `<span class="headline headline-money">Remaining TCV: $${htmlEsc(
+              remainingTcv.toLocaleString()
             )}</span>`;
           }
           return `
@@ -4851,7 +4926,7 @@
         <section class="ccc-flowSection${!actionType ? " ccc-flowSection-locked" : ""}">
           <div class="ccc-flowTitle">2. Select Player</div>
           ${actionType ? `<div class="ccc-flowSearch">
-            <input class="ccc-input" type="text" placeholder="Search players..." value="${htmlEsc(searchVal)}"
+            <input class="ccc-input" type="text" placeholder="Search player or position..." value="${htmlEsc(searchVal)}"
               data-action-flow-search="1" />
           </div>` : ""}
           <div class="ccc-flowPlayerList">${playerRows}</div>
@@ -5267,7 +5342,7 @@
         };
         saveTagSelections(state.tagSelections);
         openTagModal(key);
-        setActionFlowStatus("ready", "Tag modal opened. Confirm to finalize.");
+        setActionFlowStatus("ready", "Tag modal opened. Confirm to finalize (you can resubmit until the deadline).");
       } else {
         setActionFlowStatus("failed", "Auction contract flow is not available yet.");
       }
@@ -7257,9 +7332,9 @@
 
   function buildTagSubmissionPayload(selection, row) {
     const refRow = row || findTagRowForSelection(selection) || {};
-    const salary = safeInt(refRow.tag_bid || refRow.tag_salary || 0);
+    const salary = getEffectiveTagSalary(refRow);
     const tier = safeInt(refRow.tag_tier || 0);
-    const formula = safeStr(refRow.tag_formula || "");
+    const formula = safeStr(getEffectiveTagFormula(refRow) || "");
     const infoParts = ["Tag"];
     if (tier) infoParts.push(`Tier ${tier}`);
     if (formula) infoParts.push(`Formula: ${formula}`);
@@ -7288,7 +7363,7 @@
     const direct = safeInt(sub.tag_salary || sub.tag_bid || sub.salary);
     if (direct > 0) return direct;
     const row = findTagRowForSelection(sub);
-    if (row) return safeInt(row.tag_bid || row.tag_salary || 0);
+    if (row) return getEffectiveTagSalary(row);
     return 0;
   }
 
@@ -8130,17 +8205,13 @@
     const years = safeInt(row.contract_year) >= 3 ? 3 : 2;
     const parsed = parseContractAmounts(row.contract_info, years, safeInt(row.salary) || 1000);
     const originalCl = safeInt(row.contract_year);
-    let aavSource = "";
     let originalAav = 0;
     if (safeInt(row.aav)) {
       originalAav = safeInt(row.aav);
-      aavSource = "row.aav";
     } else if (originalCl > 0 && parsed.tcv > 0) {
       originalAav = Math.round(parsed.tcv / originalCl);
-      aavSource = "derived_from_tcv";
     } else {
       originalAav = safeInt(row.salary);
-      aavSource = "salary_fallback";
     }
     const tcv = originalAav * years;
     const y1 = Math.max(1000, parsed.y1 || safeInt(row.salary) || 1000);
@@ -8163,7 +8234,7 @@
       sub.textContent =
         `Current CL: ${originalCl} | AAV: ${formatK(originalAav)} | Current Salary: ${safeInt(row.salary).toLocaleString()} | Team: ${safeStr(
           row.franchise_name || row.franchise_id
-        )} | [debug: AAV from ${aavSource}]`;
+        )}`;
     }
     const extBadge = $("#rsExtBadge");
     if (extBadge) {
@@ -9185,6 +9256,9 @@
         state.actionFlow.lastReceipt = null;
         state.actionFlow.status = "draft";
         state.actionFlow.statusMessage = "";
+        invalidateRestructureState();
+        if (restructureModalState.open) closeRestructureModal();
+        if (extensionModalState.open) closeExtensionModal();
         const targetModule = moduleForActionType(nextType);
         if (targetModule && targetModule !== "auction" && state.activeModule !== targetModule) {
           switchModule(targetModule);

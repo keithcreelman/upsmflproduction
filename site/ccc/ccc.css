@@ -838,11 +838,34 @@
   font-variant-numeric:tabular-nums;
 }
 
+.ccc-flowPlayerBtn .headline-row{
+  display:flex;
+  width:100%;
+  align-items:baseline;
+  justify-content:space-between;
+  gap:0.5rem;
+  flex-wrap:wrap;
+}
+
+.ccc-flowPlayerBtn .headline-right{
+  margin-left:auto;
+  text-align:right;
+}
+
+.ccc-flowPlayerBtn .headline-aav{
+  font-size:1.16rem;
+  letter-spacing:0.015em;
+}
+
 .ccc-flowPlayerBtn .headline-money{
   color:var(--accent2);
 }
 
 .ccc-flowPlayerBtn .headline-deadline{
+  color:var(--warn);
+}
+
+.ccc-flowPlayerBtn .headline-tag-cost{
   color:var(--warn);
 }
 
