@@ -8,7 +8,9 @@
       "Bash(grep:*)",
       "Bash(ls:*)",
       "Bash(find:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git checkout --ours site/ccc/ccc.css site/ccc/ccc.js)",
+      "Bash(git rebase --continue)"
     ]
   }
 }
