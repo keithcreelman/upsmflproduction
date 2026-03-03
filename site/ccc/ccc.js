@@ -595,7 +595,14 @@
 
   function normalizeDefaultFilters(raw) {
     const obj = raw && typeof raw === "object" ? raw : {};
-    const teamId = safeStr(obj.teamId || obj.team_id || "");
+    const teamRaw = safeStr(obj.teamId || obj.team_id || "");
+    let teamId = "";
+    if (teamRaw === "__ALL__") {
+      teamId = "__ALL__";
+    } else {
+      const fid = pad4(teamRaw);
+      teamId = fid && fid !== "0000" ? fid : "";
+    }
     const positionRaw = safeStr(obj.position || obj.pos || "__ALL_POS__");
     const position = positionRaw ? positionRaw : "__ALL_POS__";
     const rawSize = clampInt(obj.pageSize || obj.page_size || 50, 10, 500);
@@ -3973,12 +3980,16 @@
     const teams = buildTeamList(seasonRows, mergedSubmissionRows, state.detectedFranchiseId || "");
     const positions = buildPositionList(seasonRows, mergedSubmissionRows);
     const defaults = normalizeDefaultFilters(state.defaultFilters || {});
-    const detectedTeamId = safeStr(state.detectedFranchiseId || "");
+    const detectedTeamRaw = safeStr(state.detectedFranchiseId || "");
+    const detectedTeamId = (function () {
+      const fid = pad4(detectedTeamRaw);
+      return fid && fid !== "0000" ? fid : "";
+    })();
     const defaultTeamPref = defaults.teamId
       ? defaults.teamId
       : state.canCommishMode
       ? "__ALL__"
-      : detectedTeamId;
+      : detectedTeamId || "__ALL__";
     const themeVal = safeStr(state.theme || "auto").toLowerCase();
 
     const teamOptions = teams
@@ -4718,7 +4729,12 @@
             const dlSeason = normalizeSeasonValue(r.season || state.selectedSeason);
             const dlDate = getExtensionDeadlineDateForRow(r, dlSeason);
             const dlText = dlDate ? fmtYMDDate(dlDate) : safeStr(r.extension_deadline || "TBD");
-            headlineHtml = `<span class="headline">Deadline: ${htmlEsc(dlText)}</span>`;
+            headlineHtml = `<span class="headline headline-deadline">Deadline: ${htmlEsc(dlText)}</span>`;
+          } else if (actionType === "tag") {
+            const tagCost = safeInt(r.tag_bid || r.tag_salary || 0);
+            headlineHtml = `<span class="headline headline-money">Tag: $${htmlEsc(
+              tagCost.toLocaleString()
+            )}</span>`;
           }
           return `
             <button type="button" class="ccc-flowPlayerBtn${isSelected ? " is-active" : ""}"
@@ -5301,17 +5317,23 @@
         ? state.filtersByModule[key]
         : null;
 
-    const ownerOrAll = safeStr(state.detectedFranchiseId || "__ALL__");
+    const detectedOwnerId = pad4(state.detectedFranchiseId);
+    const ownerOrAll = detectedOwnerId && detectedOwnerId !== "0000" ? detectedOwnerId : "__ALL__";
     let defaultTeam = safeStr(defaults.teamId || ownerOrAll);
     if (key === "mym" || key === "restructure" || key === "expiredrookie") {
       defaultTeam = ownerOrAll;
     }
     const forceOwnerDefaultTeam =
       key === "mym" || key === "restructure" || key === "expiredrookie";
-    const selectedTeam = safeStr(
+    const selectedTeamRaw = safeStr(
       forceOwnerDefaultTeam ? defaultTeam : saved && saved.selectedTeam ? saved.selectedTeam : defaultTeam
     );
-    state.selectedTeam = selectedTeam || "__ALL__";
+    const selectedTeam = (function () {
+      if (!selectedTeamRaw || selectedTeamRaw === "__ALL__") return "__ALL__";
+      const fid = pad4(selectedTeamRaw);
+      return fid && fid !== "0000" ? fid : "__ALL__";
+    })();
+    state.selectedTeam = selectedTeam;
     state.showAllTeams = state.selectedTeam === "__ALL__";
     state.selectedPosition = safeStr(
       saved && saved.selectedPosition ? saved.selectedPosition : defaults.position || "__ALL_POS__"
