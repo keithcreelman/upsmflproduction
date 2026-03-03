@@ -6636,14 +6636,8 @@
       searchBoxEl.value = safeStr(state.search || "");
     }
 
-    const projectionSourceSeason = resolveSourceSeasonForProjection(eligibility, season);
-    const seasonEligibilityRaw = eligibility.filter(
-      (r) => !projectionSourceSeason || normalizeSeasonValue(r.season) === projectionSourceSeason
-    );
-    const seasonEligibility = projectContractRowsForSeason(
-      seasonEligibilityRaw,
-      projectionSourceSeason,
-      season
+    const seasonEligibility = eligibility.filter(
+      (r) => normalizeSeasonValue(r.season) === season
     );
     const allMymSubmissions = buildSubmittedRows(eligibility, submissions, meta);
     const seasonMymSubmissions = allMymSubmissions.filter(
@@ -8630,17 +8624,8 @@
         populateAsOfSeasonSelect(seasons, state.asOfSeasonOverride);
       }
 
-      const projectionSourceSeason = resolveSourceSeasonForProjection(
-        state.payload.eligibility,
-        state.selectedSeason
-      );
-      const seasonRowsRaw = state.payload.eligibility.filter(
-        (r) => !projectionSourceSeason || normalizeSeasonValue(r.season) === projectionSourceSeason
-      );
-      const seasonRows = projectContractRowsForSeason(
-        seasonRowsRaw,
-        projectionSourceSeason,
-        state.selectedSeason
+      const seasonRows = state.payload.eligibility.filter(
+        (r) => normalizeSeasonValue(r.season) === state.selectedSeason
       );
       const seasonSubmissionRows = state.payload.submissions.filter(
         (r) => normalizeSeasonValue(r.season) === state.selectedSeason
