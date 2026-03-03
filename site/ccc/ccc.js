@@ -4453,11 +4453,13 @@
     }
     const actionType = normalizeActionType(state.actionFlow.actionType);
     const season = normalizeSeasonValue((viewModel && viewModel.season) || state.selectedSeason);
-    const seasonRows = getRowsForCurrentFilters(
-      (state.payload.eligibility || []).filter(
-        (r) => normalizeSeasonValue(r.season) === season
-      )
+    /* Mirror the render pipeline: use nearest source season then project to selected season. */
+    const projectionSource = resolveSourceSeasonForProjection(state.payload.eligibility || [], season);
+    const rawSeasonRows = (state.payload.eligibility || []).filter(
+      (r) => normalizeSeasonValue(r.season) === projectionSource
     );
+    const projectedRows = projectContractRowsForSeason(rawSeasonRows, projectionSource, season);
+    const seasonRows = getRowsForCurrentFilters(projectedRows);
     const nowRef = state.calendarNow || getEffectiveNow(season);
     const baseSeason = state.calendarBaseSeason || getBaseSeasonValue(season);
     if (actionType === "restructure") {
@@ -6636,8 +6638,14 @@
       searchBoxEl.value = safeStr(state.search || "");
     }
 
-    const seasonEligibility = eligibility.filter(
-      (r) => normalizeSeasonValue(r.season) === season
+    const projectionSourceSeason = resolveSourceSeasonForProjection(eligibility, season);
+    const seasonEligibilityRaw = eligibility.filter(
+      (r) => !projectionSourceSeason || normalizeSeasonValue(r.season) === projectionSourceSeason
+    );
+    const seasonEligibility = projectContractRowsForSeason(
+      seasonEligibilityRaw,
+      projectionSourceSeason,
+      season
     );
     const allMymSubmissions = buildSubmittedRows(eligibility, submissions, meta);
     const seasonMymSubmissions = allMymSubmissions.filter(
@@ -8624,8 +8632,17 @@
         populateAsOfSeasonSelect(seasons, state.asOfSeasonOverride);
       }
 
-      const seasonRows = state.payload.eligibility.filter(
-        (r) => normalizeSeasonValue(r.season) === state.selectedSeason
+      const projectionSourceSeason = resolveSourceSeasonForProjection(
+        state.payload.eligibility,
+        state.selectedSeason
+      );
+      const seasonRowsRaw = state.payload.eligibility.filter(
+        (r) => !projectionSourceSeason || normalizeSeasonValue(r.season) === projectionSourceSeason
+      );
+      const seasonRows = projectContractRowsForSeason(
+        seasonRowsRaw,
+        projectionSourceSeason,
+        state.selectedSeason
       );
       const seasonSubmissionRows = state.payload.submissions.filter(
         (r) => normalizeSeasonValue(r.season) === state.selectedSeason
