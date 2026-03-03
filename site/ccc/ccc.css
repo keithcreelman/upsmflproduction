@@ -830,9 +830,20 @@
 }
 
 .ccc-flowPlayerBtn .headline{
-  font-size:14px;
-  font-weight:700;
+  font-size:1.02rem;
+  font-weight:900;
   color:var(--accent);
+  line-height:1.1;
+  letter-spacing:0.01em;
+  font-variant-numeric:tabular-nums;
+}
+
+.ccc-flowPlayerBtn .headline-money{
+  color:var(--accent2);
+}
+
+.ccc-flowPlayerBtn .headline-deadline{
+  color:var(--warn);
 }
 
 .ccc-flowPlayerBtn .meta{
