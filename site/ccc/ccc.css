@@ -829,6 +829,12 @@
   color:var(--text-strong);
 }
 
+.ccc-flowPlayerBtn .headline{
+  font-size:14px;
+  font-weight:700;
+  color:var(--accent);
+}
+
 .ccc-flowPlayerBtn .meta{
   font-size:0.76rem;
   color:var(--muted);
@@ -875,6 +881,27 @@
 
 .ccc-flowTeamFilter .ccc-select{
   flex:1;
+}
+
+.ccc-kpiGrid{
+  display:flex;
+  gap:12px;
+  flex-wrap:wrap;
+}
+.ccc-kpi{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  min-width:60px;
+}
+.ccc-kpi-label{
+  font-size:11px;
+  text-transform:uppercase;
+  opacity:0.6;
+}
+.ccc-kpi-value{
+  font-size:16px;
+  font-weight:700;
 }
 
 /* ===== Preview Grid — 2-column Before/After ===== */
