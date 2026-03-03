@@ -2037,7 +2037,9 @@
     }
 
     function getCccReleaseRef() {
-      var releaseRef = safeStr(window.UPS_RELEASE_SHA || "main") || "main";
+      // Keep CCC on latest main by default, even when other modules are pinned.
+      // Set `window.UPS_CCC_RELEASE_SHA` to pin CCC explicitly when needed.
+      var releaseRef = safeStr(window.UPS_CCC_RELEASE_SHA || "main") || "main";
       return encodeURIComponent(releaseRef);
     }
 
@@ -2226,7 +2228,7 @@
       normalizeAllEmbeddedFramesToMain();
       ensureMountNearTop();
       var cacheKey = encodeURIComponent(String(Date.now()));
-      var releaseRef = safeStr(window.UPS_RELEASE_SHA || "main") || "main";
+      var releaseRef = safeStr(window.UPS_CCC_RELEASE_SHA || "main") || "main";
       var loaderCandidates = [
         "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@" + releaseRef + "/site/ccc/mfl_hpm_embed_loader.js?v=" + cacheKey,
         "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/ccc/mfl_hpm_embed_loader.js?v=" + cacheKey
