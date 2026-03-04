@@ -119,7 +119,8 @@
     "hpm-default": "/site/hpm-default.html",
     "hpm-mcm": "/site/hpm-mcm.html",
     "hpm-standings": "/site/hpm-standings.html",
-    "hpm-issue-report": "/site/hpm-issue-report.html"
+    "hpm-issue-report": "/site/hpm-issue-report.html",
+    "hpm-ccc": "/site/hpm-ccc.html"
   };
 
   function safeStr(value) {
