@@ -29,6 +29,9 @@
         </div>
         <div class="ccc-heroLinks">
           <button id="cccSettingsLink" class="ccc-heroLink" type="button">Settings</button>
+          <button id="cccReportIssueLink" class="ccc-heroLink ccc-heroLink-danger" type="button">
+            Report Website Functionality Issue
+          </button>
         </div>
       </div>
     </div>
@@ -427,6 +430,78 @@
         <button class="ccc-btn" type="button" data-close="1">Cancel</button>
         <button class="ccc-btn" type="button" id="extSubmitBtn" style="font-weight:1000;">Submit Extension</button>
       </div>
+    </div>
+  </div>
+
+  <!-- ISSUE REPORT MODAL -->
+  <div id="issueModal" class="ccc-modal" aria-hidden="true">
+    <div class="ccc-modal-backdrop" data-close="1"></div>
+    <div class="ccc-modal-card" role="dialog" aria-modal="true" aria-labelledby="issueModalTitle">
+      <div class="ccc-modal-head">
+        <div>
+          <div id="issueModalTitle" class="ccc-modal-title">Report Website Functionality Issue</div>
+          <div id="issueModalSub" class="ccc-modal-sub muted">
+            This captures owner/session context automatically and logs your report.
+          </div>
+        </div>
+        <button class="ccc-modal-x" type="button" data-close="1">X</button>
+      </div>
+      <form id="issueForm" class="ccc-modal-body">
+        <div class="ccc-inputGrid">
+          <label class="ccc-field ccc-field-col">
+            Application
+            <select id="issueAppSelect" class="ccc-select" required>
+              <option value="contract-command-center" selected>Contract Command Center</option>
+              <option value="trade-workbench">Trade Module</option>
+            </select>
+          </label>
+          <label class="ccc-field ccc-field-col">
+            Function
+            <select id="issueModuleSelect" class="ccc-select" required></select>
+          </label>
+          <label class="ccc-field ccc-field-col">
+            Issue Type
+            <select id="issueTypeSelect" class="ccc-select" required></select>
+          </label>
+          <label class="ccc-field ccc-field-col">
+            Severity
+            <select id="issueSeveritySelect" class="ccc-select" required>
+              <option value="low">Low</option>
+              <option value="medium" selected>Medium</option>
+              <option value="high">High</option>
+              <option value="critical">Critical</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="ccc-field ccc-field-col" style="margin-top:10px;">
+          Summary
+          <input id="issueSummaryInput" class="ccc-input" type="text" maxlength="180" required />
+        </div>
+
+        <div class="ccc-field ccc-field-col" style="margin-top:10px;">
+          Details
+          <textarea id="issueDetailsInput" class="ccc-input ccc-textarea ccc-issueTextarea" rows="4" required></textarea>
+        </div>
+
+        <div class="ccc-field ccc-field-col" style="margin-top:10px;">
+          Steps To Reproduce (optional)
+          <textarea id="issueStepsInput" class="ccc-input ccc-textarea ccc-issueTextarea" rows="3"></textarea>
+        </div>
+
+        <div class="ccc-field ccc-field-col" style="margin-top:10px;">
+          Expected Vs Actual (optional)
+          <textarea id="issueExpectedActualInput" class="ccc-input ccc-textarea ccc-issueTextarea" rows="3"></textarea>
+        </div>
+
+        <div id="issueContextNote" class="ccc-code ccc-issueContextNote" style="margin-top:10px;"></div>
+        <div id="issueModalStatus" class="ccc-error" style="display:none; margin-top:10px;"></div>
+
+        <div class="ccc-modal-foot">
+          <button class="ccc-btn" type="button" data-close="1">Cancel</button>
+          <button class="ccc-btn" id="issueSubmitBtn" type="submit" style="font-weight:1000;">Submit Report</button>
+        </div>
+      </form>
     </div>
   </div>
 </div>

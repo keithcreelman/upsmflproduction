@@ -612,6 +612,18 @@
   color:#F8FAFC;
 }
 
+.ccc-heroLink-danger{
+  border-color: rgba(248, 113, 113, .6);
+  background: rgba(185, 28, 28, .28);
+  color: #fecaca;
+}
+
+.ccc-heroLink-danger:hover{
+  border-color: rgba(248, 113, 113, .85);
+  background: rgba(185, 28, 28, .45);
+  color: #fee2e2;
+}
+
 /* ===== Reports Control Row (Report Type select + Search) ===== */
 .ccc-reportControlRow{
   display:flex;
@@ -2507,6 +2519,10 @@ body.ccc-modalOpen #extensionModal,
 body.ccc-modalOpen #extensionModal *{
   pointer-events: auto;
 }
+body.ccc-modalOpen #issueModal,
+body.ccc-modalOpen #issueModal *{
+  pointer-events: auto;
+}
 body.ccc-modalOpen #devNoticeModal,
 body.ccc-modalOpen #devNoticeModal *{
   pointer-events: auto;
@@ -2610,6 +2626,16 @@ body.ccc-modalOpen #devNoticeModal *{
   color: var(--text);
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+.ccc-issueTextarea{
+  min-height: 92px;
+  line-height: 1.45;
+}
+
+.ccc-issueContextNote{
+  font-size: 11px;
+  color: var(--muted);
 }
 
 .ccc-tagAckNotes{
