@@ -1950,7 +1950,7 @@
       case "salary":
         return safeInt(r.salary);
       case "aav":
-        return safeInt(r.aav);
+        return safeInt(r.aav || r.prior_aav_week1 || r.salary);
       case "points":
         return Number(r.points_total || 0);
       case "ppg":
@@ -2007,7 +2007,9 @@
     const copy = rows.slice();
     copy.sort((ra, rb) => {
       if (state.activeModule === "extensions") {
-        const majorKey = ["team", "deadline", "salary"].includes(key) ? key : safeStr(key || "team");
+        const majorKey = ["team", "deadline", "salary", "aav"].includes(key)
+          ? key
+          : safeStr(key || "team");
         const majorDir = dir === "desc" ? "desc" : "asc";
         const compareExtensionField = (field, fieldDir) => {
           if (field === "pos") {
@@ -2017,13 +2019,15 @@
         };
         const chain = [];
         if (majorKey === "team") {
-          chain.push(["team", majorDir], ["deadline", "asc"], ["salary", "desc"]);
+          chain.push(["team", majorDir], ["deadline", "asc"], ["aav", "desc"]);
         } else if (majorKey === "deadline") {
-          chain.push(["deadline", majorDir], ["team", "asc"], ["salary", "desc"]);
+          chain.push(["deadline", majorDir], ["team", "asc"], ["aav", "desc"]);
         } else if (majorKey === "salary") {
-          chain.push(["salary", majorDir], ["team", "asc"], ["deadline", "asc"]);
+          chain.push(["salary", majorDir], ["team", "asc"], ["deadline", "asc"], ["aav", "desc"]);
+        } else if (majorKey === "aav") {
+          chain.push(["aav", majorDir], ["team", "asc"], ["deadline", "asc"]);
         } else {
-          chain.push([majorKey, majorDir], ["team", "asc"], ["deadline", "asc"], ["salary", "desc"]);
+          chain.push([majorKey, majorDir], ["team", "asc"], ["deadline", "asc"], ["aav", "desc"]);
         }
         chain.push(["player", "asc"]);
         for (let i = 0; i < chain.length; i += 1) {
@@ -7581,6 +7585,7 @@
         "player",
         "pos",
         "salary",
+        "aav",
         "contractYear",
         "status",
       ]);
