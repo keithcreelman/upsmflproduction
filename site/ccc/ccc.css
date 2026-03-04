@@ -914,10 +914,30 @@
 
 .ccc-flowTagQuickUnsubmit{
   justify-self:end;
-  padding:0.3rem 0.56rem;
-  border-radius:10px;
-  font-size:0.76rem;
-  font-weight:900;
+  min-width:154px;
+  min-height:44px;
+  padding:0.62rem 1.05rem;
+  border-radius:12px;
+  font-size:0.98rem;
+  font-weight:1000;
+  text-transform:uppercase;
+  letter-spacing:0.04em;
+  border-width:2px;
+  border-color:rgba(245,158,11,.72);
+  background:linear-gradient(180deg, rgba(245,158,11,.34), rgba(245,158,11,.2));
+  color:#ffb74d;
+  box-shadow:0 8px 18px rgba(245,158,11,.24);
+}
+
+.ccc-flowTagQuickUnsubmit:hover{
+  border-color:#f59e0b;
+  background:linear-gradient(180deg, rgba(245,158,11,.42), rgba(245,158,11,.28));
+  box-shadow:0 10px 20px rgba(245,158,11,.32);
+}
+
+.ccc-flowTagQuickUnsubmit:disabled{
+  opacity:.5;
+  box-shadow:none;
 }
 
 /* ===== Inline Search inside Player Card ===== */
@@ -1080,6 +1100,17 @@
 .ccc-submitBtn:hover{
   transform:translateY(-1px);
   box-shadow:0 12px 28px rgba(37,99,235,.35);
+}
+
+.ccc-submitBtn.ccc-submitBtn-warn{
+  border-color:rgba(245,158,11,.7);
+  background:linear-gradient(180deg, rgba(245,158,11,.95), rgba(217,119,6,.92));
+  color:#1a1110;
+  box-shadow:0 10px 24px rgba(245,158,11,.3);
+}
+
+.ccc-submitBtn.ccc-submitBtn-warn:hover{
+  box-shadow:0 14px 30px rgba(245,158,11,.38);
 }
 
 .ccc-submitBtn:disabled{

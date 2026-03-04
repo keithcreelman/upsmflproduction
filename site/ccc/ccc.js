@@ -4888,6 +4888,16 @@
       };
     }
     if (actionType === "tag") {
+      const season = normalizeSeasonValue(row.season || state.selectedSeason);
+      const side = getTagSideForRow(row, "OFFENSE");
+      const fallbackKey = buildTagSelectionKey(season, row.franchise_id, side);
+      const activeTag = getActiveTagSelectionForSide(season, row.franchise_id, side);
+      const activeTagKey = safeStr(activeTag && activeTag.key) || fallbackKey;
+      const isSelectedByTag =
+        !!activeTag && safeStr(activeTag.player_id) === safeStr(row.player_id);
+      const isSubmittedByTag =
+        !!state.tagSubmissions[activeTagKey] &&
+        safeStr(state.tagSubmissions[activeTagKey].player_id) === safeStr(row.player_id);
       const tagSalary = getEffectiveTagSalary(row);
       const tagDeadline = getTagDeadlineDateForSeason(normalizeSeasonValue(row.season || state.selectedSeason));
       return {
@@ -4907,8 +4917,12 @@
           `Deadline: ${tagDeadline ? fmtYMDDate(tagDeadline) : "TBD"}`,
         ],
         submitEnabled: true,
-        submitLabel: "Review",
-        statusHint: "Review and confirm your tag submission. You may resubmit until the deadline.",
+        submitLabel: isSelectedByTag ? "Unsubmit Tag" : "Submit Tag",
+        statusHint: isSelectedByTag
+          ? isSubmittedByTag
+            ? "Tag already submitted. Click Unsubmit Tag to remove it."
+            : "Tag selected. Click Unsubmit Tag to clear it."
+          : "Submit tag now. You may resubmit until the deadline.",
       };
     }
     // extend
@@ -5085,10 +5099,11 @@
                 : submittedForRow
                 ? "Remove submitted tag"
                 : "Clear draft selection";
+              const quickUnsubmitText = submittedForRow ? "Unsubmit Tag" : "Clear Tag";
               tagQuickUnsubmitHtml = `<button type="button" class="ccc-pageBtn ccc-flowTagQuickUnsubmit" data-tag-unsubmit="1" data-tag-key="${htmlEsc(
                 activeTagKey
               )}" ${unsubmitDisabled ? "disabled" : ""} title="${htmlEsc(unsubmitTitle)}">${
-                submittedForRow ? "Unsubmit" : "Clear"
+                htmlEsc(quickUnsubmitText)
               }</button>`;
             }
           } else if (actionType === "restructure") {
@@ -5172,31 +5187,9 @@
         ? `<ul class="ccc-flowList">${preview.changes.map((line) => `<li>${htmlEsc(line)}</li>`).join("")}</ul>`
         : "";
       const isSubmitDisabled = !selectedRow || !preview.submitEnabled || state.actionFlow.busy || actionType === "auction";
-      let tagUnsubmitButton = "";
-      if (actionType === "tag" && selectedRow) {
-        const season = normalizeSeasonValue(selectedRow.season || state.selectedSeason);
-        const side = getTagSideForRow(selectedRow, "OFFENSE");
-        const fallbackKey = buildTagSelectionKey(season, selectedRow.franchise_id, side);
-        const activeTag = getActiveTagSelectionForSide(season, selectedRow.franchise_id, side);
-        const activeTagKey = safeStr(activeTag && activeTag.key) || fallbackKey;
-        const hasTagSelection = !!activeTag;
-        const hasTagSubmission = !!state.tagSubmissions[activeTagKey];
-        if (hasTagSelection || hasTagSubmission) {
-          const pastDeadline = isTagDeadlinePassed(season);
-          const disabled = hasTagSubmission && pastDeadline && !state.commishMode;
-          const title = disabled
-            ? "Tag deadline has passed"
-            : hasTagSubmission
-            ? "Remove submitted tag selection"
-            : "Clear draft tag selection";
-          tagUnsubmitButton =
-            `<button type="button" class="ccc-pageBtn" data-action-flow-tag-unsubmit="1" data-tag-key="${htmlEsc(
-              activeTagKey
-            )}" ${disabled ? "disabled" : ""} title="${htmlEsc(title)}">` +
-            `${hasTagSubmission ? "Unsubmit Tag" : "Clear Selection"}` +
-            `</button>`;
-        }
-      }
+      const isTagUnsubmitAction =
+        actionType === "tag" &&
+        safeStr(preview.submitLabel).toLowerCase().indexOf("unsubmit") === 0;
       const receiptBlock = currentReceipt
         ? (statusClass === "submitted"
           ? `<div class="ccc-successCard"><div class="ccc-flowReceipt">Receipt: ${htmlEsc(currentReceipt)}</div></div>`
@@ -5221,8 +5214,7 @@
         </div>
         ${changesList ? `<div class="ccc-flowChanges"><div class="ccc-flowPreviewTitle">What Changes</div>${changesList}</div>` : ""}
         <div class="ccc-flowActions" style="margin-top:0.55rem;">
-          ${tagUnsubmitButton}
-          <button type="button" class="ccc-submitBtn" data-action-flow-submit="1"${
+          <button type="button" class="ccc-submitBtn${isTagUnsubmitAction ? " ccc-submitBtn-warn" : ""}" data-action-flow-submit="1"${
             isSubmitDisabled ? " disabled" : ""
           }>${htmlEsc(state.actionFlow.busy ? "Submitting..." : preview.submitLabel)}</button>
         </div>
@@ -5230,10 +5222,16 @@
       `;
     }
 
+    const modeSub =
+      actionType === "tag"
+        ? "Select an action, choose a player, and submit or unsubmit."
+        : "Select an action, choose a player, review, and submit.";
+    const step4Title = actionType === "tag" ? "Submit / Unsubmit" : "Review &amp; Confirm";
+
     return `
       <div class="ccc-modeCard ccc-modeCard-action">
         <div class="ccc-modeTitle">Action</div>
-        <div class="ccc-modeSub">Select an action, choose a player, review, and submit.</div>
+        <div class="ccc-modeSub">${htmlEsc(modeSub)}</div>
 
         <section class="ccc-flowSection">
           <div class="ccc-flowTitle">Choose Action</div>
@@ -5262,7 +5260,7 @@
         }
 
         <section class="ccc-flowSection ccc-flowPreviewSection${!actionType ? " ccc-flowSection-locked" : ""}">
-          <div class="ccc-flowTitle">Review &amp; Confirm</div>
+          <div class="ccc-flowTitle">${step4Title}</div>
           ${step4Block}
         </section>
       </div>
@@ -5732,9 +5730,15 @@
         const side = getTagSideForRow({ ...row, positional_grouping: pos, position: pos }, "OFFENSE");
         const key = buildTagSelectionKey(season, fid, side);
         const existing = getActiveTagSelectionForSide(season, fid, side);
+        const existingKey = safeStr(existing && existing.key) || key;
         if (existing && safeStr(existing.player_id) === safeStr(row.player_id)) {
-          openTagModal(safeStr(existing.key) || key);
-          setActionFlowStatus("ready", "Tag modal opened. Confirm to finalize (you can resubmit until the deadline).");
+          const removed = unsubmitTagSelectionByKey(existingKey, false);
+          if (removed) {
+            setActionFlowStatus("submitted", "Tag unsubmitted.", `${safeStr(row.player_name)} · UNTAG`);
+            setGlobalNotice(`Tag unsubmitted for ${safeStr(row.player_name)}.`, false);
+          } else {
+            setActionFlowStatus("failed", "Unable to unsubmit tag.");
+          }
           return;
         }
         if (existing && safeStr(existing.player_id) !== safeStr(row.player_id) && !state.commishMode) {
@@ -5746,7 +5750,6 @@
           setGlobalNotice(msg, true);
           return;
         }
-        const existingKey = safeStr(existing && existing.key);
         if (state.commishMode && existingKey && existingKey !== key) {
           delete state.tagSelections[existingKey];
           delete state.tagSubmissions[existingKey];
@@ -5768,8 +5771,17 @@
           saveTagSubmissions(state.tagSubmissions);
         }
         saveTagSelections(state.tagSelections);
-        openTagModal(key);
-        setActionFlowStatus("ready", "Tag modal opened. Confirm to finalize (you can resubmit until the deadline).");
+        const sel = state.tagSelections[key];
+        const payload = buildTagSubmissionPayload(sel, row);
+        state.tagSubmissions[key] = {
+          ...sel,
+          submitted_at_utc: new Date().toISOString(),
+          tag_salary: payload.salary,
+          payload,
+        };
+        saveTagSubmissions(state.tagSubmissions);
+        setActionFlowStatus("submitted", "Tag submitted successfully.", `${safeStr(row.player_name)} · TAG`);
+        setGlobalNotice(`Tag submitted for ${safeStr(row.player_name)}.`, false);
       } else {
         setActionFlowStatus("failed", "Auction contract flow is not available yet.");
       }
