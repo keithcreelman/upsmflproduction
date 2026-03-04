@@ -3707,7 +3707,7 @@
   function projectContractRowForward(row) {
     if (!row) return null;
     const years = safeInt(row.contract_year);
-    const rookie = rookieLike(row.contract_status) || rookieLike(row.mym_acq_type);
+    const rookie = rookieLike(row.contract_status);
     if (years <= 0) return { ...row, contract_year: 0, _rolled_forward: 1 };
     if (years === 1) {
       // Roll all 1-year contracts to 0 for offseason planning.
@@ -3844,10 +3844,7 @@
     const statusText = `${safeStr(row.contract_status)} ${safeStr(row.contract_info)}`.toLowerCase();
     if (statusText.includes("tag")) return false;
     const years = safeInt(row.contract_year);
-    const rookieContract =
-      rookieLike(row.contract_status) ||
-      rookieLike(row.mym_acq_type) ||
-      rookieLike(row.contract_info);
+    const rookieContract = rookieLike(row.contract_status);
     if (!rookieContract) return false;
     if (years > 0) return false;
     if (isExtendedByCurrentOwner(row)) return false;
