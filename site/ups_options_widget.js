@@ -151,6 +151,7 @@
     theme: loadThemeSetting(),
     manualSelection: false,
     bugBusy: false,
+    bugAttachmentsBusy: false,
     bugAttachments: [],
     bugSourceApp: ""
   };
@@ -1004,13 +1005,26 @@
     if (tone === "ok") statusEl.classList.add("is-ok");
   }
 
-  function setBugSubmitBusy(busy) {
+  function refreshBugSubmitState() {
     const submitBtn = $("#uowBugSubmit");
-    if (submitBtn) {
-      submitBtn.disabled = !!busy;
-      submitBtn.textContent = busy ? "Submitting..." : "Submit Report";
-    }
+    if (!submitBtn) return;
+    const busy = !!state.bugBusy || !!state.bugAttachmentsBusy;
+    submitBtn.disabled = busy;
+    submitBtn.textContent = state.bugBusy
+      ? "Submitting..."
+      : state.bugAttachmentsBusy
+        ? "Processing screenshots..."
+        : "Submit Report";
+  }
+
+  function setBugSubmitBusy(busy) {
     state.bugBusy = !!busy;
+    refreshBugSubmitState();
+  }
+
+  function setBugAttachmentBusy(busy) {
+    state.bugAttachmentsBusy = !!busy;
+    refreshBugSubmitState();
   }
 
   function renderBugAttachmentList(message) {
@@ -1036,6 +1050,7 @@
 
   function resetBugAttachments() {
     state.bugAttachments = [];
+    setBugAttachmentBusy(false);
     const input = $("#uowBugScreenshots");
     if (input) input.value = "";
     setBugDropzoneActive(false);
@@ -1103,46 +1118,51 @@
       if (!append) resetBugAttachments();
       return;
     }
-    const existing = append && Array.isArray(state.bugAttachments)
-      ? state.bugAttachments.slice(0, BUG_MAX_ATTACHMENTS)
-      : [];
-    const out = existing.slice();
-    const existingKeys = new Set(
-      out.map((item) => `${safeStr(item && item.name).toLowerCase()}|${safeInt(item && item.size_bytes)}|${safeStr(item && item.original_type || item && item.type).toLowerCase()}`)
-    );
-    const slots = Math.max(0, BUG_MAX_ATTACHMENTS - out.length);
-    const files = allFiles.slice(0, slots);
-    const errors = [];
-    if (slots <= 0) {
-      renderBugAttachmentList(`Max ${BUG_MAX_ATTACHMENTS} screenshots already attached.`);
-      return;
-    }
-    if (allFiles.length > files.length) {
-      errors.push(`max ${BUG_MAX_ATTACHMENTS} screenshots`);
-    }
-    for (const file of files) {
-      const fileKey = `${safeStr(file && file.name).toLowerCase()}|${safeInt(file && file.size)}|${safeStr(file && file.type).toLowerCase()}`;
-      if (existingKeys.has(fileKey)) {
-        errors.push(`${safeStr(file && file.name) || "file"}: duplicate`);
-        continue;
+    setBugAttachmentBusy(true);
+    try {
+      const existing = append && Array.isArray(state.bugAttachments)
+        ? state.bugAttachments.slice(0, BUG_MAX_ATTACHMENTS)
+        : [];
+      const out = existing.slice();
+      const existingKeys = new Set(
+        out.map((item) => `${safeStr(item && item.name).toLowerCase()}|${safeInt(item && item.size_bytes)}|${safeStr(item && item.original_type || item && item.type).toLowerCase()}`)
+      );
+      const slots = Math.max(0, BUG_MAX_ATTACHMENTS - out.length);
+      const files = allFiles.slice(0, slots);
+      const errors = [];
+      if (slots <= 0) {
+        renderBugAttachmentList(`Max ${BUG_MAX_ATTACHMENTS} screenshots already attached.`);
+        return;
       }
-      try {
-        const item = await fileToScreenshotAttachment(file);
-        existingKeys.add(fileKey);
-        out.push(item);
-      } catch (err) {
-        errors.push(`${safeStr(file && file.name) || "file"}: ${err && err.message ? err.message : "failed"}`);
+      if (allFiles.length > files.length) {
+        errors.push(`max ${BUG_MAX_ATTACHMENTS} screenshots`);
       }
+      for (const file of files) {
+        const fileKey = `${safeStr(file && file.name).toLowerCase()}|${safeInt(file && file.size)}|${safeStr(file && file.type).toLowerCase()}`;
+        if (existingKeys.has(fileKey)) {
+          errors.push(`${safeStr(file && file.name) || "file"}: duplicate`);
+          continue;
+        }
+        try {
+          const item = await fileToScreenshotAttachment(file);
+          existingKeys.add(fileKey);
+          out.push(item);
+        } catch (err) {
+          errors.push(`${safeStr(file && file.name) || "file"}: ${err && err.message ? err.message : "failed"}`);
+        }
+      }
+      state.bugAttachments = out;
+      const input = $("#uowBugScreenshots");
+      if (input) input.value = "";
+      renderBugAttachmentList(
+        errors.length
+          ? `${out.length} attached. Skipped ${errors.length}: ${errors.join(" | ")}`
+          : ""
+      );
+      if (!errors.length) renderBugAttachmentList();
+    } finally {
+      setBugAttachmentBusy(false);
     }
-    state.bugAttachments = out;
-    const input = $("#uowBugScreenshots");
-    if (input) input.value = "";
-    renderBugAttachmentList(
-      errors.length
-        ? `${out.length} attached. Skipped ${errors.length}: ${errors.join(" | ")}`
-        : ""
-    );
-    if (!errors.length) renderBugAttachmentList();
   }
 
   function buildBugContext() {
@@ -1234,6 +1254,10 @@
   async function submitBugReportForm(e) {
     e.preventDefault();
     if (state.bugBusy) return;
+    if (state.bugAttachmentsBusy) {
+      setBugStatus("Please wait for screenshot processing to finish.", "error");
+      return;
+    }
     const appSel = $("#uowBugApp");
     const moduleSel = $("#uowBugModule");
     const typeSel = $("#uowBugType");
@@ -1307,10 +1331,15 @@
         notifyText = "Discord status missing from worker response";
         notifyTone = "error";
       } else if (notify.ok) {
+        const attachExpectedRaw = safeInt(notify.attachments_expected || payload.attachments.length);
+        const attachExpected = attachExpectedRaw > 0 ? attachExpectedRaw : payload.attachments.length;
+        const attachSentRaw = safeInt(notify.attachments_sent);
+        const attachSent = attachSentRaw > 0 || attachExpected === 0 ? attachSentRaw : attachExpected;
+        const attachSuffix = attachExpected > 0 ? ` | Screenshots ${attachSent}/${attachExpected}` : "";
         if (safeStr(notify.mode) === "bot-dm-multi") {
-          notifyText = `Discord sent (${safeInt(notify.delivered, 0)}/${safeInt(notify.attempted, 0)} DMs)`;
+          notifyText = `Discord sent (${safeInt(notify.delivered, 0)}/${safeInt(notify.attempted, 0)} DMs)${attachSuffix}`;
         } else {
-          notifyText = "Discord sent";
+          notifyText = `Discord sent${attachSuffix}`;
         }
       } else {
         const firstErr = Array.isArray(notify.results)
@@ -1400,6 +1429,7 @@
     populateBugTypeOptions();
     renderBugAttachmentList();
     renderBugContextNote();
+    refreshBugSubmitState();
   }
 
   function wireEvents() {

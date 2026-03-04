@@ -1946,7 +1946,22 @@ export default {
         if (dmUserId && !dmUserIds.includes(dmUserId)) dmUserIds.unshift(dmUserId);
         const channelId = safeStr(env.DISCORD_BUG_CHANNEL_ID || "").replace(/\D/g, "");
         const content = formatBugDiscordMessage(reportRow, filePath);
+        const rawAttachmentRows = Array.isArray(reportRow && reportRow.attachments) ? reportRow.attachments : [];
+        const attachmentsExpected = Math.min(6, rawAttachmentRows.length);
         const files = buildDiscordAttachmentFiles(reportRow);
+        const attachmentsDecoded = files.length;
+        const attachmentMeta = (attachmentsSent) => ({
+          attachments_expected: attachmentsExpected,
+          attachments_decoded: attachmentsDecoded,
+          attachments_sent: Math.max(0, safeInt(attachmentsSent)),
+        });
+        const responseAttachmentCount = (discordResponse) => {
+          const rows = Array.isArray(discordResponse && discordResponse.data && discordResponse.data.attachments)
+            ? discordResponse.data.attachments
+            : null;
+          if (rows) return rows.length;
+          return files.length ? files.length : 0;
+        };
         let dmAttemptResult = null;
 
         const botRequest = async (method, apiPath, body) => {
@@ -2038,15 +2053,18 @@ export default {
                 ok: false,
                 status: sendDm.status,
                 error: safeStr(sendDm.text || "send_dm_failed").slice(0, 600),
+                ...attachmentMeta(0),
               });
               continue;
             }
             delivered += 1;
+            const sentCount = responseAttachmentCount(sendDm);
             perUser.push({
               user_id: userId,
               ok: true,
               status: sendDm.status,
               channel_id: dmChannelId,
+              ...attachmentMeta(sentCount),
             });
           }
           if (delivered > 0) {
@@ -2056,6 +2074,7 @@ export default {
               attempted: dmUserIds.length,
               delivered,
               results: perUser,
+              ...attachmentMeta(files.length ? files.length : 0),
             };
           }
           const firstFail = perUser.find((row) => row && row.ok === false) || {};
@@ -2066,6 +2085,7 @@ export default {
             delivered,
             results: perUser,
             error: safeStr(firstFail.error || "all_dm_attempts_failed").slice(0, 600),
+            ...attachmentMeta(0),
           };
         }
 
@@ -2111,12 +2131,14 @@ export default {
                 status: res.status,
                 error: preview || "webhook_failed",
                 dm_attempt: dmAttemptResult || undefined,
+                ...attachmentMeta(0),
               };
             }
             return {
               ok: true,
               mode: "webhook",
               dm_attempt: dmAttemptResult || undefined,
+              ...attachmentMeta(files.length ? files.length : 0),
             };
           } catch (e) {
             return {
@@ -2125,12 +2147,19 @@ export default {
               status: 0,
               error: `fetch_failed: ${e?.message || String(e)}`,
               dm_attempt: dmAttemptResult || undefined,
+              ...attachmentMeta(0),
             };
           }
         }
 
         if (!botToken) {
-          return { ok: false, mode: "none", status: 0, error: "missing_discord_config" };
+          return {
+            ok: false,
+            mode: "none",
+            status: 0,
+            error: "missing_discord_config",
+            ...attachmentMeta(0),
+          };
         }
 
         if (channelId) {
@@ -2142,18 +2171,27 @@ export default {
               status: sendChannel.status,
               error: safeStr(sendChannel.text || "send_channel_failed").slice(0, 600),
               dm_attempt: dmAttemptResult || undefined,
+              ...attachmentMeta(0),
             };
           }
+          const sentCount = responseAttachmentCount(sendChannel);
           return {
             ok: true,
             mode: "bot-channel",
             channel_id: channelId,
             dm_attempt: dmAttemptResult || undefined,
+            ...attachmentMeta(sentCount),
           };
         }
 
         if (dmAttemptResult) return dmAttemptResult;
-        return { ok: false, mode: "none", status: 0, error: "missing_discord_dm_or_channel" };
+        return {
+          ok: false,
+          mode: "none",
+          status: 0,
+          error: "missing_discord_dm_or_channel",
+          ...attachmentMeta(0),
+        };
       };
 
       const base64UrlFromUtf8 = (text) =>
