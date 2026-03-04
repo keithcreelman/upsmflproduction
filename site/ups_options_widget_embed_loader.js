@@ -157,6 +157,7 @@
   var FRANCHISE_ID = getFranchiseId(u);
   var MFL_USER_ID = getMflUserId(u);
   var UPS_WORKER_URL = String(window.UPS_WORKER_URL || "https://upsmflproduction.keith-creelman.workers.dev").trim();
+  var RELEASE_REF = encodeURIComponent(String(window.UPS_RELEASE_SHA || "main").trim() || "main");
   var MODE_KEY = "ups_mode_" + YEAR + "_" + L;
   var MODULE_NAME = getModuleName(u);
 
@@ -245,7 +246,7 @@
     var cache = cacheKey || DEFAULT_CACHE;
     var theme = normalizeMode(mode || getHostMode());
     var src = (
-      "https://keithcreelman.github.io/upsmflproduction/ups_options_widget.html" +
+      "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@" + RELEASE_REF + "/site/ups_options_widget.html" +
       "?cache=" + encodeURIComponent(cache) +
       "&L=" + encodeURIComponent(L) +
       "&YEAR=" + encodeURIComponent(YEAR) +
