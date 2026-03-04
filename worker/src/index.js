@@ -1861,13 +1861,18 @@ export default {
         const season = safeStr(row.season || "");
         const bugId = safeStr(row.bug_id || "");
         const fid = safeStr(row.franchise_id || "");
+        const franchiseName = safeStr(row.franchise_name || (row.context && row.context.franchise_name) || "");
         const mflUser = safeStr(row.mfl_user_id || "");
         const pageUrl = safeStr((row.context && row.context.page_url) || "");
+        const attachmentCount = Array.isArray(row.attachments)
+          ? row.attachments.length
+          : safeInt((row.context && row.context.screenshot_count) || 0);
         const lines = [
           `UPS Bug Report${bugId ? ` #${bugId}` : ""}`,
           `League ${leagueId || "-"} | Season ${season || "-"} | Severity ${severity || "-"}`,
           `App ${app || "-"} | Module ${moduleName || "-"} | Type ${issueType || "-"}`,
-          `Franchise ${fid || "-"} | MFL User ${mflUser || "unknown"}`,
+          `Franchise ${(franchiseName || fid || "-")} | MFL User ${mflUser || "unknown"}`,
+          attachmentCount ? `Screenshots: ${attachmentCount}` : "",
           summary ? `Summary: ${summary}` : "",
           details ? `Details: ${details}` : "",
           pageUrl ? `Page: ${pageUrl}` : "",
@@ -5751,6 +5756,28 @@ export default {
         return out;
       };
 
+      const sanitizeBugAttachments = (rawAttachments) => {
+        const rows = Array.isArray(rawAttachments) ? rawAttachments : [];
+        const out = [];
+        const maxItems = 3;
+        const maxDataUrlChars = 450000;
+        for (const row of rows) {
+          if (!row || typeof row !== "object") continue;
+          const dataUrl = safeStr(row.data_url || row.dataUrl);
+          if (!dataUrl || !/^data:image\//i.test(dataUrl)) continue;
+          if (dataUrl.length > maxDataUrlChars) continue;
+          out.push({
+            name: safeStr(row.name || "screenshot.jpg").slice(0, 120),
+            type: safeStr(row.type || "image/jpeg").slice(0, 60),
+            original_type: safeStr(row.original_type || row.originalType || "").slice(0, 60),
+            size_bytes: Math.max(0, safeInt(row.size_bytes || row.sizeBytes || 0)),
+            data_url: dataUrl,
+          });
+          if (out.length >= maxItems) break;
+        }
+        return out;
+      };
+
       if (path === "/bug-report" && request.method === "POST") {
         let body = {};
         try {
@@ -5803,6 +5830,13 @@ export default {
             url.searchParams.get("FRANCHISE_ID") ||
             ""
         );
+        const franchiseName = safeStr(
+          body.franchise_name ||
+            body.franchiseName ||
+            context.franchise_name ||
+            context.franchiseName ||
+            ""
+        ).slice(0, 120);
         const mflUserId = safeStr(
           body.mfl_user_id ||
             body.mflUserId ||
@@ -5811,6 +5845,7 @@ export default {
             browserMflUserId ||
             ""
         );
+        const attachments = sanitizeBugAttachments(body.attachments || body.screenshots);
 
         const reportRow = {
           bug_id: bugId,
@@ -5818,6 +5853,7 @@ export default {
           league_id: leagueId,
           season: season,
           franchise_id: franchiseId,
+          franchise_name: franchiseName,
           mfl_user_id: mflUserId,
           app,
           module: moduleName,
@@ -5827,6 +5863,7 @@ export default {
           details: details.slice(0, 5000),
           steps_to_reproduce: steps.slice(0, 4000),
           expected_vs_actual: expectedActual.slice(0, 4000),
+          attachments,
           source: safeStr(body.source || "ups-hot-links-widget"),
           status: "OPEN",
           context: context && typeof context === "object" ? context : {},

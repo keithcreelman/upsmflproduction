@@ -38,6 +38,53 @@
     other: [{ value: "other", label: "Other" }]
   };
 
+  const BUG_ISSUE_TYPE_OPTIONS_BY_APP = {
+    "contract-command-center": [
+      { value: "eligibility-list-wrong", label: "Eligibility List Wrong" },
+      { value: "extension-math-wrong", label: "Extension Math Wrong" },
+      { value: "restructure-math-wrong", label: "Restructure Math Wrong" },
+      { value: "tag-cost-wrong", label: "Tag Cost Wrong" },
+      { value: "filters-not-working", label: "Filters Not Working" },
+      { value: "submission-failed", label: "Submission Failed" },
+      { value: "ui-visual", label: "UI / Visual" },
+      { value: "other", label: "Other" },
+    ],
+    "trade-war-room": [
+      { value: "pre-trade-extension-not-working", label: "Pre-Trade Extension Not Working" },
+      { value: "trade-not-processing", label: "Trade Not Processing" },
+      { value: "cap-validation-wrong", label: "Cap Validation Wrong" },
+      { value: "review-submit-failed", label: "Review / Submit Failed" },
+      { value: "xml-submit-failed", label: "MFL XML Submit Failed" },
+      { value: "ui-visual", label: "UI / Visual" },
+      { value: "other", label: "Other" },
+    ],
+    "roster-workbench": [
+      { value: "data-incorrect", label: "Data Incorrect" },
+      { value: "filters-not-working", label: "Filters Not Working" },
+      { value: "ui-visual", label: "UI / Visual" },
+      { value: "performance", label: "Performance" },
+      { value: "other", label: "Other" },
+    ],
+    "ups-hot-links": [
+      { value: "countdown-wrong", label: "Countdown / Date Wrong" },
+      { value: "module-load-failed", label: "Module Not Loading" },
+      { value: "ui-visual", label: "UI / Visual" },
+      { value: "other", label: "Other" },
+    ],
+    other: [
+      { value: "data-incorrect", label: "Data Incorrect" },
+      { value: "submission-failed", label: "Submission Failed" },
+      { value: "ui-visual", label: "UI / Visual" },
+      { value: "performance", label: "Performance" },
+      { value: "other", label: "Other" },
+    ],
+  };
+
+  const BUG_HIDE_MODULE_FOR_APPS = new Set(["trade-war-room"]);
+  const BUG_MAX_ATTACHMENTS = 3;
+  const BUG_MAX_ATTACHMENT_FILE_BYTES = 8 * 1024 * 1024;
+  const BUG_MAX_ATTACHMENT_DATA_URL_CHARS = 450000;
+
   const EVENT_OVERRIDES = {
     "2026": {
       seasonStart: { month: 3, day: 1, hour: 0, minute: 0 },
@@ -103,7 +150,8 @@
     leagueDetailsFetch: {},
     theme: loadThemeSetting(),
     manualSelection: false,
-    bugBusy: false
+    bugBusy: false,
+    bugAttachments: []
   };
 
   const $ = (sel) => document.querySelector(sel);
@@ -376,7 +424,42 @@
         league.regular_season_end_week ||
         league.regularSeasonEndWeek
     );
-    return { endWeek, lastRegularWeek: lastRegular };
+    const franchiseNameById = extractFranchiseNameMap(league);
+    return { endWeek, lastRegularWeek: lastRegular, franchiseNameById };
+  }
+
+  function extractFranchiseNameMap(league) {
+    const block =
+      (league && (league.franchises || league.franchise || (league.league && league.league.franchises))) ||
+      null;
+    const rowsRaw = (block && (block.franchise || block)) || [];
+    const rows = Array.isArray(rowsRaw) ? rowsRaw : [rowsRaw].filter(Boolean);
+    const out = {};
+    rows.forEach((row) => {
+      if (!row || typeof row !== "object") return;
+      const idRaw = safeStr(
+        row.id || row.franchise_id || row.franchiseId || row.franchiseID || ""
+      ).replace(/\D/g, "");
+      if (!idRaw) return;
+      const id = idRaw.padStart(4, "0").slice(-4);
+      const name = safeStr(row.name || row.franchise_name || row.franchiseName || row.owner_name || "");
+      if (!name) return;
+      out[id] = name;
+    });
+    return out;
+  }
+
+  function getFranchiseNameById(year, franchiseId) {
+    const id = safeStr(franchiseId).replace(/\D/g, "").padStart(4, "0").slice(-4);
+    if (!id) return "";
+    const y = String(year || "");
+    const cached = y ? state.leagueDetailsByYear[y] : null;
+    const name =
+      safeStr(cached && cached.franchiseNameById && cached.franchiseNameById[id]) ||
+      "";
+    if (name) return name;
+    if (y && !state.leagueDetailsFetch[y]) fetchLeagueDetails(y, parseLeagueId());
+    return "";
   }
 
   async function fetchLeagueDetails(year, leagueId) {
@@ -393,6 +476,7 @@
       state.leagueDetailsByYear[y] = { error: e && e.message ? e.message : String(e) };
     } finally {
       updateDisplay();
+      renderBugContextNote();
     }
   }
 
@@ -816,10 +900,42 @@
     return BUG_MODULE_OPTIONS_BY_APP[safeStr(appKey).toLowerCase()] || BUG_MODULE_OPTIONS_BY_APP.other;
   }
 
+  function getBugIssueTypeOptions(appKey) {
+    return (
+      BUG_ISSUE_TYPE_OPTIONS_BY_APP[safeStr(appKey).toLowerCase()] ||
+      BUG_ISSUE_TYPE_OPTIONS_BY_APP.other
+    );
+  }
+
+  function appHidesBugModule(appKey) {
+    return BUG_HIDE_MODULE_FOR_APPS.has(safeStr(appKey).toLowerCase());
+  }
+
+  function updateBugModuleVisibility() {
+    const appSel = $("#uowBugApp");
+    const moduleWrap = $("#uowBugModuleWrap");
+    const moduleSel = $("#uowBugModule");
+    if (!appSel || !moduleSel || !moduleWrap) return;
+    const hideModule = appHidesBugModule(appSel.value);
+    moduleWrap.style.display = hideModule ? "none" : "";
+    moduleSel.required = !hideModule;
+    moduleSel.disabled = hideModule;
+  }
+
   function populateBugModuleOptions() {
     const appSel = $("#uowBugApp");
     const moduleSel = $("#uowBugModule");
     if (!appSel || !moduleSel) return;
+    if (appHidesBugModule(appSel.value)) {
+      moduleSel.innerHTML = "";
+      const hiddenOpt = document.createElement("option");
+      hiddenOpt.value = "issue-type-driven";
+      hiddenOpt.textContent = "Issue Type Driven";
+      hiddenOpt.selected = true;
+      moduleSel.appendChild(hiddenOpt);
+      updateBugModuleVisibility();
+      return;
+    }
     const options = getBugModuleOptions(appSel.value);
     const prev = safeStr(moduleSel.value);
     moduleSel.innerHTML = "";
@@ -830,6 +946,24 @@
       if (prev && prev === el.value) el.selected = true;
       if (!prev && idx === 0) el.selected = true;
       moduleSel.appendChild(el);
+    });
+    updateBugModuleVisibility();
+  }
+
+  function populateBugTypeOptions() {
+    const appSel = $("#uowBugApp");
+    const typeSel = $("#uowBugType");
+    if (!appSel || !typeSel) return;
+    const options = getBugIssueTypeOptions(appSel.value);
+    const prev = safeStr(typeSel.value);
+    typeSel.innerHTML = "";
+    options.forEach((opt, idx) => {
+      const el = document.createElement("option");
+      el.value = safeStr(opt.value);
+      el.textContent = safeStr(opt.label);
+      if (prev && prev === el.value) el.selected = true;
+      if (!prev && idx === 0) el.selected = true;
+      typeSel.appendChild(el);
     });
   }
 
@@ -851,6 +985,107 @@
     state.bugBusy = !!busy;
   }
 
+  function renderBugAttachmentList(message) {
+    const listEl = $("#uowBugAttachmentList");
+    if (!listEl) return;
+    if (safeStr(message)) {
+      listEl.textContent = safeStr(message);
+      return;
+    }
+    if (!state.bugAttachments.length) {
+      listEl.textContent = "No screenshots attached.";
+      return;
+    }
+    const names = state.bugAttachments.map((a) => safeStr(a && a.name)).filter(Boolean);
+    listEl.textContent = `${names.length} attached: ${names.join(", ")}`;
+  }
+
+  function resetBugAttachments() {
+    state.bugAttachments = [];
+    const input = $("#uowBugScreenshots");
+    if (input) input.value = "";
+    renderBugAttachmentList();
+  }
+
+  function loadImageFromObjectUrl(url) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error("Image decode failed"));
+      img.src = url;
+    });
+  }
+
+  async function fileToScreenshotAttachment(file) {
+    if (!file || !file.type || !file.type.startsWith("image/")) {
+      throw new Error("Unsupported file type");
+    }
+    if (safeInt(file.size) > BUG_MAX_ATTACHMENT_FILE_BYTES) {
+      throw new Error(`File too large (${Math.round(file.size / (1024 * 1024))}MB)`);
+    }
+
+    const objectUrl = URL.createObjectURL(file);
+    try {
+      const img = await loadImageFromObjectUrl(objectUrl);
+      const maxDim = 1280;
+      const ratio = Math.min(1, maxDim / Math.max(img.width || 1, img.height || 1));
+      const width = Math.max(1, Math.round((img.width || 1) * ratio));
+      const height = Math.max(1, Math.round((img.height || 1) * ratio));
+
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("Canvas unavailable");
+      ctx.drawImage(img, 0, 0, width, height);
+
+      let quality = 0.82;
+      let dataUrl = canvas.toDataURL("image/jpeg", quality);
+      while (dataUrl.length > BUG_MAX_ATTACHMENT_DATA_URL_CHARS && quality > 0.45) {
+        quality = Math.max(0.45, quality - 0.12);
+        dataUrl = canvas.toDataURL("image/jpeg", quality);
+      }
+      if (dataUrl.length > BUG_MAX_ATTACHMENT_DATA_URL_CHARS) {
+        throw new Error("Compressed image is still too large");
+      }
+
+      return {
+        name: safeStr(file.name || "screenshot.jpg"),
+        type: "image/jpeg",
+        original_type: safeStr(file.type || ""),
+        size_bytes: safeInt(file.size),
+        data_url: dataUrl,
+      };
+    } finally {
+      URL.revokeObjectURL(objectUrl);
+    }
+  }
+
+  async function setBugAttachments(fileList) {
+    const files = Array.from(fileList || []).slice(0, BUG_MAX_ATTACHMENTS);
+    if (!files.length) {
+      resetBugAttachments();
+      return;
+    }
+    const out = [];
+    const errors = [];
+    for (const file of files) {
+      try {
+        const item = await fileToScreenshotAttachment(file);
+        out.push(item);
+      } catch (err) {
+        errors.push(`${safeStr(file && file.name) || "file"}: ${err && err.message ? err.message : "failed"}`);
+      }
+    }
+    state.bugAttachments = out;
+    renderBugAttachmentList(
+      errors.length
+        ? `${out.length} attached. Skipped ${errors.length}: ${errors.join(" | ")}`
+        : ""
+    );
+    if (!errors.length) renderBugAttachmentList();
+  }
+
   function buildBugContext() {
     let href = "";
     try {
@@ -867,11 +1102,15 @@
     } catch (e) {
       tz = "";
     }
+    const season = String(parseSeasonYear() || "");
+    const franchiseId = parseFranchiseId();
+    const franchiseName = getFranchiseNameById(season, franchiseId);
     return {
       captured_at_utc: new Date().toISOString(),
       league_id: parseLeagueId(),
-      season: String(parseSeasonYear() || ""),
-      franchise_id: parseFranchiseId(),
+      season,
+      franchise_id: franchiseId,
+      franchise_name: franchiseName,
       mfl_user_id: parseMflUserId(),
       host: safeStr(window.location.host || ""),
       page_url: href,
@@ -887,6 +1126,7 @@
       screen: `${safeInt(window.screen && window.screen.width)}x${safeInt(window.screen && window.screen.height)}`,
       theme: safeStr(document.body.getAttribute("data-theme") || state.theme || ""),
       referrer: safeStr(document.referrer || ""),
+      screenshot_count: safeInt(state.bugAttachments && state.bugAttachments.length),
     };
   }
 
@@ -894,14 +1134,17 @@
     const note = $("#uowBugContextNote");
     if (!note) return;
     const ctx = buildBugContext();
-    note.textContent = `Auto-attached: League ${ctx.league_id || "—"} | Season ${ctx.season || "—"} | Franchise ${ctx.franchise_id || "—"} | User ${ctx.mfl_user_id ? "Yes" : "Unknown"} | Theme ${ctx.theme || "—"}`;
+    const franchiseLabel = safeStr(ctx.franchise_name || "Unknown");
+    note.textContent = `Auto-attached: League ${ctx.league_id || "—"} | Season ${ctx.season || "—"} | Franchise ${franchiseLabel} | User ${ctx.mfl_user_id ? "Yes" : "Unknown"} | Theme ${ctx.theme || "—"}`;
   }
 
   function openBugModal() {
     const modal = $("#uowBugModal");
     if (!modal) return;
     modal.hidden = false;
+    resetBugAttachments();
     populateBugModuleOptions();
+    populateBugTypeOptions();
     renderBugContextNote();
     setBugStatus("", "");
     const summary = $("#uowBugSummary");
@@ -913,6 +1156,7 @@
     if (!modal) return;
     modal.hidden = true;
     setBugSubmitBusy(false);
+    resetBugAttachments();
   }
 
   async function submitBugReportForm(e) {
@@ -926,8 +1170,9 @@
     const detailsInput = $("#uowBugDetails");
     const stepsInput = $("#uowBugSteps");
     const expectedActualInput = $("#uowBugExpectedActual");
+    const hideModule = appHidesBugModule(appSel && appSel.value);
     const app = safeStr(appSel && appSel.value);
-    const moduleName = safeStr(moduleSel && moduleSel.value);
+    const moduleName = hideModule ? "issue-type-driven" : safeStr(moduleSel && moduleSel.value);
     const issueType = safeStr(typeSel && typeSel.value);
     const severity = safeStr(severitySel && severitySel.value);
     const summary = safeStr(summaryInput && summaryInput.value);
@@ -935,7 +1180,7 @@
     const steps = safeStr(stepsInput && stepsInput.value);
     const expectedActual = safeStr(expectedActualInput && expectedActualInput.value);
 
-    if (!app || !moduleName || !issueType || !severity || !summary || !details) {
+    if (!app || (!hideModule && !moduleName) || !issueType || !severity || !summary || !details) {
       setBugStatus("Please fill all required fields.", "error");
       return;
     }
@@ -951,10 +1196,18 @@
       module: moduleName,
       issue_type: issueType,
       severity,
+      franchise_name: safeStr(ctx.franchise_name || ""),
       summary,
       details,
       steps_to_reproduce: steps,
       expected_vs_actual: expectedActual,
+      attachments: state.bugAttachments.map((item) => ({
+        name: safeStr(item && item.name),
+        type: safeStr(item && item.type),
+        original_type: safeStr(item && item.original_type),
+        size_bytes: safeInt(item && item.size_bytes),
+        data_url: safeStr(item && item.data_url),
+      })),
       context: ctx,
       source: "ups-hot-links-widget",
     };
@@ -986,6 +1239,8 @@
       const form = $("#uowBugForm");
       if (form) form.reset();
       populateBugModuleOptions();
+      populateBugTypeOptions();
+      resetBugAttachments();
       renderBugContextNote();
       window.setTimeout(closeBugModal, 900);
     } catch (err) {
@@ -1001,12 +1256,26 @@
     const cancelBtn = $("#uowBugCancel");
     const backdrop = $("#uowBugBackdrop");
     const appSel = $("#uowBugApp");
+    const screenshotInput = $("#uowBugScreenshots");
     const form = $("#uowBugForm");
     if (openBtn) openBtn.addEventListener("click", openBugModal);
     if (closeBtn) closeBtn.addEventListener("click", closeBugModal);
     if (cancelBtn) cancelBtn.addEventListener("click", closeBugModal);
     if (backdrop) backdrop.addEventListener("click", closeBugModal);
-    if (appSel) appSel.addEventListener("change", populateBugModuleOptions);
+    if (appSel) {
+      appSel.addEventListener("change", () => {
+        populateBugModuleOptions();
+        populateBugTypeOptions();
+        renderBugContextNote();
+      });
+    }
+    if (screenshotInput) {
+      screenshotInput.addEventListener("change", (evt) => {
+        const files = evt && evt.target ? evt.target.files : null;
+        setBugAttachments(files);
+        renderBugContextNote();
+      });
+    }
     if (form) form.addEventListener("submit", submitBugReportForm);
     document.addEventListener("keydown", (evt) => {
       if (evt.key !== "Escape") return;
@@ -1014,6 +1283,8 @@
       if (modal && !modal.hidden) closeBugModal();
     });
     populateBugModuleOptions();
+    populateBugTypeOptions();
+    renderBugAttachmentList();
     renderBugContextNote();
   }
 
