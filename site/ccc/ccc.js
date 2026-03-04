@@ -4756,6 +4756,8 @@
   }
 
   function getActionCandidates(viewModel) {
+    const actionType = normalizeActionType(state.actionFlow.actionType);
+    const season = normalizeSeasonValue((viewModel && viewModel.season) || state.selectedSeason);
     function sortCandidates(rows) {
       return (rows || [])
         .slice()
@@ -4763,11 +4765,25 @@
           const teamA = safeStr(a.franchise_name || a.franchise_id).toLowerCase();
           const teamB = safeStr(b.franchise_name || b.franchise_id).toLowerCase();
           if (teamA !== teamB) return teamA.localeCompare(teamB);
+          if (actionType === "extend") {
+            const deadlineA = getExtensionDeadlineDateForRow(
+              a,
+              normalizeSeasonValue(a && a.season ? a.season : season)
+            );
+            const deadlineB = getExtensionDeadlineDateForRow(
+              b,
+              normalizeSeasonValue(b && b.season ? b.season : season)
+            );
+            const tsA = deadlineA ? deadlineA.getTime() : new Date("2999-01-01").getTime();
+            const tsB = deadlineB ? deadlineB.getTime() : new Date("2999-01-01").getTime();
+            if (tsA !== tsB) return tsA - tsB;
+            const aavA = safeInt(a.aav || a.prior_aav_week1 || a.salary);
+            const aavB = safeInt(b.aav || b.prior_aav_week1 || b.salary);
+            if (aavA !== aavB) return aavB - aavA;
+          }
           return safeStr(a.player_name).toLowerCase().localeCompare(safeStr(b.player_name).toLowerCase());
         });
     }
-    const actionType = normalizeActionType(state.actionFlow.actionType);
-    const season = normalizeSeasonValue((viewModel && viewModel.season) || state.selectedSeason);
     /* Mirror the render pipeline: use nearest source season then project to selected season. */
     const projectionSource = resolveSourceSeasonForProjection(state.payload.eligibility || [], season);
     const rawSeasonRows = (state.payload.eligibility || []).filter(
