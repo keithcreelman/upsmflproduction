@@ -2015,6 +2015,19 @@
           if (field === "pos") {
             return compareVals(extensionPosSortRank(ra), extensionPosSortRank(rb), fieldDir);
           }
+          if (field === "deadline") {
+            const deadlineA = getExtensionDeadlineDateForRow(
+              ra,
+              normalizeSeasonValue(ra && ra.season ? ra.season : state.selectedSeason)
+            );
+            const deadlineB = getExtensionDeadlineDateForRow(
+              rb,
+              normalizeSeasonValue(rb && rb.season ? rb.season : state.selectedSeason)
+            );
+            const tsA = deadlineA ? deadlineA.getTime() : new Date("2999-01-01").getTime();
+            const tsB = deadlineB ? deadlineB.getTime() : new Date("2999-01-01").getTime();
+            return compareVals(tsA, tsB, fieldDir);
+          }
           return compareVals(getSortValue(ra, field), getSortValue(rb, field), fieldDir);
         };
         const chain = [];
