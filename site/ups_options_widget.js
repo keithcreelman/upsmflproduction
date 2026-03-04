@@ -298,6 +298,17 @@
     return new Date().getFullYear();
   }
 
+  function shouldAutoOpenBugModal() {
+    const params = new URLSearchParams(window.location.search || "");
+    const v = safeStr(
+      params.get("OPEN_BUG") ||
+      params.get("OPEN_ISSUE") ||
+      params.get("OPEN_REPORT") ||
+      ""
+    ).toLowerCase();
+    return v === "1" || v === "true" || v === "yes" || v === "open";
+  }
+
   function getNow() {
     return new Date();
   }
@@ -1393,6 +1404,9 @@
     wireEvents();
     startTicker();
     startAutoHeightMessaging();
+    if (shouldAutoOpenBugModal()) {
+      window.setTimeout(openBugModal, 50);
+    }
   }
 
   if (document.readyState === "loading") {

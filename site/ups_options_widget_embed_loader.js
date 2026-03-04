@@ -162,7 +162,7 @@
 
   var LATEST_JSON_URL = "https://keithcreelman.github.io/upsmflproduction/ups_options_widget_latest.json";
   var LATEST_JS_URL = "https://keithcreelman.github.io/upsmflproduction/ups_options_widget_latest.js";
-  var DEFAULT_CACHE = "20260304b";
+  var DEFAULT_CACHE = "20260304c";
 
   function inferModeFromSystem() {
     if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) return "dark";
@@ -328,6 +328,9 @@
     var css = [
       "#uowMount.ups-owner-hub-modules{width:100%}",
       "#uowMount .uow-mod-stack{display:grid;gap:12px}",
+      "#uowMount .uow-mod-actions{display:flex;justify-content:flex-end;margin-bottom:8px}",
+      "#uowMount .uow-mod-bug{display:inline-flex;align-items:center;justify-content:center;padding:7px 12px;border-radius:999px;border:1px solid #ef4444;background:linear-gradient(180deg,#ef4444,#dc2626);color:#fff7f7;font-size:11px;font-weight:800;letter-spacing:.02em;text-decoration:none;box-shadow:0 10px 18px rgba(220,38,38,.35)}",
+      "#uowMount .uow-mod-bug:hover{border-color:#f87171;background:linear-gradient(180deg,#f05252,#e11d48);color:#fff}",
       "#uowMount .uow-mod-card{border:1px solid rgba(231,190,89,.45);border-radius:12px;background:linear-gradient(180deg,rgba(11,26,50,.95),rgba(8,18,34,.95));overflow:hidden;box-shadow:0 8px 20px rgba(0,0,0,.18)}",
       "#uowMount .uow-mod-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;border-bottom:1px solid rgba(231,190,89,.2)}",
       "#uowMount .uow-mod-head-main{display:flex;align-items:center;gap:8px;min-width:0}",
@@ -375,6 +378,14 @@
     var base = getOrigin() + "/" + YEAR + "/home/" + L;
     if (config.type === "message17") return base + "?MODULE=MESSAGE17";
     if (config.type === "owner_activity") return base + "?MODULE=OWNER_ACTIVITY&W=" + encodeURIComponent(getOwnerActivityWeek(u));
+    return base;
+  }
+
+  function buildIssueReportOpenUrl() {
+    var base = getOrigin() + "/" + YEAR + "/home/" + L + "?MODULE=MESSAGE17&OPEN_BUG=1";
+    if (FRANCHISE_ID) base += "&FRANCHISE_ID=" + encodeURIComponent(FRANCHISE_ID);
+    if (MFL_USER_ID) base += "&MFL_USER_ID=" + encodeURIComponent(MFL_USER_ID);
+    base += "&SOURCE_APP=" + encodeURIComponent("ups-hot-links");
     return base;
   }
 
@@ -565,6 +576,17 @@
     injectModuleStyles();
     mount.classList.add("ups-owner-hub-modules");
     mount.innerHTML = "";
+
+    var actions = document.createElement("div");
+    actions.className = "uow-mod-actions";
+    var bugBtn = document.createElement("a");
+    bugBtn.className = "uow-mod-bug";
+    bugBtn.href = buildIssueReportOpenUrl();
+    bugBtn.target = "_top";
+    bugBtn.rel = "noopener";
+    bugBtn.textContent = "Report Website Functionality Issue";
+    actions.appendChild(bugBtn);
+    mount.appendChild(actions);
 
     var stack = document.createElement("div");
     stack.className = "uow-mod-stack";
