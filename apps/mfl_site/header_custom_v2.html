@@ -2410,6 +2410,122 @@
 </script>
 
 <script>
+  // Owner Hub widget autoload for league home pages (countdown + owner activity).
+  (function () {
+    var UOW_HEADER_BUILD = "2026.03.04.1";
+    if (window.__ups_uow_header_autoload === UOW_HEADER_BUILD) return;
+    window.__ups_uow_header_autoload = UOW_HEADER_BUILD;
+
+    function safeStr(v) {
+      return String(v || "").trim();
+    }
+
+    function safeUpper(v) {
+      return safeStr(v).toUpperCase();
+    }
+
+    function getModuleName() {
+      try {
+        var u = new URL(window.location.href);
+        return safeUpper(u.searchParams.get("MODULE") || "");
+      } catch (e) {
+        return "";
+      }
+    }
+
+    function isOptionsRoute() {
+      var path = safeStr(window.location.pathname).toLowerCase();
+      if (path.indexOf("/options") !== -1 || path.indexOf("/select_franchise") !== -1) return true;
+      var bodyId = safeStr(document.body && document.body.id).toLowerCase();
+      return bodyId.indexOf("body_options_") === 0;
+    }
+
+    function isHomeLeagueRoute() {
+      return /\/\d{4}\/home\/\d+/i.test(safeStr(window.location.pathname));
+    }
+
+    function shouldLoadOwnerHub() {
+      if (isOptionsRoute()) return false;
+      if (!isHomeLeagueRoute()) return false;
+      var mod = getModuleName();
+      // Home page (no MODULE) and standalone MESSAGE17 fallback both supported.
+      if (mod && mod !== "MESSAGE17") return false;
+      return true;
+    }
+
+    function ensureOwnerHubMount() {
+      var mount = document.getElementById("uowMount");
+      if (mount) return mount;
+      mount = document.createElement("div");
+      mount.id = "uowMount";
+      var anchor =
+        document.querySelector(".ups-hotlinks-shell") ||
+        document.getElementById("container-wrap") ||
+        document.body;
+      if (anchor && anchor.parentNode) {
+        anchor.parentNode.insertBefore(mount, anchor.nextSibling);
+      } else {
+        document.body.appendChild(mount);
+      }
+      return mount;
+    }
+
+    function clearLegacyOwnerHubEmbeds() {
+      var scripts = document.querySelectorAll(
+        'script[data-ups-uow-loader], script[src*="/site/ups_options_widget_embed_loader.js"], script[src*="/site/options/ups_options_widget_embed_loader.js"]'
+      );
+      for (var i = 0; i < scripts.length; i += 1) {
+        var n = scripts[i];
+        if (n && n.parentNode) n.parentNode.removeChild(n);
+      }
+    }
+
+    function loadOwnerHubLoader() {
+      if (!shouldLoadOwnerHub()) return;
+      ensureOwnerHubMount();
+      clearLegacyOwnerHubEmbeds();
+
+      // Keep both modules enabled by default.
+      window.UPS_UOW_SHOW_COUNTDOWN = true;
+      window.UPS_UOW_SHOW_OWNER_ACTIVITY = true;
+      window.UPS_UOW_COUNTDOWN_COLLAPSED = false;
+      window.UPS_UOW_OWNER_ACTIVITY_COLLAPSED = false;
+
+      var releaseRef = safeStr(window.UPS_RELEASE_SHA || "main") || "main";
+      var cacheKey = encodeURIComponent(String(Date.now()));
+      var candidates = [
+        "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@" +
+          releaseRef +
+          "/site/ups_options_widget_embed_loader.js?v=" +
+          cacheKey,
+        "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/ups_options_widget_embed_loader.js?v=" +
+          cacheKey
+      ];
+
+      function tryLoader(idx) {
+        if (idx >= candidates.length) return;
+        var s = document.createElement("script");
+        s.setAttribute("data-ups-uow-loader", "1");
+        s.src = candidates[idx];
+        s.async = true;
+        s.onerror = function () {
+          tryLoader(idx + 1);
+        };
+        document.body.appendChild(s);
+      }
+
+      tryLoader(0);
+    }
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", loadOwnerHubLoader);
+    } else {
+      loadOwnerHubLoader();
+    }
+  })();
+</script>
+
+<script>
   // Roster Workbench embed helper for MESSAGE5.
   (function () {
     var RWB_HEADER_BUILD = "2026.03.01.2";
