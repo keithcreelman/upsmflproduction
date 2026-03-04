@@ -366,7 +366,7 @@
   function buildModuleUrl(config) {
     var base = getOrigin() + "/" + YEAR + "/home/" + L;
     if (config.type === "message17") {
-      return base + "?MODULE=MESSAGE17&PRINTER=1&UPS_UOW_EMBED=1";
+      return buildLegacySrc(String(Date.now()), getHostMode());
     }
     if (config.type === "owner_activity") {
       return base + "?MODULE=OWNER_ACTIVITY&W=" + encodeURIComponent(getOwnerActivityWeek(u)) + "&PRINTER=1&UPS_UOW_EMBED=1";
@@ -376,7 +376,7 @@
 
   function buildModuleOpenUrl(config) {
     var base = getOrigin() + "/" + YEAR + "/home/" + L;
-    if (config.type === "message17") return base + "?MODULE=MESSAGE17";
+    if (config.type === "message17") return base;
     if (config.type === "owner_activity") return base + "?MODULE=OWNER_ACTIVITY&W=" + encodeURIComponent(getOwnerActivityWeek(u));
     return base;
   }
