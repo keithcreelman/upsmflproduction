@@ -3169,7 +3169,7 @@
     };
 
     const renderSummaryTagButton = (r) => {
-      const season = normalizeSeasonValue(r.season || state.selectedSeason);
+      const season = getUiSeasonForRow(r);
       const side = getTagSideForRow(r, "OFFENSE");
       const limit = TAG_LIMIT_PER_SIDE;
       const fallbackKey = buildTagSelectionKey(season, r.franchise_id, side);
@@ -3179,7 +3179,7 @@
       const isSubmitted =
         !!state.tagSubmissions[activeTagKey] &&
         safeStr(state.tagSubmissions[activeTagKey].player_id) === safeStr(r.player_id);
-      const isLocked = !state.commishMode && !!activeTag && !isSelected && limit <= 1;
+      const isLocked = !!activeTag && !isSelected && limit <= 1;
       const tagClosed = !tagWindowOpen && !state.commishMode;
       const tagLabel = tagClosed
         ? isSubmitted
@@ -4400,7 +4400,7 @@
 
     const body = pageRows
       .map((r) => {
-        const season = normalizeSeasonValue(r.season || state.selectedSeason);
+        const season = getUiSeasonForRow(r);
         const side = getTagSideForRow(r, "OFFENSE");
         const limit = TAG_LIMIT_PER_SIDE;
         const fallbackKey = buildTagSelectionKey(season, r.franchise_id, side);
@@ -4408,8 +4408,7 @@
         const activeTag = getActiveTagSelectionForSide(season, r.franchise_id, side);
         const activeTagKey = safeStr(activeTag && activeTag.key) || fallbackKey;
         const isSelected = !!activeTag && safeStr(activeTag.player_id) === safeStr(r.player_id);
-        const lockEnforced = !state.commishMode;
-        const isLocked = lockEnforced && !!activeTag && !isSelected && limit <= 1;
+        const isLocked = !!activeTag && !isSelected && limit <= 1;
         const submission = state.tagSubmissions[activeTagKey];
         const isSubmitted =
           !!submission && safeStr(submission.player_id) === safeStr(r.player_id);
@@ -4853,7 +4852,7 @@
     }
     if (actionType === "restructure") {
       const rsCalc = restructureModalState.calc;
-      const season = normalizeSeasonValue(row.season || state.selectedSeason);
+      const season = getUiSeasonForRow(row);
       const usageByTeam = computeSubmissionUsageByTeam(
         (state.restructureSubmissions || []).filter(
           (s) => normalizeSeasonValue(s.season) === season
@@ -4888,7 +4887,7 @@
       };
     }
     if (actionType === "tag") {
-      const season = normalizeSeasonValue(row.season || state.selectedSeason);
+      const season = getUiSeasonForRow(row);
       const side = getTagSideForRow(row, "OFFENSE");
       const fallbackKey = buildTagSelectionKey(season, row.franchise_id, side);
       const activeTag = getActiveTagSelectionForSide(season, row.franchise_id, side);
@@ -4899,7 +4898,7 @@
         !!state.tagSubmissions[activeTagKey] &&
         safeStr(state.tagSubmissions[activeTagKey].player_id) === safeStr(row.player_id);
       const tagSalary = getEffectiveTagSalary(row);
-      const tagDeadline = getTagDeadlineDateForSeason(normalizeSeasonValue(row.season || state.selectedSeason));
+      const tagDeadline = getTagDeadlineDateForSeason(season);
       return {
         current: [
           `Current Salary: ${safeInt(row.salary).toLocaleString()}`,
@@ -5065,14 +5064,14 @@
           let headlineHtml = "";
           let tagQuickUnsubmitHtml = "";
           if (actionType === "extend") {
-            const dlSeason = normalizeSeasonValue(r.season || state.selectedSeason);
+            const dlSeason = getUiSeasonForRow(r);
             const dlDate = getExtensionDeadlineDateForRow(r, dlSeason);
             const dlText = dlDate ? fmtYMDDate(dlDate) : safeStr(r.extension_deadline || "TBD");
             const aav = safeInt(r.aav || r.salary);
             headlineHtml = `<span class="headline-row"><span class="headline headline-deadline">Deadline: ${htmlEsc(dlText)}</span><span class="headline headline-aav headline-right">AAV: $${htmlEsc(aav.toLocaleString())}</span></span>`;
           } else if (actionType === "tag") {
             const tagCost = getEffectiveTagSalary(r);
-            const dlSeason = normalizeSeasonValue(r.season || state.selectedSeason);
+            const dlSeason = getUiSeasonForRow(r);
             const dlDate = getTagDeadlineDateForSeason(dlSeason);
             const dlText = dlDate ? fmtYMDDate(dlDate) : "TBD";
             const side = getTagSideForRow(r, "OFFENSE");
@@ -5080,7 +5079,7 @@
             const activeTag = getActiveTagSelectionForSide(dlSeason, r.franchise_id, side);
             const activeTagKey = safeStr(activeTag && activeTag.key) || fallbackKey;
             isSelectedByTag = !!activeTag && safeStr(activeTag.player_id) === safeStr(r.player_id);
-            isTagLocked = !state.commishMode && !!activeTag && !isSelectedByTag;
+            isTagLocked = !!activeTag && !isSelectedByTag;
             if (isTagLocked) tagLockTitle = `${side} tag is already selected. Unsubmit first.`;
             const submittedForRow =
               !!state.tagSubmissions[activeTagKey] &&
@@ -5108,7 +5107,7 @@
             }
           } else if (actionType === "restructure") {
             const remainingTcv = getRemainingTcvForRow(r);
-            const dlSeason = normalizeSeasonValue(r.season || state.selectedSeason);
+            const dlSeason = getUiSeasonForRow(r);
             const contractSeason = getContractSeasonValue(dlSeason);
             const dlDate = getContractDeadlineDate(contractSeason);
             const dlText = dlDate ? fmtYMDDate(dlDate) : "TBD";
@@ -5741,7 +5740,7 @@
           }
           return;
         }
-        if (existing && safeStr(existing.player_id) !== safeStr(row.player_id) && !state.commishMode) {
+        if (existing && safeStr(existing.player_id) !== safeStr(row.player_id)) {
           const msg = `${side} tag already selected. Use Unsubmit first to change players.`;
           setActionFlowStatus(
             "failed",
@@ -5749,11 +5748,6 @@
           );
           setGlobalNotice(msg, true);
           return;
-        }
-        if (state.commishMode && existingKey && existingKey !== key) {
-          delete state.tagSelections[existingKey];
-          delete state.tagSubmissions[existingKey];
-          saveTagSubmissions(state.tagSubmissions);
         }
         state.tagSelections[key] = {
           league_id: safeStr(getLeagueId() || DEFAULT_LEAGUE_ID),
@@ -5896,6 +5890,12 @@
     const s = safeStr(v);
     const m = s.match(/\d{4}/);
     return m ? m[0] : s;
+  }
+
+  function getUiSeasonForRow(row) {
+    return normalizeSeasonValue(
+      state.selectedSeason || (row && row.season) || getYear() || DEFAULT_YEAR
+    );
   }
 
   function buildTagSelectionKey(season, franchiseId, side) {
@@ -10211,7 +10211,7 @@
         const fid = pad4(btn.getAttribute("data-franchise-id"));
         if (!canManageTagForFranchise(fid)) return;
         const pid = safeStr(btn.getAttribute("data-player-id"));
-        const season = normalizeSeasonValue(btn.getAttribute("data-season") || state.selectedSeason);
+        const season = normalizeSeasonValue(state.selectedSeason || btn.getAttribute("data-season"));
         const key = buildExtensionSelectionKey(season, fid, pid);
         const row =
           (state.payload.eligibility || []).find(
@@ -10295,7 +10295,7 @@
         e.stopPropagation();
         e.stopImmediatePropagation();
 
-        const season = normalizeSeasonValue(btn.getAttribute("data-season") || state.selectedSeason);
+        const season = normalizeSeasonValue(state.selectedSeason || btn.getAttribute("data-season"));
         const pos = safeStr(btn.getAttribute("data-pos"));
         const side = getTagSideFromPos(pos) || normalizeTagSideValue(btn.getAttribute("data-tag-side")) || "OFFENSE";
         const limit = TAG_LIMIT_PER_SIDE;
@@ -10312,20 +10312,13 @@
           return;
         }
 
-        if (existing && limit <= 1 && !state.commishMode) {
+        if (existing && limit <= 1) {
           const msg = `${side} tag already selected. Use Unsubmit first.`;
           setActionFlowStatus("failed", msg);
           setGlobalNotice(msg, true);
           render();
           return;
         }
-        const existingKey = safeStr(existing && existing.key);
-        if (state.commishMode && existingKey && existingKey !== key) {
-          delete state.tagSelections[existingKey];
-          delete state.tagSubmissions[existingKey];
-          saveTagSubmissions(state.tagSubmissions);
-        }
-
         state.tagSelections[key] = {
           league_id: safeStr(getLeagueId() || DEFAULT_LEAGUE_ID),
           season,
