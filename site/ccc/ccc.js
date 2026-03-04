@@ -14,6 +14,10 @@
   const RELEASE_LOG_URL = "./ccc_release_log.json";
   const TAG_EXCLUDED_PLAYER_IDS = new Set(["14056"]); // Kyler Murray (Superflex keeper) must hit FA.
   const TAG_EXCLUDED_NAME_MATCHES = ["kyler murray", "murray, kyler", "calamari"];
+  const TAG_LIMIT_PER_SIDE = 1;
+  const LEAGUE_SOURCE_ALIAS = {
+    "25625": "74598",
+  };
   const SEASON_CAP_PER_TEAM = 5;
   const RESTRUCTURE_CAP_PER_TEAM = 4;
   const MYM_EVENTS_BY_SEASON = {
@@ -784,18 +788,30 @@
   // ======================================================
   // 3) URL HELPERS
   // ======================================================
+  function resolveLeagueAlias(leagueId) {
+    const id = safeStr(leagueId);
+    if (!id) return "";
+    return safeStr(LEAGUE_SOURCE_ALIAS[id] || id);
+  }
+
   function getLeagueId() {
+    let rawLeague = "";
     try {
       const u = new URL(window.location.href);
       const q = safeStr(u.searchParams.get("L"));
-      if (q) return q;
+      if (q) rawLeague = q;
     } catch (e) {
       // fall through
     }
-    const globalLeague = safeStr(window.league_id || window.LEAGUE_ID || "");
-    if (globalLeague) return globalLeague;
-    const m = safeStr(window.location.pathname).match(/\/home\/(\d+)(?:\/|$)/i);
-    return m && m[1] ? m[1] : "";
+    if (!rawLeague) {
+      const globalLeague = safeStr(window.league_id || window.LEAGUE_ID || "");
+      if (globalLeague) rawLeague = globalLeague;
+    }
+    if (!rawLeague) {
+      const m = safeStr(window.location.pathname).match(/\/home\/(\d+)(?:\/|$)/i);
+      rawLeague = m && m[1] ? m[1] : "";
+    }
+    return resolveLeagueAlias(rawLeague);
   }
 
   function getYear() {
@@ -1039,6 +1055,7 @@
   }
 
   function normalizeTagSubmissionRow(r) {
+    const position = safeStr(r.pos || r.position || r.positional_grouping);
     return {
       league_id: safeStr(r.league_id || r.L || r.leagueId),
       season: normalizeSeasonValue(r.season || r.year),
@@ -1046,8 +1063,8 @@
       franchise_name: safeStr(r.franchise_name || r.franchiseName),
       player_id: safeStr(r.player_id || r.playerId || r.id),
       player_name: safeStr(r.player_name || r.playerName || r.name),
-      pos: safeStr(r.pos || r.position || r.positional_grouping),
-      side: safeStr(r.side || r.tag_side || "OFFENSE").toUpperCase(),
+      pos: position,
+      side: getTagSideFromPos(position) || normalizeTagSideValue(r.side || r.tag_side) || "OFFENSE",
       tag_salary: safeInt(r.tag_salary || r.tag_bid || r.salary),
       submitted_at_utc: safeStr(r.submitted_at_utc || r.submitted_at || r.submittedAt),
       payload: r && typeof r.payload === "object" ? r.payload : null,
@@ -1091,7 +1108,7 @@
     (externalRows || []).forEach((r) => {
       const season = normalizeSeasonValue(r.season);
       const fid = pad4(r.franchise_id);
-      const side = safeStr(r.side || "OFFENSE").toUpperCase();
+      const side = normalizeTagSideValue(r.side || r.tag_side) || "OFFENSE";
       if (!season || !fid) return;
       const baseKey = buildTagSelectionKey(season, fid, side);
       const playerId = safeStr(r.player_id);
@@ -1149,7 +1166,10 @@
       prior_salary_week1: safeInt(r.prior_salary_week1),
       prior_salary: safeInt(r.prior_salary),
       prior_contract_salary: safeInt(r.prior_contract_salary),
-      tag_side: safeStr(r.tag_side),
+      tag_side:
+        getTagSideFromPos(safeStr(r.positional_grouping || r.pos_group || r.position || r.pos)) ||
+        normalizeTagSideValue(r.tag_side) ||
+        "OFFENSE",
       tag_limit_per_side: safeInt(r.tag_limit_per_side || 1),
       is_tag_eligible: safeInt(r.is_tag_eligible || 0),
       eligibility_reason: safeStr(r.eligibility_reason),
@@ -2733,27 +2753,44 @@
   const TAG_POS_ORDER = ["QB", "RB", "WR", "TE", "DL", "DB", "LB", "P", "PK"];
   const TAG_OFFENSE_POS = new Set(["QB", "RB", "WR", "TE"]);
 
-  function normalizeTagSummarySide(value) {
-    const v = safeStr(value).toUpperCase();
+  function normalizeTagSideValue(side) {
+    const v = safeStr(side).toUpperCase();
     if (v === "OFFENSE" || v === "OFF") return "OFFENSE";
     if (v === "DEFENSE" || v === "DEF" || v === "IDP" || v === "IDP_K") return "DEFENSE";
+    return "";
+  }
+
+  function getTagSideFromPos(pos) {
+    const key = safeStr(pos).toUpperCase();
+    if (!key) return "";
+    return TAG_OFFENSE_POS.has(key) ? "OFFENSE" : "DEFENSE";
+  }
+
+  function getTagSideForRow(row, fallbackSide) {
+    if (!row) return normalizeTagSideValue(fallbackSide) || "OFFENSE";
+    const posSide = getTagSideFromPos(posKeyFromRow(row));
+    if (posSide) return posSide;
+    return normalizeTagSideValue(row.tag_side || fallbackSide) || "OFFENSE";
+  }
+
+  function normalizeTagSummarySide(value) {
+    const normalized = normalizeTagSideValue(value);
+    if (normalized) return normalized;
     return "ALL";
   }
 
   function tagRowMatchesSide(row, side) {
     const normalized = normalizeTagSummarySide(side);
     if (normalized === "ALL") return true;
-    const rowSide = safeStr(row.tag_side).toUpperCase();
-    if (normalized === "OFFENSE") return rowSide === "OFFENSE";
-    return rowSide !== "OFFENSE";
+    return getTagSideForRow(row) === normalized;
   }
 
   function posMatchesSide(pos, side) {
     const normalized = normalizeTagSummarySide(side);
     if (normalized === "ALL") return true;
-    const key = safeStr(pos).toUpperCase();
-    const isOffense = TAG_OFFENSE_POS.has(key);
-    return normalized === "OFFENSE" ? isOffense : !isOffense;
+    const posSide = getTagSideFromPos(pos);
+    if (!posSide) return false;
+    return normalized === posSide;
   }
 
   function orderPositions(list) {
@@ -3020,17 +3057,23 @@
 
     const renderSummaryTagButton = (r) => {
       const season = normalizeSeasonValue(r.season || state.selectedSeason);
-      const side = safeStr(r.tag_side || "OFFENSE");
-      const limit = Math.max(1, safeInt(r.tag_limit_per_side || 1));
+      const side = getTagSideForRow(r, "OFFENSE");
+      const limit = TAG_LIMIT_PER_SIDE;
       const key = buildTagSelectionKey(season, r.franchise_id, side);
-      const selected = state.tagSelections[key];
-      const isSelected = !!selected && safeStr(selected.player_id) === safeStr(r.player_id);
-      const isLocked = !state.commishMode && !!selected && !isSelected && limit <= 1 && !tagWindowOpen;
+      const activeTag = getActiveTagSelectionByKey(key);
+      const isSelected = !!activeTag && safeStr(activeTag.player_id) === safeStr(r.player_id);
+      const isSubmitted =
+        !!state.tagSubmissions[key] && safeStr(state.tagSubmissions[key].player_id) === safeStr(r.player_id);
+      const isLocked = !state.commishMode && !!activeTag && !isSelected && limit <= 1;
       const tagClosed = !tagWindowOpen && !state.commishMode;
       const tagLabel = tagClosed
-        ? isSelected
+        ? isSubmitted
+          ? "Submitted"
+          : isSelected
           ? "Selected"
           : "Tag Closed"
+        : isSubmitted
+        ? "Submitted"
         : isSelected
         ? "Selected"
         : isLocked
@@ -3040,7 +3083,7 @@
       const tagTitle = tagClosed
         ? "Tagging window is closed"
         : isLocked
-        ? "Tag already used for this side"
+        ? `Tag already used for ${side}`
         : "";
       return `
         <button
@@ -4239,14 +4282,14 @@
     const body = pageRows
       .map((r) => {
         const season = normalizeSeasonValue(r.season || state.selectedSeason);
-        const side = safeStr(r.tag_side || "OFFENSE");
-        const limit = Math.max(1, safeInt(r.tag_limit_per_side || 1));
+        const side = getTagSideForRow(r, "OFFENSE");
+        const limit = TAG_LIMIT_PER_SIDE;
         const key = buildTagSelectionKey(season, r.franchise_id, side);
         const canTag = canManageTagForFranchise(r.franchise_id);
-        const selected = state.tagSelections[key];
-        const isSelected = !!selected && safeStr(selected.player_id) === safeStr(r.player_id);
+        const activeTag = getActiveTagSelectionByKey(key);
+        const isSelected = !!activeTag && safeStr(activeTag.player_id) === safeStr(r.player_id);
         const lockEnforced = !state.commishMode;
-        const isLocked = lockEnforced && !!selected && !isSelected && limit <= 1 && !tagWindowOpen;
+        const isLocked = lockEnforced && !!activeTag && !isSelected && limit <= 1;
         const submission = state.tagSubmissions[key];
         const isSubmitted =
           !!submission && safeStr(submission.player_id) === safeStr(r.player_id);
@@ -4254,7 +4297,11 @@
         const tagLabel = tagClosed
           ? isSubmitted
             ? "Submitted"
+            : isSelected
+            ? "Selected"
             : "Tag Closed"
+          : isSubmitted
+          ? "Submitted"
           : isSelected
           ? "Selected"
           : isLocked
@@ -4329,7 +4376,9 @@
         } else {
           ppgRankCell = "N/A";
         }
-        const rowClass = buildRowClass(r, posKeyRaw);
+        const rowClass = `${buildRowClass(r, posKeyRaw)}${
+          isSubmitted || isSelected ? " is-tag-selected" : isLocked ? " is-tag-locked" : ""
+        }`;
         const rowStyle = buildTeamStyle(r);
         return `
           <tr class="${rowClass}"${rowStyle ? ` style="${rowStyle}"` : ""}>
@@ -4467,11 +4516,12 @@
       detailsOpen: false,
       currentPayload: null,
       reportType: "all",    /* decoupled from actionFlow — replaces actionFilter */
+      reportYear: "all",
       sortKey: "submitted_at_utc",
       sortDir: "desc",
-      colFilters: { team: "", action: "" },
       search: "",
     },
+    globalNotice: null,
   };
 
   function primaryModeStorageKey() {
@@ -4868,9 +4918,12 @@
       playerRows = candidates
         .slice(0, 60)
         .map((r) => {
-          const isSelected =
+          const isSelectedInFlow =
             safeStr(r.player_id) === safeStr(state.actionFlow.selectedPlayerId) &&
             pad4(r.franchise_id) === pad4(state.actionFlow.selectedFranchiseId);
+          let isSelectedByTag = false;
+          let isTagLocked = false;
+          let tagLockTitle = "";
           const meta = getPlayerMetaForAction(actionType, r);
           let headlineHtml = "";
           if (actionType === "extend") {
@@ -4884,7 +4937,21 @@
             const dlSeason = normalizeSeasonValue(r.season || state.selectedSeason);
             const dlDate = getTagDeadlineDateForSeason(dlSeason);
             const dlText = dlDate ? fmtYMDDate(dlDate) : "TBD";
-            headlineHtml = `<span class="headline-row"><span class="headline headline-money headline-tag-cost">Tag: $${htmlEsc(tagCost.toLocaleString())}</span><span class="headline headline-deadline headline-right">Deadline: ${htmlEsc(dlText)}</span></span>`;
+            const side = getTagSideForRow(r, "OFFENSE");
+            const key = buildTagSelectionKey(dlSeason, r.franchise_id, side);
+            const activeTag = getActiveTagSelectionByKey(key);
+            isSelectedByTag = !!activeTag && safeStr(activeTag.player_id) === safeStr(r.player_id);
+            isTagLocked = !state.commishMode && !!activeTag && !isSelectedByTag;
+            if (isTagLocked) tagLockTitle = `${side} tag is already selected. Unsubmit first.`;
+            const submittedForRow =
+              !!state.tagSubmissions[key] &&
+              safeStr(state.tagSubmissions[key].player_id) === safeStr(r.player_id);
+            const statusText = submittedForRow ? "Submitted" : isSelectedByTag ? "Selected" : side;
+            headlineHtml =
+              `<span class="headline-row"><span class="headline headline-money headline-tag-cost">Tag: $${htmlEsc(
+                tagCost.toLocaleString()
+              )}</span><span class="headline headline-deadline headline-right">Deadline: ${htmlEsc(dlText)}</span></span>` +
+              `<span class="headline-sub">${htmlEsc(statusText)}</span>`;
           } else if (actionType === "restructure") {
             const remainingTcv = getRemainingTcvForRow(r);
             const dlSeason = normalizeSeasonValue(r.season || state.selectedSeason);
@@ -4901,11 +4968,16 @@
               `</span>` +
               `<span class="headline-sub">Restructures Used: ${used}/${RESTRUCTURE_CAP_PER_TEAM}</span>`;
           }
+          const isActive = isSelectedInFlow || (actionType === "tag" && isSelectedByTag);
           return `
-            <button type="button" class="ccc-flowPlayerBtn${isSelected ? " is-active" : ""}"
+            <button type="button" class="ccc-flowPlayerBtn${isActive ? " is-active" : ""}${
+              actionType === "tag" && isTagLocked ? " is-disabled" : ""
+            }"
               data-action-flow-select-player="1"
               data-player-id="${htmlEsc(r.player_id)}"
-              data-franchise-id="${htmlEsc(pad4(r.franchise_id))}">
+              data-franchise-id="${htmlEsc(pad4(r.franchise_id))}"
+              ${actionType === "tag" && isTagLocked ? "disabled" : ""}
+              ${tagLockTitle ? `title="${htmlEsc(tagLockTitle)}"` : ""}>
               <span class="name">${htmlEsc(r.player_name || "")}</span>
               ${headlineHtml}
               <span class="meta"><span class="ccc-posPill">${htmlEsc(meta.pos)}</span> ${htmlEsc(meta.line)}</span>
@@ -4961,7 +5033,7 @@
       let tagUnsubmitButton = "";
       if (actionType === "tag" && selectedRow) {
         const season = normalizeSeasonValue(selectedRow.season || state.selectedSeason);
-        const side = safeStr(selectedRow.tag_side || "OFFENSE");
+        const side = getTagSideForRow(selectedRow, "OFFENSE");
         const key = buildTagSelectionKey(season, selectedRow.franchise_id, side);
         const hasTagSelection = !!state.tagSelections[key];
         const hasTagSubmission = !!state.tagSubmissions[key];
@@ -5055,9 +5127,27 @@
 
   function toSubmissionActionLabel(row) {
     const source = safeStr(row.source || "").toLowerCase();
+    const status = safeStr(row.contract_status || "").toLowerCase();
+    const payload = row && typeof row.payload === "object" ? row.payload : null;
+    const payloadStatus = safeStr(payload && payload.contract_status).toLowerCase();
+    const payloadType = safeStr(payload && payload.type).toLowerCase();
+    const payloadFormula = safeStr(payload && payload.tag_formula);
     if (source.includes("restructure")) return "Restructure";
+    if (status.includes("restructure") || payloadStatus.includes("restructure")) return "Restructure";
     if (safeStr(row.extension_term || row.years_to_add || "").trim()) return "Extend";
-    if (source.includes("tag") || safeStr(row.tag_formula || "").trim()) return "Tag";
+    if (status.includes("extension") || payloadStatus.includes("extension")) return "Extend";
+    if (
+      source.includes("tag") ||
+      safeStr(row.tag_formula || "").trim() ||
+      payloadFormula ||
+      status === "tag" ||
+      payloadStatus === "tag"
+    ) {
+      return "Tag";
+    }
+    if (payloadType.includes("extension")) return "Extend";
+    if (payloadType.includes("restructure")) return "Restructure";
+    if (payloadType.includes("tag")) return "Tag";
     return "MYM";
   }
 
@@ -5066,6 +5156,7 @@
       .map((r) => ({
         id: safeStr(r.submission_id || `${safeStr(r.player_id)}-${safeStr(r.submitted_at_utc || "")}`),
         action: toSubmissionActionLabel(r),
+        season: normalizeSeasonValue(r.season || (r.payload && r.payload.season) || (r.payload && r.payload.YEAR) || ""),
         submitted_at_utc: safeStr(r.submitted_at_utc || ""),
         player_name: safeStr(r.player_name || ""),
         franchise_name: safeStr(r.franchise_name || (r.franchise_id ? `Franchise ${pad4(r.franchise_id)}` : "")),
@@ -5107,18 +5198,16 @@
     /* ── 2. Filter chain (all independent of action-flow state) ── */
     const rv = state.reportsView;
     const reportType  = safeStr(rv.reportType  || "all");
-    const colTeam     = safeStr((rv.colFilters && rv.colFilters.team)   || "");
-    const colAction   = safeStr((rv.colFilters && rv.colFilters.action) || "");
+    const reportYear  = safeStr(rv.reportYear  || "all");
     const searchLower = safeStr(rv.search || "").trim().toLowerCase();
     const sortKey     = safeStr(rv.sortKey || "submitted_at_utc");
     const sortDir     = safeStr(rv.sortDir || "desc");
 
     let rows = allRows.slice();
     if (reportType !== "all") rows = rows.filter((r) => r.action === reportType);
-    if (colTeam)              rows = rows.filter((r) => r.franchise_name === colTeam);
-    if (colAction)            rows = rows.filter((r) => r.action === colAction);
+    if (reportYear !== "all") rows = rows.filter((r) => normalizeSeasonValue(r.season) === reportYear);
     if (searchLower)          rows = rows.filter((r) =>
-      `${r.player_name} ${r.franchise_name} ${r.action}`.toLowerCase().includes(searchLower)
+      `${r.player_name} ${r.franchise_name} ${r.action} ${normalizeSeasonValue(r.season)}`.toLowerCase().includes(searchLower)
     );
 
     /* Sort */
@@ -5129,6 +5218,9 @@
         vb = parseDate(b.submitted_at_utc) || new Date(0);
       } else if (sortKey === "salary") {
         va = safeInt(a.salary); vb = safeInt(b.salary);
+      } else if (sortKey === "season") {
+        va = safeInt(normalizeSeasonValue(a.season));
+        vb = safeInt(normalizeSeasonValue(b.season));
       } else {
         va = safeStr(a[sortKey] || "").toLowerCase();
         vb = safeStr(b[sortKey] || "").toLowerCase();
@@ -5156,22 +5248,16 @@
       `<option value="${htmlEsc(opt.key)}"${reportType === opt.key ? " selected" : ""}>${htmlEsc(opt.label)}</option>`
     ).join("");
 
-    /* ── 4. Column filter unique value lists ── */
-    const uniqueTeams   = [...new Set(allRows.map((r) => r.franchise_name).filter(Boolean))].sort();
-    const uniqueActions = [...new Set(allRows.map((r) => r.action).filter(Boolean))].sort();
-
-    const colFilterDrop = (field, values, current) => {
-      const opts = [`<option value="">All</option>`]
-        .concat(values.map((v) => `<option value="${htmlEsc(v)}"${current === v ? " selected" : ""}>${htmlEsc(v)}</option>`))
-        .join("");
-      return `
-        <details class="ccc-colFilter" data-col-filter-wrap="${htmlEsc(field)}">
-          <summary class="ccc-colFilterToggle" title="Filter">▾</summary>
-          <div class="ccc-colFilterDrop">
-            <select class="ccc-colFilterSel" data-col-filter="${htmlEsc(field)}">${opts}</select>
-          </div>
-        </details>`;
-    };
+    /* ── 4. Year filter options ── */
+    const yearValues = [...new Set(allRows.map((r) => normalizeSeasonValue(r.season)).filter(Boolean))]
+      .sort((a, b) => safeInt(b) - safeInt(a));
+    const reportYearOptions = [`<option value="all"${reportYear === "all" ? " selected" : ""}>All Years</option>`]
+      .concat(
+        yearValues.map(
+          (y) => `<option value="${htmlEsc(y)}"${reportYear === y ? " selected" : ""}>${htmlEsc(y)}</option>`
+        )
+      )
+      .join("");
 
     /* ── 5. Sort header helper ── */
     const rSortTh = (key, label, extra) => {
@@ -5188,13 +5274,14 @@
           const isActive = selected && safeStr(selected.id) === safeStr(r.id);
           return `<tr class="ccc-rRow${isActive ? " is-active" : ""}" data-report-select="${htmlEsc(r.id)}" style="cursor:pointer;">
             <td>${htmlEsc(when.date || "—")}</td>
+            <td>${htmlEsc(normalizeSeasonValue(r.season) || "—")}</td>
             <td>${htmlEsc(r.franchise_name || `Franchise ${r.franchise_id}`)}</td>
             <td><strong>${htmlEsc(r.player_name)}</strong></td>
             <td><span class="ccc-actionPill">${htmlEsc(r.action)}</span></td>
             <td>${htmlEsc(r.position || "—")}</td>
           </tr>`;
         }).join("")
-      : `<tr><td colspan="5" class="ccc-flowEmpty">No submissions match the current filters.</td></tr>`;
+      : `<tr><td colspan="6" class="ccc-flowEmpty">No submissions match the current filters.</td></tr>`;
 
     /* ── 7. Detail panel ── */
     const detailsRows = selected
@@ -5203,6 +5290,7 @@
           <div><span>Action</span><strong>${htmlEsc(selected.action)}</strong></div>
           <div><span>Player</span><strong>${htmlEsc(selected.player_name)}</strong></div>
           <div><span>Team</span><strong>${htmlEsc(selected.franchise_name || `Franchise ${selected.franchise_id}`)}</strong></div>
+          <div><span>Year</span><strong>${htmlEsc(normalizeSeasonValue(selected.season) || "—")}</strong></div>
           <div><span>Position</span><strong>${htmlEsc(selected.position || "—")}</strong></div>
           <div><span>Salary</span><strong>${safeInt(selected.salary).toLocaleString()}</strong></div>
           <div><span>Years</span><strong>${safeInt(selected.contract_year)}</strong></div>
@@ -5222,11 +5310,13 @@
     return `
       <div class="ccc-modeCard ccc-modeCard-reports">
         <div class="ccc-modeTitle">Reports &amp; Audit</div>
-        <div class="ccc-modeSub">Historical submissions, diagnostics, and roster health.</div>
+        <div class="ccc-modeSub">Historical submissions across actions and seasons.</div>
 
         <div class="ccc-reportControlRow">
           <label class="ccc-reportControlLabel">Report Type</label>
           <select class="ccc-reportTypeSelect" data-report-type-select="1">${reportTypeOptions}</select>
+          <label class="ccc-reportControlLabel">Year</label>
+          <select class="ccc-reportTypeSelect" data-report-year-select="1">${reportYearOptions}</select>
           <input class="ccc-reportSearch" type="text" placeholder="Search player, team, action…"
             value="${htmlEsc(safeStr(rv.search || ""))}" data-report-search="1" />
         </div>
@@ -5245,9 +5335,10 @@
               <thead>
                 <tr>
                   ${rSortTh("submitted_at_utc", "Date")}
-                  <th class="ccc-rTh">${"Team"}${colFilterDrop("team", uniqueTeams, colTeam)}</th>
+                  ${rSortTh("season", "Year")}
+                  ${rSortTh("franchise_name", "Team")}
                   ${rSortTh("player_name", "Player")}
-                  <th class="ccc-rTh">${"Action"}${colFilterDrop("action", uniqueActions, colAction)}</th>
+                  ${rSortTh("action", "Action")}
                   ${rSortTh("position", "Pos")}
                 </tr>
               </thead>
@@ -5260,31 +5351,6 @@
           <div class="ccc-flowTitle">Submission Details</div>
           ${detailsRows}
         </section>
-
-        <div class="ccc-reportsGrid">
-          <section class="ccc-flowSection">
-            <div class="ccc-flowTitle">Roster Health</div>
-            <div class="ccc-reportHealth">
-              <div>Eligible Extensions: <strong>${safeInt(health.eligibleExtensions || 0)}</strong></div>
-              <div>Eligible Restructures: <strong>${safeInt(health.eligibleRestructures || 0)}</strong></div>
-              <div>Teams in Scope: <strong>${safeInt(health.teamCount || 0)}</strong></div>
-            </div>
-            <div class="ccc-flowActions" style="margin-top:0.55rem;">
-              <button type="button" class="ccc-pageBtn" data-report-refresh="1">Refresh Data</button>
-            </div>
-          </section>
-          <section class="ccc-flowSection ccc-auditCard">
-            <div class="ccc-flowTitle">Audit Export</div>
-            <div class="ccc-flowActions">
-              <button type="button" class="ccc-pageBtn" data-report-copy="1"${
-                selected ? "" : " disabled"
-              }>Copy Receipt</button>
-              <button type="button" class="ccc-pageBtn" data-report-download="1"${
-                selected ? "" : " disabled"
-              }>Download JSON</button>
-            </div>
-          </section>
-        </div>
       </div>
     `;
   }
@@ -5321,10 +5387,13 @@
       if (tabSubmitted) tabSubmitted.style.display = "none";
       state.activeTab = "eligible";
     } else {
-      if (cccTabs) cccTabs.style.display = "";
+      if (cccTabs) cccTabs.style.display = "none";
       if (summary) summary.style.display = "none";
-      if (state.activeTab === "eligible") state.activeTab = "submitted";
-      setTab(state.activeTab || "submitted");
+      if (tabSummary) tabSummary.style.display = "none";
+      if (tabCostCalc) tabCostCalc.style.display = "none";
+      if (tabEligible) tabEligible.style.display = "none";
+      if (tabIneligible) tabIneligible.style.display = "none";
+      if (tabSubmitted) tabSubmitted.style.display = "none";
     }
   }
 
@@ -5352,6 +5421,15 @@
     state.actionFlow.status = safeStr(status || "draft").toLowerCase();
     state.actionFlow.statusMessage = safeStr(message || "");
     if (receipt) state.actionFlow.lastReceipt = safeStr(receipt);
+  }
+
+  function setGlobalNotice(message, isError) {
+    const text = safeStr(message || "");
+    if (!text) {
+      state.globalNotice = null;
+      return;
+    }
+    state.globalNotice = { message: text, isError: !!isError };
   }
 
   function ensureExtensionSelectionForAction(row, yearsToAdd) {
@@ -5405,6 +5483,7 @@
 
     state.actionFlow.busy = true;
     setActionFlowStatus("busy", "Submitting...");
+    setGlobalNotice("", false);
     render();
 
     try {
@@ -5435,8 +5514,18 @@
         const season = normalizeSeasonValue(state.selectedSeason || getYear() || DEFAULT_YEAR);
         const fid = pad4(row.franchise_id);
         const pos = safeStr(posKeyFromRow(row));
-        const side = ["QB", "RB", "WR", "TE", "K", "PK", "P"].includes(pos) ? "OFFENSE" : "DEFENSE";
+        const side = getTagSideForRow({ ...row, positional_grouping: pos, position: pos }, "OFFENSE");
         const key = buildTagSelectionKey(season, fid, side);
+        const existing = getActiveTagSelectionByKey(key);
+        if (existing && safeStr(existing.player_id) !== safeStr(row.player_id) && !state.commishMode) {
+          const msg = `${side} tag already selected. Use Unsubmit first to change players.`;
+          setActionFlowStatus(
+            "failed",
+            msg
+          );
+          setGlobalNotice(msg, true);
+          return;
+        }
         state.tagSelections[key] = {
           league_id: safeStr(getLeagueId() || DEFAULT_LEAGUE_ID),
           season,
@@ -5565,23 +5654,39 @@
     const league = safeStr(getLeagueId() || DEFAULT_LEAGUE_ID);
     const s = normalizeSeasonValue(season) || DEFAULT_YEAR;
     const fid = pad4(franchiseId);
-    const tagSide = safeStr(side || "OFFENSE");
+    const tagSide = normalizeTagSideValue(side) || "OFFENSE";
     return `${league}|${s}|${fid}|${tagSide}`;
+  }
+
+  function getActiveTagSelectionByKey(key) {
+    const k = safeStr(key);
+    if (!k) return null;
+    return (state.tagSelections && state.tagSelections[k]) ||
+      (state.tagSubmissions && state.tagSubmissions[k]) ||
+      null;
   }
 
   function getTagSelectionsForTeam(season, franchiseId) {
     const league = safeStr(getLeagueId() || DEFAULT_LEAGUE_ID);
     const s = normalizeSeasonValue(season) || DEFAULT_YEAR;
     const fid = pad4(franchiseId);
-    const out = [];
+    const outMap = new Map();
     Object.entries(state.tagSelections || {}).forEach(([key, sel]) => {
       if (!sel) return;
       if (safeStr(sel.league_id || league) !== league) return;
       if (normalizeSeasonValue(sel.season) !== s) return;
       if (pad4(sel.franchise_id) !== fid) return;
-      out.push({ key, ...sel });
+      outMap.set(key, { key, ...sel });
     });
-    return out;
+    Object.entries(state.tagSubmissions || {}).forEach(([key, sub]) => {
+      if (!sub) return;
+      if (safeStr(sub.league_id || league) !== league) return;
+      if (normalizeSeasonValue(sub.season) !== s) return;
+      if (pad4(sub.franchise_id) !== fid) return;
+      if (outMap.has(key)) return;
+      outMap.set(key, { key, ...sub });
+    });
+    return Array.from(outMap.values());
   }
 
   function buildExtensionSelectionKey(season, franchiseId, playerId) {
@@ -6792,7 +6897,16 @@
     const actionPanel = $("#cccActionPanel");
     const reportsPanel = $("#cccReportsPanel");
 
-    if (cccError) cccError.textContent = "";
+    if (cccError) {
+      const notice = state.globalNotice;
+      if (notice && safeStr(notice.message)) {
+        cccError.textContent = safeStr(notice.message);
+        cccError.classList.toggle("ok", !notice.isError);
+      } else {
+        cccError.textContent = "";
+        cccError.classList.remove("ok");
+      }
+    }
 
     if (!state.activeModule) {
       /* In action-first mode, no active module just means no action chosen yet —
@@ -7763,6 +7877,7 @@
       saveExtensionSubmissions(state.extensionSubmissions);
       closeExtensionModal();
       setActionFlowStatus("submitted", "Extension saved in test mode.", `${safeStr(row.player_name)} · EXT`);
+      setGlobalNotice(`Extension saved in test mode for ${safeStr(row.player_name)}.`, false);
       render();
       return;
     }
@@ -7806,6 +7921,7 @@
           err.textContent = msg;
         }
         setActionFlowStatus("failed", msg);
+        setGlobalNotice(`Extension submit failed: ${msg}`, true);
         return;
       }
 
@@ -7817,6 +7933,7 @@
       saveExtensionSubmissions(state.extensionSubmissions);
       closeExtensionModal();
       setActionFlowStatus("submitted", "Extension submitted to MFL.", `${safeStr(row.player_name)} · EXT`);
+      setGlobalNotice(`Extension submitted to MFL for ${safeStr(row.player_name)}.`, false);
       render();
     } catch (e) {
       const msg = e && e.message ? e.message : String(e);
@@ -7825,6 +7942,7 @@
         err.textContent = msg;
       }
       setActionFlowStatus("failed", msg);
+      setGlobalNotice(`Extension submit failed: ${msg}`, true);
     } finally {
       if (btn) { btn.disabled = false; btn.textContent = "Submit Extension"; }
     }
@@ -7882,7 +8000,7 @@
   function openTagModal(selectionKey) {
     const modal = $("#tagModal");
     if (!modal) return;
-    const sel = state.tagSelections[selectionKey];
+    const sel = state.tagSelections[selectionKey] || state.tagSubmissions[selectionKey];
     if (!sel) return;
 
     tagModalState.open = true;
@@ -8024,7 +8142,7 @@
   function submitTagSelection() {
     const key = safeStr(tagModalState.key);
     if (!key) return;
-    const sel = state.tagSelections[key];
+    const sel = state.tagSelections[key] || state.tagSubmissions[key];
     if (!sel) return;
     const payload = buildTagSubmissionPayload(sel);
     state.tagSubmissions[key] = {
@@ -8034,6 +8152,8 @@
       payload,
     };
     saveTagSubmissions(state.tagSubmissions);
+    setActionFlowStatus("submitted", "Tag submitted successfully.", `${safeStr(sel.player_name)} · TAG`);
+    setGlobalNotice(`Tag submitted for ${safeStr(sel.player_name)}.`, false);
     closeTagModal();
     openTagAckModal(sel, payload.salary);
     render();
@@ -8072,6 +8192,7 @@
       render();
     }
     setActionFlowStatus("draft", hasSubmission ? "Tag unsubmitted." : "Tag selection cleared.");
+    setGlobalNotice(hasSubmission ? "Tag unsubmitted." : "Tag selection cleared.", false);
     return true;
   }
 
@@ -9542,18 +9663,11 @@
       render();
     }, true);
 
-    /* Reports: column filter selects */
     document.addEventListener("change", (e) => {
-      const sel = e.target && e.target.closest ? e.target.closest("[data-col-filter]") : null;
+      const sel = e.target && e.target.closest ? e.target.closest("[data-report-year-select='1']") : null;
       if (!sel) return;
-      const field = safeStr(sel.getAttribute("data-col-filter") || "");
-      if (!field) return;
-      if (!state.reportsView.colFilters) state.reportsView.colFilters = {};
-      state.reportsView.colFilters[field] = safeStr(sel.value || "");
+      state.reportsView.reportYear = safeStr(sel.value || "all");
       state.reportsView.selectedSubmissionId = "";
-      /* Close the <details> popover after selection */
-      const wrap = sel.closest("[data-col-filter-wrap]");
-      if (wrap && wrap.open !== undefined) wrap.open = false;
       render();
     }, true);
 
@@ -9599,56 +9713,13 @@
 
     document.addEventListener(
       "click",
-      async (e) => {
+      (e) => {
         const selectBtn =
           e.target && e.target.closest ? e.target.closest("[data-report-select]") : null;
         if (selectBtn) {
           state.reportsView.selectedSubmissionId = safeStr(selectBtn.getAttribute("data-report-select"));
           render();
           return;
-        }
-
-        const refreshBtn =
-          e.target && e.target.closest ? e.target.closest("[data-report-refresh='1']") : null;
-        if (refreshBtn) {
-          await handleRosterRefreshClick();
-          render();
-          return;
-        }
-
-        const copyBtn =
-          e.target && e.target.closest ? e.target.closest("[data-report-copy='1']") : null;
-        if (copyBtn) {
-          const payload = state.reportsView.currentPayload || null;
-          if (!payload) return;
-          const text = JSON.stringify(payload, null, 2);
-          try {
-            if (navigator.clipboard && navigator.clipboard.writeText) {
-              await navigator.clipboard.writeText(text);
-            }
-            setActionFlowStatus("submitted", "Receipt copied to clipboard.");
-          } catch (_) {
-            setActionFlowStatus("failed", "Copy failed. Browser clipboard blocked.");
-          }
-          render();
-          return;
-        }
-
-        const downloadBtn =
-          e.target && e.target.closest ? e.target.closest("[data-report-download='1']") : null;
-        if (downloadBtn) {
-          const payload = state.reportsView.currentPayload || null;
-          if (!payload) return;
-          const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement("a");
-          const submissionId = safeStr(payload.submission_id || "submission");
-          a.href = url;
-          a.download = `${submissionId}.json`;
-          document.body.appendChild(a);
-          a.click();
-          a.remove();
-          URL.revokeObjectURL(url);
         }
       },
       true
@@ -9916,23 +9987,27 @@
         e.stopImmediatePropagation();
 
         const season = normalizeSeasonValue(btn.getAttribute("data-season") || state.selectedSeason);
-        const side = safeStr(btn.getAttribute("data-tag-side") || "OFFENSE");
-        const limit = Math.max(1, safeInt(btn.getAttribute("data-tag-limit") || 1));
+        const pos = safeStr(btn.getAttribute("data-pos"));
+        const side = getTagSideFromPos(pos) || normalizeTagSideValue(btn.getAttribute("data-tag-side")) || "OFFENSE";
+        const limit = TAG_LIMIT_PER_SIDE;
         const fid = pad4(btn.getAttribute("data-franchise-id"));
         if (!canManageTagForFranchise(fid)) return;
         const franchiseName = safeStr(btn.getAttribute("data-franchise-name"));
         const pid = safeStr(btn.getAttribute("data-player-id"));
         const playerName = safeStr(btn.getAttribute("data-player-name"));
-        const pos = safeStr(btn.getAttribute("data-pos"));
         const key = buildTagSelectionKey(season, fid, side);
-        const existing = state.tagSelections[key];
+        const existing = getActiveTagSelectionByKey(key);
 
         if (existing && safeStr(existing.player_id) === pid) {
           openTagModal(key);
           return;
         }
 
-        if (existing && limit <= 1) {
+        if (existing && limit <= 1 && !state.commishMode) {
+          const msg = `${side} tag already selected. Use Unsubmit first.`;
+          setActionFlowStatus("failed", msg);
+          setGlobalNotice(msg, true);
+          render();
           return;
         }
 
@@ -9947,7 +10022,7 @@
           side,
           at: Date.now(),
         };
-        if (state.tagSubmissions[key]) {
+        if (state.tagSubmissions[key] && state.commishMode) {
           delete state.tagSubmissions[key];
           saveTagSubmissions(state.tagSubmissions);
         }
