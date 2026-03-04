@@ -144,121 +144,6 @@
   const COMMISH_CONTRACT_UPDATE_URL =
     "https://upsmflproduction.keith-creelman.workers.dev/commish-contract-update";
   const ROSTER_REFRESH_URL = "https://upsmflproduction.keith-creelman.workers.dev/refresh-mym-json";
-  const BUG_REPORT_URL = "https://upsmflproduction.keith-creelman.workers.dev/bug-report";
-
-  const ISSUE_MODULE_OPTIONS_BY_APP = {
-    "contract-command-center": [
-      { value: "mym", label: "MYM Contracts" },
-      { value: "extensions", label: "Extensions" },
-      { value: "restructure", label: "Restructures" },
-      { value: "tag", label: "Tag a Player" },
-      { value: "expired-rookie-draft", label: "Expired Rookie Draft" },
-      { value: "reports-audit", label: "Reports" },
-      { value: "settings", label: "Settings / Admin" },
-      { value: "other", label: "Other" },
-    ],
-    "trade-workbench": [
-      { value: "trade-builder", label: "Trade Builder" },
-      { value: "pre-trade-extension", label: "Pre-Trade Extensions" },
-      { value: "cap-validation", label: "Cap Validation" },
-      { value: "review-submit", label: "Review / Submit" },
-      { value: "trade-receipt", label: "Trade Receipt / Reports" },
-      { value: "other", label: "Other" },
-    ],
-    "trade-war-room": [
-      { value: "trade-builder", label: "Trade Builder" },
-      { value: "pre-trade-extension", label: "Pre-Trade Extensions" },
-      { value: "cap-validation", label: "Cap Validation" },
-      { value: "review-submit", label: "Review / Submit" },
-      { value: "trade-receipt", label: "Trade Receipt / Reports" },
-      { value: "other", label: "Other" },
-    ],
-    other: [{ value: "other", label: "Other" }],
-  };
-
-  const ISSUE_TYPE_OPTIONS_BY_MODULE = {
-    "contract-command-center": {
-      mym: [
-        { value: "eligibility-list-wrong", label: "Eligibility List Wrong" },
-        { value: "mym-calculation-wrong", label: "MYM Calculation Wrong" },
-        { value: "submission-failed", label: "Submission Failed" },
-        { value: "ui-display-problem", label: "UI Display Problem" },
-        { value: "other", label: "Other" },
-      ],
-      extensions: [
-        { value: "eligibility-list-wrong", label: "Eligibility List Wrong" },
-        { value: "aav-tcv-breakdown-wrong", label: "AAV/TCV Breakdown Wrong" },
-        { value: "deadline-ordering-wrong", label: "Deadline / Sort Wrong" },
-        { value: "submission-failed", label: "Submission Failed" },
-        { value: "other", label: "Other" },
-      ],
-      restructure: [
-        { value: "restructure-math-wrong", label: "Restructure Math Wrong" },
-        { value: "limit-counter-wrong", label: "Usage / Limit Counter Wrong" },
-        { value: "player-list-wrong", label: "Player List Wrong" },
-        { value: "submission-failed", label: "Submission Failed" },
-        { value: "other", label: "Other" },
-      ],
-      tag: [
-        { value: "tag-cost-math-wrong", label: "Tag Cost Math Wrong" },
-        { value: "one-per-side-lockout-wrong", label: "1-Off / 1-Def Lockout Wrong" },
-        { value: "untag-unsubmit-not-working", label: "Untag / Unsubmit Not Working" },
-        { value: "deadline-display-wrong", label: "Deadline Display Wrong" },
-        { value: "other", label: "Other" },
-      ],
-      "expired-rookie-draft": [
-        { value: "rookie-eligibility-wrong", label: "Rookie Eligibility Wrong" },
-        { value: "salary-split-wrong", label: "Salary Split Wrong" },
-        { value: "submission-failed", label: "Submission Failed" },
-        { value: "other", label: "Other" },
-      ],
-      "reports-audit": [
-        { value: "filters-not-working", label: "Filters Not Working" },
-        { value: "missing-history", label: "Missing Historical Submissions" },
-        { value: "wrong-action-classification", label: "Wrong Action Classification" },
-        { value: "color-readability", label: "Color / Readability" },
-        { value: "other", label: "Other" },
-      ],
-      settings: [
-        { value: "admin-mode-scope", label: "Admin Mode Scope Wrong" },
-        { value: "roster-refresh-failed", label: "Roster Refresh Failed" },
-        { value: "standings-module-missing", label: "Standings Module Missing" },
-        { value: "other", label: "Other" },
-      ],
-      __default__: [
-        { value: "module-not-loading", label: "Module Not Loading" },
-        { value: "data-not-syncing", label: "Data Not Syncing" },
-        { value: "filter-sort-not-working", label: "Filter / Sort Not Working" },
-        { value: "submission-failed", label: "Submission Failed" },
-        { value: "other", label: "Other" },
-      ],
-    },
-    "trade-workbench": {
-      __default__: [
-        { value: "pre-trade-extension-not-working", label: "Pre-Trade Extension Not Working" },
-        { value: "trade-not-processing", label: "Trade Not Processing" },
-        { value: "cap-validation-wrong", label: "Cap Validation Wrong" },
-        { value: "submit-xml-failed", label: "MFL Submit / XML Failed" },
-        { value: "other", label: "Other" },
-      ],
-    },
-    "trade-war-room": {
-      __default__: [
-        { value: "pre-trade-extension-not-working", label: "Pre-Trade Extension Not Working" },
-        { value: "trade-not-processing", label: "Trade Not Processing" },
-        { value: "cap-validation-wrong", label: "Cap Validation Wrong" },
-        { value: "submit-xml-failed", label: "MFL Submit / XML Failed" },
-        { value: "other", label: "Other" },
-      ],
-    },
-    other: {
-      __default__: [
-        { value: "module-not-loading", label: "Module Not Loading" },
-        { value: "unexpected-result", label: "Unexpected Result" },
-        { value: "other", label: "Other" },
-      ],
-    },
-  };
 
   // ======================================================
   // 2) DOM + SAFE HELPERS
@@ -7986,301 +7871,6 @@
   const mymModalState = { open: false, row: null, years: 2 };
   const tagModalState = { open: false, key: "" };
   const extensionModalState = { open: false, key: "", yearsToAdd: 1 };
-  const issueModalState = { open: false, busy: false };
-
-  function isModalOpen(sel) {
-    const modal = $(sel);
-    return !!(modal && modal.classList.contains("is-open"));
-  }
-
-  function clearModalLockIfNoneOpen() {
-    const anyOpen =
-      isModalOpen("#mymModal") ||
-      isModalOpen("#restructureModal") ||
-      isModalOpen("#tagModal") ||
-      isModalOpen("#tagAckModal") ||
-      isModalOpen("#extensionModal") ||
-      isModalOpen("#devNoticeModal") ||
-      isModalOpen("#issueModal");
-    if (!anyOpen) document.body.classList.remove("ccc-modalOpen");
-  }
-
-  function getIssueModuleOptions(appKey) {
-    const app = safeStr(appKey).toLowerCase();
-    return ISSUE_MODULE_OPTIONS_BY_APP[app] || ISSUE_MODULE_OPTIONS_BY_APP.other;
-  }
-
-  function getIssueTypeOptions(appKey, moduleName) {
-    const app = safeStr(appKey).toLowerCase();
-    const moduleKey = safeStr(moduleName).toLowerCase();
-    const appMap = ISSUE_TYPE_OPTIONS_BY_MODULE[app] || ISSUE_TYPE_OPTIONS_BY_MODULE.other;
-    const byModule = appMap[moduleKey];
-    if (Array.isArray(byModule) && byModule.length) return byModule;
-    const defaultList = appMap.__default__;
-    if (Array.isArray(defaultList) && defaultList.length) return defaultList;
-    return ISSUE_TYPE_OPTIONS_BY_MODULE.other.__default__;
-  }
-
-  function populateIssueSelectOptions(selectEl, options, preferredValue) {
-    if (!selectEl) return;
-    const preferred = safeStr(preferredValue);
-    const rows = Array.isArray(options) && options.length ? options : [{ value: "other", label: "Other" }];
-    const fallbackValue = safeStr(rows[0] && rows[0].value);
-    const nextValue = preferred || safeStr(selectEl.value) || fallbackValue;
-    selectEl.innerHTML = "";
-    rows.forEach((row) => {
-      const opt = document.createElement("option");
-      opt.value = safeStr(row.value);
-      opt.textContent = safeStr(row.label || row.value);
-      if (opt.value === nextValue) opt.selected = true;
-      selectEl.appendChild(opt);
-    });
-    if (!selectEl.value && fallbackValue) selectEl.value = fallbackValue;
-  }
-
-  function getIssueDefaultAppKey() {
-    return "contract-command-center";
-  }
-
-  function getIssueDefaultModuleForApp(appKey) {
-    const app = safeStr(appKey).toLowerCase();
-    if (app !== "contract-command-center") {
-      const list = getIssueModuleOptions(app);
-      return safeStr(list[0] && list[0].value) || "other";
-    }
-    const active = safeStr(state.activeModule).toLowerCase();
-    if (active === "extensions") return "extensions";
-    if (active === "restructure") return "restructure";
-    if (active === "tag") return "tag";
-    if (active === "expiredrookie") return "expired-rookie-draft";
-    if (active === "commish") return "settings";
-    if (active === "mym") return "mym";
-    return "other";
-  }
-
-  function populateIssueTypeOptions(preferredValue) {
-    const appSel = $("#issueAppSelect");
-    const moduleSel = $("#issueModuleSelect");
-    const typeSel = $("#issueTypeSelect");
-    if (!appSel || !moduleSel || !typeSel) return;
-    const options = getIssueTypeOptions(appSel.value, moduleSel.value);
-    populateIssueSelectOptions(typeSel, options, preferredValue);
-  }
-
-  function populateIssueModuleOptions(preferredValue, preferredTypeValue) {
-    const appSel = $("#issueAppSelect");
-    const moduleSel = $("#issueModuleSelect");
-    if (!appSel || !moduleSel) return;
-    const options = getIssueModuleOptions(appSel.value);
-    populateIssueSelectOptions(moduleSel, options, preferredValue);
-    populateIssueTypeOptions(preferredTypeValue);
-  }
-
-  function setIssueModalStatus(message, tone) {
-    const statusEl = $("#issueModalStatus");
-    if (!statusEl) return;
-    const msg = safeStr(message);
-    if (!msg) {
-      statusEl.style.display = "none";
-      statusEl.textContent = "";
-      statusEl.classList.remove("ok");
-      return;
-    }
-    statusEl.style.display = "";
-    statusEl.textContent = msg;
-    statusEl.classList.toggle("ok", tone === "ok");
-  }
-
-  function setIssueSubmitBusy(busy) {
-    issueModalState.busy = !!busy;
-    const submitBtn = $("#issueSubmitBtn");
-    if (!submitBtn) return;
-    submitBtn.disabled = !!busy;
-    submitBtn.textContent = busy ? "Submitting..." : "Submit Report";
-  }
-
-  function buildIssueContext() {
-    let href = "";
-    try {
-      href = window.location.href;
-    } catch (e) {
-      href = "";
-    }
-    const params = new URLSearchParams(window.location.search || "");
-    const width = window.innerWidth || 0;
-    const height = window.innerHeight || 0;
-    let tz = "";
-    try {
-      tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
-    } catch (e) {
-      tz = "";
-    }
-    const appNode = $("#cccApp");
-    return {
-      captured_at_utc: new Date().toISOString(),
-      league_id: safeStr(getResolvedLeagueId() || getLeagueId() || DEFAULT_LEAGUE_ID),
-      season: safeStr(
-        normalizeSeasonValue(state.selectedSeason || getResolvedYear() || getYear() || DEFAULT_YEAR)
-      ),
-      franchise_id: safeStr(getActiveFranchiseId() || state.selectedTeam || ""),
-      mfl_user_id: safeStr(getBrowserMflUserId()),
-      host: safeStr(window.location.host || ""),
-      page_url: href,
-      query_module: safeStr(params.get("MODULE") || params.get("module")),
-      query_action: safeStr(params.get("ACTION") || params.get("action")),
-      query_source_app: safeStr(params.get("SOURCE_APP") || params.get("source_app")),
-      ups_release_sha: safeStr(
-        window.UPS_RELEASE_SHA || params.get("UPS_RELEASE_SHA") || params.get("SHA") || ""
-      ),
-      user_agent: safeStr(navigator.userAgent || ""),
-      platform: safeStr(navigator.platform || ""),
-      language: safeStr(navigator.language || ""),
-      timezone: tz,
-      viewport: `${width}x${height}`,
-      screen: `${safeInt(window.screen && window.screen.width)}x${safeInt(window.screen && window.screen.height)}`,
-      theme: safeStr((appNode && appNode.getAttribute("data-theme")) || state.theme || ""),
-      referrer: safeStr(document.referrer || ""),
-      ccc_module: safeStr(state.activeModule || ""),
-      ccc_action_type: safeStr(state.actionFlow && state.actionFlow.actionType),
-      selected_player_id: safeStr(state.actionFlow && state.actionFlow.selectedPlayerId),
-      selected_franchise_id: safeStr(state.actionFlow && state.actionFlow.selectedFranchiseId),
-      admin_mode: !!(state && state.commishMode),
-    };
-  }
-
-  function renderIssueContextNote() {
-    const note = $("#issueContextNote");
-    if (!note) return;
-    const ctx = buildIssueContext();
-    note.textContent =
-      `Auto-attached: League ${ctx.league_id || "—"} | Season ${ctx.season || "—"} | ` +
-      `Franchise ${ctx.franchise_id || "—"} | MFL User ${ctx.mfl_user_id ? "Yes" : "Unknown"} | ` +
-      `Module ${ctx.ccc_module || "—"}`;
-  }
-
-  function openIssueModal() {
-    const modal = $("#issueModal");
-    const form = $("#issueForm");
-    if (!modal || !form) return;
-    issueModalState.open = true;
-    form.reset();
-    const appSel = $("#issueAppSelect");
-    const defaultApp = getIssueDefaultAppKey();
-    if (appSel) appSel.value = defaultApp;
-    populateIssueModuleOptions(getIssueDefaultModuleForApp(defaultApp));
-    setIssueModalStatus("", "");
-    setIssueSubmitBusy(false);
-    renderIssueContextNote();
-
-    modal.classList.add("is-open");
-    modal.setAttribute("aria-hidden", "false");
-    document.body.classList.add("ccc-modalOpen");
-
-    const summaryInput = $("#issueSummaryInput");
-    if (summaryInput) summaryInput.focus();
-  }
-
-  function closeIssueModal() {
-    const modal = $("#issueModal");
-    if (!modal) return;
-    modal.classList.remove("is-open");
-    modal.setAttribute("aria-hidden", "true");
-    issueModalState.open = false;
-    setIssueSubmitBusy(false);
-    clearModalLockIfNoneOpen();
-  }
-
-  async function submitIssueReportForm(e) {
-    if (e && e.preventDefault) e.preventDefault();
-    if (issueModalState.busy) return;
-    const form = $("#issueForm");
-
-    const appSel = $("#issueAppSelect");
-    const moduleSel = $("#issueModuleSelect");
-    const typeSel = $("#issueTypeSelect");
-    const severitySel = $("#issueSeveritySelect");
-    const summaryInput = $("#issueSummaryInput");
-    const detailsInput = $("#issueDetailsInput");
-    const stepsInput = $("#issueStepsInput");
-    const expectedInput = $("#issueExpectedActualInput");
-
-    const app = safeStr(appSel && appSel.value).toLowerCase();
-    const moduleName = safeStr(moduleSel && moduleSel.value).toLowerCase();
-    const issueType = safeStr(typeSel && typeSel.value).toLowerCase();
-    const severity = safeStr(severitySel && severitySel.value).toLowerCase();
-    const summary = safeStr(summaryInput && summaryInput.value);
-    const details = safeStr(detailsInput && detailsInput.value);
-    const steps = safeStr(stepsInput && stepsInput.value);
-    const expectedVsActual = safeStr(expectedInput && expectedInput.value);
-
-    if (!app || !moduleName || !issueType || !severity || !summary || !details) {
-      setIssueModalStatus("Please complete all required fields.", "error");
-      return;
-    }
-
-    const ctx = buildIssueContext();
-    const leagueId = safeStr(ctx.league_id || getResolvedLeagueId() || DEFAULT_LEAGUE_ID);
-    const season = safeStr(ctx.season || normalizeSeasonValue(getResolvedYear() || DEFAULT_YEAR));
-    const endpoint =
-      `${BUG_REPORT_URL}?L=${encodeURIComponent(leagueId)}` +
-      `&YEAR=${encodeURIComponent(season)}`;
-    const payload = {
-      app,
-      module: moduleName,
-      issue_type: issueType,
-      severity,
-      summary,
-      details,
-      steps_to_reproduce: steps,
-      expected_vs_actual: expectedVsActual,
-      context: ctx,
-      source: "contract-command-center",
-    };
-
-    setIssueSubmitBusy(true);
-    setIssueModalStatus("Submitting report...", "");
-    try {
-      const res = await fetchWithTimeout(
-        endpoint,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        },
-        15000
-      );
-      const text = await res.text();
-      let out = {};
-      try {
-        out = text ? JSON.parse(text) : {};
-      } catch (_) {
-        out = {};
-      }
-      if (!res.ok || !out || out.ok === false) {
-        const msg =
-          safeStr(out && (out.error || out.reason || out.message)) ||
-          `Report failed (HTTP ${safeInt(res && res.status)}).`;
-        setIssueModalStatus(msg, "error");
-        return;
-      }
-
-      const bugId = safeStr(out.bug_id || out.report_id);
-      const discordStatus = out.notify && out.notify.ok ? "Discord sent" : "Discord pending";
-      setIssueModalStatus(`Submitted${bugId ? ` (${bugId})` : ""}. ${discordStatus}.`, "ok");
-      if (form) form.reset();
-      const defaultApp = getIssueDefaultAppKey();
-      if (appSel) appSel.value = defaultApp;
-      populateIssueModuleOptions(getIssueDefaultModuleForApp(defaultApp));
-      renderIssueContextNote();
-      window.setTimeout(() => {
-        if (issueModalState.open) closeIssueModal();
-      }, 900);
-    } catch (err) {
-      setIssueModalStatus(err && err.message ? err.message : "Failed to submit report.", "error");
-    } finally {
-      setIssueSubmitBusy(false);
-    }
-  }
 
   function formatK(n) {
     const v = safeInt(n);
@@ -8555,7 +8145,18 @@
     modal.setAttribute("aria-hidden", "true");
     extensionModalState.open = false;
     extensionModalState.key = "";
-    clearModalLockIfNoneOpen();
+    const mym = $("#mymModal");
+    const rs = $("#restructureModal");
+    const tag = $("#tagModal");
+    const tagAck = $("#tagAckModal");
+    const dev = $("#devNoticeModal");
+    const anyOpen =
+      (mym && mym.classList.contains("is-open")) ||
+      (rs && rs.classList.contains("is-open")) ||
+      (tag && tag.classList.contains("is-open")) ||
+      (tagAck && tagAck.classList.contains("is-open")) ||
+      (dev && dev.classList.contains("is-open"));
+    if (!anyOpen) document.body.classList.remove("ccc-modalOpen");
   }
 
   function setExtensionYears(years) {
@@ -8742,7 +8343,18 @@
     modal.dataset.opened = "0";
     modal.classList.remove("is-open");
     modal.setAttribute("aria-hidden", "true");
-    clearModalLockIfNoneOpen();
+    const mym = $("#mymModal");
+    const rs = $("#restructureModal");
+    const tag = $("#tagModal");
+    const tagAck = $("#tagAckModal");
+    const ext = $("#extensionModal");
+    const anyOpen =
+      (mym && mym.classList.contains("is-open")) ||
+      (rs && rs.classList.contains("is-open")) ||
+      (tag && tag.classList.contains("is-open")) ||
+      (tagAck && tagAck.classList.contains("is-open")) ||
+      (ext && ext.classList.contains("is-open"));
+    if (!anyOpen) document.body.classList.remove("ccc-modalOpen");
   }
 
   function maybeShowDevNotice() {
@@ -8849,7 +8461,16 @@
     }
     tagModalState.open = false;
     tagModalState.key = "";
-    clearModalLockIfNoneOpen();
+    const mym = $("#mymModal");
+    const rs = $("#restructureModal");
+    const tagAck = $("#tagAckModal");
+    const ext = $("#extensionModal");
+    const anyOpen =
+      (mym && mym.classList.contains("is-open")) ||
+      (rs && rs.classList.contains("is-open")) ||
+      (tagAck && tagAck.classList.contains("is-open")) ||
+      (ext && ext.classList.contains("is-open"));
+    if (!anyOpen) document.body.classList.remove("ccc-modalOpen");
     render();
   }
 
@@ -8872,7 +8493,18 @@
     if (!modal) return;
     modal.classList.remove("is-open");
     modal.setAttribute("aria-hidden", "true");
-    clearModalLockIfNoneOpen();
+    const mym = $("#mymModal");
+    const rs = $("#restructureModal");
+    const tag = $("#tagModal");
+    const ext = $("#extensionModal");
+    const dev = $("#devNoticeModal");
+    const anyOpen =
+      (mym && mym.classList.contains("is-open")) ||
+      (rs && rs.classList.contains("is-open")) ||
+      (tag && tag.classList.contains("is-open")) ||
+      (ext && ext.classList.contains("is-open")) ||
+      (dev && dev.classList.contains("is-open"));
+    if (!anyOpen) document.body.classList.remove("ccc-modalOpen");
   }
 
   function submitTagSelection() {
@@ -8980,7 +8612,18 @@
 
     modal.classList.remove("is-open");
     modal.setAttribute("aria-hidden", "true");
-    clearModalLockIfNoneOpen();
+    const rs = $("#restructureModal");
+    const tag = $("#tagModal");
+    const tagAck = $("#tagAckModal");
+    const ext = $("#extensionModal");
+    const dev = $("#devNoticeModal");
+    const anyOpen =
+      (rs && rs.classList.contains("is-open")) ||
+      (tag && tag.classList.contains("is-open")) ||
+      (tagAck && tagAck.classList.contains("is-open")) ||
+      (ext && ext.classList.contains("is-open")) ||
+      (dev && dev.classList.contains("is-open"));
+    if (!anyOpen) document.body.classList.remove("ccc-modalOpen");
 
     mymModalState.open = false;
     mymModalState.row = null;
@@ -9375,7 +9018,18 @@
     if (!modal) return;
     modal.classList.remove("is-open");
     modal.setAttribute("aria-hidden", "true");
-    clearModalLockIfNoneOpen();
+    const mym = $("#mymModal");
+    const tag = $("#tagModal");
+    const tagAck = $("#tagAckModal");
+    const ext = $("#extensionModal");
+    const dev = $("#devNoticeModal");
+    const anyOpen =
+      (mym && mym.classList.contains("is-open")) ||
+      (tag && tag.classList.contains("is-open")) ||
+      (tagAck && tagAck.classList.contains("is-open")) ||
+      (ext && ext.classList.contains("is-open")) ||
+      (dev && dev.classList.contains("is-open"));
+    if (!anyOpen) document.body.classList.remove("ccc-modalOpen");
     restructureModalState.open = false;
     restructureModalState.row = null;
     restructureModalState.calc = null;
@@ -9573,7 +9227,6 @@
       must("#rowHighlightModeSelect");
       must("#adminBadge");
       must("#teamFilterWrap");
-      must("#cccReportIssueLink");
 
       applyThemeSetting(state.theme);
       applyHighlightSetting();
@@ -9598,16 +9251,6 @@
       must("#extSubmitBtn");
       must("#extYear1Input");
       must("#extYear2Input");
-      must("#issueModal");
-      must("#issueForm");
-      must("#issueAppSelect");
-      must("#issueModuleSelect");
-      must("#issueTypeSelect");
-      must("#issueSummaryInput");
-      must("#issueDetailsInput");
-      must("#issueSubmitBtn");
-      must("#issueModalStatus");
-      must("#issueContextNote");
 
       $("#cccMeta").textContent = "Loading MYM data…";
 
@@ -10464,11 +10107,6 @@
         setTab("eligible");
         render();
       });
-    const cccReportIssueLink = $("#cccReportIssueLink");
-    if (cccReportIssueLink)
-      cccReportIssueLink.addEventListener("click", () => {
-        openIssueModal();
-      });
 
     document.addEventListener(
       "click",
@@ -11079,14 +10717,6 @@
       });
     }
 
-    const issueModal = $("#issueModal");
-    if (issueModal) {
-      issueModal.addEventListener("click", (e) => {
-        const close = e.target && e.target.closest ? e.target.closest("[data-close]") : null;
-        if (close) closeIssueModal();
-      });
-    }
-
     // Escape closes modal
     document.addEventListener("keydown", (e) => {
       if (e.key === "Escape") {
@@ -11096,14 +10726,12 @@
         const modalElTagAck = $("#tagAckModal");
         const modalElExt = $("#extensionModal");
         const modalElDev = $("#devNoticeModal");
-        const modalElIssue = $("#issueModal");
         if (modalElMym && modalElMym.classList.contains("is-open")) closeMYMModal();
         if (modalElRes && modalElRes.classList.contains("is-open")) closeRestructureModal();
         if (modalElTag && modalElTag.classList.contains("is-open")) closeTagModal();
         if (modalElTagAck && modalElTagAck.classList.contains("is-open")) closeTagAckModal();
         if (modalElExt && modalElExt.classList.contains("is-open")) closeExtensionModal();
         if (modalElDev && modalElDev.classList.contains("is-open")) closeDevNotice();
-        if (modalElIssue && modalElIssue.classList.contains("is-open")) closeIssueModal();
       }
     });
 
@@ -11136,22 +10764,6 @@
     if (extYear1Input) extYear1Input.addEventListener("input", () => renderExtensionModalPreview());
     const extYear2Input = $("#extYear2Input");
     if (extYear2Input) extYear2Input.addEventListener("input", () => renderExtensionModalPreview());
-
-    const issueForm = $("#issueForm");
-    if (issueForm) issueForm.addEventListener("submit", (evt) => submitIssueReportForm(evt));
-    const issueAppSelect = $("#issueAppSelect");
-    if (issueAppSelect)
-      issueAppSelect.addEventListener("change", () => {
-        populateIssueModuleOptions();
-        renderIssueContextNote();
-      });
-    const issueModuleSelect = $("#issueModuleSelect");
-    if (issueModuleSelect)
-      issueModuleSelect.addEventListener("change", () => {
-        populateIssueTypeOptions();
-        renderIssueContextNote();
-      });
-    populateIssueModuleOptions(getIssueDefaultModuleForApp(getIssueDefaultAppKey()));
 
     ["#rsTcvInput", "#rsYear1Input", "#rsYear2Input"].forEach((sel) => {
       const el = $(sel);
