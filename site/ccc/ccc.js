@@ -5223,12 +5223,40 @@
   }
 
   function toSubmissionActionLabel(row) {
+    const explicitAction = safeStr(
+      row && (row.submission_action || row.action || row.submission_type || row._action)
+    )
+      .trim()
+      .toLowerCase();
+    if (explicitAction) {
+      if (["tag", "franchise_tag", "transition_tag"].includes(explicitAction)) return "Tag";
+      if (["extend", "extension", "offer_extension"].includes(explicitAction)) return "Extend";
+      if (["restructure", "contract_restructure"].includes(explicitAction)) return "Restructure";
+      if (["mym", "midyear", "mid-year", "midyearmulti"].includes(explicitAction)) return "MYM";
+    }
+
     const source = safeStr(row.source || "").toLowerCase();
     const status = safeStr(row.contract_status || "").toLowerCase();
     const payload = row && typeof row.payload === "object" ? row.payload : null;
     const payloadStatus = safeStr(payload && payload.contract_status).toLowerCase();
     const payloadType = safeStr(payload && payload.type).toLowerCase();
     const payloadFormula = safeStr(payload && payload.tag_formula);
+    const info = safeStr(row.contract_info || "").toLowerCase();
+
+    if (safeInt(row.tag_salary || row.tag_bid || row.tag_cost || row.bid) > 0) return "Tag";
+    if (safeStr(row.side || row.tag_side || row.tag_formula).trim()) {
+      if (source.includes("tag") || payloadType.includes("tag") || payloadStatus === "tag") return "Tag";
+    }
+
+    if (
+      source.includes("restructure") ||
+      source.includes("contract_forum_export") ||
+      source.includes("inferred-trade-comment") ||
+      source.includes("inferred-rosters-weekly")
+    ) {
+      return "Restructure";
+    }
+    if (info.includes("<salaries>") && status === "veteran") return "Restructure";
     if (source.includes("restructure")) return "Restructure";
     if (status.includes("restructure") || payloadStatus.includes("restructure")) return "Restructure";
     if (safeStr(row.extension_term || row.years_to_add || "").trim()) return "Extend";
@@ -5251,14 +5279,28 @@
   function normalizeReportsRows(rows) {
     return (rows || [])
       .map((r) => ({
-        id: safeStr(r.submission_id || `${safeStr(r.player_id)}-${safeStr(r.submitted_at_utc || "")}`),
+        id: safeStr(
+          r.submission_id ||
+            [
+              normalizeSeasonValue(r.season || (r.payload && r.payload.season) || ""),
+              toSubmissionActionLabel(r),
+              safeStr(r.player_id),
+              safeStr(r.submitted_at_utc || ""),
+            ].join("|")
+        ),
         action: toSubmissionActionLabel(r),
         season: normalizeSeasonValue(r.season || (r.payload && r.payload.season) || (r.payload && r.payload.YEAR) || ""),
         submitted_at_utc: safeStr(r.submitted_at_utc || ""),
         player_name: safeStr(r.player_name || ""),
         franchise_name: safeStr(r.franchise_name || (r.franchise_id ? `Franchise ${pad4(r.franchise_id)}` : "")),
         franchise_id: pad4(r.franchise_id),
-        position: safeStr(r.position || r.pos || ""),
+        position: safeStr(
+          r.position ||
+            r.pos ||
+            r.positional_grouping ||
+            (r.payload && (r.payload.position || r.payload.pos || r.payload.positional_grouping)) ||
+            ""
+        ),
         salary: safeInt(r.salary),
         contract_year: safeInt(r.contract_year),
         contract_status: safeStr(r.contract_status || ""),
@@ -5282,14 +5324,18 @@
       leagueId: league,
       allSeasons,
       includeUnknown: false,
-    });
+    }).map((row) => ({ ...(row || {}), submission_action: "tag" }));
     const extRows = getLeagueScopedMapRows(state.extensionSubmissions || {}, s, {
       leagueId: league,
       allSeasons,
       includeUnknown: false,
-    });
-    const rstRows = filterRowsToLeague(state.restructureSubmissions || [], league, false).filter(seasonMatch);
-    const mymRows = filterRowsToLeague(state.payload.submissions || [], league, false).filter(seasonMatch);
+    }).map((row) => ({ ...(row || {}), submission_action: "extend" }));
+    const rstRows = filterRowsToLeague(state.restructureSubmissions || [], league, false)
+      .filter(seasonMatch)
+      .map((row) => ({ ...(row || {}), submission_action: "restructure" }));
+    const mymRows = filterRowsToLeague(state.payload.submissions || [], league, false)
+      .filter(seasonMatch)
+      .map((row) => ({ ...(row || {}), submission_action: "mym" }));
     return [].concat(tagRows, extRows, rstRows, mymRows);
   }
 
@@ -5308,11 +5354,29 @@
     const sortDir     = safeStr(rv.sortDir || "desc");
 
     let rows = allRows.slice();
-    if (reportType !== "all") rows = rows.filter((r) => r.action === reportType);
+    if (reportType !== "all") {
+      const reportTypeNorm = safeStr(reportType).toLowerCase();
+      rows = rows.filter((r) => safeStr(r.action).toLowerCase() === reportTypeNorm);
+    }
     if (reportYear !== "all") rows = rows.filter((r) => normalizeSeasonValue(r.season) === reportYear);
-    if (searchLower)          rows = rows.filter((r) =>
-      `${r.player_name} ${r.franchise_name} ${r.action} ${normalizeSeasonValue(r.season)}`.toLowerCase().includes(searchLower)
-    );
+    if (searchLower)
+      rows = rows.filter((r) =>
+        [
+          r.player_name,
+          r.franchise_name,
+          r.franchise_id,
+          r.action,
+          r.position,
+          normalizeSeasonValue(r.season),
+          r.contract_status,
+          r.contract_info,
+          safeInt(r.salary),
+          safeInt(r.contract_year),
+        ]
+          .join(" ")
+          .toLowerCase()
+          .includes(searchLower)
+      );
 
     /* Sort */
     rows = rows.slice().sort((a, b) => {
@@ -5421,7 +5485,7 @@
           <select class="ccc-reportTypeSelect" data-report-type-select="1">${reportTypeOptions}</select>
           <label class="ccc-reportControlLabel">Year</label>
           <select class="ccc-reportTypeSelect" data-report-year-select="1">${reportYearOptions}</select>
-          <input class="ccc-reportSearch" type="text" placeholder="Search player, team, action…"
+          <input class="ccc-reportSearch" type="text" placeholder="Search player, team, action, position…"
             value="${htmlEsc(safeStr(rv.search || ""))}" data-report-search="1" />
         </div>
 
