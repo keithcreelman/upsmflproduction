@@ -8,6 +8,7 @@
     </div>
     <div class="uow-hero-actions">
       <div class="uow-pill">Countdown Timer</div>
+      <button type="button" id="uowBugBtn" class="uow-ghostBtn">Report Bug</button>
     </div>
   </div>
 
@@ -29,6 +30,84 @@
         <div class="uow-display-value" id="eventValue">—</div>
         <div class="uow-display-hint" id="eventHint">—</div>
       </div>
+    </div>
+  </div>
+
+  <div id="uowBugModal" class="uow-modal" hidden>
+    <div id="uowBugBackdrop" class="uow-modal-backdrop"></div>
+    <div class="uow-modal-shell" role="dialog" aria-modal="true" aria-labelledby="uowBugTitle">
+      <div class="uow-modal-head">
+        <h3 id="uowBugTitle">Report Bug / Glitch</h3>
+        <button type="button" id="uowBugClose" class="uow-modal-close" aria-label="Close">X</button>
+      </div>
+      <form id="uowBugForm" class="uow-modal-body">
+        <div class="uow-form-grid">
+          <label class="uow-field">
+            Application
+            <select id="uowBugApp" class="uow-select" required>
+              <option value="contract-command-center">Contract Command Center</option>
+              <option value="trade-war-room">Trade War Room</option>
+              <option value="roster-workbench">Roster Workbench</option>
+              <option value="ups-hot-links">UPS Hot Links</option>
+              <option value="other">Other</option>
+            </select>
+          </label>
+
+          <label class="uow-field">
+            Module / Screen
+            <select id="uowBugModule" class="uow-select" required></select>
+          </label>
+
+          <label class="uow-field">
+            Issue Type
+            <select id="uowBugType" class="uow-select" required>
+              <option value="data-incorrect">Data Incorrect</option>
+              <option value="submission-failed">Submission Failed</option>
+              <option value="ui-visual">UI / Visual</option>
+              <option value="performance">Performance</option>
+              <option value="other">Other</option>
+            </select>
+          </label>
+
+          <label class="uow-field">
+            Severity
+            <select id="uowBugSeverity" class="uow-select" required>
+              <option value="high">High</option>
+              <option value="medium" selected>Medium</option>
+              <option value="low">Low</option>
+            </select>
+          </label>
+        </div>
+
+        <label class="uow-field">
+          Summary
+          <input id="uowBugSummary" class="uow-input" type="text" maxlength="180" required placeholder="Short title of the issue">
+        </label>
+
+        <label class="uow-field">
+          What happened?
+          <textarea id="uowBugDetails" class="uow-textarea" rows="4" maxlength="4000" required placeholder="Describe the bug you saw..."></textarea>
+        </label>
+
+        <div class="uow-form-grid">
+          <label class="uow-field">
+            Steps to reproduce
+            <textarea id="uowBugSteps" class="uow-textarea" rows="3" maxlength="2500" placeholder="1) ... 2) ..."></textarea>
+          </label>
+          <label class="uow-field">
+            Expected vs actual
+            <textarea id="uowBugExpectedActual" class="uow-textarea" rows="3" maxlength="2500" placeholder="Expected: ...&#10;Actual: ..."></textarea>
+          </label>
+        </div>
+
+        <div class="uow-form-note" id="uowBugContextNote"></div>
+
+        <div class="uow-modal-actions">
+          <div id="uowBugStatus" class="uow-form-status" aria-live="polite"></div>
+          <button type="button" id="uowBugCancel" class="uow-ghostBtn">Cancel</button>
+          <button type="submit" id="uowBugSubmit" class="uow-submitBtn">Submit Report</button>
+        </div>
+      </form>
     </div>
   </div>
 </div>

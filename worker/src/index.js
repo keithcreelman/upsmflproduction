@@ -38,6 +38,8 @@ export default {
         path !== "/refresh/after-trade" &&
         path !== "/trade-pending" &&
         path !== "/salary-alignment-check" &&
+        path !== "/bug-report" &&
+        path !== "/bug-reports" &&
         !path.startsWith("/api/trades/proposals") &&
         !path.startsWith("/api/trades/outbox") &&
         !path.startsWith("/api/trades/reconcile") &&
@@ -622,6 +624,8 @@ export default {
         if (path === "/roster-workbench" || path === "/trade-workbench" || path.startsWith("/trade-offers")) {
           // Allow public roster/trade workbench payloads (league/rosters/players) without a commish cookie.
           // Draft picks (assets export) and default-franchise detection may be unavailable and are surfaced as warnings.
+        } else if (path === "/bug-report" || path === "/bug-reports") {
+          // Allow bug report intake/read without commish cookie.
         } else {
         return new Response(
           JSON.stringify({ ok: false, isAdmin: false, reason: "Missing MFL_COOKIE secret" }),
@@ -1716,6 +1720,262 @@ export default {
           contentSha: String(apiRes.data?.content?.sha || ""),
           doc: normalized,
         };
+      };
+
+      const bugReportsFilePath = (leagueId, season) =>
+        `site/reports/bug_reports_${encodeURIComponent(String(leagueId || ""))}_${encodeURIComponent(
+          String(season || "")
+        )}.json`;
+
+      const emptyBugReportsDoc = (leagueId, season) => ({
+        meta: {
+          schema_version: 1,
+          league_id: String(leagueId || ""),
+          season: Number(season || 0) || 0,
+          updated_at: new Date().toISOString(),
+          row_count: 0,
+          source: "worker-bug-reports",
+        },
+        reports: [],
+      });
+
+      const normalizeBugReportsDoc = (raw, leagueId, season) => {
+        const doc = raw && typeof raw === "object" ? raw : {};
+        const out = emptyBugReportsDoc(leagueId, season);
+        out.meta = {
+          ...out.meta,
+          ...(doc.meta && typeof doc.meta === "object" ? doc.meta : {}),
+          league_id: String(leagueId || ""),
+          season: Number(season || 0) || 0,
+        };
+        out.reports = Array.isArray(doc.reports) ? doc.reports.filter(Boolean) : [];
+        out.meta.row_count = out.reports.length;
+        return out;
+      };
+
+      const readBugReportsDoc = async (leagueId, season) => {
+        const filePath = bugReportsFilePath(leagueId, season);
+        if (!githubPat) {
+          const publicUrl = `https://cdn.jsdelivr.net/gh/${encodeURIComponent(githubRepoOwner)}/${encodeURIComponent(
+            githubRepoName
+          )}@main/${filePath}`;
+          try {
+            const res = await fetch(publicUrl, {
+              headers: { "Cache-Control": "no-store" },
+              cf: { cacheTtl: 0, cacheEverything: false },
+            });
+            if (!res.ok) {
+              if (res.status === 404) {
+                return { ok: true, exists: false, sha: "", filePath, doc: emptyBugReportsDoc(leagueId, season) };
+              }
+              return { ok: false, exists: false, sha: "", filePath, error: `HTTP ${res.status}` };
+            }
+            const payload = await res.json();
+            return {
+              ok: true,
+              exists: true,
+              sha: "",
+              filePath,
+              doc: normalizeBugReportsDoc(payload, leagueId, season),
+            };
+          } catch (e) {
+            return { ok: false, exists: false, sha: "", filePath, error: `fetch_failed: ${e?.message || String(e)}` };
+          }
+        }
+
+        const apiRes = await githubApiRequest(
+          "GET",
+          `/contents/${filePath}?ref=${encodeURIComponent(String(env.GITHUB_REPO_BRANCH || "main").trim() || "main")}`
+        );
+        if (!apiRes.ok && apiRes.status === 404) {
+          return { ok: true, exists: false, sha: "", filePath, doc: emptyBugReportsDoc(leagueId, season) };
+        }
+        if (!apiRes.ok) {
+          return {
+            ok: false,
+            exists: false,
+            sha: "",
+            filePath,
+            error: apiRes.error || "GitHub contents GET failed",
+            upstreamStatus: apiRes.status,
+            upstreamPreview: apiRes.textPreview,
+          };
+        }
+        try {
+          const rawContent = base64ToUtf8(apiRes.data?.content || "");
+          const parsed = rawContent ? JSON.parse(rawContent) : {};
+          return {
+            ok: true,
+            exists: true,
+            sha: String(apiRes.data?.sha || ""),
+            filePath,
+            doc: normalizeBugReportsDoc(parsed, leagueId, season),
+          };
+        } catch (e) {
+          return { ok: false, exists: true, sha: "", filePath, error: `parse_failed: ${e?.message || String(e)}` };
+        }
+      };
+
+      const writeBugReportsDoc = async (leagueId, season, doc, prevSha, message) => {
+        const filePath = bugReportsFilePath(leagueId, season);
+        if (!githubPat) {
+          return { ok: false, error: "Missing GITHUB_PAT worker secret", filePath };
+        }
+        const normalized = normalizeBugReportsDoc(doc, leagueId, season);
+        normalized.meta.updated_at = new Date().toISOString();
+        normalized.meta.row_count = Array.isArray(normalized.reports) ? normalized.reports.length : 0;
+        const body = {
+          message: String(message || "Append bug report"),
+          content: utf8ToBase64(JSON.stringify(normalized, null, 2) + "\n"),
+          branch: String(env.GITHUB_REPO_BRANCH || "main").trim() || "main",
+        };
+        if (prevSha) body.sha = String(prevSha);
+        const apiRes = await githubApiRequest("PUT", `/contents/${filePath}`, body);
+        if (!apiRes.ok) {
+          return {
+            ok: false,
+            error: apiRes.error || "GitHub contents PUT failed",
+            upstreamStatus: apiRes.status,
+            upstreamPreview: apiRes.textPreview,
+            filePath,
+          };
+        }
+        return {
+          ok: true,
+          filePath,
+          commitSha: String(apiRes.data?.commit?.sha || ""),
+          contentSha: String(apiRes.data?.content?.sha || ""),
+          doc: normalized,
+        };
+      };
+
+      const formatBugDiscordMessage = (reportRow, filePath) => {
+        const row = reportRow && typeof reportRow === "object" ? reportRow : {};
+        const summary = safeStr(row.summary || "").slice(0, 180);
+        const details = safeStr(row.details || "").replace(/\s+/g, " ").slice(0, 500);
+        const app = safeStr(row.app || "");
+        const moduleName = safeStr(row.module || "");
+        const issueType = safeStr(row.issue_type || "");
+        const severity = safeStr(row.severity || "");
+        const leagueId = safeStr(row.league_id || "");
+        const season = safeStr(row.season || "");
+        const bugId = safeStr(row.bug_id || "");
+        const fid = safeStr(row.franchise_id || "");
+        const mflUser = safeStr(row.mfl_user_id || "");
+        const pageUrl = safeStr((row.context && row.context.page_url) || "");
+        const lines = [
+          `UPS Bug Report${bugId ? ` #${bugId}` : ""}`,
+          `League ${leagueId || "-"} | Season ${season || "-"} | Severity ${severity || "-"}`,
+          `App ${app || "-"} | Module ${moduleName || "-"} | Type ${issueType || "-"}`,
+          `Franchise ${fid || "-"} | MFL User ${mflUser || "unknown"}`,
+          summary ? `Summary: ${summary}` : "",
+          details ? `Details: ${details}` : "",
+          pageUrl ? `Page: ${pageUrl}` : "",
+          filePath ? `Log: ${filePath}` : "",
+        ].filter(Boolean);
+        let content = lines.join("\n");
+        if (content.length > 1900) content = content.slice(0, 1897) + "...";
+        return content;
+      };
+
+      const sendDiscordNotificationForBug = async (reportRow, filePath) => {
+        const webhook = safeStr(env.DISCORD_WEBHOOK_URL || "");
+        const botToken = safeStr(env.DISCORD_BOT_TOKEN || "");
+        const dmUserId = safeStr(env.DISCORD_DM_USER_ID || "").replace(/\D/g, "");
+        const channelId = safeStr(env.DISCORD_BUG_CHANNEL_ID || "").replace(/\D/g, "");
+        const content = formatBugDiscordMessage(reportRow, filePath);
+
+        if (webhook) {
+          try {
+            const res = await fetch(webhook, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                content,
+                allowed_mentions: { parse: [] },
+              }),
+            });
+            if (!res.ok) {
+              const preview = (await res.text()).slice(0, 600);
+              return { ok: false, mode: "webhook", status: res.status, error: preview || "webhook_failed" };
+            }
+            return { ok: true, mode: "webhook" };
+          } catch (e) {
+            return { ok: false, mode: "webhook", status: 0, error: `fetch_failed: ${e?.message || String(e)}` };
+          }
+        }
+
+        if (!botToken) {
+          return { ok: false, mode: "none", status: 0, error: "missing_discord_config" };
+        }
+
+        const botRequest = async (method, apiPath, body) => {
+          const target = `https://discord.com/api/v10${apiPath}`;
+          try {
+            const res = await fetch(target, {
+              method,
+              headers: {
+                Authorization: `Bot ${botToken}`,
+                "Content-Type": "application/json",
+              },
+              body: body == null ? undefined : JSON.stringify(body),
+            });
+            const text = await res.text();
+            let data = null;
+            try {
+              data = text ? JSON.parse(text) : null;
+            } catch (_) {
+              data = null;
+            }
+            return { ok: res.ok, status: res.status, data, text };
+          } catch (e) {
+            return { ok: false, status: 0, data: null, text: `fetch_failed: ${e?.message || String(e)}` };
+          }
+        };
+
+        if (dmUserId) {
+          const openDm = await botRequest("POST", "/users/@me/channels", { recipient_id: dmUserId });
+          if (!openDm.ok || !safeStr(openDm.data && openDm.data.id)) {
+            return {
+              ok: false,
+              mode: "bot-dm",
+              status: openDm.status,
+              error: safeStr(openDm.text || "open_dm_failed").slice(0, 600),
+            };
+          }
+          const dmChannelId = safeStr(openDm.data.id);
+          const sendDm = await botRequest("POST", `/channels/${encodeURIComponent(dmChannelId)}/messages`, {
+            content,
+            allowed_mentions: { parse: [] },
+          });
+          if (!sendDm.ok) {
+            return {
+              ok: false,
+              mode: "bot-dm",
+              status: sendDm.status,
+              error: safeStr(sendDm.text || "send_dm_failed").slice(0, 600),
+            };
+          }
+          return { ok: true, mode: "bot-dm", channel_id: dmChannelId };
+        }
+
+        if (channelId) {
+          const sendChannel = await botRequest("POST", `/channels/${encodeURIComponent(channelId)}/messages`, {
+            content,
+            allowed_mentions: { parse: [] },
+          });
+          if (!sendChannel.ok) {
+            return {
+              ok: false,
+              mode: "bot-channel",
+              status: sendChannel.status,
+              error: safeStr(sendChannel.text || "send_channel_failed").slice(0, 600),
+            };
+          }
+          return { ok: true, mode: "bot-channel", channel_id: channelId };
+        }
+
+        return { ok: false, mode: "none", status: 0, error: "missing_discord_dm_or_channel" };
       };
 
       const base64UrlFromUtf8 = (text) =>
@@ -5490,6 +5750,185 @@ export default {
         out.ok = out.mismatches.length === 0;
         return out;
       };
+
+      if (path === "/bug-report" && request.method === "POST") {
+        let body = {};
+        try {
+          body = (await request.json()) || {};
+        } catch (_) {
+          return jsonOut(400, { ok: false, error: "Invalid JSON body" });
+        }
+        const context = body && typeof body.context === "object" && body.context ? body.context : {};
+        const leagueId = safeStr(
+          url.searchParams.get("L") ||
+            L ||
+            body.league_id ||
+            body.leagueId ||
+            context.league_id ||
+            context.leagueId ||
+            ""
+        );
+        const season = safeStr(
+          url.searchParams.get("YEAR") ||
+            YEAR ||
+            body.season ||
+            body.year ||
+            context.season ||
+            context.year ||
+            ""
+        );
+        if (!leagueId) return jsonOut(400, { ok: false, error: "Missing L/league_id" });
+        if (!season) return jsonOut(400, { ok: false, error: "Missing YEAR/season" });
+
+        const app = safeStr(body.app || body.application || "ups-hot-links").toLowerCase();
+        const moduleName = safeStr(body.module || body.screen || "other").toLowerCase();
+        const issueType = safeStr(body.issue_type || body.type || "other").toLowerCase();
+        const severity = safeStr(body.severity || "medium").toLowerCase();
+        const summary = safeStr(body.summary || body.title || "");
+        const details = safeStr(body.details || body.description || "");
+        const steps = safeStr(body.steps_to_reproduce || body.steps || "");
+        const expectedActual = safeStr(
+          body.expected_vs_actual || body.expected_actual || body.expected || ""
+        );
+        if (!summary) return jsonOut(400, { ok: false, error: "Missing summary" });
+        if (!details) return jsonOut(400, { ok: false, error: "Missing details" });
+
+        const createdAt = new Date().toISOString();
+        const bugId = `BUG-${safeStr(season)}-${Date.now().toString(36).toUpperCase()}`;
+        const franchiseId = padFranchiseId(
+          body.franchise_id ||
+            body.franchiseId ||
+            context.franchise_id ||
+            context.franchiseId ||
+            url.searchParams.get("FRANCHISE_ID") ||
+            ""
+        );
+        const mflUserId = safeStr(
+          body.mfl_user_id ||
+            body.mflUserId ||
+            context.mfl_user_id ||
+            context.mflUserId ||
+            browserMflUserId ||
+            ""
+        );
+
+        const reportRow = {
+          bug_id: bugId,
+          created_at_utc: createdAt,
+          league_id: leagueId,
+          season: season,
+          franchise_id: franchiseId,
+          mfl_user_id: mflUserId,
+          app,
+          module: moduleName,
+          issue_type: issueType,
+          severity,
+          summary: summary.slice(0, 180),
+          details: details.slice(0, 5000),
+          steps_to_reproduce: steps.slice(0, 4000),
+          expected_vs_actual: expectedActual.slice(0, 4000),
+          source: safeStr(body.source || "ups-hot-links-widget"),
+          status: "OPEN",
+          context: context && typeof context === "object" ? context : {},
+        };
+
+        const loaded = await readBugReportsDoc(leagueId, season);
+        if (!loaded.ok) {
+          return jsonOut(500, {
+            ok: false,
+            error: loaded.error || "bug_report_read_failed",
+            storage: {
+              file_path: loaded.filePath || "",
+              upstream_status: loaded.upstreamStatus || 0,
+              upstream_preview: loaded.upstreamPreview || "",
+            },
+          });
+        }
+        const doc = normalizeBugReportsDoc(loaded.doc, leagueId, season);
+        const reports = Array.isArray(doc.reports) ? doc.reports : [];
+        reports.unshift(reportRow);
+        doc.reports = reports.slice(0, 3000);
+
+        const save = await writeBugReportsDoc(
+          leagueId,
+          season,
+          doc,
+          loaded.sha,
+          `feat(reports): append bug report ${bugId}`
+        );
+        if (!save.ok) {
+          return jsonOut(500, {
+            ok: false,
+            error: save.error || "bug_report_write_failed",
+            storage: {
+              file_path: save.filePath || loaded.filePath || "",
+              upstream_status: save.upstreamStatus || 0,
+              upstream_preview: save.upstreamPreview || "",
+            },
+          });
+        }
+
+        const notify = await sendDiscordNotificationForBug(reportRow, save.filePath);
+
+        return jsonOut(201, {
+          ok: true,
+          bug_id: bugId,
+          league_id: leagueId,
+          season: safeInt(season, Number(season) || 0),
+          stored: {
+            file_path: save.filePath || "",
+            commit_sha: save.commitSha || "",
+            content_sha: save.contentSha || "",
+          },
+          notify,
+        });
+      }
+
+      if (path === "/bug-reports" && request.method === "GET") {
+        const leagueId = safeStr(url.searchParams.get("L") || L || "");
+        const season = safeStr(url.searchParams.get("YEAR") || YEAR || "");
+        if (!leagueId) return jsonOut(400, { ok: false, error: "Missing L param" });
+        if (!season) return jsonOut(400, { ok: false, error: "Missing YEAR param" });
+
+        const includeContext = ["1", "true", "yes"].includes(
+          safeStr(url.searchParams.get("include_context")).toLowerCase()
+        );
+        const limit = Math.max(1, Math.min(500, safeInt(url.searchParams.get("limit"), 100)));
+
+        const loaded = await readBugReportsDoc(leagueId, season);
+        if (!loaded.ok) {
+          return jsonOut(500, {
+            ok: false,
+            error: loaded.error || "bug_report_read_failed",
+            storage: {
+              file_path: loaded.filePath || "",
+              upstream_status: loaded.upstreamStatus || 0,
+              upstream_preview: loaded.upstreamPreview || "",
+            },
+          });
+        }
+        const doc = normalizeBugReportsDoc(loaded.doc, leagueId, season);
+        const reports = (Array.isArray(doc.reports) ? doc.reports : [])
+          .slice()
+          .sort((a, b) =>
+            safeStr(b && b.created_at_utc).localeCompare(safeStr(a && a.created_at_utc))
+          )
+          .slice(0, limit)
+          .map((row) => {
+            const out = row && typeof row === "object" ? { ...row } : {};
+            if (!includeContext) delete out.context;
+            return out;
+          });
+
+        return jsonOut(200, {
+          ok: true,
+          league_id: leagueId,
+          season: safeInt(season, Number(season) || 0),
+          file_path: loaded.filePath || "",
+          count: reports.length,
+          reports,
+        });
+      }
 
       if (path === "/salary-alignment-check" && request.method === "GET") {
         const leagueId = safeStr(url.searchParams.get("L") || L || "");

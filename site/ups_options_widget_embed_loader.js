@@ -52,6 +52,50 @@
     return m ? m[1] : String(new Date().getUTCFullYear());
   }
 
+  function getFranchiseId(u) {
+    if (!u) return "";
+    var raw =
+      u.searchParams.get("FRANCHISE_ID") ||
+      u.searchParams.get("FRANCHISEID") ||
+      u.searchParams.get("franchise_id") ||
+      u.searchParams.get("F") ||
+      "";
+    var digits = String(raw || "").replace(/\D/g, "");
+    return digits ? digits.padStart(4, "0").slice(-4) : "";
+  }
+
+  function getCookie(name) {
+    try {
+      var src = String(document.cookie || "");
+      if (!src) return "";
+      var parts = src.split(";");
+      for (var i = 0; i < parts.length; i += 1) {
+        var item = String(parts[i] || "").trim();
+        if (!item) continue;
+        var eq = item.indexOf("=");
+        var key = eq >= 0 ? item.slice(0, eq).trim() : item;
+        if (key !== name) continue;
+        var val = eq >= 0 ? item.slice(eq + 1) : "";
+        try {
+          return decodeURIComponent(val);
+        } catch (eDecode) {
+          return val;
+        }
+      }
+      return "";
+    } catch (e) {
+      return "";
+    }
+  }
+
+  function getMflUserId(u) {
+    if (u) {
+      var fromQuery = u.searchParams.get("MFL_USER_ID") || u.searchParams.get("MFLUSERID") || "";
+      if (fromQuery) return String(fromQuery).trim();
+    }
+    return String(getCookie("MFL_USER_ID") || "").trim();
+  }
+
   function getOrigin() {
     try {
       return String(window.location.origin || "").replace(/\/+$/, "");
@@ -110,12 +154,15 @@
   var u = getUrl();
   var L = getLeagueId(u);
   var YEAR = getYear(u);
+  var FRANCHISE_ID = getFranchiseId(u);
+  var MFL_USER_ID = getMflUserId(u);
+  var UPS_WORKER_URL = String(window.UPS_WORKER_URL || "https://upsmflproduction.keith-creelman.workers.dev").trim();
   var MODE_KEY = "ups_mode_" + YEAR + "_" + L;
   var MODULE_NAME = getModuleName(u);
 
   var LATEST_JSON_URL = "https://keithcreelman.github.io/upsmflproduction/ups_options_widget_latest.json";
   var LATEST_JS_URL = "https://keithcreelman.github.io/upsmflproduction/ups_options_widget_latest.js";
-  var DEFAULT_CACHE = "20260214a";
+  var DEFAULT_CACHE = "20260304b";
 
   function inferModeFromSystem() {
     if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) return "dark";
@@ -197,13 +244,19 @@
   function buildLegacySrc(cacheKey, mode) {
     var cache = cacheKey || DEFAULT_CACHE;
     var theme = normalizeMode(mode || getHostMode());
-    return (
+    var src = (
       "https://keithcreelman.github.io/upsmflproduction/ups_options_widget.html" +
       "?cache=" + encodeURIComponent(cache) +
       "&L=" + encodeURIComponent(L) +
       "&YEAR=" + encodeURIComponent(YEAR) +
       "&THEME=" + encodeURIComponent(theme)
     );
+    if (FRANCHISE_ID) src += "&FRANCHISE_ID=" + encodeURIComponent(FRANCHISE_ID);
+    if (MFL_USER_ID) src += "&MFL_USER_ID=" + encodeURIComponent(MFL_USER_ID);
+    if (MODULE_NAME) src += "&MODULE=" + encodeURIComponent(MODULE_NAME);
+    if (UPS_WORKER_URL) src += "&WORKER_URL=" + encodeURIComponent(UPS_WORKER_URL);
+    src += "&SOURCE_APP=" + encodeURIComponent("ups-hot-links");
+    return src;
   }
 
   function postThemeToWidget(iframe, mode) {

@@ -4,6 +4,39 @@
   const TIMEZONE = "America/New_York";
   const MFL_API_BASE = "https://api.myfantasyleague.com";
   const THEME_KEY = "uow_theme_v1";
+  const BUG_REPORT_WORKER_DEFAULT = "https://upsmflproduction.keith-creelman.workers.dev";
+
+  const BUG_MODULE_OPTIONS_BY_APP = {
+    "contract-command-center": [
+      { value: "mym", label: "MYM" },
+      { value: "extensions", label: "Extensions" },
+      { value: "restructure", label: "Restructure" },
+      { value: "tag", label: "Tag a Player" },
+      { value: "expired-rookie-draft", label: "Expired Rookie Draft" },
+      { value: "reports-audit", label: "Reports & Audit" },
+      { value: "settings", label: "Settings / Commish" },
+      { value: "other", label: "Other" }
+    ],
+    "trade-war-room": [
+      { value: "proposal-builder", label: "Proposal Builder" },
+      { value: "pending-trades", label: "Pending Trades" },
+      { value: "accept-decline", label: "Accept / Decline" },
+      { value: "review-submit", label: "Review / Submit" },
+      { value: "other", label: "Other" }
+    ],
+    "roster-workbench": [
+      { value: "roster-grid", label: "Roster Grid" },
+      { value: "salary-columns", label: "Salary / Contract Columns" },
+      { value: "owner-view", label: "Owner View" },
+      { value: "other", label: "Other" }
+    ],
+    "ups-hot-links": [
+      { value: "countdown-widget", label: "Countdown Widget" },
+      { value: "owner-hub-stack", label: "Owner Hub Modules" },
+      { value: "other", label: "Other" }
+    ],
+    other: [{ value: "other", label: "Other" }]
+  };
 
   const EVENT_OVERRIDES = {
     "2026": {
@@ -69,7 +102,8 @@
     leagueDetailsByYear: {},
     leagueDetailsFetch: {},
     theme: loadThemeSetting(),
-    manualSelection: false
+    manualSelection: false,
+    bugBusy: false
   };
 
   const $ = (sel) => document.querySelector(sel);
@@ -93,6 +127,45 @@
     const params = new URLSearchParams(window.location.search || "");
     const raw = params.get("L") || "";
     return raw || "74598";
+  }
+
+  function parseFranchiseId() {
+    const params = new URLSearchParams(window.location.search || "");
+    const raw =
+      params.get("FRANCHISE_ID") ||
+      params.get("FRANCHISEID") ||
+      params.get("franchise_id") ||
+      params.get("F") ||
+      "";
+    const digits = String(raw || "").replace(/\D/g, "");
+    return digits ? digits.padStart(4, "0").slice(-4) : "";
+  }
+
+  function parseMflUserId() {
+    const params = new URLSearchParams(window.location.search || "");
+    const raw =
+      params.get("MFL_USER_ID") ||
+      params.get("MFLUSERID") ||
+      params.get("mfl_user_id") ||
+      "";
+    return String(raw || "").trim();
+  }
+
+  function parseWorkerBaseUrl() {
+    const params = new URLSearchParams(window.location.search || "");
+    const candidate = String(
+      params.get("WORKER_URL") ||
+      params.get("UPS_WORKER_URL") ||
+      window.UPS_WORKER_URL ||
+      BUG_REPORT_WORKER_DEFAULT
+    ).trim();
+    if (!candidate) return BUG_REPORT_WORKER_DEFAULT;
+    try {
+      const u = new URL(candidate);
+      return `${u.protocol}//${u.host}`;
+    } catch (e) {
+      return BUG_REPORT_WORKER_DEFAULT;
+    }
   }
 
   function loadThemeSetting() {
@@ -163,6 +236,10 @@
   function safeInt(x) {
     const n = parseInt(String(x).replace(/[^\d-]/g, ""), 10);
     return Number.isFinite(n) ? n : 0;
+  }
+
+  function safeStr(v) {
+    return String(v == null ? "" : v).trim();
   }
 
   function parseSeasonYear() {
@@ -735,6 +812,211 @@
     }
   }
 
+  function getBugModuleOptions(appKey) {
+    return BUG_MODULE_OPTIONS_BY_APP[safeStr(appKey).toLowerCase()] || BUG_MODULE_OPTIONS_BY_APP.other;
+  }
+
+  function populateBugModuleOptions() {
+    const appSel = $("#uowBugApp");
+    const moduleSel = $("#uowBugModule");
+    if (!appSel || !moduleSel) return;
+    const options = getBugModuleOptions(appSel.value);
+    const prev = safeStr(moduleSel.value);
+    moduleSel.innerHTML = "";
+    options.forEach((opt, idx) => {
+      const el = document.createElement("option");
+      el.value = safeStr(opt.value);
+      el.textContent = safeStr(opt.label);
+      if (prev && prev === el.value) el.selected = true;
+      if (!prev && idx === 0) el.selected = true;
+      moduleSel.appendChild(el);
+    });
+  }
+
+  function setBugStatus(message, tone) {
+    const statusEl = $("#uowBugStatus");
+    if (!statusEl) return;
+    statusEl.textContent = safeStr(message);
+    statusEl.classList.remove("is-error", "is-ok");
+    if (tone === "error") statusEl.classList.add("is-error");
+    if (tone === "ok") statusEl.classList.add("is-ok");
+  }
+
+  function setBugSubmitBusy(busy) {
+    const submitBtn = $("#uowBugSubmit");
+    if (submitBtn) {
+      submitBtn.disabled = !!busy;
+      submitBtn.textContent = busy ? "Submitting..." : "Submit Report";
+    }
+    state.bugBusy = !!busy;
+  }
+
+  function buildBugContext() {
+    let href = "";
+    try {
+      href = window.location.href;
+    } catch (e) {
+      href = "";
+    }
+    const params = new URLSearchParams(window.location.search || "");
+    const width = window.innerWidth || 0;
+    const height = window.innerHeight || 0;
+    let tz = "";
+    try {
+      tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
+    } catch (e) {
+      tz = "";
+    }
+    return {
+      captured_at_utc: new Date().toISOString(),
+      league_id: parseLeagueId(),
+      season: String(parseSeasonYear() || ""),
+      franchise_id: parseFranchiseId(),
+      mfl_user_id: parseMflUserId(),
+      host: safeStr(window.location.host || ""),
+      page_url: href,
+      query_module: safeStr(params.get("MODULE") || params.get("module")),
+      query_action: safeStr(params.get("ACTION") || params.get("action")),
+      query_source_app: safeStr(params.get("SOURCE_APP") || params.get("source_app")),
+      ups_release_sha: safeStr(params.get("UPS_RELEASE_SHA") || params.get("SHA") || ""),
+      user_agent: safeStr(navigator.userAgent || ""),
+      platform: safeStr(navigator.platform || ""),
+      language: safeStr(navigator.language || ""),
+      timezone: tz,
+      viewport: `${width}x${height}`,
+      screen: `${safeInt(window.screen && window.screen.width)}x${safeInt(window.screen && window.screen.height)}`,
+      theme: safeStr(document.body.getAttribute("data-theme") || state.theme || ""),
+      referrer: safeStr(document.referrer || ""),
+    };
+  }
+
+  function renderBugContextNote() {
+    const note = $("#uowBugContextNote");
+    if (!note) return;
+    const ctx = buildBugContext();
+    note.textContent = `Auto-attached: League ${ctx.league_id || "—"} | Season ${ctx.season || "—"} | Franchise ${ctx.franchise_id || "—"} | User ${ctx.mfl_user_id ? "Yes" : "Unknown"} | Theme ${ctx.theme || "—"}`;
+  }
+
+  function openBugModal() {
+    const modal = $("#uowBugModal");
+    if (!modal) return;
+    modal.hidden = false;
+    populateBugModuleOptions();
+    renderBugContextNote();
+    setBugStatus("", "");
+    const summary = $("#uowBugSummary");
+    if (summary) summary.focus();
+  }
+
+  function closeBugModal() {
+    const modal = $("#uowBugModal");
+    if (!modal) return;
+    modal.hidden = true;
+    setBugSubmitBusy(false);
+  }
+
+  async function submitBugReportForm(e) {
+    e.preventDefault();
+    if (state.bugBusy) return;
+    const appSel = $("#uowBugApp");
+    const moduleSel = $("#uowBugModule");
+    const typeSel = $("#uowBugType");
+    const severitySel = $("#uowBugSeverity");
+    const summaryInput = $("#uowBugSummary");
+    const detailsInput = $("#uowBugDetails");
+    const stepsInput = $("#uowBugSteps");
+    const expectedActualInput = $("#uowBugExpectedActual");
+    const app = safeStr(appSel && appSel.value);
+    const moduleName = safeStr(moduleSel && moduleSel.value);
+    const issueType = safeStr(typeSel && typeSel.value);
+    const severity = safeStr(severitySel && severitySel.value);
+    const summary = safeStr(summaryInput && summaryInput.value);
+    const details = safeStr(detailsInput && detailsInput.value);
+    const steps = safeStr(stepsInput && stepsInput.value);
+    const expectedActual = safeStr(expectedActualInput && expectedActualInput.value);
+
+    if (!app || !moduleName || !issueType || !severity || !summary || !details) {
+      setBugStatus("Please fill all required fields.", "error");
+      return;
+    }
+
+    const ctx = buildBugContext();
+    const workerBase = parseWorkerBaseUrl();
+    const endpoint =
+      `${workerBase}/bug-report?L=${encodeURIComponent(ctx.league_id || "")}` +
+      `&YEAR=${encodeURIComponent(ctx.season || "")}`;
+
+    const payload = {
+      app,
+      module: moduleName,
+      issue_type: issueType,
+      severity,
+      summary,
+      details,
+      steps_to_reproduce: steps,
+      expected_vs_actual: expectedActual,
+      context: ctx,
+      source: "ups-hot-links-widget",
+    };
+
+    setBugSubmitBusy(true);
+    setBugStatus("Submitting report...", "");
+    try {
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      let out = {};
+      try {
+        out = await res.json();
+      } catch (err) {
+        out = {};
+      }
+      if (!res.ok || !out || out.ok === false) {
+        const msg =
+          safeStr(out && (out.error || out.reason || out.message)) ||
+          `Report failed (HTTP ${res.status}).`;
+        setBugStatus(msg, "error");
+        return;
+      }
+      const bugId = safeStr(out.bug_id || out.report_id);
+      const discordOk = out.notify && out.notify.ok ? "Discord sent" : "Discord pending";
+      setBugStatus(`Submitted${bugId ? ` (${bugId})` : ""}. ${discordOk}.`, "ok");
+      const form = $("#uowBugForm");
+      if (form) form.reset();
+      populateBugModuleOptions();
+      renderBugContextNote();
+      window.setTimeout(closeBugModal, 900);
+    } catch (err) {
+      setBugStatus(err && err.message ? err.message : "Failed to submit report.", "error");
+    } finally {
+      setBugSubmitBusy(false);
+    }
+  }
+
+  function wireBugReportModal() {
+    const openBtn = $("#uowBugBtn");
+    const closeBtn = $("#uowBugClose");
+    const cancelBtn = $("#uowBugCancel");
+    const backdrop = $("#uowBugBackdrop");
+    const appSel = $("#uowBugApp");
+    const form = $("#uowBugForm");
+    if (openBtn) openBtn.addEventListener("click", openBugModal);
+    if (closeBtn) closeBtn.addEventListener("click", closeBugModal);
+    if (cancelBtn) cancelBtn.addEventListener("click", closeBugModal);
+    if (backdrop) backdrop.addEventListener("click", closeBugModal);
+    if (appSel) appSel.addEventListener("change", populateBugModuleOptions);
+    if (form) form.addEventListener("submit", submitBugReportForm);
+    document.addEventListener("keydown", (evt) => {
+      if (evt.key !== "Escape") return;
+      const modal = $("#uowBugModal");
+      if (modal && !modal.hidden) closeBugModal();
+    });
+    populateBugModuleOptions();
+    renderBugContextNote();
+  }
+
   function wireEvents() {
     const themeSelect = $("#themeSelect");
     if (themeSelect) {
@@ -766,6 +1048,8 @@
         updateDisplay();
       });
     });
+
+    wireBugReportModal();
   }
 
   function startTicker() {
