@@ -260,6 +260,27 @@ body[data-theme="dark"] .uow-display-value {
   border-color: var(--accent);
 }
 
+.uow-bugBtn {
+  border-color: #ef4444;
+  background: linear-gradient(180deg, #ef4444 0%, #dc2626 100%);
+  color: #fff7f7;
+  font-weight: 800;
+  box-shadow: 0 10px 18px rgba(220, 38, 38, 0.35);
+}
+
+.uow-bugBtn:hover {
+  border-color: #f87171;
+  background: linear-gradient(180deg, #f05252 0%, #e11d48 100%);
+  color: #ffffff;
+}
+
+.uow-bugBtn:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 3px rgba(254, 202, 202, 0.65),
+    0 10px 20px rgba(220, 38, 38, 0.42);
+}
+
 .uow-modal[hidden] {
   display: none;
 }
