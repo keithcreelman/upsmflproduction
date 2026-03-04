@@ -809,6 +809,11 @@
   overflow:auto;
 }
 
+.ccc-flowPlayerRow{
+  display:grid;
+  gap:0.34rem;
+}
+
 .ccc-flowPlayerBtn{
   border:1px solid var(--line);
   border-radius:12px;
@@ -905,6 +910,14 @@
 .ccc-flowPlayerBtn.is-disabled{
   opacity:0.52;
   cursor:not-allowed;
+}
+
+.ccc-flowTagQuickUnsubmit{
+  justify-self:end;
+  padding:0.3rem 0.56rem;
+  border-radius:10px;
+  font-size:0.76rem;
+  font-weight:900;
 }
 
 /* ===== Inline Search inside Player Card ===== */

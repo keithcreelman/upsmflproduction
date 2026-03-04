@@ -343,46 +343,66 @@
     } catch (e) {}
   }
 
-  function loadLocalTestMymSubmissions() {
+  function getLocalTestScopeId() {
+    const host = safeStr(window.location.host || "");
+    const league = safeStr(getResolvedLeagueId() || getLeagueId() || DEFAULT_LEAGUE_ID || "");
+    return `${host}|${league}`;
+  }
+
+  function loadScopedLocalTestRows(storageKey) {
     try {
-      const raw = localStorage.getItem(LOCAL_TEST_MYM_SUBMISSIONS_KEY);
+      const raw = localStorage.getItem(storageKey);
       if (!raw) return [];
       const parsed = JSON.parse(raw);
-      const rows = normalizeSubmissions(parsed);
-      return rows.map(normalizeSubmissionRow);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed) && parsed.scoped) {
+        const scopeId = getLocalTestScopeId();
+        const scopedVal = parsed.scoped && parsed.scoped[scopeId];
+        const rows = normalizeSubmissions(scopedVal);
+        return rows.map(normalizeSubmissionRow);
+      }
+      const legacyRows = normalizeSubmissions(parsed);
+      return legacyRows.map(normalizeSubmissionRow);
     } catch (e) {
       return [];
     }
+  }
+
+  function saveScopedLocalTestRows(storageKey, rows) {
+    try {
+      const scopeId = getLocalTestScopeId();
+      let scoped = {};
+      const raw = localStorage.getItem(storageKey);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (
+          parsed &&
+          typeof parsed === "object" &&
+          !Array.isArray(parsed) &&
+          parsed.scoped &&
+          typeof parsed.scoped === "object"
+        ) {
+          scoped = { ...parsed.scoped };
+        }
+      }
+      scoped[scopeId] = { rows: Array.isArray(rows) ? rows : [] };
+      localStorage.setItem(storageKey, JSON.stringify({ scoped }));
+    } catch (e) {}
+  }
+
+  function loadLocalTestMymSubmissions() {
+    return loadScopedLocalTestRows(LOCAL_TEST_MYM_SUBMISSIONS_KEY);
   }
 
   function saveLocalTestMymSubmissions(rows) {
-    try {
-      localStorage.setItem(
-        LOCAL_TEST_MYM_SUBMISSIONS_KEY,
-        JSON.stringify({ rows: Array.isArray(rows) ? rows : [] })
-      );
-    } catch (e) {}
+    saveScopedLocalTestRows(LOCAL_TEST_MYM_SUBMISSIONS_KEY, rows);
   }
 
   function loadLocalTestRestructureSubmissions() {
-    try {
-      const raw = localStorage.getItem(LOCAL_TEST_RESTRUCTURE_SUBMISSIONS_KEY);
-      if (!raw) return [];
-      const parsed = JSON.parse(raw);
-      const rows = normalizeSubmissions(parsed);
-      return rows.map(normalizeSubmissionRow);
-    } catch (e) {
-      return [];
-    }
+    return loadScopedLocalTestRows(LOCAL_TEST_RESTRUCTURE_SUBMISSIONS_KEY);
   }
 
   function saveLocalTestRestructureSubmissions(rows) {
-    try {
-      localStorage.setItem(
-        LOCAL_TEST_RESTRUCTURE_SUBMISSIONS_KEY,
-        JSON.stringify({ rows: Array.isArray(rows) ? rows : [] })
-      );
-    } catch (e) {}
+    saveScopedLocalTestRows(LOCAL_TEST_RESTRUCTURE_SUBMISSIONS_KEY, rows);
   }
 
   function loadTagSelections() {
@@ -3152,11 +3172,13 @@
       const season = normalizeSeasonValue(r.season || state.selectedSeason);
       const side = getTagSideForRow(r, "OFFENSE");
       const limit = TAG_LIMIT_PER_SIDE;
-      const key = buildTagSelectionKey(season, r.franchise_id, side);
-      const activeTag = getActiveTagSelectionByKey(key);
+      const fallbackKey = buildTagSelectionKey(season, r.franchise_id, side);
+      const activeTag = getActiveTagSelectionForSide(season, r.franchise_id, side);
+      const activeTagKey = safeStr(activeTag && activeTag.key) || fallbackKey;
       const isSelected = !!activeTag && safeStr(activeTag.player_id) === safeStr(r.player_id);
       const isSubmitted =
-        !!state.tagSubmissions[key] && safeStr(state.tagSubmissions[key].player_id) === safeStr(r.player_id);
+        !!state.tagSubmissions[activeTagKey] &&
+        safeStr(state.tagSubmissions[activeTagKey].player_id) === safeStr(r.player_id);
       const isLocked = !state.commishMode && !!activeTag && !isSelected && limit <= 1;
       const tagClosed = !tagWindowOpen && !state.commishMode;
       const tagLabel = tagClosed
@@ -4381,13 +4403,14 @@
         const season = normalizeSeasonValue(r.season || state.selectedSeason);
         const side = getTagSideForRow(r, "OFFENSE");
         const limit = TAG_LIMIT_PER_SIDE;
-        const key = buildTagSelectionKey(season, r.franchise_id, side);
+        const fallbackKey = buildTagSelectionKey(season, r.franchise_id, side);
         const canTag = canManageTagForFranchise(r.franchise_id);
-        const activeTag = getActiveTagSelectionByKey(key);
+        const activeTag = getActiveTagSelectionForSide(season, r.franchise_id, side);
+        const activeTagKey = safeStr(activeTag && activeTag.key) || fallbackKey;
         const isSelected = !!activeTag && safeStr(activeTag.player_id) === safeStr(r.player_id);
         const lockEnforced = !state.commishMode;
         const isLocked = lockEnforced && !!activeTag && !isSelected && limit <= 1;
-        const submission = state.tagSubmissions[key];
+        const submission = state.tagSubmissions[activeTagKey];
         const isSubmitted =
           !!submission && safeStr(submission.player_id) === safeStr(r.player_id);
         const tagClosed = !tagWindowOpen && !state.commishMode;
@@ -4447,7 +4470,7 @@
               type="button"
               class="ccc-pageBtn ccc-tagUnsubmitBtn"
               data-tag-unsubmit="1"
-              data-tag-key="${htmlEsc(key)}"
+              data-tag-key="${htmlEsc(activeTagKey)}"
               ${unsubmitDisabled ? "disabled" : ""}
               title="${htmlEsc(unsubmitTitle)}"
             >${htmlEsc(unsubmitLabel)}</button>`
@@ -4747,7 +4770,10 @@
         if (!canRestructureRow(r)) return false;
         if (!activeNow) return false;
         const fid = pad4(r.franchise_id);
-        return (usageByTeam.get(fid) || 0) < RESTRUCTURE_CAP_PER_TEAM;
+        if (!state.commishMode && (usageByTeam.get(fid) || 0) >= RESTRUCTURE_CAP_PER_TEAM) {
+          return false;
+        }
+        return true;
       }));
     }
     if (actionType === "mym") {
@@ -5023,6 +5049,7 @@
           let tagLockTitle = "";
           const meta = getPlayerMetaForAction(actionType, r);
           let headlineHtml = "";
+          let tagQuickUnsubmitHtml = "";
           if (actionType === "extend") {
             const dlSeason = normalizeSeasonValue(r.season || state.selectedSeason);
             const dlDate = getExtensionDeadlineDateForRow(r, dlSeason);
@@ -5035,20 +5062,35 @@
             const dlDate = getTagDeadlineDateForSeason(dlSeason);
             const dlText = dlDate ? fmtYMDDate(dlDate) : "TBD";
             const side = getTagSideForRow(r, "OFFENSE");
-            const key = buildTagSelectionKey(dlSeason, r.franchise_id, side);
-            const activeTag = getActiveTagSelectionByKey(key);
+            const fallbackKey = buildTagSelectionKey(dlSeason, r.franchise_id, side);
+            const activeTag = getActiveTagSelectionForSide(dlSeason, r.franchise_id, side);
+            const activeTagKey = safeStr(activeTag && activeTag.key) || fallbackKey;
             isSelectedByTag = !!activeTag && safeStr(activeTag.player_id) === safeStr(r.player_id);
             isTagLocked = !state.commishMode && !!activeTag && !isSelectedByTag;
             if (isTagLocked) tagLockTitle = `${side} tag is already selected. Unsubmit first.`;
             const submittedForRow =
-              !!state.tagSubmissions[key] &&
-              safeStr(state.tagSubmissions[key].player_id) === safeStr(r.player_id);
+              !!state.tagSubmissions[activeTagKey] &&
+              safeStr(state.tagSubmissions[activeTagKey].player_id) === safeStr(r.player_id);
             const statusText = submittedForRow ? "Submitted" : isSelectedByTag ? "Selected" : side;
             headlineHtml =
               `<span class="headline-row"><span class="headline headline-money headline-tag-cost">Tag: $${htmlEsc(
                 tagCost.toLocaleString()
               )}</span><span class="headline headline-deadline headline-right">Deadline: ${htmlEsc(dlText)}</span></span>` +
               `<span class="headline-sub">${htmlEsc(statusText)}</span>`;
+            if (isSelectedByTag || submittedForRow) {
+              const pastDeadline = isTagDeadlinePassed(dlSeason);
+              const unsubmitDisabled = submittedForRow && pastDeadline && !state.commishMode;
+              const unsubmitTitle = unsubmitDisabled
+                ? "Tag deadline has passed"
+                : submittedForRow
+                ? "Remove submitted tag"
+                : "Clear draft selection";
+              tagQuickUnsubmitHtml = `<button type="button" class="ccc-pageBtn ccc-flowTagQuickUnsubmit" data-tag-unsubmit="1" data-tag-key="${htmlEsc(
+                activeTagKey
+              )}" ${unsubmitDisabled ? "disabled" : ""} title="${htmlEsc(unsubmitTitle)}">${
+                submittedForRow ? "Unsubmit" : "Clear"
+              }</button>`;
+            }
           } else if (actionType === "restructure") {
             const remainingTcv = getRemainingTcvForRow(r);
             const dlSeason = normalizeSeasonValue(r.season || state.selectedSeason);
@@ -5067,18 +5109,21 @@
           }
           const isActive = isSelectedInFlow || (actionType === "tag" && isSelectedByTag);
           return `
-            <button type="button" class="ccc-flowPlayerBtn${isActive ? " is-active" : ""}${
-              actionType === "tag" && isTagLocked ? " is-disabled" : ""
-            }"
-              data-action-flow-select-player="1"
-              data-player-id="${htmlEsc(r.player_id)}"
-              data-franchise-id="${htmlEsc(pad4(r.franchise_id))}"
-              ${actionType === "tag" && isTagLocked ? "disabled" : ""}
-              ${tagLockTitle ? `title="${htmlEsc(tagLockTitle)}"` : ""}>
-              <span class="name">${htmlEsc(r.player_name || "")}</span>
-              ${headlineHtml}
-              <span class="meta"><span class="ccc-posPill">${htmlEsc(meta.pos)}</span> ${htmlEsc(meta.line)}</span>
-            </button>
+            <div class="ccc-flowPlayerRow${isActive ? " is-active" : ""}${actionType === "tag" && isTagLocked ? " is-locked" : ""}">
+              <button type="button" class="ccc-flowPlayerBtn${isActive ? " is-active" : ""}${
+                actionType === "tag" && isTagLocked ? " is-disabled" : ""
+              }"
+                data-action-flow-select-player="1"
+                data-player-id="${htmlEsc(r.player_id)}"
+                data-franchise-id="${htmlEsc(pad4(r.franchise_id))}"
+                ${actionType === "tag" && isTagLocked ? "disabled" : ""}
+                ${tagLockTitle ? `title="${htmlEsc(tagLockTitle)}"` : ""}>
+                <span class="name">${htmlEsc(r.player_name || "")}</span>
+                ${headlineHtml}
+                <span class="meta"><span class="ccc-posPill">${htmlEsc(meta.pos)}</span> ${htmlEsc(meta.line)}</span>
+              </button>
+              ${tagQuickUnsubmitHtml}
+            </div>
           `;
         })
         .join("");
@@ -5131,9 +5176,11 @@
       if (actionType === "tag" && selectedRow) {
         const season = normalizeSeasonValue(selectedRow.season || state.selectedSeason);
         const side = getTagSideForRow(selectedRow, "OFFENSE");
-        const key = buildTagSelectionKey(season, selectedRow.franchise_id, side);
-        const hasTagSelection = !!state.tagSelections[key];
-        const hasTagSubmission = !!state.tagSubmissions[key];
+        const fallbackKey = buildTagSelectionKey(season, selectedRow.franchise_id, side);
+        const activeTag = getActiveTagSelectionForSide(season, selectedRow.franchise_id, side);
+        const activeTagKey = safeStr(activeTag && activeTag.key) || fallbackKey;
+        const hasTagSelection = !!activeTag;
+        const hasTagSubmission = !!state.tagSubmissions[activeTagKey];
         if (hasTagSelection || hasTagSubmission) {
           const pastDeadline = isTagDeadlinePassed(season);
           const disabled = hasTagSubmission && pastDeadline && !state.commishMode;
@@ -5144,7 +5191,7 @@
             : "Clear draft tag selection";
           tagUnsubmitButton =
             `<button type="button" class="ccc-pageBtn" data-action-flow-tag-unsubmit="1" data-tag-key="${htmlEsc(
-              key
+              activeTagKey
             )}" ${disabled ? "disabled" : ""} title="${htmlEsc(title)}">` +
             `${hasTagSubmission ? "Unsubmit Tag" : "Clear Selection"}` +
             `</button>`;
@@ -5684,7 +5731,12 @@
         const pos = safeStr(posKeyFromRow(row));
         const side = getTagSideForRow({ ...row, positional_grouping: pos, position: pos }, "OFFENSE");
         const key = buildTagSelectionKey(season, fid, side);
-        const existing = getActiveTagSelectionByKey(key);
+        const existing = getActiveTagSelectionForSide(season, fid, side);
+        if (existing && safeStr(existing.player_id) === safeStr(row.player_id)) {
+          openTagModal(safeStr(existing.key) || key);
+          setActionFlowStatus("ready", "Tag modal opened. Confirm to finalize (you can resubmit until the deadline).");
+          return;
+        }
         if (existing && safeStr(existing.player_id) !== safeStr(row.player_id) && !state.commishMode) {
           const msg = `${side} tag already selected. Use Unsubmit first to change players.`;
           setActionFlowStatus(
@@ -5693,6 +5745,12 @@
           );
           setGlobalNotice(msg, true);
           return;
+        }
+        const existingKey = safeStr(existing && existing.key);
+        if (state.commishMode && existingKey && existingKey !== key) {
+          delete state.tagSelections[existingKey];
+          delete state.tagSubmissions[existingKey];
+          saveTagSubmissions(state.tagSubmissions);
         }
         state.tagSelections[key] = {
           league_id: safeStr(getLeagueId() || DEFAULT_LEAGUE_ID),
@@ -5705,6 +5763,10 @@
           side,
           at: Date.now(),
         };
+        if (state.tagSubmissions[key] && state.commishMode) {
+          delete state.tagSubmissions[key];
+          saveTagSubmissions(state.tagSubmissions);
+        }
         saveTagSelections(state.tagSelections);
         openTagModal(key);
         setActionFlowStatus("ready", "Tag modal opened. Confirm to finalize (you can resubmit until the deadline).");
@@ -5762,11 +5824,13 @@
     const detectedOwnerId = pad4(state.detectedFranchiseId);
     const ownerOrAll = detectedOwnerId && detectedOwnerId !== "0000" ? detectedOwnerId : "__ALL__";
     let defaultTeam = safeStr(defaults.teamId || ownerOrAll);
-    if (key === "mym" || key === "restructure" || key === "expiredrookie") {
-      defaultTeam = ownerOrAll;
-    }
     const forceOwnerDefaultTeam =
-      key === "mym" || key === "restructure" || key === "expiredrookie";
+      !state.commishMode && (key === "mym" || key === "restructure" || key === "expiredrookie");
+    if (forceOwnerDefaultTeam) {
+      defaultTeam = ownerOrAll;
+    } else if (state.commishMode && !safeStr(defaultTeam)) {
+      defaultTeam = "__ALL__";
+    }
     const selectedTeamRaw = safeStr(
       forceOwnerDefaultTeam ? defaultTeam : saved && saved.selectedTeam ? saved.selectedTeam : defaultTeam
     );
@@ -5859,6 +5923,25 @@
       outMap.set(key, { key, ...sub });
     });
     return Array.from(outMap.values());
+  }
+
+  function getActiveTagSelectionForSide(season, franchiseId, side) {
+    const normalizedSide = normalizeTagSideValue(side) || "OFFENSE";
+    const rows = getTagSelectionsForTeam(season, franchiseId).filter((sel) => {
+      const rowSide =
+        normalizeTagSideValue(
+          sel && (sel.side || sel.tag_side || getTagSideFromPos(sel.pos || sel.position))
+        ) || "OFFENSE";
+      return rowSide === normalizedSide;
+    });
+    if (!rows.length) return null;
+    const rankTime = (row) => {
+      const d = parseDate(row && row.submitted_at_utc);
+      if (d) return d.getTime();
+      return safeInt(row && row.at);
+    };
+    rows.sort((a, b) => rankTime(b) - rankTime(a));
+    return rows[0] || null;
   }
 
   function buildExtensionSelectionKey(season, franchiseId, playerId) {
@@ -7564,7 +7647,10 @@
             if (!canRestructureRow(r)) return false;
             if (!restructureActiveNow) return false;
             const fid = pad4(r.franchise_id);
-            return (restructureUsageByTeam.get(fid) || 0) < RESTRUCTURE_CAP_PER_TEAM;
+            if (!state.commishMode && (restructureUsageByTeam.get(fid) || 0) >= RESTRUCTURE_CAP_PER_TEAM) {
+              return false;
+            }
+            return true;
           })
         : state.activeModule === "mym" && !mymActionsOpen
         ? []
@@ -9116,7 +9202,8 @@
       }
       const fallbackPayloadSubmissions = filterRowsToLeague(payloadSubRows, activeLeagueId, false);
       const baseSubmissions = subRows.length ? subRows : fallbackPayloadSubmissions;
-      const localTestMymRows = filterRowsToLeague(loadLocalTestMymSubmissions(), activeLeagueId, false);
+      const localTestMymRows = filterRowsToLeague(loadLocalTestMymSubmissions(), activeLeagueId, false)
+        .filter((r) => safeStr(r && r.source).toLowerCase().includes("local-test"));
       state.payload.submissions = localTestMymRows.length
         ? [...localTestMymRows, ...baseSubmissions]
         : baseSubmissions;
@@ -9134,7 +9221,7 @@
         loadLocalTestRestructureSubmissions(),
         activeLeagueId,
         false
-      );
+      ).filter((r) => safeStr(r && r.source).toLowerCase().includes("local-test"));
       state.restructureSubmissions = localTestRestructureRows.length
         ? [...localTestRestructureRows, ...restructureRows]
         : restructureRows;
@@ -9994,16 +10081,19 @@
         if (adminControls) adminControls.style.display = state.commishMode ? "flex" : "none";
 
         const teamSelect = $("#teamSelect");
+        const teamOptions = teamSelect
+          ? Array.from(teamSelect.options).map((o) => safeStr(o.value || "")).filter(Boolean)
+          : [];
+        const firstOwnerTeam = teamOptions.find((v) => v !== "__ALL__") || "__ALL__";
         if (state.commishMode) {
           if (state.selectedTeam && state.selectedTeam !== "__ALL__") {
             state.lastOwnerTeam = state.selectedTeam;
           }
-          const preferred =
-            safeStr((state.defaultFilters && state.defaultFilters.teamId) || "") || "__ALL__";
-          const hasOpt =
-            teamSelect &&
-            Array.from(teamSelect.options).some((o) => safeStr(o.value) === preferred);
-          state.selectedTeam = hasOpt ? preferred : "__ALL__";
+          if (teamOptions.includes("__ALL__")) {
+            state.selectedTeam = "__ALL__";
+          } else {
+            state.selectedTeam = firstOwnerTeam;
+          }
           state.showAllTeams = state.selectedTeam === "__ALL__";
           if (teamSelect) teamSelect.value = state.selectedTeam;
         } else {
@@ -10011,14 +10101,20 @@
             state.lastOwnerTeam ||
             state.detectedFranchiseId ||
             safeStr((state.defaultFilters && state.defaultFilters.teamId) || "__ALL__");
-          const hasOpt =
-            teamSelect &&
-            Array.from(teamSelect.options).some((o) => safeStr(o.value) === fallback);
-          state.selectedTeam = hasOpt ? fallback : "__ALL__";
+          if (teamOptions.includes(safeStr(fallback))) {
+            state.selectedTeam = safeStr(fallback);
+          } else if (firstOwnerTeam && firstOwnerTeam !== "__ALL__") {
+            state.selectedTeam = firstOwnerTeam;
+          } else if (teamOptions.includes("__ALL__")) {
+            state.selectedTeam = "__ALL__";
+          } else {
+            state.selectedTeam = firstOwnerTeam || "__ALL__";
+          }
           state.showAllTeams = state.selectedTeam === "__ALL__";
           if (teamSelect) teamSelect.value = state.selectedTeam;
         }
 
+        resetAllTablePages();
         render();
       });
 
@@ -10197,10 +10293,10 @@
         const pid = safeStr(btn.getAttribute("data-player-id"));
         const playerName = safeStr(btn.getAttribute("data-player-name"));
         const key = buildTagSelectionKey(season, fid, side);
-        const existing = getActiveTagSelectionByKey(key);
+        const existing = getActiveTagSelectionForSide(season, fid, side);
 
         if (existing && safeStr(existing.player_id) === pid) {
-          openTagModal(key);
+          openTagModal(safeStr(existing.key) || key);
           return;
         }
 
@@ -10210,6 +10306,12 @@
           setGlobalNotice(msg, true);
           render();
           return;
+        }
+        const existingKey = safeStr(existing && existing.key);
+        if (state.commishMode && existingKey && existingKey !== key) {
+          delete state.tagSelections[existingKey];
+          delete state.tagSubmissions[existingKey];
+          saveTagSubmissions(state.tagSubmissions);
         }
 
         state.tagSelections[key] = {
