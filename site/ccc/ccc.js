@@ -2006,27 +2006,32 @@
   function sortRows(rows, key, dir) {
     const copy = rows.slice();
     copy.sort((ra, rb) => {
-      if (state.activeModule === "extensions" && key === "deadline") {
-        const deadlineA = getSortValue(ra, "deadline");
-        const deadlineB = getSortValue(rb, "deadline");
-        const deadlineCmp = compareVals(deadlineA, deadlineB, dir);
-        if (deadlineCmp !== 0) return deadlineCmp;
-
-        const posCmp = compareVals(extensionPosSortRank(ra), extensionPosSortRank(rb), "asc");
-        if (posCmp !== 0) return posCmp;
-
-        const nameCmp = compareVals(
-          safeStr(ra.player_name).toLowerCase(),
-          safeStr(rb.player_name).toLowerCase(),
-          "asc"
-        );
-        if (nameCmp !== 0) return nameCmp;
-
-        return compareVals(
-          safeStr(ra.franchise_name || ra.franchise_id).toLowerCase(),
-          safeStr(rb.franchise_name || rb.franchise_id).toLowerCase(),
-          "asc"
-        );
+      if (state.activeModule === "extensions") {
+        const majorKey = ["team", "deadline", "salary"].includes(key) ? key : safeStr(key || "team");
+        const majorDir = dir === "desc" ? "desc" : "asc";
+        const compareExtensionField = (field, fieldDir) => {
+          if (field === "pos") {
+            return compareVals(extensionPosSortRank(ra), extensionPosSortRank(rb), fieldDir);
+          }
+          return compareVals(getSortValue(ra, field), getSortValue(rb, field), fieldDir);
+        };
+        const chain = [];
+        if (majorKey === "team") {
+          chain.push(["team", majorDir], ["deadline", "asc"], ["salary", "desc"]);
+        } else if (majorKey === "deadline") {
+          chain.push(["deadline", majorDir], ["team", "asc"], ["salary", "desc"]);
+        } else if (majorKey === "salary") {
+          chain.push(["salary", majorDir], ["team", "asc"], ["deadline", "asc"]);
+        } else {
+          chain.push([majorKey, majorDir], ["team", "asc"], ["deadline", "asc"], ["salary", "desc"]);
+        }
+        chain.push(["player", "asc"]);
+        for (let i = 0; i < chain.length; i += 1) {
+          const item = chain[i];
+          const cmp = compareExtensionField(item[0], item[1]);
+          if (cmp !== 0) return cmp;
+        }
+        return 0;
       }
       if (state.activeModule === "tag" && key === "player") {
         const nameA = safeStr(ra.player_name).toLowerCase();
@@ -5801,6 +5806,7 @@
     return {
       selectedTeam: safeStr(state.selectedTeam || ""),
       showAllTeams: !!state.showAllTeams,
+      isCommishMode: !!state.commishMode,
       selectedPosition: safeStr(state.selectedPosition || "__ALL_POS__"),
       search: safeStr(state.search || ""),
       pageSize: clampInt(state.pageSize || 50, 10, 500),
@@ -5823,6 +5829,8 @@
       key && state.filtersByModule && state.filtersByModule[key]
         ? state.filtersByModule[key]
         : null;
+    const savedModeMatches = !!saved && !!saved.isCommishMode === !!state.commishMode;
+    const savedForMode = savedModeMatches ? saved : null;
 
     const detectedOwnerId = pad4(state.detectedFranchiseId);
     const ownerOrAll = detectedOwnerId && detectedOwnerId !== "0000" ? detectedOwnerId : "__ALL__";
@@ -5835,7 +5843,13 @@
       defaultTeam = "__ALL__";
     }
     const selectedTeamRaw = safeStr(
-      forceOwnerDefaultTeam ? defaultTeam : saved && saved.selectedTeam ? saved.selectedTeam : defaultTeam
+      forceOwnerDefaultTeam
+        ? defaultTeam
+        : savedForMode && savedForMode.selectedTeam
+        ? savedForMode.selectedTeam
+        : state.commishMode
+        ? "__ALL__"
+        : defaultTeam
     );
     const selectedTeam = (function () {
       if (!selectedTeamRaw || selectedTeamRaw === "__ALL__") return "__ALL__";
@@ -5845,11 +5859,15 @@
     state.selectedTeam = selectedTeam;
     state.showAllTeams = state.selectedTeam === "__ALL__";
     state.selectedPosition = safeStr(
-      saved && saved.selectedPosition ? saved.selectedPosition : defaults.position || "__ALL_POS__"
+      savedForMode && savedForMode.selectedPosition
+        ? savedForMode.selectedPosition
+        : defaults.position || "__ALL_POS__"
     );
-    state.search = safeStr(saved && saved.search ? saved.search : "");
+    state.search = safeStr(savedForMode && savedForMode.search ? savedForMode.search : "");
     const rawSize =
-      saved && saved.pageSize !== undefined ? safeInt(saved.pageSize) : safeInt(defaults.pageSize);
+      savedForMode && savedForMode.pageSize !== undefined
+        ? safeInt(savedForMode.pageSize)
+        : safeInt(defaults.pageSize);
     state.pageSize = [25, 50, 100].includes(rawSize) ? rawSize : 50;
   }
 
@@ -5864,7 +5882,7 @@
       sortState.dir = "asc";
     } else if (state.activeModule === "extensions") {
       sortState.tab = "eligible";
-      sortState.key = "deadline";
+      sortState.key = "team";
       sortState.dir = "asc";
     } else if (state.activeModule && sortState.tab === "eligible") {
       sortState.key = "acquired";
@@ -7530,8 +7548,8 @@
         "contractYear",
         "status",
       ]);
-      const extSortKeyRaw = sortState.tab === "eligible" ? safeStr(sortState.key) : "deadline";
-      const extSortKey = allowedExtSortKeys.has(extSortKeyRaw) ? extSortKeyRaw : "deadline";
+      const extSortKeyRaw = sortState.tab === "eligible" ? safeStr(sortState.key) : "team";
+      const extSortKey = allowedExtSortKeys.has(extSortKeyRaw) ? extSortKeyRaw : "team";
       const extSortDir = sortState.tab === "eligible" ? sortState.dir : "asc";
       const sortedExtensionRows = sortRows(
         extensionRows,
@@ -9417,7 +9435,9 @@
       const detected = teams.some((t) => t.id === state.detectedFranchiseId)
         ? state.detectedFranchiseId
         : "";
-      const initialTeam = hasTeam(defaultTeam)
+      const initialTeam = state.commishMode
+        ? "__ALL__"
+        : hasTeam(defaultTeam)
         ? defaultTeam
         : hasTeam(detected)
         ? detected
@@ -9434,6 +9454,7 @@
         state.showAllTeams = state.selectedTeam === "__ALL__";
       }
       if (
+        !state.commishMode &&
         (state.activeModule === "mym" ||
           state.activeModule === "restructure" ||
           state.activeModule === "expiredrookie") &&
@@ -9477,6 +9498,9 @@
       } else if (state.activeModule === "restructure") {
         sortState.key = "salary";
         sortState.dir = "desc";
+      } else if (state.activeModule === "extensions") {
+        sortState.key = "team";
+        sortState.dir = "asc";
       } else if (state.activeModule === "expiredrookie") {
         sortState.key = "team";
         sortState.dir = "asc";
@@ -9690,17 +9714,17 @@
         render();
       });
 
-	    const moduleExtensionsChip = $("#moduleExtensionsChip");
-	    if (moduleExtensionsChip)
-	      moduleExtensionsChip.addEventListener("click", () => {
-	        switchModule("extensions");
-	        sortState.tab = "eligible";
-	        sortState.key = "deadline";
-	        sortState.dir = "asc";
-	        resetAllTablePages();
-	        setTab("eligible");
-	        render();
-	      });
+    const moduleExtensionsChip = $("#moduleExtensionsChip");
+    if (moduleExtensionsChip)
+      moduleExtensionsChip.addEventListener("click", () => {
+        switchModule("extensions");
+        sortState.tab = "eligible";
+        sortState.key = "team";
+        sortState.dir = "asc";
+        resetAllTablePages();
+        setTab("eligible");
+        render();
+      });
 
 	    const moduleExpiredRookieChip = $("#moduleExpiredRookieChip");
 	    if (moduleExpiredRookieChip)
@@ -10123,6 +10147,7 @@
           if (teamSelect) teamSelect.value = state.selectedTeam;
         }
 
+        saveFiltersForModule(state.activeModule || "default");
         resetAllTablePages();
         render();
       });
