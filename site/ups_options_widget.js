@@ -1301,27 +1301,28 @@
       }
       const bugId = safeStr(out.bug_id || out.report_id);
       const notify = out && out.notify ? out.notify : null;
-      let notifyText = "Discord pending";
+      let notifyText = "";
       let notifyTone = "ok";
-      if (notify) {
-        if (notify.ok) {
-          if (safeStr(notify.mode) === "bot-dm-multi") {
-            notifyText = `Discord sent (${safeInt(notify.delivered, 0)}/${safeInt(notify.attempted, 0)} DMs)`;
-          } else {
-            notifyText = "Discord sent";
-          }
+      if (!notify) {
+        notifyText = "Discord status missing from worker response";
+        notifyTone = "error";
+      } else if (notify.ok) {
+        if (safeStr(notify.mode) === "bot-dm-multi") {
+          notifyText = `Discord sent (${safeInt(notify.delivered, 0)}/${safeInt(notify.attempted, 0)} DMs)`;
         } else {
-          const firstErr = Array.isArray(notify.results)
-            ? safeStr(((notify.results.find((r) => r && r.ok === false) || {}).error) || "")
-            : "";
-          const reason = safeStr(notify.error || firstErr || notify.mode || "notification_failed");
-          notifyText = `Discord failed: ${reason}`;
-          notifyTone = "error";
+          notifyText = "Discord sent";
         }
+      } else {
+        const firstErr = Array.isArray(notify.results)
+          ? safeStr(((notify.results.find((r) => r && r.ok === false) || {}).error) || "")
+          : "";
+        const reason = safeStr(notify.error || firstErr || notify.mode || "notification_failed");
+        notifyText = `Discord failed: ${reason}`;
+        notifyTone = "error";
       }
       setBugStatus(`Submitted${bugId ? ` (${bugId})` : ""}. ${notifyText}.`, notifyTone);
       const form = $("#uowBugForm");
-      if (notify && notify.ok === false) return;
+      if (!notify || notify.ok === false) return;
       if (form) form.reset();
       populateBugModuleOptions();
       populateBugTypeOptions();
