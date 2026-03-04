@@ -382,11 +382,42 @@
   }
 
   function buildIssueReportOpenUrl() {
-    var base = getOrigin() + "/" + YEAR + "/home/" + L + "?MODULE=MESSAGE17#OPEN_BUG=1";
+    var base = getOrigin() + "/" + YEAR + "/home/" + L + "#OPEN_BUG=1";
     if (FRANCHISE_ID) base += "&FRANCHISE_ID=" + encodeURIComponent(FRANCHISE_ID);
     if (MFL_USER_ID) base += "&MFL_USER_ID=" + encodeURIComponent(MFL_USER_ID);
     base += "&SOURCE_APP=" + encodeURIComponent("ups-hot-links");
     return base;
+  }
+
+  function openIssueModalInWidgetFrame() {
+    var payload = { type: "ups-open-bug-report", source_app: "ups-hot-links" };
+    var selectors = [
+      "#uowMount iframe",
+      "iframe.uow-mod-frame",
+      "iframe[src*='ups_options_widget']"
+    ];
+    var seen = [];
+    var frames = [];
+    for (var i = 0; i < selectors.length; i++) {
+      var list = document.querySelectorAll(selectors[i]);
+      for (var j = 0; j < list.length; j++) {
+        var frame = list[j];
+        if (!frame || seen.indexOf(frame) !== -1) continue;
+        seen.push(frame);
+        frames.push(frame);
+      }
+    }
+    var sent = false;
+    for (var k = 0; k < frames.length; k++) {
+      var f = frames[k];
+      try {
+        if (f && f.contentWindow && typeof f.contentWindow.postMessage === "function") {
+          f.contentWindow.postMessage(payload, "*");
+          sent = true;
+        }
+      } catch (e) {}
+    }
+    return sent;
   }
 
   function setCollapsed(card, collapsed, persist) {
@@ -585,6 +616,19 @@
     bugBtn.target = "_top";
     bugBtn.rel = "noopener";
     bugBtn.textContent = "Report Website Functionality Issue";
+    bugBtn.addEventListener("click", function (evt) {
+      evt.preventDefault();
+      evt.stopPropagation();
+      if (openIssueModalInWidgetFrame()) return;
+      var fallback = buildIssueReportOpenUrl();
+      if (fallback) {
+        try {
+          window.top.location.assign(fallback);
+        } catch (e) {
+          window.location.assign(fallback);
+        }
+      }
+    });
     actions.appendChild(bugBtn);
     mount.appendChild(actions);
 

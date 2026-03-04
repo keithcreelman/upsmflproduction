@@ -1504,7 +1504,7 @@
           <i class="fa-solid fa-arrow-up-right-from-square"></i>
           Contract Command Center
         </a>
-        <a class="ccc-cta ccc-cta-danger" data-ups-hotlink="issue" href="//%HOST%/%YEAR%/home/%LEAGUEID%?MODULE=MESSAGE17#OPEN_BUG=1&amp;SOURCE_APP=ups-hot-links">
+        <a id="upsIssueReportBtn" class="ccc-cta ccc-cta-danger" data-ups-hotlink="issue" href="//%HOST%/%YEAR%/home/%LEAGUEID%#OPEN_BUG=1&amp;SOURCE_APP=ups-hot-links">
           <i class="fa-solid fa-bug"></i>
           Report Website Functionality Issue
         </a>
@@ -1930,8 +1930,56 @@
         encodeURIComponent(YEAR) +
         "/home/" +
         encodeURIComponent(L) +
-        "?MODULE=MESSAGE17#OPEN_BUG=1&SOURCE_APP=ups-hot-links"
+        "#OPEN_BUG=1&SOURCE_APP=ups-hot-links"
       );
+    }
+
+    function openIssueModalViaWidget() {
+      var payload = { type: "ups-open-bug-report", source_app: "ups-hot-links" };
+      var selectors = [
+        "#uowMount iframe",
+        "iframe.uow-mod-frame",
+        "iframe[src*='ups_options_widget']"
+      ];
+      var seen = [];
+      var frames = [];
+      for (var i = 0; i < selectors.length; i++) {
+        var list = document.querySelectorAll(selectors[i]);
+        for (var j = 0; j < list.length; j++) {
+          var frame = list[j];
+          if (!frame || seen.indexOf(frame) !== -1) continue;
+          seen.push(frame);
+          frames.push(frame);
+        }
+      }
+      var sent = false;
+      for (var k = 0; k < frames.length; k++) {
+        var f = frames[k];
+        try {
+          if (f && f.contentWindow && typeof f.contentWindow.postMessage === "function") {
+            f.contentWindow.postMessage(payload, "*");
+            sent = true;
+          }
+        } catch (e) {}
+      }
+      return sent;
+    }
+
+    function initIssueReportButton() {
+      var issueLinks = document.querySelectorAll('a[data-ups-hotlink="issue"]');
+      if (!issueLinks || !issueLinks.length) return;
+      for (var i = 0; i < issueLinks.length; i++) {
+        var link = issueLinks[i];
+        if (!link || link.dataset.issueWired === "1") continue;
+        link.dataset.issueWired = "1";
+        link.addEventListener("click", function (evt) {
+          evt.preventDefault();
+          evt.stopPropagation();
+          if (openIssueModalViaWidget()) return;
+          var canonical = buildCanonicalIssueReportRouteUrl();
+          if (canonical) window.location.assign(canonical);
+        });
+      }
     }
 
     function buildCanonicalRosterWorkbenchRouteUrl() {
@@ -1969,7 +2017,7 @@
       var canonicalCcc = buildCanonicalCccRouteUrl();
       setHref('a[data-ups-hotlink="ccc"], a.ccc-cta[href*="MODULE=MESSAGE2"]', canonicalCcc || (origin + "/" + y + "/home/" + l + "?MODULE=MESSAGE2"));
       var canonicalIssue = buildCanonicalIssueReportRouteUrl();
-      setHref('a[data-ups-hotlink="issue"]', canonicalIssue || (origin + "/" + y + "/home/" + l + "?MODULE=MESSAGE17#OPEN_BUG=1&SOURCE_APP=ups-hot-links"));
+      setHref('a[data-ups-hotlink="issue"]', canonicalIssue || (origin + "/" + y + "/home/" + l + "#OPEN_BUG=1&SOURCE_APP=ups-hot-links"));
       setHref('a.ccc-pill[href*="/lineup"]', origin + "/" + y + "/lineup?L=" + l);
       setHref('a.ccc-pill[href*="/add_drop"]', origin + "/" + y + "/add_drop?L=" + l);
       setHref('a.ccc-pill[href*="/ajax_ls"]', origin + "/" + y + "/ajax_ls?L=" + l);
@@ -2317,6 +2365,7 @@
     );
 
     normalizeHeaderHotlinksToCurrentLeague();
+    initIssueReportButton();
     enableHomeShellClass();
 
     var mod = getModuleName();
@@ -2333,6 +2382,7 @@
         enableMessage2CccChromeClass();
         dedupeMessage2UpsShells();
         normalizeHeaderHotlinksToCurrentLeague();
+        initIssueReportButton();
         normalizeCccAnchorsToMain();
         normalizeAllEmbeddedFramesToMain();
         watchCccFramesOnMessage2();
@@ -2347,6 +2397,7 @@
       enableMessage2CccChromeClass();
       dedupeMessage2UpsShells();
       normalizeHeaderHotlinksToCurrentLeague();
+      initIssueReportButton();
       normalizeAllEmbeddedFramesToMain();
       watchCccFramesOnMessage2();
       loadCccLoader();

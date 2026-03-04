@@ -151,7 +151,8 @@
     theme: loadThemeSetting(),
     manualSelection: false,
     bugBusy: false,
-    bugAttachments: []
+    bugAttachments: [],
+    bugSourceApp: ""
   };
 
   const $ = (sel) => document.querySelector(sel);
@@ -276,8 +277,15 @@
   function wireHostThemeMessages() {
     window.addEventListener("message", (e) => {
       const data = e && e.data ? e.data : {};
-      if (!data || data.type !== "ups-theme") return;
-      applyHostTheme(data.mode || data.theme || "");
+      if (!data) return;
+      if (data.type === "ups-theme") {
+        applyHostTheme(data.mode || data.theme || "");
+        return;
+      }
+      if (data.type === "ups-open-bug-report") {
+        state.bugSourceApp = safeStr(data.source_app || data.sourceApp || "ups-hot-links").toLowerCase();
+        window.setTimeout(openBugModal, 0);
+      }
     });
   }
 
@@ -1141,7 +1149,8 @@
         params.get("SOURCE_APP") ||
         params.get("source_app") ||
         hashParams.get("SOURCE_APP") ||
-        hashParams.get("source_app")
+        hashParams.get("source_app") ||
+        state.bugSourceApp
       ),
       ups_release_sha: safeStr(params.get("UPS_RELEASE_SHA") || params.get("SHA") || ""),
       user_agent: safeStr(navigator.userAgent || ""),
@@ -1169,6 +1178,12 @@
     if (!modal) return;
     modal.hidden = false;
     resetBugAttachments();
+    const appSel = $("#uowBugApp");
+    if (appSel && state.bugSourceApp) {
+      const source = safeStr(state.bugSourceApp).toLowerCase();
+      const hasOption = Array.from(appSel.options || []).some((opt) => safeStr(opt.value).toLowerCase() === source);
+      if (hasOption) appSel.value = source;
+    }
     populateBugModuleOptions();
     populateBugTypeOptions();
     renderBugContextNote();
