@@ -234,23 +234,6 @@ body {
   flex-wrap:wrap;
 }
 
-.uow-testBanner{
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  min-width:124px;
-  padding:7px 12px;
-  border-radius:10px;
-  border:2px solid #ff4d4f;
-  background:#a50000;
-  color:#fff7f7;
-  font-size:15px;
-  font-weight:800;
-  letter-spacing:0.08em;
-  text-transform:uppercase;
-  box-shadow:0 10px 20px rgba(165,0,0,.28);
-}
-
 .uow-field-inline{
   flex-direction: row;
   align-items: center;

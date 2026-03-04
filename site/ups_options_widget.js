@@ -5,7 +5,6 @@
   const MFL_API_BASE = "https://api.myfantasyleague.com";
   const THEME_KEY = "uow_theme_v1";
   const BUG_REPORT_WORKER_DEFAULT = "https://upsmflproduction.keith-creelman.workers.dev";
-  const TEST_SITE_LEAGUE_ID = "25625";
 
   const BUG_MODULE_OPTIONS_BY_APP = {
     "contract-command-center": [
@@ -898,12 +897,6 @@
     note.textContent = `Auto-attached: League ${ctx.league_id || "—"} | Season ${ctx.season || "—"} | Franchise ${ctx.franchise_id || "—"} | User ${ctx.mfl_user_id ? "Yes" : "Unknown"} | Theme ${ctx.theme || "—"}`;
   }
 
-  function syncTestBanner(leagueId) {
-    const banner = $("#uowTestBanner");
-    if (!banner) return;
-    banner.style.display = safeStr(leagueId) === TEST_SITE_LEAGUE_ID ? "" : "none";
-  }
-
   function openBugModal() {
     const modal = $("#uowBugModal");
     if (!modal) return;
@@ -1116,7 +1109,6 @@
     const parsedYear = parseSeasonYear();
     const year = Math.max(parsedYear, new Date().getFullYear());
     const leagueId = parseLeagueId();
-    syncTestBanner(leagueId);
     applyThemeSetting(state.theme);
     wireThemeListener();
     wireHostThemeMessages();

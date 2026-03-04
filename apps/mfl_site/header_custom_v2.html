@@ -630,15 +630,15 @@
 
 .ups-dev-banner {
   position: absolute;
-  top: 0.6rem;
+  top: 50%;
   left: 50%;
-  transform: translateX(-50%);
-  z-index: 2;
+  transform: translate(-50%, -50%);
+  z-index: 12;
   background: rgba(255, 0, 0, 0.9);
   color: white;
-  padding: 0.25rem 1rem;
+  padding: 0.35rem 1.15rem;
   border-radius: 12px;
-  font-size: 72px;
+  font-size: 64px;
   font-weight: 900;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -646,6 +646,7 @@
   align-items: center;
   justify-content: center;
   width: max-content;
+  pointer-events: none;
 }
 
   .ups-hero-layout {
@@ -6185,17 +6186,37 @@
 (function () {
   var banner = document.getElementById("upsDevBanner");
   if (!banner) return;
-  var href = String(window.location.href || "");
-  var isDevLoader = !!document.querySelector('script[src*="@dev/site/loader.js"]');
-  var devLeagueId = String(window.UPS_DEV_LEAGUE_ID || "").replace(/\D/g, "");
-  var isTestLeague = false;
-  if (devLeagueId) {
-    var esc = devLeagueId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    var byParam = new RegExp("[?&]L=" + esc + "(?:[&#]|$)");
-    var byPath = new RegExp("/home/" + esc + "(?:[/?#]|$)");
-    isTestLeague = byParam.test(href) || byPath.test(href);
+  var TEST_LEAGUE_ID = "25625";
+  function readLeagueId() {
+    try {
+      var u = new URL(window.location.href || "");
+      var byParam = String(u.searchParams.get("L") || "").replace(/\D/g, "");
+      if (byParam) return byParam;
+      var byPath = String((String(u.pathname || "").match(/\/home\/(\d+)(?:\/|$)/i) || [])[1] || "").replace(/\D/g, "");
+      if (byPath) return byPath;
+    } catch (e) {}
+    var byGlobal = String(window.league_id || window.LEAGUE_ID || "").replace(/\D/g, "");
+    if (byGlobal) return byGlobal;
+    try {
+      var raw = String(document.cookie || "");
+      if (raw) {
+        var parts = raw.split(";");
+        for (var i = 0; i < parts.length; i += 1) {
+          var p = String(parts[i] || "").trim();
+          if (!p) continue;
+          var eq = p.indexOf("=");
+          var key = eq >= 0 ? p.slice(0, eq).trim() : p;
+          var val = eq >= 0 ? p.slice(eq + 1).trim() : "";
+          if (key === "MFL_LAST_LEAGUE_ID" && val) {
+            var fromCookie = decodeURIComponent(val).replace(/\D/g, "");
+            if (fromCookie) return fromCookie;
+          }
+        }
+      }
+    } catch (e) {}
+    return "";
   }
-  if (!isDevLoader && !isTestLeague) return;
+  if (readLeagueId() !== TEST_LEAGUE_ID) return;
   banner.style.display = "flex";
 })();
 </script>
