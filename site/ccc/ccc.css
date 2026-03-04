@@ -307,23 +307,6 @@
   flex-shrink:0;
 }
 
-.ccc-testBanner{
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  min-width:148px;
-  padding:0.4rem 0.9rem;
-  border-radius:12px;
-  border:2px solid #ff4d4f;
-  background:#a50000;
-  color:#fff6f6;
-  font-size:1.18rem;
-  font-weight:1000;
-  letter-spacing:0.08em;
-  text-transform:uppercase;
-  box-shadow:0 10px 24px rgba(165,0,0,.35);
-}
-
 .ccc-version{
   padding:0.32rem 0.6rem;
   border-radius:999px;
