@@ -382,7 +382,7 @@
   }
 
   function buildIssueReportOpenUrl() {
-    var base = getOrigin() + "/" + YEAR + "/home/" + L + "?MODULE=MESSAGE17&OPEN_BUG=1";
+    var base = getOrigin() + "/" + YEAR + "/home/" + L + "?MODULE=MESSAGE17#OPEN_BUG=1";
     if (FRANCHISE_ID) base += "&FRANCHISE_ID=" + encodeURIComponent(FRANCHISE_ID);
     if (MFL_USER_ID) base += "&MFL_USER_ID=" + encodeURIComponent(MFL_USER_ID);
     base += "&SOURCE_APP=" + encodeURIComponent("ups-hot-links");

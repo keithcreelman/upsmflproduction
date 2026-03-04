@@ -298,12 +298,21 @@
     return new Date().getFullYear();
   }
 
+  function getHashParams() {
+    const raw = String(window.location.hash || "").replace(/^#/, "");
+    return new URLSearchParams(raw);
+  }
+
   function shouldAutoOpenBugModal() {
     const params = new URLSearchParams(window.location.search || "");
+    const hashParams = getHashParams();
     const v = safeStr(
       params.get("OPEN_BUG") ||
       params.get("OPEN_ISSUE") ||
       params.get("OPEN_REPORT") ||
+      hashParams.get("OPEN_BUG") ||
+      hashParams.get("OPEN_ISSUE") ||
+      hashParams.get("OPEN_REPORT") ||
       ""
     ).toLowerCase();
     return v === "1" || v === "true" || v === "yes" || v === "open";
@@ -1105,6 +1114,7 @@
       href = "";
     }
     const params = new URLSearchParams(window.location.search || "");
+    const hashParams = getHashParams();
     const width = window.innerWidth || 0;
     const height = window.innerHeight || 0;
     let tz = "";
@@ -1127,7 +1137,12 @@
       page_url: href,
       query_module: safeStr(params.get("MODULE") || params.get("module")),
       query_action: safeStr(params.get("ACTION") || params.get("action")),
-      query_source_app: safeStr(params.get("SOURCE_APP") || params.get("source_app")),
+      query_source_app: safeStr(
+        params.get("SOURCE_APP") ||
+        params.get("source_app") ||
+        hashParams.get("SOURCE_APP") ||
+        hashParams.get("source_app")
+      ),
       ups_release_sha: safeStr(params.get("UPS_RELEASE_SHA") || params.get("SHA") || ""),
       user_agent: safeStr(navigator.userAgent || ""),
       platform: safeStr(navigator.platform || ""),

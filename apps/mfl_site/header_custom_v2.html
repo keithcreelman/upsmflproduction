@@ -1504,7 +1504,7 @@
           <i class="fa-solid fa-arrow-up-right-from-square"></i>
           Contract Command Center
         </a>
-        <a class="ccc-cta ccc-cta-danger" data-ups-hotlink="issue" href="//%HOST%/%YEAR%/home/%LEAGUEID%?MODULE=MESSAGE17&amp;OPEN_BUG=1&amp;SOURCE_APP=ups-hot-links">
+        <a class="ccc-cta ccc-cta-danger" data-ups-hotlink="issue" href="//%HOST%/%YEAR%/home/%LEAGUEID%?MODULE=MESSAGE17#OPEN_BUG=1&amp;SOURCE_APP=ups-hot-links">
           <i class="fa-solid fa-bug"></i>
           Report Website Functionality Issue
         </a>
@@ -1930,7 +1930,7 @@
         encodeURIComponent(YEAR) +
         "/home/" +
         encodeURIComponent(L) +
-        "?MODULE=MESSAGE17&OPEN_BUG=1&SOURCE_APP=ups-hot-links"
+        "?MODULE=MESSAGE17#OPEN_BUG=1&SOURCE_APP=ups-hot-links"
       );
     }
 
@@ -1969,7 +1969,7 @@
       var canonicalCcc = buildCanonicalCccRouteUrl();
       setHref('a[data-ups-hotlink="ccc"], a.ccc-cta[href*="MODULE=MESSAGE2"]', canonicalCcc || (origin + "/" + y + "/home/" + l + "?MODULE=MESSAGE2"));
       var canonicalIssue = buildCanonicalIssueReportRouteUrl();
-      setHref('a[data-ups-hotlink="issue"]', canonicalIssue || (origin + "/" + y + "/home/" + l + "?MODULE=MESSAGE17&OPEN_BUG=1&SOURCE_APP=ups-hot-links"));
+      setHref('a[data-ups-hotlink="issue"]', canonicalIssue || (origin + "/" + y + "/home/" + l + "?MODULE=MESSAGE17#OPEN_BUG=1&SOURCE_APP=ups-hot-links"));
       setHref('a.ccc-pill[href*="/lineup"]', origin + "/" + y + "/lineup?L=" + l);
       setHref('a.ccc-pill[href*="/add_drop"]', origin + "/" + y + "/add_drop?L=" + l);
       setHref('a.ccc-pill[href*="/ajax_ls"]', origin + "/" + y + "/ajax_ls?L=" + l);
