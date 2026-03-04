@@ -1839,11 +1839,19 @@
     key: "tagTier",
     dir: "asc", // asc | desc
   };
+  const EXTENSION_POS_SORT_ORDER = ["QB", "RB", "WR", "TE", "DB", "DL", "LB", "PK", "P"];
 
   function compareVals(a, b, dir) {
     if (a === b) return 0;
     const d = dir === "asc" ? 1 : -1;
     return a > b ? d : -d;
+  }
+
+  function extensionPosSortRank(row) {
+    const raw = safeStr(posKeyFromRow(row)).toUpperCase();
+    const pos = raw === "K" ? "PK" : raw;
+    const idx = EXTENSION_POS_SORT_ORDER.indexOf(pos);
+    return idx >= 0 ? idx : EXTENSION_POS_SORT_ORDER.length + 1;
   }
 
   function getSortValue(r, key) {
@@ -1915,6 +1923,28 @@
   function sortRows(rows, key, dir) {
     const copy = rows.slice();
     copy.sort((ra, rb) => {
+      if (state.activeModule === "extensions" && key === "deadline") {
+        const deadlineA = getSortValue(ra, "deadline");
+        const deadlineB = getSortValue(rb, "deadline");
+        const deadlineCmp = compareVals(deadlineA, deadlineB, dir);
+        if (deadlineCmp !== 0) return deadlineCmp;
+
+        const posCmp = compareVals(extensionPosSortRank(ra), extensionPosSortRank(rb), "asc");
+        if (posCmp !== 0) return posCmp;
+
+        const nameCmp = compareVals(
+          safeStr(ra.player_name).toLowerCase(),
+          safeStr(rb.player_name).toLowerCase(),
+          "asc"
+        );
+        if (nameCmp !== 0) return nameCmp;
+
+        return compareVals(
+          safeStr(ra.franchise_name || ra.franchise_id).toLowerCase(),
+          safeStr(rb.franchise_name || rb.franchise_id).toLowerCase(),
+          "asc"
+        );
+      }
       if (state.activeModule === "tag" && key === "player") {
         const nameA = safeStr(ra.player_name).toLowerCase();
         const nameB = safeStr(rb.player_name).toLowerCase();
@@ -5627,6 +5657,10 @@
       sortState.tab = "eligible";
       sortState.key = "tagTier";
       sortState.dir = "asc";
+    } else if (state.activeModule === "extensions") {
+      sortState.tab = "eligible";
+      sortState.key = "deadline";
+      sortState.dir = "asc";
     } else if (state.activeModule && sortState.tab === "eligible") {
       sortState.key = "acquired";
       sortState.dir = "desc";
@@ -7256,10 +7290,22 @@
         summary.innerHTML = "";
       }
       const extensionRows = scopedEligibility.filter((r) => canExtendRow(r));
+      const allowedExtSortKeys = new Set([
+        "deadline",
+        "team",
+        "player",
+        "pos",
+        "salary",
+        "contractYear",
+        "status",
+      ]);
+      const extSortKeyRaw = sortState.tab === "eligible" ? safeStr(sortState.key) : "deadline";
+      const extSortKey = allowedExtSortKeys.has(extSortKeyRaw) ? extSortKeyRaw : "deadline";
+      const extSortDir = sortState.tab === "eligible" ? sortState.dir : "asc";
       const sortedExtensionRows = sortRows(
         extensionRows,
-        sortState.tab === "eligible" ? sortState.key : "deadline",
-        sortState.tab === "eligible" ? sortState.dir : "asc"
+        extSortKey,
+        extSortDir
       );
       if (tabSummary) tabSummary.innerHTML = "";
       if (tabCostCalc) tabCostCalc.innerHTML = "";
