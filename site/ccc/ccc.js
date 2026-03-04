@@ -89,6 +89,7 @@
   const DEFAULT_LEAGUE_ID = String(
     window.UPS_CCC_DEFAULT_LEAGUE_ID || window.league_id || window.LEAGUE_ID || ""
   ).trim();
+  const TEST_SITE_LEAGUE_ID = "25625";
   const DEFAULT_YEAR = String(
     window.UPS_CCC_DEFAULT_YEAR || window.year || window.YEAR || new Date().getFullYear()
   ).trim();
@@ -7155,6 +7156,7 @@
     const cccTabs = $("#cccTabs");
     const cccPrimaryTabs = $("#cccPrimaryTabs");
     const cccMeta = $("#cccMeta");
+    const cccTestBanner = $("#cccTestBanner");
     const summary = $("#summary");
     const tabSummary = $("#tabSummary");
     const tabCostCalc = $("#tabCostCalc");
@@ -7173,6 +7175,11 @@
         cccError.textContent = "";
         cccError.classList.remove("ok");
       }
+    }
+
+    if (cccTestBanner) {
+      const leagueIdNow = safeStr(getResolvedLeagueId() || getLeagueId() || DEFAULT_LEAGUE_ID);
+      cccTestBanner.style.display = leagueIdNow === TEST_SITE_LEAGUE_ID ? "" : "none";
     }
 
     if (!state.activeModule) {
