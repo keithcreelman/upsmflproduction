@@ -15,9 +15,6 @@
   const TAG_EXCLUDED_PLAYER_IDS = new Set(["14056"]); // Kyler Murray (Superflex keeper) must hit FA.
   const TAG_EXCLUDED_NAME_MATCHES = ["kyler murray", "murray, kyler", "calamari"];
   const TAG_LIMIT_PER_SIDE = 1;
-  const LEAGUE_SOURCE_ALIAS = {
-    "25625": "74598",
-  };
   const SEASON_CAP_PER_TEAM = 5;
   const RESTRUCTURE_CAP_PER_TEAM = 4;
   const MYM_EVENTS_BY_SEASON = {
@@ -788,12 +785,6 @@
   // ======================================================
   // 3) URL HELPERS
   // ======================================================
-  function resolveLeagueAlias(leagueId) {
-    const id = safeStr(leagueId);
-    if (!id) return "";
-    return safeStr(LEAGUE_SOURCE_ALIAS[id] || id);
-  }
-
   function getLeagueId() {
     let rawLeague = "";
     try {
@@ -811,7 +802,7 @@
       const m = safeStr(window.location.pathname).match(/\/home\/(\d+)(?:\/|$)/i);
       rawLeague = m && m[1] ? m[1] : "";
     }
-    return resolveLeagueAlias(rawLeague);
+    return rawLeague;
   }
 
   function getYear() {
@@ -841,6 +832,63 @@
 
   function getResolvedYear() {
     return getRuntimeContext().year;
+  }
+
+  function parseLeagueFromScopedKey(key) {
+    const head = safeStr(key).split("|")[0];
+    return /^\d+$/.test(head) ? head : "";
+  }
+
+  function getRowLeagueId(row, keyHint) {
+    if (!row || typeof row !== "object") return parseLeagueFromScopedKey(keyHint);
+    const payload = row.payload && typeof row.payload === "object" ? row.payload : null;
+    const explicit = safeStr(
+      row.league_id ||
+        row.leagueId ||
+        row.L ||
+        (payload && (payload.league_id || payload.leagueId || payload.L || payload.league))
+    );
+    if (explicit) return explicit;
+    return parseLeagueFromScopedKey(keyHint);
+  }
+
+  function rowMatchesLeague(row, leagueId, keyHint, includeUnknown) {
+    const expectedLeague = safeStr(leagueId);
+    if (!expectedLeague) return true;
+    const rowLeague = safeStr(getRowLeagueId(row, keyHint));
+    if (!rowLeague) return !!includeUnknown;
+    return rowLeague === expectedLeague;
+  }
+
+  function filterRowsToLeague(rows, leagueId, includeUnknown) {
+    return (rows || []).filter((row) => rowMatchesLeague(row, leagueId, "", includeUnknown));
+  }
+
+  function filterMapToLeague(map, leagueId, includeUnknown) {
+    const out = {};
+    Object.entries(map || {}).forEach(([key, row]) => {
+      if (!key || !row) return;
+      if (!rowMatchesLeague(row, leagueId, key, includeUnknown)) return;
+      out[key] = row;
+    });
+    return out;
+  }
+
+  function getLeagueScopedMapRows(map, season, opts) {
+    const options = opts || {};
+    const league = safeStr(
+      options.leagueId || getResolvedLeagueId() || getLeagueId() || DEFAULT_LEAGUE_ID
+    );
+    const includeUnknown = !!options.includeUnknown;
+    const allSeasons = !!options.allSeasons;
+    const targetSeason = normalizeSeasonValue(season || state.selectedSeason);
+    const out = [];
+    Object.entries(map || {}).forEach(([key, row]) => {
+      if (!rowMatchesLeague(row, league, key, includeUnknown)) return;
+      if (!allSeasons && targetSeason && normalizeSeasonValue(row && row.season) !== targetSeason) return;
+      out.push(row);
+    });
+    return out;
   }
 
   function detectFranchiseId() {
@@ -994,9 +1042,15 @@
   }
 
   function normalizeSubmissionRow(r) {
+    const payload = r && typeof r.payload === "object" ? r.payload : null;
     return {
       submission_id: safeStr(r.submission_id || r.id),
-      league_id: safeStr(r.league_id || r.L || r.leagueId),
+      league_id: safeStr(
+        r.league_id ||
+          r.L ||
+          r.leagueId ||
+          (payload && (payload.league_id || payload.leagueId || payload.L || payload.league))
+      ),
       season: safeStr(r.season || r.year),
       franchise_id: pad4(r.franchise_id || r.franchiseId),
       franchise_name: safeStr(r.franchise_name || r.franchiseName),
@@ -1056,8 +1110,14 @@
 
   function normalizeTagSubmissionRow(r) {
     const position = safeStr(r.pos || r.position || r.positional_grouping);
+    const payload = r && typeof r.payload === "object" ? r.payload : null;
     return {
-      league_id: safeStr(r.league_id || r.L || r.leagueId),
+      league_id: safeStr(
+        r.league_id ||
+          r.L ||
+          r.leagueId ||
+          (payload && (payload.league_id || payload.leagueId || payload.L || payload.league))
+      ),
       season: normalizeSeasonValue(r.season || r.year),
       franchise_id: pad4(r.franchise_id || r.franchiseId),
       franchise_name: safeStr(r.franchise_name || r.franchiseName),
@@ -1198,9 +1258,11 @@
   function buildSubmittedRows(eligibilityRows, loggedRows, meta) {
     const out = [];
     const keySet = new Set();
+    const league = safeStr(getResolvedLeagueId() || getLeagueId() || DEFAULT_LEAGUE_ID);
 
     (loggedRows || []).forEach((raw) => {
       const r = normalizeSubmissionRow(raw);
+      if (!rowMatchesLeague(r, league, "", false)) return;
       const key = submissionNaturalKey(r);
       keySet.add(key);
       out.push(r);
@@ -1210,6 +1272,7 @@
     (eligibilityRows || []).forEach((row) => {
       if (!hasSubmittedMYM(row)) return;
       const inferred = normalizeSubmissionRow({
+        league_id: league,
         season: row.season,
         player_id: row.player_id,
         player_name: row.player_name,
@@ -3366,7 +3429,11 @@
 
   function buildTagSubmissionSeasonList(defaultSeason) {
     const set = new Set();
-    Object.values(state.tagSubmissions || {}).forEach((s) => {
+    const scopedRows = getLeagueScopedMapRows(state.tagSubmissions || {}, "", {
+      allSeasons: true,
+      includeUnknown: false,
+    });
+    scopedRows.forEach((s) => {
       const season = normalizeSeasonValue(s && s.season);
       if (season) set.add(season);
     });
@@ -3418,9 +3485,9 @@
       state.tagSubmissionSeason = seasonList[0] || fallbackSeason || "";
     }
     const selectedSeason = state.tagSubmissionSeason;
-    let rows = Object.values(state.tagSubmissions || {}).filter(
-      (s) => normalizeSeasonValue(s && s.season) === selectedSeason
-    );
+    let rows = getLeagueScopedMapRows(state.tagSubmissions || {}, selectedSeason, {
+      includeUnknown: false,
+    });
     const selectedTeamId = state && state.showAllTeams ? "__ALL__" : pad4(state.selectedTeam);
     if (selectedTeamId && selectedTeamId !== "__ALL__") {
       rows = rows.filter((r) => pad4(r.franchise_id) === selectedTeamId);
@@ -3922,9 +3989,9 @@
 
   function renderExtensionsSubmittedPage(defaultSeason) {
     const season = normalizeSeasonValue(defaultSeason || state.selectedSeason);
-    let rows = Object.values(state.extensionSubmissions || {}).filter(
-      (s) => normalizeSeasonValue(s && s.season) === season
-    );
+    let rows = getLeagueScopedMapRows(state.extensionSubmissions || {}, season, {
+      includeUnknown: false,
+    });
     const selectedTeamId = state && state.showAllTeams ? "__ALL__" : pad4(state.selectedTeam);
     if (selectedTeamId && selectedTeamId !== "__ALL__") {
       rows = rows.filter((r) => pad4(r.franchise_id) === selectedTeamId);
@@ -5202,20 +5269,27 @@
       .sort((a, b) => (parseDate(b.submitted_at_utc) || new Date(0)) - (parseDate(a.submitted_at_utc) || new Date(0)));
   }
 
-  function getAllSubmissionRows(season) {
+  function getAllSubmissionRows(season, opts) {
+    const options = opts || {};
     const s = normalizeSeasonValue(season || state.selectedSeason);
-    const tagRows = Object.values(state.tagSubmissions || {}).filter(
-      (r) => normalizeSeasonValue(r.season) === s
+    const league = safeStr(
+      options.leagueId || getResolvedLeagueId() || getLeagueId() || DEFAULT_LEAGUE_ID
     );
-    const extRows = Object.values(state.extensionSubmissions || {}).filter(
-      (r) => normalizeSeasonValue(r && r.season) === s
-    );
-    const rstRows = (state.restructureSubmissions || []).filter(
-      (r) => normalizeSeasonValue(r.season) === s
-    );
-    const mymRows = (state.payload.submissions || []).filter(
-      (r) => normalizeSeasonValue(r.season) === s
-    );
+    const allSeasons = !!options.allSeasons;
+    const seasonMatch = (row) =>
+      allSeasons || !s || normalizeSeasonValue(row && row.season) === s;
+    const tagRows = getLeagueScopedMapRows(state.tagSubmissions || {}, s, {
+      leagueId: league,
+      allSeasons,
+      includeUnknown: false,
+    });
+    const extRows = getLeagueScopedMapRows(state.extensionSubmissions || {}, s, {
+      leagueId: league,
+      allSeasons,
+      includeUnknown: false,
+    });
+    const rstRows = filterRowsToLeague(state.restructureSubmissions || [], league, false).filter(seasonMatch);
+    const mymRows = filterRowsToLeague(state.payload.submissions || [], league, false).filter(seasonMatch);
     return [].concat(tagRows, extRows, rstRows, mymRows);
   }
 
@@ -7125,6 +7199,7 @@
           safeStr(r.player_name).toLowerCase().includes(searchLower)
         )
       : positionFilteredEligibility.slice();
+    const reportSubmissionRows = getAllSubmissionRows("", { allSeasons: true });
     const moduleSubmittedBase =
       state.activeModule === "restructure"
         ? positionFilteredRestructureSubmissions
@@ -7240,10 +7315,10 @@
         season,
         tagSeason: tagTrackingFilterSeason || season,
         eligibleRows: tagRows,
-        submittedRows: Object.values(state.tagSubmissions || {}).filter(
-          (r) => normalizeSeasonValue(r.season) === season
-        ),
-        allSubmissionRows: getAllSubmissionRows(season),
+        submittedRows: getLeagueScopedMapRows(state.tagSubmissions || {}, season, {
+          includeUnknown: false,
+        }),
+        allSubmissionRows: reportSubmissionRows,
         health: {
           eligibleCount: safeInt(tagRows.length),
           eligibleExtensions: safeInt(tagEligibleRows.length),
@@ -7317,10 +7392,10 @@
         defaultActionType: "extend",
         season,
         eligibleRows: sortedExtensionRows,
-        submittedRows: Object.values(state.extensionSubmissions || {}).filter(
-          (r) => normalizeSeasonValue(r && r.season) === season
-        ),
-        allSubmissionRows: getAllSubmissionRows(season),
+        submittedRows: getLeagueScopedMapRows(state.extensionSubmissions || {}, season, {
+          includeUnknown: false,
+        }),
+        allSubmissionRows: reportSubmissionRows,
         health: {
           eligibleCount: safeInt(sortedExtensionRows.length),
           eligibleExtensions: safeInt(sortedExtensionRows.length),
@@ -7398,10 +7473,10 @@
         defaultActionType: "extend",
         season,
         eligibleRows: filtered,
-        submittedRows: Object.values(state.extensionSubmissions || {}).filter(
-          (r) => normalizeSeasonValue(r && r.season) === season
-        ),
-        allSubmissionRows: getAllSubmissionRows(season),
+        submittedRows: getLeagueScopedMapRows(state.extensionSubmissions || {}, season, {
+          includeUnknown: false,
+        }),
+        allSubmissionRows: reportSubmissionRows,
         health: {
           eligibleCount: safeInt(filtered.length),
           eligibleExtensions: safeInt(filtered.length),
@@ -7528,7 +7603,7 @@
       season,
       eligibleRows,
       submittedRows: submittedRowsRaw,
-      allSubmissionRows: getAllSubmissionRows(season),
+      allSubmissionRows: reportSubmissionRows,
       health: {
         eligibleCount: safeInt(eligibleRows.length),
         eligibleExtensions: safeInt(scopedEligibility.filter((r) => canExtendRow(r)).length),
@@ -8960,6 +9035,11 @@
 
       const raw = await res.json();
       state.payload = normalizePayload(raw);
+      const activeLeagueId = safeStr(getResolvedLeagueId() || getLeagueId() || DEFAULT_LEAGUE_ID);
+      state.tagSelections = filterMapToLeague(state.tagSelections, activeLeagueId, false);
+      state.tagSubmissions = filterMapToLeague(state.tagSubmissions, activeLeagueId, false);
+      state.extensionSelections = filterMapToLeague(state.extensionSelections, activeLeagueId, false);
+      state.extensionSubmissions = filterMapToLeague(state.extensionSubmissions, activeLeagueId, false);
       const payloadSubRows = Array.isArray(state.payload.submissions)
         ? state.payload.submissions.slice()
         : [];
@@ -8967,11 +9047,12 @@
       if (subRes && subRes.ok) {
         try {
           const subRaw = await subRes.json();
-          subRows = normalizeSubmissions(subRaw);
+          subRows = filterRowsToLeague(normalizeSubmissions(subRaw), activeLeagueId, false);
         } catch (e) {}
       }
-      const baseSubmissions = subRows.length ? subRows : payloadSubRows;
-      const localTestMymRows = loadLocalTestMymSubmissions();
+      const fallbackPayloadSubmissions = filterRowsToLeague(payloadSubRows, activeLeagueId, false);
+      const baseSubmissions = subRows.length ? subRows : fallbackPayloadSubmissions;
+      const localTestMymRows = filterRowsToLeague(loadLocalTestMymSubmissions(), activeLeagueId, false);
       state.payload.submissions = localTestMymRows.length
         ? [...localTestMymRows, ...baseSubmissions]
         : baseSubmissions;
@@ -8979,13 +9060,17 @@
       if (restructureSubRes && restructureSubRes.ok) {
         try {
           const restructureRaw = await restructureSubRes.json();
-          restructureRows = normalizeSubmissions(restructureRaw);
+          restructureRows = filterRowsToLeague(normalizeSubmissions(restructureRaw), activeLeagueId, false);
         } catch (e) {}
       }
       if (!restructureRows.length) {
         restructureRows = deriveHistoricalRestructureSubmissions(state.payload.submissions || []);
       }
-      const localTestRestructureRows = loadLocalTestRestructureSubmissions();
+      const localTestRestructureRows = filterRowsToLeague(
+        loadLocalTestRestructureSubmissions(),
+        activeLeagueId,
+        false
+      );
       state.restructureSubmissions = localTestRestructureRows.length
         ? [...localTestRestructureRows, ...restructureRows]
         : restructureRows;
@@ -8994,7 +9079,7 @@
       if (tagRes && tagRes.ok) {
         try {
           const tagRaw = await tagRes.json();
-          tagRows = normalizeTagRows(tagRaw);
+          tagRows = filterRowsToLeague(normalizeTagRows(tagRaw), activeLeagueId, false);
           tagMeta = (tagRaw && typeof tagRaw === "object" && tagRaw.meta) || {};
         } catch (e) {}
       }
@@ -9004,7 +9089,13 @@
       if (tagSubRes && tagSubRes.ok) {
         try {
           const tagSubRaw = await tagSubRes.json();
-          historicalTagSubRows = normalizeTagSubmissions(tagSubRaw);
+          historicalTagSubRows = normalizeTagSubmissions(tagSubRaw)
+            .map((row) => {
+              if (safeStr(getRowLeagueId(row, ""))) return row;
+              if (!tagRows.length) return row;
+              return { ...row, league_id: activeLeagueId };
+            })
+            .filter((row) => rowMatchesLeague(row, activeLeagueId, "", false));
         } catch (e) {}
       }
       state.tagSubmissions = mergeTagSubmissions(historicalTagSubRows, state.tagSubmissions || {});
