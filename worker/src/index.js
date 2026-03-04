@@ -1883,36 +1883,27 @@ export default {
         return content;
       };
 
+      const parseDiscordUserIds = (raw) => {
+        const parts = String(raw == null ? "" : raw).split(/[,\s]+/);
+        const out = [];
+        const seen = new Set();
+        for (const part of parts) {
+          const id = safeStr(part).replace(/\D/g, "");
+          if (!id || seen.has(id)) continue;
+          seen.add(id);
+          out.push(id);
+        }
+        return out;
+      };
+
       const sendDiscordNotificationForBug = async (reportRow, filePath) => {
         const webhook = safeStr(env.DISCORD_WEBHOOK_URL || "");
         const botToken = safeStr(env.DISCORD_BOT_TOKEN || "");
         const dmUserId = safeStr(env.DISCORD_DM_USER_ID || "").replace(/\D/g, "");
+        const dmUserIds = parseDiscordUserIds(env.DISCORD_DM_USER_IDS || "");
+        if (dmUserId && !dmUserIds.includes(dmUserId)) dmUserIds.unshift(dmUserId);
         const channelId = safeStr(env.DISCORD_BUG_CHANNEL_ID || "").replace(/\D/g, "");
         const content = formatBugDiscordMessage(reportRow, filePath);
-
-        if (webhook) {
-          try {
-            const res = await fetch(webhook, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                content,
-                allowed_mentions: { parse: [] },
-              }),
-            });
-            if (!res.ok) {
-              const preview = (await res.text()).slice(0, 600);
-              return { ok: false, mode: "webhook", status: res.status, error: preview || "webhook_failed" };
-            }
-            return { ok: true, mode: "webhook" };
-          } catch (e) {
-            return { ok: false, mode: "webhook", status: 0, error: `fetch_failed: ${e?.message || String(e)}` };
-          }
-        }
-
-        if (!botToken) {
-          return { ok: false, mode: "none", status: 0, error: "missing_discord_config" };
-        }
 
         const botRequest = async (method, apiPath, body) => {
           const target = `https://discord.com/api/v10${apiPath}`;
@@ -1938,30 +1929,73 @@ export default {
           }
         };
 
-        if (dmUserId) {
-          const openDm = await botRequest("POST", "/users/@me/channels", { recipient_id: dmUserId });
-          if (!openDm.ok || !safeStr(openDm.data && openDm.data.id)) {
-            return {
-              ok: false,
-              mode: "bot-dm",
-              status: openDm.status,
-              error: safeStr(openDm.text || "open_dm_failed").slice(0, 600),
-            };
-          }
-          const dmChannelId = safeStr(openDm.data.id);
-          const sendDm = await botRequest("POST", `/channels/${encodeURIComponent(dmChannelId)}/messages`, {
-            content,
-            allowed_mentions: { parse: [] },
-          });
-          if (!sendDm.ok) {
-            return {
-              ok: false,
-              mode: "bot-dm",
+        if (botToken && dmUserIds.length) {
+          const perUser = [];
+          let delivered = 0;
+          for (const userId of dmUserIds) {
+            const openDm = await botRequest("POST", "/users/@me/channels", { recipient_id: userId });
+            if (!openDm.ok || !safeStr(openDm.data && openDm.data.id)) {
+              perUser.push({
+                user_id: userId,
+                ok: false,
+                status: openDm.status,
+                error: safeStr(openDm.text || "open_dm_failed").slice(0, 600),
+              });
+              continue;
+            }
+            const dmChannelId = safeStr(openDm.data.id);
+            const sendDm = await botRequest("POST", `/channels/${encodeURIComponent(dmChannelId)}/messages`, {
+              content,
+              allowed_mentions: { parse: [] },
+            });
+            if (!sendDm.ok) {
+              perUser.push({
+                user_id: userId,
+                ok: false,
+                status: sendDm.status,
+                error: safeStr(sendDm.text || "send_dm_failed").slice(0, 600),
+              });
+              continue;
+            }
+            delivered += 1;
+            perUser.push({
+              user_id: userId,
+              ok: true,
               status: sendDm.status,
-              error: safeStr(sendDm.text || "send_dm_failed").slice(0, 600),
-            };
+              channel_id: dmChannelId,
+            });
           }
-          return { ok: true, mode: "bot-dm", channel_id: dmChannelId };
+          return {
+            ok: delivered > 0,
+            mode: "bot-dm-multi",
+            attempted: dmUserIds.length,
+            delivered,
+            results: perUser,
+          };
+        }
+
+        if (webhook) {
+          try {
+            const res = await fetch(webhook, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                content,
+                allowed_mentions: { parse: [] },
+              }),
+            });
+            if (!res.ok) {
+              const preview = (await res.text()).slice(0, 600);
+              return { ok: false, mode: "webhook", status: res.status, error: preview || "webhook_failed" };
+            }
+            return { ok: true, mode: "webhook" };
+          } catch (e) {
+            return { ok: false, mode: "webhook", status: 0, error: `fetch_failed: ${e?.message || String(e)}` };
+          }
+        }
+
+        if (!botToken) {
+          return { ok: false, mode: "none", status: 0, error: "missing_discord_config" };
         }
 
         if (channelId) {
