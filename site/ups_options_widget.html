@@ -91,20 +91,12 @@
 
         <label class="uow-field">
           Attach screenshots (optional)
-          <input id="uowBugScreenshots" class="uow-input" type="file" accept="image/*" multiple>
+          <div id="uowBugDropzone" class="uow-dropzone">
+            <div class="uow-dropzone-text">Drag and drop screenshots here, or choose files.</div>
+            <input id="uowBugScreenshots" class="uow-input" type="file" accept="image/*" multiple>
+          </div>
           <div id="uowBugAttachmentList" class="uow-form-note"></div>
         </label>
-
-        <div class="uow-form-grid">
-          <label class="uow-field">
-            Steps to reproduce
-            <textarea id="uowBugSteps" class="uow-textarea" rows="3" maxlength="2500" placeholder="1) ... 2) ..."></textarea>
-          </label>
-          <label class="uow-field">
-            Expected vs actual
-            <textarea id="uowBugExpectedActual" class="uow-textarea" rows="3" maxlength="2500" placeholder="Expected: ...&#10;Actual: ..."></textarea>
-          </label>
-        </div>
 
         <div class="uow-form-note" id="uowBugContextNote"></div>
 

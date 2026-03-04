@@ -1028,10 +1028,17 @@
     listEl.textContent = `${names.length} attached: ${names.join(", ")}`;
   }
 
+  function setBugDropzoneActive(active) {
+    const zone = $("#uowBugDropzone");
+    if (!zone) return;
+    zone.classList.toggle("is-dragover", !!active);
+  }
+
   function resetBugAttachments() {
     state.bugAttachments = [];
     const input = $("#uowBugScreenshots");
     if (input) input.value = "";
+    setBugDropzoneActive(false);
     renderBugAttachmentList();
   }
 
@@ -1209,8 +1216,6 @@
     const severitySel = $("#uowBugSeverity");
     const summaryInput = $("#uowBugSummary");
     const detailsInput = $("#uowBugDetails");
-    const stepsInput = $("#uowBugSteps");
-    const expectedActualInput = $("#uowBugExpectedActual");
     const hideModule = appHidesBugModule(appSel && appSel.value);
     const app = safeStr(appSel && appSel.value);
     const moduleName = hideModule ? "issue-type-driven" : safeStr(moduleSel && moduleSel.value);
@@ -1218,8 +1223,6 @@
     const severity = safeStr(severitySel && severitySel.value);
     const summary = safeStr(summaryInput && summaryInput.value);
     const details = safeStr(detailsInput && detailsInput.value);
-    const steps = safeStr(stepsInput && stepsInput.value);
-    const expectedActual = safeStr(expectedActualInput && expectedActualInput.value);
 
     if (!app || (!hideModule && !moduleName) || !issueType || !severity || !summary || !details) {
       setBugStatus("Please fill all required fields.", "error");
@@ -1240,8 +1243,6 @@
       franchise_name: safeStr(ctx.franchise_name || ""),
       summary,
       details,
-      steps_to_reproduce: steps,
-      expected_vs_actual: expectedActual,
       attachments: state.bugAttachments.map((item) => ({
         name: safeStr(item && item.name),
         type: safeStr(item && item.type),
@@ -1298,6 +1299,7 @@
     const backdrop = $("#uowBugBackdrop");
     const appSel = $("#uowBugApp");
     const screenshotInput = $("#uowBugScreenshots");
+    const dropzone = $("#uowBugDropzone");
     const form = $("#uowBugForm");
     if (openBtn) openBtn.addEventListener("click", openBugModal);
     if (closeBtn) closeBtn.addEventListener("click", closeBugModal);
@@ -1313,6 +1315,31 @@
     if (screenshotInput) {
       screenshotInput.addEventListener("change", (evt) => {
         const files = evt && evt.target ? evt.target.files : null;
+        setBugAttachments(files);
+        renderBugContextNote();
+      });
+    }
+    if (dropzone) {
+      const suppress = (evt) => {
+        evt.preventDefault();
+        evt.stopPropagation();
+      };
+      dropzone.addEventListener("dragenter", (evt) => {
+        suppress(evt);
+        setBugDropzoneActive(true);
+      });
+      dropzone.addEventListener("dragover", (evt) => {
+        suppress(evt);
+        setBugDropzoneActive(true);
+      });
+      dropzone.addEventListener("dragleave", (evt) => {
+        suppress(evt);
+        setBugDropzoneActive(false);
+      });
+      dropzone.addEventListener("drop", (evt) => {
+        suppress(evt);
+        setBugDropzoneActive(false);
+        const files = evt && evt.dataTransfer ? evt.dataTransfer.files : null;
         setBugAttachments(files);
         renderBugContextNote();
       });
