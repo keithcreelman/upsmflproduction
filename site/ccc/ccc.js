@@ -7231,18 +7231,7 @@
     state.calendarBaseSeason = baseSeason;
     state.calendarContractSeason = contractSeason;
     state.calendarNow = nowRef;
-    if (state.commishMode && !safeStr(state.selectedTeam)) {
-      state.selectedTeam = "__ALL__";
-      state.showAllTeams = true;
-    }
-    const showAllTeams = !!state.showAllTeams;
     const selectedPosition = safeStr(state.selectedPosition || "__ALL_POS__");
-    const selectedTeamId = pad4(state.selectedTeam);
-    const teamSelectEl = $("#teamSelect");
-    if (teamSelectEl) {
-      const teamValue = showAllTeams ? "__ALL__" : safeStr(state.selectedTeam || "");
-      if (teamValue && teamSelectEl.value !== teamValue) teamSelectEl.value = teamValue;
-    }
     const positionSelectEl = $("#positionSelect");
     if (positionSelectEl && positionSelectEl.value !== selectedPosition) {
       positionSelectEl.value = selectedPosition;
@@ -7314,6 +7303,53 @@
         )
       : allRestructureSubmissions.slice();
 
+    const teamsForCurrentSeason = buildTeamList(
+      seasonEligibility,
+      seasonMymSubmissions.concat(seasonRestructureSubmissions, seasonTagTracking),
+      state.detectedFranchiseId || ""
+    );
+    const teamIdsForCurrentSeason = teamsForCurrentSeason
+      .map((t) => safeStr(t && t.id))
+      .filter(Boolean);
+    const selectedTeamRaw = safeStr(state.selectedTeam || "");
+    const selectedTeamNorm = selectedTeamRaw === "__ALL__" ? "__ALL__" : pad4(selectedTeamRaw);
+    if (state.commishMode) {
+      const nextTeam =
+        !selectedTeamNorm || selectedTeamNorm === "__ALL__" || !teamIdsForCurrentSeason.includes(selectedTeamNorm)
+          ? "__ALL__"
+          : selectedTeamNorm;
+      state.selectedTeam = nextTeam;
+      state.showAllTeams = nextTeam === "__ALL__";
+    } else {
+      let nextTeam =
+        selectedTeamNorm && selectedTeamNorm !== "__ALL__" && teamIdsForCurrentSeason.includes(selectedTeamNorm)
+          ? selectedTeamNorm
+          : "";
+      if (!nextTeam) {
+        const ownerPref = pad4(state.lastOwnerTeam || state.detectedFranchiseId || "");
+        if (ownerPref && teamIdsForCurrentSeason.includes(ownerPref)) {
+          nextTeam = ownerPref;
+        } else {
+          nextTeam = teamIdsForCurrentSeason[0] || "__ALL__";
+        }
+      }
+      state.selectedTeam = nextTeam;
+      state.showAllTeams = nextTeam === "__ALL__";
+      if (!state.showAllTeams && state.selectedTeam) {
+        state.lastOwnerTeam = state.selectedTeam;
+      }
+    }
+
+    const teamSelectEl = $("#teamSelect");
+    if (teamSelectEl) {
+      const selectedForSelect = state.showAllTeams ? "__ALL__" : safeStr(state.selectedTeam || "");
+      populateTeamSelect(teamsForCurrentSeason, selectedForSelect);
+      const teamValue = state.showAllTeams ? "__ALL__" : safeStr(state.selectedTeam || "");
+      if (teamValue && teamSelectEl.value !== teamValue) teamSelectEl.value = teamValue;
+    }
+
+    const showAllTeams = !!state.showAllTeams;
+    const selectedTeamId = pad4(state.selectedTeam);
 
     state.teamColorMap = buildTeamColorMap(
       seasonEligibility,
@@ -9444,7 +9480,13 @@
         : "__ALL__";
 
       state.selectedTeam = initialTeam;
-      state.lastOwnerTeam = detected || "";
+      if (!state.commishMode) {
+        if (state.selectedTeam && state.selectedTeam !== "__ALL__") {
+          state.lastOwnerTeam = state.selectedTeam;
+        } else if (detected) {
+          state.lastOwnerTeam = detected;
+        }
+      }
       populateTeamSelect(teams, state.selectedTeam);
       const teamSelect = $("#teamSelect");
       if (teamSelect) {
@@ -10053,6 +10095,9 @@
         const v = safeStr(e.target.value);
         state.selectedTeam = v;
         state.showAllTeams = v === "__ALL__";
+        if (!state.commishMode && v && v !== "__ALL__") {
+          state.lastOwnerTeam = v;
+        }
         saveFiltersForModule(state.activeModule || "default");
         resetAllTablePages();
         render();
@@ -10115,27 +10160,42 @@
 
         const teamSelect = $("#teamSelect");
         const teamOptions = teamSelect
-          ? Array.from(teamSelect.options).map((o) => safeStr(o.value || "")).filter(Boolean)
+          ? Array.from(teamSelect.options)
+              .map((o) => {
+                const raw = safeStr(o.value || "");
+                return raw === "__ALL__" ? "__ALL__" : pad4(raw);
+              })
+              .filter(Boolean)
           : [];
         const firstOwnerTeam = teamOptions.find((v) => v !== "__ALL__") || "__ALL__";
+        const previousSelectedTeam = safeStr(state.selectedTeam || "");
         if (state.commishMode) {
-          if (state.selectedTeam && state.selectedTeam !== "__ALL__") {
-            state.lastOwnerTeam = state.selectedTeam;
+          if (previousSelectedTeam && previousSelectedTeam !== "__ALL__") {
+            state.lastOwnerTeam = pad4(previousSelectedTeam);
           }
-          if (teamOptions.includes("__ALL__")) {
-            state.selectedTeam = "__ALL__";
-          } else {
-            state.selectedTeam = firstOwnerTeam;
+          state.selectedTeam = "__ALL__";
+          state.showAllTeams = true;
+          if (teamSelect) {
+            if (!teamOptions.includes("__ALL__")) {
+              const allOpt = document.createElement("option");
+              allOpt.value = "__ALL__";
+              allOpt.textContent = "All Teams";
+              teamSelect.insertBefore(allOpt, teamSelect.firstChild || null);
+            }
+            teamSelect.value = "__ALL__";
           }
-          state.showAllTeams = state.selectedTeam === "__ALL__";
-          if (teamSelect) teamSelect.value = state.selectedTeam;
         } else {
-          const fallback =
+          const previousOwnerTeam =
+            previousSelectedTeam && previousSelectedTeam !== "__ALL__" ? pad4(previousSelectedTeam) : "";
+          const fallback = pad4(
             state.lastOwnerTeam ||
-            state.detectedFranchiseId ||
-            safeStr((state.defaultFilters && state.defaultFilters.teamId) || "__ALL__");
-          if (teamOptions.includes(safeStr(fallback))) {
-            state.selectedTeam = safeStr(fallback);
+              state.detectedFranchiseId ||
+              safeStr((state.defaultFilters && state.defaultFilters.teamId) || "")
+          );
+          if (previousOwnerTeam && teamOptions.includes(previousOwnerTeam)) {
+            state.selectedTeam = previousOwnerTeam;
+          } else if (fallback && teamOptions.includes(fallback)) {
+            state.selectedTeam = fallback;
           } else if (firstOwnerTeam && firstOwnerTeam !== "__ALL__") {
             state.selectedTeam = firstOwnerTeam;
           } else if (teamOptions.includes("__ALL__")) {
@@ -10144,6 +10204,9 @@
             state.selectedTeam = firstOwnerTeam || "__ALL__";
           }
           state.showAllTeams = state.selectedTeam === "__ALL__";
+          if (!state.showAllTeams && state.selectedTeam) {
+            state.lastOwnerTeam = state.selectedTeam;
+          }
           if (teamSelect) teamSelect.value = state.selectedTeam;
         }
 
