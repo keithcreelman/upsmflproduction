@@ -81,7 +81,7 @@
   };
 
   const BUG_HIDE_MODULE_FOR_APPS = new Set(["trade-war-room"]);
-  const BUG_MAX_ATTACHMENTS = 3;
+  const BUG_MAX_ATTACHMENTS = 6;
   const BUG_MAX_ATTACHMENT_FILE_BYTES = 8 * 1024 * 1024;
   const BUG_MAX_ATTACHMENT_DATA_URL_CHARS = 450000;
 
@@ -1021,7 +1021,7 @@
       return;
     }
     if (!state.bugAttachments.length) {
-      listEl.textContent = "No screenshots attached.";
+      listEl.textContent = `No screenshots attached. Max ${BUG_MAX_ATTACHMENTS}.`;
       return;
     }
     const names = state.bugAttachments.map((a) => safeStr(a && a.name)).filter(Boolean);
@@ -1096,23 +1096,47 @@
     }
   }
 
-  async function setBugAttachments(fileList) {
-    const files = Array.from(fileList || []).slice(0, BUG_MAX_ATTACHMENTS);
-    if (!files.length) {
-      resetBugAttachments();
+  async function setBugAttachments(fileList, opts = {}) {
+    const append = !!(opts && opts.append);
+    const allFiles = Array.from(fileList || []);
+    if (!allFiles.length) {
+      if (!append) resetBugAttachments();
       return;
     }
-    const out = [];
+    const existing = append && Array.isArray(state.bugAttachments)
+      ? state.bugAttachments.slice(0, BUG_MAX_ATTACHMENTS)
+      : [];
+    const out = existing.slice();
+    const existingKeys = new Set(
+      out.map((item) => `${safeStr(item && item.name).toLowerCase()}|${safeInt(item && item.size_bytes)}|${safeStr(item && item.original_type || item && item.type).toLowerCase()}`)
+    );
+    const slots = Math.max(0, BUG_MAX_ATTACHMENTS - out.length);
+    const files = allFiles.slice(0, slots);
     const errors = [];
+    if (slots <= 0) {
+      renderBugAttachmentList(`Max ${BUG_MAX_ATTACHMENTS} screenshots already attached.`);
+      return;
+    }
+    if (allFiles.length > files.length) {
+      errors.push(`max ${BUG_MAX_ATTACHMENTS} screenshots`);
+    }
     for (const file of files) {
+      const fileKey = `${safeStr(file && file.name).toLowerCase()}|${safeInt(file && file.size)}|${safeStr(file && file.type).toLowerCase()}`;
+      if (existingKeys.has(fileKey)) {
+        errors.push(`${safeStr(file && file.name) || "file"}: duplicate`);
+        continue;
+      }
       try {
         const item = await fileToScreenshotAttachment(file);
+        existingKeys.add(fileKey);
         out.push(item);
       } catch (err) {
         errors.push(`${safeStr(file && file.name) || "file"}: ${err && err.message ? err.message : "failed"}`);
       }
     }
     state.bugAttachments = out;
+    const input = $("#uowBugScreenshots");
+    if (input) input.value = "";
     renderBugAttachmentList(
       errors.length
         ? `${out.length} attached. Skipped ${errors.length}: ${errors.join(" | ")}`
@@ -1276,9 +1300,28 @@
         return;
       }
       const bugId = safeStr(out.bug_id || out.report_id);
-      const discordOk = out.notify && out.notify.ok ? "Discord sent" : "Discord pending";
-      setBugStatus(`Submitted${bugId ? ` (${bugId})` : ""}. ${discordOk}.`, "ok");
+      const notify = out && out.notify ? out.notify : null;
+      let notifyText = "Discord pending";
+      let notifyTone = "ok";
+      if (notify) {
+        if (notify.ok) {
+          if (safeStr(notify.mode) === "bot-dm-multi") {
+            notifyText = `Discord sent (${safeInt(notify.delivered, 0)}/${safeInt(notify.attempted, 0)} DMs)`;
+          } else {
+            notifyText = "Discord sent";
+          }
+        } else {
+          const firstErr = Array.isArray(notify.results)
+            ? safeStr(((notify.results.find((r) => r && r.ok === false) || {}).error) || "")
+            : "";
+          const reason = safeStr(notify.error || firstErr || notify.mode || "notification_failed");
+          notifyText = `Discord failed: ${reason}`;
+          notifyTone = "error";
+        }
+      }
+      setBugStatus(`Submitted${bugId ? ` (${bugId})` : ""}. ${notifyText}.`, notifyTone);
       const form = $("#uowBugForm");
+      if (notify && notify.ok === false) return;
       if (form) form.reset();
       populateBugModuleOptions();
       populateBugTypeOptions();
@@ -1315,7 +1358,7 @@
     if (screenshotInput) {
       screenshotInput.addEventListener("change", (evt) => {
         const files = evt && evt.target ? evt.target.files : null;
-        setBugAttachments(files);
+        setBugAttachments(files, { append: true });
         renderBugContextNote();
       });
     }
@@ -1340,7 +1383,7 @@
         suppress(evt);
         setBugDropzoneActive(false);
         const files = evt && evt.dataTransfer ? evt.dataTransfer.files : null;
-        setBugAttachments(files);
+        setBugAttachments(files, { append: true });
         renderBugContextNote();
       });
     }

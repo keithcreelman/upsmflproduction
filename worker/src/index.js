@@ -1909,6 +1909,7 @@ export default {
         if (dmUserId && !dmUserIds.includes(dmUserId)) dmUserIds.unshift(dmUserId);
         const channelId = safeStr(env.DISCORD_BUG_CHANNEL_ID || "").replace(/\D/g, "");
         const content = formatBugDiscordMessage(reportRow, filePath);
+        let dmAttemptResult = null;
 
         const botRequest = async (method, apiPath, body) => {
           const target = `https://discord.com/api/v10${apiPath}`;
@@ -1970,12 +1971,23 @@ export default {
               channel_id: dmChannelId,
             });
           }
-          return {
-            ok: delivered > 0,
+          if (delivered > 0) {
+            return {
+              ok: true,
+              mode: "bot-dm-multi",
+              attempted: dmUserIds.length,
+              delivered,
+              results: perUser,
+            };
+          }
+          const firstFail = perUser.find((row) => row && row.ok === false) || {};
+          dmAttemptResult = {
+            ok: false,
             mode: "bot-dm-multi",
             attempted: dmUserIds.length,
             delivered,
             results: perUser,
+            error: safeStr(firstFail.error || "all_dm_attempts_failed").slice(0, 600),
           };
         }
 
@@ -1991,11 +2003,27 @@ export default {
             });
             if (!res.ok) {
               const preview = (await res.text()).slice(0, 600);
-              return { ok: false, mode: "webhook", status: res.status, error: preview || "webhook_failed" };
+              return {
+                ok: false,
+                mode: "webhook",
+                status: res.status,
+                error: preview || "webhook_failed",
+                dm_attempt: dmAttemptResult || undefined,
+              };
             }
-            return { ok: true, mode: "webhook" };
+            return {
+              ok: true,
+              mode: "webhook",
+              dm_attempt: dmAttemptResult || undefined,
+            };
           } catch (e) {
-            return { ok: false, mode: "webhook", status: 0, error: `fetch_failed: ${e?.message || String(e)}` };
+            return {
+              ok: false,
+              mode: "webhook",
+              status: 0,
+              error: `fetch_failed: ${e?.message || String(e)}`,
+              dm_attempt: dmAttemptResult || undefined,
+            };
           }
         }
 
@@ -2014,11 +2042,18 @@ export default {
               mode: "bot-channel",
               status: sendChannel.status,
               error: safeStr(sendChannel.text || "send_channel_failed").slice(0, 600),
+              dm_attempt: dmAttemptResult || undefined,
             };
           }
-          return { ok: true, mode: "bot-channel", channel_id: channelId };
+          return {
+            ok: true,
+            mode: "bot-channel",
+            channel_id: channelId,
+            dm_attempt: dmAttemptResult || undefined,
+          };
         }
 
+        if (dmAttemptResult) return dmAttemptResult;
         return { ok: false, mode: "none", status: 0, error: "missing_discord_dm_or_channel" };
       };
 
@@ -5798,7 +5833,7 @@ export default {
       const sanitizeBugAttachments = (rawAttachments) => {
         const rows = Array.isArray(rawAttachments) ? rawAttachments : [];
         const out = [];
-        const maxItems = 3;
+        const maxItems = 6;
         const maxDataUrlChars = 450000;
         for (const row of rows) {
           if (!row || typeof row !== "object") continue;
