@@ -1328,7 +1328,9 @@
       populateBugTypeOptions();
       resetBugAttachments();
       renderBugContextNote();
-      window.setTimeout(closeBugModal, 900);
+      // Keep modal open after success so the user can confirm status.
+      const summaryField = $("#uowBugSummary");
+      if (summaryField) summaryField.focus();
     } catch (err) {
       setBugStatus(err && err.message ? err.message : "Failed to submit report.", "error");
     } finally {

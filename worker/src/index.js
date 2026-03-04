@@ -1896,6 +1896,43 @@ export default {
         return out;
       };
 
+      const decodeDataUrlAttachment = (row, idx) => {
+        const dataUrl = safeStr(row && row.data_url);
+        const m = dataUrl.match(/^data:([^;,]+)?;base64,([A-Za-z0-9+/=\s]+)$/i);
+        if (!m) return null;
+        const mime = safeStr(m[1] || row.type || "image/jpeg");
+        const b64 = safeStr(m[2]).replace(/\s+/g, "");
+        if (!b64) return null;
+        let bin = "";
+        try {
+          bin = atob(b64);
+        } catch (_) {
+          return null;
+        }
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i += 1) bytes[i] = bin.charCodeAt(i);
+        const ext = mime.includes("png") ? "png" : mime.includes("webp") ? "webp" : "jpg";
+        const fallbackName = `screenshot-${idx + 1}.${ext}`;
+        const name = safeStr(row && row.name).slice(0, 120) || fallbackName;
+        return {
+          name,
+          mime: mime || "application/octet-stream",
+          bytes,
+        };
+      };
+
+      const buildDiscordAttachmentFiles = (reportRow) => {
+        const rows = Array.isArray(reportRow && reportRow.attachments) ? reportRow.attachments : [];
+        const out = [];
+        for (let i = 0; i < rows.length; i += 1) {
+          const decoded = decodeDataUrlAttachment(rows[i], i);
+          if (!decoded) continue;
+          out.push(decoded);
+          if (out.length >= 6) break;
+        }
+        return out;
+      };
+
       const sendDiscordNotificationForBug = async (reportRow, filePath) => {
         const webhook = safeStr(env.DISCORD_WEBHOOK_URL || "");
         const botToken = safeStr(
@@ -1909,6 +1946,7 @@ export default {
         if (dmUserId && !dmUserIds.includes(dmUserId)) dmUserIds.unshift(dmUserId);
         const channelId = safeStr(env.DISCORD_BUG_CHANNEL_ID || "").replace(/\D/g, "");
         const content = formatBugDiscordMessage(reportRow, filePath);
+        const files = buildDiscordAttachmentFiles(reportRow);
         let dmAttemptResult = null;
 
         const botRequest = async (method, apiPath, body) => {
@@ -1921,6 +1959,49 @@ export default {
                 "Content-Type": "application/json",
               },
               body: body == null ? undefined : JSON.stringify(body),
+            });
+            const text = await res.text();
+            let data = null;
+            try {
+              data = text ? JSON.parse(text) : null;
+            } catch (_) {
+              data = null;
+            }
+            return { ok: res.ok, status: res.status, data, text };
+          } catch (e) {
+            return { ok: false, status: 0, data: null, text: `fetch_failed: ${e?.message || String(e)}` };
+          }
+        };
+
+        const botRequestWithFiles = async (apiPath) => {
+          if (!files.length) {
+            return botRequest("POST", apiPath, {
+              content,
+              allowed_mentions: { parse: [] },
+            });
+          }
+          const target = `https://discord.com/api/v10${apiPath}`;
+          try {
+            const form = new FormData();
+            form.append(
+              "payload_json",
+              JSON.stringify({
+                content,
+                allowed_mentions: { parse: [] },
+              })
+            );
+            for (let i = 0; i < files.length; i += 1) {
+              const f = files[i];
+              form.append(
+                `files[${i}]`,
+                new Blob([f.bytes], { type: f.mime || "application/octet-stream" }),
+                f.name || `screenshot-${i + 1}.jpg`
+              );
+            }
+            const res = await fetch(target, {
+              method: "POST",
+              headers: { Authorization: `Bot ${botToken}` },
+              body: form,
             });
             const text = await res.text();
             let data = null;
@@ -1950,10 +2031,7 @@ export default {
               continue;
             }
             const dmChannelId = safeStr(openDm.data.id);
-            const sendDm = await botRequest("POST", `/channels/${encodeURIComponent(dmChannelId)}/messages`, {
-              content,
-              allowed_mentions: { parse: [] },
-            });
+            const sendDm = await botRequestWithFiles(`/channels/${encodeURIComponent(dmChannelId)}/messages`);
             if (!sendDm.ok) {
               perUser.push({
                 user_id: userId,
@@ -1993,14 +2071,38 @@ export default {
 
         if (webhook) {
           try {
-            const res = await fetch(webhook, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                content,
-                allowed_mentions: { parse: [] },
-              }),
-            });
+            let res = null;
+            if (!files.length) {
+              res = await fetch(webhook, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  content,
+                  allowed_mentions: { parse: [] },
+                }),
+              });
+            } else {
+              const form = new FormData();
+              form.append(
+                "payload_json",
+                JSON.stringify({
+                  content,
+                  allowed_mentions: { parse: [] },
+                })
+              );
+              for (let i = 0; i < files.length; i += 1) {
+                const f = files[i];
+                form.append(
+                  `files[${i}]`,
+                  new Blob([f.bytes], { type: f.mime || "application/octet-stream" }),
+                  f.name || `screenshot-${i + 1}.jpg`
+                );
+              }
+              res = await fetch(webhook, {
+                method: "POST",
+                body: form,
+              });
+            }
             if (!res.ok) {
               const preview = (await res.text()).slice(0, 600);
               return {
@@ -2032,10 +2134,7 @@ export default {
         }
 
         if (channelId) {
-          const sendChannel = await botRequest("POST", `/channels/${encodeURIComponent(channelId)}/messages`, {
-            content,
-            allowed_mentions: { parse: [] },
-          });
+          const sendChannel = await botRequestWithFiles(`/channels/${encodeURIComponent(channelId)}/messages`);
           if (!sendChannel.ok) {
             return {
               ok: false,
