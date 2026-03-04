@@ -1,40 +1,38 @@
 <style>
-  .ups-issue-hpm-shell {
+  .ups-issue-embed-shell {
     margin: 0.75rem auto;
     max-width: 1220px;
     border: 1px solid rgba(239, 68, 68, 0.55);
     border-radius: 12px;
     background: linear-gradient(180deg, rgba(30, 8, 12, 0.95), rgba(20, 6, 9, 0.95));
-    padding: 12px 14px;
+    overflow: hidden;
+  }
+
+  .ups-issue-embed-head {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 10px;
+    gap: 12px;
+    padding: 10px 12px;
+    border-bottom: 1px solid rgba(239, 68, 68, 0.35);
   }
 
-  .ups-issue-hpm-title {
+  .ups-issue-embed-title {
     margin: 0;
     color: #ffe8ea;
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 800;
     letter-spacing: 0.02em;
   }
 
-  .ups-issue-hpm-sub {
-    margin: 2px 0 0 0;
-    color: #f5c7cd;
-    font-size: 12px;
-    opacity: 0.92;
-  }
-
-  .ups-issue-hpm-btn {
+  .ups-issue-embed-open {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     border: 1px solid #ef4444;
     border-radius: 999px;
-    padding: 8px 14px;
-    font-size: 12px;
+    padding: 7px 12px;
+    font-size: 11px;
     font-weight: 800;
     letter-spacing: 0.02em;
     text-decoration: none;
@@ -43,21 +41,32 @@
     white-space: nowrap;
   }
 
-  .ups-issue-hpm-btn:hover {
+  .ups-issue-embed-open:hover {
     border-color: #f87171;
     background: linear-gradient(180deg, #f05252, #e11d48);
     color: #fff;
   }
+
+  .ups-issue-embed-frame {
+    display: block;
+    width: 100%;
+    min-height: 860px;
+    border: 0;
+    background: transparent;
+  }
 </style>
 
-<div class="ups-issue-hpm-shell">
-  <div>
-    <p class="ups-issue-hpm-title">Report Website Functionality Issue</p>
-    <p class="ups-issue-hpm-sub">Open the issue form in a popup and submit screenshots/details.</p>
+<div class="ups-issue-embed-shell">
+  <div class="ups-issue-embed-head">
+    <p class="ups-issue-embed-title">Report Website Functionality Issue</p>
+    <a id="upsIssueEmbedOpen" class="ups-issue-embed-open" target="_blank" rel="noopener">Open In New Window</a>
   </div>
-  <a id="upsHpmIssueBtn" class="ups-issue-hpm-btn" target="_blank" rel="noopener">
-    Open Issue Form
-  </a>
+  <iframe
+    id="upsIssueEmbedFrame"
+    class="ups-issue-embed-frame"
+    title="UPS Issue Report Form"
+    loading="lazy"
+    scrolling="no"></iframe>
 </div>
 
 <script>
@@ -91,7 +100,11 @@
     function detectLeagueId() {
       try {
         var u = new URL(window.location.href);
-        var byQuery = safeStr(u.searchParams.get("L") || u.searchParams.get("league_id") || "").replace(/\D/g, "");
+        var byQuery = safeStr(
+          u.searchParams.get("L") ||
+          u.searchParams.get("league_id") ||
+          ""
+        ).replace(/\D/g, "");
         if (byQuery) return byQuery;
       } catch (e) {}
       var byPath = safeStr((safeStr(window.location.pathname).match(/\/home\/(\d+)(?:\/|$)/i) || [])[1]).replace(/\D/g, "");
@@ -104,7 +117,11 @@
     function detectYear() {
       try {
         var u = new URL(window.location.href);
-        var byQuery = safeStr(u.searchParams.get("YEAR") || u.searchParams.get("season") || "").replace(/\D/g, "");
+        var byQuery = safeStr(
+          u.searchParams.get("YEAR") ||
+          u.searchParams.get("season") ||
+          ""
+        ).replace(/\D/g, "");
         if (byQuery) return byQuery;
       } catch (e) {}
       var byPath = safeStr((safeStr(window.location.pathname).match(/\/(\d{4})\//) || [])[1]).replace(/\D/g, "");
@@ -145,9 +162,21 @@
       return safeStr(readCookie("MFL_USER_ID"));
     }
 
-    function buildUrl() {
+    function detectTheme() {
+      try {
+        if (typeof window.getUPSMode === "function") return safeStr(window.getUPSMode() || "dark");
+      } catch (e) {}
+      var attr = safeStr(document.documentElement && document.documentElement.getAttribute("data-ups-mode"));
+      return attr || "dark";
+    }
+
+    function buildIssueUrl() {
       var releaseRef = encodeURIComponent(safeStr(window.UPS_RELEASE_SHA || "main") || "main");
-      var base = "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@" + releaseRef + "/site/ups_issue_report.html";
+      var base =
+        "https://rawcdn.githack.com/keithcreelman/upsmflproduction/" +
+        releaseRef +
+        "/site/ups_issue_report.html";
+
       var q = [];
       var L = detectLeagueId();
       var YEAR = detectYear();
@@ -159,36 +188,30 @@
       if (uid) q.push("MFL_USER_ID=" + encodeURIComponent(uid));
       var worker = safeStr(window.UPS_WORKER_URL || "");
       if (worker) q.push("WORKER_URL=" + encodeURIComponent(worker));
+      var theme = detectTheme();
+      if (theme) q.push("THEME=" + encodeURIComponent(theme));
       q.push("OPEN_BUG=1");
       q.push("SOURCE_APP=" + encodeURIComponent("hpm-3"));
       q.push("v=" + encodeURIComponent(String(Date.now())));
       return base + "?" + q.join("&");
     }
 
-    var btn = document.getElementById("upsHpmIssueBtn");
-    if (!btn) return;
-    var href = buildUrl();
-    btn.href = href;
-    btn.addEventListener("click", function (evt) {
-      evt.preventDefault();
-      var next = buildUrl();
-      var win = null;
-      try {
-        win = window.open(
-          next,
-          "upsIssueReport",
-          "popup=yes,width=980,height=860,resizable=yes,scrollbars=yes"
-        );
-      } catch (e) {
-        win = null;
-      }
-      if (win && !win.closed) {
-        try {
-          win.focus();
-        } catch (e) {}
-        return;
-      }
-      window.location.assign(next);
+    var frame = document.getElementById("upsIssueEmbedFrame");
+    var openBtn = document.getElementById("upsIssueEmbedOpen");
+    if (!frame) return;
+
+    var url = buildIssueUrl();
+    frame.src = url;
+    if (openBtn) openBtn.href = url;
+
+    window.addEventListener("message", function (e) {
+      if (!frame.contentWindow || e.source !== frame.contentWindow) return;
+      var data = e && e.data ? e.data : {};
+      if (!data || data.type !== "uow-height") return;
+      var next = Number(data.height);
+      if (!Number.isFinite(next) || next <= 0) return;
+      var clamped = Math.max(760, Math.min(2400, Math.ceil(next)));
+      frame.style.height = String(clamped) + "px";
     });
   })();
 </script>
