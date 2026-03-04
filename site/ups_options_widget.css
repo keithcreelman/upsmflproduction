@@ -220,6 +220,7 @@ body {
   #uowApp { padding: 14px 14px 22px; }
   .uow-card-body { align-items: flex-start; }
   .uow-field { width: 100%; }
+  .uow-issue-title { font-size: 28px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -232,6 +233,26 @@ body {
   align-items:center;
   gap:8px;
   flex-wrap:wrap;
+}
+
+.uow-hero-copy{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+}
+
+.uow-issue-title{
+  font-size:34px;
+  font-weight:800;
+  line-height:1.02;
+  letter-spacing:0.01em;
+}
+
+.uow-issue-discord-note{
+  color:var(--ink-soft);
+  font-size:13px;
+  font-weight:700;
+  max-width:680px;
 }
 
 .uow-field-inline{
