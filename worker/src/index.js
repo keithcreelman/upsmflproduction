@@ -1898,7 +1898,12 @@ export default {
 
       const sendDiscordNotificationForBug = async (reportRow, filePath) => {
         const webhook = safeStr(env.DISCORD_WEBHOOK_URL || "");
-        const botToken = safeStr(env.DISCORD_BOT_TOKEN || "");
+        const botToken = safeStr(
+          env.DISCORD_BOT_TOKEN ||
+          env.DISCORD_BOT ||
+          env.Discord_bot ||
+          ""
+        );
         const dmUserId = safeStr(env.DISCORD_DM_USER_ID || "").replace(/\D/g, "");
         const dmUserIds = parseDiscordUserIds(env.DISCORD_DM_USER_IDS || "");
         if (dmUserId && !dmUserIds.includes(dmUserId)) dmUserIds.unshift(dmUserId);
