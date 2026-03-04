@@ -44,6 +44,11 @@ Use jsDelivr so you do not need GitHub Pages enabled.
 <script src="https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/loader.js?v=2026.03.04.6" data-ups-partial="hpm-ccc"></script>
 ```
 
+## Owner Hub Widget HPM Partial (Countdown + Owner Activity)
+```html
+<script src="https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/loader.js?v=2026.03.04.7" data-ups-partial="hpm-widget"></script>
+```
+
 ## Optional target node form
 If you want to mount into an existing element:
 ```html

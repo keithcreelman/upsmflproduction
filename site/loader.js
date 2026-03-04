@@ -120,7 +120,8 @@
     "hpm-mcm": "/site/hpm-mcm.html",
     "hpm-standings": "/site/hpm-standings.html",
     "hpm-issue-report": "/site/hpm-issue-report.html",
-    "hpm-ccc": "/site/hpm-ccc.html"
+    "hpm-ccc": "/site/hpm-ccc.html",
+    "hpm-widget": "/site/hpm-widget.html"
   };
 
   function safeStr(value) {
