@@ -29,6 +29,11 @@ Use jsDelivr so you do not need GitHub Pages enabled.
 <script src="https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@dev/site/loader.js?v=2026.02.16.13" data-ups-partial="hpm-standings"></script>
 ```
 
+## Issue Report HPM (use this for HPM 3)
+```html
+<script src="https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/loader.js?v=2026.03.04.4" data-ups-partial="hpm-issue-report"></script>
+```
+
 ## Contract Command Center (Message 2)
 ```html
 <script src="https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@dev/site/ccc/mfl_hpm_embed_loader.js?v=2026.02.15.5"></script>

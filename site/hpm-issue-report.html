@@ -1,0 +1,194 @@
+<style>
+  .ups-issue-hpm-shell {
+    margin: 0.75rem auto;
+    max-width: 1220px;
+    border: 1px solid rgba(239, 68, 68, 0.55);
+    border-radius: 12px;
+    background: linear-gradient(180deg, rgba(30, 8, 12, 0.95), rgba(20, 6, 9, 0.95));
+    padding: 12px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .ups-issue-hpm-title {
+    margin: 0;
+    color: #ffe8ea;
+    font-size: 15px;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+  }
+
+  .ups-issue-hpm-sub {
+    margin: 2px 0 0 0;
+    color: #f5c7cd;
+    font-size: 12px;
+    opacity: 0.92;
+  }
+
+  .ups-issue-hpm-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #ef4444;
+    border-radius: 999px;
+    padding: 8px 14px;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    text-decoration: none;
+    color: #fff8f8;
+    background: linear-gradient(180deg, #ef4444, #dc2626);
+    white-space: nowrap;
+  }
+
+  .ups-issue-hpm-btn:hover {
+    border-color: #f87171;
+    background: linear-gradient(180deg, #f05252, #e11d48);
+    color: #fff;
+  }
+</style>
+
+<div class="ups-issue-hpm-shell">
+  <div>
+    <p class="ups-issue-hpm-title">Report Website Functionality Issue</p>
+    <p class="ups-issue-hpm-sub">Open the issue form in a popup and submit screenshots/details.</p>
+  </div>
+  <a id="upsHpmIssueBtn" class="ups-issue-hpm-btn" target="_blank" rel="noopener">
+    Open Issue Form
+  </a>
+</div>
+
+<script>
+  (function () {
+    function safeStr(v) {
+      return String(v || "").trim();
+    }
+
+    function readCookie(name) {
+      try {
+        var raw = safeStr(document.cookie || "");
+        if (!raw) return "";
+        var parts = raw.split(";");
+        for (var i = 0; i < parts.length; i++) {
+          var p = safeStr(parts[i]);
+          if (!p) continue;
+          var eq = p.indexOf("=");
+          var key = eq >= 0 ? safeStr(p.slice(0, eq)) : safeStr(p);
+          if (key !== name) continue;
+          var val = eq >= 0 ? safeStr(p.slice(eq + 1)) : "";
+          try {
+            return decodeURIComponent(val);
+          } catch (e) {
+            return val;
+          }
+        }
+      } catch (e) {}
+      return "";
+    }
+
+    function detectLeagueId() {
+      try {
+        var u = new URL(window.location.href);
+        var byQuery = safeStr(u.searchParams.get("L") || u.searchParams.get("league_id") || "").replace(/\D/g, "");
+        if (byQuery) return byQuery;
+      } catch (e) {}
+      var byPath = safeStr((safeStr(window.location.pathname).match(/\/home\/(\d+)(?:\/|$)/i) || [])[1]).replace(/\D/g, "");
+      if (byPath) return byPath;
+      var byGlobal = safeStr(window.league_id || window.LEAGUE_ID || "").replace(/\D/g, "");
+      if (byGlobal) return byGlobal;
+      return "";
+    }
+
+    function detectYear() {
+      try {
+        var u = new URL(window.location.href);
+        var byQuery = safeStr(u.searchParams.get("YEAR") || u.searchParams.get("season") || "").replace(/\D/g, "");
+        if (byQuery) return byQuery;
+      } catch (e) {}
+      var byPath = safeStr((safeStr(window.location.pathname).match(/\/(\d{4})\//) || [])[1]).replace(/\D/g, "");
+      if (byPath) return byPath;
+      var byGlobal = safeStr(window.year || window.YEAR || "").replace(/\D/g, "");
+      if (byGlobal) return byGlobal;
+      return String(new Date().getFullYear());
+    }
+
+    function detectFranchiseId() {
+      try {
+        var u = new URL(window.location.href);
+        var byQuery = safeStr(
+          u.searchParams.get("FRANCHISE_ID") ||
+          u.searchParams.get("FRANCHISEID") ||
+          u.searchParams.get("franchise_id") ||
+          u.searchParams.get("F") ||
+          ""
+        ).replace(/\D/g, "");
+        if (byQuery) return byQuery.padStart(4, "0").slice(-4);
+      } catch (e) {}
+      var byGlobal = safeStr(window.franchise_id || window.FRANCHISE_ID || "").replace(/\D/g, "");
+      if (byGlobal) return byGlobal.padStart(4, "0").slice(-4);
+      return "";
+    }
+
+    function detectMflUserId() {
+      try {
+        var u = new URL(window.location.href);
+        var byQuery = safeStr(
+          u.searchParams.get("MFL_USER_ID") ||
+          u.searchParams.get("MFLUSERID") ||
+          u.searchParams.get("mfl_user_id") ||
+          ""
+        );
+        if (byQuery) return byQuery;
+      } catch (e) {}
+      return safeStr(readCookie("MFL_USER_ID"));
+    }
+
+    function buildUrl() {
+      var releaseRef = encodeURIComponent(safeStr(window.UPS_RELEASE_SHA || "main") || "main");
+      var base = "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@" + releaseRef + "/site/ups_issue_report.html";
+      var q = [];
+      var L = detectLeagueId();
+      var YEAR = detectYear();
+      if (L) q.push("L=" + encodeURIComponent(L));
+      if (YEAR) q.push("YEAR=" + encodeURIComponent(YEAR));
+      var fid = detectFranchiseId();
+      if (fid) q.push("FRANCHISE_ID=" + encodeURIComponent(fid));
+      var uid = detectMflUserId();
+      if (uid) q.push("MFL_USER_ID=" + encodeURIComponent(uid));
+      var worker = safeStr(window.UPS_WORKER_URL || "");
+      if (worker) q.push("WORKER_URL=" + encodeURIComponent(worker));
+      q.push("OPEN_BUG=1");
+      q.push("SOURCE_APP=" + encodeURIComponent("hpm-3"));
+      q.push("v=" + encodeURIComponent(String(Date.now())));
+      return base + "?" + q.join("&");
+    }
+
+    var btn = document.getElementById("upsHpmIssueBtn");
+    if (!btn) return;
+    var href = buildUrl();
+    btn.href = href;
+    btn.addEventListener("click", function (evt) {
+      evt.preventDefault();
+      var next = buildUrl();
+      var win = null;
+      try {
+        win = window.open(
+          next,
+          "upsIssueReport",
+          "popup=yes,width=980,height=860,resizable=yes,scrollbars=yes"
+        );
+      } catch (e) {
+        win = null;
+      }
+      if (win && !win.closed) {
+        try {
+          win.focus();
+        } catch (e) {}
+        return;
+      }
+      window.location.assign(next);
+    });
+  })();
+</script>

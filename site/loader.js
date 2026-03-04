@@ -118,7 +118,8 @@
     footer: "/apps/mfl_site/footer_custom_v2.html",
     "hpm-default": "/site/hpm-default.html",
     "hpm-mcm": "/site/hpm-mcm.html",
-    "hpm-standings": "/site/hpm-standings.html"
+    "hpm-standings": "/site/hpm-standings.html",
+    "hpm-issue-report": "/site/hpm-issue-report.html"
   };
 
   function safeStr(value) {
