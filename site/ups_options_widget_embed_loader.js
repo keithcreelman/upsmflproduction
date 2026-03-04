@@ -609,29 +609,32 @@
     mount.classList.add("ups-owner-hub-modules");
     mount.innerHTML = "";
 
-    var actions = document.createElement("div");
-    actions.className = "uow-mod-actions";
-    var bugBtn = document.createElement("a");
-    bugBtn.className = "uow-mod-bug";
-    bugBtn.href = buildIssueReportOpenUrl();
-    bugBtn.target = "_top";
-    bugBtn.rel = "noopener";
-    bugBtn.textContent = "Report Website Functionality Issue";
-    bugBtn.addEventListener("click", function (evt) {
-      evt.preventDefault();
-      evt.stopPropagation();
-      if (openIssueModalInWidgetFrame()) return;
-      var fallback = buildIssueReportOpenUrl();
-      if (fallback) {
-        try {
-          window.top.location.assign(fallback);
-        } catch (e) {
-          window.location.assign(fallback);
+    var showBugButton = parseBool(window.UPS_UOW_SHOW_BUG_BUTTON, true);
+    if (showBugButton) {
+      var actions = document.createElement("div");
+      actions.className = "uow-mod-actions";
+      var bugBtn = document.createElement("a");
+      bugBtn.className = "uow-mod-bug";
+      bugBtn.href = buildIssueReportOpenUrl();
+      bugBtn.target = "_top";
+      bugBtn.rel = "noopener";
+      bugBtn.textContent = "Report Website Functionality Issue";
+      bugBtn.addEventListener("click", function (evt) {
+        evt.preventDefault();
+        evt.stopPropagation();
+        if (openIssueModalInWidgetFrame()) return;
+        var fallback = buildIssueReportOpenUrl();
+        if (fallback) {
+          try {
+            window.top.location.assign(fallback);
+          } catch (e) {
+            window.location.assign(fallback);
+          }
         }
-      }
-    });
-    actions.appendChild(bugBtn);
-    mount.appendChild(actions);
+      });
+      actions.appendChild(bugBtn);
+      mount.appendChild(actions);
+    }
 
     var stack = document.createElement("div");
     stack.className = "uow-mod-stack";
@@ -677,6 +680,8 @@
   }
 
   function shouldUseModuleStack() {
+    var forceStack = parseBool(window.UPS_UOW_FORCE_STACK, false);
+    if (forceStack) return true;
     if (!isMflContext()) return false;
     if (!u) return false;
     if (isOptionsRoute(u)) return false;
