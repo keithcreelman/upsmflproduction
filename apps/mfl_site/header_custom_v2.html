@@ -964,6 +964,14 @@
     box-shadow: none;
   }
 
+  .ccc-cta-danger,
+  .pagebody .ccc-cta-danger {
+    background: linear-gradient(180deg, #ef4444, #dc2626);
+    color: #fff7f7 !important;
+    border-color: #f87171;
+    box-shadow: 0 10px 18px rgba(220, 38, 38, 0.34);
+  }
+
   .ccc-cta:hover,
   .ccc-cta:focus,
   .pagebody .ccc-cta:hover,
@@ -971,6 +979,15 @@
     color: #ffffff !important;
     background: var(--ups-brand-strong);
     border-color: #6f95cd;
+  }
+
+  .ccc-cta-danger:hover,
+  .ccc-cta-danger:focus,
+  .pagebody .ccc-cta-danger:hover,
+  .pagebody .ccc-cta-danger:focus {
+    background: linear-gradient(180deg, #f05252, #e11d48);
+    border-color: #fca5a5;
+    color: #ffffff !important;
   }
 
   .ccc-theme-toggle {
@@ -1487,6 +1504,10 @@
           <i class="fa-solid fa-arrow-up-right-from-square"></i>
           Contract Command Center
         </a>
+        <a class="ccc-cta ccc-cta-danger" data-ups-hotlink="issue" href="//%HOST%/%YEAR%/home/%LEAGUEID%?MODULE=MESSAGE17&amp;OPEN_BUG=1&amp;SOURCE_APP=ups-hot-links">
+          <i class="fa-solid fa-bug"></i>
+          Report Website Functionality Issue
+        </a>
         <button class="ccc-cta ccc-theme-toggle" id="upsThemeToggle" type="button" aria-pressed="false">
           <i class="fa-solid fa-circle-half-stroke"></i>
           <span class="ups-theme-toggle-label">Theme: Dark</span>
@@ -1899,6 +1920,20 @@
     }
     window.getWarRoomUrl = buildCanonicalWarRoomRouteUrl;
 
+    function buildCanonicalIssueReportRouteUrl() {
+      var L = getCurrentLeagueId();
+      var YEAR = getCurrentYear();
+      if (!L || !YEAR) return "";
+      return (
+        window.location.origin +
+        "/" +
+        encodeURIComponent(YEAR) +
+        "/home/" +
+        encodeURIComponent(L) +
+        "?MODULE=MESSAGE17&OPEN_BUG=1&SOURCE_APP=ups-hot-links"
+      );
+    }
+
     function buildCanonicalRosterWorkbenchRouteUrl() {
       var L = getCurrentLeagueId();
       var YEAR = getCurrentYear();
@@ -1933,6 +1968,8 @@
       setHref("a.full_height_banner", origin + "/" + y + "/home/" + l);
       var canonicalCcc = buildCanonicalCccRouteUrl();
       setHref('a[data-ups-hotlink="ccc"], a.ccc-cta[href*="MODULE=MESSAGE2"]', canonicalCcc || (origin + "/" + y + "/home/" + l + "?MODULE=MESSAGE2"));
+      var canonicalIssue = buildCanonicalIssueReportRouteUrl();
+      setHref('a[data-ups-hotlink="issue"]', canonicalIssue || (origin + "/" + y + "/home/" + l + "?MODULE=MESSAGE17&OPEN_BUG=1&SOURCE_APP=ups-hot-links"));
       setHref('a.ccc-pill[href*="/lineup"]', origin + "/" + y + "/lineup?L=" + l);
       setHref('a.ccc-pill[href*="/add_drop"]', origin + "/" + y + "/add_drop?L=" + l);
       setHref('a.ccc-pill[href*="/ajax_ls"]', origin + "/" + y + "/ajax_ls?L=" + l);
@@ -2264,12 +2301,11 @@
           !!(el.classList && el.classList.contains("ccc-theme-toggle"));
         if (isThemeToggle) return;
 
-        var isCta = el.tagName === "A" && el.classList && el.classList.contains("ccc-cta");
         var isHotlink = safeStr(el.getAttribute && el.getAttribute("data-ups-hotlink")) === "ccc";
         var label = safeStr(el.textContent || "").toLowerCase();
         var isLabeledCcc = label.indexOf("contract command center") !== -1;
         var isCccLink = href ? isCccCandidateHref(href) : false;
-        if (!isCta && !isHotlink && !isLabeledCcc && !isCccLink) return;
+        if (!isHotlink && !isLabeledCcc && !isCccLink) return;
 
         var canonical = buildCanonicalCccRouteUrl();
         if (!canonical) return;
