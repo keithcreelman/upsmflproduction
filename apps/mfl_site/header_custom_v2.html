@@ -590,24 +590,18 @@
 
   /* Hero / hotlinks */
 .ups-hero-shell {
-  max-width: 98rem;
-  width: min(98rem, calc(100vw - 0.7rem));
-  margin-top: 0.9rem;
-  margin-bottom: 0.45rem;
-  margin-left: calc(50% - 50vw + 0.35rem);
-  margin-right: calc(50% - 50vw + 0.35rem);
+  max-width: min(98rem, calc(100% - 0.7rem));
+  width: 100%;
+  margin: 0.9rem auto 0.45rem;
   padding: 0;
   box-sizing: border-box;
   position: relative;
 }
 
   .ups-hotlinks-shell {
-    max-width: 98rem;
-    width: min(98rem, calc(100vw - 0.7rem));
-    margin-top: 0.65rem;
-    margin-bottom: 0.7rem;
-    margin-left: calc(50% - 50vw + 0.35rem);
-    margin-right: calc(50% - 50vw + 0.35rem);
+    max-width: min(98rem, calc(100% - 0.7rem));
+    width: 100%;
+    margin: 0.65rem auto 0.7rem;
     padding: 0;
     box-sizing: border-box;
   }
@@ -617,9 +611,9 @@
   body.ups-message2-ccc .ups-hero-shell,
   body.ups-message2-ccc .ups-hotlinks-shell {
     max-width: 76rem;
-    width: min(76rem, calc(100vw - 0.7rem));
-    margin-left: calc(50% - 50vw + 0.35rem);
-    margin-right: calc(50% - 50vw + 0.35rem);
+    width: min(76rem, calc(100% - 0.7rem));
+    margin-left: auto;
+    margin-right: auto;
   }
 
   .ups-hero-shell .banner-container-full {
@@ -6309,6 +6303,22 @@
     overflow-x: hidden !important;
   }
 
+  body.ups-home-shell .pagebody,
+  body.ups-home-shell #container-wrap {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    box-sizing: border-box !important;
+    float: none !important;
+  }
+
+  body.ups-home-shell #homepagetabs,
+  body.ups-home-shell #homepagecolumns {
+    margin-left: auto !important;
+    margin-right: auto !important;
+  }
+
   /* CCC Message2 host page should keep the UPS dark-blue shell around the
      centered CCC iframe container instead of MFL's default white background. */
   html.ups-message2-ccc,
@@ -6328,9 +6338,9 @@
   body.ups-message2-ccc .ups-hero-shell,
   body.ups-message2-ccc .ups-hotlinks-shell {
     max-width: 76rem !important;
-    width: min(76rem, calc(100vw - 0.7rem)) !important;
-    margin-left: calc(50% - 50vw + 0.35rem) !important;
-    margin-right: calc(50% - 50vw + 0.35rem) !important;
+    width: min(76rem, calc(100% - 0.7rem)) !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
     left: auto !important;
     transform: none !important;
   }
