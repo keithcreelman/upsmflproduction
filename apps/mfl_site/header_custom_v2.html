@@ -592,23 +592,24 @@
 .ups-hero-shell {
   max-width: 98rem;
   width: min(98rem, calc(100vw - 0.7rem));
-  margin: 0.9rem auto 0.45rem;
+  margin-top: 0.9rem;
+  margin-bottom: 0.45rem;
+  margin-left: calc(50% - 50vw + 0.35rem);
+  margin-right: calc(50% - 50vw + 0.35rem);
   padding: 0;
   box-sizing: border-box;
   position: relative;
-  left: 50%;
-  transform: translateX(-50%);
 }
 
   .ups-hotlinks-shell {
     max-width: 98rem;
     width: min(98rem, calc(100vw - 0.7rem));
-    margin: 0.65rem auto 0.7rem;
+    margin-top: 0.65rem;
+    margin-bottom: 0.7rem;
+    margin-left: calc(50% - 50vw + 0.35rem);
+    margin-right: calc(50% - 50vw + 0.35rem);
     padding: 0;
     box-sizing: border-box;
-    position: relative;
-    left: 50%;
-    transform: translateX(-50%);
   }
 
   /* CCC message page only: center the UPS header shells without changing the
@@ -617,10 +618,8 @@
   body.ups-message2-ccc .ups-hotlinks-shell {
     max-width: 76rem;
     width: min(76rem, calc(100vw - 0.7rem));
-    margin-left: 0;
-    margin-right: 0;
-    left: 50%;
-    transform: translateX(-50%);
+    margin-left: calc(50% - 50vw + 0.35rem);
+    margin-right: calc(50% - 50vw + 0.35rem);
   }
 
   .ups-hero-shell .banner-container-full {
@@ -6330,10 +6329,10 @@
   body.ups-message2-ccc .ups-hotlinks-shell {
     max-width: 76rem !important;
     width: min(76rem, calc(100vw - 0.7rem)) !important;
-    margin-left: 0 !important;
-    margin-right: 0 !important;
-    left: 50% !important;
-    transform: translateX(-50%) !important;
+    margin-left: calc(50% - 50vw + 0.35rem) !important;
+    margin-right: calc(50% - 50vw + 0.35rem) !important;
+    left: auto !important;
+    transform: none !important;
   }
 
   /* Force contrast after MFL scripts/CSS load */
