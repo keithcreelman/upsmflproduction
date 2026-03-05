@@ -1522,14 +1522,14 @@
           <div class="ccc-owner-actions-menu" id="upsOwnerActionsMenu" hidden>
             <a href="//%HOST%/%YEAR%/lineup?L=%LEAGUEID%"><i class="fa-solid fa-clipboard-list"></i>Submit Lineup</a>
             <a href="//%HOST%/%YEAR%/add_drop?L=%LEAGUEID%"><i class="fa-solid fa-plus-minus"></i>Add/Drop</a>
-            <a data-owner-action="rosters" href="//%HOST%/%YEAR%/home/%LEAGUEID%?MODULE=MESSAGE5"><i class="fa-solid fa-users"></i>Rosters</a>
+            <a data-owner-action="rosters" href="//%HOST%/%YEAR%/home/%LEAGUEID%?MODULE=MESSAGE7"><i class="fa-solid fa-users"></i>Rosters</a>
             <a data-owner-action="trades" href="//%HOST%/%YEAR%/home/%LEAGUEID%?MODULE=MESSAGE6=N"><i class="fa-solid fa-handshake"></i>Trades</a>
             <a data-owner-action="old-roster" href="//%HOST%/%YEAR%/options?L=%LEAGUEID%&amp;O=07"><i class="fa-solid fa-table-list"></i>Old Roster</a>
           </div>
         </div>
         <a class="ccc-pill" data-owner-action="lineup" href="//%HOST%/%YEAR%/lineup?L=%LEAGUEID%"><i class="fa-solid fa-clipboard-list"></i>Submit Lineup</a>
         <a class="ccc-pill" data-owner-action="adddrop" href="//%HOST%/%YEAR%/add_drop?L=%LEAGUEID%"><i class="fa-solid fa-plus-minus"></i>Add/Drop</a>
-        <a class="ccc-pill" data-owner-action="rosters" href="//%HOST%/%YEAR%/home/%LEAGUEID%?MODULE=MESSAGE5"><i class="fa-solid fa-users"></i>Rosters</a>
+        <a class="ccc-pill" data-owner-action="rosters" href="//%HOST%/%YEAR%/home/%LEAGUEID%?MODULE=MESSAGE7"><i class="fa-solid fa-users"></i>Rosters</a>
         <a class="ccc-pill" href="//%HOST%/%YEAR%/ajax_ls?L=%LEAGUEID%"><i class="fa-solid fa-gauge-high"></i>Scoreboard</a>
         <a class="ccc-pill" data-owner-action="trades" href="//%HOST%/%YEAR%/home/%LEAGUEID%?MODULE=MESSAGE6=N"><i class="fa-solid fa-handshake"></i>Trades</a>
       </div>
@@ -1957,7 +1957,7 @@
         encodeURIComponent(YEAR) +
         "/home/" +
         encodeURIComponent(L) +
-        "?MODULE=MESSAGE5"
+        "?MODULE=MESSAGE7"
       );
     }
     window.getRosterWorkbenchUrl = buildCanonicalRosterWorkbenchRouteUrl;
@@ -2394,7 +2394,7 @@
 </script>
 
 <script>
-  // Roster Workbench embed helper for MESSAGE5.
+  // Roster Workbench embed helper for MESSAGE7.
   (function () {
     var RWB_HEADER_BUILD = "2026.03.01.2";
     if (window.__ups_rwb_header_autoload === RWB_HEADER_BUILD) return;
@@ -2501,7 +2501,7 @@
       tryLoader(0);
     }
 
-    if (getModuleName() !== "MESSAGE5") return;
+    if (getModuleName() !== "MESSAGE7") return;
 
     if (document.readyState === "loading") {
       document.addEventListener("DOMContentLoaded", loadRwbLoader);
