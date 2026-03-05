@@ -157,7 +157,9 @@
   var FRANCHISE_ID = getFranchiseId(u);
   var MFL_USER_ID = getMflUserId(u);
   var UPS_WORKER_URL = String(window.UPS_WORKER_URL || "https://upsmflproduction.keith-creelman.workers.dev").trim();
-  var RELEASE_REF = encodeURIComponent(String(window.UPS_RELEASE_SHA || "main").trim() || "main");
+  var RELEASE_REF = encodeURIComponent(
+    String(window.UPS_UOW_RELEASE_SHA || window.UPS_RELEASE_SHA || "main").trim() || "main"
+  );
   var MODE_KEY = "ups_mode_" + YEAR + "_" + L;
   var MODULE_NAME = getModuleName(u);
 
