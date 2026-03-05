@@ -2044,6 +2044,63 @@
       } catch (e) {}
     }
 
+    function recenterUpsShellNode(node) {
+      if (!node || !node.getBoundingClientRect) return;
+      try {
+        // Reset before measuring so we don't compound previous offsets.
+        node.style.removeProperty("transform");
+      } catch (e) {}
+      var rect = null;
+      try {
+        rect = node.getBoundingClientRect();
+      } catch (e) {
+        rect = null;
+      }
+      if (!rect || !Number.isFinite(rect.left) || !Number.isFinite(rect.right) || rect.width <= 0) return;
+      var vw = 0;
+      try {
+        vw = Math.max(
+          (document.documentElement && document.documentElement.clientWidth) || 0,
+          window.innerWidth || 0
+        );
+      } catch (e) {
+        vw = window.innerWidth || 0;
+      }
+      if (!vw) return;
+      var leftGap = rect.left;
+      var rightGap = vw - rect.right;
+      var shift = (rightGap - leftGap) / 2;
+      if (!Number.isFinite(shift)) return;
+      if (Math.abs(shift) < 0.5) {
+        node.style.removeProperty("transform");
+        return;
+      }
+      node.style.setProperty("transform", "translateX(" + shift.toFixed(2) + "px)");
+    }
+
+    function recenterUpsHeaderShells() {
+      var nodes = document.querySelectorAll(".ups-hero-shell, .ups-hotlinks-shell");
+      if (!nodes || !nodes.length) return;
+      for (var i = 0; i < nodes.length; i++) {
+        recenterUpsShellNode(nodes[i]);
+      }
+    }
+
+    function wireUpsHeaderRecenter() {
+      if (window.__upsHeaderRecenterWired) return;
+      window.__upsHeaderRecenterWired = true;
+      var timer = 0;
+      function runSoon() {
+        try { clearTimeout(timer); } catch (e) {}
+        timer = setTimeout(recenterUpsHeaderShells, 40);
+      }
+      window.addEventListener("resize", runSoon);
+      window.addEventListener("orientationchange", runSoon);
+      runSoon();
+      setTimeout(recenterUpsHeaderShells, 200);
+      setTimeout(recenterUpsHeaderShells, 900);
+    }
+
     function enableMessage2CccChromeClass() {
       try {
         document.documentElement.classList.add("ups-message2-ccc");
@@ -2354,6 +2411,8 @@
     normalizeHeaderHotlinksToCurrentLeague();
     initIssueReportButton();
     enableHomeShellClass();
+    wireUpsHeaderRecenter();
+    recenterUpsHeaderShells();
 
     var mod = getModuleName();
     if (mod !== "MESSAGE2") return;
@@ -2366,6 +2425,7 @@
     if (document.readyState === "loading") {
       document.addEventListener("DOMContentLoaded", function () {
         enableHomeShellClass();
+        recenterUpsHeaderShells();
         enableMessage2CccChromeClass();
         dedupeMessage2UpsShells();
         normalizeHeaderHotlinksToCurrentLeague();
@@ -2379,9 +2439,11 @@
         setTimeout(normalizeAllEmbeddedFramesToMain, 300);
         setTimeout(dedupeMessage2UpsShells, 1200);
         setTimeout(normalizeAllEmbeddedFramesToMain, 1200);
+        setTimeout(recenterUpsHeaderShells, 1200);
       });
     } else {
       enableHomeShellClass();
+      recenterUpsHeaderShells();
       enableMessage2CccChromeClass();
       dedupeMessage2UpsShells();
       normalizeHeaderHotlinksToCurrentLeague();
@@ -2394,6 +2456,7 @@
       setTimeout(normalizeAllEmbeddedFramesToMain, 300);
       setTimeout(dedupeMessage2UpsShells, 1200);
       setTimeout(normalizeAllEmbeddedFramesToMain, 1200);
+      setTimeout(recenterUpsHeaderShells, 1200);
     }
   })();
 </script>
