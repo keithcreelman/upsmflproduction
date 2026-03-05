@@ -347,10 +347,16 @@
       "#uowMount .uow-mod-open:hover{text-decoration:underline}",
       "#uowMount .uow-mod-body{padding:0}",
       "#uowMount .uow-mod-frame{display:block;width:100%;border:0;min-height:220px;background:transparent}",
+      "#uowMount .uow-mod-tabbar{display:flex;gap:8px;padding:10px 12px;border-bottom:1px solid rgba(231,190,89,.2);background:rgba(255,255,255,.02)}",
+      "#uowMount .uow-mod-tab{display:inline-flex;align-items:center;justify-content:center;height:30px;padding:0 12px;border-radius:999px;border:1px solid rgba(231,190,89,.35);background:rgba(255,255,255,.03);color:var(--ups-text,#e8effa);font-size:11px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;cursor:pointer}",
+      "#uowMount .uow-mod-tab:hover{border-color:rgba(231,190,89,.65);color:#fff}",
+      "#uowMount .uow-mod-tab[aria-selected='true']{border-color:rgba(14,165,233,.9);background:rgba(14,165,233,.18);color:#bfefff;box-shadow:0 0 0 1px rgba(14,165,233,.35) inset}",
+      "#uowMount .uow-mod-panel{display:none}",
+      "#uowMount .uow-mod-panel.is-active{display:block}",
       "#uowMount .uow-mod-placeholder{padding:14px 12px;color:var(--ups-muted,#b9c8e2);font-size:12px}",
       "#uowMount .uow-mod-card[data-collapsed='1'] .uow-mod-body{display:none}",
       "#uowMount .uow-mod-card[data-collapsed='1'] .uow-mod-head{border-bottom:0}",
-      "@media (max-width:900px){#uowMount .uow-mod-head{padding:9px 10px}#uowMount .uow-mod-title{font-size:12px}}"
+      "@media (max-width:900px){#uowMount .uow-mod-head{padding:9px 10px}#uowMount .uow-mod-title{font-size:12px}#uowMount .uow-mod-tabbar{padding:8px 10px;gap:6px}#uowMount .uow-mod-tab{height:28px;padding:0 10px;font-size:10px}}"
     ].join("");
     var style = document.createElement("style");
     style.id = "ups-owner-hub-module-stack-styles";
@@ -376,7 +382,7 @@
       return buildLegacySrc(String(Date.now()), getHostMode());
     }
     if (config.type === "owner_activity") {
-      return base + "?MODULE=OWNER_ACTIVITY&PRINTER=1";
+      return base + "?MODULE=OWNER_ACTIVITY";
     }
     return base;
   }
@@ -610,6 +616,142 @@
     if (!defaultCollapsed) loadContent();
   }
 
+  function wireTabbedModuleCard(card, modules) {
+    var body = card.querySelector(".uow-mod-body");
+    var head = card.querySelector(".uow-mod-head");
+    var toggleBtn = card.querySelector(".uow-mod-toggle");
+    var openLink = card.querySelector(".uow-mod-open");
+    var activeIndex = -1;
+
+    function syncFrameHeight(iframe) {
+      tryInjectIframeCleanup(iframe);
+      var h = clampHeight(measureIframeHeight(iframe));
+      iframe.style.height = String(h) + "px";
+    }
+
+    function startHeightSync(iframe) {
+      syncFrameHeight(iframe);
+      var ticks = 0;
+      var timer = setInterval(function () {
+        ticks += 1;
+        syncFrameHeight(iframe);
+        if (ticks >= 20) clearInterval(timer);
+      }, 300);
+    }
+
+    function loadPanel(panel, config) {
+      if (!panel || panel.getAttribute("data-loaded") === "1") return;
+      panel.setAttribute("data-loaded", "1");
+      panel.innerHTML = "";
+      if (config.type === "message17-legacy") {
+        mountLegacyCountdownInside(panel);
+        return;
+      }
+      var iframe = document.createElement("iframe");
+      iframe.className = "uow-mod-frame";
+      iframe.setAttribute("loading", "lazy");
+      iframe.setAttribute("scrolling", "no");
+      iframe.src = buildModuleUrl(config);
+      panel.appendChild(iframe);
+      iframe.addEventListener("load", function () {
+        if (config.type === "message17" && detectRecursiveMessage17(iframe)) {
+          panel.innerHTML = "";
+          mountLegacyCountdownInside(panel);
+          return;
+        }
+        startHeightSync(iframe);
+      });
+    }
+
+    function setActive(index) {
+      if (index < 0 || index >= modules.length) return;
+      activeIndex = index;
+      for (var i = 0; i < modules.length; i++) {
+        var cfg = modules[i];
+        if (!cfg || !cfg.tab || !cfg.panel) continue;
+        var selected = i === index;
+        cfg.tab.setAttribute("aria-selected", selected ? "true" : "false");
+        cfg.tab.setAttribute("tabindex", selected ? "0" : "-1");
+        if (selected) {
+          cfg.panel.classList.add("is-active");
+          loadPanel(cfg.panel, cfg);
+          if (openLink) openLink.href = buildModuleOpenUrl(cfg);
+        } else {
+          cfg.panel.classList.remove("is-active");
+        }
+      }
+    }
+
+    function toggle(nextCollapsed, persist) {
+      setCollapsed(card, nextCollapsed, persist);
+      if (!nextCollapsed && activeIndex < 0) setActive(0);
+    }
+
+    card.classList.add("uow-mod-tabs");
+    body.innerHTML = "";
+    var tabbar = document.createElement("div");
+    tabbar.className = "uow-mod-tabbar";
+    var panels = document.createElement("div");
+    panels.className = "uow-mod-panels";
+    body.appendChild(tabbar);
+    body.appendChild(panels);
+
+    for (var m = 0; m < modules.length; m++) {
+      var cfg = modules[m];
+      var tab = document.createElement("button");
+      tab.type = "button";
+      tab.className = "uow-mod-tab";
+      tab.setAttribute("aria-selected", "false");
+      tab.textContent = cfg.title;
+
+      var panel = document.createElement("div");
+      panel.className = "uow-mod-panel";
+      panel.innerHTML = '<div class="uow-mod-placeholder">Loading…</div>';
+      panel.setAttribute("data-loaded", "0");
+
+      cfg.tab = tab;
+      cfg.panel = panel;
+      tabbar.appendChild(tab);
+      panels.appendChild(panel);
+
+      (function (idx) {
+        tab.addEventListener("click", function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          setActive(idx);
+        });
+      })(m);
+    }
+
+    var defaultCollapsed = parseBool(window.UPS_UOW_STACK_COLLAPSED, false);
+    var saved = readPref("ups_uow_mod_owner_hub");
+    if (saved === "1") defaultCollapsed = true;
+    if (saved === "0") defaultCollapsed = false;
+    setCollapsed(card, defaultCollapsed, false);
+
+    if (toggleBtn && !toggleBtn.dataset.wired) {
+      toggleBtn.dataset.wired = "1";
+      toggleBtn.addEventListener("click", function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        var collapsed = card.getAttribute("data-collapsed") === "1";
+        toggle(!collapsed, true);
+      });
+    }
+
+    if (head && !head.dataset.wired) {
+      head.dataset.wired = "1";
+      head.addEventListener("click", function (e) {
+        var t = e.target;
+        if (t && (t.closest && (t.closest(".uow-mod-open") || t.closest(".uow-mod-tab")))) return;
+        var collapsed = card.getAttribute("data-collapsed") === "1";
+        toggle(!collapsed, true);
+      });
+    }
+
+    if (!defaultCollapsed) setActive(0);
+  }
+
   function mountModuleStack(mount) {
     injectModuleStyles();
     mount.classList.add("ups-owner-hub-modules");
@@ -676,6 +818,18 @@
         type: "message17",
         defaultCollapsed: false
       });
+    }
+
+    if (modules.length > 1) {
+      var tabbedCard = createModuleCard({
+        key: "owner_hub",
+        title: "Owner Hub",
+        type: "owner_hub",
+        defaultCollapsed: false
+      });
+      stack.appendChild(tabbedCard);
+      wireTabbedModuleCard(tabbedCard, modules);
+      return;
     }
 
     modules.forEach(function (config) {
