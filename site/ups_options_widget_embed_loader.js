@@ -345,6 +345,7 @@
       "#uowMount .uow-mod-title{font-weight:800;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--ups-text,#e8effa)}",
       "#uowMount .uow-mod-open{font-size:11px;font-weight:700;text-decoration:none;color:var(--ups-gold,#e7be59);white-space:nowrap}",
       "#uowMount .uow-mod-open:hover{text-decoration:underline}",
+      "#uowMount .uow-mod-open{display:none!important}",
       "#uowMount .uow-mod-body{padding:0}",
       "#uowMount .uow-mod-frame{display:block;width:100%;border:0;min-height:220px;background:transparent}",
       "#uowMount .uow-mod-tabbar{display:flex;gap:8px;padding:10px 12px;border-bottom:1px solid rgba(231,190,89,.2);background:rgba(255,255,255,.02)}",
@@ -470,6 +471,35 @@
     } catch (e) {}
   }
 
+  function isolateOwnerActivityTable(iframe) {
+    try {
+      var doc = iframe.contentDocument;
+      if (!doc || !doc.documentElement || !doc.body) return false;
+      if (doc.getElementById("ups-owner-activity-isolated")) return true;
+      var table = doc.querySelector("table#owner_activity");
+      if (!table) return false;
+
+      var style = doc.createElement("style");
+      style.id = "ups-owner-activity-isolated-style";
+      style.textContent = [
+        "html,body{margin:0!important;padding:0!important;background:transparent!important;}",
+        "#ups-owner-activity-isolated{margin:0!important;padding:0!important;}",
+        "#ups-owner-activity-isolated table{margin:0!important;width:100%!important;}",
+        "#ups-owner-activity-isolated caption span{display:inline-block;}"
+      ].join("");
+      (doc.head || doc.documentElement).appendChild(style);
+
+      var shell = doc.createElement("div");
+      shell.id = "ups-owner-activity-isolated";
+      shell.appendChild(table);
+      doc.body.innerHTML = "";
+      doc.body.appendChild(shell);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
   function measureIframeHeight(iframe) {
     try {
       var doc = iframe.contentDocument;
@@ -537,6 +567,7 @@
 
     function syncFrameHeight(iframe) {
       tryInjectIframeCleanup(iframe);
+      if (config.type === "owner_activity") isolateOwnerActivityTable(iframe);
       var h = clampHeight(measureIframeHeight(iframe));
       iframe.style.height = String(h) + "px";
     }
@@ -577,6 +608,7 @@
           loaded = true;
           return;
         }
+        if (config.type === "owner_activity") isolateOwnerActivityTable(iframe);
         loaded = true;
         startHeightSync(iframe);
       });
@@ -625,6 +657,9 @@
 
     function syncFrameHeight(iframe) {
       tryInjectIframeCleanup(iframe);
+      if (activeIndex >= 0 && modules[activeIndex] && modules[activeIndex].type === "owner_activity") {
+        isolateOwnerActivityTable(iframe);
+      }
       var h = clampHeight(measureIframeHeight(iframe));
       iframe.style.height = String(h) + "px";
     }
@@ -659,6 +694,7 @@
           mountLegacyCountdownInside(panel);
           return;
         }
+        if (config.type === "owner_activity") isolateOwnerActivityTable(iframe);
         startHeightSync(iframe);
       });
     }
@@ -797,7 +833,7 @@
     if (showCountdown) {
       modules.push({
         key: "message17",
-        title: "Countdown Timer",
+        title: "League Events",
         type: "message17",
         defaultCollapsed: countdownCollapsed
       });
@@ -814,7 +850,7 @@
     if (!modules.length) {
       modules.push({
         key: "message17",
-        title: "Countdown Timer",
+        title: "League Events",
         type: "message17",
         defaultCollapsed: false
       });
