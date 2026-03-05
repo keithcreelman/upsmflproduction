@@ -50,15 +50,13 @@ body {
 .uow-hero {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
   gap: 12px;
   flex-wrap: wrap;
   margin-bottom: 12px;
 }
 
 .uow-title {
-  width: 100%;
-  text-align: center;
   font-size: 19px;
   font-weight: 800;
   letter-spacing: 0.01em;
