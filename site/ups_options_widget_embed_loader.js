@@ -370,7 +370,7 @@
       return buildLegacySrc(String(Date.now()), getHostMode());
     }
     if (config.type === "owner_activity") {
-      return base + "?MODULE=OWNER_ACTIVITY&W=" + encodeURIComponent(getOwnerActivityWeek(u)) + "&PRINTER=1";
+      return base + "?MODULE=OWNER_ACTIVITY&PRINTER=1";
     }
     return base;
   }
@@ -378,7 +378,7 @@
   function buildModuleOpenUrl(config) {
     var base = getOrigin() + "/" + YEAR + "/home/" + L;
     if (config.type === "message17") return base;
-    if (config.type === "owner_activity") return base + "?MODULE=OWNER_ACTIVITY&W=" + encodeURIComponent(getOwnerActivityWeek(u));
+    if (config.type === "owner_activity") return base + "?MODULE=OWNER_ACTIVITY";
     return base;
   }
 
