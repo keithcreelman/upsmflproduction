@@ -370,7 +370,7 @@
       return buildLegacySrc(String(Date.now()), getHostMode());
     }
     if (config.type === "owner_activity") {
-      return base + "?MODULE=OWNER_ACTIVITY&W=" + encodeURIComponent(getOwnerActivityWeek(u)) + "&PRINTER=1&UPS_UOW_EMBED=1";
+      return base + "?MODULE=OWNER_ACTIVITY&W=" + encodeURIComponent(getOwnerActivityWeek(u)) + "&PRINTER=1";
     }
     return base;
   }
@@ -696,6 +696,8 @@
   }
 
   function shouldSkipMountCompletely() {
+    var forceStack = parseBool(window.UPS_UOW_FORCE_STACK, false);
+    if (forceStack) return false;
     if (!isMflContext()) return false;
     if (!u) return false;
     if (isOptionsRoute(u)) return true;
