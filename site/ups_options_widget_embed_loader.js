@@ -248,7 +248,7 @@
     var cache = cacheKey || DEFAULT_CACHE;
     var theme = normalizeMode(mode || getHostMode());
     var src = (
-      "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@" + RELEASE_REF + "/site/ups_options_widget.html" +
+      "https://rawcdn.githack.com/keithcreelman/upsmflproduction/" + RELEASE_REF + "/site/ups_options_widget.html" +
       "?cache=" + encodeURIComponent(cache) +
       "&L=" + encodeURIComponent(L) +
       "&YEAR=" + encodeURIComponent(YEAR) +
@@ -306,7 +306,11 @@
 
     function onMessage(e) {
       if (!iframe.contentWindow || e.source !== iframe.contentWindow) return;
-      if (e.origin !== "https://keithcreelman.github.io") return;
+      if (
+        e.origin !== "https://keithcreelman.github.io" &&
+        e.origin !== "https://rawcdn.githack.com" &&
+        e.origin !== "https://cdn.jsdelivr.net"
+      ) return;
       var data = e.data || {};
       if (!data) return;
 
