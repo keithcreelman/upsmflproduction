@@ -4,11 +4,12 @@
   window.UPS_UOW_SHOW_COUNTDOWN = true;
   window.UPS_UOW_SHOW_OWNER_ACTIVITY = true;
   window.UPS_UOW_SHOW_BUG_BUTTON = false;
-  window.UPS_UOW_RELEASE_SHA = "0dbe283";
+  // Pin this only when needed; default to latest main for MESSAGE widget stability.
+  window.UPS_UOW_RELEASE_SHA = window.UPS_UOW_RELEASE_SHA || "main";
 </script>
 <script>
   (function () {
-    var sha = window.UPS_UOW_RELEASE_SHA || window.UPS_RELEASE_SHA || "0dbe283";
+    var sha = window.UPS_UOW_RELEASE_SHA || "main";
     var s = document.createElement("script");
     s.src = "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@" + sha + "/site/ups_options_widget_embed_loader.js";
     var anchor = document.currentScript;
