@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var BUILD = "2026.03.01.5";
+  var BUILD = "2026.03.06.1";
   var BOOT_FLAG = "__ups_roster_workbench_boot_" + BUILD;
   if (window[BOOT_FLAG]) {
     if (typeof window.UPS_RWB_INIT === "function") window.UPS_RWB_INIT();
@@ -9,24 +9,24 @@
   }
   window[BOOT_FLAG] = true;
 
-  var POS_ORDER = ["QB", "RB", "WR", "TE", "PK", "PN", "DT", "DE", "LB", "CB", "S", "DL", "DB"];
-  var SORT_OPTIONS = [
-    { value: "default", label: "Default" },
-    { value: "salary_desc", label: "Salary" },
-    { value: "years_desc", label: "Years Remaining" },
-    { value: "points_desc", label: "Total Points" },
-    { value: "name_asc", label: "Player Name" }
+  var POSITION_GROUP_ORDER = ["QB", "RB", "WR", "TE", "DL", "DB", "LB", "PK", "PN", "OTHER"];
+  var CONTRACT_FILTERS = [
+    { value: "", label: "All Contract Types" },
+    { value: "rookie", label: "Rookies" },
+    { value: "loaded", label: "Loaded (Front/Back)" },
+    { value: "other", label: "All Other" }
   ];
 
   var state = {
     ctx: null,
     teams: [],
-    pointsYear: "",
-    globalSort: "default",
+    pointYears: [],
+    pointsMode: "",
+    view: "roster",
     search: "",
     filterPosition: "",
     filterType: "",
-    teamSort: {},
+    taxiOnly: false,
     collapsed: {},
     filtersOpen: false,
     loadError: ""
@@ -67,6 +67,10 @@
     return n;
   }
 
+  function normType(t) {
+    return safeStr(t).toLowerCase();
+  }
+
   function pad4(v) {
     var digits = safeStr(v).replace(/\D/g, "");
     if (!digits) return "";
@@ -94,15 +98,6 @@
     }
   }
 
-  function shortNumber(n) {
-    var value = safeNum(n, 0);
-    if (!isFinite(value) || value === 0) return "0";
-    if (Math.abs(value) >= 1000) {
-      return (Math.round(value / 100) / 10).toFixed(1).replace(/\.0$/, "") + "K";
-    }
-    return String(Math.round(value));
-  }
-
   function normalizePlayerName(name) {
     var raw = safeStr(name);
     if (!raw) return "Unknown Player";
@@ -114,37 +109,6 @@
     return first + " " + last;
   }
 
-  function normType(t) {
-    return safeStr(t).toLowerCase();
-  }
-
-  function typeTone(type) {
-    var t = normType(type);
-    if (!t) return "is-veteran";
-    if (t.indexOf("rookie") !== -1 || t === "r") return "is-rookie";
-    if (t.indexOf("fl") !== -1 || t.indexOf("bl") !== -1 || t.indexOf("tag") !== -1 || t.indexOf("front") !== -1 || t.indexOf("back") !== -1 || t.indexOf("loaded") !== -1) {
-      return "is-loaded";
-    }
-    return "is-veteran";
-  }
-
-  function positionSortValue(pos) {
-    var key = safeStr(pos).toUpperCase();
-    var idx = POS_ORDER.indexOf(key);
-    return idx === -1 ? 999 : idx;
-  }
-
-  function sortLabel(mode) {
-    for (var i = 0; i < SORT_OPTIONS.length; i += 1) {
-      if (SORT_OPTIONS[i].value === mode) return SORT_OPTIONS[i].label;
-    }
-    return "Default";
-  }
-
-  function isCurrentMobile() {
-    return !!(window.matchMedia && window.matchMedia("(max-width: 760px)").matches);
-  }
-
   function parseBool(v, fallback) {
     if (typeof v === "boolean") return v;
     var s = safeStr(v).toLowerCase();
@@ -152,6 +116,89 @@
     if (s === "1" || s === "true" || s === "yes" || s === "on") return true;
     if (s === "0" || s === "false" || s === "no" || s === "off") return false;
     return !!fallback;
+  }
+
+  function normalizeStatus(s) {
+    var raw = safeStr(s).toUpperCase();
+    if (!raw) return "ROSTER";
+    if (raw === "TS" || raw.indexOf("TAXI") !== -1) return "TAXI_SQUAD";
+    if (raw === "IR" || raw.indexOf("INJURED") !== -1) return "INJURED_RESERVE";
+    return raw;
+  }
+
+  function contractBucket(type) {
+    var t = normType(type);
+    if (!t) return "other";
+    if (t.indexOf("rookie") !== -1) return "rookie";
+    if (
+      t === "fl" ||
+      t === "bl" ||
+      t.indexOf("frontloaded") !== -1 ||
+      t.indexOf("front loaded") !== -1 ||
+      t.indexOf("backloaded") !== -1 ||
+      t.indexOf("back loaded") !== -1
+    ) {
+      return "loaded";
+    }
+    return "other";
+  }
+
+  function typeTone(type) {
+    var bucket = contractBucket(type);
+    if (bucket === "rookie") return "is-rookie";
+    if (bucket === "loaded") return "is-loaded";
+    return "is-veteran";
+  }
+
+  function positionGroupKey(pos) {
+    var p = safeStr(pos).toUpperCase();
+    if (!p) return "OTHER";
+
+    if (p === "DE" || p === "DT" || p === "DL" || p === "NT" || p === "EDGE" || p === "ED") return "DL";
+    if (p === "CB" || p === "S" || p === "FS" || p === "SS" || p === "DB") return "DB";
+    if (p === "K" || p === "PK") return "PK";
+    if (p === "P" || p === "PN") return "PN";
+
+    if (
+      p === "QB" || p === "RB" || p === "WR" || p === "TE" ||
+      p === "LB"
+    ) {
+      return p;
+    }
+
+    return "OTHER";
+  }
+
+  function positionGroupLabel(key) {
+    var k = safeStr(key).toUpperCase();
+    if (k === "QB") return "Quarterbacks";
+    if (k === "RB") return "Running Backs";
+    if (k === "WR") return "Wide Receivers";
+    if (k === "TE") return "Tight Ends";
+    if (k === "DL") return "Defensive Line";
+    if (k === "DB") return "Defensive Backs";
+    if (k === "LB") return "Linebackers";
+    if (k === "PK") return "Placekickers";
+    if (k === "PN") return "Punters";
+    return "Other";
+  }
+
+  function positionSortValue(groupKey) {
+    var idx = POSITION_GROUP_ORDER.indexOf(safeStr(groupKey).toUpperCase());
+    return idx === -1 ? 999 : idx;
+  }
+
+  function currentYearInt() {
+    return safeInt(state.ctx && state.ctx.year, new Date().getFullYear());
+  }
+
+  function pointModeLabel(mode) {
+    if (safeStr(mode) === "cumulative") return "Cumulative";
+    return safeStr(mode);
+  }
+
+  function isCurrentMobile() {
+    return !!(window.matchMedia && window.matchMedia("(max-width: 760px)").matches);
   }
 
   function detectContext() {
@@ -267,6 +314,10 @@
     return url.toString();
   }
 
+  function buildApiExportUrl(year, type, params) {
+    return buildExportUrl("https://api.myfantasyleague.com", year, type, params);
+  }
+
   function fetchJson(url) {
     var opts = arguments.length > 1 && arguments[1] ? arguments[1] : {};
     return fetch(url, {
@@ -332,14 +383,9 @@
       var row = rows[i] || {};
       var id = safeStr(row.id);
       if (!id) continue;
-      var score = safeNum(row.score, 0);
-      map[id] = score;
+      map[id] = safeNum(row.score, 0);
     }
     return map;
-  }
-
-  function mapSize(map) {
-    return Object.keys(map || {}).length;
   }
 
   function toByeMap(payload) {
@@ -401,14 +447,6 @@
     };
   }
 
-  function normalizeStatus(s) {
-    var raw = safeStr(s).toUpperCase();
-    if (!raw) return "ROSTER";
-    if (raw === "TS" || raw.indexOf("TAXI") !== -1) return "TAXI_SQUAD";
-    if (raw === "IR" || raw.indexOf("INJURED") !== -1) return "INJURED_RESERVE";
-    return raw;
-  }
-
   function fetchPlayersMap(year, playerIds) {
     var ids = playerIds.slice();
     if (!ids.length) return Promise.resolve(Object.create(null));
@@ -423,6 +461,8 @@
         url.searchParams.set("TYPE", "players");
         url.searchParams.set("JSON", "1");
         url.searchParams.set("PLAYERS", slice.join(","));
+        var apiKey = resolveApiKey();
+        if (apiKey) url.searchParams.set("APIKEY", apiKey);
         tasks.push(fetchJson(url.toString()));
       })(ids.slice(i, i + chunkSize));
     }
@@ -465,22 +505,22 @@
   }
 
   function deriveCompliance(capTotal, capAmount) {
-    if (!capAmount) {
-      return {
-        ok: true,
-        label: "Compliant"
-      };
+    if (!capAmount) return { ok: true, label: "Compliant" };
+    if (capTotal <= capAmount) return { ok: true, label: "Compliant" };
+    return { ok: false, label: "Over " + money(capTotal - capAmount) };
+  }
+
+  function enrichPlayer(p) {
+    var out = p || {};
+    out.positionGroup = positionGroupKey(out.position);
+    out.typeBucket = contractBucket(out.type);
+    if (!out.pointsByYear) out.pointsByYear = Object.create(null);
+    if (out.pointsByYear && Object.keys(out.pointsByYear).length === 0) {
+      var py = safeStr(state.ctx && state.ctx.year);
+      if (py) out.pointsByYear[py] = safeNum(out.points, 0);
     }
-    if (capTotal <= capAmount) {
-      return {
-        ok: true,
-        label: "Compliant"
-      };
-    }
-    return {
-      ok: false,
-      label: "Over " + money(capTotal - capAmount)
-    };
+    out.pointsCumulative = safeNum(out.pointsCumulative, 0);
+    return out;
   }
 
   function buildTeams(rostersPayload, leagueMeta, playersMap, scores, byes, salaryMap) {
@@ -529,7 +569,7 @@
 
         capTotal += salary;
 
-        players.push({
+        players.push(enrichPlayer({
           id: pid,
           fid: fid,
           teamName: teamMeta.name,
@@ -545,12 +585,13 @@
           special: special || "-",
           status: status,
           isTaxi: isTaxi,
-          isIr: isIr
-        });
+          isIr: isIr,
+          pointsByYear: Object.create(null),
+          pointsCumulative: 0
+        }));
       }
 
       var compliance = deriveCompliance(capTotal, leagueMeta.capAmount);
-
       teams.push({
         id: fid,
         fid: fid,
@@ -580,7 +621,7 @@
     var status = normalizeStatus(p.status || p.roster_status);
     var isTaxi = !!p.is_taxi || !!p.isTaxi || status === "TAXI_SQUAD";
     var isIr = !!p.is_ir || !!p.isIr || status === "INJURED_RESERVE";
-    return {
+    return enrichPlayer({
       id: id,
       teamName: fallbackTeamName,
       order: safeInt(p.order, orderIndex),
@@ -595,8 +636,10 @@
       special: safeStr(p.special || p.contract_info || "-") || "-",
       status: status,
       isTaxi: isTaxi,
-      isIr: isIr
-    };
+      isIr: isIr,
+      pointsByYear: Object.create(null),
+      pointsCumulative: 0
+    });
   }
 
   function buildTeamsFromWorkerPayload(payload) {
@@ -655,57 +698,136 @@
     return teams;
   }
 
-  function getTeamSort(teamId) {
-    var mode = safeStr(state.teamSort[teamId] || "");
-    return mode || state.globalSort || "default";
-  }
-
-  function sortPlayers(list, mode) {
-    var rows = list.slice();
-    switch (mode) {
-      case "salary_desc":
-        rows.sort(function (a, b) {
-          return b.salary - a.salary || a.order - b.order;
-        });
-        break;
-      case "years_desc":
-        rows.sort(function (a, b) {
-          return b.years - a.years || a.order - b.order;
-        });
-        break;
-      case "points_desc":
-        rows.sort(function (a, b) {
-          return b.points - a.points || a.order - b.order;
-        });
-        break;
-      case "name_asc":
-        rows.sort(function (a, b) {
-          return safeStr(a.name).localeCompare(safeStr(b.name)) || a.order - b.order;
-        });
-        break;
-      default:
-        rows.sort(function (a, b) {
-          return a.order - b.order;
-        });
-        break;
-    }
-    return rows;
-  }
-
   function isTeamCollapsed(teamId) {
-    var saved = state.collapsed[teamId];
-    if (typeof saved === "boolean") return saved;
-    return isCurrentMobile();
+    return !!state.collapsed[teamId];
   }
 
-  function groupByPosition(players, mode) {
+  function buildPointYears() {
+    var start = currentYearInt();
+    return [String(start), String(start - 1), String(start - 2), String(start - 3)];
+  }
+
+  function fetchPointsMapForYear(ctx, yearStr) {
+    var url = buildApiExportUrl(yearStr, "playerScores", {
+      L: ctx.leagueId,
+      W: "YTD"
+    });
+    return fetchJson(url).then(function (payload) {
+      return toScoreMap(payload);
+    }).catch(function () {
+      return Object.create(null);
+    });
+  }
+
+  function hydrateTeamsWithPointsHistory(ctx, teams) {
+    var years = buildPointYears();
+    var requests = years.map(function (y) {
+      return fetchPointsMapForYear(ctx, y);
+    });
+
+    return Promise.all(requests).then(function (maps) {
+      var yearIndex = Object.create(null);
+      for (var i = 0; i < years.length; i += 1) yearIndex[years[i]] = maps[i] || Object.create(null);
+
+      for (var t = 0; t < teams.length; t += 1) {
+        var players = teams[t].players || [];
+        for (var p = 0; p < players.length; p += 1) {
+          var player = players[p];
+          player.pointsByYear = Object.create(null);
+          var cumulative = 0;
+          for (var y = 0; y < years.length; y += 1) {
+            var year = years[y];
+            var score = safeNum(yearIndex[year][player.id], 0);
+            player.pointsByYear[year] = score;
+            cumulative += score;
+          }
+          if (safeNum(player.pointsByYear[years[0]], 0) === 0 && safeNum(player.points, 0) !== 0) {
+            player.pointsByYear[years[0]] = safeNum(player.points, 0);
+            cumulative = player.pointsByYear[years[0]] +
+              safeNum(player.pointsByYear[years[1]], 0) +
+              safeNum(player.pointsByYear[years[2]], 0) +
+              safeNum(player.pointsByYear[years[3]], 0);
+          }
+          player.pointsCumulative = cumulative;
+        }
+      }
+
+      return years;
+    }).catch(function () {
+      for (var t = 0; t < teams.length; t += 1) {
+        var players = teams[t].players || [];
+        for (var p = 0; p < players.length; p += 1) {
+          var player = players[p];
+          var fallbackYear = String(currentYearInt());
+          player.pointsByYear = Object.create(null);
+          player.pointsByYear[fallbackYear] = safeNum(player.points, 0);
+          player.pointsCumulative = safeNum(player.points, 0);
+        }
+      }
+      return [String(currentYearInt())];
+    });
+  }
+
+  function pointsForPlayer(player) {
+    if (!player) return 0;
+    if (state.pointsMode === "cumulative") return safeNum(player.pointsCumulative, 0);
+
+    var key = safeStr(state.pointsMode || (state.pointYears[0] || state.ctx.year));
+    if (!key) return safeNum(player.points, 0);
+
+    var map = player.pointsByYear || {};
+    if (map[key] == null) {
+      if (key === safeStr(state.ctx && state.ctx.year)) return safeNum(player.points, 0);
+      return 0;
+    }
+    return safeNum(map[key], 0);
+  }
+
+  function formatPoints(n) {
+    var v = safeNum(n, 0);
+    if (Math.abs(v - Math.round(v)) < 0.001) return String(Math.round(v));
+    return (Math.round(v * 10) / 10).toFixed(1);
+  }
+
+  function matchesFilters(player) {
+    if (!player) return false;
+
+    if (state.search) {
+      var hay = [
+        player.name,
+        player.position,
+        player.positionGroup,
+        positionGroupLabel(player.positionGroup),
+        player.nflTeam,
+        player.type,
+        player.special,
+        player.teamName
+      ].join(" ").toLowerCase();
+      if (hay.indexOf(state.search) === -1) return false;
+    }
+
+    if (state.filterPosition && safeStr(player.positionGroup).toUpperCase() !== state.filterPosition) {
+      return false;
+    }
+
+    if (state.filterType && contractBucket(player.type) !== state.filterType) {
+      return false;
+    }
+
+    if (state.taxiOnly && !player.isTaxi) {
+      return false;
+    }
+
+    return true;
+  }
+
+  function groupByPosition(players) {
     var map = Object.create(null);
-    var i;
-    for (i = 0; i < players.length; i += 1) {
+    for (var i = 0; i < players.length; i += 1) {
       var p = players[i] || {};
-      var pos = safeStr(p.position).toUpperCase() || "OTHER";
-      if (!map[pos]) map[pos] = [];
-      map[pos].push(p);
+      var key = safeStr(p.positionGroup || "OTHER").toUpperCase();
+      if (!map[key]) map[key] = [];
+      map[key].push(p);
     }
 
     var keys = Object.keys(map);
@@ -717,41 +839,14 @@
     });
 
     var out = [];
-    for (i = 0; i < keys.length; i += 1) {
-      var key = keys[i];
-      out.push({
-        key: key,
-        players: sortPlayers(map[key], mode)
+    for (var x = 0; x < keys.length; x += 1) {
+      var key = keys[x];
+      var rows = map[key].slice().sort(function (a, b) {
+        return safeStr(a.name).localeCompare(safeStr(b.name));
       });
+      out.push({ key: key, label: positionGroupLabel(key), players: rows });
     }
     return out;
-  }
-
-  function matchesFilters(player) {
-    if (!player) return false;
-
-    if (state.search) {
-      var hay = [
-        player.name,
-        player.position,
-        player.nflTeam,
-        player.type,
-        player.special,
-        player.teamName
-      ].join(" ").toLowerCase();
-      if (hay.indexOf(state.search) === -1) return false;
-    }
-
-    if (state.filterPosition && safeStr(player.position).toUpperCase() !== state.filterPosition) {
-      return false;
-    }
-
-    if (state.filterType) {
-      var t = normType(player.type);
-      if (t !== state.filterType) return false;
-    }
-
-    return true;
   }
 
   function ensureMount() {
@@ -782,48 +877,46 @@
         '<div class="rwb-shell">' +
           '<header class="rwb-hero">' +
             '<div>' +
-              '<p class="rwb-kicker">UPS Contract Command Center</p>' +
-              '<h1 class="rwb-title">Roster Workbench</h1>' +
-              '<p class="rwb-subtitle">API-powered roster view with team cards, sorting, filters, and export tools.</p>' +
+              '<h1 class="rwb-title">Rosters</h1>' +
             '</div>' +
-            '<div class="rwb-hero-status"><span class="rwb-status-label">Status</span><span class="rwb-status-value" id="rwbLoadStatus">Loading…</span></div>' +
           '</header>' +
           '<section class="rwb-toolbar" aria-label="Roster toolbar">' +
             '<div class="rwb-toolbar-main">' +
-              '<label class="rwb-field"><span>Jump To Team</span><select id="rwbJumpTeam" class="rwb-select"><option value="">Select team…</option></select></label>' +
-              '<label class="rwb-field"><span>Sort By</span><select id="rwbGlobalSort" class="rwb-select"></select></label>' +
-              '<label class="rwb-field"><span>Search</span><input id="rwbSearch" class="rwb-input" type="search" placeholder="Player, team, position, contract"></label>' +
-              '<button type="button" id="rwbToggleFilters" class="rwb-btn rwb-btn-ghost" aria-expanded="false">Filters</button>' +
-              '<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;">' +
-                '<button type="button" id="rwbExportCsv" class="rwb-btn rwb-btn-ghost">Download CSV</button>' +
-                '<button type="button" id="rwbCopyJson" class="rwb-btn rwb-btn-primary">Copy JSON</button>' +
+              '<div class="rwb-view-switch" role="tablist" aria-label="View mode">' +
+                '<button type="button" id="rwbViewRoster" class="rwb-btn rwb-btn-ghost is-active" data-action="view-switch" data-view="roster" role="tab" aria-selected="true">Roster View</button>' +
+                '<button type="button" id="rwbViewContract" class="rwb-btn rwb-btn-ghost" data-action="view-switch" data-view="contract" role="tab" aria-selected="false">Contract View</button>' +
               '</div>' +
+              '<label class="rwb-field"><span>Jump To Team</span><select id="rwbJumpTeam" class="rwb-select"><option value="">Select team...</option></select></label>' +
+              '<label class="rwb-field"><span>Points</span><select id="rwbPointsMode" class="rwb-select"></select></label>' +
+              '<label class="rwb-field"><span>Search</span><input id="rwbSearch" class="rwb-input" type="search" placeholder="Player, team, position, contract" autocomplete="off"></label>' +
+              '<button type="button" id="rwbTaxiOnly" class="rwb-btn rwb-btn-ghost">Taxi Only: Off</button>' +
+              '<button type="button" id="rwbToggleFilters" class="rwb-btn rwb-btn-ghost" aria-expanded="false">Filters</button>' +
             '</div>' +
             '<div id="rwbAdvancedFilters" class="rwb-toolbar-advanced" hidden>' +
-              '<label class="rwb-field"><span>Position</span><select id="rwbFilterPosition" class="rwb-select"><option value="">All Positions</option></select></label>' +
-              '<label class="rwb-field"><span>Contract Type</span><select id="rwbFilterType" class="rwb-select"><option value="">All Types</option></select></label>' +
-              '<a class="rwb-btn rwb-btn-link rwb-btn-ghost" id="rwbOldRosterLink" href="#" target="_self" rel="noopener">Old Roster</a>' +
+              '<label class="rwb-field"><span>Position Group</span><select id="rwbFilterPosition" class="rwb-select"><option value="">All Groups</option></select></label>' +
+              '<label class="rwb-field"><span>Contract Type</span><select id="rwbFilterType" class="rwb-select"><option value="">All Contract Types</option></select></label>' +
+              '<button type="button" id="rwbResetFilters" class="rwb-btn rwb-btn-ghost">Reset Filters</button>' +
             '</div>' +
-            '<div class="rwb-toolbar-note" id="rwbToolbarNote">Loading roster data…</div>' +
+            '<div class="rwb-toolbar-note" id="rwbToolbarNote">Loading roster data...</div>' +
           '</section>' +
-          '<section id="rwbTeamList" class="rwb-team-list" aria-live="polite"><div class="rwb-loading">Loading roster data…</div></section>' +
+          '<section id="rwbTeamList" class="rwb-team-list" aria-live="polite"><div class="rwb-loading">Loading roster data...</div></section>' +
         '</div>' +
       '</div>';
 
     els.app = document.getElementById("rwbApp");
-    els.loadStatus = document.getElementById("rwbLoadStatus");
     els.jumpTeam = document.getElementById("rwbJumpTeam");
-    els.globalSort = document.getElementById("rwbGlobalSort");
+    els.pointsMode = document.getElementById("rwbPointsMode");
     els.search = document.getElementById("rwbSearch");
     els.toggleFilters = document.getElementById("rwbToggleFilters");
     els.advanced = document.getElementById("rwbAdvancedFilters");
     els.filterPosition = document.getElementById("rwbFilterPosition");
     els.filterType = document.getElementById("rwbFilterType");
-    els.exportCsv = document.getElementById("rwbExportCsv");
-    els.copyJson = document.getElementById("rwbCopyJson");
+    els.taxiOnly = document.getElementById("rwbTaxiOnly");
+    els.resetFilters = document.getElementById("rwbResetFilters");
     els.note = document.getElementById("rwbToolbarNote");
     els.teamList = document.getElementById("rwbTeamList");
-    els.oldRosterLink = document.getElementById("rwbOldRosterLink");
+    els.viewRoster = document.getElementById("rwbViewRoster");
+    els.viewContract = document.getElementById("rwbViewContract");
   }
 
   function renderSelectOptions(select, options, selected) {
@@ -843,43 +936,28 @@
   }
 
   function buildFilterOptionSets() {
-    var posMap = Object.create(null);
-    var typeMap = Object.create(null);
+    var groupsMap = Object.create(null);
 
     for (var i = 0; i < state.teams.length; i += 1) {
       var team = state.teams[i] || {};
       var players = team.players || [];
       for (var j = 0; j < players.length; j += 1) {
-        var p = players[j] || {};
-        var pos = safeStr(p.position).toUpperCase();
-        if (pos) posMap[pos] = true;
-
-        var typeRaw = safeStr(p.type);
-        var typeKey = normType(typeRaw);
-        if (typeKey) typeMap[typeKey] = typeRaw;
+        var g = safeStr(players[j].positionGroup).toUpperCase();
+        if (!g) continue;
+        groupsMap[g] = true;
       }
     }
 
-    var posKeys = Object.keys(posMap);
-    posKeys.sort(function (a, b) {
+    var keys = Object.keys(groupsMap).sort(function (a, b) {
       var av = positionSortValue(a);
       var bv = positionSortValue(b);
       if (av !== bv) return av - bv;
       return a.localeCompare(b);
     });
 
-    var typeKeys = Object.keys(typeMap).sort();
-
     return {
-      positions: [{ value: "", label: "All Positions" }].concat(
-        posKeys.map(function (pos) {
-          return { value: pos, label: pos };
-        })
-      ),
-      types: [{ value: "", label: "All Types" }].concat(
-        typeKeys.map(function (k) {
-          return { value: k, label: typeMap[k] || k };
-        })
+      positions: [{ value: "", label: "All Groups" }].concat(
+        keys.map(function (k) { return { value: k, label: positionGroupLabel(k) }; })
       )
     };
   }
@@ -887,18 +965,25 @@
   function renderToolbar() {
     if (!els.jumpTeam) return;
 
-    var jumpOptions = [{ value: "", label: "Select team…" }];
+    var jumpOptions = [{ value: "", label: "Select team..." }];
     for (var i = 0; i < state.teams.length; i += 1) {
-      jumpOptions.push({ value: state.teams[i].id, label: state.teams[i].name });
+      var team = state.teams[i];
+      jumpOptions.push({ value: team.id, label: team.name });
     }
     renderSelectOptions(els.jumpTeam, jumpOptions, "");
 
-    renderSelectOptions(els.globalSort, SORT_OPTIONS, state.globalSort);
+    var pointOptions = [];
+    for (var p = 0; p < state.pointYears.length; p += 1) {
+      pointOptions.push({ value: state.pointYears[p], label: state.pointYears[p] });
+    }
+    pointOptions.push({ value: "cumulative", label: "Cumulative" });
+    renderSelectOptions(els.pointsMode, pointOptions, state.pointsMode);
+
     els.search.value = state.search;
 
     var sets = buildFilterOptionSets();
     renderSelectOptions(els.filterPosition, sets.positions, state.filterPosition);
-    renderSelectOptions(els.filterType, sets.types, state.filterType);
+    renderSelectOptions(els.filterType, CONTRACT_FILTERS, state.filterType);
 
     var advancedVisible = state.filtersOpen || !isCurrentMobile();
     if (advancedVisible) {
@@ -911,152 +996,306 @@
     }
     els.toggleFilters.setAttribute("aria-expanded", advancedVisible ? "true" : "false");
 
-    var oldRosterHref =
-      window.location.origin +
-      "/" + encodeURIComponent(state.ctx.year) +
-      "/options?L=" + encodeURIComponent(state.ctx.leagueId) +
-      "&O=07";
-    if (els.oldRosterLink) els.oldRosterLink.setAttribute("href", oldRosterHref);
+    if (els.taxiOnly) {
+      els.taxiOnly.textContent = state.taxiOnly ? "Taxi Only: On" : "Taxi Only: Off";
+      els.taxiOnly.classList.toggle("is-active", !!state.taxiOnly);
+    }
+
+    if (els.viewRoster && els.viewContract) {
+      var rosterActive = state.view !== "contract";
+      els.viewRoster.classList.toggle("is-active", rosterActive);
+      els.viewContract.classList.toggle("is-active", !rosterActive);
+      els.viewRoster.setAttribute("aria-selected", rosterActive ? "true" : "false");
+      els.viewContract.setAttribute("aria-selected", !rosterActive ? "true" : "false");
+    }
   }
 
   function renderToolbarNote(visiblePlayers, totalPlayers) {
     if (!els.note) return;
 
     var parts = [];
+    parts.push((state.view === "contract" ? "Contract view" : "Roster view"));
     parts.push("Showing " + visiblePlayers + " of " + totalPlayers + " players");
-    if (state.filterPosition) parts.push("Pos " + state.filterPosition);
-    if (state.filterType) parts.push("Type " + state.filterType);
-    if (state.search) parts.push('Search "' + state.search + '"');
-    parts.push("Points " + (state.pointsYear || state.ctx.year));
-
-    els.note.textContent = parts.join(" • ");
-  }
-
-  function renderStatus(text, isError) {
-    if (!els.loadStatus) return;
-    els.loadStatus.textContent = text;
-    els.loadStatus.style.color = isError ? "#ffb3b3" : "";
-  }
-
-  function teamCardHtml(team) {
-    var sortMode = getTeamSort(team.id);
-    var filtered = [];
-    var i;
-    for (i = 0; i < team.players.length; i += 1) {
-      if (matchesFilters(team.players[i])) filtered.push(team.players[i]);
+    if (state.filterPosition) parts.push(positionGroupLabel(state.filterPosition));
+    if (state.filterType) {
+      if (state.filterType === "rookie") parts.push("Rookies");
+      else if (state.filterType === "loaded") parts.push("Loaded");
+      else if (state.filterType === "other") parts.push("All Other");
     }
+    if (state.taxiOnly) parts.push("Taxi only");
+    if (state.search) parts.push('Search "' + state.search + '"');
+    parts.push("Points " + pointModeLabel(state.pointsMode));
 
-    var grouped = groupByPosition(filtered, sortMode);
+    els.note.textContent = parts.join(" | ");
+  }
+
+  function teamHeaderHtml(team, filteredPlayers) {
     var collapsed = isTeamCollapsed(team.id);
-
     var complianceClass = team.summary.compliance.ok ? "is-good" : "is-bad";
     var complianceText = team.summary.compliance.label;
 
     var logo = safeStr(team.logo);
     var logoHtml = logo
-      ? '<img class="rwb-team-logo" src="' + escapeHtml(logo) + '" alt="' + escapeHtml(team.name) + ' logo">'
-      : '<span class="rwb-team-logo-fallback" aria-hidden="true">' + escapeHtml(team.fid) + "</span>";
+      ? '<img class="rwb-team-logo" src="' + escapeHtml(logo) + '" alt="' + escapeHtml(team.name) + ' logo" title="' + escapeHtml(team.name) + '">' 
+      : '<span class="rwb-team-logo-fallback" aria-hidden="true" title="' + escapeHtml(team.name) + '">' + escapeHtml(team.fid) + "</span>";
 
-    var sortOptions = SORT_OPTIONS.map(function (opt) {
-      return (
-        '<option value="' + escapeHtml(opt.value) + '"' +
-        (opt.value === sortMode ? " selected" : "") +
-        '>' + escapeHtml(opt.label) + "</option>"
-      );
-    }).join("");
+    return (
+      '<header class="rwb-team-head">' +
+        '<div class="rwb-team-brand" title="' + escapeHtml(team.name) + '">' +
+          logoHtml +
+          '<span class="rwb-visually-hidden">' + escapeHtml(team.name) + '</span>' +
+        '</div>' +
+        '<div class="rwb-chip-row">' +
+          '<span class="rwb-chip"><span class="rwb-chip-label">Players</span><span class="rwb-chip-value">' + escapeHtml(String(filteredPlayers.length)) + '/' + escapeHtml(String(team.summary.players)) + '</span></span>' +
+          '<span class="rwb-chip"><span class="rwb-chip-label">Cap Total</span><span class="rwb-chip-value">' + escapeHtml(money(team.summary.capTotal)) + '</span></span>' +
+          '<span class="rwb-chip"><span class="rwb-chip-label">Taxi</span><span class="rwb-chip-value">' + escapeHtml(String(team.summary.taxi)) + '</span></span>' +
+          '<span class="rwb-chip ' + complianceClass + '"><span class="rwb-chip-label">Compliance</span><span class="rwb-chip-value">' + escapeHtml(complianceText) + '</span></span>' +
+        '</div>' +
+        '<div class="rwb-team-actions">' +
+          '<button type="button" class="rwb-btn rwb-btn-ghost" data-action="team-collapse" data-team-id="' + escapeHtml(team.id) + '" aria-expanded="' + (collapsed ? "false" : "true") + '">' + (collapsed ? "Expand" : "Collapse") + '</button>' +
+        '</div>' +
+      '</header>'
+    );
+  }
 
-    var bodyHtml = "";
-    if (!grouped.length) {
-      bodyHtml = '<div class="rwb-empty">No players match the current filters for this team.</div>';
-    } else {
-      var groups = [];
-      for (i = 0; i < grouped.length; i += 1) {
-        var group = grouped[i];
-        var rows = [];
-        for (var j = 0; j < group.players.length; j += 1) {
-          var p = group.players[j];
-          var tags = [];
-          if (p.isTaxi) tags.push('<span class="rwb-tag is-taxi">Taxi</span>');
-          if (p.isIr) tags.push('<span class="rwb-tag is-ir">IR</span>');
+  function rosterGroupHtml(team, group) {
+    var rows = [];
+    for (var j = 0; j < group.players.length; j += 1) {
+      var p = group.players[j];
+      var tags = [];
+      if (p.isTaxi) tags.push('<span class="rwb-tag is-taxi">Taxi</span>');
+      if (p.isIr) tags.push('<span class="rwb-tag is-ir">IR</span>');
 
-          rows.push(
-            '<tr class="rwb-player-row" data-player-id="' + escapeHtml(p.id) + '">' +
-              '<td>' +
-                '<div class="rwb-player-name-wrap">' +
-                  '<div class="rwb-player-line">' +
-                    '<span class="rwb-pos-pill">' + escapeHtml(p.position || "-") + '</span>' +
-                    '<span class="rwb-player-name">' + escapeHtml(p.name) + '</span>' +
-                    tags.join("") +
-                    '<button type="button" class="rwb-row-more" data-action="row-more" aria-expanded="false">More</button>' +
-                  '</div>' +
-                  '<dl class="rwb-mobile-details">' +
-                    '<div><dt>Type</dt><dd>' + escapeHtml(p.type) + '</dd></div>' +
-                    '<div><dt>Special</dt><dd>' + escapeHtml(p.special) + '</dd></div>' +
-                  '</dl>' +
-                '</div>' +
-              '</td>' +
-              '<td class="rwb-cell-num rwb-col-secondary">' + escapeHtml(String((Math.round(p.points * 10) / 10).toFixed(1))) + '</td>' +
-              '<td class="rwb-cell-num rwb-col-secondary">' + escapeHtml(p.bye || "-") + '</td>' +
-              '<td class="rwb-cell-num">' + escapeHtml(money(p.salary)) + '</td>' +
-              '<td class="rwb-cell-num">' + escapeHtml(String(p.years)) + '</td>' +
-              '<td><span class="rwb-type-pill ' + typeTone(p.type) + '">' + escapeHtml(p.type) + '</span></td>' +
-              '<td class="rwb-col-secondary">' + escapeHtml(p.special) + '</td>' +
-            '</tr>'
-          );
-        }
-
-        groups.push(
-          '<details class="rwb-group"' + (i < 2 ? " open" : "") + '>' +
-            '<summary>' +
-              '<span class="rwb-group-label"><span>' + escapeHtml(group.key) + '</span><span class="rwb-group-count">' + escapeHtml(String(group.players.length)) + '</span></span>' +
-              '<span class="rwb-group-count">' + escapeHtml(sortLabel(sortMode)) + '</span>' +
-            '</summary>' +
-            '<div class="rwb-table-wrap">' +
-              '<table class="rwb-table" aria-label="' + escapeHtml(team.name + " " + group.key + " roster") + '">' +
-                '<thead>' +
-                  '<tr>' +
-                    '<th>Player</th>' +
-                    '<th class="rwb-col-secondary">Pts ' + escapeHtml(String(state.pointsYear || state.ctx.year)) + '</th>' +
-                    '<th class="rwb-col-secondary">Bye</th>' +
-                    '<th>Salary</th>' +
-                    '<th>Years</th>' +
-                    '<th>Type</th>' +
-                    '<th class="rwb-col-secondary">Special</th>' +
-                  '</tr>' +
-                '</thead>' +
-                '<tbody>' + rows.join("") + '</tbody>' +
-              '</table>' +
+      rows.push(
+        '<tr class="rwb-player-row" data-player-id="' + escapeHtml(p.id) + '">' +
+          '<td>' +
+            '<div class="rwb-player-name-wrap">' +
+              '<div class="rwb-player-line">' +
+                '<span class="rwb-pos-pill">' + escapeHtml(safeStr(p.positionGroup)) + '</span>' +
+                '<span class="rwb-player-name">' + escapeHtml(p.name) + '</span>' +
+                tags.join("") +
+                '<button type="button" class="rwb-row-more" data-action="row-more" aria-expanded="false">More</button>' +
+              '</div>' +
+              '<dl class="rwb-mobile-details">' +
+                '<div><dt>Type</dt><dd>' + escapeHtml(p.type) + '</dd></div>' +
+                '<div><dt>Special</dt><dd>' + escapeHtml(p.special) + '</dd></div>' +
+                '<div><dt>Bye</dt><dd>' + escapeHtml(p.bye || "-") + '</dd></div>' +
+              '</dl>' +
             '</div>' +
-          '</details>'
-        );
+          '</td>' +
+          '<td class="rwb-cell-num">' + escapeHtml(formatPoints(pointsForPlayer(p))) + '</td>' +
+          '<td class="rwb-cell-num rwb-col-secondary">' + escapeHtml(p.bye || "-") + '</td>' +
+          '<td class="rwb-cell-num">' + escapeHtml(money(p.salary)) + '</td>' +
+          '<td class="rwb-cell-num">' + escapeHtml(String(p.years)) + '</td>' +
+          '<td><span class="rwb-type-pill ' + typeTone(p.type) + '">' + escapeHtml(p.type) + '</span></td>' +
+          '<td class="rwb-col-secondary">' + escapeHtml(p.special) + '</td>' +
+        '</tr>'
+      );
+    }
+
+    return (
+      '<details class="rwb-group" open>' +
+        '<summary>' +
+          '<span class="rwb-group-label"><span>' + escapeHtml(group.label) + '</span><span class="rwb-group-count">' + escapeHtml(String(group.players.length)) + '</span></span>' +
+        '</summary>' +
+        '<div class="rwb-table-wrap">' +
+          '<table class="rwb-table" aria-label="' + escapeHtml(team.name + " " + group.label + " roster") + '">' +
+            '<thead>' +
+              '<tr>' +
+                '<th>Player</th>' +
+                '<th>Pts ' + escapeHtml(pointModeLabel(state.pointsMode)) + '</th>' +
+                '<th class="rwb-col-secondary">Bye</th>' +
+                '<th>Salary</th>' +
+                '<th>Years</th>' +
+                '<th>Type</th>' +
+                '<th class="rwb-col-secondary">Special</th>' +
+              '</tr>' +
+            '</thead>' +
+            '<tbody>' + rows.join("") + '</tbody>' +
+          '</table>' +
+        '</div>' +
+      '</details>'
+    );
+  }
+
+  function projectSalaryByYear(player, offsets) {
+    var years = safeInt(player && player.years, 0);
+    var salary = safeInt(player && player.salary, 0);
+    var out = [];
+    for (var i = 0; i < offsets; i += 1) {
+      out.push(years > i ? salary : 0);
+    }
+    return out;
+  }
+
+  function contractBodyHtml(team, filteredPlayers) {
+    var base = currentYearInt();
+    var years = [String(base), String(base + 1), String(base + 2)];
+    var rows = [];
+
+    var nonTaxiPlayersUnderContract = 0;
+    var nonTaxiTotals = [0, 0, 0];
+    var taxiPlayersShown = 0;
+    var taxiTotals = [0, 0, 0];
+
+    var sorted = filteredPlayers.slice().sort(function (a, b) {
+      var av = positionSortValue(a.positionGroup);
+      var bv = positionSortValue(b.positionGroup);
+      if (av !== bv) return av - bv;
+      return safeStr(a.name).localeCompare(safeStr(b.name));
+    });
+
+    for (var i = 0; i < sorted.length; i += 1) {
+      var p = sorted[i];
+      var proj = projectSalaryByYear(p, 3);
+      var isUnderContract = proj[0] > 0 || proj[1] > 0 || proj[2] > 0;
+
+      if (p.isTaxi) {
+        taxiPlayersShown += 1;
+        taxiTotals[0] += proj[0];
+        taxiTotals[1] += proj[1];
+        taxiTotals[2] += proj[2];
+      } else if (isUnderContract) {
+        nonTaxiPlayersUnderContract += 1;
+        nonTaxiTotals[0] += proj[0];
+        nonTaxiTotals[1] += proj[1];
+        nonTaxiTotals[2] += proj[2];
       }
-      bodyHtml = groups.join("");
+
+      rows.push(
+        '<tr class="rwb-player-row' + (p.isTaxi ? ' rwb-player-row-taxi' : '') + '">' +
+          '<td>' +
+            '<div class="rwb-player-line">' +
+              '<span class="rwb-pos-pill">' + escapeHtml(safeStr(p.positionGroup)) + '</span>' +
+              '<span class="rwb-player-name">' + escapeHtml(p.name) + '</span>' +
+              (p.isTaxi ? '<span class="rwb-tag is-taxi">Taxi</span>' : '') +
+            '</div>' +
+          '</td>' +
+          '<td class="rwb-cell-num' + (proj[0] === 0 ? ' rwb-money-zero' : '') + '">' + escapeHtml(money(proj[0])) + '</td>' +
+          '<td class="rwb-cell-num' + (proj[1] === 0 ? ' rwb-money-zero' : '') + '">' + escapeHtml(money(proj[1])) + '</td>' +
+          '<td class="rwb-cell-num' + (proj[2] === 0 ? ' rwb-money-zero' : '') + '">' + escapeHtml(money(proj[2])) + '</td>' +
+          '<td><span class="rwb-type-pill ' + typeTone(p.type) + '">' + escapeHtml(p.type) + '</span></td>' +
+        '</tr>'
+      );
+    }
+
+    if (!rows.length) {
+      return '<div class="rwb-empty">No players match the current filters for this team.</div>';
+    }
+
+    var nonTaxiThreeYear = nonTaxiTotals[0] + nonTaxiTotals[1] + nonTaxiTotals[2];
+    var taxiThreeYear = taxiTotals[0] + taxiTotals[1] + taxiTotals[2];
+
+    return (
+      '<div class="rwb-table-wrap">' +
+        '<table class="rwb-table rwb-contract-table" aria-label="' + escapeHtml(team.name + " contract view") + '">' +
+          '<thead>' +
+            '<tr>' +
+              '<th>Player</th>' +
+              '<th>' + escapeHtml(years[0]) + '</th>' +
+              '<th>' + escapeHtml(years[1]) + '</th>' +
+              '<th>' + escapeHtml(years[2]) + '</th>' +
+              '<th>Type</th>' +
+            '</tr>' +
+          '</thead>' +
+          '<tbody>' + rows.join("") + '</tbody>' +
+        '</table>' +
+      '</div>' +
+      '<div class="rwb-contract-summary">' +
+        '<div class="rwb-contract-summary-row">Under Contract (Non-Taxi): <strong>' +
+          escapeHtml(String(nonTaxiPlayersUnderContract)) +
+          '</strong> players | ' +
+          escapeHtml(years[0]) + ' <strong>' + escapeHtml(money(nonTaxiTotals[0])) + '</strong> | ' +
+          escapeHtml(years[1]) + ' <strong>' + escapeHtml(money(nonTaxiTotals[1])) + '</strong> | ' +
+          escapeHtml(years[2]) + ' <strong>' + escapeHtml(money(nonTaxiTotals[2])) + '</strong> | 3-Year <strong>' + escapeHtml(money(nonTaxiThreeYear)) + '</strong>' +
+        '</div>' +
+        '<div class="rwb-contract-summary-row rwb-contract-summary-row-muted">Taxi (excluded from totals): <strong>' +
+          escapeHtml(String(taxiPlayersShown)) +
+          '</strong> players | ' +
+          escapeHtml(years[0]) + ' <strong>' + escapeHtml(money(taxiTotals[0])) + '</strong> | ' +
+          escapeHtml(years[1]) + ' <strong>' + escapeHtml(money(taxiTotals[1])) + '</strong> | ' +
+          escapeHtml(years[2]) + ' <strong>' + escapeHtml(money(taxiTotals[2])) + '</strong> | 3-Year <strong>' + escapeHtml(money(taxiThreeYear)) + '</strong>' +
+        '</div>' +
+      '</div>'
+    );
+  }
+
+  function teamCardHtml(team) {
+    var players = team.players || [];
+    var filtered = [];
+    for (var i = 0; i < players.length; i += 1) {
+      if (matchesFilters(players[i])) filtered.push(players[i]);
+    }
+
+    var collapsed = isTeamCollapsed(team.id);
+    var bodyHtml;
+    if (state.view === "contract") {
+      bodyHtml = contractBodyHtml(team, filtered);
+    } else {
+      var grouped = groupByPosition(filtered);
+      if (!grouped.length) bodyHtml = '<div class="rwb-empty">No players match the current filters for this team.</div>';
+      else {
+        var blocks = [];
+        for (var g = 0; g < grouped.length; g += 1) {
+          blocks.push(rosterGroupHtml(team, grouped[g]));
+        }
+        bodyHtml = blocks.join("");
+      }
     }
 
     return (
       '<article class="rwb-team-card" id="rwb-team-' + escapeHtml(team.id) + '" data-team-id="' + escapeHtml(team.id) + '">' +
-        '<header class="rwb-team-head">' +
-          '<div class="rwb-team-brand">' +
-            logoHtml +
-            '<div>' +
-              '<h2 class="rwb-team-name">' + escapeHtml(team.name) + '</h2>' +
-              '<p class="rwb-team-sort-note">Sort: ' + escapeHtml(sortLabel(sortMode)) + '</p>' +
-            '</div>' +
+        teamHeaderHtml(team, filtered) +
+        '<div class="rwb-team-body"' + (collapsed ? ' hidden' : '') + '>' + bodyHtml + '</div>' +
+      '</article>'
+    );
+  }
+
+  function summarizeContractLeague() {
+    if (state.view !== "contract") return "";
+
+    var years = [currentYearInt(), currentYearInt() + 1, currentYearInt() + 2];
+    var nonTaxiPlayers = 0;
+    var nonTaxiTotals = [0, 0, 0];
+    var taxiPlayers = 0;
+    var taxiTotals = [0, 0, 0];
+
+    for (var t = 0; t < state.teams.length; t += 1) {
+      var players = state.teams[t].players || [];
+      for (var p = 0; p < players.length; p += 1) {
+        var player = players[p];
+        if (!matchesFilters(player)) continue;
+        var proj = projectSalaryByYear(player, 3);
+        if (player.isTaxi) {
+          taxiPlayers += 1;
+          taxiTotals[0] += proj[0];
+          taxiTotals[1] += proj[1];
+          taxiTotals[2] += proj[2];
+        } else {
+          if (proj[0] > 0 || proj[1] > 0 || proj[2] > 0) nonTaxiPlayers += 1;
+          nonTaxiTotals[0] += proj[0];
+          nonTaxiTotals[1] += proj[1];
+          nonTaxiTotals[2] += proj[2];
+        }
+      }
+    }
+
+    var nonTaxiThree = nonTaxiTotals[0] + nonTaxiTotals[1] + nonTaxiTotals[2];
+    var taxiThree = taxiTotals[0] + taxiTotals[1] + taxiTotals[2];
+
+    return (
+      '<article class="rwb-team-card rwb-contract-summary-league">' +
+        '<div class="rwb-contract-summary rwb-contract-summary--league">' +
+          '<div class="rwb-contract-summary-row">League Summary (Non-Taxi): <strong>' + escapeHtml(String(nonTaxiPlayers)) + '</strong> players | ' +
+            escapeHtml(String(years[0])) + ' <strong>' + escapeHtml(money(nonTaxiTotals[0])) + '</strong> | ' +
+            escapeHtml(String(years[1])) + ' <strong>' + escapeHtml(money(nonTaxiTotals[1])) + '</strong> | ' +
+            escapeHtml(String(years[2])) + ' <strong>' + escapeHtml(money(nonTaxiTotals[2])) + '</strong> | 3-Year <strong>' + escapeHtml(money(nonTaxiThree)) + '</strong>' +
           '</div>' +
-          '<div class="rwb-chip-row">' +
-            '<span class="rwb-chip"><span class="rwb-chip-label">Players</span><span class="rwb-chip-value">' + escapeHtml(String(filtered.length)) + '/' + escapeHtml(String(team.summary.players)) + '</span></span>' +
-            '<span class="rwb-chip"><span class="rwb-chip-label">Cap Total</span><span class="rwb-chip-value">' + escapeHtml(money(team.summary.capTotal)) + '</span></span>' +
-            '<span class="rwb-chip"><span class="rwb-chip-label">Taxi</span><span class="rwb-chip-value">' + escapeHtml(String(team.summary.taxi)) + '</span></span>' +
-            '<span class="rwb-chip ' + complianceClass + '"><span class="rwb-chip-label">Compliance</span><span class="rwb-chip-value">' + escapeHtml(complianceText) + '</span></span>' +
+          '<div class="rwb-contract-summary-row rwb-contract-summary-row-muted">Taxi (excluded): <strong>' + escapeHtml(String(taxiPlayers)) + '</strong> players | ' +
+            escapeHtml(String(years[0])) + ' <strong>' + escapeHtml(money(taxiTotals[0])) + '</strong> | ' +
+            escapeHtml(String(years[1])) + ' <strong>' + escapeHtml(money(taxiTotals[1])) + '</strong> | ' +
+            escapeHtml(String(years[2])) + ' <strong>' + escapeHtml(money(taxiTotals[2])) + '</strong> | 3-Year <strong>' + escapeHtml(money(taxiThree)) + '</strong>' +
           '</div>' +
-          '<div class="rwb-team-actions">' +
-            '<label class="rwb-visually-hidden" for="rwb-sort-' + escapeHtml(team.id) + '">Sort ' + escapeHtml(team.name) + '</label>' +
-            '<select id="rwb-sort-' + escapeHtml(team.id) + '" class="rwb-select rwb-team-sort" data-action="team-sort" data-team-id="' + escapeHtml(team.id) + '">' + sortOptions + '</select>' +
-            '<button type="button" class="rwb-btn rwb-btn-ghost" data-action="team-collapse" data-team-id="' + escapeHtml(team.id) + '" aria-expanded="' + (collapsed ? "false" : "true") + '">' + (collapsed ? "Expand" : "Collapse") + '</button>' +
-          '</div>' +
-        '</header>' +
-        '<div class="rwb-team-body"' + (collapsed ? ' hidden' : '') + '>' +
-          bodyHtml +
         '</div>' +
       '</article>'
     );
@@ -1078,6 +1317,10 @@
       html.push(teamCardHtml(team));
     }
 
+    if (state.view === "contract") {
+      html.push(summarizeContractLeague());
+    }
+
     if (!html.length) {
       els.teamList.innerHTML = '<div class="rwb-empty">No roster teams found.</div>';
     } else {
@@ -1089,25 +1332,35 @@
 
   function collectExportRows() {
     var rows = [];
+    var baseYear = currentYearInt();
     for (var i = 0; i < state.teams.length; i += 1) {
       var team = state.teams[i] || {};
       var players = team.players || [];
       for (var j = 0; j < players.length; j += 1) {
         var p = players[j] || {};
+        var proj = projectSalaryByYear(p, 3);
         rows.push({
           team_id: team.id,
           team_name: team.name,
           player_id: p.id,
           player_name: p.name,
           position: p.position,
-          points_year: state.pointsYear || state.ctx.year,
-          points: p.points,
-          bye: p.bye,
+          position_group: p.positionGroup,
+          points_mode: state.pointsMode,
+          points_value: pointsForPlayer(p),
           salary: p.salary,
           years: p.years,
+          year_1: proj[0],
+          year_2: proj[1],
+          year_3: proj[2],
+          salary_year_1_label: String(baseYear),
+          salary_year_2_label: String(baseYear + 1),
+          salary_year_3_label: String(baseYear + 2),
           contract_type: p.type,
+          contract_bucket: contractBucket(p.type),
           special: p.special,
-          status: p.status
+          status: p.status,
+          taxi: p.isTaxi ? "Y" : "N"
         });
       }
     }
@@ -1127,14 +1380,22 @@
       "player_id",
       "player_name",
       "position",
-      "points_year",
-      "points",
-      "bye",
+      "position_group",
+      "points_mode",
+      "points_value",
       "salary",
       "years",
+      "salary_year_1_label",
+      "salary_year_2_label",
+      "salary_year_3_label",
+      "year_1",
+      "year_2",
+      "year_3",
       "contract_type",
+      "contract_bucket",
       "special",
-      "status"
+      "status",
+      "taxi"
     ];
     var lines = [cols.join(",")];
     for (var i = 0; i < rows.length; i += 1) {
@@ -1158,45 +1419,46 @@
     }, 0);
   }
 
-  function copyJson(rows) {
-    var json = JSON.stringify(rows, null, 2);
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      return navigator.clipboard.writeText(json).catch(function () {
-        download("ups-rosters.json", json, "application/json;charset=utf-8");
-      });
-    }
-    download("ups-rosters.json", json, "application/json;charset=utf-8");
-    return Promise.resolve();
-  }
-
   function persistState() {
-    writeStorage("globalSort", state.globalSort);
     writeStorage("search", state.search);
     writeStorage("filterPosition", state.filterPosition);
     writeStorage("filterType", state.filterType);
-    writeStorage("teamSort", state.teamSort);
+    writeStorage("taxiOnly", state.taxiOnly);
     writeStorage("collapsed", state.collapsed);
     writeStorage("filtersOpen", state.filtersOpen);
+    writeStorage("view", state.view);
+    writeStorage("pointsMode", state.pointsMode);
   }
 
   function restoreState() {
-    state.globalSort = safeStr(readStorage("globalSort", "default")) || "default";
     state.search = safeStr(readStorage("search", "")).toLowerCase();
     state.filterPosition = safeStr(readStorage("filterPosition", "")).toUpperCase();
     state.filterType = normType(readStorage("filterType", ""));
-    state.teamSort = readStorage("teamSort", {});
+    state.taxiOnly = !!readStorage("taxiOnly", false);
     state.collapsed = readStorage("collapsed", {});
     state.filtersOpen = !!readStorage("filtersOpen", false);
+    state.view = safeStr(readStorage("view", "roster")) === "contract" ? "contract" : "roster";
+    state.pointsMode = safeStr(readStorage("pointsMode", ""));
 
-    var allowedSort = Object.create(null);
-    for (var i = 0; i < SORT_OPTIONS.length; i += 1) {
-      allowedSort[SORT_OPTIONS[i].value] = true;
+    if (["", "rookie", "loaded", "other"].indexOf(state.filterType) === -1) {
+      state.filterType = "";
     }
+  }
 
-    if (!allowedSort[state.globalSort]) state.globalSort = "default";
+  function jumpToTeam(teamId) {
+    if (!teamId) return;
+    state.collapsed[teamId] = false;
+    persistState();
+    renderTeams();
 
-    Object.keys(state.teamSort || {}).forEach(function (teamId) {
-      if (!allowedSort[state.teamSort[teamId]]) delete state.teamSort[teamId];
+    requestAnimationFrame(function () {
+      var node = document.getElementById("rwb-team-" + teamId);
+      if (!node) return;
+      if (node.scrollIntoView) node.scrollIntoView({ behavior: "smooth", block: "start" });
+      node.classList.add("rwb-jump-flash");
+      setTimeout(function () {
+        node.classList.remove("rwb-jump-flash");
+      }, 1200);
     });
   }
 
@@ -1215,6 +1477,19 @@
       return;
     }
 
+    var viewBtn = target.closest("[data-action='view-switch']");
+    if (viewBtn) {
+      var nextView = safeStr(viewBtn.getAttribute("data-view"));
+      if (nextView !== "contract" && nextView !== "roster") return;
+      if (state.view !== nextView) {
+        state.view = nextView;
+        persistState();
+        renderToolbar();
+        renderTeams();
+      }
+      return;
+    }
+
     var collapseBtn = target.closest("[data-action='team-collapse']");
     if (collapseBtn) {
       var teamId = safeStr(collapseBtn.getAttribute("data-team-id"));
@@ -1225,29 +1500,30 @@
       return;
     }
 
-    if (target === els.exportCsv) {
-      var rowsCsv = collectExportRows();
-      var csv = toCsv(rowsCsv);
-      var stamp = new Date().toISOString().replace(/[:T]/g, "-").slice(0, 16);
-      download("ups-rosters-" + stamp + ".csv", csv, "text/csv;charset=utf-8");
-      return;
-    }
-
-    if (target === els.copyJson) {
-      var rowsJson = collectExportRows();
-      copyJson(rowsJson).then(function () {
-        renderStatus("JSON copied", false);
-        setTimeout(function () {
-          renderStatus("Live", false);
-        }, 1400);
-      });
-      return;
-    }
-
     if (target === els.toggleFilters) {
       state.filtersOpen = !state.filtersOpen;
       persistState();
       renderToolbar();
+      return;
+    }
+
+    if (target === els.taxiOnly) {
+      state.taxiOnly = !state.taxiOnly;
+      persistState();
+      renderToolbar();
+      renderTeams();
+      return;
+    }
+
+    if (target === els.resetFilters) {
+      state.search = "";
+      state.filterPosition = "";
+      state.filterType = "";
+      state.taxiOnly = false;
+      if (els.search) els.search.value = "";
+      persistState();
+      renderToolbar();
+      renderTeams();
       return;
     }
   }
@@ -1255,13 +1531,6 @@
   function onChange(evt) {
     var el = evt.target;
     if (!el) return;
-
-    if (el === els.globalSort) {
-      state.globalSort = safeStr(el.value || "default");
-      persistState();
-      renderTeams();
-      return;
-    }
 
     if (el === els.filterPosition) {
       state.filterPosition = safeStr(el.value).toUpperCase();
@@ -1280,30 +1549,17 @@
     if (el === els.jumpTeam) {
       var teamId = safeStr(el.value);
       if (!teamId) return;
-      state.collapsed[teamId] = false;
-      persistState();
-      renderTeams();
-      setTimeout(function () {
-        var node = document.getElementById("rwb-team-" + teamId);
-        if (node && node.scrollIntoView) {
-          node.scrollIntoView({ behavior: "smooth", block: "start" });
-        }
-      }, 0);
+      jumpToTeam(teamId);
       return;
     }
 
-    var teamSort = el.closest("[data-action='team-sort']");
-    if (teamSort) {
-      var tid = safeStr(teamSort.getAttribute("data-team-id"));
-      if (!tid) return;
-      var mode = safeStr(teamSort.value || "default");
-      if (mode === state.globalSort) {
-        delete state.teamSort[tid];
-      } else {
-        state.teamSort[tid] = mode;
-      }
+    if (el === els.pointsMode) {
+      var nextMode = safeStr(el.value);
+      if (!nextMode) return;
+      state.pointsMode = nextMode;
       persistState();
       renderTeams();
+      return;
     }
   }
 
@@ -1330,33 +1586,6 @@
     });
   }
 
-  function fetchPointsWithFallback(ctx) {
-    var primaryYear = safeInt(ctx.year, new Date().getFullYear());
-    var years = [String(primaryYear), String(primaryYear - 1)];
-
-    function attempt(idx) {
-      if (idx >= years.length) {
-        return Promise.resolve({ year: String(primaryYear), map: Object.create(null) });
-      }
-
-      var y = years[idx];
-      var url = buildExportUrl(ctx.hostOrigin, y, "playerScores", {
-        L: ctx.leagueId,
-        W: "YTD"
-      });
-
-      return fetchJson(url).then(function (payload) {
-        var map = toScoreMap(payload);
-        if (mapSize(map) > 0) return { year: y, map: map };
-        return attempt(idx + 1);
-      }).catch(function () {
-        return attempt(idx + 1);
-      });
-    }
-
-    return attempt(0);
-  }
-
   function fetchByesWithFallback(ctx) {
     var year = safeInt(ctx.year, new Date().getFullYear());
     var years = [String(year), String(year - 1)];
@@ -1368,6 +1597,8 @@
       var url = new URL("https://api.myfantasyleague.com/" + encodeURIComponent(y) + "/export");
       url.searchParams.set("TYPE", "nflByeWeeks");
       url.searchParams.set("JSON", "1");
+      var apiKey = resolveApiKey();
+      if (apiKey) url.searchParams.set("APIKEY", apiKey);
 
       return fetchJson(url.toString()).then(function (payload) {
         var map = toByeMap(payload);
@@ -1388,37 +1619,38 @@
     var leagueUrl = buildExportUrl(ctx.hostOrigin, ctx.year, "league", { L: ctx.leagueId });
     var rostersUrl = buildExportUrl(ctx.hostOrigin, ctx.year, "rosters", { L: ctx.leagueId });
     var salariesUrl = buildExportUrl(ctx.hostOrigin, ctx.year, "salaries", { L: ctx.leagueId });
+    var pointsUrl = buildApiExportUrl(ctx.year, "playerScores", { L: ctx.leagueId, W: "YTD" });
 
     return Promise.all([
       fetchJson(leagueUrl),
       fetchJson(rostersUrl),
       fetchJson(salariesUrl).catch(function () { return {}; }),
-      fetchPointsWithFallback(ctx),
+      fetchJson(pointsUrl).catch(function () { return {}; }),
       fetchByesWithFallback(ctx)
     ]).then(function (parts) {
       var leaguePayload = parts[0] || {};
       var rostersPayload = parts[1] || {};
       var salariesPayload = parts[2] || {};
-      var pointsResult = parts[3] || { year: ctx.year, map: {} };
+      var pointsPayload = parts[3] || {};
       var byeResult = parts[4] || { year: ctx.year, map: {} };
 
       var playerIds = collectRosterPlayerIds(rostersPayload);
       return fetchPlayersMap(ctx.year, playerIds).then(function (playersMap) {
         var leagueMeta = parseLeagueMeta(leaguePayload);
         var salaryMap = toSalaryMap(salariesPayload);
+        var scores = toScoreMap(pointsPayload);
 
         var teams = buildTeams(
           rostersPayload,
           leagueMeta,
           playersMap,
-          pointsResult.map || {},
+          scores,
           byeResult.map || {},
           salaryMap
         );
 
         return {
           teams: teams,
-          pointsYear: pointsResult.year || ctx.year,
           leagueMeta: leagueMeta
         };
       });
@@ -1436,12 +1668,9 @@
         throw new Error(errMsg);
       }
       var teams = buildTeamsFromWorkerPayload(payload);
-      if (!teams.length) {
-        throw new Error("Worker API returned no teams");
-      }
+      if (!teams.length) throw new Error("Worker API returned no teams");
       return {
         teams: teams,
-        pointsYear: safeStr(payload.points_year || ctx.year) || ctx.year,
         leagueMeta: {
           capAmount: safeInt(payload.salary_cap_dollars, 0),
           franchises: Object.create(null)
@@ -1456,15 +1685,23 @@
   }
 
   function loadData(ctx) {
-    if (useDirectMflMode()) {
-      return loadDataFromDirectExports(ctx);
-    }
-    return loadDataFromWorkerApi(ctx).catch(function (workerErr) {
-      return loadDataFromDirectExports(ctx).catch(function (directErr) {
-        throw new Error(
-          "Worker API failed (" + summarizeError(workerErr) + "). " +
-          "Direct export fallback failed (" + summarizeError(directErr) + ")."
-        );
+    var baseLoader = useDirectMflMode()
+      ? loadDataFromDirectExports(ctx)
+      : loadDataFromWorkerApi(ctx).catch(function (workerErr) {
+          return loadDataFromDirectExports(ctx).catch(function (directErr) {
+            throw new Error(
+              "Worker API failed (" + summarizeError(workerErr) + "). " +
+              "Direct export fallback failed (" + summarizeError(directErr) + ")."
+            );
+          });
+        });
+
+    return baseLoader.then(function (result) {
+      var teams = result.teams || [];
+      return hydrateTeamsWithPointsHistory(ctx, teams).then(function (years) {
+        result.teams = teams;
+        result.pointYears = years && years.length ? years : buildPointYears();
+        return result;
       });
     });
   }
@@ -1478,7 +1715,6 @@
           'If this persists, verify <code>window.UPS_RWB_API</code> points at your Worker <code>/roster-workbench</code> endpoint.' +
         '</div>';
     }
-    renderStatus("Load failed", true);
     if (els.note) els.note.textContent = message;
   }
 
@@ -1487,7 +1723,7 @@
 
     if (!state.ctx.leagueId) {
       renderSkeleton();
-      renderError("Roster Workbench could not determine league id from this page URL.");
+      renderError("Rosters could not determine league id from this page URL.");
       return;
     }
 
@@ -1496,16 +1732,22 @@
 
     renderSkeleton();
     bindEvents();
-    renderToolbar();
-    renderStatus("Loading", false);
 
     loadData(state.ctx)
       .then(function (result) {
         state.teams = result.teams || [];
-        state.pointsYear = safeStr(result.pointsYear || state.ctx.year);
+        state.pointYears = (result.pointYears && result.pointYears.length)
+          ? result.pointYears.slice()
+          : buildPointYears();
+
+        var allowedPointModes = state.pointYears.concat(["cumulative"]);
+        if (allowedPointModes.indexOf(state.pointsMode) === -1) {
+          state.pointsMode = state.pointYears[0] || String(currentYearInt());
+        }
+
         renderToolbar();
         renderTeams();
-        renderStatus("Live", false);
+        persistState();
       })
       .catch(function (err) {
         var msg = "Unable to load roster data from API exports.";
