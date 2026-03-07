@@ -508,6 +508,44 @@
     return map;
   }
 
+  function salaryAdjustmentRowFromNode(node) {
+    if (!node || typeof node !== "object" || Array.isArray(node)) return null;
+    var hasFranchiseField =
+      node.franchise_id != null ||
+      node.franchiseId != null ||
+      node.franchise != null ||
+      node.franchiseid != null;
+    var hasAmountField =
+      node.amount != null ||
+      node.value != null ||
+      node.adjustment != null;
+    if (!hasFranchiseField || !hasAmountField) return null;
+
+    var rawFranchiseId =
+      node.franchise_id != null ? node.franchise_id :
+      node.franchiseId != null ? node.franchiseId :
+      node.franchise != null ? node.franchise :
+      node.franchiseid != null ? node.franchiseid : "";
+    var rawAmount =
+      node.amount != null ? node.amount :
+      node.value != null ? node.value :
+      node.adjustment != null ? node.adjustment : "";
+    var franchiseId = pad4(rawFranchiseId);
+    if (!franchiseId) return null;
+
+    var rawText = safeStr(rawAmount);
+    if (!rawText) return null;
+    var numeric = Number(rawText.replace(/[^0-9.-]/g, ""));
+    if (!isFinite(numeric)) return null;
+    var amount = Math.abs(numeric) < 1000 ? Math.round(numeric * 1000) : Math.round(numeric);
+
+    return {
+      franchise_id: franchiseId,
+      amount: amount,
+      explanation: safeStr(node.explanation || node.note || node.notes || node.reason || "")
+    };
+  }
+
   function collectSalaryAdjustmentRows(node, out) {
     if (!out) out = [];
     if (!node) return out;
@@ -517,28 +555,23 @@
     }
     if (typeof node !== "object") return out;
 
-    var rawFranchiseId =
-      node.franchise_id != null ? node.franchise_id :
-      node.franchiseId != null ? node.franchiseId :
-      node.franchise != null ? node.franchise :
-      node.franchiseid != null ? node.franchiseid :
-      node.id != null ? node.id : "";
-    var amountRaw =
-      node.amount != null ? node.amount :
-      node.value != null ? node.value :
-      node.adjustment != null ? node.adjustment : "";
-    var franchiseId = pad4(rawFranchiseId);
-    var amount = parseMoney(amountRaw);
-    if (franchiseId && (String(amountRaw).trim() || amount !== 0)) {
-      out.push({
-        franchise_id: franchiseId,
-        amount: amount,
-        explanation: safeStr(node.explanation || node.note || node.notes || node.reason || "")
-      });
+    var direct = salaryAdjustmentRowFromNode(node);
+    if (direct) {
+      out.push(direct);
+      return out;
     }
-    var keys = Object.keys(node);
-    for (var k = 0; k < keys.length; k += 1) {
-      collectSalaryAdjustmentRows(node[keys[k]], out);
+
+    var candidates = [
+      node.salary_adjustment,
+      node.salaryAdjustment,
+      node.salary_adjustments,
+      node.salaryAdjustments,
+      node.leagueUnit,
+      node.franchise,
+      node.franchises
+    ];
+    for (var c = 0; c < candidates.length; c += 1) {
+      if (candidates[c] != null) collectSalaryAdjustmentRows(candidates[c], out);
     }
     return out;
   }

@@ -4680,6 +4680,37 @@ export default {
         return rows;
       };
 
+      const salaryAdjustmentExportRowFromNode = (node) => {
+        if (!node || typeof node !== "object" || Array.isArray(node)) return null;
+        const hasFranchiseField =
+          node.franchise_id != null ||
+          node.franchiseId != null ||
+          node.franchise != null ||
+          node.franchiseid != null;
+        const hasAmountField =
+          node.amount != null ||
+          node.value != null ||
+          node.adjustment != null;
+        if (!hasFranchiseField || !hasAmountField) return null;
+
+        const rawFranchiseId =
+          node.franchise_id ??
+          node.franchiseId ??
+          node.franchise ??
+          node.franchiseid ??
+          "";
+        const rawAmount = node.amount ?? node.value ?? node.adjustment ?? "";
+        const explanation = safeStr(node.explanation || node.note || node.notes || node.reason || "");
+        const franchiseId = padFranchiseId(rawFranchiseId);
+        const amount = safeInt(parseMoneyTokenToDollars(rawAmount, { assumeKIfNoUnit: true }), NaN);
+        if (!franchiseId || !Number.isFinite(amount)) return null;
+        return {
+          franchise_id: franchiseId,
+          amount,
+          explanation,
+        };
+      };
+
       const collectSalaryAdjustmentExportRows = (node, out = []) => {
         if (!node) return out;
         if (Array.isArray(node)) {
@@ -4687,25 +4718,25 @@ export default {
           return out;
         }
         if (typeof node !== "object") return out;
-        const rawFranchiseId =
-          node.franchise_id ??
-          node.franchiseId ??
-          node.franchise ??
-          node.franchiseid ??
-          node.id ??
-          "";
-        const rawAmount = node.amount ?? node.value ?? node.adjustment ?? "";
-        const explanation = safeStr(node.explanation || node.note || node.notes || node.reason || "");
-        const franchiseId = padFranchiseId(rawFranchiseId);
-        const amount = safeInt(parseMoneyTokenToDollars(rawAmount, { assumeKIfNoUnit: true }), NaN);
-        if (franchiseId && Number.isFinite(amount)) {
-          out.push({
-            franchise_id: franchiseId,
-            amount,
-            explanation,
-          });
+
+        const direct = salaryAdjustmentExportRowFromNode(node);
+        if (direct) {
+          out.push(direct);
+          return out;
         }
-        for (const v of Object.values(node)) collectSalaryAdjustmentExportRows(v, out);
+
+        const candidates = [
+          node.salary_adjustment,
+          node.salaryAdjustment,
+          node.salary_adjustments,
+          node.salaryAdjustments,
+          node.leagueUnit,
+          node.franchise,
+          node.franchises,
+        ];
+        for (const v of candidates) {
+          if (v != null) collectSalaryAdjustmentExportRows(v, out);
+        }
         return out;
       };
 
