@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var BUILD = "2026.03.07.11";
+  var BUILD = "2026.03.07.12";
   var BOOT_FLAG = "__ups_roster_workbench_boot_" + BUILD;
   if (window[BOOT_FLAG]) {
     if (typeof window.UPS_RWB_INIT === "function") window.UPS_RWB_INIT();
@@ -25,8 +25,23 @@
   var POSITION_GROUP_ORDER = ["QB", "RB", "WR", "TE", "DL", "DB", "LB", "PK", "PN", "OTHER"];
   var MIN_ROSTER_PLAYERS = 27;
   var MAX_ROSTER_PLAYERS = 30;
+  var OFFSEASON_MAX_ROSTER_PLAYERS = 35;
   var MAX_SCORE_WEEKS = 18;
   var LIVE_POINTS_TTL_MS = 5 * 60 * 1000;
+  var ROSTER_SEASON_EVENTS_FALLBACK = {
+    "2024": {
+      contract_deadline: "2024-09-01",
+      season_complete: "2024-12-30"
+    },
+    "2025": {
+      contract_deadline: "2025-08-31",
+      season_complete: "2025-12-29"
+    },
+    "2026": {
+      contract_deadline: "2026-09-06",
+      season_complete: "2026-12-29"
+    }
+  };
   var CONTRACT_FILTERS = [
     { value: "", label: "All Contract Types" },
     { value: "rookie", label: "Rookies" },
@@ -204,6 +219,14 @@
     return parseContractMoneyToken(match[1]);
   }
 
+  function parseContractGuaranteeValue(contractInfo) {
+    var info = safeStr(contractInfo);
+    if (!info) return 0;
+    var match = info.match(/(?:^|\|)\s*GTD\s*:?\s*([^|]+)/i);
+    if (!match || !safeStr(match[1])) return 0;
+    return parseContractMoneyToken(match[1]);
+  }
+
   function replaceContractInfoAavValue(contractInfo, nextAav) {
     var info = safeStr(contractInfo);
     var aav = Math.round(safeNum(nextAav, 0));
@@ -252,6 +275,15 @@
     var count = 0;
     for (var i = 0; i < list.length; i += 1) {
       if (rosterCountEligible(list[i])) count += 1;
+    }
+    return count;
+  }
+
+  function irCountForPlayers(players) {
+    var list = players || [];
+    var count = 0;
+    for (var i = 0; i < list.length; i += 1) {
+      if (list[i] && list[i].isIr) count += 1;
     }
     return count;
   }
@@ -655,6 +687,21 @@
     return contractYearFallbackValue(player, 1) * length;
   }
 
+  function guaranteedContractValueForPlayer(player) {
+    var explicitGuarantee = parseContractGuaranteeValue(player && player.special);
+    if (explicitGuarantee > 0) return explicitGuarantee;
+
+    var total = totalContractValueForPlayer(player);
+    if (total <= 0) return 0;
+
+    if (total <= 4000) {
+      var firstYear = safeInt(contractYearValueMapForPlayer(player)[1], contractYearFallbackValue(player, 1));
+      return Math.max(0, total - Math.max(0, firstYear));
+    }
+
+    return Math.round(total * 0.75);
+  }
+
   function earnedBeforeCurrentContractYear(player) {
     var idx = contractYearIndexForPlayer(player);
     if (idx <= 1) return 0;
@@ -766,14 +813,18 @@
     var priorEarned = earnedBeforeCurrentContractYear(player);
     var accrued = proratedEarnedForDrop(season, currentYearSalary, now);
     var earned = priorEarned + accrued;
-    var guaranteed = Math.round(totalContractValue * 0.75);
+    var explicitGuarantee = parseContractGuaranteeValue(player && player.special);
+    var guaranteed = guaranteedContractValueForPlayer(player);
     var penalty = Math.max(0, guaranteed - earned);
+    var guaranteeLabel = explicitGuarantee > 0
+      ? "contract guarantee"
+      : (totalContractValue <= 4000 ? "TCV minus year 1 salary" : "75% of TCV");
 
     return {
       amount: penalty,
       note: penalty === 0
         ? "Current-rule guarantee has already been fully earned."
-        : "Projected current-rule penalty: 75% of TCV (" + money(totalContractValue) + ") is " + money(guaranteed) + "; earned to date is " + money(earned) + "."
+        : "Projected current-rule penalty: " + guaranteeLabel + " is " + money(guaranteed) + "; earned to date is " + money(earned) + "."
     };
   }
 
@@ -825,6 +876,111 @@
     return safeInt(state.ctx && state.ctx.year, new Date().getFullYear());
   }
 
+  function parseYmdDate(value) {
+    var raw = safeStr(value);
+    var match = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!match) return null;
+    var dt = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]), 12, 0, 0, 0);
+    return isNaN(dt.getTime()) ? null : dt;
+  }
+
+  function endOfDay(date) {
+    if (!(date instanceof Date) || isNaN(date.getTime())) return null;
+    return new Date(
+      date.getFullYear(),
+      date.getMonth(),
+      date.getDate(),
+      23,
+      59,
+      59,
+      999
+    );
+  }
+
+  function seasonEventsForRosterLimit(season) {
+    var seasonKey = safeStr(season);
+    if (!seasonKey) return null;
+
+    var sources = [
+      window.UPS_EVENTS,
+      window.nfs_events,
+      window.NFS_EVENTS
+    ];
+    for (var i = 0; i < sources.length; i += 1) {
+      var src = sources[i];
+      if (src && typeof src === "object" && src[seasonKey] && typeof src[seasonKey] === "object") {
+        return src[seasonKey];
+      }
+    }
+
+    return ROSTER_SEASON_EVENTS_FALLBACK[seasonKey] || null;
+  }
+
+  function contractDeadlineYmdForSeason(season) {
+    var seasonKey = safeStr(season);
+    var metaSeason = safeStr(window.UPS_IS_OFFSEASON_META && window.UPS_IS_OFFSEASON_META.siteSeason);
+    var events = seasonEventsForRosterLimit(seasonKey) || {};
+    var raw = safeStr(
+      events.ups_contract_deadline ||
+      events.contract_deadline ||
+      events.UPS_CONTRACT_DEADLINE
+    );
+    if (raw) return raw;
+    if (metaSeason && metaSeason === seasonKey) {
+      return safeStr(window.UPS_IS_OFFSEASON_META && window.UPS_IS_OFFSEASON_META.deadline);
+    }
+    return "";
+  }
+
+  function contractDeadlineDateForSeason(season) {
+    return parseYmdDate(contractDeadlineYmdForSeason(season));
+  }
+
+  function activeMaxRosterPlayers(season, now) {
+    var today = now instanceof Date && !isNaN(now.getTime()) ? now : new Date();
+    var deadline = contractDeadlineDateForSeason(season);
+    var deadlineEnd = endOfDay(deadline);
+    if (deadlineEnd && today.getTime() <= deadlineEnd.getTime()) {
+      return OFFSEASON_MAX_ROSTER_PLAYERS;
+    }
+    return MAX_ROSTER_PLAYERS;
+  }
+
+  function rosterLimitSummary(rosterPlayers, season, now) {
+    var count = Math.max(0, safeInt(rosterPlayers, 0));
+    var min = MIN_ROSTER_PLAYERS;
+    var max = activeMaxRosterPlayers(season, now);
+    var delta = 0;
+    var status = "";
+    var outOfRange = false;
+
+    if (count < min) {
+      delta = min - count;
+      status = delta + " under min";
+      outOfRange = true;
+    } else if (count > max) {
+      delta = count - max;
+      status = delta + " over max";
+      outOfRange = true;
+    } else if (count === min) {
+      status = "At min";
+    } else if (count === max) {
+      status = "At max";
+    } else {
+      status = (max - count) + " under max";
+    }
+
+    return {
+      min: min,
+      max: max,
+      count: count,
+      rangeLabel: min + "-" + max,
+      status: status,
+      outOfRange: outOfRange,
+      deadlineYmd: contractDeadlineYmdForSeason(season)
+    };
+  }
+
   function pointModeLabel(mode) {
     if (safeStr(mode) === "cumulative") return "Cumulative";
     return safeStr(mode);
@@ -854,6 +1010,83 @@
 
     if (SCRIPT_BASE_URL) return SCRIPT_BASE_URL + "player_points_history.json";
     return "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/rosters/player_points_history.json";
+  }
+
+  function resolveExtensionPreviewFallbackUrl(season) {
+    var candidates = [
+      window.UPS_RWB_EXTENSION_PREVIEWS_URL,
+      window.UPS_ROSTER_WORKBENCH_EXTENSION_PREVIEWS_URL
+    ];
+    var seasonText = safeStr(season || currentYearInt());
+    for (var i = 0; i < candidates.length; i += 1) {
+      var raw = safeStr(candidates[i]);
+      if (!raw) continue;
+      raw = raw.replace(/\{YEAR\}/g, seasonText);
+      try {
+        return new URL(raw, window.location.href).toString();
+      } catch (e) {
+        return raw;
+      }
+    }
+
+    if (SCRIPT_BASE_URL) {
+      try {
+        return new URL("../trades/extension_previews_" + encodeURIComponent(seasonText) + ".json", SCRIPT_BASE_URL).toString();
+      } catch (e) {}
+    }
+    return "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/trades/extension_previews_" + encodeURIComponent(seasonText) + ".json";
+  }
+
+  function teamHasExtensionPreviews(teams) {
+    var rows = teams || [];
+    for (var i = 0; i < rows.length; i += 1) {
+      var players = rows[i] && rows[i].players ? rows[i].players : [];
+      for (var j = 0; j < players.length; j += 1) {
+        if (playerExtensionOptions(players[j]).length) return true;
+      }
+    }
+    return false;
+  }
+
+  function loadExtensionPreviewFallbackRows(season) {
+    var url = resolveExtensionPreviewFallbackUrl(season);
+    return fetchJson(url, { credentials: "omit", cache: "no-store" }).then(function (payload) {
+      if (Array.isArray(payload)) return payload;
+      if (payload && Array.isArray(payload.rows)) return payload.rows;
+      if (payload && Array.isArray(payload.extension_previews)) return payload.extension_previews;
+      if (payload && Array.isArray(payload.extensionPreviews)) return payload.extensionPreviews;
+      return [];
+    }).catch(function () {
+      return [];
+    });
+  }
+
+  function mergeExtensionPreviewFallbackRows(teams, rows) {
+    var list = teams || [];
+    var extRows = asArray(rows);
+    if (!list.length || !extRows.length) return;
+
+    var byKey = Object.create(null);
+    for (var i = 0; i < extRows.length; i += 1) {
+      var row = extRows[i] || {};
+      var playerId = safeStr(row.player_id || row.id).replace(/\D/g, "");
+      var franchiseId = pad4(row.franchise_id || row.franchiseId);
+      if (!playerId || !franchiseId) continue;
+      var key = franchiseId + ":" + playerId;
+      if (!byKey[key]) byKey[key] = [];
+      byKey[key].push(row);
+    }
+
+    for (var t = 0; t < list.length; t += 1) {
+      var players = list[t] && list[t].players ? list[t].players : [];
+      for (var p = 0; p < players.length; p += 1) {
+        var player = players[p];
+        if (!player || playerExtensionOptions(player).length) continue;
+        var mapKey = pad4(player.fid) + ":" + safeStr(player.id).replace(/\D/g, "");
+        if (!byKey[mapKey]) continue;
+        player.extensionPreviews = normalizeExtensionPreviewRows(byKey[mapKey]);
+      }
+    }
   }
 
   function pointsHistoryMeta() {
@@ -1482,6 +1715,7 @@
       var rawPlayers = asArray(fr.player);
       var players = [];
       var taxiCount = 0;
+      var irCount = 0;
       var capTotal = 0;
 
       for (var p = 0; p < rawPlayers.length; p += 1) {
@@ -1513,6 +1747,7 @@
         } else {
           capTotal += currentCapHit(salary, years, isTaxi, isIr);
         }
+        if (isIr) irCount += 1;
 
         players.push(enrichPlayer({
           id: pid,
@@ -1551,6 +1786,7 @@
           players: players.length,
           rosterPlayers: rosterCountForPlayers(players),
           taxi: taxiCount,
+          ir: irCount,
           capTotal: capTotal,
           salaryAdjustmentTotal: salaryAdjustmentTotal,
           compliance: compliance
@@ -1618,6 +1854,7 @@
         return acc + currentCapHitForPlayer(p);
       }, 0);
       var taxiFromPlayers = players.reduce(function (acc, p) { return acc + (p.isTaxi ? 1 : 0); }, 0);
+      var irFromPlayers = players.reduce(function (acc, p) { return acc + (p.isIr ? 1 : 0); }, 0);
       var rosterPlayersFromPlayers = rosterCountForPlayers(players);
 
       var summary = team.summary || {};
@@ -1642,6 +1879,7 @@
           players: summary.players == null ? players.length : safeInt(summary.players, players.length),
           rosterPlayers: summary.rosterPlayers == null ? rosterPlayersFromPlayers : safeInt(summary.rosterPlayers, rosterPlayersFromPlayers),
           taxi: taxiCount,
+          ir: summary.ir == null ? irFromPlayers : safeInt(summary.ir, irFromPlayers),
           capTotal: capTotal,
           salaryAdjustmentTotal: salaryAdjustmentTotal,
           compliance: compliance
@@ -2899,14 +3137,21 @@
     var logo = safeStr(team.logo);
     var filteredRosterPlayers = rosterCountForPlayers(filteredPlayers);
     var totalRosterPlayers = rosterCountForPlayers(team.players || []);
-    var rosterOutOfRange = totalRosterPlayers < MIN_ROSTER_PLAYERS || totalRosterPlayers > MAX_ROSTER_PLAYERS;
+    var irTotal = safeInt(team && team.summary && team.summary.ir, irCountForPlayers(team.players || []));
+    var limit = rosterLimitSummary(totalRosterPlayers, state.ctx && state.ctx.year, new Date());
+    var rosterOutOfRange = !!limit.outOfRange;
+    var limitTitle = "Roster limit " + limit.rangeLabel;
+    if (safeStr(limit.deadlineYmd) && limit.max > MAX_ROSTER_PLAYERS) {
+      limitTitle += " until " + safeStr(limit.deadlineYmd);
+    }
     var logoHtml = logo
       ? '<img class="rwb-team-logo" src="' + escapeHtml(logo) + '" alt="' + escapeHtml(team.name) + ' logo" title="' + escapeHtml(team.name) + '">' 
       : '<span class="rwb-team-logo-fallback" aria-hidden="true" title="' + escapeHtml(team.name) + '">' + escapeHtml(team.fid) + "</span>";
     var chips = [
       '<span class="rwb-chip' + (rosterOutOfRange ? ' is-bad' : '') + '"><span class="rwb-chip-label">Players</span><span class="rwb-chip-value">' + escapeHtml(String(filteredRosterPlayers)) + '/' + escapeHtml(String(totalRosterPlayers)) + '</span></span>',
-      '<span class="rwb-chip"><span class="rwb-chip-label">Limit</span><span class="rwb-chip-value">' + escapeHtml(String(MIN_ROSTER_PLAYERS)) + '-' + escapeHtml(String(MAX_ROSTER_PLAYERS)) + '</span></span>',
-      '<span class="rwb-chip"><span class="rwb-chip-label">Taxi</span><span class="rwb-chip-value">' + escapeHtml(String(team.summary.taxi)) + '</span></span>'
+      '<span class="rwb-chip' + (limit.outOfRange ? ' is-bad' : '') + '" title="' + escapeHtml(limitTitle) + '"><span class="rwb-chip-label">Limit</span><span class="rwb-chip-value">' + escapeHtml(limit.rangeLabel + " (" + limit.status + ")") + '</span></span>',
+      '<span class="rwb-chip"><span class="rwb-chip-label">Taxi</span><span class="rwb-chip-value">' + escapeHtml(String(team.summary.taxi)) + '</span></span>',
+      '<span class="rwb-chip"><span class="rwb-chip-label">IR</span><span class="rwb-chip-value">' + escapeHtml(String(irTotal)) + '</span></span>'
     ];
     if (!team.summary.compliance.ok) {
       chips.push(
@@ -3104,6 +3349,9 @@
           '<div class="rwb-modal-note"><strong>Extension Options:</strong>' +
             '<div class="rwb-extension-preview-list">' + extensionLines.join("") + '</div>' +
           '</div>';
+      } else if (ownRoster) {
+        extensionSummaryHtml =
+          '<div class="rwb-modal-note"><strong>Extension:</strong> No extension options are available for this player.</div>';
       }
 
       content =
@@ -4652,10 +4900,16 @@
     return baseLoader.then(function (result) {
       var teams = result.teams || [];
       ctx.pointsFallbackYear = safeStr(result && result.pointsYear);
-      return hydrateTeamsWithPointsHistory(ctx, teams).then(function (years) {
-        result.teams = teams;
-        result.pointYears = years && years.length ? years : buildPointYears();
-        return result;
+      var extLoader = teamHasExtensionPreviews(teams)
+        ? Promise.resolve([])
+        : loadExtensionPreviewFallbackRows(ctx && ctx.year);
+      return extLoader.then(function (extRows) {
+        mergeExtensionPreviewFallbackRows(teams, extRows);
+        return hydrateTeamsWithPointsHistory(ctx, teams).then(function (years) {
+          result.teams = teams;
+          result.pointYears = years && years.length ? years : buildPointYears();
+          return result;
+        });
       });
     });
   }
