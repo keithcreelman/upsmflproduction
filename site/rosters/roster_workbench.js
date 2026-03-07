@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var BUILD = "2026.03.07.10";
+  var BUILD = "2026.03.07.11";
   var BOOT_FLAG = "__ups_roster_workbench_boot_" + BUILD;
   if (window[BOOT_FLAG]) {
     if (typeof window.UPS_RWB_INIT === "function") window.UPS_RWB_INIT();
@@ -196,6 +196,14 @@
       .filter(function (amount) { return amount > 0; });
   }
 
+  function parseContractTcvValue(contractInfo) {
+    var info = safeStr(contractInfo);
+    if (!info) return 0;
+    var match = info.match(/(?:^|\|)\s*TCV\s+([^|]+)/i);
+    if (!match || !safeStr(match[1])) return 0;
+    return parseContractMoneyToken(match[1]);
+  }
+
   function replaceContractInfoAavValue(contractInfo, nextAav) {
     var info = safeStr(contractInfo);
     var aav = Math.round(safeNum(nextAav, 0));
@@ -374,6 +382,161 @@
     return safeInt(state.contractPreview[contractPreviewKey(player)], 0);
   }
 
+  function normalizeExtensionTermValue(term) {
+    var raw = safeStr(term).toUpperCase();
+    if (raw === "2" || raw.indexOf("2YR") === 0) return 2;
+    if (raw === "1" || raw.indexOf("1YR") === 0) return 1;
+    return 0;
+  }
+
+  function normalizeExtensionLoadedIndicator(indicator) {
+    var raw = safeStr(indicator).toUpperCase();
+    if (!raw || raw === "NONE") return "NONE";
+    if (raw === "FL") return "FL";
+    if (raw === "BL") return "BL";
+    return raw;
+  }
+
+  function extensionOptionKey(row) {
+    var explicit = safeStr(row && (row.optionKey || row.option_key));
+    if (explicit) return explicit;
+    var years = safeInt(row && row.yearsToAdd, 0);
+    if (years !== 1 && years !== 2) {
+      years = normalizeExtensionTermValue(row && (row.extension_term || row.extensionTerm || row.term));
+    }
+    var loaded = normalizeExtensionLoadedIndicator(row && (row.loadedIndicator || row.loaded_indicator));
+    var status = safeStr(
+      row && (row.contractStatus || row.new_contract_status || row.contract_status)
+    ).toUpperCase();
+    var info = safeStr(
+      row && (row.contractInfo || row.preview_contract_info_string || row.contract_info)
+    );
+    return [String(years || 0), loaded || "NONE", status, info].join("|");
+  }
+
+  function extensionActionLabel(option) {
+    if (!option) return "Extend";
+    var label = "Extend " + (safeInt(option.yearsToAdd, 0) === 2 ? "2Y" : "1Y");
+    if (safeStr(option.loadedIndicator) !== "NONE") label += " " + safeStr(option.loadedIndicator);
+    return label;
+  }
+
+  function extensionOptionSummary(option) {
+    var parts = [];
+    if (safeInt(option && option.contractLength, 0) > 0) {
+      parts.push(String(safeInt(option.contractLength, 0)) + " years");
+    }
+    if (safeInt(option && option.futureAav, 0) > 0) {
+      parts.push("Future AAV " + money(option.futureAav));
+    }
+    if (safeInt(option && option.tcv, 0) > 0) {
+      parts.push("TCV " + money(option.tcv));
+    }
+    if (safeStr(option && option.loadedIndicator) === "FL") parts.push("Front-loaded");
+    if (safeStr(option && option.loadedIndicator) === "BL") parts.push("Back-loaded");
+    return parts.join(" | ");
+  }
+
+  function inlineContractInfoText(contractInfo) {
+    return safeStr(contractInfo).replace(/\s*\|\s*/g, " | ");
+  }
+
+  function extensionSalaryToSendFromPreview(contractInfo, contractLength, fallbackFutureAav, fallbackCurrentAav) {
+    var idx = Math.max(0, safeInt(contractLength, 0));
+    var yearValues = parseContractYearValues(contractInfo);
+    if (idx > 0 && yearValues[idx] > 0) return safeInt(yearValues[idx], 0);
+    var future = safeInt(fallbackFutureAav, 0);
+    if (future > 0) return future;
+    return Math.max(0, safeInt(fallbackCurrentAav, 0));
+  }
+
+  function normalizeExtensionPreviewRow(row) {
+    var yearsToAdd = safeInt(row && row.yearsToAdd, 0);
+    if (yearsToAdd !== 1 && yearsToAdd !== 2) {
+      yearsToAdd = normalizeExtensionTermValue(row && (row.extension_term || row.extensionTerm || row.term));
+    }
+    var contractLength = safeInt(
+      row && (
+        row.contractLength != null
+          ? row.contractLength
+          : (row.new_contract_length != null
+              ? row.new_contract_length
+              : (row.contract_year != null ? row.contract_year : row.contractYear))
+      ),
+      0
+    );
+    var contractInfo = safeStr(
+      row && (row.contractInfo || row.preview_contract_info_string || row.contract_info)
+    );
+    var contractStatus = safeStr(
+      row && (row.contractStatus || row.new_contract_status || row.contract_status)
+    ).toUpperCase();
+    var currentAav = safeInt(
+      row && (
+        row.currentAav != null
+          ? row.currentAav
+          : (row.new_aav_current != null ? row.new_aav_current : (row.newAavCurrent != null ? row.newAavCurrent : row.current_salary))
+      ),
+      0
+    );
+    var futureAav = safeInt(
+      row && (
+        row.futureAav != null
+          ? row.futureAav
+          : (row.new_aav_future != null ? row.new_aav_future : (row.newAavFuture != null ? row.newAavFuture : row.salary))
+      ),
+      0
+    );
+    var tcv = safeInt(
+      row && (row.tcv != null ? row.tcv : (row.new_TCV != null ? row.new_TCV : row.newTcv)),
+      0
+    );
+    var loadedIndicator = normalizeExtensionLoadedIndicator(
+      row && (row.loadedIndicator || row.loaded_indicator)
+    );
+    var salaryToSend = extensionSalaryToSendFromPreview(contractInfo, contractLength, futureAav, currentAav);
+
+    if (!yearsToAdd || contractLength <= 0 || !contractInfo || !contractStatus || salaryToSend <= 0) {
+      return null;
+    }
+
+    return {
+      optionKey: extensionOptionKey(row),
+      yearsToAdd: yearsToAdd,
+      loadedIndicator: loadedIndicator,
+      contractLength: contractLength,
+      contractStatus: contractStatus,
+      contractInfo: contractInfo,
+      currentAav: currentAav,
+      futureAav: futureAav,
+      tcv: tcv,
+      salaryToSend: salaryToSend
+    };
+  }
+
+  function normalizeExtensionPreviewRows(rows) {
+    var out = [];
+    var seen = Object.create(null);
+    var list = asArray(rows);
+    for (var i = 0; i < list.length; i += 1) {
+      var option = normalizeExtensionPreviewRow(list[i]);
+      if (!option || seen[option.optionKey]) continue;
+      seen[option.optionKey] = true;
+      out.push(option);
+    }
+    out.sort(function (a, b) {
+      var delta = safeInt(a && a.yearsToAdd, 0) - safeInt(b && b.yearsToAdd, 0);
+      if (delta === 0) delta = safeStr(a && a.loadedIndicator).localeCompare(safeStr(b && b.loadedIndicator));
+      if (delta === 0) delta = safeInt(a && a.contractLength, 0) - safeInt(b && b.contractLength, 0);
+      return delta;
+    });
+    return out;
+  }
+
+  function playerExtensionOptions(player) {
+    return player && player.extensionPreviews ? player.extensionPreviews : [];
+  }
+
   function extensionRaiseForPlayer(player, yearsToAdd) {
     var y = safeInt(yearsToAdd, 0);
     if (y !== 1 && y !== 2) return 0;
@@ -417,7 +580,7 @@
     var info = safeStr(contractInfo);
     var out = Object.create(null);
     if (!info) return out;
-    var re = /Y(\d+)\s*-\s*([^,|]+)/ig;
+    var re = /Y(\d+)\s*-\s*([0-9]+(?:\.[0-9]+)?K?)(?=\s*(?:,|\||Y\d+\s*-|$))/ig;
     var match;
     while ((match = re.exec(info))) {
       var idx = safeInt(match[1], 0);
@@ -450,6 +613,58 @@
     var idx = contractYearIndexForPlayer(player);
     if (idx > 0 && yearValues[idx] > 0) return safeInt(yearValues[idx], 0);
     return Math.max(0, safeInt(player && player.salary, 0));
+  }
+
+  function contractYearFallbackValue(player, yearIndex) {
+    var idx = Math.max(1, safeInt(yearIndex, 1));
+    var salary = Math.max(0, safeInt(player && player.salary, 0));
+    var aav = Math.max(0, safeInt(player && player.aav, 0) || currentAavForContractInfo(player && player.special));
+    if (idx === 1 && salary > 0) return salary;
+    if (aav > 0) return aav;
+    return salary;
+  }
+
+  function contractYearValueMapForPlayer(player) {
+    var out = parseContractYearValues(player && player.special);
+    var keys = Object.keys(out);
+    if (keys.length) return out;
+
+    var length = Math.max(0, contractLengthForPlayer(player));
+    for (var i = 1; i <= length; i += 1) {
+      var amount = contractYearFallbackValue(player, i);
+      if (amount > 0) out[i] = amount;
+    }
+    return out;
+  }
+
+  function totalContractValueForPlayer(player) {
+    var explicitTcv = parseContractTcvValue(player && player.special);
+    if (explicitTcv > 0) return explicitTcv;
+
+    var yearValues = contractYearValueMapForPlayer(player);
+    var keys = Object.keys(yearValues);
+    if (keys.length) {
+      var total = 0;
+      for (var i = 0; i < keys.length; i += 1) {
+        total += safeInt(yearValues[keys[i]], 0);
+      }
+      if (total > 0) return total;
+    }
+
+    var length = Math.max(0, contractLengthForPlayer(player));
+    return contractYearFallbackValue(player, 1) * length;
+  }
+
+  function earnedBeforeCurrentContractYear(player) {
+    var idx = contractYearIndexForPlayer(player);
+    if (idx <= 1) return 0;
+
+    var earned = 0;
+    var yearValues = contractYearValueMapForPlayer(player);
+    for (var i = 1; i < idx; i += 1) {
+      earned += safeInt(yearValues[i], contractYearFallbackValue(player, i));
+    }
+    return earned;
   }
 
   function seasonEndEstimateDate(season) {
@@ -501,12 +716,6 @@
     );
   }
 
-  function isLegacyPenaltyPlayer(player, season) {
-    var type = safeStr(player && player.type).toUpperCase();
-    var info = safeStr(player && player.special).toUpperCase();
-    return info.indexOf("GF") !== -1 || type.indexOf("GF") !== -1 || safeInt(season, 0) < 2019;
-  }
-
   function isTagCutPreAuctionAssumption(player, season, now) {
     var type = safeStr(player && player.type).toUpperCase();
     if (type !== "TAG") return false;
@@ -515,21 +724,6 @@
     if (now.getFullYear() < yr) return true;
     if (now.getFullYear() > yr) return false;
     return now < new Date(yr, 7, 1, 0, 0, 0, 0);
-  }
-
-  function remainingTcvForPlayer(player) {
-    var yearValues = parseContractYearValues(player && player.special);
-    var idx = contractYearIndexForPlayer(player);
-    var total = 0;
-    var keys = Object.keys(yearValues);
-    if (keys.length && idx > 0) {
-      for (var i = 0; i < keys.length; i += 1) {
-        var key = safeInt(keys[i], 0);
-        if (key >= idx) total += safeInt(yearValues[keys[i]], 0);
-      }
-      if (total > 0) return total;
-    }
-    return Math.max(0, safeInt(player && player.salary, 0) * Math.max(0, safeInt(player && player.years, 0)));
   }
 
   function dropPenaltyEstimate(player) {
@@ -542,12 +736,6 @@
     if (player && player.isTaxi) {
       return { amount: 0, note: "Taxi players are shown with salary but do not project a current cap penalty." };
     }
-    if (isLegacyPenaltyPlayer(player, season)) {
-      return {
-        amount: Math.round(remainingTcvForPlayer(player) * 0.2),
-        note: "Legacy/GF estimate: 20% of remaining TCV."
-      };
-    }
 
     if (isTagCutPreAuctionAssumption(player, season, now)) {
       return {
@@ -556,21 +744,36 @@
       };
     }
 
+    var contractLength = Math.max(0, contractLengthForPlayer(player));
+    var type = safeStr(player && player.type).toUpperCase();
+    var totalContractValue = totalContractValueForPlayer(player);
     var currentYearSalary = currentContractYearValue(player);
-    if (isLikelyWaiverPickup(player) && currentYearSalary > 4000) {
+    if (contractLength === 1 && currentYearSalary < 5000 && (type === "VETERAN" || type === "WW")) {
       return {
-        amount: Math.round(currentYearSalary * 0.35),
-        note: "Estimated waiver guarantee: 35% of current-year salary for a waiver pickup above $4,000."
+        amount: 0,
+        note: "One-year veteran/waiver contracts under $5,000 are cap-free cuts under the current rule."
       };
     }
 
+    if (isLikelyWaiverPickup(player) && contractLength === 1 && currentYearSalary >= 5000) {
+      var waiverAmount = Math.round(currentYearSalary * 0.35);
+      return {
+        amount: waiverAmount,
+        note: "Waiver pickup rule: 35% of current-year salary (" + money(currentYearSalary) + " x 35%)."
+      };
+    }
+
+    var priorEarned = earnedBeforeCurrentContractYear(player);
     var accrued = proratedEarnedForDrop(season, currentYearSalary, now);
+    var earned = priorEarned + accrued;
+    var guaranteed = Math.round(totalContractValue * 0.75);
+    var penalty = Math.max(0, guaranteed - earned);
 
     return {
-      amount: accrued,
-      note: accrued === 0
-        ? "Projected current-rule drop penalty is $0 before in-season accrual begins."
-        : "Estimated current-rule penalty based on accrued current-year salary."
+      amount: penalty,
+      note: penalty === 0
+        ? "Current-rule guarantee has already been fully earned."
+        : "Projected current-rule penalty: 75% of TCV (" + money(totalContractValue) + ") is " + money(guaranteed) + "; earned to date is " + money(earned) + "."
     };
   }
 
@@ -981,6 +1184,34 @@
     }
   }
 
+  function resolveWorkerContractUpdateEndpoint() {
+    var candidates = [
+      window.UPS_COMMISH_CONTRACT_UPDATE_URL,
+      window.UPS_CONTRACT_UPDATE_API,
+      window.UPS_CCC_CONTRACT_UPDATE_URL
+    ];
+    for (var i = 0; i < candidates.length; i += 1) {
+      var raw = safeStr(candidates[i]);
+      if (!raw) continue;
+      return raw;
+    }
+    try {
+      var u = new URL(resolveWorkerApiEndpoint(), window.location.href);
+      if (/\/roster-workbench(?:\/action)?\/?$/i.test(safeStr(u.pathname))) {
+        u.pathname = safeStr(u.pathname).replace(/\/roster-workbench(?:\/action)?\/?$/i, "/commish-contract-update");
+      } else {
+        u.pathname = safeStr(u.pathname).replace(/\/+$/, "") + "/commish-contract-update";
+      }
+      return u.toString();
+    } catch (e) {
+      var raw = safeStr(resolveWorkerApiEndpoint());
+      if (/\/roster-workbench(?:\/action)?\/?$/i.test(raw)) {
+        return raw.replace(/\/roster-workbench(?:\/action)?\/?$/i, "/commish-contract-update");
+      }
+      return raw.replace(/\/+$/, "") + "/commish-contract-update";
+    }
+  }
+
   function useDirectMflMode() {
     var globals = [window.UPS_RWB_DIRECT_MFL, window.UPS_ROSTER_WORKBENCH_DIRECT_MFL];
     for (var i = 0; i < globals.length; i += 1) {
@@ -1228,6 +1459,7 @@
     out.pointsCumulative = safeNum(out.pointsCumulative, 0);
     out.gamesCumulative = safeInt(out.gamesCumulative, 0);
     out.aav = safeInt(out.aav, 0) || currentAavForContractInfo(out.special || out.contract_info || "");
+    out.extensionPreviews = normalizeExtensionPreviewRows(out.extensionPreviews || out.extension_previews || []);
     return out;
   }
 
@@ -1302,7 +1534,8 @@
           isTaxi: isTaxi,
           isIr: isIr,
           pointsByYear: Object.create(null),
-          pointsCumulative: 0
+          pointsCumulative: 0,
+          extensionPreviews: []
         }));
       }
 
@@ -1359,7 +1592,8 @@
       isTaxi: isTaxi,
       isIr: isIr,
       pointsByYear: Object.create(null),
-      pointsCumulative: 0
+      pointsCumulative: 0,
+      extensionPreviews: p.extension_previews || p.extensionPreviews || []
     });
   }
 
@@ -2834,19 +3068,43 @@
       var team = record.team;
       var ownRoster = isOwnRosterPlayer(player);
       var penalty = dropPenaltyEstimate(player);
+      var extensionOptions = playerExtensionOptions(player);
       var actions = [];
       actions.push(
         '<button type="button" class="rwb-modal-action" data-action="trade-player" data-player-id="' + escapeHtml(player.id) + '" data-franchise-id="' + escapeHtml(player.fid) + '">Trade</button>'
       );
-      actions.push(
-        '<button type="button" class="rwb-modal-action' + (ownRoster ? "" : " is-disabled") + '" data-action="drop-player" data-player-id="' + escapeHtml(player.id) + '" data-franchise-id="' + escapeHtml(player.fid) + '"' + (ownRoster ? "" : ' disabled') + '>Drop</button>'
-      );
+      for (var i = 0; i < extensionOptions.length; i += 1) {
+        var extensionOption = extensionOptions[i];
+        actions.push(
+          '<button type="button" class="rwb-modal-action' + (ownRoster ? "" : " is-disabled") + '" data-action="extend-player" data-option-key="' + escapeHtml(extensionOption.optionKey) + '" data-player-id="' + escapeHtml(player.id) + '" data-franchise-id="' + escapeHtml(player.fid) + '"' + (ownRoster ? "" : ' disabled') + '>' + escapeHtml(extensionActionLabel(extensionOption)) + '</button>'
+        );
+      }
       actions.push(
         '<button type="button" class="rwb-modal-action' + (ownRoster && player.isIr ? "" : " is-disabled") + '" data-action="activate-ir-player" data-player-id="' + escapeHtml(player.id) + '" data-franchise-id="' + escapeHtml(player.fid) + '"' + (ownRoster && player.isIr ? "" : ' disabled') + '>Activate From IR</button>'
       );
       actions.push(
         '<button type="button" class="rwb-modal-action' + (ownRoster && player.isTaxi ? "" : " is-disabled") + '" data-action="promote-taxi-player" data-player-id="' + escapeHtml(player.id) + '" data-franchise-id="' + escapeHtml(player.fid) + '"' + (ownRoster && player.isTaxi ? "" : ' disabled') + '>Promote From Taxi</button>'
       );
+      actions.push(
+        '<button type="button" class="rwb-modal-action' + (ownRoster ? "" : " is-disabled") + '" data-action="drop-player" data-player-id="' + escapeHtml(player.id) + '" data-franchise-id="' + escapeHtml(player.fid) + '"' + (ownRoster ? "" : ' disabled') + '>Drop</button>'
+      );
+
+      var extensionSummaryHtml = "";
+      if (extensionOptions.length) {
+        var extensionLines = [];
+        for (var j = 0; j < extensionOptions.length; j += 1) {
+          var option = extensionOptions[j];
+          extensionLines.push(
+            '<div class="rwb-extension-preview-line"><strong>' + escapeHtml(extensionActionLabel(option)) + ':</strong> ' +
+              escapeHtml(extensionOptionSummary(option) || inlineContractInfoText(option.contractInfo)) +
+            '</div>'
+          );
+        }
+        extensionSummaryHtml =
+          '<div class="rwb-modal-note"><strong>Extension Options:</strong>' +
+            '<div class="rwb-extension-preview-list">' + extensionLines.join("") + '</div>' +
+          '</div>';
+      }
 
       content =
         '<div class="rwb-modal-player">' +
@@ -2865,6 +3123,7 @@
           '<div class="rwb-modal-metric"><span>Expires</span><strong>' + escapeHtml(projectedExpiryLabel(player)) + '</strong></div>' +
         '</div>' +
         '<div class="rwb-modal-actions-wrap">' + actions.join("") + '</div>' +
+        extensionSummaryHtml +
         '<div class="rwb-modal-note"><strong>Estimated Cap Penalty:</strong> ' + escapeHtml(money(penalty.amount)) + ' | ' + escapeHtml(penalty.note) + '</div>' +
         (!ownRoster ? '<div class="rwb-modal-note">Roster-management actions are enabled only for your franchise. Trade is available from any team.</div>' : '');
     }
@@ -2890,8 +3149,7 @@
       var points = pointsForPlayer(p);
       var games = gamesForPlayer(p);
       var ppg = ppgForPlayer(p);
-      var taxiBusy = state.busyActionKey === ("taxi:" + p.id);
-      var irBusy = state.busyActionKey === ("ir:" + p.id);
+      var rowBusy = !!state.busyActionKey && state.busyActionKey.indexOf(":" + p.id) !== -1;
       var actionDisabled = state.busyActionKey ? ' disabled' : '';
 
       rows.push(
@@ -2919,7 +3177,7 @@
           '<td><span class="rwb-type-pill ' + typeTone(p.type) + '">' + escapeHtml(p.type) + '</span></td>' +
           '<td class="rwb-col-secondary">' + escapeHtml(p.special) + '</td>' +
           '<td>' +
-            '<button type="button" class="rwb-row-action" data-action="open-player-modal" data-franchise-id="' + escapeHtml(p.fid) + '" data-player-id="' + escapeHtml(p.id) + '"' + actionDisabled + '>' + ((taxiBusy || irBusy) ? 'Working...' : 'Actions') + '</button>' +
+            '<button type="button" class="rwb-row-action" data-action="open-player-modal" data-franchise-id="' + escapeHtml(p.fid) + '" data-player-id="' + escapeHtml(p.id) + '"' + actionDisabled + '>' + (rowBusy ? 'Working...' : 'Actions') + '</button>' +
           '</td>' +
         '</tr>'
       );
@@ -3758,6 +4016,83 @@
     });
   }
 
+  function parseMutationResult(text) {
+    try {
+      var out = text ? JSON.parse(text) : {};
+      var details = out && typeof out.details === "object" && out.details ? out.details : {};
+      return {
+        raw: out || {},
+        status: safeStr(out && out.status).toLowerCase(),
+        submissionId: safeStr(out && out.submission_id),
+        details: details
+      };
+    } catch (e) {
+      return { raw: {}, status: "", submissionId: "", details: {} };
+    }
+  }
+
+  function isContractMutationSuccessStatus(status) {
+    return status === "import_ok_log_dispatched" || status === "import_ok_log_failed";
+  }
+
+  function contractMutationErrorMessage(status, details, fallbackText, httpStatus) {
+    var reason = safeStr(details && details.reason);
+    var upstreamPreview = safeStr(details && details.upstreamPreview).slice(0, 280);
+    if (status === "validation_fail") return reason || "Validation failed.";
+    if (status === "import_rejected") return reason || upstreamPreview || "MFL import rejected request.";
+    if (status === "import_no_change") return reason || "No contract change detected after import.";
+    if (status === "verify_unavailable") {
+      return reason || "Import submitted but verification export was unavailable.";
+    }
+    if (reason) return reason;
+    if (upstreamPreview) return upstreamPreview;
+    if (fallbackText) return safeStr(fallbackText).slice(0, 280);
+    return "Request failed (HTTP " + String(httpStatus || 0) + ")";
+  }
+
+  function postContractUpdate(url, payload) {
+    function readResult(res) {
+      return res.text().then(function (text) {
+        var parsed = parseMutationResult(text);
+        if (!res.ok || !isContractMutationSuccessStatus(parsed.status)) {
+          throw new Error(contractMutationErrorMessage(parsed.status, parsed.details, text, res.status));
+        }
+        return parsed;
+      });
+    }
+
+    return fetch(url, {
+      method: "POST",
+      credentials: "omit",
+      cache: "no-store",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload || {})
+    }).then(function (res) {
+      if (res.ok) return readResult(res);
+
+      var form = new URLSearchParams();
+      var body = payload || {};
+      var keys = Object.keys(body);
+      for (var i = 0; i < keys.length; i += 1) {
+        var key = keys[i];
+        if (body[key] == null) continue;
+        form.set(key, String(body[key]));
+      }
+      return fetch(url, {
+        method: "POST",
+        credentials: "omit",
+        cache: "no-store",
+        headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
+        body: form.toString()
+      }).then(readResult);
+    });
+  }
+
+  function clearContractPreviewForPlayer(player) {
+    if (!player) return;
+    delete state.contractPreview[contractPreviewKey(player)];
+  }
+
   function refreshData(noCache) {
     setFlash("", "");
     state.gamesLoadedByYear = Object.create(null);
@@ -3821,6 +4156,59 @@
       state.busyActionKey = "";
       renderTeams();
       setFlash("error", "Roster move failed: " + summarizeError(err));
+    });
+  }
+
+  function submitExtensionUpdate(player, option) {
+    if (!player || !option) return Promise.resolve(null);
+
+    var confirmText = "Confirm " + extensionActionLabel(option).toLowerCase() + " for " + safeStr(player.name) + "?";
+    var optionSummary = extensionOptionSummary(option);
+    var contractInfoText = inlineContractInfoText(option.contractInfo);
+    if (optionSummary) confirmText += "\n\n" + optionSummary;
+    if (contractInfoText) confirmText += "\n" + contractInfoText;
+    if (!window.confirm(confirmText)) return Promise.resolve(null);
+
+    var leagueId = safeStr(state.ctx && state.ctx.leagueId);
+    var season = safeStr(state.ctx && state.ctx.year);
+    var moveKey = "extend:" + safeStr(player.id) + ":" + safeStr(option.optionKey);
+    var payload = {
+      L: leagueId,
+      YEAR: season,
+      type: "MANUAL_CONTRACT_UPDATE",
+      leagueId: leagueId,
+      year: season,
+      player_id: safeStr(player.id),
+      player_name: safeStr(player.name),
+      franchise_id: safeStr(player.fid),
+      franchise_name: safeStr(player.teamName),
+      position: safeStr(player.positionGroup || player.position),
+      salary: safeInt(option.salaryToSend, 0),
+      contract_year: safeInt(option.contractLength, 0),
+      contract_status: safeStr(option.contractStatus),
+      contract_info: safeStr(option.contractInfo),
+      submitted_at_utc: new Date().toISOString()
+    };
+    var url = resolveWorkerContractUpdateEndpoint() +
+      "?L=" + encodeURIComponent(leagueId) +
+      "&YEAR=" + encodeURIComponent(season);
+
+    state.busyActionKey = moveKey;
+    setFlash("success", "Submitting extension for " + safeStr(player.name) + " to MFL...");
+    closePlayerActionModal();
+    renderTeams();
+
+    return postContractUpdate(url, payload).then(function (result) {
+      state.busyActionKey = "";
+      clearContractPreviewForPlayer(player);
+      persistState();
+      return refreshData(true).then(function () {
+        setFlash("success", safeStr(result && result.details && result.details.reason) || (safeStr(player.name) + " extension submitted to MFL."));
+      });
+    }).catch(function (err) {
+      state.busyActionKey = "";
+      renderTeams();
+      setFlash("error", "Extension failed: " + summarizeError(err));
     });
   }
 
@@ -3936,6 +4324,31 @@
       );
       if (!tradeRecord || !tradeRecord.player) return;
       window.location.href = buildTradeModuleUrl(tradeRecord.player);
+      return;
+    }
+
+    var extensionBtn = target.closest("[data-action='extend-player']");
+    if (extensionBtn) {
+      if (state.busyActionKey) return;
+      var extensionRecord = findPlayerRecord(
+        pad4(extensionBtn.getAttribute("data-franchise-id")),
+        safeStr(extensionBtn.getAttribute("data-player-id"))
+      );
+      if (!extensionRecord || !extensionRecord.player || !isOwnRosterPlayer(extensionRecord.player)) return;
+      var extensionOptionKeyValue = safeStr(extensionBtn.getAttribute("data-option-key"));
+      var extensionOptions = playerExtensionOptions(extensionRecord.player);
+      var selectedOption = null;
+      for (var i = 0; i < extensionOptions.length; i += 1) {
+        if (safeStr(extensionOptions[i] && extensionOptions[i].optionKey) === extensionOptionKeyValue) {
+          selectedOption = extensionOptions[i];
+          break;
+        }
+      }
+      if (!selectedOption) {
+        setFlash("error", "Extension preview could not be resolved for this player.");
+        return;
+      }
+      submitExtensionUpdate(extensionRecord.player, selectedOption);
       return;
     }
 

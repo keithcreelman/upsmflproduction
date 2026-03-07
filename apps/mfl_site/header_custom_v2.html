@@ -1005,6 +1005,10 @@
     white-space: nowrap;
   }
 
+  .ccc-cta-label-mobile {
+    display: none;
+  }
+
   .ccc-actions {
     grid-column: 1 / -1;
     display: grid;
@@ -1269,6 +1273,18 @@
       display: none !important;
     }
 
+    .ccc-pill[data-owner-action="rosters"] {
+      display: inline-flex !important;
+    }
+
+    .ccc-cta-label-full {
+      display: none;
+    }
+
+    .ccc-cta-label-mobile {
+      display: inline;
+    }
+
     .ccc-theme-toggle {
       min-height: 38px !important;
       min-width: 38px;
@@ -1512,7 +1528,8 @@
         </a>
         <a id="upsIssueReportBtn" class="ccc-cta ccc-cta-danger" data-ups-hotlink="issue" href="//%HOST%/%YEAR%/home/%LEAGUEID%?MODULE=MESSAGE3">
           <i class="fa-solid fa-bug"></i>
-          Report Website Functionality Issue
+          <span class="ccc-cta-label-full">Report Website Functionality Issue</span>
+          <span class="ccc-cta-label-mobile">Bug</span>
         </a>
         <button class="ccc-cta ccc-theme-toggle" id="upsThemeToggle" type="button" aria-pressed="false">
           <i class="fa-solid fa-circle-half-stroke"></i>
@@ -1528,9 +1545,7 @@
           <div class="ccc-owner-actions-menu" id="upsOwnerActionsMenu" hidden>
             <a href="//%HOST%/%YEAR%/lineup?L=%LEAGUEID%"><i class="fa-solid fa-clipboard-list"></i>Submit Lineup</a>
             <a href="//%HOST%/%YEAR%/add_drop?L=%LEAGUEID%"><i class="fa-solid fa-plus-minus"></i>Add/Drop</a>
-            <a data-owner-action="rosters" href="//%HOST%/%YEAR%/home/%LEAGUEID%?MODULE=MESSAGE7"><i class="fa-solid fa-users"></i>Rosters</a>
             <a data-owner-action="trades" href="//%HOST%/%YEAR%/home/%LEAGUEID%?MODULE=MESSAGE6=N"><i class="fa-solid fa-handshake"></i>Trades</a>
-            <a data-owner-action="old-roster" href="//%HOST%/%YEAR%/options?L=%LEAGUEID%&amp;O=07"><i class="fa-solid fa-table-list"></i>Old Roster</a>
           </div>
         </div>
         <a class="ccc-pill" data-owner-action="lineup" href="//%HOST%/%YEAR%/lineup?L=%LEAGUEID%"><i class="fa-solid fa-clipboard-list"></i>Submit Lineup</a>
@@ -1996,7 +2011,6 @@
       if (canonicalRosterWorkbench) {
         setHref('a[data-owner-action="rosters"]', canonicalRosterWorkbench);
       }
-      setHref('a[data-owner-action="old-roster"]', origin + "/" + y + "/options?L=" + l + "&O=07");
       var canonicalWarRoom = buildCanonicalWarRoomRouteUrl();
       if (canonicalWarRoom) {
         setHref('a[data-owner-action="trades"]', canonicalWarRoom);

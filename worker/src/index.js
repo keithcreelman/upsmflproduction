@@ -9011,7 +9011,7 @@ export default {
 
         const priorSeason = String(Math.max(0, safeInt(season, Number(season) || 0) - 1));
 
-        const [leagueRes, rostersRes, salariesRes, salaryAdjustmentsRes, priorSalariesRes] = await Promise.all([
+        const [leagueRes, rostersRes, salariesRes, salaryAdjustmentsRes, priorSalariesRes, extRes] = await Promise.all([
           mflExportJson(season, leagueId, "league", {}, { includeApiKey: true, useCookie: true }),
           mflExportJson(season, leagueId, "rosters", {}, { includeApiKey: true, useCookie: true }),
           mflExportJson(season, leagueId, "salaries", {}, { includeApiKey: true, useCookie: true }),
@@ -9019,6 +9019,7 @@ export default {
           priorSeason && priorSeason !== String(season)
             ? mflExportJson(priorSeason, leagueId, "salaries", {}, { includeApiKey: true, useCookie: true })
             : Promise.resolve({ ok: false, status: 0, url: "", data: null, error: "" }),
+          fetchExtensionPreviewRows(season, url.searchParams),
         ]);
 
         if (!leagueRes.ok) {
@@ -9121,6 +9122,27 @@ export default {
         for (const fr of leagueFranchises) {
           franchiseMetaById[fr.franchise_id] = fr;
         }
+        const extRowsNormalized = remapExtensionPreviewRowsToCurrentOwners(
+          extRes.rows || [],
+          rosterAssetsByFranchise,
+          franchiseMetaById
+        );
+        const extensionPreviewsByPlayer = {};
+        for (const row of extRowsNormalized.rows || []) {
+          const playerId = String(row?.player_id || "").replace(/\D/g, "");
+          const franchiseId = padFranchiseId(row?.franchise_id);
+          if (!playerId || !franchiseId) continue;
+          if (!extensionPreviewsByPlayer[playerId]) extensionPreviewsByPlayer[playerId] = [];
+          extensionPreviewsByPlayer[playerId].push(row);
+        }
+        for (const playerId of Object.keys(extensionPreviewsByPlayer)) {
+          extensionPreviewsByPlayer[playerId].sort((a, b) => {
+            const aTerm = safeStr(a?.extension_term).toUpperCase();
+            const bTerm = safeStr(b?.extension_term).toUpperCase();
+            if (aTerm !== bTerm) return aTerm.localeCompare(bTerm);
+            return safeStr(a?.loaded_indicator).localeCompare(safeStr(b?.loaded_indicator));
+          });
+        }
         const franchiseIds = new Set([
           ...Object.keys(franchiseMetaById),
           ...Object.keys(rosterAssetsByFranchise),
@@ -9171,6 +9193,7 @@ export default {
                 status,
                 is_taxi: isTaxi,
                 is_ir: isIr,
+                extension_previews: extensionPreviewsByPlayer[playerId] || [],
               };
             });
 
@@ -9203,6 +9226,19 @@ export default {
 
         teams.sort((a, b) => safeStr(a.franchise_name).localeCompare(safeStr(b.franchise_name)));
 
+        const warnings = [];
+        if (!extRes.ok) {
+          warnings.push({
+            code: "extension_previews_unavailable",
+            message: "Extension previews were unavailable; roster extension actions are disabled.",
+            upstream: {
+              status: extRes.status,
+              url: extRes.url,
+              error: extRes.error,
+            },
+          });
+        }
+
         const payload = {
           ok: true,
           league_id: leagueId,
@@ -9217,6 +9253,8 @@ export default {
             counts: {
               teams: teams.length,
               roster_players: allPlayerIds.length,
+              extension_preview_rows: Array.isArray(extRowsNormalized.rows) ? extRowsNormalized.rows.length : 0,
+              extension_preview_rows_owner_remapped: safeInt(extRowsNormalized.remapped_count, 0),
             },
             upstream: {
               league: { status: leagueRes.status, url: leagueRes.url },
@@ -9233,9 +9271,15 @@ export default {
                 ok: priorSalariesRes.ok,
                 season: priorSeason,
               },
+              extension_previews: {
+                status: extRes.status,
+                url: extRes.url,
+                ok: extRes.ok,
+              },
               player_scores: { status: scoreCurrentRes.status, url: scoreCurrentRes.url, ok: scoreCurrentRes.ok },
               bye_weeks: { status: byeCurrent.status || 0, url: byeCurrent.url || "", ok: !!byeCurrent.ok },
             },
+            warnings,
           },
         };
 

@@ -1038,6 +1038,16 @@
   font-size: 0.9rem;
 }
 
+.rwb-extension-preview-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.rwb-extension-preview-line strong {
+  color: var(--rwb-text);
+}
+
 body.rwb-modal-open {
   overflow: hidden;
 }
