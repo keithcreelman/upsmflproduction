@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var BUILD = "2026.03.07.6";
+  var BUILD = "2026.03.07.7";
   var BOOT_FLAG = "__ups_roster_workbench_boot_" + BUILD;
   if (window[BOOT_FLAG]) {
     if (typeof window.UPS_RWB_INIT === "function") window.UPS_RWB_INIT();
@@ -46,6 +46,7 @@
     busyActionKey: "",
     gamesLoadedByYear: Object.create(null),
     gamesLoadingByYear: Object.create(null),
+    salaryCapAmount: 0,
     flash: null,
     loadError: ""
   };
@@ -224,8 +225,13 @@
     var idx = safeInt(offset, 0);
     var proj = projectSalaryByYear(player, Math.max(3, idx + 1));
     if (!proj.length || idx < 0 || idx >= proj.length) return 0;
-    if (idx === 0) return currentCapHitForPlayer(player);
     return safeInt(proj[idx], 0);
+  }
+
+  function calculateCapSpace(capTotal, salaryAdjustmentTotal) {
+    var cap = safeInt(state.salaryCapAmount, 0);
+    if (cap <= 0) return null;
+    return cap - (safeInt(capTotal, 0) + safeInt(salaryAdjustmentTotal, 0));
   }
 
   function normalizePlayerName(name) {
@@ -378,6 +384,12 @@
   function pointModeLabel(mode) {
     if (safeStr(mode) === "cumulative") return "Cumulative";
     return safeStr(mode);
+  }
+
+  function viewLabel(view) {
+    if (view === "contract") return "Plan view";
+    if (view === "franchise") return "Franchise view";
+    return "Roster view";
   }
 
   function isCurrentMobile() {
@@ -1317,6 +1329,7 @@
               '<div class="rwb-view-switch" role="tablist" aria-label="View mode">' +
                 '<button type="button" id="rwbViewRoster" class="rwb-btn rwb-btn-ghost is-active" data-action="view-switch" data-view="roster" role="tab" aria-selected="true">Roster View</button>' +
                 '<button type="button" id="rwbViewContract" class="rwb-btn rwb-btn-ghost" data-action="view-switch" data-view="contract" role="tab" aria-selected="false">Plan View</button>' +
+                '<button type="button" id="rwbViewFranchise" class="rwb-btn rwb-btn-ghost" data-action="view-switch" data-view="franchise" role="tab" aria-selected="false">Franchise View</button>' +
               '</div>' +
               '<label class="rwb-field"><span>Jump To Team</span><select id="rwbJumpTeam" class="rwb-select"><option value="">Select team...</option></select></label>' +
               '<label class="rwb-field"><span>Points</span><select id="rwbPointsMode" class="rwb-select"></select></label>' +
@@ -1350,6 +1363,7 @@
     els.teamList = document.getElementById("rwbTeamList");
     els.viewRoster = document.getElementById("rwbViewRoster");
     els.viewContract = document.getElementById("rwbViewContract");
+    els.viewFranchise = document.getElementById("rwbViewFranchise");
   }
 
   function renderSelectOptions(select, options, selected) {
@@ -1428,12 +1442,16 @@
       els.taxiOnly.classList.toggle("is-active", !!state.taxiOnly);
     }
 
-    if (els.viewRoster && els.viewContract) {
-      var rosterActive = state.view !== "contract";
+    if (els.viewRoster && els.viewContract && els.viewFranchise) {
+      var rosterActive = state.view === "roster";
+      var contractActive = state.view === "contract";
+      var franchiseActive = state.view === "franchise";
       els.viewRoster.classList.toggle("is-active", rosterActive);
-      els.viewContract.classList.toggle("is-active", !rosterActive);
+      els.viewContract.classList.toggle("is-active", contractActive);
+      els.viewFranchise.classList.toggle("is-active", franchiseActive);
       els.viewRoster.setAttribute("aria-selected", rosterActive ? "true" : "false");
-      els.viewContract.setAttribute("aria-selected", !rosterActive ? "true" : "false");
+      els.viewContract.setAttribute("aria-selected", contractActive ? "true" : "false");
+      els.viewFranchise.setAttribute("aria-selected", franchiseActive ? "true" : "false");
     }
 
     if (els.status) {
@@ -1453,7 +1471,7 @@
     if (!els.note) return;
 
     var parts = [];
-    parts.push((state.view === "contract" ? "Plan view" : "Roster view"));
+    parts.push(viewLabel(state.view));
     parts.push("Showing " + visiblePlayers + " of " + totalPlayers + " players");
     if (state.filterPosition) parts.push(positionGroupLabel(state.filterPosition));
     if (state.filterType) {
@@ -1479,14 +1497,8 @@
     var chips = [
       '<span class="rwb-chip' + (rosterOutOfRange ? ' is-bad' : '') + '"><span class="rwb-chip-label">Players</span><span class="rwb-chip-value">' + escapeHtml(String(filteredRosterPlayers)) + '/' + escapeHtml(String(totalRosterPlayers)) + '</span></span>',
       '<span class="rwb-chip"><span class="rwb-chip-label">Limit</span><span class="rwb-chip-value">' + escapeHtml(String(MIN_ROSTER_PLAYERS)) + '-' + escapeHtml(String(MAX_ROSTER_PLAYERS)) + '</span></span>',
-      '<span class="rwb-chip"><span class="rwb-chip-label">Cap Total</span><span class="rwb-chip-value">' + escapeHtml(money(team.summary.capTotal)) + '</span></span>',
       '<span class="rwb-chip"><span class="rwb-chip-label">Taxi</span><span class="rwb-chip-value">' + escapeHtml(String(team.summary.taxi)) + '</span></span>'
     ];
-    if (safeInt(team.summary.salaryAdjustmentTotal, 0) !== 0) {
-      chips.push(
-        '<span class="rwb-chip is-adjustment"><span class="rwb-chip-label">Salary Adj.</span><span class="rwb-chip-value">' + escapeHtml(money(team.summary.salaryAdjustmentTotal)) + '</span></span>'
-      );
-    }
     if (!team.summary.compliance.ok) {
       chips.push(
         '<span class="rwb-chip is-bad"><span class="rwb-chip-label">Compliance</span><span class="rwb-chip-value">' + escapeHtml(team.summary.compliance.label) + '</span></span>'
@@ -1499,11 +1511,81 @@
           logoHtml +
           '<span class="rwb-visually-hidden">' + escapeHtml(team.name) + '</span>' +
         '</div>' +
-        '<div class="rwb-chip-row">' +
-          chips.join("") +
+        '<div class="rwb-team-head-main">' +
+          '<div class="rwb-chip-row">' +
+            chips.join("") +
+          '</div>' +
+          teamCapSummaryHtml(team) +
         '</div>' +
       '</header>'
     );
+  }
+
+  function teamCapSummaryHtml(team) {
+    var totalSalary = safeInt(team && team.summary && team.summary.capTotal, 0);
+    var totalAdjustments = safeInt(team && team.summary && team.summary.salaryAdjustmentTotal, 0);
+    var capSpace = calculateCapSpace(totalSalary, totalAdjustments);
+    var capSpaceClass = capSpace != null && capSpace < 0 ? " is-bad" : "";
+    var capSpaceText = capSpace == null ? "—" : money(capSpace);
+
+    return (
+      '<div class="rwb-cap-summary">' +
+        '<div class="rwb-cap-summary-head">' +
+          '<div class="rwb-cap-summary-title">Cap Summary</div>' +
+          '<div class="rwb-cap-summary-note">Adjustments from salaryAdjustments export. Taxi excluded. IR counts at 50%.</div>' +
+        '</div>' +
+        '<table class="rwb-cap-summary-table" aria-label="' + escapeHtml(team.name + ' cap summary') + '">' +
+          '<tbody>' +
+            '<tr>' +
+              '<th>Total Salary</th>' +
+              '<td class="rwb-cell-num">' + escapeHtml(money(totalSalary)) + '</td>' +
+            '</tr>' +
+            '<tr>' +
+              '<th>Total Adjustments</th>' +
+              '<td class="rwb-cell-num">' + escapeHtml(money(totalAdjustments)) + '</td>' +
+            '</tr>' +
+            '<tr class="rwb-cap-space-row' + capSpaceClass + '">' +
+              '<th>Cap Space Available</th>' +
+              '<td class="rwb-cell-num">' + escapeHtml(capSpaceText) + '</td>' +
+            '</tr>' +
+          '</tbody>' +
+        '</table>' +
+      '</div>'
+    );
+  }
+
+  function summarizeTeamPlan(team, playersInput) {
+    var players = Array.isArray(playersInput) ? playersInput : (team && team.players) || [];
+    var summary = {
+      nonTaxiPlayersUnderContract: 0,
+      nonTaxiTotals: [0, 0, 0],
+      taxiPlayersShown: 0,
+      taxiTotals: [0, 0, 0],
+      rosterPlayers: rosterCountForPlayers(players),
+      totalPlayers: players.length,
+      salaryAdjustmentTotal: safeInt(team && team.summary && team.summary.salaryAdjustmentTotal, 0),
+      capTotal: safeInt(team && team.summary && team.summary.capTotal, 0)
+    };
+
+    for (var i = 0; i < players.length; i += 1) {
+      var p = players[i] || {};
+      var proj = [displayedSalaryForPlan(p, 0), displayedSalaryForPlan(p, 1), displayedSalaryForPlan(p, 2)];
+      var isUnderContract = proj[0] > 0 || proj[1] > 0 || proj[2] > 0;
+      if (p.isTaxi) {
+        summary.taxiPlayersShown += 1;
+        summary.taxiTotals[0] += proj[0];
+        summary.taxiTotals[1] += proj[1];
+        summary.taxiTotals[2] += proj[2];
+      } else {
+        if (isUnderContract) summary.nonTaxiPlayersUnderContract += 1;
+        summary.nonTaxiTotals[0] += proj[0];
+        summary.nonTaxiTotals[1] += proj[1];
+        summary.nonTaxiTotals[2] += proj[2];
+      }
+    }
+
+    summary.capSpaceAvailable = calculateCapSpace(summary.capTotal, summary.salaryAdjustmentTotal);
+    return summary;
   }
 
   function rosterGroupHtml(team, group) {
@@ -1586,11 +1668,7 @@
     var base = currentYearInt();
     var years = [String(base), String(base + 1), String(base + 2)];
     var rows = [];
-
-    var nonTaxiPlayersUnderContract = 0;
-    var nonTaxiTotals = [0, 0, 0];
-    var taxiPlayersShown = 0;
-    var taxiTotals = [0, 0, 0];
+    var planSummary = summarizeTeamPlan(team, filteredPlayers);
     var salaryAdj = safeInt(team.summary.salaryAdjustmentTotal, 0);
 
     var sorted = filteredPlayers.slice().sort(function (a, b) {
@@ -1603,20 +1681,7 @@
     for (var i = 0; i < sorted.length; i += 1) {
       var p = sorted[i];
       var proj = [displayedSalaryForPlan(p, 0), displayedSalaryForPlan(p, 1), displayedSalaryForPlan(p, 2)];
-      var isUnderContract = proj[0] > 0 || proj[1] > 0 || proj[2] > 0;
       var aav = safeInt(p.aav, 0);
-
-      if (p.isTaxi) {
-        taxiPlayersShown += 1;
-        taxiTotals[0] += proj[0];
-        taxiTotals[1] += proj[1];
-        taxiTotals[2] += proj[2];
-      } else if (isUnderContract) {
-        nonTaxiPlayersUnderContract += 1;
-        nonTaxiTotals[0] += proj[0];
-        nonTaxiTotals[1] += proj[1];
-        nonTaxiTotals[2] += proj[2];
-      }
 
       rows.push(
         '<tr class="rwb-player-row' + (p.isTaxi ? ' rwb-player-row-taxi' : '') + (extensionPreviewYears(p) ? ' is-projected' : '') + '">' +
@@ -1650,7 +1715,7 @@
 
     return (
       '<div class="rwb-table-wrap">' +
-        '<table class="rwb-table rwb-contract-table" aria-label="' + escapeHtml(team.name + " contract view") + '">' +
+          '<table class="rwb-table rwb-contract-table" aria-label="' + escapeHtml(team.name + " plan view") + '">' +
           '<thead>' +
             '<tr>' +
               '<th>Player</th>' +
@@ -1668,20 +1733,20 @@
             '<tr class="rwb-summary-row rwb-summary-row-primary">' +
               '<th>Non-Taxi</th>' +
               '<th>—</th>' +
-              '<th>' + escapeHtml(String(nonTaxiPlayersUnderContract)) + ' players</th>' +
-              '<th class="rwb-cell-num">' + escapeHtml(money(nonTaxiTotals[0])) + '</th>' +
-              '<th class="rwb-cell-num">' + escapeHtml(money(nonTaxiTotals[1])) + '</th>' +
-              '<th class="rwb-cell-num">' + escapeHtml(money(nonTaxiTotals[2])) + '</th>' +
-              '<th colspan="2">Under contract salaries only</th>' +
+              '<th>' + escapeHtml(String(planSummary.nonTaxiPlayersUnderContract)) + ' players</th>' +
+              '<th class="rwb-cell-num">' + escapeHtml(money(planSummary.nonTaxiTotals[0])) + '</th>' +
+              '<th class="rwb-cell-num">' + escapeHtml(money(planSummary.nonTaxiTotals[1])) + '</th>' +
+              '<th class="rwb-cell-num">' + escapeHtml(money(planSummary.nonTaxiTotals[2])) + '</th>' +
+              '<th colspan="2">Salary shown. Cap summary above applies adjustments.</th>' +
             '</tr>' +
             '<tr class="rwb-summary-row rwb-summary-row-taxi">' +
               '<th>Taxi</th>' +
               '<th>—</th>' +
-              '<th>' + escapeHtml(String(taxiPlayersShown)) + ' players</th>' +
-              '<th class="rwb-cell-num">' + escapeHtml(money(taxiTotals[0])) + '</th>' +
-              '<th class="rwb-cell-num">' + escapeHtml(money(taxiTotals[1])) + '</th>' +
-              '<th class="rwb-cell-num">' + escapeHtml(money(taxiTotals[2])) + '</th>' +
-              '<th colspan="2">Shown separately from cap totals</th>' +
+              '<th>' + escapeHtml(String(planSummary.taxiPlayersShown)) + ' players</th>' +
+              '<th class="rwb-cell-num">' + escapeHtml(money(planSummary.taxiTotals[0])) + '</th>' +
+              '<th class="rwb-cell-num">' + escapeHtml(money(planSummary.taxiTotals[1])) + '</th>' +
+              '<th class="rwb-cell-num">' + escapeHtml(money(planSummary.taxiTotals[2])) + '</th>' +
+              '<th colspan="2">Salary shown, excluded from cap totals</th>' +
             '</tr>' +
             (salaryAdj !== 0
               ? '<tr class="rwb-summary-row rwb-summary-row-adjustment">' +
@@ -1697,6 +1762,100 @@
           '</tfoot>' +
         '</table>' +
       '</div>'
+    );
+  }
+
+  function franchiseSummaryHtml(teams) {
+    var base = currentYearInt();
+    var years = [String(base), String(base + 1), String(base + 2)];
+    var rows = [];
+    var leagueNonTaxiTotals = [0, 0, 0];
+    var leagueTaxiTotals = [0, 0, 0];
+    var leaguePlayers = 0;
+    var leagueTaxiPlayers = 0;
+    var leagueAdjustments = 0;
+    var leagueCapSpace = 0;
+    var hasCapSpace = safeInt(state.salaryCapAmount, 0) > 0;
+
+    for (var i = 0; i < teams.length; i += 1) {
+      var team = teams[i] || {};
+      var logo = safeStr(team.logo);
+      var planSummary = summarizeTeamPlan(team, team.players || []);
+      leaguePlayers += planSummary.rosterPlayers;
+      leagueTaxiPlayers += planSummary.taxiPlayersShown;
+      leagueNonTaxiTotals[0] += planSummary.nonTaxiTotals[0];
+      leagueNonTaxiTotals[1] += planSummary.nonTaxiTotals[1];
+      leagueNonTaxiTotals[2] += planSummary.nonTaxiTotals[2];
+      leagueTaxiTotals[0] += planSummary.taxiTotals[0];
+      leagueTaxiTotals[1] += planSummary.taxiTotals[1];
+      leagueTaxiTotals[2] += planSummary.taxiTotals[2];
+      leagueAdjustments += planSummary.salaryAdjustmentTotal;
+      if (planSummary.capSpaceAvailable != null) leagueCapSpace += planSummary.capSpaceAvailable;
+
+      rows.push(
+        '<tr id="rwb-team-' + escapeHtml(team.id) + '">' +
+          '<td>' +
+            '<div class="rwb-franchise-cell">' +
+              (logo
+                ? '<img class="rwb-franchise-icon" src="' + escapeHtml(logo) + '" alt="' + escapeHtml(team.name) + ' logo">'
+                : '<span class="rwb-franchise-icon rwb-franchise-icon-fallback">' + escapeHtml(team.fid) + '</span>') +
+              '<div class="rwb-franchise-copy">' +
+                '<div class="rwb-franchise-name">' + escapeHtml(team.name) + '</div>' +
+                '<div class="rwb-franchise-meta">' + escapeHtml(String(planSummary.rosterPlayers)) + ' roster | ' + escapeHtml(String(planSummary.taxiPlayersShown)) + ' taxi</div>' +
+              '</div>' +
+            '</div>' +
+          '</td>' +
+          '<td class="rwb-cell-num">' + escapeHtml(String(planSummary.rosterPlayers)) + '</td>' +
+          '<td class="rwb-cell-num">' + escapeHtml(money(planSummary.nonTaxiTotals[0])) + '</td>' +
+          '<td class="rwb-cell-num">' + escapeHtml(money(planSummary.nonTaxiTotals[1])) + '</td>' +
+          '<td class="rwb-cell-num">' + escapeHtml(money(planSummary.nonTaxiTotals[2])) + '</td>' +
+          '<td class="rwb-cell-num">' + escapeHtml(money(planSummary.salaryAdjustmentTotal)) + '</td>' +
+          '<td class="rwb-cell-num' + (planSummary.capSpaceAvailable != null && planSummary.capSpaceAvailable < 0 ? ' rwb-cap-space-negative' : '') + '">' + escapeHtml(planSummary.capSpaceAvailable == null ? "—" : money(planSummary.capSpaceAvailable)) + '</td>' +
+          '<td class="rwb-cell-num">' + escapeHtml(money(planSummary.taxiTotals[0])) + '</td>' +
+        '</tr>'
+      );
+    }
+
+    return (
+      '<article class="rwb-team-card rwb-franchise-summary-card">' +
+        '<div class="rwb-table-wrap">' +
+          '<table class="rwb-table rwb-franchise-table" aria-label="Franchise view summary">' +
+            '<thead>' +
+              '<tr>' +
+                '<th>Franchise</th>' +
+                '<th>Players</th>' +
+                '<th>' + escapeHtml(years[0]) + '</th>' +
+                '<th>' + escapeHtml(years[1]) + '</th>' +
+                '<th>' + escapeHtml(years[2]) + '</th>' +
+                '<th>Adj.</th>' +
+                '<th>Cap Space</th>' +
+                '<th>Taxi</th>' +
+              '</tr>' +
+            '</thead>' +
+            '<tbody>' + rows.join("") + '</tbody>' +
+            '<tfoot>' +
+              '<tr class="rwb-summary-row rwb-summary-row-primary">' +
+                '<th>League</th>' +
+                '<th class="rwb-cell-num">' + escapeHtml(String(leaguePlayers)) + '</th>' +
+                '<th class="rwb-cell-num">' + escapeHtml(money(leagueNonTaxiTotals[0])) + '</th>' +
+                '<th class="rwb-cell-num">' + escapeHtml(money(leagueNonTaxiTotals[1])) + '</th>' +
+                '<th class="rwb-cell-num">' + escapeHtml(money(leagueNonTaxiTotals[2])) + '</th>' +
+                '<th class="rwb-cell-num">' + escapeHtml(money(leagueAdjustments)) + '</th>' +
+                '<th class="rwb-cell-num">' + escapeHtml(hasCapSpace ? money(leagueCapSpace) : "—") + '</th>' +
+                '<th class="rwb-cell-num">' + escapeHtml(money(leagueTaxiTotals[0])) + '</th>' +
+              '</tr>' +
+              '<tr class="rwb-summary-row rwb-summary-row-taxi">' +
+                '<th>Taxi Players</th>' +
+                '<th class="rwb-cell-num">' + escapeHtml(String(leagueTaxiPlayers)) + '</th>' +
+                '<th class="rwb-cell-num">' + escapeHtml(money(leagueTaxiTotals[0])) + '</th>' +
+                '<th class="rwb-cell-num">' + escapeHtml(money(leagueTaxiTotals[1])) + '</th>' +
+                '<th class="rwb-cell-num">' + escapeHtml(money(leagueTaxiTotals[2])) + '</th>' +
+                '<th colspan="3">Taxi salary is shown but excluded from cap totals.</th>' +
+              '</tr>' +
+            '</tfoot>' +
+          '</table>' +
+        '</div>' +
+      '</article>'
     );
   }
 
@@ -1764,7 +1923,7 @@
     return (
       '<article class="rwb-team-card rwb-contract-summary-league">' +
         '<div class="rwb-table-wrap">' +
-          '<table class="rwb-table rwb-contract-table rwb-contract-summary-table" aria-label="League contract summary">' +
+          '<table class="rwb-table rwb-contract-table rwb-contract-summary-table" aria-label="League plan summary">' +
             '<thead>' +
               '<tr>' +
                 '<th>League Summary</th>' +
@@ -1784,7 +1943,7 @@
                 '<th class="rwb-cell-num">' + escapeHtml(money(nonTaxiTotals[0])) + '</th>' +
                 '<th class="rwb-cell-num">' + escapeHtml(money(nonTaxiTotals[1])) + '</th>' +
                 '<th class="rwb-cell-num">' + escapeHtml(money(nonTaxiTotals[2])) + '</th>' +
-                '<th colspan="2">League cap commitments</th>' +
+                '<th colspan="2">Salary shown. Cap summaries remain team-level.</th>' +
               '</tr>' +
               '<tr class="rwb-summary-row rwb-summary-row-taxi">' +
                 '<th>Taxi</th>' +
@@ -1793,7 +1952,7 @@
                 '<th class="rwb-cell-num">' + escapeHtml(money(taxiTotals[0])) + '</th>' +
                 '<th class="rwb-cell-num">' + escapeHtml(money(taxiTotals[1])) + '</th>' +
                 '<th class="rwb-cell-num">' + escapeHtml(money(taxiTotals[2])) + '</th>' +
-                '<th colspan="2">Tracked separately</th>' +
+                '<th colspan="2">Shown separately from cap totals</th>' +
               '</tr>' +
               (salaryAdjTotal !== 0
                 ? '<tr class="rwb-summary-row rwb-summary-row-adjustment">' +
@@ -1819,7 +1978,7 @@
     var totalPlayers = 0;
     var visiblePlayers = 0;
     var html = [];
-    var visibleTeams = 0;
+    var visibleTeams = [];
 
     for (var i = 0; i < state.teams.length; i += 1) {
       var team = state.teams[i] || {};
@@ -1832,12 +1991,16 @@
         }
       }
       if (!teamVisible) continue;
-      visibleTeams += 1;
-      html.push(teamCardHtml(team));
+      visibleTeams.push(team);
+      if (state.view !== "franchise") {
+        html.push(teamCardHtml(team));
+      }
     }
 
-    if (state.view === "contract" && visibleTeams) {
+    if (state.view === "contract" && visibleTeams.length) {
       html.push(summarizeContractLeague());
+    } else if (state.view === "franchise" && visibleTeams.length) {
+      html.push(franchiseSummaryHtml(visibleTeams));
     }
 
     if (!html.length) {
@@ -1954,7 +2117,8 @@
     state.filterType = normType(readStorage("filterType", ""));
     state.taxiOnly = !!readStorage("taxiOnly", false);
     state.contractPreview = readStorage("contractPreview", {}) || {};
-    state.view = safeStr(readStorage("view", "roster")) === "contract" ? "contract" : "roster";
+    var storedView = safeStr(readStorage("view", "roster"));
+    state.view = storedView === "contract" || storedView === "franchise" ? storedView : "roster";
     state.pointsMode = safeStr(readStorage("pointsMode", ""));
 
     if (["", "rookie", "loaded", "other"].indexOf(state.filterType) === -1) {
@@ -2017,6 +2181,7 @@
     return loadData(state.ctx, { noCache: !!noCache })
       .then(function (result) {
         state.teams = result.teams || [];
+        state.salaryCapAmount = safeInt(result.leagueMeta && result.leagueMeta.capAmount, 0);
         state.pointYears = (result.pointYears && result.pointYears.length)
           ? result.pointYears.slice()
           : buildPointYears();
@@ -2077,7 +2242,7 @@
     var viewBtn = target.closest("[data-action='view-switch']");
     if (viewBtn) {
       var nextView = safeStr(viewBtn.getAttribute("data-view"));
-      if (nextView !== "contract" && nextView !== "roster") return;
+      if (nextView !== "contract" && nextView !== "roster" && nextView !== "franchise") return;
       if (state.view !== nextView) {
         state.view = nextView;
         persistState();

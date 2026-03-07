@@ -203,6 +203,11 @@
   justify-content: center;
 }
 
+.rwb-team-head-main {
+  display: grid;
+  gap: 14px;
+}
+
 .rwb-team-logo,
 .rwb-team-logo-fallback {
   width: 220px;
@@ -275,6 +280,71 @@
 .rwb-chip.is-adjustment {
   border-color: rgba(255, 181, 106, 0.52);
   background: rgba(255, 181, 106, 0.14);
+}
+
+.rwb-cap-summary {
+  border: 1px solid rgba(138, 172, 214, 0.24);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(7, 16, 31, 0.92), rgba(5, 12, 24, 0.86));
+  padding: 12px 14px;
+}
+
+.rwb-cap-summary-head {
+  display: grid;
+  gap: 3px;
+  margin-bottom: 10px;
+}
+
+.rwb-cap-summary-title {
+  font-size: 0.94rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #edf4ff;
+}
+
+.rwb-cap-summary-note {
+  color: var(--rwb-text-dim);
+  font-size: 0.78rem;
+}
+
+.rwb-cap-summary-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.rwb-cap-summary-table th,
+.rwb-cap-summary-table td {
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(138, 172, 214, 0.16);
+  font-size: 1rem;
+}
+
+.rwb-cap-summary-table th {
+  text-align: left;
+  color: var(--rwb-text-soft);
+  font-size: 0.86rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.rwb-cap-summary-table td {
+  text-align: right;
+  color: var(--rwb-text);
+  font-size: 1.12rem;
+  font-weight: 800;
+}
+
+.rwb-cap-summary-table tr:last-child th,
+.rwb-cap-summary-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.rwb-cap-space-row.is-bad th,
+.rwb-cap-space-row.is-bad td,
+.rwb-cap-space-negative {
+  color: #ffb4b4;
 }
 
 .rwb-team-body {
@@ -601,6 +671,58 @@
   border-style: dashed;
 }
 
+.rwb-franchise-summary-card {
+  border-style: solid;
+}
+
+.rwb-franchise-table {
+  min-width: 980px;
+}
+
+.rwb-franchise-cell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 260px;
+}
+
+.rwb-franchise-icon {
+  width: 58px;
+  height: 58px;
+  object-fit: contain;
+  flex: 0 0 auto;
+}
+
+.rwb-franchise-icon-fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 58px;
+  height: 58px;
+  border-radius: 14px;
+  background: rgba(7, 16, 31, 0.96);
+  border: 1px solid rgba(138, 172, 214, 0.24);
+  color: var(--rwb-text-soft);
+  font-size: 0.86rem;
+  font-weight: 800;
+}
+
+.rwb-franchise-copy {
+  display: grid;
+  gap: 3px;
+}
+
+.rwb-franchise-name {
+  color: var(--rwb-text);
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.rwb-franchise-meta {
+  color: var(--rwb-text-dim);
+  font-size: 0.8rem;
+}
+
 .rwb-player-row-taxi td {
   background: rgba(238, 191, 114, 0.08) !important;
 }
@@ -653,6 +775,10 @@
 
   .rwb-team-brand {
     justify-content: flex-start;
+  }
+
+  .rwb-cap-summary-table td {
+    text-align: left;
   }
 
   .rwb-team-logo,
