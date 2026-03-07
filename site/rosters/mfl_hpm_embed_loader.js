@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var BUILD = "2026.03.07.1";
+  var BUILD = "2026.03.07.2";
   if (window.__ups_rwb_embed_loader === BUILD) {
     if (typeof window.UPS_RWB_INIT === "function") window.UPS_RWB_INIT();
     return;
@@ -202,11 +202,9 @@
 
     injectCssCandidates(cssCandidates);
 
-    injectScript(jsCandidates, function () {
-      if (typeof window.UPS_RWB_INIT === "function") {
-        window.UPS_RWB_INIT();
-      }
-    });
+    // roster_workbench.js self-initializes on load; avoid double-init
+    // because that can replace DOM after listeners are attached.
+    injectScript(jsCandidates, function () {});
   }
 
   if (document.readyState === "loading") {

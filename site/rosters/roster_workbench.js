@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var BUILD = "2026.03.07.2";
+  var BUILD = "2026.03.07.3";
   var BOOT_FLAG = "__ups_roster_workbench_boot_" + BUILD;
   if (window[BOOT_FLAG]) {
     if (typeof window.UPS_RWB_INIT === "function") window.UPS_RWB_INIT();
@@ -1754,6 +1754,8 @@
     restoreState();
 
     renderSkeleton();
+    // Ensure listeners bind to the current freshly-rendered app node.
+    attached = false;
     bindEvents();
 
     loadData(state.ctx)
