@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var BUILD = "2026.03.07.5";
+  var BUILD = "2026.03.07.6";
   var BOOT_FLAG = "__ups_roster_workbench_boot_" + BUILD;
   if (window[BOOT_FLAG]) {
     if (typeof window.UPS_RWB_INIT === "function") window.UPS_RWB_INIT();
@@ -10,6 +10,9 @@
   window[BOOT_FLAG] = true;
 
   var POSITION_GROUP_ORDER = ["QB", "RB", "WR", "TE", "DL", "DB", "LB", "PK", "PN", "OTHER"];
+  var MIN_ROSTER_PLAYERS = 27;
+  var MAX_ROSTER_PLAYERS = 30;
+  var MAX_SCORE_WEEKS = 18;
   var CONTRACT_FILTERS = [
     { value: "", label: "All Contract Types" },
     { value: "rookie", label: "Rookies" },
@@ -41,6 +44,8 @@
     taxiOnly: false,
     contractPreview: {},
     busyActionKey: "",
+    gamesLoadedByYear: Object.create(null),
+    gamesLoadingByYear: Object.create(null),
     flash: null,
     loadError: ""
   };
@@ -181,6 +186,46 @@
     if (priorAavs.length < 2) return info;
 
     return replaceContractInfoAavValue(info, priorAavs[priorAavs.length - 1]);
+  }
+
+  function currentAavForContractInfo(contractInfo) {
+    var values = parseContractAavValues(contractInfo);
+    return values.length ? safeInt(values[0], 0) : 0;
+  }
+
+  function rosterCountEligible(player) {
+    return !!(player && !player.isTaxi);
+  }
+
+  function rosterCountForPlayers(players) {
+    var list = players || [];
+    var count = 0;
+    for (var i = 0; i < list.length; i += 1) {
+      if (rosterCountEligible(list[i])) count += 1;
+    }
+    return count;
+  }
+
+  function currentCapHit(salary, years, isTaxi, isIr) {
+    var amt = safeInt(salary, 0);
+    var y = Math.max(0, safeInt(years, 0));
+    if (isTaxi) return 0;
+    if (y <= 0) return 0;
+    if (isIr) return Math.round(amt * 0.5);
+    return amt;
+  }
+
+  function currentCapHitForPlayer(player) {
+    if (!player) return 0;
+    return currentCapHit(player.salary, player.years, player.isTaxi, player.isIr);
+  }
+
+  function displayedSalaryForPlan(player, offset) {
+    var idx = safeInt(offset, 0);
+    var proj = projectSalaryByYear(player, Math.max(3, idx + 1));
+    if (!proj.length || idx < 0 || idx >= proj.length) return 0;
+    if (idx === 0) return currentCapHitForPlayer(player);
+    return safeInt(proj[idx], 0);
   }
 
   function normalizePlayerName(name) {
@@ -749,11 +794,14 @@
     out.positionGroup = positionGroupKey(out.position);
     out.typeBucket = contractBucket(out.type);
     if (!out.pointsByYear) out.pointsByYear = Object.create(null);
+    if (!out.gamesByYear) out.gamesByYear = Object.create(null);
     if (out.pointsByYear && Object.keys(out.pointsByYear).length === 0) {
       var py = safeStr(state.ctx && state.ctx.year);
       if (py) out.pointsByYear[py] = safeNum(out.points, 0);
     }
     out.pointsCumulative = safeNum(out.pointsCumulative, 0);
+    out.gamesCumulative = safeInt(out.gamesCumulative, 0);
+    out.aav = safeInt(out.aav, 0) || currentAavForContractInfo(out.special || out.contract_info || "");
     return out;
   }
 
@@ -801,10 +849,11 @@
         var status = normalizeStatus(rp.status);
         var isTaxi = status === "TAXI_SQUAD";
         var isIr = status === "INJURED_RESERVE";
+        var aav = currentAavForContractInfo(special);
         if (isTaxi) {
           taxiCount += 1;
         } else {
-          capTotal += salary;
+          capTotal += currentCapHit(salary, years, isTaxi, isIr);
         }
 
         players.push(enrichPlayer({
@@ -819,6 +868,7 @@
           bye: safeStr(byes[safeStr(info.team).toUpperCase()] || ""),
           salary: salary,
           years: years,
+          aav: aav,
           type: contractType || "-",
           special: special || "-",
           status: status,
@@ -839,6 +889,7 @@
         players: players,
         summary: {
           players: players.length,
+          rosterPlayers: rosterCountForPlayers(players),
           taxi: taxiCount,
           capTotal: capTotal,
           salaryAdjustmentTotal: salaryAdjustmentTotal,
@@ -873,6 +924,7 @@
       bye: safeStr(p.bye),
       salary: safeInt(p.salary, 0),
       years: safeInt(p.years, 0),
+      aav: safeInt(p.aav, 0) || currentAavForContractInfo(p.special || p.contract_info || "-"),
       type: safeStr(p.type || p.contract_type || "-") || "-",
       special: safeStr(p.special || p.contract_info || "-") || "-",
       status: status,
@@ -901,16 +953,13 @@
       }
 
       var capTotalFromPlayers = players.reduce(function (acc, p) {
-        return acc + (p.isTaxi ? 0 : safeInt(p.salary, 0));
+        return acc + currentCapHitForPlayer(p);
       }, 0);
-      var taxiFromPlayers = players.reduce(function (acc, p) {
-        return acc + (p.isTaxi ? 1 : 0);
-      }, 0);
+      var taxiFromPlayers = players.reduce(function (acc, p) { return acc + (p.isTaxi ? 1 : 0); }, 0);
+      var rosterPlayersFromPlayers = rosterCountForPlayers(players);
 
       var summary = team.summary || {};
-      var capTotal = summary.cap_total_dollars == null
-        ? (summary.capTotal == null ? capTotalFromPlayers : safeInt(summary.capTotal, capTotalFromPlayers))
-        : safeInt(summary.cap_total_dollars, capTotalFromPlayers);
+      var capTotal = capTotalFromPlayers;
       var salaryAdjustmentTotal = summary.salary_adjustment_total_dollars == null
         ? safeInt(summary.salaryAdjustmentTotal, 0)
         : safeInt(summary.salary_adjustment_total_dollars, 0);
@@ -929,6 +978,7 @@
         players: players,
         summary: {
           players: summary.players == null ? players.length : safeInt(summary.players, players.length),
+          rosterPlayers: summary.rosterPlayers == null ? rosterPlayersFromPlayers : safeInt(summary.rosterPlayers, rosterPlayersFromPlayers),
           taxi: taxiCount,
           capTotal: capTotal,
           salaryAdjustmentTotal: salaryAdjustmentTotal,
@@ -998,14 +1048,17 @@
         for (var p = 0; p < players.length; p += 1) {
           var player = players[p];
           player.pointsByYear = Object.create(null);
+          player.gamesByYear = Object.create(null);
           var cumulative = 0;
           for (var y = 0; y < years.length; y += 1) {
             var year = years[y];
             var score = safeNum(yearIndex[year][player.id], 0);
             player.pointsByYear[year] = score;
+            player.gamesByYear[year] = 0;
             cumulative += score;
           }
           player.pointsCumulative = cumulative;
+          player.gamesCumulative = 0;
         }
       }
 
@@ -1018,8 +1071,10 @@
         for (var p = 0; p < players.length; p += 1) {
           var player = players[p];
           player.pointsByYear = Object.create(null);
+          player.gamesByYear = Object.create(null);
           for (var y = 0; y < fallbackYears.length; y += 1) {
             player.pointsByYear[fallbackYears[y]] = 0;
+            player.gamesByYear[fallbackYears[y]] = 0;
           }
           if (fallbackYear && player.pointsByYear[fallbackYear] != null) {
             player.pointsByYear[fallbackYear] = safeNum(player.points, 0);
@@ -1027,10 +1082,97 @@
           player.pointsCumulative = fallbackYear && player.pointsByYear[fallbackYear] != null
             ? safeNum(player.pointsByYear[fallbackYear], 0)
             : 0;
+          player.gamesCumulative = 0;
         }
       }
       return fallbackYears;
     });
+  }
+
+  function mergeGamesMapIntoTeams(yearStr, gamesMap) {
+    var year = safeStr(yearStr);
+    var map = gamesMap || Object.create(null);
+    for (var t = 0; t < state.teams.length; t += 1) {
+      var players = state.teams[t].players || [];
+      for (var p = 0; p < players.length; p += 1) {
+        var player = players[p];
+        if (!player.gamesByYear) player.gamesByYear = Object.create(null);
+        player.gamesByYear[year] = safeInt(map[player.id], 0);
+        var totalGames = 0;
+        var gameYears = Object.keys(player.gamesByYear || {});
+        for (var i = 0; i < gameYears.length; i += 1) {
+          totalGames += safeInt(player.gamesByYear[gameYears[i]], 0);
+        }
+        player.gamesCumulative = totalGames;
+      }
+    }
+    state.gamesLoadedByYear[year] = true;
+    delete state.gamesLoadingByYear[year];
+  }
+
+  function fetchWeeklyGamesMapForYear(ctx, yearStr) {
+    var weeks = [];
+    for (var w = 1; w <= MAX_SCORE_WEEKS; w += 1) weeks.push(w);
+
+    function fetchWeek(weekNo) {
+      var hostUrl = buildExportUrl(ctx.hostOrigin, yearStr, "playerScores", {
+        L: ctx.leagueId,
+        W: String(weekNo)
+      });
+      var apiUrl = buildApiExportUrl(yearStr, "playerScores", {
+        L: ctx.leagueId,
+        W: String(weekNo)
+      });
+      return fetchJson(hostUrl, { credentials: "include" })
+        .then(function (payload) { return toScoreMap(payload); })
+        .catch(function () {
+          return fetchJson(apiUrl, { credentials: "omit" })
+            .then(function (payload) { return toScoreMap(payload); })
+            .catch(function () { return Object.create(null); });
+        });
+    }
+
+    return Promise.all(weeks.map(fetchWeek)).then(function (maps) {
+      var totals = Object.create(null);
+      for (var i = 0; i < maps.length; i += 1) {
+        var weekMap = maps[i] || {};
+        var ids = Object.keys(weekMap);
+        for (var j = 0; j < ids.length; j += 1) {
+          var pid = ids[j];
+          if (safeNum(weekMap[pid], 0) === 0) continue;
+          totals[pid] = safeInt(totals[pid], 0) + 1;
+        }
+      }
+      return totals;
+    });
+  }
+
+  function ensureGamesLoadedForYear(yearStr) {
+    var year = safeStr(yearStr);
+    if (!year) return Promise.resolve();
+    if (state.gamesLoadedByYear[year]) return Promise.resolve();
+    if (state.gamesLoadingByYear[year]) return state.gamesLoadingByYear[year];
+
+    var task = fetchWeeklyGamesMapForYear(state.ctx, year)
+      .then(function (gamesMap) {
+        mergeGamesMapIntoTeams(year, gamesMap);
+        renderTeams();
+      })
+      .catch(function () {
+        mergeGamesMapIntoTeams(year, Object.create(null));
+      });
+
+    state.gamesLoadingByYear[year] = task;
+    return task;
+  }
+
+  function ensureGamesLoadedForCurrentMode() {
+    if (state.pointsMode === "cumulative") {
+      var years = state.pointYears && state.pointYears.length ? state.pointYears.slice() : buildPointYears();
+      return Promise.all(years.map(ensureGamesLoadedForYear));
+    }
+    var year = safeStr(state.pointsMode || (state.pointYears[0] || state.ctx.year));
+    return ensureGamesLoadedForYear(year);
   }
 
   function pointsForPlayer(player) {
@@ -1045,12 +1187,35 @@
     return safeNum(map[key], 0);
   }
 
+  function gamesForPlayer(player) {
+    if (!player) return 0;
+    if (state.pointsMode === "cumulative") return safeInt(player.gamesCumulative, 0);
+    var key = safeStr(state.pointsMode || (state.pointYears[0] || state.ctx.year));
+    if (!key) return 0;
+    var map = player.gamesByYear || {};
+    return safeInt(map[key], 0);
+  }
+
+  function ppgForPlayer(player) {
+    var games = gamesForPlayer(player);
+    if (games <= 0) return 0;
+    return safeNum(pointsForPlayer(player), 0) / games;
+  }
+
   function formatPoints(n) {
     var v = safeNum(n, 0);
     if (Math.abs(v - Math.round(v)) < 0.001) {
       return Math.round(v).toLocaleString("en-US");
     }
     return (Math.round(v * 10) / 10).toLocaleString("en-US", {
+      minimumFractionDigits: 1,
+      maximumFractionDigits: 1
+    });
+  }
+
+  function formatPpg(n, games) {
+    if (safeInt(games, 0) <= 0) return "—";
+    return (Math.round(safeNum(n, 0) * 10) / 10).toLocaleString("en-US", {
       minimumFractionDigits: 1,
       maximumFractionDigits: 1
     });
@@ -1151,7 +1316,7 @@
             '<div class="rwb-toolbar-main">' +
               '<div class="rwb-view-switch" role="tablist" aria-label="View mode">' +
                 '<button type="button" id="rwbViewRoster" class="rwb-btn rwb-btn-ghost is-active" data-action="view-switch" data-view="roster" role="tab" aria-selected="true">Roster View</button>' +
-                '<button type="button" id="rwbViewContract" class="rwb-btn rwb-btn-ghost" data-action="view-switch" data-view="contract" role="tab" aria-selected="false">Contract View</button>' +
+                '<button type="button" id="rwbViewContract" class="rwb-btn rwb-btn-ghost" data-action="view-switch" data-view="contract" role="tab" aria-selected="false">Plan View</button>' +
               '</div>' +
               '<label class="rwb-field"><span>Jump To Team</span><select id="rwbJumpTeam" class="rwb-select"><option value="">Select team...</option></select></label>' +
               '<label class="rwb-field"><span>Points</span><select id="rwbPointsMode" class="rwb-select"></select></label>' +
@@ -1288,7 +1453,7 @@
     if (!els.note) return;
 
     var parts = [];
-    parts.push((state.view === "contract" ? "Contract view" : "Roster view"));
+    parts.push((state.view === "contract" ? "Plan view" : "Roster view"));
     parts.push("Showing " + visiblePlayers + " of " + totalPlayers + " players");
     if (state.filterPosition) parts.push(positionGroupLabel(state.filterPosition));
     if (state.filterType) {
@@ -1305,11 +1470,15 @@
 
   function teamHeaderHtml(team, filteredPlayers) {
     var logo = safeStr(team.logo);
+    var filteredRosterPlayers = rosterCountForPlayers(filteredPlayers);
+    var totalRosterPlayers = rosterCountForPlayers(team.players || []);
+    var rosterOutOfRange = totalRosterPlayers < MIN_ROSTER_PLAYERS || totalRosterPlayers > MAX_ROSTER_PLAYERS;
     var logoHtml = logo
       ? '<img class="rwb-team-logo" src="' + escapeHtml(logo) + '" alt="' + escapeHtml(team.name) + ' logo" title="' + escapeHtml(team.name) + '">' 
       : '<span class="rwb-team-logo-fallback" aria-hidden="true" title="' + escapeHtml(team.name) + '">' + escapeHtml(team.fid) + "</span>";
     var chips = [
-      '<span class="rwb-chip"><span class="rwb-chip-label">Players</span><span class="rwb-chip-value">' + escapeHtml(String(filteredPlayers.length)) + '/' + escapeHtml(String(team.summary.players)) + '</span></span>',
+      '<span class="rwb-chip' + (rosterOutOfRange ? ' is-bad' : '') + '"><span class="rwb-chip-label">Players</span><span class="rwb-chip-value">' + escapeHtml(String(filteredRosterPlayers)) + '/' + escapeHtml(String(totalRosterPlayers)) + '</span></span>',
+      '<span class="rwb-chip"><span class="rwb-chip-label">Limit</span><span class="rwb-chip-value">' + escapeHtml(String(MIN_ROSTER_PLAYERS)) + '-' + escapeHtml(String(MAX_ROSTER_PLAYERS)) + '</span></span>',
       '<span class="rwb-chip"><span class="rwb-chip-label">Cap Total</span><span class="rwb-chip-value">' + escapeHtml(money(team.summary.capTotal)) + '</span></span>',
       '<span class="rwb-chip"><span class="rwb-chip-label">Taxi</span><span class="rwb-chip-value">' + escapeHtml(String(team.summary.taxi)) + '</span></span>'
     ];
@@ -1344,6 +1513,9 @@
       var tags = [];
       if (p.isTaxi) tags.push('<span class="rwb-tag is-taxi">Taxi</span>');
       if (p.isIr) tags.push('<span class="rwb-tag is-ir">IR</span>');
+      var points = pointsForPlayer(p);
+      var games = gamesForPlayer(p);
+      var ppg = ppgForPlayer(p);
       var taxiBusy = state.busyActionKey === ("taxi:" + p.id);
       var irBusy = state.busyActionKey === ("ir:" + p.id);
       var actionDisabled = state.busyActionKey ? ' disabled' : '';
@@ -1365,7 +1537,8 @@
               '</dl>' +
             '</div>' +
           '</td>' +
-          '<td class="rwb-cell-num">' + escapeHtml(formatPoints(pointsForPlayer(p))) + '</td>' +
+          '<td class="rwb-cell-num">' + escapeHtml(formatPoints(points)) + '</td>' +
+          '<td class="rwb-cell-num">' + escapeHtml(formatPpg(ppg, games)) + '</td>' +
           '<td class="rwb-cell-num rwb-col-secondary">' + escapeHtml(p.bye || "-") + '</td>' +
           '<td class="rwb-cell-num">' + escapeHtml(money(p.salary)) + '</td>' +
           '<td class="rwb-cell-num">' + escapeHtml(String(p.years)) + '</td>' +
@@ -1393,6 +1566,7 @@
               '<tr>' +
                 '<th>Player</th>' +
                 '<th>Pts ' + escapeHtml(pointModeLabel(state.pointsMode)) + '</th>' +
+                '<th>PPG</th>' +
                 '<th class="rwb-col-secondary">Bye</th>' +
                 '<th>Salary</th>' +
                 '<th>Years</th>' +
@@ -1428,8 +1602,9 @@
 
     for (var i = 0; i < sorted.length; i += 1) {
       var p = sorted[i];
-      var proj = projectSalaryByYear(p, 3);
+      var proj = [displayedSalaryForPlan(p, 0), displayedSalaryForPlan(p, 1), displayedSalaryForPlan(p, 2)];
       var isUnderContract = proj[0] > 0 || proj[1] > 0 || proj[2] > 0;
+      var aav = safeInt(p.aav, 0);
 
       if (p.isTaxi) {
         taxiPlayersShown += 1;
@@ -1453,6 +1628,7 @@
               (p.isIr ? '<span class="rwb-tag is-ir">IR</span>' : '') +
             '</div>' +
           '</td>' +
+          '<td class="rwb-cell-num' + (aav === 0 ? ' rwb-money-zero' : '') + '">' + escapeHtml(aav > 0 ? money(aav) : "—") + '</td>' +
           '<td class="rwb-cell-num">' + escapeHtml(projectedExpiryLabel(p)) + '</td>' +
           '<td class="rwb-cell-num' + (proj[0] === 0 ? ' rwb-money-zero' : '') + '">' + escapeHtml(money(proj[0])) + '</td>' +
           '<td class="rwb-cell-num' + (proj[1] === 0 ? ' rwb-money-zero' : '') + '">' + escapeHtml(money(proj[1])) + '</td>' +
@@ -1478,6 +1654,7 @@
           '<thead>' +
             '<tr>' +
               '<th>Player</th>' +
+              '<th>AAV</th>' +
               '<th>Expires</th>' +
               '<th>' + escapeHtml(years[0]) + '</th>' +
               '<th>' + escapeHtml(years[1]) + '</th>' +
@@ -1490,6 +1667,7 @@
           '<tfoot>' +
             '<tr class="rwb-summary-row rwb-summary-row-primary">' +
               '<th>Non-Taxi</th>' +
+              '<th>—</th>' +
               '<th>' + escapeHtml(String(nonTaxiPlayersUnderContract)) + ' players</th>' +
               '<th class="rwb-cell-num">' + escapeHtml(money(nonTaxiTotals[0])) + '</th>' +
               '<th class="rwb-cell-num">' + escapeHtml(money(nonTaxiTotals[1])) + '</th>' +
@@ -1498,6 +1676,7 @@
             '</tr>' +
             '<tr class="rwb-summary-row rwb-summary-row-taxi">' +
               '<th>Taxi</th>' +
+              '<th>—</th>' +
               '<th>' + escapeHtml(String(taxiPlayersShown)) + ' players</th>' +
               '<th class="rwb-cell-num">' + escapeHtml(money(taxiTotals[0])) + '</th>' +
               '<th class="rwb-cell-num">' + escapeHtml(money(taxiTotals[1])) + '</th>' +
@@ -1507,6 +1686,7 @@
             (salaryAdj !== 0
               ? '<tr class="rwb-summary-row rwb-summary-row-adjustment">' +
                   '<th>Salary Adj.</th>' +
+                  '<th>—</th>' +
                   '<th>Current season</th>' +
                   '<th class="rwb-cell-num">' + escapeHtml(money(salaryAdj)) + '</th>' +
                   '<th class="rwb-cell-num">' + escapeHtml(money(0)) + '</th>' +
@@ -1566,7 +1746,7 @@
       for (var p = 0; p < players.length; p += 1) {
         var player = players[p];
         if (!matchesFilters(player)) continue;
-        var proj = projectSalaryByYear(player, 3);
+        var proj = [displayedSalaryForPlan(player, 0), displayedSalaryForPlan(player, 1), displayedSalaryForPlan(player, 2)];
         if (player.isTaxi) {
           taxiPlayers += 1;
           taxiTotals[0] += proj[0];
@@ -1588,6 +1768,7 @@
             '<thead>' +
               '<tr>' +
                 '<th>League Summary</th>' +
+                '<th>AAV</th>' +
                 '<th>Players</th>' +
                 '<th>' + escapeHtml(String(years[0])) + '</th>' +
                 '<th>' + escapeHtml(String(years[1])) + '</th>' +
@@ -1598,6 +1779,7 @@
             '<tbody>' +
               '<tr class="rwb-summary-row rwb-summary-row-primary">' +
                 '<th>Non-Taxi</th>' +
+                '<th>—</th>' +
                 '<th>' + escapeHtml(String(nonTaxiPlayers)) + ' players</th>' +
                 '<th class="rwb-cell-num">' + escapeHtml(money(nonTaxiTotals[0])) + '</th>' +
                 '<th class="rwb-cell-num">' + escapeHtml(money(nonTaxiTotals[1])) + '</th>' +
@@ -1606,6 +1788,7 @@
               '</tr>' +
               '<tr class="rwb-summary-row rwb-summary-row-taxi">' +
                 '<th>Taxi</th>' +
+                '<th>—</th>' +
                 '<th>' + escapeHtml(String(taxiPlayers)) + ' players</th>' +
                 '<th class="rwb-cell-num">' + escapeHtml(money(taxiTotals[0])) + '</th>' +
                 '<th class="rwb-cell-num">' + escapeHtml(money(taxiTotals[1])) + '</th>' +
@@ -1615,6 +1798,7 @@
               (salaryAdjTotal !== 0
                 ? '<tr class="rwb-summary-row rwb-summary-row-adjustment">' +
                     '<th>Salary Adj.</th>' +
+                    '<th>—</th>' +
                     '<th>Current season</th>' +
                     '<th class="rwb-cell-num">' + escapeHtml(money(salaryAdjTotal)) + '</th>' +
                     '<th class="rwb-cell-num">' + escapeHtml(money(0)) + '</th>' +
@@ -1825,6 +2009,8 @@
 
   function refreshData(noCache) {
     setFlash("", "");
+    state.gamesLoadedByYear = Object.create(null);
+    state.gamesLoadingByYear = Object.create(null);
     if (els.teamList) {
       els.teamList.innerHTML = '<div class="rwb-loading">Refreshing roster data...</div>';
     }
@@ -1840,6 +2026,7 @@
         }
         renderToolbar();
         renderTeams();
+        ensureGamesLoadedForCurrentMode();
         persistState();
         return result;
       });
@@ -1977,6 +2164,7 @@
       state.pointsMode = nextMode;
       persistState();
       renderTeams();
+      ensureGamesLoadedForCurrentMode();
       return;
     }
   }
@@ -2171,7 +2359,7 @@
     attached = false;
     bindEvents();
 
-    refreshData(false)
+    refreshData(true)
       .catch(function (err) {
         var msg = "Unable to load roster data from API exports.";
         if (err && err.message) msg += " " + err.message;

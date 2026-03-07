@@ -8889,8 +8889,17 @@ export default {
           return amount;
         };
 
+        const currentCapHit = (salary, years, isTaxi, isIr) => {
+          const amt = safeInt(salary, 0);
+          const y = Math.max(0, safeInt(years, 0));
+          if (isTaxi) return 0;
+          if (y <= 0) return 0;
+          if (isIr) return Math.round(amt * 0.5);
+          return amt;
+        };
+
         const formatContractK = (amount) => {
-          const dollars = Math.round(safeNum(amount, 0));
+          const dollars = safeMoneyInt(amount, 0);
           if (dollars <= 0) return "0K";
           const text = Math.round((dollars / 1000) * 10) / 10;
           return `${String(text).replace(/\.0$/, "")}K`;
@@ -8909,7 +8918,7 @@ export default {
 
         const replaceContractInfoAavValue = (contractInfo, nextAav) => {
           const info = safeStr(contractInfo);
-          const aav = Math.round(safeNum(nextAav, 0));
+          const aav = safeMoneyInt(nextAav, 0);
           if (!info || aav <= 0) return info;
           if (/AAV\s+/i.test(info)) {
             return info.replace(/AAV\s+[^|]+/i, `AAV ${formatContractK(aav)}`);
@@ -9138,6 +9147,8 @@ export default {
               const type = safeStr(overlay?.contractStatus || asset?.contract_type || "");
               const specialRaw = safeStr(overlay?.contractInfo || asset?.contract_info || "");
               const special = normalizeContractInfoForDisplay(specialRaw, years, priorSalaryByPlayer[playerId] || null);
+              const aavValues = parseContractAavValues(special);
+              const aav = aavValues.length ? safeInt(aavValues[0], 0) : 0;
               const nflTeam = safeStr(pMeta?.nfl_team || "").toUpperCase();
               const statusRaw = safeStr(asset?.roster_status || "").toUpperCase();
               const status = statusRaw || (asset?.taxi ? "TAXI_SQUAD" : "ROSTER");
@@ -9153,6 +9164,7 @@ export default {
                 bye: safeStr(byesByTeam[nflTeam] || ""),
                 salary,
                 years,
+                aav,
                 type: type || "-",
                 special: special || "-",
                 status,
@@ -9162,7 +9174,7 @@ export default {
             });
 
           const taxiCount = players.reduce((acc, p) => acc + (p.is_taxi ? 1 : 0), 0);
-          const capTotal = players.reduce((acc, p) => acc + (p.is_taxi ? 0 : safeInt(p.salary, 0)), 0);
+          const capTotal = players.reduce((acc, p) => acc + currentCapHit(p.salary, p.years, p.is_taxi, p.is_ir), 0);
           const salaryAdjustmentTotal = safeInt(salaryAdjustmentByFranchise[franchiseId], 0);
           const compliant = salaryCapDollars > 0 ? capTotal + salaryAdjustmentTotal <= salaryCapDollars : true;
           const complianceLabel = compliant
