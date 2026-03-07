@@ -368,6 +368,8 @@
     --ups-contract-chip-accent-text: #ffe4a0;
     --ups-contract-detail-bg: rgba(8, 17, 32, 0.58);
     --ups-contract-detail-border: rgba(108, 139, 184, 0.35);
+    --ups-team-icon-size: 72px;
+    --ups-team-icon-size-compact: 40px;
   }
 
   :root[data-ups-mode="light"] {
@@ -6730,7 +6732,7 @@
   }
 
   body#body_options_07 #MFLroster caption.ups-roster-caption {
-    min-height: 4.55rem !important; /* ~91px reduced by ~30% => ~64px visual target */
+    min-height: calc(var(--ups-team-icon-size) + 0.7rem) !important;
   }
 
   body#body_options_07 #MFLroster caption.ups-roster-caption > span,
@@ -6743,12 +6745,29 @@
   }
 
   body#body_options_07 #MFLroster .ups-roster-franchise-icon {
-    height: 64px !important;
-    max-width: 180px !important;
+    height: var(--ups-team-icon-size) !important;
+    max-height: var(--ups-team-icon-size) !important;
+    max-width: calc(var(--ups-team-icon-size) * 2.8) !important;
     width: auto !important;
     object-fit: contain !important;
     border-radius: 0.35rem !important;
     flex: 0 0 auto !important;
+  }
+
+  body#body_options_07 #MFLroster td.icon_column .franchiseicon,
+  body#body_options_07 #MFLroster td.icon_column .franchiselogo,
+  body#body_options_07 #MFLroster #roster caption.withfranchiseicon .franchiseicon,
+  body#body_options_07 #MFLroster #roster caption.withfranchiseicon .franchiselogo,
+  body#body_options_07 #MFLroster #tradereview .franchiseicon,
+  body#body_options_07 #MFLroster #tradereview .franchiselogo {
+    height: var(--ups-team-icon-size) !important;
+    max-height: var(--ups-team-icon-size) !important;
+    width: auto !important;
+    max-width: calc(var(--ups-team-icon-size) * 2.8) !important;
+    min-width: 0 !important;
+    object-fit: contain !important;
+    display: block !important;
+    margin: 0 auto !important;
   }
 
   body#body_options_07 #MFLroster .ups-roster-franchise-dash {
@@ -8043,7 +8062,7 @@
     opacity: 1 !important;
     width: auto !important;
     max-width: 100% !important;
-    max-height: 2.45rem !important;
+    max-height: var(--ups-team-icon-size-compact) !important;
     height: auto !important;
     margin: 0 auto !important;
     object-fit: contain !important;

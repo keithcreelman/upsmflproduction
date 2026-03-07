@@ -227,10 +227,10 @@
 
 .rwb-team-logo,
 .rwb-team-logo-fallback {
-  width: 220px;
-  height: 220px;
-  min-width: 200px;
-  min-height: 200px;
+  width: var(--ups-team-icon-size, 72px);
+  height: var(--ups-team-icon-size, 72px);
+  min-width: var(--ups-team-icon-size, 72px);
+  min-height: var(--ups-team-icon-size, 72px);
   object-fit: contain;
   border: 0;
   border-radius: 0;
@@ -1116,10 +1116,10 @@ body.rwb-modal-open {
 
   .rwb-team-logo,
   .rwb-team-logo-fallback {
-    width: 220px;
-    height: 220px;
-    min-width: 200px;
-    min-height: 200px;
+    width: var(--ups-team-icon-size, 72px);
+    height: var(--ups-team-icon-size, 72px);
+    min-width: var(--ups-team-icon-size, 72px);
+    min-height: var(--ups-team-icon-size, 72px);
   }
 
   .rwb-points-team-head {
@@ -1130,10 +1130,10 @@ body.rwb-modal-open {
 @media (max-width: 760px) {
   .rwb-team-logo,
   .rwb-team-logo-fallback {
-    width: 140px;
-    height: 140px;
-    min-width: 140px;
-    min-height: 140px;
+    width: var(--ups-team-icon-size, 72px);
+    height: var(--ups-team-icon-size, 72px);
+    min-width: var(--ups-team-icon-size, 72px);
+    min-height: var(--ups-team-icon-size, 72px);
   }
 }
 
