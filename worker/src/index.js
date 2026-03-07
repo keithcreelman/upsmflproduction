@@ -8874,6 +8874,72 @@ export default {
           return out;
         };
 
+        const parseContractMoneyToken = (token) => {
+          const raw = safeStr(token).toUpperCase().replace(/\$/g, "");
+          if (!raw) return 0;
+          let cleaned = raw.replace(/[^0-9K.\-]/g, "");
+          if (!cleaned) return 0;
+          const mult = cleaned.includes("K") ? 1000 : 1;
+          cleaned = cleaned.replace(/K/g, "");
+          if (!cleaned) return 0;
+          const num = Number(cleaned);
+          if (!Number.isFinite(num)) return 0;
+          let amount = Math.round(num * mult);
+          if (mult === 1 && amount > 0 && amount < 1000) amount *= 1000;
+          return amount;
+        };
+
+        const formatContractK = (amount) => {
+          const dollars = Math.round(safeNum(amount, 0));
+          if (dollars <= 0) return "0K";
+          const text = Math.round((dollars / 1000) * 10) / 10;
+          return `${String(text).replace(/\.0$/, "")}K`;
+        };
+
+        const parseContractAavValues = (contractInfo) => {
+          const info = safeStr(contractInfo);
+          if (!info) return [];
+          const match = info.match(/(?:^|\|)\s*AAV\s*([^|]+)/i);
+          if (!match || !safeStr(match[1])) return [];
+          return safeStr(match[1])
+            .split(/[\/,]/)
+            .map((token) => parseContractMoneyToken(token))
+            .filter((amount) => amount > 0);
+        };
+
+        const replaceContractInfoAavValue = (contractInfo, nextAav) => {
+          const info = safeStr(contractInfo);
+          const aav = Math.round(safeNum(nextAav, 0));
+          if (!info || aav <= 0) return info;
+          if (/AAV\s+/i.test(info)) {
+            return info.replace(/AAV\s+[^|]+/i, `AAV ${formatContractK(aav)}`);
+          }
+          return info;
+        };
+
+        const normalizeContractInfoForDisplay = (contractInfo, years, priorContract) => {
+          const info = safeStr(contractInfo);
+          if (!info || !priorContract) return info;
+          const currentYears = Math.max(0, safeInt(years, 0));
+          const priorYears = Math.max(
+            0,
+            safeInt(
+              priorContract?.years ?? priorContract?.contractYear ?? priorContract?.contract_year ?? 0,
+              0
+            )
+          );
+          if (!currentYears || priorYears !== currentYears + 1) return info;
+          const priorInfo = safeStr(
+            priorContract?.special ||
+            priorContract?.contractInfo ||
+            priorContract?.contract_info ||
+            ""
+          );
+          const priorAavs = parseContractAavValues(priorInfo);
+          if (priorAavs.length < 2) return info;
+          return replaceContractInfoAavValue(info, priorAavs[priorAavs.length - 1]);
+        };
+
         const parsePlayerScoresRows = (payload) => {
           const out = {};
           const rows = asArray(payload?.playerScores?.playerScore).filter(Boolean);
@@ -8934,11 +9000,16 @@ export default {
           }
         };
 
-        const [leagueRes, rostersRes, salariesRes, salaryAdjustmentsRes] = await Promise.all([
+        const priorSeason = String(Math.max(0, safeInt(season, Number(season) || 0) - 1));
+
+        const [leagueRes, rostersRes, salariesRes, salaryAdjustmentsRes, priorSalariesRes] = await Promise.all([
           mflExportJson(season, leagueId, "league", {}, { includeApiKey: true, useCookie: true }),
           mflExportJson(season, leagueId, "rosters", {}, { includeApiKey: true, useCookie: true }),
           mflExportJson(season, leagueId, "salaries", {}, { includeApiKey: true, useCookie: true }),
           mflExportJson(season, leagueId, "salaryAdjustments", {}, { includeApiKey: true, useCookie: true }),
+          priorSeason && priorSeason !== String(season)
+            ? mflExportJson(priorSeason, leagueId, "salaries", {}, { includeApiKey: true, useCookie: true })
+            : Promise.resolve({ ok: false, status: 0, url: "", data: null, error: "" }),
         ]);
 
         if (!leagueRes.ok) {
@@ -9024,6 +9095,7 @@ export default {
         const { rosterAssetsByFranchise, allPlayerIds } = parseRostersExport(rostersRes.data);
         const playersById = await fetchPlayersByIdsChunked(season, leagueId, allPlayerIds);
         const salaryByPlayer = salariesRes.ok ? parseSalaryRows(salariesRes.data) : {};
+        const priorSalaryByPlayer = priorSalariesRes.ok ? parseSalaryRows(priorSalariesRes.data) : {};
         const salaryAdjustmentRows = salaryAdjustmentsRes.ok
           ? collectSalaryAdjustmentExportRows(
               salaryAdjustmentsRes.data?.salaryAdjustments || salaryAdjustmentsRes.data?.salaryadjustments || salaryAdjustmentsRes.data || {}
@@ -9064,7 +9136,8 @@ export default {
                 ? safeInt(overlay.contractYear, 0)
                 : (asset?.years == null ? 0 : safeInt(asset?.years, 0));
               const type = safeStr(overlay?.contractStatus || asset?.contract_type || "");
-              const special = safeStr(overlay?.contractInfo || asset?.contract_info || "");
+              const specialRaw = safeStr(overlay?.contractInfo || asset?.contract_info || "");
+              const special = normalizeContractInfoForDisplay(specialRaw, years, priorSalaryByPlayer[playerId] || null);
               const nflTeam = safeStr(pMeta?.nfl_team || "").toUpperCase();
               const statusRaw = safeStr(asset?.roster_status || "").toUpperCase();
               const status = statusRaw || (asset?.taxi ? "TAXI_SQUAD" : "ROSTER");
@@ -9140,6 +9213,12 @@ export default {
                 status: salaryAdjustmentsRes.status,
                 url: salaryAdjustmentsRes.url,
                 ok: salaryAdjustmentsRes.ok,
+              },
+              prior_salaries: {
+                status: priorSalariesRes.status,
+                url: priorSalariesRes.url,
+                ok: priorSalariesRes.ok,
+                season: priorSeason,
               },
               player_scores: { status: scoreCurrentRes.status, url: scoreCurrentRes.url, ok: scoreCurrentRes.ok },
               bye_weeks: { status: byeCurrent.status || 0, url: byeCurrent.url || "", ok: !!byeCurrent.ok },

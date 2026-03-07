@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var BUILD = "2026.03.07.4";
+  var BUILD = "2026.03.07.5";
   var BOOT_FLAG = "__ups_roster_workbench_boot_" + BUILD;
   if (window[BOOT_FLAG]) {
     if (typeof window.UPS_RWB_INIT === "function") window.UPS_RWB_INIT();
@@ -113,6 +113,74 @@
 
   function roundToK(n) {
     return Math.round(safeNum(n, 0) / 1000) * 1000;
+  }
+
+  function parseContractMoneyToken(token) {
+    var raw = safeStr(token).toUpperCase().replace(/\$/g, "");
+    if (!raw) return 0;
+    var cleaned = raw.replace(/[^0-9K.\-]/g, "");
+    if (!cleaned) return 0;
+    var mult = cleaned.indexOf("K") !== -1 ? 1000 : 1;
+    cleaned = cleaned.replace(/K/g, "");
+    if (!cleaned) return 0;
+    var num = Number(cleaned);
+    if (!isFinite(num)) return 0;
+    var amount = Math.round(num * mult);
+    if (mult === 1 && amount > 0 && amount < 1000) amount *= 1000;
+    return amount;
+  }
+
+  function formatContractK(amount) {
+    var dollars = Math.round(safeNum(amount, 0));
+    if (dollars <= 0) return "0K";
+    var k = dollars / 1000;
+    var text = Math.round(k * 10) / 10;
+    return String(text).replace(/\.0$/, "") + "K";
+  }
+
+  function parseContractAavValues(contractInfo) {
+    var info = safeStr(contractInfo);
+    if (!info) return [];
+    var match = info.match(/(?:^|\|)\s*AAV\s*([^|]+)/i);
+    if (!match || !safeStr(match[1])) return [];
+    return safeStr(match[1])
+      .split(/[\/,]/)
+      .map(function (token) { return parseContractMoneyToken(token); })
+      .filter(function (amount) { return amount > 0; });
+  }
+
+  function replaceContractInfoAavValue(contractInfo, nextAav) {
+    var info = safeStr(contractInfo);
+    var aav = Math.round(safeNum(nextAav, 0));
+    if (!info || aav <= 0) return info;
+    if (/AAV\s+/i.test(info)) {
+      return info.replace(/AAV\s+[^|]+/i, "AAV " + formatContractK(aav));
+    }
+    return info;
+  }
+
+  function normalizeContractInfoForDisplay(contractInfo, years, priorContract) {
+    var info = safeStr(contractInfo);
+    if (!info) return info;
+    var prior = priorContract || null;
+    if (!prior) return info;
+
+    var currentYears = Math.max(0, safeInt(years, 0));
+    var priorYears = Math.max(
+      0,
+      safeInt(
+        prior.years != null ? prior.years :
+        (prior.contractYear != null ? prior.contractYear : prior.contract_year),
+        0
+      )
+    );
+    if (!currentYears || priorYears !== currentYears + 1) return info;
+
+    var priorInfo = safeStr(prior.special || prior.contractInfo || prior.contract_info || "");
+    var priorAavs = parseContractAavValues(priorInfo);
+    if (priorAavs.length < 2) return info;
+
+    return replaceContractInfoAavValue(info, priorAavs[priorAavs.length - 1]);
   }
 
   function normalizePlayerName(name) {
@@ -689,7 +757,7 @@
     return out;
   }
 
-  function buildTeams(rostersPayload, leagueMeta, playersMap, scores, byes, salaryMap, salaryAdjustments) {
+  function buildTeams(rostersPayload, leagueMeta, playersMap, scores, byes, salaryMap, salaryAdjustments, priorSalaryMap) {
     var teams = [];
     var franchises = asArray(rostersPayload && rostersPayload.rosters && rostersPayload.rosters.franchise);
 
@@ -726,7 +794,9 @@
         var salary = overlay && overlay.salary != null ? safeInt(overlay.salary, 0) : parseMoney(rp.salary);
         var years = overlay && overlay.years != null ? safeInt(overlay.years, 0) : safeInt(rp.contractYear, 0);
         var contractType = overlay && overlay.type != null ? safeStr(overlay.type) : safeStr(rp.contractStatus);
+        var priorContract = priorSalaryMap && priorSalaryMap[pid] ? priorSalaryMap[pid] : null;
         var special = overlay && overlay.special != null ? safeStr(overlay.special) : safeStr(rp.contractInfo);
+        special = normalizeContractInfoForDisplay(special, years, priorContract);
 
         var status = normalizeStatus(rp.status);
         var isTaxi = status === "TAXI_SQUAD";
@@ -1970,13 +2040,19 @@
     var salaryAdjUrl = buildExportUrl(ctx.hostOrigin, ctx.year, "salaryAdjustments", { L: ctx.leagueId });
     var pointsUrl = buildApiExportUrl(ctx.year, "playerScores", { L: ctx.leagueId, W: "YTD" });
 
+    var priorSeason = String(Math.max(0, safeInt(ctx.year, Number(ctx.year) || 0) - 1));
+    var priorSalariesReq = priorSeason && priorSeason !== String(ctx.year)
+      ? fetchJson(buildExportUrl(ctx.hostOrigin, priorSeason, "salaries", { L: ctx.leagueId })).catch(function () { return {}; })
+      : Promise.resolve({});
+
     return Promise.all([
       fetchJson(leagueUrl),
       fetchJson(rostersUrl),
       fetchJson(salariesUrl).catch(function () { return {}; }),
       fetchJson(salaryAdjUrl).catch(function () { return {}; }),
       fetchJson(pointsUrl).catch(function () { return {}; }),
-      fetchByesWithFallback(ctx)
+      fetchByesWithFallback(ctx),
+      priorSalariesReq
     ]).then(function (parts) {
       var leaguePayload = parts[0] || {};
       var rostersPayload = parts[1] || {};
@@ -1984,11 +2060,13 @@
       var salaryAdjustPayload = parts[3] || {};
       var pointsPayload = parts[4] || {};
       var byeResult = parts[5] || { year: ctx.year, map: {} };
+      var priorSalariesPayload = parts[6] || {};
 
       var playerIds = collectRosterPlayerIds(rostersPayload);
       return fetchPlayersMap(ctx.year, playerIds).then(function (playersMap) {
         var leagueMeta = parseLeagueMeta(leaguePayload);
         var salaryMap = toSalaryMap(salariesPayload);
+        var priorSalaryMap = toSalaryMap(priorSalariesPayload);
         var salaryAdjustments = toSalaryAdjustmentMap(salaryAdjustPayload);
         var scores = toScoreMap(pointsPayload);
 
@@ -1999,7 +2077,8 @@
           scores,
           byeResult.map || {},
           salaryMap,
-          salaryAdjustments
+          salaryAdjustments,
+          priorSalaryMap
         );
 
         return {

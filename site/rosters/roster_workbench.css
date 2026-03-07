@@ -205,20 +205,24 @@
 
 .rwb-team-logo,
 .rwb-team-logo-fallback {
-  width: 200px;
-  height: 200px;
+  width: 220px;
+  height: 220px;
   min-width: 200px;
   min-height: 200px;
   object-fit: contain;
-  border-radius: 18px;
-  border: 1px solid rgba(169, 194, 229, 0.4);
-  background: rgba(5, 12, 23, 0.86);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .rwb-team-logo-fallback {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  border-radius: 18px;
+  border: 1px solid rgba(169, 194, 229, 0.4);
+  background: rgba(5, 12, 23, 0.86);
   color: #9db5d8;
   font-size: 1rem;
   font-weight: 800;
@@ -653,8 +657,8 @@
 
   .rwb-team-logo,
   .rwb-team-logo-fallback {
-    width: 200px;
-    height: 200px;
+    width: 220px;
+    height: 220px;
     min-width: 200px;
     min-height: 200px;
   }

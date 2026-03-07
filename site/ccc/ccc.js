@@ -1627,6 +1627,13 @@
     return m ? safeStr(m[1]) : "";
   }
 
+  function getAavValuesFromContractInfo(contractInfo) {
+    return getAavDisplayFromContractInfo(contractInfo)
+      .split(/[\/,]/)
+      .map((token) => parseContractMoneyToken(token))
+      .filter((value) => safeInt(value) > 0);
+  }
+
   function getTagBidDetails(row) {
     const baseBid = safeInt(row && (row.tag_bid || row.tag_salary || row.tag_base_bid));
     const priorAav = safeInt(row && (row.prior_aav_week1 || row.prior_aav || row.aav));
@@ -3746,7 +3753,12 @@
     const parsed = parseContractAmounts(row.contract_info, years, safeInt(row.salary) || 1000);
     const nextSalary = safeInt(parsed.y2 || parsed.y1 || row.salary);
     const nextYears = Math.max(0, years - 1);
-    const nextAav = nextSalary > 0 ? nextSalary : safeInt(row.aav || row.salary);
+    const aavValues = getAavValuesFromContractInfo(row.contract_info);
+    const nextAav = safeInt(
+      aavValues.length > 1
+        ? aavValues[aavValues.length - 1]
+        : (aavValues[0] || row.aav || row.salary)
+    );
     return {
       ...row,
       contract_year: nextYears,
