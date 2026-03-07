@@ -32,6 +32,7 @@ export default {
         path !== "/offer-restructure" &&
         path !== "/commish-contract-update" &&
         path !== "/roster-workbench" &&
+        path !== "/roster-workbench/action" &&
         path !== "/trade-workbench" &&
         !path.startsWith("/trade-offers") &&
         !path.startsWith("/trade-outbox") &&
@@ -8902,10 +8903,11 @@ export default {
           }
         };
 
-        const [leagueRes, rostersRes, salariesRes] = await Promise.all([
+        const [leagueRes, rostersRes, salariesRes, salaryAdjustmentsRes] = await Promise.all([
           mflExportJson(season, leagueId, "league", {}, { includeApiKey: true, useCookie: true }),
           mflExportJson(season, leagueId, "rosters", {}, { includeApiKey: true, useCookie: true }),
           mflExportJson(season, leagueId, "salaries", {}, { includeApiKey: true, useCookie: true }),
+          mflExportJson(season, leagueId, "salaryAdjustments", {}, { includeApiKey: true, useCookie: true }),
         ]);
 
         if (!leagueRes.ok) {
@@ -8991,6 +8993,17 @@ export default {
         const { rosterAssetsByFranchise, allPlayerIds } = parseRostersExport(rostersRes.data);
         const playersById = await fetchPlayersByIdsChunked(season, leagueId, allPlayerIds);
         const salaryByPlayer = salariesRes.ok ? parseSalaryRows(salariesRes.data) : {};
+        const salaryAdjustmentRows = salaryAdjustmentsRes.ok
+          ? collectSalaryAdjustmentExportRows(
+              salaryAdjustmentsRes.data?.salaryAdjustments || salaryAdjustmentsRes.data?.salaryadjustments || salaryAdjustmentsRes.data || {}
+            )
+          : [];
+        const salaryAdjustmentByFranchise = {};
+        for (const row of salaryAdjustmentRows) {
+          const fid = padFranchiseId(row?.franchise_id);
+          if (!fid) continue;
+          salaryAdjustmentByFranchise[fid] = safeInt(salaryAdjustmentByFranchise[fid], 0) + safeInt(row?.amount, 0);
+        }
 
         const franchiseMetaById = {};
         for (const fr of leagueFranchises) {
@@ -9045,11 +9058,12 @@ export default {
             });
 
           const taxiCount = players.reduce((acc, p) => acc + (p.is_taxi ? 1 : 0), 0);
-          const capTotal = players.reduce((acc, p) => acc + safeInt(p.salary, 0), 0);
-          const compliant = salaryCapDollars > 0 ? capTotal <= salaryCapDollars : true;
+          const capTotal = players.reduce((acc, p) => acc + (p.is_taxi ? 0 : safeInt(p.salary, 0)), 0);
+          const salaryAdjustmentTotal = safeInt(salaryAdjustmentByFranchise[franchiseId], 0);
+          const compliant = salaryCapDollars > 0 ? capTotal + salaryAdjustmentTotal <= salaryCapDollars : true;
           const complianceLabel = compliant
             ? "Compliant"
-            : `Over $${Math.max(0, capTotal - salaryCapDollars).toLocaleString("en-US")}`;
+            : `Over $${Math.max(0, capTotal + salaryAdjustmentTotal - salaryCapDollars).toLocaleString("en-US")}`;
 
           return {
             franchise_id: franchiseId,
@@ -9061,6 +9075,7 @@ export default {
               players: players.length,
               taxi: taxiCount,
               cap_total_dollars: capTotal,
+              salary_adjustment_total_dollars: salaryAdjustmentTotal,
               compliance: {
                 ok: compliant,
                 label: complianceLabel,
@@ -9090,6 +9105,11 @@ export default {
               league: { status: leagueRes.status, url: leagueRes.url },
               rosters: { status: rostersRes.status, url: rostersRes.url },
               salaries: { status: salariesRes.status, url: salariesRes.url, ok: salariesRes.ok },
+              salary_adjustments: {
+                status: salaryAdjustmentsRes.status,
+                url: salaryAdjustmentsRes.url,
+                ok: salaryAdjustmentsRes.ok,
+              },
               player_scores: { status: scoreCurrentRes.status, url: scoreCurrentRes.url, ok: scoreCurrentRes.ok },
               bye_weeks: { status: byeCurrent.status || 0, url: byeCurrent.url || "", ok: !!byeCurrent.ok },
             },
@@ -9102,6 +9122,154 @@ export default {
           try { await caches.default.put(cacheKey, response.clone()); } catch (_) {}
         }
         return response;
+      }
+
+      if (path === "/roster-workbench/action" && request.method === "POST") {
+        let body = {};
+        try {
+          body = (await request.json()) || {};
+        } catch (_) {
+          body = {};
+        }
+
+        const season = safeStr(body?.season || body?.YEAR || url.searchParams.get("YEAR") || YEAR || "");
+        const leagueId = safeStr(body?.league_id || body?.L || url.searchParams.get("L") || L || "");
+        const action = safeStr(body?.action || url.searchParams.get("action")).toLowerCase();
+        const playerId = String(body?.player_id || url.searchParams.get("player_id") || "").replace(/\D/g, "");
+        const franchiseId = padFranchiseId(
+          body?.franchise_id ||
+          body?.FRANCHISE_ID ||
+          url.searchParams.get("franchise_id") ||
+          url.searchParams.get("FRANCHISE_ID") ||
+          ""
+        );
+
+        if (!leagueId) return jsonOut(400, { ok: false, error: "Missing league_id/L" });
+        if (!season) return jsonOut(400, { ok: false, error: "Missing season/YEAR" });
+        if (!playerId) return jsonOut(400, { ok: false, error: "Missing player_id" });
+        if (action !== "promote_taxi" && action !== "activate_ir") {
+          return jsonOut(400, { ok: false, error: "Unsupported roster action" });
+        }
+
+        const importFields = {
+          TYPE: action === "activate_ir" ? "ir" : "taxi_squad",
+          L: leagueId,
+        };
+        if (action === "activate_ir") {
+          importFields.ACTIVATE = playerId;
+        } else {
+          importFields.PROMOTE = playerId;
+        }
+        if (franchiseId) importFields.FRANCHISE_ID = franchiseId;
+
+        let importRes = await postMflImportForm(season, importFields, importFields);
+        if (!importRes.requestOk) {
+          const getRes = await postMflImportForm(season, importFields, importFields, { method: "GET" });
+          if (getRes.requestOk) importRes = getRes;
+        }
+        let usedFranchiseId = !!safeStr(importFields.FRANCHISE_ID);
+        if (!importRes.requestOk && usedFranchiseId) {
+          const retryFields = { ...importFields };
+          delete retryFields.FRANCHISE_ID;
+          const retryRes = await postMflImportForm(season, retryFields, retryFields);
+          if (retryRes.requestOk) {
+            importRes = retryRes;
+            usedFranchiseId = false;
+          } else {
+            const retryGetRes = await postMflImportForm(season, retryFields, retryFields, { method: "GET" });
+            if (retryGetRes.requestOk) {
+              importRes = retryGetRes;
+              usedFranchiseId = false;
+            }
+          }
+        }
+
+        const cacheKey = new Request(
+          `https://upsmfl-roster-workbench.local/cache?L=${encodeURIComponent(leagueId)}&YEAR=${encodeURIComponent(season)}`,
+          { method: "GET" }
+        );
+        try {
+          await caches.default.delete(cacheKey);
+        } catch (_) {
+          // noop
+        }
+
+        if (!importRes.requestOk) {
+          return jsonOut(502, {
+            ok: false,
+            error: importRes.error || "MFL roster action failed",
+            action,
+            player_id: playerId,
+            franchise_id: franchiseId,
+            used_franchise_id: usedFranchiseId,
+            upstream_status: importRes.status,
+            upstream_preview: importRes.upstreamPreview,
+            target_import_url: importRes.targetImportUrl,
+            form_fields: importRes.formFields,
+          });
+        }
+
+        const verifyRes = await mflExportJson(season, leagueId, "rosters", {}, { useCookie: true });
+        let verification = {
+          ok: false,
+          reason: "post_import_rosters_export_failed",
+          player_id: playerId,
+          franchise_id: franchiseId,
+        };
+        if (verifyRes.ok) {
+          const franchiseRows = asArray(verifyRes.data?.rosters?.franchise || verifyRes.data?.rosters?.franchises).filter(Boolean);
+          let located = null;
+          for (const fr of franchiseRows) {
+            const fid = padFranchiseId(fr?.id || fr?.franchise_id);
+            const playerRows = asArray(fr?.player || fr?.players).filter(Boolean);
+            for (const row of playerRows) {
+              const pid = String(row?.id || row?.player_id || "").replace(/\D/g, "");
+              if (!pid || pid !== playerId) continue;
+              located = {
+                franchise_id: fid,
+                status: safeStr(row?.status || "").toUpperCase(),
+              };
+              break;
+            }
+            if (located) break;
+          }
+          if (located) {
+            const status = safeStr(located.status);
+            const expectedOk = action === "activate_ir"
+              ? !status.includes("IR")
+              : !status.includes("TAXI");
+            verification = {
+              ok: expectedOk,
+              reason: expectedOk ? "" : "player_status_did_not_change",
+              player_id: playerId,
+              franchise_id: located.franchise_id,
+              status,
+            };
+          } else {
+            verification = {
+              ok: false,
+              reason: "player_not_found_in_post_import_rosters",
+              player_id: playerId,
+              franchise_id: franchiseId,
+            };
+          }
+        }
+
+        return jsonOut(200, {
+          ok: true,
+          action,
+          player_id: playerId,
+          franchise_id: franchiseId,
+          used_franchise_id: usedFranchiseId,
+          message: action === "activate_ir" ? "Player activated from IR in MFL." : "Player promoted from taxi in MFL.",
+          verification,
+          response: {
+            upstream_status: importRes.status,
+            upstream_preview: importRes.upstreamPreview,
+            target_import_url: importRes.targetImportUrl,
+            form_fields: importRes.formFields,
+          },
+        });
       }
 
       if (path === "/trade-workbench" && request.method === "GET") {

@@ -143,18 +143,36 @@
 
 .rwb-toolbar-advanced {
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) minmax(220px, 1fr) auto;
+  grid-template-columns: minmax(220px, 1fr) minmax(220px, 1fr) minmax(220px, 1fr);
   gap: 10px;
   align-items: end;
-}
-
-.rwb-toolbar-advanced[hidden] {
-  display: none;
 }
 
 .rwb-toolbar-note {
   color: var(--rwb-text-soft);
   font-size: 0.82rem;
+}
+
+.rwb-toolbar-hint {
+  color: var(--rwb-text-dim);
+  font-size: 0.82rem;
+  align-self: center;
+}
+
+.rwb-status {
+  border-radius: 12px;
+  border: 1px solid rgba(116, 211, 161, 0.38);
+  background: rgba(86, 215, 154, 0.14);
+  color: #dff8ea;
+  padding: 10px 12px;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.rwb-status.is-error {
+  border-color: rgba(255, 141, 141, 0.42);
+  background: rgba(255, 141, 141, 0.14);
+  color: #ffd4d4;
 }
 
 .rwb-team-list {
@@ -171,10 +189,10 @@
 
 .rwb-team-head {
   display: grid;
-  grid-template-columns: auto 1fr auto;
-  gap: 12px;
+  grid-template-columns: auto 1fr;
+  gap: 18px;
   align-items: center;
-  padding: 12px;
+  padding: 14px 16px;
   background: linear-gradient(170deg, rgba(17, 34, 63, 0.98), rgba(8, 19, 35, 0.98));
   border-bottom: 1px solid rgba(132, 167, 212, 0.24);
 }
@@ -187,10 +205,10 @@
 
 .rwb-team-logo,
 .rwb-team-logo-fallback {
-  width: 46px;
-  height: 46px;
+  width: 84px;
+  height: 84px;
   object-fit: contain;
-  border-radius: 11px;
+  border-radius: 18px;
   border: 1px solid rgba(169, 194, 229, 0.4);
   background: rgba(5, 12, 23, 0.86);
 }
@@ -200,7 +218,7 @@
   align-items: center;
   justify-content: center;
   color: #9db5d8;
-  font-size: 0.7rem;
+  font-size: 1rem;
   font-weight: 800;
   letter-spacing: 0.08em;
 }
@@ -219,8 +237,8 @@
   border-radius: 999px;
   border: 1px solid rgba(157, 188, 228, 0.3);
   background: rgba(10, 22, 40, 0.86);
-  padding: 4px 10px;
-  font-size: 0.79rem;
+  padding: 8px 14px;
+  font-size: 0.98rem;
   line-height: 1;
 }
 
@@ -228,13 +246,14 @@
   color: var(--rwb-text-dim);
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  font-size: 0.63rem;
+  font-size: 0.7rem;
   font-weight: 700;
 }
 
 .rwb-chip-value {
   color: var(--rwb-text);
-  font-weight: 700;
+  font-weight: 800;
+  font-size: 1.08rem;
 }
 
 .rwb-chip.is-good {
@@ -247,10 +266,9 @@
   background: rgba(255, 141, 141, 0.14);
 }
 
-.rwb-team-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.rwb-chip.is-adjustment {
+  border-color: rgba(255, 181, 106, 0.52);
+  background: rgba(255, 181, 106, 0.14);
 }
 
 .rwb-team-body {
@@ -321,7 +339,7 @@
   text-align: left;
   padding: 9px 10px;
   vertical-align: top;
-  font-size: 0.89rem;
+  font-size: 0.94rem;
 }
 
 .rwb-table th {
@@ -342,6 +360,14 @@
 
 .rwb-table tr:hover td {
   background: rgba(255, 139, 61, 0.1);
+}
+
+.rwb-table tfoot th,
+.rwb-table tfoot td {
+  position: static;
+  font-size: 1.03rem;
+  border-top: 1px solid rgba(160, 188, 224, 0.18);
+  border-bottom: 0;
 }
 
 .rwb-player-name-wrap {
@@ -374,6 +400,7 @@
 .rwb-player-name {
   color: var(--rwb-text);
   font-weight: 700;
+  font-size: 1rem;
 }
 
 .rwb-tag {
@@ -479,6 +506,74 @@
   padding: 10px 12px;
 }
 
+.rwb-row-action,
+.rwb-contract-toggle {
+  border-radius: 999px;
+  border: 1px solid rgba(157, 188, 228, 0.34);
+  background: rgba(9, 20, 37, 0.96);
+  color: var(--rwb-text);
+  font-family: var(--rwb-font);
+  font-size: 0.73rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.rwb-row-action:hover,
+.rwb-contract-toggle:hover {
+  border-color: rgba(255, 169, 103, 0.7);
+}
+
+.rwb-row-action:disabled,
+.rwb-contract-toggle:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.rwb-row-action-placeholder {
+  color: var(--rwb-text-dim);
+}
+
+.rwb-contract-toggle-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.rwb-contract-toggle.is-active {
+  border-color: rgba(255, 169, 103, 0.8);
+  background: linear-gradient(180deg, rgba(255, 155, 88, 0.28), rgba(255, 120, 56, 0.22));
+  color: #ffe7d1;
+}
+
+.rwb-player-row.is-projected td {
+  background: rgba(255, 158, 77, 0.08);
+}
+
+.rwb-summary-row th,
+.rwb-summary-row td {
+  font-weight: 800;
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+
+.rwb-summary-row-primary th,
+.rwb-summary-row-primary td {
+  background: linear-gradient(180deg, rgba(52, 106, 198, 0.24), rgba(21, 56, 110, 0.28));
+}
+
+.rwb-summary-row-taxi th,
+.rwb-summary-row-taxi td {
+  background: linear-gradient(180deg, rgba(236, 188, 104, 0.2), rgba(129, 86, 20, 0.22));
+}
+
+.rwb-summary-row-adjustment th,
+.rwb-summary-row-adjustment td {
+  background: linear-gradient(180deg, rgba(255, 158, 77, 0.2), rgba(113, 59, 18, 0.24));
+}
+
 .rwb-contract-summary-row {
   color: var(--rwb-text-soft);
   font-size: 0.86rem;
@@ -553,6 +648,12 @@
   .rwb-team-brand {
     justify-content: flex-start;
   }
+
+  .rwb-team-logo,
+  .rwb-team-logo-fallback {
+    width: 72px;
+    height: 72px;
+  }
 }
 
 @media (max-width: 760px) {
@@ -573,14 +674,6 @@
   .rwb-toolbar-main,
   .rwb-toolbar-advanced {
     grid-template-columns: 1fr;
-  }
-
-  .rwb-toolbar-advanced {
-    display: none;
-  }
-
-  .rwb-toolbar-advanced.is-open {
-    display: grid;
   }
 
   .rwb-table {
