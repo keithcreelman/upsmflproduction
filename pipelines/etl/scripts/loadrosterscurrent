@@ -298,7 +298,7 @@ def _extract_chunk_after(label: str, s: str) -> Optional[str]:
 
 def _extract_aav_chunk(s: str) -> Optional[str]:
     """
-    For AAV we only want the *first* number before '|' or '/'.
+    For AAV we only want the *first* number before '|', '/', ',' or 'Y'.
 
     e.g. 'AAV 5K/15K|' -> '5K'
     """
@@ -307,7 +307,7 @@ def _extract_aav_chunk(s: str) -> Optional[str]:
         return None
     seg = s[idx + 3:].lstrip()
     end = len(seg)
-    for sep in ("|", "/"):
+    for sep in ("|", "/", ",", "Y"):
         pos = seg.find(sep)
         if pos != -1 and pos < end:
             end = pos

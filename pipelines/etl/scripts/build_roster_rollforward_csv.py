@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import json
 import os
 import re
 import sqlite3
@@ -17,6 +18,7 @@ ETL_ROOT = SCRIPT_DIR.parent
 DEFAULT_DB_PATH = os.getenv("MFL_DB_PATH", str(ETL_ROOT / "data" / "mfl_database.db"))
 DEFAULT_OUT_FULL = ETL_ROOT / "artifacts" / "rosters_rollforward_2026_full.csv"
 DEFAULT_OUT_IMPORT = ETL_ROOT / "artifacts" / "mfl_roster_import_2026.csv"
+DEFAULT_OVERRIDES_PATH = ETL_ROOT / "config" / "contract_rollforward_2026_overrides.json"
 
 
 def safe_str(v: Any) -> str:
@@ -149,6 +151,45 @@ def update_contract_info_aav(contract_info: str, next_aav: int, old_year: int) -
     return info
 
 
+def _normalize_override_map(raw: Any) -> Dict[str, str]:
+    out: Dict[str, str] = {}
+    if not isinstance(raw, dict):
+        return out
+    for key, value in raw.items():
+        pid = safe_str(key)
+        status = safe_str(value)
+        if pid and status:
+            out[pid] = status
+    return out
+
+
+def load_rollforward_overrides(path: str) -> Dict[str, Dict[str, str]]:
+    overrides = {"status_overrides": {}}
+    raw_path = safe_str(path)
+    if not raw_path:
+        return overrides
+    file_path = Path(raw_path)
+    if not file_path.exists():
+        return overrides
+    with file_path.open("r", encoding="utf-8") as fh:
+        data = json.load(fh)
+    overrides["status_overrides"] = _normalize_override_map(data.get("status_overrides"))
+    return overrides
+
+
+def roll_salary_context(row: Dict[str, Any], old_year: int, old_salary: int) -> Tuple[Optional[int], Optional[int], Optional[int], Optional[int]]:
+    prev1 = old_salary if old_salary > 0 else None
+    prev2_raw = safe_int(row.get("salary_yearminus1"), 0)
+    prev2 = prev2_raw if prev2_raw > 0 else None
+
+    next1 = None
+    if old_year >= 3:
+        next1_raw = safe_int(row.get("salary_yearplus2"), 0)
+        next1 = next1_raw if next1_raw > 0 else None
+
+    return prev1, prev2, next1, None
+
+
 def load_source_rows(conn: sqlite3.Connection, season: int) -> List[Dict[str, Any]]:
     cur = conn.cursor()
     cur.execute(
@@ -200,12 +241,17 @@ def load_source_rows(conn: sqlite3.Connection, season: int) -> List[Dict[str, An
     return rows
 
 
-def roll_row(row: Dict[str, Any], target_season: int) -> Dict[str, Any]:
+def roll_row(
+    row: Dict[str, Any],
+    target_season: int,
+    overrides: Optional[Dict[str, Dict[str, str]]] = None,
+) -> Dict[str, Any]:
     out = dict(row)
     old_salary = safe_int(row.get("salary"), 0)
     old_year = max(0, safe_int(row.get("contract_year"), 0))
     next_salary = infer_next_salary(safe_str(row.get("contract_info")), old_year, old_salary)
     next_aav = infer_next_aav(safe_str(row.get("contract_info")), next_salary, old_salary)
+    prev1, prev2, next1, next2 = roll_salary_context(row, old_year, old_salary)
     out["season"] = target_season
     out["week"] = 1
     out["contract_year"] = max(0, old_year - 1)
@@ -216,6 +262,14 @@ def roll_row(row: Dict[str, Any], target_season: int) -> Dict[str, Any]:
         next_aav,
         old_year,
     )
+    out["salary_yearminus1"] = prev1
+    out["salary_yearminus2"] = prev2
+    out["salary_yearplus1"] = next1
+    out["salary_yearplus2"] = next2
+    status_overrides = (overrides or {}).get("status_overrides") or {}
+    override_status = safe_str(status_overrides.get(safe_str(row.get("player_id"))))
+    if override_status:
+        out["contract_status"] = override_status
     return out
 
 
@@ -267,6 +321,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--target-season", type=int, default=2026)
     parser.add_argument("--out-full", default=str(DEFAULT_OUT_FULL))
     parser.add_argument("--out-import", default=str(DEFAULT_OUT_IMPORT))
+    parser.add_argument("--overrides-json", default=str(DEFAULT_OVERRIDES_PATH))
     return parser.parse_args()
 
 
@@ -275,6 +330,7 @@ def main() -> int:
     db_path = str(args.db_path)
     out_full = Path(args.out_full)
     out_import = Path(args.out_import)
+    overrides = load_rollforward_overrides(str(args.overrides_json))
 
     conn = sqlite3.connect(db_path)
     try:
@@ -282,7 +338,7 @@ def main() -> int:
     finally:
         conn.close()
 
-    rolled = [roll_row(r, int(args.target_season)) for r in source_rows]
+    rolled = [roll_row(r, int(args.target_season), overrides=overrides) for r in source_rows]
     write_full_csv(rolled, out_full)
     write_import_csv(rolled, out_import)
 

@@ -1030,7 +1030,7 @@ export default {
               contract_info: safeStr(p?.contractInfo || p?.contractinfo),
               taxi: isTaxi,
               roster_status: status,
-              notes: safeStr(p?.drafted || ""),
+              notes: safeStr(p?.drafted || p?.acquired || p?.added || ""),
             });
           }
           rosterAssetsByFranchise[franchiseId] = assets;
@@ -9167,6 +9167,7 @@ export default {
                 aav,
                 type: type || "-",
                 special: special || "-",
+                acquisition_text: safeStr(asset?.notes || ""),
                 status,
                 is_taxi: isTaxi,
                 is_ir: isIr,
@@ -9269,7 +9270,7 @@ export default {
         if (!leagueId) return jsonOut(400, { ok: false, error: "Missing league_id/L" });
         if (!season) return jsonOut(400, { ok: false, error: "Missing season/YEAR" });
         if (!playerId) return jsonOut(400, { ok: false, error: "Missing player_id" });
-        if (action !== "promote_taxi" && action !== "activate_ir") {
+        if (action !== "promote_taxi" && action !== "activate_ir" && action !== "drop_player") {
           return jsonOut(400, { ok: false, error: "Unsupported roster action" });
         }
 
@@ -9279,6 +9280,8 @@ export default {
         };
         if (action === "activate_ir") {
           importFields.ACTIVATE = playerId;
+        } else if (action === "drop_player") {
+          importFields.DROP = playerId;
         } else {
           importFields.PROMOTE = playerId;
         }
@@ -9369,8 +9372,8 @@ export default {
             };
           } else {
             verification = {
-              ok: false,
-              reason: "player_not_found_in_post_import_rosters",
+              ok: action === "drop_player",
+              reason: action === "drop_player" ? "" : "player_not_found_in_post_import_rosters",
               player_id: playerId,
               franchise_id: franchiseId,
             };
@@ -9383,7 +9386,9 @@ export default {
           player_id: playerId,
           franchise_id: franchiseId,
           used_franchise_id: usedFranchiseId,
-          message: action === "activate_ir" ? "Player activated from IR in MFL." : "Player promoted from taxi in MFL.",
+          message: action === "activate_ir"
+            ? "Player activated from IR in MFL."
+            : (action === "drop_player" ? "Player dropped in MFL." : "Player promoted from taxi in MFL."),
           verification,
           response: {
             upstream_status: importRes.status,

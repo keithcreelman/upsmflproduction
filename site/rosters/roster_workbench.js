@@ -1,18 +1,32 @@
 (function () {
   "use strict";
 
-  var BUILD = "2026.03.07.7";
+  var BUILD = "2026.03.07.10";
   var BOOT_FLAG = "__ups_roster_workbench_boot_" + BUILD;
   if (window[BOOT_FLAG]) {
     if (typeof window.UPS_RWB_INIT === "function") window.UPS_RWB_INIT();
     return;
   }
   window[BOOT_FLAG] = true;
+  var SCRIPT_BASE_URL = (function () {
+    try {
+      var s = document.currentScript;
+      if (!s || !s.src) return "";
+      var u = new URL(s.src, window.location.href);
+      u.pathname = safeStr(u.pathname).replace(/[^/]+$/, "");
+      u.search = "";
+      u.hash = "";
+      return u.toString();
+    } catch (e) {
+      return "";
+    }
+  })();
 
   var POSITION_GROUP_ORDER = ["QB", "RB", "WR", "TE", "DL", "DB", "LB", "PK", "PN", "OTHER"];
   var MIN_ROSTER_PLAYERS = 27;
   var MAX_ROSTER_PLAYERS = 30;
   var MAX_SCORE_WEEKS = 18;
+  var LIVE_POINTS_TTL_MS = 5 * 60 * 1000;
   var CONTRACT_FILTERS = [
     { value: "", label: "All Contract Types" },
     { value: "rookie", label: "Rookies" },
@@ -35,14 +49,41 @@
   var state = {
     ctx: null,
     teams: [],
+    viewerFranchiseId: "",
     pointYears: [],
     pointsMode: "",
+    pointsHistory: null,
+    pointsHistoryLoading: false,
+    pointsHistoryError: "",
+    pointsHistoryPromise: null,
+    pointsHistoryMode: "",
+    pointsHistoryYearStart: "",
+    pointsHistoryYearEnd: "",
+    pointsHistorySeason: "",
+    pointsHistoryWeekStart: "",
+    pointsHistoryWeekEnd: "",
+    pointsExpanded: {},
+    liveSeasonPoints: null,
+    liveSeasonPointsLoading: false,
+    liveSeasonPointsError: "",
+    liveSeasonPointsPromise: null,
     view: "roster",
     search: "",
     filterPosition: "",
     filterType: "",
     taxiOnly: false,
+    sorts: {
+      roster: { key: "name", dir: "asc" },
+      contract: { key: "player", dir: "asc" },
+      franchise: { key: "franchise", dir: "asc" },
+      points: { key: "points", dir: "desc" }
+    },
     contractPreview: {},
+    actionModal: {
+      open: false,
+      playerId: "",
+      franchiseId: ""
+    },
     busyActionKey: "",
     gamesLoadedByYear: Object.create(null),
     gamesLoadingByYear: Object.create(null),
@@ -262,6 +303,45 @@
     return raw;
   }
 
+  function getCookieString() {
+    try {
+      return safeStr(document.cookie || "");
+    } catch (e) {
+      return "";
+    }
+  }
+
+  function getFranchiseIdFromCookies(leagueId, year) {
+    var lid = safeStr(leagueId).replace(/\D/g, "");
+    if (!lid) return "";
+    var yy = safeStr(year).replace(/\D/g, "");
+    var raw = getCookieString();
+    if (!raw) return "";
+
+    var re = /(?:^|;\s*)MFLPlayerPopup_(\d{4})_(\d+)_(\d{1,4})=/g;
+    var match;
+    var hits = [];
+    while ((match = re.exec(raw))) {
+      var hitLeague = safeStr(match[2]).replace(/\D/g, "");
+      var hitFranchise = pad4(match[3]);
+      if (!hitLeague || hitLeague !== lid) continue;
+      if (!hitFranchise || hitFranchise === "0000") continue;
+      hits.push({ year: safeStr(match[1]), franchiseId: hitFranchise });
+    }
+    if (!hits.length) return "";
+
+    if (yy) {
+      for (var i = 0; i < hits.length; i += 1) {
+        if (hits[i].year === yy) return hits[i].franchiseId;
+      }
+    }
+
+    hits.sort(function (a, b) {
+      return safeInt(b.year, 0) - safeInt(a.year, 0);
+    });
+    return hits[0].franchiseId;
+  }
+
   function contractBucket(type) {
     var t = normType(type);
     if (!t) return "other";
@@ -333,6 +413,167 @@
     return String(baseYear + totalYears - 1);
   }
 
+  function parseContractYearValues(contractInfo) {
+    var info = safeStr(contractInfo);
+    var out = Object.create(null);
+    if (!info) return out;
+    var re = /Y(\d+)\s*-\s*([^,|]+)/ig;
+    var match;
+    while ((match = re.exec(info))) {
+      var idx = safeInt(match[1], 0);
+      var amount = parseContractMoneyToken(match[2]);
+      if (idx > 0 && amount > 0) out[idx] = amount;
+    }
+    return out;
+  }
+
+  function contractLengthForPlayer(player) {
+    var values = parseContractYearValues(player && player.special);
+    var keys = Object.keys(values);
+    if (keys.length) {
+      return keys.reduce(function (max, key) {
+        return Math.max(max, safeInt(key, 0));
+      }, 0);
+    }
+    return Math.max(0, safeInt(player && player.years, 0));
+  }
+
+  function contractYearIndexForPlayer(player) {
+    var length = contractLengthForPlayer(player);
+    var years = Math.max(0, safeInt(player && player.years, 0));
+    if (length <= 0 || years <= 0) return 0;
+    return Math.max(1, length - years + 1);
+  }
+
+  function currentContractYearValue(player) {
+    var yearValues = parseContractYearValues(player && player.special);
+    var idx = contractYearIndexForPlayer(player);
+    if (idx > 0 && yearValues[idx] > 0) return safeInt(yearValues[idx], 0);
+    return Math.max(0, safeInt(player && player.salary, 0));
+  }
+
+  function seasonEndEstimateDate(season) {
+    var yr = safeInt(season, 0);
+    if (yr <= 0) return null;
+    return new Date(yr, 11, 31, 23, 59, 59, 999);
+  }
+
+  function proratedEarnedForDrop(season, amount, dropDate) {
+    var yr = safeInt(season, 0);
+    var salary = Math.max(0, safeInt(amount, 0));
+    if (yr <= 0 || salary <= 0 || !(dropDate instanceof Date) || isNaN(dropDate.getTime())) return 0;
+    var milestones = [
+      new Date(yr, 8, 30, 23, 59, 59, 999),
+      new Date(yr, 9, 31, 23, 59, 59, 999),
+      new Date(yr, 10, 30, 23, 59, 59, 999),
+      seasonEndEstimateDate(yr)
+    ];
+    var earnedSteps = 0;
+    for (var i = 0; i < milestones.length; i += 1) {
+      if (milestones[i] && dropDate >= milestones[i]) earnedSteps += 1;
+    }
+    earnedSteps = Math.max(0, Math.min(earnedSteps, 4));
+    return Math.round((salary / 4) * earnedSteps);
+  }
+
+  function acquisitionTextForPlayer(player) {
+    return safeStr(
+      player && (
+        player.acquisitionText ||
+        player.acquisition_text ||
+        player.notes ||
+        player.acquired ||
+        player.acquiredText
+      )
+    ).toUpperCase();
+  }
+
+  function isLikelyWaiverPickup(player) {
+    var type = safeStr(player && player.type).toUpperCase();
+    var acquisition = acquisitionTextForPlayer(player);
+    return !!(
+      type === "WW" ||
+      acquisition.indexOf("BBID_WAIVER") !== -1 ||
+      acquisition.indexOf("WAIVER") !== -1 ||
+      acquisition.indexOf(" BB ") !== -1 ||
+      acquisition.indexOf("BB $") !== -1 ||
+      acquisition.indexOf("BB$") !== -1
+    );
+  }
+
+  function isLegacyPenaltyPlayer(player, season) {
+    var type = safeStr(player && player.type).toUpperCase();
+    var info = safeStr(player && player.special).toUpperCase();
+    return info.indexOf("GF") !== -1 || type.indexOf("GF") !== -1 || safeInt(season, 0) < 2019;
+  }
+
+  function isTagCutPreAuctionAssumption(player, season, now) {
+    var type = safeStr(player && player.type).toUpperCase();
+    if (type !== "TAG") return false;
+    var yr = safeInt(season, 0);
+    if (yr <= 0 || !(now instanceof Date) || isNaN(now.getTime())) return false;
+    if (now.getFullYear() < yr) return true;
+    if (now.getFullYear() > yr) return false;
+    return now < new Date(yr, 7, 1, 0, 0, 0, 0);
+  }
+
+  function remainingTcvForPlayer(player) {
+    var yearValues = parseContractYearValues(player && player.special);
+    var idx = contractYearIndexForPlayer(player);
+    var total = 0;
+    var keys = Object.keys(yearValues);
+    if (keys.length && idx > 0) {
+      for (var i = 0; i < keys.length; i += 1) {
+        var key = safeInt(keys[i], 0);
+        if (key >= idx) total += safeInt(yearValues[keys[i]], 0);
+      }
+      if (total > 0) return total;
+    }
+    return Math.max(0, safeInt(player && player.salary, 0) * Math.max(0, safeInt(player && player.years, 0)));
+  }
+
+  function dropPenaltyEstimate(player) {
+    var years = Math.max(0, safeInt(player && player.years, 0));
+    var season = currentYearInt();
+    var now = new Date();
+    if (years <= 0) {
+      return { amount: 0, note: "Expired contracts do not carry a projected cap penalty." };
+    }
+    if (player && player.isTaxi) {
+      return { amount: 0, note: "Taxi players are shown with salary but do not project a current cap penalty." };
+    }
+    if (isLegacyPenaltyPlayer(player, season)) {
+      return {
+        amount: Math.round(remainingTcvForPlayer(player) * 0.2),
+        note: "Legacy/GF estimate: 20% of remaining TCV."
+      };
+    }
+
+    if (isTagCutPreAuctionAssumption(player, season, now)) {
+      return {
+        amount: 0,
+        note: "Pre-auction tag cut assumption: projected cap penalty is $0. Once auction opens, standard earned-salary rules apply."
+      };
+    }
+
+    var currentYearSalary = currentContractYearValue(player);
+    if (isLikelyWaiverPickup(player) && currentYearSalary > 4000) {
+      return {
+        amount: Math.round(currentYearSalary * 0.35),
+        note: "Estimated waiver guarantee: 35% of current-year salary for a waiver pickup above $4,000."
+      };
+    }
+
+    var accrued = proratedEarnedForDrop(season, currentYearSalary, now);
+
+    return {
+      amount: accrued,
+      note: accrued === 0
+        ? "Projected current-rule drop penalty is $0 before in-season accrual begins."
+        : "Estimated current-rule penalty based on accrued current-year salary."
+    };
+  }
+
   function summarizeProjection(proj) {
     var out = [0, 0, 0];
     for (var i = 0; i < proj.length && i < 3; i += 1) out[i] += safeInt(proj[i], 0);
@@ -389,7 +630,155 @@
   function viewLabel(view) {
     if (view === "contract") return "Plan view";
     if (view === "franchise") return "Franchise view";
+    if (view === "points") return "Points view";
     return "Roster view";
+  }
+
+  function resolvePointsHistoryUrl() {
+    var candidates = [
+      window.UPS_RWB_POINTS_HISTORY_URL,
+      window.UPS_ROSTER_WORKBENCH_POINTS_HISTORY_URL
+    ];
+    for (var i = 0; i < candidates.length; i += 1) {
+      var raw = safeStr(candidates[i]);
+      if (!raw) continue;
+      try {
+        return new URL(raw, window.location.href).toString();
+      } catch (e) {
+        return raw;
+      }
+    }
+
+    if (SCRIPT_BASE_URL) return SCRIPT_BASE_URL + "player_points_history.json";
+    return "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/rosters/player_points_history.json";
+  }
+
+  function pointsHistoryMeta() {
+    return (state.pointsHistory && state.pointsHistory.meta) || {};
+  }
+
+  function pointsHistoryPlayers() {
+    return (state.pointsHistory && state.pointsHistory.players) || {};
+  }
+
+  function liveSeasonKey() {
+    return safeStr(state.ctx && state.ctx.year);
+  }
+
+  function liveSeasonOverlayIsFresh() {
+    var live = state.liveSeasonPoints;
+    if (!live || safeStr(live.season) !== liveSeasonKey()) return false;
+    return (Date.now() - safeInt(live.fetchedAtMs, 0)) < LIVE_POINTS_TTL_MS;
+  }
+
+  function historySeasonsAscending() {
+    var meta = pointsHistoryMeta();
+    var raw = Array.isArray(meta.history_seasons) ? meta.history_seasons.slice() : [];
+    if (state.pointYears && state.pointYears.length) {
+      raw = raw.concat(state.pointYears);
+    }
+    var liveSeason = liveSeasonKey();
+    if (liveSeason) raw.push(liveSeason);
+    raw = raw
+      .map(function (year) { return safeStr(year); })
+      .filter(function (year) { return !!year; });
+    var seen = Object.create(null);
+    raw = raw.filter(function (year) {
+      if (seen[year]) return false;
+      seen[year] = true;
+      return true;
+    });
+    raw.sort(function (a, b) { return safeInt(a, 0) - safeInt(b, 0); });
+    return raw;
+  }
+
+  function historySeasonsDescending() {
+    return historySeasonsAscending().slice().reverse();
+  }
+
+  function historySeasonWeekMax(season) {
+    var liveSeason = liveSeasonKey();
+    if (
+      safeStr(season) === liveSeason &&
+      state.liveSeasonPoints &&
+      safeStr(state.liveSeasonPoints.season) === liveSeason &&
+      safeInt(state.liveSeasonPoints.weekMax, 0) > 0
+    ) {
+      return safeInt(state.liveSeasonPoints.weekMax, 0);
+    }
+    var meta = pointsHistoryMeta();
+    var seasonKey = safeStr(season);
+    var fromMeta = meta && meta.season_week_max ? safeInt(meta.season_week_max[seasonKey], 0) : 0;
+    if (fromMeta > 0) return fromMeta;
+    return MAX_SCORE_WEEKS;
+  }
+
+  function selectedHistoryYears() {
+    var seasons = historySeasonsAscending();
+    if (!seasons.length) return [];
+    var start = safeStr(state.pointsHistoryYearStart || seasons[0]);
+    var end = safeStr(state.pointsHistoryYearEnd || seasons[seasons.length - 1]);
+    var startNum = safeInt(start, safeInt(seasons[0], 0));
+    var endNum = safeInt(end, safeInt(seasons[seasons.length - 1], 0));
+    if (startNum > endNum) {
+      var swap = startNum;
+      startNum = endNum;
+      endNum = swap;
+    }
+    return seasons.filter(function (season) {
+      var year = safeInt(season, 0);
+      return year >= startNum && year <= endNum;
+    });
+  }
+
+  function selectedHistoryWeeks() {
+    var season = safeStr(state.pointsHistorySeason);
+    var maxWeek = historySeasonWeekMax(season);
+    var start = Math.max(1, Math.min(maxWeek, safeInt(state.pointsHistoryWeekStart, 1)));
+    var end = Math.max(1, Math.min(maxWeek, safeInt(state.pointsHistoryWeekEnd, maxWeek)));
+    if (start > end) {
+      var swap = start;
+      start = end;
+      end = swap;
+    }
+    var weeks = [];
+    for (var i = start; i <= end; i += 1) weeks.push(i);
+    return weeks;
+  }
+
+  function selectionNeedsLiveSeasonOverlay() {
+    var liveSeason = liveSeasonKey();
+    if (!liveSeason) return false;
+    if (state.pointsHistoryMode === "weekly") {
+      return safeStr(state.pointsHistorySeason) === liveSeason;
+    }
+    return selectedHistoryYears().indexOf(liveSeason) !== -1;
+  }
+
+  function currentPointsRangeLabel() {
+    if (state.pointsHistoryMode === "weekly") {
+      var season = safeStr(state.pointsHistorySeason);
+      var weeks = selectedHistoryWeeks();
+      if (!season || !weeks.length) return "Weekly history";
+      if (weeks.length === 1) return season + " Week " + weeks[0];
+      return season + " Weeks " + weeks[0] + "-" + weeks[weeks.length - 1];
+    }
+
+    var years = selectedHistoryYears();
+    if (!years.length) return "Yearly history";
+    if (years.length === 1) return years[0] + " season";
+    return years[0] + "-" + years[years.length - 1] + " seasons";
+  }
+
+  function formatRank(rank) {
+    var value = safeInt(rank, 0);
+    return value > 0 ? ("#" + value) : "—";
+  }
+
+  function formatStarted(value) {
+    if (value === 1 || value === true) return "Start";
+    if (value === 0 || value === false) return "Bench";
+    return "—";
   }
 
   function isCurrentMobile() {
@@ -400,6 +789,7 @@
     var out = {
       leagueId: "",
       year: "",
+      franchiseId: "",
       hostOrigin: window.location.origin
     };
     try {
@@ -426,9 +816,23 @@
         var pathLeague = safeStr(u.pathname).match(/\/home\/(\d+)(?:\/|$)/i);
         if (pathLeague && pathLeague[1]) out.leagueId = pathLeague[1];
       }
+
+      out.franchiseId = pad4(
+        u.searchParams.get("FRANCHISE_ID") ||
+        u.searchParams.get("FRANCHISE") ||
+        u.searchParams.get("F") ||
+        window.FRANCHISE_ID ||
+        window.franchise_id ||
+        window.franchiseId ||
+        window.fid ||
+        ""
+      );
     } catch (e) {}
 
     if (!out.year) out.year = String(new Date().getFullYear());
+    if (!out.franchiseId || out.franchiseId === "0000") {
+      out.franchiseId = getFranchiseIdFromCookies(out.leagueId, out.year);
+    }
 
     return out;
   }
@@ -529,6 +933,16 @@
         }
       });
     });
+  }
+
+  function fetchLeagueExportWithApiFallback(ctx, seasonStr, type, params) {
+    var hostUrl = buildExportUrl(ctx.hostOrigin, seasonStr, type, params);
+    var apiUrl = buildApiExportUrl(seasonStr, type, params);
+
+    return fetchJson(hostUrl, { credentials: "include" })
+      .catch(function () {
+        return fetchJson(apiUrl, { credentials: "omit" });
+      });
   }
 
   function resolveWorkerApiEndpoint() {
@@ -883,6 +1297,7 @@
           aav: aav,
           type: contractType || "-",
           special: special || "-",
+          acquisitionText: safeStr(rp.drafted || rp.acquired || rp.added || ""),
           status: status,
           isTaxi: isTaxi,
           isIr: isIr,
@@ -939,6 +1354,7 @@
       aav: safeInt(p.aav, 0) || currentAavForContractInfo(p.special || p.contract_info || "-"),
       type: safeStr(p.type || p.contract_type || "-") || "-",
       special: safeStr(p.special || p.contract_info || "-") || "-",
+      acquisitionText: safeStr(p.acquisition_text || p.notes || p.acquired || ""),
       status: status,
       isTaxi: isTaxi,
       isIr: isIr,
@@ -1008,6 +1424,494 @@
   function buildPointYears() {
     var start = currentYearInt();
     return [String(start), String(start - 1), String(start - 2), String(start - 3)];
+  }
+
+  function playerPointsHistoryRecord(player) {
+    if (!player) return null;
+    var players = pointsHistoryPlayers();
+    var id = safeStr(player.id);
+    return id && players[id] ? players[id] : null;
+  }
+
+  function liveSeasonSummaryForPlayer(player, season) {
+    var pid = safeStr(player && player.id);
+    var liveSeason = liveSeasonKey();
+    if (!pid || safeStr(season) !== liveSeason) return null;
+    if (!state.liveSeasonPoints || safeStr(state.liveSeasonPoints.season) !== liveSeason) return null;
+    return state.liveSeasonPoints.summaryByPlayer && state.liveSeasonPoints.summaryByPlayer[pid]
+      ? state.liveSeasonPoints.summaryByPlayer[pid]
+      : null;
+  }
+
+  function liveSeasonWeeklyForPlayer(player, season, week) {
+    var pid = safeStr(player && player.id);
+    var liveSeason = liveSeasonKey();
+    var weekKey = safeStr(week);
+    if (!pid || !weekKey || safeStr(season) !== liveSeason) return null;
+    if (!state.liveSeasonPoints || safeStr(state.liveSeasonPoints.season) !== liveSeason) return null;
+    return state.liveSeasonPoints.weeklyByPlayer &&
+      state.liveSeasonPoints.weeklyByPlayer[pid] &&
+      state.liveSeasonPoints.weeklyByPlayer[pid][weekKey]
+      ? state.liveSeasonPoints.weeklyByPlayer[pid][weekKey]
+      : null;
+  }
+
+  function yearlyHistoryRow(historyRecord, season) {
+    var seasonKey = safeStr(season);
+    if (!historyRecord || !historyRecord.y || !historyRecord.y[seasonKey]) return null;
+    return historyRecord.y[seasonKey];
+  }
+
+  function weeklyHistoryRow(historyRecord, season, week) {
+    var seasonKey = safeStr(season);
+    var weekKey = safeStr(week);
+    if (!historyRecord || !historyRecord.w || !historyRecord.w[seasonKey] || !historyRecord.w[seasonKey][weekKey]) return null;
+    return historyRecord.w[seasonKey][weekKey];
+  }
+
+  function playerYearlyHistoryRow(player, season) {
+    var live = liveSeasonSummaryForPlayer(player, season);
+    if (live) {
+      return [
+        Math.round(safeNum(live.points, 0) * 10) / 10,
+        safeInt(live.games, 0),
+        Math.round(safeNum(live.ppg, 0) * 1000) / 1000,
+        safeInt(live.posRank, 0),
+        safeInt(live.ppgRank, 0)
+      ];
+    }
+    return yearlyHistoryRow(playerPointsHistoryRecord(player), season);
+  }
+
+  function playerWeeklyHistoryRow(player, season, week) {
+    var live = liveSeasonWeeklyForPlayer(player, season, week);
+    if (live) return live;
+    return weeklyHistoryRow(playerPointsHistoryRecord(player), season, week);
+  }
+
+  function ensurePointsHistorySelection() {
+    var seasons = historySeasonsAscending();
+    if (!state.pointsHistoryMode || (state.pointsHistoryMode !== "yearly" && state.pointsHistoryMode !== "weekly")) {
+      state.pointsHistoryMode = "yearly";
+    }
+    if (!seasons.length) return;
+
+    if (!state.pointsHistoryYearStart || seasons.indexOf(state.pointsHistoryYearStart) === -1) {
+      state.pointsHistoryYearStart = seasons[0];
+    }
+    if (!state.pointsHistoryYearEnd || seasons.indexOf(state.pointsHistoryYearEnd) === -1) {
+      state.pointsHistoryYearEnd = seasons[seasons.length - 1];
+    }
+
+    if (!state.pointsHistorySeason || seasons.indexOf(state.pointsHistorySeason) === -1) {
+      state.pointsHistorySeason = seasons[seasons.length - 1];
+    }
+
+    var maxWeek = historySeasonWeekMax(state.pointsHistorySeason);
+    var weekStart = safeInt(state.pointsHistoryWeekStart, 1);
+    var weekEnd = safeInt(state.pointsHistoryWeekEnd, maxWeek);
+    if (weekStart < 1 || weekStart > maxWeek) weekStart = 1;
+    if (weekEnd < 1 || weekEnd > maxWeek) weekEnd = maxWeek;
+    if (weekStart > weekEnd) {
+      var swap = weekStart;
+      weekStart = weekEnd;
+      weekEnd = swap;
+    }
+    state.pointsHistoryWeekStart = String(weekStart);
+    state.pointsHistoryWeekEnd = String(weekEnd);
+  }
+
+  function loadPointsHistory() {
+    if (state.pointsHistory) {
+      ensurePointsHistorySelection();
+      return Promise.resolve(state.pointsHistory);
+    }
+    if (state.pointsHistoryPromise) return state.pointsHistoryPromise;
+
+    state.pointsHistoryLoading = true;
+    state.pointsHistoryError = "";
+    if (state.view === "points") {
+      renderToolbar();
+      renderTeams();
+    }
+
+    state.pointsHistoryPromise = fetchJson(resolvePointsHistoryUrl(), {
+      credentials: "omit",
+      cache: "no-store"
+    }).then(function (payload) {
+      state.pointsHistory = payload || { meta: {}, players: {} };
+      state.pointsHistoryLoading = false;
+      state.pointsHistoryError = "";
+      state.pointsHistoryPromise = null;
+      ensurePointsHistorySelection();
+      if (state.view === "points") {
+        renderToolbar();
+        renderTeams();
+        ensureLiveSeasonPointsForSelection(false);
+      }
+      return state.pointsHistory;
+    }).catch(function (err) {
+      state.pointsHistoryLoading = false;
+      state.pointsHistoryError = "Unable to load stored points history. " + summarizeError(err);
+      state.pointsHistoryPromise = null;
+      if (state.view === "points") {
+        renderToolbar();
+        renderTeams();
+      }
+      throw err;
+    });
+
+    return state.pointsHistoryPromise;
+  }
+
+  function collectLiveWeeklyRows(payload) {
+    var rows = [];
+    var playerIdsSeen = Object.create(null);
+    var root = (payload && (payload.allWeeklyResults || payload)) || {};
+    var weeks = asArray(root && root.weeklyResults);
+    var weekMax = 0;
+
+    for (var i = 0; i < weeks.length; i += 1) {
+      var weekNode = weeks[i] || {};
+      var weekNo = safeInt(weekNode.week, 0);
+      if (weekNo <= 0) continue;
+      if (weekNo > weekMax) weekMax = weekNo;
+
+      var matchups = asArray(weekNode.matchup);
+      for (var m = 0; m < matchups.length; m += 1) {
+        var franchises = asArray(matchups[m] && matchups[m].franchise);
+        for (var f = 0; f < franchises.length; f += 1) {
+          var players = asArray(franchises[f] && franchises[f].player);
+          for (var p = 0; p < players.length; p += 1) {
+            var player = players[p] || {};
+            var pid = safeStr(player.id);
+            if (!pid) continue;
+            playerIdsSeen[pid] = true;
+            rows.push({
+              week: weekNo,
+              playerId: pid,
+              playerName: normalizePlayerName(player.name || player.player_name || ("Player " + pid)),
+              score: safeNum(player.score, 0),
+              started: safeStr(player.status).toLowerCase() === "starter"
+            });
+          }
+        }
+      }
+    }
+
+    return {
+      rows: rows,
+      playerIds: Object.keys(playerIdsSeen),
+      weekMax: weekMax
+    };
+  }
+
+  function mergeScoreMaps(maps) {
+    var out = Object.create(null);
+    for (var i = 0; i < maps.length; i += 1) {
+      var map = maps[i] || {};
+      var ids = Object.keys(map);
+      for (var j = 0; j < ids.length; j += 1) {
+        out[ids[j]] = safeNum(map[ids[j]], 0);
+      }
+    }
+    return out;
+  }
+
+  function fetchPlayerScoreMapForPlayers(ctx, seasonStr, scoreMode, playerIds) {
+    var ids = (playerIds || []).slice();
+    if (!ids.length) return Promise.resolve(Object.create(null));
+
+    var chunkSize = 150;
+    var tasks = [];
+    for (var i = 0; i < ids.length; i += chunkSize) {
+      (function (slice) {
+        tasks.push(
+          fetchLeagueExportWithApiFallback(ctx, seasonStr, "playerScores", {
+            L: ctx.leagueId,
+            W: scoreMode,
+            PLAYERS: slice.join(",")
+          }).then(function (payload) {
+            return toScoreMap(payload);
+          }).catch(function () {
+            return Object.create(null);
+          })
+        );
+      })(ids.slice(i, i + chunkSize));
+    }
+
+    return Promise.all(tasks).then(mergeScoreMaps);
+  }
+
+  function buildLiveSeasonPointsOverlay(seasonStr, weeklyPayload, playersMap, avgMap) {
+    var liveRows = collectLiveWeeklyRows(weeklyPayload);
+    var weeklyByPlayer = Object.create(null);
+    var summaries = Object.create(null);
+    var groupedWeekly = Object.create(null);
+    var weekMax = safeInt(liveRows.weekMax, 0);
+
+    for (var i = 0; i < liveRows.rows.length; i += 1) {
+      var row = liveRows.rows[i] || {};
+      var pid = safeStr(row.playerId);
+      if (!pid) continue;
+      var info = playersMap[pid] || {};
+      var playerName = normalizePlayerName(info.name || row.playerName || ("Player " + pid));
+      var position = safeStr(info.position).toUpperCase();
+      var posGroup = positionGroupKey(position);
+      var weekKey = safeStr(row.week);
+      var score = Math.round(safeNum(row.score, 0) * 10) / 10;
+      var started = row.started ? 1 : 0;
+
+      if (!weeklyByPlayer[pid]) weeklyByPlayer[pid] = Object.create(null);
+      weeklyByPlayer[pid][weekKey] = [score, 0, started];
+
+      if (!summaries[pid]) {
+        summaries[pid] = {
+          playerId: pid,
+          playerName: playerName,
+          position: position,
+          positionGroup: posGroup,
+          points: 0,
+          games: 0,
+          starts: 0,
+          ppg: 0,
+          posRank: 0,
+          ppgRank: 0
+        };
+      }
+      summaries[pid].points += score;
+      summaries[pid].games += 1;
+      summaries[pid].starts += started;
+
+      if (!groupedWeekly[weekKey]) groupedWeekly[weekKey] = Object.create(null);
+      if (!groupedWeekly[weekKey][posGroup]) groupedWeekly[weekKey][posGroup] = [];
+      groupedWeekly[weekKey][posGroup].push({
+        playerId: pid,
+        playerName: playerName,
+        score: score
+      });
+    }
+
+    var weekKeys = Object.keys(groupedWeekly);
+    for (var w = 0; w < weekKeys.length; w += 1) {
+      var weekKey = weekKeys[w];
+      var groups = groupedWeekly[weekKey];
+      var posGroups = Object.keys(groups);
+      for (var g = 0; g < posGroups.length; g += 1) {
+        var posGroupKey = posGroups[g];
+        var items = groups[posGroupKey] || [];
+        items.sort(function (a, b) {
+          var delta = safeNum(b.score, 0) - safeNum(a.score, 0);
+          if (Math.abs(delta) > 0.0001) return delta;
+          return compareText(a.playerName, b.playerName);
+        });
+        for (var idx = 0; idx < items.length; idx += 1) {
+          if (weeklyByPlayer[items[idx].playerId] && weeklyByPlayer[items[idx].playerId][weekKey]) {
+            weeklyByPlayer[items[idx].playerId][weekKey][1] = idx + 1;
+          }
+        }
+      }
+    }
+
+    var summaryIds = Object.keys(summaries);
+    var minGamesForPpgRank = Math.max(1, Math.ceil(Math.max(1, weekMax) / 2));
+    var groupedSummary = Object.create(null);
+
+    for (var s = 0; s < summaryIds.length; s += 1) {
+      var summary = summaries[summaryIds[s]];
+      var livePpg = avgMap && avgMap[summary.playerId] != null ? safeNum(avgMap[summary.playerId], 0) : null;
+      summary.ppg = livePpg == null
+        ? (summary.games > 0 ? (summary.points / summary.games) : 0)
+        : livePpg;
+      if (!groupedSummary[summary.positionGroup]) groupedSummary[summary.positionGroup] = [];
+      groupedSummary[summary.positionGroup].push(summary);
+    }
+
+    var summaryGroups = Object.keys(groupedSummary);
+    for (var sg = 0; sg < summaryGroups.length; sg += 1) {
+      var groupKey = summaryGroups[sg];
+      var items = groupedSummary[groupKey] || [];
+      items.sort(function (a, b) {
+        var delta = safeNum(b.points, 0) - safeNum(a.points, 0);
+        if (Math.abs(delta) > 0.0001) return delta;
+        return compareText(a.playerName, b.playerName);
+      });
+      for (var rankIdx = 0; rankIdx < items.length; rankIdx += 1) {
+        items[rankIdx].posRank = rankIdx + 1;
+      }
+
+      var eligible = items.filter(function (item) {
+        return safeInt(item.games, 0) >= minGamesForPpgRank;
+      });
+      eligible.sort(function (a, b) {
+        var delta = safeNum(b.ppg, 0) - safeNum(a.ppg, 0);
+        if (Math.abs(delta) > 0.0001) return delta;
+        var pointsDelta = safeNum(b.points, 0) - safeNum(a.points, 0);
+        if (Math.abs(pointsDelta) > 0.0001) return pointsDelta;
+        return compareText(a.playerName, b.playerName);
+      });
+      for (var ppgIdx = 0; ppgIdx < eligible.length; ppgIdx += 1) {
+        eligible[ppgIdx].ppgRank = ppgIdx + 1;
+      }
+    }
+
+    return {
+      season: safeStr(seasonStr),
+      weekMax: weekMax,
+      fetchedAtMs: Date.now(),
+      summaryByPlayer: summaries,
+      weeklyByPlayer: weeklyByPlayer
+    };
+  }
+
+  function loadLiveSeasonPoints(force) {
+    var seasonStr = liveSeasonKey();
+    if (!seasonStr || !state.ctx || !state.ctx.leagueId) return Promise.resolve(null);
+    if (!force && liveSeasonOverlayIsFresh()) return Promise.resolve(state.liveSeasonPoints);
+    if (!force && state.liveSeasonPointsPromise) return state.liveSeasonPointsPromise;
+
+    state.liveSeasonPointsLoading = true;
+    state.liveSeasonPointsError = "";
+    if (state.view === "points") {
+      renderToolbar();
+      renderTeams();
+    }
+
+    state.liveSeasonPointsPromise = fetchLeagueExportWithApiFallback(state.ctx, seasonStr, "weeklyResults", {
+      L: state.ctx.leagueId,
+      W: "YTD",
+      MISSING_AS_BYE: 1
+    }).then(function (weeklyPayload) {
+      var parsed = collectLiveWeeklyRows(weeklyPayload);
+      if (!parsed.playerIds.length) {
+        return {
+          season: seasonStr,
+          weekMax: safeInt(parsed.weekMax, 0),
+          fetchedAtMs: Date.now(),
+          summaryByPlayer: Object.create(null),
+          weeklyByPlayer: Object.create(null)
+        };
+      }
+
+      return Promise.all([
+        fetchPlayersMap(seasonStr, parsed.playerIds),
+        fetchPlayerScoreMapForPlayers(state.ctx, seasonStr, "AVG", parsed.playerIds)
+      ]).then(function (parts) {
+        return buildLiveSeasonPointsOverlay(
+          seasonStr,
+          weeklyPayload,
+          parts[0] || Object.create(null),
+          parts[1] || Object.create(null)
+        );
+      });
+    }).then(function (overlay) {
+      state.liveSeasonPoints = overlay || null;
+      state.liveSeasonPointsLoading = false;
+      state.liveSeasonPointsError = "";
+      state.liveSeasonPointsPromise = null;
+      ensurePointsHistorySelection();
+      if (state.view === "points") {
+        renderToolbar();
+        renderTeams();
+      }
+      return state.liveSeasonPoints;
+    }).catch(function (err) {
+      state.liveSeasonPointsLoading = false;
+      state.liveSeasonPointsError = "Unable to sync live current-season points. " + summarizeError(err);
+      state.liveSeasonPointsPromise = null;
+      if (state.view === "points") {
+        renderToolbar();
+        renderTeams();
+      }
+      throw err;
+    });
+
+    return state.liveSeasonPointsPromise;
+  }
+
+  function ensureLiveSeasonPointsForSelection(force) {
+    if (!selectionNeedsLiveSeasonOverlay() && !force) return Promise.resolve(state.liveSeasonPoints);
+    return loadLiveSeasonPoints(!!force).catch(function () {
+      return null;
+    });
+  }
+
+  function summarizeYearlyPointsSelection(player) {
+    var years = selectedHistoryYears();
+    var totalPoints = 0;
+    var totalGames = 0;
+    var bestRank = 0;
+    var bestPpgRank = 0;
+    var seasonsWithData = 0;
+
+    for (var i = 0; i < years.length; i += 1) {
+      var row = playerYearlyHistoryRow(player, years[i]);
+      if (!row) continue;
+      totalPoints += safeNum(row[0], 0);
+      totalGames += safeInt(row[1], 0);
+      if (safeInt(row[3], 0) > 0 && (!bestRank || safeInt(row[3], 0) < bestRank)) bestRank = safeInt(row[3], 0);
+      if (safeInt(row[4], 0) > 0 && (!bestPpgRank || safeInt(row[4], 0) < bestPpgRank)) bestPpgRank = safeInt(row[4], 0);
+      seasonsWithData += 1;
+    }
+
+    return {
+      mode: "yearly",
+      points: totalPoints,
+      games: totalGames,
+      ppg: totalGames > 0 ? (totalPoints / totalGames) : 0,
+      bestRank: bestRank,
+      bestPpgRank: bestPpgRank,
+      starts: 0,
+      appearances: seasonsWithData,
+      hasData: seasonsWithData > 0
+    };
+  }
+
+  function summarizeWeeklyPointsSelection(player) {
+    var season = safeStr(state.pointsHistorySeason);
+    var weeks = selectedHistoryWeeks();
+    var totalPoints = 0;
+    var appearances = 0;
+    var starts = 0;
+    var bestRank = 0;
+
+    for (var i = 0; i < weeks.length; i += 1) {
+      var row = playerWeeklyHistoryRow(player, season, weeks[i]);
+      if (!row) continue;
+      totalPoints += safeNum(row[0], 0);
+      appearances += 1;
+      if (safeInt(row[2], 0) === 1) starts += 1;
+      if (safeInt(row[1], 0) > 0 && (!bestRank || safeInt(row[1], 0) < bestRank)) bestRank = safeInt(row[1], 0);
+    }
+
+    return {
+      mode: "weekly",
+      points: totalPoints,
+      games: 0,
+      ppg: appearances > 0 ? (totalPoints / appearances) : 0,
+      bestRank: bestRank,
+      bestPpgRank: 0,
+      starts: starts,
+      appearances: appearances,
+      hasData: appearances > 0
+    };
+  }
+
+  function summarizePointsSelection(player) {
+    if (state.pointsHistoryMode === "weekly") return summarizeWeeklyPointsSelection(player);
+    return summarizeYearlyPointsSelection(player);
+  }
+
+  function sortTeamsForDisplay(teams) {
+    var list = Array.isArray(teams) ? teams.slice() : [];
+    var viewer = pad4(state.viewerFranchiseId || (state.ctx && state.ctx.franchiseId));
+    list.sort(function (a, b) {
+      var aOwn = viewer && pad4(a && a.id) === viewer ? 1 : 0;
+      var bOwn = viewer && pad4(b && b.id) === viewer ? 1 : 0;
+      if (aOwn !== bOwn) return bOwn - aOwn;
+      return compareText(a && a.name, b && b.name);
+    });
+    return list;
   }
 
   function fetchPointsMapForYear(ctx, yearStr) {
@@ -1233,6 +2137,165 @@
     });
   }
 
+  function compareText(a, b) {
+    return safeStr(a).localeCompare(safeStr(b), undefined, { sensitivity: "base" });
+  }
+
+  function sortStateForView(view) {
+    if (!state.sorts[view]) {
+      state.sorts[view] = {
+        key: view === "franchise" ? "franchise" : (view === "contract" ? "player" : "name"),
+        dir: "asc"
+      };
+    }
+    return state.sorts[view];
+  }
+
+  function sortDirMultiplier(view) {
+    return sortStateForView(view).dir === "desc" ? -1 : 1;
+  }
+
+  function sortArrow(view, key) {
+    var sort = sortStateForView(view);
+    if (sort.key !== key) return "↕";
+    return sort.dir === "desc" ? "▼" : "▲";
+  }
+
+  function sortableHeader(view, key, label, extraClass) {
+    var sort = sortStateForView(view);
+    var isSorted = sort.key === key;
+    var cls = "is-sortable" + (isSorted ? " is-sorted" : "") + (extraClass ? " " + extraClass : "");
+    return (
+      '<th class="' + cls + '" data-action="sort-header" data-sort-view="' + escapeHtml(view) + '" data-sort-key="' + escapeHtml(key) + '">' +
+        escapeHtml(label) + ' <span class="rwb-sort-indicator">' + escapeHtml(sortArrow(view, key)) + '</span>' +
+      '</th>'
+    );
+  }
+
+  function sortPlayersForRoster(players) {
+    var list = (players || []).slice();
+    var sort = sortStateForView("roster");
+    var dir = sortDirMultiplier("roster");
+    list.sort(function (a, b) {
+      var delta = 0;
+      switch (sort.key) {
+        case "points":
+          delta = safeNum(pointsForPlayer(a), 0) - safeNum(pointsForPlayer(b), 0);
+          break;
+        case "ppg":
+          delta = safeNum(ppgForPlayer(a), 0) - safeNum(ppgForPlayer(b), 0);
+          break;
+        case "bye":
+          delta = compareText(a.bye, b.bye);
+          break;
+        case "salary":
+          delta = safeInt(a.salary, 0) - safeInt(b.salary, 0);
+          break;
+        case "years":
+          delta = safeInt(a.years, 0) - safeInt(b.years, 0);
+          break;
+        case "type":
+          delta = compareText(a.type, b.type);
+          break;
+        case "special":
+          delta = compareText(a.special, b.special);
+          break;
+        case "action":
+          delta = compareText(a.status, b.status);
+          break;
+        case "name":
+        default:
+          delta = compareText(a.name, b.name);
+          break;
+      }
+      if (delta === 0) delta = compareText(a.name, b.name);
+      return delta * dir;
+    });
+    return list;
+  }
+
+  function sortPlayersForPlan(players) {
+    var list = (players || []).slice();
+    var sort = sortStateForView("contract");
+    var dir = sortDirMultiplier("contract");
+    list.sort(function (a, b) {
+      var aProj = [displayedSalaryForPlan(a, 0), displayedSalaryForPlan(a, 1), displayedSalaryForPlan(a, 2)];
+      var bProj = [displayedSalaryForPlan(b, 0), displayedSalaryForPlan(b, 1), displayedSalaryForPlan(b, 2)];
+      var delta = 0;
+      switch (sort.key) {
+        case "aav":
+          delta = safeInt(a.aav, 0) - safeInt(b.aav, 0);
+          break;
+        case "expires":
+          delta = compareText(projectedExpiryLabel(a), projectedExpiryLabel(b));
+          break;
+        case "year0":
+          delta = safeInt(aProj[0], 0) - safeInt(bProj[0], 0);
+          break;
+        case "year1":
+          delta = safeInt(aProj[1], 0) - safeInt(bProj[1], 0);
+          break;
+        case "year2":
+          delta = safeInt(aProj[2], 0) - safeInt(bProj[2], 0);
+          break;
+        case "type":
+          delta = compareText(a.type, b.type);
+          break;
+        case "player":
+        default:
+          delta = compareText(a.name, b.name);
+          if (delta === 0) delta = positionSortValue(a.positionGroup) - positionSortValue(b.positionGroup);
+          break;
+      }
+      if (delta === 0) delta = compareText(a.name, b.name);
+      return delta * dir;
+    });
+    return list;
+  }
+
+  function sortPlayersForPoints(players) {
+    var list = (players || []).slice();
+    var sort = sortStateForView("points");
+    var dir = sortDirMultiplier("points");
+    list.sort(function (a, b) {
+      var aSummary = summarizePointsSelection(a);
+      var bSummary = summarizePointsSelection(b);
+      var delta = 0;
+      switch (sort.key) {
+        case "position":
+          delta = positionSortValue(a.positionGroup) - positionSortValue(b.positionGroup);
+          if (delta === 0) delta = compareText(a.positionGroup, b.positionGroup);
+          break;
+        case "ppg":
+          delta = safeNum(aSummary.ppg, 0) - safeNum(bSummary.ppg, 0);
+          break;
+        case "rank":
+          var aRank = safeInt(aSummary.bestRank, 999999);
+          var bRank = safeInt(bSummary.bestRank, 999999);
+          delta = aRank - bRank;
+          break;
+        case "ppg_rank":
+          var aPpgRank = safeInt(aSummary.bestPpgRank, 999999);
+          var bPpgRank = safeInt(bSummary.bestPpgRank, 999999);
+          delta = aPpgRank - bPpgRank;
+          break;
+        case "starts":
+          delta = safeInt(aSummary.starts, 0) - safeInt(bSummary.starts, 0);
+          break;
+        case "points":
+          delta = safeNum(aSummary.points, 0) - safeNum(bSummary.points, 0);
+          break;
+        case "player":
+        default:
+          delta = compareText(a.name, b.name);
+          break;
+      }
+      if (delta === 0) delta = compareText(a.name, b.name);
+      return delta * dir;
+    });
+    return list;
+  }
+
   function matchesFilters(player) {
     if (!player) return false;
 
@@ -1285,9 +2348,7 @@
     var out = [];
     for (var x = 0; x < keys.length; x += 1) {
       var key = keys[x];
-      var rows = map[key].slice().sort(function (a, b) {
-        return safeStr(a.name).localeCompare(safeStr(b.name));
-      });
+      var rows = sortPlayersForRoster(map[key]);
       out.push({ key: key, label: positionGroupLabel(key), players: rows });
     }
     return out;
@@ -1325,14 +2386,15 @@
             '</div>' +
           '</header>' +
           '<section class="rwb-toolbar" aria-label="Roster toolbar">' +
-            '<div class="rwb-toolbar-main">' +
+            '<div class="rwb-toolbar-main" id="rwbToolbarMain">' +
               '<div class="rwb-view-switch" role="tablist" aria-label="View mode">' +
                 '<button type="button" id="rwbViewRoster" class="rwb-btn rwb-btn-ghost is-active" data-action="view-switch" data-view="roster" role="tab" aria-selected="true">Roster View</button>' +
                 '<button type="button" id="rwbViewContract" class="rwb-btn rwb-btn-ghost" data-action="view-switch" data-view="contract" role="tab" aria-selected="false">Plan View</button>' +
+                '<button type="button" id="rwbViewPoints" class="rwb-btn rwb-btn-ghost" data-action="view-switch" data-view="points" role="tab" aria-selected="false">Points View</button>' +
                 '<button type="button" id="rwbViewFranchise" class="rwb-btn rwb-btn-ghost" data-action="view-switch" data-view="franchise" role="tab" aria-selected="false">Franchise View</button>' +
               '</div>' +
               '<label class="rwb-field"><span>Jump To Team</span><select id="rwbJumpTeam" class="rwb-select"><option value="">Select team...</option></select></label>' +
-              '<label class="rwb-field"><span>Points</span><select id="rwbPointsMode" class="rwb-select"></select></label>' +
+              '<div id="rwbPointsControls" class="rwb-toolbar-points"></div>' +
               '<label class="rwb-field"><span>Search</span><input id="rwbSearch" class="rwb-input" type="search" placeholder="Player, team, position, contract" autocomplete="off"></label>' +
               '<button type="button" id="rwbTaxiOnly" class="rwb-btn rwb-btn-ghost">Taxi Only: Off</button>' +
               '<button type="button" id="rwbResetFilters" class="rwb-btn rwb-btn-ghost">Reset Filters</button>' +
@@ -1346,12 +2408,30 @@
             '<div class="rwb-status" id="rwbStatus" hidden></div>' +
           '</section>' +
           '<section id="rwbTeamList" class="rwb-team-list" aria-live="polite"><div class="rwb-loading">Loading roster data...</div></section>' +
+          '<div id="rwbPlayerModal" class="rwb-modal" hidden aria-hidden="true">' +
+            '<div class="rwb-modal-backdrop" data-action="close-player-modal"></div>' +
+            '<div class="rwb-modal-shell" role="dialog" aria-modal="true" aria-labelledby="rwbPlayerModalTitle">' +
+              '<div class="rwb-modal-head">' +
+                '<div id="rwbPlayerModalTitle" class="rwb-modal-title">Player Actions</div>' +
+                '<button type="button" class="rwb-modal-close" data-action="close-player-modal" aria-label="Close">×</button>' +
+              '</div>' +
+              '<div id="rwbPlayerModalBody" class="rwb-modal-body"></div>' +
+            '</div>' +
+          '</div>' +
         '</div>' +
       '</div>';
 
     els.app = document.getElementById("rwbApp");
+    els.toolbarMain = document.getElementById("rwbToolbarMain");
     els.jumpTeam = document.getElementById("rwbJumpTeam");
-    els.pointsMode = document.getElementById("rwbPointsMode");
+    els.pointsControls = document.getElementById("rwbPointsControls");
+    els.pointsMode = null;
+    els.pointsHistoryMode = null;
+    els.pointsHistoryYearStart = null;
+    els.pointsHistoryYearEnd = null;
+    els.pointsHistorySeason = null;
+    els.pointsHistoryWeekStart = null;
+    els.pointsHistoryWeekEnd = null;
     els.search = document.getElementById("rwbSearch");
     els.advanced = document.getElementById("rwbAdvancedFilters");
     els.filterPosition = document.getElementById("rwbFilterPosition");
@@ -1363,7 +2443,11 @@
     els.teamList = document.getElementById("rwbTeamList");
     els.viewRoster = document.getElementById("rwbViewRoster");
     els.viewContract = document.getElementById("rwbViewContract");
+    els.viewPoints = document.getElementById("rwbViewPoints");
     els.viewFranchise = document.getElementById("rwbViewFranchise");
+    els.playerModal = document.getElementById("rwbPlayerModal");
+    els.playerModalTitle = document.getElementById("rwbPlayerModalTitle");
+    els.playerModalBody = document.getElementById("rwbPlayerModalBody");
   }
 
   function renderSelectOptions(select, options, selected) {
@@ -1409,6 +2493,81 @@
     };
   }
 
+  function renderPointsControls() {
+    if (!els.pointsControls) return;
+
+    els.pointsMode = null;
+    els.pointsHistoryMode = null;
+    els.pointsHistoryYearStart = null;
+    els.pointsHistoryYearEnd = null;
+    els.pointsHistorySeason = null;
+    els.pointsHistoryWeekStart = null;
+    els.pointsHistoryWeekEnd = null;
+
+    if (state.view === "points") {
+      ensurePointsHistorySelection();
+      var seasons = historySeasonsDescending();
+      if (!seasons.length) seasons = buildPointYears();
+      var weeklyMode = state.pointsHistoryMode === "weekly";
+      var seasonValue = safeStr(state.pointsHistorySeason || seasons[0]);
+      var maxWeek = historySeasonWeekMax(seasonValue);
+      var weekOptions = [];
+      for (var week = 1; week <= maxWeek; week += 1) {
+        weekOptions.push({ value: String(week), label: "Week " + week });
+      }
+
+      els.pointsControls.className = "rwb-toolbar-points " + (weeklyMode ? "is-history-weekly" : "is-history-yearly");
+      els.pointsControls.innerHTML =
+        '<label class="rwb-field"><span>Scoring Mode</span><select id="rwbPointsHistoryMode" class="rwb-select"></select></label>' +
+        (weeklyMode
+          ? '<label class="rwb-field"><span>Season</span><select id="rwbPointsHistorySeason" class="rwb-select"></select></label>' +
+            '<label class="rwb-field"><span>Week From</span><select id="rwbPointsHistoryWeekStart" class="rwb-select"></select></label>' +
+            '<label class="rwb-field"><span>Week To</span><select id="rwbPointsHistoryWeekEnd" class="rwb-select"></select></label>'
+          : '<label class="rwb-field"><span>Year From</span><select id="rwbPointsHistoryYearStart" class="rwb-select"></select></label>' +
+            '<label class="rwb-field"><span>Year To</span><select id="rwbPointsHistoryYearEnd" class="rwb-select"></select></label>');
+
+      els.pointsHistoryMode = document.getElementById("rwbPointsHistoryMode");
+      els.pointsHistoryYearStart = document.getElementById("rwbPointsHistoryYearStart");
+      els.pointsHistoryYearEnd = document.getElementById("rwbPointsHistoryYearEnd");
+      els.pointsHistorySeason = document.getElementById("rwbPointsHistorySeason");
+      els.pointsHistoryWeekStart = document.getElementById("rwbPointsHistoryWeekStart");
+      els.pointsHistoryWeekEnd = document.getElementById("rwbPointsHistoryWeekEnd");
+
+      renderSelectOptions(els.pointsHistoryMode, [
+        { value: "yearly", label: "Yearly" },
+        { value: "weekly", label: "Weekly" }
+      ], state.pointsHistoryMode || "yearly");
+
+      if (weeklyMode) {
+        renderSelectOptions(els.pointsHistorySeason, seasons.map(function (season) {
+          return { value: season, label: season };
+        }), seasonValue);
+        renderSelectOptions(els.pointsHistoryWeekStart, weekOptions, safeStr(state.pointsHistoryWeekStart || "1"));
+        renderSelectOptions(els.pointsHistoryWeekEnd, weekOptions, safeStr(state.pointsHistoryWeekEnd || String(maxWeek)));
+      } else {
+        renderSelectOptions(els.pointsHistoryYearStart, seasons.map(function (season) {
+          return { value: season, label: season };
+        }), safeStr(state.pointsHistoryYearStart || seasons[seasons.length - 1]));
+        renderSelectOptions(els.pointsHistoryYearEnd, seasons.map(function (season) {
+          return { value: season, label: season };
+        }), safeStr(state.pointsHistoryYearEnd || seasons[0]));
+      }
+      return;
+    }
+
+    els.pointsControls.className = "rwb-toolbar-points";
+    els.pointsControls.innerHTML =
+      '<label class="rwb-field"><span>Points</span><select id="rwbPointsMode" class="rwb-select"></select></label>';
+    els.pointsMode = document.getElementById("rwbPointsMode");
+
+    var pointOptions = [];
+    for (var p = 0; p < state.pointYears.length; p += 1) {
+      pointOptions.push({ value: state.pointYears[p], label: state.pointYears[p] });
+    }
+    pointOptions.push({ value: "cumulative", label: "Cumulative" });
+    renderSelectOptions(els.pointsMode, pointOptions, state.pointsMode);
+  }
+
   function renderToolbar() {
     if (!els.jumpTeam) return;
 
@@ -1418,13 +2577,7 @@
       jumpOptions.push({ value: team.id, label: team.name });
     }
     renderSelectOptions(els.jumpTeam, jumpOptions, "");
-
-    var pointOptions = [];
-    for (var p = 0; p < state.pointYears.length; p += 1) {
-      pointOptions.push({ value: state.pointYears[p], label: state.pointYears[p] });
-    }
-    pointOptions.push({ value: "cumulative", label: "Cumulative" });
-    renderSelectOptions(els.pointsMode, pointOptions, state.pointsMode);
+    renderPointsControls();
 
     els.search.value = state.search;
 
@@ -1442,15 +2595,22 @@
       els.taxiOnly.classList.toggle("is-active", !!state.taxiOnly);
     }
 
-    if (els.viewRoster && els.viewContract && els.viewFranchise) {
+    if (els.toolbarMain) {
+      els.toolbarMain.classList.toggle("is-points-view", state.view === "points");
+    }
+
+    if (els.viewRoster && els.viewContract && els.viewPoints && els.viewFranchise) {
       var rosterActive = state.view === "roster";
       var contractActive = state.view === "contract";
+      var pointsActive = state.view === "points";
       var franchiseActive = state.view === "franchise";
       els.viewRoster.classList.toggle("is-active", rosterActive);
       els.viewContract.classList.toggle("is-active", contractActive);
+      els.viewPoints.classList.toggle("is-active", pointsActive);
       els.viewFranchise.classList.toggle("is-active", franchiseActive);
       els.viewRoster.setAttribute("aria-selected", rosterActive ? "true" : "false");
       els.viewContract.setAttribute("aria-selected", contractActive ? "true" : "false");
+      els.viewPoints.setAttribute("aria-selected", pointsActive ? "true" : "false");
       els.viewFranchise.setAttribute("aria-selected", franchiseActive ? "true" : "false");
     }
 
@@ -1481,7 +2641,22 @@
     }
     if (state.taxiOnly) parts.push("Taxi only");
     if (state.search) parts.push('Search "' + state.search + '"');
-    parts.push("Points " + pointModeLabel(state.pointsMode));
+    if (state.view === "points") {
+      parts.push(currentPointsRangeLabel());
+      var meta = pointsHistoryMeta();
+      if (safeStr(meta.history_end_season) && safeStr(meta.history_end_season) !== safeStr(state.ctx && state.ctx.year)) {
+        parts.push("Stored history through " + safeStr(meta.history_end_season));
+      }
+      if (state.pointsHistoryLoading) parts.push("Loading history");
+      if (state.pointsHistoryError) parts.push("History unavailable");
+      if (selectionNeedsLiveSeasonOverlay()) {
+        if (state.liveSeasonPointsLoading) parts.push("Current season syncing live");
+        else if (state.liveSeasonPointsError) parts.push("Current season live sync unavailable");
+        else if (state.liveSeasonPoints && safeStr(state.liveSeasonPoints.season) === liveSeasonKey()) parts.push("Current season live");
+      }
+    } else {
+      parts.push("Points " + pointModeLabel(state.pointsMode));
+    }
 
     els.note.textContent = parts.join(" | ");
   }
@@ -1588,6 +2763,123 @@
     return summary;
   }
 
+  function findTeamById(teamId) {
+    var id = pad4(teamId);
+    if (!id) return null;
+    for (var i = 0; i < state.teams.length; i += 1) {
+      if (pad4(state.teams[i] && state.teams[i].id) === id) return state.teams[i];
+    }
+    return null;
+  }
+
+  function findPlayerRecord(franchiseId, playerId) {
+    var team = findTeamById(franchiseId);
+    if (!team) return null;
+    var players = team.players || [];
+    var pid = safeStr(playerId).replace(/\D/g, "");
+    for (var i = 0; i < players.length; i += 1) {
+      if (safeStr(players[i] && players[i].id).replace(/\D/g, "") === pid) {
+        return { team: team, player: players[i] };
+      }
+    }
+    return null;
+  }
+
+  function isOwnRosterPlayer(player) {
+    var viewer = pad4(state.viewerFranchiseId || (state.ctx && state.ctx.franchiseId));
+    return !!(viewer && player && pad4(player.fid) === viewer);
+  }
+
+  function buildTradeModuleUrl(player) {
+    var viewerId = pad4(state.viewerFranchiseId || (state.ctx && state.ctx.franchiseId));
+    var playerTeamId = pad4(player && player.fid);
+    var url = new URL(window.location.origin + "/" + encodeURIComponent(state.ctx.year) + "/home/" + encodeURIComponent(state.ctx.leagueId));
+    url.searchParams.set("MODULE", "MESSAGE6=N");
+    url.searchParams.set("twb_player_id", safeStr(player && player.id));
+    url.searchParams.set("twb_team_id", playerTeamId);
+    if (viewerId) {
+      url.searchParams.set("twb_left_team", viewerId);
+      if (playerTeamId && playerTeamId !== viewerId) {
+        url.searchParams.set("twb_right_team", playerTeamId);
+        url.searchParams.set("twb_side", "partner");
+      } else {
+        url.searchParams.set("twb_side", "left");
+      }
+    }
+    return url.toString();
+  }
+
+  function openPlayerActionModal(franchiseId, playerId) {
+    state.actionModal.open = true;
+    state.actionModal.franchiseId = pad4(franchiseId);
+    state.actionModal.playerId = safeStr(playerId).replace(/\D/g, "");
+    renderPlayerActionModal();
+  }
+
+  function closePlayerActionModal() {
+    state.actionModal.open = false;
+    state.actionModal.franchiseId = "";
+    state.actionModal.playerId = "";
+    renderPlayerActionModal();
+  }
+
+  function renderPlayerActionModal() {
+    if (!els.playerModal) return;
+    var record = findPlayerRecord(state.actionModal.franchiseId, state.actionModal.playerId);
+    var isOpen = !!(state.actionModal.open && record && record.player);
+    var content = "";
+
+    if (isOpen) {
+      var player = record.player;
+      var team = record.team;
+      var ownRoster = isOwnRosterPlayer(player);
+      var penalty = dropPenaltyEstimate(player);
+      var actions = [];
+      actions.push(
+        '<button type="button" class="rwb-modal-action" data-action="trade-player" data-player-id="' + escapeHtml(player.id) + '" data-franchise-id="' + escapeHtml(player.fid) + '">Trade</button>'
+      );
+      actions.push(
+        '<button type="button" class="rwb-modal-action' + (ownRoster ? "" : " is-disabled") + '" data-action="drop-player" data-player-id="' + escapeHtml(player.id) + '" data-franchise-id="' + escapeHtml(player.fid) + '"' + (ownRoster ? "" : ' disabled') + '>Drop</button>'
+      );
+      actions.push(
+        '<button type="button" class="rwb-modal-action' + (ownRoster && player.isIr ? "" : " is-disabled") + '" data-action="activate-ir-player" data-player-id="' + escapeHtml(player.id) + '" data-franchise-id="' + escapeHtml(player.fid) + '"' + (ownRoster && player.isIr ? "" : ' disabled') + '>Activate From IR</button>'
+      );
+      actions.push(
+        '<button type="button" class="rwb-modal-action' + (ownRoster && player.isTaxi ? "" : " is-disabled") + '" data-action="promote-taxi-player" data-player-id="' + escapeHtml(player.id) + '" data-franchise-id="' + escapeHtml(player.fid) + '"' + (ownRoster && player.isTaxi ? "" : ' disabled') + '>Promote From Taxi</button>'
+      );
+
+      content =
+        '<div class="rwb-modal-player">' +
+          '<div class="rwb-modal-player-main">' +
+            '<span class="rwb-pos-pill">' + escapeHtml(player.positionGroup) + '</span>' +
+            '<h3>' + escapeHtml(player.name) + '</h3>' +
+            (player.isTaxi ? '<span class="rwb-tag is-taxi">Taxi</span>' : '') +
+            (player.isIr ? '<span class="rwb-tag is-ir">IR</span>' : '') +
+          '</div>' +
+          '<div class="rwb-modal-player-sub">' + escapeHtml(team.name) + ' | ' + escapeHtml(player.position) + ' | ' + escapeHtml(player.nflTeam || "-") + '</div>' +
+        '</div>' +
+        '<div class="rwb-modal-grid">' +
+          '<div class="rwb-modal-metric"><span>Salary</span><strong>' + escapeHtml(money(player.salary)) + '</strong></div>' +
+          '<div class="rwb-modal-metric"><span>AAV</span><strong>' + escapeHtml(player.aav > 0 ? money(player.aav) : "—") + '</strong></div>' +
+          '<div class="rwb-modal-metric"><span>Years</span><strong>' + escapeHtml(String(player.years)) + '</strong></div>' +
+          '<div class="rwb-modal-metric"><span>Expires</span><strong>' + escapeHtml(projectedExpiryLabel(player)) + '</strong></div>' +
+        '</div>' +
+        '<div class="rwb-modal-actions-wrap">' + actions.join("") + '</div>' +
+        '<div class="rwb-modal-note"><strong>Estimated Cap Penalty:</strong> ' + escapeHtml(money(penalty.amount)) + ' | ' + escapeHtml(penalty.note) + '</div>' +
+        (!ownRoster ? '<div class="rwb-modal-note">Roster-management actions are enabled only for your franchise. Trade is available from any team.</div>' : '');
+    }
+
+    els.playerModal.hidden = !isOpen;
+    els.playerModal.setAttribute("aria-hidden", isOpen ? "false" : "true");
+    if (els.playerModalBody) els.playerModalBody.innerHTML = content;
+    if (els.playerModalTitle) {
+      els.playerModalTitle.textContent = isOpen && record && record.player ? record.player.name : "Player Actions";
+    }
+    if (document.body) {
+      document.body.classList.toggle("rwb-modal-open", isOpen);
+    }
+  }
+
   function rosterGroupHtml(team, group) {
     var rows = [];
     for (var j = 0; j < group.players.length; j += 1) {
@@ -1603,12 +2895,12 @@
       var actionDisabled = state.busyActionKey ? ' disabled' : '';
 
       rows.push(
-        '<tr class="rwb-player-row" data-player-id="' + escapeHtml(p.id) + '">' +
+        '<tr class="rwb-player-row' + (p.isTaxi ? ' rwb-player-row-taxi' : '') + (p.isIr ? ' rwb-player-row-ir' : '') + '" data-player-id="' + escapeHtml(p.id) + '">' +
           '<td>' +
             '<div class="rwb-player-name-wrap">' +
               '<div class="rwb-player-line">' +
                 '<span class="rwb-pos-pill">' + escapeHtml(safeStr(p.positionGroup)) + '</span>' +
-                '<span class="rwb-player-name">' + escapeHtml(p.name) + '</span>' +
+                '<button type="button" class="rwb-player-open" data-action="open-player-modal" data-player-id="' + escapeHtml(p.id) + '" data-franchise-id="' + escapeHtml(p.fid) + '"><span class="rwb-player-name">' + escapeHtml(p.name) + '</span></button>' +
                 tags.join("") +
                 '<button type="button" class="rwb-row-more" data-action="row-more" aria-expanded="false">More</button>' +
               '</div>' +
@@ -1627,11 +2919,7 @@
           '<td><span class="rwb-type-pill ' + typeTone(p.type) + '">' + escapeHtml(p.type) + '</span></td>' +
           '<td class="rwb-col-secondary">' + escapeHtml(p.special) + '</td>' +
           '<td>' +
-            (p.isTaxi
-              ? '<button type="button" class="rwb-row-action" data-action="roster-move" data-move="promote_taxi" data-franchise-id="' + escapeHtml(p.fid) + '" data-player-id="' + escapeHtml(p.id) + '" data-player-name="' + escapeHtml(p.name) + '"' + actionDisabled + '>' + (taxiBusy ? 'Working...' : 'Promote Taxi') + '</button>'
-              : p.isIr
-                ? '<button type="button" class="rwb-row-action" data-action="roster-move" data-move="activate_ir" data-franchise-id="' + escapeHtml(p.fid) + '" data-player-id="' + escapeHtml(p.id) + '" data-player-name="' + escapeHtml(p.name) + '"' + actionDisabled + '>' + (irBusy ? 'Working...' : 'Activate IR') + '</button>'
-                : '<span class="rwb-row-action-placeholder">-</span>') +
+            '<button type="button" class="rwb-row-action" data-action="open-player-modal" data-franchise-id="' + escapeHtml(p.fid) + '" data-player-id="' + escapeHtml(p.id) + '"' + actionDisabled + '>' + ((taxiBusy || irBusy) ? 'Working...' : 'Actions') + '</button>' +
           '</td>' +
         '</tr>'
       );
@@ -1646,14 +2934,14 @@
           '<table class="rwb-table" aria-label="' + escapeHtml(team.name + " " + group.label + " roster") + '">' +
             '<thead>' +
               '<tr>' +
-                '<th>Player</th>' +
-                '<th>Pts ' + escapeHtml(pointModeLabel(state.pointsMode)) + '</th>' +
-                '<th>PPG</th>' +
-                '<th class="rwb-col-secondary">Bye</th>' +
-                '<th>Salary</th>' +
-                '<th>Years</th>' +
-                '<th>Type</th>' +
-                '<th class="rwb-col-secondary">Special</th>' +
+                sortableHeader("roster", "name", "Player") +
+                sortableHeader("roster", "points", "Pts " + pointModeLabel(state.pointsMode)) +
+                sortableHeader("roster", "ppg", "PPG") +
+                sortableHeader("roster", "bye", "Bye", "rwb-col-secondary") +
+                sortableHeader("roster", "salary", "Salary") +
+                sortableHeader("roster", "years", "Years") +
+                sortableHeader("roster", "type", "Type") +
+                sortableHeader("roster", "special", "Special", "rwb-col-secondary") +
                 '<th>Action</th>' +
               '</tr>' +
             '</thead>' +
@@ -1671,12 +2959,7 @@
     var planSummary = summarizeTeamPlan(team, filteredPlayers);
     var salaryAdj = safeInt(team.summary.salaryAdjustmentTotal, 0);
 
-    var sorted = filteredPlayers.slice().sort(function (a, b) {
-      var av = positionSortValue(a.positionGroup);
-      var bv = positionSortValue(b.positionGroup);
-      if (av !== bv) return av - bv;
-      return safeStr(a.name).localeCompare(safeStr(b.name));
-    });
+    var sorted = sortPlayersForPlan(filteredPlayers);
 
     for (var i = 0; i < sorted.length; i += 1) {
       var p = sorted[i];
@@ -1684,11 +2967,11 @@
       var aav = safeInt(p.aav, 0);
 
       rows.push(
-        '<tr class="rwb-player-row' + (p.isTaxi ? ' rwb-player-row-taxi' : '') + (extensionPreviewYears(p) ? ' is-projected' : '') + '">' +
+        '<tr class="rwb-player-row' + (p.isTaxi ? ' rwb-player-row-taxi' : '') + (p.isIr ? ' rwb-player-row-ir' : '') + (extensionPreviewYears(p) ? ' is-projected' : '') + '">' +
           '<td>' +
             '<div class="rwb-player-line">' +
               '<span class="rwb-pos-pill">' + escapeHtml(safeStr(p.positionGroup)) + '</span>' +
-              '<span class="rwb-player-name">' + escapeHtml(p.name) + '</span>' +
+              '<button type="button" class="rwb-player-open" data-action="open-player-modal" data-player-id="' + escapeHtml(p.id) + '" data-franchise-id="' + escapeHtml(p.fid) + '"><span class="rwb-player-name">' + escapeHtml(p.name) + '</span></button>' +
               (p.isTaxi ? '<span class="rwb-tag is-taxi">Taxi</span>' : '') +
               (p.isIr ? '<span class="rwb-tag is-ir">IR</span>' : '') +
             '</div>' +
@@ -1718,13 +3001,13 @@
           '<table class="rwb-table rwb-contract-table" aria-label="' + escapeHtml(team.name + " plan view") + '">' +
           '<thead>' +
             '<tr>' +
-              '<th>Player</th>' +
-              '<th>AAV</th>' +
-              '<th>Expires</th>' +
-              '<th>' + escapeHtml(years[0]) + '</th>' +
-              '<th>' + escapeHtml(years[1]) + '</th>' +
-              '<th>' + escapeHtml(years[2]) + '</th>' +
-              '<th>Type</th>' +
+              sortableHeader("contract", "player", "Player") +
+              sortableHeader("contract", "aav", "AAV") +
+              sortableHeader("contract", "expires", "Expires") +
+              sortableHeader("contract", "year0", years[0]) +
+              sortableHeader("contract", "year1", years[1]) +
+              sortableHeader("contract", "year2", years[2]) +
+              sortableHeader("contract", "type", "Type") +
               '<th>Preview</th>' +
             '</tr>' +
           '</thead>' +
@@ -1765,10 +3048,20 @@
     );
   }
 
-  function franchiseSummaryHtml(teams) {
+  function filteredPlayersForTeam(team) {
+    var players = (team && team.players) || [];
+    var filtered = [];
+    for (var i = 0; i < players.length; i += 1) {
+      if (matchesFilters(players[i])) filtered.push(players[i]);
+    }
+    return filtered;
+  }
+
+  function franchiseSummaryHtml(teamViews) {
     var base = currentYearInt();
     var years = [String(base), String(base + 1), String(base + 2)];
     var rows = [];
+    var rowData = [];
     var leagueNonTaxiTotals = [0, 0, 0];
     var leagueTaxiTotals = [0, 0, 0];
     var leaguePlayers = 0;
@@ -1777,10 +3070,11 @@
     var leagueCapSpace = 0;
     var hasCapSpace = safeInt(state.salaryCapAmount, 0) > 0;
 
-    for (var i = 0; i < teams.length; i += 1) {
-      var team = teams[i] || {};
-      var logo = safeStr(team.logo);
-      var planSummary = summarizeTeamPlan(team, team.players || []);
+    for (var i = 0; i < teamViews.length; i += 1) {
+      var teamView = teamViews[i] || {};
+      var team = teamView.team || {};
+      var filteredPlayers = teamView.filteredPlayers || [];
+      var planSummary = summarizeTeamPlan(team, filteredPlayers);
       leaguePlayers += planSummary.rosterPlayers;
       leagueTaxiPlayers += planSummary.taxiPlayersShown;
       leagueNonTaxiTotals[0] += planSummary.nonTaxiTotals[0];
@@ -1792,26 +3086,74 @@
       leagueAdjustments += planSummary.salaryAdjustmentTotal;
       if (planSummary.capSpaceAvailable != null) leagueCapSpace += planSummary.capSpaceAvailable;
 
+      rowData.push({
+        team: team,
+        planSummary: planSummary
+      });
+    }
+
+    var franchiseSort = sortStateForView("franchise");
+    var franchiseDir = sortDirMultiplier("franchise");
+    rowData.sort(function (a, b) {
+      var left = a.planSummary || {};
+      var right = b.planSummary || {};
+      var delta = 0;
+      switch (franchiseSort.key) {
+        case "players":
+          delta = safeInt(left.rosterPlayers, 0) - safeInt(right.rosterPlayers, 0);
+          break;
+        case "year0":
+          delta = safeInt(left.nonTaxiTotals[0], 0) - safeInt(right.nonTaxiTotals[0], 0);
+          break;
+        case "year1":
+          delta = safeInt(left.nonTaxiTotals[1], 0) - safeInt(right.nonTaxiTotals[1], 0);
+          break;
+        case "year2":
+          delta = safeInt(left.nonTaxiTotals[2], 0) - safeInt(right.nonTaxiTotals[2], 0);
+          break;
+        case "adjustments":
+          delta = safeInt(left.salaryAdjustmentTotal, 0) - safeInt(right.salaryAdjustmentTotal, 0);
+          break;
+        case "capspace":
+          delta = safeInt(left.capSpaceAvailable, 0) - safeInt(right.capSpaceAvailable, 0);
+          break;
+        case "taxi":
+          delta = safeInt(left.taxiTotals[0], 0) - safeInt(right.taxiTotals[0], 0);
+          break;
+        case "franchise":
+        default:
+          delta = compareText(a.team && a.team.name, b.team && b.team.name);
+          break;
+      }
+      if (delta === 0) delta = compareText(a.team && a.team.name, b.team && b.team.name);
+      return delta * franchiseDir;
+    });
+
+    for (var j = 0; j < rowData.length; j += 1) {
+      var row = rowData[j];
+      var teamRow = row.team || {};
+      var planSummaryRow = row.planSummary || {};
+      var logo = safeStr(teamRow.logo);
       rows.push(
-        '<tr id="rwb-team-' + escapeHtml(team.id) + '">' +
+        '<tr id="rwb-team-' + escapeHtml(teamRow.id) + '">' +
           '<td>' +
             '<div class="rwb-franchise-cell">' +
               (logo
-                ? '<img class="rwb-franchise-icon" src="' + escapeHtml(logo) + '" alt="' + escapeHtml(team.name) + ' logo">'
-                : '<span class="rwb-franchise-icon rwb-franchise-icon-fallback">' + escapeHtml(team.fid) + '</span>') +
+                ? '<img class="rwb-franchise-icon" src="' + escapeHtml(logo) + '" alt="' + escapeHtml(teamRow.name) + ' logo">'
+                : '<span class="rwb-franchise-icon rwb-franchise-icon-fallback">' + escapeHtml(teamRow.fid) + '</span>') +
               '<div class="rwb-franchise-copy">' +
-                '<div class="rwb-franchise-name">' + escapeHtml(team.name) + '</div>' +
-                '<div class="rwb-franchise-meta">' + escapeHtml(String(planSummary.rosterPlayers)) + ' roster | ' + escapeHtml(String(planSummary.taxiPlayersShown)) + ' taxi</div>' +
+                '<div class="rwb-franchise-name">' + escapeHtml(teamRow.name) + '</div>' +
+                '<div class="rwb-franchise-meta">' + escapeHtml(String(planSummaryRow.rosterPlayers)) + ' roster | ' + escapeHtml(String(planSummaryRow.taxiPlayersShown)) + ' taxi</div>' +
               '</div>' +
             '</div>' +
           '</td>' +
-          '<td class="rwb-cell-num">' + escapeHtml(String(planSummary.rosterPlayers)) + '</td>' +
-          '<td class="rwb-cell-num">' + escapeHtml(money(planSummary.nonTaxiTotals[0])) + '</td>' +
-          '<td class="rwb-cell-num">' + escapeHtml(money(planSummary.nonTaxiTotals[1])) + '</td>' +
-          '<td class="rwb-cell-num">' + escapeHtml(money(planSummary.nonTaxiTotals[2])) + '</td>' +
-          '<td class="rwb-cell-num">' + escapeHtml(money(planSummary.salaryAdjustmentTotal)) + '</td>' +
-          '<td class="rwb-cell-num' + (planSummary.capSpaceAvailable != null && planSummary.capSpaceAvailable < 0 ? ' rwb-cap-space-negative' : '') + '">' + escapeHtml(planSummary.capSpaceAvailable == null ? "—" : money(planSummary.capSpaceAvailable)) + '</td>' +
-          '<td class="rwb-cell-num">' + escapeHtml(money(planSummary.taxiTotals[0])) + '</td>' +
+          '<td class="rwb-cell-num">' + escapeHtml(String(planSummaryRow.rosterPlayers)) + '</td>' +
+          '<td class="rwb-cell-num">' + escapeHtml(money(planSummaryRow.nonTaxiTotals[0])) + '</td>' +
+          '<td class="rwb-cell-num">' + escapeHtml(money(planSummaryRow.nonTaxiTotals[1])) + '</td>' +
+          '<td class="rwb-cell-num">' + escapeHtml(money(planSummaryRow.nonTaxiTotals[2])) + '</td>' +
+          '<td class="rwb-cell-num">' + escapeHtml(money(planSummaryRow.salaryAdjustmentTotal)) + '</td>' +
+          '<td class="rwb-cell-num' + (planSummaryRow.capSpaceAvailable != null && planSummaryRow.capSpaceAvailable < 0 ? ' rwb-cap-space-negative' : '') + '">' + escapeHtml(planSummaryRow.capSpaceAvailable == null ? "—" : money(planSummaryRow.capSpaceAvailable)) + '</td>' +
+          '<td class="rwb-cell-num">' + escapeHtml(money(planSummaryRow.taxiTotals[0])) + '</td>' +
         '</tr>'
       );
     }
@@ -1822,14 +3164,14 @@
           '<table class="rwb-table rwb-franchise-table" aria-label="Franchise view summary">' +
             '<thead>' +
               '<tr>' +
-                '<th>Franchise</th>' +
-                '<th>Players</th>' +
-                '<th>' + escapeHtml(years[0]) + '</th>' +
-                '<th>' + escapeHtml(years[1]) + '</th>' +
-                '<th>' + escapeHtml(years[2]) + '</th>' +
-                '<th>Adj.</th>' +
-                '<th>Cap Space</th>' +
-                '<th>Taxi</th>' +
+                sortableHeader("franchise", "franchise", "Franchise") +
+                sortableHeader("franchise", "players", "Players") +
+                sortableHeader("franchise", "year0", years[0]) +
+                sortableHeader("franchise", "year1", years[1]) +
+                sortableHeader("franchise", "year2", years[2]) +
+                sortableHeader("franchise", "adjustments", "Adj.") +
+                sortableHeader("franchise", "capspace", "Cap Space") +
+                sortableHeader("franchise", "taxi", "Taxi") +
               '</tr>' +
             '</thead>' +
             '<tbody>' + rows.join("") + '</tbody>' +
@@ -1859,12 +3201,216 @@
     );
   }
 
-  function teamCardHtml(team) {
-    var players = team.players || [];
-    var filtered = [];
+  function summarizeTeamPointsSelection(players) {
+    var summary = {
+      shown: (players || []).length,
+      withData: 0,
+      totalPoints: 0,
+      totalStarts: 0
+    };
+
     for (var i = 0; i < players.length; i += 1) {
-      if (matchesFilters(players[i])) filtered.push(players[i]);
+      var playerSummary = summarizePointsSelection(players[i]);
+      summary.totalPoints += safeNum(playerSummary.points, 0);
+      summary.totalStarts += safeInt(playerSummary.starts, 0);
+      if (playerSummary.hasData) summary.withData += 1;
     }
+
+    return summary;
+  }
+
+  function pointsHistoryToggleKey(team, player) {
+    return safeStr(team && team.id) + ":" + safeStr(player && player.id);
+  }
+
+  function pointsYearlyHistoryTableHtml(player) {
+    var years = selectedHistoryYears();
+    var header = ['<th>Metric</th>'];
+    var pointsRow = ['<tr><th>Points</th>'];
+    var rankRow = ['<tr><th>Pos Rank</th>'];
+    var ppgRow = ['<tr><th>PPG</th>'];
+    var ppgRankRow = ['<tr><th>PPG Rank</th>'];
+
+    for (var i = 0; i < years.length; i += 1) {
+      var year = years[i];
+      var row = playerYearlyHistoryRow(player, year);
+      header.push('<th>' + escapeHtml(year) + '</th>');
+      if (!row) {
+        pointsRow.push('<td class="rwb-points-history-missing">—</td>');
+        rankRow.push('<td class="rwb-points-history-missing">—</td>');
+        ppgRow.push('<td class="rwb-points-history-missing">—</td>');
+        ppgRankRow.push('<td class="rwb-points-history-missing">—</td>');
+        continue;
+      }
+      pointsRow.push('<td class="rwb-cell-num">' + escapeHtml(formatPoints(row[0])) + '</td>');
+      rankRow.push('<td class="rwb-cell-num">' + escapeHtml(formatRank(row[3])) + '</td>');
+      ppgRow.push('<td class="rwb-cell-num">' + escapeHtml(formatPpg(row[2], row[1])) + '</td>');
+      ppgRankRow.push('<td class="rwb-cell-num">' + escapeHtml(formatRank(row[4])) + '</td>');
+    }
+
+    pointsRow.push('</tr>');
+    rankRow.push('</tr>');
+    ppgRow.push('</tr>');
+    ppgRankRow.push('</tr>');
+
+    return (
+      '<div class="rwb-points-history-wrap">' +
+        '<table class="rwb-table rwb-points-history-table" aria-label="' + escapeHtml(player.name + ' yearly points history') + '">' +
+          '<thead><tr>' + header.join("") + '</tr></thead>' +
+          '<tbody>' + pointsRow.join("") + rankRow.join("") + ppgRow.join("") + ppgRankRow.join("") + '</tbody>' +
+        '</table>' +
+      '</div>'
+    );
+  }
+
+  function pointsWeeklyHistoryTableHtml(player) {
+    var season = safeStr(state.pointsHistorySeason);
+    var weeks = selectedHistoryWeeks();
+    var header = ['<th>Metric</th>'];
+    var pointsRow = ['<tr><th>Points</th>'];
+    var rankRow = ['<tr><th>Pos Rank</th>'];
+    var startedRow = ['<tr><th>Started</th>'];
+
+    for (var i = 0; i < weeks.length; i += 1) {
+      var week = weeks[i];
+      var row = playerWeeklyHistoryRow(player, season, week);
+      header.push('<th>' + escapeHtml(String(week)) + '</th>');
+      if (!row) {
+        pointsRow.push('<td class="rwb-points-history-missing">—</td>');
+        rankRow.push('<td class="rwb-points-history-missing">—</td>');
+        startedRow.push('<td class="rwb-points-history-missing">—</td>');
+        continue;
+      }
+      pointsRow.push('<td class="rwb-cell-num">' + escapeHtml(formatPoints(row[0])) + '</td>');
+      rankRow.push('<td class="rwb-cell-num">' + escapeHtml(formatRank(row[1])) + '</td>');
+      startedRow.push('<td class="' + (safeInt(row[2], 0) === 1 ? 'rwb-points-history-started' : 'rwb-points-history-bench') + '">' + escapeHtml(formatStarted(row[2])) + '</td>');
+    }
+
+    pointsRow.push('</tr>');
+    rankRow.push('</tr>');
+    startedRow.push('</tr>');
+
+    return (
+      '<div class="rwb-points-history-wrap">' +
+        '<table class="rwb-table rwb-points-history-table" aria-label="' + escapeHtml(player.name + ' weekly points history for ' + season) + '">' +
+          '<thead><tr>' + header.join("") + '</tr></thead>' +
+          '<tbody>' + pointsRow.join("") + rankRow.join("") + startedRow.join("") + '</tbody>' +
+        '</table>' +
+      '</div>'
+    );
+  }
+
+  function pointsHistoryDetailHtml(team, player, summary) {
+    var rangeLabel = currentPointsRangeLabel();
+    var subtitle = state.pointsHistoryMode === "weekly"
+      ? (safeInt(summary.starts, 0) + " starts in selected range")
+      : (safeInt(summary.games, 0) > 0 ? (safeInt(summary.games, 0) + " games in selected range") : "No games in selected range");
+
+    return (
+      '<div class="rwb-points-detail">' +
+        '<div class="rwb-points-detail-head">' +
+          '<div>' +
+            '<div class="rwb-points-detail-title">' + escapeHtml(player.name) + '</div>' +
+            '<div class="rwb-points-detail-sub">' + escapeHtml(team.name + " | " + rangeLabel + " | " + subtitle) + '</div>' +
+          '</div>' +
+        '</div>' +
+        (state.pointsHistoryMode === "weekly" ? pointsWeeklyHistoryTableHtml(player) : pointsYearlyHistoryTableHtml(player)) +
+      '</div>'
+    );
+  }
+
+  function pointsPlayerRowHtml(team, player) {
+    var summary = summarizePointsSelection(player);
+    var toggleKey = pointsHistoryToggleKey(team, player);
+    var expanded = !!state.pointsExpanded[toggleKey];
+    var tags = [];
+    if (player.isTaxi) tags.push('<span class="rwb-tag is-taxi">Taxi</span>');
+    if (player.isIr) tags.push('<span class="rwb-tag is-ir">IR</span>');
+    var detailRow = expanded
+      ? (
+          '<tr class="rwb-points-detail-row">' +
+            '<td colspan="7">' + pointsHistoryDetailHtml(team, player, summary) + '</td>' +
+          '</tr>'
+        )
+      : "";
+
+    return (
+      '<tr class="rwb-player-row' + (player.isTaxi ? ' rwb-player-row-taxi' : '') + (player.isIr ? ' rwb-player-row-ir' : '') + '">' +
+        '<td>' +
+          '<div class="rwb-player-name-wrap">' +
+            '<div class="rwb-player-line">' +
+              '<button type="button" class="rwb-player-open" data-action="open-player-modal" data-player-id="' + escapeHtml(player.id) + '" data-franchise-id="' + escapeHtml(player.fid) + '"><span class="rwb-player-name">' + escapeHtml(player.name) + '</span></button>' +
+              tags.join("") +
+            '</div>' +
+            '<div class="rwb-points-player-sub">' + escapeHtml(player.position + " | " + (player.nflTeam || "-")) + '</div>' +
+          '</div>' +
+        '</td>' +
+        '<td><span class="rwb-pos-pill">' + escapeHtml(safeStr(player.positionGroup)) + '</span></td>' +
+        '<td class="rwb-cell-num">' + escapeHtml(summary.hasData ? formatPoints(summary.points) : "—") + '</td>' +
+        '<td class="rwb-cell-num">' + escapeHtml(summary.hasData ? formatPpg(summary.ppg, state.pointsHistoryMode === "weekly" ? summary.appearances : summary.games) : "—") + '</td>' +
+        '<td class="rwb-cell-num">' + escapeHtml(formatRank(summary.bestRank)) + '</td>' +
+        '<td class="rwb-cell-num">' + escapeHtml(state.pointsHistoryMode === "weekly" ? String(safeInt(summary.starts, 0)) : formatRank(summary.bestPpgRank)) + '</td>' +
+        '<td><button type="button" class="rwb-row-action" data-action="points-toggle" data-franchise-id="' + escapeHtml(team.id) + '" data-player-id="' + escapeHtml(player.id) + '">' + (expanded ? "Hide" : "History") + '</button></td>' +
+      '</tr>' +
+      detailRow
+    );
+  }
+
+  function pointsTeamCardHtml(team, filteredPlayers) {
+    var logo = safeStr(team.logo);
+    var rows = [];
+    var summary = summarizeTeamPointsSelection(filteredPlayers);
+    var sortedPlayers = sortPlayersForPoints(filteredPlayers);
+
+    for (var i = 0; i < sortedPlayers.length; i += 1) {
+      rows.push(pointsPlayerRowHtml(team, sortedPlayers[i]));
+    }
+
+    return (
+      '<article class="rwb-team-card rwb-points-team-card" id="rwb-team-' + escapeHtml(team.id) + '" data-team-id="' + escapeHtml(team.id) + '">' +
+        '<header class="rwb-team-head rwb-points-team-head">' +
+          '<div class="rwb-points-team-brand">' +
+            (logo
+              ? '<img class="rwb-franchise-icon" src="' + escapeHtml(logo) + '" alt="' + escapeHtml(team.name) + ' logo">'
+              : '<span class="rwb-franchise-icon rwb-franchise-icon-fallback">' + escapeHtml(team.fid) + '</span>') +
+            '<div class="rwb-points-team-copy">' +
+              '<div class="rwb-points-team-name">' + escapeHtml(team.name) + '</div>' +
+              '<div class="rwb-points-team-range">' + escapeHtml(currentPointsRangeLabel()) + '</div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="rwb-chip-row">' +
+            '<span class="rwb-chip"><span class="rwb-chip-label">Shown</span><span class="rwb-chip-value">' + escapeHtml(String(summary.shown)) + '</span></span>' +
+            '<span class="rwb-chip"><span class="rwb-chip-label">With Data</span><span class="rwb-chip-value">' + escapeHtml(String(summary.withData)) + '</span></span>' +
+            '<span class="rwb-chip"><span class="rwb-chip-label">Range Pts</span><span class="rwb-chip-value">' + escapeHtml(formatPoints(summary.totalPoints)) + '</span></span>' +
+            (state.pointsHistoryMode === "weekly"
+              ? '<span class="rwb-chip"><span class="rwb-chip-label">Starts</span><span class="rwb-chip-value">' + escapeHtml(String(summary.totalStarts)) + '</span></span>'
+              : '') +
+          '</div>' +
+        '</header>' +
+        '<div class="rwb-team-body">' +
+          '<div class="rwb-table-wrap">' +
+            '<table class="rwb-table rwb-points-table" aria-label="' + escapeHtml(team.name + ' points view') + '">' +
+              '<thead>' +
+                '<tr>' +
+                  sortableHeader("points", "player", "Player") +
+                  sortableHeader("points", "position", "Pos") +
+                  sortableHeader("points", "points", "Pts") +
+                  sortableHeader("points", "ppg", state.pointsHistoryMode === "weekly" ? "Avg" : "PPG") +
+                  sortableHeader("points", "rank", "Best Rk") +
+                  sortableHeader("points", state.pointsHistoryMode === "weekly" ? "starts" : "ppg_rank", state.pointsHistoryMode === "weekly" ? "Starts" : "Best PPG Rk") +
+                  '<th>History</th>' +
+                '</tr>' +
+              '</thead>' +
+              '<tbody>' + rows.join("") + '</tbody>' +
+            '</table>' +
+          '</div>' +
+        '</div>' +
+      '</article>'
+    );
+  }
+
+  function teamCardHtml(team) {
+    var filtered = filteredPlayersForTeam(team);
 
     var bodyHtml;
     if (state.view === "contract") {
@@ -1975,6 +3521,22 @@
   function renderTeams() {
     if (!els.teamList) return;
 
+     if (state.view === "points") {
+      if (state.pointsHistoryLoading && !state.pointsHistory) {
+        els.teamList.innerHTML = '<div class="rwb-loading">Loading stored points history...</div>';
+        renderToolbarNote(0, 0);
+        renderPlayerActionModal();
+        return;
+      }
+      if (state.pointsHistoryError && !state.pointsHistory) {
+        els.teamList.innerHTML = '<div class="rwb-error">' + escapeHtml(state.pointsHistoryError) + '</div>';
+        renderToolbarNote(0, 0);
+        renderPlayerActionModal();
+        return;
+      }
+      ensurePointsHistorySelection();
+    }
+
     var totalPlayers = 0;
     var visiblePlayers = 0;
     var html = [];
@@ -1983,16 +3545,16 @@
     for (var i = 0; i < state.teams.length; i += 1) {
       var team = state.teams[i] || {};
       totalPlayers += (team.players || []).length;
-      var teamVisible = 0;
-      for (var j = 0; j < (team.players || []).length; j += 1) {
-        if (matchesFilters(team.players[j])) {
-          visiblePlayers += 1;
-          teamVisible += 1;
-        }
-      }
-      if (!teamVisible) continue;
-      visibleTeams.push(team);
-      if (state.view !== "franchise") {
+      var filteredPlayers = filteredPlayersForTeam(team);
+      visiblePlayers += filteredPlayers.length;
+      if (!filteredPlayers.length) continue;
+      visibleTeams.push({
+        team: team,
+        filteredPlayers: filteredPlayers
+      });
+      if (state.view === "points") {
+        html.push(pointsTeamCardHtml(team, filteredPlayers));
+      } else if (state.view !== "franchise") {
         html.push(teamCardHtml(team));
       }
     }
@@ -2010,6 +3572,7 @@
     }
 
     renderToolbarNote(visiblePlayers, totalPlayers);
+    renderPlayerActionModal();
   }
 
   function collectExportRows() {
@@ -2109,6 +3672,14 @@
     writeStorage("contractPreview", state.contractPreview);
     writeStorage("view", state.view);
     writeStorage("pointsMode", state.pointsMode);
+    writeStorage("pointsHistoryMode", state.pointsHistoryMode);
+    writeStorage("pointsHistoryYearStart", state.pointsHistoryYearStart);
+    writeStorage("pointsHistoryYearEnd", state.pointsHistoryYearEnd);
+    writeStorage("pointsHistorySeason", state.pointsHistorySeason);
+    writeStorage("pointsHistoryWeekStart", state.pointsHistoryWeekStart);
+    writeStorage("pointsHistoryWeekEnd", state.pointsHistoryWeekEnd);
+    writeStorage("pointsExpanded", state.pointsExpanded);
+    writeStorage("sorts", state.sorts);
   }
 
   function restoreState() {
@@ -2117,12 +3688,28 @@
     state.filterType = normType(readStorage("filterType", ""));
     state.taxiOnly = !!readStorage("taxiOnly", false);
     state.contractPreview = readStorage("contractPreview", {}) || {};
+    state.sorts = readStorage("sorts", state.sorts) || state.sorts;
     var storedView = safeStr(readStorage("view", "roster"));
-    state.view = storedView === "contract" || storedView === "franchise" ? storedView : "roster";
+    state.view = storedView === "contract" || storedView === "franchise" || storedView === "points" ? storedView : "roster";
     state.pointsMode = safeStr(readStorage("pointsMode", ""));
+    state.pointsHistoryMode = safeStr(readStorage("pointsHistoryMode", "yearly"));
+    state.pointsHistoryYearStart = safeStr(readStorage("pointsHistoryYearStart", ""));
+    state.pointsHistoryYearEnd = safeStr(readStorage("pointsHistoryYearEnd", ""));
+    state.pointsHistorySeason = safeStr(readStorage("pointsHistorySeason", ""));
+    state.pointsHistoryWeekStart = safeStr(readStorage("pointsHistoryWeekStart", ""));
+    state.pointsHistoryWeekEnd = safeStr(readStorage("pointsHistoryWeekEnd", ""));
+    state.pointsExpanded = readStorage("pointsExpanded", {}) || {};
 
     if (["", "rookie", "loaded", "other"].indexOf(state.filterType) === -1) {
       state.filterType = "";
+    }
+    if (!state.sorts || typeof state.sorts !== "object") {
+      state.sorts = {
+        roster: { key: "name", dir: "asc" },
+        contract: { key: "player", dir: "asc" },
+        franchise: { key: "franchise", dir: "asc" },
+        points: { key: "points", dir: "desc" }
+      };
     }
   }
 
@@ -2180,7 +3767,7 @@
     }
     return loadData(state.ctx, { noCache: !!noCache })
       .then(function (result) {
-        state.teams = result.teams || [];
+        state.teams = sortTeamsForDisplay(result.teams || []);
         state.salaryCapAmount = safeInt(result.leagueMeta && result.leagueMeta.capAmount, 0);
         state.pointYears = (result.pointYears && result.pointYears.length)
           ? result.pointYears.slice()
@@ -2192,18 +3779,31 @@
         renderToolbar();
         renderTeams();
         ensureGamesLoadedForCurrentMode();
+        if (state.view === "points") {
+          loadPointsHistory().then(function () {
+            return ensureLiveSeasonPointsForSelection(false);
+          }).catch(function () {});
+        }
         persistState();
         return result;
       });
   }
 
-  function submitRosterMove(move, playerId, franchiseId, playerName) {
-    var moveKey = move === "activate_ir" ? "ir:" + playerId : "taxi:" + playerId;
-    var verb = move === "activate_ir" ? "activate from IR" : "promote from taxi";
-    if (!window.confirm("Confirm " + verb + " for " + safeStr(playerName) + "?")) return;
+  function submitRosterMove(move, playerId, franchiseId, playerName, options) {
+    options = options || {};
+    var moveKey = move === "activate_ir" ? "ir:" + playerId : (move === "drop_player" ? "drop:" + playerId : "taxi:" + playerId);
+    var verb = move === "activate_ir"
+      ? "activate from IR"
+      : (move === "drop_player" ? "drop" : "promote from taxi");
+    var penaltyText = "";
+    if (move === "drop_player" && options.dropPenalty) {
+      penaltyText = "\n\nEstimated cap penalty: " + money(options.dropPenalty.amount) + "\n" + safeStr(options.dropPenalty.note);
+    }
+    if (!window.confirm("Confirm " + verb + " for " + safeStr(playerName) + "?" + penaltyText)) return;
 
     state.busyActionKey = moveKey;
     setFlash("success", "Submitting " + safeStr(playerName) + " to MFL...");
+    if (options.closeModal !== false) closePlayerActionModal();
     renderTeams();
 
     return fetchJsonPost(resolveWorkerActionEndpoint(), {
@@ -2228,6 +3828,12 @@
     var target = evt.target;
     if (!target || !target.closest) return;
 
+    var closeModalBtn = target.closest("[data-action='close-player-modal']");
+    if (closeModalBtn) {
+      closePlayerActionModal();
+      return;
+    }
+
     var rowMore = target.closest("[data-action='row-more']");
     if (rowMore) {
       var row = rowMore.closest("tr.rwb-player-row");
@@ -2242,13 +3848,30 @@
     var viewBtn = target.closest("[data-action='view-switch']");
     if (viewBtn) {
       var nextView = safeStr(viewBtn.getAttribute("data-view"));
-      if (nextView !== "contract" && nextView !== "roster" && nextView !== "franchise") return;
+      if (nextView !== "contract" && nextView !== "roster" && nextView !== "franchise" && nextView !== "points") return;
       if (state.view !== nextView) {
         state.view = nextView;
         persistState();
         renderToolbar();
         renderTeams();
+        if (state.view === "points") {
+          loadPointsHistory().then(function () {
+            return ensureLiveSeasonPointsForSelection(false);
+          }).catch(function () {});
+        }
       }
+      return;
+    }
+
+    var pointsToggleBtn = target.closest("[data-action='points-toggle']");
+    if (pointsToggleBtn) {
+      var pointsTeam = findTeamById(pointsToggleBtn.getAttribute("data-franchise-id"));
+      var pointsPlayerId = safeStr(pointsToggleBtn.getAttribute("data-player-id"));
+      if (!pointsTeam || !pointsPlayerId) return;
+      var toggleKey = pointsHistoryToggleKey(pointsTeam, { id: pointsPlayerId });
+      state.pointsExpanded[toggleKey] = !state.pointsExpanded[toggleKey];
+      persistState();
+      renderTeams();
       return;
     }
 
@@ -2265,14 +3888,78 @@
       return;
     }
 
-    var rosterMoveBtn = target.closest("[data-action='roster-move']");
+    var sortHeaderBtn = target.closest("[data-action='sort-header']");
+    if (sortHeaderBtn) {
+      var sortView = safeStr(sortHeaderBtn.getAttribute("data-sort-view"));
+      var sortKey = safeStr(sortHeaderBtn.getAttribute("data-sort-key"));
+      if (!sortView || !sortKey) return;
+      var sortState = sortStateForView(sortView);
+      if (sortState.key === sortKey) {
+        sortState.dir = sortState.dir === "asc" ? "desc" : "asc";
+      } else {
+        sortState.key = sortKey;
+        sortState.dir = sortView === "franchise" ? "asc" : "desc";
+        if (
+          sortKey === "name" ||
+          sortKey === "player" ||
+          sortKey === "franchise" ||
+          sortKey === "bye" ||
+          sortKey === "type" ||
+          sortKey === "special" ||
+          sortKey === "expires" ||
+          sortKey === "position" ||
+          sortKey === "rank" ||
+          sortKey === "ppg_rank"
+        ) {
+          sortState.dir = "asc";
+        }
+      }
+      persistState();
+      renderTeams();
+      return;
+    }
+
+    var openPlayerBtn = target.closest("[data-action='open-player-modal']");
+    if (openPlayerBtn) {
+      openPlayerActionModal(
+        pad4(openPlayerBtn.getAttribute("data-franchise-id")),
+        safeStr(openPlayerBtn.getAttribute("data-player-id"))
+      );
+      return;
+    }
+
+    var tradePlayerBtn = target.closest("[data-action='trade-player']");
+    if (tradePlayerBtn) {
+      var tradeRecord = findPlayerRecord(
+        pad4(tradePlayerBtn.getAttribute("data-franchise-id")),
+        safeStr(tradePlayerBtn.getAttribute("data-player-id"))
+      );
+      if (!tradeRecord || !tradeRecord.player) return;
+      window.location.href = buildTradeModuleUrl(tradeRecord.player);
+      return;
+    }
+
+    var rosterMoveBtn = target.closest("[data-action='activate-ir-player'],[data-action='promote-taxi-player'],[data-action='drop-player']");
     if (rosterMoveBtn) {
       if (state.busyActionKey) return;
-      submitRosterMove(
-        safeStr(rosterMoveBtn.getAttribute("data-move")),
-        safeStr(rosterMoveBtn.getAttribute("data-player-id")),
+      var actionName = safeStr(rosterMoveBtn.getAttribute("data-action"));
+      var playerRecord = findPlayerRecord(
         pad4(rosterMoveBtn.getAttribute("data-franchise-id")),
-        safeStr(rosterMoveBtn.getAttribute("data-player-name"))
+        safeStr(rosterMoveBtn.getAttribute("data-player-id"))
+      );
+      if (!playerRecord || !playerRecord.player) return;
+      var move = actionName === "activate-ir-player"
+        ? "activate_ir"
+        : (actionName === "promote-taxi-player" ? "promote_taxi" : "drop_player");
+      submitRosterMove(
+        move,
+        playerRecord.player.id,
+        playerRecord.player.fid,
+        playerRecord.player.name,
+        {
+          closeModal: true,
+          dropPenalty: move === "drop_player" ? dropPenaltyEstimate(playerRecord.player) : null
+        }
       );
       return;
     }
@@ -2301,6 +3988,7 @@
   function onChange(evt) {
     var el = evt.target;
     if (!el) return;
+    var elId = safeStr(el.id);
 
     if (el === els.filterPosition) {
       state.filterPosition = safeStr(el.value).toUpperCase();
@@ -2332,6 +4020,65 @@
       ensureGamesLoadedForCurrentMode();
       return;
     }
+
+    if (elId === "rwbPointsHistoryMode") {
+      state.pointsHistoryMode = safeStr(el.value) === "weekly" ? "weekly" : "yearly";
+      ensurePointsHistorySelection();
+      persistState();
+      renderToolbar();
+      renderTeams();
+      ensureLiveSeasonPointsForSelection(false);
+      return;
+    }
+
+    if (elId === "rwbPointsHistoryYearStart") {
+      state.pointsHistoryYearStart = safeStr(el.value);
+      ensurePointsHistorySelection();
+      persistState();
+      renderToolbar();
+      renderTeams();
+      ensureLiveSeasonPointsForSelection(false);
+      return;
+    }
+
+    if (elId === "rwbPointsHistoryYearEnd") {
+      state.pointsHistoryYearEnd = safeStr(el.value);
+      ensurePointsHistorySelection();
+      persistState();
+      renderToolbar();
+      renderTeams();
+      ensureLiveSeasonPointsForSelection(false);
+      return;
+    }
+
+    if (elId === "rwbPointsHistorySeason") {
+      state.pointsHistorySeason = safeStr(el.value);
+      ensurePointsHistorySelection();
+      persistState();
+      renderToolbar();
+      renderTeams();
+      ensureLiveSeasonPointsForSelection(false);
+      return;
+    }
+
+    if (elId === "rwbPointsHistoryWeekStart") {
+      state.pointsHistoryWeekStart = safeStr(el.value);
+      ensurePointsHistorySelection();
+      persistState();
+      renderToolbar();
+      renderTeams();
+      ensureLiveSeasonPointsForSelection(false);
+      return;
+    }
+
+    if (elId === "rwbPointsHistoryWeekEnd") {
+      state.pointsHistoryWeekEnd = safeStr(el.value);
+      ensurePointsHistorySelection();
+      persistState();
+      renderToolbar();
+      renderTeams();
+      ensureLiveSeasonPointsForSelection(false);
+    }
   }
 
   function onInput(evt) {
@@ -2354,6 +4101,11 @@
 
     window.addEventListener("resize", function () {
       renderToolbar();
+    });
+    window.addEventListener("keydown", function (evt) {
+      if (evt && evt.key === "Escape" && state.actionModal.open) {
+        closePlayerActionModal();
+      }
     });
   }
 
@@ -2509,6 +4261,7 @@
 
   function init() {
     state.ctx = detectContext();
+    state.viewerFranchiseId = pad4(state.ctx && state.ctx.franchiseId);
 
     if (!state.ctx.leagueId) {
       renderSkeleton();

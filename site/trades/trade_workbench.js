@@ -1669,6 +1669,92 @@
     }
   }
 
+  function selectAssetByPlayerId(teamId, playerId) {
+    var cleanTeamId = pad4(teamId);
+    var cleanPlayerId = safeStr(playerId).replace(/\D/g, "");
+    if (!cleanTeamId || !cleanPlayerId) return false;
+    var team = getTeamById(cleanTeamId);
+    if (!team) return false;
+    var assets = Array.isArray(team.assets) ? team.assets : [];
+    var i;
+    ensureSelectionMaps(cleanTeamId);
+    for (i = 0; i < assets.length; i += 1) {
+      var asset = assets[i] || {};
+      if (safeStr(asset.type).toUpperCase() !== "PLAYER") continue;
+      if (safeStr(asset.player_id).replace(/\D/g, "") !== cleanPlayerId) continue;
+      state.selections[cleanTeamId][asset.asset_id] = true;
+      clampTradeSalaryForTeam(cleanTeamId);
+      return true;
+    }
+    return false;
+  }
+
+  function clearRosterDeepLinkParams() {
+    try {
+      var u = new URL(window.location.href || "");
+      var keys = ["twb_player_id", "twb_team_id", "twb_source_team", "twb_left_team", "twb_right_team", "twb_side"];
+      var changed = false;
+      var i;
+      for (i = 0; i < keys.length; i += 1) {
+        if (!u.searchParams.has(keys[i])) continue;
+        u.searchParams.delete(keys[i]);
+        changed = true;
+      }
+      if (changed && window.history && window.history.replaceState) {
+        window.history.replaceState({}, document.title, u.toString());
+      }
+    } catch (e) {
+      // noop
+    }
+  }
+
+  function applyRosterDeepLinkSelection() {
+    var playerId = safeStr(getUrlParam("twb_player_id")).replace(/\D/g, "");
+    if (!playerId) return false;
+
+    var sourceTeamId = pad4(getUrlParam("twb_team_id") || getUrlParam("twb_source_team"));
+    var leftTeamId = pad4(getUrlParam("twb_left_team"));
+    var rightTeamId = pad4(getUrlParam("twb_right_team"));
+    var side = safeStr(getUrlParam("twb_side")).toLowerCase();
+    var resolvedSide = side;
+
+    if (leftTeamId && getTeamById(leftTeamId)) {
+      setActiveFranchiseId(leftTeamId, { syncLeft: true });
+    }
+
+    if (!resolvedSide) {
+      if (sourceTeamId && state.leftTeamId && sourceTeamId === state.leftTeamId) {
+        resolvedSide = "left";
+      } else if (sourceTeamId && getTeamById(sourceTeamId)) {
+        resolvedSide = "partner";
+      } else {
+        resolvedSide = "left";
+      }
+    }
+
+    if (resolvedSide === "partner" || resolvedSide === "right") {
+      var partnerTeamId = rightTeamId || sourceTeamId;
+      if (partnerTeamId && partnerTeamId !== state.leftTeamId && getTeamById(partnerTeamId)) {
+        state.rightTeamId = partnerTeamId;
+      }
+      if (partnerTeamId) selectAssetByPlayerId(partnerTeamId, playerId);
+      state.mobileTab = "partner";
+    } else {
+      var ownTeamId = sourceTeamId || state.leftTeamId;
+      if (ownTeamId && ownTeamId !== state.leftTeamId && getTeamById(ownTeamId)) {
+        setActiveFranchiseId(ownTeamId, { syncLeft: true });
+      }
+      if (state.leftTeamId) selectAssetByPlayerId(state.leftTeamId, playerId);
+      if (rightTeamId && rightTeamId !== state.leftTeamId && getTeamById(rightTeamId)) {
+        state.rightTeamId = rightTeamId;
+      }
+      state.mobileTab = "your";
+    }
+
+    clearRosterDeepLinkParams();
+    return true;
+  }
+
   function resetSubmitUiState(message, tone) {
     state.submit.busy = false;
     state.submit.message = safeStr(message) || "No offer submitted yet.";
@@ -5364,6 +5450,7 @@
           resetSalary: true
         });
       }
+      applyRosterDeepLinkSelection();
       initializeControlsFromState();
       bindEvents();
       state.uiReady = true;
