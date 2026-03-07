@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var BUILD = "2026.03.06.1";
+  var BUILD = "2026.03.07.2";
   var BOOT_FLAG = "__ups_roster_workbench_boot_" + BUILD;
   if (window[BOOT_FLAG]) {
     if (typeof window.UPS_RWB_INIT === "function") window.UPS_RWB_INIT();
@@ -708,15 +708,38 @@
   }
 
   function fetchPointsMapForYear(ctx, yearStr) {
-    var url = buildApiExportUrl(yearStr, "playerScores", {
+    var hostUrl = buildExportUrl(ctx.hostOrigin, yearStr, "playerScores", {
       L: ctx.leagueId,
       W: "YTD"
     });
-    return fetchJson(url).then(function (payload) {
-      return toScoreMap(payload);
-    }).catch(function () {
-      return Object.create(null);
+    var apiUrl = buildApiExportUrl(yearStr, "playerScores", {
+      L: ctx.leagueId,
+      W: "YTD"
     });
+
+    function hasAnyScores(map) {
+      var keys = Object.keys(map || {});
+      for (var i = 0; i < keys.length; i += 1) {
+        if (safeNum(map[keys[i]], 0) !== 0) return true;
+      }
+      return keys.length > 0;
+    }
+
+    return fetchJson(hostUrl, { credentials: "include" })
+      .then(function (payload) {
+        var map = toScoreMap(payload);
+        if (hasAnyScores(map)) return map;
+        return fetchJson(apiUrl, { credentials: "omit" }).then(function (apiPayload) {
+          return toScoreMap(apiPayload);
+        });
+      })
+      .catch(function () {
+        return fetchJson(apiUrl, { credentials: "omit" }).then(function (payload) {
+          return toScoreMap(payload);
+        }).catch(function () {
+          return Object.create(null);
+        });
+      });
   }
 
   function hydrateTeamsWithPointsHistory(ctx, teams) {

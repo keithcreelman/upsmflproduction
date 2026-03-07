@@ -2464,7 +2464,7 @@
 <script>
   // Roster Workbench embed helper for MESSAGE7.
   (function () {
-    var RWB_HEADER_BUILD = "2026.03.01.2";
+    var RWB_HEADER_BUILD = "2026.03.07.1";
     if (window.__ups_rwb_header_autoload === RWB_HEADER_BUILD) return;
     window.__ups_rwb_header_autoload = RWB_HEADER_BUILD;
 
@@ -2511,6 +2511,22 @@
       return String(new Date().getFullYear());
     }
 
+    function applyRwbPrehide() {
+      var id = "ups-rwb-header-prehide";
+      if (document.getElementById(id)) return;
+      var style = document.createElement("style");
+      style.id = id;
+      style.textContent = [
+        "body#body_options_07 #MFLroster{display:none!important;}",
+        "body#body_options_07 #pre_load_html{display:none!important;}",
+        "body#body_options_07 table.two_column_layout{display:none!important;}",
+        "body#body_options_07 .reportnavigation{display:none!important;}",
+        "body#body_options_07 .weekly-navbar{display:none!important;}",
+        "body#body_options_07 .weekly-navbar-mobile{display:none!important;}"
+      ].join("");
+      (document.head || document.documentElement).appendChild(style);
+    }
+
     function ensureMountNearTop() {
       var mount = document.getElementById("roster-workbench");
       if (mount) return mount;
@@ -2542,6 +2558,7 @@
     }
 
     function loadRwbLoader() {
+      applyRwbPrehide();
       ensureMountNearTop();
       clearLegacyRwbEmbeds();
       window.UPS_RWB_LEAGUE_ID = getCurrentLeagueId();
@@ -2570,6 +2587,7 @@
     }
 
     if (getModuleName() !== "MESSAGE7") return;
+    applyRwbPrehide();
 
     if (document.readyState === "loading") {
       document.addEventListener("DOMContentLoaded", loadRwbLoader);

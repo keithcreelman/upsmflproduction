@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var BUILD = "2026.03.01.2";
+  var BUILD = "2026.03.07.1";
   if (window.__ups_rwb_embed_loader === BUILD) {
     if (typeof window.UPS_RWB_INIT === "function") window.UPS_RWB_INIT();
     return;
@@ -71,6 +71,41 @@
     return mount;
   }
 
+  function applyLegacyPrehide() {
+    var id = "ups-rwb-legacy-prehide";
+    if (document.getElementById(id)) return;
+    var css = [
+      "body#body_options_07 #MFLroster{display:none!important;}",
+      "body#body_options_07 #pre_load_html{display:none!important;}",
+      "body#body_options_07 table.two_column_layout{display:none!important;}",
+      "body#body_options_07 .reportnavigation{display:none!important;}",
+      "body#body_options_07 .weekly-navbar{display:none!important;}",
+      "body#body_options_07 .weekly-navbar-mobile{display:none!important;}"
+    ].join("");
+    var style = document.createElement("style");
+    style.id = id;
+    style.textContent = css;
+    (document.head || document.documentElement).appendChild(style);
+  }
+
+  function hideLegacyNodes() {
+    var selectors = [
+      "body#body_options_07 #MFLroster",
+      "body#body_options_07 #pre_load_html",
+      "body#body_options_07 table.two_column_layout",
+      "body#body_options_07 .reportnavigation",
+      "body#body_options_07 .weekly-navbar",
+      "body#body_options_07 .weekly-navbar-mobile"
+    ];
+    var nodes = document.querySelectorAll(selectors.join(","));
+    for (var i = 0; i < nodes.length; i += 1) {
+      var n = nodes[i];
+      if (!n) continue;
+      n.style.display = "none";
+      n.setAttribute("aria-hidden", "true");
+    }
+  }
+
   function getScriptBaseUrl() {
     try {
       var s = document.currentScript;
@@ -138,7 +173,9 @@
     window.UPS_RWB_LEAGUE_ID = ctx.leagueId;
     window.UPS_RWB_YEAR = ctx.year;
 
+    applyLegacyPrehide();
     ensureMount();
+    hideLegacyNodes();
 
     if (typeof window.UPS_RWB_INIT === "function") {
       window.UPS_RWB_INIT();
