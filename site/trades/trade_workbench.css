@@ -21,7 +21,8 @@
 }
 
 #twbApp {
-  --ups-team-icon-size: 200px;
+  --ups-team-icon-width: 200px;
+  --ups-team-icon-height: 72px;
 }
 
 * {
@@ -1049,15 +1050,15 @@ summary:focus-visible {
 
 .twb-team-brand {
   display: grid;
-  grid-template-columns: var(--ups-team-icon-size, 72px);
+  grid-template-columns: var(--ups-team-icon-width, 200px);
   gap: 0;
   align-items: center;
   min-width: 0;
 }
 
 .twb-team-logo-shell {
-  width: var(--ups-team-icon-size, 72px);
-  height: var(--ups-team-icon-size, 72px);
+  width: var(--ups-team-icon-width, 200px);
+  height: var(--ups-team-icon-height, 72px);
   border-radius: 14px;
   border: 0;
   background: transparent;
@@ -1923,12 +1924,12 @@ summary:focus-visible {
   }
 
   .twb-team-brand {
-    grid-template-columns: var(--ups-team-icon-size, 72px);
+    grid-template-columns: var(--ups-team-icon-width, 200px);
   }
 
   .twb-team-logo-shell {
-    width: var(--ups-team-icon-size, 72px);
-    height: var(--ups-team-icon-size, 72px);
+    width: var(--ups-team-icon-width, 200px);
+    height: var(--ups-team-icon-height, 72px);
   }
 
   .twb-asset-toggle {
@@ -2100,12 +2101,12 @@ summary:focus-visible {
   }
 
   .twb-team-brand {
-    grid-template-columns: var(--ups-team-icon-size, 72px);
+    grid-template-columns: min(var(--ups-team-icon-width, 200px), 100%);
   }
 
   .twb-team-logo-shell {
-    width: var(--ups-team-icon-size, 72px);
-    height: var(--ups-team-icon-size, 72px);
+    width: min(var(--ups-team-icon-width, 200px), 100%);
+    height: var(--ups-team-icon-height, 72px);
   }
 }
 

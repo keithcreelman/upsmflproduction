@@ -22,7 +22,8 @@
 
 #roster-workbench,
 #rwbApp {
-  --ups-team-icon-size: 200px;
+  --ups-team-icon-width: 200px;
+  --ups-team-icon-height: 72px;
   color: var(--rwb-text);
   font-family: var(--rwb-font);
   line-height: 1.45;
@@ -228,10 +229,10 @@
 
 .rwb-team-logo,
 .rwb-team-logo-fallback {
-  width: var(--ups-team-icon-size, 72px);
-  height: var(--ups-team-icon-size, 72px);
-  min-width: var(--ups-team-icon-size, 72px);
-  min-height: var(--ups-team-icon-size, 72px);
+  width: var(--ups-team-icon-width, 200px);
+  height: var(--ups-team-icon-height, 72px);
+  min-width: var(--ups-team-icon-width, 200px);
+  min-height: var(--ups-team-icon-height, 72px);
   object-fit: contain;
   border: 0;
   border-radius: 0;
@@ -852,10 +853,10 @@
 }
 
 .rwb-franchise-icon {
-  width: var(--ups-team-icon-size, 200px);
-  height: var(--ups-team-icon-size, 200px);
-  min-width: var(--ups-team-icon-size, 200px);
-  min-height: var(--ups-team-icon-size, 200px);
+  width: var(--ups-team-icon-width, 200px);
+  height: var(--ups-team-icon-height, 72px);
+  min-width: var(--ups-team-icon-width, 200px);
+  min-height: var(--ups-team-icon-height, 72px);
   object-fit: contain;
   flex: 0 0 auto;
 }
@@ -864,10 +865,10 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: var(--ups-team-icon-size, 200px);
-  height: var(--ups-team-icon-size, 200px);
-  min-width: var(--ups-team-icon-size, 200px);
-  min-height: var(--ups-team-icon-size, 200px);
+  width: var(--ups-team-icon-width, 200px);
+  height: var(--ups-team-icon-height, 72px);
+  min-width: var(--ups-team-icon-width, 200px);
+  min-height: var(--ups-team-icon-height, 72px);
   border-radius: 14px;
   background: rgba(7, 16, 31, 0.96);
   border: 1px solid rgba(138, 172, 214, 0.24);
@@ -1121,10 +1122,10 @@ body.rwb-modal-open {
 
   .rwb-team-logo,
   .rwb-team-logo-fallback {
-    width: var(--ups-team-icon-size, 72px);
-    height: var(--ups-team-icon-size, 72px);
-    min-width: var(--ups-team-icon-size, 72px);
-    min-height: var(--ups-team-icon-size, 72px);
+    width: var(--ups-team-icon-width, 200px);
+    height: var(--ups-team-icon-height, 72px);
+    min-width: var(--ups-team-icon-width, 200px);
+    min-height: var(--ups-team-icon-height, 72px);
   }
 
   .rwb-points-team-head {
@@ -1135,10 +1136,10 @@ body.rwb-modal-open {
 @media (max-width: 760px) {
   .rwb-team-logo,
   .rwb-team-logo-fallback {
-    width: var(--ups-team-icon-size, 72px);
-    height: var(--ups-team-icon-size, 72px);
-    min-width: var(--ups-team-icon-size, 72px);
-    min-height: var(--ups-team-icon-size, 72px);
+    width: min(var(--ups-team-icon-width, 200px), 100%);
+    height: var(--ups-team-icon-height, 72px);
+    min-width: 0;
+    min-height: var(--ups-team-icon-height, 72px);
   }
 }
 

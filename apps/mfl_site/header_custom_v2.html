@@ -368,7 +368,8 @@
     --ups-contract-chip-accent-text: #ffe4a0;
     --ups-contract-detail-bg: rgba(8, 17, 32, 0.58);
     --ups-contract-detail-border: rgba(108, 139, 184, 0.35);
-    --ups-team-icon-size: 200px;
+    --ups-team-icon-width: 200px;
+    --ups-team-icon-height: 72px;
     --ups-team-icon-size-compact: 40px;
   }
 
@@ -6732,7 +6733,7 @@
   }
 
   body#body_options_07 #MFLroster caption.ups-roster-caption {
-    min-height: calc(var(--ups-team-icon-size) + 0.7rem) !important;
+    min-height: calc(var(--ups-team-icon-height) + 0.7rem) !important;
   }
 
   body#body_options_07 #MFLroster caption.ups-roster-caption > span,
@@ -6745,10 +6746,10 @@
   }
 
   body#body_options_07 #MFLroster .ups-roster-franchise-icon {
-    height: var(--ups-team-icon-size) !important;
-    max-height: var(--ups-team-icon-size) !important;
-    max-width: calc(var(--ups-team-icon-size) * 2.8) !important;
-    width: auto !important;
+    width: var(--ups-team-icon-width) !important;
+    height: var(--ups-team-icon-height) !important;
+    max-width: var(--ups-team-icon-width) !important;
+    max-height: var(--ups-team-icon-height) !important;
     object-fit: contain !important;
     border-radius: 0.35rem !important;
     flex: 0 0 auto !important;
@@ -6760,10 +6761,10 @@
   body#body_options_07 #MFLroster #roster caption.withfranchiseicon .franchiselogo,
   body#body_options_07 #MFLroster #tradereview .franchiseicon,
   body#body_options_07 #MFLroster #tradereview .franchiselogo {
-    height: var(--ups-team-icon-size) !important;
-    max-height: var(--ups-team-icon-size) !important;
-    width: auto !important;
-    max-width: calc(var(--ups-team-icon-size) * 2.8) !important;
+    width: var(--ups-team-icon-width) !important;
+    height: var(--ups-team-icon-height) !important;
+    max-width: var(--ups-team-icon-width) !important;
+    max-height: var(--ups-team-icon-height) !important;
     min-width: 0 !important;
     object-fit: contain !important;
     display: block !important;
