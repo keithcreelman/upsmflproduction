@@ -22,6 +22,7 @@
 
 #roster-workbench,
 #rwbApp {
+  --ups-team-icon-size: 200px;
   color: var(--rwb-text);
   font-family: var(--rwb-font);
   line-height: 1.45;
@@ -851,8 +852,10 @@
 }
 
 .rwb-franchise-icon {
-  width: 58px;
-  height: 58px;
+  width: var(--ups-team-icon-size, 200px);
+  height: var(--ups-team-icon-size, 200px);
+  min-width: var(--ups-team-icon-size, 200px);
+  min-height: var(--ups-team-icon-size, 200px);
   object-fit: contain;
   flex: 0 0 auto;
 }
@@ -861,8 +864,10 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 58px;
-  height: 58px;
+  width: var(--ups-team-icon-size, 200px);
+  height: var(--ups-team-icon-size, 200px);
+  min-width: var(--ups-team-icon-size, 200px);
+  min-height: var(--ups-team-icon-size, 200px);
   border-radius: 14px;
   background: rgba(7, 16, 31, 0.96);
   border: 1px solid rgba(138, 172, 214, 0.24);

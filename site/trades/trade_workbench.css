@@ -20,6 +20,10 @@
   --twb-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
+#twbApp {
+  --ups-team-icon-size: 200px;
+}
+
 * {
   box-sizing: border-box;
 }
