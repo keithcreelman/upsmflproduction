@@ -8945,7 +8945,7 @@ export default {
             ""
           );
           const priorAavs = parseContractAavValues(priorInfo);
-          if (priorAavs.length < 2) return info;
+          if (priorAavs.length < 1) return info;
           return replaceContractInfoAavValue(info, priorAavs[priorAavs.length - 1]);
         };
 
