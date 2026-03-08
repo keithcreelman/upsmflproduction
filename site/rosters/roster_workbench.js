@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var BUILD = "2026.03.08.02";
+  var BUILD = "2026.03.08.03";
   var BOOT_FLAG = "__ups_roster_workbench_boot_" + BUILD;
   if (window[BOOT_FLAG]) {
     if (typeof window.UPS_RWB_INIT === "function") window.UPS_RWB_INIT();
@@ -3288,7 +3288,7 @@
         '<div class="rwb-shell">' +
           '<header class="rwb-hero">' +
             '<div>' +
-              '<h1 class="rwb-title">Rosters</h1>' +
+              '<h1 class="rwb-title">Front Office</h1>' +
             '</div>' +
           '</header>' +
           '<section class="rwb-toolbar" aria-label="Roster toolbar">' +
