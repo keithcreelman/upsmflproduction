@@ -48,6 +48,12 @@
     { value: "loaded", label: "Loaded (Front/Back)" },
     { value: "other", label: "All Other" }
   ];
+  var ROSTER_STATUS_FILTERS = [
+    { value: "", label: "All" },
+    { value: "active", label: "Active Roster Only" },
+    { value: "taxi", label: "Taxi Only" },
+    { value: "ir", label: "IR Only" }
+  ];
   var EXTENSION_RATES = {
     QB: { 1: 10000, 2: 20000 },
     RB: { 1: 10000, 2: 20000 },
@@ -86,7 +92,7 @@
     search: "",
     filterPosition: "",
     filterType: "",
-    taxiOnly: false,
+    filterRosterStatus: "",
     sorts: {
       roster: { key: "name", dir: "asc" },
       contract: { key: "player", dir: "asc" },
@@ -144,6 +150,20 @@
 
   function normType(t) {
     return safeStr(t).toLowerCase();
+  }
+
+  function normRosterStatusFilter(value) {
+    var raw = safeStr(value).toLowerCase();
+    if (raw === "active" || raw === "taxi" || raw === "ir") return raw;
+    return "";
+  }
+
+  function rosterStatusFilterLabel(value) {
+    var normalized = normRosterStatusFilter(value);
+    if (normalized === "active") return "Active roster only";
+    if (normalized === "taxi") return "Taxi only";
+    if (normalized === "ir") return "IR only";
+    return "";
   }
 
   function pad4(v) {
@@ -2793,7 +2813,15 @@
       return false;
     }
 
-    if (state.taxiOnly && !player.isTaxi) {
+    if (state.filterRosterStatus === "active" && (player.isTaxi || player.isIr)) {
+      return false;
+    }
+
+    if (state.filterRosterStatus === "taxi" && !player.isTaxi) {
+      return false;
+    }
+
+    if (state.filterRosterStatus === "ir" && !player.isIr) {
       return false;
     }
 
@@ -2883,8 +2911,8 @@
                   '<label class="rwb-field rwb-field-search"><span>Search</span><input id="rwbSearch" class="rwb-input" type="search" placeholder="Player, team, or contract" autocomplete="off"></label>' +
                   '<label class="rwb-field"><span>Position</span><select id="rwbFilterPosition" class="rwb-select"><option value="">All Groups</option></select></label>' +
                   '<label class="rwb-field"><span>Contract</span><select id="rwbFilterType" class="rwb-select"><option value="">All Contract Types</option></select></label>' +
+                  '<label class="rwb-field"><span>Roster Status</span><select id="rwbFilterRosterStatus" class="rwb-select"><option value="">All</option></select></label>' +
                   '<div class="rwb-toolbar-actions">' +
-                    '<button type="button" id="rwbTaxiOnly" class="rwb-btn rwb-btn-ghost">Taxi Only: Off</button>' +
                     '<button type="button" id="rwbResetFilters" class="rwb-btn rwb-btn-ghost">Clear Filters</button>' +
                   '</div>' +
                 '</div>' +
@@ -2922,7 +2950,7 @@
     els.advanced = document.getElementById("rwbAdvancedFilters");
     els.filterPosition = document.getElementById("rwbFilterPosition");
     els.filterType = document.getElementById("rwbFilterType");
-    els.taxiOnly = document.getElementById("rwbTaxiOnly");
+    els.filterRosterStatus = document.getElementById("rwbFilterRosterStatus");
     els.resetFilters = document.getElementById("rwbResetFilters");
     els.note = document.getElementById("rwbToolbarNote");
     els.status = document.getElementById("rwbStatus");
@@ -3070,15 +3098,11 @@
     var sets = buildFilterOptionSets();
     renderSelectOptions(els.filterPosition, sets.positions, state.filterPosition);
     renderSelectOptions(els.filterType, CONTRACT_FILTERS, state.filterType);
+    renderSelectOptions(els.filterRosterStatus, ROSTER_STATUS_FILTERS, state.filterRosterStatus);
 
     if (els.advanced) {
       els.advanced.hidden = false;
       els.advanced.classList.remove("is-open");
-    }
-
-    if (els.taxiOnly) {
-      els.taxiOnly.textContent = state.taxiOnly ? "Taxi Only: On" : "Taxi Only: Off";
-      els.taxiOnly.classList.toggle("is-active", !!state.taxiOnly);
     }
 
     if (els.toolbarMain) {
@@ -3125,7 +3149,7 @@
       else if (state.filterType === "loaded") parts.push("Loaded");
       else if (state.filterType === "other") parts.push("All Other");
     }
-    if (state.taxiOnly) parts.push("Taxi only");
+    if (state.filterRosterStatus) parts.push(rosterStatusFilterLabel(state.filterRosterStatus));
     if (state.search) parts.push('Search "' + state.search + '"');
     if (state.view === "points") {
       parts.push(currentPointsRangeLabel());
@@ -4188,7 +4212,8 @@
     writeStorage("search", state.search);
     writeStorage("filterPosition", state.filterPosition);
     writeStorage("filterType", state.filterType);
-    writeStorage("taxiOnly", state.taxiOnly);
+    writeStorage("filterRosterStatus", state.filterRosterStatus);
+    writeStorage("taxiOnly", state.filterRosterStatus === "taxi");
     writeStorage("contractPreview", state.contractPreview);
     writeStorage("view", state.view);
     writeStorage("pointsMode", state.pointsMode);
@@ -4206,7 +4231,10 @@
     state.search = safeStr(readStorage("search", "")).toLowerCase();
     state.filterPosition = safeStr(readStorage("filterPosition", "")).toUpperCase();
     state.filterType = normType(readStorage("filterType", ""));
-    state.taxiOnly = !!readStorage("taxiOnly", false);
+    state.filterRosterStatus = normRosterStatusFilter(readStorage("filterRosterStatus", ""));
+    if (!state.filterRosterStatus && !!readStorage("taxiOnly", false)) {
+      state.filterRosterStatus = "taxi";
+    }
     state.contractPreview = readStorage("contractPreview", {}) || {};
     state.sorts = readStorage("sorts", state.sorts) || state.sorts;
     var storedView = safeStr(readStorage("view", "roster"));
@@ -4223,6 +4251,7 @@
     if (["", "rookie", "loaded", "other"].indexOf(state.filterType) === -1) {
       state.filterType = "";
     }
+    state.filterRosterStatus = normRosterStatusFilter(state.filterRosterStatus);
     if (!state.sorts || typeof state.sorts !== "object") {
       state.sorts = {
         roster: { key: "name", dir: "asc" },
@@ -4639,19 +4668,11 @@
       return;
     }
 
-    if (target === els.taxiOnly) {
-      state.taxiOnly = !state.taxiOnly;
-      persistState();
-      renderToolbar();
-      renderTeams();
-      return;
-    }
-
     if (target === els.resetFilters) {
       state.search = "";
       state.filterPosition = "";
       state.filterType = "";
-      state.taxiOnly = false;
+      state.filterRosterStatus = "";
       if (els.search) els.search.value = "";
       persistState();
       renderToolbar();
@@ -4674,6 +4695,13 @@
 
     if (el === els.filterType) {
       state.filterType = normType(el.value);
+      persistState();
+      renderTeams();
+      return;
+    }
+
+    if (el === els.filterRosterStatus) {
+      state.filterRosterStatus = normRosterStatusFilter(el.value);
       persistState();
       renderTeams();
       return;
