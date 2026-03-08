@@ -739,6 +739,37 @@ export default {
         };
       };
 
+      const adminStateResponse = async () => {
+        const adminState = await getLeagueAdminState(L, YEAR);
+        if (!adminState.ok) {
+          return new Response(
+            JSON.stringify({
+              ok: false,
+              isAdmin: false,
+              reason: adminState.reason,
+              sessionKnown,
+              sessionMatch,
+            }),
+            { status: 200, headers: { "content-type": "application/json", ...corsHeaders } }
+          );
+        }
+
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            isAdmin: adminState.isAdmin,
+            reason: adminState.reason,
+            emailCount: adminState.emailCount,
+            commishFranchiseId: adminState.commishFranchiseId || "",
+            sessionKnown,
+            sessionMatch,
+            sessionByCookie,
+            sessionByApiKey,
+          }),
+          { status: 200, headers: { "content-type": "application/json", ...corsHeaders } }
+        );
+      };
+
       async function dispatchRepoEvent(eventType, clientPayload) {
         const repoOwner = String(env.GITHUB_REPO_OWNER || "keithcreelman").trim();
         const repoName = String(env.GITHUB_REPO_NAME || "upsmflproduction").trim();
@@ -9291,6 +9322,10 @@ export default {
         return response;
       }
 
+      if (path === "/roster-workbench/admin-state" && request.method === "GET") {
+        return adminStateResponse();
+      }
+
       if (path === "/roster-workbench/action" && request.method === "POST") {
         let body = {};
         try {
@@ -10427,34 +10462,7 @@ export default {
         });
       }
 
-      const adminState = await getLeagueAdminState(L, YEAR);
-      if (!adminState.ok) {
-        return new Response(
-          JSON.stringify({
-            ok: false,
-            isAdmin: false,
-            reason: adminState.reason,
-            sessionKnown,
-            sessionMatch,
-          }),
-          { status: 200, headers: { "content-type": "application/json", ...corsHeaders } }
-        );
-      }
-
-      return new Response(
-        JSON.stringify({
-          ok: true,
-          isAdmin: adminState.isAdmin,
-          reason: adminState.reason,
-          emailCount: adminState.emailCount,
-          commishFranchiseId: adminState.commishFranchiseId || "",
-          sessionKnown,
-          sessionMatch,
-          sessionByCookie,
-          sessionByApiKey,
-        }),
-        { status: 200, headers: { "content-type": "application/json", ...corsHeaders } }
-      );
+      return adminStateResponse();
     } catch (e) {
       return new Response(
         JSON.stringify({

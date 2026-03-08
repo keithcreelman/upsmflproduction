@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var BUILD = "2026.03.07.12";
+  var BUILD = "2026.03.07.13";
   var BOOT_FLAG = "__ups_roster_workbench_boot_" + BUILD;
   if (window[BOOT_FLAG]) {
     if (typeof window.UPS_RWB_INIT === "function") window.UPS_RWB_INIT();
@@ -71,6 +71,10 @@
     ctx: null,
     teams: [],
     viewerFranchiseId: "",
+    viewerIsAdmin: false,
+    viewerAdminReason: "",
+    viewerAdminReady: false,
+    viewerCommishFranchiseId: "",
     pointYears: [],
     pointsMode: "",
     pointsHistory: null,
@@ -106,6 +110,8 @@
       franchiseId: ""
     },
     busyActionKey: "",
+    rosterPointsSummaryCacheKey: "",
+    rosterPointsSummaryByPlayer: Object.create(null),
     gamesLoadedByYear: Object.create(null),
     gamesLoadingByYear: Object.create(null),
     salaryCapAmount: 0,
@@ -956,6 +962,33 @@
     return parseYmdDate(contractDeadlineYmdForSeason(season));
   }
 
+  function seasonCompleteYmdForSeason(season) {
+    var seasonKey = safeStr(season);
+    var events = seasonEventsForRosterLimit(seasonKey) || {};
+    return safeStr(
+      events.ups_season_complete ||
+      events.season_complete ||
+      events.UPS_SEASON_COMPLETE
+    );
+  }
+
+  function seasonCompleteDateForSeason(season) {
+    return parseYmdDate(seasonCompleteYmdForSeason(season));
+  }
+
+  function isSeasonCompleteForRosterPoints(season, now) {
+    var seasonKey = safeStr(season);
+    if (!seasonKey) return false;
+    var year = safeInt(seasonKey, 0);
+    var currentSeason = currentYearInt();
+    if (year && year < currentSeason) return true;
+    if (year && year > currentSeason) return false;
+    var completeDate = endOfDay(seasonCompleteDateForSeason(seasonKey));
+    var today = now instanceof Date && !isNaN(now.getTime()) ? now : new Date();
+    if (completeDate) return today.getTime() > completeDate.getTime();
+    return false;
+  }
+
   function activeMaxRosterPlayers(season, now) {
     var today = now instanceof Date && !isNaN(now.getTime()) ? now : new Date();
     var deadline = contractDeadlineDateForSeason(season);
@@ -1002,7 +1035,9 @@
   }
 
   function pointModeLabel(mode) {
-    if (safeStr(mode) === "cumulative") return "Cumulative";
+    var normalized = safeStr(mode).toLowerCase();
+    if (normalized === "cumulative") return "Cumulative";
+    if (normalized === "historical") return "Historical";
     return safeStr(mode);
   }
 
@@ -1011,6 +1046,71 @@
     if (view === "franchise") return "Franchise view";
     if (view === "points") return "Points view";
     return "Roster view";
+  }
+
+  function uniqueSeasonList(values) {
+    var seen = Object.create(null);
+    var out = [];
+    var list = Array.isArray(values) ? values : [];
+    for (var i = 0; i < list.length; i += 1) {
+      var season = safeStr(list[i]);
+      if (!season || seen[season]) continue;
+      seen[season] = true;
+      out.push(season);
+    }
+    return out;
+  }
+
+  function rosterPointSeasonPoolDescending() {
+    var seasons = state.pointsHistory
+      ? historySeasonsDescending()
+      : (state.pointYears && state.pointYears.length ? state.pointYears.slice() : buildPointYears());
+    seasons = uniqueSeasonList(seasons).filter(function (season) {
+      return isSeasonCompleteForRosterPoints(season, new Date());
+    });
+    if (seasons.length) return seasons;
+
+    var base = currentYearInt();
+    return [String(base - 1), String(base - 2), String(base - 3)].filter(function (season) {
+      return safeInt(season, 0) > 0;
+    });
+  }
+
+  function rosterPointModeOptions() {
+    var seasons = rosterPointSeasonPoolDescending();
+    var options = seasons.slice(0, 3).map(function (season) {
+      return { value: season, label: season };
+    });
+    options.push({ value: "historical", label: "Historical" });
+    return options;
+  }
+
+  function normalizeRosterPointMode(mode) {
+    var value = safeStr(mode);
+    var options = rosterPointModeOptions();
+    for (var i = 0; i < options.length; i += 1) {
+      if (safeStr(options[i] && options[i].value) === value) return value;
+    }
+    return options.length ? safeStr(options[0].value) : "historical";
+  }
+
+  function rosterPointSeasonsForMode(mode) {
+    var value = safeStr(mode);
+    var seasons = rosterPointSeasonPoolDescending();
+    if (value === "historical") return seasons.slice().reverse();
+    if (seasons.indexOf(value) !== -1) return [value];
+    return seasons.length ? [seasons[0]] : [];
+  }
+
+  function rosterPointsRangeLabel() {
+    var value = normalizeRosterPointMode(state.pointsMode);
+    if (value === "historical") return "Historical scoring";
+    return value + " scoring";
+  }
+
+  function clearRosterPointsSummaryCache() {
+    state.rosterPointsSummaryCacheKey = "";
+    state.rosterPointsSummaryByPlayer = Object.create(null);
   }
 
   function resolvePointsHistoryUrl() {
@@ -1452,6 +1552,70 @@
       }
       return raw.replace(/\/+$/, "") + "/commish-contract-update";
     }
+  }
+
+  function resolveWorkerAdminStateEndpoint() {
+    try {
+      var u = new URL(resolveWorkerApiEndpoint(), window.location.href);
+      if (/\/roster-workbench(?:\/action)?\/?$/i.test(safeStr(u.pathname))) {
+        u.pathname = safeStr(u.pathname).replace(/\/roster-workbench(?:\/action)?\/?$/i, "/roster-workbench/admin-state");
+      } else {
+        u.pathname = safeStr(u.pathname).replace(/\/+$/, "") + "/roster-workbench/admin-state";
+      }
+      return u.toString();
+    } catch (e) {
+      var raw = safeStr(resolveWorkerApiEndpoint());
+      if (/\/roster-workbench(?:\/action)?\/?$/i.test(raw)) {
+        return raw.replace(/\/roster-workbench(?:\/action)?\/?$/i, "/roster-workbench/admin-state");
+      }
+      return raw.replace(/\/+$/, "") + "/roster-workbench/admin-state";
+    }
+  }
+
+  function appendViewerSessionQuery(url) {
+    var next = new URL(url.toString(), window.location.href);
+    var mflUserId = readCookie("MFL_USER_ID");
+    var apiKey = resolveApiKey();
+    if (mflUserId) next.searchParams.set("MFL_USER_ID", mflUserId);
+    if (apiKey) next.searchParams.set("APIKEY", apiKey);
+    return next;
+  }
+
+  function loadViewerAdminState(ctx) {
+    if (!ctx || !ctx.leagueId || !ctx.year) {
+      state.viewerIsAdmin = false;
+      state.viewerAdminReason = "";
+      state.viewerAdminReady = true;
+      state.viewerCommishFranchiseId = "";
+      return Promise.resolve({
+        ok: false,
+        isAdmin: false,
+        reason: "Missing league context",
+        commishFranchiseId: ""
+      });
+    }
+
+    var url = appendViewerSessionQuery(resolveWorkerAdminStateEndpoint());
+    url.searchParams.set("L", safeStr(ctx.leagueId));
+    url.searchParams.set("YEAR", safeStr(ctx.year));
+    return fetchJson(url.toString(), { credentials: "omit", cache: "no-store" }).then(function (payload) {
+      state.viewerIsAdmin = !!(payload && payload.ok && payload.isAdmin);
+      state.viewerAdminReason = safeStr(payload && payload.reason);
+      state.viewerAdminReady = true;
+      state.viewerCommishFranchiseId = pad4(payload && payload.commishFranchiseId);
+      return payload || {};
+    }).catch(function (err) {
+      state.viewerIsAdmin = false;
+      state.viewerAdminReason = "Unable to verify commissioner access. " + summarizeError(err);
+      state.viewerAdminReady = true;
+      state.viewerCommishFranchiseId = "";
+      return {
+        ok: false,
+        isAdmin: false,
+        reason: state.viewerAdminReason,
+        commishFranchiseId: ""
+      };
+    });
   }
 
   function useDirectMflMode() {
@@ -2011,7 +2175,7 @@
 
     state.pointsHistoryLoading = true;
     state.pointsHistoryError = "";
-    if (state.view === "points") {
+    if (state.view === "points" || state.view === "roster") {
       renderToolbar();
       renderTeams();
     }
@@ -2025,17 +2189,20 @@
       state.pointsHistoryError = "";
       state.pointsHistoryPromise = null;
       ensurePointsHistorySelection();
-      if (state.view === "points") {
+      clearRosterPointsSummaryCache();
+      state.pointsMode = normalizeRosterPointMode(state.pointsMode);
+      if (state.view === "points" || state.view === "roster") {
         renderToolbar();
         renderTeams();
-        ensureLiveSeasonPointsForSelection(false);
+        if (state.view === "points") ensureLiveSeasonPointsForSelection(false);
       }
       return state.pointsHistory;
     }).catch(function (err) {
       state.pointsHistoryLoading = false;
       state.pointsHistoryError = "Unable to load stored points history. " + summarizeError(err);
       state.pointsHistoryPromise = null;
-      if (state.view === "points") {
+      clearRosterPointsSummaryCache();
+      if (state.view === "points" || state.view === "roster") {
         renderToolbar();
         renderTeams();
       }
@@ -2383,6 +2550,65 @@
     return summarizeYearlyPointsSelection(player);
   }
 
+  function rosterPointsSummaryForPlayer(player) {
+    var pid = safeStr(player && player.id);
+    if (!pid) {
+      return {
+        overallPoints: 0,
+        overallGames: 0,
+        overallPpg: 0,
+        starterPoints: 0,
+        starterGames: 0,
+        starterPpg: 0,
+        hasOverall: false,
+        hasStarter: false
+      };
+    }
+
+    var cacheKey = normalizeRosterPointMode(state.pointsMode);
+    if (state.rosterPointsSummaryCacheKey !== cacheKey) {
+      clearRosterPointsSummaryCache();
+      state.rosterPointsSummaryCacheKey = cacheKey;
+    }
+    if (state.rosterPointsSummaryByPlayer[pid]) return state.rosterPointsSummaryByPlayer[pid];
+
+    var seasons = rosterPointSeasonsForMode(cacheKey);
+    var overallPoints = 0;
+    var overallGames = 0;
+    var starterPoints = 0;
+    var starterGames = 0;
+
+    for (var i = 0; i < seasons.length; i += 1) {
+      var season = seasons[i];
+      var yearly = playerYearlyHistoryRow(player, season);
+      if (yearly) {
+        overallPoints += safeNum(yearly[0], 0);
+        overallGames += safeInt(yearly[1], 0);
+      }
+
+      var maxWeek = historySeasonWeekMax(season);
+      for (var week = 1; week <= maxWeek; week += 1) {
+        var weekly = playerWeeklyHistoryRow(player, season, week);
+        if (!weekly || safeInt(weekly[2], 0) !== 1) continue;
+        starterPoints += safeNum(weekly[0], 0);
+        starterGames += 1;
+      }
+    }
+
+    var summary = {
+      overallPoints: overallPoints,
+      overallGames: overallGames,
+      overallPpg: overallGames > 0 ? (overallPoints / overallGames) : 0,
+      starterPoints: starterPoints,
+      starterGames: starterGames,
+      starterPpg: starterGames > 0 ? (starterPoints / starterGames) : 0,
+      hasOverall: overallGames > 0,
+      hasStarter: starterGames > 0
+    };
+    state.rosterPointsSummaryByPlayer[pid] = summary;
+    return summary;
+  }
+
   function sortTeamsForDisplay(teams) {
     var list = Array.isArray(teams) ? teams.slice() : [];
     var viewer = pad4(state.viewerFranchiseId || (state.ctx && state.ctx.franchiseId));
@@ -2564,6 +2790,9 @@
   }
 
   function ensureGamesLoadedForCurrentMode() {
+    if (safeStr(state.pointsMode).toLowerCase() === "historical") {
+      return Promise.resolve();
+    }
     if (state.pointsMode === "cumulative") {
       var years = state.pointYears && state.pointYears.length ? state.pointYears.slice() : buildPointYears();
       return Promise.all(years.map(ensureGamesLoadedForYear));
@@ -2574,6 +2803,9 @@
 
   function pointsForPlayer(player) {
     if (!player) return 0;
+    if (safeStr(state.pointsMode).toLowerCase() === "historical") {
+      return safeNum(rosterPointsSummaryForPlayer(player).overallPoints, 0);
+    }
     if (state.pointsMode === "cumulative") return safeNum(player.pointsCumulative, 0);
 
     var key = safeStr(state.pointsMode || (state.pointYears[0] || state.ctx.year));
@@ -2586,6 +2818,9 @@
 
   function gamesForPlayer(player) {
     if (!player) return 0;
+    if (safeStr(state.pointsMode).toLowerCase() === "historical") {
+      return safeInt(rosterPointsSummaryForPlayer(player).overallGames, 0);
+    }
     if (state.pointsMode === "cumulative") return safeInt(player.gamesCumulative, 0);
     var key = safeStr(state.pointsMode || (state.pointYears[0] || state.ctx.year));
     if (!key) return 0;
@@ -2659,30 +2894,23 @@
     var dir = sortDirMultiplier("roster");
     list.sort(function (a, b) {
       var delta = 0;
+      var aPoints = rosterPointsSummaryForPlayer(a);
+      var bPoints = rosterPointsSummaryForPlayer(b);
       switch (sort.key) {
-        case "points":
-          delta = safeNum(pointsForPlayer(a), 0) - safeNum(pointsForPlayer(b), 0);
+        case "starter_ppg":
+          delta = safeNum(aPoints.starterPpg, 0) - safeNum(bPoints.starterPpg, 0);
           break;
-        case "ppg":
-          delta = safeNum(ppgForPlayer(a), 0) - safeNum(ppgForPlayer(b), 0);
-          break;
-        case "bye":
-          delta = compareText(a.bye, b.bye);
+        case "overall_ppg":
+          delta = safeNum(aPoints.overallPpg, 0) - safeNum(bPoints.overallPpg, 0);
           break;
         case "salary":
           delta = safeInt(a.salary, 0) - safeInt(b.salary, 0);
-          break;
-        case "aav":
-          delta = safeInt(a.aav, 0) - safeInt(b.aav, 0);
           break;
         case "years":
           delta = safeInt(a.years, 0) - safeInt(b.years, 0);
           break;
         case "type":
           delta = compareText(a.type, b.type);
-          break;
-        case "special":
-          delta = compareText(a.special, b.special);
           break;
         case "action":
           delta = compareText(a.status, b.status);
@@ -3063,14 +3291,11 @@
 
     els.pointsControls.className = "rwb-toolbar-points";
     els.pointsControls.innerHTML =
-      '<label class="rwb-field"><span>Points</span><select id="rwbPointsMode" class="rwb-select"></select></label>';
+      '<label class="rwb-field"><span>Scoring</span><select id="rwbPointsMode" class="rwb-select"></select></label>';
     els.pointsMode = document.getElementById("rwbPointsMode");
 
-    var pointOptions = [];
-    for (var p = 0; p < state.pointYears.length; p += 1) {
-      pointOptions.push({ value: state.pointYears[p], label: state.pointYears[p] });
-    }
-    pointOptions.push({ value: "cumulative", label: "Cumulative" });
+    var pointOptions = rosterPointModeOptions();
+    state.pointsMode = normalizeRosterPointMode(state.pointsMode);
     renderSelectOptions(els.pointsMode, pointOptions, state.pointsMode);
   }
 
@@ -3157,7 +3382,9 @@
         else if (state.liveSeasonPoints && safeStr(state.liveSeasonPoints.season) === liveSeasonKey()) parts.push("Current season live");
       }
     } else {
-      parts.push("Points " + pointModeLabel(state.pointsMode));
+      parts.push(rosterPointsRangeLabel());
+      if (state.pointsHistoryLoading) parts.push("Loading scoring history");
+      if (state.pointsHistoryError) parts.push("Scoring history unavailable");
     }
 
     els.note.textContent = parts.join(" | ");
@@ -3299,6 +3526,14 @@
     return !!(viewer && player && pad4(player.fid) === viewer);
   }
 
+  function viewerCanManageAnyRoster() {
+    return !!state.viewerIsAdmin;
+  }
+
+  function canManageRosterPlayer(player) {
+    return !!player && (isOwnRosterPlayer(player) || viewerCanManageAnyRoster());
+  }
+
   function buildTradeModuleUrl(player) {
     var viewerId = pad4(state.viewerFranchiseId || (state.ctx && state.ctx.franchiseId));
     var playerTeamId = pad4(player && player.fid);
@@ -3341,6 +3576,7 @@
     if (isOpen) {
       var player = record.player;
       var team = record.team;
+      var canManage = canManageRosterPlayer(player);
       var ownRoster = isOwnRosterPlayer(player);
       var penalty = dropPenaltyEstimate(player);
       var extensionOptions = playerExtensionOptions(player);
@@ -3348,20 +3584,20 @@
       for (var i = 0; i < extensionOptions.length; i += 1) {
         var extensionOption = extensionOptions[i];
         actions.push(
-          '<button type="button" class="rwb-modal-action' + (ownRoster ? "" : " is-disabled") + '" data-action="extend-player" data-option-key="' + escapeHtml(extensionOption.optionKey) + '" data-player-id="' + escapeHtml(player.id) + '" data-franchise-id="' + escapeHtml(player.fid) + '"' + (ownRoster ? "" : ' disabled') + '>' + escapeHtml(extensionActionLabel(extensionOption)) + '</button>'
+          '<button type="button" class="rwb-modal-action' + (canManage ? "" : " is-disabled") + '" data-action="extend-player" data-option-key="' + escapeHtml(extensionOption.optionKey) + '" data-player-id="' + escapeHtml(player.id) + '" data-franchise-id="' + escapeHtml(player.fid) + '"' + (canManage ? "" : ' disabled') + '>' + escapeHtml(extensionActionLabel(extensionOption)) + '</button>'
         );
       }
       actions.push(
         '<button type="button" class="rwb-modal-action" data-action="trade-player" data-player-id="' + escapeHtml(player.id) + '" data-franchise-id="' + escapeHtml(player.fid) + '">Trade</button>'
       );
       actions.push(
-        '<button type="button" class="rwb-modal-action' + (ownRoster && player.isIr ? "" : " is-disabled") + '" data-action="activate-ir-player" data-player-id="' + escapeHtml(player.id) + '" data-franchise-id="' + escapeHtml(player.fid) + '"' + (ownRoster && player.isIr ? "" : ' disabled') + '>Activate From IR</button>'
+        '<button type="button" class="rwb-modal-action' + (canManage && player.isIr ? "" : " is-disabled") + '" data-action="activate-ir-player" data-player-id="' + escapeHtml(player.id) + '" data-franchise-id="' + escapeHtml(player.fid) + '"' + (canManage && player.isIr ? "" : ' disabled') + '>Activate From IR</button>'
       );
       actions.push(
-        '<button type="button" class="rwb-modal-action' + (ownRoster && player.isTaxi ? "" : " is-disabled") + '" data-action="promote-taxi-player" data-player-id="' + escapeHtml(player.id) + '" data-franchise-id="' + escapeHtml(player.fid) + '"' + (ownRoster && player.isTaxi ? "" : ' disabled') + '>Promote From Taxi</button>'
+        '<button type="button" class="rwb-modal-action' + (canManage && player.isTaxi ? "" : " is-disabled") + '" data-action="promote-taxi-player" data-player-id="' + escapeHtml(player.id) + '" data-franchise-id="' + escapeHtml(player.fid) + '"' + (canManage && player.isTaxi ? "" : ' disabled') + '>Promote From Taxi</button>'
       );
       actions.push(
-        '<button type="button" class="rwb-modal-action' + (ownRoster ? "" : " is-disabled") + '" data-action="drop-player" data-player-id="' + escapeHtml(player.id) + '" data-franchise-id="' + escapeHtml(player.fid) + '"' + (ownRoster ? "" : ' disabled') + '>Drop</button>'
+        '<button type="button" class="rwb-modal-action' + (canManage ? "" : " is-disabled") + '" data-action="drop-player" data-player-id="' + escapeHtml(player.id) + '" data-franchise-id="' + escapeHtml(player.fid) + '"' + (canManage ? "" : ' disabled') + '>Drop</button>'
       );
 
       var extensionSummaryHtml = "";
@@ -3379,7 +3615,7 @@
           '<div class="rwb-modal-note"><strong>Extension Options:</strong>' +
             '<div class="rwb-extension-preview-list">' + extensionLines.join("") + '</div>' +
           '</div>';
-      } else if (ownRoster) {
+      } else if (canManage) {
         extensionSummaryHtml =
           '<div class="rwb-modal-note"><strong>Extension:</strong> No extension options are available for this player.</div>';
       }
@@ -3403,7 +3639,8 @@
         '<div class="rwb-modal-actions-wrap">' + actions.join("") + '</div>' +
         extensionSummaryHtml +
         '<div class="rwb-modal-note"><strong>Estimated Cap Penalty:</strong> ' + escapeHtml(money(penalty.amount)) + ' | ' + escapeHtml(penalty.note) + '</div>' +
-        (!ownRoster ? '<div class="rwb-modal-note">Roster-management actions are enabled only for your franchise. Trade is available from any team.</div>' : '');
+        (!canManage ? '<div class="rwb-modal-note">Roster-management actions are unavailable for this session. Trade is available from any team.</div>' : '') +
+        (viewerCanManageAnyRoster() && !ownRoster ? '<div class="rwb-modal-note"><strong>Commish:</strong> Acting on behalf of ' + escapeHtml(team.name) + '.</div>' : '');
     }
 
     els.playerModal.hidden = !isOpen;
@@ -3424,9 +3661,7 @@
       var tags = [];
       if (p.isTaxi) tags.push('<span class="rwb-tag is-taxi">Taxi</span>');
       if (p.isIr) tags.push('<span class="rwb-tag is-ir">IR</span>');
-      var points = pointsForPlayer(p);
-      var games = gamesForPlayer(p);
-      var ppg = ppgForPlayer(p);
+      var scoring = rosterPointsSummaryForPlayer(p);
       var rowBusy = !!state.busyActionKey && state.busyActionKey.indexOf(":" + p.id) !== -1;
       var actionDisabled = state.busyActionKey ? ' disabled' : '';
 
@@ -3441,23 +3676,21 @@
                 '<button type="button" class="rwb-row-more" data-action="row-more" aria-expanded="false">More</button>' +
               '</div>' +
               '<dl class="rwb-mobile-details">' +
+                '<div><dt>Starter PPG</dt><dd>' + escapeHtml(scoring.hasStarter ? formatPpg(scoring.starterPpg, scoring.starterGames) : "—") + '</dd></div>' +
+                '<div><dt>Overall PPG</dt><dd>' + escapeHtml(scoring.hasOverall ? formatPpg(scoring.overallPpg, scoring.overallGames) : "—") + '</dd></div>' +
+                '<div><dt>Years</dt><dd>' + escapeHtml(String(p.years)) + '</dd></div>' +
+                '<div><dt>Salary</dt><dd>' + escapeHtml(money(p.salary)) + '</dd></div>' +
                 '<div><dt>Type</dt><dd>' + escapeHtml(p.type) + '</dd></div>' +
-                '<div><dt>AAV</dt><dd>' + escapeHtml(p.aav > 0 ? money(p.aav) : "—") + '</dd></div>' +
-                '<div><dt>Contract Info</dt><dd>' + escapeHtml(p.special) + '</dd></div>' +
-                '<div><dt>Bye</dt><dd>' + escapeHtml(p.bye || "-") + '</dd></div>' +
               '</dl>' +
             '</div>' +
           '</td>' +
-          '<td class="rwb-cell-num">' + escapeHtml(formatPoints(points)) + '</td>' +
-          '<td class="rwb-cell-num">' + escapeHtml(formatPpg(ppg, games)) + '</td>' +
-          '<td class="rwb-cell-num rwb-col-secondary">' + escapeHtml(p.bye || "-") + '</td>' +
-          '<td class="rwb-cell-num">' + escapeHtml(money(p.salary)) + '</td>' +
-          '<td class="rwb-cell-num">' + escapeHtml(p.aav > 0 ? money(p.aav) : "—") + '</td>' +
+          '<td class="rwb-cell-num">' + escapeHtml(scoring.hasStarter ? formatPpg(scoring.starterPpg, scoring.starterGames) : "—") + '</td>' +
+          '<td class="rwb-cell-num">' + escapeHtml(scoring.hasOverall ? formatPpg(scoring.overallPpg, scoring.overallGames) : "—") + '</td>' +
           '<td class="rwb-cell-num">' + escapeHtml(String(p.years)) + '</td>' +
+          '<td class="rwb-cell-num">' + escapeHtml(money(p.salary)) + '</td>' +
           '<td><span class="rwb-type-pill ' + typeTone(p.type) + '">' + escapeHtml(p.type) + '</span></td>' +
-          '<td class="rwb-col-secondary">' + escapeHtml(p.special) + '</td>' +
           '<td>' +
-            '<button type="button" class="rwb-row-action" data-action="open-player-modal" data-franchise-id="' + escapeHtml(p.fid) + '" data-player-id="' + escapeHtml(p.id) + '"' + actionDisabled + '>' + escapeHtml(rowBusy ? 'Working...' : ((isOwnRosterPlayer(p) && playerExtensionOptions(p).length) ? 'Actions / Extend' : 'Actions')) + '</button>' +
+            '<button type="button" class="rwb-row-action" data-action="open-player-modal" data-franchise-id="' + escapeHtml(p.fid) + '" data-player-id="' + escapeHtml(p.id) + '"' + actionDisabled + '>' + escapeHtml(rowBusy ? 'Working...' : 'Actions') + '</button>' +
           '</td>' +
         '</tr>'
       );
@@ -3473,14 +3706,11 @@
             '<thead>' +
               '<tr>' +
                 sortableHeader("roster", "name", "Player") +
-                sortableHeader("roster", "points", "Pts " + pointModeLabel(state.pointsMode)) +
-                sortableHeader("roster", "ppg", "PPG") +
-                sortableHeader("roster", "bye", "Bye", "rwb-col-secondary") +
-                sortableHeader("roster", "salary", "Salary") +
-                sortableHeader("roster", "aav", "AAV") +
+                sortableHeader("roster", "starter_ppg", "Starter PPG") +
+                sortableHeader("roster", "overall_ppg", "Overall PPG") +
                 sortableHeader("roster", "years", "Years") +
+                sortableHeader("roster", "salary", "Salary") +
                 sortableHeader("roster", "type", "Type") +
-                sortableHeader("roster", "special", "Contract Info", "rwb-col-secondary") +
                 '<th>Action</th>' +
               '</tr>' +
             '</thead>' +
@@ -4381,8 +4611,13 @@
 
   function refreshData(noCache) {
     setFlash("", "");
+    clearRosterPointsSummaryCache();
     state.gamesLoadedByYear = Object.create(null);
     state.gamesLoadingByYear = Object.create(null);
+    state.viewerIsAdmin = false;
+    state.viewerAdminReason = "";
+    state.viewerAdminReady = false;
+    state.viewerCommishFranchiseId = "";
     if (els.teamList) {
       els.teamList.innerHTML = '<div class="rwb-loading">Refreshing roster data...</div>';
     }
@@ -4393,20 +4628,27 @@
         state.pointYears = (result.pointYears && result.pointYears.length)
           ? result.pointYears.slice()
           : buildPointYears();
-        var allowedPointModes = state.pointYears.concat(["cumulative"]);
-        if (allowedPointModes.indexOf(state.pointsMode) === -1) {
-          state.pointsMode = state.pointYears[0] || String(currentYearInt());
-        }
-        renderToolbar();
-        renderTeams();
-        ensureGamesLoadedForCurrentMode();
-        if (state.view === "points") {
-          loadPointsHistory().then(function () {
-            return ensureLiveSeasonPointsForSelection(false);
-          }).catch(function () {});
-        }
-        persistState();
-        return result;
+        state.pointsMode = normalizeRosterPointMode(state.pointsMode);
+
+        var historyPromise = loadPointsHistory().catch(function () { return null; });
+        var adminPromise = loadViewerAdminState(state.ctx);
+
+        return Promise.all([historyPromise, adminPromise]).then(function () {
+          state.pointsMode = normalizeRosterPointMode(state.pointsMode);
+          renderToolbar();
+          renderTeams();
+          ensureGamesLoadedForCurrentMode();
+          if (state.view === "points") {
+            return ensureLiveSeasonPointsForSelection(false).catch(function () {
+              return null;
+            }).then(function () {
+              persistState();
+              return result;
+            });
+          }
+          persistState();
+          return result;
+        });
       });
   }
 
@@ -4458,6 +4700,7 @@
     var leagueId = safeStr(state.ctx && state.ctx.leagueId);
     var season = safeStr(state.ctx && state.ctx.year);
     var moveKey = "extend:" + safeStr(player.id) + ":" + safeStr(option.optionKey);
+    var commishOverride = viewerCanManageAnyRoster() && !isOwnRosterPlayer(player);
     var payload = {
       L: leagueId,
       YEAR: season,
@@ -4473,7 +4716,8 @@
       contract_year: safeInt(option.contractLength, 0),
       contract_status: safeStr(option.contractStatus),
       contract_info: safeStr(option.contractInfo),
-      submitted_at_utc: new Date().toISOString()
+      submitted_at_utc: new Date().toISOString(),
+      commish_override_flag: commishOverride ? 1 : 0
     };
     var url = resolveWorkerContractUpdateEndpoint() +
       "?L=" + encodeURIComponent(leagueId) +
@@ -4620,7 +4864,7 @@
         pad4(extensionBtn.getAttribute("data-franchise-id")),
         safeStr(extensionBtn.getAttribute("data-player-id"))
       );
-      if (!extensionRecord || !extensionRecord.player || !isOwnRosterPlayer(extensionRecord.player)) return;
+      if (!extensionRecord || !extensionRecord.player || !canManageRosterPlayer(extensionRecord.player)) return;
       var extensionOptionKeyValue = safeStr(extensionBtn.getAttribute("data-option-key"));
       var extensionOptions = playerExtensionOptions(extensionRecord.player);
       var selectedOption = null;
@@ -4647,6 +4891,7 @@
         safeStr(rosterMoveBtn.getAttribute("data-player-id"))
       );
       if (!playerRecord || !playerRecord.player) return;
+      if (!canManageRosterPlayer(playerRecord.player)) return;
       var move = actionName === "activate-ir-player"
         ? "activate_ir"
         : (actionName === "promote-taxi-player" ? "promote_taxi" : "drop_player");
@@ -4710,12 +4955,15 @@
     }
 
     if (el === els.pointsMode) {
-      var nextMode = safeStr(el.value);
+      var nextMode = normalizeRosterPointMode(el.value);
       if (!nextMode) return;
       state.pointsMode = nextMode;
+      clearRosterPointsSummaryCache();
       persistState();
+      renderToolbar();
       renderTeams();
       ensureGamesLoadedForCurrentMode();
+      loadPointsHistory().catch(function () {});
       return;
     }
 
