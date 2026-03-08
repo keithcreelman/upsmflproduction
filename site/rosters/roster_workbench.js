@@ -1045,6 +1045,7 @@
     if (view === "contract") return "Plan view";
     if (view === "franchise") return "Franchise view";
     if (view === "points") return "Points view";
+    if (view === "bye") return "Bye view";
     return "Roster view";
   }
 
@@ -3113,6 +3114,7 @@
                   '<button type="button" id="rwbViewRoster" class="rwb-btn rwb-btn-ghost is-active" data-action="view-switch" data-view="roster" role="tab" aria-selected="true">Roster View</button>' +
                   '<button type="button" id="rwbViewContract" class="rwb-btn rwb-btn-ghost" data-action="view-switch" data-view="contract" role="tab" aria-selected="false">Plan View</button>' +
                   '<button type="button" id="rwbViewPoints" class="rwb-btn rwb-btn-ghost" data-action="view-switch" data-view="points" role="tab" aria-selected="false">Points View</button>' +
+                  '<button type="button" id="rwbViewBye" class="rwb-btn rwb-btn-ghost" data-action="view-switch" data-view="bye" role="tab" aria-selected="false">Bye View</button>' +
                   '<button type="button" id="rwbViewFranchise" class="rwb-btn rwb-btn-ghost" data-action="view-switch" data-view="franchise" role="tab" aria-selected="false">Franchise View</button>' +
                 '</div>' +
               '</div>' +
@@ -3178,6 +3180,7 @@
     els.viewRoster = document.getElementById("rwbViewRoster");
     els.viewContract = document.getElementById("rwbViewContract");
     els.viewPoints = document.getElementById("rwbViewPoints");
+    els.viewBye = document.getElementById("rwbViewBye");
     els.viewFranchise = document.getElementById("rwbViewFranchise");
     els.playerModal = document.getElementById("rwbPlayerModal");
     els.playerModalTitle = document.getElementById("rwbPlayerModalTitle");
@@ -3289,6 +3292,19 @@
       return;
     }
 
+    if (state.view === "bye") {
+      els.pointsControls.className = "rwb-toolbar-points is-bye-view";
+      els.pointsControls.innerHTML =
+        '<div class="rwb-bye-legend" aria-label="Bye view legend">' +
+          '<span class="rwb-bye-legend-label">Heatmap</span>' +
+          '<span class="rwb-bye-legend-chip is-clear">0 clear</span>' +
+          '<span class="rwb-bye-legend-chip is-light">1-2 light</span>' +
+          '<span class="rwb-bye-legend-chip is-medium">3-4 crunch</span>' +
+          '<span class="rwb-bye-legend-chip is-heavy">5+ red</span>' +
+        '</div>';
+      return;
+    }
+
     els.pointsControls.className = "rwb-toolbar-points";
     els.pointsControls.innerHTML =
       '<label class="rwb-field"><span>Scoring</span><select id="rwbPointsMode" class="rwb-select"></select></label>';
@@ -3331,14 +3347,17 @@
       var contractActive = state.view === "contract";
       var pointsActive = state.view === "points";
       var franchiseActive = state.view === "franchise";
+      var byeActive = state.view === "bye";
       els.viewRoster.classList.toggle("is-active", rosterActive);
       els.viewContract.classList.toggle("is-active", contractActive);
       els.viewPoints.classList.toggle("is-active", pointsActive);
       els.viewFranchise.classList.toggle("is-active", franchiseActive);
+      if (els.viewBye) els.viewBye.classList.toggle("is-active", byeActive);
       els.viewRoster.setAttribute("aria-selected", rosterActive ? "true" : "false");
       els.viewContract.setAttribute("aria-selected", contractActive ? "true" : "false");
       els.viewPoints.setAttribute("aria-selected", pointsActive ? "true" : "false");
       els.viewFranchise.setAttribute("aria-selected", franchiseActive ? "true" : "false");
+      if (els.viewBye) els.viewBye.setAttribute("aria-selected", byeActive ? "true" : "false");
     }
 
     if (els.status) {
@@ -3381,6 +3400,9 @@
         else if (state.liveSeasonPointsError) parts.push("Current season live sync unavailable");
         else if (state.liveSeasonPoints && safeStr(state.liveSeasonPoints.season) === liveSeasonKey()) parts.push("Current season live");
       }
+    } else if (state.view === "bye") {
+      parts.push("Heatmap by NFL bye week");
+      parts.push("Counts reflect filtered players only");
     } else {
       parts.push(rosterPointsRangeLabel());
       if (state.pointsHistoryLoading) parts.push("Loading scoring history");
@@ -3824,6 +3846,237 @@
       if (matchesFilters(players[i])) filtered.push(players[i]);
     }
     return filtered;
+  }
+
+  function byeWeekForPlayer(player) {
+    var week = safeInt(player && player.bye, 0);
+    if (week <= 0 || week > MAX_SCORE_WEEKS) return 0;
+    return week;
+  }
+
+  function collectByeWeeksFromPlayers(players) {
+    var seen = Object.create(null);
+    var weeks = [];
+    var list = Array.isArray(players) ? players : [];
+    for (var i = 0; i < list.length; i += 1) {
+      var week = byeWeekForPlayer(list[i]);
+      if (!week || seen[week]) continue;
+      seen[week] = true;
+      weeks.push(String(week));
+    }
+    weeks.sort(function (a, b) { return safeInt(a, 0) - safeInt(b, 0); });
+    return weeks;
+  }
+
+  function leagueByeWeeks() {
+    var players = [];
+    for (var i = 0; i < state.teams.length; i += 1) {
+      var teamPlayers = (state.teams[i] && state.teams[i].players) || [];
+      for (var j = 0; j < teamPlayers.length; j += 1) players.push(teamPlayers[j]);
+    }
+    var weeks = collectByeWeeksFromPlayers(players);
+    if (weeks.length) return weeks;
+    var fallback = [];
+    for (var week = 5; week <= 14; week += 1) fallback.push(String(week));
+    return fallback;
+  }
+
+  function byeCellPositionsLabel(players) {
+    var seen = Object.create(null);
+    var labels = [];
+    var list = Array.isArray(players) ? players : [];
+    for (var i = 0; i < list.length; i += 1) {
+      var pos = safeStr(list[i] && (list[i].positionGroup || list[i].position)).toUpperCase();
+      if (!pos || seen[pos]) continue;
+      seen[pos] = true;
+      labels.push(pos);
+    }
+    labels.sort(function (a, b) {
+      var delta = positionSortValue(a) - positionSortValue(b);
+      if (delta !== 0) return delta;
+      return compareText(a, b);
+    });
+    if (!labels.length) return "";
+    return labels.slice(0, 3).join(" ");
+  }
+
+  function byeTooltipText(week, players) {
+    var list = Array.isArray(players) ? players : [];
+    if (!list.length) return "Week " + safeStr(week) + ": no filtered players on bye";
+    var names = [];
+    for (var i = 0; i < list.length; i += 1) {
+      names.push(safeStr(list[i].name) + " (" + safeStr(list[i].positionGroup || list[i].position) + ")");
+    }
+    return "Week " + safeStr(week) + ": " + names.join(", ");
+  }
+
+  function byeCellTone(count) {
+    var total = Math.max(0, safeInt(count, 0));
+    if (total <= 0) return "is-empty";
+    if (total >= 5) return "is-heavy";
+    if (total >= 3) return "is-medium";
+    return "is-light";
+  }
+
+  function summarizeTeamByes(filteredPlayers, weeks) {
+    var list = Array.isArray(filteredPlayers) ? filteredPlayers : [];
+    var weekKeys = Array.isArray(weeks) ? weeks : [];
+    var map = Object.create(null);
+    var peakCount = 0;
+    var peakWeeks = [];
+    var withBye = 0;
+    var noBye = 0;
+    var weekSeen = Object.create(null);
+
+    for (var i = 0; i < weekKeys.length; i += 1) {
+      map[safeStr(weekKeys[i])] = [];
+      weekSeen[safeStr(weekKeys[i])] = true;
+    }
+
+    for (var p = 0; p < list.length; p += 1) {
+      var player = list[p];
+      var week = String(byeWeekForPlayer(player));
+      if (!safeInt(week, 0) || !weekSeen[week]) {
+        noBye += 1;
+        continue;
+      }
+      map[week].push(player);
+      withBye += 1;
+    }
+
+    for (var x = 0; x < weekKeys.length; x += 1) {
+      var key = safeStr(weekKeys[x]);
+      var count = (map[key] || []).length;
+      if (count > peakCount) {
+        peakCount = count;
+        peakWeeks = [key];
+      } else if (count > 0 && count === peakCount) {
+        peakWeeks.push(key);
+      }
+    }
+
+    return {
+      byWeek: map,
+      withBye: withBye,
+      noBye: noBye,
+      peakCount: peakCount,
+      peakWeeks: peakWeeks
+    };
+  }
+
+  function byePeakLabel(summary) {
+    var data = summary || {};
+    var weeks = Array.isArray(data.peakWeeks) ? data.peakWeeks : [];
+    var count = safeInt(data.peakCount, 0);
+    if (!count || !weeks.length) return "—";
+    return "W" + weeks.join("/W") + " · " + count;
+  }
+
+  function byeSummaryHtml(teamViews) {
+    var rows = [];
+    var weeks = [];
+    var leaguePlayers = [];
+    for (var i = 0; i < teamViews.length; i += 1) {
+      var filteredPlayers = teamViews[i] && teamViews[i].filteredPlayers ? teamViews[i].filteredPlayers : [];
+      for (var j = 0; j < filteredPlayers.length; j += 1) leaguePlayers.push(filteredPlayers[j]);
+    }
+    weeks = collectByeWeeksFromPlayers(leaguePlayers);
+    if (!weeks.length) weeks = leagueByeWeeks();
+
+    var leagueCounts = Object.create(null);
+    for (var w = 0; w < weeks.length; w += 1) leagueCounts[safeStr(weeks[w])] = 0;
+    var leagueNoBye = 0;
+
+    for (var t = 0; t < teamViews.length; t += 1) {
+      var row = teamViews[t] || {};
+      var team = row.team || {};
+      var filtered = row.filteredPlayers || [];
+      var summary = summarizeTeamByes(filtered, weeks);
+      var logo = safeStr(team.logo);
+      var metaText = safeStr(summary.withBye) + " tracked | peak " + byePeakLabel(summary);
+      var cells = [];
+
+      for (var c = 0; c < weeks.length; c += 1) {
+        var weekKey = safeStr(weeks[c]);
+        var players = summary.byWeek[weekKey] || [];
+        var count = players.length;
+        leagueCounts[weekKey] = safeInt(leagueCounts[weekKey], 0) + count;
+        cells.push(
+          '<td class="rwb-bye-week-col">' +
+            '<div class="rwb-bye-cell ' + byeCellTone(count) + '" title="' + escapeHtml(byeTooltipText(weekKey, players)) + '">' +
+              '<span class="rwb-bye-cell-count">' + escapeHtml(count > 0 ? String(count) : "—") + '</span>' +
+              '<span class="rwb-bye-cell-meta">' + escapeHtml(count > 0 ? byeCellPositionsLabel(players) : "clear") + '</span>' +
+            '</div>' +
+          '</td>'
+        );
+      }
+
+      leagueNoBye += safeInt(summary.noBye, 0);
+      rows.push(
+        '<tr id="rwb-team-' + escapeHtml(team.id) + '">' +
+          '<td>' +
+            '<div class="rwb-franchise-cell">' +
+              (logo
+                ? '<img class="rwb-franchise-icon" src="' + escapeHtml(logo) + '" alt="' + escapeHtml(team.name) + ' logo">'
+                : '<span class="rwb-franchise-icon rwb-franchise-icon-fallback">' + escapeHtml(team.fid) + '</span>') +
+              '<div class="rwb-franchise-copy">' +
+                '<div class="rwb-franchise-name">' + escapeHtml(team.name) + '</div>' +
+                '<div class="rwb-franchise-meta">' + escapeHtml(metaText) + '</div>' +
+              '</div>' +
+            '</div>' +
+          '</td>' +
+          cells.join("") +
+          '<td class="rwb-cell-num">' + escapeHtml(byePeakLabel(summary)) + '</td>' +
+          '<td class="rwb-cell-num">' + escapeHtml(String(summary.noBye)) + '</td>' +
+        '</tr>'
+      );
+    }
+
+    var footerCells = [];
+    for (var f = 0; f < weeks.length; f += 1) {
+      var footerWeek = safeStr(weeks[f]);
+      footerCells.push(
+        '<th class="rwb-cell-num">' + escapeHtml(String(safeInt(leagueCounts[footerWeek], 0))) + '</th>'
+      );
+    }
+
+    return (
+      '<article class="rwb-team-card rwb-bye-summary-card">' +
+        '<div class="rwb-bye-summary-head">' +
+          '<div>' +
+            '<div class="rwb-bye-summary-title">Bye Week Heatmap</div>' +
+            '<div class="rwb-bye-summary-sub">Each cell shows how many filtered players are on bye for that franchise in that NFL week.</div>' +
+          '</div>' +
+          '<div class="rwb-bye-summary-legend">' +
+            '<span class="rwb-bye-legend-chip is-clear">0</span>' +
+            '<span class="rwb-bye-legend-chip is-light">1-2</span>' +
+            '<span class="rwb-bye-legend-chip is-medium">3-4</span>' +
+            '<span class="rwb-bye-legend-chip is-heavy">5+</span>' +
+          '</div>' +
+        '</div>' +
+        '<div class="rwb-table-wrap">' +
+          '<table class="rwb-table rwb-bye-table" aria-label="Bye week heatmap">' +
+            '<thead>' +
+              '<tr>' +
+                '<th>Franchise</th>' +
+                weeks.map(function (week) { return '<th class="rwb-bye-week-col">W' + escapeHtml(week) + '</th>'; }).join("") +
+                '<th>Peak</th>' +
+                '<th>No Bye</th>' +
+              '</tr>' +
+            '</thead>' +
+            '<tbody>' + rows.join("") + '</tbody>' +
+            '<tfoot>' +
+              '<tr class="rwb-summary-row rwb-summary-row-primary">' +
+                '<th>League Total</th>' +
+                footerCells.join("") +
+                '<th>—</th>' +
+                '<th class="rwb-cell-num">' + escapeHtml(String(leagueNoBye)) + '</th>' +
+              '</tr>' +
+            '</tfoot>' +
+          '</table>' +
+        '</div>' +
+      '</article>'
+    );
   }
 
   function franchiseSummaryHtml(teamViews) {
@@ -4323,7 +4576,7 @@
       });
       if (state.view === "points") {
         html.push(pointsTeamCardHtml(team, filteredPlayers));
-      } else if (state.view !== "franchise") {
+      } else if (state.view !== "franchise" && state.view !== "bye") {
         html.push(teamCardHtml(team));
       }
     }
@@ -4332,6 +4585,8 @@
       html.push(summarizeContractLeague());
     } else if (state.view === "franchise" && visibleTeams.length) {
       html.push(franchiseSummaryHtml(visibleTeams));
+    } else if (state.view === "bye" && visibleTeams.length) {
+      html.push(byeSummaryHtml(visibleTeams));
     }
 
     if (!html.length) {
@@ -4463,7 +4718,7 @@
     state.contractPreview = readStorage("contractPreview", {}) || {};
     state.sorts = readStorage("sorts", state.sorts) || state.sorts;
     var storedView = safeStr(readStorage("view", "roster"));
-    state.view = storedView === "contract" || storedView === "franchise" || storedView === "points" ? storedView : "roster";
+    state.view = storedView === "contract" || storedView === "franchise" || storedView === "points" || storedView === "bye" ? storedView : "roster";
     state.pointsMode = safeStr(readStorage("pointsMode", ""));
     state.pointsHistoryMode = safeStr(readStorage("pointsHistoryMode", "yearly"));
     state.pointsHistoryYearStart = safeStr(readStorage("pointsHistoryYearStart", ""));
@@ -4766,7 +5021,7 @@
     var viewBtn = target.closest("[data-action='view-switch']");
     if (viewBtn) {
       var nextView = safeStr(viewBtn.getAttribute("data-view"));
-      if (nextView !== "contract" && nextView !== "roster" && nextView !== "franchise" && nextView !== "points") return;
+      if (nextView !== "contract" && nextView !== "roster" && nextView !== "franchise" && nextView !== "points" && nextView !== "bye") return;
       if (state.view !== nextView) {
         state.view = nextView;
         persistState();
