@@ -4908,8 +4908,6 @@
     var startedRow = ['<tr><th>Started</th>'];
     var tierRow = ['<tr><th>Tier</th>'];
     var posScoreRow = ['<tr><th>Pos Score</th>'];
-    var eliteOverallRow = ['<tr><th>Elite Overall</th>'];
-    var elitePosRow = ['<tr><th>Elite Pos</th>'];
 
     for (var i = 0; i < weeks.length; i += 1) {
       var week = weeks[i];
@@ -4921,8 +4919,6 @@
         startedRow.push('<td class="rwb-points-history-missing">—</td>');
         tierRow.push('<td class="rwb-points-history-missing">—</td>');
         posScoreRow.push('<td class="rwb-points-history-missing">—</td>');
-        eliteOverallRow.push('<td class="rwb-points-history-missing">—</td>');
-        elitePosRow.push('<td class="rwb-points-history-missing">—</td>');
         continue;
       }
       var points = weeklyHistoryFieldValue(row, "points", 0);
@@ -4930,15 +4926,11 @@
       var started = weeklyHistoryFieldValue(row, "started", 2);
       var bucket = weeklyHistoryBucketLabel(row);
       var posScore = weeklyHistoryFieldValue(row, "pos_week_score", -1);
-      var eliteOverall = weeklyHistoryFieldValue(row, "elite_week", -1);
-      var elitePos = weeklyHistoryFieldValue(row, "elite_week_pos", -1);
       pointsRow.push('<td class="rwb-cell-num">' + escapeHtml(formatPoints(points)) + '</td>');
       rankRow.push('<td class="rwb-cell-num">' + escapeHtml(formatRank(rank)) + '</td>');
       startedRow.push('<td class="' + (safeInt(started, 0) === 1 ? 'rwb-points-history-started' : 'rwb-points-history-bench') + '">' + escapeHtml(formatStarted(started)) + '</td>');
       tierRow.push('<td>' + escapeHtml(formatTier(bucket)) + '</td>');
       posScoreRow.push('<td class="rwb-cell-num">' + escapeHtml(formatSignedScore(posScore)) + '</td>');
-      eliteOverallRow.push('<td>' + escapeHtml(formatYesNo(eliteOverall)) + '</td>');
-      elitePosRow.push('<td>' + escapeHtml(formatYesNo(elitePos)) + '</td>');
     }
 
     pointsRow.push('</tr>');
@@ -4946,14 +4938,12 @@
     startedRow.push('</tr>');
     tierRow.push('</tr>');
     posScoreRow.push('</tr>');
-    eliteOverallRow.push('</tr>');
-    elitePosRow.push('</tr>');
 
     return (
       '<div class="rwb-points-history-wrap">' +
         '<table class="rwb-table rwb-points-history-table" aria-label="' + escapeHtml(player.name + ' weekly points history for ' + season) + '">' +
           '<thead><tr>' + header.join("") + '</tr></thead>' +
-          '<tbody>' + pointsRow.join("") + rankRow.join("") + startedRow.join("") + tierRow.join("") + posScoreRow.join("") + eliteOverallRow.join("") + elitePosRow.join("") + '</tbody>' +
+          '<tbody>' + pointsRow.join("") + rankRow.join("") + startedRow.join("") + tierRow.join("") + posScoreRow.join("") + '</tbody>' +
         '</table>' +
       '</div>'
     );
