@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var BUILD = "2026.03.08.03";
+  var BUILD = "2026.03.08.04";
   var BOOT_FLAG = "__ups_roster_workbench_boot_" + BUILD;
   if (window[BOOT_FLAG]) {
     if (typeof window.UPS_RWB_INIT === "function") window.UPS_RWB_INIT();
@@ -5868,7 +5868,7 @@
 
     if (!state.ctx.leagueId) {
       renderSkeleton();
-      renderError("Rosters could not determine league id from this page URL.");
+      renderError("Front Office could not determine league id from this page URL.");
       return;
     }
 
