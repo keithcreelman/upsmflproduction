@@ -2859,22 +2859,36 @@
           '</header>' +
           '<section class="rwb-toolbar" aria-label="Roster toolbar">' +
             '<div class="rwb-toolbar-main" id="rwbToolbarMain">' +
-              '<div class="rwb-view-switch" role="tablist" aria-label="View mode">' +
-                '<button type="button" id="rwbViewRoster" class="rwb-btn rwb-btn-ghost is-active" data-action="view-switch" data-view="roster" role="tab" aria-selected="true">Roster View</button>' +
-                '<button type="button" id="rwbViewContract" class="rwb-btn rwb-btn-ghost" data-action="view-switch" data-view="contract" role="tab" aria-selected="false">Plan View</button>' +
-                '<button type="button" id="rwbViewPoints" class="rwb-btn rwb-btn-ghost" data-action="view-switch" data-view="points" role="tab" aria-selected="false">Points View</button>' +
-                '<button type="button" id="rwbViewFranchise" class="rwb-btn rwb-btn-ghost" data-action="view-switch" data-view="franchise" role="tab" aria-selected="false">Franchise View</button>' +
+              '<div class="rwb-toolbar-panel rwb-toolbar-panel-nav">' +
+                '<div class="rwb-toolbar-section-label">Views</div>' +
+                '<div class="rwb-view-switch" role="tablist" aria-label="View mode">' +
+                  '<button type="button" id="rwbViewRoster" class="rwb-btn rwb-btn-ghost is-active" data-action="view-switch" data-view="roster" role="tab" aria-selected="true">Roster View</button>' +
+                  '<button type="button" id="rwbViewContract" class="rwb-btn rwb-btn-ghost" data-action="view-switch" data-view="contract" role="tab" aria-selected="false">Plan View</button>' +
+                  '<button type="button" id="rwbViewPoints" class="rwb-btn rwb-btn-ghost" data-action="view-switch" data-view="points" role="tab" aria-selected="false">Points View</button>' +
+                  '<button type="button" id="rwbViewFranchise" class="rwb-btn rwb-btn-ghost" data-action="view-switch" data-view="franchise" role="tab" aria-selected="false">Franchise View</button>' +
+                '</div>' +
               '</div>' +
-              '<label class="rwb-field"><span>Jump To Team</span><select id="rwbJumpTeam" class="rwb-select"><option value="">Select team...</option></select></label>' +
-              '<div id="rwbPointsControls" class="rwb-toolbar-points"></div>' +
-              '<label class="rwb-field"><span>Search</span><input id="rwbSearch" class="rwb-input" type="search" placeholder="Player, team, position, contract" autocomplete="off"></label>' +
-              '<button type="button" id="rwbTaxiOnly" class="rwb-btn rwb-btn-ghost">Taxi Only: Off</button>' +
-              '<button type="button" id="rwbResetFilters" class="rwb-btn rwb-btn-ghost">Reset Filters</button>' +
+              '<div class="rwb-toolbar-panel rwb-toolbar-panel-browse">' +
+                '<div class="rwb-toolbar-section-label">Browse</div>' +
+                '<div class="rwb-toolbar-browse-grid">' +
+                  '<label class="rwb-field"><span>Team</span><select id="rwbJumpTeam" class="rwb-select"><option value="">Select team...</option></select></label>' +
+                  '<div id="rwbPointsControls" class="rwb-toolbar-points"></div>' +
+                '</div>' +
+              '</div>' +
             '</div>' +
             '<div id="rwbAdvancedFilters" class="rwb-toolbar-advanced">' +
-              '<label class="rwb-field"><span>Position Group</span><select id="rwbFilterPosition" class="rwb-select"><option value="">All Groups</option></select></label>' +
-              '<label class="rwb-field"><span>Contract Type</span><select id="rwbFilterType" class="rwb-select"><option value="">All Contract Types</option></select></label>' +
-              '<div class="rwb-toolbar-hint">Search works across player, team, contract, and grouped position labels.</div>' +
+              '<div class="rwb-toolbar-panel rwb-toolbar-panel-filters">' +
+                '<div class="rwb-toolbar-section-label">Filters</div>' +
+                '<div class="rwb-toolbar-filter-grid">' +
+                  '<label class="rwb-field rwb-field-search"><span>Search</span><input id="rwbSearch" class="rwb-input" type="search" placeholder="Player, team, or contract" autocomplete="off"></label>' +
+                  '<label class="rwb-field"><span>Position</span><select id="rwbFilterPosition" class="rwb-select"><option value="">All Groups</option></select></label>' +
+                  '<label class="rwb-field"><span>Contract</span><select id="rwbFilterType" class="rwb-select"><option value="">All Contract Types</option></select></label>' +
+                  '<div class="rwb-toolbar-actions">' +
+                    '<button type="button" id="rwbTaxiOnly" class="rwb-btn rwb-btn-ghost">Taxi Only: Off</button>' +
+                    '<button type="button" id="rwbResetFilters" class="rwb-btn rwb-btn-ghost">Clear Filters</button>' +
+                  '</div>' +
+                '</div>' +
+              '</div>' +
             '</div>' +
             '<div class="rwb-toolbar-note" id="rwbToolbarNote">Loading roster data...</div>' +
             '<div class="rwb-status" id="rwbStatus" hidden></div>' +
