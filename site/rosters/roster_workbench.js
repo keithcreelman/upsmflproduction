@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var BUILD = "2026.03.08.01";
+  var BUILD = "2026.03.08.02";
   var BOOT_FLAG = "__ups_roster_workbench_boot_" + BUILD;
   if (window[BOOT_FLAG]) {
     if (typeof window.UPS_RWB_INIT === "function") window.UPS_RWB_INIT();
@@ -1114,10 +1114,10 @@
   }
 
   function viewLabel(view) {
-    if (view === "contract") return "Plan";
-    if (view === "franchise") return "Franchise Summary";
-    if (view === "points") return "Points";
-    if (view === "bye") return "Byes";
+    if (view === "contract") return "Cap Plan";
+    if (view === "franchise") return "Summary";
+    if (view === "points") return "Scoring";
+    if (view === "bye") return "Bye Chart";
     return "Roster";
   }
 
@@ -3297,10 +3297,10 @@
                 '<div class="rwb-toolbar-section-label">Views</div>' +
                 '<div class="rwb-view-switch" role="tablist" aria-label="View mode">' +
                   '<button type="button" id="rwbViewRoster" class="rwb-btn rwb-btn-ghost is-active" data-action="view-switch" data-view="roster" role="tab" aria-selected="true">Roster</button>' +
-                  '<button type="button" id="rwbViewContract" class="rwb-btn rwb-btn-ghost" data-action="view-switch" data-view="contract" role="tab" aria-selected="false">Plan</button>' +
-                  '<button type="button" id="rwbViewBye" class="rwb-btn rwb-btn-ghost" data-action="view-switch" data-view="bye" role="tab" aria-selected="false">Byes</button>' +
-                  '<button type="button" id="rwbViewPoints" class="rwb-btn rwb-btn-ghost" data-action="view-switch" data-view="points" role="tab" aria-selected="false">Points</button>' +
-                  '<button type="button" id="rwbViewFranchise" class="rwb-btn rwb-btn-ghost" data-action="view-switch" data-view="franchise" role="tab" aria-selected="false">Franchise Summary</button>' +
+                  '<button type="button" id="rwbViewContract" class="rwb-btn rwb-btn-ghost" data-action="view-switch" data-view="contract" role="tab" aria-selected="false">Cap Plan</button>' +
+                  '<button type="button" id="rwbViewBye" class="rwb-btn rwb-btn-ghost" data-action="view-switch" data-view="bye" role="tab" aria-selected="false">Bye Chart</button>' +
+                  '<button type="button" id="rwbViewPoints" class="rwb-btn rwb-btn-ghost" data-action="view-switch" data-view="points" role="tab" aria-selected="false">Scoring</button>' +
+                  '<button type="button" id="rwbViewFranchise" class="rwb-btn rwb-btn-ghost" data-action="view-switch" data-view="franchise" role="tab" aria-selected="false">Summary</button>' +
                 '</div>' +
               '</div>' +
               '<div class="rwb-toolbar-panel rwb-toolbar-panel-browse">' +
