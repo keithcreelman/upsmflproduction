@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var BUILD = "2026.03.07.17";
+  var BUILD = "2026.03.07.18";
   var BOOT_FLAG = "__ups_roster_workbench_boot_" + BUILD;
   if (window[BOOT_FLAG]) {
     if (typeof window.UPS_RWB_INIT === "function") window.UPS_RWB_INIT();
@@ -3805,16 +3805,12 @@
     var playerTeamId = pad4(player && player.fid);
     var params = {
       twb_player_id: safeStr(player && player.id),
-      twb_team_id: playerTeamId
+      twb_team_id: playerTeamId,
+      twb_left_team: playerTeamId,
+      twb_side: "left"
     };
-    if (viewerId) {
-      params.twb_left_team = viewerId;
-      if (playerTeamId && playerTeamId !== viewerId) {
-        params.twb_right_team = playerTeamId;
-        params.twb_side = "partner";
-      } else {
-        params.twb_side = "left";
-      }
+    if (viewerId && playerTeamId && viewerId !== playerTeamId) {
+      params.twb_right_team = viewerId;
     }
     return buildLeagueModuleHashUrl("MESSAGE6=N", params);
   }

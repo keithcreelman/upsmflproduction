@@ -4680,6 +4680,7 @@
       search: "",
     },
     globalNotice: null,
+    pendingActionPreload: null,
   };
 
   function primaryModeStorageKey() {
@@ -4695,6 +4696,99 @@
     } catch (_) {
       return "action";
     }
+  }
+
+  function readActionPreloadFromUrl() {
+    try {
+      const u = new URL(window.location.href);
+      const qs = u.searchParams;
+      const actionRaw = safeStr(qs.get("cccAction")).toLowerCase();
+      const playerId = safeStr(qs.get("cccPlayer")).replace(/\D/g, "");
+      const franchiseId = pad4(qs.get("cccFranchise"));
+      const season = normalizeSeasonValue(qs.get("cccSeason"));
+      const yearsRaw = safeStr(qs.get("cccYears"));
+      const yearsInt = safeInt(yearsRaw);
+      let actionType = "";
+      if (actionRaw === "extension" || actionRaw === "extend") actionType = "extend";
+      else if (actionRaw === "restructure") actionType = "restructure";
+      else if (actionRaw === "mym") actionType = "mym";
+      else if (actionRaw === "tag") actionType = "tag";
+      if (!actionType || !playerId) return null;
+      return {
+        actionType,
+        playerId,
+        franchiseId,
+        season,
+        yearsRaw,
+        yearsInt,
+      };
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function clearActionPreloadFromUrl() {
+    try {
+      const u = new URL(window.location.href);
+      let changed = false;
+      ["cccAction", "cccPlayer", "cccFranchise", "cccSeason", "cccYears"].forEach((key) => {
+        if (!u.searchParams.has(key)) return;
+        u.searchParams.delete(key);
+        changed = true;
+      });
+      if (changed && window.history && window.history.replaceState) {
+        window.history.replaceState({}, document.title, u.toString());
+      }
+    } catch (_) {}
+  }
+
+  function applyActionPreload() {
+    const preload = readActionPreloadFromUrl();
+    if (!preload) return;
+    state.pendingActionPreload = preload;
+
+    if (preload.season) state.selectedSeason = preload.season;
+
+    if (preload.franchiseId) {
+      state.selectedTeam = preload.franchiseId;
+      state.showAllTeams = false;
+    }
+
+    const targetModule = moduleForActionType(preload.actionType);
+    if (targetModule) {
+      state.activeModule = targetModule;
+      state.actionFlow.actionType = preload.actionType;
+    }
+
+    state.primaryMode = "action";
+    state.actionFlow.selectedPlayerId = preload.playerId;
+    state.actionFlow.selectedFranchiseId = preload.franchiseId;
+    state.actionFlow.lastReceipt = null;
+    state.actionFlow.status = "ready";
+    state.actionFlow.statusMessage = "";
+
+    if (preload.actionType === "extend") {
+      state.actionFlow.selectedTerm = preload.yearsInt === 2 ? "2YR" : "1YR";
+    } else if (preload.actionType === "mym") {
+      state.actionFlow.selectedTerm = preload.yearsInt === 3 ? "3YR" : "2YR";
+    } else {
+      state.actionFlow.selectedTerm = "";
+    }
+
+    clearActionPreloadFromUrl();
+  }
+
+  function autoOpenPreloadedAction() {
+    const preload = state.pendingActionPreload;
+    if (!preload || preload.actionType !== "restructure") return;
+    const candidates = getActionCandidates({ season: normalizeSeasonValue(state.selectedSeason) });
+    const row = findActionSelectedRow(candidates);
+    if (!row) {
+      state.pendingActionPreload = null;
+      return;
+    }
+    openRestructureModal(row);
+    state.pendingActionPreload = null;
   }
 
   function savePrimaryMode(mode) {
@@ -9493,6 +9587,7 @@
         ? requestedSeason
         : seasons[0] || requestedSeason;
       state.selectedSeason = seasonSelected;
+      applyActionPreload();
       if (state.commishMode && $("#asOfSeasonSelect")) {
         populateAsOfSeasonSelect(seasons, state.asOfSeasonOverride);
       }
@@ -9530,8 +9625,13 @@
       const detected = teams.some((t) => t.id === state.detectedFranchiseId)
         ? state.detectedFranchiseId
         : "";
+      const preloadedTeam = pad4((state.pendingActionPreload && state.pendingActionPreload.franchiseId) || state.selectedTeam);
       const initialTeam = state.commishMode
-        ? "__ALL__"
+        ? hasTeam(preloadedTeam)
+          ? preloadedTeam
+          : "__ALL__"
+        : hasTeam(preloadedTeam)
+        ? preloadedTeam
         : hasTeam(defaultTeam)
         ? defaultTeam
         : hasTeam(detected)
@@ -9611,6 +9711,7 @@
       }
 
       render();
+      autoOpenPreloadedAction();
 
       return {
         ok: true,
