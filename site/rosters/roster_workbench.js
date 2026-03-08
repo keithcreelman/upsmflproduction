@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var BUILD = "2026.03.07.13";
+  var BUILD = "2026.03.07.14";
   var BOOT_FLAG = "__ups_roster_workbench_boot_" + BUILD;
   if (window[BOOT_FLAG]) {
     if (typeof window.UPS_RWB_INIT === "function") window.UPS_RWB_INIT();
@@ -290,6 +290,29 @@
   function currentAavForContractInfo(contractInfo) {
     var values = parseContractAavValues(contractInfo);
     return values.length ? safeInt(values[0], 0) : 0;
+  }
+
+  function rookieLikeContractStatus(value) {
+    var status = safeStr(value).toLowerCase();
+    return status === "r" || status.indexOf("r-") === 0 || status.indexOf("rookie") !== -1;
+  }
+
+  function rosterContractEligibility(player) {
+    var years = Math.max(0, safeInt(player && player.years, 0));
+    var salary = safeInt(player && player.salary, 0);
+    var status = safeStr(player && player.type).toLowerCase();
+    var info = safeStr(player && player.special).toLowerCase();
+    var noFurtherExt =
+      info.indexOf("no further extensions") !== -1 ||
+      info.indexOf("not eligible for tag or extension") !== -1;
+    var expiredRookie =
+      info.indexOf("expired rookie") !== -1 ||
+      (rookieLikeContractStatus(status) && years <= 0);
+
+    return {
+      extensionEligible: (years === 1 || expiredRookie) && status.indexOf("tag") === -1 && !noFurtherExt,
+      restructureEligible: years >= 2 && years <= 3 && salary > 1000 && !rookieLikeContractStatus(status)
+    };
   }
 
   function rosterCountEligible(player) {
@@ -3556,23 +3579,54 @@
     return !!player && (isOwnRosterPlayer(player) || viewerCanManageAnyRoster());
   }
 
+  function buildLeagueModuleUrl(moduleValue, params) {
+    var base =
+      window.location.origin +
+      "/" + encodeURIComponent(state.ctx.year) +
+      "/home/" + encodeURIComponent(state.ctx.leagueId);
+    var query = ["MODULE=" + safeStr(moduleValue)];
+    var extra = params || {};
+    var keys = Object.keys(extra);
+    for (var i = 0; i < keys.length; i += 1) {
+      var key = safeStr(keys[i]);
+      if (!key) continue;
+      var value = extra[key];
+      if (value == null || value === "") continue;
+      query.push(encodeURIComponent(key) + "=" + encodeURIComponent(String(value)));
+    }
+    return base + "?" + query.join("&");
+  }
+
   function buildTradeModuleUrl(player) {
     var viewerId = pad4(state.viewerFranchiseId || (state.ctx && state.ctx.franchiseId));
     var playerTeamId = pad4(player && player.fid);
-    var url = new URL(window.location.origin + "/" + encodeURIComponent(state.ctx.year) + "/home/" + encodeURIComponent(state.ctx.leagueId));
-    url.searchParams.set("MODULE", "MESSAGE6=N");
-    url.searchParams.set("twb_player_id", safeStr(player && player.id));
-    url.searchParams.set("twb_team_id", playerTeamId);
+    var params = {
+      twb_player_id: safeStr(player && player.id),
+      twb_team_id: playerTeamId
+    };
     if (viewerId) {
-      url.searchParams.set("twb_left_team", viewerId);
+      params.twb_left_team = viewerId;
       if (playerTeamId && playerTeamId !== viewerId) {
-        url.searchParams.set("twb_right_team", playerTeamId);
-        url.searchParams.set("twb_side", "partner");
+        params.twb_right_team = playerTeamId;
+        params.twb_side = "partner";
       } else {
-        url.searchParams.set("twb_side", "left");
+        params.twb_side = "left";
       }
     }
-    return url.toString();
+    return buildLeagueModuleUrl("MESSAGE6=N", params);
+  }
+
+  function buildContractCenterActionUrl(action, player, years) {
+    var params = {
+      cccAction: safeStr(action).toLowerCase(),
+      cccPlayer: safeStr(player && player.id),
+      cccFranchise: pad4(player && player.fid),
+      cccSeason: safeStr(state.ctx && state.ctx.year)
+    };
+    if (safeStr(action).toLowerCase() === "extension") {
+      params.cccYears = Math.max(1, Math.min(2, safeInt(years, 1) || 1));
+    }
+    return buildLeagueModuleUrl("MESSAGE2", params);
   }
 
   function openPlayerActionModal(franchiseId, playerId) {
@@ -3602,25 +3656,37 @@
       var ownRoster = isOwnRosterPlayer(player);
       var penalty = dropPenaltyEstimate(player);
       var extensionOptions = playerExtensionOptions(player);
+      var contractEligibility = rosterContractEligibility(player);
       var actions = [];
-      for (var i = 0; i < extensionOptions.length; i += 1) {
-        var extensionOption = extensionOptions[i];
-        actions.push(
-          '<button type="button" class="rwb-modal-action' + (canManage ? "" : " is-disabled") + '" data-action="extend-player" data-option-key="' + escapeHtml(extensionOption.optionKey) + '" data-player-id="' + escapeHtml(player.id) + '" data-franchise-id="' + escapeHtml(player.fid) + '"' + (canManage ? "" : ' disabled') + '>' + escapeHtml(extensionActionLabel(extensionOption)) + '</button>'
-        );
-      }
       actions.push(
         '<button type="button" class="rwb-modal-action" data-action="trade-player" data-player-id="' + escapeHtml(player.id) + '" data-franchise-id="' + escapeHtml(player.fid) + '">Trade</button>'
       );
-      actions.push(
-        '<button type="button" class="rwb-modal-action' + (canManage && player.isIr ? "" : " is-disabled") + '" data-action="activate-ir-player" data-player-id="' + escapeHtml(player.id) + '" data-franchise-id="' + escapeHtml(player.fid) + '"' + (canManage && player.isIr ? "" : ' disabled') + '>Activate From IR</button>'
-      );
-      actions.push(
-        '<button type="button" class="rwb-modal-action' + (canManage && player.isTaxi ? "" : " is-disabled") + '" data-action="promote-taxi-player" data-player-id="' + escapeHtml(player.id) + '" data-franchise-id="' + escapeHtml(player.fid) + '"' + (canManage && player.isTaxi ? "" : ' disabled') + '>Promote From Taxi</button>'
-      );
-      actions.push(
-        '<button type="button" class="rwb-modal-action' + (canManage ? "" : " is-disabled") + '" data-action="drop-player" data-player-id="' + escapeHtml(player.id) + '" data-franchise-id="' + escapeHtml(player.fid) + '"' + (canManage ? "" : ' disabled') + '>Drop</button>'
-      );
+      if (canManage) {
+        for (var i = 0; i < extensionOptions.length; i += 1) {
+          var extensionOption = extensionOptions[i];
+          actions.push(
+            '<button type="button" class="rwb-modal-action" data-action="extend-player" data-option-key="' + escapeHtml(extensionOption.optionKey) + '" data-player-id="' + escapeHtml(player.id) + '" data-franchise-id="' + escapeHtml(player.fid) + '">' + escapeHtml(extensionActionLabel(extensionOption)) + '</button>'
+          );
+        }
+        if (contractEligibility.restructureEligible) {
+          actions.push(
+            '<button type="button" class="rwb-modal-action" data-action="restructure-player" data-player-id="' + escapeHtml(player.id) + '" data-franchise-id="' + escapeHtml(player.fid) + '">Restructure</button>'
+          );
+        }
+        if (player.isIr) {
+          actions.push(
+            '<button type="button" class="rwb-modal-action" data-action="activate-ir-player" data-player-id="' + escapeHtml(player.id) + '" data-franchise-id="' + escapeHtml(player.fid) + '">Activate From IR</button>'
+          );
+        }
+        if (player.isTaxi) {
+          actions.push(
+            '<button type="button" class="rwb-modal-action" data-action="promote-taxi-player" data-player-id="' + escapeHtml(player.id) + '" data-franchise-id="' + escapeHtml(player.fid) + '">Promote From Taxi</button>'
+          );
+        }
+        actions.push(
+          '<button type="button" class="rwb-modal-action" data-action="drop-player" data-player-id="' + escapeHtml(player.id) + '" data-franchise-id="' + escapeHtml(player.fid) + '">Drop</button>'
+        );
+      }
 
       var extensionSummaryHtml = "";
       if (extensionOptions.length) {
@@ -3637,7 +3703,7 @@
           '<div class="rwb-modal-note"><strong>Extension Options:</strong>' +
             '<div class="rwb-extension-preview-list">' + extensionLines.join("") + '</div>' +
           '</div>';
-      } else if (canManage) {
+      } else if (canManage && contractEligibility.extensionEligible) {
         extensionSummaryHtml =
           '<div class="rwb-modal-note"><strong>Extension:</strong> No extension options are available for this player.</div>';
       }
@@ -5134,6 +5200,19 @@
         return;
       }
       submitExtensionUpdate(extensionRecord.player, selectedOption);
+      return;
+    }
+
+    var restructureBtn = target.closest("[data-action='restructure-player']");
+    if (restructureBtn) {
+      var restructureRecord = findPlayerRecord(
+        pad4(restructureBtn.getAttribute("data-franchise-id")),
+        safeStr(restructureBtn.getAttribute("data-player-id"))
+      );
+      if (!restructureRecord || !restructureRecord.player) return;
+      if (!canManageRosterPlayer(restructureRecord.player)) return;
+      if (!rosterContractEligibility(restructureRecord.player).restructureEligible) return;
+      window.location.href = buildContractCenterActionUrl("restructure", restructureRecord.player);
       return;
     }
 
