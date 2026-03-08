@@ -1057,17 +1057,6 @@
     return "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/trades/extension_previews_" + encodeURIComponent(seasonText) + ".json";
   }
 
-  function teamHasExtensionPreviews(teams) {
-    var rows = teams || [];
-    for (var i = 0; i < rows.length; i += 1) {
-      var players = rows[i] && rows[i].players ? rows[i].players : [];
-      for (var j = 0; j < players.length; j += 1) {
-        if (playerExtensionOptions(players[j]).length) return true;
-      }
-    }
-    return false;
-  }
-
   function loadExtensionPreviewFallbackRows(season) {
     var url = resolveExtensionPreviewFallbackUrl(season);
     return fetchJson(url, { credentials: "omit", cache: "no-store" }).then(function (payload) {
@@ -2683,6 +2672,9 @@
         case "salary":
           delta = safeInt(a.salary, 0) - safeInt(b.salary, 0);
           break;
+        case "aav":
+          delta = safeInt(a.aav, 0) - safeInt(b.aav, 0);
+          break;
         case "years":
           delta = safeInt(a.years, 0) - safeInt(b.years, 0);
           break;
@@ -3353,15 +3345,15 @@
       var penalty = dropPenaltyEstimate(player);
       var extensionOptions = playerExtensionOptions(player);
       var actions = [];
-      actions.push(
-        '<button type="button" class="rwb-modal-action" data-action="trade-player" data-player-id="' + escapeHtml(player.id) + '" data-franchise-id="' + escapeHtml(player.fid) + '">Trade</button>'
-      );
       for (var i = 0; i < extensionOptions.length; i += 1) {
         var extensionOption = extensionOptions[i];
         actions.push(
           '<button type="button" class="rwb-modal-action' + (ownRoster ? "" : " is-disabled") + '" data-action="extend-player" data-option-key="' + escapeHtml(extensionOption.optionKey) + '" data-player-id="' + escapeHtml(player.id) + '" data-franchise-id="' + escapeHtml(player.fid) + '"' + (ownRoster ? "" : ' disabled') + '>' + escapeHtml(extensionActionLabel(extensionOption)) + '</button>'
         );
       }
+      actions.push(
+        '<button type="button" class="rwb-modal-action" data-action="trade-player" data-player-id="' + escapeHtml(player.id) + '" data-franchise-id="' + escapeHtml(player.fid) + '">Trade</button>'
+      );
       actions.push(
         '<button type="button" class="rwb-modal-action' + (ownRoster && player.isIr ? "" : " is-disabled") + '" data-action="activate-ir-player" data-player-id="' + escapeHtml(player.id) + '" data-franchise-id="' + escapeHtml(player.fid) + '"' + (ownRoster && player.isIr ? "" : ' disabled') + '>Activate From IR</button>'
       );
@@ -3450,7 +3442,8 @@
               '</div>' +
               '<dl class="rwb-mobile-details">' +
                 '<div><dt>Type</dt><dd>' + escapeHtml(p.type) + '</dd></div>' +
-                '<div><dt>Special</dt><dd>' + escapeHtml(p.special) + '</dd></div>' +
+                '<div><dt>AAV</dt><dd>' + escapeHtml(p.aav > 0 ? money(p.aav) : "—") + '</dd></div>' +
+                '<div><dt>Contract Info</dt><dd>' + escapeHtml(p.special) + '</dd></div>' +
                 '<div><dt>Bye</dt><dd>' + escapeHtml(p.bye || "-") + '</dd></div>' +
               '</dl>' +
             '</div>' +
@@ -3459,11 +3452,12 @@
           '<td class="rwb-cell-num">' + escapeHtml(formatPpg(ppg, games)) + '</td>' +
           '<td class="rwb-cell-num rwb-col-secondary">' + escapeHtml(p.bye || "-") + '</td>' +
           '<td class="rwb-cell-num">' + escapeHtml(money(p.salary)) + '</td>' +
+          '<td class="rwb-cell-num">' + escapeHtml(p.aav > 0 ? money(p.aav) : "—") + '</td>' +
           '<td class="rwb-cell-num">' + escapeHtml(String(p.years)) + '</td>' +
           '<td><span class="rwb-type-pill ' + typeTone(p.type) + '">' + escapeHtml(p.type) + '</span></td>' +
           '<td class="rwb-col-secondary">' + escapeHtml(p.special) + '</td>' +
           '<td>' +
-            '<button type="button" class="rwb-row-action" data-action="open-player-modal" data-franchise-id="' + escapeHtml(p.fid) + '" data-player-id="' + escapeHtml(p.id) + '"' + actionDisabled + '>' + (rowBusy ? 'Working...' : 'Actions') + '</button>' +
+            '<button type="button" class="rwb-row-action" data-action="open-player-modal" data-franchise-id="' + escapeHtml(p.fid) + '" data-player-id="' + escapeHtml(p.id) + '"' + actionDisabled + '>' + escapeHtml(rowBusy ? 'Working...' : ((isOwnRosterPlayer(p) && playerExtensionOptions(p).length) ? 'Actions / Extend' : 'Actions')) + '</button>' +
           '</td>' +
         '</tr>'
       );
@@ -3483,9 +3477,10 @@
                 sortableHeader("roster", "ppg", "PPG") +
                 sortableHeader("roster", "bye", "Bye", "rwb-col-secondary") +
                 sortableHeader("roster", "salary", "Salary") +
+                sortableHeader("roster", "aav", "AAV") +
                 sortableHeader("roster", "years", "Years") +
                 sortableHeader("roster", "type", "Type") +
-                sortableHeader("roster", "special", "Special", "rwb-col-secondary") +
+                sortableHeader("roster", "special", "Contract Info", "rwb-col-secondary") +
                 '<th>Action</th>' +
               '</tr>' +
             '</thead>' +
@@ -4942,10 +4937,7 @@
     return baseLoader.then(function (result) {
       var teams = result.teams || [];
       ctx.pointsFallbackYear = safeStr(result && result.pointsYear);
-      var extLoader = teamHasExtensionPreviews(teams)
-        ? Promise.resolve([])
-        : loadExtensionPreviewFallbackRows(ctx && ctx.year);
-      return extLoader.then(function (extRows) {
+      return loadExtensionPreviewFallbackRows(ctx && ctx.year).then(function (extRows) {
         mergeExtensionPreviewFallbackRows(teams, extRows);
         return hydrateTeamsWithPointsHistory(ctx, teams).then(function (years) {
           result.teams = teams;
