@@ -695,6 +695,25 @@
   font-variant-numeric: tabular-nums;
 }
 
+.rwb-points-stat-wrap {
+  display: grid;
+  gap: 2px;
+  justify-items: end;
+}
+
+.rwb-points-stat-main {
+  color: var(--rwb-text);
+  line-height: 1.1;
+}
+
+.rwb-points-stat-sub {
+  color: var(--rwb-text-dim);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  line-height: 1;
+}
+
 .rwb-money-zero {
   color: var(--rwb-text-dim);
 }

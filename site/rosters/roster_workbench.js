@@ -92,6 +92,8 @@
     liveSeasonPointsLoading: false,
     liveSeasonPointsError: "",
     liveSeasonPointsPromise: null,
+    pointsWeeklyRankCacheKey: "",
+    pointsWeeklyRankCache: null,
     view: "roster",
     search: "",
     filterPosition: "",
@@ -1189,6 +1191,11 @@
     state.rosterPointsSummaryByPlayer = Object.create(null);
   }
 
+  function clearPointsWeeklyRankCache() {
+    state.pointsWeeklyRankCacheKey = "";
+    state.pointsWeeklyRankCache = null;
+  }
+
   function resolvePointsHistoryUrl() {
     var candidates = [
       window.UPS_RWB_POINTS_HISTORY_URL,
@@ -1505,6 +1512,18 @@
 
   function formatEliteDudSummary(eliteWeeks, dudWeeks) {
     return String(Math.max(0, safeInt(eliteWeeks, 0))) + " / " + String(Math.max(0, safeInt(dudWeeks, 0)));
+  }
+
+  function pointsStatWithRankHtml(valueText, rank) {
+    var text = safeStr(valueText);
+    var rankValue = safeInt(rank, 0);
+    if (!text || text === "—" || rankValue <= 0) return escapeHtml(text || "—");
+    return (
+      '<div class="rwb-points-stat-wrap">' +
+        '<span class="rwb-points-stat-main">' + escapeHtml(text) + '</span>' +
+        '<span class="rwb-points-stat-sub">' + escapeHtml(formatRank(rankValue)) + '</span>' +
+      '</div>'
+    );
   }
 
   function isCurrentMobile() {
@@ -2427,6 +2446,7 @@
       state.pointsHistoryPromise = null;
       ensurePointsHistorySelection();
       clearRosterPointsSummaryCache();
+      clearPointsWeeklyRankCache();
       state.pointsMode = normalizeRosterPointMode(state.pointsMode);
       if (state.view === "points" || state.view === "roster") {
         renderToolbar();
@@ -2439,6 +2459,7 @@
       state.pointsHistoryError = "Unable to load stored points history. " + summarizeError(err);
       state.pointsHistoryPromise = null;
       clearRosterPointsSummaryCache();
+      clearPointsWeeklyRankCache();
       if (state.view === "points" || state.view === "roster") {
         renderToolbar();
         renderTeams();
@@ -2694,6 +2715,7 @@
       state.liveSeasonPointsLoading = false;
       state.liveSeasonPointsError = "";
       state.liveSeasonPointsPromise = null;
+      clearPointsWeeklyRankCache();
       ensurePointsHistorySelection();
       if (state.view === "points") {
         renderToolbar();
@@ -2704,6 +2726,7 @@
       state.liveSeasonPointsLoading = false;
       state.liveSeasonPointsError = "Unable to sync live current-season points. " + summarizeError(err);
       state.liveSeasonPointsPromise = null;
+      clearPointsWeeklyRankCache();
       if (state.view === "points") {
         renderToolbar();
         renderTeams();
@@ -2795,6 +2818,97 @@
   function summarizePointsSelection(player) {
     if (state.pointsHistoryMode === "weekly") return summarizeWeeklyPointsSelection(player);
     return summarizeYearlyPointsSelection(player);
+  }
+
+  function pointsWeeklyRankCacheKey() {
+    if (state.pointsHistoryMode !== "weekly") return "";
+    var weeks = selectedHistoryWeeks();
+    var overlayStamp = 0;
+    if (
+      state.liveSeasonPoints &&
+      safeStr(state.liveSeasonPoints.season) === safeStr(state.pointsHistorySeason)
+    ) {
+      overlayStamp = safeInt(state.liveSeasonPoints.fetchedAtMs, 0);
+    }
+    return [
+      safeStr(state.pointsHistorySeason),
+      weeks.join(","),
+      overlayStamp,
+      safeInt(state.teams.length, 0)
+    ].join("|");
+  }
+
+  function comparePointsSummaryTotals(a, b) {
+    var pointsDelta = safeNum(b && b.points, 0) - safeNum(a && a.points, 0);
+    if (Math.abs(pointsDelta) > 0.0001) return pointsDelta;
+    var ppgDelta = safeNum(b && b.ppg, 0) - safeNum(a && a.ppg, 0);
+    if (Math.abs(ppgDelta) > 0.0001) return ppgDelta;
+    return compareText(a && a.name, b && b.name);
+  }
+
+  function comparePointsSummaryPpg(a, b) {
+    var ppgDelta = safeNum(b && b.ppg, 0) - safeNum(a && a.ppg, 0);
+    if (Math.abs(ppgDelta) > 0.0001) return ppgDelta;
+    var pointsDelta = safeNum(b && b.points, 0) - safeNum(a && a.points, 0);
+    if (Math.abs(pointsDelta) > 0.0001) return pointsDelta;
+    return compareText(a && a.name, b && b.name);
+  }
+
+  function weeklySummaryRanksByPlayer() {
+    if (state.pointsHistoryMode !== "weekly") {
+      return {
+        points: Object.create(null),
+        ppg: Object.create(null)
+      };
+    }
+
+    var cacheKey = pointsWeeklyRankCacheKey();
+    if (state.pointsWeeklyRankCache && state.pointsWeeklyRankCacheKey === cacheKey) {
+      return state.pointsWeeklyRankCache;
+    }
+
+    var byPosition = Object.create(null);
+    var seenPlayers = Object.create(null);
+
+    for (var t = 0; t < state.teams.length; t += 1) {
+      var players = state.teams[t] && state.teams[t].players ? state.teams[t].players : [];
+      for (var p = 0; p < players.length; p += 1) {
+        var player = players[p];
+        var playerId = safeStr(player && player.id);
+        if (!playerId || seenPlayers[playerId]) continue;
+        seenPlayers[playerId] = true;
+        var summary = summarizeWeeklyPointsSelection(player);
+        if (!summary.hasData) continue;
+        var groupKey = safeStr(player && player.positionGroup).toUpperCase() || "OTHER";
+        if (!byPosition[groupKey]) byPosition[groupKey] = [];
+        byPosition[groupKey].push({
+          id: playerId,
+          name: safeStr(player && player.name),
+          points: safeNum(summary.points, 0),
+          ppg: safeNum(summary.ppg, 0)
+        });
+      }
+    }
+
+    var pointRanks = Object.create(null);
+    var ppgRanks = Object.create(null);
+    var groups = Object.keys(byPosition);
+    for (var i = 0; i < groups.length; i += 1) {
+      var items = byPosition[groups[i]] || [];
+      items.slice().sort(comparePointsSummaryTotals).forEach(function (item, index) {
+        pointRanks[item.id] = index + 1;
+      });
+      items.slice().sort(comparePointsSummaryPpg).forEach(function (item, index) {
+        ppgRanks[item.id] = index + 1;
+      });
+    }
+
+    state.pointsWeeklyRankCacheKey = cacheKey;
+    state.pointsWeeklyRankCache = {
+      points: pointRanks,
+      ppg: ppgRanks
+    };
+    return state.pointsWeeklyRankCache;
   }
 
   function rosterPointsSummaryForPlayer(player) {
@@ -4811,11 +4925,20 @@
 
   function pointsPlayerRowHtml(team, player) {
     var summary = summarizePointsSelection(player);
+    var weeklyRanks = state.pointsHistoryMode === "weekly" ? weeklySummaryRanksByPlayer() : null;
     var toggleKey = pointsHistoryToggleKey(team, player);
     var expanded = !!state.pointsExpanded[toggleKey];
     var tags = [];
     if (player.isTaxi) tags.push('<span class="rwb-tag is-taxi">Taxi</span>');
     if (player.isIr) tags.push('<span class="rwb-tag is-ir">IR</span>');
+    var pointsValue = summary.hasData ? formatPoints(summary.points) : "—";
+    var ppgValue = summary.hasData ? formatPpg(summary.ppg, state.pointsHistoryMode === "weekly" ? summary.appearances : summary.games) : "—";
+    var pointsCell = state.pointsHistoryMode === "weekly"
+      ? pointsStatWithRankHtml(pointsValue, weeklyRanks && weeklyRanks.points ? weeklyRanks.points[safeStr(player.id)] : 0)
+      : escapeHtml(pointsValue);
+    var ppgCell = state.pointsHistoryMode === "weekly"
+      ? pointsStatWithRankHtml(ppgValue, weeklyRanks && weeklyRanks.ppg ? weeklyRanks.ppg[safeStr(player.id)] : 0)
+      : escapeHtml(ppgValue);
     var detailRow = expanded
       ? (
           '<tr class="rwb-points-detail-row">' +
@@ -4836,8 +4959,8 @@
           '</div>' +
         '</td>' +
         '<td><span class="rwb-pos-pill">' + escapeHtml(safeStr(player.positionGroup)) + '</span></td>' +
-        '<td class="rwb-cell-num">' + escapeHtml(summary.hasData ? formatPoints(summary.points) : "—") + '</td>' +
-        '<td class="rwb-cell-num">' + escapeHtml(summary.hasData ? formatPpg(summary.ppg, state.pointsHistoryMode === "weekly" ? summary.appearances : summary.games) : "—") + '</td>' +
+        '<td class="rwb-cell-num">' + pointsCell + '</td>' +
+        '<td class="rwb-cell-num">' + ppgCell + '</td>' +
         '<td class="rwb-cell-num">' + escapeHtml(state.pointsHistoryMode === "weekly" ? (summary.hasData ? formatEliteDudSummary(summary.eliteWeeks, summary.dudWeeks) : "—") : formatRank(summary.bestRank)) + '</td>' +
         '<td class="rwb-cell-num">' + escapeHtml(state.pointsHistoryMode === "weekly" ? formatStartRatio(summary.starts, summary.appearances) : formatRank(summary.bestPpgRank)) + '</td>' +
         '<td><button type="button" class="rwb-row-action" data-action="points-toggle" data-franchise-id="' + escapeHtml(team.id) + '" data-player-id="' + escapeHtml(player.id) + '">' + (expanded ? "Hide" : "Details") + '</button></td>' +
@@ -5353,6 +5476,7 @@
   function refreshData(noCache) {
     setFlash("", "");
     clearRosterPointsSummaryCache();
+    clearPointsWeeklyRankCache();
     state.gamesLoadedByYear = Object.create(null);
     state.gamesLoadingByYear = Object.create(null);
     state.viewerIsAdmin = false;
