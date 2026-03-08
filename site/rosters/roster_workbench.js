@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var BUILD = "2026.03.07.14";
+  var BUILD = "2026.03.07.15";
   var BOOT_FLAG = "__ups_roster_workbench_boot_" + BUILD;
   if (window[BOOT_FLAG]) {
     if (typeof window.UPS_RWB_INIT === "function") window.UPS_RWB_INIT();
@@ -251,6 +251,13 @@
     var match = info.match(/(?:^|\|)\s*GTD\s*:?\s*([^|]+)/i);
     if (!match || !safeStr(match[1])) return 0;
     return parseContractMoneyToken(match[1]);
+  }
+
+  function parseContractLengthValue(contractInfo) {
+    var info = safeStr(contractInfo);
+    if (!info) return 0;
+    var match = info.match(/(?:^|\|)\s*CL\s*:?\s*(\d+)/i);
+    return match && safeStr(match[1]) ? Math.max(0, safeInt(match[1], 0)) : 0;
   }
 
   function replaceContractInfoAavValue(contractInfo, nextAav) {
@@ -674,12 +681,14 @@
   function contractLengthForPlayer(player) {
     var values = parseContractYearValues(player && player.special);
     var keys = Object.keys(values);
+    var explicitLength = parseContractLengthValue(player && player.special);
+    var parsedLength = 0;
     if (keys.length) {
-      return keys.reduce(function (max, key) {
+      parsedLength = keys.reduce(function (max, key) {
         return Math.max(max, safeInt(key, 0));
       }, 0);
     }
-    return Math.max(0, safeInt(player && player.years, 0));
+    return Math.max(parsedLength, explicitLength, Math.max(0, safeInt(player && player.years, 0)));
   }
 
   function contractYearIndexForPlayer(player) {
@@ -698,10 +707,19 @@
 
   function contractYearFallbackValue(player, yearIndex) {
     var idx = Math.max(1, safeInt(yearIndex, 1));
+    var currentIdx = Math.max(1, contractYearIndexForPlayer(player));
+    var length = Math.max(0, contractLengthForPlayer(player));
     var salary = Math.max(0, safeInt(player && player.salary, 0));
+    var aavValues = parseContractAavValues(player && player.special);
     var aav = Math.max(0, safeInt(player && player.aav, 0) || currentAavForContractInfo(player && player.special));
-    if (idx === 1 && salary > 0) return salary;
+    if (idx === currentIdx && salary > 0) return salary;
+    if (aavValues[idx - 1] > 0) return safeInt(aavValues[idx - 1], 0);
+    if (aavValues.length > 1 && aavValues[aavValues.length - 1] > 0) {
+      return safeInt(aavValues[aavValues.length - 1], 0);
+    }
     if (aav > 0) return aav;
+    var explicitTcv = parseContractTcvValue(player && player.special);
+    if (explicitTcv > 0 && length > 0) return Math.round(explicitTcv / Math.max(1, length));
     return salary;
   }
 
@@ -875,6 +893,14 @@
         ? "Current-rule guarantee has already been fully earned."
         : "Projected current-rule penalty: " + guaranteeLabel + " is " + money(guaranteed) + "; earned to date is " + money(earned) + "."
     };
+  }
+
+  function searchFilterEnabledForView() {
+    return state.view !== "bye";
+  }
+
+  function contractTypeFilterEnabledForView() {
+    return state.view !== "bye";
   }
 
   function summarizeProjection(proj) {
@@ -3035,7 +3061,7 @@
   function matchesFilters(player) {
     if (!player) return false;
 
-    if (state.search) {
+    if (searchFilterEnabledForView() && state.search) {
       var hay = [
         player.name,
         player.position,
@@ -3053,7 +3079,7 @@
       return false;
     }
 
-    if (state.filterType && contractBucket(player.type) !== state.filterType) {
+    if (contractTypeFilterEnabledForView() && state.filterType && contractBucket(player.type) !== state.filterType) {
       return false;
     }
 
@@ -3192,9 +3218,11 @@
     els.pointsHistoryWeekStart = null;
     els.pointsHistoryWeekEnd = null;
     els.search = document.getElementById("rwbSearch");
+    els.searchField = els.search ? els.search.closest(".rwb-field") : null;
     els.advanced = document.getElementById("rwbAdvancedFilters");
     els.filterPosition = document.getElementById("rwbFilterPosition");
     els.filterType = document.getElementById("rwbFilterType");
+    els.filterTypeField = els.filterType ? els.filterType.closest(".rwb-field") : null;
     els.filterRosterStatus = document.getElementById("rwbFilterRosterStatus");
     els.resetFilters = document.getElementById("rwbResetFilters");
     els.note = document.getElementById("rwbToolbarNote");
@@ -3319,11 +3347,11 @@
       els.pointsControls.className = "rwb-toolbar-points is-bye-view";
       els.pointsControls.innerHTML =
         '<div class="rwb-bye-legend" aria-label="Bye view legend">' +
-          '<span class="rwb-bye-legend-label">Heatmap</span>' +
+          '<span class="rwb-bye-legend-label">Bye Impact</span>' +
           '<span class="rwb-bye-legend-chip is-clear">0 clear</span>' +
-          '<span class="rwb-bye-legend-chip is-light">1-2 light</span>' +
-          '<span class="rwb-bye-legend-chip is-medium">3-4 crunch</span>' +
-          '<span class="rwb-bye-legend-chip is-heavy">5+ red</span>' +
+          '<span class="rwb-bye-legend-chip is-light">1-2 depth</span>' +
+          '<span class="rwb-bye-legend-chip is-medium">3-5 pressure</span>' +
+          '<span class="rwb-bye-legend-chip is-heavy">6+ red</span>' +
         '</div>';
       return;
     }
@@ -3355,6 +3383,8 @@
     renderSelectOptions(els.filterPosition, sets.positions, state.filterPosition);
     renderSelectOptions(els.filterType, CONTRACT_FILTERS, state.filterType);
     renderSelectOptions(els.filterRosterStatus, ROSTER_STATUS_FILTERS, state.filterRosterStatus);
+    if (els.searchField) els.searchField.hidden = !searchFilterEnabledForView();
+    if (els.filterTypeField) els.filterTypeField.hidden = !contractTypeFilterEnabledForView();
 
     if (els.advanced) {
       els.advanced.hidden = false;
@@ -3403,13 +3433,13 @@
     parts.push(viewLabel(state.view));
     parts.push("Showing " + visiblePlayers + " of " + totalPlayers + " players");
     if (state.filterPosition) parts.push(positionGroupLabel(state.filterPosition));
-    if (state.filterType) {
+    if (contractTypeFilterEnabledForView() && state.filterType) {
       if (state.filterType === "rookie") parts.push("Rookies");
       else if (state.filterType === "loaded") parts.push("Loaded");
       else if (state.filterType === "other") parts.push("All Other");
     }
     if (state.filterRosterStatus) parts.push(rosterStatusFilterLabel(state.filterRosterStatus));
-    if (state.search) parts.push('Search "' + state.search + '"');
+    if (searchFilterEnabledForView() && state.search) parts.push('Search "' + state.search + '"');
     if (state.view === "points") {
       parts.push(currentPointsRangeLabel());
       var meta = pointsHistoryMeta();
@@ -3424,8 +3454,9 @@
         else if (state.liveSeasonPoints && safeStr(state.liveSeasonPoints.season) === liveSeasonKey()) parts.push("Current season live");
       }
     } else if (state.view === "bye") {
-      parts.push("Heatmap by NFL bye week");
-      parts.push("Counts reflect filtered players only");
+      var byeSeason = latestCompletedSeasonForByeView();
+      parts.push("Weighted by " + (byeSeason ? (byeSeason + " PPG rank") : "latest completed-season PPG rank"));
+      parts.push("Shows bye-impact score plus players for each week");
     } else {
       parts.push(rosterPointsRangeLabel());
       if (state.pointsHistoryLoading) parts.push("Loading scoring history");
@@ -3947,39 +3978,112 @@
     return fallback;
   }
 
-  function byeCellPositionsLabel(players) {
-    var seen = Object.create(null);
-    var labels = [];
+  function latestCompletedSeasonForByeView() {
+    var seasons = rosterPointSeasonPoolDescending();
+    return seasons.length ? safeStr(seasons[0]) : "";
+  }
+
+  function latestAvailablePpgRankHistoryForPlayer(player) {
+    var seasons = rosterPointSeasonPoolDescending();
+    for (var i = 0; i < seasons.length; i += 1) {
+      var row = playerYearlyHistoryRow(player, seasons[i]);
+      if (row && safeInt(row[4], 0) > 0) {
+        return {
+          season: safeStr(seasons[i]),
+          rank: safeInt(row[4], 0)
+        };
+      }
+    }
+    return { season: "", rank: 0 };
+  }
+
+  function byeImpactWeightForRank(rank) {
+    var value = safeInt(rank, 0);
+    if (value <= 0) return 1;
+    if (value <= 3) return 6;
+    if (value <= 8) return 5;
+    if (value <= 16) return 4;
+    if (value <= 24) return 3;
+    if (value <= 36) return 2;
+    return 1;
+  }
+
+  function byeImpactProfileForPlayer(player) {
+    var history = latestAvailablePpgRankHistoryForPlayer(player);
+    return {
+      season: safeStr(history.season),
+      rank: safeInt(history.rank, 0),
+      weight: byeImpactWeightForRank(history.rank)
+    };
+  }
+
+  function byePlayerShortName(player) {
+    var name = safeStr(player && player.name);
+    if (!name) return "";
+    if (name.indexOf(",") !== -1) return safeStr(name.split(",")[0]);
+    var parts = name.split(/\s+/);
+    return safeStr(parts[parts.length - 1] || name);
+  }
+
+  function sortByePlayers(players) {
+    var list = Array.isArray(players) ? players.slice() : [];
+    list.sort(function (a, b) {
+      var aProfile = byeImpactProfileForPlayer(a);
+      var bProfile = byeImpactProfileForPlayer(b);
+      var weightDelta = safeInt(bProfile.weight, 0) - safeInt(aProfile.weight, 0);
+      if (weightDelta !== 0) return weightDelta;
+      var rankDelta = safeInt(aProfile.rank || 999999, 999999) - safeInt(bProfile.rank || 999999, 999999);
+      if (rankDelta !== 0) return rankDelta;
+      return compareText(a && a.name, b && b.name);
+    });
+    return list;
+  }
+
+  function byeImpactScoreForPlayers(players) {
+    var total = 0;
     var list = Array.isArray(players) ? players : [];
     for (var i = 0; i < list.length; i += 1) {
-      var pos = safeStr(list[i] && (list[i].positionGroup || list[i].position)).toUpperCase();
-      if (!pos || seen[pos]) continue;
-      seen[pos] = true;
-      labels.push(pos);
+      total += safeInt(byeImpactProfileForPlayer(list[i]).weight, 0);
     }
-    labels.sort(function (a, b) {
-      var delta = positionSortValue(a) - positionSortValue(b);
-      if (delta !== 0) return delta;
-      return compareText(a, b);
-    });
-    if (!labels.length) return "";
-    return labels.slice(0, 3).join(" ");
+    return total;
+  }
+
+  function byeCellPlayersHtml(players) {
+    var list = sortByePlayers(players);
+    if (!list.length) return "";
+    var tags = [];
+    for (var i = 0; i < list.length && i < 2; i += 1) {
+      tags.push('<span class="rwb-bye-player-chip">' + escapeHtml(byePlayerShortName(list[i])) + '</span>');
+    }
+    if (list.length > 2) {
+      tags.push('<span class="rwb-bye-player-chip is-more">+' + escapeHtml(String(list.length - 2)) + '</span>');
+    }
+    return '<div class="rwb-bye-player-list">' + tags.join("") + '</div>';
   }
 
   function byeTooltipText(week, players) {
-    var list = Array.isArray(players) ? players : [];
+    var list = sortByePlayers(players);
     if (!list.length) return "Week " + safeStr(week) + ": no filtered players on bye";
     var names = [];
     for (var i = 0; i < list.length; i += 1) {
-      names.push(safeStr(list[i].name) + " (" + safeStr(list[i].positionGroup || list[i].position) + ")");
+      var profile = byeImpactProfileForPlayer(list[i]);
+      var rankText = profile.rank > 0
+        ? (safeStr(profile.season) + " PPG rk #" + String(profile.rank))
+        : "unranked";
+      names.push(
+        safeStr(list[i].name) +
+        " (" + safeStr(list[i].positionGroup || list[i].position) +
+        ", " + rankText +
+        ", impact " + String(profile.weight) + ")"
+      );
     }
     return "Week " + safeStr(week) + ": " + names.join(", ");
   }
 
-  function byeCellTone(count) {
-    var total = Math.max(0, safeInt(count, 0));
+  function byeCellTone(score) {
+    var total = Math.max(0, safeInt(score, 0));
     if (total <= 0) return "is-empty";
-    if (total >= 5) return "is-heavy";
+    if (total >= 6) return "is-heavy";
     if (total >= 3) return "is-medium";
     return "is-light";
   }
@@ -3988,10 +4092,12 @@
     var list = Array.isArray(filteredPlayers) ? filteredPlayers : [];
     var weekKeys = Array.isArray(weeks) ? weeks : [];
     var map = Object.create(null);
-    var peakCount = 0;
+    var impactByWeek = Object.create(null);
+    var peakImpact = 0;
     var peakWeeks = [];
     var withBye = 0;
     var noBye = 0;
+    var totalImpact = 0;
     var weekSeen = Object.create(null);
 
     for (var i = 0; i < weekKeys.length; i += 1) {
@@ -4012,36 +4118,42 @@
 
     for (var x = 0; x < weekKeys.length; x += 1) {
       var key = safeStr(weekKeys[x]);
-      var count = (map[key] || []).length;
-      if (count > peakCount) {
-        peakCount = count;
+      map[key] = sortByePlayers(map[key] || []);
+      var impact = byeImpactScoreForPlayers(map[key]);
+      impactByWeek[key] = impact;
+      totalImpact += impact;
+      if (impact > peakImpact) {
+        peakImpact = impact;
         peakWeeks = [key];
-      } else if (count > 0 && count === peakCount) {
+      } else if (impact > 0 && impact === peakImpact) {
         peakWeeks.push(key);
       }
     }
 
     return {
       byWeek: map,
+      impactByWeek: impactByWeek,
       withBye: withBye,
       noBye: noBye,
-      peakCount: peakCount,
-      peakWeeks: peakWeeks
+      peakImpact: peakImpact,
+      peakWeeks: peakWeeks,
+      totalImpact: totalImpact
     };
   }
 
   function byePeakLabel(summary) {
     var data = summary || {};
     var weeks = Array.isArray(data.peakWeeks) ? data.peakWeeks : [];
-    var count = safeInt(data.peakCount, 0);
-    if (!count || !weeks.length) return "—";
-    return "W" + weeks.join("/W") + " · " + count;
+    var impact = safeInt(data.peakImpact, 0);
+    if (!impact || !weeks.length) return "—";
+    return "W" + weeks.join("/W") + " · " + impact;
   }
 
   function byeSummaryHtml(teamViews) {
     var rows = [];
     var weeks = [];
     var leaguePlayers = [];
+    var byeSeason = latestCompletedSeasonForByeView();
     for (var i = 0; i < teamViews.length; i += 1) {
       var filteredPlayers = teamViews[i] && teamViews[i].filteredPlayers ? teamViews[i].filteredPlayers : [];
       for (var j = 0; j < filteredPlayers.length; j += 1) leaguePlayers.push(filteredPlayers[j]);
@@ -4059,19 +4171,21 @@
       var filtered = row.filteredPlayers || [];
       var summary = summarizeTeamByes(filtered, weeks);
       var logo = safeStr(team.logo);
-      var metaText = safeStr(summary.withBye) + " tracked | peak " + byePeakLabel(summary);
+      var metaText = safeStr(summary.withBye) + " players on bye | peak " + byePeakLabel(summary);
       var cells = [];
 
       for (var c = 0; c < weeks.length; c += 1) {
         var weekKey = safeStr(weeks[c]);
         var players = summary.byWeek[weekKey] || [];
         var count = players.length;
-        leagueCounts[weekKey] = safeInt(leagueCounts[weekKey], 0) + count;
+        var impact = safeInt(summary.impactByWeek[weekKey], 0);
+        leagueCounts[weekKey] = safeInt(leagueCounts[weekKey], 0) + impact;
         cells.push(
           '<td class="rwb-bye-week-col">' +
-            '<div class="rwb-bye-cell ' + byeCellTone(count) + '" title="' + escapeHtml(byeTooltipText(weekKey, players)) + '">' +
-              '<span class="rwb-bye-cell-count">' + escapeHtml(count > 0 ? String(count) : "—") + '</span>' +
-              '<span class="rwb-bye-cell-meta">' + escapeHtml(count > 0 ? byeCellPositionsLabel(players) : "clear") + '</span>' +
+            '<div class="rwb-bye-cell ' + byeCellTone(impact) + '" title="' + escapeHtml(byeTooltipText(weekKey, players)) + '">' +
+              '<span class="rwb-bye-cell-count">' + escapeHtml(impact > 0 ? String(impact) : "—") + '</span>' +
+              '<span class="rwb-bye-cell-meta">' + escapeHtml(count > 0 ? (String(count) + (count === 1 ? " player" : " players")) : "clear") + '</span>' +
+              byeCellPlayersHtml(players) +
             '</div>' +
           '</td>'
         );
@@ -4111,13 +4225,13 @@
         '<div class="rwb-bye-summary-head">' +
           '<div>' +
             '<div class="rwb-bye-summary-title">Bye Week Heatmap</div>' +
-            '<div class="rwb-bye-summary-sub">Each cell shows how many filtered players are on bye for that franchise in that NFL week.</div>' +
+            '<div class="rwb-bye-summary-sub">Each cell shows weighted bye impact using ' + escapeHtml(byeSeason ? (byeSeason + " PPG rank when available") : "latest completed-season PPG rank") + ', with the actual players listed in the cell.</div>' +
           '</div>' +
           '<div class="rwb-bye-summary-legend">' +
             '<span class="rwb-bye-legend-chip is-clear">0</span>' +
             '<span class="rwb-bye-legend-chip is-light">1-2</span>' +
-            '<span class="rwb-bye-legend-chip is-medium">3-4</span>' +
-            '<span class="rwb-bye-legend-chip is-heavy">5+</span>' +
+            '<span class="rwb-bye-legend-chip is-medium">3-5</span>' +
+            '<span class="rwb-bye-legend-chip is-heavy">6+</span>' +
           '</div>' +
         '</div>' +
         '<div class="rwb-table-wrap">' +
@@ -4126,7 +4240,7 @@
               '<tr>' +
                 '<th>Franchise</th>' +
                 weeks.map(function (week) { return '<th class="rwb-bye-week-col">W' + escapeHtml(week) + '</th>'; }).join("") +
-                '<th>Peak</th>' +
+                '<th>Peak Impact</th>' +
                 '<th>No Bye</th>' +
               '</tr>' +
             '</thead>' +

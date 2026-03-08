@@ -990,7 +990,7 @@
 }
 
 .rwb-bye-week-col {
-  min-width: 76px;
+  min-width: 108px;
   text-align: center !important;
 }
 
@@ -1000,8 +1000,9 @@
   gap: 4px;
   border-radius: 12px;
   border: 1px solid rgba(138, 172, 214, 0.18);
-  padding: 8px 6px;
+  padding: 8px 6px 10px;
   background: rgba(8, 18, 34, 0.88);
+  min-height: 96px;
 }
 
 .rwb-bye-cell.is-empty {
@@ -1037,9 +1038,38 @@
   font-size: 0.62rem;
   font-weight: 700;
   letter-spacing: 0.05em;
-  text-transform: uppercase;
   text-align: center;
   min-height: 1.2em;
+}
+
+.rwb-bye-player-list {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+  max-width: 100%;
+}
+
+.rwb-bye-player-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
+  border-radius: 999px;
+  border: 1px solid rgba(157, 188, 228, 0.28);
+  background: rgba(10, 22, 40, 0.88);
+  color: var(--rwb-text-soft);
+  padding: 1px 7px;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  line-height: 1.35;
+  white-space: nowrap;
+}
+
+.rwb-bye-player-chip.is-more {
+  border-style: dashed;
+  color: var(--rwb-text-dim);
 }
 
 .rwb-franchise-cell {
