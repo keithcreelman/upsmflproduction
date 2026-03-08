@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var BUILD = "2026.03.07.15";
+  var BUILD = "2026.03.07.16";
   var BOOT_FLAG = "__ups_roster_workbench_boot_" + BUILD;
   if (window[BOOT_FLAG]) {
     if (typeof window.UPS_RWB_INIT === "function") window.UPS_RWB_INIT();
@@ -98,7 +98,7 @@
     filterType: "",
     filterRosterStatus: "",
     sorts: {
-      roster: { key: "name", dir: "asc" },
+      roster: { key: "starter_ppg", dir: "desc" },
       contract: { key: "player", dir: "asc" },
       franchise: { key: "franchise", dir: "asc" },
       points: { key: "points", dir: "desc" }
@@ -3035,8 +3035,8 @@
   function sortStateForView(view) {
     if (!state.sorts[view]) {
       state.sorts[view] = {
-        key: view === "franchise" ? "franchise" : (view === "contract" ? "player" : "name"),
-        dir: "asc"
+        key: view === "franchise" ? "franchise" : (view === "contract" ? "player" : (view === "points" ? "points" : "starter_ppg")),
+        dir: view === "roster" || view === "points" ? "desc" : "asc"
       };
     }
     return state.sorts[view];
@@ -3068,6 +3068,7 @@
     var sort = sortStateForView("roster");
     var dir = sortDirMultiplier("roster");
     list.sort(function (a, b) {
+      if (!!a.isTaxi !== !!b.isTaxi) return a.isTaxi ? 1 : -1;
       var delta = 0;
       var aPoints = rosterPointsSummaryForPlayer(a);
       var bPoints = rosterPointsSummaryForPlayer(b);
@@ -5086,11 +5087,19 @@
     state.filterRosterStatus = normRosterStatusFilter(state.filterRosterStatus);
     if (!state.sorts || typeof state.sorts !== "object") {
       state.sorts = {
-        roster: { key: "name", dir: "asc" },
+        roster: { key: "starter_ppg", dir: "desc" },
         contract: { key: "player", dir: "asc" },
         franchise: { key: "franchise", dir: "asc" },
         points: { key: "points", dir: "desc" }
       };
+    }
+    if (!state.sorts.roster || typeof state.sorts.roster !== "object") {
+      state.sorts.roster = { key: "starter_ppg", dir: "desc" };
+    } else if (
+      safeStr(state.sorts.roster.key) === "name" &&
+      safeStr(state.sorts.roster.dir || "asc").toLowerCase() === "asc"
+    ) {
+      state.sorts.roster = { key: "starter_ppg", dir: "desc" };
     }
   }
 
