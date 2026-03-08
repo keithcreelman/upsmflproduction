@@ -54,6 +54,12 @@
     { value: "taxi", label: "Taxi Only" },
     { value: "ir", label: "IR Only" }
   ];
+  var BYE_IMPACT_FILTERS = [
+    { value: "", label: "All Impact" },
+    { value: "heavy", label: "Heavy Only" },
+    { value: "medium", label: "Medium Only" },
+    { value: "light", label: "Light Only" }
+  ];
   var EXTENSION_RATES = {
     QB: { 1: 10000, 2: 20000 },
     RB: { 1: 10000, 2: 20000 },
@@ -99,6 +105,7 @@
     filterPosition: "",
     filterType: "",
     filterRosterStatus: "",
+    filterByeImpact: "",
     sorts: {
       roster: { key: "starter_ppg", dir: "desc" },
       contract: { key: "player", dir: "asc" },
@@ -171,6 +178,20 @@
     if (normalized === "active") return "Active roster only";
     if (normalized === "taxi") return "Taxi only";
     if (normalized === "ir") return "IR only";
+    return "";
+  }
+
+  function normByeImpactFilter(value) {
+    var raw = safeStr(value).toLowerCase();
+    if (raw === "heavy" || raw === "medium" || raw === "light") return raw;
+    return "";
+  }
+
+  function byeImpactFilterLabel(value) {
+    var normalized = normByeImpactFilter(value);
+    if (normalized === "heavy") return "Heavy impact only";
+    if (normalized === "medium") return "Medium impact only";
+    if (normalized === "light") return "Light impact only";
     return "";
   }
 
@@ -3511,6 +3532,7 @@
                   '<label class="rwb-field"><span>Position</span><select id="rwbFilterPosition" class="rwb-select"><option value="">All Groups</option></select></label>' +
                   '<label class="rwb-field"><span>Contract</span><select id="rwbFilterType" class="rwb-select"><option value="">All Contract Types</option></select></label>' +
                   '<label class="rwb-field"><span>Roster Status</span><select id="rwbFilterRosterStatus" class="rwb-select"><option value="">All</option></select></label>' +
+                  '<label class="rwb-field"><span>Impact</span><select id="rwbFilterByeImpact" class="rwb-select"><option value="">All Impact</option></select></label>' +
                   '<div class="rwb-toolbar-actions">' +
                     '<button type="button" id="rwbResetFilters" class="rwb-btn rwb-btn-ghost">Clear Filters</button>' +
                   '</div>' +
@@ -3554,6 +3576,8 @@
     els.filterType = document.getElementById("rwbFilterType");
     els.filterTypeField = els.filterType ? els.filterType.closest(".rwb-field") : null;
     els.filterRosterStatus = document.getElementById("rwbFilterRosterStatus");
+    els.filterByeImpact = document.getElementById("rwbFilterByeImpact");
+    els.filterByeImpactField = els.filterByeImpact ? els.filterByeImpact.closest(".rwb-field") : null;
     els.resetFilters = document.getElementById("rwbResetFilters");
     els.note = document.getElementById("rwbToolbarNote");
     els.status = document.getElementById("rwbStatus");
@@ -3722,9 +3746,11 @@
     renderSelectOptions(els.filterPosition, sets.positions, state.filterPosition);
     renderSelectOptions(els.filterType, CONTRACT_FILTERS, state.filterType);
     renderSelectOptions(els.filterRosterStatus, ROSTER_STATUS_FILTERS, state.filterRosterStatus);
+    renderSelectOptions(els.filterByeImpact, BYE_IMPACT_FILTERS, state.filterByeImpact);
     if (els.jumpTeamField) els.jumpTeamField.hidden = !teamJumpEnabledForView();
     if (els.searchField) els.searchField.hidden = !searchFilterEnabledForView();
     if (els.filterTypeField) els.filterTypeField.hidden = !contractTypeFilterEnabledForView();
+    if (els.filterByeImpactField) els.filterByeImpactField.hidden = state.view !== "bye";
     if (els.browsePanel) {
       els.browsePanel.hidden = !(teamJumpEnabledForView() || scoringControlEnabledForView());
     }
@@ -3800,6 +3826,7 @@
       var byeSeason = latestCompletedSeasonForByeView();
       parts.push("Weighted by " + (byeSeason ? (byeSeason + " PPG rank") : "latest completed-season PPG rank"));
       parts.push("Shows bye-impact score plus players for each week");
+      if (state.filterByeImpact) parts.push(byeImpactFilterLabel(state.filterByeImpact));
     } else if (state.view === "roster") {
       parts.push(rosterPointsRangeLabel());
       if (state.pointsHistoryLoading) parts.push("Loading scoring history");
@@ -4463,6 +4490,12 @@
     return "is-light";
   }
 
+  function byeImpactMatchesFilter(score, filterValue) {
+    var filter = normByeImpactFilter(filterValue);
+    if (!filter) return true;
+    return byeCellTone(score) === ("is-" + filter);
+  }
+
   function summarizeTeamByes(filteredPlayers, weeks) {
     var list = Array.isArray(filteredPlayers) ? filteredPlayers : [];
     var weekKeys = Array.isArray(weeks) ? weeks : [];
@@ -4529,6 +4562,7 @@
     var weeks = [];
     var leaguePlayers = [];
     var byeSeason = latestCompletedSeasonForByeView();
+    var impactFilter = normByeImpactFilter(state.filterByeImpact);
     for (var i = 0; i < teamViews.length; i += 1) {
       var filteredPlayers = teamViews[i] && teamViews[i].filteredPlayers ? teamViews[i].filteredPlayers : [];
       for (var j = 0; j < filteredPlayers.length; j += 1) leaguePlayers.push(filteredPlayers[j]);
@@ -4546,26 +4580,47 @@
       var filtered = row.filteredPlayers || [];
       var summary = summarizeTeamByes(filtered, weeks);
       var logo = safeStr(team.logo);
-      var metaText = safeStr(summary.withBye) + " players on bye | peak " + byePeakLabel(summary);
       var cells = [];
+      var visiblePeakImpact = 0;
+      var visiblePeakWeeks = [];
+      var hasImpactMatch = !impactFilter;
+      var visibleWithBye = 0;
 
       for (var c = 0; c < weeks.length; c += 1) {
         var weekKey = safeStr(weeks[c]);
         var players = summary.byWeek[weekKey] || [];
         var count = players.length;
         var impact = safeInt(summary.impactByWeek[weekKey], 0);
-        leagueCounts[weekKey] = safeInt(leagueCounts[weekKey], 0) + impact;
+        var showCell = byeImpactMatchesFilter(impact, impactFilter);
+        if (showCell && impact > 0) {
+          hasImpactMatch = true;
+          visibleWithBye += count;
+          leagueCounts[weekKey] = safeInt(leagueCounts[weekKey], 0) + impact;
+          if (impact > visiblePeakImpact) {
+            visiblePeakImpact = impact;
+            visiblePeakWeeks = [weekKey];
+          } else if (impact > 0 && impact === visiblePeakImpact) {
+            visiblePeakWeeks.push(weekKey);
+          }
+        }
         cells.push(
           '<td class="rwb-bye-week-col">' +
-            '<div class="rwb-bye-cell ' + byeCellTone(impact) + '" title="' + escapeHtml(byeTooltipText(weekKey, players)) + '">' +
-              '<span class="rwb-bye-cell-count">' + escapeHtml(impact > 0 ? String(impact) : "—") + '</span>' +
-              '<span class="rwb-bye-cell-meta">' + escapeHtml(count > 0 ? (String(count) + (count === 1 ? " player" : " players")) : "clear") + '</span>' +
-              byeCellPlayersHtml(players) +
+            '<div class="rwb-bye-cell ' + byeCellTone(showCell ? impact : 0) + '" title="' + escapeHtml(showCell ? byeTooltipText(weekKey, players) : ("Week " + weekKey + ": filtered by impact")) + '">' +
+              '<span class="rwb-bye-cell-count">' + escapeHtml(showCell && impact > 0 ? String(impact) : "—") + '</span>' +
+              '<span class="rwb-bye-cell-meta">' + escapeHtml(showCell ? (count > 0 ? (String(count) + (count === 1 ? " player" : " players")) : "clear") : "filtered") + '</span>' +
+              (showCell ? byeCellPlayersHtml(players) : "") +
             '</div>' +
           '</td>'
         );
       }
 
+      if (!hasImpactMatch) continue;
+
+      var displayPeakLabel = "—";
+      if (visiblePeakImpact > 0 && visiblePeakWeeks.length) {
+        displayPeakLabel = "W" + visiblePeakWeeks.join("/W") + " · " + visiblePeakImpact;
+      }
+      var metaText = safeStr(impactFilter ? visibleWithBye : summary.withBye) + " players on bye | peak " + displayPeakLabel;
       leagueNoBye += safeInt(summary.noBye, 0);
       rows.push(
         '<tr id="rwb-team-' + escapeHtml(team.id) + '">' +
@@ -4581,7 +4636,7 @@
             '</div>' +
           '</td>' +
           cells.join("") +
-          '<td class="rwb-cell-num">' + escapeHtml(byePeakLabel(summary)) + '</td>' +
+          '<td class="rwb-cell-num">' + escapeHtml(displayPeakLabel) + '</td>' +
           '<td class="rwb-cell-num">' + escapeHtml(String(summary.noBye)) + '</td>' +
         '</tr>'
       );
@@ -4594,6 +4649,8 @@
         '<th class="rwb-cell-num">' + escapeHtml(String(safeInt(leagueCounts[footerWeek], 0))) + '</th>'
       );
     }
+
+    if (!rows.length) return "";
 
     return (
       '<article class="rwb-team-card rwb-bye-summary-card">' +
@@ -5176,7 +5233,8 @@
     } else if (state.view === "franchise" && visibleTeams.length) {
       html.push(franchiseSummaryHtml(visibleTeams));
     } else if (state.view === "bye" && visibleTeams.length) {
-      html.push(byeSummaryHtml(visibleTeams));
+      var byeHtml = byeSummaryHtml(visibleTeams);
+      if (byeHtml) html.push(byeHtml);
     }
 
     if (!html.length) {
@@ -5283,6 +5341,7 @@
     writeStorage("filterPosition", state.filterPosition);
     writeStorage("filterType", state.filterType);
     writeStorage("filterRosterStatus", state.filterRosterStatus);
+    writeStorage("filterByeImpact", state.filterByeImpact);
     writeStorage("taxiOnly", state.filterRosterStatus === "taxi");
     writeStorage("contractPreview", state.contractPreview);
     writeStorage("view", state.view);
@@ -5303,6 +5362,7 @@
     state.filterPosition = safeStr(readStorage("filterPosition", "")).toUpperCase();
     state.filterType = normType(readStorage("filterType", ""));
     state.filterRosterStatus = normRosterStatusFilter(readStorage("filterRosterStatus", ""));
+    state.filterByeImpact = normByeImpactFilter(readStorage("filterByeImpact", ""));
     if (!state.filterRosterStatus && !!readStorage("taxiOnly", false)) {
       state.filterRosterStatus = "taxi";
     }
@@ -5333,6 +5393,7 @@
       state.filterType = "";
     }
     state.filterRosterStatus = normRosterStatusFilter(state.filterRosterStatus);
+    state.filterByeImpact = normByeImpactFilter(state.filterByeImpact);
     if (!state.sorts || typeof state.sorts !== "object") {
       state.sorts = {
         roster: { key: "starter_ppg", dir: "desc" },
@@ -5793,6 +5854,7 @@
       state.filterPosition = "";
       state.filterType = "";
       state.filterRosterStatus = "";
+      state.filterByeImpact = "";
       if (els.search) els.search.value = "";
       persistState();
       renderToolbar();
@@ -5822,6 +5884,13 @@
 
     if (el === els.filterRosterStatus) {
       state.filterRosterStatus = normRosterStatusFilter(el.value);
+      persistState();
+      renderTeams();
+      return;
+    }
+
+    if (el === els.filterByeImpact) {
+      state.filterByeImpact = normByeImpactFilter(el.value);
       persistState();
       renderTeams();
       return;
