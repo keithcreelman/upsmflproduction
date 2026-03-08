@@ -273,11 +273,21 @@
     if (pageUrl) {
       var debug = safeStr(pageUrl.searchParams.get("DEBUG_TWB") || pageUrl.searchParams.get("DEBUG"));
       if (debug) url.searchParams.set("DEBUG_TWB", debug);
-      var passthroughKeys = ["twb_load_offer", "twb_mode"];
+      var pageHash = new URLSearchParams(safeStr(pageUrl.hash).replace(/^#/, ""));
+      var passthroughKeys = [
+        "twb_load_offer",
+        "twb_mode",
+        "twb_player_id",
+        "twb_team_id",
+        "twb_source_team",
+        "twb_left_team",
+        "twb_right_team",
+        "twb_side"
+      ];
       var i;
       for (i = 0; i < passthroughKeys.length; i += 1) {
         var key = passthroughKeys[i];
-        var v = safeStr(pageUrl.searchParams.get(key));
+        var v = safeStr(pageUrl.searchParams.get(key) || pageHash.get(key));
         if (v && !url.searchParams.get(key)) url.searchParams.set(key, v);
       }
     }

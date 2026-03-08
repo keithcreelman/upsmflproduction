@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var BUILD = "2026.03.07.16";
+  var BUILD = "2026.03.07.17";
   var BOOT_FLAG = "__ups_roster_workbench_boot_" + BUILD;
   if (window[BOOT_FLAG]) {
     if (typeof window.UPS_RWB_INIT === "function") window.UPS_RWB_INIT();
@@ -3779,6 +3779,27 @@
     return base + "?" + query.join("&");
   }
 
+  function buildLeagueModuleHashUrl(moduleValue, params) {
+    var url;
+    try {
+      url = new URL(buildLeagueModuleUrl(moduleValue), window.location.href);
+    } catch (e) {
+      return buildLeagueModuleUrl(moduleValue, params);
+    }
+    var extra = params || {};
+    var hash = new URLSearchParams();
+    var keys = Object.keys(extra);
+    for (var i = 0; i < keys.length; i += 1) {
+      var key = safeStr(keys[i]);
+      if (!key) continue;
+      var value = extra[key];
+      if (value == null || value === "") continue;
+      hash.set(key, String(value));
+    }
+    url.hash = hash.toString();
+    return url.toString();
+  }
+
   function buildTradeModuleUrl(player) {
     var viewerId = pad4(state.viewerFranchiseId || (state.ctx && state.ctx.franchiseId));
     var playerTeamId = pad4(player && player.fid);
@@ -3795,7 +3816,7 @@
         params.twb_side = "left";
       }
     }
-    return buildLeagueModuleUrl("MESSAGE6=N", params);
+    return buildLeagueModuleHashUrl("MESSAGE6=N", params);
   }
 
   function buildContractCenterActionUrl(action, player, years) {
@@ -3808,7 +3829,7 @@
     if (safeStr(action).toLowerCase() === "extension") {
       params.cccYears = Math.max(1, Math.min(2, safeInt(years, 1) || 1));
     }
-    return buildLeagueModuleUrl("MESSAGE2", params);
+    return buildLeagueModuleHashUrl("MESSAGE2", params);
   }
 
   function openPlayerActionModal(franchiseId, playerId) {
