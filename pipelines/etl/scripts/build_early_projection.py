@@ -1588,10 +1588,11 @@ def main():
 
         t = tag_map.get((r["franchise_id"], r["player_id"]), {})
 
-        # Tag eligibility: any expiring contract is eligible unless explicitly excluded.
-        # We no longer rely on the tracked "is_tag_eligible" flag so every 1-year player
-        # (including rookies) can be tagged, matching league intent.
-        tag_eligible = 1 if expiring else 0
+        tracked_tag_eligible = t.get("is_tag_eligible")
+        if expiring and tracked_tag_eligible is not None:
+            tag_eligible = 1 if coerce_int(tracked_tag_eligible) == 1 else 0
+        else:
+            tag_eligible = 1 if expiring else 0
         if r["player_id"] in tag_exclusions:
             tag_eligible = 0
 

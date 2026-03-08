@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from db_utils import DEFAULT_DB_PATH, get_conn
+from extension_lineage import load_extension_lookup, resolve_extension_lineage
 
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
@@ -710,6 +711,7 @@ def build_rows(
     tagged_prev = fetch_tagged_season_ids(conn, exclude_tag_season)
     scoring_map = fetch_scoring_rank_map(conn, season, last_regular_week)
     tier_bid_map = build_tier_bid_map(week1_aav_by_pos)
+    extension_lookup = load_extension_lookup(conn, season)
 
     # Fallback for missing week 1 AAVs.
     for c in candidates:
@@ -775,6 +777,14 @@ def build_rows(
                 formula += " | 10% salary floor (rounded up)"
 
         was_tagged_prev = pid in tagged_prev
+        lineage = resolve_extension_lineage(c.get("contract_info"), c.get("franchise_id"), extension_lookup)
+        extension_eligible = (
+            1
+            if lineage.get("has_extension_history")
+            and safe_str(lineage.get("last_extension_franchise_id"))
+            and not safe_int(lineage.get("last_extension_by_current_owner"), 0)
+            else 0
+        )
         is_eligible = 1 if tag_bid > 0 else 0
         eligibility_reason = ""
         if not is_eligible:
@@ -790,7 +800,18 @@ def build_rows(
                 eligibility_reason = "Not eligible."
         elif used_fallback:
             eligibility_reason = "Unranked for tier rules; using fallback tag salary."
-        if was_tagged_prev:
+        if extension_eligible:
+            is_eligible = 0
+            ext_team = safe_str(lineage.get("last_extension_team_name"))
+            ext_label = ext_team or safe_str(lineage.get("last_extension_owner_name")) or safe_str(
+                lineage.get("last_extension_nickname")
+            )
+            eligibility_reason = (
+                f"Last extension held by {ext_label}; extension-eligible instead of tag-eligible."
+                if ext_label
+                else "Player has a prior extension on record; extension-eligible instead of tag-eligible."
+            )
+        elif was_tagged_prev:
             is_eligible = 0
             eligibility_reason = f"Tagged in {exclude_tag_season} (ineligible)."
 
@@ -825,10 +846,15 @@ def build_rows(
             "tag_side": tag_side(pos_group),
             "tag_limit_per_side": 1,
             "is_tag_eligible": is_eligible,
+            "extension_eligible": extension_eligible,
             "eligibility_reason": eligibility_reason,
             "tag_prev_season": 1 if was_tagged_prev else 0,
             "tag_prev_season_year": exclude_tag_season if was_tagged_prev else 0,
             "tag_formula": formula,
+            "last_extension_nickname": lineage.get("last_extension_nickname", ""),
+            "last_extension_owner_name": lineage.get("last_extension_owner_name", ""),
+            "last_extension_franchise_id": lineage.get("last_extension_franchise_id", ""),
+            "last_extension_team_name": lineage.get("last_extension_team_name", ""),
             "tracking_context": "in-season",
             "scoring_weeks_used": f"1-{last_regular_week}",
         }

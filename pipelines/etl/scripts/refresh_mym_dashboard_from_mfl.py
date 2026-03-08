@@ -15,12 +15,15 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import sqlite3
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
+
+from extension_lineage import build_extension_overlay, load_extension_lookup
 
 
 def default_year(today: date | None = None) -> int:
@@ -214,6 +217,34 @@ def rebuild_usage_rows(
     return changed
 
 
+def apply_extension_overlays(
+    eligibility: List[Dict[str, Any]],
+    db_path: str,
+) -> int:
+    db_file = Path(db_path or "")
+    if not db_file.exists():
+        return 0
+
+    changed = 0
+    lookup_cache: Dict[int, Dict[str, Dict[str, str]]] = {}
+    conn = sqlite3.connect(str(db_file))
+    try:
+        for row in eligibility:
+            row_season = safe_int(row.get("season"), 0)
+            if row_season <= 0:
+                continue
+            if row_season not in lookup_cache:
+                lookup_cache[row_season] = load_extension_lookup(conn, row_season)
+            overlay = build_extension_overlay(row, lookup_cache[row_season])
+            for key, value in overlay.items():
+                if row.get(key) != value:
+                    row[key] = value
+                    changed += 1
+    finally:
+        conn.close()
+    return changed
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--json-path", default="mym_dashboard.json")
@@ -222,6 +253,7 @@ def main() -> int:
     default_target_year = safe_int(year_env, default_year()) if year_env else default_year()
     parser.add_argument("--year", type=int, default=default_target_year)
     parser.add_argument("--cookie", default=os.environ.get("MFL_COOKIE", ""))
+    parser.add_argument("--db-path", default=os.environ.get("MFL_DB_PATH", ""))
     args = parser.parse_args()
 
     cookie = normalize_cookie(args.cookie)
@@ -250,8 +282,9 @@ def main() -> int:
 
     changed_rows, mym_marked = update_eligibility_rows(eligibility, salary_map)
     usage_changed = rebuild_usage_rows(eligibility, usage, args.year)
+    extension_changed = apply_extension_overlays(eligibility, args.db_path)
 
-    total_changes = changed_rows + usage_changed
+    total_changes = changed_rows + usage_changed + extension_changed
     if total_changes == 0:
         print("No MYM JSON changes detected.")
         return 0
@@ -268,6 +301,7 @@ def main() -> int:
     print(f"Updated {changed_rows} eligibility rows.")
     print(f"Marked {mym_marked} rows as MYM-ineligible.")
     print(f"Updated/added {usage_changed} usage rows.")
+    print(f"Applied {extension_changed} extension overlay field updates.")
     print(f"Wrote {json_path}.")
     return 0
 

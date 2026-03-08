@@ -28,6 +28,8 @@ python3 "$SCRIPT_DIR/build_auction_value_model.py" --db-path "$MFL_DB_PATH" --st
 python3 "$SCRIPT_DIR/build_early_projection.py" --db-path "$MFL_DB_PATH" --adp-source sleeper_sf --tag-tracking-json "$MFL_TAG_TRACKING_JSON" --tag-exclusions-json "$MFL_TAG_EXCLUSIONS_JSON"
 python3 "$SCRIPT_DIR/build_roster_rollforward_csv.py" --db-path "$MFL_DB_PATH" --base-season 2025 --target-season 2026 --out-full "$MFL_ETL_ARTIFACT_DIR/rosters_rollforward_2026_full.csv" --out-import "$MFL_ETL_ARTIFACT_DIR/mfl_roster_import_2026.csv"
 python3 "$SCRIPT_DIR/repair_rosters_current_rollforward.py" --db-path "$MFL_DB_PATH" --base-season 2025 --target-season 2026
+python3 "$SCRIPT_DIR/repair_extension_previews_from_current_extensions.py" --db-path "$MFL_DB_PATH" --base-season 2025 --target-season 2026
+python3 "$SCRIPT_DIR/export_extension_previews_json.py" --db-path "$MFL_DB_PATH" --season 2026 --out-path "$ROOT_DIR/site/trades/extension_previews_2026.json"
 python3 "$SCRIPT_DIR/build_roster_import_xml.py" --in-csv "$MFL_ETL_ARTIFACT_DIR/mfl_roster_import_2026.csv" --season 2026 --db-path "$MFL_DB_PATH" --salaries-out "$MFL_ETL_ARTIFACT_DIR/mfl_roster_import_2026_salaries.xml" --rosters-out "$MFL_ETL_ARTIFACT_DIR/mfl_roster_overlay_2026.xml"
 python3 "$SCRIPT_DIR/build_standings_snapshot.py" --league-id 25625 --season 2025 --out "$ROOT_DIR/site/standings/standings_25625_2025.json"
 python3 "$SCRIPT_DIR/build_standings_snapshot.py" --league-id 25625 --season 2026 --out "$ROOT_DIR/site/standings/standings_25625_2026.json"

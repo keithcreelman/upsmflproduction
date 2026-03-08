@@ -1252,8 +1252,13 @@
         "OFFENSE",
       tag_limit_per_side: safeInt(r.tag_limit_per_side || 1),
       is_tag_eligible: safeInt(r.is_tag_eligible || 0),
+      extension_eligible: safeInt(r.extension_eligible || 0),
       eligibility_reason: safeStr(r.eligibility_reason),
       tag_formula: safeStr(r.tag_formula),
+      last_extension_nickname: safeStr(r.last_extension_nickname),
+      last_extension_owner_name: safeStr(r.last_extension_owner_name),
+      last_extension_franchise_id: pad4(r.last_extension_franchise_id),
+      last_extension_team_name: safeStr(r.last_extension_team_name),
       tracking_context: safeStr(r.tracking_context || "in-season"),
       scoring_weeks_used: safeStr(r.scoring_weeks_used),
     };
@@ -4141,6 +4146,8 @@
           normalizeSeasonValue(r.season || state.selectedSeason)
         );
         const deadlineTxt = deadlineDate ? fmtYMDDate(deadlineDate) : "TBD";
+        const lastExtensionTxt =
+          safeStr(r.last_extension_team_name || r.last_extension_owner_name || r.last_extension_nickname) || "—";
         const btn = canExtend
           ? `<button type="button" class="ccc-btn ccc-btn-offer" data-extension-action="1" data-season="${htmlEsc(
               normalizeSeasonValue(r.season || state.selectedSeason)
@@ -4169,6 +4176,7 @@
             <td class="cell-num">${safeInt(r.contract_year)}</td>
             <td class="muted">${htmlEsc(deadlineTxt)}</td>
             <td>${htmlEsc(r.contract_status || "")}</td>
+            <td>${htmlEsc(lastExtensionTxt)}</td>
             <td class="explain">${htmlEsc(r.contract_info || "")}</td>
           </tr>
         `;
@@ -4186,7 +4194,7 @@
       )}${sortTh("contractYear", "Yrs", "", "is-num")}${sortTh(
         "deadline",
         "Deadline"
-      )}${sortTh("status", "Status")}<th>Info</th></tr></thead><tbody>${body}</tbody></table></div>
+      )}${sortTh("status", "Status")}<th>Last Ext</th><th>Info</th></tr></thead><tbody>${body}</tbody></table></div>
       <div class="ccc-tableMeta">
         <div class="ccc-tableMetaInfo">Showing ${totalRows ? start + 1 : 0}-${Math.min(
       start + pageSize,
@@ -6043,6 +6051,11 @@
     const flag = row.extension_eligible;
     if (flag !== undefined && flag !== null && flag !== "") {
       return flag === 1 || flag === "1" || flag === "Y" || flag === true;
+    }
+    const currentFid = pad4(row.franchise_id);
+    const lastExtFid = pad4(row.last_extension_franchise_id);
+    if (safeInt(row.contract_year) <= 0 && lastExtFid && currentFid && lastExtFid !== currentFid) {
+      return true;
     }
     /* Fallback: heuristic */
     const years = safeInt(row.contract_year);
