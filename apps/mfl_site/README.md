@@ -17,8 +17,8 @@
 2. Header/footer include an `MCM` link to `MODULE=MESSAGE15`.
 
 ## Reports Module (MESSAGE9)
-1. In MFL `Setup → Appearance → Home Page Messages → Message 9`, paste the embed snippet from `site/README.md` (`hpm-reports`).
-2. The message stays centrally managed through the Reports Module partial instead of a hand-pasted iframe block.
+1. In MFL `Setup → Appearance → Home Page Messages → Message 9`, paste the Reports Module embed snippet from `site/README.md`.
+2. Message 9 uses the same direct embed-loader pattern as the other HPM modules.
 
 ## Expected Behavior
 - Consistent league skin across pages.

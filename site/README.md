@@ -49,9 +49,18 @@ Use jsDelivr so you do not need GitHub Pages enabled.
 <script src="https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/loader.js?v=2026.03.04.7" data-ups-partial="hpm-widget"></script>
 ```
 
-## Reports Module HPM Partial (use this for Message 9)
+## Reports Module (use this for Message 9)
 ```html
-<script src="https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/loader.js?v=2026.03.09.1" data-ups-partial="hpm-reports"></script>
+<div id="upsReportsMount"></div>
+<script>
+  (function () {
+    var sha = window.UPS_REPORTS_RELEASE_SHA || window.UPS_RELEASE_SHA || "main";
+    var s = document.createElement("script");
+    s.src = "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@" + sha + "/site/reports/mfl_hpm_embed_loader.js?v=2026.03.09.2";
+    var anchor = document.currentScript;
+    anchor.parentNode.insertBefore(s, anchor);
+  })();
+</script>
 ```
 
 ## Optional target node form
@@ -68,6 +77,7 @@ If you want to mount into an existing element:
 - Header pulls from `/apps/mfl_site/header_custom_v2.html`.
 - Footer pulls from `/apps/mfl_site/footer_custom_v2.html`.
 - HPM default pulls from `/site/hpm-default.html`.
-- Reports module HPM pulls from `/site/hpm-reports.html`.
+- Reports Module HPM uses `/site/reports/mfl_hpm_embed_loader.js`.
+- `/site/hpm-reports.html` remains available as a compatibility partial for the shared loader.
 - Bump the `v=` value to force cache refresh in MFL.
 - For production, switch `@dev` to `@main`.

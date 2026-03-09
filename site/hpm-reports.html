@@ -1,23 +1,10 @@
 <div id="upsReportsMount" style="width:100%;"></div>
 <script>
-  window.UPS_REPORTS_RELEASE_SHA =
-    window.UPS_REPORTS_RELEASE_SHA ||
-    window.UPS_RELEASE_SHA ||
-    "main";
-</script>
-<script>
   (function () {
-    var sha = window.UPS_REPORTS_RELEASE_SHA || "main";
-    var base = "https://rawcdn.githack.com/keithcreelman/upsmflproduction/" + sha + "/site/reports/index.html";
-    var url = base + (window.location.hash || "");
-    var mount = document.getElementById("upsReportsMount");
-    if (!mount) return;
-    mount.innerHTML =
-      '<iframe ' +
-        'src="' + url + '" ' +
-        'style="width:100%;min-height:1600px;border:0;background:transparent;" ' +
-        'loading="lazy" ' +
-        'referrerpolicy="no-referrer">' +
-      '</iframe>';
+    var sha = window.UPS_REPORTS_RELEASE_SHA || window.UPS_RELEASE_SHA || "main";
+    var s = document.createElement("script");
+    s.src = "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@" + sha + "/site/reports/mfl_hpm_embed_loader.js";
+    var anchor = document.currentScript;
+    anchor.parentNode.insertBefore(s, anchor);
   })();
 </script>
