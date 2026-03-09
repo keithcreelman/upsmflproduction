@@ -136,6 +136,10 @@
   grid-template-columns: minmax(0, 1fr);
 }
 
+.rwb-toolbar-points.is-tag-view {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .rwb-subview-switch {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -824,6 +828,12 @@
   color: #96f4cb;
 }
 
+.rwb-type-pill.is-tag {
+  border-color: rgba(250, 210, 105, 0.56);
+  background: rgba(250, 210, 105, 0.14);
+  color: #ffe8a2;
+}
+
 .rwb-type-pill.is-loaded {
   border-color: rgba(255, 173, 118, 0.5);
   color: #ffd4ad;
@@ -988,6 +998,120 @@
   color: var(--rwb-text-soft);
   font-size: 0.84rem;
   line-height: 1.4;
+}
+
+.rwb-tag-breakdown-shell {
+  display: grid;
+  gap: 14px;
+}
+
+.rwb-tag-breakdown-card {
+  padding: 14px;
+}
+
+.rwb-tag-breakdown-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.rwb-tag-breakdown-kicker {
+  color: var(--rwb-text-dim);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.rwb-tag-breakdown-title {
+  margin: 0;
+  font-size: 1.15rem;
+  line-height: 1.1;
+}
+
+.rwb-tag-breakdown-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.rwb-tag-breakdown-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+.rwb-tag-tier-card {
+  border: 1px solid rgba(138, 172, 214, 0.18);
+  border-radius: 14px;
+  background: rgba(7, 15, 29, 0.78);
+  overflow: hidden;
+}
+
+.rwb-tag-tier-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 12px 10px;
+  border-bottom: 1px solid rgba(138, 172, 214, 0.12);
+}
+
+.rwb-tag-tier-kicker {
+  color: var(--rwb-text);
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.rwb-tag-tier-rule {
+  color: var(--rwb-text-dim);
+  font-size: 0.78rem;
+  line-height: 1.35;
+  margin-top: 4px;
+}
+
+.rwb-tag-tier-base {
+  display: grid;
+  gap: 2px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.rwb-tag-tier-base-label {
+  color: var(--rwb-text-dim);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.rwb-tag-tier-base-value {
+  color: #ffe8a2;
+  font-family: var(--rwb-mono);
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.rwb-tag-breakdown-table {
+  min-width: 100%;
+}
+
+.rwb-tag-breakdown-table th:last-child,
+.rwb-tag-breakdown-table td:last-child {
+  text-align: right;
+}
+
+.rwb-tag-breakdown-empty {
+  padding: 14px 12px;
+  color: var(--rwb-text-dim);
+  font-size: 0.82rem;
+  line-height: 1.45;
 }
 
 .rwb-contract-toggle-row {
@@ -1692,8 +1816,23 @@ body.rwb-modal-open {
   .rwb-toolbar-points.is-history-yearly,
   .rwb-toolbar-points.is-history-weekly,
   .rwb-toolbar-points.is-bye-view,
-  .rwb-toolbar-points.is-contract-view {
+  .rwb-toolbar-points.is-contract-view,
+  .rwb-toolbar-points.is-tag-view {
     grid-template-columns: 1fr;
+  }
+
+  .rwb-tag-breakdown-head,
+  .rwb-tag-tier-head {
+    grid-template-columns: 1fr;
+    display: grid;
+  }
+
+  .rwb-tag-breakdown-summary {
+    justify-content: flex-start;
+  }
+
+  .rwb-tag-tier-base {
+    text-align: left;
   }
 
   .rwb-toolbar-actions {

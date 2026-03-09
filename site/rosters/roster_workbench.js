@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var BUILD = "2026.03.09.02";
+  var BUILD = "2026.03.09.03";
   var BOOT_FLAG = "__ups_roster_workbench_boot_" + BUILD;
   if (window[BOOT_FLAG]) {
     if (typeof window.UPS_RWB_INIT === "function") window.UPS_RWB_INIT();
@@ -118,6 +118,7 @@
     pointsYearlyEliteRankCache: null,
     view: "roster",
     contractSubView: "players",
+    tagSubView: "players",
     filtersOpen: false,
     search: "",
     filterPosition: "",
@@ -223,8 +224,16 @@
     return safeStr(value).toLowerCase() === "summary" ? "summary" : "players";
   }
 
+  function normalizeTagSubview(value) {
+    return safeStr(value).toLowerCase() === "breakdown" ? "breakdown" : "players";
+  }
+
   function capPlanSummaryViewActive() {
     return state.view === "contract" && normalizeCapPlanSubview(state.contractSubView) === "summary";
+  }
+
+  function tagBreakdownActive() {
+    return state.view === "tag" && normalizeTagSubview(state.tagSubView) === "breakdown";
   }
 
   function normByeImpactFilter(value) {
@@ -510,6 +519,7 @@
   function contractBucket(type) {
     var t = normType(type);
     if (!t) return "other";
+    if (t === "tag" || t.indexOf("tag") !== -1) return "tag";
     if (t.indexOf("rookie") !== -1) return "rookie";
     if (
       t === "fl" ||
@@ -526,6 +536,7 @@
 
   function typeTone(type) {
     var bucket = contractBucket(type);
+    if (bucket === "tag") return "is-tag";
     if (bucket === "rookie") return "is-rookie";
     if (bucket === "loaded") return "is-loaded";
     return "is-veteran";
@@ -1060,7 +1071,7 @@
   }
 
   function searchFilterEnabledForView() {
-    return state.view !== "bye" && !capPlanSummaryViewActive();
+    return state.view !== "bye" && !capPlanSummaryViewActive() && !tagBreakdownActive();
   }
 
   function contractTypeFilterEnabledForView() {
@@ -1068,7 +1079,7 @@
   }
 
   function positionFilterEnabledForView() {
-    return !capPlanSummaryViewActive();
+    return !capPlanSummaryViewActive() && !tagBreakdownActive();
   }
 
   function rosterStatusFilterEnabledForView() {
@@ -1076,7 +1087,7 @@
   }
 
   function teamJumpEnabledForView() {
-    return state.view === "roster" || state.view === "tag" || (state.view === "contract" && !capPlanSummaryViewActive());
+    return state.view === "roster" || (state.view === "tag" && !tagBreakdownActive()) || (state.view === "contract" && !capPlanSummaryViewActive());
   }
 
   function scoringControlEnabledForView() {
@@ -1085,6 +1096,10 @@
 
   function capPlanSubviewControlEnabledForView() {
     return state.view === "contract";
+  }
+
+  function tagSubviewControlEnabledForView() {
+    return state.view === "tag";
   }
 
   function summarizeProjection(proj) {
@@ -1813,6 +1828,8 @@
       cycleSeason: cycleSeason,
       rows: rows,
       rowMapByPlayer: rowMapByPlayer,
+      calcBreakdown: state.tagTrackingMeta && typeof state.tagTrackingMeta.calc_breakdown === "object" ? state.tagTrackingMeta.calc_breakdown : {},
+      aavSnapshotWeek: safeStr(state.tagTrackingMeta && state.tagTrackingMeta.aav_snapshot_week),
       externalSubmissionsByKey: externalSubmissionMap,
       localSubmissionsByKey: localSubmissionMap,
       submissionsByKey: merged
@@ -4512,9 +4529,9 @@
     els.pointsHistorySeason = null;
     els.pointsHistoryWeekStart = null;
     els.pointsHistoryWeekEnd = null;
-    els.pointsControls.hidden = !(scoringControlEnabledForView() || capPlanSubviewControlEnabledForView());
+    els.pointsControls.hidden = !(scoringControlEnabledForView() || capPlanSubviewControlEnabledForView() || tagSubviewControlEnabledForView());
 
-    if (!(scoringControlEnabledForView() || capPlanSubviewControlEnabledForView())) {
+    if (!(scoringControlEnabledForView() || capPlanSubviewControlEnabledForView() || tagSubviewControlEnabledForView())) {
       els.pointsControls.className = "rwb-toolbar-points";
       els.pointsControls.innerHTML = "";
       return;
@@ -4528,6 +4545,18 @@
         '<div class="rwb-subview-switch" role="tablist" aria-label="Cap plan mode">' +
           '<button type="button" class="rwb-btn rwb-btn-ghost' + (contractSubview === "players" ? ' is-active' : '') + '" data-action="contract-subview" data-subview="players" role="tab" aria-selected="' + (contractSubview === "players" ? "true" : "false") + '">Player View</button>' +
           '<button type="button" class="rwb-btn rwb-btn-ghost' + (contractSubview === "summary" ? ' is-active' : '') + '" data-action="contract-subview" data-subview="summary" role="tab" aria-selected="' + (contractSubview === "summary" ? "true" : "false") + '">Summary View</button>' +
+        '</div>';
+      return;
+    }
+
+    if (state.view === "tag") {
+      var tagSubview = normalizeTagSubview(state.tagSubView);
+      els.pointsControls.className = "rwb-toolbar-points is-tag-view";
+      els.pointsControls.hidden = false;
+      els.pointsControls.innerHTML =
+        '<div class="rwb-subview-switch" role="tablist" aria-label="Tag plan mode">' +
+          '<button type="button" class="rwb-btn rwb-btn-ghost' + (tagSubview === "players" ? ' is-active' : '') + '" data-action="tag-subview" data-subview="players" role="tab" aria-selected="' + (tagSubview === "players" ? "true" : "false") + '">Eligible Players</button>' +
+          '<button type="button" class="rwb-btn rwb-btn-ghost' + (tagSubview === "breakdown" ? ' is-active' : '') + '" data-action="tag-subview" data-subview="breakdown" role="tab" aria-selected="' + (tagSubview === "breakdown" ? "true" : "false") + '">Calc Breakdown</button>' +
         '</div>';
       return;
     }
@@ -4639,10 +4668,10 @@
       els.filterByeImpactField.setAttribute("aria-hidden", showByeImpactFilter ? "false" : "true");
     }
     if (els.browsePanel) {
-      els.browsePanel.hidden = !(teamJumpEnabledForView() || scoringControlEnabledForView() || capPlanSubviewControlEnabledForView());
+      els.browsePanel.hidden = !(teamJumpEnabledForView() || scoringControlEnabledForView() || capPlanSubviewControlEnabledForView() || tagSubviewControlEnabledForView());
     }
 
-    var showFiltersToggle = !capPlanSummaryViewActive();
+    var showFiltersToggle = !capPlanSummaryViewActive() && !tagBreakdownActive();
     if (els.toggleFiltersWrap) els.toggleFiltersWrap.hidden = !showFiltersToggle;
     if (els.toggleFilters) {
       var activeFilterCount = 0;
@@ -4657,12 +4686,12 @@
       els.toggleFilters.classList.toggle("is-active", state.filtersOpen);
     }
     if (els.advanced) {
-      els.advanced.hidden = capPlanSummaryViewActive() || !state.filtersOpen;
-      els.advanced.classList.toggle("is-open", state.filtersOpen && !capPlanSummaryViewActive());
+      els.advanced.hidden = capPlanSummaryViewActive() || tagBreakdownActive() || !state.filtersOpen;
+      els.advanced.classList.toggle("is-open", state.filtersOpen && !capPlanSummaryViewActive() && !tagBreakdownActive());
     }
 
     if (els.toolbarMain) {
-      els.toolbarMain.classList.toggle("is-points-view", state.view === "points");
+      els.toolbarMain.classList.toggle("is-points-view", state.view === "points" || state.view === "tag");
     }
 
     if (els.viewRoster && els.viewContract && els.viewPoints) {
@@ -4703,6 +4732,8 @@
     parts.push(viewLabel(state.view));
     if (capPlanSummaryViewActive()) {
       parts.push("Showing " + visibleTeams + " of " + totalTeams + " teams");
+    } else if (state.view === "tag" && tagBreakdownActive()) {
+      parts.push("Showing " + visiblePlayers + " of " + totalPlayers + " positions");
     } else if (state.view === "tag") {
       parts.push("Showing " + visiblePlayers + " of " + totalPlayers + " tag candidates");
     } else {
@@ -4741,7 +4772,13 @@
       if (state.tagData && safeStr(state.tagData.cycleSeason)) {
         parts.push("Tag cycle " + safeStr(state.tagData.cycleSeason));
       }
-      parts.push("One offense and one defense tag can be active per team");
+      if (tagBreakdownActive()) {
+        var aavSnapshotWeek = safeStr(state.tagData && state.tagData.aavSnapshotWeek);
+        parts.push("Leaguewide tag cost breakdown");
+        if (aavSnapshotWeek) parts.push("Week " + aavSnapshotWeek + " AAV snapshot");
+      } else {
+        parts.push("One offense and one defense tag can be active per team");
+      }
       if (state.tagDataLoading) parts.push("Loading tag plan");
       if (state.tagDataError) parts.push("Tag data unavailable");
     }
@@ -6259,6 +6296,108 @@
     );
   }
 
+  function currentTagCalcBreakdown() {
+    return state.tagData && state.tagData.calcBreakdown && typeof state.tagData.calcBreakdown === "object"
+      ? state.tagData.calcBreakdown
+      : {};
+  }
+
+  function tagBreakdownPositionKeys() {
+    return Object.keys(currentTagCalcBreakdown()).sort(function (a, b) {
+      var av = positionSortValue(a);
+      var bv = positionSortValue(b);
+      if (av !== bv) return av - bv;
+      return safeStr(a).localeCompare(safeStr(b));
+    });
+  }
+
+  function tagTierLabel(posKey, tier) {
+    return safeStr(posKey).toUpperCase() + " Tier " + String(Math.max(1, safeInt(tier, 1)));
+  }
+
+  function tagBreakdownPositionCardHtml(posKey, data) {
+    var tiers = data && Array.isArray(data.tiers) ? data.tiers : [];
+    var tierCards = [];
+
+    for (var i = 0; i < tiers.length; i += 1) {
+      var tier = tiers[i] || {};
+      var players = Array.isArray(tier.players) ? tier.players : [];
+      var rows = [];
+      for (var j = 0; j < players.length; j += 1) {
+        var player = players[j] || {};
+        rows.push(
+          '<tr>' +
+            '<td class="rwb-cell-num">' + escapeHtml(formatRank(player.rank)) + '</td>' +
+            '<td>' + escapeHtml(safeStr(player.player_name) || "—") + '</td>' +
+            '<td class="rwb-cell-num">' + escapeHtml(formatContractK(player.aav)) + '</td>' +
+          '</tr>'
+        );
+      }
+
+      var baseBid = safeInt(tier.base_bid, 0);
+      var baseLabel = baseBid > 0 ? formatContractK(baseBid) : "Rule Based";
+      var ruleLabel = safeStr(tier.label);
+      var emptyText = safeStr(posKey).toUpperCase() === "PK"
+        ? "No pooled league average is used here. PK tags follow the prior AAV plus $1K rule."
+        : "No contributing players were stored for this tier.";
+
+      tierCards.push(
+        '<section class="rwb-tag-tier-card">' +
+          '<header class="rwb-tag-tier-head">' +
+            '<div>' +
+              '<div class="rwb-tag-tier-kicker">' + escapeHtml(tagTierLabel(posKey, tier.tier)) + '</div>' +
+              '<div class="rwb-tag-tier-rule">' + escapeHtml(ruleLabel || "—") + '</div>' +
+            '</div>' +
+            '<div class="rwb-tag-tier-base">' +
+              '<span class="rwb-tag-tier-base-label">Base Bid</span>' +
+              '<span class="rwb-tag-tier-base-value">' + escapeHtml(baseLabel) + '</span>' +
+            '</div>' +
+          '</header>' +
+          (rows.length
+            ? '<div class="rwb-table-wrap">' +
+                '<table class="rwb-table rwb-tag-breakdown-table" aria-label="' + escapeHtml(positionGroupLabel(posKey) + " " + tagTierLabel(posKey, tier.tier)) + '">' +
+                  '<thead>' +
+                    '<tr>' +
+                      '<th>Rank</th>' +
+                      '<th>Player</th>' +
+                      '<th>AAV</th>' +
+                    '</tr>' +
+                  '</thead>' +
+                  '<tbody>' + rows.join("") + '</tbody>' +
+                '</table>' +
+              '</div>'
+            : '<div class="rwb-tag-breakdown-empty">' + escapeHtml(emptyText) + '</div>') +
+        '</section>'
+      );
+    }
+
+    return (
+      '<article class="rwb-team-card rwb-tag-breakdown-card">' +
+        '<header class="rwb-tag-breakdown-head">' +
+          '<div>' +
+            '<div class="rwb-tag-breakdown-kicker">' + escapeHtml(safeStr(posKey).toUpperCase()) + '</div>' +
+            '<h2 class="rwb-tag-breakdown-title">' + escapeHtml(positionGroupLabel(posKey)) + '</h2>' +
+          '</div>' +
+          '<div class="rwb-tag-breakdown-summary">' +
+            '<span class="rwb-chip"><span class="rwb-chip-label">Tiers</span><span class="rwb-chip-value">' + escapeHtml(String(tiers.length)) + '</span></span>' +
+            '<span class="rwb-chip"><span class="rwb-chip-label">Snapshot</span><span class="rwb-chip-value">Week ' + escapeHtml(safeStr(state.tagData && state.tagData.aavSnapshotWeek) || "1") + '</span></span>' +
+          '</div>' +
+        '</header>' +
+        '<div class="rwb-tag-breakdown-grid">' + tierCards.join("") + '</div>' +
+      '</article>'
+    );
+  }
+
+  function tagBreakdownViewHtml() {
+    var keys = tagBreakdownPositionKeys();
+    if (!keys.length) return "";
+    var sections = [];
+    for (var i = 0; i < keys.length; i += 1) {
+      sections.push(tagBreakdownPositionCardHtml(keys[i], currentTagCalcBreakdown()[keys[i]]));
+    }
+    return '<div class="rwb-tag-breakdown-shell">' + sections.join("") + '</div>';
+  }
+
   function teamCardHtml(team, rosterGroupSummaryMap) {
     var filtered = filteredPlayersForTeam(team);
 
@@ -6370,6 +6509,31 @@
 
   function renderTeams() {
     if (!els.teamList) return;
+
+    if (state.view === "tag" && tagBreakdownActive()) {
+      if (state.tagDataLoading && !state.tagData) {
+        els.teamList.innerHTML = '<div class="rwb-loading">Loading tag cost breakdown...</div>';
+        renderToolbarNote(0, 0, 0, 0);
+        renderPlayerActionModal();
+        return;
+      }
+      if (state.tagDataError && !state.tagData) {
+        els.teamList.innerHTML = '<div class="rwb-error">' + escapeHtml(state.tagDataError) + '</div>';
+        renderToolbarNote(0, 0, 0, 0);
+        renderPlayerActionModal();
+        return;
+      }
+      var breakdownKeys = tagBreakdownPositionKeys();
+      var breakdownHtml = tagBreakdownViewHtml();
+      if (!breakdownHtml) {
+        els.teamList.innerHTML = '<div class="rwb-empty">No tag cost breakdown is available for this season.</div>';
+      } else {
+        els.teamList.innerHTML = breakdownHtml;
+      }
+      renderToolbarNote(breakdownKeys.length, breakdownKeys.length, breakdownKeys.length ? 1 : 0, 1);
+      renderPlayerActionModal();
+      return;
+    }
 
     if (state.view === "tag") {
       if (state.tagDataLoading && !state.tagData) {
@@ -6557,6 +6721,7 @@
     writeStorage("contractPreview", state.contractPreview);
     writeStorage("view", state.view);
     writeStorage("contractSubView", state.contractSubView);
+    writeStorage("tagSubView", state.tagSubView);
     writeStorage("pointsMode", state.pointsMode);
     writeStorage("pointsHistoryMode", state.pointsHistoryMode);
     writeStorage("pointsHistoryYearStart", state.pointsHistoryYearStart);
@@ -6582,6 +6747,7 @@
     state.sorts = readStorage("sorts", state.sorts) || state.sorts;
     var storedView = safeStr(readStorage("view", "roster"));
     state.contractSubView = normalizeCapPlanSubview(readStorage("contractSubView", "players"));
+    state.tagSubView = normalizeTagSubview(readStorage("tagSubView", "players"));
     if (storedView === "franchise") {
       state.view = "contract";
       state.contractSubView = "summary";
@@ -7105,6 +7271,20 @@
       persistState();
       renderToolbar();
       renderTeams();
+      return;
+    }
+
+    var tagSubviewBtn = target.closest("[data-action='tag-subview']");
+    if (tagSubviewBtn) {
+      var nextTagSubview = normalizeTagSubview(tagSubviewBtn.getAttribute("data-subview"));
+      if (state.tagSubView === nextTagSubview) return;
+      state.tagSubView = nextTagSubview;
+      persistState();
+      renderToolbar();
+      renderTeams();
+      if (state.view === "tag") {
+        loadTagPlanData().catch(function () {});
+      }
       return;
     }
 
