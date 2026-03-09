@@ -3773,10 +3773,15 @@
     renderSelectOptions(els.filterType, CONTRACT_FILTERS, state.filterType);
     renderSelectOptions(els.filterRosterStatus, ROSTER_STATUS_FILTERS, state.filterRosterStatus);
     renderSelectOptions(els.filterByeImpact, BYE_IMPACT_FILTERS, state.filterByeImpact);
+    var showByeImpactFilter = state.view === "bye";
     if (els.jumpTeamField) els.jumpTeamField.hidden = !teamJumpEnabledForView();
     if (els.searchField) els.searchField.hidden = !searchFilterEnabledForView();
     if (els.filterTypeField) els.filterTypeField.hidden = !contractTypeFilterEnabledForView();
-    if (els.filterByeImpactField) els.filterByeImpactField.hidden = state.view !== "bye";
+    if (els.filterByeImpact) els.filterByeImpact.disabled = !showByeImpactFilter;
+    if (els.filterByeImpactField) {
+      els.filterByeImpactField.hidden = !showByeImpactFilter;
+      els.filterByeImpactField.style.display = showByeImpactFilter ? "" : "none";
+    }
     if (els.browsePanel) {
       els.browsePanel.hidden = !(teamJumpEnabledForView() || scoringControlEnabledForView());
     }
