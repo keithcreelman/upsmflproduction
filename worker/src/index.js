@@ -2929,6 +2929,7 @@ export default {
         payload,
         salaryAdjustments,
         extensions,
+        taxiSync,
       }) => ({
         error_type: "salary_contract_import_failure",
         timestamp_utc: new Date().toISOString(),
@@ -2944,6 +2945,7 @@ export default {
             : {},
         salary_adjustments: salaryAdjustments || {},
         extensions: extensions || {},
+        taxi_sync: taxiSync || {},
       });
 
       const hostFromUrl = (urlValue) => {
@@ -3019,6 +3021,7 @@ export default {
       const pickTokenFromAsset = (asset) => {
         const candidates = [
           safeStr(asset?.pick_key),
+          safeStr(asset?.token),
           safeStr(asset?.pick),
           safeStr(asset?.asset_id).replace(/^pick:/i, ""),
           safeStr(asset?.description),
@@ -3031,6 +3034,68 @@ export default {
         }
         return "";
       };
+
+      const pickMetaFromAsset = (asset) => {
+        const token = pickTokenFromAsset(asset);
+        const description = safeStr(asset?.description || asset?.label || "");
+        let round = safeInt(asset?.pick_round || asset?.round, 0);
+        let pick = safeInt(asset?.pick_slot || asset?.slot || asset?.pick, 0);
+        let year = safeInt(asset?.pick_season || asset?.season || asset?.year, 0);
+
+        if ((!round || !pick || !year) && token.startsWith("DP_")) {
+          const dp = token.match(/^DP_(\d+)_(\d+)$/i);
+          if (dp) {
+            round = round || (safeInt(dp[1], 0) + 1);
+            pick = pick || (safeInt(dp[2], 0) + 1);
+            year = year || safeInt((description.match(/(\d{4})/) || [])[1], 0);
+          }
+        }
+
+        if ((!round || !year) && token.startsWith("FP_")) {
+          const fp = token.match(/^FP_[A-Z0-9]+_(\d{4})_(\d+)$/i);
+          if (fp) {
+            year = year || safeInt(fp[1], 0);
+            round = round || safeInt(fp[2], 0);
+          }
+        }
+
+        if (!round || !pick || !year) {
+          const yearDraft = description.match(/Year\s*(\d{4})\s*Draft Pick\s*(\d+)\.(\d+)/i);
+          if (yearDraft) {
+            year = year || safeInt(yearDraft[1], 0);
+            round = round || safeInt(yearDraft[2], 0);
+            pick = pick || safeInt(yearDraft[3], 0);
+          }
+        }
+
+        if (!round || !pick || !year) {
+          const roundPick = description.match(/(\d{4}).*?(?:Round|Rookie)\s*(\d+).*?(?:Pick|\.)(?:\s*|0*)(\d+)/i);
+          if (roundPick) {
+            year = year || safeInt(roundPick[1], 0);
+            round = round || safeInt(roundPick[2], 0);
+            pick = pick || safeInt(roundPick[3], 0);
+          }
+        }
+
+        if (!round || !year) {
+          const rookieRound = description.match(/(\d{4}).*?Rookie\s*Round\s*(\d+)/i);
+          if (rookieRound) {
+            year = year || safeInt(rookieRound[1], 0);
+            round = round || safeInt(rookieRound[2], 0);
+          }
+        }
+
+        return {
+          token,
+          year,
+          round,
+          pick,
+        };
+      };
+
+      const isUntradeableSixthRoundPickAsset = (asset) =>
+        safeStr(asset?.type).toUpperCase() === "PICK" &&
+        safeInt(pickMetaFromAsset(asset).round, 0) === 6;
 
       const playerTokenFromAsset = (asset) => {
         const direct = String(asset?.player_id || "").replace(/\D/g, "");
@@ -3053,6 +3118,15 @@ export default {
         const invalid = [];
         const seen = new Set();
         for (const asset of selected) {
+          if (isUntradeableSixthRoundPickAsset(asset)) {
+            invalid.push({
+              asset_id: safeStr(asset?.asset_id),
+              type: safeStr(asset?.type),
+              description: safeStr(asset?.description || asset?.player_name || asset?.asset_id),
+              reason: "6th-round picks cannot be traded",
+            });
+            continue;
+          }
           const token = tradeTokenFromAsset(asset);
           if (!token) {
             invalid.push({
@@ -3135,11 +3209,36 @@ export default {
         return up;
       };
 
-      const buildSelectedAssetsFromTokens = (tokens, season) => {
+      const buildRosterStatusLookup = (rostersPayload) => {
+        const franchiseRows = asArray(
+          rostersPayload?.rosters?.franchise ||
+            rostersPayload?.rosters?.franchises ||
+            rostersPayload?.rosters?.teams
+        ).filter(Boolean);
+        const out = {};
+        for (const franchise of franchiseRows) {
+          const franchiseId = padFranchiseId(franchise?.id || franchise?.franchise_id);
+          if (!franchiseId) continue;
+          const playerRows = asArray(franchise?.player || franchise?.players).filter(Boolean);
+          for (const playerRow of playerRows) {
+            const playerId = String(playerRow?.id || playerRow?.player_id || "").replace(/\D/g, "");
+            if (!playerId) continue;
+            const status = safeStr(playerRow?.status).toUpperCase();
+            out[`${franchiseId}|${playerId}`] = {
+              status,
+              is_taxi: status.includes("TAXI"),
+            };
+          }
+        }
+        return out;
+      };
+
+      const buildSelectedAssetsFromTokens = (tokens, season, franchiseId, rosterStatusLookup) => {
         const selectedAssets = [];
         let tradedSalaryK = 0;
         const seen = new Set();
         const list = Array.isArray(tokens) ? tokens : [];
+        const cleanFranchiseId = padFranchiseId(franchiseId);
         for (const tokenRaw of list) {
           const token = safeStr(tokenRaw).toUpperCase();
           if (!token || seen.has(token)) continue;
@@ -3157,6 +3256,10 @@ export default {
             continue;
           }
           if (/^[0-9]+$/.test(token)) {
+            const rosterStatus =
+              rosterStatusLookup && cleanFranchiseId
+                ? rosterStatusLookup[`${cleanFranchiseId}|${token}`] || null
+                : null;
             selectedAssets.push({
               asset_id: `player:${token}`,
               type: "PLAYER",
@@ -3166,7 +3269,7 @@ export default {
               years: 0,
               contract_type: "",
               contract_info: "",
-              taxi: false,
+              taxi: !!(rosterStatus && rosterStatus.is_taxi),
             });
           }
         }
@@ -3185,14 +3288,15 @@ export default {
         willGiveUp,
         willReceive,
         comment,
+        rosterStatusLookup,
       }) => {
         const fromId = padFranchiseId(fromFranchiseId);
         const toId = padFranchiseId(toFranchiseId);
         if (!fromId || !toId || fromId === toId) return null;
         const leftTokens = parseTradeTokenList(willGiveUp);
         const rightTokens = parseTradeTokenList(willReceive);
-        const left = buildSelectedAssetsFromTokens(leftTokens, season);
-        const right = buildSelectedAssetsFromTokens(rightTokens, season);
+        const left = buildSelectedAssetsFromTokens(leftTokens, season, fromId, rosterStatusLookup);
+        const right = buildSelectedAssetsFromTokens(rightTokens, season, toId, rosterStatusLookup);
         if (!leftTokens.length || !rightTokens.length) return null;
         return {
           schema_version: 1,
@@ -3884,7 +3988,11 @@ export default {
           willGiveUp,
           willReceive,
           salaryNets,
-          isValid: !!willGiveUp.length && !!willReceive.length,
+          isValid:
+            !!willGiveUp.length &&
+            !!willReceive.length &&
+            !leftTokensOut.invalid.length &&
+            !rightTokensOut.invalid.length,
         };
       };
 
@@ -4589,6 +4697,268 @@ export default {
             explanation: `UPS traded salary settlement (${txRef}): net ${nets.right_net_k > 0 ? "+" : ""}${nets.right_net_k}K`,
           },
         ];
+      };
+
+      const buildTaxiDemotionRowsFromPayload = (payload) => {
+        const { left, right } = tradeSidesFromPayload(payload);
+        const leftId = padFranchiseId(left?.franchise_id);
+        const rightId = padFranchiseId(right?.franchise_id);
+        const rows = [];
+        const seen = new Set();
+        const pushRows = (fromSide, toFranchiseId) => {
+          const fromFranchiseId = padFranchiseId(fromSide?.franchise_id);
+          for (const asset of asArray(fromSide?.selected_assets).filter(Boolean)) {
+            if (safeStr(asset?.type).toUpperCase() !== "PLAYER") continue;
+            if (!parseBoolFlag(asset?.taxi)) continue;
+            const playerId = String(asset?.player_id || "").replace(/\D/g, "");
+            if (!playerId || !toFranchiseId) continue;
+            const key = `${toFranchiseId}|${playerId}`;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            rows.push({
+              player_id: playerId,
+              player_name: safeStr(asset?.player_name || ""),
+              from_franchise_id: fromFranchiseId,
+              to_franchise_id: toFranchiseId,
+            });
+          }
+        };
+        if (leftId && rightId) {
+          pushRows(left, rightId);
+          pushRows(right, leftId);
+        }
+        return rows;
+      };
+
+      const verifyTaxiDemotionsInRosters = (rows, rostersPayload) => {
+        const franchiseRows = asArray(
+          rostersPayload?.rosters?.franchise ||
+            rostersPayload?.rosters?.franchises ||
+            rostersPayload?.rosters?.teams
+        ).filter(Boolean);
+        const locatedByPlayer = {};
+        for (const franchise of franchiseRows) {
+          const franchiseId = padFranchiseId(franchise?.id || franchise?.franchise_id);
+          const playerRows = asArray(franchise?.player || franchise?.players).filter(Boolean);
+          for (const playerRow of playerRows) {
+            const playerId = String(playerRow?.id || playerRow?.player_id || "").replace(/\D/g, "");
+            if (!playerId || locatedByPlayer[playerId]) continue;
+            locatedByPlayer[playerId] = {
+              franchise_id: franchiseId,
+              status: safeStr(playerRow?.status).toUpperCase(),
+            };
+          }
+        }
+
+        const resultRows = [];
+        let matched = 0;
+        for (const row of rows) {
+          const located = locatedByPlayer[String(row?.player_id || "").replace(/\D/g, "")] || null;
+          const actualFranchiseId = padFranchiseId(located?.franchise_id);
+          const actualStatus = safeStr(located?.status).toUpperCase();
+          const onExpectedTeam = !!actualFranchiseId && actualFranchiseId === padFranchiseId(row?.to_franchise_id);
+          const onTaxi = actualStatus.includes("TAXI");
+          const isMatch = onExpectedTeam && onTaxi;
+          if (isMatch) matched += 1;
+          resultRows.push({
+            ...row,
+            matched: isMatch,
+            actual_franchise_id: actualFranchiseId,
+            actual_status: actualStatus,
+            reason: isMatch
+              ? ""
+              : (!located
+                  ? "player_not_found_in_post_trade_rosters"
+                  : (!onExpectedTeam ? "player_on_unexpected_franchise" : "player_not_on_taxi")),
+          });
+        }
+
+        return {
+          ok: rows.length > 0 ? matched === rows.length : true,
+          expected_count: rows.length,
+          matched_count: matched,
+          mismatched_count: Math.max(0, rows.length - matched),
+          rows: resultRows,
+        };
+      };
+
+      const postTaxiSquadDemotionGroup = async (season, leagueId, franchiseId, playerIds) => {
+        const cleanFranchiseId = padFranchiseId(franchiseId);
+        const players = Array.from(
+          new Set(
+            asArray(playerIds)
+              .map((playerId) => String(playerId || "").replace(/\D/g, ""))
+              .filter(Boolean)
+          )
+        );
+        const importFields = {
+          TYPE: "taxi_squad",
+          L: leagueId,
+          DEMOTE: players.join(","),
+        };
+        if (cleanFranchiseId) importFields.FRANCHISE_ID = cleanFranchiseId;
+
+        let importRes = await postMflImportForm(season, importFields, importFields);
+        if (!importRes.requestOk) {
+          const getRes = await postMflImportForm(season, importFields, importFields, { method: "GET" });
+          if (getRes.requestOk) importRes = getRes;
+        }
+
+        let usedFranchiseId = !!safeStr(importFields.FRANCHISE_ID);
+        if (!importRes.requestOk && usedFranchiseId) {
+          const retryFields = { ...importFields };
+          delete retryFields.FRANCHISE_ID;
+          let retryRes = await postMflImportForm(season, retryFields, retryFields);
+          if (!retryRes.requestOk) {
+            const retryGetRes = await postMflImportForm(season, retryFields, retryFields, { method: "GET" });
+            if (retryGetRes.requestOk) retryRes = retryGetRes;
+          }
+          if (retryRes.requestOk) {
+            importRes = retryRes;
+            usedFranchiseId = false;
+          }
+        }
+
+        return {
+          request_ok: !!importRes.requestOk,
+          franchise_id: cleanFranchiseId,
+          player_ids: players,
+          used_franchise_id: usedFranchiseId,
+          upstream_status: importRes.status,
+          upstream_preview: importRes.upstreamPreview,
+          target_import_url: importRes.targetImportUrl,
+          form_fields: importRes.formFields,
+          error: importRes.error || "",
+        };
+      };
+
+      const applyTaxiDemotionsFromPayload = async (leagueId, season, payload, options = {}) => {
+        const tradeId = safeStr(options?.trade_id);
+        const rows = buildTaxiDemotionRowsFromPayload(payload);
+        if (!rows.length) {
+          return {
+            ok: true,
+            skipped: true,
+            reason: "no_traded_taxi_players",
+            rows: [],
+          };
+        }
+
+        const grouped = {};
+        for (const row of rows) {
+          const franchiseId = padFranchiseId(row?.to_franchise_id);
+          if (!franchiseId) continue;
+          if (!grouped[franchiseId]) grouped[franchiseId] = [];
+          grouped[franchiseId].push(row);
+        }
+
+        try {
+          console.log(
+            "[TWB][taxiSync][prepare]",
+            JSON.stringify({
+              timestamp_utc: new Date().toISOString(),
+              league_id: safeStr(leagueId),
+              season: safeStr(season),
+              trade_id: tradeId,
+              rows,
+            })
+          );
+        } catch (_) {
+          // noop
+        }
+
+        const imports = [];
+        const franchiseIds = Object.keys(grouped);
+        for (const franchiseId of franchiseIds) {
+          const playerIds = grouped[franchiseId].map((row) => row.player_id);
+          imports.push(await postTaxiSquadDemotionGroup(season, leagueId, franchiseId, playerIds));
+        }
+
+        const requestOk = imports.every((entry) => !!entry.request_ok);
+        let verification = {
+          ok: requestOk,
+          reason: requestOk ? "verification_not_run" : "import_failed",
+          expected_count: rows.length,
+          matched_count: 0,
+          mismatched_count: rows.length,
+          rows: rows.map((row) => ({ ...row, matched: false })),
+        };
+        let verifyRostersRes = null;
+
+        if (requestOk) {
+          const verifyDelays = [0, 1300, 2600];
+          const sleepMs = (ms) =>
+            new Promise((resolve) => {
+              setTimeout(resolve, Math.max(0, safeInt(ms, 0)));
+            });
+          for (let i = 0; i < verifyDelays.length; i += 1) {
+            if (verifyDelays[i] > 0) {
+              await sleepMs(verifyDelays[i]);
+            }
+            verifyRostersRes = await mflExportJson(season, leagueId, "rosters", {}, { useCookie: true });
+            if (!verifyRostersRes.ok) {
+              verification = {
+                ok: false,
+                reason: "failed_post_import_rosters_export",
+                expected_count: rows.length,
+                matched_count: 0,
+                mismatched_count: rows.length,
+                rows: rows.map((row) => ({ ...row, matched: false })),
+                attempt: i + 1,
+                upstream: {
+                  status: verifyRostersRes.status,
+                  error: verifyRostersRes.error,
+                  url: verifyRostersRes.url,
+                  preview: verifyRostersRes.textPreview,
+                },
+              };
+              continue;
+            }
+            verification = verifyTaxiDemotionsInRosters(rows, verifyRostersRes.data);
+            verification.reason = verification.ok ? "" : "expected_taxi_status_missing_from_rosters_export";
+            verification.attempt = i + 1;
+            if (verification.ok) break;
+          }
+        }
+
+        try {
+          console.log(
+            "[TWB][taxiSync][verify]",
+            JSON.stringify({
+              timestamp_utc: new Date().toISOString(),
+              league_id: safeStr(leagueId),
+              season: safeStr(season),
+              trade_id: tradeId,
+              imports,
+              verification,
+            })
+          );
+        } catch (_) {
+          // noop
+        }
+
+        return {
+          ok: requestOk && !!verification.ok,
+          request_ok: requestOk,
+          verification_ok: !!verification.ok,
+          skipped: false,
+          reason: requestOk
+            ? (verification.ok ? "" : "taxi_sync_verification_failed")
+            : "taxi_sync_import_failed",
+          error: requestOk ? "" : "taxi_squad import failed",
+          rows,
+          imports,
+          verification,
+          post_import_rosters_export: verifyRostersRes
+            ? {
+                ok: !!verifyRostersRes.ok,
+                status: verifyRostersRes.status,
+                url: verifyRostersRes.url,
+                error: verifyRostersRes.error,
+                preview: verifyRostersRes.textPreview,
+              }
+            : null,
+        };
       };
 
       const buildSalaryAdjXml = (rows) => {
@@ -6568,7 +6938,7 @@ export default {
           const proposalAssets = buildTradeProposalAssetLists(payload);
           const willGiveUp = proposalAssets.willGiveUp;
           const willReceive = proposalAssets.willReceive;
-          if (!willGiveUp.length || !willReceive.length) {
+          if (!proposalAssets.isValid) {
             const diagnostics = buildValidationFailureDiagnostics({
               reason: "invalid_trade_assets_for_mfl",
               leagueId,
@@ -7642,6 +8012,21 @@ export default {
           // Ensure finalize payload exists for ACCEPT flows even when stored queue payload is missing.
           if (action === "ACCEPT" && (!payload || !Array.isArray(payload?.teams) || !payload.teams.length)) {
             let rebuiltPayload = null;
+            let rosterStatusLookup = null;
+            try {
+              const rostersForRebuildRes = await mflExportJson(
+                season,
+                leagueId,
+                "rosters",
+                {},
+                { useCookie: true }
+              );
+              if (rostersForRebuildRes.ok) {
+                rosterStatusLookup = buildRosterStatusLookup(rostersForRebuildRes.data);
+              }
+            } catch (_) {
+              // noop
+            }
             if (
               offerWillGiveUp &&
               offerWillReceive &&
@@ -7656,6 +8041,7 @@ export default {
                 willGiveUp: offerWillGiveUp,
                 willReceive: offerWillReceive,
                 comment: offerComment,
+                rosterStatusLookup,
               });
             }
             if (!rebuiltPayload && acceptPendingRow) {
@@ -7667,6 +8053,7 @@ export default {
                 willGiveUp: acceptPendingRow.will_give_up || offerWillGiveUp,
                 willReceive: acceptPendingRow.will_receive || offerWillReceive,
                 comment: acceptPendingRow.raw_comment || acceptPendingRow.comments || offerComment,
+                rosterStatusLookup,
               });
             }
             if (rebuiltPayload) {
@@ -7690,6 +8077,41 @@ export default {
               } catch (_) {
                 // noop
               }
+            }
+          }
+
+          if (action === "ACCEPT" && payload && typeof payload === "object") {
+            const acceptProposalAssets = buildTradeProposalAssetLists(payload);
+            if (!acceptProposalAssets.isValid) {
+              const diagnostics = buildValidationFailureDiagnostics({
+                reason: "invalid_trade_assets_for_mfl",
+                leagueId,
+                season,
+                actingFranchiseId,
+                counterpartyFranchiseId:
+                  padFranchiseId(resolvedOfferFromFranchiseId) === padFranchiseId(actingFranchiseId)
+                    ? resolvedOfferToFranchiseId
+                    : resolvedOfferFromFranchiseId,
+                tradeProposalPayload: {
+                  payload,
+                  invalid_assets: {
+                    left: acceptProposalAssets.leftTokensOut.invalid,
+                    right: acceptProposalAssets.rightTokensOut.invalid,
+                  },
+                },
+              });
+              return jsonOut(400, {
+                ok: false,
+                mode: "direct_mfl",
+                action,
+                error_type: "validation_pre_post",
+                error: "Trade payload contains invalid assets",
+                diagnostics,
+                invalid_assets: {
+                  left: acceptProposalAssets.leftTokensOut.invalid,
+                  right: acceptProposalAssets.rightTokensOut.invalid,
+                },
+              });
             }
           }
 
@@ -7898,6 +8320,11 @@ export default {
             skipped: true,
             reason: "not_run",
           };
+          let taxiSyncOut = {
+            ok: true,
+            skipped: true,
+            reason: "not_run",
+          };
           let extensionPreparation = null;
           if (action === "ACCEPT") {
             if (payload) {
@@ -7962,6 +8389,9 @@ export default {
                   trade_id: mflTradeId,
                 });
               }
+              taxiSyncOut = await applyTaxiDemotionsFromPayload(leagueId, season, payload, {
+                trade_id: mflTradeId,
+              });
             } else {
               salaryAdjOut = {
                 ok: true,
@@ -7975,6 +8405,12 @@ export default {
                 skipped_rows: [
                   { reason: "missing_payload_for_finalize" },
                 ],
+              };
+              taxiSyncOut = {
+                ok: false,
+                skipped: true,
+                reason: "missing_payload_for_finalize",
+                rows: [],
               };
             }
           }
@@ -8021,6 +8457,10 @@ export default {
                   .filter(Boolean)
               )
             );
+            const taxiRows = Array.isArray(taxiSyncOut?.rows) ? taxiSyncOut.rows : [];
+            const taxiVerificationRows = Array.isArray(taxiSyncOut?.verification?.rows)
+              ? taxiSyncOut.verification.rows
+              : [];
             const counterpartyFromPayload = padFranchiseId(
               payload?.ui?.left_team_id === actingFranchiseId
                 ? payload?.ui?.right_team_id
@@ -8087,12 +8527,24 @@ export default {
                   skipped: extSkippedRows.length,
                   skip_reasons: extSkipReasons,
                 },
+                taxi_sync: {
+                  attempted: taxiRows.length,
+                  posted: taxiSyncOut && taxiSyncOut.ok
+                    ? safeInt(taxiSyncOut?.verification?.matched_count, taxiRows.length)
+                    : 0,
+                  failed: taxiSyncOut && taxiSyncOut.ok
+                    ? 0
+                    : Math.max(0, taxiRows.length - safeInt(taxiSyncOut?.verification?.matched_count, 0)),
+                  skipped: taxiSyncOut && taxiSyncOut.skipped ? taxiRows.length : 0,
+                  reason: safeStr(taxiSyncOut?.reason),
+                },
               },
               canonical_payload: {
                 hash: safeStr(acceptIntentBundle?.payload_hash),
                 extension_rows: extAppliedRows.map((row) => extensionRowAuditShape(row)),
                 extension_skipped_rows: extSkippedRows,
                 salary_adjustment_rows: salaryRows,
+                taxi_sync_rows: taxiVerificationRows.length ? taxiVerificationRows : taxiRows,
                 posted_xml: {
                   extensions: trimDiagText(safeStr(extensionsOut?.dataXml), 1200),
                   salary_adjustments: trimDiagText(safeStr(salaryAdjOut?.dataXml), 1200),
@@ -8158,6 +8610,7 @@ export default {
               payload,
               salaryAdjustments: salaryAdjOut,
               extensions: extensionsOut,
+              taxiSync: taxiSyncOut,
             });
             try {
               console.error("[TWB][postAcceptImport][error]", JSON.stringify(diagnostics));
@@ -8179,6 +8632,7 @@ export default {
               },
               salary_adjustments: salaryAdjOut,
               extensions: extensionsOut,
+              taxi_sync: taxiSyncOut,
               extension_preparation: extensionPreparation,
               accept_debug: acceptDebug,
               outbox: {
@@ -8197,7 +8651,11 @@ export default {
 
           const acceptVerified =
             action === "ACCEPT"
-              ? !!salaryAdjOut?.ok && !(extensionsOut && extensionsOut.verification_ok === false)
+              ? (
+                  !!salaryAdjOut?.ok &&
+                  !(extensionsOut && extensionsOut.verification_ok === false) &&
+                  !!(taxiSyncOut?.skipped || taxiSyncOut?.ok)
+                )
               : true;
           const acceptOutboxStatus = acceptVerified ? "VERIFIED" : "POSTED";
 
@@ -8251,6 +8709,7 @@ export default {
             },
             salary_adjustments: salaryAdjOut,
             extensions: extensionsOut,
+            taxi_sync: taxiSyncOut,
             extension_preparation: extensionPreparation,
             accept_debug: acceptDebug,
             outbox: {

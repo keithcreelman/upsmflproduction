@@ -12,7 +12,7 @@ Static custom trade UI for UPS salary-cap trades.
 ## What It Does (MVP)
 - Two-team trade builder (players + draft picks)
 - Columns: Player/Asset, Salary, Years, Contract Info
-- Global filters: search, positions, contract types, min/max years, taxi toggle, picks toggle
+- Global filters: search plus asset-view toggles for players and picks
 - Trade salary adjustment per side in `$1K` units
 - Max trade salary = half of selected outgoing **non-Taxi** player salary (rounded down)
 - Extension checkbox/option for eligible outgoing players; extension applies to the acquiring team
@@ -89,6 +89,7 @@ Worker route:
   - on `action=ACCEPT`, if `payload` is included it also runs:
     - `salaryAdj` import for traded salary settlement
     - `salaries` import for selected extension requests
+    - `taxi_squad` import to demote incoming traded Taxi players back onto Taxi automatically
 
 It returns a normalized payload for this UI by combining:
 - MFL `league` export (franchise metadata)

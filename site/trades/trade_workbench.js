@@ -339,6 +339,89 @@
     return cleaned || raw;
   }
 
+  function resolvePickMeta(asset, seasonHintOverride) {
+    var ref = asset || {};
+    var token = normalizePickKey(
+      ref.asset_id || ref.pick_key || ref.pick || ref.description || ref.pick_display || ""
+    );
+    var description = safeStr(ref.description || ref.pick_display || "");
+    var seasonHint = safeInt(
+      seasonHintOverride != null
+        ? seasonHintOverride
+        : (ref.pick_season != null ? ref.pick_season : ref.season),
+      0
+    );
+    var round = safeInt(ref.pick_round != null ? ref.pick_round : ref.round, 0);
+    var pick = safeInt(
+      ref.pick_slot != null
+        ? ref.pick_slot
+        : (ref.slot != null ? ref.slot : ref.pick),
+      0
+    );
+    var year = seasonHint;
+
+    if ((!round || !pick || !year) && token.indexOf("DP_") === 0) {
+      var dp = token.match(/^DP_(\d+)_(\d+)$/i);
+      if (dp) {
+        round = round || (safeInt(dp[1], 0) + 1);
+        pick = pick || (safeInt(dp[2], 0) + 1);
+        year = year || safeInt((description.match(/(\d{4})/) || [])[1], 0);
+      }
+    }
+
+    if ((!round || !year) && token.indexOf("FP_") === 0) {
+      var fp = token.match(/^FP_[A-Z0-9]+_(\d{4})_(\d+)$/i);
+      if (fp) {
+        year = year || safeInt(fp[1], 0);
+        round = round || safeInt(fp[2], 0);
+      }
+    }
+
+    if (!round || !pick || !year) {
+      var yearDraft = description.match(/Year\s*(\d{4})\s*Draft Pick\s*(\d+)\.(\d+)/i);
+      if (yearDraft) {
+        year = year || safeInt(yearDraft[1], 0);
+        round = round || safeInt(yearDraft[2], 0);
+        pick = pick || safeInt(yearDraft[3], 0);
+      }
+    }
+
+    if (!round || !pick || !year) {
+      var roundPick = description.match(/(\d{4}).*?(?:Round|Rookie)\s*(\d+).*?(?:Pick|\.)(?:\s*|0*)(\d+)/i);
+      if (roundPick) {
+        year = year || safeInt(roundPick[1], 0);
+        round = round || safeInt(roundPick[2], 0);
+        pick = pick || safeInt(roundPick[3], 0);
+      }
+    }
+
+    if (!round || !year) {
+      var rookieRound = description.match(/(\d{4}).*?Rookie\s*Round\s*(\d+)/i);
+      if (rookieRound) {
+        year = year || safeInt(rookieRound[1], 0);
+        round = round || safeInt(rookieRound[2], 0);
+      }
+    }
+
+    return {
+      token: token,
+      year: year,
+      round: round,
+      pick: pick
+    };
+  }
+
+  function describeTradeAsset(asset) {
+    if (!asset) return "";
+    if (safeStr(asset.type).toUpperCase() === "PLAYER") return safeStr(asset.player_name || asset.asset_id);
+    return safeStr(asset.pick_display || asset.description || asset.asset_id);
+  }
+
+  function isUntradeableSixthRoundPick(asset) {
+    if (!asset || safeStr(asset.type).toUpperCase() !== "PICK") return false;
+    return safeInt(resolvePickMeta(asset).round, 0) === 6;
+  }
+
   function escapeHtml(text) {
     return safeStr(text)
       .replace(/&/g, "&amp;")
@@ -417,6 +500,7 @@
 
   function isTradeEligibleAsset(asset) {
     if (!asset) return false;
+    if (safeStr(asset.type).toUpperCase() === "PICK") return !isUntradeableSixthRoundPick(asset);
     if (asset.type !== "PLAYER") return true;
     if (asset.years === 0 && !isRookieContractType(asset.contract_type)) return false;
     return true;
@@ -424,10 +508,36 @@
 
   function getTradeIneligibleReason(asset) {
     if (!asset) return "";
+    if (safeStr(asset.type).toUpperCase() === "PICK" && isUntradeableSixthRoundPick(asset)) {
+      return "Ineligible: 6th-round picks cannot be traded";
+    }
     if (asset.type === "PLAYER" && asset.years === 0 && !isRookieContractType(asset.contract_type)) {
       return "Ineligible: 0 years left and not a rookie contract";
     }
     return "";
+  }
+
+  function collectInvalidTradeAssets(payload) {
+    var teams = Array.isArray(payload && payload.teams) ? payload.teams : [];
+    var invalid = [];
+    var seen = {};
+    var i;
+    for (i = 0; i < teams.length; i += 1) {
+      var assets = Array.isArray(teams[i] && teams[i].selected_assets) ? teams[i].selected_assets : [];
+      var j;
+      for (j = 0; j < assets.length; j += 1) {
+        var asset = assets[j];
+        if (!asset || isTradeEligibleAsset(asset)) continue;
+        var key = safeStr(asset.asset_id || describeTradeAsset(asset));
+        if (!key || seen[key]) continue;
+        seen[key] = true;
+        invalid.push({
+          label: describeTradeAsset(asset),
+          reason: getTradeIneligibleReason(asset)
+        });
+      }
+    }
+    return invalid;
   }
 
   function buildExtensionIndex(rows) {
@@ -509,14 +619,22 @@
     if (type === "PICK") {
       asset.asset_id = asset.asset_id || ("pick:" + safeStr(raw.pick_key || raw.description || raw.asset_id));
       asset.description = safeStr(raw.description || raw.label || "Draft Pick");
+      var pickMeta = resolvePickMeta({
+        asset_id: asset.asset_id || raw.asset_id || raw.pick_key,
+        description: asset.description,
+        pick_round: raw.pick_round || raw.round,
+        pick_slot: raw.pick_slot || raw.slot || raw.pick,
+        pick_season: raw.pick_season || raw.season
+      });
       asset.pick_display = shortPickLabel(
         asset.description,
         asset.asset_id || raw.pick_key || raw.asset_id,
         raw.pick_season || raw.season
       );
-      asset.pick_season = safeInt(raw.pick_season || raw.season, 0);
-      asset.pick_round = safeInt(raw.pick_round || raw.round, 0);
-      asset.pick_slot = safeStr(raw.pick_slot || raw.slot || raw.pick);
+      asset.pick_key = pickMeta.token || normalizePickKey(asset.asset_id || raw.pick_key || raw.asset_id);
+      asset.pick_season = pickMeta.year || safeInt(raw.pick_season || raw.season, 0);
+      asset.pick_round = pickMeta.round || safeInt(raw.pick_round || raw.round, 0);
+      asset.pick_slot = pickMeta.pick ? String(pickMeta.pick) : safeStr(raw.pick_slot || raw.slot || raw.pick);
       asset.salary = 0;
       asset.years = null;
       asset.contract_type = "Pick";
@@ -1152,19 +1270,25 @@
 
   function assetToPayloadAsset(asset) {
     if (!asset) return null;
+    var isPick = safeStr(asset.type).toUpperCase() === "PICK";
+    var pickMeta = isPick ? resolvePickMeta(asset) : null;
     return {
       asset_id: asset.asset_id,
       type: asset.type,
       player_id: asset.player_id || null,
       player_name: asset.player_name || null,
-      description: asset.type === "PICK" ? asset.description : null,
+      description: isPick ? asset.description : null,
       position: asset.position || null,
       nfl_team: asset.nfl_team || null,
-      salary: asset.type === "PLAYER" ? safeInt(asset.salary, 0) : 0,
-      years: asset.type === "PLAYER" ? (asset.years == null ? null : asset.years) : null,
+      salary: isPick ? 0 : safeInt(asset.salary, 0),
+      years: isPick ? null : (asset.years == null ? null : asset.years),
       contract_type: asset.contract_type || null,
       contract_info: asset.contract_info || null,
-      taxi: !!asset.taxi
+      taxi: !!asset.taxi,
+      pick_key: isPick ? (asset.pick_key || pickMeta.token || null) : null,
+      pick_season: isPick ? (pickMeta.year || null) : null,
+      pick_round: isPick ? (pickMeta.round || null) : null,
+      pick_slot: isPick ? (pickMeta.pick || null) : null
     };
   }
 
@@ -1441,6 +1565,8 @@
         right_team_id: rightId
       }
     };
+
+    payload.validation = buildValidationSummary(payload);
 
     return payload;
   }
@@ -2170,6 +2296,7 @@
     var salaryAdj = res && res.salary_adjustments ? res.salary_adjustments : {};
     var ext = res && res.extensions ? res.extensions : {};
     var extPrep = res && res.extension_preparation ? res.extension_preparation : {};
+    var taxiSync = res && res.taxi_sync ? res.taxi_sync : {};
     var verification = ext && ext.verification ? ext.verification : {};
     var parts = [];
     var tone = "good";
@@ -2223,6 +2350,24 @@
       if (outboxId) outboxBits.push("id " + outboxId);
       if (outboxHash) outboxBits.push("hash " + outboxHash.slice(0, 10));
       parts.push("Outbox: " + outboxBits.join(" · "));
+    }
+
+    var taxiRows = Array.isArray(taxiSync.rows) ? taxiSync.rows : [];
+    var taxiVerification = taxiSync && taxiSync.verification ? taxiSync.verification : {};
+    var taxiReason = safeStr(taxiSync.reason);
+    if (!taxiSync.skipped) {
+      if (taxiSync.ok) {
+        parts.push("Taxi sync: " + String(safeInt(taxiVerification.matched_count, taxiRows.length)));
+      } else if (taxiSync.request_ok && taxiSync.verification_ok === false) {
+        tone = tone === "good" ? "warn" : tone;
+        parts.push("Taxi sync: verification pending");
+      } else {
+        tone = tone === "good" ? "warn" : tone;
+        parts.push("Taxi sync: failed");
+      }
+    } else if (taxiReason && taxiReason !== "not_run" && taxiReason !== "no_traded_taxi_players") {
+      tone = tone === "good" ? "warn" : tone;
+      parts.push("Taxi sync: " + taxiReason);
     }
 
     return {
@@ -2319,6 +2464,15 @@
     try {
       var actionUrl = resolveTradeOffersActionApiUrl();
       var actionPayload = getOfferPayloadForWorkbench(offer, { keepOriginalOrientation: true }) || null;
+      if (normalizedAction === "ACCEPT" && actionPayload && typeof actionPayload === "object") {
+        var acceptValidation = buildValidationSummary(actionPayload);
+        if (acceptValidation.status !== "ready") {
+          var acceptIssue = safeStr((acceptValidation.issues || [])[0]) || "Trade payload is not ready.";
+          setSubmitStatus("Offer action blocked: " + acceptIssue, "warn");
+          showFeedbackModal("Trade Blocked", acceptIssue, "warn");
+          return;
+        }
+      }
       var reviewPayload = null;
       if (normalizedAction === "ACCEPT") {
         reviewPayload = buildTradePayload();
@@ -2777,6 +2931,12 @@
         data.reason ||
         msg
       );
+      if (valReason === "invalid_trade_assets_for_mfl") {
+        return prefix + ": Remove ineligible trade assets before submitting.";
+      }
+      if (valReason === "trade_payload_not_ready") {
+        return prefix + ": Trade payload is not ready to submit.";
+      }
       return prefix + ": Validation failed before POST: " + valReason;
     }
     if (errorType === "salary_contract_import_failure") {
@@ -3290,14 +3450,14 @@
 
   function getAssetView(teamId) {
     var view = safeStr(state.assetView && state.assetView[teamId]).toLowerCase();
-    if (view === "picks" || view === "taxi") return view;
+    if (view === "picks") return view;
     return "players";
   }
 
   function setAssetView(teamId, view) {
     if (!teamId) return;
     var normalized = safeStr(view).toLowerCase();
-    if (normalized !== "picks" && normalized !== "taxi") normalized = "players";
+    if (normalized !== "picks") normalized = "players";
     if (!state.assetView || typeof state.assetView !== "object") state.assetView = {};
     state.assetView[teamId] = normalized;
   }
@@ -3317,7 +3477,6 @@
         continue;
       }
       if (view === "players" && asset.type === "PICK") continue;
-      if (view === "taxi" && !(asset.type === "PLAYER" && !!asset.taxi)) continue;
       if (assetMatchesFilters(asset)) out.push(asset);
     }
     return out;
@@ -3589,18 +3748,7 @@
     if (!visibleAssets.length) {
       var empty = document.createElement("div");
       empty.className = "twb-empty-state";
-      if (currentView === "taxi") {
-        var hasTaxi = false;
-        var taxiAssets = team.assets || [];
-        var tx;
-        for (tx = 0; tx < taxiAssets.length; tx += 1) {
-          if (taxiAssets[tx] && taxiAssets[tx].type === "PLAYER" && taxiAssets[tx].taxi) {
-            hasTaxi = true;
-            break;
-          }
-        }
-        empty.textContent = hasTaxi ? "No Taxi Squad players match your search." : "No Taxi Squad players.";
-      } else if (currentView === "picks") {
+      if (currentView === "picks") {
         empty.textContent = "No draft picks match your search.";
       } else {
         empty.textContent = "No assets match your search.";
@@ -4062,21 +4210,8 @@
     var out = [];
     var i;
     for (i = 0; i < selected.length; i += 1) {
-      var a = selected[i];
-      out.push({
-        asset_id: a.asset_id,
-        type: a.type,
-        player_id: a.player_id || null,
-        player_name: a.player_name || null,
-        description: a.type === "PICK" ? a.description : null,
-        position: a.position || null,
-        nfl_team: a.nfl_team || null,
-        salary: a.type === "PLAYER" ? safeInt(a.salary, 0) : 0,
-        years: a.type === "PLAYER" ? (a.years == null ? null : a.years) : null,
-        contract_type: a.contract_type || null,
-        contract_info: a.contract_info || null,
-        taxi: !!a.taxi
-      });
+      var payloadAsset = assetToPayloadAsset(selected[i]);
+      if (payloadAsset) out.push(payloadAsset);
     }
     return out;
   }
@@ -4119,6 +4254,14 @@
       if (rightId && !(teams[1].selected_assets || []).length) issues.push("Trade partner side has no selected assets.");
       if (teams[0].traded_salary_adjustment_k > teams[0].traded_salary_adjustment_max_k) issues.push("Left traded salary exceeds max.");
       if (teams[1].traded_salary_adjustment_k > teams[1].traded_salary_adjustment_max_k) issues.push("Right traded salary exceeds max.");
+    }
+    var invalidAssets = collectInvalidTradeAssets(payload);
+    if (invalidAssets.length === 1) {
+      var first = invalidAssets[0];
+      var reason = safeStr(first.reason).replace(/^Ineligible:\s*/i, "");
+      issues.push("Invalid asset selected: " + safeStr(first.label) + (reason ? " (" + reason + ")" : ""));
+    } else if (invalidAssets.length > 1) {
+      issues.push("Remove ineligible assets before submitting.");
     }
     return {
       status: issues.length ? "draft" : "ready",
