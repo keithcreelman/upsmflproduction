@@ -100,6 +100,8 @@
     liveSeasonPointsPromise: null,
     pointsWeeklyRankCacheKey: "",
     pointsWeeklyRankCache: null,
+    pointsYearlyEliteRankCacheKey: "",
+    pointsYearlyEliteRankCache: null,
     view: "roster",
     search: "",
     filterPosition: "",
@@ -522,6 +524,62 @@
       threeYearNonRookie: threeYearNonRookie,
       loaded: loaded
     };
+  }
+
+  function buildRosterGroupSalarySummaryMap() {
+    var out = Object.create(null);
+    var allGroups = Object.create(null);
+    for (var t = 0; t < state.teams.length; t += 1) {
+      var allPlayers = state.teams[t] && state.teams[t].players ? state.teams[t].players : [];
+      for (var p = 0; p < allPlayers.length; p += 1) {
+        var playerGroup = safeStr(allPlayers[p] && allPlayers[p].positionGroup).toUpperCase() || "OTHER";
+        allGroups[playerGroup] = true;
+      }
+    }
+
+    var groupKeys = Object.keys(allGroups);
+    for (var g = 0; g < groupKeys.length; g += 1) {
+      var groupKey = groupKeys[g];
+      var leaderboard = [];
+      for (var i = 0; i < state.teams.length; i += 1) {
+        var team = state.teams[i] || {};
+        var filtered = filteredPlayersForTeam(team);
+        var salaryTotal = 0;
+        var count = 0;
+        for (var j = 0; j < filtered.length; j += 1) {
+          var player = filtered[j];
+          if ((safeStr(player && player.positionGroup).toUpperCase() || "OTHER") !== groupKey) continue;
+          salaryTotal += safeInt(player && player.salary, 0);
+          count += 1;
+        }
+        leaderboard.push({
+          teamId: pad4(team.id),
+          name: safeStr(team.name),
+          count: count,
+          salaryTotal: salaryTotal
+        });
+      }
+      leaderboard.sort(function (a, b) {
+        var salaryDelta = safeInt(b.salaryTotal, 0) - safeInt(a.salaryTotal, 0);
+        if (salaryDelta !== 0) return salaryDelta;
+        var countDelta = safeInt(b.count, 0) - safeInt(a.count, 0);
+        if (countDelta !== 0) return countDelta;
+        return compareText(a.name, b.name);
+      });
+      for (var r = 0; r < leaderboard.length; r += 1) {
+        var item = leaderboard[r];
+        var teamId = pad4(item.teamId);
+        if (!out[teamId]) out[teamId] = Object.create(null);
+        out[teamId][groupKey] = {
+          count: safeInt(item.count, 0),
+          salaryTotal: safeInt(item.salaryTotal, 0),
+          salaryRank: r + 1,
+          leagueTeams: leaderboard.length
+        };
+      }
+    }
+
+    return out;
   }
 
   function contractPreviewKey(player) {
@@ -1254,6 +1312,8 @@
   function clearPointsWeeklyRankCache() {
     state.pointsWeeklyRankCacheKey = "";
     state.pointsWeeklyRankCache = null;
+    state.pointsYearlyEliteRankCacheKey = "";
+    state.pointsYearlyEliteRankCache = null;
   }
 
   function resolvePointsHistoryUrl() {
@@ -1570,8 +1630,12 @@
     return text;
   }
 
-  function formatEliteDudSummary(eliteWeeks, dudWeeks) {
-    return String(Math.max(0, safeInt(eliteWeeks, 0))) + " / " + String(Math.max(0, safeInt(dudWeeks, 0)));
+  function formatEliteNeutralDudSummary(eliteWeeks, neutralWeeks, dudWeeks) {
+    return [
+      String(Math.max(0, safeInt(eliteWeeks, 0))),
+      String(Math.max(0, safeInt(neutralWeeks, 0))),
+      String(Math.max(0, safeInt(dudWeeks, 0)))
+    ].join(" / ");
   }
 
   function pointsStatWithRankHtml(valueText, rank) {
@@ -2837,6 +2901,7 @@
     var bestRank = 0;
     var bestPpgRank = 0;
     var seasonsWithData = 0;
+    var eliteWeeks = 0;
 
     for (var i = 0; i < years.length; i += 1) {
       var row = playerYearlyHistoryRow(player, years[i]);
@@ -2845,6 +2910,7 @@
       totalGames += safeInt(row[1], 0);
       if (safeInt(row[3], 0) > 0 && (!bestRank || safeInt(row[3], 0) < bestRank)) bestRank = safeInt(row[3], 0);
       if (safeInt(row[4], 0) > 0 && (!bestPpgRank || safeInt(row[4], 0) < bestPpgRank)) bestPpgRank = safeInt(row[4], 0);
+      eliteWeeks += safeInt(seasonEliteWeekSummaryForPlayer(player, years[i]).eliteWeeks, 0);
       seasonsWithData += 1;
     }
 
@@ -2857,9 +2923,29 @@
       bestPpgRank: bestPpgRank,
       starts: 0,
       appearances: seasonsWithData,
-      eliteWeeks: 0,
+      eliteWeeks: eliteWeeks,
+      neutralWeeks: 0,
       dudWeeks: 0,
       hasData: seasonsWithData > 0
+    };
+  }
+
+  function seasonEliteWeekSummaryForPlayer(player, season) {
+    var seasonKey = safeStr(season);
+    var maxWeek = historySeasonWeekMax(seasonKey);
+    var eliteWeeks = 0;
+    var bucketWeeks = 0;
+    for (var week = 1; week <= maxWeek; week += 1) {
+      var row = playerWeeklyHistoryRow(player, seasonKey, week);
+      if (!row) continue;
+      var bucket = weeklyHistoryBucketLabel(row);
+      if (!bucket) continue;
+      bucketWeeks += 1;
+      if (bucket === "elite") eliteWeeks += 1;
+    }
+    return {
+      eliteWeeks: eliteWeeks,
+      bucketWeeks: bucketWeeks
     };
   }
 
@@ -2871,6 +2957,7 @@
     var starts = 0;
     var bestRank = 0;
     var eliteWeeks = 0;
+    var neutralWeeks = 0;
     var dudWeeks = 0;
 
     for (var i = 0; i < weeks.length; i += 1) {
@@ -2884,6 +2971,7 @@
       var bucket = weeklyHistoryBucketLabel(row);
       if (bucket === "elite") eliteWeeks += 1;
       else if (bucket === "dud") dudWeeks += 1;
+      else neutralWeeks += 1;
     }
 
     return {
@@ -2896,6 +2984,7 @@
       starts: starts,
       appearances: appearances,
       eliteWeeks: eliteWeeks,
+      neutralWeeks: neutralWeeks,
       dudWeeks: dudWeeks,
       hasData: appearances > 0
     };
@@ -2995,6 +3084,82 @@
       ppg: ppgRanks
     };
     return state.pointsWeeklyRankCache;
+  }
+
+  function pointsYearlyEliteRankCacheKey() {
+    if (state.pointsHistoryMode !== "yearly") return "";
+    var years = selectedHistoryYears();
+    var liveSeason = liveSeasonKey();
+    var overlayStamp = 0;
+    if (
+      years.indexOf(liveSeason) !== -1 &&
+      state.liveSeasonPoints &&
+      safeStr(state.liveSeasonPoints.season) === liveSeason
+    ) {
+      overlayStamp = safeInt(state.liveSeasonPoints.fetchedAtMs, 0);
+    }
+    return [years.join(","), overlayStamp, safeInt(state.teams.length, 0)].join("|");
+  }
+
+  function yearlyEliteRanksBySeason() {
+    if (state.pointsHistoryMode !== "yearly") return Object.create(null);
+    var cacheKey = pointsYearlyEliteRankCacheKey();
+    if (state.pointsYearlyEliteRankCache && state.pointsYearlyEliteRankCacheKey === cacheKey) {
+      return state.pointsYearlyEliteRankCache;
+    }
+
+    var years = selectedHistoryYears();
+    var bySeason = Object.create(null);
+    var seenPlayers = Object.create(null);
+
+    for (var t = 0; t < state.teams.length; t += 1) {
+      var players = state.teams[t] && state.teams[t].players ? state.teams[t].players : [];
+      for (var p = 0; p < players.length; p += 1) {
+        var player = players[p];
+        var playerId = safeStr(player && player.id);
+        if (!playerId || seenPlayers[playerId]) continue;
+        seenPlayers[playerId] = true;
+        var groupKey = safeStr(player && player.positionGroup).toUpperCase() || "OTHER";
+        for (var y = 0; y < years.length; y += 1) {
+          var season = safeStr(years[y]);
+          var eliteSummary = seasonEliteWeekSummaryForPlayer(player, season);
+          if (safeInt(eliteSummary.bucketWeeks, 0) <= 0) continue;
+          if (!bySeason[season]) bySeason[season] = Object.create(null);
+          if (!bySeason[season][groupKey]) bySeason[season][groupKey] = [];
+          var yearlyRow = playerYearlyHistoryRow(player, season);
+          bySeason[season][groupKey].push({
+            id: playerId,
+            name: safeStr(player && player.name),
+            eliteWeeks: safeInt(eliteSummary.eliteWeeks, 0),
+            points: yearlyRow ? safeNum(yearlyRow[0], 0) : 0
+          });
+        }
+      }
+    }
+
+    var rankMap = Object.create(null);
+    var seasons = Object.keys(bySeason);
+    for (var i = 0; i < seasons.length; i += 1) {
+      var seasonKey = seasons[i];
+      rankMap[seasonKey] = Object.create(null);
+      var groups = Object.keys(bySeason[seasonKey] || {});
+      for (var g = 0; g < groups.length; g += 1) {
+        var items = bySeason[seasonKey][groups[g]] || [];
+        items.slice().sort(function (a, b) {
+          var eliteDelta = safeInt(b.eliteWeeks, 0) - safeInt(a.eliteWeeks, 0);
+          if (eliteDelta !== 0) return eliteDelta;
+          var pointsDelta = safeNum(b.points, 0) - safeNum(a.points, 0);
+          if (Math.abs(pointsDelta) > 0.0001) return pointsDelta;
+          return compareText(a.name, b.name);
+        }).forEach(function (item, index) {
+          rankMap[seasonKey][item.id] = index + 1;
+        });
+      }
+    }
+
+    state.pointsYearlyEliteRankCacheKey = cacheKey;
+    state.pointsYearlyEliteRankCache = rankMap;
+    return rankMap;
   }
 
   function rosterPointsSummaryForPlayer(player) {
@@ -3442,6 +3607,7 @@
         case "rank":
           if (state.pointsHistoryMode === "weekly") {
             delta = safeInt(aSummary.eliteWeeks, 0) - safeInt(bSummary.eliteWeeks, 0);
+            if (delta === 0) delta = safeInt(aSummary.neutralWeeks, 0) - safeInt(bSummary.neutralWeeks, 0);
             if (delta === 0) delta = safeInt(bSummary.dudWeeks, 0) - safeInt(aSummary.dudWeeks, 0);
             if (delta === 0) delta = safeNum(aSummary.points, 0) - safeNum(bSummary.points, 0);
           } else {
@@ -4236,8 +4402,18 @@
     }
   }
 
-  function rosterGroupHtml(team, group) {
+  function rosterGroupHtml(team, group, rosterGroupSummaryMap) {
     var rows = [];
+    var teamGroupSummary = rosterGroupSummaryMap &&
+      rosterGroupSummaryMap[pad4(team && team.id)] &&
+      rosterGroupSummaryMap[pad4(team && team.id)][safeStr(group && group.key).toUpperCase()]
+      ? rosterGroupSummaryMap[pad4(team && team.id)][safeStr(group && group.key).toUpperCase()]
+      : {
+          count: (group && group.players && group.players.length) || 0,
+          salaryTotal: 0,
+          salaryRank: 0,
+          leagueTeams: state.teams.length
+        };
     for (var j = 0; j < group.players.length; j += 1) {
       var p = group.players[j];
       var tags = [];
@@ -4287,7 +4463,14 @@
     return (
       '<details class="rwb-group" open>' +
         '<summary>' +
-          '<span class="rwb-group-label"><span>' + escapeHtml(group.label) + '</span><span class="rwb-group-count">' + escapeHtml(String(group.players.length)) + '</span></span>' +
+          '<span class="rwb-group-copy">' +
+            '<span class="rwb-group-title">' + escapeHtml(group.label) + '</span>' +
+            '<span class="rwb-group-meta-row">' +
+              '<span class="rwb-group-meta-pill"><span class="rwb-group-meta-label">Allocated</span><span class="rwb-group-meta-value">' + escapeHtml(compactContractAmountAllowZero(teamGroupSummary.salaryTotal)) + '</span></span>' +
+              '<span class="rwb-group-meta-pill"><span class="rwb-group-meta-label">League Rank</span><span class="rwb-group-meta-value">' + escapeHtml((teamGroupSummary.salaryRank > 0 ? formatRank(teamGroupSummary.salaryRank) : "—") + (teamGroupSummary.leagueTeams > 0 ? ("/" + String(teamGroupSummary.leagueTeams)) : "")) + '</span></span>' +
+            '</span>' +
+          '</span>' +
+          '<span class="rwb-group-count-card"><span class="rwb-group-count-value">' + escapeHtml(String(group.players.length)) + '</span><span class="rwb-group-count-label">Players</span></span>' +
         '</summary>' +
         '<div class="rwb-table-wrap">' +
           '<table class="rwb-table rwb-roster-table" aria-label="' + escapeHtml(team.name + " " + group.label + " roster") + '">' +
@@ -4914,39 +5097,56 @@
 
   function pointsYearlyHistoryTableHtml(player) {
     var years = selectedHistoryYears();
+    var eliteRanks = yearlyEliteRanksBySeason();
     var header = ['<th>Metric</th>'];
     var pointsRow = ['<tr><th>Points</th>'];
     var rankRow = ['<tr><th>Pos Rank</th>'];
     var ppgRow = ['<tr><th>PPG</th>'];
     var ppgRankRow = ['<tr><th>PPG Rank</th>'];
+    var eliteWeeksRow = ['<tr><th>Elite Weeks</th>'];
+    var eliteRankRow = ['<tr><th>Elite Pos Rk</th>'];
 
     for (var i = 0; i < years.length; i += 1) {
       var year = years[i];
       var row = playerYearlyHistoryRow(player, year);
+      var eliteSummary = seasonEliteWeekSummaryForPlayer(player, year);
+      var eliteRank = eliteRanks[year] ? safeInt(eliteRanks[year][safeStr(player.id)], 0) : 0;
       header.push('<th>' + escapeHtml(year) + '</th>');
       if (!row) {
         pointsRow.push('<td class="rwb-points-history-missing">—</td>');
         rankRow.push('<td class="rwb-points-history-missing">—</td>');
         ppgRow.push('<td class="rwb-points-history-missing">—</td>');
         ppgRankRow.push('<td class="rwb-points-history-missing">—</td>');
-        continue;
+      } else {
+        pointsRow.push('<td class="rwb-cell-num">' + escapeHtml(formatPoints(row[0])) + '</td>');
+        rankRow.push('<td class="rwb-cell-num">' + escapeHtml(formatRank(row[3])) + '</td>');
+        ppgRow.push('<td class="rwb-cell-num">' + escapeHtml(formatPpg(row[2], row[1])) + '</td>');
+        ppgRankRow.push('<td class="rwb-cell-num">' + escapeHtml(formatRank(row[4])) + '</td>');
       }
-      pointsRow.push('<td class="rwb-cell-num">' + escapeHtml(formatPoints(row[0])) + '</td>');
-      rankRow.push('<td class="rwb-cell-num">' + escapeHtml(formatRank(row[3])) + '</td>');
-      ppgRow.push('<td class="rwb-cell-num">' + escapeHtml(formatPpg(row[2], row[1])) + '</td>');
-      ppgRankRow.push('<td class="rwb-cell-num">' + escapeHtml(formatRank(row[4])) + '</td>');
+      eliteWeeksRow.push(
+        safeInt(eliteSummary.bucketWeeks, 0) > 0
+          ? '<td class="rwb-cell-num">' + escapeHtml(String(safeInt(eliteSummary.eliteWeeks, 0))) + '</td>'
+          : '<td class="rwb-points-history-missing">—</td>'
+      );
+      eliteRankRow.push(
+        safeInt(eliteSummary.bucketWeeks, 0) > 0 && eliteRank > 0
+          ? '<td class="rwb-cell-num">' + escapeHtml(formatRank(eliteRank)) + '</td>'
+          : '<td class="rwb-points-history-missing">—</td>'
+      );
     }
 
     pointsRow.push('</tr>');
     rankRow.push('</tr>');
     ppgRow.push('</tr>');
     ppgRankRow.push('</tr>');
+    eliteWeeksRow.push('</tr>');
+    eliteRankRow.push('</tr>');
 
     return (
       '<div class="rwb-points-history-wrap">' +
         '<table class="rwb-table rwb-points-history-table" aria-label="' + escapeHtml(player.name + ' yearly points history') + '">' +
           '<thead><tr>' + header.join("") + '</tr></thead>' +
-          '<tbody>' + pointsRow.join("") + rankRow.join("") + ppgRow.join("") + ppgRankRow.join("") + '</tbody>' +
+          '<tbody>' + pointsRow.join("") + rankRow.join("") + ppgRow.join("") + ppgRankRow.join("") + eliteWeeksRow.join("") + eliteRankRow.join("") + '</tbody>' +
         '</table>' +
       '</div>'
     );
@@ -5006,9 +5206,11 @@
     var rangeLabel = currentPointsRangeLabel();
     var subtitle = state.pointsHistoryMode === "weekly"
       ? (summary.hasData
-        ? ("Starts " + formatStartRatio(summary.starts, summary.appearances) + " | Elite / Dud " + formatEliteDudSummary(summary.eliteWeeks, summary.dudWeeks) + " in selected range")
+        ? ("Starts " + formatStartRatio(summary.starts, summary.appearances) + " | Elite / Neutral / Dud " + formatEliteNeutralDudSummary(summary.eliteWeeks, summary.neutralWeeks, summary.dudWeeks) + " in selected range")
         : "No weeks in selected range")
-      : (safeInt(summary.games, 0) > 0 ? (safeInt(summary.games, 0) + " games in selected range") : "No games in selected range");
+      : (safeInt(summary.games, 0) > 0
+        ? (safeInt(summary.games, 0) + " games | " + safeInt(summary.eliteWeeks, 0) + " elite weeks in selected range")
+        : "No games in selected range");
 
     return (
       '<div class="rwb-points-detail">' +
@@ -5061,8 +5263,8 @@
         '<td><span class="rwb-pos-pill">' + escapeHtml(safeStr(player.positionGroup)) + '</span></td>' +
         '<td class="rwb-cell-num">' + pointsCell + '</td>' +
         '<td class="rwb-cell-num">' + ppgCell + '</td>' +
-        '<td class="rwb-cell-num">' + escapeHtml(state.pointsHistoryMode === "weekly" ? (summary.hasData ? formatEliteDudSummary(summary.eliteWeeks, summary.dudWeeks) : "—") : formatRank(summary.bestRank)) + '</td>' +
-        '<td class="rwb-cell-num">' + escapeHtml(state.pointsHistoryMode === "weekly" ? formatStartRatio(summary.starts, summary.appearances) : formatRank(summary.bestPpgRank)) + '</td>' +
+        '<td class="rwb-cell-num">' + escapeHtml(state.pointsHistoryMode === "weekly" ? formatStartRatio(summary.starts, summary.appearances) : formatRank(summary.bestRank)) + '</td>' +
+        '<td class="rwb-cell-num">' + escapeHtml(state.pointsHistoryMode === "weekly" ? (summary.hasData ? formatEliteNeutralDudSummary(summary.eliteWeeks, summary.neutralWeeks, summary.dudWeeks) : "—") : formatRank(summary.bestPpgRank)) + '</td>' +
         '<td><button type="button" class="rwb-row-action" data-action="points-toggle" data-franchise-id="' + escapeHtml(team.id) + '" data-player-id="' + escapeHtml(player.id) + '">' + (expanded ? "Hide" : "Details") + '</button></td>' +
       '</tr>' +
       detailRow
@@ -5108,8 +5310,8 @@
                   sortableHeader("points", "position", "Pos") +
                   sortableHeader("points", "points", "Pts") +
                   sortableHeader("points", "ppg", state.pointsHistoryMode === "weekly" ? "Avg" : "PPG") +
-                  sortableHeader("points", "rank", state.pointsHistoryMode === "weekly" ? "Elite / Dud" : "Best Rk") +
-                  sortableHeader("points", state.pointsHistoryMode === "weekly" ? "starts" : "ppg_rank", state.pointsHistoryMode === "weekly" ? "Starts" : "Best PPG Rk") +
+                  sortableHeader("points", state.pointsHistoryMode === "weekly" ? "starts" : "rank", state.pointsHistoryMode === "weekly" ? "Starts" : "Best Rk") +
+                  sortableHeader("points", state.pointsHistoryMode === "weekly" ? "rank" : "ppg_rank", state.pointsHistoryMode === "weekly" ? "Elite / Neutral / Dud" : "Best PPG Rk") +
                   '<th>Details</th>' +
                 '</tr>' +
               '</thead>' +
@@ -5121,7 +5323,7 @@
     );
   }
 
-  function teamCardHtml(team) {
+  function teamCardHtml(team, rosterGroupSummaryMap) {
     var filtered = filteredPlayersForTeam(team);
 
     var bodyHtml;
@@ -5133,7 +5335,7 @@
       else {
         var blocks = [];
         for (var g = 0; g < grouped.length; g += 1) {
-          blocks.push(rosterGroupHtml(team, grouped[g]));
+          blocks.push(rosterGroupHtml(team, grouped[g], rosterGroupSummaryMap));
         }
         bodyHtml = blocks.join("");
       }
@@ -5253,6 +5455,7 @@
     var visiblePlayers = 0;
     var html = [];
     var visibleTeams = [];
+    var rosterGroupSummaryMap = state.view === "roster" ? buildRosterGroupSalarySummaryMap() : null;
 
     for (var i = 0; i < state.teams.length; i += 1) {
       var team = state.teams[i] || {};
@@ -5267,7 +5470,7 @@
       if (state.view === "points") {
         html.push(pointsTeamCardHtml(team, filteredPlayers));
       } else if (state.view !== "franchise" && state.view !== "bye") {
-        html.push(teamCardHtml(team));
+        html.push(teamCardHtml(team, rosterGroupSummaryMap));
       }
     }
 
