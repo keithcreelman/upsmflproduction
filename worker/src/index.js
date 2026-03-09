@@ -1911,12 +1911,9 @@ export default {
 
       const formatBugDiscordMessage = (reportRow, filePath) => {
         const row = reportRow && typeof reportRow === "object" ? reportRow : {};
-        const summary = safeStr(row.summary || "").slice(0, 180);
         const details = safeStr(row.details || "").replace(/\s+/g, " ").slice(0, 500);
-        const app = safeStr(row.app || "");
         const moduleName = safeStr(row.module || "");
         const issueType = safeStr(row.issue_type || "");
-        const severity = safeStr(row.severity || "");
         const leagueId = safeStr(row.league_id || "");
         const season = safeStr(row.season || "");
         const bugId = safeStr(row.bug_id || "");
@@ -1929,11 +1926,10 @@ export default {
           : safeInt((row.context && row.context.screenshot_count) || 0);
         const lines = [
           `UPS Bug Report${bugId ? ` #${bugId}` : ""}`,
-          `League ${leagueId || "-"} | Season ${season || "-"} | Severity ${severity || "-"}`,
-          `App ${app || "-"} | Module ${moduleName || "-"} | Type ${issueType || "-"}`,
+          `League ${leagueId || "-"} | Season ${season || "-"}`,
+          `Module ${moduleName || "-"} | Type ${issueType || "-"}`,
           `Franchise ${(franchiseName || fid || "-")} | MFL User ${mflUser || "unknown"}`,
           attachmentCount ? `Screenshots: ${attachmentCount}` : "",
-          summary ? `Summary: ${summary}` : "",
           details ? `Details: ${details}` : "",
           pageUrl ? `Page: ${pageUrl}` : "",
           filePath ? `Log: ${filePath}` : "",
@@ -3142,6 +3138,72 @@ export default {
         parts.push("  </leagueUnit>");
         parts.push("</salaries>");
         return parts.join("\n");
+      };
+
+      const postTaxiSquadDemotionGroupForCookie = async (cookieHeaderOverride, season, leagueId, franchiseId, playerIds) => {
+        const cleanFranchiseId = padFranchiseId(franchiseId);
+        const players = Array.from(
+          new Set(
+            asArray(playerIds)
+              .map((playerId) => String(playerId || "").replace(/\D/g, ""))
+              .filter(Boolean)
+          )
+        );
+        const importFields = {
+          TYPE: "taxi_squad",
+          L: leagueId,
+          DEMOTE: players.join(","),
+        };
+        if (cleanFranchiseId) importFields.FRANCHISE_ID = cleanFranchiseId;
+
+        let importRes = await postMflImportFormForCookie(cookieHeaderOverride, season, importFields, importFields);
+        if (!importRes.requestOk) {
+          const getRes = await postMflImportFormForCookie(cookieHeaderOverride, season, importFields, importFields, { method: "GET" });
+          if (getRes.requestOk) importRes = getRes;
+        }
+
+        let usedFranchiseId = !!safeStr(importFields.FRANCHISE_ID);
+        if (!importRes.requestOk && usedFranchiseId) {
+          const retryFields = { ...importFields };
+          delete retryFields.FRANCHISE_ID;
+          let retryRes = await postMflImportFormForCookie(cookieHeaderOverride, season, retryFields, retryFields);
+          if (!retryRes.requestOk) {
+            const retryGetRes = await postMflImportFormForCookie(cookieHeaderOverride, season, retryFields, retryFields, { method: "GET" });
+            if (retryGetRes.requestOk) retryRes = retryGetRes;
+          }
+          if (retryRes.requestOk) {
+            importRes = retryRes;
+            usedFranchiseId = false;
+          }
+        }
+
+        return {
+          request_ok: !!importRes.requestOk,
+          franchise_id: cleanFranchiseId,
+          player_ids: players,
+          used_franchise_id: usedFranchiseId,
+          upstream_status: importRes.status,
+          upstream_preview: importRes.upstreamPreview,
+          target_import_url: importRes.targetImportUrl,
+          form_fields: importRes.formFields,
+          error: importRes.error || "",
+        };
+      };
+
+      const parseSalaryExportByPlayer = (payload) => {
+        const out = {};
+        const rows = asArray(payload?.salaries?.leagueUnit?.player || payload?.salaries?.leagueunit?.player).filter(Boolean);
+        for (const row of rows) {
+          const playerId = String(row?.id || "").replace(/\D/g, "");
+          if (!playerId) continue;
+          out[playerId] = {
+            salary: safeStr(row?.salary || ""),
+            contractYear: safeStr(row?.contractYear || ""),
+            contractStatus: safeStr(row?.contractStatus || ""),
+            contractInfo: safeStr(row?.contractInfo || ""),
+          };
+        }
+        return out;
       };
 
       const compareRosterState = (sourceByFranchise, targetByFranchise) => {
@@ -6929,17 +6991,15 @@ export default {
         if (!leagueId) return jsonOut(400, { ok: false, error: "Missing L/league_id" });
         if (!season) return jsonOut(400, { ok: false, error: "Missing YEAR/season" });
 
-        const app = safeStr(body.app || body.application || "ups-hot-links").toLowerCase();
         const moduleName = safeStr(body.module || body.screen || "other").toLowerCase();
         const issueType = safeStr(body.issue_type || body.type || "other").toLowerCase();
-        const severity = safeStr(body.severity || "medium").toLowerCase();
-        const summary = safeStr(body.summary || body.title || "");
         const details = safeStr(body.details || body.description || "");
         const steps = safeStr(body.steps_to_reproduce || body.steps || "");
         const expectedActual = safeStr(
           body.expected_vs_actual || body.expected_actual || body.expected || ""
         );
-        if (!summary) return jsonOut(400, { ok: false, error: "Missing summary" });
+        const attachments = sanitizeBugAttachments(body.attachments || body.screenshots);
+        if (!attachments.length) return jsonOut(400, { ok: false, error: "At least one screenshot is required" });
         if (!details) return jsonOut(400, { ok: false, error: "Missing details" });
 
         const createdAt = new Date().toISOString();
@@ -6967,8 +7027,6 @@ export default {
             browserMflUserId ||
             ""
         );
-        const attachments = sanitizeBugAttachments(body.attachments || body.screenshots);
-
         const reportRow = {
           bug_id: bugId,
           created_at_utc: createdAt,
@@ -6977,11 +7035,8 @@ export default {
           franchise_id: franchiseId,
           franchise_name: franchiseName,
           mfl_user_id: mflUserId,
-          app,
           module: moduleName,
           issue_type: issueType,
-          severity,
-          summary: summary.slice(0, 180),
           details: details.slice(0, 5000),
           steps_to_reproduce: steps.slice(0, 4000),
           expected_vs_actual: expectedActual.slice(0, 4000),
@@ -10310,7 +10365,8 @@ export default {
         }
 
         const sourceByFranchise = rosterRowsByFranchiseFromRostersPayload(sourceRostersRes.data);
-        const franchiseIds = Object.keys(sourceByFranchise).sort();
+        const requestedFranchiseId = padFranchiseId(body?.franchise_id || body?.franchiseId || url.searchParams.get("FRANCHISE_ID") || "");
+        const franchiseIds = (requestedFranchiseId ? [requestedFranchiseId] : Object.keys(sourceByFranchise)).sort();
         const rosterSyncResults = [];
 
         for (const franchiseId of franchiseIds) {
@@ -10462,6 +10518,147 @@ export default {
           verification: {
             mismatch_count: mismatches.length,
             mismatches: mismatches.slice(0, 50),
+          },
+        });
+      }
+
+      if (path === "/admin/test-sync/prod-statuses" && request.method === "POST") {
+        let body = {};
+        try {
+          body = (await request.json()) || {};
+        } catch (_) {
+          body = {};
+        }
+        if (!!commishApiKey && !sessionByApiKey) {
+          return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required for test sync." });
+        }
+        const season = safeStr(body?.season || body?.YEAR || url.searchParams.get("YEAR") || YEAR || "");
+        const sourceLeagueId = safeStr(body?.source_league_id || body?.sourceLeagueId || url.searchParams.get("SOURCE_L") || "74598");
+        const targetLeagueId = safeStr(body?.target_league_id || body?.targetLeagueId || url.searchParams.get("TARGET_L") || "25625");
+        const targetCookieRaw = safeStr(env.MFLTEST_COMMISHCOOKIE || env.MFL_COOKIE || "");
+        const targetCookieHeaderBase = targetCookieRaw
+          ? (targetCookieRaw.includes("=") ? targetCookieRaw : `MFL_USER_ID=${targetCookieRaw}`)
+          : "";
+        if (!cookieHeader) return jsonOut(500, { ok: false, error: "Missing MFL_COOKIE secret for prod source reads." });
+        if (!targetCookieHeaderBase) return jsonOut(500, { ok: false, error: "Missing MFLTEST_COMMISHCOOKIE secret for test target writes." });
+        const sourceRostersRes = await mflExportJsonForCookie(cookieHeader, season, sourceLeagueId, "rosters", {}, { useCookie: true });
+        if (!sourceRostersRes.ok) {
+          return jsonOut(502, { ok: false, error: "Failed to load source rosters export", upstream: sourceRostersRes });
+        }
+        const sourceByFranchise = rosterRowsByFranchiseFromRostersPayload(sourceRostersRes.data);
+        const requestedFranchiseId = padFranchiseId(body?.franchise_id || body?.franchiseId || url.searchParams.get("FRANCHISE_ID") || "");
+        const franchiseIds = (requestedFranchiseId ? [requestedFranchiseId] : Object.keys(sourceByFranchise)).sort();
+        const results = [];
+        for (const franchiseId of franchiseIds) {
+          const sourceRows = sourceByFranchise[franchiseId] || [];
+          const taxiIds = sourceRows.filter((row) => safeStr(row.status).includes("TAXI")).map((row) => row.player_id);
+          const irIds = sourceRows.filter((row) => safeStr(row.status).includes("IR")).map((row) => row.player_id);
+          const franchiseCookieHeader = await establishCommishCookieHeader(targetCookieHeaderBase, season, targetLeagueId);
+          if (taxiIds.length) {
+            const taxiRes = await postTaxiSquadDemotionGroupForCookie(
+              franchiseCookieHeader,
+              season,
+              targetLeagueId,
+              franchiseId,
+              taxiIds
+            );
+            if (!taxiRes.request_ok) {
+              return jsonOut(502, { ok: false, error: "Target taxi sync failed", franchise_id: franchiseId, details: taxiRes });
+            }
+            results.push({ franchise_id: franchiseId, type: "taxi_squad", count: taxiIds.length, status: taxiRes.upstream_status });
+          }
+          if (irIds.length) {
+            const irRes = await postMflImportFormForCookie(
+              franchiseCookieHeader,
+              season,
+              { TYPE: "ir", L: targetLeagueId, FRANCHISE_ID: franchiseId, DEACTIVATE: irIds.join(",") },
+              { TYPE: "ir", L: targetLeagueId, FRANCHISE_ID: franchiseId }
+            );
+            if (!irRes.requestOk) {
+              return jsonOut(502, { ok: false, error: "Target IR sync failed", franchise_id: franchiseId, details: irRes });
+            }
+            results.push({ franchise_id: franchiseId, type: "ir", count: irIds.length, status: irRes.status });
+          }
+        }
+        return jsonOut(200, {
+          ok: true,
+          season,
+          source_league_id: sourceLeagueId,
+          target_league_id: targetLeagueId,
+          franchise_ids: franchiseIds,
+          actions: results,
+        });
+      }
+
+      if (path === "/admin/test-sync/prod-salaries" && request.method === "POST") {
+        let body = {};
+        try {
+          body = (await request.json()) || {};
+        } catch (_) {
+          body = {};
+        }
+        if (!!commishApiKey && !sessionByApiKey) {
+          return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required for test sync." });
+        }
+        const season = safeStr(body?.season || body?.YEAR || url.searchParams.get("YEAR") || YEAR || "");
+        const sourceLeagueId = safeStr(body?.source_league_id || body?.sourceLeagueId || url.searchParams.get("SOURCE_L") || "74598");
+        const targetLeagueId = safeStr(body?.target_league_id || body?.targetLeagueId || url.searchParams.get("TARGET_L") || "25625");
+        const targetCookieRaw = safeStr(env.MFLTEST_COMMISHCOOKIE || env.MFL_COOKIE || "");
+        const targetCookieHeaderBase = targetCookieRaw
+          ? (targetCookieRaw.includes("=") ? targetCookieRaw : `MFL_USER_ID=${targetCookieRaw}`)
+          : "";
+        if (!cookieHeader) return jsonOut(500, { ok: false, error: "Missing MFL_COOKIE secret for prod source reads." });
+        if (!targetCookieHeaderBase) return jsonOut(500, { ok: false, error: "Missing MFLTEST_COMMISHCOOKIE secret for test target writes." });
+        const sourceSalariesRes = await mflExportJsonForCookie(cookieHeader, season, sourceLeagueId, "salaries", {}, { useCookie: true });
+        if (!sourceSalariesRes.ok) {
+          return jsonOut(502, { ok: false, error: "Failed to load source salaries export", upstream: sourceSalariesRes });
+        }
+        const sourceRostersRes = await mflExportJsonForCookie(cookieHeader, season, sourceLeagueId, "rosters", {}, { useCookie: true });
+        if (!sourceRostersRes.ok) {
+          return jsonOut(502, { ok: false, error: "Failed to load source rosters export", upstream: sourceRostersRes });
+        }
+        const sourceByFranchise = rosterRowsByFranchiseFromRostersPayload(sourceRostersRes.data);
+        const requestedFranchiseId = padFranchiseId(body?.franchise_id || body?.franchiseId || url.searchParams.get("FRANCHISE_ID") || "");
+        const salaryRows = [];
+        const salaryPlayers = asArray(sourceSalariesRes?.data?.salaries?.leagueUnit?.player || sourceSalariesRes?.data?.salaries?.leagueunit?.player).filter(Boolean);
+        for (const player of salaryPlayers) {
+          salaryRows.push({
+            player_id: String(player?.id || "").replace(/\D/g, ""),
+            salary: safeStr(player?.salary || ""),
+            contract_year: safeStr(player?.contractYear || ""),
+            contract_status: safeStr(player?.contractStatus || ""),
+            contract_info: safeStr(player?.contractInfo || ""),
+          });
+        }
+        const salaryByPlayer = {};
+        for (const row of salaryRows) salaryByPlayer[row.player_id] = row;
+        const franchiseIds = (requestedFranchiseId ? [requestedFranchiseId] : Object.keys(sourceByFranchise)).sort();
+        const imports = [];
+        for (const franchiseId of franchiseIds) {
+          const rowsForFranchise = (sourceByFranchise[franchiseId] || [])
+            .map((row) => salaryByPlayer[row.player_id] || null)
+            .filter(Boolean);
+          if (!rowsForFranchise.length) continue;
+          const salaryCookieHeader = await establishCommishCookieHeader(targetCookieHeaderBase, season, targetLeagueId);
+          const salaryImportRes = await postMflImportFormForCookie(
+            salaryCookieHeader,
+            season,
+            { TYPE: "salaries", L: targetLeagueId, APPEND: "1", DATA: buildSalaryImportXmlFromRows(rowsForFranchise) },
+            { TYPE: "salaries", L: targetLeagueId, APPEND: "1" }
+          );
+          if (!salaryImportRes.requestOk) {
+            return jsonOut(502, { ok: false, error: "Target salary import failed", franchise_id: franchiseId, details: salaryImportRes });
+          }
+          imports.push({ franchise_id: franchiseId, player_count: rowsForFranchise.length, status: salaryImportRes.status });
+        }
+        return jsonOut(200, {
+          ok: true,
+          season,
+          source_league_id: sourceLeagueId,
+          target_league_id: targetLeagueId,
+          salary_import: {
+            player_count: salaryRows.length,
+            franchise_imports: imports,
           },
         });
       }

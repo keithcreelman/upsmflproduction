@@ -6,81 +6,64 @@
   const THEME_KEY = "uow_theme_v1";
   const BUG_REPORT_WORKER_DEFAULT = "https://upsmflproduction.keith-creelman.workers.dev";
 
-  const BUG_MODULE_OPTIONS_BY_APP = {
+  const BUG_ISSUE_TYPE_OPTIONS_BY_MODULE = {
     "contract-command-center": [
-      { value: "mym", label: "MYM" },
-      { value: "extensions", label: "Extensions" },
-      { value: "restructure", label: "Restructure" },
-      { value: "tag", label: "Tag a Player" },
-      { value: "expired-rookie-draft", label: "Expired Rookie Draft" },
-      { value: "reports-audit", label: "Reports & Audit" },
-      { value: "settings", label: "Settings / Commish" },
-      { value: "other", label: "Other" }
-    ],
-    "trade-war-room": [
-      { value: "proposal-builder", label: "Proposal Builder" },
-      { value: "pending-trades", label: "Pending Trades" },
-      { value: "accept-decline", label: "Accept / Decline" },
-      { value: "review-submit", label: "Review / Submit" },
-      { value: "other", label: "Other" }
-    ],
-    "roster-workbench": [
-      { value: "roster-grid", label: "Roster Grid" },
-      { value: "salary-columns", label: "Salary / Contract Columns" },
-      { value: "owner-view", label: "Owner View" },
-      { value: "other", label: "Other" }
-    ],
-    "ups-hot-links": [
-      { value: "countdown-widget", label: "Countdown Widget" },
-      { value: "owner-hub-stack", label: "Owner Hub Modules" },
-      { value: "other", label: "Other" }
-    ],
-    other: [{ value: "other", label: "Other" }]
-  };
-
-  const BUG_ISSUE_TYPE_OPTIONS_BY_APP = {
-    "contract-command-center": [
-      { value: "eligibility-list-wrong", label: "Eligibility List Wrong" },
-      { value: "extension-math-wrong", label: "Extension Math Wrong" },
-      { value: "restructure-math-wrong", label: "Restructure Math Wrong" },
-      { value: "tag-cost-wrong", label: "Tag Cost Wrong" },
-      { value: "filters-not-working", label: "Filters Not Working" },
-      { value: "submission-failed", label: "Submission Failed" },
-      { value: "ui-visual", label: "UI / Visual" },
-      { value: "other", label: "Other" },
-    ],
-    "trade-war-room": [
-      { value: "pre-trade-extension-not-working", label: "Pre-Trade Extension Not Working" },
-      { value: "trade-not-processing", label: "Trade Not Processing" },
-      { value: "cap-validation-wrong", label: "Cap Validation Wrong" },
+      { value: "tag-player-issue", label: "Tag a Player issue" },
+      { value: "extensions-issue", label: "Extensions issue" },
+      { value: "restructures-issue", label: "Restructures issue" },
+      { value: "eligibility-list-incorrect", label: "Eligibility list incorrect" },
+      { value: "contract-math-incorrect", label: "Contract math incorrect" },
       { value: "review-submit-failed", label: "Review / Submit Failed" },
-      { value: "xml-submit-failed", label: "MFL XML Submit Failed" },
-      { value: "ui-visual", label: "UI / Visual" },
+      { value: "button-action-not-working", label: "Button/action not working" },
+      { value: "page-not-loading", label: "Page not loading" },
+      { value: "ui-layout-issue", label: "UI layout issue" },
       { value: "other", label: "Other" },
     ],
-    "roster-workbench": [
-      { value: "data-incorrect", label: "Data Incorrect" },
-      { value: "filters-not-working", label: "Filters Not Working" },
-      { value: "ui-visual", label: "UI / Visual" },
-      { value: "performance", label: "Performance" },
+    "trade-war-room": [
+      { value: "trade-builder-issue", label: "Trade Builder issue" },
+      { value: "trade-calculation-incorrect", label: "Trade calculation incorrect" },
+      { value: "review-submit-failed", label: "Review / Submit Failed" },
+      { value: "trade-ui-not-behaving-correctly", label: "Trade UI not behaving correctly" },
+      { value: "button-action-not-working", label: "Button/action not working" },
+      { value: "page-not-loading", label: "Page not loading" },
+      { value: "ui-layout-issue", label: "UI layout issue" },
       { value: "other", label: "Other" },
     ],
-    "ups-hot-links": [
-      { value: "countdown-wrong", label: "Countdown / Date Wrong" },
-      { value: "module-load-failed", label: "Module Not Loading" },
-      { value: "ui-visual", label: "UI / Visual" },
+    workbench: [
+      { value: "calculation-incorrect", label: "Calculation incorrect" },
+      { value: "player-contract-data-incorrect", label: "Player contract data incorrect" },
+      { value: "ui-issue", label: "UI issue" },
+      { value: "action-button-not-working", label: "Action button not working" },
+      { value: "page-not-loading", label: "Page not loading" },
+      { value: "other", label: "Other" },
+    ],
+    "front-office": [
+      { value: "salary-incorrect", label: "Salary incorrect" },
+      { value: "player-contract-incorrect", label: "Player contract incorrect" },
+      { value: "player-roster-status-incorrect", label: "Player roster status incorrect" },
+      { value: "player-action-not-working", label: "Player action not working" },
+      { value: "ui-issue", label: "UI issue" },
+      { value: "page-not-loading", label: "Page not loading" },
+      { value: "other", label: "Other" },
+    ],
+    "ups-countdown": [
+      { value: "timer-incorrect", label: "Timer incorrect" },
+      { value: "timer-not-updating", label: "Timer not updating" },
+      { value: "ui-issue", label: "UI issue" },
+      { value: "page-not-loading", label: "Page not loading" },
       { value: "other", label: "Other" },
     ],
     other: [
-      { value: "data-incorrect", label: "Data Incorrect" },
-      { value: "submission-failed", label: "Submission Failed" },
-      { value: "ui-visual", label: "UI / Visual" },
-      { value: "performance", label: "Performance" },
+      { value: "player-data-incorrect", label: "Player data incorrect" },
+      { value: "contract-math-incorrect", label: "Contract math incorrect" },
+      { value: "salary-incorrect", label: "Salary incorrect" },
+      { value: "button-action-not-working", label: "Button/action not working" },
+      { value: "page-not-loading", label: "Page not loading" },
+      { value: "ui-layout-issue", label: "UI layout issue" },
+      { value: "review-submit-failed", label: "Review / Submit Failed" },
       { value: "other", label: "Other" },
     ],
   };
-
-  const BUG_HIDE_MODULE_FOR_APPS = new Set(["trade-war-room"]);
   const BUG_MAX_ATTACHMENTS = 6;
   const BUG_MAX_ATTACHMENT_FILE_BYTES = 8 * 1024 * 1024;
   const BUG_MAX_ATTACHMENT_DATA_URL_CHARS = 450000;
@@ -925,65 +908,18 @@
     }
   }
 
-  function getBugModuleOptions(appKey) {
-    return BUG_MODULE_OPTIONS_BY_APP[safeStr(appKey).toLowerCase()] || BUG_MODULE_OPTIONS_BY_APP.other;
-  }
-
-  function getBugIssueTypeOptions(appKey) {
+  function getBugIssueTypeOptions(moduleKey) {
     return (
-      BUG_ISSUE_TYPE_OPTIONS_BY_APP[safeStr(appKey).toLowerCase()] ||
-      BUG_ISSUE_TYPE_OPTIONS_BY_APP.other
+      BUG_ISSUE_TYPE_OPTIONS_BY_MODULE[safeStr(moduleKey).toLowerCase()] ||
+      BUG_ISSUE_TYPE_OPTIONS_BY_MODULE.other
     );
   }
 
-  function appHidesBugModule(appKey) {
-    return BUG_HIDE_MODULE_FOR_APPS.has(safeStr(appKey).toLowerCase());
-  }
-
-  function updateBugModuleVisibility() {
-    const appSel = $("#uowBugApp");
-    const moduleWrap = $("#uowBugModuleWrap");
-    const moduleSel = $("#uowBugModule");
-    if (!appSel || !moduleSel || !moduleWrap) return;
-    const hideModule = appHidesBugModule(appSel.value);
-    moduleWrap.style.display = hideModule ? "none" : "";
-    moduleSel.required = !hideModule;
-    moduleSel.disabled = hideModule;
-  }
-
-  function populateBugModuleOptions() {
-    const appSel = $("#uowBugApp");
-    const moduleSel = $("#uowBugModule");
-    if (!appSel || !moduleSel) return;
-    if (appHidesBugModule(appSel.value)) {
-      moduleSel.innerHTML = "";
-      const hiddenOpt = document.createElement("option");
-      hiddenOpt.value = "issue-type-driven";
-      hiddenOpt.textContent = "Issue Type Driven";
-      hiddenOpt.selected = true;
-      moduleSel.appendChild(hiddenOpt);
-      updateBugModuleVisibility();
-      return;
-    }
-    const options = getBugModuleOptions(appSel.value);
-    const prev = safeStr(moduleSel.value);
-    moduleSel.innerHTML = "";
-    options.forEach((opt, idx) => {
-      const el = document.createElement("option");
-      el.value = safeStr(opt.value);
-      el.textContent = safeStr(opt.label);
-      if (prev && prev === el.value) el.selected = true;
-      if (!prev && idx === 0) el.selected = true;
-      moduleSel.appendChild(el);
-    });
-    updateBugModuleVisibility();
-  }
-
   function populateBugTypeOptions() {
-    const appSel = $("#uowBugApp");
+    const moduleSel = $("#uowBugModule");
     const typeSel = $("#uowBugType");
-    if (!appSel || !typeSel) return;
-    const options = getBugIssueTypeOptions(appSel.value);
+    if (!moduleSel || !typeSel) return;
+    const options = getBugIssueTypeOptions(moduleSel.value);
     const prev = safeStr(typeSel.value);
     typeSel.innerHTML = "";
     options.forEach((opt, idx) => {
@@ -1035,7 +971,7 @@
       return;
     }
     if (!state.bugAttachments.length) {
-      listEl.textContent = `No screenshots attached. Max ${BUG_MAX_ATTACHMENTS}.`;
+      listEl.textContent = `Attach at least 1 screenshot. Max ${BUG_MAX_ATTACHMENTS}.`;
       return;
     }
     const names = state.bugAttachments.map((a) => safeStr(a && a.name)).filter(Boolean);
@@ -1229,18 +1165,11 @@
     if (!modal) return;
     modal.hidden = false;
     resetBugAttachments();
-    const appSel = $("#uowBugApp");
-    if (appSel && state.bugSourceApp) {
-      const source = safeStr(state.bugSourceApp).toLowerCase();
-      const hasOption = Array.from(appSel.options || []).some((opt) => safeStr(opt.value).toLowerCase() === source);
-      if (hasOption) appSel.value = source;
-    }
-    populateBugModuleOptions();
     populateBugTypeOptions();
     renderBugContextNote();
     setBugStatus("", "");
-    const summary = $("#uowBugSummary");
-    if (summary) summary.focus();
+    const details = $("#uowBugDetails");
+    if (details) details.focus();
   }
 
   function closeBugModal() {
@@ -1258,22 +1187,19 @@
       setBugStatus("Please wait for screenshot processing to finish.", "error");
       return;
     }
-    const appSel = $("#uowBugApp");
     const moduleSel = $("#uowBugModule");
     const typeSel = $("#uowBugType");
-    const severitySel = $("#uowBugSeverity");
-    const summaryInput = $("#uowBugSummary");
     const detailsInput = $("#uowBugDetails");
-    const hideModule = appHidesBugModule(appSel && appSel.value);
-    const app = safeStr(appSel && appSel.value);
-    const moduleName = hideModule ? "issue-type-driven" : safeStr(moduleSel && moduleSel.value);
+    const moduleName = safeStr(moduleSel && moduleSel.value);
     const issueType = safeStr(typeSel && typeSel.value);
-    const severity = safeStr(severitySel && severitySel.value);
-    const summary = safeStr(summaryInput && summaryInput.value);
     const details = safeStr(detailsInput && detailsInput.value);
 
-    if (!app || (!hideModule && !moduleName) || !issueType || !severity || !summary || !details) {
+    if (!moduleName || !issueType || !details) {
       setBugStatus("Please fill all required fields.", "error");
+      return;
+    }
+    if (!state.bugAttachments.length) {
+      setBugStatus("Attach at least one screenshot.", "error");
       return;
     }
 
@@ -1284,12 +1210,9 @@
       `&YEAR=${encodeURIComponent(ctx.season || "")}`;
 
     const payload = {
-      app,
       module: moduleName,
       issue_type: issueType,
-      severity,
       franchise_name: safeStr(ctx.franchise_name || ""),
-      summary,
       details,
       attachments: state.bugAttachments.map((item) => ({
         name: safeStr(item && item.name),
@@ -1353,13 +1276,12 @@
       const form = $("#uowBugForm");
       if (!notify || notify.ok === false) return;
       if (form) form.reset();
-      populateBugModuleOptions();
       populateBugTypeOptions();
       resetBugAttachments();
       renderBugContextNote();
       // Keep modal open after success so the user can confirm status.
-      const summaryField = $("#uowBugSummary");
-      if (summaryField) summaryField.focus();
+      const detailsField = $("#uowBugDetails");
+      if (detailsField) detailsField.focus();
     } catch (err) {
       setBugStatus(err && err.message ? err.message : "Failed to submit report.", "error");
     } finally {
@@ -1372,7 +1294,7 @@
     const closeBtn = $("#uowBugClose");
     const cancelBtn = $("#uowBugCancel");
     const backdrop = $("#uowBugBackdrop");
-    const appSel = $("#uowBugApp");
+    const moduleSel = $("#uowBugModule");
     const screenshotInput = $("#uowBugScreenshots");
     const dropzone = $("#uowBugDropzone");
     const form = $("#uowBugForm");
@@ -1380,9 +1302,8 @@
     if (closeBtn) closeBtn.addEventListener("click", closeBugModal);
     if (cancelBtn) cancelBtn.addEventListener("click", closeBugModal);
     if (backdrop) backdrop.addEventListener("click", closeBugModal);
-    if (appSel) {
-      appSel.addEventListener("change", () => {
-        populateBugModuleOptions();
+    if (moduleSel) {
+      moduleSel.addEventListener("change", () => {
         populateBugTypeOptions();
         renderBugContextNote();
       });
@@ -1425,7 +1346,6 @@
       const modal = $("#uowBugModal");
       if (modal && !modal.hidden) closeBugModal();
     });
-    populateBugModuleOptions();
     populateBugTypeOptions();
     renderBugAttachmentList();
     renderBugContextNote();
