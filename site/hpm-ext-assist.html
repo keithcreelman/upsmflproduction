@@ -10,7 +10,44 @@
 <link id="extAssistCss" rel="stylesheet"
       href="https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/ccc/extension_assistant.css">
 
-<div id="extAssistMount" style="min-height:40px;"></div>
+<style>
+  #extAssistMount {
+    padding: 1.25rem 1rem 1rem;
+    font-family: "Inter", "Roboto", Arial, sans-serif;
+  }
+  #extAssistMount h2 {
+    font-size: 1rem;
+    font-weight: 900;
+    margin: 0 0 0.35rem;
+    color: #111827;
+  }
+  #extAssistMount p {
+    font-size: 0.84rem;
+    color: #6B7280;
+    margin: 0 0 0.85rem;
+    font-weight: 600;
+    line-height: 1.5;
+  }
+  #extAssistLaunchBtn {
+    background: #2563eb;
+    border: none;
+    border-radius: 8px;
+    color: #fff;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.84rem;
+    font-weight: 800;
+    padding: 0.55rem 1.1rem;
+    transition: background 120ms ease;
+  }
+  #extAssistLaunchBtn:hover { background: rgba(37,99,235,.85); }
+</style>
+
+<div id="extAssistMount">
+  <h2>&#x26A1; Extension Assistant</h2>
+  <p>Ask questions about player extensions in the UPS Dynasty League — eligibility, costs, workflow, and more.</p>
+  <button id="extAssistLaunchBtn" type="button">Open Extension Assistant</button>
+</div>
 
 <script>
   (function () {
@@ -23,7 +60,15 @@
 
     var s = document.createElement("script");
     s.src = "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@" + sha + "/site/ccc/extension_assistant.js";
-    s.defer = true;
+    s.async = false;
     document.body.appendChild(s);
+
+    /* Wire the launcher button once the assistant script has loaded */
+    s.addEventListener("load", function () {
+      var btn = document.getElementById("extAssistLaunchBtn");
+      if (btn && typeof window.openExtensionAssistant === "function") {
+        btn.addEventListener("click", window.openExtensionAssistant);
+      }
+    });
   })();
 </script>
