@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var BUILD = "2026.03.09.03";
+  var BUILD = "2026.03.09.04";
   var BOOT_FLAG = "__ups_roster_workbench_boot_" + BUILD;
   if (window[BOOT_FLAG]) {
     if (typeof window.UPS_RWB_INIT === "function") window.UPS_RWB_INIT();
@@ -135,7 +135,13 @@
     actionModal: {
       open: false,
       playerId: "",
-      franchiseId: ""
+      franchiseId: "",
+      mode: "actions",
+      restructureYear1: "",
+      restructureYear2: "",
+      restructureOriginalAav: 0,
+      restructureYears: 2,
+      restructureExtSuffix: ""
     },
     busyActionKey: "",
     rosterPointsSummaryCacheKey: "",
@@ -796,8 +802,92 @@
     return out;
   }
 
+  function parseExtensionHistoryTokens(contractInfo) {
+    var info = safeStr(contractInfo);
+    if (!info) return [];
+    var match = info.match(/(?:^|\|)\s*Ext:\s*([^|]+)/i);
+    if (!match || !safeStr(match[1])) return [];
+    return safeStr(match[1])
+      .split(/[,/;&]|\band\b/i)
+      .map(function (token) { return safeStr(token); })
+      .filter(Boolean);
+  }
+
+  function normalizeIdentityToken(token) {
+    return safeStr(token).toLowerCase().replace(/[^a-z0-9]/g, "");
+  }
+
+  function teamIdentityTokenMap(team) {
+    var map = Object.create(null);
+
+    function add(raw) {
+      var text = safeStr(raw);
+      if (!text) return;
+      var normalized = normalizeIdentityToken(text);
+      if (normalized) map[normalized] = true;
+      var parts = text.split(/[\s/,&().-]+/);
+      for (var i = 0; i < parts.length; i += 1) {
+        var token = normalizeIdentityToken(parts[i]);
+        if (!token) continue;
+        map[token] = true;
+        if (token.length >= 5 && /ers$/.test(token)) {
+          map[token.slice(0, -3)] = true;
+        }
+        if (token.length >= 5 && /s$/.test(token)) {
+          map[token.slice(0, -1)] = true;
+        }
+      }
+    }
+
+    add(team && team.name);
+    add(team && team.abbrev);
+    return map;
+  }
+
+  function lastExtensionIdentityToken(contractInfo) {
+    var tokens = parseExtensionHistoryTokens(contractInfo);
+    if (!tokens.length) return "";
+    return normalizeIdentityToken(tokens[tokens.length - 1]);
+  }
+
+  function identityTokenMatchesTeam(token, team) {
+    var normalized = normalizeIdentityToken(token);
+    if (!normalized) return false;
+    var identity = teamIdentityTokenMap(team);
+    if (identity[normalized]) return true;
+    var keys = Object.keys(identity);
+    for (var i = 0; i < keys.length; i += 1) {
+      var key = keys[i];
+      if (!key) continue;
+      if (normalized.length >= 4 && key.indexOf(normalized) === 0) return true;
+      if (key.length >= 4 && normalized.indexOf(key) === 0) return true;
+    }
+    return false;
+  }
+
+  function extensionBlockedByCurrentOwner(player) {
+    if (!player) return false;
+    var team = findTeamById(player.fid);
+    if (!team) return false;
+    var playerToken = lastExtensionIdentityToken(player.special || player.contract_info || "");
+    if (identityTokenMatchesTeam(playerToken, team)) return true;
+    var previews = asArray(player.extensionPreviews);
+    for (var i = 0; i < previews.length; i += 1) {
+      var previewToken = lastExtensionIdentityToken(previews[i] && previews[i].contractInfo);
+      if (identityTokenMatchesTeam(previewToken, team)) return true;
+    }
+    return false;
+  }
+
+  function extensionBlockedReason(player) {
+    if (!extensionBlockedByCurrentOwner(player)) return "";
+    var team = findTeamById(player && player.fid);
+    return "Current extension lineage already belongs to " + safeStr(team && team.name || player && player.teamName || "this franchise") + ".";
+  }
+
   function playerExtensionOptions(player) {
-    return player && player.extensionPreviews ? player.extensionPreviews : [];
+    if (!player || extensionBlockedByCurrentOwner(player)) return [];
+    return player.extensionPreviews ? player.extensionPreviews : [];
   }
 
   function extensionRaiseForPlayer(player, yearsToAdd) {
@@ -1444,9 +1534,47 @@
     });
   }
 
+  function remapExtensionPreviewRowsToCurrentOwnersFallback(teams, rows) {
+    var list = asArray(rows);
+    if (!teams || !teams.length || !list.length) return list;
+
+    var ownerByPlayerId = Object.create(null);
+    var teamMetaById = Object.create(null);
+    for (var i = 0; i < teams.length; i += 1) {
+      var team = teams[i] || {};
+      var fid = pad4(team.id);
+      if (!fid) continue;
+      teamMetaById[fid] = {
+        name: safeStr(team.name),
+        abbrev: safeStr(team.abbrev)
+      };
+      var players = team.players || [];
+      for (var p = 0; p < players.length; p += 1) {
+        var pid = safeStr(players[p] && players[p].id).replace(/\D/g, "");
+        if (!pid) continue;
+        ownerByPlayerId[pid] = fid;
+      }
+    }
+
+    return list.map(function (row) {
+      var next = row && typeof row === "object" ? { ...row } : row;
+      var playerId = safeStr(next && (next.player_id || next.id)).replace(/\D/g, "");
+      if (!playerId) return next;
+      var currentOwner = ownerByPlayerId[playerId] || "";
+      var previewOwner = pad4(next && (next.franchise_id || next.franchiseId));
+      if (!currentOwner || !previewOwner || currentOwner === previewOwner) return next;
+      next.original_franchise_id = previewOwner;
+      next.franchise_id = currentOwner;
+      if (teamMetaById[currentOwner]) {
+        next.franchise_name = teamMetaById[currentOwner].name || safeStr(next.franchise_name);
+      }
+      return next;
+    });
+  }
+
   function mergeExtensionPreviewFallbackRows(teams, rows) {
     var list = teams || [];
-    var extRows = asArray(rows);
+    var extRows = remapExtensionPreviewRowsToCurrentOwnersFallback(list, rows);
     if (!list.length || !extRows.length) return;
 
     var byKey = Object.create(null);
@@ -1683,8 +1811,67 @@
     return team;
   }
 
-  function buildSyntheticTaggedPlayer(team, submission, row) {
+  function clonePlayerSnapshotForTag(source, team, submission, row) {
+    if (!source) return null;
     var ref = row || submission && submission.row_snapshot || {};
+    var clone = {
+      id: safeStr(source.id || submission && submission.player_id).replace(/\D/g, ""),
+      fid: pad4(team && team.id),
+      teamName: safeStr(team && team.name),
+      order: 100000 + Math.max(0, safeInt(submission && submission.at, 0)),
+      name: normalizePlayerName(
+        source.name ||
+        (submission && submission.player_name) ||
+        ref.player_name ||
+        ref.name
+      ),
+      position: safeStr(source.position || ref.position || ref.pos).toUpperCase() || "-",
+      nflTeam: safeStr(source.nflTeam || source.nfl_team || ref.nfl_team || ref.team).toUpperCase(),
+      points: safeNum(source.points, 0),
+      bye: safeStr(source.bye),
+      salary: Math.max(0, safeInt(submission && submission.tag_salary, effectiveTagSalaryForRow(ref))),
+      years: 1,
+      aav: Math.max(0, safeInt(submission && submission.tag_salary, effectiveTagSalaryForRow(ref))),
+      type: "TAG",
+      special: buildTagContractInfo(ref, Math.max(0, safeInt(submission && submission.tag_salary, effectiveTagSalaryForRow(ref)))),
+      acquisitionText: "TAG PLAN",
+      status: "ROSTER",
+      isTaxi: false,
+      isIr: false,
+      pointsByYear: source.pointsByYear || Object.create(null),
+      gamesByYear: source.gamesByYear || Object.create(null),
+      pointsCumulative: safeNum(source.pointsCumulative, 0),
+      gamesCumulative: safeInt(source.gamesCumulative, 0),
+      extensionPreviews: [],
+      isSyntheticTag: true,
+      tagCycleSeason: safeStr(submission && submission.season),
+      positionGroup: safeStr(source.positionGroup || ref.positional_grouping || positionGroupKey(source.position || ref.position || ref.pos)).toUpperCase() || "OTHER"
+    };
+    return enrichPlayer(clone);
+  }
+
+  function findTaggedPlayerSourceSnapshot(teamId, playerId) {
+    var fid = pad4(teamId);
+    var pid = safeStr(playerId).replace(/\D/g, "");
+    if (!pid) return null;
+
+    for (var t = 0; t < state.teams.length; t += 1) {
+      var team = state.teams[t] || {};
+      var players = team.players || [];
+      for (var p = 0; p < players.length; p += 1) {
+        var player = players[p] || {};
+        if (safeStr(player.id).replace(/\D/g, "") !== pid) continue;
+        if (fid && pad4(team.id) === fid) return player;
+        return player;
+      }
+    }
+    return null;
+  }
+
+  function buildSyntheticTaggedPlayer(team, submission, row, sourcePlayer) {
+    var ref = row || submission && submission.row_snapshot || {};
+    var source = clonePlayerSnapshotForTag(sourcePlayer, team, submission, ref);
+    if (source) return source;
     var position = safeStr(ref.position || ref.pos || submission && submission.pos).toUpperCase();
     var posGroup = safeStr(ref.positional_grouping || positionGroupKey(position)).toUpperCase();
     var salary = Math.max(0, safeInt(submission && submission.tag_salary, effectiveTagSalaryForRow(ref)));
@@ -1704,7 +1891,7 @@
       type: "TAG",
       special: buildTagContractInfo(ref, salary),
       acquisitionText: "TAG PLAN",
-      status: "ACTIVE",
+      status: "ROSTER",
       isTaxi: false,
       isIr: false,
       pointsByYear: Object.create(null),
@@ -1753,7 +1940,7 @@
           existing.aav = nextSalary;
           existing.type = "TAG";
           existing.special = buildTagContractInfo(refRow, nextSalary);
-          existing.status = normalizeStatus(existing.status) || "ACTIVE";
+          existing.status = "ROSTER";
           existing.isTaxi = false;
           existing.isIr = false;
           existing.isSyntheticTag = !!existing.isSyntheticTag;
@@ -1761,7 +1948,14 @@
           existing.positionGroup = positionGroupKey(existing.position);
           players[existingIndex] = enrichPlayer(existing);
         } else {
-          players.push(buildSyntheticTaggedPlayer(team, submission, refRow));
+          players.push(
+            buildSyntheticTaggedPlayer(
+              team,
+              submission,
+              refRow,
+              findTaggedPlayerSourceSnapshot(fid, pid)
+            )
+          );
         }
         changed = true;
       }
@@ -2445,6 +2639,34 @@
     }
   }
 
+  function resolveWorkerRestructureEndpoint() {
+    var candidates = [
+      window.UPS_OFFER_RESTRUCTURE_URL,
+      window.UPS_RESTRUCTURE_API,
+      window.UPS_CCC_RESTRUCTURE_URL
+    ];
+    for (var i = 0; i < candidates.length; i += 1) {
+      var raw = safeStr(candidates[i]);
+      if (!raw) continue;
+      return raw;
+    }
+    try {
+      var u = new URL(resolveWorkerApiEndpoint(), window.location.href);
+      if (/\/roster-workbench(?:\/action)?\/?$/i.test(safeStr(u.pathname))) {
+        u.pathname = safeStr(u.pathname).replace(/\/roster-workbench(?:\/action)?\/?$/i, "/offer-restructure");
+      } else {
+        u.pathname = safeStr(u.pathname).replace(/\/+$/, "") + "/offer-restructure";
+      }
+      return u.toString();
+    } catch (e) {
+      var rawApi = safeStr(resolveWorkerApiEndpoint());
+      if (/\/roster-workbench(?:\/action)?\/?$/i.test(rawApi)) {
+        return rawApi.replace(/\/roster-workbench(?:\/action)?\/?$/i, "/offer-restructure");
+      }
+      return rawApi.replace(/\/+$/, "") + "/offer-restructure";
+    }
+  }
+
   function resolveWorkerAdminStateEndpoint() {
     try {
       var u = new URL(resolveWorkerApiEndpoint(), window.location.href);
@@ -2746,6 +2968,7 @@
       map[id] = {
         id: id,
         name: safeStr(f.name) || safeStr(f.abbrev) || ("Team " + id),
+        abbrev: safeStr(f.abbrev),
         logo: safeStr(f.logo) || safeStr(f.icon),
         icon: safeStr(f.icon),
         division: safeStr(f.division)
@@ -2925,6 +3148,7 @@
         id: fid,
         fid: fid,
         name: teamMeta.name,
+        abbrev: safeStr(teamMeta.abbrev),
         logo: teamMeta.logo || teamMeta.icon || "",
         players: players,
         summary: {
@@ -3023,6 +3247,7 @@
         id: id,
         fid: id,
         name: name,
+        abbrev: safeStr(team.franchise_abbrev || team.abbrev || ""),
         logo: safeStr(team.icon_url || team.logo || ""),
         players: players,
         summary: {
@@ -5127,10 +5352,147 @@
     return buildLeagueModuleHashUrl("MESSAGE2", params);
   }
 
+  function extractExtensionSuffix(contractInfo) {
+    var info = safeStr(contractInfo);
+    if (!info) return "";
+    var match = info.match(/(?:^|\|)\s*(Ext:.*)$/i);
+    return match ? safeStr(match[1]) : "";
+  }
+
+  function restructureRoundToK(value) {
+    var n = safeInt(value, 0);
+    if (n <= 0) return 0;
+    return Math.ceil(n / 1000) * 1000;
+  }
+
+  function parseRestructureContractAmounts(contractInfo, years, fallbackSalary) {
+    var info = safeStr(contractInfo);
+    var base = info.replace(/(?:\|\s*)?Ext:.*$/i, "");
+    var tcvMatch = base.match(/TCV\s+([0-9]+(?:\.[0-9]+)?K?)/i);
+    var y1Match = base.match(/Y1-([0-9]+(?:\.[0-9]+)?K?)/i);
+    var y2Match = base.match(/Y2-([0-9]+(?:\.[0-9]+)?K?)/i);
+    var y3Match = base.match(/Y3-([0-9]+(?:\.[0-9]+)?K?)/i);
+    var fallback = Math.max(1000, restructureRoundToK(fallbackSalary));
+    var y1 = restructureRoundToK(parseContractMoneyToken(y1Match ? y1Match[1] : "")) || fallback;
+    var y2Parsed = restructureRoundToK(parseContractMoneyToken(y2Match ? y2Match[1] : ""));
+    var y3Parsed = restructureRoundToK(parseContractMoneyToken(y3Match ? y3Match[1] : ""));
+    var y2 = years === 3 ? (y2Parsed || fallback) : y2Parsed;
+    var y3 = years === 3 ? (y3Parsed || fallback) : 0;
+    var tcvParsed = restructureRoundToK(parseContractMoneyToken(tcvMatch ? tcvMatch[1] : ""));
+    var tcvFromYears = y1 + (years === 3 ? y2 + y3 : (y2 || fallback));
+    return {
+      tcv: Math.max(years * 1000, tcvParsed || tcvFromYears),
+      y1: y1,
+      y2: y2,
+      y3: y3
+    };
+  }
+
+  function isThousandStep(value) {
+    var n = safeInt(value, 0);
+    return n > 0 && n % 1000 === 0;
+  }
+
+  function actionModalResetMode() {
+    state.actionModal.mode = "actions";
+    state.actionModal.restructureYear1 = "";
+    state.actionModal.restructureYear2 = "";
+    state.actionModal.restructureOriginalAav = 0;
+    state.actionModal.restructureYears = 2;
+    state.actionModal.restructureExtSuffix = "";
+  }
+
+  function actionModalRestructureCalc(player) {
+    if (!player) return { ok: false, error: "Player not found." };
+    var yearsInt = safeInt(state.actionModal.restructureYears, 2) >= 3 ? 3 : 2;
+    var aav = Math.max(0, safeInt(state.actionModal.restructureOriginalAav, 0));
+    var tcv = aav * yearsInt;
+    var y1 = safeInt(state.actionModal.restructureYear1, 0);
+    var y2Input = safeInt(state.actionModal.restructureYear2, 0);
+    var errors = [];
+
+    if (!aav || aav < 1000) errors.push("Original AAV could not be determined.");
+    if (!isThousandStep(y1)) errors.push("Year 1 must be in 1,000 increments.");
+    var minY1 = Math.ceil((tcv * 0.2) / 1000) * 1000;
+    if (y1 < minY1) errors.push("Year 1 must be at least 20% of TCV (" + money(minY1) + ").");
+
+    var y2 = 0;
+    var y3 = 0;
+    if (yearsInt === 2) {
+      y2 = tcv - y1;
+      if (!isThousandStep(y2) || y2 < 1000) errors.push("Year 2 must be at least 1,000 after applying Year 1.");
+    } else {
+      y2 = y2Input;
+      if (!isThousandStep(y2) || y2 < 1000) errors.push("Year 2 must be at least 1,000 and in 1,000 increments.");
+      y3 = tcv - y1 - y2;
+      if (!isThousandStep(y3) || y3 < 1000) errors.push("Year 3 must be at least 1,000 after Year 1 + Year 2.");
+    }
+
+    if (errors.length) {
+      return {
+        ok: false,
+        error: errors[0],
+        years: yearsInt,
+        tcv: tcv,
+        y1: y1,
+        y2: y2,
+        y3: y3,
+        aav: aav
+      };
+    }
+
+    var gtd = tcv > 4000 ? Math.round(tcv * 0.75) : Math.max(0, tcv - y1);
+    var yearParts = ["Y1-" + formatContractK(y1), "Y2-" + formatContractK(y2)];
+    if (yearsInt === 3) yearParts.push("Y3-" + formatContractK(y3));
+    var infoParts = [
+      "CL " + yearsInt,
+      "TCV " + formatContractK(tcv),
+      "AAV " + formatContractK(aav),
+      yearParts.join(", "),
+      "GTD: " + formatContractK(gtd)
+    ];
+    if (safeStr(state.actionModal.restructureExtSuffix)) infoParts.push(safeStr(state.actionModal.restructureExtSuffix));
+
+    return {
+      ok: true,
+      years: yearsInt,
+      tcv: tcv,
+      y1: y1,
+      y2: y2,
+      y3: y3,
+      aav: aav,
+      gtd: gtd,
+      contractInfo: infoParts.join("| ")
+    };
+  }
+
+  function openRestructureEditor(player) {
+    if (!player) return;
+    var years = safeInt(player && player.years, 0) >= 3 ? 3 : 2;
+    var parsed = parseRestructureContractAmounts(player.special || player.contract_info || "", years, safeInt(player && player.salary, 0) || 1000);
+    var originalCl = Math.max(0, contractLengthForPlayer(player));
+    var originalAav = safeInt(player && player.aav, 0);
+    if (!originalAav && originalCl > 0 && parsed.tcv > 0) {
+      originalAav = Math.round(parsed.tcv / Math.max(1, originalCl));
+    }
+    if (!originalAav) originalAav = safeInt(player && player.salary, 0);
+    var tcv = Math.max(years * 1000, originalAav * years);
+    var evenSplit = Math.max(1000, restructureRoundToK(Math.round(tcv / Math.max(1, years))));
+
+    state.actionModal.mode = "restructure";
+    state.actionModal.restructureYears = years;
+    state.actionModal.restructureOriginalAav = originalAav;
+    state.actionModal.restructureExtSuffix = extractExtensionSuffix(player.special || player.contract_info || "");
+    state.actionModal.restructureYear1 = String(evenSplit);
+    state.actionModal.restructureYear2 = String(years === 3 ? evenSplit : Math.max(1000, tcv - evenSplit));
+    renderPlayerActionModal();
+  }
+
   function openPlayerActionModal(franchiseId, playerId) {
     state.actionModal.open = true;
     state.actionModal.franchiseId = pad4(franchiseId);
     state.actionModal.playerId = safeStr(playerId).replace(/\D/g, "");
+    actionModalResetMode();
     renderPlayerActionModal();
   }
 
@@ -5138,6 +5500,7 @@
     state.actionModal.open = false;
     state.actionModal.franchiseId = "";
     state.actionModal.playerId = "";
+    actionModalResetMode();
     renderPlayerActionModal();
   }
 
@@ -5154,7 +5517,10 @@
       var ownRoster = isOwnRosterPlayer(player);
       var penalty = dropPenaltyEstimate(player);
       var extensionOptions = playerExtensionOptions(player);
+      var extensionBlockReason = extensionBlockedReason(player);
       var contractEligibility = rosterContractEligibility(player);
+      var modalBusyKey = "restructure:" + safeStr(player.id);
+      var restructureBusy = state.busyActionKey === modalBusyKey;
       var actions = [];
       actions.push(
         '<button type="button" class="rwb-modal-action" data-action="trade-player" data-player-id="' + escapeHtml(player.id) + '" data-franchise-id="' + escapeHtml(player.fid) + '">Trade</button>'
@@ -5208,10 +5574,9 @@
           '</div>';
       } else if (canManage && contractEligibility.extensionEligible) {
         extensionSummaryHtml =
-          '<div class="rwb-modal-note"><strong>Extension:</strong> No extension options are available for this player.</div>';
+          '<div class="rwb-modal-note"><strong>Extension:</strong> ' + escapeHtml(extensionBlockReason || "No extension options are available for this player.") + '</div>';
       }
-
-      content =
+      var playerHeaderHtml =
         '<div class="rwb-modal-player">' +
           '<div class="rwb-modal-player-main">' +
             '<span class="rwb-pos-pill">' + escapeHtml(player.positionGroup) + '</span>' +
@@ -5220,18 +5585,83 @@
             (player.isIr ? '<span class="rwb-tag is-ir">IR</span>' : '') +
           '</div>' +
           '<div class="rwb-modal-player-sub">' + escapeHtml(team.name) + ' | ' + escapeHtml(player.position) + ' | ' + escapeHtml(player.nflTeam || "-") + '</div>' +
-        '</div>' +
-        '<div class="rwb-modal-grid">' +
-          '<div class="rwb-modal-metric"><span>Salary</span><strong>' + escapeHtml(money(player.salary)) + '</strong></div>' +
-          '<div class="rwb-modal-metric"><span>AAV</span><strong>' + escapeHtml(player.aav > 0 ? money(player.aav) : "—") + '</strong></div>' +
-          '<div class="rwb-modal-metric"><span>Years</span><strong>' + escapeHtml(String(player.years)) + '</strong></div>' +
-          '<div class="rwb-modal-metric"><span>Expires</span><strong>' + escapeHtml(projectedExpiryLabel(player)) + '</strong></div>' +
-        '</div>' +
-        '<div class="rwb-modal-actions-wrap">' + actions.join("") + '</div>' +
-        extensionSummaryHtml +
-        '<div class="rwb-modal-note"><strong>Estimated Cap Penalty:</strong> ' + escapeHtml(money(penalty.amount)) + ' | ' + escapeHtml(penalty.note) + '</div>' +
-        (!canManage ? '<div class="rwb-modal-note">Roster-management actions are unavailable for this session. Trade is available from any team.</div>' : '') +
-        (viewerCanManageAnyRoster() && !ownRoster ? '<div class="rwb-modal-note"><strong>Commish:</strong> Acting on behalf of ' + escapeHtml(team.name) + '.</div>' : '');
+        '</div>';
+
+      if (state.actionModal.mode === "restructure") {
+        var contractLength = contractLengthForPlayer(player);
+        var calc = actionModalRestructureCalc(player);
+        var restructureErrorHtml = calc.ok
+          ? ""
+          : '<div class="rwb-modal-note rwb-restructure-error">' + escapeHtml(calc.error || "Invalid restructure values.") + '</div>';
+        var y2FieldHtml = state.actionModal.restructureYears >= 3
+          ? (
+            '<label class="rwb-restructure-field">' +
+              '<span>Year 2</span>' +
+              '<input id="rwbRestructureYear2" class="rwb-input rwb-restructure-input" type="text" inputmode="numeric" value="' + escapeHtml(state.actionModal.restructureYear2) + '" autocomplete="off">' +
+              '<small>Must stay in 1K increments.</small>' +
+            '</label>'
+          )
+          : "";
+        var previewInfo = calc.ok ? inlineContractInfoText(calc.contractInfo) : "Waiting for a valid restructure.";
+
+        content =
+          playerHeaderHtml +
+          '<div class="rwb-modal-grid">' +
+            '<div class="rwb-modal-metric"><span>Current Salary</span><strong>' + escapeHtml(money(player.salary)) + '</strong></div>' +
+            '<div class="rwb-modal-metric"><span>Original AAV</span><strong>' + escapeHtml(state.actionModal.restructureOriginalAav > 0 ? money(state.actionModal.restructureOriginalAav) : "—") + '</strong></div>' +
+            '<div class="rwb-modal-metric"><span>Years Left</span><strong>' + escapeHtml(String(player.years)) + '</strong></div>' +
+            '<div class="rwb-modal-metric"><span>Contract Length</span><strong>' + escapeHtml(contractLength > 0 ? String(contractLength) : "—") + '</strong></div>' +
+          '</div>' +
+          '<div class="rwb-modal-subnav">' +
+            '<button type="button" class="rwb-modal-action rwb-modal-action-secondary" data-action="restructure-back"' + (restructureBusy ? ' disabled' : '') + '>Back</button>' +
+            '<div class="rwb-modal-subnav-copy">' +
+              '<div class="rwb-modal-subnav-title">Restructure Contract</div>' +
+              '<div class="rwb-modal-subnav-text">Keep the original AAV and redistribute salary across the remaining years.</div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="rwb-restructure-form">' +
+            '<div class="rwb-restructure-grid">' +
+              '<label class="rwb-restructure-field">' +
+                '<span>Year 1</span>' +
+                '<input id="rwbRestructureYear1" class="rwb-input rwb-restructure-input" type="text" inputmode="numeric" value="' + escapeHtml(state.actionModal.restructureYear1) + '" autocomplete="off">' +
+                '<small>Minimum 20% of TCV, in 1K increments.</small>' +
+              '</label>' +
+              y2FieldHtml +
+            '</div>' +
+            '<div class="rwb-restructure-summary">' +
+              '<div class="rwb-restructure-kpis">' +
+                '<div class="rwb-restructure-kpi"><span>Years</span><strong>' + escapeHtml(calc.ok ? String(calc.years) : String(state.actionModal.restructureYears)) + '</strong></div>' +
+                '<div class="rwb-restructure-kpi"><span>TCV</span><strong>' + escapeHtml(calc.ok ? money(calc.tcv) : "—") + '</strong></div>' +
+                '<div class="rwb-restructure-kpi"><span>AAV</span><strong>' + escapeHtml(calc.ok ? money(calc.aav) : "—") + '</strong></div>' +
+                '<div class="rwb-restructure-kpi"><span>GTD</span><strong>' + escapeHtml(calc.ok ? money(calc.gtd) : "—") + '</strong></div>' +
+              '</div>' +
+              '<div class="rwb-restructure-contract"><strong>Contract Info:</strong> ' + escapeHtml(previewInfo) + '</div>' +
+              (safeStr(state.actionModal.restructureExtSuffix)
+                ? '<div class="rwb-restructure-contract"><strong>Preserved:</strong> ' + escapeHtml(state.actionModal.restructureExtSuffix) + '</div>'
+                : '') +
+            '</div>' +
+            restructureErrorHtml +
+            '<div class="rwb-modal-actions-wrap">' +
+              '<button type="button" class="rwb-modal-action" data-action="submit-restructure"' + ((restructureBusy || !calc.ok) ? ' disabled' : '') + '>' + escapeHtml(restructureBusy ? "Submitting..." : "Submit Restructure") + '</button>' +
+            '</div>' +
+          '</div>' +
+          '<div class="rwb-modal-note"><strong>Estimated Cap Penalty:</strong> ' + escapeHtml(money(penalty.amount)) + ' | ' + escapeHtml(penalty.note) + '</div>' +
+          (viewerCanManageAnyRoster() && !ownRoster ? '<div class="rwb-modal-note"><strong>Commish:</strong> Acting on behalf of ' + escapeHtml(team.name) + '.</div>' : '');
+      } else {
+        content =
+          playerHeaderHtml +
+          '<div class="rwb-modal-grid">' +
+            '<div class="rwb-modal-metric"><span>Salary</span><strong>' + escapeHtml(money(player.salary)) + '</strong></div>' +
+            '<div class="rwb-modal-metric"><span>AAV</span><strong>' + escapeHtml(player.aav > 0 ? money(player.aav) : "—") + '</strong></div>' +
+            '<div class="rwb-modal-metric"><span>Years</span><strong>' + escapeHtml(String(player.years)) + '</strong></div>' +
+            '<div class="rwb-modal-metric"><span>Expires</span><strong>' + escapeHtml(projectedExpiryLabel(player)) + '</strong></div>' +
+          '</div>' +
+          '<div class="rwb-modal-actions-wrap">' + actions.join("") + '</div>' +
+          extensionSummaryHtml +
+          '<div class="rwb-modal-note"><strong>Estimated Cap Penalty:</strong> ' + escapeHtml(money(penalty.amount)) + ' | ' + escapeHtml(penalty.note) + '</div>' +
+          (!canManage ? '<div class="rwb-modal-note">Roster-management actions are unavailable for this session. Trade is available from any team.</div>' : '') +
+          (viewerCanManageAnyRoster() && !ownRoster ? '<div class="rwb-modal-note"><strong>Commish:</strong> Acting on behalf of ' + escapeHtml(team.name) + '.</div>' : '');
+      }
     }
 
     els.playerModal.hidden = !isOpen;
@@ -7080,6 +7510,74 @@
     });
   }
 
+  function submitRestructureUpdate(player) {
+    if (!player) return Promise.resolve(null);
+    var calc = actionModalRestructureCalc(player);
+    if (!calc.ok) {
+      renderPlayerActionModal();
+      setFlash("error", "Restructure failed: " + safeStr(calc.error || "Invalid restructure values."));
+      return Promise.resolve(null);
+    }
+
+    var confirmLines = [
+      "Confirm restructure for " + safeStr(player.name) + "?",
+      "",
+      "Years: " + String(calc.years),
+      "Year 1: " + money(calc.y1),
+      "Year 2: " + money(calc.y2)
+    ];
+    if (calc.years >= 3) confirmLines.push("Year 3: " + money(calc.y3));
+    confirmLines.push("TCV: " + money(calc.tcv));
+    confirmLines.push("AAV: " + money(calc.aav));
+    confirmLines.push("GTD: " + money(calc.gtd));
+    if (!window.confirm(confirmLines.join("\n"))) return Promise.resolve(null);
+
+    var leagueId = safeStr(state.ctx && state.ctx.leagueId);
+    var season = safeStr(state.ctx && state.ctx.year);
+    var moveKey = "restructure:" + safeStr(player.id);
+    var commishOverride = viewerCanManageAnyRoster() && !isOwnRosterPlayer(player);
+    var payload = {
+      L: leagueId,
+      YEAR: season,
+      leagueId: leagueId,
+      year: season,
+      type: "RESTRUCTURE",
+      player_id: safeStr(player.id),
+      player_name: safeStr(player.name),
+      franchise_id: safeStr(player.fid),
+      franchise_name: safeStr(player.teamName),
+      position: safeStr(player.positionGroup || player.position),
+      salary: safeInt(calc.y1, 0),
+      contract_year: safeInt(calc.years, 0),
+      contract_status: safeStr(player.type || "Veteran"),
+      contract_info: safeStr(calc.contractInfo),
+      tcv: safeInt(calc.tcv, 0),
+      aav: safeInt(calc.aav, 0),
+      guaranteed: safeInt(calc.gtd, 0),
+      submitted_at_utc: new Date().toISOString(),
+      commish_override_flag: commishOverride ? 1 : 0
+    };
+    var url = resolveWorkerRestructureEndpoint() +
+      "?L=" + encodeURIComponent(leagueId) +
+      "&YEAR=" + encodeURIComponent(season);
+
+    state.busyActionKey = moveKey;
+    setFlash("success", "Submitting restructure for " + safeStr(player.name) + " to MFL...");
+    renderPlayerActionModal();
+
+    return postContractUpdate(url, payload).then(function (result) {
+      state.busyActionKey = "";
+      closePlayerActionModal();
+      return refreshData(true).then(function () {
+        setFlash("success", safeStr(result && result.details && result.details.reason) || (safeStr(player.name) + " restructure submitted to MFL."));
+      });
+    }).catch(function (err) {
+      state.busyActionKey = "";
+      renderPlayerActionModal();
+      setFlash("error", "Restructure failed: " + summarizeError(err));
+    });
+  }
+
   function saveTagSubmissionToLocalStore(row) {
     var store = loadLocalTagSubmissionStore();
     var season = safeStr(state.tagData && state.tagData.cycleSeason);
@@ -7413,6 +7911,14 @@
       return;
     }
 
+    var restructureBackBtn = target.closest("[data-action='restructure-back']");
+    if (restructureBackBtn) {
+      if (state.busyActionKey) return;
+      state.actionModal.mode = "actions";
+      renderPlayerActionModal();
+      return;
+    }
+
     var restructureBtn = target.closest("[data-action='restructure-player']");
     if (restructureBtn) {
       var restructureRecord = findPlayerRecord(
@@ -7422,7 +7928,17 @@
       if (!restructureRecord || !restructureRecord.player) return;
       if (!canManageRosterPlayer(restructureRecord.player)) return;
       if (!rosterContractEligibility(restructureRecord.player).restructureEligible) return;
-      window.location.href = buildContractCenterActionUrl("restructure", restructureRecord.player);
+      openRestructureEditor(restructureRecord.player);
+      return;
+    }
+
+    var submitRestructureBtn = target.closest("[data-action='submit-restructure']");
+    if (submitRestructureBtn) {
+      if (state.busyActionKey) return;
+      var restructureSubmitRecord = findPlayerRecord(state.actionModal.franchiseId, state.actionModal.playerId);
+      if (!restructureSubmitRecord || !restructureSubmitRecord.player) return;
+      if (!canManageRosterPlayer(restructureSubmitRecord.player)) return;
+      submitRestructureUpdate(restructureSubmitRecord.player);
       return;
     }
 
@@ -7624,6 +8140,25 @@
   function onInput(evt) {
     var el = evt.target;
     if (!el) return;
+    var elId = safeStr(el.id);
+    if (elId === "rwbRestructureYear1" || elId === "rwbRestructureYear2") {
+      var sanitized = safeStr(el.value).replace(/[^\d]/g, "");
+      var selStart = typeof el.selectionStart === "number" ? el.selectionStart : null;
+      var selEnd = typeof el.selectionEnd === "number" ? el.selectionEnd : null;
+      if (elId === "rwbRestructureYear1") state.actionModal.restructureYear1 = sanitized;
+      if (elId === "rwbRestructureYear2") state.actionModal.restructureYear2 = sanitized;
+      renderPlayerActionModal();
+      requestAnimationFrame(function () {
+        var next = document.getElementById(elId);
+        if (!next) return;
+        next.focus();
+        if (selStart == null || !next.setSelectionRange) return;
+        var nextStart = Math.min(selStart, safeStr(next.value).length);
+        var nextEnd = Math.min(selEnd == null ? selStart : selEnd, safeStr(next.value).length);
+        next.setSelectionRange(nextStart, nextEnd);
+      });
+      return;
+    }
     if (el === els.search) {
       state.search = safeStr(el.value || "").toLowerCase();
       persistState();
