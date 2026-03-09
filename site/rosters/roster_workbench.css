@@ -292,6 +292,16 @@
   display: block;
 }
 
+.rwb-toolbar-disclosure {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.rwb-toolbar-disclosure-btn {
+  min-width: 0;
+  padding-inline: 14px;
+}
+
 .rwb-toolbar-filter-grid {
   grid-template-columns: minmax(240px, 1.35fr) minmax(170px, 0.82fr) minmax(170px, 0.82fr) minmax(170px, 0.82fr) auto;
 }

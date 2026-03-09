@@ -104,6 +104,7 @@
     pointsYearlyEliteRankCache: null,
     view: "roster",
     contractSubView: "players",
+    filtersOpen: false,
     search: "",
     filterPosition: "",
     filterType: "",
@@ -3890,6 +3891,9 @@
                 '</div>' +
               '</div>' +
             '</div>' +
+            '<div class="rwb-toolbar-disclosure" id="rwbFiltersToggleWrap">' +
+              '<button type="button" id="rwbToggleFilters" class="rwb-btn rwb-btn-ghost rwb-toolbar-disclosure-btn" aria-expanded="false" aria-controls="rwbAdvancedFilters">Show Filters</button>' +
+            '</div>' +
             '<div id="rwbAdvancedFilters" class="rwb-toolbar-advanced">' +
               '<div class="rwb-toolbar-panel rwb-toolbar-panel-filters">' +
                 '<div class="rwb-toolbar-section-label">Filters</div>' +
@@ -3938,6 +3942,8 @@
     els.search = document.getElementById("rwbSearch");
     els.searchField = els.search ? els.search.closest(".rwb-field") : null;
     els.advanced = document.getElementById("rwbAdvancedFilters");
+    els.toggleFiltersWrap = document.getElementById("rwbFiltersToggleWrap");
+    els.toggleFilters = document.getElementById("rwbToggleFilters");
     els.filterPosition = document.getElementById("rwbFilterPosition");
     els.filterPositionField = els.filterPosition ? els.filterPosition.closest(".rwb-field") : null;
     els.filterType = document.getElementById("rwbFilterType");
@@ -4142,9 +4148,23 @@
       els.browsePanel.hidden = !(teamJumpEnabledForView() || scoringControlEnabledForView() || capPlanSubviewControlEnabledForView());
     }
 
+    var showFiltersToggle = !capPlanSummaryViewActive();
+    if (els.toggleFiltersWrap) els.toggleFiltersWrap.hidden = !showFiltersToggle;
+    if (els.toggleFilters) {
+      var activeFilterCount = 0;
+      if (state.search) activeFilterCount += 1;
+      if (state.filterPosition) activeFilterCount += 1;
+      if (contractTypeFilterEnabledForView() && state.filterType) activeFilterCount += 1;
+      if (rosterStatusFilterEnabledForView() && state.filterRosterStatus) activeFilterCount += 1;
+      if (state.view === "bye" && state.filterByeImpact) activeFilterCount += 1;
+      els.toggleFilters.hidden = !showFiltersToggle;
+      els.toggleFilters.textContent = (state.filtersOpen ? "Hide Filters" : "Show Filters") + (activeFilterCount ? " (" + activeFilterCount + ")" : "");
+      els.toggleFilters.setAttribute("aria-expanded", state.filtersOpen ? "true" : "false");
+      els.toggleFilters.classList.toggle("is-active", state.filtersOpen);
+    }
     if (els.advanced) {
-      els.advanced.hidden = capPlanSummaryViewActive();
-      els.advanced.classList.remove("is-open");
+      els.advanced.hidden = capPlanSummaryViewActive() || !state.filtersOpen;
+      els.advanced.classList.toggle("is-open", state.filtersOpen && !capPlanSummaryViewActive());
     }
 
     if (els.toolbarMain) {
@@ -6191,6 +6211,12 @@
       persistState();
       renderToolbar();
       renderTeams();
+      return;
+    }
+
+    if (target === els.toggleFilters) {
+      state.filtersOpen = !state.filtersOpen;
+      renderToolbar();
       return;
     }
 
