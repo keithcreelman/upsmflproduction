@@ -931,7 +931,7 @@
   }
 
   function scoringControlEnabledForView() {
-    return state.view === "roster" || state.view === "points" || state.view === "bye";
+    return state.view === "points" || state.view === "bye";
   }
 
   function summarizeProjection(proj) {
@@ -2478,7 +2478,7 @@
 
     state.pointsHistoryLoading = true;
     state.pointsHistoryError = "";
-    if (state.view === "points" || state.view === "roster") {
+    if (state.view === "points" || state.view === "bye") {
       renderToolbar();
       renderTeams();
     }
@@ -2495,7 +2495,7 @@
       clearRosterPointsSummaryCache();
       clearPointsWeeklyRankCache();
       state.pointsMode = normalizeRosterPointMode(state.pointsMode);
-      if (state.view === "points" || state.view === "roster") {
+      if (state.view === "points" || state.view === "bye") {
         renderToolbar();
         renderTeams();
         if (state.view === "points") ensureLiveSeasonPointsForSelection(false);
@@ -2507,7 +2507,7 @@
       state.pointsHistoryPromise = null;
       clearRosterPointsSummaryCache();
       clearPointsWeeklyRankCache();
-      if (state.view === "points" || state.view === "roster") {
+      if (state.view === "points" || state.view === "bye") {
         renderToolbar();
         renderTeams();
       }
@@ -3859,10 +3859,6 @@
       parts.push("Weighted by " + (byeSeason ? (byeSeason + " PPG rank") : "latest completed-season PPG rank"));
       parts.push("Shows bye-impact score plus players for each week");
       if (state.filterByeImpact) parts.push(byeImpactFilterLabel(state.filterByeImpact));
-    } else if (state.view === "roster") {
-      parts.push(rosterPointsRangeLabel());
-      if (state.pointsHistoryLoading) parts.push("Loading scoring history");
-      if (state.pointsHistoryError) parts.push("Scoring history unavailable");
     }
 
     els.note.textContent = parts.join(" | ");
@@ -5570,16 +5566,19 @@
           : buildPointYears();
         state.pointsMode = normalizeRosterPointMode(state.pointsMode);
 
-        var historyPromise = loadPointsHistory().catch(function () { return null; });
+        var historyPromise = (state.view === "points" || state.view === "bye")
+          ? loadPointsHistory().catch(function () { return null; })
+          : Promise.resolve(null);
         var adminPromise = loadViewerAdminState(state.ctx);
 
         return Promise.all([historyPromise, adminPromise]).then(function () {
           state.pointsMode = normalizeRosterPointMode(state.pointsMode);
           renderToolbar();
           renderTeams();
-          ensureGamesLoadedForCurrentMode();
           if (state.view === "points") {
-            return ensureLiveSeasonPointsForSelection(false).catch(function () {
+            return ensureGamesLoadedForCurrentMode().then(function () {
+              return ensureLiveSeasonPointsForSelection(false);
+            }).catch(function () {
               return null;
             }).then(function () {
               persistState();
@@ -5712,9 +5711,10 @@
         persistState();
         renderToolbar();
         renderTeams();
-        if (state.view === "points") {
+        if (state.view === "points" || state.view === "bye") {
           loadPointsHistory().then(function () {
-            return ensureLiveSeasonPointsForSelection(false);
+            if (state.view === "points") return ensureLiveSeasonPointsForSelection(false);
+            return null;
           }).catch(function () {});
         }
       }
