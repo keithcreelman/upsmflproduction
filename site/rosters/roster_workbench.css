@@ -132,6 +132,16 @@
   min-width: 0;
 }
 
+.rwb-toolbar-points.is-contract-view {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.rwb-subview-switch {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
 .rwb-field-mode-toggle {
   min-width: 0;
 }
@@ -1126,6 +1136,33 @@
   min-width: 980px;
 }
 
+.rwb-cap-plan-summary-table {
+  min-width: 1380px;
+}
+
+.rwb-summary-team-col {
+  width: calc(var(--ups-team-icon-width, 200px) + 24px);
+  min-width: calc(var(--ups-team-icon-width, 200px) + 24px);
+}
+
+.rwb-summary-team-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: calc(var(--ups-team-icon-width, 200px) + 8px);
+}
+
+.rwb-cap-plan-summary-table th,
+.rwb-cap-plan-summary-table td {
+  text-align: center;
+  vertical-align: middle;
+}
+
+.rwb-cap-plan-summary-table th:first-child,
+.rwb-cap-plan-summary-table td:first-child {
+  text-align: center;
+}
+
 .rwb-bye-summary-card {
   border-style: solid;
 }
@@ -1514,6 +1551,10 @@ body.rwb-modal-open {
   .rwb-toolbar-points.is-history-weekly {
     grid-template-columns: repeat(2, minmax(110px, 1fr));
   }
+
+  .rwb-subview-switch {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 980px) {
@@ -1580,7 +1621,8 @@ body.rwb-modal-open {
 
   .rwb-toolbar-points.is-history-yearly,
   .rwb-toolbar-points.is-history-weekly,
-  .rwb-toolbar-points.is-bye-view {
+  .rwb-toolbar-points.is-bye-view,
+  .rwb-toolbar-points.is-contract-view {
     grid-template-columns: 1fr;
   }
 

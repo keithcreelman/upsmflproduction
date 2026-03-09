@@ -4771,6 +4771,35 @@ export default {
         return out;
       };
 
+      const emptySalaryAdjustmentBreakdown = () => ({
+        cut_players_dollars: 0,
+        traded_salary_dollars: 0,
+        other_dollars: 0,
+      });
+
+      const salaryAdjustmentCategory = (explanation) => {
+        const text = safeStr(explanation).toLowerCase();
+        if (!text) return "other_dollars";
+        if (
+          text.includes("tradedsalary") ||
+          text.includes("traded salary") ||
+          text.includes("trade salary") ||
+          text.includes("trade settlement")
+        ) {
+          return "traded_salary_dollars";
+        }
+        if (
+          text.includes("cap_penalt") ||
+          text.includes("cap penalty") ||
+          text.includes("dead cap") ||
+          text.includes("cut") ||
+          text.includes("drop")
+        ) {
+          return "cut_players_dollars";
+        }
+        return "other_dollars";
+      };
+
       const verifyExpectedSalaryAdjustmentsInRows = (expectedRows, actualRowsInput) => {
         const expected = Array.isArray(expectedRows) ? expectedRows : [];
         if (!expected.length) {
@@ -9143,10 +9172,17 @@ export default {
             )
           : [];
         const salaryAdjustmentByFranchise = {};
+        const salaryAdjustmentBreakdownByFranchise = {};
         for (const row of salaryAdjustmentRows) {
           const fid = padFranchiseId(row?.franchise_id);
           if (!fid) continue;
+          if (!salaryAdjustmentBreakdownByFranchise[fid]) {
+            salaryAdjustmentBreakdownByFranchise[fid] = emptySalaryAdjustmentBreakdown();
+          }
           salaryAdjustmentByFranchise[fid] = safeInt(salaryAdjustmentByFranchise[fid], 0) + safeInt(row?.amount, 0);
+          const category = salaryAdjustmentCategory(row?.explanation);
+          salaryAdjustmentBreakdownByFranchise[fid][category] =
+            safeInt(salaryAdjustmentBreakdownByFranchise[fid][category], 0) + safeInt(row?.amount, 0);
         }
 
         const franchiseMetaById = {};
@@ -9231,6 +9267,7 @@ export default {
           const taxiCount = players.reduce((acc, p) => acc + (p.is_taxi ? 1 : 0), 0);
           const capTotal = players.reduce((acc, p) => acc + currentCapHit(p.salary, p.years, p.is_taxi, p.is_ir), 0);
           const salaryAdjustmentTotal = safeInt(salaryAdjustmentByFranchise[franchiseId], 0);
+          const salaryAdjustmentBreakdown = salaryAdjustmentBreakdownByFranchise[franchiseId] || emptySalaryAdjustmentBreakdown();
           const compliant = salaryCapDollars > 0 ? capTotal + salaryAdjustmentTotal <= salaryCapDollars : true;
           const complianceLabel = compliant
             ? "Compliant"
@@ -9247,6 +9284,7 @@ export default {
               taxi: taxiCount,
               cap_total_dollars: capTotal,
               salary_adjustment_total_dollars: salaryAdjustmentTotal,
+              salary_adjustment_breakdown_dollars: salaryAdjustmentBreakdown,
               compliance: {
                 ok: compliant,
                 label: complianceLabel,
