@@ -4609,8 +4609,6 @@
       var summary = summarizeTeamByes(filtered, weeks);
       var logo = safeStr(team.logo);
       var cells = [];
-      var visiblePeakImpact = 0;
-      var visiblePeakWeeks = [];
       var hasImpactMatch = !impactFilter;
       var visibleWithBye = 0;
 
@@ -4624,12 +4622,6 @@
           hasImpactMatch = true;
           visibleWithBye += count;
           leagueCounts[weekKey] = safeInt(leagueCounts[weekKey], 0) + impact;
-          if (impact > visiblePeakImpact) {
-            visiblePeakImpact = impact;
-            visiblePeakWeeks = [weekKey];
-          } else if (impact > 0 && impact === visiblePeakImpact) {
-            visiblePeakWeeks.push(weekKey);
-          }
         }
         cells.push(
           '<td class="rwb-bye-week-col">' +
@@ -4644,11 +4636,7 @@
 
       if (!hasImpactMatch) continue;
 
-      var displayPeakLabel = "—";
-      if (visiblePeakImpact > 0 && visiblePeakWeeks.length) {
-        displayPeakLabel = "W" + visiblePeakWeeks.join("/W") + " · " + visiblePeakImpact;
-      }
-      var metaText = safeStr(impactFilter ? visibleWithBye : summary.withBye) + " players on bye | peak " + displayPeakLabel;
+      var metaText = safeStr(impactFilter ? visibleWithBye : summary.withBye) + " players on bye";
       leagueNoBye += safeInt(summary.noBye, 0);
       rows.push(
         '<tr id="rwb-team-' + escapeHtml(team.id) + '">' +
@@ -4664,7 +4652,6 @@
             '</div>' +
           '</td>' +
           cells.join("") +
-          '<td class="rwb-cell-num">' + escapeHtml(displayPeakLabel) + '</td>' +
           '<td class="rwb-cell-num">' + escapeHtml(String(summary.noBye)) + '</td>' +
         '</tr>'
       );
@@ -4700,7 +4687,6 @@
               '<tr>' +
                 '<th>Franchise</th>' +
                 weeks.map(function (week) { return '<th class="rwb-bye-week-col">W' + escapeHtml(week) + '</th>'; }).join("") +
-                '<th>Peak Impact</th>' +
                 '<th>No Bye</th>' +
               '</tr>' +
             '</thead>' +
@@ -4709,7 +4695,6 @@
               '<tr class="rwb-summary-row rwb-summary-row-primary">' +
                 '<th>League Total</th>' +
                 footerCells.join("") +
-                '<th>—</th>' +
                 '<th class="rwb-cell-num">' + escapeHtml(String(leagueNoBye)) + '</th>' +
               '</tr>' +
             '</tfoot>' +
