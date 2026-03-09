@@ -333,10 +333,11 @@
   function resolvePickSalaryInfo(asset, currentSeasonHintOverride) {
     var meta = resolvePickMeta(asset);
     var round = safeInt(meta.round, 0);
-    var pick = safeInt(meta.pick, 0);
     var year = safeInt(meta.year, 0);
     var currentSeason = getCurrentTradeSeason(currentSeasonHintOverride);
     var isCurrentSeasonPick = !year || !currentSeason || year === currentSeason;
+    var roundText = round > 0 ? "Round " + String(round) + " pick" : "Pick";
+    var pick = safeInt(meta.pick, 0);
 
     if (round === 1 && isCurrentSeasonPick) {
       return {
@@ -349,7 +350,7 @@
     if (round === 1) {
       return {
         salary_dollars: 0,
-        meta_label: "Future pick",
+        meta_label: "Future round 1 pick",
         is_average: false
       };
     }
@@ -357,7 +358,7 @@
     if (round >= 2) {
       return {
         salary_dollars: 0,
-        meta_label: "No current cap impact",
+        meta_label: roundText + " · no current cap impact",
         is_average: false
       };
     }
@@ -386,6 +387,12 @@
       var y = year || currentSeason;
       var yText = y ? String(y) + " " : "";
       return yText + "Rookie " + round + "." + String(pick).padStart(2, "0");
+    }
+
+    if (round) {
+      var yr = year || currentSeason;
+      var yrText = yr ? String(yr) + " " : "";
+      return yrText + "Rookie Round " + String(round);
     }
 
     if (!raw) return currentSeason ? String(currentSeason) + " Rookie Pick" : "Rookie Pick";
@@ -1367,7 +1374,7 @@
       type: asset.type,
       player_id: asset.player_id || null,
       player_name: asset.player_name || null,
-      description: isPick ? asset.description : null,
+      description: isPick ? safeStr(asset.pick_display || asset.description) : null,
       position: asset.position || null,
       nfl_team: asset.nfl_team || null,
       salary: safeInt(asset.salary, 0),
@@ -5152,7 +5159,7 @@
   function summarizeAssetForTradeSummary(asset) {
     if (!asset || typeof asset !== "object") return "";
     if (safeStr(asset.type).toUpperCase() === "PLAYER") return safeStr(asset.player_name);
-    if (safeStr(asset.type).toUpperCase() === "PICK") return safeStr(asset.description || asset.asset_id);
+    if (safeStr(asset.type).toUpperCase() === "PICK") return safeStr(asset.pick_display || asset.description || asset.asset_id);
     return safeStr(asset.player_name || asset.description || asset.asset_id);
   }
 
