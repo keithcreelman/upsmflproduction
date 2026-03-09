@@ -1141,7 +1141,7 @@
     if (view === "franchise") return "Summary";
     if (view === "points") return "Scoring";
     if (view === "bye") return "Bye Chart";
-    return "Roster";
+    return "Contract View";
   }
 
   function uniqueSeasonList(values) {
@@ -1553,6 +1553,10 @@
     return formatContractK(dollars);
   }
 
+  function compactContractAmountAllowZero(amount) {
+    return formatContractK(Math.max(0, Math.round(safeNum(amount, 0))));
+  }
+
   function compactContractValueWithRankHtml(amount, rank) {
     return pointsStatWithRankHtml(compactContractAmount(amount), rank);
   }
@@ -1563,6 +1567,10 @@
     if (valueText === "—") return "—";
     if (rankValue <= 0) return valueText;
     return valueText + " " + formatRank(rankValue);
+  }
+
+  function capPenaltyAmountForPlayer(player) {
+    return safeInt(dropPenaltyEstimate(player).amount, 0);
   }
 
   function isCurrentMobile() {
@@ -3302,6 +3310,12 @@
         case "years":
           delta = safeInt(a.years, 0) - safeInt(b.years, 0);
           break;
+        case "guarantee":
+          delta = guaranteedContractValueForPlayer(a) - guaranteedContractValueForPlayer(b);
+          break;
+        case "penalty":
+          delta = capPenaltyAmountForPlayer(a) - capPenaltyAmountForPlayer(b);
+          break;
         case "salary":
           delta = safeInt(a.salary, 0) - safeInt(b.salary, 0);
           break;
@@ -3521,7 +3535,7 @@
               '<div class="rwb-toolbar-panel rwb-toolbar-panel-nav">' +
                 '<div class="rwb-toolbar-section-label">Views</div>' +
                 '<div class="rwb-view-switch" role="tablist" aria-label="View mode">' +
-                  '<button type="button" id="rwbViewRoster" class="rwb-btn rwb-btn-ghost is-active" data-action="view-switch" data-view="roster" role="tab" aria-selected="true">Roster</button>' +
+                  '<button type="button" id="rwbViewRoster" class="rwb-btn rwb-btn-ghost is-active" data-action="view-switch" data-view="roster" role="tab" aria-selected="true">Contract View</button>' +
                   '<button type="button" id="rwbViewContract" class="rwb-btn rwb-btn-ghost" data-action="view-switch" data-view="contract" role="tab" aria-selected="false">Cap Plan</button>' +
                   '<button type="button" id="rwbViewBye" class="rwb-btn rwb-btn-ghost" data-action="view-switch" data-view="bye" role="tab" aria-selected="false">Bye Chart</button>' +
                   '<button type="button" id="rwbViewPoints" class="rwb-btn rwb-btn-ghost" data-action="view-switch" data-view="points" role="tab" aria-selected="false">Scoring</button>' +
@@ -4186,6 +4200,8 @@
       if (p.isIr) tags.push('<span class="rwb-tag is-ir">IR</span>');
       var contractLength = contractLengthForPlayer(p);
       var totalContractValue = totalContractValueForPlayer(p);
+      var contractGuarantee = guaranteedContractValueForPlayer(p);
+      var capPenalty = capPenaltyAmountForPlayer(p);
       var contractTypeText = safeStr(p.type) || "-";
 
       rows.push(
@@ -4207,6 +4223,8 @@
                 '<div><dt>TCV</dt><dd>' + escapeHtml(compactContractAmount(totalContractValue)) + '</dd></div>' +
                 '<div><dt>Salary</dt><dd>' + escapeHtml(compactContractValueWithRankText(p.salary, p.positionSalaryRank)) + '</dd></div>' +
                 '<div><dt>AAV</dt><dd>' + escapeHtml(compactContractValueWithRankText(p.aav, p.positionAavRank)) + '</dd></div>' +
+                '<div><dt>Orig GTD</dt><dd>' + escapeHtml(compactContractAmountAllowZero(contractGuarantee)) + '</dd></div>' +
+                '<div><dt>Cap Pen</dt><dd>' + escapeHtml(compactContractAmountAllowZero(capPenalty)) + '</dd></div>' +
               '</dl>' +
             '</div>' +
           '</td>' +
@@ -4215,6 +4233,8 @@
           '<td class="rwb-cell-num">' + escapeHtml(compactContractAmount(totalContractValue)) + '</td>' +
           '<td class="rwb-cell-num">' + compactContractValueWithRankHtml(p.salary, p.positionSalaryRank) + '</td>' +
           '<td class="rwb-cell-num">' + compactContractValueWithRankHtml(p.aav, p.positionAavRank) + '</td>' +
+          '<td class="rwb-cell-num">' + escapeHtml(compactContractAmountAllowZero(contractGuarantee)) + '</td>' +
+          '<td class="rwb-cell-num">' + escapeHtml(compactContractAmountAllowZero(capPenalty)) + '</td>' +
         '</tr>'
       );
     }
@@ -4234,6 +4254,8 @@
                 sortableHeader("roster", "tcv", "TCV") +
                 sortableHeader("roster", "salary", "Salary") +
                 sortableHeader("roster", "aav", "AAV") +
+                sortableHeader("roster", "guarantee", "Orig GTD") +
+                sortableHeader("roster", "penalty", "Cap Pen") +
               '</tr>' +
             '</thead>' +
             '<tbody>' + rows.join("") + '</tbody>' +
@@ -5403,7 +5425,9 @@
         years: 1,
         tcv: 1,
         salary: 1,
-        aav: 1
+        aav: 1,
+        guarantee: 1,
+        penalty: 1
       };
       if (!validRosterSortKeys[rosterSortKey]) {
         state.sorts.roster = { key: "salary", dir: "desc" };
