@@ -2524,11 +2524,11 @@
   }
 
   function defaultPointsHistoryMode() {
-    return siteIsOffseason() ? "yearly" : "weekly";
+    return "weekly";
   }
 
   function pointsHistoryDefaultContextKey() {
-    return String(currentYearInt()) + ":" + (siteIsOffseason() ? "offseason" : "season");
+    return String(currentYearInt()) + ":" + (siteIsOffseason() ? "offseason" : "season") + ":weekly-default-v1";
   }
 
   function defaultWeeklyHistorySeason(seasons) {
@@ -3898,7 +3898,13 @@
 
       els.pointsControls.className = "rwb-toolbar-points " + (weeklyMode ? "is-history-weekly" : "is-history-yearly");
       els.pointsControls.innerHTML =
-        '<label class="rwb-field"><span>View</span><select id="rwbPointsHistoryMode" class="rwb-select"></select></label>' +
+        '<div class="rwb-field rwb-field-mode-toggle">' +
+          '<span>View</span>' +
+          '<div class="rwb-points-mode-switch" role="tablist" aria-label="Scoring history mode">' +
+            '<button type="button" class="rwb-btn rwb-btn-ghost' + (weeklyMode ? ' is-active' : '') + '" data-action="points-history-mode" data-mode="weekly" role="tab" aria-selected="' + (weeklyMode ? 'true' : 'false') + '">Weekly</button>' +
+            '<button type="button" class="rwb-btn rwb-btn-ghost' + (!weeklyMode ? ' is-active' : '') + '" data-action="points-history-mode" data-mode="yearly" role="tab" aria-selected="' + (!weeklyMode ? 'true' : 'false') + '">Yearly</button>' +
+          '</div>' +
+        '</div>' +
         (weeklyMode
           ? '<label class="rwb-field"><span>Season</span><select id="rwbPointsHistorySeason" class="rwb-select"></select></label>' +
             '<label class="rwb-field"><span>Week From</span><select id="rwbPointsHistoryWeekStart" class="rwb-select"></select></label>' +
@@ -3906,17 +3912,11 @@
           : '<label class="rwb-field"><span>Year From</span><select id="rwbPointsHistoryYearStart" class="rwb-select"></select></label>' +
             '<label class="rwb-field"><span>Year To</span><select id="rwbPointsHistoryYearEnd" class="rwb-select"></select></label>');
 
-      els.pointsHistoryMode = document.getElementById("rwbPointsHistoryMode");
       els.pointsHistoryYearStart = document.getElementById("rwbPointsHistoryYearStart");
       els.pointsHistoryYearEnd = document.getElementById("rwbPointsHistoryYearEnd");
       els.pointsHistorySeason = document.getElementById("rwbPointsHistorySeason");
       els.pointsHistoryWeekStart = document.getElementById("rwbPointsHistoryWeekStart");
       els.pointsHistoryWeekEnd = document.getElementById("rwbPointsHistoryWeekEnd");
-
-      renderSelectOptions(els.pointsHistoryMode, [
-        { value: "yearly", label: "Yearly" },
-        { value: "weekly", label: "Weekly" }
-      ], state.pointsHistoryMode || "yearly");
 
       if (weeklyMode) {
         renderSelectOptions(els.pointsHistorySeason, seasons.map(function (season) {
@@ -5976,6 +5976,22 @@
       state.pointsExpanded[toggleKey] = !state.pointsExpanded[toggleKey];
       persistState();
       renderTeams();
+      return;
+    }
+
+    var pointsHistoryModeBtn = target.closest("[data-action='points-history-mode']");
+    if (pointsHistoryModeBtn) {
+      var nextHistoryMode = safeStr(pointsHistoryModeBtn.getAttribute("data-mode")) === "yearly" ? "yearly" : "weekly";
+      if (state.pointsHistoryMode === nextHistoryMode) return;
+      state.pointsHistoryMode = nextHistoryMode;
+      ensurePointsHistorySelection();
+      clearPointsWeeklyRankCache();
+      persistState();
+      renderToolbar();
+      renderTeams();
+      if (state.view === "points" && state.pointsHistoryMode === "weekly") {
+        ensureLiveSeasonPointsForSelection(false).catch(function () {});
+      }
       return;
     }
 
