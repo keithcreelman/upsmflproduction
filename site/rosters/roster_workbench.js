@@ -513,7 +513,7 @@
     for (var i = 0; i < list.length; i += 1) {
       var player = list[i];
       if (!player) continue;
-      if (contractLengthForPlayer(player) === 3 && contractBucket(player.type) !== "rookie") {
+      if (safeInt(player.years, 0) === 3 && contractBucket(player.type) !== "rookie") {
         threeYearNonRookie += 1;
       }
       if (isLoadedContractPlayer(player)) loaded += 1;
