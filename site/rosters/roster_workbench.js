@@ -3558,7 +3558,7 @@
                   '<label class="rwb-field"><span>Position</span><select id="rwbFilterPosition" class="rwb-select"><option value="">All Groups</option></select></label>' +
                   '<label class="rwb-field"><span>Contract</span><select id="rwbFilterType" class="rwb-select"><option value="">All Contract Types</option></select></label>' +
                   '<label class="rwb-field"><span>Roster Status</span><select id="rwbFilterRosterStatus" class="rwb-select"><option value="">All</option></select></label>' +
-                  '<label class="rwb-field"><span>Impact</span><select id="rwbFilterByeImpact" class="rwb-select"><option value="">All Impact</option></select></label>' +
+                  '<label class="rwb-field" hidden style="display:none" aria-hidden="true"><span>Impact</span><select id="rwbFilterByeImpact" class="rwb-select" disabled><option value="">All Impact</option></select></label>' +
                   '<div class="rwb-toolbar-actions">' +
                     '<button type="button" id="rwbResetFilters" class="rwb-btn rwb-btn-ghost">Clear Filters</button>' +
                   '</div>' +
@@ -3781,6 +3781,7 @@
     if (els.filterByeImpactField) {
       els.filterByeImpactField.hidden = !showByeImpactFilter;
       els.filterByeImpactField.style.display = showByeImpactFilter ? "" : "none";
+      els.filterByeImpactField.setAttribute("aria-hidden", showByeImpactFilter ? "false" : "true");
     }
     if (els.browsePanel) {
       els.browsePanel.hidden = !(teamJumpEnabledForView() || scoringControlEnabledForView());
