@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var BUILD = "2026.03.08.05";
+  var BUILD = "2026.03.09.02";
   var BOOT_FLAG = "__ups_roster_workbench_boot_" + BUILD;
   if (window[BOOT_FLAG]) {
     if (typeof window.UPS_RWB_INIT === "function") window.UPS_RWB_INIT();
@@ -72,6 +72,13 @@
     PN: { 1: 3000, 2: 5000 },
     OTHER: { 1: 3000, 2: 5000 }
   };
+  var LOCAL_TAG_SUBMISSIONS_KEY = "ccc_tag_submissions_v1";
+  var TAG_OFFENSE_POS = {
+    QB: 1,
+    RB: 1,
+    WR: 1,
+    TE: 1
+  };
 
   var state = {
     ctx: null,
@@ -98,6 +105,13 @@
     liveSeasonPointsLoading: false,
     liveSeasonPointsError: "",
     liveSeasonPointsPromise: null,
+    tagTrackingRows: null,
+    tagTrackingMeta: null,
+    tagExternalSubmissions: null,
+    tagData: null,
+    tagDataLoading: false,
+    tagDataError: "",
+    tagDataPromise: null,
     pointsWeeklyRankCacheKey: "",
     pointsWeeklyRankCache: null,
     pointsYearlyEliteRankCacheKey: "",
@@ -183,6 +197,26 @@
     if (normalized === "taxi") return "Taxi only";
     if (normalized === "ir") return "IR only";
     return "";
+  }
+
+  function normalizeTagSideValue(side) {
+    var raw = safeStr(side).toUpperCase();
+    if (raw === "OFFENSE" || raw === "OFF") return "OFFENSE";
+    if (raw === "DEFENSE" || raw === "DEF" || raw === "IDP" || raw === "IDP_K") return "DEFENSE";
+    return "";
+  }
+
+  function getTagSideFromPos(pos) {
+    var key = safeStr(pos).toUpperCase();
+    if (!key) return "";
+    return TAG_OFFENSE_POS[key] ? "OFFENSE" : "DEFENSE";
+  }
+
+  function tagSideLabel(side) {
+    var normalized = normalizeTagSideValue(side);
+    if (normalized === "OFFENSE") return "Offense";
+    if (normalized === "DEFENSE") return "Defense";
+    return "—";
   }
 
   function normalizeCapPlanSubview(value) {
@@ -1030,7 +1064,7 @@
   }
 
   function contractTypeFilterEnabledForView() {
-    return state.view !== "bye" && state.view !== "points" && !capPlanSummaryViewActive();
+    return state.view !== "bye" && state.view !== "points" && state.view !== "tag" && !capPlanSummaryViewActive();
   }
 
   function positionFilterEnabledForView() {
@@ -1038,11 +1072,11 @@
   }
 
   function rosterStatusFilterEnabledForView() {
-    return !capPlanSummaryViewActive();
+    return state.view !== "tag" && !capPlanSummaryViewActive();
   }
 
   function teamJumpEnabledForView() {
-    return state.view === "roster" || (state.view === "contract" && !capPlanSummaryViewActive());
+    return state.view === "roster" || state.view === "tag" || (state.view === "contract" && !capPlanSummaryViewActive());
   }
 
   function scoringControlEnabledForView() {
@@ -1259,6 +1293,7 @@
     if (view === "contract") return capPlanSummaryViewActive() ? "Cap Plan Summary" : "Cap Plan";
     if (view === "points") return "Scoring";
     if (view === "bye") return "Bye Chart";
+    if (view === "tag") return "Tag Plan";
     return "Contract View";
   }
 
@@ -1420,6 +1455,435 @@
         player.extensionPreviews = normalizeExtensionPreviewRows(byKey[mapKey]);
       }
     }
+  }
+
+  function resolveTagTrackingUrl() {
+    var candidates = [
+      window.UPS_RWB_TAG_TRACKING_URL,
+      window.UPS_ROSTER_WORKBENCH_TAG_TRACKING_URL
+    ];
+    for (var i = 0; i < candidates.length; i += 1) {
+      var raw = safeStr(candidates[i]);
+      if (!raw) continue;
+      try {
+        return new URL(raw, window.location.href).toString();
+      } catch (e) {
+        return raw;
+      }
+    }
+
+    if (SCRIPT_BASE_URL) {
+      try {
+        return new URL("../ccc/tag_tracking.json", SCRIPT_BASE_URL).toString();
+      } catch (e) {}
+    }
+    return "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/ccc/tag_tracking.json";
+  }
+
+  function resolveTagSubmissionsUrl() {
+    var candidates = [
+      window.UPS_RWB_TAG_SUBMISSIONS_URL,
+      window.UPS_ROSTER_WORKBENCH_TAG_SUBMISSIONS_URL
+    ];
+    for (var i = 0; i < candidates.length; i += 1) {
+      var raw = safeStr(candidates[i]);
+      if (!raw) continue;
+      try {
+        return new URL(raw, window.location.href).toString();
+      } catch (e) {
+        return raw;
+      }
+    }
+
+    if (SCRIPT_BASE_URL) {
+      try {
+        return new URL("../ccc/tag_submissions.json", SCRIPT_BASE_URL).toString();
+      } catch (e) {}
+    }
+    return "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/ccc/tag_submissions.json";
+  }
+
+  function loadLocalTagSubmissionStore() {
+    return readLocalJson(LOCAL_TAG_SUBMISSIONS_KEY, {}) || {};
+  }
+
+  function saveLocalTagSubmissionStore(store) {
+    writeLocalJson(LOCAL_TAG_SUBMISSIONS_KEY, store || {});
+  }
+
+  function normalizeTagTrackingRow(raw) {
+    var row = raw || {};
+    var position = safeStr(row.position || row.pos);
+    var posGroup = safeStr(row.positional_grouping || row.positionalGrouping || row.pos_group || position).toUpperCase();
+    return {
+      league_id: safeStr(row.league_id || row.L || row.leagueId || (state.ctx && state.ctx.leagueId)),
+      source_season: safeStr(row.season || row.year),
+      franchise_id: pad4(row.franchise_id || row.franchiseId),
+      franchise_name: safeStr(row.franchise_name || row.franchiseName),
+      player_id: safeStr(row.player_id || row.playerId || row.id).replace(/\D/g, ""),
+      player_name: normalizePlayerName(row.player_name || row.playerName || row.name),
+      position: safeStr(position).toUpperCase(),
+      positional_grouping: posGroup || positionGroupKey(position),
+      side: getTagSideFromPos(posGroup || position) || normalizeTagSideValue(row.tag_side || row.side) || "OFFENSE",
+      points_total: safeNum(row.points_total, 0),
+      pos_rank: safeInt(row.pos_rank, 0),
+      tag_tier: safeInt(row.tag_tier, 0),
+      tag_salary: safeInt(row.tag_salary || row.tag_bid || row.salary, 0),
+      tag_formula: safeStr(row.tag_formula),
+      is_tag_eligible: safeInt(row.is_tag_eligible, 0),
+      contract_status: safeStr(row.contract_status),
+      contract_year: safeInt(row.contract_year, 0),
+      salary: safeInt(row.salary, 0),
+      aav: safeInt(row.aav, 0),
+      contract_info: safeStr(row.contract_info),
+      prior_aav_week1: safeInt(row.prior_aav_week1 || row.prior_aav, 0),
+      prior_salary_week1: safeInt(row.prior_salary_week1 || row.prior_salary || row.prior_contract_salary, 0)
+    };
+  }
+
+  function normalizeTagSubmissionEntry(raw) {
+    var row = raw || {};
+    var payload = row && typeof row.payload === "object" ? row.payload : null;
+    var position = safeStr(row.pos || row.position || row.positional_grouping || (payload && payload.position));
+    return {
+      league_id: safeStr(row.league_id || row.L || row.leagueId || (payload && (payload.league_id || payload.leagueId || payload.L))),
+      season: safeStr(row.season || row.year || (payload && (payload.season || payload.year || payload.YEAR))),
+      franchise_id: pad4(row.franchise_id || row.franchiseId || (payload && (payload.franchise_id || payload.franchiseId))),
+      franchise_name: safeStr(row.franchise_name || row.franchiseName || (payload && (payload.franchise_name || payload.franchiseName))),
+      player_id: safeStr(row.player_id || row.playerId || row.id || (payload && (payload.player_id || payload.playerId))).replace(/\D/g, ""),
+      player_name: normalizePlayerName(row.player_name || row.playerName || row.name || (payload && (payload.player_name || payload.playerName))),
+      pos: safeStr(position).toUpperCase(),
+      side: getTagSideFromPos(position) || normalizeTagSideValue(row.side || row.tag_side || (payload && payload.side)) || "OFFENSE",
+      tag_salary: safeInt(row.tag_salary || row.tag_bid || row.salary || (payload && payload.salary), 0),
+      tag_formula: safeStr(row.tag_formula || (payload && payload.tag_formula)),
+      tag_tier: safeInt(row.tag_tier || (payload && payload.tag_tier), 0),
+      submitted_at_utc: safeStr(row.submitted_at_utc || row.submitted_at || row.submittedAt || (payload && payload.submitted_at_utc)),
+      payload: payload || null,
+      row_snapshot: row && typeof row.row_snapshot === "object" ? row.row_snapshot : (payload && payload.row_snapshot) || null
+    };
+  }
+
+  function buildTagSelectionKey(season, franchiseId, side) {
+    var leagueId = safeStr(state.ctx && state.ctx.leagueId);
+    var seasonValue = safeStr(season);
+    var fid = pad4(franchiseId);
+    var tagSide = normalizeTagSideValue(side) || "OFFENSE";
+    return [leagueId, seasonValue, fid, tagSide].join("|");
+  }
+
+  function effectiveTagSalaryForRow(row) {
+    var ref = row || {};
+    var baseBid = safeInt(ref.tag_salary, 0);
+    var floorBase = Math.max(
+      safeInt(ref.prior_aav_week1, 0),
+      safeInt(ref.prior_salary_week1, 0),
+      safeInt(ref.aav, 0),
+      safeInt(ref.salary, 0)
+    );
+    var bumpFloor = floorBase > 0 ? Math.ceil((floorBase * 1.1) / 1000) * 1000 : 0;
+    return Math.max(baseBid, bumpFloor);
+  }
+
+  function effectiveTagFormulaForRow(row) {
+    var formula = safeStr(row && row.tag_formula);
+    var baseBid = safeInt(row && row.tag_salary, 0);
+    var effectiveBid = effectiveTagSalaryForRow(row);
+    if (effectiveBid > baseBid && formula.toLowerCase().indexOf("10%") === -1) {
+      formula += (formula ? " | " : "") + "10% salary floor (rounded up)";
+    }
+    return formula;
+  }
+
+  function pickTagTrackingSourceSeason(rows) {
+    var seasons = [];
+    var seen = Object.create(null);
+    for (var i = 0; i < rows.length; i += 1) {
+      var season = safeStr(rows[i] && rows[i].source_season);
+      if (!season || seen[season]) continue;
+      seen[season] = true;
+      seasons.push(season);
+    }
+    if (!seasons.length) return "";
+    seasons.sort(function (a, b) { return safeInt(a, 0) - safeInt(b, 0); });
+    var current = safeInt(state.ctx && state.ctx.year, currentYearInt());
+    var currentText = String(current);
+    var priorText = String(Math.max(0, current - 1));
+    if (seasons.indexOf(currentText) !== -1) return currentText;
+    if (siteIsOffseason() && seasons.indexOf(priorText) !== -1) return priorText;
+    return seasons[seasons.length - 1];
+  }
+
+  function effectiveTagCycleSeason(sourceSeason) {
+    var current = safeStr(state.ctx && state.ctx.year);
+    var source = safeStr(sourceSeason);
+    if (!current) return source;
+    if (source === current) return current;
+    if (siteIsOffseason() && safeInt(source, 0) === safeInt(current, 0) - 1) return current;
+    return source;
+  }
+
+  function buildTagContractInfo(row, salary) {
+    var amount = Math.max(0, safeInt(salary, 0));
+    var tier = safeInt(row && row.tag_tier, 0);
+    var formula = safeStr(effectiveTagFormulaForRow(row));
+    var parts = [
+      "CL 1",
+      "TCV " + formatContractK(amount),
+      "AAV " + formatContractK(amount),
+      "GTD " + formatContractK(amount)
+    ];
+    parts.push("Tag");
+    if (tier > 0) parts.push("Tier " + String(tier));
+    if (formula) parts.push("Formula: " + formula);
+    return parts.join("| ");
+  }
+
+  function tagRowKey(franchiseId, playerId) {
+    return pad4(franchiseId) + ":" + safeStr(playerId).replace(/\D/g, "");
+  }
+
+  function recomputeTeamSummary(team) {
+    if (!team) return team;
+    var players = team.players || [];
+    var taxiCount = 0;
+    var irCount = 0;
+    var capTotal = 0;
+    for (var i = 0; i < players.length; i += 1) {
+      var player = players[i] || {};
+      if (player.isTaxi) taxiCount += 1;
+      if (player.isIr) irCount += 1;
+      capTotal += currentCapHitForPlayer(player);
+    }
+    var adjustmentTotal = safeInt(team.summary && team.summary.salaryAdjustmentTotal, 0);
+    team.summary = {
+      players: players.length,
+      rosterPlayers: rosterCountForPlayers(players),
+      taxi: taxiCount,
+      ir: irCount,
+      capTotal: capTotal,
+      salaryAdjustmentTotal: adjustmentTotal,
+      salaryAdjustmentBreakdown: cloneSalaryAdjustmentBreakdown(team.summary && team.summary.salaryAdjustmentBreakdown),
+      compliance: deriveCompliance(capTotal + adjustmentTotal, state.salaryCapAmount)
+    };
+    return team;
+  }
+
+  function buildSyntheticTaggedPlayer(team, submission, row) {
+    var ref = row || submission && submission.row_snapshot || {};
+    var position = safeStr(ref.position || ref.pos || submission && submission.pos).toUpperCase();
+    var posGroup = safeStr(ref.positional_grouping || positionGroupKey(position)).toUpperCase();
+    var salary = Math.max(0, safeInt(submission && submission.tag_salary, effectiveTagSalaryForRow(ref)));
+    return enrichPlayer({
+      id: safeStr(submission && submission.player_id).replace(/\D/g, ""),
+      fid: pad4(team && team.id),
+      teamName: safeStr(team && team.name),
+      order: 100000 + Math.max(0, safeInt(submission && submission.at, 0)),
+      name: normalizePlayerName((submission && submission.player_name) || ref.player_name || ref.name),
+      position: position || "-",
+      nflTeam: safeStr(ref.nfl_team || ref.team).toUpperCase(),
+      points: 0,
+      bye: "",
+      salary: salary,
+      years: 1,
+      aav: salary,
+      type: "TAG",
+      special: buildTagContractInfo(ref, salary),
+      acquisitionText: "TAG PLAN",
+      status: "ACTIVE",
+      isTaxi: false,
+      isIr: false,
+      pointsByYear: Object.create(null),
+      pointsCumulative: 0,
+      extensionPreviews: [],
+      isSyntheticTag: true,
+      tagCycleSeason: safeStr(submission && submission.season),
+      positionGroup: posGroup || "OTHER"
+    });
+  }
+
+  function applyTagOverlayToTeams(teams) {
+    var list = Array.isArray(teams) ? teams : [];
+    var tagData = state.tagData;
+    if (!list.length || !tagData) return list;
+
+    var submissionKeys = Object.keys(tagData.submissionsByKey || {});
+    if (!submissionKeys.length) return list;
+
+    var rowMap = tagData.rowMapByPlayer || Object.create(null);
+    for (var i = 0; i < list.length; i += 1) {
+      var team = list[i];
+      if (!team) continue;
+      var fid = pad4(team.id);
+      var players = Array.isArray(team.players) ? team.players.slice() : [];
+      var changed = false;
+
+      for (var s = 0; s < submissionKeys.length; s += 1) {
+        var submission = tagData.submissionsByKey[submissionKeys[s]];
+        if (!submission || pad4(submission.franchise_id) !== fid) continue;
+        var pid = safeStr(submission.player_id).replace(/\D/g, "");
+        if (!pid) continue;
+        var refRow = rowMap[tagRowKey(fid, pid)] || submission.row_snapshot || null;
+        var existingIndex = -1;
+        for (var p = 0; p < players.length; p += 1) {
+          if (safeStr(players[p] && players[p].id).replace(/\D/g, "") === pid) {
+            existingIndex = p;
+            break;
+          }
+        }
+        if (existingIndex >= 0) {
+          var existing = players[existingIndex];
+          var nextSalary = Math.max(0, safeInt(submission.tag_salary, effectiveTagSalaryForRow(refRow)));
+          existing.salary = nextSalary;
+          existing.years = 1;
+          existing.aav = nextSalary;
+          existing.type = "TAG";
+          existing.special = buildTagContractInfo(refRow, nextSalary);
+          existing.status = normalizeStatus(existing.status) || "ACTIVE";
+          existing.isTaxi = false;
+          existing.isIr = false;
+          existing.isSyntheticTag = !!existing.isSyntheticTag;
+          existing.tagCycleSeason = safeStr(submission.season);
+          existing.positionGroup = positionGroupKey(existing.position);
+          players[existingIndex] = enrichPlayer(existing);
+        } else {
+          players.push(buildSyntheticTaggedPlayer(team, submission, refRow));
+        }
+        changed = true;
+      }
+
+      if (changed) {
+        team.players = players;
+        recomputeTeamSummary(team);
+      }
+    }
+    return list;
+  }
+
+  function syncTagPlanFromSources() {
+    var trackingRows = Array.isArray(state.tagTrackingRows) ? state.tagTrackingRows : [];
+    var submissionRows = Array.isArray(state.tagExternalSubmissions) ? state.tagExternalSubmissions : [];
+    var sourceSeason = pickTagTrackingSourceSeason(trackingRows);
+    var cycleSeason = effectiveTagCycleSeason(sourceSeason || (state.ctx && state.ctx.year));
+    var leagueId = safeStr(state.ctx && state.ctx.leagueId);
+    var rows = trackingRows.filter(function (row) {
+      return safeStr(row.source_season) === safeStr(sourceSeason) &&
+        safeInt(row.is_tag_eligible, 0) === 1 &&
+        (!leagueId || !safeStr(row.league_id) || safeStr(row.league_id) === leagueId);
+    });
+    rows.forEach(function (row) {
+      row.cycle_season = cycleSeason;
+      row.tag_salary = effectiveTagSalaryForRow(row);
+      row.tag_formula = effectiveTagFormulaForRow(row);
+    });
+
+    var rowMapByPlayer = Object.create(null);
+    rows.forEach(function (row) {
+      rowMapByPlayer[tagRowKey(row.franchise_id, row.player_id)] = row;
+    });
+
+    var externalSubmissionMap = Object.create(null);
+    submissionRows.forEach(function (row) {
+      if (!row) return;
+      if (safeStr(row.season) !== safeStr(cycleSeason)) return;
+      if (leagueId && safeStr(row.league_id) && safeStr(row.league_id) !== leagueId) return;
+      var key = buildTagSelectionKey(row.season, row.franchise_id, row.side);
+      externalSubmissionMap[key] = row;
+    });
+
+    var localStore = loadLocalTagSubmissionStore();
+    var localSubmissionMap = Object.create(null);
+    Object.keys(localStore || {}).forEach(function (key) {
+      var row = normalizeTagSubmissionEntry(localStore[key]);
+      if (!row.player_id || !row.franchise_id) return;
+      if (leagueId && safeStr(row.league_id) && safeStr(row.league_id) !== leagueId) return;
+      if (safeStr(row.season) !== safeStr(cycleSeason)) return;
+      localSubmissionMap[key] = row;
+    });
+
+    var merged = Object.create(null);
+    Object.keys(externalSubmissionMap).forEach(function (key) {
+      merged[key] = externalSubmissionMap[key];
+    });
+    Object.keys(localSubmissionMap).forEach(function (key) {
+      merged[key] = localSubmissionMap[key];
+    });
+
+    state.tagData = {
+      sourceSeason: sourceSeason,
+      cycleSeason: cycleSeason,
+      rows: rows,
+      rowMapByPlayer: rowMapByPlayer,
+      externalSubmissionsByKey: externalSubmissionMap,
+      localSubmissionsByKey: localSubmissionMap,
+      submissionsByKey: merged
+    };
+    applyTagOverlayToTeams(state.teams);
+    assignPositionalContractRanks(state.teams);
+  }
+
+  function loadTagPlanData() {
+    if (state.tagTrackingRows && state.tagExternalSubmissions) {
+      syncTagPlanFromSources();
+      return Promise.resolve(state.tagData);
+    }
+    if (state.tagDataPromise) return state.tagDataPromise;
+
+    state.tagDataLoading = true;
+    state.tagDataError = "";
+    if (state.view === "tag") {
+      renderToolbar();
+      renderTeams();
+    }
+
+    state.tagDataPromise = Promise.all([
+      fetchJson(resolveTagTrackingUrl(), { credentials: "omit", cache: "no-store" }).catch(function () { return {}; }),
+      fetchJson(resolveTagSubmissionsUrl(), { credentials: "omit", cache: "no-store" }).catch(function () { return {}; })
+    ]).then(function (parts) {
+      var trackingPayload = parts[0] || {};
+      var submissionsPayload = parts[1] || {};
+      var trackingRowsRaw = Array.isArray(trackingPayload)
+        ? trackingPayload
+        : Array.isArray(trackingPayload.rows)
+        ? trackingPayload.rows
+        : Array.isArray(trackingPayload.tag_tracking)
+        ? trackingPayload.tag_tracking
+        : [];
+      var submissionsRowsRaw = Array.isArray(submissionsPayload)
+        ? submissionsPayload
+        : Array.isArray(submissionsPayload.rows)
+        ? submissionsPayload.rows
+        : Array.isArray(submissionsPayload.submissions)
+        ? submissionsPayload.submissions
+        : [];
+
+      state.tagTrackingRows = trackingRowsRaw.map(normalizeTagTrackingRow).filter(function (row) {
+        return !!(row.player_id && row.franchise_id);
+      });
+      state.tagTrackingMeta = trackingPayload && trackingPayload.meta ? trackingPayload.meta : {};
+      state.tagExternalSubmissions = submissionsRowsRaw.map(normalizeTagSubmissionEntry).filter(function (row) {
+        return !!(row.player_id && row.franchise_id);
+      });
+      syncTagPlanFromSources();
+      state.tagDataLoading = false;
+      state.tagDataError = "";
+      state.tagDataPromise = null;
+      if (state.view === "tag") {
+        renderToolbar();
+        renderTeams();
+      }
+      return state.tagData;
+    }).catch(function (err) {
+      state.tagDataLoading = false;
+      state.tagDataError = "Unable to load tag plan data. " + summarizeError(err);
+      state.tagDataPromise = null;
+      if (state.view === "tag") {
+        renderToolbar();
+        renderTeams();
+      }
+      throw err;
+    });
+
+    return state.tagDataPromise;
   }
 
   function pointsHistoryMeta() {
@@ -1792,6 +2256,23 @@
   function writeStorage(name, value) {
     try {
       sessionStorage.setItem(storageKey(name), JSON.stringify(value));
+    } catch (e) {}
+  }
+
+  function readLocalJson(key, fallback) {
+    try {
+      var raw = localStorage.getItem(key);
+      if (!raw) return fallback;
+      var parsed = JSON.parse(raw);
+      return parsed && typeof parsed === "object" ? parsed : fallback;
+    } catch (e) {
+      return fallback;
+    }
+  }
+
+  function writeLocalJson(key, value) {
+    try {
+      localStorage.setItem(key, JSON.stringify(value || {}));
     } catch (e) {}
   }
 
@@ -3881,6 +4362,7 @@
                 '<div class="rwb-view-switch" role="tablist" aria-label="View mode">' +
                   '<button type="button" id="rwbViewRoster" class="rwb-btn rwb-btn-ghost is-active" data-action="view-switch" data-view="roster" role="tab" aria-selected="true">Contract View</button>' +
                   '<button type="button" id="rwbViewContract" class="rwb-btn rwb-btn-ghost" data-action="view-switch" data-view="contract" role="tab" aria-selected="false">Cap Plan</button>' +
+                  '<button type="button" id="rwbViewTag" class="rwb-btn rwb-btn-ghost" data-action="view-switch" data-view="tag" role="tab" aria-selected="false">Tag Plan</button>' +
                   '<button type="button" id="rwbViewBye" class="rwb-btn rwb-btn-ghost" data-action="view-switch" data-view="bye" role="tab" aria-selected="false">Bye Chart</button>' +
                   '<button type="button" id="rwbViewPoints" class="rwb-btn rwb-btn-ghost" data-action="view-switch" data-view="points" role="tab" aria-selected="false">Scoring</button>' +
                 '</div>' +
@@ -3960,6 +4442,7 @@
     els.teamList = document.getElementById("rwbTeamList");
     els.viewRoster = document.getElementById("rwbViewRoster");
     els.viewContract = document.getElementById("rwbViewContract");
+    els.viewTag = document.getElementById("rwbViewTag");
     els.viewPoints = document.getElementById("rwbViewPoints");
     els.viewBye = document.getElementById("rwbViewBye");
     els.playerModal = document.getElementById("rwbPlayerModal");
@@ -3985,6 +4468,15 @@
 
   function buildFilterOptionSets() {
     var groupsMap = Object.create(null);
+
+    if (state.view === "tag" && state.tagData && state.tagData.rows) {
+      for (var t = 0; t < state.tagData.rows.length; t += 1) {
+        var tagRow = state.tagData.rows[t] || {};
+        var tagGroup = safeStr(tagRow.positional_grouping || tagRow.position).toUpperCase();
+        if (!tagGroup) continue;
+        groupsMap[tagGroup] = true;
+      }
+    }
 
     for (var i = 0; i < state.teams.length; i += 1) {
       var team = state.teams[i] || {};
@@ -4176,14 +4668,17 @@
     if (els.viewRoster && els.viewContract && els.viewPoints) {
       var rosterActive = state.view === "roster";
       var contractActive = state.view === "contract";
+      var tagActive = state.view === "tag";
       var pointsActive = state.view === "points";
       var byeActive = state.view === "bye";
       els.viewRoster.classList.toggle("is-active", rosterActive);
       els.viewContract.classList.toggle("is-active", contractActive);
+      if (els.viewTag) els.viewTag.classList.toggle("is-active", tagActive);
       els.viewPoints.classList.toggle("is-active", pointsActive);
       if (els.viewBye) els.viewBye.classList.toggle("is-active", byeActive);
       els.viewRoster.setAttribute("aria-selected", rosterActive ? "true" : "false");
       els.viewContract.setAttribute("aria-selected", contractActive ? "true" : "false");
+      if (els.viewTag) els.viewTag.setAttribute("aria-selected", tagActive ? "true" : "false");
       els.viewPoints.setAttribute("aria-selected", pointsActive ? "true" : "false");
       if (els.viewBye) els.viewBye.setAttribute("aria-selected", byeActive ? "true" : "false");
     }
@@ -4208,6 +4703,8 @@
     parts.push(viewLabel(state.view));
     if (capPlanSummaryViewActive()) {
       parts.push("Showing " + visibleTeams + " of " + totalTeams + " teams");
+    } else if (state.view === "tag") {
+      parts.push("Showing " + visiblePlayers + " of " + totalPlayers + " tag candidates");
     } else {
       parts.push("Showing " + visiblePlayers + " of " + totalPlayers + " players");
     }
@@ -4237,6 +4734,16 @@
       parts.push("Weighted by " + (byeSeason ? (byeSeason + " PPG rank") : "latest completed-season PPG rank"));
       parts.push("Shows bye-impact score plus players for each week");
       if (state.filterByeImpact) parts.push(byeImpactFilterLabel(state.filterByeImpact));
+    } else if (state.view === "tag") {
+      if (state.tagData && safeStr(state.tagData.sourceSeason)) {
+        parts.push("Prior season " + safeStr(state.tagData.sourceSeason));
+      }
+      if (state.tagData && safeStr(state.tagData.cycleSeason)) {
+        parts.push("Tag cycle " + safeStr(state.tagData.cycleSeason));
+      }
+      parts.push("One offense and one defense tag can be active per team");
+      if (state.tagDataLoading) parts.push("Loading tag plan");
+      if (state.tagDataError) parts.push("Tag data unavailable");
     }
 
     els.note.textContent = parts.join(" | ");
@@ -4421,6 +4928,96 @@
     return !!player && (isOwnRosterPlayer(player) || viewerCanManageAnyRoster());
   }
 
+  function canManageTagForTeam(teamId) {
+    var fid = pad4(teamId);
+    var viewer = pad4(state.viewerFranchiseId || (state.ctx && state.ctx.franchiseId));
+    if (!fid) return false;
+    return !!(viewerCanManageAnyRoster() || (viewer && viewer === fid));
+  }
+
+  function currentTagPlanRows() {
+    return state.tagData && Array.isArray(state.tagData.rows) ? state.tagData.rows : [];
+  }
+
+  function tagSubmissionKeyForPlayer(franchiseId, playerId, side) {
+    var fid = pad4(franchiseId);
+    var pid = safeStr(playerId).replace(/\D/g, "");
+    var tagSide = normalizeTagSideValue(side) || "OFFENSE";
+    var key = buildTagSelectionKey(state.tagData && state.tagData.cycleSeason, fid, tagSide);
+    var submissions = state.tagData && state.tagData.submissionsByKey ? state.tagData.submissionsByKey : {};
+    if (submissions[key] && safeStr(submissions[key].player_id).replace(/\D/g, "") === pid) return key;
+    var keys = Object.keys(submissions);
+    for (var i = 0; i < keys.length; i += 1) {
+      var row = submissions[keys[i]] || {};
+      if (pad4(row.franchise_id) !== fid) continue;
+      if ((normalizeTagSideValue(row.side) || "OFFENSE") !== tagSide) continue;
+      if (safeStr(row.player_id).replace(/\D/g, "") !== pid) continue;
+      return keys[i];
+    }
+    return key;
+  }
+
+  function findTagPlanRow(franchiseId, playerId) {
+    var fid = pad4(franchiseId);
+    var pid = safeStr(playerId).replace(/\D/g, "");
+    var rows = currentTagPlanRows();
+    for (var i = 0; i < rows.length; i += 1) {
+      var row = rows[i] || {};
+      if (pad4(row.franchise_id) !== fid) continue;
+      if (safeStr(row.player_id).replace(/\D/g, "") !== pid) continue;
+      return row;
+    }
+    return null;
+  }
+
+  function activeTaggedPlayerForTeamSide(team, side) {
+    var players = team && team.players ? team.players : [];
+    var normalizedSide = normalizeTagSideValue(side) || "OFFENSE";
+    for (var i = 0; i < players.length; i += 1) {
+      var player = players[i] || {};
+      if (safeStr(player.type).toUpperCase() !== "TAG") continue;
+      if ((getTagSideFromPos(player.positionGroup || player.position) || "OFFENSE") !== normalizedSide) continue;
+      return player;
+    }
+    return null;
+  }
+
+  function tagRowMatchesFilters(row) {
+    if (!row) return false;
+
+    if (searchFilterEnabledForView() && state.search) {
+      var hay = [
+        row.player_name,
+        row.position,
+        row.positional_grouping,
+        positionGroupLabel(row.positional_grouping),
+        row.franchise_name,
+        tagSideLabel(row.side),
+        "Tier " + String(safeInt(row.tag_tier, 0)),
+        row.tag_formula
+      ].join(" ").toLowerCase();
+      if (hay.indexOf(state.search) === -1) return false;
+    }
+
+    if (state.filterPosition && safeStr(row.positional_grouping).toUpperCase() !== state.filterPosition) {
+      return false;
+    }
+
+    return true;
+  }
+
+  function sortTagRows(rows) {
+    return (rows || []).slice().sort(function (a, b) {
+      var sideDelta = compareText(tagSideLabel(a.side), tagSideLabel(b.side));
+      if (sideDelta !== 0) return sideDelta;
+      var posDelta = positionSortValue(a.positional_grouping) - positionSortValue(b.positional_grouping);
+      if (posDelta !== 0) return posDelta;
+      var salaryDelta = safeInt(b.tag_salary, 0) - safeInt(a.tag_salary, 0);
+      if (salaryDelta !== 0) return salaryDelta;
+      return compareText(a.player_name, b.player_name);
+    });
+  }
+
   function buildLeagueModuleUrl(moduleValue, params) {
     var base =
       window.location.origin +
@@ -4526,6 +5123,11 @@
         '<button type="button" class="rwb-modal-action" data-action="trade-player" data-player-id="' + escapeHtml(player.id) + '" data-franchise-id="' + escapeHtml(player.fid) + '">Trade</button>'
       );
       if (canManage) {
+        if (safeStr(player.type).toUpperCase() === "TAG") {
+          actions.push(
+            '<button type="button" class="rwb-modal-action" data-action="untag-player" data-player-id="' + escapeHtml(player.id) + '" data-franchise-id="' + escapeHtml(player.fid) + '">Untag</button>'
+          );
+        }
         for (var i = 0; i < extensionOptions.length; i += 1) {
           var extensionOption = extensionOptions[i];
           actions.push(
@@ -5544,6 +6146,119 @@
     );
   }
 
+  function filteredTagRowsForTeam(team) {
+    var fid = pad4(team && team.id);
+    var out = [];
+    var rows = currentTagPlanRows();
+    for (var i = 0; i < rows.length; i += 1) {
+      var row = rows[i] || {};
+      if (pad4(row.franchise_id) !== fid) continue;
+      if (!tagRowMatchesFilters(row)) continue;
+      out.push(row);
+    }
+    return sortTagRows(out);
+  }
+
+  function countTagRowsForTeam(team) {
+    var fid = pad4(team && team.id);
+    var count = 0;
+    var rows = currentTagPlanRows();
+    for (var i = 0; i < rows.length; i += 1) {
+      if (pad4(rows[i] && rows[i].franchise_id) === fid) count += 1;
+    }
+    return count;
+  }
+
+  function tagStatusChipHtml(team, side) {
+    var activePlayer = activeTaggedPlayerForTeamSide(team, side);
+    var label = tagSideLabel(side);
+    if (!activePlayer) {
+      return '<span class="rwb-chip"><span class="rwb-chip-label">' + escapeHtml(label) + ' Tag</span><span class="rwb-chip-value">Open</span></span>';
+    }
+    return '<span class="rwb-chip is-good" title="' + escapeHtml(activePlayer.name) + '"><span class="rwb-chip-label">' + escapeHtml(label) + ' Tag</span><span class="rwb-chip-value">' + escapeHtml(activePlayer.name) + '</span></span>';
+  }
+
+  function tagPlanTeamCardHtml(team, rows) {
+    var list = rows || [];
+    var totalEligible = countTagRowsForTeam(team);
+    var canManage = canManageTagForTeam(team && team.id);
+    var bodyRows = [];
+
+    for (var i = 0; i < list.length; i += 1) {
+      var row = list[i] || {};
+      var activeSidePlayer = activeTaggedPlayerForTeamSide(team, row.side);
+      var activePid = safeStr(activeSidePlayer && activeSidePlayer.id).replace(/\D/g, "");
+      var rowPid = safeStr(row.player_id).replace(/\D/g, "");
+      var isActive = !!activePid && activePid === rowPid;
+      var locked = !!activeSidePlayer && !isActive;
+      var actionHtml = '<span class="rwb-row-action-placeholder">—</span>';
+      if (canManage) {
+        if (isActive) {
+          actionHtml =
+            '<button type="button" class="rwb-row-action" data-action="untag-player" data-player-id="' + escapeHtml(row.player_id) + '" data-franchise-id="' + escapeHtml(team.id) + '">Untag</button>';
+        } else if (locked) {
+          actionHtml =
+            '<button type="button" class="rwb-row-action is-disabled" disabled title="' + escapeHtml(tagSideLabel(row.side) + ' tag already used by ' + safeStr(activeSidePlayer && activeSidePlayer.name)) + '">Locked</button>';
+        } else {
+          actionHtml =
+            '<button type="button" class="rwb-row-action" data-action="tag-player" data-player-id="' + escapeHtml(row.player_id) + '" data-franchise-id="' + escapeHtml(team.id) + '">Tag</button>';
+        }
+      }
+
+      bodyRows.push(
+        '<tr class="' + (isActive ? 'rwb-tag-plan-row is-active' : 'rwb-tag-plan-row') + '">' +
+          '<td>' +
+            '<div class="rwb-player-name-wrap">' +
+              '<div class="rwb-player-line">' +
+                '<span class="rwb-pos-pill">' + escapeHtml(row.positional_grouping) + '</span>' +
+                '<span class="rwb-player-name">' + escapeHtml(row.player_name) + '</span>' +
+                (isActive ? '<span class="rwb-tag is-tagged">Tagged</span>' : '') +
+              '</div>' +
+              '<div class="rwb-points-player-sub">Prior season ' + escapeHtml(safeStr(state.tagData && state.tagData.sourceSeason)) + '</div>' +
+            '</div>' +
+          '</td>' +
+          '<td><span class="rwb-tag-side-pill is-' + escapeHtml(normalizeTagSideValue(row.side).toLowerCase()) + '">' + escapeHtml(tagSideLabel(row.side)) + '</span></td>' +
+          '<td class="rwb-cell-num">' + escapeHtml(formatPoints(row.points_total)) + '</td>' +
+          '<td class="rwb-cell-num">' + escapeHtml(formatRank(row.pos_rank)) + '</td>' +
+          '<td class="rwb-cell-num">' + escapeHtml(safeInt(row.tag_tier, 0) > 0 ? ('Tier ' + String(safeInt(row.tag_tier, 0))) : '—') + '</td>' +
+          '<td class="rwb-cell-num">' + escapeHtml(formatContractK(effectiveTagSalaryForRow(row))) + '</td>' +
+          '<td class="rwb-tag-calc-cell">' + escapeHtml(effectiveTagFormulaForRow(row) || "—") + '</td>' +
+          '<td class="rwb-cell-num">' + actionHtml + '</td>' +
+        '</tr>'
+      );
+    }
+
+    return (
+      '<article class="rwb-team-card rwb-tag-plan-card" id="rwb-team-' + escapeHtml(team.id) + '" data-team-id="' + escapeHtml(team.id) + '">' +
+        teamHeaderHtml(team, team.players || []) +
+        '<div class="rwb-team-body">' +
+          '<div class="rwb-tag-plan-summary">' +
+            '<span class="rwb-chip"><span class="rwb-chip-label">Eligible</span><span class="rwb-chip-value">' + escapeHtml(String(list.length) + '/' + String(totalEligible)) + '</span></span>' +
+            tagStatusChipHtml(team, "OFFENSE") +
+            tagStatusChipHtml(team, "DEFENSE") +
+          '</div>' +
+          '<div class="rwb-table-wrap">' +
+            '<table class="rwb-table rwb-tag-plan-table" aria-label="' + escapeHtml(team.name + ' tag plan') + '">' +
+              '<thead>' +
+                '<tr>' +
+                  '<th>Player</th>' +
+                  '<th>Side</th>' +
+                  '<th>Prior Pts</th>' +
+                  '<th>Pos Rk</th>' +
+                  '<th>Tier</th>' +
+                  '<th>Tag Cost</th>' +
+                  '<th>Tag Calc</th>' +
+                  '<th>Action</th>' +
+                '</tr>' +
+              '</thead>' +
+              '<tbody>' + bodyRows.join("") + '</tbody>' +
+            '</table>' +
+          '</div>' +
+        '</div>' +
+      '</article>'
+    );
+  }
+
   function teamCardHtml(team, rosterGroupSummaryMap) {
     var filtered = filteredPlayersForTeam(team);
 
@@ -5656,7 +6371,22 @@
   function renderTeams() {
     if (!els.teamList) return;
 
-     if (state.view === "points") {
+    if (state.view === "tag") {
+      if (state.tagDataLoading && !state.tagData) {
+        els.teamList.innerHTML = '<div class="rwb-loading">Loading tag plan...</div>';
+        renderToolbarNote(0, 0, 0, state.teams.length);
+        renderPlayerActionModal();
+        return;
+      }
+      if (state.tagDataError && !state.tagData) {
+        els.teamList.innerHTML = '<div class="rwb-error">' + escapeHtml(state.tagDataError) + '</div>';
+        renderToolbarNote(0, 0, 0, state.teams.length);
+        renderPlayerActionModal();
+        return;
+      }
+    }
+
+    if (state.view === "points") {
       if (state.pointsHistoryLoading && !state.pointsHistory) {
         els.teamList.innerHTML = '<div class="rwb-loading">Loading stored points history...</div>';
         renderToolbarNote(0, 0, 0, state.teams.length);
@@ -5682,6 +6412,20 @@
 
     for (var i = 0; i < state.teams.length; i += 1) {
       var team = state.teams[i] || {};
+      if (state.view === "tag") {
+        var teamTagTotal = countTagRowsForTeam(team);
+        var tagRows = filteredTagRowsForTeam(team);
+        totalPlayers += teamTagTotal;
+        visiblePlayers += tagRows.length;
+        if (!tagRows.length) continue;
+        visibleTeams.push({
+          team: team,
+          filteredPlayers: tagRows
+        });
+        html.push(tagPlanTeamCardHtml(team, tagRows));
+        continue;
+      }
+
       totalPlayers += (team.players || []).length;
       var filteredPlayers = summaryMode ? (team.players || []) : filteredPlayersForTeam(team);
       visiblePlayers += summaryMode ? (team.players || []).length : filteredPlayers.length;
@@ -5842,7 +6586,7 @@
       state.view = "contract";
       state.contractSubView = "summary";
     } else {
-      state.view = storedView === "contract" || storedView === "points" || storedView === "bye" ? storedView : "roster";
+      state.view = storedView === "contract" || storedView === "points" || storedView === "bye" || storedView === "tag" ? storedView : "roster";
     }
     state.pointsMode = safeStr(readStorage("pointsMode", ""));
     state.pointsHistoryMode = safeStr(readStorage("pointsHistoryMode", defaultPointsHistoryMode()));
@@ -6034,6 +6778,10 @@
     return loadData(state.ctx, { noCache: !!noCache })
       .then(function (result) {
         state.teams = sortTeamsForDisplay(result.teams || []);
+        if (state.tagData) {
+          applyTagOverlayToTeams(state.teams);
+          assignPositionalContractRanks(state.teams);
+        }
         state.salaryCapAmount = safeInt(result.leagueMeta && result.leagueMeta.capAmount, 0);
         state.pointYears = (result.pointYears && result.pointYears.length)
           ? result.pointYears.slice()
@@ -6044,8 +6792,9 @@
           ? loadPointsHistory().catch(function () { return null; })
           : Promise.resolve(null);
         var adminPromise = loadViewerAdminState(state.ctx);
+        var tagPromise = loadTagPlanData().catch(function () { return null; });
 
-        return Promise.all([historyPromise, adminPromise]).then(function () {
+        return Promise.all([historyPromise, adminPromise, tagPromise]).then(function () {
           state.pointsMode = normalizeRosterPointMode(state.pointsMode);
           renderToolbar();
           renderTeams();
@@ -6097,6 +6846,16 @@
       state.busyActionKey = "";
       renderTeams();
       setFlash("error", "Roster move failed: " + summarizeError(err));
+    });
+  }
+
+  function submitWorkerRosterAction(action, franchiseId, playerId) {
+    return fetchJsonPost(resolveWorkerActionEndpoint(), {
+      action: action,
+      league_id: state.ctx && state.ctx.leagueId,
+      season: state.ctx && state.ctx.year,
+      franchise_id: franchiseId,
+      player_id: playerId
     });
   }
 
@@ -6155,6 +6914,146 @@
     });
   }
 
+  function saveTagSubmissionToLocalStore(row) {
+    var store = loadLocalTagSubmissionStore();
+    var season = safeStr(state.tagData && state.tagData.cycleSeason);
+    var side = normalizeTagSideValue(row && row.side) || "OFFENSE";
+    var key = buildTagSelectionKey(season, row && row.franchise_id, side);
+    store[key] = {
+      league_id: safeStr(state.ctx && state.ctx.leagueId),
+      season: season,
+      franchise_id: pad4(row && row.franchise_id),
+      franchise_name: safeStr(row && row.franchise_name),
+      player_id: safeStr(row && row.player_id),
+      player_name: safeStr(row && row.player_name),
+      pos: safeStr(row && row.position),
+      side: side,
+      tag_salary: effectiveTagSalaryForRow(row),
+      tag_formula: effectiveTagFormulaForRow(row),
+      tag_tier: safeInt(row && row.tag_tier, 0),
+      submitted_at_utc: new Date().toISOString(),
+      row_snapshot: row || null
+    };
+    saveLocalTagSubmissionStore(store);
+    return key;
+  }
+
+  function removeTagSubmissionFromLocalStore(key) {
+    var store = loadLocalTagSubmissionStore();
+    if (safeStr(key) && store && Object.prototype.hasOwnProperty.call(store, key)) {
+      delete store[key];
+      saveLocalTagSubmissionStore(store);
+    }
+  }
+
+  function buildTagContractPayload(row) {
+    var salary = effectiveTagSalaryForRow(row);
+    return {
+      L: safeStr(state.ctx && state.ctx.leagueId),
+      YEAR: safeStr(state.ctx && state.ctx.year),
+      type: "MANUAL_CONTRACT_UPDATE",
+      leagueId: safeStr(state.ctx && state.ctx.leagueId),
+      year: safeStr(state.ctx && state.ctx.year),
+      player_id: safeStr(row && row.player_id),
+      player_name: safeStr(row && row.player_name),
+      franchise_id: pad4(row && row.franchise_id),
+      franchise_name: safeStr(row && row.franchise_name),
+      position: safeStr(row && row.position),
+      salary: salary,
+      contract_year: 1,
+      contract_status: "TAG",
+      contract_info: buildTagContractInfo(row, salary),
+      submitted_at_utc: new Date().toISOString(),
+      commish_override_flag: viewerCanManageAnyRoster() ? 1 : 0
+    };
+  }
+
+  function submitTagPlanSelection(row) {
+    if (!row) return Promise.resolve(null);
+
+    var confirmText =
+      "Tag " + safeStr(row.player_name) + " for " + formatContractK(effectiveTagSalaryForRow(row)) + "?\n\n" +
+      "Side: " + tagSideLabel(row.side) + "\n" +
+      "Prior Season Points: " + formatPoints(row.points_total) + "\n" +
+      "Positional Rank: " + formatRank(row.pos_rank) + "\n" +
+      "Tier: " + (safeInt(row.tag_tier, 0) > 0 ? ("Tier " + String(safeInt(row.tag_tier, 0))) : "—") + "\n" +
+      "Tag Calc: " + safeStr(effectiveTagFormulaForRow(row) || "—");
+    if (!window.confirm(confirmText)) return Promise.resolve(null);
+
+    var moveKey = "tag:" + safeStr(row.player_id);
+    var payload = buildTagContractPayload(row);
+    var membershipResult = null;
+
+    state.busyActionKey = moveKey;
+    setFlash("success", "Applying tag for " + safeStr(row.player_name) + "...");
+    renderTeams();
+
+    return submitWorkerRosterAction("load_player", row.franchise_id, row.player_id).then(function (membershipPayload) {
+      membershipResult = membershipPayload || null;
+      return postContractUpdate(
+        resolveWorkerContractUpdateEndpoint() +
+          "?L=" + encodeURIComponent(payload.L) +
+          "&YEAR=" + encodeURIComponent(payload.YEAR),
+        payload
+      );
+    }).then(function () {
+      saveTagSubmissionToLocalStore(row);
+      return loadTagPlanData().catch(function () { return null; }).then(function () {
+        state.busyActionKey = "";
+        return refreshData(true).then(function () {
+          var membershipMessage = safeStr(membershipResult && membershipResult.message);
+          setFlash(
+            "success",
+            membershipMessage
+              ? (safeStr(row.player_name) + " tagged. " + membershipMessage)
+              : (safeStr(row.player_name) + " tagged and loaded into Front Office.")
+          );
+        });
+      });
+    }).catch(function (err) {
+      var shouldRollback = !!(membershipResult && membershipResult.ok && !membershipResult.skipped);
+      var rollbackPromise = shouldRollback
+        ? submitWorkerRosterAction("unload_player", row.franchise_id, row.player_id).catch(function () { return null; })
+        : Promise.resolve(null);
+      return rollbackPromise.then(function () {
+        state.busyActionKey = "";
+        renderTeams();
+        setFlash(
+          "error",
+          "Tag failed: " + summarizeError(err) + (shouldRollback ? " Player was unloaded from the roster." : "")
+        );
+      });
+    });
+  }
+
+  function submitUntagPlayer(player) {
+    if (!player) return Promise.resolve(null);
+    if (!window.confirm("Untag " + safeStr(player.name) + "?")) return Promise.resolve(null);
+
+    var side = getTagSideFromPos(player.positionGroup || player.position) || "OFFENSE";
+    var submissionKey = tagSubmissionKeyForPlayer(player.fid, player.id, side);
+    var moveKey = "untag:" + safeStr(player.id);
+
+    state.busyActionKey = moveKey;
+    setFlash("success", "Removing tag for " + safeStr(player.name) + "...");
+    closePlayerActionModal();
+    renderTeams();
+
+    return submitWorkerRosterAction("unload_player", player.fid, player.id).then(function (payload) {
+      removeTagSubmissionFromLocalStore(submissionKey);
+      return loadTagPlanData().catch(function () { return null; }).then(function () {
+        state.busyActionKey = "";
+        return refreshData(true).then(function () {
+          setFlash("success", safeStr(player.name) + " untagged. " + safeStr(payload && payload.message));
+        });
+      });
+    }).catch(function (err) {
+      state.busyActionKey = "";
+      renderTeams();
+      setFlash("error", "Untag failed: " + summarizeError(err));
+    });
+  }
+
   function onClick(evt) {
     var target = evt.target;
     if (!target || !target.closest) return;
@@ -6179,17 +7078,20 @@
     var viewBtn = target.closest("[data-action='view-switch']");
     if (viewBtn) {
       var nextView = safeStr(viewBtn.getAttribute("data-view"));
-      if (nextView !== "contract" && nextView !== "roster" && nextView !== "points" && nextView !== "bye") return;
+      if (nextView !== "contract" && nextView !== "roster" && nextView !== "points" && nextView !== "bye" && nextView !== "tag") return;
       if (state.view !== nextView) {
         state.view = nextView;
         persistState();
         renderToolbar();
         renderTeams();
-        if (state.view === "points" || state.view === "bye") {
-          loadPointsHistory().then(function () {
-            if (state.view === "points") return ensureLiveSeasonPointsForSelection(false);
-            return null;
-          }).catch(function () {});
+        if (state.view === "points" || state.view === "bye" || state.view === "tag") {
+          var followUp = state.view === "tag"
+            ? loadTagPlanData()
+            : loadPointsHistory().then(function () {
+                if (state.view === "points") return ensureLiveSeasonPointsForSelection(false);
+                return null;
+              });
+          followUp.catch(function () {});
         }
       }
       return;
@@ -6341,6 +7243,48 @@
       if (!canManageRosterPlayer(restructureRecord.player)) return;
       if (!rosterContractEligibility(restructureRecord.player).restructureEligible) return;
       window.location.href = buildContractCenterActionUrl("restructure", restructureRecord.player);
+      return;
+    }
+
+    var tagPlanBtn = target.closest("[data-action='tag-player']");
+    if (tagPlanBtn) {
+      if (state.busyActionKey) return;
+      var tagRow = findTagPlanRow(
+        pad4(tagPlanBtn.getAttribute("data-franchise-id")),
+        safeStr(tagPlanBtn.getAttribute("data-player-id"))
+      );
+      if (!tagRow || !canManageTagForTeam(tagRow.franchise_id)) return;
+      submitTagPlanSelection(tagRow);
+      return;
+    }
+
+    var untagBtn = target.closest("[data-action='untag-player']");
+    if (untagBtn) {
+      if (state.busyActionKey) return;
+      var untagRecord = findPlayerRecord(
+        pad4(untagBtn.getAttribute("data-franchise-id")),
+        safeStr(untagBtn.getAttribute("data-player-id"))
+      );
+      if (!untagRecord || !untagRecord.player) {
+        var fallbackRow = findTagPlanRow(
+          pad4(untagBtn.getAttribute("data-franchise-id")),
+          safeStr(untagBtn.getAttribute("data-player-id"))
+        );
+        if (!fallbackRow || !canManageTagForTeam(fallbackRow.franchise_id)) return;
+        submitUntagPlayer(buildSyntheticTaggedPlayer(findTeamById(fallbackRow.franchise_id) || { id: fallbackRow.franchise_id, name: fallbackRow.franchise_name }, normalizeTagSubmissionEntry({
+          franchise_id: fallbackRow.franchise_id,
+          franchise_name: fallbackRow.franchise_name,
+          player_id: fallbackRow.player_id,
+          player_name: fallbackRow.player_name,
+          pos: fallbackRow.position,
+          side: fallbackRow.side,
+          tag_salary: fallbackRow.tag_salary,
+          season: state.tagData && state.tagData.cycleSeason
+        }), fallbackRow));
+        return;
+      }
+      if (!canManageRosterPlayer(untagRecord.player) && !canManageTagForTeam(untagRecord.player.fid)) return;
+      submitUntagPlayer(untagRecord.player);
       return;
     }
 

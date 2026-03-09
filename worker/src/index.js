@@ -39,6 +39,9 @@ export default {
         path !== "/refresh/after-trade" &&
         path !== "/trade-pending" &&
         path !== "/salary-alignment-check" &&
+        path !== "/admin/test-sync/prod-rosters" &&
+        path !== "/admin/test-sync/prod-statuses" &&
+        path !== "/admin/test-sync/prod-salaries" &&
         path !== "/bug-report" &&
         path !== "/bug-reports" &&
         path !== "/extension-assistant" &&
@@ -974,6 +977,28 @@ export default {
           fallback_without_apikey_error: second.error || "",
           fallback_without_apikey_status: safeInt(second.status, 0),
         };
+      };
+
+      const mflExportJsonForCookie = async (cookieHeaderOverride, year, leagueId, type, extraParams = {}, options = {}) => {
+        const cacheBust = options.cacheBust !== false;
+        const baseQs = new URLSearchParams({
+          TYPE: String(type || "").trim(),
+          L: String(leagueId || "").trim(),
+          JSON: "1",
+        });
+        if (cacheBust) baseQs.set("_", String(Date.now()));
+        for (const [k, v] of Object.entries(extraParams || {})) {
+          if (v == null) continue;
+          const s = String(v).trim();
+          if (!s) continue;
+          baseQs.set(k, s);
+        }
+        const headers = { "User-Agent": "upsmflproduction-worker" };
+        if (options.useCookie !== false && cookieHeaderOverride) headers.Cookie = cookieHeaderOverride;
+        const baseHost =
+          `https://api.myfantasyleague.com/${encodeURIComponent(String(year || YEAR || new Date().getUTCFullYear()))}`;
+        const url = `${baseHost}/export?${baseQs.toString()}`;
+        return fetchMflJson(url, headers);
       };
 
       const mflExportJsonWithRetry = async (
@@ -2782,6 +2807,389 @@ export default {
           formFields: Object.fromEntries(form.entries()),
           error: requestOk ? "" : (payloadErr || `MFL import failed (HTTP ${res.status})`),
         };
+      };
+
+      const resolveMflImportTargetUrlForCookie = async (cookieHeaderOverride, season, probeFields) => {
+        const baseImportUrl =
+          `https://api.myfantasyleague.com/${encodeURIComponent(String(season || YEAR || new Date().getUTCFullYear()))}` +
+          "/import";
+        const probeQs = new URLSearchParams();
+        for (const [k, v] of Object.entries(probeFields || {})) {
+          if (v == null) continue;
+          const s = String(v).trim();
+          if (!s) continue;
+          probeQs.set(k, s);
+        }
+        const probeUrl = probeQs.toString() ? `${baseImportUrl}?${probeQs.toString()}` : baseImportUrl;
+        let targetImportUrl = probeUrl;
+        try {
+          const probeRes = await fetch(probeUrl, {
+            method: "GET",
+            redirect: "manual",
+            headers: {
+              Cookie: cookieHeaderOverride,
+              "User-Agent": "upsmflproduction-worker",
+            },
+            cf: { cacheTtl: 0, cacheEverything: false },
+          });
+          const loc = probeRes.headers.get("Location") || probeRes.headers.get("location");
+          if (probeRes.status >= 300 && probeRes.status < 400 && loc) {
+            targetImportUrl = new URL(loc, probeUrl).toString();
+          }
+        } catch (_) {}
+        return targetImportUrl;
+      };
+
+      const postMflImportFormForCookie = async (cookieHeaderOverride, season, formFields, probeFields, requestOptions = {}) => {
+        const form = new URLSearchParams();
+        for (const [k, v] of Object.entries(formFields || {})) {
+          if (v == null) continue;
+          const s = String(v).trim();
+          if (!s) continue;
+          form.set(k, s);
+        }
+        const targetImportUrl = await resolveMflImportTargetUrlForCookie(
+          cookieHeaderOverride,
+          season,
+          probeFields || formFields
+        );
+        const method = safeStr(requestOptions.method || "POST").toUpperCase() === "GET" ? "GET" : "POST";
+        let requestUrl = targetImportUrl;
+        if (method === "GET") {
+          try {
+            const u = new URL(targetImportUrl);
+            for (const [k, v] of form.entries()) u.searchParams.set(k, v);
+            requestUrl = u.toString();
+          } catch (_) {
+            requestUrl = targetImportUrl;
+          }
+        }
+        let res;
+        let text = "";
+        try {
+          res = await fetch(requestUrl, {
+            method,
+            headers: {
+              Cookie: cookieHeaderOverride,
+              "User-Agent": "upsmflproduction-worker",
+              ...(method === "POST"
+                ? { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" }
+                : {}),
+            },
+            body: method === "POST" ? form.toString() : undefined,
+            redirect: "manual",
+            cf: { cacheTtl: 0, cacheEverything: false },
+          });
+          text = await res.text();
+        } catch (e) {
+          return {
+            ok: false,
+            requestOk: false,
+            status: 0,
+            text: "",
+            upstreamPreview: "",
+            targetImportUrl: requestUrl,
+            formFields: Object.fromEntries(form.entries()),
+            error: `fetch_failed: ${e?.message || String(e)}`,
+          };
+        }
+        let parsedJson = null;
+        try {
+          parsedJson = text ? JSON.parse(text) : null;
+        } catch (_) {
+          parsedJson = null;
+        }
+        const payloadErr = parsedJson ? mflErrorFromJsonPayload(parsedJson) : "";
+        const requestOk = isLikelyMflImportSuccess(res, text) && !payloadErr;
+        return {
+          ok: requestOk,
+          requestOk,
+          status: res.status,
+          text,
+          upstreamPreview: String(text || "").slice(0, 1200),
+          targetImportUrl: requestUrl,
+          formFields: Object.fromEntries(form.entries()),
+          error: requestOk ? "" : (payloadErr || `MFL import failed (HTTP ${res.status})`),
+        };
+      };
+
+      const fetchTextWithCookie = async (targetUrl, cookieHeaderOverride, options = {}) => {
+        const res = await fetch(targetUrl, {
+          method: safeStr(options.method || "GET").toUpperCase() || "GET",
+          headers: {
+            Cookie: cookieHeaderOverride,
+            "User-Agent": "upsmflproduction-worker",
+            ...(options.contentType ? { "Content-Type": options.contentType } : {}),
+          },
+          body: options.body,
+          redirect: safeStr(options.redirect || "follow").toLowerCase() === "manual" ? "manual" : "follow",
+          cf: { cacheTtl: 0, cacheEverything: false },
+        });
+        return { status: res.status, url: res.url, text: await res.text(), headers: res.headers };
+      };
+
+      const parseCookieHeaderMap = (rawHeader) => {
+        const out = new Map();
+        for (const part of String(rawHeader || "").split(";")) {
+          const idx = part.indexOf("=");
+          if (idx <= 0) continue;
+          const key = part.slice(0, idx).trim();
+          const value = part.slice(idx + 1).trim();
+          if (!key) continue;
+          out.set(key, value);
+        }
+        return out;
+      };
+
+      const parseSetCookiePairs = (headers) => {
+        const rawValues = typeof headers?.getSetCookie === "function"
+          ? headers.getSetCookie()
+          : [headers?.get("set-cookie")].filter(Boolean);
+        const out = [];
+        for (const raw of rawValues) {
+          const pieces = String(raw || "").split(/,(?=[^;,]+=)/g);
+          for (const piece of pieces) {
+            const first = String(piece || "").split(";")[0];
+            const idx = first.indexOf("=");
+            if (idx <= 0) continue;
+            const key = first.slice(0, idx).trim();
+            const value = first.slice(idx + 1).trim();
+            if (!key) continue;
+            out.push([key, value]);
+          }
+        }
+        return out;
+      };
+
+      const mergeCookieHeaders = (...cookieHeaders) => {
+        const merged = new Map();
+        for (const header of cookieHeaders) {
+          const map = parseCookieHeaderMap(header);
+          for (const [key, value] of map.entries()) merged.set(key, value);
+        }
+        return Array.from(merged.entries()).map(([key, value]) => `${key}=${value}`).join("; ");
+      };
+
+      const establishCommishCookieHeader = async (cookieHeaderOverride, season, leagueId) => {
+        const becomeUrl =
+          `https://www48.myfantasyleague.com/${encodeURIComponent(String(season))}` +
+          `/logout?L=${encodeURIComponent(leagueId)}&BECOME=0000`;
+        let mergedCookieHeader = safeStr(cookieHeaderOverride);
+        try {
+          const res = await fetch(becomeUrl, {
+            method: "GET",
+            redirect: "manual",
+            headers: {
+              Cookie: mergedCookieHeader,
+              "User-Agent": "upsmflproduction-worker",
+            },
+            cf: { cacheTtl: 0, cacheEverything: false },
+          });
+          const setPairs = parseSetCookiePairs(res.headers);
+          if (setPairs.length) {
+            mergedCookieHeader = mergeCookieHeaders(
+              mergedCookieHeader,
+              setPairs.map(([key, value]) => `${key}=${value}`).join("; ")
+            );
+          }
+          const loc = res.headers.get("Location") || res.headers.get("location");
+          if (loc) {
+            const follow = await fetch(new URL(loc, becomeUrl).toString(), {
+              method: "GET",
+              redirect: "manual",
+              headers: {
+                Cookie: mergedCookieHeader,
+                "User-Agent": "upsmflproduction-worker",
+              },
+              cf: { cacheTtl: 0, cacheEverything: false },
+            });
+            const followPairs = parseSetCookiePairs(follow.headers);
+            if (followPairs.length) {
+              mergedCookieHeader = mergeCookieHeaders(
+                mergedCookieHeader,
+                followPairs.map(([key, value]) => `${key}=${value}`).join("; ")
+              );
+            }
+          }
+        } catch (_) {}
+        return mergedCookieHeader;
+      };
+
+      const parseHtmlAttributes = (tagText) => {
+        const attrs = {};
+        const re = /([A-Za-z_:][-A-Za-z0-9_:.]*)\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+))/g;
+        let m;
+        while ((m = re.exec(String(tagText || "")))) {
+          attrs[String(m[1] || "").toLowerCase()] = m[3] != null ? m[3] : (m[4] != null ? m[4] : (m[5] || ""));
+        }
+        return attrs;
+      };
+
+      const parseLoadRostForm = (html, pageUrl) => {
+        const text = String(html || "");
+        const formMatch = text.match(/<form\b[^>]*action\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+))[^>]*>/i);
+        if (!formMatch) return null;
+        const actionRaw = formMatch[2] || formMatch[3] || formMatch[4] || "";
+        const actionUrl = new URL(actionRaw, pageUrl).toString();
+        const baseFields = [];
+        const seen = new Set();
+        const inputRe = /<input\b[^>]*>/gi;
+        let inputMatch;
+        while ((inputMatch = inputRe.exec(text))) {
+          const attrs = parseHtmlAttributes(inputMatch[0]);
+          const type = safeStr(attrs.type).toLowerCase();
+          const name = safeStr(attrs.name);
+          if (!name || type === "button" || type === "submit" || type === "checkbox") continue;
+          if (name === "sel_pid" || name === "picker_filt_name") continue;
+          if (seen.has(name)) continue;
+          seen.add(name);
+          baseFields.push([name, safeStr(attrs.value)]);
+        }
+        if (!seen.has("PLAYER_NAMES")) baseFields.push(["PLAYER_NAMES", ""]);
+        const selectMatch = text.match(/<select\b[^>]*name\s*=\s*("ROSTER"|'ROSTER'|ROSTER)[^>]*>([\s\S]*?)<\/select>/i);
+        const rosterIds = [];
+        if (selectMatch) {
+          const optionRe = /<option\b[^>]*value\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+))[^>]*>/gi;
+          let optionMatch;
+          while ((optionMatch = optionRe.exec(selectMatch[2] || ""))) {
+            const value = String(optionMatch[2] || optionMatch[3] || optionMatch[4] || "").replace(/\D/g, "");
+            if (value) rosterIds.push(value);
+          }
+        }
+        return { actionUrl, baseFields, currentRosterIds: rosterIds };
+      };
+
+      const fetchLoadRostFormForCookie = async (cookieHeaderOverride, season, leagueId, franchiseId) => {
+        const urlBase = `https://www48.myfantasyleague.com/${encodeURIComponent(String(season))}`;
+        const pageUrl =
+          `${urlBase}/csetup?LEAGUE_ID=${encodeURIComponent(leagueId)}` +
+          `&FRANCHISE=${encodeURIComponent(franchiseId)}&C=LOADROST`;
+        const resp = await fetchTextWithCookie(pageUrl, cookieHeaderOverride);
+        if (resp.status < 200 || resp.status >= 400) {
+          return { ok: false, status: resp.status, error: "load_roster_page_failed", pageUrl, preview: resp.text.slice(0, 800) };
+        }
+        if (String(resp.text || "").includes("Commissioner Access Required")) {
+          return { ok: false, status: resp.status, error: "commissioner_access_required", pageUrl, preview: resp.text.slice(0, 800) };
+        }
+        const parsed = parseLoadRostForm(resp.text, resp.url || pageUrl);
+        if (!parsed) {
+          return { ok: false, status: resp.status, error: "load_roster_form_not_found", pageUrl, preview: resp.text.slice(0, 800) };
+        }
+        return { ok: true, status: resp.status, pageUrl, ...parsed };
+      };
+
+      const postLoadRostFormForCookie = async (cookieHeaderOverride, form, desiredRosterIds) => {
+        const params = new URLSearchParams();
+        for (const [k, v] of form.baseFields || []) {
+          if (!safeStr(k)) continue;
+          params.append(k, safeStr(v));
+        }
+        for (const playerId of desiredRosterIds || []) {
+          const pid = String(playerId || "").replace(/\D/g, "");
+          if (pid) params.append("ROSTER", pid);
+        }
+        const resp = await fetchTextWithCookie(form.actionUrl, cookieHeaderOverride, {
+          method: "POST",
+          contentType: "application/x-www-form-urlencoded;charset=UTF-8",
+          body: params.toString(),
+        });
+        const lowered = String(resp.text || "").toLowerCase();
+        const ok =
+          resp.status >= 200 &&
+          resp.status < 400 &&
+          !lowered.includes("commissioner access required") &&
+          !lowered.includes("not authorized");
+        return {
+          ok,
+          status: resp.status,
+          preview: String(resp.text || "").slice(0, 1200),
+          url: resp.url || form.actionUrl,
+        };
+      };
+
+      const rosterRowsByFranchiseFromRostersPayload = (rostersPayload) => {
+        const out = {};
+        const franchiseRows = asArray(rostersPayload?.rosters?.franchise || rostersPayload?.rosters?.franchises).filter(Boolean);
+        for (const fr of franchiseRows) {
+          const franchiseId = padFranchiseId(fr?.id || fr?.franchise_id);
+          if (!franchiseId) continue;
+          const playerRows = asArray(fr?.player || fr?.players).filter(Boolean).map((player) => ({
+            player_id: String(player?.id || player?.player_id || "").replace(/\D/g, ""),
+            status: safeStr(player?.status || "ROSTER").toUpperCase(),
+            salary: safeStr(player?.salary || ""),
+            contract_year: safeStr(player?.contractYear || player?.contractyear || ""),
+            contract_status: safeStr(player?.contractStatus || player?.contractstatus || ""),
+            contract_info: safeStr(player?.contractInfo || player?.contractinfo || ""),
+          })).filter((row) => row.player_id);
+          out[franchiseId] = playerRows;
+        }
+        return out;
+      };
+
+      const buildSalaryImportXmlFromRows = (rows) => {
+        const parts = ["<salaries>", '  <leagueUnit unit="LEAGUE">'];
+        for (const row of rows || []) {
+          const pid = String(row?.player_id || "").replace(/\D/g, "");
+          if (!pid) continue;
+          parts.push(
+            `    <player id="${xmlAttrEscape(pid)}" salary="${xmlAttrEscape(safeStr(row?.salary || "0"))}" contractStatus="${xmlAttrEscape(
+              safeStr(row?.contract_status || "")
+            )}" contractYear="${xmlAttrEscape(safeStr(row?.contract_year || "0"))}" contractInfo="${xmlAttrEscape(
+              safeStr(row?.contract_info || "")
+            )}" />`
+          );
+        }
+        parts.push("  </leagueUnit>");
+        parts.push("</salaries>");
+        return parts.join("\n");
+      };
+
+      const compareRosterState = (sourceByFranchise, targetByFranchise) => {
+        const mismatches = [];
+        const franchiseIds = Array.from(new Set([...Object.keys(sourceByFranchise || {}), ...Object.keys(targetByFranchise || {})])).sort();
+        for (const franchiseId of franchiseIds) {
+          const sourceRows = sourceByFranchise[franchiseId] || [];
+          const targetRows = targetByFranchise[franchiseId] || [];
+          const sourceKeyed = new Map(sourceRows.map((row) => [row.player_id, row]));
+          const targetKeyed = new Map(targetRows.map((row) => [row.player_id, row]));
+          const playerIds = Array.from(new Set([...sourceKeyed.keys(), ...targetKeyed.keys()])).sort();
+          for (const playerId of playerIds) {
+            const src = sourceKeyed.get(playerId);
+            const tgt = targetKeyed.get(playerId);
+            if (!src || !tgt) {
+              mismatches.push({ franchise_id: franchiseId, player_id: playerId, issue: !src ? "target_only" : "missing_in_target" });
+              continue;
+            }
+            if (safeStr(src.status) !== safeStr(tgt.status)) {
+              mismatches.push({
+                franchise_id: franchiseId,
+                player_id: playerId,
+                issue: "status_mismatch",
+                source_status: src.status,
+                target_status: tgt.status,
+              });
+            }
+            if (
+              safeStr(src.salary) !== safeStr(tgt.salary) ||
+              safeStr(src.contract_year) !== safeStr(tgt.contract_year) ||
+              safeStr(src.contract_status) !== safeStr(tgt.contract_status) ||
+              safeStr(src.contract_info) !== safeStr(tgt.contract_info)
+            ) {
+              mismatches.push({
+                franchise_id: franchiseId,
+                player_id: playerId,
+                issue: "contract_mismatch",
+                source_salary: src.salary,
+                target_salary: tgt.salary,
+                source_contract_year: src.contract_year,
+                target_contract_year: tgt.contract_year,
+                source_contract_status: src.contract_status,
+                target_contract_status: tgt.contract_status,
+              });
+            }
+          }
+        }
+        return mismatches;
       };
 
       const postTradeProposalImportWithFallback = async (season, importFields) => {
@@ -9864,6 +10272,200 @@ export default {
         return adminStateResponse();
       }
 
+      if (path === "/admin/test-sync/prod-rosters" && request.method === "POST") {
+        let body = {};
+        try {
+          body = (await request.json()) || {};
+        } catch (_) {
+          body = {};
+        }
+        if (!!commishApiKey && !sessionByApiKey) {
+          return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required for test sync." });
+        }
+
+        const season = safeStr(body?.season || body?.YEAR || url.searchParams.get("YEAR") || YEAR || "");
+        const sourceLeagueId = safeStr(body?.source_league_id || body?.sourceLeagueId || url.searchParams.get("SOURCE_L") || "74598");
+        const targetLeagueId = safeStr(body?.target_league_id || body?.targetLeagueId || url.searchParams.get("TARGET_L") || "25625");
+        const targetCookieRaw = safeStr(env.MFLTEST_COMMISHCOOKIE || env.MFL_COOKIE || "");
+        const targetCookieHeaderBase = targetCookieRaw
+          ? (targetCookieRaw.includes("=") ? targetCookieRaw : `MFL_USER_ID=${targetCookieRaw}`)
+          : "";
+        if (!cookieHeader) return jsonOut(500, { ok: false, error: "Missing MFL_COOKIE secret for prod source reads." });
+        if (!targetCookieHeaderBase) return jsonOut(500, { ok: false, error: "Missing MFLTEST_COMMISHCOOKIE secret for test target writes." });
+        const sourceRostersRes = await mflExportJsonForCookie(cookieHeader, season, sourceLeagueId, "rosters", {}, { useCookie: true });
+        if (!sourceRostersRes.ok) {
+          return jsonOut(502, {
+            ok: false,
+            error: "Failed to load source rosters export",
+            upstream: sourceRostersRes,
+          });
+        }
+        const sourceSalariesRes = await mflExportJsonForCookie(cookieHeader, season, sourceLeagueId, "salaries", {}, { useCookie: true });
+        if (!sourceSalariesRes.ok) {
+          return jsonOut(502, {
+            ok: false,
+            error: "Failed to load source salaries export",
+            upstream: sourceSalariesRes,
+          });
+        }
+
+        const sourceByFranchise = rosterRowsByFranchiseFromRostersPayload(sourceRostersRes.data);
+        const franchiseIds = Object.keys(sourceByFranchise).sort();
+        const rosterSyncResults = [];
+
+        for (const franchiseId of franchiseIds) {
+          const franchiseCookieHeader = await establishCommishCookieHeader(targetCookieHeaderBase, season, targetLeagueId);
+          const formRes = await fetchLoadRostFormForCookie(franchiseCookieHeader, season, targetLeagueId, franchiseId);
+          if (!formRes.ok) {
+            return jsonOut(502, {
+              ok: false,
+              error: "Failed to load target roster form",
+              franchise_id: franchiseId,
+              details: formRes,
+            });
+          }
+          const desiredRosterIds = (sourceByFranchise[franchiseId] || []).map((row) => row.player_id);
+          const currentRosterIds = formRes.currentRosterIds || [];
+          const currentSet = new Set(currentRosterIds);
+          const desiredSet = new Set(desiredRosterIds);
+          const added = desiredRosterIds.filter((playerId) => !currentSet.has(playerId));
+          const removed = currentRosterIds.filter((playerId) => !desiredSet.has(playerId));
+          let postResult = { ok: true, skipped: true, status: 200 };
+          if (added.length || removed.length || currentRosterIds.length !== desiredRosterIds.length) {
+            postResult = await postLoadRostFormForCookie(franchiseCookieHeader, formRes, desiredRosterIds);
+            if (!postResult.ok) {
+              return jsonOut(502, {
+                ok: false,
+                error: "Target roster membership post failed",
+                franchise_id: franchiseId,
+                details: postResult,
+              });
+            }
+          }
+          rosterSyncResults.push({
+            franchise_id: franchiseId,
+            desired_count: desiredRosterIds.length,
+            current_count: currentRosterIds.length,
+            add_count: added.length,
+            remove_count: removed.length,
+            skipped: !!postResult.skipped,
+            status: postResult.status,
+          });
+        }
+
+        const taxiIrResults = [];
+        for (const franchiseId of franchiseIds) {
+          const sourceRows = sourceByFranchise[franchiseId] || [];
+          const taxiIds = sourceRows.filter((row) => safeStr(row.status).includes("TAXI")).map((row) => row.player_id);
+          const irIds = sourceRows.filter((row) => safeStr(row.status).includes("IR")).map((row) => row.player_id);
+          const franchiseCookieHeader = await establishCommishCookieHeader(targetCookieHeaderBase, season, targetLeagueId);
+          if (taxiIds.length) {
+            const taxiRes = await postMflImportFormForCookie(
+              franchiseCookieHeader,
+              season,
+              { TYPE: "taxi_squad", L: targetLeagueId, FRANCHISE_ID: franchiseId, DEMOTE: taxiIds.join(",") },
+              { TYPE: "taxi_squad", L: targetLeagueId, FRANCHISE_ID: franchiseId }
+            );
+            if (!taxiRes.requestOk) {
+              return jsonOut(502, {
+                ok: false,
+                error: "Target taxi sync failed",
+                franchise_id: franchiseId,
+                details: taxiRes,
+              });
+            }
+            taxiIrResults.push({ franchise_id: franchiseId, type: "taxi_squad", count: taxiIds.length, status: taxiRes.status });
+          }
+          if (irIds.length) {
+            const irRes = await postMflImportFormForCookie(
+              franchiseCookieHeader,
+              season,
+              { TYPE: "ir", L: targetLeagueId, FRANCHISE_ID: franchiseId, DEACTIVATE: irIds.join(",") },
+              { TYPE: "ir", L: targetLeagueId, FRANCHISE_ID: franchiseId }
+            );
+            if (!irRes.requestOk) {
+              return jsonOut(502, {
+                ok: false,
+                error: "Target IR sync failed",
+                franchise_id: franchiseId,
+                details: irRes,
+              });
+            }
+            taxiIrResults.push({ franchise_id: franchiseId, type: "ir", count: irIds.length, status: irRes.status });
+          }
+        }
+
+        const salaryRows = [];
+        const salaryPlayers = asArray(sourceSalariesRes?.data?.salaries?.leagueUnit?.player || sourceSalariesRes?.data?.salaries?.leagueunit?.player).filter(Boolean);
+        for (const player of salaryPlayers) {
+          salaryRows.push({
+            player_id: String(player?.id || "").replace(/\D/g, ""),
+            salary: safeStr(player?.salary || ""),
+            contract_year: safeStr(player?.contractYear || ""),
+            contract_status: safeStr(player?.contractStatus || ""),
+            contract_info: safeStr(player?.contractInfo || ""),
+          });
+        }
+        const salaryCookieHeader = await establishCommishCookieHeader(targetCookieHeaderBase, season, targetLeagueId);
+        const salaryXml = buildSalaryImportXmlFromRows(salaryRows);
+        const salaryImportRes = await postMflImportFormForCookie(
+          salaryCookieHeader,
+          season,
+          { TYPE: "salaries", L: targetLeagueId, APPEND: "1", DATA: salaryXml },
+          { TYPE: "salaries", L: targetLeagueId, APPEND: "1" }
+        );
+        if (!salaryImportRes.requestOk) {
+          return jsonOut(502, {
+            ok: false,
+            error: "Target salary import failed",
+            details: salaryImportRes,
+          });
+        }
+
+        const verifyCookieHeader = await establishCommishCookieHeader(targetCookieHeaderBase, season, targetLeagueId);
+        const verifyRostersRes = await mflExportJsonForCookie(verifyCookieHeader, season, targetLeagueId, "rosters", {}, { useCookie: true });
+        const verifySalariesRes = await mflExportJsonForCookie(verifyCookieHeader, season, targetLeagueId, "salaries", {}, { useCookie: true });
+        if (!verifyRostersRes.ok || !verifySalariesRes.ok) {
+          return jsonOut(502, {
+            ok: false,
+            error: "Post-sync verification failed",
+            rosters: verifyRostersRes,
+            salaries: verifySalariesRes,
+          });
+        }
+        const verifiedByFranchise = rosterRowsByFranchiseFromRostersPayload(verifyRostersRes.data);
+        const salaryByPlayerVerified = parseSalaryRows(verifySalariesRes.data);
+        for (const franchiseId of Object.keys(verifiedByFranchise)) {
+          verifiedByFranchise[franchiseId] = (verifiedByFranchise[franchiseId] || []).map((row) => {
+            const salaryRow = salaryByPlayerVerified[row.player_id] || {};
+            return {
+              ...row,
+              salary: safeStr(salaryRow.salary != null ? salaryRow.salary : row.salary),
+              contract_year: safeStr(salaryRow.contractYear != null ? salaryRow.contractYear : row.contract_year),
+              contract_status: safeStr(salaryRow.contractStatus != null ? salaryRow.contractStatus : row.contract_status),
+              contract_info: safeStr(salaryRow.contractInfo != null ? salaryRow.contractInfo : row.contract_info),
+            };
+          });
+        }
+        const mismatches = compareRosterState(sourceByFranchise, verifiedByFranchise);
+        return jsonOut(200, {
+          ok: mismatches.length === 0,
+          season,
+          source_league_id: sourceLeagueId,
+          target_league_id: targetLeagueId,
+          roster_sync: rosterSyncResults,
+          status_sync: taxiIrResults,
+          salary_import: {
+            player_count: salaryRows.length,
+            status: salaryImportRes.status,
+          },
+          verification: {
+            mismatch_count: mismatches.length,
+            mismatches: mismatches.slice(0, 50),
+          },
+        });
+      }
+
       if (path === "/roster-workbench/action" && request.method === "POST") {
         let body = {};
         try {
@@ -9887,8 +10489,124 @@ export default {
         if (!leagueId) return jsonOut(400, { ok: false, error: "Missing league_id/L" });
         if (!season) return jsonOut(400, { ok: false, error: "Missing season/YEAR" });
         if (!playerId) return jsonOut(400, { ok: false, error: "Missing player_id" });
-        if (action !== "promote_taxi" && action !== "activate_ir" && action !== "drop_player") {
+        const isImportRosterAction = action === "promote_taxi" || action === "activate_ir" || action === "drop_player";
+        const isMembershipRosterAction = action === "load_player" || action === "unload_player";
+
+        if (!isImportRosterAction && !isMembershipRosterAction) {
           return jsonOut(400, { ok: false, error: "Unsupported roster action" });
+        }
+
+        if (isMembershipRosterAction) {
+          const commishCookieHeader = await establishCommishCookieHeader(cookieHeader, season, leagueId);
+          const formRes = await fetchLoadRostFormForCookie(commishCookieHeader, season, leagueId, franchiseId);
+          if (!formRes.ok) {
+            return jsonOut(502, {
+              ok: false,
+              error: "Unable to load commissioner roster form",
+              action,
+              player_id: playerId,
+              franchise_id: franchiseId,
+              details: formRes,
+            });
+          }
+
+          const currentRosterIds = Array.isArray(formRes.currentRosterIds) ? formRes.currentRosterIds : [];
+          const currentSet = new Set(currentRosterIds);
+          const desiredRosterIds = action === "load_player"
+            ? (currentSet.has(playerId) ? currentRosterIds.slice() : currentRosterIds.concat(playerId))
+            : currentRosterIds.filter((pid) => String(pid || "").replace(/\D/g, "") !== playerId);
+          const skipped = desiredRosterIds.length === currentRosterIds.length &&
+            desiredRosterIds.every((pid, index) => String(pid || "") === String(currentRosterIds[index] || ""));
+
+          let postResult = { ok: true, skipped: true, status: 200, actionUrl: formRes.actionUrl };
+          if (!skipped) {
+            postResult = await postLoadRostFormForCookie(commishCookieHeader, formRes, desiredRosterIds);
+            if (!postResult.ok) {
+              return jsonOut(502, {
+                ok: false,
+                error: "Target roster membership post failed",
+                action,
+                player_id: playerId,
+                franchise_id: franchiseId,
+                details: postResult,
+              });
+            }
+          }
+
+          const cacheKey = new Request(
+            `https://upsmfl-roster-workbench.local/cache?L=${encodeURIComponent(leagueId)}&YEAR=${encodeURIComponent(season)}`,
+            { method: "GET" }
+          );
+          try {
+            await caches.default.delete(cacheKey);
+          } catch (_) {
+            // noop
+          }
+
+          const verifyRes = await mflExportJsonForCookie(commishCookieHeader, season, leagueId, "rosters", {}, { useCookie: true });
+          let verification = {
+            ok: false,
+            reason: "post_membership_rosters_export_failed",
+            player_id: playerId,
+            franchise_id: franchiseId,
+          };
+          if (verifyRes.ok) {
+            const byFranchise = rosterRowsByFranchiseFromRostersPayload(verifyRes.data);
+            let locatedFranchiseId = "";
+            for (const fid of Object.keys(byFranchise)) {
+              const found = (byFranchise[fid] || []).some((row) => safeStr(row?.player_id) === playerId);
+              if (found) {
+                locatedFranchiseId = fid;
+                break;
+              }
+            }
+            const expectedOk = action === "load_player"
+              ? locatedFranchiseId === franchiseId
+              : !locatedFranchiseId;
+            verification = {
+              ok: expectedOk,
+              reason: expectedOk ? "" : (action === "load_player" ? "player_not_found_on_target_roster" : "player_still_found_on_roster"),
+              player_id: playerId,
+              franchise_id: locatedFranchiseId || franchiseId,
+            };
+          }
+
+          if (!verification.ok) {
+            return jsonOut(502, {
+              ok: false,
+              error: verification.reason || "Roster membership verification failed",
+              action,
+              player_id: playerId,
+              franchise_id: franchiseId,
+              verification,
+              response: {
+                upstream_status: postResult.status,
+                skipped,
+                action_url: formRes.actionUrl,
+                current_count: currentRosterIds.length,
+                desired_count: desiredRosterIds.length,
+              },
+            });
+          }
+
+          return jsonOut(200, {
+            ok: true,
+            action,
+            player_id: playerId,
+            franchise_id: franchiseId,
+            skipped,
+            message: action === "load_player"
+              ? (skipped ? "Player already loaded on roster." : "Player loaded to roster in MFL.")
+              : (skipped ? "Player already absent from roster." : "Player unloaded from roster in MFL."),
+            verification,
+            response: {
+              upstream_status: postResult.status,
+              skipped,
+              action_url: formRes.actionUrl,
+              current_count: currentRosterIds.length,
+              desired_count: desiredRosterIds.length,
+            },
+          });
         }
 
         const importFields = {
@@ -11081,12 +11799,32 @@ Keep responses under 150 words. Be practical and league-specific. Never give gen
             }),
           });
           if (!aiRes.ok) {
-            return jsonOut(502, { ok: false, error: "Assistant is temporarily unavailable. Please try again in a moment." });
+            const upstreamText = (await aiRes.text().catch(() => "")).trim();
+            const upstreamSnippet = upstreamText.slice(0, 400);
+            console.error("Anthropic API error", {
+              status: aiRes.status,
+              statusText: aiRes.statusText,
+              body: upstreamSnippet,
+            });
+            return jsonOut(502, {
+              ok: false,
+              error: "Anthropic API request failed.",
+              upstream_status: aiRes.status,
+              upstream_status_text: aiRes.statusText || "",
+              upstream_body: upstreamSnippet,
+            });
           }
           const aiData = await aiRes.json();
           aiAnswer = (aiData?.content?.[0]?.text || "").trim() || "No response received. Please try again.";
-        } catch (_) {
-          return jsonOut(502, { ok: false, error: "Assistant is temporarily unavailable. Please try again in a moment." });
+        } catch (err) {
+          console.error("Anthropic API fetch failed", {
+            message: err?.message || String(err),
+          });
+          return jsonOut(502, {
+            ok: false,
+            error: "Anthropic API request failed.",
+            upstream_message: err?.message || String(err),
+          });
         }
 
         return jsonOut(200, { ok: true, answer: aiAnswer });

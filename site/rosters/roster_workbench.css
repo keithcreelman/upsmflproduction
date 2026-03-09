@@ -802,6 +802,12 @@
   color: #ffc7c7;
 }
 
+.rwb-tag.is-tagged {
+  border-color: rgba(86, 215, 154, 0.5);
+  background: rgba(86, 215, 154, 0.16);
+  color: #dff8ea;
+}
+
 .rwb-type-pill {
   display: inline-flex;
   border-radius: 999px;
@@ -932,6 +938,56 @@
 
 .rwb-row-action-placeholder {
   color: var(--rwb-text-dim);
+}
+
+.rwb-tag-plan-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.rwb-tag-plan-table {
+  min-width: 920px;
+}
+
+.rwb-tag-plan-row.is-active td {
+  background: rgba(86, 215, 154, 0.12);
+}
+
+.rwb-tag-side-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 5.8rem;
+  border-radius: 999px;
+  border: 1px solid rgba(157, 188, 228, 0.3);
+  padding: 3px 9px;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: rgba(10, 22, 40, 0.92);
+  color: var(--rwb-text-soft);
+}
+
+.rwb-tag-side-pill.is-offense {
+  border-color: rgba(255, 169, 103, 0.5);
+  background: rgba(255, 169, 103, 0.14);
+  color: #ffd9b8;
+}
+
+.rwb-tag-side-pill.is-defense {
+  border-color: rgba(121, 167, 227, 0.5);
+  background: rgba(121, 167, 227, 0.14);
+  color: #dcecff;
+}
+
+.rwb-tag-calc-cell {
+  min-width: 240px;
+  color: var(--rwb-text-soft);
+  font-size: 0.84rem;
+  line-height: 1.4;
 }
 
 .rwb-contract-toggle-row {
