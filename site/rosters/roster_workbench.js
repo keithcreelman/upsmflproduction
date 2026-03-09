@@ -4643,7 +4643,7 @@
                 '<button type="button" class="rwb-row-more" data-action="row-more" aria-expanded="false">More</button>' +
               '</div>' +
               '<dl class="rwb-mobile-details">' +
-                '<div><dt>Orig Len</dt><dd>' + escapeHtml(contractLength > 0 ? String(contractLength) : "—") + '</dd></div>' +
+                '<div><dt>Contract Length</dt><dd>' + escapeHtml(contractLength > 0 ? String(contractLength) : "—") + '</dd></div>' +
                 '<div><dt>Years Left</dt><dd>' + escapeHtml(String(p.years)) + '</dd></div>' +
                 '<div><dt>Salary</dt><dd>' + escapeHtml(compactContractValueWithRankText(p.salary, p.positionSalaryRank)) + '</dd></div>' +
                 '<div><dt>AAV</dt><dd>' + escapeHtml(compactContractValueWithRankText(p.aav, p.positionAavRank)) + '</dd></div>' +
@@ -4674,14 +4674,14 @@
               '<span class="rwb-group-meta-pill"><span class="rwb-group-meta-label">League Rank</span><span class="rwb-group-meta-value">' + escapeHtml((teamGroupSummary.salaryRank > 0 ? formatRank(teamGroupSummary.salaryRank) : "—") + (teamGroupSummary.leagueTeams > 0 ? ("/" + String(teamGroupSummary.leagueTeams)) : "")) + '</span></span>' +
             '</span>' +
           '</span>' +
-          '<span class="rwb-group-count-card"><span class="rwb-group-count-value">' + escapeHtml(String(group.players.length)) + '</span><span class="rwb-group-count-label">Players</span></span>' +
+          '<span class="rwb-group-count-card"><span class="rwb-group-count-label">Players</span><span class="rwb-group-count-value">' + escapeHtml(String(group.players.length)) + '</span></span>' +
         '</summary>' +
         '<div class="rwb-table-wrap">' +
           '<table class="rwb-table rwb-roster-table" aria-label="' + escapeHtml(team.name + " " + group.label + " roster") + '">' +
             '<thead>' +
               '<tr>' +
                 sortableHeader("roster", "name", "Player") +
-                sortableHeader("roster", "contract_length", "Orig Len", "rwb-th-num") +
+                sortableHeader("roster", "contract_length", "Contract Length", "rwb-th-num") +
                 sortableHeader("roster", "years", "Years Left", "rwb-th-num") +
                 sortableHeader("roster", "salary", "Salary", "rwb-th-num") +
                 sortableHeader("roster", "aav", "AAV", "rwb-th-num") +
@@ -5235,14 +5235,14 @@
             '</div>' +
           '</td>' +
           '<td class="rwb-cell-num">' + escapeHtml(money(planSummaryRow.salary)) + '</td>' +
-          '<td class="rwb-cell-num' + (planSummaryRow.capSpaceAvailable != null && planSummaryRow.capSpaceAvailable < 0 ? ' rwb-cap-space-negative' : '') + '">' + escapeHtml(planSummaryRow.capSpaceAvailable == null ? "—" : money(planSummaryRow.capSpaceAvailable)) + '</td>' +
           '<td class="rwb-cell-num">' + escapeHtml(String(planSummaryRow.oneYearPlayers)) + '</td>' +
           '<td class="rwb-cell-num">' + escapeHtml(String(planSummaryRow.twoYearPlayers)) + '</td>' +
           '<td class="rwb-cell-num">' + escapeHtml(String(planSummaryRow.threeYearPlayers)) + '</td>' +
           '<td class="rwb-cell-num">' + escapeHtml(String(planSummaryRow.loadedContracts)) + '</td>' +
-          '<td class="rwb-cell-num">' + escapeHtml(money(planSummaryRow.salaryAdjustmentBreakdown.cutPlayers)) + '</td>' +
           '<td class="rwb-cell-num">' + escapeHtml(money(planSummaryRow.salaryAdjustmentBreakdown.tradedSalary)) + '</td>' +
+          '<td class="rwb-cell-num">' + escapeHtml(money(planSummaryRow.salaryAdjustmentBreakdown.cutPlayers)) + '</td>' +
           (showOtherAdjustments ? '<td class="rwb-cell-num">' + escapeHtml(money(planSummaryRow.salaryAdjustmentBreakdown.other)) + '</td>' : '') +
+          '<td class="rwb-cell-num' + (planSummaryRow.capSpaceAvailable != null && planSummaryRow.capSpaceAvailable < 0 ? ' rwb-cap-space-negative' : '') + '">' + escapeHtml(planSummaryRow.capSpaceAvailable == null ? "—" : money(planSummaryRow.capSpaceAvailable)) + '</td>' +
           '<td class="rwb-cell-num">' + escapeHtml(String(planSummaryRow.taxiPlayers)) + '</td>' +
         '</tr>'
       );
@@ -5253,7 +5253,7 @@
         '<div class="rwb-bye-summary-head rwb-cap-plan-summary-head">' +
           '<div>' +
             '<div class="rwb-bye-summary-title">Cap Plan Summary</div>' +
-            '<div class="rwb-bye-summary-sub">Salary, cap space, remaining-year mix, loaded contracts, and salary adjustments split into cut, traded, and other buckets.</div>' +
+            '<div class="rwb-bye-summary-sub">Salary, remaining-year mix, loaded contracts, trade and cap adjustments, then cap space.</div>' +
           '</div>' +
         '</div>' +
         '<div class="rwb-table-wrap">' +
@@ -5262,14 +5262,14 @@
               '<tr>' +
                 sortableHeader("franchise", "franchise", "Team") +
                 sortableHeader("franchise", "salary", "Salary") +
-                sortableHeader("franchise", "capspace", "Cap Space") +
                 sortableHeader("franchise", "one_year", "1 Yr") +
                 sortableHeader("franchise", "two_year", "2 Yr") +
                 sortableHeader("franchise", "three_year", "3 Yr") +
                 sortableHeader("franchise", "loaded", "Loaded") +
-                sortableHeader("franchise", "cut_players", "Cut Players") +
-                sortableHeader("franchise", "traded_salary", "Traded Salary") +
+                sortableHeader("franchise", "traded_salary", "Trade Adj") +
+                sortableHeader("franchise", "cut_players", "Cap Adj") +
                 (showOtherAdjustments ? sortableHeader("franchise", "other_adjustments", "Other") : "") +
+                sortableHeader("franchise", "capspace", "Cap Space") +
                 sortableHeader("franchise", "taxi", "Taxi") +
               '</tr>' +
             '</thead>' +
@@ -5278,14 +5278,14 @@
               '<tr class="rwb-summary-row rwb-summary-row-primary">' +
                 '<th>League</th>' +
                 '<th class="rwb-cell-num">' + escapeHtml(money(totals.salary)) + '</th>' +
-                '<th class="rwb-cell-num">' + escapeHtml(hasCapSpace ? money(leagueCapSpace) : "—") + '</th>' +
                 '<th class="rwb-cell-num">' + escapeHtml(String(totals.oneYearPlayers)) + '</th>' +
                 '<th class="rwb-cell-num">' + escapeHtml(String(totals.twoYearPlayers)) + '</th>' +
                 '<th class="rwb-cell-num">' + escapeHtml(String(totals.threeYearPlayers)) + '</th>' +
                 '<th class="rwb-cell-num">' + escapeHtml(String(totals.loadedContracts)) + '</th>' +
-                '<th class="rwb-cell-num">' + escapeHtml(money(totals.cutPlayers)) + '</th>' +
                 '<th class="rwb-cell-num">' + escapeHtml(money(totals.tradedSalary)) + '</th>' +
+                '<th class="rwb-cell-num">' + escapeHtml(money(totals.cutPlayers)) + '</th>' +
                 (showOtherAdjustments ? '<th class="rwb-cell-num">' + escapeHtml(money(totals.other)) + '</th>' : '') +
+                '<th class="rwb-cell-num">' + escapeHtml(hasCapSpace ? money(leagueCapSpace) : "—") + '</th>' +
                 '<th class="rwb-cell-num">' + escapeHtml(String(totals.taxiPlayers)) + '</th>' +
               '</tr>' +
             '</tfoot>' +
