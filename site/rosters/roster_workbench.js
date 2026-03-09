@@ -5434,21 +5434,11 @@
   }
 
   function pointsHistoryDetailHtml(team, player, summary) {
-    var rangeLabel = currentPointsRangeLabel();
-    var subtitle = state.pointsHistoryMode === "weekly"
-      ? (summary.hasData
-        ? ("Starts " + formatStartRatio(summary.starts, summary.appearances) + " | Elite / Neutral / Dud " + formatEliteNeutralDudSummary(summary.eliteWeeks, summary.neutralWeeks, summary.dudWeeks) + " in selected range")
-        : "No weeks in selected range")
-      : (safeInt(summary.games, 0) > 0
-        ? (safeInt(summary.games, 0) + " games | " + safeInt(summary.eliteWeeks, 0) + " elite weeks | " + safeInt(summary.dudWeeks, 0) + " dud weeks in selected range")
-        : "No games in selected range");
-
     return (
       '<div class="rwb-points-detail">' +
         '<div class="rwb-points-detail-head">' +
           '<div>' +
             '<div class="rwb-points-detail-title">' + escapeHtml(player.name) + '</div>' +
-            '<div class="rwb-points-detail-sub">' + escapeHtml(team.name + " | " + rangeLabel + " | " + subtitle) + '</div>' +
           '</div>' +
         '</div>' +
         (state.pointsHistoryMode === "weekly" ? pointsWeeklyHistoryTableHtml(player) : pointsYearlyHistoryTableHtml(player)) +
