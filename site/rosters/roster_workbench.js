@@ -107,7 +107,7 @@
     filterRosterStatus: "",
     filterByeImpact: "",
     sorts: {
-      roster: { key: "starter_ppg", dir: "desc" },
+      roster: { key: "salary", dir: "desc" },
       contract: { key: "player", dir: "asc" },
       franchise: { key: "franchise", dir: "asc" },
       points: { key: "points", dir: "desc" }
@@ -3242,7 +3242,7 @@
   function sortStateForView(view) {
     if (!state.sorts[view]) {
       state.sorts[view] = {
-        key: view === "franchise" ? "franchise" : (view === "contract" ? "player" : (view === "points" ? "points" : "starter_ppg")),
+        key: view === "franchise" ? "franchise" : (view === "contract" ? "player" : (view === "points" ? "points" : "salary")),
         dir: view === "roster" || view === "points" ? "desc" : "asc"
       };
     }
@@ -3277,18 +3277,12 @@
     list.sort(function (a, b) {
       if (!!a.isTaxi !== !!b.isTaxi) return a.isTaxi ? 1 : -1;
       var delta = 0;
-      var aPoints = rosterPointsSummaryForPlayer(a);
-      var bPoints = rosterPointsSummaryForPlayer(b);
       switch (sort.key) {
-        case "starter_ppg":
-          delta = safeNum(aPoints.starterPpg, 0) - safeNum(bPoints.starterPpg, 0);
+        case "contract_length":
+          delta = contractLengthForPlayer(a) - contractLengthForPlayer(b);
           break;
-        case "overall_ppg":
-          delta = safeNum(aPoints.overallPpg, 0) - safeNum(bPoints.overallPpg, 0);
-          break;
-        case "starts":
-          delta = safeInt(aPoints.starterGames, 0) - safeInt(bPoints.starterGames, 0);
-          if (delta === 0) delta = safeInt(aPoints.overallGames, 0) - safeInt(bPoints.overallGames, 0);
+        case "years":
+          delta = safeInt(a.years, 0) - safeInt(b.years, 0);
           break;
         case "salary":
           delta = safeInt(a.salary, 0) - safeInt(b.salary, 0);
@@ -3296,17 +3290,17 @@
         case "salary_rank":
           delta = safeInt(a.positionSalaryRank || 999999, 999999) - safeInt(b.positionSalaryRank || 999999, 999999);
           break;
+        case "aav":
+          delta = safeInt(a.aav, 0) - safeInt(b.aav, 0);
+          break;
         case "aav_rank":
           delta = safeInt(a.positionAavRank || 999999, 999999) - safeInt(b.positionAavRank || 999999, 999999);
           break;
-        case "years":
-          delta = safeInt(a.years, 0) - safeInt(b.years, 0);
+        case "tcv":
+          delta = totalContractValueForPlayer(a) - totalContractValueForPlayer(b);
           break;
         case "type":
           delta = compareText(a.type, b.type);
-          break;
-        case "action":
-          delta = compareText(a.status, b.status);
           break;
         case "name":
         default:
@@ -4172,10 +4166,9 @@
       var tags = [];
       if (p.isTaxi) tags.push('<span class="rwb-tag is-taxi">Taxi</span>');
       if (p.isIr) tags.push('<span class="rwb-tag is-ir">IR</span>');
-      var scoring = rosterPointsSummaryForPlayer(p);
-      var startRatio = formatStartRatio(scoring.starterGames, scoring.overallGames);
-      var rowBusy = !!state.busyActionKey && state.busyActionKey.indexOf(":" + p.id) !== -1;
-      var actionDisabled = state.busyActionKey ? ' disabled' : '';
+      var contractLength = contractLengthForPlayer(p);
+      var totalContractValue = totalContractValueForPlayer(p);
+      var contractTypeText = safeStr(p.type) || "-";
 
       rows.push(
         '<tr class="rwb-player-row' + (p.isTaxi ? ' rwb-player-row-taxi' : '') + (p.isIr ? ' rwb-player-row-ir' : '') + '" data-player-id="' + escapeHtml(p.id) + '">' +
@@ -4183,33 +4176,31 @@
             '<div class="rwb-player-name-wrap">' +
               '<div class="rwb-player-line">' +
                 '<span class="rwb-pos-pill">' + escapeHtml(safeStr(p.positionGroup)) + '</span>' +
-                '<button type="button" class="rwb-player-open" data-action="open-player-modal" data-player-id="' + escapeHtml(p.id) + '" data-franchise-id="' + escapeHtml(p.fid) + '"><span class="rwb-player-name">' + escapeHtml(p.name) + '</span></button>' +
+                '<button type="button" class="rwb-player-open rwb-player-open-stack" data-action="open-player-modal" data-player-id="' + escapeHtml(p.id) + '" data-franchise-id="' + escapeHtml(p.fid) + '">' +
+                  '<span class="rwb-player-name">' + escapeHtml(p.name) + '</span>' +
+                  '<span class="rwb-player-contract-type">Contract Type: ' + escapeHtml(contractTypeText) + '</span>' +
+                '</button>' +
                 tags.join("") +
                 '<button type="button" class="rwb-row-more" data-action="row-more" aria-expanded="false">More</button>' +
               '</div>' +
               '<dl class="rwb-mobile-details">' +
-                '<div><dt>Starter PPG</dt><dd>' + escapeHtml(scoring.hasStarter ? formatPpg(scoring.starterPpg, scoring.starterGames) : "—") + '</dd></div>' +
-                '<div><dt>Overall PPG</dt><dd>' + escapeHtml(scoring.hasOverall ? formatPpg(scoring.overallPpg, scoring.overallGames) : "—") + '</dd></div>' +
-                '<div><dt>Starts</dt><dd>' + escapeHtml(startRatio) + '</dd></div>' +
-                '<div><dt>Years</dt><dd>' + escapeHtml(String(p.years)) + '</dd></div>' +
+                '<div><dt>Orig Len</dt><dd>' + escapeHtml(contractLength > 0 ? String(contractLength) : "—") + '</dd></div>' +
+                '<div><dt>Years Left</dt><dd>' + escapeHtml(String(p.years)) + '</dd></div>' +
                 '<div><dt>Salary</dt><dd>' + escapeHtml(money(p.salary)) + '</dd></div>' +
                 '<div><dt>Pos Sal Rk</dt><dd>' + escapeHtml(formatRank(p.positionSalaryRank)) + '</dd></div>' +
+                '<div><dt>AAV</dt><dd>' + escapeHtml(p.aav > 0 ? money(p.aav) : "—") + '</dd></div>' +
                 '<div><dt>Pos AAV Rk</dt><dd>' + escapeHtml(formatRank(p.positionAavRank)) + '</dd></div>' +
-                '<div><dt>Type</dt><dd>' + escapeHtml(p.type) + '</dd></div>' +
+                '<div><dt>TCV</dt><dd>' + escapeHtml(totalContractValue > 0 ? money(totalContractValue) : "—") + '</dd></div>' +
               '</dl>' +
             '</div>' +
           '</td>' +
-          '<td class="rwb-cell-num">' + escapeHtml(scoring.hasStarter ? formatPpg(scoring.starterPpg, scoring.starterGames) : "—") + '</td>' +
-          '<td class="rwb-cell-num">' + escapeHtml(scoring.hasOverall ? formatPpg(scoring.overallPpg, scoring.overallGames) : "—") + '</td>' +
-          '<td class="rwb-cell-num">' + escapeHtml(startRatio) + '</td>' +
+          '<td class="rwb-cell-num">' + escapeHtml(contractLength > 0 ? String(contractLength) : "—") + '</td>' +
           '<td class="rwb-cell-num">' + escapeHtml(String(p.years)) + '</td>' +
           '<td class="rwb-cell-num">' + escapeHtml(money(p.salary)) + '</td>' +
           '<td class="rwb-cell-num">' + escapeHtml(formatRank(p.positionSalaryRank)) + '</td>' +
+          '<td class="rwb-cell-num">' + escapeHtml(p.aav > 0 ? money(p.aav) : "—") + '</td>' +
           '<td class="rwb-cell-num">' + escapeHtml(formatRank(p.positionAavRank)) + '</td>' +
-          '<td><span class="rwb-type-pill ' + typeTone(p.type) + '">' + escapeHtml(p.type) + '</span></td>' +
-          '<td>' +
-            '<button type="button" class="rwb-row-action" data-action="open-player-modal" data-franchise-id="' + escapeHtml(p.fid) + '" data-player-id="' + escapeHtml(p.id) + '"' + actionDisabled + '>' + escapeHtml(rowBusy ? 'Working...' : 'Action') + '</button>' +
-          '</td>' +
+          '<td class="rwb-cell-num">' + escapeHtml(totalContractValue > 0 ? money(totalContractValue) : "—") + '</td>' +
         '</tr>'
       );
     }
@@ -4224,15 +4215,13 @@
             '<thead>' +
               '<tr>' +
                 sortableHeader("roster", "name", "Player") +
-                sortableHeader("roster", "starter_ppg", "Starter PPG") +
-                sortableHeader("roster", "overall_ppg", "Overall PPG") +
-                sortableHeader("roster", "starts", "Starts") +
-                sortableHeader("roster", "years", "Years") +
+                sortableHeader("roster", "contract_length", "Orig Len") +
+                sortableHeader("roster", "years", "Years Left") +
                 sortableHeader("roster", "salary", "Salary") +
                 sortableHeader("roster", "salary_rank", "Pos Sal Rk") +
+                sortableHeader("roster", "aav", "AAV") +
                 sortableHeader("roster", "aav_rank", "Pos AAV Rk") +
-                sortableHeader("roster", "type", "Type") +
-                '<th>Action</th>' +
+                sortableHeader("roster", "tcv", "TCV") +
               '</tr>' +
             '</thead>' +
             '<tbody>' + rows.join("") + '</tbody>' +
@@ -5386,19 +5375,29 @@
     state.filterByeImpact = normByeImpactFilter(state.filterByeImpact);
     if (!state.sorts || typeof state.sorts !== "object") {
       state.sorts = {
-        roster: { key: "starter_ppg", dir: "desc" },
+        roster: { key: "salary", dir: "desc" },
         contract: { key: "player", dir: "asc" },
         franchise: { key: "franchise", dir: "asc" },
         points: { key: "points", dir: "desc" }
       };
     }
     if (!state.sorts.roster || typeof state.sorts.roster !== "object") {
-      state.sorts.roster = { key: "starter_ppg", dir: "desc" };
-    } else if (
-      safeStr(state.sorts.roster.key) === "name" &&
-      safeStr(state.sorts.roster.dir || "asc").toLowerCase() === "asc"
-    ) {
-      state.sorts.roster = { key: "starter_ppg", dir: "desc" };
+      state.sorts.roster = { key: "salary", dir: "desc" };
+    } else {
+      var rosterSortKey = safeStr(state.sorts.roster.key);
+      var validRosterSortKeys = {
+        name: 1,
+        contract_length: 1,
+        years: 1,
+        salary: 1,
+        salary_rank: 1,
+        aav: 1,
+        aav_rank: 1,
+        tcv: 1
+      };
+      if (!validRosterSortKeys[rosterSortKey]) {
+        state.sorts.roster = { key: "salary", dir: "desc" };
+      }
     }
   }
 

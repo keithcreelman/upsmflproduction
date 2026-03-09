@@ -624,6 +624,15 @@
   font-size: 1rem;
 }
 
+.rwb-player-contract-type {
+  color: var(--rwb-text-dim);
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
 .rwb-player-open {
   border: 0;
   background: transparent;
@@ -633,8 +642,20 @@
   text-align: left;
 }
 
+.rwb-player-open-stack {
+  display: grid;
+  gap: 3px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 .rwb-player-open:hover .rwb-player-name,
 .rwb-player-open:focus-visible .rwb-player-name {
+  color: #ffd4ad;
+}
+
+.rwb-player-open:hover .rwb-player-contract-type,
+.rwb-player-open:focus-visible .rwb-player-contract-type {
   color: #ffd4ad;
 }
 
