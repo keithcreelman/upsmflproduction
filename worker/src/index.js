@@ -41,6 +41,7 @@ export default {
         path !== "/salary-alignment-check" &&
         path !== "/bug-report" &&
         path !== "/bug-reports" &&
+        path !== "/extension-assistant" &&
         !path.startsWith("/api/trades/proposals") &&
         !path.startsWith("/api/trades/outbox") &&
         !path.startsWith("/api/trades/reconcile") &&
@@ -10998,6 +10999,99 @@ export default {
           },
         });
       }
+
+      // ── Extension Assistant ──────────────────────────────────────────────
+      if (path === "/extension-assistant" && request.method === "POST") {
+        const EXTENSION_SYSTEM_PROMPT = `You are the UPS Dynasty League Extension Assistant — a specialized help bot for owners in the UPS Dynasty League, a 12-team salary-cap dynasty league built on MyFantasyLeague (MFL).
+
+SCOPE: Only answer player extension questions. For any other topic (restructures, MYM, tags, trades, reports, rules engine), reply: "I can only help with player extension questions. For other topics, please check the relevant section of the site or contact the commissioner."
+
+LEAGUE CONTEXT:
+- 12-team salary-cap dynasty format built on MFL
+- Contract deadline for 2026 season: September 6, 2026
+- Extensions are an offseason action submitted before the contract deadline
+
+EXTENSION RULES:
+1. A player is extension eligible when they are in their FINAL contract year (contract expires after this season).
+2. Tagged players are NOT eligible for extension.
+3. Players with "No Further Extensions" in their contract_info are NOT eligible.
+4. Two extension terms available: +1 Year or +2 Years.
+5. Extension cost is added to TCV and raises AAV:
+   - Offense (QB, RB, WR, TE): +1yr adds $10,000 | +2yr adds $20,000
+   - Defense/ST (DL, LB, DB, PK, P): +1yr adds $3,000 | +2yr adds $5,000
+6. Extensions affect FUTURE seasons only — current-year salary is unchanged.
+7. The system calculates all new contract values automatically. Owners cannot change them manually.
+
+HOW TO EXTEND A PLAYER:
+1. Open Contract Command Center (CCC) from the league navigation.
+2. Select the Extend Player action.
+3. Filter by team, position, or search for the player.
+4. Only eligible players appear. Select your player.
+5. Choose +1 Year or +2 Years.
+6. Review the updated AAV, TCV, and contract length.
+7. Click Submit Extension.
+8. Open the Finalized Submissions tab to confirm. If your extension appears there, it is complete.
+
+GLOSSARY:
+- AAV (Average Annual Value): average salary per year across the full contract.
+- TCV (Total Contract Value): total dollars across all contract years.
+- CL (Contract Length): total years on the deal.
+- Extension Eligible: player qualifies for extension under current rules.
+- Finalized Submission: extension recorded and confirmed in the system.
+- Contract Deadline: last day to submit any contract action for the season.
+
+COMMON ISSUES:
+- Player not in eligible list → not eligible; check contract_info for the reason.
+- No term option shown → no valid extension window; contact commissioner.
+- Submission not showing → refresh page and check Finalized Submissions tab; do not resubmit without checking.
+- Values look unexpected → all values are auto-calculated; contact commissioner if unsure before submitting.
+
+ANSWER FORMAT: Direct answer → brief reason → what to do next → relevant rule or term if helpful.
+Keep responses under 150 words. Be practical and league-specific. Never give generic fantasy football advice.`;
+
+        const body = await request.json().catch(() => ({}));
+        const question = String(body.question || "").trim().slice(0, 600);
+        const context  = String(body.context  || "").trim().slice(0, 4000);
+
+        if (!question) return jsonOut(400, { ok: false, error: "No question provided." });
+
+        const apiKey = (env.ANTHROPIC_API_KEY || "").trim();
+        if (!apiKey) {
+          return jsonOut(503, { ok: false, error: "Assistant is not configured. Please contact the commissioner." });
+        }
+
+        const userMessage = context
+          ? `${question}\n\nLeague data context:\n${context}`
+          : question;
+
+        let aiAnswer = "";
+        try {
+          const aiRes = await fetch("https://api.anthropic.com/v1/messages", {
+            method: "POST",
+            headers: {
+              "x-api-key": apiKey,
+              "anthropic-version": "2023-06-01",
+              "content-type": "application/json",
+            },
+            body: JSON.stringify({
+              model: "claude-haiku-4-5-20251001",
+              max_tokens: 350,
+              system: EXTENSION_SYSTEM_PROMPT,
+              messages: [{ role: "user", content: userMessage }],
+            }),
+          });
+          if (!aiRes.ok) {
+            return jsonOut(502, { ok: false, error: "Assistant is temporarily unavailable. Please try again in a moment." });
+          }
+          const aiData = await aiRes.json();
+          aiAnswer = (aiData?.content?.[0]?.text || "").trim() || "No response received. Please try again.";
+        } catch (_) {
+          return jsonOut(502, { ok: false, error: "Assistant is temporarily unavailable. Please try again in a moment." });
+        }
+
+        return jsonOut(200, { ok: true, answer: aiAnswer });
+      }
+      // ── End Extension Assistant ──────────────────────────────────────────
 
       return adminStateResponse();
     } catch (e) {
