@@ -1,0 +1,29 @@
+<!-- UPS Extension Assistant — Standalone HPM
+     Wire this in MFL Admin → Custom HTML to a new message slot (e.g. Message 8):
+
+       <script data-ups-partial="hpm-ext-assist"
+               src="https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/loader.js">
+       </script>
+
+     The ?ext=chat param in the incoming URL triggers the drawer to auto-open.
+-->
+<link id="extAssistCss" rel="stylesheet"
+      href="https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/ccc/extension_assistant.css">
+
+<div id="extAssistMount" style="min-height:40px;"></div>
+
+<script>
+  (function () {
+    var sha = window.UPS_RELEASE_SHA || "main";
+
+    var css = document.getElementById("extAssistCss");
+    if (css) {
+      css.href = "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@" + sha + "/site/ccc/extension_assistant.css";
+    }
+
+    var s = document.createElement("script");
+    s.src = "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@" + sha + "/site/ccc/extension_assistant.js";
+    s.defer = true;
+    document.body.appendChild(s);
+  })();
+</script>

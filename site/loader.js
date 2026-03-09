@@ -122,7 +122,8 @@
     "hpm-issue-report": "/site/hpm-issue-report.html",
     "hpm-ccc": "/site/hpm-ccc.html",
     "hpm-widget": "/site/hpm-widget.html",
-    "hpm-reports": "/site/hpm-reports.html"
+    "hpm-reports": "/site/hpm-reports.html",
+    "hpm-ext-assist": "/site/hpm-ext-assist.html"
   };
 
   function safeStr(value) {
