@@ -1,0 +1,134 @@
+{
+  "meta": {
+    "season": 2018,
+    "row_count": 3,
+    "charges_total": 18000.0,
+    "relief_total": 0,
+    "net_total": 18000.0,
+    "recorded_count": 0,
+    "review_required_count": 0,
+    "candidate_count": 3
+  },
+  "filters": {
+    "franchises": [
+      {
+        "id": "0006",
+        "name": "Good in Da Hood"
+      },
+      {
+        "id": "0002",
+        "name": "The Bash Bros"
+      },
+      {
+        "id": "0001",
+        "name": "Ulterior Warrior"
+      }
+    ],
+    "adjustment_types": [
+      "DROP_PENALTY_CANDIDATE"
+    ],
+    "source_seasons": [
+      2018
+    ],
+    "statuses": [
+      "candidate"
+    ],
+    "players": [
+      {
+        "id": "7394",
+        "name": "Rivers, Philip"
+      },
+      {
+        "id": "9099",
+        "name": "Ryan, Matt"
+      },
+      {
+        "id": "9431",
+        "name": "Stafford, Matthew"
+      }
+    ]
+  },
+  "rows": [
+    {
+      "adjustment_season": 2018,
+      "franchise_id": "0002",
+      "franchise_name": "The Bash Bros",
+      "adjustment_type": "DROP_PENALTY_CANDIDATE",
+      "source_table": "transactions_adddrop",
+      "source_id": "adddrop2018_10.1",
+      "source_season": 2018,
+      "player_id": "9431",
+      "player_name": "Stafford, Matthew",
+      "transaction_datetime_et": "2018-03-15 10:58:02",
+      "amount": 8000,
+      "direction": "charge",
+      "description": "Candidate drop penalty from FREE_AGENT. Projected current-rule penalty: 75% of TCV is 24,000; earned to date is 16,000.",
+      "status": "candidate",
+      "status_detail": "Projected from add/drop transaction history plus the pre-drop contract snapshot.",
+      "source_group_id": "",
+      "event_source": "ADDDROP:FREE_AGENT",
+      "drop_method": "FREE_AGENT",
+      "pre_drop_salary": 16000,
+      "pre_drop_contract_length": 2,
+      "pre_drop_tcv": 32000,
+      "pre_drop_contract_year": 2,
+      "pre_drop_contract_status": "Veteran",
+      "pre_drop_contract_info": "CL 2| TCV 32K| AAV 16K",
+      "candidate_rule": "guarantee_minus_earned"
+    },
+    {
+      "adjustment_season": 2018,
+      "franchise_id": "0006",
+      "franchise_name": "Good in Da Hood",
+      "adjustment_type": "DROP_PENALTY_CANDIDATE",
+      "source_table": "transactions_adddrop",
+      "source_id": "adddrop2018_11.1",
+      "source_season": 2018,
+      "player_id": "7394",
+      "player_name": "Rivers, Philip",
+      "transaction_datetime_et": "2018-03-15 11:54:39",
+      "amount": 1000,
+      "direction": "charge",
+      "description": "Candidate drop penalty from FREE_AGENT. Projected current-rule penalty: 75% of TCV is 9,000; earned to date is 8,000.",
+      "status": "candidate",
+      "status_detail": "Projected from add/drop transaction history plus the pre-drop contract snapshot.",
+      "source_group_id": "",
+      "event_source": "ADDDROP:FREE_AGENT",
+      "drop_method": "FREE_AGENT",
+      "pre_drop_salary": 4000,
+      "pre_drop_contract_length": 3,
+      "pre_drop_tcv": 12000,
+      "pre_drop_contract_year": 3,
+      "pre_drop_contract_status": "BL",
+      "pre_drop_contract_info": "[4,8,12] (AAV 8K)",
+      "candidate_rule": "guarantee_minus_earned"
+    },
+    {
+      "adjustment_season": 2018,
+      "franchise_id": "0001",
+      "franchise_name": "Ulterior Warrior",
+      "adjustment_type": "DROP_PENALTY_CANDIDATE",
+      "source_table": "transactions_adddrop",
+      "source_id": "adddrop2018_38.1",
+      "source_season": 2018,
+      "player_id": "9099",
+      "player_name": "Ryan, Matt",
+      "transaction_datetime_et": "2018-05-04 06:42:12",
+      "amount": 9000,
+      "direction": "charge",
+      "description": "Candidate drop penalty from FREE_AGENT. Projected current-rule penalty: 75% of TCV is 9,000; earned to date is 0.",
+      "status": "candidate",
+      "status_detail": "Projected from add/drop transaction history plus the pre-drop contract snapshot.",
+      "source_group_id": "",
+      "event_source": "ADDDROP:FREE_AGENT",
+      "drop_method": "FREE_AGENT",
+      "pre_drop_salary": 12000,
+      "pre_drop_contract_length": 1,
+      "pre_drop_tcv": 12000,
+      "pre_drop_contract_year": 1,
+      "pre_drop_contract_status": "Veteran",
+      "pre_drop_contract_info": "CL 1| TCV 12K| AAV 12K",
+      "candidate_rule": "guarantee_minus_earned"
+    }
+  ]
+}

@@ -1,0 +1,342 @@
+.sar-summary-panel,
+.sar-toolbar-panel,
+.sar-table-panel,
+.sar-loading-card {
+  padding: 22px 24px;
+}
+
+.sar-panel-title,
+.sar-summary-panel h3,
+.sar-loading-card h3 {
+  margin: 0;
+  font-family: var(--reports-font-head);
+  font-size: 1.5rem;
+  letter-spacing: -0.02em;
+}
+
+.sar-summary-panel,
+.sar-toolbar-panel,
+.sar-table-panel {
+  display: grid;
+  gap: 18px;
+}
+
+.sar-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.sar-stat-card {
+  border: 1px solid var(--reports-border);
+  border-radius: 18px;
+  background: rgba(255, 252, 247, 0.9);
+  padding: 14px 16px;
+  display: grid;
+  gap: 6px;
+}
+
+.sar-stat-label {
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--reports-ink-muted);
+}
+
+.sar-stat-card strong {
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+.sar-stat-detail {
+  color: var(--reports-ink-muted);
+  font-size: 0.84rem;
+}
+
+.sar-toolbar-head,
+.sar-table-head,
+.sar-pagination,
+.sar-toolbar-foot,
+.sar-inline-actions {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.sar-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.sar-table-wrap {
+  overflow: auto;
+  border: 1px solid var(--reports-border);
+  border-radius: 18px;
+  background: rgba(255, 252, 247, 0.95);
+}
+
+.sar-table {
+  width: 100%;
+  min-width: 1480px;
+  border-collapse: collapse;
+}
+
+.sar-table th,
+.sar-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(20, 49, 43, 0.08);
+  vertical-align: top;
+}
+
+.sar-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: rgba(239, 228, 209, 0.96);
+}
+
+.sar-text-col,
+.sar-text-cell {
+  text-align: left;
+}
+
+.sar-num-col,
+.sar-num-cell {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.sar-sort-btn {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--reports-ink);
+}
+
+.sar-table tbody tr:hover {
+  background: rgba(184, 87, 47, 0.05);
+}
+
+.sar-col-franchise,
+.sar-col-player {
+  min-width: 180px;
+}
+
+.sar-cell-meta {
+  display: block;
+  margin-top: 4px;
+  color: var(--reports-ink-muted);
+  font-family: var(--reports-font-mono);
+  font-size: 0.72rem;
+}
+
+.sar-positive {
+  color: var(--reports-success);
+  font-weight: 800;
+}
+
+.sar-negative {
+  color: var(--reports-accent);
+  font-weight: 800;
+}
+
+.sar-type-pill,
+.sar-status-pill,
+.sar-direction-pill,
+.sar-source-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  border-radius: 999px;
+  padding: 0 10px;
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.sar-type-pill {
+  background: rgba(20, 49, 43, 0.08);
+  color: var(--reports-ink-soft);
+}
+
+.sar-type-pill.is-traded_salary {
+  background: rgba(27, 123, 87, 0.12);
+  color: var(--reports-success);
+}
+
+.sar-type-pill.is-drop_penalty_candidate {
+  background: rgba(184, 87, 47, 0.12);
+  color: var(--reports-accent);
+}
+
+.sar-status-pill.is-recorded,
+.sar-direction-pill.is-charge {
+  background: rgba(27, 123, 87, 0.12);
+  color: var(--reports-success);
+}
+
+.sar-status-pill.is-review_required,
+.sar-direction-pill.is-review {
+  background: rgba(20, 49, 43, 0.08);
+  color: var(--reports-ink-soft);
+}
+
+.sar-status-pill.is-candidate,
+.sar-direction-pill.is-relief {
+  background: rgba(184, 87, 47, 0.12);
+  color: var(--reports-accent);
+}
+
+.sar-source-chip {
+  background: rgba(20, 49, 43, 0.08);
+  color: var(--reports-ink-soft);
+  font-family: var(--reports-font-mono);
+  font-size: 0.72rem;
+}
+
+.sar-page-size {
+  min-width: 140px;
+}
+
+.sar-pagination-status {
+  color: var(--reports-ink-muted);
+  font-size: 0.9rem;
+}
+
+.sar-empty-panel {
+  padding: 18px 20px;
+  border: 1px dashed var(--reports-border-strong);
+  border-radius: 18px;
+  background: rgba(255, 252, 247, 0.82);
+}
+
+.sar-empty-panel h4 {
+  margin: 0 0 8px;
+  font-family: var(--reports-font-head);
+  font-size: 1.15rem;
+  letter-spacing: -0.02em;
+}
+
+.sar-mobile-list {
+  display: none;
+  gap: 12px;
+}
+
+.sar-card {
+  padding: 18px;
+  display: grid;
+  gap: 14px;
+}
+
+.sar-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.sar-card-head h4 {
+  margin: 0;
+  font-family: var(--reports-font-head);
+  font-size: 1.18rem;
+  letter-spacing: -0.02em;
+}
+
+.sar-card-subhead {
+  margin: 6px 0 0;
+  color: var(--reports-ink-muted);
+  font-size: 0.88rem;
+}
+
+.sar-card-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.sar-card-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.sar-card-grid div {
+  border: 1px solid var(--reports-border);
+  border-radius: 14px;
+  background: rgba(255, 252, 247, 0.9);
+  padding: 10px 12px;
+  display: grid;
+  gap: 4px;
+}
+
+.sar-card-grid dt {
+  color: var(--reports-ink-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.sar-card-grid dd {
+  margin: 0;
+  font-size: 0.95rem;
+  font-variant-numeric: tabular-nums;
+  word-break: break-word;
+}
+
+.sar-card-copy {
+  margin: 0;
+  color: var(--reports-ink-soft);
+  line-height: 1.5;
+}
+
+@media (max-width: 980px) {
+  .sar-summary-grid,
+  .sar-filter-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 680px) {
+  .sar-summary-panel,
+  .sar-toolbar-panel,
+  .sar-table-panel,
+  .sar-loading-card {
+    padding: 18px;
+  }
+
+  .sar-summary-grid,
+  .sar-filter-grid,
+  .sar-card-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sar-toolbar-head,
+  .sar-table-head,
+  .sar-pagination,
+  .sar-toolbar-foot,
+  .sar-inline-actions,
+  .sar-card-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .sar-table-wrap {
+    display: none;
+  }
+
+  .sar-mobile-list {
+    display: grid;
+  }
+}
