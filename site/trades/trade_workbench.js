@@ -8,9 +8,6 @@
   var PICK_SALARY_ROUND_ONE_FLOOR_DOLLARS = 5000;
   var PICK_SALARY_ROUND_ONE_STEP_DOLLARS = 1000;
   var PICK_SALARY_ROUND_ONE_AVERAGE_DOLLARS = 10000;
-  var PICK_SALARY_ROUND_TWO_DOLLARS = 5000;
-  var PICK_SALARY_ROUNDS_THREE_TO_FIVE_DOLLARS = 2000;
-  var PICK_SALARY_ROUND_SIX_DOLLARS = 1000;
   var heightSyncInstalled = false;
   var heightPostTimer = 0;
   var lastPostedHeight = 0;
@@ -339,43 +336,28 @@
     var pick = safeInt(meta.pick, 0);
     var year = safeInt(meta.year, 0);
     var currentSeason = getCurrentTradeSeason(currentSeasonHintOverride);
-    var isFutureRoundOne = round === 1 && year && currentSeason && year > currentSeason;
+    var isCurrentSeasonPick = !year || !currentSeason || year === currentSeason;
 
-    if (round === 1) {
-      if (isFutureRoundOne || !pick) {
-        return {
-          salary_dollars: PICK_SALARY_ROUND_ONE_AVERAGE_DOLLARS,
-          meta_label: "Avg round 1 salary",
-          is_average: true
-        };
-      }
+    if (round === 1 && isCurrentSeasonPick) {
       return {
         salary_dollars: resolveFirstRoundPickSalaryDollars(pick),
         meta_label: "Round 1 rookie salary",
+        is_average: !pick
+      };
+    }
+
+    if (round === 1) {
+      return {
+        salary_dollars: 0,
+        meta_label: "Future pick",
         is_average: false
       };
     }
 
-    if (round === 2) {
+    if (round >= 2) {
       return {
-        salary_dollars: PICK_SALARY_ROUND_TWO_DOLLARS,
-        meta_label: "Round 2 rookie salary",
-        is_average: false
-      };
-    }
-
-    if (round >= 3 && round <= 5) {
-      return {
-        salary_dollars: PICK_SALARY_ROUNDS_THREE_TO_FIVE_DOLLARS,
-        meta_label: "Rounds 3-5 rookie salary",
-        is_average: false
-      };
-    }
-
-    if (round === 6) {
-      return {
-        salary_dollars: PICK_SALARY_ROUND_SIX_DOLLARS,
-        meta_label: "Round 6 rookie salary",
+        salary_dollars: 0,
+        meta_label: "No current cap impact",
         is_average: false
       };
     }
@@ -3748,23 +3730,19 @@
   }
 
   function renderDiscoveryPanel(leftTeam) {
+    var searchVal = safeStr(state.filters.search);
+    if (!searchVal) {
+      var empty = document.createElement("div");
+      empty.className = "twb-empty-state";
+      empty.textContent = "Select a trade partner to view assets.";
+      return empty;
+    }
+
     var panel = document.createElement("section");
     panel.className = "twb-team-panel twb-card twb-discovery-panel";
 
-    var h = document.createElement("h2");
-    h.className = "twb-team-title";
-    h.textContent = "Find Trade Partner";
-    panel.appendChild(h);
-
-    var searchVal = safeStr(state.filters.search);
     var helper = document.createElement("div");
     helper.className = "twb-summary-note";
-    if (!searchVal) {
-      helper.textContent = "Select a trade partner above, or type a player/pick in Search to scan all other teams.";
-      panel.appendChild(helper);
-      return panel;
-    }
-
     var matches = collectDiscoverableMatches(leftTeam.franchise_id);
     if (!matches.length) {
       helper.textContent = "No matching assets found across other teams for this search/filter.";
@@ -3775,8 +3753,8 @@
     var cap = 120;
     var shown = matches.slice(0, cap);
     helper.textContent =
-      "Search matches across all teams: " + shown.length + (matches.length > cap ? " of " + matches.length : "") +
-      ". Click one to set Trade Partner and add it to the offer.";
+      "Search results across all teams: " + shown.length + (matches.length > cap ? " of " + matches.length : "") +
+      ". Click one to set the trade partner and add it to the offer.";
     panel.appendChild(helper);
 
     var list = document.createElement("div");
@@ -4259,6 +4237,152 @@
     };
   }
 
+  function inferAssetCurrentContractYear(asset, contractLength, yearsRemaining) {
+    var contractYear = safeInt(asset && asset.contract_year, 0);
+    if (contractLength > 0) {
+      if (contractYear <= 0 && yearsRemaining != null) {
+        contractYear = contractLength - safeInt(yearsRemaining, 0);
+      }
+      if (contractYear <= 0) contractYear = 1;
+      if (contractYear > contractLength) contractYear = contractLength;
+      return contractYear;
+    }
+    return contractYear > 0 ? contractYear : 1;
+  }
+
+  function resolveExtensionFutureYears(req) {
+    var newLength = safeInt(req && req.new_contract_length, 0);
+    if (newLength > 0) return Math.max(newLength - 1, 0);
+    return Math.max(extensionYearsCount(req && (req.extension_term || req.option_key || "")), 0);
+  }
+
+  function resolvePlayerSeasonSalaryDollars(asset, seasonOffset) {
+    if (!asset || asset.type !== "PLAYER" || asset.taxi || seasonOffset < 0) return 0;
+    var info = parseContractInfoSummary(asset.contract_info);
+    var metrics = resolveAssetDisplayContractMetrics(asset);
+    var contractLength = safeInt(asset.contract_length, 0);
+    if (!contractLength && info.contract_length) contractLength = safeInt(info.contract_length, 0);
+    var yearsRemaining = metrics.years_remaining == null ? null : safeInt(metrics.years_remaining, 0);
+    var contractYear = inferAssetCurrentContractYear(asset, contractLength, yearsRemaining);
+
+    if (seasonOffset === 0) {
+      var currentSalary = safeInt(asset.salary, 0);
+      if (currentSalary > 0) return currentSalary;
+    }
+
+    var targetContractYear = contractYear + seasonOffset;
+    if (contractLength > 0 && targetContractYear > contractLength) return 0;
+    if (targetContractYear > 0 && info.y_by_year_dollars && info.y_by_year_dollars[String(targetContractYear)] != null) {
+      return safeInt(info.y_by_year_dollars[String(targetContractYear)], 0);
+    }
+
+    var fallback = metrics.current_aav_dollars != null
+      ? safeInt(metrics.current_aav_dollars, 0)
+      : safeInt(asset.salary, 0);
+    if (fallback <= 0) return 0;
+
+    if (contractLength > 0) {
+      return targetContractYear >= 1 && targetContractYear <= contractLength ? fallback : 0;
+    }
+    if (yearsRemaining != null) {
+      return seasonOffset <= yearsRemaining ? fallback : 0;
+    }
+    return seasonOffset === 0 ? fallback : 0;
+  }
+
+  function resolveAssetSeasonSalaryDollars(asset, season, currentSeason, extensionReq) {
+    var offset = safeInt(season, 0) - safeInt(currentSeason, 0);
+    if (offset < 0 || !asset) return 0;
+    if (safeStr(asset.type).toUpperCase() === "PICK") {
+      return offset === 0 ? safeInt(resolvePickSalaryInfo(asset, currentSeason).salary_dollars, 0) : 0;
+    }
+    if (asset.type !== "PLAYER" || asset.taxi) return 0;
+    if (extensionReq && offset > 0 && extensionReq.new_aav_future != null) {
+      var extFutureYears = resolveExtensionFutureYears(extensionReq);
+      if (extFutureYears > 0) {
+        return offset <= extFutureYears ? safeInt(extensionReq.new_aav_future, 0) : 0;
+      }
+    }
+    return resolvePlayerSeasonSalaryDollars(asset, offset);
+  }
+
+  function buildExtensionRequestIndex(extReqs) {
+    var index = {};
+    var rows = Array.isArray(extReqs) ? extReqs : [];
+    var i;
+    for (i = 0; i < rows.length; i += 1) {
+      var req = rows[i] || {};
+      var toTeamId = pad4(req.to_franchise_id || req.to || req.applies_to_team_id);
+      var playerId = safeStr(req.player_id).replace(/\D/g, "");
+      if (!toTeamId || !playerId) continue;
+      index[[toTeamId, playerId].join("|")] = req;
+    }
+    return index;
+  }
+
+  function sumAssetListSeasonSalary(assets, season, currentSeason, extIndex, toTeamId) {
+    var total = 0;
+    var list = Array.isArray(assets) ? assets : [];
+    var i;
+    for (i = 0; i < list.length; i += 1) {
+      var asset = list[i];
+      var extReq = null;
+      if (asset && asset.type === "PLAYER" && extIndex && toTeamId) {
+        extReq = extIndex[[safeStr(toTeamId), safeStr(asset.player_id).replace(/\D/g, "")].join("|")] || null;
+      }
+      total += resolveAssetSeasonSalaryDollars(asset, season, currentSeason, extReq);
+    }
+    return total;
+  }
+
+  function buildMultiYearSalaryImpact(payload, seasonCount) {
+    var leftTeam = getTeamById(state.leftTeamId);
+    var rightTeam = getTeamById(state.rightTeamId);
+    if (!leftTeam || !rightTeam) return null;
+
+    var currentSeason = safeInt(payload && payload.season, 0) || getCurrentTradeSeason();
+    if (!currentSeason) return null;
+
+    var count = Math.max(1, safeInt(seasonCount, 3));
+    var leftSelected = getSelectedAssets(state.leftTeamId);
+    var rightSelected = getSelectedAssets(state.rightTeamId);
+    var extIndex = buildExtensionRequestIndex(payload && payload.extension_requests);
+    var recon = payload && payload.salary_reconciliation ? payload.salary_reconciliation : {};
+    var leftTradeAdjCurrent = safeInt((recon.left || {}).salary_trade_adjustment_dollars, 0);
+    var rightTradeAdjCurrent = safeInt((recon.right || {}).salary_trade_adjustment_dollars, 0);
+    var rows = [];
+    var i;
+
+    for (i = 0; i < count; i += 1) {
+      var season = currentSeason + i;
+      var leftBefore = sumAssetListSeasonSalary(leftTeam.assets, season, currentSeason, null, "");
+      var rightBefore = sumAssetListSeasonSalary(rightTeam.assets, season, currentSeason, null, "");
+      var leftOutgoing = sumAssetListSeasonSalary(leftSelected, season, currentSeason, null, "");
+      var rightOutgoing = sumAssetListSeasonSalary(rightSelected, season, currentSeason, null, "");
+      var leftIncoming = sumAssetListSeasonSalary(rightSelected, season, currentSeason, extIndex, state.leftTeamId);
+      var rightIncoming = sumAssetListSeasonSalary(leftSelected, season, currentSeason, extIndex, state.rightTeamId);
+      var leftAfter = leftBefore - leftOutgoing + leftIncoming + (i === 0 ? leftTradeAdjCurrent : 0);
+      var rightAfter = rightBefore - rightOutgoing + rightIncoming + (i === 0 ? rightTradeAdjCurrent : 0);
+
+      rows.push({
+        season: season,
+        left_before_dollars: leftBefore,
+        left_after_dollars: leftAfter,
+        left_change_dollars: leftAfter - leftBefore,
+        right_before_dollars: rightBefore,
+        right_after_dollars: rightAfter,
+        right_change_dollars: rightAfter - rightBefore
+      });
+    }
+
+    return {
+      current_season: currentSeason,
+      left_franchise_name: safeStr(leftTeam.franchise_name) || "Your Team",
+      right_franchise_name: safeStr(rightTeam.franchise_name) || "Trade Partner",
+      rows: rows
+    };
+  }
+
   function buildTradePayload() {
     var leftTeam = getTeamById(state.leftTeamId);
     var rightTeam = getTeamById(state.rightTeamId);
@@ -4318,6 +4442,7 @@
       leftTradeK,
       rightTradeK
     );
+    payload.multi_year_salary_impact = buildMultiYearSalaryImpact(payload, 3);
     payload.validation = buildValidationSummary(payload);
     return payload;
   }
@@ -4672,12 +4797,14 @@
     meta.textContent = safeStr(asset.pick_salary_note || pickSalaryInfo.meta_label || "Rookie pick");
     item.appendChild(meta);
 
-    item.appendChild(
-      offerPlayerMetric(
-        "Draft Salary",
-        safeInt(asset.salary, 0) > 0 ? formatDollarsAsKLabel(asset.salary) : "—"
-      )
-    );
+    if (safeInt(asset.salary, 0) > 0) {
+      item.appendChild(
+        offerPlayerMetric(
+          "Draft Salary",
+          formatDollarsAsKLabel(asset.salary)
+        )
+      );
+    }
     return item;
   }
 
@@ -4917,6 +5044,82 @@
     return block;
   }
 
+  function renderMultiYearImpactCell(afterDollars, changeDollars) {
+    var cell = document.createElement("td");
+    cell.className = "twb-season-impact-cell";
+
+    var main = document.createElement("div");
+    main.className = "twb-season-impact-main";
+    main.textContent = formatDollarsPlainLabel(afterDollars);
+    cell.appendChild(main);
+
+    var delta = document.createElement("div");
+    delta.className = "twb-season-impact-delta";
+    var change = safeInt(changeDollars, 0);
+    if (change > 0) delta.className += " is-up";
+    else if (change < 0) delta.className += " is-down";
+    delta.textContent = (change === 0 ? "No change" : formatSignedDollarsPlainLabel(change)) + " vs current";
+    cell.appendChild(delta);
+
+    return cell;
+  }
+
+  function renderMultiYearImpactTable(impact) {
+    if (!impact || !Array.isArray(impact.rows) || !impact.rows.length) return null;
+
+    var wrap = document.createElement("section");
+    wrap.className = "twb-season-impact-card";
+
+    var head = document.createElement("div");
+    head.className = "twb-card-head-inline";
+    var title = document.createElement("h3");
+    title.textContent = "Current + 2 Seasons";
+    head.appendChild(title);
+    wrap.appendChild(head);
+
+    var note = document.createElement("p");
+    note.className = "twb-summary-note";
+    note.textContent = "Trade salary adjustments only apply to " + String(safeInt(impact.current_season, 0)) + ".";
+    wrap.appendChild(note);
+
+    var tableWrap = document.createElement("div");
+    tableWrap.className = "twb-season-impact-table-wrap";
+    var table = document.createElement("table");
+    table.className = "twb-season-impact-table";
+
+    var thead = document.createElement("thead");
+    var headRow = document.createElement("tr");
+    var seasonTh = document.createElement("th");
+    seasonTh.textContent = "Season";
+    headRow.appendChild(seasonTh);
+    var leftTh = document.createElement("th");
+    leftTh.textContent = impact.left_franchise_name || "Your Team";
+    headRow.appendChild(leftTh);
+    var rightTh = document.createElement("th");
+    rightTh.textContent = impact.right_franchise_name || "Trade Partner";
+    headRow.appendChild(rightTh);
+    thead.appendChild(headRow);
+    table.appendChild(thead);
+
+    var tbody = document.createElement("tbody");
+    var i;
+    for (i = 0; i < impact.rows.length; i += 1) {
+      var row = impact.rows[i] || {};
+      var tr = document.createElement("tr");
+      var seasonTd = document.createElement("td");
+      seasonTd.className = "twb-season-impact-season";
+      seasonTd.textContent = String(safeInt(row.season, 0));
+      tr.appendChild(seasonTd);
+      tr.appendChild(renderMultiYearImpactCell(row.left_after_dollars, row.left_change_dollars));
+      tr.appendChild(renderMultiYearImpactCell(row.right_after_dollars, row.right_change_dollars));
+      tbody.appendChild(tr);
+    }
+    table.appendChild(tbody);
+    tableWrap.appendChild(table);
+    wrap.appendChild(tableWrap);
+    return wrap;
+  }
+
   function renderTradeSummaryColumn(title, items) {
     var wrap = document.createElement("section");
     wrap.className = "twb-trade-summary-side";
@@ -5073,6 +5276,9 @@
       )
     );
     summaryEl.appendChild(salaryGrid);
+
+    var multiYearImpact = renderMultiYearImpactTable(payload.multi_year_salary_impact);
+    if (multiYearImpact) summaryEl.appendChild(multiYearImpact);
 
     renderTradeSummary(payload);
     renderOfferCart(payload);

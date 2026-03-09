@@ -827,6 +827,11 @@ summary:focus-visible {
   color: #1e293b;
 }
 
+.twb-offer-salary-summary {
+  display: grid;
+  gap: 0.72rem;
+}
+
 .twb-salary-side {
   border: 1px solid #d7e0ea;
   border-radius: 12px;
@@ -856,6 +861,74 @@ summary:focus-visible {
 .twb-offer-salary-panel .twb-summary-row .value {
   color: #0f172a;
   font-size: 0.9rem;
+}
+
+.twb-season-impact-card {
+  border: 1px solid #d7e0ea;
+  border-radius: 12px;
+  background: #f8fafc;
+  padding: 0.64rem 0.68rem;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.twb-season-impact-card .twb-summary-note {
+  margin: 0;
+  color: #64748b;
+}
+
+.twb-season-impact-table-wrap {
+  overflow-x: auto;
+}
+
+.twb-season-impact-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 420px;
+}
+
+.twb-season-impact-table th,
+.twb-season-impact-table td {
+  padding: 0.52rem 0.35rem;
+  border-top: 1px solid #d7e0ea;
+  text-align: left;
+  vertical-align: top;
+}
+
+.twb-season-impact-table th {
+  border-top: 0;
+  color: #475569;
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.twb-season-impact-season {
+  color: #0f172a;
+  font-size: 0.84rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.twb-season-impact-main {
+  color: #0f172a;
+  font-size: 0.88rem;
+  font-weight: 800;
+}
+
+.twb-season-impact-delta {
+  margin-top: 0.12rem;
+  color: #64748b;
+  font-size: 0.75rem;
+}
+
+.twb-season-impact-delta.is-up {
+  color: #b91c1c;
+}
+
+.twb-season-impact-delta.is-down {
+  color: #047857;
 }
 
 .twb-salary-adjustment-hint {
