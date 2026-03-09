@@ -5693,6 +5693,12 @@
       });
     }
 
+    if (els.summary) {
+      els.summary.addEventListener("toggle", function () {
+        scheduleParentHeightPost();
+      });
+    }
+
     if (els.mobileTabs) {
       els.mobileTabs.addEventListener("click", function (evt) {
         var node = evt.target;

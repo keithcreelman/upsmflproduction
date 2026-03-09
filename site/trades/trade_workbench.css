@@ -832,6 +832,39 @@ summary:focus-visible {
   gap: 0.72rem;
 }
 
+.twb-offer-salary-summary-toggle {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.55rem;
+}
+
+.twb-offer-salary-summary-toggle::-webkit-details-marker {
+  display: none;
+}
+
+.twb-offer-salary-summary-toggle::after {
+  content: "";
+  width: 0.55rem;
+  height: 0.55rem;
+  border-right: 2px solid #475569;
+  border-bottom: 2px solid #475569;
+  transform: rotate(45deg);
+  flex: 0 0 auto;
+  margin-left: auto;
+  transition: transform 160ms ease;
+}
+
+.twb-offer-salary-summary[open] .twb-offer-salary-summary-toggle::after {
+  transform: rotate(-135deg);
+}
+
+.twb-offer-salary-summary > #twbSummaryContent {
+  margin-top: 0.08rem;
+}
+
 .twb-salary-side {
   border: 1px solid #d7e0ea;
   border-radius: 12px;
