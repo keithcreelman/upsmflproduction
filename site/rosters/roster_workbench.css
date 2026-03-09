@@ -292,6 +292,10 @@
   display: block;
 }
 
+.rwb-toolbar-advanced[hidden] {
+  display: none;
+}
+
 .rwb-toolbar-disclosure {
   display: flex;
   justify-content: flex-end;
