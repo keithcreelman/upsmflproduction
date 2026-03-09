@@ -485,6 +485,45 @@
     return "is-veteran";
   }
 
+  function isLoadedContractPlayer(player) {
+    var length = Math.max(0, contractLengthForPlayer(player));
+    if (length <= 1) return false;
+    var yearValues = contractYearValueMapForPlayer(player);
+    var first = safeInt(yearValues[1], contractYearFallbackValue(player, 1));
+    var second = safeInt(yearValues[2], contractYearFallbackValue(player, 2));
+    if (length === 2) return first !== second;
+    var third = safeInt(yearValues[3], contractYearFallbackValue(player, 3));
+    return first !== second || second !== third;
+  }
+
+  function activeRosterCountForPlayers(players) {
+    var list = Array.isArray(players) ? players : [];
+    var count = 0;
+    for (var i = 0; i < list.length; i += 1) {
+      if (!list[i] || list[i].isTaxi || list[i].isIr) continue;
+      count += 1;
+    }
+    return count;
+  }
+
+  function contractLimitSummaryForPlayers(players) {
+    var list = Array.isArray(players) ? players : [];
+    var threeYearNonRookie = 0;
+    var loaded = 0;
+    for (var i = 0; i < list.length; i += 1) {
+      var player = list[i];
+      if (!player) continue;
+      if (contractLengthForPlayer(player) === 3 && contractBucket(player.type) !== "rookie") {
+        threeYearNonRookie += 1;
+      }
+      if (isLoadedContractPlayer(player)) loaded += 1;
+    }
+    return {
+      threeYearNonRookie: threeYearNonRookie,
+      loaded: loaded
+    };
+  }
+
   function contractPreviewKey(player) {
     return pad4(player && player.fid) + ":" + safeStr(player && player.id);
   }
@@ -3866,11 +3905,13 @@
 
   function teamHeaderHtml(team, filteredPlayers) {
     var logo = safeStr(team.logo);
-    var filteredRosterPlayers = rosterCountForPlayers(filteredPlayers);
-    var totalRosterPlayers = rosterCountForPlayers(team.players || []);
-    var irTotal = safeInt(team && team.summary && team.summary.ir, irCountForPlayers(team.players || []));
+    var allPlayers = team.players || [];
+    var totalRosterPlayers = rosterCountForPlayers(allPlayers);
+    var activeCount = activeRosterCountForPlayers(allPlayers);
+    var irTotal = safeInt(team && team.summary && team.summary.ir, irCountForPlayers(allPlayers));
+    var taxiTotal = safeInt(team && team.summary && team.summary.taxi, 0);
     var limit = rosterLimitSummary(totalRosterPlayers, state.ctx && state.ctx.year, new Date());
-    var rosterOutOfRange = !!limit.outOfRange;
+    var contractLimits = contractLimitSummaryForPlayers(allPlayers);
     var limitTitle = "Roster limit " + limit.rangeLabel;
     if (safeStr(limit.deadlineYmd) && limit.max > MAX_ROSTER_PLAYERS) {
       limitTitle += " until " + safeStr(limit.deadlineYmd);
@@ -3879,10 +3920,12 @@
       ? '<img class="rwb-team-logo" src="' + escapeHtml(logo) + '" alt="' + escapeHtml(team.name) + ' logo" title="' + escapeHtml(team.name) + '">' 
       : '<span class="rwb-team-logo-fallback" aria-hidden="true" title="' + escapeHtml(team.name) + '">' + escapeHtml(team.fid) + "</span>";
     var chips = [
-      '<span class="rwb-chip' + (rosterOutOfRange ? ' is-bad' : '') + '"><span class="rwb-chip-label">Players</span><span class="rwb-chip-value">' + escapeHtml(String(filteredRosterPlayers)) + '/' + escapeHtml(String(totalRosterPlayers)) + '</span></span>',
-      '<span class="rwb-chip' + (limit.outOfRange ? ' is-bad' : '') + '" title="' + escapeHtml(limitTitle) + '"><span class="rwb-chip-label">Limit</span><span class="rwb-chip-value">' + escapeHtml(limit.rangeLabel + " (" + limit.status + ")") + '</span></span>',
-      '<span class="rwb-chip"><span class="rwb-chip-label">Taxi</span><span class="rwb-chip-value">' + escapeHtml(String(team.summary.taxi)) + '</span></span>',
-      '<span class="rwb-chip"><span class="rwb-chip-label">IR</span><span class="rwb-chip-value">' + escapeHtml(String(irTotal)) + '</span></span>'
+      '<span class="rwb-chip"><span class="rwb-chip-label">Active</span><span class="rwb-chip-value">' + escapeHtml(String(activeCount)) + '</span></span>',
+      '<span class="rwb-chip"><span class="rwb-chip-label">IR</span><span class="rwb-chip-value">' + escapeHtml(String(irTotal)) + '</span></span>',
+      '<span class="rwb-chip"><span class="rwb-chip-label">Taxi</span><span class="rwb-chip-value">' + escapeHtml(String(taxiTotal)) + '</span></span>',
+      '<span class="rwb-chip' + (limit.outOfRange ? ' is-bad' : '') + '" title="' + escapeHtml(limitTitle) + '"><span class="rwb-chip-label">Roster Min/Max</span><span class="rwb-chip-value">' + escapeHtml(limit.rangeLabel) + '</span></span>',
+      '<span class="rwb-chip' + (contractLimits.threeYearNonRookie > 6 ? ' is-bad' : '') + '"><span class="rwb-chip-label">3Y Non-Rookie</span><span class="rwb-chip-value">' + escapeHtml(String(contractLimits.threeYearNonRookie) + '/6') + '</span></span>',
+      '<span class="rwb-chip' + (contractLimits.loaded > 5 ? ' is-bad' : '') + '"><span class="rwb-chip-label">Loaded</span><span class="rwb-chip-value">' + escapeHtml(String(contractLimits.loaded) + '/5') + '</span></span>'
     ];
     if (!team.summary.compliance.ok) {
       chips.push(
@@ -4214,7 +4257,7 @@
                 '<span class="rwb-pos-pill">' + escapeHtml(safeStr(p.positionGroup)) + '</span>' +
                 '<button type="button" class="rwb-player-open rwb-player-open-stack" data-action="open-player-modal" data-player-id="' + escapeHtml(p.id) + '" data-franchise-id="' + escapeHtml(p.fid) + '">' +
                   '<span class="rwb-player-name">' + escapeHtml(p.name) + '</span>' +
-                  '<span class="rwb-player-contract-type">Contract Type: ' + escapeHtml(contractTypeText) + '</span>' +
+                  '<span class="rwb-type-pill ' + typeTone(p.type) + ' rwb-player-contract-pill">' + escapeHtml(contractTypeText) + '</span>' +
                 '</button>' +
                 tags.join("") +
                 '<button type="button" class="rwb-row-more" data-action="row-more" aria-expanded="false">More</button>' +
@@ -4222,9 +4265,9 @@
               '<dl class="rwb-mobile-details">' +
                 '<div><dt>Orig Len</dt><dd>' + escapeHtml(contractLength > 0 ? String(contractLength) : "—") + '</dd></div>' +
                 '<div><dt>Years Left</dt><dd>' + escapeHtml(String(p.years)) + '</dd></div>' +
-                '<div><dt>TCV</dt><dd>' + escapeHtml(compactContractAmount(totalContractValue)) + '</dd></div>' +
                 '<div><dt>Salary</dt><dd>' + escapeHtml(compactContractValueWithRankText(p.salary, p.positionSalaryRank)) + '</dd></div>' +
                 '<div><dt>AAV</dt><dd>' + escapeHtml(compactContractValueWithRankText(p.aav, p.positionAavRank)) + '</dd></div>' +
+                '<div><dt>TCV</dt><dd>' + escapeHtml(compactContractAmount(totalContractValue)) + '</dd></div>' +
                 '<div><dt>Orig GTD</dt><dd>' + escapeHtml(compactContractAmountAllowZero(contractGuarantee)) + '</dd></div>' +
                 '<div><dt>Cap Pen</dt><dd>' + escapeHtml(compactContractAmountAllowZero(capPenalty)) + '</dd></div>' +
               '</dl>' +
@@ -4232,9 +4275,9 @@
           '</td>' +
           '<td class="rwb-cell-num">' + escapeHtml(contractLength > 0 ? String(contractLength) : "—") + '</td>' +
           '<td class="rwb-cell-num">' + escapeHtml(String(p.years)) + '</td>' +
-          '<td class="rwb-cell-num">' + escapeHtml(compactContractAmount(totalContractValue)) + '</td>' +
           '<td class="rwb-cell-num">' + compactContractValueWithRankHtml(p.salary, p.positionSalaryRank) + '</td>' +
           '<td class="rwb-cell-num">' + compactContractValueWithRankHtml(p.aav, p.positionAavRank) + '</td>' +
+          '<td class="rwb-cell-num">' + escapeHtml(compactContractAmount(totalContractValue)) + '</td>' +
           '<td class="rwb-cell-num">' + escapeHtml(compactContractAmountAllowZero(contractGuarantee)) + '</td>' +
           '<td class="rwb-cell-num">' + escapeHtml(compactContractAmountAllowZero(capPenalty)) + '</td>' +
         '</tr>'
@@ -4253,9 +4296,9 @@
                 sortableHeader("roster", "name", "Player") +
                 sortableHeader("roster", "contract_length", "Orig Len", "rwb-th-num") +
                 sortableHeader("roster", "years", "Years Left", "rwb-th-num") +
-                sortableHeader("roster", "tcv", "TCV", "rwb-th-num") +
                 sortableHeader("roster", "salary", "Salary", "rwb-th-num") +
                 sortableHeader("roster", "aav", "AAV", "rwb-th-num") +
+                sortableHeader("roster", "tcv", "TCV", "rwb-th-num") +
                 sortableHeader("roster", "guarantee", "Orig GTD", "rwb-th-num") +
                 sortableHeader("roster", "penalty", "Cap Pen", "rwb-th-num") +
               '</tr>' +

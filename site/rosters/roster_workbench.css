@@ -378,6 +378,7 @@
   padding: 8px 14px;
   font-size: 0.98rem;
   line-height: 1;
+  white-space: nowrap;
 }
 
 .rwb-chip-label {
@@ -639,6 +640,15 @@
   text-transform: uppercase;
 }
 
+.rwb-player-contract-pill {
+  width: fit-content;
+  max-width: 100%;
+  padding: 2px 8px;
+  font-size: 0.56rem;
+  letter-spacing: 0.08em;
+  line-height: 1.05;
+}
+
 .rwb-player-open {
   border: 0;
   background: transparent;
@@ -660,9 +670,10 @@
   color: #ffd4ad;
 }
 
-.rwb-player-open:hover .rwb-player-contract-type,
-.rwb-player-open:focus-visible .rwb-player-contract-type {
-  color: #ffd4ad;
+.rwb-player-open:hover .rwb-player-contract-pill,
+.rwb-player-open:focus-visible .rwb-player-contract-pill {
+  border-color: rgba(255, 212, 173, 0.72);
+  box-shadow: 0 0 0 1px rgba(255, 212, 173, 0.15);
 }
 
 .rwb-tag {
