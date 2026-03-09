@@ -357,3 +357,63 @@ body.ext-chat-open {
     border-left: none;
   }
 }
+
+/* ── Standalone shell (hpm-ext-assist / Message 8) ── */
+.ups-ext-page {
+  padding: 1.25rem 1rem 1rem;
+  font-family: "Inter", "Roboto", Arial, sans-serif;
+}
+
+.ups-ext-shell {
+  max-width: 480px;
+}
+
+.ups-ext-shell__eyebrow {
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--muted, #6B7280);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 0.3rem;
+}
+
+.ups-ext-shell__title {
+  font-size: 1.1rem;
+  font-weight: 900;
+  color: var(--text-strong, #111827);
+  margin: 0 0 0.35rem;
+  line-height: 1.2;
+}
+
+.ups-ext-shell__subtitle {
+  font-size: 0.84rem;
+  color: var(--muted, #6B7280);
+  font-weight: 600;
+  line-height: 1.5;
+  margin: 0 0 0.9rem;
+}
+
+.ups-ext-shell__actions {
+  margin-bottom: 0.75rem;
+}
+
+.ups-ext-shell__launch {
+  background: var(--accent, #2563eb);
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  cursor: pointer;
+  font-family: "Inter", "Roboto", Arial, sans-serif;
+  font-size: 0.84rem;
+  font-weight: 800;
+  padding: 0.55rem 1.1rem;
+  transition: background 120ms ease;
+}
+
+.ups-ext-shell__launch:hover {
+  background: rgba(37, 99, 235, .85);
+}
+
+.ups-ext-shell__mount {
+  /* mount point placeholder */
+}

@@ -459,6 +459,35 @@
     });
   }
 
+  function loadExtAssistAssets() {
+    var sha = window.UPS_RELEASE_SHA || "main";
+    var base = "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@" + sha;
+
+    /* CSS — append to <head> once */
+    if (!document.getElementById("extAssistCss")) {
+      var link = document.createElement("link");
+      link.id = "extAssistCss";
+      link.rel = "stylesheet";
+      link.href = base + "/site/ccc/extension_assistant.css";
+      (document.head || document.documentElement).appendChild(link);
+    }
+
+    /* JS — append to <body> once; wire launcher button on load */
+    if (!document.getElementById("extAssistJs")) {
+      var s = document.createElement("script");
+      s.id = "extAssistJs";
+      s.src = base + "/site/ccc/extension_assistant.js";
+      s.async = false;
+      s.addEventListener("load", function () {
+        var btn = document.getElementById("extAssistLaunchBtn");
+        if (btn && typeof window.openExtensionAssistant === "function") {
+          btn.addEventListener("click", window.openExtensionAssistant);
+        }
+      });
+      document.body.appendChild(s);
+    }
+  }
+
   function ensureMountNode() {
     var explicitId = script.getAttribute("data-ups-target-id");
     if (explicitId) {
@@ -495,6 +524,9 @@
     .then(function (html) {
       mount.innerHTML = normalizeHtml(partial, html);
       executeScripts(mount);
+      if (partial === "hpm-ext-assist") {
+        loadExtAssistAssets();
+      }
     })
     .catch(function (err) {
       mount.innerHTML =
