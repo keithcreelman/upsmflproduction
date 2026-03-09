@@ -1164,6 +1164,10 @@
     return state.view !== "bye" && !capPlanSummaryViewActive() && !tagBreakdownActive();
   }
 
+  function browseSearchEnabledForView() {
+    return state.view === "points" || (state.view === "contract" && !capPlanSummaryViewActive()) || (state.view === "tag" && !tagBreakdownActive());
+  }
+
   function contractTypeFilterEnabledForView() {
     return state.view !== "bye" && state.view !== "points" && state.view !== "tag" && !capPlanSummaryViewActive();
   }
@@ -4615,7 +4619,7 @@
               '</div>' +
               '<div class="rwb-toolbar-panel rwb-toolbar-panel-browse">' +
                 '<div class="rwb-toolbar-section-label">Browse</div>' +
-                '<div class="rwb-toolbar-browse-grid">' +
+                '<div class="rwb-toolbar-browse-grid" id="rwbToolbarBrowseGrid">' +
                   '<label class="rwb-field"><span>Team</span><select id="rwbJumpTeam" class="rwb-select"><option value="">Select team...</option></select></label>' +
                   '<div id="rwbPointsControls" class="rwb-toolbar-points"></div>' +
                 '</div>' +
@@ -4661,7 +4665,9 @@
     els.jumpTeam = document.getElementById("rwbJumpTeam");
     els.jumpTeamField = els.jumpTeam ? els.jumpTeam.closest(".rwb-field") : null;
     els.browsePanel = els.jumpTeam ? els.jumpTeam.closest(".rwb-toolbar-panel") : null;
+    els.browseGrid = document.getElementById("rwbToolbarBrowseGrid");
     els.pointsControls = document.getElementById("rwbPointsControls");
+    els.browseSearch = null;
     els.pointsMode = null;
     els.pointsHistoryMode = null;
     els.pointsHistoryYearStart = null;
@@ -4751,6 +4757,7 @@
   function renderPointsControls() {
     if (!els.pointsControls) return;
 
+    els.browseSearch = null;
     els.pointsMode = null;
     els.pointsHistoryMode = null;
     els.pointsHistoryYearStart = null;
@@ -4766,6 +4773,12 @@
       return;
     }
 
+    var browseSearchHtml =
+      '<label class="rwb-field rwb-field-search rwb-toolbar-browse-search">' +
+        '<span>Player Search</span>' +
+        '<input id="rwbBrowseSearch" class="rwb-input" type="search" placeholder="Search players..." autocomplete="off">' +
+      '</label>';
+
     if (state.view === "contract") {
       var contractSubview = normalizeCapPlanSubview(state.contractSubView);
       els.pointsControls.className = "rwb-toolbar-points is-contract-view";
@@ -4774,7 +4787,9 @@
         '<div class="rwb-subview-switch" role="tablist" aria-label="Cap plan mode">' +
           '<button type="button" class="rwb-btn rwb-btn-ghost' + (contractSubview === "players" ? ' is-active' : '') + '" data-action="contract-subview" data-subview="players" role="tab" aria-selected="' + (contractSubview === "players" ? "true" : "false") + '">Player View</button>' +
           '<button type="button" class="rwb-btn rwb-btn-ghost' + (contractSubview === "summary" ? ' is-active' : '') + '" data-action="contract-subview" data-subview="summary" role="tab" aria-selected="' + (contractSubview === "summary" ? "true" : "false") + '">Summary View</button>' +
-        '</div>';
+        '</div>' +
+        (contractSubview === "players" ? browseSearchHtml : "");
+      els.browseSearch = document.getElementById("rwbBrowseSearch");
       return;
     }
 
@@ -4786,7 +4801,9 @@
         '<div class="rwb-subview-switch" role="tablist" aria-label="Tag plan mode">' +
           '<button type="button" class="rwb-btn rwb-btn-ghost' + (tagSubview === "players" ? ' is-active' : '') + '" data-action="tag-subview" data-subview="players" role="tab" aria-selected="' + (tagSubview === "players" ? "true" : "false") + '">Eligible Players</button>' +
           '<button type="button" class="rwb-btn rwb-btn-ghost' + (tagSubview === "breakdown" ? ' is-active' : '') + '" data-action="tag-subview" data-subview="breakdown" role="tab" aria-selected="' + (tagSubview === "breakdown" ? "true" : "false") + '">Calc Breakdown</button>' +
-        '</div>';
+        '</div>' +
+        (tagSubview === "players" ? browseSearchHtml : "");
+      els.browseSearch = document.getElementById("rwbBrowseSearch");
       return;
     }
 
@@ -4816,13 +4833,15 @@
             '<label class="rwb-field"><span>Week From</span><select id="rwbPointsHistoryWeekStart" class="rwb-select"></select></label>' +
             '<label class="rwb-field"><span>Week To</span><select id="rwbPointsHistoryWeekEnd" class="rwb-select"></select></label>'
           : '<label class="rwb-field"><span>Year From</span><select id="rwbPointsHistoryYearStart" class="rwb-select"></select></label>' +
-            '<label class="rwb-field"><span>Year To</span><select id="rwbPointsHistoryYearEnd" class="rwb-select"></select></label>');
+            '<label class="rwb-field"><span>Year To</span><select id="rwbPointsHistoryYearEnd" class="rwb-select"></select></label>') +
+        browseSearchHtml;
 
       els.pointsHistoryYearStart = document.getElementById("rwbPointsHistoryYearStart");
       els.pointsHistoryYearEnd = document.getElementById("rwbPointsHistoryYearEnd");
       els.pointsHistorySeason = document.getElementById("rwbPointsHistorySeason");
       els.pointsHistoryWeekStart = document.getElementById("rwbPointsHistoryWeekStart");
       els.pointsHistoryWeekEnd = document.getElementById("rwbPointsHistoryWeekEnd");
+      els.browseSearch = document.getElementById("rwbBrowseSearch");
 
       if (weeklyMode) {
         renderSelectOptions(els.pointsHistorySeason, seasons.map(function (season) {
@@ -4878,6 +4897,7 @@
     renderPointsControls();
 
     els.search.value = state.search;
+    if (els.browseSearch) els.browseSearch.value = state.search;
 
     var sets = buildFilterOptionSets();
     renderSelectOptions(els.filterPosition, sets.positions, state.filterPosition);
@@ -4886,7 +4906,7 @@
     renderSelectOptions(els.filterByeImpact, BYE_IMPACT_FILTERS, state.filterByeImpact);
     var showByeImpactFilter = state.view === "bye";
     if (els.jumpTeamField) els.jumpTeamField.hidden = !teamJumpEnabledForView();
-    if (els.searchField) els.searchField.hidden = !searchFilterEnabledForView();
+    if (els.searchField) els.searchField.hidden = !searchFilterEnabledForView() || browseSearchEnabledForView();
     if (els.filterPositionField) els.filterPositionField.hidden = !positionFilterEnabledForView();
     if (els.filterTypeField) els.filterTypeField.hidden = !contractTypeFilterEnabledForView();
     if (els.filterRosterStatusField) els.filterRosterStatusField.hidden = !rosterStatusFilterEnabledForView();
@@ -4899,6 +4919,9 @@
     if (els.browsePanel) {
       els.browsePanel.hidden = !(teamJumpEnabledForView() || scoringControlEnabledForView() || capPlanSubviewControlEnabledForView() || tagSubviewControlEnabledForView());
     }
+    if (els.browseGrid) {
+      els.browseGrid.classList.toggle("is-single-column", !teamJumpEnabledForView());
+    }
 
     var filtersForcedOpen = filtersForcedOpenForView();
     var effectiveFiltersOpen = filtersForcedOpen || state.filtersOpen;
@@ -4906,7 +4929,7 @@
     if (els.toggleFiltersWrap) els.toggleFiltersWrap.hidden = !showFiltersToggle;
     if (els.toggleFilters) {
       var activeFilterCount = 0;
-      if (state.search) activeFilterCount += 1;
+      if (state.search && !browseSearchEnabledForView()) activeFilterCount += 1;
       if (state.filterPosition) activeFilterCount += 1;
       if (contractTypeFilterEnabledForView() && state.filterType) activeFilterCount += 1;
       if (rosterStatusFilterEnabledForView() && state.filterRosterStatus) activeFilterCount += 1;
@@ -8165,7 +8188,7 @@
       });
       return;
     }
-    if (el === els.search) {
+    if (el === els.search || elId === "rwbBrowseSearch") {
       state.search = safeStr(el.value || "").toLowerCase();
       persistState();
       renderTeams();
