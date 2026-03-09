@@ -1616,18 +1616,38 @@
     return tier.charAt(0).toUpperCase() + tier.slice(1);
   }
 
-  function formatSignedScore(value) {
+  function historyBadgeHtml(text, toneClass, title) {
+    var label = safeStr(text) || "—";
+    var cls = "rwb-points-history-badge" + (toneClass ? (" " + toneClass) : "");
+    return '<span class="' + escapeHtml(cls) + '"' + (title ? ' title="' + escapeHtml(title) + '"' : "") + '>' + escapeHtml(label) + '</span>';
+  }
+
+  function posScoreBadgeHtml(value) {
     if (value == null || value === "") return "—";
     var num = Number(value);
     if (!isFinite(num)) return "—";
-    var rounded = Math.round(num * 1000) / 1000;
-    var text = Math.abs(rounded).toLocaleString("en-US", {
-      minimumFractionDigits: 3,
-      maximumFractionDigits: 3
-    });
-    if (rounded > 0) return "+" + text;
-    if (rounded < 0) return "-" + text;
-    return text;
+    var rounded = Math.round(num);
+    var toneClass = "is-neutral";
+    if (rounded > 0) toneClass = "is-positive";
+    else if (rounded < 0) toneClass = "is-negative";
+    return historyBadgeHtml(String(Math.abs(rounded)), toneClass, rounded > 0 ? ("+" + rounded) : String(rounded));
+  }
+
+  function startedBadgeHtml(value) {
+    if (value == null || value === "") return "—";
+    var started = safeInt(value, -1);
+    if (started === 1) return historyBadgeHtml("Start", "is-start");
+    if (started === 0) return historyBadgeHtml("Bench", "is-bench");
+    return "—";
+  }
+
+  function tierBadgeHtml(value) {
+    var tier = safeStr(value).toLowerCase();
+    if (!tier) return "—";
+    var toneClass = "is-neutral";
+    if (tier === "elite") toneClass = "is-elite";
+    else if (tier === "dud") toneClass = "is-dud";
+    return historyBadgeHtml(formatTier(tier), toneClass);
   }
 
   function formatEliteNeutralDudSummary(eliteWeeks, neutralWeeks, dudWeeks) {
@@ -5181,9 +5201,9 @@
       var posScore = weeklyHistoryFieldValue(row, "pos_week_score", -1);
       pointsRow.push('<td class="rwb-cell-num">' + escapeHtml(formatPoints(points)) + '</td>');
       rankRow.push('<td class="rwb-cell-num">' + escapeHtml(formatRank(rank)) + '</td>');
-      startedRow.push('<td class="' + (safeInt(started, 0) === 1 ? 'rwb-points-history-started' : 'rwb-points-history-bench') + '">' + escapeHtml(formatStarted(started)) + '</td>');
-      tierRow.push('<td>' + escapeHtml(formatTier(bucket)) + '</td>');
-      posScoreRow.push('<td class="rwb-cell-num">' + escapeHtml(formatSignedScore(posScore)) + '</td>');
+      startedRow.push('<td class="rwb-cell-num rwb-points-history-cell">' + startedBadgeHtml(started) + '</td>');
+      tierRow.push('<td class="rwb-cell-num rwb-points-history-cell">' + tierBadgeHtml(bucket) + '</td>');
+      posScoreRow.push('<td class="rwb-cell-num rwb-points-history-cell">' + posScoreBadgeHtml(posScore) + '</td>');
     }
 
     pointsRow.push('</tr>');

@@ -1056,7 +1056,7 @@
 }
 
 .rwb-points-history-table {
-  min-width: 660px;
+  min-width: 760px;
 }
 
 .rwb-points-history-table th {
@@ -1066,6 +1066,12 @@
 .rwb-points-history-table tbody th {
   background: rgba(8, 18, 33, 0.96);
   color: var(--rwb-text-soft);
+  min-width: 108px;
+}
+
+.rwb-points-history-table td {
+  text-align: center;
+  vertical-align: middle;
 }
 
 .rwb-points-history-missing {
@@ -1073,13 +1079,47 @@
   text-align: center;
 }
 
-.rwb-points-history-started {
-  color: #dff8ea;
-  font-weight: 800;
+.rwb-points-history-cell {
+  padding-top: 12px;
+  padding-bottom: 12px;
 }
 
-.rwb-points-history-bench {
+.rwb-points-history-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 58px;
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(138, 172, 214, 0.24);
+  background: rgba(8, 18, 34, 0.9);
   color: var(--rwb-text-soft);
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.rwb-points-history-badge.is-start,
+.rwb-points-history-badge.is-elite,
+.rwb-points-history-badge.is-positive {
+  border-color: rgba(86, 215, 154, 0.42);
+  background: rgba(86, 215, 154, 0.16);
+  color: #dff8ea;
+}
+
+.rwb-points-history-badge.is-bench,
+.rwb-points-history-badge.is-neutral {
+  border-color: rgba(138, 172, 214, 0.24);
+  background: rgba(8, 18, 34, 0.9);
+  color: var(--rwb-text-soft);
+}
+
+.rwb-points-history-badge.is-dud,
+.rwb-points-history-badge.is-negative {
+  border-color: rgba(255, 141, 141, 0.46);
+  background: rgba(255, 141, 141, 0.16);
+  color: #ffd3d3;
 }
 
 .rwb-franchise-table {
