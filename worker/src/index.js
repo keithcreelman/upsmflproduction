@@ -1098,6 +1098,8 @@ export default {
           const raw = safeStr(description);
           let m = raw.match(/Year\s*(\d{4})\s*Draft Pick\s*(\d+)\.(\d+)/i);
           if (m) return `${m[1]} Rookie ${m[2]}.${String(m[3]).padStart(2, "0")}`;
+          m = raw.match(/(\d{4}).*?(\d+)\.(\d+)/i);
+          if (m) return `${m[1]} Rookie ${m[2]}.${String(m[3]).padStart(2, "0")}`;
           m = raw.match(/(\d{4}).*?Round\s*(\d+).*?Pick\s*(\d+)/i);
           if (m) return `${m[1]} Rookie ${m[2]}.${String(m[3]).padStart(2, "0")}`;
 
@@ -3035,11 +3037,40 @@ export default {
         return "";
       };
 
+      const parsePickSlotMeta = (value) => {
+        const raw = safeStr(value).toUpperCase();
+        const out = { round: 0, pick: 0 };
+        if (!raw) return out;
+
+        let m = raw.match(/(?:^|[^0-9])([1-9]\d?)\.(\d{1,2})(?:[^0-9]|$)/);
+        if (m) {
+          out.round = safeInt(m[1], 0);
+          out.pick = safeInt(m[2], 0);
+          return out;
+        }
+
+        m = raw.match(/ROUND\s*([1-9]\d?).*?PICK\s*0*([1-9]\d?)/i);
+        if (m) {
+          out.round = safeInt(m[1], 0);
+          out.pick = safeInt(m[2], 0);
+          return out;
+        }
+
+        m = raw.match(/^R(?:OUND)?\s*([1-9]\d?)$/i);
+        if (m) {
+          out.round = safeInt(m[1], 0);
+        }
+        return out;
+      };
+
       const pickMetaFromAsset = (asset) => {
         const token = pickTokenFromAsset(asset);
         const description = safeStr(asset?.description || asset?.label || "");
-        let round = safeInt(asset?.pick_round || asset?.round, 0);
-        let pick = safeInt(asset?.pick_slot || asset?.slot || asset?.pick, 0);
+        const slotText = safeStr(asset?.pick_slot || asset?.slot || asset?.pick);
+        const slotMeta = parsePickSlotMeta(slotText);
+        let round = safeInt(asset?.pick_round || asset?.round, 0) || safeInt(slotMeta.round, 0);
+        let pick = safeInt(slotMeta.pick, 0);
+        if (!pick) pick = safeInt(asset?.pick_slot || asset?.slot || asset?.pick, 0);
         let year = safeInt(asset?.pick_season || asset?.season || asset?.year, 0);
 
         if ((!round || !pick || !year) && token.startsWith("DP_")) {
@@ -3065,6 +3096,15 @@ export default {
             year = year || safeInt(yearDraft[1], 0);
             round = round || safeInt(yearDraft[2], 0);
             pick = pick || safeInt(yearDraft[3], 0);
+          }
+        }
+
+        if (!round || !pick || !year) {
+          const dottedPick = description.match(/(\d{4}).*?(\d+)\.(\d+)/i);
+          if (dottedPick) {
+            year = year || safeInt(dottedPick[1], 0);
+            round = round || safeInt(dottedPick[2], 0);
+            pick = pick || safeInt(dottedPick[3], 0);
           }
         }
 

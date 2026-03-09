@@ -4,6 +4,13 @@
   var SAMPLE_DATA_URL = "./trade_workbench_sample.json";
   var STORAGE_KEY_PREFIX = "ups-trade-workbench-state-v9";
   var GROUP_ORDER = ["QB", "RB", "WR", "TE", "PK", "PN", "DT", "DE", "LB", "CB", "S", "DL", "DB", "PICKS", "OTHER"];
+  var PICK_SALARY_ROUND_ONE_START_DOLLARS = 15000;
+  var PICK_SALARY_ROUND_ONE_FLOOR_DOLLARS = 5000;
+  var PICK_SALARY_ROUND_ONE_STEP_DOLLARS = 1000;
+  var PICK_SALARY_ROUND_ONE_AVERAGE_DOLLARS = 10000;
+  var PICK_SALARY_ROUND_TWO_DOLLARS = 5000;
+  var PICK_SALARY_ROUNDS_THREE_TO_FIVE_DOLLARS = 2000;
+  var PICK_SALARY_ROUND_SIX_DOLLARS = 1000;
   var heightSyncInstalled = false;
   var heightPostTimer = 0;
   var lastPostedHeight = 0;
@@ -278,47 +285,120 @@
     }
   }
 
+  function getCurrentTradeSeason(currentSeasonHintOverride) {
+    var hinted = safeInt(currentSeasonHintOverride, 0);
+    if (hinted) return hinted;
+    var stateSeason = safeInt(state.data && state.data.meta ? state.data.meta.season : 0, 0);
+    if (stateSeason) return stateSeason;
+    return safeInt(getLeagueContext().season, 0);
+  }
+
+  function parsePickSlotMeta(value) {
+    var raw = safeStr(value).toUpperCase();
+    var out = {
+      round: 0,
+      pick: 0
+    };
+    if (!raw) return out;
+
+    var dotted = raw.match(/(?:^|[^0-9])([1-9]\d?)\.(\d{1,2})(?:[^0-9]|$)/);
+    if (dotted) {
+      out.round = safeInt(dotted[1], 0);
+      out.pick = safeInt(dotted[2], 0);
+      return out;
+    }
+
+    var roundPick = raw.match(/ROUND\s*([1-9]\d?).*?PICK\s*0*([1-9]\d?)/i);
+    if (roundPick) {
+      out.round = safeInt(roundPick[1], 0);
+      out.pick = safeInt(roundPick[2], 0);
+      return out;
+    }
+
+    var roundOnly = raw.match(/^R(?:OUND)?\s*([1-9]\d?)$/i);
+    if (roundOnly) {
+      out.round = safeInt(roundOnly[1], 0);
+      return out;
+    }
+
+    return out;
+  }
+
+  function resolveFirstRoundPickSalaryDollars(pick) {
+    var slot = safeInt(pick, 0);
+    if (slot <= 0) return PICK_SALARY_ROUND_ONE_AVERAGE_DOLLARS;
+    return Math.max(
+      PICK_SALARY_ROUND_ONE_FLOOR_DOLLARS,
+      PICK_SALARY_ROUND_ONE_START_DOLLARS - ((slot - 1) * PICK_SALARY_ROUND_ONE_STEP_DOLLARS)
+    );
+  }
+
+  function resolvePickSalaryInfo(asset, currentSeasonHintOverride) {
+    var meta = resolvePickMeta(asset);
+    var round = safeInt(meta.round, 0);
+    var pick = safeInt(meta.pick, 0);
+    var year = safeInt(meta.year, 0);
+    var currentSeason = getCurrentTradeSeason(currentSeasonHintOverride);
+    var isFutureRoundOne = round === 1 && year && currentSeason && year > currentSeason;
+
+    if (round === 1) {
+      if (isFutureRoundOne || !pick) {
+        return {
+          salary_dollars: PICK_SALARY_ROUND_ONE_AVERAGE_DOLLARS,
+          meta_label: "Avg round 1 salary",
+          is_average: true
+        };
+      }
+      return {
+        salary_dollars: resolveFirstRoundPickSalaryDollars(pick),
+        meta_label: "Round 1 rookie salary",
+        is_average: false
+      };
+    }
+
+    if (round === 2) {
+      return {
+        salary_dollars: PICK_SALARY_ROUND_TWO_DOLLARS,
+        meta_label: "Round 2 rookie salary",
+        is_average: false
+      };
+    }
+
+    if (round >= 3 && round <= 5) {
+      return {
+        salary_dollars: PICK_SALARY_ROUNDS_THREE_TO_FIVE_DOLLARS,
+        meta_label: "Rounds 3-5 rookie salary",
+        is_average: false
+      };
+    }
+
+    if (round === 6) {
+      return {
+        salary_dollars: PICK_SALARY_ROUND_SIX_DOLLARS,
+        meta_label: "Round 6 rookie salary",
+        is_average: false
+      };
+    }
+
+    return {
+      salary_dollars: 0,
+      meta_label: "Rookie pick",
+      is_average: false
+    };
+  }
+
   function shortPickLabel(desc, assetId, seasonHint) {
     var raw = safeStr(desc);
-    var token = normalizePickKey(assetId || "");
-    var rawUpper = raw.toUpperCase();
     var currentSeason = safeInt(seasonHint, 0);
-    var round = 0;
-    var pick = 0;
-    var year = 0;
-
-    if (token.indexOf("DP_") === 0) {
-      var dp = token.match(/^DP_(\d+)_(\d+)$/i);
-      if (dp) {
-        round = safeInt(dp[1], 0) + 1;
-        pick = safeInt(dp[2], 0) + 1;
-        year = currentSeason || safeInt((raw.match(/(\d{4})/) || [])[1], 0);
-      }
-    } else if (token.indexOf("FP_") === 0) {
-      var fp = token.match(/^FP_[A-Z0-9]+_(\d{4})_(\d+)$/i);
-      if (fp) {
-        year = safeInt(fp[1], 0);
-        round = safeInt(fp[2], 0);
-      }
-    }
-
-    if (!round || !pick) {
-      var yearDraft = raw.match(/Year\s*(\d{4})\s*Draft Pick\s*(\d+)\.(\d+)/i);
-      if (yearDraft) {
-        year = safeInt(yearDraft[1], 0);
-        round = safeInt(yearDraft[2], 0);
-        pick = safeInt(yearDraft[3], 0);
-      }
-    }
-
-    if (!round || !pick) {
-      var roundPick = raw.match(/(\d{4}).*?Round\s*(\d+).*?Pick\s*(\d+)/i);
-      if (roundPick) {
-        year = safeInt(roundPick[1], 0);
-        round = safeInt(roundPick[2], 0);
-        pick = safeInt(roundPick[3], 0);
-      }
-    }
+    var token = normalizePickKey(assetId || "");
+    var meta = resolvePickMeta({
+      asset_id: assetId || "",
+      description: raw,
+      pick_season: currentSeason
+    }, currentSeason);
+    var round = safeInt(meta.round, 0);
+    var pick = safeInt(meta.pick, 0);
+    var year = safeInt(meta.year, 0);
 
     if (round && pick) {
       var y = year || currentSeason;
@@ -333,7 +413,7 @@
       .replace(/\s+/g, " ")
       .trim();
     if (!cleaned && currentSeason) return String(currentSeason) + " Rookie Pick";
-    if (rawUpper.indexOf("DP_") === 0 || rawUpper.indexOf("FP_") === 0) {
+    if (token.indexOf("DP_") === 0 || token.indexOf("FP_") === 0) {
       return currentSeason ? String(currentSeason) + " Rookie Pick" : "Rookie Pick";
     }
     return cleaned || raw;
@@ -351,13 +431,22 @@
         : (ref.pick_season != null ? ref.pick_season : ref.season),
       0
     );
-    var round = safeInt(ref.pick_round != null ? ref.pick_round : ref.round, 0);
-    var pick = safeInt(
+    var slotText = safeStr(
       ref.pick_slot != null
         ? ref.pick_slot
-        : (ref.slot != null ? ref.slot : ref.pick),
-      0
+        : (ref.slot != null ? ref.slot : ref.pick)
     );
+    var slotMeta = parsePickSlotMeta(slotText);
+    var round = safeInt(ref.pick_round != null ? ref.pick_round : ref.round, 0) || safeInt(slotMeta.round, 0);
+    var pick = safeInt(slotMeta.pick, 0);
+    if (!pick) {
+      pick = safeInt(
+        ref.pick_slot != null
+          ? ref.pick_slot
+          : (ref.slot != null ? ref.slot : ref.pick),
+        0
+      );
+    }
     var year = seasonHint;
 
     if ((!round || !pick || !year) && token.indexOf("DP_") === 0) {
@@ -383,6 +472,15 @@
         year = year || safeInt(yearDraft[1], 0);
         round = round || safeInt(yearDraft[2], 0);
         pick = pick || safeInt(yearDraft[3], 0);
+      }
+    }
+
+    if (!round || !pick || !year) {
+      var dottedPick = description.match(/(\d{4}).*?(\d+)\.(\d+)/i);
+      if (dottedPick) {
+        year = year || safeInt(dottedPick[1], 0);
+        round = round || safeInt(dottedPick[2], 0);
+        pick = pick || safeInt(dottedPick[3], 0);
       }
     }
 
@@ -606,7 +704,7 @@
     return index;
   }
 
-  function normalizeAsset(raw, teamId, extensionIndex) {
+  function normalizeAsset(raw, teamId, extensionIndex, currentSeasonHint) {
     raw = raw || {};
     var type = safeStr(raw.type || (raw.player_id ? "PLAYER" : "PICK")).toUpperCase();
     var asset = {
@@ -629,13 +727,22 @@
       asset.pick_display = shortPickLabel(
         asset.description,
         asset.asset_id || raw.pick_key || raw.asset_id,
-        raw.pick_season || raw.season
+        raw.pick_season || raw.season || currentSeasonHint
       );
       asset.pick_key = pickMeta.token || normalizePickKey(asset.asset_id || raw.pick_key || raw.asset_id);
       asset.pick_season = pickMeta.year || safeInt(raw.pick_season || raw.season, 0);
       asset.pick_round = pickMeta.round || safeInt(raw.pick_round || raw.round, 0);
       asset.pick_slot = pickMeta.pick ? String(pickMeta.pick) : safeStr(raw.pick_slot || raw.slot || raw.pick);
-      asset.salary = 0;
+      var pickSalaryInfo = resolvePickSalaryInfo({
+        asset_id: asset.asset_id,
+        description: asset.description,
+        pick_season: asset.pick_season,
+        pick_round: asset.pick_round,
+        pick_slot: asset.pick_slot
+      }, currentSeasonHint);
+      asset.salary = safeInt(pickSalaryInfo.salary_dollars, 0);
+      asset.pick_salary_note = safeStr(pickSalaryInfo.meta_label);
+      asset.pick_salary_is_average = !!pickSalaryInfo.is_average;
       asset.years = null;
       asset.contract_type = "Pick";
       asset.contract_info = safeStr(raw.contract_info || "");
@@ -703,6 +810,7 @@
   function normalizeData(raw) {
     raw = raw || {};
     var extensionIndex = buildExtensionIndex(raw.extension_previews || raw.extensionPreviews || []);
+    var currentSeason = safeInt(raw.meta && raw.meta.season != null ? raw.meta.season : raw.season, 0);
     var teams = [];
     var i;
 
@@ -728,7 +836,7 @@
         var assets = Array.isArray(rt.assets) ? rt.assets : [];
         var j;
         for (j = 0; j < assets.length; j += 1) {
-          var asset = normalizeAsset(assets[j], teamId, extensionIndex);
+          var asset = normalizeAsset(assets[j], teamId, extensionIndex, currentSeason);
           if (asset.asset_id) team.assets.push(asset);
         }
         teams.push(team);
@@ -762,7 +870,7 @@
         var rosterAssets = rostersByTeam[fId] || [];
         var k;
         for (k = 0; k < rosterAssets.length; k += 1) {
-          t2.assets.push(normalizeAsset(rosterAssets[k], fId, extensionIndex));
+          t2.assets.push(normalizeAsset(rosterAssets[k], fId, extensionIndex, currentSeason));
         }
         teams.push(t2);
       }
@@ -1280,7 +1388,7 @@
       description: isPick ? asset.description : null,
       position: asset.position || null,
       nfl_team: asset.nfl_team || null,
-      salary: isPick ? 0 : safeInt(asset.salary, 0),
+      salary: safeInt(asset.salary, 0),
       years: isPick ? null : (asset.years == null ? null : asset.years),
       contract_type: asset.contract_type || null,
       contract_info: asset.contract_info || null,
@@ -3387,6 +3495,13 @@
     state.tradeSalaryK[teamId] = String(value);
   }
 
+  function getAssetCapSalaryDollars(asset) {
+    if (!asset) return 0;
+    if (safeStr(asset.type).toUpperCase() === "PICK") return safeInt(asset.salary, 0);
+    if (asset.type !== "PLAYER" || asset.taxi) return 0;
+    return safeInt(asset.salary, 0);
+  }
+
   function getTeamTotals(teamId) {
     ensureSelectionMaps(teamId);
     var team = getTeamById(teamId);
@@ -3396,6 +3511,7 @@
       selectedPicks: 0,
       selectedTaxiPlayers: 0,
       selectedNonTaxiSalary: 0,
+      selectedCapSalary: 0,
       selectedVisibleCount: 0
     };
     if (!team) return out;
@@ -3413,6 +3529,7 @@
       out.selectedCount += 1;
       if (a.type === "PICK") {
         out.selectedPicks += 1;
+        out.selectedCapSalary += safeInt(a.salary, 0);
         continue;
       }
       out.selectedPlayers += 1;
@@ -3420,6 +3537,7 @@
         out.selectedTaxiPlayers += 1;
       } else {
         out.selectedNonTaxiSalary += safeInt(a.salary, 0);
+        out.selectedCapSalary += safeInt(a.salary, 0);
       }
     }
     return out;
@@ -3970,14 +4088,15 @@
       moneyStack.appendChild(metaLine);
       tdSalary.appendChild(moneyStack);
     } else {
+      var pickSalaryInfo = resolvePickSalaryInfo(asset);
       var pickMoney = document.createElement("div");
       pickMoney.className = "twb-money-stack";
       var pickMain = document.createElement("div");
       pickMain.className = "twb-money-main";
-      pickMain.textContent = "—";
+      pickMain.textContent = safeInt(asset.salary, 0) > 0 ? moneyFmt(asset.salary) : "—";
       var pickMeta = document.createElement("div");
       pickMeta.className = "twb-money-meta";
-      pickMeta.textContent = "Rookie pick";
+      pickMeta.textContent = safeStr(asset.pick_salary_note || pickSalaryInfo.meta_label || "Rookie pick");
       pickMoney.appendChild(pickMain);
       pickMoney.appendChild(pickMeta);
       tdSalary.appendChild(pickMoney);
@@ -4046,9 +4165,7 @@
     var i;
     for (i = 0; i < assets.length; i += 1) {
       var asset = assets[i];
-      if (!asset || asset.type !== "PLAYER") continue;
-      if (asset.taxi) continue;
-      total += safeInt(asset.salary, 0);
+      total += getAssetCapSalaryDollars(asset);
     }
     return total;
   }
@@ -4070,8 +4187,8 @@
     var salaryCap = safeInt(state.data && state.data.meta ? state.data.meta.salary_cap_dollars : 0, 0);
     var leftAvailableBefore = resolveTeamAvailableSalaryDollars(state.leftTeamId);
     var rightAvailableBefore = resolveTeamAvailableSalaryDollars(state.rightTeamId);
-    var leftOutgoing = safeInt(leftTotals.selectedNonTaxiSalary, 0);
-    var rightOutgoing = safeInt(rightTotals.selectedNonTaxiSalary, 0);
+    var leftOutgoing = safeInt(leftTotals.selectedCapSalary, 0);
+    var rightOutgoing = safeInt(rightTotals.selectedCapSalary, 0);
     var leftIncoming = rightOutgoing;
     var rightIncoming = leftOutgoing;
     var leftSalaryTradeAdjustmentDollars = (leftTradeK - rightTradeK) * 1000;
@@ -4528,6 +4645,7 @@
   }
 
   function renderOfferCartPickCard(teamId, asset) {
+    var pickSalaryInfo = resolvePickSalaryInfo(asset);
     var item = document.createElement("article");
     item.className = "twb-offer-cart-item twb-offer-cart-item-pick";
 
@@ -4551,8 +4669,15 @@
 
     var meta = document.createElement("div");
     meta.className = "twb-offer-cart-item-meta";
-    meta.textContent = "Rookie Pick";
+    meta.textContent = safeStr(asset.pick_salary_note || pickSalaryInfo.meta_label || "Rookie pick");
     item.appendChild(meta);
+
+    item.appendChild(
+      offerPlayerMetric(
+        "Draft Salary",
+        safeInt(asset.salary, 0) > 0 ? formatDollarsAsKLabel(asset.salary) : "—"
+      )
+    );
     return item;
   }
 

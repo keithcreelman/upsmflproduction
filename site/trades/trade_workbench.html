@@ -70,6 +70,27 @@
         </section>
       </section>
 
+      <section id="twbPartnerAssetsPanel" class="twb-assets-column twb-assets-column-right" aria-label="Partner assets and actions">
+        <header class="twb-section-head">
+          <h2>Partner Team Assets</h2>
+          <p>Select what you want to receive.</p>
+        </header>
+        <section class="twb-roster-shell">
+          <section class="twb-board" id="twbPartnerBoard"></section>
+        </section>
+        <div class="twb-card twb-payload-card">
+          <div class="twb-card-head-inline">
+            <h2>Integration JSON (Advanced)</h2>
+            <button type="button" id="twbCopyPayloadBtn2" class="twb-link-btn">Copy JSON</button>
+          </div>
+          <details class="twb-advanced-panel">
+            <summary>Show Integration Payload</summary>
+            <p class="twb-card-caption">This is the backend payload preview used for API submission and post-accept processing.</p>
+            <pre id="twbPayloadPreview" class="twb-payload-preview">Loading…</pre>
+          </details>
+        </div>
+      </section>
+
       <section id="twbOfferCart" class="twb-card twb-offer-cart-card" aria-label="Current trade offer">
         <div class="twb-card-head-inline twb-offer-cart-head">
           <h2>Offer Review</h2>
@@ -132,27 +153,6 @@
             <pre id="twbSubmitDebugPre" class="twb-debug-pre"></pre>
           </details>
         </section>
-      </section>
-
-      <section id="twbPartnerAssetsPanel" class="twb-assets-column twb-assets-column-right" aria-label="Partner assets and actions">
-        <header class="twb-section-head">
-          <h2>Partner Team Assets</h2>
-          <p>Select what you want to receive, then review and submit.</p>
-        </header>
-        <section class="twb-roster-shell">
-          <section class="twb-board" id="twbPartnerBoard"></section>
-        </section>
-        <div class="twb-card twb-payload-card">
-          <div class="twb-card-head-inline">
-            <h2>Integration JSON (Advanced)</h2>
-            <button type="button" id="twbCopyPayloadBtn2" class="twb-link-btn">Copy JSON</button>
-          </div>
-          <details class="twb-advanced-panel">
-            <summary>Show Integration Payload</summary>
-            <p class="twb-card-caption">This is the backend payload preview used for API submission and post-accept processing.</p>
-            <pre id="twbPayloadPreview" class="twb-payload-preview">Loading…</pre>
-          </details>
-        </div>
       </section>
     </main>
 
