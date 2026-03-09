@@ -1,6 +1,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <link id="cccCss" rel="stylesheet" href="./ccc.css">
+<link id="extHelpCss" rel="stylesheet" href="./extension_assistant.css">
 <style>
   html, body {
     margin: 0;
@@ -446,5 +447,13 @@
 	    s.src = "./ccc.js" + qs;
 	    s.defer = true;
 	    document.body.appendChild(s);
+
+	    var extCss = document.getElementById("extHelpCss");
+	    if (extCss) extCss.href = "./extension_assistant.css" + qs;
+
+	    var ea = document.createElement("script");
+	    ea.src = "./extension_assistant.js" + qs;
+	    ea.defer = true;
+	    document.body.appendChild(ea);
 	  })();
 	</script>
