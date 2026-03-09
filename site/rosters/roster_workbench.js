@@ -1547,6 +1547,24 @@
     );
   }
 
+  function compactContractAmount(amount) {
+    var dollars = Math.round(safeNum(amount, 0));
+    if (dollars <= 0) return "—";
+    return formatContractK(dollars);
+  }
+
+  function compactContractValueWithRankHtml(amount, rank) {
+    return pointsStatWithRankHtml(compactContractAmount(amount), rank);
+  }
+
+  function compactContractValueWithRankText(amount, rank) {
+    var valueText = compactContractAmount(amount);
+    var rankValue = safeInt(rank, 0);
+    if (valueText === "—") return "—";
+    if (rankValue <= 0) return valueText;
+    return valueText + " " + formatRank(rankValue);
+  }
+
   function isCurrentMobile() {
     return !!(window.matchMedia && window.matchMedia("(max-width: 760px)").matches);
   }
@@ -4186,21 +4204,17 @@
               '<dl class="rwb-mobile-details">' +
                 '<div><dt>Orig Len</dt><dd>' + escapeHtml(contractLength > 0 ? String(contractLength) : "—") + '</dd></div>' +
                 '<div><dt>Years Left</dt><dd>' + escapeHtml(String(p.years)) + '</dd></div>' +
-                '<div><dt>Salary</dt><dd>' + escapeHtml(money(p.salary)) + '</dd></div>' +
-                '<div><dt>Pos Sal Rk</dt><dd>' + escapeHtml(formatRank(p.positionSalaryRank)) + '</dd></div>' +
-                '<div><dt>AAV</dt><dd>' + escapeHtml(p.aav > 0 ? money(p.aav) : "—") + '</dd></div>' +
-                '<div><dt>Pos AAV Rk</dt><dd>' + escapeHtml(formatRank(p.positionAavRank)) + '</dd></div>' +
-                '<div><dt>TCV</dt><dd>' + escapeHtml(totalContractValue > 0 ? money(totalContractValue) : "—") + '</dd></div>' +
+                '<div><dt>TCV</dt><dd>' + escapeHtml(compactContractAmount(totalContractValue)) + '</dd></div>' +
+                '<div><dt>Salary</dt><dd>' + escapeHtml(compactContractValueWithRankText(p.salary, p.positionSalaryRank)) + '</dd></div>' +
+                '<div><dt>AAV</dt><dd>' + escapeHtml(compactContractValueWithRankText(p.aav, p.positionAavRank)) + '</dd></div>' +
               '</dl>' +
             '</div>' +
           '</td>' +
           '<td class="rwb-cell-num">' + escapeHtml(contractLength > 0 ? String(contractLength) : "—") + '</td>' +
           '<td class="rwb-cell-num">' + escapeHtml(String(p.years)) + '</td>' +
-          '<td class="rwb-cell-num">' + escapeHtml(money(p.salary)) + '</td>' +
-          '<td class="rwb-cell-num">' + escapeHtml(formatRank(p.positionSalaryRank)) + '</td>' +
-          '<td class="rwb-cell-num">' + escapeHtml(p.aav > 0 ? money(p.aav) : "—") + '</td>' +
-          '<td class="rwb-cell-num">' + escapeHtml(formatRank(p.positionAavRank)) + '</td>' +
-          '<td class="rwb-cell-num">' + escapeHtml(totalContractValue > 0 ? money(totalContractValue) : "—") + '</td>' +
+          '<td class="rwb-cell-num">' + escapeHtml(compactContractAmount(totalContractValue)) + '</td>' +
+          '<td class="rwb-cell-num">' + compactContractValueWithRankHtml(p.salary, p.positionSalaryRank) + '</td>' +
+          '<td class="rwb-cell-num">' + compactContractValueWithRankHtml(p.aav, p.positionAavRank) + '</td>' +
         '</tr>'
       );
     }
@@ -4217,11 +4231,9 @@
                 sortableHeader("roster", "name", "Player") +
                 sortableHeader("roster", "contract_length", "Orig Len") +
                 sortableHeader("roster", "years", "Years Left") +
-                sortableHeader("roster", "salary", "Salary") +
-                sortableHeader("roster", "salary_rank", "Pos Sal Rk") +
-                sortableHeader("roster", "aav", "AAV") +
-                sortableHeader("roster", "aav_rank", "Pos AAV Rk") +
                 sortableHeader("roster", "tcv", "TCV") +
+                sortableHeader("roster", "salary", "Salary") +
+                sortableHeader("roster", "aav", "AAV") +
               '</tr>' +
             '</thead>' +
             '<tbody>' + rows.join("") + '</tbody>' +
@@ -5389,11 +5401,9 @@
         name: 1,
         contract_length: 1,
         years: 1,
+        tcv: 1,
         salary: 1,
-        salary_rank: 1,
-        aav: 1,
-        aav_rank: 1,
-        tcv: 1
+        aav: 1
       };
       if (!validRosterSortKeys[rosterSortKey]) {
         state.sorts.roster = { key: "salary", dir: "desc" };
