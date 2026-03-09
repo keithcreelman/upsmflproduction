@@ -591,6 +591,12 @@
   border-bottom: 0;
 }
 
+.rwb-roster-table th.rwb-th-num,
+.rwb-roster-table td.rwb-cell-num {
+  text-align: center;
+  vertical-align: middle;
+}
+
 .rwb-player-name-wrap {
   display: grid;
   gap: 5px;

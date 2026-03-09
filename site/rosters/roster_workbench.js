@@ -4247,17 +4247,17 @@
           '<span class="rwb-group-label"><span>' + escapeHtml(group.label) + '</span><span class="rwb-group-count">' + escapeHtml(String(group.players.length)) + '</span></span>' +
         '</summary>' +
         '<div class="rwb-table-wrap">' +
-          '<table class="rwb-table" aria-label="' + escapeHtml(team.name + " " + group.label + " roster") + '">' +
+          '<table class="rwb-table rwb-roster-table" aria-label="' + escapeHtml(team.name + " " + group.label + " roster") + '">' +
             '<thead>' +
               '<tr>' +
                 sortableHeader("roster", "name", "Player") +
-                sortableHeader("roster", "contract_length", "Orig Len") +
-                sortableHeader("roster", "years", "Years Left") +
-                sortableHeader("roster", "tcv", "TCV") +
-                sortableHeader("roster", "salary", "Salary") +
-                sortableHeader("roster", "aav", "AAV") +
-                sortableHeader("roster", "guarantee", "Orig GTD") +
-                sortableHeader("roster", "penalty", "Cap Pen") +
+                sortableHeader("roster", "contract_length", "Orig Len", "rwb-th-num") +
+                sortableHeader("roster", "years", "Years Left", "rwb-th-num") +
+                sortableHeader("roster", "tcv", "TCV", "rwb-th-num") +
+                sortableHeader("roster", "salary", "Salary", "rwb-th-num") +
+                sortableHeader("roster", "aav", "AAV", "rwb-th-num") +
+                sortableHeader("roster", "guarantee", "Orig GTD", "rwb-th-num") +
+                sortableHeader("roster", "penalty", "Cap Pen", "rwb-th-num") +
               '</tr>' +
             '</thead>' +
             '<tbody>' + rows.join("") + '</tbody>' +
