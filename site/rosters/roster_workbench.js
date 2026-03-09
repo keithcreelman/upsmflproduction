@@ -1180,6 +1180,10 @@
     return state.view === "roster" || (state.view === "tag" && !tagBreakdownActive()) || (state.view === "contract" && !capPlanSummaryViewActive());
   }
 
+  function filtersForcedOpenForView() {
+    return state.view === "roster";
+  }
+
   function scoringControlEnabledForView() {
     return state.view === "points" || state.view === "bye";
   }
@@ -4896,7 +4900,9 @@
       els.browsePanel.hidden = !(teamJumpEnabledForView() || scoringControlEnabledForView() || capPlanSubviewControlEnabledForView() || tagSubviewControlEnabledForView());
     }
 
-    var showFiltersToggle = !capPlanSummaryViewActive() && !tagBreakdownActive();
+    var filtersForcedOpen = filtersForcedOpenForView();
+    var effectiveFiltersOpen = filtersForcedOpen || state.filtersOpen;
+    var showFiltersToggle = !filtersForcedOpen && !capPlanSummaryViewActive() && !tagBreakdownActive();
     if (els.toggleFiltersWrap) els.toggleFiltersWrap.hidden = !showFiltersToggle;
     if (els.toggleFilters) {
       var activeFilterCount = 0;
@@ -4906,13 +4912,13 @@
       if (rosterStatusFilterEnabledForView() && state.filterRosterStatus) activeFilterCount += 1;
       if (state.view === "bye" && state.filterByeImpact) activeFilterCount += 1;
       els.toggleFilters.hidden = !showFiltersToggle;
-      els.toggleFilters.textContent = (state.filtersOpen ? "Hide Filters" : "Show Filters") + (activeFilterCount ? " (" + activeFilterCount + ")" : "");
-      els.toggleFilters.setAttribute("aria-expanded", state.filtersOpen ? "true" : "false");
-      els.toggleFilters.classList.toggle("is-active", state.filtersOpen);
+      els.toggleFilters.textContent = (effectiveFiltersOpen ? "Hide Filters" : "Show Filters") + (activeFilterCount ? " (" + activeFilterCount + ")" : "");
+      els.toggleFilters.setAttribute("aria-expanded", effectiveFiltersOpen ? "true" : "false");
+      els.toggleFilters.classList.toggle("is-active", effectiveFiltersOpen);
     }
     if (els.advanced) {
-      els.advanced.hidden = capPlanSummaryViewActive() || tagBreakdownActive() || !state.filtersOpen;
-      els.advanced.classList.toggle("is-open", state.filtersOpen && !capPlanSummaryViewActive() && !tagBreakdownActive());
+      els.advanced.hidden = capPlanSummaryViewActive() || tagBreakdownActive() || !effectiveFiltersOpen;
+      els.advanced.classList.toggle("is-open", effectiveFiltersOpen && !capPlanSummaryViewActive() && !tagBreakdownActive());
     }
 
     if (els.toolbarMain) {
