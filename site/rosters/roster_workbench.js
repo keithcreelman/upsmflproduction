@@ -2922,6 +2922,7 @@
     var bestPpgRank = 0;
     var seasonsWithData = 0;
     var eliteWeeks = 0;
+    var dudWeeks = 0;
 
     for (var i = 0; i < years.length; i += 1) {
       var row = playerYearlyHistoryRow(player, years[i]);
@@ -2930,7 +2931,9 @@
       totalGames += safeInt(row[1], 0);
       if (safeInt(row[3], 0) > 0 && (!bestRank || safeInt(row[3], 0) < bestRank)) bestRank = safeInt(row[3], 0);
       if (safeInt(row[4], 0) > 0 && (!bestPpgRank || safeInt(row[4], 0) < bestPpgRank)) bestPpgRank = safeInt(row[4], 0);
-      eliteWeeks += safeInt(seasonEliteWeekSummaryForPlayer(player, years[i]).eliteWeeks, 0);
+      var seasonWeekSummary = seasonEliteWeekSummaryForPlayer(player, years[i]);
+      eliteWeeks += safeInt(seasonWeekSummary.eliteWeeks, 0);
+      dudWeeks += safeInt(seasonWeekSummary.dudWeeks, 0);
       seasonsWithData += 1;
     }
 
@@ -2945,7 +2948,7 @@
       appearances: seasonsWithData,
       eliteWeeks: eliteWeeks,
       neutralWeeks: 0,
-      dudWeeks: 0,
+      dudWeeks: dudWeeks,
       hasData: seasonsWithData > 0
     };
   }
@@ -2954,6 +2957,8 @@
     var seasonKey = safeStr(season);
     var maxWeek = historySeasonWeekMax(seasonKey);
     var eliteWeeks = 0;
+    var neutralWeeks = 0;
+    var dudWeeks = 0;
     var bucketWeeks = 0;
     for (var week = 1; week <= maxWeek; week += 1) {
       var row = playerWeeklyHistoryRow(player, seasonKey, week);
@@ -2962,9 +2967,13 @@
       if (!bucket) continue;
       bucketWeeks += 1;
       if (bucket === "elite") eliteWeeks += 1;
+      else if (bucket === "dud") dudWeeks += 1;
+      else neutralWeeks += 1;
     }
     return {
       eliteWeeks: eliteWeeks,
+      neutralWeeks: neutralWeeks,
+      dudWeeks: dudWeeks,
       bucketWeeks: bucketWeeks
     };
   }
@@ -5125,11 +5134,12 @@
     var ppgRankRow = ['<tr><th>PPG Rank</th>'];
     var eliteWeeksRow = ['<tr><th>Elite Weeks</th>'];
     var eliteRankRow = ['<tr><th>Elite Pos Rk</th>'];
+    var dudWeeksRow = ['<tr><th>Dud Weeks</th>'];
 
     for (var i = 0; i < years.length; i += 1) {
       var year = years[i];
       var row = playerYearlyHistoryRow(player, year);
-      var eliteSummary = seasonEliteWeekSummaryForPlayer(player, year);
+      var seasonWeekSummary = seasonEliteWeekSummaryForPlayer(player, year);
       var eliteRank = eliteRanks[year] ? safeInt(eliteRanks[year][safeStr(player.id)], 0) : 0;
       header.push('<th>' + escapeHtml(year) + '</th>');
       if (!row) {
@@ -5144,13 +5154,18 @@
         ppgRankRow.push('<td class="rwb-cell-num">' + escapeHtml(formatRank(row[4])) + '</td>');
       }
       eliteWeeksRow.push(
-        safeInt(eliteSummary.bucketWeeks, 0) > 0
-          ? '<td class="rwb-cell-num">' + escapeHtml(String(safeInt(eliteSummary.eliteWeeks, 0))) + '</td>'
+        safeInt(seasonWeekSummary.bucketWeeks, 0) > 0
+          ? '<td class="rwb-cell-num rwb-points-history-cell">' + historyBadgeHtml(String(safeInt(seasonWeekSummary.eliteWeeks, 0)), safeInt(seasonWeekSummary.eliteWeeks, 0) > 0 ? "is-elite" : "is-neutral") + '</td>'
           : '<td class="rwb-points-history-missing">—</td>'
       );
       eliteRankRow.push(
-        safeInt(eliteSummary.bucketWeeks, 0) > 0 && eliteRank > 0
-          ? '<td class="rwb-cell-num">' + escapeHtml(formatRank(eliteRank)) + '</td>'
+        safeInt(seasonWeekSummary.bucketWeeks, 0) > 0 && eliteRank > 0
+          ? '<td class="rwb-cell-num rwb-points-history-cell">' + historyBadgeHtml(formatRank(eliteRank), "is-neutral") + '</td>'
+          : '<td class="rwb-points-history-missing">—</td>'
+      );
+      dudWeeksRow.push(
+        safeInt(seasonWeekSummary.bucketWeeks, 0) > 0
+          ? '<td class="rwb-cell-num rwb-points-history-cell">' + historyBadgeHtml(String(safeInt(seasonWeekSummary.dudWeeks, 0)), safeInt(seasonWeekSummary.dudWeeks, 0) > 0 ? "is-dud" : "is-neutral") + '</td>'
           : '<td class="rwb-points-history-missing">—</td>'
       );
     }
@@ -5161,12 +5176,13 @@
     ppgRankRow.push('</tr>');
     eliteWeeksRow.push('</tr>');
     eliteRankRow.push('</tr>');
+    dudWeeksRow.push('</tr>');
 
     return (
       '<div class="rwb-points-history-wrap">' +
         '<table class="rwb-table rwb-points-history-table" aria-label="' + escapeHtml(player.name + ' yearly points history') + '">' +
           '<thead><tr>' + header.join("") + '</tr></thead>' +
-          '<tbody>' + pointsRow.join("") + rankRow.join("") + ppgRow.join("") + ppgRankRow.join("") + eliteWeeksRow.join("") + eliteRankRow.join("") + '</tbody>' +
+          '<tbody>' + pointsRow.join("") + rankRow.join("") + ppgRow.join("") + ppgRankRow.join("") + eliteWeeksRow.join("") + eliteRankRow.join("") + dudWeeksRow.join("") + '</tbody>' +
         '</table>' +
       '</div>'
     );
@@ -5229,7 +5245,7 @@
         ? ("Starts " + formatStartRatio(summary.starts, summary.appearances) + " | Elite / Neutral / Dud " + formatEliteNeutralDudSummary(summary.eliteWeeks, summary.neutralWeeks, summary.dudWeeks) + " in selected range")
         : "No weeks in selected range")
       : (safeInt(summary.games, 0) > 0
-        ? (safeInt(summary.games, 0) + " games | " + safeInt(summary.eliteWeeks, 0) + " elite weeks in selected range")
+        ? (safeInt(summary.games, 0) + " games | " + safeInt(summary.eliteWeeks, 0) + " elite weeks | " + safeInt(summary.dudWeeks, 0) + " dud weeks in selected range")
         : "No games in selected range");
 
     return (
