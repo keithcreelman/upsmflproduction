@@ -16,8 +16,40 @@ export MFL_ETL_ARTIFACT_DIR="${MFL_ETL_ARTIFACT_DIR:-$ETL_DIR/artifacts}"
 export MFL_TAG_TRACKING_JSON="${MFL_TAG_TRACKING_JSON:-$ETL_DIR/inputs/tag_tracking.json}"
 export MFL_TAG_EXCLUSIONS_JSON="${MFL_TAG_EXCLUSIONS_JSON:-$ETL_DIR/inputs/tagging_2026_exclusions.json}"
 export MFL_SALARY_ADJUSTMENTS_URL="${MFL_SALARY_ADJUSTMENTS_URL:-}"
+export MFL_PLAYER_SCORING_REPORT_OUT_DIR="${MFL_PLAYER_SCORING_REPORT_OUT_DIR:-$ROOT_DIR/site/reports/player_scoring}"
+export MFL_PLAYER_SCORING_REPORT_SQL_PATH="${MFL_PLAYER_SCORING_REPORT_SQL_PATH:-$ROOT_DIR/site/reports/player_scoring/player_scoring_sql.sql}"
+export MFL_PLAYER_SCORING_REPORT_MIN_SEASON="${MFL_PLAYER_SCORING_REPORT_MIN_SEASON:-}"
+export MFL_PLAYER_SCORING_REPORT_MAX_SEASON="${MFL_PLAYER_SCORING_REPORT_MAX_SEASON:-}"
+export MFL_SALARY_ADJUSTMENTS_REPORT_OUT_DIR="${MFL_SALARY_ADJUSTMENTS_REPORT_OUT_DIR:-$ROOT_DIR/site/reports/salary_adjustments}"
+export MFL_SALARY_ADJUSTMENTS_REPORT_SQL_PATH="${MFL_SALARY_ADJUSTMENTS_REPORT_SQL_PATH:-$ROOT_DIR/site/reports/salary_adjustments/salary_adjustments_sql.sql}"
+export MFL_SALARY_ADJUSTMENTS_REPORT_MIN_SEASON="${MFL_SALARY_ADJUSTMENTS_REPORT_MIN_SEASON:-}"
+export MFL_SALARY_ADJUSTMENTS_REPORT_MAX_SEASON="${MFL_SALARY_ADJUSTMENTS_REPORT_MAX_SEASON:-}"
 
 mkdir -p "$MFL_ETL_ARTIFACT_DIR"
+
+PLAYER_SCORING_REPORT_ARGS=(
+  --db-path "$MFL_DB_PATH"
+  --out-dir "$MFL_PLAYER_SCORING_REPORT_OUT_DIR"
+  --sql-path "$MFL_PLAYER_SCORING_REPORT_SQL_PATH"
+)
+if [[ -n "$MFL_PLAYER_SCORING_REPORT_MIN_SEASON" ]]; then
+  PLAYER_SCORING_REPORT_ARGS+=(--min-season "$MFL_PLAYER_SCORING_REPORT_MIN_SEASON")
+fi
+if [[ -n "$MFL_PLAYER_SCORING_REPORT_MAX_SEASON" ]]; then
+  PLAYER_SCORING_REPORT_ARGS+=(--max-season "$MFL_PLAYER_SCORING_REPORT_MAX_SEASON")
+fi
+
+SALARY_ADJUSTMENTS_REPORT_ARGS=(
+  --db-path "$MFL_DB_PATH"
+  --out-dir "$MFL_SALARY_ADJUSTMENTS_REPORT_OUT_DIR"
+  --sql-path "$MFL_SALARY_ADJUSTMENTS_REPORT_SQL_PATH"
+)
+if [[ -n "$MFL_SALARY_ADJUSTMENTS_REPORT_MIN_SEASON" ]]; then
+  SALARY_ADJUSTMENTS_REPORT_ARGS+=(--min-season "$MFL_SALARY_ADJUSTMENTS_REPORT_MIN_SEASON")
+fi
+if [[ -n "$MFL_SALARY_ADJUSTMENTS_REPORT_MAX_SEASON" ]]; then
+  SALARY_ADJUSTMENTS_REPORT_ARGS+=(--max-season "$MFL_SALARY_ADJUSTMENTS_REPORT_MAX_SEASON")
+fi
 
 python3 "$SCRIPT_DIR/ingest_contract_logs_2019_2021.py" --db-path "$MFL_DB_PATH"
 python3 "$SCRIPT_DIR/ingest_discord_contracts.py" --db-path "$MFL_DB_PATH" --write-v3-all
@@ -37,6 +69,10 @@ python3 "$SCRIPT_DIR/build_standings_snapshot.py" --league-id 74598 --season 202
 python3 "$SCRIPT_DIR/build_standings_snapshot.py" --league-id 74598 --season 2026 --out "$ROOT_DIR/site/standings/standings_74598_2026.json"
 python3 "$SCRIPT_DIR/build_player_points_history_json.py" --db-path "$MFL_DB_PATH" --target-season 2026 --years-back 3 --out-path "$ROOT_DIR/site/ccc/player_points_history.json"
 python3 "$SCRIPT_DIR/build_roster_points_history_json.py" --db-path "$MFL_DB_PATH" --roster-season 2026 --history-start-season 2010 --out-path "$ROOT_DIR/site/rosters/player_points_history.json"
+echo "==> Build player scoring report artifacts"
+python3 "$SCRIPT_DIR/build_player_scoring_report.py" "${PLAYER_SCORING_REPORT_ARGS[@]}"
+echo "==> Build salary adjustments report artifacts"
+python3 "$SCRIPT_DIR/build_salary_adjustments_report.py" "${SALARY_ADJUSTMENTS_REPORT_ARGS[@]}"
 python3 "$SCRIPT_DIR/build_tag_submissions_json.py" --db-path "$MFL_DB_PATH" --out-path "$ROOT_DIR/site/ccc/tag_submissions.json"
 python3 "$SCRIPT_DIR/build_restructure_submissions_json.py" --db-path "$MFL_DB_PATH" --out-path "$ROOT_DIR/site/ccc/restructure_submissions.json"
 
