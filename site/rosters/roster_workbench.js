@@ -1647,11 +1647,13 @@
     if (value == null || value === "") return "—";
     var num = Number(value);
     if (!isFinite(num)) return "—";
-    var rounded = Math.round(num);
+    var rounded = Math.round(num * 100) / 100;
+    if (Math.abs(rounded) < 0.005) rounded = 0;
+    var display = Math.abs(rounded).toFixed(2);
     var toneClass = "is-neutral";
     if (rounded > 0) toneClass = "is-positive";
     else if (rounded < 0) toneClass = "is-negative";
-    return historyBadgeHtml(String(Math.abs(rounded)), toneClass, rounded > 0 ? ("+" + rounded) : String(rounded));
+    return historyBadgeHtml(display, toneClass, rounded > 0 ? ("+" + display) : (rounded < 0 ? ("-" + display) : display));
   }
 
   function startedBadgeHtml(value) {
