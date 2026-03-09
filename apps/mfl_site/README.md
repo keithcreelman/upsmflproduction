@@ -16,6 +16,10 @@
 1. In MFL `Setup → Appearance → Home Page Messages → Message 15`, paste the embed snippet from `site/README.md` (`hpm-mcm`).
 2. Header/footer include an `MCM` link to `MODULE=MESSAGE15`.
 
+## Reports Module (MESSAGE9)
+1. In MFL `Setup → Appearance → Home Page Messages → Message 9`, paste the embed snippet from `site/README.md` (`hpm-reports`).
+2. The message stays centrally managed through the Reports Module partial instead of a hand-pasted iframe block.
+
 ## Expected Behavior
 - Consistent league skin across pages.
 - Extension and restructure quick actions on roster pages.
