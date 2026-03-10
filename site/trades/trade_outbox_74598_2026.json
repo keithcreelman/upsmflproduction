@@ -3,7 +3,7 @@
     "schema_version": 1,
     "league_id": "74598",
     "season": 2026,
-    "updated_at": "2026-03-10T15:33:43.010Z",
+    "updated_at": "2026-03-10T15:33:44.228Z",
     "row_count": 5,
     "source": "worker-trade-outbox"
   },
@@ -876,12 +876,12 @@
       },
       "comment_trailer": "[UPS_TWB_INTENT_BEGIN]\nUPS_OUTBOX_ID:5\nUPS_PAYLOAD_HASH:6889342ece5b35eeee682269645f8a6c121c121cf0fbb78357d5ffa7c97426de\nUPS_XML_EXT:PHNhbGFyaWVzPjxsZWFndWVVbml0IHVuaXQ9IkxFQUdVRSI-PHBsYXllciBpZD0iMTY1OTgiIHNhbGFyeT0iMjAwMCIgY29udHJhY3RZZWFyPSIxIiBjb250cmFjdEluZm89IkNMIDJ8VENWIDE0S3xBQVYgMkssIDEyS3xZMS0ySywgWTItMTJLfEV4dDogUEd8R1REOiAxMC41SyIgY29udHJhY3RTdGF0dXM9IkVYVDEiIC8-PC9sZWFndWVVbml0Pjwvc2FsYXJpZXM-\n[UPS_TWB_INTENT_END]",
       "payload_hash": "6889342ece5b35eeee682269645f8a6c121c121cf0fbb78357d5ffa7c97426de",
-      "status": "PENDING",
-      "mfl_post_response_snip": "",
+      "status": "FAILED",
+      "mfl_post_response_snip": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n\n<error>Only Franchise Owners May Propose Trades</error>",
       "mfl_verify_response_snip": "",
       "league_id": "74598",
       "season": "2026",
-      "updated_ts": "2026-03-10T15:33:42.922Z",
+      "updated_ts": "2026-03-10T15:33:44.107Z",
       "id": "5"
     }
   ]
