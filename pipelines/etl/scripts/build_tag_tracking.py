@@ -605,10 +605,11 @@ def fetch_tagged_season_ids(conn, season: int) -> set[str]:
 def resolve_exclude_tag_season(season: int, override: int = 0) -> int:
     if override and override > 0:
         return override
-    # Offseason logic: if we're in Jan/Feb and tracking the prior season,
-    # exclude tags from that same season (since we're preparing for next year).
+    # Offseason logic: when generating from the completed prior season, exclude
+    # tags from that same season because the output is meant for the upcoming
+    # tag cycle.
     now = datetime.now()
-    if now.month < 3 and season == now.year - 1:
+    if season == now.year - 1:
         return season
     return season - 1
 
