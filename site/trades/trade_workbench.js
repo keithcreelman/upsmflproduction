@@ -2112,6 +2112,25 @@
     return intent;
   }
 
+  function getSecondarySubmitActions() {
+    var ctx = state.reviewContext || {};
+    var kind = safeStr(ctx.kind) || (state.counterMode ? "counter" : "draft");
+    if (kind !== "incoming") return [];
+    var tradeId = safeStr(ctx.tradeId);
+    return [
+      {
+        mode: "counter",
+        label: "Counter Offer",
+        disabled: !tradeId || state.offers.actionBusy
+      },
+      {
+        mode: "reject",
+        label: "Decline Offer",
+        disabled: !tradeId || state.offers.actionBusy
+      }
+    ];
+  }
+
   function moveToOfferReview() {
     state.mobileTab = "review";
     window.setTimeout(function () {
@@ -3408,21 +3427,62 @@
     var payload = buildTradePayload();
     var intent = getPrimarySubmitIntent(payload);
     if (intent.mode === "accept" || intent.mode === "revoke") {
-      var ctx = state.reviewContext || {};
-      var bucket = safeStr(ctx.offerBucket) || (intent.mode === "accept" ? "received" : "offered");
-      var offer = ctx.offer || getOfferFromBannerState(bucket, ctx.offerId);
-      if (!offer) {
-        setSubmitStatus("Offer no longer available in MFL.", "warn");
-        renderSummary();
-        return;
-      }
-      performOfferAction(intent.mode === "accept" ? "ACCEPT" : "REVOKE", {
-        bucket: bucket,
-        offer: offer
-      });
+      runReviewContextAction(intent.mode);
       return;
     }
     submitOfferToQueue();
+  }
+
+  function promoteCurrentReviewToCounterDraft() {
+    var ctx = state.reviewContext || {};
+    var bucket = safeStr(ctx.offerBucket) || "received";
+    var offer = ctx.offer || getOfferFromBannerState(bucket, ctx.offerId);
+    if (!offer) {
+      setSubmitStatus("Offer no longer available in MFL.", "warn");
+      renderSummary();
+      return;
+    }
+    state.counterMode = true;
+    state.counterSourceOffer = offer;
+    setReviewContext("counter", {
+      offer: offer,
+      offerBucket: bucket,
+      tradeId: safeStr(ctx.tradeId || getOfferTradeId(offer))
+    });
+    resetSubmitUiState("Counter Offer Draft loaded.", "");
+    moveToOfferReview();
+    rerender();
+  }
+
+  function runReviewContextAction(mode) {
+    var normalizedMode = safeStr(mode).toLowerCase();
+    if (!normalizedMode) return;
+    if (normalizedMode === "counter") {
+      promoteCurrentReviewToCounterDraft();
+      return;
+    }
+
+    var ctx = state.reviewContext || {};
+    var bucket = safeStr(ctx.offerBucket) || (normalizedMode === "revoke" ? "offered" : "received");
+    var offer = ctx.offer || getOfferFromBannerState(bucket, ctx.offerId);
+    if (!offer) {
+      setSubmitStatus("Offer no longer available in MFL.", "warn");
+      renderSummary();
+      return;
+    }
+
+    var action = normalizedMode === "accept"
+      ? "ACCEPT"
+      : normalizedMode === "reject"
+        ? "REJECT"
+        : normalizedMode === "revoke"
+          ? "REVOKE"
+          : "";
+    if (!action) return;
+    performOfferAction(action, {
+      bucket: bucket,
+      offer: offer
+    });
   }
 
 
@@ -5325,10 +5385,27 @@
   function renderSubmitArea(payload) {
     if (!els.submitOfferBtn || !els.submitOfferStatus) return;
     var intent = getPrimarySubmitIntent(payload);
+    var secondaryActions = getSecondarySubmitActions();
     var isBusy = !!state.submit.busy || !!state.offers.actionBusy;
     els.submitOfferBtn.disabled = isBusy || !!intent.disabled;
     els.submitOfferBtn.textContent = isBusy ? intent.busyLabel : intent.label;
     els.submitOfferBtn.setAttribute("data-submit-intent", intent.mode);
+    if (els.submitSecondaryRow && els.submitCounterBtn && els.submitRejectBtn) {
+      els.submitSecondaryRow.hidden = !secondaryActions.length;
+      var actionMap = {};
+      var i;
+      for (i = 0; i < secondaryActions.length; i += 1) {
+        actionMap[secondaryActions[i].mode] = secondaryActions[i];
+      }
+      var counterAction = actionMap.counter || null;
+      var rejectAction = actionMap.reject || null;
+      els.submitCounterBtn.hidden = !counterAction;
+      els.submitCounterBtn.disabled = isBusy || !!(counterAction && counterAction.disabled);
+      if (counterAction) els.submitCounterBtn.textContent = counterAction.label;
+      els.submitRejectBtn.hidden = !rejectAction;
+      els.submitRejectBtn.disabled = isBusy || !!(rejectAction && rejectAction.disabled);
+      if (rejectAction) els.submitRejectBtn.textContent = rejectAction.label;
+    }
     if (els.submitRetryBtn) {
       var showRetry = !!state.submit.canRetry;
       els.submitRetryBtn.hidden = !showRetry;
@@ -5618,6 +5695,16 @@
     if (els.submitOfferBtn) {
       els.submitOfferBtn.addEventListener("click", function () {
         runPrimarySubmitAction();
+      });
+    }
+    if (els.submitCounterBtn) {
+      els.submitCounterBtn.addEventListener("click", function () {
+        runReviewContextAction("counter");
+      });
+    }
+    if (els.submitRejectBtn) {
+      els.submitRejectBtn.addEventListener("click", function () {
+        runReviewContextAction("reject");
       });
     }
     if (els.submitRetryBtn) {
@@ -5950,6 +6037,9 @@
     els.offerMessageInput = q("twbOfferMessageInput");
     els.submitOfferBtn = q("twbSubmitOfferBtn");
     els.submitRetryBtn = q("twbSubmitRetryBtn");
+    els.submitSecondaryRow = q("twbSubmitSecondaryRow");
+    els.submitCounterBtn = q("twbSubmitCounterBtn");
+    els.submitRejectBtn = q("twbSubmitRejectBtn");
     els.submitOfferStatus = q("twbSubmitOfferStatus");
     els.submitDebugWrap = q("twbSubmitDebugWrap");
     els.submitDebugPre = q("twbSubmitDebugPre");

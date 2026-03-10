@@ -296,6 +296,12 @@ summary:focus-visible {
   color: var(--twb-text);
 }
 
+.twb-btn-danger {
+  background: rgba(127, 29, 29, 0.12);
+  color: #b91c1c;
+  border-color: rgba(185, 28, 28, 0.28);
+}
+
 .twb-link-btn {
   border: 0;
   background: transparent;
@@ -1687,6 +1693,16 @@ summary:focus-visible {
   border-radius: 10px;
   width: 100%;
   justify-content: center;
+}
+
+.twb-offers-submit-row-secondary {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (max-width: 520px) {
+  .twb-offers-submit-row-secondary {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .twb-status-pill-muted {
