@@ -1653,6 +1653,8 @@
 .rwb-modal-metric strong {
   color: var(--rwb-text);
   font-size: 1.02rem;
+  line-height: 1.2;
+  word-break: break-word;
 }
 
 .rwb-modal-actions-wrap {
@@ -1763,6 +1765,12 @@
 .rwb-restructure-input {
   text-align: right;
   font-weight: 700;
+}
+
+.rwb-restructure-input[readonly] {
+  background: rgba(26, 45, 77, 0.9);
+  color: var(--rwb-text-dim);
+  cursor: default;
 }
 
 .rwb-restructure-summary {

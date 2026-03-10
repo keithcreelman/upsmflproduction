@@ -37,57 +37,33 @@
       <form id="uowBugForm" class="uow-modal-body">
         <div class="uow-form-grid">
           <label class="uow-field">
-            Application
-            <select id="uowBugApp" class="uow-select" required>
+            Module
+            <select id="uowBugModule" class="uow-select" required>
               <option value="contract-command-center">Contract Command Center</option>
               <option value="trade-war-room">Trade War Room</option>
-              <option value="roster-workbench">Roster Workbench</option>
-              <option value="ups-hot-links">UPS Hot Links</option>
+              <option value="workbench">Workbench</option>
+              <option value="front-office">Front Office</option>
+              <option value="ups-countdown">UPS Countdown</option>
               <option value="other">Other</option>
             </select>
-          </label>
-
-          <label class="uow-field" id="uowBugModuleWrap">
-            Module / Screen
-            <select id="uowBugModule" class="uow-select" required></select>
           </label>
 
           <label class="uow-field">
             Issue Type
-            <select id="uowBugType" class="uow-select" required>
-              <option value="data-incorrect">Data Incorrect</option>
-              <option value="submission-failed">Submission Failed</option>
-              <option value="ui-visual">UI / Visual</option>
-              <option value="performance">Performance</option>
-              <option value="other">Other</option>
-            </select>
-          </label>
-
-          <label class="uow-field">
-            Severity
-            <select id="uowBugSeverity" class="uow-select" required>
-              <option value="high">High</option>
-              <option value="medium" selected>Medium</option>
-              <option value="low">Low</option>
-            </select>
+            <select id="uowBugType" class="uow-select" required></select>
           </label>
         </div>
 
         <label class="uow-field">
-          Summary
-          <input id="uowBugSummary" class="uow-input" type="text" maxlength="180" required placeholder="Short title of the issue">
+          Description
+          <textarea id="uowBugDetails" class="uow-textarea" rows="4" maxlength="4000" required placeholder="Describe what happened and why it looks incorrect."></textarea>
         </label>
 
         <label class="uow-field">
-          What happened?
-          <textarea id="uowBugDetails" class="uow-textarea" rows="4" maxlength="4000" required placeholder="Describe the bug you saw..."></textarea>
-        </label>
-
-        <label class="uow-field">
-          Attach screenshots (optional)
+          Screenshots
           <div id="uowBugDropzone" class="uow-dropzone">
-            <div class="uow-dropzone-text">Drag and drop screenshots here, or choose files.</div>
-            <input id="uowBugScreenshots" class="uow-input" type="file" accept="image/*" multiple>
+            <div class="uow-dropzone-text">Attach screenshots. Drag and drop files here, or choose files. Screenshots are required.</div>
+            <input id="uowBugScreenshots" class="uow-input" type="file" accept="image/*" multiple required>
           </div>
           <div id="uowBugAttachmentList" class="uow-form-note"></div>
         </label>

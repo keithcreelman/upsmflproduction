@@ -139,6 +139,7 @@
       mode: "actions",
       restructureYear1: "",
       restructureYear2: "",
+      restructureBaseTcv: 0,
       restructureOriginalAav: 0,
       restructureYears: 2,
       restructureExtSuffix: ""
@@ -870,12 +871,92 @@
   function extensionBlockedReason(player) {
     if (!extensionBlockedByCurrentOwner(player)) return "";
     var team = findTeamById(player && player.fid);
-    return "Current extension lineage already belongs to " + safeStr(team && team.name || player && player.teamName || "this franchise") + ".";
+    return safeStr(team && team.name || player && player.teamName || "This franchise") + " already used this player's extension on the current contract. No additional extension is available.";
+  }
+
+  function extensionOwnerTokenForTeam(team, player) {
+    var abbrev = safeStr(team && team.abbrev).trim();
+    if (abbrev) return abbrev;
+    var teamName = safeStr(team && team.name || player && player.teamName || "").trim();
+    if (!teamName) return "";
+    return teamName.split(/\s+/)[0];
+  }
+
+  function synthesizeExtensionOption(player, yearsToAdd) {
+    if (!player) return null;
+    var years = safeInt(yearsToAdd, 0);
+    if (years !== 1 && years !== 2) return null;
+
+    var currentYears = Math.max(0, safeInt(player && player.years, 0));
+    var currentSalary = Math.max(1000, roundToK(safeInt(player && player.salary, 0)));
+    var futureSalary = projectedExtensionSalary(player, years);
+    if (futureSalary <= 0) return null;
+
+    var totalLength = currentYears + years;
+    if (totalLength <= 0) return null;
+
+    var info = safeStr(player && player.special);
+    var existingOwners = parseExtensionHistoryTokens(info);
+    var team = findTeamById(player && player.fid);
+    var ownerToken = extensionOwnerTokenForTeam(team, player);
+    var ownerNorm = normalizeIdentityToken(ownerToken);
+    if (ownerToken && ownerNorm) {
+      var hasOwner = false;
+      for (var i = 0; i < existingOwners.length; i += 1) {
+        if (normalizeIdentityToken(existingOwners[i]) === ownerNorm) {
+          hasOwner = true;
+          break;
+        }
+      }
+      if (!hasOwner) existingOwners.push(ownerToken);
+    }
+
+    var yearParts = [];
+    for (var idx = 1; idx <= totalLength; idx += 1) {
+      yearParts.push("Y" + idx + "-" + formatContractK(idx <= currentYears ? currentSalary : futureSalary));
+    }
+    var tcv = currentSalary * currentYears + futureSalary * years;
+    var gtd = tcv > 4000 ? Math.round(tcv * 0.75) : Math.max(0, tcv - currentSalary);
+    var aavDisplay = formatContractK(currentSalary) + ", " + formatContractK(futureSalary);
+    var contractInfo =
+      "CL " + totalLength +
+      "|TCV " + formatContractK(tcv) +
+      "|AAV " + aavDisplay +
+      "|" + yearParts.join(", ") +
+      "|GTD: " + formatContractK(gtd);
+    if (existingOwners.length) contractInfo += "|Ext: " + existingOwners.join(", ");
+
+    return {
+      optionKey: [String(years), "NONE", "EXT" + years, contractInfo].join("|"),
+      yearsToAdd: years,
+      loadedIndicator: "NONE",
+      contractLength: totalLength,
+      contractStatus: "EXT" + years,
+      contractInfo: contractInfo,
+      currentAav: currentSalary,
+      futureAav: futureSalary,
+      tcv: tcv,
+      salaryToSend: futureSalary,
+      synthesized: true
+    };
+  }
+
+  function synthesizedExtensionOptionsForPlayer(player) {
+    if (!player) return [];
+    var contractEligibility = rosterContractEligibility(player);
+    if (!contractEligibility.extensionEligible || extensionBlockedByCurrentOwner(player)) return [];
+    var out = [];
+    for (var years = 1; years <= 2; years += 1) {
+      var option = synthesizeExtensionOption(player, years);
+      if (option) out.push(option);
+    }
+    return out;
   }
 
   function playerExtensionOptions(player) {
     if (!player || extensionBlockedByCurrentOwner(player)) return [];
-    return player.extensionPreviews ? player.extensionPreviews : [];
+    var previews = player.extensionPreviews ? player.extensionPreviews : [];
+    return previews.length ? previews : synthesizedExtensionOptionsForPlayer(player);
   }
 
   function extensionRaiseForPlayer(player, yearsToAdd) {
@@ -1540,6 +1621,108 @@
     }).catch(function () {
       return [];
     });
+  }
+
+  function resolveAcquisitionLookupUrl(season) {
+    var candidates = [
+      window.UPS_RWB_ACQUISITION_LOOKUP_URL,
+      window.UPS_ROSTER_WORKBENCH_ACQUISITION_LOOKUP_URL
+    ];
+    var seasonText = safeStr(season || currentYearInt());
+    for (var i = 0; i < candidates.length; i += 1) {
+      var raw = safeStr(candidates[i]);
+      if (!raw) continue;
+      raw = raw.replace(/\{YEAR\}/g, seasonText);
+      try {
+        return new URL(raw, window.location.href).toString();
+      } catch (e) {
+        return raw;
+      }
+    }
+
+    if (SCRIPT_BASE_URL) {
+      try {
+        return new URL("player_acquisition_lookup_" + encodeURIComponent(seasonText) + ".json", SCRIPT_BASE_URL).toString();
+      } catch (e) {}
+    }
+    return "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/rosters/player_acquisition_lookup_" + encodeURIComponent(seasonText) + ".json";
+  }
+
+  function loadAcquisitionLookupRows(season) {
+    var url = resolveAcquisitionLookupUrl(season);
+    return fetchJson(url, { credentials: "omit", cache: "no-store" }).then(function (payload) {
+      if (Array.isArray(payload)) return payload;
+      if (payload && Array.isArray(payload.rows)) return payload.rows;
+      return [];
+    }).catch(function () {
+      return [];
+    });
+  }
+
+  function acquisitionLookupKey(franchiseId, playerId) {
+    return pad4(franchiseId) + ":" + safeStr(playerId).replace(/\D/g, "");
+  }
+
+  function mergeAcquisitionLookupRows(teams, rows) {
+    var list = teams || [];
+    var rawRows = asArray(rows);
+    if (!list.length || !rawRows.length) return;
+
+    var byKey = Object.create(null);
+    for (var i = 0; i < rawRows.length; i += 1) {
+      var row = rawRows[i] || {};
+      var key = acquisitionLookupKey(row.franchise_id || row.franchiseId, row.player_id || row.playerId);
+      if (!key || key === ":") continue;
+      byKey[key] = row;
+    }
+
+    for (var t = 0; t < list.length; t += 1) {
+      var players = list[t] && list[t].players ? list[t].players : [];
+      for (var p = 0; p < players.length; p += 1) {
+        var player = players[p] || {};
+        var match = byKey[acquisitionLookupKey(player.fid, player.id)];
+        if (!match) continue;
+        player.acquisitionDate = safeStr(match.acquisition_date || match.date_et);
+        player.acquisitionDateTime = safeStr(match.acquisition_datetime_et || match.datetime_et);
+        player.acquisitionTypeLabel = safeStr(match.acquisition_label || match.label);
+        player.acquisitionDetail = safeStr(match.acquisition_detail || match.detail);
+      }
+    }
+  }
+
+  function fallbackAcquisitionLabel(rawText) {
+    var text = safeStr(rawText);
+    var upper = text.toUpperCase();
+    if (!upper) return "";
+    if (upper.indexOf("TRADE") !== -1) return "Trade";
+    if (upper.indexOf("AUCTION") !== -1) return "Auction";
+    if (upper.indexOf("BBID") !== -1 || upper.indexOf("WAIVER") !== -1) return "Waiver";
+    if (upper.indexOf("FREE_AGENT") !== -1 || upper.indexOf("FREE AGENT") !== -1) return "Free Agent Add";
+    if (upper.indexOf("DRAFT") !== -1) return "Rookie Draft";
+    return text;
+  }
+
+  function formatShortDate(rawDate) {
+    var text = safeStr(rawDate);
+    var match = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!match) return text;
+    var dt = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+    if (isNaN(dt.getTime())) return text;
+    return dt.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric"
+    });
+  }
+
+  function acquisitionDateLabelForPlayer(player) {
+    return formatShortDate(player && (player.acquisitionDate || player.acquisition_date)) || "—";
+  }
+
+  function acquisitionTypeLabelForPlayer(player) {
+    var label = safeStr(player && (player.acquisitionTypeLabel || player.acquisition_type_label));
+    if (!label) label = fallbackAcquisitionLabel(acquisitionTextForPlayer(player));
+    return label || "—";
   }
 
   function remapExtensionPreviewRowsToCurrentOwnersFallback(teams, rows) {
@@ -5403,26 +5586,27 @@
     return Math.ceil(n / 1000) * 1000;
   }
 
-  function parseRestructureContractAmounts(contractInfo, years, fallbackSalary) {
-    var info = safeStr(contractInfo);
-    var base = info.replace(/(?:\|\s*)?Ext:.*$/i, "");
-    var tcvMatch = base.match(/TCV\s+([0-9]+(?:\.[0-9]+)?K?)/i);
-    var y1Match = base.match(/Y1-([0-9]+(?:\.[0-9]+)?K?)/i);
-    var y2Match = base.match(/Y2-([0-9]+(?:\.[0-9]+)?K?)/i);
-    var y3Match = base.match(/Y3-([0-9]+(?:\.[0-9]+)?K?)/i);
-    var fallback = Math.max(1000, restructureRoundToK(fallbackSalary));
-    var y1 = restructureRoundToK(parseContractMoneyToken(y1Match ? y1Match[1] : "")) || fallback;
-    var y2Parsed = restructureRoundToK(parseContractMoneyToken(y2Match ? y2Match[1] : ""));
-    var y3Parsed = restructureRoundToK(parseContractMoneyToken(y3Match ? y3Match[1] : ""));
-    var y2 = years === 3 ? (y2Parsed || fallback) : y2Parsed;
-    var y3 = years === 3 ? (y3Parsed || fallback) : 0;
-    var tcvParsed = restructureRoundToK(parseContractMoneyToken(tcvMatch ? tcvMatch[1] : ""));
-    var tcvFromYears = y1 + (years === 3 ? y2 + y3 : (y2 || fallback));
+  function restructureRemainingContractAmountsForPlayer(player, years) {
+    var yearsInt = safeInt(years, 2) >= 3 ? 3 : 2;
+    var fallback = Math.max(1000, restructureRoundToK(safeInt(player && player.salary, 0) || 1000));
+    var currentIdx = Math.max(1, contractYearIndexForPlayer(player));
+    var yearValues = contractYearValueMapForPlayer(player);
+    var amounts = [];
+    for (var i = 0; i < yearsInt; i += 1) {
+      var yearIdx = currentIdx + i;
+      var amount = safeInt(yearValues[yearIdx], 0);
+      if (amount <= 0 && i === 0) amount = currentContractYearValue(player);
+      if (amount <= 0) amount = contractYearFallbackValue(player, yearIdx);
+      amounts.push(Math.max(1000, restructureRoundToK(amount || fallback)));
+    }
+    var tcv = amounts.reduce(function (sum, amount) {
+      return sum + Math.max(0, safeInt(amount, 0));
+    }, 0);
     return {
-      tcv: Math.max(years * 1000, tcvParsed || tcvFromYears),
-      y1: y1,
-      y2: y2,
-      y3: y3
+      tcv: Math.max(yearsInt * 1000, tcv),
+      y1: Math.max(1000, safeInt(amounts[0], fallback)),
+      y2: Math.max(1000, safeInt(amounts[1], fallback)),
+      y3: yearsInt === 3 ? Math.max(1000, safeInt(amounts[2], fallback)) : 0
     };
   }
 
@@ -5435,6 +5619,7 @@
     state.actionModal.mode = "actions";
     state.actionModal.restructureYear1 = "";
     state.actionModal.restructureYear2 = "";
+    state.actionModal.restructureBaseTcv = 0;
     state.actionModal.restructureOriginalAav = 0;
     state.actionModal.restructureYears = 2;
     state.actionModal.restructureExtSuffix = "";
@@ -5443,13 +5628,13 @@
   function actionModalRestructureCalc(player) {
     if (!player) return { ok: false, error: "Player not found." };
     var yearsInt = safeInt(state.actionModal.restructureYears, 2) >= 3 ? 3 : 2;
-    var aav = Math.max(0, safeInt(state.actionModal.restructureOriginalAav, 0));
-    var tcv = aav * yearsInt;
+    var tcv = Math.max(0, safeInt(state.actionModal.restructureBaseTcv, 0));
+    var aav = yearsInt > 0 ? Math.round((tcv / yearsInt) * 10) / 10 : 0;
     var y1 = safeInt(state.actionModal.restructureYear1, 0);
     var y2Input = safeInt(state.actionModal.restructureYear2, 0);
     var errors = [];
 
-    if (!aav || aav < 1000) errors.push("Original AAV could not be determined.");
+    if (!tcv || tcv < yearsInt * 1000) errors.push("Remaining contract value could not be determined.");
     if (!isThousandStep(y1)) errors.push("Year 1 must be in 1,000 increments.");
     var minY1 = Math.ceil((tcv * 0.2) / 1000) * 1000;
     if (y1 < minY1) errors.push("Year 1 must be at least 20% of TCV (" + money(minY1) + ").");
@@ -5457,8 +5642,9 @@
     var y2 = 0;
     var y3 = 0;
     if (yearsInt === 2) {
-      y2 = tcv - y1;
-      if (!isThousandStep(y2) || y2 < 1000) errors.push("Year 2 must be at least 1,000 after applying Year 1.");
+      var derivedY2 = tcv - y1;
+      y2 = Math.max(0, derivedY2);
+      if (!isThousandStep(derivedY2) || derivedY2 < 1000) errors.push("Year 2 must be at least 1,000 after applying Year 1.");
     } else {
       y2 = y2Input;
       if (!isThousandStep(y2) || y2 < 1000) errors.push("Year 2 must be at least 1,000 and in 1,000 increments.");
@@ -5507,22 +5693,16 @@
   function openRestructureEditor(player) {
     if (!player) return;
     var years = safeInt(player && player.years, 0) >= 3 ? 3 : 2;
-    var parsed = parseRestructureContractAmounts(player.special || player.contract_info || "", years, safeInt(player && player.salary, 0) || 1000);
-    var originalCl = Math.max(0, contractLengthForPlayer(player));
-    var originalAav = safeInt(player && player.aav, 0);
-    if (!originalAav && originalCl > 0 && parsed.tcv > 0) {
-      originalAav = Math.round(parsed.tcv / Math.max(1, originalCl));
-    }
-    if (!originalAav) originalAav = safeInt(player && player.salary, 0);
-    var tcv = Math.max(years * 1000, originalAav * years);
-    var evenSplit = Math.max(1000, restructureRoundToK(Math.round(tcv / Math.max(1, years))));
+    var parsed = restructureRemainingContractAmountsForPlayer(player, years);
+    var restructureAav = years > 0 ? Math.round((parsed.tcv / years) * 10) / 10 : 0;
 
     state.actionModal.mode = "restructure";
     state.actionModal.restructureYears = years;
-    state.actionModal.restructureOriginalAav = originalAav;
+    state.actionModal.restructureBaseTcv = parsed.tcv;
+    state.actionModal.restructureOriginalAav = restructureAav;
     state.actionModal.restructureExtSuffix = extractExtensionSuffix(player.special || player.contract_info || "");
-    state.actionModal.restructureYear1 = String(evenSplit);
-    state.actionModal.restructureYear2 = String(years === 3 ? evenSplit : Math.max(1000, tcv - evenSplit));
+    state.actionModal.restructureYear1 = String(parsed.y1);
+    state.actionModal.restructureYear2 = String(parsed.y2);
     renderPlayerActionModal();
   }
 
@@ -5610,6 +5790,10 @@
           '<div class="rwb-modal-note"><strong>Extension Options:</strong>' +
             '<div class="rwb-extension-preview-list">' + extensionLines.join("") + '</div>' +
           '</div>';
+        if (player.isTaxi) {
+          extensionSummaryHtml +=
+            '<div class="rwb-modal-note"><strong>Taxi:</strong> Extending this player ends taxi eligibility, so promote him from taxi after the extension is submitted.</div>';
+        }
       } else if (canManage && contractEligibility.extensionEligible) {
         extensionSummaryHtml =
           '<div class="rwb-modal-note"><strong>Extension:</strong> ' + escapeHtml(extensionBlockReason || "No extension options are available for this player.") + '</div>';
@@ -5631,30 +5815,31 @@
         var restructureErrorHtml = calc.ok
           ? ""
           : '<div class="rwb-modal-note rwb-restructure-error">' + escapeHtml(calc.error || "Invalid restructure values.") + '</div>';
-        var y2FieldHtml = state.actionModal.restructureYears >= 3
-          ? (
-            '<label class="rwb-restructure-field">' +
-              '<span>Year 2</span>' +
-              '<input id="rwbRestructureYear2" class="rwb-input rwb-restructure-input" type="text" inputmode="numeric" value="' + escapeHtml(state.actionModal.restructureYear2) + '" autocomplete="off">' +
-              '<small>Must stay in 1K increments.</small>' +
-            '</label>'
-          )
-          : "";
+        var lockedYear2 = state.actionModal.restructureYears < 3;
+        var y2Value = lockedYear2 ? String(Math.max(0, safeInt(calc.y2, safeInt(state.actionModal.restructureYear2, 0)))) : safeStr(state.actionModal.restructureYear2);
+        var y2FieldHtml =
+          '<label class="rwb-restructure-field">' +
+            '<span>Year 2</span>' +
+            '<input id="rwbRestructureYear2" class="rwb-input rwb-restructure-input" type="text" inputmode="numeric" value="' + escapeHtml(y2Value) + '" autocomplete="off"' + (lockedYear2 ? ' readonly aria-readonly="true" tabindex="-1"' : '') + '>' +
+            '<small>' + escapeHtml(lockedYear2 ? "Locked to the remaining TCV after Year 1." : "Must stay in 1K increments.") + '</small>' +
+          '</label>';
         var previewInfo = calc.ok ? inlineContractInfoText(calc.contractInfo) : "Waiting for a valid restructure.";
 
         content =
           playerHeaderHtml +
           '<div class="rwb-modal-grid">' +
             '<div class="rwb-modal-metric"><span>Current Salary</span><strong>' + escapeHtml(money(player.salary)) + '</strong></div>' +
-            '<div class="rwb-modal-metric"><span>Original AAV</span><strong>' + escapeHtml(state.actionModal.restructureOriginalAav > 0 ? money(state.actionModal.restructureOriginalAav) : "—") + '</strong></div>' +
+            '<div class="rwb-modal-metric"><span>Remaining AAV</span><strong>' + escapeHtml(state.actionModal.restructureOriginalAav > 0 ? money(state.actionModal.restructureOriginalAav) : "—") + '</strong></div>' +
             '<div class="rwb-modal-metric"><span>Years Left</span><strong>' + escapeHtml(String(player.years)) + '</strong></div>' +
             '<div class="rwb-modal-metric"><span>Contract Length</span><strong>' + escapeHtml(contractLength > 0 ? String(contractLength) : "—") + '</strong></div>' +
+            '<div class="rwb-modal-metric"><span>Acquired</span><strong>' + escapeHtml(acquisitionDateLabelForPlayer(player)) + '</strong></div>' +
+            '<div class="rwb-modal-metric"><span>Via</span><strong>' + escapeHtml(acquisitionTypeLabelForPlayer(player)) + '</strong></div>' +
           '</div>' +
           '<div class="rwb-modal-subnav">' +
             '<button type="button" class="rwb-modal-action rwb-modal-action-secondary" data-action="restructure-back"' + (restructureBusy ? ' disabled' : '') + '>Back</button>' +
             '<div class="rwb-modal-subnav-copy">' +
               '<div class="rwb-modal-subnav-title">Restructure Contract</div>' +
-              '<div class="rwb-modal-subnav-text">Keep the original AAV and redistribute salary across the remaining years.</div>' +
+              '<div class="rwb-modal-subnav-text">Keep the remaining contract value and redistribute salary across the remaining years.</div>' +
             '</div>' +
           '</div>' +
           '<div class="rwb-restructure-form">' +
@@ -5693,6 +5878,8 @@
             '<div class="rwb-modal-metric"><span>AAV</span><strong>' + escapeHtml(player.aav > 0 ? money(player.aav) : "—") + '</strong></div>' +
             '<div class="rwb-modal-metric"><span>Years</span><strong>' + escapeHtml(String(player.years)) + '</strong></div>' +
             '<div class="rwb-modal-metric"><span>Expires</span><strong>' + escapeHtml(projectedExpiryLabel(player)) + '</strong></div>' +
+            '<div class="rwb-modal-metric"><span>Acquired</span><strong>' + escapeHtml(acquisitionDateLabelForPlayer(player)) + '</strong></div>' +
+            '<div class="rwb-modal-metric"><span>Via</span><strong>' + escapeHtml(acquisitionTypeLabelForPlayer(player)) + '</strong></div>' +
           '</div>' +
           '<div class="rwb-modal-actions-wrap">' + actions.join("") + '</div>' +
           extensionSummaryHtml +
@@ -5706,7 +5893,7 @@
     els.playerModal.setAttribute("aria-hidden", isOpen ? "false" : "true");
     if (els.playerModalBody) els.playerModalBody.innerHTML = content;
     if (els.playerModalTitle) {
-      els.playerModalTitle.textContent = isOpen && record && record.player ? record.player.name : "Player Actions";
+      els.playerModalTitle.textContent = isOpen ? "Player Profile" : "Player Actions";
     }
     if (document.body) {
       document.body.classList.toggle("rwb-modal-open", isOpen);
@@ -7511,6 +7698,8 @@
       L: leagueId,
       YEAR: season,
       type: "MANUAL_CONTRACT_UPDATE",
+      submission_kind: "extension",
+      source: "front-office-extension-submit",
       leagueId: leagueId,
       year: season,
       player_id: safeStr(player.id),
@@ -8364,8 +8553,14 @@
     return baseLoader.then(function (result) {
       var teams = result.teams || [];
       ctx.pointsFallbackYear = safeStr(result && result.pointsYear);
-      return loadExtensionPreviewFallbackRows(ctx && ctx.year).then(function (extRows) {
+      return Promise.all([
+        loadExtensionPreviewFallbackRows(ctx && ctx.year),
+        loadAcquisitionLookupRows(ctx && ctx.year)
+      ]).then(function (parts) {
+        var extRows = parts[0] || [];
+        var acquisitionRows = parts[1] || [];
         mergeExtensionPreviewFallbackRows(teams, extRows);
+        mergeAcquisitionLookupRows(teams, acquisitionRows);
         return hydrateTeamsWithPointsHistory(ctx, teams).then(function (years) {
           assignPositionalContractRanks(teams);
           result.teams = teams;
