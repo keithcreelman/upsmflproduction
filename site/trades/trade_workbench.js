@@ -992,15 +992,28 @@
 
   function getBrowserSessionParams() {
     var out = {};
+    var params = null;
+    try {
+      params = new URLSearchParams(window.location.search || "");
+    } catch (e) {
+      params = null;
+    }
+
     var mflUserId = readCookieValue("MFL_USER_ID");
+    if (!mflUserId && params) {
+      mflUserId = safeStr(
+        params.get("MFL_USER_ID") ||
+        params.get("MFLUSERID") ||
+        ""
+      );
+    }
     if (mflUserId) out.MFL_USER_ID = mflUserId;
 
     var apiKey = "";
     try {
-      var params = new URLSearchParams(window.location.search || "");
       apiKey = safeStr(
-        params.get("APIKEY") ||
-        params.get("apikey") ||
+        (params ? params.get("APIKEY") : "") ||
+        (params ? params.get("apikey") : "") ||
         window.APIKEY ||
         window.apiKey ||
         ""

@@ -63,6 +63,50 @@
     }
   }
 
+  function readCookie(name) {
+    var key = safeStr(name);
+    if (!key) return "";
+    try {
+      var parts = String(getCookieString() || "").split(";");
+      for (var i = 0; i < parts.length; i += 1) {
+        var item = String(parts[i] || "").trim();
+        if (!item) continue;
+        var eq = item.indexOf("=");
+        var cookieKey = eq >= 0 ? item.slice(0, eq).trim() : item;
+        if (cookieKey !== key) continue;
+        var val = eq >= 0 ? item.slice(eq + 1) : "";
+        try {
+          return decodeURIComponent(val);
+        } catch (eDecode) {
+          return val;
+        }
+      }
+    } catch (e) {
+      return "";
+    }
+    return "";
+  }
+
+  function resolveApiKey(u) {
+    if (u) {
+      var fromQuery = safeStr(u.searchParams.get("APIKEY") || u.searchParams.get("apikey"));
+      if (fromQuery) return fromQuery;
+    }
+    return safeStr(window.APIKEY || window.apiKey || "");
+  }
+
+  function resolveViewerSession(u) {
+    var mflUserId = "";
+    if (u) {
+      mflUserId = safeStr(u.searchParams.get("MFL_USER_ID") || u.searchParams.get("MFLUSERID"));
+    }
+    if (!mflUserId) mflUserId = safeStr(readCookie("MFL_USER_ID"));
+    return {
+      MFL_USER_ID: mflUserId,
+      APIKEY: resolveApiKey(u),
+    };
+  }
+
   function getFranchiseIdFromCookies(leagueId, year) {
     var lid = safeStr(leagueId).replace(/\D/g, "");
     if (!lid) return "";
@@ -265,10 +309,17 @@
     } catch (e) {
       return iframeUrl;
     }
+    var viewerSession = resolveViewerSession(pageUrl);
     if (apiUrl && !url.searchParams.get("api")) url.searchParams.set("api", apiUrl);
     if (context.L && !url.searchParams.get("L")) url.searchParams.set("L", context.L);
     if (context.YEAR && !url.searchParams.get("YEAR")) url.searchParams.set("YEAR", context.YEAR);
     if (context.F && context.F !== "0000" && !url.searchParams.get("F")) url.searchParams.set("F", context.F);
+    if (viewerSession.MFL_USER_ID && !url.searchParams.get("MFL_USER_ID")) {
+      url.searchParams.set("MFL_USER_ID", viewerSession.MFL_USER_ID);
+    }
+    if (viewerSession.APIKEY && !url.searchParams.get("APIKEY")) {
+      url.searchParams.set("APIKEY", viewerSession.APIKEY);
+    }
 
     if (pageUrl) {
       var debug = safeStr(pageUrl.searchParams.get("DEBUG_TWB") || pageUrl.searchParams.get("DEBUG"));
