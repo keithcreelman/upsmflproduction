@@ -588,8 +588,6 @@
   function isTradeEligibleAsset(asset) {
     if (!asset) return false;
     if (safeStr(asset.type).toUpperCase() === "PICK") return !isUntradeableSixthRoundPick(asset);
-    if (asset.type !== "PLAYER") return true;
-    if (asset.years === 0 && !isRookieContractType(asset.contract_type)) return false;
     return true;
   }
 
@@ -597,9 +595,6 @@
     if (!asset) return "";
     if (safeStr(asset.type).toUpperCase() === "PICK" && isUntradeableSixthRoundPick(asset)) {
       return "Ineligible: 6th-round picks cannot be traded";
-    }
-    if (asset.type === "PLAYER" && asset.years === 0 && !isRookieContractType(asset.contract_type)) {
-      return "Ineligible: 0 years left and not a rookie contract";
     }
     return "";
   }
