@@ -1235,6 +1235,16 @@
     var idx = contractYearIndexForPlayer(player);
     if (idx <= 1) return 0;
 
+    var explicitYearValues = parseContractYearValues(player && player.special);
+    if (!Object.keys(explicitYearValues).length) {
+      var length = contractLengthForPlayer(player);
+      var total = totalContractValueForPlayer(player);
+      var currentYearSalary = currentContractYearValue(player);
+      if (length > 1 && idx >= length && total > currentYearSalary) {
+        return Math.max(0, total - Math.max(0, currentYearSalary));
+      }
+    }
+
     var earned = 0;
     var yearValues = contractYearValueMapForPlayer(player);
     for (var i = 1; i < idx; i += 1) {
