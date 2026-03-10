@@ -1406,7 +1406,7 @@
     if (view === "contract") return capPlanSummaryViewActive() ? "Cap Plan Summary" : "Cap Plan";
     if (view === "points") return "Scoring";
     if (view === "bye") return "Bye Chart";
-    if (view === "tag") return "Tag Plan";
+    if (view === "tag") return "Tagging";
     return "Contract View";
   }
 
@@ -4612,9 +4612,9 @@
                 '<div class="rwb-view-switch" role="tablist" aria-label="View mode">' +
                   '<button type="button" id="rwbViewRoster" class="rwb-btn rwb-btn-ghost is-active" data-action="view-switch" data-view="roster" role="tab" aria-selected="true">Contract View</button>' +
                   '<button type="button" id="rwbViewContract" class="rwb-btn rwb-btn-ghost" data-action="view-switch" data-view="contract" role="tab" aria-selected="false">Cap Plan</button>' +
-                  '<button type="button" id="rwbViewTag" class="rwb-btn rwb-btn-ghost" data-action="view-switch" data-view="tag" role="tab" aria-selected="false">Tag Plan</button>' +
-                  '<button type="button" id="rwbViewBye" class="rwb-btn rwb-btn-ghost" data-action="view-switch" data-view="bye" role="tab" aria-selected="false">Bye Chart</button>' +
+                  '<button type="button" id="rwbViewTag" class="rwb-btn rwb-btn-ghost" data-action="view-switch" data-view="tag" role="tab" aria-selected="false">Tagging</button>' +
                   '<button type="button" id="rwbViewPoints" class="rwb-btn rwb-btn-ghost" data-action="view-switch" data-view="points" role="tab" aria-selected="false">Scoring</button>' +
+                  '<button type="button" id="rwbViewBye" class="rwb-btn rwb-btn-ghost" data-action="view-switch" data-view="bye" role="tab" aria-selected="false">Bye Chart</button>' +
                 '</div>' +
               '</div>' +
               '<div class="rwb-toolbar-panel rwb-toolbar-panel-browse">' +
