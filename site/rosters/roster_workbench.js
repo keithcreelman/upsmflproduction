@@ -973,8 +973,80 @@
     return Math.max(1000, roundToK(safeInt(player && player.salary, 0) + extensionRaiseForPlayer(player, y)));
   }
 
-  function futureYearsRemainingForPlayer(player) {
-    return Math.max(0, safeInt(player && player.years, 0) - 1);
+  function extensionTermYearsForStatus(status) {
+    var raw = safeStr(status).toUpperCase();
+    if (raw === "EXT1") return 1;
+    if (raw === "EXT2" || raw === "EXT2-BL" || raw === "EXT2-FL") return 2;
+    return 0;
+  }
+
+  function rebuiltExtensionContractInfo(termYears, yearAmounts, extSuffix) {
+    var years = Math.max(1, safeInt(termYears, 0));
+    var amounts = Array.isArray(yearAmounts) ? yearAmounts : [];
+    if (!amounts.length) return safeStr(extSuffix);
+    var tcv = amounts.reduce(function (sum, amount) {
+      return sum + Math.max(0, safeInt(amount, 0));
+    }, 0);
+    var aav = Math.round(tcv / Math.max(1, years));
+    var gtd = tcv > 4000 ? Math.round(tcv * 0.75) : Math.max(0, tcv - Math.max(0, safeInt(amounts[0], 0)));
+    var yearParts = [];
+    for (var i = 0; i < amounts.length; i += 1) {
+      yearParts.push("Y" + String(i + 1) + "-" + formatContractK(amounts[i]));
+    }
+    var infoParts = [
+      "CL " + String(years),
+      "TCV " + formatContractK(tcv),
+      "AAV " + formatContractK(aav),
+      yearParts.join(", "),
+      "GTD: " + formatContractK(gtd)
+    ];
+    if (safeStr(extSuffix)) infoParts.push(safeStr(extSuffix));
+    return infoParts.join("| ");
+  }
+
+  function normalizeExpiredRookieExtensionPlayer(player) {
+    if (!player) return false;
+    var termYears = extensionTermYearsForStatus(player.type);
+    var draftSeason = safeInt(player.originalDraftSeason || player.original_draft_season, 0);
+    var currentSeason = currentYearInt();
+    if (!termYears || !draftSeason || !currentSeason || currentSeason < draftSeason + 3) return false;
+
+    var yearValues = parseContractYearValues(player.special || player.contract_info || "");
+    var yearKeys = Object.keys(yearValues).map(function (key) { return safeInt(key, 0); }).filter(function (key) {
+      return key > 0;
+    }).sort(function (a, b) {
+      return a - b;
+    });
+    if (yearKeys.length <= termYears) return false;
+
+    var immediateYears = yearKeys.slice(-termYears).map(function (key) {
+      return safeInt(yearValues[key], 0);
+    }).filter(function (amount) {
+      return amount > 0;
+    });
+    if (immediateYears.length !== termYears) return false;
+
+    player.salary = immediateYears[0];
+    player.years = termYears;
+    player.aav = Math.round(immediateYears.reduce(function (sum, amount) {
+      return sum + Math.max(0, safeInt(amount, 0));
+    }, 0) / Math.max(1, termYears));
+    player.special = rebuiltExtensionContractInfo(termYears, immediateYears, extractExtensionSuffix(player.special || player.contract_info || ""));
+    return true;
+  }
+
+  function applyContractDisplayCorrections(teams) {
+    var list = Array.isArray(teams) ? teams : [];
+    for (var i = 0; i < list.length; i += 1) {
+      var team = list[i] || null;
+      if (!team) continue;
+      var changed = false;
+      var players = team.players || [];
+      for (var p = 0; p < players.length; p += 1) {
+        if (normalizeExpiredRookieExtensionPlayer(players[p])) changed = true;
+      }
+      if (changed) recomputeTeamSummary(team);
+    }
   }
 
   function projectSalaryByYear(player, offsets) {
@@ -1710,6 +1782,7 @@
         player.acquisitionDateTime = safeStr(match.acquisition_datetime_et || match.datetime_et);
         player.acquisitionTypeLabel = safeStr(match.acquisition_label || match.label);
         player.acquisitionDetail = safeStr(match.acquisition_detail || match.detail);
+        player.originalDraftSeason = safeInt(match.original_draft_season || match.originalDraftSeason, 0);
       }
     }
   }
@@ -4593,7 +4666,7 @@
           delta = contractLengthForPlayer(a) - contractLengthForPlayer(b);
           break;
         case "years":
-          delta = futureYearsRemainingForPlayer(a) - futureYearsRemainingForPlayer(b);
+          delta = safeInt(a.years, 0) - safeInt(b.years, 0);
           break;
         case "guarantee":
           delta = guaranteedContractValueForPlayer(a) - guaranteedContractValueForPlayer(b);
@@ -5858,7 +5931,7 @@
           '<div class="rwb-modal-grid">' +
             '<div class="rwb-modal-metric"><span>Current Salary</span><strong>' + escapeHtml(money(player.salary)) + '</strong></div>' +
             '<div class="rwb-modal-metric"><span>Remaining AAV</span><strong>' + escapeHtml(state.actionModal.restructureOriginalAav > 0 ? money(state.actionModal.restructureOriginalAav) : "—") + '</strong></div>' +
-            '<div class="rwb-modal-metric"><span>Years Left</span><strong>' + escapeHtml(String(futureYearsRemainingForPlayer(player))) + '</strong></div>' +
+            '<div class="rwb-modal-metric"><span>Years Left</span><strong>' + escapeHtml(String(player.years)) + '</strong></div>' +
             '<div class="rwb-modal-metric"><span>Contract Length</span><strong>' + escapeHtml(contractLength > 0 ? String(contractLength) : "—") + '</strong></div>' +
             '<div class="rwb-modal-metric"><span>Acquired</span><strong>' + escapeHtml(acquisitionDateLabelForPlayer(player)) + '</strong></div>' +
             '<div class="rwb-modal-metric"><span>Via</span><strong>' + escapeHtml(acquisitionTypeLabelForPlayer(player)) + '</strong></div>' +
@@ -5904,7 +5977,7 @@
           '<div class="rwb-modal-grid">' +
             '<div class="rwb-modal-metric"><span>Salary</span><strong>' + escapeHtml(money(player.salary)) + '</strong></div>' +
             '<div class="rwb-modal-metric"><span>AAV</span><strong>' + escapeHtml(player.aav > 0 ? money(player.aav) : "—") + '</strong></div>' +
-            '<div class="rwb-modal-metric"><span>Years Left</span><strong>' + escapeHtml(String(futureYearsRemainingForPlayer(player))) + '</strong></div>' +
+            '<div class="rwb-modal-metric"><span>Years Left</span><strong>' + escapeHtml(String(player.years)) + '</strong></div>' +
             '<div class="rwb-modal-metric"><span>Expires</span><strong>' + escapeHtml(projectedExpiryLabel(player)) + '</strong></div>' +
             '<div class="rwb-modal-metric"><span>Acquired</span><strong>' + escapeHtml(acquisitionDateLabelForPlayer(player)) + '</strong></div>' +
             '<div class="rwb-modal-metric"><span>Via</span><strong>' + escapeHtml(acquisitionTypeLabelForPlayer(player)) + '</strong></div>' +
@@ -5966,7 +6039,7 @@
               '</div>' +
               '<dl class="rwb-mobile-details">' +
                 '<div><dt>Contract Length</dt><dd>' + escapeHtml(contractLength > 0 ? String(contractLength) : "—") + '</dd></div>' +
-                '<div><dt>Years Left</dt><dd>' + escapeHtml(String(futureYearsRemainingForPlayer(p))) + '</dd></div>' +
+                '<div><dt>Years Left</dt><dd>' + escapeHtml(String(p.years)) + '</dd></div>' +
                 '<div><dt>Salary</dt><dd>' + escapeHtml(compactContractValueWithRankText(p.salary, p.positionSalaryRank)) + '</dd></div>' +
                 '<div><dt>AAV</dt><dd>' + escapeHtml(compactContractValueWithRankText(p.aav, p.positionAavRank)) + '</dd></div>' +
                 '<div><dt>TCV</dt><dd>' + escapeHtml(compactContractAmount(totalContractValue)) + '</dd></div>' +
@@ -5976,7 +6049,7 @@
             '</div>' +
           '</td>' +
           '<td class="rwb-cell-num">' + escapeHtml(contractLength > 0 ? String(contractLength) : "—") + '</td>' +
-          '<td class="rwb-cell-num">' + escapeHtml(String(futureYearsRemainingForPlayer(p))) + '</td>' +
+          '<td class="rwb-cell-num">' + escapeHtml(String(p.years)) + '</td>' +
           '<td class="rwb-cell-num">' + compactContractValueWithRankHtml(p.salary, p.positionSalaryRank) + '</td>' +
           '<td class="rwb-cell-num">' + compactContractValueWithRankHtml(p.aav, p.positionAavRank) + '</td>' +
           '<td class="rwb-cell-num">' + escapeHtml(compactContractAmount(totalContractValue)) + '</td>' +
@@ -7627,11 +7700,12 @@
     return loadData(state.ctx, { noCache: !!noCache })
       .then(function (result) {
         state.teams = sortTeamsForDisplay(result.teams || []);
+        state.salaryCapAmount = safeInt(result.leagueMeta && result.leagueMeta.capAmount, 0);
+        applyContractDisplayCorrections(state.teams);
         if (state.tagData) {
           applyTagOverlayToTeams(state.teams);
-          assignPositionalContractRanks(state.teams);
         }
-        state.salaryCapAmount = safeInt(result.leagueMeta && result.leagueMeta.capAmount, 0);
+        assignPositionalContractRanks(state.teams);
         state.pointYears = (result.pointYears && result.pointYears.length)
           ? result.pointYears.slice()
           : buildPointYears();

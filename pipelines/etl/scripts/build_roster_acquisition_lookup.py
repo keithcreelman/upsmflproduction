@@ -203,6 +203,34 @@ def build_event_index(conn, season: str, roster_rows: List[Dict[str, Any]]) -> D
     return out
 
 
+def build_player_origin_index(conn, season: str, roster_rows: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+    current_player_ids = sorted({row["player_id"] for row in roster_rows})
+    if not current_player_ids:
+        return {}
+
+    placeholders = ",".join("?" for _ in current_player_ids)
+    max_season = safe_int(season, 0)
+    params: List[Any] = [max_season, *current_player_ids]
+    out: Dict[str, Dict[str, Any]] = {}
+
+    sql_draft = f"""
+    SELECT player_id, MIN(season) AS draft_season
+    FROM draftresults_combined
+    WHERE season <= ?
+      AND player_id IN ({placeholders})
+    GROUP BY player_id
+    """
+    for row in conn.execute(sql_draft, params).fetchall():
+        pid = safe_str(row[0])
+        if not pid:
+            continue
+        out[pid] = {
+            "original_draft_season": safe_int(row[1], 0),
+        }
+
+    return out
+
+
 def fallback_label_from_notes(notes: str) -> str:
     raw = safe_str(notes)
     upper = raw.upper()
@@ -234,6 +262,7 @@ def main() -> int:
     conn = get_conn(args.db_path)
     try:
         event_index = build_event_index(conn, safe_str(args.season), roster_rows)
+        player_origin_index = build_player_origin_index(conn, safe_str(args.season), roster_rows)
     finally:
         conn.close()
 
@@ -241,6 +270,7 @@ def main() -> int:
     for roster_row in roster_rows:
         key = (roster_row["franchise_id"], roster_row["player_id"])
         event = event_index.get(key, {})
+        origin = player_origin_index.get(roster_row["player_id"], {})
         row = {
             "season": safe_str(args.season),
             "league_id": safe_str(args.league_id),
@@ -251,6 +281,7 @@ def main() -> int:
             "acquisition_label": safe_str(event.get("acquisition_label")),
             "acquisition_detail": safe_str(event.get("acquisition_detail")),
             "source_table": safe_str(event.get("source_table")),
+            "original_draft_season": safe_int(origin.get("original_draft_season"), 0),
             "notes_fallback": safe_str(roster_row.get("notes")),
         }
         if not row["acquisition_label"] and row["notes_fallback"]:
