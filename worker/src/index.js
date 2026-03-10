@@ -657,6 +657,10 @@ export default {
       const cookieHeader = cookie
         ? (cookie.includes("=") ? cookie : `MFL_USER_ID=${cookie}`)
         : "";
+      const browserCookieHeader = browserCookieValue
+        ? `MFL_USER_ID=${browserCookieValue}`
+        : "";
+      const viewerCookieHeader = browserCookieHeader || cookieHeader;
 
       const getLeagueAdminState = async (leagueId, year) => {
         const mflUrl = `https://api.myfantasyleague.com/${encodeURIComponent(
@@ -1023,6 +1027,69 @@ export default {
         return mflExportJson(year, leagueId, type, extraParams, { ...options, cacheBust: false });
       };
 
+      const mflExportJsonAsViewer = async (
+        year,
+        leagueId,
+        type,
+        extraParams = {},
+        options = {}
+      ) => {
+        if (!browserCookieHeader) {
+          return mflExportJson(year, leagueId, type, extraParams, options);
+        }
+        return mflExportJsonForCookie(
+          browserCookieHeader,
+          year,
+          leagueId,
+          type,
+          extraParams,
+          { ...options, useCookie: true }
+        );
+      };
+
+      const mflExportJsonWithRetryAsViewer = async (
+        year,
+        leagueId,
+        type,
+        extraParams = {},
+        options = {}
+      ) => {
+        const first = await mflExportJsonAsViewer(year, leagueId, type, extraParams, options);
+        if (first.ok) return first;
+        const status = safeInt(first.status, 0);
+        const errText = safeStr(first.error).toLowerCase();
+        const shouldRetry =
+          status === 429 ||
+          status === 502 ||
+          status === 503 ||
+          status === 504 ||
+          errText.includes("api key validation failed");
+        if (!shouldRetry) return first;
+        await new Promise((resolve) => setTimeout(resolve, 250));
+        return mflExportJsonAsViewer(year, leagueId, type, extraParams, {
+          ...options,
+          cacheBust: false,
+        });
+      };
+
+      const postMflImportFormAsViewer = async (
+        season,
+        formFields,
+        probeFields,
+        requestOptions = {}
+      ) => {
+        if (!browserCookieHeader) {
+          return postMflImportForm(season, formFields, probeFields, requestOptions);
+        }
+        return postMflImportFormForCookie(
+          browserCookieHeader,
+          season,
+          formFields,
+          probeFields,
+          requestOptions
+        );
+      };
+
       const parseLeagueFranchises = (leaguePayload) => {
         const league = leaguePayload?.league || leaguePayload || {};
         const frBlock = league?.franchises || league?.league?.franchises || {};
@@ -1120,8 +1187,106 @@ export default {
           return m ? m[1] : "";
         };
 
-        const rookieLabelFromDescription = (description, pickKey, seasonValue) => {
+        const parsePickMeta = (row, pickKey, seasonValue) => {
+          const token = extractPickToken(pickKey);
+          const rawDescription = safeStr(row?.description || row?.name || row?.label);
+          let year = safeInt(
+            row?.year || row?.season || row?.pick_season || row?.draft_year,
+            0
+          );
+          let round = safeInt(
+            row?.round || row?.draft_round || row?.pick_round,
+            0
+          );
+          let pick = safeInt(
+            row?.slot || row?.pick_slot || row?.pick_no || row?.pick_number,
+            0
+          );
+
+          if (!pick) {
+            const dottedSlot = safeStr(
+              row?.pick_slot || row?.slot || row?.pick || ""
+            ).match(/^\s*(\d+)\.(\d+)\s*$/);
+            if (dottedSlot) {
+              round = round || safeInt(dottedSlot[1], 0);
+              pick = pick || safeInt(dottedSlot[2], 0);
+            }
+          }
+
+          if ((!year || !round || !pick) && token.startsWith("DP_")) {
+            const dp = token.match(/^DP_(\d+)_(\d+)$/i);
+            if (dp) {
+              year = year || safeInt(seasonValue, 0);
+              round = round || (safeInt(dp[1], 0) + 1);
+              pick = pick || (safeInt(dp[2], 0) + 1);
+            }
+          }
+
+          if ((!year || !round) && token.startsWith("FP_")) {
+            const fp = token.match(/^FP_[A-Z0-9]+_(\d{4})_(\d+)$/i);
+            if (fp) {
+              year = year || safeInt(fp[1], 0);
+              round = round || safeInt(fp[2], 0);
+            }
+          }
+
+          if (!year || !round || !pick) {
+            const yearDraft = rawDescription.match(/Year\s*(\d{4})\s*Draft Pick\s*(\d+)\.(\d+)/i);
+            if (yearDraft) {
+              year = year || safeInt(yearDraft[1], 0);
+              round = round || safeInt(yearDraft[2], 0);
+              pick = pick || safeInt(yearDraft[3], 0);
+            }
+          }
+
+          if (!year || !round || !pick) {
+            const dottedPick = rawDescription.match(/(\d{4}).*?(\d+)\.(\d+)/i);
+            if (dottedPick) {
+              year = year || safeInt(dottedPick[1], 0);
+              round = round || safeInt(dottedPick[2], 0);
+              pick = pick || safeInt(dottedPick[3], 0);
+            }
+          }
+
+          if (!year || !round || !pick) {
+            const roundPick = rawDescription.match(/(\d{4}).*?(?:Round|Rookie)\s*(\d+).*?(?:Pick|\.)(?:\s*|0*)(\d+)/i);
+            if (roundPick) {
+              year = year || safeInt(roundPick[1], 0);
+              round = round || safeInt(roundPick[2], 0);
+              pick = pick || safeInt(roundPick[3], 0);
+            }
+          }
+
+          if (!year || !round) {
+            const rookieRound = rawDescription.match(/(\d{4}).*?Rookie\s*Round\s*(\d+)/i);
+            if (rookieRound) {
+              year = year || safeInt(rookieRound[1], 0);
+              round = round || safeInt(rookieRound[2], 0);
+            }
+          }
+
+          const slotText = round && pick
+            ? `${round}.${String(pick).padStart(2, "0")}`
+            : (round ? `R${round}` : "");
+
+          return {
+            token,
+            year,
+            round,
+            pick,
+            slot_text: slotText,
+          };
+        };
+
+        const rookieLabelFromDescription = (description, pickKey, seasonValue, pickMeta) => {
           const raw = safeStr(description);
+          const meta = pickMeta && typeof pickMeta === "object" ? pickMeta : parsePickMeta({}, pickKey, seasonValue);
+          if (safeInt(meta.year, 0) && safeInt(meta.round, 0) && safeInt(meta.pick, 0)) {
+            return `${meta.year} Rookie ${meta.round}.${String(meta.pick).padStart(2, "0")}`;
+          }
+          if (safeInt(meta.year, 0) && safeInt(meta.round, 0)) {
+            return `${meta.year} Rookie Round ${meta.round}`;
+          }
           let m = raw.match(/Year\s*(\d{4})\s*Draft Pick\s*(\d+)\.(\d+)/i);
           if (m) return `${m[1]} Rookie ${m[2]}.${String(m[3]).padStart(2, "0")}`;
           m = raw.match(/(\d{4}).*?(\d+)\.(\d+)/i);
@@ -1222,12 +1387,18 @@ export default {
           const pushPicks = (pickRows) => {
             for (const p of asArray(pickRows).filter(Boolean)) {
               const pickKey = readPickKey(p);
-              const description = rookieLabelFromDescription(
-                safeStr(p?.description || p?.name || p?.label || pickKey || "Rookie Pick"),
+              const pickMeta = parsePickMeta(
+                p,
                 pickKey,
                 assetsPayload?.assets?.year || assetsPayload?.year || 0
               );
-              const key = pickKey || safeStr(description).toUpperCase().replace(/[^A-Z0-9_.-]/g, "_");
+              const description = rookieLabelFromDescription(
+                safeStr(p?.description || p?.name || p?.label || pickKey || "Rookie Pick"),
+                pickKey,
+                assetsPayload?.assets?.year || assetsPayload?.year || 0,
+                pickMeta
+              );
+              const key = pickMeta.token || pickKey || safeStr(description).toUpperCase().replace(/[^A-Z0-9_.-]/g, "_");
               if (!key || seen.has(key)) continue;
               seen.add(key);
               rows.push({
@@ -1235,6 +1406,9 @@ export default {
                 asset_id: `pick:${key}`,
                 pick_key: key,
                 description,
+                pick_season: safeInt(pickMeta.year, 0) || undefined,
+                pick_round: safeInt(pickMeta.round, 0) || undefined,
+                pick_slot: safeStr(pickMeta.slot_text),
               });
             }
           };
@@ -3188,10 +3362,24 @@ export default {
         return mismatches;
       };
 
-      const postTradeProposalImportWithFallback = async (season, importFields) => {
+      const postTradeProposalImportWithFallback = async (
+        season,
+        importFields,
+        cookieHeaderOverride = ""
+      ) => {
+        const postImport = safeStr(cookieHeaderOverride)
+          ? (fields, probe, requestOptions = {}) =>
+              postMflImportFormForCookie(
+                cookieHeaderOverride,
+                season,
+                fields,
+                probe,
+                requestOptions
+              )
+          : (fields, probe, requestOptions = {}) =>
+              postMflImportForm(season, fields, probe, requestOptions);
         const initialFields = { ...(importFields || {}) };
-        const firstRes = await postMflImportForm(
-          season,
+        const firstRes = await postImport(
           initialFields,
           initialFields,
           { method: "GET" }
@@ -3221,8 +3409,7 @@ export default {
 
         const retryFields = { ...initialFields };
         delete retryFields.FRANCHISE_ID;
-        const retryRes = await postMflImportForm(
-          season,
+        const retryRes = await postImport(
           retryFields,
           retryFields,
           { method: "GET" }
@@ -4789,16 +4976,16 @@ export default {
         statusFilter,
         limit,
       }) => {
-        if (!cookieHeader) {
+        if (!viewerCookieHeader) {
           return {
             ok: false,
             status: 500,
-            error: "Missing MFL_COOKIE worker secret",
+            error: "Missing MFL owner session for pending trade lookup",
             pendingLookup: {
               ok: false,
               rows_count: 0,
               upstream_status: 0,
-              error: "Missing MFL_COOKIE worker secret",
+              error: "Missing MFL owner session for pending trade lookup",
             },
             proposals: [],
             incoming: [],
@@ -4809,7 +4996,13 @@ export default {
 
         const extra = {};
         if (franchiseId) extra.FRANCHISE_ID = franchiseId;
-        const pendingRes = await mflExportJson(season, leagueId, "pendingTrades", extra, { useCookie: true });
+        const pendingRes = await mflExportJsonAsViewer(
+          season,
+          leagueId,
+          "pendingTrades",
+          extra,
+          { useCookie: true }
+        );
         if (!pendingRes.ok) {
           return {
             ok: false,
@@ -7288,10 +7481,22 @@ export default {
         );
         if (!leagueId) return jsonOut(400, { ok: false, error: "Missing L param" });
         if (!season) return jsonOut(400, { ok: false, error: "Missing YEAR param" });
+        if (!viewerCookieHeader) {
+          return jsonOut(500, {
+            ok: false,
+            error: "Missing MFL owner session for pending trade lookup",
+          });
+        }
 
         const extra = {};
         if (franchiseId) extra.FRANCHISE_ID = franchiseId;
-        const pendingRes = await mflExportJson(season, leagueId, "pendingTrades", extra, { useCookie: true });
+        const pendingRes = await mflExportJsonAsViewer(
+          season,
+          leagueId,
+          "pendingTrades",
+          extra,
+          { useCookie: true }
+        );
         if (!pendingRes.ok) {
           return jsonOut(502, {
             ok: false,
@@ -7369,8 +7574,8 @@ export default {
         }
 
         if (directMfl) {
-          if (!cookieHeader) {
-            return jsonOut(500, { ok: false, error: "Missing MFL_COOKIE worker secret for direct MFL submission" });
+          if (!viewerCookieHeader) {
+            return jsonOut(500, { ok: false, error: "Missing MFL owner session for direct MFL submission" });
           }
 
           const proposalAssets = buildTradeProposalAssetLists(payload);
@@ -7500,7 +7705,8 @@ export default {
 
           const proposalSubmit = await postTradeProposalImportWithFallback(
             season,
-            importFields
+            importFields,
+            browserCookieHeader
           );
           const importRes = proposalSubmit.importRes;
 
@@ -7580,7 +7786,7 @@ export default {
             rows_count: 0,
             matched_trade_id: "",
           };
-          const pendingRes = await mflExportJson(
+          const pendingRes = await mflExportJsonAsViewer(
             season,
             leagueId,
             "pendingTrades",
@@ -7860,8 +8066,8 @@ export default {
         if (!season) return jsonOut(400, { ok: false, error: "season is required" });
 
         if (directMfl) {
-          if (!cookieHeader) {
-            return jsonOut(500, { ok: false, error: "Missing MFL_COOKIE worker secret for direct MFL actions" });
+          if (!viewerCookieHeader) {
+            return jsonOut(500, { ok: false, error: "Missing MFL owner session for direct MFL actions" });
           }
           if (!actingFranchiseId) {
             return jsonOut(400, { ok: false, error: "acting_franchise_id is required for direct MFL actions" });
@@ -7983,7 +8189,8 @@ export default {
             };
             const proposalSubmit = await postTradeProposalImportWithFallback(
               season,
-              importFields
+              importFields,
+              browserCookieHeader
             );
             const proposalImport = proposalSubmit.importRes;
             if (!proposalSubmit.ok) {
@@ -8066,7 +8273,7 @@ export default {
               rows_count: 0,
               matched_trade_id: "",
             };
-            const pendingRes = await mflExportJson(
+            const pendingRes = await mflExportJsonAsViewer(
               season,
               leagueId,
               "pendingTrades",
@@ -8211,7 +8418,7 @@ export default {
               return jsonOut(400, { ok: false, error: "Valid counter from/to franchise ids are required" });
             }
 
-            const rejectImport = await postMflImportForm(
+            const rejectImport = await postMflImportFormAsViewer(
               season,
               {
                 TYPE: "tradeResponse",
@@ -8372,7 +8579,7 @@ export default {
               // noop
             }
             try {
-              const pendingRes = await mflExportJson(
+              const pendingRes = await mflExportJsonAsViewer(
                 season,
                 leagueId,
                 "pendingTrades",
@@ -8553,7 +8760,7 @@ export default {
             }
           }
 
-          const responseImport = await postMflImportForm(
+          const responseImport = await postMflImportFormAsViewer(
             season,
             {
               TYPE: "tradeResponse",
@@ -10779,7 +10986,7 @@ export default {
           mflExportJsonWithRetry(season, leagueId, "league", {}, { includeApiKey: false, useCookie: true }),
           mflExportJsonWithRetry(season, leagueId, "rosters", {}, { includeApiKey: false, useCookie: true }),
           mflExportJsonWithRetry(season, leagueId, "assets", {}, { includeApiKey: true, useCookie: true }),
-          mflExportJsonWithRetry(season, leagueId, "myfranchise", {}, { includeApiKey: true, useCookie: true }),
+          mflExportJsonWithRetryAsViewer(season, leagueId, "myfranchise", {}, { useCookie: true }),
           fetchExtensionPreviewRows(season, url.searchParams),
         ]);
 

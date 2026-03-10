@@ -962,6 +962,75 @@
     return safeStr(params.get("api"));
   }
 
+  function readCookieValue(name) {
+    var needle = safeStr(name);
+    if (!needle) return "";
+    try {
+      var raw = safeStr(document.cookie || "");
+      if (!raw) return "";
+      var parts = raw.split(";");
+      var i;
+      for (i = 0; i < parts.length; i += 1) {
+        var part = safeStr(parts[i]);
+        if (!part) continue;
+        var eq = part.indexOf("=");
+        var key = eq >= 0 ? safeStr(part.slice(0, eq)) : part;
+        if (key !== needle) continue;
+        var value = eq >= 0 ? safeStr(part.slice(eq + 1)) : "";
+        if (!value) return "";
+        try {
+          return decodeURIComponent(value);
+        } catch (eDecode) {
+          return value;
+        }
+      }
+    } catch (e) {
+      return "";
+    }
+    return "";
+  }
+
+  function getBrowserSessionParams() {
+    var out = {};
+    var mflUserId = readCookieValue("MFL_USER_ID");
+    if (mflUserId) out.MFL_USER_ID = mflUserId;
+
+    var apiKey = "";
+    try {
+      var params = new URLSearchParams(window.location.search || "");
+      apiKey = safeStr(
+        params.get("APIKEY") ||
+        params.get("apikey") ||
+        window.APIKEY ||
+        window.apiKey ||
+        ""
+      );
+    } catch (e) {
+      apiKey = safeStr(window.APIKEY || window.apiKey || "");
+    }
+    if (apiKey) out.APIKEY = apiKey;
+    return out;
+  }
+
+  function withBrowserSessionParams(rawUrl) {
+    var resolved = resolveRelativeUrl(rawUrl);
+    try {
+      var u = new URL(resolved, window.location.href);
+      var sessionParams = getBrowserSessionParams();
+      var keys = Object.keys(sessionParams);
+      var i;
+      for (i = 0; i < keys.length; i += 1) {
+        var key = keys[i];
+        if (u.searchParams.has(key)) continue;
+        var value = safeStr(sessionParams[key]);
+        if (value) u.searchParams.set(key, value);
+      }
+      return u.toString();
+    } catch (e) {
+      return resolved;
+    }
+  }
+
   function buildApiRequestUrlFromQuery() {
     var apiUrl = getApiUrlFromQuery();
     if (!apiUrl) return "";
@@ -985,7 +1054,7 @@
     } catch (e) {
       // ignore URL parsing issues and use the raw value
     }
-    return finalUrl;
+    return withBrowserSessionParams(finalUrl);
   }
 
   function resolveRelativeUrl(url) {
@@ -1132,7 +1201,7 @@
 
   function resolveAfterTradeRefreshApiUrl() {
     var explicit = safeStr(window.UPS_TRADE_AFTER_REFRESH_API || window.UPS_TRADE_WORKBENCH_AFTER_REFRESH_API);
-    if (explicit) return resolveRelativeUrl(explicit);
+    if (explicit) return withBrowserSessionParams(explicit);
 
     var actionUrl = resolveTradeOffersActionApiUrl();
     try {
@@ -1147,7 +1216,7 @@
       } else {
         u.pathname = "/refresh/after-trade";
       }
-      return u.toString();
+      return withBrowserSessionParams(u.toString());
     } catch (e) {
       return "";
     }
@@ -1211,7 +1280,7 @@
 
   function resolveTradeOffersApiUrl() {
     var explicit = safeStr(window.UPS_TRADE_OFFERS_API || window.UPS_TRADE_WORKBENCH_OFFERS_API);
-    if (explicit) return resolveRelativeUrl(explicit);
+    if (explicit) return withBrowserSessionParams(explicit);
 
     var apiUrl = buildApiRequestUrlFromQuery();
     if (apiUrl) {
@@ -1220,13 +1289,13 @@
         u.search = "";
         u.hash = "";
         u.pathname = String(u.pathname || "").replace(/\/trade-workbench\/?$/i, "/trade-offers");
-        return u.toString();
+        return withBrowserSessionParams(u.toString());
       } catch (e) {
         // ignore
       }
     }
 
-    return "https://upsmflproduction.keith-creelman.workers.dev/trade-offers";
+    return withBrowserSessionParams("https://upsmflproduction.keith-creelman.workers.dev/trade-offers");
   }
 
   function resolveTradeOffersActionApiUrl() {
@@ -1239,9 +1308,9 @@
       u.search = "";
       u.hash = "";
       u.pathname = String(u.pathname || "").replace(/\/trade-offers\/?$/i, "/trade-offers/action");
-      return u.toString();
+      return withBrowserSessionParams(u.toString());
     } catch (e) {
-      return "https://upsmflproduction.keith-creelman.workers.dev/trade-offers/action";
+      return withBrowserSessionParams("https://upsmflproduction.keith-creelman.workers.dev/trade-offers/action");
     }
   }
 
@@ -1254,9 +1323,9 @@
       u.search = "";
       u.hash = "";
       u.pathname = String(u.pathname || "").replace(/\/trade-offers\/action\/?$/i, "/trade-outbox/replay");
-      return u.toString();
+      return withBrowserSessionParams(u.toString());
     } catch (e) {
-      return "https://upsmflproduction.keith-creelman.workers.dev/trade-outbox/replay";
+      return withBrowserSessionParams("https://upsmflproduction.keith-creelman.workers.dev/trade-outbox/replay");
     }
   }
 
