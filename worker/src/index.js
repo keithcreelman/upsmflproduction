@@ -10201,6 +10201,25 @@ export default {
           return info;
         };
 
+        const formatContractYearValuesSegment = (yearValues) => {
+          const values = yearValues && typeof yearValues === "object" ? yearValues : null;
+          if (!values) return "";
+          const keys = Object.keys(values)
+            .map((key) => safeInt(key, 0))
+            .filter((idx) => idx > 0 && safeInt(values[idx], 0) > 0)
+            .sort((a, b) => a - b);
+          if (!keys.length) return "";
+          return keys.map((idx) => `Y${idx}-${formatContractK(values[idx])}`).join(", ");
+        };
+
+        const appendContractInfoSegment = (contractInfo, segment) => {
+          const info = safeStr(contractInfo).trim();
+          const next = safeStr(segment).trim();
+          if (!next) return info;
+          if (!info) return next;
+          return info + (/\|\s*$/.test(info) ? " " : "| ") + next;
+        };
+
         const normalizeContractInfoForDisplay = (contractInfo, years, priorContract) => {
           const info = safeStr(contractInfo);
           if (!info || !priorContract) return info;
@@ -10219,9 +10238,16 @@ export default {
             priorContract?.contract_info ||
             ""
           );
+          let nextInfo = info;
           const priorAavs = parseContractAavValues(priorInfo);
-          if (priorAavs.length < 1) return info;
-          return replaceContractInfoAavValue(info, priorAavs[priorAavs.length - 1]);
+          if (priorAavs.length >= 1) {
+            nextInfo = replaceContractInfoAavValue(nextInfo, priorAavs[priorAavs.length - 1]);
+          }
+          if (!Object.keys(parseContractYearValues(nextInfo)).length) {
+            const priorYearSegment = formatContractYearValuesSegment(parseContractYearValues(priorInfo));
+            if (priorYearSegment) nextInfo = appendContractInfoSegment(nextInfo, priorYearSegment);
+          }
+          return nextInfo;
         };
 
         const parsePlayerScoresRows = (payload) => {

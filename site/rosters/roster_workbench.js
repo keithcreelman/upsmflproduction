@@ -355,6 +355,30 @@
     return info;
   }
 
+  function formatContractYearValuesSegment(yearValues) {
+    var values = yearValues && typeof yearValues === "object" ? yearValues : null;
+    if (!values) return "";
+    var keys = Object.keys(values).map(function (key) {
+      return safeInt(key, 0);
+    }).filter(function (idx) {
+      return idx > 0 && safeInt(values[idx], 0) > 0;
+    }).sort(function (a, b) {
+      return a - b;
+    });
+    if (!keys.length) return "";
+    return keys.map(function (idx) {
+      return "Y" + String(idx) + "-" + formatContractK(values[idx]);
+    }).join(", ");
+  }
+
+  function appendContractInfoSegment(contractInfo, segment) {
+    var info = safeStr(contractInfo).trim();
+    var next = safeStr(segment).trim();
+    if (!next) return info;
+    if (!info) return next;
+    return info + (/\|\s*$/.test(info) ? " " : "| ") + next;
+  }
+
   function normalizeContractInfoForDisplay(contractInfo, years, priorContract) {
     var info = safeStr(contractInfo);
     if (!info) return info;
@@ -373,10 +397,18 @@
     if (!currentYears || priorYears !== currentYears + 1) return info;
 
     var priorInfo = safeStr(prior.special || prior.contractInfo || prior.contract_info || "");
+    var nextInfo = info;
     var priorAavs = parseContractAavValues(priorInfo);
-    if (priorAavs.length < 1) return info;
+    if (priorAavs.length >= 1) {
+      nextInfo = replaceContractInfoAavValue(nextInfo, priorAavs[priorAavs.length - 1]);
+    }
 
-    return replaceContractInfoAavValue(info, priorAavs[priorAavs.length - 1]);
+    if (!Object.keys(parseContractYearValues(nextInfo)).length) {
+      var priorYearSegment = formatContractYearValuesSegment(parseContractYearValues(priorInfo));
+      if (priorYearSegment) nextInfo = appendContractInfoSegment(nextInfo, priorYearSegment);
+    }
+
+    return nextInfo;
   }
 
   function currentAavForContractInfo(contractInfo) {
@@ -1211,6 +1243,29 @@
     return earned;
   }
 
+  function earnedToDateBreakdownForPlayer(player, season, now) {
+    var years = Math.max(0, safeInt(player && player.years, 0));
+    var total = totalContractValueForPlayer(player);
+    if (years <= 0) {
+      return {
+        currentYearSalary: 0,
+        priorEarned: total,
+        accrued: 0,
+        earned: total
+      };
+    }
+
+    var currentYearSalary = currentContractYearValue(player);
+    var priorEarned = earnedBeforeCurrentContractYear(player);
+    var accrued = proratedEarnedForDrop(season, currentYearSalary, now);
+    return {
+      currentYearSalary: currentYearSalary,
+      priorEarned: priorEarned,
+      accrued: accrued,
+      earned: priorEarned + accrued
+    };
+  }
+
   function seasonEndEstimateDate(season) {
     var yr = safeInt(season, 0);
     if (yr <= 0) return null;
@@ -1274,28 +1329,65 @@
     var years = Math.max(0, safeInt(player && player.years, 0));
     var season = currentYearInt();
     var now = new Date();
+    var totalContractValue = totalContractValueForPlayer(player);
+    var earnedBreakdown = earnedToDateBreakdownForPlayer(player, season, now);
+    var currentYearSalary = earnedBreakdown.currentYearSalary;
+    var priorEarned = earnedBreakdown.priorEarned;
+    var accrued = earnedBreakdown.accrued;
+    var earned = earnedBreakdown.earned;
+    var contractLength = Math.max(0, contractLengthForPlayer(player));
+    var explicitGuarantee = parseContractGuaranteeValue(player && player.special);
+    var guaranteed = guaranteedContractValueForPlayer(player);
+
     if (years <= 0) {
-      return { amount: 0, note: "Expired contracts do not carry a projected cap penalty." };
+      return {
+        amount: 0,
+        note: "Expired contracts do not carry a projected cap penalty.",
+        tcv: totalContractValue,
+        guaranteed: guaranteed,
+        currentYearSalary: currentYearSalary,
+        priorEarned: priorEarned,
+        accrued: accrued,
+        earned: earned
+      };
     }
     if (player && player.isTaxi) {
-      return { amount: 0, note: "Taxi players are shown with salary but do not project a current cap penalty." };
+      return {
+        amount: 0,
+        note: "Taxi players are shown with salary but do not project a current cap penalty.",
+        tcv: totalContractValue,
+        guaranteed: guaranteed,
+        currentYearSalary: currentYearSalary,
+        priorEarned: priorEarned,
+        accrued: accrued,
+        earned: earned
+      };
     }
 
     if (isTagCutPreAuctionAssumption(player, season, now)) {
       return {
         amount: 0,
-        note: "Pre-auction tag cut assumption: projected cap penalty is $0. Once auction opens, standard earned-salary rules apply."
+        note: "Pre-auction tag cut assumption: projected cap penalty is $0. Once auction opens, standard earned-salary rules apply.",
+        tcv: totalContractValue,
+        guaranteed: guaranteed,
+        currentYearSalary: currentYearSalary,
+        priorEarned: priorEarned,
+        accrued: accrued,
+        earned: earned
       };
     }
 
-    var contractLength = Math.max(0, contractLengthForPlayer(player));
     var type = safeStr(player && player.type).toUpperCase();
-    var totalContractValue = totalContractValueForPlayer(player);
-    var currentYearSalary = currentContractYearValue(player);
     if (contractLength === 1 && currentYearSalary < 5000 && (type === "VETERAN" || type === "WW")) {
       return {
         amount: 0,
-        note: "One-year veteran/waiver contracts under $5,000 are cap-free cuts under the current rule."
+        note: "One-year veteran/waiver contracts under $5,000 are cap-free cuts under the current rule.",
+        tcv: totalContractValue,
+        guaranteed: guaranteed,
+        currentYearSalary: currentYearSalary,
+        priorEarned: priorEarned,
+        accrued: accrued,
+        earned: earned
       };
     }
 
@@ -1303,15 +1395,16 @@
       var waiverAmount = Math.round(currentYearSalary * 0.35);
       return {
         amount: waiverAmount,
-        note: "Waiver pickup rule: 35% of current-year salary (" + money(currentYearSalary) + " x 35%)."
+        note: "Waiver pickup rule: 35% of current-year salary (" + money(currentYearSalary) + " x 35%).",
+        tcv: totalContractValue,
+        guaranteed: guaranteed,
+        currentYearSalary: currentYearSalary,
+        priorEarned: priorEarned,
+        accrued: accrued,
+        earned: earned
       };
     }
 
-    var priorEarned = earnedBeforeCurrentContractYear(player);
-    var accrued = proratedEarnedForDrop(season, currentYearSalary, now);
-    var earned = priorEarned + accrued;
-    var explicitGuarantee = parseContractGuaranteeValue(player && player.special);
-    var guaranteed = guaranteedContractValueForPlayer(player);
     var penalty = Math.max(0, guaranteed - earned);
     var guaranteeLabel = explicitGuarantee > 0
       ? "contract guarantee"
@@ -1319,6 +1412,12 @@
 
     return {
       amount: penalty,
+      tcv: totalContractValue,
+      guaranteed: guaranteed,
+      currentYearSalary: currentYearSalary,
+      priorEarned: priorEarned,
+      accrued: accrued,
+      earned: earned,
       note: penalty === 0
         ? "Current-rule guarantee has already been fully earned."
         : "Projected current-rule penalty: " + guaranteeLabel + " is " + money(guaranteed) + "; earned to date is " + money(earned) + "."
@@ -5835,6 +5934,8 @@
       var canManage = canManageRosterPlayer(player);
       var ownRoster = isOwnRosterPlayer(player);
       var penalty = dropPenaltyEstimate(player);
+      var modalTcv = Math.max(0, safeInt(penalty.tcv, totalContractValueForPlayer(player)));
+      var modalEarned = Math.max(0, safeInt(penalty.earned, 0));
       var extensionOptions = playerExtensionOptions(player);
       var extensionBlockReason = extensionBlockedReason(player);
       var contractEligibility = rosterContractEligibility(player);
@@ -5931,6 +6032,8 @@
           '<div class="rwb-modal-grid">' +
             '<div class="rwb-modal-metric"><span>Current Salary</span><strong>' + escapeHtml(money(player.salary)) + '</strong></div>' +
             '<div class="rwb-modal-metric"><span>Remaining AAV</span><strong>' + escapeHtml(state.actionModal.restructureOriginalAav > 0 ? money(state.actionModal.restructureOriginalAav) : "—") + '</strong></div>' +
+            '<div class="rwb-modal-metric"><span>TCV</span><strong>' + escapeHtml(modalTcv > 0 ? money(modalTcv) : "—") + '</strong></div>' +
+            '<div class="rwb-modal-metric"><span>Earned To Date</span><strong>' + escapeHtml(modalEarned > 0 ? money(modalEarned) : "$0") + '</strong></div>' +
             '<div class="rwb-modal-metric"><span>Years Left</span><strong>' + escapeHtml(String(player.years)) + '</strong></div>' +
             '<div class="rwb-modal-metric"><span>Contract Length</span><strong>' + escapeHtml(contractLength > 0 ? String(contractLength) : "—") + '</strong></div>' +
             '<div class="rwb-modal-metric"><span>Acquired</span><strong>' + escapeHtml(acquisitionDateLabelForPlayer(player)) + '</strong></div>' +
@@ -5977,6 +6080,8 @@
           '<div class="rwb-modal-grid">' +
             '<div class="rwb-modal-metric"><span>Salary</span><strong>' + escapeHtml(money(player.salary)) + '</strong></div>' +
             '<div class="rwb-modal-metric"><span>AAV</span><strong>' + escapeHtml(player.aav > 0 ? money(player.aav) : "—") + '</strong></div>' +
+            '<div class="rwb-modal-metric"><span>TCV</span><strong>' + escapeHtml(modalTcv > 0 ? money(modalTcv) : "—") + '</strong></div>' +
+            '<div class="rwb-modal-metric"><span>Earned To Date</span><strong>' + escapeHtml(modalEarned > 0 ? money(modalEarned) : "$0") + '</strong></div>' +
             '<div class="rwb-modal-metric"><span>Years Left</span><strong>' + escapeHtml(String(player.years)) + '</strong></div>' +
             '<div class="rwb-modal-metric"><span>Expires</span><strong>' + escapeHtml(projectedExpiryLabel(player)) + '</strong></div>' +
             '<div class="rwb-modal-metric"><span>Acquired</span><strong>' + escapeHtml(acquisitionDateLabelForPlayer(player)) + '</strong></div>' +
