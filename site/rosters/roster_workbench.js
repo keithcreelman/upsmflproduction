@@ -871,11 +871,6 @@
     if (!team) return false;
     var playerToken = lastExtensionIdentityToken(player.special || player.contract_info || "");
     if (identityTokenMatchesTeam(playerToken, team)) return true;
-    var previews = asArray(player.extensionPreviews);
-    for (var i = 0; i < previews.length; i += 1) {
-      var previewToken = lastExtensionIdentityToken(previews[i] && previews[i].contractInfo);
-      if (identityTokenMatchesTeam(previewToken, team)) return true;
-    }
     return false;
   }
 
