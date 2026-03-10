@@ -17,14 +17,6 @@
       { value: "ui-layout-issue", label: "UI layout issue" },
       { value: "other", label: "Other" },
     ],
-    workbench: [
-      { value: "calculation-incorrect", label: "Calculation incorrect" },
-      { value: "player-contract-data-incorrect", label: "Player contract data incorrect" },
-      { value: "ui-issue", label: "UI issue" },
-      { value: "action-button-not-working", label: "Action button not working" },
-      { value: "page-not-loading", label: "Page not loading" },
-      { value: "other", label: "Other" },
-    ],
     "front-office": [
       { value: "tagging-issue", label: "Tagging issue" },
       { value: "extension-issue", label: "Extension issue" },
@@ -34,13 +26,6 @@
       { value: "player-roster-status-incorrect", label: "Player roster status incorrect" },
       { value: "player-action-not-working", label: "Player action not working" },
       { value: "review-submit-failed", label: "Review / Submit Failed" },
-      { value: "ui-issue", label: "UI issue" },
-      { value: "page-not-loading", label: "Page not loading" },
-      { value: "other", label: "Other" },
-    ],
-    "ups-countdown": [
-      { value: "timer-incorrect", label: "Timer incorrect" },
-      { value: "timer-not-updating", label: "Timer not updating" },
       { value: "ui-issue", label: "UI issue" },
       { value: "page-not-loading", label: "Page not loading" },
       { value: "other", label: "Other" },
@@ -57,6 +42,8 @@
     ],
   };
   BUG_ISSUE_TYPE_OPTIONS_BY_MODULE["contract-command-center"] = BUG_ISSUE_TYPE_OPTIONS_BY_MODULE["front-office"];
+  BUG_ISSUE_TYPE_OPTIONS_BY_MODULE.workbench = BUG_ISSUE_TYPE_OPTIONS_BY_MODULE["front-office"];
+  BUG_ISSUE_TYPE_OPTIONS_BY_MODULE["ups-countdown"] = BUG_ISSUE_TYPE_OPTIONS_BY_MODULE.other;
   const BUG_MAX_ATTACHMENTS = 6;
   const BUG_MAX_ATTACHMENT_FILE_BYTES = 8 * 1024 * 1024;
   const BUG_MAX_ATTACHMENT_DATA_URL_CHARS = 450000;
