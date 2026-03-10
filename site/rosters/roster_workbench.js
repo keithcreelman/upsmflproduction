@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var BUILD = "2026.03.09.04";
+  var BUILD = "2026.03.10.01";
   var BOOT_FLAG = "__ups_roster_workbench_boot_" + BUILD;
   if (window[BOOT_FLAG]) {
     if (typeof window.UPS_RWB_INIT === "function") window.UPS_RWB_INIT();
@@ -1166,6 +1166,18 @@
 
   function rosterStatusFilterEnabledForView() {
     return state.view !== "tag" && !capPlanSummaryViewActive();
+  }
+
+  function tagPriorAavSubtext(row) {
+    var season = safeStr(state.tagData && state.tagData.sourceSeason);
+    var amount = Math.max(
+      safeInt(row && row.prior_aav_week1, 0),
+      safeInt(row && row.prior_aav, 0),
+      safeInt(row && row.aav, 0),
+      safeInt(row && row.prior_salary_week1, 0)
+    );
+    var label = season ? (season + " AAV") : "Prior AAV";
+    return label + ": " + (amount > 0 ? formatContractK(amount) : "—");
   }
 
   function teamJumpEnabledForView() {
@@ -4762,10 +4774,13 @@
     }
 
     var browseSearchHtml =
-      '<label class="rwb-field rwb-field-search rwb-toolbar-browse-search">' +
-        '<span>Player Search</span>' +
-        '<input id="rwbBrowseSearch" class="rwb-input" type="search" placeholder="Search players..." autocomplete="off">' +
-      '</label>';
+      '<div class="rwb-toolbar-browse-search-wrap">' +
+        '<label class="rwb-field rwb-field-search rwb-toolbar-browse-search">' +
+          '<span>Player Search</span>' +
+          '<input id="rwbBrowseSearch" class="rwb-input" type="search" placeholder="Search players..." autocomplete="off">' +
+        '</label>' +
+        '<button type="button" class="rwb-btn rwb-btn-ghost" data-action="clear-search"' + (state.search ? "" : " disabled") + '>Clear</button>' +
+      '</div>';
 
     if (state.view === "contract") {
       var contractSubview = normalizeCapPlanSubview(state.contractSubView);
@@ -4894,7 +4909,12 @@
     renderSelectOptions(els.filterByeImpact, BYE_IMPACT_FILTERS, state.filterByeImpact);
     var showByeImpactFilter = state.view === "bye";
     if (els.jumpTeamField) els.jumpTeamField.hidden = !teamJumpEnabledForView();
-    if (els.searchField) els.searchField.hidden = !searchFilterEnabledForView() || browseSearchEnabledForView();
+    var showAdvancedSearch = searchFilterEnabledForView() && !browseSearchEnabledForView();
+    if (els.searchField) {
+      els.searchField.hidden = !showAdvancedSearch;
+      els.searchField.style.display = showAdvancedSearch ? "" : "none";
+      els.searchField.setAttribute("aria-hidden", showAdvancedSearch ? "false" : "true");
+    }
     if (els.filterPositionField) els.filterPositionField.hidden = !positionFilterEnabledForView();
     if (els.filterTypeField) els.filterTypeField.hidden = !contractTypeFilterEnabledForView();
     if (els.filterRosterStatusField) els.filterRosterStatusField.hidden = !rosterStatusFilterEnabledForView();
@@ -6699,7 +6719,7 @@
                 '<span class="rwb-player-name">' + escapeHtml(row.player_name) + '</span>' +
                 (isActive ? '<span class="rwb-tag is-tagged">Tagged</span>' : '') +
               '</div>' +
-              '<div class="rwb-points-player-sub">Prior season ' + escapeHtml(safeStr(state.tagData && state.tagData.sourceSeason)) + '</div>' +
+              '<div class="rwb-points-player-sub">' + escapeHtml(tagPriorAavSubtext(row)) + '</div>' +
             '</div>' +
           '</td>' +
           '<td><span class="rwb-tag-side-pill is-' + escapeHtml(normalizeTagSideValue(row.side).toLowerCase()) + '">' + escapeHtml(tagSideLabel(row.side)) + '</span></td>' +
@@ -7807,6 +7827,17 @@
     if (target === els.toggleFilters) {
       state.filtersOpen = !state.filtersOpen;
       renderToolbar();
+      return;
+    }
+
+    var clearSearchBtn = target.closest("[data-action='clear-search']");
+    if (clearSearchBtn) {
+      state.search = "";
+      if (els.search) els.search.value = "";
+      if (els.browseSearch) els.browseSearch.value = "";
+      persistState();
+      renderToolbar();
+      renderTeams();
       return;
     }
 
