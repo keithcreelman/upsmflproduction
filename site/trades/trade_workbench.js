@@ -2944,6 +2944,28 @@
     renderBannerOfferList(els.receivedList, state.offers.received || [], "received");
   }
 
+  function summarizeOfferFeedError(err) {
+    var data = err && err.data && typeof err.data === "object" ? err.data : null;
+    var pendingLookup = data && data.pending_lookup && typeof data.pending_lookup === "object"
+      ? data.pending_lookup
+      : null;
+    var raw = safeStr(
+      (pendingLookup && pendingLookup.error) ||
+      (data && (data.reason || data.error)) ||
+      (err && err.message) ||
+      ""
+    );
+    if (!raw) return "Offer feed unavailable";
+    if (
+      /logged in user/i.test(raw) ||
+      /impersonate another franchise/i.test(raw) ||
+      /missing mfl owner session/i.test(raw)
+    ) {
+      return "Offer feed needs your owner session. Refresh the page and try again.";
+    }
+    return raw.length > 140 ? (raw.slice(0, 137) + "...") : raw;
+  }
+
   async function refreshBannerOffers(force) {
     var meta = state.data && state.data.meta ? state.data.meta : {};
     var leagueCtx = getLeagueContext();
@@ -2985,7 +3007,7 @@
     } catch (err) {
       state.offers.offered = [];
       state.offers.received = [];
-      state.offers.error = "Offer feed unavailable";
+      state.offers.error = summarizeOfferFeedError(err);
       state.offers.key = "";
     } finally {
       state.offers.busy = false;
