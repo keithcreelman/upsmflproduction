@@ -549,14 +549,7 @@
   }
 
   function isLoadedContractPlayer(player) {
-    var length = Math.max(0, contractLengthForPlayer(player));
-    if (length <= 1) return false;
-    var yearValues = contractYearValueMapForPlayer(player);
-    var first = safeInt(yearValues[1], contractYearFallbackValue(player, 1));
-    var second = safeInt(yearValues[2], contractYearFallbackValue(player, 2));
-    if (length === 2) return first !== second;
-    var third = safeInt(yearValues[3], contractYearFallbackValue(player, 3));
-    return first !== second || second !== third;
+    return contractBucket(player && player.type) === "loaded";
   }
 
   function activeRosterCountForPlayers(players) {
@@ -5038,12 +5031,13 @@
   function teamHeaderHtml(team, filteredPlayers) {
     var logo = safeStr(team.logo);
     var allPlayers = team.players || [];
+    var visiblePlayers = Array.isArray(filteredPlayers) ? filteredPlayers : allPlayers;
     var totalRosterPlayers = rosterCountForPlayers(allPlayers);
     var activeCount = activeRosterCountForPlayers(allPlayers);
     var irTotal = safeInt(team && team.summary && team.summary.ir, irCountForPlayers(allPlayers));
     var taxiTotal = safeInt(team && team.summary && team.summary.taxi, 0);
     var limit = rosterLimitSummary(totalRosterPlayers, state.ctx && state.ctx.year, new Date());
-    var contractLimits = contractLimitSummaryForPlayers(allPlayers);
+    var contractLimits = contractLimitSummaryForPlayers(visiblePlayers);
     var limitTitle = "Roster limit " + limit.rangeLabel;
     if (safeStr(limit.deadlineYmd) && limit.max > MAX_ROSTER_PLAYERS) {
       limitTitle += " until " + safeStr(limit.deadlineYmd);
