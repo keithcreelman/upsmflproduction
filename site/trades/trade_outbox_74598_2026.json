@@ -3,7 +3,7 @@
     "schema_version": 1,
     "league_id": "74598",
     "season": 2026,
-    "updated_at": "2026-03-10T21:20:51.871Z",
+    "updated_at": "2026-03-10T21:20:52.568Z",
     "row_count": 12,
     "source": "worker-trade-outbox"
   },
@@ -2129,14 +2129,14 @@
         },
         "comment": "Pre-trade extension: Extend Irving, Bucky 1-year | New length 2 | New AAV 12K | New TCV 14K"
       },
-      "comment_trailer": "",
+      "comment_trailer": "[UPS_TWB_INTENT_BEGIN]\nUPS_OUTBOX_ID:12\nUPS_PAYLOAD_HASH:6889342ece5b35eeee682269645f8a6c121c121cf0fbb78357d5ffa7c97426de\nUPS_XML_EXT:PHNhbGFyaWVzPjxsZWFndWVVbml0IHVuaXQ9IkxFQUdVRSI-PHBsYXllciBpZD0iMTY1OTgiIHNhbGFyeT0iMjAwMCIgY29udHJhY3RZZWFyPSIxIiBjb250cmFjdEluZm89IkNMIDJ8VENWIDE0S3xBQVYgMkssIDEyS3xZMS0ySywgWTItMTJLfEV4dDogUEd8R1REOiAxMC41SyIgY29udHJhY3RTdGF0dXM9IkVYVDEiIC8-PC9sZWFndWVVbml0Pjwvc2FsYXJpZXM-\n[UPS_TWB_INTENT_END]",
       "payload_hash": "6889342ece5b35eeee682269645f8a6c121c121cf0fbb78357d5ffa7c97426de",
       "status": "PENDING",
       "mfl_post_response_snip": "",
       "mfl_verify_response_snip": "",
       "league_id": "74598",
       "season": "2026",
-      "updated_ts": "2026-03-10T21:20:51.787Z",
+      "updated_ts": "2026-03-10T21:20:52.485Z",
       "id": "12"
     }
   ]
