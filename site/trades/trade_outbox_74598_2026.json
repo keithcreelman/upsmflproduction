@@ -3,8 +3,8 @@
     "schema_version": 1,
     "league_id": "74598",
     "season": 2026,
-    "updated_at": "2026-03-01T12:13:50.989Z",
-    "row_count": 1,
+    "updated_at": "2026-03-10T15:10:10.054Z",
+    "row_count": 2,
     "source": "worker-trade-outbox"
   },
   "rows": [
@@ -144,6 +144,195 @@
       "season": "2026",
       "updated_ts": "2026-03-01T12:13:50.927Z",
       "id": "1"
+    },
+    {
+      "created_ts": "2026-03-10T15:10:09.913Z",
+      "trade_id": "",
+      "action_type": "SUBMIT",
+      "from_franchise_id": "0005",
+      "to_franchise_id": "0004",
+      "payload_xml_extensions": "<salaries><leagueUnit unit=\"LEAGUE\"><player id=\"16598\" salary=\"2000\" contractYear=\"1\" contractInfo=\"CL 2|TCV 14K|AAV 2K, 12K|Y1-2K, Y2-12K|Ext: PG|GTD: 10.5K\" contractStatus=\"EXT1\" /></leagueUnit></salaries>",
+      "payload_xml_salary_adj": "",
+      "payload_xml_salary_trade": "",
+      "payload_json": {
+        "schema_version": 1,
+        "generated_at": "2026-03-10T15:10:09.295Z",
+        "source": "ups-trade-workbench",
+        "league_id": "74598",
+        "season": 2026,
+        "teams": [
+          {
+            "role": "left",
+            "franchise_id": "0005",
+            "franchise_name": "HammerTime 🔨 ⏰",
+            "selected_assets": [
+              {
+                "asset_id": "pick:FP_0005_2027_1",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2026 Rookie Round 1",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "FP_0005_2027_1",
+                "pick_season": 2027,
+                "pick_round": 1,
+                "pick_slot": null
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 0,
+            "selected_non_taxi_salary_dollars": 0
+          },
+          {
+            "role": "right",
+            "franchise_id": "0004",
+            "franchise_name": "Pure Greatness",
+            "selected_assets": [
+              {
+                "asset_id": "player:16598",
+                "type": "PLAYER",
+                "player_id": "16598",
+                "player_name": "Irving, Bucky",
+                "description": null,
+                "position": "RB",
+                "nfl_team": "TBB",
+                "salary": 2000,
+                "years": 1,
+                "contract_type": "Rookie",
+                "contract_info": "CL 3| TCV 6K| AAV 2K",
+                "taxi": false,
+                "pick_key": null,
+                "pick_season": null,
+                "pick_round": null,
+                "pick_slot": null
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 1,
+            "selected_non_taxi_salary_dollars": 2000
+          }
+        ],
+        "extension_requests": [
+          {
+            "player_id": "16598",
+            "player_name": "Irving, Bucky",
+            "from_franchise_id": "0004",
+            "to_franchise_id": "0005",
+            "applies_to_acquirer": true,
+            "option_key": "1YR|NONE",
+            "extension_term": "1YR",
+            "loaded_indicator": "NONE",
+            "preview_id": 1003,
+            "preview_contract_info_string": "CL 2|TCV 14K|AAV 2K, 12K|Y1-2K, Y2-12K|Ext: PG|GTD: 10.5K",
+            "new_contract_status": "EXT1",
+            "new_contract_length": 2,
+            "new_TCV": 14000,
+            "new_aav_future": 12000
+          }
+        ],
+        "filters": {
+          "search": ""
+        },
+        "ui": {
+          "left_team_id": "0005",
+          "right_team_id": "0004"
+        },
+        "salary_reconciliation": {
+          "left": {
+            "franchise_id": "0005",
+            "franchise_name": "HammerTime 🔨 ⏰",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 259000,
+            "outgoing_dollars": 0,
+            "incoming_dollars": 2000,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": 2000,
+            "new_salary_dollars": 261000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 0,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": -2000,
+            "available_salary_before_dollars": 41000,
+            "available_salary_after_dollars": 39000,
+            "over_cap_dollars": 0
+          },
+          "right": {
+            "franchise_id": "0004",
+            "franchise_name": "Pure Greatness",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 236000,
+            "outgoing_dollars": 2000,
+            "incoming_dollars": 0,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": -2000,
+            "new_salary_dollars": 234000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 1,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": 2000,
+            "available_salary_before_dollars": 64000,
+            "available_salary_after_dollars": 66000,
+            "over_cap_dollars": 0
+          },
+          "has_over_cap": false
+        },
+        "multi_year_salary_impact": {
+          "current_season": 2026,
+          "left_franchise_name": "HammerTime 🔨 ⏰",
+          "right_franchise_name": "Pure Greatness",
+          "rows": [
+            {
+              "season": 2026,
+              "left_before_dollars": 259000,
+              "left_after_dollars": 261000,
+              "left_change_dollars": 2000,
+              "right_before_dollars": 236000,
+              "right_after_dollars": 234000,
+              "right_change_dollars": -2000
+            },
+            {
+              "season": 2027,
+              "left_before_dollars": 306000,
+              "left_after_dollars": 318000,
+              "left_change_dollars": 12000,
+              "right_before_dollars": 236000,
+              "right_after_dollars": 234000,
+              "right_change_dollars": -2000
+            },
+            {
+              "season": 2028,
+              "left_before_dollars": 77000,
+              "left_after_dollars": 77000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 79000,
+              "right_after_dollars": 79000,
+              "right_change_dollars": 0
+            }
+          ]
+        },
+        "validation": {
+          "status": "ready",
+          "issues": []
+        },
+        "comment": "Pre-trade extension: Extend Irving, Bucky 1-year | New length 2 | New AAV 12K | New TCV 14K"
+      },
+      "comment_trailer": "",
+      "payload_hash": "6889342ece5b35eeee682269645f8a6c121c121cf0fbb78357d5ffa7c97426de",
+      "status": "PENDING",
+      "mfl_post_response_snip": "",
+      "mfl_verify_response_snip": "",
+      "league_id": "74598",
+      "season": "2026",
+      "updated_ts": "2026-03-10T15:10:09.913Z",
+      "id": "2"
     }
   ]
 }
