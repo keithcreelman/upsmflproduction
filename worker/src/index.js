@@ -2931,6 +2931,66 @@ export default {
         return preview.includes("impersonate") && preview.includes("lockout");
       };
 
+      const isImpersonationLockoutExportError = (exportRes) => {
+        const preview = safeStr(
+          exportRes?.textPreview ||
+            exportRes?.error ||
+            exportRes?.data?.error?.$t ||
+            exportRes?.data?.error
+        ).toLowerCase();
+        if (!preview) return false;
+        return preview.includes("impersonate") && preview.includes("lockout");
+      };
+
+      const loadPendingTradesExportAsViewer = async (seasonValue, leagueIdValue, franchiseIdValue = "") => {
+        const fid = padFranchiseId(franchiseIdValue);
+        const first = await mflExportJsonAsViewer(
+          seasonValue,
+          leagueIdValue,
+          "pendingTrades",
+          fid ? { FRANCHISE_ID: fid } : {},
+          { useCookie: true }
+        );
+        if (first.ok) {
+          return {
+            ...first,
+            retriedWithoutFranchiseId: false,
+            usedFranchiseId: !!fid,
+          };
+        }
+
+        const canRetryWithoutFranchiseId =
+          !!browserCookieHeader &&
+          !!fid &&
+          isImpersonationLockoutExportError(first);
+        if (!canRetryWithoutFranchiseId) {
+          return {
+            ...first,
+            retriedWithoutFranchiseId: false,
+            usedFranchiseId: !!fid,
+          };
+        }
+
+        const retry = await mflExportJsonAsViewer(
+          seasonValue,
+          leagueIdValue,
+          "pendingTrades",
+          {},
+          { useCookie: true }
+        );
+        return {
+          ...retry,
+          retriedWithoutFranchiseId: true,
+          usedFranchiseId: false,
+          firstAttempt: {
+            status: safeInt(first.status, 0),
+            url: safeStr(first.url),
+            error: safeStr(first.error),
+            preview: safeStr(first.textPreview),
+          },
+        };
+      };
+
       const resolveMflImportTargetUrl = async (season, probeFields) => {
         const baseImportUrl =
           `https://api.myfantasyleague.com/${encodeURIComponent(String(season || YEAR || new Date().getUTCFullYear()))}` +
@@ -5051,14 +5111,10 @@ export default {
           };
         }
 
-        const extra = {};
-        if (franchiseId) extra.FRANCHISE_ID = franchiseId;
-        const pendingRes = await mflExportJsonAsViewer(
+        const pendingRes = await loadPendingTradesExportAsViewer(
           season,
           leagueId,
-          "pendingTrades",
-          extra,
-          { useCookie: true }
+          franchiseId
         );
         if (!pendingRes.ok) {
           return {
@@ -7553,14 +7609,10 @@ export default {
           });
         }
 
-        const extra = {};
-        if (franchiseId) extra.FRANCHISE_ID = franchiseId;
-        const pendingRes = await mflExportJsonAsViewer(
+        const pendingRes = await loadPendingTradesExportAsViewer(
           season,
           leagueId,
-          "pendingTrades",
-          extra,
-          { useCookie: true }
+          franchiseId
         );
         if (!pendingRes.ok) {
           return jsonOut(502, {
@@ -7851,12 +7903,10 @@ export default {
             rows_count: 0,
             matched_trade_id: "",
           };
-          const pendingRes = await mflExportJsonAsViewer(
+          const pendingRes = await loadPendingTradesExportAsViewer(
             season,
             leagueId,
-            "pendingTrades",
-            { FRANCHISE_ID: fromFranchiseId },
-            { useCookie: true }
+            fromFranchiseId
           );
           if (pendingRes.ok) {
             const rows = pendingTradesRows(pendingRes.data).map(normalizePendingTradeRow);
@@ -8338,12 +8388,10 @@ export default {
               rows_count: 0,
               matched_trade_id: "",
             };
-            const pendingRes = await mflExportJsonAsViewer(
+            const pendingRes = await loadPendingTradesExportAsViewer(
               season,
               leagueId,
-              "pendingTrades",
-              { FRANCHISE_ID: fromFranchiseId },
-              { useCookie: true }
+              fromFranchiseId
             );
             if (pendingRes.ok) {
               const rows = pendingTradesRows(pendingRes.data).map(normalizePendingTradeRow);
@@ -8644,12 +8692,10 @@ export default {
               // noop
             }
             try {
-              const pendingRes = await mflExportJsonAsViewer(
+              const pendingRes = await loadPendingTradesExportAsViewer(
                 season,
                 leagueId,
-                "pendingTrades",
-                { FRANCHISE_ID: actingFranchiseId },
-                { useCookie: true }
+                actingFranchiseId
               );
               if (pendingRes.ok) {
                 const rows = pendingTradesRows(pendingRes.data).map(normalizePendingTradeRow);
