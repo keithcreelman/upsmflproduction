@@ -7,18 +7,6 @@
   const BUG_REPORT_WORKER_DEFAULT = "https://upsmflproduction.keith-creelman.workers.dev";
 
   const BUG_ISSUE_TYPE_OPTIONS_BY_MODULE = {
-    "contract-command-center": [
-      { value: "tag-player-issue", label: "Tag a Player issue" },
-      { value: "extensions-issue", label: "Extensions issue" },
-      { value: "restructures-issue", label: "Restructures issue" },
-      { value: "eligibility-list-incorrect", label: "Eligibility list incorrect" },
-      { value: "contract-math-incorrect", label: "Contract math incorrect" },
-      { value: "review-submit-failed", label: "Review / Submit Failed" },
-      { value: "button-action-not-working", label: "Button/action not working" },
-      { value: "page-not-loading", label: "Page not loading" },
-      { value: "ui-layout-issue", label: "UI layout issue" },
-      { value: "other", label: "Other" },
-    ],
     "trade-war-room": [
       { value: "trade-builder-issue", label: "Trade Builder issue" },
       { value: "trade-calculation-incorrect", label: "Trade calculation incorrect" },
@@ -38,10 +26,14 @@
       { value: "other", label: "Other" },
     ],
     "front-office": [
+      { value: "tagging-issue", label: "Tagging issue" },
+      { value: "extension-issue", label: "Extension issue" },
+      { value: "restructure-issue", label: "Restructure issue" },
       { value: "salary-incorrect", label: "Salary incorrect" },
       { value: "player-contract-incorrect", label: "Player contract incorrect" },
       { value: "player-roster-status-incorrect", label: "Player roster status incorrect" },
       { value: "player-action-not-working", label: "Player action not working" },
+      { value: "review-submit-failed", label: "Review / Submit Failed" },
       { value: "ui-issue", label: "UI issue" },
       { value: "page-not-loading", label: "Page not loading" },
       { value: "other", label: "Other" },
@@ -64,6 +56,7 @@
       { value: "other", label: "Other" },
     ],
   };
+  BUG_ISSUE_TYPE_OPTIONS_BY_MODULE["contract-command-center"] = BUG_ISSUE_TYPE_OPTIONS_BY_MODULE["front-office"];
   const BUG_MAX_ATTACHMENTS = 6;
   const BUG_MAX_ATTACHMENT_FILE_BYTES = 8 * 1024 * 1024;
   const BUG_MAX_ATTACHMENT_DATA_URL_CHARS = 450000;
@@ -1002,8 +995,55 @@
     });
   }
 
+  function readFileAsDataUrl(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(safeStr(reader.result));
+      reader.onerror = () => reject(new Error("File read failed"));
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function inferScreenshotMimeType(file) {
+    const typed = safeStr(file && file.type).toLowerCase();
+    if (typed && typed.startsWith("image/")) return typed;
+    const name = safeStr(file && file.name).toLowerCase();
+    if (/\.png$/i.test(name)) return "image/png";
+    if (/\.jpe?g$/i.test(name)) return "image/jpeg";
+    if (/\.gif$/i.test(name)) return "image/gif";
+    if (/\.webp$/i.test(name)) return "image/webp";
+    if (/\.bmp$/i.test(name)) return "image/bmp";
+    if (/\.avif$/i.test(name)) return "image/avif";
+    if (/\.heic$/i.test(name)) return "image/heic";
+    if (/\.heif$/i.test(name)) return "image/heif";
+    return "";
+  }
+
+  async function fileToDirectScreenshotAttachment(file, inferredType) {
+    const dataUrlRaw = await readFileAsDataUrl(file);
+    let dataUrl = safeStr(dataUrlRaw);
+    const mimeType = safeStr(inferredType || inferScreenshotMimeType(file) || "image/jpeg");
+    if (!/^data:image\//i.test(dataUrl) && /^data:;base64,/i.test(dataUrl) && /^image\//i.test(mimeType)) {
+      dataUrl = dataUrl.replace(/^data:;base64,/i, `data:${mimeType};base64,`);
+    }
+    if (!/^data:image\//i.test(dataUrl)) {
+      throw new Error("Unsupported screenshot format");
+    }
+    if (dataUrl.length > BUG_MAX_ATTACHMENT_DATA_URL_CHARS) {
+      throw new Error("Screenshot is too large after reading. Try PNG or JPG.");
+    }
+    return {
+      name: safeStr(file.name || "screenshot"),
+      type: mimeType,
+      original_type: safeStr(file.type || ""),
+      size_bytes: safeInt(file.size),
+      data_url: dataUrl,
+    };
+  }
+
   async function fileToScreenshotAttachment(file) {
-    if (!file || !file.type || !file.type.startsWith("image/")) {
+    const inferredType = inferScreenshotMimeType(file);
+    if (!file || !inferredType || !inferredType.startsWith("image/")) {
       throw new Error("Unsupported file type");
     }
     if (safeInt(file.size) > BUG_MAX_ATTACHMENT_FILE_BYTES) {
@@ -1042,6 +1082,8 @@
         size_bytes: safeInt(file.size),
         data_url: dataUrl,
       };
+    } catch (err) {
+      return fileToDirectScreenshotAttachment(file, inferredType);
     } finally {
       URL.revokeObjectURL(objectUrl);
     }
@@ -1095,6 +1137,11 @@
           ? `${out.length} attached. Skipped ${errors.length}: ${errors.join(" | ")}`
           : ""
       );
+      if (!out.length && errors.length) {
+        setBugStatus(errors[0], "error");
+      } else if (out.length) {
+        setBugStatus(`${out.length} screenshot${out.length === 1 ? "" : "s"} attached.`, "ok");
+      }
       if (!errors.length) renderBugAttachmentList();
     } finally {
       setBugAttachmentBusy(false);
