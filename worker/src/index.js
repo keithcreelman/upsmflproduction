@@ -2113,6 +2113,25 @@ export default {
         return content;
       };
 
+      const sanitizeBugThreadToken = (value, fallback) => {
+        const cleaned = safeStr(value || "")
+          .replace(/[^A-Za-z0-9]+/g, "-")
+          .replace(/^-+|-+$/g, "")
+          .slice(0, 28);
+        return cleaned || fallback;
+      };
+
+      const buildBugThreadName = (reportRow) => {
+        const row = reportRow && typeof reportRow === "object" ? reportRow : {};
+        const seasonToken = safeStr(row.season || new Date().getUTCFullYear() || "");
+        const moduleToken = sanitizeBugThreadToken(row.module, "other");
+        const issueToken = sanitizeBugThreadToken(row.issue_type, "other");
+        const seqToken = String(Math.max(1, safeInt(row.issue_sequence || row.issueSequence || 1)));
+        let name = `${seasonToken}_${moduleToken}_${issueToken}_${seqToken}`;
+        if (name.length > 100) name = name.slice(0, 100);
+        return name;
+      };
+
       const parseDiscordUserIds = (raw) => {
         const parts = String(raw == null ? "" : raw).split(/[,\s]+/);
         const out = [];
@@ -2319,6 +2338,66 @@ export default {
           };
         }
 
+        if (channelId) {
+          const sendChannel = await botRequestWithFiles(`/channels/${encodeURIComponent(channelId)}/messages`);
+          if (!sendChannel.ok) {
+            return {
+              ok: false,
+              mode: "bot-channel-thread",
+              status: sendChannel.status,
+              error: safeStr(sendChannel.text || "send_channel_failed").slice(0, 600),
+              dm_attempt: dmAttemptResult || undefined,
+              ...attachmentMeta(0),
+            };
+          }
+          const rootMessageId = safeStr(sendChannel.data && sendChannel.data.id);
+          if (!rootMessageId) {
+            return {
+              ok: false,
+              mode: "bot-channel-thread",
+              status: sendChannel.status,
+              error: "missing_root_message_id",
+              channel_id: channelId,
+              dm_attempt: dmAttemptResult || undefined,
+              ...attachmentMeta(0),
+            };
+          }
+          const threadName = buildBugThreadName(reportRow);
+          const createThread = await botRequest(
+            "POST",
+            `/channels/${encodeURIComponent(channelId)}/messages/${encodeURIComponent(rootMessageId)}/threads`,
+            {
+              name: threadName,
+              auto_archive_duration: 10080,
+              rate_limit_per_user: 0,
+            }
+          );
+          if (!createThread.ok) {
+            return {
+              ok: false,
+              mode: "bot-channel-thread",
+              status: createThread.status,
+              error: safeStr(createThread.text || "create_thread_failed").slice(0, 600),
+              channel_id: channelId,
+              message_id: rootMessageId,
+              thread_name: threadName,
+              dm_attempt: dmAttemptResult || undefined,
+              ...attachmentMeta(responseAttachmentCount(sendChannel)),
+            };
+          }
+          const sentCount = responseAttachmentCount(sendChannel);
+          return {
+            ok: true,
+            mode: "bot-channel-thread",
+            channel_id: channelId,
+            message_id: rootMessageId,
+            thread_id: safeStr(createThread.data && createThread.data.id),
+            thread_name: threadName,
+            dm_attempt: dmAttemptResult || undefined,
+            ...attachmentMeta(sentCount),
+          };
+        }
+
         if (webhook) {
           try {
             let res = null;
@@ -2389,28 +2468,6 @@ export default {
             status: 0,
             error: "missing_discord_config",
             ...attachmentMeta(0),
-          };
-        }
-
-        if (channelId) {
-          const sendChannel = await botRequestWithFiles(`/channels/${encodeURIComponent(channelId)}/messages`);
-          if (!sendChannel.ok) {
-            return {
-              ok: false,
-              mode: "bot-channel",
-              status: sendChannel.status,
-              error: safeStr(sendChannel.text || "send_channel_failed").slice(0, 600),
-              dm_attempt: dmAttemptResult || undefined,
-              ...attachmentMeta(0),
-            };
-          }
-          const sentCount = responseAttachmentCount(sendChannel);
-          return {
-            ok: true,
-            mode: "bot-channel",
-            channel_id: channelId,
-            dm_attempt: dmAttemptResult || undefined,
-            ...attachmentMeta(sentCount),
           };
         }
 
@@ -7188,6 +7245,14 @@ export default {
         const doc = normalizeBugReportsDoc(loaded.doc, leagueId, season);
         const reports = Array.isArray(doc.reports) ? doc.reports : [];
         reports.unshift(reportRow);
+        reportRow.issue_sequence = reports.filter((row) => {
+          if (!row || typeof row !== "object") return false;
+          return (
+            safeStr(row.season || "") === season &&
+            safeStr(row.module || "") === moduleName &&
+            safeStr(row.issue_type || "") === issueType
+          );
+        }).length;
         doc.reports = reports.slice(0, 3000);
 
         const save = await writeBugReportsDoc(
