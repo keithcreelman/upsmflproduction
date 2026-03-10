@@ -5400,6 +5400,7 @@
 
   function clearFilters() {
     resetFilterState();
+    state.rightTeamId = "";
   }
 
   function resetTrade(options) {
