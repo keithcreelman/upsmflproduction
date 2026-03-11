@@ -1720,6 +1720,7 @@ export default {
         const repoName = encodeURIComponent(safeStr(env.GITHUB_REPO_NAME || "upsmflproduction"));
         const branch = encodeURIComponent(safeStr(env.GITHUB_REPO_BRANCH || "main"));
         const fallbacks = [
+          `https://raw.githubusercontent.com/${repoOwner}/${repoName}/${branch}/site/acquisition`,
           `https://cdn.jsdelivr.net/gh/${repoOwner}/${repoName}@${branch}/site/acquisition`,
           preferred,
         ];
