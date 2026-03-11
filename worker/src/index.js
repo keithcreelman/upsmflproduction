@@ -1714,44 +1714,57 @@ export default {
         },
       });
 
-      const resolveAcquisitionArtifactsBaseUrl = () =>
-        safeStr(env.ACQUISITION_ARTIFACTS_BASE_URL || "https://keithcreelman.github.io/upsmflproduction/site/acquisition").replace(/\/+$/, "");
+      const resolveAcquisitionArtifactsBaseUrls = () => {
+        const preferred = safeStr(env.ACQUISITION_ARTIFACTS_BASE_URL || "https://keithcreelman.github.io/upsmflproduction/site/acquisition").replace(/\/+$/, "");
+        const repoOwner = encodeURIComponent(safeStr(env.GITHUB_REPO_OWNER || "keithcreelman"));
+        const repoName = encodeURIComponent(safeStr(env.GITHUB_REPO_NAME || "upsmflproduction"));
+        const branch = encodeURIComponent(safeStr(env.GITHUB_REPO_BRANCH || "main"));
+        const fallbacks = [
+          preferred,
+          `https://cdn.jsdelivr.net/gh/${repoOwner}/${repoName}@${branch}/site/acquisition`,
+        ];
+        return Array.from(new Set(fallbacks.filter(Boolean)));
+      };
 
       const fetchArtifactJson = async (kind) => {
         const fileName = ACQ_ARTIFACT_FILES[kind];
         if (!fileName) return { ok: false, status: 404, error: "unknown_artifact_kind", data: null, url: "" };
-        const base = resolveAcquisitionArtifactsBaseUrl();
-        const artifactUrl = `${base}/${fileName}`;
-        try {
-          const res = await fetch(artifactUrl, {
-            headers: { "Cache-Control": "no-store" },
-            cf: { cacheTtl: 0, cacheEverything: false },
-          });
-          if (!res.ok) {
+        const candidates = resolveAcquisitionArtifactsBaseUrls().map((base) => `${base}/${fileName}`);
+        let lastError = { ok: false, status: 0, error: "artifact_fetch_failed", data: null, url: "" };
+        for (const artifactUrl of candidates) {
+          try {
+            const res = await fetch(artifactUrl, {
+              headers: { "Cache-Control": "no-store" },
+              cf: { cacheTtl: 0, cacheEverything: false },
+            });
+            if (!res.ok) {
+              lastError = {
+                ok: false,
+                status: res.status,
+                error: `artifact_http_${res.status}`,
+                data: null,
+                url: artifactUrl,
+              };
+              continue;
+            }
             return {
-              ok: false,
+              ok: true,
               status: res.status,
-              error: `artifact_http_${res.status}`,
+              error: "",
+              data: await res.json(),
+              url: artifactUrl,
+            };
+          } catch (e) {
+            lastError = {
+              ok: false,
+              status: 0,
+              error: `artifact_fetch_failed: ${e?.message || String(e)}`,
               data: null,
               url: artifactUrl,
             };
           }
-          return {
-            ok: true,
-            status: res.status,
-            error: "",
-            data: await res.json(),
-            url: artifactUrl,
-          };
-        } catch (e) {
-          return {
-            ok: false,
-            status: 0,
-            error: `artifact_fetch_failed: ${e?.message || String(e)}`,
-            data: null,
-            url: artifactUrl,
-          };
         }
+        return lastError;
       };
 
       const htmlDecode = (text) =>
