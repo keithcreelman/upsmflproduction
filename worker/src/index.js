@@ -1720,8 +1720,8 @@ export default {
         const repoName = encodeURIComponent(safeStr(env.GITHUB_REPO_NAME || "upsmflproduction"));
         const branch = encodeURIComponent(safeStr(env.GITHUB_REPO_BRANCH || "main"));
         const fallbacks = [
-          preferred,
           `https://cdn.jsdelivr.net/gh/${repoOwner}/${repoName}@${branch}/site/acquisition`,
+          preferred,
         ];
         return Array.from(new Set(fallbacks.filter(Boolean)));
       };
