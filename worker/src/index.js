@@ -3249,61 +3249,97 @@ export default {
         };
       };
 
-      const formatBugDiscordMessage = (reportRow, filePath) => {
+      const humanizeBugToken = (value, fallback = "Other") => {
+        const raw = safeStr(value || "");
+        if (!raw) return fallback;
+        const words = raw
+          .replace(/[_-]+/g, " ")
+          .replace(/\s+/g, " ")
+          .trim()
+          .split(" ")
+          .filter(Boolean)
+          .map((part) => part.charAt(0).toUpperCase() + part.slice(1));
+        return words.length ? words.join(" ") : fallback;
+      };
+
+      const formatBugSubmittedAt = (value) => {
+        const raw = safeStr(value || "");
+        if (!raw) return "Unknown";
+        try {
+          const dt = new Date(raw);
+          if (!Number.isFinite(dt.getTime())) return raw;
+          return dt.toLocaleString("en-US", {
+            timeZone: "America/New_York",
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+            hour: "numeric",
+            minute: "2-digit",
+            timeZoneName: "short",
+          });
+        } catch (_) {
+          return raw;
+        }
+      };
+
+      const formatBugSubmitterLabel = (reportRow) => {
         const row = reportRow && typeof reportRow === "object" ? reportRow : {};
-        const details = safeStr(row.details || "").replace(/\s+/g, " ").slice(0, 500);
-        const moduleName = safeStr(row.module || "");
-        const issueType = safeStr(row.issue_type || "");
-        const requestKind = safeStr(row.request_kind || (row.commish_enhancement ? "commish-enhancement" : "bug-report"));
-        const leagueId = safeStr(row.league_id || "");
-        const season = safeStr(row.season || "");
-        const bugId = safeStr(row.bug_id || "");
-        const fid = safeStr(row.franchise_id || "");
         const franchiseName = safeStr(row.franchise_name || (row.context && row.context.franchise_name) || "");
-        const mflUser = safeStr(row.mfl_user_id || "");
-        const submittedBy = safeStr(
-          row.submitted_by_label ||
-          (row.context && row.context.submitted_by_label) ||
-          [franchiseName || fid || "", mflUser ? `MFL ${mflUser}` : ""].filter(Boolean).join(" | ")
-        );
-        const pageUrl = safeStr((row.context && row.context.page_url) || "");
-        const attachmentCount = Array.isArray(row.attachments)
-          ? row.attachments.length
-          : safeInt((row.context && row.context.screenshot_count) || 0);
+        const franchiseId = safeStr(row.franchise_id || "");
+        const submittedByLabel = safeStr(row.submitted_by_label || (row.context && row.context.submitted_by_label) || "");
+        const cleanedSubmittedByLabel = submittedByLabel
+          .split("|")
+          .map((part) => safeStr(part))
+          .filter((part) => part && !/commish enhancement/i.test(part))
+          .join(" | ");
+        const primary =
+          franchiseName && !/^unknown$/i.test(franchiseName)
+            ? franchiseName
+            : cleanedSubmittedByLabel
+              ? cleanedSubmittedByLabel
+              : franchiseId
+                ? `Franchise ${franchiseId}`
+                : "Unknown";
+        return `${primary}${row.commish_enhancement ? " - Commish" : ""}`;
+      };
+
+      const bugThreadStatusLabel = (status) => {
+        const normalized = normalizeBugStatus(status || "OPEN");
+        if (normalized === "CLOSED_RESOLVED") return "Closed Resolved";
+        if (normalized === "WAITING_ON_COMMISH") return "Waiting On Commish";
+        if (normalized === "APPROVED_TO_FIX") return "Approved To Fix";
+        if (normalized === "INVESTIGATING") return "Investigating";
+        if (normalized === "DECLINED") return "Declined";
+        return "Open Issue";
+      };
+
+      const formatBugDiscordMessage = (reportRow) => {
+        const row = reportRow && typeof reportRow === "object" ? reportRow : {};
+        const details = safeStr(row.details || "").replace(/\s+/g, " ").slice(0, 1200);
+        const moduleName = humanizeBugToken(row.module, "Other");
+        const issueType = humanizeBugToken(row.issue_type, "Other");
+        const submittedBy = formatBugSubmitterLabel(row);
+        const submittedAt = formatBugSubmittedAt(row.created_at_utc || row.status_updated_at_utc || "");
         const lines = [
-          `${requestKind === "commish-enhancement" ? "UPS Commish Enhancement" : "UPS Bug Report"}${bugId ? ` #${bugId}` : ""}`,
-          `League ${leagueId || "-"} | Season ${season || "-"}`,
-          `Module ${moduleName || "-"} | Type ${issueType || "-"}`,
-          `Submitted by ${submittedBy || "-"}`,
-          `Franchise ${(franchiseName || fid || "-")} | MFL User ${mflUser || "unknown"}`,
-          attachmentCount ? `Screenshots: ${attachmentCount}` : "",
-          details ? `Details: ${details}` : "",
-          pageUrl ? `Page: ${pageUrl}` : "",
-          filePath ? `Log: ${filePath}` : "",
+          `**Submitted By:** ${submittedBy}`,
+          "",
+          `**Date Submitted:** ${submittedAt}`,
+          "",
+          `**Module:** ${moduleName} | **Type:** ${issueType}`,
+          "",
+          `**Details:** ${details || "No details provided."}`,
         ].filter(Boolean);
         let content = lines.join("\n");
         if (content.length > 1900) content = content.slice(0, 1897) + "...";
         return content;
       };
 
-      const bugThreadStatePrefix = (status) => normalizeBugStatus(status || "OPEN");
-
-      const sanitizeBugThreadToken = (value, fallback) => {
-        const cleaned = safeStr(value || "")
-          .replace(/[^A-Za-z0-9]+/g, "-")
-          .replace(/^-+|-+$/g, "")
-          .slice(0, 28);
-        return cleaned || fallback;
-      };
-
       const buildBugThreadName = (reportRow, statusOverride = "") => {
         const row = reportRow && typeof reportRow === "object" ? reportRow : {};
-        const statusToken = bugThreadStatePrefix(statusOverride || row.status || "OPEN");
-        const seasonToken = safeStr(row.season || new Date().getUTCFullYear() || "");
-        const moduleToken = sanitizeBugThreadToken(row.module, "other");
-        const issueToken = sanitizeBugThreadToken(row.issue_type, "other");
-        const seqToken = String(Math.max(1, safeInt(row.issue_sequence || row.issueSequence || 1)));
-        let name = `${statusToken}_${seasonToken}_${moduleToken}_${issueToken}_${seqToken}`;
+        const moduleLabel = humanizeBugToken(row.module, "Other");
+        const issueLabel = humanizeBugToken(row.issue_type, "Other");
+        const statusLabel = bugThreadStatusLabel(statusOverride || row.status || "OPEN");
+        let name = `Bug Module ${moduleLabel} Issue ${issueLabel} ${statusLabel}`;
         if (name.length > 100) name = name.slice(0, 100);
         return name;
       };
