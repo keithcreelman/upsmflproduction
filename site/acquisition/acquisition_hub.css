@@ -145,6 +145,11 @@
   gap: 12px;
 }
 
+.acq-shell-nav {
+  display: grid;
+  gap: 10px;
+}
+
 .acq-nav {
   display: flex;
   gap: 8px;
@@ -193,6 +198,22 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.acq-card-filters {
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+
+.acq-filterStrip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 10px;
+  align-items: end;
+}
+
+.acq-field-search {
+  min-width: min(100%, 280px);
+}
+
 .acq-field {
   display: grid;
   gap: 5px;
@@ -236,6 +257,10 @@
 .acq-card-head h3 {
   margin: 0;
   font-size: 1rem;
+}
+
+.acq-cell-icon {
+  width: 1%;
 }
 
 .acq-kpi-grid {
@@ -382,6 +407,14 @@
   overflow: auto;
 }
 
+.acq-table-wrap-scroll {
+  max-height: 420px;
+}
+
+.acq-table-wrap-tall {
+  max-height: 640px;
+}
+
 .acq-table {
   width: 100%;
   border-collapse: collapse;
@@ -456,11 +489,63 @@
   gap: 12px;
 }
 
+.acq-linkBtn {
+  border: 0;
+  background: none;
+  color: #9ec8ff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+}
+
+.acq-linkBtn:hover {
+  color: #ffe1c4;
+}
+
+.acq-teamIcon,
+.acq-teamIconFallback {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.acq-teamIcon {
+  object-fit: cover;
+  border: 1px solid rgba(138, 172, 214, 0.24);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.acq-teamIconFallback {
+  border: 1px solid rgba(138, 172, 214, 0.24);
+  background: rgba(10, 19, 35, 0.95);
+  color: var(--acq-text-soft);
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.acq-reportCopy {
+  display: grid;
+  gap: 10px;
+}
+
+.acq-reportCopy p {
+  margin: 0;
+}
+
 @media (max-width: 980px) {
   .acq-hero,
   .acq-grid-two,
   .acq-toolbar-grid,
   .acq-kpi-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .acq-filterStrip {
     grid-template-columns: minmax(0, 1fr);
   }
 

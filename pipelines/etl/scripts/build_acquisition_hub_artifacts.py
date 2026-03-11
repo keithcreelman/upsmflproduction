@@ -61,6 +61,14 @@ def round2(value):
     return round(float(value), 2)
 
 
+def first_positive(*values):
+    for value in values:
+        n = safe_float(value, 0.0)
+        if n > 0:
+            return n
+    return None
+
+
 def normalize_pos_group(raw: str) -> str:
     pos = str(raw or "").upper().strip()
     if pos in {"DE", "DT", "EDGE", "DL"}:
@@ -385,19 +393,34 @@ def build_rookie_history(conn: sqlite3.Connection, current_season: int, history_
     for row in rookie_seed_rows:
         player_id = str(row.get("player_id") or "")
         adp_row = adp_current_by_player.get(player_id, {})
-        normalized_adp_value = adp_row.get("normalized_adp")
-        if normalized_adp_value in (None, "") and row.get("adp_overall") not in (None, ""):
-            normalized_adp_value = row.get("adp_overall")
+        displayed_adp_value = first_positive(
+            adp_row.get("superflex_source_adp"),
+            adp_row.get("normalized_adp"),
+            row.get("adp_overall"),
+            row.get("public_sentiment_score"),
+        )
+        displayed_adp_source = ""
+        if displayed_adp_value is not None:
+            superflex_value = first_positive(adp_row.get("superflex_source_adp"))
+            normalized_value = first_positive(adp_row.get("normalized_adp"))
+            if superflex_value is not None and superflex_value == displayed_adp_value:
+                displayed_adp_source = "superflex"
+            elif normalized_value is not None and normalized_value == displayed_adp_value:
+                displayed_adp_source = "normalized"
+            else:
+                displayed_adp_source = "sentiment"
         rookie_adp_row = {
             "season": current_season,
             "player_id": player_id,
             "player_name": row.get("player_name") or "",
             "position": row.get("position") or "",
             "nfl_team": row.get("nfl_team") or "",
-            "normalized_adp": None if normalized_adp_value in (None, "") else round2(normalized_adp_value),
+            "normalized_adp": None if adp_row.get("normalized_adp") in (None, "") else round2(adp_row.get("normalized_adp")),
             "mfl_rank": safe_int(adp_row.get("mfl_rank")),
             "mfl_average_pick": round2(adp_row.get("mfl_average_pick")),
             "superflex_source_adp": round2(adp_row.get("superflex_source_adp")),
+            "displayed_adp": None if displayed_adp_value is None else round2(displayed_adp_value),
+            "displayed_adp_source": displayed_adp_source,
             "adp_period_used": adp_row.get("adp_period_used") or "",
             "normalization_source": adp_row.get("normalization_source") or row.get("market_archetype") or "",
             "pos_group": row.get("pos_group") or "",
@@ -417,7 +440,22 @@ def build_rookie_history(conn: sqlite3.Connection, current_season: int, history_
     for row in rookie_seed_rows:
         player_id = str(row.get("player_id") or "")
         adp_row = rookie_adp_by_player.get(player_id, adp_current_by_player.get(player_id, {}))
-        normalized_adp_value = adp_row.get("normalized_adp")
+        displayed_adp_value = first_positive(
+            adp_row.get("superflex_source_adp"),
+            adp_row.get("normalized_adp"),
+            row.get("adp_overall"),
+            row.get("public_sentiment_score"),
+        )
+        displayed_adp_source = ""
+        if displayed_adp_value is not None:
+            superflex_value = first_positive(adp_row.get("superflex_source_adp"))
+            normalized_value = first_positive(adp_row.get("normalized_adp"))
+            if superflex_value is not None and superflex_value == displayed_adp_value:
+                displayed_adp_source = "superflex"
+            elif normalized_value is not None and normalized_value == displayed_adp_value:
+                displayed_adp_source = "normalized"
+            else:
+                displayed_adp_source = "sentiment"
         draftable_rookies_seed.append(
             {
                 "player_id": player_id,
@@ -426,7 +464,10 @@ def build_rookie_history(conn: sqlite3.Connection, current_season: int, history_
                 "pos_group": row.get("pos_group") or "",
                 "nfl_team": row.get("nfl_team") or "",
                 "rookie_class_season": safe_int(row.get("nfl_draft_year") or current_season),
-                "normalized_adp": None if normalized_adp_value in (None, "") else round2(normalized_adp_value),
+                "normalized_adp": None if adp_row.get("normalized_adp") in (None, "") else round2(adp_row.get("normalized_adp")),
+                "superflex_source_adp": round2(adp_row.get("superflex_source_adp")),
+                "displayed_adp": None if displayed_adp_value is None else round2(displayed_adp_value),
+                "displayed_adp_source": displayed_adp_source,
                 "mfl_average_pick": round2(adp_row.get("mfl_average_pick")),
                 "adp_tier": row.get("adp_tier") or "",
                 "public_sentiment_score": round2(row.get("public_sentiment_score")),
@@ -434,7 +475,7 @@ def build_rookie_history(conn: sqlite3.Connection, current_season: int, history_
         )
     draftable_rookies_seed.sort(
         key=lambda row: (
-            safe_float(row.get("normalized_adp"), 9999),
+            safe_float(row.get("displayed_adp"), 9999),
             str(row.get("player_name") or "").lower(),
         )
     )
@@ -448,7 +489,7 @@ def build_rookie_history(conn: sqlite3.Connection, current_season: int, history_
         }
         for row in enriched
         if safe_int(row["season"]) == current_season
-    ][:48]
+    ][:72]
 
     top_hits = sorted(
         enriched,
@@ -457,6 +498,7 @@ def build_rookie_history(conn: sqlite3.Connection, current_season: int, history_
     )[:50]
 
     value_summary = []
+    value_summary_by_pos_group = []
     for bucket, values in sorted(pick_bucket_expectation.items()):
         bucket_rows = [row for row in enriched if row["pick_bucket"] == bucket]
         if not bucket_rows:
@@ -466,12 +508,28 @@ def build_rookie_history(conn: sqlite3.Connection, current_season: int, history_
         value_summary.append(
             {
                 "pick_bucket": bucket,
+                "pos_group": "ALL",
                 "expected_points_3yr": round2(values),
                 "avg_points_3yr": round2(avg_points),
                 "avg_rookie_value_score": round2(avg_value),
                 "sample_size": len(bucket_rows),
             }
         )
+        pos_groups = sorted({str(row.get("pos_group") or "") for row in bucket_rows if row.get("pos_group")})
+        for pos_group in pos_groups:
+            pos_rows = [row for row in bucket_rows if str(row.get("pos_group") or "") == pos_group]
+            if not pos_rows:
+                continue
+            value_summary_by_pos_group.append(
+                {
+                    "pick_bucket": bucket,
+                    "pos_group": pos_group,
+                    "expected_points_3yr": round2(values),
+                    "avg_points_3yr": round2(sum(safe_float(row.get("points_rookiecontract"), 0.0) for row in pos_rows) / len(pos_rows)),
+                    "avg_rookie_value_score": round2(sum(safe_float(row.get("rookie_value_score"), 0.0) for row in pos_rows) / len(pos_rows)),
+                    "sample_size": len(pos_rows),
+                }
+            )
 
     available_seasons = sorted({safe_int(row.get("season")) for row in enriched if safe_int(row.get("season")) > 0}, reverse=True)
 
@@ -586,6 +644,7 @@ def build_rookie_history(conn: sqlite3.Connection, current_season: int, history_
         "draftable_rookies_seed": draftable_rookies_seed,
         "history_rows": enriched,
         "value_summary": value_summary,
+        "value_summary_by_pos_group": value_summary_by_pos_group,
         "owner_summary_rows": owner_summary_rows,
         "pick_summary_rows": pick_summary_rows,
         "round_segment_definition": {
@@ -659,7 +718,8 @@ def build_auction_history(conn: sqlite3.Connection, current_season: int, history
         (min_season,),
     )
 
-    available_seed = fetch_rows(
+    rank_years = [current_season - 3, current_season - 2, current_season - 1]
+    available_seed_raw = fetch_rows(
         conn,
         """
         SELECT
@@ -676,17 +736,44 @@ def build_auction_history(conn: sqlite3.Connection, current_season: int, history
           pav.historical_avg_auction_bid,
           pav.historical_recent_auction_bid,
           pav.market_adp_overall,
-          ad.normalized_adp
+          ad.normalized_adp,
+          ad.superflex_source_adp,
+          COALESCE(pps1.pos_rank, 0) AS pos_rank_y1,
+          COALESCE(pps2.pos_rank, 0) AS pos_rank_y2,
+          COALESCE(pps3.pos_rank, 0) AS pos_rank_y3
         FROM player_upcoming_auction_value pav
         LEFT JOIN adp_normalized_values ad
           ON ad.season = pav.valuation_season
          AND ad.player_id = pav.player_id
+        LEFT JOIN player_pointssummary pps1
+          ON pps1.player_id = pav.player_id
+         AND pps1.season = ?
+        LEFT JOIN player_pointssummary pps2
+          ON pps2.player_id = pav.player_id
+         AND pps2.season = ?
+        LEFT JOIN player_pointssummary pps3
+          ON pps3.player_id = pav.player_id
+         AND pps3.season = ?
         WHERE pav.valuation_season = ?
         ORDER BY pav.upcoming_auction_value DESC
         LIMIT 500
         """,
-        (current_season,),
+        (rank_years[0], rank_years[1], rank_years[2], current_season),
     )
+    available_seed = []
+    for row in available_seed_raw:
+        rank_values = [
+            safe_int(row.get("pos_rank_y1"), 0),
+            safe_int(row.get("pos_rank_y2"), 0),
+            safe_int(row.get("pos_rank_y3"), 0),
+        ]
+        valid_ranks = [value for value in rank_values if value > 0]
+        entry = dict(row)
+        entry[f"pos_rank_{rank_years[0]}"] = rank_values[0]
+        entry[f"pos_rank_{rank_years[1]}"] = rank_values[1]
+        entry[f"pos_rank_{rank_years[2]}"] = rank_values[2]
+        entry["avg_pos_rank_3y"] = round2(sum(valid_ranks) / len(valid_ranks)) if valid_ranks else 0
+        available_seed.append(entry)
 
     season_summary = fetch_rows(
         conn,
@@ -776,6 +863,44 @@ def build_expired_rookie_history(conn: sqlite3.Connection, current_season: int, 
         (current_season,),
     )
 
+    post_auction_rows = fetch_rows(
+        conn,
+        """
+        SELECT
+          a.season,
+          a.player_id,
+          a.player_name,
+          a.position,
+          a.nfl_team,
+          a.franchise_id,
+          a.team_name,
+          a.owner_name,
+          a.bid_amount,
+          COALESCE(p1.points_total, 0) AS points_y1,
+          COALESCE(p2.points_total, 0) AS points_y2,
+          COALESCE(p3.points_total, 0) AS points_y3,
+          COALESCE(p1.pos_rank, 0) AS pos_rank_y1,
+          COALESCE(p2.pos_rank, 0) AS pos_rank_y2,
+          COALESCE(p3.pos_rank, 0) AS pos_rank_y3
+        FROM transactions_auction a
+        LEFT JOIN player_pointssummary p1
+          ON p1.player_id = a.player_id
+         AND p1.season = a.season + 1
+        LEFT JOIN player_pointssummary p2
+          ON p2.player_id = a.player_id
+         AND p2.season = a.season + 2
+        LEFT JOIN player_pointssummary p3
+          ON p3.player_id = a.player_id
+         AND p3.season = a.season + 3
+        WHERE a.finalbid_ind = 1
+          AND a.auction_type = 'TagOrExpiredRookie'
+          AND a.season >= ?
+        ORDER BY a.season DESC, a.unix_timestamp DESC
+        LIMIT 500
+        """,
+        (min_season,),
+    )
+
     return {
         "meta": {
             "generated_at": utc_now_iso(),
@@ -784,6 +909,7 @@ def build_expired_rookie_history(conn: sqlite3.Connection, current_season: int, 
             "source": "build_acquisition_hub_artifacts.py",
         },
         "history_rows": history_rows,
+        "post_auction_rows": post_auction_rows,
         "extension_rows": extension_rows,
         "current_winner_player_ids": sorted({str(row["player_id"]) for row in current_winners if row.get("player_id")}),
     }

@@ -58,6 +58,26 @@
       schedule(key);
     }
 
+    function applyIntervalsFromResult(key, result) {
+      var entry = entries[key];
+      if (!entry || !result || typeof result !== "object") return;
+      var visibleMs = safeInt(
+        result.next_refresh_recommended_ms != null
+          ? result.next_refresh_recommended_ms
+          : (result.refresh_intervals && result.refresh_intervals.visible_ms),
+        0
+      );
+      var hiddenMs = safeInt(
+        result.next_refresh_hidden_ms != null
+          ? result.next_refresh_hidden_ms
+          : (result.refresh_intervals && result.refresh_intervals.hidden_ms),
+        0
+      );
+      if (visibleMs > 0) entry.visibleIntervalMs = visibleMs;
+      if (hiddenMs > 0) entry.hiddenIntervalMs = hiddenMs;
+      else if (visibleMs > 0 && (!entry.hiddenIntervalMs || entry.hiddenIntervalMs < visibleMs)) entry.hiddenIntervalMs = visibleMs;
+    }
+
     function run(key, reason) {
       var entry = entries[key];
       if (!entry || entry.inFlight || destroyed) return Promise.resolve(null);
@@ -69,6 +89,7 @@
           return entry.loader({ key: key, reason: reason || "manual" });
         })
         .then(function (result) {
+          applyIntervalsFromResult(key, result);
           markResult(key, true);
           return result;
         })
@@ -117,6 +138,12 @@
       },
       refresh: function (key, reason) {
         return run(key, reason);
+      },
+      updateIntervals: function (key, visibleMs, hiddenMs) {
+        var entry = entries[key];
+        if (!entry) return;
+        if (safeInt(visibleMs, 0) > 0) entry.visibleIntervalMs = safeInt(visibleMs, entry.visibleIntervalMs);
+        if (safeInt(hiddenMs, 0) > 0) entry.hiddenIntervalMs = safeInt(hiddenMs, entry.hiddenIntervalMs);
       },
       invalidate: function (key) {
         var entry = entries[key];

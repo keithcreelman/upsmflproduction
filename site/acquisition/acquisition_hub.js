@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var BUILD = "2026.03.11.01";
+  var BUILD = "2026.03.11.03";
   var BOOT_FLAG = "__ups_acq_hub_boot_" + BUILD;
   if (window[BOOT_FLAG]) {
     if (typeof window.UPS_ACQ_INIT === "function") window.UPS_ACQ_INIT();
@@ -17,10 +17,6 @@
     bootstrap: null,
     bootstrapError: "",
     activeKey: "rookie-draft",
-    shared: {
-      teamId: "",
-      search: ""
-    },
     modules: {},
     busyAction: false
   };
@@ -35,6 +31,11 @@
 
   function safeInt(value, fallback) {
     var n = parseInt(String(value == null ? "" : value), 10);
+    return isFinite(n) ? n : (fallback == null ? 0 : fallback);
+  }
+
+  function safeFloat(value, fallback) {
+    var n = Number(value);
     return isFinite(n) ? n : (fallback == null ? 0 : fallback);
   }
 
@@ -96,9 +97,7 @@
     if (!out.leagueId) out.leagueId = safeStr(window.league_id || window.LEAGUE_ID).replace(/\D/g, "");
     if (!out.year) out.year = safeStr(window.year || window.YEAR).replace(/\D/g, "");
     if (!out.year) out.year = String(new Date().getFullYear());
-    if (!out.apiUrl) {
-      out.apiUrl = safeStr(window.UPS_ACQ_API || "https://upsmflproduction.keith-creelman.workers.dev");
-    }
+    if (!out.apiUrl) out.apiUrl = safeStr(window.UPS_ACQ_API || "https://upsmflproduction.keith-creelman.workers.dev");
     if (!out.viewerUserId) out.viewerUserId = safeStr(readCookie("MFL_USER_ID"));
     return out;
   }
@@ -132,9 +131,17 @@
   }
 
   function formatMoney(value) {
-    var n = Number(value);
-    if (!isFinite(n)) return escapeHtml(safeStr(value));
-    return "$" + Math.round(n).toLocaleString("en-US");
+    var n = safeFloat(value, NaN);
+    if (!isFinite(n)) return safeStr(value);
+    if (!n) return "0";
+    var sign = n < 0 ? "-" : "";
+    var abs = Math.abs(n);
+    if (abs >= 1000) {
+      var thousands = abs / 1000;
+      var rounded = thousands % 1 === 0 ? String(Math.round(thousands)) : String(Math.round(thousands * 10) / 10);
+      return sign + rounded + "K";
+    }
+    return sign + String(Math.round(abs));
   }
 
   function formatTime(value) {
@@ -152,9 +159,10 @@
     return Math.round(diff / 3600000) + "h ago";
   }
 
-  function renderTable(columns, rows, emptyMessage) {
+  function renderTable(columns, rows, emptyMessage, options) {
     var cols = Array.isArray(columns) ? columns : [];
     var list = Array.isArray(rows) ? rows : [];
+    var opts = options && typeof options === "object" ? options : {};
     if (!list.length) {
       return '<div class="acq-empty">' + escapeHtml(emptyMessage || "No rows available.") + "</div>";
     }
@@ -164,24 +172,24 @@
     var body = list.map(function (row) {
       return "<tr>" + cols.map(function (col) {
         if (typeof col.renderHtml === "function") {
-          return "<td>" + String(col.renderHtml(row)) + "</td>";
+          return '<td class="' + escapeHtml(safeStr(col.cellClass || "")) + '">' + String(col.renderHtml(row)) + "</td>";
         }
         var raw = row && row[col.key];
         if (row && row[col.key + "_html"] != null) {
-          return "<td>" + String(row[col.key + "_html"]) + "</td>";
+          return '<td class="' + escapeHtml(safeStr(col.cellClass || "")) + '">' + String(row[col.key + "_html"]) + "</td>";
         }
         var text = raw;
-        if (col.key && /(amount|value|aav|max_bid|reserve_cost|funds|salary|\$\$)/i.test(col.key) && raw !== "" && raw != null) {
+        if (col.key && /(amount|value|aav|max_bid|reserve_cost|funds|salary|cap_space|committed|bid)/i.test(col.key) && raw !== "" && raw != null) {
           text = formatMoney(raw);
-        } else if (/datetime|generated_at|fetched_at/i.test(col.key)) {
+        } else if (/datetime|generated_at|fetched_at|updated_at/i.test(col.key)) {
           text = formatTime(raw);
         }
-        return "<td>" + escapeHtml(text) + "</td>";
+        return '<td class="' + escapeHtml(safeStr(col.cellClass || "")) + '">' + escapeHtml(text) + "</td>";
       }).join("") + "</tr>";
     }).join("");
     return '' +
-      '<div class="acq-table-wrap">' +
-        '<table class="acq-table">' +
+      '<div class="acq-table-wrap ' + escapeHtml(safeStr(opts.wrapClass || "")) + '">' +
+        '<table class="acq-table ' + escapeHtml(safeStr(opts.tableClass || "")) + '">' +
           "<thead><tr>" + head + "</tr></thead>" +
           "<tbody>" + body + "</tbody>" +
         "</table>" +
@@ -232,10 +240,35 @@
     return state.modules[key];
   }
 
+  function buildNavItems() {
+    var items = [
+      { key: "rookie-draft", label: "Rookie Draft" },
+      { key: "free-agent-auction", label: "FA Auction" },
+      { key: "expired-rookie-auction", label: "Expired Rookies" }
+    ];
+    if (state.bootstrap && state.bootstrap.feature_flags && state.bootstrap.feature_flags.waiver_lab_enabled) {
+      items.push({ key: "waiver-lab", label: "Waiver Lab" });
+    }
+    return items;
+  }
+
+  function ensureValidActiveRoute() {
+    var nav = buildNavItems();
+    var valid = false;
+    for (var i = 0; i < nav.length; i += 1) {
+      if (nav[i].key === state.activeKey) {
+        valid = true;
+        break;
+      }
+    }
+    if (!valid) state.activeKey = "rookie-draft";
+  }
+
   function loadBootstrap() {
     return fetchJson("/acquisition-hub/bootstrap").then(function (payload) {
       state.bootstrap = payload;
       state.bootstrapError = "";
+      ensureValidActiveRoute();
       render();
       return payload;
     }).catch(function (err) {
@@ -261,7 +294,6 @@
     var params = typeof moduleConfig.getHistoryParams === "function"
       ? moduleConfig.getHistoryParams({
           moduleState: moduleState,
-          shared: state.shared,
           bootstrap: state.bootstrap
         }) || {}
       : {};
@@ -282,21 +314,23 @@
     var moduleConfig = MODULES[key];
     var moduleState = ensureModuleState(key);
     if (!moduleConfig || !moduleConfig.livePath) return Promise.resolve(null);
-    var params = { F: state.shared.teamId || "" };
-    if (typeof moduleConfig.getLiveParams === "function") {
-      var extra = moduleConfig.getLiveParams({
-        moduleState: moduleState,
-        shared: state.shared,
-        bootstrap: state.bootstrap,
-        reason: reason
-      }) || {};
-      Object.keys(extra).forEach(function (keyName) {
-        params[keyName] = extra[keyName];
-      });
-    }
+    var params = typeof moduleConfig.getLiveParams === "function"
+      ? moduleConfig.getLiveParams({
+          moduleState: moduleState,
+          bootstrap: state.bootstrap,
+          reason: reason
+        }) || {}
+      : {};
     return fetchJson(moduleConfig.livePath, params).then(function (payload) {
       moduleState.live = payload;
       moduleState.error = "";
+      if (refreshManager) {
+        refreshManager.updateIntervals(
+          key,
+          safeInt(payload.next_refresh_recommended_ms, 0),
+          safeInt(payload.next_refresh_hidden_ms || (payload.refresh_intervals && payload.refresh_intervals.hidden_ms), 0)
+        );
+      }
       render();
       return payload;
     }).catch(function (err) {
@@ -304,15 +338,6 @@
       render();
       throw err;
     });
-  }
-
-  function buildNavItems() {
-    return [
-      { key: "rookie-draft", label: "Rookie Draft" },
-      { key: "free-agent-auction", label: "FA Auction" },
-      { key: "expired-rookie-auction", label: "Expired Rookies" },
-      { key: "waiver-lab", label: "Waiver Lab" }
-    ];
   }
 
   function getRefreshStatus() {
@@ -335,17 +360,14 @@
 
   function render() {
     if (!root) return;
+    ensureValidActiveRoute();
     var moduleConfig = MODULES[state.activeKey];
     if (!moduleConfig) return;
     var moduleState = ensureModuleState(state.activeKey);
     var refreshState = getRefreshStatus();
-    var teamOptions = ((state.bootstrap && state.bootstrap.league && state.bootstrap.league.franchises) || []).map(function (team) {
-      return '<option value="' + escapeHtml(safeStr(team.franchise_id)) + '"' + (safeStr(team.franchise_id) === safeStr(state.shared.teamId) ? " selected" : "") + '>' + escapeHtml(team.franchise_name) + "</option>";
-    }).join("");
     var pageHtml = moduleConfig.render({
       bootstrap: state.bootstrap,
       moduleState: moduleState,
-      shared: state.shared,
       helpers: {
         escapeHtml: escapeHtml,
         formatMoney: formatMoney,
@@ -364,25 +386,22 @@
           '</div>' +
           '<div class="acq-status-panel">' +
             '<div class="acq-status-badge is-' + escapeHtml(refreshState.status || "idle") + '">' + escapeHtml(refreshState.status || "idle") + '</div>' +
-            '<div class="acq-status-meta">Last updated: ' + escapeHtml(formatAge((moduleState.live && moduleState.live.fetched_at) || (state.bootstrap && state.bootstrap.fetched_at) || "")) + '</div>' +
+            '<div class="acq-status-meta">Last updated: ' + escapeHtml(formatAge((moduleState.live && moduleState.live.fetched_at) || (moduleState.history && moduleState.history.generated_at) || (state.bootstrap && state.bootstrap.fetched_at) || "")) + '</div>' +
             '<button type="button" id="acqRefreshBtn" class="acq-btn acq-btn-primary">Refresh Now</button>' +
           '</div>' +
         '</header>' +
 
-        '<section class="acq-toolbar acq-card">' +
+        '<section class="acq-shell-nav acq-card">' +
           '<nav class="acq-nav">' +
             buildNavItems().map(function (item) {
               return '<button type="button" class="acq-nav-btn' + (item.key === state.activeKey ? " is-active" : "") + '" data-acq-route="' + escapeHtml(item.key) + '">' + escapeHtml(item.label) + "</button>";
             }).join("") +
           '</nav>' +
-          '<div class="acq-toolbar-grid">' +
-            '<label class="acq-field"><span>Team</span><select id="acqTeamSelect"><option value="">All Teams</option>' + teamOptions + "</select></label>" +
-            '<label class="acq-field"><span>Player Search</span><input id="acqSearchInput" type="search" value="' + escapeHtml(state.shared.search) + '" placeholder="Search player, team, auction"></label>' +
-          '</div>' +
           '<div class="acq-toolbar-meta">' +
             '<span>Route: ' + escapeHtml(moduleConfig.title) + "</span>" +
             '<span>Season: ' + escapeHtml(safeStr(state.ctx && state.ctx.year)) + "</span>" +
             '<span>League: ' + escapeHtml(safeStr(state.ctx && state.ctx.leagueId)) + "</span>" +
+            (state.bootstrap && state.bootstrap.viewer && state.bootstrap.viewer.is_commish ? '<span>Commish View</span>' : "") +
           '</div>' +
           (state.bootstrapError ? ('<div class="acq-error">' + escapeHtml(state.bootstrapError) + "</div>") : "") +
           (moduleState.error ? ('<div class="acq-error">' + escapeHtml(moduleState.error) + "</div>") : "") +
@@ -396,7 +415,6 @@
       moduleConfig.bind(root.querySelector("#acqPageRoot"), {
         bootstrap: state.bootstrap,
         moduleState: moduleState,
-        shared: state.shared,
         helpers: {
           escapeHtml: escapeHtml,
           formatMoney: formatMoney,
@@ -406,6 +424,9 @@
         setLocalState: function (updates, options) {
           var current = ensureModuleState(state.activeKey);
           current.local = Object.assign({}, current.local || {}, updates || {});
+          if (options && options.resetHistory) {
+            current.historyLoaded = false;
+          }
           render();
           if (options && options.reloadHistory) {
             loadModuleHistory(state.activeKey, true).catch(function () {});
@@ -466,25 +487,6 @@
     if (refreshBtn) {
       refreshBtn.addEventListener("click", function () {
         refreshActive().catch(function () {});
-      });
-    }
-
-    var teamSelect = root.querySelector("#acqTeamSelect");
-    if (teamSelect) {
-      teamSelect.addEventListener("change", function () {
-        state.shared.teamId = safeStr(teamSelect.value);
-        if (refreshManager && MODULES[state.activeKey] && MODULES[state.activeKey].livePath) {
-          refreshManager.refresh(state.activeKey, "filter").catch(function () {});
-        }
-        render();
-      });
-    }
-
-    var searchInput = root.querySelector("#acqSearchInput");
-    if (searchInput) {
-      searchInput.addEventListener("input", function () {
-        state.shared.search = safeStr(searchInput.value);
-        render();
       });
     }
   }
