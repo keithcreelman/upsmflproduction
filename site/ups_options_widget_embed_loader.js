@@ -165,7 +165,7 @@
 
   var LATEST_JSON_URL = "https://keithcreelman.github.io/upsmflproduction/ups_options_widget_latest.json";
   var LATEST_JS_URL = "https://keithcreelman.github.io/upsmflproduction/ups_options_widget_latest.js";
-  var DEFAULT_CACHE = "20260304c";
+  var DEFAULT_CACHE = "20260311a";
 
   function inferModeFromSystem() {
     if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) return "dark";

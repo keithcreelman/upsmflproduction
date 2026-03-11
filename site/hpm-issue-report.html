@@ -148,7 +148,9 @@
     }
 
     function buildIssueUrl() {
-      var releaseRef = encodeURIComponent(safeStr(window.UPS_RELEASE_SHA || "main") || "main");
+      var releaseRef = encodeURIComponent(
+        safeStr(window.UPS_ISSUE_REPORT_RELEASE_SHA || window.UPS_UOW_RELEASE_SHA || window.UPS_RELEASE_SHA || "bddc313") || "bddc313"
+      );
       var base =
         "https://rawcdn.githack.com/keithcreelman/upsmflproduction/" +
         releaseRef +
