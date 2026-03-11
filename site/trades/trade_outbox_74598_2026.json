@@ -3,8 +3,8 @@
     "schema_version": 1,
     "league_id": "74598",
     "season": 2026,
-    "updated_at": "2026-03-10T21:20:53.535Z",
-    "row_count": 12,
+    "updated_at": "2026-03-11T00:43:53.429Z",
+    "row_count": 13,
     "source": "worker-trade-outbox"
   },
   "rows": [
@@ -2138,6 +2138,178 @@
       "season": "2026",
       "updated_ts": "2026-03-10T21:20:53.456Z",
       "id": "12"
+    },
+    {
+      "created_ts": "2026-03-11T00:43:53.323Z",
+      "trade_id": "",
+      "action_type": "SUBMIT",
+      "from_franchise_id": "0010",
+      "to_franchise_id": "0008",
+      "payload_xml_extensions": "",
+      "payload_xml_salary_adj": "",
+      "payload_xml_salary_trade": "",
+      "payload_json": {
+        "schema_version": 1,
+        "generated_at": "2026-03-11T00:43:53.257Z",
+        "source": "ups-trade-workbench",
+        "league_id": "74598",
+        "season": 2026,
+        "teams": [
+          {
+            "role": "left",
+            "franchise_id": "0010",
+            "franchise_name": "Blake Bombers",
+            "selected_assets": [
+              {
+                "asset_id": "pick:DP_1_3",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2026 Rookie 2.04",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "DP_1_3",
+                "pick_season": 2026,
+                "pick_round": 2,
+                "pick_slot": 4
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 0,
+            "selected_non_taxi_salary_dollars": 0
+          },
+          {
+            "role": "right",
+            "franchise_id": "0008",
+            "franchise_name": "Real Deal Creel",
+            "selected_assets": [
+              {
+                "asset_id": "player:17043",
+                "type": "PLAYER",
+                "player_id": "17043",
+                "player_name": "Henderson, TreVeyon",
+                "description": null,
+                "position": "RB",
+                "nfl_team": "NEP",
+                "salary": 12000,
+                "years": 0,
+                "contract_type": "Rookie",
+                "contract_info": "CL 3| TCV 36K| AAV 12K | Option Eligible",
+                "taxi": false,
+                "pick_key": null,
+                "pick_season": null,
+                "pick_round": null,
+                "pick_slot": null
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 6,
+            "selected_non_taxi_salary_dollars": 12000
+          }
+        ],
+        "extension_requests": [],
+        "filters": {
+          "search": ""
+        },
+        "ui": {
+          "left_team_id": "0010",
+          "right_team_id": "0008"
+        },
+        "salary_reconciliation": {
+          "left": {
+            "franchise_id": "0010",
+            "franchise_name": "Blake Bombers",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 118000,
+            "outgoing_dollars": 0,
+            "incoming_dollars": 12000,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": 12000,
+            "new_salary_dollars": 130000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 0,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": -12000,
+            "available_salary_before_dollars": 182000,
+            "available_salary_after_dollars": 170000,
+            "over_cap_dollars": 0
+          },
+          "right": {
+            "franchise_id": "0008",
+            "franchise_name": "Real Deal Creel",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 113000,
+            "outgoing_dollars": 12000,
+            "incoming_dollars": 0,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": -12000,
+            "new_salary_dollars": 101000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 6,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": 12000,
+            "available_salary_before_dollars": 187000,
+            "available_salary_after_dollars": 199000,
+            "over_cap_dollars": 0
+          },
+          "has_over_cap": false
+        },
+        "multi_year_salary_impact": {
+          "current_season": 2026,
+          "left_franchise_name": "Blake Bombers",
+          "right_franchise_name": "Real Deal Creel",
+          "rows": [
+            {
+              "season": 2026,
+              "left_before_dollars": 118000,
+              "left_after_dollars": 130000,
+              "left_change_dollars": 12000,
+              "right_before_dollars": 113000,
+              "right_after_dollars": 101000,
+              "right_change_dollars": -12000
+            },
+            {
+              "season": 2027,
+              "left_before_dollars": 118000,
+              "left_after_dollars": 130000,
+              "left_change_dollars": 12000,
+              "right_before_dollars": 94000,
+              "right_after_dollars": 82000,
+              "right_change_dollars": -12000
+            },
+            {
+              "season": 2028,
+              "left_before_dollars": 89000,
+              "left_after_dollars": 101000,
+              "left_change_dollars": 12000,
+              "right_before_dollars": 26000,
+              "right_after_dollars": 14000,
+              "right_change_dollars": -12000
+            }
+          ]
+        },
+        "validation": {
+          "status": "ready",
+          "issues": []
+        },
+        "comment": ""
+      },
+      "comment_trailer": "",
+      "payload_hash": "170dc012831db190f3c977b6720dab18b9292cec1a2cbe15866edc95d41ec352",
+      "status": "PENDING",
+      "mfl_post_response_snip": "",
+      "mfl_verify_response_snip": "",
+      "league_id": "74598",
+      "season": "2026",
+      "updated_ts": "2026-03-11T00:43:53.323Z",
+      "id": "13"
     }
   ]
 }
