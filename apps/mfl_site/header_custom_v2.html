@@ -2080,7 +2080,7 @@
     function getModuleName() {
       try {
         var u = new URL(window.location.href);
-        return safeUpper(u.searchParams.get("MODULE") || "");
+        return safeUpper(u.searchParams.get("MODULE") || "").split("=")[0];
       } catch (e) {
         return "";
       }
