@@ -43,6 +43,8 @@ export default {
         path !== "/admin/test-sync/prod-statuses" &&
         path !== "/admin/test-sync/prod-salaries" &&
         path !== "/admin/discord/post" &&
+        path !== "/admin/bug-report/status" &&
+        path !== "/admin/bug-report/triage-note" &&
         path !== "/bug-report" &&
         path !== "/bug-reports" &&
         path !== "/extension-assistant" &&
@@ -630,7 +632,12 @@ export default {
         if (path === "/roster-workbench" || path === "/trade-workbench" || path.startsWith("/trade-offers")) {
           // Allow public roster/trade workbench payloads (league/rosters/players) without a commish cookie.
           // Draft picks (assets export) and default-franchise detection may be unavailable and are surfaced as warnings.
-        } else if (path === "/bug-report" || path === "/bug-reports") {
+        } else if (
+          path === "/bug-report" ||
+          path === "/bug-reports" ||
+          path === "/admin/bug-report/status" ||
+          path === "/admin/bug-report/triage-note"
+        ) {
           // Allow bug report intake/read without commish cookie.
         } else {
         return new Response(
@@ -1974,6 +1981,59 @@ export default {
         reports: [],
       });
 
+      const BUG_STATUS_VALUES = new Set([
+        "OPEN",
+        "INVESTIGATING",
+        "WAITING_ON_COMMISH",
+        "APPROVED_TO_FIX",
+        "DECLINED",
+        "CLOSED_RESOLVED",
+      ]);
+
+      const normalizeBugStatus = (value, fallback = "OPEN") => {
+        const normalized = safeStr(value || fallback).toUpperCase().replace(/[^A-Z0-9]+/g, "_");
+        if (BUG_STATUS_VALUES.has(normalized)) return normalized;
+        return BUG_STATUS_VALUES.has(fallback) ? fallback : "OPEN";
+      };
+
+      const normalizeBugReportRow = (raw, leagueId, season) => {
+        const row = raw && typeof raw === "object" ? raw : {};
+        return {
+          ...row,
+          bug_id: safeStr(row.bug_id || row.report_id || ""),
+          league_id: safeStr(row.league_id || leagueId || ""),
+          season: safeStr(row.season || season || ""),
+          franchise_id: safeStr(row.franchise_id || ""),
+          franchise_name: safeStr(row.franchise_name || ""),
+          mfl_user_id: safeStr(row.mfl_user_id || ""),
+          module: safeStr(row.module || ""),
+          issue_type: safeStr(row.issue_type || ""),
+          details: safeStr(row.details || ""),
+          steps_to_reproduce: safeStr(row.steps_to_reproduce || ""),
+          expected_vs_actual: safeStr(row.expected_vs_actual || ""),
+          attachments: Array.isArray(row.attachments) ? row.attachments.filter(Boolean) : [],
+          source: safeStr(row.source || ""),
+          status: normalizeBugStatus(row.status || "OPEN"),
+          issue_sequence: Math.max(0, safeInt(row.issue_sequence || row.issueSequence, 0)),
+          thread_id: safeStr(row.thread_id || row.discord_thread_id || ""),
+          thread_root_message_id: safeStr(row.thread_root_message_id || row.message_id || ""),
+          thread_name: safeStr(row.thread_name || ""),
+          status_updated_at_utc: safeStr(row.status_updated_at_utc || ""),
+          status_updated_by: safeStr(row.status_updated_by || ""),
+          triage_summary: safeStr(row.triage_summary || ""),
+          triage_updated_at_utc: safeStr(row.triage_updated_at_utc || ""),
+          triage_updated_by: safeStr(row.triage_updated_by || ""),
+          approval_state: safeStr(row.approval_state || ""),
+          approval_requested_at_utc: safeStr(row.approval_requested_at_utc || ""),
+          approval_received_at_utc: safeStr(row.approval_received_at_utc || ""),
+          approval_decision_by: safeStr(row.approval_decision_by || ""),
+          last_discord_sync_error: safeStr(row.last_discord_sync_error || ""),
+          last_discord_sync_at_utc: safeStr(row.last_discord_sync_at_utc || ""),
+          context: row.context && typeof row.context === "object" ? row.context : {},
+          created_at_utc: safeStr(row.created_at_utc || ""),
+        };
+      };
+
       const normalizeBugReportsDoc = (raw, leagueId, season) => {
         const doc = raw && typeof raw === "object" ? raw : {};
         const out = emptyBugReportsDoc(leagueId, season);
@@ -1983,7 +2043,28 @@ export default {
           league_id: String(leagueId || ""),
           season: Number(season || 0) || 0,
         };
-        out.reports = Array.isArray(doc.reports) ? doc.reports.filter(Boolean) : [];
+        const seqByKey = new Map();
+        out.reports = Array.isArray(doc.reports)
+          ? doc.reports
+              .filter(Boolean)
+              .map((row) => normalizeBugReportRow(row, leagueId, season))
+              .map((row) => {
+                const key = [
+                  safeStr(row.season || season || ""),
+                  safeStr(row.module || ""),
+                  safeStr(row.issue_type || ""),
+                ].join("|");
+                const seen = Math.max(0, safeInt(seqByKey.get(key), 0));
+                const provided = Math.max(0, safeInt(row.issue_sequence, 0));
+                const next = provided > 0 ? provided : seen + 1;
+                seqByKey.set(key, Math.max(seen, next));
+                return {
+                  ...row,
+                  issue_sequence: next,
+                  status_updated_at_utc: safeStr(row.status_updated_at_utc || row.created_at_utc || ""),
+                };
+              })
+          : [];
         out.meta.row_count = out.reports.length;
         return out;
       };
@@ -2114,6 +2195,8 @@ export default {
         return content;
       };
 
+      const bugThreadStatePrefix = (status) => normalizeBugStatus(status || "OPEN");
+
       const sanitizeBugThreadToken = (value, fallback) => {
         const cleaned = safeStr(value || "")
           .replace(/[^A-Za-z0-9]+/g, "-")
@@ -2122,28 +2205,16 @@ export default {
         return cleaned || fallback;
       };
 
-      const buildBugThreadName = (reportRow) => {
+      const buildBugThreadName = (reportRow, statusOverride = "") => {
         const row = reportRow && typeof reportRow === "object" ? reportRow : {};
+        const statusToken = bugThreadStatePrefix(statusOverride || row.status || "OPEN");
         const seasonToken = safeStr(row.season || new Date().getUTCFullYear() || "");
         const moduleToken = sanitizeBugThreadToken(row.module, "other");
         const issueToken = sanitizeBugThreadToken(row.issue_type, "other");
         const seqToken = String(Math.max(1, safeInt(row.issue_sequence || row.issueSequence || 1)));
-        let name = `${seasonToken}_${moduleToken}_${issueToken}_${seqToken}`;
+        let name = `${statusToken}_${seasonToken}_${moduleToken}_${issueToken}_${seqToken}`;
         if (name.length > 100) name = name.slice(0, 100);
         return name;
-      };
-
-      const parseDiscordUserIds = (raw) => {
-        const parts = String(raw == null ? "" : raw).split(/[,\s]+/);
-        const out = [];
-        const seen = new Set();
-        for (const part of parts) {
-          const id = safeStr(part).replace(/\D/g, "");
-          if (!id || seen.has(id)) continue;
-          seen.add(id);
-          out.push(id);
-        }
-        return out;
       };
 
       const decodeDataUrlAttachment = (row, idx) => {
@@ -2183,14 +2254,152 @@ export default {
         return out;
       };
 
-      const sendDiscordNotificationForBug = async (reportRow, filePath) => {
-        const botToken = safeStr(
-          env.DISCORD_BOT_TOKEN ||
-          env.DISCORD_BOT ||
-          env.Discord_bot ||
-          ""
+      const bugDiscordBotToken = () =>
+        safeStr(env.DISCORD_BOT_TOKEN || env.DISCORD_BOT || env.Discord_bot || "");
+
+      const bugDiscordChannelId = () => safeStr(env.DISCORD_BUG_CHANNEL_ID || "").replace(/\D/g, "");
+
+      const discordBotRequest = async (botToken, method, apiPath, body) => {
+        const target = `https://discord.com/api/v10${apiPath}`;
+        try {
+          const res = await fetch(target, {
+            method,
+            headers: {
+              Authorization: `Bot ${botToken}`,
+              "Content-Type": "application/json",
+            },
+            body: body == null ? undefined : JSON.stringify(body),
+          });
+          const text = await res.text();
+          let data = null;
+          try {
+            data = text ? JSON.parse(text) : null;
+          } catch (_) {
+            data = null;
+          }
+          return { ok: res.ok, status: res.status, data, text };
+        } catch (e) {
+          return { ok: false, status: 0, data: null, text: `fetch_failed: ${e?.message || String(e)}` };
+        }
+      };
+
+      const discordBotRequestWithFiles = async (botToken, apiPath, content, files) => {
+        if (!Array.isArray(files) || !files.length) {
+          return discordBotRequest(botToken, "POST", apiPath, {
+            content,
+            allowed_mentions: { parse: [] },
+          });
+        }
+        const target = `https://discord.com/api/v10${apiPath}`;
+        try {
+          const form = new FormData();
+          form.append(
+            "payload_json",
+            JSON.stringify({
+              content,
+              allowed_mentions: { parse: [] },
+            })
+          );
+          for (let i = 0; i < files.length; i += 1) {
+            const f = files[i];
+            form.append(
+              `files[${i}]`,
+              new Blob([f.bytes], { type: f.mime || "application/octet-stream" }),
+              f.name || `screenshot-${i + 1}.jpg`
+            );
+          }
+          const res = await fetch(target, {
+            method: "POST",
+            headers: { Authorization: `Bot ${botToken}` },
+            body: form,
+          });
+          const text = await res.text();
+          let data = null;
+          try {
+            data = text ? JSON.parse(text) : null;
+          } catch (_) {
+            data = null;
+          }
+          return { ok: res.ok, status: res.status, data, text };
+        } catch (e) {
+          return { ok: false, status: 0, data: null, text: `fetch_failed: ${e?.message || String(e)}` };
+        }
+      };
+
+      const syncBugThreadStatus = async (reportRow, statusOverride = "") => {
+        const botToken = bugDiscordBotToken();
+        const threadId = safeStr(reportRow && reportRow.thread_id);
+        const threadName = buildBugThreadName(reportRow, statusOverride);
+        if (!botToken) {
+          return {
+            ok: false,
+            skipped: true,
+            status: 0,
+            error: "missing_discord_bot_token",
+            thread_id: threadId,
+            thread_name: threadName,
+          };
+        }
+        if (!threadId) {
+          return {
+            ok: false,
+            skipped: true,
+            status: 0,
+            error: "missing_bug_thread_id",
+            thread_id: "",
+            thread_name: threadName,
+          };
+        }
+        const res = await discordBotRequest(
+          botToken,
+          "PATCH",
+          `/channels/${encodeURIComponent(threadId)}`,
+          {
+            name: threadName,
+            archived: false,
+            locked: false,
+          }
         );
-        const channelId = safeStr(env.DISCORD_BUG_CHANNEL_ID || "").replace(/\D/g, "");
+        return {
+          ok: !!res.ok,
+          skipped: false,
+          status: safeInt(res.status, 0),
+          error: res.ok ? "" : safeStr(res.text || "discord_thread_patch_failed").slice(0, 600),
+          thread_id: threadId,
+          thread_name: threadName,
+        };
+      };
+
+      const postBugThreadNote = async (reportRow, noteText) => {
+        const botToken = bugDiscordBotToken();
+        const threadId = safeStr(reportRow && reportRow.thread_id);
+        const content = safeStr(noteText).slice(0, 1900);
+        if (!botToken) {
+          return { ok: false, skipped: true, status: 0, error: "missing_discord_bot_token", thread_id: threadId };
+        }
+        if (!threadId) {
+          return { ok: false, skipped: true, status: 0, error: "missing_bug_thread_id", thread_id: "" };
+        }
+        if (!content) {
+          return { ok: false, skipped: true, status: 0, error: "missing_note_content", thread_id: threadId };
+        }
+        const res = await discordBotRequest(botToken, "POST", `/channels/${encodeURIComponent(threadId)}/messages`, {
+          content,
+          allowed_mentions: { parse: [] },
+        });
+        return {
+          ok: !!res.ok,
+          skipped: false,
+          status: safeInt(res.status, 0),
+          error: res.ok ? "" : safeStr(res.text || "discord_thread_note_failed").slice(0, 600),
+          thread_id: threadId,
+          message_id: safeStr(res.data && res.data.id),
+        };
+      };
+
+      const sendDiscordNotificationForBug = async (reportRow, filePath) => {
+        const botToken = bugDiscordBotToken();
+        const channelId = bugDiscordChannelId();
         const content = formatBugDiscordMessage(reportRow, filePath);
         const rawAttachmentRows = Array.isArray(reportRow && reportRow.attachments) ? reportRow.attachments : [];
         const attachmentsExpected = Math.min(6, rawAttachmentRows.length);
@@ -2209,73 +2418,6 @@ export default {
           return files.length ? files.length : 0;
         };
 
-        const botRequest = async (method, apiPath, body) => {
-          const target = `https://discord.com/api/v10${apiPath}`;
-          try {
-            const res = await fetch(target, {
-              method,
-              headers: {
-                Authorization: `Bot ${botToken}`,
-                "Content-Type": "application/json",
-              },
-              body: body == null ? undefined : JSON.stringify(body),
-            });
-            const text = await res.text();
-            let data = null;
-            try {
-              data = text ? JSON.parse(text) : null;
-            } catch (_) {
-              data = null;
-            }
-            return { ok: res.ok, status: res.status, data, text };
-          } catch (e) {
-            return { ok: false, status: 0, data: null, text: `fetch_failed: ${e?.message || String(e)}` };
-          }
-        };
-
-        const botRequestWithFiles = async (apiPath) => {
-          if (!files.length) {
-            return botRequest("POST", apiPath, {
-              content,
-              allowed_mentions: { parse: [] },
-            });
-          }
-          const target = `https://discord.com/api/v10${apiPath}`;
-          try {
-            const form = new FormData();
-            form.append(
-              "payload_json",
-              JSON.stringify({
-                content,
-                allowed_mentions: { parse: [] },
-              })
-            );
-            for (let i = 0; i < files.length; i += 1) {
-              const f = files[i];
-              form.append(
-                `files[${i}]`,
-                new Blob([f.bytes], { type: f.mime || "application/octet-stream" }),
-                f.name || `screenshot-${i + 1}.jpg`
-              );
-            }
-            const res = await fetch(target, {
-              method: "POST",
-              headers: { Authorization: `Bot ${botToken}` },
-              body: form,
-            });
-            const text = await res.text();
-            let data = null;
-            try {
-              data = text ? JSON.parse(text) : null;
-            } catch (_) {
-              data = null;
-            }
-            return { ok: res.ok, status: res.status, data, text };
-          } catch (e) {
-            return { ok: false, status: 0, data: null, text: `fetch_failed: ${e?.message || String(e)}` };
-          }
-        };
-
         if (!botToken || !channelId) {
           return {
             ok: false,
@@ -2287,7 +2429,12 @@ export default {
         }
 
         if (channelId) {
-          const sendChannel = await botRequestWithFiles(`/channels/${encodeURIComponent(channelId)}/messages`);
+          const sendChannel = await discordBotRequestWithFiles(
+            botToken,
+            `/channels/${encodeURIComponent(channelId)}/messages`,
+            content,
+            files
+          );
           if (!sendChannel.ok) {
             return {
               ok: false,
@@ -2309,7 +2456,8 @@ export default {
             };
           }
           const threadName = buildBugThreadName(reportRow);
-          const createThread = await botRequest(
+          const createThread = await discordBotRequest(
+            botToken,
             "POST",
             `/channels/${encodeURIComponent(channelId)}/messages/${encodeURIComponent(rootMessageId)}/threads`,
             {
@@ -2326,6 +2474,7 @@ export default {
               error: safeStr(createThread.text || "create_thread_failed").slice(0, 600),
               channel_id: channelId,
               message_id: rootMessageId,
+              thread_root_message_id: rootMessageId,
               thread_name: threadName,
               ...attachmentMeta(responseAttachmentCount(sendChannel)),
             };
@@ -2336,6 +2485,7 @@ export default {
             mode: "bot-channel-thread",
             channel_id: channelId,
             message_id: rootMessageId,
+            thread_root_message_id: rootMessageId,
             thread_id: safeStr(createThread.data && createThread.data.id),
             thread_name: threadName,
             ...attachmentMeta(sentCount),
@@ -7152,6 +7302,26 @@ export default {
           attachments,
           source: safeStr(body.source || "ups-hot-links-widget"),
           status: "OPEN",
+          thread_id: "",
+          thread_root_message_id: "",
+          thread_name: buildBugThreadName({
+            season,
+            module: moduleName,
+            issue_type: issueType,
+            issue_sequence: 1,
+            status: "OPEN",
+          }),
+          status_updated_at_utc: createdAt,
+          status_updated_by: "system",
+          triage_summary: "",
+          triage_updated_at_utc: "",
+          triage_updated_by: "",
+          approval_state: "",
+          approval_requested_at_utc: "",
+          approval_received_at_utc: "",
+          approval_decision_by: "",
+          last_discord_sync_error: "",
+          last_discord_sync_at_utc: "",
           context: context && typeof context === "object" ? context : {},
         };
 
@@ -7178,6 +7348,7 @@ export default {
             safeStr(row.issue_type || "") === issueType
           );
         }).length;
+        reportRow.thread_name = buildBugThreadName(reportRow, reportRow.status);
         doc.reports = reports.slice(0, 3000);
 
         const save = await writeBugReportsDoc(
@@ -7200,6 +7371,47 @@ export default {
         }
 
         const notify = await sendDiscordNotificationForBug(reportRow, save.filePath);
+        let persistedThread = {
+          thread_id: "",
+          thread_root_message_id: "",
+          thread_name: reportRow.thread_name,
+        };
+        let persistedContentSha = save.contentSha || "";
+        if (
+          safeStr(notify.thread_id) ||
+          safeStr(notify.thread_root_message_id || notify.message_id) ||
+          safeStr(notify.thread_name) ||
+          safeStr(notify.error)
+        ) {
+          const savedDoc = normalizeBugReportsDoc(save.doc, leagueId, season);
+          const savedReports = Array.isArray(savedDoc.reports) ? savedDoc.reports : [];
+          const idx = savedReports.findIndex((row) => safeStr(row && row.bug_id) === bugId);
+          if (idx >= 0) {
+            savedReports[idx] = {
+              ...savedReports[idx],
+              thread_id: safeStr(notify.thread_id),
+              thread_root_message_id: safeStr(notify.thread_root_message_id || notify.message_id),
+              thread_name: safeStr(notify.thread_name || savedReports[idx].thread_name || reportRow.thread_name),
+              last_discord_sync_error: safeStr(notify.ok ? "" : notify.error),
+              last_discord_sync_at_utc: new Date().toISOString(),
+            };
+            persistedThread = {
+              thread_id: safeStr(savedReports[idx].thread_id),
+              thread_root_message_id: safeStr(savedReports[idx].thread_root_message_id),
+              thread_name: safeStr(savedReports[idx].thread_name),
+            };
+            const syncSave = await writeBugReportsDoc(
+              leagueId,
+              season,
+              savedDoc,
+              save.contentSha,
+              `feat(reports): sync bug thread metadata ${bugId}`
+            );
+            if (syncSave.ok) {
+              persistedContentSha = syncSave.contentSha || persistedContentSha;
+            }
+          }
+        }
 
         return jsonOut(201, {
           ok: true,
@@ -7209,8 +7421,11 @@ export default {
           stored: {
             file_path: save.filePath || "",
             commit_sha: save.commitSha || "",
-            content_sha: save.contentSha || "",
+            content_sha: persistedContentSha || "",
           },
+          thread_id: persistedThread.thread_id || "",
+          thread_name: persistedThread.thread_name || "",
+          thread_root_message_id: persistedThread.thread_root_message_id || "",
           notify,
         });
       }
@@ -7258,6 +7473,213 @@ export default {
           file_path: loaded.filePath || "",
           count: reports.length,
           reports,
+        });
+      }
+
+      if (path === "/admin/bug-report/status" && request.method === "POST") {
+        let body = {};
+        try {
+          body = (await request.json()) || {};
+        } catch (_) {
+          return jsonOut(400, { ok: false, error: "Invalid JSON body" });
+        }
+        if (!commishApiKey) {
+          return jsonOut(500, { ok: false, error: "Missing COMMISH_API_KEY worker secret" });
+        }
+        if (!sessionByApiKey) {
+          return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required for bug status updates." });
+        }
+        const leagueId = safeStr(body.league_id || body.leagueId || url.searchParams.get("L") || L || "");
+        const season = safeStr(body.season || body.year || body.YEAR || url.searchParams.get("YEAR") || YEAR || "");
+        const bugId = safeStr(body.bug_id || body.bugId || body.report_id || "");
+        const nextStatus = normalizeBugStatus(body.status || "OPEN");
+        const updatedBy = safeStr(body.updated_by || body.updatedBy || "commish");
+        if (!leagueId) return jsonOut(400, { ok: false, error: "Missing league_id or L" });
+        if (!season) return jsonOut(400, { ok: false, error: "Missing season or YEAR" });
+        if (!bugId) return jsonOut(400, { ok: false, error: "Missing bug_id" });
+
+        const loaded = await readBugReportsDoc(leagueId, season);
+        if (!loaded.ok) {
+          return jsonOut(500, {
+            ok: false,
+            error: loaded.error || "bug_report_read_failed",
+            storage: {
+              file_path: loaded.filePath || "",
+              upstream_status: loaded.upstreamStatus || 0,
+              upstream_preview: loaded.upstreamPreview || "",
+            },
+          });
+        }
+        const doc = normalizeBugReportsDoc(loaded.doc, leagueId, season);
+        const reports = Array.isArray(doc.reports) ? doc.reports : [];
+        const idx = reports.findIndex((row) => safeStr(row && row.bug_id) === bugId);
+        if (idx < 0) return jsonOut(404, { ok: false, error: "bug_not_found" });
+
+        const statusUpdatedAt = new Date().toISOString();
+        reports[idx] = {
+          ...reports[idx],
+          status: nextStatus,
+          status_updated_at_utc: statusUpdatedAt,
+          status_updated_by: updatedBy || "commish",
+          thread_name: buildBugThreadName(reports[idx], nextStatus),
+        };
+        if (nextStatus === "CLOSED_RESOLVED" && !safeStr(reports[idx].approval_state)) {
+          reports[idx].approval_state = "RESOLVED";
+        }
+
+        const save = await writeBugReportsDoc(
+          leagueId,
+          season,
+          doc,
+          loaded.sha,
+          `feat(reports): update bug status ${bugId} -> ${nextStatus}`
+        );
+        if (!save.ok) {
+          return jsonOut(500, {
+            ok: false,
+            error: save.error || "bug_report_write_failed",
+            storage: {
+              file_path: save.filePath || loaded.filePath || "",
+              upstream_status: save.upstreamStatus || 0,
+              upstream_preview: save.upstreamPreview || "",
+            },
+          });
+        }
+
+        const discordSync = await syncBugThreadStatus(reports[idx], nextStatus);
+        try {
+          console.log(
+            "[BUG][thread-status-sync]",
+            JSON.stringify({
+              bug_id: bugId,
+              league_id: leagueId,
+              season,
+              status: nextStatus,
+              discord_sync: discordSync,
+            })
+          );
+        } catch (_) {
+          // noop
+        }
+
+        return jsonOut(discordSync.ok || discordSync.skipped ? 200 : 207, {
+          ok: true,
+          bug_id: bugId,
+          league_id: leagueId,
+          season: safeInt(season, Number(season) || 0),
+          status: nextStatus,
+          stored: {
+            file_path: save.filePath || "",
+            commit_sha: save.commitSha || "",
+            content_sha: save.contentSha || "",
+          },
+          thread_id: safeStr(reports[idx].thread_id),
+          thread_name: safeStr(discordSync.thread_name || reports[idx].thread_name),
+          thread_root_message_id: safeStr(reports[idx].thread_root_message_id),
+          discord_sync: discordSync,
+        });
+      }
+
+      if (path === "/admin/bug-report/triage-note" && request.method === "POST") {
+        let body = {};
+        try {
+          body = (await request.json()) || {};
+        } catch (_) {
+          return jsonOut(400, { ok: false, error: "Invalid JSON body" });
+        }
+        if (!commishApiKey) {
+          return jsonOut(500, { ok: false, error: "Missing COMMISH_API_KEY worker secret" });
+        }
+        if (!sessionByApiKey) {
+          return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required for bug triage updates." });
+        }
+        const leagueId = safeStr(body.league_id || body.leagueId || url.searchParams.get("L") || L || "");
+        const season = safeStr(body.season || body.year || body.YEAR || url.searchParams.get("YEAR") || YEAR || "");
+        const bugId = safeStr(body.bug_id || body.bugId || body.report_id || "");
+        const triageSummary = safeStr(body.triage_summary || body.triageSummary || "");
+        const updatedBy = safeStr(body.updated_by || body.updatedBy || "commish");
+        const postToThread = ["1", "true", "yes"].includes(
+          safeStr(body.post_to_thread || body.postToThread || "").toLowerCase()
+        );
+        if (!leagueId) return jsonOut(400, { ok: false, error: "Missing league_id or L" });
+        if (!season) return jsonOut(400, { ok: false, error: "Missing season or YEAR" });
+        if (!bugId) return jsonOut(400, { ok: false, error: "Missing bug_id" });
+        if (!triageSummary) return jsonOut(400, { ok: false, error: "Missing triage_summary" });
+
+        const loaded = await readBugReportsDoc(leagueId, season);
+        if (!loaded.ok) {
+          return jsonOut(500, {
+            ok: false,
+            error: loaded.error || "bug_report_read_failed",
+            storage: {
+              file_path: loaded.filePath || "",
+              upstream_status: loaded.upstreamStatus || 0,
+              upstream_preview: loaded.upstreamPreview || "",
+            },
+          });
+        }
+        const doc = normalizeBugReportsDoc(loaded.doc, leagueId, season);
+        const reports = Array.isArray(doc.reports) ? doc.reports : [];
+        const idx = reports.findIndex((row) => safeStr(row && row.bug_id) === bugId);
+        if (idx < 0) return jsonOut(404, { ok: false, error: "bug_not_found" });
+
+        reports[idx] = {
+          ...reports[idx],
+          triage_summary: triageSummary,
+          triage_updated_at_utc: new Date().toISOString(),
+          triage_updated_by: updatedBy || "commish",
+        };
+
+        const save = await writeBugReportsDoc(
+          leagueId,
+          season,
+          doc,
+          loaded.sha,
+          `feat(reports): update bug triage note ${bugId}`
+        );
+        if (!save.ok) {
+          return jsonOut(500, {
+            ok: false,
+            error: save.error || "bug_report_write_failed",
+            storage: {
+              file_path: save.filePath || loaded.filePath || "",
+              upstream_status: save.upstreamStatus || 0,
+              upstream_preview: save.upstreamPreview || "",
+            },
+          });
+        }
+
+        let thread_post = { ok: false, skipped: true, status: 0, error: "post_to_thread_disabled" };
+        if (postToThread) {
+          const notePrefix = updatedBy ? `Triage note from ${updatedBy}:` : "Triage note:";
+          thread_post = await postBugThreadNote(reports[idx], `${notePrefix}\n${triageSummary}`);
+          try {
+            console.log(
+              "[BUG][thread-note]",
+              JSON.stringify({
+                bug_id: bugId,
+                league_id: leagueId,
+                season,
+                thread_post,
+              })
+            );
+          } catch (_) {
+            // noop
+          }
+        }
+
+        return jsonOut(thread_post.ok || thread_post.skipped ? 200 : 207, {
+          ok: true,
+          bug_id: bugId,
+          league_id: leagueId,
+          season: safeInt(season, Number(season) || 0),
+          triage_summary: triageSummary,
+          stored: {
+            file_path: save.filePath || "",
+            commit_sha: save.commitSha || "",
+            content_sha: save.contentSha || "",
+          },
+          thread_post,
         });
       }
 
