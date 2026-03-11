@@ -1,3 +1,5 @@
+const acquisitionLiveMemoryCache = new Map();
+
 export default {
   async fetch(request, env) {
     try {
@@ -34,6 +36,18 @@ export default {
         path !== "/roster-workbench" &&
         path !== "/roster-workbench/action" &&
         path !== "/trade-workbench" &&
+        path !== "/acquisition-hub/bootstrap" &&
+        path !== "/acquisition-hub/rookie-draft/live" &&
+        path !== "/acquisition-hub/rookie-draft/history" &&
+        path !== "/acquisition-hub/rookie-draft/action" &&
+        path !== "/acquisition-hub/free-agent-auction/live" &&
+        path !== "/acquisition-hub/free-agent-auction/history" &&
+        path !== "/acquisition-hub/free-agent-auction/action" &&
+        path !== "/acquisition-hub/expired-rookie-auction/live" &&
+        path !== "/acquisition-hub/expired-rookie-auction/history" &&
+        path !== "/acquisition-hub/expired-rookie-auction/action" &&
+        path !== "/acquisition-hub/waivers" &&
+        path !== "/acquisition-hub/admin/refresh" &&
         !path.startsWith("/trade-offers") &&
         !path.startsWith("/trade-outbox") &&
         path !== "/refresh/after-trade" &&
@@ -632,6 +646,9 @@ export default {
         if (path === "/roster-workbench" || path === "/trade-workbench" || path.startsWith("/trade-offers")) {
           // Allow public roster/trade workbench payloads (league/rosters/players) without a commish cookie.
           // Draft picks (assets export) and default-franchise detection may be unavailable and are surfaced as warnings.
+        } else if (path.startsWith("/acquisition-hub/") && request.method === "GET") {
+          // Allow read-only Acquisition Hub routes without a commish cookie secret.
+          // Auction pages that require auth will degrade to stale/native-fallback states.
         } else if (
           path === "/bug-report" ||
           path === "/bug-reports" ||
@@ -841,6 +858,10 @@ export default {
       const asArray = (v) => (Array.isArray(v) ? v : v == null ? [] : [v]);
       const safeInt = (v, fallback = 0) => {
         const n = Number.parseInt(String(v == null ? "" : v), 10);
+        return Number.isFinite(n) ? n : fallback;
+      };
+      const safeFloat = (v, fallback = 0) => {
+        const n = Number.parseFloat(String(v == null ? "" : v));
         return Number.isFinite(n) ? n : fallback;
       };
       const safeMoneyInt = (v, fallback = null) => {
@@ -1627,6 +1648,1048 @@ export default {
         return {
           rows: out,
           remapped_count: remappedCount,
+        };
+      };
+
+      const acqCacheGet = (key, ttlMs) => {
+        const entry = acquisitionLiveMemoryCache.get(String(key || ""));
+        if (!entry) return null;
+        if (Date.now() - safeInt(entry.ts, 0) > safeInt(ttlMs, 0)) {
+          acquisitionLiveMemoryCache.delete(String(key || ""));
+          return null;
+        }
+        return entry.value || null;
+      };
+
+      const acqCacheSet = (key, value) => {
+        acquisitionLiveMemoryCache.set(String(key || ""), {
+          ts: Date.now(),
+          value,
+        });
+        return value;
+      };
+
+      const acqCacheBustPrefix = (prefix) => {
+        const target = safeStr(prefix);
+        if (!target) return;
+        for (const key of acquisitionLiveMemoryCache.keys()) {
+          if (String(key || "").indexOf(target) === 0) acquisitionLiveMemoryCache.delete(key);
+        }
+      };
+
+      const jsonNoStore = (status, payload) => {
+        const resp = jsonOut(status, payload);
+        resp.headers.set("Cache-Control", "no-store");
+        return resp;
+      };
+
+      const ACQ_ARTIFACT_FILES = {
+        rookie_draft_history: "rookie_draft_history.json",
+        free_agent_auction_history: "free_agent_auction_history.json",
+        expired_rookie_history: "expired_rookie_history.json",
+        waiver_history: "waiver_history.json",
+        manifest: "manifest.json",
+      };
+
+      const readAcquisitionRules = () => ({
+        roster_min: 27,
+        roster_max: 35,
+        free_agent_reset_hours: 24,
+        expired_rookie_reset_hours: 36,
+        lineup: {
+          QB: 1,
+          RB: 2,
+          WR: 2,
+          TE: 1,
+          FLEX: 2,
+          SUPERFLEX: 1,
+          PK: 1,
+          PN: 1,
+          DL: 2,
+          LB: 2,
+          DB: 2,
+          DFLEX: 1,
+        },
+      });
+
+      const resolveAcquisitionArtifactsBaseUrl = () =>
+        safeStr(env.ACQUISITION_ARTIFACTS_BASE_URL || "https://keithcreelman.github.io/upsmflproduction/site/acquisition").replace(/\/+$/, "");
+
+      const fetchArtifactJson = async (kind) => {
+        const fileName = ACQ_ARTIFACT_FILES[kind];
+        if (!fileName) return { ok: false, status: 404, error: "unknown_artifact_kind", data: null, url: "" };
+        const base = resolveAcquisitionArtifactsBaseUrl();
+        const artifactUrl = `${base}/${fileName}`;
+        try {
+          const res = await fetch(artifactUrl, {
+            headers: { "Cache-Control": "no-store" },
+            cf: { cacheTtl: 0, cacheEverything: false },
+          });
+          if (!res.ok) {
+            return {
+              ok: false,
+              status: res.status,
+              error: `artifact_http_${res.status}`,
+              data: null,
+              url: artifactUrl,
+            };
+          }
+          return {
+            ok: true,
+            status: res.status,
+            error: "",
+            data: await res.json(),
+            url: artifactUrl,
+          };
+        } catch (e) {
+          return {
+            ok: false,
+            status: 0,
+            error: `artifact_fetch_failed: ${e?.message || String(e)}`,
+            data: null,
+            url: artifactUrl,
+          };
+        }
+      };
+
+      const htmlDecode = (text) =>
+        safeStr(text)
+          .replace(/&nbsp;/gi, " ")
+          .replace(/&amp;/gi, "&")
+          .replace(/&quot;/gi, '"')
+          .replace(/&#39;/gi, "'")
+          .replace(/&lt;/gi, "<")
+          .replace(/&gt;/gi, ">");
+
+      const stripHtml = (html) =>
+        htmlDecode(String(html || "").replace(/<script[\s\S]*?<\/script>/gi, " ").replace(/<style[\s\S]*?<\/style>/gi, " ").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim());
+
+      const parseXmlAttributesLoose = (tagText) => {
+        const attrs = {};
+        const re = /([A-Za-z_:][-A-Za-z0-9_:.]*)\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+))/g;
+        let m;
+        while ((m = re.exec(String(tagText || "")))) {
+          attrs[String(m[1] || "").toLowerCase()] = m[3] != null ? m[3] : (m[4] != null ? m[4] : (m[5] || ""));
+        }
+        return attrs;
+      };
+
+      const xmlTextNodes = (xml, tagName) => {
+        const out = [];
+        const re = new RegExp(`<${tagName}\\b[^>]*>([\\s\\S]*?)<\\/${tagName}>`, "gi");
+        let m;
+        while ((m = re.exec(String(xml || "")))) out.push(stripHtml(m[1]));
+        return out;
+      };
+
+      const xmlTagNodes = (xml, tagNames) => {
+        const names = Array.isArray(tagNames) ? tagNames.filter(Boolean) : [tagNames].filter(Boolean);
+        if (!names.length) return [];
+        const out = [];
+        for (const name of names) {
+          const re = new RegExp(`<${name}\\b([^>]*)\\/?>`, "gi");
+          let m;
+          while ((m = re.exec(String(xml || "")))) {
+            out.push({ name, attrs: parseXmlAttributesLoose(m[1] || "") });
+          }
+        }
+        return out;
+      };
+
+      const normalizeAcqPos = (raw) => {
+        const pos = safeStr(raw).toUpperCase();
+        if (pos === "K") return "PK";
+        if (pos === "P") return "PN";
+        if (pos === "DE" || pos === "DT" || pos === "EDGE" || pos === "DL") return "DL";
+        if (pos === "CB" || pos === "S" || pos === "FS" || pos === "SS" || pos === "DB") return "DB";
+        return pos || "OTHER";
+      };
+
+      const parseDurationSeconds = (text) => {
+        const src = safeStr(text).toLowerCase();
+        if (!src) return null;
+        let total = 0;
+        let matched = false;
+        const patterns = [
+          [/(\d+)\s*d(?:ay)?s?/g, 86400],
+          [/(\d+)\s*h(?:our|r)?s?/g, 3600],
+          [/(\d+)\s*m(?:in(?:ute)?)?s?/g, 60],
+          [/(\d+)\s*s(?:ec(?:ond)?)?s?/g, 1],
+        ];
+        for (const [re, scale] of patterns) {
+          let m;
+          while ((m = re.exec(src))) {
+            total += safeInt(m[1], 0) * scale;
+            matched = true;
+          }
+        }
+        if (matched) return total;
+        const colon = src.match(/\b(\d{1,2}):(\d{2})(?::(\d{2}))?\b/);
+        if (colon) {
+          return safeInt(colon[1], 0) * 3600 + safeInt(colon[2], 0) * 60 + safeInt(colon[3], 0);
+        }
+        return null;
+      };
+
+      const parseMoneyLoose = (raw) => {
+        const src = safeStr(raw);
+        if (!src) return null;
+        const m = src.match(/\$?\s*([0-9][0-9,]*)(?:\s*K)?/i);
+        if (!m) return null;
+        const num = safeInt(String(m[1] || "").replace(/,/g, ""), 0);
+        if (!num) return 0;
+        return /k\b/i.test(src) ? num * 1000 : num;
+      };
+
+      const summarizeTimeText = (text) => {
+        const src = safeStr(text);
+        if (!src) return "";
+        const durationMatch = src.match(/(\d+\s*d(?:ay)?s?.{0,24})|(\d+\s*h(?:our|r)?s?.{0,24})|(\d+\s*m(?:in(?:ute)?)?s?.{0,24})/i);
+        if (durationMatch) return safeStr(durationMatch[0]).slice(0, 32);
+        const absoluteMatch = src.match(/\b\d{1,2}:\d{2}(?::\d{2})?\s*(?:am|pm)?\b/i);
+        return absoluteMatch ? safeStr(absoluteMatch[0]) : "";
+      };
+
+      const parseHtmlForms = (html, pageUrl) => {
+        const forms = [];
+        const formRe = /<form\b([^>]*)>([\s\S]*?)<\/form>/gi;
+        let formMatch;
+        while ((formMatch = formRe.exec(String(html || "")))) {
+          const formAttrs = parseXmlAttributesLoose(formMatch[1] || "");
+          const bodyHtml = String(formMatch[2] || "");
+          const actionUrl = new URL(safeStr(formAttrs.action || pageUrl), pageUrl).toString();
+          const method = safeStr(formAttrs.method || "POST").toUpperCase() === "GET" ? "GET" : "POST";
+          const fields = {};
+          const submitOptions = [];
+          const inputRe = /<input\b[^>]*>/gi;
+          let inputMatch;
+          while ((inputMatch = inputRe.exec(bodyHtml))) {
+            const attrs = parseXmlAttributesLoose(inputMatch[0] || "");
+            const name = safeStr(attrs.name);
+            const type = safeStr(attrs.type || "text").toLowerCase();
+            const value = safeStr(attrs.value);
+            if (!name) continue;
+            if (type === "submit" || type === "button" || type === "image") {
+              submitOptions.push({ name, value, label: stripHtml(inputMatch[0]) || value || name });
+              continue;
+            }
+            if (!(name in fields)) fields[name] = value;
+          }
+          const selectRe = /<select\b([^>]*)>([\s\S]*?)<\/select>/gi;
+          let selectMatch;
+          while ((selectMatch = selectRe.exec(bodyHtml))) {
+            const attrs = parseXmlAttributesLoose(selectMatch[1] || "");
+            const name = safeStr(attrs.name);
+            if (!name) continue;
+            const optionsHtml = String(selectMatch[2] || "");
+            const selected = optionsHtml.match(/<option\b[^>]*selected[^>]*value\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+))/i);
+            const first = optionsHtml.match(/<option\b[^>]*value\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+))/i);
+            const value = selected ? (selected[2] || selected[3] || selected[4] || "") : (first ? (first[2] || first[3] || first[4] || "") : "");
+            if (!(name in fields)) fields[name] = safeStr(value);
+          }
+          forms.push({
+            actionUrl,
+            method,
+            fields,
+            submitOptions,
+            rawHtml: bodyHtml,
+            text: stripHtml(bodyHtml),
+          });
+        }
+        return forms;
+      };
+
+      const pickSubmitOption = (form, keywords) => {
+        const list = Array.isArray(form?.submitOptions) ? form.submitOptions : [];
+        const wants = Array.isArray(keywords) ? keywords : [keywords];
+        for (const option of list) {
+          const blob = `${safeStr(option?.name)} ${safeStr(option?.value)} ${safeStr(option?.label)}`.toLowerCase();
+          if (wants.some((want) => blob.includes(safeStr(want).toLowerCase()))) return option;
+        }
+        return list[0] || null;
+      };
+
+      const deriveAuctionPlayerId = (blob) => {
+        const text = String(blob || "");
+        const patterns = [
+          /(?:player_id|pid|playerid)[^0-9]{0,8}([0-9]{3,8})/i,
+          /[?&]P=([0-9]{3,8})(?:&|$)/i,
+          /[?&]PLAYER=([0-9]{3,8})(?:&|$)/i,
+          /\/player\/([0-9]{3,8})(?:\/|$)/i,
+        ];
+        for (const re of patterns) {
+          const m = text.match(re);
+          if (m && m[1]) return String(m[1]).replace(/\D/g, "");
+        }
+        return "";
+      };
+
+      const parseAuctionPage = (html, pageUrl) => {
+        const forms = parseHtmlForms(html, pageUrl);
+        const auctions = [];
+        const seen = new Set();
+        for (const form of forms) {
+          const rawHtml = safeStr(form.rawHtml);
+          const text = safeStr(form.text);
+          const playerId =
+            String(
+              firstTruthy(
+                form.fields.player_id,
+                form.fields.playerid,
+                form.fields.pid,
+                form.fields.player,
+                deriveAuctionPlayerId(rawHtml)
+              ) || ""
+            ).replace(/\D/g, "");
+          const playerNameMatch =
+            rawHtml.match(/>([^<>]{2,80},\s*[^<>]{1,80})<\/a>/i) ||
+            text.match(/([A-Z][A-Za-z'. -]{1,40},\s*[A-Z][A-Za-z'. -]{1,40})/);
+          const playerName = safeStr(playerNameMatch && playerNameMatch[1]);
+          const positionMatch = text.match(/\b(QB|RB|WR|TE|K|PK|P|PN|DE|DT|DL|LB|CB|S|DB)\b/);
+          const highBid = parseMoneyLoose(text);
+          const bidderMatch = text.match(/(?:high bidder|current bidder|leader)\s*:?\s*([A-Za-z0-9 '&().-]{2,40})/i);
+          const timerText = summarizeTimeText(text);
+          if (!playerId && !playerName) continue;
+          const key = playerId || `${playerName}|${highBid}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          auctions.push({
+            player_id: playerId,
+            player_name: playerName || (playerId ? `Player ${playerId}` : "Unknown"),
+            position: normalizeAcqPos(positionMatch ? positionMatch[1] : ""),
+            high_bid_amount: highBid,
+            high_bidder_label: safeStr(bidderMatch && bidderMatch[1]),
+            timer_text: timerText,
+            timer_seconds: parseDurationSeconds(timerText || text),
+            page_text: text.slice(0, 240),
+          });
+        }
+        const availableFundsMatch = stripHtml(html).match(/available funds[^0-9$]*\$?\s*([0-9,]+)/i);
+        return {
+          active_auctions: auctions,
+          forms,
+          available_funds_hint: availableFundsMatch ? safeInt(String(availableFundsMatch[1] || "").replace(/,/g, ""), 0) : null,
+        };
+      };
+
+      const fetchAuctionPageForCookie = async (cookieHeaderOverride, season, leagueId, franchiseId) => {
+        const targetFranchiseId = padFranchiseId(franchiseId || "");
+        const pageUrl =
+          `https://www48.myfantasyleague.com/${encodeURIComponent(String(season || YEAR))}` +
+          `/options?L=${encodeURIComponent(leagueId)}&O=43` +
+          (targetFranchiseId ? `&FRANCHISE=${encodeURIComponent(targetFranchiseId)}` : "");
+        const resp = await fetchTextWithCookie(pageUrl, cookieHeaderOverride, { method: "GET" });
+        const unauthorized = /login required|sign in|league login|not logged in/i.test(safeStr(resp.text));
+        return {
+          ok: resp.status >= 200 && resp.status < 400 && !unauthorized,
+          status: resp.status,
+          pageUrl,
+          html: safeStr(resp.text),
+          url: resp.url || pageUrl,
+          unauthorized,
+        };
+      };
+
+      const normalizeAuctionActionRequest = (body, fallbackKind) => ({
+        action: safeStr(body?.action).toLowerCase(),
+        player_id: String(body?.player_id || body?.playerId || "").replace(/\D/g, ""),
+        amount: safeMoneyInt(body?.amount, null),
+        franchise_id: padFranchiseId(body?.franchise_id || body?.franchiseId || body?.franchise || body?.F || ""),
+        comment: safeStr(body?.comment || ""),
+        auction_kind: safeStr(body?.auction_kind || fallbackKind || "free-agent").toLowerCase(),
+      });
+
+      const auctionActionFormFromPage = (parsedPage, normalizedAction) => {
+        const forms = Array.isArray(parsedPage?.forms) ? parsedPage.forms : [];
+        const action = safeStr(normalizedAction?.action).toLowerCase();
+        const playerId = safeStr(normalizedAction?.player_id).replace(/\D/g, "");
+        if (!forms.length) return null;
+        if (action === "bid") {
+          for (const form of forms) {
+            const blob = `${JSON.stringify(form.fields)} ${form.rawHtml}`.toLowerCase();
+            const candidatePlayerId =
+              String(firstTruthy(form.fields.player_id, form.fields.playerid, form.fields.pid, form.fields.player) || "").replace(/\D/g, "") ||
+              deriveAuctionPlayerId(blob);
+            if (!candidatePlayerId || candidatePlayerId !== playerId) continue;
+            const nextFields = { ...form.fields };
+            const amountField = Object.keys(nextFields).find((key) => /amount|bid/i.test(String(key)));
+            if (!amountField) return null;
+            nextFields[amountField] = String(safeInt(normalizedAction.amount, 0));
+            const submit = pickSubmitOption(form, ["bid", "submit", "raise"]);
+            if (submit && submit.name) nextFields[submit.name] = safeStr(submit.value || "Submit");
+            return { actionUrl: form.actionUrl, method: form.method, fields: nextFields };
+          }
+        }
+        if (action === "nominate") {
+          for (const form of forms) {
+            const keys = Object.keys(form.fields || {});
+            const hasPlayerField = keys.some((key) => /player|pid/i.test(String(key)));
+            const hasAmountField = keys.some((key) => /amount|bid/i.test(String(key)));
+            if (!hasPlayerField || !hasAmountField) continue;
+            const nextFields = { ...form.fields };
+            for (const key of Object.keys(nextFields)) {
+              if (/player|pid/i.test(String(key))) nextFields[key] = playerId || safeStr(nextFields[key]);
+              if (/amount|bid/i.test(String(key))) nextFields[key] = String(safeInt(normalizedAction.amount, 0));
+              if (/franchise/i.test(String(key)) && normalizedAction.franchise_id) nextFields[key] = normalizedAction.franchise_id;
+            }
+            const submit = pickSubmitOption(form, ["nominate", "add", "submit"]);
+            if (submit && submit.name) nextFields[submit.name] = safeStr(submit.value || "Submit");
+            return { actionUrl: form.actionUrl, method: form.method, fields: nextFields };
+          }
+        }
+        return null;
+      };
+
+      const postAuctionActionForCookie = async (cookieHeaderOverride, preparedForm) => {
+        if (!preparedForm || !preparedForm.actionUrl) {
+          return { ok: false, status: 0, error: "auction_form_not_found", preview: "", url: "" };
+        }
+        const params = new URLSearchParams();
+        for (const [key, value] of Object.entries(preparedForm.fields || {})) {
+          if (!safeStr(key)) continue;
+          params.set(key, safeStr(value));
+        }
+        const resp = await fetchTextWithCookie(preparedForm.actionUrl, cookieHeaderOverride, {
+          method: preparedForm.method || "POST",
+          contentType: "application/x-www-form-urlencoded;charset=UTF-8",
+          body: params.toString(),
+        });
+        const text = safeStr(resp.text);
+        const lowered = text.toLowerCase();
+        const ok =
+          resp.status >= 200 &&
+          resp.status < 400 &&
+          !lowered.includes("not authorized") &&
+          !lowered.includes("login required") &&
+          !lowered.includes("invalid");
+        return {
+          ok,
+          status: resp.status,
+          error: ok ? "" : "auction_post_failed",
+          preview: text.slice(0, 1200),
+          url: resp.url || preparedForm.actionUrl,
+        };
+      };
+
+      const parseRookieDraftResultsXml = (xml, franchiseMap) => {
+        const nodes = xmlTagNodes(xml, ["draftpick", "pick", "selection"]);
+        const out = [];
+        for (const node of nodes) {
+          const attrs = node.attrs || {};
+          const playerId = String(firstTruthy(attrs.player_id, attrs.playerid, attrs.pid, attrs.player) || "").replace(/\D/g, "");
+          const franchiseId = padFranchiseId(firstTruthy(attrs.franchise_id, attrs.franchise, attrs.team_id, attrs.fid, attrs.owner));
+          const playerName = safeStr(firstTruthy(attrs.player_name, attrs.playername, attrs.name, attrs.player));
+          const round = safeInt(firstTruthy(attrs.round, attrs.draft_round), 0);
+          const pickInRound = safeInt(firstTruthy(attrs.pick, attrs.pick_in_round, attrs.round_pick), 0);
+          const overallPick = safeInt(firstTruthy(attrs.overallpick, attrs.pick_overall, attrs.overall), 0);
+          if (!playerId && !playerName && !round && !pickInRound) continue;
+          out.push({
+            round,
+            pick_in_round: pickInRound,
+            pick_overall: overallPick,
+            player_id: playerId,
+            player_name: playerName || (playerId ? `Player ${playerId}` : ""),
+            franchise_id: franchiseId,
+            franchise_name: franchiseMap[franchiseId]?.franchise_name || franchiseId,
+            timestamp: safeStr(firstTruthy(attrs.timestamp, attrs.datetime, attrs.time, attrs.ts)),
+          });
+        }
+        out.sort((a, b) => safeInt(a.pick_overall, 0) - safeInt(b.pick_overall, 0) || safeInt(a.round, 0) - safeInt(b.round, 0) || safeInt(a.pick_in_round, 0) - safeInt(b.pick_in_round, 0));
+        return out;
+      };
+
+      const parseRookieDraftStatusXml = (xml) => {
+        const attrs = xmlTagNodes(xml, ["draftstatus", "status"]);
+        const texts = [
+          ...xmlTextNodes(xml, "status"),
+          ...xmlTextNodes(xml, "message"),
+        ].filter(Boolean);
+        const joined = texts.join(" ").trim();
+        const firstAttrs = attrs[0] && attrs[0].attrs ? attrs[0].attrs : {};
+        const round = safeInt(firstTruthy(firstAttrs.round, firstAttrs.current_round), 0);
+        const pick = safeInt(firstTruthy(firstAttrs.pick, firstAttrs.current_pick), 0);
+        const franchiseId = padFranchiseId(firstTruthy(firstAttrs.franchise_id, firstAttrs.franchise, firstAttrs.fid));
+        const playerClock = safeStr(firstTruthy(firstAttrs.timer, firstAttrs.timeleft, firstAttrs.clock));
+        return {
+          message: joined,
+          current_pick: round || pick ? { round, pick, franchise_id: franchiseId } : null,
+          timer_text: playerClock || summarizeTimeText(joined),
+          timer_seconds: parseDurationSeconds(playerClock || joined),
+        };
+      };
+
+      const parseRookieDraftChatXml = (xml) => {
+        const messages = [];
+        const nodes = xmlTagNodes(xml, ["message", "chat", "chatmessage"]);
+        for (const node of nodes) {
+          const attrs = node.attrs || {};
+          const text = safeStr(firstTruthy(attrs.text, attrs.message, attrs.msg));
+          const author = safeStr(firstTruthy(attrs.user, attrs.owner, attrs.franchise, attrs.name));
+          if (text) messages.push({ author, text, timestamp: safeStr(firstTruthy(attrs.time, attrs.timestamp, attrs.ts)) });
+        }
+        return messages.slice(-25);
+      };
+
+      const resolveViewerFranchiseIdForAcq = async (season, leagueId, requestedFranchiseId) => {
+        const explicit = padFranchiseId(requestedFranchiseId);
+        if (explicit) return explicit;
+        const myFrRes = await mflExportJsonWithRetryAsViewer(season, leagueId, "myfranchise", {}, { useCookie: true });
+        if (myFrRes.ok) {
+          const parsed = parseMyFranchiseId(myFrRes.data);
+          if (parsed) return parsed;
+        }
+        return "";
+      };
+
+      const buildFranchiseMap = (franchises) => {
+        const out = {};
+        for (const fr of franchises || []) out[padFranchiseId(fr.franchise_id)] = fr;
+        return out;
+      };
+
+      const currentCapHitAcq = (salary, years, isTaxi, isIr) => {
+        const amt = safeInt(salary, 0);
+        const y = Math.max(0, safeInt(years, 0));
+        if (isTaxi) return 0;
+        if (y <= 0) return 0;
+        if (isIr) return Math.round(amt * 0.5);
+        return amt;
+      };
+
+      const computeLineupNeeds = (players) => {
+        const counts = { QB: 0, RB: 0, WR: 0, TE: 0, PK: 0, PN: 0, DL: 0, LB: 0, DB: 0 };
+        let rosterCount = 0;
+        for (const player of players || []) {
+          const pos = normalizeAcqPos(player?.position);
+          const status = safeStr(player?.roster_status || player?.status).toUpperCase();
+          const isTaxi = status.includes("TAXI");
+          const isIr = status.includes("IR");
+          if (!isTaxi) rosterCount += 1;
+          if (isTaxi || isIr) continue;
+          if (counts[pos] != null) counts[pos] += 1;
+        }
+        const base = {
+          QB: Math.max(0, 1 - counts.QB),
+          RB: Math.max(0, 2 - counts.RB),
+          WR: Math.max(0, 2 - counts.WR),
+          TE: Math.max(0, 1 - counts.TE),
+          PK: Math.max(0, 1 - counts.PK),
+          PN: Math.max(0, 1 - counts.PN),
+          DL: Math.max(0, 2 - counts.DL),
+          LB: Math.max(0, 2 - counts.LB),
+          DB: Math.max(0, 2 - counts.DB),
+        };
+        const rbRemain = Math.max(0, counts.RB - 2);
+        const wrRemain = Math.max(0, counts.WR - 2);
+        const teRemain = Math.max(0, counts.TE - 1);
+        const flexPool = rbRemain + wrRemain + teRemain;
+        const flexNeed = Math.max(0, 2 - flexPool);
+        const superflexPool = Math.max(0, counts.QB - 1) + Math.max(0, flexPool - 2);
+        const superflexNeed = Math.max(0, 1 - superflexPool);
+        const defenseFlexPool = Math.max(0, counts.DL - 2) + Math.max(0, counts.LB - 2) + Math.max(0, counts.DB - 2);
+        const defenseFlexNeed = Math.max(0, 1 - defenseFlexPool);
+        return {
+          roster_count: rosterCount,
+          counts,
+          deficits: {
+            ...base,
+            FLEX: flexNeed,
+            SUPERFLEX: superflexNeed,
+            DFLEX: defenseFlexNeed,
+          },
+          total_deficit:
+            Object.values(base).reduce((sum, value) => sum + safeInt(value, 0), 0) +
+            flexNeed +
+            superflexNeed +
+            defenseFlexNeed,
+        };
+      };
+
+      const reserveCostForScenario = (players, targetRosterCount) => {
+        const needs = computeLineupNeeds(players);
+        const openSlots = Math.max(0, safeInt(targetRosterCount, 0) - safeInt(needs.roster_count, 0));
+        const reserveSlots = Math.max(openSlots, safeInt(needs.total_deficit, 0));
+        return {
+          roster_count: needs.roster_count,
+          deficits: needs.deficits,
+          reserve_slots: reserveSlots,
+          reserve_cost: reserveSlots * 1000,
+        };
+      };
+
+      const rosterCountsAfterHypothetical = (players, position) => {
+        const list = Array.isArray(players) ? players.slice() : [];
+        list.push({ position, roster_status: "ROSTER", status: "ROSTER" });
+        return list;
+      };
+
+      const teamBudgetRowsFromLive = (teams, salaryCapDollars) => {
+        const rows = [];
+        for (const team of teams || []) {
+          const players = Array.isArray(team.players) ? team.players : [];
+          const capSpent = players.reduce((sum, player) => {
+            const status = safeStr(player.roster_status || player.status).toUpperCase();
+            return sum + currentCapHitAcq(player.salary, player.years, status.includes("TAXI"), status.includes("IR"));
+          }, 0);
+          const rawAvailable = safeMoneyInt(team?.available_salary_dollars, null);
+          const availableFunds = rawAvailable != null ? rawAvailable : Math.max(0, safeInt(salaryCapDollars, 0) - capSpent);
+          const reserve27 = reserveCostForScenario(players, 27);
+          const reserve35 = reserveCostForScenario(players, 35);
+          const maxBidByPosition = {};
+          for (const pos of ["QB", "RB", "WR", "TE", "DL", "LB", "DB", "PK", "PN"]) {
+            const after27 = reserveCostForScenario(rosterCountsAfterHypothetical(players, pos), 27);
+            const after35 = reserveCostForScenario(rosterCountsAfterHypothetical(players, pos), 35);
+            maxBidByPosition[pos] = {
+              scenario_27: Math.max(0, availableFunds - safeInt(after27.reserve_cost, 0)),
+              scenario_35: Math.max(0, availableFunds - safeInt(after35.reserve_cost, 0)),
+            };
+          }
+          rows.push({
+            franchise_id: team.franchise_id,
+            franchise_name: team.franchise_name,
+            icon_url: team.icon_url || "",
+            cap_total_dollars: capSpent,
+            available_funds_dollars: availableFunds,
+            scenario_27_max_bid: Math.max(0, availableFunds - safeInt(reserve27.reserve_cost, 0)),
+            scenario_35_max_bid: Math.max(0, availableFunds - safeInt(reserve35.reserve_cost, 0)),
+            reserve_cost_27: safeInt(reserve27.reserve_cost, 0),
+            reserve_cost_35: safeInt(reserve35.reserve_cost, 0),
+            lineup_deficits: reserve27.deficits,
+            roster_count: reserve27.roster_count,
+            max_bid_by_position: maxBidByPosition,
+          });
+        }
+        rows.sort((a, b) => safeStr(a.franchise_name).localeCompare(safeStr(b.franchise_name)));
+        return rows;
+      };
+
+      const teamNeedRowsFromLive = (teams) => {
+        const out = [];
+        for (const team of teams || []) {
+          const need = computeLineupNeeds(team.players || []);
+          out.push({
+            franchise_id: team.franchise_id,
+            franchise_name: team.franchise_name,
+            roster_count: need.roster_count,
+            counts: need.counts,
+            lineup_deficits: need.deficits,
+            total_deficit: need.total_deficit,
+          });
+        }
+        return out;
+      };
+
+      const buildLiveTeamsSnapshot = async (season, leagueId) => {
+        const [leagueRes, rostersRes, myFrRes] = await Promise.all([
+          mflExportJsonWithRetryAsViewer(season, leagueId, "league", {}, { useCookie: true }),
+          mflExportJsonWithRetryAsViewer(season, leagueId, "rosters", {}, { useCookie: true }),
+          mflExportJsonWithRetryAsViewer(season, leagueId, "myfranchise", {}, { useCookie: true }),
+        ]);
+        if (!leagueRes.ok || !rostersRes.ok) {
+          return {
+            ok: false,
+            error: !leagueRes.ok ? "league_export_failed" : "rosters_export_failed",
+            leagueRes,
+            rostersRes,
+            myFrRes,
+          };
+        }
+        const franchises = parseLeagueFranchises(leagueRes.data);
+        const franchiseMap = buildFranchiseMap(franchises);
+        const { rosterAssetsByFranchise, allPlayerIds } = parseRostersExport(rostersRes.data);
+        const playersById = await fetchPlayersByIdsChunked(season, leagueId, allPlayerIds);
+        const teams = franchises.map((fr) => {
+          const rawPlayers = asArray(rosterAssetsByFranchise[fr.franchise_id]).filter(Boolean);
+          const players = rawPlayers.map((asset) => {
+            const meta = playersById[String(asset.player_id || "")] || {};
+            return {
+              id: String(asset.player_id || ""),
+              player_id: String(asset.player_id || ""),
+              player_name: safeStr(meta.player_name || asset.player_name || asset.player_id),
+              position: normalizeAcqPos(meta.position || asset.position || ""),
+              nfl_team: safeStr(meta.nfl_team || ""),
+              salary: safeInt(asset.salary, 0),
+              years: safeInt(asset.years, 0),
+              contract_type: safeStr(asset.contract_type || ""),
+              roster_status: safeStr(asset.roster_status || ""),
+              contract_info: safeStr(asset.contract_info || ""),
+              status: safeStr(asset.roster_status || ""),
+            };
+          });
+          return {
+            franchise_id: fr.franchise_id,
+            franchise_name: fr.franchise_name,
+            franchise_abbrev: fr.franchise_abbrev,
+            icon_url: fr.icon_url,
+            available_salary_dollars: fr.available_salary_dollars,
+            players,
+          };
+        });
+        const viewerFranchiseId = myFrRes.ok ? parseMyFranchiseId(myFrRes.data) : "";
+        const leagueRoot = leagueRes.data?.league || leagueRes.data || {};
+        const salaryCapDollars = safeMoneyInt(
+          firstTruthy(
+            leagueRoot?.auctionStartAmount,
+            leagueRoot?.salaryCapAmount,
+            leagueRoot?.salary_cap_amount
+          ),
+          0
+        );
+        return {
+          ok: true,
+          franchises,
+          franchiseMap,
+          teams,
+          viewerFranchiseId,
+          salaryCapDollars,
+          leagueRes,
+          rostersRes,
+          myFrRes,
+        };
+      };
+
+      const buildAvailablePlayerBoard = (seedRows, rosteredPlayerIds, activeAuctionPlayerIds, limit) => {
+        const rostered = new Set(asArray(rosteredPlayerIds).map((v) => String(v || "")));
+        const active = new Set(asArray(activeAuctionPlayerIds).map((v) => String(v || "")));
+        return asArray(seedRows)
+          .filter((row) => {
+            const playerId = String(row?.player_id || "");
+            return playerId && !rostered.has(playerId) && !active.has(playerId);
+          })
+          .sort((a, b) => safeFloat(b?.upcoming_auction_value, 0) - safeFloat(a?.upcoming_auction_value, 0))
+          .slice(0, Math.max(1, safeInt(limit, 60)));
+      };
+
+      const rookieLikeAcq = (raw) => {
+        const s = safeStr(raw).toLowerCase();
+        return s === "r" || s.startsWith("r-") || s.indexOf("rookie") !== -1;
+      };
+
+      const parseExtensionOwnersFromContractInfoAcq = (contractInfo) => {
+        const src = safeStr(contractInfo);
+        const extMatch = src.match(/(?:^|\|)\s*Ext:\s*([^|]+)/i);
+        if (!extMatch) return [];
+        const tokens = safeStr(extMatch[1])
+          .split(/[,/;&]|\band\b/gi)
+          .map((x) => safeStr(x).toLowerCase().replace(/[^a-z0-9]/g, ""))
+          .filter(Boolean);
+        const EXT_OWNER_BY_NICKNAME = {
+          uw: "0001",
+          lh: "0006",
+          cbp: "0002",
+          cleon: "0011",
+          sex: "0007",
+          gride: "0003",
+          hammer: "0005",
+          bb: "0010",
+          ctown: "0009",
+          chivalry: "0009",
+          pg: "0004",
+          creel: "0008",
+          hawks: "0012",
+          hood: "0099",
+          mafia: "0099",
+          blake: "0010",
+        };
+        const out = [];
+        for (const token of tokens) {
+          const fid = padFranchiseId(EXT_OWNER_BY_NICKNAME[token] || "");
+          if (fid && out.indexOf(fid) === -1) out.push(fid);
+        }
+        return out;
+      };
+
+      const buildExpiredRookieEligiblePool = (teamsSnapshot, expiredArtifact, activeAuctions) => {
+        const currentWinnerIds = new Set(asArray(expiredArtifact?.current_winner_player_ids).map((v) => String(v || "")));
+        const extensionRows = asArray(expiredArtifact?.extension_rows);
+        const extensionPlayerIds = new Set(extensionRows.map((row) => String(row?.player_id || "")).filter(Boolean));
+        const activeAuctionIds = new Set(asArray(activeAuctions).map((row) => String(row?.player_id || "")).filter(Boolean));
+        const out = [];
+        for (const team of teamsSnapshot?.teams || []) {
+          for (const player of team.players || []) {
+            const playerId = String(player?.player_id || "");
+            if (!playerId) continue;
+            const status = safeStr(player?.contract_type || "");
+            const years = safeInt(player?.years, 0);
+            const extOwners = parseExtensionOwnersFromContractInfoAcq(player?.contract_info);
+            if (!rookieLikeAcq(status)) continue;
+            if (years > 0) continue;
+            if (safeStr(player?.contract_info).toLowerCase().indexOf("tag") !== -1) continue;
+            if (extOwners.indexOf(padFranchiseId(team.franchise_id)) !== -1) continue;
+            if (extensionPlayerIds.has(playerId)) continue;
+            if (currentWinnerIds.has(playerId)) continue;
+            out.push({
+              player_id: playerId,
+              player_name: player.player_name,
+              position: player.position,
+              nfl_team: player.nfl_team,
+              franchise_id: team.franchise_id,
+              franchise_name: team.franchise_name,
+              contract_info: player.contract_info,
+              active_auction: activeAuctionIds.has(playerId),
+            });
+          }
+        }
+        out.sort((a, b) => safeStr(a.player_name).localeCompare(safeStr(b.player_name)));
+        return out;
+      };
+
+      const fetchRookieDraftXml = async (season, leagueId, fileName) => {
+        const cacheKey = `acq:rookiexml:${season}:${leagueId}:${fileName}`;
+        const cached = acqCacheGet(cacheKey, 5000);
+        if (cached) return cached;
+        const base = safeStr(env.MFL_DYNAMIC_BASE_URL || "https://www48.myfantasyleague.com").replace(/\/+$/, "");
+        const targetUrl = `${base}/${encodeURIComponent(String(season))}/fflnetdynamic${encodeURIComponent(String(season))}/${encodeURIComponent(String(leagueId))}_LEAGUE_${fileName}`;
+        try {
+          const res = await fetch(targetUrl, {
+            headers: { "Cache-Control": "no-store", "User-Agent": "upsmflproduction-worker" },
+            cf: { cacheTtl: 0, cacheEverything: false },
+          });
+          const value = {
+            ok: res.ok,
+            status: res.status,
+            url: targetUrl,
+            text: res.ok ? await res.text() : "",
+          };
+          return acqCacheSet(cacheKey, value);
+        } catch (e) {
+          return {
+            ok: false,
+            status: 0,
+            url: targetUrl,
+            text: "",
+            error: `fetch_failed: ${e?.message || String(e)}`,
+          };
+        }
+      };
+
+      const buildRookieDraftLivePayload = async (season, leagueId) => {
+        const [teamsSnapshot, rookieArtifact, draftResultsRes, draftStatusRes, draftChatRes] = await Promise.all([
+          buildLiveTeamsSnapshot(season, leagueId),
+          fetchArtifactJson("rookie_draft_history"),
+          fetchRookieDraftXml(season, leagueId, "draft_results.xml"),
+          fetchRookieDraftXml(season, leagueId, "draft_status.xml"),
+          fetchRookieDraftXml(season, leagueId, "chat.xml"),
+        ]);
+        const franchiseMap = teamsSnapshot.ok ? teamsSnapshot.franchiseMap : {};
+        const liveBoard = draftResultsRes.ok ? parseRookieDraftResultsXml(draftResultsRes.text, franchiseMap) : [];
+        const statusInfo = draftStatusRes.ok ? parseRookieDraftStatusXml(draftStatusRes.text) : { message: "", current_pick: null, timer_text: "", timer_seconds: null };
+        const chat = draftChatRes.ok ? parseRookieDraftChatXml(draftChatRes.text) : [];
+        const stale = !draftResultsRes.ok && !draftStatusRes.ok;
+        const payload = {
+          ok: true,
+          league_id: leagueId,
+          season: safeInt(season, Number(season) || 0),
+          live_board: liveBoard,
+          draft_status: {
+            message: safeStr(statusInfo.message),
+            timer_text: safeStr(statusInfo.timer_text),
+            timer_seconds: statusInfo.timer_seconds == null ? null : safeInt(statusInfo.timer_seconds, 0),
+          },
+          chat,
+          current_pick: statusInfo.current_pick || null,
+          draft_order:
+            liveBoard.filter((row) => safeInt(row.round, 0) === 1).map((row) => ({
+              franchise_id: row.franchise_id,
+              franchise_name: row.franchise_name,
+              pick_label: `1.${String(safeInt(row.pick_in_round, 0)).padStart(2, "0")}`,
+              pick_overall: safeInt(row.pick_overall, 0),
+            })) ||
+            [],
+          fetched_at: new Date().toISOString(),
+          source_age_seconds: 0,
+          stale,
+          next_refresh_recommended_ms: 5000,
+          native_link: `https://www48.myfantasyleague.com/${encodeURIComponent(String(season))}/live_draft?L=${encodeURIComponent(leagueId)}`,
+          upstream: {
+            draft_results: { ok: draftResultsRes.ok, status: draftResultsRes.status, url: draftResultsRes.url },
+            draft_status: { ok: draftStatusRes.ok, status: draftStatusRes.status, url: draftStatusRes.url },
+            chat: { ok: draftChatRes.ok, status: draftChatRes.status, url: draftChatRes.url },
+            artifact: { ok: rookieArtifact.ok, status: rookieArtifact.status, url: rookieArtifact.url },
+          },
+        };
+        if ((!payload.draft_order || !payload.draft_order.length) && rookieArtifact.ok) {
+          payload.draft_order = asArray(rookieArtifact.data?.current_order).slice(0, 48);
+        }
+        return payload;
+      };
+
+      const buildAuctionLivePayload = async (season, leagueId, requestedFranchiseId, auctionKind) => {
+        const [teamsSnapshot, auctionArtifact, expiredArtifact] = await Promise.all([
+          buildLiveTeamsSnapshot(season, leagueId),
+          fetchArtifactJson("free_agent_auction_history"),
+          fetchArtifactJson("expired_rookie_history"),
+        ]);
+        if (!teamsSnapshot.ok) {
+          return {
+            ok: false,
+            error: teamsSnapshot.error || "teams_snapshot_failed",
+            fetched_at: new Date().toISOString(),
+            source_age_seconds: 0,
+            stale: true,
+            next_refresh_recommended_ms: auctionKind === "expired-rookie" ? 30000 : 20000,
+          };
+        }
+        const viewerFranchiseId = await resolveViewerFranchiseIdForAcq(season, leagueId, requestedFranchiseId || teamsSnapshot.viewerFranchiseId);
+        const auctionPageRes = await fetchAuctionPageForCookie(viewerCookieHeader || cookieHeader, season, leagueId, viewerFranchiseId);
+        const parsedPage = auctionPageRes.ok ? parseAuctionPage(auctionPageRes.html, auctionPageRes.url || auctionPageRes.pageUrl) : { active_auctions: [], forms: [], available_funds_hint: null };
+        const budgetRows = teamBudgetRowsFromLive(teamsSnapshot.teams, teamsSnapshot.salaryCapDollars);
+        const needRows = teamNeedRowsFromLive(teamsSnapshot.teams);
+        const rosteredIds = [];
+        for (const team of teamsSnapshot.teams) {
+          for (const player of team.players || []) rosteredIds.push(String(player.player_id || ""));
+        }
+        let activeAuctions = asArray(parsedPage.active_auctions);
+        if (safeStr(auctionKind).toLowerCase() === "expired-rookie") {
+          const eligiblePool = buildExpiredRookieEligiblePool(teamsSnapshot, expiredArtifact.ok ? expiredArtifact.data : {}, activeAuctions);
+          const eligibleIds = new Set(eligiblePool.map((row) => String(row.player_id || "")));
+          activeAuctions = activeAuctions.filter((row) => !row.player_id || eligibleIds.has(String(row.player_id)));
+          return {
+            ok: true,
+            league_id: leagueId,
+            season: safeInt(season, Number(season) || 0),
+            auction_kind: "expired-rookie",
+            eligible_players: eligiblePool,
+            active_auctions: activeAuctions,
+            extension_markers: expiredArtifact.ok ? asArray(expiredArtifact.data?.extension_rows) : [],
+            fetched_at: new Date().toISOString(),
+            source_age_seconds: 0,
+            stale: !auctionPageRes.ok,
+            next_refresh_recommended_ms: 30000,
+            native_link: auctionPageRes.pageUrl || `https://www48.myfantasyleague.com/${encodeURIComponent(String(season))}/options?L=${encodeURIComponent(leagueId)}&O=43`,
+            upstream: {
+              auction_page: { ok: auctionPageRes.ok, status: auctionPageRes.status, url: auctionPageRes.pageUrl || "" },
+              expired_artifact: { ok: expiredArtifact.ok, status: expiredArtifact.status, url: expiredArtifact.url || "" },
+            },
+          };
+        }
+        const availablePlayers = buildAvailablePlayerBoard(
+          auctionArtifact.ok ? auctionArtifact.data?.available_players_seed : [],
+          rosteredIds,
+          activeAuctions.map((row) => row.player_id),
+          75
+        );
+        return {
+          ok: true,
+          league_id: leagueId,
+          season: safeInt(season, Number(season) || 0),
+          auction_kind: "free-agent",
+          active_auctions: activeAuctions,
+          team_budget_rows: budgetRows,
+          team_need_rows: needRows,
+          available_players: availablePlayers,
+          fetched_at: new Date().toISOString(),
+          source_age_seconds: 0,
+          stale: !auctionPageRes.ok,
+          next_refresh_recommended_ms: 20000,
+          native_link: auctionPageRes.pageUrl || `https://www48.myfantasyleague.com/${encodeURIComponent(String(season))}/options?L=${encodeURIComponent(leagueId)}&O=43`,
+          viewer_franchise_id: viewerFranchiseId,
+          upstream: {
+            auction_page: { ok: auctionPageRes.ok, status: auctionPageRes.status, url: auctionPageRes.pageUrl || "" },
+            auction_artifact: { ok: auctionArtifact.ok, status: auctionArtifact.status, url: auctionArtifact.url || "" },
+          },
+        };
+      };
+
+      const performRookieDraftAction = async (season, leagueId, body) => {
+        const action = safeStr(body?.action).toLowerCase();
+        const playerId = String(body?.player_id || body?.playerId || "").replace(/\D/g, "");
+        const cmdMap = {
+          draft: "DRAFT",
+          pause: "PAUSE",
+          resume: "RESUME",
+          skip: "SKIP",
+          undo: "UNDO",
+        };
+        const cmd = cmdMap[action] || "";
+        if (!cmd) {
+          return { ok: false, status: 400, error: "unsupported_draft_action" };
+        }
+        if (cmd === "DRAFT" && !playerId) {
+          return { ok: false, status: 400, error: "player_id_required" };
+        }
+        const base = safeStr(env.MFL_DYNAMIC_BASE_URL || "https://www48.myfantasyleague.com").replace(/\/+$/, "");
+        const qs = new URLSearchParams({
+          L: String(leagueId || ""),
+          JSON: "1",
+          CMD: cmd,
+        });
+        if (playerId) qs.set("PLAYER_PICK", playerId);
+        if (safeStr(body?.round)) qs.set("ROUND", safeStr(body.round));
+        if (safeStr(body?.pick)) qs.set("PICK", safeStr(body.pick));
+        if (safeStr(body?.franchise_pick)) qs.set("FRANCHISE_PICK", safeStr(body.franchise_pick));
+        const targetUrl = `${base}/${encodeURIComponent(String(season || YEAR))}/live_draft?${qs.toString()}`;
+        let res;
+        let text = "";
+        try {
+          res = await fetch(targetUrl, {
+            headers: {
+              Cookie: viewerCookieHeader || cookieHeader,
+              "User-Agent": "upsmflproduction-worker",
+              "Cache-Control": "no-store",
+            },
+            cf: { cacheTtl: 0, cacheEverything: false },
+          });
+          text = await res.text();
+        } catch (e) {
+          return {
+            ok: false,
+            status: 0,
+            error: `draft_action_fetch_failed: ${e?.message || String(e)}`,
+            preview: "",
+            url: targetUrl,
+          };
+        }
+        let parsed = null;
+        try {
+          parsed = text ? JSON.parse(text) : null;
+        } catch (_) {
+          parsed = null;
+        }
+        const payloadErr = parsed ? mflErrorFromJsonPayload(parsed) : "";
+        return {
+          ok: res.ok && !payloadErr,
+          status: res.status,
+          error: payloadErr || (!res.ok ? `draft_action_http_${res.status}` : ""),
+          preview: safeStr(text).slice(0, 1200),
+          url: targetUrl,
+          data: parsed,
+        };
+      };
+
+      const performAuctionAction = async (season, leagueId, body, fallbackKind) => {
+        const normalized = normalizeAuctionActionRequest(body, fallbackKind);
+        if (normalized.action !== "bid" && normalized.action !== "nominate") {
+          return { ok: false, status: 400, error: "unsupported_auction_action" };
+        }
+        if (!normalized.player_id) return { ok: false, status: 400, error: "player_id_required" };
+        if (safeInt(normalized.amount, 0) <= 0) return { ok: false, status: 400, error: "amount_required" };
+        const viewerFranchiseId = await resolveViewerFranchiseIdForAcq(season, leagueId, normalized.franchise_id);
+        const pageRes = await fetchAuctionPageForCookie(viewerCookieHeader || cookieHeader, season, leagueId, viewerFranchiseId);
+        if (!pageRes.ok) {
+          return {
+            ok: false,
+            status: 502,
+            error: pageRes.unauthorized ? "auction_auth_required" : "auction_page_unavailable",
+            preview: safeStr(pageRes.html).slice(0, 800),
+            native_link: pageRes.pageUrl,
+          };
+        }
+        const parsedPage = parseAuctionPage(pageRes.html, pageRes.url || pageRes.pageUrl);
+        const preparedForm = auctionActionFormFromPage(parsedPage, normalized);
+        if (!preparedForm) {
+          return {
+            ok: false,
+            status: 422,
+            error: "auction_form_contract_not_found",
+            preview: safeStr(pageRes.html).slice(0, 800),
+            native_link: pageRes.pageUrl,
+          };
+        }
+        const postRes = await postAuctionActionForCookie(viewerCookieHeader || cookieHeader, preparedForm);
+        return {
+          ...postRes,
+          native_link: pageRes.pageUrl,
         };
       };
 
@@ -10428,6 +11491,289 @@ export default {
           },
           results,
           generated_at: new Date().toISOString(),
+        });
+      }
+
+      if (path === "/acquisition-hub/bootstrap" && request.method === "GET") {
+        const season = safeStr(url.searchParams.get("YEAR") || YEAR || "");
+        const leagueId = safeStr(url.searchParams.get("L") || L || "");
+        if (!leagueId) return jsonNoStore(400, { ok: false, error: "Missing L param" });
+        const cacheKey = `acq:bootstrap:${season}:${leagueId}`;
+        const cached = acqCacheGet(cacheKey, 60000);
+        if (cached) {
+          const copy = JSON.parse(JSON.stringify(cached));
+          copy.source_age_seconds = Math.max(0, Math.round((Date.now() - Date.parse(copy.fetched_at || new Date().toISOString())) / 1000));
+          return jsonNoStore(200, copy);
+        }
+        const [teamsSnapshot, adminState, manifestRes] = await Promise.all([
+          buildLiveTeamsSnapshot(season, leagueId),
+          getLeagueAdminState(leagueId, season),
+          fetchArtifactJson("manifest"),
+        ]);
+        const payload = {
+          ok: true,
+          league: {
+            league_id: leagueId,
+            season: safeInt(season, Number(season) || 0),
+            salary_cap_dollars: teamsSnapshot.ok ? safeInt(teamsSnapshot.salaryCapDollars, 0) : 0,
+            franchises: teamsSnapshot.ok ? teamsSnapshot.franchises : [],
+          },
+          viewer: {
+            franchise_id: teamsSnapshot.ok ? safeStr(teamsSnapshot.viewerFranchiseId) : "",
+            is_commish: !!(adminState && adminState.ok && adminState.isAdmin),
+            commish_franchise_id: safeStr(adminState && adminState.commishFranchiseId),
+            admin_reason: safeStr(adminState && adminState.reason),
+          },
+          rules: readAcquisitionRules(),
+          feature_flags: {
+            waiver_lab_enabled: false,
+            live_actions_enabled: true,
+          },
+          native_links: {
+            rookie_draft: `https://www48.myfantasyleague.com/${encodeURIComponent(String(season))}/live_draft?L=${encodeURIComponent(leagueId)}`,
+            free_agent_auction: `https://www48.myfantasyleague.com/${encodeURIComponent(String(season))}/options?L=${encodeURIComponent(leagueId)}&O=43`,
+            expired_rookie_auction: `https://www48.myfantasyleague.com/${encodeURIComponent(String(season))}/options?L=${encodeURIComponent(leagueId)}&O=43`,
+            waivers: `https://www48.myfantasyleague.com/${encodeURIComponent(String(season))}/add_drop?L=${encodeURIComponent(leagueId)}`,
+          },
+          refresh_policy: {
+            bootstrap_ms: 60000,
+            rookie_draft_live_ms: 5000,
+            free_agent_auction_live_ms: 20000,
+            expired_rookie_live_ms: 30000,
+          },
+          fetched_at: new Date().toISOString(),
+          source_age_seconds: 0,
+          stale: !teamsSnapshot.ok,
+          artifacts: manifestRes.ok ? manifestRes.data : null,
+        };
+        acqCacheSet(cacheKey, payload);
+        return jsonNoStore(200, payload);
+      }
+
+      if (path === "/acquisition-hub/rookie-draft/live" && request.method === "GET") {
+        const season = safeStr(url.searchParams.get("YEAR") || YEAR || "");
+        const leagueId = safeStr(url.searchParams.get("L") || L || "");
+        if (!leagueId) return jsonNoStore(400, { ok: false, error: "Missing L param" });
+        const disableCache = safeStr(url.searchParams.get("NO_CACHE")) === "1";
+        const cacheKey = `acq:rookie-live:${season}:${leagueId}`;
+        if (!disableCache) {
+          const cached = acqCacheGet(cacheKey, 5000);
+          if (cached) {
+            const copy = JSON.parse(JSON.stringify(cached));
+            copy.source_age_seconds = Math.max(0, Math.round((Date.now() - Date.parse(copy.fetched_at || new Date().toISOString())) / 1000));
+            copy.stale = copy.source_age_seconds > 10 ? true : !!copy.stale;
+            return jsonNoStore(200, copy);
+          }
+        }
+        const payload = await buildRookieDraftLivePayload(season, leagueId);
+        acqCacheSet(cacheKey, payload);
+        return jsonNoStore(200, payload);
+      }
+
+      if (path === "/acquisition-hub/rookie-draft/history" && request.method === "GET") {
+        const artifact = await fetchArtifactJson("rookie_draft_history");
+        if (!artifact.ok) return jsonNoStore(502, { ok: false, error: artifact.error, url: artifact.url });
+        return jsonNoStore(200, {
+          ok: true,
+          generated_at: safeStr(artifact.data?.meta?.generated_at),
+          ...artifact.data,
+        });
+      }
+
+      if (path === "/acquisition-hub/rookie-draft/action" && request.method === "POST") {
+        const season = safeStr(url.searchParams.get("YEAR") || YEAR || "");
+        const leagueId = safeStr(url.searchParams.get("L") || L || "");
+        if (!leagueId) return jsonNoStore(400, { ok: false, error: "Missing L param" });
+        let body = {};
+        try {
+          body = (await request.json()) || {};
+        } catch (_) {
+          body = {};
+        }
+        const actionRes = await performRookieDraftAction(season, leagueId, body);
+        if (!actionRes.ok) {
+          return jsonNoStore(actionRes.status >= 400 ? actionRes.status : 502, {
+            ok: false,
+            error: actionRes.error,
+            preview: actionRes.preview || "",
+            url: actionRes.url || "",
+          });
+        }
+        acqCacheBustPrefix(`acq:rookie-live:${season}:${leagueId}`);
+        acqCacheBustPrefix(`acq:rookiexml:${season}:${leagueId}`);
+        const live = await buildRookieDraftLivePayload(season, leagueId);
+        acqCacheSet(`acq:rookie-live:${season}:${leagueId}`, live);
+        return jsonNoStore(200, {
+          ok: true,
+          message: "Rookie draft action submitted.",
+          action_result: {
+            status: actionRes.status,
+            url: actionRes.url || "",
+            preview: actionRes.preview || "",
+          },
+          live,
+        });
+      }
+
+      if (path === "/acquisition-hub/free-agent-auction/live" && request.method === "GET") {
+        const season = safeStr(url.searchParams.get("YEAR") || YEAR || "");
+        const leagueId = safeStr(url.searchParams.get("L") || L || "");
+        const franchiseId = padFranchiseId(url.searchParams.get("F") || url.searchParams.get("FRANCHISE_ID") || "");
+        if (!leagueId) return jsonNoStore(400, { ok: false, error: "Missing L param" });
+        const disableCache = safeStr(url.searchParams.get("NO_CACHE")) === "1";
+        const cacheKey = `acq:auction-live:${season}:${leagueId}:free-agent:${franchiseId || "viewer"}`;
+        if (!disableCache) {
+          const cached = acqCacheGet(cacheKey, 15000);
+          if (cached) {
+            const copy = JSON.parse(JSON.stringify(cached));
+            copy.source_age_seconds = Math.max(0, Math.round((Date.now() - Date.parse(copy.fetched_at || new Date().toISOString())) / 1000));
+            copy.stale = copy.source_age_seconds > 40 ? true : !!copy.stale;
+            return jsonNoStore(200, copy);
+          }
+        }
+        const payload = await buildAuctionLivePayload(season, leagueId, franchiseId, "free-agent");
+        acqCacheSet(cacheKey, payload);
+        return jsonNoStore(payload.ok ? 200 : 502, payload);
+      }
+
+      if (path === "/acquisition-hub/free-agent-auction/history" && request.method === "GET") {
+        const artifact = await fetchArtifactJson("free_agent_auction_history");
+        if (!artifact.ok) return jsonNoStore(502, { ok: false, error: artifact.error, url: artifact.url });
+        return jsonNoStore(200, {
+          ok: true,
+          generated_at: safeStr(artifact.data?.meta?.generated_at),
+          ...artifact.data,
+        });
+      }
+
+      if (path === "/acquisition-hub/free-agent-auction/action" && request.method === "POST") {
+        const season = safeStr(url.searchParams.get("YEAR") || YEAR || "");
+        const leagueId = safeStr(url.searchParams.get("L") || L || "");
+        if (!leagueId) return jsonNoStore(400, { ok: false, error: "Missing L param" });
+        let body = {};
+        try {
+          body = (await request.json()) || {};
+        } catch (_) {
+          body = {};
+        }
+        const actionRes = await performAuctionAction(season, leagueId, body, "free-agent");
+        if (!actionRes.ok) {
+          return jsonNoStore(actionRes.status >= 400 ? actionRes.status : 502, {
+            ok: false,
+            error: actionRes.error,
+            preview: actionRes.preview || "",
+            native_link: actionRes.native_link || "",
+          });
+        }
+        acqCacheBustPrefix(`acq:auction-live:${season}:${leagueId}:free-agent`);
+        const live = await buildAuctionLivePayload(season, leagueId, body?.franchise_id || body?.franchiseId || "", "free-agent");
+        acqCacheSet(`acq:auction-live:${season}:${leagueId}:free-agent:${padFranchiseId(body?.franchise_id || body?.franchiseId || "") || "viewer"}`, live);
+        return jsonNoStore(200, {
+          ok: true,
+          message: "Auction action submitted.",
+          action_result: {
+            status: actionRes.status,
+            preview: actionRes.preview || "",
+            native_link: actionRes.native_link || "",
+          },
+          live,
+        });
+      }
+
+      if (path === "/acquisition-hub/expired-rookie-auction/live" && request.method === "GET") {
+        const season = safeStr(url.searchParams.get("YEAR") || YEAR || "");
+        const leagueId = safeStr(url.searchParams.get("L") || L || "");
+        const franchiseId = padFranchiseId(url.searchParams.get("F") || url.searchParams.get("FRANCHISE_ID") || "");
+        if (!leagueId) return jsonNoStore(400, { ok: false, error: "Missing L param" });
+        const disableCache = safeStr(url.searchParams.get("NO_CACHE")) === "1";
+        const cacheKey = `acq:auction-live:${season}:${leagueId}:expired-rookie:${franchiseId || "viewer"}`;
+        if (!disableCache) {
+          const cached = acqCacheGet(cacheKey, 30000);
+          if (cached) {
+            const copy = JSON.parse(JSON.stringify(cached));
+            copy.source_age_seconds = Math.max(0, Math.round((Date.now() - Date.parse(copy.fetched_at || new Date().toISOString())) / 1000));
+            copy.stale = copy.source_age_seconds > 60 ? true : !!copy.stale;
+            return jsonNoStore(200, copy);
+          }
+        }
+        const payload = await buildAuctionLivePayload(season, leagueId, franchiseId, "expired-rookie");
+        acqCacheSet(cacheKey, payload);
+        return jsonNoStore(payload.ok ? 200 : 502, payload);
+      }
+
+      if (path === "/acquisition-hub/expired-rookie-auction/history" && request.method === "GET") {
+        const artifact = await fetchArtifactJson("expired_rookie_history");
+        if (!artifact.ok) return jsonNoStore(502, { ok: false, error: artifact.error, url: artifact.url });
+        return jsonNoStore(200, {
+          ok: true,
+          generated_at: safeStr(artifact.data?.meta?.generated_at),
+          ...artifact.data,
+        });
+      }
+
+      if (path === "/acquisition-hub/expired-rookie-auction/action" && request.method === "POST") {
+        const season = safeStr(url.searchParams.get("YEAR") || YEAR || "");
+        const leagueId = safeStr(url.searchParams.get("L") || L || "");
+        if (!leagueId) return jsonNoStore(400, { ok: false, error: "Missing L param" });
+        let body = {};
+        try {
+          body = (await request.json()) || {};
+        } catch (_) {
+          body = {};
+        }
+        const actionRes = await performAuctionAction(season, leagueId, body, "expired-rookie");
+        if (!actionRes.ok) {
+          return jsonNoStore(actionRes.status >= 400 ? actionRes.status : 502, {
+            ok: false,
+            error: actionRes.error,
+            preview: actionRes.preview || "",
+            native_link: actionRes.native_link || "",
+          });
+        }
+        acqCacheBustPrefix(`acq:auction-live:${season}:${leagueId}:expired-rookie`);
+        const live = await buildAuctionLivePayload(season, leagueId, body?.franchise_id || body?.franchiseId || "", "expired-rookie");
+        acqCacheSet(`acq:auction-live:${season}:${leagueId}:expired-rookie:${padFranchiseId(body?.franchise_id || body?.franchiseId || "") || "viewer"}`, live);
+        return jsonNoStore(200, {
+          ok: true,
+          message: "Expired rookie auction action submitted.",
+          action_result: {
+            status: actionRes.status,
+            preview: actionRes.preview || "",
+            native_link: actionRes.native_link || "",
+          },
+          live,
+        });
+      }
+
+      if (path === "/acquisition-hub/waivers" && request.method === "GET") {
+        const artifact = await fetchArtifactJson("waiver_history");
+        if (!artifact.ok) return jsonNoStore(502, { ok: false, error: artifact.error, url: artifact.url });
+        return jsonNoStore(200, {
+          ok: true,
+          generated_at: safeStr(artifact.data?.meta?.generated_at),
+          feature_enabled: false,
+          ...artifact.data,
+        });
+      }
+
+      if (path === "/acquisition-hub/admin/refresh" && request.method === "POST") {
+        const season = safeStr(url.searchParams.get("YEAR") || YEAR || "");
+        const leagueId = safeStr(url.searchParams.get("L") || L || "");
+        const adminState = await getLeagueAdminState(leagueId, season);
+        if (!adminState.ok || !adminState.isAdmin) {
+          return jsonNoStore(403, { ok: false, error: "admin_required" });
+        }
+        const dispatchOut = await dispatchRepoEvent("refresh-acquisition-hub", {
+          season,
+          league_id: leagueId,
+          requested_at_utc: new Date().toISOString(),
+          source: "worker-acquisition-hub",
+        });
+        return jsonNoStore(dispatchOut.ok ? 202 : 500, {
+          ok: !!dispatchOut.ok,
+          queued: !!dispatchOut.queued,
+          reason: dispatchOut.reason || "",
+          repo: dispatchOut.repo || "",
         });
       }
 

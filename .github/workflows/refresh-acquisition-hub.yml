@@ -1,0 +1,68 @@
+name: Refresh Acquisition Hub Artifacts
+
+on:
+  workflow_dispatch:
+  repository_dispatch:
+    types: [refresh-acquisition-hub]
+  schedule:
+    - cron: "15 * * * *"
+
+concurrency:
+  group: refresh-acquisition-hub
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Refresh acquisition artifacts when DB is available
+        env:
+          MFL_DB_PATH: ${{ secrets.MFL_DB_PATH }}
+        run: |
+          if [ -z "${MFL_DB_PATH}" ]; then
+            echo "No MFL_DB_PATH secret configured; skipping remote refresh."
+            exit 0
+          fi
+          if [ ! -f "${MFL_DB_PATH}" ]; then
+            echo "Configured MFL_DB_PATH does not exist on this runner; skipping remote refresh."
+            exit 0
+          fi
+          python pipelines/etl/scripts/build_acquisition_hub_artifacts.py \
+            --db-path "${MFL_DB_PATH}" \
+            --current-season 2026 \
+            --out-dir site/acquisition
+
+      - name: Commit and push if changed
+        run: |
+          if git diff --quiet -- site/acquisition; then
+            echo "No Acquisition Hub artifact changes to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add site/acquisition
+          git commit -m "Auto-refresh Acquisition Hub artifacts"
+          for attempt in 1 2 3; do
+            git pull --rebase origin main
+            if git push origin HEAD:main; then
+              echo "Push succeeded on attempt ${attempt}."
+              exit 0
+            fi
+            echo "Push attempt ${attempt} failed; retrying..."
+            sleep 2
+          done
+          echo "Failed to push after 3 attempts."
+          exit 1

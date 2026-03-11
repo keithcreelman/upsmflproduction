@@ -71,8 +71,10 @@ python3 "$SCRIPT_DIR/build_player_points_history_json.py" --db-path "$MFL_DB_PAT
 python3 "$SCRIPT_DIR/build_roster_points_history_json.py" --db-path "$MFL_DB_PATH" --roster-season 2026 --history-start-season 2010 --out-path "$ROOT_DIR/site/rosters/player_points_history.json"
 echo "==> Build player scoring report artifacts"
 python3 "$SCRIPT_DIR/build_player_scoring_report.py" "${PLAYER_SCORING_REPORT_ARGS[@]}"
-echo "==> Build salary adjustments report artifacts"
-python3 "$SCRIPT_DIR/build_salary_adjustments_report.py" "${SALARY_ADJUSTMENTS_REPORT_ARGS[@]}"
+echo "==> Build salary adjustments report artifacts and MFL XML imports"
+python3 "$SCRIPT_DIR/build_salary_adjustments_report.py" --import-out-dir "$MFL_ETL_ARTIFACT_DIR" "${SALARY_ADJUSTMENTS_REPORT_ARGS[@]}"
+echo "==> Build Acquisition Hub artifacts"
+python3 "$SCRIPT_DIR/build_acquisition_hub_artifacts.py" --db-path "$MFL_DB_PATH" --current-season 2026 --out-dir "$ROOT_DIR/site/acquisition"
 python3 "$SCRIPT_DIR/build_tag_submissions_json.py" --db-path "$MFL_DB_PATH" --out-path "$ROOT_DIR/site/ccc/tag_submissions.json"
 python3 "$SCRIPT_DIR/build_restructure_submissions_json.py" --db-path "$MFL_DB_PATH" --out-path "$ROOT_DIR/site/ccc/restructure_submissions.json"
 
