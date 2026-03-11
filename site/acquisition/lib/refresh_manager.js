@@ -58,6 +58,19 @@
       schedule(key);
     }
 
+    function applyResultHints(key, result) {
+      var entry = entries[key];
+      if (!entry || !result || typeof result !== "object") return;
+      var visibleMs = safeInt(result.next_refresh_recommended_ms, 0);
+      var hiddenMs = safeInt(result.hidden_refresh_recommended_ms, 0);
+      if (visibleMs > 0) entry.visibleIntervalMs = Math.max(1000, visibleMs);
+      if (hiddenMs > 0) {
+        entry.hiddenIntervalMs = Math.max(1000, hiddenMs);
+      } else if (visibleMs > 0) {
+        entry.hiddenIntervalMs = Math.max(Math.max(1000, visibleMs), visibleMs * 3);
+      }
+    }
+
     function run(key, reason) {
       var entry = entries[key];
       if (!entry || entry.inFlight || destroyed) return Promise.resolve(null);
@@ -69,6 +82,7 @@
           return entry.loader({ key: key, reason: reason || "manual" });
         })
         .then(function (result) {
+          applyResultHints(key, result);
           markResult(key, true);
           return result;
         })

@@ -1714,6 +1714,251 @@ export default {
         },
       });
 
+      const textValueAcq = (value) => {
+        if (value == null) return "";
+        if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+          return String(value).trim();
+        }
+        if (Array.isArray(value)) {
+          for (const item of value) {
+            const text = textValueAcq(item);
+            if (text) return text;
+          }
+          return "";
+        }
+        if (typeof value === "object") {
+          return firstTruthy(
+            value?.$t,
+            value?.text,
+            value?.value,
+            value?.label,
+            value?.name,
+            value?.title,
+            value?.description,
+            value?.summary,
+            value?.display,
+            value?.happens
+          );
+        }
+        return "";
+      };
+
+      const pickTextAcq = (...values) => {
+        for (const value of values) {
+          const text = textValueAcq(value);
+          if (text) return text;
+        }
+        return "";
+      };
+
+      const parseCalendarInstantAcq = (rawValue) => {
+        const raw = pickTextAcq(rawValue).replace(/\u00a0/g, " ").trim();
+        if (!raw) return "";
+        if (/^\d{13}$/.test(raw)) return new Date(Number(raw)).toISOString();
+        if (/^\d{10}$/.test(raw)) return new Date(Number(raw) * 1000).toISOString();
+
+        let match = raw.match(/^(\d{8})T?(\d{6})Z?$/);
+        if (match) {
+          const year = safeInt(match[1].slice(0, 4), 0);
+          const month = safeInt(match[1].slice(4, 6), 1) - 1;
+          const day = safeInt(match[1].slice(6, 8), 1);
+          const hour = safeInt(match[2].slice(0, 2), 0);
+          const minute = safeInt(match[2].slice(2, 4), 0);
+          const second = safeInt(match[2].slice(4, 6), 0);
+          return new Date(Date.UTC(year, month, day, hour, minute, second)).toISOString();
+        }
+
+        match = raw.match(/^(\d{4})(\d{2})(\d{2})$/);
+        if (match) {
+          return new Date(Date.UTC(safeInt(match[1], 0), safeInt(match[2], 1) - 1, safeInt(match[3], 1), 0, 0, 0)).toISOString();
+        }
+
+        match = raw.match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
+        if (match) {
+          return new Date(
+            Date.UTC(
+              safeInt(match[1], 0),
+              safeInt(match[2], 1) - 1,
+              safeInt(match[3], 1),
+              safeInt(match[4], 0),
+              safeInt(match[5], 0),
+              safeInt(match[6], 0)
+            )
+          ).toISOString();
+        }
+
+        match = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?:\s*([AP]M))?)?$/i);
+        if (match) {
+          let hour = safeInt(match[4], 0);
+          const meridiem = safeStr(match[6]).toUpperCase();
+          if (meridiem === "PM" && hour < 12) hour += 12;
+          if (meridiem === "AM" && hour === 12) hour = 0;
+          return new Date(
+            Date.UTC(
+              safeInt(match[3], 0),
+              safeInt(match[1], 1) - 1,
+              safeInt(match[2], 1),
+              hour,
+              safeInt(match[5], 0),
+              0
+            )
+          ).toISOString();
+        }
+
+        const parsed = Date.parse(raw);
+        return Number.isFinite(parsed) ? new Date(parsed).toISOString() : "";
+      };
+
+      const formatCalendarInstantEtAcq = (iso) => {
+        const ts = Date.parse(safeStr(iso));
+        if (!Number.isFinite(ts)) return "";
+        try {
+          return new Intl.DateTimeFormat("en-US", {
+            timeZone: "America/New_York",
+            year: "numeric",
+            month: "short",
+            day: "numeric",
+            hour: "numeric",
+            minute: "2-digit",
+            timeZoneName: "short",
+          }).format(new Date(ts));
+        } catch (_) {
+          return new Date(ts).toISOString();
+        }
+      };
+
+      const extractCalendarEventsAcq = (payload) => {
+        const root = payload?.calendar || payload || {};
+        const out = [];
+        const stack = [root];
+        const seen = new Set();
+        while (stack.length) {
+          const current = stack.pop();
+          if (!current || typeof current !== "object" || seen.has(current)) continue;
+          seen.add(current);
+          if (Array.isArray(current)) {
+            for (const item of current) stack.push(item);
+            continue;
+          }
+          const keys = Object.keys(current);
+          const hasDateish = keys.some((key) => /start|end|date|time|when|happens/i.test(key));
+          const hasEventish = keys.some((key) => /event|type|title|name|desc|label|summary/i.test(key));
+          if (hasDateish && hasEventish) out.push(current);
+          for (const key of keys) {
+            const child = current[key];
+            if (child && typeof child === "object") stack.push(child);
+          }
+        }
+        return out;
+      };
+
+      const normalizeCalendarEventAcq = (row) => {
+        const type = pickTextAcq(row?.event_type, row?.eventType, row?.type, row?.type_name, row?.eventTypeName, row?.event);
+        const title = pickTextAcq(row?.title, row?.name, row?.label, row?.summary, row?.description, row?.details, row?.happens);
+        const description = pickTextAcq(row?.description, row?.details, row?.summary, row?.note, row?.notes);
+        const startAt = parseCalendarInstantAcq(
+          pickTextAcq(row?.start_time, row?.startTime, row?.start, row?.begin, row?.date, row?.datetime, row?.when, row?.happens)
+        );
+        const endAt = parseCalendarInstantAcq(
+          pickTextAcq(row?.end_time, row?.endTime, row?.end, row?.until, row?.ends)
+        );
+        return {
+          event_type: type,
+          title,
+          description,
+          start_at: startAt,
+          end_at: endAt,
+        };
+      };
+
+      const fetchLeagueCalendarAcq = async (season, leagueId) => {
+        const cacheKey = `acq:calendar:${season}:${leagueId}`;
+        const cached = acqCacheGet(cacheKey, 10 * 60 * 1000);
+        if (cached) return cached;
+        const res = await mflExportJsonWithRetryAsViewer(season, leagueId, "calendar", {}, { useCookie: true });
+        const value = {
+          ok: !!res.ok,
+          status: safeInt(res.status, 0),
+          url: safeStr(res.url),
+          error: safeStr(res.error),
+          data: res.ok ? (res.data || {}) : null,
+        };
+        return acqCacheSet(cacheKey, value);
+      };
+
+      const findRookieDraftCalendarEventAcq = (calendarPayload, leaguePayload) => {
+        const leagueRoot = leaguePayload?.league || leaguePayload || {};
+        const draftPool = safeStr(firstTruthy(leagueRoot?.draftPlayerPool, leagueRoot?.draft_player_pool)).toLowerCase();
+        const now = Date.now();
+        const ranked = extractCalendarEventsAcq(calendarPayload)
+          .map((row) => normalizeCalendarEventAcq(row))
+          .filter((row) => row.start_at)
+          .map((row) => {
+            const blob = `${safeStr(row.event_type)} ${safeStr(row.title)} ${safeStr(row.description)}`.toLowerCase();
+            let score = 0;
+            if (blob.includes("rookie")) score += 6;
+            if (blob.includes("draft")) score += 4;
+            if (blob.includes("draft start")) score += 3;
+            if (safeStr(row.event_type).toUpperCase() === "DRAFT_START") score += 4;
+            if (draftPool === "rookie" && (blob.includes("draft") || safeStr(row.event_type).toUpperCase() === "DRAFT_START")) score += 3;
+            if (blob.includes("auction")) score -= 6;
+            const deltaMs = Math.abs(Date.parse(row.start_at) - now);
+            return { ...row, score, delta_ms: Number.isFinite(deltaMs) ? deltaMs : Number.MAX_SAFE_INTEGER };
+          })
+          .filter((row) => row.score >= 4)
+          .sort((a, b) =>
+            safeInt(b.score, 0) - safeInt(a.score, 0) ||
+            safeInt(a.delta_ms, Number.MAX_SAFE_INTEGER) - safeInt(b.delta_ms, Number.MAX_SAFE_INTEGER) ||
+            safeStr(a.start_at).localeCompare(safeStr(b.start_at))
+          );
+        return ranked.length ? ranked[0] : null;
+      };
+
+      const rookieDraftLooksActiveAcq = (statusInfo) => {
+        const blob = `${safeStr(statusInfo?.message)} ${safeStr(statusInfo?.timer_text)}`.toLowerCase();
+        if (/complete|completed|ended|closed|finished/.test(blob)) return false;
+        if (statusInfo?.current_pick && (safeInt(statusInfo?.current_pick?.round, 0) > 0 || safeInt(statusInfo?.current_pick?.pick, 0) > 0)) return true;
+        if (statusInfo?.timer_seconds != null && safeInt(statusInfo?.timer_seconds, -1) >= 0) return true;
+        return /on the clock|draft in progress|live draft|paused|timer|pick is in/.test(blob);
+      };
+
+      const deriveRookieDraftRefreshPlanAcq = (calendarEvent, statusInfo) => {
+        const fastVisibleMs = 5000;
+        const fastHiddenMs = 15000;
+        const slowVisibleMs = 60000;
+        const slowHiddenMs = 300000;
+        const startMs = Date.parse(safeStr(calendarEvent?.start_at));
+        const endMsRaw = Date.parse(safeStr(calendarEvent?.end_at));
+        const fallbackEndMs = Number.isFinite(startMs) ? startMs + (4 * 60 * 60 * 1000) : NaN;
+        const endMs = Number.isFinite(endMsRaw) ? endMsRaw : fallbackEndMs;
+        const now = Date.now();
+        const fastWindowActive =
+          Number.isFinite(startMs) &&
+          now >= (startMs - (6 * 60 * 60 * 1000)) &&
+          now <= ((Number.isFinite(endMs) ? endMs : startMs) + (12 * 60 * 60 * 1000));
+        const liveActive = rookieDraftLooksActiveAcq(statusInfo);
+        const fast = !!liveActive || !!fastWindowActive;
+        const startLabel = safeStr(calendarEvent?.start_at) ? formatCalendarInstantEtAcq(calendarEvent.start_at) : "";
+        const endLabel = safeStr(calendarEvent?.end_at) ? formatCalendarInstantEtAcq(calendarEvent.end_at) : "";
+        return {
+          next_refresh_recommended_ms: fast ? fastVisibleMs : slowVisibleMs,
+          hidden_refresh_recommended_ms: fast ? fastHiddenMs : slowHiddenMs,
+          refresh_mode: liveActive ? "live_draft_active" : (fastWindowActive ? "draft_night_window" : "offseason"),
+          draft_event: calendarEvent
+            ? {
+                event_type: safeStr(calendarEvent.event_type),
+                title: safeStr(calendarEvent.title),
+                description: safeStr(calendarEvent.description),
+                start_at: safeStr(calendarEvent.start_at),
+                end_at: safeStr(calendarEvent.end_at),
+                start_label: startLabel,
+                end_label: endLabel,
+                fast_window_active: !!fastWindowActive,
+              }
+            : null,
+        };
+      };
+
       const resolveAcquisitionArtifactsBaseUrls = () => {
         const preferred = safeStr(env.ACQUISITION_ARTIFACTS_BASE_URL || "https://keithcreelman.github.io/upsmflproduction/site/acquisition").replace(/\/+$/, "");
         const repoOwner = encodeURIComponent(safeStr(env.GITHUB_REPO_OWNER || "keithcreelman"));
@@ -2885,13 +3130,14 @@ export default {
       };
 
       const buildRookieDraftLivePayload = async (season, leagueId) => {
-        const [teamsSnapshot, rookieArtifact, draftResultsRes, draftStatusRes, draftChatRes, salariesRes] = await Promise.all([
+        const [teamsSnapshot, rookieArtifact, draftResultsRes, draftStatusRes, draftChatRes, salariesRes, calendarRes] = await Promise.all([
           buildLiveTeamsSnapshot(season, leagueId),
           fetchArtifactJson("rookie_draft_history"),
           fetchRookieDraftXml(season, leagueId, "draft_results.xml"),
           fetchRookieDraftXml(season, leagueId, "draft_status.xml"),
           fetchRookieDraftXml(season, leagueId, "chat.xml"),
           mflExportJsonWithRetryAsViewer(season, leagueId, "salaries", {}, { useCookie: true }),
+          fetchLeagueCalendarAcq(season, leagueId),
         ]);
         const franchiseMap = teamsSnapshot.ok ? teamsSnapshot.franchiseMap : {};
         const rookieArtifactData = rookieArtifact.ok ? (rookieArtifact.data || {}) : {};
@@ -2920,6 +3166,10 @@ export default {
         });
         const currentPickFranchiseId = padFranchiseId(statusInfo?.current_pick?.franchise_id);
         const currentPickMeta = currentPickFranchiseId ? (franchiseMap[currentPickFranchiseId] || {}) : {};
+        const rookieDraftEvent = teamsSnapshot.ok
+          ? findRookieDraftCalendarEventAcq(calendarRes.ok ? calendarRes.data : {}, teamsSnapshot.leagueRes?.data || {})
+          : null;
+        const refreshPlan = deriveRookieDraftRefreshPlanAcq(rookieDraftEvent, statusInfo);
         const stale = !draftResultsRes.ok && !draftStatusRes.ok;
         const payload = {
           ok: true,
@@ -2948,16 +3198,20 @@ export default {
           ),
           draftable_rookies: draftableRookies,
           contract_reconcile_status: buildRookieContractReconcileStatusAcq(liveBoard, salaryRowsByPlayer),
+          refresh_mode: safeStr(refreshPlan.refresh_mode),
+          draft_event: refreshPlan.draft_event,
           fetched_at: new Date().toISOString(),
           source_age_seconds: 0,
           stale,
-          next_refresh_recommended_ms: 5000,
+          next_refresh_recommended_ms: safeInt(refreshPlan.next_refresh_recommended_ms, 60000),
+          hidden_refresh_recommended_ms: safeInt(refreshPlan.hidden_refresh_recommended_ms, 300000),
           native_link: `https://www48.myfantasyleague.com/${encodeURIComponent(String(season))}/live_draft?L=${encodeURIComponent(leagueId)}`,
           upstream: {
             draft_results: { ok: draftResultsRes.ok, status: draftResultsRes.status, url: draftResultsRes.url },
             draft_status: { ok: draftStatusRes.ok, status: draftStatusRes.status, url: draftStatusRes.url },
             chat: { ok: draftChatRes.ok, status: draftChatRes.status, url: draftChatRes.url },
             artifact: { ok: rookieArtifact.ok, status: rookieArtifact.status, url: rookieArtifact.url },
+            calendar: { ok: calendarRes.ok, status: calendarRes.status, url: calendarRes.url },
           },
         };
         if ((!payload.draft_order || !payload.draft_order.length) && rookieArtifact.ok) {
@@ -12296,11 +12550,16 @@ export default {
           copy.source_age_seconds = Math.max(0, Math.round((Date.now() - Date.parse(copy.fetched_at || new Date().toISOString())) / 1000));
           return jsonNoStore(200, copy);
         }
-        const [teamsSnapshot, adminState, manifestRes] = await Promise.all([
+        const [teamsSnapshot, adminState, manifestRes, calendarRes] = await Promise.all([
           buildLiveTeamsSnapshot(season, leagueId),
           getLeagueAdminState(leagueId, season),
           fetchArtifactJson("manifest"),
+          fetchLeagueCalendarAcq(season, leagueId),
         ]);
+        const rookieDraftEvent = teamsSnapshot.ok
+          ? findRookieDraftCalendarEventAcq(calendarRes.ok ? calendarRes.data : {}, teamsSnapshot.leagueRes?.data || {})
+          : null;
+        const rookieRefreshPlan = deriveRookieDraftRefreshPlanAcq(rookieDraftEvent, null);
         const payload = {
           ok: true,
           league: {
@@ -12320,6 +12579,9 @@ export default {
             waiver_lab_enabled: false,
             live_actions_enabled: true,
           },
+          draft_events: {
+            rookie_draft: rookieRefreshPlan.draft_event,
+          },
           native_links: {
             rookie_draft: `https://www48.myfantasyleague.com/${encodeURIComponent(String(season))}/live_draft?L=${encodeURIComponent(leagueId)}`,
             free_agent_auction: `https://www48.myfantasyleague.com/${encodeURIComponent(String(season))}/options?L=${encodeURIComponent(leagueId)}&O=43`,
@@ -12328,7 +12590,8 @@ export default {
           },
           refresh_policy: {
             bootstrap_ms: 60000,
-            rookie_draft_live_ms: 5000,
+            rookie_draft_live_ms: safeInt(rookieRefreshPlan.next_refresh_recommended_ms, 60000),
+            rookie_draft_hidden_ms: safeInt(rookieRefreshPlan.hidden_refresh_recommended_ms, 300000),
             free_agent_auction_live_ms: 20000,
             expired_rookie_live_ms: 30000,
           },

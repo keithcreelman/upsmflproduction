@@ -75,10 +75,87 @@
     return value || "all";
   }
 
+  function safeNumber(value) {
+    if (value == null || value === "") return NaN;
+    var n = Number(value);
+    return isFinite(n) ? n : NaN;
+  }
+
+  function adpSortValue(row) {
+    var values = [
+      safeNumber(row && row.normalized_adp),
+      safeNumber(row && row.superflex_source_adp),
+      safeNumber(row && row.mfl_average_pick)
+    ];
+    for (var i = 0; i < values.length; i += 1) {
+      if (isFinite(values[i]) && values[i] > 0) return values[i];
+    }
+    return Number.POSITIVE_INFINITY;
+  }
+
+  function adpMetaLabel(row) {
+    var normalized = safeNumber(row && row.normalized_adp);
+    if (isFinite(normalized) && normalized > 0) return "ADP " + numberText(normalized, 2);
+    var superflex = safeNumber(row && row.superflex_source_adp);
+    if (isFinite(superflex) && superflex > 0) return "SF ADP " + numberText(superflex, 2);
+    var mflAdp = safeNumber(row && row.mfl_average_pick);
+    if (isFinite(mflAdp) && mflAdp > 0) return "MFL ADP " + numberText(mflAdp, 2);
+    var sentiment = safeNumber(row && row.public_sentiment_score);
+    if (isFinite(sentiment) && sentiment > 0) return "Sentiment " + numberText(sentiment, 2);
+    return "";
+  }
+
+  function compareDraftableRookies(a, b) {
+    var adpA = adpSortValue(a);
+    var adpB = adpSortValue(b);
+    var rankedA = isFinite(adpA);
+    var rankedB = isFinite(adpB);
+    if (rankedA && rankedB && adpA !== adpB) return adpA - adpB;
+    if (rankedA !== rankedB) return rankedA ? -1 : 1;
+    var sentimentDelta = safeNumber(b && b.public_sentiment_score) - safeNumber(a && a.public_sentiment_score);
+    if (isFinite(sentimentDelta) && sentimentDelta !== 0) return sentimentDelta;
+    return safeStr(a && a.player_name).localeCompare(safeStr(b && b.player_name));
+  }
+
+  function adpByPlayer(history) {
+    var rows = Array.isArray(history && history.adp_board) ? history.adp_board : [];
+    var map = {};
+    rows.forEach(function (row) {
+      var playerId = safeStr(row && row.player_id);
+      if (!playerId) return;
+      map[playerId] = row;
+    });
+    return map;
+  }
+
+  function enrichWithAdp(row, adpMap) {
+    var playerId = safeStr(row && row.player_id);
+    var overlay = (adpMap && adpMap[playerId]) || {};
+    return {
+      player_id: playerId,
+      player_name: safeStr(row && row.player_name) || safeStr(overlay.player_name),
+      position: safeStr(row && row.position) || safeStr(overlay.position),
+      pos_group: safeStr(row && row.pos_group) || safeStr(overlay.pos_group),
+      nfl_team: safeStr(row && row.nfl_team) || safeStr(overlay.nfl_team),
+      rookie_class_season: safeInt(row && row.rookie_class_season, safeInt(overlay && overlay.season, 0)),
+      normalized_adp: row && row.normalized_adp != null && row.normalized_adp !== "" ? row.normalized_adp : overlay.normalized_adp,
+      superflex_source_adp: row && row.superflex_source_adp != null && row.superflex_source_adp !== "" ? row.superflex_source_adp : overlay.superflex_source_adp,
+      mfl_average_pick: row && row.mfl_average_pick != null && row.mfl_average_pick !== "" ? row.mfl_average_pick : overlay.mfl_average_pick,
+      public_sentiment_score: row && row.public_sentiment_score != null && row.public_sentiment_score !== "" ? row.public_sentiment_score : overlay.public_sentiment_score,
+      adp_tier: safeStr(row && row.adp_tier) || safeStr(overlay.adp_tier),
+      adp_period_used: safeStr(row && row.adp_period_used) || safeStr(overlay.adp_period_used)
+    };
+  }
+
   function resolveDraftableRookies(live, history) {
     var liveRows = Array.isArray(live && live.draftable_rookies) ? live.draftable_rookies : [];
-    if (liveRows.length) return liveRows;
-    return Array.isArray(history && history.draftable_rookies_seed) ? history.draftable_rookies_seed : [];
+    var sourceRows = liveRows.length
+      ? liveRows
+      : (Array.isArray(history && history.draftable_rookies_seed) ? history.draftable_rookies_seed : []);
+    var adpMap = adpByPlayer(history);
+    return sourceRows.map(function (row) {
+      return enrichWithAdp(row, adpMap);
+    }).sort(compareDraftableRookies);
   }
 
   function filterHistoryRows(rows, teamFilter, search) {
@@ -105,7 +182,7 @@
         row.nfl_team,
         row.player_id
       ].join(" ").toLowerCase().indexOf(q) !== -1;
-    }).slice(0, 14);
+    }).sort(compareDraftableRookies).slice(0, 14);
   }
 
   function selectedRookie(moduleState, draftableRookies) {
@@ -144,7 +221,7 @@
     var adpRows = (history.adp_board || []).filter(function (row) {
       if (search && filterTextFromRow(row).indexOf(search) === -1) return false;
       return true;
-    }).slice(0, 24);
+    }).sort(compareDraftableRookies).slice(0, 24);
     var draftable = resolveDraftableRookies(live, history);
     var pickerQuery = safeStr(moduleState.local && moduleState.local.pickerQuery);
     var pickerRows = buildPickerRows(draftable, live.live_board || [], pickerQuery);
@@ -155,18 +232,23 @@
       : "Waiting on live draft status";
     var onClockTeam = (live.draft_status && live.draft_status.current_pick_team_name) || safeStr(currentPick.franchise_name || "");
     var reconcileStatus = live.contract_reconcile_status || {};
+    var eventLabel = safeStr(live && live.draft_event && live.draft_event.start_label);
+    var refreshBlurb = safeStr(live && live.refresh_mode) === "offseason"
+      ? "Live rookie draft polling slows down outside the scheduled draft window and speeds up automatically on draft night."
+      : "Live rookie draft data refreshes continuously while this tab is active.";
     return '' +
       '<section class="acq-card acq-card-hero">' +
         '<div>' +
           '<div class="acq-kicker">Live rookie board</div>' +
           '<h2 class="acq-section-title">Live Draft + Rookie ADP</h2>' +
-          '<p class="acq-muted">' + h.escapeHtml(safeStr(live.draft_status && live.draft_status.message) || "Live rookie draft data refreshes continuously while this tab is active.") + '</p>' +
+          '<p class="acq-muted">' + h.escapeHtml(safeStr(live.draft_status && live.draft_status.message) || refreshBlurb) + '</p>' +
         '</div>' +
         renderSubviewButtons("live", h) +
         '<div class="acq-kpi-grid">' +
           '<div class="acq-kpi"><span class="acq-kpi-label">On the Clock</span><strong>' + h.escapeHtml(currentPickLabel) + '</strong><span class="acq-muted">' + h.escapeHtml(onClockTeam || "Waiting") + '</span></div>' +
           '<div class="acq-kpi"><span class="acq-kpi-label">Picks Logged</span><strong>' + String((live.live_board || []).length) + '</strong><span class="acq-muted">' + h.escapeHtml(safeStr(live.draft_status && live.draft_status.timer_text) || "Live") + '</span></div>' +
           '<div class="acq-kpi"><span class="acq-kpi-label">Contract Reconcile</span><strong>' + h.escapeHtml(safeStr(reconcileStatus.label || "Ready")) + '</strong><span class="acq-muted">' + h.escapeHtml(safeStr(reconcileStatus.summary || "Drafted rookies will receive contracts immediately after confirmation.")) + '</span></div>' +
+          '<div class="acq-kpi"><span class="acq-kpi-label">Draft Event</span><strong>' + h.escapeHtml(eventLabel || "League Calendar") + '</strong><span class="acq-muted">' + h.escapeHtml(safeStr(live && live.refresh_mode) === "offseason" ? "Slow refresh until draft night." : "Fast refresh active.") + '</span></div>' +
         '</div>' +
       '</section>' +
       '<div class="acq-grid acq-grid-two">' +
@@ -178,7 +260,7 @@
               (selected
                 ? '<div class="acq-pickerSelected">' +
                     '<strong>' + h.escapeHtml(safeStr(selected.player_name)) + '</strong>' +
-                    '<span>' + h.escapeHtml([safeStr(selected.position), safeStr(selected.nfl_team), selected.normalized_adp != null && selected.normalized_adp !== "" ? ("ADP " + numberText(selected.normalized_adp, 2)) : ""].filter(Boolean).join(" · ")) + '</span>' +
+                    '<span>' + h.escapeHtml([safeStr(selected.position), safeStr(selected.nfl_team), adpMetaLabel(selected)].filter(Boolean).join(" · ")) + '</span>' +
                     '<button type="button" class="acq-btn acq-btn-secondary" data-acq-rookie-clear="1">Change</button>' +
                   '</div>'
                 : (pickerRows.length
@@ -186,7 +268,7 @@
                         return '' +
                           '<button type="button" class="acq-pickerRow" data-acq-rookie-pick="' + h.escapeHtml(safeStr(row.player_id)) + '" data-acq-rookie-name="' + h.escapeHtml(safeStr(row.player_name)) + '">' +
                             '<strong>' + h.escapeHtml(safeStr(row.player_name)) + '</strong>' +
-                            '<span>' + h.escapeHtml([safeStr(row.position), safeStr(row.nfl_team), row.normalized_adp != null && row.normalized_adp !== "" ? ("ADP " + numberText(row.normalized_adp, 2)) : ""].filter(Boolean).join(" · ")) + '</span>' +
+                            '<span>' + h.escapeHtml([safeStr(row.position), safeStr(row.nfl_team), adpMetaLabel(row)].filter(Boolean).join(" · ")) + '</span>' +
                           '</button>';
                       }).join("")
                     : '<div class="acq-empty">No undrafted rookies match the current search.</div>')) +
@@ -362,7 +444,7 @@
     title: "Rookie Draft Room",
     historyPath: "/acquisition-hub/rookie-draft/history",
     livePath: "/acquisition-hub/rookie-draft/live",
-    refresh: { visibleMs: 5000, hiddenMs: 15000 },
+    refresh: { visibleMs: 60000, hiddenMs: 300000 },
     getHistoryParams: function (ctx) {
       return {
         season_context: getSeasonContext(ctx && ctx.moduleState)
