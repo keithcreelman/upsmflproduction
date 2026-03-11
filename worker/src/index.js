@@ -2184,16 +2184,12 @@ export default {
       };
 
       const sendDiscordNotificationForBug = async (reportRow, filePath) => {
-        const webhook = safeStr(env.DISCORD_WEBHOOK_URL || "");
         const botToken = safeStr(
           env.DISCORD_BOT_TOKEN ||
           env.DISCORD_BOT ||
           env.Discord_bot ||
           ""
         );
-        const dmUserId = safeStr(env.DISCORD_DM_USER_ID || "").replace(/\D/g, "");
-        const dmUserIds = parseDiscordUserIds(env.DISCORD_DM_USER_IDS || "");
-        if (dmUserId && !dmUserIds.includes(dmUserId)) dmUserIds.unshift(dmUserId);
         const channelId = safeStr(env.DISCORD_BUG_CHANNEL_ID || "").replace(/\D/g, "");
         const content = formatBugDiscordMessage(reportRow, filePath);
         const rawAttachmentRows = Array.isArray(reportRow && reportRow.attachments) ? reportRow.attachments : [];
@@ -2212,7 +2208,6 @@ export default {
           if (rows) return rows.length;
           return files.length ? files.length : 0;
         };
-        let dmAttemptResult = null;
 
         const botRequest = async (method, apiPath, body) => {
           const target = `https://discord.com/api/v10${apiPath}`;
@@ -2281,60 +2276,12 @@ export default {
           }
         };
 
-        if (botToken && dmUserIds.length) {
-          const perUser = [];
-          let delivered = 0;
-          for (const userId of dmUserIds) {
-            const openDm = await botRequest("POST", "/users/@me/channels", { recipient_id: userId });
-            if (!openDm.ok || !safeStr(openDm.data && openDm.data.id)) {
-              perUser.push({
-                user_id: userId,
-                ok: false,
-                status: openDm.status,
-                error: safeStr(openDm.text || "open_dm_failed").slice(0, 600),
-              });
-              continue;
-            }
-            const dmChannelId = safeStr(openDm.data.id);
-            const sendDm = await botRequestWithFiles(`/channels/${encodeURIComponent(dmChannelId)}/messages`);
-            if (!sendDm.ok) {
-              perUser.push({
-                user_id: userId,
-                ok: false,
-                status: sendDm.status,
-                error: safeStr(sendDm.text || "send_dm_failed").slice(0, 600),
-                ...attachmentMeta(0),
-              });
-              continue;
-            }
-            delivered += 1;
-            const sentCount = responseAttachmentCount(sendDm);
-            perUser.push({
-              user_id: userId,
-              ok: true,
-              status: sendDm.status,
-              channel_id: dmChannelId,
-              ...attachmentMeta(sentCount),
-            });
-          }
-          if (delivered > 0) {
-            return {
-              ok: true,
-              mode: "bot-dm-multi",
-              attempted: dmUserIds.length,
-              delivered,
-              results: perUser,
-              ...attachmentMeta(files.length ? files.length : 0),
-            };
-          }
-          const firstFail = perUser.find((row) => row && row.ok === false) || {};
-          dmAttemptResult = {
+        if (!botToken || !channelId) {
+          return {
             ok: false,
-            mode: "bot-dm-multi",
-            attempted: dmUserIds.length,
-            delivered,
-            results: perUser,
-            error: safeStr(firstFail.error || "all_dm_attempts_failed").slice(0, 600),
+            mode: "none",
+            status: 0,
+            error: "missing_discord_bug_thread_config",
             ...attachmentMeta(0),
           };
         }
@@ -2347,7 +2294,6 @@ export default {
               mode: "bot-channel-thread",
               status: sendChannel.status,
               error: safeStr(sendChannel.text || "send_channel_failed").slice(0, 600),
-              dm_attempt: dmAttemptResult || undefined,
               ...attachmentMeta(0),
             };
           }
@@ -2359,7 +2305,6 @@ export default {
               status: sendChannel.status,
               error: "missing_root_message_id",
               channel_id: channelId,
-              dm_attempt: dmAttemptResult || undefined,
               ...attachmentMeta(0),
             };
           }
@@ -2382,7 +2327,6 @@ export default {
               channel_id: channelId,
               message_id: rootMessageId,
               thread_name: threadName,
-              dm_attempt: dmAttemptResult || undefined,
               ...attachmentMeta(responseAttachmentCount(sendChannel)),
             };
           }
@@ -2394,90 +2338,14 @@ export default {
             message_id: rootMessageId,
             thread_id: safeStr(createThread.data && createThread.data.id),
             thread_name: threadName,
-            dm_attempt: dmAttemptResult || undefined,
             ...attachmentMeta(sentCount),
           };
         }
-
-        if (webhook) {
-          try {
-            let res = null;
-            if (!files.length) {
-              res = await fetch(webhook, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  content,
-                  allowed_mentions: { parse: [] },
-                }),
-              });
-            } else {
-              const form = new FormData();
-              form.append(
-                "payload_json",
-                JSON.stringify({
-                  content,
-                  allowed_mentions: { parse: [] },
-                })
-              );
-              for (let i = 0; i < files.length; i += 1) {
-                const f = files[i];
-                form.append(
-                  `files[${i}]`,
-                  new Blob([f.bytes], { type: f.mime || "application/octet-stream" }),
-                  f.name || `screenshot-${i + 1}.jpg`
-                );
-              }
-              res = await fetch(webhook, {
-                method: "POST",
-                body: form,
-              });
-            }
-            if (!res.ok) {
-              const preview = (await res.text()).slice(0, 600);
-              return {
-                ok: false,
-                mode: "webhook",
-                status: res.status,
-                error: preview || "webhook_failed",
-                dm_attempt: dmAttemptResult || undefined,
-                ...attachmentMeta(0),
-              };
-            }
-            return {
-              ok: true,
-              mode: "webhook",
-              dm_attempt: dmAttemptResult || undefined,
-              ...attachmentMeta(files.length ? files.length : 0),
-            };
-          } catch (e) {
-            return {
-              ok: false,
-              mode: "webhook",
-              status: 0,
-              error: `fetch_failed: ${e?.message || String(e)}`,
-              dm_attempt: dmAttemptResult || undefined,
-              ...attachmentMeta(0),
-            };
-          }
-        }
-
-        if (!botToken) {
-          return {
-            ok: false,
-            mode: "none",
-            status: 0,
-            error: "missing_discord_config",
-            ...attachmentMeta(0),
-          };
-        }
-
-        if (dmAttemptResult) return dmAttemptResult;
         return {
           ok: false,
           mode: "none",
           status: 0,
-          error: "missing_discord_dm_or_channel",
+          error: "missing_discord_bug_thread_config",
           ...attachmentMeta(0),
         };
       };
