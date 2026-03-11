@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <dict>
+    <key>Label</key>
+    <string>com.keith.mfl.acquisition.rookie-reconcile</string>
+
+    <key>ProgramArguments</key>
+    <array>
+      <string>/bin/bash</string>
+      <string>/Users/keithcreelman/Documents/New project/scripts/run_acquisition_rookie_reconcile.sh</string>
+    </array>
+
+    <key>StartInterval</key>
+    <integer>60</integer>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/keithcreelman/Documents/New project/etl/logs/acquisition-rookie-reconcile.out.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/Users/keithcreelman/Documents/New project/etl/logs/acquisition-rookie-reconcile.err.log</string>
+  </dict>
+</plist>

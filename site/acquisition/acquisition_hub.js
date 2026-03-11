@@ -163,7 +163,13 @@
     }).join("");
     var body = list.map(function (row) {
       return "<tr>" + cols.map(function (col) {
+        if (typeof col.renderHtml === "function") {
+          return "<td>" + String(col.renderHtml(row)) + "</td>";
+        }
         var raw = row && row[col.key];
+        if (row && row[col.key + "_html"] != null) {
+          return "<td>" + String(row[col.key + "_html"]) + "</td>";
+        }
         var text = raw;
         if (col.key && /(amount|value|aav|max_bid|reserve_cost|funds|salary|\$\$)/i.test(col.key) && raw !== "" && raw != null) {
           text = formatMoney(raw);
@@ -219,7 +225,8 @@
         live: null,
         history: null,
         error: "",
-        historyLoaded: false
+        historyLoaded: false,
+        local: {}
       };
     }
     return state.modules[key];
@@ -251,7 +258,14 @@
     var moduleState = ensureModuleState(key);
     if (!moduleConfig || !moduleConfig.historyPath) return Promise.resolve(null);
     if (moduleState.historyLoaded && !force) return Promise.resolve(moduleState.history);
-    return fetchJson(moduleConfig.historyPath).then(function (payload) {
+    var params = typeof moduleConfig.getHistoryParams === "function"
+      ? moduleConfig.getHistoryParams({
+          moduleState: moduleState,
+          shared: state.shared,
+          bootstrap: state.bootstrap
+        }) || {}
+      : {};
+    return fetchJson(moduleConfig.historyPath, params).then(function (payload) {
       moduleState.history = payload;
       moduleState.historyLoaded = true;
       moduleState.error = "";
@@ -268,7 +282,19 @@
     var moduleConfig = MODULES[key];
     var moduleState = ensureModuleState(key);
     if (!moduleConfig || !moduleConfig.livePath) return Promise.resolve(null);
-    return fetchJson(moduleConfig.livePath, { F: state.shared.teamId || "" }).then(function (payload) {
+    var params = { F: state.shared.teamId || "" };
+    if (typeof moduleConfig.getLiveParams === "function") {
+      var extra = moduleConfig.getLiveParams({
+        moduleState: moduleState,
+        shared: state.shared,
+        bootstrap: state.bootstrap,
+        reason: reason
+      }) || {};
+      Object.keys(extra).forEach(function (keyName) {
+        params[keyName] = extra[keyName];
+      });
+    }
+    return fetchJson(moduleConfig.livePath, params).then(function (payload) {
       moduleState.live = payload;
       moduleState.error = "";
       render();
@@ -368,6 +394,35 @@
     bindUi();
     if (typeof moduleConfig.bind === "function") {
       moduleConfig.bind(root.querySelector("#acqPageRoot"), {
+        bootstrap: state.bootstrap,
+        moduleState: moduleState,
+        shared: state.shared,
+        helpers: {
+          escapeHtml: escapeHtml,
+          formatMoney: formatMoney,
+          formatAge: formatAge,
+          renderTable: renderTable
+        },
+        setLocalState: function (updates, options) {
+          var current = ensureModuleState(state.activeKey);
+          current.local = Object.assign({}, current.local || {}, updates || {});
+          render();
+          if (options && options.reloadHistory) {
+            loadModuleHistory(state.activeKey, true).catch(function () {});
+          }
+          if (options && options.reloadLive && refreshManager && MODULES[state.activeKey] && MODULES[state.activeKey].livePath) {
+            refreshManager.invalidate(state.activeKey);
+            refreshManager.refresh(state.activeKey, "local-state").catch(function () {});
+          }
+        },
+        reloadHistory: function (force) {
+          return loadModuleHistory(state.activeKey, force !== false);
+        },
+        reloadLive: function () {
+          if (!refreshManager || !MODULES[state.activeKey] || !MODULES[state.activeKey].livePath) return Promise.resolve(null);
+          refreshManager.invalidate(state.activeKey);
+          return refreshManager.refresh(state.activeKey, "manual-bind");
+        },
         postAction: function (path, body) {
           state.busyAction = true;
           return postJson(path, body).then(function (payload) {

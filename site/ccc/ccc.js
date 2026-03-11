@@ -1603,6 +1603,102 @@
     return Math.ceil(n / 1000) * 1000;
   }
 
+  function parseRookieOptionToken(contractInfo) {
+    const text = safeStr(contractInfo);
+    const match = text.match(/(?:^|\|)\s*ROPT\s+([^|]+)/i);
+    if (!match) return null;
+    const blob = safeStr(match[1]);
+    const parseK = (label) => {
+      const m = blob.match(new RegExp("\\b" + label + "=([0-9]+(?:\\.[0-9]+)?)K\\b", "i"));
+      return m ? Math.round(parseFloat(m[1]) * 1000) : 0;
+    };
+    const statusMatch = blob.match(/\bstatus=([a-z-]+)/i);
+    const classMatch = blob.match(/\bclass=(\d{4})\b/i);
+    const deadlineMatch = blob.match(/\bdeadline=(\d{4})\b/i);
+    return {
+      eligible: true,
+      exercised: safeStr(statusMatch && statusMatch[1]).toLowerCase() === "exercised",
+      classSeason: safeInt(classMatch && classMatch[1]),
+      deadlineSeason: safeInt(deadlineMatch && deadlineMatch[1]),
+      baseSalary: parseK("base"),
+      optionYearSalary: parseK("option"),
+    };
+  }
+
+  function rookieOptionStateFromRow(row) {
+    if (!row) return null;
+    if (row.rookie_option_eligible || row.rookie_option_exercised) {
+      return {
+        eligible: !!row.rookie_option_eligible,
+        exercised: !!row.rookie_option_exercised,
+        classSeason: safeInt(row.rookie_option_class_season),
+        deadlineSeason: safeInt(row.rookie_option_deadline_season),
+        baseSalary: safeInt(row.rookie_option_base_salary || row.salary),
+        optionYearSalary: safeInt(row.rookie_option_year_salary || row.rookie_option_half_raise_salary),
+      };
+    }
+    return parseRookieOptionToken(row.contract_info || "");
+  }
+
+  function rookieOptionEligibleNow(row) {
+    const option = rookieOptionStateFromRow(row);
+    if (!option || !option.eligible || option.exercised) return false;
+    if (safeInt(row && row.contract_year) !== 1) return false;
+    if (safeStr(row && row.contract_status).toLowerCase().includes("tag")) return false;
+    return true;
+  }
+
+  function buildRookieOptionInfoToken(optionState, exercised) {
+    if (!optionState || !optionState.eligible) return "";
+    return [
+      "ROPT",
+      "status=" + (exercised ? "exercised" : "eligible"),
+      "class=" + String(safeInt(optionState.classSeason)),
+      "deadline=" + String(safeInt(optionState.deadlineSeason)),
+      "base=" + formatK(optionState.baseSalary),
+      "option=" + formatK(optionState.optionYearSalary),
+    ].join(" ");
+  }
+
+  function buildRookieOptionPreview(row) {
+    const option = rookieOptionStateFromRow(row);
+    if (!option || !option.eligible) return null;
+    const baseSalary = Math.max(1000, safeInt(option.baseSalary || row.salary));
+    const optionYearSalary = Math.max(baseSalary, safeInt(option.optionYearSalary));
+    const total = baseSalary + optionYearSalary;
+    const contractInfo = [
+      "CL 2",
+      "TCV " + formatK(total),
+      "AAV " + formatK(Math.round(total / 2)),
+      "Y1-" + formatK(baseSalary) + ", Y2-" + formatK(optionYearSalary),
+      "GTD: " + formatK(total > 4000 ? Math.round(total * 0.75) : Math.max(0, total - baseSalary)),
+      buildRookieOptionInfoToken(option, true),
+    ].filter(Boolean).join("| ");
+    return {
+      option,
+      payload: {
+        leagueId: getLeagueId() || DEFAULT_LEAGUE_ID,
+        year: getYear() || DEFAULT_YEAR,
+        player_id: safeStr(row.player_id),
+        player_name: safeStr(row.player_name),
+        franchise_id: pad4(row.franchise_id),
+        franchise_name: safeStr(row.franchise_name),
+        position: safeStr(posKeyFromRow(row)),
+        salary: baseSalary,
+        contract_year: 2,
+        contract_status: "R-OPT",
+        contract_info: contractInfo,
+      },
+      lines: [
+        "Current final-year salary: " + formatK(baseSalary),
+        "Option year salary: " + formatK(optionYearSalary),
+        "New remaining length: 2 years",
+        "Team retains later extension path after the option year.",
+      ],
+      deadline: getContractDeadlineDate(getContractSeasonValue(getUiSeasonForRow(row))),
+    };
+  }
+
   function parseContractAmounts(contractInfo, years, fallbackSalary) {
     const base = splitContractInfoBaseAndExt(contractInfo).base;
     const tcvMatch = base.match(/TCV\s+([0-9]+(?:\.[0-9]+)?K?)/i);
@@ -4823,6 +4919,7 @@
     if (key === "tag") return "tag";
     if (key === "auction") return "auction";
     if (key === "extend") return "extend";
+    if (key === "rookie-option") return "rookie-option";
     return "";
   }
 
@@ -4830,6 +4927,7 @@
     return [
       { type: "", label: "Select an action\u2026", module: "", disabled: false, placeholder: true },
       { type: "tag", label: "Tag Player", module: "tag", disabled: false },
+      { type: "rookie-option", label: "Exercise Rookie Option", module: "extensions", disabled: false },
       { type: "extend", label: "Extend Player", module: "extensions", disabled: false },
       { type: "restructure", label: "Restructure", module: "restructure", disabled: false },
       { type: "auction", label: "Auction Contract", module: "auction", disabled: true },
@@ -4935,6 +5033,9 @@
         (state.tagTrackingRows || []).filter((r) => normalizeSeasonValue(r.season) === tagSeason)
       );
       return sortCandidates(tagRows.filter((r) => safeInt(r.is_tag_eligible) === 1));
+    }
+    if (actionType === "rookie-option") {
+      return sortCandidates(seasonRows.filter((r) => rookieOptionEligibleNow(r)));
     }
     if (actionType === "extend") {
       return sortCandidates(seasonRows.filter((r) => canExtendRow(r)));
@@ -5073,6 +5174,30 @@
           : "Submit tag now. You may resubmit until the deadline.",
       };
     }
+    if (actionType === "rookie-option") {
+      const preview = buildRookieOptionPreview(row);
+      const payload = preview && preview.payload ? preview.payload : {};
+      return {
+        current: [
+          `Salary: ${safeInt(row.salary).toLocaleString()}`,
+          `Years Remaining: ${safeInt(row.contract_year)}`,
+          `Status: ${safeStr(row.contract_status || "")}`,
+          `Contract: ${safeStr(row.contract_info || "—")}`,
+        ],
+        proposed: [
+          `Salary: ${safeInt(payload.salary).toLocaleString()}`,
+          `Years Remaining: ${safeInt(payload.contract_year)}`,
+          `Status: ${safeStr(payload.contract_status || "R-OPT")}`,
+          `Contract: ${safeStr(payload.contract_info || "—")}`,
+        ],
+        changes: (preview && preview.lines ? preview.lines.slice(0, 4) : []).map((line) => safeStr(line)),
+        submitEnabled: !!preview,
+        submitLabel: "Submit Rookie Option",
+        statusHint: preview && preview.deadline
+          ? `Exercise before ${fmtYMDDate(preview.deadline)}.`
+          : "Exercise the first-round rookie option.",
+      };
+    }
     // extend
     const yearsToAdd = safeStr(state.actionFlow.selectedTerm || "1YR") === "2YR" ? 2 : 1;
     const preview = buildExtensionPreview(row, yearsToAdd, null);
@@ -5136,6 +5261,7 @@
   }
 
   function getActionCardDesc(type) {
+    if (type === "rookie-option") return "Exercise the first-round rookie team option before the deadline.";
     if (type === "extend") return "Add years to an eligible player's contract.";
     if (type === "restructure") return "Redistribute salary across remaining years.";
     if (type === "mym") return "Offer a mid-year multi-year contract.";
@@ -5269,6 +5395,17 @@
               )}</span>` +
               `</span>` +
               `<span class="headline-sub">Restructures Used: ${used}/${RESTRUCTURE_CAP_PER_TEAM}</span>`;
+          } else if (actionType === "rookie-option") {
+            const optionPreview = buildRookieOptionPreview(r);
+            const optionSalary = safeInt(optionPreview && optionPreview.option && optionPreview.option.optionYearSalary);
+            const deadlineText =
+              optionPreview && optionPreview.deadline ? fmtYMDDate(optionPreview.deadline) : "TBD";
+            headlineHtml =
+              `<span class="headline-row">` +
+              `<span class="headline headline-deadline">Deadline: ${htmlEsc(deadlineText)}</span>` +
+              `<span class="headline headline-aav headline-right">Option Year: $${htmlEsc(optionSalary.toLocaleString())}</span>` +
+              `</span>` +
+              `<span class="headline-sub">Exercise before the final rookie season begins.</span>`;
           }
           const isActive = isSelectedInFlow || (actionType === "tag" && isSelectedByTag);
           return `
@@ -5831,6 +5968,79 @@
     return key;
   }
 
+  async function submitRookieOptionAction(row) {
+    const preview = buildRookieOptionPreview(row);
+    if (!preview || !preview.payload) throw new Error("Rookie option preview is unavailable.");
+    const canLiveSubmit = canSubmitLiveContracts();
+    const payload = {
+      ...preview.payload,
+      L: String(getLeagueId() || DEFAULT_LEAGUE_ID),
+      YEAR: String(getYear() || DEFAULT_YEAR),
+      leagueId: String(getLeagueId() || DEFAULT_LEAGUE_ID),
+      year: String(getYear() || DEFAULT_YEAR),
+      type: "MANUAL_CONTRACT_UPDATE",
+      source: canLiveSubmit ? "live-rookie-option-submit" : "local-test-rookie-option-submit",
+      submitted_at_utc: new Date().toISOString(),
+      commish_override_flag: state.commishMode && state.asOfOverrideActive && state.asOfDate ? 1 : 0,
+      override_as_of_date:
+        state.commishMode && state.asOfOverrideActive && state.asOfDate
+          ? fmtLocalYMDHM(state.asOfDate)
+          : "",
+      test_mode: canLiveSubmit ? 0 : 1,
+    };
+    payload.submission_id = buildSubmissionId("rookie-option", payload);
+
+    if (!canLiveSubmit) {
+      applyPostRookieOptionLocalUpdate(row, payload, {
+        postCheck: {
+          salary: safeInt(payload.salary),
+          contractStatus: "R-OPT (TEST)",
+          contractYear: 2,
+          contractInfo: `${safeStr(payload.contract_info)}${payload.contract_info ? " | " : ""}TEST MODE`,
+        },
+      });
+      return { ok: true, test_mode: true };
+    }
+
+    const url =
+      `${COMMISH_CONTRACT_UPDATE_URL}?L=${encodeURIComponent(payload.L)}&YEAR=${encodeURIComponent(payload.YEAR)}`;
+    let res = await fetchWithTimeout(
+      url,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      },
+      15000
+    );
+    if (!res.ok) {
+      const form = new URLSearchParams();
+      Object.entries(payload).forEach(([k, v]) => form.set(k, String(v)));
+      res = await fetchWithTimeout(
+        url,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
+          body: form.toString(),
+        },
+        15000
+      );
+    }
+    const text = await res.text();
+    const parsed = parseMutationResult(text);
+    const mutationStatus = parsed.status;
+    const details = parsed.details;
+    if (!res.ok || !isMutationSuccessStatus(mutationStatus)) {
+      throw new Error(getMutationErrorMessage(mutationStatus, details, text, res.status));
+    }
+    applyPostRookieOptionLocalUpdate(row, payload, {
+      ...(parsed.raw || {}),
+      postCheck: (details && details.postCheck) || (parsed.raw && parsed.raw.postCheck) || {},
+      preCheck: (details && details.preCheck) || (parsed.raw && parsed.raw.preCheck) || {},
+    });
+    return { ok: true, test_mode: false };
+  }
+
   async function runActionFlowSubmit() {
     if (state.actionFlow.busy) return;
     const actionType = normalizeActionType(state.actionFlow.actionType);
@@ -5863,6 +6073,14 @@
         } else {
           setActionFlowStatus("failed", "Submit did not complete. Review details and try again.");
         }
+      } else if (actionType === "rookie-option") {
+        await submitRookieOptionAction(row);
+        setActionFlowStatus(
+          "submitted",
+          "Rookie option submitted successfully.",
+          `${safeStr(row.player_name)} · ROPT`
+        );
+        setGlobalNotice(`Rookie option submitted for ${safeStr(row.player_name)}.`, false);
       } else if (actionType === "extend") {
         const yearsToAdd = safeStr(state.actionFlow.selectedTerm || "1YR") === "2YR" ? 2 : 1;
         const key = ensureExtensionSelectionForAction(row, yearsToAdd);
@@ -6141,6 +6359,7 @@
 
   function canExtendRow(row) {
     if (!row) return false;
+    if (rookieOptionEligibleNow(row)) return false;
     /* Prefer explicit flag if present in payload */
     const flag = row.extension_eligible;
     if (flag !== undefined && flag !== null && flag !== "") {
@@ -6575,6 +6794,9 @@
     const rookieInfoNext = getTagDeadlineInfo(String(safeInt(s) + 1));
     const rookieEventDeadlineNext =
       rookieInfoNext && rookieInfoNext.tagDeadline ? rookieInfoNext.tagDeadline : null;
+    if (rookieOptionEligibleNow(row)) {
+      return contractDeadline;
+    }
     if (expiredRookie) {
       return rookieEventDeadlineCurrent || contractDeadline;
     }
@@ -6940,6 +7162,33 @@
       submission_id: safeStr(payload.submission_id || existing.submission_id || ""),
     };
     return state.extensionSubmissions[key];
+  }
+
+  function applyPostRookieOptionLocalUpdate(row, payload, out) {
+    const pid = safeStr(row && row.player_id);
+    if (!pid) return null;
+    const post = (out && out.postCheck) || {};
+    const salaryFinal = safeInt(post.salary || payload.salary || row.salary);
+    const statusFinal = safeStr(post.contractStatus || payload.contract_status || "R-OPT");
+    const yearFinal = safeInt(post.contractYear || payload.contract_year || 2);
+    const infoFinal = safeStr(post.contractInfo || payload.contract_info || row.contract_info);
+
+    (state.payload.eligibility || []).forEach((r) => {
+      if (safeStr(r.player_id) !== pid) return;
+      r.salary = salaryFinal;
+      r.contract_year = yearFinal;
+      r.contract_status = statusFinal;
+      r.contract_info = infoFinal;
+      r.rookie_option_exercised = 1;
+      r.rookie_option_eligible = 1;
+    });
+
+    return {
+      player_id: pid,
+      contract_status: statusFinal,
+      contract_year: yearFinal,
+      contract_info: infoFinal,
+    };
   }
 
   function computeSubmissionUsageByTeam(rows) {

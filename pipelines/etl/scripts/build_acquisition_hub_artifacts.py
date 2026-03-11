@@ -101,6 +101,41 @@ def fetch_rows(conn: sqlite3.Connection, sql: str, params=()):
     return [dict(zip(cols, row)) for row in cur.fetchall()]
 
 
+def fetch_rows_safe(conn: sqlite3.Connection, sql: str, params=()):
+    try:
+        return fetch_rows(conn, sql, params)
+    except sqlite3.Error:
+        return []
+
+
+def table_exists(conn: sqlite3.Connection, name: str) -> bool:
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT 1
+        FROM sqlite_master
+        WHERE type IN ('table', 'view')
+          AND name = ?
+        LIMIT 1
+        """,
+        (name,),
+    )
+    return cur.fetchone() is not None
+
+
+def rookie_round_segment(pick_in_round: int) -> str:
+    pick = safe_int(pick_in_round, 0)
+    if 1 <= pick <= 4:
+        return "Early"
+    if 5 <= pick <= 8:
+        return "Middle"
+    return "Late"
+
+
+def pick_label(round_value: int, pick_in_round: int) -> str:
+    return f"{safe_int(round_value, 0)}.{safe_int(pick_in_round, 0):02d}"
+
+
 def build_rookie_history(conn: sqlite3.Connection, current_season: int, history_seasons: int):
     min_season = current_season - max(history_seasons, 3) + 1
     rookie_rows = fetch_rows(
@@ -215,7 +250,9 @@ def build_rookie_history(conn: sqlite3.Connection, current_season: int, history_
             "draft_round": safe_int(row.get("draft_round")),
             "pick_in_round": safe_int(row.get("pick_in_round")),
             "pick_overall": safe_int(row.get("pick_overall")),
+            "pick_label": pick_label(row.get("draft_round"), row.get("pick_in_round")),
             "pick_bucket": row["pick_bucket"],
+            "round_segment": rookie_round_segment(row.get("pick_in_round")),
             "player_id": player_id,
             "player_name": row.get("player_name") or "",
             "franchise_id": row.get("franchise_id") or "",
@@ -273,8 +310,10 @@ def build_rookie_history(conn: sqlite3.Connection, current_season: int, history_
             + safe_float(row.get("roi_score_scaled"), 0.0) * 0.10
         )
         row["rookie_value_score"] = round(score * 100.0, 2)
+        row["expected_points_3yr"] = round2(pick_bucket_expectation.get(row["pick_bucket"], 0.0))
+        row["hit_flag"] = 1 if safe_float(row.get("roi_score"), 0.0) > 0 else 0
 
-    adp_rows = fetch_rows(
+    adp_rows = fetch_rows_safe(
         conn,
         """
         SELECT
@@ -297,11 +336,114 @@ def build_rookie_history(conn: sqlite3.Connection, current_season: int, history_
         (current_season - 2,),
     )
 
+    rookie_adp_by_player = {}
+    rookie_seed_rows = []
+    if table_exists(conn, "player_market_sentiment"):
+        rookie_seed_rows = fetch_rows_safe(
+            conn,
+            """
+            WITH latest AS (
+              SELECT
+                valuation_season,
+                player_id,
+                MAX(snapshot_ts_utc) AS snapshot_ts_utc
+              FROM player_market_sentiment
+              WHERE valuation_season = ?
+                AND (is_rookie = 1 OR nfl_draft_year = ?)
+              GROUP BY valuation_season, player_id
+            )
+            SELECT
+              p.valuation_season,
+              p.player_id,
+              p.player_name,
+              p.position,
+              p.pos_group,
+              p.team AS nfl_team,
+              p.nfl_draft_year,
+              p.is_rookie,
+              p.adp_overall,
+              p.adp_position,
+              p.adp_bucket,
+              p.adp_tier,
+              p.market_archetype,
+              p.public_sentiment_score
+            FROM latest l
+            JOIN player_market_sentiment p
+              ON p.valuation_season = l.valuation_season
+             AND p.player_id = l.player_id
+             AND p.snapshot_ts_utc = l.snapshot_ts_utc
+            ORDER BY COALESCE(p.adp_overall, 9999), p.player_name
+            """,
+            (current_season, current_season),
+        )
+    adp_current_by_player = {
+        str(row.get("player_id") or ""): row
+        for row in adp_rows
+        if safe_int(row.get("season")) == current_season
+    }
+    rookie_adp_rows = []
+    for row in rookie_seed_rows:
+        player_id = str(row.get("player_id") or "")
+        adp_row = adp_current_by_player.get(player_id, {})
+        normalized_adp_value = adp_row.get("normalized_adp")
+        if normalized_adp_value in (None, "") and row.get("adp_overall") not in (None, ""):
+            normalized_adp_value = row.get("adp_overall")
+        rookie_adp_row = {
+            "season": current_season,
+            "player_id": player_id,
+            "player_name": row.get("player_name") or "",
+            "position": row.get("position") or "",
+            "nfl_team": row.get("nfl_team") or "",
+            "normalized_adp": None if normalized_adp_value in (None, "") else round2(normalized_adp_value),
+            "mfl_rank": safe_int(adp_row.get("mfl_rank")),
+            "mfl_average_pick": round2(adp_row.get("mfl_average_pick")),
+            "superflex_source_adp": round2(adp_row.get("superflex_source_adp")),
+            "adp_period_used": adp_row.get("adp_period_used") or "",
+            "normalization_source": adp_row.get("normalization_source") or row.get("market_archetype") or "",
+            "pos_group": row.get("pos_group") or "",
+            "adp_bucket": row.get("adp_bucket") or "",
+            "adp_tier": row.get("adp_tier") or "",
+            "public_sentiment_score": round2(row.get("public_sentiment_score")),
+        }
+        rookie_adp_rows.append(rookie_adp_row)
+        rookie_adp_by_player[player_id] = rookie_adp_row
+    if not rookie_adp_rows:
+        rookie_adp_rows = [
+            row for row in adp_rows
+            if safe_int(row.get("season")) == current_season
+        ]
+
+    draftable_rookies_seed = []
+    for row in rookie_seed_rows:
+        player_id = str(row.get("player_id") or "")
+        adp_row = rookie_adp_by_player.get(player_id, adp_current_by_player.get(player_id, {}))
+        normalized_adp_value = adp_row.get("normalized_adp")
+        draftable_rookies_seed.append(
+            {
+                "player_id": player_id,
+                "player_name": row.get("player_name") or "",
+                "position": row.get("position") or "",
+                "pos_group": row.get("pos_group") or "",
+                "nfl_team": row.get("nfl_team") or "",
+                "rookie_class_season": safe_int(row.get("nfl_draft_year") or current_season),
+                "normalized_adp": None if normalized_adp_value in (None, "") else round2(normalized_adp_value),
+                "mfl_average_pick": round2(adp_row.get("mfl_average_pick")),
+                "adp_tier": row.get("adp_tier") or "",
+                "public_sentiment_score": round2(row.get("public_sentiment_score")),
+            }
+        )
+    draftable_rookies_seed.sort(
+        key=lambda row: (
+            safe_float(row.get("normalized_adp"), 9999),
+            str(row.get("player_name") or "").lower(),
+        )
+    )
+
     current_order = [
         {
             "franchise_id": row["franchise_id"],
             "franchise_name": row["franchise_name"],
-            "pick_label": f"{safe_int(row['draft_round'])}.{safe_int(row['pick_in_round']):02d}",
+            "pick_label": row["pick_label"],
             "pick_overall": safe_int(row["pick_overall"]),
         }
         for row in enriched
@@ -331,6 +473,106 @@ def build_rookie_history(conn: sqlite3.Connection, current_season: int, history_
             }
         )
 
+    available_seasons = sorted({safe_int(row.get("season")) for row in enriched if safe_int(row.get("season")) > 0}, reverse=True)
+
+    owner_summary = {}
+    pick_summary = {}
+    for row in enriched:
+        owner_key = (str(row.get("season") or ""), str(row.get("franchise_id") or ""))
+        owner_summary.setdefault(
+            owner_key,
+            {
+                "season": safe_int(row.get("season")),
+                "franchise_id": row.get("franchise_id") or "",
+                "franchise_name": row.get("franchise_name") or "",
+                "owner_name": row.get("owner_name") or "",
+                "picks_made": 0,
+                "points_total_3yr": 0.0,
+                "rookie_value_total": 0.0,
+                "hit_count": 0,
+                "best_pick_label": "",
+                "best_pick_player_name": "",
+                "best_pick_score": -1.0,
+            },
+        )
+        owner_row = owner_summary[owner_key]
+        owner_row["picks_made"] += 1
+        owner_row["points_total_3yr"] += safe_float(row.get("points_rookiecontract"), 0.0)
+        owner_row["rookie_value_total"] += safe_float(row.get("rookie_value_score"), 0.0)
+        owner_row["hit_count"] += safe_int(row.get("hit_flag"), 0)
+        if safe_float(row.get("rookie_value_score"), 0.0) > safe_float(owner_row.get("best_pick_score"), -1.0):
+            owner_row["best_pick_score"] = safe_float(row.get("rookie_value_score"), 0.0)
+            owner_row["best_pick_label"] = row.get("pick_label") or ""
+            owner_row["best_pick_player_name"] = row.get("player_name") or ""
+
+        pick_key = (str(row.get("draft_round") or ""), str(row.get("pick_in_round") or ""))
+        pick_summary.setdefault(
+            pick_key,
+            {
+                "draft_round": safe_int(row.get("draft_round")),
+                "pick_in_round": safe_int(row.get("pick_in_round")),
+                "pick_label": row.get("pick_label") or "",
+                "round_segment": row.get("round_segment") or "",
+                "sample_size": 0,
+                "points_total_3yr": 0.0,
+                "rookie_value_total": 0.0,
+                "hit_count": 0,
+            },
+        )
+        pick_row = pick_summary[pick_key]
+        pick_row["sample_size"] += 1
+        pick_row["points_total_3yr"] += safe_float(row.get("points_rookiecontract"), 0.0)
+        pick_row["rookie_value_total"] += safe_float(row.get("rookie_value_score"), 0.0)
+        pick_row["hit_count"] += safe_int(row.get("hit_flag"), 0)
+
+    owner_summary_rows = []
+    for row in owner_summary.values():
+        picks_made = max(1, safe_int(row.get("picks_made"), 0))
+        owner_summary_rows.append(
+            {
+                "season": safe_int(row.get("season")),
+                "franchise_id": row.get("franchise_id") or "",
+                "franchise_name": row.get("franchise_name") or "",
+                "owner_name": row.get("owner_name") or "",
+                "picks_made": safe_int(row.get("picks_made")),
+                "avg_points_3yr": round2(safe_float(row.get("points_total_3yr")) / picks_made),
+                "avg_rookie_value_score": round2(safe_float(row.get("rookie_value_total")) / picks_made),
+                "hit_count": safe_int(row.get("hit_count")),
+                "hit_rate": round2(safe_float(row.get("hit_count")) / picks_made),
+                "best_pick": " / ".join([part for part in [row.get("best_pick_label"), row.get("best_pick_player_name")] if part]),
+            }
+        )
+    owner_summary_rows.sort(
+        key=lambda row: (
+            -safe_float(row.get("avg_rookie_value_score"), 0.0),
+            -safe_float(row.get("avg_points_3yr"), 0.0),
+            str(row.get("franchise_name") or "").lower(),
+        )
+    )
+
+    pick_summary_rows = []
+    for row in pick_summary.values():
+        sample_size = max(1, safe_int(row.get("sample_size"), 0))
+        pick_summary_rows.append(
+            {
+                "draft_round": safe_int(row.get("draft_round")),
+                "pick_in_round": safe_int(row.get("pick_in_round")),
+                "pick_label": row.get("pick_label") or "",
+                "round_segment": row.get("round_segment") or "",
+                "sample_size": safe_int(row.get("sample_size")),
+                "avg_points_3yr": round2(safe_float(row.get("points_total_3yr")) / sample_size),
+                "avg_rookie_value_score": round2(safe_float(row.get("rookie_value_total")) / sample_size),
+                "hit_count": safe_int(row.get("hit_count")),
+                "hit_rate": round2(safe_float(row.get("hit_count")) / sample_size),
+            }
+        )
+    pick_summary_rows.sort(
+        key=lambda row: (
+            safe_int(row.get("draft_round")),
+            safe_int(row.get("pick_in_round")),
+        )
+    )
+
     return {
         "meta": {
             "generated_at": utc_now_iso(),
@@ -338,10 +580,22 @@ def build_rookie_history(conn: sqlite3.Connection, current_season: int, history_
             "history_start_season": min_season,
             "source": "build_acquisition_hub_artifacts.py",
         },
+        "available_seasons": available_seasons,
         "current_order": current_order,
-        "adp_board": adp_rows,
+        "adp_board": rookie_adp_rows,
+        "draftable_rookies_seed": draftable_rookies_seed,
         "history_rows": enriched,
         "value_summary": value_summary,
+        "owner_summary_rows": owner_summary_rows,
+        "pick_summary_rows": pick_summary_rows,
+        "round_segment_definition": {
+            "teams_per_round": 12,
+            "segments": [
+                {"label": "Early", "start_pick_in_round": 1, "end_pick_in_round": 4},
+                {"label": "Middle", "start_pick_in_round": 5, "end_pick_in_round": 8},
+                {"label": "Late", "start_pick_in_round": 9, "end_pick_in_round": 12},
+            ],
+        },
         "top_hits": top_hits,
     }
 

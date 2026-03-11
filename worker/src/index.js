@@ -2145,6 +2145,411 @@ export default {
         return messages.slice(-25);
       };
 
+      const ACQ_EXTENSION_RATES_BY_SEASON = {
+        "2024": { QB: { 1: 10000 }, RB: { 1: 10000 }, WR: { 1: 10000 }, TE: { 1: 10000 }, DL: { 1: 3000 }, LB: { 1: 3000 }, DB: { 1: 3000 }, PK: { 1: 3000 }, PN: { 1: 3000 }, OTHER: { 1: 3000 } },
+        "2025": { QB: { 1: 10000 }, RB: { 1: 10000 }, WR: { 1: 10000 }, TE: { 1: 10000 }, DL: { 1: 3000 }, LB: { 1: 3000 }, DB: { 1: 3000 }, PK: { 1: 3000 }, PN: { 1: 3000 }, OTHER: { 1: 3000 } },
+        "2026": { QB: { 1: 10000 }, RB: { 1: 10000 }, WR: { 1: 10000 }, TE: { 1: 10000 }, DL: { 1: 3000 }, LB: { 1: 3000 }, DB: { 1: 3000 }, PK: { 1: 3000 }, PN: { 1: 3000 }, OTHER: { 1: 3000 } },
+      };
+
+      const formatContractKAcq = (amount) => {
+        const dollars = safeInt(amount, 0);
+        if (!dollars) return "0";
+        if (dollars % 1000 === 0) return `${Math.round(dollars / 1000)}K`;
+        const value = Math.round((dollars / 1000) * 10) / 10;
+        return `${value}K`;
+      };
+
+      const round2Acq = (value) => Math.round(safeFloat(value, 0) * 100) / 100;
+
+      const resolveAcqPosForExtensionRate = (raw) => {
+        const pos = normalizeAcqPos(raw || "");
+        return pos === "K" ? "PK" : (pos || "OTHER");
+      };
+
+      const getAcqExtensionRaise = (position, season, yearsToAdd) => {
+        const seasonKey = safeStr(season || YEAR || "");
+        const seasonMap =
+          ACQ_EXTENSION_RATES_BY_SEASON[seasonKey] ||
+          ACQ_EXTENSION_RATES_BY_SEASON[String(Math.max(2024, safeInt(seasonKey, 2025) - 1))] ||
+          ACQ_EXTENSION_RATES_BY_SEASON["2025"];
+        const posKey = resolveAcqPosForExtensionRate(position);
+        const rec = seasonMap[posKey] || seasonMap.OTHER || { 1: 3000 };
+        return safeInt(rec[safeInt(yearsToAdd, 1)] || rec[1], 0);
+      };
+
+      const buildRookieOptionStateAcq = ({ season, round, position, baseSalary }) => {
+        const classSeason = safeInt(season, 0);
+        const isEligible = classSeason >= 2025 && safeInt(round, 0) === 1;
+        if (!isEligible) {
+          return {
+            rookie_option_eligible: false,
+            rookie_option_exercised: false,
+            rookie_option_class_season: classSeason || null,
+            rookie_option_deadline_season: null,
+            rookie_option_base_salary: safeInt(baseSalary, 0),
+            rookie_option_half_raise_salary: null,
+            rookie_option_year_salary: null,
+          };
+        }
+        const base = Math.max(0, safeInt(baseSalary, 0));
+        const raise = getAcqExtensionRaise(position, classSeason, 1);
+        const optionSalary = base + Math.round(raise / 2);
+        return {
+          rookie_option_eligible: true,
+          rookie_option_exercised: false,
+          rookie_option_class_season: classSeason,
+          rookie_option_deadline_season: classSeason + 2,
+          rookie_option_base_salary: base,
+          rookie_option_half_raise_salary: optionSalary,
+          rookie_option_year_salary: optionSalary,
+        };
+      };
+
+      const buildRookieOptionInfoSegmentAcq = (optionState, mode) => {
+        if (!optionState || !optionState.rookie_option_eligible) return "";
+        return [
+          "ROPT",
+          `status=${safeStr(mode || (optionState.rookie_option_exercised ? "exercised" : "eligible"))}`,
+          `class=${safeInt(optionState.rookie_option_class_season, 0)}`,
+          `deadline=${safeInt(optionState.rookie_option_deadline_season, 0)}`,
+          `base=${formatContractKAcq(optionState.rookie_option_base_salary)}`,
+          `option=${formatContractKAcq(optionState.rookie_option_year_salary)}`,
+        ].join(" ");
+      };
+
+      const buildRookieContractInfoAcq = ({ yearsRemaining, baseSalary, optionState, mode }) => {
+        const years = Math.max(1, safeInt(yearsRemaining, 0));
+        const base = Math.max(1000, safeInt(baseSalary, 0));
+        const yearValues = [];
+        for (let i = 1; i <= years; i += 1) yearValues.push(base);
+        if (mode === "exercised" && optionState && optionState.rookie_option_year_salary && years >= 2) {
+          yearValues[years - 1] = safeInt(optionState.rookie_option_year_salary, base);
+        }
+        const total = yearValues.reduce((sum, value) => sum + safeInt(value, 0), 0);
+        const aav = Math.round(total / Math.max(1, years));
+        const gtd = total > 4000 ? Math.round(total * 0.75) : Math.max(0, total - safeInt(yearValues[0], 0));
+        const yearText = yearValues.map((value, idx) => `Y${idx + 1}-${formatContractKAcq(value)}`).join(", ");
+        const parts = [
+          `CL ${years}`,
+          `TCV ${formatContractKAcq(total)}`,
+          `AAV ${formatContractKAcq(aav)}`,
+          yearText,
+          `GTD: ${formatContractKAcq(gtd)}`,
+        ];
+        const optionSegment = buildRookieOptionInfoSegmentAcq(optionState, mode);
+        if (optionSegment) parts.push(optionSegment);
+        return parts.join("|");
+      };
+
+      const parseRookieOptionInfoAcq = (contractInfo) => {
+        const src = safeStr(contractInfo);
+        const match = src.match(/(?:^|\|)\s*ROPT\s+([^|]+)/i);
+        if (!match) return null;
+        const blob = safeStr(match[1]);
+        const statusMatch = blob.match(/\bstatus=([a-z-]+)/i);
+        const classMatch = blob.match(/\bclass=(\d{4})\b/i);
+        const deadlineMatch = blob.match(/\bdeadline=(\d{4})\b/i);
+        const baseMatch = blob.match(/\bbase=([0-9.]+)K\b/i);
+        const optionMatch = blob.match(/\boption=([0-9.]+)K\b/i);
+        const parseK = (m) => {
+          const n = Number(m && m[1]);
+          return Number.isFinite(n) ? Math.round(n * 1000) : 0;
+        };
+        return {
+          rookie_option_eligible: true,
+          rookie_option_exercised: safeStr(statusMatch && statusMatch[1]).toLowerCase() === "exercised",
+          rookie_option_class_season: safeInt(classMatch && classMatch[1], 0),
+          rookie_option_deadline_season: safeInt(deadlineMatch && deadlineMatch[1], 0),
+          rookie_option_base_salary: parseK(baseMatch),
+          rookie_option_half_raise_salary: parseK(optionMatch),
+          rookie_option_year_salary: parseK(optionMatch),
+        };
+      };
+
+      const rookieContractStatusLikeAcq = (raw) => {
+        const text = safeStr(raw).toLowerCase();
+        return text === "r" || text === "r-opt" || text.startsWith("r-") || text.indexOf("rookie") !== -1;
+      };
+
+      const parseSalaryExportRowsAcq = (payload) => {
+        const leagueUnit = payload?.salaries?.leagueUnit || payload?.salaries?.leagueunit || payload?.leagueUnit || payload || {};
+        const rows = asArray(leagueUnit?.player || leagueUnit?.players || payload?.player).filter(Boolean);
+        const out = {};
+        for (const row of rows) {
+          const playerId = String(row?.id || row?.player_id || "").replace(/\D/g, "");
+          if (!playerId) continue;
+          out[playerId] = {
+            player_id: playerId,
+            salary: safeInt(row?.salary, 0),
+            contractYear: safeInt(row?.contractYear || row?.contractyear, 0),
+            contractStatus: safeStr(row?.contractStatus || row?.contractstatus),
+            contractInfo: safeStr(row?.contractInfo || row?.contractinfo),
+          };
+        }
+        return out;
+      };
+
+      const resolveFirstRoundPickSalaryDollarsAcq = (pickInRound) => {
+        const slot = safeInt(pickInRound, 0);
+        if (slot <= 0) return 10000;
+        return Math.max(5000, 15000 - ((slot - 1) * 1000));
+      };
+
+      const resolveRookieSalaryDollarsAcq = (season, round, pickInRound, rookieArtifactData) => {
+        const roundNum = safeInt(round, 0);
+        const pickNum = safeInt(pickInRound, 0);
+        const artifactRows = asArray(rookieArtifactData?.history_rows);
+        const explicit = artifactRows.find((row) =>
+          safeInt(row?.season, 0) === safeInt(season, 0) &&
+          safeInt(row?.draft_round, 0) === roundNum &&
+          safeInt(row?.pick_in_round, 0) === pickNum &&
+          safeInt(row?.salary, 0) > 0
+        );
+        const explicitSalary = safeInt(explicit?.salary, 0);
+        if (explicitSalary > 0) return { salary: explicitSalary, source: "explicit_schedule" };
+        if (roundNum === 1) return { salary: resolveFirstRoundPickSalaryDollarsAcq(pickNum), source: "round_1_fallback" };
+        return { salary: 5000, source: "flat_rookie_fallback" };
+      };
+
+      const buildRookieHistorySummariesAcq = (rows) => {
+        const list = asArray(rows);
+        const topHits = list
+          .slice()
+          .sort((a, b) =>
+            safeFloat(b?.rookie_value_score, 0) - safeFloat(a?.rookie_value_score, 0) ||
+            safeFloat(b?.points_rookiecontract, 0) - safeFloat(a?.points_rookiecontract, 0)
+          )
+          .slice(0, 50);
+        const ownerMap = {};
+        const pickMap = {};
+        const bucketMap = {};
+        for (const row of list) {
+          const ownerKey = `${safeStr(row?.season)}|${padFranchiseId(row?.franchise_id)}`;
+          if (!ownerMap[ownerKey]) {
+            ownerMap[ownerKey] = {
+              season: safeInt(row?.season, 0),
+              franchise_id: padFranchiseId(row?.franchise_id),
+              franchise_name: safeStr(row?.franchise_name),
+              owner_name: safeStr(row?.owner_name),
+              picks_made: 0,
+              points_total_3yr: 0,
+              rookie_value_total: 0,
+              hit_count: 0,
+              best_pick: "",
+              best_score: -1,
+            };
+          }
+          ownerMap[ownerKey].picks_made += 1;
+          ownerMap[ownerKey].points_total_3yr += safeFloat(row?.points_rookiecontract, 0);
+          ownerMap[ownerKey].rookie_value_total += safeFloat(row?.rookie_value_score, 0);
+          ownerMap[ownerKey].hit_count += safeInt(row?.hit_flag, 0);
+          if (safeFloat(row?.rookie_value_score, 0) > safeFloat(ownerMap[ownerKey].best_score, -1)) {
+            ownerMap[ownerKey].best_score = safeFloat(row?.rookie_value_score, 0);
+            ownerMap[ownerKey].best_pick = [safeStr(row?.pick_label), safeStr(row?.player_name)].filter(Boolean).join(" / ");
+          }
+
+          const pickKey = `${safeInt(row?.draft_round, 0)}|${safeInt(row?.pick_in_round, 0)}`;
+          if (!pickMap[pickKey]) {
+            pickMap[pickKey] = {
+              draft_round: safeInt(row?.draft_round, 0),
+              pick_in_round: safeInt(row?.pick_in_round, 0),
+              pick_label: safeStr(row?.pick_label),
+              round_segment: safeStr(row?.round_segment),
+              sample_size: 0,
+              points_total_3yr: 0,
+              rookie_value_total: 0,
+              hit_count: 0,
+            };
+          }
+          pickMap[pickKey].sample_size += 1;
+          pickMap[pickKey].points_total_3yr += safeFloat(row?.points_rookiecontract, 0);
+          pickMap[pickKey].rookie_value_total += safeFloat(row?.rookie_value_score, 0);
+          pickMap[pickKey].hit_count += safeInt(row?.hit_flag, 0);
+
+          const bucket = safeStr(row?.pick_bucket);
+          if (bucket) {
+            if (!bucketMap[bucket]) {
+              bucketMap[bucket] = {
+                pick_bucket: bucket,
+                expected_points_3yr: safeFloat(row?.expected_points_3yr, 0),
+                avg_points_3yr_total: 0,
+                avg_rookie_value_score_total: 0,
+                sample_size: 0,
+              };
+            }
+            bucketMap[bucket].avg_points_3yr_total += safeFloat(row?.points_rookiecontract, 0);
+            bucketMap[bucket].avg_rookie_value_score_total += safeFloat(row?.rookie_value_score, 0);
+            bucketMap[bucket].sample_size += 1;
+          }
+        }
+        const owner_summary_rows = Object.values(ownerMap).map((row) => {
+          const picks = Math.max(1, safeInt(row?.picks_made, 1));
+          return {
+            season: safeInt(row?.season, 0),
+            franchise_id: row.franchise_id,
+            franchise_name: row.franchise_name,
+            owner_name: row.owner_name,
+            picks_made: safeInt(row?.picks_made, 0),
+            avg_points_3yr: round2Acq(row.points_total_3yr / picks),
+            avg_rookie_value_score: round2Acq(row.rookie_value_total / picks),
+            hit_count: safeInt(row?.hit_count, 0),
+            hit_rate: round2Acq(safeInt(row?.hit_count, 0) / picks),
+            best_pick: safeStr(row?.best_pick),
+          };
+        }).sort((a, b) =>
+          safeFloat(b?.avg_rookie_value_score, 0) - safeFloat(a?.avg_rookie_value_score, 0) ||
+          safeFloat(b?.avg_points_3yr, 0) - safeFloat(a?.avg_points_3yr, 0)
+        );
+        const pick_summary_rows = Object.values(pickMap).map((row) => {
+          const sampleSize = Math.max(1, safeInt(row?.sample_size, 1));
+          return {
+            draft_round: safeInt(row?.draft_round, 0),
+            pick_in_round: safeInt(row?.pick_in_round, 0),
+            pick_label: safeStr(row?.pick_label),
+            round_segment: safeStr(row?.round_segment),
+            sample_size: safeInt(row?.sample_size, 0),
+            avg_points_3yr: round2Acq(row.points_total_3yr / sampleSize),
+            avg_rookie_value_score: round2Acq(row.rookie_value_total / sampleSize),
+            hit_count: safeInt(row?.hit_count, 0),
+            hit_rate: round2Acq(safeInt(row?.hit_count, 0) / sampleSize),
+          };
+        }).sort((a, b) =>
+          safeInt(a?.draft_round, 0) - safeInt(b?.draft_round, 0) ||
+          safeInt(a?.pick_in_round, 0) - safeInt(b?.pick_in_round, 0)
+        );
+        const value_summary = Object.values(bucketMap).map((row) => ({
+          pick_bucket: row.pick_bucket,
+          expected_points_3yr: round2Acq(row.expected_points_3yr),
+          avg_points_3yr: round2Acq(row.avg_points_3yr_total / Math.max(1, row.sample_size)),
+          avg_rookie_value_score: round2Acq(row.avg_rookie_value_score_total / Math.max(1, row.sample_size)),
+          sample_size: safeInt(row?.sample_size, 0),
+        })).sort((a, b) => safeStr(a?.pick_bucket).localeCompare(safeStr(b?.pick_bucket)));
+        return { owner_summary_rows, pick_summary_rows, top_hits: topHits, value_summary };
+      };
+
+      const filterRookieHistoryArtifactAcq = (artifactData, seasonContext) => {
+        const selected = safeStr(seasonContext).toLowerCase();
+        const allRows = asArray(artifactData?.history_rows);
+        const filteredRows = !selected || selected === "all"
+          ? allRows
+          : allRows.filter((row) => safeStr(row?.season) === selected);
+        const summaries = buildRookieHistorySummariesAcq(filteredRows);
+        return {
+          ...artifactData,
+          season_context: selected || "all",
+          history_rows: filteredRows,
+          owner_summary_rows: summaries.owner_summary_rows,
+          pick_summary_rows: summaries.pick_summary_rows,
+          top_hits: summaries.top_hits,
+          value_summary: summaries.value_summary,
+        };
+      };
+
+      const overlayFranchiseBrandingAcq = (rows, franchiseMap) => asArray(rows).map((row) => {
+        const fid = padFranchiseId(row?.franchise_id);
+        const meta = franchiseMap[fid] || {};
+        return {
+          ...row,
+          franchise_id: fid || safeStr(row?.franchise_id),
+          franchise_name: safeStr(row?.franchise_name || meta.franchise_name || fid),
+          franchise_abbrev: safeStr(row?.franchise_abbrev || meta.franchise_abbrev || fid),
+          icon_url: safeStr(row?.icon_url || meta.icon_url || ""),
+        };
+      });
+
+      const buildRookieContractPlanAcq = ({ season, round, pickInRound, position, rookieArtifactData }) => {
+        const salaryPlan = resolveRookieSalaryDollarsAcq(season, round, pickInRound, rookieArtifactData);
+        const optionState = buildRookieOptionStateAcq({
+          season,
+          round,
+          position,
+          baseSalary: salaryPlan.salary,
+        });
+        return {
+          season: safeInt(season, 0),
+          round: safeInt(round, 0),
+          pick_in_round: safeInt(pickInRound, 0),
+          salary: safeInt(salaryPlan.salary, 0),
+          salary_source: safeStr(salaryPlan.source),
+          contract_year: 3,
+          contract_status: "R",
+          contract_info: buildRookieContractInfoAcq({
+            yearsRemaining: 3,
+            baseSalary: salaryPlan.salary,
+            optionState,
+            mode: "eligible",
+          }),
+          rookie_option_state: optionState,
+        };
+      };
+
+      const importContractUpdateAcq = async ({ leagueId, season, playerId, salary, contractYear, contractStatus, contractInfo }) => {
+        const esc = (s) =>
+          String(s == null ? "" : s)
+            .replace(/&/g, "&amp;")
+            .replace(/"/g, "&quot;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;");
+        const dataXml =
+          `<salaries><leagueUnit unit="LEAGUE">` +
+          `<player id="${esc(playerId)}" salary="${esc(salary)}" contractYear="${esc(contractYear)}" contractStatus="${esc(contractStatus)}" contractInfo="${esc(contractInfo)}" />` +
+          `</leagueUnit></salaries>`;
+        const importUrl =
+          `https://api.myfantasyleague.com/${encodeURIComponent(String(season))}` +
+          `/import?TYPE=salaries&L=${encodeURIComponent(leagueId)}&APPEND=1`;
+        let targetImportUrl = importUrl;
+        try {
+          const probe = await fetch(importUrl, {
+            method: "GET",
+            redirect: "manual",
+            headers: { Cookie: cookieHeader, "User-Agent": "upsmflproduction-worker" },
+            cf: { cacheTtl: 0, cacheEverything: false },
+          });
+          const loc = probe.headers.get("Location") || probe.headers.get("location");
+          if (probe.status >= 300 && probe.status < 400 && loc) targetImportUrl = loc;
+        } catch (_) {}
+        const resp = await fetch(targetImportUrl, {
+          method: "POST",
+          headers: {
+            Cookie: cookieHeader,
+            "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+            "User-Agent": "upsmflproduction-worker",
+          },
+          body: `DATA=${encodeURIComponent(dataXml)}`,
+          redirect: "manual",
+          cf: { cacheTtl: 0, cacheEverything: false },
+        });
+        const text = await resp.text();
+        const lowered = safeStr(text).toLowerCase();
+        const ok =
+          resp.ok &&
+          !lowered.includes("error") &&
+          !lowered.includes("invalid") &&
+          !lowered.includes("not authorized");
+        return {
+          ok,
+          upstreamStatus: resp.status,
+          upstreamPreview: safeStr(text).slice(0, 1200),
+          targetImportUrl,
+          dataXml,
+        };
+      };
+
+      const buildRookieContractReconcileStatusAcq = (liveBoard, salaryRowsByPlayer) => {
+        const missing = asArray(liveBoard).filter((row) => {
+          const salaryRow = salaryRowsByPlayer[safeStr(row?.player_id)] || null;
+          if (!salaryRow) return true;
+          return !rookieContractStatusLikeAcq(salaryRow.contractStatus);
+        });
+        return {
+          ok: missing.length === 0,
+          missing_count: missing.length,
+          label: missing.length ? `${missing.length} missing` : "Ready",
+          summary: missing.length ? "Some confirmed rookie draft picks still need contracts applied." : "Live board and rookie contracts are in sync.",
+          missing_player_ids: missing.map((row) => safeStr(row?.player_id)).filter(Boolean),
+        };
+      };
+
       const resolveViewerFranchiseIdForAcq = async (season, leagueId, requestedFranchiseId) => {
         const explicit = padFranchiseId(requestedFranchiseId);
         if (explicit) return explicit;
@@ -2479,17 +2884,41 @@ export default {
       };
 
       const buildRookieDraftLivePayload = async (season, leagueId) => {
-        const [teamsSnapshot, rookieArtifact, draftResultsRes, draftStatusRes, draftChatRes] = await Promise.all([
+        const [teamsSnapshot, rookieArtifact, draftResultsRes, draftStatusRes, draftChatRes, salariesRes] = await Promise.all([
           buildLiveTeamsSnapshot(season, leagueId),
           fetchArtifactJson("rookie_draft_history"),
           fetchRookieDraftXml(season, leagueId, "draft_results.xml"),
           fetchRookieDraftXml(season, leagueId, "draft_status.xml"),
           fetchRookieDraftXml(season, leagueId, "chat.xml"),
+          mflExportJsonWithRetryAsViewer(season, leagueId, "salaries", {}, { useCookie: true }),
         ]);
         const franchiseMap = teamsSnapshot.ok ? teamsSnapshot.franchiseMap : {};
-        const liveBoard = draftResultsRes.ok ? parseRookieDraftResultsXml(draftResultsRes.text, franchiseMap) : [];
+        const rookieArtifactData = rookieArtifact.ok ? (rookieArtifact.data || {}) : {};
+        const rookieSeedByPlayer = {};
+        for (const row of asArray(rookieArtifactData?.draftable_rookies_seed || rookieArtifactData?.adp_board)) {
+          const playerId = safeStr(row?.player_id);
+          if (!playerId) continue;
+          rookieSeedByPlayer[playerId] = row;
+        }
+        const liveBoardRaw = draftResultsRes.ok ? parseRookieDraftResultsXml(draftResultsRes.text, franchiseMap) : [];
+        const liveBoard = overlayFranchiseBrandingAcq(liveBoardRaw.map((row) => {
+          const seed = rookieSeedByPlayer[safeStr(row?.player_id)] || {};
+          return {
+            ...row,
+            position: safeStr(row?.position || seed?.position),
+            nfl_team: safeStr(row?.nfl_team || seed?.nfl_team),
+          };
+        }), franchiseMap);
         const statusInfo = draftStatusRes.ok ? parseRookieDraftStatusXml(draftStatusRes.text) : { message: "", current_pick: null, timer_text: "", timer_seconds: null };
         const chat = draftChatRes.ok ? parseRookieDraftChatXml(draftChatRes.text) : [];
+        const salaryRowsByPlayer = salariesRes.ok ? parseSalaryExportRowsAcq(salariesRes.data) : {};
+        const draftedIds = new Set(liveBoard.map((row) => safeStr(row?.player_id)).filter(Boolean));
+        const draftableRookies = asArray(rookieArtifactData?.draftable_rookies_seed).filter((row) => {
+          const playerId = safeStr(row?.player_id);
+          return playerId && !draftedIds.has(playerId);
+        });
+        const currentPickFranchiseId = padFranchiseId(statusInfo?.current_pick?.franchise_id);
+        const currentPickMeta = currentPickFranchiseId ? (franchiseMap[currentPickFranchiseId] || {}) : {};
         const stale = !draftResultsRes.ok && !draftStatusRes.ok;
         const payload = {
           ok: true,
@@ -2500,17 +2929,24 @@ export default {
             message: safeStr(statusInfo.message),
             timer_text: safeStr(statusInfo.timer_text),
             timer_seconds: statusInfo.timer_seconds == null ? null : safeInt(statusInfo.timer_seconds, 0),
+            current_pick_team_name: safeStr(currentPickMeta?.franchise_name),
+            current_pick_icon_url: safeStr(currentPickMeta?.icon_url),
           },
           chat,
-          current_pick: statusInfo.current_pick || null,
-          draft_order:
-            liveBoard.filter((row) => safeInt(row.round, 0) === 1).map((row) => ({
-              franchise_id: row.franchise_id,
-              franchise_name: row.franchise_name,
-              pick_label: `1.${String(safeInt(row.pick_in_round, 0)).padStart(2, "0")}`,
-              pick_overall: safeInt(row.pick_overall, 0),
-            })) ||
-            [],
+          current_pick: statusInfo.current_pick
+            ? {
+                ...statusInfo.current_pick,
+                franchise_name: safeStr(currentPickMeta?.franchise_name),
+                franchise_abbrev: safeStr(currentPickMeta?.franchise_abbrev),
+                icon_url: safeStr(currentPickMeta?.icon_url),
+              }
+            : null,
+          draft_order: overlayFranchiseBrandingAcq(
+            asArray(rookieArtifactData?.current_order).slice(0, 72),
+            franchiseMap
+          ),
+          draftable_rookies: draftableRookies,
+          contract_reconcile_status: buildRookieContractReconcileStatusAcq(liveBoard, salaryRowsByPlayer),
           fetched_at: new Date().toISOString(),
           source_age_seconds: 0,
           stale,
@@ -2524,7 +2960,7 @@ export default {
           },
         };
         if ((!payload.draft_order || !payload.draft_order.length) && rookieArtifact.ok) {
-          payload.draft_order = asArray(rookieArtifact.data?.current_order).slice(0, 48);
+          payload.draft_order = overlayFranchiseBrandingAcq(asArray(rookieArtifact.data?.current_order).slice(0, 48), franchiseMap);
         }
         return payload;
       };
@@ -2669,6 +3105,150 @@ export default {
           preview: safeStr(text).slice(0, 1200),
           url: targetUrl,
           data: parsed,
+        };
+      };
+
+      const fetchSalaryRowsByPlayerForAcq = async (season, leagueId) => {
+        const salariesRes = await mflExportJsonWithRetryAsViewer(season, leagueId, "salaries", {}, { useCookie: true });
+        return {
+          ok: salariesRes.ok,
+          rowsByPlayer: salariesRes.ok ? parseSalaryExportRowsAcq(salariesRes.data) : {},
+          status: salariesRes.status,
+          url: salariesRes.url,
+          error: salariesRes.error || "",
+        };
+      };
+
+      const applyRookieContractForDraftPickAcq = async ({
+        season,
+        leagueId,
+        liveRow,
+        fallbackRound,
+        fallbackPick,
+        rookieArtifactData,
+        existingSalaryRowsByPlayer,
+      }) => {
+        const playerId = safeStr(liveRow?.player_id);
+        if (!playerId) {
+          return {
+            ok: false,
+            skipped: true,
+            reason: "player_id_missing",
+            status_label: "Missing player id for rookie contract import.",
+          };
+        }
+        const currentSalaryRowsByPlayer = existingSalaryRowsByPlayer || (await fetchSalaryRowsByPlayerForAcq(season, leagueId)).rowsByPlayer || {};
+        const current = currentSalaryRowsByPlayer[playerId] || null;
+        if (
+          current &&
+          rookieContractStatusLikeAcq(current.contractStatus) &&
+          safeInt(current.contractYear, 0) > 0 &&
+          safeInt(current.salary, 0) > 0
+        ) {
+          return {
+            ok: true,
+            skipped: true,
+            reason: "rookie_contract_already_present",
+            status_label: "Rookie contract already present.",
+            current_contract: current,
+          };
+        }
+        let artifactData = rookieArtifactData || null;
+        if (!artifactData) {
+          const rookieArtifact = await fetchArtifactJson("rookie_draft_history");
+          artifactData = rookieArtifact.ok ? rookieArtifact.data || {} : {};
+        }
+        const plan = buildRookieContractPlanAcq({
+          season,
+          round: safeInt(liveRow?.round, fallbackRound),
+          pickInRound: safeInt(liveRow?.pick_in_round, fallbackPick),
+          position: safeStr(liveRow?.position),
+          rookieArtifactData: artifactData,
+        });
+        const importRes = await importContractUpdateAcq({
+          leagueId,
+          season,
+          playerId,
+          salary: plan.salary,
+          contractYear: plan.contract_year,
+          contractStatus: plan.contract_status,
+          contractInfo: plan.contract_info,
+        });
+        if (!importRes.ok) {
+          return {
+            ok: false,
+            skipped: false,
+            reason: "contract_import_failed",
+            status_label: "Rookie contract import failed.",
+            plan,
+            upstreamStatus: importRes.upstreamStatus,
+            upstreamPreview: importRes.upstreamPreview,
+          };
+        }
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        const verifyRes = await fetchSalaryRowsByPlayerForAcq(season, leagueId);
+        const verified = verifyRes.rowsByPlayer[playerId] || null;
+        const verifiedOk =
+          !!verified &&
+          rookieContractStatusLikeAcq(verified.contractStatus) &&
+          safeInt(verified.contractYear, 0) === safeInt(plan.contract_year, 0);
+        return {
+          ok: verifiedOk,
+          skipped: false,
+          reason: verifiedOk ? "" : "contract_verification_failed",
+          status_label: verifiedOk ? "Rookie contract applied." : "Rookie contract import submitted; verification pending.",
+          plan,
+          verify_row: verified,
+          upstreamStatus: importRes.upstreamStatus,
+          upstreamPreview: importRes.upstreamPreview,
+        };
+      };
+
+      const reconcileRookieDraftContractsAcq = async (season, leagueId) => {
+        const [live, rookieArtifact, salaryRes] = await Promise.all([
+          buildRookieDraftLivePayload(season, leagueId),
+          fetchArtifactJson("rookie_draft_history"),
+          fetchSalaryRowsByPlayerForAcq(season, leagueId),
+        ]);
+        const liveBoard = asArray(live?.live_board);
+        const rookieArtifactData = rookieArtifact.ok ? rookieArtifact.data || {} : {};
+        const rowsByPlayer = salaryRes.rowsByPlayer || {};
+        const missingRows = liveBoard.filter((row) => {
+          const current = rowsByPlayer[safeStr(row?.player_id)] || null;
+          return !(current && rookieContractStatusLikeAcq(current.contractStatus) && safeInt(current.contractYear, 0) > 0);
+        });
+        const results = [];
+        for (const row of missingRows) {
+          const result = await applyRookieContractForDraftPickAcq({
+            season,
+            leagueId,
+            liveRow: row,
+            rookieArtifactData,
+            existingSalaryRowsByPlayer: rowsByPlayer,
+          });
+          results.push({
+            player_id: safeStr(row?.player_id),
+            player_name: safeStr(row?.player_name),
+            pick_label: `${safeInt(row?.round, 0)}.${String(safeInt(row?.pick_in_round, 0)).padStart(2, "0")}`,
+            ...result,
+          });
+          if (result && result.ok && !result.skipped) {
+            rowsByPlayer[safeStr(row?.player_id)] = {
+              player_id: safeStr(row?.player_id),
+              salary: safeInt(result?.plan?.salary, 0),
+              contractYear: safeInt(result?.plan?.contract_year, 0),
+              contractStatus: safeStr(result?.plan?.contract_status),
+              contractInfo: safeStr(result?.plan?.contract_info),
+            };
+          }
+        }
+        return {
+          ok: results.every((row) => !!row.ok || !!row.skipped),
+          attempted_count: missingRows.length,
+          applied_count: results.filter((row) => !!row.ok && !row.skipped).length,
+          skipped_count: results.filter((row) => !!row.skipped).length,
+          results,
+          live,
         };
       };
 
@@ -11781,12 +12361,25 @@ export default {
       }
 
       if (path === "/acquisition-hub/rookie-draft/history" && request.method === "GET") {
+        const season = safeStr(url.searchParams.get("YEAR") || YEAR || "");
+        const leagueId = safeStr(url.searchParams.get("L") || L || "");
+        const seasonContext = safeStr(url.searchParams.get("season_context") || "all");
         const artifact = await fetchArtifactJson("rookie_draft_history");
         if (!artifact.ok) return jsonNoStore(502, { ok: false, error: artifact.error, url: artifact.url });
+        const filtered = filterRookieHistoryArtifactAcq(artifact.data || {}, seasonContext);
+        let franchiseMap = {};
+        if (leagueId) {
+          const teamsSnapshot = await buildLiveTeamsSnapshot(season, leagueId);
+          franchiseMap = teamsSnapshot.ok ? teamsSnapshot.franchiseMap || {} : {};
+        }
         return jsonNoStore(200, {
           ok: true,
-          generated_at: safeStr(artifact.data?.meta?.generated_at),
-          ...artifact.data,
+          generated_at: safeStr(filtered?.meta?.generated_at),
+          ...filtered,
+          current_order: overlayFranchiseBrandingAcq(filtered.current_order, franchiseMap),
+          history_rows: overlayFranchiseBrandingAcq(filtered.history_rows, franchiseMap),
+          owner_summary_rows: overlayFranchiseBrandingAcq(filtered.owner_summary_rows, franchiseMap),
+          top_hits: overlayFranchiseBrandingAcq(filtered.top_hits, franchiseMap),
         });
       }
 
@@ -11811,8 +12404,37 @@ export default {
         }
         acqCacheBustPrefix(`acq:rookie-live:${season}:${leagueId}`);
         acqCacheBustPrefix(`acq:rookiexml:${season}:${leagueId}`);
-        const live = await buildRookieDraftLivePayload(season, leagueId);
-        acqCacheSet(`acq:rookie-live:${season}:${leagueId}`, live);
+        const rookieArtifact = await fetchArtifactJson("rookie_draft_history");
+        let live = await buildRookieDraftLivePayload(season, leagueId);
+        let liveBoard = asArray(live?.live_board);
+        let draftedRow = liveBoard.find((row) => safeStr(row?.player_id) === safeStr(body?.player_id || body?.playerId)) || null;
+        if (safeStr(body?.action).toLowerCase() === "draft" && !draftedRow && safeStr(body?.player_id || body?.playerId)) {
+          for (let attempt = 0; attempt < 2 && !draftedRow; attempt += 1) {
+            await new Promise((resolve) => setTimeout(resolve, 500));
+            acqCacheBustPrefix(`acq:rookiexml:${season}:${leagueId}`);
+            live = await buildRookieDraftLivePayload(season, leagueId);
+            liveBoard = asArray(live?.live_board);
+            draftedRow = liveBoard.find((row) => safeStr(row?.player_id) === safeStr(body?.player_id || body?.playerId)) || null;
+          }
+        }
+        const contractApplyResult =
+          safeStr(body?.action).toLowerCase() === "draft" && draftedRow
+            ? await applyRookieContractForDraftPickAcq({
+                season,
+                leagueId,
+                liveRow: draftedRow,
+                fallbackRound: body?.round,
+                fallbackPick: body?.pick,
+                rookieArtifactData: rookieArtifact.ok ? rookieArtifact.data || {} : {},
+              })
+            : {
+                ok: true,
+                skipped: true,
+                reason: "no_contract_apply_required",
+                status_label: "No contract import required for this action.",
+              };
+        const refreshedLive = await buildRookieDraftLivePayload(season, leagueId);
+        acqCacheSet(`acq:rookie-live:${season}:${leagueId}`, refreshedLive);
         return jsonNoStore(200, {
           ok: true,
           message: "Rookie draft action submitted.",
@@ -11821,7 +12443,26 @@ export default {
             url: actionRes.url || "",
             preview: actionRes.preview || "",
           },
-          live,
+          contract_apply_result: contractApplyResult,
+          live: refreshedLive,
+        });
+      }
+
+      if (path === "/acquisition-hub/rookie-draft/reconcile-contracts" && request.method === "POST") {
+        const season = safeStr(url.searchParams.get("YEAR") || YEAR || "");
+        const leagueId = safeStr(url.searchParams.get("L") || L || "");
+        if (!leagueId) return jsonNoStore(400, { ok: false, error: "Missing L param" });
+        const adminState = await getLeagueAdminState(leagueId, season);
+        if (!adminState.ok || !adminState.isAdmin) {
+          return jsonNoStore(403, { ok: false, error: "Only league admin can reconcile rookie draft contracts." });
+        }
+        const reconcile = await reconcileRookieDraftContractsAcq(season, leagueId);
+        acqCacheBustPrefix(`acq:rookie-live:${season}:${leagueId}`);
+        acqCacheBustPrefix(`acq:rookiexml:${season}:${leagueId}`);
+        return jsonNoStore(200, {
+          ok: !!reconcile.ok,
+          message: reconcile.applied_count ? "Rookie contracts reconciled." : "No missing rookie contracts found.",
+          ...reconcile,
         });
       }
 

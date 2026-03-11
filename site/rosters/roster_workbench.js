@@ -506,6 +506,7 @@
     var salary = safeInt(player && player.salary, 0);
     var status = safeStr(player && player.type).toLowerCase();
     var info = safeStr(player && player.special).toLowerCase();
+    var rookieOption = rookieOptionStateForPlayer(player);
     var noFurtherExt =
       info.indexOf("no further extensions") !== -1 ||
       info.indexOf("not eligible for tag or extension") !== -1;
@@ -514,8 +515,85 @@
       (rookieLikeContractStatus(status) && years <= 0);
 
     return {
-      extensionEligible: (years === 1 || expiredRookie) && status.indexOf("tag") === -1 && !noFurtherExt,
+      extensionEligible: !rookieOptionActionEligible(player) && (years === 1 || expiredRookie) && status.indexOf("tag") === -1 && !noFurtherExt,
+      rookieOptionEligible: !!(rookieOption && rookieOption.eligible && !rookieOption.exercised),
       restructureEligible: years >= 2 && years <= 3 && salary > 1000 && !rookieLikeContractStatus(status)
+    };
+  }
+
+  function parseRookieOptionToken(contractInfo) {
+    var text = safeStr(contractInfo);
+    var match = text.match(/(?:^|\|)\s*ROPT\s+([^|]+)/i);
+    if (!match) return null;
+    var blob = safeStr(match[1]);
+    function parseK(label) {
+      var m = blob.match(new RegExp("\\b" + label + "=([0-9]+(?:\\.[0-9]+)?)K\\b", "i"));
+      return m ? Math.round(parseFloat(m[1]) * 1000) : 0;
+    }
+    var statusMatch = blob.match(/\bstatus=([a-z-]+)/i);
+    var classMatch = blob.match(/\bclass=(\d{4})\b/i);
+    var deadlineMatch = blob.match(/\bdeadline=(\d{4})\b/i);
+    return {
+      eligible: true,
+      exercised: safeStr(statusMatch && statusMatch[1]).toLowerCase() === "exercised",
+      classSeason: safeInt(classMatch && classMatch[1]),
+      deadlineSeason: safeInt(deadlineMatch && deadlineMatch[1]),
+      baseSalary: parseK("base"),
+      optionYearSalary: parseK("option")
+    };
+  }
+
+  function rookieOptionStateForPlayer(player) {
+    if (!player) return null;
+    if (player.rookieOptionEligible || player.rookie_option_eligible || player.rookieOptionExercised || player.rookie_option_exercised) {
+      return {
+        eligible: !!(player.rookieOptionEligible || player.rookie_option_eligible),
+        exercised: !!(player.rookieOptionExercised || player.rookie_option_exercised),
+        classSeason: safeInt(player.rookieOptionClassSeason || player.rookie_option_class_season),
+        deadlineSeason: safeInt(player.rookieOptionDeadlineSeason || player.rookie_option_deadline_season),
+        baseSalary: safeInt(player.rookieOptionBaseSalary || player.rookie_option_base_salary || player.salary),
+        optionYearSalary: safeInt(player.rookieOptionYearSalary || player.rookie_option_year_salary || player.rookie_option_half_raise_salary)
+      };
+    }
+    return parseRookieOptionToken(player.special || player.contract_info || "");
+  }
+
+  function rookieOptionActionEligible(player) {
+    var option = rookieOptionStateForPlayer(player);
+    if (!option || !option.eligible || option.exercised) return false;
+    return safeInt(player && player.years, 0) === 1;
+  }
+
+  function buildRookieOptionInfoToken(optionState, exercised) {
+    if (!optionState || !optionState.eligible) return "";
+    return [
+      "ROPT",
+      "status=" + (exercised ? "exercised" : "eligible"),
+      "class=" + String(safeInt(optionState.classSeason)),
+      "deadline=" + String(safeInt(optionState.deadlineSeason)),
+      "base=" + formatContractK(optionState.baseSalary),
+      "option=" + formatContractK(optionState.optionYearSalary)
+    ].join(" ");
+  }
+
+  function buildRookieOptionContractPayload(player) {
+    var option = rookieOptionStateForPlayer(player);
+    if (!option || !option.eligible) return null;
+    var baseSalary = Math.max(1000, safeInt(option.baseSalary || (player && player.salary), 0));
+    var optionSalary = Math.max(baseSalary, safeInt(option.optionYearSalary, baseSalary));
+    var total = baseSalary + optionSalary;
+    return {
+      salary: baseSalary,
+      contract_year: 2,
+      contract_status: "R-OPT",
+      contract_info: [
+        "CL 2",
+        "TCV " + formatContractK(total),
+        "AAV " + formatContractK(Math.round(total / 2)),
+        "Y1-" + formatContractK(baseSalary) + ", Y2-" + formatContractK(optionSalary),
+        "GTD: " + formatContractK(total > 4000 ? Math.round(total * 0.75) : Math.max(0, total - baseSalary)),
+        buildRookieOptionInfoToken(option, true)
+      ].filter(Boolean).join("| ")
     };
   }
 
@@ -6326,6 +6404,7 @@
       var extensionOptions = playerExtensionOptions(player);
       var extensionBlockReason = extensionBlockedReason(player);
       var contractEligibility = rosterContractEligibility(player);
+      var rookieOption = rookieOptionStateForPlayer(player);
       var modalBusyKey = "restructure:" + safeStr(player.id);
       var restructureBusy = state.busyActionKey === modalBusyKey;
       var actions = [];
@@ -6336,6 +6415,11 @@
         if (safeStr(player.type).toUpperCase() === "TAG") {
           actions.push(
             '<button type="button" class="rwb-modal-action" data-action="untag-player" data-player-id="' + escapeHtml(player.id) + '" data-franchise-id="' + escapeHtml(player.fid) + '">Untag</button>'
+          );
+        }
+        if (rookieOptionActionEligible(player)) {
+          actions.push(
+            '<button type="button" class="rwb-modal-action" data-action="exercise-rookie-option" data-player-id="' + escapeHtml(player.id) + '" data-franchise-id="' + escapeHtml(player.fid) + '">Exercise Option</button>'
           );
         }
         for (var i = 0; i < extensionOptions.length; i += 1) {
@@ -6365,6 +6449,17 @@
       }
 
       var extensionSummaryHtml = "";
+      var rookieOptionSummaryHtml = "";
+      if (rookieOption && rookieOption.eligible) {
+        rookieOptionSummaryHtml =
+          '<div class="rwb-modal-note"><strong>Rookie Option:</strong> ' +
+            escapeHtml(
+              rookieOption.exercised
+                ? ("Exercised. Option year salary " + formatContractK(rookieOption.optionYearSalary) + ".")
+                : ("Eligible. Option year salary " + formatContractK(rookieOption.optionYearSalary) + " before the " + String(safeInt(rookieOption.deadlineSeason || safeInt(state.ctx && state.ctx.year, 0), 0)) + " contract deadline.")
+            ) +
+          '</div>';
+      }
       if (extensionOptions.length) {
         var extensionLines = [];
         var extensionDeadlineLabel = extensionDeadlineLabelForSeason(state.ctx && state.ctx.year);
@@ -6400,6 +6495,7 @@
             '<h3>' + escapeHtml(player.name) + '</h3>' +
             (player.isTaxi ? '<span class="rwb-tag is-taxi">Taxi</span>' : '') +
             (player.isIr ? '<span class="rwb-tag is-ir">IR</span>' : '') +
+            (rookieOption && rookieOption.eligible ? '<span class="rwb-tag">Rookie Option</span>' : '') +
           '</div>' +
           '<div class="rwb-modal-player-sub">' + escapeHtml(team.name) + ' | ' + escapeHtml(player.position) + ' | ' + escapeHtml(player.nflTeam || "-") + '</div>' +
         '</div>';
@@ -6482,6 +6578,7 @@
             '<div class="rwb-modal-metric"><span>How Acquired</span><strong>' + escapeHtml(acquisitionTypeLabelForPlayer(player)) + '</strong></div>' +
           '</div>' +
           '<div class="rwb-modal-actions-wrap">' + actions.join("") + '</div>' +
+          rookieOptionSummaryHtml +
           extensionSummaryHtml +
           (!canManage ? '<div class="rwb-modal-note">Roster-management actions are unavailable for this session. Trade is available from any team.</div>' : '') +
           (viewerCanManageAnyRoster() && !ownRoster ? '<div class="rwb-modal-note"><strong>Commish:</strong> Acting on behalf of ' + escapeHtml(team.name) + '.</div>' : '');
@@ -8345,6 +8442,69 @@
     });
   }
 
+  function submitRookieOptionUpdate(player) {
+    if (!player) return Promise.resolve(null);
+    var payloadContract = buildRookieOptionContractPayload(player);
+    if (!payloadContract) return Promise.resolve(null);
+
+    var confirmLines = [
+      "Confirm rookie option exercise for " + safeStr(player.name) + "?",
+      "",
+      "Current Year Salary: " + money(payloadContract.salary),
+      "Option Year Salary: " + money(rookieOptionStateForPlayer(player).optionYearSalary),
+      "New Contract Length: 2 years",
+      inlineContractInfoText(payloadContract.contract_info)
+    ];
+    if (!window.confirm(confirmLines.join("\n"))) return Promise.resolve(null);
+
+    var leagueId = safeStr(state.ctx && state.ctx.leagueId);
+    var season = safeStr(state.ctx && state.ctx.year);
+    var moveKey = "rookie-option:" + safeStr(player.id);
+    var commishOverride = viewerCanManageAnyRoster() && !isOwnRosterPlayer(player);
+    var payload = {
+      L: leagueId,
+      YEAR: season,
+      type: "MANUAL_CONTRACT_UPDATE",
+      source: "front-office-rookie-option-submit",
+      leagueId: leagueId,
+      year: season,
+      player_id: safeStr(player.id),
+      player_name: safeStr(player.name),
+      franchise_id: safeStr(player.fid),
+      franchise_name: safeStr(player.teamName),
+      position: safeStr(player.positionGroup || player.position),
+      salary: safeInt(payloadContract.salary, 0),
+      contract_year: safeInt(payloadContract.contract_year, 0),
+      contract_status: safeStr(payloadContract.contract_status),
+      contract_info: safeStr(payloadContract.contract_info),
+      submitted_at_utc: new Date().toISOString(),
+      commish_override_flag: commishOverride ? 1 : 0
+    };
+    var url = resolveWorkerContractUpdateEndpoint() +
+      "?L=" + encodeURIComponent(leagueId) +
+      "&YEAR=" + encodeURIComponent(season);
+
+    state.busyActionKey = moveKey;
+    setFlash("success", "Submitting rookie option for " + safeStr(player.name) + " to MFL...");
+    closePlayerActionModal();
+    renderTeams();
+
+    return postContractUpdate(url, payload).then(function (result) {
+      state.busyActionKey = "";
+      player.type = safeStr(payloadContract.contract_status);
+      player.years = safeInt(payloadContract.contract_year, 0);
+      player.special = safeStr(payloadContract.contract_info);
+      persistState();
+      return refreshData(true).then(function () {
+        setFlash("success", safeStr(result && result.details && result.details.reason) || (safeStr(player.name) + " rookie option submitted to MFL."));
+      });
+    }).catch(function (err) {
+      state.busyActionKey = "";
+      renderTeams();
+      setFlash("error", "Rookie option failed: " + summarizeError(err));
+    });
+  }
+
   function submitRestructureUpdate(player) {
     if (!player) return Promise.resolve(null);
     var calc = actionModalRestructureCalc(player);
@@ -8762,6 +8922,22 @@
         return;
       }
       submitExtensionUpdate(extensionRecord.player, selectedOption);
+      return;
+    }
+
+    var rookieOptionBtn = target.closest("[data-action='exercise-rookie-option']");
+    if (rookieOptionBtn) {
+      if (state.busyActionKey) return;
+      var rookieOptionRecord = findPlayerRecord(
+        pad4(rookieOptionBtn.getAttribute("data-franchise-id")),
+        safeStr(rookieOptionBtn.getAttribute("data-player-id"))
+      );
+      if (!rookieOptionRecord || !rookieOptionRecord.player || !canManageRosterPlayer(rookieOptionRecord.player)) return;
+      if (!rookieOptionActionEligible(rookieOptionRecord.player)) {
+        setFlash("error", "Rookie option is not available for this player.");
+        return;
+      }
+      submitRookieOptionUpdate(rookieOptionRecord.player);
       return;
     }
 

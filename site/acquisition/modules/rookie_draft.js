@@ -18,148 +18,372 @@
       String(safeInt(row && row.pick_in_round, safeInt(row && row.pick, 0))).padStart(2, "0");
   }
 
+  function numberText(value, digits) {
+    var n = Number(value);
+    if (!isFinite(n)) return safeStr(value);
+    if (digits == null) digits = 2;
+    return n.toLocaleString("en-US", {
+      minimumFractionDigits: digits,
+      maximumFractionDigits: digits
+    });
+  }
+
+  function teamBadgeHtml(row, h) {
+    var icon = safeStr(row && (row.icon_url || row.franchise_icon_url));
+    var name = safeStr(row && row.franchise_name);
+    var abbr = safeStr(row && row.franchise_abbrev);
+    var label = name || abbr || safeStr(row && row.franchise_id) || "Team";
+    return '' +
+      '<span class="acq-teamBadge">' +
+        (icon
+          ? '<img class="acq-teamBadge-icon" src="' + h.escapeHtml(icon) + '" alt="' + h.escapeHtml(label) + '">'
+          : '<span class="acq-teamBadge-fallback">' + h.escapeHtml((abbr || label).slice(0, 3).toUpperCase()) + "</span>") +
+        '<span class="acq-teamBadge-label">' + h.escapeHtml(label) + "</span>" +
+      "</span>";
+  }
+
+  function playerSummaryHtml(row, h) {
+    var name = safeStr(row && row.player_name);
+    var meta = [safeStr(row && row.position), safeStr(row && row.nfl_team)].filter(Boolean).join(" · ");
+    return '' +
+      '<div class="acq-playerCell">' +
+        '<strong>' + h.escapeHtml(name) + "</strong>" +
+        (meta ? '<span class="acq-playerCell-meta">' + h.escapeHtml(meta) + "</span>" : "") +
+      "</div>";
+  }
+
+  function filterTextFromRow(row) {
+    return [
+      row && row.player_name,
+      row && row.franchise_name,
+      row && row.owner_name,
+      row && row.position,
+      row && row.nfl_team,
+      row && row.player_id,
+      row && row.pick_label
+    ].join(" ").toLowerCase();
+  }
+
+  function getSubview(moduleState) {
+    return safeStr(moduleState && moduleState.local && moduleState.local.subview).toLowerCase() === "history"
+      ? "history"
+      : "live";
+  }
+
+  function getSeasonContext(moduleState) {
+    var value = safeStr(moduleState && moduleState.local && moduleState.local.seasonContext);
+    return value || "all";
+  }
+
+  function resolveDraftableRookies(live, history) {
+    var liveRows = Array.isArray(live && live.draftable_rookies) ? live.draftable_rookies : [];
+    if (liveRows.length) return liveRows;
+    return Array.isArray(history && history.draftable_rookies_seed) ? history.draftable_rookies_seed : [];
+  }
+
+  function filterHistoryRows(rows, teamFilter, search) {
+    return (rows || []).filter(function (row) {
+      if (teamFilter && safeStr(row.franchise_id) !== teamFilter) return false;
+      if (search && filterTextFromRow(row).indexOf(search) === -1) return false;
+      return true;
+    });
+  }
+
+  function buildPickerRows(draftableRookies, liveBoard, pickerQuery) {
+    var drafted = {};
+    (liveBoard || []).forEach(function (row) {
+      drafted[safeStr(row.player_id)] = true;
+    });
+    var q = safeStr(pickerQuery).toLowerCase();
+    return (draftableRookies || []).filter(function (row) {
+      var playerId = safeStr(row.player_id);
+      if (!playerId || drafted[playerId]) return false;
+      if (!q) return true;
+      return [
+        row.player_name,
+        row.position,
+        row.nfl_team,
+        row.player_id
+      ].join(" ").toLowerCase().indexOf(q) !== -1;
+    }).slice(0, 14);
+  }
+
+  function selectedRookie(moduleState, draftableRookies) {
+    var selectedId = safeStr(moduleState && moduleState.local && moduleState.local.selectedPlayerId);
+    if (!selectedId) return null;
+    for (var i = 0; i < draftableRookies.length; i += 1) {
+      if (safeStr(draftableRookies[i] && draftableRookies[i].player_id) === selectedId) return draftableRookies[i];
+    }
+    return null;
+  }
+
+  function renderSubviewButtons(active, h) {
+    var items = [
+      { key: "live", label: "Live Draft + ADP" },
+      { key: "history", label: "History + Rookie Lab" }
+    ];
+    return '' +
+      '<div class="acq-inline-actions acq-subviewSwitch">' +
+        items.map(function (item) {
+          return '<button type="button" class="acq-btn ' + (item.key === active ? "acq-btn-primary" : "acq-btn-secondary") + '" data-acq-rookie-subview="' + h.escapeHtml(item.key) + '">' + h.escapeHtml(item.label) + "</button>";
+        }).join("") +
+      "</div>";
+  }
+
+  function renderLiveView(ctx, live, history) {
+    var h = ctx.helpers;
+    var moduleState = ctx.moduleState || {};
+    var search = safeStr(ctx.shared.search).toLowerCase();
+    var teamFilter = safeStr(ctx.shared.teamId);
+    var liveBoard = filterHistoryRows(live.live_board || [], teamFilter, search);
+    var draftOrder = (live.draft_order || []).filter(function (row) {
+      if (teamFilter && safeStr(row.franchise_id) !== teamFilter) return false;
+      if (search && filterTextFromRow(row).indexOf(search) === -1) return false;
+      return true;
+    });
+    var adpRows = (history.adp_board || []).filter(function (row) {
+      if (search && filterTextFromRow(row).indexOf(search) === -1) return false;
+      return true;
+    }).slice(0, 24);
+    var draftable = resolveDraftableRookies(live, history);
+    var pickerQuery = safeStr(moduleState.local && moduleState.local.pickerQuery);
+    var pickerRows = buildPickerRows(draftable, live.live_board || [], pickerQuery);
+    var selected = selectedRookie(moduleState, draftable);
+    var currentPick = live.current_pick || {};
+    var currentPickLabel = currentPick.round
+      ? (safeInt(currentPick.round, 0) + "." + String(safeInt(currentPick.pick, 0)).padStart(2, "0"))
+      : "Waiting on live draft status";
+    var onClockTeam = (live.draft_status && live.draft_status.current_pick_team_name) || safeStr(currentPick.franchise_name || "");
+    var reconcileStatus = live.contract_reconcile_status || {};
+    return '' +
+      '<section class="acq-card acq-card-hero">' +
+        '<div>' +
+          '<div class="acq-kicker">Live rookie board</div>' +
+          '<h2 class="acq-section-title">Live Draft + Rookie ADP</h2>' +
+          '<p class="acq-muted">' + h.escapeHtml(safeStr(live.draft_status && live.draft_status.message) || "Live rookie draft data refreshes continuously while this tab is active.") + '</p>' +
+        '</div>' +
+        renderSubviewButtons("live", h) +
+        '<div class="acq-kpi-grid">' +
+          '<div class="acq-kpi"><span class="acq-kpi-label">On the Clock</span><strong>' + h.escapeHtml(currentPickLabel) + '</strong><span class="acq-muted">' + h.escapeHtml(onClockTeam || "Waiting") + '</span></div>' +
+          '<div class="acq-kpi"><span class="acq-kpi-label">Picks Logged</span><strong>' + String((live.live_board || []).length) + '</strong><span class="acq-muted">' + h.escapeHtml(safeStr(live.draft_status && live.draft_status.timer_text) || "Live") + '</span></div>' +
+          '<div class="acq-kpi"><span class="acq-kpi-label">Contract Reconcile</span><strong>' + h.escapeHtml(safeStr(reconcileStatus.label || "Ready")) + '</strong><span class="acq-muted">' + h.escapeHtml(safeStr(reconcileStatus.summary || "Drafted rookies will receive contracts immediately after confirmation.")) + '</span></div>' +
+        '</div>' +
+      '</section>' +
+      '<div class="acq-grid acq-grid-two">' +
+        '<section class="acq-card">' +
+          '<div class="acq-card-head"><h3>Draft Entry</h3><span class="acq-pill">Player Name Only</span></div>' +
+          '<form id="acqRookieDraftForm" class="acq-form-grid">' +
+            '<label class="acq-field"><span>Player</span><input id="acqRookiePickerInput" name="player_picker" type="search" autocomplete="off" placeholder="Search the current rookie class" value="' + h.escapeHtml(selected ? safeStr(selected.player_name) : pickerQuery) + '"></label>' +
+            '<div class="acq-pickerResults">' +
+              (selected
+                ? '<div class="acq-pickerSelected">' +
+                    '<strong>' + h.escapeHtml(safeStr(selected.player_name)) + '</strong>' +
+                    '<span>' + h.escapeHtml([safeStr(selected.position), safeStr(selected.nfl_team), selected.normalized_adp != null && selected.normalized_adp !== "" ? ("ADP " + numberText(selected.normalized_adp, 2)) : ""].filter(Boolean).join(" · ")) + '</span>' +
+                    '<button type="button" class="acq-btn acq-btn-secondary" data-acq-rookie-clear="1">Change</button>' +
+                  '</div>'
+                : (pickerRows.length
+                    ? pickerRows.map(function (row) {
+                        return '' +
+                          '<button type="button" class="acq-pickerRow" data-acq-rookie-pick="' + h.escapeHtml(safeStr(row.player_id)) + '" data-acq-rookie-name="' + h.escapeHtml(safeStr(row.player_name)) + '">' +
+                            '<strong>' + h.escapeHtml(safeStr(row.player_name)) + '</strong>' +
+                            '<span>' + h.escapeHtml([safeStr(row.position), safeStr(row.nfl_team), row.normalized_adp != null && row.normalized_adp !== "" ? ("ADP " + numberText(row.normalized_adp, 2)) : ""].filter(Boolean).join(" · ")) + '</span>' +
+                          '</button>';
+                      }).join("")
+                    : '<div class="acq-empty">No undrafted rookies match the current search.</div>')) +
+            '</div>' +
+            '<div class="acq-grid acq-grid-two">' +
+              '<label class="acq-field"><span>Round</span><input name="round" type="number" min="1" value="' + h.escapeHtml(safeStr(currentPick.round || "")) + '"></label>' +
+              '<label class="acq-field"><span>Pick</span><input name="pick" type="number" min="1" value="' + h.escapeHtml(safeStr(currentPick.pick || "")) + '"></label>' +
+            '</div>' +
+            '<button type="submit" class="acq-btn acq-btn-primary">Submit Draft Pick</button>' +
+          '</form>' +
+          '<div id="acqRookieDraftActionStatus" class="acq-note"></div>' +
+        '</section>' +
+        '<section class="acq-card">' +
+          '<div class="acq-card-head"><h3>Current Draft Order</h3><span class="acq-pill">' + String((live.draft_order || []).length) + ' picks</span></div>' +
+          '<div class="acq-list acq-list-compact">' +
+            draftOrder.slice(0, 24).map(function (row) {
+              return '<div class="acq-list-row"><strong>' + h.escapeHtml(safeStr(row.pick_label)) + '</strong><span>' + teamBadgeHtml(row, h) + '</span></div>';
+            }).join("") +
+            (draftOrder.length ? "" : '<div class="acq-empty">No draft order rows are available yet.</div>') +
+          '</div>' +
+        '</section>' +
+      '</div>' +
+      '<div class="acq-grid acq-grid-two">' +
+        '<section class="acq-card">' +
+          '<div class="acq-card-head"><h3>Live Board</h3><span class="acq-pill">' + String(liveBoard.length) + ' shown</span></div>' +
+          h.renderTable([
+            { key: "pick_label", label: "Pick" },
+            { key: "player_name", label: "Player", renderHtml: function (row) { return playerSummaryHtml(row, h); } },
+            { key: "franchise_name", label: "Drafted By", renderHtml: function (row) { return teamBadgeHtml(row, h); } }
+          ], liveBoard.slice(0, 36).map(function (row) {
+            return {
+              pick_label: pickLabel(row),
+              player_name: row.player_name,
+              position: row.position,
+              nfl_team: row.nfl_team,
+              franchise_name: row.franchise_name,
+              franchise_abbrev: row.franchise_abbrev,
+              icon_url: row.icon_url || row.franchise_icon_url
+            };
+          }), "No live picks yet.") +
+        '</section>' +
+        '<section class="acq-card">' +
+          '<div class="acq-card-head"><h3>Rookie ADP Board</h3><span class="acq-pill">Current Class Only</span></div>' +
+          h.renderTable([
+            { key: "player_name", label: "Player", renderHtml: function (row) { return playerSummaryHtml(row, h); } },
+            { key: "normalized_adp", label: "ADP" },
+            { key: "adp_tier", label: "Tier" }
+          ], adpRows.map(function (row) {
+            return {
+              player_name: row.player_name,
+              position: row.position,
+              nfl_team: row.nfl_team,
+              normalized_adp: row.normalized_adp,
+              adp_tier: row.adp_tier || row.adp_period_used || ""
+            };
+          }), "No rookie ADP rows are available.") +
+        '</section>' +
+      '</div>';
+  }
+
+  function renderHistoryView(ctx, history) {
+    var h = ctx.helpers;
+    var moduleState = ctx.moduleState || {};
+    var search = safeStr(ctx.shared.search).toLowerCase();
+    var teamFilter = safeStr(ctx.shared.teamId);
+    var seasonContext = getSeasonContext(moduleState);
+    var availableSeasons = Array.isArray(history.available_seasons) ? history.available_seasons : [];
+    var historyRows = filterHistoryRows(history.history_rows || [], teamFilter, search).slice(0, 60);
+    var ownerRows = filterHistoryRows(history.owner_summary_rows || [], teamFilter, search).slice(0, 36);
+    var pickRows = filterHistoryRows(history.pick_summary_rows || [], "", search).slice(0, 36);
+    var topHits = filterHistoryRows(history.top_hits || [], teamFilter, search).slice(0, 18);
+    var valueSummary = (history.value_summary || []).slice(0, 18);
+    return '' +
+      '<section class="acq-card acq-card-hero">' +
+        '<div>' +
+          '<div class="acq-kicker">Historical rookie research</div>' +
+          '<h2 class="acq-section-title">History + Rookie Lab</h2>' +
+          '<p class="acq-muted">Filter by year context, review outcomes by drafting owner and pick slot, and compare early, middle, and late round performance across the league history.</p>' +
+        '</div>' +
+        renderSubviewButtons("history", h) +
+        '<div class="acq-toolbar-grid">' +
+          '<label class="acq-field"><span>Historical Year</span><select id="acqRookieSeasonContext"><option value="all"' + (seasonContext === "all" ? " selected" : "") + '>All Years</option>' +
+            availableSeasons.map(function (season) {
+              var value = safeStr(season);
+              return '<option value="' + h.escapeHtml(value) + '"' + (value === seasonContext ? " selected" : "") + '>' + h.escapeHtml(value) + '</option>';
+            }).join("") +
+          '</select></label>' +
+          '<div class="acq-note">Round segmentation: Early 1-4, Middle 5-8, Late 9-12 within each round.</div>' +
+        '</div>' +
+      '</section>' +
+      '<div class="acq-grid acq-grid-two">' +
+        '<section class="acq-card">' +
+          '<div class="acq-card-head"><h3>Historical Picks</h3><span class="acq-pill">' + (seasonContext === "all" ? "All Years" : h.escapeHtml(seasonContext)) + '</span></div>' +
+          h.renderTable([
+            { key: "pick_label", label: "Pick" },
+            { key: "player_name", label: "Player", renderHtml: function (row) { return playerSummaryHtml(row, h); } },
+            { key: "franchise_name", label: "Drafted By", renderHtml: function (row) { return teamBadgeHtml(row, h); } },
+            { key: "points_rookiecontract", label: "3Y Pts" },
+            { key: "rookie_value_score", label: "Score" }
+          ], historyRows.map(function (row) {
+            return {
+              pick_label: pickLabel(row),
+              player_name: row.player_name,
+              position: row.position,
+              nfl_team: "",
+              franchise_name: row.franchise_name,
+              franchise_abbrev: row.franchise_abbrev,
+              icon_url: row.icon_url || row.franchise_icon_url,
+              points_rookiecontract: row.points_rookiecontract,
+              rookie_value_score: row.rookie_value_score
+            };
+          }), "No historical rookie picks match the current filters.") +
+        '</section>' +
+        '<section class="acq-card">' +
+          '<div class="acq-card-head"><h3>Owner Summary</h3><span class="acq-pill">Historical Results</span></div>' +
+          h.renderTable([
+            { key: "franchise_name", label: "Owner", renderHtml: function (row) { return teamBadgeHtml(row, h); } },
+            { key: "picks_made", label: "Picks" },
+            { key: "avg_points_3yr", label: "Avg 3Y Pts" },
+            { key: "avg_rookie_value_score", label: "Avg Score" },
+            { key: "hit_rate", label: "Hit Rate" },
+            { key: "best_pick", label: "Best Pick" }
+          ], ownerRows, "No owner summary rows match the current filters.") +
+        '</section>' +
+      '</div>' +
+      '<div class="acq-grid acq-grid-two">' +
+        '<section class="acq-card">' +
+          '<div class="acq-card-head"><h3>Pick Summary</h3><span class="acq-pill">By Slot</span></div>' +
+          h.renderTable([
+            { key: "pick_label", label: "Pick" },
+            { key: "round_segment", label: "Segment" },
+            { key: "sample_size", label: "Samples" },
+            { key: "avg_points_3yr", label: "Avg 3Y Pts" },
+            { key: "avg_rookie_value_score", label: "Avg Score" },
+            { key: "hit_rate", label: "Hit Rate" }
+          ], pickRows, "No pick summary rows are available.") +
+        '</section>' +
+        '<section class="acq-card">' +
+          '<div class="acq-card-head"><h3>Rookie Lab</h3><span class="acq-pill">Top Hits</span></div>' +
+          h.renderTable([
+            { key: "player_name", label: "Player", renderHtml: function (row) { return playerSummaryHtml(row, h); } },
+            { key: "pick_label", label: "Pick" },
+            { key: "round_segment", label: "Segment" },
+            { key: "points_rookiecontract", label: "3Y Pts" },
+            { key: "rookie_value_score", label: "Score" }
+          ], topHits.map(function (row) {
+            return {
+              player_name: row.player_name,
+              position: row.position,
+              nfl_team: "",
+              pick_label: pickLabel(row),
+              round_segment: row.round_segment,
+              points_rookiecontract: row.points_rookiecontract,
+              rookie_value_score: row.rookie_value_score
+            };
+          }), "No top-hit rows match the current filters.") +
+        '</section>' +
+      '</div>' +
+      '<section class="acq-card">' +
+        '<div class="acq-card-head"><h3>Pick Bucket Baseline</h3><span class="acq-pill">Expectation vs. Outcome</span></div>' +
+        h.renderTable([
+          { key: "pick_bucket", label: "Bucket" },
+          { key: "expected_points_3yr", label: "Expected 3Y Pts" },
+          { key: "avg_points_3yr", label: "Avg 3Y Pts" },
+          { key: "avg_rookie_value_score", label: "Avg Score" },
+          { key: "sample_size", label: "Samples" }
+        ], valueSummary, "No value summary rows are available.") +
+      '</section>';
+  }
+
   window.UPS_ACQ_MODULES["rookie-draft"] = {
     key: "rookie-draft",
     title: "Rookie Draft Room",
     historyPath: "/acquisition-hub/rookie-draft/history",
     livePath: "/acquisition-hub/rookie-draft/live",
     refresh: { visibleMs: 5000, hiddenMs: 15000 },
+    getHistoryParams: function (ctx) {
+      return {
+        season_context: getSeasonContext(ctx && ctx.moduleState)
+      };
+    },
     render: function (ctx) {
-      var h = ctx.helpers;
       var moduleState = ctx.moduleState || {};
       var live = moduleState.live || {};
       var history = moduleState.history || {};
-      var search = safeStr(ctx.shared.search).toLowerCase();
-      var teamFilter = safeStr(ctx.shared.teamId);
-      var boardRows = (live.live_board || []).filter(function (row) {
-        var text = [row.player_name, row.franchise_name, row.position, row.player_id].join(" ").toLowerCase();
-        if (teamFilter && safeStr(row.franchise_id) !== teamFilter) return false;
-        if (search && text.indexOf(search) === -1) return false;
-        return true;
-      });
-      var historyRows = (history.history_rows || []).filter(function (row) {
-        var text = [row.player_name, row.franchise_name, row.position, row.player_id].join(" ").toLowerCase();
-        if (teamFilter && safeStr(row.franchise_id) !== teamFilter) return false;
-        if (search && text.indexOf(search) === -1) return false;
-        return true;
-      }).slice(0, 40);
-      var adpRows = (history.adp_board || []).filter(function (row) {
-        var text = [row.player_name, row.position, row.player_id].join(" ").toLowerCase();
-        return !search || text.indexOf(search) !== -1;
-      }).slice(0, 24);
-      var topHits = (history.top_hits || []).slice(0, 12);
-      var currentPick = live.current_pick || {};
-      var viewer = ctx.bootstrap && ctx.bootstrap.viewer ? ctx.bootstrap.viewer : {};
-      var currentPickLabel = currentPick.round
-        ? (safeInt(currentPick.round, 0) + "." + String(safeInt(currentPick.pick, 0)).padStart(2, "0"))
-        : "Waiting on live draft status";
-
       return '' +
-        '<div class="acq-page">' +
-          '<section class="acq-card acq-card-hero">' +
-            '<div>' +
-              '<div class="acq-kicker">Live rookie board</div>' +
-              '<h2 class="acq-section-title">Rookie Draft Room</h2>' +
-              '<p class="acq-muted">' + h.escapeHtml(safeStr(live.draft_status && live.draft_status.message) || "Live draft data updates every 5 seconds while this tab is visible.") + '</p>' +
-            '</div>' +
-            '<div class="acq-kpi-grid">' +
-              '<div class="acq-kpi"><span class="acq-kpi-label">On the Clock</span><strong>' + h.escapeHtml(currentPickLabel) + '</strong></div>' +
-              '<div class="acq-kpi"><span class="acq-kpi-label">Picks Logged</span><strong>' + String((live.live_board || []).length) + '</strong></div>' +
-              '<div class="acq-kpi"><span class="acq-kpi-label">Timer</span><strong>' + h.escapeHtml(safeStr(live.draft_status && live.draft_status.timer_text) || "Live") + '</strong></div>' +
-            '</div>' +
-          '</section>' +
-
-          '<div class="acq-grid acq-grid-two">' +
-            '<section class="acq-card">' +
-              '<div class="acq-card-head"><h3>Draft Controls</h3><span class="acq-pill">' + (viewer.is_commish ? "Commish" : "Owner") + '</span></div>' +
-              '<form id="acqRookieDraftForm" class="acq-form-grid">' +
-                '<label class="acq-field"><span>Player ID</span><input name="player_id" type="text" placeholder="MFL player id"></label>' +
-                '<label class="acq-field"><span>Round</span><input name="round" type="number" min="1" value="' + h.escapeHtml(safeStr(currentPick.round || "")) + '"></label>' +
-                '<label class="acq-field"><span>Pick</span><input name="pick" type="number" min="1" value="' + h.escapeHtml(safeStr(currentPick.pick || "")) + '"></label>' +
-                '<button type="submit" class="acq-btn acq-btn-primary">Submit Draft Pick</button>' +
-              '</form>' +
-              (viewer.is_commish ? (
-                '<div class="acq-inline-actions">' +
-                  '<button type="button" class="acq-btn acq-btn-secondary" data-acq-commissioner="pause">Pause</button>' +
-                  '<button type="button" class="acq-btn acq-btn-secondary" data-acq-commissioner="resume">Resume</button>' +
-                  '<button type="button" class="acq-btn acq-btn-secondary" data-acq-commissioner="skip">Skip</button>' +
-                  '<button type="button" class="acq-btn acq-btn-secondary" data-acq-commissioner="undo">Undo</button>' +
-                '</div>'
-              ) : "") +
-              '<div id="acqRookieDraftActionStatus" class="acq-note"></div>' +
-            '</section>' +
-            '<section class="acq-card">' +
-              '<div class="acq-card-head"><h3>Draft Order</h3><span class="acq-pill">' + String((live.draft_order || []).length) + ' picks</span></div>' +
-              '<div class="acq-list acq-list-compact">' +
-                (live.draft_order || []).slice(0, 24).map(function (row) {
-                  return '<div class="acq-list-row"><strong>' + h.escapeHtml(safeStr(row.pick_label)) + '</strong><span>' + h.escapeHtml(safeStr(row.franchise_name)) + '</span></div>';
-                }).join("") +
-              '</div>' +
-            '</section>' +
-          '</div>' +
-
-          '<div class="acq-grid acq-grid-two">' +
-            '<section class="acq-card">' +
-              '<div class="acq-card-head"><h3>Live Board</h3><span class="acq-pill">' + String(boardRows.length) + ' shown</span></div>' +
-              h.renderTable([
-                { key: "pick", label: "Pick" },
-                { key: "player_name", label: "Player" },
-                { key: "position", label: "Pos" },
-                { key: "franchise_name", label: "Team" }
-              ], boardRows.slice(0, 32).map(function (row) {
-                return {
-                  pick: pickLabel(row),
-                  player_name: row.player_name,
-                  position: row.position,
-                  franchise_name: row.franchise_name
-                };
-              }), "No live picks yet.") +
-            '</section>' +
-            '<section class="acq-card">' +
-              '<div class="acq-card-head"><h3>ADP Board</h3><span class="acq-pill">Dynasty / SF</span></div>' +
-              h.renderTable([
-                { key: "player_name", label: "Player" },
-                { key: "position", label: "Pos" },
-                { key: "season", label: "Season" },
-                { key: "normalized_adp", label: "ADP" }
-              ], adpRows, "No ADP rows available.") +
-            '</section>' +
-          '</div>' +
-
-          '<div class="acq-grid acq-grid-two">' +
-            '<section class="acq-card">' +
-              '<div class="acq-card-head"><h3>Rookie Value Lab</h3><span class="acq-pill">Top hits</span></div>' +
-              h.renderTable([
-                { key: "player_name", label: "Player" },
-                { key: "pick_overall", label: "Pick" },
-                { key: "rookie_value_score", label: "Score" },
-                { key: "points_rookiecontract", label: "3Y Pts" }
-              ], topHits, "No rookie value rows available.") +
-            '</section>' +
-            '<section class="acq-card">' +
-              '<div class="acq-card-head"><h3>Historical Picks</h3><span class="acq-pill">1st 3 years</span></div>' +
-              h.renderTable([
-                { key: "pick_label", label: "Pick" },
-                { key: "player_name", label: "Player" },
-                { key: "franchise_name", label: "Team" },
-                { key: "points_rookiecontract", label: "3Y Pts" },
-                { key: "rookie_value_score", label: "Score" }
-              ], historyRows.map(function (row) {
-                return {
-                  pick_label: pickLabel(row),
-                  player_name: row.player_name,
-                  franchise_name: row.franchise_name,
-                  points_rookiecontract: row.points_rookiecontract,
-                  rookie_value_score: row.rookie_value_score
-                };
-              }), "No historical rookie picks match the current filters.") +
-            '</section>' +
-          '</div>' +
+        '<div class="acq-page acq-rookiePage">' +
+          (getSubview(moduleState) === "history" ? renderHistoryView(ctx, history) : renderLiveView(ctx, live, history)) +
         '</div>';
     },
     bind: function (root, ctx) {
-      var form = root.querySelector("#acqRookieDraftForm");
+      var moduleState = ctx.moduleState || {};
+      var local = moduleState.local || {};
       var statusEl = root.querySelector("#acqRookieDraftActionStatus");
+      var seasonSelect = root.querySelector("#acqRookieSeasonContext");
+      var form = root.querySelector("#acqRookieDraftForm");
+      var pickerInput = root.querySelector("#acqRookiePickerInput");
 
       function setStatus(message, tone) {
         if (!statusEl) return;
@@ -167,35 +391,84 @@
         statusEl.textContent = message;
       }
 
+      Array.prototype.forEach.call(root.querySelectorAll("[data-acq-rookie-subview]"), function (button) {
+        button.addEventListener("click", function () {
+          var next = safeStr(button.getAttribute("data-acq-rookie-subview")).toLowerCase() === "history" ? "history" : "live";
+          ctx.setLocalState({ subview: next });
+          if (next === "history") ctx.reloadHistory(true).catch(function () {});
+        });
+      });
+
+      if (seasonSelect) {
+        seasonSelect.addEventListener("change", function () {
+          ctx.setLocalState({ seasonContext: safeStr(seasonSelect.value) || "all" }, { reloadHistory: true });
+        });
+      }
+
+      if (pickerInput) {
+        pickerInput.addEventListener("input", function () {
+          ctx.setLocalState({
+            pickerQuery: safeStr(pickerInput.value),
+            selectedPlayerId: "",
+            selectedPlayerName: ""
+          });
+        });
+      }
+
+      Array.prototype.forEach.call(root.querySelectorAll("[data-acq-rookie-pick]"), function (button) {
+        button.addEventListener("click", function () {
+          ctx.setLocalState({
+            selectedPlayerId: safeStr(button.getAttribute("data-acq-rookie-pick")),
+            selectedPlayerName: safeStr(button.getAttribute("data-acq-rookie-name")),
+            pickerQuery: safeStr(button.getAttribute("data-acq-rookie-name"))
+          });
+        });
+      });
+
+      Array.prototype.forEach.call(root.querySelectorAll("[data-acq-rookie-clear]"), function (button) {
+        button.addEventListener("click", function () {
+          ctx.setLocalState({
+            selectedPlayerId: "",
+            selectedPlayerName: "",
+            pickerQuery: ""
+          });
+        });
+      });
+
       if (form) {
         form.addEventListener("submit", function (event) {
           event.preventDefault();
           var fd = new FormData(form);
-          setStatus("Submitting draft pick...", "info");
+          var playerId = safeStr(local.selectedPlayerId || (ctx.moduleState && ctx.moduleState.local && ctx.moduleState.local.selectedPlayerId));
+          var playerName = safeStr(local.selectedPlayerName || (ctx.moduleState && ctx.moduleState.local && ctx.moduleState.local.selectedPlayerName));
+          if (!playerId) {
+            setStatus("Select a rookie by name before submitting the draft pick.", "bad");
+            return;
+          }
+          setStatus("Submitting draft pick and rookie contract...", "info");
           ctx.postAction("/acquisition-hub/rookie-draft/action", {
             action: "draft",
-            player_id: safeStr(fd.get("player_id")),
+            player_id: playerId,
+            player_name: playerName,
             round: safeStr(fd.get("round")),
             pick: safeStr(fd.get("pick"))
-          }).then(function () {
-            setStatus("Draft action submitted. Refreshing board...", "good");
+          }).then(function (payload) {
+            var contractResult = payload && payload.contract_apply_result ? payload.contract_apply_result : null;
+            var message = "Draft pick submitted.";
+            if (contractResult && safeStr(contractResult.status_label)) {
+              message += " " + safeStr(contractResult.status_label);
+            }
+            ctx.setLocalState({
+              selectedPlayerId: "",
+              selectedPlayerName: "",
+              pickerQuery: ""
+            });
+            setStatus(message, contractResult && contractResult.ok === false ? "bad" : "good");
           }).catch(function (err) {
             setStatus(err && err.message ? err.message : "Draft action failed.", "bad");
           });
         });
       }
-
-      Array.prototype.forEach.call(root.querySelectorAll("[data-acq-commissioner]"), function (button) {
-        button.addEventListener("click", function () {
-          var action = safeStr(button.getAttribute("data-acq-commissioner")).toLowerCase();
-          setStatus("Submitting commissioner action...", "info");
-          ctx.postAction("/acquisition-hub/rookie-draft/action", { action: action }).then(function () {
-            setStatus("Commissioner action submitted. Refreshing board...", "good");
-          }).catch(function (err) {
-            setStatus(err && err.message ? err.message : "Commissioner action failed.", "bad");
-          });
-        });
-      });
     }
   };
 })();
