@@ -8175,6 +8175,318 @@ export default {
         };
       };
 
+      const formatContractK = (amount) => {
+        const dollars = safeMoneyInt(amount, 0);
+        if (dollars <= 0) return "0K";
+        const text = Math.round((dollars / 1000) * 10) / 10;
+        return `${String(text).replace(/\.0$/, "")}K`;
+      };
+
+      const contractDiscordBotToken = () =>
+        safeStr(
+          env.DISCORD_CONTRACT_BOT_TOKEN ||
+          env.DISCORD_BOT_TOKEN ||
+          env.DISCORD_BOT ||
+          env.Discord_bot ||
+          ""
+        );
+
+      const contractDiscordPrimaryChannelId = () =>
+        safeStr(env.DISCORD_CONTRACT_CHANNEL_ID || "").replace(/\D/g, "");
+
+      const contractDiscordTestChannelId = () =>
+        safeStr(env.DISCORD_CONTRACT_TEST_CHANNEL_ID || env.DISCORD_BUG_TEST_CHANNEL_ID || "").replace(/\D/g, "");
+
+      const contractDiscordChannelTarget = () => {
+        const testChannelId = contractDiscordTestChannelId();
+        if (testChannelId) {
+          return {
+            channelId: testChannelId,
+            deliveryTarget: "test",
+            missingError: "",
+          };
+        }
+        const primaryChannelId = contractDiscordPrimaryChannelId();
+        return {
+          channelId: primaryChannelId,
+          deliveryTarget: "primary",
+          missingError: primaryChannelId ? "" : "missing_discord_contract_channel_config",
+        };
+      };
+
+      const getMemorialDayUtc = (season) => {
+        const year = safeInt(season, 0);
+        if (year <= 0) return null;
+        const d = new Date(Date.UTC(year, 4, 31));
+        const weekday = d.getUTCDay();
+        const offset = (weekday + 6) % 7;
+        d.setUTCDate(d.getUTCDate() - offset);
+        return d;
+      };
+
+      const getTagDeadlineUtc = (season) => {
+        const memorial = getMemorialDayUtc(season);
+        if (!memorial) return null;
+        const tagDeadline = new Date(memorial.getTime());
+        tagDeadline.setUTCDate(tagDeadline.getUTCDate() - 4);
+        tagDeadline.setUTCHours(23, 59, 59, 999);
+        return tagDeadline;
+      };
+
+      const hasTagDeadlinePassed = (season) => {
+        const deadline = getTagDeadlineUtc(season);
+        if (!deadline) return false;
+        return Date.now() > deadline.getTime();
+      };
+
+      const formatContractSubmissionDate = (rawValue) => {
+        const raw = safeStr(rawValue);
+        if (!raw) return "";
+        const parsed = new Date(raw);
+        if (Number.isNaN(parsed.getTime())) return raw;
+        return parsed.toLocaleString("en-US", {
+          timeZone: "America/New_York",
+          year: "numeric",
+          month: "short",
+          day: "numeric",
+          hour: "numeric",
+          minute: "2-digit",
+        });
+      };
+
+      const contractBreakdownFromMutation = ({ contractInfo, contractYear, season, salary }) => {
+        const map = parseContractInfoYearSalaries(contractInfo);
+        if (!Object.keys(map).length) {
+          const currentYear = safeInt(contractYear, NaN);
+          const currentSalary = safeMoneyInt(salary, null);
+          if (Number.isFinite(currentYear) && currentYear > 0 && currentSalary != null && currentSalary >= 0) {
+            map[String(currentYear)] = currentSalary;
+          }
+        }
+        const pairs = salaryByYearToSortedPairs(map);
+        const seasonNum = safeInt(season, NaN);
+        const currentContractYear = safeInt(contractYear, NaN);
+        const normalizedPairs = pairs.map((pair) => {
+          const relativeYear = safeInt(pair?.year, NaN);
+          const seasonYear =
+            Number.isFinite(seasonNum) &&
+            seasonNum > 0 &&
+            Number.isFinite(currentContractYear) &&
+            currentContractYear > 0 &&
+            Number.isFinite(relativeYear) &&
+            relativeYear > 0
+              ? seasonNum - currentContractYear + relativeYear
+              : null;
+          return {
+            year: relativeYear,
+            salary: safeInt(pair?.salary, 0),
+            season_year: seasonYear,
+          };
+        });
+        return {
+          pairs: normalizedPairs,
+          totals: computeSalaryByYearTotals(normalizedPairs),
+        };
+      };
+
+      const deriveContractActivityType = ({
+        isExtensionSubmission,
+        isRestructure,
+        contractStatus,
+      }) => {
+        const status = safeStr(contractStatus).toUpperCase();
+        if (status === "TAG") return "Tag";
+        if (isExtensionSubmission) return "Extension";
+        if (isRestructure) return "Restructure";
+        return "FA Contract";
+      };
+
+      const shouldAnnounceContractActivity = ({ activityType, season }) => {
+        if (activityType !== "Tag") {
+          return { ok: true, skipped: false, reason: "" };
+        }
+        if (hasTagDeadlinePassed(season)) {
+          return { ok: true, skipped: false, reason: "" };
+        }
+        return { ok: false, skipped: true, reason: "tag_deadline_not_passed" };
+      };
+
+      const contractGifQueries = ({ activityType, playerName }) => {
+        const player = safeStr(playerName);
+        const queries = [];
+        if (player) {
+          queries.push(`${player} nfl`);
+          queries.push(`${player} football`);
+        }
+        if (activityType === "Extension") {
+          queries.push("nfl celebration");
+          queries.push("football contract signing");
+        } else if (activityType === "Restructure") {
+          queries.push("football money celebration");
+          queries.push("nfl celebration");
+        } else if (activityType === "Tag") {
+          queries.push("football franchise celebration");
+          queries.push("nfl celebration");
+        } else {
+          queries.push("nfl signing");
+          queries.push("football celebration");
+        }
+        queries.push("nfl celebration");
+        return queries.filter(Boolean);
+      };
+
+      const pickContractActivityGifUrl = async ({ activityType, playerName }) => {
+        const apiKey = safeStr(env.GIPHY_API_KEY || "");
+        if (!apiKey) {
+          return { ok: false, gif_url: "", reason: "missing_giphy_api_key", query: "" };
+        }
+        const queries = contractGifQueries({ activityType, playerName });
+        for (const query of queries) {
+          const searchUrl = new URL("https://api.giphy.com/v1/gifs/search");
+          searchUrl.searchParams.set("api_key", apiKey);
+          searchUrl.searchParams.set("q", query);
+          searchUrl.searchParams.set("limit", "15");
+          searchUrl.searchParams.set("offset", "0");
+          searchUrl.searchParams.set("rating", "pg-13");
+          searchUrl.searchParams.set("lang", "en");
+          try {
+            const res = await fetch(searchUrl.toString(), {
+              headers: { "User-Agent": "upsmflproduction-worker" },
+              cf: { cacheTtl: 300, cacheEverything: false },
+            });
+            if (!res.ok) continue;
+            const data = await res.json();
+            const rows = Array.isArray(data?.data) ? data.data : [];
+            if (!rows.length) continue;
+            const pick = rows[Math.floor(Math.random() * rows.length)] || rows[0];
+            const gifUrl =
+              safeStr(pick?.images?.original?.url) ||
+              safeStr(pick?.images?.downsized_large?.url) ||
+              safeStr(pick?.images?.fixed_height?.url) ||
+              safeStr(pick?.url);
+            if (gifUrl) {
+              return { ok: true, gif_url: gifUrl, reason: "", query };
+            }
+          } catch (_) {
+            continue;
+          }
+        }
+        return { ok: false, gif_url: "", reason: "gif_not_found", query: queries[0] || "" };
+      };
+
+      const buildContractActivityDiscordMessage = ({
+        activityType,
+        franchiseName,
+        playerName,
+        contractInfo,
+        contractYear,
+        season,
+        salary,
+        submittedAtUtc,
+      }) => {
+        const summary = contractBreakdownFromMutation({
+          contractInfo,
+          contractYear,
+          season,
+          salary,
+        });
+        const totals = summary.totals || { contract_length: 0, tcv: 0, aav: 0 };
+        const yearlyBreakdown = summary.pairs.length
+          ? summary.pairs
+              .map((pair) => {
+                const yearLabel = Number.isFinite(pair.season_year) && pair.season_year > 0
+                  ? String(pair.season_year)
+                  : `Y${pair.year}`;
+                return `${yearLabel} ${formatContractK(pair.salary)}`;
+              })
+              .join(" | ")
+          : "Unavailable";
+        const yearsLabel = totals.contract_length === 1 ? "1 Year" : `${Math.max(0, totals.contract_length)} Years`;
+        const lines = [
+          `**Contract Activity:** ${safeStr(activityType || "Contract Update")}`,
+          `**Team:** ${safeStr(franchiseName || "Unknown Franchise")}`,
+          `**Player:** ${safeStr(playerName || "Unknown Player")}`,
+          `**Total Years:** ${yearsLabel}`,
+          `**TCV:** ${formatContractK(totals.tcv)}`,
+          `**AAV:** ${formatContractK(totals.aav)}`,
+          `**Yearly Breakdown:** ${yearlyBreakdown}`,
+        ];
+        const submittedLabel = formatContractSubmissionDate(submittedAtUtc);
+        if (submittedLabel) lines.push(`**Submitted:** ${submittedLabel}`);
+        return lines.join("\n");
+      };
+
+      const sendDiscordContractActivity = async ({
+        activityType,
+        franchiseName,
+        playerName,
+        contractInfo,
+        contractYear,
+        season,
+        salary,
+        submittedAtUtc,
+      }) => {
+        const allow = shouldAnnounceContractActivity({ activityType, season });
+        if (!allow.ok) {
+          return {
+            ok: false,
+            skipped: true,
+            status: 0,
+            error: safeStr(allow.reason || "announcement_skipped"),
+            delivery_target: "",
+            gif_url: "",
+            gif_query: "",
+          };
+        }
+        const botToken = contractDiscordBotToken();
+        const target = contractDiscordChannelTarget();
+        if (!botToken || !target.channelId) {
+          return {
+            ok: false,
+            skipped: false,
+            status: 0,
+            error: !botToken ? "missing_discord_contract_bot_token" : safeStr(target.missingError || "missing_discord_contract_channel_config"),
+            delivery_target: safeStr(target.deliveryTarget || ""),
+            gif_url: "",
+            gif_query: "",
+          };
+        }
+        const gif = await pickContractActivityGifUrl({ activityType, playerName });
+        let content = buildContractActivityDiscordMessage({
+          activityType,
+          franchiseName,
+          playerName,
+          contractInfo,
+          contractYear,
+          season,
+          salary,
+          submittedAtUtc,
+        });
+        if (gif.gif_url) {
+          content += `\n\n${gif.gif_url}`;
+        }
+        const res = await discordBotRequest(
+          botToken,
+          "POST",
+          `/channels/${encodeURIComponent(target.channelId)}/messages`,
+          {
+            content,
+            allowed_mentions: { parse: [] },
+          }
+        );
+        return {
+          ok: !!res.ok,
+          skipped: false,
+          status: safeInt(res.status, 0),
+          error: res.ok ? "" : safeStr(res.text || "discord_contract_post_failed").slice(0, 600),
+          channel_id: safeStr(target.channelId),
+          delivery_target: safeStr(target.deliveryTarget || ""),
+          message_id: safeStr(res.data?.id || ""),
+          gif_url: safeStr(gif.gif_url || ""),
+          gif_query: safeStr(gif.query || ""),
+        };
+      };
+
       const normalizeExtensionContractStatusForImport = (req, currentStatus) => {
         const requestedRaw = safeStr(
           req?.new_contract_status || req?.contract_status || req?.contractStatus || ""
@@ -14874,6 +15186,44 @@ export default {
           }
         }
 
+        let contractDiscord = {
+          ok: false,
+          skipped: true,
+          status: 0,
+          error: looksOk && anyChanged ? "announcement_not_attempted" : "no_applied_change_detected",
+          delivery_target: "",
+          gif_url: "",
+          gif_query: "",
+        };
+        if (looksOk && anyChanged) {
+          try {
+            contractDiscord = await sendDiscordContractActivity({
+              activityType: deriveContractActivityType({
+                isExtensionSubmission,
+                isRestructure,
+                contractStatus: postCheck?.contractStatus || statusUsed || contractStatus,
+              }),
+              franchiseName: franchiseName,
+              playerName: playerName,
+              contractInfo: postCheck?.contractInfo || contractInfo,
+              contractYear: postCheck?.contractYear || contractYear,
+              season: year,
+              salary: postCheck?.salary || salary,
+              submittedAtUtc: submittedAtUtc || new Date().toISOString(),
+            });
+          } catch (e) {
+            contractDiscord = {
+              ok: false,
+              skipped: false,
+              status: 0,
+              error: `contract_discord_failed: ${e?.message || String(e)}`,
+              delivery_target: "",
+              gif_url: "",
+              gif_query: "",
+            };
+          }
+        }
+
         let mutationStatus = "import_rejected";
         if (!looksOk) {
           mutationStatus = "import_rejected";
@@ -14916,6 +15266,7 @@ export default {
             importAttempts,
             isManualContractUpdate,
             logDispatch,
+            contractDiscord,
           },
         });
       }
