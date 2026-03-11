@@ -3,7 +3,7 @@
     "schema_version": 1,
     "league_id": "74598",
     "season": 2026,
-    "updated_at": "2026-03-11T14:57:11.427Z",
+    "updated_at": "2026-03-11T14:57:12.093Z",
     "row_count": 3,
     "source": "worker-bug-reports"
   },
@@ -40,8 +40,8 @@
       "approval_requested_at_utc": "",
       "approval_received_at_utc": "",
       "approval_decision_by": "",
-      "last_discord_sync_error": "",
-      "last_discord_sync_at_utc": "",
+      "last_discord_sync_error": "missing_discord_bug_thread_config",
+      "last_discord_sync_at_utc": "2026-03-11T14:57:12.093Z",
       "context": {
         "captured_at_utc": "2026-03-11T14:57:10.773Z",
         "league_id": "74598",
