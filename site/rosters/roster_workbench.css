@@ -423,6 +423,66 @@
   align-items: center;
 }
 
+.rwb-attention-board {
+  display: grid;
+  gap: 8px;
+}
+
+.rwb-attention-board-label {
+  color: var(--rwb-text-dim);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.rwb-attention-summary-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.rwb-attention-summary-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  border: 1px solid rgba(157, 188, 228, 0.26);
+  background: rgba(8, 18, 34, 0.88);
+  padding: 7px 11px;
+  font-size: 0.78rem;
+  line-height: 1;
+}
+
+.rwb-attention-summary-chip.is-action {
+  border-color: rgba(86, 215, 154, 0.42);
+  background: rgba(86, 215, 154, 0.14);
+}
+
+.rwb-attention-summary-chip.is-risk {
+  border-color: rgba(255, 141, 141, 0.42);
+  background: rgba(255, 141, 141, 0.12);
+}
+
+.rwb-attention-summary-chip.is-loaded {
+  border-color: rgba(255, 193, 120, 0.42);
+  background: rgba(255, 169, 103, 0.14);
+}
+
+.rwb-attention-summary-label {
+  color: var(--rwb-text-dim);
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.rwb-attention-summary-value {
+  color: var(--rwb-text);
+  font-weight: 800;
+}
+
 .rwb-chip {
   display: inline-flex;
   align-items: center;
@@ -725,6 +785,55 @@
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+.rwb-attention-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.rwb-attention-pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  border: 1px solid rgba(157, 188, 228, 0.24);
+  background: rgba(8, 18, 34, 0.82);
+  color: var(--rwb-text-soft);
+  padding: 3px 8px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  line-height: 1.1;
+}
+
+.rwb-attention-pill.is-action {
+  border-color: rgba(86, 215, 154, 0.42);
+  background: rgba(86, 215, 154, 0.14);
+  color: #dcf8e8;
+}
+
+.rwb-attention-pill.is-risk {
+  border-color: rgba(255, 141, 141, 0.44);
+  background: rgba(255, 141, 141, 0.13);
+  color: #ffd6d6;
+}
+
+.rwb-attention-pill.is-loaded {
+  border-color: rgba(255, 193, 120, 0.42);
+  background: rgba(255, 169, 103, 0.15);
+  color: #ffe4c3;
+}
+
+.rwb-attention-pill.is-preview {
+  border-color: rgba(121, 167, 227, 0.42);
+  background: rgba(121, 167, 227, 0.14);
+  color: #dcebff;
+}
+
+.rwb-attention-pill.is-muted {
+  color: var(--rwb-text-dim);
 }
 
 .rwb-pos-pill {
@@ -1720,6 +1829,10 @@
 .rwb-modal-note > strong:first-child {
   display: block;
   margin-bottom: 6px;
+}
+
+.rwb-modal-note .rwb-attention-line {
+  margin-top: 10px;
 }
 
 .rwb-extension-preview-list {

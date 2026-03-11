@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var BUILD = "2026.03.10.04";
+  var BUILD = "2026.03.11.01";
   var BOOT_FLAG = "__ups_roster_workbench_boot_" + BUILD;
   if (window[BOOT_FLAG]) {
     if (typeof window.UPS_RWB_INIT === "function") window.UPS_RWB_INIT();
@@ -125,6 +125,7 @@
     filterType: "",
     filterRosterStatus: "",
     filterByeImpact: "",
+    attentionOnly: false,
     sorts: {
       roster: { key: "salary", dir: "desc" },
       contract: { key: "player", dir: "asc" },
@@ -690,6 +691,10 @@
       threeYearNonRookie: threeYearNonRookie,
       loaded: loaded
     };
+  }
+
+  function attentionFilterEnabledForView() {
+    return state.view === "roster" || (state.view === "contract" && !capPlanSummaryViewActive());
   }
 
   function buildRosterGroupSalarySummaryMap() {
@@ -1513,6 +1518,129 @@
     };
   }
 
+  function playerAttentionProfile(player) {
+    var eligibility = rosterContractEligibility(player);
+    var years = Math.max(0, safeInt(player && player.years, 0));
+    var penalty = dropPenaltyEstimate(player);
+    var penaltyAmount = safeInt(penalty && penalty.amount, 0);
+    var previewYears = extensionPreviewYears(player);
+    var items = [];
+
+    if (years <= 0) {
+      items.push({ key: "expired", label: "Expired", tone: "risk" });
+    } else if (years === 1) {
+      items.push({ key: "expiring", label: "Expiring", tone: "risk" });
+    }
+    if (eligibility.extensionEligible) {
+      items.push({ key: "extension", label: "Extend", tone: "action" });
+    }
+    if (eligibility.restructureEligible) {
+      items.push({ key: "restructure", label: "Restructure", tone: "action" });
+    }
+    if (isLoadedContractPlayer(player)) {
+      items.push({ key: "loaded", label: "Loaded", tone: "loaded" });
+    }
+    if (penaltyAmount >= 5000) {
+      items.push({ key: "penalty", label: "Penalty " + formatContractK(penaltyAmount), tone: "risk" });
+    }
+    if (previewYears > 0) {
+      items.push({ key: "preview", label: "Preview " + String(previewYears) + "Y", tone: "preview" });
+    }
+
+    return {
+      items: items,
+      attentionCount: items.length,
+      expiring: years <= 1,
+      extensionEligible: !!eligibility.extensionEligible,
+      restructureEligible: !!eligibility.restructureEligible,
+      loaded: isLoadedContractPlayer(player),
+      highPenalty: penaltyAmount >= 5000,
+      previewActive: previewYears > 0
+    };
+  }
+
+  function playerNeedsAttention(player) {
+    return !!playerAttentionProfile(player).attentionCount;
+  }
+
+  function playerAttentionPillsHtml(player, maxItems) {
+    var profile = playerAttentionProfile(player);
+    var items = profile.items || [];
+    var limit = Math.max(0, safeInt(maxItems, 0) || items.length);
+    if (!items.length || limit <= 0) return "";
+    var html = [];
+    for (var i = 0; i < items.length && i < limit; i += 1) {
+      var item = items[i];
+      html.push(
+        '<span class="rwb-attention-pill is-' + escapeHtml(item.tone) + '">' + escapeHtml(item.label) + '</span>'
+      );
+    }
+    if (items.length > limit) {
+      html.push('<span class="rwb-attention-pill is-muted">+' + escapeHtml(String(items.length - limit)) + ' more</span>');
+    }
+    return '<div class="rwb-attention-line">' + html.join("") + '</div>';
+  }
+
+  function summarizeAttentionPlayers(players) {
+    var list = Array.isArray(players) ? players : [];
+    var summary = {
+      attention: 0,
+      expiring: 0,
+      extension: 0,
+      restructure: 0,
+      loaded: 0,
+      highPenalty: 0
+    };
+    for (var i = 0; i < list.length; i += 1) {
+      var profile = playerAttentionProfile(list[i]);
+      if (profile.attentionCount > 0) summary.attention += 1;
+      if (profile.expiring) summary.expiring += 1;
+      if (profile.extensionEligible) summary.extension += 1;
+      if (profile.restructureEligible) summary.restructure += 1;
+      if (profile.loaded) summary.loaded += 1;
+      if (profile.highPenalty) summary.highPenalty += 1;
+    }
+    return summary;
+  }
+
+  function attentionSummaryChipHtml(label, value, tone) {
+    if (safeInt(value, 0) <= 0) return "";
+    var toneClass = tone ? " is-" + safeStr(tone) : "";
+    return (
+      '<span class="rwb-attention-summary-chip' + toneClass + '">' +
+        '<span class="rwb-attention-summary-label">' + escapeHtml(label) + '</span>' +
+        '<span class="rwb-attention-summary-value">' + escapeHtml(String(value)) + '</span>' +
+      '</span>'
+    );
+  }
+
+  function teamAttentionBoardHtml(players) {
+    if (!attentionFilterEnabledForView()) return "";
+    var summary = summarizeAttentionPlayers(players);
+    if (!summary.attention) return "";
+    var chips = [
+      attentionSummaryChipHtml("Attention", summary.attention, "action"),
+      attentionSummaryChipHtml("Expiring", summary.expiring, "risk"),
+      attentionSummaryChipHtml("Extension", summary.extension, "action"),
+      attentionSummaryChipHtml("Restructure", summary.restructure, "action"),
+      attentionSummaryChipHtml("Loaded", summary.loaded, "loaded"),
+      attentionSummaryChipHtml("Penalty", summary.highPenalty, "risk")
+    ].filter(Boolean);
+    if (!chips.length) return "";
+    return (
+      '<div class="rwb-attention-board">' +
+        '<div class="rwb-attention-board-label">Focus Board</div>' +
+        '<div class="rwb-attention-summary-row">' + chips.join("") + '</div>' +
+      '</div>'
+    );
+  }
+
+  function playerAttentionModalNoteHtml(player) {
+    var pills = playerAttentionPillsHtml(player, 6);
+    if (!pills) return "";
+    return '<div class="rwb-modal-note"><strong>Decision Snapshot:</strong>' + pills + '</div>';
+  }
+
   function searchFilterEnabledForView() {
     return state.view !== "bye" && !capPlanSummaryViewActive() && !tagBreakdownActive();
   }
@@ -1943,6 +2071,42 @@
     });
   }
 
+  function resolveSalaryAdjustmentLedgerUrl(season) {
+    var candidates = [
+      window.UPS_RWB_SALARY_ADJUSTMENTS_URL,
+      window.UPS_ROSTER_WORKBENCH_SALARY_ADJUSTMENTS_URL
+    ];
+    var seasonText = safeStr(season || currentYearInt());
+    for (var i = 0; i < candidates.length; i += 1) {
+      var raw = safeStr(candidates[i]);
+      if (!raw) continue;
+      raw = raw.replace(/\{YEAR\}/g, seasonText);
+      try {
+        return new URL(raw, window.location.href).toString();
+      } catch (e) {
+        return raw;
+      }
+    }
+
+    if (SCRIPT_BASE_URL) {
+      try {
+        return new URL("../reports/salary_adjustments/salary_adjustments_" + encodeURIComponent(seasonText) + ".json", SCRIPT_BASE_URL).toString();
+      } catch (e) {}
+    }
+    return "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/reports/salary_adjustments/salary_adjustments_" + encodeURIComponent(seasonText) + ".json";
+  }
+
+  function loadSalaryAdjustmentLedgerRows(season) {
+    var url = resolveSalaryAdjustmentLedgerUrl(season);
+    return fetchJson(url, { credentials: "omit", cache: "no-store" }).then(function (payload) {
+      if (Array.isArray(payload)) return { loaded: true, rows: payload };
+      if (payload && Array.isArray(payload.rows)) return { loaded: true, rows: payload.rows };
+      return { loaded: true, rows: [] };
+    }).catch(function () {
+      return { loaded: false, rows: [] };
+    });
+  }
+
   function acquisitionLookupKey(franchiseId, playerId) {
     return pad4(franchiseId) + ":" + safeStr(playerId).replace(/\D/g, "");
   }
@@ -1998,6 +2162,10 @@
       day: "numeric",
       year: "numeric"
     });
+  }
+
+  function extensionDeadlineLabelForSeason(season) {
+    return formatShortDate(contractDeadlineYmdForSeason(season));
   }
 
   function acquisitionDateLabelForPlayer(player) {
@@ -2274,6 +2442,10 @@
       capTotal += currentCapHitForPlayer(player);
     }
     var adjustmentTotal = safeInt(team.summary && team.summary.salaryAdjustmentTotal, 0);
+    var adjustmentRows = asArray(team.summary && team.summary.salaryAdjustmentRows);
+    var adjustmentSource = team.summary && team.summary.salaryAdjustmentSource
+      ? { ...team.summary.salaryAdjustmentSource }
+      : null;
     team.summary = {
       players: players.length,
       rosterPlayers: rosterCountForPlayers(players),
@@ -2282,7 +2454,9 @@
       capTotal: capTotal,
       salaryAdjustmentTotal: adjustmentTotal,
       salaryAdjustmentBreakdown: cloneSalaryAdjustmentBreakdown(team.summary && team.summary.salaryAdjustmentBreakdown),
-      compliance: deriveCompliance(capTotal + adjustmentTotal, state.salaryCapAmount)
+      compliance: deriveCompliance(capTotal + adjustmentTotal, state.salaryCapAmount),
+      salaryAdjustmentRows: adjustmentRows,
+      salaryAdjustmentSource: adjustmentSource
     };
     return team;
   }
@@ -3332,6 +3506,7 @@
     var text = safeStr(explanation).toLowerCase();
     if (!text) return "other";
     if (
+      text.indexOf("type=trade") !== -1 ||
       text.indexOf("tradedsalary") !== -1 ||
       text.indexOf("traded salary") !== -1 ||
       text.indexOf("trade salary") !== -1 ||
@@ -3340,6 +3515,7 @@
       return "tradedSalary";
     }
     if (
+      text.indexOf("type=cut") !== -1 ||
       text.indexOf("cap_penalt") !== -1 ||
       text.indexOf("cap penalty") !== -1 ||
       text.indexOf("dead cap") !== -1 ||
@@ -3431,6 +3607,110 @@
       byFranchise: byFranchise,
       breakdownByFranchise: breakdownByFranchise
     };
+  }
+
+  function reportSalaryAdjustmentBucket(row) {
+    var bucket = safeStr(row && row.bucket).toLowerCase();
+    if (bucket === "traded_salary" || bucket === "cut_players" || bucket === "other") return bucket;
+    var adjustmentType = safeStr(row && row.adjustment_type).toUpperCase();
+    if (adjustmentType === "TRADED_SALARY") return "traded_salary";
+    if (adjustmentType === "DROP_PENALTY_CANDIDATE") return "cut_players";
+    return "other";
+  }
+
+  function reportSalaryAdjustmentImportEligible(row) {
+    if (!row || typeof row !== "object") return false;
+    if (row.import_eligible != null) {
+      var raw = row.import_eligible;
+      if (raw === true || raw === 1) return true;
+      var text = safeStr(raw).toLowerCase();
+      return text === "true" || text === "1" || text === "yes";
+    }
+    var status = safeStr(row.status).toLowerCase();
+    var amount = safeInt(row.amount, 0);
+    if (!amount) return false;
+    if (status === "review_required") return false;
+    return reportSalaryAdjustmentBucket(row) === "traded_salary" || reportSalaryAdjustmentBucket(row) === "cut_players";
+  }
+
+  function normalizeReportSalaryAdjustmentRow(row) {
+    return {
+      ledger_key: safeStr(row && row.ledger_key),
+      franchise_id: pad4(row && row.franchise_id),
+      franchise_name: safeStr(row && row.franchise_name),
+      player_id: safeStr(row && row.player_id),
+      player_name: safeStr(row && row.player_name),
+      adjustment_type: safeStr(row && row.adjustment_type),
+      bucket: reportSalaryAdjustmentBucket(row),
+      amount: safeInt(row && row.amount, 0),
+      status: safeStr(row && row.status),
+      source_id: safeStr(row && row.source_id),
+      source_season: safeInt(row && row.source_season, 0),
+      import_eligible: reportSalaryAdjustmentImportEligible(row),
+      import_explanation: safeStr(row && row.import_explanation),
+      import_target_season: safeInt((row && (row.import_target_season != null ? row.import_target_season : row.adjustment_season)), 0),
+      description: safeStr(row && row.description)
+    };
+  }
+
+  function toReportSalaryAdjustmentSummary(rows, season) {
+    var out = {
+      byFranchise: Object.create(null),
+      rowsByFranchise: Object.create(null),
+      season: safeInt(season, 0)
+    };
+    var list = asArray(rows);
+    for (var i = 0; i < list.length; i += 1) {
+      var row = normalizeReportSalaryAdjustmentRow(list[i]);
+      var fid = pad4(row.franchise_id);
+      if (!fid || !row.import_eligible) continue;
+      var targetSeason = safeInt(row.import_target_season || season, 0);
+      if (safeInt(season, 0) > 0 && targetSeason > 0 && targetSeason !== safeInt(season, 0)) continue;
+      if (!out.byFranchise[fid]) out.byFranchise[fid] = cloneSalaryAdjustmentBreakdown(emptySalaryAdjustmentBreakdown());
+      if (!out.rowsByFranchise[fid]) out.rowsByFranchise[fid] = [];
+      if (row.bucket === "traded_salary") out.byFranchise[fid].tradedSalary += safeInt(row.amount, 0);
+      else if (row.bucket === "cut_players") out.byFranchise[fid].cutPlayers += safeInt(row.amount, 0);
+      else out.byFranchise[fid].other += safeInt(row.amount, 0);
+      out.rowsByFranchise[fid].push(row);
+    }
+    return out;
+  }
+
+  function mergeReportSalaryAdjustmentsIntoTeams(teams, reportPayload, season, capAmount) {
+    var list = asArray(teams);
+    if (!list.length) return;
+    var reportLoaded = !!(reportPayload && reportPayload.loaded);
+    if (!reportLoaded) return;
+    var reportRows = asArray(reportPayload && reportPayload.rows);
+    var reportSummary = toReportSalaryAdjustmentSummary(reportRows, season);
+    for (var i = 0; i < list.length; i += 1) {
+      var team = list[i] || {};
+      if (!team.summary) team.summary = {};
+      var fid = pad4(team.id || team.fid);
+      var existingBreakdown = cloneSalaryAdjustmentBreakdown(team.summary.salaryAdjustmentBreakdown);
+      var reportBreakdown = cloneSalaryAdjustmentBreakdown(reportSummary.byFranchise[fid]);
+      var mergedBreakdown = {
+        tradedSalary: safeInt(reportBreakdown.tradedSalary, 0),
+        cutPlayers: safeInt(reportBreakdown.cutPlayers, 0),
+        other: safeInt(existingBreakdown.other, 0)
+      };
+      team.summary.salaryAdjustmentBreakdown = mergedBreakdown;
+      team.summary.salaryAdjustmentTotal =
+        safeInt(mergedBreakdown.tradedSalary, 0) +
+        safeInt(mergedBreakdown.cutPlayers, 0) +
+        safeInt(mergedBreakdown.other, 0);
+      team.summary.salaryAdjustmentRows = (reportSummary.rowsByFranchise[fid] || []).slice();
+      team.summary.salaryAdjustmentSource = {
+        reportLoaded: reportLoaded,
+        reportSeason: safeInt(season, 0),
+        rowCount: team.summary.salaryAdjustmentRows.length,
+        manualOtherDollars: safeInt(mergedBreakdown.other, 0)
+      };
+      team.summary.compliance = deriveCompliance(
+        safeInt(team.summary.capTotal, 0) + safeInt(team.summary.salaryAdjustmentTotal, 0),
+        capAmount
+      );
+    }
   }
 
   function parseLeagueMeta(payload) {
@@ -5017,6 +5297,10 @@
       return false;
     }
 
+    if (attentionFilterEnabledForView() && state.attentionOnly && !playerNeedsAttention(player)) {
+      return false;
+    }
+
     return true;
   }
 
@@ -5110,6 +5394,7 @@
                   '<label class="rwb-field"><span>Roster Status</span><select id="rwbFilterRosterStatus" class="rwb-select"><option value="">All</option></select></label>' +
                   '<label class="rwb-field" hidden style="display:none" aria-hidden="true"><span>Impact</span><select id="rwbFilterByeImpact" class="rwb-select" disabled><option value="">All Impact</option></select></label>' +
                   '<div class="rwb-toolbar-actions">' +
+                    '<button type="button" id="rwbAttentionOnly" class="rwb-btn rwb-btn-ghost" hidden aria-pressed="false">Attention Only</button>' +
                     '<button type="button" id="rwbResetFilters" class="rwb-btn rwb-btn-ghost">Clear Filters</button>' +
                   '</div>' +
                 '</div>' +
@@ -5160,6 +5445,7 @@
     els.filterRosterStatusField = els.filterRosterStatus ? els.filterRosterStatus.closest(".rwb-field") : null;
     els.filterByeImpact = document.getElementById("rwbFilterByeImpact");
     els.filterByeImpactField = els.filterByeImpact ? els.filterByeImpact.closest(".rwb-field") : null;
+    els.attentionOnly = document.getElementById("rwbAttentionOnly");
     els.resetFilters = document.getElementById("rwbResetFilters");
     els.note = document.getElementById("rwbToolbarNote");
     els.status = document.getElementById("rwbStatus");
@@ -5414,10 +5700,19 @@
       if (contractTypeFilterEnabledForView() && state.filterType) activeFilterCount += 1;
       if (rosterStatusFilterEnabledForView() && state.filterRosterStatus) activeFilterCount += 1;
       if (state.view === "bye" && state.filterByeImpact) activeFilterCount += 1;
+      if (attentionFilterEnabledForView() && state.attentionOnly) activeFilterCount += 1;
       els.toggleFilters.hidden = !showFiltersToggle;
       els.toggleFilters.textContent = (effectiveFiltersOpen ? "Hide Filters" : "Show Filters") + (activeFilterCount ? " (" + activeFilterCount + ")" : "");
       els.toggleFilters.setAttribute("aria-expanded", effectiveFiltersOpen ? "true" : "false");
       els.toggleFilters.classList.toggle("is-active", effectiveFiltersOpen);
+    }
+    if (els.attentionOnly) {
+      var showAttentionToggle = attentionFilterEnabledForView();
+      els.attentionOnly.hidden = !showAttentionToggle;
+      els.attentionOnly.disabled = !showAttentionToggle;
+      els.attentionOnly.classList.toggle("is-active", showAttentionToggle && !!state.attentionOnly);
+      els.attentionOnly.setAttribute("aria-pressed", showAttentionToggle && state.attentionOnly ? "true" : "false");
+      els.attentionOnly.textContent = state.attentionOnly ? "Attention Only On" : "Attention Only";
     }
     if (els.advanced) {
       els.advanced.hidden = capPlanSummaryViewActive() || tagBreakdownActive() || !effectiveFiltersOpen;
@@ -5480,6 +5775,7 @@
       else if (state.filterType === "other") parts.push("All Other");
     }
     if (rosterStatusFilterEnabledForView() && state.filterRosterStatus) parts.push(rosterStatusFilterLabel(state.filterRosterStatus));
+    if (attentionFilterEnabledForView() && state.attentionOnly) parts.push("Attention Only");
     if (searchFilterEnabledForView() && state.search) parts.push('Search "' + state.search + '"');
     if (state.view === "points") {
       parts.push(currentPointsRangeLabel());
@@ -5550,6 +5846,7 @@
         '<span class="rwb-chip is-bad"><span class="rwb-chip-label">Compliance</span><span class="rwb-chip-value">' + escapeHtml(team.summary.compliance.label) + '</span></span>'
       );
     }
+    var attentionHtml = teamAttentionBoardHtml(visiblePlayers);
 
     return (
       '<header class="rwb-team-head">' +
@@ -5561,6 +5858,7 @@
           '<div class="rwb-chip-row">' +
             chips.join("") +
           '</div>' +
+          attentionHtml +
           teamCapSummaryHtml(team) +
         '</div>' +
       '</header>'
@@ -5578,7 +5876,7 @@
       '<div class="rwb-cap-summary">' +
         '<div class="rwb-cap-summary-head">' +
           '<div class="rwb-cap-summary-title">Cap Summary</div>' +
-          '<div class="rwb-cap-summary-note">Adjustments from salaryAdjustments export. Taxi excluded. IR counts at 50%.</div>' +
+          '<div class="rwb-cap-summary-note">Trade and cut adjustments come from the salary-adjustments report. Manual other adjustments stay sourced from live MFL salaryAdjustments. Taxi excluded. IR counts at 50%.</div>' +
         '</div>' +
         '<table class="rwb-cap-summary-table" aria-label="' + escapeHtml(team.name + ' cap summary') + '">' +
           '<tbody>' +
@@ -6069,6 +6367,7 @@
       var extensionSummaryHtml = "";
       if (extensionOptions.length) {
         var extensionLines = [];
+        var extensionDeadlineLabel = extensionDeadlineLabelForSeason(state.ctx && state.ctx.year);
         for (var j = 0; j < extensionOptions.length; j += 1) {
           var option = extensionOptions[j];
           extensionLines.push(
@@ -6080,16 +6379,20 @@
         extensionSummaryHtml =
           '<div class="rwb-modal-note"><strong>Extension Options:</strong>' +
             '<div class="rwb-extension-preview-list">' + extensionLines.join("") + '</div>' +
+            (extensionDeadlineLabel
+              ? '<div class="rwb-extension-preview-line"><strong>Deadline:</strong> ' + escapeHtml(extensionDeadlineLabel) + '</div>'
+              : '') +
           '</div>';
         if (player.isTaxi) {
           extensionSummaryHtml +=
-            '<div class="rwb-modal-note"><strong>Taxi:</strong> Extending this player ends taxi eligibility, so promote him from taxi after the extension is submitted.</div>';
+            '<div class="rwb-modal-note"><strong>Taxi:</strong> Extending this player ends taxi eligibility.</div>';
         }
       } else if (canManage && contractEligibility.extensionEligible) {
         extensionSummaryHtml =
           '<div class="rwb-modal-note"><strong>Extension:</strong> ' + escapeHtml(extensionBlockReason || "No extension options are available for this player.") + '</div>';
       }
       var modalAav = displayAavForPlayer(player);
+      var attentionNoteHtml = playerAttentionModalNoteHtml(player);
       var playerHeaderHtml =
         '<div class="rwb-modal-player">' +
           '<div class="rwb-modal-player-main">' +
@@ -6119,6 +6422,7 @@
 
         content =
           playerHeaderHtml +
+          attentionNoteHtml +
           '<div class="rwb-modal-grid">' +
             '<div class="rwb-modal-metric"><span>Current Salary</span><strong>' + escapeHtml(money(player.salary)) + '</strong></div>' +
             '<div class="rwb-modal-metric"><span>Remaining AAV</span><strong>' + escapeHtml(state.actionModal.restructureOriginalAav > 0 ? money(state.actionModal.restructureOriginalAav) : "—") + '</strong></div>' +
@@ -6162,11 +6466,11 @@
               '<button type="button" class="rwb-modal-action" data-action="submit-restructure"' + ((restructureBusy || !calc.ok) ? ' disabled' : '') + '>' + escapeHtml(restructureBusy ? "Submitting..." : "Submit Restructure") + '</button>' +
             '</div>' +
           '</div>' +
-          '<div class="rwb-modal-note"><strong>Estimated Cap Penalty:</strong> ' + escapeHtml(money(penalty.amount)) + ' | ' + escapeHtml(penalty.note) + '</div>' +
           (viewerCanManageAnyRoster() && !ownRoster ? '<div class="rwb-modal-note"><strong>Commish:</strong> Acting on behalf of ' + escapeHtml(team.name) + '.</div>' : '');
       } else {
         content =
           playerHeaderHtml +
+          attentionNoteHtml +
           '<div class="rwb-modal-grid">' +
             '<div class="rwb-modal-metric"><span>TCV</span><strong>' + escapeHtml(modalTcv > 0 ? money(modalTcv) : "—") + '</strong></div>' +
             '<div class="rwb-modal-metric"><span>AAV</span><strong>' + escapeHtml(modalAav > 0 ? money(modalAav) : "—") + '</strong></div>' +
@@ -6179,7 +6483,6 @@
           '</div>' +
           '<div class="rwb-modal-actions-wrap">' + actions.join("") + '</div>' +
           extensionSummaryHtml +
-          '<div class="rwb-modal-note"><strong>Estimated Cap Penalty:</strong> ' + escapeHtml(money(penalty.amount)) + ' | ' + escapeHtml(penalty.note) + '</div>' +
           (!canManage ? '<div class="rwb-modal-note">Roster-management actions are unavailable for this session. Trade is available from any team.</div>' : '') +
           (viewerCanManageAnyRoster() && !ownRoster ? '<div class="rwb-modal-note"><strong>Commish:</strong> Acting on behalf of ' + escapeHtml(team.name) + '.</div>' : '');
       }
@@ -6218,6 +6521,7 @@
       var contractGuarantee = guaranteedContractValueForPlayer(p);
       var capPenalty = capPenaltyAmountForPlayer(p);
       var contractTypeText = safeStr(p.type) || "-";
+      var attentionHtml = playerAttentionPillsHtml(p, 3);
 
       rows.push(
         '<tr class="rwb-player-row' + (p.isTaxi ? ' rwb-player-row-taxi' : '') + (p.isIr ? ' rwb-player-row-ir' : '') + '" data-player-id="' + escapeHtml(p.id) + '">' +
@@ -6232,6 +6536,7 @@
                 tags.join("") +
                 '<button type="button" class="rwb-row-more" data-action="row-more" aria-expanded="false">More</button>' +
               '</div>' +
+              attentionHtml +
               '<dl class="rwb-mobile-details">' +
                 '<div><dt>Contract Length</dt><dd>' + escapeHtml(contractLength > 0 ? String(contractLength) : "—") + '</dd></div>' +
                 '<div><dt>Years Left</dt><dd>' + escapeHtml(String(p.years)) + '</dd></div>' +
@@ -6300,15 +6605,19 @@
       var p = sorted[i];
       var proj = [displayedSalaryForPlan(p, 0), displayedSalaryForPlan(p, 1), displayedSalaryForPlan(p, 2)];
       var aav = safeInt(p.aav, 0);
+      var attentionHtml = playerAttentionPillsHtml(p, 3);
 
       rows.push(
         '<tr class="rwb-player-row' + (p.isTaxi ? ' rwb-player-row-taxi' : '') + (p.isIr ? ' rwb-player-row-ir' : '') + (extensionPreviewYears(p) ? ' is-projected' : '') + '">' +
           '<td>' +
-            '<div class="rwb-player-line">' +
-              '<span class="rwb-pos-pill">' + escapeHtml(safeStr(p.positionGroup)) + '</span>' +
-              '<button type="button" class="rwb-player-open" data-action="open-player-modal" data-player-id="' + escapeHtml(p.id) + '" data-franchise-id="' + escapeHtml(p.fid) + '"><span class="rwb-player-name">' + escapeHtml(p.name) + '</span></button>' +
-              (p.isTaxi ? '<span class="rwb-tag is-taxi">Taxi</span>' : '') +
-              (p.isIr ? '<span class="rwb-tag is-ir">IR</span>' : '') +
+            '<div class="rwb-player-name-wrap">' +
+              '<div class="rwb-player-line">' +
+                '<span class="rwb-pos-pill">' + escapeHtml(safeStr(p.positionGroup)) + '</span>' +
+                '<button type="button" class="rwb-player-open" data-action="open-player-modal" data-player-id="' + escapeHtml(p.id) + '" data-franchise-id="' + escapeHtml(p.fid) + '"><span class="rwb-player-name">' + escapeHtml(p.name) + '</span></button>' +
+                (p.isTaxi ? '<span class="rwb-tag is-taxi">Taxi</span>' : '') +
+                (p.isIr ? '<span class="rwb-tag is-ir">IR</span>' : '') +
+              '</div>' +
+              attentionHtml +
             '</div>' +
           '</td>' +
           '<td class="rwb-cell-num' + (aav === 0 ? ' rwb-money-zero' : '') + '">' + escapeHtml(aav > 0 ? money(aav) : "—") + '</td>' +
@@ -7668,6 +7977,7 @@
     writeStorage("filterType", state.filterType);
     writeStorage("filterRosterStatus", state.filterRosterStatus);
     writeStorage("filterByeImpact", state.filterByeImpact);
+    writeStorage("attentionOnly", state.attentionOnly);
     writeStorage("taxiOnly", state.filterRosterStatus === "taxi");
     writeStorage("contractPreview", state.contractPreview);
     writeStorage("view", state.view);
@@ -7691,6 +8001,7 @@
     state.filterType = normType(readStorage("filterType", ""));
     state.filterRosterStatus = normRosterStatusFilter(readStorage("filterRosterStatus", ""));
     state.filterByeImpact = normByeImpactFilter(readStorage("filterByeImpact", ""));
+    state.attentionOnly = !!readStorage("attentionOnly", false);
     if (!state.filterRosterStatus && !!readStorage("taxiOnly", false)) {
       state.filterRosterStatus = "taxi";
     }
@@ -8316,6 +8627,14 @@
       return;
     }
 
+    if (target === els.attentionOnly) {
+      state.attentionOnly = !state.attentionOnly;
+      persistState();
+      renderToolbar();
+      renderTeams();
+      return;
+    }
+
     var clearSearchBtn = target.closest("[data-action='clear-search']");
     if (clearSearchBtn) {
       state.search = "";
@@ -8551,6 +8870,7 @@
       state.filterType = "";
       state.filterRosterStatus = "";
       state.filterByeImpact = "";
+      state.attentionOnly = false;
       if (els.search) els.search.value = "";
       persistState();
       renderToolbar();
@@ -8567,6 +8887,7 @@
     if (el === els.filterPosition) {
       state.filterPosition = safeStr(el.value).toUpperCase();
       persistState();
+      renderToolbar();
       renderTeams();
       return;
     }
@@ -8574,6 +8895,7 @@
     if (el === els.filterType) {
       state.filterType = normType(el.value);
       persistState();
+      renderToolbar();
       renderTeams();
       return;
     }
@@ -8581,6 +8903,7 @@
     if (el === els.filterRosterStatus) {
       state.filterRosterStatus = normRosterStatusFilter(el.value);
       persistState();
+      renderToolbar();
       renderTeams();
       return;
     }
@@ -8588,6 +8911,7 @@
     if (el === els.filterByeImpact) {
       state.filterByeImpact = normByeImpactFilter(el.value);
       persistState();
+      renderToolbar();
       renderTeams();
       return;
     }
@@ -8697,6 +9021,7 @@
     if (el === els.search || elId === "rwbBrowseSearch") {
       state.search = safeStr(el.value || "").toLowerCase();
       persistState();
+      renderToolbar();
       renderTeams();
     }
   }
@@ -8852,12 +9177,20 @@
       ctx.pointsFallbackYear = safeStr(result && result.pointsYear);
       return Promise.all([
         loadExtensionPreviewFallbackRows(ctx && ctx.year),
-        loadAcquisitionLookupRows(ctx && ctx.year)
+        loadAcquisitionLookupRows(ctx && ctx.year),
+        loadSalaryAdjustmentLedgerRows(ctx && ctx.year)
       ]).then(function (parts) {
         var extRows = parts[0] || [];
         var acquisitionRows = parts[1] || [];
+        var salaryAdjustmentReportPayload = parts[2] || { loaded: false, rows: [] };
         mergeExtensionPreviewFallbackRows(teams, extRows);
         mergeAcquisitionLookupRows(teams, acquisitionRows);
+        mergeReportSalaryAdjustmentsIntoTeams(
+          teams,
+          salaryAdjustmentReportPayload,
+          ctx && ctx.year,
+          safeInt(result && result.leagueMeta && result.leagueMeta.capAmount, 0)
+        );
         repairTaxiContractFallbacks(teams, ctx && ctx.year);
         return hydrateTeamsWithPointsHistory(ctx, teams).then(function (years) {
           assignPositionalContractRanks(teams);
