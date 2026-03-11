@@ -1399,9 +1399,11 @@
     const payload = built.payload;
     const workerBase = parseWorkerBaseUrl();
     const isTest = mode === "test";
+    const mflUserId = safeStr(ctx && (ctx.submitted_by_mfl_user_id || ctx.mfl_user_id) || "");
     const endpoint =
       `${workerBase}${isTest ? "/admin/bug-report/test-discord" : "/bug-report"}?L=${encodeURIComponent(ctx.league_id || "")}` +
-      `&YEAR=${encodeURIComponent(ctx.season || "")}`;
+      `&YEAR=${encodeURIComponent(ctx.season || "")}` +
+      (mflUserId ? `&MFL_USER_ID=${encodeURIComponent(mflUserId)}` : "");
 
     if (isTest && !state.bugViewerIsAdmin) {
       setBugStatus("Commissioner access is required for Discord tests.", "error");
