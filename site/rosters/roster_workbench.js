@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var BUILD = "2026.03.10.01";
+  var BUILD = "2026.03.10.02";
   var BOOT_FLAG = "__ups_roster_workbench_boot_" + BUILD;
   if (window[BOOT_FLAG]) {
     if (typeof window.UPS_RWB_INIT === "function") window.UPS_RWB_INIT();
@@ -401,6 +401,16 @@
     var priorAavs = parseContractAavValues(priorInfo);
     if (priorAavs.length >= 1) {
       nextInfo = replaceContractInfoAavValue(nextInfo, priorAavs[priorAavs.length - 1]);
+    } else {
+      var priorAav = safeInt(
+        prior.aav != null
+          ? prior.aav
+          : (prior.currentAav != null ? prior.currentAav : 0),
+        0
+      );
+      if (priorAav > 0) {
+        nextInfo = replaceContractInfoAavValue(nextInfo, priorAav);
+      }
     }
 
     if (!Object.keys(parseContractYearValues(nextInfo)).length) {
@@ -414,6 +424,12 @@
   function currentAavForContractInfo(contractInfo) {
     var values = parseContractAavValues(contractInfo);
     return values.length ? safeInt(values[0], 0) : 0;
+  }
+
+  function displayAavForPlayer(player) {
+    var explicitAav = currentAavForContractInfo(player && player.special);
+    if (explicitAav > 0) return explicitAav;
+    return Math.max(0, safeInt(player && player.aav, 0));
   }
 
   function rookieLikeContractStatus(value) {
@@ -6010,6 +6026,7 @@
         extensionSummaryHtml =
           '<div class="rwb-modal-note"><strong>Extension:</strong> ' + escapeHtml(extensionBlockReason || "No extension options are available for this player.") + '</div>';
       }
+      var modalAav = displayAavForPlayer(player);
       var playerHeaderHtml =
         '<div class="rwb-modal-player">' +
           '<div class="rwb-modal-player-main">' +
@@ -6088,14 +6105,14 @@
         content =
           playerHeaderHtml +
           '<div class="rwb-modal-grid">' +
-            '<div class="rwb-modal-metric"><span>Salary</span><strong>' + escapeHtml(money(player.salary)) + '</strong></div>' +
-            '<div class="rwb-modal-metric"><span>AAV</span><strong>' + escapeHtml(player.aav > 0 ? money(player.aav) : "—") + '</strong></div>' +
             '<div class="rwb-modal-metric"><span>TCV</span><strong>' + escapeHtml(modalTcv > 0 ? money(modalTcv) : "—") + '</strong></div>' +
+            '<div class="rwb-modal-metric"><span>AAV</span><strong>' + escapeHtml(modalAav > 0 ? money(modalAav) : "—") + '</strong></div>' +
+            '<div class="rwb-modal-metric"><span>Salary</span><strong>' + escapeHtml(money(player.salary)) + '</strong></div>' +
+            '<div class="rwb-modal-metric"><span>Yrs Remain</span><strong>' + escapeHtml(String(player.years)) + '</strong></div>' +
             '<div class="rwb-modal-metric"><span>Earned To Date</span><strong>' + escapeHtml(modalEarned > 0 ? money(modalEarned) : "$0") + '</strong></div>' +
-            '<div class="rwb-modal-metric"><span>Years Left</span><strong>' + escapeHtml(String(player.years)) + '</strong></div>' +
-            '<div class="rwb-modal-metric"><span>Expires</span><strong>' + escapeHtml(projectedExpiryLabel(player)) + '</strong></div>' +
-            '<div class="rwb-modal-metric"><span>Acquired</span><strong>' + escapeHtml(acquisitionDateLabelForPlayer(player)) + '</strong></div>' +
-            '<div class="rwb-modal-metric"><span>Via</span><strong>' + escapeHtml(acquisitionTypeLabelForPlayer(player)) + '</strong></div>' +
+            '<div class="rwb-modal-metric"><span>Cap Penalty</span><strong>' + escapeHtml(money(penalty.amount)) + '</strong></div>' +
+            '<div class="rwb-modal-metric"><span>Acquire Date</span><strong>' + escapeHtml(acquisitionDateLabelForPlayer(player)) + '</strong></div>' +
+            '<div class="rwb-modal-metric"><span>How Acquired</span><strong>' + escapeHtml(acquisitionTypeLabelForPlayer(player)) + '</strong></div>' +
           '</div>' +
           '<div class="rwb-modal-actions-wrap">' + actions.join("") + '</div>' +
           extensionSummaryHtml +

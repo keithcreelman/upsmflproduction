@@ -42,6 +42,7 @@ export default {
         path !== "/admin/test-sync/prod-rosters" &&
         path !== "/admin/test-sync/prod-statuses" &&
         path !== "/admin/test-sync/prod-salaries" &&
+        path !== "/admin/discord/post" &&
         path !== "/bug-report" &&
         path !== "/bug-reports" &&
         path !== "/extension-assistant" &&
@@ -10242,6 +10243,14 @@ export default {
           const priorAavs = parseContractAavValues(priorInfo);
           if (priorAavs.length >= 1) {
             nextInfo = replaceContractInfoAavValue(nextInfo, priorAavs[priorAavs.length - 1]);
+          } else {
+            const priorAav = safeMoneyInt(
+              priorContract?.aav ?? priorContract?.currentAav ?? 0,
+              0
+            );
+            if (priorAav > 0) {
+              nextInfo = replaceContractInfoAavValue(nextInfo, priorAav);
+            }
           }
           if (!Object.keys(parseContractYearValues(nextInfo)).length) {
             const priorYearSegment = formatContractYearValuesSegment(parseContractYearValues(priorInfo));
@@ -10796,6 +10805,61 @@ export default {
             mismatch_count: mismatches.length,
             mismatches: mismatches.slice(0, 50),
           },
+        });
+      }
+
+      if (path === "/admin/discord/post" && request.method === "POST") {
+        let body = {};
+        try {
+          body = (await request.json()) || {};
+        } catch (_) {
+          body = {};
+        }
+        if (!!commishApiKey && !sessionByApiKey) {
+          return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required for Discord post." });
+        }
+        const botToken = safeStr(env.DISCORD_BOT_TOKEN || env.DISCORD_BOT || env.Discord_bot || "");
+        if (!botToken) return jsonOut(500, { ok: false, error: "Missing Discord bot token secret." });
+        const channelId = safeStr(body?.channel_id || body?.channelId || "").replace(/\D/g, "");
+        const content = safeStr(body?.content || "");
+        if (!channelId) return jsonOut(400, { ok: false, error: "channel_id is required" });
+        if (!content) return jsonOut(400, { ok: false, error: "content is required" });
+        let res;
+        let text = "";
+        try {
+          res = await fetch(`https://discord.com/api/v10/channels/${encodeURIComponent(channelId)}/messages`, {
+            method: "POST",
+            headers: {
+              Authorization: `Bot ${botToken}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              content,
+              allowed_mentions: { parse: [] },
+            }),
+          });
+          text = await res.text();
+        } catch (e) {
+          return jsonOut(502, { ok: false, error: `discord_fetch_failed: ${e?.message || String(e)}` });
+        }
+        let data = null;
+        try {
+          data = text ? JSON.parse(text) : null;
+        } catch (_) {
+          data = null;
+        }
+        if (!res.ok) {
+          return jsonOut(502, {
+            ok: false,
+            error: "Discord post failed",
+            upstream_status: res.status,
+            upstream_body: safeStr(text).slice(0, 800),
+          });
+        }
+        return jsonOut(200, {
+          ok: true,
+          channel_id: channelId,
+          message_id: safeStr(data?.id || ""),
         });
       }
 
@@ -11662,13 +11726,30 @@ export default {
         const contractInfo = String(body.contract_info || body.contractInfo || "").trim();
         const requestedContractStatus = String(body.contract_status || body.contractStatus || "").trim();
         const contractTypeRaw = String(body.type || "").trim().toLowerCase();
+        const submissionKindRaw = String(
+          body.submission_kind || body.submissionKind || ""
+        ).trim().toLowerCase();
+        const providedSourceTag = String(body.source || body.sourceTag || "").trim();
         const isManualContractUpdate =
           path === "/commish-contract-update" || contractTypeRaw.includes("manual_contract_update");
         const isRestructure =
           !isManualContractUpdate &&
           (path === "/offer-restructure" || contractTypeRaw.includes("restructure"));
-        const eventType = isRestructure ? "log-restructure-submission" : "log-mym-submission";
-        const sourceTag = isRestructure ? "worker-offer-restructure" : "worker-offer-mym";
+        const isExtensionSubmission =
+          isManualContractUpdate &&
+          (
+            submissionKindRaw === "extension" ||
+            /\bextension\b/i.test(providedSourceTag) ||
+            requestedContractStatus.toLowerCase() === "extension"
+          );
+        const eventType = isExtensionSubmission
+          ? "log-extension-submission"
+          : (isRestructure ? "log-restructure-submission" : "log-mym-submission");
+        const sourceTag = isExtensionSubmission
+          ? (providedSourceTag || "worker-offer-extension")
+          : (isRestructure
+            ? (providedSourceTag || "worker-offer-restructure")
+            : (providedSourceTag || "worker-offer-mym"));
         const payloadPlayerStatus = String(body.player_status || body.playerStatus || "").trim();
         const overrideAsOfDate = String(
           body.override_as_of_date || body.override_as_of || body.overrideAsOf || ""
@@ -11968,13 +12049,16 @@ export default {
           if (changed) break;
         }
 
+        const shouldDispatchSubmissionLog = !isManualContractUpdate || isExtensionSubmission;
         let logDispatch = {
           ok: false,
           queued: false,
           skipped: true,
-          reason: isManualContractUpdate ? "Manual update does not dispatch submission log" : "No applied change detected",
+          reason: shouldDispatchSubmissionLog
+            ? "No applied change detected"
+            : "Manual update does not dispatch submission log",
         };
-        if (looksOk && anyChanged && !isManualContractUpdate) {
+        if (looksOk && anyChanged && shouldDispatchSubmissionLog) {
           try {
             logDispatch = await dispatchRepoEvent(eventType, {
               league_id: leagueId,
@@ -12012,7 +12096,7 @@ export default {
           mutationStatus = "verify_unavailable";
         } else if (!anyChanged) {
           mutationStatus = "import_no_change";
-        } else if (isManualContractUpdate) {
+        } else if (!shouldDispatchSubmissionLog) {
           mutationStatus = "import_ok_log_dispatched";
         } else if (logDispatch.ok) {
           mutationStatus = "import_ok_log_dispatched";
