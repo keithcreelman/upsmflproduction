@@ -8341,9 +8341,6 @@ export default {
       };
 
       if (path === "/admin/bug-report/test-discord" && request.method === "POST") {
-        if (!sessionMatch) {
-          return jsonOut(403, { ok: false, error: "Commissioner session is required for test Discord bug posts." });
-        }
         let body = {};
         try {
           body = (await request.json()) || {};
