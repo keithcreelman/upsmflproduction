@@ -114,6 +114,7 @@
     theme: loadThemeSetting(),
     manualSelection: false,
     bugBusy: false,
+    bugAction: "",
     bugAttachmentsBusy: false,
     bugAttachments: [],
     bugSourceApp: "",
@@ -970,18 +971,34 @@
 
   function refreshBugSubmitState() {
     const submitBtn = $("#uowBugSubmit");
-    if (!submitBtn) return;
+    const testBtn = $("#uowBugTest");
     const busy = !!state.bugBusy || !!state.bugAttachmentsBusy;
-    submitBtn.disabled = busy;
-    submitBtn.textContent = state.bugBusy
-      ? "Submitting..."
-      : state.bugAttachmentsBusy
-        ? "Processing screenshots..."
-        : "Submit Report";
+    if (submitBtn) {
+      submitBtn.disabled = busy;
+      submitBtn.textContent = state.bugBusy
+        ? state.bugAction === "test"
+          ? "Testing..."
+          : "Submitting..."
+        : state.bugAttachmentsBusy
+          ? "Processing screenshots..."
+          : "Submit Report";
+    }
+    if (testBtn) {
+      testBtn.hidden = !state.bugViewerIsAdmin;
+      testBtn.disabled = busy;
+      testBtn.textContent = state.bugBusy
+        ? state.bugAction === "test"
+          ? "Testing..."
+          : "Test Discord"
+        : state.bugAttachmentsBusy
+          ? "Processing screenshots..."
+          : "Test Discord";
+    }
   }
 
-  function setBugSubmitBusy(busy) {
+  function setBugSubmitBusy(busy, action) {
     state.bugBusy = !!busy;
+    state.bugAction = state.bugBusy ? safeStr(action || state.bugAction || "submit") : "";
     refreshBugSubmitState();
   }
 
@@ -1256,9 +1273,11 @@
     const wrap = $("#uowBugCommishWrap");
     const note = $("#uowBugCommishNote");
     const toggle = $("#uowBugCommishEnhancement");
+    const testBtn = $("#uowBugTest");
     const dropzoneText = $("#uowBugDropzoneText");
     if (wrap) wrap.hidden = !state.bugViewerIsAdmin;
     if (note) note.hidden = !state.bugViewerIsAdmin;
+    if (testBtn) testBtn.hidden = !state.bugViewerIsAdmin;
     if (!state.bugViewerIsAdmin && toggle) toggle.checked = false;
     if (dropzoneText) {
       dropzoneText.textContent =
@@ -1313,16 +1332,27 @@
     const modal = $("#uowBugModal");
     if (!modal) return;
     modal.hidden = true;
-    setBugSubmitBusy(false);
+    setBugSubmitBusy(false, "");
     resetBugAttachments();
   }
 
-  async function submitBugReportForm(e) {
-    e.preventDefault();
+  function parseBugNotifyReason(notify) {
+    const firstErr = Array.isArray(notify && notify.results)
+      ? safeStr(((notify.results.find((r) => r && r.ok === false) || {}).error) || "")
+      : "";
+    const rawReason = safeStr((notify && (notify.error || firstErr || notify.mode)) || "notification_failed");
+    if (!rawReason) return "notification_failed";
+    if (rawReason.includes("\"code\": 50013") || /missing permissions/i.test(rawReason)) {
+      return "Discord bot is missing permission to post in that channel or create public threads.";
+    }
+    return rawReason;
+  }
+
+  function buildBugRequestPayload() {
     if (state.bugBusy) return;
     if (state.bugAttachmentsBusy) {
       setBugStatus("Please wait for screenshot processing to finish.", "error");
-      return;
+      return null;
     }
     const moduleSel = $("#uowBugModule");
     const typeSel = $("#uowBugType");
@@ -1334,37 +1364,58 @@
 
     if (!moduleName || !issueType || !details) {
       setBugStatus("Please fill all required fields.", "error");
-      return;
+      return null;
     }
 
     const ctx = buildBugContext();
-    const workerBase = parseWorkerBaseUrl();
-    const endpoint =
-      `${workerBase}/bug-report?L=${encodeURIComponent(ctx.league_id || "")}` +
-      `&YEAR=${encodeURIComponent(ctx.season || "")}`;
-
-    const payload = {
-      module: moduleName,
-      issue_type: issueType,
-      franchise_name: safeStr(ctx.franchise_name || ""),
-      details,
-      commish_enhancement: commishEnhancement ? 1 : 0,
-      request_kind: commishEnhancement ? "commish-enhancement" : "bug-report",
-      submitted_by_label: safeStr(ctx.submitted_by_label || ""),
-      mfl_user_id: safeStr(ctx.submitted_by_mfl_user_id || ctx.mfl_user_id || ""),
-      attachments: state.bugAttachments.map((item) => ({
-        name: safeStr(item && item.name),
-        type: safeStr(item && item.type),
-        original_type: safeStr(item && item.original_type),
-        size_bytes: safeInt(item && item.size_bytes),
-        data_url: safeStr(item && item.data_url),
-      })),
-      context: ctx,
-      source: "ups-hot-links-widget",
+    return {
+      ctx,
+      payload: {
+        module: moduleName,
+        issue_type: issueType,
+        franchise_name: safeStr(ctx.franchise_name || ""),
+        details,
+        commish_enhancement: commishEnhancement ? 1 : 0,
+        request_kind: commishEnhancement ? "commish-enhancement" : "bug-report",
+        submitted_by_label: safeStr(ctx.submitted_by_label || ""),
+        mfl_user_id: safeStr(ctx.submitted_by_mfl_user_id || ctx.mfl_user_id || ""),
+        attachments: state.bugAttachments.map((item) => ({
+          name: safeStr(item && item.name),
+          type: safeStr(item && item.type),
+          original_type: safeStr(item && item.original_type),
+          size_bytes: safeInt(item && item.size_bytes),
+          data_url: safeStr(item && item.data_url),
+        })),
+        context: ctx,
+        source: "ups-hot-links-widget",
+      },
     };
+  }
 
-    setBugSubmitBusy(true);
-    setBugStatus("Submitting report...", "");
+  async function performBugReportSubmit(mode) {
+    const built = buildBugRequestPayload();
+    if (!built) return;
+    const ctx = built.ctx;
+    const payload = built.payload;
+    const workerBase = parseWorkerBaseUrl();
+    const apiKey = resolveApiKey();
+    const isTest = mode === "test";
+    const endpoint =
+      `${workerBase}${isTest ? "/admin/bug-report/test-discord" : "/bug-report"}?L=${encodeURIComponent(ctx.league_id || "")}` +
+      `&YEAR=${encodeURIComponent(ctx.season || "")}` +
+      (isTest && apiKey ? `&APIKEY=${encodeURIComponent(apiKey)}` : "");
+
+    if (isTest && !state.bugViewerIsAdmin) {
+      setBugStatus("Commissioner access is required for Discord tests.", "error");
+      return;
+    }
+    if (isTest && !apiKey) {
+      setBugStatus("COMMISH_API_KEY is required for Discord tests.", "error");
+      return;
+    }
+
+    setBugSubmitBusy(true, isTest ? "test" : "submit");
+    setBugStatus(isTest ? "Sending Discord test..." : "Submitting report...", "");
     try {
       const res = await fetch(endpoint, {
         method: "POST",
@@ -1378,9 +1429,11 @@
         out = {};
       }
       if (!res.ok || !out || out.ok === false) {
-        const msg =
-          safeStr(out && (out.error || out.reason || out.message)) ||
-          `Report failed (HTTP ${res.status}).`;
+        const failedNotify = out && out.notify ? out.notify : null;
+        const msg = failedNotify
+          ? `Discord failed: ${parseBugNotifyReason(failedNotify)}`
+          : safeStr(out && (out.error || out.reason || out.message)) ||
+            `Report failed (HTTP ${res.status}).`;
         setBugStatus(msg, "error");
         return;
       }
@@ -1397,37 +1450,53 @@
         const attachSentRaw = safeInt(notify.attachments_sent);
         const attachSent = attachSentRaw > 0 || attachExpected === 0 ? attachSentRaw : attachExpected;
         const attachSuffix = attachExpected > 0 ? ` | Screenshots ${attachSent}/${attachExpected}` : "";
-        notifyText = `Discord sent${attachSuffix}`;
+        notifyText = `${isTest ? "Discord test sent" : "Discord sent"}${attachSuffix}`;
       } else {
-        const firstErr = Array.isArray(notify.results)
-          ? safeStr(((notify.results.find((r) => r && r.ok === false) || {}).error) || "")
-          : "";
-        const reason = safeStr(notify.error || firstErr || notify.mode || "notification_failed");
+        const reason = parseBugNotifyReason(notify);
         notifyText = `Discord failed: ${reason}`;
         notifyTone = "error";
       }
-      setBugStatus(`Submitted${bugId ? ` (${bugId})` : ""}. ${notifyText}.`, notifyTone);
+      setBugStatus(`${isTest ? "Test completed" : `Submitted${bugId ? ` (${bugId})` : ""}`}. ${notifyText}.`, notifyTone);
       const form = $("#uowBugForm");
       if (!notify || notify.ok === false) return;
-      if (form) form.reset();
-      populateBugTypeOptions();
-      resetBugAttachments();
-      syncBugEnhancementUi();
-      renderBugContextNote();
+      if (!isTest) {
+        if (form) form.reset();
+        populateBugTypeOptions();
+        resetBugAttachments();
+        syncBugEnhancementUi();
+        renderBugContextNote();
+      }
       // Keep modal open after success so the user can confirm status.
       const detailsField = $("#uowBugDetails");
       if (detailsField) detailsField.focus();
     } catch (err) {
-      setBugStatus(err && err.message ? err.message : "Failed to submit report.", "error");
+      setBugStatus(
+        err && err.message
+          ? err.message
+          : isTest
+            ? "Failed to send Discord test."
+            : "Failed to submit report.",
+        "error"
+      );
     } finally {
-      setBugSubmitBusy(false);
+      setBugSubmitBusy(false, "");
     }
+  }
+
+  async function submitBugReportForm(e) {
+    e.preventDefault();
+    await performBugReportSubmit("submit");
+  }
+
+  async function submitBugReportTest() {
+    await performBugReportSubmit("test");
   }
 
   function wireBugReportModal() {
     const openBtn = $("#uowBugBtn");
     const closeBtn = $("#uowBugClose");
     const cancelBtn = $("#uowBugCancel");
+    const testBtn = $("#uowBugTest");
     const backdrop = $("#uowBugBackdrop");
     const moduleSel = $("#uowBugModule");
     const screenshotInput = $("#uowBugScreenshots");
@@ -1436,6 +1505,7 @@
     if (openBtn) openBtn.addEventListener("click", openBugModal);
     if (closeBtn) closeBtn.addEventListener("click", closeBugModal);
     if (cancelBtn) cancelBtn.addEventListener("click", closeBugModal);
+    if (testBtn) testBtn.addEventListener("click", submitBugReportTest);
     if (backdrop) backdrop.addEventListener("click", closeBugModal);
     if (moduleSel) {
       moduleSel.addEventListener("change", () => {
