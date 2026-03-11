@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var BUILD = "2026.03.10.02";
+  var BUILD = "2026.03.10.03";
   var BOOT_FLAG = "__ups_roster_workbench_boot_" + BUILD;
   if (window[BOOT_FLAG]) {
     if (typeof window.UPS_RWB_INIT === "function") window.UPS_RWB_INIT();
@@ -316,9 +316,13 @@
     if (!info) return [];
     var match = info.match(/(?:^|\|)\s*AAV\s*([^|]+)/i);
     if (!match || !safeStr(match[1])) return [];
-    return safeStr(match[1])
+    var segment = safeStr(match[1]).replace(/\bY\d+\s*-[^|]*$/i, "");
+    return segment
       .split(/[\/,]/)
-      .map(function (token) { return parseContractMoneyToken(token); })
+      .map(function (token) {
+        var moneyMatch = safeStr(token).match(/-?\d+(?:\.\d+)?K?/i);
+        return parseContractMoneyToken(moneyMatch ? moneyMatch[0] : "");
+      })
       .filter(function (amount) { return amount > 0; });
   }
 

@@ -10186,9 +10186,13 @@ export default {
           if (!info) return [];
           const match = info.match(/(?:^|\|)\s*AAV\s*([^|]+)/i);
           if (!match || !safeStr(match[1])) return [];
-          return safeStr(match[1])
+          const segment = safeStr(match[1]).replace(/\bY\d+\s*-[^|]*$/i, "");
+          return segment
             .split(/[\/,]/)
-            .map((token) => parseContractMoneyToken(token))
+            .map((token) => {
+              const moneyMatch = safeStr(token).match(/-?\d+(?:\.\d+)?K?/i);
+              return parseContractMoneyToken(moneyMatch ? moneyMatch[0] : "");
+            })
             .filter((amount) => amount > 0);
         };
 
