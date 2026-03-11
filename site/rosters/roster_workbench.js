@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var BUILD = "2026.03.10.03";
+  var BUILD = "2026.03.10.04";
   var BOOT_FLAG = "__ups_roster_workbench_boot_" + BUILD;
   if (window[BOOT_FLAG]) {
     if (typeof window.UPS_RWB_INIT === "function") window.UPS_RWB_INIT();
@@ -433,7 +433,66 @@
   function displayAavForPlayer(player) {
     var explicitAav = currentAavForContractInfo(player && player.special);
     if (explicitAav > 0) return explicitAav;
+    if (player && player.isTaxi && safeInt(player.salary, 0) > 0) return safeInt(player.salary, 0);
     return Math.max(0, safeInt(player && player.aav, 0));
+  }
+
+  function rookieTaxiYearsRemainingFromDraftSeason(draftSeason, season) {
+    var drafted = safeInt(draftSeason, 0);
+    var current = safeInt(season, 0);
+    if (drafted <= 0 || current <= 0) return 0;
+    return Math.max(0, 3 - Math.max(0, current - drafted));
+  }
+
+  function standardRookieTaxiContractInfo(salary, contractLength) {
+    var years = Math.max(1, safeInt(contractLength, 0) || 3);
+    var currentSalary = Math.max(1000, roundToK(safeInt(salary, 0)));
+    var yearParts = [];
+    for (var i = 1; i <= years; i += 1) {
+      yearParts.push("Y" + i + "-" + formatContractK(currentSalary));
+    }
+    return [
+      "CL " + years,
+      "TCV " + formatContractK(currentSalary * years),
+      "AAV " + formatContractK(currentSalary),
+      yearParts.join(", ")
+    ].join("| ");
+  }
+
+  function repairTaxiContractFallbacks(teams, season) {
+    var currentSeason = safeInt(season, 0);
+    var list = asArray(teams);
+    for (var i = 0; i < list.length; i += 1) {
+      var players = list[i] && list[i].players ? list[i].players : [];
+      for (var j = 0; j < players.length; j += 1) {
+        var player = players[j];
+        if (!player || !player.isTaxi) continue;
+
+        var salary = Math.max(0, safeInt(player.salary, 0));
+        if (salary > 0 && safeInt(player.aav, 0) <= 0) {
+          player.aav = salary;
+        }
+
+        var special = safeStr(player.special);
+        if (special && special !== "-") continue;
+
+        var years = Math.max(0, safeInt(player.years, 0));
+        if (years <= 0) {
+          years = rookieTaxiYearsRemainingFromDraftSeason(player.originalDraftSeason, currentSeason);
+        }
+        if (years > 0) {
+          player.years = years;
+        }
+
+        if (salary > 0) {
+          player.special = standardRookieTaxiContractInfo(salary, 3);
+        }
+
+        if (!rookieLikeContractStatus(player.type)) {
+          player.type = "Rookie";
+        }
+      }
+    }
   }
 
   function rookieLikeContractStatus(value) {
@@ -8799,6 +8858,7 @@
         var acquisitionRows = parts[1] || [];
         mergeExtensionPreviewFallbackRows(teams, extRows);
         mergeAcquisitionLookupRows(teams, acquisitionRows);
+        repairTaxiContractFallbacks(teams, ctx && ctx.year);
         return hydrateTeamsWithPointsHistory(ctx, teams).then(function (years) {
           assignPositionalContractRanks(teams);
           result.teams = teams;

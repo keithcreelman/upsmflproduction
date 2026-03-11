@@ -8,6 +8,18 @@
   var PICK_SALARY_ROUND_ONE_FLOOR_DOLLARS = 5000;
   var PICK_SALARY_ROUND_ONE_STEP_DOLLARS = 1000;
   var PICK_SALARY_ROUND_ONE_AVERAGE_DOLLARS = 10000;
+  var PRETRADE_EXTENSION_RAISES = {
+    QB: { 1: 10000, 2: 20000 },
+    RB: { 1: 10000, 2: 20000 },
+    WR: { 1: 10000, 2: 20000 },
+    TE: { 1: 10000, 2: 20000 },
+    DL: { 1: 3000, 2: 5000 },
+    DB: { 1: 3000, 2: 5000 },
+    LB: { 1: 3000, 2: 5000 },
+    PK: { 1: 3000, 2: 5000 },
+    PN: { 1: 3000, 2: 5000 },
+    OTHER: { 1: 3000, 2: 5000 }
+  };
   var heightSyncInstalled = false;
   var heightPostTimer = 0;
   var lastPostedHeight = 0;
@@ -225,6 +237,122 @@
       }
     }
     return summary;
+  }
+
+  function roundToNearestK(v) {
+    return Math.round(safeInt(v, 0) / 1000) * 1000;
+  }
+
+  function formatContractKToken(amount) {
+    var dollars = Math.round(safeInt(amount, 0));
+    if (dollars <= 0) return "0K";
+    var k = dollars / 1000;
+    var text = Math.round(k * 10) / 10;
+    return (String(text).replace(/\.0$/, "")) + "K";
+  }
+
+  function tradePositionGroupKey(pos) {
+    var p = safeStr(pos).toUpperCase();
+    if (!p) return "OTHER";
+    if (p === "DE" || p === "DT" || p === "DL" || p === "NT" || p === "EDGE" || p === "ED") return "DL";
+    if (p === "CB" || p === "S" || p === "FS" || p === "SS" || p === "DB") return "DB";
+    if (p === "K" || p === "PK") return "PK";
+    if (p === "P" || p === "PN") return "PN";
+    if (p === "QB" || p === "RB" || p === "WR" || p === "TE" || p === "LB") return p;
+    return "OTHER";
+  }
+
+  function rookieLikeTradeContractStatus(value) {
+    var status = safeStr(value).toLowerCase();
+    return status === "r" || status.indexOf("r-") === 0 || status.indexOf("rookie") !== -1;
+  }
+
+  function tradeExtensionRaiseForAsset(asset, yearsToAdd) {
+    var years = safeInt(yearsToAdd, 0);
+    if (years !== 1 && years !== 2) return 0;
+    var group = tradePositionGroupKey(asset && asset.position);
+    var rec = PRETRADE_EXTENSION_RAISES[group] || PRETRADE_EXTENSION_RAISES.OTHER;
+    return safeInt(rec && rec[years], 0);
+  }
+
+  function fallbackTaxiContractInfo(asset) {
+    var salary = Math.max(1000, roundToNearestK(asset && asset.salary));
+    var contractLength = Math.max(1, safeInt(asset && asset.contract_length, 0) || 3);
+    if (!salary) return "";
+    var yearParts = [];
+    for (var i = 1; i <= contractLength; i += 1) {
+      yearParts.push("Y" + i + "-" + formatContractKToken(salary));
+    }
+    return [
+      "CL " + contractLength,
+      "TCV " + formatContractKToken(salary * contractLength),
+      "AAV " + formatContractKToken(salary),
+      yearParts.join(", ")
+    ].join("| ");
+  }
+
+  function assetAllowsSyntheticExtension(asset, metrics) {
+    if (!asset || safeStr(asset.type).toUpperCase() !== "PLAYER") return false;
+    var type = safeStr(asset.contract_type).toLowerCase();
+    var info = safeStr(asset.contract_info).toLowerCase();
+    var yearsRemaining = metrics && metrics.years_remaining != null
+      ? safeInt(metrics.years_remaining, 0)
+      : safeInt(asset.years, 0);
+    if (type.indexOf("tag") !== -1) return false;
+    if (info.indexOf("no further extensions") !== -1 || info.indexOf("not eligible for tag or extension") !== -1) {
+      return false;
+    }
+    return yearsRemaining === 1 || (rookieLikeTradeContractStatus(type) && yearsRemaining <= 0);
+  }
+
+  function buildSyntheticExtensionOptions(asset) {
+    if (!asset || safeStr(asset.type).toUpperCase() !== "PLAYER") return [];
+    var metrics = resolveAssetDisplayContractMetrics(asset);
+    if (!assetAllowsSyntheticExtension(asset, metrics)) return [];
+
+    var currentYears = Math.max(1, safeInt(metrics && metrics.years_remaining, 0) || 1);
+    var currentSalary = Math.max(1000, roundToNearestK(asset.salary));
+    if (currentSalary <= 0) return [];
+
+    var out = [];
+    for (var yearsToAdd = 1; yearsToAdd <= 2; yearsToAdd += 1) {
+      var futureSalary = Math.max(1000, roundToNearestK(currentSalary + tradeExtensionRaiseForAsset(asset, yearsToAdd)));
+      var totalLength = currentYears + yearsToAdd;
+      var yearParts = [];
+      for (var yearIdx = 1; yearIdx <= totalLength; yearIdx += 1) {
+        yearParts.push(
+          "Y" + yearIdx + "-" + formatContractKToken(yearIdx <= currentYears ? currentSalary : futureSalary)
+        );
+      }
+      var tcv = currentSalary * currentYears + futureSalary * yearsToAdd;
+      var previewInfo = [
+        "CL " + totalLength,
+        "TCV " + formatContractKToken(tcv),
+        "AAV " + formatContractKToken(currentSalary) + ", " + formatContractKToken(futureSalary),
+        yearParts.join(", ")
+      ].join("| ");
+      out.push({
+        option_key: String(yearsToAdd) + "YR|NONE",
+        extension_term: String(yearsToAdd) + "YR",
+        loaded_indicator: "NONE",
+        preview_id: null,
+        preview_contract_info_string: previewInfo,
+        new_contract_status: yearsToAdd === 1 ? "EXT1" : "EXT2",
+        new_contract_length: totalLength,
+        new_TCV: tcv,
+        new_aav_current: currentSalary,
+        new_aav_future: futureSalary,
+        synthesized: true
+      });
+    }
+    return out;
+  }
+
+  function rookieTaxiYearsRemainingFromDraftSeason(draftSeason, season) {
+    var drafted = safeInt(draftSeason, 0);
+    var current = safeInt(season, 0);
+    if (drafted <= 0 || current <= 0) return 0;
+    return Math.max(0, 3 - Math.max(0, current - drafted));
   }
 
   function pad4(v) {
@@ -770,10 +898,31 @@
     asset.injury = safeStr(raw.injury || raw.status || "");
     asset.notes = safeStr(raw.notes || "");
 
+    if (safeStr(asset.contract_type).toLowerCase() === "taxi" && safeInt(asset.salary, 0) > 0) {
+      asset.contract_type = "Rookie";
+    }
+    if (!asset.contract_info && asset.taxi && safeInt(asset.salary, 0) > 0) {
+      if (!asset.contract_length) asset.contract_length = 3;
+      asset.contract_info = fallbackTaxiContractInfo(asset);
+    }
+    var contractInfoSummary = parseContractInfoSummary(asset.contract_info);
+    if (!asset.contract_length && contractInfoSummary.contract_length) {
+      asset.contract_length = safeInt(contractInfoSummary.contract_length, 0);
+    }
+    if (asset.aav_current == null && contractInfoSummary.aav_current_dollars != null) {
+      asset.aav_current = safeInt(contractInfoSummary.aav_current_dollars, 0);
+    }
+    if (asset.aav_current == null && asset.taxi && safeInt(asset.salary, 0) > 0) {
+      asset.aav_current = safeInt(asset.salary, 0);
+    }
+
     var extOptions = Array.isArray(raw.extension_options) ? clone(raw.extension_options) : null;
     if (!extOptions) {
       var extKey = [asset.franchise_id, asset.player_id].join("|");
       extOptions = extensionIndex[extKey] ? clone(extensionIndex[extKey]) : [];
+    }
+    if (!extOptions.length) {
+      extOptions = buildSyntheticExtensionOptions(asset);
     }
     asset.extension_options = extOptions;
     asset.extension_eligible = extOptions.length > 0 || parseBool(raw.extension_eligible, false);
@@ -1084,6 +1233,81 @@
     return res.json();
   }
 
+  function resolveTradeAcquisitionLookupUrl(season) {
+    var seasonText = safeStr(season || "");
+    if (!seasonText) return "";
+    return resolveRelativeUrl("../rosters/player_acquisition_lookup_" + encodeURIComponent(seasonText) + ".json");
+  }
+
+  async function loadTradeAcquisitionLookupRows(season) {
+    var url = resolveTradeAcquisitionLookupUrl(season);
+    if (!url) return [];
+    try {
+      var payload = await fetchJson(url);
+      if (Array.isArray(payload)) return payload;
+      if (payload && Array.isArray(payload.rows)) return payload.rows;
+      return [];
+    } catch (err) {
+      return [];
+    }
+  }
+
+  function applyAcquisitionLookupToTradeData(data, rows) {
+    var teams = Array.isArray(data && data.teams) ? data.teams : [];
+    var season = safeInt(data && data.meta && data.meta.season, 0);
+    var list = Array.isArray(rows) ? rows : [];
+    if (!teams.length || !list.length) return data;
+
+    var byPlayerId = {};
+    var i;
+    for (i = 0; i < list.length; i += 1) {
+      var row = list[i] || {};
+      var playerId = safeStr(row.player_id || row.id).replace(/\D/g, "");
+      if (!playerId) continue;
+      byPlayerId[playerId] = row;
+    }
+
+    for (i = 0; i < teams.length; i += 1) {
+      var assets = Array.isArray(teams[i] && teams[i].assets) ? teams[i].assets : [];
+      for (var j = 0; j < assets.length; j += 1) {
+        var asset = assets[j];
+        if (!asset || safeStr(asset.type).toUpperCase() !== "PLAYER") continue;
+        var match = byPlayerId[safeStr(asset.player_id).replace(/\D/g, "")];
+        if (!match) continue;
+
+        asset.original_draft_season = safeInt(match.original_draft_season || match.originalDraftSeason, 0);
+        if (!asset.taxi) continue;
+
+        if (asset.aav_current == null && safeInt(asset.salary, 0) > 0) {
+          asset.aav_current = safeInt(asset.salary, 0);
+        }
+        if (!asset.contract_info && safeInt(asset.salary, 0) > 0) {
+          asset.contract_length = asset.contract_length || 3;
+          asset.contract_info = fallbackTaxiContractInfo(asset);
+        }
+        if ((asset.years == null || safeInt(asset.years, 0) <= 0) && asset.original_draft_season > 0) {
+          var years = rookieTaxiYearsRemainingFromDraftSeason(asset.original_draft_season, season);
+          if (years > 0) asset.years = years;
+        }
+        if (safeStr(asset.contract_type).toLowerCase() === "taxi" && asset.original_draft_season > 0) {
+          asset.contract_type = "Rookie";
+        }
+        if (!Array.isArray(asset.extension_options) || !asset.extension_options.length) {
+          asset.extension_options = buildSyntheticExtensionOptions(asset);
+        }
+        if (asset.extension_options.length) asset.extension_eligible = true;
+      }
+    }
+
+    return data;
+  }
+
+  async function normalizeDataWithFallbacks(raw) {
+    var data = normalizeData(raw);
+    var lookupRows = await loadTradeAcquisitionLookupRows(data && data.meta && data.meta.season);
+    return applyAcquisitionLookupToTradeData(data, lookupRows);
+  }
+
   function getDocHeight() {
     var doc = document.documentElement;
     var body = document.body;
@@ -1269,7 +1493,7 @@
     var previousActiveId = getActiveFranchiseId();
     var previousRightId = safeStr(state.rightTeamId);
     var raw = await loadData({ forceReload: true });
-    state.data = normalizeData(raw);
+    state.data = await normalizeDataWithFallbacks(raw);
     if (!state.data.teams || !state.data.teams.length) {
       throw new Error("No teams in refreshed payload.");
     }
@@ -4107,8 +4331,8 @@
       if (contractYear > 0 && contractYear <= contractLength) {
         yearsRemaining = Math.max(contractLength - contractYear, 0);
       } else if (yearsRemaining === 0 && contractLength > 1) {
-        // Some payloads encode years as contract-year index (0-based) instead of years remaining.
-        yearsRemaining = contractLength - 1;
+        // A zero value from MFL commonly means the final in-force season on the current deal.
+        yearsRemaining = 1;
       }
     }
 
@@ -6115,7 +6339,7 @@
         await new Promise(function (resolve) { setTimeout(resolve, 350); });
         raw = await loadData();
       }
-      state.data = normalizeData(raw);
+      state.data = await normalizeDataWithFallbacks(raw);
       if (!state.data.teams.length) throw new Error("No teams in data payload.");
 
       seedInitialTeams();
