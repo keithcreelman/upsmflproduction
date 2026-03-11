@@ -1398,19 +1398,13 @@
     const ctx = built.ctx;
     const payload = built.payload;
     const workerBase = parseWorkerBaseUrl();
-    const apiKey = resolveApiKey();
     const isTest = mode === "test";
     const endpoint =
       `${workerBase}${isTest ? "/admin/bug-report/test-discord" : "/bug-report"}?L=${encodeURIComponent(ctx.league_id || "")}` +
-      `&YEAR=${encodeURIComponent(ctx.season || "")}` +
-      (isTest && apiKey ? `&APIKEY=${encodeURIComponent(apiKey)}` : "");
+      `&YEAR=${encodeURIComponent(ctx.season || "")}`;
 
     if (isTest && !state.bugViewerIsAdmin) {
       setBugStatus("Commissioner access is required for Discord tests.", "error");
-      return;
-    }
-    if (isTest && !apiKey) {
-      setBugStatus("COMMISH_API_KEY is required for Discord tests.", "error");
       return;
     }
 

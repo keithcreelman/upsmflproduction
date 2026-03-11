@@ -8341,8 +8341,8 @@ export default {
       };
 
       if (path === "/admin/bug-report/test-discord" && request.method === "POST") {
-        if (!!commishApiKey && !sessionByApiKey) {
-          return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required for test Discord bug posts." });
+        if (!sessionMatch) {
+          return jsonOut(403, { ok: false, error: "Commissioner session is required for test Discord bug posts." });
         }
         let body = {};
         try {
