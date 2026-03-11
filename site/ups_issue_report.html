@@ -45,6 +45,12 @@
           </label>
         </div>
 
+        <label id="uowBugCommishWrap" class="uow-field uow-field-inline uow-field-toggle" hidden>
+          <input id="uowBugCommishEnhancement" class="uow-checkbox" type="checkbox">
+          <span>Commish Enhancement</span>
+        </label>
+        <div id="uowBugCommishNote" class="uow-form-note" hidden>Use this for commissioner-only enhancement requests. Screenshots are optional.</div>
+
         <label class="uow-field">
           Description
           <textarea id="uowBugDetails" class="uow-textarea" rows="4" maxlength="4000" required placeholder="Describe what happened and why it looks incorrect."></textarea>
@@ -53,7 +59,7 @@
         <label class="uow-field">
           Screenshots
           <div id="uowBugDropzone" class="uow-dropzone">
-            <div class="uow-dropzone-text">Attach screenshots. Drag and drop files here, or choose files. Screenshots are required.</div>
+            <div id="uowBugDropzoneText" class="uow-dropzone-text">Attach screenshots if helpful. Drag and drop files here, or choose files.</div>
             <input id="uowBugScreenshots" class="uow-input" type="file" accept="image/*" multiple>
           </div>
           <div id="uowBugAttachmentList" class="uow-form-note"></div>

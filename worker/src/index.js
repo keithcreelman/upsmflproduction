@@ -2008,6 +2008,12 @@ export default {
           mfl_user_id: safeStr(row.mfl_user_id || ""),
           module: safeStr(row.module || ""),
           issue_type: safeStr(row.issue_type || ""),
+          request_kind: safeStr(row.request_kind || row.requestKind || "bug-report"),
+          commish_enhancement: !!safeInt(
+            row.commish_enhancement || row.commishEnhancement || row.is_commish_enhancement || 0
+          ),
+          submitted_by_label: safeStr(row.submitted_by_label || row.submitter_label || ""),
+          submitted_by_mfl_user_id: safeStr(row.submitted_by_mfl_user_id || row.mfl_user_id || ""),
           details: safeStr(row.details || ""),
           steps_to_reproduce: safeStr(row.steps_to_reproduce || ""),
           expected_vs_actual: safeStr(row.expected_vs_actual || ""),
@@ -2170,20 +2176,27 @@ export default {
         const details = safeStr(row.details || "").replace(/\s+/g, " ").slice(0, 500);
         const moduleName = safeStr(row.module || "");
         const issueType = safeStr(row.issue_type || "");
+        const requestKind = safeStr(row.request_kind || (row.commish_enhancement ? "commish-enhancement" : "bug-report"));
         const leagueId = safeStr(row.league_id || "");
         const season = safeStr(row.season || "");
         const bugId = safeStr(row.bug_id || "");
         const fid = safeStr(row.franchise_id || "");
         const franchiseName = safeStr(row.franchise_name || (row.context && row.context.franchise_name) || "");
         const mflUser = safeStr(row.mfl_user_id || "");
+        const submittedBy = safeStr(
+          row.submitted_by_label ||
+          (row.context && row.context.submitted_by_label) ||
+          [franchiseName || fid || "", mflUser ? `MFL ${mflUser}` : ""].filter(Boolean).join(" | ")
+        );
         const pageUrl = safeStr((row.context && row.context.page_url) || "");
         const attachmentCount = Array.isArray(row.attachments)
           ? row.attachments.length
           : safeInt((row.context && row.context.screenshot_count) || 0);
         const lines = [
-          `UPS Bug Report${bugId ? ` #${bugId}` : ""}`,
+          `${requestKind === "commish-enhancement" ? "UPS Commish Enhancement" : "UPS Bug Report"}${bugId ? ` #${bugId}` : ""}`,
           `League ${leagueId || "-"} | Season ${season || "-"}`,
           `Module ${moduleName || "-"} | Type ${issueType || "-"}`,
+          `Submitted by ${submittedBy || "-"}`,
           `Franchise ${(franchiseName || fid || "-")} | MFL User ${mflUser || "unknown"}`,
           attachmentCount ? `Screenshots: ${attachmentCount}` : "",
           details ? `Details: ${details}` : "",
@@ -7252,13 +7265,16 @@ export default {
 
         const moduleName = safeStr(body.module || body.screen || "other").toLowerCase();
         const issueType = safeStr(body.issue_type || body.type || "other").toLowerCase();
+        const requestKind = safeStr(body.request_kind || body.requestKind || "bug-report").toLowerCase();
+        const commishEnhancement = requestKind === "commish-enhancement" || !!safeInt(
+          body.commish_enhancement || body.commishEnhancement || 0
+        );
         const details = safeStr(body.details || body.description || "");
         const steps = safeStr(body.steps_to_reproduce || body.steps || "");
         const expectedActual = safeStr(
           body.expected_vs_actual || body.expected_actual || body.expected || ""
         );
         const attachments = sanitizeBugAttachments(body.attachments || body.screenshots);
-        if (!attachments.length) return jsonOut(400, { ok: false, error: "At least one screenshot is required" });
         if (!details) return jsonOut(400, { ok: false, error: "Missing details" });
 
         const createdAt = new Date().toISOString();
@@ -7280,12 +7296,22 @@ export default {
         ).slice(0, 120);
         const mflUserId = safeStr(
           body.mfl_user_id ||
-            body.mflUserId ||
-            context.mfl_user_id ||
-            context.mflUserId ||
-            browserMflUserId ||
-            ""
+          body.mflUserId ||
+          context.mfl_user_id ||
+          context.mflUserId ||
+          browserMflUserId ||
+          ""
         );
+        const submittedByLabel = safeStr(
+          body.submitted_by_label ||
+          body.submittedByLabel ||
+          context.submitted_by_label ||
+          [
+            franchiseName || franchiseId || "",
+            mflUserId ? `MFL ${mflUserId}` : "",
+            commishEnhancement ? "Commish Enhancement" : "",
+          ].filter(Boolean).join(" | ")
+        ).slice(0, 200);
         const reportRow = {
           bug_id: bugId,
           created_at_utc: createdAt,
@@ -7296,6 +7322,10 @@ export default {
           mfl_user_id: mflUserId,
           module: moduleName,
           issue_type: issueType,
+          request_kind: commishEnhancement ? "commish-enhancement" : requestKind || "bug-report",
+          commish_enhancement: commishEnhancement,
+          submitted_by_label: submittedByLabel,
+          submitted_by_mfl_user_id: mflUserId,
           details: details.slice(0, 5000),
           steps_to_reproduce: steps.slice(0, 4000),
           expected_vs_actual: expectedActual.slice(0, 4000),

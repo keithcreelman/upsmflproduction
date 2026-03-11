@@ -116,7 +116,9 @@
     bugBusy: false,
     bugAttachmentsBusy: false,
     bugAttachments: [],
-    bugSourceApp: ""
+    bugSourceApp: "",
+    bugViewerAdminReady: false,
+    bugViewerIsAdmin: false
   };
 
   const $ = (sel) => document.querySelector(sel);
@@ -164,6 +166,32 @@
     return String(raw || "").trim();
   }
 
+  function readCookie(name) {
+    const target = `${String(name || "").trim()}=`;
+    const parts = String(document.cookie || "").split(";");
+    for (let i = 0; i < parts.length; i += 1) {
+      const part = safeStr(parts[i]);
+      if (!part || part.indexOf(target) !== 0) continue;
+      try {
+        return decodeURIComponent(part.slice(target.length));
+      } catch (e) {
+        return part.slice(target.length);
+      }
+    }
+    return "";
+  }
+
+  function resolveApiKey() {
+    const params = new URLSearchParams(window.location.search || "");
+    return safeStr(
+      params.get("APIKEY") ||
+      params.get("apiKey") ||
+      params.get("api_key") ||
+      window.COMMISH_API_KEY ||
+      ""
+    );
+  }
+
   function parseWorkerBaseUrl() {
     const params = new URLSearchParams(window.location.search || "");
     const candidate = String(
@@ -178,6 +206,16 @@
       return `${u.protocol}//${u.host}`;
     } catch (e) {
       return BUG_REPORT_WORKER_DEFAULT;
+    }
+  }
+
+  function resolveWorkerAdminStateEndpoint() {
+    try {
+      const u = new URL(parseWorkerBaseUrl(), window.location.href);
+      u.pathname = safeStr(u.pathname).replace(/\/+$/, "") + "/roster-workbench/admin-state";
+      return u.toString();
+    } catch (e) {
+      return `${parseWorkerBaseUrl().replace(/\/+$/, "")}/roster-workbench/admin-state`;
     }
   }
 
@@ -260,6 +298,15 @@
 
   function safeStr(v) {
     return String(v == null ? "" : v).trim();
+  }
+
+  async function fetchJson(url, opts) {
+    const res = await fetch(url, opts || {});
+    try {
+      return await res.json();
+    } catch (e) {
+      return {};
+    }
   }
 
   function parseSeasonYear() {
@@ -951,7 +998,7 @@
       return;
     }
     if (!state.bugAttachments.length) {
-      listEl.textContent = `Attach at least 1 screenshot. Max ${BUG_MAX_ATTACHMENTS}.`;
+      listEl.textContent = `Screenshots optional. Max ${BUG_MAX_ATTACHMENTS}.`;
       return;
     }
     const names = state.bugAttachments.map((a) => safeStr(a && a.name)).filter(Boolean);
@@ -1155,13 +1202,24 @@
     const season = String(parseSeasonYear() || "");
     const franchiseId = parseFranchiseId();
     const franchiseName = getFranchiseNameById(season, franchiseId);
+    const mflUserId = parseMflUserId() || readCookie("MFL_USER_ID");
+    const commishEnhancement = !!($("#uowBugCommishEnhancement") && $("#uowBugCommishEnhancement").checked);
+    const submitterParts = [];
+    if (franchiseName) submitterParts.push(franchiseName);
+    if (mflUserId) submitterParts.push(`MFL ${mflUserId}`);
+    if (commishEnhancement) submitterParts.push("Commish Enhancement");
     return {
       captured_at_utc: new Date().toISOString(),
       league_id: parseLeagueId(),
       season,
       franchise_id: franchiseId,
       franchise_name: franchiseName,
-      mfl_user_id: parseMflUserId(),
+      mfl_user_id: mflUserId,
+      submitted_by_label: submitterParts.join(" | ") || "Unknown submitter",
+      submitted_by_franchise_id: franchiseId,
+      submitted_by_franchise_name: franchiseName,
+      submitted_by_mfl_user_id: mflUserId,
+      submitted_by_commish_enhancement: commishEnhancement ? 1 : 0,
       host: safeStr(window.location.host || ""),
       page_url: href,
       query_module: safeStr(params.get("MODULE") || params.get("module")),
@@ -1191,7 +1249,51 @@
     if (!note) return;
     const ctx = buildBugContext();
     const franchiseLabel = safeStr(ctx.franchise_name || "Unknown");
-    note.textContent = `Auto-attached: League ${ctx.league_id || "—"} | Season ${ctx.season || "—"} | Franchise ${franchiseLabel} | User ${ctx.mfl_user_id ? "Yes" : "Unknown"} | Theme ${ctx.theme || "—"}`;
+    note.textContent = `Auto-attached: Submitted by ${ctx.submitted_by_label || "Unknown"} | League ${ctx.league_id || "—"} | Season ${ctx.season || "—"} | Franchise ${franchiseLabel} | Theme ${ctx.theme || "—"}`;
+  }
+
+  function syncBugEnhancementUi() {
+    const wrap = $("#uowBugCommishWrap");
+    const note = $("#uowBugCommishNote");
+    const toggle = $("#uowBugCommishEnhancement");
+    const dropzoneText = $("#uowBugDropzoneText");
+    if (wrap) wrap.hidden = !state.bugViewerIsAdmin;
+    if (note) note.hidden = !state.bugViewerIsAdmin;
+    if (!state.bugViewerIsAdmin && toggle) toggle.checked = false;
+    if (dropzoneText) {
+      dropzoneText.textContent =
+        state.bugViewerIsAdmin && toggle && toggle.checked
+          ? "Screenshots optional for commish enhancements. Drag and drop files here, or choose files."
+          : "Attach screenshots if helpful. Drag and drop files here, or choose files.";
+    }
+    renderBugAttachmentList();
+  }
+
+  async function loadBugViewerAdminState() {
+    const leagueId = parseLeagueId();
+    const year = String(parseSeasonYear() || "");
+    if (!leagueId || !year) {
+      state.bugViewerAdminReady = true;
+      state.bugViewerIsAdmin = false;
+      syncBugEnhancementUi();
+      return;
+    }
+    try {
+      const url = new URL(resolveWorkerAdminStateEndpoint(), window.location.href);
+      url.searchParams.set("L", safeStr(leagueId));
+      url.searchParams.set("YEAR", safeStr(year));
+      const mflUserId = parseMflUserId() || readCookie("MFL_USER_ID");
+      const apiKey = resolveApiKey();
+      if (mflUserId) url.searchParams.set("MFL_USER_ID", safeStr(mflUserId));
+      if (apiKey) url.searchParams.set("APIKEY", safeStr(apiKey));
+      const payload = await fetchJson(url.toString(), { credentials: "omit", cache: "no-store" });
+      state.bugViewerIsAdmin = !!(payload && payload.ok && payload.isAdmin);
+    } catch (e) {
+      state.bugViewerIsAdmin = false;
+    }
+    state.bugViewerAdminReady = true;
+    syncBugEnhancementUi();
+    renderBugContextNote();
   }
 
   function openBugModal() {
@@ -1200,6 +1302,7 @@
     modal.hidden = false;
     resetBugAttachments();
     populateBugTypeOptions();
+    syncBugEnhancementUi();
     renderBugContextNote();
     setBugStatus("", "");
     const details = $("#uowBugDetails");
@@ -1227,13 +1330,10 @@
     const moduleName = safeStr(moduleSel && moduleSel.value);
     const issueType = safeStr(typeSel && typeSel.value);
     const details = safeStr(detailsInput && detailsInput.value);
+    const commishEnhancement = !!($("#uowBugCommishEnhancement") && $("#uowBugCommishEnhancement").checked && state.bugViewerIsAdmin);
 
     if (!moduleName || !issueType || !details) {
       setBugStatus("Please fill all required fields.", "error");
-      return;
-    }
-    if (!state.bugAttachments.length) {
-      setBugStatus("Attach at least one screenshot.", "error");
       return;
     }
 
@@ -1248,6 +1348,10 @@
       issue_type: issueType,
       franchise_name: safeStr(ctx.franchise_name || ""),
       details,
+      commish_enhancement: commishEnhancement ? 1 : 0,
+      request_kind: commishEnhancement ? "commish-enhancement" : "bug-report",
+      submitted_by_label: safeStr(ctx.submitted_by_label || ""),
+      mfl_user_id: safeStr(ctx.submitted_by_mfl_user_id || ctx.mfl_user_id || ""),
       attachments: state.bugAttachments.map((item) => ({
         name: safeStr(item && item.name),
         type: safeStr(item && item.type),
@@ -1293,11 +1397,7 @@
         const attachSentRaw = safeInt(notify.attachments_sent);
         const attachSent = attachSentRaw > 0 || attachExpected === 0 ? attachSentRaw : attachExpected;
         const attachSuffix = attachExpected > 0 ? ` | Screenshots ${attachSent}/${attachExpected}` : "";
-        if (safeStr(notify.mode) === "bot-dm-multi") {
-          notifyText = `Discord sent (${safeInt(notify.delivered, 0)}/${safeInt(notify.attempted, 0)} DMs)${attachSuffix}`;
-        } else {
-          notifyText = `Discord sent${attachSuffix}`;
-        }
+        notifyText = `Discord sent${attachSuffix}`;
       } else {
         const firstErr = Array.isArray(notify.results)
           ? safeStr(((notify.results.find((r) => r && r.ok === false) || {}).error) || "")
@@ -1312,6 +1412,7 @@
       if (form) form.reset();
       populateBugTypeOptions();
       resetBugAttachments();
+      syncBugEnhancementUi();
       renderBugContextNote();
       // Keep modal open after success so the user can confirm status.
       const detailsField = $("#uowBugDetails");
@@ -1339,6 +1440,13 @@
     if (moduleSel) {
       moduleSel.addEventListener("change", () => {
         populateBugTypeOptions();
+        renderBugContextNote();
+      });
+    }
+    const commishToggle = $("#uowBugCommishEnhancement");
+    if (commishToggle) {
+      commishToggle.addEventListener("change", () => {
+        syncBugEnhancementUi();
         renderBugContextNote();
       });
     }
@@ -1383,6 +1491,7 @@
     populateBugTypeOptions();
     renderBugAttachmentList();
     renderBugContextNote();
+    loadBugViewerAdminState();
     refreshBugSubmitState();
   }
 

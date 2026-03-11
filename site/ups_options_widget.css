@@ -261,6 +261,18 @@ body {
   gap: 8px;
 }
 
+.uow-field-toggle{
+  min-width: 0;
+  margin-top: 2px;
+}
+
+.uow-checkbox{
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent-strong);
+  cursor: pointer;
+}
+
 
 body[data-theme="dark"] .uow-display-value {
   text-shadow: 0 1px 1px rgba(0, 0, 0, 0.35);
