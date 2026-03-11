@@ -59,6 +59,7 @@ export default {
         path !== "/admin/discord/post" &&
         path !== "/admin/bug-report/status" &&
         path !== "/admin/bug-report/triage-note" &&
+        path !== "/admin/bug-report/test-discord" &&
         path !== "/bug-report" &&
         path !== "/bug-reports" &&
         path !== "/extension-assistant" &&
@@ -653,7 +654,8 @@ export default {
           path === "/bug-report" ||
           path === "/bug-reports" ||
           path === "/admin/bug-report/status" ||
-          path === "/admin/bug-report/triage-note"
+          path === "/admin/bug-report/triage-note" ||
+          path === "/admin/bug-report/test-discord"
         ) {
           // Allow bug report intake/read without commish cookie.
         } else {
@@ -3333,7 +3335,28 @@ export default {
       const bugDiscordBotToken = () =>
         safeStr(env.DISCORD_BOT_TOKEN || env.DISCORD_BOT || env.Discord_bot || "");
 
-      const bugDiscordChannelId = () => safeStr(env.DISCORD_BUG_CHANNEL_ID || "").replace(/\D/g, "");
+      const bugDiscordPrimaryChannelId = () => safeStr(env.DISCORD_BUG_CHANNEL_ID || "").replace(/\D/g, "");
+
+      const bugDiscordTestChannelId = () => safeStr(env.DISCORD_BUG_TEST_CHANNEL_ID || "").replace(/\D/g, "");
+
+      const bugDiscordChannelTarget = (reportRow) => {
+        const row = reportRow && typeof reportRow === "object" ? reportRow : {};
+        const deliveryTarget = safeStr(row.delivery_target || row.deliveryTarget || "").toLowerCase();
+        if (deliveryTarget === "test") {
+          const channelId = bugDiscordTestChannelId();
+          return {
+            channelId,
+            deliveryTarget: "test",
+            missingError: channelId ? "" : "missing_discord_bug_test_channel_config",
+          };
+        }
+        const channelId = bugDiscordPrimaryChannelId();
+        return {
+          channelId,
+          deliveryTarget: "primary",
+          missingError: channelId ? "" : "missing_discord_bug_thread_config",
+        };
+      };
 
       const discordBotRequest = async (botToken, method, apiPath, body) => {
         const target = `https://discord.com/api/v10${apiPath}`;
@@ -3475,7 +3498,8 @@ export default {
 
       const sendDiscordNotificationForBug = async (reportRow, filePath) => {
         const botToken = bugDiscordBotToken();
-        const channelId = bugDiscordChannelId();
+        const target = bugDiscordChannelTarget(reportRow);
+        const channelId = target.channelId;
         const content = formatBugDiscordMessage(reportRow, filePath);
         const rawAttachmentRows = Array.isArray(reportRow && reportRow.attachments) ? reportRow.attachments : [];
         const attachmentsExpected = Math.min(6, rawAttachmentRows.length);
@@ -3499,7 +3523,8 @@ export default {
             ok: false,
             mode: "none",
             status: 0,
-            error: "missing_discord_bug_thread_config",
+            error: !botToken ? "missing_discord_bug_thread_config" : safeStr(target.missingError || "missing_discord_bug_thread_config"),
+            delivery_target: safeStr(target.deliveryTarget || "primary"),
             ...attachmentMeta(0),
           };
         }
@@ -3517,6 +3542,7 @@ export default {
               mode: "bot-channel-thread",
               status: sendChannel.status,
               error: safeStr(sendChannel.text || "send_channel_failed").slice(0, 600),
+              delivery_target: safeStr(target.deliveryTarget || "primary"),
               ...attachmentMeta(0),
             };
           }
@@ -3528,6 +3554,7 @@ export default {
               status: sendChannel.status,
               error: "missing_root_message_id",
               channel_id: channelId,
+              delivery_target: safeStr(target.deliveryTarget || "primary"),
               ...attachmentMeta(0),
             };
           }
@@ -3549,6 +3576,7 @@ export default {
               status: createThread.status,
               error: safeStr(createThread.text || "create_thread_failed").slice(0, 600),
               channel_id: channelId,
+              delivery_target: safeStr(target.deliveryTarget || "primary"),
               message_id: rootMessageId,
               thread_root_message_id: rootMessageId,
               thread_name: threadName,
@@ -3560,6 +3588,7 @@ export default {
             ok: true,
             mode: "bot-channel-thread",
             channel_id: channelId,
+            delivery_target: safeStr(target.deliveryTarget || "primary"),
             message_id: rootMessageId,
             thread_root_message_id: rootMessageId,
             thread_id: safeStr(createThread.data && createThread.data.id),
@@ -3571,7 +3600,8 @@ export default {
           ok: false,
           mode: "none",
           status: 0,
-          error: "missing_discord_bug_thread_config",
+          error: safeStr(target.missingError || "missing_discord_bug_thread_config"),
+          delivery_target: safeStr(target.deliveryTarget || "primary"),
           ...attachmentMeta(0),
         };
       };
@@ -8296,6 +8326,140 @@ export default {
         }
         return out;
       };
+
+      if (path === "/admin/bug-report/test-discord" && request.method === "POST") {
+        if (!!commishApiKey && !sessionByApiKey) {
+          return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required for test Discord bug posts." });
+        }
+        let body = {};
+        try {
+          body = (await request.json()) || {};
+        } catch (_) {
+          return jsonOut(400, { ok: false, error: "Invalid JSON body" });
+        }
+        const context = body && typeof body.context === "object" && body.context ? body.context : {};
+        const leagueId = safeStr(
+          url.searchParams.get("L") ||
+            L ||
+            body.league_id ||
+            body.leagueId ||
+            context.league_id ||
+            context.leagueId ||
+            ""
+        );
+        const season = safeStr(
+          url.searchParams.get("YEAR") ||
+            YEAR ||
+            body.season ||
+            body.year ||
+            context.season ||
+            context.year ||
+            ""
+        );
+        if (!leagueId) return jsonOut(400, { ok: false, error: "Missing L/league_id" });
+        if (!season) return jsonOut(400, { ok: false, error: "Missing YEAR/season" });
+
+        const moduleName = safeStr(body.module || body.screen || "other").toLowerCase();
+        const issueType = safeStr(body.issue_type || body.type || "other").toLowerCase();
+        const requestKind = safeStr(body.request_kind || body.requestKind || "bug-report").toLowerCase();
+        const commishEnhancement = requestKind === "commish-enhancement" || !!safeInt(
+          body.commish_enhancement || body.commishEnhancement || 0
+        );
+        const details = safeStr(body.details || body.description || "");
+        const steps = safeStr(body.steps_to_reproduce || body.steps || "");
+        const expectedActual = safeStr(
+          body.expected_vs_actual || body.expected_actual || body.expected || ""
+        );
+        const attachments = sanitizeBugAttachments(body.attachments || body.screenshots);
+        if (!details) return jsonOut(400, { ok: false, error: "Missing details" });
+
+        const createdAt = new Date().toISOString();
+        const franchiseId = padFranchiseId(
+          body.franchise_id ||
+            body.franchiseId ||
+            context.franchise_id ||
+            context.franchiseId ||
+            url.searchParams.get("FRANCHISE_ID") ||
+            ""
+        );
+        const franchiseName = safeStr(
+          body.franchise_name ||
+            body.franchiseName ||
+            context.franchise_name ||
+            context.franchiseName ||
+            ""
+        ).slice(0, 120);
+        const mflUserId = safeStr(
+          body.mfl_user_id ||
+          body.mflUserId ||
+          context.mfl_user_id ||
+          context.mflUserId ||
+          browserMflUserId ||
+          ""
+        );
+        const submittedByLabel = safeStr(
+          body.submitted_by_label ||
+          body.submittedByLabel ||
+          context.submitted_by_label ||
+          [
+            franchiseName || franchiseId || "",
+            mflUserId ? `MFL ${mflUserId}` : "",
+            commishEnhancement ? "Commish Enhancement" : "",
+          ].filter(Boolean).join(" | ")
+        ).slice(0, 200);
+        const reportRow = {
+          bug_id: `TEST-BUG-${safeStr(season)}-${Date.now().toString(36).toUpperCase()}`,
+          created_at_utc: createdAt,
+          league_id: leagueId,
+          season: season,
+          franchise_id: franchiseId,
+          franchise_name: franchiseName,
+          mfl_user_id: mflUserId,
+          module: moduleName,
+          issue_type: issueType,
+          request_kind: commishEnhancement ? "commish-enhancement" : requestKind || "bug-report",
+          commish_enhancement: commishEnhancement,
+          submitted_by_label: submittedByLabel,
+          submitted_by_mfl_user_id: mflUserId,
+          details: details.slice(0, 5000),
+          steps_to_reproduce: steps.slice(0, 4000),
+          expected_vs_actual: expectedActual.slice(0, 4000),
+          attachments,
+          source: safeStr(body.source || "ups-hot-links-widget"),
+          status: "OPEN",
+          issue_sequence: Math.max(1, safeInt(body.issue_sequence || body.issueSequence || 1)),
+          thread_id: "",
+          thread_root_message_id: "",
+          thread_name: "",
+          delivery_target: "test",
+          status_updated_at_utc: createdAt,
+          status_updated_by: "system-test",
+          triage_summary: "",
+          triage_updated_at_utc: "",
+          triage_updated_by: "",
+          approval_state: "",
+          approval_requested_at_utc: "",
+          approval_received_at_utc: "",
+          approval_decision_by: "",
+          last_discord_sync_error: "",
+          last_discord_sync_at_utc: "",
+          context: context && typeof context === "object" ? context : {},
+        };
+        reportRow.thread_name = buildBugThreadName(reportRow, reportRow.status);
+        const notify = await sendDiscordNotificationForBug(reportRow, "");
+        return jsonOut(notify && notify.ok ? 201 : 502, {
+          ok: !!(notify && notify.ok),
+          test_only: true,
+          delivery_target: "test",
+          bug_id: reportRow.bug_id,
+          league_id: leagueId,
+          season: safeInt(season, Number(season) || 0),
+          thread_name: safeStr((notify && notify.thread_name) || reportRow.thread_name),
+          thread_id: safeStr(notify && notify.thread_id),
+          thread_root_message_id: safeStr(notify && (notify.thread_root_message_id || notify.message_id)),
+          notify,
+        });
+      }
 
       if (path === "/bug-report" && request.method === "POST") {
         let body = {};
