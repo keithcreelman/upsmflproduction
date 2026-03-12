@@ -59,6 +59,7 @@ export default {
         path !== "/admin/discord/post" &&
         path !== "/admin/contract-activity/test-discord" &&
         path !== "/admin/contract-activity/post" &&
+        path !== "/admin/contract-activity/edit" &&
         path !== "/admin/bug-report/status" &&
         path !== "/admin/bug-report/triage-note" &&
         path !== "/admin/bug-report/test-discord" &&
@@ -8667,6 +8668,73 @@ export default {
         };
       };
 
+      const editDiscordContractActivity = async ({
+        activityType,
+        leagueId,
+        franchiseId,
+        franchiseName,
+        playerName,
+        contractInfo,
+        contractYear,
+        season,
+        salary,
+        submittedAtUtc,
+        channelId,
+        messageId,
+        gifUrl,
+      }) => {
+        const botToken = contractDiscordBotToken();
+        const targetChannelId = safeStr(channelId).replace(/\D/g, "");
+        const targetMessageId = safeStr(messageId).replace(/\D/g, "");
+        if (!botToken || !targetChannelId || !targetMessageId) {
+          return {
+            ok: false,
+            status: 0,
+            error: !botToken
+              ? "missing_discord_contract_bot_token"
+              : (!targetChannelId ? "missing_channel_id" : "missing_message_id"),
+            channel_id: targetChannelId,
+            message_id: targetMessageId,
+          };
+        }
+        const franchiseMeta = await loadContractDiscordFranchiseMeta({
+          season,
+          leagueId,
+          franchiseId,
+        });
+        const embed = buildContractActivityDiscordEmbed({
+          activityType,
+          franchiseName: safeStr(franchiseName || franchiseMeta.franchise_name),
+          playerName,
+          contractInfo,
+          contractYear,
+          season,
+          salary,
+          submittedAtUtc,
+          franchiseIconUrl: safeStr(franchiseMeta.icon_url),
+          gifUrl: safeStr(gifUrl || ""),
+        });
+        const res = await discordBotRequest(
+          botToken,
+          "PATCH",
+          `/channels/${encodeURIComponent(targetChannelId)}/messages/${encodeURIComponent(targetMessageId)}`,
+          {
+            content: "",
+            embeds: [embed],
+            allowed_mentions: { parse: [] },
+          }
+        );
+        return {
+          ok: !!res.ok,
+          status: safeInt(res.status, 0),
+          error: res.ok ? "" : safeStr(res.text || "discord_contract_edit_failed").slice(0, 600),
+          channel_id: targetChannelId,
+          message_id: targetMessageId,
+          franchise_icon_url: safeStr(franchiseMeta.icon_url || ""),
+          gif_url: safeStr(gifUrl || ""),
+        };
+      };
+
       const normalizeExtensionContractStatusForImport = (req, currentStatus) => {
         const requestedRaw = safeStr(
           req?.new_contract_status || req?.contract_status || req?.contractStatus || ""
@@ -14310,6 +14378,98 @@ export default {
         return jsonOut(notify && notify.ok ? 200 : 502, {
           ok: !!(notify && notify.ok),
           delivery_target: safeStr((notify && notify.delivery_target) || deliveryTargetRaw || ""),
+          league_id: leagueId,
+          season: safeInt(season, Number(season) || 0),
+          player_name: playerName,
+          franchise_id: franchiseId,
+          activity_type: activityType,
+          notify,
+        });
+      }
+
+      if (path === "/admin/contract-activity/edit" && request.method === "POST") {
+        let body = {};
+        try {
+          body = (await request.json()) || {};
+        } catch (_) {
+          return jsonOut(400, { ok: false, error: "Invalid JSON body" });
+        }
+
+        const leagueId = safeStr(
+          url.searchParams.get("L") ||
+            L ||
+            body.league_id ||
+            body.leagueId ||
+            ""
+        );
+        const season = safeStr(
+          url.searchParams.get("YEAR") ||
+            YEAR ||
+            body.season ||
+            body.year ||
+            ""
+        );
+        if (!leagueId) return jsonOut(400, { ok: false, error: "Missing L/league_id" });
+        if (!season) return jsonOut(400, { ok: false, error: "Missing YEAR/season" });
+
+        const adminState = await getLeagueAdminState(leagueId, season);
+        if (!adminState.ok || !adminState.isAdmin) {
+          return jsonOut(403, { ok: false, error: "Only league admin can edit contract activity messages" });
+        }
+
+        const playerName = safeStr(body.player_name || body.playerName || "");
+        const franchiseId = padFranchiseId(body.franchise_id || body.franchiseId || "");
+        const franchiseName = safeStr(body.franchise_name || body.franchiseName || "");
+        const contractInfo = safeStr(body.contract_info || body.contractInfo || "");
+        const contractYear = safeStr(body.contract_year || body.contractYear || "");
+        const salary = safeStr(body.salary || "");
+        const submittedAtUtc = safeStr(body.submitted_at_utc || body.submittedAtUtc || new Date().toISOString());
+        const contractStatus = safeStr(body.contract_status || body.contractStatus || "");
+        const activityType =
+          safeStr(body.activity_type || body.activityType || "") ||
+          deriveContractActivityType({
+            isExtensionSubmission: /\bext/i.test(contractStatus),
+            isRestructure: /\brestructure\b/i.test(contractStatus),
+            contractStatus,
+          });
+        const channelId = safeStr(body.channel_id || body.channelId || "");
+        const messageId = safeStr(body.message_id || body.messageId || "");
+        const gifUrl = safeStr(body.gif_url || body.gifUrl || "");
+
+        const missingFields = [];
+        if (!playerName) missingFields.push("player_name");
+        if (!franchiseId) missingFields.push("franchise_id");
+        if (!contractInfo) missingFields.push("contract_info");
+        if (!contractYear) missingFields.push("contract_year");
+        if (!salary) missingFields.push("salary");
+        if (!channelId) missingFields.push("channel_id");
+        if (!messageId) missingFields.push("message_id");
+        if (missingFields.length) {
+          return jsonOut(400, {
+            ok: false,
+            error: "Missing required fields",
+            missing_fields: missingFields,
+          });
+        }
+
+        const notify = await editDiscordContractActivity({
+          activityType,
+          leagueId,
+          franchiseId,
+          franchiseName,
+          playerName,
+          contractInfo,
+          contractYear,
+          season,
+          salary,
+          submittedAtUtc,
+          channelId,
+          messageId,
+          gifUrl,
+        });
+        return jsonOut(notify && notify.ok ? 200 : 502, {
+          ok: !!(notify && notify.ok),
+          delivery_target: "edit",
           league_id: leagueId,
           season: safeInt(season, Number(season) || 0),
           player_name: playerName,
