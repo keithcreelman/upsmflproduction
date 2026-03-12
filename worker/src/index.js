@@ -58,6 +58,7 @@ export default {
         path !== "/admin/test-sync/prod-salaries" &&
         path !== "/admin/discord/post" &&
         path !== "/admin/contract-activity/test-discord" &&
+        path !== "/admin/contract-activity/post" &&
         path !== "/admin/bug-report/status" &&
         path !== "/admin/bug-report/triage-note" &&
         path !== "/admin/bug-report/test-discord" &&
@@ -8204,7 +8205,15 @@ export default {
       const contractDiscordTestChannelId = () =>
         safeStr(env.DISCORD_CONTRACT_TEST_CHANNEL_ID || env.DISCORD_BUG_TEST_CHANNEL_ID || "").replace(/\D/g, "");
 
-      const contractDiscordChannelTarget = (forceTestOnly = false) => {
+      const contractDiscordChannelTarget = (forceTestOnly = false, forcePrimaryOnly = false) => {
+        if (forcePrimaryOnly) {
+          const primaryChannelId = contractDiscordPrimaryChannelId();
+          return {
+            channelId: primaryChannelId,
+            deliveryTarget: "primary",
+            missingError: primaryChannelId ? "" : "missing_discord_contract_channel_config",
+          };
+        }
         const testChannelId = contractDiscordTestChannelId();
         if (testChannelId) {
           return {
@@ -8529,6 +8538,30 @@ export default {
         return embed;
       };
 
+      const pinDiscordMessage = async ({ botToken, channelId, messageId }) => {
+        const token = safeStr(botToken);
+        const channel = safeStr(channelId).replace(/\D/g, "");
+        const message = safeStr(messageId).replace(/\D/g, "");
+        if (!token || !channel || !message) {
+          return {
+            ok: false,
+            status: 0,
+            error: "missing_pin_parameters",
+          };
+        }
+        const res = await discordBotRequest(
+          token,
+          "PUT",
+          `/channels/${encodeURIComponent(channel)}/pins/${encodeURIComponent(message)}`,
+          null
+        );
+        return {
+          ok: !!res.ok,
+          status: safeInt(res.status, 0),
+          error: res.ok ? "" : safeStr(res.text || "discord_pin_failed").slice(0, 600),
+        };
+      };
+
       const sendDiscordContractActivity = async ({
         activityType,
         leagueId,
@@ -8541,6 +8574,9 @@ export default {
         salary,
         submittedAtUtc,
         forceTestOnly,
+        forcePrimaryOnly,
+        channelIdOverride,
+        pinMessage,
       }) => {
         const allow = shouldAnnounceContractActivity({ activityType, season });
         if (!allow.ok) {
@@ -8555,7 +8591,14 @@ export default {
           };
         }
         const botToken = contractDiscordBotToken();
-        const target = contractDiscordChannelTarget(!!forceTestOnly);
+        const overrideChannelId = safeStr(channelIdOverride).replace(/\D/g, "");
+        const target = overrideChannelId
+          ? {
+              channelId: overrideChannelId,
+              deliveryTarget: safeStr(forceTestOnly ? "test" : (forcePrimaryOnly ? "primary" : "override")),
+              missingError: "",
+            }
+          : contractDiscordChannelTarget(!!forceTestOnly, !!forcePrimaryOnly);
         if (!botToken || !target.channelId) {
           return {
             ok: false,
@@ -8595,6 +8638,20 @@ export default {
             allowed_mentions: { parse: [] },
           }
         );
+        const messageId = safeStr(res.data?.id || "");
+        let pinResult = {
+          ok: false,
+          skipped: !pinMessage,
+          status: 0,
+          error: pinMessage ? "pin_not_attempted" : "",
+        };
+        if (res.ok && pinMessage && messageId) {
+          pinResult = await pinDiscordMessage({
+            botToken,
+            channelId: target.channelId,
+            messageId,
+          });
+        }
         return {
           ok: !!res.ok,
           skipped: false,
@@ -8602,10 +8659,11 @@ export default {
           error: res.ok ? "" : safeStr(res.text || "discord_contract_post_failed").slice(0, 600),
           channel_id: safeStr(target.channelId),
           delivery_target: safeStr(target.deliveryTarget || ""),
-          message_id: safeStr(res.data?.id || ""),
+          message_id: messageId,
           gif_url: safeStr(gif.gif_url || ""),
           gif_query: safeStr(gif.query || ""),
           franchise_icon_url: safeStr(franchiseMeta.icon_url || ""),
+          pin: pinResult,
         };
       };
 
@@ -14159,6 +14217,99 @@ export default {
           ok: !!(notify && notify.ok),
           test_only: true,
           delivery_target: "test",
+          league_id: leagueId,
+          season: safeInt(season, Number(season) || 0),
+          player_name: playerName,
+          franchise_id: franchiseId,
+          activity_type: activityType,
+          notify,
+        });
+      }
+
+      if (path === "/admin/contract-activity/post" && request.method === "POST") {
+        let body = {};
+        try {
+          body = (await request.json()) || {};
+        } catch (_) {
+          return jsonOut(400, { ok: false, error: "Invalid JSON body" });
+        }
+
+        const leagueId = safeStr(
+          url.searchParams.get("L") ||
+            L ||
+            body.league_id ||
+            body.leagueId ||
+            ""
+        );
+        const season = safeStr(
+          url.searchParams.get("YEAR") ||
+            YEAR ||
+            body.season ||
+            body.year ||
+            ""
+        );
+        if (!leagueId) return jsonOut(400, { ok: false, error: "Missing L/league_id" });
+        if (!season) return jsonOut(400, { ok: false, error: "Missing YEAR/season" });
+
+        const adminState = await getLeagueAdminState(leagueId, season);
+        if (!adminState.ok || !adminState.isAdmin) {
+          return jsonOut(403, { ok: false, error: "Only league admin can send contract activity messages" });
+        }
+
+        const playerName = safeStr(body.player_name || body.playerName || "");
+        const franchiseId = padFranchiseId(body.franchise_id || body.franchiseId || "");
+        const franchiseName = safeStr(body.franchise_name || body.franchiseName || "");
+        const contractInfo = safeStr(body.contract_info || body.contractInfo || "");
+        const contractYear = safeStr(body.contract_year || body.contractYear || "");
+        const salary = safeStr(body.salary || "");
+        const submittedAtUtc = safeStr(body.submitted_at_utc || body.submittedAtUtc || new Date().toISOString());
+        const contractStatus = safeStr(body.contract_status || body.contractStatus || "");
+        const activityType =
+          safeStr(body.activity_type || body.activityType || "") ||
+          deriveContractActivityType({
+            isExtensionSubmission: /\bext/i.test(contractStatus),
+            isRestructure: /\brestructure\b/i.test(contractStatus),
+            contractStatus,
+          });
+        const channelIdOverride = safeStr(body.channel_id || body.channelId || "");
+        const pinMessage = !!safeInt(body.pin_message || body.pinMessage || 0);
+        const deliveryTargetRaw = safeStr(body.delivery_target || body.deliveryTarget || "").toLowerCase();
+        const forceTestOnly = deliveryTargetRaw === "test";
+        const forcePrimaryOnly = deliveryTargetRaw === "primary";
+
+        const missingFields = [];
+        if (!playerName) missingFields.push("player_name");
+        if (!franchiseId) missingFields.push("franchise_id");
+        if (!contractInfo) missingFields.push("contract_info");
+        if (!contractYear) missingFields.push("contract_year");
+        if (!salary) missingFields.push("salary");
+        if (missingFields.length) {
+          return jsonOut(400, {
+            ok: false,
+            error: "Missing required fields",
+            missing_fields: missingFields,
+          });
+        }
+
+        const notify = await sendDiscordContractActivity({
+          activityType,
+          leagueId,
+          franchiseId,
+          franchiseName,
+          playerName,
+          contractInfo,
+          contractYear,
+          season,
+          salary,
+          submittedAtUtc,
+          forceTestOnly,
+          forcePrimaryOnly,
+          channelIdOverride,
+          pinMessage,
+        });
+        return jsonOut(notify && notify.ok ? 200 : 502, {
+          ok: !!(notify && notify.ok),
+          delivery_target: safeStr((notify && notify.delivery_target) || deliveryTargetRaw || ""),
           league_id: leagueId,
           season: safeInt(season, Number(season) || 0),
           player_name: playerName,
