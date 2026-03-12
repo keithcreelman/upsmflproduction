@@ -8120,6 +8120,34 @@ export default {
         return Number.isFinite(amount) && amount > 0 ? Math.round(amount) : 0;
       };
 
+      const parseContractLengthValue = (contractInfo) => {
+        const text = safeStr(contractInfo);
+        if (!text) return 0;
+        const match = text.match(/(?:^|\|)\s*CL\s*:?\s*(\d+)/i);
+        return match && safeStr(match[1]) ? Math.max(0, safeInt(match[1], 0)) : 0;
+      };
+
+      const parseContractInfoValues = (contractInfo) => ({
+        contract_length: parseContractLengthValue(contractInfo),
+        tcv: (() => {
+          const text = safeStr(contractInfo);
+          if (!text) return 0;
+          const match = text.match(/(?:^|\|)\s*TCV\s*:?\s*([^|]+)/i);
+          if (!match || !safeStr(match[1])) return 0;
+          const amount = parseMoneyTokenToDollars(match[1], { assumeKIfNoUnit: true });
+          return Number.isFinite(amount) && amount > 0 ? Math.round(amount) : 0;
+        })(),
+        aav: (() => {
+          const text = safeStr(contractInfo);
+          if (!text) return 0;
+          const match = text.match(/(?:^|\|)\s*AAV\s*:?\s*([^|]+)/i);
+          if (!match || !safeStr(match[1])) return 0;
+          const amount = parseMoneyTokenToDollars(match[1], { assumeKIfNoUnit: true });
+          return Number.isFinite(amount) && amount > 0 ? Math.round(amount) : 0;
+        })(),
+        guaranteed: parseContractGuaranteeValue(contractInfo),
+      });
+
       const maxYearInSalaryByYear = (salaryByYear) => {
         const years = Object.keys(salaryByYear || {})
           .map((k) => safeInt(k, NaN))
@@ -8361,8 +8389,18 @@ export default {
         return "FA Contract";
       };
 
+      const normalizeContractActivityKind = (activityType, contractStatus) => {
+        const activity = safeStr(activityType).toLowerCase();
+        const status = safeStr(contractStatus).toLowerCase();
+        if (status === "tag" || activity.includes("tag")) return "tag";
+        if (activity.includes("restructure")) return "restructure";
+        if (activity.includes("mym")) return "mym";
+        if (activity.includes("extension")) return "extension";
+        return "other";
+      };
+
       const shouldAnnounceContractActivity = ({ activityType, season }) => {
-        if (activityType !== "Tag") {
+        if (normalizeContractActivityKind(activityType, "") !== "tag") {
           return { ok: true, skipped: false, reason: "" };
         }
         if (hasTagDeadlinePassed(season)) {
@@ -8373,18 +8411,19 @@ export default {
 
       const contractGifQueries = ({ activityType, playerName }) => {
         const player = safeStr(playerName);
+        const kind = normalizeContractActivityKind(activityType, "");
         const queries = [];
         if (player) {
           queries.push(`${player} nfl`);
           queries.push(`${player} football`);
         }
-        if (activityType === "Extension") {
+        if (kind === "extension") {
           queries.push("nfl celebration");
           queries.push("football contract signing");
-        } else if (activityType === "Restructure") {
+        } else if (kind === "restructure") {
           queries.push("football money celebration");
           queries.push("nfl celebration");
-        } else if (activityType === "Tag") {
+        } else if (kind === "tag") {
           queries.push("football franchise celebration");
           queries.push("nfl celebration");
         } else {
@@ -8482,11 +8521,14 @@ export default {
         playerName,
         contractInfo,
         contractYear,
+        contractStatus,
         season,
         salary,
         submittedAtUtc,
         franchiseIconUrl,
         gifUrl,
+        usageLabel,
+        noteText,
       }) => {
         const summary = contractBreakdownFromMutation({
           contractInfo,
@@ -8495,6 +8537,8 @@ export default {
           salary,
         });
         const totals = summary.totals || { contract_length: 0, tcv: 0, aav: 0 };
+        const parsedInfo = parseContractInfoValues(contractInfo);
+        const kind = normalizeContractActivityKind(activityType, contractStatus);
         const yearlyBreakdown = summary.pairs.length
           ? summary.pairs
               .map((pair) => {
@@ -8505,26 +8549,51 @@ export default {
               })
               .join(" | ")
           : "Unavailable";
-        const yearsLabel = totals.contract_length === 1 ? "1 Year" : `${Math.max(0, totals.contract_length)} Years`;
+        const resolvedLength =
+          totals.contract_length > 0
+            ? totals.contract_length
+            : Math.max(1, safeInt(parsedInfo.contract_length || (kind === "tag" ? 1 : 0), 0));
+        const resolvedTcv = totals.tcv > 0 ? totals.tcv : safeInt(parsedInfo.tcv, 0);
+        const resolvedAav =
+          totals.aav > 0
+            ? totals.aav
+            : (safeInt(parsedInfo.aav, 0) > 0 ? safeInt(parsedInfo.aav, 0) : safeInt(salary, 0));
+        const yearsLabel = resolvedLength === 1 ? "1 Year" : `${Math.max(0, resolvedLength)} Years`;
         const teamLabel = safeStr(franchiseName || "Unknown Franchise");
         const playerLabel = safeStr(playerName || "Unknown Player");
         const gtd = parseContractGuaranteeValue(contractInfo);
         const termsParts = [
           yearsLabel,
           `${formatContractK(salary)} Salary`,
-          `${formatContractK(totals.aav)} AAV`,
-          `${formatContractK(totals.tcv)} TCV`,
+          `${formatContractK(resolvedAav)} AAV`,
+          `${formatContractK(resolvedTcv)} TCV`,
         ];
         if (gtd > 0) termsParts.push(`${formatContractK(gtd)} GTD`);
         const termsLabel = termsParts.join(" | ");
+        const finalNote =
+          safeStr(noteText) ||
+          (kind === "tag"
+            ? "Player may be cut prior to the FA Auction Cut Deadline without any cap penalty."
+            : "");
         const embed = {
           title: `${safeStr(activityType || "Contract Update")}: ${playerLabel}`,
           color: 0x103a71,
           description: termsLabel,
-          fields: [
-            { name: "Breakdown", value: yearlyBreakdown, inline: false },
-          ],
+          fields: [],
         };
+        if (safeStr(usageLabel)) {
+          embed.fields.push({
+            name: "Usage",
+            value: "```text\n" + safeStr(usageLabel) + "\n```",
+            inline: false,
+          });
+        }
+        if (kind !== "tag") {
+          embed.fields.push({ name: "Breakdown", value: yearlyBreakdown, inline: false });
+        }
+        if (finalNote) {
+          embed.fields.push({ name: "Note", value: finalNote, inline: false });
+        }
         embed.author = { name: teamLabel };
         const submittedLabel = formatContractSubmissionDate(submittedAtUtc);
         if (submittedLabel) {
@@ -8579,6 +8648,8 @@ export default {
         channelIdOverride,
         pinMessage,
         bypassAnnouncementRules,
+        usageLabel,
+        noteText,
       }) => {
         const allow = bypassAnnouncementRules
           ? { ok: true, skipped: false, reason: "" }
@@ -8626,11 +8697,14 @@ export default {
           playerName,
           contractInfo,
           contractYear,
+          contractStatus,
           season,
           salary,
           submittedAtUtc,
           franchiseIconUrl: safeStr(franchiseMeta.icon_url),
           gifUrl: safeStr(gif.gif_url || ""),
+          usageLabel,
+          noteText,
         });
         const res = await discordBotRequest(
           botToken,
@@ -8679,12 +8753,15 @@ export default {
         playerName,
         contractInfo,
         contractYear,
+        contractStatus,
         season,
         salary,
         submittedAtUtc,
         channelId,
         messageId,
         gifUrl,
+        usageLabel,
+        noteText,
       }) => {
         const botToken = contractDiscordBotToken();
         const targetChannelId = safeStr(channelId).replace(/\D/g, "");
@@ -8711,11 +8788,14 @@ export default {
           playerName,
           contractInfo,
           contractYear,
+          contractStatus,
           season,
           salary,
           submittedAtUtc,
           franchiseIconUrl: safeStr(franchiseMeta.icon_url),
           gifUrl: safeStr(gifUrl || ""),
+          usageLabel,
+          noteText,
         });
         const res = await discordBotRequest(
           botToken,
@@ -14249,6 +14329,8 @@ export default {
         const salary = safeStr(body.salary || "");
         const submittedAtUtc = safeStr(body.submitted_at_utc || body.submittedAtUtc || new Date().toISOString());
         const contractStatus = safeStr(body.contract_status || body.contractStatus || "");
+        const usageLabel = safeStr(body.usage_label || body.usageLabel || "");
+        const noteText = safeStr(body.note_text || body.noteText || "");
         const activityType =
           safeStr(body.activity_type || body.activityType || "") ||
           deriveContractActivityType({
@@ -14284,6 +14366,8 @@ export default {
           submittedAtUtc,
           forceTestOnly: true,
           bypassAnnouncementRules: true,
+          usageLabel,
+          noteText,
         });
         return jsonOut(notify && notify.ok ? 200 : 502, {
           ok: !!(notify && notify.ok),
@@ -14336,6 +14420,8 @@ export default {
         const salary = safeStr(body.salary || "");
         const submittedAtUtc = safeStr(body.submitted_at_utc || body.submittedAtUtc || new Date().toISOString());
         const contractStatus = safeStr(body.contract_status || body.contractStatus || "");
+        const usageLabel = safeStr(body.usage_label || body.usageLabel || "");
+        const noteText = safeStr(body.note_text || body.noteText || "");
         const activityType =
           safeStr(body.activity_type || body.activityType || "") ||
           deriveContractActivityType({
@@ -14378,6 +14464,8 @@ export default {
           forcePrimaryOnly,
           channelIdOverride,
           pinMessage,
+          usageLabel,
+          noteText,
         });
         return jsonOut(notify && notify.ok ? 200 : 502, {
           ok: !!(notify && notify.ok),
@@ -14429,6 +14517,8 @@ export default {
         const salary = safeStr(body.salary || "");
         const submittedAtUtc = safeStr(body.submitted_at_utc || body.submittedAtUtc || new Date().toISOString());
         const contractStatus = safeStr(body.contract_status || body.contractStatus || "");
+        const usageLabel = safeStr(body.usage_label || body.usageLabel || "");
+        const noteText = safeStr(body.note_text || body.noteText || "");
         const activityType =
           safeStr(body.activity_type || body.activityType || "") ||
           deriveContractActivityType({
@@ -14470,6 +14560,8 @@ export default {
           channelId,
           messageId,
           gifUrl,
+          usageLabel,
+          noteText,
         });
         return jsonOut(notify && notify.ok ? 200 : 502, {
           ok: !!(notify && notify.ok),
