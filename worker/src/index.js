@@ -1,4 +1,6 @@
 const acquisitionLiveMemoryCache = new Map();
+const contractDiscordChannelQueues = new Map();
+const contractDiscordChannelLastSendMs = new Map();
 
 export default {
   async fetch(request, env) {
@@ -58,7 +60,9 @@ export default {
         path !== "/admin/test-sync/prod-salaries" &&
         path !== "/admin/discord/post" &&
         path !== "/admin/contract-activity/test-discord" &&
+        path !== "/admin/contract-activity/test-discord-batch" &&
         path !== "/admin/contract-activity/post" &&
+        path !== "/admin/contract-activity/post-batch" &&
         path !== "/admin/contract-activity/edit" &&
         path !== "/admin/bug-report/status" &&
         path !== "/admin/bug-report/triage-note" &&
@@ -8120,6 +8124,14 @@ export default {
         return Number.isFinite(amount) && amount > 0 ? Math.round(amount) : 0;
       };
 
+      const parseContractInfoRawValue = (contractInfo, label) => {
+        const text = safeStr(contractInfo);
+        const target = safeStr(label);
+        if (!text || !target) return "";
+        const match = text.match(new RegExp(`(?:^|\\|)\\s*${target}\\s*:?\\s*([^|]+)`, "i"));
+        return match && safeStr(match[1]) ? safeStr(match[1]) : "";
+      };
+
       const parseContractLengthValue = (contractInfo) => {
         const text = safeStr(contractInfo);
         if (!text) return 0;
@@ -8264,6 +8276,49 @@ export default {
           deliveryTarget: "primary",
           missingError: primaryChannelId ? "" : "missing_discord_contract_channel_config",
         };
+      };
+
+      const contractDiscordSpacingMs = () => {
+        const seconds = Math.max(0, safeInt(env.DISCORD_CONTRACT_SPACING_SECONDS || 30, 30));
+        return seconds * 1000;
+      };
+
+      const sleepMs = (ms) =>
+        new Promise((resolve) => {
+          setTimeout(resolve, Math.max(0, safeInt(ms, 0)));
+        });
+
+      const withContractDiscordSendSlot = async (channelId, fn) => {
+        const normalizedChannelId = safeStr(channelId).replace(/\D/g, "");
+        if (!normalizedChannelId) return await fn();
+        const prior = contractDiscordChannelQueues.get(normalizedChannelId) || Promise.resolve();
+        const run = (async () => {
+          await prior.catch(() => {});
+          const spacingMs = contractDiscordSpacingMs();
+          const lastSentMs = safeInt(contractDiscordChannelLastSendMs.get(normalizedChannelId), 0);
+          const waitMs = Math.max(0, spacingMs - (Date.now() - lastSentMs));
+          if (waitMs > 0) await sleepMs(waitMs);
+          const result = await fn();
+          if (result && result.ok) {
+            contractDiscordChannelLastSendMs.set(normalizedChannelId, Date.now());
+          }
+          return result;
+        })();
+        contractDiscordChannelQueues.set(normalizedChannelId, run);
+        try {
+          return await run;
+        } finally {
+          if (contractDiscordChannelQueues.get(normalizedChannelId) === run) {
+            contractDiscordChannelQueues.delete(normalizedChannelId);
+          }
+        }
+      };
+
+      const isRetryableContractDiscordFailure = (res) => {
+        const status = safeInt(res?.status, 0);
+        const errorText = safeStr(res?.text || res?.error || "").toLowerCase();
+        if ([429, 500, 502, 503, 504].includes(status)) return true;
+        return errorText.includes("overflow") || errorText.includes("disconnect/reset") || errorText.includes("upstream connect error");
       };
 
       const contractDiscordFranchiseMetaCache = new Map();
@@ -8518,6 +8573,7 @@ export default {
       const buildContractActivityDiscordEmbed = ({
         activityType,
         franchiseName,
+        creditedFranchiseName,
         playerName,
         contractInfo,
         contractYear,
@@ -8529,6 +8585,7 @@ export default {
         gifUrl,
         usageLabel,
         noteText,
+        tradePartnerName,
       }) => {
         const summary = contractBreakdownFromMutation({
           contractInfo,
@@ -8539,6 +8596,9 @@ export default {
         const totals = summary.totals || { contract_length: 0, tcv: 0, aav: 0 };
         const parsedInfo = parseContractInfoValues(contractInfo);
         const kind = normalizeContractActivityKind(activityType, contractStatus);
+        const isPreseasonTradeExtension = /\bpre[\s-]*season\s+trade\s+extension\b|\bpre[\s-]*trade\s+extension\b/i.test(
+          safeStr(activityType)
+        );
         const yearlyBreakdown = summary.pairs.length
           ? summary.pairs
               .map((pair) => {
@@ -8559,15 +8619,23 @@ export default {
             ? totals.aav
             : (safeInt(parsedInfo.aav, 0) > 0 ? safeInt(parsedInfo.aav, 0) : safeInt(salary, 0));
         const yearsLabel = resolvedLength === 1 ? "1 Year" : `${Math.max(0, resolvedLength)} Years`;
-        const teamLabel = safeStr(franchiseName || "Unknown Franchise");
+        const teamLabel = safeStr(creditedFranchiseName || franchiseName || "Unknown Franchise");
         const playerLabel = safeStr(playerName || "Unknown Player");
-        const gtd = parseContractGuaranteeValue(contractInfo);
-        const termsParts = [
-          yearsLabel,
-          `${formatContractK(salary)} Salary`,
-          `${formatContractK(resolvedAav)} AAV`,
-          `${formatContractK(resolvedTcv)} TCV`,
-        ];
+        const rawAavLabel = parseContractInfoRawValue(contractInfo, "AAV");
+        const gtd = kind === "tag"
+          ? Math.round(Math.max(0, resolvedAav) * 0.75)
+          : parseContractGuaranteeValue(contractInfo);
+        const termsParts = isPreseasonTradeExtension
+          ? [
+              yearsLabel,
+              `${formatContractK(resolvedTcv)} TCV`,
+            ]
+          : [
+              yearsLabel,
+              `${formatContractK(salary)} Salary`,
+              `${formatContractK(resolvedAav)} AAV`,
+              `${formatContractK(resolvedTcv)} TCV`,
+            ];
         if (gtd > 0) termsParts.push(`${formatContractK(gtd)} GTD`);
         const termsLabel = termsParts.join(" | ");
         const finalNote =
@@ -8591,6 +8659,20 @@ export default {
           embed.fields.push({
             name: "Usage",
             value: "```text\n" + safeStr(usageLabel) + "\n```",
+            inline: false,
+          });
+        }
+        if (isPreseasonTradeExtension && rawAavLabel) {
+          embed.fields.push({
+            name: "AAV",
+            value: rawAavLabel,
+            inline: false,
+          });
+        }
+        if (isPreseasonTradeExtension && safeStr(tradePartnerName)) {
+          embed.fields.push({
+            name: "Trade Partner",
+            value: safeStr(tradePartnerName),
             inline: false,
           });
         }
@@ -8643,6 +8725,8 @@ export default {
         leagueId,
         franchiseId,
         franchiseName,
+        creditedFranchiseId,
+        creditedFranchiseName,
         playerName,
         contractInfo,
         contractYear,
@@ -8657,6 +8741,7 @@ export default {
         bypassAnnouncementRules,
         usageLabel,
         noteText,
+        tradePartnerName,
       }) => {
         const allow = bypassAnnouncementRules
           ? { ok: true, skipped: false, reason: "" }
@@ -8695,12 +8780,13 @@ export default {
         const franchiseMeta = await loadContractDiscordFranchiseMeta({
           season,
           leagueId,
-          franchiseId,
+          franchiseId: padFranchiseId(creditedFranchiseId || franchiseId),
         });
         const gif = await pickContractActivityGifUrl({ activityType, playerName });
         const embed = buildContractActivityDiscordEmbed({
           activityType,
           franchiseName: safeStr(franchiseName || franchiseMeta.franchise_name),
+          creditedFranchiseName,
           playerName,
           contractInfo,
           contractYear,
@@ -8712,17 +8798,29 @@ export default {
           gifUrl: safeStr(gif.gif_url || ""),
           usageLabel,
           noteText,
+          tradePartnerName,
         });
-        const res = await discordBotRequest(
-          botToken,
-          "POST",
-          `/channels/${encodeURIComponent(target.channelId)}/messages`,
-          {
-            content: "",
-            embeds: [embed],
-            allowed_mentions: { parse: [] },
+        const sendMessageOnce = async () =>
+          await discordBotRequest(
+            botToken,
+            "POST",
+            `/channels/${encodeURIComponent(target.channelId)}/messages`,
+            {
+              content: "",
+              embeds: [embed],
+              allowed_mentions: { parse: [] },
+            }
+          );
+        const res = await withContractDiscordSendSlot(target.channelId, async () => {
+          let attempt = 0;
+          let current = await sendMessageOnce();
+          while (attempt < 2 && !current.ok && isRetryableContractDiscordFailure(current)) {
+            attempt += 1;
+            await sleepMs(1500 * attempt);
+            current = await sendMessageOnce();
           }
-        );
+          return current;
+        });
         const messageId = safeStr(res.data?.id || "");
         let pinResult = {
           ok: false,
@@ -8757,6 +8855,8 @@ export default {
         leagueId,
         franchiseId,
         franchiseName,
+        creditedFranchiseId,
+        creditedFranchiseName,
         playerName,
         contractInfo,
         contractYear,
@@ -8769,6 +8869,7 @@ export default {
         gifUrl,
         usageLabel,
         noteText,
+        tradePartnerName,
       }) => {
         const botToken = contractDiscordBotToken();
         const targetChannelId = safeStr(channelId).replace(/\D/g, "");
@@ -8787,11 +8888,12 @@ export default {
         const franchiseMeta = await loadContractDiscordFranchiseMeta({
           season,
           leagueId,
-          franchiseId,
+          franchiseId: padFranchiseId(creditedFranchiseId || franchiseId),
         });
         const embed = buildContractActivityDiscordEmbed({
           activityType,
           franchiseName: safeStr(franchiseName || franchiseMeta.franchise_name),
+          creditedFranchiseName,
           playerName,
           contractInfo,
           contractYear,
@@ -8803,6 +8905,7 @@ export default {
           gifUrl: safeStr(gifUrl || ""),
           usageLabel,
           noteText,
+          tradePartnerName,
         });
         const res = await discordBotRequest(
           botToken,
@@ -8822,6 +8925,38 @@ export default {
           message_id: targetMessageId,
           franchise_icon_url: safeStr(franchiseMeta.icon_url || ""),
           gif_url: safeStr(gifUrl || ""),
+        };
+      };
+
+      const parseContractActivityRequestFields = (body, defaults = {}) => {
+        const franchiseId = padFranchiseId(body.franchise_id || body.franchiseId || defaults.franchiseId || "");
+        const franchiseName = safeStr(body.franchise_name || body.franchiseName || defaults.franchiseName || "");
+        const contractStatus = safeStr(body.contract_status || body.contractStatus || defaults.contractStatus || "");
+        return {
+          playerName: safeStr(body.player_name || body.playerName || defaults.playerName || ""),
+          franchiseId,
+          franchiseName,
+          creditedFranchiseId: padFranchiseId(
+            body.credited_franchise_id || body.creditedFranchiseId || defaults.creditedFranchiseId || franchiseId
+          ),
+          creditedFranchiseName: safeStr(
+            body.credited_franchise_name || body.creditedFranchiseName || defaults.creditedFranchiseName || franchiseName
+          ),
+          tradePartnerName: safeStr(body.trade_partner_name || body.tradePartnerName || defaults.tradePartnerName || ""),
+          contractInfo: safeStr(body.contract_info || body.contractInfo || defaults.contractInfo || ""),
+          contractYear: safeStr(body.contract_year || body.contractYear || defaults.contractYear || ""),
+          salary: safeStr(body.salary || defaults.salary || ""),
+          submittedAtUtc: safeStr(body.submitted_at_utc || body.submittedAtUtc || defaults.submittedAtUtc || new Date().toISOString()),
+          contractStatus,
+          usageLabel: safeStr(body.usage_label || body.usageLabel || defaults.usageLabel || ""),
+          noteText: safeStr(body.note_text || body.noteText || defaults.noteText || ""),
+          activityType:
+            safeStr(body.activity_type || body.activityType || defaults.activityType || "") ||
+            deriveContractActivityType({
+              isExtensionSubmission: /\bext/i.test(contractStatus),
+              isRestructure: /\brestructure\b/i.test(contractStatus),
+              contractStatus,
+            }),
         };
       };
 
@@ -14331,6 +14466,13 @@ export default {
         const playerName = safeStr(body.player_name || body.playerName || "");
         const franchiseId = padFranchiseId(body.franchise_id || body.franchiseId || "");
         const franchiseName = safeStr(body.franchise_name || body.franchiseName || "");
+        const creditedFranchiseId = padFranchiseId(
+          body.credited_franchise_id || body.creditedFranchiseId || franchiseId
+        );
+        const creditedFranchiseName = safeStr(
+          body.credited_franchise_name || body.creditedFranchiseName || franchiseName
+        );
+        const tradePartnerName = safeStr(body.trade_partner_name || body.tradePartnerName || "");
         const contractInfo = safeStr(body.contract_info || body.contractInfo || "");
         const contractYear = safeStr(body.contract_year || body.contractYear || "");
         const salary = safeStr(body.salary || "");
@@ -14365,6 +14507,8 @@ export default {
           leagueId,
           franchiseId,
           franchiseName,
+          creditedFranchiseId,
+          creditedFranchiseName,
           playerName,
           contractInfo,
           contractYear,
@@ -14376,6 +14520,7 @@ export default {
           bypassAnnouncementRules: true,
           usageLabel,
           noteText,
+          tradePartnerName,
         });
         return jsonOut(notify && notify.ok ? 200 : 502, {
           ok: !!(notify && notify.ok),
@@ -14387,6 +14532,107 @@ export default {
           franchise_id: franchiseId,
           activity_type: activityType,
           notify,
+        });
+      }
+
+      if (path === "/admin/contract-activity/test-discord-batch" && request.method === "POST") {
+        let body = {};
+        try {
+          body = (await request.json()) || {};
+        } catch (_) {
+          return jsonOut(400, { ok: false, error: "Invalid JSON body" });
+        }
+
+        const leagueId = safeStr(
+          url.searchParams.get("L") ||
+            L ||
+            body.league_id ||
+            body.leagueId ||
+            ""
+        );
+        const season = safeStr(
+          url.searchParams.get("YEAR") ||
+            YEAR ||
+            body.season ||
+            body.year ||
+            ""
+        );
+        if (!leagueId) return jsonOut(400, { ok: false, error: "Missing L/league_id" });
+        if (!season) return jsonOut(400, { ok: false, error: "Missing YEAR/season" });
+
+        const adminState = await getLeagueAdminState(leagueId, season);
+        if (!adminState.ok || !adminState.isAdmin) {
+          return jsonOut(403, { ok: false, error: "Only league admin can send contract activity test messages" });
+        }
+
+        const entries = Array.isArray(body.entries) ? body.entries.filter((row) => row && typeof row === "object") : [];
+        if (!entries.length) {
+          return jsonOut(400, { ok: false, error: "entries array is required" });
+        }
+        const spacingSeconds = Math.max(0, safeInt(body.spacing_seconds || body.spacingSeconds || 30, 30));
+        const results = [];
+        for (let i = 0; i < entries.length; i += 1) {
+          const fields = parseContractActivityRequestFields(entries[i], body);
+          const missingFields = [];
+          if (!fields.playerName) missingFields.push("player_name");
+          if (!fields.franchiseId) missingFields.push("franchise_id");
+          if (!fields.contractInfo) missingFields.push("contract_info");
+          if (!fields.contractYear) missingFields.push("contract_year");
+          if (!fields.salary) missingFields.push("salary");
+          if (missingFields.length) {
+            results.push({
+              index: i,
+              ok: false,
+              error: "Missing required fields",
+              missing_fields: missingFields,
+              player_name: fields.playerName,
+              franchise_id: fields.franchiseId,
+              activity_type: fields.activityType,
+            });
+          } else {
+            const notify = await sendDiscordContractActivity({
+              activityType: fields.activityType,
+              leagueId,
+              franchiseId: fields.franchiseId,
+              franchiseName: fields.franchiseName,
+              creditedFranchiseId: fields.creditedFranchiseId,
+              creditedFranchiseName: fields.creditedFranchiseName,
+              playerName: fields.playerName,
+              contractInfo: fields.contractInfo,
+              contractYear: fields.contractYear,
+              contractStatus: fields.contractStatus,
+              season,
+              salary: fields.salary,
+              submittedAtUtc: fields.submittedAtUtc,
+              forceTestOnly: true,
+              bypassAnnouncementRules: true,
+              usageLabel: fields.usageLabel,
+              noteText: fields.noteText,
+              tradePartnerName: fields.tradePartnerName,
+            });
+            results.push({
+              index: i,
+              ok: !!(notify && notify.ok),
+              player_name: fields.playerName,
+              franchise_id: fields.franchiseId,
+              activity_type: fields.activityType,
+              notify,
+            });
+          }
+          if (i < entries.length - 1 && spacingSeconds > 0) {
+            await sleepMs(spacingSeconds * 1000);
+          }
+        }
+        const allOk = results.every((row) => row.ok);
+        return jsonOut(allOk ? 200 : 502, {
+          ok: allOk,
+          test_only: true,
+          delivery_target: "test",
+          league_id: leagueId,
+          season: safeInt(season, Number(season) || 0),
+          spacing_seconds: spacingSeconds,
+          count: results.length,
+          results,
         });
       }
 
@@ -14423,6 +14669,13 @@ export default {
         const playerName = safeStr(body.player_name || body.playerName || "");
         const franchiseId = padFranchiseId(body.franchise_id || body.franchiseId || "");
         const franchiseName = safeStr(body.franchise_name || body.franchiseName || "");
+        const creditedFranchiseId = padFranchiseId(
+          body.credited_franchise_id || body.creditedFranchiseId || franchiseId
+        );
+        const creditedFranchiseName = safeStr(
+          body.credited_franchise_name || body.creditedFranchiseName || franchiseName
+        );
+        const tradePartnerName = safeStr(body.trade_partner_name || body.tradePartnerName || "");
         const contractInfo = safeStr(body.contract_info || body.contractInfo || "");
         const contractYear = safeStr(body.contract_year || body.contractYear || "");
         const salary = safeStr(body.salary || "");
@@ -14462,6 +14715,8 @@ export default {
           leagueId,
           franchiseId,
           franchiseName,
+          creditedFranchiseId,
+          creditedFranchiseName,
           playerName,
           contractInfo,
           contractYear,
@@ -14475,6 +14730,7 @@ export default {
           pinMessage,
           usageLabel,
           noteText,
+          tradePartnerName,
         });
         return jsonOut(notify && notify.ok ? 200 : 502, {
           ok: !!(notify && notify.ok),
@@ -14485,6 +14741,113 @@ export default {
           franchise_id: franchiseId,
           activity_type: activityType,
           notify,
+        });
+      }
+
+      if (path === "/admin/contract-activity/post-batch" && request.method === "POST") {
+        let body = {};
+        try {
+          body = (await request.json()) || {};
+        } catch (_) {
+          return jsonOut(400, { ok: false, error: "Invalid JSON body" });
+        }
+
+        const leagueId = safeStr(
+          url.searchParams.get("L") ||
+            L ||
+            body.league_id ||
+            body.leagueId ||
+            ""
+        );
+        const season = safeStr(
+          url.searchParams.get("YEAR") ||
+            YEAR ||
+            body.season ||
+            body.year ||
+            ""
+        );
+        if (!leagueId) return jsonOut(400, { ok: false, error: "Missing L/league_id" });
+        if (!season) return jsonOut(400, { ok: false, error: "Missing YEAR/season" });
+
+        const adminState = await getLeagueAdminState(leagueId, season);
+        if (!adminState.ok || !adminState.isAdmin) {
+          return jsonOut(403, { ok: false, error: "Only league admin can send contract activity messages" });
+        }
+
+        const entries = Array.isArray(body.entries) ? body.entries.filter((row) => row && typeof row === "object") : [];
+        if (!entries.length) {
+          return jsonOut(400, { ok: false, error: "entries array is required" });
+        }
+        const spacingSeconds = Math.max(0, safeInt(body.spacing_seconds || body.spacingSeconds || 30, 30));
+        const channelIdOverride = safeStr(body.channel_id || body.channelId || "");
+        const pinMessage = !!safeInt(body.pin_message || body.pinMessage || 0);
+        const deliveryTargetRaw = safeStr(body.delivery_target || body.deliveryTarget || "").toLowerCase();
+        const forceTestOnly = deliveryTargetRaw === "test";
+        const forcePrimaryOnly = deliveryTargetRaw === "primary";
+        const results = [];
+        for (let i = 0; i < entries.length; i += 1) {
+          const fields = parseContractActivityRequestFields(entries[i], body);
+          const missingFields = [];
+          if (!fields.playerName) missingFields.push("player_name");
+          if (!fields.franchiseId) missingFields.push("franchise_id");
+          if (!fields.contractInfo) missingFields.push("contract_info");
+          if (!fields.contractYear) missingFields.push("contract_year");
+          if (!fields.salary) missingFields.push("salary");
+          if (missingFields.length) {
+            results.push({
+              index: i,
+              ok: false,
+              error: "Missing required fields",
+              missing_fields: missingFields,
+              player_name: fields.playerName,
+              franchise_id: fields.franchiseId,
+              activity_type: fields.activityType,
+            });
+          } else {
+            const notify = await sendDiscordContractActivity({
+              activityType: fields.activityType,
+              leagueId,
+              franchiseId: fields.franchiseId,
+              franchiseName: fields.franchiseName,
+              creditedFranchiseId: fields.creditedFranchiseId,
+              creditedFranchiseName: fields.creditedFranchiseName,
+              playerName: fields.playerName,
+              contractInfo: fields.contractInfo,
+              contractYear: fields.contractYear,
+              contractStatus: fields.contractStatus,
+              season,
+              salary: fields.salary,
+              submittedAtUtc: fields.submittedAtUtc,
+              forceTestOnly,
+              forcePrimaryOnly,
+              channelIdOverride,
+              pinMessage,
+              usageLabel: fields.usageLabel,
+              noteText: fields.noteText,
+              tradePartnerName: fields.tradePartnerName,
+            });
+            results.push({
+              index: i,
+              ok: !!(notify && notify.ok),
+              player_name: fields.playerName,
+              franchise_id: fields.franchiseId,
+              activity_type: fields.activityType,
+              notify,
+            });
+          }
+          if (i < entries.length - 1 && spacingSeconds > 0) {
+            await sleepMs(spacingSeconds * 1000);
+          }
+        }
+        const allOk = results.every((row) => row.ok);
+        return jsonOut(allOk ? 200 : 502, {
+          ok: allOk,
+          delivery_target: deliveryTargetRaw || "",
+          league_id: leagueId,
+          season: safeInt(season, Number(season) || 0),
+          spacing_seconds: spacingSeconds,
+          count: results.length,
+          results,
         });
       }
 
@@ -14521,6 +14884,13 @@ export default {
         const playerName = safeStr(body.player_name || body.playerName || "");
         const franchiseId = padFranchiseId(body.franchise_id || body.franchiseId || "");
         const franchiseName = safeStr(body.franchise_name || body.franchiseName || "");
+        const creditedFranchiseId = padFranchiseId(
+          body.credited_franchise_id || body.creditedFranchiseId || franchiseId
+        );
+        const creditedFranchiseName = safeStr(
+          body.credited_franchise_name || body.creditedFranchiseName || franchiseName
+        );
+        const tradePartnerName = safeStr(body.trade_partner_name || body.tradePartnerName || "");
         const contractInfo = safeStr(body.contract_info || body.contractInfo || "");
         const contractYear = safeStr(body.contract_year || body.contractYear || "");
         const salary = safeStr(body.salary || "");
@@ -14560,6 +14930,8 @@ export default {
           leagueId,
           franchiseId,
           franchiseName,
+          creditedFranchiseId,
+          creditedFranchiseName,
           playerName,
           contractInfo,
           contractYear,
@@ -14571,6 +14943,7 @@ export default {
           gifUrl,
           usageLabel,
           noteText,
+          tradePartnerName,
         });
         return jsonOut(notify && notify.ok ? 200 : 502, {
           ok: !!(notify && notify.ok),
