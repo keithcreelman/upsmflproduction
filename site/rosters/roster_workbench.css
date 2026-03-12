@@ -60,7 +60,7 @@
 .rwb-hero-main {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 14px;
 }
 
@@ -88,24 +88,6 @@
   color: var(--rwb-text-soft);
   font-size: 0.88rem;
   max-width: 760px;
-}
-
-.rwb-hero-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  align-self: flex-start;
-  min-height: 36px;
-  padding: 0 12px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 169, 103, 0.36);
-  background: linear-gradient(180deg, rgba(255, 155, 88, 0.14), rgba(255, 120, 56, 0.1));
-  color: #ffe7d3;
-  font-size: 0.76rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  white-space: nowrap;
 }
 
 .rwb-toolbar {
@@ -194,6 +176,12 @@
 .rwb-toolbar-browse-search {
   grid-column: 1 / -1;
   min-width: 0;
+}
+
+.rwb-toolbar-browse-search-wrap {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
 }
 
 .rwb-toolbar-points.is-contract-view {

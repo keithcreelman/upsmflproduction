@@ -827,7 +827,10 @@
   }
 
   function tagDisplaySeason() {
-    return safeStr(state.tagData && state.tagData.cycleSeason) || safeStr(state.ctx && state.ctx.year);
+    var cycle = safeStr(state.tagData && state.tagData.cycleSeason);
+    if (cycle) return cycle;
+    var current = safeInt(state.ctx && state.ctx.year, currentYearInt());
+    return siteIsOffseason() ? String(current + 1) : String(current);
   }
 
   function playerContractActionFlags(player) {
@@ -910,6 +913,7 @@
   }
 
   function extensionPreviewYears(player) {
+    if (!playerExtensionOptions(player).length) return 0;
     return safeInt(state.contractPreview[contractPreviewKey(player)], 0);
   }
 
@@ -1136,7 +1140,14 @@
     return false;
   }
 
+  function extensionBlockedByHistory(player) {
+    return parseExtensionHistoryTokens(player && (player.special || player.contract_info || "")).length > 0;
+  }
+
   function extensionBlockedReason(player) {
+    if (extensionBlockedByHistory(player)) {
+      return "This contract already carries an extension history. No additional extension preview is available.";
+    }
     if (!extensionBlockedByCurrentOwner(player)) return "";
     var team = findTeamById(player && player.fid);
     return safeStr(team && team.name || player && player.teamName || "This franchise") + " already used this player's extension on the current contract. No additional extension is available.";
@@ -1212,7 +1223,7 @@
   function synthesizedExtensionOptionsForPlayer(player) {
     if (!player) return [];
     var contractEligibility = rosterContractEligibility(player);
-    if (!contractEligibility.extensionEligible || extensionBlockedByCurrentOwner(player)) return [];
+    if (!contractEligibility.extensionEligible || extensionBlockedByCurrentOwner(player) || extensionBlockedByHistory(player)) return [];
     var out = [];
     for (var years = 1; years <= 2; years += 1) {
       var option = synthesizeExtensionOption(player, years);
@@ -1222,7 +1233,7 @@
   }
 
   function playerExtensionOptions(player) {
-    if (!player || extensionBlockedByCurrentOwner(player)) return [];
+    if (!player || extensionBlockedByCurrentOwner(player) || extensionBlockedByHistory(player)) return [];
     var previews = player.extensionPreviews ? player.extensionPreviews : [];
     return previews.length ? previews : synthesizedExtensionOptionsForPlayer(player);
   }
@@ -1715,36 +1726,12 @@
     return !!playerAttentionProfile(player).attentionCount;
   }
 
-  function playerAttentionPillsHtml(player, maxItems) {
-    var profile = playerAttentionProfile(player);
-    var items = profile.items || [];
-    var limit = Math.max(0, safeInt(maxItems, 0) || items.length);
-    if (!items.length || limit <= 0) return "";
-    var html = [];
-    for (var i = 0; i < items.length && i < limit; i += 1) {
-      var item = items[i];
-      html.push(
-        '<span class="rwb-attention-pill is-' + escapeHtml(item.tone) + '">' + escapeHtml(item.label) + '</span>'
-      );
-    }
-    if (items.length > limit) {
-      html.push('<span class="rwb-attention-pill is-muted">+' + escapeHtml(String(items.length - limit)) + ' more</span>');
-    }
-    return '<div class="rwb-attention-line">' + html.join("") + '</div>';
-  }
-
-  function playerAttentionModalNoteHtml(player) {
-    var pills = playerAttentionPillsHtml(player, 6);
-    if (!pills) return "";
-    return '<div class="rwb-modal-note"><strong>Decision Snapshot:</strong>' + pills + '</div>';
-  }
-
   function searchFilterEnabledForView() {
     return state.view !== "bye" && !capPlanSummaryViewActive() && !tagBreakdownActive();
   }
 
   function browseSearchEnabledForView() {
-    return state.view === "points" || (state.view === "contract" && !capPlanSummaryViewActive()) || (state.view === "tag" && !tagBreakdownActive());
+    return state.view === "points" || (state.view === "tag" && !tagBreakdownActive());
   }
 
   function contractTypeFilterEnabledForView() {
@@ -2502,7 +2489,7 @@
     var current = safeStr(state.ctx && state.ctx.year);
     var source = safeStr(sourceSeason);
     if (!current) return source;
-    if (source === current) return current;
+    if (source === current) return siteIsOffseason() ? String(safeInt(current, 0) + 1) : current;
     if (siteIsOffseason() && safeInt(source, 0) === safeInt(current, 0) - 1) return current;
     return source;
   }
@@ -5470,7 +5457,6 @@
                 '<h1 class="rwb-title">Front Office</h1>' +
                 '<div class="rwb-hero-subtitle">Contracts, cap planning, roster actions, and deadline context in one place.</div>' +
               '</div>' +
-              '<div class="rwb-hero-badge" id="rwbHeroBadge">League Office</div>' +
             '</div>' +
           '</header>' +
           '<section class="rwb-toolbar" aria-label="Roster toolbar">' +
@@ -5531,7 +5517,6 @@
       '</div>';
 
     els.app = document.getElementById("rwbApp");
-    els.heroBadge = document.getElementById("rwbHeroBadge");
     els.toolbarMain = document.getElementById("rwbToolbarMain");
     els.jumpTeam = document.getElementById("rwbJumpTeam");
     els.jumpTeamField = els.jumpTeam ? els.jumpTeam.closest(".rwb-field") : null;
@@ -5674,7 +5659,6 @@
           '<span>Player Search</span>' +
           '<input id="rwbBrowseSearch" class="rwb-input" type="search" placeholder="Search players..." autocomplete="off">' +
         '</label>' +
-        '<button type="button" class="rwb-btn rwb-btn-ghost" data-action="clear-search"' + (state.search ? "" : " disabled") + '>Clear Search</button>' +
       '</div>';
 
     if (state.view === "contract") {
@@ -5685,9 +5669,7 @@
         '<div class="rwb-subview-switch" role="tablist" aria-label="Cap plan mode">' +
           '<button type="button" class="rwb-btn rwb-btn-ghost' + (contractSubview === "players" ? ' is-active' : '') + '" data-action="contract-subview" data-subview="players" role="tab" aria-selected="' + (contractSubview === "players" ? "true" : "false") + '">Player View</button>' +
           '<button type="button" class="rwb-btn rwb-btn-ghost' + (contractSubview === "summary" ? ' is-active' : '') + '" data-action="contract-subview" data-subview="summary" role="tab" aria-selected="' + (contractSubview === "summary" ? "true" : "false") + '">Summary View</button>' +
-        '</div>' +
-        (contractSubview === "players" ? browseSearchHtml : "");
-      els.browseSearch = document.getElementById("rwbBrowseSearch");
+        '</div>';
       return;
     }
 
@@ -5722,6 +5704,7 @@
 
       els.pointsControls.className = "rwb-toolbar-points " + (weeklyMode ? "is-history-weekly" : "is-history-yearly");
       els.pointsControls.innerHTML =
+        browseSearchHtml +
         '<div class="rwb-field rwb-field-mode-toggle">' +
           '<span>View</span>' +
           '<div class="rwb-points-mode-switch" role="tablist" aria-label="Scoring history mode">' +
@@ -5734,8 +5717,7 @@
             '<label class="rwb-field"><span>Week From</span><select id="rwbPointsHistoryWeekStart" class="rwb-select"></select></label>' +
             '<label class="rwb-field"><span>Week To</span><select id="rwbPointsHistoryWeekEnd" class="rwb-select"></select></label>'
           : '<label class="rwb-field"><span>Year From</span><select id="rwbPointsHistoryYearStart" class="rwb-select"></select></label>' +
-            '<label class="rwb-field"><span>Year To</span><select id="rwbPointsHistoryYearEnd" class="rwb-select"></select></label>') +
-        browseSearchHtml;
+            '<label class="rwb-field"><span>Year To</span><select id="rwbPointsHistoryYearEnd" class="rwb-select"></select></label>');
 
       els.pointsHistoryYearStart = document.getElementById("rwbPointsHistoryYearStart");
       els.pointsHistoryYearEnd = document.getElementById("rwbPointsHistoryYearEnd");
@@ -5871,11 +5853,6 @@
     if (els.toolbarMain) {
       els.toolbarMain.classList.toggle("is-points-view", state.view === "points" || state.view === "tag");
     }
-    if (els.heroBadge) {
-      var heroSeason = safeStr(state.ctx && state.ctx.year);
-      els.heroBadge.textContent = heroSeason ? (heroSeason + " Season") : "League Office";
-    }
-
     if (els.viewRoster && els.viewContract && els.viewPoints) {
       var rosterActive = state.view === "roster";
       var contractActive = state.view === "contract";
@@ -6558,7 +6535,6 @@
           '<div class="rwb-modal-note"><strong>Extension:</strong> ' + escapeHtml(extensionBlockReason || "No extension options are available for this player.") + '</div>';
       }
       var modalAav = displayAavForPlayer(player);
-      var attentionNoteHtml = playerAttentionModalNoteHtml(player);
       var playerHeaderHtml =
         '<div class="rwb-modal-player">' +
           '<div class="rwb-modal-player-main">' +
@@ -6589,7 +6565,6 @@
 
         content =
           playerHeaderHtml +
-          attentionNoteHtml +
           '<div class="rwb-modal-grid">' +
             '<div class="rwb-modal-metric"><span>Current Salary</span><strong>' + escapeHtml(money(player.salary)) + '</strong></div>' +
             '<div class="rwb-modal-metric"><span>Remaining AAV</span><strong>' + escapeHtml(state.actionModal.restructureOriginalAav > 0 ? money(state.actionModal.restructureOriginalAav) : "—") + '</strong></div>' +
@@ -6637,7 +6612,6 @@
       } else {
         content =
           playerHeaderHtml +
-          attentionNoteHtml +
           '<div class="rwb-modal-grid">' +
             '<div class="rwb-modal-metric"><span>TCV</span><strong>' + escapeHtml(modalTcv > 0 ? money(modalTcv) : "—") + '</strong></div>' +
             '<div class="rwb-modal-metric"><span>AAV</span><strong>' + escapeHtml(modalAav > 0 ? money(modalAav) : "—") + '</strong></div>' +
@@ -6775,6 +6749,13 @@
       var aav = safeInt(p.aav, 0);
       var tcv = totalContractValueForPlayer(p);
       var contractTypeText = safeStr(p.type) || "-";
+      var extensionOptions = playerExtensionOptions(p);
+      var previewControlsHtml = extensionOptions.length
+        ? '<div class="rwb-contract-toggle-row">' +
+            '<button type="button" class="rwb-contract-toggle' + (extensionPreviewYears(p) === 1 ? ' is-active' : '') + '" data-action="contract-preview" data-years="1" data-player-id="' + escapeHtml(p.id) + '" data-franchise-id="' + escapeHtml(p.fid) + '"' + (extensionOptions.length < 1 ? ' disabled' : '') + '>1Y</button>' +
+            '<button type="button" class="rwb-contract-toggle' + (extensionPreviewYears(p) === 2 ? ' is-active' : '') + '" data-action="contract-preview" data-years="2" data-player-id="' + escapeHtml(p.id) + '" data-franchise-id="' + escapeHtml(p.fid) + '"' + (extensionOptions.length < 2 ? ' disabled' : '') + '>2Y</button>' +
+          '</div>'
+        : '<span class="rwb-row-action-placeholder">—</span>';
 
       var rowHtml =
         '<tr class="rwb-player-row' + (p.isTaxi ? ' rwb-player-row-taxi' : '') + (p.isIr ? ' rwb-player-row-ir' : '') + (extensionPreviewYears(p) ? ' is-projected' : '') + '">' +
@@ -6798,10 +6779,7 @@
           '<td class="rwb-cell-num' + (proj[1] === 0 ? ' rwb-money-zero' : '') + '">' + escapeHtml(money(proj[1])) + '</td>' +
           '<td class="rwb-cell-num' + (proj[2] === 0 ? ' rwb-money-zero' : '') + '">' + escapeHtml(money(proj[2])) + '</td>' +
           '<td>' +
-            '<div class="rwb-contract-toggle-row">' +
-              '<button type="button" class="rwb-contract-toggle' + (extensionPreviewYears(p) === 1 ? ' is-active' : '') + '" data-action="contract-preview" data-years="1" data-player-id="' + escapeHtml(p.id) + '" data-franchise-id="' + escapeHtml(p.fid) + '">1Y</button>' +
-              '<button type="button" class="rwb-contract-toggle' + (extensionPreviewYears(p) === 2 ? ' is-active' : '') + '" data-action="contract-preview" data-years="2" data-player-id="' + escapeHtml(p.id) + '" data-franchise-id="' + escapeHtml(p.fid) + '">2Y</button>' +
-            '</div>' +
+            previewControlsHtml +
           '</td>' +
         '</tr>';
       if (p.isTaxi) taxiRows.push(rowHtml);
@@ -8919,17 +8897,6 @@
       return;
     }
 
-    var clearSearchBtn = target.closest("[data-action='clear-search']");
-    if (clearSearchBtn) {
-      state.search = "";
-      if (els.search) els.search.value = "";
-      if (els.browseSearch) els.browseSearch.value = "";
-      persistState();
-      renderToolbar();
-      renderTeams();
-      return;
-    }
-
     var pointsToggleBtn = target.closest("[data-action='points-toggle']");
     if (pointsToggleBtn) {
       var pointsTeam = findTeamById(pointsToggleBtn.getAttribute("data-franchise-id"));
@@ -8964,6 +8931,8 @@
       var previewFranchiseId = pad4(previewBtn.getAttribute("data-franchise-id"));
       var previewYears = safeInt(previewBtn.getAttribute("data-years"), 0);
       if (!previewPlayerId || !previewFranchiseId || (previewYears !== 1 && previewYears !== 2)) return;
+      var previewRecord = findPlayerRecord(previewFranchiseId, previewPlayerId);
+      if (!previewRecord || !previewRecord.player || !playerExtensionOptions(previewRecord.player).length) return;
       var previewKey = previewFranchiseId + ":" + previewPlayerId;
       state.contractPreview[previewKey] = safeInt(state.contractPreview[previewKey], 0) === previewYears ? 0 : previewYears;
       persistState();
