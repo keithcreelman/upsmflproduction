@@ -1659,60 +1659,6 @@
     return '<div class="rwb-attention-line">' + html.join("") + '</div>';
   }
 
-  function summarizeAttentionPlayers(players) {
-    var list = Array.isArray(players) ? players : [];
-    var summary = {
-      attention: 0,
-      expiring: 0,
-      extension: 0,
-      restructure: 0,
-      loaded: 0,
-      highPenalty: 0
-    };
-    for (var i = 0; i < list.length; i += 1) {
-      var profile = playerAttentionProfile(list[i]);
-      if (profile.attentionCount > 0) summary.attention += 1;
-      if (profile.expiring) summary.expiring += 1;
-      if (profile.extensionEligible) summary.extension += 1;
-      if (profile.restructureEligible) summary.restructure += 1;
-      if (profile.loaded) summary.loaded += 1;
-      if (profile.highPenalty) summary.highPenalty += 1;
-    }
-    return summary;
-  }
-
-  function attentionSummaryChipHtml(label, value, tone) {
-    if (safeInt(value, 0) <= 0) return "";
-    var toneClass = tone ? " is-" + safeStr(tone) : "";
-    return (
-      '<span class="rwb-attention-summary-chip' + toneClass + '">' +
-        '<span class="rwb-attention-summary-label">' + escapeHtml(label) + '</span>' +
-        '<span class="rwb-attention-summary-value">' + escapeHtml(String(value)) + '</span>' +
-      '</span>'
-    );
-  }
-
-  function teamAttentionBoardHtml(players) {
-    if (!attentionFilterEnabledForView()) return "";
-    var summary = summarizeAttentionPlayers(players);
-    if (!summary.attention) return "";
-    var chips = [
-      attentionSummaryChipHtml("Attention", summary.attention, "action"),
-      attentionSummaryChipHtml("Expiring", summary.expiring, "risk"),
-      attentionSummaryChipHtml("Extension", summary.extension, "action"),
-      attentionSummaryChipHtml("Restructure", summary.restructure, "action"),
-      attentionSummaryChipHtml("Loaded", summary.loaded, "loaded"),
-      attentionSummaryChipHtml("Penalty", summary.highPenalty, "risk")
-    ].filter(Boolean);
-    if (!chips.length) return "";
-    return (
-      '<div class="rwb-attention-board">' +
-        '<div class="rwb-attention-board-label">Focus Board</div>' +
-        '<div class="rwb-attention-summary-row">' + chips.join("") + '</div>' +
-      '</div>'
-    );
-  }
-
   function playerAttentionModalNoteHtml(player) {
     var pills = playerAttentionPillsHtml(player, 6);
     if (!pills) return "";
@@ -2489,13 +2435,14 @@
 
   function buildTagContractInfo(row, salary) {
     var amount = Math.max(0, safeInt(salary, 0));
+    var guaranteed = Math.round(amount * 0.75);
     var tier = safeInt(row && row.tag_tier, 0);
     var formula = safeStr(effectiveTagFormulaForRow(row));
     var parts = [
       "CL 1",
       "TCV " + formatContractK(amount),
       "AAV " + formatContractK(amount),
-      "GTD " + formatContractK(amount)
+      "GTD " + formatContractK(guaranteed)
     ];
     parts.push("Tag");
     if (tier > 0) parts.push("Tier " + String(tier));
@@ -5924,8 +5871,6 @@
         '<span class="rwb-chip is-bad"><span class="rwb-chip-label">Compliance</span><span class="rwb-chip-value">' + escapeHtml(team.summary.compliance.label) + '</span></span>'
       );
     }
-    var attentionHtml = teamAttentionBoardHtml(visiblePlayers);
-
     return (
       '<header class="rwb-team-head">' +
         '<div class="rwb-team-brand" title="' + escapeHtml(team.name) + '">' +
@@ -5936,7 +5881,6 @@
           '<div class="rwb-chip-row">' +
             chips.join("") +
           '</div>' +
-          attentionHtml +
           teamCapSummaryHtml(team) +
         '</div>' +
       '</header>'
