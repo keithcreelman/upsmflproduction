@@ -108,33 +108,84 @@
       "</section>";
   }
 
+  function summarizeRegistry() {
+    var reports = (window.UPSReports && typeof window.UPSReports.list === "function")
+      ? window.UPSReports.list()
+      : [];
+    var familyLookup = Object.create(null);
+    var liveCount = 0;
+    var plannedCount = 0;
+    reports.forEach(function (report) {
+      if (report && report.familyId) familyLookup[report.familyId] = true;
+      if (report && report.status === "live") liveCount += 1;
+      else plannedCount += 1;
+    });
+    return {
+      familyCount: Object.keys(familyLookup).length,
+      liveCount: liveCount,
+      plannedCount: plannedCount
+    };
+  }
+
   function init() {
     var root = document.getElementById("upsReportsApp");
     if (!root) return;
+    var summary = summarizeRegistry();
     root.innerHTML =
       '<div class="reports-shell">' +
-        '<aside class="reports-sidebar">' +
-          '<section class="reports-brand reports-panel">' +
+        '<header class="reports-masthead reports-panel">' +
+          '<div class="reports-masthead-copy">' +
             '<p class="reports-kicker">UPS Dynasty League</p>' +
-            '<h1>Reports Module</h1>' +
-            '<p class="reports-brand-copy">Research-grade reporting with isolated components, shared routing, and static export support.</p>' +
+            '<h1>Reports</h1>' +
+            '<p class="reports-brand-copy">League research, cap accounting, and historical review now live in one report workspace with isolated modules and shared exports.</p>' +
+          '</div>' +
+          '<div class="reports-shell-stats">' +
+            '<article class="reports-shell-stat">' +
+              '<span class="reports-shell-stat-label">Live Reports</span>' +
+              '<strong>' + formatNumber(summary.liveCount, 0) + '</strong>' +
+              '<span class="reports-shell-stat-detail">ready now</span>' +
+            '</article>' +
+            '<article class="reports-shell-stat">' +
+              '<span class="reports-shell-stat-label">Report Families</span>' +
+              '<strong>' + formatNumber(summary.familyCount, 0) + '</strong>' +
+              '<span class="reports-shell-stat-detail">grouped by workflow</span>' +
+            '</article>' +
+            '<article class="reports-shell-stat">' +
+              '<span class="reports-shell-stat-label">Queued Modules</span>' +
+              '<strong>' + formatNumber(summary.plannedCount, 0) + '</strong>' +
+              '<span class="reports-shell-stat-detail">visible in place</span>' +
+            '</article>' +
+          '</div>' +
+        '</header>' +
+        '<div class="reports-workspace">' +
+          '<section class="reports-selector reports-panel">' +
+            '<div class="reports-selector-head">' +
+              '<div>' +
+                '<p class="reports-section-kicker">Select A Report</p>' +
+                '<h2>Choose the module, then work inside the active report.</h2>' +
+              '</div>' +
+              '<p class="reports-helper-text">Use family tabs to narrow the selector, then open the report you want. The active report stays isolated in its own workspace.</p>' +
+            '</div>' +
+            '<nav id="reportsNav" class="reports-nav" aria-label="Reports navigation"></nav>' +
           '</section>' +
-          '<nav id="reportsNav" class="reports-nav" aria-label="Reports navigation"></nav>' +
-        '</aside>' +
-        '<main class="reports-content">' +
-          '<header class="reports-hero reports-panel">' +
-            '<div class="reports-hero-copy">' +
-              '<p id="reportsHeroKicker" class="reports-section-kicker">Reports</p>' +
-              '<h2 id="reportsHeroTitle">Reports Module</h2>' +
-              '<p id="reportsHeroSubtitle" class="reports-hero-subtitle">League analytics and research live here.</p>' +
-            '</div>' +
-            '<div class="reports-hero-side">' +
-              '<div id="reportsHeroStatus" class="reports-hero-status">Live Report</div>' +
-              '<div class="reports-hero-route">Route <span id="reportsRouteHint">#player-scoring</span></div>' +
-            '</div>' +
-          '</header>' +
-          '<div id="reportsMount"></div>' +
-        '</main>' +
+          '<main class="reports-content">' +
+            '<header class="reports-hero reports-panel">' +
+              '<div class="reports-hero-copy">' +
+                '<p id="reportsHeroKicker" class="reports-section-kicker">Reports</p>' +
+                '<h2 id="reportsHeroTitle">Reports Module</h2>' +
+                '<p id="reportsHeroSubtitle" class="reports-hero-subtitle">League analytics and research live here.</p>' +
+              '</div>' +
+              '<div class="reports-hero-side">' +
+                '<div id="reportsHeroStatus" class="reports-hero-status">Live Report</div>' +
+                '<div class="reports-hero-meta">' +
+                  '<span id="reportsHeroFamily" class="reports-hero-pill">Reports</span>' +
+                  '<span id="reportsRouteHint" class="reports-hero-pill reports-hero-route">#player-scoring</span>' +
+                '</div>' +
+              '</div>' +
+            '</header>' +
+            '<div id="reportsMount" class="reports-mount"></div>' +
+          '</main>' +
+        '</div>' +
       '</div>';
 
     var common = {
@@ -161,6 +212,7 @@
         title: document.getElementById("reportsHeroTitle"),
         subtitle: document.getElementById("reportsHeroSubtitle"),
         status: document.getElementById("reportsHeroStatus"),
+        family: document.getElementById("reportsHeroFamily"),
         route: document.getElementById("reportsRouteHint"),
         common: common
       });

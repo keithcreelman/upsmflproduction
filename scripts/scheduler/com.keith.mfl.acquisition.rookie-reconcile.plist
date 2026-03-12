@@ -8,7 +8,7 @@
     <key>ProgramArguments</key>
     <array>
       <string>/bin/bash</string>
-      <string>/Users/keithcreelman/Documents/New project/scripts/run_acquisition_rookie_reconcile.sh</string>
+      <string>__REPO_ROOT__/scripts/run_acquisition_rookie_reconcile.sh</string>
     </array>
 
     <key>StartInterval</key>
@@ -18,9 +18,9 @@
     <true/>
 
     <key>StandardOutPath</key>
-    <string>/Users/keithcreelman/Documents/New project/etl/logs/acquisition-rookie-reconcile.out.log</string>
+    <string>__REPO_ROOT__/etl/logs/acquisition-rookie-reconcile.out.log</string>
 
     <key>StandardErrorPath</key>
-    <string>/Users/keithcreelman/Documents/New project/etl/logs/acquisition-rookie-reconcile.err.log</string>
+    <string>__REPO_ROOT__/etl/logs/acquisition-rookie-reconcile.err.log</string>
   </dict>
 </plist>

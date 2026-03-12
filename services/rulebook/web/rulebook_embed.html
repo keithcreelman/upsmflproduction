@@ -9,11 +9,16 @@
       --bg: #f6f6f3;
       --panel: #ffffff;
       --ink: #171717;
-      --muted: #616161;
+      --muted: #5f675f;
       --line: #d8d8d3;
+      --line-soft: #ecece7;
       --brand: #0f5c4d;
       --brand-2: #0c3d34;
-      --danger: #9e1c1c;
+      --brand-soft: #eef7f4;
+      --accent: #b2652d;
+      --warning: #9e1c1c;
+      --history: #695647;
+      --shadow: 0 8px 22px rgba(12, 61, 52, 0.18);
     }
     * { box-sizing: border-box; }
     body {
@@ -25,70 +30,293 @@
         radial-gradient(700px 240px at 15% -5%, #efe8da 10%, transparent 60%),
         var(--bg);
     }
-    .wrap { max-width: 1100px; margin: 0 auto; padding: 24px; }
+    .wrap {
+      max-width: 1320px;
+      margin: 0 auto;
+      padding: 22px;
+    }
     .hero {
       background: linear-gradient(120deg, var(--brand), var(--brand-2));
       color: #fff;
-      border-radius: 16px;
-      padding: 18px 20px;
-      box-shadow: 0 8px 22px rgba(12, 61, 52, 0.24);
-      margin-bottom: 16px;
+      border-radius: 18px;
+      padding: 20px 22px;
+      box-shadow: var(--shadow);
+      margin-bottom: 14px;
     }
-    .hero h1 { margin: 0 0 6px; font-size: 26px; letter-spacing: 0.2px; }
-    .hero p { margin: 0; opacity: 0.95; }
-    .bar {
-      display: grid;
-      grid-template-columns: 1fr 220px;
+    .hero h1 {
+      margin: 0 0 6px;
+      font-size: 28px;
+      letter-spacing: 0.2px;
+    }
+    .hero p {
+      margin: 0;
+      opacity: 0.94;
+      max-width: 860px;
+      line-height: 1.45;
+    }
+    .hero-meta {
+      display: flex;
       gap: 10px;
-      margin: 14px 0 20px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+    .hero-chip {
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 12px;
+      background: rgba(255,255,255,0.08);
+    }
+    .tabs {
+      display: flex;
+      gap: 8px;
+      overflow: auto;
+      padding-bottom: 4px;
+      margin-bottom: 12px;
+    }
+    .tab {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      color: var(--ink);
+      border-radius: 999px;
+      padding: 10px 14px;
+      white-space: nowrap;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 650;
+    }
+    .tab.active {
+      background: var(--brand);
+      color: #fff;
+      border-color: var(--brand);
+    }
+    .filters {
+      display: grid;
+      grid-template-columns: 2fr repeat(4, 1fr);
+      gap: 10px;
+      margin-bottom: 14px;
     }
     .input, .select, .textarea {
       width: 100%;
       border: 1px solid var(--line);
-      border-radius: 10px;
-      padding: 10px 12px;
+      border-radius: 12px;
+      padding: 11px 12px;
       background: var(--panel);
       color: var(--ink);
       font-size: 14px;
     }
-    .grid {
+    .summary-bar {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 10px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .layout {
       display: grid;
-      grid-template-columns: 320px 1fr;
+      grid-template-columns: 360px 1fr;
       gap: 14px;
     }
-    .list, .detail {
+    .rail, .detail {
       background: var(--panel);
       border: 1px solid var(--line);
-      border-radius: 14px;
-      min-height: 560px;
+      border-radius: 16px;
+      min-height: 680px;
     }
-    .list { overflow: auto; }
-    .rule-item {
-      padding: 12px;
-      border-bottom: 1px solid #ecece7;
+    .rail {
+      overflow: auto;
+    }
+    .doc-card {
+      padding: 14px;
+      border-bottom: 1px solid var(--line-soft);
       cursor: pointer;
     }
-    .rule-item:last-child { border-bottom: none; }
-    .rule-item.active { background: #eef7f4; }
-    .rule-id { color: var(--brand); font-weight: 700; font-size: 12px; }
-    .rule-title { margin: 2px 0; font-weight: 650; }
-    .rule-meta { color: var(--muted); font-size: 12px; }
-    .detail-inner { padding: 18px; }
-    .pill {
-      display: inline-block;
-      font-size: 12px;
-      color: #fff;
-      background: var(--brand);
-      border-radius: 999px;
-      padding: 4px 9px;
-      margin-right: 6px;
-      margin-bottom: 6px;
+    .doc-card:last-child {
+      border-bottom: none;
     }
-    .actions {
-      margin-top: 14px;
+    .doc-card.active {
+      background: var(--brand-soft);
+    }
+    .doc-id {
+      color: var(--brand);
+      font-weight: 700;
+      font-size: 12px;
+      margin-bottom: 3px;
+    }
+    .doc-title {
+      font-weight: 700;
+      line-height: 1.35;
+      margin-bottom: 5px;
+    }
+    .doc-meta {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+    .badge-row, .pill-row {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-top: 7px;
+    }
+    .badge, .pill {
+      display: inline-block;
+      padding: 5px 9px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      border: 1px solid var(--line);
+      background: #f8f8f5;
+      color: var(--ink);
+    }
+    .badge.status-current { background: #eff8f4; color: #0f5c4d; border-color: #d7ebe4; }
+    .badge.status-historical { background: #f6f0ea; color: var(--history); border-color: #e6d9ce; }
+    .badge.status-needs_confirmation { background: #fff2f1; color: var(--warning); border-color: #f0d0cd; }
+    .badge.auth-mfl_live_setting { background: #edf4ff; color: #2d4b8f; border-color: #d2def4; }
+    .badge.auth-approved_amendment { background: #fff6e7; color: #8b5a18; border-color: #f0dfbc; }
+    .badge.auth-historical_reference, .badge.auth-discussion_only { background: #f6f0ea; color: var(--history); border-color: #eadfd1; }
+    .detail-inner {
+      padding: 22px;
+    }
+    .empty {
+      color: var(--muted);
+      padding: 18px;
+    }
+    .detail-head {
+      margin-bottom: 16px;
+    }
+    .detail-head h2 {
+      margin: 6px 0 8px;
+      font-size: 28px;
+      line-height: 1.15;
+    }
+    .detail-sub {
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .section {
+      margin-top: 18px;
+      padding-top: 18px;
+      border-top: 1px solid var(--line-soft);
+    }
+    .section:first-child {
+      margin-top: 0;
+      padding-top: 0;
+      border-top: none;
+    }
+    .section h3 {
+      margin: 0 0 8px;
+      font-size: 16px;
+    }
+    .summary-box, .callout, .comparison-card, .example-card, .source-item {
+      border: 1px solid var(--line);
+      background: #fcfcfa;
+      border-radius: 14px;
+      padding: 14px;
+    }
+    .callout.warning {
+      background: #fff2f1;
+      border-color: #f0d0cd;
+    }
+    .callout.warning strong {
+      color: var(--warning);
+    }
+    .rich p {
+      margin: 0 0 10px;
+      line-height: 1.58;
+    }
+    .rich h3 {
+      margin: 14px 0 8px;
+      font-size: 15px;
+    }
+    .rich ul {
+      margin: 0 0 10px 18px;
+      padding: 0;
+    }
+    .rich li {
+      margin: 0 0 6px;
+      line-height: 1.5;
+    }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .table-wrap {
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #fff;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    th, td {
+      padding: 9px 10px;
+      border-bottom: 1px solid var(--line-soft);
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      background: #f4f5f1;
+      color: var(--muted);
+      font-weight: 700;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+    tr:last-child td {
+      border-bottom: none;
+    }
+    .link-list {
       display: flex;
       gap: 8px;
       flex-wrap: wrap;
+    }
+    .link-btn {
+      border: 1px solid var(--line);
+      background: #f5f6f2;
+      color: var(--ink);
+      border-radius: 10px;
+      padding: 8px 10px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    .example-card h4, .comparison-card h4 {
+      margin: 0 0 8px;
+      font-size: 15px;
+    }
+    .example-block {
+      margin-bottom: 10px;
+    }
+    .example-label {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 4px;
+    }
+    .source-item {
+      margin-bottom: 10px;
+    }
+    .source-item:last-child {
+      margin-bottom: 0;
+    }
+    .source-path {
+      font-family: Menlo, monospace;
+      font-size: 12px;
+      word-break: break-word;
+    }
+    .actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 16px;
     }
     .btn {
       border: none;
@@ -101,9 +329,6 @@
     .btn.primary { background: var(--brand); color: #fff; }
     .btn.alt { background: #e6efec; color: #0f4f42; }
     .btn.ghost { background: #f2f2ef; color: #343434; }
-    .error { color: var(--danger); font-size: 12px; margin-top: 6px; }
-    .ok { color: #1d6b22; font-size: 13px; margin-top: 6px; }
-
     .modal {
       position: fixed;
       inset: 0;
@@ -116,11 +341,11 @@
     }
     .modal.show { display: flex; }
     .card {
-      width: min(820px, 100%);
+      width: min(860px, 100%);
       max-height: 90vh;
       overflow: auto;
       background: var(--panel);
-      border-radius: 14px;
+      border-radius: 16px;
       border: 1px solid var(--line);
       padding: 16px;
     }
@@ -133,12 +358,26 @@
     }
     .full { grid-column: 1 / -1; }
     .hint { color: var(--muted); font-size: 12px; }
+    .error { color: var(--warning); font-size: 12px; margin-top: 6px; }
+    .ok { color: #1d6b22; font-size: 13px; margin-top: 6px; }
 
-    @media (max-width: 900px) {
-      .grid { grid-template-columns: 1fr; }
-      .list, .detail { min-height: auto; }
-      .form-grid { grid-template-columns: 1fr; }
-      .bar { grid-template-columns: 1fr; }
+    @media (max-width: 1080px) {
+      .filters {
+        grid-template-columns: 1fr 1fr;
+      }
+      .layout {
+        grid-template-columns: 1fr;
+      }
+      .rail, .detail {
+        min-height: auto;
+      }
+    }
+    @media (max-width: 760px) {
+      .wrap { padding: 14px; }
+      .hero h1 { font-size: 24px; }
+      .filters { grid-template-columns: 1fr; }
+      .grid-2, .form-grid { grid-template-columns: 1fr; }
+      .detail-inner { padding: 16px; }
     }
   </style>
 </head>
@@ -146,20 +385,41 @@
   <div class="wrap" id="app">
     <div class="hero">
       <h1>UPS Salary Cap Dynasty League Rule Book</h1>
-      <p>Structured, searchable, and owner feedback-ready.</p>
+      <p>Searchable owner documentation built from the written rulebook, historical league records, local board digests, and live MyFantasyLeague settings.</p>
+      <div class="hero-meta">
+        <span class="hero-chip" id="heroVersion">Version</span>
+        <span class="hero-chip" id="heroUpdated">Updated</span>
+        <span class="hero-chip" id="heroSeason">Season</span>
+      </div>
     </div>
 
-    <div class="bar">
-      <input id="searchInput" class="input" placeholder="Search by rule id, title, category, or keyword">
-      <select id="categoryFilter" class="select">
-        <option value="">All categories</option>
+    <div class="tabs" id="topicTabs"></div>
+
+    <div class="filters">
+      <input id="searchInput" class="input" placeholder="Search titles, rules, examples, terms, event codes, or history">
+      <select id="statusFilter" class="select">
+        <option value="">All statuses</option>
+      </select>
+      <select id="authorityFilter" class="select">
+        <option value="">All authorities</option>
+      </select>
+      <select id="kindFilter" class="select">
+        <option value="">All kinds</option>
+      </select>
+      <select id="seasonFilter" class="select">
+        <option value="">All seasons</option>
       </select>
     </div>
 
-    <div class="grid">
-      <div class="list" id="ruleList"></div>
+    <div class="summary-bar">
+      <div id="resultSummary">Loading…</div>
+      <div id="selectionSummary"></div>
+    </div>
+
+    <div class="layout">
+      <div class="rail" id="docRail"></div>
       <div class="detail">
-        <div class="detail-inner" id="ruleDetail"></div>
+        <div class="detail-inner" id="docDetail"></div>
       </div>
     </div>
   </div>
@@ -213,7 +473,7 @@
 
           <div class="full">
             <label class="hint">Current text excerpt (optional, max 600)</label>
-            <textarea id="currentExcerpt" class="textarea" rows="3" maxlength="600" placeholder="Paste the current sentence/phrase you are referencing"></textarea>
+            <textarea id="currentExcerpt" class="textarea" rows="3" maxlength="600" placeholder="Paste the sentence or phrase you are referencing"></textarea>
           </div>
 
           <div class="full" id="proposedTextWrap" style="display:none;">
@@ -247,330 +507,746 @@
   </div>
 
   <script>
-    // Host page can set window.CCC_RULEBOOK_CONFIG before this script runs.
-    // Optional URL override: ?apiBaseUrl=https://your-api.example.com
     const queryCfg = new URLSearchParams(window.location.search);
     window.CCC_RULEBOOK_CONFIG = Object.assign(
-      { apiBaseUrl: '' },
+      { apiBaseUrl: "" },
       window.CCC_RULEBOOK_CONFIG || {}
     );
-    if (queryCfg.get('apiBaseUrl')) {
-      window.CCC_RULEBOOK_CONFIG.apiBaseUrl = queryCfg.get('apiBaseUrl');
+    if (queryCfg.get("apiBaseUrl")) {
+      window.CCC_RULEBOOK_CONFIG.apiBaseUrl = queryCfg.get("apiBaseUrl");
     }
-    const API_BASE = (window.CCC_RULEBOOK_CONFIG.apiBaseUrl || '').replace(/\/+$/, '');
+    const API_BASE = (window.CCC_RULEBOOK_CONFIG.apiBaseUrl || "").replace(/\/+$/, "");
+
     const DEFAULT_RULEBOOK_DATA = {
-      version: 'embedded-fallback-1',
-      league: 'UPS Salary Cap Dynasty League',
-      last_updated: '2026-02-14',
-      rules: [
+      version: "embedded-fallback-2",
+      league: "UPS Salary Cap Dynasty League",
+      generated_at_utc: "2026-03-11T00:00:00Z",
+      current_season: 2026,
+      navigation: [
+        { id: "current-rules", label: "Current Rules", count: 1 },
+        { id: "contracts", label: "Contracts", count: 1 }
+      ],
+      documents: [
         {
-          id: 'R-001',
-          category: 'Governance',
-          title: 'League Purpose',
-          body: 'UPS Salary Cap Dynasty League operates as a dynasty salary-cap format with contracts and cap accounting carried across seasons.',
-          tags: ['governance', 'dynasty']
+          id: "FM-FALLBACK",
+          slug: "official-rulebook",
+          kind: "rule",
+          topic: "Current Rules",
+          subcategory: "Front Matter",
+          title: "Official Rulebook",
+          summary: "Fallback payload loaded because the live rulebook data was unavailable.",
+          body_md: "### Fallback\nThe embeddable rulebook page could not reach the generated rulebook JSON bundle.",
+          status: "current",
+          authority: "written_rulebook",
+          effective_from_season: 2024,
+          effective_to_season: null,
+          keywords: ["fallback", "rulebook"],
+          source_refs: [],
+          related_ids: [],
+          example_ids: [],
+          needs_confirmation_reason: "",
+          sort_order: 0
         },
         {
-          id: 'R-004',
-          category: 'Governance',
-          title: 'System Of Record',
-          body: 'Normalized contract records with source metadata are the canonical record for league contract history.',
-          tags: ['record', 'audit']
-        },
-        {
-          id: 'R-011',
-          category: 'Scoring',
-          title: 'Scoring Model',
-          body: 'Scoring is event-based across offense, defense, and special teams using MFL-configured rule tables.',
-          tags: ['scoring', 'idp', 'st']
-        },
-        {
-          id: 'R-019',
-          category: 'Waivers',
-          title: 'Waiver Mode',
-          body: 'Waiver processing uses BBID_FCFS with $1,000 minimum and $1,000 increments in current settings.',
-          tags: ['waivers', 'bbid']
-        },
-        {
-          id: 'R-024',
-          category: 'Draft',
-          title: 'Draft Settings',
-          body: 'Draft is configured live with Rookie player pool and configured time-limit rules.',
-          tags: ['draft', 'rookie']
-        },
-        {
-          id: 'R-027',
-          category: 'Trades',
-          title: 'Trade Expiration',
-          body: 'Default trade expiration is seven days in current league configuration.',
-          tags: ['trades', 'expiration']
-        },
-        {
-          id: 'R-029',
-          category: 'Contracts',
-          title: 'Allowed Contract Types',
-          body: 'Every contract transaction must map to Auction, Extension, MYM, or Restructure.',
-          tags: ['contracts', 'types']
-        },
-        {
-          id: 'R-032',
-          category: 'Contracts',
-          title: 'Restructure Definition',
-          body: 'Any change to current-year salary is a restructure, including front-loaded or back-loaded adjustments.',
-          tags: ['restructure', 'salary']
-        },
-        {
-          id: 'R-035',
-          category: 'Contracts',
-          title: 'MYM Current-Year Restriction',
-          body: 'MYM submissions cannot modify current-season salary when league policy disallows that change.',
-          tags: ['mym', 'validation']
-        },
-        {
-          id: 'R-041',
-          category: 'Data Policy',
-          title: 'Source Attribution',
-          body: 'Each record must retain source_section and source raw context for audit traceability.',
-          tags: ['source', 'audit']
-        },
-        {
-          id: 'R-042',
-          category: 'Data Policy',
-          title: 'XML Payload Required',
-          body: 'Every normalized contract record must retain XML payload for reconstruction.',
-          tags: ['xml', 'payload']
-        },
-        {
-          id: 'R-043',
-          category: 'Data Policy',
-          title: 'Legacy Guaranteed Policy',
-          body: 'Legacy guaranteed handling applies through 2018; 2019+ uses normalized guaranteed with legacy cross-reference support.',
-          tags: ['legacy', 'guaranteed']
-        },
-        {
-          id: 'R-050',
-          category: 'Feedback',
-          title: 'Owner Rule Feedback',
-          body: 'Owners can submit thoughts and change requests through the structured rule feedback workflow.',
-          tags: ['feedback', 'owners']
+          id: "C-FALLBACK",
+          slug: "contract-system-overview",
+          kind: "rule",
+          topic: "Contracts",
+          subcategory: "Contract System",
+          title: "Contract System Overview",
+          summary: "Current contract documentation is generated from the written rulebook and live league tooling.",
+          body_md: "### Fallback\nRebuild `services/rulebook/data/rules.json` to load the full contract guide.",
+          status: "current",
+          authority: "written_rulebook",
+          effective_from_season: 2024,
+          effective_to_season: null,
+          keywords: ["contracts", "fallback"],
+          source_refs: [],
+          related_ids: [],
+          example_ids: [],
+          needs_confirmation_reason: "",
+          sort_order: 1
         }
-      ]
+      ],
+      rules: []
     };
 
     const state = {
       data: null,
+      docsById: new Map(),
       filtered: [],
+      selectedTopic: "Current Rules",
       selectedId: null,
-      feedbackRuleId: null
+      feedbackRuleId: null,
+      filters: {
+        q: "",
+        status: "",
+        authority: "",
+        kind: "",
+        season: ""
+      }
     };
 
     const els = {
-      ruleList: document.getElementById('ruleList'),
-      ruleDetail: document.getElementById('ruleDetail'),
-      search: document.getElementById('searchInput'),
-      category: document.getElementById('categoryFilter'),
-      modal: document.getElementById('feedbackModal'),
-      modalTitle: document.getElementById('modalTitle'),
-      modalRuleHint: document.getElementById('modalRuleHint'),
-      form: document.getElementById('feedbackForm'),
-      feedbackType: document.getElementById('feedbackType'),
-      proposedWrap: document.getElementById('proposedTextWrap'),
-      error: document.getElementById('formError'),
-      ok: document.getElementById('formOk')
+      heroVersion: document.getElementById("heroVersion"),
+      heroUpdated: document.getElementById("heroUpdated"),
+      heroSeason: document.getElementById("heroSeason"),
+      topicTabs: document.getElementById("topicTabs"),
+      search: document.getElementById("searchInput"),
+      status: document.getElementById("statusFilter"),
+      authority: document.getElementById("authorityFilter"),
+      kind: document.getElementById("kindFilter"),
+      season: document.getElementById("seasonFilter"),
+      resultSummary: document.getElementById("resultSummary"),
+      selectionSummary: document.getElementById("selectionSummary"),
+      docRail: document.getElementById("docRail"),
+      docDetail: document.getElementById("docDetail"),
+      modal: document.getElementById("feedbackModal"),
+      modalTitle: document.getElementById("modalTitle"),
+      modalRuleHint: document.getElementById("modalRuleHint"),
+      form: document.getElementById("feedbackForm"),
+      feedbackType: document.getElementById("feedbackType"),
+      proposedWrap: document.getElementById("proposedTextWrap"),
+      error: document.getElementById("formError"),
+      ok: document.getElementById("formOk")
     };
 
-    function esc(v) {
-      return (v || '').replace(/[&<>"]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
-    }
-
-    function filterRules() {
-      const q = els.search.value.trim().toLowerCase();
-      const c = els.category.value;
-      const rules = (state.data?.rules || []).filter(r => {
-        if (c && r.category !== c) return false;
-        if (!q) return true;
-        const blob = [r.id, r.category, r.title, r.body, ...(r.tags || [])].join(' ').toLowerCase();
-        return blob.includes(q);
+    function esc(value) {
+      return String(value || "").replace(/[&<>"]/g, function(ch) {
+        return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch];
       });
-      state.filtered = rules;
-      if (!rules.find(r => r.id === state.selectedId)) {
-        state.selectedId = rules.length ? rules[0].id : null;
-      }
-      renderList();
-      renderDetail();
     }
 
-    function renderList() {
-      const html = state.filtered.map(r => `
-        <div class="rule-item ${r.id === state.selectedId ? 'active' : ''}" data-id="${esc(r.id)}">
-          <div class="rule-id">${esc(r.id)}</div>
-          <div class="rule-title">${esc(r.title)}</div>
-          <div class="rule-meta">${esc(r.category)}</div>
-        </div>`).join('');
-      els.ruleList.innerHTML = html || '<div class="rule-item">No rules match your filter.</div>';
-      [...els.ruleList.querySelectorAll('.rule-item[data-id]')].forEach(node => {
-        node.addEventListener('click', () => {
-          state.selectedId = node.getAttribute('data-id');
-          renderList();
-          renderDetail();
+    function statusLabel(value) {
+      if (value === "needs_confirmation") return "Needs Confirmation";
+      return (value || "").replace(/_/g, " ").replace(/\b\w/g, function(ch) { return ch.toUpperCase(); });
+    }
+
+    function seasonLabel(doc) {
+      if (doc.effective_from_season && doc.effective_to_season && doc.effective_from_season !== doc.effective_to_season) {
+        return doc.effective_from_season + "-" + doc.effective_to_season;
+      }
+      return doc.effective_from_season || "";
+    }
+
+    function docRank(doc) {
+      const key = [doc.status, doc.authority].join("|");
+      const rankMap = {
+        "current|written_rulebook": 0,
+        "current|mfl_live_setting": 1,
+        "current|approved_amendment": 2,
+        "historical|historical_reference": 3,
+        "historical|discussion_only": 4,
+        "needs_confirmation|historical_reference": 5,
+        "needs_confirmation|discussion_only": 6
+      };
+      return rankMap[key] != null ? rankMap[key] : 9;
+    }
+
+    function mdToHtml(text) {
+      const lines = String(text || "").split(/\r?\n/);
+      let html = "";
+      let listOpen = false;
+      function closeList() {
+        if (listOpen) {
+          html += "</ul>";
+          listOpen = false;
+        }
+      }
+      lines.forEach(function(line) {
+        if (!line.trim()) {
+          closeList();
+          return;
+        }
+        if (/^###\s+/.test(line)) {
+          closeList();
+          html += "<h3>" + esc(line.replace(/^###\s+/, "")) + "</h3>";
+          return;
+        }
+        if (/^-\s+/.test(line)) {
+          if (!listOpen) {
+            html += "<ul>";
+            listOpen = true;
+          }
+          html += "<li>" + esc(line.replace(/^-\s+/, "")) + "</li>";
+          return;
+        }
+        closeList();
+        html += "<p>" + esc(line) + "</p>";
+      });
+      closeList();
+      return html;
+    }
+
+    function normalizePayload(data) {
+      const docs = (data.documents && data.documents.length) ? data.documents : (data.rules || []).map(function(rule, idx) {
+        return {
+          id: rule.id,
+          slug: rule.id,
+          kind: "rule",
+          topic: "Current Rules",
+          subcategory: rule.category,
+          title: rule.title,
+          summary: rule.body,
+          body_md: rule.body,
+          status: "current",
+          authority: "written_rulebook",
+          effective_from_season: data.current_season || 2026,
+          effective_to_season: null,
+          keywords: rule.tags || [],
+          source_refs: [],
+          related_ids: [],
+          example_ids: [],
+          needs_confirmation_reason: "",
+          sort_order: idx
+        };
+      });
+
+      const navigation = (data.navigation && data.navigation.length) ? data.navigation : buildFallbackNavigation(docs);
+      return Object.assign({}, data, { documents: docs, navigation: navigation });
+    }
+
+    function buildFallbackNavigation(docs) {
+      const counts = {};
+      docs.forEach(function(doc) {
+        counts[doc.topic] = (counts[doc.topic] || 0) + 1;
+      });
+      return Object.keys(counts).sort().map(function(label) {
+        return { id: label.toLowerCase().replace(/[^a-z0-9]+/g, "-"), label: label, count: counts[label] };
+      });
+    }
+
+    function setHero(data) {
+      els.heroVersion.textContent = "Version " + (data.version || "unknown");
+      els.heroUpdated.textContent = "Generated " + (data.generated_at_utc || data.last_updated || "unknown");
+      els.heroSeason.textContent = "Current season " + (data.current_season || "unknown");
+    }
+
+    function buildDocMaps(docs) {
+      state.docsById = new Map();
+      docs.forEach(function(doc) {
+        state.docsById.set(doc.id, doc);
+      });
+    }
+
+    function queryStateFromUrl() {
+      const params = new URLSearchParams(window.location.search);
+      return {
+        topic: params.get("tab") || state.selectedTopic,
+        q: params.get("q") || "",
+        status: params.get("status") || "",
+        authority: params.get("authority") || "",
+        kind: params.get("kind") || "",
+        season: params.get("season") || "",
+        doc: params.get("doc") || null
+      };
+    }
+
+    function writeStateToUrl() {
+      const params = new URLSearchParams(window.location.search);
+      if (state.selectedTopic) params.set("tab", state.selectedTopic);
+      else params.delete("tab");
+
+      ["q", "status", "authority", "kind", "season"].forEach(function(key) {
+        const value = state.filters[key];
+        if (value) params.set(key, value);
+        else params.delete(key);
+      });
+
+      if (state.selectedId) params.set("doc", state.selectedId);
+      else params.delete("doc");
+
+      const next = window.location.pathname + "?" + params.toString();
+      window.history.replaceState({}, "", next);
+    }
+
+    function selectedDoc() {
+      return state.docsById.get(state.selectedId) || null;
+    }
+
+    function indexText(doc) {
+      const sourceBits = (doc.source_refs || []).map(function(ref) {
+        return [ref.source_kind, ref.path_or_url, ref.excerpt, ref.season, ref.date_text].join(" ");
+      }).join(" ");
+      const tableBits = (doc.table_rows || []).map(function(row) {
+        return Object.values(row).join(" ");
+      }).join(" ");
+      const comparisonBits = (doc.comparison_cards || []).map(function(card) {
+        return [card.label, card.platform_setting, card.written_rule, card.status].join(" ");
+      }).join(" ");
+      return [
+        doc.id,
+        doc.title,
+        doc.summary,
+        doc.body_md,
+        doc.topic,
+        doc.subcategory,
+        (doc.keywords || []).join(" "),
+        sourceBits,
+        tableBits,
+        comparisonBits
+      ].join(" ").toLowerCase();
+    }
+
+    function sortDocs(list) {
+      return list.slice().sort(function(a, b) {
+        const rankDiff = docRank(a) - docRank(b);
+        if (rankDiff !== 0) return rankDiff;
+        const sortDiff = (a.sort_order || 0) - (b.sort_order || 0);
+        if (sortDiff !== 0) return sortDiff;
+        return a.title.localeCompare(b.title);
+      });
+    }
+
+    function filterDocs() {
+      const docs = state.data.documents || [];
+      const q = state.filters.q.trim().toLowerCase();
+      const seasonValue = state.filters.season;
+
+      const filtered = sortDocs(docs.filter(function(doc) {
+        if (state.selectedTopic && doc.topic !== state.selectedTopic) return false;
+        if (state.filters.status && doc.status !== state.filters.status) return false;
+        if (state.filters.authority && doc.authority !== state.filters.authority) return false;
+        if (state.filters.kind && doc.kind !== state.filters.kind) return false;
+        if (seasonValue) {
+          const docSeason = String(doc.effective_from_season || "");
+          if (docSeason !== seasonValue) return false;
+        }
+        if (!q) return true;
+        return indexText(doc).indexOf(q) !== -1;
+      }));
+
+      state.filtered = filtered;
+      if (!filtered.find(function(doc) { return doc.id === state.selectedId; })) {
+        state.selectedId = filtered.length ? filtered[0].id : null;
+      }
+      writeStateToUrl();
+      renderRail();
+      renderDetail();
+      renderSummary();
+    }
+
+    function renderTabs() {
+      const html = (state.data.navigation || []).map(function(item) {
+        const active = item.label === state.selectedTopic ? "active" : "";
+        return '<button class="tab ' + active + '" data-topic="' + esc(item.label) + '">' +
+          esc(item.label) + " (" + esc(item.count) + ")" +
+          "</button>";
+      }).join("");
+      els.topicTabs.innerHTML = html;
+      Array.prototype.slice.call(els.topicTabs.querySelectorAll(".tab")).forEach(function(node) {
+        node.addEventListener("click", function() {
+          state.selectedTopic = node.getAttribute("data-topic");
+          filterDocs();
+          renderTabs();
         });
       });
     }
 
-    function selectedRule() {
-      return (state.data?.rules || []).find(r => r.id === state.selectedId) || null;
+    function fillSelectOptions() {
+      const docs = state.data.documents || [];
+      const statuses = Array.from(new Set(docs.map(function(doc) { return doc.status; }))).sort();
+      const authorities = Array.from(new Set(docs.map(function(doc) { return doc.authority; }))).sort();
+      const kinds = Array.from(new Set(docs.map(function(doc) { return doc.kind; }))).sort();
+      const seasons = Array.from(new Set(docs.map(function(doc) { return String(doc.effective_from_season || ""); }).filter(Boolean))).sort().reverse();
+
+      function fill(select, values, formatter) {
+        const current = select.value;
+        select.innerHTML = select.querySelector("option") ? select.querySelector("option").outerHTML : "";
+        values.forEach(function(value) {
+          const option = document.createElement("option");
+          option.value = value;
+          option.textContent = formatter ? formatter(value) : value;
+          select.appendChild(option);
+        });
+        select.value = current;
+      }
+
+      fill(els.status, statuses, statusLabel);
+      fill(els.authority, authorities, function(value) { return value.replace(/_/g, " "); });
+      fill(els.kind, kinds, function(value) { return value.replace(/_/g, " "); });
+      fill(els.season, seasons, function(value) { return value; });
+    }
+
+    function renderSummary() {
+      els.resultSummary.textContent = state.filtered.length + " document" + (state.filtered.length === 1 ? "" : "s") +
+        " in " + state.selectedTopic;
+      const doc = selectedDoc();
+      els.selectionSummary.textContent = doc ? (doc.subcategory + " · " + (seasonLabel(doc) || "No season")) : "";
+    }
+
+    function badgeHtml(doc) {
+      return [
+        '<span class="badge status-' + esc(doc.status) + '">' + esc(statusLabel(doc.status)) + '</span>',
+        '<span class="badge auth-' + esc(doc.authority) + '">' + esc(doc.authority.replace(/_/g, " ")) + '</span>'
+      ].join("");
+    }
+
+    function renderRail() {
+      if (!state.filtered.length) {
+        els.docRail.innerHTML = '<div class="empty">No documents match the current tab and filters.</div>';
+        return;
+      }
+      const html = state.filtered.map(function(doc) {
+        const active = doc.id === state.selectedId ? "active" : "";
+        return '<div class="doc-card ' + active + '" data-id="' + esc(doc.id) + '">' +
+          '<div class="doc-id">' + esc(doc.id) + '</div>' +
+          '<div class="doc-title">' + esc(doc.title) + '</div>' +
+          '<div class="doc-meta">' + esc(doc.subcategory || doc.topic) + '</div>' +
+          '<div class="doc-meta">' + esc(doc.summary || "") + '</div>' +
+          '<div class="badge-row">' + badgeHtml(doc) + '</div>' +
+          '</div>';
+      }).join("");
+      els.docRail.innerHTML = html;
+      Array.prototype.slice.call(els.docRail.querySelectorAll(".doc-card")).forEach(function(node) {
+        node.addEventListener("click", function() {
+          state.selectedId = node.getAttribute("data-id");
+          writeStateToUrl();
+          renderRail();
+          renderDetail();
+          renderSummary();
+        });
+      });
+    }
+
+    function renderComparisonCards(cards) {
+      if (!cards || !cards.length) return "";
+      const html = cards.map(function(card) {
+        return '<div class="comparison-card">' +
+          '<h4>' + esc(card.label || "Comparison") + '</h4>' +
+          '<div class="example-block"><div class="example-label">Platform Setting</div><div>' + esc(card.platform_setting || "") + '</div></div>' +
+          '<div class="example-block"><div class="example-label">Written Rule</div><div>' + esc(card.written_rule || "") + '</div></div>' +
+          '<div class="example-block"><div class="example-label">Status</div><div>' + esc(card.status || "") + '</div></div>' +
+          '</div>';
+      }).join("");
+      return '<div class="grid-2">' + html + '</div>';
+    }
+
+    function renderTableRows(rows) {
+      if (!rows || !rows.length) return "";
+      let columns;
+      if (rows[0].event != null) {
+        columns = [
+          ["positions", "Positions"],
+          ["event", "Event"],
+          ["range", "Range"],
+          ["points", "Points"],
+          ["short_description", "Description"]
+        ];
+      } else {
+        columns = [
+          ["position", "Position"],
+          ["limit", "Limit"]
+        ];
+      }
+      const head = columns.map(function(col) { return "<th>" + esc(col[1]) + "</th>"; }).join("");
+      const body = rows.map(function(row) {
+        return "<tr>" + columns.map(function(col) {
+          return "<td>" + esc(row[col[0]] || "") + "</td>";
+        }).join("") + "</tr>";
+      }).join("");
+      return '<div class="table-wrap"><table><thead><tr>' + head + '</tr></thead><tbody>' + body + '</tbody></table></div>';
+    }
+
+    function renderExamples(doc) {
+      const ids = doc.example_ids || [];
+      const examples = ids.map(function(id) { return state.docsById.get(id); }).filter(Boolean);
+      if (!examples.length) return "";
+      const html = examples.map(function(example) {
+        const sections = example.example_sections || {};
+        let blocks = "";
+        ["Scenario", "Inputs", "Calculation", "Outcome", "Why it matters"].forEach(function(key) {
+          if (!sections[key]) return;
+          blocks += '<div class="example-block"><div class="example-label">' + esc(key) + '</div><div class="rich">' + mdToHtml(sections[key]) + '</div></div>';
+        });
+        return '<div class="example-card">' +
+          '<h4>' + esc(example.title) + '</h4>' +
+          blocks +
+          '</div>';
+      }).join("");
+      return '<div class="grid-2">' + html + '</div>';
+    }
+
+    function renderLinks(ids) {
+      const docs = (ids || []).map(function(id) { return state.docsById.get(id); }).filter(Boolean);
+      if (!docs.length) return "";
+      const html = docs.map(function(doc) {
+        return '<button class="link-btn" data-jump="' + esc(doc.id) + '">' + esc(doc.title) + '</button>';
+      }).join("");
+      return '<div class="link-list">' + html + '</div>';
+    }
+
+    function renderSources(doc) {
+      const refs = doc.source_refs || [];
+      if (!refs.length) return '<div class="summary-box">No source references recorded for this document.</div>';
+      return refs.map(function(ref) {
+        return '<div class="source-item">' +
+          '<div class="example-label">' + esc(ref.source_kind || "Source") + '</div>' +
+          '<div class="source-path">' + esc(ref.path_or_url || "") + '</div>' +
+          '<div class="doc-meta">Season: ' + esc(ref.season || "n/a") + ' · Confidence: ' + esc(ref.confidence != null ? ref.confidence : "") + '</div>' +
+          '<div style="margin-top:6px;">' + esc(ref.excerpt || "") + '</div>' +
+          '</div>';
+      }).join("");
     }
 
     function renderDetail() {
-      const r = selectedRule();
-      if (!r) {
-        els.ruleDetail.innerHTML = '<p>No rule selected.</p>';
+      const doc = selectedDoc();
+      if (!doc) {
+        els.docDetail.innerHTML = '<div class="empty">Select a document to view details.</div>';
         return;
       }
-      const tags = (r.tags || []).map(t => `<span class="pill">${esc(t)}</span>`).join('');
-      els.ruleDetail.innerHTML = `
-        <div class="rule-id">${esc(r.id)}</div>
-        <h2 style="margin:6px 0 6px;">${esc(r.title)}</h2>
-        <div class="rule-meta" style="margin-bottom:8px;">${esc(r.category)}</div>
-        <div>${tags}</div>
-        <p style="line-height:1.55; margin-top:10px; white-space: pre-line;">${esc(r.body)}</p>
-        <div class="actions">
-          <button class="btn alt" id="btnThought">Submit Thought</button>
-          <button class="btn primary" id="btnChange">Suggest Change</button>
-        </div>`;
 
-      document.getElementById('btnThought').addEventListener('click', () => openFeedbackModal('thought'));
-      document.getElementById('btnChange').addEventListener('click', () => openFeedbackModal('change'));
+      const relatedIds = (doc.related_ids || []).filter(function(id) {
+        return state.docsById.has(id) && !(doc.example_ids || []).includes(id);
+      });
+      const historicalIds = (doc.historical_note_ids || []).filter(function(id) { return state.docsById.has(id); });
+      const openIds = (doc.open_item_ids || []).filter(function(id) { return state.docsById.has(id); });
+
+      const sections = [];
+      if (doc.needs_confirmation_reason) {
+        sections.push(
+          '<div class="section"><div class="callout warning"><strong>Needs Confirmation</strong><div style="margin-top:6px;">' +
+          esc(doc.needs_confirmation_reason) +
+          '</div>' +
+          (doc.recommended_handling ? '<div style="margin-top:10px;"><strong>Recommended handling:</strong> ' + esc(doc.recommended_handling) + '</div>' : '') +
+          '</div></div>'
+        );
+      }
+      sections.push(
+        '<div class="section"><h3>Summary</h3><div class="summary-box">' + esc(doc.summary || "") + '</div></div>'
+      );
+      sections.push(
+        '<div class="section"><h3>Rule Text</h3><div class="rich">' + mdToHtml(doc.body_md || "") + '</div></div>'
+      );
+      if (doc.workflow_refs && doc.workflow_refs.length) {
+        sections.push(
+          '<div class="section"><h3>Related Workflows</h3><div class="pill-row">' +
+          doc.workflow_refs.map(function(label) { return '<span class="pill">' + esc(label) + '</span>'; }).join("") +
+          '</div></div>'
+        );
+      }
+      if (doc.comparison_cards && doc.comparison_cards.length) {
+        sections.push('<div class="section"><h3>Platform Versus Written Rule</h3>' + renderComparisonCards(doc.comparison_cards) + '</div>');
+      }
+      if (doc.table_rows && doc.table_rows.length) {
+        sections.push('<div class="section"><h3>Structured Table</h3>' + renderTableRows(doc.table_rows) + '</div>');
+      }
+      if (doc.example_ids && doc.example_ids.length) {
+        sections.push('<div class="section"><h3>Worked Examples</h3>' + renderExamples(doc) + '</div>');
+      }
+      if (relatedIds.length) {
+        sections.push('<div class="section"><h3>Related Documents</h3>' + renderLinks(relatedIds) + '</div>');
+      }
+      if (historicalIds.length) {
+        sections.push('<div class="section"><h3>Historical Notes</h3>' + renderLinks(historicalIds) + '</div>');
+      }
+      if (openIds.length) {
+        sections.push('<div class="section"><h3>Related Open Items</h3>' + renderLinks(openIds) + '</div>');
+      }
+      sections.push('<div class="section"><h3>Source Trail</h3>' + renderSources(doc) + '</div>');
+      sections.push(
+        '<div class="actions">' +
+        '<button class="btn alt" id="btnThought">Submit Thought</button>' +
+        '<button class="btn primary" id="btnChange">Suggest Change</button>' +
+        '</div>'
+      );
+
+      els.docDetail.innerHTML =
+        '<div class="detail-head">' +
+          '<div class="doc-id">' + esc(doc.id) + '</div>' +
+          '<h2>' + esc(doc.title) + '</h2>' +
+          '<div class="detail-sub">' + esc(doc.topic) + ' · ' + esc(doc.subcategory || "") + '</div>' +
+          '<div class="badge-row" style="margin-top:10px;">' +
+            badgeHtml(doc) +
+            (seasonLabel(doc) ? '<span class="badge">' + esc(seasonLabel(doc)) + '</span>' : '') +
+          '</div>' +
+        '</div>' +
+        sections.join("");
+
+      const btnThought = document.getElementById("btnThought");
+      const btnChange = document.getElementById("btnChange");
+      if (btnThought) btnThought.addEventListener("click", function() { openFeedbackModal("thought"); });
+      if (btnChange) btnChange.addEventListener("click", function() { openFeedbackModal("change"); });
+
+      Array.prototype.slice.call(els.docDetail.querySelectorAll("[data-jump]")).forEach(function(node) {
+        node.addEventListener("click", function() {
+          const target = node.getAttribute("data-jump");
+          const jumpDoc = state.docsById.get(target);
+          if (!jumpDoc) return;
+          state.selectedTopic = jumpDoc.topic;
+          state.selectedId = jumpDoc.id;
+          renderTabs();
+          filterDocs();
+        });
+      });
     }
 
     function openFeedbackModal(type) {
-      const r = selectedRule();
-      if (!r) return;
-      state.feedbackRuleId = r.id;
+      const doc = selectedDoc();
+      if (!doc) return;
+      state.feedbackRuleId = doc.id;
       els.feedbackType.value = type;
       handleFeedbackTypeUI();
-      els.modalTitle.textContent = type === 'change' ? 'Suggest Rule Change' : 'Submit Rule Thought';
-      els.modalRuleHint.textContent = `${r.id} - ${r.title}`;
-      els.error.textContent = '';
-      els.ok.textContent = '';
-      els.modal.classList.add('show');
+      els.modalTitle.textContent = type === "change" ? "Suggest Rule Change" : "Submit Rule Thought";
+      els.modalRuleHint.textContent = doc.id + " - " + doc.title;
+      els.error.textContent = "";
+      els.ok.textContent = "";
+      els.modal.classList.add("show");
     }
 
     function closeFeedbackModal() {
-      els.modal.classList.remove('show');
+      els.modal.classList.remove("show");
       els.form.reset();
       handleFeedbackTypeUI();
-      els.error.textContent = '';
-      els.ok.textContent = '';
+      els.error.textContent = "";
+      els.ok.textContent = "";
     }
 
     function handleFeedbackTypeUI() {
-      const isChange = els.feedbackType.value === 'change';
-      els.proposedWrap.style.display = isChange ? 'block' : 'none';
-      const proposed = document.getElementById('proposedText');
+      const isChange = els.feedbackType.value === "change";
+      els.proposedWrap.style.display = isChange ? "block" : "none";
+      const proposed = document.getElementById("proposedText");
       proposed.required = isChange;
       proposed.minLength = isChange ? 30 : 0;
     }
 
     async function submitFeedback(ev) {
       ev.preventDefault();
-      els.error.textContent = '';
-      els.ok.textContent = '';
-
+      els.error.textContent = "";
+      els.ok.textContent = "";
       const payload = {
         rule_id: state.feedbackRuleId,
         feedback_type: els.feedbackType.value,
-        priority: document.getElementById('priority').value,
-        impact: document.getElementById('impact').value,
-        summary: document.getElementById('summary').value.trim(),
-        rationale: document.getElementById('rationale').value.trim(),
-        current_text_excerpt: document.getElementById('currentExcerpt').value.trim(),
-        proposed_text: document.getElementById('proposedText').value.trim(),
-        examples: document.getElementById('examples').value.trim(),
-        contact_name: document.getElementById('contactName').value.trim(),
-        contact_email: document.getElementById('contactEmail').value.trim(),
-        submitter_team: document.getElementById('submitterTeam').value.trim(),
-        wants_followup: Boolean(document.getElementById('contactEmail').value.trim()),
-        submission_format_version: 'v1'
+        priority: document.getElementById("priority").value,
+        impact: document.getElementById("impact").value,
+        summary: document.getElementById("summary").value.trim(),
+        rationale: document.getElementById("rationale").value.trim(),
+        current_text_excerpt: document.getElementById("currentExcerpt").value.trim(),
+        proposed_text: document.getElementById("proposedText").value.trim(),
+        examples: document.getElementById("examples").value.trim(),
+        contact_name: document.getElementById("contactName").value.trim(),
+        contact_email: document.getElementById("contactEmail").value.trim(),
+        submitter_team: document.getElementById("submitterTeam").value.trim(),
+        wants_followup: Boolean(document.getElementById("contactEmail").value.trim()),
+        submission_format_version: "v1"
       };
 
       try {
-        const res = await fetch(`${API_BASE}/api/rule-feedback`, {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
+        const res = await fetch((API_BASE || "") + "/api/rule-feedback", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload)
         });
         const data = await res.json();
         if (!res.ok) {
-          const err = data.errors ? data.errors.join(' ') : (data.error || 'Submission failed.');
-          els.error.textContent = err;
+          const message = data.errors ? data.errors.join(" ") : (data.error || "Submission failed.");
+          els.error.textContent = message;
           return;
         }
-        els.ok.textContent = 'Feedback submitted successfully.';
+        els.ok.textContent = "Feedback submitted successfully.";
         setTimeout(closeFeedbackModal, 900);
-      } catch (_) {
-        els.error.textContent = 'Unable to reach API endpoint.';
+      } catch (err) {
+        els.error.textContent = "Unable to reach API endpoint.";
       }
     }
 
     async function fetchRulesPayload() {
       const candidates = [];
       if (API_BASE) {
-        candidates.push(`${API_BASE}/api/rules`);
+        candidates.push(API_BASE + "/api/rules");
       } else {
-        candidates.push('/api/rules');
+        candidates.push("/api/rules");
       }
-      candidates.push(new URL('rules.json', window.location.href).toString());
-      candidates.push('./rules.json');
-      candidates.push('/rulebook/rules.json');
-      candidates.push('/services/rulebook/data/rules.json');
+      candidates.push(new URL("rules.json", window.location.href).toString());
+      candidates.push("./rules.json");
+      candidates.push("/rulebook/rules.json");
+      candidates.push("/services/rulebook/data/rules.json");
       let lastError = null;
 
       for (const url of candidates) {
         try {
-          const res = await fetch(url, { cache: 'no-store' });
-          if (!res.ok) {
-            throw new Error(`HTTP ${res.status} from ${url}`);
-          }
+          const res = await fetch(url, { cache: "no-store" });
+          if (!res.ok) throw new Error("HTTP " + res.status + " from " + url);
           return await res.json();
         } catch (err) {
           lastError = err;
         }
       }
-      if (DEFAULT_RULEBOOK_DATA.rules && DEFAULT_RULEBOOK_DATA.rules.length) {
+      if (DEFAULT_RULEBOOK_DATA.documents && DEFAULT_RULEBOOK_DATA.documents.length) {
         return DEFAULT_RULEBOOK_DATA;
       }
-      throw lastError || new Error('Unable to load rules payload');
+      throw lastError || new Error("Unable to load rules payload");
+    }
+
+    function bindFilters() {
+      els.search.addEventListener("input", function() {
+        state.filters.q = els.search.value;
+        filterDocs();
+      });
+      els.status.addEventListener("change", function() {
+        state.filters.status = els.status.value;
+        filterDocs();
+      });
+      els.authority.addEventListener("change", function() {
+        state.filters.authority = els.authority.value;
+        filterDocs();
+      });
+      els.kind.addEventListener("change", function() {
+        state.filters.kind = els.kind.value;
+        filterDocs();
+      });
+      els.season.addEventListener("change", function() {
+        state.filters.season = els.season.value;
+        filterDocs();
+      });
     }
 
     async function init() {
-      const data = await fetchRulesPayload();
+      const raw = await fetchRulesPayload();
+      const data = normalizePayload(raw);
       state.data = data;
+      buildDocMaps(data.documents);
+      setHero(data);
+      fillSelectOptions();
+      bindFilters();
 
-      const categories = [...new Set((data.rules || []).map(r => r.category))].sort();
-      categories.forEach(c => {
-        const opt = document.createElement('option');
-        opt.value = c;
-        opt.textContent = c;
-        els.category.appendChild(opt);
-      });
+      const qs = queryStateFromUrl();
+      state.selectedTopic = qs.topic;
+      state.filters.q = qs.q;
+      state.filters.status = qs.status;
+      state.filters.authority = qs.authority;
+      state.filters.kind = qs.kind;
+      state.filters.season = qs.season;
+      els.search.value = state.filters.q;
+      els.status.value = state.filters.status;
+      els.authority.value = state.filters.authority;
+      els.kind.value = state.filters.kind;
+      els.season.value = state.filters.season;
 
-      state.selectedId = (data.rules && data.rules[0]) ? data.rules[0].id : null;
-      filterRules();
+      if (qs.doc && state.docsById.has(qs.doc)) {
+        const doc = state.docsById.get(qs.doc);
+        state.selectedId = doc.id;
+        state.selectedTopic = doc.topic;
+      } else {
+        const firstTab = data.navigation && data.navigation.length ? data.navigation[0].label : "Current Rules";
+        state.selectedTopic = state.selectedTopic || firstTab;
+      }
+
+      renderTabs();
+      filterDocs();
     }
 
-    els.search.addEventListener('input', filterRules);
-    els.category.addEventListener('change', filterRules);
-    document.getElementById('cancelFeedback').addEventListener('click', closeFeedbackModal);
-    els.feedbackType.addEventListener('change', handleFeedbackTypeUI);
-    els.form.addEventListener('submit', submitFeedback);
-    els.modal.addEventListener('click', e => {
-      if (e.target === els.modal) closeFeedbackModal();
+    document.getElementById("cancelFeedback").addEventListener("click", closeFeedbackModal);
+    els.feedbackType.addEventListener("change", handleFeedbackTypeUI);
+    els.form.addEventListener("submit", submitFeedback);
+    els.modal.addEventListener("click", function(ev) {
+      if (ev.target === els.modal) closeFeedbackModal();
     });
 
-    init().catch((err) => {
-      const msg = err && err.message ? esc(err.message) : 'Unknown error';
-      els.ruleDetail.innerHTML = `<p>Unable to load rules. ${msg}</p>`;
+    init().catch(function(err) {
+      const msg = err && err.message ? err.message : "Unknown error";
+      els.docDetail.innerHTML = '<div class="empty">Unable to load rulebook data. ' + esc(msg) + "</div>";
+      els.docRail.innerHTML = '<div class="empty">No documents available.</div>';
     });
   </script>
 </body>

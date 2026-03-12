@@ -17,6 +17,7 @@ __pycache__/
 *.pyo
 *.egg-info/
 .env
+.pytest_cache/
 
 # IDE
 .vscode/
@@ -34,3 +35,4 @@ node_modules/
 
 # Local-only Claude tooling
 .claude/
+.codex_tmp/

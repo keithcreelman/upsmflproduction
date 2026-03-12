@@ -1,0 +1,251 @@
+{
+  "meta": {
+    "generated_at_utc": "2026-03-11T23:42:12Z",
+    "methodology_version": "rookie_value_score_v1",
+    "canonical_weekly_classification_model": "roster_bucket_v1",
+    "legacy_weekly_classification_model": "legacy_week_flags_v1",
+    "canonical_weekly_classification_start_season": 2020,
+    "registry_paths": {
+      "json": "docs/calculations/acquisition_value_score_registry.json",
+      "markdown": "docs/calculations/acquisition_value_score_registry.md"
+    },
+    "scope": [
+      "canonical weekly bucket calculations",
+      "acquisition value score component calculations",
+      "pick-bucket expectation and ROI calculations",
+      "legacy fallback rules"
+    ]
+  },
+  "entries": [
+    {
+      "id": "canonical_pos_week_score_v1",
+      "output_fields": [
+        "pos_week_score"
+      ],
+      "formula": "(score - median_starter_score) / delta_win_pos when score, median_starter_score, and delta_win_pos are available and delta_win_pos > 0; otherwise fall back to stored_pos_week_score.",
+      "units": "normalized positional win-profile score",
+      "rounding": "Stored raw in memory; rounded to 3 decimals in roster history weekly rows.",
+      "denominator": "delta_win_pos",
+      "source_tables": [
+        "player_weeklyscoringresults",
+        "metadata_weeklypositionalbaselines",
+        "metadata_positionalwinprofile"
+      ],
+      "upstream_dependencies": [
+        "score",
+        "median_starter_score",
+        "delta_win_pos",
+        "stored_pos_week_score"
+      ],
+      "consumer_artifacts": [
+        "site/rosters/player_points_history.json",
+        "site/acquisition/rookie_draft_history.json"
+      ],
+      "source_file": "pipelines/etl/lib/weekly_classification.py",
+      "source_function": "compute_pos_week_score",
+      "season_availability": "Canonical where positional baseline metadata exists. Full coverage begins in 2020 for the current rookie-history window.",
+      "fallback_behavior": "Use stored_pos_week_score when metadata inputs are missing or invalid. Return null when neither computed nor stored score is available.",
+      "canonical": true
+    },
+    {
+      "id": "canonical_pos_bucket_v1",
+      "output_fields": [
+        "pos_bucket",
+        "bucket_label"
+      ],
+      "formula": "elite if pos_week_score >= 1.0; plus if pos_week_score >= 0.25; neutral if pos_week_score >= -0.5; otherwise dud.",
+      "units": "bucket code and label",
+      "rounding": "No rounding beyond upstream pos_week_score handling.",
+      "denominator": "none",
+      "source_tables": [
+        "player_weeklyscoringresults",
+        "metadata_weeklypositionalbaselines",
+        "metadata_positionalwinprofile"
+      ],
+      "upstream_dependencies": [
+        "pos_week_score"
+      ],
+      "consumer_artifacts": [
+        "site/rosters/player_points_history.json",
+        "site/acquisition/rookie_draft_history.json"
+      ],
+      "source_file": "pipelines/etl/lib/weekly_classification.py",
+      "source_function": "pos_bucket_code",
+      "season_availability": "Canonical where positional baseline metadata exists. Full coverage begins in 2020 for the current rookie-history window.",
+      "fallback_behavior": "Return null when pos_week_score is unavailable.",
+      "canonical": true
+    },
+    {
+      "id": "canonical_rookie_weekly_rates_v1",
+      "output_fields": [
+        "classified_weeks_3yr",
+        "elite_weeks",
+        "dud_weeks",
+        "non_dud_weeks",
+        "elite_week_rate",
+        "dud_week_rate",
+        "non_dud_rate"
+      ],
+      "formula": "Across rookie season + next 2 seasons, classified_weeks_3yr is the count of weekly rows with a canonical pos_bucket. elite_weeks counts elite buckets. dud_weeks counts dud buckets. non_dud_weeks = classified_weeks_3yr - dud_weeks. elite_week_rate = elite_weeks / classified_weeks_3yr. dud_week_rate = dud_weeks / classified_weeks_3yr. Stored non_dud_rate is derived from the same rounded dud_week_rate as 1 - dud_week_rate so the published rates remain internally consistent.",
+      "units": "weeks and rates",
+      "rounding": "Counts stored as integers. Rates rounded to 2 decimals in acquisition history.",
+      "denominator": "classified_weeks_3yr",
+      "source_tables": [
+        "player_weeklyscoringresults",
+        "metadata_weeklypositionalbaselines",
+        "metadata_positionalwinprofile"
+      ],
+      "upstream_dependencies": [
+        "pos_bucket",
+        "season",
+        "player_id"
+      ],
+      "consumer_artifacts": [
+        "site/acquisition/rookie_draft_history.json"
+      ],
+      "source_file": "pipelines/etl/scripts/build_acquisition_hub_artifacts.py",
+      "source_function": "build_rookie_history",
+      "season_availability": "2020+ rookie classes",
+      "fallback_behavior": "Use legacy_week_flags_v1 for pre-2020 rookie classes.",
+      "canonical": true
+    },
+    {
+      "id": "legacy_rookie_week_flags_v1",
+      "output_fields": [
+        "classified_weeks_3yr",
+        "elite_weeks",
+        "non_dud_weeks",
+        "elite_week_rate",
+        "non_dud_rate",
+        "weekly_classification_model",
+        "weekly_classification_is_legacy"
+      ],
+      "formula": "Across rookie season + next 2 seasons, classified_weeks_3yr is total weekly games. elite_weeks sums legacy elite_week flags. non_dud_weeks sums legacy winning_week flags. Rates divide each count by classified_weeks_3yr when the denominator is > 0, else 0.",
+      "units": "weeks and rates",
+      "rounding": "Counts stored as integers. Rates rounded to 2 decimals in acquisition history.",
+      "denominator": "classified_weeks_3yr",
+      "source_tables": [
+        "player_weeklyscoringresults"
+      ],
+      "upstream_dependencies": [
+        "elite_week",
+        "winning_week",
+        "season",
+        "player_id"
+      ],
+      "consumer_artifacts": [
+        "site/acquisition/rookie_draft_history.json"
+      ],
+      "source_file": "pipelines/etl/scripts/build_acquisition_hub_artifacts.py",
+      "source_function": "build_rookie_history",
+      "season_availability": "2013-2019 rookie classes",
+      "fallback_behavior": "dud_weeks and dud_week_rate remain null because canonical dud data is unavailable.",
+      "canonical": false
+    },
+    {
+      "id": "rookie_pick_bucket_v1",
+      "output_fields": [
+        "pick_bucket"
+      ],
+      "formula": "Bucket overall rookie picks into 6-pick ranges: 01-06, 07-12, 13-18, and so on.",
+      "units": "string label",
+      "rounding": "Zero-padded integer labels.",
+      "denominator": "none",
+      "source_tables": [
+        "View_RookieDraft"
+      ],
+      "upstream_dependencies": [
+        "pick_overall"
+      ],
+      "consumer_artifacts": [
+        "site/acquisition/rookie_draft_history.json"
+      ],
+      "source_file": "pipelines/etl/scripts/build_acquisition_hub_artifacts.py",
+      "source_function": "build_rookie_history",
+      "season_availability": "All rookie history rows",
+      "fallback_behavior": "Minimum pick_overall defaults to 1.",
+      "canonical": true
+    },
+    {
+      "id": "rookie_expected_points_3yr_v1",
+      "output_fields": [
+        "expected_points_3yr"
+      ],
+      "formula": "Median points_rookiecontract for all rows in the same pick_bucket.",
+      "units": "fantasy points over first 3 years",
+      "rounding": "Rounded to 2 decimals in acquisition history.",
+      "denominator": "pick_bucket sample size",
+      "source_tables": [
+        "View_RookieDraft"
+      ],
+      "upstream_dependencies": [
+        "pick_bucket",
+        "points_rookiecontract"
+      ],
+      "consumer_artifacts": [
+        "site/acquisition/rookie_draft_history.json"
+      ],
+      "source_file": "pipelines/etl/scripts/build_acquisition_hub_artifacts.py",
+      "source_function": "build_rookie_history",
+      "season_availability": "All rookie history rows",
+      "fallback_behavior": "0.0 when a bucket has no values.",
+      "canonical": true
+    },
+    {
+      "id": "rookie_roi_score_v1",
+      "output_fields": [
+        "roi_score"
+      ],
+      "formula": "points_rookiecontract - expected_points_3yr",
+      "units": "fantasy points over expectation",
+      "rounding": "Rounded to 2 decimals in acquisition history.",
+      "denominator": "none",
+      "source_tables": [
+        "View_RookieDraft"
+      ],
+      "upstream_dependencies": [
+        "points_rookiecontract",
+        "expected_points_3yr"
+      ],
+      "consumer_artifacts": [
+        "site/acquisition/rookie_draft_history.json"
+      ],
+      "source_file": "pipelines/etl/scripts/build_acquisition_hub_artifacts.py",
+      "source_function": "build_rookie_history",
+      "season_availability": "All rookie history rows",
+      "fallback_behavior": "0.0 expected_points_3yr when a bucket has no values.",
+      "canonical": true
+    },
+    {
+      "id": "rookie_value_score_v1",
+      "output_fields": [
+        "rookie_value_score"
+      ],
+      "formula": "100 * sum(component_scaled * weight) across: points_rookiecontract_scaled*0.27, elite_week_rate_scaled*0.15, non_dud_rate_scaled*0.12, starts_share_scaled*0.12, positional_value_score_scaled*0.12, overall_impact_score_scaled*0.12, roi_score_scaled*0.10",
+      "units": "0-100 composite score",
+      "rounding": "Scaled inputs stay raw floats; final score rounded to 2 decimals.",
+      "denominator": "none",
+      "source_tables": [
+        "View_RookieDraft",
+        "player_weeklyscoringresults"
+      ],
+      "upstream_dependencies": [
+        "points_rookiecontract",
+        "elite_week_rate",
+        "non_dud_rate",
+        "starts_share",
+        "positional_value_score",
+        "overall_impact_score",
+        "roi_score"
+      ],
+      "consumer_artifacts": [
+        "site/acquisition/rookie_draft_history.json"
+      ],
+      "source_file": "pipelines/etl/scripts/build_acquisition_hub_artifacts.py",
+      "source_function": "build_rookie_history",
+      "season_availability": "All rookie history rows",
+      "fallback_behavior": "Each raw component is min-max scaled by offense_defense cohort before weighting. When a cohort has no spread, non-zero values scale to 0.5 and zero values to 0.0.",
+      "canonical": true
+    }
+  ]
+}

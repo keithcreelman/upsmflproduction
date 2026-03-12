@@ -7,6 +7,7 @@ import argparse
 import json
 import os
 import sqlite3
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
@@ -15,20 +16,17 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 SCRIPT_DIR = Path(__file__).resolve().parent
 ETL_ROOT = SCRIPT_DIR.parent
 ROOT_DIR = ETL_ROOT.parent.parent
+if str(ETL_ROOT) not in sys.path:
+    sys.path.insert(0, str(ETL_ROOT))
+
+from lib.weekly_classification import (  # noqa: E402
+    POS_BUCKET_CODE_TO_LABEL,
+    compute_pos_week_score,
+    pos_bucket_code,
+)
+
 DEFAULT_DB_PATH = os.getenv("MFL_DB_PATH", str(ETL_ROOT / "data" / "mfl_database.db"))
 DEFAULT_OUT_PATH = ROOT_DIR / "site" / "rosters" / "player_points_history.json"
-
-POS_BUCKET_DUD = 0
-POS_BUCKET_NEUTRAL = 1
-POS_BUCKET_PLUS = 2
-POS_BUCKET_ELITE = 3
-
-POS_BUCKET_CODE_TO_LABEL = {
-    POS_BUCKET_DUD: "dud",
-    POS_BUCKET_NEUTRAL: "neutral",
-    POS_BUCKET_PLUS: "plus",
-    POS_BUCKET_ELITE: "elite",
-}
 
 POS_ROLLUP_SPLITS = ("all", "started", "benched")
 POS_ROLLUP_COUNT_ORDER = ("elite", "plus", "neutral", "dud")
@@ -81,47 +79,6 @@ def safe_float(value: Any, default: float = 0.0) -> float:
 
 def safe_str(value: Any) -> str:
     return "" if value is None else str(value).strip()
-
-
-def parse_float(value: Any) -> Optional[float]:
-    try:
-        if value is None:
-            return None
-        text = str(value).strip()
-        if not text:
-            return None
-        return float(text)
-    except (TypeError, ValueError):
-        return None
-
-
-def compute_pos_week_score(
-    score: Any,
-    median_starter_score: Any,
-    season_delta: Any,
-    stored_score: Any = None,
-) -> Optional[float]:
-    # Align reconstructed benched-week scores to the persisted starter score scale.
-    score_value = parse_float(score)
-    baseline_value = parse_float(median_starter_score)
-    if score_value is None or baseline_value is None:
-        return parse_float(stored_score)
-    season_delta_value = parse_float(season_delta)
-    if season_delta_value is None or season_delta_value <= 0:
-        return parse_float(stored_score)
-    return (score_value - baseline_value) / season_delta_value
-
-
-def pos_bucket_code(score: Optional[float]) -> Optional[int]:
-    if score is None:
-        return None
-    if score >= 1.0:
-        return POS_BUCKET_ELITE
-    if score >= 0.25:
-        return POS_BUCKET_PLUS
-    if score >= -0.5:
-        return POS_BUCKET_NEUTRAL
-    return POS_BUCKET_DUD
 
 
 def init_pos_rollup() -> Dict[str, Any]:

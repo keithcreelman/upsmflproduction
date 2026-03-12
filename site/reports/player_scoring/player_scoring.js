@@ -889,7 +889,7 @@
         '<section class="reports-panel psr-compare-panel">' +
           '<div class="psr-compare-head">' +
             '<div>' +
-              '<p class="reports-section-kicker">Phase 4 Compare Mode</p>' +
+              '<p class="reports-section-kicker">Comparison</p>' +
               '<h3 class="psr-panel-title">Player comparison tray</h3>' +
               '<p class="reports-helper-text">' + common.escapeHtml(statusCopy) + "</p>" +
             "</div>" +
@@ -1304,7 +1304,7 @@
       ctx.root.innerHTML =
         '<section class="reports-panel psr-summary-panel">' +
           '<div class="psr-summary-copy">' +
-            '<p class="reports-section-kicker">Phase 4 Report</p>' +
+            '<p class="reports-section-kicker">Player Research</p>' +
             '<h3>Player scoring research table</h3>' +
             '<p class="reports-helper-text">Player-first analytics with configurable weekly classification, lightweight trend strips, expandable weekly detail, side-by-side comparison mode, current availability context, and exportable filtered results.</p>' +
           '</div>' +

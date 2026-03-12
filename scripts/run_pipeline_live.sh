@@ -16,6 +16,8 @@ export MFL_ETL_ARTIFACT_DIR="${MFL_ETL_ARTIFACT_DIR:-$ETL_DIR/artifacts}"
 export MFL_TAG_TRACKING_JSON="${MFL_TAG_TRACKING_JSON:-$ETL_DIR/inputs/tag_tracking.json}"
 export MFL_TAG_EXCLUSIONS_JSON="${MFL_TAG_EXCLUSIONS_JSON:-$ETL_DIR/inputs/tagging_2026_exclusions.json}"
 export MFL_SALARY_ADJUSTMENTS_URL="${MFL_SALARY_ADJUSTMENTS_URL:-}"
+export MFL_SALARY_ADJUSTMENTS_REQUIRE_LIVE_DROP_FEED="${MFL_SALARY_ADJUSTMENTS_REQUIRE_LIVE_DROP_FEED:-1}"
+export MFL_SALARY_ADJUSTMENTS_ALLOW_SNAPSHOT_FALLBACK="${MFL_SALARY_ADJUSTMENTS_ALLOW_SNAPSHOT_FALLBACK:-1}"
 export MFL_PLAYER_SCORING_REPORT_OUT_DIR="${MFL_PLAYER_SCORING_REPORT_OUT_DIR:-$ROOT_DIR/site/reports/player_scoring}"
 export MFL_PLAYER_SCORING_REPORT_SQL_PATH="${MFL_PLAYER_SCORING_REPORT_SQL_PATH:-$ROOT_DIR/site/reports/player_scoring/player_scoring_sql.sql}"
 export MFL_PLAYER_SCORING_REPORT_MIN_SEASON="${MFL_PLAYER_SCORING_REPORT_MIN_SEASON:-}"
@@ -43,6 +45,8 @@ SALARY_ADJUSTMENTS_REPORT_ARGS=(
   --db-path "$MFL_DB_PATH"
   --out-dir "$MFL_SALARY_ADJUSTMENTS_REPORT_OUT_DIR"
   --sql-path "$MFL_SALARY_ADJUSTMENTS_REPORT_SQL_PATH"
+  --require-live-drop-feed "$MFL_SALARY_ADJUSTMENTS_REQUIRE_LIVE_DROP_FEED"
+  --allow-snapshot-fallback "$MFL_SALARY_ADJUSTMENTS_ALLOW_SNAPSHOT_FALLBACK"
 )
 if [[ -n "$MFL_SALARY_ADJUSTMENTS_REPORT_MIN_SEASON" ]]; then
   SALARY_ADJUSTMENTS_REPORT_ARGS+=(--min-season "$MFL_SALARY_ADJUSTMENTS_REPORT_MIN_SEASON")
@@ -63,6 +67,8 @@ python3 "$SCRIPT_DIR/repair_rosters_current_rollforward.py" --db-path "$MFL_DB_P
 python3 "$SCRIPT_DIR/repair_extension_previews_from_current_extensions.py" --db-path "$MFL_DB_PATH" --base-season 2025 --target-season 2026
 python3 "$SCRIPT_DIR/export_extension_previews_json.py" --db-path "$MFL_DB_PATH" --season 2026 --out-path "$ROOT_DIR/site/trades/extension_previews_2026.json"
 python3 "$SCRIPT_DIR/build_roster_import_xml.py" --in-csv "$MFL_ETL_ARTIFACT_DIR/mfl_roster_import_2026.csv" --season 2026 --db-path "$MFL_DB_PATH" --salaries-out "$MFL_ETL_ARTIFACT_DIR/mfl_roster_import_2026_salaries.xml" --rosters-out "$MFL_ETL_ARTIFACT_DIR/mfl_roster_overlay_2026.xml"
+python3 "$SCRIPT_DIR/build_contract_history_snapshots.py" --db-path "$MFL_DB_PATH" --position QB --start-season 2011 --out-dir "$ROOT_DIR/reports"
+python3 "$SCRIPT_DIR/build_contract_lineage_versions.py" --db-path "$MFL_DB_PATH" --position QB --start-season 2011 --out-dir "$ROOT_DIR/reports"
 python3 "$SCRIPT_DIR/build_standings_snapshot.py" --league-id 25625 --season 2025 --out "$ROOT_DIR/site/standings/standings_25625_2025.json"
 python3 "$SCRIPT_DIR/build_standings_snapshot.py" --league-id 25625 --season 2026 --out "$ROOT_DIR/site/standings/standings_25625_2026.json"
 python3 "$SCRIPT_DIR/build_standings_snapshot.py" --league-id 74598 --season 2025 --out "$ROOT_DIR/site/standings/standings_74598_2025.json"
@@ -76,6 +82,6 @@ python3 "$SCRIPT_DIR/build_salary_adjustments_report.py" --import-out-dir "$MFL_
 echo "==> Build Acquisition Hub artifacts"
 python3 "$SCRIPT_DIR/build_acquisition_hub_artifacts.py" --db-path "$MFL_DB_PATH" --current-season 2026 --out-dir "$ROOT_DIR/site/acquisition"
 python3 "$SCRIPT_DIR/build_tag_submissions_json.py" --db-path "$MFL_DB_PATH" --out-path "$ROOT_DIR/site/ccc/tag_submissions.json"
-python3 "$SCRIPT_DIR/build_restructure_submissions_json.py" --db-path "$MFL_DB_PATH" --out-path "$ROOT_DIR/site/ccc/restructure_submissions.json"
+python3 "$SCRIPT_DIR/build_restructure_submissions_json.py" --db-path "$MFL_DB_PATH" --out-path "$ROOT_DIR/site/rosters/contract_submissions/restructure_submissions.json"
 
 echo "Pipeline complete. Artifacts in: $MFL_ETL_ARTIFACT_DIR"

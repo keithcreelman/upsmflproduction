@@ -298,6 +298,12 @@ Arguments:
 
 All extra salary adjustments for a given league. Private league access restricted to league owners.
 
+Operational notes for the UPS site:
+
+- The live export is still read for franchise-level adjustment totals.
+- Trade and cut adjustments posted by the UPS import flow include a canonical `ref=...` token inside `explanation`.
+- Front Office treats canonical trade and cut rows as report-owned ledger entries and uses live `salaryAdjustments` export only for manual or otherwise unclassified `other` adjustments.
+
 Arguments:
 
 - `L`: League Id(required)
@@ -759,6 +765,15 @@ Arguments:
 
 XML string representing the salary adjustments. The format for this data is <salary_adjustments> <salary_adjustment franchise_id="0001" amount="5.75" explanation="$5.75 fine for being late to draft."/> <salary_adjustment franchise_id="0007" amount="-3.00" explanation="$3 credit for some reason."/> ... </salary_adjustments> For all adjustments, the franchise_id, amount and explanation fields are required and must not be empty. Use a negative amount to credit the franchise (i.e. reduce their salary). The data will always be added to the existing salary adjustments. Access Restricted: Requires cookie from league commissioner.
 
+UPS site import notes:
+
+- Static ETL output now includes `pipelines/etl/artifacts/mfl_salary_adjustments_<season>.xml`.
+- The Salary Adjustments report can also generate filtered XML client-side from selected report rows.
+- The worker exposes `POST /salary-adjustments/import` to post normalized ledger rows after de-duping against existing `salaryAdjustments` export rows by `ref=...`.
+- Canonical explanations follow this pattern so later imports can skip duplicates deterministically:
+  - trade: `UPS cap adjustment | type=trade | season=2025 | trade_id=29 | ref=trade:2025:trade2025_29:0006:-4000 | amount=-4000`
+  - cut: `UPS cap adjustment | type=cut | season=2026 | player=Player Name | ref=cut:2026:adddrop2025_624.1:0008:39750 | amount=39750`
+
 Arguments:
 
 - `L`: League Id(required)
@@ -841,4 +856,3 @@ Arguments:
 - `L`: League Id(required)
 - `PICK`: Survivor pick, the MyFantasyLeague.com 3-letter NFL abbreviation (required).
 - `FRANCHISE_ID`: When called by the Commissioner, you must pass this parameter to indicate on which franchise behalf to do the request.
-

@@ -1,0 +1,196 @@
+{
+  "generated_at_utc": "2026-03-12T00:18:00+00:00",
+  "current_season": 2026,
+  "all_rules_url": "https://api.myfantasyleague.com/2026/export?TYPE=allRules",
+  "seasons": [
+    {
+      "season": "2010",
+      "base_url": "https://www45.myfantasyleague.com",
+      "league_id": "60671",
+      "source": "league_settings.csv",
+      "files": {
+        "league.xml": "/Users/keithcreelman/Documents/New project/services/rulebook/sources/generated/mfl/2010/league.xml",
+        "rules.xml": "/Users/keithcreelman/Documents/New project/services/rulebook/sources/generated/mfl/2010/rules.xml"
+      },
+      "warnings": []
+    },
+    {
+      "season": "2011",
+      "base_url": "https://www46.myfantasyleague.com",
+      "league_id": "40832",
+      "source": "league_settings.csv",
+      "files": {
+        "league.xml": "/Users/keithcreelman/Documents/New project/services/rulebook/sources/generated/mfl/2011/league.xml",
+        "rules.xml": "/Users/keithcreelman/Documents/New project/services/rulebook/sources/generated/mfl/2011/rules.xml"
+      },
+      "warnings": []
+    },
+    {
+      "season": "2012",
+      "base_url": "https://www45.myfantasyleague.com",
+      "league_id": "37227",
+      "source": "league_settings.csv",
+      "files": {
+        "league.xml": "/Users/keithcreelman/Documents/New project/services/rulebook/sources/generated/mfl/2012/league.xml",
+        "rules.xml": "/Users/keithcreelman/Documents/New project/services/rulebook/sources/generated/mfl/2012/rules.xml"
+      },
+      "warnings": []
+    },
+    {
+      "season": "2013",
+      "base_url": "https://www46.myfantasyleague.com",
+      "league_id": "42721",
+      "source": "league_settings.csv",
+      "files": {
+        "league.xml": "/Users/keithcreelman/Documents/New project/services/rulebook/sources/generated/mfl/2013/league.xml",
+        "rules.xml": "/Users/keithcreelman/Documents/New project/services/rulebook/sources/generated/mfl/2013/rules.xml"
+      },
+      "warnings": []
+    },
+    {
+      "season": "2014",
+      "base_url": "https://www45.myfantasyleague.com",
+      "league_id": "30590",
+      "source": "league_settings.csv",
+      "files": {
+        "league.xml": "/Users/keithcreelman/Documents/New project/services/rulebook/sources/generated/mfl/2014/league.xml",
+        "rules.xml": "/Users/keithcreelman/Documents/New project/services/rulebook/sources/generated/mfl/2014/rules.xml"
+      },
+      "warnings": []
+    },
+    {
+      "season": "2015",
+      "base_url": "https://www44.myfantasyleague.com",
+      "league_id": "29015",
+      "source": "league_settings.csv",
+      "files": {
+        "league.xml": "/Users/keithcreelman/Documents/New project/services/rulebook/sources/generated/mfl/2015/league.xml",
+        "rules.xml": "/Users/keithcreelman/Documents/New project/services/rulebook/sources/generated/mfl/2015/rules.xml"
+      },
+      "warnings": []
+    },
+    {
+      "season": "2016",
+      "base_url": "https://www48.myfantasyleague.com",
+      "league_id": "27191",
+      "source": "league_settings.csv",
+      "files": {
+        "league.xml": "/Users/keithcreelman/Documents/New project/services/rulebook/sources/generated/mfl/2016/league.xml",
+        "rules.xml": "/Users/keithcreelman/Documents/New project/services/rulebook/sources/generated/mfl/2016/rules.xml"
+      },
+      "warnings": []
+    },
+    {
+      "season": "2017",
+      "base_url": "https://www48.myfantasyleague.com",
+      "league_id": "74598",
+      "source": "league_settings.csv",
+      "files": {
+        "league.xml": "/Users/keithcreelman/Documents/New project/services/rulebook/sources/generated/mfl/2017/league.xml",
+        "rules.xml": "/Users/keithcreelman/Documents/New project/services/rulebook/sources/generated/mfl/2017/rules.xml"
+      },
+      "warnings": []
+    },
+    {
+      "season": "2018",
+      "base_url": "https://www48.myfantasyleague.com",
+      "league_id": "74598",
+      "source": "league_settings.csv",
+      "files": {
+        "league.xml": "/Users/keithcreelman/Documents/New project/services/rulebook/sources/generated/mfl/2018/league.xml",
+        "rules.xml": "/Users/keithcreelman/Documents/New project/services/rulebook/sources/generated/mfl/2018/rules.xml"
+      },
+      "warnings": []
+    },
+    {
+      "season": "2019",
+      "base_url": "https://www48.myfantasyleague.com",
+      "league_id": "74598",
+      "source": "league_settings.csv",
+      "files": {
+        "league.xml": "/Users/keithcreelman/Documents/New project/services/rulebook/sources/generated/mfl/2019/league.xml",
+        "rules.xml": "/Users/keithcreelman/Documents/New project/services/rulebook/sources/generated/mfl/2019/rules.xml"
+      },
+      "warnings": []
+    },
+    {
+      "season": "2020",
+      "base_url": "https://www48.myfantasyleague.com",
+      "league_id": "74598",
+      "source": "league_settings.csv",
+      "files": {
+        "league.xml": "/Users/keithcreelman/Documents/New project/services/rulebook/sources/generated/mfl/2020/league.xml",
+        "rules.xml": "/Users/keithcreelman/Documents/New project/services/rulebook/sources/generated/mfl/2020/rules.xml"
+      },
+      "warnings": []
+    },
+    {
+      "season": "2021",
+      "base_url": "https://www48.myfantasyleague.com",
+      "league_id": "74598",
+      "source": "league_settings.csv",
+      "files": {
+        "league.xml": "/Users/keithcreelman/Documents/New project/services/rulebook/sources/generated/mfl/2021/league.xml",
+        "rules.xml": "/Users/keithcreelman/Documents/New project/services/rulebook/sources/generated/mfl/2021/rules.xml"
+      },
+      "warnings": []
+    },
+    {
+      "season": "2022",
+      "base_url": "https://www48.myfantasyleague.com",
+      "league_id": "74598",
+      "source": "league_settings.csv",
+      "files": {
+        "league.xml": "/Users/keithcreelman/Documents/New project/services/rulebook/sources/generated/mfl/2022/league.xml",
+        "rules.xml": "/Users/keithcreelman/Documents/New project/services/rulebook/sources/generated/mfl/2022/rules.xml"
+      },
+      "warnings": []
+    },
+    {
+      "season": "2023",
+      "base_url": "https://www48.myfantasyleague.com",
+      "league_id": "74598",
+      "source": "league_settings.csv",
+      "files": {
+        "league.xml": "/Users/keithcreelman/Documents/New project/services/rulebook/sources/generated/mfl/2023/league.xml",
+        "rules.xml": "/Users/keithcreelman/Documents/New project/services/rulebook/sources/generated/mfl/2023/rules.xml"
+      },
+      "warnings": []
+    },
+    {
+      "season": "2024",
+      "base_url": "https://www48.myfantasyleague.com",
+      "league_id": "74598",
+      "source": "league_settings.csv",
+      "files": {
+        "league.xml": "/Users/keithcreelman/Documents/New project/services/rulebook/sources/generated/mfl/2024/league.xml",
+        "rules.xml": "/Users/keithcreelman/Documents/New project/services/rulebook/sources/generated/mfl/2024/rules.xml"
+      },
+      "warnings": []
+    },
+    {
+      "season": "2025",
+      "base_url": "https://www48.myfantasyleague.com",
+      "league_id": "74598",
+      "source": "league_settings.csv",
+      "files": {
+        "league.xml": "/Users/keithcreelman/Documents/New project/services/rulebook/sources/generated/mfl/2025/league.xml",
+        "rules.xml": "/Users/keithcreelman/Documents/New project/services/rulebook/sources/generated/mfl/2025/rules.xml"
+      },
+      "warnings": []
+    },
+    {
+      "season": "2026",
+      "base_url": "https://www48.myfantasyleague.com",
+      "league_id": "74598",
+      "source": "current_default",
+      "files": {
+        "league.xml": "/Users/keithcreelman/Documents/New project/services/rulebook/sources/generated/mfl/2026/league.xml",
+        "rules.xml": "/Users/keithcreelman/Documents/New project/services/rulebook/sources/generated/mfl/2026/rules.xml"
+      },
+      "warnings": []
+    }
+  ],
+  "warnings": [],
+  "all_rules_file": "/Users/keithcreelman/Documents/New project/services/rulebook/sources/generated/mfl/allRules_2026.xml"
+}

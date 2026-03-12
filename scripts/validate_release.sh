@@ -10,7 +10,7 @@ if rg -n "/Users/|Desktop/MFL_Scripts" "$ROOT_DIR/pipelines/etl/scripts" "$ROOT_
 fi
 
 echo "==> Checking for embedded API keys"
-if rg -n "APIKEY=" "$ROOT_DIR/pipelines/etl/scripts" "$ROOT_DIR/services/rulebook" "$ROOT_DIR/services/mcm" "$ROOT_DIR/site" "$ROOT_DIR/worker"; then
+if rg -n "APIKEY=[A-Za-z0-9]{12,}" "$ROOT_DIR/pipelines/etl/scripts" "$ROOT_DIR/services/rulebook" "$ROOT_DIR/services/mcm" "$ROOT_DIR/site" "$ROOT_DIR/worker"; then
   echo "Found embedded API key material."
   exit 1
 fi

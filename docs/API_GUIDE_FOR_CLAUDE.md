@@ -104,6 +104,22 @@ Worker dispatches:
 - `log-mcm-nomination`
 - `log-mcm-vote`
 
+### 3.5 Salary Adjustment Import Endpoint
+
+- `POST /salary-adjustments/import`
+- Body:
+  - `league_id`
+  - `season`
+  - `rows[]`
+    - `ledger_key`
+    - `franchise_id`
+    - `amount`
+    - `import_explanation`
+- Behavior:
+  - de-dupes against existing MFL `salaryAdjustments` rows by `ref=...` token in explanation text
+  - posts remaining rows to MFL `TYPE=salaryAdj`
+  - verifies by reading back MFL `salaryAdjustments`
+
 ## 4) Rulebook API (Local/Service)
 
 Code:
@@ -181,6 +197,7 @@ Core generated artifacts:
 - MFL import XML:
   - `pipelines/etl/artifacts/mfl_roster_import_2026_salaries.xml`
   - `pipelines/etl/artifacts/mfl_roster_overlay_2026.xml`
+  - `pipelines/etl/artifacts/mfl_salary_adjustments_2026.xml`
 - CCC/standings JSON:
   - `site/ccc/player_points_history.json`
   - `site/ccc/tag_submissions.json`
@@ -203,6 +220,7 @@ Runtime examples:
 
 Common env vars:
 - `MFL_COOKIE`
+- `MFLTEST_COMMISHCOOKIE` for explicit TEST commissioner sync actions
 - `MFL_LEAGUE_ID`
 - `MFL_YEAR`
 - `MFL_APIKEY`
@@ -214,6 +232,7 @@ Common env vars:
 
 Worker secrets:
 - `MFL_COOKIE`
+- `MFLTEST_COMMISHCOOKIE`
 - `COMMISH_API_KEY`
 - `MFL_APIKEY`
 - `GITHUB_PAT`
@@ -260,4 +279,3 @@ When Claude modifies this system:
 5. Regenerate affected artifacts.
 6. Record changes in:
    - `/Users/keithcreelman/Documents/New project/docs/ai-change-log.md`
-

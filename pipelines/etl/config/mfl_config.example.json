@@ -1,6 +1,6 @@
 {
   "db": {
-    "path": "/Users/keithcreelman/Desktop/MFL_Scripts/Datastorage/mfl_database.db"
+    "path": "../data/mfl_database.db"
   },
   "defaults": {
     "start_week": 1,

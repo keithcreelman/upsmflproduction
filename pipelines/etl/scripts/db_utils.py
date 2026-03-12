@@ -4,16 +4,16 @@ from __future__ import annotations
 import os
 import sqlite3
 from contextlib import contextmanager
-from typing import Iterator, Tuple
 from datetime import datetime
+from pathlib import Path
+from typing import Iterator, Tuple
 
 # Single source of truth for DB path.
 # You can override via env var: MFL_DB_PATH=/some/where/mfl_database.db
+ETL_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_DB_PATH = os.environ.get(
     "MFL_DB_PATH",
-    os.path.expanduser(
-        "/Users/keithcreelman/Desktop/MFL_Scripts/Datastorage/mfl_database.db"
-    ),
+    str(ETL_ROOT / "data" / "mfl_database.db"),
 )
 
 

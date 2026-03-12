@@ -301,6 +301,35 @@
   line-height: 1.5;
 }
 
+.sar-select-col,
+.sar-select-cell {
+  width: 44px;
+  text-align: center;
+}
+
+.sar-row-nonimportable {
+  opacity: 0.72;
+}
+
+.sar-card-select {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sar-import-notice {
+  margin: 0;
+  font-weight: 700;
+}
+
+.sar-import-notice.is-success {
+  color: #1e6a48;
+}
+
+.sar-import-notice.is-error {
+  color: #9b2c2c;
+}
+
 @media (max-width: 980px) {
   .sar-summary-grid,
   .sar-filter-grid {

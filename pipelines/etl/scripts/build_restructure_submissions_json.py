@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build historical restructure submissions JSON for CCC submitted view."""
+"""Build historical restructure submissions JSON for Front Office submitted view."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from db_utils import DEFAULT_DB_PATH, get_conn
 
 
 ROOT_DIR = Path(__file__).resolve().parents[3]
-DEFAULT_OUT_PATH = ROOT_DIR / "site" / "ccc" / "restructure_submissions.json"
+DEFAULT_OUT_PATH = ROOT_DIR / "site" / "rosters" / "contract_submissions" / "restructure_submissions.json"
 
 
 def safe_str(v: Any) -> str:

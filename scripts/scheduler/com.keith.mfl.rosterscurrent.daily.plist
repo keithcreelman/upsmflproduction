@@ -7,13 +7,13 @@
 
   <key>ProgramArguments</key>
   <array>
-    <string>/Library/Frameworks/Python.framework/Versions/3.12/bin/python3</string>
-    <string>/Users/keithcreelman/Documents/New project/etl/mfl_etl_full/loadrosterscurrent</string>
+    <string>__PYTHON_BIN__</string>
+    <string>__REPO_ROOT__/etl/mfl_etl_full/loadrosterscurrent</string>
     <string>--daily-midnight</string>
   </array>
 
   <key>WorkingDirectory</key>
-  <string>/Users/keithcreelman/Documents/New project/etl/mfl_etl_full</string>
+  <string>__REPO_ROOT__/etl/mfl_etl_full</string>
 
   <key>StartCalendarInterval</key>
   <dict>
@@ -24,8 +24,8 @@
   </dict>
 
   <key>StandardOutPath</key>
-  <string>/Users/keithcreelman/Documents/New project/etl/logs/rosterscurrent.daily.out.log</string>
+  <string>__REPO_ROOT__/etl/logs/rosterscurrent.daily.out.log</string>
   <key>StandardErrorPath</key>
-  <string>/Users/keithcreelman/Documents/New project/etl/logs/rosterscurrent.daily.err.log</string>
+  <string>__REPO_ROOT__/etl/logs/rosterscurrent.daily.err.log</string>
 </dict>
 </plist>

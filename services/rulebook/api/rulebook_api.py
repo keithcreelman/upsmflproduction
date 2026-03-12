@@ -5,22 +5,27 @@ import json
 import os
 import re
 import sqlite3
+import sys
 import time
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse
 
+
 SERVICE_ROOT = Path(__file__).resolve().parents[1]
-DATA_DIR = SERVICE_ROOT / "data"
-RULES_PATH = Path(os.getenv("RULEBOOK_RULES_PATH", str(DATA_DIR / "rules.json")))
-DB_PATH = Path(os.getenv("RULEBOOK_DB_PATH", str(DATA_DIR / "rule_feedback.db")))
+if str(SERVICE_ROOT) not in sys.path:
+    sys.path.insert(0, str(SERVICE_ROOT))
+
+from rulebook_core import DATA_ROOT, load_rules_ai_payload, load_rules_lookup, load_rules_payload
+
+
+DB_PATH = Path(os.getenv("RULEBOOK_DB_PATH", str(DATA_ROOT / "rule_feedback.db")))
 
 ALLOWED_FEEDBACK_TYPES = {"thought", "change"}
 ALLOWED_PRIORITIES = {"low", "normal", "high"}
 ALLOWED_IMPACT = {"none", "small", "medium", "large"}
 
-# Simple in-memory IP throttle window.
 REQUEST_WINDOW_SECONDS = 600
 MAX_SUBMISSIONS_PER_WINDOW = 6
 IP_BUCKETS = {}
@@ -34,14 +39,6 @@ def normalize_text(value):
     if value is None:
         return ""
     return str(value).strip()
-
-
-def load_rules():
-    with RULES_PATH.open("r", encoding="utf-8") as fh:
-        payload = json.load(fh)
-    rules = payload.get("rules", [])
-    rule_ids = {r["id"] for r in rules if "id" in r}
-    return payload, rule_ids
 
 
 def init_db(conn):
@@ -74,15 +71,9 @@ def init_db(conn):
         )
         """
     )
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_rule_feedback_rule_id ON rule_feedback(rule_id)"
-    )
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_rule_feedback_created_at ON rule_feedback(created_at_utc)"
-    )
-    conn.execute(
-        "CREATE UNIQUE INDEX IF NOT EXISTS idx_rule_feedback_dedupe_hash ON rule_feedback(dedupe_hash)"
-    )
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_rule_feedback_rule_id ON rule_feedback(rule_id)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_rule_feedback_created_at ON rule_feedback(created_at_utc)")
+    conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_rule_feedback_dedupe_hash ON rule_feedback(dedupe_hash)")
     conn.commit()
 
 
@@ -94,8 +85,7 @@ def is_valid_email(value):
 
 def throttle_ok(ip):
     now = int(time.time())
-    bucket = IP_BUCKETS.get(ip, [])
-    bucket = [t for t in bucket if now - t <= REQUEST_WINDOW_SECONDS]
+    bucket = [t for t in IP_BUCKETS.get(ip, []) if now - t <= REQUEST_WINDOW_SECONDS]
     if len(bucket) >= MAX_SUBMISSIONS_PER_WINDOW:
         IP_BUCKETS[ip] = bucket
         return False
@@ -106,7 +96,6 @@ def throttle_ok(ip):
 
 def validate_payload(payload, valid_rule_ids):
     errors = []
-
     rule_id = normalize_text(payload.get("rule_id"))
     feedback_type = normalize_text(payload.get("feedback_type")).lower()
     priority = normalize_text(payload.get("priority", "normal")).lower()
@@ -130,7 +119,6 @@ def validate_payload(payload, valid_rule_ids):
         errors.append("priority must be low, normal, or high.")
     if impact not in ALLOWED_IMPACT:
         errors.append("impact must be none, small, medium, or large.")
-
     if len(summary) < 15 or len(summary) > 180:
         errors.append("summary must be 15-180 characters.")
     if len(rationale) < 30 or len(rationale) > 1200:
@@ -143,13 +131,11 @@ def validate_payload(payload, valid_rule_ids):
         errors.append("contact_name max length is 80.")
     if len(submitter_team) > 80:
         errors.append("submitter_team max length is 80.")
-
     if feedback_type == "change":
         if len(proposed_text) < 30 or len(proposed_text) > 1200:
             errors.append("proposed_text must be 30-1200 chars for change submissions.")
     elif proposed_text:
         errors.append("proposed_text must be blank for thought submissions.")
-
     if not is_valid_email(contact_email):
         errors.append("contact_email is invalid.")
 
@@ -169,7 +155,6 @@ def validate_payload(payload, valid_rule_ids):
         "submitter_team": submitter_team,
         "submission_format_version": format_version,
     }
-
     return errors, canonical
 
 
@@ -179,7 +164,7 @@ def dedupe_hash(canonical):
 
 
 class RulebookHandler(BaseHTTPRequestHandler):
-    server_version = "CCCRulebook/1.0"
+    server_version = "UPSRulebook/2.1"
 
     def _send_json(self, status, payload):
         body = json.dumps(payload, ensure_ascii=True).encode("utf-8")
@@ -201,8 +186,10 @@ class RulebookHandler(BaseHTTPRequestHandler):
             self._send_json(200, {"ok": True, "time_utc": utc_now_iso()})
             return
         if parsed.path == "/api/rules":
-            payload, _ = load_rules()
-            self._send_json(200, payload)
+            self._send_json(200, load_rules_payload())
+            return
+        if parsed.path == "/api/rules/ai":
+            self._send_json(200, load_rules_ai_payload())
             return
         self._send_json(404, {"ok": False, "error": "Not found"})
 
@@ -219,95 +206,100 @@ class RulebookHandler(BaseHTTPRequestHandler):
 
         content_length = int(self.headers.get("Content-Length", "0"))
         if content_length <= 0 or content_length > 65536:
-            self._send_json(400, {"ok": False, "error": "Invalid request size."})
+            self._send_json(400, {"ok": False, "error": "Invalid Content-Length."})
             return
 
+        raw = self.rfile.read(content_length)
         try:
-            payload = json.loads(self.rfile.read(content_length).decode("utf-8"))
+            payload = json.loads(raw.decode("utf-8"))
         except Exception:
             self._send_json(400, {"ok": False, "error": "Invalid JSON payload."})
             return
 
-        rules_payload, rule_ids = load_rules()
-        rule_lookup = {r["id"]: r for r in rules_payload.get("rules", []) if "id" in r}
-        errors, canonical = validate_payload(payload, rule_ids)
+        _, valid_rule_ids, lookup = load_rules_lookup()
+        errors, canonical = validate_payload(payload, valid_rule_ids)
         if errors:
             self._send_json(400, {"ok": False, "errors": errors})
             return
 
-        digest = dedupe_hash(canonical)
-        created_at_utc = utc_now_iso()
-        ua = normalize_text(self.headers.get("User-Agent"))
+        submission_hash = dedupe_hash(canonical)
+        rule = lookup.get(canonical["rule_id"], {})
+        record = {
+            "created_at_utc": utc_now_iso(),
+            "source_ip": remote_ip,
+            "user_agent": self.headers.get("User-Agent", ""),
+            "rule_id": canonical["rule_id"],
+            "rule_category": rule.get("subcategory", ""),
+            "rule_title": rule.get("title", ""),
+            "feedback_type": canonical["feedback_type"],
+            "priority": canonical["priority"],
+            "impact": canonical["impact"],
+            "summary": canonical["summary"],
+            "rationale": canonical["rationale"],
+            "current_text_excerpt": canonical["current_text_excerpt"],
+            "proposed_text": canonical["proposed_text"],
+            "examples": canonical["examples"],
+            "contact_name": canonical["contact_name"],
+            "contact_email": canonical["contact_email"],
+            "wants_followup": 1 if canonical["wants_followup"] else 0,
+            "submitter_team": canonical["submitter_team"],
+            "submission_format_version": canonical["submission_format_version"],
+            "payload_json": json.dumps(canonical, ensure_ascii=True),
+            "dedupe_hash": submission_hash,
+        }
 
-        rule_meta = rule_lookup.get(canonical["rule_id"], {})
-        DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-        conn = sqlite3.connect(DB_PATH)
         try:
-            init_db(conn)
-            conn.execute(
-                """
-                INSERT INTO rule_feedback (
-                  created_at_utc, source_ip, user_agent, rule_id, rule_category, rule_title,
-                  feedback_type, priority, impact, summary, rationale, current_text_excerpt,
-                  proposed_text, examples, contact_name, contact_email, wants_followup,
-                  submitter_team, status, submission_format_version, payload_json, dedupe_hash
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'new', ?, ?, ?)
-                """,
-                (
-                    created_at_utc,
-                    remote_ip,
-                    ua,
-                    canonical["rule_id"],
-                    normalize_text(rule_meta.get("category")),
-                    normalize_text(rule_meta.get("title")),
-                    canonical["feedback_type"],
-                    canonical["priority"],
-                    canonical["impact"],
-                    canonical["summary"],
-                    canonical["rationale"],
-                    canonical["current_text_excerpt"],
-                    canonical["proposed_text"],
-                    canonical["examples"],
-                    canonical["contact_name"],
-                    canonical["contact_email"],
-                    1 if canonical["wants_followup"] else 0,
-                    canonical["submitter_team"],
-                    canonical["submission_format_version"],
-                    json.dumps(canonical, sort_keys=True, ensure_ascii=True),
-                    digest,
-                ),
-            )
-            conn.commit()
+            with sqlite3.connect(DB_PATH) as conn:
+                init_db(conn)
+                conn.execute(
+                    """
+                    INSERT INTO rule_feedback (
+                      created_at_utc, source_ip, user_agent, rule_id, rule_category, rule_title,
+                      feedback_type, priority, impact, summary, rationale, current_text_excerpt,
+                      proposed_text, examples, contact_name, contact_email, wants_followup,
+                      submitter_team, submission_format_version, payload_json, dedupe_hash
+                    ) VALUES (
+                      :created_at_utc, :source_ip, :user_agent, :rule_id, :rule_category, :rule_title,
+                      :feedback_type, :priority, :impact, :summary, :rationale, :current_text_excerpt,
+                      :proposed_text, :examples, :contact_name, :contact_email, :wants_followup,
+                      :submitter_team, :submission_format_version, :payload_json, :dedupe_hash
+                    )
+                    """,
+                    record,
+                )
+                conn.commit()
         except sqlite3.IntegrityError:
-            self._send_json(409, {"ok": False, "error": "Duplicate submission detected."})
+            self._send_json(200, {"ok": True, "deduped": True})
             return
-        finally:
-            conn.close()
+        except Exception as exc:
+            self._send_json(500, {"ok": False, "error": f"Failed to store feedback: {exc}"})
+            return
 
-        self._send_json(
-            201,
-            {
-                "ok": True,
-                "message": "Feedback submitted.",
-                "rule_id": canonical["rule_id"],
-                "feedback_type": canonical["feedback_type"],
-                "submission_format_version": canonical["submission_format_version"],
-            },
-        )
+        self._send_json(200, {"ok": True, "deduped": False})
 
 
 def run_server(host, port, cors_origin):
-    httpd = ThreadingHTTPServer((host, port), RulebookHandler)
-    httpd.cors_origin = cors_origin
-    print(f"rulebook_api listening on http://{host}:{port}")
-    httpd.serve_forever()
+    server = ThreadingHTTPServer((host, port), RulebookHandler)
+    server.cors_origin = cors_origin
+    with sqlite3.connect(DB_PATH) as conn:
+        init_db(conn)
+    print(f"Rulebook API listening on http://{host}:{port}")
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print("Shutting down...")
+    finally:
+        server.server_close()
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--host", default="127.0.0.1")
+    parser.add_argument("--port", type=int, default=8877)
+    parser.add_argument("--cors-origin", default="*")
+    args = parser.parse_args()
+    run_server(args.host, args.port, args.cors_origin)
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="CCC Rulebook API")
-    parser.add_argument("--host", default="127.0.0.1")
-    parser.add_argument("--port", type=int, default=8787)
-    parser.add_argument("--cors-origin", default="*")
-    args = parser.parse_args()
-
-    run_server(args.host, args.port, args.cors_origin)
+    main()

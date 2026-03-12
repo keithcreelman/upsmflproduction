@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<league id="74598" name="UPS Salary Cap Dynasty" rosterSize="26" injuredReserve="15" taxiSquad="9" rostersPerPlayer="1" playerLimitUnit="LEAGUE" startWeek="1" endWeek="16" lastRegularSeasonWeek="13" precision="1" h2h="Doubleheaders" tiebreakerPosition="" bbidConditional="Yes" salaryCapAmount="300000" lockout="Yes" bestLineup="No" minBid="1000" includeIRWithSalary="50" standingsSort="PCT,DIVPCT,H2H,PTS,ALL_PLAY_PCT,PWR," bidIncrement="1000" bbidMinimum="1000" mobileAlerts="" auction_kind="email" usesContractYear="1" tiebreaker="nonstarter" bbidIncrement="1000" loadRosters="email_auction" auctionStartAmount="300000" includeTaxiWithSalary="0" maxWaiverRounds="7" minKeepers="0" baseURL="https://www48.myfantasyleague.com" bbidTiebreaker="SORT" maxKeepers="23" usesSalaries="1" defaultTradeExpirationDays="4" partialLineupAllowed="SYSTEM" tiebreakerCount="1" currentWaiverType="BBID_FCFS">
+  <starters count="15" idp_starters="5">
+    <position name="QB" limit="1" />
+    <position name="RB" limit="2-4" />
+    <position name="WR" limit="2-4" />
+    <position name="TE" limit="1-3" />
+    <position name="PK" limit="1" />
+    <position name="PN" limit="1" />
+    <position name="DT+DE" limit="1-3" />
+    <position name="LB" limit="1-3" />
+    <position name="CB+S" limit="1-3" />
+  </starters>
+  <divisions count="4">
+    <division id="00" name="ICE UP SON!" />
+    <division id="01" name="LEGION OF BOOM" />
+    <division id="02" name="MAKE IT RAIN" />
+    <division id="03" name="DOG POUND 4 LIFE" />
+  </divisions>
+  <franchises count="12">
+    <franchise bbidAvailableBalance="18600.00" salaryCapAmount="" waiverSortOrder="5" logo="https://www45.myfantasyleague.com/fflnetdynamic2014/30590_franchise_icon0001.jpg" stadium="The Steel Cage" name="Ulterior Warrior" division="02" abbrev="UWar" icon="https://www45.myfantasyleague.com/fflnetdynamic2014/30590_franchise_icon0001.jpg" id="0001" />
+    <franchise name="New Franchise" stadium="Dos Hermanos" division="00" abbrev="CBP" icon="http://i1218.photobucket.com/albums/dd420/creelmank/Team%20Minis/crystalmini_zpsvgh1sdw1.png" id="0002" salaryCapAmount="" bbidAvailableBalance="17000.00" waiverSortOrder="1" logo="http://i1218.photobucket.com/albums/dd420/creelmank/Team%20Minis/crystalmini_zpsvgh1sdw1.png" />
+    <franchise icon="http://i1218.photobucket.com/albums/dd420/creelmank/grideMINI_zpspx9z7hee.png" id="0003" abbrev="GRID" division="01" stadium="Ride or Die Stadium" name="Gride" logo="http://i1218.photobucket.com/albums/dd420/creelmank/grideMINI_zpspx9z7hee.png" waiverSortOrder="7" bbidAvailableBalance="10700.00" salaryCapAmount="" />
+    <franchise logo="http://i1218.photobucket.com/albums/dd420/creelmank/PureGreatnessMINI.png" waiverSortOrder="10" bbidAvailableBalance="9500.00" salaryCapAmount="" id="0004" icon="http://i1218.photobucket.com/albums/dd420/creelmank/PureGreatnessMINI.png" abbrev="PG" division="02" stadium="Greatness Park" name="Pure Greatness" />
+    <franchise icon="http://i1218.photobucket.com/albums/dd420/creelmank/ComeonSonMINI_zpsv9qobbow.png" id="0005" abbrev="BTNH" division="02" stadium="Suck It Stadium" name="C'mon Son" logo="http://i1218.photobucket.com/albums/dd420/creelmank/ComeonSonMINI_zpsv9qobbow.png" waiverSortOrder="2" bbidAvailableBalance="28100.00" salaryCapAmount="" />
+    <franchise logo="http://i1218.photobucket.com/albums/dd420/creelmank/GoodinDaHoodMINI.png" bbidAvailableBalance="400.00" salaryCapAmount="" waiverSortOrder="12" abbrev="Hood" icon="http://i1218.photobucket.com/albums/dd420/creelmank/GoodinDaHoodMINI.png" id="0006" stadium="Spy Gate Stadium" name="Good in Da Hood" division="01" />
+    <franchise id="0007" icon="http://i1218.photobucket.com/albums/dd420/creelmank/Mobile%20Uploads/manthermini_zps4jyiqrcf.png" abbrev="SEX" division="00" stadium="NFL Combine - Lucas Oil Stadium" name="Sex Manther" logo="http://i1218.photobucket.com/albums/dd420/creelmank/Mobile%20Uploads/manthermini_zps4jyiqrcf.png" waiverSortOrder="11" bbidAvailableBalance="-900.00" salaryCapAmount="" />
+    <franchise division="03" stadium="Gordon's Way" name="Gordon Is The New Blackmon" id="0008" icon="https://www48.myfantasyleague.com/fflnetdynamic2016/27191_franchise_icon0008.png" abbrev="Gord" waiverSortOrder="3" bbidAvailableBalance="6800.00" salaryCapAmount="" logo="https://www48.myfantasyleague.com/fflnetdynamic2016/27191_franchise_logo0008.png" />
+    <franchise division="03" name="C-Town Chivalry" stadium="Camelot Stadium" id="0009" icon="http://i1218.photobucket.com/albums/dd420/creelmank/ChivalryMINI-3.png" abbrev="Chiv" waiverSortOrder="9" salaryCapAmount="" bbidAvailableBalance="-100.00" logo="http://i1218.photobucket.com/albums/dd420/creelmank/ChivalryMINI-3.png" />
+    <franchise waiverSortOrder="8" bbidAvailableBalance="17300.00" salaryCapAmount="" logo="http://i1218.photobucket.com/albums/dd420/creelmank/BombersMini.png" division="00" stadium="Bomber Stadium" name="Blake Bombers" icon="http://i1218.photobucket.com/albums/dd420/creelmank/BombersMini.png" id="0010" abbrev="Bomb" />
+    <franchise division="03" stadium="Ca$h Money" name="Cleon Ca$h" id="0011" icon="http://i1218.photobucket.com/albums/dd420/creelmank/IMG_20170907_112352_01_zpswgacbcwp.png" waiverSortOrder="4" bbidAvailableBalance="40000.00" salaryCapAmount="" logo="http://i1218.photobucket.com/albums/dd420/creelmank/IMG_20170907_112352_01_zpswgacbcwp.png" />
+    <franchise logo="http://i1218.photobucket.com/albums/dd420/creelmank/WhitePowerMini.png" bbidAvailableBalance="28500.00" salaryCapAmount="" waiverSortOrder="6" abbrev="WP" icon="http://i1218.photobucket.com/albums/dd420/creelmank/WhitePowerMini.png" id="0012" stadium="KKK Park" name="White Power" division="01" />
+  </franchises>
+  <history>
+    <league year="2017" url="https://www48.myfantasyleague.com/2017/home/74598" />
+    <league year="2010" url="https://www45.myfantasyleague.com/2010/home/60671" />
+    <league year="2011" url="https://www46.myfantasyleague.com/2011/home/40832" />
+    <league year="2012" url="https://www45.myfantasyleague.com/2012/home/37227" />
+    <league year="2013" url="https://www46.myfantasyleague.com/2013/home/42721" />
+    <league year="2014" url="https://www45.myfantasyleague.com/2014/home/30590" />
+    <league year="2015" url="https://www44.myfantasyleague.com/2015/home/29015" />
+    <league year="2016" url="https://www48.myfantasyleague.com/2016/home/27191" />
+    <league year="2018" url="http://www68.myfantasyleague.com/2018/home/74598" />
+  </history>
+</league>

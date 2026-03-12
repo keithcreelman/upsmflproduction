@@ -11,7 +11,7 @@ if [[ -f "$LIVE_ENV" ]]; then
   source "$LIVE_ENV"
 fi
 
-export MFL_DB_PATH="${MFL_DB_PATH:-/Users/keithcreelman/Desktop/MFL_Scripts/Datastorage/mfl_database.db}"
+export MFL_DB_PATH="${MFL_DB_PATH:-$ETL_DIR/data/mfl_database.db}"
 CURRENT_SEASON="${CURRENT_SEASON:-$(date +%Y)}"
 ACTIVE_MONTHS="${UPS_ACQ_ACTIVE_MONTHS:-7,8,9}"
 CURRENT_MONTH="$(date +%-m)"

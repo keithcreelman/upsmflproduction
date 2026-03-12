@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<league id="40832" name="UPS Dynasty Cap " rosterSize="23" injuredReserve="15" taxiSquad="0" rostersPerPlayer="1" playerLimitUnit="LEAGUE" startWeek="1" endWeek="16" lastRegularSeasonWeek="13" precision="1" h2h="Doubleheaders" usesSalaries="1" bestLineup="No" partialLineupAllowed="SYSTEM" baseURL="https://www46.myfantasyleague.com" nflPoolEndWeek="17" loadRosters="email_auction" nflPoolStartWeek="1" nflPoolType="Confidence" bidIncrement="1000" lockout="No" auctionStartAmount="275000" salaryCapAmount="300000" survivorPool="Yes" minKeepers="0" standingsSort="PCT,DIVPCT,PTS,H2H,PWR," defaultTradeExpirationDays="7" maxWaiverRounds="8" maxKeepers="23" survivorPoolEndWeek="17" mobileAlerts="" survivorPoolStartWeek="1" includeIRWithSalary="50" minBid="1000" usesContractYear="1" auction_kind="email">
+  <starters count="14" idp_starters="5">
+    <position name="QB" limit="1" />
+    <position name="RB" limit="1-3" />
+    <position name="WR" limit="2-4" />
+    <position name="TE" limit="1-3" />
+    <position name="PK" limit="1" />
+    <position name="PN" limit="1" />
+    <position name="DT+DE" limit="1-3" />
+    <position name="LB" limit="1-3" />
+    <position name="CB+S" limit="1-3" />
+  </starters>
+  <conferences count="2">
+    <conference id="00" name="Primetime" />
+    <conference id="01" name="Juice" />
+  </conferences>
+  <divisions count="4">
+    <division id="00" name="Straight Cash Homey" conference="00" />
+    <division id="01" name="The Ochocinco Show" conference="00" />
+    <division id="02" name="Raytorious L52" conference="01" />
+    <division id="03" name="Dog Pound 4 Life " conference="01" />
+  </divisions>
+  <franchises count="12">
+    <franchise waiverSortOrder="6" icon="https://www45.myfantasyleague.com/fflnetdynamic2012/37227_franchise_icon0001.png" logo="https://www45.myfantasyleague.com/fflnetdynamic2012/37227_franchise_icon0001.png" id="0001" abbrev="WTDD" division="01" name="Wetter than Dutch Dikes" salaryCapAmount="295000" />
+    <franchise waiverSortOrder="10" icon="https://www45.myfantasyleague.com/fflnetdynamic2010/60671_franchise_icon0001.png" division="03" logo="https://www45.myfantasyleague.com/fflnetdynamic2010/60671_franchise_icon0001.png" id="0002" salaryCapAmount="286800" name="D-Town Diddlers" />
+    <franchise division="03" logo="http://i1218.photobucket.com/albums/dd420/creelmank/fatcatsmini-2.png" id="0003" salaryCapAmount="289600" name="The Fat Cat" waiverSortOrder="3" icon="https://www46.myfantasyleague.com/fflnetdynamic2011/40832_franchise_icon0003.png" />
+    <franchise salaryCapAmount="298600" name="Pure Greatness" division="01" id="0004" logo="https://www45.myfantasyleague.com/fflnetdynamic2010/60671_franchise_icon0005.png" icon="https://www45.myfantasyleague.com/fflnetdynamic2010/60671_franchise_icon0005.png" waiverSortOrder="7" />
+    <franchise division="03" logo="https://www45.myfantasyleague.com/fflnetdynamic2010/60671_franchise_icon0002.png" id="0005" salaryCapAmount="300000" name="BTNH" waiverSortOrder="11" icon="https://www45.myfantasyleague.com/fflnetdynamic2010/60671_franchise_icon0002.png" />
+    <franchise waiverSortOrder="9" icon="https://www46.myfantasyleague.com/fflnetdynamic2011/40832_franchise_icon0006.png" logo="https://www46.myfantasyleague.com/fflnetdynamic2011/40832_franchise_logo0006.png" id="0006" division="02" name="Murray's Madmen" salaryCapAmount="300000" />
+    <franchise division="01" id="0007" logo="https://www45.myfantasyleague.com/fflnetdynamic2010/60671_franchise_icon0008.png" salaryCapAmount="276400" name="R-11" waiverSortOrder="2" icon="https://www45.myfantasyleague.com/fflnetdynamic2010/60671_franchise_icon0008.png" />
+    <franchise salaryCapAmount="290200" name="Bad Newz Kennels" division="00" id="0008" logo="https://www45.myfantasyleague.com/fflnetdynamic2010/60671_franchise_icon0007.png" icon="https://www45.myfantasyleague.com/fflnetdynamic2010/60671_franchise_icon0007.png" waiverSortOrder="5" />
+    <franchise waiverSortOrder="8" icon="https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_icon0009.png" division="02" logo="https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_icon0009.png" id="0009" salaryCapAmount="292000" name="C-Town Chivalry" />
+    <franchise division="00" id="0010" logo="https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_icon0010.png" salaryCapAmount="293400" name="Blake Bombers" waiverSortOrder="12" icon="https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_icon0010.png" />
+    <franchise icon="https://www45.myfantasyleague.com/fflnetdynamic2010/60671_franchise_icon0011.png" waiverSortOrder="1" name="The Baster" salaryCapAmount="300000" logo="https://www45.myfantasyleague.com/fflnetdynamic2010/60671_franchise_icon0011.png" id="0011" division="00" />
+    <franchise division="02" id="0012" logo="https://www45.myfantasyleague.com/fflnetdynamic2012/37227_franchise_icon0012.png" salaryCapAmount="296800" name="White Power" waiverSortOrder="4" icon="https://www45.myfantasyleague.com/fflnetdynamic2012/37227_franchise_icon0012.png" />
+  </franchises>
+  <history>
+    <league year="2011" url="https://www46.myfantasyleague.com/2011/home/40832" />
+    <league year="2010" url="https://www45.myfantasyleague.com/2010/home/60671" />
+    <league year="2012" url="http://www55.myfantasyleague.com/2012/home/37227" />
+  </history>
+</league>

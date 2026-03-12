@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<league id="42721" name="UPS Dynasty Cap " rosterSize="26" injuredReserve="15" taxiSquad="5" rostersPerPlayer="1" playerLimitUnit="LEAGUE" startWeek="1" endWeek="16" lastRegularSeasonWeek="13" precision="1" h2h="Doubleheaders" salaryCapAmount="300000" minKeepers="0" survivorPool="Yes" survivorPoolEndWeek="17" maxKeepers="23" standingsSort="PCT,DIVPCT,H2H,PTS,ALL_PLAY_PCT,PWR," defaultTradeExpirationDays="4" maxWaiverRounds="8" includeIRWithSalary="50" mobileAlerts="" survivorPoolStartWeek="1" auction_kind="email" usesContractYear="1" includeTaxiWithSalary="0" minBid="1000" usesSalaries="1" bestLineup="No" baseURL="https://www46.myfantasyleague.com" partialLineupAllowed="SYSTEM" loadRosters="email_auction" lockout="Yes" bidIncrement="1000" backupPlayers="1" auctionStartAmount="300000">
+  <starters idp_starters="5" count="14">
+    <position name="QB" limit="1" />
+    <position name="RB" limit="1-3" />
+    <position name="WR" limit="2-4" />
+    <position name="TE" limit="1-3" />
+    <position name="PK" limit="1" />
+    <position name="PN" limit="1" />
+    <position name="DT+DE" limit="1-3" />
+    <position name="LB" limit="1-3" />
+    <position name="CB+S" limit="1-3" />
+  </starters>
+  <conferences count="2">
+    <conference id="00" name="Primetime" />
+    <conference id="01" name="Juice" />
+  </conferences>
+  <divisions count="4">
+    <division id="00" name="Straight Cash Homey" conference="00" />
+    <division id="01" name="The Ochocinco Show" conference="00" />
+    <division id="02" name="Raytorious L52" conference="01" />
+    <division id="03" name="Dog Pound 4 Life " conference="01" />
+  </divisions>
+  <franchises count="12">
+    <franchise stadium="The Dutch Oven" waiverSortOrder="1" icon="https://www45.myfantasyleague.com/fflnetdynamic2012/37227_franchise_icon0001.png" id="0001" logo="https://www45.myfantasyleague.com/fflnetdynamic2012/37227_franchise_icon0001.png" division="01" abbrev="WTDD" name="Wetter than Dutch Dikes" salaryCapAmount="" />
+    <franchise icon="https://www48.myfantasyleague.com/fflnetdynamic2022/74598_franchise_icon0002.png" waiverSortOrder="12" sound="http://i1218.photobucket.com/albums/dd420/creelmank/Mobile%20Uploads/AoaNhqe3RQgYQeVfgFyj_zps8d7b1c9d.png" stadium="Krusherz Park" salaryCapAmount="" name="DBCA" abbrev="CK" division="03" logo="https://www48.myfantasyleague.com/fflnetdynamic2022/74598_franchise_icon0002.png" id="0002" />
+    <franchise id="0003" logo="https://www45.myfantasyleague.com/fflnetdynamic2012/37227_franchise_icon0003.png" division="02" name="There Can Be Only One" salaryCapAmount="" stadium="Highlander Park" waiverSortOrder="5" icon="https://www45.myfantasyleague.com/fflnetdynamic2012/37227_franchise_icon0003.png" />
+    <franchise icon="https://www45.myfantasyleague.com/fflnetdynamic2010/60671_franchise_icon0005.png" waiverSortOrder="7" stadium="Greatness Park" salaryCapAmount="" name="Pure Greatness" division="01" id="0004" logo="https://www45.myfantasyleague.com/fflnetdynamic2010/60671_franchise_icon0005.png" />
+    <franchise icon="https://www45.myfantasyleague.com/fflnetdynamic2010/60671_franchise_icon0002.png" stadium="Reefer Stadium" waiverSortOrder="2" name="BTNH" salaryCapAmount="" id="0005" logo="https://www45.myfantasyleague.com/fflnetdynamic2010/60671_franchise_icon0002.png" division="03" />
+    <franchise id="0006" logo="https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_icon0006.png" division="03" name="Good in Da Hood" salaryCapAmount="" stadium="Spy Gate Stadium" waiverSortOrder="4" icon="https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_icon0006.png" />
+    <franchise stadium="The Horseshoe" waiverSortOrder="6" icon="https://www45.myfantasyleague.com/fflnetdynamic2012/37227_franchise_icon0007.png" id="0007" logo="https://www45.myfantasyleague.com/fflnetdynamic2012/37227_franchise_icon0007.png" division="01" name="Ebners' Flow" salaryCapAmount="" />
+    <franchise division="00" logo="https://www46.myfantasyleague.com/fflnetdynamic2013/42721_franchise_logo0008.png" id="0008" salaryCapAmount="" name="Raining Bullets" waiverSortOrder="9" stadium="Bristol County Jail" icon="https://www46.myfantasyleague.com/fflnetdynamic2013/42721_franchise_icon0008.png" />
+    <franchise icon="https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_icon0009.png" waiverSortOrder="8" stadium="Camelot Stadium" salaryCapAmount="" name="C-Town Chivalry" division="02" id="0009" logo="https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_icon0009.png" />
+    <franchise logo="https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_icon0010.png" id="0010" division="00" name="Blake Bombers" salaryCapAmount="" stadium="Bomber Stadium" waiverSortOrder="10" icon="https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_icon0010.png" />
+    <franchise id="0011" logo="https://www45.myfantasyleague.com/fflnetdynamic2010/60671_franchise_icon0011.png" division="00" name="The Baster" salaryCapAmount="" stadium="Baster Field" waiverSortOrder="3" icon="https://www45.myfantasyleague.com/fflnetdynamic2010/60671_franchise_icon0011.png" />
+    <franchise stadium="KKK Park" waiverSortOrder="11" icon="https://www45.myfantasyleague.com/fflnetdynamic2012/37227_franchise_icon0012.png" id="0012" logo="https://www45.myfantasyleague.com/fflnetdynamic2012/37227_franchise_icon0012.png" division="02" name="White Power" salaryCapAmount="" />
+  </franchises>
+  <history>
+    <league year="2013" url="https://www46.myfantasyleague.com/2013/home/42721" />
+    <league year="2010" url="https://www45.myfantasyleague.com/2010/home/60671" />
+    <league year="2011" url="https://www46.myfantasyleague.com/2011/home/40832" />
+    <league year="2012" url="https://www45.myfantasyleague.com/2012/home/37227" />
+  </history>
+</league>

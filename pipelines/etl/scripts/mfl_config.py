@@ -7,7 +7,8 @@ from pathlib import Path
 from typing import Any, Dict
 
 
-FALLBACK_DB_PATH = "/Users/keithcreelman/Desktop/MFL_Scripts/Datastorage/mfl_database.db"
+ETL_ROOT = Path(__file__).resolve().parents[1]
+FALLBACK_DB_PATH = str(ETL_ROOT / "data" / "mfl_database.db")
 DEFAULT_CONFIG_FILE = Path(__file__).with_name("mfl_config.json")
 
 
@@ -59,6 +60,16 @@ def _load_json_if_present(path: Path) -> Dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def _resolve_path(value: Any, base_dir: Path) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    path = Path(text).expanduser()
+    if not path.is_absolute():
+        path = (base_dir / path).resolve()
+    return str(path)
+
+
 def load_config(config_path: str | None = None) -> MflConfig:
     """
     Load ETL config from:
@@ -69,10 +80,14 @@ def load_config(config_path: str | None = None) -> MflConfig:
     explicit_path = config_path or os.environ.get("MFL_ETL_CONFIG")
     cfg_path = Path(explicit_path).expanduser() if explicit_path else DEFAULT_CONFIG_FILE
     raw = _load_json_if_present(cfg_path)
+    configured_db_path = _resolve_path(
+        _deep_get(raw, ("db", "path"), FALLBACK_DB_PATH),
+        cfg_path.parent,
+    )
 
     db_path = os.environ.get(
         "MFL_DB_PATH",
-        _deep_get(raw, ("db", "path"), FALLBACK_DB_PATH),
+        configured_db_path,
     )
 
     timezone = str(_deep_get(raw, ("schedule", "timezone"), "America/New_York"))

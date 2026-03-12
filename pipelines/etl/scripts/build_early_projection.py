@@ -15,6 +15,11 @@ import xml.etree.ElementTree as ET
 from collections import defaultdict
 from pathlib import Path
 
+from salary_adjustments_feed import (
+    fetch_salary_adjustments as fetch_salary_adjustments_feed,
+    summarize_salary_adjustments as summarize_salary_adjustments_feed,
+)
+
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 ETL_ROOT = SCRIPT_DIR.parent
@@ -1511,11 +1516,11 @@ def main():
     salary_adjustments_feed_error = ""
     if str(args.salary_adjustments_url or "").strip():
         try:
-            feed_payload = fetch_salary_adjustments(
+            feed_payload = fetch_salary_adjustments_feed(
                 args.salary_adjustments_url,
                 timeout=max(5, int(args.salary_adjustments_timeout)),
             )
-            salary_adjustments_feed_summary = summarize_salary_adjustments(feed_payload["rows"])
+            salary_adjustments_feed_summary = summarize_salary_adjustments_feed(feed_payload["rows"])
             feed_effective = coerce_float(salary_adjustments_feed_summary.get("effective_volume")) or 0.0
             if args.salary_adjustment_volume_override is None and feed_effective > 0:
                 salary_adjustment_volume = max(float(salary_adjustment_volume), float(feed_effective))

@@ -7,10 +7,10 @@ then posts the full desired roster back to MFL.
 
 Examples:
   python3 sync_mfl_roster_membership.py --season 2026 --league-id 74598 \
-      --franchise-id 0001 --add-player-id 14860 --cookie "$MFL_COOKIE"
+      --franchise-id 0001 --add-player-id 14860 --cookie "$MFLTEST_COMMISHCOOKIE"
 
   python3 sync_mfl_roster_membership.py --season 2026 --league-id 74598 \
-      --franchise-id 0001 --remove-player-id 14860 --cookie "$MFL_COOKIE"
+      --franchise-id 0001 --remove-player-id 14860 --cookie "$MFLTEST_COMMISHCOOKIE"
 """
 
 from __future__ import annotations
@@ -61,7 +61,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--season", type=int, required=True)
     parser.add_argument("--league-id", default=os.environ.get("MFL_LEAGUE_ID", ""))
     parser.add_argument("--franchise-id", required=True)
-    parser.add_argument("--cookie", default=os.environ.get("MFL_COOKIE", ""))
+    parser.add_argument(
+        "--cookie",
+        default=os.environ.get("MFLTEST_COMMISHCOOKIE", os.environ.get("MFL_COOKIE", "")),
+    )
     parser.add_argument("--db-path", default=os.environ.get("MFL_DB_PATH", DEFAULT_DB_PATH))
     parser.add_argument("--host", default="")
     parser.add_argument("--add-player-id", action="append", default=[])
@@ -80,7 +83,7 @@ def parse_args() -> argparse.Namespace:
     if not args.league_id:
         parser.error("--league-id is required (or set MFL_LEAGUE_ID)")
     if not args.cookie:
-        parser.error("--cookie is required (or set MFL_COOKIE)")
+        parser.error("--cookie is required (or set MFLTEST_COMMISHCOOKIE)")
     if not args.add_player_id and not args.remove_player_id:
         parser.error("Specify at least one --add-player-id or --remove-player-id")
     return args

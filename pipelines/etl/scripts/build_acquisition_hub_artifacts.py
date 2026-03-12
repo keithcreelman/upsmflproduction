@@ -6,6 +6,7 @@ import json
 import math
 import os
 import sqlite3
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -13,9 +14,28 @@ from pathlib import Path
 SCRIPT_DIR = Path(__file__).resolve().parent
 ETL_ROOT = SCRIPT_DIR.parent
 REPO_ROOT = ETL_ROOT.parent.parent
+if str(ETL_ROOT) not in sys.path:
+    sys.path.insert(0, str(ETL_ROOT))
+
+from lib.calculation_registry import (  # noqa: E402
+    CALCULATION_REGISTRY_PATHS,
+    CANONICAL_WEEKLY_CLASSIFICATION_MODEL,
+    CANONICAL_WEEKLY_CLASSIFICATION_START_SEASON,
+    LEGACY_WEEKLY_CLASSIFICATION_MODEL,
+    ROOKIE_HISTORY_FLOOR_SEASON,
+    VALUE_SCORE_COMPONENTS,
+    VALUE_SCORE_METHODOLOGY_VERSION,
+)
+from lib.weekly_classification import (  # noqa: E402
+    POS_BUCKET_DUD,
+    POS_BUCKET_ELITE,
+    compute_pos_week_score,
+    pos_bucket_code,
+)
+
 DB_DEFAULT = os.getenv(
     "MFL_DB_PATH",
-    os.path.expanduser("/Users/keithcreelman/Desktop/MFL_Scripts/Datastorage/mfl_database.db"),
+    str(ETL_ROOT / "data" / "mfl_database.db"),
 )
 OUT_DIR_DEFAULT = REPO_ROOT / "site" / "acquisition"
 
@@ -137,7 +157,7 @@ def pick_label(round_value: int, pick_in_round: int) -> str:
 
 
 def build_rookie_history(conn: sqlite3.Connection, current_season: int, history_seasons: int):
-    min_season = current_season - max(history_seasons, 3) + 1
+    min_season = min(ROOKIE_HISTORY_FLOOR_SEASON, current_season - max(history_seasons, 3) + 1)
     rookie_rows = fetch_rows(
         conn,
         """
@@ -180,32 +200,92 @@ def build_rookie_history(conn: sqlite3.Connection, current_season: int, history_
         (min_season,),
     )
 
-    weekly_rows = fetch_rows(
-        conn,
-        """
-        SELECT
-          season,
-          player_id,
-          elite_week,
-          winning_week,
-          score
-        FROM player_weeklyscoringresults
-        WHERE season >= ?
-          AND season <= ?
-        """,
-        (min_season, current_season + 2),
+    canonical_weekly_available = (
+        table_exists(conn, "metadata_weeklypositionalbaselines")
+        and table_exists(conn, "metadata_positionalwinprofile")
     )
+    if canonical_weekly_available:
+        weekly_rows = fetch_rows(
+            conn,
+            """
+            SELECT
+              pwsr.season,
+              pwsr.week,
+              pwsr.player_id,
+              COALESCE(pwsr.pos_group, '') AS pos_group,
+              pwsr.elite_week,
+              pwsr.winning_week,
+              pwsr.score,
+              pwsr.win_chunks_pos_vam AS stored_pos_week_score,
+              wpb.median_starter_score,
+              pwp.delta_win_pos AS season_delta_win_pos
+            FROM player_weeklyscoringresults pwsr
+            LEFT JOIN metadata_weeklypositionalbaselines wpb
+              ON wpb.season = pwsr.season
+             AND wpb.week = pwsr.week
+             AND COALESCE(wpb.pos_group, '') = COALESCE(pwsr.pos_group, '')
+            LEFT JOIN metadata_positionalwinprofile pwp
+              ON pwp.season = pwsr.season
+             AND COALESCE(pwp.pos_group, '') = COALESCE(pwsr.pos_group, '')
+            WHERE pwsr.season >= ?
+              AND pwsr.season <= ?
+            """,
+            (min_season, current_season + 2),
+        )
+    else:
+        weekly_rows = fetch_rows(
+            conn,
+            """
+            SELECT
+              season,
+              week,
+              player_id,
+              COALESCE(pos_group, '') AS pos_group,
+              elite_week,
+              winning_week,
+              score,
+              NULL AS stored_pos_week_score,
+              NULL AS median_starter_score,
+              NULL AS season_delta_win_pos
+            FROM player_weeklyscoringresults
+            WHERE season >= ?
+              AND season <= ?
+            """,
+            (min_season, current_season + 2),
+        )
     weekly_by_player_season = {}
     for row in weekly_rows:
         key = (str(row["player_id"]), safe_int(row["season"]))
         entry = weekly_by_player_season.setdefault(
             key,
-            {"games": 0, "elite_weeks": 0, "winning_weeks": 0, "points": 0.0},
+            {
+                "games": 0,
+                "points": 0.0,
+                "legacy_elite_weeks": 0,
+                "legacy_non_dud_weeks": 0,
+                "canonical_classified_weeks": 0,
+                "canonical_elite_weeks": 0,
+                "canonical_dud_weeks": 0,
+            },
         )
         entry["games"] += 1
-        entry["elite_weeks"] += safe_int(row["elite_week"])
-        entry["winning_weeks"] += safe_int(row["winning_week"])
         entry["points"] += safe_float(row["score"])
+        entry["legacy_elite_weeks"] += safe_int(row["elite_week"])
+        entry["legacy_non_dud_weeks"] += safe_int(row["winning_week"])
+        pos_week_score = compute_pos_week_score(
+            row.get("score"),
+            row.get("median_starter_score"),
+            row.get("season_delta_win_pos"),
+            row.get("stored_pos_week_score"),
+        )
+        bucket = pos_bucket_code(pos_week_score)
+        if bucket is None:
+            continue
+        entry["canonical_classified_weeks"] += 1
+        if bucket == POS_BUCKET_ELITE:
+            entry["canonical_elite_weeks"] += 1
+        if bucket == POS_BUCKET_DUD:
+            entry["canonical_dud_weeks"] += 1
 
     bucket_values = {}
     for row in rookie_rows:
@@ -228,13 +308,24 @@ def build_rookie_history(conn: sqlite3.Connection, current_season: int, history_
     for row in rookie_rows:
         season = safe_int(row.get("season"))
         player_id = str(row.get("player_id") or "")
-        totals = {"games": 0, "elite": 0, "non_dud": 0, "points": 0.0}
+        totals = {
+            "games": 0,
+            "points": 0.0,
+            "legacy_elite": 0,
+            "legacy_non_dud": 0,
+            "canonical_classified": 0,
+            "canonical_elite": 0,
+            "canonical_dud": 0,
+        }
         for year in (season, season + 1, season + 2):
             wk = weekly_by_player_season.get((player_id, year), {})
             totals["games"] += safe_int(wk.get("games"), 0)
-            totals["elite"] += safe_int(wk.get("elite_weeks"), 0)
-            totals["non_dud"] += safe_int(wk.get("winning_weeks"), 0)
             totals["points"] += safe_float(wk.get("points"), 0.0)
+            totals["legacy_elite"] += safe_int(wk.get("legacy_elite_weeks"), 0)
+            totals["legacy_non_dud"] += safe_int(wk.get("legacy_non_dud_weeks"), 0)
+            totals["canonical_classified"] += safe_int(wk.get("canonical_classified_weeks"), 0)
+            totals["canonical_elite"] += safe_int(wk.get("canonical_elite_weeks"), 0)
+            totals["canonical_dud"] += safe_int(wk.get("canonical_dud_weeks"), 0)
         starts_3yr = safe_float(row.get("starts_3yr"), 0.0)
         games_3yr = max(safe_float(row.get("games_3yr"), 0.0), float(totals["games"]))
         points_3yr = safe_float(row.get("points_rookiecontract"), 0.0)
@@ -242,8 +333,32 @@ def build_rookie_history(conn: sqlite3.Connection, current_season: int, history_
         roi_score = points_3yr - expected
         impact = safe_float(row.get("vam_rookiecontract"), 0.0) + safe_float(row.get("vorp_rookiecontract"), 0.0)
         starts_share = starts_3yr / games_3yr if games_3yr > 0 else 0.0
-        elite_rate = totals["elite"] / games_3yr if games_3yr > 0 else 0.0
-        non_dud_rate = totals["non_dud"] / games_3yr if games_3yr > 0 else 0.0
+        use_canonical_weekly = canonical_weekly_available and season >= CANONICAL_WEEKLY_CLASSIFICATION_START_SEASON
+        if use_canonical_weekly:
+            classified_weeks_3yr = safe_int(totals["canonical_classified"], 0)
+            elite_weeks = safe_int(totals["canonical_elite"], 0)
+            dud_weeks = safe_int(totals["canonical_dud"], 0)
+            non_dud_weeks = max(0, classified_weeks_3yr - dud_weeks)
+            elite_rate = elite_weeks / classified_weeks_3yr if classified_weeks_3yr > 0 else 0.0
+            dud_rate = dud_weeks / classified_weeks_3yr if classified_weeks_3yr > 0 else 0.0
+            non_dud_rate = 1.0 - dud_rate if classified_weeks_3yr > 0 else 0.0
+            weekly_classification_model = CANONICAL_WEEKLY_CLASSIFICATION_MODEL
+            weekly_classification_is_legacy = 0
+        else:
+            classified_weeks_3yr = safe_int(totals["games"], 0)
+            elite_weeks = safe_int(totals["legacy_elite"], 0)
+            dud_weeks = None
+            non_dud_weeks = safe_int(totals["legacy_non_dud"], 0)
+            elite_rate = elite_weeks / classified_weeks_3yr if classified_weeks_3yr > 0 else 0.0
+            dud_rate = None
+            non_dud_rate = non_dud_weeks / classified_weeks_3yr if classified_weeks_3yr > 0 else 0.0
+            weekly_classification_model = LEGACY_WEEKLY_CLASSIFICATION_MODEL
+            weekly_classification_is_legacy = 1
+        dud_week_rate_value = None if dud_rate is None else round2(dud_rate)
+        if weekly_classification_is_legacy:
+            non_dud_rate_value = round2(non_dud_rate)
+        else:
+            non_dud_rate_value = round2(1.0 - safe_float(dud_week_rate_value, 0.0)) if dud_week_rate_value is not None else 0.0
         pos_value = safe_float(row.get("vam_rookiecontract"), 0.0)
         record = {
             "season": season,
@@ -277,37 +392,29 @@ def build_rookie_history(conn: sqlite3.Connection, current_season: int, history_
             "vorp_career": round2(row.get("vorp_career")),
             "points_career": round2(row.get("points_career")),
             "games_started": safe_int(row.get("games_started")),
-            "elite_weeks": safe_int(totals["elite"]),
-            "non_dud_weeks": safe_int(totals["non_dud"]),
+            "classified_weeks_3yr": safe_int(classified_weeks_3yr),
+            "elite_weeks": safe_int(elite_weeks),
+            "dud_weeks": None if dud_weeks is None else safe_int(dud_weeks),
+            "non_dud_weeks": safe_int(non_dud_weeks),
             "elite_week_rate": round2(elite_rate),
-            "non_dud_rate": round2(non_dud_rate),
+            "dud_week_rate": dud_week_rate_value,
+            "non_dud_rate": non_dud_rate_value,
             "starts_share": round2(starts_share),
             "positional_value_score": round2(pos_value),
             "overall_impact_score": round2(impact),
             "roi_score": round2(roi_score),
+            "weekly_classification_model": weekly_classification_model,
+            "weekly_classification_is_legacy": weekly_classification_is_legacy,
         }
         enriched.append(record)
 
-    for metric in (
-        "points_rookiecontract",
-        "elite_week_rate",
-        "non_dud_rate",
-        "starts_share",
-        "positional_value_score",
-        "overall_impact_score",
-        "roi_score",
-    ):
+    for metric in [component["raw_field"] for component in VALUE_SCORE_COMPONENTS]:
         value_scale(enriched, metric, "offense_defense")
 
     for row in enriched:
-        score = (
-            safe_float(row.get("points_rookiecontract_scaled"), 0.0) * 0.27
-            + safe_float(row.get("elite_week_rate_scaled"), 0.0) * 0.15
-            + safe_float(row.get("non_dud_rate_scaled"), 0.0) * 0.12
-            + safe_float(row.get("starts_share_scaled"), 0.0) * 0.12
-            + safe_float(row.get("positional_value_score_scaled"), 0.0) * 0.12
-            + safe_float(row.get("overall_impact_score_scaled"), 0.0) * 0.12
-            + safe_float(row.get("roi_score_scaled"), 0.0) * 0.10
+        score = sum(
+            safe_float(row.get(component["scaled_field"]), 0.0) * float(component["weight"])
+            for component in VALUE_SCORE_COMPONENTS
         )
         row["rookie_value_score"] = round(score * 100.0, 2)
         row["expected_points_3yr"] = round2(pick_bucket_expectation.get(row["pick_bucket"], 0.0))
@@ -579,6 +686,9 @@ def build_rookie_history(conn: sqlite3.Connection, current_season: int, history_
             "current_season": current_season,
             "history_start_season": min_season,
             "source": "build_acquisition_hub_artifacts.py",
+            "value_score_methodology_version": VALUE_SCORE_METHODOLOGY_VERSION,
+            "weekly_classification_default_model": CANONICAL_WEEKLY_CLASSIFICATION_MODEL,
+            "calculation_registry_paths": CALCULATION_REGISTRY_PATHS,
         },
         "available_seasons": available_seasons,
         "current_order": current_order,

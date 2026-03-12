@@ -11,24 +11,39 @@ This folder contains launchd jobs to run ETL refreshes at different times:
 Install / update:
 
 ```bash
-mkdir -p "$HOME/Library/LaunchAgents"
-mkdir -p "/Users/keithcreelman/Documents/New project/etl/logs"
+REPO_ROOT="/absolute/path/to/upsmflproduction"
+PYTHON_BIN="/absolute/path/to/python3"
 
-cp "/Users/keithcreelman/Documents/New project/etl/scheduler/com.keith.mfl.rosterscurrent.daily.plist" \
+mkdir -p "$HOME/Library/LaunchAgents"
+mkdir -p "$REPO_ROOT/etl/logs"
+
+cp "$REPO_ROOT/scripts/scheduler/com.keith.mfl.rosterscurrent.daily.plist" \
    "$HOME/Library/LaunchAgents/"
-cp "/Users/keithcreelman/Documents/New project/etl/scheduler/com.keith.mfl.rostersweekly.inseason.tuesday.plist" \
+cp "$REPO_ROOT/scripts/scheduler/com.keith.mfl.rostersweekly.inseason.tuesday.plist" \
    "$HOME/Library/LaunchAgents/"
-cp "/Users/keithcreelman/Documents/New project/scripts/scheduler/com.keith.mfl.acquisition.hourly.plist" \
+cp "$REPO_ROOT/scripts/scheduler/com.keith.mfl.acquisition.hourly.plist" \
    "$HOME/Library/LaunchAgents/"
+cp "$REPO_ROOT/scripts/scheduler/com.keith.mfl.acquisition.rookie-reconcile.plist" \
+   "$HOME/Library/LaunchAgents/"
+
+for plist in \
+  "$HOME/Library/LaunchAgents/com.keith.mfl.rosterscurrent.daily.plist" \
+  "$HOME/Library/LaunchAgents/com.keith.mfl.rostersweekly.inseason.tuesday.plist" \
+  "$HOME/Library/LaunchAgents/com.keith.mfl.acquisition.hourly.plist" \
+  "$HOME/Library/LaunchAgents/com.keith.mfl.acquisition.rookie-reconcile.plist"; do
+  perl -0pi -e "s#__REPO_ROOT__#$REPO_ROOT#g; s#__PYTHON_BIN__#$PYTHON_BIN#g" "$plist"
+done
 
 launchctl bootout gui/$(id -u) "$HOME/Library/LaunchAgents/com.keith.mfl.rosterscurrent.daily.plist" 2>/dev/null || true
 launchctl bootout gui/$(id -u) "$HOME/Library/LaunchAgents/com.keith.mfl.rostersweekly.inseason.daily.plist" 2>/dev/null || true
 launchctl bootout gui/$(id -u) "$HOME/Library/LaunchAgents/com.keith.mfl.rostersweekly.inseason.tuesday.plist" 2>/dev/null || true
 launchctl bootout gui/$(id -u) "$HOME/Library/LaunchAgents/com.keith.mfl.acquisition.hourly.plist" 2>/dev/null || true
+launchctl bootout gui/$(id -u) "$HOME/Library/LaunchAgents/com.keith.mfl.acquisition.rookie-reconcile.plist" 2>/dev/null || true
 
 launchctl bootstrap gui/$(id -u) "$HOME/Library/LaunchAgents/com.keith.mfl.rosterscurrent.daily.plist"
 launchctl bootstrap gui/$(id -u) "$HOME/Library/LaunchAgents/com.keith.mfl.rostersweekly.inseason.tuesday.plist"
 launchctl bootstrap gui/$(id -u) "$HOME/Library/LaunchAgents/com.keith.mfl.acquisition.hourly.plist"
+launchctl bootstrap gui/$(id -u) "$HOME/Library/LaunchAgents/com.keith.mfl.acquisition.rookie-reconcile.plist"
 ```
 
 Check status:
@@ -37,4 +52,5 @@ Check status:
 launchctl print gui/$(id -u)/com.keith.mfl.rosterscurrent.daily
 launchctl print gui/$(id -u)/com.keith.mfl.rostersweekly.inseason.tuesday
 launchctl print gui/$(id -u)/com.keith.mfl.acquisition.hourly
+launchctl print gui/$(id -u)/com.keith.mfl.acquisition.rookie-reconcile
 ```

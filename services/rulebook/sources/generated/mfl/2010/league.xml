@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<league id="60671" name="UPS WCBDFY Salary Cap League" rosterSize="17" injuredReserve="1" taxiSquad="0" rostersPerPlayer="1" playerLimitUnit="LEAGUE" startWeek="1" endWeek="16" lastRegularSeasonWeek="16" precision="1" h2h="Doubleheaders" nflPoolType="Confidence" usesContractYear="0" includeIRWithSalary="50" mobileAlerts="" usesSalaries="1" defaultTradeExpirationDays="7" partialLineupAllowed="SYSTEM" maxKeepers="0" loadRosters="none" minKeepers="0" nflPoolStartWeek="1" salaryCapAmount="210" standingsSort="PCT,PTS," lockout="No" nflPoolEndWeek="17" bestLineup="No" baseURL="https://www45.myfantasyleague.com">
+  <starters count="9">
+    <position name="QB" limit="1" />
+    <position name="RB" limit="2-3" />
+    <position name="WR" limit="2-3" />
+    <position name="TE" limit="1-2" />
+    <position name="PK" limit="1" />
+    <position name="Def" limit="1" />
+  </starters>
+  <rosterLimits>
+    <position name="QB" limit="1-" />
+    <position name="RB" limit="2-" />
+    <position name="WR" limit="2-" />
+    <position name="TE" limit="1-" />
+    <position name="PK" limit="1-" />
+    <position name="Def" limit="1-" />
+  </rosterLimits>
+  <divisions count="2">
+    <division id="00" name="Adam Pacman Jones Smack my Bitchup Division" />
+    <division id="01" name="Brandon Spikes Nob Job Division" />
+  </divisions>
+  <franchises count="12">
+    <franchise waiverSortOrder="10" name="D-Town Diddlers" salaryCapAmount="" logo="https://www45.myfantasyleague.com/fflnetdynamic2010/60671_franchise_logo0001.png" id="0001" abbrev="DTD" division="00" icon="https://www45.myfantasyleague.com/fflnetdynamic2010/60671_franchise_icon0001.png" />
+    <franchise salaryCapAmount="" name="BTNH" waiverSortOrder="7" sound="http://www.youtube.com/watch?v=xoJmPoDTu0Q" division="01" icon="https://www45.myfantasyleague.com/fflnetdynamic2010/60671_franchise_icon0002.png" logo="https://www45.myfantasyleague.com/fflnetdynamic2010/60671_franchise_logo0002.png" id="0002" />
+    <franchise salaryCapAmount="" waiverSortOrder="3" name="Tom's Baby Mamma" abbrev="TBM" division="00" logo="https://www45.myfantasyleague.com/fflnetdynamic2010/60671_franchise_logo0003.jpg" id="0003" />
+    <franchise salaryCapAmount="" name="YouJustGotBeatByAGirl" waiverSortOrder="1" division="00" id="0004" />
+    <franchise salaryCapAmount="" name="Pure Greatness" waiverSortOrder="8" division="01" icon="https://www45.myfantasyleague.com/fflnetdynamic2010/60671_franchise_icon0005.png" logo="https://www45.myfantasyleague.com/fflnetdynamic2010/60671_franchise_logo0005.png" id="0005" />
+    <franchise icon="https://www45.myfantasyleague.com/fflnetdynamic2010/60671_franchise_icon0006.png" division="00" id="0006" logo="https://www45.myfantasyleague.com/fflnetdynamic2010/60671_franchise_logo0006.png" salaryCapAmount="" waiverSortOrder="5" name="Achilles' Wrath" />
+    <franchise id="0007" logo="https://www45.myfantasyleague.com/fflnetdynamic2010/60671_franchise_logo0007.png" abbrev="BRWN" icon="https://www45.myfantasyleague.com/fflnetdynamic2010/60671_franchise_icon0007.png" division="01" waiverSortOrder="4" name="Bad Newz Kennels" salaryCapAmount="" />
+    <franchise name="R-11" waiverSortOrder="12" salaryCapAmount="" id="0008" logo="https://www45.myfantasyleague.com/fflnetdynamic2010/60671_franchise_logo0008.png" icon="https://www45.myfantasyleague.com/fflnetdynamic2010/60671_franchise_icon0008.png" division="01" />
+    <franchise icon="https://www45.myfantasyleague.com/fflnetdynamic2010/60671_franchise_icon0009.jpg" division="01" id="0009" logo="https://www45.myfantasyleague.com/fflnetdynamic2010/60671_franchise_logo0009.jpg" salaryCapAmount="" waiverSortOrder="6" name="Sir Choke-a-lot" />
+    <franchise id="0010" icon="https://www45.myfantasyleague.com/fflnetdynamic2010/60671_franchise_icon0010.jpg" division="00" waiverSortOrder="9" name="The blue-gums" salaryCapAmount="" />
+    <franchise division="01" icon="https://www45.myfantasyleague.com/fflnetdynamic2010/60671_franchise_icon0011.png" logo="https://www45.myfantasyleague.com/fflnetdynamic2010/60671_franchise_logo0011.png" id="0011" salaryCapAmount="" waiverSortOrder="2" name="The Baster" />
+    <franchise id="0012" logo="https://www45.myfantasyleague.com/fflnetdynamic2010/60671_franchise_logo0012.png" icon="https://www45.myfantasyleague.com/fflnetdynamic2010/60671_franchise_icon0012.png" division="00" waiverSortOrder="11" name="Nickel City" salaryCapAmount="" />
+  </franchises>
+  <history>
+    <league year="2010" url="https://www45.myfantasyleague.com/2010/home/60671" />
+  </history>
+</league>

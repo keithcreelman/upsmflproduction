@@ -7,6 +7,7 @@
   var activeStyleHrefs = [];
   var bootCtx = null;
   var hashHandlerAttached = false;
+  var selectedFamilyId = "";
 
   function safeStr(value) {
     return value == null ? "" : String(value).trim();
@@ -133,31 +134,72 @@
   function renderNavigation(activeReport) {
     if (!bootCtx || !bootCtx.nav) return;
     var groups = groupReports();
-    var html = groups.map(function (group) {
-      var reportsHtml = group.reports.map(function (report) {
-        var classes = ["reports-nav-link"];
-        if (report.id === activeReport.id) classes.push("is-active");
-        if (report.status !== "live") classes.push("is-planned");
-        return (
-          '<button type="button" class="' + classes.join(" ") + '" data-report-nav="' + report.id + '">' +
-            '<span class="reports-nav-link-copy">' +
-              '<span class="reports-nav-link-title">' + bootCtx.common.escapeHtml(report.title) + "</span>" +
-              '<span class="reports-nav-link-desc">' + bootCtx.common.escapeHtml(report.description || "Report module") + "</span>" +
-            "</span>" +
+    if (!groups.length) {
+      bootCtx.nav.innerHTML = "";
+      return;
+    }
+    var groupById = Object.create(null);
+    groups.forEach(function (group) {
+      groupById[group.familyId] = group;
+    });
+    if (!selectedFamilyId || !groupById[selectedFamilyId]) {
+      selectedFamilyId = activeReport.familyId || groups[0].familyId;
+    }
+    var activeGroup = groupById[selectedFamilyId] || groups[0];
+    var tabsHtml = groups.map(function (group) {
+      var classes = ["reports-family-tab"];
+      if (group.familyId === selectedFamilyId) classes.push("is-active");
+      return (
+        '<button type="button" class="' + classes.join(" ") + '" data-report-family="' + group.familyId + '">' +
+          '<span class="reports-family-tab-title">' + bootCtx.common.escapeHtml(group.familyTitle) + "</span>" +
+          '<span class="reports-family-tab-count">' + bootCtx.common.escapeHtml(String(group.reports.length)) + "</span>" +
+        "</button>"
+      );
+    }).join("");
+    var liveCount = activeGroup.reports.filter(function (report) { return report.status === "live"; }).length;
+    var plannedCount = Math.max(0, activeGroup.reports.length - liveCount);
+    var reportsHtml = activeGroup.reports.map(function (report) {
+      var classes = ["reports-nav-link"];
+      if (report.id === activeReport.id) classes.push("is-active");
+      if (report.status !== "live") classes.push("is-planned");
+      return (
+        '<button type="button" class="' + classes.join(" ") + '" data-report-nav="' + report.id + '">' +
+          '<span class="reports-nav-link-top">' +
+            '<span class="reports-nav-link-kicker">' + bootCtx.common.escapeHtml(report.kicker || activeGroup.familyTitle) + "</span>" +
             '<span class="reports-nav-link-status ' + (report.status === "live" ? "is-live" : "is-planned") + '">' +
               (report.status === "live" ? "Live" : "Planned") +
             "</span>" +
-          "</button>"
-        );
-      }).join("");
-      return (
-        '<section class="reports-nav-group">' +
-          '<h3 class="reports-nav-group-title">' + bootCtx.common.escapeHtml(group.familyTitle) + "</h3>" +
-          reportsHtml +
-        "</section>"
+          "</span>" +
+          '<span class="reports-nav-link-copy">' +
+            '<span class="reports-nav-link-title">' + bootCtx.common.escapeHtml(report.title) + "</span>" +
+            '<span class="reports-nav-link-desc">' + bootCtx.common.escapeHtml(report.description || "Report module") + "</span>" +
+          "</span>" +
+          '<span class="reports-nav-link-route">#' + bootCtx.common.escapeHtml(report.id) + "</span>" +
+        "</button>"
       );
     }).join("");
+    var html =
+      '<div class="reports-family-tabs">' + tabsHtml + "</div>" +
+      '<section class="reports-selector-family">' +
+        '<div class="reports-selector-family-head">' +
+          '<div>' +
+            '<h3 class="reports-nav-group-title">' + bootCtx.common.escapeHtml(activeGroup.familyTitle) + "</h3>" +
+            '<p class="reports-nav-group-meta">' +
+              bootCtx.common.escapeHtml(
+                liveCount + " live" + (plannedCount ? " | " + plannedCount + " planned" : "")
+              ) +
+            "</p>" +
+          '</div>' +
+        '</div>' +
+        '<div class="reports-selector-grid">' + reportsHtml + "</div>" +
+      "</section>";
     bootCtx.nav.innerHTML = html;
+    Array.prototype.forEach.call(bootCtx.nav.querySelectorAll("[data-report-family]"), function (button) {
+      button.addEventListener("click", function () {
+        selectedFamilyId = button.getAttribute("data-report-family") || "";
+        renderNavigation(activeReport);
+      });
+    });
     Array.prototype.forEach.call(bootCtx.nav.querySelectorAll("[data-report-nav]"), function (button) {
       button.addEventListener("click", function () {
         navigate(button.getAttribute("data-report-nav"));
@@ -172,6 +214,7 @@
     bootCtx.subtitle.textContent = report.description || "Centralized report module.";
     bootCtx.status.textContent = report.status === "live" ? "Live Report" : "Planned Report";
     bootCtx.status.className = "reports-hero-status " + (report.status === "live" ? "is-live" : "is-planned");
+    if (bootCtx.family) bootCtx.family.textContent = report.familyTitle || "Reports";
     bootCtx.route.textContent = "#" + report.id;
   }
 

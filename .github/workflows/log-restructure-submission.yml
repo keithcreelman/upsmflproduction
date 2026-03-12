@@ -45,16 +45,16 @@ jobs:
           SOURCE: ${{ github.event.client_payload.source }}
           SUBMISSION_ID: ${{ github.event.client_payload.submission_id }}
         run: |
-          python pipelines/etl/scripts/log_restructure_submission.py --json-path site/ccc/restructure_submissions.json
+          python pipelines/etl/scripts/log_restructure_submission.py --json-path site/rosters/contract_submissions/restructure_submissions.json
 
       - name: Commit and push if changed
         run: |
-          if git diff --quiet -- site/ccc/restructure_submissions.json; then
+          if git diff --quiet -- site/rosters/contract_submissions/restructure_submissions.json; then
             echo "No restructure submission log changes to commit."
             exit 0
           fi
           changed_files="$(git diff --name-only)"
-          unexpected="$(printf "%s\n" "$changed_files" | grep -Ev '^site/ccc/restructure_submissions\.json$' || true)"
+          unexpected="$(printf "%s\n" "$changed_files" | grep -Ev '^site/rosters/contract_submissions/restructure_submissions\.json$' || true)"
           if [ -n "$unexpected" ]; then
             echo "Unexpected file changes detected; refusing to push."
             printf "%s\n" "$unexpected"
@@ -63,7 +63,7 @@ jobs:
           fi
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add site/ccc/restructure_submissions.json
+          git add site/rosters/contract_submissions/restructure_submissions.json
           git commit -m "Log restructure submission"
           for attempt in 1 2 3; do
             git pull --rebase origin main

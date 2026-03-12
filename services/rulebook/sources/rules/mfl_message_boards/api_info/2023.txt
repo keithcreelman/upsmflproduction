@@ -177,7 +177,7 @@ function live_auction_window (url) {
 <li><a class="no-sub" href="https://www48.myfantasyleague.com/2023/support?L=74598" target="">Help&nbsp;Center</a></li>
 <li><a class="no-sub" href="https://www48.myfantasyleague.com/2023/support?PROGRAM=api_info&L=74598" target="_blank">Help&nbsp;on&nbsp;this&nbsp;Page</a></li>
 <li><a class="no-sub" href="https://www48.myfantasyleague.com/2023/site_news?L=74598" target="">What's&nbsp;New?</a></li>
-<li><a class="no-sub" href="https://www48.myfantasyleague.com/2023/api_info?STATE=test&CCAT=export&TYPE=messageBoard&L=74598&APIKEY=aRBv1sCXvuWsx0ymP13EaDoeHbox&PRINTER=1" target="">Printer&nbsp;Friendly&nbsp;Page</a></li>
+<li><a class="no-sub" href="https://www48.myfantasyleague.com/2023/api_info?STATE=test&CCAT=export&TYPE=messageBoard&L=74598&APIKEY=&lt;REDACTED&gt;&PRINTER=1" target="">Printer&nbsp;Friendly&nbsp;Page</a></li>
 <li><a class="no-sub" href="https://www48.myfantasyleague.com/2023/api_info?L=74598" target="">Developer's&nbsp;API</a></li>
 </ul>
 </li>
