@@ -54,6 +54,13 @@
     { value: "taxi", label: "Taxi Only" },
     { value: "ir", label: "IR Only" }
   ];
+  var CONTRACT_ACTION_FILTERS = [
+    { value: "", label: "All Contract Options" },
+    { value: "rookie_option", label: "Exercise Option" },
+    { value: "extension", label: "Extension" },
+    { value: "restructure", label: "Restructure" },
+    { value: "untag", label: "Untag" }
+  ];
   var BYE_IMPACT_FILTERS = [
     { value: "", label: "All Impact" },
     { value: "heavy", label: "Heavy Only" },
@@ -124,6 +131,7 @@
     filterPosition: "",
     filterType: "",
     filterRosterStatus: "",
+    filterContractAction: "",
     filterByeImpact: "",
     sorts: {
       roster: { key: "salary", dir: "desc" },
@@ -204,6 +212,21 @@
     if (normalized === "active") return "Active roster only";
     if (normalized === "taxi") return "Taxi only";
     if (normalized === "ir") return "IR only";
+    return "";
+  }
+
+  function normContractActionFilter(value) {
+    var raw = safeStr(value).toLowerCase();
+    if (raw === "rookie_option" || raw === "extension" || raw === "restructure" || raw === "untag") return raw;
+    return "";
+  }
+
+  function contractActionFilterLabel(value) {
+    var normalized = normContractActionFilter(value);
+    if (!normalized) return "";
+    for (var i = 0; i < CONTRACT_ACTION_FILTERS.length; i += 1) {
+      if (CONTRACT_ACTION_FILTERS[i].value === normalized) return safeStr(CONTRACT_ACTION_FILTERS[i].label);
+    }
     return "";
   }
 
@@ -772,6 +795,27 @@
 
   function attentionFilterEnabledForView() {
     return state.view === "roster" || (state.view === "contract" && !capPlanSummaryViewActive());
+  }
+
+  function contractActionFilterEnabledForView() {
+    return state.view !== "bye" && state.view !== "points" && state.view !== "tag" && !capPlanSummaryViewActive();
+  }
+
+  function playerContractActionFlags(player) {
+    var canManage = canManageRosterPlayer(player);
+    var eligibility = rosterContractEligibility(player);
+    return {
+      rookie_option: canManage && rookieOptionActionEligible(player),
+      extension: canManage && playerExtensionOptions(player).length > 0,
+      restructure: canManage && !!eligibility.restructureEligible,
+      untag: safeStr(player && player.type).toUpperCase() === "TAG" && (canManage || canManageTagForTeam(player && player.fid))
+    };
+  }
+
+  function playerMatchesContractActionFilter(player, filterValue) {
+    var selected = normContractActionFilter(filterValue);
+    if (!selected) return true;
+    return !!playerContractActionFlags(player)[selected];
   }
 
   function buildRosterGroupSalarySummaryMap() {
@@ -5284,7 +5328,8 @@
     return list;
   }
 
-  function matchesFilters(player) {
+  function matchesFilters(player, options) {
+    var opts = options && typeof options === "object" ? options : {};
     if (!player) return false;
 
     if (searchFilterEnabledForView() && state.search) {
@@ -5318,6 +5363,10 @@
     }
 
     if (state.filterRosterStatus === "ir" && !player.isIr) {
+      return false;
+    }
+
+    if (!opts.skipContractAction && contractActionFilterEnabledForView() && state.filterContractAction && !playerMatchesContractActionFilter(player, state.filterContractAction)) {
       return false;
     }
 
@@ -5412,6 +5461,7 @@
                   '<label class="rwb-field"><span>Position</span><select id="rwbFilterPosition" class="rwb-select"><option value="">All Groups</option></select></label>' +
                   '<label class="rwb-field"><span>Contract</span><select id="rwbFilterType" class="rwb-select"><option value="">All Contract Types</option></select></label>' +
                   '<label class="rwb-field"><span>Roster Status</span><select id="rwbFilterRosterStatus" class="rwb-select"><option value="">All</option></select></label>' +
+                  '<label class="rwb-field"><span>Contract Options</span><select id="rwbFilterContractAction" class="rwb-select"><option value="">All Contract Options</option></select></label>' +
                   '<label class="rwb-field" hidden style="display:none" aria-hidden="true"><span>Impact</span><select id="rwbFilterByeImpact" class="rwb-select" disabled><option value="">All Impact</option></select></label>' +
                   '<div class="rwb-toolbar-actions">' +
                     '<button type="button" id="rwbResetFilters" class="rwb-btn rwb-btn-ghost">Clear Filters</button>' +
@@ -5462,6 +5512,8 @@
     els.filterTypeField = els.filterType ? els.filterType.closest(".rwb-field") : null;
     els.filterRosterStatus = document.getElementById("rwbFilterRosterStatus");
     els.filterRosterStatusField = els.filterRosterStatus ? els.filterRosterStatus.closest(".rwb-field") : null;
+    els.filterContractAction = document.getElementById("rwbFilterContractAction");
+    els.filterContractActionField = els.filterContractAction ? els.filterContractAction.closest(".rwb-field") : null;
     els.filterByeImpact = document.getElementById("rwbFilterByeImpact");
     els.filterByeImpactField = els.filterByeImpact ? els.filterByeImpact.closest(".rwb-field") : null;
     els.resetFilters = document.getElementById("rwbResetFilters");
@@ -5496,6 +5548,7 @@
 
   function buildFilterOptionSets() {
     var groupsMap = Object.create(null);
+    var contractActionCounts = Object.create(null);
 
     if (state.view === "tag" && state.tagData && state.tagData.rows) {
       for (var t = 0; t < state.tagData.rows.length; t += 1) {
@@ -5510,9 +5563,19 @@
       var team = state.teams[i] || {};
       var players = team.players || [];
       for (var j = 0; j < players.length; j += 1) {
-        var g = safeStr(players[j].positionGroup).toUpperCase();
+        var player = players[j];
+        var g = safeStr(player.positionGroup).toUpperCase();
         if (!g) continue;
         groupsMap[g] = true;
+        if (!contractActionFilterEnabledForView()) continue;
+        if (!matchesFilters(player, { skipContractAction: true })) continue;
+        var actionFlags = playerContractActionFlags(player);
+        for (var a = 1; a < CONTRACT_ACTION_FILTERS.length; a += 1) {
+          var actionFilter = CONTRACT_ACTION_FILTERS[a];
+          if (actionFlags[actionFilter.value]) {
+            contractActionCounts[actionFilter.value] = safeInt(contractActionCounts[actionFilter.value], 0) + 1;
+          }
+        }
       }
     }
 
@@ -5526,6 +5589,16 @@
     return {
       positions: [{ value: "", label: "All Groups" }].concat(
         keys.map(function (k) { return { value: k, label: positionGroupLabel(k) }; })
+      ),
+      contractActions: [CONTRACT_ACTION_FILTERS[0]].concat(
+        CONTRACT_ACTION_FILTERS.slice(1)
+          .filter(function (filterDef) { return safeInt(contractActionCounts[filterDef.value], 0) > 0; })
+          .map(function (filterDef) {
+            return {
+              value: filterDef.value,
+              label: filterDef.label + " (" + String(safeInt(contractActionCounts[filterDef.value], 0)) + ")"
+            };
+          })
       )
     };
   }
@@ -5682,6 +5755,15 @@
     renderSelectOptions(els.filterPosition, sets.positions, state.filterPosition);
     renderSelectOptions(els.filterType, CONTRACT_FILTERS, state.filterType);
     renderSelectOptions(els.filterRosterStatus, ROSTER_STATUS_FILTERS, state.filterRosterStatus);
+    if (contractActionFilterEnabledForView()) {
+      var contractActionValues = sets.contractActions.map(function (row) { return safeStr(row.value); });
+      if (state.filterContractAction && contractActionValues.indexOf(state.filterContractAction) === -1) {
+        state.filterContractAction = "";
+      }
+    } else {
+      state.filterContractAction = "";
+    }
+    renderSelectOptions(els.filterContractAction, sets.contractActions, state.filterContractAction);
     renderSelectOptions(els.filterByeImpact, BYE_IMPACT_FILTERS, state.filterByeImpact);
     var showByeImpactFilter = state.view === "bye";
     if (els.jumpTeamField) els.jumpTeamField.hidden = !teamJumpEnabledForView();
@@ -5694,6 +5776,7 @@
     if (els.filterPositionField) els.filterPositionField.hidden = !positionFilterEnabledForView();
     if (els.filterTypeField) els.filterTypeField.hidden = !contractTypeFilterEnabledForView();
     if (els.filterRosterStatusField) els.filterRosterStatusField.hidden = !rosterStatusFilterEnabledForView();
+    if (els.filterContractActionField) els.filterContractActionField.hidden = !contractActionFilterEnabledForView();
     if (els.filterByeImpact) els.filterByeImpact.disabled = !showByeImpactFilter;
     if (els.filterByeImpactField) {
       els.filterByeImpactField.hidden = !showByeImpactFilter;
@@ -5717,6 +5800,7 @@
       if (state.filterPosition) activeFilterCount += 1;
       if (contractTypeFilterEnabledForView() && state.filterType) activeFilterCount += 1;
       if (rosterStatusFilterEnabledForView() && state.filterRosterStatus) activeFilterCount += 1;
+      if (contractActionFilterEnabledForView() && state.filterContractAction) activeFilterCount += 1;
       if (state.view === "bye" && state.filterByeImpact) activeFilterCount += 1;
       els.toggleFilters.hidden = !showFiltersToggle;
       els.toggleFilters.textContent = (effectiveFiltersOpen ? "Hide Filters" : "Show Filters") + (activeFilterCount ? " (" + activeFilterCount + ")" : "");
@@ -5784,6 +5868,7 @@
       else if (state.filterType === "other") parts.push("All Other");
     }
     if (rosterStatusFilterEnabledForView() && state.filterRosterStatus) parts.push(rosterStatusFilterLabel(state.filterRosterStatus));
+    if (contractActionFilterEnabledForView() && state.filterContractAction) parts.push(contractActionFilterLabel(state.filterContractAction));
     if (searchFilterEnabledForView() && state.search) parts.push('Search "' + state.search + '"');
     if (state.view === "points") {
       parts.push(currentPointsRangeLabel());
@@ -7996,6 +8081,7 @@
     writeStorage("filterPosition", state.filterPosition);
     writeStorage("filterType", state.filterType);
     writeStorage("filterRosterStatus", state.filterRosterStatus);
+    writeStorage("filterContractAction", state.filterContractAction);
     writeStorage("filterByeImpact", state.filterByeImpact);
     writeStorage("taxiOnly", state.filterRosterStatus === "taxi");
     writeStorage("contractPreview", state.contractPreview);
@@ -8019,6 +8105,7 @@
     state.filterPosition = safeStr(readStorage("filterPosition", "")).toUpperCase();
     state.filterType = normType(readStorage("filterType", ""));
     state.filterRosterStatus = normRosterStatusFilter(readStorage("filterRosterStatus", ""));
+    state.filterContractAction = normContractActionFilter(readStorage("filterContractAction", ""));
     state.filterByeImpact = normByeImpactFilter(readStorage("filterByeImpact", ""));
     if (!state.filterRosterStatus && !!readStorage("taxiOnly", false)) {
       state.filterRosterStatus = "taxi";
@@ -8958,6 +9045,7 @@
       state.filterPosition = "";
       state.filterType = "";
       state.filterRosterStatus = "";
+      state.filterContractAction = "";
       state.filterByeImpact = "";
       if (els.search) els.search.value = "";
       persistState();
@@ -8990,6 +9078,14 @@
 
     if (el === els.filterRosterStatus) {
       state.filterRosterStatus = normRosterStatusFilter(el.value);
+      persistState();
+      renderToolbar();
+      renderTeams();
+      return;
+    }
+
+    if (el === els.filterContractAction) {
+      state.filterContractAction = normContractActionFilter(el.value);
       persistState();
       renderToolbar();
       renderTeams();
