@@ -5426,11 +5426,22 @@
       '<div id="rwbApp">' +
         '<div class="rwb-shell">' +
           '<header class="rwb-hero">' +
-            '<div>' +
-              '<h1 class="rwb-title">Front Office</h1>' +
+            '<div class="rwb-hero-main">' +
+              '<div class="rwb-hero-copy">' +
+                '<div class="rwb-hero-eyebrow">UPS League Office</div>' +
+                '<h1 class="rwb-title">Front Office</h1>' +
+                '<div class="rwb-hero-subtitle">Contracts, cap planning, roster actions, and deadline context in one place.</div>' +
+              '</div>' +
+              '<div class="rwb-hero-badge" id="rwbHeroBadge">League Office</div>' +
             '</div>' +
           '</header>' +
           '<section class="rwb-toolbar" aria-label="Roster toolbar">' +
+            '<div class="rwb-toolbar-topline">' +
+              '<div class="rwb-toolbar-note" id="rwbToolbarNote">Loading roster data...</div>' +
+              '<div class="rwb-toolbar-disclosure" id="rwbFiltersToggleWrap">' +
+                '<button type="button" id="rwbToggleFilters" class="rwb-btn rwb-btn-ghost rwb-toolbar-disclosure-btn" aria-expanded="false" aria-controls="rwbAdvancedFilters">Show Filters</button>' +
+              '</div>' +
+            '</div>' +
             '<div class="rwb-toolbar-main" id="rwbToolbarMain">' +
               '<div class="rwb-toolbar-panel rwb-toolbar-panel-nav">' +
                 '<div class="rwb-toolbar-section-label">Views</div>' +
@@ -5463,13 +5474,15 @@
                   '<label class="rwb-field"><span>Roster Status</span><select id="rwbFilterRosterStatus" class="rwb-select"><option value="">All</option></select></label>' +
                   '<label class="rwb-field"><span>Contract Options</span><select id="rwbFilterContractAction" class="rwb-select"><option value="">All Contract Options</option></select></label>' +
                   '<label class="rwb-field" hidden style="display:none" aria-hidden="true"><span>Impact</span><select id="rwbFilterByeImpact" class="rwb-select" disabled><option value="">All Impact</option></select></label>' +
+                '</div>' +
+                '<div class="rwb-toolbar-filter-footer">' +
+                  '<div class="rwb-toolbar-filter-hint">Contract options only show actions the current owner can actually use.</div>' +
                   '<div class="rwb-toolbar-actions">' +
                     '<button type="button" id="rwbResetFilters" class="rwb-btn rwb-btn-ghost">Clear Filters</button>' +
                   '</div>' +
                 '</div>' +
               '</div>' +
             '</div>' +
-            '<div class="rwb-toolbar-note" id="rwbToolbarNote">Loading roster data...</div>' +
             '<div class="rwb-status" id="rwbStatus" hidden></div>' +
           '</section>' +
           '<section id="rwbTeamList" class="rwb-team-list" aria-live="polite"><div class="rwb-loading">Loading roster data...</div></section>' +
@@ -5487,6 +5500,7 @@
       '</div>';
 
     els.app = document.getElementById("rwbApp");
+    els.heroBadge = document.getElementById("rwbHeroBadge");
     els.toolbarMain = document.getElementById("rwbToolbarMain");
     els.jumpTeam = document.getElementById("rwbJumpTeam");
     els.jumpTeamField = els.jumpTeam ? els.jumpTeam.closest(".rwb-field") : null;
@@ -5793,19 +5807,24 @@
     var filtersForcedOpen = filtersForcedOpenForView();
     var effectiveFiltersOpen = filtersForcedOpen || state.filtersOpen;
     var showFiltersToggle = !filtersForcedOpen && !capPlanSummaryViewActive() && !tagBreakdownActive();
+    var activeFilterCount = 0;
+    if (state.search && !browseSearchEnabledForView()) activeFilterCount += 1;
+    if (state.filterPosition) activeFilterCount += 1;
+    if (contractTypeFilterEnabledForView() && state.filterType) activeFilterCount += 1;
+    if (rosterStatusFilterEnabledForView() && state.filterRosterStatus) activeFilterCount += 1;
+    if (contractActionFilterEnabledForView() && state.filterContractAction) activeFilterCount += 1;
+    if (state.view === "bye" && state.filterByeImpact) activeFilterCount += 1;
+
     if (els.toggleFiltersWrap) els.toggleFiltersWrap.hidden = !showFiltersToggle;
     if (els.toggleFilters) {
-      var activeFilterCount = 0;
-      if (state.search && !browseSearchEnabledForView()) activeFilterCount += 1;
-      if (state.filterPosition) activeFilterCount += 1;
-      if (contractTypeFilterEnabledForView() && state.filterType) activeFilterCount += 1;
-      if (rosterStatusFilterEnabledForView() && state.filterRosterStatus) activeFilterCount += 1;
-      if (contractActionFilterEnabledForView() && state.filterContractAction) activeFilterCount += 1;
-      if (state.view === "bye" && state.filterByeImpact) activeFilterCount += 1;
       els.toggleFilters.hidden = !showFiltersToggle;
       els.toggleFilters.textContent = (effectiveFiltersOpen ? "Hide Filters" : "Show Filters") + (activeFilterCount ? " (" + activeFilterCount + ")" : "");
       els.toggleFilters.setAttribute("aria-expanded", effectiveFiltersOpen ? "true" : "false");
       els.toggleFilters.classList.toggle("is-active", effectiveFiltersOpen);
+    }
+    if (els.resetFilters) {
+      els.resetFilters.disabled = activeFilterCount <= 0;
+      els.resetFilters.textContent = activeFilterCount > 0 ? ("Clear Filters (" + activeFilterCount + ")") : "Clear Filters";
     }
     if (els.advanced) {
       els.advanced.hidden = capPlanSummaryViewActive() || tagBreakdownActive() || !effectiveFiltersOpen;
@@ -5814,6 +5833,10 @@
 
     if (els.toolbarMain) {
       els.toolbarMain.classList.toggle("is-points-view", state.view === "points" || state.view === "tag");
+    }
+    if (els.heroBadge) {
+      var heroSeason = safeStr(state.ctx && state.ctx.year);
+      els.heroBadge.textContent = heroSeason ? (heroSeason + " Season") : "League Office";
     }
 
     if (els.viewRoster && els.viewContract && els.viewPoints) {
@@ -9047,7 +9070,9 @@
       state.filterRosterStatus = "";
       state.filterContractAction = "";
       state.filterByeImpact = "";
+      if (!filtersForcedOpenForView()) state.filtersOpen = false;
       if (els.search) els.search.value = "";
+      if (els.browseSearch) els.browseSearch.value = "";
       persistState();
       renderToolbar();
       renderTeams();
