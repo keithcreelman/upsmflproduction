@@ -5977,6 +5977,7 @@
       if (tagBreakdownActive()) {
         parts.push("Leaguewide tag cost breakdown");
         if (tagDisplaySeason()) parts.push(tagDisplaySeason() + " tagging");
+        if (tagBreakdownUsesProjectedSeason()) parts.push("Projected until contract deadline lock");
       } else {
         parts.push("One offense and one defense tag can be active per team");
       }
@@ -7790,9 +7791,71 @@
   }
 
   function currentTagCalcBreakdown() {
+    var selectedSeason = tagDisplaySeason();
+    var liveSeason = safeStr(state.tagData && state.tagData.cycleSeason);
+    if (selectedSeason && liveSeason && selectedSeason !== liveSeason) {
+      return projectedTagCalcBreakdown(selectedSeason);
+    }
     return state.tagData && state.tagData.calcBreakdown && typeof state.tagData.calcBreakdown === "object"
       ? state.tagData.calcBreakdown
       : {};
+  }
+
+  function tagBreakdownUsesProjectedSeason() {
+    var selectedSeason = tagDisplaySeason();
+    var liveSeason = safeStr(state.tagData && state.tagData.cycleSeason);
+    return !!(selectedSeason && liveSeason && selectedSeason !== liveSeason);
+  }
+
+  function projectedTagBasisForPlayerId(playerId, targetSeason) {
+    var season = safeInt(targetSeason, 0);
+    var current = currentYearInt();
+    if (!season || season < current) return 0;
+    var source = findTaggedPlayerSourceSnapshot("", playerId);
+    if (!source) return 0;
+    return Math.max(0, displayedSalaryForPlan(source, season - current));
+  }
+
+  function projectedTagCalcBreakdown(targetSeason) {
+    var calcSource = state.tagTrackingMeta && typeof state.tagTrackingMeta.calc_breakdown === "object"
+      ? state.tagTrackingMeta.calc_breakdown
+      : {};
+    var output = Object.create(null);
+    var positions = Object.keys(calcSource);
+    for (var i = 0; i < positions.length; i += 1) {
+      var posKey = positions[i];
+      var ref = calcSource[posKey] || {};
+      var tiers = Array.isArray(ref.tiers) ? ref.tiers : [];
+      var nextTiers = [];
+      for (var j = 0; j < tiers.length; j += 1) {
+        var tier = tiers[j] || {};
+        var players = Array.isArray(tier.players) ? tier.players : [];
+        var nextPlayers = [];
+        var total = 0;
+        for (var p = 0; p < players.length; p += 1) {
+          var player = players[p] || {};
+          var projectedAav = projectedTagBasisForPlayerId(player.player_id, targetSeason);
+          total += projectedAav;
+          nextPlayers.push({
+            rank: safeInt(player.rank, 0),
+            player_id: safeStr(player.player_id).replace(/\D/g, ""),
+            player_name: safeStr(player.player_name),
+            aav: projectedAav
+          });
+        }
+        var avg = nextPlayers.length ? (total / nextPlayers.length) : 0;
+        nextTiers.push({
+          tier: safeInt(tier.tier, 0),
+          label: safeStr(tier.label),
+          rank_min: safeInt(tier.rank_min, 0),
+          rank_max: safeInt(tier.rank_max, 0),
+          base_bid: avg > 0 ? Math.ceil(avg / 1000) * 1000 : 0,
+          players: nextPlayers
+        });
+      }
+      output[posKey] = { tiers: nextTiers };
+    }
+    return output;
   }
 
   function tagBreakdownPositionKeys() {
@@ -7876,6 +7939,9 @@
             '<span class="rwb-chip"><span class="rwb-chip-label">Tiers</span><span class="rwb-chip-value">' + escapeHtml(String(tiers.length)) + '</span></span>' +
           '</div>' +
         '</header>' +
+        (tagBreakdownUsesProjectedSeason()
+          ? '<div class="rwb-tag-breakdown-note">Projected year uses scheduled salary for that season. Expiring deals count as $0 until extended, tagged, or replaced at auction. These values remain live until the contract deadline locks them.</div>'
+          : '') +
         '<div class="rwb-tag-breakdown-grid">' + tierCards.join("") + '</div>' +
       '</article>'
     );

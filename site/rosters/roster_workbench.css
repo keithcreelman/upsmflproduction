@@ -1174,6 +1174,17 @@
   margin-bottom: 14px;
 }
 
+.rwb-tag-breakdown-note {
+  margin-bottom: 12px;
+  border: 1px solid rgba(157, 188, 228, 0.2);
+  border-radius: 12px;
+  background: rgba(8, 18, 34, 0.82);
+  padding: 10px 12px;
+  color: var(--rwb-text-soft);
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
 .rwb-tag-breakdown-kicker {
   color: var(--rwb-text-dim);
   font-size: 0.72rem;
