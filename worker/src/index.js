@@ -4447,6 +4447,80 @@ export default {
         }
       };
 
+      const openDiscordDmChannel = async (botToken, userId) => {
+        const targetUserId = safeStr(userId).replace(/\D/g, "");
+        if (!botToken || !targetUserId) {
+          return {
+            ok: false,
+            status: 0,
+            channel_id: "",
+            error: !botToken ? "missing_discord_bot_token" : "missing_discord_user_id",
+          };
+        }
+        const res = await discordBotRequest(botToken, "POST", "/users/@me/channels", {
+          recipient_id: targetUserId,
+        });
+        return {
+          ok: !!res.ok,
+          status: safeInt(res.status, 0),
+          channel_id: safeStr(res.data?.id || ""),
+          error: res.ok ? "" : safeStr(res.text || "discord_dm_channel_open_failed").slice(0, 600),
+        };
+      };
+
+      const sendDiscordDmEmbed = async ({ userId, content, embeds }) => {
+        const botToken = contractDiscordBotToken();
+        const targetUserId = safeStr(userId).replace(/\D/g, "");
+        if (!botToken || !targetUserId) {
+          return {
+            ok: false,
+            status: 0,
+            user_id: targetUserId,
+            channel_id: "",
+            message_id: "",
+            error: !botToken ? "missing_discord_contract_bot_token" : "missing_discord_user_id",
+          };
+        }
+        const openRes = await openDiscordDmChannel(botToken, targetUserId);
+        if (!openRes.ok || !openRes.channel_id) {
+          return {
+            ok: false,
+            status: safeInt(openRes.status, 0),
+            user_id: targetUserId,
+            channel_id: safeStr(openRes.channel_id || ""),
+            message_id: "",
+            error: safeStr(openRes.error || "discord_dm_channel_open_failed"),
+          };
+        }
+        const sendRes = await discordBotRequest(
+          botToken,
+          "POST",
+          `/channels/${encodeURIComponent(openRes.channel_id)}/messages`,
+          {
+            content: safeStr(content || ""),
+            embeds: Array.isArray(embeds) ? embeds : [],
+            allowed_mentions: { parse: [] },
+          }
+        );
+        return {
+          ok: !!sendRes.ok,
+          status: safeInt(sendRes.status, 0),
+          user_id: targetUserId,
+          channel_id: safeStr(openRes.channel_id || ""),
+          message_id: safeStr(sendRes.data?.id || ""),
+          error: sendRes.ok ? "" : safeStr(sendRes.text || "discord_dm_send_failed").slice(0, 600),
+        };
+      };
+
+      const sendDiscordDmEmbedsToUsers = async ({ userIds, content, embeds }) => {
+        const ids = Array.isArray(userIds) ? userIds.map((value) => safeStr(value).replace(/\D/g, "")).filter(Boolean) : [];
+        const results = [];
+        for (const userId of ids) {
+          results.push(await sendDiscordDmEmbed({ userId, content, embeds }));
+        }
+        return results;
+      };
+
       const syncBugThreadStatus = async (reportRow, statusOverride = "") => {
         const botToken = bugDiscordBotToken();
         const threadId = safeStr(reportRow && reportRow.thread_id);
@@ -9175,43 +9249,296 @@ export default {
         });
       };
 
+      const parseEtTimeParts = (rawTime, fallbackHour = 9, fallbackMinute = 0) => {
+        const match = safeStr(rawTime).match(/^(\d{1,2}):(\d{2})$/);
+        if (!match) {
+          return { hour: fallbackHour, minute: fallbackMinute };
+        }
+        const hour = Math.max(0, Math.min(23, safeInt(match[1], fallbackHour)));
+        const minute = Math.max(0, Math.min(59, safeInt(match[2], fallbackMinute)));
+        return { hour, minute };
+      };
+
+      const formatTimeLabelEt = (rawTime) => {
+        const { hour, minute } = parseEtTimeParts(rawTime, 9, 0);
+        const meridiem = hour >= 12 ? "PM" : "AM";
+        const hour12 = hour % 12 || 12;
+        return `${hour12}:${String(minute).padStart(2, "0")} ${meridiem} ET`;
+      };
+
+      const formatPlainDateTimeLabelEt = (dateKey, rawTime) => {
+        const dateLabel = formatPlainDateLabelEt(dateKey);
+        if (!dateLabel) return "";
+        return `${dateLabel} at ${formatTimeLabelEt(rawTime)}`;
+      };
+
+      const currentEtParts = (value = new Date()) => {
+        const date = value instanceof Date ? value : new Date(value);
+        const parts = new Intl.DateTimeFormat("en-US", {
+          timeZone: "America/New_York",
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false,
+        }).formatToParts(date);
+        const take = (type) => safeStr(parts.find((part) => part.type === type)?.value || "");
+        return {
+          date_key: `${take("year")}-${take("month")}-${take("day")}`,
+          hour: safeInt(take("hour"), 0),
+          minute: safeInt(take("minute"), 0),
+        };
+      };
+
+      const thanksgivingDateKey = (season) => {
+        const year = safeInt(season, 0);
+        if (year <= 0) return "";
+        const firstUtc = new Date(Date.UTC(year, 10, 1, 12, 0, 0));
+        const firstWeekday = firstUtc.getUTCDay();
+        const firstThursdayOffset = (4 - firstWeekday + 7) % 7;
+        const thanksgivingDay = 1 + firstThursdayOffset + 21;
+        return `${String(year).padStart(4, "0")}-11-${String(thanksgivingDay).padStart(2, "0")}`;
+      };
+
+      const etDateTimeFromIso = (rawValue) => {
+        const date = new Date(rawValue);
+        if (Number.isNaN(date.getTime())) return { date_key: "", time_et: "" };
+        const parts = new Intl.DateTimeFormat("en-US", {
+          timeZone: "America/New_York",
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false,
+        }).formatToParts(date);
+        const take = (type) => safeStr(parts.find((part) => part.type === type)?.value || "");
+        return {
+          date_key: `${take("year")}-${take("month")}-${take("day")}`,
+          time_et: `${take("hour")}:${take("minute")}`,
+        };
+      };
+
+      const parseDiscordUserIds = (rawValue) =>
+        Array.from(
+          new Set(
+            safeStr(rawValue)
+              .split(/[\s,]+/)
+              .map((part) => part.replace(/\D/g, ""))
+              .filter(Boolean)
+          )
+        );
+
+      const resolveTradeDeadlineKickoffEt = async (season) => {
+        const seasonKey = safeStr(season);
+        const configured =
+          ((DEADLINE_REMINDER_CALENDAR[seasonKey] || {}).trade_deadline && typeof (DEADLINE_REMINDER_CALENDAR[seasonKey] || {}).trade_deadline === "object")
+            ? (DEADLINE_REMINDER_CALENDAR[seasonKey] || {}).trade_deadline
+            : {};
+        const thanksgivingDate = thanksgivingDateKey(seasonKey) || safeStr(configured.deadline_date_et);
+        const fallbackTimeEt = safeStr(configured.deadline_time_et || "13:00");
+        const checkedAtUtc = new Date().toISOString();
+        const datesParam = thanksgivingDate ? thanksgivingDate.replace(/-/g, "") : "";
+        const sourceUrl = datesParam
+          ? `https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=${encodeURIComponent(datesParam)}`
+          : "";
+        const fallback = {
+          season: safeInt(seasonKey, 0),
+          deadline_date_et: thanksgivingDate,
+          deadline_time_et: fallbackTimeEt,
+          fallback_used: true,
+          source: "configured_fallback",
+          source_url: sourceUrl,
+          checked_at_utc: checkedAtUtc,
+          event_name: "",
+          event_id: "",
+          event_date_utc: "",
+          upstream_status: 0,
+          upstream_error: "",
+        };
+        if (!sourceUrl) return fallback;
+        try {
+          const res = await fetch(sourceUrl, {
+            headers: {
+              "User-Agent": "upsmflproduction-worker",
+              "Cache-Control": "no-store",
+            },
+            cf: { cacheTtl: 0, cacheEverything: false },
+          });
+          fallback.upstream_status = safeInt(res.status, 0);
+          if (!res.ok) {
+            fallback.upstream_error = `http_${res.status}`;
+            return fallback;
+          }
+          const data = await res.json();
+          const events = Array.isArray(data?.events) ? data.events : [];
+          if (!events.length) {
+            fallback.upstream_error = "no_events";
+            return fallback;
+          }
+          const first = events
+            .filter((row) => safeStr(row?.date))
+            .sort((a, b) => String(a?.date || "").localeCompare(String(b?.date || "")))[0];
+          if (!first) {
+            fallback.upstream_error = "no_event_dates";
+            return fallback;
+          }
+          const resolved = etDateTimeFromIso(first.date);
+          if (!safeStr(resolved.date_key) || !safeStr(resolved.time_et)) {
+            fallback.upstream_error = "unresolved_event_time";
+            return fallback;
+          }
+          return {
+            season: safeInt(seasonKey, 0),
+            deadline_date_et: safeStr(resolved.date_key),
+            deadline_time_et: safeStr(resolved.time_et),
+            fallback_used: false,
+            source: "espn_scoreboard",
+            source_url: sourceUrl,
+            checked_at_utc: checkedAtUtc,
+            event_name: safeStr(first?.name || ""),
+            event_id: safeStr(first?.id || ""),
+            event_date_utc: safeStr(first?.date || ""),
+            upstream_status: safeInt(res.status, 0),
+            upstream_error: "",
+          };
+        } catch (e) {
+          fallback.upstream_error = `fetch_failed: ${e?.message || String(e)}`;
+          return fallback;
+        }
+      };
+
+      const tradeDeadlineResolutionChanged = (previous, next) => {
+        const prev = previous && typeof previous === "object" ? previous : {};
+        const current = next && typeof next === "object" ? next : {};
+        return (
+          safeStr(prev.deadline_date_et) !== safeStr(current.deadline_date_et) ||
+          safeStr(prev.deadline_time_et) !== safeStr(current.deadline_time_et) ||
+          safeStr(prev.source) !== safeStr(current.source) ||
+          safeInt(prev.fallback_used, 1) !== safeInt(current.fallback_used, 1) ||
+          safeStr(prev.event_name) !== safeStr(current.event_name)
+        );
+      };
+
+      const shouldNotifyTradeDeadlineResolution = (previous, next) => {
+        const prev = previous && typeof previous === "object" ? previous : {};
+        const current = next && typeof next === "object" ? next : {};
+        if (!tradeDeadlineResolutionChanged(prev, current)) return false;
+        if (safeInt(current.fallback_used, 1)) return false;
+        return (
+          safeInt(prev.fallback_used, 1) === 1 ||
+          safeStr(prev.deadline_date_et) !== safeStr(current.deadline_date_et) ||
+          safeStr(prev.deadline_time_et) !== safeStr(current.deadline_time_et)
+        );
+      };
+
+      const buildTradeDeadlineResolutionDmEmbed = ({ season, previous, current }) => {
+        const prev = previous && typeof previous === "object" ? previous : {};
+        const next = current && typeof current === "object" ? current : {};
+        return {
+          title: `Trade Deadline Auto-Updated for ${safeStr(season)}`,
+          color: 0x103a71,
+          description: "Thanksgiving kickoff is official, so the trade deadline reminder schedule has been updated automatically.",
+          fields: [
+            {
+              name: "Previous Deadline",
+              value: formatPlainDateTimeLabelEt(
+                safeStr(prev.deadline_date_et || thanksgivingDateKey(season)),
+                safeStr(prev.deadline_time_et || "13:00")
+              ),
+              inline: false,
+            },
+            {
+              name: "Updated Deadline",
+              value: formatPlainDateTimeLabelEt(safeStr(next.deadline_date_et), safeStr(next.deadline_time_et)),
+              inline: false,
+            },
+            {
+              name: "Source",
+              value: safeStr(next.event_name || next.source || "Auto-resolved kickoff"),
+              inline: false,
+            },
+          ],
+          footer: {
+            text: `Checked ${formatBugSubmittedAt(safeStr(next.checked_at_utc || new Date().toISOString()))}`,
+          },
+        };
+      };
+
+      const minutesOfDayEt = (hour, minute) =>
+        (Math.max(0, Math.min(23, safeInt(hour, 0))) * 60) + Math.max(0, Math.min(59, safeInt(minute, 0)));
+
+      const shiftDateTimeEt = (dateKey, rawTime, deltaMinutes) => {
+        const raw = safeStr(dateKey);
+        if (!raw) return { date_key: "", time_et: "" };
+        const [year, month, day] = raw.split("-").map((part) => safeInt(part, 0));
+        if (!year || !month || !day) return { date_key: "", time_et: "" };
+        const { hour, minute } = parseEtTimeParts(rawTime, 9, 0);
+        const base = new Date(Date.UTC(year, month - 1, day, hour, minute, 0));
+        if (Number.isNaN(base.getTime())) return { date_key: "", time_et: "" };
+        base.setUTCMinutes(base.getUTCMinutes() + safeInt(deltaMinutes, 0));
+        return {
+          date_key: base.toISOString().slice(0, 10),
+          time_et: `${String(base.getUTCHours()).padStart(2, "0")}:${String(base.getUTCMinutes()).padStart(2, "0")}`,
+        };
+      };
+
       const DEADLINE_REMINDER_CALENDAR = {
         "2026": {
           rookie_extensions_and_tags: {
             title: "Expiring Rookie Extensions + Tag Deadline",
             deadline_date_et: "2026-05-21",
+            deadline_time_et: "21:00",
+            reminder_send_time_et: "09:00",
             summary: "Finalize expiring rookie extensions and franchise tags before the window closes.",
             reminder_offsets_days: [7, 2, 1],
+            reminder_offsets_hours: [],
           },
           rookie_draft: {
             title: "Rookie Draft",
             deadline_date_et: "2026-05-24",
+            deadline_time_et: "18:30",
+            reminder_send_time_et: "09:00",
             summary: "Set your board, queue your picks, and be ready for trade chaos on draft night.",
             reminder_offsets_days: [7, 3],
+            reminder_offsets_hours: [1],
           },
           cut_deadline: {
             title: "Auction Cut Deadline",
             deadline_date_et: "2026-07-22",
+            deadline_time_et: "21:00",
+            reminder_send_time_et: "09:00",
             summary: "Cut decisions have to be final before the free agent auction roster lock hits.",
             reminder_offsets_days: [7, 1],
+            reminder_offsets_hours: [],
           },
           free_agent_auction: {
             title: "Free Agent Auction Opens",
             deadline_date_et: "2026-07-25",
+            deadline_time_et: "12:00",
+            reminder_send_time_et: "09:00",
             summary: "Get cap space, roster spots, and nomination plans sorted before the auction opens.",
             reminder_offsets_days: [7, 1],
+            reminder_offsets_hours: [],
           },
           contract_deadline: {
             title: "Contract Deadline",
             deadline_date_et: "2026-09-06",
+            deadline_time_et: "21:00",
+            reminder_send_time_et: "09:00",
             summary: "Extensions, auction multis, and option decisions need to be locked before kickoff week closes the door.",
             reminder_offsets_days: [7, 1],
+            reminder_offsets_hours: [],
           },
           trade_deadline: {
             title: "Trade Deadline",
             deadline_date_et: "2026-11-26",
+            deadline_time_et: "13:00",
+            reminder_send_time_et: "09:00",
             summary: "Finish the last deals before Thanksgiving kickoff shuts the market down.",
             reminder_offsets_days: [7, 1],
+            reminder_offsets_hours: [1],
           },
         },
       };
@@ -9234,16 +9561,37 @@ export default {
         return `${days} Days`;
       };
 
-      const deadlineReminderCatalogForSeason = (season) => {
+      const reminderCodeFromHours = (hoursBefore) => {
+        const hours = safeInt(hoursBefore, 0);
+        if (hours === 1) return "1_hour";
+        return `${hours}_hours`;
+      };
+
+      const reminderLabelFromHours = (hoursBefore) => {
+        const hours = safeInt(hoursBefore, 0);
+        if (hours === 1) return "1 Hour";
+        return `${hours} Hours`;
+      };
+
+      const deadlineReminderCatalogForSeason = (season, overrides = {}) => {
         const seasonKey = safeStr(season);
         const raw = DEADLINE_REMINDER_CALENDAR[seasonKey] || {};
         return Object.entries(raw).map(([eventKey, event]) => ({
           event_key: eventKey,
-          title: safeStr(event.title),
-          deadline_date_et: safeStr(event.deadline_date_et),
-          summary: safeStr(event.summary),
-          reminder_offsets_days: Array.isArray(event.reminder_offsets_days)
+          title: safeStr((overrides[eventKey] && overrides[eventKey].title) || event.title),
+          deadline_date_et: safeStr((overrides[eventKey] && overrides[eventKey].deadline_date_et) || event.deadline_date_et),
+          deadline_time_et: safeStr((overrides[eventKey] && overrides[eventKey].deadline_time_et) || event.deadline_time_et || "23:59"),
+          reminder_send_time_et: safeStr((overrides[eventKey] && overrides[eventKey].reminder_send_time_et) || event.reminder_send_time_et || "09:00"),
+          summary: safeStr((overrides[eventKey] && overrides[eventKey].summary) || event.summary),
+          reminder_offsets_days: Array.isArray((overrides[eventKey] && overrides[eventKey].reminder_offsets_days) || null)
+            ? overrides[eventKey].reminder_offsets_days.map((v) => safeInt(v, 0)).filter((v) => v > 0)
+            : Array.isArray(event.reminder_offsets_days)
             ? event.reminder_offsets_days.map((v) => safeInt(v, 0)).filter((v) => v > 0)
+            : [],
+          reminder_offsets_hours: Array.isArray((overrides[eventKey] && overrides[eventKey].reminder_offsets_hours) || null)
+            ? overrides[eventKey].reminder_offsets_hours.map((v) => safeInt(v, 0)).filter((v) => v > 0)
+            : Array.isArray(event.reminder_offsets_hours)
+            ? event.reminder_offsets_hours.map((v) => safeInt(v, 0)).filter((v) => v > 0)
             : [],
         }));
       };
@@ -9262,23 +9610,29 @@ export default {
 
       const buildDueDeadlineReminders = ({
         season,
-        todayEt,
+        catalog,
+        currentEt,
         deliveryTarget,
         sentKeys,
         eventKeyFilter,
         reminderCodeFilter,
       }) => {
-        const targetDate = safeStr(todayEt);
+        const nowEt = currentEt && typeof currentEt === "object" ? currentEt : currentEtParts();
+        const targetDate = safeStr(nowEt.date_key);
         const targetDelivery = safeStr(deliveryTarget || "primary");
         const sent = sentKeys instanceof Set ? sentKeys : new Set();
         const rows = [];
-        for (const event of deadlineReminderCatalogForSeason(season)) {
+        const eventCatalog = Array.isArray(catalog) ? catalog : deadlineReminderCatalogForSeason(season);
+        for (const event of eventCatalog) {
           if (eventKeyFilter && safeStr(event.event_key) !== safeStr(eventKeyFilter)) continue;
           for (const daysBefore of event.reminder_offsets_days) {
             const reminderCode = reminderCodeFromDays(daysBefore);
             if (reminderCodeFilter && safeStr(reminderCode) !== safeStr(reminderCodeFilter)) continue;
             const triggerDateEt = shiftPlainDateKey(event.deadline_date_et, -daysBefore);
+            const sendTimeEt = safeStr(event.reminder_send_time_et || "09:00");
+            const sendParts = parseEtTimeParts(sendTimeEt, 9, 0);
             if (triggerDateEt !== targetDate) continue;
+            if (minutesOfDayEt(nowEt.hour, nowEt.minute) < minutesOfDayEt(sendParts.hour, sendParts.minute)) continue;
             const reminderKey = buildDeadlineReminderKey({
               season,
               eventKey: event.event_key,
@@ -9291,11 +9645,45 @@ export default {
               event_key: safeStr(event.event_key),
               title: safeStr(event.title),
               deadline_date_et: safeStr(event.deadline_date_et),
+              deadline_time_et: safeStr(event.deadline_time_et || "23:59"),
               summary: safeStr(event.summary),
               reminder_days_before: daysBefore,
               reminder_code: reminderCode,
               reminder_label: reminderLabelFromDays(daysBefore),
               trigger_date_et: triggerDateEt,
+              trigger_time_et: sendTimeEt,
+              reminder_key: reminderKey,
+            });
+          }
+          for (const hoursBefore of event.reminder_offsets_hours || []) {
+            const reminderCode = reminderCodeFromHours(hoursBefore);
+            if (reminderCodeFilter && safeStr(reminderCode) !== safeStr(reminderCodeFilter)) continue;
+            const shifted = shiftDateTimeEt(event.deadline_date_et, event.deadline_time_et, -hoursBefore * 60);
+            const triggerDateEt = safeStr(shifted.date_key);
+            const sendTimeEt = safeStr(shifted.time_et || event.reminder_send_time_et || "09:00");
+            const sendParts = parseEtTimeParts(sendTimeEt, 9, 0);
+            if (triggerDateEt !== targetDate) continue;
+            if (minutesOfDayEt(nowEt.hour, nowEt.minute) < minutesOfDayEt(sendParts.hour, sendParts.minute)) continue;
+            const reminderKey = buildDeadlineReminderKey({
+              season,
+              eventKey: event.event_key,
+              reminderCode,
+              deliveryTarget: targetDelivery,
+            });
+            if (sent.has(reminderKey)) continue;
+            rows.push({
+              season: safeStr(season),
+              event_key: safeStr(event.event_key),
+              title: safeStr(event.title),
+              deadline_date_et: safeStr(event.deadline_date_et),
+              deadline_time_et: safeStr(event.deadline_time_et || "23:59"),
+              summary: safeStr(event.summary),
+              reminder_days_before: 0,
+              reminder_hours_before: hoursBefore,
+              reminder_code: reminderCode,
+              reminder_label: reminderLabelFromHours(hoursBefore),
+              trigger_date_et: triggerDateEt,
+              trigger_time_et: sendTimeEt,
               reminder_key: reminderKey,
             });
           }
@@ -9314,7 +9702,11 @@ export default {
           "missed the deadline reaction",
           "late to meeting gif",
         ];
-        if (reminder === "24_hours") {
+        if (reminder === "1_hour") {
+          queries.unshift("men cheering sports");
+          queries.unshift("guy freaking out excited");
+          queries.unshift("sports fan losing his mind");
+        } else if (reminder === "24_hours") {
           queries.unshift("last minute panic");
           queries.unshift("alarm clock panic");
         } else if (reminder === "48_hours" || reminder === "72_hours") {
@@ -9383,26 +9775,39 @@ export default {
             "One day left. This is not a drill and probably not a nap window.",
             "Final warning before tomorrow turns into a very avoidable story.",
           ],
+          "1_hour": [
+            "One hour out. This is the part where group chats become scouting departments.",
+            "Sixty minutes to go. Draft board up, caffeine in play, chaos expected.",
+          ],
         };
         const reminderCode = safeStr(reminder?.reminder_code);
         const toneOptions = toneBank[reminderCode] || toneBank.one_week;
         const toneLine = toneOptions[Math.floor(Math.random() * toneOptions.length)] || toneOptions[0] || "";
+        const urgencyHours = safeInt(reminder?.reminder_hours_before, 0);
         const daysBefore = safeInt(reminder?.reminder_days_before, 0);
         const embedColor =
-          daysBefore <= 1 ? 0xb45309 : (daysBefore <= 3 ? 0xc8a24d : 0x103a71);
+          urgencyHours > 0 || daysBefore <= 1 ? 0xb45309 : (daysBefore <= 3 ? 0xc8a24d : 0x103a71);
         const embed = {
           title: `Reminder: ${safeStr(reminder?.title)} in ${safeStr(reminder?.reminder_label)}`,
           color: embedColor,
-          description: `${formatPlainDateLabelEt(reminder?.deadline_date_et)}\n${toneLine}`,
+          description: `${formatPlainDateTimeLabelEt(reminder?.deadline_date_et, reminder?.deadline_time_et)}\n${toneLine}`,
           fields: [
             {
               name: "What This Covers",
-              value: safeStr(reminder?.summary || "Deadline reminder"),
+              value:
+                safeStr(reminder?.event_key) === "trade_deadline" && safeStr(reminder?.reminder_code) === "1_hour"
+                  ? `${safeStr(reminder?.summary || "Deadline reminder")}\nHappy Thanksgiving.`
+                  : safeStr(reminder?.summary || "Deadline reminder"),
+              inline: false,
+            },
+            {
+              name: "Reminder Time",
+              value: formatPlainDateTimeLabelEt(reminder?.trigger_date_et, reminder?.trigger_time_et),
               inline: false,
             },
           ],
           footer: {
-            text: `Trigger ${safeStr(reminder?.trigger_date_et)} ET`,
+            text: `Scheduled reminder window starts ${formatTimeLabelEt(reminder?.trigger_time_et || "09:00")}`,
           },
         };
         if (safeStr(gifUrl)) {
@@ -14960,7 +15365,13 @@ export default {
         const leagueId = safeStr(body.league_id || body.leagueId || url.searchParams.get("L") || L || "");
         if (!leagueId) return jsonOut(400, { ok: false, error: "Missing league_id or L" });
         if (!season) return jsonOut(400, { ok: false, error: "Missing season or YEAR" });
-        const catalog = deadlineReminderCatalogForSeason(season);
+        const tradeDeadlineResolution = await resolveTradeDeadlineKickoffEt(season);
+        const catalog = deadlineReminderCatalogForSeason(season, {
+          trade_deadline: {
+            deadline_date_et: safeStr(tradeDeadlineResolution.deadline_date_et),
+            deadline_time_et: safeStr(tradeDeadlineResolution.deadline_time_et),
+          },
+        });
         if (!catalog.length) {
           return jsonOut(400, { ok: false, error: `No reminder calendar configured for season ${season}` });
         }
@@ -14971,7 +15382,8 @@ export default {
           safeStr(body.trigger_date_et || body.triggerDateEt || "") ||
           buildDueDeadlineReminders({
             season,
-            todayEt: etDateKeyFromDate(new Date()),
+            catalog,
+            currentEt: currentEtParts(),
             deliveryTarget: "test",
             sentKeys,
             eventKeyFilter: eventKey,
@@ -14985,19 +15397,94 @@ export default {
                 "72_hours": 3,
                 "48_hours": 2,
                 "24_hours": 1,
+                "1_hour": 0,
               }).find(([key]) => key === reminderCode)?.[1] || 7,
               7
             )
           );
+        const selectedEvent = catalog.find((row) => safeStr(row.event_key) === eventKey) || {};
+        const triggerTimeEtOverride =
+          safeStr(body.trigger_time_et || body.triggerTimeEt || "") ||
+          (reminderCode === "1_hour"
+            ? shiftDateTimeEt(
+                safeStr(selectedEvent.deadline_date_et || ""),
+                safeStr(selectedEvent.deadline_time_et || "09:00"),
+                -60
+              ).time_et
+            : safeStr(selectedEvent.reminder_send_time_et || "09:00"));
+        const triggerParts = parseEtTimeParts(triggerTimeEtOverride, 9, 0);
         const due = buildDueDeadlineReminders({
           season,
-          todayEt: triggerDateEtOverride,
+          catalog,
+          currentEt: {
+            date_key: triggerDateEtOverride,
+            hour: triggerParts.hour,
+            minute: triggerParts.minute,
+          },
           deliveryTarget: "test",
           sentKeys,
           eventKeyFilter: eventKey,
           reminderCodeFilter: reminderCode,
         });
-        const reminder = due[0];
+        let reminder = due[0] || null;
+        if (!reminder && selectedEvent && safeStr(selectedEvent.event_key)) {
+          let triggerDateEt = triggerDateEtOverride;
+          let triggerTimeEt = triggerTimeEtOverride;
+          let reminderLabel = reminderCode;
+          let reminderDaysBefore = 0;
+          let reminderHoursBefore = 0;
+          if (reminderCode === "one_week") {
+            triggerDateEt = shiftPlainDateKey(safeStr(selectedEvent.deadline_date_et || ""), -7);
+            triggerTimeEt = safeStr(selectedEvent.reminder_send_time_et || "09:00");
+            reminderLabel = "1 Week";
+            reminderDaysBefore = 7;
+          } else if (reminderCode === "72_hours") {
+            triggerDateEt = shiftPlainDateKey(safeStr(selectedEvent.deadline_date_et || ""), -3);
+            triggerTimeEt = safeStr(selectedEvent.reminder_send_time_et || "09:00");
+            reminderLabel = "72 Hours";
+            reminderDaysBefore = 3;
+          } else if (reminderCode === "48_hours") {
+            triggerDateEt = shiftPlainDateKey(safeStr(selectedEvent.deadline_date_et || ""), -2);
+            triggerTimeEt = safeStr(selectedEvent.reminder_send_time_et || "09:00");
+            reminderLabel = "48 Hours";
+            reminderDaysBefore = 2;
+          } else if (reminderCode === "24_hours") {
+            triggerDateEt = shiftPlainDateKey(safeStr(selectedEvent.deadline_date_et || ""), -1);
+            triggerTimeEt = safeStr(selectedEvent.reminder_send_time_et || "09:00");
+            reminderLabel = "24 Hours";
+            reminderDaysBefore = 1;
+          } else if (reminderCode === "1_hour") {
+            const shifted = shiftDateTimeEt(
+              safeStr(selectedEvent.deadline_date_et || ""),
+              safeStr(selectedEvent.deadline_time_et || "09:00"),
+              -60
+            );
+            triggerDateEt = safeStr(shifted.date_key || triggerDateEtOverride);
+            triggerTimeEt = safeStr(shifted.time_et || triggerTimeEtOverride);
+            reminderLabel = "1 Hour";
+            reminderHoursBefore = 1;
+          }
+          reminder = {
+            season: safeStr(season),
+            event_key: safeStr(selectedEvent.event_key),
+            title: safeStr(selectedEvent.title),
+            deadline_date_et: safeStr(selectedEvent.deadline_date_et),
+            deadline_time_et: safeStr(selectedEvent.deadline_time_et || "23:59"),
+            summary: safeStr(selectedEvent.summary),
+            reminder_days_before: reminderDaysBefore,
+            reminder_hours_before: reminderHoursBefore,
+            reminder_code: reminderCode,
+            reminder_label: reminderLabel,
+            trigger_date_et: triggerDateEt,
+            trigger_time_et: triggerTimeEt,
+            reminder_key: buildDeadlineReminderKey({
+              season,
+              eventKey: safeStr(selectedEvent.event_key),
+              reminderCode,
+              deliveryTarget: "test",
+            }),
+          };
+        }
         if (!reminder) {
           return jsonOut(400, {
             ok: false,
@@ -15017,6 +15504,7 @@ export default {
           season: safeInt(season, Number(season) || 0),
           test_only: true,
           reminder,
+          trade_deadline_resolution: tradeDeadlineResolution,
           notify,
         });
       }
@@ -15035,11 +15523,7 @@ export default {
         const leagueId = safeStr(body.league_id || body.leagueId || url.searchParams.get("L") || L || "");
         if (!leagueId) return jsonOut(400, { ok: false, error: "Missing league_id or L" });
         if (!season) return jsonOut(400, { ok: false, error: "Missing season or YEAR" });
-        const catalog = deadlineReminderCatalogForSeason(season);
-        if (!catalog.length) {
-          return jsonOut(400, { ok: false, error: `No reminder calendar configured for season ${season}` });
-        }
-        const todayEt = etDateKeyFromDate(new Date());
+        const nowEt = currentEtParts();
         const loaded = await readDeadlineRemindersDoc(season);
         if (!loaded.ok) {
           return jsonOut(500, {
@@ -15053,10 +15537,50 @@ export default {
           });
         }
         const doc = normalizeDeadlineRemindersDoc(loaded.doc, season);
+        const previousTradeDeadlineResolution =
+          doc.meta && typeof doc.meta.trade_deadline_resolution === "object"
+            ? doc.meta.trade_deadline_resolution
+            : {};
+        const fetchedTradeDeadlineResolution = await resolveTradeDeadlineKickoffEt(season);
+        const previousOfficialTradeDeadlineResolution =
+          safeInt(previousTradeDeadlineResolution.fallback_used, 1) === 0 &&
+          safeStr(previousTradeDeadlineResolution.deadline_date_et) &&
+          safeStr(previousTradeDeadlineResolution.deadline_time_et)
+            ? previousTradeDeadlineResolution
+            : null;
+        const tradeDeadlineResolution =
+          safeInt(fetchedTradeDeadlineResolution.fallback_used, 1) === 1 && previousOfficialTradeDeadlineResolution
+            ? {
+                ...previousOfficialTradeDeadlineResolution,
+                checked_at_utc: safeStr(fetchedTradeDeadlineResolution.checked_at_utc || new Date().toISOString()),
+                upstream_status: safeInt(fetchedTradeDeadlineResolution.upstream_status, 0),
+                upstream_error: safeStr(fetchedTradeDeadlineResolution.upstream_error || ""),
+                source_url: safeStr(fetchedTradeDeadlineResolution.source_url || previousOfficialTradeDeadlineResolution.source_url || ""),
+              }
+            : fetchedTradeDeadlineResolution;
+        const catalog = deadlineReminderCatalogForSeason(season, {
+          trade_deadline: {
+            deadline_date_et: safeStr(tradeDeadlineResolution.deadline_date_et),
+            deadline_time_et: safeStr(tradeDeadlineResolution.deadline_time_et),
+          },
+        });
+        if (!catalog.length) {
+          return jsonOut(400, { ok: false, error: `No reminder calendar configured for season ${season}` });
+        }
+        const tradeResolutionChanged = tradeDeadlineResolutionChanged(previousTradeDeadlineResolution, tradeDeadlineResolution);
+        const tradeResolutionNotify = shouldNotifyTradeDeadlineResolution(
+          previousTradeDeadlineResolution,
+          tradeDeadlineResolution
+        );
+        const tradeResolutionPersist = tradeResolutionChanged && safeInt(tradeDeadlineResolution.fallback_used, 1) === 0;
+        if (tradeResolutionPersist) {
+          doc.meta.trade_deadline_resolution = tradeDeadlineResolution;
+        }
         const sentKeys = new Set((Array.isArray(doc.reminders) ? doc.reminders : []).map((row) => sentDeadlineReminderKey(row)).filter(Boolean));
         const due = buildDueDeadlineReminders({
           season,
-          todayEt,
+          catalog,
+          currentEt: nowEt,
           deliveryTarget: "primary",
           sentKeys,
         });
@@ -15084,7 +15608,9 @@ export default {
               event_key: reminder.event_key,
               event_title: reminder.title,
               deadline_date_et: reminder.deadline_date_et,
+              deadline_time_et: reminder.deadline_time_et,
               trigger_date_et: reminder.trigger_date_et,
+              trigger_time_et: reminder.trigger_time_et,
               reminder_code: reminder.reminder_code,
               reminder_label: reminder.reminder_label,
               delivery_target: safeStr(notify.delivery_target || "primary"),
@@ -15102,13 +15628,18 @@ export default {
           }
         }
         let saved = null;
-        if (newRows.length) {
+        const needsDocSave = newRows.length || tradeResolutionPersist;
+        if (needsDocSave) {
           doc.reminders = [...newRows, ...(Array.isArray(doc.reminders) ? doc.reminders : [])];
           saved = await writeDeadlineRemindersDoc(
             season,
             doc,
             loaded.sha,
-            `Log deadline reminders for ${season}`
+            tradeResolutionPersist && newRows.length
+              ? `Update trade deadline resolution and log deadline reminders for ${season}`
+              : tradeResolutionPersist
+              ? `Update trade deadline resolution for ${season}`
+              : `Log deadline reminders for ${season}`
           );
           if (!saved.ok) {
             return jsonOut(500, {
@@ -15125,15 +15656,36 @@ export default {
             });
           }
         }
+        let resolutionDmResults = [];
+        if (tradeResolutionNotify) {
+          const dmUserIds = parseDiscordUserIds(env.DISCORD_DM_USER_IDS || "");
+          if (dmUserIds.length) {
+            resolutionDmResults = await sendDiscordDmEmbedsToUsers({
+              userIds: dmUserIds,
+              content: "",
+              embeds: [
+                buildTradeDeadlineResolutionDmEmbed({
+                  season,
+                  previous: previousTradeDeadlineResolution,
+                  current: tradeDeadlineResolution,
+                }),
+              ],
+            });
+          }
+        }
         const allOk = results.every((row) => row.ok);
         return jsonOut(allOk ? 200 : 502, {
           ok: allOk,
           league_id: leagueId,
           season: safeInt(season, Number(season) || 0),
-          today_et: todayEt,
+          now_et: nowEt,
           count_due: due.length,
           count_sent: newRows.length,
           spacing_seconds: spacingSeconds,
+          trade_deadline_resolution: tradeDeadlineResolution,
+          trade_deadline_resolution_changed: tradeResolutionChanged,
+          trade_deadline_resolution_persisted: tradeResolutionPersist,
+          trade_deadline_resolution_dm: resolutionDmResults,
           storage: saved
             ? {
                 file_path: saved.filePath || "",

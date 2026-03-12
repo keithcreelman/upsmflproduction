@@ -3,7 +3,7 @@ name: Post Deadline Reminders
 on:
   workflow_dispatch:
   schedule:
-    - cron: "17 * * * *"
+    - cron: "*/15 * * * *"
 
 concurrency:
   group: post-deadline-reminders
