@@ -897,14 +897,11 @@ export default {
       const yearsRemainingFromRoster = (playerRow) => {
         const status = safeStr(playerRow?.status || "").toUpperCase();
         if (status.includes("TAXI")) return null;
-        const contractInfo = safeStr(playerRow?.contractInfo || playerRow?.contractinfo || "");
-        const contractLen = contractLengthFromInfo(contractInfo);
         const contractYearRaw = safeStr(playerRow?.contractYear || playerRow?.contractyear);
         if (!contractYearRaw) return null;
         const contractYear = safeInt(contractYearRaw, NaN);
         if (!Number.isFinite(contractYear)) return null;
-        if (contractLen != null) return Math.max(contractLen - contractYear - 1, 0);
-        return contractYear;
+        return Math.max(contractYear, 0);
       };
 
       const redactUrlSecrets = (rawUrl) => {
