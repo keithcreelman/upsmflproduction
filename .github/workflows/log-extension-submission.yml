@@ -1,11 +1,11 @@
-name: Log MYM Submission
+name: Log Extension Submission
 
 on:
   repository_dispatch:
-    types: [log-mym-submission]
+    types: [log-extension-submission]
 
 concurrency:
-  group: log-mym-submission
+  group: log-extension-submission
   cancel-in-progress: false
 
 permissions:
@@ -29,16 +29,16 @@ jobs:
         env:
           PAYLOAD_JSON: ${{ toJson(github.event.client_payload.payload || github.event.client_payload) }}
         run: |
-          python pipelines/etl/scripts/log_mym_submission.py --json-path site/ccc/mym_submissions.json
+          python pipelines/etl/scripts/log_extension_submission.py --json-path site/rosters/contract_submissions/extension_submissions.json
 
       - name: Commit and push if changed
         run: |
-          if git diff --quiet -- site/ccc/mym_submissions.json; then
+          if git diff --quiet -- site/rosters/contract_submissions/extension_submissions.json; then
             echo "No submission log changes to commit."
             exit 0
           fi
           changed_files="$(git diff --name-only)"
-          unexpected="$(printf "%s\n" "$changed_files" | grep -Ev '^site/ccc/mym_submissions\.json$' || true)"
+          unexpected="$(printf "%s\n" "$changed_files" | grep -Ev '^site/rosters/contract_submissions/extension_submissions\.json$' || true)"
           if [ -n "$unexpected" ]; then
             echo "Unexpected file changes detected; refusing to push."
             printf "%s\n" "$unexpected"
@@ -47,8 +47,8 @@ jobs:
           fi
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add site/ccc/mym_submissions.json
-          git commit -m "Log MYM submission"
+          git add site/rosters/contract_submissions/extension_submissions.json
+          git commit -m "Log extension submission"
           for attempt in 1 2 3; do
             git pull --rebase origin main
             if git push origin HEAD:main; then

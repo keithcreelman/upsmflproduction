@@ -6618,7 +6618,6 @@
       var contractGuarantee = guaranteedContractValueForPlayer(p);
       var capPenalty = capPenaltyAmountForPlayer(p);
       var contractTypeText = safeStr(p.type) || "-";
-      var attentionHtml = playerAttentionPillsHtml(p, 3);
 
       rows.push(
         '<tr class="rwb-player-row' + (p.isTaxi ? ' rwb-player-row-taxi' : '') + (p.isIr ? ' rwb-player-row-ir' : '') + '" data-player-id="' + escapeHtml(p.id) + '">' +
@@ -6633,7 +6632,6 @@
                 tags.join("") +
                 '<button type="button" class="rwb-row-more" data-action="row-more" aria-expanded="false">More</button>' +
               '</div>' +
-              attentionHtml +
               '<dl class="rwb-mobile-details">' +
                 '<div><dt>Contract Length</dt><dd>' + escapeHtml(contractLength > 0 ? String(contractLength) : "—") + '</dd></div>' +
                 '<div><dt>Years Left</dt><dd>' + escapeHtml(String(p.years)) + '</dd></div>' +
@@ -6702,7 +6700,6 @@
       var p = sorted[i];
       var proj = [displayedSalaryForPlan(p, 0), displayedSalaryForPlan(p, 1), displayedSalaryForPlan(p, 2)];
       var aav = safeInt(p.aav, 0);
-      var attentionHtml = playerAttentionPillsHtml(p, 3);
 
       rows.push(
         '<tr class="rwb-player-row' + (p.isTaxi ? ' rwb-player-row-taxi' : '') + (p.isIr ? ' rwb-player-row-ir' : '') + (extensionPreviewYears(p) ? ' is-projected' : '') + '">' +
@@ -6714,7 +6711,6 @@
                 (p.isTaxi ? '<span class="rwb-tag is-taxi">Taxi</span>' : '') +
                 (p.isIr ? '<span class="rwb-tag is-ir">IR</span>' : '') +
               '</div>' +
-              attentionHtml +
             '</div>' +
           '</td>' +
           '<td class="rwb-cell-num' + (aav === 0 ? ' rwb-money-zero' : '') + '">' + escapeHtml(aav > 0 ? money(aav) : "—") + '</td>' +
@@ -8413,7 +8409,7 @@
       franchise_name: safeStr(player.teamName),
       position: safeStr(player.positionGroup || player.position),
       salary: safeInt(option.salaryToSend, 0),
-      contract_year: safeInt(option.contractLength, 0),
+      contract_year: Math.max(0, safeInt(option.contractLength, 0) - 1),
       contract_status: safeStr(option.contractStatus),
       contract_info: safeStr(option.contractInfo),
       submitted_at_utc: new Date().toISOString(),

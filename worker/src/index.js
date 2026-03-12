@@ -57,6 +57,7 @@ export default {
         path !== "/admin/test-sync/prod-statuses" &&
         path !== "/admin/test-sync/prod-salaries" &&
         path !== "/admin/discord/post" &&
+        path !== "/admin/contract-activity/test-discord" &&
         path !== "/admin/bug-report/status" &&
         path !== "/admin/bug-report/triage-note" &&
         path !== "/admin/bug-report/test-discord" &&
@@ -8194,7 +8195,7 @@ export default {
       const contractDiscordTestChannelId = () =>
         safeStr(env.DISCORD_CONTRACT_TEST_CHANNEL_ID || env.DISCORD_BUG_TEST_CHANNEL_ID || "").replace(/\D/g, "");
 
-      const contractDiscordChannelTarget = () => {
+      const contractDiscordChannelTarget = (forceTestOnly = false) => {
         const testChannelId = contractDiscordTestChannelId();
         if (testChannelId) {
           return {
@@ -8203,11 +8204,54 @@ export default {
             missingError: "",
           };
         }
+        if (forceTestOnly) {
+          return {
+            channelId: "",
+            deliveryTarget: "test",
+            missingError: "missing_discord_contract_test_channel_config",
+          };
+        }
         const primaryChannelId = contractDiscordPrimaryChannelId();
         return {
           channelId: primaryChannelId,
           deliveryTarget: "primary",
           missingError: primaryChannelId ? "" : "missing_discord_contract_channel_config",
+        };
+      };
+
+      const contractDiscordFranchiseMetaCache = new Map();
+
+      const loadContractDiscordFranchiseMeta = async ({ season, leagueId, franchiseId }) => {
+        const seasonText = safeStr(season);
+        const leagueText = safeStr(leagueId);
+        const franchiseKey = padFranchiseId(franchiseId);
+        if (!seasonText || !leagueText || !franchiseKey) {
+          return { franchise_id: franchiseKey, franchise_name: "", icon_url: "" };
+        }
+        const cacheKey = `${seasonText}:${leagueText}`;
+        if (!contractDiscordFranchiseMetaCache.has(cacheKey)) {
+          let franchiseMap = {};
+          try {
+            const leagueRes = await mflExportJsonWithRetryAsViewer(seasonText, leagueText, "league", {}, { useCookie: true });
+            if (leagueRes.ok) {
+              const franchises = parseLeagueFranchises(leagueRes.data);
+              for (const fr of franchises) {
+                const id = padFranchiseId(fr?.franchise_id);
+                if (!id) continue;
+                franchiseMap[id] = fr;
+              }
+            }
+          } catch (_) {
+            franchiseMap = {};
+          }
+          contractDiscordFranchiseMetaCache.set(cacheKey, franchiseMap);
+        }
+        const franchiseMap = contractDiscordFranchiseMetaCache.get(cacheKey) || {};
+        const franchiseMeta = franchiseMap[franchiseKey] || {};
+        return {
+          franchise_id: franchiseKey,
+          franchise_name: safeStr(franchiseMeta?.franchise_name || ""),
+          icon_url: safeStr(franchiseMeta?.icon_url || ""),
         };
       };
 
@@ -8413,7 +8457,7 @@ export default {
         return lines.join("\n");
       };
 
-      const sendDiscordContractActivity = async ({
+      const buildContractActivityDiscordEmbed = ({
         activityType,
         franchiseName,
         playerName,
@@ -8422,6 +8466,64 @@ export default {
         season,
         salary,
         submittedAtUtc,
+        franchiseIconUrl,
+        gifUrl,
+      }) => {
+        const summary = contractBreakdownFromMutation({
+          contractInfo,
+          contractYear,
+          season,
+          salary,
+        });
+        const totals = summary.totals || { contract_length: 0, tcv: 0, aav: 0 };
+        const yearlyBreakdown = summary.pairs.length
+          ? summary.pairs
+              .map((pair) => {
+                const yearLabel = Number.isFinite(pair.season_year) && pair.season_year > 0
+                  ? String(pair.season_year)
+                  : `Y${pair.year}`;
+                return `${yearLabel} ${formatContractK(pair.salary)}`;
+              })
+              .join(" | ")
+          : "Unavailable";
+        const yearsLabel = totals.contract_length === 1 ? "1 Year" : `${Math.max(0, totals.contract_length)} Years`;
+        const embed = {
+          title: `${safeStr(activityType || "Contract Update")}: ${safeStr(playerName || "Unknown Player")}`,
+          color: 0x103a71,
+          fields: [
+            { name: "Team", value: safeStr(franchiseName || "Unknown Franchise"), inline: true },
+            { name: "Total Years", value: yearsLabel, inline: true },
+            { name: "TCV", value: formatContractK(totals.tcv), inline: true },
+            { name: "AAV", value: formatContractK(totals.aav), inline: true },
+            { name: "Current Salary", value: formatContractK(salary), inline: true },
+            { name: "Yearly Breakdown", value: yearlyBreakdown, inline: false },
+          ],
+        };
+        const submittedLabel = formatContractSubmissionDate(submittedAtUtc);
+        if (submittedLabel) {
+          embed.footer = { text: `Submitted ${submittedLabel}` };
+        }
+        if (safeStr(franchiseIconUrl)) {
+          embed.thumbnail = { url: safeStr(franchiseIconUrl) };
+        }
+        if (safeStr(gifUrl)) {
+          embed.image = { url: safeStr(gifUrl) };
+        }
+        return embed;
+      };
+
+      const sendDiscordContractActivity = async ({
+        activityType,
+        leagueId,
+        franchiseId,
+        franchiseName,
+        playerName,
+        contractInfo,
+        contractYear,
+        season,
+        salary,
+        submittedAtUtc,
+        forceTestOnly,
       }) => {
         const allow = shouldAnnounceContractActivity({ activityType, season });
         if (!allow.ok) {
@@ -8436,7 +8538,7 @@ export default {
           };
         }
         const botToken = contractDiscordBotToken();
-        const target = contractDiscordChannelTarget();
+        const target = contractDiscordChannelTarget(!!forceTestOnly);
         if (!botToken || !target.channelId) {
           return {
             ok: false,
@@ -8448,26 +8550,31 @@ export default {
             gif_query: "",
           };
         }
+        const franchiseMeta = await loadContractDiscordFranchiseMeta({
+          season,
+          leagueId,
+          franchiseId,
+        });
         const gif = await pickContractActivityGifUrl({ activityType, playerName });
-        let content = buildContractActivityDiscordMessage({
+        const embed = buildContractActivityDiscordEmbed({
           activityType,
-          franchiseName,
+          franchiseName: safeStr(franchiseName || franchiseMeta.franchise_name),
           playerName,
           contractInfo,
           contractYear,
           season,
           salary,
           submittedAtUtc,
+          franchiseIconUrl: safeStr(franchiseMeta.icon_url),
+          gifUrl: safeStr(gif.gif_url || ""),
         });
-        if (gif.gif_url) {
-          content += `\n\n${gif.gif_url}`;
-        }
         const res = await discordBotRequest(
           botToken,
           "POST",
           `/channels/${encodeURIComponent(target.channelId)}/messages`,
           {
-            content,
+            content: "",
+            embeds: [embed],
             allowed_mentions: { parse: [] },
           }
         );
@@ -8481,6 +8588,7 @@ export default {
           message_id: safeStr(res.data?.id || ""),
           gif_url: safeStr(gif.gif_url || ""),
           gif_query: safeStr(gif.query || ""),
+          franchise_icon_url: safeStr(franchiseMeta.icon_url || ""),
         };
       };
 
@@ -13957,6 +14065,92 @@ export default {
         });
       }
 
+      if (path === "/admin/contract-activity/test-discord" && request.method === "POST") {
+        let body = {};
+        try {
+          body = (await request.json()) || {};
+        } catch (_) {
+          return jsonOut(400, { ok: false, error: "Invalid JSON body" });
+        }
+
+        const leagueId = safeStr(
+          url.searchParams.get("L") ||
+            L ||
+            body.league_id ||
+            body.leagueId ||
+            ""
+        );
+        const season = safeStr(
+          url.searchParams.get("YEAR") ||
+            YEAR ||
+            body.season ||
+            body.year ||
+            ""
+        );
+        if (!leagueId) return jsonOut(400, { ok: false, error: "Missing L/league_id" });
+        if (!season) return jsonOut(400, { ok: false, error: "Missing YEAR/season" });
+
+        const adminState = await getLeagueAdminState(leagueId, season);
+        if (!adminState.ok || !adminState.isAdmin) {
+          return jsonOut(403, { ok: false, error: "Only league admin can send contract activity test messages" });
+        }
+
+        const playerName = safeStr(body.player_name || body.playerName || "");
+        const franchiseId = padFranchiseId(body.franchise_id || body.franchiseId || "");
+        const franchiseName = safeStr(body.franchise_name || body.franchiseName || "");
+        const contractInfo = safeStr(body.contract_info || body.contractInfo || "");
+        const contractYear = safeStr(body.contract_year || body.contractYear || "");
+        const salary = safeStr(body.salary || "");
+        const submittedAtUtc = safeStr(body.submitted_at_utc || body.submittedAtUtc || new Date().toISOString());
+        const contractStatus = safeStr(body.contract_status || body.contractStatus || "");
+        const activityType =
+          safeStr(body.activity_type || body.activityType || "") ||
+          deriveContractActivityType({
+            isExtensionSubmission: /\bext/i.test(contractStatus),
+            isRestructure: /\brestructure\b/i.test(contractStatus),
+            contractStatus,
+          });
+
+        const missingFields = [];
+        if (!playerName) missingFields.push("player_name");
+        if (!franchiseId) missingFields.push("franchise_id");
+        if (!contractInfo) missingFields.push("contract_info");
+        if (!contractYear) missingFields.push("contract_year");
+        if (!salary) missingFields.push("salary");
+        if (missingFields.length) {
+          return jsonOut(400, {
+            ok: false,
+            error: "Missing required fields",
+            missing_fields: missingFields,
+          });
+        }
+
+        const notify = await sendDiscordContractActivity({
+          activityType,
+          leagueId,
+          franchiseId,
+          franchiseName,
+          playerName,
+          contractInfo,
+          contractYear,
+          season,
+          salary,
+          submittedAtUtc,
+          forceTestOnly: true,
+        });
+        return jsonOut(notify && notify.ok ? 200 : 502, {
+          ok: !!(notify && notify.ok),
+          test_only: true,
+          delivery_target: "test",
+          league_id: leagueId,
+          season: safeInt(season, Number(season) || 0),
+          player_name: playerName,
+          franchise_id: franchiseId,
+          activity_type: activityType,
+          notify,
+        });
+      }
+
       if (path === "/roster-workbench/action" && request.method === "POST") {
         let body = {};
         try {
@@ -15155,23 +15349,25 @@ export default {
         if (looksOk && anyChanged && shouldDispatchSubmissionLog) {
           try {
             logDispatch = await dispatchRepoEvent(eventType, {
-              league_id: leagueId,
-              year: year,
-              season: year,
-              player_id: playerId,
-              player_name: playerName,
-              position: position,
-              franchise_id: franchiseId,
-              franchise_name: franchiseName,
-              salary: salary,
-              contract_year: contractYear,
-              contract_status: statusUsed || contractStatus,
-              contract_info: contractInfo,
-              submitted_at_utc: submittedAtUtc || new Date().toISOString(),
-              commish_override_flag: commishOverrideFlag,
-              override_as_of_date: overrideAsOfDate,
-              source: sourceTag,
-              submission_id: submissionId,
+              payload: {
+                league_id: leagueId,
+                year: year,
+                season: year,
+                player_id: playerId,
+                player_name: playerName,
+                position: position,
+                franchise_id: franchiseId,
+                franchise_name: franchiseName,
+                salary: salary,
+                contract_year: contractYear,
+                contract_status: statusUsed || contractStatus,
+                contract_info: contractInfo,
+                submitted_at_utc: submittedAtUtc || new Date().toISOString(),
+                commish_override_flag: commishOverrideFlag,
+                override_as_of_date: overrideAsOfDate,
+                source: sourceTag,
+                submission_id: submissionId,
+              },
             });
           } catch (e) {
             logDispatch = {
@@ -15200,6 +15396,8 @@ export default {
                 isRestructure,
                 contractStatus: postCheck?.contractStatus || statusUsed || contractStatus,
               }),
+              leagueId: leagueId,
+              franchiseId: franchiseId,
               franchiseName: franchiseName,
               playerName: playerName,
               contractInfo: postCheck?.contractInfo || contractInfo,

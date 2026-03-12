@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Append a restructure submission record into restructure_submissions.json.
+Append an extension submission record into extension_submissions.json.
 """
 
 from __future__ import annotations
@@ -27,7 +27,7 @@ def safe_str(value: Any) -> str:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--json-path", default="restructure_submissions.json")
+    parser.add_argument("--json-path", default="extension_submissions.json")
     parser.add_argument("--payload-json", default=os.environ.get("PAYLOAD_JSON", ""))
     parser.add_argument("--league-id", default=os.environ.get("LEAGUE_ID", ""))
     parser.add_argument("--season", default=os.environ.get("SEASON", ""))
@@ -50,9 +50,7 @@ def parse_args() -> argparse.Namespace:
         "--override-as-of-date",
         default=os.environ.get("OVERRIDE_AS_OF_DATE", ""),
     )
-    parser.add_argument(
-        "--source", default=os.environ.get("SOURCE", "worker-offer-restructure")
-    )
+    parser.add_argument("--source", default=os.environ.get("SOURCE", "worker-offer-extension"))
     parser.add_argument(
         "--submission-id",
         default=os.environ.get("SUBMISSION_ID", ""),
@@ -169,7 +167,7 @@ def main() -> int:
         "submitted_at_utc": submitted_at,
         "commish_override_flag": 1 if safe_int(args.commish_override_flag if safe_str(args.commish_override_flag) else payload.get("commish_override_flag", payload.get("commishOverrideFlag")), 0) else 0,
         "override_as_of_date": safe_str(args.override_as_of_date) or safe_str(payload.get("override_as_of_date")) or safe_str(payload.get("overrideAsOfDate")),
-        "source": safe_str(args.source) or safe_str(payload.get("source")) or "worker-offer-restructure",
+        "source": safe_str(args.source) or safe_str(payload.get("source")) or "worker-offer-extension",
     }
     if not entry["submission_id"]:
         entry["submission_id"] = build_submission_id(entry)
@@ -188,7 +186,7 @@ def main() -> int:
     doc["submissions"] = submissions
     doc["meta"] = {
         "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
-        "source": "restructure-submission-log",
+        "source": "extension-submission-log",
         "count": len(submissions),
     }
 
@@ -196,7 +194,7 @@ def main() -> int:
     tmp_path = json_path.with_suffix(json_path.suffix + ".tmp")
     tmp_path.write_text(json.dumps(doc, indent=2), encoding="utf-8")
     tmp_path.replace(json_path)
-    print(f"Logged restructure submission for player {entry['player_id']} ({entry['player_name']}).")
+    print(f"Logged extension submission for player {entry['player_id']} ({entry['player_name']}).")
     print(f"Wrote {json_path}.")
     return 0
 

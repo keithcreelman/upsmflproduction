@@ -28,6 +28,7 @@ def safe_str(value: Any) -> str:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--json-path", default="mym_submissions.json")
+    parser.add_argument("--payload-json", default=os.environ.get("PAYLOAD_JSON", ""))
     parser.add_argument("--league-id", default=os.environ.get("LEAGUE_ID", ""))
     parser.add_argument("--season", default=os.environ.get("SEASON", ""))
     parser.add_argument("--year", default=os.environ.get("YEAR", ""))
@@ -56,6 +57,17 @@ def parse_args() -> argparse.Namespace:
         help="Optional stable id. If omitted, one is derived from payload fields.",
     )
     return parser.parse_args()
+
+
+def parse_payload_defaults(raw_payload: str) -> Dict[str, Any]:
+    raw = safe_str(raw_payload)
+    if not raw:
+        return {}
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError:
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
 
 
 def load_doc(path: Path) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]:
@@ -109,16 +121,31 @@ def sort_key(item: Dict[str, Any]) -> Tuple[int, str]:
 
 def main() -> int:
     args = parse_args()
+    payload = parse_payload_defaults(args.payload_json)
 
-    season = safe_str(args.season) or safe_str(args.year)
-    submitted_at = normalize_timestamp(args.submitted_at)
+    season = (
+        safe_str(args.season)
+        or safe_str(args.year)
+        or safe_str(payload.get("season"))
+        or safe_str(payload.get("year"))
+    )
+    submitted_at = normalize_timestamp(
+        safe_str(args.submitted_at) or safe_str(payload.get("submitted_at_utc")) or safe_str(payload.get("submitted_at"))
+    )
+    league_id = safe_str(args.league_id) or safe_str(payload.get("league_id")) or safe_str(payload.get("leagueId"))
+    player_id = safe_str(args.player_id) or safe_str(payload.get("player_id")) or safe_str(payload.get("playerId"))
+    contract_year = safe_int(
+        args.contract_year if safe_str(args.contract_year) else payload.get("contract_year", payload.get("contractYear")),
+        0,
+    )
+    contract_status = safe_str(args.contract_status) or safe_str(payload.get("contract_status")) or safe_str(payload.get("contractStatus"))
 
     required = {
-        "league_id": safe_str(args.league_id),
+        "league_id": league_id,
         "season": season,
-        "player_id": safe_str(args.player_id),
-        "contract_year": safe_int(args.contract_year, 0),
-        "contract_status": safe_str(args.contract_status),
+        "player_id": player_id,
+        "contract_year": contract_year,
+        "contract_status": contract_status,
     }
     missing = [k for k, v in required.items() if v in ("", 0)]
     if missing:
@@ -129,18 +156,18 @@ def main() -> int:
         "league_id": required["league_id"],
         "season": required["season"],
         "player_id": required["player_id"],
-        "player_name": safe_str(args.player_name),
-        "position": safe_str(args.position),
-        "franchise_id": safe_str(args.franchise_id),
-        "franchise_name": safe_str(args.franchise_name),
-        "salary": safe_int(args.salary, 0),
+        "player_name": safe_str(args.player_name) or safe_str(payload.get("player_name")) or safe_str(payload.get("playerName")),
+        "position": safe_str(args.position) or safe_str(payload.get("position")) or safe_str(payload.get("pos")),
+        "franchise_id": safe_str(args.franchise_id) or safe_str(payload.get("franchise_id")) or safe_str(payload.get("franchiseId")),
+        "franchise_name": safe_str(args.franchise_name) or safe_str(payload.get("franchise_name")) or safe_str(payload.get("franchiseName")),
+        "salary": safe_int(args.salary if safe_str(args.salary) else payload.get("salary"), 0),
         "contract_year": required["contract_year"],
         "contract_status": required["contract_status"],
-        "contract_info": safe_str(args.contract_info),
+        "contract_info": safe_str(args.contract_info) or safe_str(payload.get("contract_info")) or safe_str(payload.get("contractInfo")),
         "submitted_at_utc": submitted_at,
-        "commish_override_flag": 1 if safe_int(args.commish_override_flag, 0) else 0,
-        "override_as_of_date": safe_str(args.override_as_of_date),
-        "source": safe_str(args.source) or "worker-offer-mym",
+        "commish_override_flag": 1 if safe_int(args.commish_override_flag if safe_str(args.commish_override_flag) else payload.get("commish_override_flag", payload.get("commishOverrideFlag")), 0) else 0,
+        "override_as_of_date": safe_str(args.override_as_of_date) or safe_str(payload.get("override_as_of_date")) or safe_str(payload.get("overrideAsOfDate")),
+        "source": safe_str(args.source) or safe_str(payload.get("source")) or "worker-offer-mym",
     }
     if not entry["submission_id"]:
         entry["submission_id"] = build_submission_id(entry)
