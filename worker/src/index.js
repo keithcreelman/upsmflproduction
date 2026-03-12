@@ -8578,8 +8578,11 @@ export default {
         forcePrimaryOnly,
         channelIdOverride,
         pinMessage,
+        bypassAnnouncementRules,
       }) => {
-        const allow = shouldAnnounceContractActivity({ activityType, season });
+        const allow = bypassAnnouncementRules
+          ? { ok: true, skipped: false, reason: "" }
+          : shouldAnnounceContractActivity({ activityType, season });
         if (!allow.ok) {
           return {
             ok: false,
@@ -14280,6 +14283,7 @@ export default {
           salary,
           submittedAtUtc,
           forceTestOnly: true,
+          bypassAnnouncementRules: true,
         });
         return jsonOut(notify && notify.ok ? 200 : 502, {
           ok: !!(notify && notify.ok),
