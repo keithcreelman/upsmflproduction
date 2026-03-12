@@ -8487,24 +8487,28 @@ export default {
               .join(" | ")
           : "Unavailable";
         const yearsLabel = totals.contract_length === 1 ? "1 Year" : `${Math.max(0, totals.contract_length)} Years`;
+        const teamLabel = safeStr(franchiseName || "Unknown Franchise");
+        const playerLabel = safeStr(playerName || "Unknown Player");
+        const termsLabel = [
+          yearsLabel,
+          `${formatContractK(salary)} Salary`,
+          `${formatContractK(totals.aav)} AAV`,
+          `${formatContractK(totals.tcv)} TCV`,
+        ].join(" | ");
         const embed = {
-          title: `${safeStr(activityType || "Contract Update")}: ${safeStr(playerName || "Unknown Player")}`,
+          title: `${safeStr(activityType || "Contract Update")}: ${playerLabel}`,
           color: 0x103a71,
+          description: termsLabel,
           fields: [
-            { name: "Team", value: safeStr(franchiseName || "Unknown Franchise"), inline: true },
-            { name: "Total Years", value: yearsLabel, inline: true },
-            { name: "TCV", value: formatContractK(totals.tcv), inline: true },
-            { name: "AAV", value: formatContractK(totals.aav), inline: true },
-            { name: "Current Salary", value: formatContractK(salary), inline: true },
-            { name: "Yearly Breakdown", value: yearlyBreakdown, inline: false },
+            { name: "Breakdown", value: yearlyBreakdown, inline: false },
           ],
         };
+        embed.author = safeStr(franchiseIconUrl)
+          ? { name: teamLabel, icon_url: safeStr(franchiseIconUrl) }
+          : { name: teamLabel };
         const submittedLabel = formatContractSubmissionDate(submittedAtUtc);
         if (submittedLabel) {
           embed.footer = { text: `Submitted ${submittedLabel}` };
-        }
-        if (safeStr(franchiseIconUrl)) {
-          embed.thumbnail = { url: safeStr(franchiseIconUrl) };
         }
         if (safeStr(gifUrl)) {
           embed.image = { url: safeStr(gifUrl) };
