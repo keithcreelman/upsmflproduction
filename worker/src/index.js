@@ -8503,12 +8503,13 @@ export default {
             { name: "Breakdown", value: yearlyBreakdown, inline: false },
           ],
         };
-        embed.author = safeStr(franchiseIconUrl)
-          ? { name: teamLabel, icon_url: safeStr(franchiseIconUrl) }
-          : { name: teamLabel };
+        embed.author = { name: teamLabel };
         const submittedLabel = formatContractSubmissionDate(submittedAtUtc);
         if (submittedLabel) {
           embed.footer = { text: `Submitted ${submittedLabel}` };
+        }
+        if (safeStr(franchiseIconUrl)) {
+          embed.thumbnail = { url: safeStr(franchiseIconUrl) };
         }
         if (safeStr(gifUrl)) {
           embed.image = { url: safeStr(gifUrl) };
