@@ -8575,9 +8575,15 @@ export default {
           (kind === "tag"
             ? "Player may be cut prior to the FA Auction Cut Deadline without any cap penalty."
             : "");
+        const embedColor =
+          kind === "mym"
+            ? 0xc8a24d
+            : kind === "restructure"
+              ? 0x103a71
+              : 0x103a71;
         const embed = {
           title: `${safeStr(activityType || "Contract Update")}: ${playerLabel}`,
-          color: 0x103a71,
+          color: embedColor,
           description: termsLabel,
           fields: [],
         };
