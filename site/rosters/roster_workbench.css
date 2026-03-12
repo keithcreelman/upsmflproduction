@@ -369,6 +369,18 @@
   justify-content: flex-end;
 }
 
+.rwb-browse-controls {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.rwb-browse-controls .rwb-btn {
+  min-width: 138px;
+}
+
 .rwb-toolbar-disclosure-btn {
   min-width: 0;
   padding-inline: 14px;
@@ -2146,6 +2158,14 @@ body.rwb-modal-open {
     align-items: stretch;
   }
 
+  .rwb-browse-controls {
+    justify-content: stretch;
+  }
+
+  .rwb-browse-controls .rwb-btn {
+    flex: 1 1 180px;
+  }
+
   .rwb-toolbar-actions {
     grid-column: 1 / -1;
     justify-content: flex-start;
@@ -2213,7 +2233,8 @@ body.rwb-modal-open {
   }
 
   .rwb-hero-main,
-  .rwb-toolbar-topline {
+  .rwb-toolbar-topline,
+  .rwb-browse-controls {
     flex-direction: column;
     align-items: stretch;
   }

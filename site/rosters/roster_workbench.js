@@ -126,6 +126,7 @@
     view: "roster",
     contractSubView: "players",
     tagSubView: "players",
+    selectedTeamId: "",
     filtersOpen: false,
     search: "",
     filterPosition: "",
@@ -1741,11 +1742,11 @@
   }
 
   function teamJumpEnabledForView() {
-    return state.view === "roster" || (state.view === "tag" && !tagBreakdownActive()) || (state.view === "contract" && !capPlanSummaryViewActive());
+    return state.view !== "tag" || !tagBreakdownActive();
   }
 
   function filtersForcedOpenForView() {
-    return state.view === "roster";
+    return false;
   }
 
   function scoringControlEnabledForView() {
@@ -5438,9 +5439,6 @@
           '<section class="rwb-toolbar" aria-label="Roster toolbar">' +
             '<div class="rwb-toolbar-topline">' +
               '<div class="rwb-toolbar-note" id="rwbToolbarNote">Loading roster data...</div>' +
-              '<div class="rwb-toolbar-disclosure" id="rwbFiltersToggleWrap">' +
-                '<button type="button" id="rwbToggleFilters" class="rwb-btn rwb-btn-ghost rwb-toolbar-disclosure-btn" aria-expanded="false" aria-controls="rwbAdvancedFilters">Show Filters</button>' +
-              '</div>' +
             '</div>' +
             '<div class="rwb-toolbar-main" id="rwbToolbarMain">' +
               '<div class="rwb-toolbar-panel rwb-toolbar-panel-nav">' +
@@ -5459,10 +5457,11 @@
                   '<label class="rwb-field"><span>Team</span><select id="rwbJumpTeam" class="rwb-select"><option value="">Select team...</option></select></label>' +
                   '<div id="rwbPointsControls" class="rwb-toolbar-points"></div>' +
                 '</div>' +
+                '<div class="rwb-browse-controls" id="rwbFiltersToggleWrap">' +
+                  '<button type="button" id="rwbToggleFilters" class="rwb-btn rwb-btn-ghost rwb-toolbar-disclosure-btn" aria-expanded="false" aria-controls="rwbAdvancedFilters">Filters</button>' +
+                  '<button type="button" id="rwbResetFilters" class="rwb-btn rwb-btn-ghost">Clear Filters</button>' +
+                '</div>' +
               '</div>' +
-            '</div>' +
-            '<div class="rwb-toolbar-disclosure" id="rwbFiltersToggleWrap">' +
-              '<button type="button" id="rwbToggleFilters" class="rwb-btn rwb-btn-ghost rwb-toolbar-disclosure-btn" aria-expanded="false" aria-controls="rwbAdvancedFilters">Show Filters</button>' +
             '</div>' +
             '<div id="rwbAdvancedFilters" class="rwb-toolbar-advanced">' +
               '<div class="rwb-toolbar-panel rwb-toolbar-panel-filters">' +
@@ -5475,12 +5474,7 @@
                   '<label class="rwb-field"><span>Contract Options</span><select id="rwbFilterContractAction" class="rwb-select"><option value="">All Contract Options</option></select></label>' +
                   '<label class="rwb-field" hidden style="display:none" aria-hidden="true"><span>Impact</span><select id="rwbFilterByeImpact" class="rwb-select" disabled><option value="">All Impact</option></select></label>' +
                 '</div>' +
-                '<div class="rwb-toolbar-filter-footer">' +
-                  '<div class="rwb-toolbar-filter-hint">Contract options only show actions the current owner can actually use.</div>' +
-                  '<div class="rwb-toolbar-actions">' +
-                    '<button type="button" id="rwbResetFilters" class="rwb-btn rwb-btn-ghost">Clear Filters</button>' +
-                  '</div>' +
-                '</div>' +
+                '<div class="rwb-toolbar-filter-footer"></div>' +
               '</div>' +
             '</div>' +
             '<div class="rwb-status" id="rwbStatus" hidden></div>' +
@@ -5563,6 +5557,7 @@
   function buildFilterOptionSets() {
     var groupsMap = Object.create(null);
     var contractActionCounts = Object.create(null);
+    var teamsForFilters = scopedTeamsForDisplay();
 
     if (state.view === "tag" && state.tagData && state.tagData.rows) {
       for (var t = 0; t < state.tagData.rows.length; t += 1) {
@@ -5573,8 +5568,8 @@
       }
     }
 
-    for (var i = 0; i < state.teams.length; i += 1) {
-      var team = state.teams[i] || {};
+    for (var i = 0; i < teamsForFilters.length; i += 1) {
+      var team = teamsForFilters[i] || {};
       var players = team.players || [];
       for (var j = 0; j < players.length; j += 1) {
         var player = players[j];
@@ -5754,12 +5749,13 @@
   function renderToolbar() {
     if (!els.jumpTeam) return;
 
-    var jumpOptions = [{ value: "", label: "Select team..." }];
+    ensureSelectedTeamId();
+    var jumpOptions = [];
     for (var i = 0; i < state.teams.length; i += 1) {
       var team = state.teams[i];
       jumpOptions.push({ value: team.id, label: team.name });
     }
-    renderSelectOptions(els.jumpTeam, jumpOptions, "");
+    renderSelectOptions(els.jumpTeam, jumpOptions, state.selectedTeamId);
     renderPointsControls();
 
     els.search.value = state.search;
@@ -5818,7 +5814,7 @@
     if (els.toggleFiltersWrap) els.toggleFiltersWrap.hidden = !showFiltersToggle;
     if (els.toggleFilters) {
       els.toggleFilters.hidden = !showFiltersToggle;
-      els.toggleFilters.textContent = (effectiveFiltersOpen ? "Hide Filters" : "Show Filters") + (activeFilterCount ? " (" + activeFilterCount + ")" : "");
+      els.toggleFilters.textContent = (effectiveFiltersOpen ? "Hide Filters" : "Filters") + (activeFilterCount ? " (" + activeFilterCount + ")" : "");
       els.toggleFilters.setAttribute("aria-expanded", effectiveFiltersOpen ? "true" : "false");
       els.toggleFilters.classList.toggle("is-active", effectiveFiltersOpen);
     }
@@ -6827,6 +6823,26 @@
       if (matchesFilters(players[i])) filtered.push(players[i]);
     }
     return filtered;
+  }
+
+  function defaultSelectedTeamId() {
+    var viewerTeamId = pad4(state.viewerFranchiseId || (state.ctx && state.ctx.franchiseId));
+    if (viewerTeamId && findTeamById(viewerTeamId)) return viewerTeamId;
+    return pad4(state.teams[0] && state.teams[0].id);
+  }
+
+  function ensureSelectedTeamId() {
+    var selected = pad4(state.selectedTeamId);
+    if (selected && findTeamById(selected)) return selected;
+    state.selectedTeamId = defaultSelectedTeamId();
+    return state.selectedTeamId;
+  }
+
+  function scopedTeamsForDisplay() {
+    var selected = ensureSelectedTeamId();
+    if (!selected) return state.teams.slice();
+    var team = findTeamById(selected);
+    return team ? [team] : state.teams.slice(0, 1);
   }
 
   function byeWeekForPlayer(player) {
@@ -7897,6 +7913,9 @@
 
   function renderTeams() {
     if (!els.teamList) return;
+    ensureSelectedTeamId();
+    var teamsToRender = scopedTeamsForDisplay();
+    var totalTeams = teamsToRender.length;
 
     if (state.view === "tag" && tagBreakdownActive()) {
       if (state.tagDataLoading && !state.tagData) {
@@ -7926,13 +7945,13 @@
     if (state.view === "tag") {
       if (state.tagDataLoading && !state.tagData) {
         els.teamList.innerHTML = '<div class="rwb-loading">Loading tag plan...</div>';
-        renderToolbarNote(0, 0, 0, state.teams.length);
+        renderToolbarNote(0, 0, 0, totalTeams);
         renderPlayerActionModal();
         return;
       }
       if (state.tagDataError && !state.tagData) {
         els.teamList.innerHTML = '<div class="rwb-error">' + escapeHtml(state.tagDataError) + '</div>';
-        renderToolbarNote(0, 0, 0, state.teams.length);
+        renderToolbarNote(0, 0, 0, totalTeams);
         renderPlayerActionModal();
         return;
       }
@@ -7941,13 +7960,13 @@
     if (state.view === "points") {
       if (state.pointsHistoryLoading && !state.pointsHistory) {
         els.teamList.innerHTML = '<div class="rwb-loading">Loading stored points history...</div>';
-        renderToolbarNote(0, 0, 0, state.teams.length);
+        renderToolbarNote(0, 0, 0, totalTeams);
         renderPlayerActionModal();
         return;
       }
       if (state.pointsHistoryError && !state.pointsHistory) {
         els.teamList.innerHTML = '<div class="rwb-error">' + escapeHtml(state.pointsHistoryError) + '</div>';
-        renderToolbarNote(0, 0, 0, state.teams.length);
+        renderToolbarNote(0, 0, 0, totalTeams);
         renderPlayerActionModal();
         return;
       }
@@ -7956,14 +7975,13 @@
 
     var totalPlayers = 0;
     var visiblePlayers = 0;
-    var totalTeams = state.teams.length;
     var html = [];
     var visibleTeams = [];
     var rosterGroupSummaryMap = state.view === "roster" ? buildRosterGroupSalarySummaryMap() : null;
     var summaryMode = capPlanSummaryViewActive();
 
-    for (var i = 0; i < state.teams.length; i += 1) {
-      var team = state.teams[i] || {};
+    for (var i = 0; i < teamsToRender.length; i += 1) {
+      var team = teamsToRender[i] || {};
       if (state.view === "tag") {
         var teamTagTotal = countTagRowsForTeam(team);
         var tagRows = filteredTagRowsForTeam(team);
@@ -7994,7 +8012,7 @@
     }
 
     if (state.view === "contract" && summaryMode && totalTeams) {
-      html.push(capPlanSummaryHtml(state.teams));
+      html.push(capPlanSummaryHtml(teamsToRender));
     } else if (state.view === "bye" && visibleTeams.length) {
       var byeHtml = byeSummaryHtml(visibleTeams);
       if (byeHtml) html.push(byeHtml);
@@ -8101,6 +8119,7 @@
 
   function persistState() {
     writeStorage("search", state.search);
+    writeStorage("selectedTeamId", state.selectedTeamId);
     writeStorage("filterPosition", state.filterPosition);
     writeStorage("filterType", state.filterType);
     writeStorage("filterRosterStatus", state.filterRosterStatus);
@@ -8125,6 +8144,7 @@
 
   function restoreState() {
     state.search = safeStr(readStorage("search", "")).toLowerCase();
+    state.selectedTeamId = pad4(readStorage("selectedTeamId", ""));
     state.filterPosition = safeStr(readStorage("filterPosition", "")).toUpperCase();
     state.filterType = normType(readStorage("filterType", ""));
     state.filterRosterStatus = normRosterStatusFilter(readStorage("filterRosterStatus", ""));
@@ -8334,6 +8354,7 @@
     return loadData(state.ctx, { noCache: !!noCache })
       .then(function (result) {
         state.teams = sortTeamsForDisplay(result.teams || []);
+        ensureSelectedTeamId();
         state.salaryCapAmount = safeInt(result.leagueMeta && result.leagueMeta.capAmount, 0);
         applyContractDisplayCorrections(state.teams);
         if (state.tagData) {
@@ -9126,9 +9147,10 @@
     }
 
     if (el === els.jumpTeam) {
-      var teamId = safeStr(el.value);
-      if (!teamId) return;
-      jumpToTeam(teamId);
+      state.selectedTeamId = pad4(el.value);
+      persistState();
+      renderToolbar();
+      renderTeams();
       return;
     }
 
