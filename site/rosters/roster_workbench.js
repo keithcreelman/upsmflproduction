@@ -127,6 +127,7 @@
     view: "roster",
     contractSubView: "players",
     tagSubView: "players",
+    tagDisplayYear: "",
     selectedTeamId: "",
     filtersOpen: false,
     search: "",
@@ -807,6 +808,40 @@
     return state.view !== "bye" && state.view !== "points" && state.view !== "tag" && !capPlanSummaryViewActive();
   }
 
+  function memorialDayForYear(year) {
+    var y = safeInt(year, 0);
+    if (!y) return null;
+    var d = new Date(y, 4, 31, 12, 0, 0, 0);
+    var day = d.getDay();
+    var offset = (day + 6) % 7;
+    d.setDate(d.getDate() - offset);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+  function tagDeadlineDateForSeason(season) {
+    var memorial = memorialDayForYear(season);
+    if (!memorial) return null;
+    var deadline = new Date(memorial.getTime());
+    deadline.setDate(deadline.getDate() - 4);
+    return deadline;
+  }
+
+  function defaultTagDisplayYear() {
+    var current = currentYearInt();
+    var deadline = endOfDay(tagDeadlineDateForSeason(current));
+    var now = new Date();
+    if (deadline && now.getTime() <= deadline.getTime()) return String(current);
+    return String(current + 1);
+  }
+
+  function tagDisplayYearOptions() {
+    var current = currentYearInt();
+    return [
+      { value: String(current), label: String(current) },
+      { value: String(current + 1), label: String(current + 1) }
+    ];
+  }
+
   function normalizedSelectedTeamId() {
     return safeStr(state.selectedTeamId) === ALL_TEAMS_VALUE ? ALL_TEAMS_VALUE : pad4(state.selectedTeamId);
   }
@@ -827,10 +862,11 @@
   }
 
   function tagDisplaySeason() {
-    var cycle = safeStr(state.tagData && state.tagData.cycleSeason);
-    if (cycle) return cycle;
-    var current = safeInt(state.ctx && state.ctx.year, currentYearInt());
-    return siteIsOffseason() ? String(current + 1) : String(current);
+    var selected = safeStr(state.tagDisplayYear);
+    var options = tagDisplayYearOptions().map(function (row) { return safeStr(row.value); });
+    if (options.indexOf(selected) !== -1) return selected;
+    state.tagDisplayYear = defaultTagDisplayYear();
+    return state.tagDisplayYear;
   }
 
   function playerContractActionFlags(player) {
@@ -2489,7 +2525,8 @@
     var current = safeStr(state.ctx && state.ctx.year);
     var source = safeStr(sourceSeason);
     if (!current) return source;
-    if (source === current) return siteIsOffseason() ? String(safeInt(current, 0) + 1) : current;
+    var defaultTagYear = defaultTagDisplayYear();
+    if (source === current) return defaultTagYear;
     if (siteIsOffseason() && safeInt(source, 0) === safeInt(current, 0) - 1) return current;
     return source;
   }
@@ -5531,6 +5568,7 @@
     els.pointsHistorySeason = null;
     els.pointsHistoryWeekStart = null;
     els.pointsHistoryWeekEnd = null;
+    els.tagDisplayYear = null;
     els.search = document.getElementById("rwbSearch");
     els.searchField = els.search ? els.search.closest(".rwb-field") : null;
     els.advanced = document.getElementById("rwbAdvancedFilters");
@@ -5683,9 +5721,13 @@
           '<button type="button" class="rwb-btn rwb-btn-ghost' + (tagSubview === "breakdown" ? ' is-active' : '') + '" data-action="tag-subview" data-subview="breakdown" role="tab" aria-selected="' + (tagSubview === "breakdown" ? "true" : "false") + '">Calc Breakdown</button>' +
         '</div>' +
         (tagSubview === "breakdown"
-          ? '<label class="rwb-field"><span>Tag Year</span><select class="rwb-select"><option value="' + escapeHtml(tagDisplaySeason()) + '">' + escapeHtml(tagDisplaySeason()) + '</option></select></label>'
+          ? '<label class="rwb-field"><span>Tag Year</span><select id="rwbTagDisplayYear" class="rwb-select"></select></label>'
           : "") +
         (tagSubview === "players" ? browseSearchHtml : "");
+      els.tagDisplayYear = document.getElementById("rwbTagDisplayYear");
+      if (els.tagDisplayYear) {
+        renderSelectOptions(els.tagDisplayYear, tagDisplayYearOptions(), tagDisplaySeason());
+      }
       els.browseSearch = document.getElementById("rwbBrowseSearch");
       return;
     }
@@ -8177,6 +8219,7 @@
     writeStorage("view", state.view);
     writeStorage("contractSubView", state.contractSubView);
     writeStorage("tagSubView", state.tagSubView);
+    writeStorage("tagDisplayYear", state.tagDisplayYear);
     writeStorage("pointsMode", state.pointsMode);
     writeStorage("pointsHistoryMode", state.pointsHistoryMode);
     writeStorage("pointsHistoryYearStart", state.pointsHistoryYearStart);
@@ -8205,6 +8248,7 @@
     var storedView = safeStr(readStorage("view", "roster"));
     state.contractSubView = normalizeCapPlanSubview(readStorage("contractSubView", "players"));
     state.tagSubView = normalizeTagSubview(readStorage("tagSubView", "players"));
+    state.tagDisplayYear = safeStr(readStorage("tagDisplayYear", ""));
     if (storedView === "franchise") {
       state.view = "contract";
       state.contractSubView = "summary";
@@ -9189,6 +9233,14 @@
 
     if (el === els.filterByeImpact) {
       state.filterByeImpact = normByeImpactFilter(el.value);
+      persistState();
+      renderToolbar();
+      renderTeams();
+      return;
+    }
+
+    if (elId === "rwbTagDisplayYear") {
+      state.tagDisplayYear = safeStr(el.value);
       persistState();
       renderToolbar();
       renderTeams();

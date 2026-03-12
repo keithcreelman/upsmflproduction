@@ -151,6 +151,7 @@
 
 .rwb-toolbar-main.is-points-view .rwb-toolbar-browse-grid {
   grid-template-columns: minmax(170px, 210px) minmax(380px, 1fr);
+  align-items: start;
 }
 
 .rwb-toolbar-main.is-points-view .rwb-toolbar-browse-grid.is-single-column {
