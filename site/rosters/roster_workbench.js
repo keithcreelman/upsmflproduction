@@ -125,7 +125,6 @@
     filterType: "",
     filterRosterStatus: "",
     filterByeImpact: "",
-    attentionOnly: false,
     sorts: {
       roster: { key: "salary", dir: "desc" },
       contract: { key: "player", dir: "asc" },
@@ -5322,10 +5321,6 @@
       return false;
     }
 
-    if (attentionFilterEnabledForView() && state.attentionOnly && !playerNeedsAttention(player)) {
-      return false;
-    }
-
     return true;
   }
 
@@ -5419,7 +5414,6 @@
                   '<label class="rwb-field"><span>Roster Status</span><select id="rwbFilterRosterStatus" class="rwb-select"><option value="">All</option></select></label>' +
                   '<label class="rwb-field" hidden style="display:none" aria-hidden="true"><span>Impact</span><select id="rwbFilterByeImpact" class="rwb-select" disabled><option value="">All Impact</option></select></label>' +
                   '<div class="rwb-toolbar-actions">' +
-                    '<button type="button" id="rwbAttentionOnly" class="rwb-btn rwb-btn-ghost" hidden aria-pressed="false">Attention Only</button>' +
                     '<button type="button" id="rwbResetFilters" class="rwb-btn rwb-btn-ghost">Clear Filters</button>' +
                   '</div>' +
                 '</div>' +
@@ -5470,7 +5464,6 @@
     els.filterRosterStatusField = els.filterRosterStatus ? els.filterRosterStatus.closest(".rwb-field") : null;
     els.filterByeImpact = document.getElementById("rwbFilterByeImpact");
     els.filterByeImpactField = els.filterByeImpact ? els.filterByeImpact.closest(".rwb-field") : null;
-    els.attentionOnly = document.getElementById("rwbAttentionOnly");
     els.resetFilters = document.getElementById("rwbResetFilters");
     els.note = document.getElementById("rwbToolbarNote");
     els.status = document.getElementById("rwbStatus");
@@ -5725,19 +5718,10 @@
       if (contractTypeFilterEnabledForView() && state.filterType) activeFilterCount += 1;
       if (rosterStatusFilterEnabledForView() && state.filterRosterStatus) activeFilterCount += 1;
       if (state.view === "bye" && state.filterByeImpact) activeFilterCount += 1;
-      if (attentionFilterEnabledForView() && state.attentionOnly) activeFilterCount += 1;
       els.toggleFilters.hidden = !showFiltersToggle;
       els.toggleFilters.textContent = (effectiveFiltersOpen ? "Hide Filters" : "Show Filters") + (activeFilterCount ? " (" + activeFilterCount + ")" : "");
       els.toggleFilters.setAttribute("aria-expanded", effectiveFiltersOpen ? "true" : "false");
       els.toggleFilters.classList.toggle("is-active", effectiveFiltersOpen);
-    }
-    if (els.attentionOnly) {
-      var showAttentionToggle = attentionFilterEnabledForView();
-      els.attentionOnly.hidden = !showAttentionToggle;
-      els.attentionOnly.disabled = !showAttentionToggle;
-      els.attentionOnly.classList.toggle("is-active", showAttentionToggle && !!state.attentionOnly);
-      els.attentionOnly.setAttribute("aria-pressed", showAttentionToggle && state.attentionOnly ? "true" : "false");
-      els.attentionOnly.textContent = state.attentionOnly ? "Attention Only On" : "Attention Only";
     }
     if (els.advanced) {
       els.advanced.hidden = capPlanSummaryViewActive() || tagBreakdownActive() || !effectiveFiltersOpen;
@@ -5800,7 +5784,6 @@
       else if (state.filterType === "other") parts.push("All Other");
     }
     if (rosterStatusFilterEnabledForView() && state.filterRosterStatus) parts.push(rosterStatusFilterLabel(state.filterRosterStatus));
-    if (attentionFilterEnabledForView() && state.attentionOnly) parts.push("Attention Only");
     if (searchFilterEnabledForView() && state.search) parts.push('Search "' + state.search + '"');
     if (state.view === "points") {
       parts.push(currentPointsRangeLabel());
@@ -8014,7 +7997,6 @@
     writeStorage("filterType", state.filterType);
     writeStorage("filterRosterStatus", state.filterRosterStatus);
     writeStorage("filterByeImpact", state.filterByeImpact);
-    writeStorage("attentionOnly", state.attentionOnly);
     writeStorage("taxiOnly", state.filterRosterStatus === "taxi");
     writeStorage("contractPreview", state.contractPreview);
     writeStorage("view", state.view);
@@ -8038,7 +8020,6 @@
     state.filterType = normType(readStorage("filterType", ""));
     state.filterRosterStatus = normRosterStatusFilter(readStorage("filterRosterStatus", ""));
     state.filterByeImpact = normByeImpactFilter(readStorage("filterByeImpact", ""));
-    state.attentionOnly = !!readStorage("attentionOnly", false);
     if (!state.filterRosterStatus && !!readStorage("taxiOnly", false)) {
       state.filterRosterStatus = "taxi";
     }
@@ -8727,14 +8708,6 @@
       return;
     }
 
-    if (target === els.attentionOnly) {
-      state.attentionOnly = !state.attentionOnly;
-      persistState();
-      renderToolbar();
-      renderTeams();
-      return;
-    }
-
     var clearSearchBtn = target.closest("[data-action='clear-search']");
     if (clearSearchBtn) {
       state.search = "";
@@ -8986,7 +8959,6 @@
       state.filterType = "";
       state.filterRosterStatus = "";
       state.filterByeImpact = "";
-      state.attentionOnly = false;
       if (els.search) els.search.value = "";
       persistState();
       renderToolbar();
