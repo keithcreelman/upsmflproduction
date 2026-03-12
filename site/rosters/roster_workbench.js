@@ -61,6 +61,7 @@
     { value: "restructure", label: "Restructure" },
     { value: "untag", label: "Untag" }
   ];
+  var ALL_TEAMS_VALUE = "__all__";
   var BYE_IMPACT_FILTERS = [
     { value: "", label: "All Impact" },
     { value: "heavy", label: "Heavy Only" },
@@ -656,6 +657,10 @@
     return currentCapHit(player.salary, player.years, player.isTaxi, player.isIr);
   }
 
+  function playerCountsTowardCurrentAllocation(player) {
+    return currentCapHitForPlayer(player) > 0;
+  }
+
   function displayedSalaryForPlan(player, offset) {
     var idx = safeInt(offset, 0);
     var proj = projectSalaryByYear(player, Math.max(3, idx + 1));
@@ -802,6 +807,29 @@
     return state.view !== "bye" && state.view !== "points" && state.view !== "tag" && !capPlanSummaryViewActive();
   }
 
+  function normalizedSelectedTeamId() {
+    return safeStr(state.selectedTeamId) === ALL_TEAMS_VALUE ? ALL_TEAMS_VALUE : pad4(state.selectedTeamId);
+  }
+
+  function orderedTeamsForDropdown() {
+    var viewerTeamId = pad4(state.viewerFranchiseId || (state.ctx && state.ctx.franchiseId));
+    var teams = state.teams.slice();
+    teams.sort(function (a, b) {
+      var aId = pad4(a && a.id);
+      var bId = pad4(b && b.id);
+      if (viewerTeamId) {
+        if (aId === viewerTeamId && bId !== viewerTeamId) return -1;
+        if (bId === viewerTeamId && aId !== viewerTeamId) return 1;
+      }
+      return compareText(a && a.name, b && b.name);
+    });
+    return teams;
+  }
+
+  function tagDisplaySeason() {
+    return safeStr(state.tagData && state.tagData.cycleSeason) || safeStr(state.ctx && state.ctx.year);
+  }
+
   function playerContractActionFlags(player) {
     var canManage = canManageRosterPlayer(player);
     var eligibility = rosterContractEligibility(player);
@@ -842,7 +870,9 @@
         for (var j = 0; j < filtered.length; j += 1) {
           var player = filtered[j];
           if ((safeStr(player && player.positionGroup).toUpperCase() || "OTHER") !== groupKey) continue;
-          salaryTotal += safeInt(player && player.salary, 0);
+          if (playerCountsTowardCurrentAllocation(player)) {
+            salaryTotal += currentCapHitForPlayer(player);
+          }
           count += 1;
         }
         leaderboard.push({
@@ -5249,6 +5279,13 @@
       var bProj = [displayedSalaryForPlan(b, 0), displayedSalaryForPlan(b, 1), displayedSalaryForPlan(b, 2)];
       var delta = 0;
       switch (sort.key) {
+        case "position":
+          delta = positionSortValue(a.positionGroup) - positionSortValue(b.positionGroup);
+          if (delta === 0) delta = compareText(a.positionGroup, b.positionGroup);
+          break;
+        case "tcv":
+          delta = totalContractValueForPlayer(a) - totalContractValueForPlayer(b);
+          break;
         case "aav":
           delta = safeInt(a.aav, 0) - safeInt(b.aav, 0);
           break;
@@ -5637,7 +5674,7 @@
           '<span>Player Search</span>' +
           '<input id="rwbBrowseSearch" class="rwb-input" type="search" placeholder="Search players..." autocomplete="off">' +
         '</label>' +
-        '<button type="button" class="rwb-btn rwb-btn-ghost" data-action="clear-search"' + (state.search ? "" : " disabled") + '>Clear</button>' +
+        '<button type="button" class="rwb-btn rwb-btn-ghost" data-action="clear-search"' + (state.search ? "" : " disabled") + '>Clear Search</button>' +
       '</div>';
 
     if (state.view === "contract") {
@@ -5663,6 +5700,9 @@
           '<button type="button" class="rwb-btn rwb-btn-ghost' + (tagSubview === "players" ? ' is-active' : '') + '" data-action="tag-subview" data-subview="players" role="tab" aria-selected="' + (tagSubview === "players" ? "true" : "false") + '">Eligible Players</button>' +
           '<button type="button" class="rwb-btn rwb-btn-ghost' + (tagSubview === "breakdown" ? ' is-active' : '') + '" data-action="tag-subview" data-subview="breakdown" role="tab" aria-selected="' + (tagSubview === "breakdown" ? "true" : "false") + '">Calc Breakdown</button>' +
         '</div>' +
+        (tagSubview === "breakdown"
+          ? '<label class="rwb-field"><span>Tag Year</span><select class="rwb-select"><option value="' + escapeHtml(tagDisplaySeason()) + '">' + escapeHtml(tagDisplaySeason()) + '</option></select></label>'
+          : "") +
         (tagSubview === "players" ? browseSearchHtml : "");
       els.browseSearch = document.getElementById("rwbBrowseSearch");
       return;
@@ -5750,12 +5790,13 @@
     if (!els.jumpTeam) return;
 
     ensureSelectedTeamId();
-    var jumpOptions = [];
-    for (var i = 0; i < state.teams.length; i += 1) {
-      var team = state.teams[i];
+    var jumpOptions = [{ value: ALL_TEAMS_VALUE, label: "All Teams" }];
+    var orderedTeams = orderedTeamsForDropdown();
+    for (var i = 0; i < orderedTeams.length; i += 1) {
+      var team = orderedTeams[i];
       jumpOptions.push({ value: team.id, label: team.name });
     }
-    renderSelectOptions(els.jumpTeam, jumpOptions, state.selectedTeamId);
+    renderSelectOptions(els.jumpTeam, jumpOptions, normalizedSelectedTeamId());
     renderPointsControls();
 
     els.search.value = state.search;
@@ -5911,13 +5952,12 @@
       if (state.tagData && safeStr(state.tagData.sourceSeason)) {
         parts.push("Prior season " + safeStr(state.tagData.sourceSeason));
       }
-      if (state.tagData && safeStr(state.tagData.cycleSeason)) {
+      if (state.tagData && safeStr(state.tagData.cycleSeason) && !tagBreakdownActive()) {
         parts.push("Tag cycle " + safeStr(state.tagData.cycleSeason));
       }
       if (tagBreakdownActive()) {
-        var aavSnapshotWeek = safeStr(state.tagData && state.tagData.aavSnapshotWeek);
         parts.push("Leaguewide tag cost breakdown");
-        if (aavSnapshotWeek) parts.push("Week " + aavSnapshotWeek + " AAV snapshot");
+        if (tagDisplaySeason()) parts.push(tagDisplaySeason() + " tagging");
       } else {
         parts.push("One offense and one defense tag can be active per team");
       }
@@ -6726,42 +6766,58 @@
     var salaryAdj = safeInt(team.summary.salaryAdjustmentTotal, 0);
 
     var sorted = sortPlayersForPlan(filteredPlayers);
+    var nonTaxiRows = [];
+    var taxiRows = [];
 
     for (var i = 0; i < sorted.length; i += 1) {
       var p = sorted[i];
       var proj = [displayedSalaryForPlan(p, 0), displayedSalaryForPlan(p, 1), displayedSalaryForPlan(p, 2)];
       var aav = safeInt(p.aav, 0);
+      var tcv = totalContractValueForPlayer(p);
+      var contractTypeText = safeStr(p.type) || "-";
 
-      rows.push(
+      var rowHtml =
         '<tr class="rwb-player-row' + (p.isTaxi ? ' rwb-player-row-taxi' : '') + (p.isIr ? ' rwb-player-row-ir' : '') + (extensionPreviewYears(p) ? ' is-projected' : '') + '">' +
           '<td>' +
             '<div class="rwb-player-name-wrap">' +
               '<div class="rwb-player-line">' +
-                '<span class="rwb-pos-pill">' + escapeHtml(safeStr(p.positionGroup)) + '</span>' +
-                '<button type="button" class="rwb-player-open" data-action="open-player-modal" data-player-id="' + escapeHtml(p.id) + '" data-franchise-id="' + escapeHtml(p.fid) + '"><span class="rwb-player-name">' + escapeHtml(p.name) + '</span></button>' +
+                '<button type="button" class="rwb-player-open rwb-player-open-stack" data-action="open-player-modal" data-player-id="' + escapeHtml(p.id) + '" data-franchise-id="' + escapeHtml(p.fid) + '">' +
+                  '<span class="rwb-player-name">' + escapeHtml(p.name) + '</span>' +
+                  '<span class="rwb-type-pill ' + typeTone(p.type) + ' rwb-player-contract-pill">' + escapeHtml(contractTypeText) + '</span>' +
+                '</button>' +
                 (p.isTaxi ? '<span class="rwb-tag is-taxi">Taxi</span>' : '') +
                 (p.isIr ? '<span class="rwb-tag is-ir">IR</span>' : '') +
               '</div>' +
             '</div>' +
           '</td>' +
+          '<td class="rwb-cell-num">' + escapeHtml(safeStr(p.positionGroup)) + '</td>' +
+          '<td class="rwb-cell-num' + (tcv === 0 ? ' rwb-money-zero' : '') + '">' + escapeHtml(tcv > 0 ? money(tcv) : "—") + '</td>' +
           '<td class="rwb-cell-num' + (aav === 0 ? ' rwb-money-zero' : '') + '">' + escapeHtml(aav > 0 ? money(aav) : "—") + '</td>' +
           '<td class="rwb-cell-num">' + escapeHtml(projectedExpiryLabel(p)) + '</td>' +
           '<td class="rwb-cell-num' + (proj[0] === 0 ? ' rwb-money-zero' : '') + '">' + escapeHtml(money(proj[0])) + '</td>' +
           '<td class="rwb-cell-num' + (proj[1] === 0 ? ' rwb-money-zero' : '') + '">' + escapeHtml(money(proj[1])) + '</td>' +
           '<td class="rwb-cell-num' + (proj[2] === 0 ? ' rwb-money-zero' : '') + '">' + escapeHtml(money(proj[2])) + '</td>' +
-          '<td><span class="rwb-type-pill ' + typeTone(p.type) + '">' + escapeHtml(p.type) + '</span></td>' +
           '<td>' +
             '<div class="rwb-contract-toggle-row">' +
               '<button type="button" class="rwb-contract-toggle' + (extensionPreviewYears(p) === 1 ? ' is-active' : '') + '" data-action="contract-preview" data-years="1" data-player-id="' + escapeHtml(p.id) + '" data-franchise-id="' + escapeHtml(p.fid) + '">1Y</button>' +
               '<button type="button" class="rwb-contract-toggle' + (extensionPreviewYears(p) === 2 ? ' is-active' : '') + '" data-action="contract-preview" data-years="2" data-player-id="' + escapeHtml(p.id) + '" data-franchise-id="' + escapeHtml(p.fid) + '">2Y</button>' +
             '</div>' +
           '</td>' +
-        '</tr>'
-      );
+        '</tr>';
+      if (p.isTaxi) taxiRows.push(rowHtml);
+      else nonTaxiRows.push(rowHtml);
     }
 
-    if (!rows.length) {
+    if (!nonTaxiRows.length && !taxiRows.length) {
       return '<div class="rwb-empty">No players match the current filters for this team.</div>';
+    }
+
+    rows = nonTaxiRows.slice();
+    if (taxiRows.length) {
+      if (rows.length) {
+        rows.push('<tr class="rwb-table-section-row"><td colspan="9"><span class="rwb-table-section-label">Taxi Squad</span></td></tr>');
+      }
+      rows = rows.concat(taxiRows);
     }
 
     return (
@@ -6770,12 +6826,13 @@
           '<thead>' +
             '<tr>' +
               sortableHeader("contract", "player", "Player") +
+              sortableHeader("contract", "position", "Pos") +
+              sortableHeader("contract", "tcv", "TCV") +
               sortableHeader("contract", "aav", "AAV") +
               sortableHeader("contract", "expires", "Expires") +
               sortableHeader("contract", "year0", years[0]) +
               sortableHeader("contract", "year1", years[1]) +
               sortableHeader("contract", "year2", years[2]) +
-              sortableHeader("contract", "type", "Type") +
               '<th>Preview</th>' +
             '</tr>' +
           '</thead>' +
@@ -6784,30 +6841,36 @@
             '<tr class="rwb-summary-row rwb-summary-row-primary">' +
               '<th>Non-Taxi</th>' +
               '<th>—</th>' +
+              '<th>—</th>' +
+              '<th>—</th>' +
               '<th>' + escapeHtml(String(planSummary.nonTaxiPlayersUnderContract)) + ' players</th>' +
               '<th class="rwb-cell-num">' + escapeHtml(money(planSummary.nonTaxiTotals[0])) + '</th>' +
               '<th class="rwb-cell-num">' + escapeHtml(money(planSummary.nonTaxiTotals[1])) + '</th>' +
               '<th class="rwb-cell-num">' + escapeHtml(money(planSummary.nonTaxiTotals[2])) + '</th>' +
-              '<th colspan="2">Salary shown. Cap summary above applies adjustments.</th>' +
+              '<th>Salary shown. Cap summary above applies adjustments.</th>' +
             '</tr>' +
             '<tr class="rwb-summary-row rwb-summary-row-taxi">' +
               '<th>Taxi</th>' +
+              '<th>—</th>' +
+              '<th>—</th>' +
               '<th>—</th>' +
               '<th>' + escapeHtml(String(planSummary.taxiPlayersShown)) + ' players</th>' +
               '<th class="rwb-cell-num">' + escapeHtml(money(planSummary.taxiTotals[0])) + '</th>' +
               '<th class="rwb-cell-num">' + escapeHtml(money(planSummary.taxiTotals[1])) + '</th>' +
               '<th class="rwb-cell-num">' + escapeHtml(money(planSummary.taxiTotals[2])) + '</th>' +
-              '<th colspan="2">Salary shown, excluded from cap totals</th>' +
+              '<th>Salary shown, excluded from cap totals</th>' +
             '</tr>' +
             (salaryAdj !== 0
               ? '<tr class="rwb-summary-row rwb-summary-row-adjustment">' +
                   '<th>Salary Adj.</th>' +
                   '<th>—</th>' +
+                  '<th>—</th>' +
+                  '<th>—</th>' +
                   '<th>Current season</th>' +
                   '<th class="rwb-cell-num">' + escapeHtml(money(salaryAdj)) + '</th>' +
                   '<th class="rwb-cell-num">' + escapeHtml(money(0)) + '</th>' +
                   '<th class="rwb-cell-num">' + escapeHtml(money(0)) + '</th>' +
-                  '<th colspan="2">Applied to cap total</th>' +
+                  '<th>Applied to cap total</th>' +
                 '</tr>'
               : '') +
           '</tfoot>' +
@@ -6832,7 +6895,13 @@
   }
 
   function ensureSelectedTeamId() {
-    var selected = pad4(state.selectedTeamId);
+    var selected = normalizedSelectedTeamId();
+    if (capPlanSummaryViewActive()) {
+      if (selected === ALL_TEAMS_VALUE) return selected;
+      state.selectedTeamId = ALL_TEAMS_VALUE;
+      return state.selectedTeamId;
+    }
+    if (selected === ALL_TEAMS_VALUE) return selected;
     if (selected && findTeamById(selected)) return selected;
     state.selectedTeamId = defaultSelectedTeamId();
     return state.selectedTeamId;
@@ -6840,7 +6909,7 @@
 
   function scopedTeamsForDisplay() {
     var selected = ensureSelectedTeamId();
-    if (!selected) return state.teams.slice();
+    if (!selected || selected === ALL_TEAMS_VALUE) return state.teams.slice();
     var team = findTeamById(selected);
     return team ? [team] : state.teams.slice(0, 1);
   }
@@ -7783,8 +7852,8 @@
             '<h2 class="rwb-tag-breakdown-title">' + escapeHtml(positionGroupLabel(posKey)) + '</h2>' +
           '</div>' +
           '<div class="rwb-tag-breakdown-summary">' +
+            '<span class="rwb-chip"><span class="rwb-chip-label">Tag Year</span><span class="rwb-chip-value">' + escapeHtml(tagDisplaySeason() || "—") + '</span></span>' +
             '<span class="rwb-chip"><span class="rwb-chip-label">Tiers</span><span class="rwb-chip-value">' + escapeHtml(String(tiers.length)) + '</span></span>' +
-            '<span class="rwb-chip"><span class="rwb-chip-label">Snapshot</span><span class="rwb-chip-value">Week ' + escapeHtml(safeStr(state.tagData && state.tagData.aavSnapshotWeek) || "1") + '</span></span>' +
           '</div>' +
         '</header>' +
         '<div class="rwb-tag-breakdown-grid">' + tierCards.join("") + '</div>' +
@@ -8792,6 +8861,11 @@
       if (nextView !== "contract" && nextView !== "roster" && nextView !== "points" && nextView !== "bye" && nextView !== "tag") return;
       if (state.view !== nextView) {
         state.view = nextView;
+        if (nextView === "contract" && normalizeCapPlanSubview(state.contractSubView) === "summary") {
+          state.selectedTeamId = ALL_TEAMS_VALUE;
+        } else if (normalizedSelectedTeamId() === ALL_TEAMS_VALUE) {
+          state.selectedTeamId = defaultSelectedTeamId();
+        }
         persistState();
         renderToolbar();
         renderTeams();
@@ -8813,6 +8887,12 @@
       var nextSubview = normalizeCapPlanSubview(contractSubviewBtn.getAttribute("data-subview"));
       if (state.contractSubView === nextSubview) return;
       state.contractSubView = nextSubview;
+      if (nextSubview === "summary") {
+        state.selectedTeamId = ALL_TEAMS_VALUE;
+        state.filtersOpen = false;
+      } else if (normalizedSelectedTeamId() === ALL_TEAMS_VALUE) {
+        state.selectedTeamId = defaultSelectedTeamId();
+      }
       persistState();
       renderToolbar();
       renderTeams();
@@ -9147,7 +9227,7 @@
     }
 
     if (el === els.jumpTeam) {
-      state.selectedTeamId = pad4(el.value);
+      state.selectedTeamId = safeStr(el.value) === ALL_TEAMS_VALUE ? ALL_TEAMS_VALUE : pad4(el.value);
       persistState();
       renderToolbar();
       renderTeams();

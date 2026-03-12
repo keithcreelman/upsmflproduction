@@ -784,6 +784,29 @@
   background: rgba(255, 139, 61, 0.1);
 }
 
+.rwb-table-section-row td {
+  background: rgba(13, 27, 47, 0.98) !important;
+  border-top: 1px solid rgba(167, 194, 229, 0.24);
+  border-bottom: 1px solid rgba(167, 194, 229, 0.16);
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+
+.rwb-table-section-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  border: 1px solid rgba(157, 188, 228, 0.26);
+  background: rgba(9, 18, 33, 0.9);
+  padding: 4px 10px;
+  color: var(--rwb-text-soft);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .rwb-table tfoot th,
 .rwb-table tfoot td {
   position: static;
