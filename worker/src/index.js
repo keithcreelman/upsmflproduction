@@ -8109,6 +8109,15 @@ export default {
         return byYear;
       };
 
+      const parseContractGuaranteeValue = (contractInfo) => {
+        const text = safeStr(contractInfo);
+        if (!text) return 0;
+        const match = text.match(/(?:^|\|)\s*GTD\s*:?\s*([^|]+)/i);
+        if (!match || !safeStr(match[1])) return 0;
+        const amount = parseMoneyTokenToDollars(match[1], { assumeKIfNoUnit: true });
+        return Number.isFinite(amount) && amount > 0 ? Math.round(amount) : 0;
+      };
+
       const maxYearInSalaryByYear = (salaryByYear) => {
         const years = Object.keys(salaryByYear || {})
           .map((k) => safeInt(k, NaN))
@@ -8489,12 +8498,15 @@ export default {
         const yearsLabel = totals.contract_length === 1 ? "1 Year" : `${Math.max(0, totals.contract_length)} Years`;
         const teamLabel = safeStr(franchiseName || "Unknown Franchise");
         const playerLabel = safeStr(playerName || "Unknown Player");
-        const termsLabel = [
+        const gtd = parseContractGuaranteeValue(contractInfo);
+        const termsParts = [
           yearsLabel,
           `${formatContractK(salary)} Salary`,
           `${formatContractK(totals.aav)} AAV`,
           `${formatContractK(totals.tcv)} TCV`,
-        ].join(" | ");
+        ];
+        if (gtd > 0) termsParts.push(`${formatContractK(gtd)} GTD`);
+        const termsLabel = termsParts.join(" | ");
         const embed = {
           title: `${safeStr(activityType || "Contract Update")}: ${playerLabel}`,
           color: 0x103a71,
