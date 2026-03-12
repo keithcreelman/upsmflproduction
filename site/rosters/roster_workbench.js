@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var BUILD = "2026.03.11.01";
+  var BUILD = "2026.03.11.03";
   var BOOT_FLAG = "__ups_roster_workbench_boot_" + BUILD;
   if (window[BOOT_FLAG]) {
     if (typeof window.UPS_RWB_INIT === "function") window.UPS_RWB_INIT();
@@ -125,7 +125,6 @@
     filterType: "",
     filterRosterStatus: "",
     filterByeImpact: "",
-    attentionOnly: false,
     sorts: {
       roster: { key: "salary", dir: "desc" },
       contract: { key: "player", dir: "asc" },
@@ -769,10 +768,6 @@
       threeYearNonRookie: threeYearNonRookie,
       loaded: loaded
     };
-  }
-
-  function attentionFilterEnabledForView() {
-    return state.view === "roster" || (state.view === "contract" && !capPlanSummaryViewActive());
   }
 
   function buildRosterGroupSalarySummaryMap() {
@@ -1594,129 +1589,6 @@
         ? "Current-rule guarantee has already been fully earned."
         : "Projected current-rule penalty: " + guaranteeLabel + " is " + money(guaranteed) + "; earned to date is " + money(earned) + "."
     };
-  }
-
-  function playerAttentionProfile(player) {
-    var eligibility = rosterContractEligibility(player);
-    var years = Math.max(0, safeInt(player && player.years, 0));
-    var penalty = dropPenaltyEstimate(player);
-    var penaltyAmount = safeInt(penalty && penalty.amount, 0);
-    var previewYears = extensionPreviewYears(player);
-    var items = [];
-
-    if (years <= 0) {
-      items.push({ key: "expired", label: "Expired", tone: "risk" });
-    } else if (years === 1) {
-      items.push({ key: "expiring", label: "Expiring", tone: "risk" });
-    }
-    if (eligibility.extensionEligible) {
-      items.push({ key: "extension", label: "Extend", tone: "action" });
-    }
-    if (eligibility.restructureEligible) {
-      items.push({ key: "restructure", label: "Restructure", tone: "action" });
-    }
-    if (isLoadedContractPlayer(player)) {
-      items.push({ key: "loaded", label: "Loaded", tone: "loaded" });
-    }
-    if (penaltyAmount >= 5000) {
-      items.push({ key: "penalty", label: "Penalty " + formatContractK(penaltyAmount), tone: "risk" });
-    }
-    if (previewYears > 0) {
-      items.push({ key: "preview", label: "Preview " + String(previewYears) + "Y", tone: "preview" });
-    }
-
-    return {
-      items: items,
-      attentionCount: items.length,
-      expiring: years <= 1,
-      extensionEligible: !!eligibility.extensionEligible,
-      restructureEligible: !!eligibility.restructureEligible,
-      loaded: isLoadedContractPlayer(player),
-      highPenalty: penaltyAmount >= 5000,
-      previewActive: previewYears > 0
-    };
-  }
-
-  function playerNeedsAttention(player) {
-    return !!playerAttentionProfile(player).attentionCount;
-  }
-
-  function playerAttentionPillsHtml(player, maxItems) {
-    var profile = playerAttentionProfile(player);
-    var items = profile.items || [];
-    var limit = Math.max(0, safeInt(maxItems, 0) || items.length);
-    if (!items.length || limit <= 0) return "";
-    var html = [];
-    for (var i = 0; i < items.length && i < limit; i += 1) {
-      var item = items[i];
-      html.push(
-        '<span class="rwb-attention-pill is-' + escapeHtml(item.tone) + '">' + escapeHtml(item.label) + '</span>'
-      );
-    }
-    if (items.length > limit) {
-      html.push('<span class="rwb-attention-pill is-muted">+' + escapeHtml(String(items.length - limit)) + ' more</span>');
-    }
-    return '<div class="rwb-attention-line">' + html.join("") + '</div>';
-  }
-
-  function summarizeAttentionPlayers(players) {
-    var list = Array.isArray(players) ? players : [];
-    var summary = {
-      attention: 0,
-      expiring: 0,
-      extension: 0,
-      restructure: 0,
-      loaded: 0,
-      highPenalty: 0
-    };
-    for (var i = 0; i < list.length; i += 1) {
-      var profile = playerAttentionProfile(list[i]);
-      if (profile.attentionCount > 0) summary.attention += 1;
-      if (profile.expiring) summary.expiring += 1;
-      if (profile.extensionEligible) summary.extension += 1;
-      if (profile.restructureEligible) summary.restructure += 1;
-      if (profile.loaded) summary.loaded += 1;
-      if (profile.highPenalty) summary.highPenalty += 1;
-    }
-    return summary;
-  }
-
-  function attentionSummaryChipHtml(label, value, tone) {
-    if (safeInt(value, 0) <= 0) return "";
-    var toneClass = tone ? " is-" + safeStr(tone) : "";
-    return (
-      '<span class="rwb-attention-summary-chip' + toneClass + '">' +
-        '<span class="rwb-attention-summary-label">' + escapeHtml(label) + '</span>' +
-        '<span class="rwb-attention-summary-value">' + escapeHtml(String(value)) + '</span>' +
-      '</span>'
-    );
-  }
-
-  function teamAttentionBoardHtml(players) {
-    if (!attentionFilterEnabledForView()) return "";
-    var summary = summarizeAttentionPlayers(players);
-    if (!summary.attention) return "";
-    var chips = [
-      attentionSummaryChipHtml("Attention", summary.attention, "action"),
-      attentionSummaryChipHtml("Expiring", summary.expiring, "risk"),
-      attentionSummaryChipHtml("Extension", summary.extension, "action"),
-      attentionSummaryChipHtml("Restructure", summary.restructure, "action"),
-      attentionSummaryChipHtml("Loaded", summary.loaded, "loaded"),
-      attentionSummaryChipHtml("Penalty", summary.highPenalty, "risk")
-    ].filter(Boolean);
-    if (!chips.length) return "";
-    return (
-      '<div class="rwb-attention-board">' +
-        '<div class="rwb-attention-board-label">Focus Board</div>' +
-        '<div class="rwb-attention-summary-row">' + chips.join("") + '</div>' +
-      '</div>'
-    );
-  }
-
-  function playerAttentionModalNoteHtml(player) {
-    var pills = playerAttentionPillsHtml(player, 6);
-    if (!pills) return "";
-    return '<div class="rwb-modal-note"><strong>Decision Snapshot:</strong>' + pills + '</div>';
   }
 
   function searchFilterEnabledForView() {
@@ -5375,10 +5247,6 @@
       return false;
     }
 
-    if (attentionFilterEnabledForView() && state.attentionOnly && !playerNeedsAttention(player)) {
-      return false;
-    }
-
     return true;
   }
 
@@ -5472,7 +5340,6 @@
                   '<label class="rwb-field"><span>Roster Status</span><select id="rwbFilterRosterStatus" class="rwb-select"><option value="">All</option></select></label>' +
                   '<label class="rwb-field" hidden style="display:none" aria-hidden="true"><span>Impact</span><select id="rwbFilterByeImpact" class="rwb-select" disabled><option value="">All Impact</option></select></label>' +
                   '<div class="rwb-toolbar-actions">' +
-                    '<button type="button" id="rwbAttentionOnly" class="rwb-btn rwb-btn-ghost" hidden aria-pressed="false">Attention Only</button>' +
                     '<button type="button" id="rwbResetFilters" class="rwb-btn rwb-btn-ghost">Clear Filters</button>' +
                   '</div>' +
                 '</div>' +
@@ -5523,7 +5390,6 @@
     els.filterRosterStatusField = els.filterRosterStatus ? els.filterRosterStatus.closest(".rwb-field") : null;
     els.filterByeImpact = document.getElementById("rwbFilterByeImpact");
     els.filterByeImpactField = els.filterByeImpact ? els.filterByeImpact.closest(".rwb-field") : null;
-    els.attentionOnly = document.getElementById("rwbAttentionOnly");
     els.resetFilters = document.getElementById("rwbResetFilters");
     els.note = document.getElementById("rwbToolbarNote");
     els.status = document.getElementById("rwbStatus");
@@ -5778,19 +5644,10 @@
       if (contractTypeFilterEnabledForView() && state.filterType) activeFilterCount += 1;
       if (rosterStatusFilterEnabledForView() && state.filterRosterStatus) activeFilterCount += 1;
       if (state.view === "bye" && state.filterByeImpact) activeFilterCount += 1;
-      if (attentionFilterEnabledForView() && state.attentionOnly) activeFilterCount += 1;
       els.toggleFilters.hidden = !showFiltersToggle;
       els.toggleFilters.textContent = (effectiveFiltersOpen ? "Hide Filters" : "Show Filters") + (activeFilterCount ? " (" + activeFilterCount + ")" : "");
       els.toggleFilters.setAttribute("aria-expanded", effectiveFiltersOpen ? "true" : "false");
       els.toggleFilters.classList.toggle("is-active", effectiveFiltersOpen);
-    }
-    if (els.attentionOnly) {
-      var showAttentionToggle = attentionFilterEnabledForView();
-      els.attentionOnly.hidden = !showAttentionToggle;
-      els.attentionOnly.disabled = !showAttentionToggle;
-      els.attentionOnly.classList.toggle("is-active", showAttentionToggle && !!state.attentionOnly);
-      els.attentionOnly.setAttribute("aria-pressed", showAttentionToggle && state.attentionOnly ? "true" : "false");
-      els.attentionOnly.textContent = state.attentionOnly ? "Attention Only On" : "Attention Only";
     }
     if (els.advanced) {
       els.advanced.hidden = capPlanSummaryViewActive() || tagBreakdownActive() || !effectiveFiltersOpen;
@@ -5853,7 +5710,6 @@
       else if (state.filterType === "other") parts.push("All Other");
     }
     if (rosterStatusFilterEnabledForView() && state.filterRosterStatus) parts.push(rosterStatusFilterLabel(state.filterRosterStatus));
-    if (attentionFilterEnabledForView() && state.attentionOnly) parts.push("Attention Only");
     if (searchFilterEnabledForView() && state.search) parts.push('Search "' + state.search + '"');
     if (state.view === "points") {
       parts.push(currentPointsRangeLabel());
@@ -5924,7 +5780,6 @@
         '<span class="rwb-chip is-bad"><span class="rwb-chip-label">Compliance</span><span class="rwb-chip-value">' + escapeHtml(team.summary.compliance.label) + '</span></span>'
       );
     }
-    var attentionHtml = teamAttentionBoardHtml(visiblePlayers);
 
     return (
       '<header class="rwb-team-head">' +
@@ -5936,7 +5791,6 @@
           '<div class="rwb-chip-row">' +
             chips.join("") +
           '</div>' +
-          attentionHtml +
           teamCapSummaryHtml(team) +
         '</div>' +
       '</header>'
@@ -6487,7 +6341,6 @@
           '<div class="rwb-modal-note"><strong>Extension:</strong> ' + escapeHtml(extensionBlockReason || "No extension options are available for this player.") + '</div>';
       }
       var modalAav = displayAavForPlayer(player);
-      var attentionNoteHtml = playerAttentionModalNoteHtml(player);
       var playerHeaderHtml =
         '<div class="rwb-modal-player">' +
           '<div class="rwb-modal-player-main">' +
@@ -6518,7 +6371,6 @@
 
         content =
           playerHeaderHtml +
-          attentionNoteHtml +
           '<div class="rwb-modal-grid">' +
             '<div class="rwb-modal-metric"><span>Current Salary</span><strong>' + escapeHtml(money(player.salary)) + '</strong></div>' +
             '<div class="rwb-modal-metric"><span>Remaining AAV</span><strong>' + escapeHtml(state.actionModal.restructureOriginalAav > 0 ? money(state.actionModal.restructureOriginalAav) : "—") + '</strong></div>' +
@@ -6566,7 +6418,6 @@
       } else {
         content =
           playerHeaderHtml +
-          attentionNoteHtml +
           '<div class="rwb-modal-grid">' +
             '<div class="rwb-modal-metric"><span>TCV</span><strong>' + escapeHtml(modalTcv > 0 ? money(modalTcv) : "—") + '</strong></div>' +
             '<div class="rwb-modal-metric"><span>AAV</span><strong>' + escapeHtml(modalAav > 0 ? money(modalAav) : "—") + '</strong></div>' +
@@ -6618,7 +6469,6 @@
       var contractGuarantee = guaranteedContractValueForPlayer(p);
       var capPenalty = capPenaltyAmountForPlayer(p);
       var contractTypeText = safeStr(p.type) || "-";
-      var attentionHtml = playerAttentionPillsHtml(p, 3);
 
       rows.push(
         '<tr class="rwb-player-row' + (p.isTaxi ? ' rwb-player-row-taxi' : '') + (p.isIr ? ' rwb-player-row-ir' : '') + '" data-player-id="' + escapeHtml(p.id) + '">' +
@@ -6633,7 +6483,6 @@
                 tags.join("") +
                 '<button type="button" class="rwb-row-more" data-action="row-more" aria-expanded="false">More</button>' +
               '</div>' +
-              attentionHtml +
               '<dl class="rwb-mobile-details">' +
                 '<div><dt>Contract Length</dt><dd>' + escapeHtml(contractLength > 0 ? String(contractLength) : "—") + '</dd></div>' +
                 '<div><dt>Years Left</dt><dd>' + escapeHtml(String(p.years)) + '</dd></div>' +
@@ -6702,19 +6551,15 @@
       var p = sorted[i];
       var proj = [displayedSalaryForPlan(p, 0), displayedSalaryForPlan(p, 1), displayedSalaryForPlan(p, 2)];
       var aav = safeInt(p.aav, 0);
-      var attentionHtml = playerAttentionPillsHtml(p, 3);
 
       rows.push(
         '<tr class="rwb-player-row' + (p.isTaxi ? ' rwb-player-row-taxi' : '') + (p.isIr ? ' rwb-player-row-ir' : '') + (extensionPreviewYears(p) ? ' is-projected' : '') + '">' +
           '<td>' +
-            '<div class="rwb-player-name-wrap">' +
-              '<div class="rwb-player-line">' +
-                '<span class="rwb-pos-pill">' + escapeHtml(safeStr(p.positionGroup)) + '</span>' +
-                '<button type="button" class="rwb-player-open" data-action="open-player-modal" data-player-id="' + escapeHtml(p.id) + '" data-franchise-id="' + escapeHtml(p.fid) + '"><span class="rwb-player-name">' + escapeHtml(p.name) + '</span></button>' +
-                (p.isTaxi ? '<span class="rwb-tag is-taxi">Taxi</span>' : '') +
-                (p.isIr ? '<span class="rwb-tag is-ir">IR</span>' : '') +
-              '</div>' +
-              attentionHtml +
+            '<div class="rwb-player-line">' +
+              '<span class="rwb-pos-pill">' + escapeHtml(safeStr(p.positionGroup)) + '</span>' +
+              '<button type="button" class="rwb-player-open" data-action="open-player-modal" data-player-id="' + escapeHtml(p.id) + '" data-franchise-id="' + escapeHtml(p.fid) + '"><span class="rwb-player-name">' + escapeHtml(p.name) + '</span></button>' +
+              (p.isTaxi ? '<span class="rwb-tag is-taxi">Taxi</span>' : '') +
+              (p.isIr ? '<span class="rwb-tag is-ir">IR</span>' : '') +
             '</div>' +
           '</td>' +
           '<td class="rwb-cell-num' + (aav === 0 ? ' rwb-money-zero' : '') + '">' + escapeHtml(aav > 0 ? money(aav) : "—") + '</td>' +
@@ -8074,7 +7919,6 @@
     writeStorage("filterType", state.filterType);
     writeStorage("filterRosterStatus", state.filterRosterStatus);
     writeStorage("filterByeImpact", state.filterByeImpact);
-    writeStorage("attentionOnly", state.attentionOnly);
     writeStorage("taxiOnly", state.filterRosterStatus === "taxi");
     writeStorage("contractPreview", state.contractPreview);
     writeStorage("view", state.view);
@@ -8098,7 +7942,6 @@
     state.filterType = normType(readStorage("filterType", ""));
     state.filterRosterStatus = normRosterStatusFilter(readStorage("filterRosterStatus", ""));
     state.filterByeImpact = normByeImpactFilter(readStorage("filterByeImpact", ""));
-    state.attentionOnly = !!readStorage("attentionOnly", false);
     if (!state.filterRosterStatus && !!readStorage("taxiOnly", false)) {
       state.filterRosterStatus = "taxi";
     }
@@ -8465,6 +8308,7 @@
       L: leagueId,
       YEAR: season,
       type: "MANUAL_CONTRACT_UPDATE",
+      submission_kind: "rookie-option",
       source: "front-office-rookie-option-submit",
       leagueId: leagueId,
       year: season,
@@ -8787,14 +8631,6 @@
       return;
     }
 
-    if (target === els.attentionOnly) {
-      state.attentionOnly = !state.attentionOnly;
-      persistState();
-      renderToolbar();
-      renderTeams();
-      return;
-    }
-
     var clearSearchBtn = target.closest("[data-action='clear-search']");
     if (clearSearchBtn) {
       state.search = "";
@@ -9046,7 +8882,6 @@
       state.filterType = "";
       state.filterRosterStatus = "";
       state.filterByeImpact = "";
-      state.attentionOnly = false;
       if (els.search) els.search.value = "";
       persistState();
       renderToolbar();
