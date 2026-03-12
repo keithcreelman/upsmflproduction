@@ -1783,7 +1783,7 @@
   }
 
   function tagPriorAavSubtext(row) {
-    var season = safeStr(state.tagData && state.tagData.sourceSeason);
+    var season = safeStr(row && row.prior_basis_season) || safeStr(state.tagData && state.tagData.sourceSeason);
     var amount = Math.max(
       safeInt(row && row.prior_aav_week1, 0),
       safeInt(row && row.prior_aav, 0),
@@ -6175,7 +6175,156 @@
   }
 
   function currentTagPlanRows() {
+    var selectedSeason = tagDisplaySeason();
+    var liveSeason = safeStr(state.tagData && state.tagData.cycleSeason);
+    if (selectedSeason && liveSeason && selectedSeason !== liveSeason) {
+      return projectedTagPlanRows(selectedSeason);
+    }
     return state.tagData && Array.isArray(state.tagData.rows) ? state.tagData.rows : [];
+  }
+
+  function projectedTagRowLookupByPlayerId() {
+    var lookup = Object.create(null);
+    var rows = state.tagTrackingRows || [];
+    for (var i = 0; i < rows.length; i += 1) {
+      var row = rows[i] || {};
+      var pid = safeStr(row.player_id).replace(/\D/g, "");
+      if (!pid || lookup[pid]) continue;
+      lookup[pid] = row;
+    }
+    return lookup;
+  }
+
+  function tagProjectionBlockedForPlayer(player) {
+    var info = safeStr(player && player.special).toLowerCase();
+    return !!(
+      rookieLikeContractStatus(player && player.type) ||
+      info.indexOf("not eligible for tag or extension") !== -1 ||
+      info.indexOf("no further extensions") !== -1
+    );
+  }
+
+  function projectedTagPointsForPlayer(player, sourceRow) {
+    if (sourceRow && safeNum(sourceRow.points_total, 0) > 0) return safeNum(sourceRow.points_total, 0);
+    return safeNum(player && player.points, 0);
+  }
+
+  function projectedTagCandidates(targetSeason) {
+    var season = safeInt(targetSeason, 0);
+    var current = currentYearInt();
+    var priorOffset = season - current - 1;
+    var targetOffset = season - current;
+    if (season <= current || priorOffset < 0 || targetOffset < 0) return [];
+
+    var lookup = projectedTagRowLookupByPlayerId();
+    var candidates = [];
+
+    for (var t = 0; t < state.teams.length; t += 1) {
+      var team = state.teams[t] || {};
+      var players = team.players || [];
+      for (var p = 0; p < players.length; p += 1) {
+        var player = players[p] || {};
+        if (!player || player.isTaxi) continue;
+        if (tagProjectionBlockedForPlayer(player)) continue;
+
+        var priorSalary = Math.max(0, displayedSalaryForPlan(player, priorOffset));
+        var nextSalary = Math.max(0, displayedSalaryForPlan(player, targetOffset));
+        if (priorSalary <= 0 || nextSalary > 0) continue;
+
+        var pid = safeStr(player.id).replace(/\D/g, "");
+        if (!pid) continue;
+        var sourceRow = lookup[pid] || null;
+        var posGroup = safeStr(player.positionGroup || positionGroupKey(player.position)).toUpperCase() || "OTHER";
+
+        candidates.push({
+          league_id: safeStr(state.ctx && state.ctx.leagueId),
+          source_season: String(season - 1),
+          prior_basis_season: String(season - 1),
+          projected_tag_season: String(season),
+          franchise_id: pad4(team.id),
+          franchise_name: safeStr(team.name),
+          player_id: pid,
+          player_name: normalizePlayerName(player.name),
+          position: safeStr(player.position).toUpperCase(),
+          positional_grouping: posGroup,
+          side: getTagSideFromPos(posGroup || player.position) || "OFFENSE",
+          points_total: projectedTagPointsForPlayer(player, sourceRow),
+          pos_rank: safeInt(sourceRow && sourceRow.pos_rank, 0),
+          tag_tier: 0,
+          tag_salary: 0,
+          tag_formula: "",
+          is_tag_eligible: 1,
+          contract_status: safeStr(player.type),
+          contract_year: Math.max(0, safeInt(player.years, 0)),
+          salary: priorSalary,
+          aav: priorSalary,
+          contract_info: safeStr(player.special),
+          prior_aav_week1: priorSalary,
+          prior_salary_week1: priorSalary
+        });
+      }
+    }
+
+    return candidates;
+  }
+
+  function applyProjectedTagRanksAndTiers(rows, targetSeason) {
+    var list = Array.isArray(rows) ? rows.slice() : [];
+    var calc = projectedTagCalcBreakdown(targetSeason);
+    var grouped = Object.create(null);
+
+    for (var i = 0; i < list.length; i += 1) {
+      var row = list[i] || {};
+      var key = safeStr(row.positional_grouping).toUpperCase() || "OTHER";
+      if (!grouped[key]) grouped[key] = [];
+      grouped[key].push(row);
+    }
+
+    var groups = Object.keys(grouped);
+    for (var g = 0; g < groups.length; g += 1) {
+      var groupKey = groups[g];
+      var items = grouped[groupKey] || [];
+      items.sort(function (a, b) {
+        var pointsDelta = safeNum(b.points_total, 0) - safeNum(a.points_total, 0);
+        if (Math.abs(pointsDelta) > 0.0001) return pointsDelta;
+        var salaryDelta = Math.max(safeInt(b.prior_aav_week1, 0), safeInt(b.prior_salary_week1, 0)) -
+          Math.max(safeInt(a.prior_aav_week1, 0), safeInt(a.prior_salary_week1, 0));
+        if (salaryDelta !== 0) return salaryDelta;
+        return compareText(a.player_name, b.player_name);
+      });
+
+      var tiers = calc[groupKey] && Array.isArray(calc[groupKey].tiers)
+        ? calc[groupKey].tiers
+        : [];
+
+      for (var r = 0; r < items.length; r += 1) {
+        var row = items[r];
+        var rank = r + 1;
+        row.pos_rank = rank;
+        row.tag_tier = 0;
+        row.tag_salary = 0;
+        row.tag_formula = "";
+
+        for (var t = 0; t < tiers.length; t += 1) {
+          var tier = tiers[t] || {};
+          var minRank = Math.max(1, safeInt(tier.rank_min, 0) || 1);
+          var maxRank = Math.max(minRank, safeInt(tier.rank_max, 0) || minRank);
+          if (rank < minRank || rank > maxRank) continue;
+          row.tag_tier = Math.max(0, safeInt(tier.tier, 0));
+          row.tag_salary = Math.max(0, safeInt(tier.base_bid, 0));
+          row.tag_formula = row.tag_tier > 0
+            ? ("Tier " + String(row.tag_tier) + " base bid")
+            : "Base bid";
+          break;
+        }
+      }
+    }
+
+    return list;
+  }
+
+  function projectedTagPlanRows(targetSeason) {
+    return applyProjectedTagRanksAndTiers(projectedTagCandidates(targetSeason), targetSeason);
   }
 
   function tagSubmissionKeyForPlayer(franchiseId, playerId, side) {
