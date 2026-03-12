@@ -677,7 +677,12 @@ export default {
       const normalizeCookieValue = (raw) => {
         let v = String(raw || "").trim();
         if (!v) return "";
-        v = v.replace(/^MFL_USER_ID=/i, "").split(";")[0].trim();
+        const embeddedMatch = v.match(/(?:^|;\s*)MFL_USER_ID=([^;]+)/i);
+        if (embeddedMatch && embeddedMatch[1]) {
+          v = embeddedMatch[1].trim();
+        } else {
+          v = v.replace(/^MFL_USER_ID=/i, "").split(";")[0].trim();
+        }
         try {
           v = decodeURIComponent(v);
         } catch (_) {}
