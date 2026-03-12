@@ -59,6 +59,8 @@ export default {
         path !== "/admin/test-sync/prod-statuses" &&
         path !== "/admin/test-sync/prod-salaries" &&
         path !== "/admin/discord/post" &&
+        path !== "/admin/deadline-reminders/test-discord" &&
+        path !== "/admin/deadline-reminders/run" &&
         path !== "/admin/contract-activity/test-discord" &&
         path !== "/admin/contract-activity/test-discord-batch" &&
         path !== "/admin/contract-activity/post" &&
@@ -4065,6 +4067,133 @@ export default {
         normalized.meta.row_count = Array.isArray(normalized.reports) ? normalized.reports.length : 0;
         const body = {
           message: String(message || "Append bug report"),
+          content: utf8ToBase64(JSON.stringify(normalized, null, 2) + "\n"),
+          branch: String(env.GITHUB_REPO_BRANCH || "main").trim() || "main",
+        };
+        if (prevSha) body.sha = String(prevSha);
+        const apiRes = await githubApiRequest("PUT", `/contents/${filePath}`, body);
+        if (!apiRes.ok) {
+          return {
+            ok: false,
+            error: apiRes.error || "GitHub contents PUT failed",
+            upstreamStatus: apiRes.status,
+            upstreamPreview: apiRes.textPreview,
+            filePath,
+          };
+        }
+        return {
+          ok: true,
+          filePath,
+          commitSha: String(apiRes.data?.commit?.sha || ""),
+          contentSha: String(apiRes.data?.content?.sha || ""),
+          doc: normalized,
+        };
+      };
+
+      const deadlineReminderFilePath = (season) =>
+        `site/rosters/contract_submissions/deadline_reminders_${encodeURIComponent(
+          String(season || "")
+        )}.json`;
+
+      const emptyDeadlineRemindersDoc = (season) => ({
+        meta: {
+          schema_version: 1,
+          season: Number(season || 0) || 0,
+          updated_at: new Date().toISOString(),
+          row_count: 0,
+          source: "worker-deadline-reminders",
+        },
+        reminders: [],
+      });
+
+      const normalizeDeadlineRemindersDoc = (raw, season) => {
+        const doc = raw && typeof raw === "object" ? raw : {};
+        const out = emptyDeadlineRemindersDoc(season);
+        out.meta = {
+          ...out.meta,
+          ...(doc.meta && typeof doc.meta === "object" ? doc.meta : {}),
+          season: Number(season || 0) || 0,
+        };
+        out.reminders = Array.isArray(doc.reminders)
+          ? doc.reminders.filter((row) => row && typeof row === "object")
+          : [];
+        out.meta.row_count = out.reminders.length;
+        return out;
+      };
+
+      const readDeadlineRemindersDoc = async (season) => {
+        const filePath = deadlineReminderFilePath(season);
+        if (!githubPat) {
+          const publicUrl = `https://cdn.jsdelivr.net/gh/${encodeURIComponent(githubRepoOwner)}/${encodeURIComponent(
+            githubRepoName
+          )}@main/${filePath}`;
+          try {
+            const res = await fetch(publicUrl, {
+              headers: { "Cache-Control": "no-store" },
+              cf: { cacheTtl: 0, cacheEverything: false },
+            });
+            if (!res.ok) {
+              if (res.status === 404) {
+                return { ok: true, exists: false, sha: "", filePath, doc: emptyDeadlineRemindersDoc(season) };
+              }
+              return { ok: false, exists: false, sha: "", filePath, error: `HTTP ${res.status}` };
+            }
+            const payload = await res.json();
+            return {
+              ok: true,
+              exists: true,
+              sha: "",
+              filePath,
+              doc: normalizeDeadlineRemindersDoc(payload, season),
+            };
+          } catch (e) {
+            return { ok: false, exists: false, sha: "", filePath, error: `fetch_failed: ${e?.message || String(e)}` };
+          }
+        }
+
+        const apiRes = await githubApiRequest(
+          "GET",
+          `/contents/${filePath}?ref=${encodeURIComponent(String(env.GITHUB_REPO_BRANCH || "main").trim() || "main")}`
+        );
+        if (!apiRes.ok && apiRes.status === 404) {
+          return { ok: true, exists: false, sha: "", filePath, doc: emptyDeadlineRemindersDoc(season) };
+        }
+        if (!apiRes.ok) {
+          return {
+            ok: false,
+            exists: false,
+            sha: "",
+            filePath,
+            error: apiRes.error || "GitHub contents GET failed",
+            upstreamStatus: apiRes.status,
+            upstreamPreview: apiRes.textPreview,
+          };
+        }
+        try {
+          const rawContent = base64ToUtf8(apiRes.data?.content || "");
+          const parsed = rawContent ? JSON.parse(rawContent) : {};
+          return {
+            ok: true,
+            exists: true,
+            sha: String(apiRes.data?.sha || ""),
+            filePath,
+            doc: normalizeDeadlineRemindersDoc(parsed, season),
+          };
+        } catch (e) {
+          return { ok: false, exists: true, sha: "", filePath, error: `parse_failed: ${e?.message || String(e)}` };
+        }
+      };
+
+      const writeDeadlineRemindersDoc = async (season, doc, prevSha, message) => {
+        const filePath = deadlineReminderFilePath(season);
+        if (!githubPat) {
+          return { ok: false, error: "Missing GITHUB_PAT worker secret", filePath };
+        }
+        const normalized = normalizeDeadlineRemindersDoc(doc, season);
+        normalized.meta.updated_at = new Date().toISOString();
+        normalized.meta.row_count = Array.isArray(normalized.reminders) ? normalized.reminders.length : 0;
+        const body = {
+          message: String(message || "Log deadline reminder"),
           content: utf8ToBase64(JSON.stringify(normalized, null, 2) + "\n"),
           branch: String(env.GITHUB_REPO_BRANCH || "main").trim() || "main",
         };
@@ -8956,7 +9085,386 @@ export default {
               isExtensionSubmission: /\bext/i.test(contractStatus),
               isRestructure: /\brestructure\b/i.test(contractStatus),
               contractStatus,
-            }),
+          }),
+        };
+      };
+
+      const reminderDiscordPrimaryChannelId = () =>
+        safeStr(env.DISCORD_REMINDER_CHANNEL_ID || "1087157907419840644").replace(/\D/g, "");
+
+      const reminderDiscordTestChannelId = () =>
+        safeStr(
+          env.DISCORD_REMINDER_TEST_CHANNEL_ID ||
+          env.DISCORD_CONTRACT_TEST_CHANNEL_ID ||
+          env.DISCORD_BUG_TEST_CHANNEL_ID ||
+          "1089538054236160010"
+        ).replace(/\D/g, "");
+
+      const reminderDiscordChannelTarget = (forceTestOnly = false, forcePrimaryOnly = false) => {
+        if (forcePrimaryOnly) {
+          const primaryChannelId = reminderDiscordPrimaryChannelId();
+          return {
+            channelId: primaryChannelId,
+            deliveryTarget: "primary",
+            missingError: primaryChannelId ? "" : "missing_discord_reminder_channel_config",
+          };
+        }
+        const testChannelId = reminderDiscordTestChannelId();
+        if (testChannelId) {
+          return {
+            channelId: testChannelId,
+            deliveryTarget: "test",
+            missingError: "",
+          };
+        }
+        if (forceTestOnly) {
+          return {
+            channelId: "",
+            deliveryTarget: "test",
+            missingError: "missing_discord_reminder_test_channel_config",
+          };
+        }
+        const primaryChannelId = reminderDiscordPrimaryChannelId();
+        return {
+          channelId: primaryChannelId,
+          deliveryTarget: "primary",
+          missingError: primaryChannelId ? "" : "missing_discord_reminder_channel_config",
+        };
+      };
+
+      const etDateKeyFromDate = (value) => {
+        const date = value instanceof Date ? value : new Date(value);
+        if (Number.isNaN(date.getTime())) return "";
+        const parts = new Intl.DateTimeFormat("en-US", {
+          timeZone: "America/New_York",
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+        }).formatToParts(date);
+        const year = parts.find((part) => part.type === "year")?.value || "";
+        const month = parts.find((part) => part.type === "month")?.value || "";
+        const day = parts.find((part) => part.type === "day")?.value || "";
+        return year && month && day ? `${year}-${month}-${day}` : "";
+      };
+
+      const shiftPlainDateKey = (dateKey, deltaDays) => {
+        const raw = safeStr(dateKey);
+        if (!raw) return "";
+        const parsed = new Date(`${raw}T12:00:00Z`);
+        if (Number.isNaN(parsed.getTime())) return "";
+        parsed.setUTCDate(parsed.getUTCDate() + safeInt(deltaDays, 0));
+        return parsed.toISOString().slice(0, 10);
+      };
+
+      const formatPlainDateLabelEt = (dateKey) => {
+        const raw = safeStr(dateKey);
+        if (!raw) return "";
+        const parsed = new Date(`${raw}T12:00:00Z`);
+        if (Number.isNaN(parsed.getTime())) return raw;
+        return parsed.toLocaleDateString("en-US", {
+          timeZone: "America/New_York",
+          weekday: "long",
+          month: "long",
+          day: "numeric",
+          year: "numeric",
+        });
+      };
+
+      const DEADLINE_REMINDER_CALENDAR = {
+        "2026": {
+          rookie_extensions_and_tags: {
+            title: "Expiring Rookie Extensions + Tag Deadline",
+            deadline_date_et: "2026-05-21",
+            summary: "Finalize expiring rookie extensions and franchise tags before the window closes.",
+            reminder_offsets_days: [7, 2, 1],
+          },
+          rookie_draft: {
+            title: "Rookie Draft",
+            deadline_date_et: "2026-05-24",
+            summary: "Set your board, queue your picks, and be ready for trade chaos on draft night.",
+            reminder_offsets_days: [7, 3],
+          },
+          cut_deadline: {
+            title: "Auction Cut Deadline",
+            deadline_date_et: "2026-07-22",
+            summary: "Cut decisions have to be final before the free agent auction roster lock hits.",
+            reminder_offsets_days: [7, 1],
+          },
+          free_agent_auction: {
+            title: "Free Agent Auction Opens",
+            deadline_date_et: "2026-07-25",
+            summary: "Get cap space, roster spots, and nomination plans sorted before the auction opens.",
+            reminder_offsets_days: [7, 1],
+          },
+          contract_deadline: {
+            title: "Contract Deadline",
+            deadline_date_et: "2026-09-06",
+            summary: "Extensions, auction multis, and option decisions need to be locked before kickoff week closes the door.",
+            reminder_offsets_days: [7, 1],
+          },
+          trade_deadline: {
+            title: "Trade Deadline",
+            deadline_date_et: "2026-11-26",
+            summary: "Finish the last deals before Thanksgiving kickoff shuts the market down.",
+            reminder_offsets_days: [7, 1],
+          },
+        },
+      };
+
+      const reminderCodeFromDays = (daysBefore) => {
+        const days = safeInt(daysBefore, 0);
+        if (days === 7) return "one_week";
+        if (days === 3) return "72_hours";
+        if (days === 2) return "48_hours";
+        if (days === 1) return "24_hours";
+        return `${days}_days`;
+      };
+
+      const reminderLabelFromDays = (daysBefore) => {
+        const days = safeInt(daysBefore, 0);
+        if (days === 7) return "1 Week";
+        if (days === 3) return "72 Hours";
+        if (days === 2) return "48 Hours";
+        if (days === 1) return "24 Hours";
+        return `${days} Days`;
+      };
+
+      const deadlineReminderCatalogForSeason = (season) => {
+        const seasonKey = safeStr(season);
+        const raw = DEADLINE_REMINDER_CALENDAR[seasonKey] || {};
+        return Object.entries(raw).map(([eventKey, event]) => ({
+          event_key: eventKey,
+          title: safeStr(event.title),
+          deadline_date_et: safeStr(event.deadline_date_et),
+          summary: safeStr(event.summary),
+          reminder_offsets_days: Array.isArray(event.reminder_offsets_days)
+            ? event.reminder_offsets_days.map((v) => safeInt(v, 0)).filter((v) => v > 0)
+            : [],
+        }));
+      };
+
+      const buildDeadlineReminderKey = ({ season, eventKey, reminderCode, deliveryTarget }) =>
+        [safeStr(season), safeStr(eventKey), safeStr(reminderCode), safeStr(deliveryTarget || "primary")].join("|");
+
+      const sentDeadlineReminderKey = (row) =>
+        safeStr(row?.reminder_key) ||
+        buildDeadlineReminderKey({
+          season: safeStr(row?.season),
+          eventKey: safeStr(row?.event_key),
+          reminderCode: safeStr(row?.reminder_code),
+          deliveryTarget: safeStr(row?.delivery_target || (safeInt(row?.test_flag, 0) ? "test" : "primary")),
+        });
+
+      const buildDueDeadlineReminders = ({
+        season,
+        todayEt,
+        deliveryTarget,
+        sentKeys,
+        eventKeyFilter,
+        reminderCodeFilter,
+      }) => {
+        const targetDate = safeStr(todayEt);
+        const targetDelivery = safeStr(deliveryTarget || "primary");
+        const sent = sentKeys instanceof Set ? sentKeys : new Set();
+        const rows = [];
+        for (const event of deadlineReminderCatalogForSeason(season)) {
+          if (eventKeyFilter && safeStr(event.event_key) !== safeStr(eventKeyFilter)) continue;
+          for (const daysBefore of event.reminder_offsets_days) {
+            const reminderCode = reminderCodeFromDays(daysBefore);
+            if (reminderCodeFilter && safeStr(reminderCode) !== safeStr(reminderCodeFilter)) continue;
+            const triggerDateEt = shiftPlainDateKey(event.deadline_date_et, -daysBefore);
+            if (triggerDateEt !== targetDate) continue;
+            const reminderKey = buildDeadlineReminderKey({
+              season,
+              eventKey: event.event_key,
+              reminderCode,
+              deliveryTarget: targetDelivery,
+            });
+            if (sent.has(reminderKey)) continue;
+            rows.push({
+              season: safeStr(season),
+              event_key: safeStr(event.event_key),
+              title: safeStr(event.title),
+              deadline_date_et: safeStr(event.deadline_date_et),
+              summary: safeStr(event.summary),
+              reminder_days_before: daysBefore,
+              reminder_code: reminderCode,
+              reminder_label: reminderLabelFromDays(daysBefore),
+              trigger_date_et: triggerDateEt,
+              reminder_key: reminderKey,
+            });
+          }
+        }
+        return rows;
+      };
+
+      const reminderGifQueries = ({ eventKey, reminderCode }) => {
+        const event = safeStr(eventKey);
+        const reminder = safeStr(reminderCode);
+        const queries = [
+          "deadline panic",
+          "running late fail",
+          "overslept alarm clock",
+          "calendar reminder fail",
+          "missed the deadline reaction",
+          "late to meeting gif",
+        ];
+        if (reminder === "24_hours") {
+          queries.unshift("last minute panic");
+          queries.unshift("alarm clock panic");
+        } else if (reminder === "48_hours" || reminder === "72_hours") {
+          queries.unshift("running out of time");
+        } else if (reminder === "one_week") {
+          queries.unshift("calendar marked reminder");
+        }
+        if (event.includes("draft")) queries.unshift("draft day panic");
+        if (event.includes("trade")) queries.unshift("trade deadline panic");
+        if (event.includes("auction")) queries.unshift("auction panic");
+        return Array.from(new Set(queries.filter(Boolean)));
+      };
+
+      const pickDeadlineReminderGifUrl = async ({ eventKey, reminderCode }) => {
+        const apiKey = safeStr(env.GIPHY_API_KEY || "");
+        if (!apiKey) {
+          return { ok: false, gif_url: "", reason: "missing_giphy_api_key", query: "" };
+        }
+        const queries = reminderGifQueries({ eventKey, reminderCode });
+        for (const query of queries) {
+          const searchUrl = new URL("https://api.giphy.com/v1/gifs/search");
+          searchUrl.searchParams.set("api_key", apiKey);
+          searchUrl.searchParams.set("q", query);
+          searchUrl.searchParams.set("limit", "15");
+          searchUrl.searchParams.set("offset", "0");
+          searchUrl.searchParams.set("rating", "pg-13");
+          searchUrl.searchParams.set("lang", "en");
+          try {
+            const res = await fetch(searchUrl.toString(), {
+              headers: { "User-Agent": "upsmflproduction-worker" },
+              cf: { cacheTtl: 300, cacheEverything: false },
+            });
+            if (!res.ok) continue;
+            const data = await res.json();
+            const rows = Array.isArray(data?.data) ? data.data : [];
+            if (!rows.length) continue;
+            const pick = rows[Math.floor(Math.random() * rows.length)] || rows[0];
+            const gifUrl =
+              safeStr(pick?.images?.original?.url) ||
+              safeStr(pick?.images?.downsized_large?.url) ||
+              safeStr(pick?.images?.fixed_height?.url) ||
+              safeStr(pick?.url);
+            if (gifUrl) return { ok: true, gif_url: gifUrl, reason: "", query };
+          } catch (_) {
+            continue;
+          }
+        }
+        return { ok: false, gif_url: "", reason: "gif_not_found", query: queries[0] || "" };
+      };
+
+      const buildDeadlineReminderDiscordEmbed = ({ reminder, gifUrl }) => {
+        const toneBank = {
+          one_week: [
+            "Enough time to be responsible. Not enough time to forget.",
+            "Calendar warning issued before the panic becomes athletic.",
+          ],
+          "72_hours": [
+            "Three-day warning. Coffee is officially strategy now.",
+            "This is the stage where the to-do list starts staring back.",
+          ],
+          "48_hours": [
+            "Two days left. The clock has stopped being polite.",
+            "Forty-eight hours is plenty if denial is not the plan.",
+          ],
+          "24_hours": [
+            "One day left. This is not a drill and probably not a nap window.",
+            "Final warning before tomorrow turns into a very avoidable story.",
+          ],
+        };
+        const reminderCode = safeStr(reminder?.reminder_code);
+        const toneOptions = toneBank[reminderCode] || toneBank.one_week;
+        const toneLine = toneOptions[Math.floor(Math.random() * toneOptions.length)] || toneOptions[0] || "";
+        const daysBefore = safeInt(reminder?.reminder_days_before, 0);
+        const embedColor =
+          daysBefore <= 1 ? 0xb45309 : (daysBefore <= 3 ? 0xc8a24d : 0x103a71);
+        const embed = {
+          title: `Reminder: ${safeStr(reminder?.title)} in ${safeStr(reminder?.reminder_label)}`,
+          color: embedColor,
+          description: `${formatPlainDateLabelEt(reminder?.deadline_date_et)}\n${toneLine}`,
+          fields: [
+            {
+              name: "What This Covers",
+              value: safeStr(reminder?.summary || "Deadline reminder"),
+              inline: false,
+            },
+          ],
+          footer: {
+            text: `Trigger ${safeStr(reminder?.trigger_date_et)} ET`,
+          },
+        };
+        if (safeStr(gifUrl)) {
+          embed.image = { url: safeStr(gifUrl) };
+        }
+        return embed;
+      };
+
+      const sendDiscordDeadlineReminder = async ({
+        reminder,
+        forceTestOnly,
+        forcePrimaryOnly,
+        channelIdOverride,
+      }) => {
+        const botToken = contractDiscordBotToken();
+        const overrideChannelId = safeStr(channelIdOverride).replace(/\D/g, "");
+        const target = overrideChannelId
+          ? {
+              channelId: overrideChannelId,
+              deliveryTarget: safeStr(forceTestOnly ? "test" : (forcePrimaryOnly ? "primary" : "override")),
+              missingError: "",
+            }
+          : reminderDiscordChannelTarget(!!forceTestOnly, !!forcePrimaryOnly);
+        if (!botToken || !target.channelId) {
+          return {
+            ok: false,
+            status: 0,
+            error: !botToken ? "missing_discord_contract_bot_token" : safeStr(target.missingError || "missing_discord_reminder_channel_config"),
+            channel_id: safeStr(target.channelId || ""),
+            delivery_target: safeStr(target.deliveryTarget || ""),
+          };
+        }
+        const gif = await pickDeadlineReminderGifUrl({
+          eventKey: safeStr(reminder?.event_key),
+          reminderCode: safeStr(reminder?.reminder_code),
+        });
+        const embed = buildDeadlineReminderDiscordEmbed({ reminder, gifUrl: safeStr(gif.gif_url || "") });
+        const sendMessageOnce = async () =>
+          await discordBotRequest(
+            botToken,
+            "POST",
+            `/channels/${encodeURIComponent(target.channelId)}/messages`,
+            {
+              content: "",
+              embeds: [embed],
+              allowed_mentions: { parse: [] },
+            }
+          );
+        const res = await withContractDiscordSendSlot(target.channelId, async () => {
+          let attempt = 0;
+          let current = await sendMessageOnce();
+          while (attempt < 2 && !current.ok && isRetryableContractDiscordFailure(current)) {
+            attempt += 1;
+            await sleepMs(1500 * attempt);
+            current = await sendMessageOnce();
+          }
+          return current;
+        });
+        return {
+          ok: !!res.ok,
+          status: safeInt(res.status, 0),
+          error: res.ok ? "" : safeStr(res.text || "discord_deadline_reminder_failed").slice(0, 600),
+          channel_id: safeStr(target.channelId),
+          delivery_target: safeStr(target.deliveryTarget || ""),
+          message_id: safeStr(res.data?.id || ""),
+          gif_url: safeStr(gif.gif_url || ""),
+          gif_query: safeStr(gif.query || ""),
         };
       };
 
@@ -14418,7 +14926,7 @@ export default {
         } catch (_) {
           data = null;
         }
-        if (!res.ok) {
+      if (!res.ok) {
           return jsonOut(502, {
             ok: false,
             error: "Discord post failed",
@@ -14430,6 +14938,205 @@ export default {
           ok: true,
           channel_id: channelId,
           message_id: safeStr(data?.id || ""),
+        });
+      }
+
+      if (path === "/admin/deadline-reminders/test-discord" && request.method === "POST") {
+        let body = {};
+        try {
+          body = (await request.json()) || {};
+        } catch (_) {
+          body = {};
+        }
+        if (!sessionByApiKey && !sessionByCookie) {
+          return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY or MFL_USER_ID is required for reminder test messages." });
+        }
+        const season = safeStr(body.season || body.year || body.YEAR || url.searchParams.get("YEAR") || YEAR || "");
+        const leagueId = safeStr(body.league_id || body.leagueId || url.searchParams.get("L") || L || "");
+        if (!leagueId) return jsonOut(400, { ok: false, error: "Missing league_id or L" });
+        if (!season) return jsonOut(400, { ok: false, error: "Missing season or YEAR" });
+        const catalog = deadlineReminderCatalogForSeason(season);
+        if (!catalog.length) {
+          return jsonOut(400, { ok: false, error: `No reminder calendar configured for season ${season}` });
+        }
+        const eventKey = safeStr(body.event_key || body.eventKey || url.searchParams.get("event_key") || "contract_deadline");
+        const reminderCode = safeStr(body.reminder_code || body.reminderCode || url.searchParams.get("reminder_code") || "one_week");
+        const sentKeys = new Set();
+        const triggerDateEtOverride =
+          safeStr(body.trigger_date_et || body.triggerDateEt || "") ||
+          buildDueDeadlineReminders({
+            season,
+            todayEt: etDateKeyFromDate(new Date()),
+            deliveryTarget: "test",
+            sentKeys,
+            eventKeyFilter: eventKey,
+            reminderCodeFilter: reminderCode,
+          })[0]?.trigger_date_et ||
+          shiftPlainDateKey(
+            catalog.find((row) => safeStr(row.event_key) === eventKey)?.deadline_date_et || "",
+            -safeInt(
+              Object.entries({
+                one_week: 7,
+                "72_hours": 3,
+                "48_hours": 2,
+                "24_hours": 1,
+              }).find(([key]) => key === reminderCode)?.[1] || 7,
+              7
+            )
+          );
+        const due = buildDueDeadlineReminders({
+          season,
+          todayEt: triggerDateEtOverride,
+          deliveryTarget: "test",
+          sentKeys,
+          eventKeyFilter: eventKey,
+          reminderCodeFilter: reminderCode,
+        });
+        const reminder = due[0];
+        if (!reminder) {
+          return jsonOut(400, {
+            ok: false,
+            error: "Could not resolve reminder entry for test send",
+            season: safeInt(season, Number(season) || 0),
+            event_key: eventKey,
+            reminder_code: reminderCode,
+          });
+        }
+        const notify = await sendDiscordDeadlineReminder({
+          reminder,
+          forceTestOnly: true,
+        });
+        return jsonOut(notify && notify.ok ? 200 : 502, {
+          ok: !!(notify && notify.ok),
+          league_id: leagueId,
+          season: safeInt(season, Number(season) || 0),
+          test_only: true,
+          reminder,
+          notify,
+        });
+      }
+
+      if (path === "/admin/deadline-reminders/run" && request.method === "POST") {
+        let body = {};
+        try {
+          body = (await request.json()) || {};
+        } catch (_) {
+          body = {};
+        }
+        if (!sessionByApiKey && !sessionByCookie) {
+          return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY or MFL_USER_ID is required for reminder delivery." });
+        }
+        const season = safeStr(body.season || body.year || body.YEAR || url.searchParams.get("YEAR") || YEAR || "");
+        const leagueId = safeStr(body.league_id || body.leagueId || url.searchParams.get("L") || L || "");
+        if (!leagueId) return jsonOut(400, { ok: false, error: "Missing league_id or L" });
+        if (!season) return jsonOut(400, { ok: false, error: "Missing season or YEAR" });
+        const catalog = deadlineReminderCatalogForSeason(season);
+        if (!catalog.length) {
+          return jsonOut(400, { ok: false, error: `No reminder calendar configured for season ${season}` });
+        }
+        const todayEt = etDateKeyFromDate(new Date());
+        const loaded = await readDeadlineRemindersDoc(season);
+        if (!loaded.ok) {
+          return jsonOut(500, {
+            ok: false,
+            error: loaded.error || "deadline_reminder_log_read_failed",
+            storage: {
+              file_path: loaded.filePath || "",
+              upstream_status: loaded.upstreamStatus || 0,
+              upstream_preview: loaded.upstreamPreview || "",
+            },
+          });
+        }
+        const doc = normalizeDeadlineRemindersDoc(loaded.doc, season);
+        const sentKeys = new Set((Array.isArray(doc.reminders) ? doc.reminders : []).map((row) => sentDeadlineReminderKey(row)).filter(Boolean));
+        const due = buildDueDeadlineReminders({
+          season,
+          todayEt,
+          deliveryTarget: "primary",
+          sentKeys,
+        });
+        const spacingSeconds = Math.max(0, safeInt(body.spacing_seconds || body.spacingSeconds || 5, 5));
+        const results = [];
+        const newRows = [];
+        for (let i = 0; i < due.length; i += 1) {
+          const reminder = due[i];
+          const notify = await sendDiscordDeadlineReminder({
+            reminder,
+            forcePrimaryOnly: true,
+          });
+          results.push({
+            event_key: reminder.event_key,
+            reminder_code: reminder.reminder_code,
+            reminder_key: reminder.reminder_key,
+            ok: !!(notify && notify.ok),
+            notify,
+          });
+          if (notify && notify.ok) {
+            newRows.push({
+              season: safeInt(season, Number(season) || 0),
+              league_id: leagueId,
+              reminder_key: reminder.reminder_key,
+              event_key: reminder.event_key,
+              event_title: reminder.title,
+              deadline_date_et: reminder.deadline_date_et,
+              trigger_date_et: reminder.trigger_date_et,
+              reminder_code: reminder.reminder_code,
+              reminder_label: reminder.reminder_label,
+              delivery_target: safeStr(notify.delivery_target || "primary"),
+              test_flag: 0,
+              discord_channel_id: safeStr(notify.channel_id || ""),
+              discord_message_id: safeStr(notify.message_id || ""),
+              gif_query: safeStr(notify.gif_query || ""),
+              gif_url: safeStr(notify.gif_url || ""),
+              posted_at_utc: new Date().toISOString(),
+              source: "worker-deadline-reminders",
+            });
+          }
+          if (i < due.length - 1 && spacingSeconds > 0) {
+            await sleepMs(spacingSeconds * 1000);
+          }
+        }
+        let saved = null;
+        if (newRows.length) {
+          doc.reminders = [...newRows, ...(Array.isArray(doc.reminders) ? doc.reminders : [])];
+          saved = await writeDeadlineRemindersDoc(
+            season,
+            doc,
+            loaded.sha,
+            `Log deadline reminders for ${season}`
+          );
+          if (!saved.ok) {
+            return jsonOut(500, {
+              ok: false,
+              error: saved.error || "deadline_reminder_log_write_failed",
+              count_due: due.length,
+              count_sent: newRows.length,
+              results,
+              storage: {
+                file_path: saved.filePath || loaded.filePath || "",
+                upstream_status: saved.upstreamStatus || 0,
+                upstream_preview: saved.upstreamPreview || "",
+              },
+            });
+          }
+        }
+        const allOk = results.every((row) => row.ok);
+        return jsonOut(allOk ? 200 : 502, {
+          ok: allOk,
+          league_id: leagueId,
+          season: safeInt(season, Number(season) || 0),
+          today_et: todayEt,
+          count_due: due.length,
+          count_sent: newRows.length,
+          spacing_seconds: spacingSeconds,
+          storage: saved
+            ? {
+                file_path: saved.filePath || "",
+                commit_sha: saved.commitSha || "",
+                content_sha: saved.contentSha || "",
+              }
+            : null,
+          results,
         });
       }
 

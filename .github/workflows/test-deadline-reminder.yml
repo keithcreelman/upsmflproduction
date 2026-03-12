@@ -1,0 +1,45 @@
+name: Test Deadline Reminder
+
+on:
+  workflow_dispatch:
+    inputs:
+      season:
+        description: "Season year"
+        required: true
+        default: "2026"
+      event_key:
+        description: "Reminder event key"
+        required: true
+        default: "contract_deadline"
+      reminder_code:
+        description: "Reminder code"
+        required: true
+        default: "one_week"
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger reminder test route
+        env:
+          COMMISH_API_KEY: ${{ secrets.COMMISH_API_KEY }}
+          MFL_LEAGUE_ID: ${{ secrets.MFL_LEAGUE_ID }}
+          UPS_WORKER_BASE_URL: ${{ secrets.UPS_WORKER_BASE_URL }}
+          SEASON: ${{ inputs.season }}
+          EVENT_KEY: ${{ inputs.event_key }}
+          REMINDER_CODE: ${{ inputs.reminder_code }}
+        run: |
+          if [ -z "${COMMISH_API_KEY}" ]; then
+            echo "Missing required secret: COMMISH_API_KEY"
+            exit 1
+          fi
+          if [ -z "${MFL_LEAGUE_ID}" ]; then
+            echo "Missing required secret: MFL_LEAGUE_ID"
+            exit 1
+          fi
+          WORKER_BASE="${UPS_WORKER_BASE_URL:-https://upsmflproduction.keith-creelman.workers.dev}"
+          curl --fail --silent --show-error \
+            -X POST \
+            "${WORKER_BASE}/admin/deadline-reminders/test-discord?APIKEY=${COMMISH_API_KEY}&L=${MFL_LEAGUE_ID}&YEAR=${SEASON}" \
+            -H "Content-Type: application/json" \
+            -d "{\"event_key\":\"${EVENT_KEY}\",\"reminder_code\":\"${REMINDER_CODE}\"}"
