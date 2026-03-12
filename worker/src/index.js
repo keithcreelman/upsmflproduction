@@ -897,14 +897,11 @@ export default {
       const yearsRemainingFromRoster = (playerRow) => {
         const status = safeStr(playerRow?.status || "").toUpperCase();
         if (status.includes("TAXI")) return null;
-        const contractInfo = safeStr(playerRow?.contractInfo || playerRow?.contractinfo || "");
-        const contractLen = contractLengthFromInfo(contractInfo);
         const contractYearRaw = safeStr(playerRow?.contractYear || playerRow?.contractyear);
         if (!contractYearRaw) return null;
         const contractYear = safeInt(contractYearRaw, NaN);
         if (!Number.isFinite(contractYear)) return null;
-        if (contractLen != null) return Math.max(contractLen - contractYear - 1, 0);
-        return contractYear;
+        return Math.max(contractYear, 0);
       };
 
       const redactUrlSecrets = (rawUrl) => {
@@ -3640,65 +3637,6 @@ export default {
         reports: [],
       });
 
-      const BUG_STATUS_VALUES = new Set([
-        "OPEN",
-        "INVESTIGATING",
-        "WAITING_ON_COMMISH",
-        "APPROVED_TO_FIX",
-        "DECLINED",
-        "CLOSED_RESOLVED",
-      ]);
-
-      const normalizeBugStatus = (value, fallback = "OPEN") => {
-        const normalized = safeStr(value || fallback).toUpperCase().replace(/[^A-Z0-9]+/g, "_");
-        if (BUG_STATUS_VALUES.has(normalized)) return normalized;
-        return BUG_STATUS_VALUES.has(fallback) ? fallback : "OPEN";
-      };
-
-      const normalizeBugReportRow = (raw, leagueId, season) => {
-        const row = raw && typeof raw === "object" ? raw : {};
-        return {
-          ...row,
-          bug_id: safeStr(row.bug_id || row.report_id || ""),
-          league_id: safeStr(row.league_id || leagueId || ""),
-          season: safeStr(row.season || season || ""),
-          franchise_id: safeStr(row.franchise_id || ""),
-          franchise_name: safeStr(row.franchise_name || ""),
-          mfl_user_id: safeStr(row.mfl_user_id || ""),
-          module: safeStr(row.module || ""),
-          issue_type: safeStr(row.issue_type || ""),
-          request_kind: safeStr(row.request_kind || row.requestKind || "bug-report"),
-          commish_enhancement: !!safeInt(
-            row.commish_enhancement || row.commishEnhancement || row.is_commish_enhancement || 0
-          ),
-          submitted_by_label: safeStr(row.submitted_by_label || row.submitter_label || ""),
-          submitted_by_mfl_user_id: safeStr(row.submitted_by_mfl_user_id || row.mfl_user_id || ""),
-          details: safeStr(row.details || ""),
-          steps_to_reproduce: safeStr(row.steps_to_reproduce || ""),
-          expected_vs_actual: safeStr(row.expected_vs_actual || ""),
-          attachments: Array.isArray(row.attachments) ? row.attachments.filter(Boolean) : [],
-          source: safeStr(row.source || ""),
-          status: normalizeBugStatus(row.status || "OPEN"),
-          issue_sequence: Math.max(0, safeInt(row.issue_sequence || row.issueSequence, 0)),
-          thread_id: safeStr(row.thread_id || row.discord_thread_id || ""),
-          thread_root_message_id: safeStr(row.thread_root_message_id || row.message_id || ""),
-          thread_name: safeStr(row.thread_name || ""),
-          status_updated_at_utc: safeStr(row.status_updated_at_utc || ""),
-          status_updated_by: safeStr(row.status_updated_by || ""),
-          triage_summary: safeStr(row.triage_summary || ""),
-          triage_updated_at_utc: safeStr(row.triage_updated_at_utc || ""),
-          triage_updated_by: safeStr(row.triage_updated_by || ""),
-          approval_state: safeStr(row.approval_state || ""),
-          approval_requested_at_utc: safeStr(row.approval_requested_at_utc || ""),
-          approval_received_at_utc: safeStr(row.approval_received_at_utc || ""),
-          approval_decision_by: safeStr(row.approval_decision_by || ""),
-          last_discord_sync_error: safeStr(row.last_discord_sync_error || ""),
-          last_discord_sync_at_utc: safeStr(row.last_discord_sync_at_utc || ""),
-          context: row.context && typeof row.context === "object" ? row.context : {},
-          created_at_utc: safeStr(row.created_at_utc || ""),
-        };
-      };
-
       const normalizeBugReportsDoc = (raw, leagueId, season) => {
         const doc = raw && typeof raw === "object" ? raw : {};
         const out = emptyBugReportsDoc(leagueId, season);
@@ -3708,28 +3646,7 @@ export default {
           league_id: String(leagueId || ""),
           season: Number(season || 0) || 0,
         };
-        const seqByKey = new Map();
-        out.reports = Array.isArray(doc.reports)
-          ? doc.reports
-              .filter(Boolean)
-              .map((row) => normalizeBugReportRow(row, leagueId, season))
-              .map((row) => {
-                const key = [
-                  safeStr(row.season || season || ""),
-                  safeStr(row.module || ""),
-                  safeStr(row.issue_type || ""),
-                ].join("|");
-                const seen = Math.max(0, safeInt(seqByKey.get(key), 0));
-                const provided = Math.max(0, safeInt(row.issue_sequence, 0));
-                const next = provided > 0 ? provided : seen + 1;
-                seqByKey.set(key, Math.max(seen, next));
-                return {
-                  ...row,
-                  issue_sequence: next,
-                  status_updated_at_utc: safeStr(row.status_updated_at_utc || row.created_at_utc || ""),
-                };
-              })
-          : [];
+        out.reports = Array.isArray(doc.reports) ? doc.reports.filter(Boolean) : [];
         out.meta.row_count = out.reports.length;
         return out;
       };
@@ -3923,6 +3840,19 @@ export default {
         let name = `Bug Module ${moduleLabel} Issue ${issueLabel} ${statusLabel}`;
         if (name.length > 100) name = name.slice(0, 100);
         return name;
+      };
+
+      const parseDiscordUserIds = (raw) => {
+        const parts = String(raw == null ? "" : raw).split(/[,\s]+/);
+        const out = [];
+        const seen = new Set();
+        for (const part of parts) {
+          const id = safeStr(part).replace(/\D/g, "");
+          if (!id || seen.has(id)) continue;
+          seen.add(id);
+          out.push(id);
+        }
+        return out;
       };
 
       const decodeDataUrlAttachment = (row, idx) => {
@@ -4148,6 +4078,73 @@ export default {
           return files.length ? files.length : 0;
         };
 
+        const botRequest = async (method, apiPath, body) => {
+          const target = `https://discord.com/api/v10${apiPath}`;
+          try {
+            const res = await fetch(target, {
+              method,
+              headers: {
+                Authorization: `Bot ${botToken}`,
+                "Content-Type": "application/json",
+              },
+              body: body == null ? undefined : JSON.stringify(body),
+            });
+            const text = await res.text();
+            let data = null;
+            try {
+              data = text ? JSON.parse(text) : null;
+            } catch (_) {
+              data = null;
+            }
+            return { ok: res.ok, status: res.status, data, text };
+          } catch (e) {
+            return { ok: false, status: 0, data: null, text: `fetch_failed: ${e?.message || String(e)}` };
+          }
+        };
+
+        const botRequestWithFiles = async (apiPath) => {
+          if (!files.length) {
+            return botRequest("POST", apiPath, {
+              content,
+              allowed_mentions: { parse: [] },
+            });
+          }
+          const target = `https://discord.com/api/v10${apiPath}`;
+          try {
+            const form = new FormData();
+            form.append(
+              "payload_json",
+              JSON.stringify({
+                content,
+                allowed_mentions: { parse: [] },
+              })
+            );
+            for (let i = 0; i < files.length; i += 1) {
+              const f = files[i];
+              form.append(
+                `files[${i}]`,
+                new Blob([f.bytes], { type: f.mime || "application/octet-stream" }),
+                f.name || `screenshot-${i + 1}.jpg`
+              );
+            }
+            const res = await fetch(target, {
+              method: "POST",
+              headers: { Authorization: `Bot ${botToken}` },
+              body: form,
+            });
+            const text = await res.text();
+            let data = null;
+            try {
+              data = text ? JSON.parse(text) : null;
+            } catch (_) {
+              data = null;
+            }
+            return { ok: res.ok, status: res.status, data, text };
+          } catch (e) {
+            return { ok: false, status: 0, data: null, text: `fetch_failed: ${e?.message || String(e)}` };
+          }
+        };
+
         if (!botToken || !channelId) {
           return {
             ok: false,
@@ -4160,12 +4157,7 @@ export default {
         }
 
         if (channelId) {
-          const sendChannel = await discordBotRequestWithFiles(
-            botToken,
-            `/channels/${encodeURIComponent(channelId)}/messages`,
-            content,
-            files
-          );
+          const sendChannel = await botRequestWithFiles(`/channels/${encodeURIComponent(channelId)}/messages`);
           if (!sendChannel.ok) {
             return {
               ok: false,
@@ -4189,8 +4181,7 @@ export default {
             };
           }
           const threadName = buildBugThreadName(reportRow);
-          const createThread = await discordBotRequest(
-            botToken,
+          const createThread = await botRequest(
             "POST",
             `/channels/${encodeURIComponent(channelId)}/messages/${encodeURIComponent(rootMessageId)}/threads`,
             {
@@ -4208,7 +4199,6 @@ export default {
               channel_id: channelId,
               delivery_target: safeStr(target.deliveryTarget || "primary"),
               message_id: rootMessageId,
-              thread_root_message_id: rootMessageId,
               thread_name: threadName,
               ...attachmentMeta(responseAttachmentCount(sendChannel)),
             };
@@ -4220,7 +4210,6 @@ export default {
             channel_id: channelId,
             delivery_target: safeStr(target.deliveryTarget || "primary"),
             message_id: rootMessageId,
-            thread_root_message_id: rootMessageId,
             thread_id: safeStr(createThread.data && createThread.data.id),
             thread_name: threadName,
             ...attachmentMeta(sentCount),
@@ -7171,6 +7160,64 @@ export default {
         return "trade_unknown";
       };
 
+      const canonicalSalaryAdjToken = (value, fallback = "unknown") => {
+        const text = safeStr(value);
+        if (!text) return fallback;
+        const cleaned = text.replace(/[^A-Za-z0-9_.:-]+/g, "_").replace(/^_+|_+$/g, "");
+        return cleaned || fallback;
+      };
+
+      const buildTradeSalaryLedgerKey = (season, tradeId, franchiseId, amount) => {
+        const tradeRef = canonicalSalaryAdjToken(buildTradeAdjustmentRef(season, tradeId), "trade_unknown");
+        return `trade:${safeStr(season).replace(/\D/g, "") || "0"}:${tradeRef}:${padFranchiseId(franchiseId)}:${safeInt(amount, 0)}`;
+      };
+
+      const buildTradeSalaryExplanation = (season, tradeId, franchiseId, amount) => {
+        const parts = [
+          "UPS cap adjustment",
+          "type=trade",
+          `season=${safeStr(season).replace(/\D/g, "") || "0"}`,
+        ];
+        const tradeDigits = safeStr(tradeId).replace(/\D/g, "");
+        if (tradeDigits) parts.push(`trade_id=${tradeDigits}`);
+        parts.push(`ref=${buildTradeSalaryLedgerKey(season, tradeId, franchiseId, amount)}`);
+        parts.push(`amount=${safeInt(amount, 0)}`);
+        return parts.join(" | ");
+      };
+
+      const salaryAdjustmentRefFromExplanation = (explanation) => {
+        const match = safeStr(explanation).match(/(?:^|\|)\s*ref=([^|]+)/i);
+        return safeStr(match && match[1]);
+      };
+
+      const normalizeRequestedSalaryAdjRow = (row) => {
+        const franchiseId = padFranchiseId(row?.franchise_id || row?.franchiseId || row?.franchise || "");
+        const amount = safeInt(row?.amount, NaN);
+        const explanation = safeStr(row?.import_explanation || row?.explanation || "");
+        const ledgerKey = safeStr(row?.ledger_key || row?.ledgerKey || salaryAdjustmentRefFromExplanation(explanation));
+        if (!franchiseId || !Number.isFinite(amount) || !explanation) return null;
+        return {
+          ledger_key: ledgerKey,
+          franchise_id: franchiseId,
+          amount,
+          explanation,
+        };
+      };
+
+      const normalizeRequestedSalaryAdjRows = (rowsInput) => {
+        const rows = [];
+        const seen = new Set();
+        for (const raw of asArray(rowsInput).filter(Boolean)) {
+          const row = normalizeRequestedSalaryAdjRow(raw);
+          if (!row) continue;
+          const dedupeKey = safeStr(row.ledger_key) || `${row.franchise_id}|${row.amount}|${row.explanation}`;
+          if (seen.has(dedupeKey)) continue;
+          seen.add(dedupeKey);
+          rows.push(row);
+        }
+        return rows;
+      };
+
       const formatDollarsAsMflImportK = (dollars, precision = 3) => {
         const n = Number(dollars);
         if (!Number.isFinite(n)) return "0";
@@ -7190,17 +7237,18 @@ export default {
         const nets = salaryNetBySideK(left, right);
         if (!nets.left_net_k) return [];
         const amount = nets.left_net_k * 1000;
-        const txRef = buildTradeAdjustmentRef(season, tradeId);
         return [
           {
+            ledger_key: buildTradeSalaryLedgerKey(season, tradeId, leftId, amount),
             franchise_id: leftId,
             amount,
-            explanation: `UPS traded salary settlement (${txRef}): net ${nets.left_net_k > 0 ? "+" : ""}${nets.left_net_k}K`,
+            explanation: buildTradeSalaryExplanation(season, tradeId, leftId, amount),
           },
           {
+            ledger_key: buildTradeSalaryLedgerKey(season, tradeId, rightId, -amount),
             franchise_id: rightId,
             amount: -amount,
-            explanation: `UPS traded salary settlement (${txRef}): net ${nets.right_net_k > 0 ? "+" : ""}${nets.right_net_k}K`,
+            explanation: buildTradeSalaryExplanation(season, tradeId, rightId, -amount),
           },
         ];
       };
@@ -7657,6 +7705,7 @@ export default {
         const text = safeStr(explanation).toLowerCase();
         if (!text) return "other_dollars";
         if (
+          text.includes("type=trade") ||
           text.includes("tradedsalary") ||
           text.includes("traded salary") ||
           text.includes("trade salary") ||
@@ -7665,6 +7714,7 @@ export default {
           return "traded_salary_dollars";
         }
         if (
+          text.includes("type=cut") ||
           text.includes("cap_penalt") ||
           text.includes("cap penalty") ||
           text.includes("dead cap") ||
@@ -8279,32 +8329,100 @@ export default {
         };
       };
 
-      const applySalaryAdjFromPayload = async (leagueId, season, payload, tradeId) => {
-        const rows = buildSalaryAdjRowsFromPayload(payload, tradeId, season);
+      const applySalaryAdjRows = async (leagueId, season, rowsInput, options = {}) => {
+        const logContext = safeStr(options?.log_context || "generic");
+        const emptyReason = safeStr(options?.empty_reason || "no_salary_adjustments_rows");
+        const rows = normalizeRequestedSalaryAdjRows(rowsInput);
         if (!rows.length) {
           return {
             ok: true,
             skipped: true,
-            reason: "no_traded_salary_adjustments",
+            reason: emptyReason,
             rows: [],
+            duplicate_rows: [],
+            counts: {
+              attempted: 0,
+              posted: 0,
+              skipped_duplicate: 0,
+              failed: 0,
+            },
           };
         }
-        const dataXml = buildSalaryAdjXml(rows);
+
+        let existingExportRes = await mflExportJson(season, leagueId, "salaryAdjustments", {}, { useCookie: true });
+        let existingRows = existingExportRes.ok
+          ? collectSalaryAdjustmentExportRows(
+              existingExportRes.data?.salaryAdjustments || existingExportRes.data?.salaryadjustments || existingExportRes.data || {}
+            )
+          : [];
+        const existingRefs = new Set(
+          existingRows.map((row) => salaryAdjustmentRefFromExplanation(row?.explanation)).filter(Boolean)
+        );
+        const duplicateRows = [];
+        const rowsToPost = [];
+        for (const row of rows) {
+          const rowRef = safeStr(row.ledger_key);
+          if (rowRef && existingRefs.has(rowRef)) {
+            duplicateRows.push({
+              ...row,
+              skipped_duplicate: true,
+              reason: "duplicate_ref",
+            });
+            continue;
+          }
+          rowsToPost.push(row);
+        }
+
+        if (!rowsToPost.length) {
+          return {
+            ok: true,
+            skipped: true,
+            reason: "all_rows_already_posted",
+            rows: [],
+            duplicate_rows: duplicateRows,
+            verification: {
+              ok: true,
+              expected_count: 0,
+              matched_count: 0,
+              mismatched_count: 0,
+              rows: [],
+            },
+            counts: {
+              attempted: rows.length,
+              posted: 0,
+              skipped_duplicate: duplicateRows.length,
+              failed: 0,
+            },
+            post_import_salary_adjustments_export: existingExportRes.ok
+              ? {
+                  ok: true,
+                  status: existingExportRes.status,
+                  url: existingExportRes.url,
+                  error: existingExportRes.error,
+                  preview: existingExportRes.textPreview,
+                }
+              : null,
+          };
+        }
+
+        const dataXml = buildSalaryAdjXml(rowsToPost);
         try {
           console.log(
             "[TWB][salaryAdj][prepare]",
             JSON.stringify({
               timestamp_utc: new Date().toISOString(),
+              context: logContext,
               league_id: safeStr(leagueId),
               season: safeStr(season),
-              trade_id: safeStr(tradeId),
-              rows,
+              rows: rowsToPost,
+              duplicate_rows,
               payload_xml: dataXml,
             })
           );
         } catch (_) {
           // noop
         }
+
         let importRes = await postMflImportForm(
           season,
           {
@@ -8319,26 +8437,27 @@ export default {
             "[TWB][salaryAdj][post]",
             JSON.stringify({
               timestamp_utc: new Date().toISOString(),
+              context: logContext,
               league_id: safeStr(leagueId),
               season: safeStr(season),
-              trade_id: safeStr(tradeId),
               post_url: importRes.targetImportUrl,
               post_status: safeInt(importRes.status, 0),
               post_response_excerpt: safeStr(importRes.upstreamPreview).slice(0, 600),
               ok: !!importRes.requestOk,
-              rows,
+              rows: rowsToPost,
             })
           );
         } catch (_) {
           // noop
         }
+
         let verification = {
           ok: !!importRes.requestOk,
           reason: importRes.requestOk ? "verification_not_run" : "import_failed",
-          expected_count: rows.length,
+          expected_count: rowsToPost.length,
           matched_count: 0,
-          mismatched_count: rows.length,
-          rows: rows.map((r) => ({ ...r, matched: false })),
+          mismatched_count: rowsToPost.length,
+          rows: rowsToPost.map((r) => ({ ...r, matched: false })),
         };
         let verifySalaryAdjRes = null;
         const runVerify = async () => {
@@ -8358,10 +8477,10 @@ export default {
               finalVerification = {
                 ok: false,
                 reason: "failed_post_import_salary_adjustments_export",
-                expected_count: rows.length,
+                expected_count: rowsToPost.length,
                 matched_count: 0,
-                mismatched_count: rows.length,
-                rows: rows.map((r) => ({ ...r, matched: false })),
+                mismatched_count: rowsToPost.length,
+                rows: rowsToPost.map((r) => ({ ...r, matched: false })),
                 attempt: i + 1,
                 upstream: {
                   status: finalVerifyRes.status,
@@ -8372,14 +8491,14 @@ export default {
               };
               continue;
             }
-            finalVerification = verifyExpectedSalaryAdjustmentsInExport(rows, finalVerifyRes.data);
+            finalVerification = verifyExpectedSalaryAdjustmentsInExport(rowsToPost, finalVerifyRes.data);
             finalVerification.reason = finalVerification.ok ? "" : "expected_salary_adjustments_missing_from_export";
             finalVerification.attempt = i + 1;
             if (finalVerification.ok) break;
           }
           if (!finalVerification.ok) {
             const expectedFranchises = Array.from(
-              new Set(rows.map((r) => padFranchiseId(r.franchise_id)).filter(Boolean))
+              new Set(rowsToPost.map((r) => padFranchiseId(r.franchise_id)).filter(Boolean))
             );
             const fallbackActualRows = [];
             for (const fid of expectedFranchises) {
@@ -8400,7 +8519,7 @@ export default {
               }
             }
             if (fallbackActualRows.length) {
-              const fallbackVerification = verifyExpectedSalaryAdjustmentsInRows(rows, fallbackActualRows);
+              const fallbackVerification = verifyExpectedSalaryAdjustmentsInRows(rowsToPost, fallbackActualRows);
               fallbackVerification.reason = fallbackVerification.ok
                 ? ""
                 : "expected_salary_adjustments_missing_from_export";
@@ -8412,6 +8531,7 @@ export default {
           }
           return { finalVerification, finalVerifyRes };
         };
+
         if (importRes.requestOk) {
           const verifyOut = await runVerify();
           verification = verifyOut.finalVerification;
@@ -8432,9 +8552,9 @@ export default {
                 "[TWB][salaryAdj][retry_get]",
                 JSON.stringify({
                   timestamp_utc: new Date().toISOString(),
+                  context: logContext,
                   league_id: safeStr(leagueId),
                   season: safeStr(season),
-                  trade_id: safeStr(tradeId),
                   post_url: retryGetRes.targetImportUrl,
                   post_status: safeInt(retryGetRes.status, 0),
                   post_response_excerpt: safeStr(retryGetRes.upstreamPreview).slice(0, 600),
@@ -8456,9 +8576,9 @@ export default {
               "[TWB][salaryAdj][verify]",
               JSON.stringify({
                 timestamp_utc: new Date().toISOString(),
+                context: logContext,
                 league_id: safeStr(leagueId),
                 season: safeStr(season),
-                trade_id: safeStr(tradeId),
                 verification,
               })
             );
@@ -8466,9 +8586,11 @@ export default {
             // noop
           }
         }
+
         const strictVerify = safeStr(env?.TWB_SALADJ_VERIFY_STRICT || "1") !== "0";
         const requestOk = !!importRes.requestOk;
         const finalOk = requestOk && (verification.ok || !strictVerify);
+        const failedCount = Math.max(0, rowsToPost.length - (finalOk ? rowsToPost.length : safeInt(verification.matched_count, 0)));
         return {
           ok: finalOk,
           request_ok: requestOk,
@@ -8476,7 +8598,8 @@ export default {
           verification_soft_failed: requestOk && !verification.ok,
           strict_verify: strictVerify,
           skipped: false,
-          rows,
+          rows: rowsToPost,
+          duplicate_rows: duplicateRows,
           upstreamStatus: importRes.status,
           upstreamPreview: importRes.upstreamPreview,
           targetImportUrl: importRes.targetImportUrl,
@@ -8489,6 +8612,12 @@ export default {
             ? (verification.ok ? "" : strictVerify ? "salary_adj_verification_failed" : "verification_pending")
             : "salary_adj_import_failed",
           verification,
+          counts: {
+            attempted: rows.length,
+            posted: finalOk ? rowsToPost.length : safeInt(verification.matched_count, 0),
+            skipped_duplicate: duplicateRows.length,
+            failed: failedCount,
+          },
           post_import_salary_adjustments_export: verifySalaryAdjRes
             ? {
                 ok: !!verifySalaryAdjRes.ok,
@@ -8500,6 +8629,12 @@ export default {
             : null,
         };
       };
+
+      const applySalaryAdjFromPayload = async (leagueId, season, payload, tradeId) =>
+        applySalaryAdjRows(leagueId, season, buildSalaryAdjRowsFromPayload(payload, tradeId, season), {
+          log_context: "trade_payload",
+          empty_reason: "no_traded_salary_adjustments",
+        });
 
       const applyExtensionsFromPayload = async (leagueId, season, payload, options = {}) => {
         const extReqs = Array.isArray(payload?.extension_requests) ? payload.extension_requests : [];
@@ -9119,16 +9254,13 @@ export default {
 
         const moduleName = safeStr(body.module || body.screen || "other").toLowerCase();
         const issueType = safeStr(body.issue_type || body.type || "other").toLowerCase();
-        const requestKind = safeStr(body.request_kind || body.requestKind || "bug-report").toLowerCase();
-        const commishEnhancement = requestKind === "commish-enhancement" || !!safeInt(
-          body.commish_enhancement || body.commishEnhancement || 0
-        );
         const details = safeStr(body.details || body.description || "");
         const steps = safeStr(body.steps_to_reproduce || body.steps || "");
         const expectedActual = safeStr(
           body.expected_vs_actual || body.expected_actual || body.expected || ""
         );
         const attachments = sanitizeBugAttachments(body.attachments || body.screenshots);
+        if (!attachments.length) return jsonOut(400, { ok: false, error: "At least one screenshot is required" });
         if (!details) return jsonOut(400, { ok: false, error: "Missing details" });
 
         const createdAt = new Date().toISOString();
@@ -9150,22 +9282,12 @@ export default {
         ).slice(0, 120);
         const mflUserId = safeStr(
           body.mfl_user_id ||
-          body.mflUserId ||
-          context.mfl_user_id ||
-          context.mflUserId ||
-          browserMflUserId ||
-          ""
+            body.mflUserId ||
+            context.mfl_user_id ||
+            context.mflUserId ||
+            browserMflUserId ||
+            ""
         );
-        const submittedByLabel = safeStr(
-          body.submitted_by_label ||
-          body.submittedByLabel ||
-          context.submitted_by_label ||
-          [
-            franchiseName || franchiseId || "",
-            mflUserId ? `MFL ${mflUserId}` : "",
-            commishEnhancement ? "Commish Enhancement" : "",
-          ].filter(Boolean).join(" | ")
-        ).slice(0, 200);
         const reportRow = {
           bug_id: bugId,
           created_at_utc: createdAt,
@@ -9176,36 +9298,12 @@ export default {
           mfl_user_id: mflUserId,
           module: moduleName,
           issue_type: issueType,
-          request_kind: commishEnhancement ? "commish-enhancement" : requestKind || "bug-report",
-          commish_enhancement: commishEnhancement,
-          submitted_by_label: submittedByLabel,
-          submitted_by_mfl_user_id: mflUserId,
           details: details.slice(0, 5000),
           steps_to_reproduce: steps.slice(0, 4000),
           expected_vs_actual: expectedActual.slice(0, 4000),
           attachments,
           source: safeStr(body.source || "ups-hot-links-widget"),
           status: "OPEN",
-          thread_id: "",
-          thread_root_message_id: "",
-          thread_name: buildBugThreadName({
-            season,
-            module: moduleName,
-            issue_type: issueType,
-            issue_sequence: 1,
-            status: "OPEN",
-          }),
-          status_updated_at_utc: createdAt,
-          status_updated_by: "system",
-          triage_summary: "",
-          triage_updated_at_utc: "",
-          triage_updated_by: "",
-          approval_state: "",
-          approval_requested_at_utc: "",
-          approval_received_at_utc: "",
-          approval_decision_by: "",
-          last_discord_sync_error: "",
-          last_discord_sync_at_utc: "",
           context: context && typeof context === "object" ? context : {},
         };
 
@@ -9232,7 +9330,6 @@ export default {
             safeStr(row.issue_type || "") === issueType
           );
         }).length;
-        reportRow.thread_name = buildBugThreadName(reportRow, reportRow.status);
         doc.reports = reports.slice(0, 3000);
 
         const save = await writeBugReportsDoc(
@@ -9255,47 +9352,6 @@ export default {
         }
 
         const notify = await sendDiscordNotificationForBug(reportRow, save.filePath);
-        let persistedThread = {
-          thread_id: "",
-          thread_root_message_id: "",
-          thread_name: reportRow.thread_name,
-        };
-        let persistedContentSha = save.contentSha || "";
-        if (
-          safeStr(notify.thread_id) ||
-          safeStr(notify.thread_root_message_id || notify.message_id) ||
-          safeStr(notify.thread_name) ||
-          safeStr(notify.error)
-        ) {
-          const savedDoc = normalizeBugReportsDoc(save.doc, leagueId, season);
-          const savedReports = Array.isArray(savedDoc.reports) ? savedDoc.reports : [];
-          const idx = savedReports.findIndex((row) => safeStr(row && row.bug_id) === bugId);
-          if (idx >= 0) {
-            savedReports[idx] = {
-              ...savedReports[idx],
-              thread_id: safeStr(notify.thread_id),
-              thread_root_message_id: safeStr(notify.thread_root_message_id || notify.message_id),
-              thread_name: safeStr(notify.thread_name || savedReports[idx].thread_name || reportRow.thread_name),
-              last_discord_sync_error: safeStr(notify.ok ? "" : notify.error),
-              last_discord_sync_at_utc: new Date().toISOString(),
-            };
-            persistedThread = {
-              thread_id: safeStr(savedReports[idx].thread_id),
-              thread_root_message_id: safeStr(savedReports[idx].thread_root_message_id),
-              thread_name: safeStr(savedReports[idx].thread_name),
-            };
-            const syncSave = await writeBugReportsDoc(
-              leagueId,
-              season,
-              savedDoc,
-              save.contentSha,
-              `feat(reports): sync bug thread metadata ${bugId}`
-            );
-            if (syncSave.ok) {
-              persistedContentSha = syncSave.contentSha || persistedContentSha;
-            }
-          }
-        }
 
         return jsonOut(201, {
           ok: true,
@@ -9305,11 +9361,8 @@ export default {
           stored: {
             file_path: save.filePath || "",
             commit_sha: save.commitSha || "",
-            content_sha: persistedContentSha || "",
+            content_sha: save.contentSha || "",
           },
-          thread_id: persistedThread.thread_id || "",
-          thread_name: persistedThread.thread_name || "",
-          thread_root_message_id: persistedThread.thread_root_message_id || "",
           notify,
         });
       }
@@ -9357,213 +9410,6 @@ export default {
           file_path: loaded.filePath || "",
           count: reports.length,
           reports,
-        });
-      }
-
-      if (path === "/admin/bug-report/status" && request.method === "POST") {
-        let body = {};
-        try {
-          body = (await request.json()) || {};
-        } catch (_) {
-          return jsonOut(400, { ok: false, error: "Invalid JSON body" });
-        }
-        if (!commishApiKey) {
-          return jsonOut(500, { ok: false, error: "Missing COMMISH_API_KEY worker secret" });
-        }
-        if (!sessionByApiKey) {
-          return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required for bug status updates." });
-        }
-        const leagueId = safeStr(body.league_id || body.leagueId || url.searchParams.get("L") || L || "");
-        const season = safeStr(body.season || body.year || body.YEAR || url.searchParams.get("YEAR") || YEAR || "");
-        const bugId = safeStr(body.bug_id || body.bugId || body.report_id || "");
-        const nextStatus = normalizeBugStatus(body.status || "OPEN");
-        const updatedBy = safeStr(body.updated_by || body.updatedBy || "commish");
-        if (!leagueId) return jsonOut(400, { ok: false, error: "Missing league_id or L" });
-        if (!season) return jsonOut(400, { ok: false, error: "Missing season or YEAR" });
-        if (!bugId) return jsonOut(400, { ok: false, error: "Missing bug_id" });
-
-        const loaded = await readBugReportsDoc(leagueId, season);
-        if (!loaded.ok) {
-          return jsonOut(500, {
-            ok: false,
-            error: loaded.error || "bug_report_read_failed",
-            storage: {
-              file_path: loaded.filePath || "",
-              upstream_status: loaded.upstreamStatus || 0,
-              upstream_preview: loaded.upstreamPreview || "",
-            },
-          });
-        }
-        const doc = normalizeBugReportsDoc(loaded.doc, leagueId, season);
-        const reports = Array.isArray(doc.reports) ? doc.reports : [];
-        const idx = reports.findIndex((row) => safeStr(row && row.bug_id) === bugId);
-        if (idx < 0) return jsonOut(404, { ok: false, error: "bug_not_found" });
-
-        const statusUpdatedAt = new Date().toISOString();
-        reports[idx] = {
-          ...reports[idx],
-          status: nextStatus,
-          status_updated_at_utc: statusUpdatedAt,
-          status_updated_by: updatedBy || "commish",
-          thread_name: buildBugThreadName(reports[idx], nextStatus),
-        };
-        if (nextStatus === "CLOSED_RESOLVED" && !safeStr(reports[idx].approval_state)) {
-          reports[idx].approval_state = "RESOLVED";
-        }
-
-        const save = await writeBugReportsDoc(
-          leagueId,
-          season,
-          doc,
-          loaded.sha,
-          `feat(reports): update bug status ${bugId} -> ${nextStatus}`
-        );
-        if (!save.ok) {
-          return jsonOut(500, {
-            ok: false,
-            error: save.error || "bug_report_write_failed",
-            storage: {
-              file_path: save.filePath || loaded.filePath || "",
-              upstream_status: save.upstreamStatus || 0,
-              upstream_preview: save.upstreamPreview || "",
-            },
-          });
-        }
-
-        const discordSync = await syncBugThreadStatus(reports[idx], nextStatus);
-        try {
-          console.log(
-            "[BUG][thread-status-sync]",
-            JSON.stringify({
-              bug_id: bugId,
-              league_id: leagueId,
-              season,
-              status: nextStatus,
-              discord_sync: discordSync,
-            })
-          );
-        } catch (_) {
-          // noop
-        }
-
-        return jsonOut(discordSync.ok || discordSync.skipped ? 200 : 207, {
-          ok: true,
-          bug_id: bugId,
-          league_id: leagueId,
-          season: safeInt(season, Number(season) || 0),
-          status: nextStatus,
-          stored: {
-            file_path: save.filePath || "",
-            commit_sha: save.commitSha || "",
-            content_sha: save.contentSha || "",
-          },
-          thread_id: safeStr(reports[idx].thread_id),
-          thread_name: safeStr(discordSync.thread_name || reports[idx].thread_name),
-          thread_root_message_id: safeStr(reports[idx].thread_root_message_id),
-          discord_sync: discordSync,
-        });
-      }
-
-      if (path === "/admin/bug-report/triage-note" && request.method === "POST") {
-        let body = {};
-        try {
-          body = (await request.json()) || {};
-        } catch (_) {
-          return jsonOut(400, { ok: false, error: "Invalid JSON body" });
-        }
-        if (!commishApiKey) {
-          return jsonOut(500, { ok: false, error: "Missing COMMISH_API_KEY worker secret" });
-        }
-        if (!sessionByApiKey) {
-          return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required for bug triage updates." });
-        }
-        const leagueId = safeStr(body.league_id || body.leagueId || url.searchParams.get("L") || L || "");
-        const season = safeStr(body.season || body.year || body.YEAR || url.searchParams.get("YEAR") || YEAR || "");
-        const bugId = safeStr(body.bug_id || body.bugId || body.report_id || "");
-        const triageSummary = safeStr(body.triage_summary || body.triageSummary || "");
-        const updatedBy = safeStr(body.updated_by || body.updatedBy || "commish");
-        const postToThread = ["1", "true", "yes"].includes(
-          safeStr(body.post_to_thread || body.postToThread || "").toLowerCase()
-        );
-        if (!leagueId) return jsonOut(400, { ok: false, error: "Missing league_id or L" });
-        if (!season) return jsonOut(400, { ok: false, error: "Missing season or YEAR" });
-        if (!bugId) return jsonOut(400, { ok: false, error: "Missing bug_id" });
-        if (!triageSummary) return jsonOut(400, { ok: false, error: "Missing triage_summary" });
-
-        const loaded = await readBugReportsDoc(leagueId, season);
-        if (!loaded.ok) {
-          return jsonOut(500, {
-            ok: false,
-            error: loaded.error || "bug_report_read_failed",
-            storage: {
-              file_path: loaded.filePath || "",
-              upstream_status: loaded.upstreamStatus || 0,
-              upstream_preview: loaded.upstreamPreview || "",
-            },
-          });
-        }
-        const doc = normalizeBugReportsDoc(loaded.doc, leagueId, season);
-        const reports = Array.isArray(doc.reports) ? doc.reports : [];
-        const idx = reports.findIndex((row) => safeStr(row && row.bug_id) === bugId);
-        if (idx < 0) return jsonOut(404, { ok: false, error: "bug_not_found" });
-
-        reports[idx] = {
-          ...reports[idx],
-          triage_summary: triageSummary,
-          triage_updated_at_utc: new Date().toISOString(),
-          triage_updated_by: updatedBy || "commish",
-        };
-
-        const save = await writeBugReportsDoc(
-          leagueId,
-          season,
-          doc,
-          loaded.sha,
-          `feat(reports): update bug triage note ${bugId}`
-        );
-        if (!save.ok) {
-          return jsonOut(500, {
-            ok: false,
-            error: save.error || "bug_report_write_failed",
-            storage: {
-              file_path: save.filePath || loaded.filePath || "",
-              upstream_status: save.upstreamStatus || 0,
-              upstream_preview: save.upstreamPreview || "",
-            },
-          });
-        }
-
-        let thread_post = { ok: false, skipped: true, status: 0, error: "post_to_thread_disabled" };
-        if (postToThread) {
-          const notePrefix = updatedBy ? `Triage note from ${updatedBy}:` : "Triage note:";
-          thread_post = await postBugThreadNote(reports[idx], `${notePrefix}\n${triageSummary}`);
-          try {
-            console.log(
-              "[BUG][thread-note]",
-              JSON.stringify({
-                bug_id: bugId,
-                league_id: leagueId,
-                season,
-                thread_post,
-              })
-            );
-          } catch (_) {
-            // noop
-          }
-        }
-
-        return jsonOut(thread_post.ok || thread_post.skipped ? 200 : 207, {
-          ok: true,
-          bug_id: bugId,
-          league_id: leagueId,
-          season: safeInt(season, Number(season) || 0),
-          triage_summary: triageSummary,
-          stored: {
-            file_path: save.filePath || "",
-            commit_sha: save.commitSha || "",
-            content_sha: save.contentSha || "",
-          },
-          thread_post,
         });
       }
 
@@ -12285,6 +12131,48 @@ export default {
         });
       }
 
+      if (path === "/salary-adjustments/import" && request.method === "POST") {
+        const body = (await request.json().catch(() => ({}))) || {};
+        const leagueId = safeStr(body.league_id || body.leagueId || url.searchParams.get("L") || L || "");
+        const season = safeStr(body.season || body.YEAR || body.year || url.searchParams.get("YEAR") || YEAR || "");
+        const rowsInput = Array.isArray(body.rows) ? body.rows : [];
+        if (!leagueId) return jsonOut(400, { ok: false, error: "Missing league_id or L." });
+        if (!season) return jsonOut(400, { ok: false, error: "Missing season or YEAR." });
+        if (!rowsInput.length) return jsonOut(400, { ok: false, error: "No salary adjustment rows provided." });
+
+        const invalidRows = rowsInput.filter((row) => !normalizeRequestedSalaryAdjRow(row));
+        if (invalidRows.length) {
+          return jsonOut(400, {
+            ok: false,
+            error: "One or more salary adjustment rows are missing franchise_id, amount, or import_explanation.",
+            invalid_count: invalidRows.length,
+          });
+        }
+
+        const result = await applySalaryAdjRows(leagueId, season, rowsInput, {
+          log_context: "report_import",
+          empty_reason: "no_importable_salary_adjustments",
+        });
+        return jsonOut(result.ok ? 200 : 502, {
+          ok: !!result.ok,
+          league_id: leagueId,
+          season: safeInt(season, Number(season) || 0),
+          counts: result.counts || {
+            attempted: Array.isArray(rowsInput) ? rowsInput.length : 0,
+            posted: 0,
+            skipped_duplicate: 0,
+            failed: Array.isArray(rowsInput) ? rowsInput.length : 0,
+          },
+          rows: result.rows || [],
+          duplicate_rows: result.duplicate_rows || [],
+          verification: result.verification || null,
+          reason: safeStr(result.reason),
+          error: safeStr(result.error),
+          target_import_url: safeStr(result.targetImportUrl),
+          post_import_salary_adjustments_export: result.post_import_salary_adjustments_export || null,
+          generated_at: new Date().toISOString(),
+        });
+      }
       if (path === "/acquisition-hub/bootstrap" && request.method === "GET") {
         const season = safeStr(url.searchParams.get("YEAR") || YEAR || "");
         const leagueId = safeStr(url.searchParams.get("L") || L || "");
@@ -12431,9 +12319,9 @@ export default {
             : {
                 ok: true,
                 skipped: true,
-                reason: "no_contract_apply_required",
-                status_label: "No contract import required for this action.",
-              };
+              reason: "no_contract_apply_required",
+              status_label: "No contract import required for this action.",
+            };
         const refreshedLive = await buildRookieDraftLivePayload(season, leagueId);
         acqCacheSet(`acq:rookie-live:${season}:${leagueId}`, refreshedLive);
         return jsonNoStore(200, {
@@ -12460,12 +12348,12 @@ export default {
         const reconcile = await reconcileRookieDraftContractsAcq(season, leagueId);
         acqCacheBustPrefix(`acq:rookie-live:${season}:${leagueId}`);
         acqCacheBustPrefix(`acq:rookiexml:${season}:${leagueId}`);
-        return jsonNoStore(200, {
-          ok: !!reconcile.ok,
-          message: reconcile.applied_count ? "Rookie contracts reconciled." : "No missing rookie contracts found.",
-          ...reconcile,
-        });
-      }
+          return jsonNoStore(200, {
+            ok: !!reconcile.ok,
+            message: reconcile.applied_count ? "Rookie contracts reconciled." : "No missing rookie contracts found.",
+            ...reconcile,
+          });
+        }
 
       if (path === "/acquisition-hub/free-agent-auction/live" && request.method === "GET") {
         const season = safeStr(url.searchParams.get("YEAR") || YEAR || "");
@@ -14264,14 +14152,27 @@ export default {
             /\bextension\b/i.test(providedSourceTag) ||
             requestedContractStatus.toLowerCase() === "extension"
           );
+        const isManualContractSubmission =
+          isManualContractUpdate &&
+          (
+            submissionKindRaw === "rookie-option" ||
+            submissionKindRaw === "rookie_option" ||
+            /rookie[-_ ]option/i.test(providedSourceTag)
+          );
         const eventType = isExtensionSubmission
           ? "log-extension-submission"
-          : (isRestructure ? "log-restructure-submission" : "log-mym-submission");
+          : (isRestructure
+            ? "log-restructure-submission"
+            : (isManualContractSubmission
+              ? "log-manual-contract-submission"
+              : "log-mym-submission"));
         const sourceTag = isExtensionSubmission
           ? (providedSourceTag || "worker-offer-extension")
           : (isRestructure
             ? (providedSourceTag || "worker-offer-restructure")
-            : (providedSourceTag || "worker-offer-mym"));
+            : (isManualContractSubmission
+              ? (providedSourceTag || "worker-front-office-manual-contract-update")
+              : (providedSourceTag || "worker-offer-mym")));
         const payloadPlayerStatus = String(body.player_status || body.playerStatus || "").trim();
         const overrideAsOfDate = String(
           body.override_as_of_date || body.override_as_of || body.overrideAsOf || ""
@@ -14571,7 +14472,8 @@ export default {
           if (changed) break;
         }
 
-        const shouldDispatchSubmissionLog = !isManualContractUpdate || isExtensionSubmission;
+        const shouldDispatchSubmissionLog =
+          !isManualContractUpdate || isExtensionSubmission || isManualContractSubmission;
         let logDispatch = {
           ok: false,
           queued: false,
@@ -14595,6 +14497,7 @@ export default {
               contract_year: contractYear,
               contract_status: statusUsed || contractStatus,
               contract_info: contractInfo,
+              submission_kind: submissionKindRaw,
               submitted_at_utc: submittedAtUtc || new Date().toISOString(),
               commish_override_flag: commishOverrideFlag,
               override_as_of_date: overrideAsOfDate,
