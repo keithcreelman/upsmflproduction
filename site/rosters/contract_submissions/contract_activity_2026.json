@@ -1,0 +1,40 @@
+{
+  "meta": {
+    "generated_at": "2026-03-12 19:42:18",
+    "source": "contract-activity-log",
+    "count": 1,
+    "season": 2026
+  },
+  "activities": [
+    {
+      "activity_id": "4a4d036aa1586d50525596b4",
+      "submission_id": "4a4d036aa1586d50525596b4",
+      "activity_scope": "contract_mutation",
+      "activity_type": "Extension",
+      "season": "2026",
+      "league_id": "74598",
+      "franchise_id": "0005",
+      "franchise_name": "HammerTime \ud83d\udd28 \u23f0",
+      "player_id": "16150",
+      "player_name": "Stroud, C.J.",
+      "position": "QB",
+      "salary": 22000,
+      "contract_year": 1,
+      "contract_status": "EXT1",
+      "contract_info": "CL 1| TCV 22K| AAV 22K| Y1-22K| GTD: 16.5K| Ext: \ud83d\udd28 \u23f0",
+      "tcv": 22000,
+      "aav": 22000,
+      "guaranteed": 16500,
+      "submitted_at_utc": "2026-03-10T13:00:00Z",
+      "source": "worker-offer-extension-manual-fix",
+      "test_flag": 0,
+      "commish_override_flag": 1,
+      "override_as_of_date": "",
+      "delivery_target": "primary",
+      "discord_channel_id": "1059113303059730494",
+      "discord_message_id": "1481734996959170725",
+      "discord_pinned_flag": 0,
+      "notes": ""
+    }
+  ]
+}

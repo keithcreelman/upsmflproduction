@@ -1,0 +1,62 @@
+name: Log Contract Activity
+
+on:
+  repository_dispatch:
+    types: [log-contract-activity]
+
+concurrency:
+  group: log-contract-activity
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  log:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Append contract activity log
+        env:
+          PAYLOAD_JSON: ${{ toJson(github.event.client_payload.payload || github.event.client_payload) }}
+        run: |
+          python pipelines/etl/scripts/log_contract_activity.py --json-path site/rosters/contract_submissions/contract_activity_2026.json
+
+      - name: Commit and push if changed
+        run: |
+          if git diff --quiet -- site/rosters/contract_submissions/contract_activity_2026.json; then
+            echo "No contract activity log changes to commit."
+            exit 0
+          fi
+          changed_files="$(git diff --name-only)"
+          unexpected="$(printf "%s\n" "$changed_files" | grep -Ev '^site/rosters/contract_submissions/contract_activity_2026\.json$' || true)"
+          if [ -n "$unexpected" ]; then
+            echo "Unexpected file changes detected; refusing to push."
+            printf "%s\n" "$unexpected"
+            git status --short
+            exit 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add site/rosters/contract_submissions/contract_activity_2026.json
+          git commit -m "Log contract activity"
+          for attempt in 1 2 3; do
+            git pull --rebase origin main
+            if git push origin HEAD:main; then
+              echo "Push succeeded on attempt ${attempt}."
+              exit 0
+            fi
+            echo "Push attempt ${attempt} failed; retrying..."
+            sleep 2
+          done
+          echo "Failed to push after 3 attempts."
+          exit 1

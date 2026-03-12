@@ -15707,6 +15707,12 @@ export default {
           }
         }
 
+        const activityType = deriveContractActivityType({
+          isExtensionSubmission,
+          isRestructure,
+          contractStatus: postCheck?.contractStatus || statusUsed || contractStatus,
+        });
+
         let contractDiscord = {
           ok: false,
           skipped: true,
@@ -15719,11 +15725,7 @@ export default {
         if (looksOk && anyChanged) {
           try {
             contractDiscord = await sendDiscordContractActivity({
-              activityType: deriveContractActivityType({
-                isExtensionSubmission,
-                isRestructure,
-                contractStatus: postCheck?.contractStatus || statusUsed || contractStatus,
-              }),
+              activityType,
               leagueId: leagueId,
               franchiseId: franchiseId,
               franchiseName: franchiseName,
@@ -15743,6 +15745,54 @@ export default {
               delivery_target: "",
               gif_url: "",
               gif_query: "",
+            };
+          }
+        }
+
+        let contractActivityDispatch = {
+          ok: false,
+          queued: false,
+          skipped: true,
+          reason: looksOk && anyChanged ? "not_attempted" : "No applied change detected",
+        };
+        if (looksOk && anyChanged) {
+          try {
+            contractActivityDispatch = await dispatchRepoEvent("log-contract-activity", {
+              payload: {
+                activity_id: submissionId,
+                submission_id: submissionId,
+                activity_scope: "contract_mutation",
+                activity_type: activityType,
+                season: year,
+                year: year,
+                league_id: leagueId,
+                player_id: playerId,
+                player_name: playerName,
+                position: position,
+                franchise_id: franchiseId,
+                franchise_name: franchiseName,
+                salary: postCheck?.salary || salary,
+                contract_year: postCheck?.contractYear || contractYear,
+                contract_status: postCheck?.contractStatus || statusUsed || contractStatus,
+                contract_info: postCheck?.contractInfo || contractInfo,
+                submitted_at_utc: submittedAtUtc || new Date().toISOString(),
+                source: sourceTag,
+                test_flag: 0,
+                commish_override_flag: commishOverrideFlag,
+                override_as_of_date: overrideAsOfDate,
+                delivery_target: contractDiscord?.delivery_target || "",
+                discord_channel_id: contractDiscord?.channel_id || "",
+                discord_message_id: contractDiscord?.message_id || "",
+                discord_pinned_flag:
+                  contractDiscord && contractDiscord.pin && contractDiscord.pin.ok ? 1 : 0,
+              },
+            });
+          } catch (e) {
+            contractActivityDispatch = {
+              ok: false,
+              queued: false,
+              skipped: false,
+              reason: `Contract activity dispatch error: ${e?.message || String(e)}`,
             };
           }
         }
@@ -15789,6 +15839,7 @@ export default {
             importAttempts,
             isManualContractUpdate,
             logDispatch,
+            contractActivityDispatch,
             contractDiscord,
           },
         });

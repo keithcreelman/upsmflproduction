@@ -55,6 +55,7 @@ python3 "$SCRIPT_DIR/ingest_contract_logs_2019_2021.py" --db-path "$MFL_DB_PATH"
 python3 "$SCRIPT_DIR/ingest_discord_contracts.py" --db-path "$MFL_DB_PATH" --write-v3-all
 python3 "$SCRIPT_DIR/migrate_legacy_contract_xml.py" --db-path "$MFL_DB_PATH"
 python3 "$SCRIPT_DIR/load_mym_submissions_2025.py" --db-path "$MFL_DB_PATH"
+python3 "$SCRIPT_DIR/sync_contract_activity_to_db.py" --db-path "$MFL_DB_PATH" --json-path "$ROOT_DIR/site/rosters/contract_submissions/contract_activity_2026.json"
 
 python3 "$SCRIPT_DIR/build_auction_value_model.py" --db-path "$MFL_DB_PATH" --start-year 2025 --end-year 2025 --current-season 2025
 python3 "$SCRIPT_DIR/build_early_projection.py" --db-path "$MFL_DB_PATH" --adp-source sleeper_sf --tag-tracking-json "$MFL_TAG_TRACKING_JSON" --tag-exclusions-json "$MFL_TAG_EXCLUSIONS_JSON"
