@@ -6310,8 +6310,6 @@
         var salaryDelta = Math.max(safeInt(b.prior_aav_week1, 0), safeInt(b.prior_salary_week1, 0)) -
           Math.max(safeInt(a.prior_aav_week1, 0), safeInt(a.prior_salary_week1, 0));
         if (salaryDelta !== 0) return salaryDelta;
-        var pointsDelta = safeNum(b.points_total, 0) - safeNum(a.points_total, 0);
-        if (Math.abs(pointsDelta) > 0.0001) return pointsDelta;
         return compareText(a.player_name, b.player_name);
       });
 
