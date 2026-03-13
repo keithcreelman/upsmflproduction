@@ -80,6 +80,12 @@
     PN: { 1: 3000, 2: 5000 },
     OTHER: { 1: 3000, 2: 5000 }
   };
+  var TAG_EXCLUDED_PLAYER_IDS = { "14056": true };
+  var TAG_EXCLUDED_NAME_MATCHES = {
+    "kyler murray": true,
+    "murray, kyler": true,
+    "calamari": true
+  };
   var LOCAL_TAG_SUBMISSIONS_KEY = "ccc_tag_submissions_v1";
   var TAG_OFFENSE_POS = {
     QB: 1,
@@ -2449,6 +2455,14 @@
     };
   }
 
+  function tagPlayerExplicitlyExcluded(playerId, playerName) {
+    var pid = safeStr(playerId).replace(/\D/g, "");
+    if (pid && TAG_EXCLUDED_PLAYER_IDS[pid]) return true;
+    var normalized = safeStr(playerName).trim().toLowerCase();
+    if (!normalized) return false;
+    return !!TAG_EXCLUDED_NAME_MATCHES[normalized];
+  }
+
   function normalizeTagSubmissionEntry(raw) {
     var row = raw || {};
     var payload = row && typeof row.payload === "object" ? row.payload : null;
@@ -2750,6 +2764,7 @@
     var rows = trackingRows.filter(function (row) {
       return safeStr(row.source_season) === safeStr(sourceSeason) &&
         safeInt(row.is_tag_eligible, 0) === 1 &&
+        !tagPlayerExplicitlyExcluded(row.player_id, row.player_name) &&
         (!leagueId || !safeStr(row.league_id) || safeStr(row.league_id) === leagueId);
     });
     rows.forEach(function (row) {
@@ -6233,6 +6248,7 @@
 
         var pid = safeStr(player.id).replace(/\D/g, "");
         if (!pid) continue;
+        if (tagPlayerExplicitlyExcluded(pid, player.name)) continue;
         var sourceRow = lookup[pid] || null;
         var posGroup = safeStr(player.positionGroup || positionGroupKey(player.position)).toUpperCase() || "OTHER";
 
