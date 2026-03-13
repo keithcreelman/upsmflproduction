@@ -1,13 +1,13 @@
 {
   "meta": {
     "season": 2022,
-    "row_count": 70,
-    "charges_total": 551200.0,
+    "row_count": 63,
+    "charges_total": 540000.0,
     "relief_total": 359000.0,
-    "net_total": 192200.0,
+    "net_total": 181000.0,
     "recorded_count": 56,
     "review_required_count": 0,
-    "candidate_count": 14
+    "candidate_count": 7
   },
   "filters": {
     "franchises": [
@@ -65,7 +65,8 @@
       "TRADED_SALARY"
     ],
     "source_seasons": [
-      2022
+      2022,
+      2021
     ],
     "statuses": [
       "recorded",
@@ -77,40 +78,63 @@
         "name": "Brady, Tom"
       },
       {
-        "id": "11640",
-        "name": "Bridgewater, Teddy"
-      },
-      {
         "id": "12611",
         "name": "Goff, Jared"
       },
       {
-        "id": "12476",
-        "name": "Heinicke, Taylor"
+        "id": "13424",
+        "name": "Hill, Taysom"
       },
       {
-        "id": "13590",
-        "name": "Mayfield, Baker"
-      },
-      {
-        "id": "15698",
-        "name": "Purdy, Brock"
+        "id": "14059",
+        "name": "Jones, Daniel"
       },
       {
         "id": "9099",
         "name": "Ryan, Matt"
       },
       {
-        "id": "10697",
-        "name": "Tannehill, Ryan"
+        "id": "14778",
+        "name": "Tagovailoa, Tua"
       },
       {
-        "id": "13598",
-        "name": "White, Mike"
+        "id": "10697",
+        "name": "Tannehill, Ryan"
       }
     ]
   },
   "rows": [
+    {
+      "adjustment_season": 2022,
+      "franchise_id": "0010",
+      "franchise_name": "Blake Bombers",
+      "adjustment_type": "DROP_PENALTY_CANDIDATE",
+      "source_table": "transactions_adddrop",
+      "source_id": "adddrop2021_135.2",
+      "source_season": 2021,
+      "player_id": "13424",
+      "player_name": "Hill, Taysom",
+      "transaction_datetime_et": "2021-09-11 09:00:00",
+      "amount": 1750,
+      "direction": "charge",
+      "description": "Candidate drop penalty from BBID. Waiver pickup rule: 35% of current-year salary (5,000 x 35%). Applied to 2022 because the drop occurred on or after the 2021 FreeAgent auction start (2021-07-31).",
+      "status": "candidate",
+      "status_detail": "Projected from add/drop transaction history plus the pre-drop contract snapshot.",
+      "source_group_id": "",
+      "event_source": "ADDDROP:BBID",
+      "drop_method": "BBID",
+      "pre_drop_salary": 5000,
+      "pre_drop_contract_length": 1,
+      "pre_drop_tcv": 5000,
+      "pre_drop_contract_year": 1,
+      "pre_drop_contract_status": "ADD_DEFAULT_1YR",
+      "pre_drop_contract_info": "CL 1| TCV 5K| AAV 5K| Y1-5K| Default Add",
+      "original_guarantee": 5000,
+      "total_salary_earned": 0,
+      "penalty_amount": 1750,
+      "penalty_rule": "35% of current-year salary (5,000 x 35%)",
+      "candidate_rule": "waiver_35pct"
+    },
     {
       "adjustment_season": 2022,
       "franchise_id": "0012",
@@ -136,6 +160,10 @@
       "pre_drop_contract_year": 1,
       "pre_drop_contract_status": "Veteran",
       "pre_drop_contract_info": "CL 1",
+      "original_guarantee": 49500,
+      "total_salary_earned": 0,
+      "penalty_amount": 49500,
+      "penalty_rule": "75% of TCV (49,500) minus earned to date (0)",
       "candidate_rule": "guarantee_minus_earned"
     },
     {
@@ -163,6 +191,10 @@
       "pre_drop_contract_year": 1,
       "pre_drop_contract_status": "Veteran",
       "pre_drop_contract_info": "CL 1",
+      "original_guarantee": 21000,
+      "total_salary_earned": 0,
+      "penalty_amount": 21000,
+      "penalty_rule": "75% of TCV (21,000) minus earned to date (0)",
       "candidate_rule": "guarantee_minus_earned"
     },
     {
@@ -190,6 +222,10 @@
       "pre_drop_contract_year": 0,
       "pre_drop_contract_status": "",
       "pre_drop_contract_info": "",
+      "original_guarantee": 0,
+      "total_salary_earned": 0,
+      "penalty_amount": -18000,
+      "penalty_rule": "",
       "candidate_rule": ""
     },
     {
@@ -217,6 +253,10 @@
       "pre_drop_contract_year": 0,
       "pre_drop_contract_status": "",
       "pre_drop_contract_info": "",
+      "original_guarantee": 0,
+      "total_salary_earned": 0,
+      "penalty_amount": 18000,
+      "penalty_rule": "",
       "candidate_rule": ""
     },
     {
@@ -244,6 +284,41 @@
       "pre_drop_contract_year": 2,
       "pre_drop_contract_status": "Veteran",
       "pre_drop_contract_info": "CL 2| TCV 30K| AAV 15K",
+      "original_guarantee": 22500,
+      "total_salary_earned": 15000,
+      "penalty_amount": 7500,
+      "penalty_rule": "75% of TCV (22,500) minus earned to date (15,000)",
+      "candidate_rule": "guarantee_minus_earned"
+    },
+    {
+      "adjustment_season": 2022,
+      "franchise_id": "0004",
+      "franchise_name": "Pure Greatness",
+      "adjustment_type": "DROP_PENALTY_CANDIDATE",
+      "source_table": "transactions_adddrop",
+      "source_id": "adddrop2022_36.1",
+      "source_season": 2022,
+      "player_id": "14059",
+      "player_name": "Jones, Daniel",
+      "transaction_datetime_et": "2022-05-04 05:28:03",
+      "amount": 24000,
+      "direction": "charge",
+      "description": "Candidate drop penalty from FREE_AGENT. Projected current-rule penalty: 75% of TCV is 24,000; earned to date is 0.",
+      "status": "candidate",
+      "status_detail": "Projected from add/drop transaction history plus the pre-drop contract snapshot.",
+      "source_group_id": "",
+      "event_source": "ADDDROP:FREE_AGENT",
+      "drop_method": "FREE_AGENT",
+      "pre_drop_salary": 31000,
+      "pre_drop_contract_length": 2,
+      "pre_drop_tcv": 32000,
+      "pre_drop_contract_year": 2,
+      "pre_drop_contract_status": "FL",
+      "pre_drop_contract_info": "CL 2| TCV 32K| AAV 16K| Y1-31 Y2-1",
+      "original_guarantee": 24000,
+      "total_salary_earned": 0,
+      "penalty_amount": 24000,
+      "penalty_rule": "75% of TCV (24,000) minus earned to date (0)",
       "candidate_rule": "guarantee_minus_earned"
     },
     {
@@ -271,6 +346,41 @@
       "pre_drop_contract_year": 1,
       "pre_drop_contract_status": "Veteran",
       "pre_drop_contract_info": "CL 1",
+      "original_guarantee": 12000,
+      "total_salary_earned": 0,
+      "penalty_amount": 12000,
+      "penalty_rule": "75% of TCV (12,000) minus earned to date (0)",
+      "candidate_rule": "guarantee_minus_earned"
+    },
+    {
+      "adjustment_season": 2022,
+      "franchise_id": "0011",
+      "franchise_name": "Cleon Ca$h",
+      "adjustment_type": "DROP_PENALTY_CANDIDATE",
+      "source_table": "transactions_adddrop",
+      "source_id": "adddrop2022_41.1",
+      "source_season": 2022,
+      "player_id": "14778",
+      "player_name": "Tagovailoa, Tua",
+      "transaction_datetime_et": "2022-05-17 12:59:59",
+      "amount": 65250,
+      "direction": "charge",
+      "description": "Candidate drop penalty from FREE_AGENT. Projected current-rule penalty: 75% of TCV is 65,250; earned to date is 0.",
+      "status": "candidate",
+      "status_detail": "Projected from add/drop transaction history plus the pre-drop contract snapshot.",
+      "source_group_id": "",
+      "event_source": "ADDDROP:FREE_AGENT",
+      "drop_method": "FREE_AGENT",
+      "pre_drop_salary": 40000,
+      "pre_drop_contract_length": 3,
+      "pre_drop_tcv": 87000,
+      "pre_drop_contract_year": 3,
+      "pre_drop_contract_status": "FL",
+      "pre_drop_contract_info": "CL 3| TCV 87K| AAV 29K| Y1-40 Y2-29 Y3-18",
+      "original_guarantee": 65250,
+      "total_salary_earned": 0,
+      "penalty_amount": 65250,
+      "penalty_rule": "75% of TCV (65,250) minus earned to date (0)",
       "candidate_rule": "guarantee_minus_earned"
     },
     {
@@ -298,6 +408,10 @@
       "pre_drop_contract_year": 0,
       "pre_drop_contract_status": "",
       "pre_drop_contract_info": "",
+      "original_guarantee": 0,
+      "total_salary_earned": 0,
+      "penalty_amount": 25000,
+      "penalty_rule": "",
       "candidate_rule": ""
     },
     {
@@ -325,6 +439,10 @@
       "pre_drop_contract_year": 0,
       "pre_drop_contract_status": "",
       "pre_drop_contract_info": "",
+      "original_guarantee": 0,
+      "total_salary_earned": 0,
+      "penalty_amount": -25000,
+      "penalty_rule": "",
       "candidate_rule": ""
     },
     {
@@ -352,6 +470,10 @@
       "pre_drop_contract_year": 0,
       "pre_drop_contract_status": "",
       "pre_drop_contract_info": "",
+      "original_guarantee": 0,
+      "total_salary_earned": 0,
+      "penalty_amount": -32000,
+      "penalty_rule": "",
       "candidate_rule": ""
     },
     {
@@ -379,6 +501,10 @@
       "pre_drop_contract_year": 0,
       "pre_drop_contract_status": "",
       "pre_drop_contract_info": "",
+      "original_guarantee": 0,
+      "total_salary_earned": 0,
+      "penalty_amount": 32000,
+      "penalty_rule": "",
       "candidate_rule": ""
     },
     {
@@ -406,6 +532,10 @@
       "pre_drop_contract_year": 0,
       "pre_drop_contract_status": "",
       "pre_drop_contract_info": "",
+      "original_guarantee": 0,
+      "total_salary_earned": 0,
+      "penalty_amount": -5000,
+      "penalty_rule": "",
       "candidate_rule": ""
     },
     {
@@ -433,6 +563,10 @@
       "pre_drop_contract_year": 0,
       "pre_drop_contract_status": "",
       "pre_drop_contract_info": "",
+      "original_guarantee": 0,
+      "total_salary_earned": 0,
+      "penalty_amount": 5000,
+      "penalty_rule": "",
       "candidate_rule": ""
     },
     {
@@ -460,6 +594,10 @@
       "pre_drop_contract_year": 0,
       "pre_drop_contract_status": "",
       "pre_drop_contract_info": "",
+      "original_guarantee": 0,
+      "total_salary_earned": 0,
+      "penalty_amount": 5000,
+      "penalty_rule": "",
       "candidate_rule": ""
     },
     {
@@ -487,6 +625,10 @@
       "pre_drop_contract_year": 0,
       "pre_drop_contract_status": "",
       "pre_drop_contract_info": "",
+      "original_guarantee": 0,
+      "total_salary_earned": 0,
+      "penalty_amount": -5000,
+      "penalty_rule": "",
       "candidate_rule": ""
     },
     {
@@ -514,6 +656,10 @@
       "pre_drop_contract_year": 0,
       "pre_drop_contract_status": "",
       "pre_drop_contract_info": "",
+      "original_guarantee": 0,
+      "total_salary_earned": 0,
+      "penalty_amount": -4000,
+      "penalty_rule": "",
       "candidate_rule": ""
     },
     {
@@ -541,6 +687,10 @@
       "pre_drop_contract_year": 0,
       "pre_drop_contract_status": "",
       "pre_drop_contract_info": "",
+      "original_guarantee": 0,
+      "total_salary_earned": 0,
+      "penalty_amount": 4000,
+      "penalty_rule": "",
       "candidate_rule": ""
     },
     {
@@ -568,6 +718,10 @@
       "pre_drop_contract_year": 0,
       "pre_drop_contract_status": "",
       "pre_drop_contract_info": "",
+      "original_guarantee": 0,
+      "total_salary_earned": 0,
+      "penalty_amount": 10000,
+      "penalty_rule": "",
       "candidate_rule": ""
     },
     {
@@ -595,6 +749,10 @@
       "pre_drop_contract_year": 0,
       "pre_drop_contract_status": "",
       "pre_drop_contract_info": "",
+      "original_guarantee": 0,
+      "total_salary_earned": 0,
+      "penalty_amount": -10000,
+      "penalty_rule": "",
       "candidate_rule": ""
     },
     {
@@ -622,6 +780,10 @@
       "pre_drop_contract_year": 0,
       "pre_drop_contract_status": "",
       "pre_drop_contract_info": "",
+      "original_guarantee": 0,
+      "total_salary_earned": 0,
+      "penalty_amount": -5000,
+      "penalty_rule": "",
       "candidate_rule": ""
     },
     {
@@ -649,6 +811,10 @@
       "pre_drop_contract_year": 0,
       "pre_drop_contract_status": "",
       "pre_drop_contract_info": "",
+      "original_guarantee": 0,
+      "total_salary_earned": 0,
+      "penalty_amount": 5000,
+      "penalty_rule": "",
       "candidate_rule": ""
     },
     {
@@ -676,6 +842,10 @@
       "pre_drop_contract_year": 0,
       "pre_drop_contract_status": "",
       "pre_drop_contract_info": "",
+      "original_guarantee": 0,
+      "total_salary_earned": 0,
+      "penalty_amount": -13000,
+      "penalty_rule": "",
       "candidate_rule": ""
     },
     {
@@ -703,6 +873,10 @@
       "pre_drop_contract_year": 0,
       "pre_drop_contract_status": "",
       "pre_drop_contract_info": "",
+      "original_guarantee": 0,
+      "total_salary_earned": 0,
+      "penalty_amount": 13000,
+      "penalty_rule": "",
       "candidate_rule": ""
     },
     {
@@ -730,6 +904,10 @@
       "pre_drop_contract_year": 0,
       "pre_drop_contract_status": "",
       "pre_drop_contract_info": "",
+      "original_guarantee": 0,
+      "total_salary_earned": 0,
+      "penalty_amount": -1000,
+      "penalty_rule": "",
       "candidate_rule": ""
     },
     {
@@ -757,6 +935,10 @@
       "pre_drop_contract_year": 0,
       "pre_drop_contract_status": "",
       "pre_drop_contract_info": "",
+      "original_guarantee": 0,
+      "total_salary_earned": 0,
+      "penalty_amount": 1000,
+      "penalty_rule": "",
       "candidate_rule": ""
     },
     {
@@ -784,6 +966,10 @@
       "pre_drop_contract_year": 0,
       "pre_drop_contract_status": "",
       "pre_drop_contract_info": "",
+      "original_guarantee": 0,
+      "total_salary_earned": 0,
+      "penalty_amount": 8000,
+      "penalty_rule": "",
       "candidate_rule": ""
     },
     {
@@ -811,6 +997,10 @@
       "pre_drop_contract_year": 0,
       "pre_drop_contract_status": "",
       "pre_drop_contract_info": "",
+      "original_guarantee": 0,
+      "total_salary_earned": 0,
+      "penalty_amount": -8000,
+      "penalty_rule": "",
       "candidate_rule": ""
     },
     {
@@ -838,6 +1028,10 @@
       "pre_drop_contract_year": 0,
       "pre_drop_contract_status": "",
       "pre_drop_contract_info": "",
+      "original_guarantee": 0,
+      "total_salary_earned": 0,
+      "penalty_amount": -7000,
+      "penalty_rule": "",
       "candidate_rule": ""
     },
     {
@@ -865,6 +1059,10 @@
       "pre_drop_contract_year": 0,
       "pre_drop_contract_status": "",
       "pre_drop_contract_info": "",
+      "original_guarantee": 0,
+      "total_salary_earned": 0,
+      "penalty_amount": 7000,
+      "penalty_rule": "",
       "candidate_rule": ""
     },
     {
@@ -892,6 +1090,10 @@
       "pre_drop_contract_year": 0,
       "pre_drop_contract_status": "",
       "pre_drop_contract_info": "",
+      "original_guarantee": 0,
+      "total_salary_earned": 0,
+      "penalty_amount": 3000,
+      "penalty_rule": "",
       "candidate_rule": ""
     },
     {
@@ -919,6 +1121,10 @@
       "pre_drop_contract_year": 0,
       "pre_drop_contract_status": "",
       "pre_drop_contract_info": "",
+      "original_guarantee": 0,
+      "total_salary_earned": 0,
+      "penalty_amount": -3000,
+      "penalty_rule": "",
       "candidate_rule": ""
     },
     {
@@ -946,6 +1152,10 @@
       "pre_drop_contract_year": 0,
       "pre_drop_contract_status": "",
       "pre_drop_contract_info": "",
+      "original_guarantee": 0,
+      "total_salary_earned": 0,
+      "penalty_amount": 29000,
+      "penalty_rule": "",
       "candidate_rule": ""
     },
     {
@@ -973,34 +1183,11 @@
       "pre_drop_contract_year": 0,
       "pre_drop_contract_status": "",
       "pre_drop_contract_info": "",
+      "original_guarantee": 0,
+      "total_salary_earned": 0,
+      "penalty_amount": -29000,
+      "penalty_rule": "",
       "candidate_rule": ""
-    },
-    {
-      "adjustment_season": 2022,
-      "franchise_id": "0007",
-      "franchise_name": "Sex Manther",
-      "adjustment_type": "DROP_PENALTY_CANDIDATE",
-      "source_table": "transactions_adddrop",
-      "source_id": "adddrop2022_236.2",
-      "source_season": 2022,
-      "player_id": "13598",
-      "player_name": "White, Mike",
-      "transaction_datetime_et": "2022-10-01 09:00:00",
-      "amount": 11550,
-      "direction": "charge",
-      "description": "Candidate drop penalty from BBID. Waiver pickup rule: 35% of current-year salary (33,000 x 35%).",
-      "status": "candidate",
-      "status_detail": "Projected from add/drop transaction history plus the pre-drop contract snapshot.",
-      "source_group_id": "",
-      "event_source": "ADDDROP:BBID_WAIVER",
-      "drop_method": "BBID",
-      "pre_drop_salary": 33000,
-      "pre_drop_contract_length": 1,
-      "pre_drop_tcv": 33000,
-      "pre_drop_contract_year": 1,
-      "pre_drop_contract_status": "WW",
-      "pre_drop_contract_info": "CL 1",
-      "candidate_rule": "waiver_35pct"
     },
     {
       "adjustment_season": 2022,
@@ -1027,6 +1214,10 @@
       "pre_drop_contract_year": 0,
       "pre_drop_contract_status": "",
       "pre_drop_contract_info": "",
+      "original_guarantee": 0,
+      "total_salary_earned": 0,
+      "penalty_amount": -7000,
+      "penalty_rule": "",
       "candidate_rule": ""
     },
     {
@@ -1054,6 +1245,10 @@
       "pre_drop_contract_year": 0,
       "pre_drop_contract_status": "",
       "pre_drop_contract_info": "",
+      "original_guarantee": 0,
+      "total_salary_earned": 0,
+      "penalty_amount": 7000,
+      "penalty_rule": "",
       "candidate_rule": ""
     },
     {
@@ -1081,6 +1276,10 @@
       "pre_drop_contract_year": 0,
       "pre_drop_contract_status": "",
       "pre_drop_contract_info": "",
+      "original_guarantee": 0,
+      "total_salary_earned": 0,
+      "penalty_amount": -5000,
+      "penalty_rule": "",
       "candidate_rule": ""
     },
     {
@@ -1108,34 +1307,11 @@
       "pre_drop_contract_year": 0,
       "pre_drop_contract_status": "",
       "pre_drop_contract_info": "",
+      "original_guarantee": 0,
+      "total_salary_earned": 0,
+      "penalty_amount": 5000,
+      "penalty_rule": "",
       "candidate_rule": ""
-    },
-    {
-      "adjustment_season": 2022,
-      "franchise_id": "0009",
-      "franchise_name": "C-Town Chivalry",
-      "adjustment_type": "DROP_PENALTY_CANDIDATE",
-      "source_table": "transactions_adddrop",
-      "source_id": "adddrop2022_276.2",
-      "source_season": 2022,
-      "player_id": "12476",
-      "player_name": "Heinicke, Taylor",
-      "transaction_datetime_et": "2022-10-13 09:00:00",
-      "amount": 6300,
-      "direction": "charge",
-      "description": "Candidate drop penalty from BBID. Waiver pickup rule: 35% of current-year salary (18,000 x 35%).",
-      "status": "candidate",
-      "status_detail": "Projected from add/drop transaction history plus the pre-drop contract snapshot.",
-      "source_group_id": "",
-      "event_source": "ADDDROP:BBID_WAIVER",
-      "drop_method": "BBID",
-      "pre_drop_salary": 18000,
-      "pre_drop_contract_length": 1,
-      "pre_drop_tcv": 18000,
-      "pre_drop_contract_year": 1,
-      "pre_drop_contract_status": "WW",
-      "pre_drop_contract_info": "CL 1",
-      "candidate_rule": "waiver_35pct"
     },
     {
       "adjustment_season": 2022,
@@ -1162,6 +1338,10 @@
       "pre_drop_contract_year": 0,
       "pre_drop_contract_status": "",
       "pre_drop_contract_info": "",
+      "original_guarantee": 0,
+      "total_salary_earned": 0,
+      "penalty_amount": -46000,
+      "penalty_rule": "",
       "candidate_rule": ""
     },
     {
@@ -1189,6 +1369,10 @@
       "pre_drop_contract_year": 0,
       "pre_drop_contract_status": "",
       "pre_drop_contract_info": "",
+      "original_guarantee": 0,
+      "total_salary_earned": 0,
+      "penalty_amount": 46000,
+      "penalty_rule": "",
       "candidate_rule": ""
     },
     {
@@ -1216,6 +1400,10 @@
       "pre_drop_contract_year": 0,
       "pre_drop_contract_status": "",
       "pre_drop_contract_info": "",
+      "original_guarantee": 0,
+      "total_salary_earned": 0,
+      "penalty_amount": -10000,
+      "penalty_rule": "",
       "candidate_rule": ""
     },
     {
@@ -1243,6 +1431,10 @@
       "pre_drop_contract_year": 0,
       "pre_drop_contract_status": "",
       "pre_drop_contract_info": "",
+      "original_guarantee": 0,
+      "total_salary_earned": 0,
+      "penalty_amount": 10000,
+      "penalty_rule": "",
       "candidate_rule": ""
     },
     {
@@ -1270,6 +1462,10 @@
       "pre_drop_contract_year": 0,
       "pre_drop_contract_status": "",
       "pre_drop_contract_info": "",
+      "original_guarantee": 0,
+      "total_salary_earned": 0,
+      "penalty_amount": 8000,
+      "penalty_rule": "",
       "candidate_rule": ""
     },
     {
@@ -1297,6 +1493,10 @@
       "pre_drop_contract_year": 0,
       "pre_drop_contract_status": "",
       "pre_drop_contract_info": "",
+      "original_guarantee": 0,
+      "total_salary_earned": 0,
+      "penalty_amount": -8000,
+      "penalty_rule": "",
       "candidate_rule": ""
     },
     {
@@ -1324,6 +1524,10 @@
       "pre_drop_contract_year": 0,
       "pre_drop_contract_status": "",
       "pre_drop_contract_info": "",
+      "original_guarantee": 0,
+      "total_salary_earned": 0,
+      "penalty_amount": -6000,
+      "penalty_rule": "",
       "candidate_rule": ""
     },
     {
@@ -1351,6 +1555,10 @@
       "pre_drop_contract_year": 0,
       "pre_drop_contract_status": "",
       "pre_drop_contract_info": "",
+      "original_guarantee": 0,
+      "total_salary_earned": 0,
+      "penalty_amount": 6000,
+      "penalty_rule": "",
       "candidate_rule": ""
     },
     {
@@ -1378,6 +1586,10 @@
       "pre_drop_contract_year": 0,
       "pre_drop_contract_status": "",
       "pre_drop_contract_info": "",
+      "original_guarantee": 0,
+      "total_salary_earned": 0,
+      "penalty_amount": 28000,
+      "penalty_rule": "",
       "candidate_rule": ""
     },
     {
@@ -1405,6 +1617,10 @@
       "pre_drop_contract_year": 0,
       "pre_drop_contract_status": "",
       "pre_drop_contract_info": "",
+      "original_guarantee": 0,
+      "total_salary_earned": 0,
+      "penalty_amount": -28000,
+      "penalty_rule": "",
       "candidate_rule": ""
     },
     {
@@ -1432,6 +1648,10 @@
       "pre_drop_contract_year": 0,
       "pre_drop_contract_status": "",
       "pre_drop_contract_info": "",
+      "original_guarantee": 0,
+      "total_salary_earned": 0,
+      "penalty_amount": 18000,
+      "penalty_rule": "",
       "candidate_rule": ""
     },
     {
@@ -1459,6 +1679,10 @@
       "pre_drop_contract_year": 0,
       "pre_drop_contract_status": "",
       "pre_drop_contract_info": "",
+      "original_guarantee": 0,
+      "total_salary_earned": 0,
+      "penalty_amount": -18000,
+      "penalty_rule": "",
       "candidate_rule": ""
     },
     {
@@ -1486,6 +1710,10 @@
       "pre_drop_contract_year": 0,
       "pre_drop_contract_status": "",
       "pre_drop_contract_info": "",
+      "original_guarantee": 0,
+      "total_salary_earned": 0,
+      "penalty_amount": -2000,
+      "penalty_rule": "",
       "candidate_rule": ""
     },
     {
@@ -1513,61 +1741,11 @@
       "pre_drop_contract_year": 0,
       "pre_drop_contract_status": "",
       "pre_drop_contract_info": "",
+      "original_guarantee": 0,
+      "total_salary_earned": 0,
+      "penalty_amount": 2000,
+      "penalty_rule": "",
       "candidate_rule": ""
-    },
-    {
-      "adjustment_season": 2022,
-      "franchise_id": "0004",
-      "franchise_name": "Pure Greatness",
-      "adjustment_type": "DROP_PENALTY_CANDIDATE",
-      "source_table": "transactions_adddrop",
-      "source_id": "adddrop2022_429.2",
-      "source_season": 2022,
-      "player_id": "15698",
-      "player_name": "Purdy, Brock",
-      "transaction_datetime_et": "2022-11-03 09:00:00",
-      "amount": 7700,
-      "direction": "charge",
-      "description": "Candidate drop penalty from BBID. Waiver pickup rule: 35% of current-year salary (22,000 x 35%).",
-      "status": "candidate",
-      "status_detail": "Projected from add/drop transaction history plus the pre-drop contract snapshot.",
-      "source_group_id": "",
-      "event_source": "ADDDROP:BBID_WAIVER",
-      "drop_method": "BBID",
-      "pre_drop_salary": 22000,
-      "pre_drop_contract_length": 1,
-      "pre_drop_tcv": 22000,
-      "pre_drop_contract_year": 1,
-      "pre_drop_contract_status": "Rookie",
-      "pre_drop_contract_info": "CL 1",
-      "candidate_rule": "waiver_35pct"
-    },
-    {
-      "adjustment_season": 2022,
-      "franchise_id": "0009",
-      "franchise_name": "C-Town Chivalry",
-      "adjustment_type": "DROP_PENALTY_CANDIDATE",
-      "source_table": "transactions_adddrop",
-      "source_id": "adddrop2022_454.2",
-      "source_season": 2022,
-      "player_id": "13590",
-      "player_name": "Mayfield, Baker",
-      "transaction_datetime_et": "2022-11-05 09:00:00",
-      "amount": 14000,
-      "direction": "charge",
-      "description": "Candidate drop penalty from BBID. Waiver pickup rule: 35% of current-year salary (40,000 x 35%).",
-      "status": "candidate",
-      "status_detail": "Projected from add/drop transaction history plus the pre-drop contract snapshot.",
-      "source_group_id": "",
-      "event_source": "ADDDROP:BBID_WAIVER",
-      "drop_method": "BBID",
-      "pre_drop_salary": 40000,
-      "pre_drop_contract_length": 1,
-      "pre_drop_tcv": 40000,
-      "pre_drop_contract_year": 1,
-      "pre_drop_contract_status": "WW",
-      "pre_drop_contract_info": "CL 1",
-      "candidate_rule": "waiver_35pct"
     },
     {
       "adjustment_season": 2022,
@@ -1594,6 +1772,10 @@
       "pre_drop_contract_year": 0,
       "pre_drop_contract_status": "",
       "pre_drop_contract_info": "",
+      "original_guarantee": 0,
+      "total_salary_earned": 0,
+      "penalty_amount": 5000,
+      "penalty_rule": "",
       "candidate_rule": ""
     },
     {
@@ -1621,34 +1803,11 @@
       "pre_drop_contract_year": 0,
       "pre_drop_contract_status": "",
       "pre_drop_contract_info": "",
+      "original_guarantee": 0,
+      "total_salary_earned": 0,
+      "penalty_amount": -5000,
+      "penalty_rule": "",
       "candidate_rule": ""
-    },
-    {
-      "adjustment_season": 2022,
-      "franchise_id": "0005",
-      "franchise_name": "Run CMC",
-      "adjustment_type": "DROP_PENALTY_CANDIDATE",
-      "source_table": "transactions_adddrop",
-      "source_id": "adddrop2022_508.2",
-      "source_season": 2022,
-      "player_id": "13598",
-      "player_name": "White, Mike",
-      "transaction_datetime_et": "2022-11-13 09:00:00",
-      "amount": 11550,
-      "direction": "charge",
-      "description": "Candidate drop penalty from BBID. Waiver pickup rule: 35% of current-year salary (33,000 x 35%).",
-      "status": "candidate",
-      "status_detail": "Projected from add/drop transaction history plus the pre-drop contract snapshot.",
-      "source_group_id": "",
-      "event_source": "ADDDROP:BBID_WAIVER",
-      "drop_method": "BBID",
-      "pre_drop_salary": 33000,
-      "pre_drop_contract_length": 1,
-      "pre_drop_tcv": 33000,
-      "pre_drop_contract_year": 1,
-      "pre_drop_contract_status": "WW",
-      "pre_drop_contract_info": "CL 1",
-      "candidate_rule": "waiver_35pct"
     },
     {
       "adjustment_season": 2022,
@@ -1675,6 +1834,10 @@
       "pre_drop_contract_year": 0,
       "pre_drop_contract_status": "",
       "pre_drop_contract_info": "",
+      "original_guarantee": 0,
+      "total_salary_earned": 0,
+      "penalty_amount": -1000,
+      "penalty_rule": "",
       "candidate_rule": ""
     },
     {
@@ -1702,6 +1865,10 @@
       "pre_drop_contract_year": 0,
       "pre_drop_contract_status": "",
       "pre_drop_contract_info": "",
+      "original_guarantee": 0,
+      "total_salary_earned": 0,
+      "penalty_amount": 1000,
+      "penalty_rule": "",
       "candidate_rule": ""
     },
     {
@@ -1729,6 +1896,10 @@
       "pre_drop_contract_year": 0,
       "pre_drop_contract_status": "",
       "pre_drop_contract_info": "",
+      "original_guarantee": 0,
+      "total_salary_earned": 0,
+      "penalty_amount": -7000,
+      "penalty_rule": "",
       "candidate_rule": ""
     },
     {
@@ -1756,6 +1927,10 @@
       "pre_drop_contract_year": 0,
       "pre_drop_contract_status": "",
       "pre_drop_contract_info": "",
+      "original_guarantee": 0,
+      "total_salary_earned": 0,
+      "penalty_amount": 7000,
+      "penalty_rule": "",
       "candidate_rule": ""
     },
     {
@@ -1783,6 +1958,10 @@
       "pre_drop_contract_year": 0,
       "pre_drop_contract_status": "",
       "pre_drop_contract_info": "",
+      "original_guarantee": 0,
+      "total_salary_earned": 0,
+      "penalty_amount": 21000,
+      "penalty_rule": "",
       "candidate_rule": ""
     },
     {
@@ -1810,6 +1989,10 @@
       "pre_drop_contract_year": 0,
       "pre_drop_contract_status": "",
       "pre_drop_contract_info": "",
+      "original_guarantee": 0,
+      "total_salary_earned": 0,
+      "penalty_amount": -21000,
+      "penalty_rule": "",
       "candidate_rule": ""
     },
     {
@@ -1837,6 +2020,10 @@
       "pre_drop_contract_year": 0,
       "pre_drop_contract_status": "",
       "pre_drop_contract_info": "",
+      "original_guarantee": 0,
+      "total_salary_earned": 0,
+      "penalty_amount": -30000,
+      "penalty_rule": "",
       "candidate_rule": ""
     },
     {
@@ -1864,142 +2051,11 @@
       "pre_drop_contract_year": 0,
       "pre_drop_contract_status": "",
       "pre_drop_contract_info": "",
+      "original_guarantee": 0,
+      "total_salary_earned": 0,
+      "penalty_amount": 30000,
+      "penalty_rule": "",
       "candidate_rule": ""
-    },
-    {
-      "adjustment_season": 2022,
-      "franchise_id": "0004",
-      "franchise_name": "Pure Greatness",
-      "adjustment_type": "DROP_PENALTY_CANDIDATE",
-      "source_table": "transactions_adddrop",
-      "source_id": "adddrop2022_563.2",
-      "source_season": 2022,
-      "player_id": "13590",
-      "player_name": "Mayfield, Baker",
-      "transaction_datetime_et": "2022-11-24 09:00:00",
-      "amount": 14000,
-      "direction": "charge",
-      "description": "Candidate drop penalty from BBID. Waiver pickup rule: 35% of current-year salary (40,000 x 35%).",
-      "status": "candidate",
-      "status_detail": "Projected from add/drop transaction history plus the pre-drop contract snapshot.",
-      "source_group_id": "",
-      "event_source": "ADDDROP:BBID_WAIVER",
-      "drop_method": "BBID",
-      "pre_drop_salary": 40000,
-      "pre_drop_contract_length": 1,
-      "pre_drop_tcv": 40000,
-      "pre_drop_contract_year": 1,
-      "pre_drop_contract_status": "WW",
-      "pre_drop_contract_info": "CL 1",
-      "candidate_rule": "waiver_35pct"
-    },
-    {
-      "adjustment_season": 2022,
-      "franchise_id": "0010",
-      "franchise_name": "Blake Bombers",
-      "adjustment_type": "DROP_PENALTY_CANDIDATE",
-      "source_table": "transactions_adddrop",
-      "source_id": "adddrop2022_615.2",
-      "source_season": 2022,
-      "player_id": "13598",
-      "player_name": "White, Mike",
-      "transaction_datetime_et": "2022-12-04 09:00:00",
-      "amount": 11550,
-      "direction": "charge",
-      "description": "Candidate drop penalty from BBID. Waiver pickup rule: 35% of current-year salary (33,000 x 35%).",
-      "status": "candidate",
-      "status_detail": "Projected from add/drop transaction history plus the pre-drop contract snapshot.",
-      "source_group_id": "",
-      "event_source": "ADDDROP:BBID_WAIVER",
-      "drop_method": "BBID",
-      "pre_drop_salary": 33000,
-      "pre_drop_contract_length": 1,
-      "pre_drop_tcv": 33000,
-      "pre_drop_contract_year": 1,
-      "pre_drop_contract_status": "WW",
-      "pre_drop_contract_info": "CL 1",
-      "candidate_rule": "waiver_35pct"
-    },
-    {
-      "adjustment_season": 2022,
-      "franchise_id": "0008",
-      "franchise_name": "#BLM",
-      "adjustment_type": "DROP_PENALTY_CANDIDATE",
-      "source_table": "transactions_adddrop",
-      "source_id": "adddrop2022_623.2",
-      "source_season": 2022,
-      "player_id": "13590",
-      "player_name": "Mayfield, Baker",
-      "transaction_datetime_et": "2022-12-04 20:20:53",
-      "amount": 14000,
-      "direction": "charge",
-      "description": "Candidate drop penalty from FREE_AGENT. Waiver pickup rule: 35% of current-year salary (40,000 x 35%).",
-      "status": "candidate",
-      "status_detail": "Projected from add/drop transaction history plus the pre-drop contract snapshot.",
-      "source_group_id": "",
-      "event_source": "ADDDROP:FREE_AGENT",
-      "drop_method": "FREE_AGENT",
-      "pre_drop_salary": 40000,
-      "pre_drop_contract_length": 1,
-      "pre_drop_tcv": 40000,
-      "pre_drop_contract_year": 1,
-      "pre_drop_contract_status": "WW",
-      "pre_drop_contract_info": "CL 1",
-      "candidate_rule": "waiver_35pct"
-    },
-    {
-      "adjustment_season": 2022,
-      "franchise_id": "0007",
-      "franchise_name": "Sex Manther",
-      "adjustment_type": "DROP_PENALTY_CANDIDATE",
-      "source_table": "transactions_adddrop",
-      "source_id": "adddrop2022_640.2",
-      "source_season": 2022,
-      "player_id": "11640",
-      "player_name": "Bridgewater, Teddy",
-      "transaction_datetime_et": "2022-12-08 09:00:00",
-      "amount": 5250,
-      "direction": "charge",
-      "description": "Candidate drop penalty from BBID. Waiver pickup rule: 35% of current-year salary (15,000 x 35%).",
-      "status": "candidate",
-      "status_detail": "Projected from add/drop transaction history plus the pre-drop contract snapshot.",
-      "source_group_id": "",
-      "event_source": "ADDDROP:BBID_WAIVER",
-      "drop_method": "BBID",
-      "pre_drop_salary": 15000,
-      "pre_drop_contract_length": 1,
-      "pre_drop_tcv": 15000,
-      "pre_drop_contract_year": 1,
-      "pre_drop_contract_status": "WW",
-      "pre_drop_contract_info": "CL 1",
-      "candidate_rule": "waiver_35pct"
-    },
-    {
-      "adjustment_season": 2022,
-      "franchise_id": "0011",
-      "franchise_name": "Cleon Ca$h",
-      "adjustment_type": "DROP_PENALTY_CANDIDATE",
-      "source_table": "transactions_adddrop",
-      "source_id": "adddrop2022_692.1",
-      "source_season": 2022,
-      "player_id": "12476",
-      "player_name": "Heinicke, Taylor",
-      "transaction_datetime_et": "2022-12-18 10:24:17",
-      "amount": 6300,
-      "direction": "charge",
-      "description": "Candidate drop penalty from FREE_AGENT. Waiver pickup rule: 35% of current-year salary (18,000 x 35%).",
-      "status": "candidate",
-      "status_detail": "Projected from add/drop transaction history plus the pre-drop contract snapshot.",
-      "source_group_id": "",
-      "event_source": "ADDDROP:FREE_AGENT",
-      "drop_method": "FREE_AGENT",
-      "pre_drop_salary": 18000,
-      "pre_drop_contract_length": 1,
-      "pre_drop_tcv": 18000,
-      "pre_drop_contract_year": 1,
-      "pre_drop_contract_status": "WW",
-      "pre_drop_contract_info": "CL 1",
-      "candidate_rule": "waiver_35pct"
     }
   ]
 }

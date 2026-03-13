@@ -1,19 +1,31 @@
 {
   "meta": {
     "season": 2018,
-    "row_count": 3,
-    "charges_total": 18000.0,
+    "row_count": 6,
+    "charges_total": 52000.0,
     "relief_total": 0,
-    "net_total": 18000.0,
+    "net_total": 52000.0,
     "recorded_count": 0,
     "review_required_count": 0,
-    "candidate_count": 3
+    "candidate_count": 6
   },
   "filters": {
     "franchises": [
       {
+        "id": "0010",
+        "name": "Blake Bombers"
+      },
+      {
+        "id": "0009",
+        "name": "C-Town Chivalry"
+      },
+      {
         "id": "0006",
         "name": "Good in Da Hood"
+      },
+      {
+        "id": "0004",
+        "name": "Pure Greatness"
       },
       {
         "id": "0002",
@@ -28,12 +40,17 @@
       "DROP_PENALTY_CANDIDATE"
     ],
     "source_seasons": [
-      2018
+      2018,
+      2017
     ],
     "statuses": [
       "candidate"
     ],
     "players": [
+      {
+        "id": "11640",
+        "name": "Bridgewater, Teddy"
+      },
       {
         "id": "7394",
         "name": "Rivers, Philip"
@@ -43,12 +60,109 @@
         "name": "Ryan, Matt"
       },
       {
+        "id": "7813",
+        "name": "Smith, Alex"
+      },
+      {
         "id": "9431",
         "name": "Stafford, Matthew"
       }
     ]
   },
   "rows": [
+    {
+      "adjustment_season": 2018,
+      "franchise_id": "0009",
+      "franchise_name": "C-Town Chivalry",
+      "adjustment_type": "DROP_PENALTY_CANDIDATE",
+      "source_table": "transactions_adddrop",
+      "source_id": "adddrop2017_113.1",
+      "source_season": 2017,
+      "player_id": "11640",
+      "player_name": "Bridgewater, Teddy",
+      "transaction_datetime_et": "2017-08-26 10:23:28",
+      "amount": 6750,
+      "direction": "charge",
+      "description": "Candidate drop penalty from FREE_AGENT. Projected current-rule penalty: 75% of TCV is 6,750; earned to date is 0. Applied to 2018 because the drop occurred on or after the 2017 FreeAgent auction start (2017-08-03).",
+      "status": "candidate",
+      "status_detail": "Projected from add/drop transaction history plus the pre-drop contract snapshot.",
+      "source_group_id": "",
+      "event_source": "ADDDROP:FREE_AGENT",
+      "drop_method": "FREE_AGENT",
+      "pre_drop_salary": 5000,
+      "pre_drop_contract_length": 3,
+      "pre_drop_tcv": 9000,
+      "pre_drop_contract_year": 3,
+      "pre_drop_contract_status": "FRONT LOAD",
+      "pre_drop_contract_info": "[5K, 3K, 1K]",
+      "original_guarantee": 6750,
+      "total_salary_earned": 0,
+      "penalty_amount": 6750,
+      "penalty_rule": "75% of TCV (6,750) minus earned to date (0)",
+      "candidate_rule": "guarantee_minus_earned"
+    },
+    {
+      "adjustment_season": 2018,
+      "franchise_id": "0004",
+      "franchise_name": "Pure Greatness",
+      "adjustment_type": "DROP_PENALTY_CANDIDATE",
+      "source_table": "transactions_adddrop",
+      "source_id": "adddrop2017_120.1",
+      "source_season": 2017,
+      "player_id": "7813",
+      "player_name": "Smith, Alex",
+      "transaction_datetime_et": "2017-08-29 19:55:23",
+      "amount": 6000,
+      "direction": "charge",
+      "description": "Candidate drop penalty from FREE_AGENT. Projected current-rule penalty: 75% of TCV is 6,000; earned to date is 0. Applied to 2018 because the drop occurred on or after the 2017 FreeAgent auction start (2017-08-03).",
+      "status": "candidate",
+      "status_detail": "Projected from add/drop transaction history plus the pre-drop contract snapshot.",
+      "source_group_id": "",
+      "event_source": "ADDDROP:FREE_AGENT",
+      "drop_method": "FREE_AGENT",
+      "pre_drop_salary": 7000,
+      "pre_drop_contract_length": 2,
+      "pre_drop_tcv": 8000,
+      "pre_drop_contract_year": 2,
+      "pre_drop_contract_status": "RESTRUCTURE",
+      "pre_drop_contract_info": "Ext UW '18 [7K, 1K]",
+      "original_guarantee": 6000,
+      "total_salary_earned": 0,
+      "penalty_amount": 6000,
+      "penalty_rule": "75% of TCV (6,000) minus earned to date (0)",
+      "candidate_rule": "guarantee_minus_earned"
+    },
+    {
+      "adjustment_season": 2018,
+      "franchise_id": "0010",
+      "franchise_name": "Blake Bombers",
+      "adjustment_type": "DROP_PENALTY_CANDIDATE",
+      "source_table": "transactions_adddrop",
+      "source_id": "adddrop2017_442.1",
+      "source_season": 2017,
+      "player_id": "11640",
+      "player_name": "Bridgewater, Teddy",
+      "transaction_datetime_et": "2017-11-14 22:07:14",
+      "amount": 4250,
+      "direction": "charge",
+      "description": "Candidate drop penalty from FREE_AGENT. Projected current-rule penalty: 75% of TCV is 6,750; earned to date is 2,500. Applied to 2018 because the drop occurred on or after the 2017 FreeAgent auction start (2017-08-03).",
+      "status": "candidate",
+      "status_detail": "Projected from add/drop transaction history plus the pre-drop contract snapshot.",
+      "source_group_id": "",
+      "event_source": "ADDDROP:FREE_AGENT",
+      "drop_method": "FREE_AGENT",
+      "pre_drop_salary": 5000,
+      "pre_drop_contract_length": 3,
+      "pre_drop_tcv": 9000,
+      "pre_drop_contract_year": 3,
+      "pre_drop_contract_status": "FRONT LOAD",
+      "pre_drop_contract_info": "[5K, 3K, 1K]",
+      "original_guarantee": 6750,
+      "total_salary_earned": 2500,
+      "penalty_amount": 4250,
+      "penalty_rule": "75% of TCV (6,750) minus earned to date (2,500)",
+      "candidate_rule": "guarantee_minus_earned"
+    },
     {
       "adjustment_season": 2018,
       "franchise_id": "0002",
@@ -74,6 +188,10 @@
       "pre_drop_contract_year": 2,
       "pre_drop_contract_status": "Veteran",
       "pre_drop_contract_info": "CL 2| TCV 32K| AAV 16K",
+      "original_guarantee": 24000,
+      "total_salary_earned": 16000,
+      "penalty_amount": 8000,
+      "penalty_rule": "75% of TCV (24,000) minus earned to date (16,000)",
       "candidate_rule": "guarantee_minus_earned"
     },
     {
@@ -87,9 +205,9 @@
       "player_id": "7394",
       "player_name": "Rivers, Philip",
       "transaction_datetime_et": "2018-03-15 11:54:39",
-      "amount": 1000,
+      "amount": 18000,
       "direction": "charge",
-      "description": "Candidate drop penalty from FREE_AGENT. Projected current-rule penalty: 75% of TCV is 9,000; earned to date is 8,000.",
+      "description": "Candidate drop penalty from FREE_AGENT. Projected current-rule penalty: 75% of TCV is 18,000; earned to date is 0.",
       "status": "candidate",
       "status_detail": "Projected from add/drop transaction history plus the pre-drop contract snapshot.",
       "source_group_id": "",
@@ -97,10 +215,14 @@
       "drop_method": "FREE_AGENT",
       "pre_drop_salary": 4000,
       "pre_drop_contract_length": 3,
-      "pre_drop_tcv": 12000,
+      "pre_drop_tcv": 24000,
       "pre_drop_contract_year": 3,
       "pre_drop_contract_status": "BL",
       "pre_drop_contract_info": "[4,8,12] (AAV 8K)",
+      "original_guarantee": 18000,
+      "total_salary_earned": 0,
+      "penalty_amount": 18000,
+      "penalty_rule": "75% of TCV (18,000) minus earned to date (0)",
       "candidate_rule": "guarantee_minus_earned"
     },
     {
@@ -128,6 +250,10 @@
       "pre_drop_contract_year": 1,
       "pre_drop_contract_status": "Veteran",
       "pre_drop_contract_info": "CL 1| TCV 12K| AAV 12K",
+      "original_guarantee": 9000,
+      "total_salary_earned": 0,
+      "penalty_amount": 9000,
+      "penalty_rule": "75% of TCV (9,000) minus earned to date (0)",
       "candidate_rule": "guarantee_minus_earned"
     }
   ]

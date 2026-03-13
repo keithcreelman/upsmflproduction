@@ -7969,24 +7969,41 @@
     var calcSource = state.tagTrackingMeta && typeof state.tagTrackingMeta.calc_breakdown === "object"
       ? state.tagTrackingMeta.calc_breakdown
       : {};
+    var candidateRows = applyProjectedTagRanksAndTiers(projectedTagCandidates(targetSeason), targetSeason);
+    var groupedCandidates = Object.create(null);
+    for (var c = 0; c < candidateRows.length; c += 1) {
+      var candidate = candidateRows[c] || {};
+      var candidateKey = safeStr(candidate.positional_grouping).toUpperCase() || "OTHER";
+      if (!groupedCandidates[candidateKey]) groupedCandidates[candidateKey] = [];
+      groupedCandidates[candidateKey].push(candidate);
+    }
     var output = Object.create(null);
     var positions = Object.keys(calcSource);
     for (var i = 0; i < positions.length; i += 1) {
       var posKey = positions[i];
       var ref = calcSource[posKey] || {};
       var tiers = Array.isArray(ref.tiers) ? ref.tiers : [];
+      var rankedPlayers = groupedCandidates[posKey] || [];
       var nextTiers = [];
       for (var j = 0; j < tiers.length; j += 1) {
         var tier = tiers[j] || {};
-        var players = Array.isArray(tier.players) ? tier.players : [];
         var nextPlayers = [];
         var total = 0;
-        for (var p = 0; p < players.length; p += 1) {
-          var player = players[p] || {};
-          var projectedAav = projectedTagBasisForPlayerId(player.player_id, targetSeason);
+        var minRank = Math.max(1, safeInt(tier.rank_min, 0) || 1);
+        var maxRank = Math.max(minRank, safeInt(tier.rank_max, 0) || minRank);
+        for (var p = 0; p < rankedPlayers.length; p += 1) {
+          var player = rankedPlayers[p] || {};
+          var rank = safeInt(player.pos_rank, 0);
+          if (rank < minRank || rank > maxRank) continue;
+          var projectedAav = Math.max(
+            safeInt(player.prior_aav_week1, 0),
+            safeInt(player.prior_salary_week1, 0),
+            safeInt(player.aav, 0),
+            safeInt(player.salary, 0)
+          );
           total += projectedAav;
           nextPlayers.push({
-            rank: safeInt(player.rank, 0),
+            rank: rank,
             player_id: safeStr(player.player_id).replace(/\D/g, ""),
             player_name: safeStr(player.player_name),
             aav: projectedAav
@@ -7996,8 +8013,8 @@
         nextTiers.push({
           tier: safeInt(tier.tier, 0),
           label: safeStr(tier.label),
-          rank_min: safeInt(tier.rank_min, 0),
-          rank_max: safeInt(tier.rank_max, 0),
+          rank_min: minRank,
+          rank_max: maxRank,
           base_bid: avg > 0 ? Math.ceil(avg / 1000) * 1000 : 0,
           players: nextPlayers
         });

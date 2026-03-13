@@ -1,20 +1,16 @@
 {
   "meta": {
     "season": 2019,
-    "row_count": 2,
-    "charges_total": 2850.0,
+    "row_count": 1,
+    "charges_total": 1750.0,
     "relief_total": 0,
-    "net_total": 2850.0,
+    "net_total": 1750.0,
     "recorded_count": 0,
     "review_required_count": 0,
-    "candidate_count": 2
+    "candidate_count": 1
   },
   "filters": {
     "franchises": [
-      {
-        "id": "0007",
-        "name": "Sex Manther"
-      },
       {
         "id": "0002",
         "name": "The Bash Bros"
@@ -24,19 +20,15 @@
       "DROP_PENALTY_CANDIDATE"
     ],
     "source_seasons": [
-      2019
+      2018
     ],
     "statuses": [
       "candidate"
     ],
     "players": [
       {
-        "id": "9431",
-        "name": "Stafford, Matthew"
-      },
-      {
-        "id": "10697",
-        "name": "Tannehill, Ryan"
+        "id": "8062",
+        "name": "Fitzpatrick, Ryan"
       }
     ]
   },
@@ -47,52 +39,29 @@
       "franchise_name": "The Bash Bros",
       "adjustment_type": "DROP_PENALTY_CANDIDATE",
       "source_table": "transactions_adddrop",
-      "source_id": "adddrop2019_85.1",
-      "source_season": 2019,
-      "player_id": "9431",
-      "player_name": "Stafford, Matthew",
-      "transaction_datetime_et": "2019-09-01 23:47:32",
-      "amount": 750,
+      "source_id": "adddrop2018_523.2",
+      "source_season": 2018,
+      "player_id": "8062",
+      "player_name": "Fitzpatrick, Ryan",
+      "transaction_datetime_et": "2018-11-21 09:00:00",
+      "amount": 1750,
       "direction": "charge",
-      "description": "Candidate drop penalty from FREE_AGENT. Projected current-rule penalty: 75% of TCV is 6,750; earned to date is 6,000.",
+      "description": "Candidate drop penalty from BBID. Waiver pickup rule: 35% of current-year salary (5,000 x 35%). Applied to 2019 because the drop occurred on or after the 2018 FreeAgent auction start (2018-08-03). Waiver salary basis taken from preceding BBID add salary of 5,000.",
       "status": "candidate",
       "status_detail": "Projected from add/drop transaction history plus the pre-drop contract snapshot.",
       "source_group_id": "",
-      "event_source": "ADDDROP:FREE_AGENT",
-      "drop_method": "FREE_AGENT",
-      "pre_drop_salary": 3000,
-      "pre_drop_contract_length": 3,
-      "pre_drop_tcv": 9000,
-      "pre_drop_contract_year": 3,
-      "pre_drop_contract_status": "Veteran",
-      "pre_drop_contract_info": "TCV 9K",
-      "candidate_rule": "guarantee_minus_earned"
-    },
-    {
-      "adjustment_season": 2019,
-      "franchise_id": "0007",
-      "franchise_name": "Sex Manther",
-      "adjustment_type": "DROP_PENALTY_CANDIDATE",
-      "source_table": "transactions_adddrop",
-      "source_id": "adddrop2019_335.1",
-      "source_season": 2019,
-      "player_id": "10697",
-      "player_name": "Tannehill, Ryan",
-      "transaction_datetime_et": "2019-10-31 21:12:40",
-      "amount": 2100,
-      "direction": "charge",
-      "description": "Candidate drop penalty from FREE_AGENT. Waiver pickup rule: 35% of current-year salary (6,000 x 35%).",
-      "status": "candidate",
-      "status_detail": "Projected from add/drop transaction history plus the pre-drop contract snapshot.",
-      "source_group_id": "",
-      "event_source": "ADDDROP:FREE_AGENT",
-      "drop_method": "FREE_AGENT",
-      "pre_drop_salary": 6000,
+      "event_source": "ADDDROP:BBID_WAIVER",
+      "drop_method": "BBID",
+      "pre_drop_salary": 5000,
       "pre_drop_contract_length": 1,
-      "pre_drop_tcv": 6000,
+      "pre_drop_tcv": 5000,
       "pre_drop_contract_year": 1,
-      "pre_drop_contract_status": "WW",
-      "pre_drop_contract_info": "CL 1| TCV 6K| AAV 6K",
+      "pre_drop_contract_status": "Veteran",
+      "pre_drop_contract_info": "CL 1| TCV 1K| AAV 1K",
+      "original_guarantee": 5000,
+      "total_salary_earned": 0,
+      "penalty_amount": 1750,
+      "penalty_rule": "35% of current-year salary (5,000 x 35%)",
       "candidate_rule": "waiver_35pct"
     }
   ]

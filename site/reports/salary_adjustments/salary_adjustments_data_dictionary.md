@@ -99,6 +99,14 @@ Primary source fields:
   Pre-drop contract status.
 - `pre_drop_contract_info`
   Best available contract-info text from the snapshot.
+- `original_guarantee`
+  Guaranteed amount used by the penalty calculation. For `waiver_35pct` rows this is the current-year salary basis; for `guarantee_minus_earned` rows this is the guaranteed amount before earned salary is subtracted.
+- `total_salary_earned`
+  Total earned amount used by the calculation. This is currently `0` for `waiver_35pct` rows and earned-to-date for `guarantee_minus_earned` rows.
+- `penalty_amount`
+  Final projected penalty amount. This duplicates `amount` so downstream consumers can read the calculation fields together without reusing direction-aware report columns.
+- `penalty_rule`
+  Human-readable version of the applied rule, including the numeric basis used by the exporter.
 - `candidate_rule`
   Rule bucket used by the exporter:
   - `waiver_35pct`

@@ -1,0 +1,181 @@
+{
+  "meta": {
+    "season": 2012,
+    "row_count": 4,
+    "charges_total": 9300.0,
+    "relief_total": 0,
+    "net_total": 9300.0,
+    "recorded_count": 0,
+    "review_required_count": 0,
+    "candidate_count": 4
+  },
+  "filters": {
+    "franchises": [
+      {
+        "id": "0010",
+        "name": "Blake Bombers"
+      },
+      {
+        "id": "0002",
+        "name": "D-Town Diddlers"
+      },
+      {
+        "id": "0006",
+        "name": "Murray's Madmen"
+      }
+    ],
+    "adjustment_types": [
+      "DROP_PENALTY_CANDIDATE"
+    ],
+    "source_seasons": [
+      2011
+    ],
+    "statuses": [
+      "candidate"
+    ],
+    "players": [
+      {
+        "id": "8042",
+        "name": "Cassel, Matt"
+      },
+      {
+        "id": "8758",
+        "name": "Kolb, Kevin"
+      },
+      {
+        "id": "10279",
+        "name": "Locker, Jake"
+      },
+      {
+        "id": "7918",
+        "name": "Orton, Kyle"
+      }
+    ]
+  },
+  "rows": [
+    {
+      "adjustment_season": 2012,
+      "franchise_id": "0010",
+      "franchise_name": "Blake Bombers",
+      "adjustment_type": "DROP_PENALTY_CANDIDATE",
+      "source_table": "transactions_adddrop",
+      "source_id": "adddrop2011_47.2",
+      "source_season": 2011,
+      "player_id": "8042",
+      "player_name": "Cassel, Matt",
+      "transaction_datetime_et": "2011-09-21 09:00:11",
+      "amount": 2800,
+      "direction": "charge",
+      "description": "Candidate drop penalty from BBID. Waiver pickup rule: 35% of current-year salary (8,000 x 35%). Applied to 2012 because the drop occurred on or after the 2011 FreeAgent auction start (2011-08-15).",
+      "status": "candidate",
+      "status_detail": "Projected from add/drop transaction history plus the pre-drop contract snapshot.",
+      "source_group_id": "",
+      "event_source": "ADDDROP:BBID",
+      "drop_method": "BBID",
+      "pre_drop_salary": 8000,
+      "pre_drop_contract_length": 1,
+      "pre_drop_tcv": 8000,
+      "pre_drop_contract_year": 1,
+      "pre_drop_contract_status": "ADD_DEFAULT_1YR",
+      "pre_drop_contract_info": "Cassel-1 year",
+      "original_guarantee": 8000,
+      "total_salary_earned": 0,
+      "penalty_amount": 2800,
+      "penalty_rule": "35% of current-year salary (8,000 x 35%)",
+      "candidate_rule": "waiver_35pct"
+    },
+    {
+      "adjustment_season": 2012,
+      "franchise_id": "0006",
+      "franchise_name": "Murray's Madmen",
+      "adjustment_type": "DROP_PENALTY_CANDIDATE",
+      "source_table": "transactions_adddrop",
+      "source_id": "adddrop2011_81.2",
+      "source_season": 2011,
+      "player_id": "10279",
+      "player_name": "Locker, Jake",
+      "transaction_datetime_et": "2011-10-02 09:00:10",
+      "amount": 2100,
+      "direction": "charge",
+      "description": "Candidate drop penalty from BBID. Waiver pickup rule: 35% of current-year salary (6,000 x 35%). Applied to 2012 because the drop occurred on or after the 2011 FreeAgent auction start (2011-08-15).",
+      "status": "candidate",
+      "status_detail": "Projected from add/drop transaction history plus the pre-drop contract snapshot.",
+      "source_group_id": "",
+      "event_source": "ADDDROP:BBID",
+      "drop_method": "BBID",
+      "pre_drop_salary": 6000,
+      "pre_drop_contract_length": 1,
+      "pre_drop_tcv": 6000,
+      "pre_drop_contract_year": 1,
+      "pre_drop_contract_status": "ADD_DEFAULT_1YR",
+      "pre_drop_contract_info": "Jake Locker 1 year",
+      "original_guarantee": 6000,
+      "total_salary_earned": 0,
+      "penalty_amount": 2100,
+      "penalty_rule": "35% of current-year salary (6,000 x 35%)",
+      "candidate_rule": "waiver_35pct"
+    },
+    {
+      "adjustment_season": 2012,
+      "franchise_id": "0010",
+      "franchise_name": "Blake Bombers",
+      "adjustment_type": "DROP_PENALTY_CANDIDATE",
+      "source_table": "transactions_adddrop",
+      "source_id": "adddrop2011_119.2",
+      "source_season": 2011,
+      "player_id": "7918",
+      "player_name": "Orton, Kyle",
+      "transaction_datetime_et": "2011-10-12 09:00:05",
+      "amount": 1250,
+      "direction": "charge",
+      "description": "Candidate drop penalty from BBID. Projected current-rule penalty: 75% of TCV is 7,500; earned to date is 6,250. Applied to 2012 because the drop occurred on or after the 2011 FreeAgent auction start (2011-08-15).",
+      "status": "candidate",
+      "status_detail": "Projected from add/drop transaction history plus the pre-drop contract snapshot.",
+      "source_group_id": "",
+      "event_source": "ADDDROP:BBID",
+      "drop_method": "BBID",
+      "pre_drop_salary": 5000,
+      "pre_drop_contract_length": 2,
+      "pre_drop_tcv": 10000,
+      "pre_drop_contract_year": 2,
+      "pre_drop_contract_status": "ADD_DEFAULT_1YR",
+      "pre_drop_contract_info": "Orton-2 years",
+      "original_guarantee": 7500,
+      "total_salary_earned": 6250,
+      "penalty_amount": 1250,
+      "penalty_rule": "75% of TCV (7,500) minus earned to date (6,250)",
+      "candidate_rule": "guarantee_minus_earned"
+    },
+    {
+      "adjustment_season": 2012,
+      "franchise_id": "0002",
+      "franchise_name": "D-Town Diddlers",
+      "adjustment_type": "DROP_PENALTY_CANDIDATE",
+      "source_table": "transactions_adddrop",
+      "source_id": "adddrop2011_191.2",
+      "source_season": 2011,
+      "player_id": "8758",
+      "player_name": "Kolb, Kevin",
+      "transaction_datetime_et": "2011-10-27 09:00:06",
+      "amount": 3150,
+      "direction": "charge",
+      "description": "Candidate drop penalty from BBID. Waiver pickup rule: 35% of current-year salary (9,000 x 35%). Applied to 2012 because the drop occurred on or after the 2011 FreeAgent auction start (2011-08-15).",
+      "status": "candidate",
+      "status_detail": "Projected from add/drop transaction history plus the pre-drop contract snapshot.",
+      "source_group_id": "",
+      "event_source": "ADDDROP:BBID",
+      "drop_method": "BBID",
+      "pre_drop_salary": 9000,
+      "pre_drop_contract_length": 1,
+      "pre_drop_tcv": 9000,
+      "pre_drop_contract_year": 1,
+      "pre_drop_contract_status": "ADD_DEFAULT_1YR",
+      "pre_drop_contract_info": "CL 1| TCV 9K| AAV 9K| Y1-9K| Default Add",
+      "original_guarantee": 9000,
+      "total_salary_earned": 0,
+      "penalty_amount": 3150,
+      "penalty_rule": "35% of current-year salary (9,000 x 35%)",
+      "candidate_rule": "waiver_35pct"
+    }
+  ]
+}

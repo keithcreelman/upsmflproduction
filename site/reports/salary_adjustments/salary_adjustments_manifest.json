@@ -1,5 +1,5 @@
 {
-  "generated_at_utc": "2026-03-09T03:46:59.220644+00:00",
+  "generated_at_utc": "2026-03-12T23:45:26.918947+00:00",
   "meta": {
     "report_id": "salary-adjustments",
     "status_values": [
@@ -18,72 +18,84 @@
     ],
     "notes": [
       "Traded salary rows are pulled directly from normalized accepted trade history.",
-      "Drop penalty rows are candidate adjustments derived from add/drop events plus the pre-drop contract snapshot."
+      "Drop penalty rows are candidate adjustments derived from add/drop events plus the pre-drop contract snapshot.",
+      "Drop adjustments stay in the source season before the first FreeAgent auction opens and roll into the following season on or after that auction start."
     ]
   },
   "seasons": [
     {
-      "season": 2025,
-      "path": "./salary_adjustments_2025.json",
-      "row_count": 53,
-      "charges_total": 333200.0,
-      "relief_total": 274000.0,
-      "net_total": 59200.0,
-      "recorded_count": 40,
-      "review_required_count": 4,
-      "candidate_count": 9
-    },
-    {
-      "season": 2024,
-      "path": "./salary_adjustments_2024.json",
-      "row_count": 43,
-      "charges_total": 370250.0,
-      "relief_total": 304000.0,
-      "net_total": 66250.0,
-      "recorded_count": 38,
-      "review_required_count": 0,
-      "candidate_count": 5
-    },
-    {
-      "season": 2023,
-      "path": "./salary_adjustments_2023.json",
-      "row_count": 58,
-      "charges_total": 389050.0,
-      "relief_total": 353000.0,
-      "net_total": 36050.0,
-      "recorded_count": 54,
+      "season": 2026,
+      "path": "./salary_adjustments_2026.json",
+      "row_count": 4,
+      "charges_total": 14650.0,
+      "relief_total": 0,
+      "net_total": 14650.0,
+      "recorded_count": 0,
       "review_required_count": 0,
       "candidate_count": 4
     },
     {
+      "season": 2025,
+      "path": "./salary_adjustments_2025.json",
+      "row_count": 49,
+      "charges_total": 475750.0,
+      "relief_total": 274000.0,
+      "net_total": 201750.0,
+      "recorded_count": 40,
+      "review_required_count": 4,
+      "candidate_count": 5
+    },
+    {
+      "season": 2024,
+      "path": "./salary_adjustments_2024.json",
+      "row_count": 42,
+      "charges_total": 456050.0,
+      "relief_total": 304000.0,
+      "net_total": 152050.0,
+      "recorded_count": 38,
+      "review_required_count": 0,
+      "candidate_count": 4
+    },
+    {
+      "season": 2023,
+      "path": "./salary_adjustments_2023.json",
+      "row_count": 63,
+      "charges_total": 406100.0,
+      "relief_total": 353000.0,
+      "net_total": 53100.0,
+      "recorded_count": 54,
+      "review_required_count": 0,
+      "candidate_count": 9
+    },
+    {
       "season": 2022,
       "path": "./salary_adjustments_2022.json",
-      "row_count": 70,
-      "charges_total": 551200.0,
+      "row_count": 63,
+      "charges_total": 540000.0,
       "relief_total": 359000.0,
-      "net_total": 192200.0,
+      "net_total": 181000.0,
       "recorded_count": 56,
       "review_required_count": 0,
-      "candidate_count": 14
+      "candidate_count": 7
     },
     {
       "season": 2021,
       "path": "./salary_adjustments_2021.json",
-      "row_count": 42,
-      "charges_total": 254000.0,
+      "row_count": 44,
+      "charges_total": 257800.0,
       "relief_total": 254000.0,
-      "net_total": 0.0,
+      "net_total": 3800.0,
       "recorded_count": 42,
       "review_required_count": 0,
-      "candidate_count": 0
+      "candidate_count": 2
     },
     {
       "season": 2020,
       "path": "./salary_adjustments_2020.json",
       "row_count": 29,
-      "charges_total": 152800.0,
+      "charges_total": 151500.0,
       "relief_total": 148000.0,
-      "net_total": 4800.0,
+      "net_total": 3500.0,
       "recorded_count": 26,
       "review_required_count": 0,
       "candidate_count": 3
@@ -91,32 +103,43 @@
     {
       "season": 2019,
       "path": "./salary_adjustments_2019.json",
-      "row_count": 2,
-      "charges_total": 2850.0,
+      "row_count": 1,
+      "charges_total": 1750.0,
       "relief_total": 0,
-      "net_total": 2850.0,
+      "net_total": 1750.0,
+      "recorded_count": 0,
+      "review_required_count": 0,
+      "candidate_count": 1
+    },
+    {
+      "season": 2018,
+      "path": "./salary_adjustments_2018.json",
+      "row_count": 6,
+      "charges_total": 52000.0,
+      "relief_total": 0,
+      "net_total": 52000.0,
+      "recorded_count": 0,
+      "review_required_count": 0,
+      "candidate_count": 6
+    },
+    {
+      "season": 2017,
+      "path": "./salary_adjustments_2017.json",
+      "row_count": 2,
+      "charges_total": 10250.0,
+      "relief_total": 0,
+      "net_total": 10250.0,
       "recorded_count": 0,
       "review_required_count": 0,
       "candidate_count": 2
     },
     {
-      "season": 2018,
-      "path": "./salary_adjustments_2018.json",
-      "row_count": 3,
-      "charges_total": 18000.0,
-      "relief_total": 0,
-      "net_total": 18000.0,
-      "recorded_count": 0,
-      "review_required_count": 0,
-      "candidate_count": 3
-    },
-    {
-      "season": 2017,
-      "path": "./salary_adjustments_2017.json",
+      "season": 2012,
+      "path": "./salary_adjustments_2012.json",
       "row_count": 4,
-      "charges_total": 12500.0,
+      "charges_total": 9300.0,
       "relief_total": 0,
-      "net_total": 12500.0,
+      "net_total": 9300.0,
       "recorded_count": 0,
       "review_required_count": 0,
       "candidate_count": 4

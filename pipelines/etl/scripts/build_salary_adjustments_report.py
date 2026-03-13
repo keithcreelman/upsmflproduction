@@ -23,6 +23,7 @@ DEFAULT_SQL_PATH = DEFAULT_OUT_DIR / "salary_adjustments_sql.sql"
 REQUIRED_SOURCE_TABLES = (
     "transactions_trades",
     "transactions_adddrop",
+    "transactions_auction",
     "contract_history_transaction_snapshots",
     "dim_franchise",
     "dim_player",
@@ -166,15 +167,19 @@ def prorated_earned_for_drop(season: int, amount: int, drop_date: datetime | Non
 def is_likely_waiver_pickup(event_source: str, contract_status: str) -> bool:
     source = safe_str(event_source).upper()
     status = safe_str(contract_status).upper()
-    return "BBID_WAIVER" in source or status == "WW"
+    return "BBID_WAIVER" in source or status in {"WW", "ADD_DEFAULT_1YR"}
 
 
-def is_tag_cut_pre_auction_assumption(contract_status: str, season: int, drop_date: datetime | None) -> bool:
+def is_tag_cut_pre_auction_assumption(
+    contract_status: str,
+    auction_start_date: datetime | None,
+    drop_date: datetime | None,
+) -> bool:
     if safe_str(contract_status).upper() != "TAG":
         return False
-    if season <= 0 or drop_date is None:
+    if auction_start_date is None or drop_date is None:
         return False
-    return drop_date < datetime(season, 8, 1, 0, 0, 0)
+    return drop_date < auction_start_date
 
 
 def guaranteed_contract_value(
@@ -192,13 +197,17 @@ def guaranteed_contract_value(
 
 
 def earned_before_current_contract_year(
+    contract_length: int,
     contract_year: int,
     year_values: Dict[int, int],
     current_year_salary: int,
 ) -> int:
     year_idx = max(1, safe_int(contract_year, 1))
     if year_values:
-        return sum(max(0, safe_int(amount, 0)) for idx, amount in year_values.items() if idx < year_idx)
+        total_years = max(1, safe_int(contract_length, 1))
+        years_remaining = max(1, safe_int(contract_year, 1))
+        current_year_index = max(1, total_years - years_remaining + 1)
+        return sum(max(0, safe_int(amount, 0)) for idx, amount in year_values.items() if idx < current_year_index)
     return max(0, (year_idx - 1) * max(0, safe_int(current_year_salary, 0)))
 
 
@@ -210,6 +219,197 @@ def parse_datetime_et(value: str) -> datetime | None:
         return datetime.fromisoformat(text)
     except ValueError:
         return None
+
+
+def load_free_agent_auction_start_lookup(
+    conn: sqlite3.Connection,
+    seasons: Iterable[int],
+) -> Dict[int, datetime]:
+    season_values = sorted({safe_int(season, 0) for season in seasons if safe_int(season, 0) > 0})
+    if not season_values:
+        return {}
+    rows = query_rows(
+        conn,
+        """
+        SELECT
+          season,
+          MIN(
+            COALESCE(
+              NULLIF(datetime_et, ''),
+              TRIM(COALESCE(date_et, '') || ' ' || COALESCE(NULLIF(time_et, ''), '00:00:00'))
+            )
+          ) AS auction_start_datetime_et
+        FROM transactions_auction
+        WHERE auction_type = 'FreeAgent'
+          AND season IN ({})
+        GROUP BY season
+        """.format(", ".join("?" for _ in season_values)),
+        season_values,
+    )
+    out: Dict[int, datetime] = {}
+    for row in rows:
+        season = safe_int(row["season"], 0)
+        auction_start = parse_datetime_et(row["auction_start_datetime_et"])
+        if season > 0 and auction_start is not None:
+            out[season] = auction_start
+    return out
+
+
+def effective_drop_adjustment_season(
+    source_season: int,
+    drop_date: datetime | None,
+    auction_start_lookup: Dict[int, datetime],
+) -> tuple[int, str]:
+    season = safe_int(source_season, 0)
+    if season <= 0:
+        return 0, ""
+    if drop_date is None:
+        return season, ""
+    auction_start = auction_start_lookup.get(season)
+    if auction_start is None:
+        return season, ""
+    if drop_date >= auction_start:
+        next_season = season + 1
+        return (
+            next_season,
+            f"Applied to {next_season} because the drop occurred on or after the {season} FreeAgent auction start ({auction_start.date().isoformat()}).",
+        )
+    return season, ""
+
+
+def load_adddrop_add_lookup(
+    conn: sqlite3.Connection,
+    seasons: Iterable[int],
+) -> Dict[tuple[int, str, str], List[sqlite3.Row]]:
+    season_values = sorted({safe_int(season, 0) for season in seasons if safe_int(season, 0) > 0})
+    if not season_values:
+        return {}
+    rows = query_rows(
+        conn,
+        """
+        SELECT
+          season,
+          transactionid,
+          franchise_id,
+          player_id,
+          method,
+          salary,
+          datetime_et
+        FROM transactions_adddrop
+        WHERE season IN ({})
+          AND move_type = 'ADD'
+        ORDER BY season, franchise_id, player_id, datetime_et, txn_index
+        """.format(", ".join("?" for _ in season_values)),
+        season_values,
+    )
+    out: Dict[tuple[int, str, str], List[sqlite3.Row]] = {}
+    for row in rows:
+        key = (
+            safe_int(row["season"]),
+            safe_str(row["franchise_id"]),
+            safe_str(row["player_id"]),
+        )
+        out.setdefault(key, []).append(row)
+    return out
+
+
+def load_prior_season_contract_lookup(
+    conn: sqlite3.Connection,
+    seasons: Iterable[int],
+) -> Dict[tuple[int, str, str], sqlite3.Row]:
+    prior_seasons = sorted({safe_int(season, 0) - 1 for season in seasons if safe_int(season, 0) > 1})
+    if not prior_seasons:
+        return {}
+    rows = query_rows(
+        conn,
+        """
+        SELECT
+          season,
+          franchise_id,
+          player_id,
+          salary,
+          contract_status,
+          contract_length,
+          contract_year,
+          tcv,
+          contract_info,
+          year_values_json
+        FROM contract_history_snapshots
+        WHERE season IN ({})
+          AND COALESCE(franchise_id, '') <> ''
+          AND COALESCE(player_id, '') <> ''
+        """.format(", ".join("?" for _ in prior_seasons)),
+        prior_seasons,
+    )
+    out: Dict[tuple[int, str, str], sqlite3.Row] = {}
+    for row in rows:
+        key = (
+            safe_int(row["season"]),
+            safe_str(row["franchise_id"]),
+            safe_str(row["player_id"]),
+        )
+        out[key] = row
+    return out
+
+
+def is_default_drop_contract(contract_status: str, contract_length: int, contract_info: str) -> bool:
+    status = safe_str(contract_status).upper()
+    info = safe_str(contract_info).upper()
+    if max(0, safe_int(contract_length, 0)) > 1:
+        return False
+    if status in {"WW", "ADD_DEFAULT_1YR", ""}:
+        return True
+    return info in {"", "CL 1|"}
+
+
+def roll_forward_prior_season_contract(prior_snapshot: sqlite3.Row | None) -> Dict[str, Any] | None:
+    if prior_snapshot is None:
+        return None
+    contract_length = safe_int(prior_snapshot["contract_length"], 0)
+    years_remaining = safe_int(prior_snapshot["contract_year"], 0)
+    if contract_length <= 0 or years_remaining <= 1:
+        return None
+    year_values = parse_year_values(safe_str(prior_snapshot["year_values_json"]))
+    if not year_values:
+        return None
+    rolled_years_remaining = years_remaining - 1
+    current_year_index = max(1, contract_length - rolled_years_remaining + 1)
+    current_year_salary = max(0, safe_int(year_values.get(current_year_index), 0))
+    if current_year_salary <= 0:
+        return None
+    return {
+        "salary": current_year_salary,
+        "contract_length": contract_length,
+        "contract_year": rolled_years_remaining,
+        "tcv": max(0, safe_int(prior_snapshot["tcv"], 0)),
+        "contract_status": safe_str(prior_snapshot["contract_status"]),
+        "contract_info": safe_str(prior_snapshot["contract_info"]),
+        "year_values": year_values,
+    }
+
+
+def latest_adddrop_add_before(
+    add_lookup: Dict[tuple[int, str, str], List[sqlite3.Row]],
+    season: int,
+    franchise_id: str,
+    player_id: str,
+    transaction_dt: datetime | None,
+) -> sqlite3.Row | None:
+    rows = add_lookup.get((safe_int(season), safe_str(franchise_id), safe_str(player_id))) or []
+    if not rows:
+        return None
+    if transaction_dt is None:
+        return rows[-1]
+    last_row: sqlite3.Row | None = None
+    for row in rows:
+        add_dt = parse_datetime_et(row["datetime_et"])
+        if add_dt is None:
+            continue
+        if add_dt < transaction_dt:
+            last_row = row
+        else:
+            break
+    return last_row
 
 
 def direction_for_amount(amount: float) -> str:
@@ -283,6 +483,10 @@ def build_trade_rows(conn: sqlite3.Connection, min_season: int | None, max_seaso
                 "pre_drop_contract_year": 0,
                 "pre_drop_contract_status": "",
                 "pre_drop_contract_info": "",
+                "original_guarantee": 0,
+                "total_salary_earned": 0,
+                "penalty_amount": amount,
+                "penalty_rule": "",
                 "candidate_rule": "",
             }
         )
@@ -294,29 +498,27 @@ def build_drop_candidate_rows(
     min_season: int | None,
     max_season: int | None,
 ) -> List[Dict[str, Any]]:
-    clauses: List[str] = []
-    params: List[Any] = []
-    if min_season is not None:
-        clauses.append("adjustment_season >= ?")
-        params.append(min_season)
-    if max_season is not None:
-        clauses.append("adjustment_season <= ?")
-        params.append(max_season)
-    where_sql = f"WHERE {' AND '.join(clauses)}" if clauses else ""
     rows = query_rows(
         conn,
-        f"""
+        """
         SELECT *
         FROM report_salary_adjustments_drop_base_v1
-        {where_sql}
-        ORDER BY adjustment_season DESC, transaction_datetime_et DESC, source_id ASC
+        ORDER BY source_season DESC, transaction_datetime_et DESC, source_id ASC
         """,
-        params,
     )
+    source_seasons = {safe_int(row["source_season"]) for row in rows if safe_int(row["source_season"]) > 0}
+    auction_start_lookup = load_free_agent_auction_start_lookup(conn, source_seasons)
+    add_lookup = load_adddrop_add_lookup(conn, source_seasons)
+    prior_contract_lookup = load_prior_season_contract_lookup(conn, source_seasons)
     out: List[Dict[str, Any]] = []
     for row in rows:
-        season = safe_int(row["adjustment_season"])
+        source_season = safe_int(row["source_season"])
         transaction_dt = parse_datetime_et(row["transaction_datetime_et"])
+        season, season_note = effective_drop_adjustment_season(source_season, transaction_dt, auction_start_lookup)
+        if min_season is not None and season < min_season:
+            continue
+        if max_season is not None and season > max_season:
+            continue
         current_year_salary = safe_int(row["pre_drop_salary"], 0)
         contract_length = safe_int(row["pre_drop_contract_length"], 0)
         total_contract_value = safe_int(row["pre_drop_tcv"], 0)
@@ -327,32 +529,94 @@ def build_drop_candidate_rows(
         explicit_guarantee = parse_explicit_guarantee(contract_info)
 
         penalty = 0
+        original_guarantee = 0
+        total_salary_earned = 0
         candidate_rule = ""
+        penalty_rule = ""
         note = ""
+        context_note = ""
+
+        last_add = latest_adddrop_add_before(
+            add_lookup,
+            source_season,
+            safe_str(row["franchise_id"]),
+            safe_str(row["player_id"]),
+            transaction_dt,
+        )
+        if (
+            last_add is not None
+            and contract_length == 1
+            and is_likely_waiver_pickup(row["event_source"], contract_status)
+        ):
+            add_salary = max(0, safe_int(last_add["salary"], 0))
+            if add_salary > 0 and add_salary != current_year_salary:
+                current_year_salary = add_salary
+                total_contract_value = add_salary
+                contract_year = 1
+                contract_length = 1
+                if not contract_status:
+                    contract_status = "WW"
+                year_values = {1: add_salary}
+                context_note = (
+                    f"Waiver salary basis taken from preceding {safe_str(last_add['method']) or 'add/drop'} add salary of {add_salary:,}."
+                )
+
+        if last_add is None and is_default_drop_contract(contract_status, contract_length, contract_info):
+            prior_snapshot = prior_contract_lookup.get(
+                (
+                    source_season - 1,
+                    safe_str(row["franchise_id"]),
+                    safe_str(row["player_id"]),
+                )
+            )
+            rolled_contract = roll_forward_prior_season_contract(prior_snapshot)
+            if rolled_contract is not None:
+                current_year_salary = safe_int(rolled_contract["salary"], 0)
+                total_contract_value = safe_int(rolled_contract["tcv"], 0)
+                contract_year = safe_int(rolled_contract["contract_year"], 0)
+                contract_length = safe_int(rolled_contract["contract_length"], 0)
+                contract_status = safe_str(rolled_contract["contract_status"])
+                contract_info = safe_str(rolled_contract["contract_info"])
+                year_values = dict(rolled_contract["year_values"])
+                explicit_guarantee = parse_explicit_guarantee(contract_info)
+                context_note = (
+                    f"Pre-drop contract rolled forward from the {source_season - 1} end-of-season snapshot for the same franchise."
+                )
 
         if contract_length <= 0:
             penalty = 0
-        elif is_tag_cut_pre_auction_assumption(contract_status, season, transaction_dt):
+        elif is_tag_cut_pre_auction_assumption(contract_status, auction_start_lookup.get(source_season), transaction_dt):
             penalty = 0
         elif contract_length == 1 and current_year_salary < 5000 and contract_status.upper() in {"VETERAN", "WW"}:
             penalty = 0
         elif is_likely_waiver_pickup(row["event_source"], contract_status) and contract_length == 1 and current_year_salary >= 5000:
+            original_guarantee = current_year_salary
+            total_salary_earned = 0
             penalty = round(current_year_salary * 0.35)
             candidate_rule = "waiver_35pct"
-            note = f"Waiver pickup rule: 35% of current-year salary ({current_year_salary:,} x 35%)."
+            penalty_rule = f"35% of current-year salary ({current_year_salary:,} x 35%)"
+            note = f"Waiver pickup rule: {penalty_rule}."
         else:
-            prior_earned = earned_before_current_contract_year(contract_year, year_values, current_year_salary)
-            accrued = prorated_earned_for_drop(season, current_year_salary, transaction_dt)
+            prior_earned = earned_before_current_contract_year(
+                contract_length,
+                contract_year,
+                year_values,
+                current_year_salary,
+            )
+            accrued = prorated_earned_for_drop(source_season, current_year_salary, transaction_dt)
             guaranteed, guarantee_label = guaranteed_contract_value(
                 total_contract_value,
                 current_year_salary,
                 explicit_guarantee=explicit_guarantee,
             )
-            penalty = max(0, guaranteed - (prior_earned + accrued))
+            original_guarantee = guaranteed
+            total_salary_earned = prior_earned + accrued
+            penalty = max(0, original_guarantee - total_salary_earned)
             candidate_rule = "guarantee_minus_earned"
+            penalty_rule = f"{guarantee_label} ({guaranteed:,}) minus earned to date ({total_salary_earned:,})"
             note = (
                 "Projected current-rule penalty: "
-                f"{guarantee_label} is {guaranteed:,}; earned to date is {prior_earned + accrued:,}."
+                f"{guarantee_label} is {guaranteed:,}; earned to date is {total_salary_earned:,}."
             )
 
         if penalty <= 0:
@@ -362,6 +626,10 @@ def build_drop_candidate_rows(
             f"Candidate drop penalty from {safe_str(row['drop_method']) or safe_str(row['event_source']) or 'drop transaction'}.",
             note,
         ]
+        if season_note:
+            description_parts.append(season_note)
+        if context_note:
+            description_parts.append(context_note)
         out.append(
             {
                 "adjustment_season": season,
@@ -370,7 +638,7 @@ def build_drop_candidate_rows(
                 "adjustment_type": safe_str(row["adjustment_type"]),
                 "source_table": safe_str(row["source_table"]),
                 "source_id": safe_str(row["source_id"]),
-                "source_season": safe_int(row["source_season"]),
+                "source_season": source_season,
                 "player_id": safe_str(row["player_id"]),
                 "player_name": safe_str(row["player_name"]),
                 "transaction_datetime_et": safe_str(row["transaction_datetime_et"]),
@@ -378,7 +646,11 @@ def build_drop_candidate_rows(
                 "direction": "charge",
                 "description": " ".join(part for part in description_parts if part),
                 "status": "candidate",
-                "status_detail": "Projected from add/drop transaction history plus the pre-drop contract snapshot.",
+                "status_detail": (
+                    "Projected from add/drop transaction history plus the pre-drop contract snapshot."
+                    if "rolled forward from the" not in context_note
+                    else "Projected from add/drop transaction history with the pre-drop contract rolled forward from the prior season end."
+                ),
                 "source_group_id": "",
                 "event_source": safe_str(row["event_source"]),
                 "drop_method": safe_str(row["drop_method"]),
@@ -388,6 +660,10 @@ def build_drop_candidate_rows(
                 "pre_drop_contract_year": contract_year,
                 "pre_drop_contract_status": contract_status,
                 "pre_drop_contract_info": contract_info,
+                "original_guarantee": original_guarantee,
+                "total_salary_earned": total_salary_earned,
+                "penalty_amount": penalty,
+                "penalty_rule": penalty_rule,
                 "candidate_rule": candidate_rule,
             }
         )
@@ -511,6 +787,7 @@ def main() -> int:
             "notes": [
                 "Traded salary rows are pulled directly from normalized accepted trade history.",
                 "Drop penalty rows are candidate adjustments derived from add/drop events plus the pre-drop contract snapshot.",
+                "Drop adjustments stay in the source season before the first FreeAgent auction opens and roll into the following season on or after that auction start.",
             ],
         },
         "seasons": manifest_seasons,
