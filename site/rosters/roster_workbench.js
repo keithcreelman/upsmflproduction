@@ -8015,6 +8015,11 @@
             aav: projectedAav
           });
         }
+        nextPlayers.sort(function (a, b) {
+          var rankDelta = safeInt(a && a.rank, 0) - safeInt(b && b.rank, 0);
+          if (rankDelta !== 0) return rankDelta;
+          return compareText(a && a.player_name, b && b.player_name);
+        });
         var avg = nextPlayers.length ? (total / nextPlayers.length) : 0;
         nextTiers.push({
           tier: safeInt(tier.tier, 0),
