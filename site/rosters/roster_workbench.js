@@ -6268,9 +6268,15 @@
     return candidates;
   }
 
+  function projectedTagTierTemplates() {
+    return state.tagTrackingMeta && typeof state.tagTrackingMeta.calc_breakdown === "object"
+      ? state.tagTrackingMeta.calc_breakdown
+      : {};
+  }
+
   function applyProjectedTagRanksAndTiers(rows, targetSeason) {
     var list = Array.isArray(rows) ? rows.slice() : [];
-    var calc = projectedTagCalcBreakdown(targetSeason);
+    var calc = projectedTagTierTemplates();
     var grouped = Object.create(null);
 
     for (var i = 0; i < list.length; i += 1) {
