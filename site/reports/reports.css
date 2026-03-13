@@ -307,6 +307,20 @@ a:focus-visible {
   padding: 0 12px;
 }
 
+.reports-input {
+  cursor: text;
+  caret-color: var(--reports-ink);
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.reports-input::-webkit-search-decoration,
+.reports-input::-webkit-search-cancel-button,
+.reports-input::-webkit-search-results-button,
+.reports-input::-webkit-search-results-decoration {
+  -webkit-appearance: none;
+}
+
 .reports-field {
   display: grid;
   gap: 6px;

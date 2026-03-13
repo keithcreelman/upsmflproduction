@@ -1711,6 +1711,20 @@
   transition: border-color .2s ease, box-shadow .2s ease, background .2s ease;
 }
 
+.ccc-input{
+  cursor:text;
+  caret-color:var(--text);
+  appearance:none;
+  -webkit-appearance:none;
+}
+
+.ccc-input::-webkit-search-decoration,
+.ccc-input::-webkit-search-cancel-button,
+.ccc-input::-webkit-search-results-button,
+.ccc-input::-webkit-search-results-decoration{
+  -webkit-appearance:none;
+}
+
 .ccc-input:focus, .ccc-select:focus{
   border-color: var(--accent-border);
   box-shadow: 0 0 0 3px var(--accent-ring);
