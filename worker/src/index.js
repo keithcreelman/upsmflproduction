@@ -6067,6 +6067,13 @@ export default {
         safeStr(asset?.type).toUpperCase() === "PICK" &&
         safeInt(pickMetaFromAsset(asset).round, 0) === 6;
 
+      const isTaggedTradeIneligibleAsset = (asset) => {
+        if (safeStr(asset?.type).toUpperCase() !== "PLAYER") return false;
+        const contractType = safeStr(asset?.contract_type).toLowerCase();
+        const contractInfo = safeStr(asset?.contract_info).toLowerCase();
+        return contractType.includes("tag") || contractInfo.includes("tag");
+      };
+
       const playerTokenFromAsset = (asset) => {
         const direct = String(asset?.player_id || "").replace(/\D/g, "");
         if (direct) return direct;
@@ -6088,6 +6095,15 @@ export default {
         const invalid = [];
         const seen = new Set();
         for (const asset of selected) {
+          if (isTaggedTradeIneligibleAsset(asset)) {
+            invalid.push({
+              asset_id: safeStr(asset?.asset_id),
+              type: safeStr(asset?.type),
+              description: safeStr(asset?.description || asset?.player_name || asset?.asset_id),
+              reason: "tagged players cannot be traded",
+            });
+            continue;
+          }
           if (isUntradeableSixthRoundPickAsset(asset)) {
             invalid.push({
               asset_id: safeStr(asset?.asset_id),

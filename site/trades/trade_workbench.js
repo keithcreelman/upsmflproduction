@@ -298,6 +298,7 @@
     var yearsRemaining = metrics && metrics.years_remaining != null
       ? safeInt(metrics.years_remaining, 0)
       : safeInt(asset.years, 0);
+    if (type.indexOf("tag") !== -1) return false;
     if (info.indexOf("no further extensions") !== -1 || info.indexOf("not eligible for tag or extension") !== -1) {
       return false;
     }
@@ -714,12 +715,23 @@
 
   function isTradeEligibleAsset(asset) {
     if (!asset) return false;
+    if (isTaggedTradeIneligibleAsset(asset)) return false;
     if (safeStr(asset.type).toUpperCase() === "PICK") return !isUntradeableSixthRoundPick(asset);
     return true;
   }
 
+  function isTaggedTradeIneligibleAsset(asset) {
+    if (!asset || safeStr(asset.type).toUpperCase() !== "PLAYER") return false;
+    var contractType = safeStr(asset.contract_type).toLowerCase();
+    var contractInfo = safeStr(asset.contract_info).toLowerCase();
+    return contractType.indexOf("tag") !== -1 || contractInfo.indexOf("tag") !== -1;
+  }
+
   function getTradeIneligibleReason(asset) {
     if (!asset) return "";
+    if (isTaggedTradeIneligibleAsset(asset)) {
+      return "Ineligible: tagged players cannot be traded";
+    }
     if (safeStr(asset.type).toUpperCase() === "PICK" && isUntradeableSixthRoundPick(asset)) {
       return "Ineligible: 6th-round picks cannot be traded";
     }
