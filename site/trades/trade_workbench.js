@@ -418,6 +418,32 @@
     return safeInt(getLeagueContext().season, 0);
   }
 
+  function getMemorialDayUtc(season) {
+    var year = safeInt(season, 0);
+    if (year <= 0) return null;
+    var d = new Date(Date.UTC(year, 4, 31));
+    var weekday = d.getUTCDay();
+    var offset = (weekday + 6) % 7;
+    d.setUTCDate(d.getUTCDate() - offset);
+    return d;
+  }
+
+  function getTagDeadlineUtc(season) {
+    var memorial = getMemorialDayUtc(season);
+    if (!memorial) return null;
+    var tagDeadline = new Date(memorial.getTime());
+    tagDeadline.setUTCDate(tagDeadline.getUTCDate() - 4);
+    tagDeadline.setUTCHours(23, 59, 59, 999);
+    return tagDeadline;
+  }
+
+  function hasTradeTagDeadlinePassed(seasonHintOverride) {
+    var season = getCurrentTradeSeason(seasonHintOverride);
+    var deadline = getTagDeadlineUtc(season);
+    if (!deadline) return false;
+    return Date.now() > deadline.getTime();
+  }
+
   function parsePickSlotMeta(value) {
     var raw = safeStr(value).toUpperCase();
     var out = {
@@ -722,6 +748,7 @@
 
   function isTaggedTradeIneligibleAsset(asset) {
     if (!asset || safeStr(asset.type).toUpperCase() !== "PLAYER") return false;
+    if (hasTradeTagDeadlinePassed()) return false;
     var contractType = safeStr(asset.contract_type).toLowerCase();
     var contractInfo = safeStr(asset.contract_info).toLowerCase();
     return contractType.indexOf("tag") !== -1 || contractInfo.indexOf("tag") !== -1;

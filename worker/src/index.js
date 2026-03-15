@@ -6069,6 +6069,7 @@ export default {
 
       const isTaggedTradeIneligibleAsset = (asset) => {
         if (safeStr(asset?.type).toUpperCase() !== "PLAYER") return false;
+        if (hasTagDeadlinePassed(YEAR)) return false;
         const contractType = safeStr(asset?.contract_type).toLowerCase();
         const contractInfo = safeStr(asset?.contract_info).toLowerCase();
         return contractType.includes("tag") || contractInfo.includes("tag");
