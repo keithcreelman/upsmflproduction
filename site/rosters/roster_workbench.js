@@ -5411,7 +5411,7 @@
     var opts = options && typeof options === "object" ? options : {};
     if (!player) return false;
 
-    if (searchFilterEnabledForView() && state.search) {
+    if (!opts.skipSearch && searchFilterEnabledForView() && state.search) {
       var hay = [
         player.name,
         player.position,
@@ -5450,6 +5450,73 @@
     }
 
     return true;
+  }
+
+  function renderDatalistOptions(listEl, values) {
+    if (!listEl) return;
+    var items = Array.isArray(values) ? values : [];
+    listEl.innerHTML = items.map(function (value) {
+      return '<option value="' + escapeHtml(safeStr(value)) + '"></option>';
+    }).join("");
+  }
+
+  function searchSuggestionMatches(value, query) {
+    var q = safeStr(query).trim().toLowerCase();
+    var text = safeStr(value).trim().toLowerCase();
+    if (!q || !text) return false;
+    if (text.indexOf(q) === 0) return true;
+    var parts = text.split(/[\s,./-]+/);
+    for (var i = 0; i < parts.length; i += 1) {
+      if (parts[i] && parts[i].indexOf(q) === 0) return true;
+    }
+    return false;
+  }
+
+  function currentSearchSuggestions(query) {
+    var q = safeStr(query).trim().toLowerCase();
+    if (!q) return [];
+
+    var selectedTeam = normalizedSelectedTeamId();
+    var seen = Object.create(null);
+    var results = [];
+
+    function addSuggestion(value) {
+      var label = safeStr(value).trim();
+      var key = label.toLowerCase();
+      if (!label || seen[key]) return;
+      if (!searchSuggestionMatches(label, q)) return;
+      seen[key] = true;
+      results.push(label);
+    }
+
+    if (state.view === "tag" && !tagBreakdownActive()) {
+      var tagRows = currentTagPlanRows();
+      for (var r = 0; r < tagRows.length; r += 1) {
+        var tagRow = tagRows[r] || {};
+        if (selectedTeam !== ALL_TEAMS_VALUE && pad4(tagRow.franchise_id) !== selectedTeam) continue;
+        if (!tagRowMatchesFilters(tagRow, { skipSearch: true })) continue;
+        addSuggestion(tagRow.player_name);
+      }
+    } else {
+      var teams = scopedTeamsForDisplay();
+      for (var t = 0; t < teams.length; t += 1) {
+        var players = teams[t] && teams[t].players ? teams[t].players : [];
+        for (var p = 0; p < players.length; p += 1) {
+          var player = players[p] || {};
+          if (!matchesFilters(player, { skipSearch: true })) continue;
+          addSuggestion(player.name);
+        }
+      }
+    }
+
+    results.sort(compareText);
+    return results.slice(0, 12);
+  }
+
+  function renderSearchSuggestions() {
+    var suggestions = currentSearchSuggestions(state.search);
+    renderDatalistOptions(els.searchSuggestions, suggestions);
+    renderDatalistOptions(els.browseSearchSuggestions, suggestions);
   }
 
   function groupByPosition(players) {
@@ -5544,7 +5611,7 @@
               '<div class="rwb-toolbar-panel rwb-toolbar-panel-filters">' +
                 '<div class="rwb-toolbar-section-label">Filters</div>' +
                 '<div class="rwb-toolbar-filter-grid">' +
-                  '<label class="rwb-field rwb-field-search"><span>Search</span><input id="rwbSearch" class="rwb-input" type="search" placeholder="Player, team, or contract" autocomplete="off"></label>' +
+                  '<label class="rwb-field rwb-field-search"><span>Search</span><input id="rwbSearch" class="rwb-input" type="search" placeholder="Player, team, or contract" autocomplete="off" list="rwbSearchSuggestions"><datalist id="rwbSearchSuggestions"></datalist></label>' +
                   '<label class="rwb-field"><span>Position</span><select id="rwbFilterPosition" class="rwb-select"><option value="">All Groups</option></select></label>' +
                   '<label class="rwb-field"><span>Contract</span><select id="rwbFilterType" class="rwb-select"><option value="">All Contract Types</option></select></label>' +
                   '<label class="rwb-field"><span>Roster Status</span><select id="rwbFilterRosterStatus" class="rwb-select"><option value="">All</option></select></label>' +
@@ -5587,6 +5654,7 @@
     els.pointsHistoryWeekEnd = null;
     els.tagDisplayYear = null;
     els.search = document.getElementById("rwbSearch");
+    els.searchSuggestions = document.getElementById("rwbSearchSuggestions");
     els.searchField = els.search ? els.search.closest(".rwb-field") : null;
     els.advanced = document.getElementById("rwbAdvancedFilters");
     els.toggleFiltersWrap = document.getElementById("rwbFiltersToggleWrap");
@@ -5693,6 +5761,7 @@
     if (!els.pointsControls) return;
 
     els.browseSearch = null;
+    els.browseSearchSuggestions = null;
     els.pointsMode = null;
     els.pointsHistoryMode = null;
     els.pointsHistoryYearStart = null;
@@ -5712,7 +5781,8 @@
       '<div class="rwb-toolbar-browse-search-wrap">' +
         '<label class="rwb-field rwb-field-search rwb-toolbar-browse-search">' +
           '<span>Player Search</span>' +
-          '<input id="rwbBrowseSearch" class="rwb-input" type="search" placeholder="Search players..." autocomplete="off">' +
+          '<input id="rwbBrowseSearch" class="rwb-input" type="search" placeholder="Search players..." autocomplete="off" list="rwbBrowseSearchSuggestions">' +
+          '<datalist id="rwbBrowseSearchSuggestions"></datalist>' +
         '</label>' +
       '</div>';
 
@@ -5746,6 +5816,7 @@
         renderSelectOptions(els.tagDisplayYear, tagDisplayYearOptions(), tagDisplaySeason());
       }
       els.browseSearch = document.getElementById("rwbBrowseSearch");
+      els.browseSearchSuggestions = document.getElementById("rwbBrowseSearchSuggestions");
       return;
     }
 
@@ -5784,6 +5855,7 @@
       els.pointsHistoryWeekStart = document.getElementById("rwbPointsHistoryWeekStart");
       els.pointsHistoryWeekEnd = document.getElementById("rwbPointsHistoryWeekEnd");
       els.browseSearch = document.getElementById("rwbBrowseSearch");
+      els.browseSearchSuggestions = document.getElementById("rwbBrowseSearchSuggestions");
 
       if (weeklyMode) {
         renderSelectOptions(els.pointsHistorySeason, seasons.map(function (season) {
@@ -5842,6 +5914,7 @@
 
     els.search.value = state.search;
     if (els.browseSearch) els.browseSearch.value = state.search;
+    renderSearchSuggestions();
 
     var sets = buildFilterOptionSets();
     renderSelectOptions(els.filterPosition, sets.positions, state.filterPosition);
@@ -6448,10 +6521,11 @@
     return activePlayer;
   }
 
-  function tagRowMatchesFilters(row) {
+  function tagRowMatchesFilters(row, options) {
+    var opts = options && typeof options === "object" ? options : {};
     if (!row) return false;
 
-    if (searchFilterEnabledForView() && state.search) {
+    if (!opts.skipSearch && searchFilterEnabledForView() && state.search) {
       var hay = [
         row.player_name,
         row.position,
@@ -9745,6 +9819,7 @@
       persistState();
       if (elId === "rwbBrowseSearch") {
         if (els.search && els.search !== el) els.search.value = state.search;
+        renderSearchSuggestions();
         renderTeams();
         return;
       }
