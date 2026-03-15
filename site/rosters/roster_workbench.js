@@ -2451,7 +2451,9 @@
       aav: safeInt(row.aav, 0),
       contract_info: safeStr(row.contract_info),
       prior_aav_week1: safeInt(row.prior_aav_week1 || row.prior_aav, 0),
-      prior_salary_week1: safeInt(row.prior_salary_week1 || row.prior_salary || row.prior_contract_salary, 0)
+      prior_salary_week1: safeInt(row.prior_salary_week1 || row.prior_salary || row.prior_contract_salary, 0),
+      tag_prev_season: safeInt(row.tag_prev_season, 0),
+      tag_prev_season_year: safeInt(row.tag_prev_season_year, 0)
     };
   }
 
@@ -6378,6 +6380,51 @@
     return null;
   }
 
+  function findTagTrackingReferenceRow(franchiseId, playerId) {
+    var fid = pad4(franchiseId);
+    var pid = safeStr(playerId).replace(/\D/g, "");
+    if (!pid) return null;
+
+    var targetSeason = safeStr(state.tagData && state.tagData.cycleSeason) || safeStr(state.ctx && state.ctx.year);
+    var rows = Array.isArray(state.tagTrackingRows) ? state.tagTrackingRows : [];
+    for (var i = 0; i < rows.length; i += 1) {
+      var row = rows[i] || {};
+      if (targetSeason && safeStr(row.source_season) && safeStr(row.source_season) !== targetSeason) continue;
+      if (fid && pad4(row.franchise_id) !== fid) continue;
+      if (safeStr(row.player_id).replace(/\D/g, "") !== pid) continue;
+      return row;
+    }
+
+    return findTagPlanRow(fid, pid);
+  }
+
+  function trackedTaggedPlayerForFranchiseSide(franchiseId, side) {
+    var normalizedSide = normalizeTagSideValue(side) || "OFFENSE";
+    var fid = pad4(franchiseId);
+    if (!fid) return null;
+
+    var rows = Array.isArray(state.tagTrackingRows) ? state.tagTrackingRows : [];
+    var targetSeason = safeStr(state.tagData && state.tagData.cycleSeason) || safeStr(state.ctx && state.ctx.year);
+    for (var i = 0; i < rows.length; i += 1) {
+      var row = rows[i] || {};
+      if (targetSeason && safeStr(row.source_season) && safeStr(row.source_season) !== targetSeason) continue;
+      if (pad4(row.franchise_id) !== fid) continue;
+      if (safeStr(row.contract_status).toUpperCase().indexOf("TAG") === -1) continue;
+      if (safeInt(row.tag_prev_season, 0)) continue;
+      if ((normalizeTagSideValue(row.side) || getTagSideFromPos(row.positional_grouping || row.position) || "OFFENSE") !== normalizedSide) continue;
+      return {
+        id: safeStr(row.player_id).replace(/\D/g, ""),
+        name: safeStr(row.player_name),
+        position: safeStr(row.position),
+        positionGroup: safeStr(row.positional_grouping || row.position),
+        type: "TAG",
+        contractStatus: safeStr(row.contract_status),
+        source: "tracking"
+      };
+    }
+    return null;
+  }
+
   function activeTaggedPlayerForTeamSide(team, side) {
     var players = team && team.players ? team.players : [];
     var normalizedSide = normalizeTagSideValue(side) || "OFFENSE";
@@ -6387,7 +6434,18 @@
       if ((getTagSideFromPos(player.positionGroup || player.position) || "OFFENSE") !== normalizedSide) continue;
       return player;
     }
-    return null;
+    return trackedTaggedPlayerForFranchiseSide(team && team.id, normalizedSide);
+  }
+
+  function conflictingTaggedPlayerForRow(row) {
+    if (!row) return null;
+    var team = findTeamById(row.franchise_id);
+    if (!team) return null;
+    var activePlayer = activeTaggedPlayerForTeamSide(team, row.side);
+    var activePid = safeStr(activePlayer && activePlayer.id).replace(/\D/g, "");
+    var rowPid = safeStr(row.player_id).replace(/\D/g, "");
+    if (!activePid || !rowPid || activePid === rowPid) return null;
+    return activePlayer;
   }
 
   function tagRowMatchesFilters(row) {
@@ -9018,6 +9076,8 @@
       franchise_id: pad4(row && row.franchise_id),
       franchise_name: safeStr(row && row.franchise_name),
       position: safeStr(row && row.position),
+      side: normalizeTagSideValue(row && row.side) || "",
+      tag_side: normalizeTagSideValue(row && row.side) || "",
       salary: salary,
       contract_year: 1,
       contract_status: "TAG",
@@ -9027,8 +9087,52 @@
     };
   }
 
+  function buildUntagContractPayload(player) {
+    var ref = findTagTrackingReferenceRow(player && player.fid, player && player.id);
+    if (!ref) return null;
+
+    var salary = Math.max(0, safeInt(ref.salary, 0));
+    var contractYear = Math.max(1, safeInt(ref.contract_year, 0));
+    var contractStatus = safeStr(ref.contract_status || "WW");
+    var contractInfo = safeStr(ref.contract_info || "CL 1|");
+    if (!contractStatus || !contractInfo) return null;
+
+    return {
+      L: safeStr(state.ctx && state.ctx.leagueId),
+      YEAR: safeStr(state.ctx && state.ctx.year),
+      type: "MANUAL_CONTRACT_UPDATE",
+      leagueId: safeStr(state.ctx && state.ctx.leagueId),
+      year: safeStr(state.ctx && state.ctx.year),
+      player_id: safeStr(player && player.id),
+      player_name: safeStr((player && player.name) || ref.player_name),
+      franchise_id: pad4(player && player.fid),
+      franchise_name: safeStr((player && player.teamName) || ref.franchise_name),
+      position: safeStr((player && player.position) || ref.position),
+      salary: salary,
+      contract_year: contractYear,
+      contract_status: contractStatus,
+      contract_info: contractInfo,
+      submitted_at_utc: new Date().toISOString(),
+      commish_override_flag: viewerCanManageAnyRoster() ? 1 : 0
+    };
+  }
+
   function submitTagPlanSelection(row) {
     if (!row) return Promise.resolve(null);
+    if (state.busyActionKey) {
+      setFlash("error", "Another roster action is already in progress.");
+      return Promise.resolve(null);
+    }
+
+    var conflictingPlayer = conflictingTaggedPlayerForRow(row);
+    if (conflictingPlayer) {
+      setFlash(
+        "error",
+        tagSideLabel(row.side) + " tag already used by " + safeStr(conflictingPlayer.name) + ". Untag that player first."
+      );
+      renderTeams();
+      return Promise.resolve(null);
+    }
 
     var confirmText =
       "Tag " + safeStr(row.player_name) + " for " + formatContractK(effectiveTagSalaryForRow(row)) + "?\n\n" +
@@ -9087,18 +9191,36 @@
 
   function submitUntagPlayer(player) {
     if (!player) return Promise.resolve(null);
-    if (!window.confirm("Untag " + safeStr(player.name) + "?")) return Promise.resolve(null);
+    var restorePayload = buildUntagContractPayload(player);
+    if (!restorePayload) {
+      setFlash("error", "Untag failed: unable to resolve the prior contract state for " + safeStr(player.name) + ".");
+      return Promise.resolve(null);
+    }
+    if (!window.confirm(
+      "Untag " + safeStr(player.name) + "?\n\n" +
+      "Restore: " + safeStr(restorePayload.contract_status) + " at " + formatContractK(restorePayload.salary) + "\n" +
+      "Then remove from roster."
+    )) return Promise.resolve(null);
 
     var side = getTagSideFromPos(player.positionGroup || player.position) || "OFFENSE";
     var submissionKey = tagSubmissionKeyForPlayer(player.fid, player.id, side);
     var moveKey = "untag:" + safeStr(player.id);
+    var contractRestored = false;
 
     state.busyActionKey = moveKey;
     setFlash("success", "Removing tag for " + safeStr(player.name) + "...");
     closePlayerActionModal();
     renderTeams();
 
-    return submitWorkerRosterAction("unload_player", player.fid, player.id).then(function (payload) {
+    return postContractUpdate(
+      resolveWorkerContractUpdateEndpoint() +
+        "?L=" + encodeURIComponent(restorePayload.L) +
+        "&YEAR=" + encodeURIComponent(restorePayload.YEAR),
+      restorePayload
+    ).then(function () {
+      contractRestored = true;
+      return submitWorkerRosterAction("unload_player", player.fid, player.id);
+    }).then(function (payload) {
       removeTagSubmissionFromLocalStore(submissionKey);
       return loadTagPlanData().catch(function () { return null; }).then(function () {
         state.busyActionKey = "";
@@ -9109,7 +9231,11 @@
     }).catch(function (err) {
       state.busyActionKey = "";
       renderTeams();
-      setFlash("error", "Untag failed: " + summarizeError(err));
+      setFlash(
+        "error",
+        "Untag failed: " + summarizeError(err) +
+          (contractRestored ? " Contract was restored before the roster unload failed." : "")
+      );
     });
   }
 
@@ -9589,6 +9715,19 @@
     var el = evt.target;
     if (!el) return;
     var elId = safeStr(el.id);
+
+    function restoreInputFocus(inputId, selectionStart, selectionEnd) {
+      requestAnimationFrame(function () {
+        var next = document.getElementById(inputId);
+        if (!next) return;
+        next.focus();
+        if (selectionStart == null || !next.setSelectionRange) return;
+        var nextStart = Math.min(selectionStart, safeStr(next.value).length);
+        var nextEnd = Math.min(selectionEnd == null ? selectionStart : selectionEnd, safeStr(next.value).length);
+        next.setSelectionRange(nextStart, nextEnd);
+      });
+    }
+
     if (elId === "rwbRestructureYear1" || elId === "rwbRestructureYear2") {
       var sanitized = safeStr(el.value).replace(/[^\d]/g, "");
       var selStart = typeof el.selectionStart === "number" ? el.selectionStart : null;
@@ -9596,22 +9735,22 @@
       if (elId === "rwbRestructureYear1") state.actionModal.restructureYear1 = sanitized;
       if (elId === "rwbRestructureYear2") state.actionModal.restructureYear2 = sanitized;
       renderPlayerActionModal();
-      requestAnimationFrame(function () {
-        var next = document.getElementById(elId);
-        if (!next) return;
-        next.focus();
-        if (selStart == null || !next.setSelectionRange) return;
-        var nextStart = Math.min(selStart, safeStr(next.value).length);
-        var nextEnd = Math.min(selEnd == null ? selStart : selEnd, safeStr(next.value).length);
-        next.setSelectionRange(nextStart, nextEnd);
-      });
+      restoreInputFocus(elId, selStart, selEnd);
       return;
     }
     if (el === els.search || elId === "rwbBrowseSearch") {
+      var searchSelStart = typeof el.selectionStart === "number" ? el.selectionStart : null;
+      var searchSelEnd = typeof el.selectionEnd === "number" ? el.selectionEnd : null;
       state.search = safeStr(el.value || "").toLowerCase();
       persistState();
+      if (elId === "rwbBrowseSearch") {
+        if (els.search && els.search !== el) els.search.value = state.search;
+        renderTeams();
+        return;
+      }
       renderToolbar();
       renderTeams();
+      restoreInputFocus(elId, searchSelStart, searchSelEnd);
     }
   }
 
