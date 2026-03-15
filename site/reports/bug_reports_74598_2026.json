@@ -3,7 +3,7 @@
     "schema_version": 1,
     "league_id": "74598",
     "season": 2026,
-    "updated_at": "2026-03-15T13:07:58.655Z",
+    "updated_at": "2026-03-15T13:07:59.590Z",
     "row_count": 7,
     "source": "worker-bug-reports"
   },
@@ -28,8 +28,8 @@
       "attachments": [],
       "source": "ups-hot-links-widget",
       "status": "OPEN",
-      "thread_id": "",
-      "thread_root_message_id": "",
+      "thread_id": "1482727061604012102",
+      "thread_root_message_id": "1482727061604012102",
       "thread_name": "Bug Module Trade War Room Issue Trade Builder Issue Open Issue",
       "status_updated_at_utc": "2026-03-15T13:07:58.564Z",
       "status_updated_by": "system",
@@ -41,7 +41,7 @@
       "approval_received_at_utc": "",
       "approval_decision_by": "",
       "last_discord_sync_error": "",
-      "last_discord_sync_at_utc": "",
+      "last_discord_sync_at_utc": "2026-03-15T13:07:59.590Z",
       "context": {
         "captured_at_utc": "2026-03-15T13:07:58.492Z",
         "league_id": "74598",
