@@ -298,7 +298,6 @@
     var yearsRemaining = metrics && metrics.years_remaining != null
       ? safeInt(metrics.years_remaining, 0)
       : safeInt(asset.years, 0);
-    if (type.indexOf("tag") !== -1) return false;
     if (info.indexOf("no further extensions") !== -1 || info.indexOf("not eligible for tag or extension") !== -1) {
       return false;
     }
