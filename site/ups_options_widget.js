@@ -778,8 +778,8 @@
       {
         id: "ownersMeeting",
         label: "Annual Owner's Meeting",
-        date: resolveFixedDate("ownersMeeting", seasonYear, now, (y) => makeZonedDate(y, 3, 19, 21, 0)),
-        hint: "March 19, 9:00 PM ET"
+        date: resolveFixedDate("ownersMeeting", seasonYear, now, (y) => makeZonedDate(y, 3, 6, 21, 0)),
+        hint: "March 6, 9:00 PM ET"
       },
       {
         id: "expiringDeadline",
