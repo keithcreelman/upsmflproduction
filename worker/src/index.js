@@ -17466,10 +17466,26 @@ export default {
           }
         }
 
+        const announceTaggedContract =
+          isManualContractUpdate &&
+          safeStr(statusUsed || contractStatus).toUpperCase() === "TAG";
+        const activityContractStatus = announceTaggedContract
+          ? (statusUsed || contractStatus)
+          : (postCheck?.contractStatus || statusUsed || contractStatus);
+        const activityContractInfo = announceTaggedContract
+          ? contractInfo
+          : (postCheck?.contractInfo || contractInfo);
+        const activityContractYear = announceTaggedContract
+          ? contractYear
+          : (postCheck?.contractYear || contractYear);
+        const activitySalary = announceTaggedContract
+          ? salary
+          : (postCheck?.salary || salary);
+
         const activityType = deriveContractActivityType({
           isExtensionSubmission,
           isRestructure,
-          contractStatus: postCheck?.contractStatus || statusUsed || contractStatus,
+          contractStatus: activityContractStatus,
         });
 
         let contractDiscord = {
@@ -17489,11 +17505,11 @@ export default {
               franchiseId: franchiseId,
               franchiseName: franchiseName,
               playerName: playerName,
-              contractInfo: postCheck?.contractInfo || contractInfo,
-              contractYear: postCheck?.contractYear || contractYear,
-              contractStatus: postCheck?.contractStatus || statusUsed || contractStatus,
+              contractInfo: activityContractInfo,
+              contractYear: activityContractYear,
+              contractStatus: activityContractStatus,
               season: year,
-              salary: postCheck?.salary || salary,
+              salary: activitySalary,
               submittedAtUtc: submittedAtUtc || new Date().toISOString(),
             });
           } catch (e) {
@@ -17531,10 +17547,10 @@ export default {
                 position: position,
                 franchise_id: franchiseId,
                 franchise_name: franchiseName,
-                salary: postCheck?.salary || salary,
-                contract_year: postCheck?.contractYear || contractYear,
-                contract_status: postCheck?.contractStatus || statusUsed || contractStatus,
-                contract_info: postCheck?.contractInfo || contractInfo,
+                salary: activitySalary,
+                contract_year: activityContractYear,
+                contract_status: activityContractStatus,
+                contract_info: activityContractInfo,
                 submitted_at_utc: submittedAtUtc || new Date().toISOString(),
                 source: sourceTag,
                 test_flag: 0,

@@ -2547,6 +2547,12 @@
     return source;
   }
 
+  function effectiveTagSubmissionSeason(sourceSeason, fallbackSeason) {
+    var source = safeStr(sourceSeason || fallbackSeason || (state.ctx && state.ctx.year));
+    if (!source) return "";
+    return effectiveTagCycleSeason(source);
+  }
+
   function buildTagContractInfo(row, salary) {
     var amount = Math.max(0, safeInt(salary, 0));
     var guaranteed = Math.round(amount * 0.75);
@@ -2783,9 +2789,10 @@
     var externalSubmissionMap = Object.create(null);
     submissionRows.forEach(function (row) {
       if (!row) return;
-      if (safeStr(row.season) !== safeStr(cycleSeason)) return;
+      var submissionSeason = effectiveTagSubmissionSeason(row.season, sourceSeason);
+      if (safeStr(submissionSeason) !== safeStr(cycleSeason)) return;
       if (leagueId && safeStr(row.league_id) && safeStr(row.league_id) !== leagueId) return;
-      var key = buildTagSelectionKey(row.season, row.franchise_id, row.side);
+      var key = buildTagSelectionKey(submissionSeason, row.franchise_id, row.side);
       externalSubmissionMap[key] = row;
     });
 
@@ -2795,8 +2802,9 @@
       var row = normalizeTagSubmissionEntry(localStore[key]);
       if (!row.player_id || !row.franchise_id) return;
       if (leagueId && safeStr(row.league_id) && safeStr(row.league_id) !== leagueId) return;
-      if (safeStr(row.season) !== safeStr(cycleSeason)) return;
-      localSubmissionMap[key] = row;
+      var submissionSeason = effectiveTagSubmissionSeason(row.season, cycleSeason);
+      if (safeStr(submissionSeason) !== safeStr(cycleSeason)) return;
+      localSubmissionMap[buildTagSelectionKey(submissionSeason, row.franchise_id, row.side)] = row;
     });
 
     var merged = Object.create(null);
