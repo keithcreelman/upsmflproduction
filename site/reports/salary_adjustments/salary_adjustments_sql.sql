@@ -40,7 +40,7 @@ SELECT
   COALESCE(a.player_id, "") AS player_id,
   COALESCE(NULLIF(a.player_name, ""), NULLIF(s.player_name, ""), NULLIF(dp.player_name, ""), "") AS player_name,
   COALESCE(a.datetime_et, TRIM(COALESCE(s.event_date, "") || ' ' || COALESCE(s.event_time, "")), "") AS transaction_datetime_et,
-  COALESCE(s.event_source, "") AS event_source,
+  COALESCE(NULLIF(s.event_source, ""), CASE WHEN COALESCE(a.method, "") <> "" THEN 'ADDDROP:' || a.method ELSE "" END, "") AS event_source,
   COALESCE(a.method, "") AS drop_method,
   COALESCE(NULLIF(s.prior_salary, 0), s.salary, 0) AS pre_drop_salary,
   COALESCE(NULLIF(s.prior_contract_length, 0), s.contract_length, 0) AS pre_drop_contract_length,
@@ -56,7 +56,7 @@ SELECT
   ) AS pre_drop_contract_info,
   COALESCE(NULLIF(s.prior_year_values_json, ""), NULLIF(s.year_values_json, ""), "{}") AS pre_drop_year_values_json
 FROM transactions_adddrop a
-JOIN contract_history_transaction_snapshots s
+LEFT JOIN contract_history_transaction_snapshots s
   ON s.season = a.season
  AND s.player_id = a.player_id
  AND COALESCE(s.franchise_id, "") = COALESCE(a.franchise_id, "")

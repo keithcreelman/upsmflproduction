@@ -1,5 +1,5 @@
 {
-  "generated_at_utc": "2026-03-12T23:45:26.918947+00:00",
+  "generated_at_utc": "2026-03-13T16:53:46.100587+00:00",
   "meta": {
     "report_id": "salary-adjustments",
     "status_values": [
@@ -18,131 +18,160 @@
     ],
     "notes": [
       "Traded salary rows are pulled directly from normalized accepted trade history.",
-      "Drop penalty rows are candidate adjustments derived from add/drop events plus the pre-drop contract snapshot.",
-      "Drop adjustments stay in the source season before the first FreeAgent auction opens and roll into the following season on or after that auction start."
-    ]
+      "Drop penalty rows reconcile against the live salaryAdjustments feed when available and otherwise fall back to inferred contract lineage.",
+      "Drop adjustments stay in the source season before the first FreeAgent auction opens and roll into the following season on or after that auction start.",
+      "Manual special-cases input can flag cap-free retirement or jail-bird exemptions and suppress import output for those rows."
+    ],
+    "salary_adjustments_feed_source": "https://www48.myfantasyleague.com/2026/export?TYPE=salaryAdjustments&L=74598&APIKEY=REDACTED&JSON=0",
+    "salary_adjustments_feed_season": 2026,
+    "salary_adjustments_feed_export_seasons": [
+      2025,
+      2024,
+      2023,
+      2022,
+      2021,
+      2020,
+      2019,
+      2018,
+      2017
+    ],
+    "salary_adjustments_feed_error": "https://www48.myfantasyleague.com/2016/export?TYPE=salaryAdjustments&L=74598&APIKEY=aRBv1sCXvuWpx0OmP13EaDoeFbox&JSON=0: Unexpected salaryAdjustments payload root: error; https://www48.myfantasyleague.com/2014/export?TYPE=salaryAdjustments&L=74598&APIKEY=aRBv1sCXvuWpx0OmP13EaDoeFbox&JSON=0: Unexpected salaryAdjustments payload root: error; https://www48.myfantasyleague.com/2013/export?TYPE=salaryAdjustments&L=74598&APIKEY=aRBv1sCXvuWpx0OmP13EaDoeFbox&JSON=0: Unexpected salaryAdjustments payload root: error; https://www48.myfantasyleague.com/2012/export?TYPE=salaryAdjustments&L=74598&APIKEY=aRBv1sCXvuWpx0OmP13EaDoeFbox&JSON=0: Unexpected salaryAdjustments payload root: error; https://www48.myfantasyleague.com/2011/export?TYPE=salaryAdjustments&L=74598&APIKEY=aRBv1sCXvuWpx0OmP13EaDoeFbox&JSON=0: Unexpected salaryAdjustments payload root: error",
+    "salary_adjustments_feed_row_count": 5994,
+    "salary_adjustments_special_cases_source": "pipelines/etl/inputs/salary_adjustments_special_cases.json",
+    "salary_adjustments_special_cases_count": 1
   },
   "seasons": [
     {
       "season": 2026,
       "path": "./salary_adjustments_2026.json",
-      "row_count": 4,
-      "charges_total": 14650.0,
+      "row_count": 32,
+      "charges_total": 63400.0,
       "relief_total": 0,
-      "net_total": 14650.0,
+      "net_total": 63400.0,
       "recorded_count": 0,
-      "review_required_count": 0,
-      "candidate_count": 4
+      "review_required_count": 1,
+      "candidate_count": 31,
+      "import_eligible_count": 31
     },
     {
       "season": 2025,
       "path": "./salary_adjustments_2025.json",
-      "row_count": 49,
-      "charges_total": 475750.0,
+      "row_count": 126,
+      "charges_total": 758050.0,
       "relief_total": 274000.0,
-      "net_total": 201750.0,
+      "net_total": 484050.0,
       "recorded_count": 40,
-      "review_required_count": 4,
-      "candidate_count": 5
+      "review_required_count": 78,
+      "candidate_count": 8,
+      "import_eligible_count": 48
     },
     {
       "season": 2024,
       "path": "./salary_adjustments_2024.json",
-      "row_count": 42,
-      "charges_total": 456050.0,
+      "row_count": 100,
+      "charges_total": 560750.0,
       "relief_total": 304000.0,
-      "net_total": 152050.0,
+      "net_total": 256750.0,
       "recorded_count": 38,
-      "review_required_count": 0,
-      "candidate_count": 4
+      "review_required_count": 7,
+      "candidate_count": 55,
+      "import_eligible_count": 93
     },
     {
       "season": 2023,
       "path": "./salary_adjustments_2023.json",
-      "row_count": 63,
-      "charges_total": 406100.0,
+      "row_count": 135,
+      "charges_total": 835750.0,
       "relief_total": 353000.0,
-      "net_total": 53100.0,
+      "net_total": 482750.0,
       "recorded_count": 54,
       "review_required_count": 0,
-      "candidate_count": 9
+      "candidate_count": 81,
+      "import_eligible_count": 135
     },
     {
       "season": 2022,
       "path": "./salary_adjustments_2022.json",
-      "row_count": 63,
-      "charges_total": 540000.0,
+      "row_count": 108,
+      "charges_total": 546700.0,
       "relief_total": 359000.0,
-      "net_total": 181000.0,
+      "net_total": 187700.0,
       "recorded_count": 56,
-      "review_required_count": 0,
-      "candidate_count": 7
+      "review_required_count": 2,
+      "candidate_count": 50,
+      "import_eligible_count": 106
     },
     {
       "season": 2021,
       "path": "./salary_adjustments_2021.json",
-      "row_count": 44,
-      "charges_total": 257800.0,
+      "row_count": 73,
+      "charges_total": 578500.0,
       "relief_total": 254000.0,
-      "net_total": 3800.0,
+      "net_total": 324500.0,
       "recorded_count": 42,
-      "review_required_count": 0,
-      "candidate_count": 2
+      "review_required_count": 1,
+      "candidate_count": 30,
+      "import_eligible_count": 72
     },
     {
       "season": 2020,
       "path": "./salary_adjustments_2020.json",
-      "row_count": 29,
-      "charges_total": 151500.0,
+      "row_count": 57,
+      "charges_total": 359750.0,
       "relief_total": 148000.0,
-      "net_total": 3500.0,
+      "net_total": 211750.0,
       "recorded_count": 26,
-      "review_required_count": 0,
-      "candidate_count": 3
+      "review_required_count": 5,
+      "candidate_count": 26,
+      "import_eligible_count": 52
     },
     {
       "season": 2019,
       "path": "./salary_adjustments_2019.json",
-      "row_count": 1,
-      "charges_total": 1750.0,
+      "row_count": 16,
+      "charges_total": 65000.0,
       "relief_total": 0,
-      "net_total": 1750.0,
+      "net_total": 65000.0,
       "recorded_count": 0,
-      "review_required_count": 0,
-      "candidate_count": 1
+      "review_required_count": 4,
+      "candidate_count": 12,
+      "import_eligible_count": 12
     },
     {
       "season": 2018,
       "path": "./salary_adjustments_2018.json",
       "row_count": 6,
-      "charges_total": 52000.0,
+      "charges_total": 68000.0,
       "relief_total": 0,
-      "net_total": 52000.0,
+      "net_total": 68000.0,
       "recorded_count": 0,
-      "review_required_count": 0,
-      "candidate_count": 6
+      "review_required_count": 6,
+      "candidate_count": 0,
+      "import_eligible_count": 0
     },
     {
       "season": 2017,
       "path": "./salary_adjustments_2017.json",
       "row_count": 2,
-      "charges_total": 10250.0,
+      "charges_total": 44250.0,
       "relief_total": 0,
-      "net_total": 10250.0,
+      "net_total": 44250.0,
       "recorded_count": 0,
-      "review_required_count": 0,
-      "candidate_count": 2
+      "review_required_count": 2,
+      "candidate_count": 0,
+      "import_eligible_count": 0
     },
     {
       "season": 2012,
       "path": "./salary_adjustments_2012.json",
       "row_count": 4,
-      "charges_total": 9300.0,
+      "charges_total": 19750.0,
       "relief_total": 0,
-      "net_total": 9300.0,
+      "net_total": 19750.0,
       "recorded_count": 0,
       "review_required_count": 0,
-      "candidate_count": 4
+      "candidate_count": 4,
+      "import_eligible_count": 4
     }
   ]
 }

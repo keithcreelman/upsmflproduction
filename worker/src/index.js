@@ -5634,6 +5634,192 @@ export default {
         return out;
       };
 
+      const TAG_OFFENSE_POSITIONS = new Set(["QB", "RB", "WR", "TE"]);
+
+      const normalizeTagSideForCompare = (value) => {
+        const raw = safeStr(value).toUpperCase();
+        if (raw === "OFFENSE" || raw === "OFF") return "OFFENSE";
+        if (raw === "DEFENSE" || raw === "DEF" || raw === "IDP" || raw === "IDP_K") return "DEFENSE";
+        return "";
+      };
+
+      const tagSideFromPosition = (position) => {
+        const pos = safeStr(position).toUpperCase();
+        if (!pos) return "";
+        return TAG_OFFENSE_POSITIONS.has(pos) ? "OFFENSE" : "DEFENSE";
+      };
+
+      const tagSideLabelForRule = (side) => {
+        const normalized = normalizeTagSideForCompare(side);
+        if (normalized === "OFFENSE") return "Offense";
+        if (normalized === "DEFENSE") return "Defense";
+        return "Unknown";
+      };
+
+      const contractStatusLooksTagged = (value) =>
+        safeStr(value).toUpperCase().includes("TAG");
+
+      const TAG_TRACKING_FALLBACK_URL =
+        "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/ccc/tag_tracking.json";
+
+      const parseTagTrackingRowsForValidation = (payload, season, leagueId) => {
+        const rows = Array.isArray(payload)
+          ? payload
+          : Array.isArray(payload?.rows)
+          ? payload.rows
+          : Array.isArray(payload?.tag_tracking)
+          ? payload.tag_tracking
+          : [];
+        return rows
+          .map((row) => ({
+            season: safeStr(row?.season || row?.year),
+            league_id: safeStr(row?.league_id || row?.leagueId || row?.L),
+            franchise_id: padFranchiseId(row?.franchise_id || row?.franchiseId || ""),
+            player_id: safeStr(row?.player_id || row?.playerId || row?.id).replace(/\D/g, ""),
+            player_name: safeStr(row?.player_name || row?.playerName || row?.name),
+            position: safeStr(row?.position || row?.pos).toUpperCase(),
+            positional_grouping: safeStr(
+              row?.positional_grouping || row?.positionalGrouping || row?.pos_group
+            ).toUpperCase(),
+            tag_side: normalizeTagSideForCompare(row?.tag_side || row?.side),
+            contract_status: safeStr(row?.contract_status || row?.contractStatus),
+          }))
+          .filter((row) => {
+            if (!row.player_id || !row.franchise_id) return false;
+            if (safeStr(season) && row.season && row.season !== safeStr(season)) return false;
+            if (safeStr(leagueId) && row.league_id && row.league_id !== safeStr(leagueId)) return false;
+            return true;
+          });
+      };
+
+      const fetchFranchiseTaggedPlayersBySide = async (cookieHeaderOverride, season, leagueId, franchiseId) => {
+        const [rostersRes, salariesRes, trackingPayload] = await Promise.all([
+          mflExportJsonForCookie(
+            cookieHeaderOverride,
+            season,
+            leagueId,
+            "rosters",
+            {},
+            { useCookie: true }
+          ),
+          mflExportJsonForCookie(
+            cookieHeaderOverride,
+            season,
+            leagueId,
+            "salaries",
+            {},
+            { useCookie: true }
+          ),
+          fetchJson(TAG_TRACKING_FALLBACK_URL, {}),
+        ]);
+        if (!rostersRes.ok) {
+          return {
+            ok: false,
+            error: "existing_tag_rosters_export_failed",
+            details: rostersRes,
+          };
+        }
+        if (!salariesRes.ok) {
+          return {
+            ok: false,
+            error: "existing_tag_salaries_export_failed",
+            details: salariesRes,
+          };
+        }
+
+        const byFranchise = rosterRowsByFranchiseFromRostersPayload(rostersRes.data);
+        const rosterPlayerFranchise = {};
+        for (const [fid, rows] of Object.entries(byFranchise)) {
+          for (const row of rows || []) {
+            const pid = String(row?.player_id || "").replace(/\D/g, "");
+            if (!pid) continue;
+            rosterPlayerFranchise[pid] = fid;
+          }
+        }
+
+        const trackingRows = parseTagTrackingRowsForValidation(trackingPayload, season, leagueId);
+        const trackingByPlayerId = {};
+        for (const row of trackingRows) {
+          if (!row.player_id || trackingByPlayerId[row.player_id]) continue;
+          trackingByPlayerId[row.player_id] = row;
+        }
+
+        const salaryPlayers = Array.isArray(salariesRes.data?.salaries?.leagueUnit?.player)
+          ? salariesRes.data.salaries.leagueUnit.player
+          : [];
+        const taggedSalaryRows = salaryPlayers.filter((row) =>
+          contractStatusLooksTagged(row?.contractStatus || row?.contract_status) &&
+          safeInt(row?.contractYear || row?.contract_year, 0) > 0
+        );
+        if (!taggedSalaryRows.length) {
+          return {
+            ok: true,
+            bySide: { OFFENSE: [], DEFENSE: [] },
+            unresolved: [],
+          };
+        }
+
+        const taggedIds = Array.from(
+          new Set(
+            taggedSalaryRows
+              .map((row) => String(row?.id || row?.player_id || "").replace(/\D/g, ""))
+              .filter(Boolean)
+          )
+        );
+        let playersById = {};
+        if (taggedIds.length) {
+          const playersRes = await mflExportJsonForCookie(
+            cookieHeaderOverride,
+            season,
+            leagueId,
+            "players",
+            { P: taggedIds.join(",") },
+            { useCookie: true }
+          );
+          if (playersRes.ok) {
+            playersById = parsePlayersExport(playersRes.data);
+          }
+        }
+
+        const bySide = { OFFENSE: [], DEFENSE: [] };
+        const unresolved = [];
+        for (const salaryRow of taggedSalaryRows) {
+          const playerId = String(salaryRow?.id || salaryRow?.player_id || "").replace(/\D/g, "");
+          if (!playerId) continue;
+          const trackingRow = trackingByPlayerId[playerId] || {};
+          const resolvedFranchiseId = rosterPlayerFranchise[playerId] || trackingRow.franchise_id || "";
+          if (resolvedFranchiseId !== franchiseId) continue;
+
+          const playerInfo = playersById[playerId] || {};
+          const position = safeStr(
+            playerInfo.position || trackingRow.position || trackingRow.positional_grouping
+          ).toUpperCase();
+          const side =
+            normalizeTagSideForCompare(trackingRow.tag_side) ||
+            tagSideFromPosition(position);
+          const item = {
+            player_id: playerId,
+            player_name: safeStr(playerInfo.player_name || trackingRow.player_name),
+            position,
+            contract_status: safeStr(
+              salaryRow?.contractStatus || salaryRow?.contract_status || trackingRow.contract_status
+            ),
+            franchise_id: resolvedFranchiseId,
+          };
+          if (!side) {
+            unresolved.push(item);
+            continue;
+          }
+          bySide[side].push({ ...item, side });
+        }
+
+        return {
+          ok: true,
+          bySide,
+          unresolved,
+        };
+      };
+
       const buildSalaryImportXmlFromRows = (rows) => {
         const parts = ["<salaries>", '  <leagueUnit unit="LEAGUE">'];
         for (const row of rows || []) {
@@ -17192,6 +17378,67 @@ export default {
               { reason: "Only league admin can perform manual contract updates" },
               403
             );
+          }
+        }
+
+        const requestedTagSide = normalizeTagSideForCompare(
+          body.tag_side || body.tagSide || body.side || tagSideFromPosition(position)
+        );
+
+        if (isManualContractUpdate && contractStatusLooksTagged(requestedContractStatus)) {
+          if (!franchiseId) {
+            return mutationResponse("validation_fail", submissionId, {
+              reason: "franchise_id is required for franchise tag updates",
+            }, 400);
+          }
+          if (!requestedTagSide) {
+            return mutationResponse("validation_fail", submissionId, {
+              reason: "Unable to determine tag side for requested player",
+              player_id: playerId,
+              position: position,
+            }, 400);
+          }
+
+          const commishCookieHeader = await establishCommishCookieHeader(cookieHeader, year, leagueId);
+          if (!safeStr(commishCookieHeader)) {
+            return mutationResponse("validation_fail", submissionId, {
+              reason: "Unable to verify existing franchise tags for this request",
+              requested_tag_side: requestedTagSide,
+            }, 409);
+          }
+
+          const existingTagState = await fetchFranchiseTaggedPlayersBySide(
+            commishCookieHeader,
+            year,
+            leagueId,
+            franchiseId
+          );
+          if (!existingTagState.ok) {
+            return mutationResponse("validation_fail", submissionId, {
+              reason: "Unable to verify existing franchise tags for this request",
+              requested_tag_side: requestedTagSide,
+              validation: existingTagState,
+            }, 409);
+          }
+          if (Array.isArray(existingTagState.unresolved) && existingTagState.unresolved.length) {
+            return mutationResponse("validation_fail", submissionId, {
+              reason: "Unable to determine tag side for one or more already-tagged players on this franchise",
+              requested_tag_side: requestedTagSide,
+              unresolved_players: existingTagState.unresolved,
+            }, 409);
+          }
+
+          const conflicts = (existingTagState.bySide[requestedTagSide] || []).filter(
+            (row) => safeStr(row?.player_id) !== playerId
+          );
+          if (conflicts.length) {
+            return mutationResponse("validation_fail", submissionId, {
+              reason:
+                `${tagSideLabelForRule(requestedTagSide)} tag already used by ` +
+                conflicts.map((row) => safeStr(row?.player_name) || safeStr(row?.player_id)).join(", "),
+              requested_tag_side: requestedTagSide,
+              conflicting_players: conflicts,
+            }, 409);
           }
         }
 

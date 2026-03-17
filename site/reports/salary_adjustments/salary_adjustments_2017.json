@@ -2,12 +2,13 @@
   "meta": {
     "season": 2017,
     "row_count": 2,
-    "charges_total": 10250.0,
+    "charges_total": 44250.0,
     "relief_total": 0,
-    "net_total": 10250.0,
+    "net_total": 44250.0,
     "recorded_count": 0,
-    "review_required_count": 0,
-    "candidate_count": 2
+    "review_required_count": 2,
+    "candidate_count": 0,
+    "import_eligible_count": 0
   },
   "filters": {
     "franchises": [
@@ -27,7 +28,7 @@
       2017
     ],
     "statuses": [
-      "candidate"
+      "review_required"
     ],
     "players": [
       {
@@ -52,10 +53,10 @@
       "player_id": "10273",
       "player_name": "Newton, Cam",
       "transaction_datetime_et": "2017-03-04 10:08:52",
-      "amount": 4250,
+      "amount": 38250,
       "direction": "charge",
-      "description": "Candidate drop penalty from FREE_AGENT. Projected current-rule penalty: 75% of TCV is 38,250; earned to date is 34,000.",
-      "status": "candidate",
+      "description": "Candidate drop penalty from FREE_AGENT. Projected current-rule penalty: 75% of TCV is 38,250; earned to date is 0.",
+      "status": "review_required",
       "status_detail": "Projected from add/drop transaction history plus the pre-drop contract snapshot.",
       "source_group_id": "",
       "event_source": "ADDDROP:FREE_AGENT",
@@ -66,10 +67,27 @@
       "pre_drop_contract_year": 3,
       "pre_drop_contract_status": "STANDARD",
       "pre_drop_contract_info": "CL 3| TCV 51K| AAV 17K",
+      "contract_basis_source": "snapshot_fallback",
+      "marker_id": "",
+      "marker_feed_export_season": 0,
+      "marker_match_status": "missing",
+      "marker_description": "",
+      "marker_created_at_et": "",
+      "reconciliation_status": "unmatched_marker",
+      "reconciliation_note": "No live salaryAdjustments marker matched this drop; inference remains unreconciled.",
+      "posted_team_season_cap_penalty": null,
+      "computed_team_season_cap_penalty": 38250,
+      "team_season_cap_penalty_delta": null,
       "original_guarantee": 38250,
-      "total_salary_earned": 34000,
-      "penalty_amount": 4250,
-      "penalty_rule": "75% of TCV (38,250) minus earned to date (34,000)",
+      "total_salary_earned": 0,
+      "penalty_amount": 38250,
+      "penalty_rule": "75% of TCV (38,250) minus earned to date (0)",
+      "pre_exemption_penalty_amount": 38250,
+      "cap_free_exemption_flag": false,
+      "cap_free_exemption_type": "",
+      "cap_free_exemption_note": "",
+      "cap_free_exemption_source": "",
+      "import_eligible": false,
       "candidate_rule": "guarantee_minus_earned"
     },
     {
@@ -86,7 +104,7 @@
       "amount": 6000,
       "direction": "charge",
       "description": "Candidate drop penalty from FREE_AGENT. Projected current-rule penalty: 75% of TCV is 6,000; earned to date is 0.",
-      "status": "candidate",
+      "status": "review_required",
       "status_detail": "Projected from add/drop transaction history plus the pre-drop contract snapshot.",
       "source_group_id": "",
       "event_source": "ADDDROP:FREE_AGENT",
@@ -97,10 +115,27 @@
       "pre_drop_contract_year": 2,
       "pre_drop_contract_status": "RESTRUCTURE",
       "pre_drop_contract_info": "Ext UW '18 [7K, 1K]",
+      "contract_basis_source": "snapshot_fallback",
+      "marker_id": "",
+      "marker_feed_export_season": 0,
+      "marker_match_status": "missing",
+      "marker_description": "",
+      "marker_created_at_et": "",
+      "reconciliation_status": "unmatched_marker",
+      "reconciliation_note": "No live salaryAdjustments marker matched this drop; inference remains unreconciled.",
+      "posted_team_season_cap_penalty": null,
+      "computed_team_season_cap_penalty": 6000,
+      "team_season_cap_penalty_delta": null,
       "original_guarantee": 6000,
       "total_salary_earned": 0,
       "penalty_amount": 6000,
       "penalty_rule": "75% of TCV (6,000) minus earned to date (0)",
+      "pre_exemption_penalty_amount": 6000,
+      "cap_free_exemption_flag": false,
+      "cap_free_exemption_type": "",
+      "cap_free_exemption_note": "",
+      "cap_free_exemption_source": "",
+      "import_eligible": false,
       "candidate_rule": "guarantee_minus_earned"
     }
   ]

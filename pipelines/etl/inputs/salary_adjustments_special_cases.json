@@ -1,0 +1,15 @@
+{
+  "rows": [
+    {
+      "source_id": "adddrop2025_176.1",
+      "source_season": 2025,
+      "adjustment_season": 2026,
+      "franchise_id": "0003",
+      "player_id": "12175",
+      "player_name": "Cooper, Amari",
+      "exemption_type": "retired",
+      "cap_penalty_exempt": true,
+      "note": "Manual retired-player exemption review. This drop should stay visible but should not generate an importable cap-penalty charge."
+    }
+  ]
+}

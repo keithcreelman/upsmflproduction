@@ -15,6 +15,8 @@ import xml.etree.ElementTree as ET
 from collections import defaultdict
 from pathlib import Path
 
+from salary_adjustments_feed import fetch_salary_adjustments, redact_feed_source
+
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 ETL_ROOT = SCRIPT_DIR.parent
@@ -658,50 +660,6 @@ def fetch_adp_with_fallback(args, roster_rows=None):
         "adp_source_kind": "mfl",
         "sf_already_normalized": 0,
         "sleeper_resolution_rows": [],
-    }
-
-
-def parse_drop_salary_from_adjustment_desc(description):
-    s = str(description or "")
-    m = re.search(r"Salary:\s*\$([0-9,]+)", s, flags=re.IGNORECASE)
-    if not m:
-        return None
-    return coerce_int(m.group(1).replace(",", ""))
-
-
-def fetch_salary_adjustments(url, timeout=30):
-    req = urllib.request.Request(
-        str(url),
-        headers={
-            "User-Agent": "codex-early-projection/1.0",
-            "Accept": "application/xml,text/xml,*/*",
-        },
-    )
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
-        payload = resp.read()
-    root = ET.fromstring(payload)
-    if root.tag.lower() != "salaryadjustments":
-        raise RuntimeError(f"Unexpected salaryAdjustments payload root: {root.tag}")
-
-    rows = []
-    for n in root.findall("salaryAdjustment"):
-        raw_amt = coerce_float(n.attrib.get("amount"))
-        amt = float(raw_amt or 0.0)
-        rows.append(
-            {
-                "id": str(n.attrib.get("id") or "").strip(),
-                "franchise_id": str(n.attrib.get("franchise_id") or "").strip(),
-                "amount": amt,
-                "description": str(n.attrib.get("description") or ""),
-                "timestamp": coerce_int(n.attrib.get("timestamp")),
-                "drop_salary_in_desc": parse_drop_salary_from_adjustment_desc(n.attrib.get("description") or ""),
-            }
-        )
-
-    return {
-        "source_url": str(url),
-        "rows": rows,
-        "fetched_at_utc": now_utc(),
     }
 
 
@@ -2270,7 +2228,7 @@ def main():
                 "salary_adjustment_volume": round(float(salary_adjustment_volume), 2),
                 "cut_bait_rate": round(float(cut_bait_rate), 6),
                 "estimated_cut_bait_relief": round(float(estimated_cut_bait_relief), 2),
-                "salary_adjustments_feed_url": args.salary_adjustments_url,
+                "salary_adjustments_feed_url": redact_feed_source(args.salary_adjustments_url),
                 "salary_adjustments_feed_rows_total": salary_adjustments_feed_summary.get("rows_total"),
                 "salary_adjustments_feed_rows_real_amount": salary_adjustments_feed_summary.get("rows_real_amount"),
                 "salary_adjustments_feed_rows_marker_amount": salary_adjustments_feed_summary.get("rows_marker_amount"),
