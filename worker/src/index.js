@@ -9261,6 +9261,92 @@ export default {
         };
       };
 
+      const sendDiscordContractActivityDm = async ({
+        activityType,
+        leagueId,
+        franchiseId,
+        franchiseName,
+        creditedFranchiseId,
+        creditedFranchiseName,
+        playerName,
+        contractInfo,
+        contractYear,
+        contractStatus,
+        season,
+        salary,
+        submittedAtUtc,
+        usageLabel,
+        noteText,
+        tradePartnerName,
+        dmUserIds,
+      }) => {
+        const ids = Array.isArray(dmUserIds)
+          ? dmUserIds.map((value) => safeStr(value).replace(/\D/g, "")).filter(Boolean)
+          : parseDiscordUserIds(dmUserIds || env.DISCORD_DM_USER_IDS || "");
+        if (!ids.length) {
+          return {
+            ok: false,
+            skipped: false,
+            status: 0,
+            error: "missing_discord_dm_user_ids",
+            delivery_target: "dm",
+            dm_results: [],
+            channel_id: "",
+            message_id: "",
+          };
+        }
+
+        const franchiseMeta = await loadContractDiscordFranchiseMeta({
+          season,
+          leagueId,
+          franchiseId: padFranchiseId(creditedFranchiseId || franchiseId),
+        });
+        const gif = await pickContractActivityGifUrl({ activityType, playerName });
+        const embed = buildContractActivityDiscordEmbed({
+          activityType,
+          franchiseName: safeStr(franchiseName || franchiseMeta.franchise_name),
+          creditedFranchiseName,
+          playerName,
+          contractInfo,
+          contractYear,
+          contractStatus,
+          season,
+          salary,
+          submittedAtUtc,
+          franchiseIconUrl: safeStr(franchiseMeta.icon_url),
+          gifUrl: safeStr(gif.gif_url || ""),
+          usageLabel,
+          noteText,
+          tradePartnerName,
+        });
+        const dmResults = await sendDiscordDmEmbedsToUsers({
+          userIds: ids,
+          content: "",
+          embeds: [embed],
+        });
+        const first = dmResults[0] || {};
+        const allOk = dmResults.length > 0 && dmResults.every((row) => !!row.ok);
+        return {
+          ok: allOk,
+          skipped: false,
+          status: safeInt(first.status, allOk ? 200 : 0),
+          error: allOk
+            ? ""
+            : dmResults
+                .map((row) => safeStr(row && row.error))
+                .filter(Boolean)
+                .join("; ")
+                .slice(0, 600),
+          delivery_target: "dm",
+          channel_id: safeStr(first.channel_id || ""),
+          message_id: safeStr(first.message_id || ""),
+          gif_url: safeStr(gif.gif_url || ""),
+          gif_query: safeStr(gif.query || ""),
+          franchise_icon_url: safeStr(franchiseMeta.icon_url || ""),
+          dm_results: dmResults,
+        };
+      };
+
       const editDiscordContractActivity = async ({
         activityType,
         leagueId,
@@ -16162,6 +16248,7 @@ export default {
         const deliveryTargetRaw = safeStr(body.delivery_target || body.deliveryTarget || "").toLowerCase();
         const forceTestOnly = deliveryTargetRaw === "test";
         const forcePrimaryOnly = deliveryTargetRaw === "primary";
+        const dmUserIds = body.dm_user_ids || body.dmUserIds || env.DISCORD_DM_USER_IDS || "";
 
         const missingFields = [];
         if (!playerName) missingFields.push("player_name");
@@ -16177,28 +16264,48 @@ export default {
           });
         }
 
-        const notify = await sendDiscordContractActivity({
-          activityType,
-          leagueId,
-          franchiseId,
-          franchiseName,
-          creditedFranchiseId,
-          creditedFranchiseName,
-          playerName,
-          contractInfo,
-          contractYear,
-          contractStatus,
-          season,
-          salary,
-          submittedAtUtc,
-          forceTestOnly,
-          forcePrimaryOnly,
-          channelIdOverride,
-          pinMessage,
-          usageLabel,
-          noteText,
-          tradePartnerName,
-        });
+        const notify = deliveryTargetRaw === "dm"
+          ? await sendDiscordContractActivityDm({
+              activityType,
+              leagueId,
+              franchiseId,
+              franchiseName,
+              creditedFranchiseId,
+              creditedFranchiseName,
+              playerName,
+              contractInfo,
+              contractYear,
+              contractStatus,
+              season,
+              salary,
+              submittedAtUtc,
+              usageLabel,
+              noteText,
+              tradePartnerName,
+              dmUserIds,
+            })
+          : await sendDiscordContractActivity({
+              activityType,
+              leagueId,
+              franchiseId,
+              franchiseName,
+              creditedFranchiseId,
+              creditedFranchiseName,
+              playerName,
+              contractInfo,
+              contractYear,
+              contractStatus,
+              season,
+              salary,
+              submittedAtUtc,
+              forceTestOnly,
+              forcePrimaryOnly,
+              channelIdOverride,
+              pinMessage,
+              usageLabel,
+              noteText,
+              tradePartnerName,
+            });
         return jsonOut(notify && notify.ok ? 200 : 502, {
           ok: !!(notify && notify.ok),
           delivery_target: safeStr((notify && notify.delivery_target) || deliveryTargetRaw || ""),
