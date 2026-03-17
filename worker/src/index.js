@@ -8866,13 +8866,7 @@ export default {
       };
 
       const shouldAnnounceContractActivity = ({ activityType, season }) => {
-        if (normalizeContractActivityKind(activityType, "") !== "tag") {
-          return { ok: true, skipped: false, reason: "" };
-        }
-        if (hasTagDeadlinePassed(season)) {
-          return { ok: true, skipped: false, reason: "" };
-        }
-        return { ok: false, skipped: true, reason: "tag_deadline_not_passed" };
+        return { ok: true, skipped: false, reason: "" };
       };
 
       const contractGifQueries = ({ activityType, playerName }) => {
@@ -9167,6 +9161,33 @@ export default {
             gif_url: "",
             gif_query: "",
           };
+        }
+        const kind = normalizeContractActivityKind(activityType, contractStatus);
+        const preDeadlineTagDmOnly =
+          kind === "tag" &&
+          !forceTestOnly &&
+          !forcePrimaryOnly &&
+          !safeStr(channelIdOverride) &&
+          !hasTagDeadlinePassed(season);
+        if (preDeadlineTagDmOnly) {
+          return await sendDiscordContractActivityDm({
+            activityType,
+            leagueId,
+            franchiseId,
+            franchiseName,
+            creditedFranchiseId,
+            creditedFranchiseName,
+            playerName,
+            contractInfo,
+            contractYear,
+            contractStatus,
+            season,
+            salary,
+            submittedAtUtc,
+            usageLabel,
+            noteText,
+            tradePartnerName,
+          });
         }
         const botToken = contractDiscordBotToken();
         const overrideChannelId = safeStr(channelIdOverride).replace(/\D/g, "");
