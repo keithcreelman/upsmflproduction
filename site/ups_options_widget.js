@@ -51,7 +51,7 @@
   const EVENT_OVERRIDES = {
     "2026": {
       seasonStart: { month: 3, day: 1, hour: 0, minute: 0 },
-      ownersMeeting: { month: 3, day: 19, hour: 21, minute: 0 },
+      ownersMeeting: { month: 3, day: 26, hour: 21, minute: 0 },
       expiringDeadline: { month: 5, day: 21, hour: 12, minute: 0 },
       rookieDraft: { month: 5, day: 24, hour: 18, minute: 30 },
       cutDeadline: { month: 7, day: 29, hour: 12, minute: 0 },
@@ -778,8 +778,8 @@
       {
         id: "ownersMeeting",
         label: "Annual Owner's Meeting",
-        date: resolveFixedDate("ownersMeeting", seasonYear, now, (y) => makeZonedDate(y, 3, 6, 21, 0)),
-        hint: "March 6, 9:00 PM ET"
+        date: resolveFixedDate("ownersMeeting", seasonYear, now, (y) => makeZonedDate(y, 3, 26, 21, 0)),
+        hint: "March 26, 9:00 PM ET"
       },
       {
         id: "expiringDeadline",
