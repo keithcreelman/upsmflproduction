@@ -3,7 +3,7 @@
     "schema_version": 1,
     "league_id": "74598",
     "season": 2026,
-    "updated_at": "2026-03-24T13:27:35.946Z",
+    "updated_at": "2026-03-24T13:28:07.046Z",
     "row_count": 11,
     "source": "worker-trade-offers"
   },
@@ -1109,7 +1109,7 @@
       "season": 2026,
       "status": "PENDING",
       "created_at": "2026-03-14T21:51:33.184Z",
-      "updated_at": "2026-03-24T13:27:35.946Z",
+      "updated_at": "2026-03-24T13:28:07.046Z",
       "from_franchise_id": "0005",
       "to_franchise_id": "0006",
       "from_franchise_name": "HammerTime 🔨 ⏰",
@@ -1119,7 +1119,7 @@
       "comments": "",
       "raw_comment": "",
       "will_give_up": "16150",
-      "will_receive": "DP_0_2",
+      "will_receive": "FP_0006_2027_1",
       "source": "trade-workbench-ui",
       "summary": {
         "from_asset_count": 1,
@@ -1130,7 +1130,7 @@
       },
       "payload": {
         "schema_version": 1,
-        "generated_at": "2026-03-24T13:27:28.447Z",
+        "generated_at": "2026-03-24T13:28:02.415Z",
         "source": "ups-trade-workbench",
         "league_id": "74598",
         "season": 2026,
@@ -1170,22 +1170,22 @@
             "franchise_name": "The Long Haulers",
             "selected_assets": [
               {
-                "asset_id": "pick:DP_0_2",
+                "asset_id": "pick:FP_0006_2027_1",
                 "type": "PICK",
                 "player_id": null,
                 "player_name": null,
-                "description": "2026 Rookie 1.03",
+                "description": "2027 Rookie Round 1",
                 "position": null,
                 "nfl_team": null,
-                "salary": 13000,
+                "salary": 0,
                 "years": null,
                 "contract_type": "Pick",
                 "contract_info": null,
                 "taxi": false,
-                "pick_key": "DP_0_2",
-                "pick_season": 2026,
+                "pick_key": "FP_0006_2027_1",
+                "pick_season": 2027,
                 "pick_round": 1,
-                "pick_slot": 3
+                "pick_slot": null
               }
             ],
             "traded_salary_adjustment_dollars": 0,
@@ -1209,16 +1209,16 @@
             "salary_cap_dollars": 300000,
             "starting_salary_dollars": 229000,
             "outgoing_dollars": 22000,
-            "incoming_dollars": 13000,
+            "incoming_dollars": 0,
             "salary_trade_adjustment_dollars": 0,
-            "net_salary_adjustment_dollars": -9000,
-            "new_salary_dollars": 220000,
+            "net_salary_adjustment_dollars": -22000,
+            "new_salary_dollars": 207000,
             "trade_salary_adjustment_k": 0,
             "trade_salary_adjustment_max_k": 11,
             "net_trade_salary_k": 0,
-            "net_cap_change_dollars": 9000,
+            "net_cap_change_dollars": 22000,
             "available_salary_before_dollars": 71000,
-            "available_salary_after_dollars": 80000,
+            "available_salary_after_dollars": 93000,
             "over_cap_dollars": 0
           },
           "right": {
@@ -1226,17 +1226,17 @@
             "franchise_name": "The Long Haulers",
             "salary_cap_dollars": 300000,
             "starting_salary_dollars": 221000,
-            "outgoing_dollars": 13000,
+            "outgoing_dollars": 0,
             "incoming_dollars": 22000,
             "salary_trade_adjustment_dollars": 0,
-            "net_salary_adjustment_dollars": 9000,
-            "new_salary_dollars": 230000,
+            "net_salary_adjustment_dollars": 22000,
+            "new_salary_dollars": 243000,
             "trade_salary_adjustment_k": 0,
             "trade_salary_adjustment_max_k": 0,
             "net_trade_salary_k": 0,
-            "net_cap_change_dollars": -9000,
+            "net_cap_change_dollars": -22000,
             "available_salary_before_dollars": 79000,
-            "available_salary_after_dollars": 70000,
+            "available_salary_after_dollars": 57000,
             "over_cap_dollars": 0
           },
           "has_over_cap": false
@@ -1249,11 +1249,11 @@
             {
               "season": 2026,
               "left_before_dollars": 229000,
-              "left_after_dollars": 220000,
-              "left_change_dollars": -9000,
+              "left_after_dollars": 207000,
+              "left_change_dollars": -22000,
               "right_before_dollars": 221000,
-              "right_after_dollars": 230000,
-              "right_change_dollars": 9000
+              "right_after_dollars": 243000,
+              "right_change_dollars": 22000
             },
             {
               "season": 2027,
@@ -1282,8 +1282,8 @@
         "comment": ""
       },
       "twb_meta": null,
-      "mfl_trade_id": "1010",
-      "trade_id": "1010",
+      "mfl_trade_id": "1011",
+      "trade_id": "1011",
       "mfl_present": true,
       "mfl_status": "PENDING"
     },
