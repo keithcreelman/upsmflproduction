@@ -3,8 +3,8 @@
     "schema_version": 1,
     "league_id": "74598",
     "season": 2026,
-    "updated_at": "2026-03-24T13:27:34.040Z",
-    "row_count": 22,
+    "updated_at": "2026-03-24T13:28:02.698Z",
+    "row_count": 23,
     "source": "worker-trade-outbox"
   },
   "rows": [
@@ -3966,6 +3966,178 @@
       "season": "2026",
       "updated_ts": "2026-03-24T13:27:33.922Z",
       "id": "22"
+    },
+    {
+      "created_ts": "2026-03-24T13:28:02.593Z",
+      "trade_id": "",
+      "action_type": "SUBMIT",
+      "from_franchise_id": "0005",
+      "to_franchise_id": "0006",
+      "payload_xml_extensions": "",
+      "payload_xml_salary_adj": "",
+      "payload_xml_salary_trade": "",
+      "payload_json": {
+        "schema_version": 1,
+        "generated_at": "2026-03-24T13:28:02.415Z",
+        "source": "ups-trade-workbench",
+        "league_id": "74598",
+        "season": 2026,
+        "teams": [
+          {
+            "role": "left",
+            "franchise_id": "0005",
+            "franchise_name": "HammerTime 🔨 ⏰",
+            "selected_assets": [
+              {
+                "asset_id": "player:16150",
+                "type": "PLAYER",
+                "player_id": "16150",
+                "player_name": "Stroud, C.J.",
+                "description": null,
+                "position": "QB",
+                "nfl_team": "HOU",
+                "salary": 22000,
+                "years": 1,
+                "contract_type": "EXT1",
+                "contract_info": "CL 1| TCV 22K| AAV 22K| Y1-22K| GTD: 16.5K| Ext: 🔨 ⏰",
+                "taxi": false,
+                "pick_key": null,
+                "pick_season": null,
+                "pick_round": null,
+                "pick_slot": null
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 11,
+            "selected_non_taxi_salary_dollars": 22000
+          },
+          {
+            "role": "right",
+            "franchise_id": "0006",
+            "franchise_name": "The Long Haulers",
+            "selected_assets": [
+              {
+                "asset_id": "pick:FP_0006_2027_1",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2027 Rookie Round 1",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "FP_0006_2027_1",
+                "pick_season": 2027,
+                "pick_round": 1,
+                "pick_slot": null
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 0,
+            "selected_non_taxi_salary_dollars": 0
+          }
+        ],
+        "extension_requests": [],
+        "filters": {
+          "search": ""
+        },
+        "ui": {
+          "left_team_id": "0005",
+          "right_team_id": "0006"
+        },
+        "salary_reconciliation": {
+          "left": {
+            "franchise_id": "0005",
+            "franchise_name": "HammerTime 🔨 ⏰",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 229000,
+            "outgoing_dollars": 22000,
+            "incoming_dollars": 0,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": -22000,
+            "new_salary_dollars": 207000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 11,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": 22000,
+            "available_salary_before_dollars": 71000,
+            "available_salary_after_dollars": 93000,
+            "over_cap_dollars": 0
+          },
+          "right": {
+            "franchise_id": "0006",
+            "franchise_name": "The Long Haulers",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 221000,
+            "outgoing_dollars": 0,
+            "incoming_dollars": 22000,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": 22000,
+            "new_salary_dollars": 243000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 0,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": -22000,
+            "available_salary_before_dollars": 79000,
+            "available_salary_after_dollars": 57000,
+            "over_cap_dollars": 0
+          },
+          "has_over_cap": false
+        },
+        "multi_year_salary_impact": {
+          "current_season": 2026,
+          "left_franchise_name": "HammerTime 🔨 ⏰",
+          "right_franchise_name": "The Long Haulers",
+          "rows": [
+            {
+              "season": 2026,
+              "left_before_dollars": 229000,
+              "left_after_dollars": 207000,
+              "left_change_dollars": -22000,
+              "right_before_dollars": 221000,
+              "right_after_dollars": 243000,
+              "right_change_dollars": 22000
+            },
+            {
+              "season": 2027,
+              "left_before_dollars": 284000,
+              "left_after_dollars": 284000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 166000,
+              "right_after_dollars": 166000,
+              "right_change_dollars": 0
+            },
+            {
+              "season": 2028,
+              "left_before_dollars": 75000,
+              "left_after_dollars": 75000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 57000,
+              "right_after_dollars": 57000,
+              "right_change_dollars": 0
+            }
+          ]
+        },
+        "validation": {
+          "status": "ready",
+          "issues": []
+        },
+        "comment": ""
+      },
+      "comment_trailer": "",
+      "payload_hash": "5114ceb2269912a432d8da0e19309a06b422b3e3ee79283ff33c57b26c5f9bf5",
+      "status": "PENDING",
+      "mfl_post_response_snip": "",
+      "mfl_verify_response_snip": "",
+      "league_id": "74598",
+      "season": "2026",
+      "updated_ts": "2026-03-24T13:28:02.593Z",
+      "id": "23"
     }
   ]
 }
