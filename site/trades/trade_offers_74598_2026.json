@@ -3,7 +3,7 @@
     "schema_version": 1,
     "league_id": "74598",
     "season": 2026,
-    "updated_at": "2026-03-24T13:19:30.295Z",
+    "updated_at": "2026-03-24T13:25:05.553Z",
     "row_count": 11,
     "source": "worker-trade-offers"
   },
@@ -1109,7 +1109,7 @@
       "season": 2026,
       "status": "PENDING",
       "created_at": "2026-03-14T21:51:33.184Z",
-      "updated_at": "2026-03-24T13:19:30.295Z",
+      "updated_at": "2026-03-24T13:25:05.553Z",
       "from_franchise_id": "0005",
       "to_franchise_id": "0006",
       "from_franchise_name": "HammerTime 🔨 ⏰",
@@ -1130,7 +1130,7 @@
       },
       "payload": {
         "schema_version": 1,
-        "generated_at": "2026-03-24T13:19:23.744Z",
+        "generated_at": "2026-03-24T13:24:54.404Z",
         "source": "ups-trade-workbench",
         "league_id": "74598",
         "season": 2026,
@@ -1300,8 +1300,8 @@
         "comment": ""
       },
       "twb_meta": null,
-      "mfl_trade_id": "1008",
-      "trade_id": "1008",
+      "mfl_trade_id": "1009",
+      "trade_id": "1009",
       "mfl_present": true,
       "mfl_status": "PENDING"
     },
