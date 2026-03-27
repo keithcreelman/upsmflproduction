@@ -3,8 +3,8 @@
     "schema_version": 1,
     "league_id": "74598",
     "season": 2026,
-    "updated_at": "2026-03-26T18:57:00.719Z",
-    "row_count": 24,
+    "updated_at": "2026-03-27T14:54:13.270Z",
+    "row_count": 25,
     "source": "worker-trade-outbox"
   },
   "rows": [
@@ -4310,6 +4310,178 @@
       "season": "2026",
       "updated_ts": "2026-03-26T18:57:00.567Z",
       "id": "24"
+    },
+    {
+      "created_ts": "2026-03-27T14:54:13.127Z",
+      "trade_id": "",
+      "action_type": "SUBMIT",
+      "from_franchise_id": "0007",
+      "to_franchise_id": "0010",
+      "payload_xml_extensions": "",
+      "payload_xml_salary_adj": "",
+      "payload_xml_salary_trade": "",
+      "payload_json": {
+        "schema_version": 1,
+        "generated_at": "2026-03-27T14:54:13.015Z",
+        "source": "ups-trade-workbench",
+        "league_id": "74598",
+        "season": 2026,
+        "teams": [
+          {
+            "role": "left",
+            "franchise_id": "0007",
+            "franchise_name": "Sex Manther",
+            "selected_assets": [
+              {
+                "asset_id": "pick:DP_0_9",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2026 Rookie 1.10",
+                "position": null,
+                "nfl_team": null,
+                "salary": 6000,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "DP_0_9",
+                "pick_season": 2026,
+                "pick_round": 1,
+                "pick_slot": 10
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 0,
+            "selected_non_taxi_salary_dollars": 0
+          },
+          {
+            "role": "right",
+            "franchise_id": "0010",
+            "franchise_name": "Blake Bombers",
+            "selected_assets": [
+              {
+                "asset_id": "pick:FP_0010_2027_1",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2027 Rookie Round 1",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "FP_0010_2027_1",
+                "pick_season": 2027,
+                "pick_round": 1,
+                "pick_slot": null
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 0,
+            "selected_non_taxi_salary_dollars": 0
+          }
+        ],
+        "extension_requests": [],
+        "filters": {
+          "search": ""
+        },
+        "ui": {
+          "left_team_id": "0007",
+          "right_team_id": "0010"
+        },
+        "salary_reconciliation": {
+          "left": {
+            "franchise_id": "0007",
+            "franchise_name": "Sex Manther",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 283000,
+            "outgoing_dollars": 6000,
+            "incoming_dollars": 0,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": -6000,
+            "new_salary_dollars": 277000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 0,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": 6000,
+            "available_salary_before_dollars": 17000,
+            "available_salary_after_dollars": 23000,
+            "over_cap_dollars": 0
+          },
+          "right": {
+            "franchise_id": "0010",
+            "franchise_name": "Blake Bombers",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 118000,
+            "outgoing_dollars": 0,
+            "incoming_dollars": 6000,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": 6000,
+            "new_salary_dollars": 124000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 0,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": -6000,
+            "available_salary_before_dollars": 182000,
+            "available_salary_after_dollars": 176000,
+            "over_cap_dollars": 0
+          },
+          "has_over_cap": false
+        },
+        "multi_year_salary_impact": {
+          "current_season": 2026,
+          "left_franchise_name": "Sex Manther",
+          "right_franchise_name": "Blake Bombers",
+          "rows": [
+            {
+              "season": 2026,
+              "left_before_dollars": 283000,
+              "left_after_dollars": 277000,
+              "left_change_dollars": -6000,
+              "right_before_dollars": 118000,
+              "right_after_dollars": 124000,
+              "right_change_dollars": 6000
+            },
+            {
+              "season": 2027,
+              "left_before_dollars": 215000,
+              "left_after_dollars": 215000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 118000,
+              "right_after_dollars": 118000,
+              "right_change_dollars": 0
+            },
+            {
+              "season": 2028,
+              "left_before_dollars": 85000,
+              "left_after_dollars": 85000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 82000,
+              "right_after_dollars": 82000,
+              "right_change_dollars": 0
+            }
+          ]
+        },
+        "validation": {
+          "status": "ready",
+          "issues": []
+        },
+        "comment": ""
+      },
+      "comment_trailer": "",
+      "payload_hash": "811df37418980e94eb1e8fa9060f92ca87d03093b37b5d60dd511e84f0855637",
+      "status": "PENDING",
+      "mfl_post_response_snip": "",
+      "mfl_verify_response_snip": "",
+      "league_id": "74598",
+      "season": "2026",
+      "updated_ts": "2026-03-27T14:54:13.127Z",
+      "id": "25"
     }
   ]
 }
