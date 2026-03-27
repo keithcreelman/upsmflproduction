@@ -3,7 +3,7 @@
     "schema_version": 1,
     "league_id": "74598",
     "season": 2026,
-    "updated_at": "2026-03-27T14:57:10.893Z",
+    "updated_at": "2026-03-27T14:57:12.158Z",
     "row_count": 28,
     "source": "worker-trade-outbox"
   },
@@ -4989,14 +4989,14 @@
         },
         "comment": ""
       },
-      "comment_trailer": "",
+      "comment_trailer": "[UPS_TWB_INTENT_BEGIN]\nUPS_OUTBOX_ID:28\nUPS_PAYLOAD_HASH:dbe4f7523271ac78023aa9512228a0ed1a58a0c3165116853ce3fe11ec789a02\n[UPS_TWB_INTENT_END]",
       "payload_hash": "dbe4f7523271ac78023aa9512228a0ed1a58a0c3165116853ce3fe11ec789a02",
-      "status": "PENDING",
-      "mfl_post_response_snip": "",
+      "status": "FAILED",
+      "mfl_post_response_snip": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n\n<error>Franchise Sex Manther Does Not Have Draft Pick 01.10 To Trade</error>",
       "mfl_verify_response_snip": "",
       "league_id": "74598",
       "season": "2026",
-      "updated_ts": "2026-03-27T14:57:10.747Z",
+      "updated_ts": "2026-03-27T14:57:12.050Z",
       "id": "28"
     }
   ]
