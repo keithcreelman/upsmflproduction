@@ -2789,10 +2789,9 @@
     var externalSubmissionMap = Object.create(null);
     submissionRows.forEach(function (row) {
       if (!row) return;
-      var submissionSeason = effectiveTagSubmissionSeason(row.season, sourceSeason);
-      if (safeStr(submissionSeason) !== safeStr(cycleSeason)) return;
+      if (safeStr(row.season) !== safeStr(cycleSeason)) return;
       if (leagueId && safeStr(row.league_id) && safeStr(row.league_id) !== leagueId) return;
-      var key = buildTagSelectionKey(submissionSeason, row.franchise_id, row.side);
+      var key = buildTagSelectionKey(row.season, row.franchise_id, row.side);
       externalSubmissionMap[key] = row;
     });
 
@@ -2802,9 +2801,8 @@
       var row = normalizeTagSubmissionEntry(localStore[key]);
       if (!row.player_id || !row.franchise_id) return;
       if (leagueId && safeStr(row.league_id) && safeStr(row.league_id) !== leagueId) return;
-      var submissionSeason = effectiveTagSubmissionSeason(row.season, cycleSeason);
-      if (safeStr(submissionSeason) !== safeStr(cycleSeason)) return;
-      localSubmissionMap[buildTagSelectionKey(submissionSeason, row.franchise_id, row.side)] = row;
+      if (safeStr(row.season) !== safeStr(cycleSeason)) return;
+      localSubmissionMap[buildTagSelectionKey(row.season, row.franchise_id, row.side)] = row;
     });
 
     var merged = Object.create(null);
@@ -6390,6 +6388,8 @@
       var groupKey = groups[g];
       var items = grouped[groupKey] || [];
       items.sort(function (a, b) {
+        var pointsDelta = safeNum(b.points_total, 0) - safeNum(a.points_total, 0);
+        if (Math.abs(pointsDelta) > 0.0001) return pointsDelta;
         var salaryDelta = Math.max(safeInt(b.prior_aav_week1, 0), safeInt(b.prior_salary_week1, 0)) -
           Math.max(safeInt(a.prior_aav_week1, 0), safeInt(a.prior_salary_week1, 0));
         if (salaryDelta !== 0) return salaryDelta;
