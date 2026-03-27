@@ -2796,7 +2796,7 @@
       if (!row.player_id || !row.franchise_id) return;
       if (leagueId && safeStr(row.league_id) && safeStr(row.league_id) !== leagueId) return;
       if (safeStr(row.season) !== safeStr(cycleSeason)) return;
-      localSubmissionMap[key] = row;
+      localSubmissionMap[buildTagSelectionKey(row.season, row.franchise_id, row.side)] = row;
     });
 
     var merged = Object.create(null);
@@ -6382,6 +6382,8 @@
       var groupKey = groups[g];
       var items = grouped[groupKey] || [];
       items.sort(function (a, b) {
+        var pointsDelta = safeNum(b.points_total, 0) - safeNum(a.points_total, 0);
+        if (Math.abs(pointsDelta) > 0.0001) return pointsDelta;
         var salaryDelta = Math.max(safeInt(b.prior_aav_week1, 0), safeInt(b.prior_salary_week1, 0)) -
           Math.max(safeInt(a.prior_aav_week1, 0), safeInt(a.prior_salary_week1, 0));
         if (salaryDelta !== 0) return salaryDelta;
