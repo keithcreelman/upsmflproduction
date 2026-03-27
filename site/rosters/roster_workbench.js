@@ -2295,6 +2295,16 @@
     return formatShortDate(contractDeadlineYmdForSeason(season));
   }
 
+  function tagDeadlineLabelForSeason(season) {
+    var deadline = tagDeadlineDateForSeason(season);
+    if (!deadline || isNaN(deadline.getTime())) return "";
+    return deadline.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric"
+    });
+  }
+
   function acquisitionDateLabelForPlayer(player) {
     return formatShortDate(player && (player.acquisitionDate || player.acquisition_date)) || "—";
   }
@@ -9223,6 +9233,10 @@
       "Positional Rank: " + formatRank(row.pos_rank) + "\n" +
       "Tier: " + (safeInt(row.tag_tier, 0) > 0 ? ("Tier " + String(safeInt(row.tag_tier, 0))) : "—") + "\n" +
       "Tag Calc: " + safeStr(effectiveTagFormulaForRow(row) || "—");
+    var tagDeadlineLabel = tagDeadlineLabelForSeason(state.tagData && state.tagData.cycleSeason);
+    if (tagDeadlineLabel) {
+      confirmText += "\n\nYou can untag this any time before the " + tagDeadlineLabel + " tag deadline.";
+    }
     if (!window.confirm(confirmText)) return Promise.resolve(null);
 
     var moveKey = "tag:" + safeStr(row.player_id);
