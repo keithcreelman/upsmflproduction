@@ -3,7 +3,7 @@
     "schema_version": 1,
     "league_id": "74598",
     "season": 2026,
-    "updated_at": "2026-03-27T14:55:07.058Z",
+    "updated_at": "2026-03-27T14:55:08.357Z",
     "row_count": 26,
     "source": "worker-trade-outbox"
   },
@@ -4485,7 +4485,7 @@
     },
     {
       "created_ts": "2026-03-27T14:55:06.227Z",
-      "trade_id": "",
+      "trade_id": "1015",
       "action_type": "SUBMIT",
       "from_franchise_id": "0007",
       "to_franchise_id": "0009",
@@ -4647,12 +4647,12 @@
       },
       "comment_trailer": "[UPS_TWB_INTENT_BEGIN]\nUPS_OUTBOX_ID:26\nUPS_PAYLOAD_HASH:a6427d2c3303fdd795a72b68ef14b631e340b177e06d841200ad4fcc262ffc40\n[UPS_TWB_INTENT_END]",
       "payload_hash": "a6427d2c3303fdd795a72b68ef14b631e340b177e06d841200ad4fcc262ffc40",
-      "status": "PENDING",
-      "mfl_post_response_snip": "",
-      "mfl_verify_response_snip": "",
+      "status": "POSTED",
+      "mfl_post_response_snip": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n\n<status>OK</status>",
+      "mfl_verify_response_snip": "{\"ok\":true,\"matched\":true,\"match_count\":1,\"rows_count\":2,\"matched_trade_id\":\"1015\",\"upstream_status\":200}",
       "league_id": "74598",
       "season": "2026",
-      "updated_ts": "2026-03-27T14:55:06.935Z",
+      "updated_ts": "2026-03-27T14:55:08.192Z",
       "id": "26"
     }
   ]
