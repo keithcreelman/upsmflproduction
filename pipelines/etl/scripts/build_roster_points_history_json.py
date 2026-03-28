@@ -171,6 +171,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--db-path", default=DEFAULT_DB_PATH)
     parser.add_argument("--out-path", default=str(DEFAULT_OUT_PATH))
     parser.add_argument("--roster-season", type=int, default=0)
+    parser.add_argument("--include-prior-roster-seasons", type=int, default=1)
     parser.add_argument("--history-start-season", type=int, default=2010)
     parser.add_argument("--history-end-season", type=int, default=0)
     return parser.parse_args()
@@ -199,24 +200,34 @@ def resolve_history_end(cur: sqlite3.Cursor, requested: int) -> int:
     )
 
 
-def load_roster_players(cur: sqlite3.Cursor, roster_season: int) -> Dict[str, Dict[str, str]]:
+def load_roster_players(
+    cur: sqlite3.Cursor,
+    roster_season: int,
+    include_prior_roster_seasons: int = 1,
+) -> Tuple[Dict[str, Dict[str, str]], List[int]]:
+    depth = max(0, safe_int(include_prior_roster_seasons, 0))
+    roster_seasons = [season for season in range(roster_season, roster_season - depth - 1, -1) if season > 0]
+    if not roster_seasons:
+        return {}, []
+
+    placeholders = ",".join("?" for _ in roster_seasons)
     cur.execute(
-        """
+        f"""
         SELECT
+            season,
             CAST(player_id AS TEXT) AS player_id,
-            MAX(COALESCE(player_name, '')) AS player_name,
-            MAX(COALESCE(position, '')) AS position
+            COALESCE(player_name, '') AS player_name,
+            COALESCE(position, '') AS position
         FROM rosters_current
-        WHERE season = ?
-        GROUP BY player_id
-        ORDER BY player_id
+        WHERE season IN ({placeholders})
+        ORDER BY season DESC, player_id
         """,
-        (roster_season,),
+        tuple(roster_seasons),
     )
     players: Dict[str, Dict[str, str]] = {}
-    for player_id, player_name, position in cur.fetchall():
+    for _season, player_id, player_name, position in cur.fetchall():
         pid = safe_str(player_id)
-        if not pid:
+        if not pid or pid in players:
             continue
         players[pid] = {
             "n": safe_str(player_name),
@@ -224,7 +235,7 @@ def load_roster_players(cur: sqlite3.Cursor, roster_season: int) -> Dict[str, Di
             "y": {},
             "w": {},
         }
-    return players
+    return players, roster_seasons
 
 
 def populate_selected_players(conn: sqlite3.Connection, player_ids: Iterable[str]) -> None:
@@ -347,12 +358,17 @@ def main() -> int:
     try:
         cur = conn.cursor()
         roster_season = resolve_roster_season(cur, safe_int(args.roster_season, 0))
+        include_prior_roster_seasons = max(0, safe_int(args.include_prior_roster_seasons, 1))
         history_start = max(0, safe_int(args.history_start_season, 2010))
         history_end = resolve_history_end(cur, safe_int(args.history_end_season, 0))
         if history_end and history_end < history_start:
             history_end = history_start
 
-        players = load_roster_players(cur, roster_season)
+        players, roster_source_seasons = load_roster_players(
+            cur,
+            roster_season,
+            include_prior_roster_seasons,
+        )
         populate_selected_players(conn, players.keys())
 
         yearly_rows = load_yearly_history(cur, history_start, history_end)
@@ -469,6 +485,7 @@ def main() -> int:
         "meta": {
             "generated_at_utc": datetime.now(timezone.utc).isoformat(),
             "roster_season": roster_season,
+            "roster_source_seasons": roster_source_seasons,
             "history_start_season": history_start,
             "history_end_season": history_end,
             "history_seasons": history_seasons,
