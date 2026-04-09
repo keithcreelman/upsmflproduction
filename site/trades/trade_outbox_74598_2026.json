@@ -3,7 +3,7 @@
     "schema_version": 1,
     "league_id": "74598",
     "season": 2026,
-    "updated_at": "2026-04-09T22:15:21.670Z",
+    "updated_at": "2026-04-09T22:15:27.881Z",
     "row_count": 31,
     "source": "worker-trade-outbox"
   },
@@ -5571,12 +5571,12 @@
       },
       "comment_trailer": "[UPS_TWB_INTENT_BEGIN]\nUPS_OUTBOX_ID:\nUPS_PAYLOAD_HASH:7873ce67a879a29d255b62bf6af6b112e979dad0c4c8bd9b096162ece6d9571e\n[UPS_TWB_INTENT_END]",
       "payload_hash": "7873ce67a879a29d255b62bf6af6b112e979dad0c4c8bd9b096162ece6d9571e",
-      "status": "PENDING",
-      "mfl_post_response_snip": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n\n<status>OK</status>",
-      "mfl_verify_response_snip": "",
+      "status": "VERIFIED",
+      "mfl_post_response_snip": "{\"trade_response\":\"<?xml version=\\\"1.0\\\" encoding=\\\"utf-8\\\"?>\\n\\n<status>OK</status>\\n\",\"salary\":\"<?xml version=\\\"1.0\\\" encoding=\\\"utf-8\\\"?>\\n\\n<status>OK</status>\\n\",\"extensions\":\"\"}",
+      "mfl_verify_response_snip": "{\"transactions_export\":{\"ok\":true,\"status\":200,\"url\":\"https://api.myfantasyleague.com/2026/export?TYPE=transactions&L=74598&JSON=1&_=1775772927577\",\"error\":\"\",\"preview\":\"{\\\"transactions\\\":{\\\"transaction\\\":[{\\\"comments\\\":\\\"Keith, I will use my extension for Hurts at contract time work later on .\\\",\\\"franchise1_gave_up\\\":\\\"FP_0006_2027_1,FP_0006_2027_2,\\\",\\\"franchise2\\\":\\\"0005\\\",\\\"expires\\\":\\\"1776371712\\\",\\\"franchise\\\":\\\"0006\\\",\\\"timestamp\\\":\\\"1775772921\\\",\\\"type\\\":\\\"TRADE\\\",\\\"franchise2_gave_up\\\":\\\"14783,BB_20000,\\\"},{\\\"timestamp\\\":\\\"1775525764\\\",\\\"transaction\\\":\\\"|14168,\\\",\\\"type\\\":\\\"LOAD_ROSTERS\\\",\\\"by_commish\\\":\\\"1\\\",\\\"franchise\\\":\\\"0006\\\"},{\\\"timestamp\\\":\\\"1774623376\\\",\\\"franchise2_gave_up\\\":\\\"FP_0010_2027_1,\\\",\\\"type\\\":\\\"TR\"},\"salaries_export\":{\"ok\":true,\"status\":200,\"url\":\"https://api.myfantasyleague.com/2026/export?TYPE=salaries&L=74598&JSON=1&_=1775772927661\",\"error\":\"\",\"preview\":\"{\\\"salaries\\\":{\\\"leagueUnit\\\":{\\\"player\\\":[{\\\"salary\\\":\\\"\\\",\\\"contractYear\\\":\\\"\\\",\\\"contractStatus\\",
       "league_id": "74598",
       "season": "2026",
-      "updated_ts": "2026-04-09T22:15:21.573Z",
+      "updated_ts": "2026-04-09T22:15:27.771Z",
       "id": "31"
     }
   ]
