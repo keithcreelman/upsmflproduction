@@ -3,8 +3,8 @@
     "schema_version": 1,
     "league_id": "74598",
     "season": 2026,
-    "updated_at": "2026-03-27T14:57:12.158Z",
-    "row_count": 28,
+    "updated_at": "2026-04-09T13:51:17.761Z",
+    "row_count": 29,
     "source": "worker-trade-outbox"
   },
   "rows": [
@@ -4998,6 +4998,198 @@
       "season": "2026",
       "updated_ts": "2026-03-27T14:57:12.050Z",
       "id": "28"
+    },
+    {
+      "created_ts": "2026-04-09T13:51:17.594Z",
+      "trade_id": "",
+      "action_type": "SUBMIT",
+      "from_franchise_id": "0005",
+      "to_franchise_id": "0006",
+      "payload_xml_extensions": "",
+      "payload_xml_salary_adj": "<salary_adjustments><salary_adjustment franchise_id=\"0005\" amount=\"20000\" explanation=\"UPS traded salary settlement (trade_2026): net +20K\"/><salary_adjustment franchise_id=\"0006\" amount=\"-20000\" explanation=\"UPS traded salary settlement (trade_2026): net -20K\"/></salary_adjustments>",
+      "payload_xml_salary_trade": "",
+      "payload_json": {
+        "schema_version": 1,
+        "generated_at": "2026-04-09T13:51:17.387Z",
+        "source": "ups-trade-workbench",
+        "league_id": "74598",
+        "season": 2026,
+        "teams": [
+          {
+            "role": "left",
+            "franchise_id": "0005",
+            "franchise_name": "HammerTime 🔨 ⏰",
+            "selected_assets": [
+              {
+                "asset_id": "player:14783",
+                "type": "PLAYER",
+                "player_id": "14783",
+                "player_name": "Hurts, Jalen",
+                "description": null,
+                "position": "QB",
+                "nfl_team": "PHI",
+                "salary": 67000,
+                "years": 1,
+                "contract_type": "BL",
+                "contract_info": "CL 2| TCV 84K| AAV 42K| Y1-17K, Y2-67K| Ext: Gride, Hammer",
+                "taxi": false,
+                "pick_key": null,
+                "pick_season": null,
+                "pick_round": null,
+                "pick_slot": null
+              }
+            ],
+            "traded_salary_adjustment_dollars": 20000,
+            "traded_salary_adjustment_k": 20,
+            "traded_salary_adjustment_max_k": 33,
+            "selected_non_taxi_salary_dollars": 67000
+          },
+          {
+            "role": "right",
+            "franchise_id": "0006",
+            "franchise_name": "The Long Haulers",
+            "selected_assets": [
+              {
+                "asset_id": "pick:FP_0006_2027_1",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2027 Rookie Round 1",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "FP_0006_2027_1",
+                "pick_season": 2027,
+                "pick_round": 1,
+                "pick_slot": null
+              },
+              {
+                "asset_id": "pick:FP_0006_2027_2",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2027 Rookie Round 2",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "FP_0006_2027_2",
+                "pick_season": 2027,
+                "pick_round": 2,
+                "pick_slot": null
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 0,
+            "selected_non_taxi_salary_dollars": 0
+          }
+        ],
+        "extension_requests": [],
+        "filters": {
+          "search": ""
+        },
+        "ui": {
+          "left_team_id": "0005",
+          "right_team_id": "0006"
+        },
+        "salary_reconciliation": {
+          "left": {
+            "franchise_id": "0005",
+            "franchise_name": "HammerTime 🔨 ⏰",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 227000,
+            "salary_adjustment_total_dollars": 9050,
+            "outgoing_dollars": 67000,
+            "incoming_dollars": 0,
+            "salary_trade_adjustment_dollars": 20000,
+            "net_salary_adjustment_dollars": -47000,
+            "new_salary_dollars": 180000,
+            "trade_salary_adjustment_k": 20,
+            "trade_salary_adjustment_max_k": 33,
+            "net_trade_salary_k": 20,
+            "net_cap_change_dollars": 47000,
+            "available_salary_before_dollars": 63950,
+            "available_salary_after_dollars": 110950,
+            "over_cap_dollars": 0
+          },
+          "right": {
+            "franchise_id": "0006",
+            "franchise_name": "The Long Haulers",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 195000,
+            "salary_adjustment_total_dollars": 3500,
+            "outgoing_dollars": 0,
+            "incoming_dollars": 67000,
+            "salary_trade_adjustment_dollars": -20000,
+            "net_salary_adjustment_dollars": 47000,
+            "new_salary_dollars": 242000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 0,
+            "net_trade_salary_k": -20,
+            "net_cap_change_dollars": -47000,
+            "available_salary_before_dollars": 101500,
+            "available_salary_after_dollars": 54500,
+            "over_cap_dollars": 0
+          },
+          "has_over_cap": false
+        },
+        "multi_year_salary_impact": {
+          "current_season": 2026,
+          "left_franchise_name": "HammerTime 🔨 ⏰",
+          "right_franchise_name": "The Long Haulers",
+          "rows": [
+            {
+              "season": 2026,
+              "left_before_dollars": 227000,
+              "left_after_dollars": 180000,
+              "left_change_dollars": -47000,
+              "right_before_dollars": 208000,
+              "right_after_dollars": 255000,
+              "right_change_dollars": 47000
+            },
+            {
+              "season": 2027,
+              "left_before_dollars": 282000,
+              "left_after_dollars": 215000,
+              "left_change_dollars": -67000,
+              "right_before_dollars": 158000,
+              "right_after_dollars": 225000,
+              "right_change_dollars": 67000
+            },
+            {
+              "season": 2028,
+              "left_before_dollars": 75000,
+              "left_after_dollars": 75000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 57000,
+              "right_after_dollars": 57000,
+              "right_change_dollars": 0
+            }
+          ]
+        },
+        "validation": {
+          "status": "ready",
+          "issues": []
+        },
+        "comment": ""
+      },
+      "comment_trailer": "",
+      "payload_hash": "d8dec14bf10a7b5bec8b015aa99ec793757cb52e65b768a71a6d1e583fe46c3b",
+      "status": "PENDING",
+      "mfl_post_response_snip": "",
+      "mfl_verify_response_snip": "",
+      "league_id": "74598",
+      "season": "2026",
+      "updated_ts": "2026-04-09T13:51:17.594Z",
+      "id": "29"
     }
   ]
 }
