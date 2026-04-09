@@ -3,7 +3,7 @@
     "schema_version": 1,
     "league_id": "74598",
     "season": 2026,
-    "updated_at": "2026-04-09T20:35:10.918Z",
+    "updated_at": "2026-04-09T20:35:11.622Z",
     "row_count": 30,
     "source": "worker-trade-outbox"
   },
@@ -5373,14 +5373,14 @@
         },
         "comment": "Keith, I will use my extension for Hurts at contract time work later on ."
       },
-      "comment_trailer": "",
+      "comment_trailer": "[UPS_TWB_INTENT_BEGIN]\nUPS_OUTBOX_ID:30\nUPS_PAYLOAD_HASH:7178d4b9d783f277e6ea51a356686ee5bde27c1a8458e4dba77c5c19c7d1c526\n[UPS_TWB_INTENT_END]",
       "payload_hash": "7178d4b9d783f277e6ea51a356686ee5bde27c1a8458e4dba77c5c19c7d1c526",
       "status": "PENDING",
       "mfl_post_response_snip": "",
       "mfl_verify_response_snip": "",
       "league_id": "74598",
       "season": "2026",
-      "updated_ts": "2026-04-09T20:35:10.797Z",
+      "updated_ts": "2026-04-09T20:35:11.483Z",
       "id": "30"
     }
   ]
