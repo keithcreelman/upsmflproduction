@@ -320,6 +320,11 @@
     return extensionHistoryTokenMatchesCurrentTeam(lastToken, asset);
   }
 
+  function assetHasExtensionHistory(asset) {
+    var info = parseContractInfoSummary(asset && asset.contract_info);
+    return Array.isArray(info.extension_tokens) && info.extension_tokens.length > 0;
+  }
+
   function roundToNearestK(v) {
     return Math.round(safeInt(v, 0) / 1000) * 1000;
   }
@@ -380,6 +385,7 @@
       ? safeInt(metrics.years_remaining, 0)
       : safeInt(asset.years, 0);
     if (type.indexOf("tag") !== -1) return false;
+    if (assetHasExtensionHistory(asset)) return false;
     if (assetLastExtensionHeldByCurrentTeam(asset)) return false;
     if (info.indexOf("no further extensions") !== -1 || info.indexOf("not eligible for tag or extension") !== -1) {
       return false;
@@ -1046,15 +1052,16 @@
       var extKey = [asset.franchise_id, asset.player_id].join("|");
       extOptions = extensionIndex[extKey] ? clone(extensionIndex[extKey]) : [];
     }
+    var blockExtensionHistory = assetHasExtensionHistory(asset);
     var blockCurrentOwnerExtension = assetLastExtensionHeldByCurrentTeam(asset);
-    if (blockCurrentOwnerExtension) {
+    if (blockExtensionHistory || blockCurrentOwnerExtension) {
       extOptions = [];
     }
     if (!extOptions.length) {
       extOptions = buildSyntheticExtensionOptions(asset);
     }
     asset.extension_options = extOptions;
-    asset.extension_eligible = !blockCurrentOwnerExtension && (extOptions.length > 0 || parseBool(raw.extension_eligible, false));
+    asset.extension_eligible = !blockExtensionHistory && !blockCurrentOwnerExtension && (extOptions.length > 0 || parseBool(raw.extension_eligible, false));
 
     var searchParts = [
       asset.player_name,
