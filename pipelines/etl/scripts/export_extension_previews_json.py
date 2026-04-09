@@ -8,6 +8,8 @@ import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 
+from extension_lineage import load_extension_lookup, resolve_extension_lineage
+
 
 def safe_str(value) -> str:
     return "" if value is None else str(value).strip()
@@ -140,13 +142,22 @@ def load_extension_rates(conn: sqlite3.Connection, season: int) -> dict[str, dic
 def normalize_preview_rows(rows: list[sqlite3.Row], conn: sqlite3.Connection, season: int) -> list[dict]:
     roster = load_current_roster_snapshot(conn, season)
     rates = load_extension_rates(conn, season)
+    extension_lookup = load_extension_lookup(conn, season)
     out: list[dict] = []
     for row in rows:
         item = dict(row)
         player_id = safe_str(item.get("player_id"))
+        current = roster.get(player_id, {})
+        if current:
+            lineage = resolve_extension_lineage(
+                current.get("contract_info"),
+                item.get("franchise_id"),
+                extension_lookup,
+            )
+            if lineage.get("last_extension_by_current_owner"):
+                continue
         term = safe_str(item.get("extension_term")).upper()
         years_to_add = 1 if term == "1YR" else (2 if term == "2YR" else 0)
-        current = roster.get(player_id, {})
         current_aav = safe_int(current.get("aav"), 0) or parse_contract_aav(current.get("contract_info"))
         pos_group = normalize_pos_group(current.get("position") or item.get("position"))
         raise_amt = safe_int((rates.get(pos_group) or {}).get(years_to_add), 0)
@@ -237,20 +248,25 @@ def main() -> int:
 
         out_path = Path(args.out_path)
         out_path.parent.mkdir(parents=True, exist_ok=True)
+        normalized_rows = normalize_preview_rows(rows, conn, args.season)
+        db_path_value = str(Path(args.db_path))
+        if Path(db_path_value).is_absolute():
+            db_path_value = Path(db_path_value).name
         payload = {
             "meta": {
                 "season": args.season,
                 "generated_at_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-                "row_count": len(rows),
-                "db_path": args.db_path,
+                "row_count": len(normalized_rows),
+                "source_row_count": len(rows),
+                "db_path": db_path_value,
                 "table": "extension_previews",
                 "success_only": True,
                 "columns": list(rows[0].keys()) if rows else [],
             },
-            "rows": normalize_preview_rows(rows, conn, args.season),
+            "rows": normalized_rows,
         }
         out_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-        print(json.dumps({"out_path": str(out_path), "row_count": len(rows)}))
+        print(json.dumps({"out_path": str(out_path), "row_count": len(normalized_rows), "source_row_count": len(rows)}))
     finally:
         conn.close()
     return 0

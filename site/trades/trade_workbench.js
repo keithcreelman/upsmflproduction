@@ -209,7 +209,9 @@
       contract_length: null,
       aav_values_dollars: [],
       aav_current_dollars: null,
-      y_by_year_dollars: {}
+      y_by_year_dollars: {},
+      extension_tokens: [],
+      last_extension_token: ""
     };
     if (!text) return summary;
 
@@ -236,7 +238,56 @@
         summary.y_by_year_dollars[String(yearNum)] = sal;
       }
     }
+
+    var extMatch = text.match(/(?:^|\|)\s*Ext:\s*([^|]+)/i);
+    if (extMatch) {
+      summary.extension_tokens = extMatch[1].split(/[,/;&]|\band\b/i).map(function (part) {
+        return safeStr(part);
+      }).filter(Boolean);
+      if (summary.extension_tokens.length) {
+        summary.last_extension_token = summary.extension_tokens[summary.extension_tokens.length - 1];
+      }
+    }
     return summary;
+  }
+
+  function normalizeExtensionHistoryToken(token) {
+    return safeStr(token).toLowerCase().replace(/[^a-z0-9]/g, "");
+  }
+
+  function collectCurrentTeamExtensionTokens(asset) {
+    var out = [];
+    var seen = {};
+    function addToken(value) {
+      var normalized = normalizeExtensionHistoryToken(value);
+      if (!normalized || seen[normalized]) return;
+      seen[normalized] = true;
+      out.push(normalized);
+    }
+
+    addToken(asset && asset.franchise_abbrev);
+    addToken(asset && asset.franchise_name);
+    addToken(asset && asset.team_name);
+
+    var rawBits = [
+      safeStr(asset && asset.franchise_abbrev),
+      safeStr(asset && asset.franchise_name),
+      safeStr(asset && asset.team_name)
+    ].join(" ");
+    rawBits.split(/[^a-z0-9]+/i).forEach(addToken);
+    return out;
+  }
+
+  function assetLastExtensionHeldByCurrentTeam(asset) {
+    var info = parseContractInfoSummary(asset && asset.contract_info);
+    var lastToken = normalizeExtensionHistoryToken(info.last_extension_token);
+    if (!lastToken) return false;
+    var currentTokens = collectCurrentTeamExtensionTokens(asset);
+    var i;
+    for (i = 0; i < currentTokens.length; i += 1) {
+      if (currentTokens[i] === lastToken) return true;
+    }
+    return false;
   }
 
   function roundToNearestK(v) {
@@ -299,6 +350,7 @@
       ? safeInt(metrics.years_remaining, 0)
       : safeInt(asset.years, 0);
     if (type.indexOf("tag") !== -1) return false;
+    if (assetLastExtensionHeldByCurrentTeam(asset)) return false;
     if (info.indexOf("no further extensions") !== -1 || info.indexOf("not eligible for tag or extension") !== -1) {
       return false;
     }
@@ -854,13 +906,17 @@
     return index;
   }
 
-  function normalizeAsset(raw, teamId, extensionIndex, currentSeasonHint) {
+  function normalizeAsset(raw, teamId, extensionIndex, currentSeasonHint, teamMeta) {
     raw = raw || {};
+    teamMeta = teamMeta || {};
     var type = safeStr(raw.type || (raw.player_id ? "PLAYER" : "PICK")).toUpperCase();
     var asset = {
       asset_id: safeStr(raw.asset_id),
       type: type,
       franchise_id: pad4(raw.franchise_id || teamId),
+      franchise_name: safeStr(teamMeta.franchise_name || raw.franchise_name || raw.team_name || raw.teamName),
+      franchise_abbrev: safeStr(teamMeta.franchise_abbrev || raw.franchise_abbrev || raw.abbrev || raw.team_abbrev || raw.teamAbbrev),
+      team_name: safeStr(teamMeta.franchise_name || raw.team_name || raw.teamName || raw.franchise_name),
       selected_default: parseBool(raw.selected_default, false)
     };
 
@@ -960,11 +1016,15 @@
       var extKey = [asset.franchise_id, asset.player_id].join("|");
       extOptions = extensionIndex[extKey] ? clone(extensionIndex[extKey]) : [];
     }
+    var blockCurrentOwnerExtension = assetLastExtensionHeldByCurrentTeam(asset);
+    if (blockCurrentOwnerExtension) {
+      extOptions = [];
+    }
     if (!extOptions.length) {
       extOptions = buildSyntheticExtensionOptions(asset);
     }
     asset.extension_options = extOptions;
-    asset.extension_eligible = extOptions.length > 0 || parseBool(raw.extension_eligible, false);
+    asset.extension_eligible = !blockCurrentOwnerExtension && (extOptions.length > 0 || parseBool(raw.extension_eligible, false));
 
     var searchParts = [
       asset.player_name,
@@ -1018,7 +1078,10 @@
         var assets = Array.isArray(rt.assets) ? rt.assets : [];
         var j;
         for (j = 0; j < assets.length; j += 1) {
-          var asset = normalizeAsset(assets[j], teamId, extensionIndex, currentSeason);
+          var asset = normalizeAsset(assets[j], teamId, extensionIndex, currentSeason, {
+            franchise_name: team.franchise_name,
+            franchise_abbrev: team.franchise_abbrev
+          });
           if (asset.asset_id) team.assets.push(asset);
         }
         teams.push(team);
@@ -1062,7 +1125,10 @@
         var rosterAssets = rostersByTeam[fId] || [];
         var k;
         for (k = 0; k < rosterAssets.length; k += 1) {
-          t2.assets.push(normalizeAsset(rosterAssets[k], fId, extensionIndex, currentSeason));
+          t2.assets.push(normalizeAsset(rosterAssets[k], fId, extensionIndex, currentSeason, {
+            franchise_name: t2.franchise_name,
+            franchise_abbrev: t2.franchise_abbrev
+          }));
         }
         teams.push(t2);
       }
