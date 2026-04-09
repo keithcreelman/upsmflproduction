@@ -933,6 +933,7 @@
     asset.contract_type = safeStr(raw.contract_type || raw.contractstatus || raw.contractStatus || raw.type_label || raw.contract);
     asset.contract_info = safeStr(raw.contract_info || raw.contractInfo || raw.details);
     asset.taxi = parseBool(raw.taxi, false);
+    asset.roster_status = safeStr(raw.roster_status || raw.rosterStatus || raw.status).toUpperCase();
     asset.injury = safeStr(raw.injury || raw.status || "");
     asset.notes = safeStr(raw.notes || "");
 
@@ -996,6 +997,16 @@
           franchise_abbrev: safeStr(rt.franchise_abbrev || rt.abbrev || teamId),
           icon_url: safeStr(rt.icon_url || rt.franchise_logo || rt.logo || ""),
           is_default: parseBool(rt.is_default || rt.my_team, false),
+          salary_adjustment_total_dollars: safeMoneyInt(
+            rt.salary_adjustment_total_dollars != null
+              ? rt.salary_adjustment_total_dollars
+              : (rt.summary && (
+                  rt.summary.salary_adjustment_total_dollars != null
+                    ? rt.summary.salary_adjustment_total_dollars
+                    : rt.summary.salaryAdjustmentTotal
+                )),
+            0
+          ),
           available_salary_dollars: safeMoneyInt(
             rt.available_salary_dollars != null
               ? rt.available_salary_dollars
@@ -1030,6 +1041,16 @@
           franchise_abbrev: safeStr(rf.franchise_abbrev || rf.abbrev || fId),
           icon_url: safeStr(rf.icon_url || rf.logo || ""),
           is_default: parseBool(rf.is_default || rf.my_team, false),
+          salary_adjustment_total_dollars: safeMoneyInt(
+            rf.salary_adjustment_total_dollars != null
+              ? rf.salary_adjustment_total_dollars
+              : (rf.summary && (
+                  rf.summary.salary_adjustment_total_dollars != null
+                    ? rf.summary.salary_adjustment_total_dollars
+                    : rf.summary.salaryAdjustmentTotal
+                )),
+            0
+          ),
           available_salary_dollars: safeMoneyInt(
             rf.available_salary_dollars != null
               ? rf.available_salary_dollars
@@ -1290,6 +1311,70 @@
     }
   }
 
+  function resolveTradeSalaryAdjustmentLedgerUrl(season) {
+    var candidates = [
+      window.UPS_TWB_SALARY_ADJUSTMENTS_URL,
+      window.UPS_TRADE_WORKBENCH_SALARY_ADJUSTMENTS_URL
+    ];
+    var seasonText = safeStr(season || "");
+    for (var i = 0; i < candidates.length; i += 1) {
+      var raw = safeStr(candidates[i]);
+      if (!raw) continue;
+      raw = raw.replace(/\{YEAR\}/g, seasonText);
+      try {
+        return new URL(raw, window.location.href).toString();
+      } catch (e) {
+        return raw;
+      }
+    }
+
+    return resolveRelativeUrl("../reports/salary_adjustments/salary_adjustments_" + encodeURIComponent(seasonText) + ".json");
+  }
+
+  async function loadTradeSalaryAdjustmentLedgerRows(season) {
+    var url = resolveTradeSalaryAdjustmentLedgerUrl(season);
+    if (!url) return [];
+    try {
+      var payload = await fetchJson(url);
+      if (Array.isArray(payload)) return payload;
+      if (payload && Array.isArray(payload.rows)) return payload.rows;
+      return [];
+    } catch (err) {
+      return [];
+    }
+  }
+
+  function summarizeTradeSalaryAdjustmentRows(rows) {
+    var byFranchise = {};
+    var list = Array.isArray(rows) ? rows : [];
+    var i;
+    for (i = 0; i < list.length; i += 1) {
+      var row = list[i] || {};
+      var franchiseId = pad4(row.franchise_id || row.franchiseId);
+      if (!franchiseId) continue;
+      if (row.import_eligible === false) continue;
+      byFranchise[franchiseId] = safeInt(byFranchise[franchiseId], 0) + safeInt(row.amount, 0);
+    }
+    return byFranchise;
+  }
+
+  function applySalaryAdjustmentLedgerToTradeData(data, rows) {
+    var teams = Array.isArray(data && data.teams) ? data.teams : [];
+    if (!teams.length) return data;
+
+    var byFranchise = summarizeTradeSalaryAdjustmentRows(rows);
+    var i;
+    for (i = 0; i < teams.length; i += 1) {
+      var team = teams[i] || {};
+      var franchiseId = pad4(team.franchise_id);
+      team.salary_adjustment_total_dollars = safeInt(
+        byFranchise[franchiseId],
+        safeInt(team.salary_adjustment_total_dollars, 0)
+      );
+    }
+    return data;
+  }
+
   function applyAcquisitionLookupToTradeData(data, rows) {
     var teams = Array.isArray(data && data.teams) ? data.teams : [];
     var season = safeInt(data && data.meta && data.meta.season, 0);
@@ -1342,8 +1427,14 @@
 
   async function normalizeDataWithFallbacks(raw) {
     var data = normalizeData(raw);
-    var lookupRows = await loadTradeAcquisitionLookupRows(data && data.meta && data.meta.season);
-    return applyAcquisitionLookupToTradeData(data, lookupRows);
+    var season = data && data.meta && data.meta.season;
+    var results = await Promise.all([
+      loadTradeAcquisitionLookupRows(season),
+      loadTradeSalaryAdjustmentLedgerRows(season)
+    ]);
+    applyAcquisitionLookupToTradeData(data, results[0]);
+    applySalaryAdjustmentLedgerToTradeData(data, results[1]);
+    return data;
   }
 
   function getDocHeight() {
@@ -3905,11 +3996,36 @@
     state.tradeSalaryK[teamId] = String(value);
   }
 
-  function getAssetCapSalaryDollars(asset) {
-    if (!asset) return 0;
-    if (safeStr(asset.type).toUpperCase() === "PICK") return safeInt(asset.salary, 0);
-    if (asset.type !== "PLAYER" || asset.taxi) return 0;
+  function assetHasActiveCurrentContract(asset) {
+    return !!(
+      asset &&
+      safeStr(asset.type).toUpperCase() === "PLAYER" &&
+      !asset.taxi &&
+      safeInt(asset.years, 0) > 0
+    );
+  }
+
+  function assetCountsAsCurrentIr(asset) {
+    var status = safeStr(asset && (asset.roster_status || asset.injury)).toUpperCase();
+    if (!status) return false;
+    return status.indexOf("INJURED") !== -1 || status.indexOf("_IR") !== -1 || status === "IR";
+  }
+
+  function getAssetTradeSalaryBasisDollars(asset) {
+    if (!assetHasActiveCurrentContract(asset)) return 0;
     return safeInt(asset.salary, 0);
+  }
+
+  function getAssetCurrentCapHitDollars(asset) {
+    if (!assetHasActiveCurrentContract(asset)) return 0;
+    var salary = safeInt(asset.salary, 0);
+    if (salary <= 0) return 0;
+    if (assetCountsAsCurrentIr(asset)) return Math.round(salary * 0.5);
+    return salary;
+  }
+
+  function getAssetCapSalaryDollars(asset) {
+    return getAssetCurrentCapHitDollars(asset);
   }
 
   function getTeamTotals(teamId) {
@@ -3939,16 +4055,14 @@
       out.selectedCount += 1;
       if (a.type === "PICK") {
         out.selectedPicks += 1;
-        out.selectedCapSalary += safeInt(a.salary, 0);
         continue;
       }
       out.selectedPlayers += 1;
       if (a.taxi) {
         out.selectedTaxiPlayers += 1;
-      } else {
-        out.selectedNonTaxiSalary += safeInt(a.salary, 0);
-        out.selectedCapSalary += safeInt(a.salary, 0);
       }
+      out.selectedNonTaxiSalary += getAssetTradeSalaryBasisDollars(a);
+      out.selectedCapSalary += getAssetCapSalaryDollars(a);
     }
     return out;
   }
@@ -4368,9 +4482,6 @@
     if (contractLength > 0) {
       if (contractYear > 0 && contractYear <= contractLength) {
         yearsRemaining = Math.max(contractLength - contractYear, 0);
-      } else if (yearsRemaining === 0 && contractLength > 1) {
-        // A zero value from MFL commonly means the final in-force season on the current deal.
-        yearsRemaining = 1;
       }
     }
 
@@ -4589,23 +4700,30 @@
     return null;
   }
 
+  function resolveTeamSalaryAdjustmentTotalDollars(teamId) {
+    var team = getTeamById(teamId);
+    if (!team) return 0;
+    return safeInt(team.salary_adjustment_total_dollars, 0);
+  }
+
   function buildSalaryReconciliation(leftTeam, rightTeam, leftTotals, rightTotals, leftTradeK, rightTradeK) {
     var salaryCap = safeInt(state.data && state.data.meta ? state.data.meta.salary_cap_dollars : 0, 0);
-    var leftAvailableBefore = resolveTeamAvailableSalaryDollars(state.leftTeamId);
-    var rightAvailableBefore = resolveTeamAvailableSalaryDollars(state.rightTeamId);
     var leftOutgoing = safeInt(leftTotals.selectedCapSalary, 0);
     var rightOutgoing = safeInt(rightTotals.selectedCapSalary, 0);
     var leftIncoming = rightOutgoing;
     var rightIncoming = leftOutgoing;
     var leftSalaryTradeAdjustmentDollars = (leftTradeK - rightTradeK) * 1000;
     var rightSalaryTradeAdjustmentDollars = (rightTradeK - leftTradeK) * 1000;
-
-    var leftStartingSalary = salaryCap > 0 && leftAvailableBefore != null
-      ? salaryCap - safeInt(leftAvailableBefore, 0)
-      : sumTeamCommittedSalary(state.leftTeamId);
-    var rightStartingSalary = salaryCap > 0 && rightAvailableBefore != null
-      ? salaryCap - safeInt(rightAvailableBefore, 0)
-      : sumTeamCommittedSalary(state.rightTeamId);
+    var leftStartingSalary = sumTeamCommittedSalary(state.leftTeamId);
+    var rightStartingSalary = sumTeamCommittedSalary(state.rightTeamId);
+    var leftAdjustmentTotal = resolveTeamSalaryAdjustmentTotalDollars(state.leftTeamId);
+    var rightAdjustmentTotal = resolveTeamSalaryAdjustmentTotalDollars(state.rightTeamId);
+    var leftAvailableBefore = salaryCap > 0
+      ? salaryCap - (leftStartingSalary + leftAdjustmentTotal)
+      : resolveTeamAvailableSalaryDollars(state.leftTeamId);
+    var rightAvailableBefore = salaryCap > 0
+      ? salaryCap - (rightStartingSalary + rightAdjustmentTotal)
+      : resolveTeamAvailableSalaryDollars(state.rightTeamId);
 
     var leftNetSalaryAdjustment = leftIncoming - leftOutgoing + leftSalaryTradeAdjustmentDollars;
     var rightNetSalaryAdjustment = rightIncoming - rightOutgoing + rightSalaryTradeAdjustmentDollars;
@@ -4613,10 +4731,10 @@
     var rightNewSalary = safeInt(rightStartingSalary, 0) + rightNetSalaryAdjustment;
 
     var leftAvailableAfter = salaryCap > 0
-      ? salaryCap - leftNewSalary
+      ? salaryCap - (leftNewSalary + leftAdjustmentTotal)
       : (leftAvailableBefore == null ? null : safeInt(leftAvailableBefore, 0) - leftNetSalaryAdjustment);
     var rightAvailableAfter = salaryCap > 0
-      ? salaryCap - rightNewSalary
+      ? salaryCap - (rightNewSalary + rightAdjustmentTotal)
       : (rightAvailableBefore == null ? null : safeInt(rightAvailableBefore, 0) - rightNetSalaryAdjustment);
 
     var leftNetChange = -leftNetSalaryAdjustment;
@@ -4630,6 +4748,7 @@
         franchise_name: leftTeam ? leftTeam.franchise_name : "",
         salary_cap_dollars: salaryCap > 0 ? salaryCap : null,
         starting_salary_dollars: leftStartingSalary,
+        salary_adjustment_total_dollars: leftAdjustmentTotal,
         outgoing_dollars: leftOutgoing,
         incoming_dollars: leftIncoming,
         salary_trade_adjustment_dollars: leftSalaryTradeAdjustmentDollars,
@@ -4648,6 +4767,7 @@
         franchise_name: rightTeam ? rightTeam.franchise_name : "",
         salary_cap_dollars: salaryCap > 0 ? salaryCap : null,
         starting_salary_dollars: rightStartingSalary,
+        salary_adjustment_total_dollars: rightAdjustmentTotal,
         outgoing_dollars: rightOutgoing,
         incoming_dollars: rightIncoming,
         salary_trade_adjustment_dollars: rightSalaryTradeAdjustmentDollars,
@@ -4686,17 +4806,14 @@
 
   function resolvePlayerSeasonSalaryDollars(asset, seasonOffset) {
     if (!asset || asset.type !== "PLAYER" || asset.taxi || seasonOffset < 0) return 0;
+    if (seasonOffset === 0) return getAssetCurrentCapHitDollars(asset);
+    if (safeInt(asset && asset.years, 0) <= 0) return 0;
     var info = parseContractInfoSummary(asset.contract_info);
     var metrics = resolveAssetDisplayContractMetrics(asset);
     var contractLength = safeInt(asset.contract_length, 0);
     if (!contractLength && info.contract_length) contractLength = safeInt(info.contract_length, 0);
     var yearsRemaining = metrics.years_remaining == null ? null : safeInt(metrics.years_remaining, 0);
     var contractYear = inferAssetCurrentContractYear(asset, contractLength, yearsRemaining);
-
-    if (seasonOffset === 0) {
-      var currentSalary = safeInt(asset.salary, 0);
-      if (currentSalary > 0) return currentSalary;
-    }
 
     var targetContractYear = contractYear + seasonOffset;
     if (contractLength > 0 && targetContractYear > contractLength) return 0;
@@ -5437,6 +5554,12 @@
       renderSalaryLine(
         "Starting Salary",
         formatDollarsPlainLabel(sideData.starting_salary_dollars)
+      )
+    );
+    block.appendChild(
+      renderSalaryLine(
+        "Cap Adjustments",
+        formatDollarsPlainLabel(sideData.salary_adjustment_total_dollars)
       )
     );
     block.appendChild(renderSalaryLine("Incoming Salary", formatDollarsPlainLabel(sideData.incoming_dollars)));
