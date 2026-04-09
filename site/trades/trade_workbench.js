@@ -284,16 +284,31 @@
   }
 
   function extensionHistoryTokenMatchesCurrentTeam(token, asset) {
-    var normalized = normalizeExtensionHistoryToken(token);
-    if (!normalized) return false;
+    var rawToken = safeStr(token);
+    var normalized = normalizeExtensionHistoryToken(rawToken);
+    var rawNeedle = rawToken.replace(/\s+/g, "");
+    if (!normalized && !rawNeedle) return false;
     var identity = tradeTeamIdentityTokenMap(asset);
-    if (identity[normalized]) return true;
+    if (normalized && identity[normalized]) return true;
     var keys = Object.keys(identity);
     for (var i = 0; i < keys.length; i += 1) {
       var key = keys[i];
       if (!key) continue;
-      if (normalized.length >= 4 && key.indexOf(normalized) === 0) return true;
-      if (key.length >= 4 && normalized.indexOf(key) === 0) return true;
+      if (normalized) {
+        if (normalized.length >= 4 && key.indexOf(normalized) === 0) return true;
+        if (key.length >= 4 && normalized.indexOf(key) === 0) return true;
+      }
+    }
+    if (rawNeedle) {
+      var rawValues = [
+        safeStr(asset && asset.franchise_name),
+        safeStr(asset && asset.franchise_abbrev),
+        safeStr(asset && asset.team_name)
+      ];
+      for (var j = 0; j < rawValues.length; j += 1) {
+        var rawHaystack = rawValues[j].replace(/\s+/g, "");
+        if (rawHaystack && rawHaystack.indexOf(rawNeedle) !== -1) return true;
+      }
     }
     return false;
   }
