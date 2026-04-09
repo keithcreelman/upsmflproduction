@@ -255,39 +255,54 @@
     return safeStr(token).toLowerCase().replace(/[^a-z0-9]/g, "");
   }
 
-  function collectCurrentTeamExtensionTokens(asset) {
-    var out = [];
-    var seen = {};
-    function addToken(value) {
-      var normalized = normalizeExtensionHistoryToken(value);
-      if (!normalized || seen[normalized]) return;
-      seen[normalized] = true;
-      out.push(normalized);
+  function tradeTeamIdentityTokenMap(asset) {
+    var map = Object.create(null);
+
+    function add(raw) {
+      var text = safeStr(raw);
+      if (!text) return;
+      var normalized = normalizeExtensionHistoryToken(text);
+      if (normalized) map[normalized] = true;
+      var parts = text.split(/[\s/,&().-]+/);
+      for (var i = 0; i < parts.length; i += 1) {
+        var token = normalizeExtensionHistoryToken(parts[i]);
+        if (!token) continue;
+        map[token] = true;
+        if (token.length >= 5 && /ers$/.test(token)) {
+          map[token.slice(0, -3)] = true;
+        }
+        if (token.length >= 5 && /s$/.test(token)) {
+          map[token.slice(0, -1)] = true;
+        }
+      }
     }
 
-    addToken(asset && asset.franchise_abbrev);
-    addToken(asset && asset.franchise_name);
-    addToken(asset && asset.team_name);
+    add(asset && asset.franchise_name);
+    add(asset && asset.franchise_abbrev);
+    add(asset && asset.team_name);
+    return map;
+  }
 
-    var rawBits = [
-      safeStr(asset && asset.franchise_abbrev),
-      safeStr(asset && asset.franchise_name),
-      safeStr(asset && asset.team_name)
-    ].join(" ");
-    rawBits.split(/[^a-z0-9]+/i).forEach(addToken);
-    return out;
+  function extensionHistoryTokenMatchesCurrentTeam(token, asset) {
+    var normalized = normalizeExtensionHistoryToken(token);
+    if (!normalized) return false;
+    var identity = tradeTeamIdentityTokenMap(asset);
+    if (identity[normalized]) return true;
+    var keys = Object.keys(identity);
+    for (var i = 0; i < keys.length; i += 1) {
+      var key = keys[i];
+      if (!key) continue;
+      if (normalized.length >= 4 && key.indexOf(normalized) === 0) return true;
+      if (key.length >= 4 && normalized.indexOf(key) === 0) return true;
+    }
+    return false;
   }
 
   function assetLastExtensionHeldByCurrentTeam(asset) {
     var info = parseContractInfoSummary(asset && asset.contract_info);
-    var lastToken = normalizeExtensionHistoryToken(info.last_extension_token);
+    var lastToken = info.last_extension_token;
     if (!lastToken) return false;
-    var currentTokens = collectCurrentTeamExtensionTokens(asset);
-    var i;
-    for (i = 0; i < currentTokens.length; i += 1) {
-      if (currentTokens[i] === lastToken) return true;
-    }
-    return false;
+    return extensionHistoryTokenMatchesCurrentTeam(lastToken, asset);
   }
 
   function roundToNearestK(v) {
