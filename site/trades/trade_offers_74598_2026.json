@@ -3,8 +3,8 @@
     "schema_version": 1,
     "league_id": "74598",
     "season": 2026,
-    "updated_at": "2026-04-09T20:35:13.457Z",
-    "row_count": 15,
+    "updated_at": "2026-04-10T17:56:06.164Z",
+    "row_count": 16,
     "source": "worker-trade-offers"
   },
   "offers": [
@@ -2446,6 +2446,210 @@
       "twb_meta": null,
       "mfl_trade_id": "1018",
       "trade_id": "1018",
+      "mfl_present": true,
+      "mfl_status": "PENDING"
+    },
+    {
+      "id": "MFL-1019",
+      "league_id": "74598",
+      "season": 2026,
+      "status": "PENDING",
+      "created_at": "2026-04-10T17:56:06.164Z",
+      "updated_at": "2026-04-10T17:56:06.164Z",
+      "from_franchise_id": "0005",
+      "to_franchise_id": "0011",
+      "from_franchise_name": "HammerTime 🔨 ⏰",
+      "to_franchise_name": "Cleon Ca$h",
+      "message": "",
+      "comment": "",
+      "comments": "",
+      "raw_comment": "",
+      "will_give_up": "15794",
+      "will_receive": "17104,DP_0_0",
+      "source": "trade-workbench-ui",
+      "summary": {
+        "from_asset_count": 1,
+        "to_asset_count": 2,
+        "from_trade_salary_k": 0,
+        "to_trade_salary_k": 0,
+        "extension_request_count": 0
+      },
+      "payload": {
+        "schema_version": 1,
+        "generated_at": "2026-04-10T17:56:03.358Z",
+        "source": "ups-trade-workbench",
+        "league_id": "74598",
+        "season": 2026,
+        "teams": [
+          {
+            "role": "left",
+            "franchise_id": "0005",
+            "franchise_name": "HammerTime 🔨 ⏰",
+            "selected_assets": [
+              {
+                "asset_id": "player:15794",
+                "type": "PLAYER",
+                "player_id": "15794",
+                "player_name": "McBride, Trey",
+                "description": null,
+                "position": "TE",
+                "nfl_team": "ARI",
+                "salary": 35000,
+                "years": 1,
+                "contract_type": "BL",
+                "contract_info": "CL 2| TCV 44K| AAV 22K| Y1-9K, Y2-35K| Ext: Hammer",
+                "taxi": false,
+                "pick_key": null,
+                "pick_season": null,
+                "pick_round": null,
+                "pick_slot": null
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 17,
+            "selected_non_taxi_salary_dollars": 35000
+          },
+          {
+            "role": "right",
+            "franchise_id": "0011",
+            "franchise_name": "Cleon Ca$h",
+            "selected_assets": [
+              {
+                "asset_id": "player:17104",
+                "type": "PLAYER",
+                "player_id": "17104",
+                "player_name": "Loveland, Colston",
+                "description": null,
+                "position": "TE",
+                "nfl_team": "CHI",
+                "salary": 5000,
+                "years": 2,
+                "contract_type": "Rookie",
+                "contract_info": "CL 3| TCV 15K| AAV 5K",
+                "taxi": false,
+                "pick_key": null,
+                "pick_season": null,
+                "pick_round": null,
+                "pick_slot": null
+              },
+              {
+                "asset_id": "pick:DP_0_0",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2026 Rookie 1.01",
+                "position": null,
+                "nfl_team": null,
+                "salary": 15000,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "DP_0_0",
+                "pick_season": 2026,
+                "pick_round": 1,
+                "pick_slot": 1
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 2,
+            "selected_non_taxi_salary_dollars": 5000
+          }
+        ],
+        "extension_requests": [],
+        "filters": {
+          "search": ""
+        },
+        "ui": {
+          "left_team_id": "0005",
+          "right_team_id": "0011"
+        },
+        "salary_reconciliation": {
+          "left": {
+            "franchise_id": "0005",
+            "franchise_name": "HammerTime 🔨 ⏰",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 160000,
+            "salary_adjustment_total_dollars": 0,
+            "outgoing_dollars": 35000,
+            "incoming_dollars": 5000,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": -30000,
+            "new_salary_dollars": 130000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 17,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": 30000,
+            "available_salary_before_dollars": 140000,
+            "available_salary_after_dollars": 170000,
+            "over_cap_dollars": 0
+          },
+          "right": {
+            "franchise_id": "0011",
+            "franchise_name": "Cleon Ca$h",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 206000,
+            "salary_adjustment_total_dollars": 2100,
+            "outgoing_dollars": 5000,
+            "incoming_dollars": 35000,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": 30000,
+            "new_salary_dollars": 236000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 2,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": -30000,
+            "available_salary_before_dollars": 91900,
+            "available_salary_after_dollars": 61900,
+            "over_cap_dollars": 0
+          },
+          "has_over_cap": false
+        },
+        "multi_year_salary_impact": {
+          "current_season": 2026,
+          "left_franchise_name": "HammerTime 🔨 ⏰",
+          "right_franchise_name": "Cleon Ca$h",
+          "rows": [
+            {
+              "season": 2026,
+              "left_before_dollars": 160000,
+              "left_after_dollars": 145000,
+              "left_change_dollars": -15000,
+              "right_before_dollars": 221000,
+              "right_after_dollars": 236000,
+              "right_change_dollars": 15000
+            },
+            {
+              "season": 2027,
+              "left_before_dollars": 215000,
+              "left_after_dollars": 185000,
+              "left_change_dollars": -30000,
+              "right_before_dollars": 206000,
+              "right_after_dollars": 236000,
+              "right_change_dollars": 30000
+            },
+            {
+              "season": 2028,
+              "left_before_dollars": 75000,
+              "left_after_dollars": 80000,
+              "left_change_dollars": 5000,
+              "right_before_dollars": 75000,
+              "right_after_dollars": 70000,
+              "right_change_dollars": -5000
+            }
+          ]
+        },
+        "validation": {
+          "status": "ready",
+          "issues": []
+        },
+        "comment": ""
+      },
+      "twb_meta": null,
+      "mfl_trade_id": "1019",
+      "trade_id": "1019",
       "mfl_present": true,
       "mfl_status": "PENDING"
     }
