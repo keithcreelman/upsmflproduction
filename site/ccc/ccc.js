@@ -12,8 +12,6 @@
   const TAG_SUBMISSIONS_URL = "./tag_submissions.json";
   const PLAYER_POINTS_HISTORY_URL = "./player_points_history.json";
   const RELEASE_LOG_URL = "./ccc_release_log.json";
-  const TAG_EXCLUDED_PLAYER_IDS = new Set(["14056"]); // Kyler Murray (Superflex keeper) must hit FA.
-  const TAG_EXCLUDED_NAME_MATCHES = ["kyler murray", "murray, kyler", "calamari"];
   const TAG_LIMIT_PER_SIDE = 1;
   const SEASON_CAP_PER_TEAM = 5;
   const RESTRUCTURE_CAP_PER_TEAM = 4;
@@ -424,18 +422,15 @@
 
   function loadTagSubmissions() {
     try {
-      const raw = localStorage.getItem(LOCAL_TAG_SUBMISSIONS_KEY);
-      if (!raw) return {};
-      const obj = JSON.parse(raw);
-      return obj && typeof obj === "object" ? obj : {};
+      localStorage.removeItem(LOCAL_TAG_SUBMISSIONS_KEY);
     } catch (e) {
-      return {};
     }
+    return {};
   }
 
   function saveTagSubmissions(submissions) {
     try {
-      localStorage.setItem(LOCAL_TAG_SUBMISSIONS_KEY, JSON.stringify(submissions || {}));
+      localStorage.removeItem(LOCAL_TAG_SUBMISSIONS_KEY);
     } catch (e) {}
   }
 
@@ -1262,11 +1257,6 @@
       tracking_context: safeStr(r.tracking_context || "in-season"),
       scoring_weeks_used: safeStr(r.scoring_weeks_used),
     };
-    if (isTagHardExcluded(out)) {
-      out.is_tag_eligible = 0;
-      out.eligibility_reason =
-        out.eligibility_reason || "Superflex keeper; must enter free-agent market.";
-    }
     return out;
   }
 
@@ -1846,14 +1836,6 @@
     if (tierVal) classes.push(`tier-${tierVal}`);
     if (fid) classes.push(`team-${fid}`);
     return classes.join(" ");
-  }
-
-  function isTagHardExcluded(row) {
-    const pid = safeStr(row && row.player_id);
-    if (pid && TAG_EXCLUDED_PLAYER_IDS.has(pid)) return true;
-    const nm = safeStr(row && row.player_name).toLowerCase();
-    if (!nm) return false;
-    return TAG_EXCLUDED_NAME_MATCHES.some((needle) => nm.includes(needle));
   }
 
   function canManageTagForFranchise(franchiseId) {
