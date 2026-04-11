@@ -3,8 +3,8 @@
     "schema_version": 1,
     "league_id": "74598",
     "season": 2026,
-    "updated_at": "2026-04-10T17:56:05.514Z",
-    "row_count": 32,
+    "updated_at": "2026-04-11T20:05:27.477Z",
+    "row_count": 33,
     "source": "worker-trade-outbox"
   },
   "rows": [
@@ -5770,6 +5770,216 @@
       "season": "2026",
       "updated_ts": "2026-04-10T17:56:05.397Z",
       "id": "32"
+    },
+    {
+      "created_ts": "2026-04-11T20:05:27.381Z",
+      "trade_id": "",
+      "action_type": "SUBMIT",
+      "from_franchise_id": "0005",
+      "to_franchise_id": "0012",
+      "payload_xml_extensions": "",
+      "payload_xml_salary_adj": "",
+      "payload_xml_salary_trade": "",
+      "payload_json": {
+        "schema_version": 1,
+        "generated_at": "2026-04-11T20:05:27.376Z",
+        "source": "ups-trade-workbench",
+        "league_id": "74598",
+        "season": 2026,
+        "teams": [
+          {
+            "role": "left",
+            "franchise_id": "0005",
+            "franchise_name": "HammerTime 🔨 ⏰",
+            "selected_assets": [
+              {
+                "asset_id": "player:15794",
+                "type": "PLAYER",
+                "player_id": "15794",
+                "player_name": "McBride, Trey",
+                "description": null,
+                "position": "TE",
+                "nfl_team": "ARI",
+                "salary": 35000,
+                "years": 1,
+                "contract_type": "BL",
+                "contract_info": "CL 2| TCV 44K| AAV 22K| Y1-9K, Y2-35K| Ext: Hammer",
+                "taxi": false,
+                "pick_key": null,
+                "pick_season": null,
+                "pick_round": null,
+                "pick_slot": null
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 17,
+            "selected_non_taxi_salary_dollars": 35000
+          },
+          {
+            "role": "right",
+            "franchise_id": "0012",
+            "franchise_name": "Hawks",
+            "selected_assets": [
+              {
+                "asset_id": "pick:DP_0_1",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2026 Rookie 1.02",
+                "position": null,
+                "nfl_team": null,
+                "salary": 14000,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "DP_0_1",
+                "pick_season": 2026,
+                "pick_round": 1,
+                "pick_slot": 2
+              },
+              {
+                "asset_id": "pick:DP_0_5",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2026 Rookie 1.06",
+                "position": null,
+                "nfl_team": null,
+                "salary": 10000,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "DP_0_5",
+                "pick_season": 2026,
+                "pick_round": 1,
+                "pick_slot": 6
+              },
+              {
+                "asset_id": "pick:FP_0012_2027_1",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2027 Rookie Round 1",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "FP_0012_2027_1",
+                "pick_season": 2027,
+                "pick_round": 1,
+                "pick_slot": null
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 0,
+            "selected_non_taxi_salary_dollars": 0
+          }
+        ],
+        "extension_requests": [],
+        "filters": {
+          "search": ""
+        },
+        "ui": {
+          "left_team_id": "0005",
+          "right_team_id": "0012"
+        },
+        "salary_reconciliation": {
+          "left": {
+            "franchise_id": "0005",
+            "franchise_name": "HammerTime 🔨 ⏰",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 160000,
+            "salary_adjustment_total_dollars": 0,
+            "outgoing_dollars": 35000,
+            "incoming_dollars": 0,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": -35000,
+            "new_salary_dollars": 125000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 17,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": 35000,
+            "available_salary_before_dollars": 140000,
+            "available_salary_after_dollars": 175000,
+            "over_cap_dollars": 0
+          },
+          "right": {
+            "franchise_id": "0012",
+            "franchise_name": "Hawks",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 139000,
+            "salary_adjustment_total_dollars": 3500,
+            "outgoing_dollars": 0,
+            "incoming_dollars": 35000,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": 35000,
+            "new_salary_dollars": 174000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 0,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": -35000,
+            "available_salary_before_dollars": 157500,
+            "available_salary_after_dollars": 122500,
+            "over_cap_dollars": 0
+          },
+          "has_over_cap": false
+        },
+        "multi_year_salary_impact": {
+          "current_season": 2026,
+          "left_franchise_name": "HammerTime 🔨 ⏰",
+          "right_franchise_name": "Hawks",
+          "rows": [
+            {
+              "season": 2026,
+              "left_before_dollars": 160000,
+              "left_after_dollars": 149000,
+              "left_change_dollars": -11000,
+              "right_before_dollars": 163000,
+              "right_after_dollars": 174000,
+              "right_change_dollars": 11000
+            },
+            {
+              "season": 2027,
+              "left_before_dollars": 215000,
+              "left_after_dollars": 180000,
+              "left_change_dollars": -35000,
+              "right_before_dollars": 139000,
+              "right_after_dollars": 174000,
+              "right_change_dollars": 35000
+            },
+            {
+              "season": 2028,
+              "left_before_dollars": 75000,
+              "left_after_dollars": 75000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 58000,
+              "right_after_dollars": 58000,
+              "right_change_dollars": 0
+            }
+          ]
+        },
+        "validation": {
+          "status": "ready",
+          "issues": []
+        },
+        "comment": ""
+      },
+      "comment_trailer": "",
+      "payload_hash": "c099c21dfbf468b5eac3a30799f7347838b7a013df06f41c4152a8d993f6ab56",
+      "status": "PENDING",
+      "mfl_post_response_snip": "",
+      "mfl_verify_response_snip": "",
+      "league_id": "74598",
+      "season": "2026",
+      "updated_ts": "2026-04-11T20:05:27.381Z",
+      "id": "33"
     }
   ]
 }
