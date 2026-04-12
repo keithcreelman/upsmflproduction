@@ -644,6 +644,111 @@
     return cleaned || raw;
   }
 
+  function resolveFuturePickOriginTokenMeta(asset) {
+    var token = normalizePickKey(
+      asset && (asset.pick_key || asset.asset_id || asset.description || asset.pick_display || "")
+    );
+    var fp = token.match(/^FP_([A-Z0-9]+)_(\d{4})_(\d+)$/i);
+    if (!fp) return null;
+    return {
+      token: token,
+      origin_token: safeStr(fp[1]).toUpperCase(),
+      year: safeInt(fp[2], 0),
+      round: safeInt(fp[3], 0)
+    };
+  }
+
+  function extractPickOriginNameFromDescription(description) {
+    var raw = safeStr(description);
+    if (!raw) return "";
+    var fromMatch = raw.match(/\bfrom\s+(.+?)\s*$/i);
+    return fromMatch ? safeStr(fromMatch[1]) : "";
+  }
+
+  function buildFranchiseDirectory(teams) {
+    var map = {};
+    var rows = Array.isArray(teams) ? teams : [];
+    var i;
+    for (i = 0; i < rows.length; i += 1) {
+      var team = rows[i] || {};
+      var id = pad4(team.franchise_id || team.id);
+      if (!id) continue;
+      map[id] = {
+        franchise_id: id,
+        franchise_name: safeStr(team.franchise_name || team.name || id),
+        franchise_abbrev: safeStr(team.franchise_abbrev || team.abbrev || id)
+      };
+    }
+    return map;
+  }
+
+  function enrichPickOwnershipMeta(asset, franchiseDirectory) {
+    if (!asset || safeStr(asset.type).toUpperCase() !== "PICK") return asset;
+
+    asset.pick_origin_franchise_id = "";
+    asset.pick_origin_name = "";
+    asset.pick_origin_abbrev = "";
+    asset.pick_origin_label = "";
+    asset.pick_origin_note = "";
+
+    var baseLabel = shortPickLabel(
+      asset.description,
+      asset.asset_id || asset.pick_key || asset.asset_id,
+      asset.pick_season || 0
+    );
+    var tokenMeta = resolveFuturePickOriginTokenMeta(asset);
+    var descOriginName = tokenMeta ? "" : extractPickOriginNameFromDescription(asset.description);
+    if (!tokenMeta && !descOriginName) {
+      asset.pick_display = baseLabel;
+      asset.search_text = [
+        asset.description,
+        asset.pick_display,
+        asset.contract_info
+      ].join(" ").toLowerCase();
+      return asset;
+    }
+
+    var originId = "";
+    var originName = "";
+    var originAbbrev = "";
+
+    if (tokenMeta && tokenMeta.origin_token) {
+      originId = /^\d+$/.test(tokenMeta.origin_token)
+        ? pad4(tokenMeta.origin_token)
+        : tokenMeta.origin_token;
+      if (franchiseDirectory && franchiseDirectory[originId]) {
+        originName = safeStr(franchiseDirectory[originId].franchise_name);
+        originAbbrev = safeStr(franchiseDirectory[originId].franchise_abbrev);
+      }
+    }
+
+    if (!originName) originName = safeStr(descOriginName || originId);
+    var originLabel = safeStr(originAbbrev || originName || originId);
+    asset.pick_origin_franchise_id = originId;
+    asset.pick_origin_name = originName;
+    asset.pick_origin_abbrev = originAbbrev;
+    asset.pick_origin_label = originLabel;
+    if (originName) {
+      asset.pick_origin_note =
+        originAbbrev && originAbbrev !== originName
+          ? ("Original pick: " + originName + " (" + originAbbrev + ")")
+          : ("Original pick: " + originName);
+    } else if (originId) {
+      asset.pick_origin_note = "Original pick: " + originId;
+    }
+
+    asset.pick_display = originLabel ? (baseLabel + " · " + originLabel) : baseLabel;
+    asset.search_text = [
+      asset.description,
+      asset.pick_display,
+      asset.contract_info,
+      asset.pick_origin_name,
+      asset.pick_origin_abbrev,
+      asset.pick_origin_franchise_id
+    ].join(" ").toLowerCase();
+    return asset;
+  }
+
   function resolvePickMeta(asset, seasonHintOverride) {
     var ref = asset || {};
     var token = normalizePickKey(
@@ -1168,6 +1273,15 @@
       if (!!a.is_default !== !!b.is_default) return a.is_default ? -1 : 1;
       return compareText(a.franchise_name, b.franchise_name);
     });
+
+    var franchiseDirectory = buildFranchiseDirectory(teams);
+    for (i = 0; i < teams.length; i += 1) {
+      var pickAssets = teams[i].assets || [];
+      var pickIdx;
+      for (pickIdx = 0; pickIdx < pickAssets.length; pickIdx += 1) {
+        enrichPickOwnershipMeta(pickAssets[pickIdx], franchiseDirectory);
+      }
+    }
 
     var allPositions = [];
     var allContractTypes = [];
@@ -1911,7 +2025,10 @@
       pick_key: isPick ? (asset.pick_key || pickMeta.token || null) : null,
       pick_season: isPick ? (pickMeta.year || null) : null,
       pick_round: isPick ? (pickMeta.round || null) : null,
-      pick_slot: isPick ? (pickMeta.pick || null) : null
+      pick_slot: isPick ? (pickMeta.pick || null) : null,
+      pick_origin_franchise_id: isPick ? (asset.pick_origin_franchise_id || null) : null,
+      pick_origin_name: isPick ? (asset.pick_origin_name || null) : null,
+      pick_origin_abbrev: isPick ? (asset.pick_origin_abbrev || null) : null
     };
   }
 
@@ -4671,6 +4788,12 @@
     }
 
     main.appendChild(line);
+    if (asset.type === "PICK" && asset.pick_origin_note) {
+      var pickOrigin = document.createElement("div");
+      pickOrigin.className = "twb-asset-sub";
+      pickOrigin.textContent = asset.pick_origin_note;
+      main.appendChild(pickOrigin);
+    }
     var ineligibleReason = getTradeIneligibleReason(asset);
     if (ineligibleReason) {
       var ruleNote = document.createElement("div");
@@ -5412,6 +5535,7 @@
 
   function renderOfferCartPickCard(teamId, asset) {
     var pickSalaryInfo = resolvePickSalaryInfo(asset);
+    var salaryMeta = safeStr(asset.pick_salary_note || pickSalaryInfo.meta_label || "Rookie pick");
     var item = document.createElement("article");
     item.className = "twb-offer-cart-item twb-offer-cart-item-pick";
 
@@ -5435,8 +5559,15 @@
 
     var meta = document.createElement("div");
     meta.className = "twb-offer-cart-item-meta";
-    meta.textContent = safeStr(asset.pick_salary_note || pickSalaryInfo.meta_label || "Rookie pick");
+    meta.textContent = safeStr(asset.pick_origin_note || salaryMeta);
     item.appendChild(meta);
+
+    if (asset.pick_origin_note && salaryMeta) {
+      var salaryMetaNode = document.createElement("div");
+      salaryMetaNode.className = "twb-offer-cart-item-meta";
+      salaryMetaNode.textContent = salaryMeta;
+      item.appendChild(salaryMetaNode);
+    }
 
     if (safeInt(asset.salary, 0) > 0) {
       item.appendChild(
