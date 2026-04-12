@@ -684,6 +684,29 @@
     return cleaned;
   }
 
+  function trimLeadingArticle(value) {
+    return safeStr(value).replace(/^the\s+/i, "").trim();
+  }
+
+  function possessiveLabel(value) {
+    var cleaned = trimLeadingArticle(cleanFranchiseNameLabel(value));
+    if (!cleaned) return "";
+    return /s$/i.test(cleaned) ? (cleaned + "'") : (cleaned + "'s");
+  }
+
+  function buildOriginPickDisplay(meta, originName, fallbackLabel) {
+    var owner = possessiveLabel(originName);
+    var year = safeInt(meta && meta.year, 0);
+    var round = safeInt(meta && meta.round, 0);
+    var pick = safeInt(meta && meta.pick, 0);
+    if (!owner || !round) return safeStr(fallbackLabel);
+    var prefix = year ? (String(year) + " ") : "";
+    if (pick) {
+      return prefix + owner + " " + String(round) + "." + String(pick).padStart(2, "0") + " Pick";
+    }
+    return prefix + owner + " Round " + String(round) + " Pick";
+  }
+
   function buildFranchiseDirectory(teams) {
     var map = {};
     var rows = Array.isArray(teams) ? teams : [];
@@ -715,6 +738,7 @@
       asset.asset_id || asset.pick_key || asset.asset_id,
       asset.pick_season || 0
     );
+    var pickMeta = resolvePickMeta(asset, asset.pick_season || 0);
     var tokenMeta = resolveFuturePickOriginTokenMeta(asset);
     var descOriginName = tokenMeta ? "" : extractPickOriginNameFromDescription(asset.description);
     if (!tokenMeta && !descOriginName) {
@@ -748,16 +772,12 @@
     asset.pick_origin_name = originName;
     asset.pick_origin_abbrev = originAbbrev;
     asset.pick_origin_label = originLabel;
-    if (originName) {
-      asset.pick_origin_note =
-        originAbbrev && originAbbrev !== originName
-          ? ("Original pick: " + originName + " (" + originAbbrev + ")")
-          : ("Original pick: " + originName);
-    } else if (originId) {
-      asset.pick_origin_note = "Original pick: " + originId;
-    }
-
-    asset.pick_display = originLabel ? (baseLabel + " · " + originLabel) : baseLabel;
+    asset.pick_origin_note = "";
+    asset.pick_display = buildOriginPickDisplay(
+      pickMeta,
+      originName || originLabel,
+      baseLabel
+    );
     asset.search_text = [
       asset.description,
       asset.pick_display,
@@ -4808,12 +4828,6 @@
     }
 
     main.appendChild(line);
-    if (asset.type === "PICK" && asset.pick_origin_note) {
-      var pickOrigin = document.createElement("div");
-      pickOrigin.className = "twb-asset-sub";
-      pickOrigin.textContent = asset.pick_origin_note;
-      main.appendChild(pickOrigin);
-    }
     var ineligibleReason = getTradeIneligibleReason(asset);
     if (ineligibleReason) {
       var ruleNote = document.createElement("div");
@@ -5579,15 +5593,8 @@
 
     var meta = document.createElement("div");
     meta.className = "twb-offer-cart-item-meta";
-    meta.textContent = safeStr(asset.pick_origin_note || salaryMeta);
+    meta.textContent = salaryMeta;
     item.appendChild(meta);
-
-    if (asset.pick_origin_note && salaryMeta) {
-      var salaryMetaNode = document.createElement("div");
-      salaryMetaNode.className = "twb-offer-cart-item-meta";
-      salaryMetaNode.textContent = salaryMeta;
-      item.appendChild(salaryMetaNode);
-    }
 
     if (safeInt(asset.salary, 0) > 0) {
       item.appendChild(
