@@ -665,6 +665,25 @@
     return fromMatch ? safeStr(fromMatch[1]) : "";
   }
 
+  function cleanFranchiseNameLabel(value) {
+    var raw = safeStr(value);
+    if (!raw) return "";
+    var cleaned = raw
+      .replace(/[\u0000-\u001f\u007f]/g, " ")
+      .replace(/[^\p{L}\p{N}&'()./ -]+/gu, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    return cleaned;
+  }
+
+  function cleanFranchiseAbbrevLabel(value) {
+    var raw = safeStr(value).toUpperCase();
+    if (!raw) return "";
+    var cleaned = raw.replace(/[^A-Z0-9]/g, "");
+    if (cleaned.length < 2 || cleaned.length > 6) return "";
+    return cleaned;
+  }
+
   function buildFranchiseDirectory(teams) {
     var map = {};
     var rows = Array.isArray(teams) ? teams : [];
@@ -722,7 +741,8 @@
       }
     }
 
-    if (!originName) originName = safeStr(descOriginName || originId);
+    originName = cleanFranchiseNameLabel(originName || descOriginName || originId);
+    originAbbrev = cleanFranchiseAbbrevLabel(originAbbrev);
     var originLabel = safeStr(originAbbrev || originName || originId);
     asset.pick_origin_franchise_id = originId;
     asset.pick_origin_name = originName;
