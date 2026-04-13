@@ -1598,7 +1598,7 @@
       trade_id: safeStr(args.trade_id || args.tradeId || ""),
       acting_franchise_id: getActiveFranchiseId(),
       dispatch_refresh_mym_json: true,
-      reconcile_extensions: false
+      reconcile_extensions: true
     };
     var url = resolveAfterTradeRefreshApiUrl();
     if (!body.league_id || !body.season || !url) return null;
@@ -2102,23 +2102,26 @@
     options = options || {};
     var keepOriginalOrientation = !!options.keepOriginalOrientation;
     var actingTeamId = pad4(options.actingTeamId || getActiveFranchiseId() || state.leftTeamId);
+    var rebuilt = buildPayloadFromOfferTokens(offer, options);
+    if (offer && rebuilt) offer._twb_payload_cache = rebuilt;
     if (options.forcePerspective) {
-      var rebuiltForced = buildPayloadFromOfferTokens(offer, options);
-      if (rebuiltForced) {
-        return orientPayloadForWorkbench(rebuiltForced, actingTeamId, keepOriginalOrientation);
+      if (rebuilt) {
+        return orientPayloadForWorkbench(rebuilt, actingTeamId, keepOriginalOrientation);
       }
     }
     if (offer && offer.payload && typeof offer.payload === "object") {
       var directPayload = getTradePayloadFromInput(offer.payload);
       if (directPayload) {
-        return orientPayloadForWorkbench(directPayload, actingTeamId, keepOriginalOrientation);
+        return orientPayloadForWorkbench(
+          mergeOfferPayloadWithRebuiltAssets(directPayload, rebuilt),
+          actingTeamId,
+          keepOriginalOrientation
+        );
       }
     }
     if (offer && offer._twb_payload_cache && typeof offer._twb_payload_cache === "object") {
       return orientPayloadForWorkbench(offer._twb_payload_cache, actingTeamId, keepOriginalOrientation);
     }
-    var rebuilt = buildPayloadFromOfferTokens(offer, options);
-    if (offer && rebuilt) offer._twb_payload_cache = rebuilt;
     return orientPayloadForWorkbench(rebuilt, actingTeamId, keepOriginalOrientation);
   }
 
@@ -2166,6 +2169,59 @@
     if (!offerPayload || typeof offerPayload !== "object") return null;
     if (offerPayload.payload && typeof offerPayload.payload === "object") return offerPayload.payload;
     return offerPayload;
+  }
+
+  function mergeOfferPayloadWithRebuiltAssets(payloadInput, rebuiltPayloadInput) {
+    var directPayload = getTradePayloadFromInput(payloadInput);
+    var rebuiltPayload = getTradePayloadFromInput(rebuiltPayloadInput);
+    if (!directPayload && !rebuiltPayload) return null;
+    if (!directPayload) return clone(rebuiltPayload);
+    if (!rebuiltPayload) return clone(directPayload);
+
+    var out = clone(directPayload);
+    var rebuiltTeams = Array.isArray(rebuiltPayload.teams) ? rebuiltPayload.teams : [];
+    var mergedTeams = [];
+    var i;
+    for (i = 0; i < rebuiltTeams.length; i += 1) {
+      var rebuiltSide = rebuiltTeams[i] || {};
+      var sideRole = safeStr(rebuiltSide.role).toLowerCase();
+      var sideId = pad4(rebuiltSide.franchise_id);
+      var existingSide = getPayloadSideByRole(out, sideRole) || getPayloadSideById(out, sideId) || {};
+      var mergedSide = clone(existingSide);
+      mergedSide.role = safeStr(mergedSide.role || rebuiltSide.role);
+      mergedSide.franchise_id = safeStr(mergedSide.franchise_id || rebuiltSide.franchise_id);
+      mergedSide.franchise_name = safeStr(mergedSide.franchise_name || rebuiltSide.franchise_name);
+      mergedSide.selected_assets = Array.isArray(rebuiltSide.selected_assets) ? clone(rebuiltSide.selected_assets) : [];
+      mergedSide.selected_non_taxi_salary_dollars =
+        rebuiltSide.selected_non_taxi_salary_dollars != null
+          ? safeInt(rebuiltSide.selected_non_taxi_salary_dollars, 0)
+          : safeInt(mergedSide.selected_non_taxi_salary_dollars, 0);
+      if (rebuiltSide.traded_salary_adjustment_dollars != null) {
+        mergedSide.traded_salary_adjustment_dollars = safeInt(rebuiltSide.traded_salary_adjustment_dollars, 0);
+      }
+      if (rebuiltSide.traded_salary_adjustment_k != null) {
+        mergedSide.traded_salary_adjustment_k = safeInt(rebuiltSide.traded_salary_adjustment_k, 0);
+      }
+      if (rebuiltSide.traded_salary_adjustment_max_k != null) {
+        mergedSide.traded_salary_adjustment_max_k = safeInt(rebuiltSide.traded_salary_adjustment_max_k, 0);
+      }
+      mergedTeams.push(mergedSide);
+    }
+
+    if (mergedTeams.length) out.teams = mergedTeams;
+    if ((!Array.isArray(out.extension_requests) || !out.extension_requests.length) && Array.isArray(rebuiltPayload.extension_requests)) {
+      out.extension_requests = clone(rebuiltPayload.extension_requests);
+    }
+    if (!out.ui || typeof out.ui !== "object") out.ui = {};
+    if (!safeStr(out.ui.left_team_id) && rebuiltPayload.ui && rebuiltPayload.ui.left_team_id) {
+      out.ui.left_team_id = safeStr(rebuiltPayload.ui.left_team_id);
+    }
+    if (!safeStr(out.ui.right_team_id) && rebuiltPayload.ui && rebuiltPayload.ui.right_team_id) {
+      out.ui.right_team_id = safeStr(rebuiltPayload.ui.right_team_id);
+    }
+    if (!safeStr(out.source) && safeStr(rebuiltPayload.source)) out.source = safeStr(rebuiltPayload.source);
+    if (!out.validation || typeof out.validation !== "object") out.validation = buildValidationSummary(out);
+    return out;
   }
 
   function swapPayloadSides(payload) {
@@ -4492,12 +4548,32 @@
     if (currentAav == null && asset && safeInt(asset.salary, 0) > 0) {
       currentAav = safeInt(asset.salary, 0);
     }
+    var futureAav = null;
+    if (Array.isArray(info.aav_values_dollars) && info.aav_values_dollars.length > 1) {
+      futureAav = safeInt(info.aav_values_dollars[info.aav_values_dollars.length - 1], 0);
+      if (futureAav <= 0 || futureAav === currentAav) futureAav = null;
+    }
 
     return {
       years_remaining: yearsRemaining,
       current_aav_dollars: currentAav,
+      future_aav_dollars: futureAav,
       contract_type: safeStr(asset && asset.contract_type) || "—"
     };
+  }
+
+  function formatContractAavDisplay(metrics) {
+    var currentAav = metrics && metrics.current_aav_dollars != null
+      ? safeInt(metrics.current_aav_dollars, 0)
+      : null;
+    var futureAav = metrics && metrics.future_aav_dollars != null
+      ? safeInt(metrics.future_aav_dollars, 0)
+      : null;
+    if (currentAav == null || currentAav <= 0) return "—";
+    if (futureAav != null && futureAav > 0 && futureAav !== currentAav) {
+      return formatDollarsAsKLabel(currentAav) + " / " + formatDollarsAsKLabel(futureAav);
+    }
+    return formatDollarsAsKLabel(currentAav);
   }
 
   function renderAssetRow(team, asset) {
@@ -4595,12 +4671,19 @@
       moneyStack.className = "twb-money-stack";
       var moneyMain = document.createElement("div");
       moneyMain.className = "twb-money-main";
-      moneyMain.textContent = moneyFmt(asset.salary);
+      moneyMain.textContent =
+        contractMetrics.future_aav_dollars != null && contractMetrics.future_aav_dollars > 0
+          ? (moneyFmt(asset.salary) + " / " + moneyFmt(contractMetrics.future_aav_dollars))
+          : moneyFmt(asset.salary);
       var metaLine = document.createElement("div");
       metaLine.className = "twb-money-meta";
       var yearsText = contractMetrics.years_remaining == null ? "—" : String(contractMetrics.years_remaining);
       var contractType = contractMetrics.contract_type;
-      metaLine.textContent = "Years: " + yearsText + " · " + contractType;
+      metaLine.textContent =
+        "Years: " + yearsText + " · " + contractType +
+        (contractMetrics.future_aav_dollars != null && contractMetrics.future_aav_dollars > 0
+          ? " · Current/Future"
+          : "");
       moneyStack.appendChild(moneyMain);
       moneyStack.appendChild(metaLine);
       tdSalary.appendChild(moneyStack);
@@ -5260,8 +5343,8 @@
     contract.appendChild(offerPlayerMetric("Current Salary", formatDollarsAsKLabel(asset.salary)));
     contract.appendChild(
       offerPlayerMetric(
-        "Current AAV",
-        contractMetrics.current_aav_dollars == null ? "—" : formatDollarsAsKLabel(contractMetrics.current_aav_dollars)
+        "Contract AAV",
+        formatContractAavDisplay(contractMetrics)
       )
     );
     contract.appendChild(
