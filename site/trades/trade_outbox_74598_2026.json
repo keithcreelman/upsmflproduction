@@ -3,7 +3,7 @@
     "schema_version": 1,
     "league_id": "74598",
     "season": 2026,
-    "updated_at": "2026-04-13T15:04:06.161Z",
+    "updated_at": "2026-04-13T15:04:12.372Z",
     "row_count": 38,
     "source": "worker-trade-outbox"
   },
@@ -6989,12 +6989,12 @@
       },
       "comment_trailer": "[UPS_TWB_INTENT_BEGIN]\nUPS_OUTBOX_ID:\nUPS_PAYLOAD_HASH:9d59188e98c5dd80202a6fc584fe51a116234cfca8c8fd83dd236ab3fd438c02\nUPS_XML_EXT:PHNhbGFyaWVzPjxsZWFndWVVbml0IHVuaXQ9IkxFQUdVRSI-PHBsYXllciBpZD0iMTU3MTEiIHNhbGFyeT0iMzIwMDAiIGNvbnRyYWN0WWVhcj0iMSIgY29udHJhY3RJbmZvPSJDTCAyfFRDViA3NEt8QUFWIDMySywgNDJLfFkxLTMySywgWTItNDJLfEV4dDogUEcsIFJlYWxEZWFsfEdURDogNTUuNUsiIGNvbnRyYWN0U3RhdHVzPSJFWFQxIiAvPjwvbGVhZ3VlVW5pdD48L3NhbGFyaWVzPg\n[UPS_TWB_INTENT_END]",
       "payload_hash": "9d59188e98c5dd80202a6fc584fe51a116234cfca8c8fd83dd236ab3fd438c02",
-      "status": "PENDING",
-      "mfl_post_response_snip": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n\n<status>OK</status>",
-      "mfl_verify_response_snip": "",
+      "status": "VERIFIED",
+      "mfl_post_response_snip": "{\"trade_response\":\"<?xml version=\\\"1.0\\\" encoding=\\\"utf-8\\\"?>\\n\\n<status>OK</status>\\n\",\"salary\":\"\",\"extensions\":\"<?xml version=\\\"1.0\\\" encoding=\\\"utf-8\\\"?>\\n\\n<status>OK</status>\\n\"}",
+      "mfl_verify_response_snip": "{\"transactions_export\":{\"ok\":true,\"status\":200,\"url\":\"https://api.myfantasyleague.com/2026/export?TYPE=transactions&L=74598&JSON=1&_=1776092652060\",\"error\":\"\",\"preview\":\"{\\\"encoding\\\":\\\"utf-8\\\",\\\"transactions\\\":{\\\"transaction\\\":[{\\\"franchise\\\":\\\"0005\\\",\\\"type\\\":\\\"TRADE\\\",\\\"franchise2\\\":\\\"0008\\\",\\\"franchise2_gave_up\\\":\\\"15711,\\\",\\\"franchise1_gave_up\\\":\\\"FP_0005_2027_1,\\\",\\\"expires\\\":\\\"1776693472\\\",\\\"timestamp\\\":\\\"1776092645\\\",\\\"comments\\\":\\\"Pre-trade extension: Extend Walker III, Kenneth 1-year \\\"},{\\\"by_commish\\\":\\\"1\\\",\\\"timestamp\\\":\\\"1775787535\\\",\\\"type\\\":\\\"LOAD_ROSTERS\\\",\\\"transaction\\\":\\\"12616,|\\\",\\\"franchise\\\":\\\"0010\\\"},{\\\"type\\\":\\\"TRADE\\\",\\\"franchise\\\":\\\"0006\\\",\\\"franchise2_gave_up\\\":\\\"14783,BB_20000,\\\",\\\"franchise2\\\":\\\"0005\\\",\\\"tim\"},\"salaries_export\":{\"ok\":true,\"status\":200,\"url\":\"https://api.myfantasyleague.com/2026/export?TYPE=salaries&L=74598&JSON=1&_=1776092652144\",\"error\":\"\",\"preview\":\"{\\\"salaries\\\":{\\\"leagueUnit\\\":{\\\"player\\\":[{\\\"contractStatus\\\":\\\"\\\",\\\"salary\\\":\\\"\\\",\\\"con",
       "league_id": "74598",
       "season": "2026",
-      "updated_ts": "2026-04-13T15:04:06.049Z",
+      "updated_ts": "2026-04-13T15:04:12.254Z",
       "id": "38"
     }
   ]
