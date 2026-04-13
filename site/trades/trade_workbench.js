@@ -5700,11 +5700,52 @@
     return wrap;
   }
 
-  function summarizeAssetForTradeSummary(asset) {
+  function buildTradeSummaryExtensionIndex(payload) {
+    var out = {};
+    var reqs = Array.isArray((payload || {}).extension_requests) ? payload.extension_requests : [];
+    var i;
+    for (i = 0; i < reqs.length; i += 1) {
+      var req = reqs[i] || {};
+      var fromTeamId = pad4(req.from_franchise_id);
+      var playerId = safeStr(req.player_id).replace(/\D/g, "");
+      var playerNameKey = safeStr(req.player_name).toLowerCase();
+      if (!fromTeamId) continue;
+      if (!out[fromTeamId]) out[fromTeamId] = {};
+      if (playerId) out[fromTeamId][playerId] = req;
+      if (playerNameKey) out[fromTeamId]["name:" + playerNameKey] = req;
+    }
+    return out;
+  }
+
+  function findTradeSummaryExtensionRequest(extensionIndex, teamId, asset) {
+    if (!asset || safeStr(asset.type).toUpperCase() !== "PLAYER") return null;
+    var teamMap = extensionIndex && extensionIndex[pad4(teamId)];
+    if (!teamMap) return null;
+    var playerId = safeStr(asset.player_id).replace(/\D/g, "");
+    if (playerId && teamMap[playerId]) return teamMap[playerId];
+    var playerNameKey = safeStr(asset.player_name).toLowerCase();
+    if (playerNameKey && teamMap["name:" + playerNameKey]) return teamMap["name:" + playerNameKey];
+    return null;
+  }
+
+  function summarizeExtensionForTradeSummary(req) {
+    if (!req || typeof req !== "object") return "";
+    var pieces = [extensionTypeLabel(req.extension_term || req.option_key || "")];
+    if (req.new_aav_future != null) pieces.push("AAV " + formatDollarsAsKLabel(req.new_aav_future));
+    if (req.new_TCV != null) pieces.push("TCV " + formatDollarsAsKLabel(req.new_TCV));
+    return pieces.join(" · ");
+  }
+
+  function summarizeAssetForTradeSummary(asset, extensionReq) {
     if (!asset || typeof asset !== "object") return "";
-    if (safeStr(asset.type).toUpperCase() === "PLAYER") return safeStr(asset.player_name);
-    if (safeStr(asset.type).toUpperCase() === "PICK") return safeStr(asset.pick_display || asset.description || asset.asset_id);
-    return safeStr(asset.player_name || asset.description || asset.asset_id);
+    var baseLabel = "";
+    if (safeStr(asset.type).toUpperCase() === "PLAYER") baseLabel = safeStr(asset.player_name);
+    else if (safeStr(asset.type).toUpperCase() === "PICK") baseLabel = safeStr(asset.pick_display || asset.description || asset.asset_id);
+    else baseLabel = safeStr(asset.player_name || asset.description || asset.asset_id);
+
+    var extLabel = summarizeExtensionForTradeSummary(extensionReq);
+    if (baseLabel && extLabel) return baseLabel + " + " + extLabel;
+    return baseLabel;
   }
 
   function renderTradeSummary(payload) {
@@ -5718,16 +5759,23 @@
 
     var sendItems = [];
     var receiveItems = [];
+    var extensionIndex = buildTradeSummaryExtensionIndex(payload);
     var i;
     var leftAssets = Array.isArray(leftTeam.selected_assets) ? leftTeam.selected_assets : [];
     var rightAssets = Array.isArray(rightTeam.selected_assets) ? rightTeam.selected_assets : [];
 
     for (i = 0; i < leftAssets.length; i += 1) {
-      var sendLabel = summarizeAssetForTradeSummary(leftAssets[i]);
+      var sendLabel = summarizeAssetForTradeSummary(
+        leftAssets[i],
+        findTradeSummaryExtensionRequest(extensionIndex, leftTeam.franchise_id, leftAssets[i])
+      );
       if (sendLabel) sendItems.push(sendLabel);
     }
     for (i = 0; i < rightAssets.length; i += 1) {
-      var receiveLabel = summarizeAssetForTradeSummary(rightAssets[i]);
+      var receiveLabel = summarizeAssetForTradeSummary(
+        rightAssets[i],
+        findTradeSummaryExtensionRequest(extensionIndex, rightTeam.franchise_id, rightAssets[i])
+      );
       if (receiveLabel) receiveItems.push(receiveLabel);
     }
 
