@@ -63,6 +63,7 @@ export default {
         path !== "/admin/deadline-reminders/run" &&
         path !== "/admin/contract-activity/test-discord" &&
         path !== "/admin/contract-activity/test-discord-batch" &&
+        path !== "/admin/transactions/test-discord" &&
         path !== "/admin/contract-activity/post" &&
         path !== "/admin/contract-activity/post-batch" &&
         path !== "/admin/contract-activity/edit" &&
@@ -6382,6 +6383,47 @@ export default {
         return up;
       };
 
+      const pickPayloadMetaFromToken = (token, season) => {
+        const up = safeStr(token).toUpperCase();
+        const currentSeason = safeInt(season, 0);
+        let year = 0;
+        let round = 0;
+        let pick = 0;
+
+        let match = up.match(/^DP_(\d+)_(\d+)$/);
+        if (match) {
+          year = currentSeason;
+          round = safeInt(match[1], 0) + 1;
+          pick = safeInt(match[2], 0) + 1;
+        } else {
+          match = up.match(/^FP_[A-Z0-9]+_(\d{4})_(\d+)$/);
+          if (match) {
+            year = safeInt(match[1], 0);
+            round = safeInt(match[2], 0);
+          }
+        }
+
+        let salaryDollars = 0;
+        let salaryNote = "Rookie pick";
+        if (round === 1 && year && currentSeason && year === currentSeason) {
+          salaryDollars = resolveFirstRoundPickSalaryDollarsAcq(pick);
+          salaryNote = "Round 1 rookie salary";
+        } else if (round === 1) {
+          salaryNote = "Future round 1 pick";
+        } else if (round >= 2) {
+          salaryNote = `Round ${round} pick · no current cap impact`;
+        }
+
+        return {
+          pick_key: up,
+          pick_season: year || null,
+          pick_round: round || null,
+          pick_slot: pick || null,
+          salary: salaryDollars,
+          pick_salary_note: salaryNote,
+        };
+      };
+
       const buildRosterStatusLookup = (rostersPayload) => {
         const franchiseRows = asArray(
           rostersPayload?.rosters?.franchise ||
@@ -6421,10 +6463,17 @@ export default {
             continue;
           }
           if (token.startsWith("DP_") || token.startsWith("FP_")) {
+            const pickMeta = pickPayloadMetaFromToken(token, season);
             selectedAssets.push({
               asset_id: `pick:${token}`,
               type: "PICK",
               description: pickDescriptionFromToken(token, season),
+              salary: safeInt(pickMeta.salary, 0),
+              pick_key: pickMeta.pick_key,
+              pick_season: pickMeta.pick_season,
+              pick_round: pickMeta.pick_round,
+              pick_slot: pickMeta.pick_slot,
+              pick_salary_note: pickMeta.pick_salary_note,
             });
             continue;
           }
@@ -9475,6 +9524,291 @@ export default {
               isRestructure: /\brestructure\b/i.test(contractStatus),
               contractStatus,
           }),
+        };
+      };
+
+      const transactionDiscordBotToken = () =>
+        safeStr(
+          env.DISCORD_TRANSACTION_BOT_TOKEN ||
+          env.DISCORD_CONTRACT_BOT_TOKEN ||
+          env.DISCORD_BOT_TOKEN ||
+          env.DISCORD_BOT ||
+          env.Discord_bot ||
+          ""
+        );
+
+      const transactionDiscordPrimaryChannelId = () =>
+        safeStr(env.DISCORD_TRANSACTION_CHANNEL_ID || "").replace(/\D/g, "");
+
+      const transactionDiscordTestChannelId = () =>
+        safeStr(
+          env.DISCORD_TRANSACTION_TEST_CHANNEL_ID ||
+          env.DISCORD_CONTRACT_TEST_CHANNEL_ID ||
+          env.DISCORD_BUG_TEST_CHANNEL_ID ||
+          ""
+        ).replace(/\D/g, "");
+
+      const transactionDiscordChannelTarget = (forceTestOnly = false, forcePrimaryOnly = false) => {
+        if (forcePrimaryOnly) {
+          const primaryChannelId = transactionDiscordPrimaryChannelId();
+          return {
+            channelId: primaryChannelId,
+            deliveryTarget: "primary",
+            missingError: primaryChannelId ? "" : "missing_discord_transaction_channel_config",
+          };
+        }
+        const testChannelId = transactionDiscordTestChannelId();
+        if (testChannelId) {
+          return {
+            channelId: testChannelId,
+            deliveryTarget: "test",
+            missingError: "",
+          };
+        }
+        if (forceTestOnly) {
+          return {
+            channelId: "",
+            deliveryTarget: "test",
+            missingError: "missing_discord_transaction_test_channel_config",
+          };
+        }
+        const primaryChannelId = transactionDiscordPrimaryChannelId();
+        return {
+          channelId: primaryChannelId,
+          deliveryTarget: "primary",
+          missingError: primaryChannelId ? "" : "missing_discord_transaction_channel_config",
+        };
+      };
+
+      const formatTransactionTimestamp = (unixTs) => {
+        const ms = safeInt(unixTs, 0) * 1000;
+        if (!ms) return "";
+        const parsed = new Date(ms);
+        if (Number.isNaN(parsed.getTime())) return "";
+        return parsed.toLocaleString("en-US", {
+          timeZone: "America/New_York",
+          year: "numeric",
+          month: "short",
+          day: "numeric",
+          hour: "numeric",
+          minute: "2-digit",
+        });
+      };
+
+      const parseTransactionCsvTokens = (raw) =>
+        safeStr(raw)
+          .split(/\s*,\s*/)
+          .map((v) => safeStr(v).toUpperCase())
+          .filter(Boolean);
+
+      const parseLoadRostersTransactionTokens = (raw) => {
+        const text = safeStr(raw);
+        const parts = text.split("|");
+        return {
+          adds: parseTransactionCsvTokens(parts[0] || ""),
+          drops: parseTransactionCsvTokens(parts[1] || ""),
+        };
+      };
+
+      const parseIrTransactionTokens = (row) => ({
+        activated: parseTransactionCsvTokens(row?.activated),
+        deactivated: parseTransactionCsvTokens(row?.deactivated),
+      });
+
+      const buildTransactionFranchiseMaps = (leaguePayload) => {
+        const franchises = parseLeagueFranchises(leaguePayload);
+        const byId = {};
+        for (const row of franchises) {
+          byId[row.franchise_id] = row;
+        }
+        return { rows: franchises, byId };
+      };
+
+      const extractPlayerIdsFromTransactionRows = (rows) => {
+        const out = new Set();
+        const list = Array.isArray(rows) ? rows : [];
+        for (const row of list) {
+          const type = safeStr(row?.type).toUpperCase();
+          if (type === "TRADE") {
+            const left = parseTransactionCsvTokens(row?.franchise1_gave_up);
+            const right = parseTransactionCsvTokens(row?.franchise2_gave_up);
+            for (const token of left.concat(right)) {
+              if (/^[0-9]+$/.test(token)) out.add(token);
+            }
+          } else if (type === "LOAD_ROSTERS") {
+            const parsed = parseLoadRostersTransactionTokens(row?.transaction);
+            for (const token of parsed.adds.concat(parsed.drops)) {
+              if (/^[0-9]+$/.test(token)) out.add(token);
+            }
+          } else if (type === "IR") {
+            const parsed = parseIrTransactionTokens(row);
+            for (const token of parsed.activated.concat(parsed.deactivated)) {
+              if (/^[0-9]+$/.test(token)) out.add(token);
+            }
+          }
+        }
+        return Array.from(out);
+      };
+
+      const transactionPlayerLabel = (playerId, playersById) => {
+        const info = playersById && playersById[String(playerId || "").replace(/\D/g, "")];
+        if (!info) return String(playerId || "").replace(/\D/g, "") || "Unknown Player";
+        const parts = [safeStr(info.player_name)];
+        const teamPos = [safeStr(info.position), safeStr(info.nfl_team)].filter(Boolean).join(" · ");
+        if (teamPos) parts.push(teamPos);
+        return parts.filter(Boolean).join(" | ");
+      };
+
+      const transactionAssetLabelFromToken = (tokenRaw, season, playersById) => {
+        const token = safeStr(tokenRaw).toUpperCase();
+        if (!token) return "";
+        if (/^[0-9]+$/.test(token)) return transactionPlayerLabel(token, playersById);
+        if (token.startsWith("BB_")) {
+          const rawAmount = Number(token.slice(3));
+          if (!Number.isFinite(rawAmount) || rawAmount <= 0) return "Trade Salary";
+          const labelAmount = rawAmount >= 1000 ? Math.round(rawAmount / 1000) : Math.round(rawAmount);
+          return `Trade Salary ${labelAmount}K`;
+        }
+        if (token.startsWith("DP_") || token.startsWith("FP_")) return pickDescriptionFromToken(token, season);
+        return token;
+      };
+
+      const joinTransactionAssetLabels = (tokens, season, playersById) => {
+        const rows = (Array.isArray(tokens) ? tokens : [])
+          .map((token) => transactionAssetLabelFromToken(token, season, playersById))
+          .filter(Boolean);
+        return rows.length ? rows.join("\n") : "None";
+      };
+
+      const buildTransactionDiscordEmbed = ({ row, season, franchiseMap, playersById }) => {
+        const txn = row && typeof row === "object" ? row : {};
+        const type = safeStr(txn.type).toUpperCase();
+        const franchiseId = padFranchiseId(txn.franchise);
+        const franchise = franchiseMap[franchiseId] || {};
+        const timestampLabel = formatTransactionTimestamp(txn.timestamp);
+        const embed = {
+          color: 0x103a71,
+          fields: [],
+          author: {
+            name: safeStr(franchise.franchise_name || franchiseId || "UPS Transaction"),
+          },
+        };
+        if (safeStr(franchise.icon_url)) embed.thumbnail = { url: safeStr(franchise.icon_url) };
+        if (timestampLabel) embed.footer = { text: timestampLabel };
+
+        if (type === "TRADE") {
+          const leftId = padFranchiseId(txn.franchise);
+          const rightId = padFranchiseId(txn.franchise2);
+          const leftFr = franchiseMap[leftId] || {};
+          const rightFr = franchiseMap[rightId] || {};
+          const leftTokens = parseTransactionCsvTokens(txn.franchise1_gave_up);
+          const rightTokens = parseTransactionCsvTokens(txn.franchise2_gave_up);
+          embed.title = "Trade Accepted";
+          embed.description = [safeStr(leftFr.franchise_name || leftId), safeStr(rightFr.franchise_name || rightId)]
+            .filter(Boolean)
+            .join(" ↔ ");
+          embed.fields.push({
+            name: safeStr(leftFr.franchise_name || leftId || "Team 1") + " Sends",
+            value: joinTransactionAssetLabels(leftTokens, season, playersById),
+            inline: false,
+          });
+          embed.fields.push({
+            name: safeStr(rightFr.franchise_name || rightId || "Team 2") + " Sends",
+            value: joinTransactionAssetLabels(rightTokens, season, playersById),
+            inline: false,
+          });
+          if (safeStr(txn.comments)) {
+            embed.fields.push({ name: "Comments", value: safeStr(txn.comments).slice(0, 1024), inline: false });
+          }
+          return embed;
+        }
+
+        if (type === "LOAD_ROSTERS") {
+          const parsed = parseLoadRostersTransactionTokens(txn.transaction);
+          embed.title = "Roster Move";
+          embed.description = safeStr(franchise.franchise_name || franchiseId || "Unknown Franchise");
+          if (parsed.adds.length) {
+            embed.fields.push({ name: "Added", value: joinTransactionAssetLabels(parsed.adds, season, playersById), inline: false });
+          }
+          if (parsed.drops.length) {
+            embed.fields.push({ name: "Dropped", value: joinTransactionAssetLabels(parsed.drops, season, playersById), inline: false });
+          }
+          if (!embed.fields.length) {
+            embed.fields.push({ name: "Details", value: safeStr(txn.transaction || "No roster delta"), inline: false });
+          }
+          return embed;
+        }
+
+        if (type === "IR") {
+          const parsed = parseIrTransactionTokens(txn);
+          embed.title = "IR Update";
+          embed.description = safeStr(franchise.franchise_name || franchiseId || "Unknown Franchise");
+          if (parsed.activated.length) {
+            embed.fields.push({ name: "Activated", value: joinTransactionAssetLabels(parsed.activated, season, playersById), inline: false });
+          }
+          if (parsed.deactivated.length) {
+            embed.fields.push({ name: "Deactivated", value: joinTransactionAssetLabels(parsed.deactivated, season, playersById), inline: false });
+          }
+          if (!embed.fields.length) {
+            embed.fields.push({ name: "Details", value: "No IR player list supplied", inline: false });
+          }
+          return embed;
+        }
+
+        embed.title = safeStr(type || "Transaction");
+        embed.description = JSON.stringify(txn).slice(0, 1500);
+        return embed;
+      };
+
+      const sendDiscordTransactionActivity = async ({
+        embed,
+        forceTestOnly,
+        forcePrimaryOnly,
+        channelIdOverride,
+      }) => {
+        const botToken = transactionDiscordBotToken();
+        const overrideChannelId = safeStr(channelIdOverride).replace(/\D/g, "");
+        const target = overrideChannelId
+          ? {
+              channelId: overrideChannelId,
+              deliveryTarget: safeStr(forceTestOnly ? "test" : (forcePrimaryOnly ? "primary" : "override")),
+              missingError: "",
+            }
+          : transactionDiscordChannelTarget(!!forceTestOnly, !!forcePrimaryOnly);
+        if (!botToken || !target.channelId) {
+          return {
+            ok: false,
+            skipped: false,
+            status: 0,
+            error: !botToken ? "missing_discord_transaction_bot_token" : safeStr(target.missingError || "missing_discord_transaction_channel_config"),
+            delivery_target: safeStr(target.deliveryTarget || ""),
+          };
+        }
+        const sendMessageOnce = async () =>
+          await discordBotRequest(
+            botToken,
+            "POST",
+            `/channels/${encodeURIComponent(target.channelId)}/messages`,
+            { content: "", embeds: [embed], allowed_mentions: { parse: [] } }
+          );
+        const res = await withContractDiscordSendSlot(target.channelId, async () => {
+          let attempt = 0;
+          let current = await sendMessageOnce();
+          while (attempt < 2 && !current.ok && isRetryableContractDiscordFailure(current)) {
+            attempt += 1;
+            await sleepMs(1500 * attempt);
+            current = await sendMessageOnce();
+          }
+          return current;
+        });
+        return {
+          ok: !!res.ok,
+          skipped: false,
+          status: safeInt(res.status, 0),
+          error: res.ok ? "" : safeStr(res.text || "discord_transaction_post_failed").slice(0, 600),
+          channel_id: safeStr(target.channelId),
+          delivery_target: safeStr(target.deliveryTarget || ""),
+          message_id: safeStr(res.data?.id || ""),
         };
       };
 
@@ -16206,6 +16540,139 @@ export default {
           season: safeInt(season, Number(season) || 0),
           spacing_seconds: spacingSeconds,
           count: results.length,
+          results,
+        });
+      }
+
+      if (path === "/admin/transactions/test-discord" && request.method === "POST") {
+        let body = {};
+        try {
+          body = (await request.json()) || {};
+        } catch (_) {
+          return jsonOut(400, { ok: false, error: "Invalid JSON body" });
+        }
+
+        const leagueId = safeStr(
+          url.searchParams.get("L") ||
+            L ||
+            body.league_id ||
+            body.leagueId ||
+            ""
+        );
+        const season = safeStr(
+          url.searchParams.get("YEAR") ||
+            YEAR ||
+            body.season ||
+            body.year ||
+            ""
+        );
+        if (!leagueId) return jsonOut(400, { ok: false, error: "Missing L/league_id" });
+        if (!season) return jsonOut(400, { ok: false, error: "Missing YEAR/season" });
+
+        const adminState = await getLeagueAdminState(leagueId, season);
+        if (!adminState.ok || !adminState.isAdmin) {
+          return jsonOut(403, { ok: false, error: "Only league admin can send transaction activity test messages" });
+        }
+
+        const txRes = await mflExportJsonWithRetryAsViewer(season, leagueId, "transactions", {}, { useCookie: true });
+        if (!txRes.ok) {
+          return jsonOut(502, {
+            ok: false,
+            error: txRes.error || "transactions_export_failed",
+            upstream_status: txRes.status || 0,
+            upstream_preview: safeStr(txRes.preview || txRes.text || "").slice(0, 1200),
+          });
+        }
+        const leagueRes = await mflExportJsonWithRetryAsViewer(season, leagueId, "league", {}, { useCookie: true });
+        if (!leagueRes.ok) {
+          return jsonOut(502, {
+            ok: false,
+            error: leagueRes.error || "league_export_failed",
+            upstream_status: leagueRes.status || 0,
+            upstream_preview: safeStr(leagueRes.preview || leagueRes.text || "").slice(0, 1200),
+          });
+        }
+
+        const rows = asArray(txRes.data?.transactions?.transaction).filter((row) => row && typeof row === "object");
+        const requestedTypes = Array.isArray(body.types)
+          ? body.types.map((v) => safeStr(v).toUpperCase()).filter(Boolean)
+          : [];
+        const typesFilter = new Set(requestedTypes);
+        const filtered = rows.filter((row) => {
+          if (!typesFilter.size) return true;
+          return typesFilter.has(safeStr(row?.type).toUpperCase());
+        });
+        const limit = Math.max(1, Math.min(20, safeInt(body.limit || body.count || 3, 3)));
+        const offset = Math.max(0, safeInt(body.offset || 0, 0));
+        const selected = filtered.slice(offset, offset + limit);
+        if (!selected.length) {
+          return jsonOut(404, {
+            ok: false,
+            error: "No matching transactions found",
+            total_available: rows.length,
+            filtered_available: filtered.length,
+          });
+        }
+
+        const playerIds = extractPlayerIdsFromTransactionRows(selected);
+        const playersById = await fetchPlayersByIdsChunked(season, leagueId, playerIds);
+        const franchiseMap = buildTransactionFranchiseMaps(leagueRes.data).byId;
+        const dryRunRaw = body.dry_run ?? body.dryRun ?? false;
+        const dryRun =
+          dryRunRaw === true ||
+          safeStr(dryRunRaw).toLowerCase() === "true" ||
+          safeStr(dryRunRaw) === "1";
+        const spacingSeconds = Math.max(0, safeInt(body.spacing_seconds || body.spacingSeconds || 3, 3));
+        const results = [];
+
+        for (let i = 0; i < selected.length; i += 1) {
+          const row = selected[i];
+          const embed = buildTransactionDiscordEmbed({
+            row,
+            season,
+            franchiseMap,
+            playersById,
+          });
+          let notify = {
+            ok: false,
+            skipped: true,
+            status: 0,
+            error: dryRun ? "dry_run" : "not_sent",
+            delivery_target: "test",
+          };
+          if (!dryRun) {
+            notify = await sendDiscordTransactionActivity({
+              embed,
+              forceTestOnly: true,
+            });
+          }
+          results.push({
+            index: i,
+            type: safeStr(row?.type),
+            franchise_id: padFranchiseId(row?.franchise),
+            timestamp: safeStr(row?.timestamp),
+            embed,
+            notify,
+          });
+          if (!dryRun && i < selected.length - 1 && spacingSeconds > 0) {
+            await sleepMs(spacingSeconds * 1000);
+          }
+        }
+
+        const allOk = results.every((row) => !!(row.notify && (row.notify.ok || row.notify.skipped)));
+        return jsonOut(allOk ? 200 : 502, {
+          ok: allOk,
+          test_only: true,
+          dry_run: dryRun,
+          delivery_target: "test",
+          league_id: leagueId,
+          season: safeInt(season, Number(season) || 0),
+          total_available: rows.length,
+          filtered_available: filtered.length,
+          sent_count: results.filter((row) => row.notify && row.notify.ok).length,
+          count: results.length,
+          spacing_seconds: spacingSeconds,
+          types: requestedTypes,
           results,
         });
       }
