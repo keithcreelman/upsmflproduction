@@ -3,8 +3,8 @@
     "schema_version": 1,
     "league_id": "74598",
     "season": 2026,
-    "updated_at": "2026-04-13T13:53:22.137Z",
-    "row_count": 36,
+    "updated_at": "2026-04-13T13:57:51.193Z",
+    "row_count": 37,
     "source": "worker-trade-outbox"
   },
   "rows": [
@@ -6598,6 +6598,203 @@
       "season": "2026",
       "updated_ts": "2026-04-13T13:53:21.978Z",
       "id": "36"
+    },
+    {
+      "created_ts": "2026-04-13T13:57:51.090Z",
+      "trade_id": "",
+      "action_type": "SUBMIT",
+      "from_franchise_id": "0005",
+      "to_franchise_id": "0008",
+      "payload_xml_extensions": "<salaries><leagueUnit unit=\"LEAGUE\"><player id=\"15711\" salary=\"32000\" contractYear=\"1\" contractInfo=\"CL 2|TCV 74K|AAV 32K, 42K|Y1-32K, Y2-42K|Ext: PG, RealDeal|GTD: 55.5K\" contractStatus=\"EXT1\" /></leagueUnit></salaries>",
+      "payload_xml_salary_adj": "",
+      "payload_xml_salary_trade": "",
+      "payload_json": {
+        "schema_version": 1,
+        "generated_at": "2026-04-13T13:57:50.573Z",
+        "source": "ups-trade-workbench",
+        "league_id": "74598",
+        "season": 2026,
+        "teams": [
+          {
+            "role": "left",
+            "franchise_id": "0005",
+            "franchise_name": "HammerTime 🔨 ⏰",
+            "selected_assets": [
+              {
+                "asset_id": "pick:FP_0005_2027_1",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2027 HammerTime's Round 1 Pick",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "FP_0005_2027_1",
+                "pick_season": 2027,
+                "pick_round": 1,
+                "pick_slot": null,
+                "pick_origin_franchise_id": "0005",
+                "pick_origin_name": "HammerTime",
+                "pick_origin_abbrev": null
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 0,
+            "selected_non_taxi_salary_dollars": 0
+          },
+          {
+            "role": "right",
+            "franchise_id": "0008",
+            "franchise_name": "Real Deal Creel",
+            "selected_assets": [
+              {
+                "asset_id": "player:15711",
+                "type": "PLAYER",
+                "player_id": "15711",
+                "player_name": "Walker III, Kenneth",
+                "description": null,
+                "position": "RB",
+                "nfl_team": "KCC",
+                "salary": 32000,
+                "years": 1,
+                "contract_type": "Veteran",
+                "contract_info": "CL 3| TCV 76K| AAV 32K| Y1-12, Y2-32, Y3-32| Ext: PG",
+                "taxi": false,
+                "pick_key": null,
+                "pick_season": null,
+                "pick_round": null,
+                "pick_slot": null,
+                "pick_origin_franchise_id": null,
+                "pick_origin_name": null,
+                "pick_origin_abbrev": null
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 16,
+            "selected_non_taxi_salary_dollars": 32000
+          }
+        ],
+        "extension_requests": [
+          {
+            "player_id": "15711",
+            "player_name": "Walker III, Kenneth",
+            "from_franchise_id": "0008",
+            "to_franchise_id": "0005",
+            "applies_to_acquirer": true,
+            "option_key": "1YR|NONE",
+            "extension_term": "1YR",
+            "loaded_indicator": "NONE",
+            "preview_id": 1061,
+            "preview_contract_info_string": "CL 2|TCV 74K|AAV 32K, 42K|Y1-32K, Y2-42K|Ext: PG, RealDeal|GTD: 55.5K",
+            "new_contract_status": "EXT1",
+            "new_contract_length": 2,
+            "new_TCV": 74000,
+            "new_aav_future": 42000
+          }
+        ],
+        "filters": {
+          "search": ""
+        },
+        "ui": {
+          "left_team_id": "0005",
+          "right_team_id": "0008"
+        },
+        "salary_reconciliation": {
+          "left": {
+            "franchise_id": "0005",
+            "franchise_name": "HammerTime 🔨 ⏰",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 160000,
+            "salary_adjustment_total_dollars": 0,
+            "outgoing_dollars": 0,
+            "incoming_dollars": 32000,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": 32000,
+            "new_salary_dollars": 192000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 0,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": -32000,
+            "available_salary_before_dollars": 140000,
+            "available_salary_after_dollars": 108000,
+            "over_cap_dollars": 0
+          },
+          "right": {
+            "franchise_id": "0008",
+            "franchise_name": "Real Deal Creel",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 93000,
+            "salary_adjustment_total_dollars": 0,
+            "outgoing_dollars": 32000,
+            "incoming_dollars": 0,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": -32000,
+            "new_salary_dollars": 61000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 16,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": 32000,
+            "available_salary_before_dollars": 207000,
+            "available_salary_after_dollars": 239000,
+            "over_cap_dollars": 0
+          },
+          "has_over_cap": false
+        },
+        "multi_year_salary_impact": {
+          "current_season": 2026,
+          "left_franchise_name": "HammerTime 🔨 ⏰",
+          "right_franchise_name": "Real Deal Creel",
+          "rows": [
+            {
+              "season": 2026,
+              "left_before_dollars": 160000,
+              "left_after_dollars": 192000,
+              "left_change_dollars": 32000,
+              "right_before_dollars": 112000,
+              "right_after_dollars": 80000,
+              "right_change_dollars": -32000
+            },
+            {
+              "season": 2027,
+              "left_before_dollars": 215000,
+              "left_after_dollars": 257000,
+              "left_change_dollars": 42000,
+              "right_before_dollars": 93000,
+              "right_after_dollars": 61000,
+              "right_change_dollars": -32000
+            },
+            {
+              "season": 2028,
+              "left_before_dollars": 75000,
+              "left_after_dollars": 75000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 25000,
+              "right_after_dollars": 25000,
+              "right_change_dollars": 0
+            }
+          ]
+        },
+        "validation": {
+          "status": "ready",
+          "issues": []
+        },
+        "comment": "Pre-trade extension: Extend Walker III, Kenneth 1-year | New length 2 | New AAV 42K | New TCV 74K"
+      },
+      "comment_trailer": "",
+      "payload_hash": "dd7ceb742dd3aa336c2a6b765f5909b01ffaeecd45c8aacae265ec073a7aa6bf",
+      "status": "PENDING",
+      "mfl_post_response_snip": "",
+      "mfl_verify_response_snip": "",
+      "league_id": "74598",
+      "season": "2026",
+      "updated_ts": "2026-04-13T13:57:51.090Z",
+      "id": "37"
     }
   ]
 }
