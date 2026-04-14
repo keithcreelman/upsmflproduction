@@ -6098,6 +6098,7 @@
           setGlobalNotice(msg, true);
           return;
         }
+        clearTagSlotEntries(season, fid, side, false);
         state.tagSelections[key] = {
           league_id: safeStr(getLeagueId() || DEFAULT_LEAGUE_ID),
           season,
@@ -6111,7 +6112,6 @@
         };
         if (state.tagSubmissions[key] && state.commishMode) {
           delete state.tagSubmissions[key];
-          saveTagSubmissions(state.tagSubmissions);
         }
         saveTagSelections(state.tagSelections);
         const sel = state.tagSelections[key];
@@ -6268,35 +6268,101 @@
     return `${league}|${s}|${fid}|${tagSide}`;
   }
 
+  function getTagEntrySide(entry) {
+    return (
+      normalizeTagSideValue(
+        entry &&
+          (entry.side || entry.tag_side || getTagSideFromPos(entry.pos || entry.position))
+      ) || "OFFENSE"
+    );
+  }
+
+  function getTagEntrySlotKey(entry) {
+    if (!entry) return "";
+    return buildTagSelectionKey(entry.season, entry.franchise_id, getTagEntrySide(entry));
+  }
+
+  function clearTagSlotEntries(season, franchiseId, side, persist) {
+    const slotKey = buildTagSelectionKey(season, franchiseId, side);
+    let removed = 0;
+
+    [state.tagSelections, state.tagSubmissions].forEach((bucket) => {
+      Object.keys(bucket || {}).forEach((key) => {
+        const row = bucket[key];
+        if (!row) return;
+        const rowSlotKey = getTagEntrySlotKey(row);
+        if (rowSlotKey !== slotKey && key !== slotKey && !key.startsWith(slotKey + "|")) return;
+        delete bucket[key];
+        removed += 1;
+      });
+    });
+
+    if (persist !== false) {
+      saveTagSelections(state.tagSelections);
+      saveTagSubmissions(state.tagSubmissions);
+    }
+
+    return { slotKey, removed };
+  }
+
+  function parseTagSelectionKeyParts(key) {
+    const parts = safeStr(key).split("|");
+    if (parts.length < 4) return null;
+    return {
+      league_id: safeStr(parts[0]),
+      season: normalizeSeasonValue(parts[1]),
+      franchise_id: pad4(parts[2]),
+      side: normalizeTagSideValue(parts[3]) || "OFFENSE",
+    };
+  }
+
   function getActiveTagSelectionByKey(key) {
     const k = safeStr(key);
     if (!k) return null;
-    return (state.tagSelections && state.tagSelections[k]) ||
+    const exact =
+      (state.tagSelections && state.tagSelections[k]) ||
       (state.tagSubmissions && state.tagSubmissions[k]) ||
       null;
+    if (exact) return exact;
+    const parts = parseTagSelectionKeyParts(k);
+    if (!parts) return null;
+    return getActiveTagSelectionForSide(parts.season, parts.franchise_id, parts.side);
   }
 
   function getTagSelectionsForTeam(season, franchiseId) {
     const league = safeStr(getLeagueId() || DEFAULT_LEAGUE_ID);
     const s = normalizeSeasonValue(season) || DEFAULT_YEAR;
     const fid = pad4(franchiseId);
-    const outMap = new Map();
-    Object.entries(state.tagSelections || {}).forEach(([key, sel]) => {
-      if (!sel) return;
-      if (safeStr(sel.league_id || league) !== league) return;
-      if (normalizeSeasonValue(sel.season) !== s) return;
-      if (pad4(sel.franchise_id) !== fid) return;
-      outMap.set(key, { key, ...sel });
-    });
-    Object.entries(state.tagSubmissions || {}).forEach(([key, sub]) => {
-      if (!sub) return;
-      if (safeStr(sub.league_id || league) !== league) return;
-      if (normalizeSeasonValue(sub.season) !== s) return;
-      if (pad4(sub.franchise_id) !== fid) return;
-      if (outMap.has(key)) return;
-      outMap.set(key, { key, ...sub });
-    });
-    return Array.from(outMap.values());
+    const slotMap = new Map();
+    const rankTime = (row) => {
+      const d = parseDate(row && row.submitted_at_utc);
+      if (d) return d.getTime();
+      return safeInt(row && row.at);
+    };
+    const mergeEntry = (row, priority) => {
+      if (!row) return;
+      if (safeStr(row.league_id || league) !== league) return;
+      if (normalizeSeasonValue(row.season) !== s) return;
+      if (pad4(row.franchise_id) !== fid) return;
+      const slotKey = getTagEntrySlotKey(row);
+      if (!slotKey) return;
+      const next = { key: slotKey, ...row };
+      const existing = slotMap.get(slotKey);
+      if (!existing) {
+        slotMap.set(slotKey, { priority, row: next });
+        return;
+      }
+      const existingTime = rankTime(existing.row);
+      const nextTime = rankTime(next);
+      if (priority > existing.priority || (priority === existing.priority && nextTime >= existingTime)) {
+        slotMap.set(slotKey, { priority, row: next });
+      }
+    };
+
+    Object.values(state.tagSubmissions || {}).forEach((sub) => mergeEntry(sub, 1));
+    Object.values(state.tagSelections || {}).forEach((sel) => mergeEntry(sel, 2));
+
+    return Array.from(slotMap.values()).map((entry) => entry.row);
   }
 
   function getActiveTagSelectionForSide(season, franchiseId, side) {
@@ -8860,20 +8926,35 @@
   function submitTagSelection() {
     const key = safeStr(tagModalState.key);
     if (!key) return;
-    const sel = state.tagSelections[key] || state.tagSubmissions[key];
+    const sel = getActiveTagSelectionByKey(key);
     if (!sel) return;
+    const season = normalizeSeasonValue(sel.season || state.selectedSeason || DEFAULT_YEAR);
+    const fid = pad4(sel.franchise_id);
+    const side = getTagEntrySide(sel);
+    const cleared = clearTagSlotEntries(season, fid, side, false);
+    const slotKey = cleared.slotKey || buildTagSelectionKey(season, fid, side);
     const payload = buildTagSubmissionPayload(sel);
-    state.tagSubmissions[key] = {
+    state.tagSelections[slotKey] = {
       ...sel,
+      season,
+      franchise_id: fid,
+      side,
+    };
+    state.tagSubmissions[slotKey] = {
+      ...sel,
+      season,
+      franchise_id: fid,
+      side,
       submitted_at_utc: new Date().toISOString(),
       tag_salary: payload.salary,
       payload,
     };
+    saveTagSelections(state.tagSelections);
     saveTagSubmissions(state.tagSubmissions);
     setActionFlowStatus("submitted", "Tag submitted successfully.", `${safeStr(sel.player_name)} · TAG`);
     setGlobalNotice(`Tag submitted for ${safeStr(sel.player_name)}.`, false);
     closeTagModal();
-    openTagAckModal(sel, payload.salary);
+    openTagAckModal(state.tagSubmissions[slotKey], payload.salary);
     render();
   }
 
@@ -8886,10 +8967,20 @@
   function unsubmitTagSelectionByKey(key, skipConfirm) {
     const selKey = safeStr(key);
     if (!selKey) return false;
-    const selection = state.tagSelections[selKey] || state.tagSubmissions[selKey];
+    const selection = getActiveTagSelectionByKey(selKey);
     if (!selection) return false;
     const season = normalizeSeasonValue(selection.season || state.selectedSeason);
-    const hasSubmission = !!state.tagSubmissions[selKey];
+    const fid = pad4(selection.franchise_id);
+    const side = getTagEntrySide(selection);
+    const slotKey = buildTagSelectionKey(season, fid, side);
+    const hasSubmission = Object.entries(state.tagSubmissions || {}).some(([entryKey, entry]) => {
+      if (!entry) return false;
+      return (
+        getTagEntrySlotKey(entry) === slotKey ||
+        entryKey === slotKey ||
+        entryKey.startsWith(slotKey + "|")
+      );
+    });
     if (hasSubmission && isTagDeadlinePassed(season) && !state.commishMode) return false;
 
     if (!skipConfirm) {
@@ -8899,10 +8990,7 @@
       if (!window.confirm(promptText)) return false;
     }
 
-    delete state.tagSelections[selKey];
-    delete state.tagSubmissions[selKey];
-    saveTagSelections(state.tagSelections);
-    saveTagSubmissions(state.tagSubmissions);
+    clearTagSlotEntries(season, fid, side);
 
     if (safeStr(tagModalState.key) === selKey) {
       closeTagModal();
@@ -10795,6 +10883,7 @@
           render();
           return;
         }
+        clearTagSlotEntries(season, fid, side, false);
         state.tagSelections[key] = {
           league_id: safeStr(getLeagueId() || DEFAULT_LEAGUE_ID),
           season,
@@ -10808,7 +10897,6 @@
         };
         if (state.tagSubmissions[key] && state.commishMode) {
           delete state.tagSubmissions[key];
-          saveTagSubmissions(state.tagSubmissions);
         }
         saveTagSelections(state.tagSelections);
         render();
