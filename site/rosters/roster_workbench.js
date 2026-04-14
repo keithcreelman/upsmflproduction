@@ -6266,13 +6266,41 @@
     return !!(viewerCanManageAnyRoster() || (viewer && viewer === fid));
   }
 
+  function liveRosterPlayerForTagRow(row) {
+    var record = findPlayerRecord(row && row.franchise_id, row && row.player_id);
+    return record && record.player ? record.player : null;
+  }
+
+  function liveRosterBlocksTagRow(row) {
+    if (!row) return true;
+    var player = liveRosterPlayerForTagRow(row);
+    if (!player || player.isTaxi) return true;
+
+    var type = safeStr(player.type).toUpperCase();
+    var years = Math.max(0, safeInt(player.years, 0));
+    var info = safeStr(player.special || player.contract_info).toLowerCase();
+    if (type.indexOf("TAG") !== -1) return true;
+    if (type.indexOf("EXT") === 0) return true;
+    if (years !== 1) return true;
+    if (
+      info.indexOf("no further extensions") !== -1 ||
+      info.indexOf("not eligible for tag or extension") !== -1
+    ) {
+      return true;
+    }
+    return false;
+  }
+
   function currentTagPlanRows() {
     var selectedSeason = tagDisplaySeason();
     var liveSeason = safeStr(state.tagData && state.tagData.cycleSeason);
     if (selectedSeason && liveSeason && selectedSeason !== liveSeason) {
       return projectedTagPlanRows(selectedSeason);
     }
-    return state.tagData && Array.isArray(state.tagData.rows) ? state.tagData.rows : [];
+    var rows = state.tagData && Array.isArray(state.tagData.rows) ? state.tagData.rows : [];
+    return rows.filter(function (row) {
+      return !liveRosterBlocksTagRow(row);
+    });
   }
 
   function projectedTagRowLookupByPlayerId() {
@@ -6487,6 +6515,7 @@
       if (pad4(row.franchise_id) !== fid) continue;
       if (safeStr(row.contract_status).toUpperCase().indexOf("TAG") === -1) continue;
       if (safeInt(row.tag_prev_season, 0)) continue;
+      if (liveRosterBlocksTagRow(row)) continue;
       if ((normalizeTagSideValue(row.side) || getTagSideFromPos(row.positional_grouping || row.position) || "OFFENSE") !== normalizedSide) continue;
       return {
         id: safeStr(row.player_id).replace(/\D/g, ""),

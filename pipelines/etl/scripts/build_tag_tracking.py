@@ -77,6 +77,17 @@ def effective_aav(db_aav: int, salary: int, contract_info: str) -> int:
     return max(0, salary)
 
 
+def is_active_tag_or_extension_status(status: str) -> bool:
+    s = safe_str(status).upper()
+    if not s:
+        return False
+    if "TAG" in s:
+        return True
+    if s.startswith("EXT"):
+        return True
+    return False
+
+
 def round_up_1000(value: float) -> int:
     return int(max(1000, math.ceil(float(value) / 1000.0) * 1000))
 
@@ -232,6 +243,8 @@ def fetch_candidates(conn, season: int) -> List[Dict[str, Any]]:
     rows = []
     for r in conn.execute(sql, (season,)).fetchall():
         contract_status = safe_str(r[9])
+        if is_active_tag_or_extension_status(contract_status):
+            continue
         rows.append(
             {
                 "season": safe_int(r[0], season),
@@ -701,18 +714,19 @@ def build_calc_breakdown(
 def build_rows(
     conn,
     season: int,
+    candidate_season: int,
     exclude_tag_season: int,
     tracking_for_season: int,
     prior_aav_map: Dict[str, int],
     week1_aav_by_pos: Dict[str, List[Dict[str, Any]]],
 ) -> List[Dict[str, Any]]:
-    league_id = fetch_league_id(conn, season)
+    league_id = fetch_league_id(conn, candidate_season) or fetch_league_id(conn, season)
     last_regular_week = fetch_regular_season_week(conn, season)
-    candidates = fetch_candidates(conn, season)
+    candidates = fetch_candidates(conn, candidate_season)
     tagged_prev = fetch_tagged_season_ids(conn, exclude_tag_season)
     scoring_map = fetch_scoring_rank_map(conn, season, last_regular_week)
     tier_bid_map = build_tier_bid_map(week1_aav_by_pos)
-    extension_lookup = load_extension_lookup(conn, season)
+    extension_lookup = load_extension_lookup(conn, candidate_season)
 
     # Fallback for missing week 1 AAVs.
     for c in candidates:
@@ -921,6 +935,7 @@ def main() -> int:
     out_path = Path(args.out_path)
     exclude_tag_season = resolve_exclude_tag_season(season, args.exclude_tagged_season)
     tracking_for_season = season + 1 if exclude_tag_season == season else season
+    candidate_season = tracking_for_season
 
     conn = get_conn(args.db_path)
     try:
@@ -932,6 +947,7 @@ def main() -> int:
         rows = build_rows(
             conn,
             season,
+            candidate_season,
             exclude_tag_season,
             tracking_for_season,
             prior_aav_map,
