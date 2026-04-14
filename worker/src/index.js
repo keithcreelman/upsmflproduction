@@ -5788,7 +5788,8 @@ export default {
           const playerId = String(salaryRow?.id || salaryRow?.player_id || "").replace(/\D/g, "");
           if (!playerId) continue;
           const trackingRow = trackingByPlayerId[playerId] || {};
-          const resolvedFranchiseId = rosterPlayerFranchise[playerId] || trackingRow.franchise_id || "";
+          const resolvedFranchiseId = rosterPlayerFranchise[playerId] || "";
+          if (!resolvedFranchiseId) continue;
           if (resolvedFranchiseId !== franchiseId) continue;
 
           const playerInfo = playersById[playerId] || {};
