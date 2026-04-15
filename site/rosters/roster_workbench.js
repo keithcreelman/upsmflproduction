@@ -6279,7 +6279,6 @@
 
     var type = safeStr(player.type).toUpperCase();
     var info = safeStr(player.special || player.contract_info).toLowerCase();
-    if (type.indexOf("TAG") !== -1) return true;
     if (type.indexOf("EXT") === 0) return true;
     if (
       info.indexOf("no further extensions") !== -1 ||
