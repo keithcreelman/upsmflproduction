@@ -9237,13 +9237,36 @@
   }
 
   function findStaleTagPlayerForSide(team, side) {
-    var players = team && team.players ? team.players : [];
     var normalizedSide = normalizeTagSideValue(side) || "OFFENSE";
+    var fid = pad4(team && team.id);
+
+    var players = team && team.players ? team.players : [];
     for (var i = 0; i < players.length; i += 1) {
       var player = players[i] || {};
       if (safeStr(player.type).toUpperCase() !== "TAG") continue;
       if ((getTagSideFromPos(player.positionGroup || player.position) || "OFFENSE") !== normalizedSide) continue;
       if (isStaleTagFromPriorSeason(player)) return player;
+    }
+
+    var rows = Array.isArray(state.tagTrackingRows) ? state.tagTrackingRows : [];
+    for (var j = 0; j < rows.length; j += 1) {
+      var row = rows[j] || {};
+      if (pad4(row.franchise_id) !== fid) continue;
+      if (!safeInt(row.tag_prev_season, 0)) continue;
+      if (safeStr(row.contract_status).toUpperCase().indexOf("TAG") === -1) continue;
+      var rowSide = normalizeTagSideValue(row.side) || getTagSideFromPos(row.positional_grouping || row.position) || "OFFENSE";
+      if (rowSide !== normalizedSide) continue;
+      return {
+        id: safeStr(row.player_id).replace(/\D/g, ""),
+        player_id: safeStr(row.player_id),
+        name: safeStr(row.player_name),
+        player_name: safeStr(row.player_name),
+        position: safeStr(row.position),
+        positionGroup: safeStr(row.positional_grouping || row.position),
+        salary: safeInt(row.salary, 0),
+        type: "TAG",
+        source: "stale-tracking"
+      };
     }
     return null;
   }
