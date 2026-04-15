@@ -6129,9 +6129,46 @@
   function teamCapSummaryHtml(team) {
     var totalSalary = safeInt(team && team.summary && team.summary.capTotal, 0);
     var totalAdjustments = safeInt(team && team.summary && team.summary.salaryAdjustmentTotal, 0);
+    var breakdown = cloneSalaryAdjustmentBreakdown(team && team.summary && team.summary.salaryAdjustmentBreakdown);
     var capSpace = calculateCapSpace(totalSalary, totalAdjustments);
     var capSpaceClass = capSpace != null && capSpace < 0 ? " is-bad" : "";
     var capSpaceText = capSpace == null ? "—" : money(capSpace);
+    var hasBreakdown = totalAdjustments !== 0 || breakdown.cutPlayers !== 0 || breakdown.tradedSalary !== 0 || breakdown.other !== 0;
+    var teamId = pad4(team && team.id);
+
+    var adjustmentsRowHtml;
+    if (hasBreakdown) {
+      adjustmentsRowHtml =
+        '<tr class="rwb-cap-adj-row">' +
+          '<th>' +
+            '<button type="button" class="rwb-cap-adj-toggle" data-action="cap-adj-toggle" data-franchise-id="' + escapeHtml(teamId) + '" aria-expanded="false" aria-controls="rwbCapAdj-' + escapeHtml(teamId) + '">' +
+              '<span class="rwb-cap-adj-caret" aria-hidden="true">▸</span>' +
+              'Total Adjustments' +
+            '</button>' +
+          '</th>' +
+          '<td class="rwb-cell-num">' + escapeHtml(money(totalAdjustments)) + '</td>' +
+        '</tr>' +
+        '<tr class="rwb-cap-adj-detail" id="rwbCapAdj-' + escapeHtml(teamId) + '" hidden>' +
+          '<th class="rwb-cap-adj-sub-label">Dropped Players</th>' +
+          '<td class="rwb-cell-num">' + escapeHtml(money(safeInt(breakdown.cutPlayers, 0))) + '</td>' +
+        '</tr>' +
+        '<tr class="rwb-cap-adj-detail" data-for="rwbCapAdj-' + escapeHtml(teamId) + '" hidden>' +
+          '<th class="rwb-cap-adj-sub-label">Traded Salary</th>' +
+          '<td class="rwb-cell-num">' + escapeHtml(money(safeInt(breakdown.tradedSalary, 0))) + '</td>' +
+        '</tr>' +
+        (safeInt(breakdown.other, 0) !== 0
+          ? ('<tr class="rwb-cap-adj-detail" data-for="rwbCapAdj-' + escapeHtml(teamId) + '" hidden>' +
+              '<th class="rwb-cap-adj-sub-label">Other</th>' +
+              '<td class="rwb-cell-num">' + escapeHtml(money(safeInt(breakdown.other, 0))) + '</td>' +
+            '</tr>')
+          : '');
+    } else {
+      adjustmentsRowHtml =
+        '<tr>' +
+          '<th>Total Adjustments</th>' +
+          '<td class="rwb-cell-num">' + escapeHtml(money(totalAdjustments)) + '</td>' +
+        '</tr>';
+    }
 
     return (
       '<div class="rwb-cap-summary">' +
@@ -6145,10 +6182,7 @@
               '<th>Total Salary</th>' +
               '<td class="rwb-cell-num">' + escapeHtml(money(totalSalary)) + '</td>' +
             '</tr>' +
-            '<tr>' +
-              '<th>Total Adjustments</th>' +
-              '<td class="rwb-cell-num">' + escapeHtml(money(totalAdjustments)) + '</td>' +
-            '</tr>' +
+            adjustmentsRowHtml +
             '<tr class="rwb-cap-space-row' + capSpaceClass + '">' +
               '<th>Cap Space Available</th>' +
               '<td class="rwb-cell-num">' + escapeHtml(capSpaceText) + '</td>' +
@@ -9468,6 +9502,25 @@
       row.classList.toggle("is-expanded", !expanded);
       rowMore.setAttribute("aria-expanded", expanded ? "false" : "true");
       rowMore.textContent = expanded ? "More" : "Less";
+      return;
+    }
+
+    var capAdjToggle = target.closest("[data-action='cap-adj-toggle']");
+    if (capAdjToggle) {
+      var panelId = safeStr(capAdjToggle.getAttribute("aria-controls"));
+      if (!panelId) return;
+      var isExpanded = capAdjToggle.getAttribute("aria-expanded") === "true";
+      var nextExpanded = !isExpanded;
+      capAdjToggle.setAttribute("aria-expanded", nextExpanded ? "true" : "false");
+      capAdjToggle.classList.toggle("is-open", nextExpanded);
+      var detailRows = document.querySelectorAll('#' + panelId + ', [data-for="' + panelId + '"]');
+      for (var di = 0; di < detailRows.length; di += 1) {
+        if (nextExpanded) {
+          detailRows[di].removeAttribute("hidden");
+        } else {
+          detailRows[di].setAttribute("hidden", "");
+        }
+      }
       return;
     }
 
