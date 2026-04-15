@@ -9273,32 +9273,48 @@
 
   function clearStaleTagContract(player, franchiseId) {
     if (!player) return Promise.resolve(null);
-    var ref = findTagTrackingReferenceRow(franchiseId, player.id || player.player_id);
+    var pid = safeStr(player.id || player.player_id);
+    var fid = pad4(franchiseId);
+    var ref = findTagTrackingReferenceRow(fid, pid);
     var salary = ref ? Math.max(0, safeInt(ref.salary, 0)) : safeInt(player.salary, 0);
     var contractStatus = ref ? safeStr(ref.contract_status || "Veteran") : "Veteran";
     var contractInfo = ref ? safeStr(ref.contract_info || "CL 1|") : "CL 1|";
     var contractYear = ref ? Math.max(1, safeInt(ref.contract_year, 0)) : 1;
+
+    if (contractStatus.toUpperCase().indexOf("TAG") !== -1) {
+      contractStatus = "Veteran";
+    }
+
     var payload = {
       L: safeStr(state.ctx && state.ctx.leagueId),
       YEAR: safeStr(state.ctx && state.ctx.year),
       type: "MANUAL_CONTRACT_UPDATE",
       leagueId: safeStr(state.ctx && state.ctx.leagueId),
       year: safeStr(state.ctx && state.ctx.year),
-      player_id: safeStr(player.id || player.player_id),
+      player_id: pid,
       player_name: safeStr(player.name || player.player_name),
-      franchise_id: pad4(franchiseId),
+      franchise_id: fid,
       salary: salary,
       contract_year: contractYear,
       contract_status: contractStatus,
       contract_info: contractInfo,
       commish_override_flag: 1
     };
-    return postContractUpdate(
-      resolveWorkerContractUpdateEndpoint() +
-        "?L=" + encodeURIComponent(payload.L) +
-        "&YEAR=" + encodeURIComponent(payload.YEAR),
-      payload
-    );
+
+    return submitWorkerRosterAction("load_player", fid, pid).catch(function () {
+      return null;
+    }).then(function () {
+      return postContractUpdate(
+        resolveWorkerContractUpdateEndpoint() +
+          "?L=" + encodeURIComponent(payload.L) +
+          "&YEAR=" + encodeURIComponent(payload.YEAR),
+        payload
+      );
+    }).then(function () {
+      return submitWorkerRosterAction("unload_player", fid, pid).catch(function () {
+        return null;
+      });
+    });
   }
 
   function submitTagPlanSelection(row) {
