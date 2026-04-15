@@ -6529,6 +6529,19 @@
     return null;
   }
 
+  function isStaleTagFromPriorSeason(player) {
+    if (!player) return false;
+    var pid = safeStr(player.id || player.player_id).replace(/\D/g, "");
+    if (!pid) return false;
+    var rows = Array.isArray(state.tagTrackingRows) ? state.tagTrackingRows : [];
+    for (var i = 0; i < rows.length; i += 1) {
+      var row = rows[i] || {};
+      if (safeStr(row.player_id).replace(/\D/g, "") !== pid) continue;
+      if (safeInt(row.tag_prev_season, 0)) return true;
+    }
+    return false;
+  }
+
   function activeTaggedPlayerForTeamSide(team, side) {
     var players = team && team.players ? team.players : [];
     var normalizedSide = normalizeTagSideValue(side) || "OFFENSE";
@@ -6536,6 +6549,7 @@
       var player = players[i] || {};
       if (safeStr(player.type).toUpperCase() !== "TAG") continue;
       if ((getTagSideFromPos(player.positionGroup || player.position) || "OFFENSE") !== normalizedSide) continue;
+      if (isStaleTagFromPriorSeason(player)) continue;
       return player;
     }
     return trackedTaggedPlayerForFranchiseSide(team && team.id, normalizedSide);
@@ -9222,6 +9236,48 @@
     };
   }
 
+  function findStaleTagPlayerForSide(team, side) {
+    var players = team && team.players ? team.players : [];
+    var normalizedSide = normalizeTagSideValue(side) || "OFFENSE";
+    for (var i = 0; i < players.length; i += 1) {
+      var player = players[i] || {};
+      if (safeStr(player.type).toUpperCase() !== "TAG") continue;
+      if ((getTagSideFromPos(player.positionGroup || player.position) || "OFFENSE") !== normalizedSide) continue;
+      if (isStaleTagFromPriorSeason(player)) return player;
+    }
+    return null;
+  }
+
+  function clearStaleTagContract(player, franchiseId) {
+    if (!player) return Promise.resolve(null);
+    var ref = findTagTrackingReferenceRow(franchiseId, player.id || player.player_id);
+    var salary = ref ? Math.max(0, safeInt(ref.salary, 0)) : safeInt(player.salary, 0);
+    var contractStatus = ref ? safeStr(ref.contract_status || "Veteran") : "Veteran";
+    var contractInfo = ref ? safeStr(ref.contract_info || "CL 1|") : "CL 1|";
+    var contractYear = ref ? Math.max(1, safeInt(ref.contract_year, 0)) : 1;
+    var payload = {
+      L: safeStr(state.ctx && state.ctx.leagueId),
+      YEAR: safeStr(state.ctx && state.ctx.year),
+      type: "MANUAL_CONTRACT_UPDATE",
+      leagueId: safeStr(state.ctx && state.ctx.leagueId),
+      year: safeStr(state.ctx && state.ctx.year),
+      player_id: safeStr(player.id || player.player_id),
+      player_name: safeStr(player.name || player.player_name),
+      franchise_id: pad4(franchiseId),
+      salary: salary,
+      contract_year: contractYear,
+      contract_status: contractStatus,
+      contract_info: contractInfo,
+      commish_override_flag: 1
+    };
+    return postContractUpdate(
+      resolveWorkerContractUpdateEndpoint() +
+        "?L=" + encodeURIComponent(payload.L) +
+        "&YEAR=" + encodeURIComponent(payload.YEAR),
+      payload
+    );
+  }
+
   function submitTagPlanSelection(row) {
     if (!row) return Promise.resolve(null);
     if (state.busyActionKey) {
@@ -9256,11 +9312,20 @@
     var payload = buildTagContractPayload(row);
     var membershipResult = null;
 
+    var team = findTeamById(row.franchise_id);
+    var stalePlayer = findStaleTagPlayerForSide(team, row.side);
+
     state.busyActionKey = moveKey;
     setFlash("success", "Applying tag for " + safeStr(row.player_name) + "...");
     renderTeams();
 
-    return submitWorkerRosterAction("load_player", row.franchise_id, row.player_id).then(function (membershipPayload) {
+    var clearStalePromise = stalePlayer
+      ? clearStaleTagContract(stalePlayer, row.franchise_id).catch(function () { return null; })
+      : Promise.resolve(null);
+
+    return clearStalePromise.then(function () {
+      return submitWorkerRosterAction("load_player", row.franchise_id, row.player_id);
+    }).then(function (membershipPayload) {
       membershipResult = membershipPayload || null;
       return postContractUpdate(
         resolveWorkerContractUpdateEndpoint() +
