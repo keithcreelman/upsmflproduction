@@ -6268,7 +6268,8 @@
   function liveRosterBlocksTagRow(row) {
     if (!row) return true;
     var player = liveRosterPlayerForTagRow(row);
-    if (!player || player.isTaxi) return true;
+    if (!player) return false;
+    if (player.isTaxi) return true;
 
     var type = safeStr(player.type).toUpperCase();
     var info = safeStr(player.special || player.contract_info).toLowerCase();
