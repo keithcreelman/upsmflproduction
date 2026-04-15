@@ -621,6 +621,57 @@
   color: #ffb4b4;
 }
 
+.rwb-cap-adj-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  color: inherit;
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.rwb-cap-adj-toggle:hover,
+.rwb-cap-adj-toggle:focus-visible {
+  color: var(--rwb-text);
+  outline: none;
+}
+
+.rwb-cap-adj-caret {
+  display: inline-block;
+  transition: transform 120ms ease;
+  font-size: 0.72rem;
+  line-height: 1;
+}
+
+.rwb-cap-adj-toggle.is-open .rwb-cap-adj-caret {
+  transform: rotate(90deg);
+}
+
+.rwb-cap-summary-table .rwb-cap-adj-detail th,
+.rwb-cap-summary-table .rwb-cap-adj-detail td {
+  padding-top: 4px;
+  padding-bottom: 4px;
+  border-bottom: 0;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--rwb-text-soft);
+}
+
+.rwb-cap-summary-table .rwb-cap-adj-detail .rwb-cap-adj-sub-label {
+  padding-left: 18px;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 0.82rem;
+}
+
 .rwb-team-body {
   display: grid;
   gap: 8px;
