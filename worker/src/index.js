@@ -15471,6 +15471,14 @@ export default {
           if (targetYr && String(targetYr) !== String(targetSeason)) return false;
           if (safeInt(r.amount, 0) <= 0) return false;
           return true;
+        }).map((r) => {
+          // Apply $1K minimum floor when TCV < $5K rule applies.
+          const tcv = safeInt(r.pre_drop_tcv, 0);
+          const amt = safeInt(r.amount, 0);
+          if (tcv > 0 && tcv <= 4000 && amt > 0 && amt < 1000) {
+            return { ...r, amount: 1000, penalty_amount: 1000, floored_from: amt };
+          }
+          return r;
         });
 
         // Fetch currently-posted salary adjustments so we don't double-post.

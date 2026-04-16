@@ -3940,9 +3940,16 @@
       var fid = pad4(team.id || team.fid);
       var existingBreakdown = cloneSalaryAdjustmentBreakdown(team.summary.salaryAdjustmentBreakdown);
       var reportBreakdown = cloneSalaryAdjustmentBreakdown(reportSummary.byFranchise[fid]);
+      // Use report values when present; fall back to worker/live values otherwise.
+      // Report currently only covers DROP_PENALTY_CANDIDATE (cutPlayers). Trade
+      // settlements come from the live MFL salaryAdjustments feed.
       var mergedBreakdown = {
-        tradedSalary: safeInt(reportBreakdown.tradedSalary, 0),
-        cutPlayers: safeInt(reportBreakdown.cutPlayers, 0),
+        tradedSalary: safeInt(reportBreakdown.tradedSalary, 0) !== 0
+          ? safeInt(reportBreakdown.tradedSalary, 0)
+          : safeInt(existingBreakdown.tradedSalary, 0),
+        cutPlayers: safeInt(reportBreakdown.cutPlayers, 0) !== 0
+          ? safeInt(reportBreakdown.cutPlayers, 0)
+          : safeInt(existingBreakdown.cutPlayers, 0),
         other: safeInt(existingBreakdown.other, 0)
       };
       team.summary.salaryAdjustmentBreakdown = mergedBreakdown;
