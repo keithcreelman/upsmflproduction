@@ -1446,13 +1446,6 @@
     var yearValues = parseContractYearValues(info);
     var keys = Object.keys(yearValues);
     if (!keys.length) return fallback;
-    // If MFL's raw salary matches any year value, trust it (MFL's salary field
-    // is more reliable than contractYear, which can go stale after extensions).
-    if (fallback > 0) {
-      for (var k = 0; k < keys.length; k += 1) {
-        if (safeInt(yearValues[keys[k]], 0) === fallback) return fallback;
-      }
-    }
     var length = Math.max(parseContractLengthValue(info), keys.reduce(function (max, key) {
       return Math.max(max, safeInt(key, 0));
     }, 0));
@@ -1461,32 +1454,6 @@
     var idx = Math.max(1, length - yearsInt + 1);
     if (yearValues[idx] > 0) return safeInt(yearValues[idx], fallback);
     return fallback;
-  }
-
-  function inferYearsRemainingFromContract(contractInfo, contractLength, currentSalary, fallbackYears) {
-    var info = safeStr(contractInfo);
-    var salary = safeInt(currentSalary, 0);
-    if (!info || salary <= 0) return fallbackYears;
-    var yearValues = parseContractYearValues(info);
-    var keys = Object.keys(yearValues);
-    if (!keys.length) return fallbackYears;
-    var length = Math.max(
-      safeInt(contractLength, 0),
-      parseContractLengthValue(info),
-      keys.reduce(function (max, key) { return Math.max(max, safeInt(key, 0)); }, 0)
-    );
-    if (length <= 0) return fallbackYears;
-    // Find the earliest Y-index whose value matches the current salary.
-    var matchedIdx = 0;
-    for (var i = 1; i <= length; i += 1) {
-      if (safeInt(yearValues[i], 0) === salary) { matchedIdx = i; break; }
-    }
-    if (matchedIdx <= 0) return fallbackYears;
-    var inferred = length - matchedIdx + 1;
-    // If MFL's fallback is higher (more years remaining), keep it — prevents
-    // artificially shortening the contract when salary values collide (Y1=Y2).
-    var fallbackInt = safeInt(fallbackYears, 0);
-    return fallbackInt > inferred ? fallbackInt : inferred;
   }
 
   function contractYearFallbackValue(player, yearIndex) {
@@ -4114,8 +4081,6 @@
         var special = overlay && overlay.special != null ? safeStr(overlay.special) : safeStr(rp.contractInfo);
         special = normalizeContractInfoForDisplay(special, years, priorContract);
         salary = displaySalaryFromContractInfo(special, years, salary);
-        // Correct years_remaining when MFL's contractYear is stale post-extension.
-        years = inferYearsRemainingFromContract(special, parseContractLengthValue(special), salary, years);
 
         var status = normalizeStatus(rp.status);
         var isTaxi = status === "TAXI_SQUAD";
@@ -4196,8 +4161,6 @@
     var special = safeStr(p.special || p.contract_info || "-") || "-";
     var years = safeInt(p.years, 0);
     var salary = displaySalaryFromContractInfo(special, years, safeInt(p.salary, 0));
-    // Correct years_remaining when MFL's contractYear is stale post-extension.
-    years = inferYearsRemainingFromContract(special, parseContractLengthValue(special), salary, years);
     return enrichPlayer({
       id: id,
       fid: pad4(franchiseId),
