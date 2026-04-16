@@ -15447,6 +15447,7 @@ export default {
         const targetSeason = safeStr(body?.season || url.searchParams.get("YEAR") || YEAR || "");
         const leagueId = safeStr(body?.league_id || body?.L || url.searchParams.get("L") || L || "74598");
         const dryRun = !!body?.dry_run;
+        const limit = safeInt(body?.limit, 0);
         if (!targetSeason) return jsonOut(400, { ok: false, error: "Missing season param" });
         if (!leagueId) return jsonOut(400, { ok: false, error: "Missing league_id param" });
 
@@ -15489,9 +15490,11 @@ export default {
         const existingKeys = new Set();
         for (const ex of existingRows) {
           const explanation = safeStr(ex.explanation);
-          // Extract ledger_key or source_id token from the explanation if we tagged it
-          const m = explanation.match(/ups_drop_penalty:([A-Za-z0-9_.:-]+)/);
-          if (m) existingKeys.add(m[1]);
+          // Match either legacy bracket tag or new "id:KEY" tail
+          const m1 = explanation.match(/ups_drop_penalty:([A-Za-z0-9_.:-]+)/);
+          if (m1) existingKeys.add(m1[1]);
+          const m2 = explanation.match(/\bid:([A-Za-z0-9_.:-]+)\s*$/);
+          if (m2) existingKeys.add(m2[1]);
         }
 
         // Build salary adjustment rows for MFL
@@ -15508,11 +15511,13 @@ export default {
             continue;
           }
           const playerName = safeStr(row.player_name) || safeStr(row.player_id);
-          // Amounts in MFL salary adjustments charge the cap as a POSITIVE number.
+          // Simple explanation without special characters that MFL may reject.
+          // Idempotency key embedded via the tail `id:KEY` suffix.
+          const safeExplanation = `UPS drop penalty ${playerName.replace(/[^A-Za-z0-9 ,.'-]/g, '')} ${amount} id:${ledgerKey}`;
           rowsToPost.push({
             franchise_id: fid,
             amount: amount,
-            explanation: `UPS drop penalty (${playerName}): ${formatDollarsAsMflImportK(amount, 3)} [ups_drop_penalty:${ledgerKey}]`,
+            explanation: safeExplanation,
           });
         }
 
@@ -15529,15 +15534,19 @@ export default {
           });
         }
 
+        // Apply test limit if provided
+        const rowsSliced = limit > 0 ? rowsToPost.slice(0, limit) : rowsToPost;
+
         if (dryRun) {
           return jsonOut(200, {
             ok: true,
             dry_run: true,
             season: targetSeason,
             league_id: leagueId,
-            would_post: rowsToPost,
+            would_post: rowsSliced,
+            total_eligible: rowsToPost.length,
             skipped,
-            xml_preview: buildSalaryAdjXml(rowsToPost),
+            xml_preview: buildSalaryAdjXml(rowsSliced),
           });
         }
 
@@ -15548,27 +15557,87 @@ export default {
             ok: false,
             error: "MFL_COOKIE lacks commissioner privileges for salary adjustments",
             admin_state: adminState,
-            would_post: rowsToPost,
+            would_post: rowsSliced,
           });
         }
 
-        // Post to MFL
-        const dataXml = buildSalaryAdjXml(rowsToPost);
+        // MFL's salaryAdj import REPLACES all existing adjustments when posted
+        // as a flat <salary_adjustments> document. To preserve existing ones
+        // (like trade settlements), merge them in.
+        const preservePreviousRes = await mflExportJson(targetSeason, leagueId, "salaryAdjustments", {}, { useCookie: true });
+        const preservePrevious = preservePreviousRes.ok
+          ? collectSalaryAdjustmentExportRows(preservePreviousRes.data?.salaryAdjustments || preservePreviousRes.data?.salaryadjustments || preservePreviousRes.data || {})
+          : [];
+        const newLedgerKeys = new Set(rowsSliced.map((r) => {
+          const m = r.explanation.match(/\bid:([A-Za-z0-9_.:-]+)\s*$/);
+          return m ? m[1] : "";
+        }).filter(Boolean));
+        // Keep existing rows unless we're replacing them (same ledger_key)
+        const preservedRows = preservePrevious
+          .filter((r) => {
+            const expl = safeStr(r.explanation);
+            const m1 = expl.match(/ups_drop_penalty:([A-Za-z0-9_.:-]+)/);
+            const m2 = expl.match(/\bid:([A-Za-z0-9_.:-]+)\s*$/);
+            const key = (m1 && m1[1]) || (m2 && m2[1]) || "";
+            return !key || !newLedgerKeys.has(key);
+          })
+          .map((r) => ({
+            franchise_id: r.franchise_id,
+            amount: r.amount,
+            explanation: r.explanation,
+          }));
+
+        // Debug toggle: preserve_existing=false will post only new rows
+        const preserveExisting = body?.preserve_existing !== false;
+        const combinedRows = preserveExisting ? [...preservedRows, ...rowsSliced] : rowsSliced;
+        const dataXml = buildSalaryAdjXml(combinedRows);
+
+        // MFL's /import endpoint — use the same pattern that works for the
+        // trade workflow's applySalaryAdjFromPayload.
+        const importFormFields = { TYPE: "salaryAdj", L: leagueId, DATA: dataXml };
         const importRes = await postMflImportForm(
           targetSeason,
-          { TYPE: "salaryAdj", L: leagueId, DATA: dataXml },
+          importFormFields,
           { TYPE: "salaryAdj", L: leagueId }
         );
+
+        // Post-import verification
+        const postVerifyRes = await mflExportJson(targetSeason, leagueId, "salaryAdjustments", {}, { useCookie: true });
+        const postVerifyRows = postVerifyRes.ok
+          ? collectSalaryAdjustmentExportRows(postVerifyRes.data?.salaryAdjustments || postVerifyRes.data?.salaryadjustments || postVerifyRes.data || {})
+          : [];
+        const verifiedKeys = new Set();
+        for (const ex of postVerifyRows) {
+          const expl = safeStr(ex.explanation);
+          const m1 = expl.match(/ups_drop_penalty:([A-Za-z0-9_.:-]+)/);
+          const m2 = expl.match(/\bid:([A-Za-z0-9_.:-]+)\s*$/);
+          if (m1) verifiedKeys.add(m1[1]);
+          if (m2) verifiedKeys.add(m2[1]);
+        }
+        const matchedCount = rowsSliced.filter((r) => {
+          const m = r.explanation.match(/\bid:([A-Za-z0-9_.:-]+)\s*$/);
+          return m && verifiedKeys.has(m[1]);
+        }).length;
 
         return jsonOut(importRes.requestOk ? 200 : 502, {
           ok: !!importRes.requestOk,
           season: targetSeason,
           league_id: leagueId,
-          posted_count: rowsToPost.length,
-          posted_rows: rowsToPost,
+          posted_count: rowsSliced.length,
+          preserved_existing: preservedRows.length,
+          combined_total: combinedRows.length,
+          posted_rows: rowsSliced,
           skipped,
           import_status: importRes.status,
           import_response_preview: safeStr(importRes.upstreamPreview).slice(0, 600),
+          import_target_url: importRes.targetImportUrl,
+          verified_posted_count: matchedCount,
+          verify_total_export_rows: postVerifyRows.length,
+          admin_check: { ok: adminState.ok, isAdmin: adminState.isAdmin },
+          xml_length: dataXml.length,
+          write_hint: matchedCount === 0 && importRes.status === 200
+            ? "MFL returned 200 with empty body but rows did not land — MFL_COOKIE secret likely needs refresh (no commissioner write access)"
+            : undefined,
         });
       }
 
