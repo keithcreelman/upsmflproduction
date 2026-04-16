@@ -2742,17 +2742,10 @@
           existing.tagCycleSeason = safeStr(submission.season);
           existing.positionGroup = positionGroupKey(existing.position);
           players[existingIndex] = enrichPlayer(existing);
-        } else {
-          players.push(
-            buildSyntheticTaggedPlayer(
-              team,
-              submission,
-              refRow,
-              findTaggedPlayerSourceSnapshot(fid, pid)
-            )
-          );
+          changed = true;
         }
-        changed = true;
+        // Skip synthetic tagged players who are not on the live roster — they
+        // were dropped/traded after the tag submission was filed.
       }
 
       if (changed) {
