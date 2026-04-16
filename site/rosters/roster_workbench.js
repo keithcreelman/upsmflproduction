@@ -3629,7 +3629,7 @@
     return {
       franchise_id: franchiseId,
       amount: amount,
-      explanation: safeStr(node.explanation || node.note || node.notes || node.reason || "")
+      explanation: safeStr(node.description || node.explanation || node.note || node.notes || node.reason || "")
     };
   }
 
@@ -3658,7 +3658,8 @@
       text.indexOf("tradedsalary") !== -1 ||
       text.indexOf("traded salary") !== -1 ||
       text.indexOf("trade salary") !== -1 ||
-      text.indexOf("trade settlement") !== -1
+      text.indexOf("trade settlement") !== -1 ||
+      text.indexOf("trade") !== -1
     ) {
       return "tradedSalary";
     }
@@ -3781,8 +3782,44 @@
     return reportSalaryAdjustmentBucket(row) === "traded_salary" || reportSalaryAdjustmentBucket(row) === "cut_players";
   }
 
+  function formatDropDate(dtStr) {
+    var text = safeStr(dtStr);
+    if (!text) return "";
+    var parts = text.split(/[\sT]/);
+    if (!parts[0]) return "";
+    var dateParts = parts[0].split("-");
+    if (dateParts.length < 3) return parts[0];
+    return dateParts[1] + "/" + dateParts[2] + "/" + dateParts[0];
+  }
+
+  function formatDropPenaltyDescription(row) {
+    if (!row) return safeStr(row && row.description);
+    var candidateRule = safeStr(row.candidate_rule);
+    var adjType = safeStr(row.adjustment_type).toUpperCase();
+    if (adjType !== "DROP_PENALTY_CANDIDATE" || !candidateRule) {
+      return safeStr(row.description);
+    }
+    var dropDate = formatDropDate(row.transaction_datetime_et);
+    var penalty = safeInt(row.penalty_amount || row.amount, 0);
+    var tcv = safeInt(row.pre_drop_tcv, 0);
+    var contractLength = safeInt(row.pre_drop_contract_length, 0);
+    var contractYear = safeInt(row.pre_drop_contract_year, 0);
+    var yearsRemaining = contractYear > 0 ? contractYear : Math.max(1, contractLength);
+
+    if (candidateRule === "waiver_35pct") {
+      var salary = safeInt(row.pre_drop_salary, 0);
+      return "Waiver pickup, salary = " + money(salary) + ". 35% penalty = " + money(penalty) + ". Dropped on " + (dropDate || "unknown") + ".";
+    }
+    if (tcv > 0 && tcv <= 4000) {
+      return "Years remaining = " + yearsRemaining + ". When TCV < $5K and years remaining, min cap penalty = " + money(penalty) + ". Dropped on " + (dropDate || "unknown") + ".";
+    }
+    var guarantee = safeInt(row.original_guarantee, 0);
+    var earned = safeInt(row.total_salary_earned, 0);
+    return "GTD contract = " + money(guarantee) + ". Total earned = " + money(earned) + ". Dropped on " + (dropDate || "unknown") + ". Penalty = " + money(penalty) + ".";
+  }
+
   function normalizeReportSalaryAdjustmentRow(row) {
-    return {
+    var normalized = {
       ledger_key: safeStr(row && row.ledger_key),
       franchise_id: pad4(row && row.franchise_id),
       franchise_name: safeStr(row && row.franchise_name),
@@ -3797,8 +3834,19 @@
       import_eligible: reportSalaryAdjustmentImportEligible(row),
       import_explanation: safeStr(row && row.import_explanation),
       import_target_season: safeInt((row && (row.import_target_season != null ? row.import_target_season : row.adjustment_season)), 0),
-      description: safeStr(row && row.description)
+      description: safeStr(row && row.description),
+      candidate_rule: safeStr(row && row.candidate_rule),
+      original_guarantee: safeInt(row && row.original_guarantee, 0),
+      total_salary_earned: safeInt(row && row.total_salary_earned, 0),
+      penalty_amount: safeInt(row && row.penalty_amount, 0),
+      pre_drop_tcv: safeInt(row && row.pre_drop_tcv, 0),
+      pre_drop_salary: safeInt(row && row.pre_drop_salary, 0),
+      pre_drop_contract_length: safeInt(row && row.pre_drop_contract_length, 0),
+      pre_drop_contract_year: safeInt(row && row.pre_drop_contract_year, 0),
+      transaction_datetime_et: safeStr(row && row.transaction_datetime_et)
     };
+    normalized.description = formatDropPenaltyDescription(normalized) || normalized.description;
+    return normalized;
   }
 
   function toReportSalaryAdjustmentSummary(rows, season) {

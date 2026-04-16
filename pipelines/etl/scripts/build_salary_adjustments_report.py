@@ -1489,12 +1489,32 @@ def build_drop_candidate_rows(
                 "Projected from add/drop transaction history, but a manual special-cases input flagged this row as a cap-free exemption candidate."
             )
 
-        description_parts = [
-            f"Candidate drop penalty from {safe_str(row['drop_method']) or safe_str(row['event_source']) or 'drop transaction'}.",
-            note,
-        ]
-        if season_note:
-            description_parts.append(season_note)
+        # --- Human-readable description ---
+        drop_date_str = ""
+        if transaction_dt is not None:
+            drop_date_str = transaction_dt.strftime("%m/%d/%Y")
+
+        if candidate_rule == "waiver_35pct":
+            description_parts = [
+                f"Waiver pickup, salary = ${current_year_salary:,}.",
+                f"35% penalty = ${penalty:,}.",
+                f"Dropped on {drop_date_str or 'unknown'}.",
+            ]
+        elif total_contract_value > 0 and total_contract_value <= 4000:
+            years_remaining = contract_year if contract_year > 0 else max(1, contract_length)
+            description_parts = [
+                f"Years remaining = {years_remaining}.",
+                f"When TCV < $5K and years remaining, min cap penalty = ${penalty:,}.",
+                f"Dropped on {drop_date_str or 'unknown'}.",
+            ]
+        else:
+            description_parts = [
+                f"GTD contract = ${original_guarantee:,}.",
+                f"Total earned = ${total_salary_earned:,}.",
+                f"Dropped on {drop_date_str or 'unknown'}.",
+                f"Penalty = ${penalty:,}.",
+            ]
+
         if context_note:
             description_parts.append(context_note)
         if cap_free_exemption_flag:
