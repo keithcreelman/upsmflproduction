@@ -6132,12 +6132,89 @@
     );
   }
 
+  function capAdjustmentPlayerRowsHtml(rows, bucket) {
+    var filtered = [];
+    for (var i = 0; i < rows.length; i += 1) {
+      var r = rows[i] || {};
+      if (r.bucket === bucket) filtered.push(r);
+    }
+    if (!filtered.length) return '';
+    var html = '';
+    for (var j = 0; j < filtered.length; j += 1) {
+      var row = filtered[j];
+      var playerLabel = safeStr(row.player_name) || safeStr(row.player_id) || "Unknown";
+      var desc = safeStr(row.description);
+      html +=
+        '<tr class="rwb-cap-adj-player-row">' +
+          '<th>' + escapeHtml(playerLabel) + (desc ? ' <span class="rwb-cap-adj-desc">' + escapeHtml(desc) + '</span>' : '') + '</th>' +
+          '<td class="rwb-cell-num">' + escapeHtml(money(safeInt(row.amount, 0))) + '</td>' +
+        '</tr>';
+    }
+    return html;
+  }
+
   function teamCapSummaryHtml(team) {
     var totalSalary = safeInt(team && team.summary && team.summary.capTotal, 0);
     var totalAdjustments = safeInt(team && team.summary && team.summary.salaryAdjustmentTotal, 0);
     var capSpace = calculateCapSpace(totalSalary, totalAdjustments);
     var capSpaceClass = capSpace != null && capSpace < 0 ? " is-bad" : "";
     var capSpaceText = capSpace == null ? "—" : money(capSpace);
+
+    var breakdown = cloneSalaryAdjustmentBreakdown(team && team.summary && team.summary.salaryAdjustmentBreakdown);
+    var adjRows = (team && team.summary && team.summary.salaryAdjustmentRows) || [];
+    var hasBreakdown = totalAdjustments !== 0;
+    var teamId = safeStr(team && team.id);
+
+    var tradedPlayerRows = capAdjustmentPlayerRowsHtml(adjRows, "traded_salary");
+    var cutPlayerRows = capAdjustmentPlayerRowsHtml(adjRows, "cut_players");
+    var otherPlayerRows = capAdjustmentPlayerRowsHtml(adjRows, "other");
+
+    var showTrade = breakdown.tradedSalary !== 0;
+    var showCut = breakdown.cutPlayers !== 0;
+    var showOther = breakdown.other !== 0;
+
+    var adjustmentSubRows = '';
+    if (hasBreakdown) {
+      if (showTrade) {
+        var tradeHasPlayers = tradedPlayerRows !== '';
+        adjustmentSubRows +=
+          '<tr class="rwb-cap-adj-bucket-row' + (tradeHasPlayers ? ' rwb-cap-adj-expandable' : '') + '"' +
+            (tradeHasPlayers ? ' data-cap-adj-bucket="trade-' + escapeHtml(teamId) + '"' : '') + '>' +
+            '<th>' + (tradeHasPlayers ? '<span class="rwb-cap-adj-arrow">&#9654;</span> ' : '') + 'Trade Adj</th>' +
+            '<td class="rwb-cell-num">' + escapeHtml(money(breakdown.tradedSalary)) + '</td>' +
+          '</tr>';
+        if (tradeHasPlayers) {
+          adjustmentSubRows += '<tr class="rwb-cap-adj-player-group" data-cap-adj-players="trade-' + escapeHtml(teamId) + '" style="display:none">' +
+            '<td colspan="2"><table class="rwb-cap-adj-player-table">' + tradedPlayerRows + '</table></td></tr>';
+        }
+      }
+      if (showCut) {
+        var cutHasPlayers = cutPlayerRows !== '';
+        adjustmentSubRows +=
+          '<tr class="rwb-cap-adj-bucket-row' + (cutHasPlayers ? ' rwb-cap-adj-expandable' : '') + '"' +
+            (cutHasPlayers ? ' data-cap-adj-bucket="cut-' + escapeHtml(teamId) + '"' : '') + '>' +
+            '<th>' + (cutHasPlayers ? '<span class="rwb-cap-adj-arrow">&#9654;</span> ' : '') + 'Dropped Players</th>' +
+            '<td class="rwb-cell-num">' + escapeHtml(money(breakdown.cutPlayers)) + '</td>' +
+          '</tr>';
+        if (cutHasPlayers) {
+          adjustmentSubRows += '<tr class="rwb-cap-adj-player-group" data-cap-adj-players="cut-' + escapeHtml(teamId) + '" style="display:none">' +
+            '<td colspan="2"><table class="rwb-cap-adj-player-table">' + cutPlayerRows + '</table></td></tr>';
+        }
+      }
+      if (showOther) {
+        var otherHasPlayers = otherPlayerRows !== '';
+        adjustmentSubRows +=
+          '<tr class="rwb-cap-adj-bucket-row' + (otherHasPlayers ? ' rwb-cap-adj-expandable' : '') + '"' +
+            (otherHasPlayers ? ' data-cap-adj-bucket="other-' + escapeHtml(teamId) + '"' : '') + '>' +
+            '<th>' + (otherHasPlayers ? '<span class="rwb-cap-adj-arrow">&#9654;</span> ' : '') + 'Other</th>' +
+            '<td class="rwb-cell-num">' + escapeHtml(money(breakdown.other)) + '</td>' +
+          '</tr>';
+        if (otherHasPlayers) {
+          adjustmentSubRows += '<tr class="rwb-cap-adj-player-group" data-cap-adj-players="other-' + escapeHtml(teamId) + '" style="display:none">' +
+            '<td colspan="2"><table class="rwb-cap-adj-player-table">' + otherPlayerRows + '</table></td></tr>';
+        }
+      }
+    }
 
     return (
       '<div class="rwb-cap-summary">' +
@@ -6151,10 +6228,16 @@
               '<th>Total Salary</th>' +
               '<td class="rwb-cell-num">' + escapeHtml(money(totalSalary)) + '</td>' +
             '</tr>' +
-            '<tr>' +
-              '<th>Total Adjustments</th>' +
+            '<tr class="' + (hasBreakdown ? 'rwb-cap-adj-expandable' : '') + '"' +
+              (hasBreakdown ? ' data-cap-adj-toggle="adj-' + escapeHtml(teamId) + '"' : '') + '>' +
+              '<th>' + (hasBreakdown ? '<span class="rwb-cap-adj-arrow">&#9654;</span> ' : '') + 'Total Adjustments</th>' +
               '<td class="rwb-cell-num">' + escapeHtml(money(totalAdjustments)) + '</td>' +
             '</tr>' +
+            (hasBreakdown
+              ? '<tr class="rwb-cap-adj-breakdown" data-cap-adj-detail="adj-' + escapeHtml(teamId) + '" style="display:none">' +
+                  '<td colspan="2"><table class="rwb-cap-adj-sub-table">' + adjustmentSubRows + '</table></td>' +
+                '</tr>'
+              : '') +
             '<tr class="rwb-cap-space-row' + capSpaceClass + '">' +
               '<th>Cap Space Available</th>' +
               '<td class="rwb-cell-num">' + escapeHtml(capSpaceText) + '</td>' +
@@ -9339,6 +9422,32 @@
       row.classList.toggle("is-expanded", !expanded);
       rowMore.setAttribute("aria-expanded", expanded ? "false" : "true");
       rowMore.textContent = expanded ? "More" : "Less";
+      return;
+    }
+
+    /* --- Cap adjustment drilldown toggles --- */
+    var capAdjToggle = target.closest("[data-cap-adj-toggle]");
+    if (capAdjToggle) {
+      var toggleKey = capAdjToggle.getAttribute("data-cap-adj-toggle");
+      var detailRow = capAdjToggle.closest("table").querySelector('[data-cap-adj-detail="' + toggleKey + '"]');
+      if (detailRow) {
+        var isOpen = detailRow.style.display !== "none";
+        detailRow.style.display = isOpen ? "none" : "";
+        var arrow = capAdjToggle.querySelector(".rwb-cap-adj-arrow");
+        if (arrow) arrow.innerHTML = isOpen ? "&#9654;" : "&#9660;";
+      }
+      return;
+    }
+    var capAdjBucket = target.closest("[data-cap-adj-bucket]");
+    if (capAdjBucket) {
+      var bucketKey = capAdjBucket.getAttribute("data-cap-adj-bucket");
+      var playerGroup = capAdjBucket.closest("table").querySelector('[data-cap-adj-players="' + bucketKey + '"]');
+      if (playerGroup) {
+        var bucketOpen = playerGroup.style.display !== "none";
+        playerGroup.style.display = bucketOpen ? "none" : "";
+        var bucketArrow = capAdjBucket.querySelector(".rwb-cap-adj-arrow");
+        if (bucketArrow) bucketArrow.innerHTML = bucketOpen ? "&#9654;" : "&#9660;";
+      }
       return;
     }
 
