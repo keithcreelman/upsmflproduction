@@ -15025,6 +15025,20 @@ export default {
           return info + (/\|\s*$/.test(info) ? " " : "| ") + next;
         };
 
+        const parseContractYearValues = (contractInfo) => {
+          const info = safeStr(contractInfo);
+          const out = {};
+          if (!info) return out;
+          const re = /Y(\d+)\s*-\s*([0-9]+(?:\.[0-9]+)?K?)(?=\s*(?:,|\||Y\d+\s*-|$))/ig;
+          let match;
+          while ((match = re.exec(info))) {
+            const idx = safeInt(match[1], 0);
+            const amount = parseContractMoneyToken(match[2]);
+            if (idx > 0 && amount > 0) out[idx] = amount;
+          }
+          return out;
+        };
+
         const normalizeContractInfoForDisplay = (contractInfo, years, priorContract) => {
           const info = safeStr(contractInfo);
           if (!info || !priorContract) return info;
