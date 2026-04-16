@@ -15472,11 +15472,11 @@ export default {
           if (safeInt(r.amount, 0) <= 0) return false;
           return true;
         }).map((r) => {
-          // Apply $1K minimum floor when TCV < $5K rule applies.
+          // TCV < $5K contracts: fixed $1K cap penalty (rule override, not a floor).
           const tcv = safeInt(r.pre_drop_tcv, 0);
           const amt = safeInt(r.amount, 0);
-          if (tcv > 0 && tcv <= 4000 && amt > 0 && amt < 1000) {
-            return { ...r, amount: 1000, penalty_amount: 1000, floored_from: amt };
+          if (tcv > 0 && tcv <= 4000 && amt > 0 && amt !== 1000) {
+            return { ...r, amount: 1000, penalty_amount: 1000, original_amount: amt };
           }
           return r;
         });

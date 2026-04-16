@@ -3849,12 +3849,10 @@
       return "Waiver pickup, salary = " + money(salary) + ". 35% penalty = " + money(penalty) + ". Dropped on " + (dropDate || "unknown") + ".";
     }
     if (tcv > 0 && tcv <= 4000) {
-      // Apply $1K minimum floor for TCV < $5K rule
-      var flooredPenalty = penalty > 0 && penalty < 1000 ? 1000 : penalty;
+      // TCV < $5K contracts: fixed $1K penalty
       return contractLength + "-year, " + money(tcv) + " contract. " +
         "Years remaining = " + yearsRemaining + ". " +
-        "TCV < $5K rule: min cap penalty = $1,000. " +
-        "Penalty = " + money(flooredPenalty) + ". " +
+        "TCV < $5K rule: fixed cap penalty = $1,000. " +
         "Dropped on " + (dropDate || "unknown") + ".";
     }
     var guarantee = safeInt(row.original_guarantee, 0);
@@ -3893,10 +3891,10 @@
       pre_drop_contract_year: safeInt(row && row.pre_drop_contract_year, 0),
       transaction_datetime_et: safeStr(row && row.transaction_datetime_et)
     };
-    // Apply $1K minimum floor when TCV < $5K rule applies
+    // TCV < $5K contracts: fixed $1K cap penalty (rule override).
     if (normalized.adjustment_type.toUpperCase() === "DROP_PENALTY_CANDIDATE" &&
         normalized.pre_drop_tcv > 0 && normalized.pre_drop_tcv <= 4000 &&
-        normalized.amount > 0 && normalized.amount < 1000) {
+        normalized.amount > 0) {
       normalized.amount = 1000;
       normalized.penalty_amount = 1000;
     }

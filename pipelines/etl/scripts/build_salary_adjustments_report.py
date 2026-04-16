@@ -1425,10 +1425,12 @@ def build_drop_candidate_rows(
             original_guarantee = guaranteed
             total_salary_earned = prior_earned + accrued
             penalty = max(0, original_guarantee - total_salary_earned)
-            # Minimum $1K cap penalty when TCV < $5K and years remaining on the contract.
-            if total_contract_value > 0 and total_contract_value <= 4000 and penalty > 0 and penalty < 1000:
+            # TCV < $5K contracts: fixed $1K cap penalty (rule override, not a floor).
+            if total_contract_value > 0 and total_contract_value <= 4000 and penalty > 0:
                 penalty = 1000
-            candidate_rule = "guarantee_minus_earned"
+                candidate_rule = "tcv_under_5k_fixed_1k"
+            else:
+                candidate_rule = "guarantee_minus_earned"
             penalty_rule = f"{guarantee_label} ({guaranteed:,}) minus earned to date ({total_salary_earned:,})"
             note = (
                 "Projected current-rule penalty: "
@@ -1508,8 +1510,7 @@ def build_drop_candidate_rows(
             description_parts = [
                 f"{contract_length}-year, ${total_contract_value:,} contract.",
                 f"Years remaining = {years_remaining}.",
-                f"TCV < $5K rule: min cap penalty = $1,000.",
-                f"Penalty = ${penalty:,}.",
+                f"TCV < $5K rule: fixed cap penalty = $1,000.",
                 f"Dropped on {drop_date_str or 'unknown'}.",
             ]
         else:
