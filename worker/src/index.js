@@ -14923,20 +14923,26 @@ export default {
           } catch (_) {}
         }
 
-        const parseSalaryRows = (payload) => {
+        const parseSalaryRows = (payload, rosteredPlayerIds) => {
           const out = {};
+          const rosterSet = rosteredPlayerIds ? new Set(rosteredPlayerIds) : null;
           const rows = asArray(payload?.salaries?.leagueUnit?.player).filter(Boolean);
           for (const row of rows) {
             const pid = String(row?.id || "").replace(/\D/g, "");
             if (!pid || pid === "0000") continue;
-            const salaryRaw = safeStr(row?.salary);
             const contractYearRaw = safeStr(row?.contractYear);
+            const contractYearInt = contractYearRaw ? safeInt(contractYearRaw, 0) : 0;
+            // Skip players with no years remaining — expired/off-roster
+            if (contractYearInt <= 0) continue;
+            // Skip players not on any roster (salary ghost entries)
+            if (rosterSet && !rosterSet.has(pid)) continue;
+            const salaryRaw = safeStr(row?.salary);
             const contractStatusRaw = safeStr(row?.contractStatus);
             const contractInfoRaw = safeStr(row?.contractInfo);
             if (!salaryRaw && !contractYearRaw && !contractStatusRaw && !contractInfoRaw) continue;
             out[pid] = {
               salary: salaryRaw ? safeInt(salaryRaw, 0) : null,
-              contractYear: contractYearRaw ? safeInt(contractYearRaw, 0) : null,
+              contractYear: contractYearInt,
               contractStatus: contractStatusRaw || null,
               contractInfo: contractInfoRaw || null,
             };
@@ -15212,7 +15218,7 @@ export default {
         );
         const { rosterAssetsByFranchise, allPlayerIds } = parseRostersExport(rostersRes.data);
         const playersById = await fetchPlayersByIdsChunked(season, leagueId, allPlayerIds);
-        const salaryByPlayer = salariesRes.ok ? parseSalaryRows(salariesRes.data) : {};
+        const salaryByPlayer = salariesRes.ok ? parseSalaryRows(salariesRes.data, allPlayerIds) : {};
         const priorSalaryByPlayer = priorSalariesRes.ok ? parseSalaryRows(priorSalariesRes.data) : {};
         const salaryAdjustmentRows = salaryAdjustmentsRes.ok
           ? collectSalaryAdjustmentExportRows(

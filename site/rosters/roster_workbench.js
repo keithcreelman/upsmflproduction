@@ -3571,8 +3571,15 @@
     return map;
   }
 
-  function toSalaryMap(payload) {
+  function toSalaryMap(payload, rosteredPlayerIds) {
     var map = Object.create(null);
+    var rosterSet = null;
+    if (rosteredPlayerIds) {
+      rosterSet = Object.create(null);
+      for (var r = 0; r < rosteredPlayerIds.length; r += 1) {
+        rosterSet[safeStr(rosteredPlayerIds[r])] = true;
+      }
+    }
     var root = payload && payload.salaries;
     var unit = root && root.leagueUnit;
     var rows = asArray(unit && unit.player);
@@ -3580,14 +3587,19 @@
       var row = rows[i] || {};
       var id = safeStr(row.id);
       if (!id || id === "0000") continue;
-      var rawSalary = safeStr(row.salary);
       var rawYears = safeStr(row.contractYear);
+      var yearsInt = rawYears ? safeInt(rawYears, 0) : 0;
+      // Skip players with no years remaining — expired/off-roster
+      if (yearsInt <= 0) continue;
+      // Skip players not on any roster (salary ghost entries)
+      if (rosterSet && !rosterSet[id]) continue;
+      var rawSalary = safeStr(row.salary);
       var rawType = safeStr(row.contractStatus);
       var rawSpecial = safeStr(row.contractInfo);
       if (!rawSalary && !rawYears && !rawType && !rawSpecial) continue;
       map[id] = {
         salary: rawSalary ? parseMoney(rawSalary) : null,
-        years: rawYears ? safeInt(rawYears, 0) : null,
+        years: yearsInt,
         type: rawType || null,
         special: rawSpecial || null
       };
@@ -10073,7 +10085,7 @@
       var playerIds = collectRosterPlayerIds(rostersPayload);
       return fetchPlayersMap(ctx.year, playerIds).then(function (playersMap) {
         var leagueMeta = parseLeagueMeta(leaguePayload);
-        var salaryMap = toSalaryMap(salariesPayload);
+        var salaryMap = toSalaryMap(salariesPayload, playerIds);
         var priorSalaryMap = toSalaryMap(priorSalariesPayload);
         var salaryAdjustmentSummary = toSalaryAdjustmentSummary(salaryAdjustPayload);
         var scores = toScoreMap(pointsPayload);
