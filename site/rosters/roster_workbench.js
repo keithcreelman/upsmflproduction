@@ -3849,11 +3849,21 @@
       return "Waiver pickup, salary = " + money(salary) + ". 35% penalty = " + money(penalty) + ". Dropped on " + (dropDate || "unknown") + ".";
     }
     if (tcv > 0 && tcv <= 4000) {
-      return "Years remaining = " + yearsRemaining + ". When TCV < $5K and years remaining, min cap penalty = " + money(penalty) + ". Dropped on " + (dropDate || "unknown") + ".";
+      // Apply $1K minimum floor for TCV < $5K rule
+      var flooredPenalty = penalty > 0 && penalty < 1000 ? 1000 : penalty;
+      return contractLength + "-year, " + money(tcv) + " contract. " +
+        "Years remaining = " + yearsRemaining + ". " +
+        "TCV < $5K rule: min cap penalty = $1,000. " +
+        "Penalty = " + money(flooredPenalty) + ". " +
+        "Dropped on " + (dropDate || "unknown") + ".";
     }
     var guarantee = safeInt(row.original_guarantee, 0);
     var earned = safeInt(row.total_salary_earned, 0);
-    return "GTD contract = " + money(guarantee) + ". Total earned = " + money(earned) + ". Dropped on " + (dropDate || "unknown") + ". Penalty = " + money(penalty) + ".";
+    return contractLength + "-year, " + money(tcv) + " contract. " +
+      "GTD = " + money(guarantee) + ". " +
+      "Earned = " + money(earned) + ". " +
+      "Penalty = " + money(penalty) + ". " +
+      "Dropped on " + (dropDate || "unknown") + ".";
   }
 
   function normalizeReportSalaryAdjustmentRow(row) {
@@ -3883,6 +3893,13 @@
       pre_drop_contract_year: safeInt(row && row.pre_drop_contract_year, 0),
       transaction_datetime_et: safeStr(row && row.transaction_datetime_et)
     };
+    // Apply $1K minimum floor when TCV < $5K rule applies
+    if (normalized.adjustment_type.toUpperCase() === "DROP_PENALTY_CANDIDATE" &&
+        normalized.pre_drop_tcv > 0 && normalized.pre_drop_tcv <= 4000 &&
+        normalized.amount > 0 && normalized.amount < 1000) {
+      normalized.amount = 1000;
+      normalized.penalty_amount = 1000;
+    }
     normalized.description = formatDropPenaltyDescription(normalized) || normalized.description;
     return normalized;
   }

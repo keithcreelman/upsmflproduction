@@ -1425,6 +1425,9 @@ def build_drop_candidate_rows(
             original_guarantee = guaranteed
             total_salary_earned = prior_earned + accrued
             penalty = max(0, original_guarantee - total_salary_earned)
+            # Minimum $1K cap penalty when TCV < $5K and years remaining on the contract.
+            if total_contract_value > 0 and total_contract_value <= 4000 and penalty > 0 and penalty < 1000:
+                penalty = 1000
             candidate_rule = "guarantee_minus_earned"
             penalty_rule = f"{guarantee_label} ({guaranteed:,}) minus earned to date ({total_salary_earned:,})"
             note = (
@@ -1503,16 +1506,19 @@ def build_drop_candidate_rows(
         elif total_contract_value > 0 and total_contract_value <= 4000:
             years_remaining = contract_year if contract_year > 0 else max(1, contract_length)
             description_parts = [
+                f"{contract_length}-year, ${total_contract_value:,} contract.",
                 f"Years remaining = {years_remaining}.",
-                f"When TCV < $5K and years remaining, min cap penalty = ${penalty:,}.",
+                f"TCV < $5K rule: min cap penalty = $1,000.",
+                f"Penalty = ${penalty:,}.",
                 f"Dropped on {drop_date_str or 'unknown'}.",
             ]
         else:
             description_parts = [
-                f"GTD contract = ${original_guarantee:,}.",
-                f"Total earned = ${total_salary_earned:,}.",
-                f"Dropped on {drop_date_str or 'unknown'}.",
+                f"{contract_length}-year, ${total_contract_value:,} contract.",
+                f"GTD = ${original_guarantee:,}.",
+                f"Earned = ${total_salary_earned:,}.",
                 f"Penalty = ${penalty:,}.",
+                f"Dropped on {drop_date_str or 'unknown'}.",
             ]
 
         if context_note:

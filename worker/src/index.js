@@ -8276,7 +8276,7 @@ export default {
           node.franchiseid ??
           "";
         const rawAmount = node.amount ?? node.value ?? node.adjustment ?? "";
-        const explanation = safeStr(node.explanation || node.note || node.notes || node.reason || "");
+        const explanation = safeStr(node.description || node.explanation || node.note || node.notes || node.reason || "");
         const franchiseId = padFranchiseId(rawFranchiseId);
         const amount = safeInt(parseMoneyTokenToDollars(rawAmount, { assumeKIfNoUnit: true }), NaN);
         if (!franchiseId || !Number.isFinite(amount)) return null;
@@ -8329,7 +8329,8 @@ export default {
           text.includes("tradedsalary") ||
           text.includes("traded salary") ||
           text.includes("trade salary") ||
-          text.includes("trade settlement")
+          text.includes("trade settlement") ||
+          text.includes("trade")
         ) {
           return "traded_salary_dollars";
         }
@@ -15430,6 +15431,137 @@ export default {
 
       if (path === "/roster-workbench/admin-state" && request.method === "GET") {
         return adminStateResponse();
+      }
+
+      // POST /admin/import-drop-penalties
+      // Body: { season, league_id?, dry_run? }
+      // Pulls DROP_PENALTY_CANDIDATE rows from the salary_adjustments JSON report
+      // for the season, filters to import_eligible entries targeting that season,
+      // then posts each as a salary adjustment to MFL (one row per franchise/player).
+      if (path === "/admin/import-drop-penalties" && request.method === "POST") {
+        let body = {};
+        try { body = (await request.json()) || {}; } catch (_) { body = {}; }
+        if (!!commishApiKey && !sessionByApiKey) {
+          return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
+        }
+        const targetSeason = safeStr(body?.season || url.searchParams.get("YEAR") || YEAR || "");
+        const leagueId = safeStr(body?.league_id || body?.L || url.searchParams.get("L") || L || "74598");
+        const dryRun = !!body?.dry_run;
+        if (!targetSeason) return jsonOut(400, { ok: false, error: "Missing season param" });
+        if (!leagueId) return jsonOut(400, { ok: false, error: "Missing league_id param" });
+
+        // Fetch the report JSON from jsDelivr (production-pinned).
+        const reportUrl = `https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/reports/salary_adjustments/salary_adjustments_${encodeURIComponent(targetSeason)}.json`;
+        let reportPayload = null;
+        try {
+          const r = await fetch(reportUrl, { cf: { cacheTtl: 0, cacheEverything: false } });
+          if (!r.ok) {
+            return jsonOut(502, { ok: false, error: "Failed to fetch salary adjustments report", status: r.status, url: reportUrl });
+          }
+          reportPayload = await r.json();
+        } catch (e) {
+          return jsonOut(502, { ok: false, error: `Failed to fetch report: ${e?.message || e}`, url: reportUrl });
+        }
+        const reportRows = Array.isArray(reportPayload?.rows) ? reportPayload.rows : [];
+        const eligible = reportRows.filter((r) => {
+          if (!r || typeof r !== "object") return false;
+          if (safeStr(r.adjustment_type).toUpperCase() !== "DROP_PENALTY_CANDIDATE") return false;
+          if (r.import_eligible !== true && safeStr(r.import_eligible).toLowerCase() !== "true") return false;
+          const targetYr = safeInt(r.adjustment_season ?? r.import_target_season, 0);
+          if (targetYr && String(targetYr) !== String(targetSeason)) return false;
+          if (safeInt(r.amount, 0) <= 0) return false;
+          return true;
+        });
+
+        // Fetch currently-posted salary adjustments so we don't double-post.
+        const existingRes = await mflExportJson(targetSeason, leagueId, "salaryAdjustments", {}, { useCookie: true });
+        const existingRows = existingRes.ok
+          ? collectSalaryAdjustmentExportRows(existingRes.data?.salaryAdjustments || existingRes.data?.salaryadjustments || existingRes.data || {})
+          : [];
+        const existingKeys = new Set();
+        for (const ex of existingRows) {
+          const explanation = safeStr(ex.explanation);
+          // Extract ledger_key or source_id token from the explanation if we tagged it
+          const m = explanation.match(/ups_drop_penalty:([A-Za-z0-9_.:-]+)/);
+          if (m) existingKeys.add(m[1]);
+        }
+
+        // Build salary adjustment rows for MFL
+        const rowsToPost = [];
+        const skipped = [];
+        for (const row of eligible) {
+          const fid = padFranchiseId(row.franchise_id);
+          if (!fid) { skipped.push({ row, reason: "missing_franchise_id" }); continue; }
+          const amount = safeInt(row.amount, 0);
+          if (amount <= 0) { skipped.push({ row, reason: "non_positive_amount" }); continue; }
+          const ledgerKey = safeStr(row.ledger_key) || safeStr(row.source_id) || `${row.player_id}_${row.transaction_datetime_et}`;
+          if (existingKeys.has(ledgerKey)) {
+            skipped.push({ row, reason: "already_posted", ledger_key: ledgerKey });
+            continue;
+          }
+          const playerName = safeStr(row.player_name) || safeStr(row.player_id);
+          // Amounts in MFL salary adjustments charge the cap as a POSITIVE number.
+          rowsToPost.push({
+            franchise_id: fid,
+            amount: amount,
+            explanation: `UPS drop penalty (${playerName}): ${formatDollarsAsMflImportK(amount, 3)} [ups_drop_penalty:${ledgerKey}]`,
+          });
+        }
+
+        if (!rowsToPost.length) {
+          return jsonOut(200, {
+            ok: true,
+            season: targetSeason,
+            league_id: leagueId,
+            posted: 0,
+            eligible: eligible.length,
+            already_posted: existingKeys.size,
+            skipped,
+            message: "No new drop penalties to post.",
+          });
+        }
+
+        if (dryRun) {
+          return jsonOut(200, {
+            ok: true,
+            dry_run: true,
+            season: targetSeason,
+            league_id: leagueId,
+            would_post: rowsToPost,
+            skipped,
+            xml_preview: buildSalaryAdjXml(rowsToPost),
+          });
+        }
+
+        // Verify admin privileges
+        const adminState = await getLeagueAdminState(leagueId, targetSeason);
+        if (!adminState.ok || !adminState.isAdmin) {
+          return jsonOut(403, {
+            ok: false,
+            error: "MFL_COOKIE lacks commissioner privileges for salary adjustments",
+            admin_state: adminState,
+            would_post: rowsToPost,
+          });
+        }
+
+        // Post to MFL
+        const dataXml = buildSalaryAdjXml(rowsToPost);
+        const importRes = await postMflImportForm(
+          targetSeason,
+          { TYPE: "salaryAdj", L: leagueId, DATA: dataXml },
+          { TYPE: "salaryAdj", L: leagueId }
+        );
+
+        return jsonOut(importRes.requestOk ? 200 : 502, {
+          ok: !!importRes.requestOk,
+          season: targetSeason,
+          league_id: leagueId,
+          posted_count: rowsToPost.length,
+          posted_rows: rowsToPost,
+          skipped,
+          import_status: importRes.status,
+          import_response_preview: safeStr(importRes.upstreamPreview).slice(0, 600),
+        });
       }
 
       if (path === "/admin/test-sync/prod-rosters" && request.method === "POST") {
