@@ -42,8 +42,7 @@ export default {
         const amount = parseInt(row.amount, 10) || 0;
         byFranchise[fid].total += amount;
         byFranchise[fid].lines.push(
-          `**${playerName}** dropped — cap penalty **$${amount.toLocaleString("en-US")}**. Applied to ${season}.` +
-          ` _Rounding is dynamic and will lock at the Auction._`
+          `**${playerName}** dropped — cap penalty **$${amount.toLocaleString("en-US")}**. Applied to ${season}.`
         );
       }
       const capPenaltyChannel = String(env.DISCORD_CAP_PENALTY_CHANNEL_ID || "1066390675207233618");
@@ -9744,10 +9743,20 @@ export default {
         const team = safeStr(franchiseName) || "Unknown Team";
         const lines = Array.isArray(capPenaltyLines) ? capPenaltyLines : [];
         const title = "Cap Penalty Announcement";
+        // RULE-CAP-002: team-level rounding is dynamic until auction lock.
+        // Show raw total + rounded total + delta note in the subtitle.
+        const rawTotal = Math.abs(safeInt(teamTotalDollars, 0));
+        const roundedTotal = Math.round(rawTotal / 1000) * 1000;
         const subtitle = [];
         if (activityYearLabel) subtitle.push(safeStr(activityYearLabel));
         if (penaltyCount > 0) subtitle.push(`${penaltyCount} drop${penaltyCount !== 1 ? "s" : ""}`);
-        if (teamTotalDollars) subtitle.push(`$${Math.abs(safeInt(teamTotalDollars, 0)).toLocaleString("en-US")} total`);
+        if (rawTotal) {
+          if (roundedTotal !== rawTotal) {
+            subtitle.push(`$${rawTotal.toLocaleString("en-US")} raw → **$${roundedTotal.toLocaleString("en-US")}** rounded`);
+          } else {
+            subtitle.push(`$${rawTotal.toLocaleString("en-US")} total`);
+          }
+        }
 
         const embed = {
           title,
@@ -9755,6 +9764,13 @@ export default {
           description: subtitle.join(" · "),
           fields: [],
         };
+        if (rawTotal && roundedTotal !== rawTotal) {
+          embed.fields.push({
+            name: "Team Rounding (dynamic)",
+            value: `Raw: $${rawTotal.toLocaleString("en-US")}  ·  Rounded: $${roundedTotal.toLocaleString("en-US")}  ·  Δ ${roundedTotal - rawTotal >= 0 ? "+" : "−"}$${Math.abs(roundedTotal - rawTotal).toLocaleString("en-US")}\n_Rounding is dynamic and will lock at the Auction._`,
+            inline: false,
+          });
+        }
         if (lines.length) {
           // Discord field value limit is ~1024 chars; split across multiple fields if needed
           let chunk = [];
@@ -16429,31 +16445,14 @@ export default {
           return true;
         }).map((r) => {
           // TCV < $5K contracts: fixed $1K cap penalty (rule override, not a floor).
+          // Per-drop rounding REMOVED — RULE-CAP-002 rounds at the TEAM level,
+          // not per transaction. Each drop stays at its raw computed amount;
+          // team-level rounding is computed downstream and shown in displays
+          // (Discord, Cap Summary). Rounding only hits MFL at Auction lock.
           const tcv = safeInt(r.pre_drop_tcv, 0);
           const amt = safeInt(r.amount, 0);
-          let workingAmt = amt;
-          let note = "";
-          if (tcv > 0 && tcv <= 4000 && workingAmt > 0 && workingAmt !== 1000) {
-            workingAmt = 1000;
-          }
-          // RULE-CAP-002: dynamic rounding to nearest $1,000. Applied at every
-          // compute; the rounded value is dynamic until the FA Auction lock.
-          const rounded = Math.round(workingAmt / 1000) * 1000;
-          let rounding_delta = 0;
-          if (rounded !== workingAmt) {
-            rounding_delta = rounded - workingAmt;
-            note = "Rounding is dynamic and will lock at the Auction";
-          }
-          const finalAmt = rounded > 0 ? rounded : workingAmt;
-          if (finalAmt !== amt) {
-            return {
-              ...r,
-              amount: finalAmt,
-              penalty_amount: finalAmt,
-              original_amount: amt,
-              rounding_delta,
-              rounding_note: note,
-            };
+          if (tcv > 0 && tcv <= 4000 && amt > 0 && amt !== 1000) {
+            return { ...r, amount: 1000, penalty_amount: 1000, original_amount: amt };
           }
           return r;
         });
