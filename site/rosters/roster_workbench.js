@@ -6362,13 +6362,16 @@
     }
 
     // RULE-CAP-002: team-level rounding, dynamic until auction lock. Compute
-    // the rounded total adjustments and the delta. If they differ, show a
-    // "Rounded (dynamic)" row right under "Total Adjustments" so owners see
-    // what their effective cap hit will lock to at auction.
+    // the rounded total adjustments. When rounding changes the total,
+    // show a single "Rounded Adjustments" row and use the rounded value as
+    // the Cap Space Available (so owners see their effective cap).
     var roundedAdjustments = Math.round(totalAdjustments / 1000) * 1000;
     var showRounded = totalAdjustments !== 0 && roundedAdjustments !== totalAdjustments;
     var rounderDelta = roundedAdjustments - totalAdjustments;
-    var roundedCapSpace = calculateCapSpace(totalSalary, roundedAdjustments);
+    var effectiveAdjustments = showRounded ? roundedAdjustments : totalAdjustments;
+    var effectiveCapSpace = calculateCapSpace(totalSalary, effectiveAdjustments);
+    var effectiveCapSpaceText = effectiveCapSpace == null ? "—" : money(effectiveCapSpace);
+    var effectiveCapSpaceClass = effectiveCapSpace != null && effectiveCapSpace < 0 ? " is-bad" : "";
 
     return (
       '<div class="rwb-cap-summary">' +
@@ -6389,7 +6392,7 @@
             '</tr>' +
             (showRounded
               ? '<tr class="rwb-cap-adj-rounded">' +
-                  '<th title="Dynamic: locks at the FA Auction">Rounded Adjustments (locks at auction)</th>' +
+                  '<th title="Dynamic: locks at the FA Auction">Rounded Adjustments <span class="rwb-cap-adj-desc">(locks at auction)</span></th>' +
                   '<td class="rwb-cell-num">' + escapeHtml(money(roundedAdjustments)) +
                     ' <span class="rwb-cap-adj-desc">(Δ ' + (rounderDelta >= 0 ? '+' : '−') + escapeHtml(money(Math.abs(rounderDelta))) + ')</span>' +
                   '</td>' +
@@ -6400,11 +6403,9 @@
                   '<td colspan="2"><table class="rwb-cap-adj-sub-table">' + adjustmentSubRows + '</table></td>' +
                 '</tr>'
               : '') +
-            '<tr class="rwb-cap-space-row' + capSpaceClass + '">' +
+            '<tr class="rwb-cap-space-row' + effectiveCapSpaceClass + '">' +
               '<th>Cap Space Available</th>' +
-              '<td class="rwb-cell-num">' + escapeHtml(capSpaceText) +
-                (showRounded ? ' <span class="rwb-cap-adj-desc">(rounded: ' + escapeHtml(roundedCapSpace == null ? '—' : money(roundedCapSpace)) + ')</span>' : '') +
-              '</td>' +
+              '<td class="rwb-cell-num">' + escapeHtml(effectiveCapSpaceText) + '</td>' +
             '</tr>' +
           '</tbody>' +
         '</table>' +
