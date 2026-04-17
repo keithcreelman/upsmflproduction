@@ -1,3 +1,13 @@
 name = "upsmflproduction"
 main = "src/index.js"
 compatibility_date = "2026-02-02"
+
+# Hourly drop → cap-penalty scan at :05 past each hour (RULE-WORKFLOW-004).
+# The worker's scheduled() handler:
+#   1. calls /admin/import-drop-penalties logic to post new cap penalties to MFL
+#      (dedupes by scanning MFL's own salaryAdjustments for ups_drop_penalty
+#      ledger keys — MFL is the canonical ledger, no separate KV needed)
+#   2. for each newly posted penalty, POSTs a Discord Cap Penalty Announcement
+#      to the Cap Penalties channel.
+[triggers]
+crons = ["5 * * * *"]

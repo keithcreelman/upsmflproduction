@@ -3,6 +3,75 @@ const contractDiscordChannelQueues = new Map();
 const contractDiscordChannelLastSendMs = new Map();
 
 export default {
+  // Cloudflare cron trigger — fires every hour at :05 past per wrangler.toml.
+  // RULE-WORKFLOW-004: scan MFL add/drop transactions for new drop penalties,
+  // post them as salaryAdjustments to MFL, and fire a Discord Cap Penalty
+  // Announcement for each (batched per-team). MFL's salaryAdjustments export
+  // is the dedup ledger — runs are idempotent by ups_drop_penalty:{ledger_key}.
+  async scheduled(event, env, ctx) {
+    try {
+      const season = String(env.YEAR || new Date().getUTCFullYear());
+      const leagueId = String(env.LEAGUE_ID || "74598");
+      const origin = String(env.WORKER_ORIGIN || "https://upsmflproduction.keith-creelman.workers.dev");
+      const commishApiKey = String(env.COMMISH_API_KEY || "").trim();
+      const authHeader = commishApiKey
+        ? { "X-Internal-Auth": commishApiKey }
+        : {};
+      // Step 1: ask ourselves to scan + import new drop penalties to MFL.
+      const importUrl = `${origin}/admin/import-drop-penalties?L=${leagueId}&YEAR=${season}`;
+      const importRes = await fetch(importUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeader },
+        body: JSON.stringify({ season, league_id: leagueId, dry_run: false }),
+      });
+      const importData = await importRes.json().catch(() => ({}));
+      const newlyPosted = Array.isArray(importData.posted_rows) ? importData.posted_rows : [];
+      // Step 2: for each franchise that got NEW penalties posted this run,
+      // fire a Discord Cap Penalty Announcement. We group by franchise.
+      if (!newlyPosted.length) {
+        console.log(`[scheduled ${new Date().toISOString()}] drop-penalty scan: no new drops`);
+        return;
+      }
+      const byFranchise = {};
+      for (const row of newlyPosted) {
+        const fid = String(row.franchise_id || "").padStart(4, "0");
+        if (!fid) continue;
+        if (!byFranchise[fid]) byFranchise[fid] = { franchise_id: fid, total: 0, lines: [] };
+        const m = String(row.explanation || "").match(/UPS drop penalty\s+([A-Za-z0-9 ,.'’\-]+?)\s+(\d+)\s+id:/);
+        const playerName = m ? m[1].trim() : "Player";
+        const amount = parseInt(row.amount, 10) || 0;
+        byFranchise[fid].total += amount;
+        byFranchise[fid].lines.push(
+          `**${playerName}** dropped — cap penalty **$${amount.toLocaleString("en-US")}**. Applied to ${season}.` +
+          ` _Rounding is dynamic and will lock at the Auction._`
+        );
+      }
+      const capPenaltyChannel = String(env.DISCORD_CAP_PENALTY_CHANNEL_ID || "1066390675207233618");
+      const postUrl = `${origin}/admin/cap-penalty/post?L=${leagueId}&YEAR=${season}`;
+      for (const [fid, team] of Object.entries(byFranchise)) {
+        await fetch(postUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...authHeader },
+          body: JSON.stringify({
+            league_id: leagueId,
+            season,
+            franchise_id: fid,
+            franchise_name: team.franchise_name || "",
+            team_total_dollars: team.total,
+            activity_year_label: `${season} Activity (auto-detected)`,
+            cap_penalty_lines: team.lines,
+            channel_id_override: capPenaltyChannel,
+          }),
+        }).catch((e) => console.error(`[scheduled] discord post failed for ${fid}: ${e.message}`));
+      }
+      console.log(
+        `[scheduled ${new Date().toISOString()}] drop-penalty scan: posted ${newlyPosted.length} penalties across ${Object.keys(byFranchise).length} teams`
+      );
+    } catch (err) {
+      console.error(`[scheduled] drop-penalty cron failed: ${err && err.message}`);
+    }
+  },
+
   async fetch(request, env) {
     try {
       // ---------- CORS ----------
@@ -9229,19 +9298,23 @@ export default {
         }
       };
 
-      // Parse MFL DP token (DP_R_S, zero-indexed round and slot) or FP token
+      // Parse MFL DP token (DP_R_S, both zero-indexed) or FP token
       // (FP_FID_YYYY_R) into a human-friendly draft pick label.
       // franchiseNameLookup: optional object mapping franchise_id (padded) to name
       const parseDraftPickToken = (token, currentSeason, franchiseNameLookup) => {
         const t = safeStr(token).toUpperCase();
         const nameLookup = franchiseNameLookup || {};
-        // Current-season rookie draft pick: DP_R_S (zero-indexed round, 1-indexed slot)
+        // MFL convention (confirmed via league draftPick XML 2026-04-17):
+        //   DP_R_S — both R (round) and S (slot) are 0-indexed. Add 1 to each.
+        //   Slot is zero-padded to 2 digits to match MFL description format.
+        //   Examples:  DP_0_0 = "Pick 1.01"   DP_3_9 = "Pick 4.10"   DP_5_0 = "Pick 6.01"
         const dpMatch = t.match(/^DP_(\d+)_(\d+)$/);
         if (dpMatch) {
           const round = safeInt(dpMatch[1], 0) + 1;
-          const slot = safeInt(dpMatch[2], 0);
+          const slot = safeInt(dpMatch[2], 0) + 1;
+          const slotLabel = slot < 10 ? `0${slot}` : String(slot);
           const year = safeStr(currentSeason) || "";
-          return `${year} Rookie Pick ${round}.${slot}`.trim();
+          return `${year} Rookie Pick ${round}.${slotLabel}`.trim();
         }
         // Future pick: FP_FID_YYYY_R (round only). FID is the ORIGINAL owner
         // franchise — must be preserved so "Hammer's 1st" stays attributed.
@@ -16358,8 +16431,29 @@ export default {
           // TCV < $5K contracts: fixed $1K cap penalty (rule override, not a floor).
           const tcv = safeInt(r.pre_drop_tcv, 0);
           const amt = safeInt(r.amount, 0);
-          if (tcv > 0 && tcv <= 4000 && amt > 0 && amt !== 1000) {
-            return { ...r, amount: 1000, penalty_amount: 1000, original_amount: amt };
+          let workingAmt = amt;
+          let note = "";
+          if (tcv > 0 && tcv <= 4000 && workingAmt > 0 && workingAmt !== 1000) {
+            workingAmt = 1000;
+          }
+          // RULE-CAP-002: dynamic rounding to nearest $1,000. Applied at every
+          // compute; the rounded value is dynamic until the FA Auction lock.
+          const rounded = Math.round(workingAmt / 1000) * 1000;
+          let rounding_delta = 0;
+          if (rounded !== workingAmt) {
+            rounding_delta = rounded - workingAmt;
+            note = "Rounding is dynamic and will lock at the Auction";
+          }
+          const finalAmt = rounded > 0 ? rounded : workingAmt;
+          if (finalAmt !== amt) {
+            return {
+              ...r,
+              amount: finalAmt,
+              penalty_amount: finalAmt,
+              original_amount: amt,
+              rounding_delta,
+              rounding_note: note,
+            };
           }
           return r;
         });
