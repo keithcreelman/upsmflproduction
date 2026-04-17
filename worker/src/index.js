@@ -9195,25 +9195,77 @@ export default {
         }
       };
 
-      const describeTradeAsset = (asset) => {
+      // Parse MFL DP token (DP_R_S, zero-indexed round and slot) or FP token
+      // (FP_FID_YYYY_R) into a human-friendly draft pick label.
+      // franchiseNameLookup: optional object mapping franchise_id (padded) to name
+      const parseDraftPickToken = (token, currentSeason, franchiseNameLookup) => {
+        const t = safeStr(token).toUpperCase();
+        const nameLookup = franchiseNameLookup || {};
+        // Current-season rookie draft pick: DP_R_S (zero-indexed round, 1-indexed slot)
+        const dpMatch = t.match(/^DP_(\d+)_(\d+)$/);
+        if (dpMatch) {
+          const round = safeInt(dpMatch[1], 0) + 1;
+          const slot = safeInt(dpMatch[2], 0);
+          const year = safeStr(currentSeason) || "";
+          return `${year} Rookie Pick ${round}.${slot}`.trim();
+        }
+        // Future pick: FP_FID_YYYY_R (round only). FID is the ORIGINAL owner
+        // franchise — must be preserved so "Hammer's 1st" stays attributed.
+        const fpMatch = t.match(/^FP_(\d+)_(\d{4})_(\d+)$/);
+        if (fpMatch) {
+          const fid = padFranchiseId(fpMatch[1]);
+          const year = fpMatch[2];
+          const round = safeInt(fpMatch[3], 0);
+          const ord = round === 1 ? "1st" : round === 2 ? "2nd" : round === 3 ? "3rd" : `${round}th`;
+          const originalOwner = safeStr(nameLookup[fid] || "");
+          return originalOwner ? `${originalOwner}'s ${year} ${ord}` : `${year} ${ord} round pick`;
+        }
+        // Trade cap-transfer token: BB_X. "Traded Salary" per league terminology.
+        const bbMatch = t.match(/^BB_(\d+)$/);
+        if (bbMatch) {
+          const amt = safeInt(bbMatch[1], 0);
+          return `$${amt.toLocaleString("en-US")} Traded Salary`;
+        }
+        return safeStr(token);
+      };
+
+      const describeTradeAsset = (asset, currentSeason, franchiseNameLookup) => {
         if (!asset || typeof asset !== "object") return "";
         const kind = safeStr(asset.kind || asset.type || "").toLowerCase();
         const label = safeStr(asset.label || "");
-        if (label) return label;
+        if (label) {
+          const parsed = parseDraftPickToken(label, currentSeason, franchiseNameLookup);
+          return parsed !== label ? parsed : label;
+        }
         const name = safeStr(asset.name || asset.player_name || "");
         const contract = safeStr(asset.contract_summary || asset.contract_info || "");
         if (kind === "player") {
           return contract ? `${name} (${contract})` : name;
         }
         if (kind === "pick") {
+          const token = safeStr(asset.token || "");
+          if (token) {
+            const parsed = parseDraftPickToken(token, currentSeason, franchiseNameLookup);
+            if (parsed !== token) return parsed;
+          }
           const year = safeStr(asset.year || asset.season || "");
           const round = safeStr(asset.round || "");
-          const label2 = round ? `${year} ${round} round pick` : year ? `${year} pick` : "Draft pick";
-          return label2;
+          const slot = safeStr(asset.slot || asset.pick || "");
+          if (year && round && slot) return `${year} Rookie Pick ${round}.${slot}`;
+          if (year && round) {
+            const r = safeInt(round, 0);
+            const ord = r === 1 ? "1st" : r === 2 ? "2nd" : r === 3 ? "3rd" : (r ? `${r}th` : round);
+            return `${year} ${ord} round pick`;
+          }
+          return year ? `${year} pick` : "Draft pick";
         }
-        if (kind === "cap" || kind === "bbid" || kind === "cash") {
+        if (kind === "cap" || kind === "bbid" || kind === "cash" || kind === "traded_salary") {
+          // Default label is "Traded Salary" per league terminology
+          // (BBID is a separate thing; trade-time cap transfers are called
+          // Traded Salary in this league).
           const amt = safeInt(asset.amount, 0);
-          return amt ? `$${amt.toLocaleString("en-US")} BBID` : "BBID";
+          const amtText = amt ? `$${amt.toLocaleString("en-US")}` : "";
+          return amtText ? `${amtText} Traded Salary` : "Traded Salary";
         }
         return name || kind || "Unknown asset";
       };
@@ -9221,6 +9273,7 @@ export default {
       const buildTradeNotificationEmbed = ({
         tradeDateIso,
         tradeId,
+        season,
         leftFranchiseName,
         rightFranchiseName,
         leftReceives,
@@ -9229,12 +9282,13 @@ export default {
         noteText,
         gifUrl,
         franchiseIconUrl,
+        franchiseNameLookup,
       }) => {
         const whenLabel = formatTradeDateTime(tradeDateIso);
         const leftReceivesList = Array.isArray(leftReceives) ? leftReceives : [];
         const rightReceivesList = Array.isArray(rightReceives) ? rightReceives : [];
-        const leftLines = leftReceivesList.map((a) => `• ${describeTradeAsset(a)}`).filter(Boolean);
-        const rightLines = rightReceivesList.map((a) => `• ${describeTradeAsset(a)}`).filter(Boolean);
+        const leftLines = leftReceivesList.map((a) => `• ${describeTradeAsset(a, season, franchiseNameLookup)}`).filter(Boolean);
+        const rightLines = rightReceivesList.map((a) => `• ${describeTradeAsset(a, season, franchiseNameLookup)}`).filter(Boolean);
         const leftTeam = safeStr(leftFranchiseName) || "Team A";
         const rightTeam = safeStr(rightFranchiseName) || "Team B";
 
@@ -9267,9 +9321,8 @@ export default {
             inline: false,
           });
         }
-        if (safeStr(noteText)) {
-          embed.fields.push({ name: "Analysis", value: safeStr(noteText), inline: false });
-        }
+        // Analysis deliberately omitted — trade grades/roasts will populate this
+        // as a follow-up reply (existing trade_grader Discord bot integration).
         if (safeStr(franchiseIconUrl)) {
           embed.thumbnail = { url: safeStr(franchiseIconUrl) };
         }
@@ -9320,6 +9373,20 @@ export default {
           leagueId,
           franchiseId: padFranchiseId(leftFranchiseId),
         });
+        // Load all franchise names so FP_XXXX_YYYY_R tokens can be
+        // rendered with the original owner attribution (e.g., "HammerTime's 2027 1st").
+        let franchiseNameLookup = {};
+        try {
+          const leagueRes = await mflExportJson(season, leagueId, "league", {}, { includeApiKey: true, useCookie: true });
+          if (leagueRes.ok) {
+            const frList = leagueRes.data?.league?.franchises?.franchise;
+            const frArr = Array.isArray(frList) ? frList : (frList ? [frList] : []);
+            for (const f of frArr) {
+              const fid = padFranchiseId(f?.id);
+              if (fid) franchiseNameLookup[fid] = safeStr(f?.name || "");
+            }
+          }
+        } catch (_) {}
         // Use the featured player for GIF search (most often the marquee player moving)
         const gif = featuredPlayerName
           ? await pickContractActivityGifUrl({ activityType: "trade", playerName: featuredPlayerName })
@@ -9327,6 +9394,7 @@ export default {
         const embed = buildTradeNotificationEmbed({
           tradeDateIso,
           tradeId,
+          season,
           leftFranchiseName: leftFranchiseName || franchiseMeta.franchise_name,
           rightFranchiseName,
           leftReceives,
@@ -9335,6 +9403,7 @@ export default {
           noteText,
           gifUrl: safeStr(gif.gif_url || ""),
           franchiseIconUrl: safeStr(franchiseMeta.icon_url || ""),
+          franchiseNameLookup,
         });
         const res = await withContractDiscordSendSlot(target.channelId, async () => {
           return await discordBotRequest(
