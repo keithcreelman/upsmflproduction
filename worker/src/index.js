@@ -8870,14 +8870,43 @@ export default {
         return { ok: true, skipped: false, reason: "" };
       };
 
+      const normalizePlayerNameForGif = (name) => {
+        // Handle both "Last, First" and "First Last" formats.
+        // Returns {full, last, variants[]}
+        let cleaned = safeStr(name).replace(/\s+/g, " ").trim();
+        if (!cleaned) return { full: "", last: "", variants: [] };
+        let first = "", last = "";
+        if (cleaned.includes(",")) {
+          const parts = cleaned.split(",").map((s) => s.trim());
+          last = parts[0] || "";
+          first = parts[1] || "";
+        } else {
+          const parts = cleaned.split(" ");
+          first = parts[0] || "";
+          last = parts.slice(1).join(" ") || "";
+        }
+        const stripSuffix = (s) => s.replace(/\s+(jr|sr|ii|iii|iv|v)\.?$/i, "").trim();
+        const full = [first, last].filter(Boolean).join(" ").trim();
+        const fullNoSuffix = stripSuffix(full);
+        const lastNoSuffix = stripSuffix(last);
+        const variants = Array.from(new Set([full, fullNoSuffix, `${first} ${lastNoSuffix}`.trim(), lastNoSuffix, last].filter(Boolean)));
+        return { full, last, variants };
+      };
+
       const contractGifQueries = ({ activityType, playerName }) => {
-        const player = safeStr(playerName);
+        const parsed = normalizePlayerNameForGif(playerName);
         const kind = normalizeContractActivityKind(activityType, "");
         const queries = [];
-        if (player) {
-          queries.push(`${player} nfl`);
-          queries.push(`${player} football`);
+        // Primary: player name variants (most specific first)
+        for (const v of parsed.variants) {
+          if (v) queries.push(v);
         }
+        // Also try player + "nfl" / "football" to get game footage
+        if (parsed.full) {
+          queries.push(`${parsed.full} touchdown`);
+          queries.push(`${parsed.full} nfl`);
+        }
+        // Generic fallbacks by activity type
         if (kind === "extension") {
           queries.push("nfl celebration");
           queries.push("football contract signing");
@@ -8895,19 +8924,32 @@ export default {
         return queries.filter(Boolean);
       };
 
+      // Normalize text for matching (lowercase, strip punctuation/diacritics).
+      const normalizeForMatch = (s) => safeStr(s).toLowerCase()
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9]+/g, " ")
+        .trim();
+
       const pickContractActivityGifUrl = async ({ activityType, playerName }) => {
         const apiKey = safeStr(env.GIPHY_API_KEY || "");
         if (!apiKey) {
           return { ok: false, gif_url: "", reason: "missing_giphy_api_key", query: "" };
         }
+        const parsedName = normalizePlayerNameForGif(playerName);
+        const playerLastNorm = normalizeForMatch(parsedName.last).replace(/\s+(jr|sr|ii|iii|iv|v)$/, "").trim();
         const queries = contractGifQueries({ activityType, playerName });
+        // Track the first generic-query match as fallback so we don't return nothing
+        let fallback = null;
+        const isPlayerSpecificQuery = (q) => {
+          const qn = normalizeForMatch(q);
+          return !!playerLastNorm && qn.includes(playerLastNorm);
+        };
         for (const query of queries) {
           const searchUrl = new URL("https://api.giphy.com/v1/gifs/search");
           searchUrl.searchParams.set("api_key", apiKey);
           searchUrl.searchParams.set("q", query);
-          searchUrl.searchParams.set("limit", "15");
+          searchUrl.searchParams.set("limit", "25");
           searchUrl.searchParams.set("offset", "0");
-          // GIF rating restriction removed per commissioner 2026-04-17 (RULE-WORKFLOW-003)
           searchUrl.searchParams.set("lang", "en");
           try {
             const res = await fetch(searchUrl.toString(), {
@@ -8918,19 +8960,41 @@ export default {
             const data = await res.json();
             const rows = Array.isArray(data?.data) ? data.data : [];
             if (!rows.length) continue;
-            const pick = rows[Math.floor(Math.random() * rows.length)] || rows[0];
+            // For player-specific queries, prefer results whose title/slug
+            // contains the player's last name. Accept other hits only as
+            // fallback if no strict match is found across all queries.
+            const strictMatches = rows.filter((row) => {
+              if (!playerLastNorm) return true;
+              const title = normalizeForMatch(row?.title || "");
+              const slug = normalizeForMatch(row?.slug || "");
+              return title.includes(playerLastNorm) || slug.includes(playerLastNorm);
+            });
+            const pool = isPlayerSpecificQuery(query) && strictMatches.length
+              ? strictMatches
+              : (isPlayerSpecificQuery(query) ? [] : rows);
+            if (!pool.length) {
+              // Keep the first loose row as a fallback for the "no player-specific match found" case
+              if (!fallback && rows.length) {
+                const pick = rows[0];
+                const gifUrl = safeStr(pick?.images?.original?.url) || safeStr(pick?.images?.downsized_large?.url) || safeStr(pick?.images?.fixed_height?.url) || safeStr(pick?.url);
+                if (gifUrl) fallback = { ok: true, gif_url: gifUrl, reason: "fallback_no_player_match", query };
+              }
+              continue;
+            }
+            const pick = pool[Math.floor(Math.random() * pool.length)] || pool[0];
             const gifUrl =
               safeStr(pick?.images?.original?.url) ||
               safeStr(pick?.images?.downsized_large?.url) ||
               safeStr(pick?.images?.fixed_height?.url) ||
               safeStr(pick?.url);
             if (gifUrl) {
-              return { ok: true, gif_url: gifUrl, reason: "", query };
+              return { ok: true, gif_url: gifUrl, reason: "", query, strict_match: isPlayerSpecificQuery(query) };
             }
           } catch (_) {
             continue;
           }
         }
+        if (fallback) return fallback;
         return { ok: false, gif_url: "", reason: "gif_not_found", query: queries[0] || "" };
       };
 
