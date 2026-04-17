@@ -62,6 +62,8 @@ export default {
         path !== "/admin/deadline-reminders/test-discord" &&
         path !== "/admin/deadline-reminders/run" &&
         path !== "/admin/contract-activity/test-discord" &&
+        path !== "/admin/trade-notification/test-discord" &&
+        path !== "/admin/trade-notification/post" &&
         path !== "/admin/contract-activity/test-discord-batch" &&
         path !== "/admin/contract-activity/post" &&
         path !== "/admin/contract-activity/post-batch" &&
@@ -9166,6 +9168,200 @@ export default {
         return embed;
       };
 
+      // =================================================================
+      // Trade notification Discord embed + sender (RULE-WORKFLOW-003)
+      // Separate from contract-activity because trades use a different
+      // format: "Team A receives X | Team B receives Y" layout.
+      // =================================================================
+
+      const formatTradeDateTime = (iso) => {
+        const text = safeStr(iso);
+        if (!text) return "";
+        try {
+          const d = new Date(text);
+          if (isNaN(d.getTime())) return text;
+          const fmt = d.toLocaleString("en-US", {
+            timeZone: "America/New_York",
+            year: "numeric",
+            month: "short",
+            day: "numeric",
+            hour: "numeric",
+            minute: "2-digit",
+            hour12: true,
+          });
+          return `${fmt} ET`;
+        } catch (_) {
+          return text;
+        }
+      };
+
+      const describeTradeAsset = (asset) => {
+        if (!asset || typeof asset !== "object") return "";
+        const kind = safeStr(asset.kind || asset.type || "").toLowerCase();
+        const label = safeStr(asset.label || "");
+        if (label) return label;
+        const name = safeStr(asset.name || asset.player_name || "");
+        const contract = safeStr(asset.contract_summary || asset.contract_info || "");
+        if (kind === "player") {
+          return contract ? `${name} (${contract})` : name;
+        }
+        if (kind === "pick") {
+          const year = safeStr(asset.year || asset.season || "");
+          const round = safeStr(asset.round || "");
+          const label2 = round ? `${year} ${round} round pick` : year ? `${year} pick` : "Draft pick";
+          return label2;
+        }
+        if (kind === "cap" || kind === "bbid" || kind === "cash") {
+          const amt = safeInt(asset.amount, 0);
+          return amt ? `$${amt.toLocaleString("en-US")} BBID` : "BBID";
+        }
+        return name || kind || "Unknown asset";
+      };
+
+      const buildTradeNotificationEmbed = ({
+        tradeDateIso,
+        tradeId,
+        leftFranchiseName,
+        rightFranchiseName,
+        leftReceives,
+        rightReceives,
+        capAdjustments,
+        noteText,
+        gifUrl,
+        franchiseIconUrl,
+      }) => {
+        const whenLabel = formatTradeDateTime(tradeDateIso);
+        const leftReceivesList = Array.isArray(leftReceives) ? leftReceives : [];
+        const rightReceivesList = Array.isArray(rightReceives) ? rightReceives : [];
+        const leftLines = leftReceivesList.map((a) => `• ${describeTradeAsset(a)}`).filter(Boolean);
+        const rightLines = rightReceivesList.map((a) => `• ${describeTradeAsset(a)}`).filter(Boolean);
+        const leftTeam = safeStr(leftFranchiseName) || "Team A";
+        const rightTeam = safeStr(rightFranchiseName) || "Team B";
+
+        const embed = {
+          title: "TRADE NOTIFICATION",
+          color: 0xc8a24d,
+          description: whenLabel ? `${whenLabel}${tradeId ? ` · ${tradeId}` : ""}` : (tradeId || ""),
+          fields: [],
+        };
+        embed.fields.push({
+          name: `${leftTeam} receives`,
+          value: leftLines.length ? leftLines.join("\n") : "(nothing)",
+          inline: false,
+        });
+        embed.fields.push({
+          name: `${rightTeam} receives`,
+          value: rightLines.length ? rightLines.join("\n") : "(nothing)",
+          inline: false,
+        });
+        if (Array.isArray(capAdjustments) && capAdjustments.length) {
+          const capLines = capAdjustments.map((c) => {
+            const team = safeStr(c.franchise_name || "");
+            const amt = safeInt(c.amount, 0);
+            const sign = amt > 0 ? "+" : (amt < 0 ? "−" : "");
+            return `• ${team}: ${sign}$${Math.abs(amt).toLocaleString("en-US")}`;
+          });
+          embed.fields.push({
+            name: "Cap Adjustments",
+            value: capLines.join("\n"),
+            inline: false,
+          });
+        }
+        if (safeStr(noteText)) {
+          embed.fields.push({ name: "Analysis", value: safeStr(noteText), inline: false });
+        }
+        if (safeStr(franchiseIconUrl)) {
+          embed.thumbnail = { url: safeStr(franchiseIconUrl) };
+        }
+        if (safeStr(gifUrl)) {
+          embed.image = { url: safeStr(gifUrl) };
+        }
+        return embed;
+      };
+
+      const sendDiscordTradeNotification = async ({
+        leagueId,
+        season,
+        tradeDateIso,
+        tradeId,
+        leftFranchiseId,
+        leftFranchiseName,
+        rightFranchiseId,
+        rightFranchiseName,
+        leftReceives,
+        rightReceives,
+        capAdjustments,
+        noteText,
+        featuredPlayerName,
+        forceTestOnly,
+        forcePrimaryOnly,
+        channelIdOverride,
+      }) => {
+        const botToken = contractDiscordBotToken();
+        const overrideChannelId = safeStr(channelIdOverride).replace(/\D/g, "");
+        const target = overrideChannelId
+          ? {
+              channelId: overrideChannelId,
+              deliveryTarget: safeStr(forceTestOnly ? "test" : (forcePrimaryOnly ? "primary" : "override")),
+              missingError: "",
+            }
+          : contractDiscordChannelTarget(!!forceTestOnly, !!forcePrimaryOnly);
+        if (!botToken || !target.channelId) {
+          return {
+            ok: false,
+            skipped: false,
+            status: 0,
+            error: !botToken ? "missing_discord_contract_bot_token" : safeStr(target.missingError || "missing_discord_contract_channel_config"),
+            delivery_target: safeStr(target.deliveryTarget || ""),
+          };
+        }
+        const franchiseMeta = await loadContractDiscordFranchiseMeta({
+          season,
+          leagueId,
+          franchiseId: padFranchiseId(leftFranchiseId),
+        });
+        // Use the featured player for GIF search (most often the marquee player moving)
+        const gif = featuredPlayerName
+          ? await pickContractActivityGifUrl({ activityType: "trade", playerName: featuredPlayerName })
+          : { gif_url: "", query: "" };
+        const embed = buildTradeNotificationEmbed({
+          tradeDateIso,
+          tradeId,
+          leftFranchiseName: leftFranchiseName || franchiseMeta.franchise_name,
+          rightFranchiseName,
+          leftReceives,
+          rightReceives,
+          capAdjustments,
+          noteText,
+          gifUrl: safeStr(gif.gif_url || ""),
+          franchiseIconUrl: safeStr(franchiseMeta.icon_url || ""),
+        });
+        const res = await withContractDiscordSendSlot(target.channelId, async () => {
+          return await discordBotRequest(
+            botToken,
+            "POST",
+            `/channels/${encodeURIComponent(target.channelId)}/messages`,
+            {
+              content: "",
+              embeds: [embed],
+              allowed_mentions: { parse: [] },
+            }
+          );
+        });
+        return {
+          ok: !!res.ok,
+          skipped: false,
+          status: safeInt(res.status, 0),
+          error: res.ok ? "" : safeStr(res.text || "discord_trade_post_failed").slice(0, 600),
+          channel_id: safeStr(target.channelId),
+          delivery_target: safeStr(target.deliveryTarget || ""),
+          message_id: safeStr(res.data?.id || ""),
+          gif_url: safeStr(gif.gif_url || ""),
+          gif_query: safeStr(gif.query || ""),
+          franchise_icon_url: safeStr(franchiseMeta.icon_url || ""),
+        };
+      };
+
       const pinDiscordMessage = async ({ botToken, channelId, messageId }) => {
         const token = safeStr(botToken);
         const channel = safeStr(channelId).replace(/\D/g, "");
@@ -15401,6 +15597,17 @@ export default {
           const capTotal = players.reduce((acc, p) => acc + currentCapHit(p.salary, p.years, p.is_taxi, p.is_ir), 0);
           const salaryAdjustmentTotal = safeInt(salaryAdjustmentByFranchise[franchiseId], 0);
           const salaryAdjustmentBreakdown = salaryAdjustmentBreakdownByFranchise[franchiseId] || emptySalaryAdjustmentBreakdown();
+          // Pass through raw salary adjustment rows (live MFL) for this franchise so the
+          // workbench Cap Summary can show per-row drilldown (trade partner/date/amount).
+          const rawSalaryAdjustmentRows = salaryAdjustmentRows
+            .filter((r) => padFranchiseId(r?.franchise_id) === franchiseId)
+            .map((r) => ({
+              franchise_id: padFranchiseId(r?.franchise_id),
+              amount: safeInt(r?.amount, 0),
+              explanation: safeStr(r?.explanation || r?.description || ""),
+              timestamp: safeStr(r?.timestamp || ""),
+              category: salaryAdjustmentCategory(r?.explanation),
+            }));
           const compliant = salaryCapDollars > 0 ? capTotal + salaryAdjustmentTotal <= salaryCapDollars : true;
           const complianceLabel = compliant
             ? "Compliant"
@@ -15418,6 +15625,7 @@ export default {
               cap_total_dollars: capTotal,
               salary_adjustment_total_dollars: salaryAdjustmentTotal,
               salary_adjustment_breakdown_dollars: salaryAdjustmentBreakdown,
+              salary_adjustment_raw_rows: rawSalaryAdjustmentRows,
               compliance: {
                 ok: compliant,
                 label: complianceLabel,
@@ -16486,6 +16694,65 @@ export default {
               }
             : null,
           results,
+        });
+      }
+
+      // POST /admin/trade-notification/test-discord (and /post)
+      // Body: {
+      //   league_id, season,
+      //   trade_date_iso, trade_id?,
+      //   left_franchise_id, left_franchise_name,
+      //   right_franchise_id, right_franchise_name,
+      //   left_receives: [ { kind:'player'|'pick'|'cap', ... } ],
+      //   right_receives: [ ... ],
+      //   cap_adjustments: [ { franchise_name, amount } ],  // optional
+      //   note_text?,                                       // freeform analysis
+      //   featured_player_name?                             // GIF search seed
+      // }
+      if ((path === "/admin/trade-notification/test-discord" || path === "/admin/trade-notification/post") && request.method === "POST") {
+        let body = {};
+        try {
+          body = (await request.json()) || {};
+        } catch (_) {
+          return jsonOut(400, { ok: false, error: "Invalid JSON body" });
+        }
+        const leagueId = safeStr(url.searchParams.get("L") || L || body.league_id || "");
+        const season = safeStr(url.searchParams.get("YEAR") || YEAR || body.season || "");
+        if (!leagueId) return jsonOut(400, { ok: false, error: "Missing L/league_id" });
+        if (!season) return jsonOut(400, { ok: false, error: "Missing YEAR/season" });
+        const adminState = await getLeagueAdminState(leagueId, season);
+        if (!adminState.ok || !adminState.isAdmin) {
+          return jsonOut(403, { ok: false, error: "Only league admin can send trade notifications" });
+        }
+        const missing = [];
+        if (!body.trade_date_iso) missing.push("trade_date_iso");
+        if (!body.left_franchise_name) missing.push("left_franchise_name");
+        if (!body.right_franchise_name) missing.push("right_franchise_name");
+        if (missing.length) return jsonOut(400, { ok: false, error: "missing_fields", missing });
+        const isTest = path === "/admin/trade-notification/test-discord";
+        const notify = await sendDiscordTradeNotification({
+          leagueId,
+          season,
+          tradeDateIso: body.trade_date_iso,
+          tradeId: body.trade_id,
+          leftFranchiseId: body.left_franchise_id,
+          leftFranchiseName: body.left_franchise_name,
+          rightFranchiseId: body.right_franchise_id,
+          rightFranchiseName: body.right_franchise_name,
+          leftReceives: body.left_receives,
+          rightReceives: body.right_receives,
+          capAdjustments: body.cap_adjustments,
+          noteText: body.note_text,
+          featuredPlayerName: body.featured_player_name,
+          forceTestOnly: isTest,
+          forcePrimaryOnly: !isTest,
+          channelIdOverride: isTest ? "" : (body.channel_id_override || ""),
+        });
+        return jsonOut(notify.ok ? 200 : 502, {
+          ok: !!notify.ok,
+          test_only: isTest,
+          delivery_target: safeStr(notify.delivery_target),
+          notify,
         });
       }
 

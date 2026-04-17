@@ -4241,6 +4241,7 @@
           capTotal: capTotal,
           salaryAdjustmentTotal: salaryAdjustmentTotal,
           salaryAdjustmentBreakdown: salaryAdjustmentBreakdown,
+          salaryAdjustmentRawRows: asArray(summary.salary_adjustment_raw_rows),
           compliance: compliance
         }
       });
@@ -6243,6 +6244,38 @@
     var tradedPlayerRows = capAdjustmentPlayerRowsHtml(adjRows, "traded_salary");
     var cutPlayerRows = capAdjustmentPlayerRowsHtml(adjRows, "cut_players");
     var otherPlayerRows = capAdjustmentPlayerRowsHtml(adjRows, "other");
+
+    // Augment trade drilldown with live MFL trade settlement rows
+    // (team on the other side, date, amount from the trade_YYYYMMDD token)
+    var rawAdjRows = asArray(team && team.summary && team.summary.salaryAdjustmentRawRows);
+    var liveTradeRows = rawAdjRows.filter(function (r) {
+      return r && (r.category === "traded_salary_dollars" || r.category === "traded_salary" ||
+                   /trade/i.test(safeStr(r.explanation || "")));
+    });
+    if (liveTradeRows.length) {
+      var liveTradeHtml = "";
+      for (var lt = 0; lt < liveTradeRows.length; lt += 1) {
+        var lrow = liveTradeRows[lt];
+        var expl = safeStr(lrow.explanation);
+        var tradeIdMatch = expl.match(/trade_(\d{4}\d{2}\d{2}|\d+)/i);
+        var tradeLabel = tradeIdMatch ? tradeIdMatch[0] : "Trade";
+        // Parse date from trade_YYYYMMDD pattern
+        var dateLabel = "";
+        if (tradeIdMatch && tradeIdMatch[1] && tradeIdMatch[1].length === 8) {
+          dateLabel = tradeIdMatch[1].slice(4,6) + "/" + tradeIdMatch[1].slice(6,8) + "/" + tradeIdMatch[1].slice(0,4);
+        }
+        var amt = safeInt(lrow.amount, 0);
+        liveTradeHtml +=
+          '<tr class="rwb-cap-adj-player-row">' +
+            '<th>' + escapeHtml(tradeLabel) +
+              (dateLabel ? ' <span class="rwb-cap-adj-desc">' + escapeHtml(dateLabel) + '</span>' : '') +
+              ' <span class="rwb-cap-adj-desc">' + escapeHtml(expl.slice(0, 80)) + '</span>' +
+            '</th>' +
+            '<td class="rwb-cell-num">' + escapeHtml(money(amt)) + '</td>' +
+          '</tr>';
+      }
+      tradedPlayerRows = liveTradeHtml + tradedPlayerRows;
+    }
 
     var showTrade = breakdown.tradedSalary !== 0;
     var showCut = breakdown.cutPlayers !== 0;
