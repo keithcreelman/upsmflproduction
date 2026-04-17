@@ -15433,6 +15433,195 @@ export default {
         return adminStateResponse();
       }
 
+      // POST /admin/import-salaries
+      // Body: {
+      //   season: "2026",
+      //   league_id: "74598",
+      //   dry_run?: bool,
+      //   rows: [ { id, salary, contractStatus, contractYear, contractInfo }, ... ]
+      // }
+      // Posts a <salaries>... XML to MFL's TYPE=salaries import endpoint.
+      // Requires commissioner auth via MFL_COOKIE secret.
+      if (path === "/admin/import-salaries" && request.method === "POST") {
+        let body = {};
+        try { body = (await request.json()) || {}; } catch (_) { body = {}; }
+        if (!!commishApiKey && !sessionByApiKey) {
+          return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
+        }
+        const targetSeason = safeStr(body?.season || url.searchParams.get("YEAR") || YEAR || "");
+        const leagueId = safeStr(body?.league_id || body?.L || url.searchParams.get("L") || L || "74598");
+        const dryRun = !!body?.dry_run;
+        const rows = Array.isArray(body?.rows) ? body.rows : [];
+        if (!targetSeason) return jsonOut(400, { ok: false, error: "Missing season" });
+        if (!leagueId) return jsonOut(400, { ok: false, error: "Missing league_id" });
+        if (!rows.length) return jsonOut(400, { ok: false, error: "rows array required" });
+
+        // Validate each row
+        const valid = [];
+        const invalid = [];
+        for (const r of rows) {
+          if (!r || typeof r !== "object") { invalid.push({ reason: "not_object", row: r }); continue; }
+          const pid = String(r.id || r.player_id || "").replace(/\D/g, "");
+          if (!pid) { invalid.push({ reason: "missing_player_id", row: r }); continue; }
+          const salary = safeStr(r.salary);
+          const contractStatus = safeStr(r.contractStatus || r.contract_status || "");
+          const contractYear = safeStr(r.contractYear || r.contract_year || "");
+          const contractInfo = safeStr(r.contractInfo || r.contract_info || "");
+          if (!salary || !contractInfo) { invalid.push({ reason: "missing_salary_or_contractInfo", row: r }); continue; }
+          valid.push({ id: pid, salary, contractStatus, contractYear, contractInfo });
+        }
+        if (!valid.length) {
+          return jsonOut(400, { ok: false, error: "No valid rows", invalid });
+        }
+
+        // CRITICAL: MFL's TYPE=salaries import REPLACES the entire salaries table,
+        // not merges. We MUST fetch the current salaries, merge in our updates,
+        // and post the full merged set, or every other player's contract gets wiped.
+        const mergeCurrentRes = await mflExportJson(targetSeason, leagueId, "salaries", {}, { useCookie: true });
+        if (!mergeCurrentRes.ok) {
+          return jsonOut(502, {
+            ok: false,
+            error: "Failed to fetch current salaries for merge (refusing to post — would wipe other players)",
+            upstream: mergeCurrentRes,
+          });
+        }
+        const currentPlayers = (() => {
+          const root = mergeCurrentRes.data?.salaries?.leagueUnit?.player;
+          return Array.isArray(root) ? root : (root ? [root] : []);
+        })();
+        // Build merged map keyed by player_id: start with current, overwrite with our updates.
+        const mergedById = {};
+        for (const p of currentPlayers) {
+          const pid = safeStr(p?.id).replace(/\D/g, "");
+          if (!pid) continue;
+          const sal = safeStr(p?.salary);
+          const info = safeStr(p?.contractInfo);
+          if (!sal && !info) continue; // skip empty rows — don't ossify blanks
+          mergedById[pid] = {
+            id: pid,
+            salary: sal,
+            contractStatus: safeStr(p?.contractStatus),
+            contractYear: safeStr(p?.contractYear),
+            contractInfo: info,
+          };
+        }
+        for (const r of valid) {
+          mergedById[r.id] = {
+            id: r.id,
+            salary: r.salary,
+            contractStatus: r.contractStatus,
+            contractYear: r.contractYear,
+            contractInfo: r.contractInfo,
+          };
+        }
+        const mergedRows = Object.values(mergedById).sort((a, b) => a.id.localeCompare(b.id));
+
+        // Build XML from MERGED set (preserves all other players)
+        const xmlEsc = (s) => String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+        const playerXml = mergedRows.map((r) =>
+          `<player id="${xmlEsc(r.id)}" salary="${xmlEsc(r.salary)}" contractStatus="${xmlEsc(r.contractStatus)}" contractYear="${xmlEsc(r.contractYear)}" contractInfo="${xmlEsc(r.contractInfo)}" />`
+        ).join("");
+        const dataXml = `<salaries><leagueUnit unit="LEAGUE">${playerXml}</leagueUnit></salaries>`;
+
+        if (dryRun) {
+          return jsonOut(200, {
+            ok: true,
+            dry_run: true,
+            season: targetSeason,
+            league_id: leagueId,
+            rows_valid: valid,
+            rows_invalid: invalid,
+            rows_merged_total: mergedRows.length,
+            rows_preserved_count: mergedRows.length - valid.length,
+            xml_preview_first_2kb: dataXml.slice(0, 2000),
+            xml_length: dataXml.length,
+          });
+        }
+
+        // Verify admin
+        const adminState = await getLeagueAdminState(leagueId, targetSeason);
+        if (!adminState.ok || !adminState.isAdmin) {
+          return jsonOut(403, {
+            ok: false,
+            error: "MFL_COOKIE lacks commissioner privileges for salaries import",
+            admin_state: adminState,
+          });
+        }
+
+        // Capture pre-state snapshot for verification
+        const preExportRes = await mflExportJson(targetSeason, leagueId, "salaries", {}, { useCookie: true });
+        const preMap = {};
+        if (preExportRes.ok) {
+          const plist = preExportRes.data?.salaries?.leagueUnit?.player;
+          const arr = Array.isArray(plist) ? plist : (plist ? [plist] : []);
+          for (const p of arr) preMap[safeStr(p?.id)] = p;
+        }
+
+        // POST to MFL (via BECOME=0000 commish session + APIKEY if available)
+        const commishCookie = await establishCommishCookieHeader(cookieHeader, targetSeason, leagueId);
+        const mflApiKey = safeStr(env.MFL_APIKEY || "");
+        const formFields = { TYPE: "salaries", L: leagueId, DATA: dataXml };
+        if (mflApiKey) formFields.APIKEY = mflApiKey;
+        const importRes = await postMflImportFormForCookie(
+          commishCookie,
+          targetSeason,
+          formFields,
+          { TYPE: "salaries", L: leagueId }
+        );
+
+        // Verify by re-fetching
+        const postExportRes = await mflExportJson(targetSeason, leagueId, "salaries", {}, { useCookie: true });
+        const postMap = {};
+        if (postExportRes.ok) {
+          const plist = postExportRes.data?.salaries?.leagueUnit?.player;
+          const arr = Array.isArray(plist) ? plist : (plist ? [plist] : []);
+          for (const p of arr) postMap[safeStr(p?.id)] = p;
+        }
+
+        const verification = valid.map((r) => {
+          const before = preMap[r.id] || {};
+          const after = postMap[r.id] || {};
+          const fieldsMatch =
+            safeStr(after?.salary) === r.salary &&
+            safeStr(after?.contractStatus) === r.contractStatus &&
+            safeStr(after?.contractYear) === r.contractYear &&
+            safeStr(after?.contractInfo) === r.contractInfo;
+          return {
+            id: r.id,
+            expected: r,
+            before: {
+              salary: safeStr(before?.salary),
+              contractStatus: safeStr(before?.contractStatus),
+              contractYear: safeStr(before?.contractYear),
+              contractInfo: safeStr(before?.contractInfo),
+            },
+            after: {
+              salary: safeStr(after?.salary),
+              contractStatus: safeStr(after?.contractStatus),
+              contractYear: safeStr(after?.contractYear),
+              contractInfo: safeStr(after?.contractInfo),
+            },
+            landed: fieldsMatch,
+          };
+        });
+        const allLanded = verification.every((v) => v.landed);
+
+        return jsonOut(importRes.requestOk && allLanded ? 200 : 502, {
+          ok: !!(importRes.requestOk && allLanded),
+          season: targetSeason,
+          league_id: leagueId,
+          posted_count: valid.length,
+          landed_count: verification.filter((v) => v.landed).length,
+          mismatched_count: verification.filter((v) => !v.landed).length,
+          verification,
+          import_status: importRes.status,
+          import_response_preview: safeStr(importRes.upstreamPreview).slice(0, 600),
+          import_target_url: importRes.targetImportUrl,
+          xml_length: dataXml.length,
+          invalid_rows: invalid,
+        });
+      }
+
       // POST /admin/import-drop-penalties
       // Body: { season, league_id?, dry_run? }
       // Pulls DROP_PENALTY_CANDIDATE rows from the salary_adjustments JSON report
