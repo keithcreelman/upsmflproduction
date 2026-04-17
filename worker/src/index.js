@@ -64,6 +64,8 @@ export default {
         path !== "/admin/contract-activity/test-discord" &&
         path !== "/admin/trade-notification/test-discord" &&
         path !== "/admin/trade-notification/post" &&
+        path !== "/admin/cap-penalty/test-discord" &&
+        path !== "/admin/cap-penalty/post" &&
         path !== "/admin/contract-activity/test-discord-batch" &&
         path !== "/admin/contract-activity/post" &&
         path !== "/admin/contract-activity/post-batch" &&
@@ -9431,6 +9433,181 @@ export default {
         };
       };
 
+      // =================================================================
+      // Cap Penalty Announcement Discord embed + sender
+      // Per-team grouped drop penalties narrated in full sentences.
+      // Uses fail/money/shock GIF queries (not player-specific).
+      // =================================================================
+
+      const capPenaltyGifQueries = () => [
+        "money disappear",
+        "expensive fail",
+        "football money gone",
+        "regret face",
+        "shocked money",
+        "football fail",
+        "contract fail",
+        "nfl frustration",
+        "disappointed celebration",
+      ];
+
+      const pickCapPenaltyGifUrl = async () => {
+        const apiKey = safeStr(env.GIPHY_API_KEY || "");
+        if (!apiKey) return { ok: false, gif_url: "", query: "" };
+        const queries = capPenaltyGifQueries();
+        for (const q of queries) {
+          const searchUrl = new URL("https://api.giphy.com/v1/gifs/search");
+          searchUrl.searchParams.set("api_key", apiKey);
+          searchUrl.searchParams.set("q", q);
+          searchUrl.searchParams.set("limit", "25");
+          searchUrl.searchParams.set("lang", "en");
+          try {
+            const res = await fetch(searchUrl.toString(), {
+              headers: { "User-Agent": "upsmflproduction-worker" },
+              cf: { cacheTtl: 300, cacheEverything: false },
+            });
+            if (!res.ok) continue;
+            const data = await res.json();
+            const rows = Array.isArray(data?.data) ? data.data : [];
+            if (!rows.length) continue;
+            const pick = rows[Math.floor(Math.random() * rows.length)];
+            const gifUrl =
+              safeStr(pick?.images?.original?.url) ||
+              safeStr(pick?.images?.downsized_large?.url) ||
+              safeStr(pick?.images?.fixed_height?.url) ||
+              safeStr(pick?.url);
+            if (gifUrl) return { ok: true, gif_url: gifUrl, query: q };
+          } catch (_) {
+            continue;
+          }
+        }
+        return { ok: false, gif_url: "", query: queries[0] };
+      };
+
+      const buildCapPenaltyAnnouncementEmbed = ({
+        franchiseName,
+        franchiseIconUrl,
+        teamTotalDollars,
+        penaltyCount,
+        capPenaltyLines, // array of pre-formatted narrative strings
+        gifUrl,
+        activityYearLabel, // e.g. "2025 Activity"
+      }) => {
+        const team = safeStr(franchiseName) || "Unknown Team";
+        const lines = Array.isArray(capPenaltyLines) ? capPenaltyLines : [];
+        const title = "Cap Penalty Announcement";
+        const subtitle = [];
+        if (activityYearLabel) subtitle.push(safeStr(activityYearLabel));
+        if (penaltyCount > 0) subtitle.push(`${penaltyCount} drop${penaltyCount !== 1 ? "s" : ""}`);
+        if (teamTotalDollars) subtitle.push(`$${Math.abs(safeInt(teamTotalDollars, 0)).toLocaleString("en-US")} total`);
+
+        const embed = {
+          title,
+          color: 0xaa2e2e, // dark red for penalties
+          description: subtitle.join(" · "),
+          fields: [],
+        };
+        if (lines.length) {
+          // Discord field value limit is ~1024 chars; split across multiple fields if needed
+          let chunk = [];
+          let chunkLen = 0;
+          let idx = 1;
+          const flush = () => {
+            if (!chunk.length) return;
+            embed.fields.push({
+              name: idx === 1 ? "Drops" : `Drops (cont.)`,
+              value: chunk.join("\n\n"),
+              inline: false,
+            });
+            idx += 1;
+            chunk = [];
+            chunkLen = 0;
+          };
+          for (const line of lines) {
+            const l = safeStr(line);
+            if (chunkLen + l.length + 2 > 1000) flush();
+            chunk.push(l);
+            chunkLen += l.length + 2;
+          }
+          flush();
+        }
+        embed.author = { name: team };
+        if (safeStr(franchiseIconUrl)) embed.thumbnail = { url: safeStr(franchiseIconUrl) };
+        if (safeStr(gifUrl)) embed.image = { url: safeStr(gifUrl) };
+        return embed;
+      };
+
+      const sendDiscordCapPenaltyAnnouncement = async ({
+        leagueId,
+        season,
+        franchiseId,
+        franchiseName,
+        teamTotalDollars,
+        capPenaltyLines,
+        activityYearLabel,
+        forceTestOnly,
+        forcePrimaryOnly,
+        channelIdOverride,
+      }) => {
+        const botToken = contractDiscordBotToken();
+        const overrideChannelId = safeStr(channelIdOverride).replace(/\D/g, "");
+        const target = overrideChannelId
+          ? {
+              channelId: overrideChannelId,
+              deliveryTarget: safeStr(forceTestOnly ? "test" : (forcePrimaryOnly ? "primary" : "override")),
+              missingError: "",
+            }
+          : contractDiscordChannelTarget(!!forceTestOnly, !!forcePrimaryOnly);
+        if (!botToken || !target.channelId) {
+          return {
+            ok: false,
+            skipped: false,
+            status: 0,
+            error: !botToken ? "missing_discord_contract_bot_token" : safeStr(target.missingError || "missing_discord_contract_channel_config"),
+            delivery_target: safeStr(target.deliveryTarget || ""),
+          };
+        }
+        const franchiseMeta = await loadContractDiscordFranchiseMeta({
+          season,
+          leagueId,
+          franchiseId: padFranchiseId(franchiseId),
+        });
+        const gif = await pickCapPenaltyGifUrl();
+        const penaltyCount = Array.isArray(capPenaltyLines) ? capPenaltyLines.length : 0;
+        const embed = buildCapPenaltyAnnouncementEmbed({
+          franchiseName: franchiseName || franchiseMeta.franchise_name,
+          franchiseIconUrl: franchiseMeta.icon_url,
+          teamTotalDollars,
+          penaltyCount,
+          capPenaltyLines,
+          gifUrl: safeStr(gif.gif_url || ""),
+          activityYearLabel,
+        });
+        const res = await withContractDiscordSendSlot(target.channelId, async () => {
+          return await discordBotRequest(
+            botToken,
+            "POST",
+            `/channels/${encodeURIComponent(target.channelId)}/messages`,
+            {
+              content: "",
+              embeds: [embed],
+              allowed_mentions: { parse: [] },
+            }
+          );
+        });
+        return {
+          ok: !!res.ok,
+          skipped: false,
+          status: safeInt(res.status, 0),
+          error: res.ok ? "" : safeStr(res.text || "discord_cap_penalty_post_failed").slice(0, 600),
+          channel_id: safeStr(target.channelId),
+          delivery_target: safeStr(target.deliveryTarget || ""),
+          message_id: safeStr(res.data?.id || ""),
+          gif_url: safeStr(gif.gif_url || ""),
+          gif_query: safeStr(gif.query || ""),
+        };
+      };
+
       const pinDiscordMessage = async ({ botToken, channelId, messageId }) => {
         const token = safeStr(botToken);
         const channel = safeStr(channelId).replace(/\D/g, "");
@@ -16813,6 +16990,55 @@ export default {
           capAdjustments: body.cap_adjustments,
           noteText: body.note_text,
           featuredPlayerName: body.featured_player_name,
+          forceTestOnly: isTest,
+          forcePrimaryOnly: !isTest,
+          channelIdOverride: isTest ? "" : (body.channel_id_override || ""),
+        });
+        return jsonOut(notify.ok ? 200 : 502, {
+          ok: !!notify.ok,
+          test_only: isTest,
+          delivery_target: safeStr(notify.delivery_target),
+          notify,
+        });
+      }
+
+      // POST /admin/cap-penalty/test-discord (and /post)
+      // Body: {
+      //   league_id, season,
+      //   franchise_id, franchise_name,
+      //   team_total_dollars,
+      //   activity_year_label,               // e.g. "2025 Activity"
+      //   cap_penalty_lines: string[]        // pre-formatted narrative per drop
+      //   channel_id_override? (for /post)
+      // }
+      if ((path === "/admin/cap-penalty/test-discord" || path === "/admin/cap-penalty/post") && request.method === "POST") {
+        let body = {};
+        try {
+          body = (await request.json()) || {};
+        } catch (_) {
+          return jsonOut(400, { ok: false, error: "Invalid JSON body" });
+        }
+        const leagueId = safeStr(url.searchParams.get("L") || L || body.league_id || "");
+        const season = safeStr(url.searchParams.get("YEAR") || YEAR || body.season || "");
+        if (!leagueId) return jsonOut(400, { ok: false, error: "Missing L/league_id" });
+        if (!season) return jsonOut(400, { ok: false, error: "Missing YEAR/season" });
+        const adminState = await getLeagueAdminState(leagueId, season);
+        if (!adminState.ok || !adminState.isAdmin) {
+          return jsonOut(403, { ok: false, error: "Only league admin can send cap penalty announcements" });
+        }
+        const missing = [];
+        if (!body.franchise_name) missing.push("franchise_name");
+        if (!Array.isArray(body.cap_penalty_lines) || !body.cap_penalty_lines.length) missing.push("cap_penalty_lines");
+        if (missing.length) return jsonOut(400, { ok: false, error: "missing_fields", missing });
+        const isTest = path === "/admin/cap-penalty/test-discord";
+        const notify = await sendDiscordCapPenaltyAnnouncement({
+          leagueId,
+          season,
+          franchiseId: body.franchise_id,
+          franchiseName: body.franchise_name,
+          teamTotalDollars: body.team_total_dollars,
+          capPenaltyLines: body.cap_penalty_lines,
+          activityYearLabel: body.activity_year_label,
           forceTestOnly: isTest,
           forcePrimaryOnly: !isTest,
           channelIdOverride: isTest ? "" : (body.channel_id_override || ""),
