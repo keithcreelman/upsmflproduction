@@ -1300,7 +1300,6 @@
         yearTokens.push("Y" + (y + 2) + "-" + formatContractK(futureAav));
       }
       var originalInfo = safeStr(opt.contractInfo);
-      // Replace the year-tokens segment and TCV in-place while preserving other segments
       var rebuilt = originalInfo
         .replace(/TCV\s+\S+/i, "TCV " + formatContractK(fixedTcv))
         .replace(/Y1-\S+/ig, yearTokens[0])
@@ -1308,6 +1307,14 @@
         .replace(/Y3-\S+/ig, yearTokens[2] || "Y3-0K");
       var gtd = fixedTcv > 4000 ? Math.round(fixedTcv * 0.75) : Math.max(0, fixedTcv - currentSalary);
       rebuilt = rebuilt.replace(/GTD:\s*\S+K?/i, "GTD: " + formatContractK(gtd));
+      // MFL's commish confirmation dialog renders contractInfo as Latin-1, which
+      // mangles emojis in franchise names (HammerTime 🔨 ⏰ → ð¨ â°). Strip
+      // non-ASCII from the Ext: segment so the dialog stays clean.
+      rebuilt = rebuilt.replace(/(Ext:\s*)([^|]*)/i, function (_m, pfx, body) {
+        var cleaned = String(body).replace(/[^\x20-\x7E]/g, "");
+        cleaned = cleaned.replace(/\s{2,}/g, " ").replace(/^[,\s]+|[,\s]+$/g, "");
+        return pfx + cleaned;
+      });
       return Object.assign({}, opt, {
         tcv: fixedTcv,
         contractInfo: rebuilt,
@@ -7210,6 +7217,19 @@
           '</div>' +
           (viewerCanManageAnyRoster() && !ownRoster ? '<div class="rwb-modal-note"><strong>Commish:</strong> Acting on behalf of ' + escapeHtml(team.name) + '.</div>' : '');
       } else {
+        // Parse Ext: history from contract info so we can surface "Extended by"
+        var extHistoryText = "";
+        var extMatch = safeStr(player.special).match(/(?:^|\|)\s*Ext:\s*([^|]+)/i);
+        if (extMatch && extMatch[1]) {
+          extHistoryText = safeStr(extMatch[1])
+            .split(",")
+            .map(function (s) { return s.trim(); })
+            .filter(function (s) { return s.length > 0; })
+            .join(", ");
+        }
+        var extendedByHtml = extHistoryText
+          ? '<div class="rwb-modal-metric rwb-modal-metric-wide"><span>Extended By</span><strong>' + escapeHtml(extHistoryText) + '</strong></div>'
+          : '';
         content =
           playerHeaderHtml +
           '<div class="rwb-modal-grid">' +
@@ -7221,6 +7241,7 @@
             '<div class="rwb-modal-metric"><span>Cap Penalty</span><strong>' + escapeHtml(money(penalty.amount)) + '</strong></div>' +
             '<div class="rwb-modal-metric"><span>Acquire Date</span><strong>' + escapeHtml(acquisitionDateLabelForPlayer(player)) + '</strong></div>' +
             '<div class="rwb-modal-metric"><span>How Acquired</span><strong>' + escapeHtml(acquisitionTypeLabelForPlayer(player)) + '</strong></div>' +
+            extendedByHtml +
           '</div>' +
           '<div class="rwb-modal-actions-wrap">' + actions.join("") + '</div>' +
           rookieOptionSummaryHtml +

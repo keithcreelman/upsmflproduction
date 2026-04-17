@@ -76,9 +76,19 @@ def parse_contract_aav(contract_info: str) -> int:
     return amounts[-1] if amounts else 0
 
 
+def strip_non_ascii(value: str) -> str:
+    # MFL's commish confirmation dialog renders our contractInfo as Latin-1,
+    # which mangles emojis in franchise names (e.g. "🔨 ⏰" displays as "ð¨ â°").
+    # Strip non-ASCII from Ext history text before writing it back so the
+    # dialog stays clean. Keep basic punctuation.
+    cleaned = re.sub(r"[^\x20-\x7E]", "", safe_str(value))
+    # Collapse any multi-space residue from stripped emojis.
+    return re.sub(r"\s{2,}", " ", cleaned).strip(" ,")
+
+
 def parse_extension_history(contract_info: str) -> str:
     match = re.search(r"(?:^|\|)\s*Ext:\s*([^|]+)", safe_str(contract_info), flags=re.IGNORECASE)
-    return safe_str(match.group(1)) if match else ""
+    return strip_non_ascii(match.group(1)) if match else ""
 
 
 def load_current_roster_snapshot(conn: sqlite3.Connection, season: int) -> dict[str, dict]:
