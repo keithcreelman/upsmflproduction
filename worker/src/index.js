@@ -8907,7 +8907,7 @@ export default {
           searchUrl.searchParams.set("q", query);
           searchUrl.searchParams.set("limit", "15");
           searchUrl.searchParams.set("offset", "0");
-          searchUrl.searchParams.set("rating", "pg-13");
+          // GIF rating restriction removed per commissioner 2026-04-17 (RULE-WORKFLOW-003)
           searchUrl.searchParams.set("lang", "en");
           try {
             const res = await fetch(searchUrl.toString(), {
@@ -10043,7 +10043,7 @@ export default {
           searchUrl.searchParams.set("q", query);
           searchUrl.searchParams.set("limit", "15");
           searchUrl.searchParams.set("offset", "0");
-          searchUrl.searchParams.set("rating", "pg-13");
+          // GIF rating restriction removed per commissioner 2026-04-17 (RULE-WORKFLOW-003)
           searchUrl.searchParams.set("lang", "en");
           try {
             const res = await fetch(searchUrl.toString(), {
