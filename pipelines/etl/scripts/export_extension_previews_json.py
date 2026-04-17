@@ -96,6 +96,7 @@ def load_current_roster_snapshot(conn: sqlite3.Connection, season: int) -> dict[
           player_id,
           COALESCE(position, '') AS position,
           COALESCE(aav, 0) AS aav,
+          COALESCE(salary, 0) AS salary,
           COALESCE(contract_info, '') AS contract_info
         FROM rosters_current
         WHERE season = ? AND week = ?
@@ -109,6 +110,7 @@ def load_current_roster_snapshot(conn: sqlite3.Connection, season: int) -> dict[
         out[player_id] = {
             "position": safe_str(row["position"]),
             "aav": safe_int(row["aav"], 0),
+            "salary": safe_int(row["salary"], 0),
             "contract_info": safe_str(row["contract_info"]),
         }
     return out
@@ -148,6 +150,12 @@ def normalize_preview_rows(rows: list[sqlite3.Row], conn: sqlite3.Connection, se
         years_to_add = 1 if term == "1YR" else (2 if term == "2YR" else 0)
         current = roster.get(player_id, {})
         current_aav = safe_int(current.get("aav"), 0) or parse_contract_aav(current.get("contract_info"))
+        # Current-year SALARY is what appears on the extended contract's Y1,
+        # not the AAV. A player on a restructured/front/backloaded deal
+        # (Montgomery final year $12K, AAV $20K) should show $12K on Y1 of the
+        # extension, not $20K. The AAV display stays "AAV {current_aav}, {future_aav}"
+        # so the per-year pricing lineage is still visible. Fixed 2026-04-17.
+        current_salary = safe_int(current.get("salary"), 0) or current_aav
         pos_group = normalize_pos_group(current.get("position") or item.get("position"))
         raise_amt = safe_int((rates.get(pos_group) or {}).get(years_to_add), 0)
         if years_to_add <= 0 or current_aav <= 0 or raise_amt <= 0:
@@ -155,10 +163,12 @@ def normalize_preview_rows(rows: list[sqlite3.Row], conn: sqlite3.Connection, se
             continue
         future_aav = round_to_k(current_aav + raise_amt)
         contract_length = years_to_add + 1
-        tcv = current_aav + (future_aav * years_to_add)
-        guarantee = round(tcv * 0.75) if tcv > 4000 else max(0, tcv - current_aav)
+        # Y1 of the extended contract is the CURRENT SALARY; remaining years are
+        # at future_aav. TCV is the sum of Y1 (current salary) + future years (future_aav each).
+        tcv = current_salary + (future_aav * years_to_add)
+        guarantee = round(tcv * 0.75) if tcv > 4000 else max(0, tcv - current_salary)
         ext_text = parse_extension_history(item.get("preview_contract_info_string")) or parse_extension_history(current.get("contract_info"))
-        year_tokens = [f"Y1-{format_k(current_aav)}"] + [f"Y{year + 2}-{format_k(future_aav)}" for year in range(years_to_add)]
+        year_tokens = [f"Y1-{format_k(current_salary)}"] + [f"Y{year + 2}-{format_k(future_aav)}" for year in range(years_to_add)]
         info_parts = [
             f"CL {contract_length}",
             f"TCV {format_k(tcv)}",
@@ -175,6 +185,7 @@ def normalize_preview_rows(rows: list[sqlite3.Row], conn: sqlite3.Connection, se
                 "new_TCV": tcv,
                 "new_aav_current": current_aav,
                 "new_aav_future": future_aav,
+                "new_current_salary": current_salary,
                 "new_contract_guarantee": guarantee,
                 "preview_contract_info_string": "|".join(info_parts),
             }

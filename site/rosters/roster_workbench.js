@@ -1277,8 +1277,45 @@
   function playerExtensionOptions(player) {
     if (!player || extensionBlockedByCurrentOwner(player) || extensionBlockedByHistory(player)) return [];
     var previews = player.extensionPreviews ? player.extensionPreviews : [];
-    return previews.length ? previews : synthesizedExtensionOptionsForPlayer(player);
+    var base = previews.length ? previews : synthesizedExtensionOptionsForPlayer(player);
+    // Client-side rewrite: Y1 of the extended contract must reflect the
+    // player's CURRENT SALARY (post-restructure, post-trade, etc.), not the
+    // original AAV. The precomputed JSON previously used AAV for Y1, which
+    // was wrong for any player on a backloaded/frontloaded/restructured deal
+    // (e.g. Montgomery final year $12K, AAV $20K). Fixed 2026-04-17.
+    var currentSalary = safeInt(player.salary, 0);
+    if (!currentSalary || !base.length) return base;
+    return base.map(function (opt) {
+      if (!opt) return opt;
+      var existingY1 = safeInt(opt.currentAav, 0);
+      if (existingY1 === currentSalary) return opt;
+      var yearsToAdd = safeInt(opt.yearsToAdd, 0);
+      if (yearsToAdd !== 1 && yearsToAdd !== 2) return opt;
+      var futureAav = safeInt(opt.futureAav, 0);
+      if (!futureAav) return opt;
+      var fixedTcv = currentSalary + futureAav * yearsToAdd;
+      // Rebuild contractInfo string with current salary as Y1
+      var yearTokens = ["Y1-" + formatContractK(currentSalary)];
+      for (var y = 0; y < yearsToAdd; y += 1) {
+        yearTokens.push("Y" + (y + 2) + "-" + formatContractK(futureAav));
+      }
+      var originalInfo = safeStr(opt.contractInfo);
+      // Replace the year-tokens segment and TCV in-place while preserving other segments
+      var rebuilt = originalInfo
+        .replace(/TCV\s+\S+/i, "TCV " + formatContractK(fixedTcv))
+        .replace(/Y1-\S+/ig, yearTokens[0])
+        .replace(/Y2-\S+/ig, yearTokens[1] || "Y2-0K")
+        .replace(/Y3-\S+/ig, yearTokens[2] || "Y3-0K");
+      var gtd = fixedTcv > 4000 ? Math.round(fixedTcv * 0.75) : Math.max(0, fixedTcv - currentSalary);
+      rebuilt = rebuilt.replace(/GTD:\s*\S+K?/i, "GTD: " + formatContractK(gtd));
+      return Object.assign({}, opt, {
+        tcv: fixedTcv,
+        contractInfo: rebuilt,
+        salaryToSend: currentSalary,
+      });
+    });
   }
+
 
   function extensionRaiseForPlayer(player, yearsToAdd) {
     var y = safeInt(yearsToAdd, 0);
@@ -6324,11 +6361,20 @@
       }
     }
 
+    // RULE-CAP-002: team-level rounding, dynamic until auction lock. Compute
+    // the rounded total adjustments and the delta. If they differ, show a
+    // "Rounded (dynamic)" row right under "Total Adjustments" so owners see
+    // what their effective cap hit will lock to at auction.
+    var roundedAdjustments = Math.round(totalAdjustments / 1000) * 1000;
+    var showRounded = totalAdjustments !== 0 && roundedAdjustments !== totalAdjustments;
+    var rounderDelta = roundedAdjustments - totalAdjustments;
+    var roundedCapSpace = calculateCapSpace(totalSalary, roundedAdjustments);
+
     return (
       '<div class="rwb-cap-summary">' +
         '<div class="rwb-cap-summary-head">' +
           '<div class="rwb-cap-summary-title">Cap Summary</div>' +
-          '<div class="rwb-cap-summary-note">Trade and cut adjustments come from the salary-adjustments report. Manual other adjustments stay sourced from live MFL salaryAdjustments. Taxi excluded. IR counts at 50%.</div>' +
+          '<div class="rwb-cap-summary-note">Trade and cut adjustments come from the salary-adjustments report. Manual other adjustments stay sourced from live MFL salaryAdjustments. Rounding to nearest $1K applies at the team level and is dynamic until the FA Auction. Taxi excluded. IR counts at 50%.</div>' +
         '</div>' +
         '<table class="rwb-cap-summary-table" aria-label="' + escapeHtml(team.name + ' cap summary') + '">' +
           '<tbody>' +
@@ -6338,9 +6384,17 @@
             '</tr>' +
             '<tr class="' + (hasBreakdown ? 'rwb-cap-adj-expandable' : '') + '"' +
               (hasBreakdown ? ' data-cap-adj-toggle="adj-' + escapeHtml(teamId) + '"' : '') + '>' +
-              '<th>' + (hasBreakdown ? '<span class="rwb-cap-adj-arrow">&#9654;</span> ' : '') + 'Total Adjustments</th>' +
+              '<th>' + (hasBreakdown ? '<span class="rwb-cap-adj-arrow">&#9654;</span> ' : '') + 'Total Adjustments (raw)</th>' +
               '<td class="rwb-cell-num">' + escapeHtml(money(totalAdjustments)) + '</td>' +
             '</tr>' +
+            (showRounded
+              ? '<tr class="rwb-cap-adj-rounded">' +
+                  '<th title="Dynamic: locks at the FA Auction">Rounded Adjustments (locks at auction)</th>' +
+                  '<td class="rwb-cell-num">' + escapeHtml(money(roundedAdjustments)) +
+                    ' <span class="rwb-cap-adj-desc">(Δ ' + (rounderDelta >= 0 ? '+' : '−') + escapeHtml(money(Math.abs(rounderDelta))) + ')</span>' +
+                  '</td>' +
+                '</tr>'
+              : '') +
             (hasBreakdown
               ? '<tr class="rwb-cap-adj-breakdown" data-cap-adj-detail="adj-' + escapeHtml(teamId) + '" style="display:none">' +
                   '<td colspan="2"><table class="rwb-cap-adj-sub-table">' + adjustmentSubRows + '</table></td>' +
@@ -6348,7 +6402,9 @@
               : '') +
             '<tr class="rwb-cap-space-row' + capSpaceClass + '">' +
               '<th>Cap Space Available</th>' +
-              '<td class="rwb-cell-num">' + escapeHtml(capSpaceText) + '</td>' +
+              '<td class="rwb-cell-num">' + escapeHtml(capSpaceText) +
+                (showRounded ? ' <span class="rwb-cap-adj-desc">(rounded: ' + escapeHtml(roundedCapSpace == null ? '—' : money(roundedCapSpace)) + ')</span>' : '') +
+              '</td>' +
             '</tr>' +
           '</tbody>' +
         '</table>' +
