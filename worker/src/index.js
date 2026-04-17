@@ -8943,65 +8943,95 @@ export default {
         }
         const parsedName = normalizePlayerNameForGif(playerName);
         const playerLastNorm = normalizeForMatch(parsedName.last).replace(/\s+(jr|sr|ii|iii|iv|v)$/, "").trim();
+        const playerFullNorm = normalizeForMatch(parsedName.full).replace(/\s+(jr|sr|ii|iii|iv|v)$/, "").trim();
         const queries = contractGifQueries({ activityType, playerName });
-        // Track the first generic-query match as fallback so we don't return nothing
-        let fallback = null;
         const isPlayerSpecificQuery = (q) => {
           const qn = normalizeForMatch(q);
           return !!playerLastNorm && qn.includes(playerLastNorm);
         };
-        for (const query of queries) {
-          const searchUrl = new URL("https://api.giphy.com/v1/gifs/search");
-          searchUrl.searchParams.set("api_key", apiKey);
-          searchUrl.searchParams.set("q", query);
-          searchUrl.searchParams.set("limit", "25");
-          searchUrl.searchParams.set("offset", "0");
-          searchUrl.searchParams.set("lang", "en");
-          try {
-            const res = await fetch(searchUrl.toString(), {
-              headers: { "User-Agent": "upsmflproduction-worker" },
-              cf: { cacheTtl: 300, cacheEverything: false },
-            });
-            if (!res.ok) continue;
-            const data = await res.json();
-            const rows = Array.isArray(data?.data) ? data.data : [];
-            if (!rows.length) continue;
-            // For player-specific queries, prefer results whose title/slug
-            // contains the player's last name. Accept other hits only as
-            // fallback if no strict match is found across all queries.
-            const strictMatches = rows.filter((row) => {
-              if (!playerLastNorm) return true;
-              const title = normalizeForMatch(row?.title || "");
-              const slug = normalizeForMatch(row?.slug || "");
-              return title.includes(playerLastNorm) || slug.includes(playerLastNorm);
-            });
-            const pool = isPlayerSpecificQuery(query) && strictMatches.length
-              ? strictMatches
-              : (isPlayerSpecificQuery(query) ? [] : rows);
-            if (!pool.length) {
-              // Keep the first loose row as a fallback for the "no player-specific match found" case
-              if (!fallback && rows.length) {
-                const pick = rows[0];
-                const gifUrl = safeStr(pick?.images?.original?.url) || safeStr(pick?.images?.downsized_large?.url) || safeStr(pick?.images?.fixed_height?.url) || safeStr(pick?.url);
-                if (gifUrl) fallback = { ok: true, gif_url: gifUrl, reason: "fallback_no_player_match", query };
+        // Pass 1: require FULL NAME match (e.g. "kenneth walker" in title).
+        // This dramatically reduces false-positives from common surnames.
+        // Pass 2 (fallback): last-name-only strict match.
+        // Pass 3 (last resort): no player-specific match — skip rather than
+        // return a wrong GIF, per commissioner preference.
+        const tryPass = async (requireFullName) => {
+          for (const query of queries) {
+            if (!isPlayerSpecificQuery(query)) continue;
+            const searchUrl = new URL("https://api.giphy.com/v1/gifs/search");
+            searchUrl.searchParams.set("api_key", apiKey);
+            searchUrl.searchParams.set("q", query);
+            searchUrl.searchParams.set("limit", "25");
+            searchUrl.searchParams.set("offset", "0");
+            searchUrl.searchParams.set("lang", "en");
+            try {
+              const res = await fetch(searchUrl.toString(), {
+                headers: { "User-Agent": "upsmflproduction-worker" },
+                cf: { cacheTtl: 300, cacheEverything: false },
+              });
+              if (!res.ok) continue;
+              const data = await res.json();
+              const rows = Array.isArray(data?.data) ? data.data : [];
+              if (!rows.length) continue;
+              const matches = rows.filter((row) => {
+                const title = normalizeForMatch(row?.title || "");
+                const slug = normalizeForMatch(row?.slug || "");
+                if (requireFullName && playerFullNorm) {
+                  return title.includes(playerFullNorm) || slug.includes(playerFullNorm);
+                }
+                return title.includes(playerLastNorm) || slug.includes(playerLastNorm);
+              });
+              if (!matches.length) continue;
+              const pick = matches[Math.floor(Math.random() * matches.length)];
+              const gifUrl =
+                safeStr(pick?.images?.original?.url) ||
+                safeStr(pick?.images?.downsized_large?.url) ||
+                safeStr(pick?.images?.fixed_height?.url) ||
+                safeStr(pick?.url);
+              if (gifUrl) {
+                return {
+                  ok: true,
+                  gif_url: gifUrl,
+                  reason: "",
+                  query,
+                  strict_match: true,
+                  full_name_match: !!requireFullName,
+                };
               }
+            } catch (_) {
               continue;
             }
-            const pick = pool[Math.floor(Math.random() * pool.length)] || pool[0];
-            const gifUrl =
-              safeStr(pick?.images?.original?.url) ||
-              safeStr(pick?.images?.downsized_large?.url) ||
-              safeStr(pick?.images?.fixed_height?.url) ||
-              safeStr(pick?.url);
-            if (gifUrl) {
-              return { ok: true, gif_url: gifUrl, reason: "", query, strict_match: isPlayerSpecificQuery(query) };
-            }
-          } catch (_) {
-            continue;
+          }
+          return null;
+        };
+        const pass1 = await tryPass(true);
+        if (pass1) return pass1;
+        const pass2 = await tryPass(false);
+        if (pass2) return pass2;
+        // Per commissioner: no GIF is better than a wrong one. Only fall back
+        // to a generic celebration GIF if we have NO player at all.
+        if (!playerLastNorm) {
+          for (const query of queries) {
+            const searchUrl = new URL("https://api.giphy.com/v1/gifs/search");
+            searchUrl.searchParams.set("api_key", apiKey);
+            searchUrl.searchParams.set("q", query);
+            searchUrl.searchParams.set("limit", "25");
+            searchUrl.searchParams.set("lang", "en");
+            try {
+              const res = await fetch(searchUrl.toString(), {
+                headers: { "User-Agent": "upsmflproduction-worker" },
+                cf: { cacheTtl: 300, cacheEverything: false },
+              });
+              if (!res.ok) continue;
+              const data = await res.json();
+              const rows = Array.isArray(data?.data) ? data.data : [];
+              if (!rows.length) continue;
+              const pick = rows[Math.floor(Math.random() * rows.length)];
+              const gifUrl = safeStr(pick?.images?.original?.url) || safeStr(pick?.images?.downsized_large?.url) || safeStr(pick?.images?.fixed_height?.url) || safeStr(pick?.url);
+              if (gifUrl) return { ok: true, gif_url: gifUrl, reason: "", query };
+            } catch (_) {}
           }
         }
-        if (fallback) return fallback;
-        return { ok: false, gif_url: "", reason: "gif_not_found", query: queries[0] || "" };
+        return { ok: false, gif_url: "", reason: "gif_not_found_strict", query: queries[0] || "" };
       };
 
       const buildContractActivityDiscordMessage = ({
@@ -9468,10 +9498,11 @@ export default {
         franchiseIconUrl,
         playerName,
         yearsRemaining,
-        tcvLabel,         // raw string like "129K" or "$129,000"
-        guaranteedLabel,  // raw string like "96.8K"
-        aavLabel,         // raw string like "54K" — NEVER recomputed
-        usageText,        // e.g. "Restructure: 1 of 3 - 2 remaining. ..."
+        tcvLabel,
+        guaranteedLabel,
+        aavLabel,
+        yearlyBreakdown,  // e.g. "2026: $26K, 2027: $103K"
+        usageText,
         gifUrl,
       }) => {
         const team = safeStr(franchiseName) || "Unknown Team";
@@ -9491,6 +9522,9 @@ export default {
             { name: "Player", value: player, inline: true },
           ],
         };
+        if (safeStr(yearlyBreakdown)) {
+          embed.fields.push({ name: "Yearly Breakdown", value: safeStr(yearlyBreakdown), inline: false });
+        }
         if (safeStr(usageText)) {
           embed.fields.push({ name: "Usage", value: safeStr(usageText), inline: false });
         }
@@ -9509,7 +9543,9 @@ export default {
         tcvLabel,
         guaranteedLabel,
         aavLabel,
+        yearlyBreakdown,
         usageText,
+        gifUrlOverride,
         forceTestOnly,
         forcePrimaryOnly,
         channelIdOverride,
@@ -9536,7 +9572,9 @@ export default {
           leagueId,
           franchiseId: padFranchiseId(franchiseId),
         });
-        const gif = await pickContractActivityGifUrl({ activityType: "restructure", playerName });
+        const gif = safeStr(gifUrlOverride)
+          ? { gif_url: safeStr(gifUrlOverride), query: "override" }
+          : await pickContractActivityGifUrl({ activityType: "restructure", playerName });
         const embed = buildRestructureAlertEmbed({
           franchiseName: franchiseName || franchiseMeta.franchise_name,
           franchiseIconUrl: franchiseMeta.icon_url,
@@ -9545,6 +9583,7 @@ export default {
           tcvLabel,
           guaranteedLabel,
           aavLabel,
+          yearlyBreakdown,
           usageText,
           gifUrl: safeStr(gif.gif_url || ""),
         });
@@ -17183,7 +17222,9 @@ export default {
           tcvLabel: body.tcv_label,
           guaranteedLabel: body.guaranteed_label,
           aavLabel: body.aav_label,
+          yearlyBreakdown: body.yearly_breakdown,
           usageText: body.usage_text,
+          gifUrlOverride: body.gif_url_override,
           forceTestOnly: isTest,
           forcePrimaryOnly: !isTest,
           channelIdOverride: isTest ? "" : (body.channel_id_override || ""),
