@@ -66,6 +66,8 @@ export default {
         path !== "/admin/trade-notification/post" &&
         path !== "/admin/cap-penalty/test-discord" &&
         path !== "/admin/cap-penalty/post" &&
+        path !== "/admin/restructure-alert/test-discord" &&
+        path !== "/admin/restructure-alert/post" &&
         path !== "/admin/contract-activity/test-discord-batch" &&
         path !== "/admin/contract-activity/post" &&
         path !== "/admin/contract-activity/post-batch" &&
@@ -9283,9 +9285,13 @@ export default {
         capAdjustments,
         noteText,
         gifUrl,
-        franchiseIconUrl,
+        leftIconUrl,
+        rightIconUrl,
+        franchiseIconUrl, // legacy alias (left only)
         franchiseNameLookup,
       }) => {
+        const resolvedLeftIcon = safeStr(leftIconUrl || franchiseIconUrl || "");
+        const resolvedRightIcon = safeStr(rightIconUrl || "");
         const whenLabel = formatTradeDateTime(tradeDateIso);
         const leftReceivesList = Array.isArray(leftReceives) ? leftReceives : [];
         const rightReceivesList = Array.isArray(rightReceives) ? rightReceives : [];
@@ -9325,8 +9331,20 @@ export default {
         }
         // Analysis deliberately omitted — trade grades/roasts will populate this
         // as a follow-up reply (existing trade_grader Discord bot integration).
-        if (safeStr(franchiseIconUrl)) {
-          embed.thumbnail = { url: safeStr(franchiseIconUrl) };
+        //
+        // Both team icons: left goes in author.icon_url (next to the TRADE
+        // NOTIFICATION title), right goes in thumbnail (top-right corner).
+        // This way both teams are visually represented in the embed header.
+        if (resolvedLeftIcon) {
+          embed.author = { name: safeStr(leftFranchiseName || "") + "  ↔  " + safeStr(rightFranchiseName || ""), icon_url: resolvedLeftIcon };
+        } else {
+          embed.author = { name: safeStr(leftFranchiseName || "") + "  ↔  " + safeStr(rightFranchiseName || "") };
+        }
+        if (resolvedRightIcon) {
+          embed.thumbnail = { url: resolvedRightIcon };
+        } else if (resolvedLeftIcon) {
+          // Fallback to left icon thumbnail if right missing
+          embed.thumbnail = { url: resolvedLeftIcon };
         }
         if (safeStr(gifUrl)) {
           embed.image = { url: safeStr(gifUrl) };
@@ -9375,8 +9393,13 @@ export default {
           leagueId,
           franchiseId: padFranchiseId(leftFranchiseId),
         });
+        const rightFranchiseMeta = await loadContractDiscordFranchiseMeta({
+          season,
+          leagueId,
+          franchiseId: padFranchiseId(rightFranchiseId),
+        });
         // Load all franchise names so FP_XXXX_YYYY_R tokens can be
-        // rendered with the original owner attribution (e.g., "HammerTime's 2027 1st").
+        // rendered with the original owner attribution.
         let franchiseNameLookup = {};
         try {
           const leagueRes = await mflExportJson(season, leagueId, "league", {}, { includeApiKey: true, useCookie: true });
@@ -9398,13 +9421,14 @@ export default {
           tradeId,
           season,
           leftFranchiseName: leftFranchiseName || franchiseMeta.franchise_name,
-          rightFranchiseName,
+          rightFranchiseName: rightFranchiseName || rightFranchiseMeta.franchise_name,
           leftReceives,
           rightReceives,
           capAdjustments,
           noteText,
           gifUrl: safeStr(gif.gif_url || ""),
-          franchiseIconUrl: safeStr(franchiseMeta.icon_url || ""),
+          leftIconUrl: safeStr(franchiseMeta.icon_url || ""),
+          rightIconUrl: safeStr(rightFranchiseMeta.icon_url || ""),
           franchiseNameLookup,
         });
         const res = await withContractDiscordSendSlot(target.channelId, async () => {
@@ -9430,6 +9454,118 @@ export default {
           gif_url: safeStr(gif.gif_url || ""),
           gif_query: safeStr(gif.query || ""),
           franchise_icon_url: safeStr(franchiseMeta.icon_url || ""),
+        };
+      };
+
+      // =================================================================
+      // Restructure Alert Discord embed + sender
+      // Dedicated format per commissioner 2026-04-17 — AAV is NEVER
+      // recomputed; it is passed through from the caller exactly as-is.
+      // =================================================================
+
+      const buildRestructureAlertEmbed = ({
+        franchiseName,
+        franchiseIconUrl,
+        playerName,
+        yearsRemaining,
+        tcvLabel,         // raw string like "129K" or "$129,000"
+        guaranteedLabel,  // raw string like "96.8K"
+        aavLabel,         // raw string like "54K" — NEVER recomputed
+        usageText,        // e.g. "Restructure: 1 of 3 - 2 remaining. ..."
+        gifUrl,
+      }) => {
+        const team = safeStr(franchiseName) || "Unknown Team";
+        const player = safeStr(playerName) || "Unknown Player";
+        const yrs = safeInt(yearsRemaining, 0);
+        const yrLabel = yrs === 1 ? "1 Year Remaining" : `${yrs} Years Remaining`;
+        const descParts = [yrLabel];
+        if (safeStr(tcvLabel)) descParts.push(`TCV ${safeStr(tcvLabel)}`);
+        if (safeStr(guaranteedLabel)) descParts.push(`${safeStr(guaranteedLabel)} Guaranteed`);
+        if (safeStr(aavLabel)) descParts.push(`with ${safeStr(aavLabel)} AAV`);
+        const embed = {
+          title: "Restructure Alert",
+          color: 0x103a71,
+          description: descParts.join(", "),
+          fields: [
+            { name: "Team", value: team, inline: true },
+            { name: "Player", value: player, inline: true },
+          ],
+        };
+        if (safeStr(usageText)) {
+          embed.fields.push({ name: "Usage", value: safeStr(usageText), inline: false });
+        }
+        if (safeStr(franchiseIconUrl)) embed.thumbnail = { url: safeStr(franchiseIconUrl) };
+        if (safeStr(gifUrl)) embed.image = { url: safeStr(gifUrl) };
+        return embed;
+      };
+
+      const sendDiscordRestructureAlert = async ({
+        leagueId,
+        season,
+        franchiseId,
+        franchiseName,
+        playerName,
+        yearsRemaining,
+        tcvLabel,
+        guaranteedLabel,
+        aavLabel,
+        usageText,
+        forceTestOnly,
+        forcePrimaryOnly,
+        channelIdOverride,
+      }) => {
+        const botToken = contractDiscordBotToken();
+        const overrideChannelId = safeStr(channelIdOverride).replace(/\D/g, "");
+        const target = overrideChannelId
+          ? {
+              channelId: overrideChannelId,
+              deliveryTarget: safeStr(forceTestOnly ? "test" : (forcePrimaryOnly ? "primary" : "override")),
+              missingError: "",
+            }
+          : contractDiscordChannelTarget(!!forceTestOnly, !!forcePrimaryOnly);
+        if (!botToken || !target.channelId) {
+          return {
+            ok: false,
+            skipped: false,
+            status: 0,
+            error: !botToken ? "missing_discord_contract_bot_token" : safeStr(target.missingError || "missing_discord_contract_channel_config"),
+          };
+        }
+        const franchiseMeta = await loadContractDiscordFranchiseMeta({
+          season,
+          leagueId,
+          franchiseId: padFranchiseId(franchiseId),
+        });
+        const gif = await pickContractActivityGifUrl({ activityType: "restructure", playerName });
+        const embed = buildRestructureAlertEmbed({
+          franchiseName: franchiseName || franchiseMeta.franchise_name,
+          franchiseIconUrl: franchiseMeta.icon_url,
+          playerName,
+          yearsRemaining,
+          tcvLabel,
+          guaranteedLabel,
+          aavLabel,
+          usageText,
+          gifUrl: safeStr(gif.gif_url || ""),
+        });
+        const res = await withContractDiscordSendSlot(target.channelId, async () => {
+          return await discordBotRequest(
+            botToken,
+            "POST",
+            `/channels/${encodeURIComponent(target.channelId)}/messages`,
+            { content: "", embeds: [embed], allowed_mentions: { parse: [] } }
+          );
+        });
+        return {
+          ok: !!res.ok,
+          skipped: false,
+          status: safeInt(res.status, 0),
+          error: res.ok ? "" : safeStr(res.text || "discord_restructure_alert_post_failed").slice(0, 600),
+          channel_id: safeStr(target.channelId),
+          delivery_target: safeStr(target.deliveryTarget || ""),
+          message_id: safeStr(res.data?.id || ""),
+          gif_url: safeStr(gif.gif_url || ""),
+          gif_query: safeStr(gif.query || ""),
         };
       };
 
@@ -17011,6 +17147,55 @@ export default {
       //   cap_penalty_lines: string[]        // pre-formatted narrative per drop
       //   channel_id_override? (for /post)
       // }
+      // POST /admin/restructure-alert/test-discord (and /post)
+      // Body: {
+      //   league_id, season, franchise_id, franchise_name, player_name,
+      //   years_remaining (int),
+      //   tcv_label (string, e.g. "129K" or "$129,000"),
+      //   guaranteed_label (string, e.g. "96.8K"),
+      //   aav_label (string, e.g. "54K"),  // NEVER recomputed
+      //   usage_text (string, e.g. "Restructure: 1 of 3 - 2 remaining. ..."),
+      //   channel_id_override? (for /post)
+      // }
+      if ((path === "/admin/restructure-alert/test-discord" || path === "/admin/restructure-alert/post") && request.method === "POST") {
+        let body = {};
+        try { body = (await request.json()) || {}; }
+        catch (_) { return jsonOut(400, { ok: false, error: "Invalid JSON body" }); }
+        const leagueId = safeStr(url.searchParams.get("L") || L || body.league_id || "");
+        const season = safeStr(url.searchParams.get("YEAR") || YEAR || body.season || "");
+        if (!leagueId) return jsonOut(400, { ok: false, error: "Missing L/league_id" });
+        if (!season) return jsonOut(400, { ok: false, error: "Missing YEAR/season" });
+        const adminState = await getLeagueAdminState(leagueId, season);
+        if (!adminState.ok || !adminState.isAdmin) {
+          return jsonOut(403, { ok: false, error: "Only league admin can send restructure alerts" });
+        }
+        const missing = [];
+        if (!body.player_name) missing.push("player_name");
+        if (!body.franchise_name) missing.push("franchise_name");
+        if (missing.length) return jsonOut(400, { ok: false, error: "missing_fields", missing });
+        const isTest = path === "/admin/restructure-alert/test-discord";
+        const notify = await sendDiscordRestructureAlert({
+          leagueId, season,
+          franchiseId: body.franchise_id,
+          franchiseName: body.franchise_name,
+          playerName: body.player_name,
+          yearsRemaining: body.years_remaining,
+          tcvLabel: body.tcv_label,
+          guaranteedLabel: body.guaranteed_label,
+          aavLabel: body.aav_label,
+          usageText: body.usage_text,
+          forceTestOnly: isTest,
+          forcePrimaryOnly: !isTest,
+          channelIdOverride: isTest ? "" : (body.channel_id_override || ""),
+        });
+        return jsonOut(notify.ok ? 200 : 502, {
+          ok: !!notify.ok,
+          test_only: isTest,
+          delivery_target: safeStr(notify.delivery_target),
+          notify,
+        });
+      }
+
       if ((path === "/admin/cap-penalty/test-discord" || path === "/admin/cap-penalty/post") && request.method === "POST") {
         let body = {};
         try {
