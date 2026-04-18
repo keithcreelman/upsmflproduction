@@ -1281,6 +1281,15 @@
     // original AAV. The precomputed JSON previously used AAV for Y1, which
     // was wrong for any player on a backloaded/frontloaded/restructured deal
     // (e.g. Montgomery final year $12K, AAV $20K). Fixed 2026-04-17.
+    //
+    // SCOPE (2026-04-18, Sean Tucker case): only apply when the player has
+    // exactly 1 year remaining on an existing contract. Expired rookies
+    // (years === 0) and any other state get a FRESH contract on extension
+    // and must use the base preview (Y1 = AAV, no "current salary" honor
+    // year). Without this guard, Tucker (years=0, salary=$2K rookie year)
+    // was being rewritten to Y1-$2K/Y2-$12K instead of the correct new
+    // 1-year $12K deal.
+    if (safeInt(player.years, 0) !== 1) return base;
     var currentSalary = safeInt(player.salary, 0);
     if (!currentSalary || !base.length) return base;
     return base.map(function (opt) {
