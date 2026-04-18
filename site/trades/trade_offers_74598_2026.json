@@ -3,8 +3,8 @@
     "schema_version": 1,
     "league_id": "74598",
     "season": 2026,
-    "updated_at": "2026-04-18T21:09:45.168Z",
-    "row_count": 20,
+    "updated_at": "2026-04-18T21:10:15.168Z",
+    "row_count": 21,
     "source": "worker-trade-offers"
   },
   "offers": [
@@ -3497,6 +3497,192 @@
       "twb_meta": null,
       "mfl_trade_id": "1026",
       "trade_id": "1026",
+      "mfl_present": true,
+      "mfl_status": "PENDING"
+    },
+    {
+      "id": "MFL-1027",
+      "league_id": "74598",
+      "season": 2026,
+      "status": "PENDING",
+      "created_at": "2026-04-18T21:10:15.168Z",
+      "updated_at": "2026-04-18T21:10:15.168Z",
+      "from_franchise_id": "0001",
+      "to_franchise_id": "0012",
+      "from_franchise_name": "L.A. Looks",
+      "to_franchise_name": "Hawks",
+      "message": "",
+      "comment": "",
+      "comments": "",
+      "raw_comment": "",
+      "will_give_up": "DP_2_7",
+      "will_receive": "FP_0012_2027_2",
+      "source": "trade-workbench-ui",
+      "summary": {
+        "from_asset_count": 1,
+        "to_asset_count": 1,
+        "from_trade_salary_k": 0,
+        "to_trade_salary_k": 0,
+        "extension_request_count": 0
+      },
+      "payload": {
+        "schema_version": 1,
+        "generated_at": "2026-04-18T21:10:11.084Z",
+        "source": "ups-trade-workbench",
+        "league_id": "74598",
+        "season": 2026,
+        "teams": [
+          {
+            "role": "left",
+            "franchise_id": "0001",
+            "franchise_name": "L.A. Looks",
+            "selected_assets": [
+              {
+                "asset_id": "pick:DP_2_7",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2026 Rookie 3.08",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "DP_2_7",
+                "pick_season": 2026,
+                "pick_round": 3,
+                "pick_slot": 8
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 0,
+            "selected_non_taxi_salary_dollars": 0
+          },
+          {
+            "role": "right",
+            "franchise_id": "0012",
+            "franchise_name": "Hawks",
+            "selected_assets": [
+              {
+                "asset_id": "pick:FP_0012_2027_2",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2027 Rookie Round 2",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "FP_0012_2027_2",
+                "pick_season": 2027,
+                "pick_round": 2,
+                "pick_slot": null
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 0,
+            "selected_non_taxi_salary_dollars": 0
+          }
+        ],
+        "extension_requests": [],
+        "filters": {
+          "search": ""
+        },
+        "ui": {
+          "left_team_id": "0001",
+          "right_team_id": "0012"
+        },
+        "salary_reconciliation": {
+          "left": {
+            "franchise_id": "0001",
+            "franchise_name": "L.A. Looks",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 71000,
+            "salary_adjustment_total_dollars": 12800,
+            "outgoing_dollars": 0,
+            "incoming_dollars": 0,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": 0,
+            "new_salary_dollars": 71000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 0,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": 0,
+            "available_salary_before_dollars": 216200,
+            "available_salary_after_dollars": 216200,
+            "over_cap_dollars": 0
+          },
+          "right": {
+            "franchise_id": "0012",
+            "franchise_name": "Hawks",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 139000,
+            "salary_adjustment_total_dollars": 6500,
+            "outgoing_dollars": 0,
+            "incoming_dollars": 0,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": 0,
+            "new_salary_dollars": 139000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 0,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": 0,
+            "available_salary_before_dollars": 154500,
+            "available_salary_after_dollars": 154500,
+            "over_cap_dollars": 0
+          },
+          "has_over_cap": false
+        },
+        "multi_year_salary_impact": {
+          "current_season": 2026,
+          "left_franchise_name": "L.A. Looks",
+          "right_franchise_name": "Hawks",
+          "rows": [
+            {
+              "season": 2026,
+              "left_before_dollars": 71000,
+              "left_after_dollars": 71000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 163000,
+              "right_after_dollars": 163000,
+              "right_change_dollars": 0
+            },
+            {
+              "season": 2027,
+              "left_before_dollars": 71000,
+              "left_after_dollars": 71000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 139000,
+              "right_after_dollars": 139000,
+              "right_change_dollars": 0
+            },
+            {
+              "season": 2028,
+              "left_before_dollars": 1000,
+              "left_after_dollars": 1000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 58000,
+              "right_after_dollars": 58000,
+              "right_change_dollars": 0
+            }
+          ]
+        },
+        "validation": {
+          "status": "ready",
+          "issues": []
+        },
+        "comment": ""
+      },
+      "twb_meta": null,
+      "mfl_trade_id": "1027",
+      "trade_id": "1027",
       "mfl_present": true,
       "mfl_status": "PENDING"
     }
