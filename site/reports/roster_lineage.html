@@ -78,6 +78,7 @@
   .events-list { margin: 0; padding: 0; list-style: none; }
   .events-list li { padding: 2px 0; font-size: 12px; color: var(--text); display: flex; align-items: flex-start; gap: 6px; }
   .ev-icon { font-size: 11px; line-height: 1.5; min-width: 14px; display: inline-block; opacity: 0.85; }
+  .ev-date { display: inline-block; min-width: 36px; color: var(--muted); font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 10.5px; margin-right: 4px; }
   a.txn-link { color: var(--accent); text-decoration: none; border-bottom: 1px dashed var(--accent); }
   a.txn-link:hover { text-decoration: underline; }
   .toggle { display: inline-block; width: 14px; color: var(--muted); font-family: monospace; transition: transform 150ms; }
@@ -211,11 +212,20 @@ function renderEvent(e) {
   const ev = (typeof e === "string") ? { type: "NOTE", text: e } : e;
   const icon = EVENT_ICONS[ev.type] || "•";
   const txt = escapeHtml(ev.text || "");
-  if (ev.type === "TRADE" && ev.link_txn_id) {
-    const href = `transaction_detail.html?txn=${encodeURIComponent(ev.link_txn_id)}`;
-    return `<li><span class="ev-icon">${icon}</span><a class="txn-link" href="${href}" target="_blank" rel="noopener">${txt}</a></li>`;
+  // Format date/time if present — drops/adds/trades/auctions all have datetime.
+  // Render as short MM/DD and show full date/time on hover.
+  let dateChip = "";
+  const dt = ev.datetime || ev.drop_datetime || ev.add_datetime;
+  if (dt) {
+    // dt like "2024-10-30 20:45:29" — render as "10/30" with tooltip
+    const m = String(dt).match(/^(\d{4})-(\d{2})-(\d{2})/);
+    const shortDate = m ? `${m[2]}/${m[3]}` : String(dt).slice(0, 10);
+    dateChip = `<span class="ev-date" title="${escapeHtml(dt)}">${shortDate}</span>`;
   }
-  return `<li><span class="ev-icon">${icon}</span>${txt}</li>`;
+  const body = ev.link_txn_id
+    ? `<a class="txn-link" href="transaction_detail.html?txn=${encodeURIComponent(ev.link_txn_id)}" target="_blank" rel="noopener">${txt}</a>`
+    : txt;
+  return `<li><span class="ev-icon">${icon}</span>${dateChip}${body}</li>`;
 }
 
 function render() {

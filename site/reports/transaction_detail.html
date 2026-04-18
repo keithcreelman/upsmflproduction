@@ -2,13 +2,13 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
-<title>Trade Detail — UPS MFL</title>
+<title>Transaction Detail — UPS MFL</title>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <style>
   :root {
     --bg: #0b0e14; --panel: #141823; --panel-alt: #1a1f2d; --border: #2a3142;
     --text: #e7eaf0; --muted: #8892a5; --accent: #6bb0ff;
-    --give: #ff9a6b; --get: #5dd39e;
+    --give: #ff9a6b; --get: #5dd39e; --neg: #ff5c5c; --pos: #5dd39e;
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--text);
@@ -18,7 +18,7 @@
   header h1 { margin: 0; font-size: 17px; font-weight: 600; }
   header a { color: var(--accent); text-decoration: none; font-size: 12px; }
   main { padding: 24px; max-width: 1200px; margin: 0 auto; }
-  .meta-row { display: flex; gap: 24px; color: var(--muted); font-size: 12px; margin-bottom: 16px; }
+  .meta-row { display: flex; gap: 24px; color: var(--muted); font-size: 12px; margin-bottom: 16px; flex-wrap: wrap; }
   .meta-row strong { color: var(--text); font-weight: 600; margin-right: 4px; }
   .sides { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   @media (max-width: 700px) { .sides { grid-template-columns: 1fr; } }
@@ -33,13 +33,20 @@
   .tag.get  { background: var(--get); color: #000; }
   .muted { color: var(--muted); }
   .empty-hint { padding: 60px 20px; text-align: center; color: var(--muted); }
-  pre { background: var(--panel-alt); padding: 12px; border-radius: 6px; font-size: 11px; overflow: auto; }
+  pre { background: var(--panel-alt); padding: 12px; border-radius: 6px; font-size: 11px; overflow: auto; white-space: pre-wrap; word-break: break-all; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 20px; margin-bottom: 16px; }
+  .card h2 { margin: 0 0 12px; font-size: 16px; }
+  .field-grid { display: grid; grid-template-columns: 180px 1fr; gap: 8px 20px; font-size: 13px; }
+  .field-grid .label { color: var(--muted); }
+  .money { font-family: ui-monospace, Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; }
+  .charge { color: var(--neg); }
+  .credit { color: var(--pos); }
 </style>
 </head>
 <body>
 <header>
   <div>
-    <h1>Trade Detail</h1>
+    <h1 id="pageTitle">Transaction Detail</h1>
     <div class="meta-row" id="metaStrip"><span class="muted">Loading…</span></div>
   </div>
   <a href="roster_lineage.html">← Back to Lineage</a>
@@ -54,6 +61,12 @@ const DATA_URL = "transactions_index.json";
 function escapeHtml(s) {
   return String(s || "")
     .replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;");
+}
+function formatMoney(v) {
+  if (v === null || v === undefined) return "—";
+  const n = Number(v);
+  if (!Number.isFinite(n)) return "—";
+  return "$" + Math.abs(n).toLocaleString("en-US");
 }
 
 function renderAsset(a, role) {
@@ -76,15 +89,81 @@ function renderAsset(a, role) {
   return `<li class="${role.toLowerCase()}">${tag} ${escapeHtml(name)}</li>`;
 }
 
-function renderSide(side) {
+function renderTradeSide(side) {
   const gave = (side.relinquished || []).map(a => renderAsset(a, "GIVE")).join("");
   const got  = (side.acquired || []).map(a => renderAsset(a, "GET")).join("");
   return `
     <section class="side">
       <h2>${escapeHtml(side.franchise_name || side.franchise_id)}</h2>
-      <ul class="asset-list">
-        ${gave}${got}
-      </ul>
+      <ul class="asset-list">${gave}${got}</ul>
+    </section>
+  `;
+}
+
+function renderTrade(trade) {
+  document.getElementById("pageTitle").textContent = `Trade ${trade.season}_${trade.txn_index}`;
+  document.getElementById("metaStrip").innerHTML =
+      `<span><strong>Date:</strong>${escapeHtml(trade.datetime || "")}</span>`
+    + `<span><strong>Season:</strong>${trade.season}</span>`
+    + `<span><strong>Txn:</strong>${trade.txn_index}</span>`
+    + `<span><strong>Trade group:</strong>${escapeHtml(trade.trade_group_id || "")}</span>`;
+  return `<div class="sides">${(trade.sides || []).map(renderTradeSide).join("")}</div>`;
+}
+
+function renderAddDrop(ev) {
+  const kind = (ev.move_type || "").toUpperCase();
+  document.getElementById("pageTitle").textContent = `${kind} — ${ev.player_name || ev.player_id}`;
+  document.getElementById("metaStrip").innerHTML =
+      `<span><strong>Date:</strong>${escapeHtml(ev.datetime || "")}</span>`
+    + `<span><strong>Season:</strong>${ev.season}</span>`
+    + `<span><strong>Txn:</strong>${ev.txn_index}</span>`
+    + `<span><strong>Method:</strong>${escapeHtml(ev.method || "")}</span>`;
+  return `
+    <section class="card">
+      <h2>${kind} — ${escapeHtml(ev.player_name || ev.player_id)}</h2>
+      <div class="field-grid">
+        <div class="label">Player</div><div>${escapeHtml(ev.player_name || "—")}${ev.position ? " (" + escapeHtml(ev.position) + ")" : ""} <span class="muted">pid ${escapeHtml(ev.player_id || "")}</span></div>
+        <div class="label">Franchise</div><div>${escapeHtml(ev.franchise_name || ev.franchise_id || "")}</div>
+        <div class="label">Move type</div><div>${escapeHtml(ev.move_type || "")}</div>
+        <div class="label">Method</div><div>${escapeHtml(ev.method || "")}</div>
+        <div class="label">Salary</div><div class="money">${ev.salary ? formatMoney(ev.salary) : "—"}</div>
+        <div class="label">When</div><div>${escapeHtml(ev.datetime || "")}</div>
+      </div>
+    </section>
+  `;
+}
+
+function renderAdjustment(ev) {
+  document.getElementById("pageTitle").textContent = `Cap Adjustment — ${ev.player_name || ev.player_id}`;
+  const amt = Number(ev.amount || 0);
+  const signClass = ev.direction === "charge" ? "charge" : "credit";
+  const sign = ev.direction === "charge" ? "-" : "+";
+  document.getElementById("metaStrip").innerHTML =
+      `<span><strong>Adjustment season:</strong>${ev.adjustment_season}</span>`
+    + `<span><strong>Source season:</strong>${ev.source_season}</span>`
+    + `<span><strong>Type:</strong>${escapeHtml(ev.adjustment_type || "")}</span>`;
+  return `
+    <section class="card">
+      <h2>${escapeHtml(ev.adjustment_type || "Cap Adjustment")} — ${escapeHtml(ev.player_name || ev.player_id)}</h2>
+      <div class="field-grid">
+        <div class="label">Amount</div><div class="money ${signClass}">${sign}${formatMoney(amt)}</div>
+        <div class="label">Franchise</div><div>${escapeHtml(ev.franchise_name || ev.franchise_id || "")}</div>
+        <div class="label">Drop method</div><div>${escapeHtml(ev.drop_method || "")}</div>
+        <div class="label">Transaction date</div><div>${escapeHtml(ev.transaction_datetime || "")}</div>
+      </div>
+    </section>
+    <section class="card">
+      <h2>Pre-drop contract</h2>
+      <div class="field-grid">
+        <div class="label">Salary</div><div class="money">${ev.pre_drop_salary ? formatMoney(ev.pre_drop_salary) : "—"}</div>
+        <div class="label">Contract length</div><div>${ev.pre_drop_contract_length || "—"}</div>
+        <div class="label">TCV</div><div class="money">${ev.pre_drop_tcv ? formatMoney(ev.pre_drop_tcv) : "—"}</div>
+        <div class="label">Contract info</div><div class="money">${escapeHtml(ev.pre_drop_contract_info || "—")}</div>
+      </div>
+    </section>
+    <section class="card">
+      <h2>Description</h2>
+      <pre>${escapeHtml(ev.description || "")}</pre>
     </section>
   `;
 }
@@ -92,25 +171,29 @@ function renderSide(side) {
 async function main() {
   const txn = new URLSearchParams(location.search).get(LINK_PARAM) || "";
   if (!txn) {
-    document.getElementById("status").textContent = "No transaction id in URL. Use ?txn=<season>_<txn_index>";
+    document.getElementById("status").textContent = "No transaction id in URL.";
     return;
   }
   try {
     const r = await fetch(DATA_URL + "?v=" + Date.now(), { cache: "no-store" });
     const d = await r.json();
-    const trade = d.trades_by_link[txn];
-    if (!trade) {
-      document.getElementById("status").textContent = `Transaction ${txn} not found.`;
-      return;
+    let html = null;
+    if (txn.startsWith("addrop_")) {
+      const ev = d.adddrop_by_link[txn];
+      if (ev) html = renderAddDrop(ev);
+    } else if (txn.startsWith("adj_")) {
+      const ev = d.adj_by_link[txn];
+      if (ev) html = renderAdjustment(ev);
+    } else {
+      const tr = d.trades_by_link[txn];
+      if (tr) html = renderTrade(tr);
     }
-    document.getElementById("metaStrip").innerHTML =
-      `<span><strong>Date:</strong>${escapeHtml(trade.datetime || "")}</span>`
-      + `<span><strong>Season:</strong>${trade.season}</span>`
-      + `<span><strong>Txn:</strong>${trade.txn_index}</span>`
-      + `<span><strong>Trade group:</strong>${escapeHtml(trade.trade_group_id || "")}</span>`;
-    document.getElementById("main").innerHTML =
-      `<div class="sides">${(trade.sides || []).map(renderSide).join("")}</div>`;
-    document.title = `Trade ${txn} — UPS MFL`;
+    if (html) {
+      document.getElementById("main").innerHTML = html;
+      document.title = `Txn ${txn} — UPS MFL`;
+    } else {
+      document.getElementById("status").textContent = `Transaction ${txn} not found.`;
+    }
   } catch (e) {
     document.getElementById("status").innerHTML = `Error: ${escapeHtml(e.message || e)}`;
   }

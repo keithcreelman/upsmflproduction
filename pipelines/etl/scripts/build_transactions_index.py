@@ -146,12 +146,85 @@ def main() -> int:
             key = f"{g['season']}_{g['txn_index']}"
             by_link[key] = g
 
+        # Add/drop events keyed by "addrop_{season}_{txn_index}"
+        adddrop_by_link: dict = {}
+        ad_rows = conn.execute(
+            """SELECT season, txn_index, datetime_et, franchise_id, player_id,
+                      move_type, method, salary
+               FROM transactions_adddrop ORDER BY season, txn_index"""
+        ).fetchall()
+        # Group by (season, txn_index) — a DROP/ADD txn is typically one franchise + one player,
+        # but in MFL a DROP and ADD for the same pid share the waiver context.
+        for r in ad_rows:
+            key = f"addrop_{r[0]}_{r[1]}"
+            pid = safe_str(r[4])
+            player_info = pmap.get(pid) or {}
+            adddrop_by_link[key] = {
+                "type": "ADDDROP",
+                "season": r[0],
+                "txn_index": r[1],
+                "datetime": r[2],
+                "franchise_id": r[3],
+                "franchise_name": resolve_franchise(r[0], r[3], fallback=r[3]),
+                "player_id": pid,
+                "player_name": player_info.get("name"),
+                "position": player_info.get("position"),
+                "move_type": r[5],
+                "method": r[6],
+                "salary": r[7],
+            }
+
+        # Cap adjustments keyed by "adj_{season}_{pid}_{source_id}"
+        adj_by_link: dict = {}
+        from pathlib import Path as _Path
+        SAL_ADJ_DIR = _Path("/Users/keithcreelman/Documents/mfl/Codex/_worktrees/rulebook-mobile-preview/site/reports/salary_adjustments")
+        for yr in range(2012, 2027):
+            p = SAL_ADJ_DIR / f"salary_adjustments_{yr}.json"
+            if not p.exists():
+                continue
+            try:
+                d = json.loads(p.read_text())
+            except Exception:
+                continue
+            for row in d.get("rows", []) or []:
+                source_id = safe_str(row.get("source_id"))
+                if not source_id:
+                    continue
+                link = f"adj_{row.get('adjustment_season')}_{row.get('player_id')}_{source_id}"
+                adj_by_link[link] = {
+                    "type": "CAP_ADJUSTMENT",
+                    "adjustment_season": row.get("adjustment_season"),
+                    "source_season": row.get("source_season"),
+                    "adjustment_type": row.get("adjustment_type"),
+                    "franchise_id": row.get("franchise_id"),
+                    "franchise_name": resolve_franchise(
+                        row.get("adjustment_season"), row.get("franchise_id"),
+                        fallback=row.get("franchise_name") or row.get("franchise_id"),
+                    ),
+                    "player_id": row.get("player_id"),
+                    "player_name": row.get("player_name"),
+                    "amount": row.get("amount"),
+                    "direction": row.get("direction"),
+                    "description": row.get("description"),
+                    "transaction_datetime": row.get("transaction_datetime_et"),
+                    "pre_drop_contract_info": row.get("pre_drop_contract_info"),
+                    "pre_drop_salary": row.get("pre_drop_salary"),
+                    "pre_drop_contract_length": row.get("pre_drop_contract_length"),
+                    "pre_drop_tcv": row.get("pre_drop_tcv"),
+                    "drop_method": row.get("drop_method"),
+                    "source_id": source_id,
+                }
+
         payload = {
             "meta": {
                 "generated_at_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
                 "trade_count": len(out_groups),
+                "adddrop_count": len(adddrop_by_link),
+                "adj_count": len(adj_by_link),
             },
             "trades_by_link": by_link,
+            "adddrop_by_link": adddrop_by_link,
+            "adj_by_link": adj_by_link,
         }
         out_path = Path(args.out_path)
         out_path.parent.mkdir(parents=True, exist_ok=True)

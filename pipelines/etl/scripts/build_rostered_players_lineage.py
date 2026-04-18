@@ -327,22 +327,28 @@ def build_major_events(
         method = safe_str(drop.get("method")) or "FA"
         # DROP event (with optional "rookie deal ended" annotation)
         rookie_note = " — rookie deal ended, cap penalty will be assessed" if rookie_transition else ""
+        drop_txn_link = f"addrop_{season}_{drop.get('txn_index')}" if drop.get("txn_index") is not None else None
         events.append({
             "type": "DROP",
             "text": f"DROP by {dr_team} ({method}){rookie_note}",
             "datetime": drop.get("datetime"),
             "franchise_id": drop.get("franchise_id"),
+            "txn_index": drop.get("txn_index"),
+            "link_txn_id": drop_txn_link,
         })
         # ADD event (if paired)
         if add:
             ad_team = team_label(add.get("franchise_id"))
             add_salary = safe_int(add.get("salary"))
+            add_txn_link = f"addrop_{season}_{add.get('txn_index')}" if add.get("txn_index") is not None else None
             events.append({
                 "type": "ADD",
                 "text": (f"Picked up by {ad_team} via {method}"
                          + (f" for {format_k(add_salary)}" if add_salary else "")),
                 "datetime": add.get("datetime"),
                 "franchise_id": add.get("franchise_id"),
+                "txn_index": add.get("txn_index"),
+                "link_txn_id": add_txn_link,
             })
             # NEW_CONTRACT event describing the terms of the replacement deal
             if this_ci.get("cl") or this_ci.get("tcv"):
@@ -360,12 +366,15 @@ def build_major_events(
             continue
         tm = team_label(add.get("franchise_id"))
         sal = safe_int(add.get("salary"))
+        add_txn_link = f"addrop_{season}_{add.get('txn_index')}" if add.get("txn_index") is not None else None
         events.append({
             "type": "ADD",
             "text": f"ADD by {tm} ({add.get('method') or 'FA'})"
                     + (f" {format_k(sal)}" if sal else ""),
             "datetime": add.get("datetime"),
             "franchise_id": add.get("franchise_id"),
+            "txn_index": add.get("txn_index"),
+            "link_txn_id": add_txn_link,
         })
         # If it's a brand-new contract we haven't described yet, emit NEW_CONTRACT
         if this_ci.get("cl") or this_ci.get("tcv"):
@@ -407,11 +416,14 @@ def build_major_events(
         label = "Cap penalty" if at == "DROP_PENALTY_CANDIDATE" else (
             "Traded salary" if at == "TRADED_SALARY" else at
         )
+        source_id = safe_str(adj.get("source_id"))
         events.append({
             "type": "CAP_ADJUSTMENT",
             "text": f"{label} {sign}{format_k(amt)} on {fr_name}",
             "franchise_id": adj.get("franchise_id"),
-            "source_id": adj.get("source_id"),
+            "source_id": source_id,
+            "datetime": adj.get("transaction_datetime_et"),
+            "link_txn_id": f"adj_{adj.get('adjustment_season')}_{adj.get('player_id')}_{source_id}" if source_id else None,
         })
     return events
 
@@ -533,11 +545,19 @@ def build_player_record(
         is_auction_year = bool(auctions_this)
         is_draft_year = bool(draft_row and draft_row["season"] == season)
 
-        # Salary-earned epoch management:
-        # - Draft year = start epoch
-        # - Auction-win year = reset epoch
-        # - Drop-then-re-add in same year counts as reset (handled via auction if auctioned, else partial)
-        if is_draft_year or is_auction_year:
+        # Salary-earned epoch management (per-contract):
+        # Epoch RESETS at the start of a new contract. Triggers:
+        #   - Rookie draft year
+        #   - FA auction win (baseline reset)
+        #   - Same-season DROP + ADD cycle (BBID / FA waiver → new contract)
+        #   - Mid-season ADD without prior drop (new FA signing that started a contract)
+        # Extensions + trades + restructures DO NOT reset (same contract continues).
+        had_adddrop_cycle = bool(drops_this) and bool(adds_this)
+        had_waiver_add = bool(adds_this) and not bool(drops_this)
+        epoch_resets_this_year = (
+            is_draft_year or is_auction_year or had_adddrop_cycle or had_waiver_add
+        )
+        if epoch_resets_this_year:
             epoch_earned = 0
 
         salary = safe_int(snap["salary"])
