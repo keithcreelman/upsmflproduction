@@ -395,6 +395,10 @@ def trace_player(conn, pid: str, rates: dict) -> dict:
                 # the pre-TE-premium / pre-Super-Flex rate of $6K/$12K for QB/TE.
                 # Helps back-validate old extensions without full rate-table history.
                 candidates = [(r1, 1, "current-1yr"), (r2, 2, "current-2yr")]
+                # Historical pre-premium rates apply ONLY to:
+                #   - QB (before league adopted Super Flex)
+                #   - TE (before league adopted TE Premium)
+                # RB and WR rates have always been 10/20 — do NOT fallback on those.
                 if pos_group in ("QB", "TE"):
                     candidates += [(6000, 1, "pre-premium-1yr"), (12000, 2, "pre-premium-2yr")]
                 # Also consider multi-ext in one season (2 × 1yr combos)
