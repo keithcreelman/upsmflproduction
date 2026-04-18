@@ -1183,16 +1183,20 @@
   }
 
   function extensionBlockedByHistory(player) {
-    return parseExtensionHistoryTokens(player && (player.special || player.contract_info || "")).length > 0;
+    // RULE-EXT-003 clarified 2026-04-18: a player can be extended by multiple
+    // DIFFERENT teams over their career — only the SAME team can't extend
+    // twice. Prior behavior here blocked extension for any player with ANY
+    // history, which was too restrictive (blocked Josh Downs on LH from being
+    // extended even though Gride did the prior extension). Block only when
+    // the CURRENT owning team is already in the history — which is what
+    // extensionBlockedByCurrentOwner checks. So this always returns false.
+    return false;
   }
 
   function extensionBlockedReason(player) {
-    if (extensionBlockedByHistory(player)) {
-      return "This contract already carries an extension history. No additional extension preview is available.";
-    }
     if (!extensionBlockedByCurrentOwner(player)) return "";
     var team = findTeamById(player && player.fid);
-    return safeStr(team && team.name || player && player.teamName || "This franchise") + " already used this player's extension on the current contract. No additional extension is available.";
+    return safeStr(team && team.name || player && player.teamName || "This franchise") + " has already extended this player. A player can't be extended twice by the same team.";
   }
 
   function extensionOwnerTokenForTeam(team, player) {
@@ -1300,13 +1304,16 @@
         yearTokens.push("Y" + (y + 2) + "-" + formatContractK(futureAav));
       }
       var originalInfo = safeStr(opt.contractInfo);
+      // Replace ONLY the numeric tokens — prior \S+ was too greedy and ate
+      // delimiters like "," and "|", producing malformed contractInfo like
+      // "TCV 42K 20K, 30K|Y1-12K Y2-30K" (missing AAV label and commas).
       var rebuilt = originalInfo
-        .replace(/TCV\s+\S+/i, "TCV " + formatContractK(fixedTcv))
-        .replace(/Y1-\S+/ig, yearTokens[0])
-        .replace(/Y2-\S+/ig, yearTokens[1] || "Y2-0K")
-        .replace(/Y3-\S+/ig, yearTokens[2] || "Y3-0K");
+        .replace(/TCV\s+[\d.]+K?/i, "TCV " + formatContractK(fixedTcv))
+        .replace(/Y1-[\d.]+K?/ig, yearTokens[0])
+        .replace(/Y2-[\d.]+K?/ig, yearTokens[1] || "Y2-0K")
+        .replace(/Y3-[\d.]+K?/ig, yearTokens[2] || "Y3-0K");
       var gtd = fixedTcv > 4000 ? Math.round(fixedTcv * 0.75) : Math.max(0, fixedTcv - currentSalary);
-      rebuilt = rebuilt.replace(/GTD:\s*\S+K?/i, "GTD: " + formatContractK(gtd));
+      rebuilt = rebuilt.replace(/GTD:\s*[\d.]+K?/i, "GTD: " + formatContractK(gtd));
       // MFL's commish confirmation dialog renders contractInfo as Latin-1, which
       // mangles emojis in franchise names (HammerTime 🔨 ⏰ → ð¨ â°). Strip
       // non-ASCII from the Ext: segment so the dialog stays clean.
