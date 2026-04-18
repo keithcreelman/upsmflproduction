@@ -1177,16 +1177,20 @@
   }
 
   function extensionBlockedByHistory(player) {
-    return parseExtensionHistoryTokens(player && (player.special || player.contract_info || "")).length > 0;
+    // RULE-EXT-003 clarified 2026-04-18: a player can be extended by multiple
+    // DIFFERENT teams over their career — only the SAME team can't extend
+    // twice. Prior behavior here blocked extension for any player with ANY
+    // history, which was too restrictive (blocked Josh Downs on LH from being
+    // extended even though Gride did the prior extension). Block only when
+    // the CURRENT owning team is already in the history — which is what
+    // extensionBlockedByCurrentOwner checks. So this always returns false.
+    return false;
   }
 
   function extensionBlockedReason(player) {
-    if (extensionBlockedByHistory(player)) {
-      return "This contract already carries an extension history. No additional extension preview is available.";
-    }
     if (!extensionBlockedByCurrentOwner(player)) return "";
     var team = findTeamById(player && player.fid);
-    return safeStr(team && team.name || player && player.teamName || "This franchise") + " already used this player's extension on the current contract. No additional extension is available.";
+    return safeStr(team && team.name || player && player.teamName || "This franchise") + " has already extended this player. A player can't be extended twice by the same team.";
   }
 
   function extensionOwnerTokenForTeam(team, player) {
@@ -1271,8 +1275,55 @@
   function playerExtensionOptions(player) {
     if (!player || extensionBlockedByCurrentOwner(player) || extensionBlockedByHistory(player)) return [];
     var previews = player.extensionPreviews ? player.extensionPreviews : [];
-    return previews.length ? previews : synthesizedExtensionOptionsForPlayer(player);
+    var base = previews.length ? previews : synthesizedExtensionOptionsForPlayer(player);
+    // Client-side rewrite: Y1 of the extended contract must reflect the
+    // player's CURRENT SALARY (post-restructure, post-trade, etc.), not the
+    // original AAV. The precomputed JSON previously used AAV for Y1, which
+    // was wrong for any player on a backloaded/frontloaded/restructured deal
+    // (e.g. Montgomery final year $12K, AAV $20K). Fixed 2026-04-17.
+    var currentSalary = safeInt(player.salary, 0);
+    if (!currentSalary || !base.length) return base;
+    return base.map(function (opt) {
+      if (!opt) return opt;
+      var existingY1 = safeInt(opt.currentAav, 0);
+      if (existingY1 === currentSalary) return opt;
+      var yearsToAdd = safeInt(opt.yearsToAdd, 0);
+      if (yearsToAdd !== 1 && yearsToAdd !== 2) return opt;
+      var futureAav = safeInt(opt.futureAav, 0);
+      if (!futureAav) return opt;
+      var fixedTcv = currentSalary + futureAav * yearsToAdd;
+      // Rebuild contractInfo string with current salary as Y1
+      var yearTokens = ["Y1-" + formatContractK(currentSalary)];
+      for (var y = 0; y < yearsToAdd; y += 1) {
+        yearTokens.push("Y" + (y + 2) + "-" + formatContractK(futureAav));
+      }
+      var originalInfo = safeStr(opt.contractInfo);
+      // Replace ONLY the numeric tokens — prior \S+ was too greedy and ate
+      // delimiters like "," and "|", producing malformed contractInfo like
+      // "TCV 42K 20K, 30K|Y1-12K Y2-30K" (missing AAV label and commas).
+      var rebuilt = originalInfo
+        .replace(/TCV\s+[\d.]+K?/i, "TCV " + formatContractK(fixedTcv))
+        .replace(/Y1-[\d.]+K?/ig, yearTokens[0])
+        .replace(/Y2-[\d.]+K?/ig, yearTokens[1] || "Y2-0K")
+        .replace(/Y3-[\d.]+K?/ig, yearTokens[2] || "Y3-0K");
+      var gtd = fixedTcv > 4000 ? Math.round(fixedTcv * 0.75) : Math.max(0, fixedTcv - currentSalary);
+      rebuilt = rebuilt.replace(/GTD:\s*[\d.]+K?/i, "GTD: " + formatContractK(gtd));
+      // MFL's commish confirmation dialog renders contractInfo as Latin-1, which
+      // mangles emojis in franchise names (HammerTime 🔨 ⏰ → ð¨ â°). Strip
+      // non-ASCII from the Ext: segment so the dialog stays clean.
+      rebuilt = rebuilt.replace(/(Ext:\s*)([^|]*)/i, function (_m, pfx, body) {
+        var cleaned = String(body).replace(/[^\x20-\x7E]/g, "");
+        cleaned = cleaned.replace(/\s{2,}/g, " ").replace(/^[,\s]+|[,\s]+$/g, "");
+        return pfx + cleaned;
+      });
+      return Object.assign({}, opt, {
+        tcv: fixedTcv,
+        contractInfo: rebuilt,
+        salaryToSend: currentSalary,
+      });
+    });
   }
+
 
   function extensionRaiseForPlayer(player, yearsToAdd) {
     var y = safeInt(yearsToAdd, 0);
@@ -2743,17 +2794,10 @@
           existing.tagCycleSeason = safeStr(submission.season);
           existing.positionGroup = positionGroupKey(existing.position);
           players[existingIndex] = enrichPlayer(existing);
-        } else {
-          players.push(
-            buildSyntheticTaggedPlayer(
-              team,
-              submission,
-              refRow,
-              findTaggedPlayerSourceSnapshot(fid, pid)
-            )
-          );
+          changed = true;
         }
-        changed = true;
+        // Skip synthetic tagged players who are not on the live roster — they
+        // were dropped/traded after the tag submission was filed.
       }
 
       if (changed) {
@@ -3565,8 +3609,15 @@
     return map;
   }
 
-  function toSalaryMap(payload) {
+  function toSalaryMap(payload, rosteredPlayerIds) {
     var map = Object.create(null);
+    var rosterSet = null;
+    if (rosteredPlayerIds) {
+      rosterSet = Object.create(null);
+      for (var r = 0; r < rosteredPlayerIds.length; r += 1) {
+        rosterSet[safeStr(rosteredPlayerIds[r])] = true;
+      }
+    }
     var root = payload && payload.salaries;
     var unit = root && root.leagueUnit;
     var rows = asArray(unit && unit.player);
@@ -3574,14 +3625,19 @@
       var row = rows[i] || {};
       var id = safeStr(row.id);
       if (!id || id === "0000") continue;
-      var rawSalary = safeStr(row.salary);
       var rawYears = safeStr(row.contractYear);
+      var yearsInt = rawYears ? safeInt(rawYears, 0) : 0;
+      // Skip players with no years remaining — expired/off-roster
+      if (yearsInt <= 0) continue;
+      // Skip players not on any roster (salary ghost entries)
+      if (rosterSet && !rosterSet[id]) continue;
+      var rawSalary = safeStr(row.salary);
       var rawType = safeStr(row.contractStatus);
       var rawSpecial = safeStr(row.contractInfo);
       if (!rawSalary && !rawYears && !rawType && !rawSpecial) continue;
       map[id] = {
         salary: rawSalary ? parseMoney(rawSalary) : null,
-        years: rawYears ? safeInt(rawYears, 0) : null,
+        years: yearsInt,
         type: rawType || null,
         special: rawSpecial || null
       };
@@ -3623,7 +3679,7 @@
     return {
       franchise_id: franchiseId,
       amount: amount,
-      explanation: safeStr(node.explanation || node.note || node.notes || node.reason || "")
+      explanation: safeStr(node.description || node.explanation || node.note || node.notes || node.reason || "")
     };
   }
 
@@ -3652,7 +3708,8 @@
       text.indexOf("tradedsalary") !== -1 ||
       text.indexOf("traded salary") !== -1 ||
       text.indexOf("trade salary") !== -1 ||
-      text.indexOf("trade settlement") !== -1
+      text.indexOf("trade settlement") !== -1 ||
+      text.indexOf("trade") !== -1
     ) {
       return "tradedSalary";
     }
@@ -3775,8 +3832,52 @@
     return reportSalaryAdjustmentBucket(row) === "traded_salary" || reportSalaryAdjustmentBucket(row) === "cut_players";
   }
 
+  function formatDropDate(dtStr) {
+    var text = safeStr(dtStr);
+    if (!text) return "";
+    var parts = text.split(/[\sT]/);
+    if (!parts[0]) return "";
+    var dateParts = parts[0].split("-");
+    if (dateParts.length < 3) return parts[0];
+    return dateParts[1] + "/" + dateParts[2] + "/" + dateParts[0];
+  }
+
+  function formatDropPenaltyDescription(row) {
+    if (!row) return safeStr(row && row.description);
+    var candidateRule = safeStr(row.candidate_rule);
+    var adjType = safeStr(row.adjustment_type).toUpperCase();
+    if (adjType !== "DROP_PENALTY_CANDIDATE" || !candidateRule) {
+      return safeStr(row.description);
+    }
+    var dropDate = formatDropDate(row.transaction_datetime_et);
+    var penalty = safeInt(row.penalty_amount || row.amount, 0);
+    var tcv = safeInt(row.pre_drop_tcv, 0);
+    var contractLength = safeInt(row.pre_drop_contract_length, 0);
+    var contractYear = safeInt(row.pre_drop_contract_year, 0);
+    var yearsRemaining = contractYear > 0 ? contractYear : Math.max(1, contractLength);
+
+    if (candidateRule === "waiver_35pct") {
+      var salary = safeInt(row.pre_drop_salary, 0);
+      return "Waiver pickup, salary = " + money(salary) + ". 35% penalty = " + money(penalty) + ". Dropped on " + (dropDate || "unknown") + ".";
+    }
+    if (tcv > 0 && tcv <= 4000) {
+      // TCV < $5K contracts: fixed $1K penalty
+      return contractLength + "-year, " + money(tcv) + " contract. " +
+        "Years remaining = " + yearsRemaining + ". " +
+        "TCV < $5K rule: fixed cap penalty = $1,000. " +
+        "Dropped on " + (dropDate || "unknown") + ".";
+    }
+    var guarantee = safeInt(row.original_guarantee, 0);
+    var earned = safeInt(row.total_salary_earned, 0);
+    return contractLength + "-year, " + money(tcv) + " contract. " +
+      "GTD = " + money(guarantee) + ". " +
+      "Earned = " + money(earned) + ". " +
+      "Penalty = " + money(penalty) + ". " +
+      "Dropped on " + (dropDate || "unknown") + ".";
+  }
+
   function normalizeReportSalaryAdjustmentRow(row) {
-    return {
+    var normalized = {
       ledger_key: safeStr(row && row.ledger_key),
       franchise_id: pad4(row && row.franchise_id),
       franchise_name: safeStr(row && row.franchise_name),
@@ -3791,8 +3892,26 @@
       import_eligible: reportSalaryAdjustmentImportEligible(row),
       import_explanation: safeStr(row && row.import_explanation),
       import_target_season: safeInt((row && (row.import_target_season != null ? row.import_target_season : row.adjustment_season)), 0),
-      description: safeStr(row && row.description)
+      description: safeStr(row && row.description),
+      candidate_rule: safeStr(row && row.candidate_rule),
+      original_guarantee: safeInt(row && row.original_guarantee, 0),
+      total_salary_earned: safeInt(row && row.total_salary_earned, 0),
+      penalty_amount: safeInt(row && row.penalty_amount, 0),
+      pre_drop_tcv: safeInt(row && row.pre_drop_tcv, 0),
+      pre_drop_salary: safeInt(row && row.pre_drop_salary, 0),
+      pre_drop_contract_length: safeInt(row && row.pre_drop_contract_length, 0),
+      pre_drop_contract_year: safeInt(row && row.pre_drop_contract_year, 0),
+      transaction_datetime_et: safeStr(row && row.transaction_datetime_et)
     };
+    // TCV < $5K contracts: fixed $1K cap penalty (rule override).
+    if (normalized.adjustment_type.toUpperCase() === "DROP_PENALTY_CANDIDATE" &&
+        normalized.pre_drop_tcv > 0 && normalized.pre_drop_tcv <= 4000 &&
+        normalized.amount > 0) {
+      normalized.amount = 1000;
+      normalized.penalty_amount = 1000;
+    }
+    normalized.description = formatDropPenaltyDescription(normalized) || normalized.description;
+    return normalized;
   }
 
   function toReportSalaryAdjustmentSummary(rows, season) {
@@ -3831,9 +3950,16 @@
       var fid = pad4(team.id || team.fid);
       var existingBreakdown = cloneSalaryAdjustmentBreakdown(team.summary.salaryAdjustmentBreakdown);
       var reportBreakdown = cloneSalaryAdjustmentBreakdown(reportSummary.byFranchise[fid]);
+      // Use report values when present; fall back to worker/live values otherwise.
+      // Report currently only covers DROP_PENALTY_CANDIDATE (cutPlayers). Trade
+      // settlements come from the live MFL salaryAdjustments feed.
       var mergedBreakdown = {
-        tradedSalary: safeInt(reportBreakdown.tradedSalary, 0),
-        cutPlayers: safeInt(reportBreakdown.cutPlayers, 0),
+        tradedSalary: safeInt(reportBreakdown.tradedSalary, 0) !== 0
+          ? safeInt(reportBreakdown.tradedSalary, 0)
+          : safeInt(existingBreakdown.tradedSalary, 0),
+        cutPlayers: safeInt(reportBreakdown.cutPlayers, 0) !== 0
+          ? safeInt(reportBreakdown.cutPlayers, 0)
+          : safeInt(existingBreakdown.cutPlayers, 0),
         other: safeInt(existingBreakdown.other, 0)
       };
       team.summary.salaryAdjustmentBreakdown = mergedBreakdown;
@@ -4160,6 +4286,7 @@
           capTotal: capTotal,
           salaryAdjustmentTotal: salaryAdjustmentTotal,
           salaryAdjustmentBreakdown: salaryAdjustmentBreakdown,
+          salaryAdjustmentRawRows: asArray(summary.salary_adjustment_raw_rows),
           compliance: compliance
         }
       });
@@ -6126,6 +6253,27 @@
     );
   }
 
+  function capAdjustmentPlayerRowsHtml(rows, bucket) {
+    var filtered = [];
+    for (var i = 0; i < rows.length; i += 1) {
+      var r = rows[i] || {};
+      if (r.bucket === bucket) filtered.push(r);
+    }
+    if (!filtered.length) return '';
+    var html = '';
+    for (var j = 0; j < filtered.length; j += 1) {
+      var row = filtered[j];
+      var playerLabel = safeStr(row.player_name) || safeStr(row.player_id) || "Unknown";
+      var desc = safeStr(row.description);
+      html +=
+        '<tr class="rwb-cap-adj-player-row">' +
+          '<th>' + escapeHtml(playerLabel) + (desc ? ' <span class="rwb-cap-adj-desc">' + escapeHtml(desc) + '</span>' : '') + '</th>' +
+          '<td class="rwb-cell-num">' + escapeHtml(money(safeInt(row.amount, 0))) + '</td>' +
+        '</tr>';
+    }
+    return html;
+  }
+
   function teamCapSummaryHtml(team) {
     var totalSalary = safeInt(team && team.summary && team.summary.capTotal, 0);
     var totalAdjustments = safeInt(team && team.summary && team.summary.salaryAdjustmentTotal, 0);
@@ -6170,11 +6318,111 @@
         '</tr>';
     }
 
+    var breakdown = cloneSalaryAdjustmentBreakdown(team && team.summary && team.summary.salaryAdjustmentBreakdown);
+    var adjRows = (team && team.summary && team.summary.salaryAdjustmentRows) || [];
+    var hasBreakdown = totalAdjustments !== 0;
+    var teamId = safeStr(team && team.id);
+
+    var tradedPlayerRows = capAdjustmentPlayerRowsHtml(adjRows, "traded_salary");
+    var cutPlayerRows = capAdjustmentPlayerRowsHtml(adjRows, "cut_players");
+    var otherPlayerRows = capAdjustmentPlayerRowsHtml(adjRows, "other");
+
+    // Augment trade drilldown with live MFL trade settlement rows
+    // (team on the other side, date, amount from the trade_YYYYMMDD token)
+    var rawAdjRows = asArray(team && team.summary && team.summary.salaryAdjustmentRawRows);
+    var liveTradeRows = rawAdjRows.filter(function (r) {
+      return r && (r.category === "traded_salary_dollars" || r.category === "traded_salary" ||
+                   /trade/i.test(safeStr(r.explanation || "")));
+    });
+    if (liveTradeRows.length) {
+      var liveTradeHtml = "";
+      for (var lt = 0; lt < liveTradeRows.length; lt += 1) {
+        var lrow = liveTradeRows[lt];
+        var expl = safeStr(lrow.explanation);
+        var tradeIdMatch = expl.match(/trade_(\d{4}\d{2}\d{2}|\d+)/i);
+        var tradeLabel = tradeIdMatch ? tradeIdMatch[0] : "Trade";
+        // Parse date from trade_YYYYMMDD pattern
+        var dateLabel = "";
+        if (tradeIdMatch && tradeIdMatch[1] && tradeIdMatch[1].length === 8) {
+          dateLabel = tradeIdMatch[1].slice(4,6) + "/" + tradeIdMatch[1].slice(6,8) + "/" + tradeIdMatch[1].slice(0,4);
+        }
+        var amt = safeInt(lrow.amount, 0);
+        liveTradeHtml +=
+          '<tr class="rwb-cap-adj-player-row">' +
+            '<th>' + escapeHtml(tradeLabel) +
+              (dateLabel ? ' <span class="rwb-cap-adj-desc">' + escapeHtml(dateLabel) + '</span>' : '') +
+              ' <span class="rwb-cap-adj-desc">' + escapeHtml(expl.slice(0, 80)) + '</span>' +
+            '</th>' +
+            '<td class="rwb-cell-num">' + escapeHtml(money(amt)) + '</td>' +
+          '</tr>';
+      }
+      tradedPlayerRows = liveTradeHtml + tradedPlayerRows;
+    }
+
+    var showTrade = breakdown.tradedSalary !== 0;
+    var showCut = breakdown.cutPlayers !== 0;
+    var showOther = breakdown.other !== 0;
+
+    var adjustmentSubRows = '';
+    if (hasBreakdown) {
+      if (showTrade) {
+        var tradeHasPlayers = tradedPlayerRows !== '';
+        adjustmentSubRows +=
+          '<tr class="rwb-cap-adj-bucket-row' + (tradeHasPlayers ? ' rwb-cap-adj-expandable' : '') + '"' +
+            (tradeHasPlayers ? ' data-cap-adj-bucket="trade-' + escapeHtml(teamId) + '"' : '') + '>' +
+            '<th>' + (tradeHasPlayers ? '<span class="rwb-cap-adj-arrow">&#9654;</span> ' : '') + 'Trade Adj</th>' +
+            '<td class="rwb-cell-num">' + escapeHtml(money(breakdown.tradedSalary)) + '</td>' +
+          '</tr>';
+        if (tradeHasPlayers) {
+          adjustmentSubRows += '<tr class="rwb-cap-adj-player-group" data-cap-adj-players="trade-' + escapeHtml(teamId) + '" style="display:none">' +
+            '<td colspan="2"><table class="rwb-cap-adj-player-table">' + tradedPlayerRows + '</table></td></tr>';
+        }
+      }
+      if (showCut) {
+        var cutHasPlayers = cutPlayerRows !== '';
+        adjustmentSubRows +=
+          '<tr class="rwb-cap-adj-bucket-row' + (cutHasPlayers ? ' rwb-cap-adj-expandable' : '') + '"' +
+            (cutHasPlayers ? ' data-cap-adj-bucket="cut-' + escapeHtml(teamId) + '"' : '') + '>' +
+            '<th>' + (cutHasPlayers ? '<span class="rwb-cap-adj-arrow">&#9654;</span> ' : '') + 'Dropped Players</th>' +
+            '<td class="rwb-cell-num">' + escapeHtml(money(breakdown.cutPlayers)) + '</td>' +
+          '</tr>';
+        if (cutHasPlayers) {
+          adjustmentSubRows += '<tr class="rwb-cap-adj-player-group" data-cap-adj-players="cut-' + escapeHtml(teamId) + '" style="display:none">' +
+            '<td colspan="2"><table class="rwb-cap-adj-player-table">' + cutPlayerRows + '</table></td></tr>';
+        }
+      }
+      if (showOther) {
+        var otherHasPlayers = otherPlayerRows !== '';
+        adjustmentSubRows +=
+          '<tr class="rwb-cap-adj-bucket-row' + (otherHasPlayers ? ' rwb-cap-adj-expandable' : '') + '"' +
+            (otherHasPlayers ? ' data-cap-adj-bucket="other-' + escapeHtml(teamId) + '"' : '') + '>' +
+            '<th>' + (otherHasPlayers ? '<span class="rwb-cap-adj-arrow">&#9654;</span> ' : '') + 'Other</th>' +
+            '<td class="rwb-cell-num">' + escapeHtml(money(breakdown.other)) + '</td>' +
+          '</tr>';
+        if (otherHasPlayers) {
+          adjustmentSubRows += '<tr class="rwb-cap-adj-player-group" data-cap-adj-players="other-' + escapeHtml(teamId) + '" style="display:none">' +
+            '<td colspan="2"><table class="rwb-cap-adj-player-table">' + otherPlayerRows + '</table></td></tr>';
+        }
+      }
+    }
+
+    // RULE-CAP-002: team-level rounding, dynamic until auction lock. Compute
+    // the rounded total adjustments. When rounding changes the total,
+    // show a single "Rounded Adjustments" row and use the rounded value as
+    // the Cap Space Available (so owners see their effective cap).
+    var roundedAdjustments = Math.round(totalAdjustments / 1000) * 1000;
+    var showRounded = totalAdjustments !== 0 && roundedAdjustments !== totalAdjustments;
+    var rounderDelta = roundedAdjustments - totalAdjustments;
+    var effectiveAdjustments = showRounded ? roundedAdjustments : totalAdjustments;
+    var effectiveCapSpace = calculateCapSpace(totalSalary, effectiveAdjustments);
+    var effectiveCapSpaceText = effectiveCapSpace == null ? "—" : money(effectiveCapSpace);
+    var effectiveCapSpaceClass = effectiveCapSpace != null && effectiveCapSpace < 0 ? " is-bad" : "";
+
     return (
       '<div class="rwb-cap-summary">' +
         '<div class="rwb-cap-summary-head">' +
           '<div class="rwb-cap-summary-title">Cap Summary</div>' +
-          '<div class="rwb-cap-summary-note">Trade and cut adjustments come from the salary-adjustments report. Manual other adjustments stay sourced from live MFL salaryAdjustments. Taxi excluded. IR counts at 50%.</div>' +
+          '<div class="rwb-cap-summary-note">Trade and cut adjustments come from the salary-adjustments report. Manual other adjustments stay sourced from live MFL salaryAdjustments. Rounding to nearest $1K applies at the team level and is dynamic until the FA Auction. Taxi excluded. IR counts at 50%.</div>' +
         '</div>' +
         '<table class="rwb-cap-summary-table" aria-label="' + escapeHtml(team.name + ' cap summary') + '">' +
           '<tbody>' +
@@ -6182,10 +6430,27 @@
               '<th>Total Salary</th>' +
               '<td class="rwb-cell-num">' + escapeHtml(money(totalSalary)) + '</td>' +
             '</tr>' +
-            adjustmentsRowHtml +
-            '<tr class="rwb-cap-space-row' + capSpaceClass + '">' +
+            '<tr class="' + (hasBreakdown ? 'rwb-cap-adj-expandable' : '') + '"' +
+              (hasBreakdown ? ' data-cap-adj-toggle="adj-' + escapeHtml(teamId) + '"' : '') + '>' +
+              '<th>' + (hasBreakdown ? '<span class="rwb-cap-adj-arrow">&#9654;</span> ' : '') + 'Total Adjustments (raw)</th>' +
+              '<td class="rwb-cell-num">' + escapeHtml(money(totalAdjustments)) + '</td>' +
+            '</tr>' +
+            (showRounded
+              ? '<tr class="rwb-cap-adj-rounded">' +
+                  '<th title="Dynamic: locks at the FA Auction">Rounded Adjustments <span class="rwb-cap-adj-desc">(locks at auction)</span></th>' +
+                  '<td class="rwb-cell-num">' + escapeHtml(money(roundedAdjustments)) +
+                    ' <span class="rwb-cap-adj-desc">(Δ ' + (rounderDelta >= 0 ? '+' : '−') + escapeHtml(money(Math.abs(rounderDelta))) + ')</span>' +
+                  '</td>' +
+                '</tr>'
+              : '') +
+            (hasBreakdown
+              ? '<tr class="rwb-cap-adj-breakdown" data-cap-adj-detail="adj-' + escapeHtml(teamId) + '" style="display:none">' +
+                  '<td colspan="2"><table class="rwb-cap-adj-sub-table">' + adjustmentSubRows + '</table></td>' +
+                '</tr>'
+              : '') +
+            '<tr class="rwb-cap-space-row' + effectiveCapSpaceClass + '">' +
               '<th>Cap Space Available</th>' +
-              '<td class="rwb-cell-num">' + escapeHtml(capSpaceText) + '</td>' +
+              '<td class="rwb-cell-num">' + escapeHtml(effectiveCapSpaceText) + '</td>' +
             '</tr>' +
           '</tbody>' +
         '</table>' +
@@ -7032,6 +7297,19 @@
           '</div>' +
           (viewerCanManageAnyRoster() && !ownRoster ? '<div class="rwb-modal-note"><strong>Commish:</strong> Acting on behalf of ' + escapeHtml(team.name) + '.</div>' : '');
       } else {
+        // Parse Ext: history from contract info so we can surface "Extended by"
+        var extHistoryText = "";
+        var extMatch = safeStr(player.special).match(/(?:^|\|)\s*Ext:\s*([^|]+)/i);
+        if (extMatch && extMatch[1]) {
+          extHistoryText = safeStr(extMatch[1])
+            .split(",")
+            .map(function (s) { return s.trim(); })
+            .filter(function (s) { return s.length > 0; })
+            .join(", ");
+        }
+        var extendedByHtml = extHistoryText
+          ? '<div class="rwb-modal-metric rwb-modal-metric-wide"><span>Extended By</span><strong>' + escapeHtml(extHistoryText) + '</strong></div>'
+          : '';
         content =
           playerHeaderHtml +
           '<div class="rwb-modal-grid">' +
@@ -7043,6 +7321,7 @@
             '<div class="rwb-modal-metric"><span>Cap Penalty</span><strong>' + escapeHtml(money(penalty.amount)) + '</strong></div>' +
             '<div class="rwb-modal-metric"><span>Acquire Date</span><strong>' + escapeHtml(acquisitionDateLabelForPlayer(player)) + '</strong></div>' +
             '<div class="rwb-modal-metric"><span>How Acquired</span><strong>' + escapeHtml(acquisitionTypeLabelForPlayer(player)) + '</strong></div>' +
+            extendedByHtml +
           '</div>' +
           '<div class="rwb-modal-actions-wrap">' + actions.join("") + '</div>' +
           rookieOptionSummaryHtml +
@@ -9505,21 +9784,28 @@
       return;
     }
 
-    var capAdjToggle = target.closest("[data-action='cap-adj-toggle']");
+    /* --- Cap adjustment drilldown toggles --- */
+    var capAdjToggle = target.closest("[data-cap-adj-toggle]");
     if (capAdjToggle) {
-      var panelId = safeStr(capAdjToggle.getAttribute("aria-controls"));
-      if (!panelId) return;
-      var isExpanded = capAdjToggle.getAttribute("aria-expanded") === "true";
-      var nextExpanded = !isExpanded;
-      capAdjToggle.setAttribute("aria-expanded", nextExpanded ? "true" : "false");
-      capAdjToggle.classList.toggle("is-open", nextExpanded);
-      var detailRows = document.querySelectorAll('#' + panelId + ', [data-for="' + panelId + '"]');
-      for (var di = 0; di < detailRows.length; di += 1) {
-        if (nextExpanded) {
-          detailRows[di].removeAttribute("hidden");
-        } else {
-          detailRows[di].setAttribute("hidden", "");
-        }
+      var toggleKey = capAdjToggle.getAttribute("data-cap-adj-toggle");
+      var detailRow = capAdjToggle.closest("table").querySelector('[data-cap-adj-detail="' + toggleKey + '"]');
+      if (detailRow) {
+        var isOpen = detailRow.style.display !== "none";
+        detailRow.style.display = isOpen ? "none" : "";
+        var arrow = capAdjToggle.querySelector(".rwb-cap-adj-arrow");
+        if (arrow) arrow.innerHTML = isOpen ? "&#9654;" : "&#9660;";
+      }
+      return;
+    }
+    var capAdjBucket = target.closest("[data-cap-adj-bucket]");
+    if (capAdjBucket) {
+      var bucketKey = capAdjBucket.getAttribute("data-cap-adj-bucket");
+      var playerGroup = capAdjBucket.closest("table").querySelector('[data-cap-adj-players="' + bucketKey + '"]');
+      if (playerGroup) {
+        var bucketOpen = playerGroup.style.display !== "none";
+        playerGroup.style.display = bucketOpen ? "none" : "";
+        var bucketArrow = capAdjBucket.querySelector(".rwb-cap-adj-arrow");
+        if (bucketArrow) bucketArrow.innerHTML = bucketOpen ? "&#9654;" : "&#9660;";
       }
       return;
     }
@@ -10098,7 +10384,7 @@
       var playerIds = collectRosterPlayerIds(rostersPayload);
       return fetchPlayersMap(ctx.year, playerIds).then(function (playersMap) {
         var leagueMeta = parseLeagueMeta(leaguePayload);
-        var salaryMap = toSalaryMap(salariesPayload);
+        var salaryMap = toSalaryMap(salariesPayload, playerIds);
         var priorSalaryMap = toSalaryMap(priorSalariesPayload);
         var salaryAdjustmentSummary = toSalaryAdjustmentSummary(salaryAdjustPayload);
         var scores = toScoreMap(pointsPayload);

@@ -1425,7 +1425,12 @@ def build_drop_candidate_rows(
             original_guarantee = guaranteed
             total_salary_earned = prior_earned + accrued
             penalty = max(0, original_guarantee - total_salary_earned)
-            candidate_rule = "guarantee_minus_earned"
+            # TCV < $5K contracts: fixed $1K cap penalty (rule override, not a floor).
+            if total_contract_value > 0 and total_contract_value <= 4000 and penalty > 0:
+                penalty = 1000
+                candidate_rule = "tcv_under_5k_fixed_1k"
+            else:
+                candidate_rule = "guarantee_minus_earned"
             penalty_rule = f"{guarantee_label} ({guaranteed:,}) minus earned to date ({total_salary_earned:,})"
             note = (
                 "Projected current-rule penalty: "
@@ -1489,12 +1494,34 @@ def build_drop_candidate_rows(
                 "Projected from add/drop transaction history, but a manual special-cases input flagged this row as a cap-free exemption candidate."
             )
 
-        description_parts = [
-            f"Candidate drop penalty from {safe_str(row['drop_method']) or safe_str(row['event_source']) or 'drop transaction'}.",
-            note,
-        ]
-        if season_note:
-            description_parts.append(season_note)
+        # --- Human-readable description ---
+        drop_date_str = ""
+        if transaction_dt is not None:
+            drop_date_str = transaction_dt.strftime("%m/%d/%Y")
+
+        if candidate_rule == "waiver_35pct":
+            description_parts = [
+                f"Waiver pickup, salary = ${current_year_salary:,}.",
+                f"35% penalty = ${penalty:,}.",
+                f"Dropped on {drop_date_str or 'unknown'}.",
+            ]
+        elif total_contract_value > 0 and total_contract_value <= 4000:
+            years_remaining = contract_year if contract_year > 0 else max(1, contract_length)
+            description_parts = [
+                f"{contract_length}-year, ${total_contract_value:,} contract.",
+                f"Years remaining = {years_remaining}.",
+                f"TCV < $5K rule: fixed cap penalty = $1,000.",
+                f"Dropped on {drop_date_str or 'unknown'}.",
+            ]
+        else:
+            description_parts = [
+                f"{contract_length}-year, ${total_contract_value:,} contract.",
+                f"GTD = ${original_guarantee:,}.",
+                f"Earned = ${total_salary_earned:,}.",
+                f"Penalty = ${penalty:,}.",
+                f"Dropped on {drop_date_str or 'unknown'}.",
+            ]
+
         if context_note:
             description_parts.append(context_note)
         if cap_free_exemption_flag:

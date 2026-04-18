@@ -3,6 +3,74 @@ const contractDiscordChannelQueues = new Map();
 const contractDiscordChannelLastSendMs = new Map();
 
 export default {
+  // Cloudflare cron trigger — fires every hour at :05 past per wrangler.toml.
+  // RULE-WORKFLOW-004: scan MFL add/drop transactions for new drop penalties,
+  // post them as salaryAdjustments to MFL, and fire a Discord Cap Penalty
+  // Announcement for each (batched per-team). MFL's salaryAdjustments export
+  // is the dedup ledger — runs are idempotent by ups_drop_penalty:{ledger_key}.
+  async scheduled(event, env, ctx) {
+    try {
+      const season = String(env.YEAR || new Date().getUTCFullYear());
+      const leagueId = String(env.LEAGUE_ID || "74598");
+      const origin = String(env.WORKER_ORIGIN || "https://upsmflproduction.keith-creelman.workers.dev");
+      const commishApiKey = String(env.COMMISH_API_KEY || "").trim();
+      const authHeader = commishApiKey
+        ? { "X-Internal-Auth": commishApiKey }
+        : {};
+      // Step 1: ask ourselves to scan + import new drop penalties to MFL.
+      const importUrl = `${origin}/admin/import-drop-penalties?L=${leagueId}&YEAR=${season}`;
+      const importRes = await fetch(importUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeader },
+        body: JSON.stringify({ season, league_id: leagueId, dry_run: false }),
+      });
+      const importData = await importRes.json().catch(() => ({}));
+      const newlyPosted = Array.isArray(importData.posted_rows) ? importData.posted_rows : [];
+      // Step 2: for each franchise that got NEW penalties posted this run,
+      // fire a Discord Cap Penalty Announcement. We group by franchise.
+      if (!newlyPosted.length) {
+        console.log(`[scheduled ${new Date().toISOString()}] drop-penalty scan: no new drops`);
+        return;
+      }
+      const byFranchise = {};
+      for (const row of newlyPosted) {
+        const fid = String(row.franchise_id || "").padStart(4, "0");
+        if (!fid) continue;
+        if (!byFranchise[fid]) byFranchise[fid] = { franchise_id: fid, total: 0, lines: [] };
+        const m = String(row.explanation || "").match(/UPS drop penalty\s+([A-Za-z0-9 ,.'’\-]+?)\s+(\d+)\s+id:/);
+        const playerName = m ? m[1].trim() : "Player";
+        const amount = parseInt(row.amount, 10) || 0;
+        byFranchise[fid].total += amount;
+        byFranchise[fid].lines.push(
+          `**${playerName}** dropped — cap penalty **$${amount.toLocaleString("en-US")}**. Applied to ${season}.`
+        );
+      }
+      const capPenaltyChannel = String(env.DISCORD_CAP_PENALTY_CHANNEL_ID || "1066390675207233618");
+      const postUrl = `${origin}/admin/cap-penalty/post?L=${leagueId}&YEAR=${season}`;
+      for (const [fid, team] of Object.entries(byFranchise)) {
+        await fetch(postUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...authHeader },
+          body: JSON.stringify({
+            league_id: leagueId,
+            season,
+            franchise_id: fid,
+            franchise_name: team.franchise_name || "",
+            team_total_dollars: team.total,
+            activity_year_label: `${season} Activity (auto-detected)`,
+            cap_penalty_lines: team.lines,
+            channel_id_override: capPenaltyChannel,
+          }),
+        }).catch((e) => console.error(`[scheduled] discord post failed for ${fid}: ${e.message}`));
+      }
+      console.log(
+        `[scheduled ${new Date().toISOString()}] drop-penalty scan: posted ${newlyPosted.length} penalties across ${Object.keys(byFranchise).length} teams`
+      );
+    } catch (err) {
+      console.error(`[scheduled] drop-penalty cron failed: ${err && err.message}`);
+    }
+  },
+
   async fetch(request, env) {
     try {
       // ---------- CORS ----------
@@ -62,6 +130,12 @@ export default {
         path !== "/admin/deadline-reminders/test-discord" &&
         path !== "/admin/deadline-reminders/run" &&
         path !== "/admin/contract-activity/test-discord" &&
+        path !== "/admin/trade-notification/test-discord" &&
+        path !== "/admin/trade-notification/post" &&
+        path !== "/admin/cap-penalty/test-discord" &&
+        path !== "/admin/cap-penalty/post" &&
+        path !== "/admin/restructure-alert/test-discord" &&
+        path !== "/admin/restructure-alert/post" &&
         path !== "/admin/contract-activity/test-discord-batch" &&
         path !== "/admin/contract-activity/post" &&
         path !== "/admin/contract-activity/post-batch" &&
@@ -8276,7 +8350,7 @@ export default {
           node.franchiseid ??
           "";
         const rawAmount = node.amount ?? node.value ?? node.adjustment ?? "";
-        const explanation = safeStr(node.explanation || node.note || node.notes || node.reason || "");
+        const explanation = safeStr(node.description || node.explanation || node.note || node.notes || node.reason || "");
         const franchiseId = padFranchiseId(rawFranchiseId);
         const amount = safeInt(parseMoneyTokenToDollars(rawAmount, { assumeKIfNoUnit: true }), NaN);
         if (!franchiseId || !Number.isFinite(amount)) return null;
@@ -8329,7 +8403,8 @@ export default {
           text.includes("tradedsalary") ||
           text.includes("traded salary") ||
           text.includes("trade salary") ||
-          text.includes("trade settlement")
+          text.includes("trade settlement") ||
+          text.includes("trade")
         ) {
           return "traded_salary_dollars";
         }
@@ -8869,14 +8944,43 @@ export default {
         return { ok: true, skipped: false, reason: "" };
       };
 
+      const normalizePlayerNameForGif = (name) => {
+        // Handle both "Last, First" and "First Last" formats.
+        // Returns {full, last, variants[]}
+        let cleaned = safeStr(name).replace(/\s+/g, " ").trim();
+        if (!cleaned) return { full: "", last: "", variants: [] };
+        let first = "", last = "";
+        if (cleaned.includes(",")) {
+          const parts = cleaned.split(",").map((s) => s.trim());
+          last = parts[0] || "";
+          first = parts[1] || "";
+        } else {
+          const parts = cleaned.split(" ");
+          first = parts[0] || "";
+          last = parts.slice(1).join(" ") || "";
+        }
+        const stripSuffix = (s) => s.replace(/\s+(jr|sr|ii|iii|iv|v)\.?$/i, "").trim();
+        const full = [first, last].filter(Boolean).join(" ").trim();
+        const fullNoSuffix = stripSuffix(full);
+        const lastNoSuffix = stripSuffix(last);
+        const variants = Array.from(new Set([full, fullNoSuffix, `${first} ${lastNoSuffix}`.trim(), lastNoSuffix, last].filter(Boolean)));
+        return { full, last, variants };
+      };
+
       const contractGifQueries = ({ activityType, playerName }) => {
-        const player = safeStr(playerName);
+        const parsed = normalizePlayerNameForGif(playerName);
         const kind = normalizeContractActivityKind(activityType, "");
         const queries = [];
-        if (player) {
-          queries.push(`${player} nfl`);
-          queries.push(`${player} football`);
+        // Primary: player name variants (most specific first)
+        for (const v of parsed.variants) {
+          if (v) queries.push(v);
         }
+        // Also try player + "nfl" / "football" to get game footage
+        if (parsed.full) {
+          queries.push(`${parsed.full} touchdown`);
+          queries.push(`${parsed.full} nfl`);
+        }
+        // Generic fallbacks by activity type
         if (kind === "extension") {
           queries.push("nfl celebration");
           queries.push("football contract signing");
@@ -8894,43 +8998,108 @@ export default {
         return queries.filter(Boolean);
       };
 
+      // Normalize text for matching (lowercase, strip punctuation/diacritics).
+      const normalizeForMatch = (s) => safeStr(s).toLowerCase()
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9]+/g, " ")
+        .trim();
+
       const pickContractActivityGifUrl = async ({ activityType, playerName }) => {
         const apiKey = safeStr(env.GIPHY_API_KEY || "");
         if (!apiKey) {
           return { ok: false, gif_url: "", reason: "missing_giphy_api_key", query: "" };
         }
+        const parsedName = normalizePlayerNameForGif(playerName);
+        const playerLastNorm = normalizeForMatch(parsedName.last).replace(/\s+(jr|sr|ii|iii|iv|v)$/, "").trim();
+        const playerFullNorm = normalizeForMatch(parsedName.full).replace(/\s+(jr|sr|ii|iii|iv|v)$/, "").trim();
         const queries = contractGifQueries({ activityType, playerName });
-        for (const query of queries) {
-          const searchUrl = new URL("https://api.giphy.com/v1/gifs/search");
-          searchUrl.searchParams.set("api_key", apiKey);
-          searchUrl.searchParams.set("q", query);
-          searchUrl.searchParams.set("limit", "15");
-          searchUrl.searchParams.set("offset", "0");
-          searchUrl.searchParams.set("rating", "pg-13");
-          searchUrl.searchParams.set("lang", "en");
-          try {
-            const res = await fetch(searchUrl.toString(), {
-              headers: { "User-Agent": "upsmflproduction-worker" },
-              cf: { cacheTtl: 300, cacheEverything: false },
-            });
-            if (!res.ok) continue;
-            const data = await res.json();
-            const rows = Array.isArray(data?.data) ? data.data : [];
-            if (!rows.length) continue;
-            const pick = rows[Math.floor(Math.random() * rows.length)] || rows[0];
-            const gifUrl =
-              safeStr(pick?.images?.original?.url) ||
-              safeStr(pick?.images?.downsized_large?.url) ||
-              safeStr(pick?.images?.fixed_height?.url) ||
-              safeStr(pick?.url);
-            if (gifUrl) {
-              return { ok: true, gif_url: gifUrl, reason: "", query };
+        const isPlayerSpecificQuery = (q) => {
+          const qn = normalizeForMatch(q);
+          return !!playerLastNorm && qn.includes(playerLastNorm);
+        };
+        // Pass 1: require FULL NAME match (e.g. "kenneth walker" in title).
+        // This dramatically reduces false-positives from common surnames.
+        // Pass 2 (fallback): last-name-only strict match.
+        // Pass 3 (last resort): no player-specific match — skip rather than
+        // return a wrong GIF, per commissioner preference.
+        const tryPass = async (requireFullName) => {
+          for (const query of queries) {
+            if (!isPlayerSpecificQuery(query)) continue;
+            const searchUrl = new URL("https://api.giphy.com/v1/gifs/search");
+            searchUrl.searchParams.set("api_key", apiKey);
+            searchUrl.searchParams.set("q", query);
+            searchUrl.searchParams.set("limit", "25");
+            searchUrl.searchParams.set("offset", "0");
+            searchUrl.searchParams.set("lang", "en");
+            try {
+              const res = await fetch(searchUrl.toString(), {
+                headers: { "User-Agent": "upsmflproduction-worker" },
+                cf: { cacheTtl: 300, cacheEverything: false },
+              });
+              if (!res.ok) continue;
+              const data = await res.json();
+              const rows = Array.isArray(data?.data) ? data.data : [];
+              if (!rows.length) continue;
+              const matches = rows.filter((row) => {
+                const title = normalizeForMatch(row?.title || "");
+                const slug = normalizeForMatch(row?.slug || "");
+                if (requireFullName && playerFullNorm) {
+                  return title.includes(playerFullNorm) || slug.includes(playerFullNorm);
+                }
+                return title.includes(playerLastNorm) || slug.includes(playerLastNorm);
+              });
+              if (!matches.length) continue;
+              const pick = matches[Math.floor(Math.random() * matches.length)];
+              const gifUrl =
+                safeStr(pick?.images?.original?.url) ||
+                safeStr(pick?.images?.downsized_large?.url) ||
+                safeStr(pick?.images?.fixed_height?.url) ||
+                safeStr(pick?.url);
+              if (gifUrl) {
+                return {
+                  ok: true,
+                  gif_url: gifUrl,
+                  reason: "",
+                  query,
+                  strict_match: true,
+                  full_name_match: !!requireFullName,
+                };
+              }
+            } catch (_) {
+              continue;
             }
-          } catch (_) {
-            continue;
+          }
+          return null;
+        };
+        const pass1 = await tryPass(true);
+        if (pass1) return pass1;
+        const pass2 = await tryPass(false);
+        if (pass2) return pass2;
+        // Per commissioner: no GIF is better than a wrong one. Only fall back
+        // to a generic celebration GIF if we have NO player at all.
+        if (!playerLastNorm) {
+          for (const query of queries) {
+            const searchUrl = new URL("https://api.giphy.com/v1/gifs/search");
+            searchUrl.searchParams.set("api_key", apiKey);
+            searchUrl.searchParams.set("q", query);
+            searchUrl.searchParams.set("limit", "25");
+            searchUrl.searchParams.set("lang", "en");
+            try {
+              const res = await fetch(searchUrl.toString(), {
+                headers: { "User-Agent": "upsmflproduction-worker" },
+                cf: { cacheTtl: 300, cacheEverything: false },
+              });
+              if (!res.ok) continue;
+              const data = await res.json();
+              const rows = Array.isArray(data?.data) ? data.data : [];
+              if (!rows.length) continue;
+              const pick = rows[Math.floor(Math.random() * rows.length)];
+              const gifUrl = safeStr(pick?.images?.original?.url) || safeStr(pick?.images?.downsized_large?.url) || safeStr(pick?.images?.fixed_height?.url) || safeStr(pick?.url);
+              if (gifUrl) return { ok: true, gif_url: gifUrl, reason: "", query };
+            } catch (_) {}
           }
         }
-        return { ok: false, gif_url: "", reason: "gif_not_found", query: queries[0] || "" };
+        return { ok: false, gif_url: "", reason: "gif_not_found_strict", query: queries[0] || "" };
       };
 
       const buildContractActivityDiscordMessage = ({
@@ -9099,6 +9268,608 @@ export default {
           embed.image = { url: safeStr(gifUrl) };
         }
         return embed;
+      };
+
+      // =================================================================
+      // Trade notification Discord embed + sender (RULE-WORKFLOW-003)
+      // Separate from contract-activity because trades use a different
+      // format: "Team A receives X | Team B receives Y" layout.
+      // =================================================================
+
+      const formatTradeDateTime = (iso) => {
+        const text = safeStr(iso);
+        if (!text) return "";
+        try {
+          const d = new Date(text);
+          if (isNaN(d.getTime())) return text;
+          const fmt = d.toLocaleString("en-US", {
+            timeZone: "America/New_York",
+            year: "numeric",
+            month: "short",
+            day: "numeric",
+            hour: "numeric",
+            minute: "2-digit",
+            hour12: true,
+          });
+          return `${fmt} ET`;
+        } catch (_) {
+          return text;
+        }
+      };
+
+      // Parse MFL DP token (DP_R_S, both zero-indexed) or FP token
+      // (FP_FID_YYYY_R) into a human-friendly draft pick label.
+      // franchiseNameLookup: optional object mapping franchise_id (padded) to name
+      const parseDraftPickToken = (token, currentSeason, franchiseNameLookup) => {
+        const t = safeStr(token).toUpperCase();
+        const nameLookup = franchiseNameLookup || {};
+        // MFL convention (confirmed via league draftPick XML 2026-04-17):
+        //   DP_R_S — both R (round) and S (slot) are 0-indexed. Add 1 to each.
+        //   Slot is zero-padded to 2 digits to match MFL description format.
+        //   Examples:  DP_0_0 = "Pick 1.01"   DP_3_9 = "Pick 4.10"   DP_5_0 = "Pick 6.01"
+        const dpMatch = t.match(/^DP_(\d+)_(\d+)$/);
+        if (dpMatch) {
+          const round = safeInt(dpMatch[1], 0) + 1;
+          const slot = safeInt(dpMatch[2], 0) + 1;
+          const slotLabel = slot < 10 ? `0${slot}` : String(slot);
+          const year = safeStr(currentSeason) || "";
+          return `${year} Rookie Pick ${round}.${slotLabel}`.trim();
+        }
+        // Future pick: FP_FID_YYYY_R (round only). FID is the ORIGINAL owner
+        // franchise — must be preserved so "Hammer's 1st" stays attributed.
+        const fpMatch = t.match(/^FP_(\d+)_(\d{4})_(\d+)$/);
+        if (fpMatch) {
+          const fid = padFranchiseId(fpMatch[1]);
+          const year = fpMatch[2];
+          const round = safeInt(fpMatch[3], 0);
+          const ord = round === 1 ? "1st" : round === 2 ? "2nd" : round === 3 ? "3rd" : `${round}th`;
+          const originalOwner = safeStr(nameLookup[fid] || "");
+          return originalOwner ? `${originalOwner}'s ${year} ${ord}` : `${year} ${ord} round pick`;
+        }
+        // Trade cap-transfer token: BB_X. "Traded Salary" per league terminology.
+        const bbMatch = t.match(/^BB_(\d+)$/);
+        if (bbMatch) {
+          const amt = safeInt(bbMatch[1], 0);
+          return `$${amt.toLocaleString("en-US")} Traded Salary`;
+        }
+        return safeStr(token);
+      };
+
+      const describeTradeAsset = (asset, currentSeason, franchiseNameLookup) => {
+        if (!asset || typeof asset !== "object") return "";
+        const kind = safeStr(asset.kind || asset.type || "").toLowerCase();
+        const label = safeStr(asset.label || "");
+        if (label) {
+          const parsed = parseDraftPickToken(label, currentSeason, franchiseNameLookup);
+          return parsed !== label ? parsed : label;
+        }
+        const name = safeStr(asset.name || asset.player_name || "");
+        const contract = safeStr(asset.contract_summary || asset.contract_info || "");
+        if (kind === "player") {
+          return contract ? `${name} (${contract})` : name;
+        }
+        if (kind === "pick") {
+          const token = safeStr(asset.token || "");
+          if (token) {
+            const parsed = parseDraftPickToken(token, currentSeason, franchiseNameLookup);
+            if (parsed !== token) return parsed;
+          }
+          const year = safeStr(asset.year || asset.season || "");
+          const round = safeStr(asset.round || "");
+          const slot = safeStr(asset.slot || asset.pick || "");
+          if (year && round && slot) return `${year} Rookie Pick ${round}.${slot}`;
+          if (year && round) {
+            const r = safeInt(round, 0);
+            const ord = r === 1 ? "1st" : r === 2 ? "2nd" : r === 3 ? "3rd" : (r ? `${r}th` : round);
+            return `${year} ${ord} round pick`;
+          }
+          return year ? `${year} pick` : "Draft pick";
+        }
+        if (kind === "cap" || kind === "bbid" || kind === "cash" || kind === "traded_salary") {
+          // Default label is "Traded Salary" per league terminology
+          // (BBID is a separate thing; trade-time cap transfers are called
+          // Traded Salary in this league).
+          const amt = safeInt(asset.amount, 0);
+          const amtText = amt ? `$${amt.toLocaleString("en-US")}` : "";
+          return amtText ? `${amtText} Traded Salary` : "Traded Salary";
+        }
+        return name || kind || "Unknown asset";
+      };
+
+      const buildTradeNotificationEmbed = ({
+        tradeDateIso,
+        tradeId,
+        season,
+        leftFranchiseName,
+        rightFranchiseName,
+        leftReceives,
+        rightReceives,
+        capAdjustments,
+        noteText,
+        gifUrl,
+        leftIconUrl,
+        rightIconUrl,
+        franchiseIconUrl, // legacy alias (left only)
+        franchiseNameLookup,
+      }) => {
+        const resolvedLeftIcon = safeStr(leftIconUrl || franchiseIconUrl || "");
+        const resolvedRightIcon = safeStr(rightIconUrl || "");
+        const whenLabel = formatTradeDateTime(tradeDateIso);
+        const leftReceivesList = Array.isArray(leftReceives) ? leftReceives : [];
+        const rightReceivesList = Array.isArray(rightReceives) ? rightReceives : [];
+        const leftLines = leftReceivesList.map((a) => `• ${describeTradeAsset(a, season, franchiseNameLookup)}`).filter(Boolean);
+        const rightLines = rightReceivesList.map((a) => `• ${describeTradeAsset(a, season, franchiseNameLookup)}`).filter(Boolean);
+        const leftTeam = safeStr(leftFranchiseName) || "Team A";
+        const rightTeam = safeStr(rightFranchiseName) || "Team B";
+
+        const embed = {
+          title: "TRADE NOTIFICATION",
+          color: 0xc8a24d,
+          description: whenLabel ? `${whenLabel}${tradeId ? ` · ${tradeId}` : ""}` : (tradeId || ""),
+          fields: [],
+        };
+        embed.fields.push({
+          name: `${leftTeam} receives`,
+          value: leftLines.length ? leftLines.join("\n") : "(nothing)",
+          inline: false,
+        });
+        embed.fields.push({
+          name: `${rightTeam} receives`,
+          value: rightLines.length ? rightLines.join("\n") : "(nothing)",
+          inline: false,
+        });
+        if (Array.isArray(capAdjustments) && capAdjustments.length) {
+          const capLines = capAdjustments.map((c) => {
+            const team = safeStr(c.franchise_name || "");
+            const amt = safeInt(c.amount, 0);
+            const sign = amt > 0 ? "+" : (amt < 0 ? "−" : "");
+            return `• ${team}: ${sign}$${Math.abs(amt).toLocaleString("en-US")}`;
+          });
+          embed.fields.push({
+            name: "Cap Adjustments",
+            value: capLines.join("\n"),
+            inline: false,
+          });
+        }
+        // Analysis deliberately omitted — trade grades/roasts will populate this
+        // as a follow-up reply (existing trade_grader Discord bot integration).
+        //
+        // Both team icons: left goes in author.icon_url (next to the TRADE
+        // NOTIFICATION title), right goes in thumbnail (top-right corner).
+        // This way both teams are visually represented in the embed header.
+        if (resolvedLeftIcon) {
+          embed.author = { name: safeStr(leftFranchiseName || "") + "  ↔  " + safeStr(rightFranchiseName || ""), icon_url: resolvedLeftIcon };
+        } else {
+          embed.author = { name: safeStr(leftFranchiseName || "") + "  ↔  " + safeStr(rightFranchiseName || "") };
+        }
+        if (resolvedRightIcon) {
+          embed.thumbnail = { url: resolvedRightIcon };
+        } else if (resolvedLeftIcon) {
+          // Fallback to left icon thumbnail if right missing
+          embed.thumbnail = { url: resolvedLeftIcon };
+        }
+        if (safeStr(gifUrl)) {
+          embed.image = { url: safeStr(gifUrl) };
+        }
+        return embed;
+      };
+
+      const sendDiscordTradeNotification = async ({
+        leagueId,
+        season,
+        tradeDateIso,
+        tradeId,
+        leftFranchiseId,
+        leftFranchiseName,
+        rightFranchiseId,
+        rightFranchiseName,
+        leftReceives,
+        rightReceives,
+        capAdjustments,
+        noteText,
+        featuredPlayerName,
+        forceTestOnly,
+        forcePrimaryOnly,
+        channelIdOverride,
+      }) => {
+        const botToken = contractDiscordBotToken();
+        const overrideChannelId = safeStr(channelIdOverride).replace(/\D/g, "");
+        const target = overrideChannelId
+          ? {
+              channelId: overrideChannelId,
+              deliveryTarget: safeStr(forceTestOnly ? "test" : (forcePrimaryOnly ? "primary" : "override")),
+              missingError: "",
+            }
+          : contractDiscordChannelTarget(!!forceTestOnly, !!forcePrimaryOnly);
+        if (!botToken || !target.channelId) {
+          return {
+            ok: false,
+            skipped: false,
+            status: 0,
+            error: !botToken ? "missing_discord_contract_bot_token" : safeStr(target.missingError || "missing_discord_contract_channel_config"),
+            delivery_target: safeStr(target.deliveryTarget || ""),
+          };
+        }
+        const franchiseMeta = await loadContractDiscordFranchiseMeta({
+          season,
+          leagueId,
+          franchiseId: padFranchiseId(leftFranchiseId),
+        });
+        const rightFranchiseMeta = await loadContractDiscordFranchiseMeta({
+          season,
+          leagueId,
+          franchiseId: padFranchiseId(rightFranchiseId),
+        });
+        // Load all franchise names so FP_XXXX_YYYY_R tokens can be
+        // rendered with the original owner attribution.
+        let franchiseNameLookup = {};
+        try {
+          const leagueRes = await mflExportJson(season, leagueId, "league", {}, { includeApiKey: true, useCookie: true });
+          if (leagueRes.ok) {
+            const frList = leagueRes.data?.league?.franchises?.franchise;
+            const frArr = Array.isArray(frList) ? frList : (frList ? [frList] : []);
+            for (const f of frArr) {
+              const fid = padFranchiseId(f?.id);
+              if (fid) franchiseNameLookup[fid] = safeStr(f?.name || "");
+            }
+          }
+        } catch (_) {}
+        // Use the featured player for GIF search (most often the marquee player moving)
+        const gif = featuredPlayerName
+          ? await pickContractActivityGifUrl({ activityType: "trade", playerName: featuredPlayerName })
+          : { gif_url: "", query: "" };
+        const embed = buildTradeNotificationEmbed({
+          tradeDateIso,
+          tradeId,
+          season,
+          leftFranchiseName: leftFranchiseName || franchiseMeta.franchise_name,
+          rightFranchiseName: rightFranchiseName || rightFranchiseMeta.franchise_name,
+          leftReceives,
+          rightReceives,
+          capAdjustments,
+          noteText,
+          gifUrl: safeStr(gif.gif_url || ""),
+          leftIconUrl: safeStr(franchiseMeta.icon_url || ""),
+          rightIconUrl: safeStr(rightFranchiseMeta.icon_url || ""),
+          franchiseNameLookup,
+        });
+        const res = await withContractDiscordSendSlot(target.channelId, async () => {
+          return await discordBotRequest(
+            botToken,
+            "POST",
+            `/channels/${encodeURIComponent(target.channelId)}/messages`,
+            {
+              content: "",
+              embeds: [embed],
+              allowed_mentions: { parse: [] },
+            }
+          );
+        });
+        return {
+          ok: !!res.ok,
+          skipped: false,
+          status: safeInt(res.status, 0),
+          error: res.ok ? "" : safeStr(res.text || "discord_trade_post_failed").slice(0, 600),
+          channel_id: safeStr(target.channelId),
+          delivery_target: safeStr(target.deliveryTarget || ""),
+          message_id: safeStr(res.data?.id || ""),
+          gif_url: safeStr(gif.gif_url || ""),
+          gif_query: safeStr(gif.query || ""),
+          franchise_icon_url: safeStr(franchiseMeta.icon_url || ""),
+        };
+      };
+
+      // =================================================================
+      // Restructure Alert Discord embed + sender
+      // Dedicated format per commissioner 2026-04-17 — AAV is NEVER
+      // recomputed; it is passed through from the caller exactly as-is.
+      // =================================================================
+
+      const buildRestructureAlertEmbed = ({
+        franchiseName,
+        franchiseIconUrl,
+        playerName,
+        yearsRemaining,
+        tcvLabel,
+        guaranteedLabel,
+        aavLabel,
+        yearlyBreakdown,  // e.g. "2026: $26K, 2027: $103K"
+        usageText,
+        gifUrl,
+      }) => {
+        const team = safeStr(franchiseName) || "Unknown Team";
+        const player = safeStr(playerName) || "Unknown Player";
+        const yrs = safeInt(yearsRemaining, 0);
+        const yrLabel = yrs === 1 ? "1 Year Remaining" : `${yrs} Years Remaining`;
+        const descParts = [yrLabel];
+        if (safeStr(tcvLabel)) descParts.push(`TCV ${safeStr(tcvLabel)}`);
+        if (safeStr(guaranteedLabel)) descParts.push(`${safeStr(guaranteedLabel)} Guaranteed`);
+        if (safeStr(aavLabel)) descParts.push(`with ${safeStr(aavLabel)} AAV`);
+        const embed = {
+          title: "Restructure Alert",
+          color: 0x103a71,
+          description: descParts.join(", "),
+          fields: [
+            { name: "Team", value: team, inline: true },
+            { name: "Player", value: player, inline: true },
+          ],
+        };
+        if (safeStr(yearlyBreakdown)) {
+          embed.fields.push({ name: "Yearly Breakdown", value: safeStr(yearlyBreakdown), inline: false });
+        }
+        if (safeStr(usageText)) {
+          embed.fields.push({ name: "Usage", value: safeStr(usageText), inline: false });
+        }
+        if (safeStr(franchiseIconUrl)) embed.thumbnail = { url: safeStr(franchiseIconUrl) };
+        if (safeStr(gifUrl)) embed.image = { url: safeStr(gifUrl) };
+        return embed;
+      };
+
+      const sendDiscordRestructureAlert = async ({
+        leagueId,
+        season,
+        franchiseId,
+        franchiseName,
+        playerName,
+        yearsRemaining,
+        tcvLabel,
+        guaranteedLabel,
+        aavLabel,
+        yearlyBreakdown,
+        usageText,
+        gifUrlOverride,
+        forceTestOnly,
+        forcePrimaryOnly,
+        channelIdOverride,
+      }) => {
+        const botToken = contractDiscordBotToken();
+        const overrideChannelId = safeStr(channelIdOverride).replace(/\D/g, "");
+        const target = overrideChannelId
+          ? {
+              channelId: overrideChannelId,
+              deliveryTarget: safeStr(forceTestOnly ? "test" : (forcePrimaryOnly ? "primary" : "override")),
+              missingError: "",
+            }
+          : contractDiscordChannelTarget(!!forceTestOnly, !!forcePrimaryOnly);
+        if (!botToken || !target.channelId) {
+          return {
+            ok: false,
+            skipped: false,
+            status: 0,
+            error: !botToken ? "missing_discord_contract_bot_token" : safeStr(target.missingError || "missing_discord_contract_channel_config"),
+          };
+        }
+        const franchiseMeta = await loadContractDiscordFranchiseMeta({
+          season,
+          leagueId,
+          franchiseId: padFranchiseId(franchiseId),
+        });
+        const gif = safeStr(gifUrlOverride)
+          ? { gif_url: safeStr(gifUrlOverride), query: "override" }
+          : await pickContractActivityGifUrl({ activityType: "restructure", playerName });
+        const embed = buildRestructureAlertEmbed({
+          franchiseName: franchiseName || franchiseMeta.franchise_name,
+          franchiseIconUrl: franchiseMeta.icon_url,
+          playerName,
+          yearsRemaining,
+          tcvLabel,
+          guaranteedLabel,
+          aavLabel,
+          yearlyBreakdown,
+          usageText,
+          gifUrl: safeStr(gif.gif_url || ""),
+        });
+        const res = await withContractDiscordSendSlot(target.channelId, async () => {
+          return await discordBotRequest(
+            botToken,
+            "POST",
+            `/channels/${encodeURIComponent(target.channelId)}/messages`,
+            { content: "", embeds: [embed], allowed_mentions: { parse: [] } }
+          );
+        });
+        return {
+          ok: !!res.ok,
+          skipped: false,
+          status: safeInt(res.status, 0),
+          error: res.ok ? "" : safeStr(res.text || "discord_restructure_alert_post_failed").slice(0, 600),
+          channel_id: safeStr(target.channelId),
+          delivery_target: safeStr(target.deliveryTarget || ""),
+          message_id: safeStr(res.data?.id || ""),
+          gif_url: safeStr(gif.gif_url || ""),
+          gif_query: safeStr(gif.query || ""),
+        };
+      };
+
+      // =================================================================
+      // Cap Penalty Announcement Discord embed + sender
+      // Per-team grouped drop penalties narrated in full sentences.
+      // Uses fail/money/shock GIF queries (not player-specific).
+      // =================================================================
+
+      const capPenaltyGifQueries = () => [
+        "money disappear",
+        "expensive fail",
+        "football money gone",
+        "regret face",
+        "shocked money",
+        "football fail",
+        "contract fail",
+        "nfl frustration",
+        "disappointed celebration",
+      ];
+
+      const pickCapPenaltyGifUrl = async () => {
+        const apiKey = safeStr(env.GIPHY_API_KEY || "");
+        if (!apiKey) return { ok: false, gif_url: "", query: "" };
+        const queries = capPenaltyGifQueries();
+        for (const q of queries) {
+          const searchUrl = new URL("https://api.giphy.com/v1/gifs/search");
+          searchUrl.searchParams.set("api_key", apiKey);
+          searchUrl.searchParams.set("q", q);
+          searchUrl.searchParams.set("limit", "25");
+          searchUrl.searchParams.set("lang", "en");
+          try {
+            const res = await fetch(searchUrl.toString(), {
+              headers: { "User-Agent": "upsmflproduction-worker" },
+              cf: { cacheTtl: 300, cacheEverything: false },
+            });
+            if (!res.ok) continue;
+            const data = await res.json();
+            const rows = Array.isArray(data?.data) ? data.data : [];
+            if (!rows.length) continue;
+            const pick = rows[Math.floor(Math.random() * rows.length)];
+            const gifUrl =
+              safeStr(pick?.images?.original?.url) ||
+              safeStr(pick?.images?.downsized_large?.url) ||
+              safeStr(pick?.images?.fixed_height?.url) ||
+              safeStr(pick?.url);
+            if (gifUrl) return { ok: true, gif_url: gifUrl, query: q };
+          } catch (_) {
+            continue;
+          }
+        }
+        return { ok: false, gif_url: "", query: queries[0] };
+      };
+
+      const buildCapPenaltyAnnouncementEmbed = ({
+        franchiseName,
+        franchiseIconUrl,
+        teamTotalDollars,
+        penaltyCount,
+        capPenaltyLines, // array of pre-formatted narrative strings
+        gifUrl,
+        activityYearLabel, // e.g. "2025 Activity"
+      }) => {
+        const team = safeStr(franchiseName) || "Unknown Team";
+        const lines = Array.isArray(capPenaltyLines) ? capPenaltyLines : [];
+        const title = "Cap Penalty Announcement";
+        // RULE-CAP-002: team-level rounding is dynamic until auction lock.
+        // Show raw total + rounded total + delta note in the subtitle.
+        const rawTotal = Math.abs(safeInt(teamTotalDollars, 0));
+        const roundedTotal = Math.round(rawTotal / 1000) * 1000;
+        const subtitle = [];
+        if (activityYearLabel) subtitle.push(safeStr(activityYearLabel));
+        if (penaltyCount > 0) subtitle.push(`${penaltyCount} drop${penaltyCount !== 1 ? "s" : ""}`);
+        if (rawTotal) {
+          if (roundedTotal !== rawTotal) {
+            subtitle.push(`$${rawTotal.toLocaleString("en-US")} raw → **$${roundedTotal.toLocaleString("en-US")}** rounded`);
+          } else {
+            subtitle.push(`$${rawTotal.toLocaleString("en-US")} total`);
+          }
+        }
+
+        const embed = {
+          title,
+          color: 0xaa2e2e, // dark red for penalties
+          description: subtitle.join(" · "),
+          fields: [],
+        };
+        if (rawTotal && roundedTotal !== rawTotal) {
+          embed.fields.push({
+            name: "Team Rounding (dynamic)",
+            value: `Raw: $${rawTotal.toLocaleString("en-US")}  ·  Rounded: $${roundedTotal.toLocaleString("en-US")}  ·  Δ ${roundedTotal - rawTotal >= 0 ? "+" : "−"}$${Math.abs(roundedTotal - rawTotal).toLocaleString("en-US")}\n_Rounding is dynamic and will lock at the Auction._`,
+            inline: false,
+          });
+        }
+        if (lines.length) {
+          // Discord field value limit is ~1024 chars; split across multiple fields if needed
+          let chunk = [];
+          let chunkLen = 0;
+          let idx = 1;
+          const flush = () => {
+            if (!chunk.length) return;
+            embed.fields.push({
+              name: idx === 1 ? "Drops" : `Drops (cont.)`,
+              value: chunk.join("\n\n"),
+              inline: false,
+            });
+            idx += 1;
+            chunk = [];
+            chunkLen = 0;
+          };
+          for (const line of lines) {
+            const l = safeStr(line);
+            if (chunkLen + l.length + 2 > 1000) flush();
+            chunk.push(l);
+            chunkLen += l.length + 2;
+          }
+          flush();
+        }
+        embed.author = { name: team };
+        if (safeStr(franchiseIconUrl)) embed.thumbnail = { url: safeStr(franchiseIconUrl) };
+        if (safeStr(gifUrl)) embed.image = { url: safeStr(gifUrl) };
+        return embed;
+      };
+
+      const sendDiscordCapPenaltyAnnouncement = async ({
+        leagueId,
+        season,
+        franchiseId,
+        franchiseName,
+        teamTotalDollars,
+        capPenaltyLines,
+        activityYearLabel,
+        forceTestOnly,
+        forcePrimaryOnly,
+        channelIdOverride,
+      }) => {
+        const botToken = contractDiscordBotToken();
+        const overrideChannelId = safeStr(channelIdOverride).replace(/\D/g, "");
+        const target = overrideChannelId
+          ? {
+              channelId: overrideChannelId,
+              deliveryTarget: safeStr(forceTestOnly ? "test" : (forcePrimaryOnly ? "primary" : "override")),
+              missingError: "",
+            }
+          : contractDiscordChannelTarget(!!forceTestOnly, !!forcePrimaryOnly);
+        if (!botToken || !target.channelId) {
+          return {
+            ok: false,
+            skipped: false,
+            status: 0,
+            error: !botToken ? "missing_discord_contract_bot_token" : safeStr(target.missingError || "missing_discord_contract_channel_config"),
+            delivery_target: safeStr(target.deliveryTarget || ""),
+          };
+        }
+        const franchiseMeta = await loadContractDiscordFranchiseMeta({
+          season,
+          leagueId,
+          franchiseId: padFranchiseId(franchiseId),
+        });
+        const gif = await pickCapPenaltyGifUrl();
+        const penaltyCount = Array.isArray(capPenaltyLines) ? capPenaltyLines.length : 0;
+        const embed = buildCapPenaltyAnnouncementEmbed({
+          franchiseName: franchiseName || franchiseMeta.franchise_name,
+          franchiseIconUrl: franchiseMeta.icon_url,
+          teamTotalDollars,
+          penaltyCount,
+          capPenaltyLines,
+          gifUrl: safeStr(gif.gif_url || ""),
+          activityYearLabel,
+        });
+        const res = await withContractDiscordSendSlot(target.channelId, async () => {
+          return await discordBotRequest(
+            botToken,
+            "POST",
+            `/channels/${encodeURIComponent(target.channelId)}/messages`,
+            {
+              content: "",
+              embeds: [embed],
+              allowed_mentions: { parse: [] },
+            }
+          );
+        });
+        return {
+          ok: !!res.ok,
+          skipped: false,
+          status: safeInt(res.status, 0),
+          error: res.ok ? "" : safeStr(res.text || "discord_cap_penalty_post_failed").slice(0, 600),
+          channel_id: safeStr(target.channelId),
+          delivery_target: safeStr(target.deliveryTarget || ""),
+          message_id: safeStr(res.data?.id || ""),
+          gif_url: safeStr(gif.gif_url || ""),
+          gif_query: safeStr(gif.query || ""),
+        };
       };
 
       const pinDiscordMessage = async ({ botToken, channelId, messageId }) => {
@@ -10042,7 +10813,7 @@ export default {
           searchUrl.searchParams.set("q", query);
           searchUrl.searchParams.set("limit", "15");
           searchUrl.searchParams.set("offset", "0");
-          searchUrl.searchParams.set("rating", "pg-13");
+          // GIF rating restriction removed per commissioner 2026-04-17 (RULE-WORKFLOW-003)
           searchUrl.searchParams.set("lang", "en");
           try {
             const res = await fetch(searchUrl.toString(), {
@@ -14923,20 +15694,26 @@ export default {
           } catch (_) {}
         }
 
-        const parseSalaryRows = (payload) => {
+        const parseSalaryRows = (payload, rosteredPlayerIds) => {
           const out = {};
+          const rosterSet = rosteredPlayerIds ? new Set(rosteredPlayerIds) : null;
           const rows = asArray(payload?.salaries?.leagueUnit?.player).filter(Boolean);
           for (const row of rows) {
             const pid = String(row?.id || "").replace(/\D/g, "");
             if (!pid || pid === "0000") continue;
-            const salaryRaw = safeStr(row?.salary);
             const contractYearRaw = safeStr(row?.contractYear);
+            const contractYearInt = contractYearRaw ? safeInt(contractYearRaw, 0) : 0;
+            // Skip players with no years remaining — expired/off-roster
+            if (contractYearInt <= 0) continue;
+            // Skip players not on any roster (salary ghost entries)
+            if (rosterSet && !rosterSet.has(pid)) continue;
+            const salaryRaw = safeStr(row?.salary);
             const contractStatusRaw = safeStr(row?.contractStatus);
             const contractInfoRaw = safeStr(row?.contractInfo);
             if (!salaryRaw && !contractYearRaw && !contractStatusRaw && !contractInfoRaw) continue;
             out[pid] = {
               salary: salaryRaw ? safeInt(salaryRaw, 0) : null,
-              contractYear: contractYearRaw ? safeInt(contractYearRaw, 0) : null,
+              contractYear: contractYearInt,
               contractStatus: contractStatusRaw || null,
               contractInfo: contractInfoRaw || null,
             };
@@ -15017,6 +15794,20 @@ export default {
           if (!next) return info;
           if (!info) return next;
           return info + (/\|\s*$/.test(info) ? " " : "| ") + next;
+        };
+
+        const parseContractYearValues = (contractInfo) => {
+          const info = safeStr(contractInfo);
+          const out = {};
+          if (!info) return out;
+          const re = /Y(\d+)\s*-\s*([0-9]+(?:\.[0-9]+)?K?)(?=\s*(?:,|\||Y\d+\s*-|$))/ig;
+          let match;
+          while ((match = re.exec(info))) {
+            const idx = safeInt(match[1], 0);
+            const amount = parseContractMoneyToken(match[2]);
+            if (idx > 0 && amount > 0) out[idx] = amount;
+          }
+          return out;
         };
 
         const normalizeContractInfoForDisplay = (contractInfo, years, priorContract) => {
@@ -15212,7 +16003,7 @@ export default {
         );
         const { rosterAssetsByFranchise, allPlayerIds } = parseRostersExport(rostersRes.data);
         const playersById = await fetchPlayersByIdsChunked(season, leagueId, allPlayerIds);
-        const salaryByPlayer = salariesRes.ok ? parseSalaryRows(salariesRes.data) : {};
+        const salaryByPlayer = salariesRes.ok ? parseSalaryRows(salariesRes.data, allPlayerIds) : {};
         const priorSalaryByPlayer = priorSalariesRes.ok ? parseSalaryRows(priorSalariesRes.data) : {};
         const salaryAdjustmentRows = salaryAdjustmentsRes.ok
           ? collectSalaryAdjustmentExportRows(
@@ -15316,6 +16107,17 @@ export default {
           const capTotal = players.reduce((acc, p) => acc + currentCapHit(p.salary, p.years, p.is_taxi, p.is_ir), 0);
           const salaryAdjustmentTotal = safeInt(salaryAdjustmentByFranchise[franchiseId], 0);
           const salaryAdjustmentBreakdown = salaryAdjustmentBreakdownByFranchise[franchiseId] || emptySalaryAdjustmentBreakdown();
+          // Pass through raw salary adjustment rows (live MFL) for this franchise so the
+          // workbench Cap Summary can show per-row drilldown (trade partner/date/amount).
+          const rawSalaryAdjustmentRows = salaryAdjustmentRows
+            .filter((r) => padFranchiseId(r?.franchise_id) === franchiseId)
+            .map((r) => ({
+              franchise_id: padFranchiseId(r?.franchise_id),
+              amount: safeInt(r?.amount, 0),
+              explanation: safeStr(r?.explanation || r?.description || ""),
+              timestamp: safeStr(r?.timestamp || ""),
+              category: salaryAdjustmentCategory(r?.explanation),
+            }));
           const compliant = salaryCapDollars > 0 ? capTotal + salaryAdjustmentTotal <= salaryCapDollars : true;
           const complianceLabel = compliant
             ? "Compliant"
@@ -15333,6 +16135,7 @@ export default {
               cap_total_dollars: capTotal,
               salary_adjustment_total_dollars: salaryAdjustmentTotal,
               salary_adjustment_breakdown_dollars: salaryAdjustmentBreakdown,
+              salary_adjustment_raw_rows: rawSalaryAdjustmentRows,
               compliance: {
                 ok: compliant,
                 label: complianceLabel,
@@ -15410,6 +16213,436 @@ export default {
 
       if (path === "/roster-workbench/admin-state" && request.method === "GET") {
         return adminStateResponse();
+      }
+
+      // POST /admin/import-salaries
+      // Body: {
+      //   season: "2026",
+      //   league_id: "74598",
+      //   dry_run?: bool,
+      //   rows: [ { id, salary, contractStatus, contractYear, contractInfo }, ... ]
+      // }
+      // Posts a <salaries>... XML to MFL's TYPE=salaries import endpoint.
+      // Requires commissioner auth via MFL_COOKIE secret.
+      if (path === "/admin/import-salaries" && request.method === "POST") {
+        let body = {};
+        try { body = (await request.json()) || {}; } catch (_) { body = {}; }
+        if (!!commishApiKey && !sessionByApiKey) {
+          return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
+        }
+        const targetSeason = safeStr(body?.season || url.searchParams.get("YEAR") || YEAR || "");
+        const leagueId = safeStr(body?.league_id || body?.L || url.searchParams.get("L") || L || "74598");
+        const dryRun = !!body?.dry_run;
+        const rows = Array.isArray(body?.rows) ? body.rows : [];
+        if (!targetSeason) return jsonOut(400, { ok: false, error: "Missing season" });
+        if (!leagueId) return jsonOut(400, { ok: false, error: "Missing league_id" });
+        if (!rows.length) return jsonOut(400, { ok: false, error: "rows array required" });
+
+        // Validate each row
+        const valid = [];
+        const invalid = [];
+        for (const r of rows) {
+          if (!r || typeof r !== "object") { invalid.push({ reason: "not_object", row: r }); continue; }
+          const pid = String(r.id || r.player_id || "").replace(/\D/g, "");
+          if (!pid) { invalid.push({ reason: "missing_player_id", row: r }); continue; }
+          const salary = safeStr(r.salary);
+          const contractStatus = safeStr(r.contractStatus || r.contract_status || "");
+          const contractYear = safeStr(r.contractYear || r.contract_year || "");
+          const contractInfo = safeStr(r.contractInfo || r.contract_info || "");
+          if (!salary || !contractInfo) { invalid.push({ reason: "missing_salary_or_contractInfo", row: r }); continue; }
+          valid.push({ id: pid, salary, contractStatus, contractYear, contractInfo });
+        }
+        if (!valid.length) {
+          return jsonOut(400, { ok: false, error: "No valid rows", invalid });
+        }
+
+        // CRITICAL: MFL's TYPE=salaries import REPLACES the entire salaries table,
+        // not merges. We MUST fetch the current salaries, merge in our updates,
+        // and post the full merged set, or every other player's contract gets wiped.
+        const mergeCurrentRes = await mflExportJson(targetSeason, leagueId, "salaries", {}, { useCookie: true });
+        if (!mergeCurrentRes.ok) {
+          return jsonOut(502, {
+            ok: false,
+            error: "Failed to fetch current salaries for merge (refusing to post — would wipe other players)",
+            upstream: mergeCurrentRes,
+          });
+        }
+        const currentPlayers = (() => {
+          const root = mergeCurrentRes.data?.salaries?.leagueUnit?.player;
+          return Array.isArray(root) ? root : (root ? [root] : []);
+        })();
+        // Build merged map keyed by player_id: start with current, overwrite with our updates.
+        const mergedById = {};
+        for (const p of currentPlayers) {
+          const pid = safeStr(p?.id).replace(/\D/g, "");
+          if (!pid) continue;
+          const sal = safeStr(p?.salary);
+          const info = safeStr(p?.contractInfo);
+          if (!sal && !info) continue; // skip empty rows — don't ossify blanks
+          mergedById[pid] = {
+            id: pid,
+            salary: sal,
+            contractStatus: safeStr(p?.contractStatus),
+            contractYear: safeStr(p?.contractYear),
+            contractInfo: info,
+          };
+        }
+        for (const r of valid) {
+          mergedById[r.id] = {
+            id: r.id,
+            salary: r.salary,
+            contractStatus: r.contractStatus,
+            contractYear: r.contractYear,
+            contractInfo: r.contractInfo,
+          };
+        }
+        const mergedRows = Object.values(mergedById).sort((a, b) => a.id.localeCompare(b.id));
+
+        // Build XML from MERGED set (preserves all other players)
+        const xmlEsc = (s) => String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+        const playerXml = mergedRows.map((r) =>
+          `<player id="${xmlEsc(r.id)}" salary="${xmlEsc(r.salary)}" contractStatus="${xmlEsc(r.contractStatus)}" contractYear="${xmlEsc(r.contractYear)}" contractInfo="${xmlEsc(r.contractInfo)}" />`
+        ).join("");
+        const dataXml = `<salaries><leagueUnit unit="LEAGUE">${playerXml}</leagueUnit></salaries>`;
+
+        if (dryRun) {
+          return jsonOut(200, {
+            ok: true,
+            dry_run: true,
+            season: targetSeason,
+            league_id: leagueId,
+            rows_valid: valid,
+            rows_invalid: invalid,
+            rows_merged_total: mergedRows.length,
+            rows_preserved_count: mergedRows.length - valid.length,
+            xml_preview_first_2kb: dataXml.slice(0, 2000),
+            xml_length: dataXml.length,
+          });
+        }
+
+        // Verify admin
+        const adminState = await getLeagueAdminState(leagueId, targetSeason);
+        if (!adminState.ok || !adminState.isAdmin) {
+          return jsonOut(403, {
+            ok: false,
+            error: "MFL_COOKIE lacks commissioner privileges for salaries import",
+            admin_state: adminState,
+          });
+        }
+
+        // Capture pre-state snapshot for verification
+        const preExportRes = await mflExportJson(targetSeason, leagueId, "salaries", {}, { useCookie: true });
+        const preMap = {};
+        if (preExportRes.ok) {
+          const plist = preExportRes.data?.salaries?.leagueUnit?.player;
+          const arr = Array.isArray(plist) ? plist : (plist ? [plist] : []);
+          for (const p of arr) preMap[safeStr(p?.id)] = p;
+        }
+
+        // POST to MFL. Critical config (learned 2026-04-18):
+        //   - Use browser-like User-Agent — the "upsmflproduction-worker" UA
+        //     triggered MFL silent rejection (HTTP 200 with empty body, no
+        //     actual persistence).
+        //   - redirect: "follow" — MFL redirects to a success page; manual
+        //     redirect mode returned empty body.
+        //   - Accept-Encoding: identity — avoid any gzip surprises.
+        //   - NO APIKEY in form — cookie-only auth works; mixing cookie+APIKEY
+        //     was also causing silent reject.
+        const importUrl = `https://www48.myfantasyleague.com/${encodeURIComponent(targetSeason)}/import?TYPE=salaries&L=${encodeURIComponent(leagueId)}`;
+        const importFetchRes = await fetch(importUrl, {
+          method: "POST",
+          headers: {
+            Cookie: cookieHeader,
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+            "Accept": "text/xml, text/plain, application/xml, */*",
+            "Accept-Encoding": "identity",
+          },
+          body: new URLSearchParams({ DATA: dataXml }).toString(),
+          redirect: "follow",
+          cf: { cacheTtl: 0, cacheEverything: false },
+        });
+        const importText = await importFetchRes.text();
+        const importStatusXml = /<status>OK<\/status>/i.test(importText);
+        const importErrorXml = /<error>([^<]+)<\/error>/i.exec(importText);
+        const importRes = {
+          ok: importFetchRes.ok && importStatusXml,
+          requestOk: importFetchRes.ok && importStatusXml,
+          status: importFetchRes.status,
+          text: importText,
+          upstreamPreview: importText.slice(0, 2000),
+          targetImportUrl: importFetchRes.url,
+          formFields: { TYPE: "salaries", L: leagueId, DATA: `<${dataXml.length} bytes>` },
+          error: importErrorXml ? importErrorXml[1] : (importStatusXml ? "" : "unexpected_response"),
+        };
+
+        // Verify by re-fetching
+        const postExportRes = await mflExportJson(targetSeason, leagueId, "salaries", {}, { useCookie: true });
+        const postMap = {};
+        if (postExportRes.ok) {
+          const plist = postExportRes.data?.salaries?.leagueUnit?.player;
+          const arr = Array.isArray(plist) ? plist : (plist ? [plist] : []);
+          for (const p of arr) postMap[safeStr(p?.id)] = p;
+        }
+
+        const verification = valid.map((r) => {
+          const before = preMap[r.id] || {};
+          const after = postMap[r.id] || {};
+          const fieldsMatch =
+            safeStr(after?.salary) === r.salary &&
+            safeStr(after?.contractStatus) === r.contractStatus &&
+            safeStr(after?.contractYear) === r.contractYear &&
+            safeStr(after?.contractInfo) === r.contractInfo;
+          return {
+            id: r.id,
+            expected: r,
+            before: {
+              salary: safeStr(before?.salary),
+              contractStatus: safeStr(before?.contractStatus),
+              contractYear: safeStr(before?.contractYear),
+              contractInfo: safeStr(before?.contractInfo),
+            },
+            after: {
+              salary: safeStr(after?.salary),
+              contractStatus: safeStr(after?.contractStatus),
+              contractYear: safeStr(after?.contractYear),
+              contractInfo: safeStr(after?.contractInfo),
+            },
+            landed: fieldsMatch,
+          };
+        });
+        const allLanded = verification.every((v) => v.landed);
+
+        return jsonOut(importRes.requestOk && allLanded ? 200 : 502, {
+          ok: !!(importRes.requestOk && allLanded),
+          season: targetSeason,
+          league_id: leagueId,
+          posted_count: valid.length,
+          landed_count: verification.filter((v) => v.landed).length,
+          mismatched_count: verification.filter((v) => !v.landed).length,
+          verification,
+          import_status: importRes.status,
+          // Full upstream response (2KB) so we can diagnose silent rejects.
+          import_response_full: safeStr(importRes.upstreamPreview).slice(0, 2000),
+          import_target_url: importRes.targetImportUrl,
+          import_form_keys: Object.keys(importRes.formFields || {}),
+          direct_attempt_status: importRes.direct_attempt_status,
+          direct_attempt_error: importRes.direct_attempt_error,
+          xml_length: dataXml.length,
+          invalid_rows: invalid,
+        });
+      }
+
+      // POST /admin/import-drop-penalties
+      // Body: { season, league_id?, dry_run? }
+      // Pulls DROP_PENALTY_CANDIDATE rows from the salary_adjustments JSON report
+      // for the season, filters to import_eligible entries targeting that season,
+      // then posts each as a salary adjustment to MFL (one row per franchise/player).
+      if (path === "/admin/import-drop-penalties" && request.method === "POST") {
+        let body = {};
+        try { body = (await request.json()) || {}; } catch (_) { body = {}; }
+        if (!!commishApiKey && !sessionByApiKey) {
+          return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
+        }
+        const targetSeason = safeStr(body?.season || url.searchParams.get("YEAR") || YEAR || "");
+        const leagueId = safeStr(body?.league_id || body?.L || url.searchParams.get("L") || L || "74598");
+        const dryRun = !!body?.dry_run;
+        const limit = safeInt(body?.limit, 0);
+        if (!targetSeason) return jsonOut(400, { ok: false, error: "Missing season param" });
+        if (!leagueId) return jsonOut(400, { ok: false, error: "Missing league_id param" });
+
+        // Fetch the report JSON from jsDelivr (production-pinned).
+        const reportUrl = `https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/reports/salary_adjustments/salary_adjustments_${encodeURIComponent(targetSeason)}.json`;
+        let reportPayload = null;
+        try {
+          const r = await fetch(reportUrl, { cf: { cacheTtl: 0, cacheEverything: false } });
+          if (!r.ok) {
+            return jsonOut(502, { ok: false, error: "Failed to fetch salary adjustments report", status: r.status, url: reportUrl });
+          }
+          reportPayload = await r.json();
+        } catch (e) {
+          return jsonOut(502, { ok: false, error: `Failed to fetch report: ${e?.message || e}`, url: reportUrl });
+        }
+        const reportRows = Array.isArray(reportPayload?.rows) ? reportPayload.rows : [];
+        const eligible = reportRows.filter((r) => {
+          if (!r || typeof r !== "object") return false;
+          if (safeStr(r.adjustment_type).toUpperCase() !== "DROP_PENALTY_CANDIDATE") return false;
+          if (r.import_eligible !== true && safeStr(r.import_eligible).toLowerCase() !== "true") return false;
+          const targetYr = safeInt(r.adjustment_season ?? r.import_target_season, 0);
+          if (targetYr && String(targetYr) !== String(targetSeason)) return false;
+          if (safeInt(r.amount, 0) <= 0) return false;
+          return true;
+        }).map((r) => {
+          // TCV < $5K contracts: fixed $1K cap penalty (rule override, not a floor).
+          // Per-drop rounding REMOVED — RULE-CAP-002 rounds at the TEAM level,
+          // not per transaction. Each drop stays at its raw computed amount;
+          // team-level rounding is computed downstream and shown in displays
+          // (Discord, Cap Summary). Rounding only hits MFL at Auction lock.
+          const tcv = safeInt(r.pre_drop_tcv, 0);
+          const amt = safeInt(r.amount, 0);
+          if (tcv > 0 && tcv <= 4000 && amt > 0 && amt !== 1000) {
+            return { ...r, amount: 1000, penalty_amount: 1000, original_amount: amt };
+          }
+          return r;
+        });
+
+        // Fetch currently-posted salary adjustments so we don't double-post.
+        const existingRes = await mflExportJson(targetSeason, leagueId, "salaryAdjustments", {}, { useCookie: true });
+        const existingRows = existingRes.ok
+          ? collectSalaryAdjustmentExportRows(existingRes.data?.salaryAdjustments || existingRes.data?.salaryadjustments || existingRes.data || {})
+          : [];
+        const existingKeys = new Set();
+        for (const ex of existingRows) {
+          const explanation = safeStr(ex.explanation);
+          // Match either legacy bracket tag or new "id:KEY" tail
+          const m1 = explanation.match(/ups_drop_penalty:([A-Za-z0-9_.:-]+)/);
+          if (m1) existingKeys.add(m1[1]);
+          const m2 = explanation.match(/\bid:([A-Za-z0-9_.:-]+)\s*$/);
+          if (m2) existingKeys.add(m2[1]);
+        }
+
+        // Build salary adjustment rows for MFL
+        const rowsToPost = [];
+        const skipped = [];
+        for (const row of eligible) {
+          const fid = padFranchiseId(row.franchise_id);
+          if (!fid) { skipped.push({ row, reason: "missing_franchise_id" }); continue; }
+          const amount = safeInt(row.amount, 0);
+          if (amount <= 0) { skipped.push({ row, reason: "non_positive_amount" }); continue; }
+          const ledgerKey = safeStr(row.ledger_key) || safeStr(row.source_id) || `${row.player_id}_${row.transaction_datetime_et}`;
+          if (existingKeys.has(ledgerKey)) {
+            skipped.push({ row, reason: "already_posted", ledger_key: ledgerKey });
+            continue;
+          }
+          const playerName = safeStr(row.player_name) || safeStr(row.player_id);
+          // Simple explanation without special characters that MFL may reject.
+          // Idempotency key embedded via the tail `id:KEY` suffix.
+          const safeExplanation = `UPS drop penalty ${playerName.replace(/[^A-Za-z0-9 ,.'-]/g, '')} ${amount} id:${ledgerKey}`;
+          rowsToPost.push({
+            franchise_id: fid,
+            amount: amount,
+            explanation: safeExplanation,
+          });
+        }
+
+        if (!rowsToPost.length) {
+          return jsonOut(200, {
+            ok: true,
+            season: targetSeason,
+            league_id: leagueId,
+            posted: 0,
+            eligible: eligible.length,
+            already_posted: existingKeys.size,
+            skipped,
+            message: "No new drop penalties to post.",
+          });
+        }
+
+        // Apply test limit if provided
+        const rowsSliced = limit > 0 ? rowsToPost.slice(0, limit) : rowsToPost;
+
+        if (dryRun) {
+          return jsonOut(200, {
+            ok: true,
+            dry_run: true,
+            season: targetSeason,
+            league_id: leagueId,
+            would_post: rowsSliced,
+            total_eligible: rowsToPost.length,
+            skipped,
+            xml_preview: buildSalaryAdjXml(rowsSliced),
+          });
+        }
+
+        // Verify admin privileges
+        const adminState = await getLeagueAdminState(leagueId, targetSeason);
+        if (!adminState.ok || !adminState.isAdmin) {
+          return jsonOut(403, {
+            ok: false,
+            error: "MFL_COOKIE lacks commissioner privileges for salary adjustments",
+            admin_state: adminState,
+            would_post: rowsSliced,
+          });
+        }
+
+        // MFL's salaryAdj import REPLACES all existing adjustments when posted
+        // as a flat <salary_adjustments> document. To preserve existing ones
+        // (like trade settlements), merge them in.
+        const preservePreviousRes = await mflExportJson(targetSeason, leagueId, "salaryAdjustments", {}, { useCookie: true });
+        const preservePrevious = preservePreviousRes.ok
+          ? collectSalaryAdjustmentExportRows(preservePreviousRes.data?.salaryAdjustments || preservePreviousRes.data?.salaryadjustments || preservePreviousRes.data || {})
+          : [];
+        const newLedgerKeys = new Set(rowsSliced.map((r) => {
+          const m = r.explanation.match(/\bid:([A-Za-z0-9_.:-]+)\s*$/);
+          return m ? m[1] : "";
+        }).filter(Boolean));
+        // Keep existing rows unless we're replacing them (same ledger_key)
+        const preservedRows = preservePrevious
+          .filter((r) => {
+            const expl = safeStr(r.explanation);
+            const m1 = expl.match(/ups_drop_penalty:([A-Za-z0-9_.:-]+)/);
+            const m2 = expl.match(/\bid:([A-Za-z0-9_.:-]+)\s*$/);
+            const key = (m1 && m1[1]) || (m2 && m2[1]) || "";
+            return !key || !newLedgerKeys.has(key);
+          })
+          .map((r) => ({
+            franchise_id: r.franchise_id,
+            amount: r.amount,
+            explanation: r.explanation,
+          }));
+
+        // Debug toggle: preserve_existing=false will post only new rows
+        const preserveExisting = body?.preserve_existing !== false;
+        const combinedRows = preserveExisting ? [...preservedRows, ...rowsSliced] : rowsSliced;
+        const dataXml = buildSalaryAdjXml(combinedRows);
+
+        // MFL's /import endpoint — use the same pattern that works for the
+        // trade workflow's applySalaryAdjFromPayload.
+        const importFormFields = { TYPE: "salaryAdj", L: leagueId, DATA: dataXml };
+        const importRes = await postMflImportForm(
+          targetSeason,
+          importFormFields,
+          { TYPE: "salaryAdj", L: leagueId }
+        );
+
+        // Post-import verification
+        const postVerifyRes = await mflExportJson(targetSeason, leagueId, "salaryAdjustments", {}, { useCookie: true });
+        const postVerifyRows = postVerifyRes.ok
+          ? collectSalaryAdjustmentExportRows(postVerifyRes.data?.salaryAdjustments || postVerifyRes.data?.salaryadjustments || postVerifyRes.data || {})
+          : [];
+        const verifiedKeys = new Set();
+        for (const ex of postVerifyRows) {
+          const expl = safeStr(ex.explanation);
+          const m1 = expl.match(/ups_drop_penalty:([A-Za-z0-9_.:-]+)/);
+          const m2 = expl.match(/\bid:([A-Za-z0-9_.:-]+)\s*$/);
+          if (m1) verifiedKeys.add(m1[1]);
+          if (m2) verifiedKeys.add(m2[1]);
+        }
+        const matchedCount = rowsSliced.filter((r) => {
+          const m = r.explanation.match(/\bid:([A-Za-z0-9_.:-]+)\s*$/);
+          return m && verifiedKeys.has(m[1]);
+        }).length;
+
+        return jsonOut(importRes.requestOk ? 200 : 502, {
+          ok: !!importRes.requestOk,
+          season: targetSeason,
+          league_id: leagueId,
+          posted_count: rowsSliced.length,
+          preserved_existing: preservedRows.length,
+          combined_total: combinedRows.length,
+          posted_rows: rowsSliced,
+          skipped,
+          import_status: importRes.status,
+          import_response_preview: safeStr(importRes.upstreamPreview).slice(0, 600),
+          import_target_url: importRes.targetImportUrl,
+          verified_posted_count: matchedCount,
+          verify_total_export_rows: postVerifyRows.length,
+          admin_check: { ok: adminState.ok, isAdmin: adminState.isAdmin },
+          xml_length: dataXml.length,
+          write_hint: matchedCount === 0 && importRes.status === 200
+            ? "MFL returned 200 with empty body but rows did not land — MFL_COOKIE secret likely needs refresh (no commissioner write access)"
+            : undefined,
+        });
       }
 
       if (path === "/admin/test-sync/prod-rosters" && request.method === "POST") {
@@ -16004,6 +17237,165 @@ export default {
               }
             : null,
           results,
+        });
+      }
+
+      // POST /admin/trade-notification/test-discord (and /post)
+      // Body: {
+      //   league_id, season,
+      //   trade_date_iso, trade_id?,
+      //   left_franchise_id, left_franchise_name,
+      //   right_franchise_id, right_franchise_name,
+      //   left_receives: [ { kind:'player'|'pick'|'cap', ... } ],
+      //   right_receives: [ ... ],
+      //   cap_adjustments: [ { franchise_name, amount } ],  // optional
+      //   note_text?,                                       // freeform analysis
+      //   featured_player_name?                             // GIF search seed
+      // }
+      if ((path === "/admin/trade-notification/test-discord" || path === "/admin/trade-notification/post") && request.method === "POST") {
+        let body = {};
+        try {
+          body = (await request.json()) || {};
+        } catch (_) {
+          return jsonOut(400, { ok: false, error: "Invalid JSON body" });
+        }
+        const leagueId = safeStr(url.searchParams.get("L") || L || body.league_id || "");
+        const season = safeStr(url.searchParams.get("YEAR") || YEAR || body.season || "");
+        if (!leagueId) return jsonOut(400, { ok: false, error: "Missing L/league_id" });
+        if (!season) return jsonOut(400, { ok: false, error: "Missing YEAR/season" });
+        const adminState = await getLeagueAdminState(leagueId, season);
+        if (!adminState.ok || !adminState.isAdmin) {
+          return jsonOut(403, { ok: false, error: "Only league admin can send trade notifications" });
+        }
+        const missing = [];
+        if (!body.trade_date_iso) missing.push("trade_date_iso");
+        if (!body.left_franchise_name) missing.push("left_franchise_name");
+        if (!body.right_franchise_name) missing.push("right_franchise_name");
+        if (missing.length) return jsonOut(400, { ok: false, error: "missing_fields", missing });
+        const isTest = path === "/admin/trade-notification/test-discord";
+        const notify = await sendDiscordTradeNotification({
+          leagueId,
+          season,
+          tradeDateIso: body.trade_date_iso,
+          tradeId: body.trade_id,
+          leftFranchiseId: body.left_franchise_id,
+          leftFranchiseName: body.left_franchise_name,
+          rightFranchiseId: body.right_franchise_id,
+          rightFranchiseName: body.right_franchise_name,
+          leftReceives: body.left_receives,
+          rightReceives: body.right_receives,
+          capAdjustments: body.cap_adjustments,
+          noteText: body.note_text,
+          featuredPlayerName: body.featured_player_name,
+          forceTestOnly: isTest,
+          forcePrimaryOnly: !isTest,
+          channelIdOverride: isTest ? "" : (body.channel_id_override || ""),
+        });
+        return jsonOut(notify.ok ? 200 : 502, {
+          ok: !!notify.ok,
+          test_only: isTest,
+          delivery_target: safeStr(notify.delivery_target),
+          notify,
+        });
+      }
+
+      // POST /admin/cap-penalty/test-discord (and /post)
+      // Body: {
+      //   league_id, season,
+      //   franchise_id, franchise_name,
+      //   team_total_dollars,
+      //   activity_year_label,               // e.g. "2025 Activity"
+      //   cap_penalty_lines: string[]        // pre-formatted narrative per drop
+      //   channel_id_override? (for /post)
+      // }
+      // POST /admin/restructure-alert/test-discord (and /post)
+      // Body: {
+      //   league_id, season, franchise_id, franchise_name, player_name,
+      //   years_remaining (int),
+      //   tcv_label (string, e.g. "129K" or "$129,000"),
+      //   guaranteed_label (string, e.g. "96.8K"),
+      //   aav_label (string, e.g. "54K"),  // NEVER recomputed
+      //   usage_text (string, e.g. "Restructure: 1 of 3 - 2 remaining. ..."),
+      //   channel_id_override? (for /post)
+      // }
+      if ((path === "/admin/restructure-alert/test-discord" || path === "/admin/restructure-alert/post") && request.method === "POST") {
+        let body = {};
+        try { body = (await request.json()) || {}; }
+        catch (_) { return jsonOut(400, { ok: false, error: "Invalid JSON body" }); }
+        const leagueId = safeStr(url.searchParams.get("L") || L || body.league_id || "");
+        const season = safeStr(url.searchParams.get("YEAR") || YEAR || body.season || "");
+        if (!leagueId) return jsonOut(400, { ok: false, error: "Missing L/league_id" });
+        if (!season) return jsonOut(400, { ok: false, error: "Missing YEAR/season" });
+        const adminState = await getLeagueAdminState(leagueId, season);
+        if (!adminState.ok || !adminState.isAdmin) {
+          return jsonOut(403, { ok: false, error: "Only league admin can send restructure alerts" });
+        }
+        const missing = [];
+        if (!body.player_name) missing.push("player_name");
+        if (!body.franchise_name) missing.push("franchise_name");
+        if (missing.length) return jsonOut(400, { ok: false, error: "missing_fields", missing });
+        const isTest = path === "/admin/restructure-alert/test-discord";
+        const notify = await sendDiscordRestructureAlert({
+          leagueId, season,
+          franchiseId: body.franchise_id,
+          franchiseName: body.franchise_name,
+          playerName: body.player_name,
+          yearsRemaining: body.years_remaining,
+          tcvLabel: body.tcv_label,
+          guaranteedLabel: body.guaranteed_label,
+          aavLabel: body.aav_label,
+          yearlyBreakdown: body.yearly_breakdown,
+          usageText: body.usage_text,
+          gifUrlOverride: body.gif_url_override,
+          forceTestOnly: isTest,
+          forcePrimaryOnly: !isTest,
+          channelIdOverride: isTest ? "" : (body.channel_id_override || ""),
+        });
+        return jsonOut(notify.ok ? 200 : 502, {
+          ok: !!notify.ok,
+          test_only: isTest,
+          delivery_target: safeStr(notify.delivery_target),
+          notify,
+        });
+      }
+
+      if ((path === "/admin/cap-penalty/test-discord" || path === "/admin/cap-penalty/post") && request.method === "POST") {
+        let body = {};
+        try {
+          body = (await request.json()) || {};
+        } catch (_) {
+          return jsonOut(400, { ok: false, error: "Invalid JSON body" });
+        }
+        const leagueId = safeStr(url.searchParams.get("L") || L || body.league_id || "");
+        const season = safeStr(url.searchParams.get("YEAR") || YEAR || body.season || "");
+        if (!leagueId) return jsonOut(400, { ok: false, error: "Missing L/league_id" });
+        if (!season) return jsonOut(400, { ok: false, error: "Missing YEAR/season" });
+        const adminState = await getLeagueAdminState(leagueId, season);
+        if (!adminState.ok || !adminState.isAdmin) {
+          return jsonOut(403, { ok: false, error: "Only league admin can send cap penalty announcements" });
+        }
+        const missing = [];
+        if (!body.franchise_name) missing.push("franchise_name");
+        if (!Array.isArray(body.cap_penalty_lines) || !body.cap_penalty_lines.length) missing.push("cap_penalty_lines");
+        if (missing.length) return jsonOut(400, { ok: false, error: "missing_fields", missing });
+        const isTest = path === "/admin/cap-penalty/test-discord";
+        const notify = await sendDiscordCapPenaltyAnnouncement({
+          leagueId,
+          season,
+          franchiseId: body.franchise_id,
+          franchiseName: body.franchise_name,
+          teamTotalDollars: body.team_total_dollars,
+          capPenaltyLines: body.cap_penalty_lines,
+          activityYearLabel: body.activity_year_label,
+          forceTestOnly: isTest,
+          forcePrimaryOnly: !isTest,
+          channelIdOverride: isTest ? "" : (body.channel_id_override || ""),
+        });
+        return jsonOut(notify.ok ? 200 : 502, {
+          ok: !!notify.ok,
+          test_only: isTest,
+          delivery_target: safeStr(notify.delivery_target),
+          notify,
         });
       }
 

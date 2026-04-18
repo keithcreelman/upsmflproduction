@@ -621,55 +621,79 @@
   color: #ffb4b4;
 }
 
-.rwb-cap-adj-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: transparent;
-  border: 0;
-  padding: 0;
-  margin: 0;
-  color: inherit;
-  font: inherit;
-  font-size: 0.86rem;
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
+/* --- Cap adjustment drilldown --- */
+.rwb-cap-adj-expandable {
   cursor: pointer;
 }
-
-.rwb-cap-adj-toggle:hover,
-.rwb-cap-adj-toggle:focus-visible {
-  color: var(--rwb-text);
-  outline: none;
+.rwb-cap-adj-expandable:hover th {
+  color: #8abed6;
 }
-
-.rwb-cap-adj-caret {
+.rwb-cap-adj-arrow {
   display: inline-block;
-  transition: transform 120ms ease;
-  font-size: 0.72rem;
-  line-height: 1;
+  font-size: 0.68rem;
+  margin-right: 3px;
+  transition: transform 0.15s ease;
+  color: #8abed6;
 }
-
-.rwb-cap-adj-toggle.is-open .rwb-cap-adj-caret {
-  transform: rotate(90deg);
+.rwb-cap-adj-sub-table {
+  width: 100%;
+  border-collapse: collapse;
 }
-
-.rwb-cap-summary-table .rwb-cap-adj-detail th,
-.rwb-cap-summary-table .rwb-cap-adj-detail td {
-  padding-top: 4px;
-  padding-bottom: 4px;
-  border-bottom: 0;
-  font-size: 0.92rem;
-  font-weight: 600;
+.rwb-cap-adj-sub-table th,
+.rwb-cap-adj-sub-table td {
+  padding: 5px 0 5px 14px;
+  font-size: 0.84rem;
+  border-bottom: 1px solid rgba(138, 172, 214, 0.10);
+}
+.rwb-cap-adj-sub-table th {
+  text-align: left;
   color: var(--rwb-text-soft);
+  font-weight: 600;
 }
-
-.rwb-cap-summary-table .rwb-cap-adj-detail .rwb-cap-adj-sub-label {
-  padding-left: 18px;
-  text-transform: none;
-  letter-spacing: 0;
-  font-size: 0.82rem;
+.rwb-cap-adj-sub-table td {
+  text-align: right;
+  color: var(--rwb-text);
+  font-weight: 700;
+}
+.rwb-cap-adj-bucket-row.rwb-cap-adj-expandable {
+  cursor: pointer;
+}
+.rwb-cap-adj-bucket-row.rwb-cap-adj-expandable:hover th {
+  color: #8abed6;
+}
+.rwb-cap-adj-player-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.rwb-cap-adj-player-row th,
+.rwb-cap-adj-player-row td {
+  padding: 3px 0 3px 28px;
+  font-size: 0.78rem;
+  border-bottom: 1px solid rgba(138, 172, 214, 0.06);
+}
+.rwb-cap-adj-player-row th {
+  text-align: left;
+  color: var(--rwb-text-dim);
+  font-weight: 500;
+}
+.rwb-cap-adj-player-row td {
+  text-align: right;
+  color: var(--rwb-text-soft);
+  font-weight: 600;
+}
+.rwb-cap-adj-desc {
+  font-size: 0.72rem;
+  color: var(--rwb-text-dim);
+  opacity: 0.7;
+  margin-left: 4px;
+}
+.rwb-cap-adj-breakdown > td {
+  padding: 0 !important;
+  border-bottom: none !important;
+}
+.rwb-cap-adj-player-group > td {
+  padding: 0 !important;
+  border-bottom: none !important;
 }
 
 .rwb-team-body {
