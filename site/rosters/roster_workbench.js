@@ -1435,13 +1435,26 @@
     var currentSeason = currentYearInt();
     if (!termYears || !draftSeason || !currentSeason || currentSeason < draftSeason + 3) return false;
 
-    var yearValues = parseContractYearValues(player.special || player.contract_info || "");
+    var rawInfo = player.special || player.contract_info || "";
+    var yearValues = parseContractYearValues(rawInfo);
     var yearKeys = Object.keys(yearValues).map(function (key) { return safeInt(key, 0); }).filter(function (key) {
       return key > 0;
     }).sort(function (a, b) {
       return a - b;
     });
     if (yearKeys.length <= termYears) return false;
+
+    // Skip normalization when the contract_info is already well-formed:
+    // CL in the string matches the number of year tokens. Example: Downs has
+    // "CL 2|...|Y1-2 Y2-12" — yearKeys.length === 2, parsed CL === 2. That
+    // contract is internally consistent (represents the final rookie year +
+    // extension year) and should be displayed as-is (TCV $14K, CL 2), not
+    // collapsed into the extension year only ($12K, CL 1). This
+    // normalization is intended for players whose rookie deal EXPIRED and
+    // MFL left stale rookie years alongside a new contract — in that case
+    // yearKeys.length > parsed CL and the slice is correct.
+    var declaredLength = parseContractLengthValue(rawInfo);
+    if (declaredLength > 0 && declaredLength === yearKeys.length) return false;
 
     var immediateYears = yearKeys.slice(-termYears).map(function (key) {
       return safeInt(yearValues[key], 0);
