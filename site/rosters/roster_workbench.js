@@ -994,11 +994,18 @@
 
   function extensionOptionSummary(option) {
     var parts = [];
-    if (safeInt(option && option.contractLength, 0) > 0) {
-      parts.push(String(safeInt(option.contractLength, 0)) + " years");
+    var contractLength = safeInt(option && option.contractLength, 0);
+    var yearsToAdd = safeInt(option && option.yearsToAdd, 0);
+    if (contractLength > 0) {
+      parts.push(String(contractLength) + " years");
     }
     if (safeInt(option && option.futureAav, 0) > 0) {
-      parts.push("Future AAV " + money(option.futureAav));
+      // "Future AAV" only makes sense when the player has a current year to
+      // contrast against (contractLength > yearsToAdd, Montgomery case).
+      // Expired rookies signing a fresh contract (contractLength === yearsToAdd)
+      // get a single flat AAV with no "future" framing.
+      var aavLabel = (contractLength > yearsToAdd && yearsToAdd > 0) ? "Future AAV " : "AAV ";
+      parts.push(aavLabel + money(option.futureAav));
     }
     if (safeInt(option && option.tcv, 0) > 0) {
       parts.push("TCV " + money(option.tcv));
