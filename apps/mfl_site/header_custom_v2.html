@@ -1549,6 +1549,7 @@
         </div>
         <a class="ccc-pill" data-owner-action="lineup" href="//%HOST%/%YEAR%/lineup?L=%LEAGUEID%"><i class="fa-solid fa-clipboard-list"></i>Submit Lineup</a>
         <a class="ccc-pill" data-owner-action="adddrop" href="//%HOST%/%YEAR%/add_drop?L=%LEAGUEID%"><i class="fa-solid fa-plus-minus"></i>Add/Drop</a>
+        <a class="ccc-pill" data-owner-action="myteam" href="//%HOST%/%YEAR%/home/%LEAGUEID%?MODULE=MESSAGE11"><i class="fa-solid fa-user-shield"></i>My Team</a>
         <a class="ccc-pill" data-owner-action="rosters" href="//%HOST%/%YEAR%/home/%LEAGUEID%?MODULE=MESSAGE7"><i class="fa-solid fa-users"></i>Front Office</a>
         <a class="ccc-pill" href="//%HOST%/%YEAR%/ajax_ls?L=%LEAGUEID%"><i class="fa-solid fa-gauge-high"></i>Scoreboard</a>
         <a class="ccc-pill" data-owner-action="trades" href="//%HOST%/%YEAR%/home/%LEAGUEID%?MODULE=MESSAGE6=N"><i class="fa-solid fa-handshake"></i>Trades</a>
@@ -2892,6 +2893,102 @@
       document.addEventListener("DOMContentLoaded", loadAcqLoader);
     } else {
       loadAcqLoader();
+    }
+  })();
+</script>
+
+<script>
+  // Team Operations (My Team) embed helper for MESSAGE11.
+  (function () {
+    var TEAMOPS_HEADER_BUILD = "2026.04.18.1";
+    if (window.__ups_teamops_header_autoload === TEAMOPS_HEADER_BUILD) return;
+    window.__ups_teamops_header_autoload = TEAMOPS_HEADER_BUILD;
+
+    function safeStr(v) { return String(v || "").trim(); }
+    function safeUpper(v) { return safeStr(v).toUpperCase(); }
+
+    function getModuleName() {
+      try {
+        var u = new URL(window.location.href);
+        var raw = safeUpper(u.searchParams.get("MODULE") || "");
+        var match = raw.match(/^(MESSAGE\d+)/);
+        if (match && match[1]) return match[1];
+        return raw.split(/[=:]/)[0];
+      } catch (e) { return ""; }
+    }
+
+    function getCurrentLeagueId() {
+      try {
+        var u = new URL(window.location.href);
+        var q = safeStr(u.searchParams.get("L") || "");
+        if (q) return q.replace(/\D/g, "");
+      } catch (e) {}
+      var m = safeStr(window.location.pathname).match(/\/home\/(\d+)(?:\/|$)/i);
+      if (m && m[1]) return safeStr(m[1]).replace(/\D/g, "");
+      var g = safeStr(window.league_id || window.LEAGUE_ID || "");
+      return g ? g.replace(/\D/g, "") : "";
+    }
+
+    function getCurrentYear() {
+      try {
+        var u = new URL(window.location.href);
+        var q = safeStr(u.searchParams.get("YEAR") || "");
+        if (q) return q.replace(/\D/g, "");
+      } catch (e) {}
+      var m = safeStr(window.location.pathname).match(/\/(\d{4})\//);
+      if (m && m[1]) return safeStr(m[1]);
+      var g = safeStr(window.year || window.YEAR || "");
+      if (g) return g.replace(/\D/g, "");
+      return String(new Date().getFullYear());
+    }
+
+    function ensureMount() {
+      var mount = document.getElementById("teamOpsMount");
+      if (mount) return mount;
+      mount = document.createElement("div");
+      mount.id = "teamOpsMount";
+      var anchor =
+        document.querySelector(".ups-hotlinks-shell") ||
+        document.getElementById("container-wrap") ||
+        document.body;
+      if (anchor && anchor.parentNode) {
+        anchor.parentNode.insertBefore(mount, anchor.nextSibling);
+      } else {
+        document.body.appendChild(mount);
+      }
+      return mount;
+    }
+
+    function loadTeamOps() {
+      ensureMount();
+      window.UPS_TEAMOPS_LEAGUE_ID = getCurrentLeagueId();
+      window.UPS_TEAMOPS_YEAR = getCurrentYear();
+
+      var releaseRef = safeStr(window.UPS_RELEASE_SHA || "main") || "main";
+      var cacheKey = encodeURIComponent(String(Date.now()));
+      var candidates = [
+        "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@" + releaseRef + "/site/team_operations/mfl_hpm_embed_loader.js?v=" + cacheKey,
+        "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/team_operations/mfl_hpm_embed_loader.js?v=" + cacheKey
+      ];
+
+      function tryLoader(idx) {
+        if (idx >= candidates.length) return;
+        var s = document.createElement("script");
+        s.setAttribute("data-ups-teamops-loader", "1");
+        s.src = candidates[idx];
+        s.async = true;
+        s.onerror = function () { tryLoader(idx + 1); };
+        document.body.appendChild(s);
+      }
+      tryLoader(0);
+    }
+
+    if (getModuleName() !== "MESSAGE11") return;
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", loadTeamOps);
+    } else {
+      loadTeamOps();
     }
   })();
 </script>
