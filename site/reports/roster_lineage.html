@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>UPS MFL — Rostered Player Contract Lineage</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<style>
+  :root {
+    --bg: #0b0e14;
+    --panel: #141823;
+    --panel-alt: #1a1f2d;
+    --border: #2a3142;
+    --text: #e7eaf0;
+    --muted: #8892a5;
+    --accent: #6bb0ff;
+    --ok: #5dd39e;
+    --warn: #ffc857;
+    --err: #ff5c5c;
+    --rookie: #a48bff;
+    --auction: #64c3ff;
+    --ext: #5dd39e;
+    --tag: #ffc857;
+    --veteran: #8892a5;
+    --bl: #ff9a6b;
+    --fl: #6bdfff;
+    --restructure: #ff5c9a;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 13px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  header { background: var(--panel); border-bottom: 1px solid var(--border); padding: 14px 20px; display: flex;
+           justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; }
+  header h1 { margin: 0; font-size: 17px; font-weight: 600; }
+  header .meta { color: var(--muted); font-size: 12px; }
+  .controls { padding: 14px 20px; background: var(--panel-alt); border-bottom: 1px solid var(--border);
+              display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-end; }
+  .controls label { display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: var(--muted);
+                    text-transform: uppercase; letter-spacing: 0.6px; }
+  .controls select, .controls input {
+    background: var(--bg); color: var(--text); border: 1px solid var(--border);
+    border-radius: 6px; padding: 6px 10px; font-size: 13px; min-width: 140px;
+  }
+  .controls input[type="search"] { min-width: 240px; }
+  .controls .count { color: var(--muted); font-size: 12px; margin-left: auto; }
+  main { padding: 10px 20px 40px; }
+  table { width: 100%; border-collapse: collapse; }
+  thead th { position: sticky; top: 0; background: var(--panel); color: var(--muted); font-weight: 600;
+             text-transform: uppercase; font-size: 10.5px; letter-spacing: 0.7px;
+             padding: 8px 10px; border-bottom: 1px solid var(--border); text-align: left; }
+  tbody tr.player-row { background: var(--panel); border-top: 1px solid var(--border); cursor: pointer; }
+  tbody tr.player-row:hover { background: var(--panel-alt); }
+  tbody td { padding: 8px 10px; vertical-align: top; }
+  .pid { color: var(--muted); font-size: 11px; font-family: ui-monospace, Menlo, Consolas, monospace; }
+  .player-name { font-weight: 600; }
+  .pos-pill { display: inline-block; background: var(--border); color: var(--text); padding: 1px 6px;
+              border-radius: 4px; font-size: 10.5px; margin-right: 6px; letter-spacing: 0.4px; }
+  tbody tr.lineage-row { background: var(--bg); }
+  tbody tr.lineage-row.hidden { display: none; }
+  tbody tr.lineage-row td { padding: 0; }
+  .lineage-table { width: 100%; border-collapse: collapse; }
+  .lineage-table th, .lineage-table td { padding: 6px 10px; font-size: 12.5px; border-bottom: 1px solid var(--border); }
+  .lineage-table th { color: var(--muted); font-weight: 600; text-transform: uppercase; font-size: 10px;
+                      letter-spacing: 0.7px; background: var(--panel-alt); }
+  .lineage-table tr:last-child td { border-bottom: none; }
+  .money { font-variant-numeric: tabular-nums; font-family: ui-monospace, Menlo, Consolas, monospace; }
+  .ctype { display: inline-block; padding: 2px 7px; border-radius: 3px; font-size: 10.5px; letter-spacing: 0.4px;
+           font-weight: 600; background: var(--veteran); color: #000; }
+  .ctype.Rookie { background: var(--rookie); }
+  .ctype.Auction { background: var(--auction); }
+  .ctype.Tag { background: var(--tag); color: #000; }
+  .ctype.Ext1, .ctype.Ext2, .ctype.Ext3 { background: var(--ext); color: #000; }
+  .ctype.Veteran { background: var(--veteran); color: #000; }
+  .shape-tag { display: inline-block; padding: 1px 5px; border-radius: 3px; font-size: 10px; margin-left: 4px;
+               background: var(--border); color: var(--text); letter-spacing: 0.4px; }
+  .shape-tag.BL { background: var(--bl); color: #000; }
+  .shape-tag.FL { background: var(--fl); color: #000; }
+  .shape-tag.RESTRUCTURE { background: var(--restructure); color: #fff; }
+  .events-list { margin: 0; padding: 0; list-style: none; }
+  .events-list li { padding: 2px 0; font-size: 12px; color: var(--text); }
+  .events-list li::before { content: "• "; color: var(--muted); }
+  .toggle { display: inline-block; width: 14px; color: var(--muted); font-family: monospace; transition: transform 150ms; }
+  .player-row.open .toggle { transform: rotate(90deg); }
+  .aav-derived { color: var(--warn); }
+  .info-strip { color: var(--muted); font-size: 11px; margin: 3px 0 0; font-family: ui-monospace, Menlo, Consolas, monospace; word-break: break-all; }
+  footer { text-align: center; padding: 20px; color: var(--muted); font-size: 11px; }
+  .empty-hint { text-align: center; color: var(--muted); padding: 60px 20px; }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Rostered Player Contract Lineage</h1>
+    <div class="meta" id="metaStrip"></div>
+  </div>
+  <div class="meta">UPS MFL</div>
+</header>
+<div class="controls">
+  <label>Anchor Year<select id="yearSel"></select></label>
+  <label>Team<select id="teamSel"><option value="">All teams</option></select></label>
+  <label>Position<select id="posSel"><option value="">All positions</option></select></label>
+  <label>Search Player<input type="search" id="searchInput" placeholder="e.g. Mike Evans"/></label>
+  <span class="count" id="countLabel"></span>
+</div>
+<main>
+  <table id="mainTable">
+    <thead>
+      <tr>
+        <th style="width:18px"></th>
+        <th>Player</th>
+        <th>Pos</th>
+        <th>NFL</th>
+        <th>Current Team</th>
+        <th style="text-align:right">Salary ($)</th>
+        <th style="text-align:right">AAV ($)</th>
+        <th style="text-align:right">TCV ($)</th>
+        <th>Contract Type</th>
+      </tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+  <div id="emptyState" class="empty-hint" style="display:none">No players match the current filters.</div>
+</main>
+<footer id="footer"></footer>
+
+<script>
+const DATA_URL = "roster_lineage.json";
+const LOOKBACK = 5; // years
+
+let DATA = null;
+
+function formatMoney(v) {
+  if (v === null || v === undefined) return "—";
+  const n = Number(v);
+  if (!Number.isFinite(n) || n === 0) return "$0";
+  return "$" + n.toLocaleString("en-US");
+}
+function formatK(v) {
+  if (!v) return "$0";
+  return v >= 1000 && v % 1000 === 0 ? "$" + (v / 1000) + "K" : "$" + (v / 1000).toFixed(1) + "K";
+}
+
+function renderLineageSub(player, anchor) {
+  const years = [];
+  for (let y = anchor - LOOKBACK + 1; y <= anchor; y++) years.push(String(y));
+  const rows = years.map(yr => {
+    const L = player.lineage[yr];
+    if (!L) {
+      return `<tr><td>${yr}</td><td colspan="8" style="color:var(--muted)">—</td></tr>`;
+    }
+    const ctype = (L.contract_type || "").split(" ")[0] || "";
+    const shape = (L.contract_type || "").split(" ")[1] || "";
+    const aavClass = L.aav_source === "derived_tcv_div_cl" ? "aav-derived" : "";
+    const aavTip = L.aav_source === "derived_tcv_div_cl" ? ' title="AAV derived from TCV/CL (not stored)"' : "";
+    const events = (L.major_events || []).length
+      ? `<ul class="events-list">${L.major_events.map(e => `<li>${escapeHtml(e)}</li>`).join("")}</ul>`
+      : `<span style="color:var(--muted)">—</span>`;
+    return `
+      <tr>
+        <td>${yr}</td>
+        <td>${escapeHtml(L.team_name || "")}</td>
+        <td class="money">${formatMoney(L.salary)}</td>
+        <td class="money ${aavClass}"${aavTip}>${formatMoney(L.aav)}</td>
+        <td class="money">${formatMoney(L.tcv)}</td>
+        <td><span class="ctype ${ctype}">${ctype}</span>${shape ? `<span class="shape-tag ${shape}">${shape}</span>` : ""}</td>
+        <td class="money">${formatMoney(L.salary_earned)}</td>
+        <td>${events}<div class="info-strip">${escapeHtml(L.contract_info_raw || "")}</div></td>
+      </tr>
+    `;
+  }).join("");
+  return `
+    <table class="lineage-table">
+      <thead>
+        <tr>
+          <th>Year</th>
+          <th>Team</th>
+          <th style="text-align:right">Salary</th>
+          <th style="text-align:right">AAV</th>
+          <th style="text-align:right">TCV</th>
+          <th>Contract Type</th>
+          <th style="text-align:right">Earned</th>
+          <th>Major Events / Contract String</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+}
+
+function escapeHtml(s) {
+  return String(s || "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
+}
+
+function render() {
+  const anchor = parseInt(document.getElementById("yearSel").value, 10);
+  const teamFilter = document.getElementById("teamSel").value;
+  const posFilter = document.getElementById("posSel").value;
+  const searchQ = document.getElementById("searchInput").value.trim().toLowerCase();
+  const tbody = document.getElementById("tbody");
+  tbody.innerHTML = "";
+
+  const filtered = DATA.players.filter(p => {
+    if (teamFilter && p.current_team_id !== teamFilter) return false;
+    if (posFilter && p.position !== posFilter) return false;
+    if (searchQ && !(p.name || "").toLowerCase().includes(searchQ)) return false;
+    return true;
+  });
+
+  document.getElementById("countLabel").textContent =
+    `${filtered.length} of ${DATA.players.length} players`;
+  document.getElementById("emptyState").style.display = filtered.length ? "none" : "";
+
+  const anchorKey = String(anchor);
+  for (const p of filtered) {
+    const L = p.lineage[anchorKey] || {};
+    const ctype = (L.contract_type || "").split(" ")[0] || "";
+    const shape = (L.contract_type || "").split(" ")[1] || "";
+    const row = document.createElement("tr");
+    row.className = "player-row";
+    row.dataset.pid = p.player_id;
+    row.innerHTML = `
+      <td><span class="toggle">▶</span></td>
+      <td>
+        <span class="player-name">${escapeHtml(p.name)}</span>
+        <div class="pid">pid ${p.player_id}</div>
+      </td>
+      <td><span class="pos-pill">${escapeHtml(p.position || "")}</span></td>
+      <td>${escapeHtml(p.nfl_team || "")}</td>
+      <td>${escapeHtml(p.current_team_name || "")}</td>
+      <td class="money" style="text-align:right">${formatMoney(L.salary)}</td>
+      <td class="money" style="text-align:right">${formatMoney(L.aav)}</td>
+      <td class="money" style="text-align:right">${formatMoney(L.tcv)}</td>
+      <td><span class="ctype ${ctype}">${ctype || "—"}</span>${shape ? `<span class="shape-tag ${shape}">${shape}</span>` : ""}</td>
+    `;
+    const subRow = document.createElement("tr");
+    subRow.className = "lineage-row hidden";
+    const subCell = document.createElement("td");
+    subCell.colSpan = 9;
+    subCell.innerHTML = renderLineageSub(p, anchor);
+    subRow.appendChild(subCell);
+    row.addEventListener("click", () => {
+      row.classList.toggle("open");
+      subRow.classList.toggle("hidden");
+    });
+    tbody.appendChild(row);
+    tbody.appendChild(subRow);
+  }
+}
+
+async function main() {
+  const res = await fetch(DATA_URL + "?v=" + Date.now(), { cache: "no-store" });
+  DATA = await res.json();
+  // Populate year dropdown
+  const ySel = document.getElementById("yearSel");
+  for (const y of DATA.meta.anchor_years) {
+    const opt = document.createElement("option");
+    opt.value = y;
+    opt.textContent = y;
+    if (y === DATA.meta.current_season) opt.selected = true;
+    ySel.appendChild(opt);
+  }
+  // Teams
+  const tSel = document.getElementById("teamSel");
+  const teams = Object.entries(DATA.meta.current_franchises || {}).sort((a, b) => (a[1] || "").localeCompare(b[1] || ""));
+  for (const [id, name] of teams) {
+    const opt = document.createElement("option");
+    opt.value = id;
+    opt.textContent = name || id;
+    tSel.appendChild(opt);
+  }
+  // Positions
+  const posSel = document.getElementById("posSel");
+  const positions = [...new Set(DATA.players.map(p => p.position).filter(Boolean))].sort();
+  for (const p of positions) {
+    const opt = document.createElement("option");
+    opt.value = p;
+    opt.textContent = p;
+    posSel.appendChild(opt);
+  }
+  // Meta strip
+  document.getElementById("metaStrip").textContent =
+    `Generated ${DATA.meta.generated_at_utc} · ${DATA.meta.player_count} rostered players · current season ${DATA.meta.current_season} wk ${DATA.meta.current_week}`;
+
+  ["yearSel", "teamSel", "posSel"].forEach(id => document.getElementById(id).addEventListener("change", render));
+  document.getElementById("searchInput").addEventListener("input", render);
+  render();
+}
+
+main().catch(e => {
+  document.getElementById("tbody").innerHTML = `<tr><td colspan="9" style="color:var(--err);padding:40px;text-align:center">Failed to load: ${escapeHtml(e.message || e)}</td></tr>`;
+});
+</script>
+</body>
+</html>
