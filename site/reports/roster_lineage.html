@@ -153,6 +153,11 @@ function renderLineageSub(player, anchor) {
     const shape = (L.contract_type || "").split(" ")[1] || "";
     const aavClass = L.aav_source === "derived_tcv_div_cl" ? "aav-derived" : "";
     const aavTip = L.aav_source === "derived_tcv_div_cl" ? ' title="AAV derived from TCV/CL (not stored)"' : "";
+    // Multi-value AAV display: "12K, 32K" for pre,post extension transition years
+    const aavFull = Array.isArray(L.aav_values_full) ? L.aav_values_full : [];
+    const aavDisplay = aavFull.length > 1
+      ? aavFull.map(formatMoney).join(", ")
+      : formatMoney(L.aav);
     const events = (L.major_events || []).length
       ? `<ul class="events-list">${L.major_events.map(e => renderEvent(e)).join("")}</ul>`
       : `<span style="color:var(--muted)">—</span>`;
@@ -161,7 +166,7 @@ function renderLineageSub(player, anchor) {
         <td>${yr}</td>
         <td>${escapeHtml(L.team_name || "")}</td>
         <td class="money">${formatMoney(L.salary)}</td>
-        <td class="money ${aavClass}"${aavTip}>${formatMoney(L.aav)}</td>
+        <td class="money ${aavClass}"${aavTip}>${aavDisplay}</td>
         <td class="money">${formatMoney(L.tcv)}</td>
         <td><span class="ctype ${ctype}">${ctype}</span>${shape ? `<span class="shape-tag ${shape}">${shape}</span>` : ""}</td>
         <td class="money">${formatMoney(L.salary_earned)}</td>

@@ -240,8 +240,16 @@ def build_major_events(
     prior_snap: dict | None,
     this_snap: dict,
     franchise_name_map: dict,
+    historical_franchise_resolver=None,
 ) -> list:
-    def team_label(fid) -> str:
+    def team_label(fid, season_override=None) -> str:
+        # Use historical resolver when available so pre-ownership-change events
+        # show the team name in effect AT THE TIME (e.g. fid 0006 in 2024 =
+        # "The Main Event Mafia" / Lima, not "The Long Haulers" / Cross).
+        if historical_franchise_resolver:
+            nm = historical_franchise_resolver(season_override or season, fid)
+            if nm:
+                return nm
         nm = franchise_name_map.get(safe_str(fid))
         return nm or safe_str(fid) or "?"
 
@@ -281,10 +289,26 @@ def build_major_events(
             "trade_group_id": t.get("group_id"),
             "link_txn_id": (f"{season}_{t.get('txn_index')}" if t.get("txn_index") is not None else None),
         })
-    # Pair drops with same-season ADDs by matching method → "WAIVER_SWAP" event.
-    # MFL logs BBID pickups as DROP on prior team + ADD on new team with method='BBID'.
+    # Emit drops + adds as SEPARATE chronological events (no longer merged
+    # into WAIVER_SWAP). Narrative flow user wants:
+    #    DROP → CONTRACT_RESET → ADD → NEW_CONTRACT_TERMS → (later TRADE)
+    # Pair drops with same-season matching-method ADDs so we know the new
+    # contract terms to emit as a companion event.
+    prior_status = safe_str(prior_snap.get("contract_status") if prior_snap else "").lower()
+    this_status = safe_str(this_snap.get("contract_status") or "").lower()
+    this_ci = parse_contract_info(this_snap.get("contract_info") or "")
+    # "rookie deal ended" annotation ONLY applies when there's an ACTUAL drop
+    # this season + rookie→veteran transition. Otherwise a rookie being
+    # extended legitimately would falsely show "rookie deal ended".
+    rookie_transition = (
+        prior_status == "rookie"
+        and this_status
+        and this_status != "rookie"
+        and bool(drops_in_season)
+    )
+
     used_adds = set()
-    unmatched_drops = []
+    drop_add_pairs = []
     for drop in drops_in_season:
         match = None
         for i, add in enumerate(adds_in_season):
@@ -296,32 +320,41 @@ def build_major_events(
         if match:
             idx, add = match
             used_adds.add(idx)
-            dr_team = team_label(drop.get("franchise_id"))
-            ad_team = team_label(add.get("franchise_id"))
-            method = safe_str(drop.get("method")) or "FA"
-            add_salary = safe_int(add.get("salary"))
-            this_ci = parse_contract_info(this_snap.get("contract_info") or "")
-            cl_hint = f" → new {this_ci.get('cl')}yr contract" if this_ci.get("cl") else ""
-            events.append({
-                "type": "WAIVER_SWAP",
-                "text": (f"{method} waiver: {dr_team} dropped → {ad_team} claimed "
-                         f"{format_k(add_salary) if add_salary else 'salary n/a'}{cl_hint}"),
-                "drop_datetime": drop.get("datetime"),
-                "add_datetime": add.get("datetime"),
-                "drop_franchise_id": drop.get("franchise_id"),
-                "add_franchise_id": add.get("franchise_id"),
-                "method": method,
-            })
-        else:
-            unmatched_drops.append(drop)
-    for drop in unmatched_drops:
-        tm = team_label(drop.get("franchise_id"))
+        drop_add_pairs.append((drop, match[1] if match else None))
+
+    for drop, add in drop_add_pairs:
+        dr_team = team_label(drop.get("franchise_id"))
+        method = safe_str(drop.get("method")) or "FA"
+        # DROP event (with optional "rookie deal ended" annotation)
+        rookie_note = " — rookie deal ended, cap penalty will be assessed" if rookie_transition else ""
         events.append({
             "type": "DROP",
-            "text": f"DROP by {tm} ({drop.get('method') or 'FA'})",
+            "text": f"DROP by {dr_team} ({method}){rookie_note}",
             "datetime": drop.get("datetime"),
             "franchise_id": drop.get("franchise_id"),
         })
+        # ADD event (if paired)
+        if add:
+            ad_team = team_label(add.get("franchise_id"))
+            add_salary = safe_int(add.get("salary"))
+            events.append({
+                "type": "ADD",
+                "text": (f"Picked up by {ad_team} via {method}"
+                         + (f" for {format_k(add_salary)}" if add_salary else "")),
+                "datetime": add.get("datetime"),
+                "franchise_id": add.get("franchise_id"),
+            })
+            # NEW_CONTRACT event describing the terms of the replacement deal
+            if this_ci.get("cl") or this_ci.get("tcv"):
+                events.append({
+                    "type": "NEW_CONTRACT",
+                    "text": (f"New {this_ci.get('cl') or 'N'}yr contract: "
+                             f"{format_k(this_ci.get('aav_canonical') or 0)}/yr "
+                             f"(TCV {format_k(this_ci.get('tcv') or 0)})"),
+                    "datetime": add.get("datetime"),
+                })
+
+    # Remaining adds without matching drops (mid-season waiver pickup)
     for i, add in enumerate(adds_in_season):
         if i in used_adds:
             continue
@@ -334,19 +367,15 @@ def build_major_events(
             "datetime": add.get("datetime"),
             "franchise_id": add.get("franchise_id"),
         })
-
-    # Rookie-to-new-contract transition: rookie was dropped+reclaimed
-    prior_status = safe_str(prior_snap.get("contract_status") if prior_snap else "").lower()
-    this_status = safe_str(this_snap.get("contract_status") or "").lower()
-    if prior_status == "rookie" and this_status and this_status != "rookie":
-        this_ci = parse_contract_info(this_snap.get("contract_info") or "")
-        events.append({
-            "type": "CONTRACT_RESET",
-            "text": (f"Contract reset: rookie deal ended — now on "
-                     f"{this_ci.get('cl') or 'N'}yr "
-                     f"{format_k(this_ci.get('aav_canonical') or 0)}/yr "
-                     f"{format_k(this_ci.get('tcv') or 0)} TCV"),
-        })
+        # If it's a brand-new contract we haven't described yet, emit NEW_CONTRACT
+        if this_ci.get("cl") or this_ci.get("tcv"):
+            events.append({
+                "type": "NEW_CONTRACT",
+                "text": (f"New {this_ci.get('cl') or 'N'}yr contract: "
+                         f"{format_k(this_ci.get('aav_canonical') or 0)}/yr "
+                         f"(TCV {format_k(this_ci.get('tcv') or 0)})"),
+                "datetime": add.get("datetime"),
+            })
 
     # Extensions (new Ext: tag entries)
     prior_exts = set(parse_contract_info(prior_snap.get("contract_info") if prior_snap else "").get("extensions") or [])
@@ -394,6 +423,7 @@ def build_player_record(
     salary_adjustments: dict,
     current_franchise_map: dict,
     latest_season: int,
+    historical_resolver=None,
 ) -> dict:
     # Player identity (use latest players row)
     prow = conn.execute(
@@ -436,9 +466,12 @@ def build_player_record(
             "bid": a[1], "team": a[2], "auction_type": a[3], "datetime": a[4],
         })
 
-    # Trades: group by (season, txn_index) so SENDER + RECEIVER become ONE event
+    # Trades: group by (season, txn_index) so SENDER + RECEIVER become ONE event.
+    # Resolve franchise names using HISTORICAL resolver (franchises table by
+    # season) so old ownership names are preserved (LH → Main Event Mafia for
+    # pre-Aug-2024 events, for example).
     trade_rows = conn.execute(
-        """SELECT season, txn_index, datetime_et, franchise_name, franchise_role, trade_group_id
+        """SELECT season, txn_index, datetime_et, franchise_name, franchise_role, trade_group_id, franchise_id
            FROM transactions_trades
            WHERE player_id=? AND asset_type='PLAYER'
            ORDER BY season, txn_index, franchise_role""",
@@ -450,10 +483,11 @@ def build_player_record(
         key = (t[0], t[1])
         entry = by_txn.setdefault(key, {"season": t[0], "txn_index": t[1], "datetime": t[2],
                                        "from_team": None, "to_team": None, "group_id": t[5]})
+        resolved_name = (historical_resolver(t[0], t[6]) if historical_resolver else None) or t[3]
         if t[4] == "SENDER":
-            entry["from_team"] = t[3]
+            entry["from_team"] = resolved_name
         elif t[4] == "RECEIVER":
-            entry["to_team"] = t[3]
+            entry["to_team"] = resolved_name
     for (season, _), v in by_txn.items():
         trades_by_season.setdefault(season, []).append(v)
 
@@ -533,6 +567,7 @@ def build_player_record(
             adj_in_season=adj_this,
             prior_snap=prior, this_snap=snap,
             franchise_name_map=current_franchise_map,
+            historical_franchise_resolver=historical_resolver,
         )
         # Sort events within each year chronologically when timestamps are present.
         # Events without a datetime (DRAFT, EXTENSION, RESTRUCTURE, CONTRACT_RESET,
@@ -548,15 +583,28 @@ def build_player_record(
         events = sorted(events, key=_key)
 
         team_id_resolved = safe_str(snap.get("franchise_id"))
-        team_name_resolved = safe_str(snap.get("team_name"))
+        # Prefer the historical franchise name for THIS season, not the
+        # current-franchise-map fallback (which would show current names for
+        # old rows, e.g. LH for 2023 events where team was actually Main Event).
+        team_name_resolved = ""
+        if historical_resolver and team_id_resolved:
+            team_name_resolved = historical_resolver(season, team_id_resolved)
+        if not team_name_resolved:
+            team_name_resolved = safe_str(snap.get("team_name"))
         if not team_name_resolved and team_id_resolved:
-            # Fall back to current franchise map for seasons where team_name is missing
             team_name_resolved = current_franchise_map.get(team_id_resolved, "")
+        # AAV display: when contractInfo stored multiple AAV values (e.g.
+        # "AAV 12K, 32K" — pre-ext + post-ext), show all of them. This is
+        # how extension transition years read naturally.
+        aav_display_values = list(parsed.get("aav_values") or [])
+        if aav is not None and aav not in aav_display_values:
+            aav_display_values.append(aav)
         lineage[str(season)] = {
             "team_id": team_id_resolved,
             "team_name": team_name_resolved,
             "salary": salary,
             "aav": aav,
+            "aav_values_full": aav_display_values,
             "aav_source": aav_source,
             "tcv": tcv,
             "contract_type": contract_type,
@@ -609,12 +657,37 @@ def main() -> int:
         ).fetchone()
         latest_week = latest_week_row[0] if latest_week_row else 1
 
-        # Build franchise name map (latest season)
+        # Build franchise name maps.
+        # - current franchise_map: latest season names (for UI filters)
+        # - historical (season, fid) map: team names in effect that season.
+        # The rosters_weekly and transactions_trades tables have been backfilled
+        # with CURRENT names, so for correct historical display we must resolve
+        # via this map instead.
         frs = conn.execute(
-            """SELECT franchise_id, team_name FROM franchises
-               WHERE season=(SELECT MAX(season) FROM franchises)"""
+            """SELECT season, franchise_id, team_name, owner_name FROM franchises"""
         ).fetchall()
-        franchise_map = {r[0]: r[1] for r in frs}
+        franchise_map = {}
+        historical_map: dict = {}
+        max_fr_season = 0
+        for r in frs:
+            historical_map[(int(r[0]), r[1])] = {"team_name": r[2], "owner_name": r[3]}
+            if int(r[0]) > max_fr_season:
+                max_fr_season = int(r[0])
+        for (season_key, fid), info in historical_map.items():
+            if season_key == max_fr_season:
+                franchise_map[fid] = info["team_name"]
+
+        def historical_resolver(season, fid):
+            try:
+                s = int(season)
+            except (TypeError, ValueError):
+                s = max_fr_season
+            hit = historical_map.get((s, safe_str(fid)))
+            if hit:
+                return hit["team_name"]
+            # Fall back to the latest-known name if the season isn't in franchises yet
+            hit = historical_map.get((max_fr_season, safe_str(fid)))
+            return hit["team_name"] if hit else ""
 
         # Pull currently rostered player ids (latest week of latest season)
         pids = [r[0] for r in conn.execute(
@@ -632,7 +705,10 @@ def main() -> int:
         players = []
         for pid in pids:
             try:
-                rec = build_player_record(conn, pid, [], sal_adj, franchise_map, latest_season)
+                rec = build_player_record(
+                    conn, pid, [], sal_adj, franchise_map, latest_season,
+                    historical_resolver=historical_resolver,
+                )
                 players.append(rec)
             except Exception as e:
                 print(f"ERROR pid={pid}: {e}", flush=True)

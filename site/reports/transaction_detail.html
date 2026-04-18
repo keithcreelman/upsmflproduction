@@ -64,8 +64,9 @@ function renderAsset(a, role) {
   } else if (at === "DRAFTPICK_CURRENT") {
     name = `Current-year pick R${a.dp_round}.${a.dp_slot}` + (a.dp_season ? ` (${a.dp_season})` : "");
   } else if (at === "DRAFTPICK_FUTURE") {
+    const origin = a.fdp_from_franchise_name || a.fdp_from_franchise;
     name = `${a.fdp_year || ""} pick R${a.fdp_round || "?"}.${a.fdp_slot || "?"}`
-      + (a.fdp_from_franchise ? ` (originally from ${a.fdp_from_franchise})` : "");
+      + (origin ? ` (originally from ${origin})` : "");
   } else if (at === "CAP") {
     name = `Cap adjustment: ${a.cap_amount > 0 ? "+" : ""}${(a.cap_amount || 0).toLocaleString()}`;
   } else {

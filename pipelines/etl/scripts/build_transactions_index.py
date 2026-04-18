@@ -52,6 +52,27 @@ def main() -> int:
         for r in conn.execute("SELECT player_id, name, position FROM players WHERE season=(SELECT MAX(season) FROM players)").fetchall():
             pmap[safe_str(r[0])] = {"name": r[1], "position": r[2]}
 
+        # Historical franchise-name map keyed by (season, franchise_id).
+        # rosters_weekly.team_name and transactions_trades.franchise_name have
+        # been backfilled with CURRENT names, so they misrepresent old trades
+        # (e.g., "The Long Haulers" for a May 2024 trade that was actually
+        # Josh Lima's "Main Event Mafia"). The franchises table is the truth.
+        fmap: dict = {}
+        for r in conn.execute("SELECT season, franchise_id, team_name, owner_name FROM franchises").fetchall():
+            fmap[(int(r[0]), safe_str(r[1]))] = {"team_name": r[2], "owner_name": r[3]}
+        max_season = conn.execute("SELECT MAX(season) FROM franchises").fetchone()[0]
+
+        def resolve_franchise(season, fid, fallback=""):
+            season = int(season) if season is not None else None
+            fid = safe_str(fid)
+            if season is not None:
+                hit = fmap.get((season, fid))
+                if hit:
+                    return hit["team_name"] or fallback
+            # Fall forward to latest known name
+            hit = fmap.get((max_season, fid))
+            return (hit["team_name"] if hit else "") or fallback
+
         # All trades grouped by trade_group_id (one or more players, picks per side)
         rows = conn.execute(
             """SELECT season, txn_index, trade_group_id, datetime_et, franchise_id,
@@ -80,12 +101,15 @@ def main() -> int:
             fid = safe_str(r[4])
             side = g["sides"].setdefault(fid, {
                 "franchise_id": fid,
-                "franchise_name": r[5],
+                "franchise_name": resolve_franchise(r[0], fid, fallback=r[5]),
                 "role": r[6],
                 "relinquished": [],
                 "acquired": [],
             })
             asset_role = safe_str(r[7]).upper()
+            # Resolve future-pick origin franchise id → name using trade-season context
+            fdp_from_id = safe_str(r[17])
+            fdp_from_name = resolve_franchise(r[0], fdp_from_id, fallback=fdp_from_id) if fdp_from_id else ""
             asset = {
                 "asset_type": r[8],
                 "player_id": r[9],
@@ -99,7 +123,8 @@ def main() -> int:
                 "fdp_year": r[14],
                 "fdp_round": r[15],
                 "fdp_slot": r[16],
-                "fdp_from_franchise": r[17],
+                "fdp_from_franchise": fdp_from_id,
+                "fdp_from_franchise_name": fdp_from_name,
                 "cap_amount": r[18],
             }
             if asset_role == "RELINQUISH":
