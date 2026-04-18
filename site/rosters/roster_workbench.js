@@ -1282,7 +1282,19 @@
   function playerExtensionOptions(player) {
     if (!player || extensionBlockedByCurrentOwner(player) || extensionBlockedByHistory(player)) return [];
     var previews = player.extensionPreviews ? player.extensionPreviews : [];
-    var base = previews.length ? previews : synthesizedExtensionOptionsForPlayer(player);
+    // Staleness check: the precomputed previews JSON is derived from a
+    // snapshot of rosters_current. If the live player.aav has been corrected
+    // in MFL (via /admin/import-salaries or a manual commish edit) AFTER the
+    // JSON was last regenerated, the preview's currentAav will disagree with
+    // the live one and every downstream number (future AAV, TCV, GTD) will
+    // be wrong. Detect that and fall through to client-side synthesis, which
+    // re-derives from live player.salary/aav using the extension-rate table.
+    var livePlayerAav = safeInt(player.aav, 0);
+    var previewsAreStale = previews.length > 0 && livePlayerAav > 0 && previews.some(function (opt) {
+      var optCurrentAav = safeInt(opt && opt.currentAav, 0);
+      return optCurrentAav > 0 && optCurrentAav !== livePlayerAav;
+    });
+    var base = (previews.length && !previewsAreStale) ? previews : synthesizedExtensionOptionsForPlayer(player);
     if (!base.length) return base;
 
     // Strip non-ASCII from any Ext: segment so MFL's confirmation dialog
