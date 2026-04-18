@@ -16339,17 +16339,42 @@ export default {
           for (const p of arr) preMap[safeStr(p?.id)] = p;
         }
 
-        // POST to MFL (via BECOME=0000 commish session + APIKEY if available)
-        const commishCookie = await establishCommishCookieHeader(cookieHeader, targetSeason, leagueId);
-        const mflApiKey = safeStr(env.MFL_APIKEY || "");
-        const formFields = { TYPE: "salaries", L: leagueId, DATA: dataXml };
-        if (mflApiKey) formFields.APIKEY = mflApiKey;
-        const importRes = await postMflImportFormForCookie(
-          commishCookie,
-          targetSeason,
-          formFields,
-          { TYPE: "salaries", L: leagueId }
-        );
+        // POST to MFL. Critical config (learned 2026-04-18):
+        //   - Use browser-like User-Agent — the "upsmflproduction-worker" UA
+        //     triggered MFL silent rejection (HTTP 200 with empty body, no
+        //     actual persistence).
+        //   - redirect: "follow" — MFL redirects to a success page; manual
+        //     redirect mode returned empty body.
+        //   - Accept-Encoding: identity — avoid any gzip surprises.
+        //   - NO APIKEY in form — cookie-only auth works; mixing cookie+APIKEY
+        //     was also causing silent reject.
+        const importUrl = `https://www48.myfantasyleague.com/${encodeURIComponent(targetSeason)}/import?TYPE=salaries&L=${encodeURIComponent(leagueId)}`;
+        const importFetchRes = await fetch(importUrl, {
+          method: "POST",
+          headers: {
+            Cookie: cookieHeader,
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+            "Accept": "text/xml, text/plain, application/xml, */*",
+            "Accept-Encoding": "identity",
+          },
+          body: new URLSearchParams({ DATA: dataXml }).toString(),
+          redirect: "follow",
+          cf: { cacheTtl: 0, cacheEverything: false },
+        });
+        const importText = await importFetchRes.text();
+        const importStatusXml = /<status>OK<\/status>/i.test(importText);
+        const importErrorXml = /<error>([^<]+)<\/error>/i.exec(importText);
+        const importRes = {
+          ok: importFetchRes.ok && importStatusXml,
+          requestOk: importFetchRes.ok && importStatusXml,
+          status: importFetchRes.status,
+          text: importText,
+          upstreamPreview: importText.slice(0, 2000),
+          targetImportUrl: importFetchRes.url,
+          formFields: { TYPE: "salaries", L: leagueId, DATA: `<${dataXml.length} bytes>` },
+          error: importErrorXml ? importErrorXml[1] : (importStatusXml ? "" : "unexpected_response"),
+        };
 
         // Verify by re-fetching
         const postExportRes = await mflExportJson(targetSeason, leagueId, "salaries", {}, { useCookie: true });
@@ -16397,8 +16422,12 @@ export default {
           mismatched_count: verification.filter((v) => !v.landed).length,
           verification,
           import_status: importRes.status,
-          import_response_preview: safeStr(importRes.upstreamPreview).slice(0, 600),
+          // Full upstream response (2KB) so we can diagnose silent rejects.
+          import_response_full: safeStr(importRes.upstreamPreview).slice(0, 2000),
           import_target_url: importRes.targetImportUrl,
+          import_form_keys: Object.keys(importRes.formFields || {}),
+          direct_attempt_status: importRes.direct_attempt_status,
+          direct_attempt_error: importRes.direct_attempt_error,
           xml_length: dataXml.length,
           invalid_rows: invalid,
         });
