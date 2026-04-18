@@ -19557,6 +19557,43 @@ export default {
           mutationStatus = "import_ok_log_failed";
         }
 
+        // Audit log: capture every contract mutation going through this path
+        // (extensions, restructures, tags, manual commish updates) — same
+        // salary_change_log table used by /admin/import-salaries.
+        try {
+          const auditDb = env.TWB_OUTBOX_DB || env.TWB_DB || env.DB || null;
+          await ensureSalaryChangeLogTable(auditDb);
+          const landedFlag =
+            mutationStatus === "import_ok_log_dispatched" ||
+            mutationStatus === "import_ok_log_failed";
+          await logSalaryChangeRow(auditDb, {
+            created_ts: new Date().toISOString(),
+            endpoint: path,
+            league_id: leagueId,
+            season: year,
+            dry_run: false,
+            actor_ip: safeStr(request.headers.get("cf-connecting-ip") || request.headers.get("x-forwarded-for")),
+            actor_ua: safeStr(request.headers.get("user-agent")).slice(0, 200),
+            actor_had_api_key: !!sessionByApiKey,
+            player_id: playerId,
+            before_salary: safeStr(preCheck?.salary),
+            before_contract_status: safeStr(preCheck?.contractStatus),
+            before_contract_year: safeStr(preCheck?.contractYear),
+            before_contract_info: safeStr(preCheck?.contractInfo),
+            after_salary: safeStr(postCheck?.salary),
+            after_contract_status: safeStr(postCheck?.contractStatus),
+            after_contract_year: safeStr(postCheck?.contractYear),
+            after_contract_info: safeStr(postCheck?.contractInfo),
+            intended_salary: safeStr(salary),
+            intended_contract_status: safeStr(contractStatus),
+            intended_contract_year: safeStr(contractYear),
+            intended_contract_info: safeStr(contractInfo),
+            landed: landedFlag,
+            import_status: mflRes ? mflRes.status : 0,
+            notes: mutationStatus,
+          });
+        } catch (_) { /* never fail the request on audit errors */ }
+
         return mutationResponse(mutationStatus, submissionId, {
           reason:
             mutationStatus === "import_ok_log_dispatched"
