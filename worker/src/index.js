@@ -16215,6 +16215,142 @@ export default {
         return adminStateResponse();
       }
 
+      // Audit log helpers for salary changes.
+      // Writes one row per player touched by /admin/import-salaries (dry-run
+      // and real) to the D1 `salary_change_log` table when a DB binding is
+      // present, and always console.logs a one-line summary so the change is
+      // visible in Cloudflare Workers real-time logs too.
+      const ensureSalaryChangeLogTable = async (db) => {
+        if (!db) return { ok: false, error: "no_db_binding" };
+        try {
+          await db.exec(
+            "CREATE TABLE IF NOT EXISTS salary_change_log ( " +
+              "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+              "created_ts TEXT NOT NULL, " +
+              "endpoint TEXT NOT NULL, " +
+              "league_id TEXT, " +
+              "season TEXT, " +
+              "dry_run INTEGER NOT NULL DEFAULT 0, " +
+              "actor_ip TEXT, " +
+              "actor_ua TEXT, " +
+              "actor_had_api_key INTEGER NOT NULL DEFAULT 0, " +
+              "player_id TEXT, " +
+              "before_salary TEXT, " +
+              "before_contract_status TEXT, " +
+              "before_contract_year TEXT, " +
+              "before_contract_info TEXT, " +
+              "after_salary TEXT, " +
+              "after_contract_status TEXT, " +
+              "after_contract_year TEXT, " +
+              "after_contract_info TEXT, " +
+              "intended_salary TEXT, " +
+              "intended_contract_status TEXT, " +
+              "intended_contract_year TEXT, " +
+              "intended_contract_info TEXT, " +
+              "landed INTEGER, " +
+              "import_status INTEGER, " +
+              "notes TEXT " +
+              ");"
+          );
+          await db.exec(
+            "CREATE INDEX IF NOT EXISTS idx_salary_change_log_lookup ON salary_change_log(league_id, season, player_id, created_ts);"
+          );
+          return { ok: true };
+        } catch (e) {
+          return { ok: false, error: `schema_failed: ${e?.message || String(e)}` };
+        }
+      };
+      const logSalaryChangeRow = async (db, row) => {
+        try {
+          console.log(
+            JSON.stringify({
+              kind: "salary_change_log",
+              endpoint: row.endpoint,
+              league_id: row.league_id,
+              season: row.season,
+              dry_run: !!row.dry_run,
+              player_id: row.player_id,
+              before_salary: row.before_salary,
+              after_salary: row.after_salary,
+              intended_salary: row.intended_salary,
+              landed: row.landed,
+              import_status: row.import_status,
+              created_ts: row.created_ts,
+              actor_ip: row.actor_ip,
+            })
+          );
+        } catch (_) {}
+        if (!db) return;
+        try {
+          await db
+            .prepare(
+              "INSERT INTO salary_change_log (" +
+                "created_ts, endpoint, league_id, season, dry_run, actor_ip, actor_ua, actor_had_api_key, player_id, " +
+                "before_salary, before_contract_status, before_contract_year, before_contract_info, " +
+                "after_salary, after_contract_status, after_contract_year, after_contract_info, " +
+                "intended_salary, intended_contract_status, intended_contract_year, intended_contract_info, " +
+                "landed, import_status, notes" +
+                ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+            )
+            .bind(
+              row.created_ts,
+              row.endpoint,
+              row.league_id || null,
+              row.season || null,
+              row.dry_run ? 1 : 0,
+              row.actor_ip || null,
+              row.actor_ua || null,
+              row.actor_had_api_key ? 1 : 0,
+              row.player_id || null,
+              row.before_salary || null,
+              row.before_contract_status || null,
+              row.before_contract_year || null,
+              row.before_contract_info || null,
+              row.after_salary || null,
+              row.after_contract_status || null,
+              row.after_contract_year || null,
+              row.after_contract_info || null,
+              row.intended_salary || null,
+              row.intended_contract_status || null,
+              row.intended_contract_year || null,
+              row.intended_contract_info || null,
+              row.landed == null ? null : (row.landed ? 1 : 0),
+              row.import_status == null ? null : safeInt(row.import_status, 0),
+              row.notes || null
+            )
+            .run();
+        } catch (e) {
+          console.log("salary_change_log_insert_failed", e?.message || String(e));
+        }
+      };
+
+      // GET /admin/salary-change-log — read the audit trail
+      // Params: season, league_id, player_id, limit (default 100, max 500)
+      if (path === "/admin/salary-change-log" && request.method === "GET") {
+        const db = env.TWB_OUTBOX_DB || env.TWB_DB || env.DB || null;
+        if (!db) return jsonOut(503, { ok: false, error: "D1 database binding not configured (TWB_OUTBOX_DB / TWB_DB / DB)" });
+        await ensureSalaryChangeLogTable(db);
+        const qs = url.searchParams;
+        const qSeason = safeStr(qs.get("season"));
+        const qLeague = safeStr(qs.get("league_id") || qs.get("L"));
+        const qPlayer = safeStr(qs.get("player_id"));
+        const qLimit = Math.max(1, Math.min(500, safeInt(qs.get("limit"), 100)));
+        const clauses = [];
+        const binds = [];
+        if (qSeason) { clauses.push("season = ?"); binds.push(qSeason); }
+        if (qLeague) { clauses.push("league_id = ?"); binds.push(qLeague); }
+        if (qPlayer) { clauses.push("player_id = ?"); binds.push(qPlayer); }
+        const where = clauses.length ? "WHERE " + clauses.join(" AND ") : "";
+        const sql = "SELECT * FROM salary_change_log " + where + " ORDER BY id DESC LIMIT ?";
+        binds.push(qLimit);
+        try {
+          const res = await db.prepare(sql).bind(...binds).all();
+          return jsonOut(200, { ok: true, count: (res?.results || []).length, rows: res?.results || [] });
+        } catch (e) {
+          return jsonOut(500, { ok: false, error: `query_failed: ${e?.message || String(e)}` });
+        }
+      }
+
       // POST /admin/import-salaries
       // Body: {
       //   season: "2026",
@@ -16230,6 +16366,13 @@ export default {
         if (!!commishApiKey && !sessionByApiKey) {
           return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required." });
         }
+        const auditDb = env.TWB_OUTBOX_DB || env.TWB_DB || env.DB || null;
+        await ensureSalaryChangeLogTable(auditDb);
+        const auditActor = {
+          ip: safeStr(request.headers.get("cf-connecting-ip") || request.headers.get("x-forwarded-for")),
+          ua: safeStr(request.headers.get("user-agent")).slice(0, 200),
+          had_api_key: !!sessionByApiKey,
+        };
         const targetSeason = safeStr(body?.season || url.searchParams.get("YEAR") || YEAR || "");
         const leagueId = safeStr(body?.league_id || body?.L || url.searchParams.get("L") || L || "74598");
         const dryRun = !!body?.dry_run;
@@ -16306,6 +16449,34 @@ export default {
         const dataXml = `<salaries><leagueUnit unit="LEAGUE">${playerXml}</leagueUnit></salaries>`;
 
         if (dryRun) {
+          // Log dry-run intent per player so we have a record of "someone
+          // previewed changing these salaries" even if they never committed.
+          const nowIso = new Date().toISOString();
+          for (const r of valid) {
+            const before = mergedById[r.id] && currentPlayers.find((p) => safeStr(p?.id).replace(/\D/g, "") === r.id);
+            await logSalaryChangeRow(auditDb, {
+              created_ts: nowIso,
+              endpoint: "/admin/import-salaries",
+              league_id: leagueId,
+              season: targetSeason,
+              dry_run: true,
+              actor_ip: auditActor.ip,
+              actor_ua: auditActor.ua,
+              actor_had_api_key: auditActor.had_api_key,
+              player_id: r.id,
+              before_salary: safeStr(before?.salary),
+              before_contract_status: safeStr(before?.contractStatus),
+              before_contract_year: safeStr(before?.contractYear),
+              before_contract_info: safeStr(before?.contractInfo),
+              intended_salary: r.salary,
+              intended_contract_status: r.contractStatus,
+              intended_contract_year: r.contractYear,
+              intended_contract_info: r.contractInfo,
+              landed: null,
+              import_status: null,
+              notes: "dry_run",
+            });
+          }
           return jsonOut(200, {
             ok: true,
             dry_run: true,
@@ -16412,6 +16583,37 @@ export default {
           };
         });
         const allLanded = verification.every((v) => v.landed);
+
+        // Audit: one row per player actually posted to MFL, with before/after/landed.
+        const nowIso = new Date().toISOString();
+        for (const v of verification) {
+          await logSalaryChangeRow(auditDb, {
+            created_ts: nowIso,
+            endpoint: "/admin/import-salaries",
+            league_id: leagueId,
+            season: targetSeason,
+            dry_run: false,
+            actor_ip: auditActor.ip,
+            actor_ua: auditActor.ua,
+            actor_had_api_key: auditActor.had_api_key,
+            player_id: v.id,
+            before_salary: v.before?.salary,
+            before_contract_status: v.before?.contractStatus,
+            before_contract_year: v.before?.contractYear,
+            before_contract_info: v.before?.contractInfo,
+            after_salary: v.after?.salary,
+            after_contract_status: v.after?.contractStatus,
+            after_contract_year: v.after?.contractYear,
+            after_contract_info: v.after?.contractInfo,
+            intended_salary: v.expected?.salary,
+            intended_contract_status: v.expected?.contractStatus,
+            intended_contract_year: v.expected?.contractYear,
+            intended_contract_info: v.expected?.contractInfo,
+            landed: !!v.landed,
+            import_status: importRes.status,
+            notes: v.landed ? "committed" : "mismatch_or_rejected",
+          });
+        }
 
         return jsonOut(importRes.requestOk && allLanded ? 200 : 502, {
           ok: !!(importRes.requestOk && allLanded),
