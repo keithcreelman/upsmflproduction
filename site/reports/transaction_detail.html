@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>Trade Detail — UPS MFL</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<style>
+  :root {
+    --bg: #0b0e14; --panel: #141823; --panel-alt: #1a1f2d; --border: #2a3142;
+    --text: #e7eaf0; --muted: #8892a5; --accent: #6bb0ff;
+    --give: #ff9a6b; --get: #5dd39e;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 13px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  header { background: var(--panel); border-bottom: 1px solid var(--border);
+           padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+  header h1 { margin: 0; font-size: 17px; font-weight: 600; }
+  header a { color: var(--accent); text-decoration: none; font-size: 12px; }
+  main { padding: 24px; max-width: 1200px; margin: 0 auto; }
+  .meta-row { display: flex; gap: 24px; color: var(--muted); font-size: 12px; margin-bottom: 16px; }
+  .meta-row strong { color: var(--text); font-weight: 600; margin-right: 4px; }
+  .sides { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 700px) { .sides { grid-template-columns: 1fr; } }
+  .side { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
+  .side h2 { margin: 0 0 10px; font-size: 15px; }
+  .asset-list { list-style: none; padding: 0; margin: 8px 0 0; }
+  .asset-list li { padding: 6px 10px; margin-bottom: 4px; border-radius: 5px; font-size: 13px; display: flex; align-items: center; gap: 8px; }
+  .asset-list li.give { background: rgba(255,154,107,0.12); border-left: 3px solid var(--give); }
+  .asset-list li.get  { background: rgba(93,211,158,0.12); border-left: 3px solid var(--get); }
+  .tag { display: inline-block; font-size: 10px; padding: 2px 6px; border-radius: 3px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
+  .tag.give { background: var(--give); color: #000; }
+  .tag.get  { background: var(--get); color: #000; }
+  .muted { color: var(--muted); }
+  .empty-hint { padding: 60px 20px; text-align: center; color: var(--muted); }
+  pre { background: var(--panel-alt); padding: 12px; border-radius: 6px; font-size: 11px; overflow: auto; }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Trade Detail</h1>
+    <div class="meta-row" id="metaStrip"><span class="muted">Loading…</span></div>
+  </div>
+  <a href="roster_lineage.html">← Back to Lineage</a>
+</header>
+<main id="main">
+  <div class="empty-hint" id="status">Loading…</div>
+</main>
+<script>
+const LINK_PARAM = "txn";
+const DATA_URL = "transactions_index.json";
+
+function escapeHtml(s) {
+  return String(s || "")
+    .replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;");
+}
+
+function renderAsset(a, role) {
+  const at = (a.asset_type || "").toUpperCase();
+  let name = "";
+  if (at === "PLAYER") {
+    name = `${a.player_name || "Player " + (a.player_id || "?")}` + (a.position ? ` (${a.position})` : "");
+  } else if (at === "DRAFTPICK_CURRENT") {
+    name = `Current-year pick R${a.dp_round}.${a.dp_slot}` + (a.dp_season ? ` (${a.dp_season})` : "");
+  } else if (at === "DRAFTPICK_FUTURE") {
+    name = `${a.fdp_year || ""} pick R${a.fdp_round || "?"}.${a.fdp_slot || "?"}`
+      + (a.fdp_from_franchise ? ` (originally from ${a.fdp_from_franchise})` : "");
+  } else if (at === "CAP") {
+    name = `Cap adjustment: ${a.cap_amount > 0 ? "+" : ""}${(a.cap_amount || 0).toLocaleString()}`;
+  } else {
+    name = at || "Unknown asset";
+  }
+  const tag = role === "GIVE" ? `<span class="tag give">Give</span>` : `<span class="tag get">Get</span>`;
+  return `<li class="${role.toLowerCase()}">${tag} ${escapeHtml(name)}</li>`;
+}
+
+function renderSide(side) {
+  const gave = (side.relinquished || []).map(a => renderAsset(a, "GIVE")).join("");
+  const got  = (side.acquired || []).map(a => renderAsset(a, "GET")).join("");
+  return `
+    <section class="side">
+      <h2>${escapeHtml(side.franchise_name || side.franchise_id)}</h2>
+      <ul class="asset-list">
+        ${gave}${got}
+      </ul>
+    </section>
+  `;
+}
+
+async function main() {
+  const txn = new URLSearchParams(location.search).get(LINK_PARAM) || "";
+  if (!txn) {
+    document.getElementById("status").textContent = "No transaction id in URL. Use ?txn=<season>_<txn_index>";
+    return;
+  }
+  try {
+    const r = await fetch(DATA_URL + "?v=" + Date.now(), { cache: "no-store" });
+    const d = await r.json();
+    const trade = d.trades_by_link[txn];
+    if (!trade) {
+      document.getElementById("status").textContent = `Transaction ${txn} not found.`;
+      return;
+    }
+    document.getElementById("metaStrip").innerHTML =
+      `<span><strong>Date:</strong>${escapeHtml(trade.datetime || "")}</span>`
+      + `<span><strong>Season:</strong>${trade.season}</span>`
+      + `<span><strong>Txn:</strong>${trade.txn_index}</span>`
+      + `<span><strong>Trade group:</strong>${escapeHtml(trade.trade_group_id || "")}</span>`;
+    document.getElementById("main").innerHTML =
+      `<div class="sides">${(trade.sides || []).map(renderSide).join("")}</div>`;
+    document.title = `Trade ${txn} — UPS MFL`;
+  } catch (e) {
+    document.getElementById("status").innerHTML = `Error: ${escapeHtml(e.message || e)}`;
+  }
+}
+main();
+</script>
+</body>
+</html>

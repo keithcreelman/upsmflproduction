@@ -76,8 +76,10 @@
   .shape-tag.FL { background: var(--fl); color: #000; }
   .shape-tag.RESTRUCTURE { background: var(--restructure); color: #fff; }
   .events-list { margin: 0; padding: 0; list-style: none; }
-  .events-list li { padding: 2px 0; font-size: 12px; color: var(--text); }
-  .events-list li::before { content: "• "; color: var(--muted); }
+  .events-list li { padding: 2px 0; font-size: 12px; color: var(--text); display: flex; align-items: flex-start; gap: 6px; }
+  .ev-icon { font-size: 11px; line-height: 1.5; min-width: 14px; display: inline-block; opacity: 0.85; }
+  a.txn-link { color: var(--accent); text-decoration: none; border-bottom: 1px dashed var(--accent); }
+  a.txn-link:hover { text-decoration: underline; }
   .toggle { display: inline-block; width: 14px; color: var(--muted); font-family: monospace; transition: transform 150ms; }
   .player-row.open .toggle { transform: rotate(90deg); }
   .aav-derived { color: var(--warn); }
@@ -152,7 +154,7 @@ function renderLineageSub(player, anchor) {
     const aavClass = L.aav_source === "derived_tcv_div_cl" ? "aav-derived" : "";
     const aavTip = L.aav_source === "derived_tcv_div_cl" ? ' title="AAV derived from TCV/CL (not stored)"' : "";
     const events = (L.major_events || []).length
-      ? `<ul class="events-list">${L.major_events.map(e => `<li>${escapeHtml(e)}</li>`).join("")}</ul>`
+      ? `<ul class="events-list">${L.major_events.map(e => renderEvent(e)).join("")}</ul>`
       : `<span style="color:var(--muted)">—</span>`;
     return `
       <tr>
@@ -192,6 +194,23 @@ function escapeHtml(s) {
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;");
+}
+
+// Map event types → emoji icon. Trade events become hyperlinks.
+const EVENT_ICONS = {
+  DRAFT: "🎯", AUCTION: "💰", TRADE: "🔄", DROP: "❌", ADD: "➕",
+  WAIVER_SWAP: "↔️", CONTRACT_RESET: "🔁", EXTENSION: "📈",
+  RESTRUCTURE: "🔧", CAP_ADJUSTMENT: "⚖️",
+};
+function renderEvent(e) {
+  const ev = (typeof e === "string") ? { type: "NOTE", text: e } : e;
+  const icon = EVENT_ICONS[ev.type] || "•";
+  const txt = escapeHtml(ev.text || "");
+  if (ev.type === "TRADE" && ev.link_txn_id) {
+    const href = `transaction_detail.html?txn=${encodeURIComponent(ev.link_txn_id)}`;
+    return `<li><span class="ev-icon">${icon}</span><a class="txn-link" href="${href}" target="_blank" rel="noopener">${txt}</a></li>`;
+  }
+  return `<li><span class="ev-icon">${icon}</span>${txt}</li>`;
 }
 
 function render() {

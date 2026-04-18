@@ -235,68 +235,155 @@ def build_major_events(
     auctions_in_season: list,
     trades_in_season: list,
     drops_in_season: list,
+    adds_in_season: list,
     adj_in_season: list,
     prior_snap: dict | None,
     this_snap: dict,
     franchise_name_map: dict,
 ) -> list:
+    def team_label(fid) -> str:
+        nm = franchise_name_map.get(safe_str(fid))
+        return nm or safe_str(fid) or "?"
+
     events = []
-    # Rookie draft (happened this season)
+
+    # Rookie draft
     if draft_row and draft_row["season"] == season:
-        events.append(
-            f"R{draft_row['round']}.{draft_row['round_order']:02d} draft "
-            f"(overall {draft_row['overall']}) by {draft_row['franchise_name']}"
-        )
+        events.append({
+            "type": "DRAFT",
+            "text": (f"R{draft_row['round']}.{draft_row['round_order']:02d} draft "
+                     f"(overall {draft_row['overall']}) by {draft_row['franchise_name']}"),
+        })
     # Auction wins
     for a in auctions_in_season:
-        events.append(
-            f"FA AUCTION {format_k(a['bid'])} by {a['team']} ({a['auction_type']})"
-        )
-    # Trades — already deduplicated into from→to pairs upstream
+        events.append({
+            "type": "AUCTION",
+            "text": f"FA AUCTION {format_k(a['bid'])} by {a['team']} ({a['auction_type']})",
+            "datetime": a.get("datetime"),
+        })
+    # Trades — upstream-deduped into from→to pairs
     for t in trades_in_season:
         frm = t.get("from_team") or ""
         to = t.get("to_team") or ""
         if frm and to:
-            events.append(f"Traded from {frm} to {to}")
+            txt = f"Traded from {frm} to {to}"
         elif to:
-            events.append(f"Traded to {to}")
+            txt = f"Traded to {to}"
         elif frm:
-            events.append(f"Traded from {frm}")
-    # Drops
-    for d in drops_in_season:
-        events.append(f"DROP by {d['team']} ({d['method']})")
-    # Extension detection: Ext: tag count increased from prior year
-    prior_exts = set((parse_contract_info(prior_snap.get("contract_info") if prior_snap else "").get("extensions") or []))
+            txt = f"Traded from {frm}"
+        else:
+            txt = "Trade"
+        events.append({
+            "type": "TRADE",
+            "text": txt,
+            "datetime": t.get("datetime"),
+            "txn_index": t.get("txn_index"),
+            "trade_group_id": t.get("group_id"),
+            "link_txn_id": (f"{season}_{t.get('txn_index')}" if t.get("txn_index") is not None else None),
+        })
+    # Pair drops with same-season ADDs by matching method → "WAIVER_SWAP" event.
+    # MFL logs BBID pickups as DROP on prior team + ADD on new team with method='BBID'.
+    used_adds = set()
+    unmatched_drops = []
+    for drop in drops_in_season:
+        match = None
+        for i, add in enumerate(adds_in_season):
+            if i in used_adds:
+                continue
+            if safe_str(add.get("method")).upper() == safe_str(drop.get("method")).upper():
+                match = (i, add)
+                break
+        if match:
+            idx, add = match
+            used_adds.add(idx)
+            dr_team = team_label(drop.get("franchise_id"))
+            ad_team = team_label(add.get("franchise_id"))
+            method = safe_str(drop.get("method")) or "FA"
+            add_salary = safe_int(add.get("salary"))
+            this_ci = parse_contract_info(this_snap.get("contract_info") or "")
+            cl_hint = f" → new {this_ci.get('cl')}yr contract" if this_ci.get("cl") else ""
+            events.append({
+                "type": "WAIVER_SWAP",
+                "text": (f"{method} waiver: {dr_team} dropped → {ad_team} claimed "
+                         f"{format_k(add_salary) if add_salary else 'salary n/a'}{cl_hint}"),
+                "drop_datetime": drop.get("datetime"),
+                "add_datetime": add.get("datetime"),
+                "drop_franchise_id": drop.get("franchise_id"),
+                "add_franchise_id": add.get("franchise_id"),
+                "method": method,
+            })
+        else:
+            unmatched_drops.append(drop)
+    for drop in unmatched_drops:
+        tm = team_label(drop.get("franchise_id"))
+        events.append({
+            "type": "DROP",
+            "text": f"DROP by {tm} ({drop.get('method') or 'FA'})",
+            "datetime": drop.get("datetime"),
+            "franchise_id": drop.get("franchise_id"),
+        })
+    for i, add in enumerate(adds_in_season):
+        if i in used_adds:
+            continue
+        tm = team_label(add.get("franchise_id"))
+        sal = safe_int(add.get("salary"))
+        events.append({
+            "type": "ADD",
+            "text": f"ADD by {tm} ({add.get('method') or 'FA'})"
+                    + (f" {format_k(sal)}" if sal else ""),
+            "datetime": add.get("datetime"),
+            "franchise_id": add.get("franchise_id"),
+        })
+
+    # Rookie-to-new-contract transition: rookie was dropped+reclaimed
+    prior_status = safe_str(prior_snap.get("contract_status") if prior_snap else "").lower()
+    this_status = safe_str(this_snap.get("contract_status") or "").lower()
+    if prior_status == "rookie" and this_status and this_status != "rookie":
+        this_ci = parse_contract_info(this_snap.get("contract_info") or "")
+        events.append({
+            "type": "CONTRACT_RESET",
+            "text": (f"Contract reset: rookie deal ended — now on "
+                     f"{this_ci.get('cl') or 'N'}yr "
+                     f"{format_k(this_ci.get('aav_canonical') or 0)}/yr "
+                     f"{format_k(this_ci.get('tcv') or 0)} TCV"),
+        })
+
+    # Extensions (new Ext: tag entries)
+    prior_exts = set(parse_contract_info(prior_snap.get("contract_info") if prior_snap else "").get("extensions") or [])
     this_exts = set(parse_contract_info(this_snap.get("contract_info", "")).get("extensions") or [])
-    new_exts = this_exts - prior_exts
-    for e in sorted(new_exts):
-        events.append(f"Extended by {e}")
-    # Restructure detection: year salaries changed BUT extensions didn't
-    if prior_snap and not new_exts:
+    for e in sorted(this_exts - prior_exts):
+        events.append({"type": "EXTENSION", "text": f"Extended by {e}"})
+
+    # Restructure detection
+    if prior_snap and (this_exts == prior_exts):
         prior_yv = parse_contract_info(prior_snap.get("contract_info") or "").get("year_values") or []
         this_yv = parse_contract_info(this_snap.get("contract_info") or "").get("year_values") or []
         prior_salaries = tuple(y["salary"] for y in prior_yv)
         this_salaries = tuple(y["salary"] for y in this_yv)
-        # Compare modulo the "shift by 1 year" (previous Y1 drops off)
-        if prior_salaries and this_salaries and len(this_salaries) != len(prior_salaries) - 1:
-            # Different count not from natural aging — check if restructured
-            if this_salaries != prior_salaries[1:] and this_salaries != prior_salaries:
-                events.append("Restructured (year salaries changed)")
-        elif prior_salaries and this_salaries:
-            # Same length — check shift
-            shifted_prior = prior_salaries[1:]
-            if shifted_prior and len(shifted_prior) == len(this_salaries) and shifted_prior != this_salaries:
-                events.append("Restructured (year salaries changed)")
-    # Cap penalties / traded-salary adjustments
+        if prior_salaries and this_salaries:
+            shifted = prior_salaries[1:] if len(prior_salaries) > 1 else ()
+            if shifted != this_salaries and prior_salaries != this_salaries:
+                events.append({
+                    "type": "RESTRUCTURE",
+                    "text": "Restructured (year salaries changed)",
+                })
+
+    # Cap penalties / traded-salary adjustments — include WHICH team ate them
     for adj in adj_in_season:
         at = safe_str(adj.get("adjustment_type"))
         amt = safe_int(adj.get("amount"))
         direction = safe_str(adj.get("direction"))
         sign = "-" if direction == "charge" else "+"
+        fr_name = safe_str(adj.get("franchise_name")) or team_label(adj.get("franchise_id"))
         label = "Cap penalty" if at == "DROP_PENALTY_CANDIDATE" else (
             "Traded salary" if at == "TRADED_SALARY" else at
         )
-        events.append(f"{label} {sign}{format_k(amt)}")
+        events.append({
+            "type": "CAP_ADJUSTMENT",
+            "text": f"{label} {sign}{format_k(amt)} on {fr_name}",
+            "franchise_id": adj.get("franchise_id"),
+            "source_id": adj.get("source_id"),
+        })
     return events
 
 
@@ -370,19 +457,25 @@ def build_player_record(
     for (season, _), v in by_txn.items():
         trades_by_season.setdefault(season, []).append(v)
 
-    # Drops
-    drops = conn.execute(
-        """SELECT season, txn_index, datetime_et, franchise_id, move_type, method
+    # Add/drops (BOTH sides so we can show BBID waiver pickups, not just drops)
+    adddrops = conn.execute(
+        """SELECT season, txn_index, datetime_et, franchise_id, move_type, method, salary
            FROM transactions_adddrop
-           WHERE player_id=? AND move_type='DROP'
+           WHERE player_id=?
            ORDER BY season, txn_index""",
         (pid,),
     ).fetchall()
     drops_by_season: dict = {}
-    for d in drops:
-        drops_by_season.setdefault(d[0], []).append({
-            "txn_index": d[1], "datetime": d[2], "team": d[3], "method": d[5],
-        })
+    adds_by_season: dict = {}
+    for d in adddrops:
+        entry = {
+            "txn_index": d[1], "datetime": d[2], "franchise_id": d[3],
+            "move_type": d[4], "method": d[5], "salary": d[6],
+        }
+        if safe_str(d[4]).upper() == "DROP":
+            drops_by_season.setdefault(d[0], []).append(entry)
+        elif safe_str(d[4]).upper() == "ADD":
+            adds_by_season.setdefault(d[0], []).append(entry)
 
     # Build lineage
     seasons_sorted = sorted(by_season.keys())
@@ -399,6 +492,7 @@ def build_player_record(
         # Detect epoch reset events
         auctions_this = auctions_by_season.get(season, [])
         drops_this = drops_by_season.get(season, [])
+        adds_this = adds_by_season.get(season, [])
         trades_this = trades_by_season.get(season, [])
         adj_this = salary_adjustments.get((season, pid), [])
 
@@ -435,10 +529,23 @@ def build_player_record(
         events = build_major_events(
             player_id=pid, season=season, draft_row=draft_row,
             auctions_in_season=auctions_this, trades_in_season=trades_this,
-            drops_in_season=drops_this, adj_in_season=adj_this,
+            drops_in_season=drops_this, adds_in_season=adds_this,
+            adj_in_season=adj_this,
             prior_snap=prior, this_snap=snap,
             franchise_name_map=current_franchise_map,
         )
+        # Sort events within each year chronologically when timestamps are present.
+        # Events without a datetime (DRAFT, EXTENSION, RESTRUCTURE, CONTRACT_RESET,
+        # CAP_ADJUSTMENT) fall back to a type-weighted order so the story reads right.
+        type_order = {
+            "DRAFT": 0, "AUCTION": 1, "TRADE": 2, "DROP": 3, "ADD": 4,
+            "WAIVER_SWAP": 5, "CONTRACT_RESET": 6, "EXTENSION": 7,
+            "RESTRUCTURE": 8, "CAP_ADJUSTMENT": 9,
+        }
+        def _key(ev):
+            dt = ev.get("datetime") or ev.get("drop_datetime") or ev.get("add_datetime") or ""
+            return (dt or "9999", type_order.get(ev.get("type"), 99))
+        events = sorted(events, key=_key)
 
         team_id_resolved = safe_str(snap.get("franchise_id"))
         team_name_resolved = safe_str(snap.get("team_name"))
