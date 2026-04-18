@@ -1276,60 +1276,90 @@
     if (!player || extensionBlockedByCurrentOwner(player) || extensionBlockedByHistory(player)) return [];
     var previews = player.extensionPreviews ? player.extensionPreviews : [];
     var base = previews.length ? previews : synthesizedExtensionOptionsForPlayer(player);
-    // Client-side rewrite: Y1 of the extended contract must reflect the
-    // player's CURRENT SALARY (post-restructure, post-trade, etc.), not the
-    // original AAV. The precomputed JSON previously used AAV for Y1, which
-    // was wrong for any player on a backloaded/frontloaded/restructured deal
-    // (e.g. Montgomery final year $12K, AAV $20K). Fixed 2026-04-17.
-    //
-    // SCOPE (2026-04-18, Sean Tucker case): only apply when the player has
-    // exactly 1 year remaining on an existing contract. Expired rookies
-    // (years === 0) and any other state get a FRESH contract on extension
-    // and must use the base preview (Y1 = AAV, no "current salary" honor
-    // year). Without this guard, Tucker (years=0, salary=$2K rookie year)
-    // was being rewritten to Y1-$2K/Y2-$12K instead of the correct new
-    // 1-year $12K deal.
-    if (safeInt(player.years, 0) !== 1) return base;
-    var currentSalary = safeInt(player.salary, 0);
-    if (!currentSalary || !base.length) return base;
-    return base.map(function (opt) {
-      if (!opt) return opt;
-      var existingY1 = safeInt(opt.currentAav, 0);
-      if (existingY1 === currentSalary) return opt;
-      var yearsToAdd = safeInt(opt.yearsToAdd, 0);
-      if (yearsToAdd !== 1 && yearsToAdd !== 2) return opt;
-      var futureAav = safeInt(opt.futureAav, 0);
-      if (!futureAav) return opt;
-      var fixedTcv = currentSalary + futureAav * yearsToAdd;
-      // Rebuild contractInfo string with current salary as Y1
-      var yearTokens = ["Y1-" + formatContractK(currentSalary)];
-      for (var y = 0; y < yearsToAdd; y += 1) {
-        yearTokens.push("Y" + (y + 2) + "-" + formatContractK(futureAav));
-      }
-      var originalInfo = safeStr(opt.contractInfo);
-      // Replace ONLY the numeric tokens — prior \S+ was too greedy and ate
-      // delimiters like "," and "|", producing malformed contractInfo like
-      // "TCV 42K 20K, 30K|Y1-12K Y2-30K" (missing AAV label and commas).
-      var rebuilt = originalInfo
-        .replace(/TCV\s+[\d.]+K?/i, "TCV " + formatContractK(fixedTcv))
-        .replace(/Y1-[\d.]+K?/ig, yearTokens[0])
-        .replace(/Y2-[\d.]+K?/ig, yearTokens[1] || "Y2-0K")
-        .replace(/Y3-[\d.]+K?/ig, yearTokens[2] || "Y3-0K");
-      var gtd = fixedTcv > 4000 ? Math.round(fixedTcv * 0.75) : Math.max(0, fixedTcv - currentSalary);
-      rebuilt = rebuilt.replace(/GTD:\s*[\d.]+K?/i, "GTD: " + formatContractK(gtd));
-      // MFL's commish confirmation dialog renders contractInfo as Latin-1, which
-      // mangles emojis in franchise names (HammerTime 🔨 ⏰ → ð¨ â°). Strip
-      // non-ASCII from the Ext: segment so the dialog stays clean.
-      rebuilt = rebuilt.replace(/(Ext:\s*)([^|]*)/i, function (_m, pfx, body) {
+    if (!base.length) return base;
+
+    // Strip non-ASCII from any Ext: segment so MFL's confirmation dialog
+    // doesn't mangle emojis (HammerTime 🔨 ⏰ → ð¨ â°).
+    function cleanExtSegment(info) {
+      return info.replace(/(Ext:\s*)([^|]*)/i, function (_m, pfx, body) {
         var cleaned = String(body).replace(/[^\x20-\x7E]/g, "");
         cleaned = cleaned.replace(/\s{2,}/g, " ").replace(/^[,\s]+|[,\s]+$/g, "");
         return pfx + cleaned;
       });
-      return Object.assign({}, opt, {
-        tcv: fixedTcv,
-        contractInfo: rebuilt,
-        salaryToSend: currentSalary,
-      });
+    }
+
+    var yearsRemaining = safeInt(player.years, 0);
+    var currentSalary = safeInt(player.salary, 0);
+
+    return base.map(function (opt) {
+      if (!opt) return opt;
+      var yearsToAdd = safeInt(opt.yearsToAdd, 0);
+      if (yearsToAdd !== 1 && yearsToAdd !== 2) return opt;
+      var futureAav = safeInt(opt.futureAav, 0);
+      if (!futureAav) return opt;
+      var originalInfo = safeStr(opt.contractInfo);
+
+      // CASE A — player has 1 year remaining on an existing contract
+      // (Montgomery). Y1 of the extended deal must reflect current salary,
+      // Y2+ use the future AAV. Total contract length = 1 + yearsToAdd.
+      if (yearsRemaining === 1 && currentSalary > 0) {
+        var fixedTcvA = currentSalary + futureAav * yearsToAdd;
+        var yearTokensA = ["Y1-" + formatContractK(currentSalary)];
+        for (var y = 0; y < yearsToAdd; y += 1) {
+          yearTokensA.push("Y" + (y + 2) + "-" + formatContractK(futureAav));
+        }
+        var rebuiltA = originalInfo
+          .replace(/CL\s+\d+/i, "CL " + (1 + yearsToAdd))
+          .replace(/TCV\s+[\d.]+K?/i, "TCV " + formatContractK(fixedTcvA))
+          .replace(/Y1-[\d.]+K?/ig, yearTokensA[0])
+          .replace(/Y2-[\d.]+K?/ig, yearTokensA[1] || "Y2-0K")
+          .replace(/Y3-[\d.]+K?/ig, yearTokensA[2] || "Y3-0K");
+        var gtdA = fixedTcvA > 4000 ? Math.round(fixedTcvA * 0.75) : Math.max(0, fixedTcvA - currentSalary);
+        rebuiltA = rebuiltA.replace(/GTD:\s*[\d.]+K?/i, "GTD: " + formatContractK(gtdA));
+        return Object.assign({}, opt, {
+          contractLength: 1 + yearsToAdd,
+          tcv: fixedTcvA,
+          contractInfo: cleanExtSegment(rebuiltA),
+          salaryToSend: currentSalary,
+        });
+      }
+
+      // CASE B — expired rookie (years === 0). Extension signs a FRESH
+      // contract, no current-year honor. CL = yearsToAdd, all years at
+      // futureAav, TCV = futureAav * yearsToAdd. Fixes Sean Tucker (years=0,
+      // salary=$2K) showing as CL 2 / Y1-2K, Y2-12K when it should be CL 1 /
+      // Y1-12K for a 1-year extension.
+      if (yearsRemaining <= 0) {
+        var fixedTcvB = futureAav * yearsToAdd;
+        var yearTokensB = [];
+        for (var i = 1; i <= yearsToAdd; i += 1) {
+          yearTokensB.push("Y" + i + "-" + formatContractK(futureAav));
+        }
+        var parts = originalInfo.split("|");
+        var yearJoined = yearTokensB.join(", ");
+        var gtdB = fixedTcvB > 4000 ? Math.round(fixedTcvB * 0.75) : 0;
+        var rebuiltParts = parts.map(function (p) {
+          var seg = p.replace(/^\s+|\s+$/g, "");
+          if (/^CL\s+/i.test(seg)) return "CL " + yearsToAdd;
+          if (/^TCV\s+/i.test(seg)) return "TCV " + formatContractK(fixedTcvB);
+          if (/^AAV\s+/i.test(seg)) return "AAV " + formatContractK(futureAav);
+          if (/^Y\d+-/i.test(seg)) return yearJoined;
+          if (/^GTD:/i.test(seg)) return "GTD: " + formatContractK(gtdB);
+          return seg;
+        });
+        var rebuiltB = cleanExtSegment(rebuiltParts.join("|"));
+        return Object.assign({}, opt, {
+          contractLength: yearsToAdd,
+          tcv: fixedTcvB,
+          currentAav: futureAav,
+          contractInfo: rebuiltB,
+          salaryToSend: futureAav,
+        });
+      }
+
+      // Any other state (years > 1, no current salary, etc.) — pass through
+      // the base preview with just the emoji strip.
+      return Object.assign({}, opt, { contractInfo: cleanExtSegment(originalInfo) });
     });
   }
 
