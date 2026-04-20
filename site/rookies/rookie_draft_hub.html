@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rookie Draft Hub — UPS League</title>
+<link rel="stylesheet" href="rookie_draft_hub.css?v=2026.04.20.v1.0.1">
+</head>
+<body>
+<header class="rdh-header">
+  <h1>Rookie Draft Hub <span class="subtitle">UPS League 74598 · 2026</span>
+    <button id="rdh-version-badge" class="rdh-version-badge" title="Click for methodology changelog">Loading…</button>
+  </h1>
+  <div class="meta" id="rdh-meta">Loading…</div>
+</header>
+
+<nav class="rdh-tabs" id="rdh-tabs">
+  <button data-tab="live" class="active">Live Draft</button>
+  <button data-tab="history">Historical Picks</button>
+  <button data-tab="teams">Team Tendencies</button>
+  <button data-tab="day-trades">Draft-Day Trades</button>
+  <button data-tab="r6-order">R6 Order Selection</button>
+  <button data-tab="future-picks">Future Draft Picks</button>
+  <button data-tab="calcs">Calculations</button>
+</nav>
+
+<main class="rdh-main">
+  <!-- ── LIVE DRAFT (Under Construction) ────────────────────────── -->
+  <section class="rdh-section active" data-section="live">
+    <div class="rdh-card" style="text-align:center; padding: 40px 20px;">
+      <h2 style="color: var(--warn); margin-bottom: 12px;">🚧 Under Construction</h2>
+      <p style="max-width: 620px; margin: 0 auto 12px; color: var(--text); line-height: 1.6;">
+        When the live draft goes live, this tab will show:
+      </p>
+      <ul style="max-width: 620px; margin: 0 auto 12px; text-align: left; color: var(--muted); line-height: 1.8;">
+        <li>Live draft board with every pick as it happens</li>
+        <li>Prospect board filterable by position, NFL team, ADP source (MFL Rookie, KTC SF, etc.)</li>
+        <li>On-the-Clock analyzer: slot history, Smash/Bust rates, best available</li>
+        <li>Submit picks directly via the hub (tied to your logged-in MFL account)</li>
+        <li>Rookie contract salaries auto-applied per slot</li>
+      </ul>
+      <p class="small" style="color: var(--muted); margin-top: 20px;">
+        In the meantime, use the other tabs to review historical drafts, team tendencies, and future pick projections.
+      </p>
+    </div>
+  </section>
+
+  <!-- ── HISTORICAL PICKS ─────────────────────────────────────────── -->
+  <section class="rdh-section" data-section="history">
+    <!-- Filters are grouped visually: WHO (season/owner) · WHERE (round/slot/pos) · WHAT (tier/search) · VIEW (metric) -->
+    <div class="rdh-filters rdh-filter-group" data-group="who">
+      <div class="rdh-filter-legend">Who</div>
+      <label>Season <select id="h-season"><option value="">All</option></select></label>
+      <label>Owner status <select id="h-active">
+        <option value="all">All owners</option>
+        <option value="active">Active only</option>
+        <option value="retired">Retired only</option>
+      </select></label>
+      <label>Owner <select id="h-team"><option value="">All</option></select></label>
+    </div>
+    <div class="rdh-filters rdh-filter-group" data-group="where">
+      <div class="rdh-filter-legend">Where (draft slot + position)</div>
+      <label>Round <select id="h-round">
+        <option value="">All</option>
+        <option value="1">1</option><option value="2">2</option><option value="3">3</option>
+        <option value="4">4</option><option value="5">5</option><option value="6">6</option>
+      </select></label>
+      <label>Slot <select id="h-slot"><option value="">All</option></select></label>
+      <label>Position Group <select id="h-pg"><option value="">All</option></select></label>
+      <label>Position <select id="h-pos"><option value="">All</option></select></label>
+    </div>
+    <div class="rdh-filters rdh-filter-group" data-group="what">
+      <div class="rdh-filter-legend">What</div>
+      <label>Tier <select id="h-tier"><option value="">All</option></select></label>
+      <label>Search <input type="search" id="h-search" placeholder="player name"></label>
+    </div>
+    <div class="rdh-filters rdh-filter-group" data-group="view">
+      <div class="rdh-filter-legend">View (metric column)</div>
+      <label>Metric <select id="h-metric">
+        <optgroup label="Tier classifier + draft grade">
+          <option value="net_score">NET (tier classifier)</option>
+          <option value="draft_rating">Draft Rating (vs slot-expected)</option>
+        </optgroup>
+        <optgroup label="Ratios (rate-based)">
+          <option value="ep_rate">E+P Rate</option>
+          <option value="dud_rate">Dud Rate</option>
+        </optgroup>
+        <optgroup label="Raw production">
+          <option value="points">Points</option>
+          <option value="ppg">PPG</option>
+          <option value="win_chunks">Win Chunks</option>
+        </optgroup>
+        <optgroup label="Positional ranks">
+          <option value="points_rank">Points Rank</option>
+          <option value="ppg_rank">PPG Rank</option>
+          <option value="ep_rank">E+P Rank</option>
+          <option value="wc_rank">WC Rank</option>
+        </optgroup>
+      </select></label>
+    </div>
+
+    <div class="rdh-card">
+      <div id="h-summary" class="small" style="color: var(--muted); margin-bottom: 10px;"></div>
+      <table class="rdh-table" id="h-table">
+        <thead>
+          <tr>
+            <th data-sort="season">Yr</th>
+            <th data-sort="pick_overall">Pick</th>
+            <th data-sort="franchise_name">Team</th>
+            <th></th>
+            <th data-sort="player_name">Player</th>
+            <th data-sort="position">Pos</th>
+            <th class="num" data-sort="salary">Salary</th>
+            <th class="num" data-sort="_y1"  id="h-col-y1">Y1</th>
+            <th class="num" data-sort="_y2"  id="h-col-y2">Y2</th>
+            <th class="num" data-sort="_y3"  id="h-col-y3">Y3</th>
+            <th class="num" data-sort="_tot" id="h-col-total">3yr Total</th>
+            <th class="num" data-sort="_avg" id="h-col-avg">3yr Avg</th>
+            <th class="num" data-sort="_vs"  id="h-col-vs">3yr vs Exp</th>
+            <th data-sort="tier">Tier</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── TEAM TENDENCIES ─────────────────────────────────────────── -->
+  <section class="rdh-section" data-section="teams">
+    <div class="rdh-filters">
+      <label>Owner status <select id="t-active">
+        <option value="active">Active only</option>
+        <option value="retired">Retired only</option>
+        <option value="all">All (incl. former)</option>
+      </select></label>
+      <label>Season <select id="t-season"><option value="">All</option></select></label>
+      <label>Round <select id="t-round">
+        <option value="">All</option>
+        <option value="1">1</option><option value="2">2</option><option value="3">3</option>
+        <option value="4">4</option><option value="5">5</option><option value="6">6</option>
+      </select></label>
+      <label>Slot <select id="t-slot"><option value="">All</option></select></label>
+      <label>Position Group <select id="t-pg"><option value="">All</option></select></label>
+      <label>Position <select id="t-pos"><option value="">All</option></select></label>
+    </div>
+    <div class="rdh-card" id="t-benchmark-card" style="margin-bottom:14px;">
+      <h2>League Benchmark</h2>
+      <div id="t-benchmark" class="stat-row"></div>
+    </div>
+    <div class="rdh-card">
+      <h2>Franchise Drafting Profiles (2012-2025)</h2>
+      <div id="teams-grid" class="teams-grid"></div>
+    </div>
+  </section>
+
+  <!-- ── DRAFT-DAY TRADES ─────────────────────────────────────────── -->
+  <section class="rdh-section" data-section="day-trades">
+    <div class="rdh-card" style="text-align:center; padding: 40px 20px;">
+      <h2 style="color: var(--warn); margin-bottom: 12px;">🚧 Under Construction</h2>
+      <p style="max-width: 620px; margin: 0 auto 12px; color: var(--text); line-height: 1.6;">
+        This tab will surface every trade executed within ±24 hours of rookie draft day:
+      </p>
+      <ul style="max-width: 620px; margin: 0 auto 12px; text-align: left; color: var(--muted); line-height: 1.8;">
+        <li>Historical draft-day trades timeline (2017-2025)</li>
+        <li>Live draft-day trades as they happen (next rookie draft)</li>
+        <li>What each pick became — did the team that traded up win?</li>
+        <li>Cross-reference to affected slots in the live draft board</li>
+      </ul>
+      <p class="small" style="color: var(--muted); margin-top: 20px;">
+        Historical trade data is available in the source DB — will ship here alongside the Live Draft build.
+      </p>
+    </div>
+    <!-- hidden: original filter ref kept so JS doesn't null-deref -->
+    <select id="dd-season" style="display:none"><option value="">All</option></select>
+  </section>
+
+  <!-- ── R6 ORDER SELECTION ─────────────────────────────────────────── -->
+  <section class="rdh-section" data-section="r6-order">
+    <div class="rdh-card">
+      <h2>6th Round Rookie Draft — Random Order Selection</h2>
+      <p class="small" style="color: var(--muted); margin: 0 0 6px;">
+        R6 is IDP-only. Slot order is drawn live on
+        <strong>May 2, 2026 @ 6:00 PM ET</strong>. Teams are announced in reverse —
+        the 12th pick first, then 11th, then 10th, etc. 10-second timer between picks.
+      </p>
+      <p class="small" style="color: var(--muted); margin: 0 0 10px;">
+        Anyone can <strong>Simulate</strong> to preview the format. Only the
+        <strong>commissioner</strong> can kick off the Official Selection.
+      </p>
+      <div id="r6-pre-live" class="r6-countdown" style="margin-bottom: 10px;">
+        <div class="r6-banner">Time until Official R6 Drawing</div>
+        <div class="r6-timer" id="r6-event-countdown">—</div>
+        <div class="r6-now" id="r6-event-countdown-label">May 2, 2026 · 6:00 PM ET</div>
+      </div>
+      <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px;">
+        <button class="btn" id="r6-simulate-btn">Simulate (dry-run, non-binding)</button>
+        <button class="btn warn" id="r6-start-btn" disabled title="Only the commissioner can run the official drawing">Start Official Selection (Commish Only)</button>
+        <button class="btn secondary" id="r6-reset-btn">Reset</button>
+      </div>
+      <div id="r6-countdown" class="r6-countdown"></div>
+    </div>
+    <div class="rdh-card">
+      <h2>R6 Draft Order (populates as announced)</h2>
+      <table class="rdh-table" id="r6-order-table">
+        <thead>
+          <tr><th>Pick #</th><th>Franchise</th><th>Announced at</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── FUTURE DRAFT PICKS ───────────────────────────────────────── -->
+  <section class="rdh-section" data-section="future-picks">
+    <div class="rdh-card">
+      <h2>Future Draft Picks</h2>
+      <p class="small" style="color: var(--muted); margin: 0;">
+        Every franchise's owned picks for future rookie drafts.
+        <strong>Slot projections</strong> use historical finish patterns until the 2026 season kicks off,
+        then re-weight toward current-season standings as games accumulate.
+        R6 is a random drawing — no projected slot.
+      </p>
+    </div>
+
+    <div class="rdh-filters">
+      <label>Year <select id="fp-year"><option value="">All</option></select></label>
+      <label>Current Owner <select id="fp-owner"><option value="">All</option></select></label>
+      <label>Original Owner <select id="fp-original"><option value="">All</option></select></label>
+      <label>Round <select id="fp-round">
+        <option value="">All</option>
+        <option value="1">1</option><option value="2">2</option><option value="3">3</option>
+        <option value="4">4</option><option value="5">5</option><option value="6">6</option>
+      </select></label>
+    </div>
+
+    <div class="rdh-card">
+      <table class="rdh-table">
+        <thead>
+          <tr>
+            <th>Year</th>
+            <th>Rd</th>
+            <th>Current Owner</th>
+            <th>Original Owner</th>
+            <th>Projected Slot</th>
+            <th>Traded?</th>
+          </tr>
+        </thead>
+        <tbody id="fp-tbody"></tbody>
+      </table>
+      <div id="fp-summary" class="small" style="color: var(--muted); padding-top: 8px;"></div>
+    </div>
+  </section>
+
+  <!-- ── AP vs E+P (throwaway analysis sub-page) ──────────────────── -->
+  <section class="rdh-section" data-section="apep">
+    <div class="rdh-card">
+      <h2>All-Play Record vs NET / E+P / Dud</h2>
+      <p class="small" style="color: var(--muted); margin: 0 0 10px;">
+        Does a team's production profile predict AP finish?
+        <strong>NET = E+P − 0.5×Dud</strong> (rookie tier classifier). Rank Δ &lt; 0 = overachieved AP
+        vs E+P (lucky/clutch); &gt; 0 = underachieved. Throwaway analysis page.
+      </p>
+    </div>
+
+    <div class="rdh-card">
+      <h2>Metric Correlations with AP%</h2>
+      <table class="rdh-table">
+        <thead><tr><th>Metric</th><th class="num">r (Pearson)</th><th>Interpretation</th></tr></thead>
+        <tbody id="ae-correlations"></tbody>
+      </table>
+    </div>
+
+    <div class="rdh-filters">
+      <label>Season
+        <select id="ae-season"><option value="">All</option></select>
+      </label>
+      <label>Owner
+        <select id="ae-owner"><option value="">All</option></select>
+      </label>
+      <label>Active
+        <select id="ae-active">
+          <option value="all">All</option>
+          <option value="active">Active only</option>
+          <option value="retired">Retired only</option>
+        </select>
+      </label>
+      <label>Search
+        <input id="ae-search" placeholder="team or owner..."/>
+      </label>
+    </div>
+
+    <div class="rdh-card">
+      <table class="rdh-table" id="ae-table">
+        <thead>
+          <tr>
+            <th data-sort="season">Yr</th>
+            <th data-sort="owner_name">Owner</th>
+            <th data-sort="franchise_name">Team</th>
+            <th data-sort="ap_rank">AP #</th>
+            <th data-sort="ap_pct" class="num">AP%</th>
+            <th data-sort="ap_w" class="num">W-L</th>
+            <th data-sort="ep_rank">EP #</th>
+            <th data-sort="ep_rate" class="num">E+P%</th>
+            <th data-sort="dud_rate" class="num">Dud%</th>
+            <th data-sort="net_score" class="num">NET</th>
+            <th data-sort="off_ep_rate" class="num">Off E+P%</th>
+            <th data-sort="def_ep_rate" class="num">Def E+P%</th>
+            <th data-sort="rank_delta" class="num">Δ rank</th>
+            <th data-sort="starter_weeks" class="num">Weeks</th>
+            <th data-sort="pf" class="num">PF</th>
+            <th data-sort="eff" class="num">EFF</th>
+          </tr>
+        </thead>
+        <tbody id="ae-tbody"></tbody>
+      </table>
+      <div id="ae-summary" class="small" style="color: var(--muted); padding-top: 8px;"></div>
+    </div>
+
+    <div class="rdh-card">
+      <h2>Per-Season League Averages</h2>
+      <table class="rdh-table">
+        <thead>
+          <tr>
+            <th>Season</th>
+            <th class="num">Teams</th>
+            <th class="num">League Avg E+P</th>
+            <th class="num">Top-3 Avg E+P</th>
+            <th class="num">Bottom-3 Avg E+P</th>
+          </tr>
+        </thead>
+        <tbody id="ae-season-summary"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── CALCULATIONS ─────────────────────────────────────────────── -->
+  <section class="rdh-section" data-section="calcs">
+    <div class="rdh-card">
+      <h2>Win-Impact Score — How We Grade Every Weekly Performance</h2>
+      <p>Every player-week is scored relative to what a typical starter at that position
+      produced that season. A week is <em>Elite</em> if it was clearly a league-winning
+      performance, <em>Plus</em> if it beat the median starter, <em>Neutral</em> if it
+      was about league-average, and <em>Dud</em> if it actively hurt your week.</p>
+      <p>Technically: <code>z = (points − p50_starter) / (p80 − p50)</code>, using only
+      weeks where the player was actually rostered-starter somewhere in MFL. Buckets:</p>
+      <table class="rdh-table">
+        <thead><tr><th>Week Tier</th><th>z-score</th><th>What it means</th></tr></thead>
+        <tbody>
+          <tr><td><span class="tier Smash">Elite</span></td><td>≥ 1.0</td><td>Top-20% starter week — single-handedly swings your matchup</td></tr>
+          <tr><td><span class="tier Hit">Plus</span></td><td>0.25 – 1.0</td><td>Above the median starter — solid contribution</td></tr>
+          <tr><td><span class="tier Contrib">Neutral</span></td><td>−0.5 – 0.25</td><td>Around median — neither helped nor hurt</td></tr>
+          <tr><td><span class="tier Bust">Dud</span></td><td>&lt; −0.5</td><td>Cost you the matchup — worse than 80% of starters</td></tr>
+        </tbody>
+      </table>
+      <p class="small" style="color: var(--muted); margin-top: 8px;">
+        <strong>Where it's used:</strong> Per-week tier badges in the player profile game log.
+        Aggregated as Elite% / Plus% / E+P% / Dud% in Career Summary.
+      </p>
+    </div>
+
+    <div class="rdh-card">
+      <h2>Rookie Tier — NET Score (E+P minus ½×Dud)</h2>
+      <p>Each rookie's 3-year games-weighted NET score drives their tier label:</p>
+      <p style="text-align: center; font-size: 15px;">
+        <code>NET = (3yr E+P rate) − 0.5 × (3yr Dud rate)</code>
+      </p>
+      <table class="rdh-table">
+        <thead><tr><th>Tier</th><th>NET score</th><th>What it means</th></tr></thead>
+        <tbody>
+          <tr><td><span class="tier Smash tier-click" data-tier="Smash">Smash</span></td><td>≥ +30</td><td>Roster cornerstone — thrilled to have drafted</td></tr>
+          <tr><td><span class="tier Hit tier-click" data-tier="Hit">Hit</span></td><td>+15 to +30</td><td>More elite weeks than duds — reliably helps you win</td></tr>
+          <tr><td><span class="tier Contrib tier-click" data-tier="Contrib">Contrib</span></td><td>0 to +15</td><td>Useful rotational piece — net positive</td></tr>
+          <tr><td><span class="tier Bust tier-click" data-tier="Bust">Bust</span></td><td>&lt; 0</td><td>Duds outweigh peaks, or never played</td></tr>
+        </tbody>
+      </table>
+      <p class="small" style="color: var(--muted); margin-top: 8px;">
+        <strong>Where it's used:</strong> tier badges in Historical Picks, Team Tendencies,
+        and on the live-draft on-the-clock panel. <strong>Click any tier badge above (or anywhere
+        in the hub) to see historical examples at that tier.</strong>
+      </p>
+    </div>
+
+    <div class="rdh-card">
+      <h2>Why This Model Works — Correlations with All-Play %</h2>
+      <p>We validated the NET metric against 192 franchise-seasons of real outcomes
+      (2010-2025). Higher-NET teams win more; dud-heavy teams lose more. The key correlations:</p>
+      <table class="rdh-table">
+        <thead><tr><th>Metric</th><th class="num">r</th><th>Plain-English meaning</th></tr></thead>
+        <tbody id="calc-correlations"></tbody>
+      </table>
+      <p style="margin-top: 10px;">
+        <strong>Translation:</strong> Hitting E+P weeks (elite + plus performances) and
+        avoiding dud weeks explain most of the variance in AP%. Offense does more of the heavy
+        lifting than defense (~74% vs 26%), but elite defense still unlocks a real ~10-point
+        jump in AP above a quality threshold. NET (E+P − ½Dud) is the best single predictor —
+        which is why it drives our rookie tier labels.
+      </p>
+    </div>
+
+    <div class="rdh-card">
+      <h2>Rookie Contract Salary Scale</h2>
+      <table class="rdh-table">
+        <thead><tr><th>Slot</th><th>Year 1 AAV</th><th>3yr TCV</th><th>Note</th></tr></thead>
+        <tbody>
+          <tr><td>1.01 – 1.10</td><td>$15K → $6K (linear)</td><td>3yr base</td><td>Option-eligible 5th-year team option</td></tr>
+          <tr><td>1.11 – 1.12</td><td>$5K</td><td>$15K</td><td>Option-eligible 5th-year team option</td></tr>
+          <tr><td>2.01 – 2.12</td><td>$5K</td><td>$15K</td><td>—</td></tr>
+          <tr><td>3.01 – 5.12</td><td>$2K</td><td>$6K</td><td>—</td></tr>
+          <tr><td>6.01 – 6.12</td><td>$1K</td><td>$3K</td><td>IDP only</td></tr>
+        </tbody>
+      </table>
+      <p class="small" style="color: var(--muted); margin-top: 6px;">
+        All Round 1 picks (1.01 through 1.12) are eligible for a 5th-year team option.
+      </p>
+    </div>
+
+    <div class="rdh-card">
+      <h2>Draft Rating — How We Score Owners on Draft Hits</h2>
+      <p>Smashing on 1.01 is easy. Smashing on 5.11 is almost impossible.
+      <strong>Draft Rating</strong> corrects for that by measuring each pick's NET
+      score relative to what a <em>median pick at that slot</em> historically produces:</p>
+      <p style="text-align:center; font-size:15px;">
+        <code>Draft Rating (per pick) = actual NET − slot-expected NET</code>
+      </p>
+      <p>Then averaged across an owner's picks (positive = consistently outperforms their slots,
+      negative = underperforms). Late-round smashes get outsized credit automatically because
+      the expected NET for late slots hovers near zero.</p>
+      <p class="small" style="color: var(--muted); margin-top: 8px;">
+        <strong>Where it's used:</strong> team card row on Team Tendencies ("Draft Rating").
+        Color-coded: green = +5 or better, red = −5 or worse.
+      </p>
+    </div>
+  </section>
+</main>
+
+<!-- Modal overlay -->
+<div class="rdh-modal-overlay" id="rdh-modal-overlay">
+  <div class="rdh-modal" id="rdh-modal"></div>
+</div>
+
+<script src="rookie_draft_hub.js?v=2026.04.20.v1.0.1"></script>
+</body>
+</html>

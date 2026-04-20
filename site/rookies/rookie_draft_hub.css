@@ -1,0 +1,367 @@
+/* Rookie Draft Hub — styling patterned on historical_records + trade_workbench */
+:root {
+  --bg: #0b0f18;
+  --panel: #141a26;
+  --panel-alt: #1a2230;
+  --border: #2a3446;
+  --text: #e8edf5;
+  --muted: #8a97ad;
+  --accent: #5b8dff;
+  --accent-soft: #2a3f6e;
+  --ok: #4ade80;
+  --warn: #fbbf24;
+  --err: #f87171;
+  --smash: #10b981;
+  --hit: #3b82f6;
+  --contrib: #eab308;
+  --bust: #ef4444;
+}
+
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0;
+  background: var(--bg); color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 14px; line-height: 1.5;
+}
+
+header.rdh-header {
+  padding: 18px 24px 12px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+}
+header.rdh-header h1 {
+  margin: 0 0 4px; font-size: 22px;
+  display: flex; align-items: baseline; gap: 10px;
+}
+header.rdh-header .subtitle {
+  color: var(--muted); font-size: 13px;
+}
+header.rdh-header .meta {
+  font-size: 11px; color: var(--muted); margin-top: 4px;
+}
+
+/* Tab navigation */
+nav.rdh-tabs {
+  display: flex; gap: 2px; padding: 0 24px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+}
+nav.rdh-tabs button {
+  background: transparent; color: var(--muted); border: 0;
+  padding: 12px 16px; cursor: pointer;
+  font-size: 13px; font-weight: 500;
+  border-bottom: 2px solid transparent;
+  transition: color 120ms, border-color 120ms;
+}
+nav.rdh-tabs button:hover { color: var(--text); }
+nav.rdh-tabs button.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+main.rdh-main { padding: 20px 24px; max-width: 1400px; margin: 0 auto; }
+
+.rdh-section { display: none; }
+.rdh-section.active { display: block; }
+
+/* Cards */
+.rdh-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+.rdh-card h2 {
+  margin: 0 0 12px; font-size: 15px; text-transform: uppercase;
+  letter-spacing: 0.5px; color: var(--muted);
+}
+
+/* Tables */
+.rdh-table {
+  width: 100%; border-collapse: collapse; font-size: 12px;
+}
+.rdh-table th, .rdh-table td {
+  padding: 8px 10px; text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+.rdh-table th {
+  color: var(--muted); font-weight: 500;
+  background: var(--panel-alt);
+  position: sticky; top: 0; cursor: pointer;
+  user-select: none;
+}
+.rdh-table th:hover { color: var(--accent); }
+.rdh-table tbody tr:hover { background: var(--panel-alt); }
+.rdh-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.rdh-table .small { color: var(--muted); font-size: 11px; }
+
+/* Tier badges */
+.tier {
+  display: inline-block; padding: 2px 8px; border-radius: 4px;
+  font-size: 11px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.tier.Smash { background: rgba(16, 185, 129, 0.15); color: var(--smash); }
+.tier.Hit { background: rgba(59, 130, 246, 0.15); color: var(--hit); }
+.tier.Contrib { background: rgba(234, 179, 8, 0.15); color: var(--contrib); }
+.tier.Bust { background: rgba(239, 68, 68, 0.15); color: var(--bust); }
+.tier.InjuryBust { background: rgba(251, 146, 60, 0.18); color: #fb923c; }
+
+/* Filters */
+.rdh-filters {
+  display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px;
+  padding: 12px; background: var(--panel); border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.rdh-filters label {
+  display: flex; flex-direction: column; gap: 4px; font-size: 11px;
+  color: var(--muted); text-transform: uppercase; letter-spacing: 0.3px;
+}
+.rdh-filters select, .rdh-filters input {
+  background: var(--panel-alt); color: var(--text);
+  border: 1px solid var(--border); border-radius: 4px;
+  padding: 6px 10px; font-size: 13px; min-width: 110px;
+}
+
+/* Stat strips */
+.stat-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.stat-chip {
+  background: var(--panel-alt); padding: 6px 10px;
+  border-radius: 4px; border: 1px solid var(--border); font-size: 12px;
+}
+.stat-chip .label { color: var(--muted); text-transform: uppercase; font-size: 10px; letter-spacing: 0.3px; }
+.stat-chip .value { color: var(--text); font-weight: 600; }
+
+/* Tier visualization bar */
+.tier-bar { display: flex; height: 6px; border-radius: 3px; overflow: hidden; margin: 6px 0; }
+.tier-bar > div { transition: flex-basis 180ms; }
+.tier-bar > .b-smash { background: var(--smash); }
+.tier-bar > .b-hit { background: var(--hit); }
+.tier-bar > .b-contrib { background: var(--contrib); }
+.tier-bar > .b-injbust { background: #fb923c; }
+.tier-bar > .b-bust { background: var(--bust); }
+
+/* Team tendencies grid */
+.teams-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 14px;
+}
+.team-card {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 8px; padding: 14px;
+}
+.team-card h3 { margin: 0 0 8px; font-size: 15px; }
+.team-card .team-sub { color: var(--muted); font-size: 11px; margin-bottom: 10px; }
+.team-card .team-row {
+  display: flex; justify-content: space-between;
+  padding: 3px 0; font-size: 12px;
+}
+.team-card .team-row .lbl { color: var(--muted); }
+
+/* Pick grid (for live draft) */
+.draft-board {
+  display: grid; grid-template-columns: repeat(12, 1fr);
+  gap: 4px; margin-top: 10px;
+}
+.pick-cell {
+  background: var(--panel-alt); border: 1px solid var(--border);
+  padding: 6px 4px; border-radius: 4px; font-size: 10px;
+  display: flex; flex-direction: column; min-height: 48px;
+}
+.pick-cell.made { background: var(--accent-soft); border-color: var(--accent); }
+.pick-cell.on-clock { background: rgba(91, 141, 255, 0.2); border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+.pick-cell .pk-slot { font-weight: 700; color: var(--muted); }
+.pick-cell .pk-name { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pick-cell .pk-team { color: var(--muted); font-size: 9px; }
+
+/* Buttons */
+.btn {
+  background: var(--accent); color: white; border: 0;
+  padding: 8px 14px; border-radius: 4px;
+  font-size: 13px; font-weight: 500; cursor: pointer;
+}
+.btn:hover { filter: brightness(1.1); }
+.btn.secondary { background: var(--panel-alt); color: var(--text); border: 1px solid var(--border); }
+.btn.warn { background: var(--warn); color: #000; }
+.btn.danger { background: var(--err); color: white; }
+
+/* Two-column layout for live draft */
+.live-draft-grid {
+  display: grid; grid-template-columns: 1fr 2fr 1fr;
+  gap: 16px; align-items: start;
+}
+.live-draft-grid > div { min-width: 0; }
+
+/* Responsive */
+@media (max-width: 900px) {
+  .live-draft-grid { grid-template-columns: 1fr; }
+  .draft-board { grid-template-columns: repeat(6, 1fr); }
+  nav.rdh-tabs { overflow-x: auto; }
+}
+
+/* Modal */
+.rdh-modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+  display: none; align-items: center; justify-content: center; z-index: 100;
+}
+.rdh-modal-overlay.open { display: flex; }
+.rdh-modal {
+  background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+  padding: 20px; max-width: 500px; width: 90%;
+}
+.rdh-modal h3 { margin: 0 0 12px; }
+.rdh-modal .actions {
+  display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px;
+}
+
+/* Loading */
+.loading {
+  padding: 40px; text-align: center; color: var(--muted);
+}
+
+/* Headshot cell for historical table */
+.headshot-cell {
+  width: 28px; height: 28px; border-radius: 50%;
+  object-fit: cover; display: block;
+  background: var(--panel-alt);
+}
+.headshot-placeholder {
+  background: linear-gradient(135deg, var(--panel-alt), var(--border));
+}
+
+/* Player link style — inline in tables */
+.player-link {
+  color: var(--text); text-decoration: none; border-bottom: 1px dotted var(--muted);
+}
+.player-link:hover { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* Clickable tier badges */
+.tier.tier-click { cursor: pointer; user-select: none; }
+.tier.tier-click:hover { filter: brightness(1.25); }
+
+/* Color helpers */
+.stat-row { gap: 12px; }
+tr td.num[style*="var(--ok)"] { color: var(--ok) !important; }
+tr td.num[style*="var(--err)"] { color: var(--err) !important; }
+
+/* R6 Countdown styling */
+.r6-countdown {
+  background: var(--panel-alt); border: 1px solid var(--border); border-radius: 8px;
+  padding: 24px; text-align: center; min-height: 220px;
+  display: flex; flex-direction: column; justify-content: center; align-items: center;
+}
+.r6-banner {
+  background: rgba(239, 68, 68, 0.15); color: var(--err);
+  padding: 8px 16px; border-radius: 4px; font-weight: 700; letter-spacing: 0.6px;
+  font-size: 12px; margin-bottom: 14px; text-transform: uppercase;
+}
+.r6-banner.r6-sim { background: rgba(251, 191, 36, 0.15); color: var(--warn); }
+.r6-timer {
+  font-size: 96px; font-weight: 700; color: var(--accent);
+  line-height: 1; font-variant-numeric: tabular-nums;
+  min-height: 104px;
+}
+.r6-now { font-size: 18px; color: var(--muted); margin-top: 8px; min-height: 32px; }
+.r6-announce {
+  font-size: 22px; color: var(--text); animation: r6-flash 0.6s ease-in-out;
+}
+@keyframes r6-flash {
+  0% { background: rgba(91, 141, 255, 0.5); }
+  100% { background: transparent; }
+}
+
+/* Team card per-row pick detail */
+.team-card .tier { margin-left: 4px; }
+
+/* Player profile card */
+.rdh-modal {
+  max-width: 860px;
+  width: 92%;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+.rdh-modal .actions {
+  position: sticky;
+  bottom: -20px;
+  background: var(--panel);
+  padding: 10px 0 0;
+  margin: 14px -20px -20px;
+  border-top: 1px solid var(--border);
+  padding: 10px 20px;
+}
+/* Game log table tier badge sizing */
+.rdh-modal .tier { font-size: 10px; padding: 1px 5px; }
+
+/* Filter groups — visually separate WHO / WHERE / WHAT / VIEW */
+.rdh-filter-group {
+  position: relative;
+  padding-top: 22px;
+}
+.rdh-filter-group + .rdh-filter-group {
+  margin-top: 8px;
+}
+.rdh-filter-legend {
+  position: absolute;
+  top: 6px; left: 12px;
+  font-size: 10px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-weight: 600;
+}
+/* Draft-rating click row affordance */
+.draft-rating-click:hover { background: var(--panel-alt); }
+
+/* Version badge */
+.rdh-version-badge {
+  display: inline-block;
+  margin-left: 10px;
+  padding: 2px 8px;
+  background: rgba(91, 141, 255, 0.15);
+  color: var(--accent);
+  border: 1px solid var(--accent-soft);
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: all 120ms;
+  vertical-align: middle;
+}
+.rdh-version-badge:hover {
+  background: rgba(91, 141, 255, 0.3);
+  border-color: var(--accent);
+}
+
+/* Metric-cell click affordance — dotted underline signals clickable */
+.metric-click {
+  cursor: help;
+  border-bottom: 1px dotted transparent;
+  transition: border-color 120ms;
+}
+.metric-click:hover {
+  border-bottom-color: var(--accent);
+  background: var(--panel-alt);
+}
+
+/* Trade asset picker */
+.trade-asset-picker .trade-asset-row:hover {
+  background: var(--panel-alt);
+}
+.trade-asset-picker .trade-asset-row {
+  transition: background 80ms;
+}
+.trade-basket { min-height: 32px; }
+.profile-bio { display: grid; grid-template-columns: auto 1fr; gap: 14px; margin-bottom: 14px; }
+.profile-photo { width: 110px; height: 110px; border-radius: 6px; object-fit: cover; }
+.profile-photo-placeholder {
+  width: 110px; height: 110px; border-radius: 6px; background: var(--panel-alt);
+}
+.profile-bio-text { font-size: 12px; line-height: 1.9; }
+.profile-bio-text .lbl { color: var(--muted); display: inline-block; width: 80px; }
+.profile-block { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); }
+.profile-block h4 { margin: 0 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); }
+.profile-kv { font-size: 12px; line-height: 1.8; }
+.profile-kv .lbl { color: var(--muted); display: inline-block; width: 90px; }

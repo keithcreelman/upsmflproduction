@@ -123,7 +123,8 @@
     "hpm-ccc": "/site/hpm-ccc.html",
     "hpm-widget": "/site/hpm-widget.html",
     "hpm-reports": "/site/hpm-reports.html",
-    "hpm-ext-assist": "/site/hpm-ext-assist.html"
+    "hpm-ext-assist": "/site/hpm-ext-assist.html",
+    "hpm-draft-hub": "/site/hpm-draft-hub.html"
   };
 
   function safeStr(value) {

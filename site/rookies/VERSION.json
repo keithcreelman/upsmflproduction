@@ -1,0 +1,64 @@
+{
+  "version": "1.0.1",
+  "released": "2026-04-20",
+  "label": "V1.0.1 — Best/Worst → NET; Bang-for-$ → Draft Rating",
+  "description": "First published version of the Draft Hub analytics model. This establishes the V1 baseline. Future tweaks bump the version and are logged here.",
+  "methodology_signature": {
+    "tier_classifier": "NET = 3yr-games-weighted E+P rate − 0.5 × 3yr-games-weighted Dud rate",
+    "tier_thresholds": { "Smash": ">=0.30", "Hit": "0.15-0.30", "Contrib": "0-0.15", "Bust": "<0" },
+    "weekly_grading": "z = (score - p50_rostered_starter) / (p80 - p50); Elite z>=1.0, Plus 0.25<=z<1.0, Neutral -0.5<=z<0.25, Dud z<-0.5",
+    "baseline_source": "Rostered starters (weeklyresults.status='starter') joined with player_weeklyscoringresults; authoritative for pre-2020 and post-2020 alike",
+    "games_played_gate": "No Injury-Bust tier; small-sample rookies ride the raw NET classification. gp_3yr_total surfaces for context.",
+    "draft_rating": "per-pick Δ = actual 3yr NET − slot-expected 3yr NET (median at that round+slot); per-owner avg then shrunk via Bayesian prior (0-mean, 20-pick pseudo-count); scaled 0-100 anchored to league distribution",
+    "pick_ownership": "owner_name resolved by (season, franchise_id) → franchises table → transactions_adddrop → transactions_auction → team_name normalized lookup; legacy JSON owner field is last-resort (known mis-attribution risk)",
+    "future_pick_projection": "ordinal rank from 10yr reg-season AP% (owner-tracked, new-owner sample clipped) + bracket-aware playoff-Δ adjustment (bed-shitter/rally in top-6, tanker/try-hard in bot-6); brackets sealed; FINISH_TO_SLOT mapping 7→1.01, 8→1.02, 9→1.03, 10→1.04, 11→1.05, 12→1.06, 6→1.07, 5→1.08, 4→1.09, 3→1.10, 2→1.11, 1→1.12",
+    "idp_window": "R6 is IDP-only random drawing (May 2, 2026 6pm ET); not projected",
+    "contract_parsing": "MFL contractStatus='TAG' override rejected; authoritative tag = literal 'Tag' chunk in contractInfo pipe-string; 'No Further Extensions' parsed as walk-year marker"
+  },
+  "correlations_snapshot": {
+    "as_of": "2026-04-20",
+    "n_team_seasons": 192,
+    "span": "2010-2025",
+    "overall_net": 0.850,
+    "offense_ep": 0.844,
+    "offense_dud": -0.790,
+    "defense_ep": 0.319,
+    "defense_dud": -0.336,
+    "points_for_raw": 0.505,
+    "lineup_efficiency": 0.012
+  },
+  "changes": [
+    {
+      "version": "1.0.1",
+      "date": "2026-04-20",
+      "type": "patch",
+      "summary": "Align Best/Worst pick attribution with All-Play winning % (NET-based); fix metric-popup semantic lookup; add Slot Percentile; add versioning system.",
+      "details": [
+        "Best Pick = highest 3yr NET (was: tier-ranked composite). NET correlates with AP% at +0.850; it's the authoritative 'impact on winning' metric.",
+        "Worst Pick = lowest 3yr NET (was: tier-ranked composite). Same reasoning.",
+        "Bang-for-$ = highest Draft Rating (was: raw points above slot-expected). Lavonte David now correctly surfaces as Keith Creelman's Bang-for-$ at 3.04 / +77.4 Draft Rating.",
+        "Cell-level popup definitions now resolve by per-cell semantic (not metric-wide). Clicking Slot-Exp NET shows Slot-Exp NET definition regardless of which view is active.",
+        "Added Slot Percentile field: 0-100 rank of pick's NET within its exact (round, slot) historical population. TRich 2012 1.01 = 0 (worst 1.01 ever). Zeke 2016 1.01 = 92.9.",
+        "Introduced VERSION.json + CHANGELOG.md versioning system with badge in hub header.",
+        "Games-weighted per-year rank averaging (was: simple average).",
+        "Tier popup + metric popup now lead with 'In plain English' block before technical definition.",
+        "Shrinkage explanation rewritten with plain-English first, technical second, plus concrete value interpretation."
+      ]
+    },
+    {
+      "version": "1.0.0",
+      "date": "2026-04-20",
+      "type": "initial",
+      "summary": "Initial published version. Baseline methodology locked.",
+      "details": [
+        "NET tier classifier: E+P − 0.5×Dud with thresholds 30/15/0",
+        "Games-weighted 3-year averaging for E+P, Dud, NET, Win Chunks, PPG ranks",
+        "Rostered-starter baselines for positional win-chunk calculations (uniform methodology 2011-2025)",
+        "Draft Rating with Bayesian shrinkage (20-pick pseudo-count) and 0-100 normalization",
+        "Future pick projection using 10yr owner-tracked AP% with bracket-aware playoff-Δ adjustments",
+        "Pre-2017 ownership inference via chronological replay of drafts + adds + drops + trades",
+        "Universal tier-click and metric-cell-click popups with plain-English explanations"
+      ]
+    }
+  ]
+}

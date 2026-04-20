@@ -49,6 +49,11 @@ Use jsDelivr so you do not need GitHub Pages enabled.
 <script src="https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/loader.js?v=2026.03.04.7" data-ups-partial="hpm-widget"></script>
 ```
 
+## Draft Hub (Rookie Draft Module — any HPM slot)
+```html
+<script src="https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/loader.js?v=2026.04.20.1" data-ups-partial="hpm-draft-hub"></script>
+```
+
 ## Reports Module (use this for Message 9)
 ```html
 <div id="upsReportsMount"></div>
