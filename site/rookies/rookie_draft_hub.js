@@ -476,12 +476,43 @@
     });
   }
 
+  // When the hub runs inside an iframe sized to content (the production
+  // embed), position:fixed modals center in the iframe's coordinate space
+  // — which is ~800px down a 1600px iframe, nowhere near where the user
+  // clicked. Track the last click's Y and anchor the modal near it.
+  let _lastClickY = null;
+  document.addEventListener("click", (e) => {
+    if (e && typeof e.pageY === "number") _lastClickY = e.pageY;
+    else if (e && typeof e.clientY === "number") _lastClickY = e.clientY + (window.scrollY || 0);
+  }, true);
+
   function openModal(html) {
-    document.getElementById("rdh-modal").innerHTML = html;
+    const modal = document.getElementById("rdh-modal");
+    modal.innerHTML = html;
     document.getElementById("rdh-modal-overlay").classList.add("open");
+    if (_lastClickY != null) {
+      modal.style.position = "absolute";
+      modal.style.top = Math.max(16, _lastClickY - 60) + "px";
+      modal.style.left = "50%";
+      modal.style.transform = "translateX(-50%)";
+      modal.style.margin = "0";
+    } else {
+      modal.style.position = "";
+      modal.style.top = "";
+      modal.style.left = "";
+      modal.style.transform = "";
+      modal.style.margin = "";
+    }
   }
   function closeModal() {
+    const modal = document.getElementById("rdh-modal");
+    modal.style.position = "";
+    modal.style.top = "";
+    modal.style.left = "";
+    modal.style.transform = "";
+    modal.style.margin = "";
     document.getElementById("rdh-modal-overlay").classList.remove("open");
+    _lastClickY = null;
   }
 
   // ══════════════════════════════════════════════════════════════════════
