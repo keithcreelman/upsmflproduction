@@ -384,7 +384,9 @@
         renderHistory();
       });
     }
-    document.getElementById("h-metric").addEventListener("change", (e) => {
+    const hMetricEl = document.getElementById("h-metric");
+    hMetricEl.value = STATE.h_metric;
+    hMetricEl.addEventListener("change", (e) => {
       STATE.h_metric = e.target.value; renderHistory();
     });
     document.getElementById("h-search").addEventListener("input", (e) => {
