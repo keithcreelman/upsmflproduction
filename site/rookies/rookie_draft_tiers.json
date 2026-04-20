@@ -1,0 +1,1880 @@
+{
+  "meta": {
+    "generated_at_utc": "2026-04-20T21:09:50.656849+00:00",
+    "source": "rookie_draft_history 2015-2025 via player_weeklyscoringresults",
+    "methodology": {
+      "smash_threshold": "best Elite+Plus rate >= 55% across first 4 seasons, min 8 starts/season",
+      "hit_threshold": "35%-55%",
+      "contrib_threshold": "20%-35%",
+      "bust_threshold": "<20% or never cracked a starting lineup with 8+ starts",
+      "offense_positions": [
+        "QB",
+        "RB",
+        "TE",
+        "WR"
+      ]
+    }
+  },
+  "bands": {
+    "1.01-04": {
+      "combined": {
+        "n": 56,
+        "smash": 20,
+        "hit": 11,
+        "contrib": 10,
+        "bust": 15,
+        "smash_pct": 0.357,
+        "hit_pct": 0.196,
+        "contrib_pct": 0.179,
+        "bust_pct": 0.268,
+        "usable_pct": 0.554
+      },
+      "offense": {
+        "n": 56,
+        "smash": 20,
+        "hit": 11,
+        "contrib": 10,
+        "bust": 15,
+        "smash_pct": 0.357,
+        "hit_pct": 0.196,
+        "contrib_pct": 0.179,
+        "bust_pct": 0.268,
+        "usable_pct": 0.554
+      }
+    },
+    "1.01": {
+      "combined": {
+        "n": 14,
+        "smash": 7,
+        "hit": 5,
+        "contrib": 2,
+        "bust": 0,
+        "smash_pct": 0.5,
+        "hit_pct": 0.357,
+        "contrib_pct": 0.143,
+        "bust_pct": 0.0,
+        "usable_pct": 0.857
+      },
+      "offense": {
+        "n": 14,
+        "smash": 7,
+        "hit": 5,
+        "contrib": 2,
+        "bust": 0,
+        "smash_pct": 0.5,
+        "hit_pct": 0.357,
+        "contrib_pct": 0.143,
+        "bust_pct": 0.0,
+        "usable_pct": 0.857
+      }
+    },
+    "1.09-12": {
+      "combined": {
+        "n": 56,
+        "smash": 12,
+        "hit": 4,
+        "contrib": 12,
+        "bust": 28,
+        "smash_pct": 0.214,
+        "hit_pct": 0.071,
+        "contrib_pct": 0.214,
+        "bust_pct": 0.5,
+        "usable_pct": 0.286
+      },
+      "offense": {
+        "n": 55,
+        "smash": 11,
+        "hit": 4,
+        "contrib": 12,
+        "bust": 28,
+        "smash_pct": 0.2,
+        "hit_pct": 0.073,
+        "contrib_pct": 0.218,
+        "bust_pct": 0.509,
+        "usable_pct": 0.273
+      },
+      "defense": {
+        "n": 1,
+        "smash": 1,
+        "hit": 0,
+        "contrib": 0,
+        "bust": 0,
+        "smash_pct": 1.0,
+        "hit_pct": 0.0,
+        "contrib_pct": 0.0,
+        "bust_pct": 0.0,
+        "usable_pct": 1.0
+      }
+    },
+    "1.10": {
+      "combined": {
+        "n": 14,
+        "smash": 3,
+        "hit": 0,
+        "contrib": 5,
+        "bust": 6,
+        "smash_pct": 0.214,
+        "hit_pct": 0.0,
+        "contrib_pct": 0.357,
+        "bust_pct": 0.429,
+        "usable_pct": 0.214
+      },
+      "offense": {
+        "n": 14,
+        "smash": 3,
+        "hit": 0,
+        "contrib": 5,
+        "bust": 6,
+        "smash_pct": 0.214,
+        "hit_pct": 0.0,
+        "contrib_pct": 0.357,
+        "bust_pct": 0.429,
+        "usable_pct": 0.214
+      }
+    },
+    "1.02": {
+      "combined": {
+        "n": 14,
+        "smash": 5,
+        "hit": 2,
+        "contrib": 3,
+        "bust": 4,
+        "smash_pct": 0.357,
+        "hit_pct": 0.143,
+        "contrib_pct": 0.214,
+        "bust_pct": 0.286,
+        "usable_pct": 0.5
+      },
+      "offense": {
+        "n": 14,
+        "smash": 5,
+        "hit": 2,
+        "contrib": 3,
+        "bust": 4,
+        "smash_pct": 0.357,
+        "hit_pct": 0.143,
+        "contrib_pct": 0.214,
+        "bust_pct": 0.286,
+        "usable_pct": 0.5
+      }
+    },
+    "1.03": {
+      "combined": {
+        "n": 14,
+        "smash": 4,
+        "hit": 4,
+        "contrib": 0,
+        "bust": 6,
+        "smash_pct": 0.286,
+        "hit_pct": 0.286,
+        "contrib_pct": 0.0,
+        "bust_pct": 0.429,
+        "usable_pct": 0.571
+      },
+      "offense": {
+        "n": 14,
+        "smash": 4,
+        "hit": 4,
+        "contrib": 0,
+        "bust": 6,
+        "smash_pct": 0.286,
+        "hit_pct": 0.286,
+        "contrib_pct": 0.0,
+        "bust_pct": 0.429,
+        "usable_pct": 0.571
+      }
+    },
+    "1.04": {
+      "combined": {
+        "n": 14,
+        "smash": 4,
+        "hit": 0,
+        "contrib": 5,
+        "bust": 5,
+        "smash_pct": 0.286,
+        "hit_pct": 0.0,
+        "contrib_pct": 0.357,
+        "bust_pct": 0.357,
+        "usable_pct": 0.286
+      },
+      "offense": {
+        "n": 14,
+        "smash": 4,
+        "hit": 0,
+        "contrib": 5,
+        "bust": 5,
+        "smash_pct": 0.286,
+        "hit_pct": 0.0,
+        "contrib_pct": 0.357,
+        "bust_pct": 0.357,
+        "usable_pct": 0.286
+      }
+    },
+    "1.05-08": {
+      "combined": {
+        "n": 56,
+        "smash": 15,
+        "hit": 10,
+        "contrib": 11,
+        "bust": 20,
+        "smash_pct": 0.268,
+        "hit_pct": 0.179,
+        "contrib_pct": 0.196,
+        "bust_pct": 0.357,
+        "usable_pct": 0.446
+      },
+      "offense": {
+        "n": 55,
+        "smash": 15,
+        "hit": 10,
+        "contrib": 11,
+        "bust": 19,
+        "smash_pct": 0.273,
+        "hit_pct": 0.182,
+        "contrib_pct": 0.2,
+        "bust_pct": 0.345,
+        "usable_pct": 0.455
+      },
+      "defense": {
+        "n": 1,
+        "smash": 0,
+        "hit": 0,
+        "contrib": 0,
+        "bust": 1,
+        "smash_pct": 0.0,
+        "hit_pct": 0.0,
+        "contrib_pct": 0.0,
+        "bust_pct": 1.0,
+        "usable_pct": 0.0
+      }
+    },
+    "1.05": {
+      "combined": {
+        "n": 14,
+        "smash": 4,
+        "hit": 3,
+        "contrib": 5,
+        "bust": 2,
+        "smash_pct": 0.286,
+        "hit_pct": 0.214,
+        "contrib_pct": 0.357,
+        "bust_pct": 0.143,
+        "usable_pct": 0.5
+      },
+      "offense": {
+        "n": 14,
+        "smash": 4,
+        "hit": 3,
+        "contrib": 5,
+        "bust": 2,
+        "smash_pct": 0.286,
+        "hit_pct": 0.214,
+        "contrib_pct": 0.357,
+        "bust_pct": 0.143,
+        "usable_pct": 0.5
+      }
+    },
+    "1.06": {
+      "combined": {
+        "n": 14,
+        "smash": 3,
+        "hit": 1,
+        "contrib": 3,
+        "bust": 7,
+        "smash_pct": 0.214,
+        "hit_pct": 0.071,
+        "contrib_pct": 0.214,
+        "bust_pct": 0.5,
+        "usable_pct": 0.286
+      },
+      "offense": {
+        "n": 13,
+        "smash": 3,
+        "hit": 1,
+        "contrib": 3,
+        "bust": 6,
+        "smash_pct": 0.231,
+        "hit_pct": 0.077,
+        "contrib_pct": 0.231,
+        "bust_pct": 0.462,
+        "usable_pct": 0.308
+      },
+      "defense": {
+        "n": 1,
+        "smash": 0,
+        "hit": 0,
+        "contrib": 0,
+        "bust": 1,
+        "smash_pct": 0.0,
+        "hit_pct": 0.0,
+        "contrib_pct": 0.0,
+        "bust_pct": 1.0,
+        "usable_pct": 0.0
+      }
+    },
+    "1.07": {
+      "combined": {
+        "n": 14,
+        "smash": 5,
+        "hit": 3,
+        "contrib": 1,
+        "bust": 5,
+        "smash_pct": 0.357,
+        "hit_pct": 0.214,
+        "contrib_pct": 0.071,
+        "bust_pct": 0.357,
+        "usable_pct": 0.571
+      },
+      "offense": {
+        "n": 14,
+        "smash": 5,
+        "hit": 3,
+        "contrib": 1,
+        "bust": 5,
+        "smash_pct": 0.357,
+        "hit_pct": 0.214,
+        "contrib_pct": 0.071,
+        "bust_pct": 0.357,
+        "usable_pct": 0.571
+      }
+    },
+    "1.08": {
+      "combined": {
+        "n": 14,
+        "smash": 3,
+        "hit": 3,
+        "contrib": 2,
+        "bust": 6,
+        "smash_pct": 0.214,
+        "hit_pct": 0.214,
+        "contrib_pct": 0.143,
+        "bust_pct": 0.429,
+        "usable_pct": 0.429
+      },
+      "offense": {
+        "n": 14,
+        "smash": 3,
+        "hit": 3,
+        "contrib": 2,
+        "bust": 6,
+        "smash_pct": 0.214,
+        "hit_pct": 0.214,
+        "contrib_pct": 0.143,
+        "bust_pct": 0.429,
+        "usable_pct": 0.429
+      }
+    },
+    "1.09": {
+      "combined": {
+        "n": 14,
+        "smash": 4,
+        "hit": 3,
+        "contrib": 2,
+        "bust": 5,
+        "smash_pct": 0.286,
+        "hit_pct": 0.214,
+        "contrib_pct": 0.143,
+        "bust_pct": 0.357,
+        "usable_pct": 0.5
+      },
+      "offense": {
+        "n": 14,
+        "smash": 4,
+        "hit": 3,
+        "contrib": 2,
+        "bust": 5,
+        "smash_pct": 0.286,
+        "hit_pct": 0.214,
+        "contrib_pct": 0.143,
+        "bust_pct": 0.357,
+        "usable_pct": 0.5
+      }
+    },
+    "1.11": {
+      "combined": {
+        "n": 14,
+        "smash": 3,
+        "hit": 1,
+        "contrib": 3,
+        "bust": 7,
+        "smash_pct": 0.214,
+        "hit_pct": 0.071,
+        "contrib_pct": 0.214,
+        "bust_pct": 0.5,
+        "usable_pct": 0.286
+      },
+      "offense": {
+        "n": 14,
+        "smash": 3,
+        "hit": 1,
+        "contrib": 3,
+        "bust": 7,
+        "smash_pct": 0.214,
+        "hit_pct": 0.071,
+        "contrib_pct": 0.214,
+        "bust_pct": 0.5,
+        "usable_pct": 0.286
+      }
+    },
+    "1.12": {
+      "combined": {
+        "n": 14,
+        "smash": 2,
+        "hit": 0,
+        "contrib": 2,
+        "bust": 10,
+        "smash_pct": 0.143,
+        "hit_pct": 0.0,
+        "contrib_pct": 0.143,
+        "bust_pct": 0.714,
+        "usable_pct": 0.143
+      },
+      "defense": {
+        "n": 1,
+        "smash": 1,
+        "hit": 0,
+        "contrib": 0,
+        "bust": 0,
+        "smash_pct": 1.0,
+        "hit_pct": 0.0,
+        "contrib_pct": 0.0,
+        "bust_pct": 0.0,
+        "usable_pct": 1.0
+      },
+      "offense": {
+        "n": 13,
+        "smash": 1,
+        "hit": 0,
+        "contrib": 2,
+        "bust": 10,
+        "smash_pct": 0.077,
+        "hit_pct": 0.0,
+        "contrib_pct": 0.154,
+        "bust_pct": 0.769,
+        "usable_pct": 0.077
+      }
+    },
+    "2.01-04": {
+      "combined": {
+        "n": 56,
+        "smash": 9,
+        "hit": 10,
+        "contrib": 7,
+        "bust": 30,
+        "smash_pct": 0.161,
+        "hit_pct": 0.179,
+        "contrib_pct": 0.125,
+        "bust_pct": 0.536,
+        "usable_pct": 0.339
+      },
+      "offense": {
+        "n": 53,
+        "smash": 9,
+        "hit": 9,
+        "contrib": 6,
+        "bust": 29,
+        "smash_pct": 0.17,
+        "hit_pct": 0.17,
+        "contrib_pct": 0.113,
+        "bust_pct": 0.547,
+        "usable_pct": 0.34
+      },
+      "defense": {
+        "n": 3,
+        "smash": 0,
+        "hit": 1,
+        "contrib": 1,
+        "bust": 1,
+        "smash_pct": 0.0,
+        "hit_pct": 0.333,
+        "contrib_pct": 0.333,
+        "bust_pct": 0.333,
+        "usable_pct": 0.333
+      }
+    },
+    "2.01": {
+      "combined": {
+        "n": 14,
+        "smash": 3,
+        "hit": 2,
+        "contrib": 4,
+        "bust": 5,
+        "smash_pct": 0.214,
+        "hit_pct": 0.143,
+        "contrib_pct": 0.286,
+        "bust_pct": 0.357,
+        "usable_pct": 0.357
+      },
+      "offense": {
+        "n": 14,
+        "smash": 3,
+        "hit": 2,
+        "contrib": 4,
+        "bust": 5,
+        "smash_pct": 0.214,
+        "hit_pct": 0.143,
+        "contrib_pct": 0.286,
+        "bust_pct": 0.357,
+        "usable_pct": 0.357
+      }
+    },
+    "2.09-12": {
+      "combined": {
+        "n": 56,
+        "smash": 5,
+        "hit": 6,
+        "contrib": 10,
+        "bust": 35,
+        "smash_pct": 0.089,
+        "hit_pct": 0.107,
+        "contrib_pct": 0.179,
+        "bust_pct": 0.625,
+        "usable_pct": 0.196
+      },
+      "offense": {
+        "n": 52,
+        "smash": 3,
+        "hit": 6,
+        "contrib": 9,
+        "bust": 34,
+        "smash_pct": 0.058,
+        "hit_pct": 0.115,
+        "contrib_pct": 0.173,
+        "bust_pct": 0.654,
+        "usable_pct": 0.173
+      },
+      "defense": {
+        "n": 4,
+        "smash": 2,
+        "hit": 0,
+        "contrib": 1,
+        "bust": 1,
+        "smash_pct": 0.5,
+        "hit_pct": 0.0,
+        "contrib_pct": 0.25,
+        "bust_pct": 0.25,
+        "usable_pct": 0.5
+      }
+    },
+    "2.10": {
+      "combined": {
+        "n": 14,
+        "smash": 0,
+        "hit": 3,
+        "contrib": 0,
+        "bust": 11,
+        "smash_pct": 0.0,
+        "hit_pct": 0.214,
+        "contrib_pct": 0.0,
+        "bust_pct": 0.786,
+        "usable_pct": 0.214
+      },
+      "offense": {
+        "n": 14,
+        "smash": 0,
+        "hit": 3,
+        "contrib": 0,
+        "bust": 11,
+        "smash_pct": 0.0,
+        "hit_pct": 0.214,
+        "contrib_pct": 0.0,
+        "bust_pct": 0.786,
+        "usable_pct": 0.214
+      }
+    },
+    "2.02": {
+      "combined": {
+        "n": 14,
+        "smash": 2,
+        "hit": 3,
+        "contrib": 0,
+        "bust": 9,
+        "smash_pct": 0.143,
+        "hit_pct": 0.214,
+        "contrib_pct": 0.0,
+        "bust_pct": 0.643,
+        "usable_pct": 0.357
+      },
+      "defense": {
+        "n": 1,
+        "smash": 0,
+        "hit": 1,
+        "contrib": 0,
+        "bust": 0,
+        "smash_pct": 0.0,
+        "hit_pct": 1.0,
+        "contrib_pct": 0.0,
+        "bust_pct": 0.0,
+        "usable_pct": 1.0
+      },
+      "offense": {
+        "n": 13,
+        "smash": 2,
+        "hit": 2,
+        "contrib": 0,
+        "bust": 9,
+        "smash_pct": 0.154,
+        "hit_pct": 0.154,
+        "contrib_pct": 0.0,
+        "bust_pct": 0.692,
+        "usable_pct": 0.308
+      }
+    },
+    "2.03": {
+      "combined": {
+        "n": 14,
+        "smash": 2,
+        "hit": 5,
+        "contrib": 2,
+        "bust": 5,
+        "smash_pct": 0.143,
+        "hit_pct": 0.357,
+        "contrib_pct": 0.143,
+        "bust_pct": 0.357,
+        "usable_pct": 0.5
+      },
+      "offense": {
+        "n": 12,
+        "smash": 2,
+        "hit": 5,
+        "contrib": 1,
+        "bust": 4,
+        "smash_pct": 0.167,
+        "hit_pct": 0.417,
+        "contrib_pct": 0.083,
+        "bust_pct": 0.333,
+        "usable_pct": 0.583
+      },
+      "defense": {
+        "n": 2,
+        "smash": 0,
+        "hit": 0,
+        "contrib": 1,
+        "bust": 1,
+        "smash_pct": 0.0,
+        "hit_pct": 0.0,
+        "contrib_pct": 0.5,
+        "bust_pct": 0.5,
+        "usable_pct": 0.0
+      }
+    },
+    "2.04": {
+      "combined": {
+        "n": 14,
+        "smash": 2,
+        "hit": 0,
+        "contrib": 1,
+        "bust": 11,
+        "smash_pct": 0.143,
+        "hit_pct": 0.0,
+        "contrib_pct": 0.071,
+        "bust_pct": 0.786,
+        "usable_pct": 0.143
+      },
+      "offense": {
+        "n": 14,
+        "smash": 2,
+        "hit": 0,
+        "contrib": 1,
+        "bust": 11,
+        "smash_pct": 0.143,
+        "hit_pct": 0.0,
+        "contrib_pct": 0.071,
+        "bust_pct": 0.786,
+        "usable_pct": 0.143
+      }
+    },
+    "2.05-08": {
+      "combined": {
+        "n": 56,
+        "smash": 3,
+        "hit": 2,
+        "contrib": 8,
+        "bust": 43,
+        "smash_pct": 0.054,
+        "hit_pct": 0.036,
+        "contrib_pct": 0.143,
+        "bust_pct": 0.768,
+        "usable_pct": 0.089
+      },
+      "offense": {
+        "n": 56,
+        "smash": 3,
+        "hit": 2,
+        "contrib": 8,
+        "bust": 43,
+        "smash_pct": 0.054,
+        "hit_pct": 0.036,
+        "contrib_pct": 0.143,
+        "bust_pct": 0.768,
+        "usable_pct": 0.089
+      }
+    },
+    "2.05": {
+      "combined": {
+        "n": 14,
+        "smash": 0,
+        "hit": 1,
+        "contrib": 1,
+        "bust": 12,
+        "smash_pct": 0.0,
+        "hit_pct": 0.071,
+        "contrib_pct": 0.071,
+        "bust_pct": 0.857,
+        "usable_pct": 0.071
+      },
+      "offense": {
+        "n": 14,
+        "smash": 0,
+        "hit": 1,
+        "contrib": 1,
+        "bust": 12,
+        "smash_pct": 0.0,
+        "hit_pct": 0.071,
+        "contrib_pct": 0.071,
+        "bust_pct": 0.857,
+        "usable_pct": 0.071
+      }
+    },
+    "2.06": {
+      "combined": {
+        "n": 14,
+        "smash": 2,
+        "hit": 1,
+        "contrib": 3,
+        "bust": 8,
+        "smash_pct": 0.143,
+        "hit_pct": 0.071,
+        "contrib_pct": 0.214,
+        "bust_pct": 0.571,
+        "usable_pct": 0.214
+      },
+      "offense": {
+        "n": 14,
+        "smash": 2,
+        "hit": 1,
+        "contrib": 3,
+        "bust": 8,
+        "smash_pct": 0.143,
+        "hit_pct": 0.071,
+        "contrib_pct": 0.214,
+        "bust_pct": 0.571,
+        "usable_pct": 0.214
+      }
+    },
+    "2.07": {
+      "combined": {
+        "n": 14,
+        "smash": 0,
+        "hit": 0,
+        "contrib": 3,
+        "bust": 11,
+        "smash_pct": 0.0,
+        "hit_pct": 0.0,
+        "contrib_pct": 0.214,
+        "bust_pct": 0.786,
+        "usable_pct": 0.0
+      },
+      "offense": {
+        "n": 14,
+        "smash": 0,
+        "hit": 0,
+        "contrib": 3,
+        "bust": 11,
+        "smash_pct": 0.0,
+        "hit_pct": 0.0,
+        "contrib_pct": 0.214,
+        "bust_pct": 0.786,
+        "usable_pct": 0.0
+      }
+    },
+    "2.08": {
+      "combined": {
+        "n": 14,
+        "smash": 1,
+        "hit": 0,
+        "contrib": 1,
+        "bust": 12,
+        "smash_pct": 0.071,
+        "hit_pct": 0.0,
+        "contrib_pct": 0.071,
+        "bust_pct": 0.857,
+        "usable_pct": 0.071
+      },
+      "offense": {
+        "n": 14,
+        "smash": 1,
+        "hit": 0,
+        "contrib": 1,
+        "bust": 12,
+        "smash_pct": 0.071,
+        "hit_pct": 0.0,
+        "contrib_pct": 0.071,
+        "bust_pct": 0.857,
+        "usable_pct": 0.071
+      }
+    },
+    "2.09": {
+      "combined": {
+        "n": 14,
+        "smash": 2,
+        "hit": 1,
+        "contrib": 5,
+        "bust": 6,
+        "smash_pct": 0.143,
+        "hit_pct": 0.071,
+        "contrib_pct": 0.357,
+        "bust_pct": 0.429,
+        "usable_pct": 0.214
+      },
+      "offense": {
+        "n": 12,
+        "smash": 2,
+        "hit": 1,
+        "contrib": 4,
+        "bust": 5,
+        "smash_pct": 0.167,
+        "hit_pct": 0.083,
+        "contrib_pct": 0.333,
+        "bust_pct": 0.417,
+        "usable_pct": 0.25
+      },
+      "defense": {
+        "n": 2,
+        "smash": 0,
+        "hit": 0,
+        "contrib": 1,
+        "bust": 1,
+        "smash_pct": 0.0,
+        "hit_pct": 0.0,
+        "contrib_pct": 0.5,
+        "bust_pct": 0.5,
+        "usable_pct": 0.0
+      }
+    },
+    "2.11": {
+      "combined": {
+        "n": 14,
+        "smash": 2,
+        "hit": 1,
+        "contrib": 2,
+        "bust": 9,
+        "smash_pct": 0.143,
+        "hit_pct": 0.071,
+        "contrib_pct": 0.143,
+        "bust_pct": 0.643,
+        "usable_pct": 0.214
+      },
+      "offense": {
+        "n": 13,
+        "smash": 1,
+        "hit": 1,
+        "contrib": 2,
+        "bust": 9,
+        "smash_pct": 0.077,
+        "hit_pct": 0.077,
+        "contrib_pct": 0.154,
+        "bust_pct": 0.692,
+        "usable_pct": 0.154
+      },
+      "defense": {
+        "n": 1,
+        "smash": 1,
+        "hit": 0,
+        "contrib": 0,
+        "bust": 0,
+        "smash_pct": 1.0,
+        "hit_pct": 0.0,
+        "contrib_pct": 0.0,
+        "bust_pct": 0.0,
+        "usable_pct": 1.0
+      }
+    },
+    "2.12": {
+      "combined": {
+        "n": 14,
+        "smash": 1,
+        "hit": 1,
+        "contrib": 3,
+        "bust": 9,
+        "smash_pct": 0.071,
+        "hit_pct": 0.071,
+        "contrib_pct": 0.214,
+        "bust_pct": 0.643,
+        "usable_pct": 0.143
+      },
+      "offense": {
+        "n": 13,
+        "smash": 0,
+        "hit": 1,
+        "contrib": 3,
+        "bust": 9,
+        "smash_pct": 0.0,
+        "hit_pct": 0.077,
+        "contrib_pct": 0.231,
+        "bust_pct": 0.692,
+        "usable_pct": 0.077
+      },
+      "defense": {
+        "n": 1,
+        "smash": 1,
+        "hit": 0,
+        "contrib": 0,
+        "bust": 0,
+        "smash_pct": 1.0,
+        "hit_pct": 0.0,
+        "contrib_pct": 0.0,
+        "bust_pct": 0.0,
+        "usable_pct": 1.0
+      }
+    },
+    "3.01-04": {
+      "combined": {
+        "n": 56,
+        "smash": 3,
+        "hit": 4,
+        "contrib": 5,
+        "bust": 44,
+        "smash_pct": 0.054,
+        "hit_pct": 0.071,
+        "contrib_pct": 0.089,
+        "bust_pct": 0.786,
+        "usable_pct": 0.125
+      },
+      "offense": {
+        "n": 51,
+        "smash": 1,
+        "hit": 3,
+        "contrib": 4,
+        "bust": 43,
+        "smash_pct": 0.02,
+        "hit_pct": 0.059,
+        "contrib_pct": 0.078,
+        "bust_pct": 0.843,
+        "usable_pct": 0.078
+      },
+      "defense": {
+        "n": 5,
+        "smash": 2,
+        "hit": 1,
+        "contrib": 1,
+        "bust": 1,
+        "smash_pct": 0.4,
+        "hit_pct": 0.2,
+        "contrib_pct": 0.2,
+        "bust_pct": 0.2,
+        "usable_pct": 0.6
+      }
+    },
+    "3.01": {
+      "combined": {
+        "n": 14,
+        "smash": 2,
+        "hit": 2,
+        "contrib": 1,
+        "bust": 9,
+        "smash_pct": 0.143,
+        "hit_pct": 0.143,
+        "contrib_pct": 0.071,
+        "bust_pct": 0.643,
+        "usable_pct": 0.286
+      },
+      "offense": {
+        "n": 12,
+        "smash": 1,
+        "hit": 1,
+        "contrib": 1,
+        "bust": 9,
+        "smash_pct": 0.083,
+        "hit_pct": 0.083,
+        "contrib_pct": 0.083,
+        "bust_pct": 0.75,
+        "usable_pct": 0.167
+      },
+      "defense": {
+        "n": 2,
+        "smash": 1,
+        "hit": 1,
+        "contrib": 0,
+        "bust": 0,
+        "smash_pct": 0.5,
+        "hit_pct": 0.5,
+        "contrib_pct": 0.0,
+        "bust_pct": 0.0,
+        "usable_pct": 1.0
+      }
+    },
+    "3.09-12": {
+      "combined": {
+        "n": 56,
+        "smash": 5,
+        "hit": 6,
+        "contrib": 4,
+        "bust": 41,
+        "smash_pct": 0.089,
+        "hit_pct": 0.107,
+        "contrib_pct": 0.071,
+        "bust_pct": 0.732,
+        "usable_pct": 0.196
+      },
+      "defense": {
+        "n": 10,
+        "smash": 4,
+        "hit": 1,
+        "contrib": 3,
+        "bust": 2,
+        "smash_pct": 0.4,
+        "hit_pct": 0.1,
+        "contrib_pct": 0.3,
+        "bust_pct": 0.2,
+        "usable_pct": 0.5
+      },
+      "offense": {
+        "n": 45,
+        "smash": 1,
+        "hit": 5,
+        "contrib": 1,
+        "bust": 38,
+        "smash_pct": 0.022,
+        "hit_pct": 0.111,
+        "contrib_pct": 0.022,
+        "bust_pct": 0.844,
+        "usable_pct": 0.133
+      },
+      "special": {
+        "n": 1,
+        "smash": 0,
+        "hit": 0,
+        "contrib": 0,
+        "bust": 1,
+        "smash_pct": 0.0,
+        "hit_pct": 0.0,
+        "contrib_pct": 0.0,
+        "bust_pct": 1.0,
+        "usable_pct": 0.0
+      }
+    },
+    "3.10": {
+      "combined": {
+        "n": 14,
+        "smash": 1,
+        "hit": 2,
+        "contrib": 2,
+        "bust": 9,
+        "smash_pct": 0.071,
+        "hit_pct": 0.143,
+        "contrib_pct": 0.143,
+        "bust_pct": 0.643,
+        "usable_pct": 0.214
+      },
+      "defense": {
+        "n": 3,
+        "smash": 1,
+        "hit": 0,
+        "contrib": 1,
+        "bust": 1,
+        "smash_pct": 0.333,
+        "hit_pct": 0.0,
+        "contrib_pct": 0.333,
+        "bust_pct": 0.333,
+        "usable_pct": 0.333
+      },
+      "offense": {
+        "n": 11,
+        "smash": 0,
+        "hit": 2,
+        "contrib": 1,
+        "bust": 8,
+        "smash_pct": 0.0,
+        "hit_pct": 0.182,
+        "contrib_pct": 0.091,
+        "bust_pct": 0.727,
+        "usable_pct": 0.182
+      }
+    },
+    "3.02": {
+      "combined": {
+        "n": 14,
+        "smash": 0,
+        "hit": 0,
+        "contrib": 3,
+        "bust": 11,
+        "smash_pct": 0.0,
+        "hit_pct": 0.0,
+        "contrib_pct": 0.214,
+        "bust_pct": 0.786,
+        "usable_pct": 0.0
+      },
+      "offense": {
+        "n": 13,
+        "smash": 0,
+        "hit": 0,
+        "contrib": 2,
+        "bust": 11,
+        "smash_pct": 0.0,
+        "hit_pct": 0.0,
+        "contrib_pct": 0.154,
+        "bust_pct": 0.846,
+        "usable_pct": 0.0
+      },
+      "defense": {
+        "n": 1,
+        "smash": 0,
+        "hit": 0,
+        "contrib": 1,
+        "bust": 0,
+        "smash_pct": 0.0,
+        "hit_pct": 0.0,
+        "contrib_pct": 1.0,
+        "bust_pct": 0.0,
+        "usable_pct": 0.0
+      }
+    },
+    "3.03": {
+      "combined": {
+        "n": 14,
+        "smash": 0,
+        "hit": 2,
+        "contrib": 0,
+        "bust": 12,
+        "smash_pct": 0.0,
+        "hit_pct": 0.143,
+        "contrib_pct": 0.0,
+        "bust_pct": 0.857,
+        "usable_pct": 0.143
+      },
+      "offense": {
+        "n": 13,
+        "smash": 0,
+        "hit": 2,
+        "contrib": 0,
+        "bust": 11,
+        "smash_pct": 0.0,
+        "hit_pct": 0.154,
+        "contrib_pct": 0.0,
+        "bust_pct": 0.846,
+        "usable_pct": 0.154
+      },
+      "defense": {
+        "n": 1,
+        "smash": 0,
+        "hit": 0,
+        "contrib": 0,
+        "bust": 1,
+        "smash_pct": 0.0,
+        "hit_pct": 0.0,
+        "contrib_pct": 0.0,
+        "bust_pct": 1.0,
+        "usable_pct": 0.0
+      }
+    },
+    "3.04": {
+      "combined": {
+        "n": 14,
+        "smash": 1,
+        "hit": 0,
+        "contrib": 1,
+        "bust": 12,
+        "smash_pct": 0.071,
+        "hit_pct": 0.0,
+        "contrib_pct": 0.071,
+        "bust_pct": 0.857,
+        "usable_pct": 0.071
+      },
+      "defense": {
+        "n": 1,
+        "smash": 1,
+        "hit": 0,
+        "contrib": 0,
+        "bust": 0,
+        "smash_pct": 1.0,
+        "hit_pct": 0.0,
+        "contrib_pct": 0.0,
+        "bust_pct": 0.0,
+        "usable_pct": 1.0
+      },
+      "offense": {
+        "n": 13,
+        "smash": 0,
+        "hit": 0,
+        "contrib": 1,
+        "bust": 12,
+        "smash_pct": 0.0,
+        "hit_pct": 0.0,
+        "contrib_pct": 0.077,
+        "bust_pct": 0.923,
+        "usable_pct": 0.0
+      }
+    },
+    "3.05-08": {
+      "combined": {
+        "n": 56,
+        "smash": 4,
+        "hit": 4,
+        "contrib": 3,
+        "bust": 45,
+        "smash_pct": 0.071,
+        "hit_pct": 0.071,
+        "contrib_pct": 0.054,
+        "bust_pct": 0.804,
+        "usable_pct": 0.143
+      },
+      "offense": {
+        "n": 47,
+        "smash": 3,
+        "hit": 3,
+        "contrib": 2,
+        "bust": 39,
+        "smash_pct": 0.064,
+        "hit_pct": 0.064,
+        "contrib_pct": 0.043,
+        "bust_pct": 0.83,
+        "usable_pct": 0.128
+      },
+      "defense": {
+        "n": 8,
+        "smash": 1,
+        "hit": 1,
+        "contrib": 1,
+        "bust": 5,
+        "smash_pct": 0.125,
+        "hit_pct": 0.125,
+        "contrib_pct": 0.125,
+        "bust_pct": 0.625,
+        "usable_pct": 0.25
+      },
+      "special": {
+        "n": 1,
+        "smash": 0,
+        "hit": 0,
+        "contrib": 0,
+        "bust": 1,
+        "smash_pct": 0.0,
+        "hit_pct": 0.0,
+        "contrib_pct": 0.0,
+        "bust_pct": 1.0,
+        "usable_pct": 0.0
+      }
+    },
+    "3.05": {
+      "combined": {
+        "n": 14,
+        "smash": 1,
+        "hit": 0,
+        "contrib": 1,
+        "bust": 12,
+        "smash_pct": 0.071,
+        "hit_pct": 0.0,
+        "contrib_pct": 0.071,
+        "bust_pct": 0.857,
+        "usable_pct": 0.071
+      },
+      "offense": {
+        "n": 14,
+        "smash": 1,
+        "hit": 0,
+        "contrib": 1,
+        "bust": 12,
+        "smash_pct": 0.071,
+        "hit_pct": 0.0,
+        "contrib_pct": 0.071,
+        "bust_pct": 0.857,
+        "usable_pct": 0.071
+      }
+    },
+    "3.06": {
+      "combined": {
+        "n": 14,
+        "smash": 1,
+        "hit": 1,
+        "contrib": 1,
+        "bust": 11,
+        "smash_pct": 0.071,
+        "hit_pct": 0.071,
+        "contrib_pct": 0.071,
+        "bust_pct": 0.786,
+        "usable_pct": 0.143
+      },
+      "offense": {
+        "n": 12,
+        "smash": 1,
+        "hit": 1,
+        "contrib": 1,
+        "bust": 9,
+        "smash_pct": 0.083,
+        "hit_pct": 0.083,
+        "contrib_pct": 0.083,
+        "bust_pct": 0.75,
+        "usable_pct": 0.167
+      },
+      "defense": {
+        "n": 1,
+        "smash": 0,
+        "hit": 0,
+        "contrib": 0,
+        "bust": 1,
+        "smash_pct": 0.0,
+        "hit_pct": 0.0,
+        "contrib_pct": 0.0,
+        "bust_pct": 1.0,
+        "usable_pct": 0.0
+      },
+      "special": {
+        "n": 1,
+        "smash": 0,
+        "hit": 0,
+        "contrib": 0,
+        "bust": 1,
+        "smash_pct": 0.0,
+        "hit_pct": 0.0,
+        "contrib_pct": 0.0,
+        "bust_pct": 1.0,
+        "usable_pct": 0.0
+      }
+    },
+    "3.07": {
+      "combined": {
+        "n": 14,
+        "smash": 0,
+        "hit": 3,
+        "contrib": 0,
+        "bust": 11,
+        "smash_pct": 0.0,
+        "hit_pct": 0.214,
+        "contrib_pct": 0.0,
+        "bust_pct": 0.786,
+        "usable_pct": 0.214
+      },
+      "defense": {
+        "n": 3,
+        "smash": 0,
+        "hit": 1,
+        "contrib": 0,
+        "bust": 2,
+        "smash_pct": 0.0,
+        "hit_pct": 0.333,
+        "contrib_pct": 0.0,
+        "bust_pct": 0.667,
+        "usable_pct": 0.333
+      },
+      "offense": {
+        "n": 11,
+        "smash": 0,
+        "hit": 2,
+        "contrib": 0,
+        "bust": 9,
+        "smash_pct": 0.0,
+        "hit_pct": 0.182,
+        "contrib_pct": 0.0,
+        "bust_pct": 0.818,
+        "usable_pct": 0.182
+      }
+    },
+    "3.08": {
+      "combined": {
+        "n": 14,
+        "smash": 2,
+        "hit": 0,
+        "contrib": 1,
+        "bust": 11,
+        "smash_pct": 0.143,
+        "hit_pct": 0.0,
+        "contrib_pct": 0.071,
+        "bust_pct": 0.786,
+        "usable_pct": 0.143
+      },
+      "offense": {
+        "n": 10,
+        "smash": 1,
+        "hit": 0,
+        "contrib": 0,
+        "bust": 9,
+        "smash_pct": 0.1,
+        "hit_pct": 0.0,
+        "contrib_pct": 0.0,
+        "bust_pct": 0.9,
+        "usable_pct": 0.1
+      },
+      "defense": {
+        "n": 4,
+        "smash": 1,
+        "hit": 0,
+        "contrib": 1,
+        "bust": 2,
+        "smash_pct": 0.25,
+        "hit_pct": 0.0,
+        "contrib_pct": 0.25,
+        "bust_pct": 0.5,
+        "usable_pct": 0.25
+      }
+    },
+    "3.09": {
+      "combined": {
+        "n": 14,
+        "smash": 2,
+        "hit": 1,
+        "contrib": 1,
+        "bust": 10,
+        "smash_pct": 0.143,
+        "hit_pct": 0.071,
+        "contrib_pct": 0.071,
+        "bust_pct": 0.714,
+        "usable_pct": 0.214
+      },
+      "offense": {
+        "n": 11,
+        "smash": 0,
+        "hit": 1,
+        "contrib": 0,
+        "bust": 10,
+        "smash_pct": 0.0,
+        "hit_pct": 0.091,
+        "contrib_pct": 0.0,
+        "bust_pct": 0.909,
+        "usable_pct": 0.091
+      },
+      "defense": {
+        "n": 3,
+        "smash": 2,
+        "hit": 0,
+        "contrib": 1,
+        "bust": 0,
+        "smash_pct": 0.667,
+        "hit_pct": 0.0,
+        "contrib_pct": 0.333,
+        "bust_pct": 0.0,
+        "usable_pct": 0.667
+      }
+    },
+    "3.11": {
+      "combined": {
+        "n": 14,
+        "smash": 1,
+        "hit": 0,
+        "contrib": 1,
+        "bust": 12,
+        "smash_pct": 0.071,
+        "hit_pct": 0.0,
+        "contrib_pct": 0.071,
+        "bust_pct": 0.857,
+        "usable_pct": 0.071
+      },
+      "offense": {
+        "n": 12,
+        "smash": 1,
+        "hit": 0,
+        "contrib": 0,
+        "bust": 11,
+        "smash_pct": 0.083,
+        "hit_pct": 0.0,
+        "contrib_pct": 0.0,
+        "bust_pct": 0.917,
+        "usable_pct": 0.083
+      },
+      "defense": {
+        "n": 2,
+        "smash": 0,
+        "hit": 0,
+        "contrib": 1,
+        "bust": 1,
+        "smash_pct": 0.0,
+        "hit_pct": 0.0,
+        "contrib_pct": 0.5,
+        "bust_pct": 0.5,
+        "usable_pct": 0.0
+      }
+    },
+    "3.12": {
+      "combined": {
+        "n": 14,
+        "smash": 1,
+        "hit": 3,
+        "contrib": 0,
+        "bust": 10,
+        "smash_pct": 0.071,
+        "hit_pct": 0.214,
+        "contrib_pct": 0.0,
+        "bust_pct": 0.714,
+        "usable_pct": 0.286
+      },
+      "special": {
+        "n": 1,
+        "smash": 0,
+        "hit": 0,
+        "contrib": 0,
+        "bust": 1,
+        "smash_pct": 0.0,
+        "hit_pct": 0.0,
+        "contrib_pct": 0.0,
+        "bust_pct": 1.0,
+        "usable_pct": 0.0
+      },
+      "offense": {
+        "n": 11,
+        "smash": 0,
+        "hit": 2,
+        "contrib": 0,
+        "bust": 9,
+        "smash_pct": 0.0,
+        "hit_pct": 0.182,
+        "contrib_pct": 0.0,
+        "bust_pct": 0.818,
+        "usable_pct": 0.182
+      },
+      "defense": {
+        "n": 2,
+        "smash": 1,
+        "hit": 1,
+        "contrib": 0,
+        "bust": 0,
+        "smash_pct": 0.5,
+        "hit_pct": 0.5,
+        "contrib_pct": 0.0,
+        "bust_pct": 0.0,
+        "usable_pct": 1.0
+      }
+    },
+    "4.01-04": {
+      "combined": {
+        "n": 56,
+        "smash": 3,
+        "hit": 4,
+        "contrib": 9,
+        "bust": 40,
+        "smash_pct": 0.054,
+        "hit_pct": 0.071,
+        "contrib_pct": 0.161,
+        "bust_pct": 0.714,
+        "usable_pct": 0.125
+      },
+      "offense": {
+        "n": 40,
+        "smash": 1,
+        "hit": 0,
+        "contrib": 5,
+        "bust": 34,
+        "smash_pct": 0.025,
+        "hit_pct": 0.0,
+        "contrib_pct": 0.125,
+        "bust_pct": 0.85,
+        "usable_pct": 0.025
+      },
+      "defense": {
+        "n": 16,
+        "smash": 2,
+        "hit": 4,
+        "contrib": 4,
+        "bust": 6,
+        "smash_pct": 0.125,
+        "hit_pct": 0.25,
+        "contrib_pct": 0.25,
+        "bust_pct": 0.375,
+        "usable_pct": 0.375
+      }
+    },
+    "4.09-12": {
+      "combined": {
+        "n": 55,
+        "smash": 4,
+        "hit": 7,
+        "contrib": 7,
+        "bust": 37,
+        "smash_pct": 0.073,
+        "hit_pct": 0.127,
+        "contrib_pct": 0.127,
+        "bust_pct": 0.673,
+        "usable_pct": 0.2
+      },
+      "offense": {
+        "n": 36,
+        "smash": 1,
+        "hit": 0,
+        "contrib": 5,
+        "bust": 30,
+        "smash_pct": 0.028,
+        "hit_pct": 0.0,
+        "contrib_pct": 0.139,
+        "bust_pct": 0.833,
+        "usable_pct": 0.028
+      },
+      "defense": {
+        "n": 19,
+        "smash": 3,
+        "hit": 7,
+        "contrib": 2,
+        "bust": 7,
+        "smash_pct": 0.158,
+        "hit_pct": 0.368,
+        "contrib_pct": 0.105,
+        "bust_pct": 0.368,
+        "usable_pct": 0.526
+      }
+    },
+    "4.05-08": {
+      "combined": {
+        "n": 56,
+        "smash": 3,
+        "hit": 4,
+        "contrib": 4,
+        "bust": 45,
+        "smash_pct": 0.054,
+        "hit_pct": 0.071,
+        "contrib_pct": 0.071,
+        "bust_pct": 0.804,
+        "usable_pct": 0.125
+      },
+      "offense": {
+        "n": 44,
+        "smash": 1,
+        "hit": 1,
+        "contrib": 3,
+        "bust": 39,
+        "smash_pct": 0.023,
+        "hit_pct": 0.023,
+        "contrib_pct": 0.068,
+        "bust_pct": 0.886,
+        "usable_pct": 0.045
+      },
+      "defense": {
+        "n": 12,
+        "smash": 2,
+        "hit": 3,
+        "contrib": 1,
+        "bust": 6,
+        "smash_pct": 0.167,
+        "hit_pct": 0.25,
+        "contrib_pct": 0.083,
+        "bust_pct": 0.5,
+        "usable_pct": 0.417
+      }
+    },
+    "5.01-04": {
+      "combined": {
+        "n": 56,
+        "smash": 5,
+        "hit": 3,
+        "contrib": 5,
+        "bust": 43,
+        "smash_pct": 0.089,
+        "hit_pct": 0.054,
+        "contrib_pct": 0.089,
+        "bust_pct": 0.768,
+        "usable_pct": 0.143
+      },
+      "offense": {
+        "n": 40,
+        "smash": 2,
+        "hit": 1,
+        "contrib": 2,
+        "bust": 35,
+        "smash_pct": 0.05,
+        "hit_pct": 0.025,
+        "contrib_pct": 0.05,
+        "bust_pct": 0.875,
+        "usable_pct": 0.075
+      },
+      "defense": {
+        "n": 16,
+        "smash": 3,
+        "hit": 2,
+        "contrib": 3,
+        "bust": 8,
+        "smash_pct": 0.188,
+        "hit_pct": 0.125,
+        "contrib_pct": 0.188,
+        "bust_pct": 0.5,
+        "usable_pct": 0.312
+      }
+    },
+    "5.09-12": {
+      "combined": {
+        "n": 56,
+        "smash": 2,
+        "hit": 10,
+        "contrib": 2,
+        "bust": 42,
+        "smash_pct": 0.036,
+        "hit_pct": 0.179,
+        "contrib_pct": 0.036,
+        "bust_pct": 0.75,
+        "usable_pct": 0.214
+      },
+      "offense": {
+        "n": 37,
+        "smash": 1,
+        "hit": 4,
+        "contrib": 0,
+        "bust": 32,
+        "smash_pct": 0.027,
+        "hit_pct": 0.108,
+        "contrib_pct": 0.0,
+        "bust_pct": 0.865,
+        "usable_pct": 0.135
+      },
+      "defense": {
+        "n": 19,
+        "smash": 1,
+        "hit": 6,
+        "contrib": 2,
+        "bust": 10,
+        "smash_pct": 0.053,
+        "hit_pct": 0.316,
+        "contrib_pct": 0.105,
+        "bust_pct": 0.526,
+        "usable_pct": 0.368
+      }
+    },
+    "5.05-08": {
+      "combined": {
+        "n": 56,
+        "smash": 3,
+        "hit": 3,
+        "contrib": 4,
+        "bust": 46,
+        "smash_pct": 0.054,
+        "hit_pct": 0.054,
+        "contrib_pct": 0.071,
+        "bust_pct": 0.821,
+        "usable_pct": 0.107
+      },
+      "defense": {
+        "n": 16,
+        "smash": 2,
+        "hit": 2,
+        "contrib": 2,
+        "bust": 10,
+        "smash_pct": 0.125,
+        "hit_pct": 0.125,
+        "contrib_pct": 0.125,
+        "bust_pct": 0.625,
+        "usable_pct": 0.25
+      },
+      "offense": {
+        "n": 40,
+        "smash": 1,
+        "hit": 1,
+        "contrib": 2,
+        "bust": 36,
+        "smash_pct": 0.025,
+        "hit_pct": 0.025,
+        "contrib_pct": 0.05,
+        "bust_pct": 0.9,
+        "usable_pct": 0.05
+      }
+    },
+    "6.01-04": {
+      "combined": {
+        "n": 32,
+        "smash": 5,
+        "hit": 3,
+        "contrib": 8,
+        "bust": 16,
+        "smash_pct": 0.156,
+        "hit_pct": 0.094,
+        "contrib_pct": 0.25,
+        "bust_pct": 0.5,
+        "usable_pct": 0.25
+      },
+      "defense": {
+        "n": 32,
+        "smash": 5,
+        "hit": 3,
+        "contrib": 8,
+        "bust": 16,
+        "smash_pct": 0.156,
+        "hit_pct": 0.094,
+        "contrib_pct": 0.25,
+        "bust_pct": 0.5,
+        "usable_pct": 0.25
+      }
+    },
+    "6.05-08": {
+      "combined": {
+        "n": 32,
+        "smash": 2,
+        "hit": 5,
+        "contrib": 6,
+        "bust": 19,
+        "smash_pct": 0.062,
+        "hit_pct": 0.156,
+        "contrib_pct": 0.188,
+        "bust_pct": 0.594,
+        "usable_pct": 0.219
+      },
+      "defense": {
+        "n": 30,
+        "smash": 2,
+        "hit": 4,
+        "contrib": 6,
+        "bust": 18,
+        "smash_pct": 0.067,
+        "hit_pct": 0.133,
+        "contrib_pct": 0.2,
+        "bust_pct": 0.6,
+        "usable_pct": 0.2
+      },
+      "offense": {
+        "n": 1,
+        "smash": 0,
+        "hit": 0,
+        "contrib": 0,
+        "bust": 1,
+        "smash_pct": 0.0,
+        "hit_pct": 0.0,
+        "contrib_pct": 0.0,
+        "bust_pct": 1.0,
+        "usable_pct": 0.0
+      },
+      "special": {
+        "n": 1,
+        "smash": 0,
+        "hit": 1,
+        "contrib": 0,
+        "bust": 0,
+        "smash_pct": 0.0,
+        "hit_pct": 1.0,
+        "contrib_pct": 0.0,
+        "bust_pct": 0.0,
+        "usable_pct": 1.0
+      }
+    },
+    "6.09-12": {
+      "combined": {
+        "n": 32,
+        "smash": 3,
+        "hit": 2,
+        "contrib": 6,
+        "bust": 21,
+        "smash_pct": 0.094,
+        "hit_pct": 0.062,
+        "contrib_pct": 0.188,
+        "bust_pct": 0.656,
+        "usable_pct": 0.156
+      },
+      "defense": {
+        "n": 29,
+        "smash": 2,
+        "hit": 1,
+        "contrib": 5,
+        "bust": 21,
+        "smash_pct": 0.069,
+        "hit_pct": 0.034,
+        "contrib_pct": 0.172,
+        "bust_pct": 0.724,
+        "usable_pct": 0.103
+      },
+      "special": {
+        "n": 3,
+        "smash": 1,
+        "hit": 1,
+        "contrib": 1,
+        "bust": 0,
+        "smash_pct": 0.333,
+        "hit_pct": 0.333,
+        "contrib_pct": 0.333,
+        "bust_pct": 0.0,
+        "usable_pct": 0.667
+      }
+    }
+  }
+}

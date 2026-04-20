@@ -1,0 +1,2062 @@
+{
+  "meta": {
+    "generated_at_utc": "2026-04-20T21:09:50.775740+00:00",
+    "n_teams": 19
+  },
+  "league_benchmark": {
+    "total_picks": 935,
+    "smash_rate": 0.113,
+    "hit_plus_rate": 0.218,
+    "bust_rate": 0.652,
+    "injury_bust_rate": 0.0,
+    "avg_points_3yr": 236.6,
+    "draft_rating_shrinkage_n": 20
+  },
+  "teams": {
+    "Derrick Whitman": {
+      "owner_name": "Derrick Whitman",
+      "is_active": true,
+      "tenure": "2012-2025",
+      "team_names": [
+        "Cranium Krusherz",
+        "DBCA",
+        "Crystal Blue Persuasion",
+        "CBP"
+      ],
+      "current_team_name": "CBP",
+      "franchise_id": "0002",
+      "franchise_name": "CBP",
+      "picks_made": 23,
+      "smash": 2,
+      "hit": 3,
+      "contrib": 4,
+      "injury_bust": 0,
+      "bust": 14,
+      "smash_rate": 0.087,
+      "hit_plus_rate": 0.217,
+      "bust_rate": 0.609,
+      "injury_bust_rate": 0.0,
+      "avg_rookie_value_score": 23.48,
+      "draft_rating_raw": -0.063,
+      "draft_rating_n_picks": 22,
+      "position_mix": {
+        "WR": 0.261,
+        "RB": 0.217,
+        "QB": 0.174,
+        "LB": 0.13,
+        "TE": 0.087,
+        "DL": 0.087,
+        "DT+DE": 0.043
+      },
+      "offense_pct": 0.739,
+      "defense_pct": 0.261,
+      "per_round": {
+        "1": {
+          "n": 4,
+          "smash_pct": 0.5,
+          "hit_pct": 0.0,
+          "usable_pct": 0.5
+        },
+        "2": {
+          "n": 5,
+          "smash_pct": 0.0,
+          "hit_pct": 0.2,
+          "usable_pct": 0.2
+        },
+        "3": {
+          "n": 3,
+          "smash_pct": 0.0,
+          "hit_pct": 0.0,
+          "usable_pct": 0.0
+        },
+        "4": {
+          "n": 2,
+          "smash_pct": 0.0,
+          "hit_pct": 0.5,
+          "usable_pct": 0.5
+        },
+        "5": {
+          "n": 6,
+          "smash_pct": 0.0,
+          "hit_pct": 0.0,
+          "usable_pct": 0.0
+        },
+        "6": {
+          "n": 3,
+          "smash_pct": 0.0,
+          "hit_pct": 0.333,
+          "usable_pct": 0.333
+        }
+      },
+      "best_pick": {
+        "season": 2024,
+        "slot": "1.08",
+        "player": "Maye, Drake",
+        "position": "QB",
+        "tier": "Smash",
+        "points_3yr": 631.2,
+        "expected_3yr": 354.2,
+        "value_above_expected": 277.0,
+        "overall_score": 4000.337
+      },
+      "worst_pick": {
+        "season": 2023,
+        "slot": "3.04",
+        "player": "Hull, Evan",
+        "position": "RB",
+        "tier": "Bust",
+        "points_3yr": 9.5,
+        "expected_3yr": 265.2,
+        "value_above_expected": -255.7,
+        "overall_score": -0.364
+      },
+      "best_bang_for_buck": {
+        "season": 2017,
+        "slot": "4.01",
+        "player": "Davis, Jarrad",
+        "position": "LB",
+        "tier": "Hit",
+        "points_3yr": 282.5,
+        "expected_3yr": 112.0,
+        "value_above_expected": 170.5,
+        "overall_score": 3000.37
+      },
+      "draft_rating_shrunk": -0.033,
+      "draft_rating_100": 2.2
+    },
+    "Keith Creelman": {
+      "owner_name": "Keith Creelman",
+      "is_active": true,
+      "tenure": "2012-2025",
+      "team_names": [
+        "Bad Newz Kennels",
+        "Raining Bullets",
+        "Gordon Is The New Blackmon",
+        "#BLM",
+        "Real Deal Creel"
+      ],
+      "current_team_name": "Real Deal Creel",
+      "franchise_id": "0008",
+      "franchise_name": "Real Deal Creel",
+      "picks_made": 70,
+      "smash": 8,
+      "hit": 8,
+      "contrib": 5,
+      "injury_bust": 0,
+      "bust": 49,
+      "smash_rate": 0.114,
+      "hit_plus_rate": 0.229,
+      "bust_rate": 0.7,
+      "injury_bust_rate": 0.0,
+      "avg_rookie_value_score": 20.65,
+      "draft_rating_raw": 0.015,
+      "draft_rating_n_picks": 61,
+      "position_mix": {
+        "WR": 0.386,
+        "RB": 0.243,
+        "QB": 0.086,
+        "CB+S": 0.071,
+        "DT+DE": 0.057,
+        "TE": 0.057,
+        "": 0.043,
+        "LB": 0.014,
+        "DE": 0.014,
+        "DB": 0.014,
+        "DL": 0.014
+      },
+      "offense_pct": 0.771,
+      "defense_pct": 0.229,
+      "per_round": {
+        "1": {
+          "n": 9,
+          "smash_pct": 0.111,
+          "hit_pct": 0.111,
+          "usable_pct": 0.222
+        },
+        "2": {
+          "n": 14,
+          "smash_pct": 0.214,
+          "hit_pct": 0.286,
+          "usable_pct": 0.5
+        },
+        "3": {
+          "n": 11,
+          "smash_pct": 0.182,
+          "hit_pct": 0.0,
+          "usable_pct": 0.182
+        },
+        "4": {
+          "n": 10,
+          "smash_pct": 0.0,
+          "hit_pct": 0.0,
+          "usable_pct": 0.0
+        },
+        "5": {
+          "n": 18,
+          "smash_pct": 0.0,
+          "hit_pct": 0.056,
+          "usable_pct": 0.056
+        },
+        "6": {
+          "n": 8,
+          "smash_pct": 0.25,
+          "hit_pct": 0.25,
+          "usable_pct": 0.5
+        }
+      },
+      "best_pick": {
+        "season": 2012,
+        "slot": "3.04",
+        "player": "David, Lavonte",
+        "position": "LB",
+        "tier": "Smash",
+        "points_3yr": 486.5,
+        "expected_3yr": 265.2,
+        "value_above_expected": 221.3,
+        "overall_score": 4000.774
+      },
+      "worst_pick": {
+        "season": 2021,
+        "slot": "5.05",
+        "player": "Williams, Pooka",
+        "position": "RB",
+        "tier": "Bust",
+        "points_3yr": 1.3,
+        "expected_3yr": 77.0,
+        "value_above_expected": -75.7,
+        "overall_score": -0.163
+      },
+      "best_bang_for_buck": {
+        "season": 2012,
+        "slot": "3.04",
+        "player": "David, Lavonte",
+        "position": "LB",
+        "tier": "Smash",
+        "points_3yr": 486.5,
+        "expected_3yr": 265.2,
+        "value_above_expected": 221.3,
+        "overall_score": 4000.774
+      },
+      "draft_rating_shrunk": 0.011,
+      "draft_rating_100": 50.0
+    },
+    "Josh Martel": {
+      "owner_name": "Josh Martel",
+      "is_active": true,
+      "tenure": "2012-2025",
+      "team_names": [
+        "Ebners' Flow",
+        "Sex Manther"
+      ],
+      "current_team_name": "Sex Manther",
+      "franchise_id": "0007",
+      "franchise_name": "Sex Manther",
+      "picks_made": 115,
+      "smash": 15,
+      "hit": 12,
+      "contrib": 13,
+      "injury_bust": 0,
+      "bust": 75,
+      "smash_rate": 0.13,
+      "hit_plus_rate": 0.235,
+      "bust_rate": 0.652,
+      "injury_bust_rate": 0.0,
+      "avg_rookie_value_score": 20.09,
+      "draft_rating_raw": 0.008,
+      "draft_rating_n_picks": 106,
+      "position_mix": {
+        "RB": 0.304,
+        "WR": 0.287,
+        "LB": 0.148,
+        "TE": 0.104,
+        "DT+DE": 0.052,
+        "QB": 0.052,
+        "": 0.017,
+        "CB+S": 0.017,
+        "PN": 0.009,
+        "DL": 0.009
+      },
+      "offense_pct": 0.748,
+      "defense_pct": 0.243,
+      "per_round": {
+        "1": {
+          "n": 32,
+          "smash_pct": 0.188,
+          "hit_pct": 0.125,
+          "usable_pct": 0.312
+        },
+        "2": {
+          "n": 19,
+          "smash_pct": 0.053,
+          "hit_pct": 0.211,
+          "usable_pct": 0.263
+        },
+        "3": {
+          "n": 14,
+          "smash_pct": 0.071,
+          "hit_pct": 0.071,
+          "usable_pct": 0.143
+        },
+        "4": {
+          "n": 23,
+          "smash_pct": 0.13,
+          "hit_pct": 0.0,
+          "usable_pct": 0.13
+        },
+        "5": {
+          "n": 19,
+          "smash_pct": 0.105,
+          "hit_pct": 0.158,
+          "usable_pct": 0.263
+        },
+        "6": {
+          "n": 8,
+          "smash_pct": 0.25,
+          "hit_pct": 0.0,
+          "usable_pct": 0.25
+        }
+      },
+      "best_pick": {
+        "season": 2017,
+        "slot": "4.03",
+        "player": "Mahomes, Patrick",
+        "position": "QB",
+        "tier": "Smash",
+        "points_3yr": 817.7,
+        "expected_3yr": 130.8,
+        "value_above_expected": 686.9,
+        "overall_score": 4000.678
+      },
+      "worst_pick": {
+        "season": 2024,
+        "slot": "5.11",
+        "player": "Watson, Blake",
+        "position": "RB",
+        "tier": "Bust",
+        "points_3yr": 3.5,
+        "expected_3yr": 38.6,
+        "value_above_expected": -35.1,
+        "overall_score": -0.25
+      },
+      "best_bang_for_buck": {
+        "season": 2017,
+        "slot": "4.03",
+        "player": "Mahomes, Patrick",
+        "position": "QB",
+        "tier": "Smash",
+        "points_3yr": 817.7,
+        "expected_3yr": 130.8,
+        "value_above_expected": 686.9,
+        "overall_score": 4000.678
+      },
+      "draft_rating_shrunk": 0.007,
+      "draft_rating_100": 45.7
+    },
+    "Eric Mannila": {
+      "owner_name": "Eric Mannila",
+      "is_active": true,
+      "tenure": "2012-2025",
+      "team_names": [
+        "The Baster",
+        "Cleon Ca$h"
+      ],
+      "current_team_name": "Cleon Ca$h",
+      "franchise_id": "0011",
+      "franchise_name": "Cleon Ca$h",
+      "picks_made": 95,
+      "smash": 11,
+      "hit": 17,
+      "contrib": 18,
+      "injury_bust": 0,
+      "bust": 49,
+      "smash_rate": 0.116,
+      "hit_plus_rate": 0.295,
+      "bust_rate": 0.516,
+      "injury_bust_rate": 0.0,
+      "avg_rookie_value_score": 23.34,
+      "draft_rating_raw": 0.114,
+      "draft_rating_n_picks": 91,
+      "position_mix": {
+        "WR": 0.316,
+        "RB": 0.221,
+        "QB": 0.126,
+        "TE": 0.116,
+        "LB": 0.095,
+        "DT+DE": 0.042,
+        "CB+S": 0.042,
+        "DL": 0.021,
+        "DE": 0.011,
+        "DB": 0.011
+      },
+      "offense_pct": 0.779,
+      "defense_pct": 0.221,
+      "per_round": {
+        "1": {
+          "n": 19,
+          "smash_pct": 0.421,
+          "hit_pct": 0.158,
+          "usable_pct": 0.579
+        },
+        "2": {
+          "n": 20,
+          "smash_pct": 0.0,
+          "hit_pct": 0.15,
+          "usable_pct": 0.15
+        },
+        "3": {
+          "n": 13,
+          "smash_pct": 0.154,
+          "hit_pct": 0.231,
+          "usable_pct": 0.385
+        },
+        "4": {
+          "n": 19,
+          "smash_pct": 0.053,
+          "hit_pct": 0.263,
+          "usable_pct": 0.316
+        },
+        "5": {
+          "n": 16,
+          "smash_pct": 0.0,
+          "hit_pct": 0.188,
+          "usable_pct": 0.188
+        },
+        "6": {
+          "n": 8,
+          "smash_pct": 0.0,
+          "hit_pct": 0.0,
+          "usable_pct": 0.0
+        }
+      },
+      "best_pick": {
+        "season": 2023,
+        "slot": "1.01",
+        "player": "Robinson, Bijan",
+        "position": "RB",
+        "tier": "Smash",
+        "points_3yr": 931.7,
+        "expected_3yr": 602.5,
+        "value_above_expected": 329.2,
+        "overall_score": 4000.316
+      },
+      "worst_pick": {
+        "season": 2025,
+        "slot": "3.07",
+        "player": "Royals, Jalen",
+        "position": "WR",
+        "tier": "Bust",
+        "points_3yr": 1.8,
+        "expected_3yr": 122.2,
+        "value_above_expected": -120.4,
+        "overall_score": -0.253
+      },
+      "best_bang_for_buck": {
+        "season": 2014,
+        "slot": "3.11",
+        "player": "Landry, Jarvis",
+        "position": "WR",
+        "tier": "Smash",
+        "points_3yr": 759.6,
+        "expected_3yr": 74.2,
+        "value_above_expected": 685.4,
+        "overall_score": 4000.79
+      },
+      "draft_rating_shrunk": 0.093,
+      "draft_rating_100": 100.0
+    },
+    "Chris Klingenberg": {
+      "owner_name": "Chris Klingenberg",
+      "is_active": true,
+      "tenure": "2012-2025",
+      "team_names": [
+        "White Power",
+        "Hawks"
+      ],
+      "current_team_name": "Hawks",
+      "franchise_id": "0012",
+      "franchise_name": "Hawks",
+      "picks_made": 73,
+      "smash": 9,
+      "hit": 6,
+      "contrib": 11,
+      "injury_bust": 0,
+      "bust": 47,
+      "smash_rate": 0.123,
+      "hit_plus_rate": 0.205,
+      "bust_rate": 0.644,
+      "injury_bust_rate": 0.0,
+      "avg_rookie_value_score": 20.38,
+      "draft_rating_raw": 0.049,
+      "draft_rating_n_picks": 69,
+      "position_mix": {
+        "WR": 0.384,
+        "RB": 0.123,
+        "LB": 0.11,
+        "DT+DE": 0.096,
+        "TE": 0.082,
+        "QB": 0.068,
+        "CB+S": 0.068,
+        "DL": 0.027,
+        "": 0.014,
+        "PK": 0.014,
+        "DB": 0.014
+      },
+      "offense_pct": 0.658,
+      "defense_pct": 0.329,
+      "per_round": {
+        "1": {
+          "n": 10,
+          "smash_pct": 0.2,
+          "hit_pct": 0.2,
+          "usable_pct": 0.4
+        },
+        "2": {
+          "n": 11,
+          "smash_pct": 0.182,
+          "hit_pct": 0.0,
+          "usable_pct": 0.182
+        },
+        "3": {
+          "n": 16,
+          "smash_pct": 0.062,
+          "hit_pct": 0.062,
+          "usable_pct": 0.125
+        },
+        "4": {
+          "n": 16,
+          "smash_pct": 0.125,
+          "hit_pct": 0.062,
+          "usable_pct": 0.188
+        },
+        "5": {
+          "n": 12,
+          "smash_pct": 0.083,
+          "hit_pct": 0.083,
+          "usable_pct": 0.167
+        },
+        "6": {
+          "n": 8,
+          "smash_pct": 0.125,
+          "hit_pct": 0.125,
+          "usable_pct": 0.25
+        }
+      },
+      "best_pick": {
+        "season": 2018,
+        "slot": "4.11",
+        "player": "James, Derwin",
+        "position": "CB+S",
+        "tier": "Smash",
+        "points_3yr": 201.0,
+        "expected_3yr": 201.0,
+        "value_above_expected": 0.0,
+        "overall_score": 4000.724
+      },
+      "worst_pick": {
+        "season": 2025,
+        "slot": "5.08",
+        "player": "Allen, LeQuint",
+        "position": "RB",
+        "tier": "Bust",
+        "points_3yr": 47.3,
+        "expected_3yr": 47.3,
+        "value_above_expected": 0.0,
+        "overall_score": -0.084
+      },
+      "best_bang_for_buck": {
+        "season": 2018,
+        "slot": "4.11",
+        "player": "James, Derwin",
+        "position": "CB+S",
+        "tier": "Smash",
+        "points_3yr": 201.0,
+        "expected_3yr": 201.0,
+        "value_above_expected": 0.0,
+        "overall_score": 4000.724
+      },
+      "draft_rating_shrunk": 0.038,
+      "draft_rating_100": 66.5
+    },
+    "Bear Dunn": {
+      "owner_name": "Bear Dunn",
+      "is_active": true,
+      "tenure": "2012-2025",
+      "team_names": [
+        "C-Town Chivalry"
+      ],
+      "current_team_name": "C-Town Chivalry",
+      "franchise_id": "0009",
+      "franchise_name": "C-Town Chivalry",
+      "picks_made": 96,
+      "smash": 12,
+      "hit": 10,
+      "contrib": 8,
+      "injury_bust": 0,
+      "bust": 66,
+      "smash_rate": 0.125,
+      "hit_plus_rate": 0.229,
+      "bust_rate": 0.688,
+      "injury_bust_rate": 0.0,
+      "avg_rookie_value_score": 23.1,
+      "draft_rating_raw": 0.032,
+      "draft_rating_n_picks": 90,
+      "position_mix": {
+        "RB": 0.312,
+        "WR": 0.302,
+        "TE": 0.125,
+        "QB": 0.115,
+        "LB": 0.083,
+        "": 0.021,
+        "CB+S": 0.021,
+        "PN": 0.021
+      },
+      "offense_pct": 0.854,
+      "defense_pct": 0.125,
+      "per_round": {
+        "1": {
+          "n": 15,
+          "smash_pct": 0.267,
+          "hit_pct": 0.267,
+          "usable_pct": 0.533
+        },
+        "2": {
+          "n": 21,
+          "smash_pct": 0.19,
+          "hit_pct": 0.095,
+          "usable_pct": 0.286
+        },
+        "3": {
+          "n": 24,
+          "smash_pct": 0.042,
+          "hit_pct": 0.083,
+          "usable_pct": 0.125
+        },
+        "4": {
+          "n": 17,
+          "smash_pct": 0.059,
+          "hit_pct": 0.0,
+          "usable_pct": 0.059
+        },
+        "5": {
+          "n": 11,
+          "smash_pct": 0.091,
+          "hit_pct": 0.091,
+          "usable_pct": 0.182
+        },
+        "6": {
+          "n": 8,
+          "smash_pct": 0.125,
+          "hit_pct": 0.125,
+          "usable_pct": 0.25
+        }
+      },
+      "best_pick": {
+        "season": 2015,
+        "slot": "2.04",
+        "player": "Johnson, David",
+        "position": "RB",
+        "tier": "Smash",
+        "points_3yr": 638.7,
+        "expected_3yr": 179.4,
+        "value_above_expected": 459.3,
+        "overall_score": 4000.819
+      },
+      "worst_pick": {
+        "season": 2025,
+        "slot": "6.12",
+        "player": "Stutsman, Danny",
+        "position": "LB",
+        "tier": "Bust",
+        "points_3yr": 36.0,
+        "expected_3yr": 160.5,
+        "value_above_expected": -124.5,
+        "overall_score": -0.406
+      },
+      "best_bang_for_buck": {
+        "season": 2012,
+        "slot": "5.06",
+        "player": "Smith, Harrison",
+        "position": "CB+S",
+        "tier": "Smash",
+        "points_3yr": 300.5,
+        "expected_3yr": 106.8,
+        "value_above_expected": 193.7,
+        "overall_score": 4000.827
+      },
+      "draft_rating_shrunk": 0.026,
+      "draft_rating_100": 59.1
+    },
+    "Ryan Bousquet": {
+      "owner_name": "Ryan Bousquet",
+      "is_active": true,
+      "tenure": "2012-2025",
+      "team_names": [
+        "Wetter Than Dutch Dikes",
+        "Ulterior Warrior",
+        "L.A. Looks"
+      ],
+      "current_team_name": "L.A. Looks",
+      "franchise_id": "0001",
+      "franchise_name": "L.A. Looks",
+      "picks_made": 89,
+      "smash": 8,
+      "hit": 9,
+      "contrib": 7,
+      "injury_bust": 0,
+      "bust": 65,
+      "smash_rate": 0.09,
+      "hit_plus_rate": 0.191,
+      "bust_rate": 0.73,
+      "injury_bust_rate": 0.0,
+      "avg_rookie_value_score": 19.51,
+      "draft_rating_raw": -0.001,
+      "draft_rating_n_picks": 83,
+      "position_mix": {
+        "RB": 0.348,
+        "WR": 0.326,
+        "DT+DE": 0.079,
+        "QB": 0.079,
+        "CB+S": 0.079,
+        "DL": 0.034,
+        "TE": 0.022,
+        "LB": 0.022,
+        "DB": 0.011
+      },
+      "offense_pct": 0.775,
+      "defense_pct": 0.225,
+      "per_round": {
+        "1": {
+          "n": 13,
+          "smash_pct": 0.154,
+          "hit_pct": 0.231,
+          "usable_pct": 0.385
+        },
+        "2": {
+          "n": 23,
+          "smash_pct": 0.087,
+          "hit_pct": 0.0,
+          "usable_pct": 0.087
+        },
+        "3": {
+          "n": 19,
+          "smash_pct": 0.053,
+          "hit_pct": 0.0,
+          "usable_pct": 0.053
+        },
+        "4": {
+          "n": 14,
+          "smash_pct": 0.071,
+          "hit_pct": 0.143,
+          "usable_pct": 0.214
+        },
+        "5": {
+          "n": 12,
+          "smash_pct": 0.0,
+          "hit_pct": 0.167,
+          "usable_pct": 0.167
+        },
+        "6": {
+          "n": 8,
+          "smash_pct": 0.25,
+          "hit_pct": 0.25,
+          "usable_pct": 0.5
+        }
+      },
+      "best_pick": {
+        "season": 2017,
+        "slot": "2.01",
+        "player": "Kamara, Alvin",
+        "position": "RB",
+        "tier": "Smash",
+        "points_3yr": 863.6,
+        "expected_3yr": 453.7,
+        "value_above_expected": 409.9,
+        "overall_score": 4000.467
+      },
+      "worst_pick": {
+        "season": 2023,
+        "slot": "4.01",
+        "player": "Gray, Eric",
+        "position": "RB",
+        "tier": "Bust",
+        "points_3yr": 37.3,
+        "expected_3yr": 112.0,
+        "value_above_expected": -74.7,
+        "overall_score": -0.309
+      },
+      "best_bang_for_buck": {
+        "season": 2017,
+        "slot": "3.06",
+        "player": "Kupp, Cooper",
+        "position": "WR",
+        "tier": "Smash",
+        "points_3yr": 612.2,
+        "expected_3yr": 161.0,
+        "value_above_expected": 451.2,
+        "overall_score": 4000.724
+      },
+      "draft_rating_shrunk": -0.001,
+      "draft_rating_100": 37.0
+    },
+    "Kyle Creelman": {
+      "owner_name": "Kyle Creelman",
+      "is_active": false,
+      "tenure": "2012-2016",
+      "team_names": [
+        "BTNH"
+      ],
+      "current_team_name": "BTNH",
+      "franchise_id": "0005",
+      "franchise_name": "BTNH",
+      "picks_made": 18,
+      "smash": 0,
+      "hit": 2,
+      "contrib": 2,
+      "injury_bust": 0,
+      "bust": 14,
+      "smash_rate": 0.0,
+      "hit_plus_rate": 0.111,
+      "bust_rate": 0.778,
+      "injury_bust_rate": 0.0,
+      "avg_rookie_value_score": 15.63,
+      "draft_rating_raw": -0.078,
+      "draft_rating_n_picks": 16,
+      "position_mix": {
+        "RB": 0.5,
+        "WR": 0.333,
+        "TE": 0.056,
+        "": 0.056,
+        "QB": 0.056
+      },
+      "offense_pct": 0.944,
+      "defense_pct": 0.056,
+      "per_round": {
+        "1": {
+          "n": 4,
+          "smash_pct": 0.0,
+          "hit_pct": 0.0,
+          "usable_pct": 0.0
+        },
+        "2": {
+          "n": 3,
+          "smash_pct": 0.0,
+          "hit_pct": 0.0,
+          "usable_pct": 0.0
+        },
+        "3": {
+          "n": 3,
+          "smash_pct": 0.0,
+          "hit_pct": 0.333,
+          "usable_pct": 0.333
+        },
+        "4": {
+          "n": 7,
+          "smash_pct": 0.0,
+          "hit_pct": 0.143,
+          "usable_pct": 0.143
+        },
+        "5": {
+          "n": 1,
+          "smash_pct": 0.0,
+          "hit_pct": 0.0,
+          "usable_pct": 0.0
+        }
+      },
+      "best_pick": {
+        "season": 2015,
+        "slot": "4.07",
+        "player": "Williams, Karlos",
+        "position": "RB",
+        "tier": "Hit",
+        "points_3yr": 113.3,
+        "expected_3yr": 113.3,
+        "value_above_expected": 0.0,
+        "overall_score": 3000.493
+      },
+      "worst_pick": {
+        "season": 2013,
+        "slot": "4.08",
+        "player": "Barner, Kenjon",
+        "position": "RB",
+        "tier": "Bust",
+        "points_3yr": 15.4,
+        "expected_3yr": 104.5,
+        "value_above_expected": -89.1,
+        "overall_score": -0.227
+      },
+      "best_bang_for_buck": {
+        "season": 2015,
+        "slot": "4.07",
+        "player": "Williams, Karlos",
+        "position": "RB",
+        "tier": "Hit",
+        "points_3yr": 113.3,
+        "expected_3yr": 113.3,
+        "value_above_expected": 0.0,
+        "overall_score": 3000.493
+      },
+      "draft_rating_shrunk": -0.035,
+      "draft_rating_100": 0.0
+    },
+    "Steve Bousquet": {
+      "owner_name": "Steve Bousquet",
+      "is_active": false,
+      "tenure": "2012-2022",
+      "team_names": [
+        "Good in Da Hood"
+      ],
+      "current_team_name": "Good in Da Hood",
+      "franchise_id": "0006",
+      "franchise_name": "Good in Da Hood",
+      "picks_made": 63,
+      "smash": 12,
+      "hit": 6,
+      "contrib": 10,
+      "injury_bust": 0,
+      "bust": 35,
+      "smash_rate": 0.19,
+      "hit_plus_rate": 0.286,
+      "bust_rate": 0.556,
+      "injury_bust_rate": 0.0,
+      "avg_rookie_value_score": 22.43,
+      "draft_rating_raw": 0.052,
+      "draft_rating_n_picks": 58,
+      "position_mix": {
+        "RB": 0.302,
+        "WR": 0.254,
+        "LB": 0.143,
+        "QB": 0.127,
+        "CB+S": 0.111,
+        "DT+DE": 0.032,
+        "": 0.016,
+        "TE": 0.016
+      },
+      "offense_pct": 0.698,
+      "defense_pct": 0.302,
+      "per_round": {
+        "1": {
+          "n": 13,
+          "smash_pct": 0.462,
+          "hit_pct": 0.154,
+          "usable_pct": 0.615
+        },
+        "2": {
+          "n": 11,
+          "smash_pct": 0.182,
+          "hit_pct": 0.0,
+          "usable_pct": 0.182
+        },
+        "3": {
+          "n": 12,
+          "smash_pct": 0.167,
+          "hit_pct": 0.167,
+          "usable_pct": 0.333
+        },
+        "4": {
+          "n": 8,
+          "smash_pct": 0.0,
+          "hit_pct": 0.0,
+          "usable_pct": 0.0
+        },
+        "5": {
+          "n": 14,
+          "smash_pct": 0.071,
+          "hit_pct": 0.143,
+          "usable_pct": 0.214
+        },
+        "6": {
+          "n": 5,
+          "smash_pct": 0.2,
+          "hit_pct": 0.0,
+          "usable_pct": 0.2
+        }
+      },
+      "best_pick": {
+        "season": 2014,
+        "slot": "1.08",
+        "player": "Beckham, Odell",
+        "position": "WR",
+        "tier": "Smash",
+        "points_3yr": 958.5,
+        "expected_3yr": 354.2,
+        "value_above_expected": 604.3,
+        "overall_score": 4000.668
+      },
+      "worst_pick": {
+        "season": 2021,
+        "slot": "5.12",
+        "player": "Darden, Jaelon",
+        "position": "WR",
+        "tier": "Bust",
+        "points_3yr": 52.9,
+        "expected_3yr": 203.2,
+        "value_above_expected": -150.3,
+        "overall_score": -0.53
+      },
+      "best_bang_for_buck": {
+        "season": 2018,
+        "slot": "2.12",
+        "player": "Smith, Roquan",
+        "position": "LB",
+        "tier": "Smash",
+        "points_3yr": 409.0,
+        "expected_3yr": 105.9,
+        "value_above_expected": 303.1,
+        "overall_score": 4000.787
+      },
+      "draft_rating_shrunk": 0.039,
+      "draft_rating_100": 67.1
+    },
+    "Kris Lake": {
+      "owner_name": "Kris Lake",
+      "is_active": false,
+      "tenure": "2012-2016",
+      "team_names": [
+        "Lake's Team",
+        "There Can Be Only One"
+      ],
+      "current_team_name": "There Can Be Only One",
+      "franchise_id": "0003",
+      "franchise_name": "There Can Be Only One",
+      "picks_made": 17,
+      "smash": 4,
+      "hit": 3,
+      "contrib": 1,
+      "injury_bust": 0,
+      "bust": 9,
+      "smash_rate": 0.235,
+      "hit_plus_rate": 0.412,
+      "bust_rate": 0.529,
+      "injury_bust_rate": 0.0,
+      "avg_rookie_value_score": 15.76,
+      "draft_rating_raw": 0.035,
+      "draft_rating_n_picks": 16,
+      "position_mix": {
+        "WR": 0.353,
+        "RB": 0.294,
+        "CB+S": 0.118,
+        "TE": 0.118,
+        "": 0.059,
+        "DT+DE": 0.059
+      },
+      "offense_pct": 0.765,
+      "defense_pct": 0.235,
+      "per_round": {
+        "1": {
+          "n": 7,
+          "smash_pct": 0.429,
+          "hit_pct": 0.143,
+          "usable_pct": 0.571
+        },
+        "2": {
+          "n": 4,
+          "smash_pct": 0.0,
+          "hit_pct": 0.5,
+          "usable_pct": 0.5
+        },
+        "3": {
+          "n": 1,
+          "smash_pct": 0.0,
+          "hit_pct": 0.0,
+          "usable_pct": 0.0
+        },
+        "4": {
+          "n": 2,
+          "smash_pct": 0.0,
+          "hit_pct": 0.0,
+          "usable_pct": 0.0
+        },
+        "5": {
+          "n": 3,
+          "smash_pct": 0.333,
+          "hit_pct": 0.0,
+          "usable_pct": 0.333
+        }
+      },
+      "best_pick": {
+        "season": 2016,
+        "slot": "1.01",
+        "player": "Elliott, Ezekiel",
+        "position": "RB",
+        "tier": "Smash",
+        "points_3yr": 849.6,
+        "expected_3yr": 602.5,
+        "value_above_expected": 247.1,
+        "overall_score": 4000.506
+      },
+      "worst_pick": {
+        "season": 2016,
+        "slot": "1.03",
+        "player": "Treadwell, Laquon",
+        "position": "WR",
+        "tier": "Bust",
+        "points_3yr": 119.0,
+        "expected_3yr": 446.5,
+        "value_above_expected": -327.5,
+        "overall_score": -0.656
+      },
+      "best_bang_for_buck": {
+        "season": 2016,
+        "slot": "1.01",
+        "player": "Elliott, Ezekiel",
+        "position": "RB",
+        "tier": "Smash",
+        "points_3yr": 849.6,
+        "expected_3yr": 602.5,
+        "value_above_expected": 247.1,
+        "overall_score": 4000.506
+      },
+      "draft_rating_shrunk": 0.016,
+      "draft_rating_100": 53.0
+    },
+    "Brian Cutting": {
+      "owner_name": "Brian Cutting",
+      "is_active": true,
+      "tenure": "2012-2025",
+      "team_names": [
+        "Pure Greatness"
+      ],
+      "current_team_name": "Pure Greatness",
+      "franchise_id": "0004",
+      "franchise_name": "Pure Greatness",
+      "picks_made": 52,
+      "smash": 2,
+      "hit": 4,
+      "contrib": 9,
+      "injury_bust": 0,
+      "bust": 37,
+      "smash_rate": 0.038,
+      "hit_plus_rate": 0.115,
+      "bust_rate": 0.712,
+      "injury_bust_rate": 0.0,
+      "avg_rookie_value_score": 20.18,
+      "draft_rating_raw": 0.016,
+      "draft_rating_n_picks": 49,
+      "position_mix": {
+        "WR": 0.385,
+        "RB": 0.269,
+        "LB": 0.115,
+        "QB": 0.096,
+        "TE": 0.058,
+        "CB+S": 0.038,
+        "DT+DE": 0.019,
+        "DL": 0.019
+      },
+      "offense_pct": 0.808,
+      "defense_pct": 0.192,
+      "per_round": {
+        "1": {
+          "n": 5,
+          "smash_pct": 0.2,
+          "hit_pct": 0.2,
+          "usable_pct": 0.4
+        },
+        "2": {
+          "n": 6,
+          "smash_pct": 0.167,
+          "hit_pct": 0.0,
+          "usable_pct": 0.167
+        },
+        "3": {
+          "n": 14,
+          "smash_pct": 0.0,
+          "hit_pct": 0.214,
+          "usable_pct": 0.214
+        },
+        "4": {
+          "n": 8,
+          "smash_pct": 0.0,
+          "hit_pct": 0.0,
+          "usable_pct": 0.0
+        },
+        "5": {
+          "n": 11,
+          "smash_pct": 0.0,
+          "hit_pct": 0.0,
+          "usable_pct": 0.0
+        },
+        "6": {
+          "n": 8,
+          "smash_pct": 0.0,
+          "hit_pct": 0.0,
+          "usable_pct": 0.0
+        }
+      },
+      "best_pick": {
+        "season": 2019,
+        "slot": "2.09",
+        "player": "Johnson, Diontae",
+        "position": "WR",
+        "tier": "Smash",
+        "points_3yr": 681.9,
+        "expected_3yr": 397.2,
+        "value_above_expected": 284.6,
+        "overall_score": 4000.33
+      },
+      "worst_pick": {
+        "season": 2025,
+        "slot": "5.02",
+        "player": "Thornton, Dont'e",
+        "position": "WR",
+        "tier": "Bust",
+        "points_3yr": 25.9,
+        "expected_3yr": 140.6,
+        "value_above_expected": -114.7,
+        "overall_score": -0.205
+      },
+      "best_bang_for_buck": {
+        "season": 2022,
+        "slot": "3.06",
+        "player": "McBride, Trey",
+        "position": "TE",
+        "tier": "Hit",
+        "points_3yr": 488.4,
+        "expected_3yr": 161.0,
+        "value_above_expected": 327.4,
+        "overall_score": 3000.533
+      },
+      "draft_rating_shrunk": 0.011,
+      "draft_rating_100": 50.0
+    },
+    "Shawn Blake": {
+      "owner_name": "Shawn Blake",
+      "is_active": true,
+      "tenure": "2012-2025",
+      "team_names": [
+        "Blake Bombers"
+      ],
+      "current_team_name": "Blake Bombers",
+      "franchise_id": "0010",
+      "franchise_name": "Blake Bombers",
+      "picks_made": 82,
+      "smash": 7,
+      "hit": 4,
+      "contrib": 11,
+      "injury_bust": 0,
+      "bust": 60,
+      "smash_rate": 0.085,
+      "hit_plus_rate": 0.134,
+      "bust_rate": 0.732,
+      "injury_bust_rate": 0.0,
+      "avg_rookie_value_score": 16.18,
+      "draft_rating_raw": -0.006,
+      "draft_rating_n_picks": 72,
+      "position_mix": {
+        "RB": 0.329,
+        "WR": 0.268,
+        "TE": 0.122,
+        "LB": 0.085,
+        "QB": 0.073,
+        "DT+DE": 0.049,
+        "CB+S": 0.037,
+        "PN": 0.012,
+        "": 0.012,
+        "DB": 0.012
+      },
+      "offense_pct": 0.793,
+      "defense_pct": 0.195,
+      "per_round": {
+        "1": {
+          "n": 12,
+          "smash_pct": 0.25,
+          "hit_pct": 0.083,
+          "usable_pct": 0.333
+        },
+        "2": {
+          "n": 14,
+          "smash_pct": 0.0,
+          "hit_pct": 0.143,
+          "usable_pct": 0.143
+        },
+        "3": {
+          "n": 17,
+          "smash_pct": 0.059,
+          "hit_pct": 0.0,
+          "usable_pct": 0.059
+        },
+        "4": {
+          "n": 14,
+          "smash_pct": 0.071,
+          "hit_pct": 0.071,
+          "usable_pct": 0.143
+        },
+        "5": {
+          "n": 17,
+          "smash_pct": 0.118,
+          "hit_pct": 0.0,
+          "usable_pct": 0.118
+        },
+        "6": {
+          "n": 8,
+          "smash_pct": 0.0,
+          "hit_pct": 0.0,
+          "usable_pct": 0.0
+        }
+      },
+      "best_pick": {
+        "season": 2014,
+        "slot": "5.10",
+        "player": "Smith, Telvin",
+        "position": "LB",
+        "tier": "Smash",
+        "points_3yr": 382.5,
+        "expected_3yr": 184.5,
+        "value_above_expected": 198.0,
+        "overall_score": 4000.533
+      },
+      "worst_pick": {
+        "season": 2025,
+        "slot": "4.11",
+        "player": "Brooks, Tahj",
+        "position": "RB",
+        "tier": "Bust",
+        "points_3yr": 18.9,
+        "expected_3yr": 201.0,
+        "value_above_expected": -182.1,
+        "overall_score": -0.382
+      },
+      "best_bang_for_buck": {
+        "season": 2017,
+        "slot": "5.07",
+        "player": "Kittle, George",
+        "position": "TE",
+        "tier": "Smash",
+        "points_3yr": 577.7,
+        "expected_3yr": 148.1,
+        "value_above_expected": 429.6,
+        "overall_score": 4000.609
+      },
+      "draft_rating_shrunk": -0.005,
+      "draft_rating_100": 32.6
+    },
+    "Matt Gerardi": {
+      "owner_name": "Matt Gerardi",
+      "is_active": true,
+      "tenure": "2017-2025",
+      "team_names": [
+        "Gride"
+      ],
+      "current_team_name": "Gride",
+      "franchise_id": "0003",
+      "franchise_name": "Gride",
+      "picks_made": 41,
+      "smash": 3,
+      "hit": 4,
+      "contrib": 6,
+      "injury_bust": 0,
+      "bust": 28,
+      "smash_rate": 0.073,
+      "hit_plus_rate": 0.171,
+      "bust_rate": 0.683,
+      "injury_bust_rate": 0.0,
+      "avg_rookie_value_score": 20.78,
+      "draft_rating_raw": -0.039,
+      "draft_rating_n_picks": 38,
+      "position_mix": {
+        "RB": 0.317,
+        "WR": 0.317,
+        "LB": 0.122,
+        "QB": 0.073,
+        "CB+S": 0.049,
+        "TE": 0.049,
+        "DT+DE": 0.024,
+        "PK": 0.024,
+        "DL": 0.024
+      },
+      "offense_pct": 0.756,
+      "defense_pct": 0.22,
+      "per_round": {
+        "1": {
+          "n": 10,
+          "smash_pct": 0.2,
+          "hit_pct": 0.1,
+          "usable_pct": 0.3
+        },
+        "2": {
+          "n": 6,
+          "smash_pct": 0.0,
+          "hit_pct": 0.0,
+          "usable_pct": 0.0
+        },
+        "3": {
+          "n": 6,
+          "smash_pct": 0.0,
+          "hit_pct": 0.0,
+          "usable_pct": 0.0
+        },
+        "4": {
+          "n": 5,
+          "smash_pct": 0.0,
+          "hit_pct": 0.0,
+          "usable_pct": 0.0
+        },
+        "5": {
+          "n": 6,
+          "smash_pct": 0.167,
+          "hit_pct": 0.167,
+          "usable_pct": 0.333
+        },
+        "6": {
+          "n": 8,
+          "smash_pct": 0.0,
+          "hit_pct": 0.25,
+          "usable_pct": 0.25
+        }
+      },
+      "best_pick": {
+        "season": 2018,
+        "slot": "1.01",
+        "player": "Barkley, Saquon",
+        "position": "RB",
+        "tier": "Smash",
+        "points_3yr": 600.8,
+        "expected_3yr": 602.5,
+        "value_above_expected": -1.7,
+        "overall_score": 4000.296
+      },
+      "worst_pick": {
+        "season": 2025,
+        "slot": "4.06",
+        "player": "Giddens, DJ",
+        "position": "RB",
+        "tier": "Bust",
+        "points_3yr": 7.2,
+        "expected_3yr": 204.7,
+        "value_above_expected": -197.5,
+        "overall_score": -0.216
+      },
+      "best_bang_for_buck": {
+        "season": 2020,
+        "slot": "5.09",
+        "player": "Hurts, Jalen",
+        "position": "QB",
+        "tier": "Smash",
+        "points_3yr": 914.2,
+        "expected_3yr": 89.5,
+        "value_above_expected": 824.7,
+        "overall_score": 4000.592
+      },
+      "draft_rating_shrunk": -0.026,
+      "draft_rating_100": 9.8
+    },
+    "John Richard, Jarrade Nieber": {
+      "owner_name": "John Richard, Jarrade Nieber",
+      "is_active": false,
+      "tenure": "2017-2018",
+      "team_names": [
+        "C'mon Son"
+      ],
+      "current_team_name": "C'mon Son",
+      "franchise_id": "0005",
+      "franchise_name": "C'mon Son",
+      "picks_made": 7,
+      "smash": 3,
+      "hit": 1,
+      "contrib": 0,
+      "injury_bust": 0,
+      "bust": 3,
+      "smash_rate": 0.429,
+      "hit_plus_rate": 0.571,
+      "bust_rate": 0.429,
+      "injury_bust_rate": 0.0,
+      "avg_rookie_value_score": 21.43,
+      "draft_rating_raw": 0.327,
+      "draft_rating_n_picks": 6,
+      "position_mix": {
+        "RB": 0.286,
+        "CB+S": 0.286,
+        "DT+DE": 0.143,
+        "QB": 0.143,
+        "WR": 0.143
+      },
+      "offense_pct": 0.571,
+      "defense_pct": 0.429,
+      "per_round": {
+        "2": {
+          "n": 1,
+          "smash_pct": 1.0,
+          "hit_pct": 0.0,
+          "usable_pct": 1.0
+        },
+        "3": {
+          "n": 2,
+          "smash_pct": 0.5,
+          "hit_pct": 0.0,
+          "usable_pct": 0.5
+        },
+        "4": {
+          "n": 1,
+          "smash_pct": 1.0,
+          "hit_pct": 0.0,
+          "usable_pct": 1.0
+        },
+        "5": {
+          "n": 2,
+          "smash_pct": 0.0,
+          "hit_pct": 0.0,
+          "usable_pct": 0.0
+        },
+        "6": {
+          "n": 1,
+          "smash_pct": 0.0,
+          "hit_pct": 1.0,
+          "usable_pct": 1.0
+        }
+      },
+      "best_pick": {
+        "season": 2017,
+        "slot": "4.11",
+        "player": "Adams, Jamal",
+        "position": "CB+S",
+        "tier": "Smash",
+        "points_3yr": 435.3,
+        "expected_3yr": 201.0,
+        "value_above_expected": 234.3,
+        "overall_score": 4000.641
+      },
+      "worst_pick": {
+        "season": 2018,
+        "slot": "5.03",
+        "player": "St. Brown, Equanimeous",
+        "position": "WR",
+        "tier": "Bust",
+        "points_3yr": 85.5,
+        "expected_3yr": 156.9,
+        "value_above_expected": -71.4,
+        "overall_score": -0.089
+      },
+      "best_bang_for_buck": {
+        "season": 2017,
+        "slot": "3.05",
+        "player": "Watson, Deshaun",
+        "position": "QB",
+        "tier": "Smash",
+        "points_3yr": 885.7,
+        "expected_3yr": 112.6,
+        "value_above_expected": 773.1,
+        "overall_score": 4000.691
+      },
+      "draft_rating_shrunk": 0.075,
+      "draft_rating_100": 89.0
+    },
+    "AJ Balderelli": {
+      "owner_name": "AJ Balderelli",
+      "is_active": false,
+      "tenure": "2018-2022",
+      "team_names": [
+        "The Bash Bros"
+      ],
+      "current_team_name": "The Bash Bros",
+      "franchise_id": "0002",
+      "franchise_name": "The Bash Bros",
+      "picks_made": 31,
+      "smash": 3,
+      "hit": 2,
+      "contrib": 11,
+      "injury_bust": 0,
+      "bust": 15,
+      "smash_rate": 0.097,
+      "hit_plus_rate": 0.161,
+      "bust_rate": 0.484,
+      "injury_bust_rate": 0.0,
+      "avg_rookie_value_score": 21.51,
+      "draft_rating_raw": 0.084,
+      "draft_rating_n_picks": 30,
+      "position_mix": {
+        "LB": 0.258,
+        "WR": 0.194,
+        "DT+DE": 0.194,
+        "RB": 0.194,
+        "QB": 0.097,
+        "CB+S": 0.032,
+        "TE": 0.032
+      },
+      "offense_pct": 0.516,
+      "defense_pct": 0.484,
+      "per_round": {
+        "1": {
+          "n": 4,
+          "smash_pct": 0.75,
+          "hit_pct": 0.0,
+          "usable_pct": 0.75
+        },
+        "2": {
+          "n": 3,
+          "smash_pct": 0.0,
+          "hit_pct": 0.0,
+          "usable_pct": 0.0
+        },
+        "3": {
+          "n": 5,
+          "smash_pct": 0.0,
+          "hit_pct": 0.0,
+          "usable_pct": 0.0
+        },
+        "4": {
+          "n": 6,
+          "smash_pct": 0.0,
+          "hit_pct": 0.167,
+          "usable_pct": 0.167
+        },
+        "5": {
+          "n": 8,
+          "smash_pct": 0.0,
+          "hit_pct": 0.125,
+          "usable_pct": 0.125
+        },
+        "6": {
+          "n": 5,
+          "smash_pct": 0.0,
+          "hit_pct": 0.0,
+          "usable_pct": 0.0
+        }
+      },
+      "best_pick": {
+        "season": 2022,
+        "slot": "1.04",
+        "player": "Walker III, Kenneth",
+        "position": "RB",
+        "tier": "Smash",
+        "points_3yr": 584.0,
+        "expected_3yr": 500.2,
+        "value_above_expected": 83.8,
+        "overall_score": 4000.258
+      },
+      "worst_pick": {
+        "season": 2021,
+        "slot": "5.08",
+        "player": "Rountree, Larry",
+        "position": "RB",
+        "tier": "Bust",
+        "points_3yr": 24.1,
+        "expected_3yr": 47.3,
+        "value_above_expected": -23.2,
+        "overall_score": -0.084
+      },
+      "best_bang_for_buck": {
+        "season": 2021,
+        "slot": "5.09",
+        "player": "Jones, Ernest",
+        "position": "LB",
+        "tier": "Hit",
+        "points_3yr": 315.0,
+        "expected_3yr": 89.5,
+        "value_above_expected": 225.5,
+        "overall_score": 3000.454
+      },
+      "draft_rating_shrunk": 0.05,
+      "draft_rating_100": 73.8
+    },
+    "Rico Balderelli": {
+      "owner_name": "Rico Balderelli",
+      "is_active": false,
+      "tenure": "2019-2022",
+      "team_names": [
+        "Run CMC"
+      ],
+      "current_team_name": "Run CMC",
+      "franchise_id": "0005",
+      "franchise_name": "Run CMC",
+      "picks_made": 23,
+      "smash": 3,
+      "hit": 4,
+      "contrib": 1,
+      "injury_bust": 0,
+      "bust": 15,
+      "smash_rate": 0.13,
+      "hit_plus_rate": 0.304,
+      "bust_rate": 0.652,
+      "injury_bust_rate": 0.0,
+      "avg_rookie_value_score": 23.8,
+      "draft_rating_raw": 0.04,
+      "draft_rating_n_picks": 21,
+      "position_mix": {
+        "WR": 0.391,
+        "CB+S": 0.174,
+        "DT+DE": 0.13,
+        "TE": 0.13,
+        "RB": 0.087,
+        "LB": 0.043,
+        "QB": 0.043
+      },
+      "offense_pct": 0.652,
+      "defense_pct": 0.348,
+      "per_round": {
+        "1": {
+          "n": 3,
+          "smash_pct": 0.667,
+          "hit_pct": 0.0,
+          "usable_pct": 0.667
+        },
+        "2": {
+          "n": 5,
+          "smash_pct": 0.2,
+          "hit_pct": 0.0,
+          "usable_pct": 0.2
+        },
+        "3": {
+          "n": 3,
+          "smash_pct": 0.0,
+          "hit_pct": 0.333,
+          "usable_pct": 0.333
+        },
+        "4": {
+          "n": 4,
+          "smash_pct": 0.0,
+          "hit_pct": 0.5,
+          "usable_pct": 0.5
+        },
+        "5": {
+          "n": 4,
+          "smash_pct": 0.0,
+          "hit_pct": 0.25,
+          "usable_pct": 0.25
+        },
+        "6": {
+          "n": 4,
+          "smash_pct": 0.0,
+          "hit_pct": 0.0,
+          "usable_pct": 0.0
+        }
+      },
+      "best_pick": {
+        "season": 2021,
+        "slot": "2.08",
+        "player": "St. Brown, Amon-Ra",
+        "position": "WR",
+        "tier": "Smash",
+        "points_3yr": 830.0,
+        "expected_3yr": 246.1,
+        "value_above_expected": 583.9,
+        "overall_score": 4000.607
+      },
+      "worst_pick": {
+        "season": 2022,
+        "slot": "3.11",
+        "player": "Ross, Justyn",
+        "position": "WR",
+        "tier": "Bust",
+        "points_3yr": 7.8,
+        "expected_3yr": 74.2,
+        "value_above_expected": -66.4,
+        "overall_score": -0.143
+      },
+      "best_bang_for_buck": {
+        "season": 2021,
+        "slot": "2.08",
+        "player": "St. Brown, Amon-Ra",
+        "position": "WR",
+        "tier": "Smash",
+        "points_3yr": 830.0,
+        "expected_3yr": 246.1,
+        "value_above_expected": 583.9,
+        "overall_score": 4000.607
+      },
+      "draft_rating_shrunk": 0.02,
+      "draft_rating_100": 55.5
+    },
+    "Eric Martel": {
+      "owner_name": "Eric Martel",
+      "is_active": true,
+      "tenure": "2023-2025",
+      "team_names": [
+        "HammerTime \ud83d\udd28 \u23f0"
+      ],
+      "current_team_name": "HammerTime \ud83d\udd28 \u23f0",
+      "franchise_id": "0005",
+      "franchise_name": "HammerTime \ud83d\udd28 \u23f0",
+      "picks_made": 19,
+      "smash": 3,
+      "hit": 2,
+      "contrib": 3,
+      "injury_bust": 0,
+      "bust": 11,
+      "smash_rate": 0.158,
+      "hit_plus_rate": 0.263,
+      "bust_rate": 0.579,
+      "injury_bust_rate": 0.0,
+      "avg_rookie_value_score": 27.84,
+      "draft_rating_raw": 0.083,
+      "draft_rating_n_picks": 19,
+      "position_mix": {
+        "WR": 0.368,
+        "RB": 0.263,
+        "QB": 0.105,
+        "LB": 0.105,
+        "TE": 0.105,
+        "DL": 0.053
+      },
+      "offense_pct": 0.842,
+      "defense_pct": 0.158,
+      "per_round": {
+        "1": {
+          "n": 6,
+          "smash_pct": 0.167,
+          "hit_pct": 0.333,
+          "usable_pct": 0.5
+        },
+        "2": {
+          "n": 2,
+          "smash_pct": 0.0,
+          "hit_pct": 0.0,
+          "usable_pct": 0.0
+        },
+        "3": {
+          "n": 3,
+          "smash_pct": 0.0,
+          "hit_pct": 0.0,
+          "usable_pct": 0.0
+        },
+        "4": {
+          "n": 2,
+          "smash_pct": 0.0,
+          "hit_pct": 0.0,
+          "usable_pct": 0.0
+        },
+        "5": {
+          "n": 3,
+          "smash_pct": 0.333,
+          "hit_pct": 0.0,
+          "usable_pct": 0.333
+        },
+        "6": {
+          "n": 3,
+          "smash_pct": 0.333,
+          "hit_pct": 0.0,
+          "usable_pct": 0.333
+        }
+      },
+      "best_pick": {
+        "season": 2023,
+        "slot": "5.03",
+        "player": "Nacua, Puka",
+        "position": "WR",
+        "tier": "Smash",
+        "points_3yr": 929.4,
+        "expected_3yr": 156.9,
+        "value_above_expected": 772.5,
+        "overall_score": 4000.928
+      },
+      "worst_pick": {
+        "season": 2024,
+        "slot": "5.06",
+        "player": "Smith, Ainias",
+        "position": "WR",
+        "tier": "Bust",
+        "points_3yr": 3.8,
+        "expected_3yr": 106.8,
+        "value_above_expected": -103.0,
+        "overall_score": -0.201
+      },
+      "best_bang_for_buck": {
+        "season": 2023,
+        "slot": "5.03",
+        "player": "Nacua, Puka",
+        "position": "WR",
+        "tier": "Smash",
+        "points_3yr": 929.4,
+        "expected_3yr": 156.9,
+        "value_above_expected": 772.5,
+        "overall_score": 4000.928
+      },
+      "draft_rating_shrunk": 0.04,
+      "draft_rating_100": 67.7
+    },
+    "Josh Lima": {
+      "owner_name": "Josh Lima",
+      "is_active": false,
+      "tenure": "2023-2024",
+      "team_names": [
+        "The Main Event Mafia"
+      ],
+      "current_team_name": "The Main Event Mafia",
+      "franchise_id": "0006",
+      "franchise_name": "The Main Event Mafia",
+      "picks_made": 15,
+      "smash": 0,
+      "hit": 1,
+      "contrib": 1,
+      "injury_bust": 0,
+      "bust": 13,
+      "smash_rate": 0.0,
+      "hit_plus_rate": 0.067,
+      "bust_rate": 0.867,
+      "injury_bust_rate": 0.0,
+      "avg_rookie_value_score": 14.52,
+      "draft_rating_raw": -0.054,
+      "draft_rating_n_picks": 14,
+      "position_mix": {
+        "RB": 0.333,
+        "DT+DE": 0.2,
+        "WR": 0.133,
+        "TE": 0.133,
+        "QB": 0.067,
+        "CB+S": 0.067,
+        "DL": 0.067
+      },
+      "offense_pct": 0.667,
+      "defense_pct": 0.333,
+      "per_round": {
+        "1": {
+          "n": 1,
+          "smash_pct": 0.0,
+          "hit_pct": 0.0,
+          "usable_pct": 0.0
+        },
+        "3": {
+          "n": 2,
+          "smash_pct": 0.0,
+          "hit_pct": 0.0,
+          "usable_pct": 0.0
+        },
+        "4": {
+          "n": 7,
+          "smash_pct": 0.0,
+          "hit_pct": 0.143,
+          "usable_pct": 0.143
+        },
+        "5": {
+          "n": 3,
+          "smash_pct": 0.0,
+          "hit_pct": 0.0,
+          "usable_pct": 0.0
+        },
+        "6": {
+          "n": 2,
+          "smash_pct": 0.0,
+          "hit_pct": 0.0,
+          "usable_pct": 0.0
+        }
+      },
+      "best_pick": {
+        "season": 2023,
+        "slot": "4.10",
+        "player": "Witherspoon, Devon",
+        "position": "CB+S",
+        "tier": "Hit",
+        "points_3yr": 364.3,
+        "expected_3yr": 103.4,
+        "value_above_expected": 260.9,
+        "overall_score": 3000.635
+      },
+      "worst_pick": {
+        "season": 2024,
+        "slot": "5.10",
+        "player": "Reiman, Tip",
+        "position": "TE",
+        "tier": "Bust",
+        "points_3yr": 16.4,
+        "expected_3yr": 184.5,
+        "value_above_expected": -168.1,
+        "overall_score": -0.444
+      },
+      "best_bang_for_buck": {
+        "season": 2023,
+        "slot": "4.10",
+        "player": "Witherspoon, Devon",
+        "position": "CB+S",
+        "tier": "Hit",
+        "points_3yr": 364.3,
+        "expected_3yr": 103.4,
+        "value_above_expected": 260.9,
+        "overall_score": 3000.635
+      },
+      "draft_rating_shrunk": -0.022,
+      "draft_rating_100": 14.1
+    },
+    "Brian Cross": {
+      "owner_name": "Brian Cross",
+      "is_active": true,
+      "tenure": "2025-2025",
+      "team_names": [
+        "The Long Haulers"
+      ],
+      "current_team_name": "The Long Haulers",
+      "franchise_id": "0006",
+      "franchise_name": "The Long Haulers",
+      "picks_made": 6,
+      "smash": 1,
+      "hit": 0,
+      "contrib": 0,
+      "injury_bust": 0,
+      "bust": 5,
+      "smash_rate": 0.167,
+      "hit_plus_rate": 0.167,
+      "bust_rate": 0.833,
+      "injury_bust_rate": 0.0,
+      "avg_rookie_value_score": 15.01,
+      "draft_rating_raw": -0.024,
+      "draft_rating_n_picks": 6,
+      "position_mix": {
+        "RB": 0.333,
+        "TE": 0.167,
+        "QB": 0.167,
+        "WR": 0.167,
+        "DL": 0.167
+      },
+      "offense_pct": 0.833,
+      "defense_pct": 0.167,
+      "per_round": {
+        "1": {
+          "n": 1,
+          "smash_pct": 1.0,
+          "hit_pct": 0.0,
+          "usable_pct": 1.0
+        },
+        "4": {
+          "n": 2,
+          "smash_pct": 0.0,
+          "hit_pct": 0.0,
+          "usable_pct": 0.0
+        },
+        "5": {
+          "n": 2,
+          "smash_pct": 0.0,
+          "hit_pct": 0.0,
+          "usable_pct": 0.0
+        },
+        "6": {
+          "n": 1,
+          "smash_pct": 0.0,
+          "hit_pct": 0.0,
+          "usable_pct": 0.0
+        }
+      },
+      "best_pick": {
+        "season": 2025,
+        "slot": "1.11",
+        "player": "Warren, Tyler",
+        "position": "TE",
+        "tier": "Smash",
+        "points_3yr": 225.0,
+        "expected_3yr": 273.1,
+        "value_above_expected": -48.1,
+        "overall_score": 4000.422
+      },
+      "worst_pick": {
+        "season": 2025,
+        "slot": "5.10",
+        "player": "Restrepo, Xavier",
+        "position": "WR",
+        "tier": "Bust",
+        "points_3yr": 7.7,
+        "expected_3yr": 184.5,
+        "value_above_expected": -176.8,
+        "overall_score": -0.444
+      },
+      "best_bang_for_buck": {
+        "season": 2025,
+        "slot": "1.11",
+        "player": "Warren, Tyler",
+        "position": "TE",
+        "tier": "Smash",
+        "points_3yr": 225.0,
+        "expected_3yr": 273.1,
+        "value_above_expected": -48.1,
+        "overall_score": 4000.422
+      },
+      "draft_rating_shrunk": -0.006,
+      "draft_rating_100": 31.5
+    }
+  }
+}

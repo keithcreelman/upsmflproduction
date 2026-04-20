@@ -1,0 +1,1042 @@
+{
+  "meta": {
+    "generated_at_utc": "2026-04-19T20:58:47.803747+00:00",
+    "league_id": "74598",
+    "season": 2026
+  },
+  "franchises": {
+    "0001": "L.A. Looks",
+    "0002": "CBP",
+    "0003": "Gride",
+    "0004": "Pure Greatness",
+    "0005": "HammerTime \ud83d\udd28 \u23f0",
+    "0006": "The Long Haulers",
+    "0007": "Sex Manther",
+    "0008": "Real Deal Creel",
+    "0009": "C-Town Chivalry",
+    "0010": "Blake Bombers",
+    "0011": "Cleon Ca$h",
+    "0012": "Hawks"
+  },
+  "draft_order": [
+    {
+      "round": 1,
+      "pick": 1,
+      "owned_by_franchise_id": "0011",
+      "original_franchise_id": null
+    },
+    {
+      "round": 1,
+      "pick": 2,
+      "owned_by_franchise_id": "0012",
+      "original_franchise_id": null
+    },
+    {
+      "round": 1,
+      "pick": 3,
+      "owned_by_franchise_id": "0006",
+      "original_franchise_id": null
+    },
+    {
+      "round": 1,
+      "pick": 4,
+      "owned_by_franchise_id": "0008",
+      "original_franchise_id": null
+    },
+    {
+      "round": 1,
+      "pick": 5,
+      "owned_by_franchise_id": "0003",
+      "original_franchise_id": null
+    },
+    {
+      "round": 1,
+      "pick": 6,
+      "owned_by_franchise_id": "0012",
+      "original_franchise_id": null
+    },
+    {
+      "round": 1,
+      "pick": 7,
+      "owned_by_franchise_id": "0003",
+      "original_franchise_id": null
+    },
+    {
+      "round": 1,
+      "pick": 8,
+      "owned_by_franchise_id": "0002",
+      "original_franchise_id": null
+    },
+    {
+      "round": 1,
+      "pick": 9,
+      "owned_by_franchise_id": "0008",
+      "original_franchise_id": null
+    },
+    {
+      "round": 1,
+      "pick": 10,
+      "owned_by_franchise_id": "0010",
+      "original_franchise_id": null
+    },
+    {
+      "round": 1,
+      "pick": 11,
+      "owned_by_franchise_id": "0003",
+      "original_franchise_id": null
+    },
+    {
+      "round": 1,
+      "pick": 12,
+      "owned_by_franchise_id": "0002",
+      "original_franchise_id": null
+    },
+    {
+      "round": 2,
+      "pick": 1,
+      "owned_by_franchise_id": "0002",
+      "original_franchise_id": null
+    },
+    {
+      "round": 2,
+      "pick": 2,
+      "owned_by_franchise_id": "0012",
+      "original_franchise_id": null
+    },
+    {
+      "round": 2,
+      "pick": 3,
+      "owned_by_franchise_id": "0006",
+      "original_franchise_id": null
+    },
+    {
+      "round": 2,
+      "pick": 4,
+      "owned_by_franchise_id": "0010",
+      "original_franchise_id": null
+    },
+    {
+      "round": 2,
+      "pick": 5,
+      "owned_by_franchise_id": "0003",
+      "original_franchise_id": null
+    },
+    {
+      "round": 2,
+      "pick": 6,
+      "owned_by_franchise_id": "0004",
+      "original_franchise_id": null
+    },
+    {
+      "round": 2,
+      "pick": 7,
+      "owned_by_franchise_id": "0011",
+      "original_franchise_id": null
+    },
+    {
+      "round": 2,
+      "pick": 8,
+      "owned_by_franchise_id": "0002",
+      "original_franchise_id": null
+    },
+    {
+      "round": 2,
+      "pick": 9,
+      "owned_by_franchise_id": "0008",
+      "original_franchise_id": null
+    },
+    {
+      "round": 2,
+      "pick": 10,
+      "owned_by_franchise_id": "0003",
+      "original_franchise_id": null
+    },
+    {
+      "round": 2,
+      "pick": 11,
+      "owned_by_franchise_id": "0010",
+      "original_franchise_id": null
+    },
+    {
+      "round": 2,
+      "pick": 12,
+      "owned_by_franchise_id": "0004",
+      "original_franchise_id": null
+    },
+    {
+      "round": 3,
+      "pick": 1,
+      "owned_by_franchise_id": "0010",
+      "original_franchise_id": null
+    },
+    {
+      "round": 3,
+      "pick": 2,
+      "owned_by_franchise_id": "0012",
+      "original_franchise_id": null
+    },
+    {
+      "round": 3,
+      "pick": 3,
+      "owned_by_franchise_id": "0006",
+      "original_franchise_id": null
+    },
+    {
+      "round": 3,
+      "pick": 4,
+      "owned_by_franchise_id": "0007",
+      "original_franchise_id": null
+    },
+    {
+      "round": 3,
+      "pick": 5,
+      "owned_by_franchise_id": "0012",
+      "original_franchise_id": null
+    },
+    {
+      "round": 3,
+      "pick": 6,
+      "owned_by_franchise_id": "0007",
+      "original_franchise_id": null
+    },
+    {
+      "round": 3,
+      "pick": 7,
+      "owned_by_franchise_id": "0011",
+      "original_franchise_id": null
+    },
+    {
+      "round": 3,
+      "pick": 8,
+      "owned_by_franchise_id": "0001",
+      "original_franchise_id": null
+    },
+    {
+      "round": 3,
+      "pick": 9,
+      "owned_by_franchise_id": "0008",
+      "original_franchise_id": null
+    },
+    {
+      "round": 3,
+      "pick": 10,
+      "owned_by_franchise_id": "0001",
+      "original_franchise_id": null
+    },
+    {
+      "round": 3,
+      "pick": 11,
+      "owned_by_franchise_id": "0006",
+      "original_franchise_id": null
+    },
+    {
+      "round": 3,
+      "pick": 12,
+      "owned_by_franchise_id": "0008",
+      "original_franchise_id": null
+    },
+    {
+      "round": 4,
+      "pick": 1,
+      "owned_by_franchise_id": "0005",
+      "original_franchise_id": null
+    },
+    {
+      "round": 4,
+      "pick": 2,
+      "owned_by_franchise_id": "0012",
+      "original_franchise_id": null
+    },
+    {
+      "round": 4,
+      "pick": 3,
+      "owned_by_franchise_id": "0002",
+      "original_franchise_id": null
+    },
+    {
+      "round": 4,
+      "pick": 4,
+      "owned_by_franchise_id": "0006",
+      "original_franchise_id": null
+    },
+    {
+      "round": 4,
+      "pick": 5,
+      "owned_by_franchise_id": "0006",
+      "original_franchise_id": null
+    },
+    {
+      "round": 4,
+      "pick": 6,
+      "owned_by_franchise_id": "0004",
+      "original_franchise_id": null
+    },
+    {
+      "round": 4,
+      "pick": 7,
+      "owned_by_franchise_id": "0006",
+      "original_franchise_id": null
+    },
+    {
+      "round": 4,
+      "pick": 8,
+      "owned_by_franchise_id": "0005",
+      "original_franchise_id": null
+    },
+    {
+      "round": 4,
+      "pick": 9,
+      "owned_by_franchise_id": "0009",
+      "original_franchise_id": null
+    },
+    {
+      "round": 4,
+      "pick": 10,
+      "owned_by_franchise_id": "0011",
+      "original_franchise_id": null
+    },
+    {
+      "round": 4,
+      "pick": 11,
+      "owned_by_franchise_id": "0011",
+      "original_franchise_id": null
+    },
+    {
+      "round": 4,
+      "pick": 12,
+      "owned_by_franchise_id": "0004",
+      "original_franchise_id": null
+    },
+    {
+      "round": 5,
+      "pick": 1,
+      "owned_by_franchise_id": "0005",
+      "original_franchise_id": null
+    },
+    {
+      "round": 5,
+      "pick": 2,
+      "owned_by_franchise_id": "0004",
+      "original_franchise_id": null
+    },
+    {
+      "round": 5,
+      "pick": 3,
+      "owned_by_franchise_id": "0001",
+      "original_franchise_id": null
+    },
+    {
+      "round": 5,
+      "pick": 4,
+      "owned_by_franchise_id": "0004",
+      "original_franchise_id": null
+    },
+    {
+      "round": 5,
+      "pick": 5,
+      "owned_by_franchise_id": "0007",
+      "original_franchise_id": null
+    },
+    {
+      "round": 5,
+      "pick": 6,
+      "owned_by_franchise_id": "0001",
+      "original_franchise_id": null
+    },
+    {
+      "round": 5,
+      "pick": 7,
+      "owned_by_franchise_id": "0006",
+      "original_franchise_id": null
+    },
+    {
+      "round": 5,
+      "pick": 8,
+      "owned_by_franchise_id": "0006",
+      "original_franchise_id": null
+    },
+    {
+      "round": 5,
+      "pick": 9,
+      "owned_by_franchise_id": "0003",
+      "original_franchise_id": null
+    },
+    {
+      "round": 5,
+      "pick": 10,
+      "owned_by_franchise_id": "0010",
+      "original_franchise_id": null
+    },
+    {
+      "round": 5,
+      "pick": 11,
+      "owned_by_franchise_id": "0005",
+      "original_franchise_id": null
+    },
+    {
+      "round": 5,
+      "pick": 12,
+      "owned_by_franchise_id": "0011",
+      "original_franchise_id": null
+    },
+    {
+      "round": 6,
+      "pick": 1,
+      "owned_by_franchise_id": "0011",
+      "original_franchise_id": null
+    },
+    {
+      "round": 6,
+      "pick": 2,
+      "owned_by_franchise_id": "0012",
+      "original_franchise_id": null
+    },
+    {
+      "round": 6,
+      "pick": 3,
+      "owned_by_franchise_id": "0006",
+      "original_franchise_id": null
+    },
+    {
+      "round": 6,
+      "pick": 4,
+      "owned_by_franchise_id": "0008",
+      "original_franchise_id": null
+    },
+    {
+      "round": 6,
+      "pick": 5,
+      "owned_by_franchise_id": "0003",
+      "original_franchise_id": null
+    },
+    {
+      "round": 6,
+      "pick": 6,
+      "owned_by_franchise_id": "0002",
+      "original_franchise_id": null
+    },
+    {
+      "round": 6,
+      "pick": 7,
+      "owned_by_franchise_id": "0010",
+      "original_franchise_id": null
+    },
+    {
+      "round": 6,
+      "pick": 8,
+      "owned_by_franchise_id": "0001",
+      "original_franchise_id": null
+    },
+    {
+      "round": 6,
+      "pick": 9,
+      "owned_by_franchise_id": "0009",
+      "original_franchise_id": null
+    },
+    {
+      "round": 6,
+      "pick": 10,
+      "owned_by_franchise_id": "0005",
+      "original_franchise_id": null
+    },
+    {
+      "round": 6,
+      "pick": 11,
+      "owned_by_franchise_id": "0007",
+      "original_franchise_id": null
+    },
+    {
+      "round": 6,
+      "pick": 12,
+      "owned_by_franchise_id": "0004",
+      "original_franchise_id": null
+    }
+  ],
+  "picks_made": [],
+  "active_pick": {
+    "round": 1,
+    "pick": 1,
+    "franchise_id": "0011",
+    "player_id": "",
+    "timestamp": "",
+    "comments": ""
+  },
+  "draft_salaries": [
+    {
+      "round": 1,
+      "slot": 1,
+      "pick_label": "1.01",
+      "rookie_aav": 15000,
+      "rookie_tcv_3yr": 45000,
+      "option_eligible": true
+    },
+    {
+      "round": 1,
+      "slot": 2,
+      "pick_label": "1.02",
+      "rookie_aav": 14000,
+      "rookie_tcv_3yr": 42000,
+      "option_eligible": true
+    },
+    {
+      "round": 1,
+      "slot": 3,
+      "pick_label": "1.03",
+      "rookie_aav": 13000,
+      "rookie_tcv_3yr": 39000,
+      "option_eligible": true
+    },
+    {
+      "round": 1,
+      "slot": 4,
+      "pick_label": "1.04",
+      "rookie_aav": 12000,
+      "rookie_tcv_3yr": 36000,
+      "option_eligible": true
+    },
+    {
+      "round": 1,
+      "slot": 5,
+      "pick_label": "1.05",
+      "rookie_aav": 11000,
+      "rookie_tcv_3yr": 33000,
+      "option_eligible": true
+    },
+    {
+      "round": 1,
+      "slot": 6,
+      "pick_label": "1.06",
+      "rookie_aav": 10000,
+      "rookie_tcv_3yr": 30000,
+      "option_eligible": true
+    },
+    {
+      "round": 1,
+      "slot": 7,
+      "pick_label": "1.07",
+      "rookie_aav": 9000,
+      "rookie_tcv_3yr": 27000,
+      "option_eligible": true
+    },
+    {
+      "round": 1,
+      "slot": 8,
+      "pick_label": "1.08",
+      "rookie_aav": 8000,
+      "rookie_tcv_3yr": 24000,
+      "option_eligible": true
+    },
+    {
+      "round": 1,
+      "slot": 9,
+      "pick_label": "1.09",
+      "rookie_aav": 7000,
+      "rookie_tcv_3yr": 21000,
+      "option_eligible": true
+    },
+    {
+      "round": 1,
+      "slot": 10,
+      "pick_label": "1.10",
+      "rookie_aav": 6000,
+      "rookie_tcv_3yr": 18000,
+      "option_eligible": true
+    },
+    {
+      "round": 1,
+      "slot": 11,
+      "pick_label": "1.11",
+      "rookie_aav": 5000,
+      "rookie_tcv_3yr": 15000,
+      "option_eligible": true
+    },
+    {
+      "round": 1,
+      "slot": 12,
+      "pick_label": "1.12",
+      "rookie_aav": 5000,
+      "rookie_tcv_3yr": 15000,
+      "option_eligible": true
+    },
+    {
+      "round": 2,
+      "slot": 1,
+      "pick_label": "2.01",
+      "rookie_aav": 5000,
+      "rookie_tcv_3yr": 15000,
+      "option_eligible": false
+    },
+    {
+      "round": 2,
+      "slot": 2,
+      "pick_label": "2.02",
+      "rookie_aav": 5000,
+      "rookie_tcv_3yr": 15000,
+      "option_eligible": false
+    },
+    {
+      "round": 2,
+      "slot": 3,
+      "pick_label": "2.03",
+      "rookie_aav": 5000,
+      "rookie_tcv_3yr": 15000,
+      "option_eligible": false
+    },
+    {
+      "round": 2,
+      "slot": 4,
+      "pick_label": "2.04",
+      "rookie_aav": 5000,
+      "rookie_tcv_3yr": 15000,
+      "option_eligible": false
+    },
+    {
+      "round": 2,
+      "slot": 5,
+      "pick_label": "2.05",
+      "rookie_aav": 5000,
+      "rookie_tcv_3yr": 15000,
+      "option_eligible": false
+    },
+    {
+      "round": 2,
+      "slot": 6,
+      "pick_label": "2.06",
+      "rookie_aav": 5000,
+      "rookie_tcv_3yr": 15000,
+      "option_eligible": false
+    },
+    {
+      "round": 2,
+      "slot": 7,
+      "pick_label": "2.07",
+      "rookie_aav": 5000,
+      "rookie_tcv_3yr": 15000,
+      "option_eligible": false
+    },
+    {
+      "round": 2,
+      "slot": 8,
+      "pick_label": "2.08",
+      "rookie_aav": 5000,
+      "rookie_tcv_3yr": 15000,
+      "option_eligible": false
+    },
+    {
+      "round": 2,
+      "slot": 9,
+      "pick_label": "2.09",
+      "rookie_aav": 5000,
+      "rookie_tcv_3yr": 15000,
+      "option_eligible": false
+    },
+    {
+      "round": 2,
+      "slot": 10,
+      "pick_label": "2.10",
+      "rookie_aav": 5000,
+      "rookie_tcv_3yr": 15000,
+      "option_eligible": false
+    },
+    {
+      "round": 2,
+      "slot": 11,
+      "pick_label": "2.11",
+      "rookie_aav": 5000,
+      "rookie_tcv_3yr": 15000,
+      "option_eligible": false
+    },
+    {
+      "round": 2,
+      "slot": 12,
+      "pick_label": "2.12",
+      "rookie_aav": 5000,
+      "rookie_tcv_3yr": 15000,
+      "option_eligible": false
+    },
+    {
+      "round": 3,
+      "slot": 1,
+      "pick_label": "3.01",
+      "rookie_aav": 2000,
+      "rookie_tcv_3yr": 6000,
+      "option_eligible": false
+    },
+    {
+      "round": 3,
+      "slot": 2,
+      "pick_label": "3.02",
+      "rookie_aav": 2000,
+      "rookie_tcv_3yr": 6000,
+      "option_eligible": false
+    },
+    {
+      "round": 3,
+      "slot": 3,
+      "pick_label": "3.03",
+      "rookie_aav": 2000,
+      "rookie_tcv_3yr": 6000,
+      "option_eligible": false
+    },
+    {
+      "round": 3,
+      "slot": 4,
+      "pick_label": "3.04",
+      "rookie_aav": 2000,
+      "rookie_tcv_3yr": 6000,
+      "option_eligible": false
+    },
+    {
+      "round": 3,
+      "slot": 5,
+      "pick_label": "3.05",
+      "rookie_aav": 2000,
+      "rookie_tcv_3yr": 6000,
+      "option_eligible": false
+    },
+    {
+      "round": 3,
+      "slot": 6,
+      "pick_label": "3.06",
+      "rookie_aav": 2000,
+      "rookie_tcv_3yr": 6000,
+      "option_eligible": false
+    },
+    {
+      "round": 3,
+      "slot": 7,
+      "pick_label": "3.07",
+      "rookie_aav": 2000,
+      "rookie_tcv_3yr": 6000,
+      "option_eligible": false
+    },
+    {
+      "round": 3,
+      "slot": 8,
+      "pick_label": "3.08",
+      "rookie_aav": 2000,
+      "rookie_tcv_3yr": 6000,
+      "option_eligible": false
+    },
+    {
+      "round": 3,
+      "slot": 9,
+      "pick_label": "3.09",
+      "rookie_aav": 2000,
+      "rookie_tcv_3yr": 6000,
+      "option_eligible": false
+    },
+    {
+      "round": 3,
+      "slot": 10,
+      "pick_label": "3.10",
+      "rookie_aav": 2000,
+      "rookie_tcv_3yr": 6000,
+      "option_eligible": false
+    },
+    {
+      "round": 3,
+      "slot": 11,
+      "pick_label": "3.11",
+      "rookie_aav": 2000,
+      "rookie_tcv_3yr": 6000,
+      "option_eligible": false
+    },
+    {
+      "round": 3,
+      "slot": 12,
+      "pick_label": "3.12",
+      "rookie_aav": 2000,
+      "rookie_tcv_3yr": 6000,
+      "option_eligible": false
+    },
+    {
+      "round": 4,
+      "slot": 1,
+      "pick_label": "4.01",
+      "rookie_aav": 2000,
+      "rookie_tcv_3yr": 6000,
+      "option_eligible": false
+    },
+    {
+      "round": 4,
+      "slot": 2,
+      "pick_label": "4.02",
+      "rookie_aav": 2000,
+      "rookie_tcv_3yr": 6000,
+      "option_eligible": false
+    },
+    {
+      "round": 4,
+      "slot": 3,
+      "pick_label": "4.03",
+      "rookie_aav": 2000,
+      "rookie_tcv_3yr": 6000,
+      "option_eligible": false
+    },
+    {
+      "round": 4,
+      "slot": 4,
+      "pick_label": "4.04",
+      "rookie_aav": 2000,
+      "rookie_tcv_3yr": 6000,
+      "option_eligible": false
+    },
+    {
+      "round": 4,
+      "slot": 5,
+      "pick_label": "4.05",
+      "rookie_aav": 2000,
+      "rookie_tcv_3yr": 6000,
+      "option_eligible": false
+    },
+    {
+      "round": 4,
+      "slot": 6,
+      "pick_label": "4.06",
+      "rookie_aav": 2000,
+      "rookie_tcv_3yr": 6000,
+      "option_eligible": false
+    },
+    {
+      "round": 4,
+      "slot": 7,
+      "pick_label": "4.07",
+      "rookie_aav": 2000,
+      "rookie_tcv_3yr": 6000,
+      "option_eligible": false
+    },
+    {
+      "round": 4,
+      "slot": 8,
+      "pick_label": "4.08",
+      "rookie_aav": 2000,
+      "rookie_tcv_3yr": 6000,
+      "option_eligible": false
+    },
+    {
+      "round": 4,
+      "slot": 9,
+      "pick_label": "4.09",
+      "rookie_aav": 2000,
+      "rookie_tcv_3yr": 6000,
+      "option_eligible": false
+    },
+    {
+      "round": 4,
+      "slot": 10,
+      "pick_label": "4.10",
+      "rookie_aav": 2000,
+      "rookie_tcv_3yr": 6000,
+      "option_eligible": false
+    },
+    {
+      "round": 4,
+      "slot": 11,
+      "pick_label": "4.11",
+      "rookie_aav": 2000,
+      "rookie_tcv_3yr": 6000,
+      "option_eligible": false
+    },
+    {
+      "round": 4,
+      "slot": 12,
+      "pick_label": "4.12",
+      "rookie_aav": 2000,
+      "rookie_tcv_3yr": 6000,
+      "option_eligible": false
+    },
+    {
+      "round": 5,
+      "slot": 1,
+      "pick_label": "5.01",
+      "rookie_aav": 2000,
+      "rookie_tcv_3yr": 6000,
+      "option_eligible": false
+    },
+    {
+      "round": 5,
+      "slot": 2,
+      "pick_label": "5.02",
+      "rookie_aav": 2000,
+      "rookie_tcv_3yr": 6000,
+      "option_eligible": false
+    },
+    {
+      "round": 5,
+      "slot": 3,
+      "pick_label": "5.03",
+      "rookie_aav": 2000,
+      "rookie_tcv_3yr": 6000,
+      "option_eligible": false
+    },
+    {
+      "round": 5,
+      "slot": 4,
+      "pick_label": "5.04",
+      "rookie_aav": 2000,
+      "rookie_tcv_3yr": 6000,
+      "option_eligible": false
+    },
+    {
+      "round": 5,
+      "slot": 5,
+      "pick_label": "5.05",
+      "rookie_aav": 2000,
+      "rookie_tcv_3yr": 6000,
+      "option_eligible": false
+    },
+    {
+      "round": 5,
+      "slot": 6,
+      "pick_label": "5.06",
+      "rookie_aav": 2000,
+      "rookie_tcv_3yr": 6000,
+      "option_eligible": false
+    },
+    {
+      "round": 5,
+      "slot": 7,
+      "pick_label": "5.07",
+      "rookie_aav": 2000,
+      "rookie_tcv_3yr": 6000,
+      "option_eligible": false
+    },
+    {
+      "round": 5,
+      "slot": 8,
+      "pick_label": "5.08",
+      "rookie_aav": 2000,
+      "rookie_tcv_3yr": 6000,
+      "option_eligible": false
+    },
+    {
+      "round": 5,
+      "slot": 9,
+      "pick_label": "5.09",
+      "rookie_aav": 2000,
+      "rookie_tcv_3yr": 6000,
+      "option_eligible": false
+    },
+    {
+      "round": 5,
+      "slot": 10,
+      "pick_label": "5.10",
+      "rookie_aav": 2000,
+      "rookie_tcv_3yr": 6000,
+      "option_eligible": false
+    },
+    {
+      "round": 5,
+      "slot": 11,
+      "pick_label": "5.11",
+      "rookie_aav": 2000,
+      "rookie_tcv_3yr": 6000,
+      "option_eligible": false
+    },
+    {
+      "round": 5,
+      "slot": 12,
+      "pick_label": "5.12",
+      "rookie_aav": 2000,
+      "rookie_tcv_3yr": 6000,
+      "option_eligible": false
+    },
+    {
+      "round": 6,
+      "slot": 1,
+      "pick_label": "6.01",
+      "rookie_aav": 1000,
+      "rookie_tcv_3yr": 3000,
+      "option_eligible": false
+    },
+    {
+      "round": 6,
+      "slot": 2,
+      "pick_label": "6.02",
+      "rookie_aav": 1000,
+      "rookie_tcv_3yr": 3000,
+      "option_eligible": false
+    },
+    {
+      "round": 6,
+      "slot": 3,
+      "pick_label": "6.03",
+      "rookie_aav": 1000,
+      "rookie_tcv_3yr": 3000,
+      "option_eligible": false
+    },
+    {
+      "round": 6,
+      "slot": 4,
+      "pick_label": "6.04",
+      "rookie_aav": 1000,
+      "rookie_tcv_3yr": 3000,
+      "option_eligible": false
+    },
+    {
+      "round": 6,
+      "slot": 5,
+      "pick_label": "6.05",
+      "rookie_aav": 1000,
+      "rookie_tcv_3yr": 3000,
+      "option_eligible": false
+    },
+    {
+      "round": 6,
+      "slot": 6,
+      "pick_label": "6.06",
+      "rookie_aav": 1000,
+      "rookie_tcv_3yr": 3000,
+      "option_eligible": false
+    },
+    {
+      "round": 6,
+      "slot": 7,
+      "pick_label": "6.07",
+      "rookie_aav": 1000,
+      "rookie_tcv_3yr": 3000,
+      "option_eligible": false
+    },
+    {
+      "round": 6,
+      "slot": 8,
+      "pick_label": "6.08",
+      "rookie_aav": 1000,
+      "rookie_tcv_3yr": 3000,
+      "option_eligible": false
+    },
+    {
+      "round": 6,
+      "slot": 9,
+      "pick_label": "6.09",
+      "rookie_aav": 1000,
+      "rookie_tcv_3yr": 3000,
+      "option_eligible": false
+    },
+    {
+      "round": 6,
+      "slot": 10,
+      "pick_label": "6.10",
+      "rookie_aav": 1000,
+      "rookie_tcv_3yr": 3000,
+      "option_eligible": false
+    },
+    {
+      "round": 6,
+      "slot": 11,
+      "pick_label": "6.11",
+      "rookie_aav": 1000,
+      "rookie_tcv_3yr": 3000,
+      "option_eligible": false
+    },
+    {
+      "round": 6,
+      "slot": 12,
+      "pick_label": "6.12",
+      "rookie_aav": 1000,
+      "rookie_tcv_3yr": 3000,
+      "option_eligible": false
+    }
+  ]
+}
