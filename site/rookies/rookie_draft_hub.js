@@ -389,6 +389,23 @@
     hMetricEl.addEventListener("change", (e) => {
       STATE.h_metric = e.target.value; renderHistory();
     });
+
+    // "Show all columns" toggle — restores desktop-style table on mobile.
+    const showAllBtn = document.getElementById("h-show-all-btn");
+    const hTable = document.getElementById("h-table");
+    const SHOW_ALL_KEY = "ups_dh_h_show_all_cols";
+    function applyShowAll(on) {
+      hTable.classList.toggle("show-all", !!on);
+      showAllBtn.setAttribute("aria-pressed", on ? "true" : "false");
+      showAllBtn.textContent = on ? "Compact view" : "Show all columns";
+    }
+    try { applyShowAll(localStorage.getItem(SHOW_ALL_KEY) === "1"); } catch (e) { applyShowAll(false); }
+    showAllBtn.addEventListener("click", () => {
+      const next = !hTable.classList.contains("show-all");
+      applyShowAll(next);
+      try { localStorage.setItem(SHOW_ALL_KEY, next ? "1" : "0"); } catch (e) {}
+    });
+
     document.getElementById("h-search").addEventListener("input", (e) => {
       STATE.h_filters.search = e.target.value; renderHistory();
     });
