@@ -45,7 +45,14 @@
   const FRANCHISE_ID = getFranchiseId(u);
 
   const SHA = safeStr(window.UPS_DRAFT_HUB_RELEASE_SHA || window.UPS_RELEASE_SHA) || "main";
-  const BASE = "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@" + SHA + "/site/rookies/rookie_draft_hub.html";
+  // jsDelivr serves .html with Content-Type: text/plain (+ nosniff), so an iframe
+  // src pointing directly at the HTML would render the markup as text. Work
+  // around that by fetching the HTML as text, injecting a <base> (so relative
+  // .css/.js/.json paths resolve against jsDelivr) plus context globals, and
+  // feeding it to the iframe via srcdoc — which renders regardless of the
+  // source's Content-Type.
+  const ASSET_BASE = "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@" + SHA + "/site/rookies/";
+  const HTML_URL = ASSET_BASE + "rookie_draft_hub.html?v=" + encodeURIComponent(SHA);
 
   // Mount point ────────────────────────────────────────────────────────
   const mount = document.getElementById("draftHubMount") || (function () {
@@ -55,16 +62,8 @@
     return d;
   })();
 
-  // Clear + build iframe with runtime context passed as URL params.
   mount.innerHTML = "";
   const frame = document.createElement("iframe");
-  const src = new URL(BASE);
-  src.searchParams.set("L", L);
-  src.searchParams.set("YEAR", YEAR);
-  if (FRANCHISE_ID) src.searchParams.set("FRANCHISE_ID", FRANCHISE_ID);
-  // Cache-bust on SHA change
-  src.searchParams.set("v", SHA);
-  frame.src = src.toString();
   frame.setAttribute("loading", "eager");
   frame.setAttribute("allow", "clipboard-read; clipboard-write");
   frame.style.cssText = [
@@ -79,7 +78,47 @@
   frame.title = "UPS Rookie Draft Hub";
   mount.appendChild(frame);
 
-  // Auto-resize iframe to content height (when same-origin or jsDelivr-served)
+  function escapeAttr(v) {
+    return String(v == null ? "" : v).replace(/&/g, "&amp;").replace(/"/g, "&quot;");
+  }
+
+  function buildHead(baseHref, ctx) {
+    return (
+      '<base href="' + escapeAttr(baseHref) + '">' +
+      '<script>' +
+      'window.UPS_DRAFT_HUB_LEAGUE_ID=' + JSON.stringify(ctx.leagueId) + ';' +
+      'window.UPS_DRAFT_HUB_YEAR=' + JSON.stringify(ctx.year) + ';' +
+      'window.UPS_DRAFT_HUB_FRANCHISE_ID=' + JSON.stringify(ctx.franchiseId) + ';' +
+      'window.UPS_DRAFT_HUB_RELEASE_SHA=' + JSON.stringify(ctx.sha) + ';' +
+      // Post height back to host for auto-resize.
+      '(function(){function post(){try{var h=Math.max(document.documentElement.scrollHeight,document.body?document.body.scrollHeight:0);parent.postMessage({type:"draft-hub-height",height:h},"*");}catch(e){}}' +
+      'window.addEventListener("load",post);window.addEventListener("resize",post);' +
+      'if(typeof ResizeObserver==="function"){try{new ResizeObserver(post).observe(document.documentElement);}catch(e){}}' +
+      'setInterval(post,1500);' +
+      '})();' +
+      '<\/script>'
+    );
+  }
+
+  fetch(HTML_URL, { cache: "no-store" })
+    .then(function (r) {
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r.text();
+    })
+    .then(function (html) {
+      const headInject = buildHead(ASSET_BASE, { leagueId: L, year: YEAR, franchiseId: FRANCHISE_ID, sha: SHA });
+      if (/<head[^>]*>/i.test(html)) {
+        html = html.replace(/<head([^>]*)>/i, '<head$1>' + headInject);
+      } else {
+        html = headInject + html;
+      }
+      frame.srcdoc = html;
+    })
+    .catch(function (err) {
+      mount.innerHTML = '<div style="padding:24px;color:#f88;font-family:sans-serif">Rookie Draft Hub failed to load: ' + escapeAttr(err.message) + '</div>';
+    });
+
+  // Auto-resize iframe to content height.
   window.addEventListener("message", function (ev) {
     if (!ev || !ev.data || ev.data.type !== "draft-hub-height") return;
     const h = Number(ev.data.height);
