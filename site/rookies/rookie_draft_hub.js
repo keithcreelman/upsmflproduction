@@ -1360,21 +1360,21 @@
         ? `<img src="${p.icon_url}" class="headshot-cell" alt="" onerror="this.replaceWith(Object.assign(document.createElement('div'), {className: 'headshot-cell headshot-placeholder'}))">`
         : `<div class="headshot-cell headshot-placeholder"></div>`;
       // Click-to-explain: mark cells whose value comes from a calculated metric
-      const mcell = (value, col) => `<td class="num metric-click" data-metric="${m}" data-col="${col}" data-pid="${p.player_id}">${value}</td>`;
+      const mcell = (value, col) => `<td class="num col-lo metric-click" data-metric="${m}" data-col="${col}" data-pid="${p.player_id}">${value}</td>`;
       const mcellStrong = (value, col, deltaClass) =>
         `<td class="num metric-click" data-metric="${m}" data-col="${col}" data-pid="${p.player_id}" style="${deltaClass ? `color: var(--${deltaClass})` : ""}"><strong>${value}</strong></td>`;
       return `
         <tr>
-          <td>${p.season}</td>
-          <td>${p.pick_label}</td>
-          <td title="${(p.franchise_name || '').replace(/"/g, '&quot;')} (team at time of pick)">
+          <td class="col-md">${p.season}</td>
+          <td class="col-md">${p.pick_label}</td>
+          <td class="col-md" title="${(p.franchise_name || '').replace(/"/g, '&quot;')} (team at time of pick)">
             ${p.owner_name || p.franchise_name || "?"}
             ${!p.owner_active ? '<span class="small" style="color:var(--muted); font-size:10px;"> [retired]</span>' : ""}
           </td>
-          <td>${headshot}</td>
+          <td class="col-md">${headshot}</td>
           <td><a href="#" class="player-link" data-pid="${p.player_id}">${p.player_name || "?"}</a></td>
           <td>${POS_COMBINED(p.position) || ""}</td>
-          <td class="num">${p.salary ? "$" + p.salary.toLocaleString() : "-"}</td>
+          <td class="num col-lo">${p.salary ? "$" + p.salary.toLocaleString() : "-"}</td>
           ${anyYearly ? `
             ${mcell(y1, "y1")}
             ${mcell(y2, "y2")}

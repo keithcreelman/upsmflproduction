@@ -97,6 +97,21 @@ main.rdh-main { padding: 20px 24px; max-width: 1400px; margin: 0 auto; }
 .rdh-table .num { text-align: right; font-variant-numeric: tabular-nums; }
 .rdh-table .small { color: var(--muted); font-size: 11px; }
 
+/* Mobile column priorities (Historical table).
+   Default columns are always-on. .col-md hides ≤600px (phones); .col-lo
+   hides ≤900px (tablet+phone). Horizontal scroll on .rdh-card is the
+   safety net when the remaining columns still overflow. */
+@media (max-width: 900px) {
+  .rdh-card { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .rdh-table { font-size: 13px; }
+  .rdh-table th, .rdh-table td { padding: 6px 6px; }
+  .rdh-table .col-lo { display: none; }
+}
+@media (max-width: 600px) {
+  .rdh-table .col-md { display: none; }
+  .rdh-table th, .rdh-table td { padding: 6px 4px; }
+}
+
 /* Tier badges */
 .tier {
   display: inline-block; padding: 2px 8px; border-radius: 4px;
