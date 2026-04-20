@@ -2993,6 +2993,125 @@
 </script>
 
 <script>
+  // Rookie Draft Hub embed helper for MESSAGE12.
+  (function () {
+    var DRAFT_HUB_HEADER_BUILD = "2026.04.20.1";
+    if (window.__ups_draft_hub_header_autoload === DRAFT_HUB_HEADER_BUILD) return;
+    window.__ups_draft_hub_header_autoload = DRAFT_HUB_HEADER_BUILD;
+
+    function safeStr(v) {
+      return String(v || "").trim();
+    }
+
+    function safeUpper(v) {
+      return safeStr(v).toUpperCase();
+    }
+
+    function getModuleName() {
+      try {
+        var u = new URL(window.location.href);
+        return safeUpper(u.searchParams.get("MODULE") || "");
+      } catch (e) {
+        return "";
+      }
+    }
+
+    function getCurrentLeagueId() {
+      try {
+        var u = new URL(window.location.href);
+        var q = safeStr(u.searchParams.get("L") || "");
+        if (q) return q.replace(/\D/g, "");
+      } catch (e) {}
+      var m = safeStr(window.location.pathname).match(/\/home\/(\d+)(?:\/|$)/i);
+      if (m && m[1]) return safeStr(m[1]).replace(/\D/g, "");
+      var g = safeStr(window.league_id || window.LEAGUE_ID || "");
+      if (g) return g.replace(/\D/g, "");
+      return "";
+    }
+
+    function getCurrentYear() {
+      try {
+        var u = new URL(window.location.href);
+        var q = safeStr(u.searchParams.get("YEAR") || "");
+        if (q) return q.replace(/\D/g, "");
+      } catch (e) {}
+      var m = safeStr(window.location.pathname).match(/\/(\d{4})\//);
+      if (m && m[1]) return safeStr(m[1]);
+      var g = safeStr(window.year || window.YEAR || "");
+      if (g) return g.replace(/\D/g, "");
+      return String(new Date().getFullYear());
+    }
+
+    function ensureMountNearTop() {
+      var mount = document.getElementById("draftHubMount");
+      if (mount) return mount;
+      mount = document.createElement("div");
+      mount.id = "draftHubMount";
+      var anchor =
+        document.querySelector(".ups-hotlinks-shell") ||
+        document.getElementById("container-wrap") ||
+        document.body;
+      if (anchor && anchor.parentNode) {
+        anchor.parentNode.insertBefore(mount, anchor.nextSibling);
+      } else {
+        document.body.appendChild(mount);
+      }
+      return mount;
+    }
+
+    function clearLegacyDraftHubEmbeds() {
+      var scripts = document.querySelectorAll('script[src*="/site/rookies/mfl_hpm_embed_loader.js"]');
+      for (var i = 0; i < scripts.length; i += 1) {
+        var n = scripts[i];
+        if (n && n.parentNode) n.parentNode.removeChild(n);
+      }
+      var mount = document.getElementById("draftHubMount");
+      if (mount) mount.innerHTML = "";
+    }
+
+    function loadDraftHubLoader() {
+      ensureMountNearTop();
+      clearLegacyDraftHubEmbeds();
+      window.UPS_DRAFT_HUB_LEAGUE_ID = getCurrentLeagueId();
+      window.UPS_DRAFT_HUB_YEAR = getCurrentYear();
+
+      var releaseRef = safeStr(window.UPS_RELEASE_SHA || "main") || "main";
+      var cacheKey = encodeURIComponent(String(Date.now()));
+      var candidates = [
+        "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@" +
+          releaseRef +
+          "/site/rookies/mfl_hpm_embed_loader.js?v=" +
+          cacheKey,
+        "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/rookies/mfl_hpm_embed_loader.js?v=" +
+          cacheKey
+      ];
+
+      function tryLoader(idx) {
+        if (idx >= candidates.length) return;
+        var s = document.createElement("script");
+        s.setAttribute("data-ups-draft-hub-loader", "1");
+        s.src = candidates[idx];
+        s.async = true;
+        s.onerror = function () {
+          tryLoader(idx + 1);
+        };
+        document.body.appendChild(s);
+      }
+
+      tryLoader(0);
+    }
+
+    if (getModuleName() !== "MESSAGE12") return;
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", loadDraftHubLoader);
+    } else {
+      loadDraftHubLoader();
+    }
+  })();
+</script>
+
+<script>
   // Show current franchise identity (icon + team name) in the Hotlinks header.
   (function () {
     function pad4(v) {
