@@ -1149,11 +1149,10 @@
             <tr><td>E+P alone</td><td class="num">+0.834</td></tr>
             <tr><td>Dud rate alone (inverted)</td><td class="num">+0.763</td></tr>
             <tr><td>Raw Points For</td><td class="num" style="color:var(--muted)">+0.505</td></tr>
-            <tr><td>Lineup Efficiency</td><td class="num" style="color:var(--muted)">+0.012</td></tr>
           </tbody>
         </table>
         <p class="small" style="color:var(--muted); margin-top:6px;">
-          NET beats E+P alone, Dud alone, raw points, and lineup efficiency.
+          NET beats E+P alone, Dud alone, and raw points.
           It's the most accurate single predictor of winning in this league — which is why
           we use it to label rookie tiers instead of any of the alternatives.
         </p>
@@ -2420,6 +2419,16 @@
     const corrEl = document.getElementById("ae-correlations");
     if (corrEl && d.correlations) {
       const c = d.correlations;
+      // PPG correlation is computed client-side from the per-team-season rows
+      // (pf / h2h games) — not yet materialized in the backend correlations dict.
+      const ppgPairs = (d.rows || []).map(r => {
+        const g = (r.h2h_w || 0) + (r.h2h_l || 0);
+        const ppg = g > 0 && typeof r.pf === "number" ? r.pf / g : null;
+        return [r.ap_pct, ppg];
+      }).filter(([ap, ppg]) => typeof ap === "number" && typeof ppg === "number");
+      const ppgR = ppgPairs.length >= 2
+        ? pearson(ppgPairs.map(p => p[0]), ppgPairs.map(p => p[1]))
+        : null;
       const rows = [
         ["Overall NET (E+P − 0.5×Dud)", c.overall_net_score, "Current tier classifier — best single predictor"],
         ["Overall E+P rate", c.overall_ep_rate, "Hitting elite-starter weeks"],
@@ -2429,7 +2438,7 @@
         ["Defense Dud rate", c.defense_dud_rate, "Negative — defense duds cost more than defense E+P gains"],
         ["Defense E+P rate", c.defense_ep_rate, "Weak — defense is a threshold/gate, not a linear lever"],
         ["Points For (raw)", c.points_for, "Raw PF — ignores week-matching context"],
-        ["Efficiency", c.efficiency, "How optimally lineup was set"],
+        ["PPG", ppgR, "Points per regular-season game (pf ÷ H2H games)"],
       ];
       const fmtR = (r) => r == null ? "—" : (r >= 0 ? "+" : "") + r.toFixed(3);
       const colorR = (r) => r == null ? "" : Math.abs(r) >= 0.7 ? "color:var(--ok); font-weight:600" : Math.abs(r) >= 0.4 ? "color:var(--text)" : "color:var(--muted)";
