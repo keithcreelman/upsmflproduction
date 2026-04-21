@@ -8743,6 +8743,73 @@
           }
         }
       }
+    ],
+    "2014": [
+      {
+        "trade_group_id": "trade2014_bortles_correction",
+        "unix_timestamp": 1399122000,
+        "datetime_et": "2014-05-03 13:00:00",
+        "comments": "Historical correction: Ryan Bousquet (Ulterior Warrior) instructed Eric Mannila (The Baster) to make the pick on his behalf due to draft-day technical issues; trade formalized immediately.",
+        "hours_from_first_pick": 0.0,
+        "sides": {
+          "0001": {
+            "franchise_id": "0001",
+            "franchise_name": "Ulterior Warrior",
+            "gave_up": [
+              {
+                "type": "current_pick",
+                "season": 2014,
+                "round": 4,
+                "slot": 10,
+                "overall": 46,
+                "label": "2014 4.10"
+              },
+              {
+                "type": "future_pick",
+                "season": 2015,
+                "round": 5,
+                "slot": null,
+                "label": "2015 R5"
+              }
+            ],
+            "received": [
+              {
+                "type": "player",
+                "player_id": "11642",
+                "player_name": "Bortles, Blake"
+              }
+            ]
+          },
+          "0011": {
+            "franchise_id": "0011",
+            "franchise_name": "The Baster",
+            "gave_up": [
+              {
+                "type": "player",
+                "player_id": "11642",
+                "player_name": "Bortles, Blake"
+              }
+            ],
+            "received": [
+              {
+                "type": "current_pick",
+                "season": 2014,
+                "round": 4,
+                "slot": 10,
+                "overall": 46,
+                "label": "2014 4.10"
+              },
+              {
+                "type": "future_pick",
+                "season": 2015,
+                "round": 5,
+                "slot": null,
+                "label": "2015 R5"
+              }
+            ]
+          }
+        }
+      }
     ]
   }
 }
