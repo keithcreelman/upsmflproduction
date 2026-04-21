@@ -848,22 +848,33 @@
       <div id="profile-body"><p class="loading">Fetching profile from MFL…</p></div>
       <div class="actions"><button class="btn secondary" onclick="document.getElementById('rdh-modal-overlay').classList.remove('open')">Close</button></div>
     `);
-    let bundle;
+    // Live MFL profile enrichment comes from /api/player-bundle, which
+    // only resolves to a real endpoint when the hub is mounted in MFL's
+    // page context. Inside the production iframe (srcdoc with jsDelivr
+    // base), that request returns jsDelivr HTML/404 and JSON.parse throws.
+    // Treat any failure as "no live data" and still render the historical
+    // slice instead of replacing the whole modal with a scary SyntaxError.
+    let bundle = null;
+    let bundleError = null;
     if (_profileCache.has(pid)) {
       bundle = _profileCache.get(pid);
     } else {
       try {
         const r = await fetch(`/api/player-bundle?pid=${encodeURIComponent(pid)}`);
+        if (!r.ok) throw new Error("HTTP " + r.status);
         bundle = await r.json();
         _profileCache.set(pid, bundle);
       } catch (e) {
-        document.getElementById("profile-body").innerHTML =
-          `<div class="small" style="color: var(--err)">Profile fetch failed: ${escapeHtml(String(e))}</div>`;
-        return;
+        bundleError = e;
+        bundle = {};
+        _profileCache.set(pid, bundle);
       }
     }
     const body = document.getElementById("profile-body");
     if (!body) return;
+    const bundleErrorBanner = bundleError
+      ? `<div class="small" style="color:var(--muted); margin-bottom:8px; padding:6px 8px; background:var(--panel-alt); border-radius:4px;">Live MFL profile data unavailable in this view — showing historical data only.</div>`
+      : "";
     const pp = bundle?.profile?.playerProfile?.player || bundle?.profile?.player || {};
     const cr = bundle?.current_roster || {};
     const inj = bundle?.injury || {};
@@ -875,7 +886,7 @@
     // (same pattern we use in the historical-row headshots).
     const photoUrl = pp.icon_url
       || (pid ? `https://www48.myfantasyleague.com/player_photos_2014/${pid}_thumb.jpg` : "");
-    body.innerHTML = `
+    body.innerHTML = bundleErrorBanner + `
       <div class="profile-bio">
         ${photoUrl ? `<img src="${photoUrl}" alt="${escapeHtml(name)}" class="profile-photo" onerror="this.replaceWith(Object.assign(document.createElement('div'), {className: 'profile-photo-placeholder'}))">` : '<div class="profile-photo-placeholder"></div>'}
         <div class="profile-bio-text">
