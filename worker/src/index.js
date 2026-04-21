@@ -744,12 +744,13 @@ export default {
         bundle.last_add = {};
         bundle.weekly = [];
         bundle.weekly_by_season = {};
+        bundle.contract_history = [];
 
         let d1Satisfied = false;
         if (env.UPS_MFL_DB) {
           try {
             const db = env.UPS_MFL_DB;
-            const [careerRes, tradeRes, addRes, weeklyRes] = await Promise.all([
+            const [careerRes, tradeRes, addRes, weeklyRes, contractRes] = await Promise.all([
               db.prepare(
                 `SELECT season,
                         COUNT(*) AS games_played,
@@ -785,6 +786,14 @@ export default {
                   ORDER BY season DESC, week DESC
                   LIMIT 36`
               ).bind(pid).all(),
+              db.prepare(
+                `SELECT season, franchise_id, team_name, salary,
+                        contract_year, contract_length, contract_status,
+                        contract_info, tcv, aav, extension_flag
+                   FROM src_contracts
+                  WHERE player_id = ?
+                  ORDER BY season DESC`
+              ).bind(pid).all(),
             ]);
 
             const career = careerRes.results || [];
@@ -813,6 +822,11 @@ export default {
                 by[s].push(w);
               }
               bundle.weekly_by_season = by;
+              d1Satisfied = true;
+            }
+            const contracts = contractRes.results || [];
+            if (contracts.length) {
+              bundle.contract_history = contracts;
               d1Satisfied = true;
             }
             bundle.enrichment_source = "d1";
