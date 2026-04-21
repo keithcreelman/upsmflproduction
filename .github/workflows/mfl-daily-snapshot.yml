@@ -1,0 +1,86 @@
+name: MFL daily snapshot
+
+# Nightly pull of MFL public exports for the league (TYPE=salaries,
+# transactions, rosters, injuries, league, freeAgents, draftResults).
+# Commits deltas under data/mfl-snapshots/YYYY-MM-DD/ on main so every
+# contract, transaction, and roster change we can see from MFL is
+# permanently preserved in git history. Git delta-compression keeps
+# the repo size manageable since most fields don't change day-to-day.
+#
+# This is Phase 1 of the backup strategy — works today without R2.
+# Once R2 is enabled on the Cloudflare account, we'll switch the
+# destination to R2 (longer retention, queryable via Worker).
+
+on:
+  schedule:
+    # 09:05 UTC = 05:05 ET (stay well clear of MFL's own weekly rollover)
+    - cron: "5 9 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Fetch MFL exports
+        env:
+          LEAGUE_ID: ${{ vars.MFL_LEAGUE_ID || '74598' }}
+        run: |
+          set -euo pipefail
+          DATE=$(date -u +%Y-%m-%d)
+          YEAR=$(date -u +%Y)
+          DIR="data/mfl-snapshots/$DATE"
+          mkdir -p "$DIR"
+          UA="upsmflproduction-daily-snapshot (github-actions)"
+
+          # Prefer api.myfantasyleague.com for read endpoints that support it;
+          # fall back to www48 for league-context endpoints.
+          for t in salaries transactions rosters injuries league freeAgents draftResults; do
+            case "$t" in
+              salaries|draftResults)
+                BASE="https://api.myfantasyleague.com"
+                ;;
+              *)
+                BASE="https://www48.myfantasyleague.com"
+                ;;
+            esac
+            URL="$BASE/$YEAR/export?TYPE=$t&L=$LEAGUE_ID&JSON=1"
+            echo "fetch $t -> $DIR/$t.json"
+            curl -fsSL -A "$UA" "$URL" -o "$DIR/$t.json.tmp"
+            # Pretty-print so git diff is readable and compresses well
+            python3 -c "import json,sys; d=json.load(open(sys.argv[1])); open(sys.argv[1].replace('.tmp',''),'w').write(json.dumps(d, indent=2, sort_keys=True, ensure_ascii=True))" "$DIR/$t.json.tmp"
+            rm "$DIR/$t.json.tmp"
+          done
+
+          # Summary file with ingest metadata
+          cat > "$DIR/_snapshot_meta.json" <<EOF
+          {
+            "snapshot_date_utc": "$DATE",
+            "league_id": "$LEAGUE_ID",
+            "season_year": "$YEAR",
+            "ingest_run_id": "${{ github.run_id }}",
+            "ingest_sha": "${{ github.sha }}"
+          }
+          EOF
+
+      - name: Commit
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/mfl-snapshots
+          if git diff --cached --quiet; then
+            echo "No changes today — nothing to commit."
+            exit 0
+          fi
+          DATE=$(date -u +%Y-%m-%d)
+          git commit -m "data(mfl-snapshot): daily pull $DATE
+
+          Automated snapshot from MFL public exports. See
+          data/mfl-snapshots/$DATE/_snapshot_meta.json for run provenance.
+          "
+          git push origin HEAD:main

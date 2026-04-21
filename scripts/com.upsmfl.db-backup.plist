@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  launchd job for nightly mfl_database.db backup.
+
+  Install:
+    cp scripts/com.upsmfl.db-backup.plist ~/Library/LaunchAgents/
+    launchctl load ~/Library/LaunchAgents/com.upsmfl.db-backup.plist
+
+  Uninstall:
+    launchctl unload ~/Library/LaunchAgents/com.upsmfl.db-backup.plist
+    rm ~/Library/LaunchAgents/com.upsmfl.db-backup.plist
+
+  The script writes to ~/Documents/mfl/backups/mfl_database/ by default.
+  Override via DEST env var if you want it going somewhere iCloud-synced:
+    <key>EnvironmentVariables</key>
+    <dict>
+      <key>DEST</key>
+      <string>/Users/keithcreelman/Library/Mobile Documents/com~apple~CloudDocs/mfl-backups</string>
+    </dict>
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.upsmfl.db-backup</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>/Users/keithcreelman/Documents/mfl/Codex/_worktrees/rulebook-mobile-preview/scripts/backup_mfl_db.sh</string>
+  </array>
+
+  <!-- Run daily at 03:15 local (roughly middle-of-the-night ET). -->
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key>
+    <integer>3</integer>
+    <key>Minute</key>
+    <integer>15</integer>
+  </dict>
+
+  <key>StandardOutPath</key>
+  <string>/Users/keithcreelman/Library/Logs/upsmfl-db-backup.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/keithcreelman/Library/Logs/upsmfl-db-backup.log</string>
+
+  <key>RunAtLoad</key>
+  <false/>
+</dict>
+</plist>
