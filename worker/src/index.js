@@ -433,6 +433,154 @@ export default {
         return sha256Hex(`${salt}|${ip}`);
       };
 
+      // ---------- Rookie Draft Hub: /api/player-bundle ----------
+      // Lean port of build_player_bundle from rookie_draft_bridge.py. Fetches
+      // the MFL-public surface: playerProfile (bio/career), players DETAILS
+      // (college/draft/jersey), injuries, live rosters (current contract +
+      // franchise), and freeAgents (is-FA fallback). Skipped vs the Python
+      // bridge (needs local mfl_database.db): career_summary, last_add,
+      // trade_history, weekly game logs, rosters_weekly fallback. The Draft
+      // Hub UI degrades gracefully when those fields are absent.
+      if (path === "/api/player-bundle" && request.method === "GET") {
+        const pid = safeStr(url.searchParams.get("pid"));
+        if (!pid) return jsonOut(400, { error: "missing pid" });
+        const year = YEAR;
+        const leagueId = L || "74598";
+        const mflFetch = (u, ttl) =>
+          fetch(u, {
+            headers: { "User-Agent": "upsmflproduction-worker" },
+            cf: { cacheTtl: ttl || 60, cacheEverything: true },
+          });
+        const bundle = { player_id: pid };
+        // Public MFL endpoints — fetch in parallel.
+        const [profileRes, detailsRes, injRes, rostersRes, leagueRes] = await Promise.allSettled([
+          mflFetch(`https://api.myfantasyleague.com/${encodeURIComponent(year)}/export?TYPE=playerProfile&P=${encodeURIComponent(pid)}&JSON=1`, 60),
+          mflFetch(`https://api.myfantasyleague.com/${encodeURIComponent(year)}/export?TYPE=players&DETAILS=1&PLAYERS=${encodeURIComponent(pid)}&JSON=1`, 86400),
+          mflFetch(`https://www48.myfantasyleague.com/${encodeURIComponent(year)}/export?TYPE=injuries&L=${encodeURIComponent(leagueId)}&JSON=1`, 300),
+          mflFetch(`https://www48.myfantasyleague.com/${encodeURIComponent(year)}/export?TYPE=rosters&L=${encodeURIComponent(leagueId)}&JSON=1`, 60),
+          mflFetch(`https://www48.myfantasyleague.com/${encodeURIComponent(year)}/export?TYPE=league&L=${encodeURIComponent(leagueId)}&JSON=1`, 600),
+        ]);
+        // 1. playerProfile
+        try {
+          if (profileRes.status === "fulfilled" && profileRes.value.ok) {
+            bundle.profile = await profileRes.value.json();
+          } else {
+            bundle.profile_error = profileRes.status === "fulfilled" ? `HTTP ${profileRes.value.status}` : String(profileRes.reason);
+          }
+        } catch (e) {
+          bundle.profile_error = String(e && e.message ? e.message : e);
+        }
+        // 2. DETAILS — merge into bundle.profile.playerProfile.player
+        try {
+          if (detailsRes.status === "fulfilled" && detailsRes.value.ok) {
+            const details = await detailsRes.value.json();
+            let ps = details?.players?.player;
+            if (ps && !Array.isArray(ps)) ps = [ps];
+            if (ps && ps[0]) {
+              if (!bundle.profile) bundle.profile = {};
+              const pp = bundle.profile.playerProfile || {};
+              if (!pp.player) pp.player = {};
+              for (const k of Object.keys(ps[0])) {
+                if (pp.player[k] === undefined) pp.player[k] = ps[0][k];
+              }
+              bundle.profile.playerProfile = pp;
+            }
+          } else {
+            bundle.details_error = detailsRes.status === "fulfilled" ? `HTTP ${detailsRes.value.status}` : String(detailsRes.reason);
+          }
+        } catch (e) {
+          bundle.details_error = String(e && e.message ? e.message : e);
+        }
+        // 3. Injuries — filter to this pid
+        try {
+          if (injRes.status === "fulfilled" && injRes.value.ok) {
+            const data = await injRes.value.json();
+            let players = data?.injuries?.injury || [];
+            if (players && !Array.isArray(players)) players = [players];
+            for (const p of players) {
+              if (String(p.id) === String(pid)) { bundle.injury = p; break; }
+            }
+          } else if (injRes.status === "rejected") {
+            bundle.injuries_error = String(injRes.reason);
+          }
+        } catch (e) {
+          bundle.injuries_error = String(e && e.message ? e.message : e);
+        }
+        // 4. Live rosters — is player currently rostered, and under what contract?
+        try {
+          let rosterData = null;
+          let leagueData = null;
+          if (rostersRes.status === "fulfilled" && rostersRes.value.ok) rosterData = await rostersRes.value.json();
+          if (leagueRes.status === "fulfilled" && leagueRes.value.ok) leagueData = await leagueRes.value.json();
+          let franchises = rosterData?.rosters?.franchise || [];
+          if (!Array.isArray(franchises)) franchises = [franchises];
+          let lf = leagueData?.league?.franchises?.franchise || [];
+          if (!Array.isArray(lf)) lf = [lf];
+          const fidToName = {};
+          for (const f of lf) fidToName[String(f.id)] = f.name || "";
+          let rd = null;
+          for (const f of franchises) {
+            const fid = String(f.id);
+            let players = f.player || [];
+            if (!Array.isArray(players)) players = [players];
+            for (const pp of players) {
+              if (String(pp.id) !== String(pid)) continue;
+              rd = {
+                season: Number(year),
+                franchise_id: fid,
+                team_name: fidToName[fid] || fid,
+                salary: Math.round(Number(pp.salary || 0)),
+                contract_year: Number(pp.contractYear || 0),
+                contract_status: pp.contractStatus || "",
+                contract_info: pp.contractInfo || "",
+                status: pp.status || "",
+              };
+              break;
+            }
+            if (rd) break;
+          }
+          if (rd) {
+            bundle.current_roster = rd;
+          } else if (rosterData) {
+            // 5. FA fallback — check the free-agent pool.
+            try {
+              const faRes = await mflFetch(
+                `https://www48.myfantasyleague.com/${encodeURIComponent(year)}/export?TYPE=freeAgents&L=${encodeURIComponent(leagueId)}&JSON=1`,
+                60
+              );
+              if (faRes.ok) {
+                const faData = await faRes.json();
+                let faPlayers = faData?.freeAgents?.leagueUnit?.player || [];
+                if (faPlayers && !Array.isArray(faPlayers)) faPlayers = [faPlayers];
+                if (faPlayers.some((p) => String(p.id) === String(pid))) {
+                  bundle.is_free_agent = true;
+                } else {
+                  bundle.is_not_rostered = true;
+                }
+              } else {
+                bundle.fa_check_error = `HTTP ${faRes.status}`;
+                bundle.is_not_rostered = true;
+              }
+            } catch (e) {
+              bundle.fa_check_error = String(e && e.message ? e.message : e);
+              bundle.is_not_rostered = true;
+            }
+          } else {
+            bundle.live_roster_error = "rosters fetch failed";
+          }
+        } catch (e) {
+          bundle.live_roster_error = String(e && e.message ? e.message : e);
+        }
+        // The lean bundle intentionally omits career_summary, last_add,
+        // trade_history, and weekly — those come from the local DB in the
+        // Python bridge. Set them to empty so the UI's destructuring doesn't
+        // crash and the graceful-degradation paths render.
+        bundle.career_summary = [];
+        bundle.last_add = {};
+        bundle.trade_history = [];
+        return jsonOut(200, bundle);
+      }
+
       if (path.startsWith("/mcm")) {
         const seed = await fetchJson(MCM_SEED_URL, null);
         if (!seed || seed.schema_version !== "v1") {

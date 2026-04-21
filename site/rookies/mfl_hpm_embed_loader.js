@@ -53,6 +53,10 @@
   // source's Content-Type.
   const ASSET_BASE = "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@" + SHA + "/site/rookies/";
   const HTML_URL = ASSET_BASE + "rookie_draft_hub.html?v=" + encodeURIComponent(SHA);
+  // Live MFL enrichment (/api/player-bundle etc.) is served by the
+  // Cloudflare Worker so every league member gets it — no local bridge
+  // required. Host page can override via window.UPS_DRAFT_HUB_API_BASE.
+  const API_BASE = safeStr(window.UPS_DRAFT_HUB_API_BASE) || "https://upsmflproduction.keith-creelman.workers.dev";
 
   // Mount point ────────────────────────────────────────────────────────
   const mount = document.getElementById("draftHubMount") || (function () {
@@ -90,6 +94,7 @@
       'window.UPS_DRAFT_HUB_YEAR=' + JSON.stringify(ctx.year) + ';' +
       'window.UPS_DRAFT_HUB_FRANCHISE_ID=' + JSON.stringify(ctx.franchiseId) + ';' +
       'window.UPS_DRAFT_HUB_RELEASE_SHA=' + JSON.stringify(ctx.sha) + ';' +
+      'window.UPS_DRAFT_HUB_API_BASE=' + JSON.stringify(ctx.apiBase) + ';' +
       // Post height back to host for auto-resize.
       '(function(){function post(){try{var h=Math.max(document.documentElement.scrollHeight,document.body?document.body.scrollHeight:0);parent.postMessage({type:"draft-hub-height",height:h},"*");}catch(e){}}' +
       'window.addEventListener("load",post);window.addEventListener("resize",post);' +
@@ -106,7 +111,7 @@
       return r.text();
     })
     .then(function (html) {
-      const headInject = buildHead(ASSET_BASE, { leagueId: L, year: YEAR, franchiseId: FRANCHISE_ID, sha: SHA });
+      const headInject = buildHead(ASSET_BASE, { leagueId: L, year: YEAR, franchiseId: FRANCHISE_ID, sha: SHA, apiBase: API_BASE });
       if (/<head[^>]*>/i.test(html)) {
         html = html.replace(/<head([^>]*)>/i, '<head$1>' + headInject);
       } else {

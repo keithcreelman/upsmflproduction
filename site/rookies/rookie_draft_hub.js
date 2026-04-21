@@ -860,7 +860,16 @@
       bundle = _profileCache.get(pid);
     } else {
       try {
-        const r = await fetch(`/api/player-bundle?pid=${encodeURIComponent(pid)}`);
+        // Route through the Cloudflare Worker when the loader injects an
+        // absolute API base (production iframe). Otherwise the relative path
+        // hits whatever served the hub (local bridge in dev).
+        const apiBase = (typeof window.UPS_DRAFT_HUB_API_BASE === "string" && window.UPS_DRAFT_HUB_API_BASE) || "";
+        const leagueId = (typeof window.UPS_DRAFT_HUB_LEAGUE_ID === "string" && window.UPS_DRAFT_HUB_LEAGUE_ID) || "";
+        const year = (typeof window.UPS_DRAFT_HUB_YEAR === "string" && window.UPS_DRAFT_HUB_YEAR) || "";
+        const qs = `pid=${encodeURIComponent(pid)}`
+          + (leagueId ? `&L=${encodeURIComponent(leagueId)}` : "")
+          + (year ? `&YEAR=${encodeURIComponent(year)}` : "");
+        const r = await fetch(`${apiBase}/api/player-bundle?${qs}`);
         if (!r.ok) throw new Error("HTTP " + r.status);
         bundle = await r.json();
         _profileCache.set(pid, bundle);
