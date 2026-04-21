@@ -2795,21 +2795,17 @@ def write_csv(path: Path, rows: List[Dict[str, Any]]) -> None:
         w.writerows(rows)
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--db-path", default=DEFAULT_DB_PATH)
-    parser.add_argument("--position", default="QB")
-    parser.add_argument("--season", type=int, default=0, help="Optional single season to build")
-    parser.add_argument("--start-season", type=int, default=0)
-    parser.add_argument("--end-season", type=int, default=0)
-    parser.add_argument("--out-dir", default=str(DEFAULT_OUT_DIR))
-    parser.add_argument("--table-name", default=DEFAULT_TABLE)
-    parser.add_argument("--owner-lineage-table", default=DEFAULT_OWNER_LINEAGE_TABLE)
-    parser.add_argument("--txn-snapshot-table", default=DEFAULT_TXN_SNAPSHOT_TABLE)
-    parser.add_argument("--write-table", type=int, default=1)
-    args = parser.parse_args()
+# Positions that actually appear on rosters + have non-trivial contract
+# data. Ordered so offense-heavy positions (where most UI lookups happen)
+# process first — if a run is interrupted, the most-viewed players are
+# already in the DB.
+ALL_POSITIONS = ["QB", "RB", "WR", "TE", "PK", "PN", "DE", "DT", "LB", "CB", "S"]
 
-    position = normalize_position(args.position)
+
+def run_for_position(args, position: str) -> None:
+    """Single-position build — extracted from main() so --all-positions can
+    iterate. Writes CSVs under out-dir, upserts into the snapshot tables.
+    """
     out_dir = Path(args.out_dir)
     conn = get_conn(args.db_path)
     conn.row_factory = sqlite3.Row
@@ -2818,7 +2814,6 @@ def main() -> None:
     if args.season > 0:
         seasons = [args.season]
     else:
-        # Default baseline window starts in 2017 unless overridden.
         effective_start = args.start_season if args.start_season > 0 else 2017
         seasons = [s for s in seasons if s >= effective_start]
         if args.start_season > 0:
@@ -2981,6 +2976,35 @@ def main() -> None:
         print(f"Upserted rows in table {args.table_name}: {wrote}")
         print(f"Upserted rows in table {args.owner_lineage_table}: {wrote_owner}")
         print(f"Upserted rows in table {args.txn_snapshot_table}: {wrote_txn}")
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--db-path", default=DEFAULT_DB_PATH)
+    parser.add_argument("--position", default="QB",
+                        help="Single position to build (e.g. QB, RB, WR). Ignored if --all-positions is set.")
+    parser.add_argument("--all-positions", action="store_true",
+                        help=f"Run the full per-position pipeline for every fantasy-relevant position: {', '.join(ALL_POSITIONS)}")
+    parser.add_argument("--season", type=int, default=0, help="Optional single season to build")
+    parser.add_argument("--start-season", type=int, default=0)
+    parser.add_argument("--end-season", type=int, default=0)
+    parser.add_argument("--out-dir", default=str(DEFAULT_OUT_DIR))
+    parser.add_argument("--table-name", default=DEFAULT_TABLE)
+    parser.add_argument("--owner-lineage-table", default=DEFAULT_OWNER_LINEAGE_TABLE)
+    parser.add_argument("--txn-snapshot-table", default=DEFAULT_TXN_SNAPSHOT_TABLE)
+    parser.add_argument("--write-table", type=int, default=1)
+    args = parser.parse_args()
+
+    positions: List[str]
+    if args.all_positions:
+        positions = ALL_POSITIONS[:]
+    else:
+        positions = [normalize_position(args.position)]
+
+    for idx, position in enumerate(positions, 1):
+        if len(positions) > 1:
+            print(f"\n=== [{idx}/{len(positions)}] position={position} ===", flush=True)
+        run_for_position(args, position)
 
 
 if __name__ == "__main__":
