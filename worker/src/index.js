@@ -752,15 +752,24 @@ export default {
             const db = env.UPS_MFL_DB;
             const [careerRes, tradeRes, addRes, weeklyRes, contractRes] = await Promise.all([
               db.prepare(
-                `SELECT season,
+                // Career summary joined with baselines to compute per-season
+                // Elite / Plus / E+P / Dud % the same way the Python bridge
+                // used to. Ratio math is gated on delta_win_pos > 0 so we
+                // don't divide by zero for positions/years with no baseline.
+                `SELECT w.season,
                         COUNT(*) AS games_played,
-                        ROUND(SUM(score), 1) AS season_points,
-                        ROUND(AVG(score), 2) AS avg_ppg,
-                        SUM(CASE WHEN status='starter' THEN 1 ELSE 0 END) AS mfl_starts
-                   FROM src_weekly
-                  WHERE player_id = ? AND score > 0
-                  GROUP BY season
-                  ORDER BY season DESC`
+                        ROUND(SUM(w.score), 1) AS season_points,
+                        ROUND(AVG(w.score), 2) AS avg_ppg,
+                        ROUND(100.0 * SUM(CASE WHEN b.delta_win_pos > 0 AND (w.score - b.score_p50_pos) / b.delta_win_pos >= 1.0  THEN 1 ELSE 0 END) / COUNT(*), 1) AS elite_pct,
+                        ROUND(100.0 * SUM(CASE WHEN b.delta_win_pos > 0 AND (w.score - b.score_p50_pos) / b.delta_win_pos >= 0.25 AND (w.score - b.score_p50_pos) / b.delta_win_pos < 1.0 THEN 1 ELSE 0 END) / COUNT(*), 1) AS plus_pct,
+                        ROUND(100.0 * SUM(CASE WHEN b.delta_win_pos > 0 AND (w.score - b.score_p50_pos) / b.delta_win_pos >= 0.25 THEN 1 ELSE 0 END) / COUNT(*), 1) AS ep_pct,
+                        ROUND(100.0 * SUM(CASE WHEN b.delta_win_pos > 0 AND (w.score - b.score_p50_pos) / b.delta_win_pos < -0.5 THEN 1 ELSE 0 END) / COUNT(*), 1) AS dud_pct
+                   FROM src_weekly w
+                   LEFT JOIN src_baselines b
+                          ON b.season = w.season AND b.pos_group = w.pos_group
+                  WHERE w.player_id = ? AND w.score > 0
+                  GROUP BY w.season
+                  ORDER BY w.season DESC`
               ).bind(pid).all(),
               db.prepare(
                 `SELECT season, franchise_id, franchise_name, asset_role,
@@ -779,12 +788,26 @@ export default {
                   LIMIT 1`
               ).bind(pid).all(),
               db.prepare(
-                `SELECT season, week, score, status, pos_group,
-                        roster_franchise_name, pos_rank, overall_rank
-                   FROM src_weekly
-                  WHERE player_id = ? AND score > 0
-                  ORDER BY season DESC, week DESC
-                  LIMIT 36`
+                // LEFT JOIN baselines so we can emit z_score and a week
+                // tier (Elite ≥ 1.0, Plus ≥ 0.25, Neutral ≥ -0.5, Dud below)
+                // the same way the old Python bridge did. delta_win_pos
+                // is the 50→80 percentile gap; z = (score - p50) / delta.
+                `SELECT w.season, w.week, w.score, w.status, w.pos_group,
+                        w.roster_franchise_name, w.pos_rank, w.overall_rank,
+                        CASE WHEN b.delta_win_pos IS NOT NULL AND b.delta_win_pos > 0
+                             THEN ROUND((w.score - b.score_p50_pos) / b.delta_win_pos, 3)
+                             ELSE NULL END AS z_score,
+                        CASE WHEN b.delta_win_pos IS NULL OR b.delta_win_pos <= 0 THEN NULL
+                             WHEN (w.score - b.score_p50_pos) / b.delta_win_pos >= 1.0  THEN 'Elite'
+                             WHEN (w.score - b.score_p50_pos) / b.delta_win_pos >= 0.25 THEN 'Plus'
+                             WHEN (w.score - b.score_p50_pos) / b.delta_win_pos >= -0.5 THEN 'Neutral'
+                             ELSE 'Dud' END AS week_tier
+                   FROM src_weekly w
+                   LEFT JOIN src_baselines b
+                          ON b.season = w.season AND b.pos_group = w.pos_group
+                  WHERE w.player_id = ? AND w.score > 0
+                  ORDER BY w.season DESC, w.week DESC
+                  LIMIT 300`
               ).bind(pid).all(),
               db.prepare(
                 `SELECT season, franchise_id, team_name, salary,

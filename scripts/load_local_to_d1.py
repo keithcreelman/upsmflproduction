@@ -236,6 +236,14 @@ def main():
          ["season","draftpick_round","draftpick_roundorder","draftpick_overall",
           "franchise_id","franchise_name","player_id","player_name",
           "unix_timestamp","datetime_et","source"]),
+        ("baselines", "src_baselines",
+         """
+         SELECT season, pos_group, score_p50_pos, score_p80_pos,
+                delta_win_pos, starter_sample_count
+         FROM metadata_positionalwinprofile
+         """,
+         ["season","pos_group","score_p50_pos","score_p80_pos",
+          "delta_win_pos","starter_sample_count"]),
     ]
 
     selected = set((args.only or "").split(",")) if args.only else None
