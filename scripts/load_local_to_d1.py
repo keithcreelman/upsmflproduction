@@ -59,14 +59,32 @@ def build_insert(table: str, cols: list[str], rows: list[tuple]) -> str:
     return f"INSERT OR IGNORE INTO {table} ({col_list}) VALUES\n{newline_join.join(value_tuples)};\n"
 
 
-def wrangler_execute(sql_path: Path, db: str) -> None:
+def wrangler_execute(sql_path: Path, db: str, max_attempts: int = 4) -> None:
+    """Run `wrangler d1 execute` with automatic retry on transient failures.
+
+    D1 occasionally returns generic 5xx / network errors under load; they
+    clear within seconds. A fixed number of retries with light backoff
+    absorbs those without aborting a 30+ minute load run.
+    """
+    import time
     cmd = [
         "npx", "--yes", "wrangler@latest", "d1", "execute", db,
         "--remote", "--file", str(sql_path),
     ]
-    res = subprocess.run(cmd, cwd=WORKER_DIR, env={**os.environ}, capture_output=True, text=True)
-    if res.returncode != 0:
-        sys.stderr.write(f"[d1 execute FAILED] {sql_path.name}\nSTDERR:\n{res.stderr[:2000]}\nSTDOUT:\n{res.stdout[:500]}\n")
+    for attempt in range(1, max_attempts + 1):
+        res = subprocess.run(cmd, cwd=WORKER_DIR, env={**os.environ}, capture_output=True, text=True)
+        if res.returncode == 0:
+            if attempt > 1:
+                sys.stderr.write(f"[d1 execute] recovered on attempt {attempt} for {sql_path.name}\n")
+            return
+        if attempt < max_attempts:
+            sys.stderr.write(f"[d1 execute] transient fail on {sql_path.name} (attempt {attempt}/{max_attempts}), retrying...\n")
+            time.sleep(2 * attempt)
+            continue
+        sys.stderr.write(
+            f"[d1 execute FAILED after {max_attempts} attempts] {sql_path.name}\n"
+            f"STDERR:\n{res.stderr[:2000]}\nSTDOUT:\n{res.stdout[:500]}\n"
+        )
         raise SystemExit(res.returncode)
 
 
