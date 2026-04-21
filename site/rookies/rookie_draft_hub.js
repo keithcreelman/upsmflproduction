@@ -953,6 +953,37 @@
         </div>`;
       })()}
 
+      ${(() => {
+        // Contract history — per-season salary + owner lineage for this
+        // player from D1 src_contracts. Renders a compact table so the
+        // user can see every contract they've held in our league.
+        const ch = Array.isArray(bundle.contract_history) ? bundle.contract_history : [];
+        if (!ch.length) return "";
+        const fmt$ = (v) => (v == null || v === 0) ? "—" : "$" + Number(v).toLocaleString();
+        const rowsHtml = ch.map((c) => {
+          const extBadge = c.extension_flag ? ` <span class="small" style="color:var(--accent); font-weight:600;">EXT</span>` : "";
+          return `<tr>
+            <td>${c.season}</td>
+            <td>${escapeHtml(c.team_name || "")}${extBadge}</td>
+            <td class="num">${fmt$(c.salary)}</td>
+            <td class="num">${c.contract_length || "—"}</td>
+            <td>${c.contract_year ? "Y" + c.contract_year : "—"}</td>
+            <td class="num">${fmt$(c.aav)}</td>
+          </tr>`;
+        }).join("");
+        return `
+        <div class="profile-block">
+          <h4>Contract History <span class="small" style="color:var(--muted); font-weight:400">(${ch.length} season${ch.length === 1 ? "" : "s"})</span></h4>
+          <table class="rdh-table" style="margin-top:6px;">
+            <thead><tr>
+              <th>Yr</th><th>Team</th><th class="num">Salary</th>
+              <th class="num">Len</th><th>Yr#</th><th class="num">AAV</th>
+            </tr></thead>
+            <tbody>${rowsHtml}</tbody>
+          </table>
+        </div>`;
+      })()}
+
       ${career.length ? (() => {
         const rows = career.slice(0, 20);
         // Career totals — weighted by games_played for rates
