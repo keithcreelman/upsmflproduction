@@ -2167,6 +2167,68 @@ def build_ap_vs_ep(db: sqlite3.Connection) -> dict:
     }
 
 
+CORRECTIONS_API_URL = "https://upsmflproduction.keith-creelman.workers.dev/api/corrections"
+
+
+def _apply_draft_pick_corrections(history: list[dict]) -> list[dict]:
+    """Overlay D1 corrections on the draft-history rows in place.
+
+    Fetches entity_kind=draft_pick rows from /api/corrections. Each row has:
+      entity_id        — 'YYYY.R<round>.<slot>' (zero-padded slot)
+      field_path       — flat field name on the history row
+      corrected_value  — value that should override the source data
+
+    Missing corrections are non-fatal — ETL continues with raw data and
+    logs a warning.
+    """
+    try:
+        import urllib.request
+        req = urllib.request.Request(
+            f"{CORRECTIONS_API_URL}?entity_kind=draft_pick",
+            headers={"User-Agent": "build_rookie_draft_hub.py"},
+        )
+        with urllib.request.urlopen(req, timeout=15) as r:
+            payload = json.loads(r.read())
+    except Exception as e:
+        print(f"  [corrections] WARN: couldn't fetch /api/corrections — {e}", flush=True)
+        return history
+
+    rows = payload.get("corrections") or []
+    if not rows:
+        print("  [corrections] none active — skipping overlay", flush=True)
+        return history
+
+    by_key: dict[str, list[dict]] = {}
+    for p in history:
+        s = p.get("season")
+        r_ = p.get("round")
+        slot = p.get("slot")
+        if s is None or r_ is None or slot is None:
+            continue
+        key = f"{s}.R{int(r_)}.{int(slot):02d}"
+        by_key.setdefault(key, []).append(p)
+
+    applied = 0
+    skipped = 0
+    for c in rows:
+        eid = c.get("entity_id") or ""
+        field = c.get("field_path") or ""
+        targets = by_key.get(eid, [])
+        if not targets:
+            skipped += 1
+            continue
+        corrected = c.get("corrected_value")
+        for t in targets:
+            t[field] = corrected
+            applied += 1
+    print(
+        f"  [corrections] applied {applied} field override(s) across {len(rows)} correction rows"
+        + (f"; {skipped} didn't match any pick" if skipped else ""),
+        flush=True,
+    )
+    return history
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--skip-live", action="store_true",
@@ -2183,6 +2245,16 @@ def main() -> int:
         print("[1/6] Tiers + enriched history...", flush=True)
         tiers, history = build_tiers_and_history(db)
         (OUT_DIR / "rookie_draft_tiers.json").write_text(json.dumps(tiers, indent=2))
+
+        # Overlay corrections from D1 via the Worker's /api/corrections
+        # endpoint. These are manual fixes for historical mis-attributions
+        # (RULE-DATA-003) that would otherwise be overwritten by the raw
+        # draftresults_legacy pull. Applying them here — right before
+        # writing the JSON — keeps the source DB pristine and makes every
+        # correction reversible (remove the row from D1, next ETL run
+        # shows the original).
+        history = _apply_draft_pick_corrections(history)
+
         history_artifact = {
             "meta": {
                 "generated_at_utc": datetime.now(timezone.utc).isoformat(),

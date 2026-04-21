@@ -734,123 +734,194 @@ export default {
         } catch (e) {
           bundle.live_roster_error = String(e && e.message ? e.message : e);
         }
-        // ---- Comprehensive enrichment: career_summary + last_add + trade_history ----
-        // All sourced from MFL public APIs so no local DB dependency. Same shapes
-        // as the Python bridge's build_player_bundle for these keys.
-        const curYear = Number(year);
-        // Fence how far we look back; 10 seasons is a good career window and still
-        // cheap (10 parallel YTD lookups + 3 parallel transactions queries).
-        const careerYears = [];
-        for (let y = curYear; y >= Math.max(2012, curYear - 10); y--) careerYears.push(String(y));
-        // Recent seasons to scan for trade_history and last_add. Transactions are
-        // season-scoped on MFL — current + 2 back covers "the most recent movement."
-        const txYears = [String(curYear), String(curYear - 1), String(curYear - 2)];
+        // ---- Phase 3 enrichment: career_summary + trade_history + last_add + weekly ----
+        // Prefer D1 (src_* tables populated from the local mfl_database.db). When
+        // D1 is either unbound OR returns nothing for this player, fall back to
+        // MFL public API scraping — so the endpoint keeps working during the
+        // initial bulk-load window and if a row is missing from the D1 mirror.
+        bundle.career_summary = [];
+        bundle.trade_history = [];
+        bundle.last_add = {};
+        bundle.weekly = [];
+        bundle.weekly_by_season = {};
 
-        // --- career_summary: one YTD fetch per season ---
-        const careerFetches = careerYears.map((y) =>
-          mflFetch(
-            `https://api.myfantasyleague.com/${encodeURIComponent(y)}/export?TYPE=playerScores&L=${encodeURIComponent(leagueId)}&P=${encodeURIComponent(pid)}&W=YTD&JSON=1`,
-            600
-          ).then(async (res) => {
-            if (!res.ok) return { season: Number(y), error: "HTTP " + res.status };
-            const j = await res.json();
-            let ps = j?.playerScores?.playerScore;
-            if (ps && Array.isArray(ps)) ps = ps[0];
-            const pts = ps ? Number(ps.score) : 0;
-            return { season: Number(y), season_points: Number.isFinite(pts) ? Math.round(pts * 10) / 10 : 0 };
-          }).catch((e) => ({ season: Number(y), error: String(e && e.message ? e.message : e) }))
-        );
+        let d1Satisfied = false;
+        if (env.UPS_MFL_DB) {
+          try {
+            const db = env.UPS_MFL_DB;
+            const [careerRes, tradeRes, addRes, weeklyRes] = await Promise.all([
+              db.prepare(
+                `SELECT season,
+                        COUNT(*) AS games_played,
+                        ROUND(SUM(score), 1) AS season_points,
+                        ROUND(AVG(score), 2) AS avg_ppg,
+                        SUM(CASE WHEN status='starter' THEN 1 ELSE 0 END) AS mfl_starts
+                   FROM src_weekly
+                  WHERE player_id = ? AND score > 0
+                  GROUP BY season
+                  ORDER BY season DESC`
+              ).bind(pid).all(),
+              db.prepare(
+                `SELECT season, franchise_id, franchise_name, asset_role,
+                        comments, datetime_et, unix_timestamp, trade_group_id
+                   FROM src_trades
+                  WHERE player_id = ?
+                  ORDER BY unix_timestamp DESC
+                  LIMIT 30`
+              ).bind(pid).all(),
+              db.prepare(
+                `SELECT season, franchise_id, franchise_name, move_type,
+                        method, salary, datetime_et, unix_timestamp
+                   FROM src_adddrop
+                  WHERE player_id = ? AND move_type = 'ADD'
+                  ORDER BY unix_timestamp DESC
+                  LIMIT 1`
+              ).bind(pid).all(),
+              db.prepare(
+                `SELECT season, week, score, status, pos_group,
+                        roster_franchise_name, pos_rank, overall_rank
+                   FROM src_weekly
+                  WHERE player_id = ? AND score > 0
+                  ORDER BY season DESC, week DESC
+                  LIMIT 36`
+              ).bind(pid).all(),
+            ]);
 
-        // --- trade_history + last_add: season-scoped transactions scans ---
-        const txFetches = txYears.map((y) =>
-          mflFetch(
-            `https://www48.myfantasyleague.com/${encodeURIComponent(y)}/export?TYPE=transactions&L=${encodeURIComponent(leagueId)}&JSON=1`,
-            300
-          ).then(async (res) => {
-            if (!res.ok) return { year: y, rows: [] };
-            const j = await res.json();
-            let rows = j?.transactions?.transaction || [];
-            if (rows && !Array.isArray(rows)) rows = [rows];
-            return { year: y, rows };
-          }).catch(() => ({ year: y, rows: [] }))
-        );
-
-        const [careerSettled, txSettled] = await Promise.all([
-          Promise.all(careerFetches),
-          Promise.all(txFetches),
-        ]);
-
-        bundle.career_summary = careerSettled
-          .filter((r) => !r.error && r.season_points > 0)
-          .sort((a, b) => b.season - a.season);
-
-        // Flatten transactions across seasons, keep only those touching this pid.
-        // Trade entries: MFL packs given-up/received into franchise1_gave_up +
-        // franchise2_gave_up (comma-delimited asset tokens). Each numeric token
-        // without an "FP_"/"DP_" prefix is a player_id.
-        const trades = [];
-        let lastAdd = null;
-        const tokensIncludePid = (s) => {
-          if (!s) return false;
-          return s.split(",").some((tok) => {
-            const t = tok.trim();
-            return t && !t.startsWith("FP_") && !t.startsWith("DP_") && t === String(pid);
-          });
-        };
-        for (const { year: txYear, rows } of txSettled) {
-          for (const t of rows) {
-            const type = String(t.type || "").toUpperCase();
-            const ts = Number(t.timestamp) || 0;
-            if (type === "TRADE") {
-              const inF1 = tokensIncludePid(t.franchise1_gave_up || "");
-              const inF2 = tokensIncludePid(t.franchise2_gave_up || "");
-              if (!inF1 && !inF2) continue;
-              // Asset role = "sent" if the player was in the gaveUp side, so the
-              // owning franchise at the time is the one that gave him up.
-              const giverFid = inF1 ? String(t.franchise || "") : String(t.franchise2 || "");
-              trades.push({
-                season: Number(txYear),
-                unix_timestamp: ts,
-                datetime_et: ts ? new Date(ts * 1000).toISOString().replace("T", " ").replace(/\..*/, "") : "",
-                franchise_id: giverFid,
-                asset_role: "sent",
-                comments: String(t.comments || ""),
-              });
-              continue;
+            const career = careerRes.results || [];
+            if (career.length) {
+              bundle.career_summary = career;
+              d1Satisfied = true;
             }
-            // Acquisition-type transactions: capture the most recent one that
-            // involves this pid. MFL names vary (FREE_AGENT, WAIVER, AUCTION_*,
-            // BBID_AUCTION_WON, DRAFT, etc.). The pid appears in the
-            // "transaction" field, typically as a leading token or after $.
-            if (/ADD|FREE_AGENT|WAIVER|AUCTION|DRAFT|BBID/.test(type)) {
-              const raw = String(t.transaction || "");
-              const leadTok = raw.split(/[,|]/)[0].split("$")[0].trim();
-              if (leadTok !== String(pid)) continue;
-              if (!lastAdd || ts > (lastAdd._ts || 0)) {
-                lastAdd = {
+            const trades = tradeRes.results || [];
+            if (trades.length) {
+              bundle.trade_history = trades;
+              d1Satisfied = true;
+            }
+            const adds = addRes.results || [];
+            if (adds.length) {
+              bundle.last_add = adds[0];
+              d1Satisfied = true;
+            }
+            const weekly = weeklyRes.results || [];
+            if (weekly.length) {
+              bundle.weekly = weekly;
+              // Group for the UI's weekly_by_season dict
+              const by = {};
+              for (const w of weekly) {
+                const s = String(w.season);
+                if (!by[s]) by[s] = [];
+                by[s].push(w);
+              }
+              bundle.weekly_by_season = by;
+              d1Satisfied = true;
+            }
+            bundle.enrichment_source = "d1";
+          } catch (e) {
+            bundle.d1_error = String(e && e.message || e);
+            console.error("[player-bundle] D1 read failed:", bundle.d1_error);
+          }
+        }
+
+        if (!d1Satisfied) {
+          // Fallback: scrape MFL the old way so the endpoint degrades to
+          // "season-total points from MFL playerScores + parsed transactions"
+          // instead of returning all-empty fields.
+          bundle.enrichment_source = "mfl_fallback";
+          const curYear = Number(year);
+          const careerYears = [];
+          for (let y = curYear; y >= Math.max(2012, curYear - 10); y--) careerYears.push(String(y));
+          const txYears = [String(curYear), String(curYear - 1), String(curYear - 2)];
+
+          const careerFetches = careerYears.map((y) =>
+            mflFetch(
+              `https://api.myfantasyleague.com/${encodeURIComponent(y)}/export?TYPE=playerScores&L=${encodeURIComponent(leagueId)}&P=${encodeURIComponent(pid)}&W=YTD&JSON=1`,
+              600
+            ).then(async (res) => {
+              if (!res.ok) return { season: Number(y), error: "HTTP " + res.status };
+              const j = await res.json();
+              let ps = j?.playerScores?.playerScore;
+              if (ps && Array.isArray(ps)) ps = ps[0];
+              const pts = ps ? Number(ps.score) : 0;
+              return { season: Number(y), season_points: Number.isFinite(pts) ? Math.round(pts * 10) / 10 : 0 };
+            }).catch((e) => ({ season: Number(y), error: String(e && e.message ? e.message : e) }))
+          );
+
+          const txFetches = txYears.map((y) =>
+            mflFetch(
+              `https://www48.myfantasyleague.com/${encodeURIComponent(y)}/export?TYPE=transactions&L=${encodeURIComponent(leagueId)}&JSON=1`,
+              300
+            ).then(async (res) => {
+              if (!res.ok) return { year: y, rows: [] };
+              const j = await res.json();
+              let rows = j?.transactions?.transaction || [];
+              if (rows && !Array.isArray(rows)) rows = [rows];
+              return { year: y, rows };
+            }).catch(() => ({ year: y, rows: [] }))
+          );
+
+          const [careerSettled, txSettled] = await Promise.all([
+            Promise.all(careerFetches),
+            Promise.all(txFetches),
+          ]);
+
+          bundle.career_summary = careerSettled
+            .filter((r) => !r.error && r.season_points > 0)
+            .sort((a, b) => b.season - a.season);
+
+          const trades = [];
+          let lastAdd = null;
+          const tokensIncludePid = (s) => {
+            if (!s) return false;
+            return s.split(",").some((tok) => {
+              const t = tok.trim();
+              return t && !t.startsWith("FP_") && !t.startsWith("DP_") && t === String(pid);
+            });
+          };
+          for (const { year: txYear, rows } of txSettled) {
+            for (const t of rows) {
+              const type = String(t.type || "").toUpperCase();
+              const ts = Number(t.timestamp) || 0;
+              if (type === "TRADE") {
+                const inF1 = tokensIncludePid(t.franchise1_gave_up || "");
+                const inF2 = tokensIncludePid(t.franchise2_gave_up || "");
+                if (!inF1 && !inF2) continue;
+                const giverFid = inF1 ? String(t.franchise || "") : String(t.franchise2 || "");
+                trades.push({
                   season: Number(txYear),
-                  franchise_id: String(t.franchise || ""),
-                  franchise_name: "",
-                  move_type: "ADD",
-                  method: type,
-                  salary: null,
+                  unix_timestamp: ts,
                   datetime_et: ts ? new Date(ts * 1000).toISOString().replace("T", " ").replace(/\..*/, "") : "",
-                  _ts: ts,
-                };
-                // Crude salary parse — auction tokens often look like "pid$500$"
-                const m = raw.match(/\$(\d+(?:\.\d+)?)/);
-                if (m) lastAdd.salary = Number(m[1]);
+                  franchise_id: giverFid,
+                  asset_role: "sent",
+                  comments: String(t.comments || ""),
+                });
+                continue;
+              }
+              if (/ADD|FREE_AGENT|WAIVER|AUCTION|DRAFT|BBID/.test(type)) {
+                const raw = String(t.transaction || "");
+                const leadTok = raw.split(/[,|]/)[0].split("$")[0].trim();
+                if (leadTok !== String(pid)) continue;
+                if (!lastAdd || ts > (lastAdd._ts || 0)) {
+                  lastAdd = {
+                    season: Number(txYear),
+                    franchise_id: String(t.franchise || ""),
+                    franchise_name: "",
+                    move_type: "ADD",
+                    method: type,
+                    salary: null,
+                    datetime_et: ts ? new Date(ts * 1000).toISOString().replace("T", " ").replace(/\..*/, "") : "",
+                    _ts: ts,
+                  };
+                  const m = raw.match(/\$(\d+(?:\.\d+)?)/);
+                  if (m) lastAdd.salary = Number(m[1]);
+                }
               }
             }
           }
+          if (lastAdd) delete lastAdd._ts;
+          trades.sort((a, b) => b.unix_timestamp - a.unix_timestamp);
+          bundle.trade_history = trades;
+          bundle.last_add = lastAdd || {};
         }
-        if (lastAdd) delete lastAdd._ts;
-        trades.sort((a, b) => b.unix_timestamp - a.unix_timestamp);
-        bundle.trade_history = trades;
-        bundle.last_add = lastAdd || {};
-        // weekly (game-log details) still needs baselines → keep empty for now.
-        bundle.weekly = [];
-        bundle.weekly_by_season = {};
         return jsonOut(200, bundle);
       }
 
