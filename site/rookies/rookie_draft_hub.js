@@ -1012,7 +1012,7 @@
           <h4>Career Summary (by MFL season)</h4>
           <table class="rdh-table">
             <thead><tr>
-              <th>Yr</th><th class="num">G</th>
+              <th>Yr</th><th class="num">G</th><th class="num">MFL Starts</th>
               <th class="num">Points</th><th class="num">PPG</th>
               <th class="num" title="Elite weeks (z ≥ 1.0) %">Elite%</th>
               <th class="num" title="Plus weeks (0.25 ≤ z &lt; 1.0) %">Plus%</th>
@@ -1028,6 +1028,7 @@
               <tr>
                 <td>${c.season}</td>
                 <td class="num">${c.games_played || 0}</td>
+                <td class="num" title="Weeks in an MFL starting lineup — can exceed games played if owner rostered them through bye/injury weeks">${c.mfl_starts || 0}</td>
                 <td class="num">${c.season_points != null ? c.season_points.toFixed(0) : "—"}</td>
                 <td class="num">${c.avg_ppg != null ? c.avg_ppg.toFixed(1) : "—"}</td>
                 <td class="num" style="color:var(--smash)">${c.elite_pct != null ? c.elite_pct.toFixed(0) + "%" : "—"}</td>
@@ -1040,6 +1041,7 @@
             <tr style="border-top: 2px solid var(--border); font-weight:700;">
               <td>Career</td>
               <td class="num">${tot.g}</td>
+              <td class="num">${tot.starts}</td>
               <td class="num">${tot.pts.toFixed(0)}</td>
               <td class="num">${careerPPG.toFixed(1)}</td>
               <td class="num" style="color:var(--smash)">${careerEl.toFixed(0)}%</td>
