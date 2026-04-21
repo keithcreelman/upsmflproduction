@@ -1,0 +1,30 @@
+domain,value,definition
+artifact_promotion_status,approved_seed,Governed artifact seeded directly from approved UPS_V2 planning or governance decisions
+artifact_promotion_status,approved_promoted,Governed artifact promoted from reviewed external V1 reference input
+artifact_promotion_status,pending_review,Artifact exists but is not approved for implementation use
+artifact_promotion_status,in_review,Artifact is under active review but not yet approved
+artifact_promotion_status,superseded,Artifact has been replaced by a newer approved artifact
+alignment_status,matched,The governed rule and live source agree
+alignment_status,intentional_override,The governed rule intentionally differs from the live source and the difference is documented
+alignment_status,site_settings_review_needed,The live source appears wrong or misconfigured
+alignment_status,rule_review_needed,The governed rule should be reconsidered
+alignment_status,no_direct_source_setting,There is no direct source-system setting or export field for the concept
+alignment_status,pending_live_validation,The live source check has not yet been completed
+assignment_status,unassigned,No visible worker is assigned to the lane
+assignment_status,active,Visible worker is actively assigned to the lane
+assignment_status,phase_disabled,Lane cannot be staffed yet because its phase is not enabled
+assignment_status,closed,Assignment completed and closed out with evidence
+phase_gate_status,pass,Phase gate approved and closed
+phase_gate_status,fail,Phase gate rejected and not approved to proceed
+phase_gate_status,re_opened,Phase gate was previously closed and has been formally reopened
+phase_gate_status,in_review,Phase gate evidence exists but signoff is not complete
+documentation_status,planned,Required artifact is recognized but not yet drafted
+documentation_status,seeded,Initial scaffold exists but is not fully approved
+documentation_status,in_progress,Artifact is being actively developed or accumulated
+documentation_status,in_review,Artifact is drafted and awaiting approval
+documentation_status,approved,Artifact is approved for governed use
+documentation_status,superseded,Artifact is retained only for history and has been replaced
+dependency_severity,blocker,Work cannot proceed until dependency is resolved
+dependency_severity,high,Work can continue in limited form but risk is substantial
+dependency_severity,medium,Dependency should be resolved before dependent implementation hardens
+dependency_severity,low,Dependency does not currently block or materially distort implementation

@@ -1,0 +1,16 @@
+event_id,season,event_date,event_type,source,approved_by,approved_at,notes
+ups_rookieextension_deadline,2025,2025-05-25,ups_deadline,leagueevents,user_directive_2026-03-17,2026-03-17T00:00:00Z,Approved seed from current leagueevents data
+ups_contract_deadline,2025,2025-08-31,ups_deadline,leagueevents,user_directive_2026-03-17,2026-03-17T00:00:00Z,Approved seed from current leagueevents data
+nfl_kickoff,2025,2025-09-04,nfl_event,leagueevents,user_directive_2026-03-17,2026-03-17T00:00:00Z,Approved seed from current leagueevents data
+preseason_mymdeadline,2025,2025-09-17,ups_deadline,leagueevents,user_directive_2026-03-17,2026-03-17T00:00:00Z,Approved seed from current leagueevents data
+preseason_extensiondeadline,2025,2025-10-01,ups_deadline,leagueevents,user_directive_2026-03-17,2026-03-17T00:00:00Z,Approved seed from current leagueevents data
+ups_rookieextension_deadline,2026,2026-05-21,ups_deadline,leagueevents,user_directive_2026-03-17,2026-03-17T00:00:00Z,Approved seed from current leagueevents data
+ups_contract_deadline,2026,2026-09-06,ups_deadline,leagueevents,user_directive_2026-03-17,2026-03-17T00:00:00Z,Approved seed from current leagueevents data
+nfl_kickoff,2026,2026-09-10,nfl_event,leagueevents,user_directive_2026-03-17,2026-03-17T00:00:00Z,Approved seed from current leagueevents data
+preseason_mymdeadline,2026,2026-09-24,ups_deadline,leagueevents,user_directive_2026-03-17,2026-03-17T00:00:00Z,Approved seed from current leagueevents data
+preseason_extensiondeadline,2026,2026-10-07,ups_deadline,leagueevents,user_directive_2026-03-17,2026-03-17T00:00:00Z,Approved seed from current leagueevents data
+nfl_league_year_start,2026,2026-03-11,nfl_event,official_nfl_dates,user_directive_2026-03-17,2026-03-17T00:00:00Z,Official NFL 2026 important dates reference
+nfl_draft_start,2026,2026-04-23,nfl_event,official_nfl_dates,user_directive_2026-03-17,2026-03-17T00:00:00Z,Official NFL 2026 important dates reference
+ups_trade_deadline,2025,2025-11-27,ups_deadline,governed_trade_rule_plus_thanksgiving_calendar,user_directive_2026-03-18,2026-03-18T00:00:00Z,Governed UPS Thanksgiving kickoff trade deadline for 2025
+ups_trade_deadline,2026,2026-11-26,ups_deadline,governed_trade_rule_plus_thanksgiving_calendar,user_directive_2026-03-18,2026-03-18T00:00:00Z,Governed UPS Thanksgiving kickoff trade deadline for 2026
+ups_trade_kickoff_acceptance_test,2026,2026-09-10,validation_window,governed_trade_validation_schedule,user_directive_2026-03-18,2026-03-18T00:00:00Z,Begin Week 1 2026 kicked-off-player trade acceptance validation on test league 25625 at the start of the live NFL season window.

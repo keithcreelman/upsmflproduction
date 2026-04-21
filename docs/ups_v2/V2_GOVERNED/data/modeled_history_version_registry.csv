@@ -1,0 +1,2 @@
+model_version,input_snapshot_version,scoring_rule_basis_version,generated_at,regeneration_reason,status
+norm-v1-draft,seed-snapshot-2026-03-17,current-rule-basis-draft,2026-03-17T00:00:00Z,Initial UPS_V2 governance scaffold,planned

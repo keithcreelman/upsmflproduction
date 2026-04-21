@@ -1,0 +1,7 @@
+dep_id,title,severity,status,owner_lane,blocking_phase,notes,approved_by,approved_at
+DEP-001,Separate UPS_V2 secrets and deploy targets,blocker,open,ops_runtime,9,Prod and test runtimes must not share secrets or publish context,user_directive_2026-03-17,2026-03-17T00:00:00Z
+DEP-002,Formal MFL import allowlist and verification matrix,high,open,mfl_matrix,4,Import families need explicit gating and approval mapping,user_directive_2026-03-17,2026-03-17T00:00:00Z
+DEP-003,Discord and forum export normalization path,high,open,rules_watch,7,Rules and contract history are scattered across multiple evidence sources,user_directive_2026-03-17,2026-03-17T00:00:00Z
+DEP-004,Historical raw NFL stat source for exact re-scoring,medium,open,data_governance,7,Modeled normalization works first exact re-scoring remains deferred,user_directive_2026-03-17,2026-03-17T00:00:00Z
+DEP-005,Minimal HPS shell contract for V2 embeds,medium,open,ops_runtime,10,Site redesign must preserve minimal MFL shell edits and stable entrypoints,user_directive_2026-03-17,2026-03-17T00:00:00Z
+DEP-006,Endpoint host and year mapping validation across seasons,medium,open,mfl_matrix,4,MFL host differences by season must be pinned and verified,user_directive_2026-03-17,2026-03-17T00:00:00Z

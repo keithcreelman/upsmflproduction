@@ -1,0 +1,2 @@
+workflow_id,workflow_name,environment,league_id,season,target_window,actor,status,linked_alignment_id,linked_ambiguity_id,required_report,notes
+wf_trade_accept_after_kickoff_test,Trade Accept After Kickoff Validation,test_state,25625,2026,week_1_start,commissioner_test_flow,scheduled,SSA-007,AMB-009,trade_kickoff_acceptance_validation.md,Run at the start of Week 1 2026 on the test league only.

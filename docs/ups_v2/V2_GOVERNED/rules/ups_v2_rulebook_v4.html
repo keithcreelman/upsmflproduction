@@ -1,0 +1,1301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UPS Salary Cap Dynasty — Official Rulebook v4</title>
+  <style>
+    /* ─── DESIGN TOKENS ─────────────────────────────────────── */
+    :root {
+      --paper:       #efe7db;
+      --navy:        #11263f;
+      --gold:        #b76d25;
+      --gold-lt:     #d4954a;
+      --cream:       #f8f3ec;
+      --ink:         #1a1a1a;
+      --muted:       #5c5247;
+      --border:      #d4c9bb;
+      /* status */
+      --settled:     #1f7a50;
+      --working:     #a56f18;
+      --open:        #5a456a;
+      --settled-bg:  #e8f5ee;
+      --working-bg:  #fdf3e0;
+      --open-bg:     #f3edf7;
+      /* layout */
+      --sidebar-w:   240px;
+      --header-h:    64px;
+      --filter-h:    52px;
+      --radius:      8px;
+      --shadow:      0 1px 3px rgba(0,0,0,.15);
+      --shadow-md:   0 2px 8px rgba(0,0,0,.18);
+      --font-body:   system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      --font-mono:   'SF Mono', 'Fira Code', 'Consolas', monospace;
+    }
+
+    /* ─── RESET & BASE ─────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: var(--font-body);
+      background: var(--paper);
+      color: var(--ink);
+      font-size: 16px;
+      line-height: 1.65;
+    }
+    a { color: var(--navy); }
+    a:hover { color: var(--gold); }
+    h1, h2, h3, h4 { line-height: 1.25; color: var(--navy); }
+
+    /* ─── SKIP LINK ─────────────────────────────────────────── */
+    .skip-link {
+      position: absolute; top: -99px; left: 8px;
+      background: var(--navy); color: #fff; padding: 8px 16px;
+      border-radius: 0 0 var(--radius) var(--radius);
+      font-size: .875rem; text-decoration: none; z-index: 1000;
+    }
+    .skip-link:focus { top: 0; }
+
+    /* ─── HEADER ────────────────────────────────────────────── */
+    header {
+      background: var(--navy);
+      color: #fff;
+      height: var(--header-h);
+      position: sticky; top: 0; z-index: 200;
+      box-shadow: 0 2px 6px rgba(0,0,0,.3);
+    }
+    .header-inner {
+      max-width: 1400px; margin: 0 auto;
+      height: 100%;
+      display: flex; align-items: center; gap: 14px;
+      padding: 0 20px;
+    }
+    .league-badge {
+      background: var(--gold);
+      color: #fff;
+      font-weight: 800;
+      font-size: .7rem;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      padding: 5px 11px;
+      border-radius: 4px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .header-title h1 {
+      color: #fff;
+      font-size: 1.0625rem;
+      font-weight: 700;
+    }
+    .header-title p {
+      color: rgba(255,255,255,.55);
+      font-size: .75rem;
+      margin-top: 1px;
+    }
+
+    /* ─── HERO READING PATHS ────────────────────────────────── */
+    .hero-paths {
+      background: linear-gradient(to bottom, #0d1e30, #11263f);
+      padding: 14px 20px 18px;
+      border-bottom: 3px solid var(--gold);
+    }
+    .hero-paths-inner { max-width: 1400px; margin: 0 auto; }
+    .hero-paths-label {
+      color: rgba(255,255,255,.45);
+      font-size: .6875rem;
+      font-weight: 700;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+    .hero-cards {
+      display: flex; gap: 8px; flex-wrap: wrap;
+    }
+    .hero-card {
+      background: rgba(255,255,255,.07);
+      border: 1px solid rgba(255,255,255,.14);
+      border-radius: var(--radius);
+      padding: 10px 14px;
+      cursor: pointer;
+      transition: background .15s, border-color .15s;
+      text-align: left;
+      flex: 1; min-width: 140px; max-width: 210px;
+      color: #fff;
+      font-family: inherit;
+    }
+    .hero-card:hover { background: rgba(183,109,37,.2); border-color: rgba(183,109,37,.5); }
+    .hero-card.active { background: rgba(183,109,37,.28); border-color: var(--gold); }
+    .hero-card strong { display: block; font-size: .875rem; margin-bottom: 3px; }
+    .hero-card span { font-size: .75rem; color: rgba(255,255,255,.55); line-height: 1.35; display: block; }
+
+    /* ─── FILTER BAR ────────────────────────────────────────── */
+    .filter-bar {
+      background: var(--cream);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: var(--header-h);
+      z-index: 150;
+      height: var(--filter-h);
+      display: flex; align-items: center;
+    }
+    .filter-bar-inner {
+      max-width: 1400px; margin: 0 auto; width: 100%;
+      display: flex; align-items: center; gap: 7px;
+      padding: 0 20px;
+      flex-wrap: nowrap;
+    }
+    .filter-bar input[type="search"],
+    .filter-bar select {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 5px 9px;
+      font-size: .8rem;
+      color: var(--ink);
+      height: 32px;
+      outline: none;
+      font-family: inherit;
+    }
+    .filter-bar input[type="search"]:focus,
+    .filter-bar select:focus { border-color: var(--gold); box-shadow: 0 0 0 2px rgba(183,109,37,.18); }
+    .filter-bar input[type="search"] { width: 180px; }
+    .filter-bar select { min-width: 120px; }
+    .filter-btn {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 5px 11px;
+      font-size: .8rem;
+      cursor: pointer;
+      height: 32px;
+      color: var(--ink);
+      white-space: nowrap;
+      transition: background .12s, border-color .12s, color .12s;
+      font-family: inherit;
+    }
+    .filter-btn:hover { border-color: var(--gold); color: var(--gold); }
+    .filter-btn.active { background: var(--navy); border-color: var(--navy); color: #fff; }
+    .filter-btn.reset-btn { color: var(--muted); }
+    .filter-btn.reset-btn:hover { color: #c0392b; border-color: #c0392b; }
+    .section-counter {
+      margin-left: auto;
+      font-size: .8rem;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    /* ─── LAYOUT: SIDEBAR + MAIN ────────────────────────────── */
+    .layout {
+      max-width: 1400px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: var(--sidebar-w) 1fr;
+      align-items: start;
+    }
+
+    /* ─── SIDEBAR ───────────────────────────────────────────── */
+    .sidebar {
+      position: sticky;
+      top: calc(var(--header-h) + var(--filter-h) + 4px);
+      max-height: calc(100vh - var(--header-h) - var(--filter-h) - 24px);
+      overflow-y: auto;
+      padding: 20px 14px 40px;
+      border-right: 1px solid var(--border);
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+    }
+    .sidebar h2 {
+      font-size: .625rem;
+      font-weight: 700;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+    .sidebar ol { list-style: none; }
+    .sidebar li { margin-bottom: 1px; }
+    .sidebar a {
+      display: block;
+      font-size: .8125rem;
+      color: var(--ink);
+      text-decoration: none;
+      padding: 5px 8px;
+      border-radius: 5px;
+      border-left: 3px solid transparent;
+      transition: background .12s, border-color .12s, color .12s;
+      line-height: 1.35;
+    }
+    .sidebar a:hover { background: rgba(183,109,37,.08); color: var(--gold); }
+    .sidebar a.active {
+      background: rgba(17,38,63,.07);
+      border-left-color: var(--gold);
+      color: var(--navy);
+      font-weight: 600;
+    }
+
+    /* ─── MAIN CONTENT ──────────────────────────────────────── */
+    main { padding: 28px 40px 80px; min-width: 0; }
+
+    /* ─── ARTICLE / SECTION ─────────────────────────────────── */
+    article {
+      margin-bottom: 60px;
+      scroll-margin-top: calc(var(--header-h) + var(--filter-h) + 16px);
+    }
+    article > h2 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      padding-bottom: 12px;
+      border-bottom: 2px solid var(--border);
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    /* ─── STATUS BADGES ─────────────────────────────────────── */
+    .badge-row { margin-bottom: 4px; }
+    .badge {
+      font-size: .65rem;
+      font-weight: 700;
+      letter-spacing: .07em;
+      text-transform: uppercase;
+      padding: 3px 9px;
+      border-radius: 20px;
+      display: inline-block;
+    }
+    .badge-settled { background: var(--settled-bg); color: var(--settled); border: 1px solid var(--settled); }
+    .badge-working { background: var(--working-bg); color: var(--working); border: 1px solid var(--working); }
+    .badge-open    { background: var(--open-bg);    color: var(--open);    border: 1px solid var(--open); }
+
+    /* ─── SECTION INTRO ─────────────────────────────────────── */
+    .section-intro {
+      font-size: 1.0625rem;
+      color: var(--muted);
+      margin-bottom: 20px;
+      border-left: 4px solid var(--gold);
+      padding-left: 14px;
+      line-height: 1.6;
+    }
+
+    /* ─── RULE ATOMS ────────────────────────────────────────── */
+    .rule-atom {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 18px;
+      margin: 10px 0;
+    }
+    .rule-atom p + p { margin-top: 6px; }
+
+    /* ─── HEADINGS ──────────────────────────────────────────── */
+    h3 { font-size: 1.0625rem; color: var(--navy); margin: 24px 0 8px; }
+    h3.sub-section { border-bottom: 1px dashed var(--border); padding-bottom: 5px; }
+    h4 { font-size: .9375rem; color: var(--navy); margin: 16px 0 6px; font-weight: 600; }
+
+    /* ─── LISTS ─────────────────────────────────────────────── */
+    ul.ruled, ol.ruled {
+      margin: 8px 0 8px 22px;
+      line-height: 1.9;
+    }
+    ul.ruled li, ol.ruled li { margin-bottom: 2px; }
+
+    /* ─── DEFINITION LISTS ──────────────────────────────────── */
+    dl.rule-list { margin: 10px 0; }
+    dl.rule-list dt {
+      font-weight: 700;
+      color: var(--navy);
+      margin-top: 12px;
+    }
+    dl.rule-list dt:first-child { margin-top: 0; }
+    dl.rule-list dd { margin-left: 22px; color: var(--ink); }
+
+    /* ─── TABLES ────────────────────────────────────────────── */
+    .table-wrap {
+      overflow-x: auto;
+      margin: 16px 0;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+    }
+    table { border-collapse: collapse; width: 100%; font-size: .9rem; }
+    th {
+      background: var(--navy);
+      color: #fff;
+      font-size: .8rem;
+      font-weight: 600;
+      letter-spacing: .03em;
+      padding: 10px 14px;
+      text-align: left;
+      white-space: nowrap;
+    }
+    td { padding: 9px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    tr:last-child td { border-bottom: none; }
+    tr:nth-child(even) td { background: rgba(239,231,219,.4); }
+
+    /* ─── EXAMPLE CALLOUTS ──────────────────────────────────── */
+    details.example {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--gold);
+      border-radius: 0 var(--radius) var(--radius) 0;
+      margin: 14px 0;
+    }
+    details.example summary {
+      padding: 10px 14px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: .9rem;
+      color: var(--gold);
+      user-select: none;
+      list-style: none;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    details.example summary::before {
+      content: '▶';
+      font-size: .6rem;
+      transition: transform .15s;
+      flex-shrink: 0;
+    }
+    details.example[open] summary::before { transform: rotate(90deg); }
+    details.example summary::-webkit-details-marker { display: none; }
+    .example-body {
+      padding: 0 14px 14px;
+      font-size: .9rem;
+    }
+    .example-body p { margin-top: 6px; }
+    .example-body .calc-line {
+      background: var(--paper);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 6px 10px;
+      font-family: var(--font-mono);
+      font-size: .825rem;
+      margin: 5px 0;
+      line-height: 1.5;
+    }
+    .example-label {
+      font-size: .7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--gold);
+      margin-bottom: 4px;
+      margin-top: 10px;
+    }
+
+    /* ─── OPEN ITEM CALLOUTS (PLUM) ─────────────────────────── */
+    .open-item {
+      background: var(--open-bg);
+      border: 1px solid var(--open);
+      border-left: 5px solid var(--open);
+      border-radius: 0 var(--radius) var(--radius) 0;
+      padding: 14px 18px;
+      margin: 16px 0;
+    }
+    .open-item .open-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 700;
+      color: var(--open);
+      font-size: .9rem;
+      margin-bottom: 6px;
+    }
+    .open-item .open-header::before { content: '⚠'; font-size: 1rem; }
+    .open-item p { font-size: .9rem; color: var(--ink); margin-top: 4px; }
+    .amb-tag {
+      display: inline-block;
+      background: var(--open);
+      color: #fff;
+      font-size: .65rem;
+      font-weight: 700;
+      padding: 1px 7px;
+      border-radius: 10px;
+      margin-left: 4px;
+      letter-spacing: .04em;
+    }
+
+    /* ─── INFO CALLOUT BOXES ────────────────────────────────── */
+    .callout {
+      background: rgba(17,38,63,.04);
+      border: 1px solid rgba(17,38,63,.14);
+      border-left: 4px solid var(--navy);
+      border-radius: 0 var(--radius) var(--radius) 0;
+      padding: 12px 16px;
+      margin: 12px 0;
+      font-size: .9rem;
+    }
+    .callout.tip { border-left-color: var(--settled); background: var(--settled-bg); }
+    .callout.warn { border-left-color: var(--working); background: var(--working-bg); }
+    .callout strong { color: var(--navy); }
+
+    /* ─── RULE DIVIDER ──────────────────────────────────────── */
+    .rule-divider { border: none; border-top: 1px dashed var(--border); margin: 24px 0; }
+
+    /* ─── STUB (placeholder for upcoming sections) ───────────── */
+    .section-stub {
+      color: var(--muted);
+      font-style: italic;
+      font-size: .9rem;
+      padding: 24px 0;
+      border-top: 1px dashed var(--border);
+    }
+
+    /* ─── FOOTER ────────────────────────────────────────────── */
+    footer {
+      background: var(--navy);
+      color: rgba(255,255,255,.5);
+      text-align: center;
+      padding: 22px 20px;
+      font-size: .8125rem;
+      margin-top: 40px;
+    }
+    footer p + p { margin-top: 4px; }
+
+    /* ─── PRINT ─────────────────────────────────────────────── */
+    @media print {
+      header, .hero-paths, .filter-bar, .sidebar, footer, .skip-link { display: none !important; }
+      .layout { display: block; }
+      main { padding: 0; }
+      details { display: block; }
+      .example-body { display: block !important; }
+      details summary { font-weight: bold; }
+      article { page-break-inside: avoid; margin-bottom: 28pt; }
+      article > h2 { font-size: 14pt; border-bottom: 1pt solid #999; }
+      body { background: #fff; color: #000; font-size: 11pt; }
+      .open-item { border: 1pt solid #5a456a; padding: 8pt; }
+      article::after { content: 'ID: ' attr(id); font-size: 7pt; color: #aaa; display: block; margin-top: 4pt; }
+    }
+
+    /* ─── RESPONSIVE ────────────────────────────────────────── */
+    @media (max-width: 1220px) {
+      .sidebar { position: relative; top: 0; max-height: none; border-right: none; border-bottom: 1px solid var(--border); }
+      .layout { grid-template-columns: 1fr; }
+      .sidebar ol { display: flex; flex-wrap: wrap; gap: 4px; }
+      .sidebar li { margin: 0; }
+      .sidebar a { padding: 4px 8px; border-left: none; border-bottom: 2px solid transparent; border-radius: 4px; font-size: .75rem; }
+      .sidebar a.active { border-left: none; border-bottom-color: var(--gold); }
+    }
+    @media (max-width: 860px) {
+      main { padding: 20px; }
+      .hero-card { min-width: 130px; }
+      article > h2 { font-size: 1.25rem; }
+      .filter-bar-inner { flex-wrap: wrap; height: auto; }
+      .filter-bar { height: auto; padding: 8px 0; }
+      .filter-bar input[type="search"] { width: 100%; }
+    }
+    @media (max-width: 600px) {
+      .hero-cards { flex-direction: column; }
+      .hero-card { max-width: 100%; min-width: auto; }
+      main { padding: 14px; }
+      .filter-bar select { min-width: 100px; font-size: .75rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+
+  <!-- ── HEADER ─────────────────────────────────────────────── -->
+  <header>
+    <div class="header-inner">
+      <div class="league-badge">UPS Dynasty</div>
+      <div class="header-title">
+        <h1>UPS Salary Cap Dynasty — Official Rulebook</h1>
+        <p>Version 4 &nbsp;·&nbsp; League ID 74598 &nbsp;·&nbsp; Last Reviewed March 21, 2026</p>
+      </div>
+    </div>
+  </header>
+
+  <!-- ── READING PATH HERO CARDS ────────────────────────────── -->
+  <section class="hero-paths" aria-label="Reading paths">
+    <div class="hero-paths-inner">
+      <p class="hero-paths-label">Start here — choose your reading path</p>
+      <div class="hero-cards">
+        <button class="hero-card" onclick="setReaderPath('new-owner')" id="path-new-owner">
+          <strong>New Owner</strong>
+          <span>League structure, roster basics, and key deadlines</span>
+        </button>
+        <button class="hero-card" onclick="setReaderPath('in-season')" id="path-in-season">
+          <strong>In-Season</strong>
+          <span>Adds, drops, trades, and waiver rules during the season</span>
+        </button>
+        <button class="hero-card" onclick="setReaderPath('contract-heavy')" id="path-contract-heavy">
+          <strong>Contract Questions</strong>
+          <span>Extensions, restructures, tags, loading, and cap math</span>
+        </button>
+        <button class="hero-card" onclick="setReaderPath('commissioner')" id="path-commissioner">
+          <strong>Commissioner</strong>
+          <span>Governance, penalties, enforcement, and open items</span>
+        </button>
+        <button class="hero-card" onclick="resetFilters()" id="path-all">
+          <strong>Full Rulebook</strong>
+          <span>All 13 sections — no filters applied</span>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── FILTER BAR ──────────────────────────────────────────── -->
+  <div class="filter-bar" role="search" aria-label="Filter rulebook sections">
+    <div class="filter-bar-inner">
+      <input type="search" id="filter-search" placeholder="Search rulebook…"
+             oninput="onSearchInput(this.value)" aria-label="Search rulebook">
+
+      <select id="filter-family" onchange="onFamilyChange(this.value)" aria-label="Filter by topic">
+        <option value="">All Topics</option>
+        <option value="league">League</option>
+        <option value="calendar">Calendar</option>
+        <option value="roster">Roster</option>
+        <option value="contracts">Contracts</option>
+        <option value="draft">Draft</option>
+        <option value="auction">Auction</option>
+        <option value="acquisition">Waivers / Adds</option>
+        <option value="trades">Trades</option>
+        <option value="scoring">Scoring</option>
+        <option value="enforcement">Penalties</option>
+        <option value="reference">Reference</option>
+      </select>
+
+      <select id="filter-status" onchange="onStatusChange(this.value)" aria-label="Filter by status">
+        <option value="">All Statuses</option>
+        <option value="settled">Settled</option>
+        <option value="working">Working Draft</option>
+      </select>
+
+      <select id="filter-reader" onchange="onReaderChange(this.value)" aria-label="Filter by reading path">
+        <option value="">All Readers</option>
+        <option value="new-owner">New Owner</option>
+        <option value="in-season">In-Season</option>
+        <option value="contract-heavy">Contract Questions</option>
+        <option value="commissioner">Commissioner</option>
+      </select>
+
+      <button class="filter-btn" id="btn-deadlines" onclick="toggleDeadlines()" aria-pressed="false">
+        Deadlines Only
+      </button>
+      <button class="filter-btn" id="btn-expand" onclick="toggleExpandAll()">
+        Expand All Examples
+      </button>
+      <button class="filter-btn reset-btn" onclick="resetFilters()">↺ Reset</button>
+
+      <span class="section-counter" id="section-counter" aria-live="polite">13 of 13 sections visible</span>
+    </div>
+  </div>
+
+  <!-- ── LAYOUT ─────────────────────────────────────────────── -->
+  <div class="layout">
+
+    <!-- Sidebar TOC -->
+    <nav class="sidebar" aria-label="Table of contents">
+      <h2>Contents</h2>
+      <ol>
+        <li><a href="#rule-welcome">1. About This Constitution</a></li>
+        <li><a href="#rule-league-identity">2. League Overview &amp; Format</a></li>
+        <li><a href="#rule-calendar">3. Season Calendar &amp; Deadlines</a></li>
+        <li><a href="#rule-roster">4. Your Roster</a></li>
+        <li><a href="#rule-contracts">5. Contracts &amp; Salary Cap</a></li>
+        <li><a href="#rule-draft">6. The Rookie Draft</a></li>
+        <li><a href="#rule-auction">7. Free Agent Auction</a></li>
+        <li><a href="#rule-adds">8. Adding Players</a></li>
+        <li><a href="#rule-drops">9. Dropping Players</a></li>
+        <li><a href="#rule-trades">10. Trades &amp; Tags</a></li>
+        <li><a href="#rule-scoring">11. Scoring &amp; Standings</a></li>
+        <li><a href="#rule-penalties">12. Penalties &amp; Remedies</a></li>
+        <li><a href="#rule-quickref">13. Quick Reference</a></li>
+      </ol>
+    </nav>
+
+    <!-- Main content -->
+    <main id="main-content">
+
+      <!-- ══════════════════════════════════════════════════════
+           SECTION 1 · ABOUT THIS CONSTITUTION
+           ══════════════════════════════════════════════════════ -->
+      <article
+        id="rule-welcome"
+        data-family="league"
+        data-status="settled"
+        data-reader="new-owner in-season contract-heavy commissioner"
+        data-has-deadline="false"
+        data-rule-version="v4"
+        data-last-reviewed="2026-03-21"
+      >
+        <div class="badge-row">
+          <span class="badge badge-settled">Settled</span>
+        </div>
+        <h2>1. About This Constitution</h2>
+
+        <p class="section-intro">
+          UPS Salary Cap Dynasty is a 12-franchise, full-contract dynasty league that has operated continuously since 2010. This constitution is the single authoritative reference for how every franchise is managed — from roster construction and contract obligations to transaction windows and league governance.
+        </p>
+
+        <h3 class="sub-section">Purpose and authority</h3>
+        <p>This document governs all rules not administered automatically by the MFL platform. Where platform settings and this constitution conflict, the Commissioner will adjudicate. The Commissioner enforces this constitution in good faith and in the best interest of competitive fairness. Where the constitution is silent on a matter, the Commissioner may rule directly or put the question to a league vote.</p>
+
+        <div class="callout">
+          <strong>Rule changes.</strong> Minor rule changes require a unanimous Competition Committee vote, or a 51% league vote if the CC is not unanimous. In-season changes require a 90% threshold. Changes take effect at the start of the season in which they are adopted — not mid-season — unless the vote itself specifies otherwise.
+        </div>
+
+        <h3 class="sub-section">What this constitution covers</h3>
+        <p>Thirteen sections govern the complete lifecycle of franchise ownership — from how rosters are built and how contracts are priced, to how transactions are processed, how trades work, and how the league is run from February through the end of the season each December. Every contract rule includes a worked dollar example so owners can verify their own math.</p>
+
+        <h3 class="sub-section">How this document is organized</h3>
+        <div class="rule-atom" id="ra-section-overview">
+          <dl class="rule-list">
+            <dt>Sections 1–4</dt>
+            <dd>Foundation — league identity, governance, the season calendar, and roster structure. New owners will want to read these first.</dd>
+            <dt>Section 5</dt>
+            <dd>Contracts &amp; Salary Cap — the most detailed section. Covers all contract types, cap math, guarantees, cut penalties, extensions, restructures, and front/back loading. Every concept has a worked example.</dd>
+            <dt>Sections 6–10</dt>
+            <dd>Transactions — how players enter and leave rosters through the rookie draft, free agent auction, waivers, drops, and trades. Franchise and transition tags are covered in Section 10.</dd>
+            <dt>Sections 11–12</dt>
+            <dd>Competition and enforcement — scoring, standings, playoffs, penalties, and commissioner remedies. Section 12 is flagged as working draft while under formal review.</dd>
+            <dt>Section 13</dt>
+            <dd>Quick Reference — key numbers, the full deadlines calendar, and a glossary. Start here if you just need a number or a date.</dd>
+          </dl>
+        </div>
+
+        <h3 class="sub-section">Reading this document</h3>
+        <p>Owners can filter and search using the toolbar above this section. Five preset reading paths are available at the top of the page — click any of them to immediately show only the sections relevant to your situation:</p>
+
+        <div class="rule-atom" id="ra-reading-paths">
+          <dl class="rule-list">
+            <dt>New Owner</dt>
+            <dd>Sections 1, 2, 3, 4, and 13 — league structure, roster basics, and key dates.</dd>
+            <dt>In-Season</dt>
+            <dd>Sections 3, 4, 7, 8, 9, 10, and 11 — waiver rules, add/drop windows, trades, and lineup management during the season.</dd>
+            <dt>Contract Questions</dt>
+            <dd>Sections 5, 6, 7, 8, 9, and 10 — every rule touching contracts, cap math, extensions, restructures, tags, and loading.</dd>
+            <dt>Commissioner</dt>
+            <dd>All sections, with emphasis on Sections 2, 3, 12, and 13 — governance, voting thresholds, enforcement, and open items.</dd>
+            <dt>Full Rulebook</dt>
+            <dd>All filters cleared. All 13 sections visible.</dd>
+          </dl>
+        </div>
+
+        <p style="margin-top: 14px;">The <strong>Deadlines Only</strong> toggle in the toolbar shows only sections that contain time-sensitive rules. The <strong>sidebar</strong> provides direct navigation to any section and highlights the active section as owners scroll.</p>
+
+        <h3 class="sub-section">Rule status indicators</h3>
+        <p>Each section carries a status badge that tells owners how to treat its content:</p>
+        <div class="rule-atom" id="ra-status-badges">
+          <dl class="rule-list">
+            <dt><span class="badge badge-settled">Settled</span></dt>
+            <dd>Finalized and in effect. No outstanding disputes or pending changes.</dd>
+            <dt><span class="badge badge-working">Working Draft</span></dt>
+            <dd>Mostly in place, but some details are still being confirmed or formalized. Treat the content as authoritative unless a specific rule within is flagged otherwise.</dd>
+          </dl>
+        </div>
+
+        <p style="margin-top: 12px;">Where a specific rule is not yet finalized, it will appear in a callout like this one:</p>
+        <div class="open-item">
+          <div class="open-header">This rule is not yet finalized <span class="amb-tag">AMB-000</span></div>
+          <p>The current provisional understanding is described here. Owners must not rely on an unfinalized rule for a significant transaction without first confirming with the Commissioner. Each open item carries a tracking number for reference.</p>
+        </div>
+
+        <h3 class="sub-section">Contract examples</h3>
+        <p>Every contract rule in Sections 5–10 comes with at least one worked example showing exact dollar amounts. Examples are collapsed by default — click the arrow to expand any individual one, or use <strong>Expand All Examples</strong> in the toolbar to open all of them at once.</p>
+
+        <details class="example">
+          <summary>Example — How contract examples are formatted throughout this constitution</summary>
+          <div class="example-body">
+            <p>Each example walks through the math step by step using real position labels and dollar amounts:</p>
+            <div class="calc-line">Player: WR on a 3-year contract · $20,000/yr · Total Contract Value (TCV) = $60,000</div>
+            <div class="calc-line">Guarantee = TCV × 75% = $45,000</div>
+            <div class="calc-line">Salary earned by November 1 = 50% of Year 1 ($20,000) = $10,000</div>
+            <div class="calc-line">Cap penalty if released in November = $45,000 − $10,000 = $35,000</div>
+            <p style="margin-top:10px;">Player names used in examples throughout this document are illustrative. They do not reflect actual contracts in the league.</p>
+          </div>
+        </details>
+
+        <h3 class="sub-section">Version and sources</h3>
+        <div class="rule-atom" id="ra-doc-provenance">
+          <p>This is <strong>Rulebook v4</strong>, synthesized from the following authoritative sources:</p>
+          <ul class="ruled" style="margin-top: 8px;">
+            <li><strong>UPS Rule Book v2024.2</strong> — primary written source of truth for all current rules</li>
+            <li><strong>UPS Contract Rules</strong> — supplemental contract detail and penalty rates</li>
+            <li><strong>League application code (V1)</strong> — confirmed active rules for tags, extensions, and trade salary calculations</li>
+            <li><strong>MFL League API, League ID 74598</strong> — 2026 roster limits, scoring settings, and event calendar confirmed</li>
+            <li><strong>Historical MFL settings and rulebooks</strong> from 2010–2025</li>
+          </ul>
+          <p style="margin-top:10px; color: var(--muted); font-size: .875rem;">Last reviewed: <strong>March 21, 2026.</strong> Where a conflict exists between this document and a direct communication from the Commissioner, the Commissioner's communication governs for the current season.</p>
+        </div>
+
+      </article>
+
+      <!-- ══════════════════════════════════════════════════════
+           SECTION 2 · LEAGUE OVERVIEW & FORMAT
+           ══════════════════════════════════════════════════════ -->
+      <article
+        id="rule-league-identity"
+        data-family="league"
+        data-status="settled"
+        data-reader="new-owner commissioner"
+        data-has-deadline="false"
+        data-rule-version="v4"
+        data-last-reviewed="2026-03-21"
+      >
+        <div class="badge-row"><span class="badge badge-settled">Settled</span></div>
+        <h2>2. League Overview &amp; Format</h2>
+
+        <p class="section-intro">
+          UPS Salary Cap Dynasty is a 12-franchise, full-IDP, salary cap dynasty league hosted on MyFantasyLeague (League ID 74598). The league has operated continuously since 2010 and runs under a hard salary cap, a structured contract system, and a live application that tracks all contracts, transactions, and deadlines.
+        </p>
+
+        <h3 class="sub-section">League at a glance</h3>
+        <div class="rule-atom" id="ra-league-basics">
+          <dl class="rule-list">
+            <dt>Franchises</dt>
+            <dd>12 franchises organized into 4 divisions of 3. Each franchise is owned and managed by a single owner.</dd>
+            <dt>Platform</dt>
+            <dd>MyFantasyLeague (MFL), League ID 74598. MFL handles lineup locks, scoring, waiver processing, and auction mechanics. This constitution governs everything not administered by the platform.</dd>
+            <dt>Salary cap</dt>
+            <dd><strong>$300,000.49</strong> hard cap, enforced in-season. No cap limit during the off-season. A cap floor of <strong>$260,000</strong> must be reached by auction completion or the Contract Deadline Date, whichever comes first.</dd>
+            <dt>Annual dues</dt>
+            <dd><strong>$200 per franchise.</strong> First installment ($100) is due before the Free Agent Auction. Second installment ($100) is due by the Thanksgiving trade deadline. Payments are made via Venmo to @Keith-Creelman. Late payments incur a $3,000 cap penalty for each week overdue.</dd>
+          </dl>
+        </div>
+
+        <h3 class="sub-section">Divisions (2026)</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Division</th><th>Franchises</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>ICE UP SON!</strong></td>
+                <td>L.A. Looks · CBP · Gride</td>
+              </tr>
+              <tr>
+                <td><strong>LEGION OF BOOM</strong></td>
+                <td>Pure Greatness · HammerTime · The Long Haulers</td>
+              </tr>
+              <tr>
+                <td><strong>MAKE IT RAIN</strong></td>
+                <td>Sex Manther · Real Deal Creel · C-Town Chivalry</td>
+              </tr>
+              <tr>
+                <td><strong>DOG POUND 4 LIFE</strong></td>
+                <td>Blake Bombers · Cleon Ca$h · Hawks</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 class="sub-section">Division realignment</h3>
+        <div class="rule-atom" id="ra-realignment">
+          <p>Divisions are realigned every three years. The realignment cycle follows the years 2026, 2029, 2032, and so on. The formula used to determine which franchises land in which division is currently under review for the 2026 realignment — the updated methodology will be published before realignment takes effect.</p>
+          <p style="margin-top:8px;">Historical realignment results and the full methodology history will be documented in a separate appendix.</p>
+        </div>
+
+        <h3 class="sub-section">Commissioner and governance</h3>
+        <div class="rule-atom" id="ra-governance">
+          <dl class="rule-list">
+            <dt>Commissioner</dt>
+            <dd>Keith Creelman. The Commissioner manages the day-to-day operation of the league, enforces this constitution, resolves disputes, and handles administrative tasks that do not require a vote. The Commissioner may act unilaterally on administrative and logistical matters; established rules require a league vote to change.</dd>
+            <dt>Competition Committee</dt>
+            <dd>A three-person body — Keith Creelman, Ryan Bousquet, and Eric Mannila — that evaluates and proposes rule changes each off-season. The Committee reviews proposals annually in April, and changes adopted at that meeting take effect for the upcoming season only. In-season rule changes require a higher threshold. A formal voting process for proposals that go beyond the Committee will be established and documented here when finalized.</dd>
+          </dl>
+          <div class="open-item" style="margin-top: 14px;">
+            <div class="open-header">Formal governance process — pending documentation <span class="amb-tag">AMB-001</span></div>
+            <p>The specific voting thresholds, proposal submission process, and owner participation requirements are being formalized. Until published, the Commissioner will handle all rule proposals through the Competition Committee and league vote on a case-by-case basis.</p>
+          </div>
+        </div>
+
+        <h3 class="sub-section">Payouts (2026)</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Finish</th><th>Payout</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>League Champion</td><td>$900</td></tr>
+              <tr><td>Runner-Up</td><td>$450</td></tr>
+              <tr><td>3rd Place</td><td>$150</td></tr>
+              <tr><td>Division Winners (×4)</td><td>$50 each · $200 total</td></tr>
+              <tr><td>Weekly High Score (Weeks 1–17)</td><td>$30/week · $510 total</td></tr>
+              <tr><td>Hawktuah Bowl Winner</td><td>$90</td></tr>
+              <tr><td>MFL platform fee</td><td>$100 (drawn from dues pool)</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p style="font-size:.875rem; color: var(--muted); margin-top: 8px;">Total prize pool: $2,400. Total dues collected: $2,400 (12 × $200).</p>
+
+        <h3 class="sub-section">Departing owners and dispersal</h3>
+        <div class="rule-atom" id="ra-dispersal">
+          <p>When an owner departs or a franchise becomes available, a <strong>Dispersal Draft</strong> governs the transition. The departing franchise's assets are pooled and made available via a snake draft conducted live on Discord. The Commissioner sets the draft order and facilitates the process. Incoming owners may contribute assets as negotiated.</p>
+          <p style="margin-top: 8px;">Owners who fail to actively manage their roster, submit lineups, or meet financial obligations may face commissioner action up to and including franchise reassignment. See Section 12 for the full penalty schedule.</p>
+        </div>
+
+      </article>
+
+      <!-- ══════════════════════════════════════════════════════
+           SECTION 3 · SEASON CALENDAR & KEY DEADLINES
+           ══════════════════════════════════════════════════════ -->
+      <article
+        id="rule-calendar"
+        data-family="calendar"
+        data-status="settled"
+        data-reader="new-owner in-season commissioner"
+        data-has-deadline="true"
+        data-rule-version="v4"
+        data-last-reviewed="2026-03-22"
+      >
+        <div class="badge-row"><span class="badge badge-settled">Settled</span></div>
+        <h2>3. Season Calendar &amp; Key Deadlines</h2>
+
+        <p class="section-intro">
+          After the fantasy playoffs close in early January, the league enters a brief off-season through February. The operational year restarts March 1 — contracts roll forward, the tag and extension windows open, and the off-season transaction calendar gets underway. Most deadlines are anchored to NFL events rather than fixed calendar dates, so they shift slightly each year while remaining predictable.
+        </p>
+
+        <div class="callout">
+          <strong>Source of record.</strong> Dates marked <em>widget override</em> come directly from the live league countdown widget. Dates marked <em>schedule-derived</em> are calculated from the 2026 NFL schedule file. Where neither source has a confirmed value, the entry is flagged for Commissioner confirmation rather than estimated.
+        </div>
+
+        <!-- ── OFF-SEASON PHASE ── -->
+        <h3 class="sub-section">Off-season — New league year through Rookie Draft weekend</h3>
+
+        <div class="rule-atom" id="ra-off-season">
+          <dl class="rule-list">
+
+            <dt data-deadline="true">New league year opens · ~March 1</dt>
+            <dd>All contracts advance one year. Rookie contracts entering their final year become expiring. Dead cap carries into the new year. The league application refreshes all contract statuses. The Commissioner may extend the processing window to March 15 if system updates require it.</dd>
+
+            <dt data-deadline="true">Tag window closes · Memorial Day minus 4 days · <strong>2026: May 21, 12:00 PM ET</strong></dt>
+            <dd>Each owner may tag up to one offensive player and one defensive/special teams player from their roster. Only expired non-rookie contracts are tag-eligible. Tagged players are retained and their salary is calculated based on where they ranked among their position group during the prior season (Weeks 1–17 UPS total points). The tag window closes 4 days before Memorial Day Sunday. See <a href="#rule-trades">Section 10</a> for full tag rules and salary tier math.</dd>
+
+            <dt data-deadline="true">Rookie extension deadline · Same as tag deadline · <strong>2026: May 21, 12:00 PM ET</strong></dt>
+            <dd>This is the final date for an owner to extend a player whose rookie contract is expiring. After this deadline, unextended expiring rookies are placed into the Expired Rookie Auction. See <a href="#rule-contracts">Section 5</a> for extension rules.</dd>
+
+            <dt data-deadline="true">Expired Rookie Auction · Tied to Rookie Draft weekend · <strong>2026: ⚑ date TBC</strong></dt>
+            <dd>Expired rookie contracts that were not extended are placed into the Expired Rookie Auction. These players receive a regular auction-style contract, comparable to a Free Agent Auction player. They cannot be cut prior to the Contract Deadline Date. The auction is conducted near Rookie Draft weekend; the 2026 Expired Rookie Auction start date is not yet confirmed in the widget — <em>flag for Commissioner confirmation.</em></dd>
+
+            <dt data-deadline="true">Rookie Draft · Sunday of Memorial Day weekend · <strong>2026: May 24, 6:30 PM ET</strong></dt>
+            <dd>The annual rookie draft is held live on Discord, always on the Sunday of Memorial Day weekend. All owners must be present in person, reachable by cell phone, or connected through the Discord livestream. Rounds 1–5 order is based on prior season playoff results. Round 6 is randomized. See <a href="#rule-draft">Section 6</a> for full draft rules.</dd>
+
+          </dl>
+        </div>
+
+        <!-- ── AUCTION / PRE-SEASON PHASE ── -->
+        <h3 class="sub-section">Auction &amp; pre-season — Cut-down through Week 1</h3>
+
+        <div class="rule-atom" id="ra-auction-preseason">
+          <dl class="rule-list">
+
+            <dt data-deadline="true">Roster cut-down day · <strong>2026: July 29, 12:00 PM ET</strong></dt>
+            <dd>Owners must reduce their roster to within legal limits (active + taxi + IR) before the Free Agent Auction opens. Players released during cut-down become available at the auction. First dues installment ($100) must be paid before an owner may participate in the auction.</dd>
+
+            <dt data-deadline="true">Free Agent Auction starts · Last weekend of July (may slide to early August) · <strong>2026: July 31, 12:00 PM ET</strong></dt>
+            <dd>All unsigned players not on a roster are available in the annual live auction. The auction starts on the last weekend of July and typically runs 10–12 active days. It may slide into early August if significant owner availability conflicts arise. Recent history: 2023 ran July 29 – Aug 8 (11 days); 2024 ran July 27 – Aug 7 (12 days); 2025 ran Aug 3 – Aug 13 (11 days). See <a href="#rule-auction">Section 7</a> for full auction rules.</dd>
+
+            <dt data-deadline="true">Contract Deadline Date · Last Sunday before NFL Week 1 · <strong>2026: September 6</strong></dt>
+            <dd>By this date, all of the following must be filed and processed:
+              <ul class="ruled" style="margin-top: 6px;">
+                <li>Auction contracts longer than 1 year</li>
+                <li>Contract restructures</li>
+                <li>Pre-season waiver players receiving multi-year contracts</li>
+                <li>Extensions for players already under contract who are entering their final year</li>
+              </ul>
+              Any contract not on file by this deadline reverts to a 1-year deal at the bid or pick-up price. The cap floor ($260,000) must also be reached by this date. See <a href="#rule-contracts">Section 5</a> for contract rules.
+            </dd>
+
+            <dt data-deadline="true">NFL Week 1 · <strong>2026: September 10</strong></dt>
+            <dd>The regular season begins. Lineups lock at individual NFL game kickoff times. In-season transaction rules take effect for all roster moves made from this point forward.</dd>
+
+            <dt data-deadline="true">Pre-season MYM deadline · Before Week 3 opens · <strong>2026: September 24</strong> <em>(widget override; Week 3 Thursday kickoff is 8:15 PM ET same day)</em></dt>
+            <dd>Owners have until this date to file a Mid-Year Multi (MYM) contract on any player acquired during the pre-season window (before Week 1). The deadline falls on the same calendar day as the Week 3 Thursday night opener — file before kickoff. After this deadline, pre-season acquisitions that were not contracted are locked at a 1-year deal. See <a href="#rule-adding">Section 8</a> for MYM rules.</dd>
+
+            <dt data-deadline="true">In-season extension window closes · Before Week 5 opens · <strong>2026: October 7</strong> <em>(widget override; Week 4 ends ~Oct 4–5, Week 5 opens Oct 8)</em></dt>
+            <dd>There are two groups of players eligible for extensions after Week 1:
+              <ul class="ruled" style="margin-top: 6px;">
+                <li><strong>Players already under contract before the auction</strong> who are entering the final year of that contract — owners have until October 7 to extend.</li>
+                <li><strong>Players acquired at auction or on pre-season waivers</strong> who were not already under a prior contract — owners also have until October 7 to file a multi-year deal, which is separate from the pre-season MYM window.</li>
+              </ul>
+              After October 7, no extensions may be processed until the following off-season.
+            </dd>
+
+          </dl>
+        </div>
+
+        <!-- ── IN-SEASON PHASE ── -->
+        <h3 class="sub-section">In-season — Weeks 1 through season complete</h3>
+
+        <div class="rule-atom" id="ra-inseason-deadlines">
+          <dl class="rule-list">
+
+            <dt data-deadline="true">Second dues installment · Due by the trade deadline</dt>
+            <dd>The second $100 installment is due no later than the Thanksgiving trade deadline. Owners more than one week late incur a $3,000 cap penalty for each week overdue.</dd>
+
+            <dt data-deadline="true">In-season MYM deadline · 2 weeks after acquisition</dt>
+            <dd>A player added during the season — via waivers, free agency, or trade — must receive a Mid-Year Multi (MYM) contract within 2 weeks of landing on the roster, or they revert to a 1-year deal at the pick-up price. The 2-week clock starts from the date the player was added. See <a href="#rule-adding">Section 8</a> for full MYM rules.</dd>
+
+            <dt data-deadline="true">Trade deadline · Kickoff of the first NFL Thanksgiving game · <strong>2026: November 26</strong></dt>
+            <dd>No trades — players, picks, or cap adjustments — may be processed after the kickoff of the first NFL Thanksgiving Day game. The window closes at the exact moment of kickoff. Trades pending acceptance at kickoff are voided. The 2026 exact kickoff time should be confirmed against the NFL schedule once released; the date of November 26 is confirmed from the league database. See <a href="#rule-trades">Section 10</a> for full trade rules.</dd>
+
+            <dt>Regular season ends · NFL Week 14</dt>
+            <dd>The final week of regular season play. Playoff seedings are determined by record, then all-play record as a tiebreaker. Division winners earn automatic playoff berths.</dd>
+
+            <dt>Playoffs · NFL Weeks 15–17</dt>
+            <dd>The UPS postseason runs across NFL Weeks 15–17. Six teams qualify: the 4 division winners plus the next 2 best records. The bracket plays out over three weeks, with Week 17 serving as the final week of the tournament. See <a href="#rule-scoring">Section 11</a> for full playoff format and seeding rules.</dd>
+
+            <dt>UPS Bowl &amp; HawkTuah Bowl · NFL Week 17 (final week of playoffs)</dt>
+            <dd>Week 17 is the final week of the UPS postseason. The <strong>UPS Bowl</strong> is the league championship game between the two remaining playoff teams. The <strong>HawkTuah Bowl</strong> is the consolation game between the two teams eliminated in the Week 16 semifinals. Both games are scored on the standard MFL platform within the same Week 17 window.</dd>
+
+            <dt>Season complete · Early January</dt>
+            <dd>Week 17 spans December 31, 2026 through January 4, 2027. After all Week 17 scoring is finalized, the Commissioner distributes payouts and publishes final standings. January and February are the off-season. The new league year begins March 1.</dd>
+
+          </dl>
+        </div>
+
+        <!-- ── CALENDAR SUMMARY TABLE ── -->
+        <h3 class="sub-section">2026 season at a glance</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Event</th><th>Anchor rule</th><th>2026 confirmed date</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>New league year opens</td><td>~March 1</td><td><strong>March 1, 2026</strong> · widget override</td></tr>
+              <tr><td>Tag window closes / Rookie extension deadline</td><td>Memorial Day − 4 days</td><td><strong>May 21, 2026 · 12:00 PM ET</strong> · widget override</td></tr>
+              <tr><td>Expired Rookie Auction</td><td>Near Rookie Draft weekend</td><td>⚑ Confirm with Commissioner</td></tr>
+              <tr><td>Rookie Draft</td><td>Sunday of Memorial Day weekend</td><td><strong>May 24, 2026 · 6:30 PM ET</strong> · widget override</td></tr>
+              <tr><td>Roster cut-down day</td><td>2 days before FA Auction</td><td><strong>July 29, 2026 · 12:00 PM ET</strong> · widget override</td></tr>
+              <tr><td>Free Agent Auction starts</td><td>Last weekend of July</td><td><strong>July 31, 2026 · 12:00 PM ET</strong> · widget override</td></tr>
+              <tr><td>Contract Deadline Date</td><td>Last Sunday before Week 1</td><td><strong>September 6, 2026</strong> · widget override</td></tr>
+              <tr><td>NFL Week 1 opens</td><td>NFL calendar</td><td><strong>September 10, 2026</strong> · schedule-derived</td></tr>
+              <tr><td>Pre-season MYM deadline</td><td>Before Week 3 opens</td><td><strong>September 24, 2026</strong> · widget override</td></tr>
+              <tr><td>In-season extension window closes</td><td>Before Week 5 opens</td><td><strong>October 7, 2026</strong> · widget override</td></tr>
+              <tr><td>Trade deadline</td><td>Kickoff of first Thanksgiving game</td><td><strong>November 26, 2026</strong> · ⚑ confirm kickoff time</td></tr>
+              <tr><td>Regular season ends (Week 14)</td><td>NFL Week 14</td><td><strong>Dec 10–14, 2026</strong> · schedule-derived</td></tr>
+              <tr><td>Playoffs — Weeks 15–17</td><td>NFL Weeks 15–17</td><td><strong>Dec 17, 2026 – Jan 4, 2027</strong> · schedule-derived</td></tr>
+              <tr><td style="padding-left:1.5em; color: var(--muted);">↳ Week 15 · Round 1</td><td>NFL Week 15</td><td><strong>Dec 17–21, 2026</strong> · schedule-derived</td></tr>
+              <tr><td style="padding-left:1.5em; color: var(--muted);">↳ Week 16 · Semifinals</td><td>NFL Week 16</td><td><strong>Dec 24–28, 2026</strong> · schedule-derived</td></tr>
+              <tr><td style="padding-left:1.5em; color: var(--muted);">↳ Week 17 · UPS Bowl &amp; HawkTuah Bowl</td><td>NFL Week 17</td><td><strong>Dec 31, 2026 – Jan 4, 2027</strong> · schedule-derived</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p style="font-size:.875rem; color: var(--muted); margin-top: 8px;">
+          <strong>Widget override</strong> = sourced directly from the live league countdown widget. <strong>Schedule-derived</strong> = calculated from the 2026 NFL schedule file. <strong>⚑</strong> = not yet confirmed; Commissioner must verify before publication.
+        </p>
+
+      </article>
+
+      <!-- ══════════════════════════════════════════════════════
+           SECTION 4 · YOUR ROSTER  (stub)
+           ══════════════════════════════════════════════════════ -->
+      <article
+        id="rule-roster"
+        data-family="roster"
+        data-status="settled"
+        data-reader="new-owner in-season contract-heavy commissioner"
+        data-has-deadline="true"
+        data-rule-version="v4"
+        data-last-reviewed="2026-03-21"
+      >
+        <div class="badge-row"><span class="badge badge-settled">Settled</span></div>
+        <h2>4. Your Roster (Active, Taxi, IR)</h2>
+        <p class="section-stub">Coming after Section 3 is approved. Covers active roster limits, taxi squad rules, IR eligibility, special circumstance designations, starting lineup slots, and the 3-QB cap rule.</p>
+      </article>
+
+      <!-- ══════════════════════════════════════════════════════
+           SECTION 5 · CONTRACTS & SALARY CAP  (stub)
+           ══════════════════════════════════════════════════════ -->
+      <article
+        id="rule-contracts"
+        data-family="contracts"
+        data-status="settled"
+        data-reader="new-owner in-season contract-heavy commissioner"
+        data-has-deadline="true"
+        data-rule-version="v4"
+        data-last-reviewed="2026-03-21"
+      >
+        <div class="badge-row"><span class="badge badge-settled">Settled</span></div>
+        <h2>5. Contracts &amp; Salary Cap</h2>
+        <p class="section-stub">Coming after Section 4 is approved. This is the most example-heavy section — covering all four contract types, cap math, 75% guarantee, cap penalties, extensions (both schedules), Mid-Year Multis, restructures, front/back loading, and the rookie team option. Every concept will include a worked dollar example.</p>
+      </article>
+
+      <!-- ══════════════════════════════════════════════════════
+           SECTION 6 · THE ROOKIE DRAFT  (stub)
+           ══════════════════════════════════════════════════════ -->
+      <article
+        id="rule-draft"
+        data-family="draft"
+        data-status="settled"
+        data-reader="new-owner contract-heavy commissioner"
+        data-has-deadline="true"
+        data-rule-version="v4"
+        data-last-reviewed="2026-03-21"
+      >
+        <div class="badge-row"><span class="badge badge-settled">Settled</span></div>
+        <h2>6. The Rookie Draft</h2>
+        <p class="section-stub">Coming after Section 5 is approved. Covers draft format, salary scale by round and pick, taxi squad eligibility, the expired rookie auction, and the rookie team option.</p>
+      </article>
+
+      <!-- ══════════════════════════════════════════════════════
+           SECTION 7 · FREE AGENT AUCTION  (stub)
+           ══════════════════════════════════════════════════════ -->
+      <article
+        id="rule-auction"
+        data-family="auction"
+        data-status="settled"
+        data-reader="new-owner in-season contract-heavy commissioner"
+        data-has-deadline="true"
+        data-rule-version="v4"
+        data-last-reviewed="2026-03-21"
+      >
+        <div class="badge-row"><span class="badge badge-settled">Settled</span></div>
+        <h2>7. Free Agent Auction</h2>
+        <p class="section-stub">Coming after Section 6 is approved. Covers auction format, 36-hour hold rule, nomination cadence, roster limits during auction, cap floor requirement, and contract options won at auction.</p>
+      </article>
+
+      <!-- ══════════════════════════════════════════════════════
+           SECTION 8 · ADDING PLAYERS  (stub)
+           ══════════════════════════════════════════════════════ -->
+      <article
+        id="rule-adds"
+        data-family="acquisition"
+        data-status="settled"
+        data-reader="in-season contract-heavy commissioner"
+        data-has-deadline="true"
+        data-rule-version="v4"
+        data-last-reviewed="2026-03-21"
+      >
+        <div class="badge-row"><span class="badge badge-settled">Settled</span></div>
+        <h2>8. Adding Players (Waivers &amp; FCFS)</h2>
+        <p class="section-stub">Coming after Section 7 is approved. Covers BBID waiver runs (Thu–Sun 9 AM), FCFS window, tiebreaker order, salary assignment, and MYM/extension eligibility for in-season pickups.</p>
+      </article>
+
+      <!-- ══════════════════════════════════════════════════════
+           SECTION 9 · DROPPING PLAYERS  (stub)
+           ══════════════════════════════════════════════════════ -->
+      <article
+        id="rule-drops"
+        data-family="acquisition"
+        data-status="settled"
+        data-reader="in-season contract-heavy commissioner"
+        data-has-deadline="false"
+        data-rule-version="v4"
+        data-last-reviewed="2026-03-21"
+      >
+        <div class="badge-row"><span class="badge badge-settled">Settled</span></div>
+        <h2>9. Dropping Players</h2>
+        <p class="section-stub">Coming after Section 8 is approved. Covers when drops are blocked, cap penalty calculations with examples, WW contract penalty rate, and the off-season re-bidding restriction.</p>
+      </article>
+
+      <!-- ══════════════════════════════════════════════════════
+           SECTION 10 · TRADES & TAGS  (stub)
+           ══════════════════════════════════════════════════════ -->
+      <article
+        id="rule-trades"
+        data-family="trades"
+        data-status="settled"
+        data-reader="new-owner in-season contract-heavy commissioner"
+        data-has-deadline="true"
+        data-rule-version="v4"
+        data-last-reviewed="2026-03-21"
+      >
+        <div class="badge-row"><span class="badge badge-settled">Settled</span></div>
+        <h2>10. Trades, Tags &amp; Salary Movement</h2>
+        <p class="section-stub">Coming after Section 9 is approved. Covers trade window, salary cap in trades (50% rule with examples), eligible assets, response windows, franchise and transition tags (full tier table, salary formula, 10% bump floor), and tag compensation.</p>
+      </article>
+
+      <!-- ══════════════════════════════════════════════════════
+           SECTION 11 · SCORING & STANDINGS  (stub)
+           ══════════════════════════════════════════════════════ -->
+      <article
+        id="rule-scoring"
+        data-family="scoring"
+        data-status="working"
+        data-reader="new-owner in-season commissioner"
+        data-has-deadline="false"
+        data-rule-version="v4"
+        data-last-reviewed="2026-03-21"
+      >
+        <div class="badge-row"><span class="badge badge-working">Working Draft</span></div>
+        <h2>11. Scoring &amp; Standings</h2>
+        <p class="section-stub">Coming after Section 10 is approved. Covers starting lineup slots, known scoring categories (TE 1.5× multiplier, IDP scoring, K/P), standings format, victory points, tiebreakers, division seeding, playoff bracket, and Hawktuah Bowl. Exact scoring point values will be confirmed from the live MFL API.</p>
+      </article>
+
+      <!-- ══════════════════════════════════════════════════════
+           SECTION 12 · PENALTIES & REMEDIES  (stub)
+           ══════════════════════════════════════════════════════ -->
+      <article
+        id="rule-penalties"
+        data-family="enforcement"
+        data-status="working"
+        data-reader="in-season commissioner"
+        data-has-deadline="false"
+        data-rule-version="v4"
+        data-last-reviewed="2026-03-21"
+      >
+        <div class="badge-row"><span class="badge badge-working">Working Draft</span></div>
+        <h2>12. Penalties &amp; Commissioner Remedies</h2>
+        <p class="section-stub">Coming after Section 11 is approved. This section is explicitly flagged for overhaul in v2024.2. It will cover confirmed penalties (late dues, missed nominations, over-cap, trade non-response, logo fee) and the incomplete lineup penalty ladder. All unconfirmed items will be clearly marked open.</p>
+      </article>
+
+      <!-- ══════════════════════════════════════════════════════
+           SECTION 13 · QUICK REFERENCE  (stub)
+           ══════════════════════════════════════════════════════ -->
+      <article
+        id="rule-quickref"
+        data-family="reference"
+        data-status="settled"
+        data-reader="new-owner in-season contract-heavy commissioner"
+        data-has-deadline="true"
+        data-rule-version="v4"
+        data-last-reviewed="2026-03-21"
+      >
+        <div class="badge-row"><span class="badge badge-settled">Settled</span></div>
+        <h2>13. Quick Reference</h2>
+        <p class="section-stub">Coming last. Will contain: key numbers at a glance, full season deadlines table, contract limits cheat sheet, rookie salary table, extension rate table, tag tier table, and full glossary.</p>
+      </article>
+
+    </main>
+  </div><!-- /.layout -->
+
+  <footer>
+    <p>UPS Salary Cap Dynasty &nbsp;·&nbsp; Official Rulebook v4 &nbsp;·&nbsp; League ID 74598</p>
+    <p>This document is the authoritative owner reference for all league rules. Contact the commissioner for rule disputes or open items.</p>
+  </footer>
+
+  <script>
+    // ─── FILTER STATE ─────────────────────────────────────────────
+    const filterState = {
+      search: '',
+      family: '',
+      status: '',
+      reader: '',
+      deadlinesOnly: false
+    };
+    const TOTAL_SECTIONS = 13;
+
+    // ─── APPLY FILTERS ────────────────────────────────────────────
+    function applyFilters() {
+      const articles = document.querySelectorAll('main article[data-family]');
+      let visible = 0;
+
+      articles.forEach(article => {
+        let show = true;
+
+        if (filterState.search) {
+          const text = article.textContent.toLowerCase();
+          if (!text.includes(filterState.search.toLowerCase())) show = false;
+        }
+        if (show && filterState.family) {
+          if (article.dataset.family !== filterState.family) show = false;
+        }
+        if (show && filterState.status) {
+          if (article.dataset.status !== filterState.status) show = false;
+        }
+        if (show && filterState.reader) {
+          const readers = (article.dataset.reader || '').split(' ');
+          if (!readers.includes(filterState.reader)) show = false;
+        }
+        if (show && filterState.deadlinesOnly) {
+          if (article.dataset.hasDeadline !== 'true') show = false;
+        }
+
+        article.style.display = show ? '' : 'none';
+        if (show) visible++;
+      });
+
+      document.getElementById('section-counter').textContent =
+        `${visible} of ${TOTAL_SECTIONS} sections visible`;
+    }
+
+    // ─── INPUT HANDLERS ───────────────────────────────────────────
+    function onSearchInput(val) { filterState.search = val; applyFilters(); }
+    function onFamilyChange(val) { filterState.family = val; applyFilters(); }
+    function onStatusChange(val) { filterState.status = val; applyFilters(); }
+    function onReaderChange(val) { filterState.reader = val; highlightActiveCard(); applyFilters(); }
+
+    // ─── DEADLINES TOGGLE ─────────────────────────────────────────
+    function toggleDeadlines() {
+      filterState.deadlinesOnly = !filterState.deadlinesOnly;
+      const btn = document.getElementById('btn-deadlines');
+      btn.classList.toggle('active', filterState.deadlinesOnly);
+      btn.setAttribute('aria-pressed', String(filterState.deadlinesOnly));
+      applyFilters();
+    }
+
+    // ─── EXPAND ALL EXAMPLES ──────────────────────────────────────
+    let allExpanded = false;
+    function toggleExpandAll() {
+      allExpanded = !allExpanded;
+      document.querySelectorAll('details').forEach(d => { d.open = allExpanded; });
+      document.getElementById('btn-expand').textContent =
+        allExpanded ? 'Collapse All Examples' : 'Expand All Examples';
+    }
+
+    // ─── READING PATH CARDS ───────────────────────────────────────
+    function setReaderPath(reader) {
+      Object.assign(filterState, { search: '', family: '', status: '', deadlinesOnly: false });
+      filterState.reader = reader;
+      document.getElementById('filter-search').value = '';
+      document.getElementById('filter-family').value = '';
+      document.getElementById('filter-status').value = '';
+      document.getElementById('filter-reader').value = reader;
+      const btn = document.getElementById('btn-deadlines');
+      btn.classList.remove('active');
+      btn.setAttribute('aria-pressed', 'false');
+      highlightActiveCard();
+      applyFilters();
+    }
+
+    function highlightActiveCard() {
+      document.querySelectorAll('.hero-card').forEach(c => c.classList.remove('active'));
+      const map = {
+        'new-owner':       'path-new-owner',
+        'in-season':       'path-in-season',
+        'contract-heavy':  'path-contract-heavy',
+        'commissioner':    'path-commissioner'
+      };
+      const id = map[filterState.reader];
+      if (id) {
+        document.getElementById(id).classList.add('active');
+      } else {
+        document.getElementById('path-all').classList.add('active');
+      }
+    }
+
+    // ─── RESET ────────────────────────────────────────────────────
+    function resetFilters() {
+      Object.assign(filterState, { search: '', family: '', status: '', reader: '', deadlinesOnly: false });
+      document.getElementById('filter-search').value = '';
+      document.getElementById('filter-family').value = '';
+      document.getElementById('filter-status').value = '';
+      document.getElementById('filter-reader').value = '';
+      const btn = document.getElementById('btn-deadlines');
+      btn.classList.remove('active');
+      btn.setAttribute('aria-pressed', 'false');
+      document.querySelectorAll('.hero-card').forEach(c => c.classList.remove('active'));
+      document.getElementById('path-all').classList.add('active');
+      applyFilters();
+    }
+
+    // ─── SIDEBAR TOC — INTERSECTION OBSERVER ──────────────────────
+    const tocLinks = {};
+    document.querySelectorAll('.sidebar a[href^="#"]').forEach(link => {
+      tocLinks[link.getAttribute('href').slice(1)] = link;
+    });
+
+    const observer = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        const link = tocLinks[entry.target.id];
+        if (link) link.classList.toggle('active', entry.isIntersecting);
+      });
+    }, { rootMargin: '-8% 0px -78% 0px', threshold: 0 });
+
+    document.querySelectorAll('main article[id]').forEach(el => observer.observe(el));
+
+    // ─── INIT ─────────────────────────────────────────────────────
+    document.getElementById('path-all').classList.add('active');
+    applyFilters();
+  </script>
+
+</body>
+</html>

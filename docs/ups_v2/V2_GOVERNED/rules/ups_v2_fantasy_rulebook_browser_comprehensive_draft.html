@@ -1,0 +1,2093 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>UPS_V2 Comprehensive Fantasy Rulebook Draft</title>
+  <style>
+    :root {
+      --bg: #efe7db;
+      --paper: rgba(255, 252, 247, 0.94);
+      --paper-strong: #ffffff;
+      --ink: #16212d;
+      --muted: #5d6d7b;
+      --line: #d9e0e8;
+      --navy: #11263f;
+      --navy-2: #21476d;
+      --navy-3: #34648f;
+      --gold: #b76d25;
+      --gold-soft: #f5e0c6;
+      --green: #1f7a50;
+      --amber: #a56f18;
+      --red: #aa3030;
+      --plum: #5a456a;
+      --shadow: 0 16px 42px rgba(15, 25, 40, 0.12);
+      --radius: 20px;
+      --radius-sm: 14px;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(33, 71, 109, 0.16), transparent 28%),
+        radial-gradient(circle at top right, rgba(183, 109, 37, 0.14), transparent 24%),
+        linear-gradient(180deg, #f7f0e4 0%, #f7f8fb 34%, #edf2f6 100%);
+      font-family: "Avenir Next", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+      line-height: 1.58;
+    }
+
+    a { color: var(--navy-3); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    html body .hidden { display: none !important; }
+
+    h1, h2, h3, h4 {
+      margin: 0 0 0.45rem;
+      line-height: 1.12;
+    }
+
+    h1, h2 {
+      font-family: Georgia, "Times New Roman", serif;
+      letter-spacing: -0.02em;
+    }
+
+    h1 { font-size: clamp(2.3rem, 4vw, 4rem); }
+    h2 { font-size: clamp(1.45rem, 2vw, 2.1rem); }
+    h3 { font-size: 1.08rem; }
+    h4 { font-size: 0.98rem; }
+
+    p { margin: 0.45rem 0 0; }
+    ul, ol { margin: 0.6rem 0 0; padding-left: 1.2rem; }
+    li { margin: 0.26rem 0; }
+    code {
+      font-family: ui-monospace, "SFMono-Regular", Menlo, Monaco, Consolas, monospace;
+      background: #eef3f7;
+      padding: 0.12rem 0.34rem;
+      border-radius: 0.4rem;
+      font-size: 0.92em;
+    }
+
+    header {
+      max-width: 1540px;
+      margin: 0 auto;
+      padding: 1.1rem 1.2rem 0.55rem;
+    }
+
+    .hero {
+      position: relative;
+      overflow: hidden;
+      border-radius: 32px;
+      padding: 1.55rem;
+      color: white;
+      background:
+        linear-gradient(135deg, rgba(17, 38, 63, 0.98), rgba(33, 71, 109, 0.98) 52%, rgba(90, 69, 106, 0.95));
+      box-shadow: var(--shadow);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .hero::before,
+    .hero::after {
+      content: "";
+      position: absolute;
+      border-radius: 999px;
+      pointer-events: none;
+    }
+
+    .hero::before {
+      top: -60px;
+      right: -30px;
+      width: 220px;
+      height: 220px;
+      background: radial-gradient(circle, rgba(255,255,255,0.16), transparent 62%);
+    }
+
+    .hero::after {
+      bottom: -90px;
+      right: 180px;
+      width: 260px;
+      height: 260px;
+      background: radial-gradient(circle, rgba(245,224,198,0.18), transparent 64%);
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      gap: 0.45rem;
+      align-items: center;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: 0.8rem;
+      font-weight: 800;
+      color: #f4d5af;
+      margin-bottom: 0.75rem;
+    }
+
+    .lede {
+      max-width: 96ch;
+      font-size: 1.05rem;
+      color: rgba(255,255,255,0.84);
+    }
+
+    .meta-row,
+    .control-row,
+    .chip-row,
+    .quick-grid,
+    .hero-links,
+    .section-links,
+    .example-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.55rem;
+    }
+
+    .meta-row {
+      margin-top: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .badge,
+    .pill,
+    .stat {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      border-radius: 999px;
+      white-space: nowrap;
+      font-size: 0.82rem;
+      font-weight: 800;
+    }
+
+    .badge {
+      padding: 0.38rem 0.78rem;
+      border: 1px solid rgba(255,255,255,0.14);
+      background: rgba(255,255,255,0.09);
+      color: rgba(255,255,255,0.9);
+    }
+
+    .badge.good {
+      background: rgba(31, 122, 80, 0.18);
+      color: #d7efdf;
+      border-color: rgba(31, 122, 80, 0.35);
+    }
+
+    .badge.warn {
+      background: rgba(165, 111, 24, 0.18);
+      color: #ffe4bf;
+      border-color: rgba(165, 111, 24, 0.35);
+    }
+
+    .badge.open {
+      background: rgba(255,255,255,0.08);
+      color: #f6d9b7;
+    }
+
+    .stat {
+      padding: 0.38rem 0.76rem;
+      background: rgba(255,255,255,0.1);
+      color: white;
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .quick-grid {
+      margin-top: 1rem;
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 0.8rem;
+    }
+
+    .quick-card {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      min-height: 118px;
+      padding: 0.95rem;
+      color: white;
+      border-radius: 18px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .quick-card strong { font-size: 0.98rem; }
+    .quick-card span {
+      color: rgba(255,255,255,0.8);
+      font-size: 0.9rem;
+    }
+
+    .controls {
+      margin-top: 1rem;
+      display: grid;
+      grid-template-columns: 1.8fr 1fr 1fr 1fr auto auto;
+      gap: 0.75rem;
+      align-items: end;
+    }
+
+    .control {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    .control label {
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      font-size: 0.78rem;
+      font-weight: 800;
+      color: rgba(255,255,255,0.78);
+    }
+
+    input[type="search"],
+    select {
+      width: 100%;
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 14px;
+      padding: 0.86rem 0.9rem;
+      background: rgba(255,255,255,0.96);
+      color: var(--ink);
+      font: inherit;
+    }
+
+    button {
+      border: 0;
+      border-radius: 14px;
+      padding: 0.9rem 1rem;
+      font: inherit;
+      font-weight: 800;
+      color: white;
+      background: linear-gradient(135deg, var(--gold), #d08945);
+      box-shadow: var(--shadow);
+      cursor: pointer;
+    }
+
+    button.secondary {
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.14);
+      box-shadow: none;
+    }
+
+    .layout {
+      max-width: 1540px;
+      margin: 0 auto;
+      padding: 1rem 1.2rem 2rem;
+      display: grid;
+      grid-template-columns: 320px minmax(0, 1fr);
+      gap: 1rem;
+      align-items: start;
+    }
+
+    .sidebar,
+    .card {
+      background: var(--paper);
+      border: 1px solid rgba(217, 224, 232, 0.92);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+
+    .sidebar {
+      position: sticky;
+      top: 1rem;
+      padding: 1rem;
+    }
+
+    .sidebar h2 { font-size: 1.12rem; }
+
+    .sidebar ol {
+      margin: 0.8rem 0 0;
+      display: grid;
+      gap: 0.35rem;
+    }
+
+    .sidebar a {
+      color: var(--ink);
+      display: inline-block;
+      padding: 0.12rem 0;
+    }
+
+    .sidebar a.dim {
+      color: #97a7b5;
+      text-decoration: line-through;
+    }
+
+    .sidebar .side-note {
+      margin-top: 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 0.93rem;
+    }
+
+    .content {
+      display: grid;
+      gap: 1rem;
+    }
+
+    .card {
+      padding: 1.2rem;
+      animation: fadeUp 0.34s ease both;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .card-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 0.8rem;
+      margin-bottom: 0.8rem;
+    }
+
+    .summary {
+      color: var(--muted);
+      max-width: 100ch;
+    }
+
+    .card-flag {
+      flex: 0 0 auto;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.34rem 0.72rem;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      font-weight: 800;
+      background: #edf2f6;
+      color: #4c5b69;
+    }
+
+    .card-flag.settled {
+      background: #e5f4ec;
+      color: var(--green);
+    }
+
+    .card-flag.working {
+      background: #fff3df;
+      color: var(--amber);
+    }
+
+    .card-flag.open {
+      background: #f3ebf7;
+      color: var(--plum);
+    }
+
+    .rule-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.45rem;
+      margin-top: 0.75rem;
+      margin-bottom: 0.8rem;
+    }
+
+    .pill {
+      padding: 0.26rem 0.58rem;
+      background: var(--gold-soft);
+      color: #7d4c18;
+    }
+
+    .pill.gray {
+      background: #ecf1f5;
+      color: #50606e;
+    }
+
+    .pill.blue {
+      background: #e0eefb;
+      color: #255680;
+    }
+
+    .pill.green {
+      background: #e4f4ec;
+      color: var(--green);
+    }
+
+    .grid-2,
+    .grid-3 {
+      display: grid;
+      gap: 0.9rem;
+      margin-top: 0.9rem;
+    }
+
+    .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+    .panel,
+    .example,
+    .callout,
+    .site-box {
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background: var(--paper-strong);
+      padding: 0.92rem;
+    }
+
+    .panel h4,
+    .example h4,
+    .site-box h4 { margin-bottom: 0.4rem; }
+
+    .panel.soft {
+      background: #f8fafc;
+    }
+
+    .callout {
+      background: linear-gradient(180deg, #fff7eb, #fffdf8);
+      border-color: #eedbbd;
+    }
+
+    .callout.warn {
+      background: linear-gradient(180deg, #fff4e7, #fffbf3);
+      border-color: #edcfaa;
+    }
+
+    .callout.open {
+      background: linear-gradient(180deg, #f5eff8, #fcfbfd);
+      border-color: #d8c8e0;
+    }
+
+    .section-links,
+    .hero-links,
+    .example-links {
+      margin-top: 0.7rem;
+    }
+
+    .link-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.3rem 0.62rem;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 800;
+      background: #edf4fb;
+      color: var(--navy-2);
+      border: 1px solid #d6e5f1;
+    }
+
+    .steps {
+      counter-reset: step;
+      list-style: none;
+      padding: 0;
+      margin: 0.8rem 0 0;
+      display: grid;
+      gap: 0.65rem;
+    }
+
+    .steps li {
+      position: relative;
+      padding-left: 2.75rem;
+      margin: 0;
+      min-height: 2rem;
+    }
+
+    .steps li::before {
+      counter-increment: step;
+      content: counter(step);
+      position: absolute;
+      left: 0;
+      top: 0.05rem;
+      width: 1.9rem;
+      height: 1.9rem;
+      display: grid;
+      place-items: center;
+      border-radius: 999px;
+      background: linear-gradient(135deg, var(--navy), var(--navy-2));
+      color: white;
+      font-weight: 800;
+      font-size: 0.86rem;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 0.85rem;
+      overflow: hidden;
+      border-radius: 16px;
+    }
+
+    th, td {
+      padding: 0.72rem 0.68rem;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+      font-size: 0.95rem;
+    }
+
+    th {
+      background: #f5f7fa;
+      color: #556473;
+      font-size: 0.78rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    details {
+      margin-top: 0.85rem;
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background: var(--paper-strong);
+      overflow: hidden;
+    }
+
+    summary {
+      cursor: pointer;
+      padding: 0.88rem 0.95rem;
+      font-weight: 800;
+      list-style: none;
+    }
+
+    summary::-webkit-details-marker { display: none; }
+
+    details > div {
+      padding: 0 0.95rem 0.95rem;
+      color: var(--muted);
+    }
+
+    .skeleton {
+      border-style: dashed;
+      background: #fcfbfd;
+    }
+
+    .note-list {
+      display: grid;
+      gap: 0.55rem;
+      margin-top: 0.75rem;
+    }
+
+    .note {
+      padding: 0.7rem 0.8rem;
+      border-radius: 14px;
+      background: #f6f9fc;
+      border: 1px solid var(--line);
+    }
+
+    footer {
+      max-width: 1540px;
+      margin: 0 auto;
+      padding: 0 1.2rem 2rem;
+    }
+
+    .footer-card {
+      background: rgba(17, 38, 63, 0.98);
+      color: rgba(255,255,255,0.84);
+      border-radius: 26px;
+      padding: 1.2rem;
+      box-shadow: var(--shadow);
+    }
+
+    .footer-card h2 {
+      color: white;
+      font-size: 1.35rem;
+    }
+
+    @media (max-width: 1220px) {
+      .layout { grid-template-columns: 1fr; }
+      .sidebar { position: static; }
+      .quick-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .controls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
+    @media (max-width: 860px) {
+      header,
+      .layout,
+      footer { padding-left: 0.85rem; padding-right: 0.85rem; }
+      .hero { padding: 1.1rem; border-radius: 24px; }
+      .quick-grid,
+      .grid-2,
+      .grid-3,
+      .controls { grid-template-columns: 1fr; }
+      .card { padding: 1rem; }
+      table, thead, tbody, th, td, tr { display: block; }
+      thead { display: none; }
+      tr {
+        border-bottom: 1px solid var(--line);
+        padding: 0.55rem 0;
+      }
+      td {
+        border: 0;
+        padding: 0.3rem 0;
+      }
+      td::before {
+        content: attr(data-label);
+        display: block;
+        color: #617180;
+        font-size: 0.76rem;
+        font-weight: 800;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        margin-bottom: 0.14rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header id="top">
+    <div class="hero">
+      <div class="eyebrow">UPS_V2 · Comprehensive Rulebook Draft</div>
+      <h1>UPS Salary Cap Dynasty League</h1>
+      <p class="lede">
+        This draft is written as a real fantasy football rulebook first: league structure, roster rules, auctions, waivers,
+        contracts, trades, deadlines, penalties, and how the league site supports those actions. Where the league has already
+        settled the rule, this page speaks plainly. Where the league still has gaps, the page leaves a visible working section
+        instead of pretending the rule is cleaner than it is.
+      </p>
+      <div class="meta-row">
+        <span class="badge good">Owner-facing structure first</span>
+        <span class="badge good">Examples embedded throughout</span>
+        <span class="badge warn">Scoring appendix still needs live values</span>
+        <span class="badge open">Tags and some penalties still need cleanup</span>
+      </div>
+      <div class="hero-links">
+        <a class="link-chip" href="#league-overview">Start with League Basics</a>
+        <a class="link-chip" href="#contracts">Jump to Contracts</a>
+        <a class="link-chip" href="#trades">Jump to Trades</a>
+        <a class="link-chip" href="#site-guide">Jump to Site Guide</a>
+        <a class="link-chip" href="../requirements/workspaces/contract_actions_workspace.md">Open Contract Actions Workspace Spec</a>
+      </div>
+      <div class="quick-grid">
+        <a class="quick-card" href="#league-overview">
+          <strong>New Owner Path</strong>
+          <span>League identity, divisions, membership, commissioner authority, and what participation actually means.</span>
+        </a>
+        <a class="quick-card" href="#calendar">
+          <strong>Season Flow Path</strong>
+          <span>March rollover, rookie deadlines, auctions, Week 1 contract finalization, trade deadline, playoffs.</span>
+        </a>
+        <a class="quick-card" href="#rosters-lineups">
+          <strong>Roster Management Path</strong>
+          <span>Active roster, IR, taxi, lineup requirements, quarterback limits, and action timing.</span>
+        </a>
+        <a class="quick-card" href="#contracts">
+          <strong>Contract Playbook</strong>
+          <span>Rookie deals, MYM, extensions, loaded contracts, cap penalties, rookie option, and restructure framing.</span>
+        </a>
+        <a class="quick-card" href="#site-guide">
+          <strong>League Site Path</strong>
+          <span>How Team Operations, Rosters, Contract Actions, Trades, and Reports map onto the rules.</span>
+        </a>
+      </div>
+      <div class="controls">
+        <div class="control">
+          <label for="searchBox">Search the rulebook</label>
+          <input id="searchBox" type="search" placeholder="Search contracts, trade salary, taxi, rookie option, lineup...">
+        </div>
+        <div class="control">
+          <label for="familyFilter">Rule family</label>
+          <select id="familyFilter">
+            <option value="all">All families</option>
+            <option value="league">League basics</option>
+            <option value="calendar">Calendar</option>
+            <option value="roster">Rosters and lineups</option>
+            <option value="scoring">Scoring and playoffs</option>
+            <option value="draft">Rookie draft</option>
+            <option value="auction">Auctions</option>
+            <option value="acquisition">Waivers and adds/drops</option>
+            <option value="contracts">Contracts</option>
+            <option value="trades">Trades</option>
+            <option value="money">Finances</option>
+            <option value="enforcement">Penalties and remedies</option>
+            <option value="site">League site</option>
+            <option value="examples">Examples</option>
+            <option value="open">Open items</option>
+          </select>
+        </div>
+        <div class="control">
+          <label for="statusFilter">Draft status</label>
+          <select id="statusFilter">
+            <option value="all">All statuses</option>
+            <option value="settled">Settled</option>
+            <option value="working">Working draft</option>
+            <option value="open">Open / skeletal</option>
+          </select>
+        </div>
+        <div class="control">
+          <label for="readerFilter">Reading path</label>
+          <select id="readerFilter">
+            <option value="all">All readers</option>
+            <option value="new-owner">New owner</option>
+            <option value="in-season">In-season owner</option>
+            <option value="contract-heavy">Contract-heavy owner</option>
+            <option value="commissioner">Commissioner</option>
+          </select>
+        </div>
+        <button id="expandAll">Expand Examples</button>
+        <button id="resetFilters" class="secondary">Reset</button>
+      </div>
+      <div class="meta-row">
+        <span class="stat" id="visibleCount">15 sections visible</span>
+        <span class="stat">Fantasy-football-first draft</span>
+        <span class="stat">Internal cross-links enabled</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <h2>Table of Contents</h2>
+      <ol id="tocList">
+        <li><a href="#league-overview">1. League Overview and Governance</a></li>
+        <li><a href="#calendar">2. League Calendar and Event Windows</a></li>
+        <li><a href="#rosters-lineups">3. Rosters, Taxi, IR, and Lineups</a></li>
+        <li><a href="#scoring-playoffs">4. Scoring, Standings, and Playoffs</a></li>
+        <li><a href="#rookie-draft">5. Rookie Draft</a></li>
+        <li><a href="#expired-rookie-auction">6. Expired Rookie Auction</a></li>
+        <li><a href="#free-agent-auction">7. Free Agent Auction</a></li>
+        <li><a href="#waivers-adds-drops">8. Waivers, FCFS, Adds, and Drops</a></li>
+        <li><a href="#contracts">9. Contracts and Cap Management</a></li>
+        <li><a href="#trades">10. Trades and Salary Movement</a></li>
+        <li><a href="#finances">11. League Financing</a></li>
+        <li><a href="#penalties-remedies">12. Penalties and Commissioner Remedies</a></li>
+        <li><a href="#site-guide">13. Using the League Site</a></li>
+        <li><a href="#example-library">14. Example Library</a></li>
+        <li><a href="#open-items">15. Open Items and Fill-In Gaps</a></li>
+      </ol>
+      <div class="side-note">
+        <strong>Reading rule.</strong><br>
+        This page is trying to be the clean owner book, not the site-settings appendix. If a rule is still unresolved, it stays flagged instead of being silently guessed.
+      </div>
+    </aside>
+
+    <main class="content" id="rulebookContent">
+      <section class="card rule-section" id="league-overview" data-family="league" data-status="settled" data-reader="new-owner commissioner in-season contract-heavy">
+        <div class="card-header">
+          <div>
+            <h2>1. League Overview and Governance</h2>
+            <p class="summary">
+              UPS is a 12-team salary-cap dynasty league built around long-term roster construction, aggressive trading, contract strategy,
+              and owner participation. This section answers the basic question: what kind of league this is, who belongs in it, and who decides
+              when the book is not yet perfect.
+            </p>
+          </div>
+          <span class="card-flag settled">Settled core</span>
+        </div>
+        <div class="rule-meta">
+          <span class="pill">12 teams</span>
+          <span class="pill">4 divisions</span>
+          <span class="pill">Salary-cap dynasty</span>
+          <span class="pill gray">Commissioner authority in silent areas</span>
+          <span class="pill blue">New-owner relevant</span>
+        </div>
+        <div class="grid-2">
+          <div class="panel soft">
+            <h3>League identity</h3>
+            <ul>
+              <li>The league has <strong>12 teams</strong> divided into <strong>4 divisions</strong>.</li>
+              <li>Divisions are realigned every <strong>3 years</strong> based on historical all-play results.</li>
+              <li>The league runs both the <strong>UPS Championship</strong> bracket and the <strong>Hawktuah Bowl</strong>.</li>
+              <li>The entire format is designed to reward long-term planning, contract skill, and active owner involvement rather than passive roster maintenance.</li>
+            </ul>
+          </div>
+          <div class="panel soft">
+            <h3>Owner expectations</h3>
+            <ul>
+              <li>Owners are expected to stay active on <strong>Discord</strong> year-round.</li>
+              <li>Owners are expected to respond to trade activity in a timely way.</li>
+              <li>The <strong>Rookie Draft</strong> and <strong>Free Agent Auction</strong> are mandatory league events.</li>
+              <li>Owners must compete in good faith for the full fantasy season, even when out of title contention.</li>
+              <li>Collusion or competitive-balance manipulation is grounds for dismissal.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="panel">
+            <h3>Membership and probation</h3>
+            <ul>
+              <li>New owners go through an admission process and league-knowledge check.</li>
+              <li>New owners serve a <strong>two-season probation period</strong>.</li>
+              <li>The league may remove a probationary owner early for repeated penalties, lack of progress, or behavior that threatens league balance.</li>
+              <li>When a new owner enters under the right conditions, the league may use a <strong>dispersal draft</strong> rather than handing over one roster untouched.</li>
+            </ul>
+          </div>
+          <div class="panel">
+            <h3>Commissioner authority</h3>
+            <ul>
+              <li>The commissioner decides issues not fully resolved by the written rules.</li>
+              <li>League precedent matters and should guide future decisions where possible.</li>
+              <li>The commissioner may consult senior members or the full league when a ruling affects league-wide balance.</li>
+              <li>The working standard is always the <strong>best interest of the league</strong>, not convenience for one franchise.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="example">
+          <h4>Example: new owner via dispersal</h4>
+          <p>
+            A new owner joins and two existing owners choose to throw their players and eligible picks into a shared pool. The commissioner randomizes
+            draft order, runs the dispersal in Discord, and once an owner commits to that pool they cannot back out later just because the room turns
+            against them. That is not a normal trade or cut process. It is a league-structure remedy for owner transition.
+          </p>
+        </div>
+        <div class="section-links">
+          <a class="link-chip" href="#calendar">See season flow</a>
+          <a class="link-chip" href="#site-guide">See Team Operations and Rosters</a>
+          <a class="link-chip" href="#penalties-remedies">See competitive-integrity enforcement</a>
+        </div>
+      </section>
+
+      <section class="card rule-section" id="calendar" data-family="calendar" data-status="working" data-reader="new-owner commissioner in-season contract-heavy">
+        <div class="card-header">
+          <div>
+            <h2>2. League Calendar and Event Windows</h2>
+            <p class="summary">
+              UPS runs on a yearly rhythm. Owners need to understand which deadlines are hard, which are soft operational targets, and which events can
+              move a little when real life forces the commissioner to shift the league calendar.
+            </p>
+          </div>
+          <span class="card-flag working">Working draft</span>
+        </div>
+        <div class="rule-meta">
+          <span class="pill">March rollover target</span>
+          <span class="pill">Memorial Day rookie draft</span>
+          <span class="pill">Last-weekend-of-July auction target</span>
+          <span class="pill gray">Timing can flex for logistics</span>
+        </div>
+        <ol class="steps">
+          <li><strong>January-February:</strong> offseason. League season is complete, but teams are already planning for rollover.</li>
+          <li><strong>March:</strong> new league year begins. Contracts roll forward. The target is March 1, but the commissioner may extend the launch window to roughly March 15 when needed.</li>
+          <li><strong>April 30:</strong> last day for expiring rookie extensions.</li>
+          <li><strong>First week of May:</strong> expired rookie auction.</li>
+          <li><strong>Memorial Day weekend:</strong> rookie draft, live and mandatory.</li>
+          <li><strong>Late July:</strong> free agent auction. The normal target is the last weekend of July, but actual timing may flex for availability and commissioner logistics.</li>
+          <li><strong>Within 48 hours before auction start:</strong> final cut-down day normally lands here so cap hits can be finalized before bidding begins.</li>
+          <li><strong>After auction completion:</strong> waivers open under the league's in-season acquisition pattern.</li>
+          <li><strong>Last Sunday before Week 1:</strong> contract finalization deadline.</li>
+          <li><strong>Thanksgiving kickoff:</strong> trade deadline.</li>
+          <li><strong>Week 15:</strong> fantasy playoffs begin and run three weeks.</li>
+        </ol>
+        <div class="callout warn">
+          <h3>Operating principle</h3>
+          <p>
+            The auction's normal target period is stable. The exact date is not. If the commissioner moves the auction to fit league availability,
+            that is an operational calendar adjustment, not a rule violation by itself.
+          </p>
+        </div>
+        <div class="example">
+          <h4>Example: flexible auction timing</h4>
+          <p>
+            If the last weekend of July is impossible because multiple owners are traveling, the commissioner can move the auction into early August.
+            The rule is still being followed if the league is given a clear event date, the cut-down window is preserved, and the rest of the workflow
+            is adjusted around the new operational schedule.
+          </p>
+        </div>
+        <div class="section-links">
+          <a class="link-chip" href="#free-agent-auction">See auction rules</a>
+          <a class="link-chip" href="#contracts">See contract deadlines</a>
+          <a class="link-chip" href="#site-guide">See Team Operations deadline panels</a>
+        </div>
+      </section>
+
+      <section class="card rule-section" id="rosters-lineups" data-family="roster" data-status="settled" data-reader="new-owner in-season commissioner">
+        <div class="card-header">
+          <div>
+            <h2>3. Rosters, Taxi, IR, and Lineups</h2>
+            <p class="summary">
+              This section governs how many players you can carry, what belongs on active roster versus taxi versus IR, when lineup locks happen,
+              and why UPS treats roster discipline as a real part of competitive integrity.
+            </p>
+          </div>
+          <span class="card-flag settled">Settled core</span>
+        </div>
+        <div class="rule-meta">
+          <span class="pill">Minimum active roster 27</span>
+          <span class="pill">Auction max 35</span>
+          <span class="pill">Post-deadline max 30</span>
+          <span class="pill">Taxi max 10</span>
+          <span class="pill blue">Rosters module heavy</span>
+        </div>
+        <div class="grid-2">
+          <div class="panel soft">
+            <h3>Roster counts</h3>
+            <ul>
+              <li>Minimum active roster during the fantasy season: <strong>27 players</strong>.</li>
+              <li>Maximum roster during the free agent auction: <strong>35 players</strong>.</li>
+              <li>Maximum roster after the contract deadline date: <strong>30 players</strong>.</li>
+              <li>IR players do not count toward the active roster limit.</li>
+            </ul>
+          </div>
+          <div class="panel soft">
+            <h3>Starting lineup</h3>
+            <ul>
+              <li>1 QB</li>
+              <li>2 RB</li>
+              <li>2 WR</li>
+              <li>1 TE</li>
+              <li>2 Flex (RB/WR/TE)</li>
+              <li>1 SuperFlex (QB/RB/WR/TE)</li>
+              <li>1 K</li>
+              <li>1 P</li>
+              <li>2 DL, 2 LB, 2 DB, 1 D-Flex</li>
+            </ul>
+          </div>
+        </div>
+        <div class="grid-3">
+          <div class="panel">
+            <h3>Lineup lock</h3>
+            <p>Players lock at the kickoff of their own NFL game. Once a player's game starts, that player cannot be subbed in or out.</p>
+          </div>
+          <div class="panel">
+            <h3>IR relief</h3>
+            <p>Eligible IR states receive <strong>50% automatic cap relief</strong>. Supported categories include IR, COVID-era IR, holdouts, and certain suspension paths.</p>
+          </div>
+          <div class="panel">
+            <h3>3-starting-QB limit</h3>
+            <p>After the contract deadline date, teams may carry only <strong>three starting quarterbacks</strong>, subject to the stated taxi exception.</p>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="panel">
+            <h3>Taxi squad rules</h3>
+            <ul>
+              <li>Taxi squad maximum is <strong>10 players</strong>.</li>
+              <li>The taxi group must contain at least <strong>1 IDP</strong>.</li>
+              <li>Only players drafted in the UPS rookie draft in <strong>Round 2 or later</strong> are taxi-eligible.</li>
+              <li>Taxi eligibility lasts for the player's first <strong>three NFL years</strong>.</li>
+              <li>Eligible rookies must be demoted to taxi by the contract deadline date if that is where they belong.</li>
+            </ul>
+          </div>
+          <div class="panel">
+            <h3>Taxi on trade</h3>
+            <ul>
+              <li>If a traded player is taxi-valid for the new team, UPS should return that player to taxi automatically.</li>
+              <li>If the trade lands right before kickoff and the demotion cannot reasonably happen in time, leniency can carry the demotion to the following week.</li>
+              <li>Taxi players do not count toward trade-salary calculations.</li>
+            </ul>
+          </div>
+        </div>
+        <details>
+          <summary>Examples: roster and lineup rules</summary>
+          <div>
+            <p><strong>Taxi example:</strong> You draft a running back at 2.04. He is taxi-eligible because he is Round 2+. You may keep him on taxi during his first three NFL seasons if he remains otherwise eligible.</p>
+            <p><strong>Kickoff example:</strong> If a WR's NFL game started at 1:00 PM ET, you cannot swap him out at 1:07 PM ET after he goose-eggs his first two drives.</p>
+            <p><strong>QB rule example:</strong> If you enter the season with three starters and then a taxi QB becomes a starter after Week 1, that taxi-only exception does not automatically create a drop obligation if the rule's exception applies. If a fourth starting QB appears and does count under the rule, you must get compliant by the following Thursday kickoff.</p>
+          </div>
+        </details>
+        <div class="section-links">
+          <a class="link-chip" href="#waivers-adds-drops">See adds and drops</a>
+          <a class="link-chip" href="#contracts">See taxi guarantees and cap penalties</a>
+          <a class="link-chip" href="../requirements/workspaces/roster_operations_workspace.md">Open Rosters workspace spec</a>
+        </div>
+      </section>
+
+      <section class="card rule-section" id="scoring-playoffs" data-family="scoring" data-status="open" data-reader="new-owner in-season commissioner">
+        <div class="card-header">
+          <div>
+            <h2>4. Scoring, Standings, and Playoffs</h2>
+            <p class="summary">
+              This needs to read like a real scoring appendix, but the live point values still need to be imported cleanly. The structure below is the
+              right shape for the final book, while the league-specific point table still needs completion.
+            </p>
+          </div>
+          <span class="card-flag open">Open / skeletal</span>
+        </div>
+        <div class="rule-meta">
+          <span class="pill gray">Scoring appendix incomplete</span>
+          <span class="pill">Playoffs begin Week 15</span>
+          <span class="pill">Division winners receive top seed protection</span>
+        </div>
+        <div class="grid-2">
+          <div class="panel skeleton">
+            <h3>Scoring appendix structure</h3>
+            <ul>
+              <li>Passing</li>
+              <li>Rushing</li>
+              <li>Receiving</li>
+              <li>Kicking</li>
+              <li>Punting</li>
+              <li>DL / LB / DB / D-Flex</li>
+              <li>Return-game scoring</li>
+              <li>Bonus scoring and negative events</li>
+            </ul>
+            <p>The final point values should be imported from the live MFL scoring setup rather than guessed from memory.</p>
+          </div>
+          <div class="panel">
+            <h3>Standings and playoffs</h3>
+            <ul>
+              <li>Regular-season results produce playoff seeding.</li>
+              <li>Division winners are guaranteed a top seed.</li>
+              <li>The league runs both the UPS Championship and the Hawktuah Bowl.</li>
+              <li>The fantasy playoffs begin in <strong>NFL Week 15</strong> and run for <strong>three weeks</strong>.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="callout open">
+          <h3>Fill-in gap</h3>
+          <p>
+            This section should become the clean owner-facing scoring appendix. It needs the exact live scoring table, standings tie-breakers,
+            and any category-specific explanations that owners regularly forget.
+          </p>
+        </div>
+        <div class="section-links">
+          <a class="link-chip" href="#league-overview">See league structure</a>
+          <a class="link-chip" href="#example-library">See example placeholders</a>
+        </div>
+      </section>
+
+      <section class="card rule-section" id="rookie-draft" data-family="draft" data-status="settled" data-reader="new-owner contract-heavy commissioner">
+        <div class="card-header">
+          <div>
+            <h2>5. Rookie Draft</h2>
+            <p class="summary">
+              The rookie draft is the most important annual league event. It creates rookie contracts, drives draft-pick value, feeds the taxi squad,
+              and shapes cap strategy for multiple seasons.
+            </p>
+          </div>
+          <span class="card-flag settled">Settled core</span>
+        </div>
+        <div class="rule-meta">
+          <span class="pill">Mandatory event</span>
+          <span class="pill">Memorial Day weekend</span>
+          <span class="pill">6 rounds</span>
+          <span class="pill">Round 1 option class starts in 2025</span>
+        </div>
+        <div class="grid-2">
+          <div class="panel">
+            <h3>Draft format</h3>
+            <ul>
+              <li>The draft is live and mandatory, typically on the Sunday of Memorial Day weekend.</li>
+              <li>Round 1 rookies must remain on the active roster.</li>
+              <li>Rounds 2-6 are taxi-eligible.</li>
+              <li>Round 6 picks cannot be traded and must be used on an IDP, kicker, or punter.</li>
+            </ul>
+          </div>
+          <div class="panel">
+            <h3>Draft order</h3>
+            <ul>
+              <li>Rounds 1-5 follow the prior season's playoff finish logic.</li>
+              <li>Round 6 uses a random order.</li>
+              <li>All drafted rookies receive a <strong>3-year rookie contract</strong>.</li>
+            </ul>
+          </div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Round</th>
+              <th>Pick 1</th>
+              <th>Pick 2</th>
+              <th>Pick 3</th>
+              <th>Pick 4</th>
+              <th>Pick 5</th>
+              <th>Pick 6</th>
+              <th>Pick 7</th>
+              <th>Pick 8</th>
+              <th>Pick 9</th>
+              <th>Pick 10</th>
+              <th>Pick 11</th>
+              <th>Pick 12</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td data-label="Round">1</td>
+              <td data-label="Pick 1">$15K</td>
+              <td data-label="Pick 2">$14K</td>
+              <td data-label="Pick 3">$13K</td>
+              <td data-label="Pick 4">$12K</td>
+              <td data-label="Pick 5">$11K</td>
+              <td data-label="Pick 6">$10K</td>
+              <td data-label="Pick 7">$9K</td>
+              <td data-label="Pick 8">$8K</td>
+              <td data-label="Pick 9">$7K</td>
+              <td data-label="Pick 10">$6K</td>
+              <td data-label="Pick 11">$5K</td>
+              <td data-label="Pick 12">$5K</td>
+            </tr>
+            <tr>
+              <td data-label="Round">2</td>
+              <td data-label="Salary" colspan="12">$5K across the round</td>
+            </tr>
+            <tr>
+              <td data-label="Round">3</td>
+              <td data-label="Salary" colspan="12">$2K across the round</td>
+            </tr>
+            <tr>
+              <td data-label="Round">4</td>
+              <td data-label="Salary" colspan="12">$2K across the round</td>
+            </tr>
+            <tr>
+              <td data-label="Round">5</td>
+              <td data-label="Salary" colspan="12">$2K across the round</td>
+            </tr>
+            <tr>
+              <td data-label="Round">6</td>
+              <td data-label="Salary" colspan="12">$1K across the round</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="grid-2">
+          <div class="example">
+            <h4>Example: first-round rookie salary</h4>
+            <p>
+              If you draft a player at <strong>1.03</strong>, the rookie salary is <strong>$13K per year</strong> on a 3-year rookie contract.
+              That player stays on your active roster, not taxi.
+            </p>
+          </div>
+          <div class="example">
+            <h4>Example: second-round rookie on taxi</h4>
+            <p>
+              If you draft a linebacker at <strong>2.08</strong>, the rookie salary is <strong>$5K</strong>, the player is taxi-eligible,
+              and you can keep him there so long as he remains within the league's taxi eligibility window.
+            </p>
+          </div>
+        </div>
+        <div class="callout">
+          <h3>First-round rookie option</h3>
+          <p>
+            Starting with the <strong>2025 draft class</strong>, first-round picks receive an option-year path on top of the base rookie deal.
+            The option must be exercised before the contract deadline of the final rookie-contract season.
+          </p>
+          <p>
+            Current working offensive example: <code>15K / 15K / 15K / option 20K</code>, followed by any later extension path.
+          </p>
+        </div>
+        <div class="section-links">
+          <a class="link-chip" href="#contracts">See rookie contracts and option year</a>
+          <a class="link-chip" href="#site-guide">See Contract Actions and Rosters</a>
+        </div>
+      </section>
+
+      <section class="card rule-section" id="expired-rookie-auction" data-family="auction" data-status="settled" data-reader="contract-heavy commissioner in-season">
+        <div class="card-header">
+          <div>
+            <h2>6. Expired Rookie Auction</h2>
+            <p class="summary">
+              Expired rookies that do not get extended do not simply vanish into generic free agency. They go through their own process first.
+            </p>
+          </div>
+          <span class="card-flag settled">Settled core</span>
+        </div>
+        <div class="rule-meta">
+          <span class="pill">First week of May</span>
+          <span class="pill">2-3 day nomination window</span>
+          <span class="pill">Starting bid = prior salary + $1K</span>
+        </div>
+        <div class="grid-3">
+          <div class="panel">
+            <h3>Who enters</h3>
+            <p>Any player with an expired rookie contract who is not extended by the deadline enters this auction.</p>
+          </div>
+          <div class="panel">
+            <h3>How bidding works</h3>
+            <p>Bidding mirrors the free agent auction. The high bidder must remain highest for <strong>36 hours</strong>.</p>
+          </div>
+          <div class="panel">
+            <h3>Contract result</h3>
+            <p>Winners may assign <strong>1-3 years</strong>. If the contract is longer than 1 year, it must be finalized by the September contract deadline.</p>
+          </div>
+        </div>
+        <div class="example">
+          <h4>Example: expired rookie auction bid</h4>
+          <p>
+            A running back just finished a rookie contract at <strong>$6K</strong>. He was not extended by the deadline. He enters the expired rookie auction
+            with a minimum opening bid of <strong>$7K</strong>. If you win him and want a 3-year deal, that contract still must be filed by the September deadline.
+          </p>
+        </div>
+        <div class="section-links">
+          <a class="link-chip" href="#contracts">See auction contracts</a>
+          <a class="link-chip" href="#free-agent-auction">See broader auction rules</a>
+        </div>
+      </section>
+
+      <section class="card rule-section" id="free-agent-auction" data-family="auction" data-status="working" data-reader="contract-heavy commissioner in-season">
+        <div class="card-header">
+          <div>
+            <h2>7. Free Agent Auction</h2>
+            <p class="summary">
+              The free agent auction is the league's largest roster-building event outside the rookie draft. It is mandatory, time-sensitive, and heavily tied
+              to cap management, nomination discipline, and roster compliance.
+            </p>
+          </div>
+          <span class="card-flag working">Working draft</span>
+        </div>
+        <div class="rule-meta">
+          <span class="pill">Target start: last weekend of July</span>
+          <span class="pill">Proxy bidding</span>
+          <span class="pill">36-hour standing bid</span>
+          <span class="pill">Cap floor $260K</span>
+        </div>
+        <div class="grid-2">
+          <div class="panel soft">
+            <h3>Auction basics</h3>
+            <ul>
+              <li>The auction usually starts on the <strong>last weekend of July</strong>.</li>
+              <li>The actual date may shift for league availability and commissioner logistics.</li>
+              <li>The auction is a mandatory league event.</li>
+              <li>The auction uses an <strong>eBay-style proxy</strong> bidding model.</li>
+              <li>A player is won when the high bid stands for <strong>36 hours</strong>.</li>
+            </ul>
+          </div>
+          <div class="panel soft">
+            <h3>Auction roster and cap standards</h3>
+            <ul>
+              <li>Maximum roster size during the auction is <strong>35</strong>.</li>
+              <li>Minimum roster size by auction completion is <strong>27</strong>.</li>
+              <li>You must be able to field a <strong>valid starting lineup</strong> by auction completion.</li>
+              <li>The salary cap floor is <strong>$260K</strong>, due by auction completion or the contract deadline.</li>
+              <li>Once the floor is reached, later trade or IR changes can take you below it without retroactive violation.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="panel">
+            <h3>Nomination duty</h3>
+            <ul>
+              <li>The current working rule is <strong>2 nominations per cycle</strong>.</li>
+              <li>The first cycle opens at <strong>12:00 PM ET</strong> on auction day and runs to midnight.</li>
+              <li>Subsequent cycles reset at <strong>12:00 AM ET</strong>.</li>
+              <li>Missed nominations incur escalating penalties starting at <strong>$3K</strong>.</li>
+              <li>The exact escalation ladder still needs final cleanup and codification.</li>
+            </ul>
+          </div>
+          <div class="panel">
+            <h3>Stopping nomination duty</h3>
+            <ul>
+              <li>A franchise may stop nominating once it is <strong>nomination-complete</strong>.</li>
+              <li>That means it already has, or is currently leading enough players to finish with, the minimum roster and a valid lineup.</li>
+              <li>If that leading bid is lost later, a supplemental nomination may reopen.</li>
+              <li>Stopping because you are complete is not the same as quitting. It is a governed stop point.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="callout warn">
+          <h3>Pre-auction cut-down day</h3>
+          <p>
+            The league normally wants the final cut-down day to land within <strong>48 hours before auction start</strong> so cap hits and roster accounting
+            can settle before bidding starts. That window is a normal operating target, not an eternal fixed number.
+          </p>
+        </div>
+        <details>
+          <summary>Examples: auction behavior</summary>
+          <div>
+            <p><strong>Nomination-complete example:</strong> You need only one punter to finish a valid lineup and you are already the high bidder on a punter. UPS can treat you as nomination-complete. If you lose that punter later, nomination duty may reopen.</p>
+            <p><strong>Spending example:</strong> If the dashboard says the maximum you can spend to fill every remaining roster spot is <strong>$20K</strong>, but you only need the minimum roster and lineup completion, your true flexible spend may be higher. It is still your job not to overbid into an impossible roster shape.</p>
+            <p><strong>Cap floor example:</strong> A team at <strong>$247K</strong> after the auction cannot simply shrug and say it will fix things later. It must meet the floor by auction completion or by the contract deadline through real roster or contract action.</p>
+          </div>
+        </details>
+        <div class="section-links">
+          <a class="link-chip" href="#contracts">See auction contracts</a>
+          <a class="link-chip" href="#penalties-remedies">See nomination and cap-floor penalties</a>
+          <a class="link-chip" href="../requirements/actions/auction_nomination_rule.md">Open governed auction nomination rule</a>
+        </div>
+      </section>
+
+      <section class="card rule-section" id="waivers-adds-drops" data-family="acquisition" data-status="settled" data-reader="in-season new-owner commissioner">
+        <div class="card-header">
+          <div>
+            <h2>8. Waivers, FCFS, Adds, and Drops</h2>
+            <p class="summary">
+              Once the auction is over, the league shifts into its in-season acquisition rhythm. Owners need to know when a player belongs in blind bid,
+              when FCFS is open, and when a release is blocked by kickoff or auction timing.
+            </p>
+          </div>
+          <span class="card-flag settled">Settled core</span>
+        </div>
+        <div class="rule-meta">
+          <span class="pill">Blind bid Thu/Fri/Sat/Sun at 9 AM</span>
+          <span class="pill">FCFS after Sunday waiver run</span>
+          <span class="pill">FCFS salary $1K</span>
+          <span class="pill blue">Rosters action launcher</span>
+        </div>
+        <div class="grid-2">
+          <div class="panel">
+            <h3>Blind Bid Waivers</h3>
+            <ul>
+              <li>Blind-bid waivers run on <strong>Thursday, Friday, Saturday, and Sunday at 9:00 AM</strong> during the NFL season.</li>
+              <li>The winning blind-bid amount becomes the player's <strong>current-season salary</strong>.</li>
+              <li>Ties break by all-play, overall record, total points, then head-to-head.</li>
+              <li>Before and through Week 1, the league uses a custom preseason order based on prior season finishing context.</li>
+            </ul>
+          </div>
+          <div class="panel">
+            <h3>FCFS and direct adds</h3>
+            <ul>
+              <li>After the Sunday morning waiver run, players move into <strong>first-come, first-served</strong> acquisition.</li>
+              <li>FCFS stays open until the player's own NFL kickoff.</li>
+              <li>Any FCFS add defaults to <strong>$1K</strong> and a <strong>1-year</strong> contract unless another rule later changes it.</li>
+              <li>On the site, owners should see one governed acquisition path rather than separate confusing buttons.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="panel">
+            <h3>Drop timing</h3>
+            <ul>
+              <li>You may not drop a player after that player's NFL game has kicked off.</li>
+              <li>Drops are blocked during the pre-auction roster lock window.</li>
+              <li>Drops are also blocked while the free agent auction is active.</li>
+              <li>Outside those windows, drop remains a core roster-management tool.</li>
+            </ul>
+          </div>
+          <div class="panel">
+            <h3>Owner responsibility</h3>
+            <ul>
+              <li>The system does not excuse you from cap or roster mistakes.</li>
+              <li>You are responsible for having the roster space and cap room to make a legal acquisition.</li>
+              <li>UPS_V2 should show the right action path, but it should not silently legalize a bad move.</li>
+            </ul>
+          </div>
+        </div>
+        <details>
+          <summary>Examples: acquisition timing</summary>
+          <div>
+            <p><strong>Waiver bid example:</strong> On Thursday, you want a backup RB who is on no roster. If waivers are the active mode, the correct action is a blind bid, not an immediate add.</p>
+            <p><strong>Sunday FCFS example:</strong> After the Sunday morning run, a free-agent linebacker is now available by FCFS until his game kicks off. If you add him, his current-season salary is <strong>$1K</strong>.</p>
+            <p><strong>Drop example:</strong> If your kicker's game starts at 4:25 PM ET, you cannot cut him at 4:40 PM ET because he already kicked off.</p>
+          </div>
+        </details>
+        <div class="section-links">
+          <a class="link-chip" href="#rosters-lineups">See roster timing rules</a>
+          <a class="link-chip" href="../requirements/actions/add_action_rule.md">Open governed Add rule</a>
+          <a class="link-chip" href="../requirements/actions/drop_action_rule.md">Open governed Drop rule</a>
+        </div>
+      </section>
+
+      <section class="card rule-section" id="contracts" data-family="contracts" data-status="working" data-reader="contract-heavy commissioner new-owner">
+        <div class="card-header">
+          <div>
+            <h2>9. Contracts and Cap Management</h2>
+            <p class="summary">
+              This is the strategic center of the league. Contracts determine salary, guarantee exposure, cap penalties, extension pricing, rookie control,
+              auction flexibility, and how teams carry risk. This section is intentionally detailed and example-heavy.
+            </p>
+          </div>
+          <span class="card-flag working">Working draft</span>
+        </div>
+        <div class="rule-meta">
+          <span class="pill">Max 3 years on any contract</span>
+          <span class="pill">Max 6 non-rookie 3-year deals</span>
+          <span class="pill">Max 5 loaded contracts</span>
+          <span class="pill">75% guarantee framework</span>
+          <span class="pill blue">Contract Actions module</span>
+        </div>
+
+        <div class="grid-2">
+          <div class="panel soft">
+            <h3>Contract glossary</h3>
+            <ul>
+              <li><strong>Salary:</strong> the player's current-year salary.</li>
+              <li><strong>Years Remaining:</strong> seasons left on the deal.</li>
+              <li><strong>TCV:</strong> total contract value across the remaining deal.</li>
+              <li><strong>AAV:</strong> average annual value, used as the baseline for extension pricing.</li>
+              <li><strong>Guarantee:</strong> the portion of the contract protected against an early cut.</li>
+              <li><strong>Cap Penalty:</strong> dead money created when guaranteed value remains after a release.</li>
+            </ul>
+          </div>
+          <div class="panel soft">
+            <h3>Universal contract limits</h3>
+            <ul>
+              <li>No player may have more than <strong>3 years</strong> on a contract at one time.</li>
+              <li>No more than <strong>6 non-rookie 3-year contracts</strong> may be carried from contract deadline through season end.</li>
+              <li>No more than <strong>5 loaded contracts</strong> may be carried at one time.</li>
+              <li>The first year of any multi-year deal must carry at least <strong>20%</strong> of total contract value.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="panel">
+            <h3>Contract types</h3>
+            <ul>
+              <li><strong>Rookie:</strong> used for rookie-year players. Drafted rookies receive 3 years by default.</li>
+              <li><strong>Veteran:</strong> the normal contract type for non-rookie acquisitions.</li>
+              <li><strong>WW:</strong> default deal for waiver or FCFS additions, usually 1 year until changed by later action.</li>
+              <li><strong>Loaded:</strong> veteran contracts that are front-loaded or back-loaded rather than evenly split.</li>
+            </ul>
+          </div>
+          <div class="panel">
+            <h3>Loaded contracts</h3>
+            <ul>
+              <li><strong>Front-loaded:</strong> Year 1 salary is above AAV.</li>
+              <li><strong>Back-loaded:</strong> Year 1 salary is below AAV.</li>
+              <li>The contract still has to total correctly across all years.</li>
+              <li>The current-season salary of an in-season acquisition may not be changed just because you want a prettier long-term shape.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="panel">
+            <h3>Rookie contracts and rookie status</h3>
+            <ul>
+              <li>Drafted rookies receive <strong>3 years</strong> automatically.</li>
+              <li>Rookie contracts are evenly distributed and cannot be restructured while the player is still under rookie control.</li>
+              <li>Rookies acquired in-season usually begin as WW/default acquisitions and can later move into rookie-appropriate handling through MYM or extension paths.</li>
+              <li>Taxi-eligible players carry no guarantee until activated.</li>
+            </ul>
+          </div>
+          <div class="panel">
+            <h3>First-round rookie option</h3>
+            <ul>
+              <li>Applies to first-round rookie picks beginning with the <strong>2025 draft class</strong>.</li>
+              <li>The option must be exercised before the contract deadline of the player's final rookie season.</li>
+              <li>Current working offensive model adds a fifth controlled year at a higher salary band.</li>
+              <li>The defensive pricing formula still needs final league confirmation.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h3>Multi-year auction contracts</h3>
+          <p>
+            Players won in the free agent auction, expired rookie auction, or pre-deadline waiver window may be given 2- or 3-year auction contracts.
+            If you do not file a multi-year version by the deadline, the default result is a <strong>1-year</strong> contract.
+          </p>
+          <div class="example-links">
+            <a class="link-chip" href="#example-library">See auction contract examples</a>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="panel">
+            <h3>Mid-Year Multi (MYM)</h3>
+            <ul>
+              <li>Each team gets a maximum of <strong>3 MYM actions per season</strong>.</li>
+              <li>MYM converts a 1-year deal into a multi-year contract at the <strong>same salary</strong>.</li>
+              <li>MYM cannot be loaded.</li>
+              <li>Preseason acquisitions not contracted by the deadline can usually be MYM'd by the end of NFL Week 2.</li>
+              <li>In-season waiver acquisitions can usually be MYM'd within <strong>2 weeks</strong> of acquisition.</li>
+            </ul>
+          </div>
+          <div class="panel">
+            <h3>Extensions</h3>
+            <ul>
+              <li>Final-year players are generally extension-eligible through the contract deadline date.</li>
+              <li>Preseason waiver and rookie-edge cases may create a Week 4 extension path.</li>
+              <li>Players acquired via trade in the final year of their deal usually must be extended within <strong>4 weeks</strong>.</li>
+              <li>Extensions add <strong>1 or 2 years</strong> and reset TCV and guarantees.</li>
+            </ul>
+          </div>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Extension schedule</th>
+              <th>1 year</th>
+              <th>2 years</th>
+              <th>Applies to</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td data-label="Schedule">Schedule 1</td>
+              <td data-label="1 year">+$10K AAV</td>
+              <td data-label="2 years">+$20K AAV</td>
+              <td data-label="Applies to">QB / RB / WR / TE</td>
+            </tr>
+            <tr>
+              <td data-label="Schedule">Schedule 2</td>
+              <td data-label="1 year">+$3K AAV</td>
+              <td data-label="2 years">+$5K AAV</td>
+              <td data-label="Applies to">DB / LB / DL / K / P</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="grid-2">
+          <div class="example">
+            <h4>Example: Schedule 1 extension</h4>
+            <p>
+              A wide receiver has <strong>1 year left at $17K AAV</strong>. You extend him for <strong>1 additional year</strong>. His extension schedule adds
+              <strong>$10K</strong> to the new extension-year AAV, creating a fresh contract structure built from the new TCV.
+            </p>
+          </div>
+          <div class="example">
+            <h4>Example: Schedule 2 extension</h4>
+            <p>
+              A linebacker has <strong>1 year left at $10K</strong>. You extend him for <strong>2 years</strong>. The extension adds <strong>$5K</strong> to the
+              AAV basis used for those new years. The resulting deal is materially cheaper than a Schedule 1 offensive extension.
+            </p>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="panel">
+            <h3>Restructures</h3>
+            <p>
+              Restructures clearly exist in league practice and on the site, but the clean final written rule still needs tightening. The strongest working points are:
+            </p>
+            <ul>
+              <li>Restructures are not for rookie contracts.</li>
+              <li>Restructures are generally preseason or pre-deadline tools, not a free-for-all at any time.</li>
+              <li>Mid-season acquisitions should not quietly unlock restructure abuse.</li>
+              <li>The yearly restructure cap and exact extension interaction still need final cleanup.</li>
+            </ul>
+          </div>
+          <div class="panel skeleton">
+            <h3>Tags</h3>
+            <p>
+              Tags belong in the league's operational rule system and current site design, but the clean written rule has drifted. This section should eventually
+              codify:
+            </p>
+            <ul>
+              <li>tag types and eligibility</li>
+              <li>tag salary or pricing formula</li>
+              <li>tag timing window</li>
+              <li>renewal or repeat-tag limits</li>
+              <li>tag interaction with extensions, trades, and auction paths</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="panel">
+            <h3>Guarantees and earned value</h3>
+            <ul>
+              <li>Most contracts carry a <strong>75%</strong> TCV guarantee.</li>
+              <li>Earn schedule: <strong>0%</strong> before October, then <strong>25%</strong> on October 1, <strong>50%</strong> on November 1, and <strong>75%</strong> on December 1.</li>
+              <li>At the next season rollover, the prior season salary is fully earned.</li>
+              <li>Veteran or WW contracts under <strong>$5K</strong> with one original year may be cap-free cuts.</li>
+              <li>WW contracts at <strong>$5K+</strong> use a 65% earned / 35% penalty style exception.</li>
+            </ul>
+          </div>
+          <div class="panel">
+            <h3>Cap penalty rules</h3>
+            <ul>
+              <li>Base formula: <code>(TCV x 75%) - salary earned</code>.</li>
+              <li>Cap penalties after the auction usually apply to the <strong>following season</strong>.</li>
+              <li>Cap penalties before the roster-lock period hit the <strong>current season</strong>.</li>
+              <li>Taxi-eligible players cut before activation and before the relevant deadline may be cap-free.</li>
+              <li>Retired and legal-removal edge cases can qualify for cap-free treatment under special league rules.</li>
+            </ul>
+          </div>
+        </div>
+
+        <details>
+          <summary>Examples: contracts and cap penalties</summary>
+          <div>
+            <p><strong>Loaded contract example:</strong> A 3-year $90K deal can be front-loaded as <code>40 / 30 / 20</code>. It can be back-loaded only if Year 1 still carries at least 20% of the TCV.</p>
+            <p><strong>MYM example:</strong> You add a player preseason at <strong>$4K</strong> and do not file an auction contract. Before the Week 2 deadline, you use MYM and turn the deal into a multi-year contract at the same <strong>$4K</strong> salary basis.</p>
+            <p><strong>Cap penalty example:</strong> A contract with a <strong>$100K TCV</strong> has a <strong>$75K guarantee</strong>. If you cut the player before October with nothing earned, the penalty is <strong>$75K</strong>. If the player is cut after October earnings begin, earned value reduces the dead money.</p>
+            <p><strong>Taxi cut example:</strong> A taxi-eligible player who has never been activated and is cut before the relevant deadline can be released without a cap penalty.</p>
+          </div>
+        </details>
+
+        <div class="section-links">
+          <a class="link-chip" href="#rookie-draft">See rookie salaries and option year</a>
+          <a class="link-chip" href="#free-agent-auction">See auction entry paths</a>
+          <a class="link-chip" href="../requirements/workspaces/contract_actions_workspace.md">Open Contract Actions workspace spec</a>
+        </div>
+      </section>
+
+      <section class="card rule-section" id="trades" data-family="trades" data-status="working" data-reader="in-season contract-heavy commissioner">
+        <div class="card-header">
+          <div>
+            <h2>10. Trades and Salary Movement</h2>
+            <p class="summary">
+              Trades are live all offseason and in-season until Thanksgiving kickoff. The league wants active trading, but not chaos: asset eligibility,
+              salary movement, response timing, kickoff locks, and taxi handling all need to be understood.
+            </p>
+          </div>
+          <span class="card-flag working">Working draft</span>
+        </div>
+        <div class="rule-meta">
+          <span class="pill">Trade window starts with new league year</span>
+          <span class="pill">Trade deadline = Thanksgiving kickoff</span>
+          <span class="pill">Two-team self-serve release 1</span>
+          <span class="pill blue">Trades workspace</span>
+        </div>
+        <div class="grid-2">
+          <div class="panel soft">
+            <h3>Trade window</h3>
+            <ul>
+              <li>Trading opens with the start of the new league year.</li>
+              <li>Trading remains open through the offseason, during the auction, and into the season.</li>
+              <li>The trade deadline is the <strong>kickoff of the NFL Thanksgiving Day game</strong>.</li>
+              <li>After that kickoff, no new trades may be launched for that league year window.</li>
+            </ul>
+          </div>
+          <div class="panel soft">
+            <h3>Eligible assets</h3>
+            <ul>
+              <li>Players with <strong>1 or more years remaining</strong> may be traded.</li>
+              <li>Expired rookies may be traded only up to the rookie-extension deadline.</li>
+              <li>Other expired contracts are not trade-eligible.</li>
+              <li>Current-year picks and picks <strong>1 year into the future</strong> are eligible.</li>
+              <li>Round 6 picks are not trade-eligible.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="panel">
+            <h3>Trade salary</h3>
+            <ul>
+              <li>Salary may be included in trades.</li>
+              <li>The governing base is the <strong>current-season salary</strong> of the outgoing selected active-roster or IR players.</li>
+              <li><strong>Taxi salaries are excluded</strong> from the formula.</li>
+              <li>The maximum extra salary a side may send is <strong>50%</strong> of the summed eligible outgoing salary.</li>
+              <li>Salary movement posts mirrored cap adjustments between the two sides.</li>
+            </ul>
+          </div>
+          <div class="panel">
+            <h3>Kickoff lock and same-week handling</h3>
+            <ul>
+              <li>If any included player's game has already started, the trade may not process for the current scoring week.</li>
+              <li>Same-week publish is a hard block once kickoff has happened.</li>
+              <li>The current working model is deferred processing at the next safe week boundary rather than pretending the current week can still move.</li>
+              <li>The site should capture owner intent honestly instead of faking immediate completion.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="panel">
+            <h3>Response and communication expectations</h3>
+            <ul>
+              <li>Discord DM can be used for light trade responses and communication nudges.</li>
+              <li>Website acceptance remains the authoritative path for actual trade approval.</li>
+              <li>The trade workflow can record <em>not interested</em>, <em>will consider</em>, and <em>open communication</em> without claiming the trade is accepted.</li>
+              <li>Email is not the preferred trade-communication path in UPS_V2.</li>
+            </ul>
+          </div>
+          <div class="panel">
+            <h3>Other trade rules</h3>
+            <ul>
+              <li>Every trade must include at least one non-salary asset.</li>
+              <li>Taxi players acquired in a valid taxi state should land back on taxi automatically.</li>
+              <li>Release 1 supports standard <strong>two-team</strong> execution only.</li>
+              <li>Three-way or larger trades remain commissioner-managed exceptions until the dedicated workflow is approved.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="example">
+            <h4>Example: salary in trade</h4>
+            <p>
+              Team A trades away a player carrying an <strong>$80K current-year salary</strong>. Team A may include up to <strong>$40K</strong> of extra salary in the deal.
+              That creates a mirrored cap adjustment: one side gains relief, the other side takes the charge.
+            </p>
+          </div>
+          <div class="example">
+            <h4>Example: started player</h4>
+            <p>
+              If a Sunday 1:00 PM player is included in a trade and that player's game has already kicked off, the trade cannot be processed for that scoring week.
+              If the owners still want the deal, the league should hold it for the next eligible processing window instead of pretending the player can still move now.
+            </p>
+          </div>
+        </div>
+        <div class="callout">
+          <h3>Trade-linked extension intent</h3>
+          <p>
+            A trade may include extension intent when the player is extension-eligible and the agreement is clearly stated. The trade page can capture that intent.
+            The final extension validation still belongs to the contract rules, not to casual trade-chat language.
+          </p>
+        </div>
+        <div class="section-links">
+          <a class="link-chip" href="#contracts">See extension and contract eligibility</a>
+          <a class="link-chip" href="../requirements/workspaces/trade_negotiation_workspace.md">Open Trades workspace spec</a>
+          <a class="link-chip" href="../requirements/actions/trade_offer_action_rule.md">Open governed Trade action rule</a>
+        </div>
+      </section>
+
+      <section class="card rule-section" id="finances" data-family="money" data-status="settled" data-reader="new-owner commissioner in-season">
+        <div class="card-header">
+          <div>
+            <h2>11. League Financing</h2>
+            <p class="summary">
+              Cash obligations matter because they tie directly into cap penalties and league accountability. This section should stay boring and unambiguous.
+            </p>
+          </div>
+          <span class="card-flag settled">Settled core</span>
+        </div>
+        <div class="rule-meta">
+          <span class="pill">League dues $200</span>
+          <span class="pill">Half due by auction</span>
+          <span class="pill">Half due by Thanksgiving</span>
+          <span class="pill">Late-payment penalty $3K per week</span>
+        </div>
+        <div class="grid-2">
+          <div class="panel">
+            <h3>Dues and schedule</h3>
+            <ul>
+              <li>Annual league dues are <strong>$200</strong> per team.</li>
+              <li>Half is due by the start of the free agent auction.</li>
+              <li>The remaining half is due by the Thanksgiving trade deadline.</li>
+              <li>Late payment incurs a <strong>$3K cap penalty per week</strong>.</li>
+            </ul>
+          </div>
+          <div class="panel">
+            <h3>Payout structure</h3>
+            <ul>
+              <li>League Champion: <strong>$900</strong></li>
+              <li>Runner-Up: <strong>$450</strong></li>
+              <li>3rd Place: <strong>$150</strong></li>
+              <li>Division Winners: <strong>$50 each</strong></li>
+              <li>Weekly High Score (Weeks 1-17): <strong>$30</strong></li>
+              <li>Hawktuah Bowl Winner: <strong>$90</strong></li>
+            </ul>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="panel">
+            <h3>Miscellaneous fees</h3>
+            <ul>
+              <li>Logo changes cost <strong>$15</strong>.</li>
+              <li>The MFL hosting fee is part of the league expense structure.</li>
+            </ul>
+          </div>
+          <div class="panel">
+            <h3>Payment method</h3>
+            <ul>
+              <li>Payment platform: <strong>Venmo</strong></li>
+              <li>Current payee: <strong>@Keith-Creelman</strong></li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section class="card rule-section" id="penalties-remedies" data-family="enforcement" data-status="working" data-reader="commissioner in-season new-owner">
+        <div class="card-header">
+          <div>
+            <h2>12. Penalties and Commissioner Remedies</h2>
+            <p class="summary">
+              The penalty section is still one of the weakest parts of the current written rulebook, so this draft gives it a cleaner structure. Settled penalties are listed plainly.
+              Areas still under overhaul stay marked as working, not hand-waved.
+            </p>
+          </div>
+          <span class="card-flag working">Working draft</span>
+        </div>
+        <div class="rule-meta">
+          <span class="pill">Late dues settled</span>
+          <span class="pill">Missed nomination ladder still open</span>
+          <span class="pill">Competitive integrity always enforceable</span>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Penalty area</th>
+              <th>Current rule</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td data-label="Penalty area">Late dues</td>
+              <td data-label="Current rule">$3K cap penalty for each late week.</td>
+              <td data-label="Status">Settled</td>
+            </tr>
+            <tr>
+              <td data-label="Penalty area">Missed auction nominations</td>
+              <td data-label="Current rule">Escalating penalties starting at $3K.</td>
+              <td data-label="Status">Working draft; exact ladder still needs final codification.</td>
+            </tr>
+            <tr>
+              <td data-label="Penalty area">Failure to reach cap floor</td>
+              <td data-label="Current rule">Immediate cap hit or other correction to restore compliance.</td>
+              <td data-label="Status">Working draft; exact automation path still needs final wording.</td>
+            </tr>
+            <tr>
+              <td data-label="Penalty area">Invalid lineup or roster noncompliance</td>
+              <td data-label="Current rule">Penalty path exists and commissioner may intervene to protect league integrity.</td>
+              <td data-label="Status">Working draft; exact ladder still needs cleanup.</td>
+            </tr>
+            <tr>
+              <td data-label="Penalty area">Trade or contract correction failure</td>
+              <td data-label="Current rule">Corrective action is required; unresolved cases may create penalties or commissioner action.</td>
+              <td data-label="Status">Working draft</td>
+            </tr>
+            <tr>
+              <td data-label="Penalty area">Collusion or balance manipulation</td>
+              <td data-label="Current rule">Grounds for serious league action, including dismissal.</td>
+              <td data-label="Status">Settled principle</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="grid-2">
+          <div class="panel">
+            <h3>Commissioner remedies</h3>
+            <ul>
+              <li>Direct a corrective move where the rule already defines a clear obligation.</li>
+              <li>Freeze or hold a workflow while facts are reviewed.</li>
+              <li>Apply cap penalties where the rulebook clearly supports them.</li>
+              <li>Use precedent to resolve silent areas until the written rule catches up.</li>
+            </ul>
+          </div>
+          <div class="panel">
+            <h3>Special rules and edge cases</h3>
+            <ul>
+              <li><strong>Jail Bird Rule:</strong> legal removal from the league may allow cap-free relief.</li>
+              <li><strong>Retired player rule:</strong> retired players can be cut cap-free, though owners may also choose to hold them.</li>
+              <li><strong>Calvin Johnson rule:</strong> retirement of a true high-end asset may carry its own compensation logic.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="callout open">
+          <h3>Still needs tightening</h3>
+          <p>
+            The final version of this section should specify exact penalty ladders for missed nominations, lineup violations, roster-count violations,
+            and post-trade or post-contract correction failures, along with a simple appeal path.
+          </p>
+        </div>
+        <div class="section-links">
+          <a class="link-chip" href="#free-agent-auction">See auction participation duties</a>
+          <a class="link-chip" href="#finances">See dues penalties</a>
+          <a class="link-chip" href="#open-items">See open clean-up list</a>
+        </div>
+      </section>
+
+      <section class="card rule-section" id="site-guide" data-family="site" data-status="working" data-reader="new-owner in-season contract-heavy commissioner">
+        <div class="card-header">
+          <div>
+            <h2>13. Using the League Site</h2>
+            <p class="summary">
+              The site should make the rules easier to follow, not harder. These are the main UPS_V2 surfaces and the job each one is supposed to do.
+            </p>
+          </div>
+          <span class="card-flag working">Working draft</span>
+        </div>
+        <div class="rule-meta">
+          <span class="pill">Task-first navigation</span>
+          <span class="pill">Rosters = action launcher</span>
+          <span class="pill">Contract Actions owns contract mutations</span>
+          <span class="pill">Trades own negotiation state</span>
+        </div>
+        <div class="grid-3">
+          <div class="site-box">
+            <h3>Team Operations</h3>
+            <p>Planning surface for franchise health, cap snapshot, contract exposure, picks, and deadline awareness.</p>
+            <div class="section-links">
+              <a class="link-chip" href="../requirements/workspaces/team_operations_workspace.md">Open spec</a>
+            </div>
+          </div>
+          <div class="site-box">
+            <h3>Rosters</h3>
+            <p>Daily action launcher. Click a player and see only the actions that are actually legal right now.</p>
+            <div class="section-links">
+              <a class="link-chip" href="../requirements/workspaces/roster_operations_workspace.md">Open spec</a>
+            </div>
+          </div>
+          <div class="site-box">
+            <h3>Contract Actions</h3>
+            <p>Extensions, restructures, tags, MYM, auction contract finalization, rookie option, and contract-specific warnings.</p>
+            <div class="section-links">
+              <a class="link-chip" href="../requirements/workspaces/contract_actions_workspace.md">Open spec</a>
+            </div>
+          </div>
+          <div class="site-box">
+            <h3>Trades</h3>
+            <p>Offer drafting, side-by-side review, counters, Discord nudges, and on-site acceptance.</p>
+            <div class="section-links">
+              <a class="link-chip" href="../requirements/workspaces/trade_negotiation_workspace.md">Open spec</a>
+            </div>
+          </div>
+          <div class="site-box">
+            <h3>Reports</h3>
+            <p>League stories, standings context, financial summaries, and historical views. Reporting should not own mutations.</p>
+          </div>
+          <div class="site-box">
+            <h3>Help and Issue Intake</h3>
+            <p>One place for league owners to ask for clarification, raise bugs, or flag confusing workflows.</p>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="panel">
+            <h3>What the site should do well</h3>
+            <ul>
+              <li>Get owners to common tasks in <strong>2 clicks</strong> where possible.</li>
+              <li>Show only legal actions instead of dead buttons.</li>
+              <li>Keep contract execution separate from planning context.</li>
+              <li>Keep Discord as communication support, not as the authoritative transaction ledger.</li>
+            </ul>
+          </div>
+          <div class="panel">
+            <h3>What the site should not do</h3>
+            <ul>
+              <li>Hide rules behind MFL message slots and legacy route names.</li>
+              <li>Force owners to search multiple modules to answer a simple player-action question.</li>
+              <li>Claim something is published or verified when the source system has not confirmed it.</li>
+              <li>Turn every commissioner-only edge case into a normal owner path.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section class="card rule-section" id="example-library" data-family="examples" data-status="working" data-reader="new-owner contract-heavy commissioner in-season">
+        <div class="card-header">
+          <div>
+            <h2>14. Example Library</h2>
+            <p class="summary">
+              This section consolidates difficult scenarios that owners usually misunderstand on first read. The goal is to make the book usable,
+              not merely formal.
+            </p>
+          </div>
+          <span class="card-flag working">Working draft</span>
+        </div>
+        <div class="grid-2">
+          <div class="example">
+            <h4>Contract example: rookie option</h4>
+            <p>
+              A player drafted at <strong>1.01 in 2025</strong> carries the first-round rookie option path. Before the contract deadline of that player's final
+              rookie season, the owner can exercise the option year instead of letting the rookie contract end and forcing an immediate extension-or-loss choice.
+            </p>
+          </div>
+          <div class="example">
+            <h4>Contract example: MYM</h4>
+            <p>
+              You win a preseason waiver player at <strong>$3K</strong> and do not file a multi-year deal immediately. Before the Week 2 cutoff, you can use MYM
+              to convert that player into a multi-year contract at the same base salary.
+            </p>
+          </div>
+          <div class="example">
+            <h4>Contract example: extension after trade</h4>
+            <p>
+              You trade for a player in the final year of his contract in midseason. If the league's extension window allows <strong>4 weeks from acquisition</strong>,
+              you must handle the extension inside that clock, not months later after the trade has already solved your roster problem.
+            </p>
+          </div>
+          <div class="example">
+            <h4>Trade example: taxi on trade</h4>
+            <p>
+              Team A trades a Round 3 rookie who is still taxi-valid. Team B acquires the player. If Team B has a legal taxi spot and the player still qualifies,
+              UPS should put that player back on taxi automatically rather than forcing a manual dance.
+            </p>
+          </div>
+          <div class="example">
+            <h4>Auction example: missed nominations</h4>
+            <p>
+              During a normal auction day, your franchise owes two nominations. You submit only one and disappear. That is not just bad etiquette. It is a governed
+              auction violation and should enter the missed-nomination penalty ladder.
+            </p>
+          </div>
+          <div class="example">
+            <h4>Roster example: post-kickoff drop</h4>
+            <p>
+              A player is still on your bench, but his 1:00 PM game has started. Even though he never entered your lineup, you still cannot drop him after kickoff.
+            </p>
+          </div>
+        </div>
+        <div class="section-links">
+          <a class="link-chip" href="#contracts">Back to contracts</a>
+          <a class="link-chip" href="#trades">Back to trades</a>
+          <a class="link-chip" href="#free-agent-auction">Back to auction</a>
+        </div>
+      </section>
+
+      <section class="card rule-section" id="open-items" data-family="open" data-status="open" data-reader="commissioner contract-heavy new-owner in-season">
+        <div class="card-header">
+          <div>
+            <h2>15. Open Items and Fill-In Gaps</h2>
+            <p class="summary">
+              These are the areas where the structure is now right, but the final league rule still needs owner review, commissioner direction, or clean import.
+              This section is here to keep gaps visible instead of letting them hide inside pretty prose.
+            </p>
+          </div>
+          <span class="card-flag open">Open / skeletal</span>
+        </div>
+        <div class="note-list">
+          <div class="note">
+            <strong>Scoring appendix:</strong> import the exact live scoring values and tie-break logic into Section 4.
+          </div>
+          <div class="note">
+            <strong>Tags:</strong> define tag types, cost formula, timing, repeat-tag limits, and interaction with trades or extensions.
+          </div>
+          <div class="note">
+            <strong>Restructures:</strong> finalize annual restructure limit, precise timing window, and how restructures interact with extensions and current-season salary.
+          </div>
+          <div class="note">
+            <strong>Missed-nomination penalty ladder:</strong> keep the starting point at $3K, but settle the full escalation path.
+          </div>
+          <div class="note">
+            <strong>Trade response SLA:</strong> decide the clean owner-facing response expectation for offseason versus in-season offers.
+          </div>
+          <div class="note">
+            <strong>Penalty appeals:</strong> write the simple process for review and final commissioner resolution.
+          </div>
+          <div class="note">
+            <strong>Special retirement and compensation rules:</strong> make the Calvin Johnson-style compensation logic explicit rather than legendary.</div>
+        </div>
+        <div class="callout open">
+          <h3>Drafting standard for remaining gaps</h3>
+          <p>
+            Every unresolved area should be finalized in plain fantasy-football language first, then mirrored into UPS_V2 governance and site behavior.
+            The site should never be left to infer a major rule from vibes.
+          </p>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <footer>
+    <div class="footer-card">
+      <h2>Draft Notes</h2>
+      <p>
+        This is the stronger first real pass: it is arranged like a usable fantasy football rulebook, embeds examples where owners actually get lost,
+        folds the site surfaces into the rules instead of bolting them on, and keeps the unresolved areas visible. The next pass should tighten scoring,
+        tags, restructures, and the penalty ladders.
+      </p>
+    </div>
+  </footer>
+
+  <script>
+    const searchBox = document.getElementById("searchBox");
+    const familyFilter = document.getElementById("familyFilter");
+    const statusFilter = document.getElementById("statusFilter");
+    const readerFilter = document.getElementById("readerFilter");
+    const visibleCount = document.getElementById("visibleCount");
+    const resetFilters = document.getElementById("resetFilters");
+    const expandAll = document.getElementById("expandAll");
+    const sections = [...document.querySelectorAll(".rule-section")];
+    const tocLinks = [...document.querySelectorAll("#tocList a")];
+    let expanded = false;
+
+    function normalize(value) {
+      return (value || "").toLowerCase();
+    }
+
+    function matchesTokenList(haystack, needle) {
+      if (needle === "all") return true;
+      return normalize(haystack).split(/\s+/).includes(needle);
+    }
+
+    function applyFilters() {
+      const query = normalize(searchBox.value.trim());
+      const family = familyFilter.value;
+      const status = statusFilter.value;
+      const reader = readerFilter.value;
+      let count = 0;
+
+      sections.forEach((section) => {
+        const text = normalize(section.textContent);
+        const familyOk = family === "all" || section.dataset.family === family;
+        const statusOk = status === "all" || section.dataset.status === status;
+        const readerOk = matchesTokenList(section.dataset.reader || "", reader);
+        const queryOk = !query || text.includes(query);
+        const visible = familyOk && statusOk && readerOk && queryOk;
+        section.classList.toggle("hidden", !visible);
+        if (visible) count += 1;
+      });
+
+      tocLinks.forEach((link) => {
+        const target = document.querySelector(link.getAttribute("href"));
+        if (!target) return;
+        link.classList.toggle("dim", target.classList.contains("hidden"));
+      });
+
+      visibleCount.textContent = `${count} section${count === 1 ? "" : "s"} visible`;
+    }
+
+    function setAllDetails(open) {
+      document.querySelectorAll("details").forEach((item) => {
+        item.open = open;
+      });
+      expanded = open;
+      expandAll.textContent = open ? "Collapse Examples" : "Expand Examples";
+    }
+
+    [searchBox, familyFilter, statusFilter, readerFilter].forEach((control) => {
+      control.addEventListener("input", applyFilters);
+      control.addEventListener("change", applyFilters);
+    });
+
+    resetFilters.addEventListener("click", () => {
+      searchBox.value = "";
+      familyFilter.value = "all";
+      statusFilter.value = "all";
+      readerFilter.value = "all";
+      applyFilters();
+    });
+
+    expandAll.addEventListener("click", () => {
+      setAllDetails(!expanded);
+    });
+
+    applyFilters();
+  </script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+literal,category,current_locations,current_classification,required_v2_action,owner_lane,audit_status,notes
+74598,league_id,worker routes and site loaders,configurable,move_to_env_config,ops_runtime,approved_promoted,Production source league must move to env or runtime config
+25625,league_id,worker admin sync and standings artifacts,configurable,move_to_env_config,ops_runtime,approved_promoted,Primary test league must move to env or runtime config
+2025_or_2026,season_literal,pipelines site artifacts and loader assumptions,configurable,derive_from_season_context,mfl_matrix,approved_promoted,Year assumptions should be config or derived from season context
+upsmflproduction,repo_identity,worker URLs and CDN refs,configurable,replace_with_v2_release_config,ops_runtime,approved_promoted,Repo-specific URLs must be centralized in UPS_V2 release config
+absolute_new_project_paths,filesystem_path,scripts and local fallbacks,legacy_compat,remove_from_active_runtime,ops_runtime,approved_promoted,Absolute paths to the legacy repo must not survive in active UPS_V2 runtime
+legacy_etl_scheduler_paths,scheduler_path,plist and script references,legacy_compat,retire_and_replace,ops_runtime,approved_promoted,Stale ETL path assumptions must be retired with the new runtime model
+schedule_literals,schedule_literal,scheduler configs and workflow timing,pinned_business_rule,document_in_job_inventory_and_schedule_policy,ops_runtime,approved_promoted,Allowed only when explicitly documented and owner-approved
+message_slot_entrypoints,mfl_message_slot,header or loader bridges,legacy_compat,contain_in_compatibility_shell_only,ux_review,approved_promoted,Slot-based entry must not define UPS_V2 information architecture
+cdn_loader_urls,external_url,site loaders and worker refs,configurable,centralize_in_release_strategy,ops_runtime,approved_promoted,External URLs must be centralized and versioned
+mixed_environment_assumptions,environment_assumption,manual rebuild scripts and worker sync logic,configurable,separate_read_build_write_contexts,ops_runtime,approved_promoted,UPS_V2 must separate read build and write contexts

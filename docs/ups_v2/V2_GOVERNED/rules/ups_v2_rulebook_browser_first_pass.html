@@ -1,0 +1,1209 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>UPS_V2 Rule Book Browser - First Pass</title>
+  <style>
+    :root {
+      --bg: #f4efe7;
+      --panel: #ffffff;
+      --panel-soft: #f8fafc;
+      --ink: #16202a;
+      --muted: #5c6976;
+      --line: #d7dde3;
+      --accent: #7a4c21;
+      --accent-2: #1d4f91;
+      --accent-soft: #f3e5d6;
+      --good: #1f7a4f;
+      --warn: #b7791f;
+      --open: #7a4c21;
+      --shadow: 0 12px 28px rgba(26, 34, 43, 0.10);
+      --radius: 18px;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top right, rgba(122, 76, 33, 0.10), transparent 28%),
+        linear-gradient(180deg, #f8f2e8 0%, #fbfcfd 28%, #eef3f7 100%);
+      font-family: "Trebuchet MS", "Gill Sans", "Segoe UI", sans-serif;
+      line-height: 1.55;
+    }
+    a { color: var(--accent-2); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    header {
+      padding: 2rem 1.25rem 1rem;
+      max-width: 1440px;
+      margin: 0 auto;
+    }
+    .hero {
+      background: rgba(255, 255, 255, 0.78);
+      border: 1px solid rgba(215, 221, 227, 0.8);
+      border-radius: 28px;
+      padding: 1.5rem;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(6px);
+    }
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.85rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 0.75rem;
+    }
+    h1, h2, h3, h4 {
+      margin: 0 0 0.5rem;
+      line-height: 1.15;
+      font-family: Georgia, "Times New Roman", serif;
+    }
+    h1 { font-size: clamp(2rem, 4vw, 3.5rem); }
+    h2 { font-size: clamp(1.35rem, 2vw, 2rem); }
+    h3 { font-size: 1.15rem; }
+    p { margin: 0.5rem 0 0; }
+    .lede {
+      max-width: 88ch;
+      color: var(--muted);
+      font-size: 1.02rem;
+    }
+    .meta-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 1rem;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.35rem 0.7rem;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.9);
+      font-size: 0.82rem;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+    .badge.good { color: var(--good); border-color: rgba(31, 122, 79, 0.25); background: rgba(31, 122, 79, 0.08); }
+    .badge.warn { color: var(--warn); border-color: rgba(183, 121, 31, 0.25); background: rgba(183, 121, 31, 0.08); }
+    .badge.open { color: var(--open); border-color: rgba(122, 76, 33, 0.25); background: rgba(122, 76, 33, 0.08); }
+    .controls {
+      margin-top: 1rem;
+      display: grid;
+      grid-template-columns: 1.7fr 1fr 1fr 1fr auto;
+      gap: 0.75rem;
+      align-items: end;
+    }
+    .control {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+    .control label {
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: var(--muted);
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }
+    input[type="search"], select {
+      width: 100%;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      padding: 0.8rem 0.9rem;
+      background: rgba(255, 255, 255, 0.96);
+      color: var(--ink);
+      font: inherit;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+    }
+    button {
+      border: 0;
+      border-radius: 14px;
+      padding: 0.85rem 1rem;
+      font: inherit;
+      font-weight: 700;
+      color: white;
+      background: linear-gradient(135deg, var(--accent), #9a6535);
+      cursor: pointer;
+      box-shadow: var(--shadow);
+    }
+    button:hover { filter: brightness(1.03); }
+    .layout {
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 0 1.25rem 2rem;
+      display: grid;
+      grid-template-columns: 300px minmax(0, 1fr);
+      gap: 1rem;
+      align-items: start;
+    }
+    .toc {
+      position: sticky;
+      top: 1rem;
+      background: rgba(255, 255, 255, 0.84);
+      border: 1px solid rgba(215, 221, 227, 0.8);
+      border-radius: 22px;
+      padding: 1rem;
+      box-shadow: var(--shadow);
+    }
+    .toc h2 {
+      font-size: 1.15rem;
+      margin-bottom: 0.85rem;
+    }
+    .toc ol {
+      margin: 0;
+      padding-left: 1.15rem;
+      display: grid;
+      gap: 0.35rem;
+    }
+    .toc a {
+      color: var(--ink);
+    }
+    .toc a.muted {
+      color: #8aa0b0;
+      text-decoration: line-through;
+    }
+    .content {
+      display: grid;
+      gap: 1rem;
+      min-width: 0;
+    }
+    .card {
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid rgba(215, 221, 227, 0.9);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 1.25rem;
+    }
+    .card .header-line {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 0.75rem;
+      align-items: center;
+      margin-bottom: 0.75rem;
+    }
+    .card .summary {
+      color: var(--muted);
+      max-width: 90ch;
+    }
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      margin-top: 0.75rem;
+    }
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.25rem 0.55rem;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: #6e4317;
+      font-size: 0.78rem;
+      font-weight: 700;
+    }
+    .chip.gray {
+      background: #edf2f7;
+      color: #44515e;
+    }
+    ul, ol { margin: 0.65rem 0 0; padding-left: 1.25rem; }
+    li { margin: 0.25rem 0; }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.9rem;
+      margin-top: 0.75rem;
+    }
+    .box {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 0.9rem;
+      background: var(--panel-soft);
+    }
+    .box h4 {
+      font-size: 1rem;
+      font-family: inherit;
+      margin-bottom: 0.35rem;
+    }
+    details {
+      margin-top: 0.85rem;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #fff;
+      overflow: hidden;
+    }
+    summary {
+      cursor: pointer;
+      padding: 0.85rem 0.95rem;
+      font-weight: 700;
+      list-style: none;
+    }
+    summary::-webkit-details-marker { display: none; }
+    details > div {
+      padding: 0 0.95rem 0.95rem;
+      color: var(--muted);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 0.75rem;
+      overflow: hidden;
+      border-radius: 14px;
+    }
+    th, td {
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+      padding: 0.75rem 0.65rem;
+      font-size: 0.95rem;
+    }
+    th {
+      background: #f6f8fb;
+      color: var(--muted);
+      text-transform: uppercase;
+      font-size: 0.78rem;
+      letter-spacing: 0.05em;
+    }
+    .footnote {
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+    .hidden { display: none !important; }
+    .kpi {
+      display: inline-flex;
+      gap: 0.5rem;
+      align-items: center;
+      padding: 0.35rem 0.65rem;
+      border-radius: 999px;
+      background: #eaf2ff;
+      color: var(--accent-2);
+      font-size: 0.82rem;
+      font-weight: 700;
+    }
+    .section-link-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 0.75rem;
+    }
+    .section-link-list a {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.35rem 0.6rem;
+      border-radius: 999px;
+      background: #f1f5f9;
+      border: 1px solid #dce4eb;
+      color: var(--ink);
+      font-size: 0.84rem;
+    }
+    .section-link-list a:hover {
+      background: #e8eff7;
+      text-decoration: none;
+    }
+    .toplink {
+      font-size: 0.86rem;
+      font-weight: 700;
+    }
+    @media (max-width: 1080px) {
+      .layout { grid-template-columns: 1fr; }
+      .toc { position: relative; top: 0; }
+      .controls { grid-template-columns: 1fr 1fr; }
+      .controls .search-wrap { grid-column: 1 / -1; }
+    }
+    @media (max-width: 720px) {
+      header { padding-inline: 0.75rem; }
+      .layout { padding-inline: 0.75rem; }
+      .hero, .toc, .card { border-radius: 18px; }
+      .controls { grid-template-columns: 1fr; }
+      .grid-2 { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body id="top">
+  <header>
+    <section class="hero">
+      <div class="eyebrow">UPS_V2 rulebook browser</div>
+      <h1>First-pass comprehensive rule book</h1>
+      <p class="lede">
+        This page is a working browser for the UPS_V2 rule system. It is ordered logically, links out to governed docs, and keeps unresolved areas visibly skeletal.
+        V1 reference material remains quarantined. UPS_V2 governed material is the only source this page should ever promote into implementation.
+      </p>
+      <div class="meta-row">
+        <span class="badge good">governed sections</span>
+        <span class="badge warn">pending review sections</span>
+        <span class="badge open">skeleton sections</span>
+        <span class="badge">searchable by keyword, source tier, family, status, and ambiguity ID</span>
+      </div>
+      <div class="controls" aria-label="rulebook search controls">
+        <div class="control search-wrap">
+          <label for="search">Search criteria</label>
+          <input id="search" type="search" placeholder="Search by rule, example, ambiguity ID, directive ID, source doc, or concept">
+        </div>
+        <div class="control">
+          <label for="family">Family</label>
+          <select id="family">
+            <option value="all">All families</option>
+            <option value="authority">Authority</option>
+            <option value="metadata">Metadata</option>
+            <option value="calendar">Calendar</option>
+            <option value="roster">Roster</option>
+            <option value="contracts">Contracts</option>
+            <option value="auction">Auction</option>
+            <option value="adds">Adds / Waivers</option>
+            <option value="drops">Drops</option>
+            <option value="trades">Trades</option>
+            <option value="enforcement">Enforcement</option>
+            <option value="site">Site behavior</option>
+            <option value="scoring">Scoring</option>
+            <option value="open">Open questions</option>
+          </select>
+        </div>
+        <div class="control">
+          <label for="tier">Source tier</label>
+          <select id="tier">
+            <option value="all">All tiers</option>
+            <option value="governed">UPS_V2 governed</option>
+            <option value="v1-reference">V1 reference</option>
+            <option value="pending-review">Pending review</option>
+            <option value="skeleton">Skeleton</option>
+          </select>
+        </div>
+        <div class="control">
+          <label for="status">Status</label>
+          <select id="status">
+            <option value="all">All statuses</option>
+            <option value="settled">Settled</option>
+            <option value="partial">Partial</option>
+            <option value="open">Open</option>
+            <option value="skeleton">Skeleton</option>
+          </select>
+        </div>
+        <div class="control">
+          <label>&nbsp;</label>
+          <button id="reset" type="button">Reset</button>
+        </div>
+      </div>
+      <div class="meta-row" style="margin-top: 0.85rem;">
+        <span class="kpi" id="visibleCount">0 sections visible</span>
+        <span class="badge">click the TOC or section links to jump around</span>
+      </div>
+    </section>
+  </header>
+
+  <div class="layout">
+    <aside class="toc" aria-label="table of contents">
+      <h2>Table of Contents</h2>
+      <ol id="tocList">
+        <li><a class="toc-link" href="#how-to-use">How to use</a></li>
+        <li><a class="toc-link" href="#authority">Authority and precedence</a></li>
+        <li><a class="toc-link" href="#metadata">Metadata and source of truth</a></li>
+        <li><a class="toc-link" href="#calendar">League calendar and event windows</a></li>
+        <li><a class="toc-link" href="#roster">Roster architecture</a></li>
+        <li><a class="toc-link" href="#contracts">Contracts and contract mechanics</a></li>
+        <li><a class="toc-link" href="#auction">Auction and free agency</a></li>
+        <li><a class="toc-link" href="#adds">Adds and waivers</a></li>
+        <li><a class="toc-link" href="#drops">Drops and roster locks</a></li>
+        <li><a class="toc-link" href="#trades">Trades and negotiation</a></li>
+        <li><a class="toc-link" href="#enforcement">Penalties and enforcement</a></li>
+        <li><a class="toc-link" href="#site">Site behavior and workflow controls</a></li>
+        <li><a class="toc-link" href="#scoring">Scoring and standings</a></li>
+        <li><a class="toc-link" href="#examples">Examples appendix</a></li>
+        <li><a class="toc-link" href="#open-questions">Open questions and skeleton items</a></li>
+      </ol>
+      <p class="footnote" style="margin-top: 0.85rem;">
+        Source pointers: <a href="file:///Users/keithcreelman/Documents/mfl/Codex/version2/docs/ups_v2/V2_GOVERNED/rules/rules_source_audit_pending_review.md">UPS_V2 pending review audit</a>,
+        <a href="file:///Users/keithcreelman/Documents/mfl/Codex/V1/reference_inputs/ups_v2/V1_REFERENCE/rules/rules_source_audit_2026-03-18.md">V1 reference audit notes</a>.
+      </p>
+    </aside>
+
+    <main class="content">
+      <article id="how-to-use" class="card rule-card" data-family="authority" data-tier="governed" data-status="settled" data-tags="search criteria toc navigation source tiers examples ambiguity ids directive ids">
+        <div class="header-line">
+          <div>
+            <div class="badge good">settled</div>
+            <h2>How to use this page</h2>
+          </div>
+          <a class="toplink" href="#top">Back to top</a>
+        </div>
+        <p class="summary">
+          This is a working rulebook browser. It is meant to be read in logical order, searched, and cross-referenced against the governed UPS_V2 docs.
+          Anything marked skeleton is intentionally incomplete. Anything marked pending review is a real working draft, not final truth.
+        </p>
+        <div class="grid-2">
+          <div class="box">
+            <h4>Search criteria</h4>
+            <ul>
+              <li>Rule family: trade, contract, auction, roster, add, drop, enforcement, site, scoring.</li>
+              <li>Source tier: governed, V1 reference, pending review, skeleton.</li>
+              <li>Status: settled, partial, open, skeleton.</li>
+              <li>Identifier: ambiguity ID, directive ID, SSA row, or source file name.</li>
+              <li>Plain language: player kicked off, taxi-on-trade, 48 hours, 3 days, noon open, 24-hour timer.</li>
+            </ul>
+          </div>
+          <div class="box">
+            <h4>Reading rule</h4>
+            <ul>
+              <li>V1 reference material is evidence only.</li>
+              <li>Governed UPS_V2 docs are the implementation target.</li>
+              <li>If the page says pending review, it means the rule is visible but not closed.</li>
+              <li>If the page says skeleton, it is a placeholder waiting for later promotion.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="section-link-list">
+          <a href="file:///Users/keithcreelman/Documents/mfl/Codex/version2/docs/ups_v2/V2_GOVERNED/governance/rules_watch_lane_policy.md">rules_watch lane policy</a>
+          <a href="file:///Users/keithcreelman/Documents/mfl/Codex/version2/docs/ups_v2/V2_GOVERNED/governance/rule_interpretation_log.md">rule interpretation log</a>
+          <a href="file:///Users/keithcreelman/Documents/mfl/Codex/version2/docs/ups_v2/V2_GOVERNED/governance/rules_watch_intake.csv">rules_watch intake</a>
+        </div>
+      </article>
+
+      <article id="authority" class="card rule-card" data-family="authority" data-tier="governed" data-status="settled" data-tags="authority precedence commissioner directive mfl metadata rulebook dispute conflict">
+        <div class="header-line">
+          <div>
+            <div class="badge good">settled</div>
+            <h2>Authority and precedence</h2>
+          </div>
+          <a class="toplink" href="#top">Back to top</a>
+        </div>
+        <p class="summary">
+          UPS_V2 should resolve rule conflicts by source tier, not by convenience. Commissioner directives and explicit governing docs outrank precedent.
+          Seasonal MFL metadata outranks narrative silence when the rulebook is silent. V1 forum, Discord, and message-board evidence is support material unless promoted.
+        </p>
+        <div class="grid-2">
+          <div class="box">
+            <h4>Precedence ladder</h4>
+            <ol>
+              <li>Explicit commissioner directive or governed UPS_V2 approval.</li>
+              <li>Live season MFL metadata when the rulebook is silent.</li>
+              <li>Historical precedent from forum, Slack, Discord, or message boards.</li>
+              <li>Codex-derived summaries and derived notes.</li>
+            </ol>
+          </div>
+          <div class="box">
+            <h4>Practical rule</h4>
+            <ul>
+              <li>Do not hardcode commissioner interpretation as settled law.</li>
+              <li>Log drift when live site settings and written rules disagree.</li>
+              <li>Promote only what has been reviewed and approved.</li>
+            </ul>
+          </div>
+        </div>
+        <details>
+          <summary>Example: source conflict</summary>
+          <div>
+            If a forum thread says one thing and the current season metadata says another, UPS_V2 should treat the metadata as operational truth if the rulebook is silent.
+            If the commissioner later posts an explicit directive, that directive becomes the governing decision and the old conflict is preserved in the ambiguity log.
+          </div>
+        </details>
+        <div class="section-link-list">
+          <a href="file:///Users/keithcreelman/Documents/mfl/Codex/version2/docs/ups_v2/V2_GOVERNED/data/source_of_truth_matrix.csv">source of truth matrix</a>
+          <a href="file:///Users/keithcreelman/Documents/mfl/Codex/version2/docs/ups_v2/V2_GOVERNED/rules/rule_ambiguity_register.csv">rule ambiguity register</a>
+          <a href="file:///Users/keithcreelman/Documents/mfl/Codex/version2/docs/ups_v2/V2_GOVERNED/rules/commissioner_directive_register.csv">commissioner directive register</a>
+        </div>
+      </article>
+
+      <article id="metadata" class="card rule-card" data-family="metadata" data-tier="governed" data-status="settled" data-tags="mfl metadata league settings divisions starters roster size taxi ir weeks end week source of truth">
+        <div class="header-line">
+          <div>
+            <div class="badge good">settled</div>
+            <h2>Metadata and source of truth</h2>
+          </div>
+          <a class="toplink" href="#top">Back to top</a>
+        </div>
+        <p class="summary">
+          The canonical metadata register merges league settings, divisions, starters, and event bounds by season.
+          Raw season metadata is authoritative for the season it describes. Rendered summaries are convenience only.
+        </p>
+        <div class="grid-2">
+          <div class="box">
+            <h4>Metadata fields treated as operational truth</h4>
+            <ul>
+              <li>league_id and season</li>
+              <li>salary cap amount and cap mode</li>
+              <li>roster size, taxi, IR, and starter counts</li>
+              <li>division and conference structure</li>
+              <li>start and end weeks, event windows, and roster lock windows</li>
+            </ul>
+          </div>
+          <div class="box">
+            <h4>Convenience only</h4>
+            <ul>
+              <li>human-readable labels for divisions and conferences</li>
+              <li>derived summary counts</li>
+              <li>generated calendar cards</li>
+              <li>readable validation warnings</li>
+            </ul>
+          </div>
+        </div>
+        <details>
+          <summary>Example: metadata overrides narrative silence</summary>
+          <div>
+            If a rulebook page does not specify a starter count for a season but the season metadata does, UPS_V2 should use the metadata in the live validator and keep the mismatch visible in the site-settings alignment register.
+          </div>
+        </details>
+        <div class="section-link-list">
+          <a href="file:///Users/keithcreelman/Documents/mfl/Codex/version2/docs/ups_v2/V2_GOVERNED/data/SCHEMA_DICTIONARY.md">schema dictionary</a>
+          <a href="file:///Users/keithcreelman/Documents/mfl/Codex/version2/docs/ups_v2/V2_GOVERNED/governance/site_settings_alignment_register.csv">site-settings alignment register</a>
+          <a href="file:///Users/keithcreelman/Documents/mfl/Codex/version2/docs/ups_v2/V2_GOVERNED/mfl/event_window_matrix.csv">event window matrix</a>
+        </div>
+      </article>
+
+      <article id="calendar" class="card rule-card" data-family="calendar" data-tier="governed" data-status="partial" data-tags="season calendar event windows march 1 rookie draft july auction thanksgiving kickoff deadline playoffs cut-down">
+        <div class="header-line">
+          <div>
+            <div class="badge warn">partial</div>
+            <h2>League calendar and event windows</h2>
+          </div>
+          <a class="toplink" href="#top">Back to top</a>
+        </div>
+        <p class="summary">
+          The current calendar logic is season-configured, not hardcoded. The key pattern is the same each year even when dates move:
+          offseason release and preparation, rookie and contract activity, auction period, kickoff lock, Thanksgiving trade deadline, and postseason closeout.
+        </p>
+        <div class="grid-2">
+          <div class="box">
+            <h4>Anchor events</h4>
+            <ul>
+              <li>Season start and offseason rollover.</li>
+              <li>Rookie draft and rookie contract deadlines.</li>
+              <li>Free-agent auction target period, usually the last weekend of July but flexible.</li>
+              <li>Final cut-down day, normally within 48 hours before auction start.</li>
+              <li>Trade deadline, tied to the Thanksgiving kickoff window.</li>
+            </ul>
+          </div>
+          <div class="box">
+            <h4>Behavior rule</h4>
+            <ul>
+              <li>Timing should be operationally fluid unless it breaks a governed rule.</li>
+              <li>Season event timing is not a violation by itself.</li>
+              <li>Every exception should still be logged.</li>
+            </ul>
+          </div>
+        </div>
+        <details>
+          <summary>Example: auction timing flexibility</summary>
+          <div>
+            If commissioner availability pushes the auction away from the last weekend of July, UPS_V2 should treat that as a planned operating shift, not as a rule violation, as long as the season metadata and commissioner directive are aligned.
+          </div>
+        </details>
+        <div class="section-link-list">
+          <a href="file:///Users/keithcreelman/Documents/mfl/Codex/version2/docs/ups_v2/V2_GOVERNED/mfl/event_window_matrix.csv">event window matrix</a>
+          <a href="file:///Users/keithcreelman/Documents/mfl/Codex/version2/docs/ups_v2/V2_GOVERNED/rules/rules_source_audit_pending_review.md">rules source audit</a>
+        </div>
+      </article>
+
+      <article id="roster" class="card rule-card" data-family="roster" data-tier="governed" data-status="partial" data-tags="roster taxi ir starters roster lock compliance lineup eligibility">
+        <div class="header-line">
+          <div>
+            <div class="badge warn">partial</div>
+            <h2>Roster architecture</h2>
+          </div>
+          <a class="toplink" href="#top">Back to top</a>
+        </div>
+        <p class="summary">
+          The roster model should distinguish in-season roster, taxi squad, injured reserve, starter requirements, and roster lock periods.
+          The exact counts vary by season, so the page should always point to season metadata first and rule text second.
+        </p>
+        <div class="grid-2">
+          <div class="box">
+            <h4>Core roster concepts</h4>
+            <ul>
+              <li>Active roster and bench.</li>
+              <li>Taxi squad and taxi eligibility.</li>
+              <li>Injured reserve and cap treatment.</li>
+              <li>Start/sit legality and weekly lineup validation.</li>
+            </ul>
+          </div>
+          <div class="box">
+            <h4>Operational rule</h4>
+            <ul>
+              <li>Roster legality should be checked before publishable actions are finalized.</li>
+              <li>Taxi-on-trade behavior is not optional once a trade is accepted.</li>
+              <li>Roster lock behavior may differ before the auction versus in-season.</li>
+            </ul>
+          </div>
+        </div>
+        <details>
+          <summary>Example: taxi player traded to another team</summary>
+          <div>
+            If a traded player is on taxi, the player should remain on taxi after the trade and be auto-demoted back onto taxi if the incoming team accepts the trade while the player is still taxi-eligible.
+          </div>
+        </details>
+        <div class="section-link-list">
+          <a href="file:///Users/keithcreelman/Documents/mfl/Codex/version2/docs/ups_v2/V2_GOVERNED/requirements/workspaces/roster_operations_workspace.md">roster operations workspace</a>
+          <a href="file:///Users/keithcreelman/Documents/mfl/Codex/version2/docs/ups_v2/V2_GOVERNED/requirements/actions/drop_action_rule.md">drop action rule</a>
+          <a href="file:///Users/keithcreelman/Documents/mfl/Codex/version2/docs/ups_v2/V2_GOVERNED/requirements/actions/add_action_rule.md">add action rule</a>
+        </div>
+      </article>
+
+      <article id="contracts" class="card rule-card" data-family="contracts" data-tier="governed" data-status="partial" data-tags="contracts rookie veteran loaded auction loaded contract extension restructure mym option tag guarantees aav tcv salary">
+        <div class="header-line">
+          <div>
+            <div class="badge warn">partial</div>
+            <h2>Contracts and contract mechanics</h2>
+          </div>
+          <a class="toplink" href="#top">Back to top</a>
+        </div>
+        <p class="summary">
+          This is the most important section for examples. Contracts should always be read as a state machine, not just a dollar amount.
+          When the rulebook is ambiguous, show the raw rule, the governed interpretation, and the example outcome side by side.
+        </p>
+        <table aria-label="contract families">
+          <thead>
+            <tr>
+              <th>Contract family</th>
+              <th>First-pass rule</th>
+              <th>Example</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Rookie contract</td>
+              <td>Draft class contracts are season-configured; the historical move to 3-year rookie deals belongs in the rule timeline.</td>
+              <td>A rookie signs for 3 years, then can later become extension eligible or option eligible depending on class and season rules.</td>
+              <td>partial</td>
+            </tr>
+            <tr>
+              <td>Veteran contract</td>
+              <td>Veteran deals should track term, cap hit, guarantees, and current-season salary separately.</td>
+              <td>A 2-year veteran contract can be front-loaded, back-loaded, or loaded if the governing contract model allows it.</td>
+              <td>partial</td>
+            </tr>
+            <tr>
+              <td>Extension</td>
+              <td>Extensions add term or change structure through governed approval, not by free-form text.</td>
+              <td>Player A has one year left and gets extended for two additional years under the extension rules.</td>
+              <td>partial</td>
+            </tr>
+            <tr>
+              <td>Restructure</td>
+              <td>Restructure changes salary profile without pretending the original contract never existed.</td>
+              <td>Player B's cap hit is reduced in-year, with the change logged as a restructure event, not a new contract.</td>
+              <td>partial</td>
+            </tr>
+            <tr>
+              <td>MYM</td>
+              <td>MYM is a governed action with its own eligibility and timing.</td>
+              <td>A player is eligible for MYM only if the season metadata and contract state say so.</td>
+              <td>partial</td>
+            </tr>
+            <tr>
+              <td>Option year</td>
+              <td>Option-year logic is season-specific and should not be inferred from a single old example.</td>
+              <td>A 2025 draft class player may have an option path that later becomes live in the governance model.</td>
+              <td>skeleton</td>
+            </tr>
+            <tr>
+              <td>Tags</td>
+              <td>Tags need a separate decision path because historical sources show they existed and later drifted away from the current calendar.</td>
+              <td>Franchise or transition tag handling is either promoted into the rulebook or explicitly parked as inactive.</td>
+              <td>open</td>
+            </tr>
+          </tbody>
+        </table>
+        <details>
+          <summary>Example: rookie extension versus veteran extension</summary>
+          <div>
+            Rookie and veteran extensions may use the same approval workflow, but they are not the same rule. A rookie extension is governed by the rookie class path and the remaining rookie-year context. A veteran extension is governed by the veteran contract path and the active term that is already on the ledger.
+          </div>
+        </details>
+        <details>
+          <summary>Example: restructure without erasing history</summary>
+          <div>
+            If a player's cap hit is rebalanced, the original contract record stays intact and a new restructure event is written on top of it. That way the ledger shows both the original deal and the later adjustment.
+          </div>
+        </details>
+        <details>
+          <summary>Example: MYM eligibility</summary>
+          <div>
+            A team should not be allowed to apply an MYM action just because it is convenient. The player must be eligible under the season's metadata, and the action must be logged as its own contract event.
+          </div>
+        </details>
+        <div class="section-link-list">
+          <a href="file:///Users/keithcreelman/Documents/mfl/Codex/version2/docs/ups_v2/V2_GOVERNED/requirements/workspaces/contract_actions_workspace.md">contract actions workspace</a>
+          <a href="file:///Users/keithcreelman/Documents/mfl/Codex/version2/docs/ups_v2/V2_GOVERNED/governance/canonical_entity_catalog.md">canonical entity catalog</a>
+          <a href="file:///Users/keithcreelman/Documents/mfl/Codex/version2/docs/ups_v2/V2_GOVERNED/governance/workflow_state_models.md">workflow state models</a>
+        </div>
+      </article>
+
+      <article id="auction" class="card rule-card" data-family="auction" data-tier="governed" data-status="partial" data-tags="auction nominations midnight reset noon open nomination-complete missed nomination ladder penalties july last weekend">
+        <div class="header-line">
+          <div>
+            <div class="badge warn">partial</div>
+            <h2>Auction and free agency</h2>
+          </div>
+          <a class="toplink" href="#top">Back to top</a>
+        </div>
+        <p class="summary">
+          The auction model should be readable in one pass: when it opens, how nominations reset, when it stops, and what happens if the nomination window is missed.
+          The current governed path is noon open, midnight reset, two nominations per cycle, and nomination-complete stop logic.
+        </p>
+        <div class="grid-2">
+          <div class="box">
+            <h4>Auction rules</h4>
+            <ul>
+              <li>Normal target period: last weekend of July.</li>
+              <li>Open time: noon Eastern.</li>
+              <li>Reset: midnight Eastern with a fresh nomination allowance.</li>
+              <li>Stop: nomination-complete ends the cycle.</li>
+            </ul>
+          </div>
+          <div class="box">
+            <h4>Pending review</h4>
+            <ul>
+              <li>Exact missed-nomination penalty ladder.</li>
+              <li>Any special exceptions to the stop logic.</li>
+              <li>How long late reopenings stay open.</li>
+            </ul>
+          </div>
+        </div>
+        <details>
+          <summary>Example: first day of auction</summary>
+          <div>
+            A franchise gets two nominations on the opening day, the queue resets at midnight, and the system keeps accepting nominations until the nomination-complete condition is reached.
+          </div>
+        </details>
+        <details>
+          <summary>Example: missed nomination</summary>
+          <div>
+            If a franchise misses a nomination opportunity, the system should not invent the penalty ladder. It should display the current governed ladder if it exists, or mark the penalty path open for commissioner or rulebook review.
+          </div>
+        </details>
+        <div class="section-link-list">
+          <a href="file:///Users/keithcreelman/Documents/mfl/Codex/version2/docs/ups_v2/V2_GOVERNED/requirements/actions/auction_nomination_rule.md">auction nomination rule</a>
+          <a href="file:///Users/keithcreelman/Documents/mfl/Codex/version2/docs/ups_v2/V2_GOVERNED/requirements/actions/add_action_rule.md">add action rule</a>
+          <a href="file:///Users/keithcreelman/Documents/mfl/Codex/version2/docs/ups_v2/V2_GOVERNED/rules/rules_source_audit_pending_review.md">rules source audit</a>
+        </div>
+      </article>
+
+      <article id="adds" class="card rule-card" data-family="adds" data-tier="governed" data-status="partial" data-tags="add waivers fcfs bbid waiver run blind bid roster compliance cap compliance kickoff auction completion">
+        <div class="header-line">
+          <div>
+            <div class="badge warn">partial</div>
+            <h2>Adds and waivers</h2>
+          </div>
+          <a class="toplink" href="#top">Back to top</a>
+        </div>
+        <p class="summary">
+          Adds should be read as availability plus compliance plus schedule. The current live behavior in the governed notes is BBID_FCFS with blind bids Thursday through Sunday at 9 AM and FCFS after the Sunday waiver run until kickoff.
+        </p>
+        <div class="grid-2">
+          <div class="box">
+            <h4>Add window</h4>
+            <ul>
+              <li>Start is derived from the first configured waiver run after auction completion.</li>
+              <li>End is derived from season metadata and the last regular season week.</li>
+              <li>Timing can shift season to season if the metadata and live settings are aligned.</li>
+            </ul>
+          </div>
+          <div class="box">
+            <h4>Validation</h4>
+            <ul>
+              <li>Roster and cap legality must be checked before the add is final.</li>
+              <li>Waiver mode should be cross-checked against live MFL site settings.</li>
+              <li>Keep the site-settings alignment register current.</li>
+            </ul>
+          </div>
+        </div>
+        <details>
+          <summary>Example: post-auction add window</summary>
+          <div>
+            If the auction ends on Saturday night and the first waiver run is Wednesday morning, the add window should start at the first configured waiver run after auction completion, not at a hardcoded calendar day.
+          </div>
+        </details>
+        <div class="section-link-list">
+          <a href="file:///Users/keithcreelman/Documents/mfl/Codex/version2/docs/ups_v2/V2_GOVERNED/requirements/actions/add_action_rule.md">add action rule</a>
+          <a href="file:///Users/keithcreelman/Documents/mfl/Codex/version2/docs/ups_v2/V2_GOVERNED/governance/site_settings_alignment_register.csv">site-settings alignment register</a>
+        </div>
+      </article>
+
+      <article id="drops" class="card rule-card" data-family="drops" data-tier="governed" data-status="partial" data-tags="drop roster lock auction lock kickoff player started pre-auction lock auction active no direct source setting">
+        <div class="header-line">
+          <div>
+            <div class="badge warn">partial</div>
+            <h2>Drops and roster locks</h2>
+          </div>
+          <a class="toplink" href="#top">Back to top</a>
+        </div>
+        <p class="summary">
+          Drops need a hard legality gate because they can create irreparable state changes if they are allowed too late.
+          The governing model should prevent drops when the player has already kicked off, when the auction lock is active, or when a publish or commissioner hold exists.
+        </p>
+        <div class="grid-2">
+          <div class="box">
+            <h4>Drop blockers</h4>
+            <ul>
+              <li>Player not rostered by the team.</li>
+              <li>Player has already kicked off.</li>
+              <li>Pre-auction roster lock is active.</li>
+              <li>Auction is active and the roster lock is in force.</li>
+              <li>Workflow, publish, or commissioner hold is present.</li>
+            </ul>
+          </div>
+          <div class="box">
+            <h4>Timing rule</h4>
+            <ul>
+              <li>Pre-auction drop lock is season-configured.</li>
+              <li>The normal target is within 48 hours of auction start.</li>
+              <li>The exact setting should stay configurable.</li>
+            </ul>
+          </div>
+        </div>
+        <details>
+          <summary>Example: player already kicked off</summary>
+          <div>
+            If a player has already played in the current scoring week, the drop request should hard block. The system should not guess at a retroactive correction unless a commissioner-level recovery workflow exists.
+          </div>
+        </details>
+        <div class="section-link-list">
+          <a href="file:///Users/keithcreelman/Documents/mfl/Codex/version2/docs/ups_v2/V2_GOVERNED/requirements/actions/drop_action_rule.md">drop action rule</a>
+          <a href="file:///Users/keithcreelman/Documents/mfl/Codex/version2/docs/ups_v2/V2_GOVERNED/governance/site_settings_alignment_register.csv">site-settings alignment register</a>
+        </div>
+      </article>
+
+      <article id="trades" class="card rule-card" data-family="trades" data-tier="governed" data-status="partial" data-tags="trade kickoff lock thanksgiving deadline discord dm website acceptance taxi salary response sla multi-party deferred next week">
+        <div class="header-line">
+          <div>
+            <div class="badge warn">partial</div>
+            <h2>Trades and negotiation</h2>
+          </div>
+          <a class="toplink" href="#top">Back to top</a>
+        </div>
+        <p class="summary">
+          Trades are the most operationally delicate part of the rule system. The current UPS_V2 posture is:
+          negotiate in Discord DMs, record state in UPS_V2, accept on the website, and keep live cross-checks visible.
+          Trade window timing is season-configured and closes at the Thanksgiving kickoff deadline.
+        </p>
+        <div class="grid-2">
+          <div class="box">
+            <h4>Governed trade assumptions</h4>
+            <ul>
+              <li>Trade negotiation can begin at the new league year.</li>
+              <li>Trade offers can be discussed in Discord, but acceptance belongs on the website.</li>
+              <li>If the player has already kicked off, prefer deferred next-week processing if the source system allows it.</li>
+              <li>Release 1 is self-serve two-team only.</li>
+              <li>Taxi-on-trade returns the player to taxi when valid.</li>
+            </ul>
+          </div>
+          <div class="box">
+            <h4>Open trade questions</h4>
+            <ul>
+              <li>Exact response SLA by season.</li>
+              <li>Whether kickoffs hard block acceptance or defer it when source support exists.</li>
+              <li>What happens when a trade leaves a team temporarily over cap.</li>
+              <li>When multi-team trades graduate from commissioner-managed exceptions.</li>
+            </ul>
+          </div>
+        </div>
+        <details>
+          <summary>Example: kicked-off player in a trade</summary>
+          <div>
+            If one side wants to accept a trade after a player in the deal has already kicked off, UPS_V2 should not pretend the original moment still exists. If the source system supports it, the action should move to next week. If not, store the intent locally and require a later acceptance window.
+          </div>
+        </details>
+        <details>
+          <summary>Example: taxi-on-trade</summary>
+          <div>
+            If a traded player is on taxi and the trade is accepted, the player should remain on taxi in the recipient's system view and the taxi salary should stay excluded from the trade salary limit.
+          </div>
+        </details>
+        <details>
+          <summary>Example: trade salary arithmetic</summary>
+          <div>
+            If a team trades away two active players with current-season salaries of 8K and 6K, the trade salary limit is based on half of the outgoing active or IR salary pool, excluding taxi. That means the salary component is derived from the outgoing pool, not negotiated ad hoc.
+          </div>
+        </details>
+        <details>
+          <summary>Example: Discord negotiation versus final acceptance</summary>
+          <div>
+            The Discord thread can say "sounds good" or "send it," but the governed state only changes when UPS_V2 records the acceptance event on the website or in a governed publish workflow.
+          </div>
+        </details>
+        <div class="section-link-list">
+          <a href="file:///Users/keithcreelman/Documents/mfl/Codex/version2/docs/ups_v2/V2_GOVERNED/requirements/actions/trade_offer_action_rule.md">trade offer action rule</a>
+          <a href="file:///Users/keithcreelman/Documents/mfl/Codex/version2/docs/ups_v2/V2_GOVERNED/requirements/workspaces/trade_negotiation_workspace.md">trade negotiation workspace</a>
+          <a href="file:///Users/keithcreelman/Documents/mfl/Codex/version2/docs/ups_v2/V2_GOVERNED/governance/validation/trade_kickoff_acceptance_validation.md">trade kickoff acceptance validation</a>
+        </div>
+      </article>
+
+      <article id="enforcement" class="card rule-card" data-family="enforcement" data-tier="governed" data-status="partial" data-tags="penalties hard block warning soft block commission override auto reverse cap overage missed nominations">
+        <div class="header-line">
+          <div>
+            <div class="badge warn">partial</div>
+            <h2>Penalties and enforcement</h2>
+          </div>
+          <a class="toplink" href="#top">Back to top</a>
+        </div>
+        <p class="summary">
+          Enforcement should separate warnings from hard blocks. Not every mismatch is the same.
+          Some items should warn only, some should soft block, some should hard block, and some should be commissioner overrideable.
+        </p>
+        <div class="grid-2">
+          <div class="box">
+            <h4>Enforcement ladder</h4>
+            <ul>
+              <li>Warn only: user can proceed, but the state is logged.</li>
+              <li>Soft block: user can recover with corrections.</li>
+              <li>Hard block: action cannot proceed.</li>
+              <li>Commissioner override allowed: break-glass path with audit.</li>
+              <li>Commissioner override forbidden: no exception path.</li>
+            </ul>
+          </div>
+          <div class="box">
+            <h4>Open penalty items</h4>
+            <ul>
+              <li>Exact auction missed-nomination ladder.</li>
+              <li>Over-cap handling after trade or during auction.</li>
+              <li>Any remaining 24-hour wording cleanup from V1.</li>
+            </ul>
+          </div>
+        </div>
+        <details>
+          <summary>Example: warning versus hard block</summary>
+          <div>
+            A roster that is one player short of a preferred depth target can warn only. A trade that violates the salary cap or a drop that happens after kickoff should hard block unless a commissioner's governed override exists.
+          </div>
+        </details>
+        <div class="section-link-list">
+          <a href="file:///Users/keithcreelman/Documents/mfl/Codex/version2/docs/ups_v2/V2_GOVERNED/governance/warning_block_policy_matrix.csv">warning/block policy matrix</a>
+          <a href="file:///Users/keithcreelman/Documents/mfl/Codex/version2/docs/ups_v2/V2_GOVERNED/rules/rule_ambiguity_register.csv">rule ambiguity register</a>
+        </div>
+      </article>
+
+      <article id="site" class="card rule-card" data-family="site" data-tier="governed" data-status="partial" data-tags="site behavior dm transport publish object model site-settings alignment workflow approvals verification actor permissions">
+        <div class="header-line">
+          <div>
+            <div class="badge warn">partial</div>
+            <h2>Site behavior and workflow controls</h2>
+          </div>
+          <a class="toplink" href="#top">Back to top</a>
+        </div>
+        <p class="summary">
+          Site behavior is not just UI. It includes actor permissions, publish objects, verification types, site-settings cross-checks, and the way outside tools like Discord are treated.
+        </p>
+        <div class="grid-2">
+          <div class="box">
+            <h4>Workflow rules</h4>
+            <ul>
+              <li>Discord DM interaction is transport only.</li>
+              <li>Acceptance belongs in UPS_V2 and should be auditable.</li>
+              <li>Site settings must be cross-checked against live source system behavior.</li>
+              <li>Publisher state should remain explicit and reviewable.</li>
+            </ul>
+          </div>
+          <div class="box">
+            <h4>Publish object model</h4>
+            <ul>
+              <li>publish_unit_type</li>
+              <li>publish_scope</li>
+              <li>approval_class</li>
+              <li>verification_type</li>
+            </ul>
+          </div>
+        </div>
+        <details>
+          <summary>Example: DM versus governed state</summary>
+          <div>
+            A Discord DM can say that a trade is accepted, but UPS_V2 should still wait for the governed acceptance event. If the DM says one thing and the site says another, the site wins until the mismatch is resolved.
+          </div>
+        </details>
+        <div class="section-link-list">
+          <a href="file:///Users/keithcreelman/Documents/mfl/Codex/version2/docs/ups_v2/V2_GOVERNED/governance/publish_object_model.md">publish object model</a>
+          <a href="file:///Users/keithcreelman/Documents/mfl/Codex/version2/docs/ups_v2/V2_GOVERNED/governance/site_settings_alignment_policy.md">site-settings alignment policy</a>
+          <a href="file:///Users/keithcreelman/Documents/mfl/Codex/version2/docs/ups_v2/V2_GOVERNED/governance/site_settings_alignment_register.csv">site-settings alignment register</a>
+          <a href="file:///Users/keithcreelman/Documents/mfl/Codex/version2/docs/ups_v2/V2_GOVERNED/governance/actor_permission_matrix.csv">actor permission matrix</a>
+        </div>
+      </article>
+
+      <article id="scoring" class="card rule-card" data-family="scoring" data-tier="skeleton" data-status="skeleton" data-tags="scoring standings points rules skeleton open">
+        <div class="header-line">
+          <div>
+            <div class="badge open">skeleton</div>
+            <h2>Scoring and standings</h2>
+          </div>
+          <a class="toplink" href="#top">Back to top</a>
+        </div>
+        <p class="summary">
+          This is intentionally skeletal on the first pass. The page should later absorb exact scoring rules, standings math, playoff seeding, tiebreakers, and any normalization rules for historical comparison.
+        </p>
+        <ul>
+          <li>Standings should be derived from season scoring metadata and the live scoring system.</li>
+          <li>Any historical normalization should keep raw values and normalized values side by side.</li>
+          <li>Put exact scoring examples here after the scoring rules are fully reviewed.</li>
+        </ul>
+        <div class="section-link-list">
+          <a href="file:///Users/keithcreelman/Documents/mfl/Codex/version2/docs/ups_v2/V2_GOVERNED/data/EVIDENCE_CONFIDENCE_POLICY.md">evidence confidence policy</a>
+          <a href="file:///Users/keithcreelman/Documents/mfl/Codex/version2/docs/ups_v2/V2_GOVERNED/data/modeled_history_version_registry.csv">modeled history version registry</a>
+        </div>
+      </article>
+
+      <article id="examples" class="card rule-card" data-family="open" data-tier="governed" data-status="settled" data-tags="examples appendix contracts auction trade taxi kickoff extensions restructure mym">
+        <div class="header-line">
+          <div>
+            <div class="badge good">settled</div>
+            <h2>Examples appendix</h2>
+          </div>
+          <a class="toplink" href="#top">Back to top</a>
+        </div>
+        <p class="summary">
+          This appendix exists so the hard parts are concrete. The examples are illustrative, not a promise that every edge case is already closed.
+        </p>
+        <div class="grid-2">
+          <div class="box">
+            <h4>Contract examples</h4>
+            <ul>
+              <li>Rookie contract: a draft-class player signs a 3-year deal and later becomes extension eligible.</li>
+              <li>Extension: a one-year-left veteran gets two more years through governed approval.</li>
+              <li>Restructure: cap hit changes, original contract record remains visible.</li>
+              <li>MYM: only if the season metadata says the player is eligible.</li>
+            </ul>
+          </div>
+          <div class="box">
+            <h4>Trade and auction examples</h4>
+            <ul>
+              <li>Trade with a kicked-off player: defer if possible, otherwise store the intent and wait.</li>
+              <li>Taxi-on-trade: incoming taxi player stays taxi.</li>
+              <li>Auction: noon open, midnight reset, two nominations per cycle.</li>
+              <li>Drop: hard block after kickoff or during an active auction lock.</li>
+            </ul>
+          </div>
+        </div>
+        <details open>
+          <summary>Detailed example: rookie contract and extension</summary>
+          <div>
+            A rookie drafted in a 3-year contract era enters the ledger with term, cap hit, and eligibility state. If the player later becomes extension eligible, the extension is recorded as a new governed action on top of the original deal. The old contract does not disappear.
+          </div>
+        </details>
+        <details>
+          <summary>Detailed example: trade salary and cap treatment</summary>
+          <div>
+            If a trade includes salary, UPS_V2 should derive the salary limit from the outgoing active-roster or IR current-season salary pool, excluding taxi. The trade can then be validated against cap and roster constraints before it becomes final.
+          </div>
+        </details>
+        <details>
+          <summary>Detailed example: auction nomination behavior</summary>
+          <div>
+            If a franchise opens the day with two nominations and then misses the next cycle, the page should show the active nomination state, the penalty policy state, and any open ambiguity instead of hiding the gap behind vague verbiage.
+          </div>
+        </details>
+      </article>
+
+      <article id="open-questions" class="card rule-card" data-family="open" data-tier="skeleton" data-status="open" data-tags="open questions gaps skeleton tags trade response sla penalty ladder contract guide discord transcript scoring">
+        <div class="header-line">
+          <div>
+            <div class="badge open">open</div>
+            <h2>Open questions and skeleton items</h2>
+          </div>
+          <a class="toplink" href="#top">Back to top</a>
+        </div>
+        <p class="summary">
+          These are the items the first pass should leave visible instead of burying.
+          They should stay open until the source evidence, metadata, commissioner directives, or governing docs close them.
+        </p>
+        <div class="grid-2">
+          <div class="box">
+            <h4>Open governance gaps</h4>
+            <ul>
+              <li>Tag rule: active, inactive, or promoted into a dedicated rule.</li>
+              <li>Trade response SLA by season.</li>
+              <li>Exact missed-nomination ladder.</li>
+              <li>Penalty math and any 24-hour wording cleanup.</li>
+              <li>Outside contract guide from around 2021.</li>
+            </ul>
+          </div>
+          <div class="box">
+            <h4>Open data gaps</h4>
+            <ul>
+              <li>Discord transcript paths that can be pinned and cited.</li>
+              <li>Full scoring and standings rule text.</li>
+              <li>Any season-by-season metadata that has not yet been merged into the canonical register.</li>
+            </ul>
+          </div>
+        </div>
+        <details>
+          <summary>Why this stays skeletal for now</summary>
+          <div>
+            The page is deliberately first-pass. The point is to give you a logical rulebook browser with examples and searchable structure so you can spot what is still missing before the rules are forced into the current runtime.
+          </div>
+        </details>
+        <div class="section-link-list">
+          <a href="file:///Users/keithcreelman/Documents/mfl/Codex/version2/docs/ups_v2/V2_GOVERNED/rules/rules_source_audit_pending_review.md">pending review audit</a>
+          <a href="file:///Users/keithcreelman/Documents/mfl/Codex/V1/reference_inputs/ups_v2/V1_REFERENCE/rules/rules_source_audit_2026-03-18.md">V1 reference audit</a>
+          <a href="file:///Users/keithcreelman/Downloads/UPS%20Rule%20Book.docx">current V1 rulebook docx</a>
+        </div>
+      </article>
+
+      <p class="footnote">
+        Built as a first pass for review and cleanup. The intended next step is to tighten the open sections, promote any verified items into governed docs, and decide what should stay in V1 reference only.
+      </p>
+    </main>
+  </div>
+
+  <script>
+    const searchInput = document.getElementById('search');
+    const familySelect = document.getElementById('family');
+    const tierSelect = document.getElementById('tier');
+    const statusSelect = document.getElementById('status');
+    const resetButton = document.getElementById('reset');
+    const cards = [...document.querySelectorAll('.rule-card')];
+    const visibleCount = document.getElementById('visibleCount');
+    const tocLinks = [...document.querySelectorAll('.toc-link')];
+
+    function normalize(value) {
+      return (value || '').toLowerCase().trim();
+    }
+
+    function sync() {
+      const q = normalize(searchInput.value);
+      const family = familySelect.value;
+      const tier = tierSelect.value;
+      const status = statusSelect.value;
+      let visible = 0;
+
+      cards.forEach(card => {
+        const text = normalize(card.innerText);
+        const tags = normalize(card.dataset.tags);
+        const matchesQuery = !q || text.includes(q) || tags.includes(q);
+        const matchesFamily = family === 'all' || card.dataset.family === family;
+        const matchesTier = tier === 'all' || card.dataset.tier === tier;
+        const matchesStatus = status === 'all' || card.dataset.status === status;
+        const show = matchesQuery && matchesFamily && matchesTier && matchesStatus;
+        card.classList.toggle('hidden', !show);
+        if (show) visible += 1;
+      });
+
+      tocLinks.forEach(link => {
+        const target = document.querySelector(link.getAttribute('href'));
+        if (!target) return;
+        link.classList.toggle('muted', target.classList.contains('hidden'));
+      });
+
+      visibleCount.textContent = `${visible} section${visible === 1 ? '' : 's'} visible`;
+    }
+
+    searchInput.addEventListener('input', sync);
+    familySelect.addEventListener('change', sync);
+    tierSelect.addEventListener('change', sync);
+    statusSelect.addEventListener('change', sync);
+    resetButton.addEventListener('click', () => {
+      searchInput.value = '';
+      familySelect.value = 'all';
+      tierSelect.value = 'all';
+      statusSelect.value = 'all';
+      sync();
+      searchInput.focus();
+    });
+
+    sync();
+  </script>
+</body>
+</html>

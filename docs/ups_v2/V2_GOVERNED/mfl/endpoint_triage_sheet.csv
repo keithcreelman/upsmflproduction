@@ -1,0 +1,17 @@
+endpoint_family,purpose,target_status,dependency_notes,approved_by,approved_at
+export:league,Canonical league config and franchise metadata,carry_forward,Host/year mapping validation required,user_directive_2026-03-17,2026-03-17T00:00:00Z
+export:rules,Scoring and rule parity checks,expand,Use as validation source alongside local rulebook governance,user_directive_2026-03-17,2026-03-17T00:00:00Z
+export:players,Player dimension and ID resolution,carry_forward,Foundational to all player-centric workflows,user_directive_2026-03-17,2026-03-17T00:00:00Z
+export:rosters,Current and weekly roster state,carry_forward,Core source for mirror and validation jobs,user_directive_2026-03-17,2026-03-17T00:00:00Z
+export:salaries,Salary and contract state,carry_forward,Required for publish verification and contract state,user_directive_2026-03-17,2026-03-17T00:00:00Z
+export:transactions,Trade add/drop and auction history,carry_forward,Required for contract and acquisition lineage,user_directive_2026-03-17,2026-03-17T00:00:00Z
+export:schedule,Matchup context and calendar,carry_forward,Supports standings and event windows,user_directive_2026-03-17,2026-03-17T00:00:00Z
+export:leagueStandings,Standings and competitive state,carry_forward,League-facing reporting core,user_directive_2026-03-17,2026-03-17T00:00:00Z
+export:playerScores,Player scoring history,carry_forward,Required for reports and modeled normalization context,user_directive_2026-03-17,2026-03-17T00:00:00Z
+export:weeklyResults,Weekly outcome context,consolidate,Consolidate with scoring domain during reporting design,user_directive_2026-03-17,2026-03-17T00:00:00Z
+export:messageBoard,Governance and contract history evidence,expand,Important for rules_watch and historical reconstruction,user_directive_2026-03-17,2026-03-17T00:00:00Z
+export:messageBoardThread,Thread-level governance evidence,expand,Retain thread context not just board metadata,user_directive_2026-03-17,2026-03-17T00:00:00Z
+export:adp,Market reference feed,carry_forward,Feeds valuation and acquisition models,user_directive_2026-03-17,2026-03-17T00:00:00Z
+export:salaryAdjustments,Salary adjustment reconciliation,carry_forward,Already used as live evidence feed in ETL,user_directive_2026-03-17,2026-03-17T00:00:00Z
+export:myfranchise,Owner/admin context and permission-aware reads,formalize,Use for safe worker session and permission checks,user_directive_2026-03-17,2026-03-17T00:00:00Z
+import:salaries_and_syncs,Commish updates and nightly test sync,gate_and_isolate,One-way prod-read test-write until explicit promotion controls exist,user_directive_2026-03-17,2026-03-17T00:00:00Z

@@ -1,0 +1,6 @@
+policy_class,description,commish_override,notes
+warn_only,Inform user but allow workflow,true,Use for advisory issues and non-fatal inconsistencies
+soft_block,Stop user flow until acknowledgment or alternate path,true,Use when commissioner may reasonably allow exception
+hard_block,Stop workflow,false,Use where system or league rule forbids action
+commish_override_allowed,Explicit override lane,true,Must create audit_event and directive reference
+commish_override_forbidden,No override lane,false,Use for compliance and system-integrity constraints

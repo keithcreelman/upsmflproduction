@@ -1,0 +1,24 @@
+business_concept,authority_layer,authority_record,derived_layers,notes,approved_by,approved_at
+league_environment_routing,gov_registry,gov.league_context,extractors + schedulers + env resolution,One row per environment season and league_id,user_directive_2026-03-17,2026-03-17T00:00:00Z
+rulebook_policy,policy_authority,policy.rulebook_section,validation + eligibility + reporting text,Commissioner exception must point back here,user_directive_2026-03-17,2026-03-17T00:00:00Z
+league_configuration,external_raw,raw.mfl_league_snapshot,core.league_metadata + scoring + roster limits,Immutable season snapshot of TYPE=league,user_directive_2026-03-17,2026-03-17T00:00:00Z
+franchise_master,normalized_canonical,core.franchise_season,rosters + standings + submissions + schedule,Deterministic transform from league snapshot,user_directive_2026-03-17,2026-03-17T00:00:00Z
+player_master,reference_master,ref.player,rosters + scoring + transactions + valuations,Preserve MFL player_id as string,user_directive_2026-03-17,2026-03-17T00:00:00Z
+roster_membership,external_raw,raw.mfl_roster_current_snapshot,core.roster_current + eligibility + workbenches,Factual present-state anchor from MFL,user_directive_2026-03-17,2026-03-17T00:00:00Z
+weekly_roster_history,historical_snapshot,raw.mfl_roster_weekly_snapshot,core.roster_weekly + salary lineage + contract history,Immutable by season and week,user_directive_2026-03-17,2026-03-17T00:00:00Z
+transaction_log,external_raw,raw.mfl_transaction_snapshot,core.transaction_event + acquisition lineage + cap logic,Raw payload retained normalized transaction tables remain derived,user_directive_2026-03-17,2026-03-17T00:00:00Z
+standings_state,external_raw,raw.mfl_standings_snapshot,reports + website standings + power metrics,Derived rankings may extend but never replace raw standings,user_directive_2026-03-17,2026-03-17T00:00:00Z
+contract_submission_request,ops_authority,ops.contract_submission_ledger,CCC queue + worker delivery + audit views,Seed from current contract submission flows and logs,user_directive_2026-03-17,2026-03-17T00:00:00Z
+contract_state_history,domain_canonical,core.contract_event,core.contract_version + lineage evidence + anomaly detection,Canonical UPS_V2 contract history model,user_directive_2026-03-17,2026-03-17T00:00:00Z
+current_contract_state,serving_canonical,core.contract_current,roster UI + imports + marts,Always traceable to contract_version,user_directive_2026-03-17,2026-03-17T00:00:00Z
+salary,core,core.contract_current_financial_state,cap views + warnings,Verified from raw.mfl_salaries plus approved salary adjustments,user_directive_2026-03-17,2026-03-17T00:00:00Z
+contract_years,core,core.contract_term,eligibility + reporting,Owned by contract term ledger not free-form page state,user_directive_2026-03-17,2026-03-17T00:00:00Z
+aav_tcv,derived,derived_from_contract_term_and_financial_state,reporting only,Never manually authoritative on its own,user_directive_2026-03-17,2026-03-17T00:00:00Z
+tag_state,core,core.tag_state,warnings + publish checks,Backed by approved tag ledger and verified readback,user_directive_2026-03-17,2026-03-17T00:00:00Z
+extension_eligibility,derived,eligibility_state,ux warnings + blocks,Derived from contract state rule basis and event window,user_directive_2026-03-17,2026-03-17T00:00:00Z
+restructure_eligibility,derived,eligibility_state,ux warnings + blocks,Derived not manually authored,user_directive_2026-03-17,2026-03-17T00:00:00Z
+mym_eligibility,derived,eligibility_state,ux warnings + blocks,Derived from contract and event rules,user_directive_2026-03-17,2026-03-17T00:00:00Z
+traded_salary,core,core.salary_obligation_ledger,reporting + publish checks,Backed by trade ledger and salary movement records,user_directive_2026-03-17,2026-03-17T00:00:00Z
+pick_ownership,core,core.pick_ownership_state,reports + trade tools,Backed by assets future picks and approved trade ledger,user_directive_2026-03-17,2026-03-17T00:00:00Z
+publish_status,ops,ops.publish_batch_and_publish_unit,audit + dashboards,Operational truth not business-state truth,user_directive_2026-03-17,2026-03-17T00:00:00Z
+audit_truth,audit,audit_event_plus_raw_payloads,compliance reporting,Immutable evidence chain,user_directive_2026-03-17,2026-03-17T00:00:00Z

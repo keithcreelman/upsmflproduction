@@ -1,0 +1,21 @@
+event_name,category,purpose
+nav_opened,navigation,Track entry into navigation controls
+nav_target_selected,navigation,Track target chosen from navigation
+route_requested,routing,Track requested route or deep link
+route_redirected,routing,Track shim and redirect behavior
+route_resolved,routing,Track final resolved surface
+module_loaded,module,Track successful module render
+module_load_failed,module,Track failed surface load
+search_used,discovery,Track user search intent
+suggestion_selected,discovery,Track value of suggestion systems
+filter_opened,discovery,Track filter usage burden
+zero_results_seen,discovery,Track dead-end search/filter states
+action_eligible,workflow,Track successful eligibility evaluation
+action_ineligible,workflow,Track blocked action attempts
+action_submitted,workflow,Track attempt to submit major action
+action_submit_failed,workflow,Track workflow submission failures
+trade_review_opened,workflow,Track progression through trade flow
+report_selected,reporting,Track report entry behavior
+help_opened,guidance,Track use of help and assistant content
+warning_seen,guidance,Track warning exposure volume and type
+issue_report_submitted,feedback,Track explicit feedback and bug intake

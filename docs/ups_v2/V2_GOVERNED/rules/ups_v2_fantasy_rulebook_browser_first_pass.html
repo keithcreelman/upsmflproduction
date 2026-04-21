@@ -1,0 +1,1004 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>UPS_V2 Fantasy Rulebook Browser - First Pass</title>
+  <style>
+    :root {
+      --bg: #f5efe4;
+      --navy: #12233a;
+      --navy-2: #1f3f63;
+      --gold: #a56a2d;
+      --gold-soft: #f1dfc8;
+      --ink: #182230;
+      --muted: #607080;
+      --panel: rgba(255,255,255,.94);
+      --line: #d8dee6;
+      --shadow: 0 12px 30px rgba(15, 25, 40, .10);
+      --radius: 18px;
+      --green: #1b7a4f;
+      --red: #b12b2b;
+      --amber: #b3771f;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(31,63,99,.16), transparent 28%),
+        radial-gradient(circle at top right, rgba(165,106,45,.12), transparent 24%),
+        linear-gradient(180deg, #f9f4ea 0%, #f6f8fb 30%, #eef3f8 100%);
+      font-family: "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
+      line-height: 1.55;
+    }
+    a { color: var(--navy-2); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    #top { scroll-margin-top: 16px; }
+    header {
+      max-width: 1460px;
+      margin: 0 auto;
+      padding: 1.25rem 1.25rem 0.5rem;
+    }
+    .hero {
+      background: linear-gradient(135deg, rgba(18,35,58,.97), rgba(31,63,99,.96));
+      color: #fff;
+      border-radius: 28px;
+      padding: 1.4rem;
+      box-shadow: var(--shadow);
+      border: 1px solid rgba(255,255,255,.08);
+    }
+    .eyebrow {
+      display: inline-flex;
+      gap: .4rem;
+      align-items: center;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      font-size: .8rem;
+      font-weight: 700;
+      color: #f6d8b2;
+      margin-bottom: .75rem;
+    }
+    h1, h2, h3, h4 { margin: 0 0 .45rem; line-height: 1.15; }
+    h1, h2 { font-family: Georgia, "Times New Roman", serif; }
+    h1 { font-size: clamp(2rem, 4vw, 3.35rem); }
+    h2 { font-size: clamp(1.35rem, 2.2vw, 1.95rem); }
+    h3 { font-size: 1.1rem; }
+    p { margin: .45rem 0 0; }
+    .lede { max-width: 90ch; color: rgba(255,255,255,.82); font-size: 1.02rem; }
+    .meta-row, .chip-row, .link-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .5rem;
+    }
+    .meta-row { margin-top: 1rem; }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: .3rem;
+      padding: .34rem .72rem;
+      border-radius: 999px;
+      font-size: .82rem;
+      font-weight: 700;
+      background: rgba(255,255,255,.08);
+      color: rgba(255,255,255,.88);
+      border: 1px solid rgba(255,255,255,.12);
+    }
+    .badge.good { background: rgba(27,122,79,.16); color: #cfeedd; border-color: rgba(27,122,79,.35); }
+    .badge.warn { background: rgba(179,119,31,.16); color: #ffe1b3; border-color: rgba(179,119,31,.35); }
+    .badge.open { background: rgba(255,255,255,.08); color: #f6d8b2; }
+    .controls {
+      margin-top: 1rem;
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr 1fr auto;
+      gap: .75rem;
+      align-items: end;
+    }
+    .control { display: flex; flex-direction: column; gap: .35rem; }
+    .control label {
+      color: rgba(255,255,255,.75);
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      font-size: .78rem;
+      font-weight: 700;
+    }
+    input[type="search"], select {
+      width: 100%;
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 14px;
+      padding: .82rem .9rem;
+      background: rgba(255,255,255,.96);
+      color: var(--ink);
+      font: inherit;
+    }
+    button {
+      border: 0;
+      border-radius: 14px;
+      padding: .86rem 1rem;
+      font: inherit;
+      font-weight: 700;
+      color: #fff;
+      background: linear-gradient(135deg, var(--gold), #c4833d);
+      box-shadow: var(--shadow);
+      cursor: pointer;
+    }
+    .kpi {
+      display: inline-flex;
+      align-items: center;
+      gap: .4rem;
+      padding: .32rem .7rem;
+      border-radius: 999px;
+      background: rgba(255,255,255,.12);
+      color: #fff;
+      font-size: .84rem;
+      font-weight: 700;
+    }
+    .layout {
+      max-width: 1460px;
+      margin: 0 auto;
+      padding: 1rem 1.25rem 2rem;
+      display: grid;
+      grid-template-columns: 300px minmax(0,1fr);
+      gap: 1rem;
+      align-items: start;
+    }
+    .toc, .card {
+      background: var(--panel);
+      border: 1px solid rgba(216,222,230,.9);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+    .toc {
+      position: sticky;
+      top: 1rem;
+      padding: 1rem;
+    }
+    .toc h2 { font-size: 1.15rem; }
+    .toc ol {
+      margin: .85rem 0 0;
+      padding-left: 1.15rem;
+      display: grid;
+      gap: .35rem;
+    }
+    .toc a { color: var(--ink); }
+    .toc a.dim { color: #96a6b7; text-decoration: line-through; }
+    .content { display: grid; gap: 1rem; }
+    .card { padding: 1.15rem; }
+    .card-head {
+      display: flex;
+      justify-content: space-between;
+      gap: .8rem;
+      align-items: center;
+      margin-bottom: .75rem;
+    }
+    .summary { color: var(--muted); max-width: 95ch; }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0,1fr));
+      gap: .85rem;
+      margin-top: .8rem;
+    }
+    .box {
+      border: 1px solid var(--line);
+      border-radius: 15px;
+      background: #f8fafc;
+      padding: .9rem;
+    }
+    .box h4 { font-size: 1rem; font-family: inherit; }
+    ul, ol { margin: .65rem 0 0; padding-left: 1.15rem; }
+    li { margin: .25rem 0; }
+    details {
+      margin-top: .85rem;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #fff;
+      overflow: hidden;
+    }
+    summary {
+      cursor: pointer;
+      padding: .85rem .95rem;
+      font-weight: 700;
+    }
+    summary::-webkit-details-marker { display: none; }
+    details > div {
+      padding: 0 .95rem .95rem;
+      color: var(--muted);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: .8rem;
+      overflow: hidden;
+      border-radius: 14px;
+    }
+    th, td {
+      padding: .7rem .65rem;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+      font-size: .95rem;
+    }
+    th {
+      background: #f5f7fa;
+      color: var(--muted);
+      font-size: .78rem;
+      letter-spacing: .05em;
+      text-transform: uppercase;
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: .3rem;
+      padding: .24rem .55rem;
+      border-radius: 999px;
+      font-size: .78rem;
+      font-weight: 700;
+      background: var(--gold-soft);
+      color: #764617;
+    }
+    .pill.gray { background: #edf2f7; color: #45515f; }
+    .pill.red { background: rgba(177,43,43,.1); color: #9f1e1e; }
+    .pill.green { background: rgba(27,122,79,.1); color: #1d6d47; }
+    .link-row { margin-top: .75rem; }
+    .link-row a {
+      display: inline-flex;
+      align-items: center;
+      gap: .35rem;
+      padding: .34rem .62rem;
+      border-radius: 999px;
+      border: 1px solid #dce4ec;
+      background: #f1f5f9;
+      color: var(--ink);
+      font-size: .84rem;
+    }
+    .link-row a:hover { background: #e7eef7; text-decoration: none; }
+    .toplink { font-size: .86rem; font-weight: 700; }
+    .hidden { display: none !important; }
+    .footnote { color: var(--muted); font-size: .9rem; }
+    .subtle { color: var(--muted); }
+    @media (max-width: 1080px) {
+      .layout { grid-template-columns: 1fr; }
+      .toc { position: relative; top: 0; }
+      .controls { grid-template-columns: 1fr 1fr; }
+      .controls .search-wrap { grid-column: 1 / -1; }
+    }
+    @media (max-width: 720px) {
+      header, .layout { padding-inline: .75rem; }
+      .hero, .toc, .card { border-radius: 18px; }
+      .controls { grid-template-columns: 1fr; }
+      .grid-2 { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body id="top">
+  <header>
+    <section class="hero">
+      <div class="eyebrow">UPS_V2 fantasy football rulebook draft</div>
+      <h1>Rulebook Browser, first pass</h1>
+      <p class="lede">
+        This version is written like a fantasy-football rulebook first, not a metadata reference manual.
+        It is meant to be easy to navigate, full of examples where the rules get tricky, and structured so another agent can polish the UX without rethinking the content model.
+      </p>
+      <div class="meta-row">
+        <span class="badge good">UPS_V2 governed draft</span>
+        <span class="badge warn">pending review sections included</span>
+        <span class="badge open">skeleton only where the rule is still open</span>
+      </div>
+      <div class="controls" aria-label="rulebook search controls">
+        <div class="control search-wrap">
+          <label for="search">Search criteria</label>
+          <input id="search" type="search" placeholder="Search rules, examples, section names, ambiguity IDs, directive IDs, or source docs">
+        </div>
+        <div class="control">
+          <label for="section">Section</label>
+          <select id="section">
+            <option value="all">All sections</option>
+            <option value="basics">League basics</option>
+            <option value="roster">Roster / lineup</option>
+            <option value="scoring">Scoring / standings</option>
+            <option value="transactions">Transactions</option>
+            <option value="auction">Auction / free agency</option>
+            <option value="contracts">Contracts</option>
+            <option value="trades">Trades</option>
+            <option value="enforcement">Enforcement</option>
+            <option value="site">Site surfaces</option>
+            <option value="examples">Examples</option>
+            <option value="open">Open items</option>
+          </select>
+        </div>
+        <div class="control">
+          <label for="status">Status</label>
+          <select id="status">
+            <option value="all">All statuses</option>
+            <option value="settled">Settled</option>
+            <option value="partial">Partial</option>
+            <option value="open">Open</option>
+            <option value="skeleton">Skeleton</option>
+          </select>
+        </div>
+        <div class="control">
+          <label for="surface">Surface</label>
+          <select id="surface">
+            <option value="all">All surfaces</option>
+            <option value="team-operations">Team Operations</option>
+            <option value="roster-operations">Roster Operations</option>
+            <option value="contract-actions">Contract Actions</option>
+            <option value="trade-negotiation">Trade Negotiation</option>
+            <option value="reporting">Reporting / Standings</option>
+            <option value="commissioner">Commissioner tools</option>
+            <option value="rulebook">Rulebook / Help</option>
+          </select>
+        </div>
+        <div class="control">
+          <label>&nbsp;</label>
+          <button id="reset" type="button">Reset</button>
+        </div>
+      </div>
+      <div class="meta-row">
+        <span class="kpi" id="visibleCount">0 sections visible</span>
+        <span class="badge">search filters the cards below</span>
+        <span class="badge">click the TOC or the section links</span>
+      </div>
+    </section>
+  </header>
+
+  <div class="layout">
+    <aside class="toc">
+      <h2>Table of Contents</h2>
+      <ol>
+        <li><a href="#how-to-use">How to use this rulebook</a></li>
+        <li><a href="#league-basics">League basics</a></li>
+        <li><a href="#roster-lineup">Roster and lineup rules</a></li>
+        <li><a href="#scoring">Scoring and standings</a></li>
+        <li><a href="#transactions">Transactions</a></li>
+        <li><a href="#auction">Auction and free agency</a></li>
+        <li><a href="#contracts">Contracts</a></li>
+        <li><a href="#trades">Trades</a></li>
+        <li><a href="#enforcement">Penalties and enforcement</a></li>
+        <li><a href="#site-surfaces">Site surfaces and navigation</a></li>
+        <li><a href="#examples">Examples appendix</a></li>
+        <li><a href="#open-items">Open items and skeleton sections</a></li>
+      </ol>
+      <p class="footnote">
+        Related governed docs:
+        <a href="file:///Users/keithcreelman/Documents/mfl/Codex/version2/docs/ups_v2/V2_GOVERNED/rules/rules_source_audit_pending_review.md">rules audit</a>,
+        <a href="file:///Users/keithcreelman/Documents/mfl/Codex/version2/docs/ups_v2/V2_GOVERNED/governance/rule_interpretation_log.md">interpretation log</a>,
+        <a href="file:///Users/keithcreelman/Documents/mfl/Codex/version2/docs/ups_v2/V2_GOVERNED/governance/rules_watch_lane_policy.md">rules_watch lane</a>.
+      </p>
+    </aside>
+
+    <main class="content">
+      <article id="how-to-use" class="card rule-card" data-section="basics" data-status="settled" data-surface="rulebook">
+        <div class="card-head">
+          <div>
+            <span class="pill green">settled</span>
+            <h2>How to use this rulebook</h2>
+          </div>
+          <a class="toplink" href="#top">Back to top</a>
+        </div>
+        <p class="summary">
+          Read this like a fantasy-football rulebook first. The page starts with the league setup and then walks through roster, scoring, transactions, contracts, trades, and enforcement.
+          Anything still unresolved is left visible instead of being disguised as polished certainty.
+        </p>
+        <div class="grid-2">
+          <div class="box">
+            <h3>Search criteria that actually help</h3>
+            <ul>
+              <li>Rule family: contracts, trades, auction, waivers, drops, scoring, roster, enforcement.</li>
+              <li>Workflow: Team Operations, Roster Operations, Contract Actions, Trade Negotiation.</li>
+              <li>Tricky topic: kicked-off player, taxi-on-trade, tag, MYM, restructure, extension, auction lock.</li>
+              <li>Identifier: ambiguity ID, directive ID, validation row, source doc, or current surface.</li>
+            </ul>
+          </div>
+          <div class="box">
+            <h3>Reading rule</h3>
+            <ul>
+              <li>Use governed UPS_V2 docs for implementation decisions.</li>
+              <li>Use V1 references for evidence, precedent, and conflict detection.</li>
+              <li>Use the examples when the prose is too easy to misunderstand.</li>
+            </ul>
+          </div>
+        </div>
+      </article>
+
+      <article id="league-basics" class="card rule-card" data-section="basics" data-status="partial" data-surface="rulebook">
+        <div class="card-head">
+          <div>
+            <span class="pill">partial</span>
+            <h2>League basics</h2>
+          </div>
+          <a class="toplink" href="#top">Back to top</a>
+        </div>
+        <p class="summary">
+          This is the standard opening section you would expect in a fantasy rulebook: league identity, team structure, divisions, season shape, and the broad shape of play.
+          It should be readable before any player-specific rule.
+        </p>
+        <div class="grid-2">
+          <div class="box">
+            <h3>League structure</h3>
+            <ul>
+              <li>12-team dynasty format.</li>
+              <li>2 conferences and 2 divisions per conference in the long-standing structure.</li>
+              <li>Season calendar includes offseason, auction, regular season, and playoffs.</li>
+              <li>Commissioner and co-commissioner roles exist for governed control.</li>
+            </ul>
+          </div>
+          <div class="box">
+            <h3>League behavior</h3>
+            <ul>
+              <li>Owners negotiate, roster, and manage contracts inside the site.</li>
+              <li>Discord and message boards can carry discussion, but the site owns the governing state.</li>
+              <li>Calendar shifts are allowed if they are intentionally governed and visible.</li>
+            </ul>
+          </div>
+        </div>
+        <details>
+          <summary>Example: season timing shift</summary>
+          <div>
+            If the auction moves a week because the league needs it to, that is not automatically a rule violation. The move should be reflected as a governed season choice and the site should show the new timing clearly.
+          </div>
+        </details>
+      </article>
+
+      <article id="roster-lineup" class="card rule-card" data-section="roster" data-status="partial" data-surface="roster-operations,team-operations">
+        <div class="card-head">
+          <div>
+            <span class="pill">partial</span>
+            <h2>Roster and lineup rules</h2>
+          </div>
+          <a class="toplink" href="#top">Back to top</a>
+        </div>
+        <p class="summary">
+          This section should tell an owner exactly what is legal on a roster, what is legal in a lineup, and what gets blocked.
+          It should read like the rules of play, not like a data model.
+        </p>
+        <div class="grid-2">
+          <div class="box">
+            <h3>Roster zones</h3>
+            <ul>
+              <li>Active roster.</li>
+              <li>Taxi squad.</li>
+              <li>Injured reserve.</li>
+              <li>Waiver / free-agent pool.</li>
+            </ul>
+          </div>
+          <div class="box">
+            <h3>Lineup behavior</h3>
+            <ul>
+              <li>A player must be eligible to be started.</li>
+              <li>The site should show what is legal, not just what exists in the database.</li>
+              <li>Weekly roster legality should be visible before publishable actions finalize.</li>
+            </ul>
+          </div>
+        </div>
+        <details>
+          <summary>Example: drop a player after kickoff</summary>
+          <div>
+            If a player has already kicked off in the current scoring week, a drop request should hard block unless a specific commissioner recovery rule exists. The user should see the block reason immediately.
+          </div>
+        </details>
+        <details>
+          <summary>Example: taxi player promoted by mistake</summary>
+          <div>
+            If a player belongs on taxi but is accidentally sitting on the active roster, the roster workspace should show the mismatch and hand the owner into the correct roster action, not just tell them something is wrong.
+          </div>
+        </details>
+        <div class="link-row">
+          <a href="file:///Users/keithcreelman/Documents/mfl/Codex/version2/docs/ups_v2/V2_GOVERNED/requirements/workspaces/roster_operations_workspace.md">Roster Operations</a>
+          <a href="file:///Users/keithcreelman/Documents/mfl/Codex/version2/docs/ups_v2/V2_GOVERNED/governance/workflow_state_models.md">Workflow states</a>
+        </div>
+      </article>
+
+      <article id="scoring" class="card rule-card" data-section="scoring" data-status="skeleton" data-surface="reporting">
+        <div class="card-head">
+          <div>
+            <span class="pill gray">skeleton</span>
+            <h2>Scoring and standings</h2>
+          </div>
+          <a class="toplink" href="#top">Back to top</a>
+        </div>
+        <p class="summary">
+          This is intentionally lighter on the first pass because the detailed scoring matrix belongs in the scoring source and can be pulled into this page later.
+          The section exists now so the rulebook reads like a real fantasy rulebook instead of skipping straight from rosters to contracts.
+        </p>
+        <div class="grid-2">
+          <div class="box">
+            <h3>What belongs here</h3>
+            <ul>
+              <li>Scoring categories.</li>
+              <li>Standings math.</li>
+              <li>Tiebreakers.</li>
+              <li>Playoff seeding.</li>
+            </ul>
+          </div>
+          <div class="box">
+            <h3>Current stance</h3>
+            <ul>
+              <li>Leave the exact scoring categories to the scoring rule source.</li>
+              <li>Keep raw and normalized historical values separate where needed.</li>
+              <li>Fill this section once the scoring rules are fully reviewed.</li>
+            </ul>
+          </div>
+        </div>
+      </article>
+
+      <article id="transactions" class="card rule-card" data-section="transactions" data-status="partial" data-surface="roster-operations,team-operations">
+        <div class="card-head">
+          <div>
+            <span class="pill">partial</span>
+            <h2>Transactions</h2>
+          </div>
+          <a class="toplink" href="#top">Back to top</a>
+        </div>
+        <p class="summary">
+          Transactions should cover adds, drops, waivers, roster locks, and the timing rules that govern when a transaction is legal.
+          The page should explain the normal behavior first and the edge cases second.
+        </p>
+        <div class="grid-2">
+          <div class="box">
+            <h3>Adds and waivers</h3>
+            <ul>
+              <li>Adds are tied to waiver or FCFS legality.</li>
+              <li>Waiver and add timing should be season-configured.</li>
+              <li>Post-auction adds should not open until the league is past the auction lock point.</li>
+            </ul>
+          </div>
+          <div class="box">
+            <h3>Drops and locks</h3>
+            <ul>
+              <li>Pre-auction roster lock applies before the auction window.</li>
+              <li>Dropping after kickoff or during an active lock should block.</li>
+              <li>Commissioner or workflow holds should be visible, not hidden.</li>
+            </ul>
+          </div>
+        </div>
+        <details>
+          <summary>Example: pre-auction cut-down</summary>
+          <div>
+            If final cut-down is normally within 48 hours of auction start, the site should display that as a league operating target. It should not pretend every season must use the exact same clock time forever.
+          </div>
+        </details>
+        <div class="link-row">
+          <a href="file:///Users/keithcreelman/Documents/mfl/Codex/version2/docs/ups_v2/V2_GOVERNED/requirements/actions/add_action_rule.md">Add rule</a>
+          <a href="file:///Users/keithcreelman/Documents/mfl/Codex/version2/docs/ups_v2/V2_GOVERNED/requirements/actions/drop_action_rule.md">Drop rule</a>
+        </div>
+      </article>
+
+      <article id="auction" class="card rule-card" data-section="auction" data-status="partial" data-surface="contract-actions,roster-operations">
+        <div class="card-head">
+          <div>
+            <span class="pill">partial</span>
+            <h2>Auction and free agency</h2>
+          </div>
+          <a class="toplink" href="#top">Back to top</a>
+        </div>
+        <p class="summary">
+          This section covers the player acquisition window everyone expects to find in a fantasy rulebook: when the auction opens, how nominations work, how long bids stay live, and what happens if a franchise misses a nomination.
+        </p>
+        <div class="grid-2">
+          <div class="box">
+            <h3>Core auction behavior</h3>
+            <ul>
+              <li>Typical target period: last weekend of July.</li>
+              <li>Open time: noon Eastern.</li>
+              <li>Reset: midnight Eastern.</li>
+              <li>Nomination-complete can end a franchise’s nomination duty.</li>
+            </ul>
+          </div>
+          <div class="box">
+            <h3>Open / pending review</h3>
+            <ul>
+              <li>Exact missed-nomination penalty ladder.</li>
+              <li>Any exception to the stop / supplemental nomination logic.</li>
+              <li>Whether auction-related cap adjustments need a special workflow.</li>
+            </ul>
+          </div>
+        </div>
+        <details>
+          <summary>Example: nomination-complete</summary>
+          <div>
+            If a franchise has enough valid players on the board to satisfy roster completion, it may stop nominating. If it later loses a required leading bid, the rulebook should say whether a supplemental nomination is allowed to restore completion.
+          </div>
+        </details>
+        <details>
+          <summary>Example: missed nomination</summary>
+          <div>
+            Missed nominations should show the current governing penalty path. If the ladder is still open, the page should say that plainly instead of pretending the rule is settled.
+          </div>
+        </details>
+        <div class="link-row">
+          <a href="file:///Users/keithcreelman/Documents/mfl/Codex/version2/docs/ups_v2/V2_GOVERNED/requirements/actions/auction_nomination_rule.md">Auction nomination rule</a>
+          <a href="file:///Users/keithcreelman/Documents/mfl/Codex/version2/docs/ups_v2/V2_GOVERNED/requirements/workspaces/contract_actions_workspace.md">Contract Actions</a>
+        </div>
+      </article>
+
+      <article id="contracts" class="card rule-card" data-section="contracts" data-status="partial" data-surface="contract-actions,team-operations,roster-operations">
+        <div class="card-head">
+          <div>
+            <span class="pill">partial</span>
+            <h2>Contracts</h2>
+          </div>
+          <a class="toplink" href="#top">Back to top</a>
+        </div>
+        <p class="summary">
+          This is the section that needs the most examples because contract wording is where fantasy rulebooks tend to get muddy.
+          The right model is a lifecycle: a contract exists, changes state, and may be extended, restructured, tagged, optioned, or adjusted by MYM.
+        </p>
+        <table aria-label="contract families">
+          <thead>
+            <tr>
+              <th>Contract family</th>
+              <th>What it means</th>
+              <th>Example</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Rookie contract</td>
+              <td>Draft-class deal with its own term and eligibility path.</td>
+              <td>A rookie signs a 3-year deal and later becomes extension-eligible.</td>
+              <td>partial</td>
+            </tr>
+            <tr>
+              <td>Veteran contract</td>
+              <td>Non-rookie deal with term, cap hit, and salary behavior.</td>
+              <td>A veteran has a two-year deal that can later be extended or restructured.</td>
+              <td>partial</td>
+            </tr>
+            <tr>
+              <td>Extension</td>
+              <td>Adds or reshapes term under governed eligibility rules.</td>
+              <td>One year left becomes three years after extension approval.</td>
+              <td>partial</td>
+            </tr>
+            <tr>
+              <td>Restructure</td>
+              <td>Changes salary profile without erasing the original contract.</td>
+              <td>Cap hit drops this year and the restructure event is logged on top of the old deal.</td>
+              <td>partial</td>
+            </tr>
+            <tr>
+              <td>Tag</td>
+              <td>Special franchise/transition style decision with its own governance question.</td>
+              <td>Tag stays active only if the current rule system says it is still live.</td>
+              <td>open</td>
+            </tr>
+            <tr>
+              <td>MYM</td>
+              <td>Distinct governed contract action with its own eligibility.</td>
+              <td>MYM applies only when the season and contract state permit it.</td>
+              <td>partial</td>
+            </tr>
+            <tr>
+              <td>Option year</td>
+              <td>Special rookie-path contract year with explicit salary logic.</td>
+              <td>First-round rookie option is its own governed state, not a hidden price tweak.</td>
+              <td>partial</td>
+            </tr>
+          </tbody>
+        </table>
+        <details>
+          <summary>Example: extension versus restructure</summary>
+          <div>
+            An extension adds new term. A restructure changes how the current money hits the cap. They may happen around the same kind of player, but they are not the same action and should not be modeled as the same rule.
+          </div>
+        </details>
+        <details>
+          <summary>Example: option year</summary>
+          <div>
+            If an option year is available for a first-round rookie, the page should explain that it is a distinct action with a distinct salary effect. If the defensive version is still under review, say so plainly and mark it open.
+          </div>
+        </details>
+        <details>
+          <summary>Example: MYM</summary>
+          <div>
+            MYM should not be written as vague lore. The page should say who can use it, when it is legal, and what state change it creates when executed.
+          </div>
+        </details>
+        <div class="link-row">
+          <a href="file:///Users/keithcreelman/Documents/mfl/Codex/version2/docs/ups_v2/V2_GOVERNED/requirements/workspaces/contract_actions_workspace.md">Contract Actions workspace</a>
+          <a href="file:///Users/keithcreelman/Documents/mfl/Codex/version2/docs/ups_v2/V2_GOVERNED/governance/canonical_entity_catalog.md">Canonical entities</a>
+          <a href="file:///Users/keithcreelman/Documents/mfl/Codex/version2/docs/ups_v2/V2_GOVERNED/governance/workflow_state_models.md">Workflow states</a>
+        </div>
+      </article>
+
+      <article id="trades" class="card rule-card" data-section="trades" data-status="partial" data-surface="trade-negotiation,roster-operations">
+        <div class="card-head">
+          <div>
+            <span class="pill">partial</span>
+            <h2>Trades</h2>
+          </div>
+          <a class="toplink" href="#top">Back to top</a>
+        </div>
+        <p class="summary">
+          Trades deserve a full section because they are the place where most leagues get confusing: window timing, kickoff lock, DM chatter, salary movement, taxi behavior, and multi-team exceptions all collide.
+          The rulebook should make those collisions obvious.
+        </p>
+        <div class="grid-2">
+          <div class="box">
+            <h3>Core trade rules</h3>
+            <ul>
+              <li>Trade window begins at the new league year.</li>
+              <li>Trade window stays open through offseason, auction, and regular season until Thanksgiving kickoff.</li>
+              <li>Trade acceptance after kickoff should be blocked or deferred according to the governed rule.</li>
+              <li>Taxi-on-trade returns the player to taxi when valid.</li>
+            </ul>
+          </div>
+          <div class="box">
+            <h3>Communication rules</h3>
+            <ul>
+              <li>Discord DMs are transport and lightweight response UI.</li>
+              <li>Website acceptance is canonical.</li>
+              <li>Final trade approval should not live only in chat.</li>
+              <li>Multi-team trades remain commissioner-managed until explicitly promoted.</li>
+            </ul>
+          </div>
+        </div>
+        <details>
+          <summary>Example: kicked-off player in a trade</summary>
+          <div>
+            If one player in the deal has already kicked off, the site should not pretend the current scoring week still exists for that action. If the source system allows deferral, move the trade to the next eligible week. If it does not, store the intent and wait for the governed acceptance path.
+          </div>
+        </details>
+        <details>
+          <summary>Example: taxi-on-trade</summary>
+          <div>
+            If a traded player is on taxi and remains taxi-eligible after the move, the acquiring team should receive that player back on taxi rather than as a normal active-roster player.
+          </div>
+        </details>
+        <details>
+          <summary>Example: trade salary</summary>
+          <div>
+            If a trade includes salary movement, the salary limit should be derived from the outgoing active-roster or IR current-season salary pool, with taxi excluded.
+          </div>
+        </details>
+        <div class="link-row">
+          <a href="file:///Users/keithcreelman/Documents/mfl/Codex/version2/docs/ups_v2/V2_GOVERNED/requirements/workspaces/trade_negotiation_workspace.md">Trade Negotiation workspace</a>
+          <a href="file:///Users/keithcreelman/Documents/mfl/Codex/version2/docs/ups_v2/V2_GOVERNED/requirements/actions/trade_offer_action_rule.md">Trade offer rule</a>
+          <a href="file:///Users/keithcreelman/Documents/mfl/Codex/version2/docs/ups_v2/V2_GOVERNED/governance/validation/trade_kickoff_acceptance_validation.md">Trade kickoff validation</a>
+        </div>
+      </article>
+
+      <article id="enforcement" class="card rule-card" data-section="enforcement" data-status="partial" data-surface="commissioner,rulebook,site">
+        <div class="card-head">
+          <div>
+            <span class="pill">partial</span>
+            <h2>Penalties and enforcement</h2>
+          </div>
+          <a class="toplink" href="#top">Back to top</a>
+        </div>
+        <p class="summary">
+          A fantasy rulebook needs an enforcement section that says what warns, what blocks, what can be overridden, and what cannot be overridden.
+          It should be blunt enough that an owner can tell what happened without guessing.
+        </p>
+        <div class="grid-2">
+          <div class="box">
+            <h3>Enforcement ladder</h3>
+            <ul>
+              <li><strong>Warn only:</strong> user can continue, but the issue is logged.</li>
+              <li><strong>Soft block:</strong> user can recover by fixing the issue.</li>
+              <li><strong>Hard block:</strong> action cannot proceed.</li>
+              <li><strong>Commissioner override allowed:</strong> break-glass path with audit.</li>
+              <li><strong>Commissioner override forbidden:</strong> no exception path.</li>
+            </ul>
+          </div>
+          <div class="box">
+            <h3>Open items</h3>
+            <ul>
+              <li>Missed auction nomination ladder.</li>
+              <li>Over-cap treatment after trade or auction.</li>
+              <li>Penalty wording that still relies on old placeholder text.</li>
+            </ul>
+          </div>
+        </div>
+        <details>
+          <summary>Example: block versus warning</summary>
+          <div>
+            A lineup note that says a team is running thin at one position can warn only. A trade that violates a hard salary rule should block. The page should not use the same color or language for both.
+          </div>
+        </details>
+        <div class="link-row">
+          <a href="file:///Users/keithcreelman/Documents/mfl/Codex/version2/docs/ups_v2/V2_GOVERNED/governance/warning_block_policy_matrix.csv">Warning/block policy</a>
+          <a href="file:///Users/keithcreelman/Documents/mfl/Codex/version2/docs/ups_v2/V2_GOVERNED/rules/rule_ambiguity_register.csv">Ambiguity register</a>
+        </div>
+      </article>
+
+      <article id="site-surfaces" class="card rule-card" data-section="site" data-status="partial" data-surface="team-operations,roster-operations,contract-actions,trade-negotiation,reporting,commissioner,rulebook">
+        <div class="card-head">
+          <div>
+            <span class="pill">partial</span>
+            <h2>Site surfaces and navigation</h2>
+          </div>
+          <a class="toplink" href="#top">Back to top</a>
+        </div>
+        <p class="summary">
+          This is the part that should make the site feel sane. The user should understand where to go for planning, player actions, contract actions, trades, reports, and commissioner tools without having to decode old shell labels.
+        </p>
+        <div class="grid-2">
+          <div class="box">
+            <h3>Owned surfaces</h3>
+            <ul>
+              <li><strong>Team Operations:</strong> franchise planning and cap context.</li>
+              <li><strong>Roster Operations:</strong> player-action launcher.</li>
+              <li><strong>Contract Actions:</strong> extensions, restructures, tags, MYM, options, auction finalization.</li>
+              <li><strong>Trade Negotiation:</strong> negotiation, acceptance, response tracking.</li>
+            </ul>
+          </div>
+          <div class="box">
+            <h3>Supporting surfaces</h3>
+            <ul>
+              <li><strong>Reporting:</strong> standings, history, analytics, summaries.</li>
+              <li><strong>Commissioner tools:</strong> approvals, overrides, audit review.</li>
+              <li><strong>Rulebook / Help:</strong> this document and related guides.</li>
+            </ul>
+          </div>
+        </div>
+        <details>
+          <summary>Example: where a user should go</summary>
+          <div>
+            If the user wants to extend a player, the natural path is not a generic settings page. It is roster context into contract actions. If they want to compare two teams’ cap situations, that starts in Team Operations or Reporting.
+          </div>
+        </details>
+        <div class="link-row">
+          <a href="file:///Users/keithcreelman/Documents/mfl/Codex/version2/docs/ups_v2/V2_GOVERNED/requirements/workspaces/team_operations_workspace.md">Team Operations</a>
+          <a href="file:///Users/keithcreelman/Documents/mfl/Codex/version2/docs/ups_v2/V2_GOVERNED/requirements/workspaces/roster_operations_workspace.md">Roster Operations</a>
+          <a href="file:///Users/keithcreelman/Documents/mfl/Codex/version2/docs/ups_v2/V2_GOVERNED/requirements/workspaces/contract_actions_workspace.md">Contract Actions</a>
+          <a href="file:///Users/keithcreelman/Documents/mfl/Codex/version2/docs/ups_v2/V2_GOVERNED/requirements/workspaces/trade_negotiation_workspace.md">Trades</a>
+        </div>
+      </article>
+
+      <article id="examples" class="card rule-card" data-section="examples" data-status="settled" data-surface="rulebook,team-operations,roster-operations,contract-actions,trade-negotiation">
+        <div class="card-head">
+          <div>
+            <span class="pill green">settled</span>
+            <h2>Examples appendix</h2>
+          </div>
+          <a class="toplink" href="#top">Back to top</a>
+        </div>
+        <p class="summary">
+          The goal of the examples appendix is to remove ambiguity before the user has to ask for it. If a rule can be misunderstood, show a concrete case.
+        </p>
+        <div class="grid-2">
+          <div class="box">
+            <h3>Contract examples</h3>
+            <ul>
+              <li>Rookie contract becomes extension eligible after its governed term.</li>
+              <li>Extension adds new term without erasing the original contract record.</li>
+              <li>Restructure changes cap flow without pretending a new player was signed.</li>
+              <li>MYM is only legal if the player’s eligibility state allows it.</li>
+            </ul>
+          </div>
+          <div class="box">
+            <h3>Trade and auction examples</h3>
+            <ul>
+              <li>Trade with a kicked-off player is deferred if the source system supports it.</li>
+              <li>Taxi player traded in stays taxi when valid.</li>
+              <li>Auction nominations reset at midnight and stop at nomination-complete.</li>
+              <li>Drop after kickoff is blocked.</li>
+            </ul>
+          </div>
+        </div>
+        <details open>
+          <summary>Detailed example: contract lifecycle</summary>
+          <div>
+            A player is drafted, signs a rookie deal, then later gets extended. The page should show the player’s original contract, the extension event, and the current active state. The old state should still be visible in history.
+          </div>
+        </details>
+        <details>
+          <summary>Detailed example: trade salary</summary>
+          <div>
+            If a trade includes salary movement, the rulebook should explain that the salary component is derived from outgoing current-season salary on active or IR players, with taxi excluded, instead of leaving it as vague “trade salary” language.
+          </div>
+        </details>
+        <details>
+          <summary>Detailed example: site navigation</summary>
+          <div>
+            A user wanting to change a roster should not have to understand internal module names. They click the player, see only valid actions, and the site hands them into the correct workspace.
+          </div>
+        </details>
+      </article>
+
+      <article id="open-items" class="card rule-card" data-section="open" data-status="open" data-surface="rulebook,commissioner">
+        <div class="card-head">
+          <div>
+            <span class="pill red">open</span>
+            <h2>Open items and skeleton sections</h2>
+          </div>
+          <a class="toplink" href="#top">Back to top</a>
+        </div>
+        <p class="summary">
+          These are the items that should stay visible until they are actually settled. They are not hidden and they are not silently forced into implementation.
+        </p>
+        <div class="grid-2">
+          <div class="box">
+            <h3>Open governance gaps</h3>
+            <ul>
+              <li>Tag status: active, inactive, or dedicated rule section.</li>
+              <li>Missed nomination penalty ladder.</li>
+              <li>Exact trade response SLA and strike policy.</li>
+              <li>Penalty policy for over-cap cases after trade or auction.</li>
+              <li>around-2021 contract guide source if it exists elsewhere.</li>
+            </ul>
+          </div>
+          <div class="box">
+            <h3>Open content gaps</h3>
+            <ul>
+              <li>Exact scoring categories and tiebreakers.</li>
+              <li>Any remaining Discord transcript paths that need pinning.</li>
+              <li>Exact rule text for commissioner-only override paths where not already settled.</li>
+            </ul>
+          </div>
+        </div>
+        <details>
+          <summary>Why this stays skeletal for now</summary>
+          <div>
+            The page is a draft browser. It is intentionally complete enough to review and critique, but not so polished that it hides the unresolved league decisions.
+          </div>
+        </details>
+      </article>
+
+      <p class="footnote">
+        First pass only. The next clean step is to tighten the open sections, promote verified content into governed docs, and let a UX-focused pass refine the navigation and layout without changing the rule structure.
+      </p>
+    </main>
+  </div>
+
+  <script>
+    const search = document.getElementById('search');
+    const section = document.getElementById('section');
+    const status = document.getElementById('status');
+    const surface = document.getElementById('surface');
+    const reset = document.getElementById('reset');
+    const cards = [...document.querySelectorAll('.rule-card')];
+    const count = document.getElementById('visibleCount');
+    const links = [...document.querySelectorAll('.toc a')];
+
+    function norm(value) {
+      return (value || '').toLowerCase().trim();
+    }
+
+    function sync() {
+      const q = norm(search.value);
+      const sec = section.value;
+      const stat = status.value;
+      const surf = surface.value;
+      let visible = 0;
+
+      cards.forEach(card => {
+        const text = norm(card.innerText);
+        const okQuery = !q || text.includes(q) || norm(card.dataset.section).includes(q) || norm(card.dataset.surface).includes(q);
+        const okSection = sec === 'all' || card.dataset.section === sec;
+        const okStatus = stat === 'all' || card.dataset.status === stat;
+        const okSurface = surf === 'all' || norm(card.dataset.surface).includes(surf.replace('-', ' ')) || norm(card.dataset.surface).includes(surf);
+        const show = okQuery && okSection && okStatus && okSurface;
+        card.classList.toggle('hidden', !show);
+        if (show) visible += 1;
+      });
+
+      links.forEach(link => {
+        const target = document.querySelector(link.getAttribute('href'));
+        link.classList.toggle('dim', !!target && target.classList.contains('hidden'));
+      });
+
+      count.textContent = `${visible} section${visible === 1 ? '' : 's'} visible`;
+    }
+
+    search.addEventListener('input', sync);
+    section.addEventListener('change', sync);
+    status.addEventListener('change', sync);
+    surface.addEventListener('change', sync);
+    reset.addEventListener('click', () => {
+      search.value = '';
+      section.value = 'all';
+      status.value = 'all';
+      surface.value = 'all';
+      sync();
+      search.focus();
+    });
+
+    sync();
+  </script>
+</body>
+</html>
