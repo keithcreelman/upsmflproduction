@@ -19,3 +19,13 @@ crons = ["5 * * * *"]
 [[r2_buckets]]
 binding = "UPS_MFL_BACKUPS"
 bucket_name = "ups-mfl-backups"
+
+# D1 database for Phase 3 — structured MFL data + corrections override
+# layer. Worker reads via `env.UPS_MFL_DB.prepare(...).all()`.
+# Migrations live in worker/migrations/ and are applied via
+# `wrangler d1 migrations apply ups-mfl-db --remote` (or --local for dev).
+[[d1_databases]]
+binding = "UPS_MFL_DB"
+database_name = "ups-mfl-db"
+database_id = "8cfe1ddd-749e-476a-9c2c-a359410c6fc1"
+migrations_dir = "migrations"

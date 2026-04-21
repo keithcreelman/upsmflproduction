@@ -69,28 +69,61 @@ R2, the script needs an R2 API token exported as `CLOUDFLARE_API_TOKEN`
 (or equivalent S3-compat creds). Straightforward once Keith issues a
 scoped token from the CF dashboard.
 
-### 5. Cloudflare D1 (Phase 3, future)
-Port the tables the Worker needs (contracts, transactions, rosters,
-draft history, weekly scoring) into D1 so the Worker can serve live
-lookups without any dependency on Keith's laptop. At that point:
-- `/api/player-bundle` can return `career_summary` tier percentages,
-  `weekly` game logs, `last_add` with salary parsed — everything the
-  Python bridge returns.
-- The ETL can optionally run on a Worker schedule instead of on the
-  laptop.
+### 5. Cloudflare D1 (Phase 3, foundation live)
+Database: `ups-mfl-db`. Bound to the Worker as `env.UPS_MFL_DB`.
+Migrations under `worker/migrations/`, applied via
+`wrangler d1 migrations apply ups-mfl-db --remote`.
 
-### 6. Override layer (Phase 3)
-Corrections like "2014 4.06 should be Ryan Bousquet, not Eric Mannila"
-and "2016 1.06 should be pid 12652, not 11613" currently require
-mutating both `draftresults_legacy` AND `rookie_draft_history.json`
-(see `docs/ups_v2/V2_GOVERNED/rules/claude_canonical_rules.md`
-— RULE-DATA-003). Cleaner design:
-- A `corrections` table in D1: `(season, pick_id, field,
-  original_value, corrected_value, reason, reviewer, timestamp)`.
-- Merge at query time: `final = COALESCE(correction.corrected,
-  source.value)`.
-- Corrections are auditable forever (reason + reviewer), reversible
-  via one DELETE.
+**What's live (migration 0001):** the `corrections` override table
+(see Phase 3 section below). Five real corrections seeded — the
+Bortles 4.06 reassignment (commit `07e46cf`) and the Michael Thomas
+1.06 DB→WR identity fix (`e16f0b9`).
+
+**Endpoint:** `GET /api/corrections` returns the active (non-superseded)
+corrections as JSON. Optional filters `?entity_kind=draft_pick` and
+`?entity_id=2016.R1.06`. No auth — the data is derived, not secret.
+
+**Still TODO (tables to port from local SQLite):**
+- `contracts` snapshots
+- `transactions` (add/drop + trade + auction)
+- `player_weeklyscoringresults` (game logs)
+- `draftresults_legacy` + `draftresults_mfl`
+- `contract_history_snapshots`
+
+Once ported, `/api/player-bundle` can return `career_summary` tier
+percentages, `weekly` game logs, `last_add` with salary — i.e. full
+parity with the Python bridge — with no dependency on Keith's laptop.
+
+### 6. Corrections override layer (Phase 3, live)
+Schema (see `worker/migrations/0001_corrections.sql`):
+```
+correction_id   INTEGER PRIMARY KEY AUTOINCREMENT
+entity_kind     TEXT    -- 'draft_pick', 'player', 'trade', 'contract', ...
+entity_id       TEXT    -- e.g. '2016.R1.06' or a player_id
+field_path      TEXT    -- dotted path, supports nested structures
+original_value  TEXT    -- JSON-encoded (scalar or structure)
+corrected_value TEXT    -- JSON-encoded
+reason          TEXT
+reviewer        TEXT
+created_at_utc  TEXT
+effective_from  TEXT    -- nullable, for time-scoped fixes
+superseded_by   INTEGER -- replace-in-place semantics
+commit_sha      TEXT    -- traceability to the git change that logged it
+notes           TEXT
+```
+
+**Idempotency + audit.** A corrected entity/field combo is
+updated-in-place by pointing the old row's `superseded_by` at the new
+one. The `idx_corrections_active` partial index lets the read path
+stay fast (`WHERE superseded_by IS NULL`). Rolling back a correction
+is a single UPDATE-to-null, not a data rewrite.
+
+**How consumers should use it.** Read at merge time, not write time.
+`build_rookie_draft_hub.py` should fetch `/api/corrections?entity_kind=draft_pick`
+at the end of an ETL run and overlay corrections on the draft-history
+rows before writing the JSON. That way source tables stay pristine
+(next MFL refresh doesn't regress the fix) and every correction has a
+traceable reason + reviewer + commit_sha forever.
 
 ## Summary table
 

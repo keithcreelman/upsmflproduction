@@ -227,6 +227,7 @@ export default {
         path !== "/admin/bug-report/triage-note" &&
         path !== "/admin/bug-report/test-discord" &&
         path !== "/admin/snapshot-mfl-now" &&
+        path !== "/api/corrections" &&
         path !== "/bug-report" &&
         path !== "/bug-reports" &&
         path !== "/extension-assistant" &&
@@ -239,6 +240,57 @@ export default {
           JSON.stringify({ ok: false, isAdmin: false, reason: "Missing L param" }),
           { status: 400, headers: { "content-type": "application/json", ...corsHeaders } }
         );
+      }
+
+      // ---------- Phase 3: corrections override layer (read-only) ----------
+      // Returns the active (non-superseded) corrections from D1.
+      // Consumers:
+      //   * build_rookie_draft_hub.py pulls this during ETL and applies
+      //     corrections AFTER reading source data, so JSON artifacts
+      //     reflect the truth without mutating draftresults_legacy.
+      //   * Future /api/player-bundle can layer these on top of raw
+      //     MFL data to show the correct player even if MFL has stale
+      //     attribution.
+      // Filter by ?entity_kind=draft_pick&entity_id=2016.R1.06 for a
+      // specific record, or omit filters for the full list.
+      if (path === "/api/corrections" && request.method === "GET") {
+        if (!env.UPS_MFL_DB) {
+          return new Response(JSON.stringify({ error: "D1 binding UPS_MFL_DB missing" }), {
+            status: 500,
+            headers: { "content-type": "application/json", ...corsHeaders },
+          });
+        }
+        const kindFilter = String(url.searchParams.get("entity_kind") || "").trim();
+        const idFilter = String(url.searchParams.get("entity_id") || "").trim();
+        let sql = "SELECT correction_id, entity_kind, entity_id, field_path, original_value, corrected_value, reason, reviewer, created_at_utc, effective_from, commit_sha, notes FROM corrections WHERE superseded_by IS NULL";
+        const args = [];
+        if (kindFilter) { sql += " AND entity_kind = ?"; args.push(kindFilter); }
+        if (idFilter)   { sql += " AND entity_id = ?";   args.push(idFilter); }
+        sql += " ORDER BY entity_kind, entity_id, field_path, correction_id";
+        try {
+          const stmt = env.UPS_MFL_DB.prepare(sql);
+          const bound = args.length ? stmt.bind(...args) : stmt;
+          const { results } = await bound.all();
+          // Parse JSON-encoded values back into real types for consumers.
+          for (const r of results || []) {
+            for (const k of ["original_value", "corrected_value"]) {
+              if (r[k] != null) {
+                try { r[k] = JSON.parse(r[k]); } catch { /* leave as-is */ }
+              }
+            }
+          }
+          return new Response(JSON.stringify({
+            count: (results || []).length,
+            corrections: results || [],
+          }, null, 2), {
+            headers: { "content-type": "application/json", ...corsHeaders },
+          });
+        } catch (e) {
+          return new Response(JSON.stringify({ error: String(e && e.message || e) }), {
+            status: 500,
+            headers: { "content-type": "application/json", ...corsHeaders },
+          });
+        }
       }
 
       // ---------- Admin: manual MFL→R2 snapshot trigger ----------
