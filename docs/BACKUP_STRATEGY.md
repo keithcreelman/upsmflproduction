@@ -42,17 +42,32 @@ cp scripts/com.upsmfl.db-backup.plist ~/Library/LaunchAgents/
 launchctl load ~/Library/LaunchAgents/com.upsmfl.db-backup.plist
 ```
 
-### 4. Cloudflare R2 (Phase 2, not yet enabled)
-**Blocker:** R2 needs to be enabled once on the Cloudflare account via
-the dashboard (`Storage & Databases → R2 → Enable`). Free tier gives
-10 GB storage + plenty of ops/month, more than enough.
+### 4. Cloudflare R2 (Phase 2, live)
+Bucket: `ups-mfl-backups`. Bound to the Worker as `env.UPS_MFL_BACKUPS`.
 
-Once enabled, two pieces switch over:
-1. The daily MFL snapshot Worker action (currently a GitHub Action)
-   writes to R2 instead of committing to the repo — cleaner history,
-   longer retention, queryable.
-2. The local-DB backup script uploads each gzipped snapshot to R2 for
-   off-device redundancy.
+**Worker-scheduled daily snapshot.** The `scheduled` handler in
+`worker/src/index.js` fires every hour at :05. When the UTC hour is 9
+(≈05:05 ET), it runs `snapshotMflToR2(env, now)` which fetches seven
+MFL public exports — `salaries`, `transactions`, `rosters`, `injuries`,
+`league`, `freeAgents`, `draftResults` — in parallel and writes them
+to R2 under `snapshots/YYYY-MM-DD/{type}.json`, plus a
+`_snapshot_meta.json` with byte counts and per-export success flags.
+
+**Manual trigger.** `GET /admin/snapshot-mfl-now` (requires
+`X-Internal-Auth: <COMMISH_API_KEY>` if that env var is set). Idempotent
+— re-running overwrites the same date folder.
+
+**The GitHub Action snapshot still runs in parallel.** Two independent
+backup paths (git-committed + R2-stored) is intentional redundancy —
+if either one breaks, the other keeps capturing contract / transaction
+data. Once R2 proves stable over a few months we can retire the GH
+Action side.
+
+**Still TODO — local DB → R2.** `backup_mfl_db.sh` writes the gzipped
+SQLite snapshot to `~/Documents/mfl/backups/` today. To also push it to
+R2, the script needs an R2 API token exported as `CLOUDFLARE_API_TOKEN`
+(or equivalent S3-compat creds). Straightforward once Keith issues a
+scoped token from the CF dashboard.
 
 ### 5. Cloudflare D1 (Phase 3, future)
 Port the tables the Worker needs (contracts, transactions, rosters,

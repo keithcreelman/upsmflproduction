@@ -2,6 +2,73 @@ const acquisitionLiveMemoryCache = new Map();
 const contractDiscordChannelQueues = new Map();
 const contractDiscordChannelLastSendMs = new Map();
 
+// Phase 2 backup helper — snapshots MFL public exports for the league
+// to the R2 bucket bound at env.UPS_MFL_BACKUPS. Key layout:
+//   snapshots/YYYY-MM-DD/{rosters,salaries,transactions,injuries,league,freeAgents,draftResults}.json
+//   snapshots/YYYY-MM-DD/_snapshot_meta.json
+// Mirrors what the GitHub Actions workflow writes into the repo, so a
+// future read path can fall back from R2 to the git-committed copy
+// without schema translation. Fails loudly in the Worker log; the
+// scheduled-handler caller wraps this in waitUntil with its own catch.
+async function snapshotMflToR2(env, nowUtc) {
+  const bucket = env.UPS_MFL_BACKUPS;
+  if (!bucket) throw new Error("R2 binding UPS_MFL_BACKUPS missing");
+  const leagueId = String(env.LEAGUE_ID || "74598");
+  const season = String(env.YEAR || nowUtc.getUTCFullYear());
+  const y = nowUtc.getUTCFullYear();
+  const m = String(nowUtc.getUTCMonth() + 1).padStart(2, "0");
+  const d = String(nowUtc.getUTCDate()).padStart(2, "0");
+  const dateKey = `${y}-${m}-${d}`;
+  const prefix = `snapshots/${dateKey}`;
+  const UA = "upsmflproduction-worker-daily-snapshot";
+  const exports = [
+    ["salaries",     `https://api.myfantasyleague.com/${season}/export?TYPE=salaries&L=${leagueId}&JSON=1`],
+    ["transactions", `https://www48.myfantasyleague.com/${season}/export?TYPE=transactions&L=${leagueId}&JSON=1`],
+    ["rosters",      `https://www48.myfantasyleague.com/${season}/export?TYPE=rosters&L=${leagueId}&JSON=1`],
+    ["injuries",     `https://www48.myfantasyleague.com/${season}/export?TYPE=injuries&L=${leagueId}&JSON=1`],
+    ["league",       `https://www48.myfantasyleague.com/${season}/export?TYPE=league&L=${leagueId}&JSON=1`],
+    ["freeAgents",   `https://www48.myfantasyleague.com/${season}/export?TYPE=freeAgents&L=${leagueId}&JSON=1`],
+    ["draftResults", `https://api.myfantasyleague.com/${season}/export?TYPE=draftResults&L=${leagueId}&JSON=1`],
+  ];
+  const results = await Promise.allSettled(
+    exports.map(async ([name, url]) => {
+      const res = await fetch(url, { headers: { "User-Agent": UA }, cf: { cacheTtl: 0 } });
+      if (!res.ok) throw new Error(`${name} HTTP ${res.status}`);
+      const text = await res.text();
+      // Pretty-print + sort keys for diff-friendly storage, matching the GH Action.
+      let pretty = text;
+      try {
+        pretty = JSON.stringify(JSON.parse(text), null, 2);
+      } catch {}
+      await bucket.put(`${prefix}/${name}.json`, pretty, {
+        httpMetadata: { contentType: "application/json; charset=utf-8" },
+        customMetadata: { mfl_league_id: leagueId, season, snapshot_date: dateKey },
+      });
+      return { name, bytes: pretty.length };
+    })
+  );
+  const meta = {
+    snapshot_date_utc: dateKey,
+    iso_timestamp: nowUtc.toISOString(),
+    league_id: leagueId,
+    season_year: season,
+    source: "cloudflare-worker-scheduled",
+    parts: results.map((r, i) =>
+      r.status === "fulfilled"
+        ? { name: exports[i][0], ok: true, bytes: r.value.bytes }
+        : { name: exports[i][0], ok: false, error: String(r.reason && r.reason.message || r.reason) }
+    ),
+  };
+  await bucket.put(`${prefix}/_snapshot_meta.json`, JSON.stringify(meta, null, 2), {
+    httpMetadata: { contentType: "application/json; charset=utf-8" },
+  });
+  const failed = meta.parts.filter((p) => !p.ok);
+  console.log(
+    `[snapshotMflToR2] ${dateKey}: ${meta.parts.length - failed.length}/${meta.parts.length} OK` +
+      (failed.length ? ` — failed: ${failed.map((p) => p.name).join(", ")}` : "")
+  );
+}
+
 export default {
   // Cloudflare cron trigger — fires every hour at :05 past per wrangler.toml.
   // RULE-WORKFLOW-004: scan MFL add/drop transactions for new drop penalties,
@@ -9,6 +76,22 @@ export default {
   // Announcement for each (batched per-team). MFL's salaryAdjustments export
   // is the dedup ledger — runs are idempotent by ups_drop_penalty:{ledger_key}.
   async scheduled(event, env, ctx) {
+    // Phase 2 backup: once per day (at the 09:05 UTC firing) snapshot the
+    // MFL public exports for our league to R2. This runs in parallel with
+    // the existing drop-penalty scan below — independent try/catch so one
+    // failure doesn't kill the other.
+    try {
+      const nowUtc = new Date();
+      const isDailySnapshotHour = nowUtc.getUTCHours() === 9;
+      if (isDailySnapshotHour && env.UPS_MFL_BACKUPS) {
+        ctx.waitUntil(snapshotMflToR2(env, nowUtc).catch((e) =>
+          console.error(`[scheduled] snapshotMflToR2 failed: ${e && e.message}`)
+        ));
+      }
+    } catch (e) {
+      console.error(`[scheduled] snapshot dispatch failed: ${e && e.message}`);
+    }
+
     try {
       const season = String(env.YEAR || new Date().getUTCFullYear());
       const leagueId = String(env.LEAGUE_ID || "74598");
@@ -143,6 +226,7 @@ export default {
         path !== "/admin/bug-report/status" &&
         path !== "/admin/bug-report/triage-note" &&
         path !== "/admin/bug-report/test-discord" &&
+        path !== "/admin/snapshot-mfl-now" &&
         path !== "/bug-report" &&
         path !== "/bug-reports" &&
         path !== "/extension-assistant" &&
@@ -155,6 +239,33 @@ export default {
           JSON.stringify({ ok: false, isAdmin: false, reason: "Missing L param" }),
           { status: 400, headers: { "content-type": "application/json", ...corsHeaders } }
         );
+      }
+
+      // ---------- Admin: manual MFL→R2 snapshot trigger ----------
+      // Lets us verify the R2 backup path without waiting for the 09:05 UTC
+      // cron. Protected with the same X-Internal-Auth header the other
+      // admin endpoints use. GET is fine here — it's idempotent (an extra
+      // snapshot for today's date just overwrites).
+      if (path === "/admin/snapshot-mfl-now") {
+        const commishApiKey = String(env.COMMISH_API_KEY || "").trim();
+        const authHeader = String(request.headers.get("X-Internal-Auth") || "").trim();
+        if (commishApiKey && authHeader !== commishApiKey) {
+          return new Response(JSON.stringify({ ok: false, error: "unauthorized" }), {
+            status: 401,
+            headers: { "content-type": "application/json", ...corsHeaders },
+          });
+        }
+        try {
+          await snapshotMflToR2(env, new Date());
+          return new Response(JSON.stringify({ ok: true }), {
+            headers: { "content-type": "application/json", ...corsHeaders },
+          });
+        } catch (e) {
+          return new Response(JSON.stringify({ ok: false, error: String(e && e.message || e) }), {
+            status: 500,
+            headers: { "content-type": "application/json", ...corsHeaders },
+          });
+        }
       }
 
       // ---------- MCM (No MFL Cookie Required) ----------
