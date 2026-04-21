@@ -83,16 +83,28 @@ Bortles 4.06 reassignment (commit `07e46cf`) and the Michael Thomas
 corrections as JSON. Optional filters `?entity_kind=draft_pick` and
 `?entity_id=2016.R1.06`. No auth — the data is derived, not secret.
 
-**Still TODO (tables to port from local SQLite):**
-- `contracts` snapshots
-- `transactions` (add/drop + trade + auction)
-- `player_weeklyscoringresults` (game logs)
-- `draftresults_legacy` + `draftresults_mfl`
-- `contract_history_snapshots`
+**Tables populated in D1 (via `scripts/load_local_to_d1.py`):**
+- `src_contracts` (497 rows — QB-only pipeline gap upstream, not a loader limit)
+- `src_adddrop` (12,564 rows — all add/drop txns)
+- `src_trades` (8,744 rows — all trade asset rows)
+- `src_weekly` (225,863 rows — per-week scoring, regular season)
+- `src_draft_picks` (935 rows — legacy + MFL unioned, tagged)
+- `src_load_manifest` (audit log of loader runs)
 
-Once ported, `/api/player-bundle` can return `career_summary` tier
-percentages, `weekly` game logs, `last_add` with salary — i.e. full
-parity with the Python bridge — with no dependency on Keith's laptop.
+`/api/player-bundle` reads from these first and falls back to MFL
+scraping only when D1 has nothing for the player — so the endpoint is
+robust during initial loads and if a specific row hasn't propagated.
+
+**Nightly re-sync.** `scripts/install_d1_sync_cron.sh` installs a
+launchd job that runs `sync_d1.sh` at 03:45 local (30 min after the
+DB backup). The installed copy in `~/Library/Scripts/` is
+self-contained — it bundles the loader, a copy of `worker/wrangler.toml`,
+and a scratch dir in `~/Library/Caches/` — so it doesn't depend on
+which branch your local git checkout happens to be on. Logs to
+`~/Library/Logs/upsmfl-d1-sync.log`. Each run takes ~30-40 min (most
+of that is the 226k-row weekly bulk reload; if you want faster, run
+with `--only contracts,adddrop,trades,drafts` to skip weekly and
+handle that one weekly).
 
 ### 6. Corrections override layer (Phase 3, live)
 Schema (see `worker/migrations/0001_corrections.sql`):

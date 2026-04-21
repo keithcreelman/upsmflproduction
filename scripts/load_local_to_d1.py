@@ -28,9 +28,16 @@ import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-WORKER_DIR = REPO_ROOT / "worker"
-TMP_DIR = WORKER_DIR / ".tmp" / "d1_load"
+WORKER_DIR_DEFAULT = REPO_ROOT / "worker"
+TMP_DIR_DEFAULT = WORKER_DIR_DEFAULT / ".tmp" / "d1_load"
 LOCAL_DB = Path("/Users/keithcreelman/Documents/mfl/Development/pipelines/etl/data/mfl_database.db")
+
+# Runtime overrides (set in main()) so the standalone copy installed in
+# ~/Library/Scripts/ can point wrangler at an explicit config file
+# without needing a full git checkout on disk.
+WRANGLER_CONFIG: Path | None = None
+WORKER_CWD: Path = WORKER_DIR_DEFAULT
+TMP_DIR: Path = TMP_DIR_DEFAULT
 
 CHUNK_SIZE = 200  # rows per INSERT statement — D1 caps single-statement size at ~100KB; trades/comments push us near the ceiling at higher counts
 
@@ -71,8 +78,10 @@ def wrangler_execute(sql_path: Path, db: str, max_attempts: int = 4) -> None:
         "npx", "--yes", "wrangler@latest", "d1", "execute", db,
         "--remote", "--file", str(sql_path),
     ]
+    if WRANGLER_CONFIG is not None:
+        cmd.extend(["--config", str(WRANGLER_CONFIG)])
     for attempt in range(1, max_attempts + 1):
-        res = subprocess.run(cmd, cwd=WORKER_DIR, env={**os.environ}, capture_output=True, text=True)
+        res = subprocess.run(cmd, cwd=WORKER_CWD, env={**os.environ}, capture_output=True, text=True)
         if res.returncode == 0:
             if attempt > 1:
                 sys.stderr.write(f"[d1 execute] recovered on attempt {attempt} for {sql_path.name}\n")
@@ -157,7 +166,18 @@ def main():
     ap.add_argument("--db", default="ups-mfl-db")
     ap.add_argument("--only", help="comma-separated subset: contracts,adddrop,trades,weekly,drafts")
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--wrangler-config", help="Path to wrangler.toml for standalone invocations")
+    ap.add_argument("--worker-cwd", help="Directory to cd into before running wrangler (defaults to repo worker/)")
+    ap.add_argument("--tmp-dir", help="Scratch dir for generated SQL chunks (defaults to <worker>/.tmp/d1_load)")
     args = ap.parse_args()
+
+    global WRANGLER_CONFIG, WORKER_CWD, TMP_DIR
+    if args.wrangler_config:
+        WRANGLER_CONFIG = Path(args.wrangler_config).resolve()
+    if args.worker_cwd:
+        WORKER_CWD = Path(args.worker_cwd).resolve()
+    if args.tmp_dir:
+        TMP_DIR = Path(args.tmp_dir).resolve()
 
     if not LOCAL_DB.exists():
         sys.exit(f"local DB missing at {LOCAL_DB}")
