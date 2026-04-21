@@ -928,11 +928,6 @@
       ${(() => {
         const c = bundle.contract;
         if (!c) return "";
-        const ybd = c.year_salary_breakdown || null;
-        const ybdRows = ybd && typeof ybd === "object"
-          ? Object.entries(ybd).sort().map(([yr, sal]) =>
-              `<tr><td>${yr}</td><td class="num">$${Number(sal).toLocaleString()}</td></tr>`).join("")
-          : "";
         const statusColor = c.is_tag ? "color:var(--warn); font-weight:600;" : "";
         return `
         <div class="profile-block">
@@ -946,10 +941,6 @@
             ${c.contract_guarantee != null && c.contract_guarantee > 0 ? `<div><span class="lbl">Guarantee</span>$${Number(c.contract_guarantee).toLocaleString()}</div>` : ""}
           </div>
           ${c.contract_info ? `<div class="small" style="color:var(--muted); margin-top:6px; font-size:10px;">${escapeHtml(c.contract_info)}</div>` : ""}
-          ${ybdRows ? `
-            <h4 style="margin-top:10px; font-size:11px;">Yearly Breakdown</h4>
-            <table class="rdh-table"><thead><tr><th>Year</th><th class="num">Salary</th></tr></thead>
-            <tbody>${ybdRows}</tbody></table>` : ""}
         </div>`;
       })()}
 
