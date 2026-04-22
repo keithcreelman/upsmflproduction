@@ -215,12 +215,14 @@ def main():
         ("weekly", "src_weekly",
          """
          SELECT season, week, player_id, pos_group, status, score, is_reg,
-                roster_franchise_id, roster_franchise_name, pos_rank, overall_rank
+                roster_franchise_id, roster_franchise_name, pos_rank, overall_rank,
+                win_chunks
          FROM player_weeklyscoringresults
          WHERE is_reg = 1
          """,
          ["season","week","player_id","pos_group","status","score","is_reg",
-          "roster_franchise_id","roster_franchise_name","pos_rank","overall_rank"]),
+          "roster_franchise_id","roster_franchise_name","pos_rank","overall_rank",
+          "win_chunks"]),
         ("drafts", "src_draft_picks",
          """
          SELECT season, draftpick_round, draftpick_roundorder, draftpick_overall,
