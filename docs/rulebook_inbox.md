@@ -6,6 +6,56 @@ Claude may append proposals here at any time but MUST NOT edit `claude_canonical
 
 ---
 
+## Proposed: RULE-DEADLINE-001 — Three distinct deadline flavors, not one
+
+**Category:** RULE-DEADLINE (new category — contract-action timing)
+**Status:** proposed
+**Raised:** 2026-04-22 — Puka Nacua's Front Office popup displayed
+"Deadline: Sep 6, 2026 to extend." That's wrong; Puka is on an expired
+rookie contract with 1 year remaining, so the governing deadline is
+the **following May** (pre-auction), not September.
+
+**Rule.** The league has three separate contract-action deadlines that
+consumers often conflate. Every UI that surfaces a "deadline to X"
+date must first classify the player and pick the matching deadline —
+do not display one global "contract deadline."
+
+1. **Non-rookie contract extension deadline = September**
+   (the auction kickoff date — e.g. 2026-09-06 for the 2026 season).
+   Applies to: players under an active, non-rookie contract with 1
+   year remaining at the time of the upcoming auction.
+
+2. **Expired rookie extension deadline = the following May**
+   (pre-auction for the NEXT season — i.e. May 2027 for a rookie
+   whose deal expires end-of-2026). Applies to: rookie-contract
+   players in their final rookie year who are not option-exercised.
+   Puka Nacua (2023 rookie, now Year 3) falls here.
+
+3. **Rookie option-exercise deadline = September**
+   (the same auction-kickoff date as #1). Applies to: 1st-round
+   rookies with an eligible 5th-year option — starting with the 2025
+   rookie class and forward (prior classes had no option). The
+   option-exercise decision locks in before the upcoming auction; if
+   not exercised, the player hits regular expired-rookie rules.
+
+**How to apply.** The Front Office (`roster_workbench.js`) computes
+extension eligibility via `playerExtensionOptions`/`rosterContractEligibility`.
+Those helpers must expose the deadline *kind* (not just the date) so
+the modal copy can say the right thing — "Sep 6 (auction kickoff)",
+"May 2027 (pre-next-auction rookie deadline)", or "Sep 6 (5th-year
+option)".
+
+**Cross-refs.** RULE-CAP-001 (auction kickoff date is the canonical
+"before the auction" snapshot), RULE-EXT-002 (+$10K × extension_years
+formula — independent of deadline).
+
+**Bug follow-up.** The Nacua display bug is a separate fix from this
+rule doc — the rule describes how the system SHOULD behave; the fix
+will adjust whichever deadline-label function in roster_workbench.js
+is wired to the popup.
+
+---
+
 ## Proposed: RULE-DATA-004 — Starter detection uses weeklyresults, never rosters_weekly presence
 
 **Category:** RULE-DATA
