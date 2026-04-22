@@ -773,11 +773,18 @@ export default {
                 // Elite / Plus / E+P / Dud % the same way the Python bridge
                 // used to. Ratio math is gated on delta_win_pos > 0 so we
                 // don't divide by zero for positions/years with no baseline.
-                // Career rate stats (Elite/Plus/E+P/Dud %) only make sense
-                // against regular-season positional baselines — baselines
-                // are built from reg-season data, and playoff weeks have
-                // different variance profiles. Gate on is_reg=1 here.
-                // Game-log query below stays unfiltered so playoffs show.
+                //
+                // Playoff weeks ARE included (no is_reg=1 filter). Owners
+                // keep starting lineups in the consolation/playoff brackets,
+                // so a playoff game is a real game for every career metric
+                // here. Baselines come from regular-season data but they're
+                // the league's agreed yardstick — applying them to playoff
+                // weeks is the same tier definition (z ≥ 1.0 = Elite). This
+                // matches the game-log query below, so summing a season's
+                // game log yields the same WC total as the career row
+                // (previously the career row excluded playoffs and users
+                // saw a mismatch — Brock Purdy 2025: career 4.01 vs game
+                // log 10.31, gap = 3 playoff games).
                 //
                 // Extras on this row:
                 //   - pos_rank / pos_ppg_rank pulled from src_pointssummary
@@ -792,7 +799,7 @@ export default {
                           MIN(w.pos_group) AS pos_group,
                           SUM(COALESCE(w.win_chunks, 0)) AS win_chunks_total
                      FROM src_weekly w
-                    WHERE w.is_reg = 1 AND w.score > 0 AND w.status = 'starter'
+                    WHERE w.score > 0 AND w.status = 'starter'
                     GROUP BY w.season, w.player_id
                  ),
                  wc_ranked AS (
@@ -826,7 +833,7 @@ export default {
                           ON ps.season = w.season AND ps.player_id = w.player_id
                    LEFT JOIN wc_ranked wcr
                           ON wcr.season = w.season AND wcr.player_id = w.player_id
-                  WHERE w.player_id = ? AND w.score > 0 AND w.is_reg = 1
+                  WHERE w.player_id = ? AND w.score > 0
                   GROUP BY w.season
                   ORDER BY w.season DESC`
               ).bind(pid).all(),
