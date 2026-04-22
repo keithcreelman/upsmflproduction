@@ -2411,6 +2411,49 @@
     return formatShortDate(contractDeadlineYmdForSeason(season));
   }
 
+  // Per RULE-DEADLINE-001: three distinct deadlines depending on player
+  // classification. Non-rookie 1-yr-left veterans and 5th-year-option
+  // rookies use the September auction-kickoff date (contractDeadline).
+  // Expired-rookie players (rookie bucket, <=1 year left, no option)
+  // use the FOLLOWING May pre-next-auction deadline.
+  //
+  // The May date is not yet in ROSTER_SEASON_EVENTS_FALLBACK / league
+  // events metadata — we emit a human label "May YYYY+1" and leave the
+  // exact day to be filled in by Keith in the rulebook (RULE-DEADLINE-001
+  // notes this as TBD). Callers should display label, not parse a date.
+  function extensionDeadlineForPlayer(player, season) {
+    var bucket = contractBucket(player && player.type);
+    var yearsRemaining = safeInt(player && player.years, 0);
+    var option = rookieOptionStateForPlayer(player);
+    var ctxYear = safeInt(season, 0);
+
+    if (option.eligible && !option.exercised) {
+      var optionDeadlineSeason = option.deadlineSeason || ctxYear;
+      var optionLabel = extensionDeadlineLabelForSeason(optionDeadlineSeason);
+      return {
+        kind: "option_sep",
+        label: optionLabel ? optionLabel + " (5th-year option)" : "September (option)",
+        note: "5th-year rookie option — must be exercised before the upcoming auction kickoff."
+      };
+    }
+
+    if (bucket === "rookie" && yearsRemaining <= 1) {
+      var nextYear = ctxYear > 0 ? ctxYear + 1 : "next year";
+      return {
+        kind: "rookie_may",
+        label: "May " + nextYear + " (pre-next-auction)",
+        note: "Expired-rookie extension window opens after the season and runs until the auction kickoff of the following year. Exact May date is governed by league settings — see RULE-DEADLINE-001."
+      };
+    }
+
+    var vetLabel = extensionDeadlineLabelForSeason(ctxYear);
+    return {
+      kind: "contract_sep",
+      label: vetLabel || "September",
+      note: "Non-rookie contract extensions must be filed before auction kickoff."
+    };
+  }
+
   function tagDeadlineLabelForSeason(season) {
     var deadline = tagDeadlineDateForSeason(season);
     if (!deadline || isNaN(deadline.getTime())) return "";
@@ -7268,7 +7311,12 @@
       }
       if (extensionOptions.length) {
         var extensionLines = [];
-        var extensionDeadlineLabel = extensionDeadlineLabelForSeason(state.ctx && state.ctx.year);
+        // Per-player deadline classification (RULE-DEADLINE-001).
+        // Expired rookies get "May of next year" — not the September
+        // contract-deadline — because their extension window is the
+        // pre-next-auction rookie window, not the current-auction
+        // kickoff date that veterans use.
+        var extensionDeadline = extensionDeadlineForPlayer(player, state.ctx && state.ctx.year);
         for (var j = 0; j < extensionOptions.length; j += 1) {
           var option = extensionOptions[j];
           extensionLines.push(
@@ -7280,8 +7328,8 @@
         extensionSummaryHtml =
           '<div class="rwb-modal-note"><strong>Extension Options:</strong>' +
             '<div class="rwb-extension-preview-list">' + extensionLines.join("") + '</div>' +
-            (extensionDeadlineLabel
-              ? '<div class="rwb-extension-preview-line"><strong>Deadline:</strong> ' + escapeHtml(extensionDeadlineLabel) + '</div>'
+            (extensionDeadline && extensionDeadline.label
+              ? '<div class="rwb-extension-preview-line"><strong>Deadline:</strong> ' + escapeHtml(extensionDeadline.label) + '</div>'
               : '') +
           '</div>';
         if (player.isTaxi) {
