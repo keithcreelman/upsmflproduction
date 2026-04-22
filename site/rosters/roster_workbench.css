@@ -2465,3 +2465,88 @@ body.rwb-modal-open {
     justify-content: flex-start;
   }
 }
+
+/* ──────────────────────────────────────────────────────────────
+   Unified player-profile modal tabs (.upm-*).
+   Host-neutral class prefix; also used by the Rookie Draft Hub.
+   Uses local --rwb-* tokens so it matches the Front Office theme.
+   ────────────────────────────────────────────────────────────── */
+.upm-view-switch {
+  display: flex;
+  gap: 2px;
+  margin: 10px 0 12px;
+  border-bottom: 1px solid var(--rwb-border);
+  overflow-x: auto;
+}
+.upm-view-switch button {
+  background: transparent;
+  border: 0;
+  color: var(--rwb-text-dim);
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  font-family: var(--rwb-font);
+  transition: color 80ms, border-color 80ms;
+}
+.upm-view-switch button:hover { color: var(--rwb-text); }
+.upm-view-switch button[aria-selected="true"] {
+  color: var(--rwb-accent);
+  border-bottom-color: var(--rwb-accent);
+}
+.upm-tab-panel[hidden] { display: none !important; }
+.upm-tab-panel { animation: upm-fade 120ms ease-out; }
+@keyframes upm-fade { from { opacity: 0.4; } to { opacity: 1; } }
+
+.upm-window-controls {
+  display: flex; align-items: center; gap: 10px;
+  margin: 6px 0 12px; flex-wrap: wrap;
+}
+.upm-window-controls label { font-size: 11px; color: var(--rwb-text-dim); text-transform: uppercase; letter-spacing: 0.4px; }
+.upm-window-controls select {
+  background: var(--rwb-surface-soft); color: var(--rwb-text);
+  border: 1px solid var(--rwb-border); border-radius: 4px;
+  padding: 4px 8px; font-size: 12px; font-family: var(--rwb-font);
+}
+.upm-window-summary {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 8px; padding: 10px;
+  background: var(--rwb-surface-soft); border-radius: 8px; margin-bottom: 12px;
+}
+.upm-window-summary .val { font-size: 18px; font-weight: 700; color: var(--rwb-text); }
+.upm-window-summary .lbl { font-size: 10px; color: var(--rwb-text-dim); text-transform: uppercase; letter-spacing: 0.3px; }
+
+.upm-stats-table, .upm-game-log-table {
+  width: 100%; border-collapse: collapse; font-size: 12px;
+}
+.upm-stats-table th, .upm-stats-table td,
+.upm-game-log-table th, .upm-game-log-table td {
+  padding: 6px 8px; text-align: left;
+  border-bottom: 1px solid var(--rwb-border);
+}
+.upm-stats-table th, .upm-game-log-table th {
+  color: var(--rwb-text-dim); font-weight: 600;
+  background: var(--rwb-surface-soft); font-size: 11px; text-transform: uppercase; letter-spacing: 0.3px;
+}
+.upm-stats-table .num, .upm-game-log-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.upm-stats-table tfoot tr, .upm-stats-table tbody tr:last-child {
+  border-top: 2px solid var(--rwb-border-strong);
+}
+.upm-tier {
+  display: inline-block; padding: 2px 6px; border-radius: 3px;
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px;
+}
+.upm-tier.Elite   { background: rgba(86, 215, 154, 0.18); color: var(--rwb-good); }
+.upm-tier.Plus    { background: rgba(255, 158, 77, 0.18); color: var(--rwb-accent); }
+.upm-tier.Neutral { background: rgba(138, 172, 214, 0.18); color: var(--rwb-text-soft); }
+.upm-tier.Dud     { background: rgba(255, 141, 141, 0.18); color: var(--rwb-bad); }
+
+@media (max-width: 600px) {
+  .upm-view-switch button { padding: 7px 10px; font-size: 11px; }
+  .upm-window-summary { grid-template-columns: repeat(2, 1fr); }
+  .upm-stats-table, .upm-game-log-table { font-size: 11px; }
+}

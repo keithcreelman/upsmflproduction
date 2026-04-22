@@ -7381,8 +7381,14 @@
         var extendedByHtml = extHistoryText
           ? '<div class="rwb-modal-metric rwb-modal-metric-wide"><span>Extended By</span><strong>' + escapeHtml(extHistoryText) + '</strong></div>'
           : '';
-        content =
-          playerHeaderHtml +
+        // Default (non-restructure) player profile — reshaped into a
+        // 4-tab modal. Bio is the existing grid + actions block; Stats /
+        // Game Log / News panels get populated async after a fetch to
+        // /api/player-bundle on the Worker (same endpoint the Rookie
+        // Draft Hub uses). Panels show "Loading…" until the fetch
+        // returns, then render via upmRenderBundleTabs(). If the fetch
+        // fails, tabs still work — Bio alone is useful.
+        var bioContentHtml =
           '<div class="rwb-modal-grid">' +
             '<div class="rwb-modal-metric"><span>TCV</span><strong>' + escapeHtml(modalTcv > 0 ? money(modalTcv) : "—") + '</strong></div>' +
             '<div class="rwb-modal-metric"><span>AAV</span><strong>' + escapeHtml(modalAav > 0 ? money(modalAav) : "—") + '</strong></div>' +
@@ -7399,6 +7405,22 @@
           extensionSummaryHtml +
           (!canManage ? '<div class="rwb-modal-note">Roster-management actions are unavailable for this session. Trade is available from any team.</div>' : '') +
           (viewerCanManageAnyRoster() && !ownRoster ? '<div class="rwb-modal-note"><strong>Commish:</strong> Acting on behalf of ' + escapeHtml(team.name) + '.</div>' : '');
+
+        var tabStripHtml =
+          '<nav class="upm-view-switch" role="tablist" aria-label="Player profile sections">' +
+            '<button type="button" role="tab" aria-selected="true"  data-upm-tab="bio">Bio</button>' +
+            '<button type="button" role="tab" aria-selected="false" data-upm-tab="stats">Stats</button>' +
+            '<button type="button" role="tab" aria-selected="false" data-upm-tab="gamelog">Game Log</button>' +
+            '<button type="button" role="tab" aria-selected="false" data-upm-tab="news">News</button>' +
+          '</nav>';
+        var loadingMsg = '<p style="color:var(--rwb-text-dim); font-size:12px; padding:10px;">Loading…</p>';
+        content =
+          playerHeaderHtml +
+          tabStripHtml +
+          '<div class="upm-tab-panel" data-upm-panel="bio">' + bioContentHtml + '</div>' +
+          '<div class="upm-tab-panel" data-upm-panel="stats" hidden>' + loadingMsg + '</div>' +
+          '<div class="upm-tab-panel" data-upm-panel="gamelog" hidden>' + loadingMsg + '</div>' +
+          '<div class="upm-tab-panel" data-upm-panel="news" hidden>' + loadingMsg + '</div>';
       }
     }
 
@@ -7411,6 +7433,311 @@
     if (document.body) {
       document.body.classList.toggle("rwb-modal-open", isOpen);
     }
+
+    // Wire tab switching + kick off bundle fetch whenever we render the
+    // default (non-restructure) player profile. The tab strip exists only
+    // in that mode; querySelector no-ops harmlessly in restructure mode.
+    if (isOpen && els.playerModalBody && state.actionModal.mode !== "restructure") {
+      upmWireTabs(els.playerModalBody);
+      upmLoadPlayerBundle(state.actionModal.playerId, els.playerModalBody);
+    }
+  }
+
+  // ───────────────────────────────────────────────────────────────
+  // Unified player-profile modal (Bio/Stats/Game Log/News)
+  // helpers. Mirrors the Rookie Draft Hub's showPlayerProfileCard
+  // behavior against the same Worker endpoint. Code duplication is
+  // intentional — the plan explicitly scoped out a shared module.
+  // ───────────────────────────────────────────────────────────────
+
+  function upmWireTabs(root) {
+    var btns = root.querySelectorAll(".upm-view-switch button[data-upm-tab]");
+    if (!btns || !btns.length) return;
+    btns.forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var target = btn.getAttribute("data-upm-tab");
+        btns.forEach(function (b) {
+          b.setAttribute("aria-selected", b === btn ? "true" : "false");
+        });
+        root.querySelectorAll(".upm-tab-panel[data-upm-panel]").forEach(function (p) {
+          if (p.getAttribute("data-upm-panel") === target) p.removeAttribute("hidden");
+          else p.setAttribute("hidden", "");
+        });
+      });
+    });
+  }
+
+  var upmBundleCache = new Map();
+
+  function upmResolveApiBase() {
+    try {
+      if (typeof window !== "undefined" && typeof window.UPS_DRAFT_HUB_API_BASE === "string" && window.UPS_DRAFT_HUB_API_BASE) {
+        return window.UPS_DRAFT_HUB_API_BASE;
+      }
+    } catch (_) {}
+    return "https://upsmflproduction.keith-creelman.workers.dev";
+  }
+
+  function upmFillPanel(root, panelName, html) {
+    var el = root.querySelector('.upm-tab-panel[data-upm-panel="' + panelName + '"]');
+    if (el) el.innerHTML = html;
+  }
+
+  function upmLoadPlayerBundle(pid, root) {
+    var normalized = safeStr(pid).replace(/\D/g, "");
+    if (!normalized) {
+      upmFillPanel(root, "stats", upmNoBundleMsg());
+      upmFillPanel(root, "gamelog", upmNoBundleMsg());
+      upmFillPanel(root, "news", upmNoBundleMsg());
+      return;
+    }
+    if (upmBundleCache.has(normalized)) {
+      upmRenderBundleTabs(upmBundleCache.get(normalized), root);
+      return;
+    }
+    var base = upmResolveApiBase();
+    var leagueId = safeStr(state.leagueId || window.UPS_TWB_LEAGUE_ID || window.UPS_DRAFT_HUB_LEAGUE_ID || "74598").replace(/\D/g, "");
+    var year = safeStr(state.year || window.UPS_TWB_YEAR || window.UPS_DRAFT_HUB_YEAR || String(new Date().getUTCFullYear())).replace(/\D/g, "");
+    var qs = "pid=" + encodeURIComponent(normalized);
+    if (leagueId) qs += "&L=" + encodeURIComponent(leagueId);
+    if (year) qs += "&YEAR=" + encodeURIComponent(year);
+    fetch(base + "/api/player-bundle?" + qs)
+      .then(function (r) {
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r.json();
+      })
+      .then(function (bundle) {
+        upmBundleCache.set(normalized, bundle);
+        upmRenderBundleTabs(bundle, root);
+      })
+      .catch(function (e) {
+        console.warn("[upm] player-bundle fetch failed:", e && e.message);
+        var msg = '<p style="color:var(--rwb-text-dim); font-size:12px; padding:10px;">Live stats / game-log / news unavailable — Worker endpoint unreachable. Bio actions unaffected.</p>';
+        upmFillPanel(root, "stats", msg);
+        upmFillPanel(root, "gamelog", msg);
+        upmFillPanel(root, "news", msg);
+      });
+  }
+
+  function upmNoBundleMsg() {
+    return '<p style="color:var(--rwb-text-dim); font-size:12px; padding:10px;">No live stats available for this player.</p>';
+  }
+
+  function upmEsc(v) { return escapeHtml(safeStr(v)); }
+
+  function upmRenderBundleTabs(bundle, root) {
+    if (!bundle || typeof bundle !== "object") {
+      upmFillPanel(root, "stats", upmNoBundleMsg());
+      upmFillPanel(root, "gamelog", upmNoBundleMsg());
+      upmFillPanel(root, "news", upmNoBundleMsg());
+      return;
+    }
+    upmFillPanel(root, "stats",    upmStatsHtml(bundle));
+    upmFillPanel(root, "gamelog",  upmGameLogHtml(bundle));
+    upmFillPanel(root, "news",     upmNewsHtml(bundle));
+    // Wire any sub-controls inside the freshly-rendered Stats panel.
+    upmWireWindow(root, bundle);
+    upmWireGameLog(root, bundle);
+  }
+
+  function upmStatsHtml(bundle) {
+    var career = Array.isArray(bundle.career_summary) ? bundle.career_summary : [];
+    var leverage = bundle.leverage_coefs || {};
+    if (!career.length) {
+      return '<p style="color:var(--rwb-text-dim); font-size:12px; padding:10px;">No career data for this player.</p>';
+    }
+    var rows = career.slice(0, 20);
+    var tot = { g: 0, starts: 0, pts: 0, wc: 0, wcn: 0, ep_num: 0, ep_den: 0, dud_num: 0, el_num: 0, pl_num: 0 };
+    rows.forEach(function (c) {
+      tot.g += c.games_played || 0;
+      tot.starts += c.mfl_starts || 0;
+      tot.pts += c.season_points || 0;
+      var wcβ = leverage[c.pos_group] || 0;
+      tot.wc += c.win_chunks || 0;
+      tot.wcn += (c.win_chunks || 0) * wcβ;
+      if (c.ep_pct != null) { tot.ep_num += c.ep_pct * c.games_played; tot.ep_den += c.games_played; }
+      if (c.dud_pct != null) tot.dud_num += c.dud_pct * c.games_played;
+      if (c.elite_pct != null) tot.el_num += c.elite_pct * c.games_played;
+      if (c.plus_pct != null) tot.pl_num += c.plus_pct * c.games_played;
+    });
+    var careerPPG = tot.g ? tot.pts / tot.g : 0;
+    var careerEl = tot.ep_den ? tot.el_num / tot.ep_den : 0;
+    var careerPl = tot.ep_den ? tot.pl_num / tot.ep_den : 0;
+    var careerEP = tot.ep_den ? tot.ep_num / tot.ep_den : 0;
+    var careerDud = tot.ep_den ? tot.dud_num / tot.ep_den : 0;
+    var careerNet = careerEP - 0.5 * careerDud;
+
+    var rowsHtml = rows.map(function (c) {
+      var wcβ = leverage[c.pos_group] || 0;
+      var wcn = (c.win_chunks || 0) * wcβ;
+      var net = (c.ep_pct == null || c.dud_pct == null) ? null : c.ep_pct - 0.5 * c.dud_pct;
+      var netStr = net == null ? "—" : (net > 0 ? "+" : "") + net.toFixed(0);
+      return '<tr>'
+        + '<td>' + c.season + '</td>'
+        + '<td class="num">' + (c.games_played || 0) + '</td>'
+        + '<td class="num">' + (c.mfl_starts || 0) + '</td>'
+        + '<td class="num">' + (c.season_points != null ? c.season_points.toFixed(0) : "—") + '</td>'
+        + '<td class="num">' + (c.avg_ppg != null ? c.avg_ppg.toFixed(1) : "—") + '</td>'
+        + '<td class="num">' + (c.elite_pct != null ? c.elite_pct.toFixed(0) + "%" : "—") + '</td>'
+        + '<td class="num">' + (c.plus_pct != null ? c.plus_pct.toFixed(0) + "%" : "—") + '</td>'
+        + '<td class="num"><strong>' + (c.ep_pct != null ? c.ep_pct.toFixed(0) + "%" : "—") + '</strong></td>'
+        + '<td class="num">' + (c.dud_pct != null ? c.dud_pct.toFixed(0) + "%" : "—") + '</td>'
+        + '<td class="num">' + netStr + '</td>'
+        + '<td class="num">' + (c.win_chunks || 0).toFixed(1) + '</td>'
+        + '<td class="num"><strong>' + wcn.toFixed(1) + '</strong></td>'
+        + '</tr>';
+    }).join("");
+
+    return ''
+      + '<div class="upm-window-controls">'
+      + '<label>Window <select data-upm-window-select>'
+      + '<option value="season">Current season</option>'
+      + '<option value="4">Last 4 weeks</option>'
+      + '<option value="6">Last 6 weeks</option>'
+      + '<option value="8">Last 8 weeks</option>'
+      + '</select></label>'
+      + '<span style="font-size:11px; color:var(--rwb-text-dim)">Summary reflects the selected window.</span>'
+      + '</div>'
+      + '<div data-upm-window-summary class="upm-window-summary" hidden></div>'
+      + '<table class="upm-stats-table"><thead><tr>'
+      + '<th>Yr</th><th class="num">G</th><th class="num">MFL Starts</th>'
+      + '<th class="num">Pts</th><th class="num">PPG</th>'
+      + '<th class="num">Elite%</th><th class="num">Plus%</th>'
+      + '<th class="num">E+P%</th><th class="num">Dud%</th>'
+      + '<th class="num">NET</th>'
+      + '<th class="num" title="Win Chunks (season total)">WC</th>'
+      + '<th class="num" title="Win Chunks × positional leverage β (QB≈0.88, WR≈0.82, DB≈0.39)">WC·β</th>'
+      + '</tr></thead><tbody>' + rowsHtml
+      + '<tr style="border-top:2px solid var(--rwb-border-strong); font-weight:700;">'
+      + '<td>Career</td>'
+      + '<td class="num">' + tot.g + '</td>'
+      + '<td class="num">' + tot.starts + '</td>'
+      + '<td class="num">' + tot.pts.toFixed(0) + '</td>'
+      + '<td class="num">' + careerPPG.toFixed(1) + '</td>'
+      + '<td class="num">' + careerEl.toFixed(0) + '%</td>'
+      + '<td class="num">' + careerPl.toFixed(0) + '%</td>'
+      + '<td class="num">' + careerEP.toFixed(0) + '%</td>'
+      + '<td class="num">' + careerDud.toFixed(0) + '%</td>'
+      + '<td class="num">' + (careerNet > 0 ? "+" : "") + careerNet.toFixed(0) + '</td>'
+      + '<td class="num">' + tot.wc.toFixed(1) + '</td>'
+      + '<td class="num">' + tot.wcn.toFixed(1) + '</td>'
+      + '</tr></tbody></table>';
+  }
+
+  function upmGameLogHtml(bundle) {
+    var by = bundle.weekly_by_season || {};
+    var seasons = Object.keys(by).sort(function (a, b) { return b - a; });
+    if (!seasons.length) {
+      return '<p style="color:var(--rwb-text-dim); font-size:12px; padding:10px;">No weekly data for this player.</p>';
+    }
+    return ''
+      + '<label style="font-size:11px; color:var(--rwb-text-dim); display:inline-block; margin-bottom:8px;">'
+      + 'Season <select data-upm-gamelog-season>'
+      + seasons.map(function (s) { return '<option value="' + s + '">' + s + '</option>'; }).join("")
+      + '</select></label>'
+      + '<div data-upm-gamelog-body></div>';
+  }
+
+  function upmWireGameLog(root, bundle) {
+    var sel = root.querySelector("[data-upm-gamelog-season]");
+    var body = root.querySelector("[data-upm-gamelog-body]");
+    if (!sel || !body) return;
+    function render(seasonVal) {
+      var weeks = (bundle.weekly_by_season || {})[seasonVal] || [];
+      if (!weeks.length) { body.innerHTML = '<p style="color:var(--rwb-text-dim); font-size:12px;">No weekly data.</p>'; return; }
+      var sorted = weeks.slice().sort(function (a, b) { return a.week - b.week; });
+      var starts = sorted.filter(function (w) { return w.status === "starter"; }).length;
+      var elite = sorted.filter(function (w) { return w.week_tier === "Elite"; }).length;
+      var plus = sorted.filter(function (w) { return w.week_tier === "Plus"; }).length;
+      var dud = sorted.filter(function (w) { return w.week_tier === "Dud"; }).length;
+      var pts = sorted.reduce(function (s, w) { return s + (w.score || 0); }, 0);
+      body.innerHTML = ''
+        + '<div style="color:var(--rwb-text-dim); font-size:11px; margin-bottom:6px;">'
+        + sorted.length + ' games · ' + starts + ' MFL starts · ' + pts.toFixed(1) + ' pts'
+        + ' · Elite ' + elite + ' · Plus ' + plus + ' · Dud ' + dud
+        + '</div>'
+        + '<table class="upm-game-log-table"><thead><tr>'
+        + '<th class="num">Wk</th><th class="num">Pts</th><th class="num">z</th>'
+        + '<th>Tier</th><th>MFL</th><th>Team</th><th class="num">Pos Rk</th>'
+        + '</tr></thead><tbody>'
+        + sorted.map(function (w) {
+            return '<tr>'
+              + '<td class="num">' + w.week + '</td>'
+              + '<td class="num">' + (w.score != null ? w.score.toFixed(1) : "—") + '</td>'
+              + '<td class="num">' + (w.z_score != null ? (w.z_score > 0 ? "+" : "") + w.z_score.toFixed(2) : "—") + '</td>'
+              + '<td>' + (w.week_tier ? '<span class="upm-tier ' + w.week_tier + '">' + w.week_tier + '</span>' : "—") + '</td>'
+              + '<td>' + upmEsc(w.status || "") + '</td>'
+              + '<td>' + upmEsc(w.roster_franchise_name || "") + '</td>'
+              + '<td class="num">' + (w.pos_rank || "—") + '</td>'
+              + '</tr>';
+          }).join("")
+        + '</tbody></table>';
+    }
+    sel.addEventListener("change", function (e) { render(e.target.value); });
+    render(sel.value);
+  }
+
+  function upmWireWindow(root, bundle) {
+    var sel = root.querySelector("[data-upm-window-select]");
+    var summary = root.querySelector("[data-upm-window-summary]");
+    if (!sel || !summary) return;
+    var all = Array.isArray(bundle.weekly) ? bundle.weekly : [];
+    if (!all.length) { summary.setAttribute("hidden", ""); return; }
+    function render(windowVal) {
+      var seasonMax = Math.max.apply(null, all.map(function (w) { return w.season || 0; }));
+      var win;
+      if (windowVal === "season") {
+        win = all.filter(function (w) { return w.season === seasonMax; });
+      } else {
+        var n = parseInt(windowVal, 10);
+        win = all.slice().sort(function (a, b) { return (b.season - a.season) || (b.week - a.week); }).slice(0, n);
+      }
+      if (!win.length) { summary.setAttribute("hidden", ""); return; }
+      var tot = win.length;
+      var pts = win.reduce(function (s, w) { return s + (w.score || 0); }, 0);
+      var elite = win.filter(function (w) { return w.week_tier === "Elite"; }).length;
+      var plus = win.filter(function (w) { return w.week_tier === "Plus"; }).length;
+      var dud = win.filter(function (w) { return w.week_tier === "Dud"; }).length;
+      var zSum = win.reduce(function (s, w) { return s + (w.z_score || 0); }, 0);
+      var meanZ = tot ? zSum / tot : 0;
+      var ppg = tot ? pts / tot : 0;
+      summary.removeAttribute("hidden");
+      summary.innerHTML = ''
+        + '<div><span class="lbl">Games</span><div class="val">' + tot + '</div></div>'
+        + '<div><span class="lbl">PPG</span><div class="val">' + ppg.toFixed(1) + '</div></div>'
+        + '<div><span class="lbl">Elite%</span><div class="val">' + (elite / tot * 100).toFixed(0) + '%</div></div>'
+        + '<div><span class="lbl">Plus%</span><div class="val">' + (plus / tot * 100).toFixed(0) + '%</div></div>'
+        + '<div><span class="lbl">Dud%</span><div class="val">' + (dud / tot * 100).toFixed(0) + '%</div></div>'
+        + '<div><span class="lbl">Mean z</span><div class="val">' + (meanZ >= 0 ? "+" : "") + meanZ.toFixed(2) + '</div></div>';
+    }
+    sel.addEventListener("change", function (e) { render(e.target.value); });
+    render("season");
+  }
+
+  function upmNewsHtml(bundle) {
+    var items = [];
+    var inj = bundle.injury || {};
+    var add = bundle.last_add || {};
+    var trades = Array.isArray(bundle.trade_history) ? bundle.trade_history : [];
+    if (inj.status) {
+      items.push('<div class="rwb-modal-note"><strong>Injury · ' + upmEsc(inj.status) + '</strong><br>'
+        + '<span style="color:var(--rwb-text-dim); font-size:11px;">' + upmEsc(inj.details || "No additional details from MFL.") + '</span></div>');
+    }
+    if (add && add.datetime_et) {
+      items.push('<div class="rwb-modal-note"><strong>Last Acquired</strong><br>'
+        + '<span style="color:var(--rwb-text-dim); font-size:11px;">' + upmEsc(add.datetime_et.slice(0, 10)) + ' · ' + upmEsc(add.method || "") + (add.salary ? ' · $' + Number(add.salary).toLocaleString() : '') + ' by ' + upmEsc(add.franchise_name || "") + '</span></div>');
+    }
+    if (trades.length) {
+      var rows = trades.slice(0, 10).map(function (t) {
+        return '<div style="font-size:11px; color:var(--rwb-text-dim); padding:3px 0;">'
+          + upmEsc((t.datetime_et || "").slice(0, 10)) + ' · ' + upmEsc(t.franchise_name || "") + ' ' + upmEsc(t.asset_role || "")
+          + (t.comments ? ' — "' + upmEsc(String(t.comments).slice(0, 80)) + '"' : '')
+          + '</div>';
+      }).join("");
+      items.push('<div class="rwb-modal-note"><strong>Recent Trades (' + trades.length + ')</strong>' + rows + '</div>');
+    }
+    var body = items.length ? items.join("") : '<p style="color:var(--rwb-text-dim); font-size:12px; padding:10px;">No recent news.</p>';
+    return body + '<p style="color:var(--rwb-text-dim); font-size:11px; font-style:italic; margin-top:8px;">Richer player-news feed (RotoWire / ESPN) coming in v2.</p>';
   }
 
   function rosterGroupHtml(team, group, rosterGroupSummaryMap) {
