@@ -895,7 +895,14 @@
     // (same pattern we use in the historical-row headshots).
     const photoUrl = pp.icon_url
       || (pid ? `https://www48.myfantasyleague.com/player_photos_2014/${pid}_thumb.jpg` : "");
-    body.innerHTML = bundleErrorBanner + `
+    // Most-recent contract from D1 contract_history (used for critical-
+    // salary strip on Bio tab). contract_history is ordered season DESC.
+    const ch = Array.isArray(bundle.contract_history) ? bundle.contract_history : [];
+    const currentContract = ch[0] || null;
+    const leverageCoefs = bundle.leverage_coefs || {};
+
+    // ── Bio tab ──────────────────────────────────────────────────────
+    const bioHtml = `
       <div class="profile-bio">
         ${photoUrl ? `<img src="${photoUrl}" alt="${escapeHtml(name)}" class="profile-photo" onerror="this.replaceWith(Object.assign(document.createElement('div'), {className: 'profile-photo-placeholder'}))">` : '<div class="profile-photo-placeholder"></div>'}
         <div class="profile-bio-text">
@@ -907,6 +914,14 @@
           ${pp.jersey ? `<div><span class="lbl">Jersey</span>#${escapeHtml(pp.jersey)}</div>` : ""}
         </div>
       </div>
+
+      ${currentContract ? `
+      <div class="upm-salary-strip">
+        <div class="upm-salary-card"><span class="lbl">Years Remaining</span><span class="val">${currentContract.contract_length ? currentContract.contract_length - (currentContract.contract_year || 1) + 1 : "—"}</span></div>
+        <div class="upm-salary-card"><span class="lbl">AAV</span><span class="val">${currentContract.aav ? "$" + Number(currentContract.aav).toLocaleString() : "—"}</span></div>
+        <div class="upm-salary-card"><span class="lbl">TCV</span><span class="val">${currentContract.tcv ? "$" + Number(currentContract.tcv).toLocaleString() : "—"}</span></div>
+        <div class="upm-salary-card"><span class="lbl">Contract</span><span class="val" style="font-size:13px;">${escapeHtml(currentContract.contract_status || (currentContract.extension_flag ? "Extended" : "Active"))}</span></div>
+      </div>` : ""}
 
       <div class="profile-block">
         <h4>League Status</h4>
@@ -925,33 +940,9 @@
         </div>
       </div>
 
-      ${(() => {
-        const c = bundle.contract;
-        if (!c) return "";
-        const statusColor = c.is_tag ? "color:var(--warn); font-weight:600;" : "";
-        return `
-        <div class="profile-block">
-          <h4>Contract</h4>
-          <div class="profile-kv">
-            ${c.contract_status ? `<div><span class="lbl">Status</span><span style="${statusColor}">${escapeHtml(c.contract_status)}${c.tag_tier ? ` · Tier ${c.tag_tier}` : ""}</span></div>` : ""}
-            ${c.contract_length ? `<div><span class="lbl">Length</span>${c.contract_length} yr${c.contract_length !== 1 ? "s" : ""}${c.years_remaining != null ? ` (${c.years_remaining} remaining)` : ""}</div>` : ""}
-            ${c.salary != null ? `<div><span class="lbl">Salary</span>$${Number(c.salary).toLocaleString()}</div>` : ""}
-            ${c.aav_current != null ? `<div><span class="lbl">AAV</span>$${Number(c.aav_current).toLocaleString()}</div>` : ""}
-            ${c.total_contract_value != null ? `<div><span class="lbl">TCV</span>$${Number(c.total_contract_value).toLocaleString()}</div>` : ""}
-            ${c.contract_guarantee != null && c.contract_guarantee > 0 ? `<div><span class="lbl">Guarantee</span>$${Number(c.contract_guarantee).toLocaleString()}</div>` : ""}
-          </div>
-          ${c.contract_info ? `<div class="small" style="color:var(--muted); margin-top:6px; font-size:10px;">${escapeHtml(c.contract_info)}</div>` : ""}
-        </div>`;
-      })()}
-
-      ${(() => {
-        // Contract history — owner lineage + deal terms per season for
-        // this player from D1 src_contracts. Deliberately omits per-year
-        // salary (stored in src_contracts.salary): MFL's derived per-year
-        // salary isn't reliable and isn't relevant for rookie-hub scanning.
-        // AAV (average across contract_length) is the trustworthy number.
-        const ch = Array.isArray(bundle.contract_history) ? bundle.contract_history : [];
-        if (!ch.length) return "";
+      ${ch.length ? (() => {
+        // Contract history — owner lineage + deal terms per season.
+        // No per-year salary column (MFL-derived, unreliable); AAV is the trustworthy figure.
         const fmt$ = (v) => (v == null || v === 0) ? "—" : "$" + Number(v).toLocaleString();
         const rowsHtml = ch.map((c) => {
           const extBadge = c.extension_flag ? ` <span class="small" style="color:var(--accent); font-weight:600;">EXT</span>` : "";
@@ -974,80 +965,103 @@
             <tbody>${rowsHtml}</tbody>
           </table>
         </div>`;
-      })()}
-
-      ${career.length ? (() => {
-        const rows = career.slice(0, 20);
-        // Career totals — weighted by games_played for rates
-        const tot = rows.reduce((a, c) => {
-          a.g += (c.games_played || 0);
-          a.starts += (c.mfl_starts || 0);
-          a.pts += (c.season_points || 0);
-          if (c.ep_pct != null) { a.ep_num += c.ep_pct * c.games_played; a.ep_den += c.games_played; }
-          if (c.dud_pct != null) { a.dud_num += c.dud_pct * c.games_played; a.dud_den += c.games_played; }
-          if (c.elite_pct != null) { a.el_num += c.elite_pct * c.games_played; }
-          if (c.plus_pct != null) { a.pl_num += c.plus_pct * c.games_played; }
-          return a;
-        }, { g: 0, starts: 0, pts: 0, ep_num: 0, ep_den: 0, dud_num: 0, dud_den: 0, el_num: 0, pl_num: 0 });
-        const careerPPG = tot.g ? tot.pts / tot.g : 0;
-        const careerEl = tot.ep_den ? tot.el_num / tot.ep_den : 0;
-        const careerPl = tot.ep_den ? tot.pl_num / tot.ep_den : 0;
-        const careerEP = tot.ep_den ? tot.ep_num / tot.ep_den : 0;
-        const careerDud = tot.dud_den ? tot.dud_num / tot.dud_den : 0;
-        const careerNet = careerEP - 0.5 * careerDud;
-        const rowNet = (c) => {
-          if (c.ep_pct == null || c.dud_pct == null) return null;
-          return c.ep_pct - 0.5 * c.dud_pct;
-        };
-        return `
-        <div class="profile-block">
-          <h4>Career Summary (by MFL season)</h4>
-          <table class="rdh-table">
-            <thead><tr>
-              <th>Yr</th><th class="num">G</th><th class="num">MFL Starts</th>
-              <th class="num">Points</th><th class="num">PPG</th>
-              <th class="num" title="Elite weeks (z ≥ 1.0) %">Elite%</th>
-              <th class="num" title="Plus weeks (0.25 ≤ z &lt; 1.0) %">Plus%</th>
-              <th class="num" title="Elite + Plus combined">E+P%</th>
-              <th class="num" title="Dud weeks (z &lt; −0.5) %">Dud%</th>
-              <th class="num" title="NET = E+P% − 0.5×Dud% — matches the tier classifier">NET</th>
-            </tr></thead>
-            <tbody>${rows.map(c => {
-              const net = rowNet(c);
-              const netStr = net == null ? "—" : (net > 0 ? "+" : "") + net.toFixed(0);
-              const netColor = net == null ? "var(--muted)" : net >= 30 ? "var(--smash)" : net >= 15 ? "var(--hit)" : net >= 0 ? "var(--contrib)" : "var(--bust)";
-              return `
-              <tr>
-                <td>${c.season}</td>
-                <td class="num">${c.games_played || 0}</td>
-                <td class="num" title="Weeks in an MFL starting lineup — can exceed games played if owner rostered them through bye/injury weeks">${c.mfl_starts || 0}</td>
-                <td class="num">${c.season_points != null ? c.season_points.toFixed(0) : "—"}</td>
-                <td class="num">${c.avg_ppg != null ? c.avg_ppg.toFixed(1) : "—"}</td>
-                <td class="num" style="color:var(--smash)">${c.elite_pct != null ? c.elite_pct.toFixed(0) + "%" : "—"}</td>
-                <td class="num" style="color:var(--hit)">${c.plus_pct != null ? c.plus_pct.toFixed(0) + "%" : "—"}</td>
-                <td class="num"><strong>${c.ep_pct != null ? c.ep_pct.toFixed(0) + "%" : "—"}</strong></td>
-                <td class="num" style="color:var(--bust)">${c.dud_pct != null ? c.dud_pct.toFixed(0) + "%" : "—"}</td>
-                <td class="num" style="color:${netColor}">${netStr}</td>
-              </tr>`;
-            }).join("")}
-            <tr style="border-top: 2px solid var(--border); font-weight:700;">
-              <td>Career</td>
-              <td class="num">${tot.g}</td>
-              <td class="num">${tot.starts}</td>
-              <td class="num">${tot.pts.toFixed(0)}</td>
-              <td class="num">${careerPPG.toFixed(1)}</td>
-              <td class="num" style="color:var(--smash)">${careerEl.toFixed(0)}%</td>
-              <td class="num" style="color:var(--hit)">${careerPl.toFixed(0)}%</td>
-              <td class="num">${careerEP.toFixed(0)}%</td>
-              <td class="num" style="color:var(--bust)">${careerDud.toFixed(0)}%</td>
-              <td class="num">${careerNet > 0 ? "+" : ""}${careerNet.toFixed(0)}</td>
-            </tr>
-            </tbody>
-          </table>
-        </div>`;
       })() : ""}
+    `;
 
-      ${bundle.weekly_by_season && Object.keys(bundle.weekly_by_season).length ? `
+    // ── Stats tab ────────────────────────────────────────────────────
+    const statsHtml = career.length ? (() => {
+      const rows = career.slice(0, 20);
+      const rowNet = (c) => (c.ep_pct == null || c.dud_pct == null) ? null : c.ep_pct - 0.5 * c.dud_pct;
+      // Career totals — weighted by games_played for rates
+      const tot = rows.reduce((a, c) => {
+        a.g += (c.games_played || 0);
+        a.starts += (c.mfl_starts || 0);
+        a.pts += (c.season_points || 0);
+        const wcβ = (leverageCoefs[c.pos_group] || 0);
+        a.wc += (c.win_chunks || 0);
+        a.wcn += (c.win_chunks || 0) * wcβ;
+        if (c.ep_pct != null) { a.ep_num += c.ep_pct * c.games_played; a.ep_den += c.games_played; }
+        if (c.dud_pct != null) { a.dud_num += c.dud_pct * c.games_played; }
+        if (c.elite_pct != null) a.el_num += c.elite_pct * c.games_played;
+        if (c.plus_pct != null) a.pl_num += c.plus_pct * c.games_played;
+        return a;
+      }, { g: 0, starts: 0, pts: 0, wc: 0, wcn: 0, ep_num: 0, ep_den: 0, dud_num: 0, el_num: 0, pl_num: 0 });
+      const careerPPG = tot.g ? tot.pts / tot.g : 0;
+      const careerEl = tot.ep_den ? tot.el_num / tot.ep_den : 0;
+      const careerPl = tot.ep_den ? tot.pl_num / tot.ep_den : 0;
+      const careerEP = tot.ep_den ? tot.ep_num / tot.ep_den : 0;
+      const careerDud = tot.ep_den ? tot.dud_num / tot.ep_den : 0;
+      const careerNet = careerEP - 0.5 * careerDud;
+      return `
+      <div class="upm-window-controls">
+        <label>Window
+          <select id="profile-window-select">
+            <option value="season">Current season</option>
+            <option value="4">Last 4 weeks</option>
+            <option value="6">Last 6 weeks</option>
+            <option value="8">Last 8 weeks</option>
+          </select>
+        </label>
+        <span class="small" style="color:var(--muted)">Summarizes the recent weekly window; career table below is full history.</span>
+      </div>
+      <div id="profile-window-summary" class="upm-window-summary" hidden></div>
+      <div class="profile-block">
+        <h4>Career Summary (by MFL season)</h4>
+        <table class="rdh-table">
+          <thead><tr>
+            <th>Yr</th><th class="num">G</th><th class="num">MFL Starts</th>
+            <th class="num">Points</th><th class="num">PPG</th>
+            <th class="num" title="Elite weeks (z ≥ 1.0) %">Elite%</th>
+            <th class="num" title="Plus weeks (0.25 ≤ z &lt; 1.0) %">Plus%</th>
+            <th class="num" title="Elite + Plus combined">E+P%</th>
+            <th class="num" title="Dud weeks (z &lt; −0.5) %">Dud%</th>
+            <th class="num" title="NET = E+P% − 0.5×Dud% — matches the tier classifier">NET</th>
+            <th class="num" title="Sum of per-week win chunks (z-derived winning-weeks)">WC</th>
+            <th class="num" title="Win Chunks × position leverage β (QB≈0.88, WR≈0.82, DB≈0.39, etc). Expected All-Play wins bought by this player's E+P weeks.">WC·β</th>
+          </tr></thead>
+          <tbody>${rows.map(c => {
+            const net = rowNet(c);
+            const netStr = net == null ? "—" : (net > 0 ? "+" : "") + net.toFixed(0);
+            const netColor = net == null ? "var(--muted)" : net >= 30 ? "var(--smash)" : net >= 15 ? "var(--hit)" : net >= 0 ? "var(--contrib)" : "var(--bust)";
+            const wcβ = leverageCoefs[c.pos_group] || 0;
+            const wcn = (c.win_chunks || 0) * wcβ;
+            return `
+            <tr>
+              <td>${c.season}</td>
+              <td class="num">${c.games_played || 0}</td>
+              <td class="num" title="Weeks in an MFL starting lineup">${c.mfl_starts || 0}</td>
+              <td class="num">${c.season_points != null ? c.season_points.toFixed(0) : "—"}</td>
+              <td class="num">${c.avg_ppg != null ? c.avg_ppg.toFixed(1) : "—"}</td>
+              <td class="num" style="color:var(--smash)">${c.elite_pct != null ? c.elite_pct.toFixed(0) + "%" : "—"}</td>
+              <td class="num" style="color:var(--hit)">${c.plus_pct != null ? c.plus_pct.toFixed(0) + "%" : "—"}</td>
+              <td class="num"><strong>${c.ep_pct != null ? c.ep_pct.toFixed(0) + "%" : "—"}</strong></td>
+              <td class="num" style="color:var(--bust)">${c.dud_pct != null ? c.dud_pct.toFixed(0) + "%" : "—"}</td>
+              <td class="num" style="color:${netColor}">${netStr}</td>
+              <td class="num">${(c.win_chunks || 0).toFixed(1)}</td>
+              <td class="num"><strong>${wcn.toFixed(1)}</strong></td>
+            </tr>`;
+          }).join("")}
+          <tr style="border-top: 2px solid var(--border); font-weight:700;">
+            <td>Career</td>
+            <td class="num">${tot.g}</td>
+            <td class="num">${tot.starts}</td>
+            <td class="num">${tot.pts.toFixed(0)}</td>
+            <td class="num">${careerPPG.toFixed(1)}</td>
+            <td class="num" style="color:var(--smash)">${careerEl.toFixed(0)}%</td>
+            <td class="num" style="color:var(--hit)">${careerPl.toFixed(0)}%</td>
+            <td class="num">${careerEP.toFixed(0)}%</td>
+            <td class="num" style="color:var(--bust)">${careerDud.toFixed(0)}%</td>
+            <td class="num">${careerNet > 0 ? "+" : ""}${careerNet.toFixed(0)}</td>
+            <td class="num">${tot.wc.toFixed(1)}</td>
+            <td class="num">${tot.wcn.toFixed(1)}</td>
+          </tr>
+          </tbody>
+        </table>
+      </div>`;
+    })() : `<p class="small" style="color:var(--muted)">No career data yet — this player has no scored weeks on record.</p>`;
+
+    // ── Game Log tab ─────────────────────────────────────────────────
+    const gameLogHtml = bundle.weekly_by_season && Object.keys(bundle.weekly_by_season).length ? `
       <div class="profile-block">
         <h4>Game Log — Every Game, Season-by-Season</h4>
         <label style="font-size:11px; color:var(--muted); display:inline-block; margin-bottom:8px;">
@@ -1057,20 +1071,90 @@
           </select>
         </label>
         <div id="profile-game-log"></div>
-      </div>` : ""}
+      </div>` : `<p class="small" style="color:var(--muted)">No weekly data available.</p>`;
 
-      ${trades.length ? `
-      <div class="profile-block">
-        <h4>Trade History</h4>
-        <div class="small" style="color: var(--muted)">
-          ${trades.slice(0, 6).map(t => `<div>${escapeHtml(t.datetime_et?.slice(0, 10) || "")} · ${escapeHtml(t.franchise_name || "")} ${escapeHtml(t.asset_role || "")}${t.comments ? " — \"" + escapeHtml(t.comments.slice(0, 80)) + "\"" : ""}</div>`).join("")}
-        </div>
-      </div>` : ""}
+    // ── News tab ─────────────────────────────────────────────────────
+    const newsItems = [];
+    if (inj.status) {
+      newsItems.push(`<div class="profile-block"><h4 style="color:var(--warn)">Injury · ${escapeHtml(inj.status)}</h4><div class="small" style="color:var(--muted)">${escapeHtml(inj.details || "No additional details from MFL.")}</div></div>`);
+    }
+    if (add.datetime_et) {
+      newsItems.push(`<div class="profile-block"><h4>Last Acquired</h4><div class="small">${escapeHtml(add.datetime_et.slice(0,10))} · ${escapeHtml(add.method || "")}${add.salary ? " · $" + Number(add.salary).toLocaleString() : ""} by ${escapeHtml(add.franchise_name || "")}</div></div>`);
+    }
+    if (trades.length) {
+      newsItems.push(`<div class="profile-block"><h4>Recent Trades (${trades.length})</h4><div class="small" style="color:var(--muted)">${trades.slice(0,10).map(t => `<div>${escapeHtml(t.datetime_et?.slice(0,10) || "")} · ${escapeHtml(t.franchise_name || "")} ${escapeHtml(t.asset_role || "")}${t.comments ? " — \"" + escapeHtml(t.comments.slice(0, 80)) + "\"" : ""}</div>`).join("")}</div></div>`);
+    }
+    const newsHtml = (newsItems.length ? newsItems.join("") : `<p class="small" style="color:var(--muted)">No recent news.</p>`)
+      + `<p class="small" style="color:var(--muted); margin-top:10px; font-style:italic;">Richer player-news feed (RotoWire / ESPN) coming in v2.</p>`;
 
-      <div class="small" style="color: var(--muted); margin-top: 10px;">
-        MFL ID: ${pid}
-      </div>
+    // Assemble the tabbed modal body.
+    body.innerHTML = bundleErrorBanner + `
+      <nav class="upm-view-switch" role="tablist" aria-label="Player profile sections">
+        <button type="button" role="tab" aria-selected="true"  data-upm-tab="bio">Bio</button>
+        <button type="button" role="tab" aria-selected="false" data-upm-tab="stats">Stats</button>
+        <button type="button" role="tab" aria-selected="false" data-upm-tab="gamelog">Game Log</button>
+        <button type="button" role="tab" aria-selected="false" data-upm-tab="news">News</button>
+      </nav>
+      <div class="upm-tab-panel" data-upm-panel="bio">${bioHtml}</div>
+      <div class="upm-tab-panel" data-upm-panel="stats" hidden>${statsHtml}</div>
+      <div class="upm-tab-panel" data-upm-panel="gamelog" hidden>${gameLogHtml}</div>
+      <div class="upm-tab-panel" data-upm-panel="news" hidden>${newsHtml}</div>
+      <div class="small" style="color: var(--muted); margin-top: 10px; text-align:right;">MFL ID: ${pid}</div>
     `;
+
+    // Tab switching — click a tab button, show its panel, hide siblings.
+    body.querySelectorAll(".upm-view-switch button[data-upm-tab]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const target = btn.dataset.upmTab;
+        body.querySelectorAll(".upm-view-switch button[data-upm-tab]").forEach(b =>
+          b.setAttribute("aria-selected", b === btn ? "true" : "false")
+        );
+        body.querySelectorAll(".upm-tab-panel[data-upm-panel]").forEach(p => {
+          if (p.dataset.upmPanel === target) p.removeAttribute("hidden");
+          else p.setAttribute("hidden", "");
+        });
+      });
+    });
+
+    // Trends window-selector — filters bundle.weekly to last-N and
+    // renders a compact summary card. No extra fetch; all client-side.
+    const winSel = document.getElementById("profile-window-select");
+    const winSummary = document.getElementById("profile-window-summary");
+    if (winSel && winSummary) {
+      const renderWindow = (windowVal) => {
+        const all = Array.isArray(bundle.weekly) ? bundle.weekly : [];
+        if (!all.length) { winSummary.setAttribute("hidden", ""); return; }
+        const seasonMax = Math.max(...all.map(w => w.season || 0));
+        let windowWeeks;
+        if (windowVal === "season") {
+          windowWeeks = all.filter(w => w.season === seasonMax);
+        } else {
+          const n = parseInt(windowVal, 10);
+          windowWeeks = [...all].sort((a, b) => (b.season - a.season) || (b.week - a.week)).slice(0, n);
+        }
+        if (!windowWeeks.length) { winSummary.setAttribute("hidden", ""); return; }
+        const tot = windowWeeks.length;
+        const pts = windowWeeks.reduce((s, w) => s + (w.score || 0), 0);
+        const elite = windowWeeks.filter(w => w.week_tier === "Elite").length;
+        const plus = windowWeeks.filter(w => w.week_tier === "Plus").length;
+        const dud = windowWeeks.filter(w => w.week_tier === "Dud").length;
+        const zSum = windowWeeks.reduce((s, w) => s + (w.z_score || 0), 0);
+        const meanZ = tot ? zSum / tot : 0;
+        const ppg = tot ? pts / tot : 0;
+        winSummary.removeAttribute("hidden");
+        winSummary.innerHTML = `
+          <div><span class="lbl">Games</span><div class="val">${tot}</div></div>
+          <div><span class="lbl">PPG</span><div class="val">${ppg.toFixed(1)}</div></div>
+          <div><span class="lbl">Elite%</span><div class="val" style="color:var(--smash)">${(elite/tot*100).toFixed(0)}%</div></div>
+          <div><span class="lbl">Plus%</span><div class="val" style="color:var(--hit)">${(plus/tot*100).toFixed(0)}%</div></div>
+          <div><span class="lbl">Dud%</span><div class="val" style="color:var(--bust)">${(dud/tot*100).toFixed(0)}%</div></div>
+          <div><span class="lbl">Mean z</span><div class="val">${meanZ >= 0 ? "+" : ""}${meanZ.toFixed(2)}</div></div>
+        `;
+      };
+      winSel.addEventListener("change", e => renderWindow(e.target.value));
+      // default: current season
+      renderWindow("season");
+    }
     // Wire the season dropdown for the game log
     const seasonSel = document.getElementById("profile-season-select");
     const logEl = document.getElementById("profile-game-log");
