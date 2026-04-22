@@ -2,6 +2,23 @@ const acquisitionLiveMemoryCache = new Map();
 const contractDiscordChannelQueues = new Map();
 const contractDiscordChannelLastSendMs = new Map();
 
+// Positional leverage coefficients (β per pos_group) from
+// pipelines/etl/config/positional_leverage_2026.json. Win Chunks × β =
+// Win Chunks Normalized — the "how many AP wins did this E+P week
+// actually buy" stat. QB chunks are worth ~2x a DB chunk under this
+// model because QB points shift team outcomes more. Embedded as a
+// constant so /api/player-bundle can emit it to clients without a
+// separate fetch; tiny (8 keys) and changes yearly at most.
+// Source: build_positional_leverage.py; r²≈0.75 over 2018–2025.
+const POS_LEVERAGE_2026 = {
+  QB: 0.8825, RB: 0.8162, WR: 0.8168, TE: 0.6953,
+  DB: 0.3945, DL: 0.5184, LB: 0.3801, PK: 0.3844,
+};
+// Year-gated lookup so 2027 is a one-line add later.
+function leverageForSeason(_season) {
+  return POS_LEVERAGE_2026;
+}
+
 // Phase 2 backup helper — snapshots MFL public exports for the league
 // to the R2 bucket bound at env.UPS_MFL_BACKUPS. Key layout:
 //   snapshots/YYYY-MM-DD/{rosters,salaries,transactions,injuries,league,freeAgents,draftResults}.json
@@ -757,9 +774,12 @@ export default {
                 // used to. Ratio math is gated on delta_win_pos > 0 so we
                 // don't divide by zero for positions/years with no baseline.
                 `SELECT w.season,
+                        MIN(w.pos_group) AS pos_group,
                         COUNT(*) AS games_played,
+                        SUM(CASE WHEN w.status='starter' THEN 1 ELSE 0 END) AS mfl_starts,
                         ROUND(SUM(w.score), 1) AS season_points,
                         ROUND(AVG(w.score), 2) AS avg_ppg,
+                        ROUND(SUM(COALESCE(w.win_chunks, 0)), 2) AS win_chunks,
                         ROUND(100.0 * SUM(CASE WHEN b.delta_win_pos > 0 AND (w.score - b.score_p50_pos) / b.delta_win_pos >= 1.0  THEN 1 ELSE 0 END) / COUNT(*), 1) AS elite_pct,
                         ROUND(100.0 * SUM(CASE WHEN b.delta_win_pos > 0 AND (w.score - b.score_p50_pos) / b.delta_win_pos >= 0.25 AND (w.score - b.score_p50_pos) / b.delta_win_pos < 1.0 THEN 1 ELSE 0 END) / COUNT(*), 1) AS plus_pct,
                         ROUND(100.0 * SUM(CASE WHEN b.delta_win_pos > 0 AND (w.score - b.score_p50_pos) / b.delta_win_pos >= 0.25 THEN 1 ELSE 0 END) / COUNT(*), 1) AS ep_pct,
@@ -823,6 +843,11 @@ export default {
             if (career.length) {
               bundle.career_summary = career;
               d1Satisfied = true;
+              // Always attach leverage coefs when we have career data so
+              // the client can compute Win Chunks Normalized per row
+              // (win_chunks × leverage_coefs[pos_group]). Constant, tiny,
+              // no additional D1 round-trip.
+              bundle.leverage_coefs = leverageForSeason(Number(year));
             }
             const trades = tradeRes.results || [];
             if (trades.length) {
