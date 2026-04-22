@@ -2411,41 +2411,61 @@
     return formatShortDate(contractDeadlineYmdForSeason(season));
   }
 
-  // Per RULE-DEADLINE-001: three distinct deadlines depending on player
-  // classification. Non-rookie 1-yr-left veterans and 5th-year-option
-  // rookies use the September auction-kickoff date (contractDeadline).
-  // Expired-rookie players (rookie bucket, <=1 year left, no option)
-  // use the FOLLOWING May pre-next-auction deadline.
-  //
-  // The May date is not yet in ROSTER_SEASON_EVENTS_FALLBACK / league
-  // events metadata — we emit a human label "May YYYY+1" and leave the
-  // exact day to be filled in by Keith in the rulebook (RULE-DEADLINE-001
-  // notes this as TBD). Callers should display label, not parse a date.
+  // Per RULE-DEADLINE-001 (as corrected by Keith):
+  //   * rookie_may    — any rookie-contract player: deadline = tag-deadline
+  //                     date (Memorial Day − 4, i.e. the Thursday before
+  //                     Memorial Day) of (ctx_year + years_remaining).
+  //                     - Puka Nacua 2023 rookie, years=0 in 2026 → May 2026.
+  //                     - 2025 1st-rounder, years=2 in 2026 → May 2028.
+  //   * option_sep    — 5th-year-option eligible rookies only: deadline =
+  //                     September contract-deadline date of the final rookie
+  //                     year (ctx_year + years_remaining − 1). For a 2025
+  //                     1st-rounder with 2 yrs left in 2026, that's Sep 2027.
+  //   * contract_sep  — non-rookie veterans with 1 yr remaining: deadline =
+  //                     current-season's September contract-deadline date.
   function extensionDeadlineForPlayer(player, season) {
     var bucket = contractBucket(player && player.type);
     var yearsRemaining = safeInt(player && player.years, 0);
     var option = rookieOptionStateForPlayer(player);
     var ctxYear = safeInt(season, 0);
 
-    if (option.eligible && !option.exercised) {
-      var optionDeadlineSeason = option.deadlineSeason || ctxYear;
-      var optionLabel = extensionDeadlineLabelForSeason(optionDeadlineSeason);
-      return {
-        kind: "option_sep",
-        label: optionLabel ? optionLabel + " (5th-year option)" : "September (option)",
-        note: "5th-year rookie option — must be exercised before the upcoming auction kickoff."
-      };
+    function formatDateShort(d) {
+      if (!d || isNaN(d.getTime())) return "";
+      return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
     }
 
-    if (bucket === "rookie" && yearsRemaining <= 1) {
-      var nextYear = ctxYear > 0 ? ctxYear + 1 : "next year";
+    // Rookie-contract players get the May (tag-deadline) date governed
+    // by the season (ctx_year + years_remaining). Option-eligible
+    // players ALSO have a May normal-extension deadline — it's just
+    // that their option has an earlier September cutoff; we surface
+    // both when applicable.
+    if (bucket === "rookie") {
+      var rookieDeadlineYear = ctxYear + yearsRemaining;
+      var mayDate = tagDeadlineDateForSeason(rookieDeadlineYear);
+      var mayLabel = formatDateShort(mayDate) || ("May " + rookieDeadlineYear);
+
+      if (option.eligible && !option.exercised) {
+        // 2025+ 1st-round rookies: option deadline = final rookie
+        // year's Sep auction-kickoff. Normal extension (May) still
+        // applies if the option isn't exercised.
+        var optionSeason = option.deadlineSeason || (ctxYear + Math.max(0, yearsRemaining - 1));
+        var optionYmd = contractDeadlineYmdForSeason(optionSeason);
+        var optionLabel = formatShortDate(optionYmd) || ("September " + optionSeason);
+        return {
+          kind: "option_sep",
+          label: optionLabel + " (5th-year option) · extension by " + mayLabel,
+          note: "5th-year rookie option must be exercised before the final-year auction kickoff. If not exercised, the normal May rookie-extension deadline still applies."
+        };
+      }
+
       return {
         kind: "rookie_may",
-        label: "May " + nextYear + " (pre-next-auction)",
-        note: "Expired-rookie extension window opens after the season and runs until the auction kickoff of the following year. Exact May date is governed by league settings — see RULE-DEADLINE-001."
+        label: mayLabel + " (rookie-extension deadline)",
+        note: "Rookie extensions close on the Thursday before Memorial Day (tag-deadline date) of the post-rookie-contract season."
       };
     }
 
+    // Non-rookie veteran with years remaining → current-season Sep
     var vetLabel = extensionDeadlineLabelForSeason(ctxYear);
     return {
       kind: "contract_sep",
