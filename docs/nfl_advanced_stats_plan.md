@@ -18,7 +18,7 @@ Two distinct audiences:
    skill, passing for QB, tackles/sacks for IDP, FG attempts by
    distance + XP + kickoff/punt data for PK). Current season + career.
 
-2. **Reporting mechanism — Usage Workbench** — a standalone module
+2. **Reporting mechanism — Advanced Stats Workbench** — a standalone module
    lets Keith slice across the league on any axis: redzone usage,
    snap share, route participation, pressure rate (IDP), goal-line
    carries, kicker accuracy by distance, pace-of-play team effects,
@@ -269,7 +269,7 @@ pipelines/etl/scripts/
 → UI:
    - Player popup gets an "NFL" tab keyed to pos_group
      (different template per pos_group: skill vs QB vs IDP vs PK)
-   - New Usage Workbench module — leaderboards / comparison /
+   - New Advanced Stats Workbench module — leaderboards / comparison /
      team trends
 ```
 
@@ -361,7 +361,7 @@ tab chrome).
 
 ---
 
-## UI — Usage Workbench (standalone module)
+## UI — Advanced Stats Workbench (standalone module)
 
 New MFL message slot (same jsDelivr pattern as Draft Hub).
 **Three views:**
@@ -419,7 +419,7 @@ dependency for most of it since it's already keyed on MFL pid.
 - Ship xFP / FPOE derivation in Worker (start with
   nflverse.load_ff_opportunity(), later calibrate to MFL scoring).
 
-### Phase 4 — Usage Workbench module (≈ 1 week)
+### Phase 4 — Advanced Stats Workbench module (≈ 1 week)
 
 - Leaderboard / Comparison / Team Trends views.
 - jsDelivr delivery, MFL message-slot embed.
@@ -433,6 +433,131 @@ dependency for most of it since it's already keyed on MFL pid.
 - Enrich skill templates with separation / route-grade.
 
 Total runway end-to-end: **~5-7 weeks** depending on PFF decision.
+
+---
+
+## Future enhancements — derived advanced stats
+
+The pipeline above (Phases 0-5) lands **raw** advanced data. Every
+stat is a direct observation of what happened on the field. Once
+that foundation is stable, a whole next layer opens up: **derived
+metrics** we compute OURSELVES from the raw data, calibrated to our
+league's scoring and decision context. These are the stats that
+actually drive trade / draft / start-sit decisions.
+
+**Scoped in as "v2 derived," not v1.** Do NOT build these before the
+raw tables are landing reliably — you need at least a full season of
+clean data to calibrate any weighting model.
+
+### Weighted opportunity (the Keith-specific ask)
+
+**The principle:** not all touches are equal. A carry from the
+1-yard line is worth far more than a carry from the opponent's 50 —
+the 1-yd carry converts to a TD maybe 60% of the time, the 50-yd
+carry converts maybe 2%. Raw touch counts obscure this. Weighted
+opportunity multiplies each touch by its **expected fantasy-point
+contribution given game state**.
+
+**Formula shape (illustrative — actual weights calibrated from
+historical data):**
+
+```
+weighted_opp_rush(play) = f_rush(yardline, down, distance, game_script)
+    where f_rush(1-yd-line, GL) ≈ 4.2 FP expected
+          f_rush(5-yd-line, GL) ≈ 2.1 FP
+          f_rush(50, 1st/10)    ≈ 0.4 FP
+          f_rush(own-20, 3rd/long) ≈ 0.15 FP
+
+weighted_opp_target(play) = f_target(yardline, ADOT, coverage)
+    where f_target(end-zone)      ≈ 3.8 FP
+          f_target(inside-10)     ≈ 2.6 FP
+          f_target(midfield, 9yd) ≈ 1.4 FP
+          f_target(own, dump)     ≈ 0.6 FP
+
+weighted_opp_total(player, season) = SUM over all plays {
+    carries: f_rush(play)   +
+    targets: f_target(play)
+}
+```
+
+**What it tells us that raw volume doesn't:**
+
+- Two RBs with identical "260 touches" can have wildly different
+  weighted opp — the RB with 28 carries inside the 5 is in a
+  fundamentally different role than the RB with 0 inside the 5 but
+  the same raw count.
+- TE volume is chronically undervalued in raw targets because TEs
+  get more red-zone targets per target than WRs — weighted opp
+  surfaces that.
+- A WR whose targets all come as dump-offs on 3rd-and-long is NOT
+  the same fantasy asset as a WR with the same raw target count
+  skewed to the end zone.
+
+**Implementation sketch (Phase 6+):**
+
+1. Fit weights from nflverse PBP 2020-2024: group plays by
+   (yardline band, down, distance band, game state), compute
+   mean observed fantasy points scored ON that play for the ball
+   carrier / target in MFL PPR scoring.
+2. Materialize weights as a small lookup table
+   (`weighted_opp_weights`) keyed by those dimensions.
+3. In the weekly ETL, join PBP → weights, sum per player per
+   week → new column `weighted_opp_weekly`.
+4. Surface in popup and Advanced Stats Workbench:
+   - `Weighted Opp` (season total)
+   - `Weighted Opp / Game`
+   - `Weighted Opp Rk`
+   - Expected FP from weighted opp (`xFP_opportunity`) vs actual
+     FP → "efficiency" lens separate from volume lens.
+
+**Why this is powerful:** it converts messy, high-dimensional
+opportunity data (yardline × down × distance × personnel) into
+one scalar stat that's directly interpretable in fantasy-point
+terms — so we can rank players on a single number that already
+encodes the "a 1-yd carry > a 50-yd carry" intuition Keith called
+out.
+
+### Other derived stats worth considering in v2
+
+- **Opportunity-Adjusted Points (OAP)** — actual fantasy points
+  minus expected fantasy points from weighted opp. Positive =
+  played above his opportunity; negative = volume-driven. A
+  consistency signal and a sell-high / buy-low signal.
+- **Leverage-adjusted weighted opp** — weighted_opp × positional
+  leverage β (the same β used for APW). Ranks opportunity on
+  the all-play impact scale, not just raw FP.
+- **Schedule-adjusted usage** — a WR's red-zone target share
+  matters more against a defense that allows a lot of RZ TDs.
+  Adjust opp weights by opponent-faced defensive profile.
+- **Route-tree efficiency** — FP per route run, segmented by
+  deep vs short vs screen. Needs nflverse NGS or PFF charting.
+- **Pressure-rate-adjusted QB grade** — EPA per dropback
+  conditioned on pressure rate faced. Separates "bad because
+  bad O-line" QBs from "bad because bad QB."
+- **Coverage efficiency delta** — for DBs: yards-allowed per
+  coverage snap vs. positional baseline. Needs PFF.
+- **Kicker distance-adjusted FG%** — FG% vs expected given
+  distance distribution. Calibrates kickers who only get short
+  tries vs. ones who get long ones.
+- **Pace-adjusted volume** — all skill-position counting stats
+  divided by team plays per game. A 5-target-WR on SF is a
+  different fantasy asset than a 5-target-WR on PHI.
+
+All of these lean on the same Phase 1-3 data, so once the raw
+foundation is solid they're mostly compute-layer work.
+
+### Separation of concerns
+
+The raw `nfl_*` D1 tables stay exactly as Phase 2-3 ship them. All
+derived stats live in **new** tables (`nfl_player_weighted_opp`,
+`nfl_player_oap`, etc.) computed by separate ETL scripts that join
+against the raw tables. This keeps:
+
+- Raw data as authoritative (regenerable from source).
+- Derived stats as replaceable (recalibrate the weights? drop and
+  rebuild the derived table, raw stays intact).
+- Clear versioning — `weighted_opp_v1` vs `weighted_opp_v2` can
+  coexist while we evaluate.
 
 ---
 
@@ -478,7 +603,7 @@ Total runway end-to-end: **~5-7 weeks** depending on PFF decision.
   tolerance: retry on parse-fail, snapshot the HTML so we can
   replay.
 - **PFF TOS.** Data is for internal use only — no public sharing.
-  Usage Workbench would be league-members-only (it already is via
+  Advanced Stats Workbench would be league-members-only (it already is via
   MFL auth).
 - **D1 size.** All-position weekly × 2500 players × 280 weeks ×
   ~8 tables ≈ 5-6M rows. D1 handles that fine but index planning
