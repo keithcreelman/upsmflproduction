@@ -36,15 +36,19 @@ Let **ctx_year** = the current season being evaluated and **years_rem**
    Applies to: players on an active non-rookie contract with 1 year
    remaining heading into the next auction.
 
-3. **Rookie 5th-year option-exercise deadline** (2025+ 1st-rounders only)
+3. **Rookie 4th-year option-exercise deadline** (MFL 1st-rounders,
+   2025 class forward)
    = the **September auction-kickoff** date of
    **ctx_year + years_rem − 1** (i.e. the kickoff of the FINAL
-   rookie-contract year).
-   - 2025 1st-rounder in 2026 (years_rem=2) → final year 2027 →
+   rookie-contract year — the 3rd year of a standard 3-year rookie
+   deal).
+   - 2025 MFL 1st-rounder in 2026 (years_rem=2) → final year 2027 →
      **Sep 2027** as option deadline.
-   If the option IS exercised, the player moves onto the 5th
-   (option) year and the normal rookie-extension clock then applies
-   in the following May. If not, regular expired-rookie rules apply.
+   If the option IS exercised, the player moves onto the 4th (option)
+   year and the normal rookie-extension clock then applies in the
+   following May. If not, regular expired-rookie rules apply.
+   NOTE: "1st round" refers to **MFL rookie draft round 1**, not NFL
+   draft round 1.
 
 **The exact May date** is computed from Memorial Day: last Monday of
 May minus 4 days = the Thursday before Memorial Day. For 2026 that's

@@ -2445,16 +2445,17 @@
       var mayLabel = formatDateShort(mayDate) || ("May " + rookieDeadlineYear);
 
       if (option.eligible && !option.exercised) {
-        // 2025+ 1st-round rookies: option deadline = final rookie
-        // year's Sep auction-kickoff. Normal extension (May) still
-        // applies if the option isn't exercised.
+        // 2025+ MFL-1st-round rookies get a 4th-year option. Option
+        // deadline = final rookie year's Sep auction-kickoff. Normal
+        // rookie-extension May deadline still applies if the option
+        // isn't exercised.
         var optionSeason = option.deadlineSeason || (ctxYear + Math.max(0, yearsRemaining - 1));
         var optionYmd = contractDeadlineYmdForSeason(optionSeason);
         var optionLabel = formatShortDate(optionYmd) || ("September " + optionSeason);
         return {
           kind: "option_sep",
-          label: optionLabel + " (5th-year option) · extension by " + mayLabel,
-          note: "5th-year rookie option must be exercised before the final-year auction kickoff. If not exercised, the normal May rookie-extension deadline still applies."
+          label: optionLabel + " (4th-year option) · extension by " + mayLabel,
+          note: "4th-year rookie option (MFL 1st-rounders, 2025 class forward) must be exercised before the final-year auction kickoff. If not exercised, the normal May rookie-extension deadline still applies."
         };
       }
 

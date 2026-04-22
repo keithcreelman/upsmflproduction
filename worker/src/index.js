@@ -1901,11 +1901,18 @@ export default {
             }
           }
 
-          if ((!year || !round) && token.startsWith("FP_")) {
-            const fp = token.match(/^FP_[A-Z0-9]+_(\d{4})_(\d+)$/i);
+          // FP_<OWNER_FID>_<YEAR>_<ROUND> — capture the originating
+          // franchise ID so the UI can show "Pick originally from <Team>"
+          // in the trade war room. Even if year/round came from other
+          // fields we still want original_owner_fid, so run this
+          // regardless of the year/round presence.
+          let original_owner_fid = "";
+          if (token.startsWith("FP_")) {
+            const fp = token.match(/^FP_([A-Z0-9]+)_(\d{4})_(\d+)$/i);
             if (fp) {
-              year = year || safeInt(fp[1], 0);
-              round = round || safeInt(fp[2], 0);
+              original_owner_fid = padFranchiseId(fp[1]);
+              year = year || safeInt(fp[2], 0);
+              round = round || safeInt(fp[3], 0);
             }
           }
 
@@ -1954,6 +1961,7 @@ export default {
             round,
             pick,
             slot_text: slotText,
+            original_owner_fid: original_owner_fid,
           };
         };
 
@@ -2057,6 +2065,18 @@ export default {
         };
 
         const franchiseRows = asArray(assetsPayload?.assets?.franchise || assetsPayload?.franchise).filter(Boolean);
+        // Build a fid → display-name lookup once so each FP_ pick can
+        // attach the ORIGINAL owner's name, not just the fid token.
+        // MFL's assets export rarely has team names embedded, so we fall
+        // back to the fid if no name is available — the client-side team
+        // lookup will fill in the rest.
+        const fidNameLookup = {};
+        for (const fr of franchiseRows) {
+          const fid = padFranchiseId(fr?.id || fr?.franchise_id);
+          if (!fid) continue;
+          const nm = safeStr(fr?.name || fr?.franchise_name || fr?.team_name);
+          if (nm) fidNameLookup[fid] = nm;
+        }
         const out = {};
         for (const fr of franchiseRows) {
           const franchiseId = padFranchiseId(fr?.id || fr?.franchise_id);
@@ -2088,6 +2108,13 @@ export default {
                 pick_season: safeInt(pickMeta.year, 0) || undefined,
                 pick_round: safeInt(pickMeta.round, 0) || undefined,
                 pick_slot: safeStr(pickMeta.slot_text),
+                // Original-owner attribution for future picks (FP_ tokens).
+                // Empty for DP_ (current-season) picks, which always
+                // originate with whoever holds them.
+                original_owner_fid: pickMeta.original_owner_fid || "",
+                original_owner_name: pickMeta.original_owner_fid
+                  ? (fidNameLookup[pickMeta.original_owner_fid] || "")
+                  : "",
               });
             }
           };

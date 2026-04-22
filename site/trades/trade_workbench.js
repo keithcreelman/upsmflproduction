@@ -4634,6 +4634,26 @@
     name.textContent = asset.type === "PICK" ? safeStr(asset.pick_display || asset.description || "Rookie Pick") : buildPlayerLabel(asset);
     line.appendChild(name);
 
+    // Future-pick original-owner attribution. The worker encodes
+    // original_owner_fid from the FP_<FID>_<YEAR>_<ROUND> token; if
+    // that fid is different from the team currently holding the pick,
+    // this asset was traded and we show the originating team so the
+    // viewer knows whose pick it actually is.
+    if (asset.type === "PICK" && asset.original_owner_fid) {
+      var ownerFid = pad4(asset.original_owner_fid);
+      var currentFid = pad4(teamId);
+      if (ownerFid && ownerFid !== currentFid) {
+        var ownerName = safeStr(asset.original_owner_name) || getFranchiseNameById(ownerFid) || ownerFid;
+        var origin = document.createElement("span");
+        origin.className = "twb-asset-sub twb-asset-sub-origin";
+        origin.style.marginLeft = "8px";
+        origin.style.fontSize = "11px";
+        origin.style.color = "var(--twb-text-dim, #8a97ad)";
+        origin.textContent = "from " + ownerName;
+        line.appendChild(origin);
+      }
+    }
+
     if (asset.type === "PLAYER" && asset.extension_eligible && asset.extension_options.length) {
       var extBtn = document.createElement("button");
       extBtn.type = "button";
