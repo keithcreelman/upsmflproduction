@@ -524,7 +524,19 @@
     };
   }
 
-  function shortPickLabel(desc, assetId, seasonHint) {
+  function ordinalSuffix(n) {
+    var v = safeInt(n, 0);
+    if (v <= 0) return "";
+    var mod100 = v % 100;
+    if (mod100 >= 11 && mod100 <= 13) return v + "th";
+    var mod10 = v % 10;
+    if (mod10 === 1) return v + "st";
+    if (mod10 === 2) return v + "nd";
+    if (mod10 === 3) return v + "rd";
+    return v + "th";
+  }
+
+  function shortPickLabel(desc, assetId, seasonHint, ownerName) {
     var raw = safeStr(desc);
     var currentSeason = safeInt(seasonHint, 0);
     var token = normalizePickKey(assetId || "");
@@ -536,17 +548,23 @@
     var round = safeInt(meta.round, 0);
     var pick = safeInt(meta.pick, 0);
     var year = safeInt(meta.year, 0);
+    var owner = safeStr(ownerName);
+    // "Owner's " prefix — used when we know whose pick this originally
+    // was. Only applied to future picks (FP_ tokens) for clarity; DP_
+    // current-year specific picks already exist in the viewer's column
+    // so the prefix is redundant noise there.
+    var ownerPrefix = (owner && token.indexOf("FP_") === 0) ? owner + "'s " : "";
 
     if (round && pick) {
       var y = year || currentSeason;
       var yText = y ? String(y) + " " : "";
-      return yText + "Rookie " + round + "." + String(pick).padStart(2, "0");
+      return ownerPrefix + yText + round + "." + String(pick).padStart(2, "0");
     }
 
     if (round) {
       var yr = year || currentSeason;
       var yrText = yr ? String(yr) + " " : "";
-      return yrText + "Rookie Round " + String(round);
+      return ownerPrefix + yrText + ordinalSuffix(round);
     }
 
     if (!raw) return currentSeason ? String(currentSeason) + " Rookie Pick" : "Rookie Pick";
@@ -874,10 +892,18 @@
         pick_slot: raw.pick_slot || raw.slot || raw.pick,
         pick_season: raw.pick_season || raw.season
       });
+      // Originating-franchise attribution for FP_ future picks. The Worker
+      // extracts original_owner_fid from the FP_<fid>_<yr>_<rnd> token.
+      // Resolve the name via the local franchise lookup (handles cases
+      // where Worker couldn't attach a name from MFL's assets export).
+      asset.original_owner_fid = safeStr(raw.original_owner_fid);
+      asset.original_owner_name = safeStr(raw.original_owner_name)
+        || (asset.original_owner_fid ? getFranchiseNameById(asset.original_owner_fid) : "");
       asset.pick_display = shortPickLabel(
         asset.description,
         asset.asset_id || raw.pick_key || raw.asset_id,
-        raw.pick_season || raw.season || currentSeasonHint
+        raw.pick_season || raw.season || currentSeasonHint,
+        asset.original_owner_name
       );
       asset.pick_key = pickMeta.token || normalizePickKey(asset.asset_id || raw.pick_key || raw.asset_id);
       asset.pick_season = pickMeta.year || safeInt(raw.pick_season || raw.season, 0);
@@ -4631,28 +4657,12 @@
 
     var name = document.createElement("span");
     name.className = "twb-asset-name";
+    // For future picks, pick_display already includes "Owner's" prefix
+    // (shortPickLabel + original_owner_name). Current-year picks (DP_)
+    // omit the prefix since they're always the viewer's own picks in
+    // the row context.
     name.textContent = asset.type === "PICK" ? safeStr(asset.pick_display || asset.description || "Rookie Pick") : buildPlayerLabel(asset);
     line.appendChild(name);
-
-    // Future-pick original-owner attribution. The worker encodes
-    // original_owner_fid from the FP_<FID>_<YEAR>_<ROUND> token; if
-    // that fid is different from the team currently holding the pick,
-    // this asset was traded and we show the originating team so the
-    // viewer knows whose pick it actually is.
-    if (asset.type === "PICK" && asset.original_owner_fid) {
-      var ownerFid = pad4(asset.original_owner_fid);
-      var currentFid = pad4(teamId);
-      if (ownerFid && ownerFid !== currentFid) {
-        var ownerName = safeStr(asset.original_owner_name) || getFranchiseNameById(ownerFid) || ownerFid;
-        var origin = document.createElement("span");
-        origin.className = "twb-asset-sub twb-asset-sub-origin";
-        origin.style.marginLeft = "8px";
-        origin.style.fontSize = "11px";
-        origin.style.color = "var(--twb-text-dim, #8a97ad)";
-        origin.textContent = "from " + ownerName;
-        line.appendChild(origin);
-      }
-    }
 
     if (asset.type === "PLAYER" && asset.extension_eligible && asset.extension_options.length) {
       var extBtn = document.createElement("button");
