@@ -7293,16 +7293,23 @@
           '<div class="rwb-modal-note"><strong>Extension:</strong> ' + escapeHtml(extensionBlockReason || "No extension options are available for this player.") + '</div>';
       }
       var modalAav = displayAavForPlayer(player);
+      var photoPid = safeStr(player.id).replace(/\D/g, "");
+      var photoUrl = photoPid ? "https://www48.myfantasyleague.com/player_photos_2014/" + photoPid + "_thumb.jpg" : "";
       var playerHeaderHtml =
-        '<div class="rwb-modal-player">' +
-          '<div class="rwb-modal-player-main">' +
-            '<span class="rwb-pos-pill">' + escapeHtml(player.positionGroup) + '</span>' +
-            '<h3>' + escapeHtml(player.name) + '</h3>' +
-            (player.isTaxi ? '<span class="rwb-tag is-taxi">Taxi</span>' : '') +
-            (player.isIr ? '<span class="rwb-tag is-ir">IR</span>' : '') +
-            (rookieOption && rookieOption.eligible ? '<span class="rwb-tag">Rookie Option</span>' : '') +
+        '<div class="rwb-modal-player upm-player-header">' +
+          (photoUrl
+            ? '<img class="upm-player-photo" src="' + escapeHtml(photoUrl) + '" alt="' + escapeHtml(player.name) + '" onerror="this.replaceWith(Object.assign(document.createElement(\'div\'), {className:\'upm-player-photo upm-player-photo-placeholder\'}))">'
+            : '<div class="upm-player-photo upm-player-photo-placeholder"></div>') +
+          '<div class="upm-player-header-text">' +
+            '<div class="rwb-modal-player-main">' +
+              '<span class="rwb-pos-pill">' + escapeHtml(player.positionGroup) + '</span>' +
+              '<h3>' + escapeHtml(player.name) + '</h3>' +
+              (player.isTaxi ? '<span class="rwb-tag is-taxi">Taxi</span>' : '') +
+              (player.isIr ? '<span class="rwb-tag is-ir">IR</span>' : '') +
+              (rookieOption && rookieOption.eligible ? '<span class="rwb-tag">Rookie Option</span>' : '') +
+            '</div>' +
+            '<div class="rwb-modal-player-sub">' + escapeHtml(team.name) + ' | ' + escapeHtml(player.position) + ' | ' + escapeHtml(player.nflTeam || "-") + '</div>' +
           '</div>' +
-          '<div class="rwb-modal-player-sub">' + escapeHtml(team.name) + ' | ' + escapeHtml(player.position) + ' | ' + escapeHtml(player.nflTeam || "-") + '</div>' +
         '</div>';
 
       if (state.actionModal.mode === "restructure") {
@@ -7496,8 +7503,21 @@
       return;
     }
     var base = upmResolveApiBase();
-    var leagueId = safeStr(state.leagueId || window.UPS_TWB_LEAGUE_ID || window.UPS_DRAFT_HUB_LEAGUE_ID || "74598").replace(/\D/g, "");
-    var year = safeStr(state.year || window.UPS_TWB_YEAR || window.UPS_DRAFT_HUB_YEAR || String(new Date().getUTCFullYear())).replace(/\D/g, "");
+    // Roster Workbench carries context on state.ctx — state.leagueId /
+    // state.year don't exist. Falling through to 74598 + current year
+    // was hiding the right data behind a wrong-league bundle lookup.
+    var leagueId = safeStr(
+      (state.ctx && state.ctx.leagueId) ||
+      window.UPS_TWB_LEAGUE_ID ||
+      window.UPS_DRAFT_HUB_LEAGUE_ID ||
+      "74598"
+    ).replace(/\D/g, "");
+    var year = safeStr(
+      (state.ctx && state.ctx.year) ||
+      window.UPS_TWB_YEAR ||
+      window.UPS_DRAFT_HUB_YEAR ||
+      String(new Date().getUTCFullYear())
+    ).replace(/\D/g, "");
     var qs = "pid=" + encodeURIComponent(normalized);
     if (leagueId) qs += "&L=" + encodeURIComponent(leagueId);
     if (year) qs += "&YEAR=" + encodeURIComponent(year);

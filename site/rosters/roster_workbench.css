@@ -2550,3 +2550,77 @@ body.rwb-modal-open {
   .upm-window-summary { grid-template-columns: repeat(2, 1fr); }
   .upm-stats-table, .upm-game-log-table { font-size: 11px; }
 }
+
+/* ──────────────────────────────────────────────────────────────
+   Player-profile header polish — adds headshot + tighter grid so
+   the Front Office popup has the same visual density as the
+   Rookie Draft Hub's profile card.
+   ────────────────────────────────────────────────────────────── */
+.upm-player-header {
+  display: grid !important;
+  grid-template-columns: 80px 1fr;
+  gap: 14px;
+  align-items: center;
+  padding: 4px 0 10px;
+  border-bottom: 1px solid var(--rwb-border);
+  margin-bottom: 4px;
+}
+.upm-player-photo {
+  width: 80px;
+  height: 80px;
+  border-radius: 10px;
+  object-fit: cover;
+  background: var(--rwb-surface-soft);
+  border: 1px solid var(--rwb-border);
+}
+.upm-player-photo-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.upm-player-photo-placeholder::before {
+  content: "👤";
+  opacity: 0.25;
+  font-size: 36px;
+}
+.upm-player-header-text { min-width: 0; }
+
+/* Tighter metric cards for the Bio grid — better hierarchy,
+   slightly raised treatment so the block reads like a dashboard
+   card rather than a flat table. */
+.rwb-modal-grid {
+  gap: 8px;
+  margin-top: 10px;
+}
+.rwb-modal-metric {
+  background: var(--rwb-surface-soft);
+  border: 1px solid var(--rwb-border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.rwb-modal-metric span:first-child {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--rwb-text-dim);
+  font-weight: 600;
+}
+.rwb-modal-metric strong {
+  font-size: 15px;
+  color: var(--rwb-text);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.rwb-modal-actions-wrap {
+  margin-top: 12px;
+}
+
+@media (max-width: 600px) {
+  .upm-player-header { grid-template-columns: 64px 1fr; gap: 10px; }
+  .upm-player-photo { width: 64px; height: 64px; }
+  .upm-player-photo-placeholder::before { font-size: 28px; }
+  .rwb-modal-grid { grid-template-columns: repeat(2, 1fr); }
+}
