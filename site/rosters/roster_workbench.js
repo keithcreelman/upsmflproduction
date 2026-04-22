@@ -7654,12 +7654,118 @@
       upmFillPanel(root, "news", upmNoBundleMsg());
       return;
     }
-    upmFillPanel(root, "stats",    upmStatsHtml(bundle));
+    upmFillPanel(root, "stats",    upmStatsWrappedHtml(bundle));
     upmFillPanel(root, "gamelog",  upmGameLogHtml(bundle));
     upmFillPanel(root, "news",     upmNewsHtml(bundle));
+    // Wire the Basic/Advanced toggle in the Stats tab before any
+    // window/selector wiring — Basic view must render before
+    // upmWireWindow/upmWireGameLog look for their controls.
+    upmWireStatsToggle(root);
     // Wire any sub-controls inside the freshly-rendered Stats panel.
     upmWireWindow(root, bundle);
     upmWireGameLog(root, bundle);
+  }
+
+  // Advanced-stats (NFL box score via nflverse crosswalk) rendered
+  // inside the Stats tab behind a Basic/Advanced toggle (Keith
+  // 2026-04-22: "just stats, advanced vs. basic"). When crosswalk is
+  // missing OR nfl_season_totals is empty, falls back to a helpful
+  // hint pointing the operator at the fetcher scripts to run.
+  function upmAdvancedStatsHtml(bundle) {
+    var totals = Array.isArray(bundle.nfl_season_totals) ? bundle.nfl_season_totals : [];
+    var crosswalk = bundle.crosswalk || null;
+    if (!crosswalk || !crosswalk.gsis_id) {
+      return '<p style="color:var(--rwb-text-dim); font-size:12px; padding:10px;">'
+        + 'No NFL crosswalk for this player yet. Run '
+        + '<code>pipelines/etl/scripts/build_player_id_crosswalk.py</code> '
+        + 'to map MFL pid → nflverse gsis_id.</p>';
+    }
+    if (!totals.length) {
+      return '<p style="color:var(--rwb-text-dim); font-size:12px; padding:10px;">'
+        + 'NFL advanced stats not yet loaded for <code>' + crosswalk.gsis_id + '</code>. '
+        + 'Run <code>pipelines/etl/scripts/fetch_nflverse_weekly.py --seasons 2011-2025</code> '
+        + 'then <code>scripts/load_local_to_d1.py --only nflweekly,nflsnaps</code>.</p>';
+    }
+    var COLS = [
+      { key: "games", label: "G" },
+      { key: "rush_att", label: "RuAtt" }, { key: "rush_yds", label: "RuYds" }, { key: "rush_tds", label: "RuTD" },
+      { key: "targets", label: "Tgt" }, { key: "receptions", label: "Rec" },
+      { key: "rec_yds", label: "RecYds" }, { key: "rec_tds", label: "RecTD" },
+      { key: "pass_att", label: "PaAtt" }, { key: "pass_cmp", label: "PaCmp" },
+      { key: "pass_yds", label: "PaYds" }, { key: "pass_tds", label: "PaTD" },
+      { key: "pass_ints", label: "Int" },
+      { key: "def_tackles_total", label: "Tkl" }, { key: "def_tfl", label: "TFL" },
+      { key: "def_sacks", label: "Sk" }, { key: "def_ff", label: "FF" },
+      { key: "def_ints", label: "DefInt" }, { key: "def_pass_def", label: "PD" },
+      { key: "fg_att", label: "FGA" }, { key: "fg_made", label: "FGM" },
+      { key: "xp_att", label: "XPA" }, { key: "xp_made", label: "XPM" },
+      { key: "punts", label: "Punt" }
+    ];
+    var activeCols = COLS.filter(function (c) {
+      return totals.some(function (r) { return (Number(r[c.key]) || 0) !== 0; });
+    });
+    var thRow = '<th>Yr</th>' + activeCols.map(function (c) {
+      return '<th class="num">' + c.label + '</th>';
+    }).join("");
+    var bodyRows = totals.map(function (r) {
+      var tds = '<td>' + r.season + '</td>';
+      for (var i = 0; i < activeCols.length; i++) {
+        var c = activeCols[i];
+        var v = r[c.key];
+        if (v == null || v === 0) {
+          tds += '<td class="num" style="color:var(--rwb-text-dim)">—</td>';
+        } else if (c.key === "def_sacks") {
+          tds += '<td class="num">' + Number(v).toFixed(1) + '</td>';
+        } else {
+          tds += '<td class="num">' + v + '</td>';
+        }
+      }
+      return '<tr>' + tds + '</tr>';
+    }).join("");
+    var confNote = (crosswalk.confidence && crosswalk.confidence !== "exact")
+      ? '<div style="color:var(--rwb-accent); font-size:11px; margin-top:4px;">Crosswalk confidence: '
+        + crosswalk.confidence + (crosswalk.match_score ? " (" + Number(crosswalk.match_score).toFixed(2) + ")" : "")
+        + ' — review recommended.</div>'
+      : "";
+    return ''
+      + '<div style="font-size:11px; color:var(--rwb-text-dim); margin-bottom:6px;">'
+      + 'Real NFL box-score data, independent of MFL fantasy scoring. Source: nflverse.</div>'
+      + '<table class="upm-stats-table"><thead><tr>' + thRow + '</tr></thead>'
+      + '<tbody>' + bodyRows + '</tbody></table>'
+      + confNote;
+  }
+
+  function upmStatsWrappedHtml(bundle) {
+    return ''
+      + '<div class="upm-stats-view-switch" style="display:flex; gap:6px; margin-bottom:10px;">'
+      + '<button type="button" class="rwb-chip" data-stats-view="basic" aria-pressed="true">Basic (MFL)</button>'
+      + '<button type="button" class="rwb-chip" data-stats-view="advanced" aria-pressed="false">Advanced (NFL)</button>'
+      + '</div>'
+      + '<div data-stats-body="basic">' + upmStatsHtml(bundle) + '</div>'
+      + '<div data-stats-body="advanced" hidden>' + upmAdvancedStatsHtml(bundle) + '</div>';
+  }
+
+  function upmWireStatsToggle(root) {
+    var pref;
+    try { pref = sessionStorage.getItem("upm.stats.view") || "basic"; } catch (e) { pref = "basic"; }
+    var buttons = root.querySelectorAll("[data-stats-view]");
+    var bodies = root.querySelectorAll("[data-stats-body]");
+    buttons.forEach(function (b) { b.setAttribute("aria-pressed", b.dataset.statsView === pref ? "true" : "false"); });
+    bodies.forEach(function (d) {
+      if (d.dataset.statsBody === pref) d.removeAttribute("hidden");
+      else d.setAttribute("hidden", "");
+    });
+    buttons.forEach(function (b) {
+      b.addEventListener("click", function () {
+        var v = b.dataset.statsView;
+        try { sessionStorage.setItem("upm.stats.view", v); } catch (e) {}
+        buttons.forEach(function (x) { x.setAttribute("aria-pressed", x === b ? "true" : "false"); });
+        bodies.forEach(function (d) {
+          if (d.dataset.statsBody === v) d.removeAttribute("hidden");
+          else d.setAttribute("hidden", "");
+        });
+      });
+    });
   }
 
   function upmStatsHtml(bundle) {

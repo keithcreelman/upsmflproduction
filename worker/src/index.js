@@ -767,7 +767,7 @@ export default {
         if (env.UPS_MFL_DB) {
           try {
             const db = env.UPS_MFL_DB;
-            const [careerRes, tradeRes, addRes, weeklyRes, contractRes] = await Promise.all([
+            const [careerRes, tradeRes, addRes, weeklyRes, contractRes, crosswalkRes] = await Promise.all([
               db.prepare(
                 // Career summary joined with baselines to compute per-season
                 // Elite / Plus / E+P / Dud % the same way the Python bridge
@@ -905,6 +905,17 @@ export default {
                   WHERE player_id = ?
                   ORDER BY season DESC`
               ).bind(pid).all(),
+              // Advanced stats block — Phase 0 + Phase 2 tables.
+              // Crosswalk resolves MFL pid → nflverse gsis_id; downstream
+              // queries fan out from gsis_id. LEFT JOINs so a player with
+              // no crosswalk / no nfl data just returns empty arrays
+              // (UI renders "No advanced stats available" in that case).
+              db.prepare(
+                `SELECT mfl_player_id, gsis_id, pfr_id, confidence,
+                        match_score, source, full_name, position
+                   FROM player_id_crosswalk
+                  WHERE mfl_player_id = ?`
+              ).bind(pid).all(),
             ]);
 
             const career = careerRes.results || [];
@@ -945,6 +956,121 @@ export default {
               bundle.contract_history = contracts;
               d1Satisfied = true;
             }
+
+            // ------------------------------------------------------------
+            // Advanced Stats (Phase 2 — Keith 2026-04-22)
+            // ------------------------------------------------------------
+            // Resolve MFL pid → gsis_id via crosswalk. If mapped, fan
+            // out one more round-trip to pull nfl_player_weekly +
+            // nfl_player_snaps. All LEFT-JOIN semantics so missing data
+            // just yields empty arrays; the UI Basic/Advanced toggle
+            // shows "No advanced data available" when empty.
+            const crosswalkRows = crosswalkRes.results || [];
+            const crosswalkRow = crosswalkRows[0] || null;
+            const gsisId = crosswalkRow && crosswalkRow.gsis_id ? crosswalkRow.gsis_id : null;
+            bundle.crosswalk = crosswalkRow
+              ? {
+                  mfl_player_id: crosswalkRow.mfl_player_id,
+                  gsis_id: crosswalkRow.gsis_id,
+                  pfr_id: crosswalkRow.pfr_id,
+                  confidence: crosswalkRow.confidence,
+                  source: crosswalkRow.source,
+                }
+              : null;
+            bundle.nfl_weekly = [];
+            bundle.nfl_weekly_by_season = {};
+            bundle.nfl_season_totals = [];
+            bundle.nfl_snaps_by_week = {};
+            if (gsisId) {
+              try {
+                const [nflWeeklyRes, nflSnapsRes, nflSeasonRes] = await Promise.all([
+                  db.prepare(
+                    `SELECT season, week, team, opponent, position, pos_group,
+                            rush_att, rush_yds, rush_tds,
+                            targets, receptions, rec_yds, rec_tds,
+                            pass_att, pass_cmp, pass_yds, pass_tds, pass_ints, pass_sacks,
+                            def_tackles_solo, def_tackles_ast, def_tackles_total,
+                            def_tfl, def_qb_hits, def_sacks, def_ff, def_ints, def_pass_def, def_tds,
+                            fg_att, fg_made,
+                            fg_att_0_39, fg_made_0_39, fg_att_40_49, fg_made_40_49, fg_att_50plus, fg_made_50plus,
+                            xp_att, xp_made,
+                            punts, punt_yds, punt_inside20, punt_net_avg
+                       FROM nfl_player_weekly
+                      WHERE gsis_id = ?
+                      ORDER BY season DESC, week DESC
+                      LIMIT 400`
+                  ).bind(gsisId).all(),
+                  db.prepare(
+                    `SELECT season, week,
+                            off_snaps, off_snap_pct,
+                            def_snaps, def_snap_pct,
+                            st_snaps, st_snap_pct
+                       FROM nfl_player_snaps
+                      WHERE gsis_id = ?
+                      ORDER BY season DESC, week DESC
+                      LIMIT 400`
+                  ).bind(gsisId).all(),
+                  db.prepare(
+                    // Season-total aggregation. Simple SUMs over weekly
+                    // rows. NULL-safe via COALESCE(...,0). Pre-aggregating
+                    // here saves the client from having to re-walk weekly
+                    // arrays for the "season summary" row.
+                    `SELECT season,
+                            COUNT(*) AS games,
+                            SUM(COALESCE(rush_att,0))     AS rush_att,
+                            SUM(COALESCE(rush_yds,0))     AS rush_yds,
+                            SUM(COALESCE(rush_tds,0))     AS rush_tds,
+                            SUM(COALESCE(targets,0))      AS targets,
+                            SUM(COALESCE(receptions,0))   AS receptions,
+                            SUM(COALESCE(rec_yds,0))      AS rec_yds,
+                            SUM(COALESCE(rec_tds,0))      AS rec_tds,
+                            SUM(COALESCE(pass_att,0))     AS pass_att,
+                            SUM(COALESCE(pass_cmp,0))     AS pass_cmp,
+                            SUM(COALESCE(pass_yds,0))     AS pass_yds,
+                            SUM(COALESCE(pass_tds,0))     AS pass_tds,
+                            SUM(COALESCE(pass_ints,0))    AS pass_ints,
+                            SUM(COALESCE(pass_sacks,0))   AS pass_sacks,
+                            SUM(COALESCE(def_tackles_total,0)) AS def_tackles_total,
+                            SUM(COALESCE(def_tfl,0))      AS def_tfl,
+                            SUM(COALESCE(def_sacks,0))    AS def_sacks,
+                            SUM(COALESCE(def_ff,0))       AS def_ff,
+                            SUM(COALESCE(def_ints,0))     AS def_ints,
+                            SUM(COALESCE(def_pass_def,0)) AS def_pass_def,
+                            SUM(COALESCE(fg_att,0))       AS fg_att,
+                            SUM(COALESCE(fg_made,0))      AS fg_made,
+                            SUM(COALESCE(xp_att,0))       AS xp_att,
+                            SUM(COALESCE(xp_made,0))      AS xp_made,
+                            SUM(COALESCE(punts,0))        AS punts,
+                            SUM(COALESCE(punt_yds,0))     AS punt_yds
+                       FROM nfl_player_weekly
+                      WHERE gsis_id = ?
+                      GROUP BY season
+                      ORDER BY season DESC`
+                  ).bind(gsisId).all(),
+                ]);
+                const nflWeekly = nflWeeklyRes.results || [];
+                bundle.nfl_weekly = nflWeekly;
+                const nflBySeason = {};
+                for (const r of nflWeekly) {
+                  const s = String(r.season);
+                  if (!nflBySeason[s]) nflBySeason[s] = [];
+                  nflBySeason[s].push(r);
+                }
+                bundle.nfl_weekly_by_season = nflBySeason;
+                bundle.nfl_season_totals = nflSeasonRes.results || [];
+
+                const nflSnaps = nflSnapsRes.results || [];
+                const snapKey = {};
+                for (const s of nflSnaps) {
+                  snapKey[String(s.season) + "-" + String(s.week)] = s;
+                }
+                bundle.nfl_snaps_by_week = snapKey;
+              } catch (nflErr) {
+                bundle.nfl_error = String(nflErr && nflErr.message || nflErr);
+                console.error("[player-bundle] advanced-stats fetch failed:", bundle.nfl_error);
+              }
+            }
+
             bundle.enrichment_source = "d1";
           } catch (e) {
             bundle.d1_error = String(e && e.message || e);

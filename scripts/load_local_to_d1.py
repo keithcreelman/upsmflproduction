@@ -261,6 +261,59 @@ def main():
           "post_games","post_points","post_ppg",
           "started_games","started_points","started_ppg",
           "overall_rank","pos_rank","overall_ppg_rank","pos_ppg_rank"]),
+        # Advanced Stats plumbing — populated by
+        # pipelines/etl/scripts/build_player_id_crosswalk.py and
+        # fetch_nflverse_weekly.py. These tables don't exist in the
+        # local DB until the fetchers run, so the loader silently
+        # no-ops any plan entry whose source table is empty.
+        ("crosswalk", "player_id_crosswalk",
+         """
+         SELECT mfl_player_id, gsis_id, pfr_id, sleeper_id, espn_id,
+                full_name, position, birth_date, confidence, match_score, source
+         FROM player_id_crosswalk
+         """,
+         ["mfl_player_id","gsis_id","pfr_id","sleeper_id","espn_id",
+          "full_name","position","birth_date","confidence","match_score","source"]),
+        ("nflweekly", "nfl_player_weekly",
+         """
+         SELECT season, week, gsis_id, team, opponent, position, pos_group,
+                rush_att, rush_yds, rush_tds, rush_long, rush_fumbles, rush_fumbles_lost,
+                targets, receptions, rec_yds, rec_tds, rec_long, rec_fumbles, rec_fumbles_lost,
+                pass_att, pass_cmp, pass_yds, pass_tds, pass_ints, pass_sacks, pass_sack_yds,
+                pass_long, pass_2pt,
+                def_tackles_solo, def_tackles_ast, def_tackles_total, def_tfl, def_qb_hits,
+                def_sacks, def_sack_yds, def_ff, def_fr, def_ints, def_pass_def, def_tds,
+                fg_att, fg_made, fg_long,
+                fg_att_0_39, fg_made_0_39, fg_att_40_49, fg_made_40_49,
+                fg_att_50plus, fg_made_50plus, xp_att, xp_made,
+                punts, punt_yds, punt_long, punt_inside20, punt_net_avg,
+                starter_nfl, source
+         FROM nfl_player_weekly
+         """,
+         ["season","week","gsis_id","team","opponent","position","pos_group",
+          "rush_att","rush_yds","rush_tds","rush_long","rush_fumbles","rush_fumbles_lost",
+          "targets","receptions","rec_yds","rec_tds","rec_long","rec_fumbles","rec_fumbles_lost",
+          "pass_att","pass_cmp","pass_yds","pass_tds","pass_ints","pass_sacks","pass_sack_yds",
+          "pass_long","pass_2pt",
+          "def_tackles_solo","def_tackles_ast","def_tackles_total","def_tfl","def_qb_hits",
+          "def_sacks","def_sack_yds","def_ff","def_fr","def_ints","def_pass_def","def_tds",
+          "fg_att","fg_made","fg_long",
+          "fg_att_0_39","fg_made_0_39","fg_att_40_49","fg_made_40_49",
+          "fg_att_50plus","fg_made_50plus","xp_att","xp_made",
+          "punts","punt_yds","punt_long","punt_inside20","punt_net_avg",
+          "starter_nfl","source"]),
+        ("nflsnaps", "nfl_player_snaps",
+         """
+         SELECT season, week, gsis_id, team,
+                off_snaps, off_snaps_team, off_snap_pct,
+                def_snaps, def_snaps_team, def_snap_pct,
+                st_snaps,  st_snaps_team,  st_snap_pct
+         FROM nfl_player_snaps
+         """,
+         ["season","week","gsis_id","team",
+          "off_snaps","off_snaps_team","off_snap_pct",
+          "def_snaps","def_snaps_team","def_snap_pct",
+          "st_snaps","st_snaps_team","st_snap_pct"]),
     ]
 
     selected = set((args.only or "").split(",")) if args.only else None

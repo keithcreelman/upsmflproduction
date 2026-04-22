@@ -1081,6 +1081,98 @@
       </div>`;
     })() : `<p class="small" style="color:var(--muted)">No career data yet — this player has no scored weeks on record.</p>`;
 
+    // ── Advanced stats view (bundle.nfl_season_totals) ───────────────
+    // Rendered inside the same Stats tab behind a Basic/Advanced
+    // segmented control. Source of truth: nflverse via the Phase-2
+    // pipeline (pipelines/etl/scripts/fetch_nflverse_weekly.py).
+    // Pre-pipeline-run, bundle.nfl_season_totals is empty → the view
+    // shows a helpful "advanced data not yet loaded" hint.
+    const advStatsHtml = (() => {
+      const totals = Array.isArray(bundle.nfl_season_totals) ? bundle.nfl_season_totals : [];
+      const crosswalk = bundle.crosswalk || null;
+      if (!crosswalk || !crosswalk.gsis_id) {
+        return `<p class="small" style="color:var(--muted); padding:10px;">
+          No NFL crosswalk for this player yet. Run
+          <code>pipelines/etl/scripts/build_player_id_crosswalk.py</code>
+          to map MFL pid → nflverse gsis_id.</p>`;
+      }
+      if (!totals.length) {
+        return `<p class="small" style="color:var(--muted); padding:10px;">
+          NFL advanced stats not yet loaded for <code>${escapeHtml(crosswalk.gsis_id)}</code>.
+          Run <code>pipelines/etl/scripts/fetch_nflverse_weekly.py --seasons 2011-2025</code>
+          then <code>scripts/load_local_to_d1.py --only nflweekly,nflsnaps</code>.</p>`;
+      }
+      // Build a compact all-in-one season-totals table. Columns with
+      // all-zeros across the window are dropped (saves width on mobile).
+      // Stat groups keyed by pos_group relevance.
+      const COLS = [
+        { key: "games", label: "G" },
+        { key: "rush_att", label: "RuAtt" },
+        { key: "rush_yds", label: "RuYds" },
+        { key: "rush_tds", label: "RuTD" },
+        { key: "targets", label: "Tgt" },
+        { key: "receptions", label: "Rec" },
+        { key: "rec_yds", label: "RecYds" },
+        { key: "rec_tds", label: "RecTD" },
+        { key: "pass_att", label: "PaAtt" },
+        { key: "pass_cmp", label: "PaCmp" },
+        { key: "pass_yds", label: "PaYds" },
+        { key: "pass_tds", label: "PaTD" },
+        { key: "pass_ints", label: "Int" },
+        { key: "def_tackles_total", label: "Tkl" },
+        { key: "def_tfl", label: "TFL" },
+        { key: "def_sacks", label: "Sk" },
+        { key: "def_ff", label: "FF" },
+        { key: "def_ints", label: "DefInt" },
+        { key: "def_pass_def", label: "PD" },
+        { key: "fg_att", label: "FGA" },
+        { key: "fg_made", label: "FGM" },
+        { key: "xp_att", label: "XPA" },
+        { key: "xp_made", label: "XPM" },
+        { key: "punts", label: "Punt" },
+      ];
+      // Keep columns whose SUM across rows is nonzero.
+      const activeCols = COLS.filter(c => totals.some(r => (Number(r[c.key]) || 0) !== 0));
+      const thRow = ["<th>Yr</th>", ...activeCols.map(c => `<th class="num">${c.label}</th>`)].join("");
+      const bodyRows = totals.map(r => {
+        const tds = [`<td>${r.season}</td>`];
+        for (const c of activeCols) {
+          const v = r[c.key];
+          if (v == null || v === 0) {
+            tds.push(`<td class="num" style="color:var(--muted)">—</td>`);
+          } else if (c.key === "def_sacks") {
+            tds.push(`<td class="num">${Number(v).toFixed(1)}</td>`);
+          } else {
+            tds.push(`<td class="num">${v}</td>`);
+          }
+        }
+        return `<tr>${tds.join("")}</tr>`;
+      }).join("");
+      const confNote = crosswalk.confidence && crosswalk.confidence !== "exact"
+        ? `<div class="small" style="color:var(--warn); margin-top:4px;">Crosswalk confidence: ${escapeHtml(crosswalk.confidence)}${crosswalk.match_score ? " (" + crosswalk.match_score.toFixed(2) + ")" : ""} — review recommended.</div>`
+        : "";
+      return `
+      <div class="profile-block">
+        <h4>NFL Season Totals (nflverse)</h4>
+        <div class="small" style="color:var(--muted); margin-bottom:6px;">Real NFL box-score data, independent of MFL fantasy scoring. Source: nflverse.</div>
+        <table class="rdh-table"><thead><tr>${thRow}</tr></thead><tbody>${bodyRows}</tbody></table>
+        ${confNote}
+      </div>`;
+    })();
+
+    // Wrap Stats tab content with a Basic/Advanced segmented control.
+    // Default = Basic (existing career table). Click Advanced to see
+    // NFL box-score totals. Persists selection in sessionStorage so
+    // opening multiple profiles doesn't re-toggle every time.
+    const statsPanelHtml = `
+      <div class="upm-stats-view-switch" style="display:flex; gap:6px; margin-bottom:10px;">
+        <button type="button" class="rdh-chip" data-stats-view="basic" aria-pressed="true">Basic (MFL)</button>
+        <button type="button" class="rdh-chip" data-stats-view="advanced" aria-pressed="false">Advanced (NFL)</button>
+      </div>
+      <div data-stats-body="basic">${statsHtml}</div>
+      <div data-stats-body="advanced" hidden>${advStatsHtml}</div>
+    `;
+
     // ── Game Log tab ─────────────────────────────────────────────────
     const gameLogHtml = bundle.weekly_by_season && Object.keys(bundle.weekly_by_season).length ? `
       <div class="profile-block">
@@ -1117,7 +1209,7 @@
         <button type="button" role="tab" aria-selected="false" data-upm-tab="news">News</button>
       </nav>
       <div class="upm-tab-panel" data-upm-panel="bio">${bioHtml}</div>
-      <div class="upm-tab-panel" data-upm-panel="stats" hidden>${statsHtml}</div>
+      <div class="upm-tab-panel" data-upm-panel="stats" hidden>${statsPanelHtml}</div>
       <div class="upm-tab-panel" data-upm-panel="gamelog" hidden>${gameLogHtml}</div>
       <div class="upm-tab-panel" data-upm-panel="news" hidden>${newsHtml}</div>
       <div class="small" style="color: var(--muted); margin-top: 10px; text-align:right;">MFL ID: ${pid}</div>
@@ -1133,6 +1225,33 @@
         body.querySelectorAll(".upm-tab-panel[data-upm-panel]").forEach(p => {
           if (p.dataset.upmPanel === target) p.removeAttribute("hidden");
           else p.setAttribute("hidden", "");
+        });
+      });
+    });
+
+    // Basic/Advanced toggle inside the Stats tab. Swap which inner
+    // div is visible; persist selection in sessionStorage so the
+    // default view follows the user's last choice across popups.
+    const statsTogglePref = (() => {
+      try { return sessionStorage.getItem("upm.stats.view") || "basic"; } catch (e) { return "basic"; }
+    })();
+    body.querySelectorAll("[data-stats-view]").forEach(btn => {
+      btn.setAttribute("aria-pressed", btn.dataset.statsView === statsTogglePref ? "true" : "false");
+    });
+    body.querySelectorAll("[data-stats-body]").forEach(div => {
+      if (div.dataset.statsBody === statsTogglePref) div.removeAttribute("hidden");
+      else div.setAttribute("hidden", "");
+    });
+    body.querySelectorAll("[data-stats-view]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const view = btn.dataset.statsView;
+        try { sessionStorage.setItem("upm.stats.view", view); } catch (e) {}
+        body.querySelectorAll("[data-stats-view]").forEach(b =>
+          b.setAttribute("aria-pressed", b === btn ? "true" : "false")
+        );
+        body.querySelectorAll("[data-stats-body]").forEach(d => {
+          if (d.dataset.statsBody === view) d.removeAttribute("hidden");
+          else d.setAttribute("hidden", "");
         });
       });
     });
