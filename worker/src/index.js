@@ -778,7 +778,32 @@ export default {
                 // are built from reg-season data, and playoff weeks have
                 // different variance profiles. Gate on is_reg=1 here.
                 // Game-log query below stays unfiltered so playoffs show.
-                `SELECT w.season,
+                //
+                // Extras on this row:
+                //   - pos_rank / pos_ppg_rank pulled from src_pointssummary
+                //     (already ranked by pipelines/etl against all starters
+                //     at that pos_group in that season).
+                //   - wc_pos_rank computed here as a per-season positional
+                //     rank by SUM(win_chunks). Because WC-β = win_chunks × β
+                //     and β is constant within a pos_group, ranking on raw
+                //     win_chunks inside (season, pos_group) IS the WC-β rank.
+                `WITH season_totals AS (
+                   SELECT w.season, w.player_id,
+                          MIN(w.pos_group) AS pos_group,
+                          SUM(COALESCE(w.win_chunks, 0)) AS win_chunks_total
+                     FROM src_weekly w
+                    WHERE w.is_reg = 1 AND w.score > 0 AND w.status = 'starter'
+                    GROUP BY w.season, w.player_id
+                 ),
+                 wc_ranked AS (
+                   SELECT season, player_id, pos_group, win_chunks_total,
+                          RANK() OVER (
+                            PARTITION BY season, pos_group
+                            ORDER BY win_chunks_total DESC
+                          ) AS wc_pos_rank
+                     FROM season_totals
+                 )
+                 SELECT w.season,
                         MIN(w.pos_group) AS pos_group,
                         COUNT(*) AS games_played,
                         SUM(CASE WHEN w.status='starter' THEN 1 ELSE 0 END) AS mfl_starts,
@@ -788,10 +813,19 @@ export default {
                         ROUND(100.0 * SUM(CASE WHEN b.delta_win_pos > 0 AND (w.score - b.score_p50_pos) / b.delta_win_pos >= 1.0  THEN 1 ELSE 0 END) / COUNT(*), 1) AS elite_pct,
                         ROUND(100.0 * SUM(CASE WHEN b.delta_win_pos > 0 AND (w.score - b.score_p50_pos) / b.delta_win_pos >= 0.25 AND (w.score - b.score_p50_pos) / b.delta_win_pos < 1.0 THEN 1 ELSE 0 END) / COUNT(*), 1) AS plus_pct,
                         ROUND(100.0 * SUM(CASE WHEN b.delta_win_pos > 0 AND (w.score - b.score_p50_pos) / b.delta_win_pos >= 0.25 THEN 1 ELSE 0 END) / COUNT(*), 1) AS ep_pct,
-                        ROUND(100.0 * SUM(CASE WHEN b.delta_win_pos > 0 AND (w.score - b.score_p50_pos) / b.delta_win_pos < -0.5 THEN 1 ELSE 0 END) / COUNT(*), 1) AS dud_pct
+                        ROUND(100.0 * SUM(CASE WHEN b.delta_win_pos > 0 AND (w.score - b.score_p50_pos) / b.delta_win_pos < -0.5 THEN 1 ELSE 0 END) / COUNT(*), 1) AS dud_pct,
+                        ps.pos_rank AS pos_rank,
+                        ps.pos_ppg_rank AS pos_ppg_rank,
+                        ps.overall_rank AS overall_rank,
+                        ps.overall_ppg_rank AS overall_ppg_rank,
+                        wcr.wc_pos_rank AS wc_pos_rank
                    FROM src_weekly w
                    LEFT JOIN src_baselines b
                           ON b.season = w.season AND b.pos_group = w.pos_group
+                   LEFT JOIN src_pointssummary ps
+                          ON ps.season = w.season AND ps.player_id = w.player_id
+                   LEFT JOIN wc_ranked wcr
+                          ON wcr.season = w.season AND wcr.player_id = w.player_id
                   WHERE w.player_id = ? AND w.score > 0 AND w.is_reg = 1
                   GROUP BY w.season
                   ORDER BY w.season DESC`
@@ -817,16 +851,21 @@ export default {
                 // tier (Elite ≥ 1.0, Plus ≥ 0.25, Neutral ≥ -0.5, Dud below)
                 // the same way the old Python bridge did. delta_win_pos
                 // is the 50→80 percentile gap; z = (score - p50) / delta.
-                // is_reg is included so the UI can tag playoff rows
-                // distinctly (z/tier classifications don't apply to
-                // playoff baselines, which we don't compute).
+                //
+                // Playoff weeks are INCLUDED in z/tier classification:
+                // owners still start lineups in the consolation / playoff
+                // brackets, and the regular-season-derived baselines are
+                // the league's agreed-upon yardstick for what "Elite" /
+                // "Plus" / "Dud" mean at each pos_group. is_reg stays on
+                // the row so the game log can still annotate playoff
+                // weeks with a "P" badge, but the classification fires.
                 `SELECT w.season, w.week, w.score, w.status, w.pos_group,
                         w.roster_franchise_name, w.pos_rank, w.overall_rank,
                         w.is_reg,
-                        CASE WHEN w.is_reg = 1 AND b.delta_win_pos IS NOT NULL AND b.delta_win_pos > 0
+                        CASE WHEN b.delta_win_pos IS NOT NULL AND b.delta_win_pos > 0
                              THEN ROUND((w.score - b.score_p50_pos) / b.delta_win_pos, 3)
                              ELSE NULL END AS z_score,
-                        CASE WHEN w.is_reg <> 1 OR b.delta_win_pos IS NULL OR b.delta_win_pos <= 0 THEN NULL
+                        CASE WHEN b.delta_win_pos IS NULL OR b.delta_win_pos <= 0 THEN NULL
                              WHEN (w.score - b.score_p50_pos) / b.delta_win_pos >= 1.0  THEN 'Elite'
                              WHEN (w.score - b.score_p50_pos) / b.delta_win_pos >= 0.25 THEN 'Plus'
                              WHEN (w.score - b.score_p50_pos) / b.delta_win_pos >= -0.5 THEN 'Neutral'

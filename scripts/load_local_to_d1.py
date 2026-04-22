@@ -245,6 +245,22 @@ def main():
          """,
          ["season","pos_group","score_p50_pos","score_p80_pos",
           "delta_win_pos","starter_sample_count"]),
+        ("pointssummary", "src_pointssummary",
+         """
+         SELECT season, player_id, positional_grouping,
+                games_played, points_total, ppg,
+                reg_games, reg_points, reg_ppg,
+                post_games, post_points, post_ppg,
+                started_games, started_points, started_ppg,
+                overall_rank, pos_rank, overall_ppg_rank, pos_ppg_rank
+         FROM player_pointssummary
+         """,
+         ["season","player_id","positional_grouping",
+          "games_played","points_total","ppg",
+          "reg_games","reg_points","reg_ppg",
+          "post_games","post_points","post_ppg",
+          "started_games","started_points","started_ppg",
+          "overall_rank","pos_rank","overall_ppg_rank","pos_ppg_rank"]),
     ]
 
     selected = set((args.only or "").split(",")) if args.only else None

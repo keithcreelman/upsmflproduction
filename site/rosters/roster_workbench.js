@@ -7630,21 +7630,24 @@
   }
 
   function upmStatsHtml(bundle) {
+    // Columns (per Keith 2026-04-22):
+    //   Yr | G | MFL Starts | Pts | Pts Rk | PPG | PPG Rk | Elite% | Plus% | Dud% | WC·β | WC·β Rk
+    // pos_rank / pos_ppg_rank come from src_pointssummary; wc_pos_rank is
+    // computed inline in the Worker career SQL (see index.js).
     var career = Array.isArray(bundle.career_summary) ? bundle.career_summary : [];
     var leverage = bundle.leverage_coefs || {};
     if (!career.length) {
       return '<p style="color:var(--rwb-text-dim); font-size:12px; padding:10px;">No career data for this player.</p>';
     }
     var rows = career.slice(0, 20);
-    var tot = { g: 0, starts: 0, pts: 0, wc: 0, wcn: 0, ep_num: 0, ep_den: 0, dud_num: 0, el_num: 0, pl_num: 0 };
+    var tot = { g: 0, starts: 0, pts: 0, wcn: 0, ep_den: 0, dud_num: 0, el_num: 0, pl_num: 0 };
     rows.forEach(function (c) {
       tot.g += c.games_played || 0;
       tot.starts += c.mfl_starts || 0;
       tot.pts += c.season_points || 0;
       var wcβ = leverage[c.pos_group] || 0;
-      tot.wc += c.win_chunks || 0;
       tot.wcn += (c.win_chunks || 0) * wcβ;
-      if (c.ep_pct != null) { tot.ep_num += c.ep_pct * c.games_played; tot.ep_den += c.games_played; }
+      if (c.ep_pct != null) { tot.ep_den += c.games_played; }
       if (c.dud_pct != null) tot.dud_num += c.dud_pct * c.games_played;
       if (c.elite_pct != null) tot.el_num += c.elite_pct * c.games_played;
       if (c.plus_pct != null) tot.pl_num += c.plus_pct * c.games_played;
@@ -7652,28 +7655,26 @@
     var careerPPG = tot.g ? tot.pts / tot.g : 0;
     var careerEl = tot.ep_den ? tot.el_num / tot.ep_den : 0;
     var careerPl = tot.ep_den ? tot.pl_num / tot.ep_den : 0;
-    var careerEP = tot.ep_den ? tot.ep_num / tot.ep_den : 0;
     var careerDud = tot.ep_den ? tot.dud_num / tot.ep_den : 0;
-    var careerNet = careerEP - 0.5 * careerDud;
+
+    function fmtRank(r) { return (r == null || r <= 0) ? "—" : "#" + r; }
 
     var rowsHtml = rows.map(function (c) {
       var wcβ = leverage[c.pos_group] || 0;
       var wcn = (c.win_chunks || 0) * wcβ;
-      var net = (c.ep_pct == null || c.dud_pct == null) ? null : c.ep_pct - 0.5 * c.dud_pct;
-      var netStr = net == null ? "—" : (net > 0 ? "+" : "") + net.toFixed(0);
       return '<tr>'
         + '<td>' + c.season + '</td>'
         + '<td class="num">' + (c.games_played || 0) + '</td>'
         + '<td class="num">' + (c.mfl_starts || 0) + '</td>'
         + '<td class="num">' + (c.season_points != null ? c.season_points.toFixed(0) : "—") + '</td>'
+        + '<td class="num" style="color:var(--rwb-text-dim)">' + fmtRank(c.pos_rank) + '</td>'
         + '<td class="num">' + (c.avg_ppg != null ? c.avg_ppg.toFixed(1) : "—") + '</td>'
+        + '<td class="num" style="color:var(--rwb-text-dim)">' + fmtRank(c.pos_ppg_rank) + '</td>'
         + '<td class="num">' + (c.elite_pct != null ? c.elite_pct.toFixed(0) + "%" : "—") + '</td>'
         + '<td class="num">' + (c.plus_pct != null ? c.plus_pct.toFixed(0) + "%" : "—") + '</td>'
-        + '<td class="num"><strong>' + (c.ep_pct != null ? c.ep_pct.toFixed(0) + "%" : "—") + '</strong></td>'
         + '<td class="num">' + (c.dud_pct != null ? c.dud_pct.toFixed(0) + "%" : "—") + '</td>'
-        + '<td class="num">' + netStr + '</td>'
-        + '<td class="num">' + (c.win_chunks || 0).toFixed(1) + '</td>'
         + '<td class="num"><strong>' + wcn.toFixed(1) + '</strong></td>'
+        + '<td class="num" style="color:var(--rwb-text-dim)">' + fmtRank(c.wc_pos_rank) + '</td>'
         + '</tr>';
     }).join("");
 
@@ -7689,27 +7690,32 @@
       + '</div>'
       + '<div data-upm-window-summary class="upm-window-summary" hidden></div>'
       + '<table class="upm-stats-table"><thead><tr>'
-      + '<th>Yr</th><th class="num">G</th><th class="num">MFL Starts</th>'
-      + '<th class="num">Pts</th><th class="num">PPG</th>'
-      + '<th class="num">Elite%</th><th class="num">Plus%</th>'
-      + '<th class="num">E+P%</th><th class="num">Dud%</th>'
-      + '<th class="num">NET</th>'
-      + '<th class="num" title="Win Chunks (season total)">WC</th>'
+      + '<th>Yr</th>'
+      + '<th class="num">G</th>'
+      + '<th class="num" title="Weeks in an MFL starting lineup">MFL Starts</th>'
+      + '<th class="num">Pts</th>'
+      + '<th class="num" title="Positional rank by total points that season">Pts Rk</th>'
+      + '<th class="num">PPG</th>'
+      + '<th class="num" title="Positional rank by PPG that season">PPG Rk</th>'
+      + '<th class="num">Elite%</th>'
+      + '<th class="num">Plus%</th>'
+      + '<th class="num">Dud%</th>'
       + '<th class="num" title="Win Chunks × positional leverage β (QB≈0.88, WR≈0.82, DB≈0.39)">WC·β</th>'
+      + '<th class="num" title="Positional rank by WC-β that season">WC·β Rk</th>'
       + '</tr></thead><tbody>' + rowsHtml
       + '<tr style="border-top:2px solid var(--rwb-border-strong); font-weight:700;">'
       + '<td>Career</td>'
       + '<td class="num">' + tot.g + '</td>'
       + '<td class="num">' + tot.starts + '</td>'
       + '<td class="num">' + tot.pts.toFixed(0) + '</td>'
+      + '<td class="num" style="color:var(--rwb-text-dim)">—</td>'
       + '<td class="num">' + careerPPG.toFixed(1) + '</td>'
+      + '<td class="num" style="color:var(--rwb-text-dim)">—</td>'
       + '<td class="num">' + careerEl.toFixed(0) + '%</td>'
       + '<td class="num">' + careerPl.toFixed(0) + '%</td>'
-      + '<td class="num">' + careerEP.toFixed(0) + '%</td>'
       + '<td class="num">' + careerDud.toFixed(0) + '%</td>'
-      + '<td class="num">' + (careerNet > 0 ? "+" : "") + careerNet.toFixed(0) + '</td>'
-      + '<td class="num">' + tot.wc.toFixed(1) + '</td>'
       + '<td class="num">' + tot.wcn.toFixed(1) + '</td>'
+      + '<td class="num" style="color:var(--rwb-text-dim)">—</td>'
       + '</tr></tbody></table>';
   }
 
