@@ -945,9 +945,11 @@
       })()}
 
       ${(() => {
-        // Contract history — per-season salary + owner lineage for this
-        // player from D1 src_contracts. Renders a compact table so the
-        // user can see every contract they've held in our league.
+        // Contract history — owner lineage + deal terms per season for
+        // this player from D1 src_contracts. Deliberately omits per-year
+        // salary (stored in src_contracts.salary): MFL's derived per-year
+        // salary isn't reliable and isn't relevant for rookie-hub scanning.
+        // AAV (average across contract_length) is the trustworthy number.
         const ch = Array.isArray(bundle.contract_history) ? bundle.contract_history : [];
         if (!ch.length) return "";
         const fmt$ = (v) => (v == null || v === 0) ? "—" : "$" + Number(v).toLocaleString();
@@ -956,7 +958,6 @@
           return `<tr>
             <td>${c.season}</td>
             <td>${escapeHtml(c.team_name || "")}${extBadge}</td>
-            <td class="num">${fmt$(c.salary)}</td>
             <td class="num">${c.contract_length || "—"}</td>
             <td>${c.contract_year ? "Y" + c.contract_year : "—"}</td>
             <td class="num">${fmt$(c.aav)}</td>
@@ -967,7 +968,7 @@
           <h4>Contract History <span class="small" style="color:var(--muted); font-weight:400">(${ch.length} season${ch.length === 1 ? "" : "s"})</span></h4>
           <table class="rdh-table" style="margin-top:6px;">
             <thead><tr>
-              <th>Yr</th><th>Team</th><th class="num">Salary</th>
+              <th>Yr</th><th>Team</th>
               <th class="num">Len</th><th>Yr#</th><th class="num">AAV</th>
             </tr></thead>
             <tbody>${rowsHtml}</tbody>
