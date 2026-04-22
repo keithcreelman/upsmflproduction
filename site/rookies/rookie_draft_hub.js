@@ -1178,16 +1178,19 @@
           </div>
           <table class="rdh-table">
             <thead><tr><th class="num">Wk</th><th class="num">Pts</th><th class="num">z</th><th>Week Tier</th><th>MFL Status</th><th class="small">Team</th><th class="num">Pos Rk</th></tr></thead>
-            <tbody>${sorted.map(w => `
-              <tr>
-                <td class="num">${w.week}</td>
+            <tbody>${sorted.map(w => {
+              const playoffTag = w.is_reg === 0 ? ` <span class="small" style="color:var(--accent); font-weight:600;" title="Playoffs — tier classifications use regular-season baselines only">P</span>` : "";
+              return `
+              <tr${w.is_reg === 0 ? ' style="background:rgba(255,158,77,0.06);"' : ""}>
+                <td class="num">${w.week}${playoffTag}</td>
                 <td class="num">${w.score != null ? w.score.toFixed(1) : "—"}</td>
                 <td class="num">${w.z_score != null ? (w.z_score > 0 ? "+" : "") + w.z_score.toFixed(2) : "—"}</td>
                 <td>${w.week_tier ? `<span class="tier ${weekTierClass(w.week_tier)}">${w.week_tier}</span>` : "—"}</td>
                 <td>${escapeHtml(w.status || "")}</td>
                 <td class="small">${escapeHtml(w.roster_franchise_name || "")}</td>
                 <td class="num">${w.pos_rank || "—"}</td>
-              </tr>`).join("")}</tbody>
+              </tr>`;
+            }).join("")}</tbody>
           </table>`;
       };
       seasonSel.addEventListener("change", e => renderGameLog(e.target.value));

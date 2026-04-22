@@ -7661,8 +7661,10 @@
         + '<th>Tier</th><th>MFL</th><th>Team</th><th class="num">Pos Rk</th>'
         + '</tr></thead><tbody>'
         + sorted.map(function (w) {
-            return '<tr>'
-              + '<td class="num">' + w.week + '</td>'
+            var playoffTag = w.is_reg === 0 ? ' <span style="color:var(--rwb-accent); font-size:10px; font-weight:700;" title="Playoffs — tier classifications use regular-season baselines only">P</span>' : '';
+            var rowStyle = w.is_reg === 0 ? ' style="background:rgba(255,158,77,0.06);"' : '';
+            return '<tr' + rowStyle + '>'
+              + '<td class="num">' + w.week + playoffTag + '</td>'
               + '<td class="num">' + (w.score != null ? w.score.toFixed(1) : "—") + '</td>'
               + '<td class="num">' + (w.z_score != null ? (w.z_score > 0 ? "+" : "") + w.z_score.toFixed(2) : "—") + '</td>'
               + '<td>' + (w.week_tier ? '<span class="upm-tier ' + w.week_tier + '">' + w.week_tier + '</span>' : "—") + '</td>'

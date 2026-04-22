@@ -773,6 +773,11 @@ export default {
                 // Elite / Plus / E+P / Dud % the same way the Python bridge
                 // used to. Ratio math is gated on delta_win_pos > 0 so we
                 // don't divide by zero for positions/years with no baseline.
+                // Career rate stats (Elite/Plus/E+P/Dud %) only make sense
+                // against regular-season positional baselines — baselines
+                // are built from reg-season data, and playoff weeks have
+                // different variance profiles. Gate on is_reg=1 here.
+                // Game-log query below stays unfiltered so playoffs show.
                 `SELECT w.season,
                         MIN(w.pos_group) AS pos_group,
                         COUNT(*) AS games_played,
@@ -787,7 +792,7 @@ export default {
                    FROM src_weekly w
                    LEFT JOIN src_baselines b
                           ON b.season = w.season AND b.pos_group = w.pos_group
-                  WHERE w.player_id = ? AND w.score > 0
+                  WHERE w.player_id = ? AND w.score > 0 AND w.is_reg = 1
                   GROUP BY w.season
                   ORDER BY w.season DESC`
               ).bind(pid).all(),
@@ -812,12 +817,16 @@ export default {
                 // tier (Elite ≥ 1.0, Plus ≥ 0.25, Neutral ≥ -0.5, Dud below)
                 // the same way the old Python bridge did. delta_win_pos
                 // is the 50→80 percentile gap; z = (score - p50) / delta.
+                // is_reg is included so the UI can tag playoff rows
+                // distinctly (z/tier classifications don't apply to
+                // playoff baselines, which we don't compute).
                 `SELECT w.season, w.week, w.score, w.status, w.pos_group,
                         w.roster_franchise_name, w.pos_rank, w.overall_rank,
-                        CASE WHEN b.delta_win_pos IS NOT NULL AND b.delta_win_pos > 0
+                        w.is_reg,
+                        CASE WHEN w.is_reg = 1 AND b.delta_win_pos IS NOT NULL AND b.delta_win_pos > 0
                              THEN ROUND((w.score - b.score_p50_pos) / b.delta_win_pos, 3)
                              ELSE NULL END AS z_score,
-                        CASE WHEN b.delta_win_pos IS NULL OR b.delta_win_pos <= 0 THEN NULL
+                        CASE WHEN w.is_reg <> 1 OR b.delta_win_pos IS NULL OR b.delta_win_pos <= 0 THEN NULL
                              WHEN (w.score - b.score_p50_pos) / b.delta_win_pos >= 1.0  THEN 'Elite'
                              WHEN (w.score - b.score_p50_pos) / b.delta_win_pos >= 0.25 THEN 'Plus'
                              WHEN (w.score - b.score_p50_pos) / b.delta_win_pos >= -0.5 THEN 'Neutral'
