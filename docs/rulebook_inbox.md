@@ -6,6 +6,80 @@ Claude may append proposals here at any time but MUST NOT edit `claude_canonical
 
 ---
 
+## Proposed: RULE-DATA-005 — Franchise identity tokens may be emoji-only; normalization must preserve them
+
+**Category:** RULE-DATA (franchise identity handling)
+**Status:** proposed
+**Raised:** 2026-04-22 — CJ Stroud (pid 16150, on HammerTime FID=0005)
+showed an extension option on his Front Office popup despite already
+being extended by HammerTime. Root cause: HammerTime's `abbrev` is
+literally `🔨 ⏰` (hammer + alarm clock emojis), Stroud's
+`contractInfo` read `Ext: 🔨 ⏰`, and our identity-normalizer stripped
+everything non-`[a-z0-9]` — producing an empty string that failed the
+`extensionBlockedByCurrentOwner` match and silently violated
+RULE-EXT-003.
+
+**Rule.** Any code that compares a franchise identity token (name,
+abbrev, or `Ext:`-list entry) MUST treat non-ASCII codepoints as
+significant. Emojis, accented letters, and CJK are all valid
+franchise branding in MFL — stripping them erases the token and makes
+downstream rules (RULE-EXT-003 single-extension-per-team, trade-asset
+attribution, roster-legacy inference) silently wrong.
+
+**How to apply.** `normalizeIdentityToken` in
+`site/rosters/roster_workbench.js` is the canonical implementation:
+it strips ASCII whitespace + punctuation but preserves every
+codepoint ≥ 0x80 (including both halves of UTF-16 surrogate pairs so
+astral-plane emojis survive intact). Any future function that does
+franchise-identity comparison — client OR Worker side — should use
+the same approach:
+
+```js
+function normalizeIdentityToken(token) {
+  var s = String(token || "").toLowerCase();
+  var out = "";
+  for (var i = 0; i < s.length; i++) {
+    var c = s.charCodeAt(i);
+    if (c <= 0x7F) {
+      if ((c >= 0x30 && c <= 0x39) || (c >= 0x61 && c <= 0x7A)) out += s.charAt(i);
+    } else {
+      out += s.charAt(i);
+    }
+  }
+  return out;
+}
+```
+
+Do NOT use `str.replace(/[^a-z0-9]/g, "")` — that's the broken form.
+
+**Worked example.** HammerTime roster today — Stroud `Ext: 🔨 ⏰`:
+- Before fix: `normalizeIdentityToken("🔨 ⏰")` → `""` → `!normalized`
+  branch → no match → extension shown (RULE-EXT-003 violated).
+- After fix: `normalizeIdentityToken("🔨 ⏰")` → `"🔨⏰"`. Team
+  identity map for HammerTime builds `{"hammertime": true, "🔨": true,
+  "⏰": true, "🔨⏰": true, "hammertime🔨⏰": true}`. Direct lookup
+  matches. Extension button correctly hidden.
+
+**Enforcement.** Current franchises with emoji identity in league
+74598: HammerTime only (2026-04-22). Auditing for more is cheap —
+`any(ord(c) > 127 for c in name + abbrev)` on the league.json.
+
+**Cross-refs.** RULE-EXT-003 (the rule this bug silently bypassed),
+RULE-DATA-001 (UW/L.A. Looks aliasing — related "identity tokens
+must match on semantics, not just surface strings" theme),
+RULE-WORKFLOW-002 (don't touch shared identity-matching logic without
+understanding the RULE-EXT-003 + RULE-DATA-001 interplay).
+
+**Operator note.** When investigating "why does this player show
+action X that shouldn't be available," the first thing to check is
+whether the match-criterion string contains non-ASCII — our matcher
+was dropping them for years before this was surfaced by a single
+affected player on the ONE emoji-branded franchise. Searchable
+symptom: player has `Ext: <team-name>` in MFL contractInfo but
+`extensionBlockedByCurrentOwner(player)` returns false.
+
+---
+
 ## Proposed: RULE-DEADLINE-001 — Three distinct deadline flavors, not one
 
 **Category:** RULE-DEADLINE (new category — contract-action timing)

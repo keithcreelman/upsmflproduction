@@ -1123,7 +1123,40 @@
   }
 
   function normalizeIdentityToken(token) {
-    return safeStr(token).toLowerCase().replace(/[^a-z0-9]/g, "");
+    // Normalize a franchise identity token (team name / abbrev / Ext:
+    // list entry) to a comparable slug.
+    //
+    // Historical behavior stripped EVERYTHING non-[a-z0-9], which works
+    // for ASCII team names ("C-Town" → "ctown") but silently erased
+    // emoji-only branding. HammerTime's abbrev is literally "🔨 ⏰" and
+    // players they extend end up with `Ext: 🔨 ⏰` in MFL's contractInfo.
+    // Stripping to empty meant every emoji-ext lookup hit the early
+    // `if (!normalized) return false` and the extension-block rule
+    // silently leaked — letting an already-extended player show an
+    // extension button on the current owner's roster (RULE-EXT-003
+    // violation, reported 2026-04-22 on CJ Stroud under HammerTime).
+    //
+    // Fix: keep [a-z0-9] AND every non-ASCII codepoint (emojis are in
+    // the supplementary plane and show up as surrogate pairs — preserve
+    // both halves so the emoji survives intact). Whitespace, hyphens,
+    // slashes etc. still get stripped so "C-Town" → "ctown" still
+    // collapses correctly.
+    var s = safeStr(token).toLowerCase();
+    var out = "";
+    for (var i = 0; i < s.length; i += 1) {
+      var c = s.charCodeAt(i);
+      if (c <= 0x7F) {
+        // ASCII: keep only letters (lowercased) and digits.
+        if ((c >= 0x30 && c <= 0x39) || (c >= 0x61 && c <= 0x7A)) {
+          out += s.charAt(i);
+        }
+        // else: ASCII whitespace / punctuation → drop
+      } else {
+        // Non-ASCII: preserve (covers emojis, accented letters, CJK, etc).
+        out += s.charAt(i);
+      }
+    }
+    return out;
   }
 
   function teamIdentityTokenMap(team) {
