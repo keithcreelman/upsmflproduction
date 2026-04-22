@@ -7666,51 +7666,82 @@
     upmWireGameLog(root, bundle);
   }
 
-  // Advanced-stats (NFL box score via nflverse crosswalk) rendered
-  // inside the Stats tab behind a Basic/Advanced toggle (Keith
-  // 2026-04-22: "just stats, advanced vs. basic"). When crosswalk is
-  // missing OR nfl_season_totals is empty, falls back to a helpful
-  // hint pointing the operator at the fetcher scripts to run.
-  function upmAdvancedStatsHtml(bundle) {
+  // Three-way Stats tab toggle (Keith 2026-04-22):
+  //   Scoring (MFL) = fantasy-points view (unchanged from prior "Basic")
+  //   Raw Stats     = NFL box score via nflverse + yardline bands
+  //                   (GL / RZ carries, RZ / EZ targets) via PBP.
+  //   Advanced      = derived metrics TBD (weighted opp, xFP, FPOE...).
+  //
+  // Each has its own html() helper; wrapper composes them behind the
+  // toggle; upmWireStatsToggle wires click handlers + sessionStorage.
+  function upmRawStatsHtml(bundle) {
     var totals = Array.isArray(bundle.nfl_season_totals) ? bundle.nfl_season_totals : [];
     var crosswalk = bundle.crosswalk || null;
     if (!crosswalk || !crosswalk.gsis_id) {
       return '<p style="color:var(--rwb-text-dim); font-size:12px; padding:10px;">'
         + 'No NFL crosswalk for this player yet. Run '
-        + '<code>pipelines/etl/scripts/build_player_id_crosswalk.py</code> '
-        + 'to map MFL pid → nflverse gsis_id.</p>';
+        + '<code>pipelines/etl/scripts/build_player_id_crosswalk.py</code>.</p>';
     }
     if (!totals.length) {
       return '<p style="color:var(--rwb-text-dim); font-size:12px; padding:10px;">'
-        + 'NFL advanced stats not yet loaded for <code>' + crosswalk.gsis_id + '</code>. '
-        + 'Run <code>pipelines/etl/scripts/fetch_nflverse_weekly.py --seasons 2011-2025</code> '
-        + 'then <code>scripts/load_local_to_d1.py --only nflweekly,nflsnaps</code>.</p>';
+        + 'NFL raw stats not yet loaded for <code>' + crosswalk.gsis_id + '</code>. '
+        + 'Run <code>fetch_nflverse_weekly.py --seasons 2011-2025</code> then '
+        + '<code>load_local_to_d1.py --only nflweekly,nflsnaps</code>. '
+        + 'Red-zone / goal-line / end-zone columns additionally require '
+        + '<code>fetch_nflverse_pbp.py</code> + <code>--only nflredzone</code>.</p>';
     }
     var COLS = [
       { key: "games", label: "G" },
-      { key: "rush_att", label: "RuAtt" }, { key: "rush_yds", label: "RuYds" }, { key: "rush_tds", label: "RuTD" },
-      { key: "targets", label: "Tgt" }, { key: "receptions", label: "Rec" },
-      { key: "rec_yds", label: "RecYds" }, { key: "rec_tds", label: "RecTD" },
-      { key: "pass_att", label: "PaAtt" }, { key: "pass_cmp", label: "PaCmp" },
-      { key: "pass_yds", label: "PaYds" }, { key: "pass_tds", label: "PaTD" },
+      { key: "rush_att", label: "Ru" },
+      { key: "rush_yds", label: "RuYd" },
+      { key: "rush_tds", label: "RuTD" },
+      { key: "rush_att_i20", label: "Ru I20", rz: true },
+      { key: "rush_att_i5",  label: "GL I5",  rz: true },
+      { key: "targets", label: "Tgt" },
+      { key: "receptions", label: "Rec" },
+      { key: "rec_yds", label: "RecYd" },
+      { key: "rec_tds", label: "RecTD" },
+      { key: "targets_i20", label: "Tgt I20", rz: true },
+      { key: "targets_ez",  label: "Tgt EZ",  rz: true },
+      { key: "pass_att", label: "PaAtt" },
+      { key: "pass_cmp", label: "PaCmp" },
+      { key: "pass_yds", label: "PaYds" },
+      { key: "pass_tds", label: "PaTD" },
       { key: "pass_ints", label: "Int" },
-      { key: "def_tackles_total", label: "Tkl" }, { key: "def_tfl", label: "TFL" },
-      { key: "def_sacks", label: "Sk" }, { key: "def_ff", label: "FF" },
-      { key: "def_ints", label: "DefInt" }, { key: "def_pass_def", label: "PD" },
+      { key: "pass_att_i20", label: "Pa I20", rz: true },
+      { key: "pass_att_ez",  label: "Pa EZ",  rz: true },
+      { key: "def_tackles_total", label: "Tkl" },
+      { key: "def_tfl", label: "TFL" },
+      { key: "def_sacks", label: "Sk" },
+      { key: "def_ff", label: "FF" },
+      { key: "def_ints", label: "DefInt" },
+      { key: "def_pass_def", label: "PD" },
       { key: "fg_att", label: "FGA" }, { key: "fg_made", label: "FGM" },
       { key: "xp_att", label: "XPA" }, { key: "xp_made", label: "XPM" },
       { key: "punts", label: "Punt" }
     ];
-    var activeCols = COLS.filter(function (c) {
-      return totals.some(function (r) { return (Number(r[c.key]) || 0) !== 0; });
+    function sumNonZero(k) {
+      return totals.some(function (r) { return (Number(r[k]) || 0) !== 0; });
+    }
+    var hasRush = sumNonZero("rush_att");
+    var hasRec  = sumNonZero("targets");
+    var hasPass = sumNonZero("pass_att");
+    var keepRZ = {};
+    if (hasRush) { keepRZ["rush_att_i20"] = true; keepRZ["rush_att_i5"] = true; }
+    if (hasRec)  { keepRZ["targets_i20"] = true; keepRZ["targets_ez"] = true; }
+    if (hasPass) { keepRZ["pass_att_i20"] = true; keepRZ["pass_att_ez"] = true; }
+    var finalCols = COLS.filter(function (c) {
+      if (c.rz && keepRZ[c.key]) return true;
+      return sumNonZero(c.key);
     });
-    var thRow = '<th>Yr</th>' + activeCols.map(function (c) {
+    var thRow = '<th>Yr</th>' + finalCols.map(function (c) {
       return '<th class="num">' + c.label + '</th>';
     }).join("");
+    var anyRZ = totals.some(function (r) { return (Number(r.rush_att_i20) || 0) > 0 || (Number(r.targets_i20) || 0) > 0; });
     var bodyRows = totals.map(function (r) {
       var tds = '<td>' + r.season + '</td>';
-      for (var i = 0; i < activeCols.length; i++) {
-        var c = activeCols[i];
+      for (var i = 0; i < finalCols.length; i++) {
+        var c = finalCols[i];
         var v = r[c.key];
         if (v == null || v === 0) {
           tds += '<td class="num" style="color:var(--rwb-text-dim)">—</td>';
@@ -7727,27 +7758,48 @@
         + crosswalk.confidence + (crosswalk.match_score ? " (" + Number(crosswalk.match_score).toFixed(2) + ")" : "")
         + ' — review recommended.</div>'
       : "";
+    var rzFoot = !anyRZ
+      ? '<div style="color:var(--rwb-text-dim); font-size:11px; margin-top:4px;">Yardline-banded columns (I20 / I5 / EZ) populate once <code>fetch_nflverse_pbp.py</code> is run.</div>'
+      : "";
     return ''
       + '<div style="font-size:11px; color:var(--rwb-text-dim); margin-bottom:6px;">'
-      + 'Real NFL box-score data, independent of MFL fantasy scoring. Source: nflverse.</div>'
+      + 'Real NFL on-field counts. Independent of MFL fantasy scoring. I20 = inside-20 (Red Zone). I5 = inside-5 (Goal Line). EZ = End Zone target.</div>'
       + '<table class="upm-stats-table"><thead><tr>' + thRow + '</tr></thead>'
       + '<tbody>' + bodyRows + '</tbody></table>'
-      + confNote;
+      + confNote + rzFoot;
+  }
+
+  function upmAdvancedStatsHtml(bundle) {
+    return ''
+      + '<div style="padding:10px; color:var(--rwb-text-dim); font-size:12px;">'
+      + '<strong>Advanced Stats — TBD.</strong> Derived metrics — weighted opportunity '
+      + '(a 1-yd carry &gt; a 50-yd carry), expected fantasy points (xFP), '
+      + 'fantasy points over expected (FPOE), WOPR, ADOT, snap share — will '
+      + 'land here. See <code>docs/nfl_advanced_stats_plan.md</code> §"Future enhancements".'
+      + '</div>';
   }
 
   function upmStatsWrappedHtml(bundle) {
     return ''
-      + '<div class="upm-stats-view-switch" style="display:flex; gap:6px; margin-bottom:10px;">'
-      + '<button type="button" class="rwb-chip" data-stats-view="basic" aria-pressed="true">Basic (MFL)</button>'
-      + '<button type="button" class="rwb-chip" data-stats-view="advanced" aria-pressed="false">Advanced (NFL)</button>'
+      + '<div class="upm-stats-view-switch" style="display:flex; gap:6px; margin-bottom:10px; flex-wrap:wrap;">'
+      + '<button type="button" class="rwb-chip" data-stats-view="scoring"  aria-pressed="true">Scoring (MFL)</button>'
+      + '<button type="button" class="rwb-chip" data-stats-view="raw"      aria-pressed="false">Raw Stats</button>'
+      + '<button type="button" class="rwb-chip" data-stats-view="advanced" aria-pressed="false">Advanced</button>'
       + '</div>'
-      + '<div data-stats-body="basic">' + upmStatsHtml(bundle) + '</div>'
+      + '<div data-stats-body="scoring">'  + upmStatsHtml(bundle) + '</div>'
+      + '<div data-stats-body="raw" hidden>'      + upmRawStatsHtml(bundle) + '</div>'
       + '<div data-stats-body="advanced" hidden>' + upmAdvancedStatsHtml(bundle) + '</div>';
   }
 
   function upmWireStatsToggle(root) {
     var pref;
-    try { pref = sessionStorage.getItem("upm.stats.view") || "basic"; } catch (e) { pref = "basic"; }
+    try {
+      var v = sessionStorage.getItem("upm.stats.view");
+      // Legacy two-way values → new three-way taxonomy.
+      if (v === "basic") pref = "scoring";
+      else if (v === "advanced") pref = "raw";
+      else pref = v || "scoring";
+    } catch (e) { pref = "scoring"; }
     var buttons = root.querySelectorAll("[data-stats-view]");
     var bodies = root.querySelectorAll("[data-stats-body]");
     buttons.forEach(function (b) { b.setAttribute("aria-pressed", b.dataset.statsView === pref ? "true" : "false"); });

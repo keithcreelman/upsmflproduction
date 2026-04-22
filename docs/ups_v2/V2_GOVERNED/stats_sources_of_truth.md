@@ -10,9 +10,19 @@ goes into each view live here.
 
 ---
 
-## The two stat views
+## The three stat views
 
-### Basic (MFL-scored fantasy view)
+Keith's refinement 2026-04-22: what was originally a two-way Basic /
+Advanced toggle is a **three-way split** — "Basic" and "Advanced"
+were both doing too much. Clear taxonomy:
+
+| View label | What it is | Source tag |
+|---|---|---|
+| **Scoring (MFL)** | Fantasy-scored view — points, PPG, Elite%, APW | MFL |
+| **Raw Stats** | On-field NFL counts — carries, targets, yards, TDs, plus yardline bands (GL I5 / RZ I20 / RZ/EZ targets) | nflverse box + PBP |
+| **Advanced** | Derived metrics — weighted opportunity, xFP, FPOE, WOPR, ADOT, etc. | computed (TBD v2) |
+
+### Scoring (MFL-scored fantasy view)
 
 Everything that maps directly to how our league awards fantasy
 points. This is the default view and always reflects MFL's own math
@@ -28,9 +38,9 @@ so numbers on the popup match numbers on the league site.
 | Elite / Plus / Dud % | `src_weekly` × `src_baselines` | computed in Worker SQL |
 | APW (Adj. All-Play Wins) | WC × positional leverage β | computed in Worker + UI |
 
-Basic view is **authoritative for our scoring** — never diverges from what MFL would show on the standings or scoreboard.
+Scoring view is **authoritative for our scoring** — never diverges from what MFL would show on the standings or scoreboard.
 
-### Advanced (NFL usage / charting)
+### Raw Stats (NFL box score + yardline bands)
 
 Real NFL box-score and usage data. Serves the "what did this player
 actually DO on the field" question, independent of fantasy points.
@@ -44,12 +54,30 @@ actually DO on the field" question, independent of fantasy points.
 | Kicker FG makes / att by distance | nflverse `load_player_stats()` | `nfl_player_weekly` |
 | Offensive / defensive snaps | nflverse `load_snap_counts()` | `nfl_player_snaps` |
 | Snap % of team | computed from snaps + team totals | `nfl_player_snaps` |
-| Yardline bands (I20/I10/I5) | nflverse `load_pbp()` | `nfl_player_redzone` (Phase 3) |
-| Route participation / WOPR / ADOT | nflverse `load_nextgen_stats()` | `nfl_player_usage` (Phase 3) |
+| Yardline bands (I20/I10/I5) | nflverse `load_pbp()` | `nfl_player_redzone` |
+| End-Zone targets | nflverse `load_pbp()` (air_yards ≥ yardline_100) | `nfl_player_redzone.targets_ez` |
+| Route participation / WOPR / ADOT | nflverse `load_nextgen_stats()` | `nfl_player_usage` (future) |
 
-Advanced view is **authoritative for real-football usage** —
+Raw Stats view is **authoritative for real-football usage** —
 independent of MFL scoring. When the user wants "does this RB get
-goal-line carries?", that's here, not in Basic.
+goal-line carries?", that's here, not in Scoring.
+
+### Advanced (derived / calculated metrics — TBD v2)
+
+Currently a **placeholder**. Will house metrics computed FROM the
+raw stats once the foundation is stable:
+
+- **Weighted opportunity** — a 1-yd carry is worth more than a 50-yd
+  carry; this view sums per-touch expected-FP contributions.
+- **xFP / FPOE** — expected fantasy points given usage vs. actual;
+  separates volume from efficiency.
+- **WOPR** — air-yards-weighted opportunity rating for WR/TE.
+- **ADOT** — average depth of target.
+- **Snap share** — player snaps / team snaps.
+- **Route participation** — routes run / team dropbacks.
+
+See `docs/nfl_advanced_stats_plan.md` §"Future enhancements — derived
+advanced stats" for the full menu + calibration approach.
 
 ---
 

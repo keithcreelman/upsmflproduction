@@ -314,6 +314,22 @@ def main():
           "off_snaps","off_snaps_team","off_snap_pct",
           "def_snaps","def_snaps_team","def_snap_pct",
           "st_snaps","st_snaps_team","st_snap_pct"]),
+        ("nflredzone", "nfl_player_redzone",
+         """
+         SELECT season, week, gsis_id,
+                rush_att_i20, rush_att_i10, rush_att_i5,
+                rush_yds_i20, rush_tds_i20,
+                targets_i20, targets_i10, targets_i5,
+                targets_ez, rec_i20, rec_tds_i20,
+                pass_att_i20, pass_tds_i20, pass_att_ez
+         FROM nfl_player_redzone
+         """,
+         ["season","week","gsis_id",
+          "rush_att_i20","rush_att_i10","rush_att_i5",
+          "rush_yds_i20","rush_tds_i20",
+          "targets_i20","targets_i10","targets_i5",
+          "targets_ez","rec_i20","rec_tds_i20",
+          "pass_att_i20","pass_tds_i20","pass_att_ez"]),
     ]
 
     selected = set((args.only or "").split(",")) if args.only else None

@@ -1015,37 +1015,59 @@ export default {
                     // rows. NULL-safe via COALESCE(...,0). Pre-aggregating
                     // here saves the client from having to re-walk weekly
                     // arrays for the "season summary" row.
-                    `SELECT season,
+                    //
+                    // LEFT JOIN nfl_player_redzone so the per-season row
+                    // also carries yardline-banded counts (Goal Line
+                    // carries inside 5, RZ carries inside 20, RZ / EZ
+                    // targets) — empty until fetch_nflverse_pbp.py runs.
+                    `SELECT w.season,
                             COUNT(*) AS games,
-                            SUM(COALESCE(rush_att,0))     AS rush_att,
-                            SUM(COALESCE(rush_yds,0))     AS rush_yds,
-                            SUM(COALESCE(rush_tds,0))     AS rush_tds,
-                            SUM(COALESCE(targets,0))      AS targets,
-                            SUM(COALESCE(receptions,0))   AS receptions,
-                            SUM(COALESCE(rec_yds,0))      AS rec_yds,
-                            SUM(COALESCE(rec_tds,0))      AS rec_tds,
-                            SUM(COALESCE(pass_att,0))     AS pass_att,
-                            SUM(COALESCE(pass_cmp,0))     AS pass_cmp,
-                            SUM(COALESCE(pass_yds,0))     AS pass_yds,
-                            SUM(COALESCE(pass_tds,0))     AS pass_tds,
-                            SUM(COALESCE(pass_ints,0))    AS pass_ints,
-                            SUM(COALESCE(pass_sacks,0))   AS pass_sacks,
-                            SUM(COALESCE(def_tackles_total,0)) AS def_tackles_total,
-                            SUM(COALESCE(def_tfl,0))      AS def_tfl,
-                            SUM(COALESCE(def_sacks,0))    AS def_sacks,
-                            SUM(COALESCE(def_ff,0))       AS def_ff,
-                            SUM(COALESCE(def_ints,0))     AS def_ints,
-                            SUM(COALESCE(def_pass_def,0)) AS def_pass_def,
-                            SUM(COALESCE(fg_att,0))       AS fg_att,
-                            SUM(COALESCE(fg_made,0))      AS fg_made,
-                            SUM(COALESCE(xp_att,0))       AS xp_att,
-                            SUM(COALESCE(xp_made,0))      AS xp_made,
-                            SUM(COALESCE(punts,0))        AS punts,
-                            SUM(COALESCE(punt_yds,0))     AS punt_yds
-                       FROM nfl_player_weekly
-                      WHERE gsis_id = ?
-                      GROUP BY season
-                      ORDER BY season DESC`
+                            SUM(COALESCE(w.rush_att,0))     AS rush_att,
+                            SUM(COALESCE(w.rush_yds,0))     AS rush_yds,
+                            SUM(COALESCE(w.rush_tds,0))     AS rush_tds,
+                            SUM(COALESCE(w.targets,0))      AS targets,
+                            SUM(COALESCE(w.receptions,0))   AS receptions,
+                            SUM(COALESCE(w.rec_yds,0))      AS rec_yds,
+                            SUM(COALESCE(w.rec_tds,0))      AS rec_tds,
+                            SUM(COALESCE(w.pass_att,0))     AS pass_att,
+                            SUM(COALESCE(w.pass_cmp,0))     AS pass_cmp,
+                            SUM(COALESCE(w.pass_yds,0))     AS pass_yds,
+                            SUM(COALESCE(w.pass_tds,0))     AS pass_tds,
+                            SUM(COALESCE(w.pass_ints,0))    AS pass_ints,
+                            SUM(COALESCE(w.pass_sacks,0))   AS pass_sacks,
+                            SUM(COALESCE(w.def_tackles_total,0)) AS def_tackles_total,
+                            SUM(COALESCE(w.def_tfl,0))      AS def_tfl,
+                            SUM(COALESCE(w.def_sacks,0))    AS def_sacks,
+                            SUM(COALESCE(w.def_ff,0))       AS def_ff,
+                            SUM(COALESCE(w.def_ints,0))     AS def_ints,
+                            SUM(COALESCE(w.def_pass_def,0)) AS def_pass_def,
+                            SUM(COALESCE(w.fg_att,0))       AS fg_att,
+                            SUM(COALESCE(w.fg_made,0))      AS fg_made,
+                            SUM(COALESCE(w.xp_att,0))       AS xp_att,
+                            SUM(COALESCE(w.xp_made,0))      AS xp_made,
+                            SUM(COALESCE(w.punts,0))        AS punts,
+                            SUM(COALESCE(w.punt_yds,0))     AS punt_yds,
+                            SUM(COALESCE(rz.rush_att_i20,0)) AS rush_att_i20,
+                            SUM(COALESCE(rz.rush_att_i10,0)) AS rush_att_i10,
+                            SUM(COALESCE(rz.rush_att_i5,0))  AS rush_att_i5,
+                            SUM(COALESCE(rz.rush_tds_i20,0)) AS rush_tds_i20,
+                            SUM(COALESCE(rz.targets_i20,0))  AS targets_i20,
+                            SUM(COALESCE(rz.targets_i10,0))  AS targets_i10,
+                            SUM(COALESCE(rz.targets_i5,0))   AS targets_i5,
+                            SUM(COALESCE(rz.targets_ez,0))   AS targets_ez,
+                            SUM(COALESCE(rz.rec_i20,0))      AS rec_i20,
+                            SUM(COALESCE(rz.rec_tds_i20,0))  AS rec_tds_i20,
+                            SUM(COALESCE(rz.pass_att_i20,0)) AS pass_att_i20,
+                            SUM(COALESCE(rz.pass_tds_i20,0)) AS pass_tds_i20,
+                            SUM(COALESCE(rz.pass_att_ez,0))  AS pass_att_ez
+                       FROM nfl_player_weekly w
+                       LEFT JOIN nfl_player_redzone rz
+                              ON rz.season = w.season
+                             AND rz.week   = w.week
+                             AND rz.gsis_id = w.gsis_id
+                      WHERE w.gsis_id = ?
+                      GROUP BY w.season
+                      ORDER BY w.season DESC`
                   ).bind(gsisId).all(),
                 ]);
                 const nflWeekly = nflWeeklyRes.results || [];
