@@ -4657,11 +4657,27 @@
 
     var name = document.createElement("span");
     name.className = "twb-asset-name";
-    // For future picks, pick_display already includes "Owner's" prefix
-    // (shortPickLabel + original_owner_name). Current-year picks (DP_)
-    // omit the prefix since they're always the viewer's own picks in
-    // the row context.
-    name.textContent = asset.type === "PICK" ? safeStr(asset.pick_display || asset.description || "Rookie Pick") : buildPlayerLabel(asset);
+    // Future picks: resolve the owner name AT RENDER time, not at
+    // normalize time. state.data.teams isn't always populated when
+    // normalizeAsset runs, so getFranchiseNameById can come back empty.
+    // Recomputing here also means the label always matches the current
+    // team list.
+    if (asset.type === "PICK") {
+      var liveOwnerName = "";
+      if (asset.original_owner_fid) {
+        liveOwnerName =
+          safeStr(asset.original_owner_name) ||
+          getFranchiseNameById(asset.original_owner_fid);
+      }
+      name.textContent = shortPickLabel(
+        asset.description,
+        asset.asset_id || asset.pick_key,
+        asset.pick_season,
+        liveOwnerName
+      );
+    } else {
+      name.textContent = buildPlayerLabel(asset);
+    }
     line.appendChild(name);
 
     if (asset.type === "PLAYER" && asset.extension_eligible && asset.extension_options.length) {
