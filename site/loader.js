@@ -2,6 +2,46 @@
 (function () {
   "use strict";
 
+  // --------------------------------------------------------------
+  // Global link-contrast fix for MFL NATIVE pages (reports, options,
+  // all_reports, trade bait, etc.). The UPS league header layers a
+  // dark theme over MFL's default light styling, but MFL's native
+  // hyperlinks inherit MFL's hard-coded dark-blue — producing
+  // unreadable dark-on-dark links on pages we don't control the
+  // markup for.
+  //
+  // Strategy: inject ONE low-specificity (via :where()) rule so
+  // anything we've styled in our own components wins automatically.
+  // Keeps our modules (CCC, Draft Hub, Trade Workbench, etc.)
+  // untouched while making MFL's native <a> readable again.
+  //
+  // Keith 2026-04-22: reported unreadable links on
+  // /<year>/all_reports?L=<lid>. Same fix cleans up the advanced
+  // search + options pages that share MFL's legacy link colors.
+  (function injectUpsLinkContrastFix() {
+    try {
+      if (document.getElementById("upsLinkContrastFix")) return;
+      var head = document.head || document.documentElement;
+      if (!head) return;
+      var css =
+        ":where(a[href]):not([class]):not([style*='color']){color:#7ab7ff;}" +
+        ":where(a[href]):not([class]):not([style*='color']):visited{color:#b39ae0;}" +
+        ":where(a[href]):not([class]):not([style*='color']):hover{color:#b5d3ff;text-decoration:underline;}" +
+        // MFL native report pages use plain <font> + <a> pairings
+        // inside table cells. Catch those via their parent tables.
+        ".report_column a[href],.reports_menu a[href]," +
+        "table.report a[href],#allReports a[href]," +
+        "#content_wrap a[href]:not([class])" +
+        "{color:#7ab7ff;}";
+      var style = document.createElement("style");
+      style.id = "upsLinkContrastFix";
+      style.textContent = css;
+      head.appendChild(style);
+    } catch (e) {
+      // Non-fatal — the page still works, links just stay hard to read.
+    }
+  })();
+
   // Early global shim for legacy scripts that reference bare `is_offseason`.
   (function ensureOffseasonGlobal() {
     function safeStr(v) {

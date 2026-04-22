@@ -969,13 +969,22 @@
     `;
 
     // ── Stats tab ────────────────────────────────────────────────────
-    // Columns (per Keith 2026-04-22):
-    //   Yr | G | MFL Starts | Pts | Pts Rk | PPG | PPG Rk | Elite% | Plus% | Dud% | WC·β | WC·β Rk
-    // Rank columns come from src_pointssummary (pos_rank = total-points rank
-    // within pos_group that season; pos_ppg_rank = PPG rank) and an inline
-    // window-ranked CTE (wc_pos_rank = SUM(win_chunks) rank within pos_group
-    // that season — WC-β rank is equivalent because β is constant per
-    // pos_group).
+    // Columns (per Keith 2026-04-22, rev2):
+    //   Yr | G | MFL Starts | Pts | Pts Rk | PPG | PPG Rk |
+    //   Elite% | Plus% | Dud% | APW | APW Rk | APW/G | APW/G Rk
+    //
+    // "APW" = Adjusted All-Play Wins = win_chunks × positional leverage β.
+    //   The quick read: how many All-Play wins this player would be
+    //   responsible for if every other lineup slot turned in median
+    //   output. Used to be labeled "WC·β" — renamed for clarity.
+    //
+    // Rank columns:
+    //   - Pts Rk / PPG Rk from src_pointssummary (total-points and PPG
+    //     rank within pos_group that season).
+    //   - APW Rk from the wc_ranked CTE (rank by SUM(win_chunks) within
+    //     pos_group — β is constant inside a pos_group so this IS the
+    //     APW rank).
+    //   - APW/G Rk from the same CTE (rank by win_chunks / games_played).
     const statsHtml = career.length ? (() => {
       const rows = career.slice(0, 20);
       const fmtRank = (r) => (r == null || r <= 0) ? "—" : `#${r}`;
@@ -1023,12 +1032,16 @@
             <th class="num" title="Elite weeks (z ≥ 1.0) %">Elite%</th>
             <th class="num" title="Plus weeks (0.25 ≤ z &lt; 1.0) %">Plus%</th>
             <th class="num" title="Dud weeks (z &lt; −0.5) %">Dud%</th>
-            <th class="num" title="Win Chunks × position leverage β (QB≈0.88, WR≈0.82, DB≈0.39). Expected All-Play wins bought by this player's E+P weeks.">WC·β</th>
-            <th class="num" title="Positional rank by win chunks (WC-β rank) that season">WC·β Rk</th>
+            <th class="num" title="Adjusted All-Play Wins: how many All-Play wins this player would be responsible for if every other lineup slot turned in median output. win_chunks × positional leverage β (QB≈0.88, WR≈0.82, DB≈0.39, LB≈0.38).">APW</th>
+            <th class="num" title="Positional rank by APW that season">APW Rk</th>
+            <th class="num" title="APW divided by games played — per-game contribution">APW/G</th>
+            <th class="num" title="Positional rank by APW per game that season">APW/G Rk</th>
           </tr></thead>
           <tbody>${rows.map(c => {
             const wcβ = leverageCoefs[c.pos_group] || 0;
-            const wcn = (c.win_chunks || 0) * wcβ;
+            const apw = (c.win_chunks || 0) * wcβ;
+            const games = Math.max(1, c.games_played || 0);
+            const apwPerG = apw / games;
             return `
             <tr>
               <td>${c.season}</td>
@@ -1041,8 +1054,10 @@
               <td class="num" style="color:var(--smash)">${c.elite_pct != null ? c.elite_pct.toFixed(0) + "%" : "—"}</td>
               <td class="num" style="color:var(--hit)">${c.plus_pct != null ? c.plus_pct.toFixed(0) + "%" : "—"}</td>
               <td class="num" style="color:var(--bust)">${c.dud_pct != null ? c.dud_pct.toFixed(0) + "%" : "—"}</td>
-              <td class="num"><strong>${wcn.toFixed(1)}</strong></td>
+              <td class="num"><strong>${apw.toFixed(1)}</strong></td>
               <td class="num" style="color:var(--muted)">${fmtRank(c.wc_pos_rank)}</td>
+              <td class="num">${apwPerG.toFixed(2)}</td>
+              <td class="num" style="color:var(--muted)">${fmtRank(c.wc_per_game_pos_rank)}</td>
             </tr>`;
           }).join("")}
           <tr style="border-top: 2px solid var(--border); font-weight:700;">
@@ -1057,6 +1072,8 @@
             <td class="num" style="color:var(--hit)">${careerPl.toFixed(0)}%</td>
             <td class="num" style="color:var(--bust)">${careerDud.toFixed(0)}%</td>
             <td class="num">${tot.wcn.toFixed(1)}</td>
+            <td class="num" style="color:var(--muted)">—</td>
+            <td class="num">${tot.g ? (tot.wcn / tot.g).toFixed(2) : "—"}</td>
             <td class="num" style="color:var(--muted)">—</td>
           </tr>
           </tbody>

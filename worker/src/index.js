@@ -797,17 +797,29 @@ export default {
                 `WITH season_totals AS (
                    SELECT w.season, w.player_id,
                           MIN(w.pos_group) AS pos_group,
+                          COUNT(*) AS games_played_cte,
                           SUM(COALESCE(w.win_chunks, 0)) AS win_chunks_total
                      FROM src_weekly w
                     WHERE w.score > 0 AND w.status = 'starter'
                     GROUP BY w.season, w.player_id
                  ),
                  wc_ranked AS (
-                   SELECT season, player_id, pos_group, win_chunks_total,
+                   -- Total Adj-AP-Wins rank (equivalent to raw-WC rank
+                   -- because β is constant within a pos_group).
+                   -- AND per-game Adj-AP-Wins rank, same logic over
+                   -- (win_chunks_total / games_played_cte).
+                   SELECT season, player_id, pos_group,
+                          win_chunks_total, games_played_cte,
                           RANK() OVER (
                             PARTITION BY season, pos_group
                             ORDER BY win_chunks_total DESC
-                          ) AS wc_pos_rank
+                          ) AS wc_pos_rank,
+                          RANK() OVER (
+                            PARTITION BY season, pos_group
+                            ORDER BY (win_chunks_total * 1.0 /
+                                      CASE WHEN games_played_cte > 0
+                                           THEN games_played_cte ELSE 1 END) DESC
+                          ) AS wc_per_game_pos_rank
                      FROM season_totals
                  )
                  SELECT w.season,
@@ -825,7 +837,8 @@ export default {
                         ps.pos_ppg_rank AS pos_ppg_rank,
                         ps.overall_rank AS overall_rank,
                         ps.overall_ppg_rank AS overall_ppg_rank,
-                        wcr.wc_pos_rank AS wc_pos_rank
+                        wcr.wc_pos_rank AS wc_pos_rank,
+                        wcr.wc_per_game_pos_rank AS wc_per_game_pos_rank
                    FROM src_weekly w
                    LEFT JOIN src_baselines b
                           ON b.season = w.season AND b.pos_group = w.pos_group

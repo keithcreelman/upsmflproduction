@@ -7663,10 +7663,14 @@
   }
 
   function upmStatsHtml(bundle) {
-    // Columns (per Keith 2026-04-22):
-    //   Yr | G | MFL Starts | Pts | Pts Rk | PPG | PPG Rk | Elite% | Plus% | Dud% | WC·β | WC·β Rk
-    // pos_rank / pos_ppg_rank come from src_pointssummary; wc_pos_rank is
-    // computed inline in the Worker career SQL (see index.js).
+    // Columns (per Keith 2026-04-22, rev2):
+    //   Yr | G | MFL Starts | Pts | Pts Rk | PPG | PPG Rk |
+    //   Elite% | Plus% | Dud% | APW | APW Rk | APW/G | APW/G Rk
+    //
+    // APW = "Adjusted All-Play Wins" = win_chunks × positional leverage β.
+    // The intuitive read: how many All-Play wins this player would be
+    // responsible for if every other lineup slot turned in median output.
+    // Previously labeled "WC·β" — renamed for clarity.
     var career = Array.isArray(bundle.career_summary) ? bundle.career_summary : [];
     var leverage = bundle.leverage_coefs || {};
     if (!career.length) {
@@ -7694,7 +7698,9 @@
 
     var rowsHtml = rows.map(function (c) {
       var wcβ = leverage[c.pos_group] || 0;
-      var wcn = (c.win_chunks || 0) * wcβ;
+      var apw = (c.win_chunks || 0) * wcβ;
+      var games = Math.max(1, c.games_played || 0);
+      var apwPerG = apw / games;
       return '<tr>'
         + '<td>' + c.season + '</td>'
         + '<td class="num">' + (c.games_played || 0) + '</td>'
@@ -7706,8 +7712,10 @@
         + '<td class="num">' + (c.elite_pct != null ? c.elite_pct.toFixed(0) + "%" : "—") + '</td>'
         + '<td class="num">' + (c.plus_pct != null ? c.plus_pct.toFixed(0) + "%" : "—") + '</td>'
         + '<td class="num">' + (c.dud_pct != null ? c.dud_pct.toFixed(0) + "%" : "—") + '</td>'
-        + '<td class="num"><strong>' + wcn.toFixed(1) + '</strong></td>'
+        + '<td class="num"><strong>' + apw.toFixed(1) + '</strong></td>'
         + '<td class="num" style="color:var(--rwb-text-dim)">' + fmtRank(c.wc_pos_rank) + '</td>'
+        + '<td class="num">' + apwPerG.toFixed(2) + '</td>'
+        + '<td class="num" style="color:var(--rwb-text-dim)">' + fmtRank(c.wc_per_game_pos_rank) + '</td>'
         + '</tr>';
     }).join("");
 
@@ -7733,8 +7741,10 @@
       + '<th class="num">Elite%</th>'
       + '<th class="num">Plus%</th>'
       + '<th class="num">Dud%</th>'
-      + '<th class="num" title="Win Chunks × positional leverage β (QB≈0.88, WR≈0.82, DB≈0.39)">WC·β</th>'
-      + '<th class="num" title="Positional rank by WC-β that season">WC·β Rk</th>'
+      + '<th class="num" title="Adjusted All-Play Wins: how many All-Play wins this player would be responsible for if every other lineup slot turned in median output. win_chunks × positional leverage β.">APW</th>'
+      + '<th class="num" title="Positional rank by APW that season">APW Rk</th>'
+      + '<th class="num" title="APW divided by games played — per-game contribution">APW/G</th>'
+      + '<th class="num" title="Positional rank by APW per game that season">APW/G Rk</th>'
       + '</tr></thead><tbody>' + rowsHtml
       + '<tr style="border-top:2px solid var(--rwb-border-strong); font-weight:700;">'
       + '<td>Career</td>'
@@ -7748,6 +7758,8 @@
       + '<td class="num">' + careerPl.toFixed(0) + '%</td>'
       + '<td class="num">' + careerDud.toFixed(0) + '%</td>'
       + '<td class="num">' + tot.wcn.toFixed(1) + '</td>'
+      + '<td class="num" style="color:var(--rwb-text-dim)">—</td>'
+      + '<td class="num">' + (tot.g ? (tot.wcn / tot.g).toFixed(2) : "—") + '</td>'
       + '<td class="num" style="color:var(--rwb-text-dim)">—</td>'
       + '</tr></tbody></table>';
   }
