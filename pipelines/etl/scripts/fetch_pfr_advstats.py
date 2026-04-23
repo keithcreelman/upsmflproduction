@@ -64,6 +64,17 @@ def fetch_pfr_rec(seasons: list[int]):
         df = df.to_pandas()
     df = df.rename(columns={c: c.lower() for c in df.columns})
     print(f"  got {len(df)} rows", file=sys.stderr)
+    print(f"  columns: {sorted(df.columns.tolist())}", file=sys.stderr)
+    # Spot-check: any column whose name hints at "routes"?
+    route_cols = [c for c in df.columns if "rout" in c.lower()]
+    if route_cols:
+        print(f"  route-related columns: {route_cols}", file=sys.stderr)
+        # Preview one populated value from each to see what's actually there
+        for c in route_cols:
+            vals = df[c].dropna().head(3).tolist()
+            print(f"    {c}: sample non-null values = {vals}", file=sys.stderr)
+    else:
+        print(f"  WARNING: no columns matching 'rout' — PFR schema may have renamed it", file=sys.stderr)
     return df
 
 
@@ -71,7 +82,15 @@ def upsert_routes(db: sqlite3.Connection, df, pfr_to_gsis: dict) -> int:
     if df is None or df.empty:
         return 0
     # Column candidates — nflverse has renamed this a few times.
-    ROUTE_KEYS = ["routes_run", "pass_routes", "routes"]
+    # Expanded 2026-04-22 after Keith's run showed 0 routes landing
+    # across 26,850 crosswalk-matched rows — suggests the column is
+    # named something else. Trying a wider net; fetch_pfr_rec() now
+    # also prints the raw df columns for diagnostics.
+    ROUTE_KEYS = [
+        "routes_run", "pass_routes", "routes",
+        "routes_run_count", "route_count", "rt", "rec_routes",
+        "total_routes", "offensive_snaps_route",
+    ]
     PFR_KEYS = ["pfr_player_id", "pfr_id", "player_id"]
 
     rows_to_update = []

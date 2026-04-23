@@ -1076,8 +1076,9 @@ export default {
                             SUM(COALESCE(w.pass_tds,0))          AS pass_tds,
                             SUM(COALESCE(w.pass_ints,0))         AS pass_ints,
                             SUM(COALESCE(w.pass_sacks,0))        AS pass_sacks,
-                            SUM(COALESCE(w.def_tackles_solo,0) + COALESCE(w.def_tackles_ast,0)) AS def_tackles_total,
-                            SUM(COALESCE(w.def_tackles_ast,0)) AS def_tackles_ast,
+                            -- Keith 2026-04-22: Tkl = SOLO ONLY. Ast is its own column.
+                            SUM(COALESCE(w.def_tackles_solo,0)) AS def_tackles_total,
+                            SUM(COALESCE(w.def_tackles_ast,0))  AS def_tackles_ast,
                             SUM(COALESCE(w.def_tackles_solo,0)) AS def_tackles_solo,
                             SUM(COALESCE(w.def_tfl,0))           AS def_tfl,
                             SUM(COALESCE(w.def_sacks,0))         AS def_sacks,
