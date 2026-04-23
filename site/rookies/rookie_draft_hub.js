@@ -1092,8 +1092,70 @@
     //
     // Routes_run column stays NULL until load_pfr_advstats fetcher is
     // added — UI shows "—" for Routes and YPRR in that case.
-    const rawStatsHtml = (() => {
-      const totals = Array.isArray(bundle.nfl_season_totals) ? bundle.nfl_season_totals : [];
+    // Client-side aggregator — supports UPS / Full scope toggle
+    // without an extra Worker round-trip. Ignores
+    // bundle.nfl_season_totals (Worker pre-aggregated regular-only)
+    // and recomputes from bundle.nfl_weekly + bundle.nfl_snaps_by_week.
+    const aggregateNflSeasons = (scope) => {
+      const weeks = Array.isArray(bundle.nfl_weekly) ? bundle.nfl_weekly : [];
+      const snapBy = bundle.nfl_snaps_by_week || {};
+      const isReg = (w) => {
+        const s = Number(w.season) || 0, wk = Number(w.week) || 0;
+        return (s < 2021 && wk <= 17) || (s >= 2021 && wk <= 18);
+      };
+      const fields = [
+        "rush_att","rush_yds","rush_tds","rush_fumbles","rush_fumbles_lost",
+        "targets","receptions","rec_yds","rec_tds",
+        "pass_att","pass_cmp","pass_yds","pass_tds","pass_ints","pass_sacks",
+        "def_tackles_ast","def_tfl","def_sacks","def_ff","def_fr","def_ints",
+        "def_pass_def","def_tds",
+        "fg_att","fg_made","fg_att_0_39","fg_made_0_39",
+        "fg_att_40_49","fg_made_40_49","fg_att_50plus","fg_made_50plus",
+        "xp_att","xp_made","punts","punt_yds","punt_inside20",
+        "receiving_drops","receiving_broken_tackles",
+        "rushing_broken_tackles","passing_drops",
+        "rushing_yards_before_contact","rushing_yards_after_contact"
+      ];
+      const bySeason = {};
+      for (const w of weeks) {
+        if (scope === "ups" && !isReg(w)) continue;
+        const key = String(w.season);
+        let tgt = bySeason[key];
+        if (!tgt) {
+          tgt = { season: Number(w.season), games: 0,
+                  _off_snaps: 0, _def_snaps: 0,
+                  _off_rate_sum: 0, _def_rate_sum: 0, _snap_weeks: 0,
+                  def_tackles_solo: 0 };
+          for (const f of fields) tgt[f] = 0;
+          bySeason[key] = tgt;
+        }
+        tgt.games += 1;
+        for (const f of fields) tgt[f] += Number(w[f]) || 0;
+        tgt.def_tackles_solo += Number(w.def_tackles_solo) || 0;
+        const snap = snapBy[`${w.season}-${w.week}`];
+        if (snap) {
+          tgt._off_snaps += Number(snap.off_snaps) || 0;
+          tgt._def_snaps += Number(snap.def_snaps) || 0;
+          tgt._off_rate_sum += Number(snap.off_snap_pct) || 0;
+          tgt._def_rate_sum += Number(snap.def_snap_pct) || 0;
+          tgt._snap_weeks += 1;
+        }
+      }
+      return Object.values(bySeason).map(r => ({
+        ...r,
+        def_tackles_total: r.def_tackles_solo,
+        off_snaps_total: r._off_snaps || null,
+        def_snaps_total: r._def_snaps || null,
+        off_snap_rate: r._snap_weeks ? r._off_rate_sum / r._snap_weeks : null,
+        def_snap_rate: r._snap_weeks ? r._def_rate_sum / r._snap_weeks : null,
+      })).sort((a, b) => b.season - a.season);
+    };
+
+    const buildRawStatsHtml = () => {
+      const scope = (() => {
+        try { return sessionStorage.getItem("upm.stats.scope") || "ups"; } catch (e) { return "ups"; }
+      })();
+      const totals = aggregateNflSeasons(scope);
       const crosswalk = bundle.crosswalk || null;
       if (!crosswalk || !crosswalk.gsis_id) {
         return `<p class="small" style="color:var(--muted); padding:10px;">
@@ -1105,6 +1167,12 @@
           NFL raw stats not yet loaded for <code>${escapeHtml(crosswalk.gsis_id)}</code>.
           Run the nflverse fetchers + <code>scripts/load_local_to_d1.py --only nflweekly,nflsnaps,nflredzone</code>.</p>`;
       }
+      const scopeToggle = `
+        <div style="display:flex; gap:6px; margin-bottom:8px;">
+          <button type="button" class="rdh-chip" data-raw-scope="ups"  aria-pressed="${scope === "ups" ? "true" : "false"}" title="NFL regular season only — matches PFR season totals.">UPS Season</button>
+          <button type="button" class="rdh-chip" data-raw-scope="full" aria-pressed="${scope === "full" ? "true" : "false"}" title="Include NFL playoff weeks.">Full Season</button>
+        </div>`;
+      const scopeNote = scope === "full" ? "Full NFL Season (incl. playoffs)." : "UPS Season (NFL regular season).";
       const detectPg = () => {
         const raw = String((crosswalk.position || "")).toUpperCase();
         if (raw === "P") return "punter";
@@ -1228,13 +1296,15 @@
         ? `<div class="small" style="color:var(--warn); margin-top:4px;">Crosswalk confidence: ${escapeHtml(crosswalk.confidence)}${crosswalk.match_score ? " (" + crosswalk.match_score.toFixed(2) + ")" : ""} — review recommended.</div>`
         : "";
       return `
-      <div class="profile-block">
+      <div class="profile-block" data-raw-panel-root>
         <h4>Raw Stats — ${tmpl.label}</h4>
-        <div class="small" style="color:var(--muted); margin-bottom:6px;">Real NFL on-field counts + derived rates. Independent of MFL fantasy scoring.</div>
+        ${scopeToggle}
+        <div class="small" style="color:var(--muted); margin-bottom:6px;">${scopeNote} Real NFL on-field counts + derived rates. Independent of MFL fantasy scoring.</div>
         <table class="rdh-table"><thead><tr>${thRow}</tr></thead><tbody>${bodyRows}</tbody></table>
         ${confNote}
       </div>`;
-    })();
+    };
+    const rawStatsHtml = buildRawStatsHtml();
 
     const advancedStatsHtml = `<div class="profile-block">
         <h4>Advanced Stats — TBD</h4>
@@ -1358,6 +1428,22 @@
         });
       });
     });
+
+    // UPS Season / Full Season scope toggle inside Raw Stats.
+    // Re-render just the Raw panel in place — no modal reopen.
+    const rebindRawScope = () => {
+      body.querySelectorAll("[data-raw-scope]").forEach(sbtn => {
+        sbtn.addEventListener("click", () => {
+          try { sessionStorage.setItem("upm.stats.scope", sbtn.dataset.rawScope); } catch (e) {}
+          const rawBody = body.querySelector("[data-stats-body='raw']");
+          if (rawBody) {
+            rawBody.innerHTML = buildRawStatsHtml();
+            rebindRawScope();  // re-bind since buttons got replaced
+          }
+        });
+      });
+    };
+    rebindRawScope();
 
     // Trends window-selector — filters bundle.weekly to last-N and
     // renders a compact summary card. No extra fetch; all client-side.

@@ -7658,6 +7658,7 @@
       upmFillPanel(root, "news", upmNoBundleMsg());
       return;
     }
+    upmLastBundleRef = bundle;
     upmFillPanel(root, "stats",    upmStatsWrappedHtml(bundle));
     upmFillPanel(root, "gamelog",  upmGameLogHtml(bundle));
     upmFillPanel(root, "news",     upmNewsHtml(bundle));
@@ -7826,8 +7827,80 @@
     return '<td class="num">' + s + '</td>';
   }
 
+  // Client-side season aggregator — lets us toggle UPS Season (NFL
+  // regular season only, default) vs Full NFL Season (incl post)
+  // without a second Worker round-trip. Operates over
+  // bundle.nfl_weekly (unfiltered weeks) + bundle.nfl_snaps_by_week
+  // for snap roll-ups.
+  function upmAggregateNflSeasons(bundle, scope) {
+    var weeks = Array.isArray(bundle.nfl_weekly) ? bundle.nfl_weekly : [];
+    var snapBy = bundle.nfl_snaps_by_week || {};
+    var isReg = function (w) {
+      var s = Number(w.season) || 0, wk = Number(w.week) || 0;
+      return (s < 2021 && wk <= 17) || (s >= 2021 && wk <= 18);
+    };
+    var fields = [
+      "rush_att","rush_yds","rush_tds","rush_fumbles","rush_fumbles_lost",
+      "targets","receptions","rec_yds","rec_tds",
+      "pass_att","pass_cmp","pass_yds","pass_tds","pass_ints","pass_sacks",
+      "def_tackles_ast","def_tfl","def_sacks","def_ff","def_fr","def_ints",
+      "def_pass_def","def_tds",
+      "fg_att","fg_made","fg_att_0_39","fg_made_0_39",
+      "fg_att_40_49","fg_made_40_49","fg_att_50plus","fg_made_50plus",
+      "xp_att","xp_made","punts","punt_yds","punt_inside20",
+      "receiving_drops","receiving_broken_tackles",
+      "rushing_broken_tackles","passing_drops",
+      "rushing_yards_before_contact","rushing_yards_after_contact"
+    ];
+    var bySeason = {};
+    for (var i = 0; i < weeks.length; i++) {
+      var w = weeks[i];
+      if (scope === "ups" && !isReg(w)) continue;
+      var key = String(w.season);
+      var tgt = bySeason[key];
+      if (!tgt) {
+        tgt = { season: Number(w.season), games: 0,
+                _off_snaps: 0, _def_snaps: 0,
+                _off_rate_sum: 0, _def_rate_sum: 0, _snap_weeks: 0 };
+        for (var f = 0; f < fields.length; f++) tgt[fields[f]] = 0;
+        tgt.def_tackles_solo = 0;
+        bySeason[key] = tgt;
+      }
+      tgt.games += 1;
+      for (var f2 = 0; f2 < fields.length; f2++) {
+        var k = fields[f2];
+        tgt[k] += (Number(w[k]) || 0);
+      }
+      // Tkl = solo only (Keith 2026-04-22)
+      tgt.def_tackles_solo += (Number(w.def_tackles_solo) || 0);
+      var snap = snapBy[w.season + "-" + w.week];
+      if (snap) {
+        tgt._off_snaps += Number(snap.off_snaps) || 0;
+        tgt._def_snaps += Number(snap.def_snaps) || 0;
+        tgt._off_rate_sum += Number(snap.off_snap_pct) || 0;
+        tgt._def_rate_sum += Number(snap.def_snap_pct) || 0;
+        tgt._snap_weeks += 1;
+      }
+    }
+    var out = [];
+    for (var sKey in bySeason) {
+      var r = bySeason[sKey];
+      r.def_tackles_total = r.def_tackles_solo;
+      r.off_snaps_total = r._off_snaps || null;
+      r.def_snaps_total = r._def_snaps || null;
+      r.off_snap_rate = r._snap_weeks ? r._off_rate_sum / r._snap_weeks : null;
+      r.def_snap_rate = r._snap_weeks ? r._def_rate_sum / r._snap_weeks : null;
+      out.push(r);
+    }
+    out.sort(function (a, b) { return b.season - a.season; });
+    return out;
+  }
+
   function upmRawStatsHtml(bundle) {
-    var totals = Array.isArray(bundle.nfl_season_totals) ? bundle.nfl_season_totals : [];
+    // Use client-side aggregator — respects UPS / Full scope toggle.
+    var scope;
+    try { scope = sessionStorage.getItem("upm.stats.scope") || "ups"; } catch (e) { scope = "ups"; }
+    var totals = upmAggregateNflSeasons(bundle, scope);
     var crosswalk = bundle.crosswalk || null;
     if (!crosswalk || !crosswalk.gsis_id) {
       return '<p style="color:var(--rwb-text-dim); font-size:12px; padding:10px;">'
@@ -7863,8 +7936,12 @@
     // Note: Routes / YPRR will read "—" until load_pfr_advstats fetcher
     // populates routes_run in nfl_player_weekly.
     return ''
+      + '<div style="display:flex; gap:6px; margin-bottom:8px;">'
+      + '<button type="button" class="rwb-chip" data-raw-scope="ups"  aria-pressed="' + (scope === "ups" ? "true" : "false") + '" title="NFL regular season only (weeks 1-17 pre-2021, 1-18 from 2021+). Default view — matches PFR season totals.">UPS Season</button>'
+      + '<button type="button" class="rwb-chip" data-raw-scope="full" aria-pressed="' + (scope === "full" ? "true" : "false") + '" title="Include NFL playoff weeks (18-22). Use this when comparing to PFR game logs that include postseason.">Full Season</button>'
+      + '</div>'
       + '<div style="font-size:11px; color:var(--rwb-text-dim); margin-bottom:6px;">'
-      + 'Template: <strong>' + tmpl.label + '</strong>. Real NFL on-field counts + derived rates.</div>'
+      + 'Template: <strong>' + tmpl.label + '</strong>. ' + (scope === "full" ? "Full NFL Season (incl. playoffs)." : "UPS Season (NFL regular season).") + ' Real NFL on-field counts + derived rates.</div>'
       + '<table class="upm-stats-table"><thead><tr>' + thRow + '</tr></thead>'
       + '<tbody>' + bodyRows + '</tbody></table>'
       + confNote;
@@ -7919,7 +7996,28 @@
         });
       });
     });
+    // Wire UPS Season / Full Season scope toggle inside the Raw view.
+    // Clicking re-renders the Raw panel (client-side aggregator reads
+    // the current sessionStorage value).
+    function wireScopeButtons() {
+      var scopeBtns = root.querySelectorAll("[data-raw-scope]");
+      if (!scopeBtns.length) return;
+      scopeBtns.forEach(function (b) {
+        b.addEventListener("click", function () {
+          try { sessionStorage.setItem("upm.stats.scope", b.dataset.rawScope); } catch (e) {}
+          var rawBody = root.querySelector("[data-stats-body='raw']");
+          if (rawBody && typeof upmRawStatsHtml === "function" && upmLastBundleRef) {
+            rawBody.innerHTML = upmRawStatsHtml(upmLastBundleRef);
+            wireScopeButtons();  // re-bind after re-render
+          }
+        });
+      });
+    }
+    wireScopeButtons();
   }
+  // Keep last rendered bundle so the scope toggle can re-render the
+  // Raw Stats panel without re-fetching.
+  var upmLastBundleRef = null;
 
   function upmStatsHtml(bundle) {
     // Columns (per Keith 2026-04-22, rev2):
