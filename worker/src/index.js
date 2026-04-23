@@ -246,6 +246,7 @@ export default {
         path !== "/admin/snapshot-mfl-now" &&
         path !== "/api/corrections" &&
         path !== "/api/advanced-stats-leaderboard" &&
+        path !== "/api/mfl-league-state" &&
         path !== "/bug-report" &&
         path !== "/bug-reports" &&
         path !== "/extension-assistant" &&
@@ -613,6 +614,62 @@ export default {
         const salt = safeStr(env.MCM_SALT || "");
         return sha256Hex(`${salt}|${ip}`);
       };
+
+      // ---------- Advanced Stats Workbench: /api/mfl-league-state ----------
+      // CORS-safe proxy for the live MFL league + rosters state. The
+      // Workbench iframe srcdoc can't hit api.myfantasyleague.com
+      // directly (null origin → CORS blocked). Worker fetches
+      // server-side, returns a flat JSON the UI can overlay.
+      //
+      // Response: {
+      //   franchises: [{id: "0005", name: "HammerTime 🔨 ⏰"}, ...],
+      //   pid_to_fid: {"14823": "0005", "16211": "0005", ...}
+      // }
+      // Anything not in pid_to_fid = Free Agent.
+      if (path === "/api/mfl-league-state" && request.method === "GET") {
+        const year = url.searchParams.get("YEAR") || new Date().getUTCFullYear();
+        const leagueId = url.searchParams.get("L") || "74598";
+        try {
+          const [leagueRes, rostersRes] = await Promise.all([
+            fetch(`https://api.myfantasyleague.com/${encodeURIComponent(year)}/export?TYPE=league&L=${encodeURIComponent(leagueId)}&JSON=1`,
+              { cf: { cacheTtl: 300 } }),
+            fetch(`https://api.myfantasyleague.com/${encodeURIComponent(year)}/export?TYPE=rosters&L=${encodeURIComponent(leagueId)}&JSON=1`,
+              { cf: { cacheTtl: 60 } }),
+          ]);
+          const lj = await leagueRes.json().catch(() => ({}));
+          const rj = await rostersRes.json().catch(() => ({}));
+          const pad4 = (fid) => {
+            let s = String(fid || "");
+            while (s.length < 4) s = "0" + s;
+            return s.slice(0, 4);
+          };
+          const franchises = [];
+          const franchiseList = lj?.league?.franchises?.franchise || [];
+          for (const f of franchiseList) {
+            franchises.push({ id: pad4(f.id), name: String(f.name || ("Team " + f.id)) });
+          }
+          franchises.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+          const pidToFid = {};
+          const rosterList = rj?.rosters?.franchise || [];
+          for (const f of rosterList) {
+            const fid = pad4(f.id);
+            let players = f.player || [];
+            if (!Array.isArray(players)) players = [players];
+            for (const p of players) {
+              if (p && p.id) pidToFid[String(p.id)] = fid;
+            }
+          }
+          return jsonOut(200, {
+            season: Number(year), league_id: leagueId,
+            franchises, pid_to_fid: pidToFid,
+            franchise_count: franchises.length,
+            rostered_count: Object.keys(pidToFid).length,
+          });
+        } catch (e) {
+          console.error("[mfl-league-state] failed:", e);
+          return jsonOut(500, { error: String(e && e.message || e) });
+        }
+      }
 
       // ---------- Advanced Stats Workbench: /api/advanced-stats-leaderboard ----------
       // Aggregates nfl_player_weekly + nfl_player_snaps per gsis_id for the

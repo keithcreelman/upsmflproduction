@@ -59,10 +59,11 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
     <span style="font-size:10px; color:var(--muted)">hold ⌘/Ctrl to multi-select</span>
   </label>
   <label>Team
-    <select id="asw-team">
-      <option value="">All (league-wide)</option>
-      <option value="FA">Free Agents (no contract)</option>
+    <select id="asw-team" multiple size="5" style="min-width:180px; max-height:120px">
+      <option value="__ALL__" selected>All (league-wide)</option>
+      <option value="FA">Free Agents</option>
     </select>
+    <span style="font-size:10px; color:var(--muted)">hold ⌘/Ctrl to multi-select</span>
   </label>
   <label>Scope
     <div style="display:flex;gap:4px">
@@ -125,14 +126,13 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
     return fid.slice(0, 4);
   }
 
-  // Fetch league franchises (names for dropdown + live rollup map).
-  var leaguePromise = fetch("https://api.myfantasyleague.com/" + THIS_YEAR + "/export?TYPE=league&L=" + LEAGUE_ID + "&JSON=1")
+  // Fetch league + rosters via the Worker proxy (avoids MFL CORS
+  // blocking our iframe-srcdoc null origin).
+  var leagueStatePromise = fetch(API_BASE + "/api/mfl-league-state?L=" + encodeURIComponent(LEAGUE_ID) + "&YEAR=" + THIS_YEAR)
     .then(function(r){ return r.ok ? r.json() : null; })
     .then(function(j){
-      if (!j || !j.league || !j.league.franchises) return;
-      var franchises = j.league.franchises.franchise || [];
-      franchises.sort(function(a,b){ return (a.name || "").localeCompare(b.name || ""); });
-      franchises.forEach(function(f){
+      if (!j) { console.warn("[asw] mfl-league-state returned null"); return; }
+      (j.franchises || []).forEach(function(f){
         var fid = padFid(f.id);
         fidToName[fid] = String(f.name || ("Team " + fid));
         var o = document.createElement("option");
@@ -140,26 +140,15 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
         o.textContent = fidToName[fid];
         teamSel.appendChild(o);
       });
-    })
-    .catch(function(){ /* ignore — dropdown just won't have team options */ });
-
-  // Live rosters: build pid → fid ownership map. Anything not present
-  // = Free Agent (dropped / never rostered / in FA pool).
-  var rostersPromise = fetch("https://api.myfantasyleague.com/" + THIS_YEAR + "/export?TYPE=rosters&L=" + LEAGUE_ID + "&JSON=1")
-    .then(function(r){ return r.ok ? r.json() : null; })
-    .then(function(j){
-      if (!j || !j.rosters || !j.rosters.franchise) return;
-      var franchises = j.rosters.franchise || [];
-      franchises.forEach(function(f){
-        var fid = padFid(f.id);
-        var players = f.player || [];
-        if (!Array.isArray(players)) players = [players];
-        players.forEach(function(p){
-          if (p && p.id) pidToFid[String(p.id)] = fid;
-        });
+      Object.keys(j.pid_to_fid || {}).forEach(function(pid){
+        pidToFid[pid] = padFid(j.pid_to_fid[pid]);
       });
+      console.log("[asw] loaded " + (j.franchises || []).length + " franchises, " +
+                  Object.keys(pidToFid).length + " rostered players");
     })
-    .catch(function(){ /* ignore — overlays fall back to src_contracts */ });
+    .catch(function(e){
+      console.warn("[asw] mfl-league-state fetch failed:", e && e.message || e);
+    });
 
   // Apply live ownership overlay to rows (called after render fetch).
   function applyLiveOwnership(rows) {
@@ -407,49 +396,66 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
     return sel.length ? sel : [defaultSeason];
   }
 
+  function getSelectedTeams(){
+    var sel = [];
+    for (var i = 0; i < teamSel.options.length; i++) {
+      if (teamSel.options[i].selected) sel.push(teamSel.options[i].value);
+    }
+    // Auto-collapse: if "All" is picked alongside specific teams, "All" wins.
+    if (sel.indexOf("__ALL__") >= 0) return [];  // empty = no filter
+    return sel;
+  }
+
   function runQuery(){
     var pos = posSel.value;
     var seasons = getSelectedSeasons();
     var scope = getScope();
     var minG = Math.max(1, parseInt(minGamesEl.value, 10) || 1);
-    var team = teamSel.value || "";
-    state.sortKey = null;  // reset on new query so defaultSort kicks in
+    var teams = getSelectedTeams();  // [] = all, or [fid|"FA", ...]
+    state.sortKey = null;
     bodyEl.innerHTML = '<div class="asw-loading">Fetching…</div>';
     metaEl.textContent = "";
     // Worker endpoint — team filter intentionally omitted. We apply
-    // live ownership (from MFL rosters) client-side so the attribution
-    // reflects TODAY, not the last src_contracts snapshot.
+    // live ownership (from mfl-league-state proxy) client-side so the
+    // attribution reflects TODAY, not the last src_contracts snapshot.
     var url = API_BASE + "/api/advanced-stats-leaderboard" +
       "?seasons=" + encodeURIComponent(seasons.join(",")) +
       "&pos="   + encodeURIComponent(pos) +
       "&include_post=" + (scope === "full" ? "1" : "0") +
       "&min_games=" + encodeURIComponent(minG) +
       "&limit=500";
-    // Wait for live-ownership maps to be in place BEFORE we render,
-    // so the first paint is already correct.
     Promise.all([
       fetch(url).then(function(r){
         if (!r.ok) throw new Error("HTTP " + r.status);
         return r.json();
       }),
-      leaguePromise,
-      rostersPromise,
+      leagueStatePromise,
     ]).then(function(pair){
       var j = pair[0];
       var rows = Array.isArray(j.rows) ? j.rows : [];
       rows = applyLiveOwnership(rows);
-      // Apply team filter client-side against live ownership.
-      if (team === "FA") {
-        rows = rows.filter(function(r){ return !r.mfl_franchise_id; });
-      } else if (team) {
-        var want = padFid(team);
-        rows = rows.filter(function(r){ return (r.mfl_franchise_id || "") === want; });
+      // Team filter: multi-select. Empty = all. Otherwise keep rows
+      // whose mfl_franchise_id matches any picked id, OR is null (FA)
+      // if "FA" is in the list.
+      if (teams.length) {
+        var wantFA = teams.indexOf("FA") >= 0;
+        var wantFids = {};
+        teams.forEach(function(t){ if (t !== "FA") wantFids[padFid(t)] = true; });
+        rows = rows.filter(function(r){
+          if (!r.mfl_franchise_id) return wantFA;
+          return wantFids[r.mfl_franchise_id] === true;
+        });
       }
       state.rows = rows;
       var seasonLabel = seasons.length === 1 ? String(seasons[0])
                       : seasons.length <= 3 ? seasons.sort(function(a,b){return b-a}).join(", ")
                       : seasons.sort(function(a,b){return a-b})[0] + "-" + seasons.sort(function(a,b){return b-a})[0];
-      var teamLabel = team === "FA" ? " · FA only" : team ? " · " + (fidToName[padFid(team)] || team) : "";
+      var teamLabel = "";
+      if (teams.length === 1) {
+        teamLabel = " · " + (teams[0] === "FA" ? "Free Agents" : (fidToName[padFid(teams[0])] || teams[0]));
+      } else if (teams.length > 1) {
+        teamLabel = " · " + teams.length + " teams";
+      }
       state.lastQuery = (TMPL[pos] && TMPL[pos].label || pos) + " · " + seasonLabel + " · " + (scope === "full" ? "Full" : "UPS") + " · min " + minG + "G" + teamLabel;
       render();
     }).catch(function(e){
