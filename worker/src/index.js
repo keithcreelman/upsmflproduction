@@ -245,6 +245,7 @@ export default {
         path !== "/admin/bug-report/test-discord" &&
         path !== "/admin/snapshot-mfl-now" &&
         path !== "/api/corrections" &&
+        path !== "/api/advanced-stats-leaderboard" &&
         path !== "/bug-report" &&
         path !== "/bug-reports" &&
         path !== "/extension-assistant" &&
@@ -612,6 +613,145 @@ export default {
         const salt = safeStr(env.MCM_SALT || "");
         return sha256Hex(`${salt}|${ip}`);
       };
+
+      // ---------- Advanced Stats Workbench: /api/advanced-stats-leaderboard ----------
+      // Aggregates nfl_player_weekly + nfl_player_snaps per gsis_id for the
+      // requested season + pos_group + week-range filter. JOINs crosswalk for
+      // MFL player identity. Keith 2026-04-23 — foundation for the Advanced
+      // Stats Workbench module (sort/filter player-level stats across the
+      // league).
+      //
+      // Query params:
+      //   season       (required)  — one season at a time
+      //   pos          (required)  — "skill" | "qb" | "idp" | "kicker" | "punter"
+      //   include_post (optional)  — 1 to include playoff weeks (default 0 = UPS season)
+      //   min_games    (optional)  — filter to rows with games >= N (default 1)
+      //   limit        (optional)  — max rows (default 200, max 500)
+      if (path === "/api/advanced-stats-leaderboard" && request.method === "GET") {
+        const season = parseInt(safeStr(url.searchParams.get("season")), 10);
+        const pos = safeStr(url.searchParams.get("pos")).toLowerCase();
+        const includePost = safeStr(url.searchParams.get("include_post")) === "1";
+        const minGames = Math.max(1, parseInt(safeStr(url.searchParams.get("min_games")), 10) || 1);
+        const limit = Math.min(500, Math.max(10, parseInt(safeStr(url.searchParams.get("limit")), 10) || 200));
+        if (!season || season < 2011 || season > 2030) return jsonOut(400, { error: "missing or invalid season" });
+        if (!pos) return jsonOut(400, { error: "missing pos (skill|qb|idp|kicker|punter)" });
+        if (!env.UPS_MFL_DB) return jsonOut(503, { error: "D1 not bound" });
+
+        // Map pos alias → SQL pos_group IN-list
+        let posGroups;
+        if (pos === "skill") posGroups = ["RB","WR","TE"];
+        else if (pos === "qb") posGroups = ["QB"];
+        else if (pos === "idp") posGroups = ["DL","LB","DB"];
+        else if (pos === "kicker") posGroups = ["PK"];
+        else if (pos === "punter") posGroups = ["PK"]; // MFL collapses — filter on raw position later
+        else return jsonOut(400, { error: "invalid pos" });
+
+        // Week-range filter. Default = UPS (NFL regular season).
+        const weekFilter = includePost
+          ? "1=1"
+          : "((w.season < 2021 AND w.week <= 17) OR (w.season >= 2021 AND w.week <= 18))";
+
+        const posList = posGroups.map(p => `'${p}'`).join(",");
+
+        try {
+          const db = env.UPS_MFL_DB;
+          const sql = `
+            WITH agg AS (
+              SELECT w.gsis_id,
+                     MIN(w.pos_group)   AS pos_group,
+                     MAX(w.team)        AS team,
+                     MAX(w.position)    AS position,
+                     COUNT(*)           AS games,
+                     SUM(COALESCE(w.rush_att,0))          AS rush_att,
+                     SUM(COALESCE(w.rush_yds,0))          AS rush_yds,
+                     SUM(COALESCE(w.rush_tds,0))          AS rush_tds,
+                     SUM(COALESCE(w.rush_fumbles,0))      AS rush_fumbles,
+                     SUM(COALESCE(w.rush_fumbles_lost,0)) AS rush_fumbles_lost,
+                     SUM(COALESCE(w.targets,0))           AS targets,
+                     SUM(COALESCE(w.receptions,0))        AS receptions,
+                     SUM(COALESCE(w.rec_yds,0))           AS rec_yds,
+                     SUM(COALESCE(w.rec_tds,0))           AS rec_tds,
+                     SUM(COALESCE(w.pass_att,0))          AS pass_att,
+                     SUM(COALESCE(w.pass_cmp,0))          AS pass_cmp,
+                     SUM(COALESCE(w.pass_yds,0))          AS pass_yds,
+                     SUM(COALESCE(w.pass_tds,0))          AS pass_tds,
+                     SUM(COALESCE(w.pass_ints,0))         AS pass_ints,
+                     SUM(COALESCE(w.def_tackles_solo,0))  AS def_tackles_total,
+                     SUM(COALESCE(w.def_tackles_ast,0))   AS def_tackles_ast,
+                     SUM(COALESCE(w.def_tfl,0))           AS def_tfl,
+                     SUM(COALESCE(w.def_sacks,0))         AS def_sacks,
+                     SUM(COALESCE(w.def_ff,0))            AS def_ff,
+                     SUM(COALESCE(w.def_fr,0))            AS def_fr,
+                     SUM(COALESCE(w.def_ints,0))          AS def_ints,
+                     SUM(COALESCE(w.def_pass_def,0))      AS def_pass_def,
+                     SUM(COALESCE(w.def_tds,0))           AS def_tds,
+                     SUM(COALESCE(w.fg_att,0))            AS fg_att,
+                     SUM(COALESCE(w.fg_made,0))           AS fg_made,
+                     SUM(COALESCE(w.xp_att,0))            AS xp_att,
+                     SUM(COALESCE(w.xp_made,0))           AS xp_made,
+                     SUM(COALESCE(w.punts,0))             AS punts,
+                     SUM(COALESCE(w.punt_yds,0))          AS punt_yds,
+                     SUM(COALESCE(w.punt_inside20,0))     AS punt_inside20,
+                     AVG(w.punt_net_avg)                  AS punt_net_avg,
+                     SUM(COALESCE(w.receiving_drops,0))          AS receiving_drops,
+                     SUM(COALESCE(w.receiving_broken_tackles,0)) AS receiving_broken_tackles,
+                     SUM(COALESCE(w.rushing_broken_tackles,0))   AS rushing_broken_tackles,
+                     SUM(COALESCE(w.passing_drops,0))            AS passing_drops,
+                     SUM(COALESCE(w.rushing_yards_before_contact,0)) AS rushing_yards_before_contact,
+                     SUM(COALESCE(w.rushing_yards_after_contact,0))  AS rushing_yards_after_contact
+                FROM nfl_player_weekly w
+               WHERE w.season = ? AND w.pos_group IN (${posList})
+                 AND ${weekFilter}
+               GROUP BY w.gsis_id
+            ),
+            snap_agg AS (
+              SELECT c.gsis_id,
+                     SUM(COALESCE(s.off_snaps, 0)) AS off_snaps_total,
+                     SUM(COALESCE(s.def_snaps, 0)) AS def_snaps_total,
+                     AVG(COALESCE(s.off_snap_pct, 0.0)) AS off_snap_rate,
+                     AVG(COALESCE(s.def_snap_pct, 0.0)) AS def_snap_rate
+                FROM nfl_player_snaps s
+                JOIN player_id_crosswalk c ON c.pfr_id = s.pfr_id
+               WHERE s.season = ?
+                 AND ${includePost ? "1=1" : "((s.season < 2021 AND s.week <= 17) OR (s.season >= 2021 AND s.week <= 18))"}
+               GROUP BY c.gsis_id
+            )
+            SELECT a.gsis_id,
+                   c.mfl_player_id AS mfl_pid,
+                   c.full_name     AS player_name,
+                   a.position, a.team, a.pos_group, a.games,
+                   a.rush_att, a.rush_yds, a.rush_tds, a.rush_fumbles, a.rush_fumbles_lost,
+                   a.targets, a.receptions, a.rec_yds, a.rec_tds,
+                   a.pass_att, a.pass_cmp, a.pass_yds, a.pass_tds, a.pass_ints,
+                   a.def_tackles_total, a.def_tackles_ast, a.def_tfl, a.def_sacks,
+                   a.def_ff, a.def_fr, a.def_ints, a.def_pass_def, a.def_tds,
+                   a.fg_att, a.fg_made, a.xp_att, a.xp_made,
+                   a.punts, a.punt_yds, a.punt_inside20, a.punt_net_avg,
+                   a.receiving_drops, a.receiving_broken_tackles,
+                   a.rushing_broken_tackles, a.passing_drops,
+                   a.rushing_yards_before_contact, a.rushing_yards_after_contact,
+                   sa.off_snaps_total, sa.def_snaps_total,
+                   sa.off_snap_rate,   sa.def_snap_rate
+              FROM agg a
+              LEFT JOIN player_id_crosswalk c ON c.gsis_id = a.gsis_id
+              LEFT JOIN snap_agg sa             ON sa.gsis_id = a.gsis_id
+             WHERE a.games >= ?
+             ORDER BY a.rush_yds + a.rec_yds + a.pass_yds DESC
+             LIMIT ?
+          `;
+          const res = await db.prepare(sql).bind(season, season, minGames, limit).all();
+          const rows = res.results || [];
+          // Punter filter: if pos=punter, keep only rows with actual punts
+          const filtered = pos === "punter" ? rows.filter(r => (r.punts || 0) > 0) : rows;
+          return jsonOut(200, {
+            season, pos, include_post: includePost, min_games: minGames, count: filtered.length,
+            rows: filtered,
+          });
+        } catch (e) {
+          console.error("[advanced-stats-leaderboard] failed:", e);
+          return jsonOut(500, { error: String(e && e.message || e) });
+        }
+      }
 
       // ---------- Rookie Draft Hub: /api/player-bundle ----------
       // Lean port of build_player_bundle from rookie_draft_bridge.py. Fetches

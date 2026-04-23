@@ -1,0 +1,350 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UPS Advanced Stats Workbench</title>
+<style>
+:root{
+  --bg:#0b1424; --panel:#13213a; --panel-alt:#1a2a45; --border:#2a3e60;
+  --border-strong:#3b5280; --text:#e8effa; --muted:#9fb3d1; --accent:#6aa8ff;
+  --ok:#5bd9a2; --warn:#f0c465; --err:#ff7b7b; --smash:#73e68c; --hit:#7cb3ff;
+  --contrib:#a8a8a8; --bust:#e07a7a;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:13px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+.asw-shell{max-width:1400px;margin:0 auto;padding:12px}
+h1{margin:0 0 8px;font-size:18px;letter-spacing:.02em}
+.asw-subtitle{color:var(--muted);font-size:11px;margin-bottom:12px}
+.asw-controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;background:var(--panel);padding:10px 12px;border:1px solid var(--border);border-radius:8px;margin-bottom:10px}
+.asw-controls label{display:flex;flex-direction:column;gap:2px;font-size:11px;color:var(--muted)}
+.asw-controls select,.asw-controls input{background:var(--panel-alt);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:4px 8px;font-size:12px;min-width:100px}
+.asw-controls input[type="text"]{min-width:160px}
+.asw-controls .asw-chip{background:var(--panel-alt);color:var(--text);border:1px solid var(--border);border-radius:999px;padding:4px 10px;font-size:11px;cursor:pointer;transition:.1s}
+.asw-controls .asw-chip[aria-pressed="true"]{background:var(--accent);color:#0a1222;border-color:var(--accent);font-weight:700}
+.asw-controls .asw-run{background:var(--accent);color:#0a1222;border:none;border-radius:4px;padding:6px 14px;font-weight:700;cursor:pointer;margin-left:auto}
+.asw-meta{color:var(--muted);font-size:11px;margin-bottom:6px}
+.asw-table-wrap{overflow-x:auto;background:var(--panel);border:1px solid var(--border);border-radius:8px}
+table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
+.asw-table th,.asw-table td{padding:5px 8px;border-bottom:1px solid var(--border);white-space:nowrap}
+.asw-table th{position:sticky;top:0;background:var(--panel-alt);color:var(--muted);font-weight:600;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.03em;cursor:pointer;user-select:none}
+.asw-table th.num,.asw-table td.num{text-align:right;font-variant-numeric:tabular-nums}
+.asw-table th[aria-sort="ascending"]::after{content:" ▲";color:var(--accent)}
+.asw-table th[aria-sort="descending"]::after{content:" ▼";color:var(--accent)}
+.asw-table tbody tr:hover{background:rgba(106,168,255,.06)}
+.asw-table td.name{font-weight:600}
+.asw-table td.dim{color:var(--muted)}
+.asw-empty{padding:40px;text-align:center;color:var(--muted)}
+.asw-loading{padding:20px;text-align:center;color:var(--muted);font-style:italic}
+.asw-err{padding:12px;color:var(--err);border:1px solid var(--err);border-radius:4px;background:rgba(255,123,123,.05);margin-bottom:8px}
+</style>
+</head>
+<body>
+<div class="asw-shell">
+<h1>Advanced Stats Workbench</h1>
+<div class="asw-subtitle">NFL on-field counts (nflverse) + snap share + PFR advanced. Sort any column; filter by position, season, scope. Player name clicks open full profile (coming soon).</div>
+
+<div class="asw-controls">
+  <label>Position
+    <select id="asw-pos">
+      <option value="skill">Skill (RB/WR/TE)</option>
+      <option value="qb">QB</option>
+      <option value="idp">IDP (DL/LB/DB)</option>
+      <option value="kicker">Kicker</option>
+      <option value="punter">Punter</option>
+    </select>
+  </label>
+  <label>Season
+    <select id="asw-season"></select>
+  </label>
+  <label>Scope
+    <div style="display:flex;gap:4px">
+      <button type="button" class="asw-chip" data-scope="ups"  aria-pressed="true"  title="NFL regular season only">UPS</button>
+      <button type="button" class="asw-chip" data-scope="full" aria-pressed="false" title="Include playoffs">Full</button>
+    </div>
+  </label>
+  <label>Min Games
+    <input type="number" id="asw-min-games" value="3" min="1" max="22" style="width:70px">
+  </label>
+  <label>Search
+    <input type="text" id="asw-search" placeholder="name contains…">
+  </label>
+  <button type="button" class="asw-run" id="asw-run">Run</button>
+</div>
+
+<div class="asw-meta" id="asw-meta"></div>
+<div class="asw-table-wrap">
+  <div id="asw-body"></div>
+</div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---------- Config ----------
+  // API base: production worker. Override via window.UPS_ASW_API_BASE.
+  var API_BASE = (typeof window !== "undefined" && window.UPS_ASW_API_BASE) ||
+                 "https://upsmflproduction.keith-creelman.workers.dev";
+
+  var THIS_YEAR = new Date().getFullYear();
+  var MIN_SEASON = 2011;
+
+  // Populate season dropdown (descending). Default to prior complete season.
+  var seasonSel = document.getElementById("asw-season");
+  var defaultSeason = THIS_YEAR - 1;
+  for (var y = THIS_YEAR; y >= MIN_SEASON; y--) {
+    var opt = document.createElement("option");
+    opt.value = String(y);
+    opt.textContent = String(y);
+    if (y === defaultSeason) opt.selected = true;
+    seasonSel.appendChild(opt);
+  }
+
+  var posSel = document.getElementById("asw-pos");
+  var scopeBtns = document.querySelectorAll("[data-scope]");
+  var minGamesEl = document.getElementById("asw-min-games");
+  var searchEl = document.getElementById("asw-search");
+  var runBtn = document.getElementById("asw-run");
+  var metaEl = document.getElementById("asw-meta");
+  var bodyEl = document.getElementById("asw-body");
+
+  scopeBtns.forEach(function(b){
+    b.addEventListener("click", function(){
+      scopeBtns.forEach(function(x){ x.setAttribute("aria-pressed", x === b ? "true" : "false"); });
+    });
+  });
+
+  // ---------- Per-pos-group templates (mirror popup logic) ----------
+  var TMPL = {
+    skill: {
+      label: "RB / WR / TE",
+      defaultSort: "rec_yds",
+      cols: [
+        { key:"player_name", label:"Player",  cls:"name" },
+        { key:"team",        label:"Tm",      cls:"dim" },
+        { key:"games",       label:"G",       num:true },
+        { key:"off_snaps_total", label:"Snaps", num:true },
+        { key:"off_snap_rate",   label:"Snap%", num:true, fmt:"pct0" },
+        { key:"targets",     label:"Tgt",     num:true },
+        { key:"receptions",  label:"Rec",     num:true },
+        { key:"rec_yds",     label:"RecYd",   num:true },
+        { key:"rec_tds",     label:"RecTD",   num:true },
+        { key:"y_per_t",     label:"Y/T",     num:true, fmt:"dec2",
+          compute: function(r){ return r.targets ? r.rec_yds / r.targets : null; } },
+        { key:"receiving_drops", label:"Drops",  num:true },
+        { key:"brtkl_total", label:"BrTkl",   num:true,
+          compute: function(r){ return (r.receiving_broken_tackles||0)+(r.rushing_broken_tackles||0); } },
+        { key:"rush_att",    label:"RuAtt",   num:true },
+        { key:"rush_yds",    label:"RuYd",    num:true },
+        { key:"rush_tds",    label:"RuTD",    num:true },
+        { key:"ybc_per_a",   label:"YBC/A",   num:true, fmt:"dec2",
+          compute: function(r){ return r.rush_att ? (r.rushing_yards_before_contact||0)/r.rush_att : null; } },
+        { key:"yac_per_a",   label:"YAC/A",   num:true, fmt:"dec2",
+          compute: function(r){ return r.rush_att ? (r.rushing_yards_after_contact||0)/r.rush_att : null; } },
+      ]
+    },
+    qb: {
+      label: "QB",
+      defaultSort: "pass_yds",
+      cols: [
+        { key:"player_name", label:"Player",  cls:"name" },
+        { key:"team",        label:"Tm",      cls:"dim" },
+        { key:"games",       label:"G",       num:true },
+        { key:"off_snaps_total", label:"Snaps", num:true },
+        { key:"off_snap_rate",   label:"Snap%", num:true, fmt:"pct0" },
+        { key:"pass_att",    label:"Att",     num:true },
+        { key:"pass_cmp",    label:"Cmp",     num:true },
+        { key:"cmp_pct",     label:"Cmp%",    num:true, fmt:"pct",
+          compute: function(r){ return r.pass_att ? r.pass_cmp / r.pass_att : null; } },
+        { key:"pass_yds",    label:"PaYd",    num:true },
+        { key:"pass_tds",    label:"PaTD",    num:true },
+        { key:"pass_ints",   label:"Int",     num:true },
+        { key:"int_pct",     label:"Int%",    num:true, fmt:"pct",
+          compute: function(r){ return r.pass_att ? r.pass_ints / r.pass_att : null; } },
+        { key:"passing_drops", label:"RecDrops", num:true, title:"Drops by this QB's receivers" },
+        { key:"rush_att",    label:"RuAtt",   num:true },
+        { key:"rush_yds",    label:"RuYd",    num:true },
+        { key:"rush_tds",    label:"RuTD",    num:true },
+      ]
+    },
+    idp: {
+      label: "IDP",
+      defaultSort: "def_tackles_total",
+      cols: [
+        { key:"player_name", label:"Player",  cls:"name" },
+        { key:"team",        label:"Tm",      cls:"dim" },
+        { key:"position",    label:"Pos",     cls:"dim" },
+        { key:"games",       label:"G",       num:true },
+        { key:"def_snaps_total", label:"Snaps", num:true },
+        { key:"def_snap_rate",   label:"Snap%", num:true, fmt:"pct0" },
+        { key:"def_tackles_total", label:"Tkl", num:true },
+        { key:"def_tackles_ast",   label:"Ast", num:true },
+        { key:"def_tfl",     label:"TFL",     num:true },
+        { key:"def_sacks",   label:"Sk",      num:true, fmt:"dec1" },
+        { key:"def_ff",      label:"FF",      num:true },
+        { key:"def_fr",      label:"FR",      num:true },
+        { key:"def_ints",    label:"Int",     num:true },
+        { key:"def_pass_def", label:"PD",     num:true },
+        { key:"def_tds",     label:"DefTD",   num:true },
+      ]
+    },
+    kicker: {
+      label: "Kicker",
+      defaultSort: "fg_made",
+      cols: [
+        { key:"player_name", label:"Player",  cls:"name" },
+        { key:"team",        label:"Tm",      cls:"dim" },
+        { key:"games",       label:"G",       num:true },
+        { key:"fg_made",     label:"FGM",     num:true },
+        { key:"fg_miss",     label:"FG Miss", num:true,
+          compute: function(r){ return (r.fg_att||0)-(r.fg_made||0); } },
+        { key:"fg_pct",      label:"FG%",     num:true, fmt:"pct",
+          compute: function(r){ return r.fg_att ? r.fg_made / r.fg_att : null; } },
+        { key:"xp_made",     label:"XPM",     num:true },
+        { key:"xp_miss",     label:"XP Miss", num:true,
+          compute: function(r){ return (r.xp_att||0)-(r.xp_made||0); } },
+      ]
+    },
+    punter: {
+      label: "Punter",
+      defaultSort: "punts",
+      cols: [
+        { key:"player_name", label:"Player",  cls:"name" },
+        { key:"team",        label:"Tm",      cls:"dim" },
+        { key:"games",       label:"G",       num:true },
+        { key:"punts",       label:"Punts",   num:true },
+        { key:"punt_yds",    label:"PuntYd",  num:true },
+        { key:"punt_net_avg", label:"Net Avg", num:true, fmt:"dec1" },
+        { key:"punt_inside20", label:"I20",   num:true },
+      ]
+    }
+  };
+
+  // Current state
+  var state = { rows:[], sortKey:null, sortDir:"desc", lastQuery:null };
+
+  function fmtCell(v, fmt){
+    if (v == null || v === "" || (typeof v === "number" && isNaN(v))) return "—";
+    if (fmt === "dec1") return Number(v).toFixed(1);
+    if (fmt === "dec2") return Number(v).toFixed(2);
+    if (fmt === "pct")  return (Number(v)*100).toFixed(1)+"%";
+    if (fmt === "pct0") {
+      var n = Number(v);
+      if (n > 0 && n <= 1) n = n * 100;
+      return n.toFixed(1)+"%";
+    }
+    return String(v);
+  }
+
+  function getVal(row, col){
+    if (col.compute) return col.compute(row);
+    return row[col.key];
+  }
+
+  function render(){
+    var pos = posSel.value;
+    var tmpl = TMPL[pos] || TMPL.skill;
+    if (!state.sortKey) {
+      state.sortKey = tmpl.defaultSort;
+      state.sortDir = "desc";
+    }
+    var searchQ = (searchEl.value || "").trim().toLowerCase();
+    var rows = state.rows.slice();
+    if (searchQ) rows = rows.filter(function(r){
+      return String(r.player_name||"").toLowerCase().indexOf(searchQ) !== -1;
+    });
+    // Sort
+    rows.sort(function(a,b){
+      var col = tmpl.cols.find(function(c){ return c.key === state.sortKey; }) || { key: state.sortKey };
+      var av = getVal(a, col);
+      var bv = getVal(b, col);
+      if (av == null) av = state.sortDir === "asc" ? Infinity : -Infinity;
+      if (bv == null) bv = state.sortDir === "asc" ? Infinity : -Infinity;
+      if (typeof av === "string" || typeof bv === "string") {
+        av = String(av); bv = String(bv);
+        return state.sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
+      }
+      return state.sortDir === "asc" ? av - bv : bv - av;
+    });
+    // Render table
+    var th = tmpl.cols.map(function(c){
+      var sortAttr = c.key === state.sortKey ? ' aria-sort="' + (state.sortDir === "asc" ? "ascending" : "descending") + '"' : "";
+      var cls = c.num ? "num" : "";
+      var titleAttr = c.title ? ' title="' + c.title.replace(/"/g, "&quot;") + '"' : "";
+      return '<th class="'+cls+'"'+sortAttr+titleAttr+' data-col-key="'+c.key+'">'+c.label+'</th>';
+    }).join("");
+    var body = rows.map(function(r){
+      var tds = tmpl.cols.map(function(c){
+        var v = getVal(r, c);
+        var cls = [];
+        if (c.num) cls.push("num");
+        if (c.cls) cls.push(c.cls);
+        return '<td class="'+cls.join(" ")+'">'+fmtCell(v, c.fmt)+'</td>';
+      }).join("");
+      return '<tr>'+tds+'</tr>';
+    }).join("");
+    bodyEl.innerHTML = rows.length
+      ? '<table class="asw-table"><thead><tr>'+th+'</tr></thead><tbody>'+body+'</tbody></table>'
+      : '<div class="asw-empty">No rows.</div>';
+    metaEl.textContent = (state.lastQuery || "") + " · " + rows.length + " player" + (rows.length === 1 ? "" : "s") + (searchQ ? " (filtered)" : "");
+    // Wire sort
+    bodyEl.querySelectorAll("th[data-col-key]").forEach(function(el){
+      el.addEventListener("click", function(){
+        var key = el.getAttribute("data-col-key");
+        if (state.sortKey === key) {
+          state.sortDir = state.sortDir === "asc" ? "desc" : "asc";
+        } else {
+          state.sortKey = key;
+          state.sortDir = "desc";
+        }
+        render();
+      });
+    });
+  }
+
+  function getScope(){
+    var btn = document.querySelector("[data-scope][aria-pressed='true']");
+    return btn ? btn.getAttribute("data-scope") : "ups";
+  }
+
+  function runQuery(){
+    var pos = posSel.value;
+    var season = parseInt(seasonSel.value, 10);
+    var scope = getScope();
+    var minG = Math.max(1, parseInt(minGamesEl.value, 10) || 1);
+    state.sortKey = null;  // reset on new query so defaultSort kicks in
+    bodyEl.innerHTML = '<div class="asw-loading">Fetching…</div>';
+    metaEl.textContent = "";
+    var url = API_BASE + "/api/advanced-stats-leaderboard" +
+      "?season=" + encodeURIComponent(season) +
+      "&pos="   + encodeURIComponent(pos) +
+      "&include_post=" + (scope === "full" ? "1" : "0") +
+      "&min_games=" + encodeURIComponent(minG) +
+      "&limit=500";
+    fetch(url).then(function(r){
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r.json();
+    }).then(function(j){
+      state.rows = Array.isArray(j.rows) ? j.rows : [];
+      state.lastQuery = (TMPL[pos] && TMPL[pos].label || pos) + " · " + season + " · " + (scope === "full" ? "Full" : "UPS") + " · min " + minG + "G";
+      render();
+    }).catch(function(e){
+      bodyEl.innerHTML = '<div class="asw-err">Query failed: '+(e && e.message || e)+'</div>';
+      metaEl.textContent = "";
+    });
+  }
+
+  runBtn.addEventListener("click", runQuery);
+  searchEl.addEventListener("input", function(){ if (state.rows.length) render(); });
+  [posSel, seasonSel, minGamesEl].forEach(function(el){
+    el.addEventListener("change", runQuery);
+  });
+  scopeBtns.forEach(function(b){ b.addEventListener("click", runQuery); });
+
+  // Initial query
+  runQuery();
+})();
+</script>
+</body>
+</html>

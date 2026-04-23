@@ -1,0 +1,16 @@
+<!--
+  UPS Advanced Stats Workbench — MFL message-slot embed.
+  Paste this into any MFL message (e.g. Message 13) to embed the module.
+-->
+<div id="upsStatsWorkbenchMount"></div>
+<script>
+  (function () {
+    var sha = window.UPS_STATS_WORKBENCH_RELEASE_SHA || window.UPS_RELEASE_SHA || "main";
+    var s = document.createElement("script");
+    s.src = "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@" +
+            sha + "/site/stats_workbench/mfl_hpm_embed_loader.js";
+    s.setAttribute("data-target-id", "upsStatsWorkbenchMount");
+    var anchor = document.currentScript;
+    anchor.parentNode.insertBefore(s, anchor);
+  })();
+</script>
