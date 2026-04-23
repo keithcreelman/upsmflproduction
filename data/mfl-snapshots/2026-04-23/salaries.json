@@ -1,0 +1,3441 @@
+{
+  "encoding": "utf-8",
+  "salaries": {
+    "leagueUnit": {
+      "player": [
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "0000",
+          "salary": ""
+        },
+        {
+          "contractInfo": "CL 3| TCV 55K| AAV 25K| Ext: Gride",
+          "contractStatus": "Veteran",
+          "contractYear": "2",
+          "id": "16167",
+          "salary": "25000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 90K| AAV 30K| Y1-50, Y2-20, Y3-20",
+          "contractStatus": "FL",
+          "contractYear": "1",
+          "id": "11675",
+          "salary": "20000"
+        },
+        {
+          "contractInfo": "CL 2| TCV 24K| AAV 17K| Ext: LH",
+          "contractStatus": "Veteran",
+          "contractYear": "1",
+          "id": "16186",
+          "salary": "17000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "15394",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "Veteran",
+          "contractYear": "0",
+          "id": "14590",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "16746",
+          "salary": ""
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "16645",
+          "salary": ""
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "16596",
+          "salary": ""
+        },
+        {
+          "contractInfo": "No Further Extension Allowed",
+          "contractStatus": "Tag",
+          "contractYear": "0",
+          "id": "13589",
+          "salary": "46000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "Veteran",
+          "contractYear": "0",
+          "id": "11222",
+          "salary": "5000"
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "17061",
+          "salary": ""
+        },
+        {
+          "contractInfo": "CL 1| TCV 15K| AAV 15K| Y1-15K| Ext: Blake",
+          "contractStatus": "Veteran",
+          "contractYear": "0",
+          "id": "15712",
+          "salary": "15000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 3K| AAV 1K",
+          "contractStatus": "Veteran",
+          "contractYear": "1",
+          "id": "16223",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 63K| AAV 27K| Y1-9K, Y2-27K, Y3-27K| Ext: Blake, L.A. Looks",
+          "contractStatus": "Veteran",
+          "contractYear": "0",
+          "id": "13671",
+          "salary": "27000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "10814",
+          "salary": "2000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "13268",
+          "salary": "2000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "15911",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "13759",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "17108",
+          "salary": ""
+        },
+        {
+          "contractInfo": "CL 2| TCV 4K| AAV 2K",
+          "contractStatus": "Veteran",
+          "contractYear": "1",
+          "id": "16414",
+          "salary": "2000"
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "17073",
+          "salary": ""
+        },
+        {
+          "contractInfo": "CL 2| TCV 2K| AAV 1K| Y1-1K, Y2-1K| GTD: 1K",
+          "contractStatus": "MYM - Vet",
+          "contractYear": "1",
+          "id": "16384",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 1| TCV 61K| AAV 61K| No Further Extensions",
+          "contractStatus": "Tag",
+          "contractYear": "0",
+          "id": "13604",
+          "salary": "61000"
+        },
+        {
+          "contractInfo": "CL 2| TCV 2K| AAV 1K",
+          "contractStatus": "Veteran",
+          "contractYear": "1",
+          "id": "16723",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "14217",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 15K| AAV 5K",
+          "contractStatus": "Veteran",
+          "contractYear": "2",
+          "id": "15293",
+          "salary": "5000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "16846",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 3K| AAV 1K",
+          "contractStatus": "Rookie",
+          "contractYear": "0",
+          "id": "16245",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "No Further Extensions",
+          "contractStatus": "Tag",
+          "contractYear": "0",
+          "id": "14893",
+          "salary": "5000"
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "17078",
+          "salary": ""
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "15875",
+          "salary": "6000"
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "16153",
+          "salary": ""
+        },
+        {
+          "contractInfo": "CL 3| TCV 18K| AAV 6K",
+          "contractStatus": "Rookie",
+          "contractYear": "1",
+          "id": "16594",
+          "salary": "6000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "16799",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 15K| AAV 5K",
+          "contractStatus": "Rookie",
+          "contractYear": "0",
+          "id": "16164",
+          "salary": "5000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "16700",
+          "salary": "2000"
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "17069",
+          "salary": ""
+        },
+        {
+          "contractInfo": "CL 3| TCV 3K| AAV 1K",
+          "contractStatus": "Veteran",
+          "contractYear": "0",
+          "id": "15355",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 24K| AAV 8K| Y1-5, Y2-5, Y3-14",
+          "contractStatus": "BL",
+          "contractYear": "2",
+          "id": "17076",
+          "salary": "5000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "Veteran",
+          "contractYear": "0",
+          "id": "15861",
+          "salary": "4000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "17220",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 15K| AAV 5K| Y1-5, Y2-5, Y3-5",
+          "contractStatus": "Veteran",
+          "contractYear": "1",
+          "id": "14147",
+          "salary": "5000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "11936",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "13418",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 6K| AAV 2K",
+          "contractStatus": "Rookie",
+          "contractYear": "0",
+          "id": "16193",
+          "salary": "2000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 27K| AAV 9K",
+          "contractStatus": "Rookie",
+          "contractYear": "1",
+          "id": "16641",
+          "salary": "9000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 3K| AAV 1K",
+          "contractStatus": "Rookie",
+          "contractYear": "0",
+          "id": "16244",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 1| TCV 16K| AAV 16K| GTD 12K| Tag| Tier 3| Formula: Avg Top 16-24 QB AAV",
+          "contractStatus": "TAG",
+          "contractYear": "1",
+          "id": "12616",
+          "salary": "16000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 21K| AAV 7K",
+          "contractStatus": "Rookie",
+          "contractYear": "1",
+          "id": "16597",
+          "salary": "7000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "Veteran",
+          "contractYear": "0",
+          "id": "14892",
+          "salary": "4000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 6K| AAV 2K",
+          "contractStatus": "Rookie",
+          "contractYear": "2",
+          "id": "17058",
+          "salary": "2000"
+        },
+        {
+          "contractInfo": "CL 2| TCV 129K| AAV 56K|Y1-73 Y2-56 | Ext: Sex, Creel, LH",
+          "contractStatus": "BL",
+          "contractYear": "1",
+          "id": "14104",
+          "salary": "56000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 6K| AAV 2K",
+          "contractStatus": "Rookie",
+          "contractYear": "0",
+          "id": "16181",
+          "salary": "2000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 3K| AAV 1K",
+          "contractStatus": "Veteran",
+          "contractYear": "2",
+          "id": "15292",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 24K| AAV 8K| Y1-8, Y2-8, Y3-8",
+          "contractStatus": "Veteran",
+          "contractYear": "1",
+          "id": "14105",
+          "salary": "8000"
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "17082",
+          "salary": ""
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "12688",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 3K| AAV 1K",
+          "contractStatus": "Rookie",
+          "contractYear": "1",
+          "id": "16677",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 15K| AAV 5K | Option Eligible",
+          "contractStatus": "Rookie",
+          "contractYear": "2",
+          "id": "17070",
+          "salary": "5000"
+        },
+        {
+          "contractInfo": "CL 1| TCV 8K| AAV 8K| GTD 8K| Tag| Tier 1| Formula: Avg Top 1-6 DL AAV",
+          "contractStatus": "TAG",
+          "contractYear": "1",
+          "id": "14171",
+          "salary": "8000"
+        },
+        {
+          "contractInfo": "CL 1| TCV 46K| AAV 46K| No Further Extensions",
+          "contractStatus": "Tag",
+          "contractYear": "0",
+          "id": "14777",
+          "salary": "46000"
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "16632",
+          "salary": ""
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "14170",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "Veteran",
+          "contractYear": "0",
+          "id": "12752",
+          "salary": "4000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 3K| AAV 1K| Y1-1, Y2-1, Y3-1",
+          "contractStatus": "Veteran",
+          "contractYear": "1",
+          "id": "15418",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 9K| AAV 3K| Y1-3, Y2-3, Y3-3",
+          "contractStatus": "Veteran",
+          "contractYear": "1",
+          "id": "16239",
+          "salary": "3000"
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "17123",
+          "salary": ""
+        },
+        {
+          "contractInfo": "CL 3| TCV 6K| AAV 2K",
+          "contractStatus": "Rookie",
+          "contractYear": "2",
+          "id": "17112",
+          "salary": "2000"
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "16233",
+          "salary": ""
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "15258",
+          "salary": "11000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "Veteran",
+          "contractYear": "0",
+          "id": "14251",
+          "salary": "2000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 15K| AAV 5K",
+          "contractStatus": "Rookie",
+          "contractYear": "0",
+          "id": "16169",
+          "salary": "5000"
+        },
+        {
+          "contractInfo": "CL 2| TCV 129K| AAV 54K| Y1-26K, Y2-103K| GTD: 96.8K| Ext: Creel, Hammer",
+          "contractStatus": "BL",
+          "contractYear": "2",
+          "id": "15281",
+          "salary": "26000"
+        },
+        {
+          "contractInfo": "CL 2| TCV 2K| AAV 1K| Y1-1K, Y2-1K| GTD: 1K",
+          "contractStatus": "MYM - Rookie",
+          "contractYear": "1",
+          "id": "17269",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "13610",
+          "salary": "5000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 3K| AAV 1K| Y1-1, Y2-1, Y3-1",
+          "contractStatus": "Rookie",
+          "contractYear": "1",
+          "id": "16809",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 15K| AAV 5K",
+          "contractStatus": "Rookie",
+          "contractYear": "1",
+          "id": "16617",
+          "salary": "5000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 110K| AAV 42K|Y1-16K, Y2-47K, Y3-47K|  Ext: C-Town, CBP",
+          "contractStatus": "BL",
+          "contractYear": "2",
+          "id": "15290",
+          "salary": "47000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "16295",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 2| TCV 40K| AAV 20K",
+          "contractStatus": "Veteran",
+          "contractYear": "0",
+          "id": "13146",
+          "salary": "20000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 61K| AAV 27K| Y1-7, Y2-27, Y3-27| Ext: CBP",
+          "contractStatus": "Veteran",
+          "contractYear": "1",
+          "id": "15715",
+          "salary": "27000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 3K| AAV 1K| Y1-1, Y2-1, Y3-1",
+          "contractStatus": "Veteran",
+          "contractYear": "1",
+          "id": "15484",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "16636",
+          "salary": ""
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "16593",
+          "salary": ""
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "10700",
+          "salary": "19000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "17241",
+          "salary": "3000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "Veteran",
+          "contractYear": "0",
+          "id": "14225",
+          "salary": "10000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 6K| AAV 2K",
+          "contractStatus": "Rookie",
+          "contractYear": "2",
+          "id": "17256",
+          "salary": "2000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "15839",
+          "salary": "3000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "Veteran",
+          "contractYear": "0",
+          "id": "15001",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "10313",
+          "salary": "29000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 36K| AAV 12K",
+          "contractStatus": "Rookie",
+          "contractYear": "1",
+          "id": "16581",
+          "salary": "12000"
+        },
+        {
+          "contractInfo": "CL 2| TCV 36K| AAV 18K",
+          "contractStatus": "Veteran",
+          "contractYear": "1",
+          "id": "13592",
+          "salary": "18000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 27K| AAV 9K | Option Eligible",
+          "contractStatus": "Rookie",
+          "contractYear": "2",
+          "id": "17032",
+          "salary": "9000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "10768",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "10816",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 3K| AAV 1K",
+          "contractStatus": "Veteran",
+          "contractYear": "2",
+          "id": "16752",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "15817",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "16603",
+          "salary": ""
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "Veteran",
+          "contractYear": "0",
+          "id": "16675",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "15821",
+          "salary": "3000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 3K| AAV 1K",
+          "contractStatus": "Veteran",
+          "contractYear": "2",
+          "id": "16204",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "14907",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "Veteran",
+          "contractYear": "0",
+          "id": "16385",
+          "salary": "10000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "16314",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "Veteran",
+          "contractYear": "0",
+          "id": "15979",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "Veteran",
+          "contractYear": "0",
+          "id": "12186",
+          "salary": "20000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 15K| AAV 5K",
+          "contractStatus": "Rookie",
+          "contractYear": "2",
+          "id": "17171",
+          "salary": "5000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "12842",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 27K| AAV 9K| Y1-9, Y2-9, Y3-9",
+          "contractStatus": "Veteran",
+          "contractYear": "1",
+          "id": "14800",
+          "salary": "9000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "14108",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "Veteran",
+          "contractYear": "1",
+          "id": "15779",
+          "salary": "4000"
+        },
+        {
+          "contractInfo": "CL 2| TCV 14K| AAV 12K |Y1-2 Y2-12| Ext: Blake",
+          "contractStatus": "Veteran",
+          "contractYear": "0",
+          "id": "16342",
+          "salary": "12000"
+        },
+        {
+          "contractInfo": "CL 2| TCV 12K| AAV 11K| Ext: Blake",
+          "contractStatus": "Veteran",
+          "contractYear": "1",
+          "id": "14823",
+          "salary": "11000"
+        },
+        {
+          "contractInfo": "CL 2|TCV 14K|AAV 12K|Y1-2 Y2-12|Ext: GRide",
+          "contractStatus": "EXT1",
+          "contractYear": "1",
+          "id": "16187",
+          "salary": "12000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "15797",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "13697",
+          "salary": "2000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "14322",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 15K| AAV 5K",
+          "contractStatus": "Rookie",
+          "contractYear": "2",
+          "id": "17081",
+          "salary": "5000"
+        },
+        {
+          "contractInfo": "CL 2| TCV 2K| AAV 1K| Y1-1K, Y2-1K| GTD: 1K",
+          "contractStatus": "Veteran",
+          "contractYear": "1",
+          "id": "13806",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "14303",
+          "salary": "3000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 3K| AAV 1K",
+          "contractStatus": "Rookie",
+          "contractYear": "2",
+          "id": "17144",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 2| TCV 2K| AAV 1K| Y1-1K, Y2-1K| GTD: 1K",
+          "contractStatus": "MYM - Vet",
+          "contractYear": "1",
+          "id": "11247",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "16595",
+          "salary": ""
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "Veteran",
+          "contractYear": "0",
+          "id": "15253",
+          "salary": "17000"
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "17056",
+          "salary": ""
+        },
+        {
+          "contractInfo": "CL 3| TCV 72K| AAV 24K| Y1-24, Y2-24, Y3-24",
+          "contractStatus": "Veteran",
+          "contractYear": "1",
+          "id": "11671",
+          "salary": "24000"
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "17034",
+          "salary": ""
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "12860",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 15K| AAV 5K",
+          "contractStatus": "Rookie",
+          "contractYear": "2",
+          "id": "17103",
+          "salary": "5000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 12K| AAV 4K| Y1-4, Y2-4, Y3-4",
+          "contractStatus": "Veteran",
+          "contractYear": "1",
+          "id": "14137",
+          "salary": "4000"
+        },
+        {
+          "contractInfo": "CL 2| TCV 32K| AAV 21K| Y1-11, Y2-21| Ext: Blake, L.A. Looks",
+          "contractStatus": "Veteran",
+          "contractYear": "1",
+          "id": "15799",
+          "salary": "21000"
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "17107",
+          "salary": ""
+        },
+        {
+          "contractInfo": "CL 2| TCV 50K| Ext: PG",
+          "contractStatus": "Veteran",
+          "contractYear": "0",
+          "id": "15238",
+          "salary": "25000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "13713",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "Veteran",
+          "contractYear": "0",
+          "id": "9064",
+          "salary": "6000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "16778",
+          "salary": "6000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 55K| AAV 25K| Y1-5, Y2-25, Y3-25| Ext: GRide",
+          "contractStatus": "Veteran",
+          "contractYear": "2",
+          "id": "16190",
+          "salary": "25000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "Veteran",
+          "contractYear": "0",
+          "id": "15713",
+          "salary": "6000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "15032",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 15K| AAV 5K",
+          "contractStatus": "Rookie",
+          "contractYear": "1",
+          "id": "16619",
+          "salary": "5000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "15331",
+          "salary": "3000"
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "17037",
+          "salary": ""
+        },
+        {
+          "contractInfo": "CL 3| TCV 12K| AAV 4K",
+          "contractStatus": "Rookie",
+          "contractYear": "2",
+          "id": "17099",
+          "salary": "4000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "15255",
+          "salary": "3000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "Veteran",
+          "contractYear": "0",
+          "id": "14224",
+          "salary": "5000"
+        },
+        {
+          "contractInfo": "CL 2| TCV 18K| AAV 9K| Y1-14, Y2-4,",
+          "contractStatus": "FL",
+          "contractYear": "0",
+          "id": "13198",
+          "salary": "4000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "13672",
+          "salary": "5000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 73K| AAV 31K| Y1-11K, Y2-31K, Y3-31K| Ext: Sex",
+          "contractStatus": "Veteran",
+          "contractYear": "2",
+          "id": "16162",
+          "salary": "31000"
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "17060",
+          "salary": ""
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "14489",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 2| TCV 20K| AAV 10K",
+          "contractStatus": "Veteran",
+          "contractYear": "1",
+          "id": "13163",
+          "salary": "10000"
+        },
+        {
+          "contractInfo": "CL 2| TCV 14K| AAV 7K",
+          "contractStatus": "Veteran",
+          "contractYear": "1",
+          "id": "13674",
+          "salary": "7000"
+        },
+        {
+          "contractInfo": "CL 2| TCV 56K| AAV 35K| Y1-26, Y2-30K| Ext: Sex",
+          "contractStatus": "BL",
+          "contractYear": "0",
+          "id": "12611",
+          "salary": "30000"
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "17075",
+          "salary": ""
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "17059",
+          "salary": ""
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "17121",
+          "salary": ""
+        },
+        {
+          "contractInfo": "CL 3| TCV 3K| AAV 1K",
+          "contractStatus": "Rookie",
+          "contractYear": "1",
+          "id": "16667",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "17120",
+          "salary": ""
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "16688",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "16156",
+          "salary": ""
+        },
+        {
+          "contractInfo": "CL 2| TCV 70K| AAV 35K| Y1-35K, Y2-35K| Ext: Blake",
+          "contractStatus": "Veteran",
+          "contractYear": "1",
+          "id": "15708",
+          "salary": "35000"
+        },
+        {
+          "contractInfo": "CL 1| TCV 5K| AAV 5K| Y1-5K| Ext: Hammer",
+          "contractStatus": "Veteran",
+          "contractYear": "0",
+          "id": "15834",
+          "salary": "5000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 39K| AAV 13K | Option Eligible",
+          "contractStatus": "Rookie",
+          "contractYear": "2",
+          "id": "17044",
+          "salary": "13000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "15254",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "17072",
+          "salary": ""
+        },
+        {
+          "contractInfo": "CL 3| TCV 42K| AAV 14K",
+          "contractStatus": "Rookie",
+          "contractYear": "1",
+          "id": "16614",
+          "salary": "14000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 33K| AAV 11K | Option Eligible",
+          "contractStatus": "Rookie",
+          "contractYear": "2",
+          "id": "17068",
+          "salary": "11000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "15720",
+          "salary": "18000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "17213",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "14954",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "17105",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 36K| AAV 12K | Option Eligible",
+          "contractStatus": "Rookie",
+          "contractYear": "2",
+          "id": "17043",
+          "salary": "12000"
+        },
+        {
+          "contractInfo": "CL 2| TCV 6K| AAV 3K",
+          "contractStatus": "Veteran",
+          "contractYear": "1",
+          "id": "13284",
+          "salary": "3000"
+        },
+        {
+          "contractInfo": "CL 2| TCV 4K| AAV 2K",
+          "contractStatus": "Veteran",
+          "contractYear": "1",
+          "id": "16280",
+          "salary": "2000"
+        },
+        {
+          "contractInfo": "CL 2| TCV 94K| AAV 44K|Y1-50 Y2-44| Ext: LH",
+          "contractStatus": "BL",
+          "contractYear": "1",
+          "id": "12626",
+          "salary": "44000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "Veteran",
+          "contractYear": "0",
+          "id": "12676",
+          "salary": "2000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 153K| AAV 51K| Y1-61, Y2-51, Y3-41",
+          "contractStatus": "FL",
+          "contractYear": "2",
+          "id": "14779",
+          "salary": "51000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 3K| AAV 1K| Y1-1, Y2-1, Y3-1",
+          "contractStatus": "Veteran",
+          "contractYear": "1",
+          "id": "12678",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "17083",
+          "salary": ""
+        },
+        {
+          "contractInfo": "CL 2| TCV 48K| AAV 47K| Y1-24, Y2-24| Ext: Mafia, LH, C-Town",
+          "contractStatus": "Veteran",
+          "contractYear": "1",
+          "id": "14835",
+          "salary": "24000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "14940",
+          "salary": "3000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "13424",
+          "salary": "16000"
+        },
+        {
+          "contractInfo": "CL 2| TCV 142K| AAV 62K| Y1-80K, Y2-62K",
+          "contractStatus": "Veteran",
+          "contractYear": "1",
+          "id": "12801",
+          "salary": "62000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "14167",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 33K| AAV 11K| Y1-11K, Y2-11K, Y3-11K| GTD: 24750",
+          "contractStatus": "MYM - Vet",
+          "contractYear": "2",
+          "id": "14138",
+          "salary": "11000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "13289",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "16151",
+          "salary": ""
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "17098",
+          "salary": ""
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "17036",
+          "salary": ""
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "Veteran",
+          "contractYear": "0",
+          "id": "15452",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "Veteran",
+          "contractYear": "0",
+          "id": "13138",
+          "salary": "5000"
+        },
+        {
+          "contractInfo": "CL 2| TCV 8K| AAV 4K| Y1-2, Y2-6,",
+          "contractStatus": "BL",
+          "contractYear": "0",
+          "id": "12221",
+          "salary": "6000"
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "17064",
+          "salary": ""
+        },
+        {
+          "contractInfo": "CL 3| TCV 42K| AAV 14K | Option Eligible",
+          "contractStatus": "Rookie",
+          "contractYear": "2",
+          "id": "17074",
+          "salary": "14000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "14789",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 2| TCV 84K| AAV 42K| Y1-17K, Y2-67K| Ext: Gride, Hammer",
+          "contractStatus": "BL",
+          "contractYear": "1",
+          "id": "14783",
+          "salary": "67000"
+        },
+        {
+          "contractInfo": "CL 2| TCV 7K| AAV 5K| Y1-2K, Y2-5K| Ext: Cleon",
+          "contractStatus": "Veteran",
+          "contractYear": "0",
+          "id": "15805",
+          "salary": "5000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "16201",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 6K| AAV 2K",
+          "contractStatus": "Rookie",
+          "contractYear": "1",
+          "id": "16598",
+          "salary": "2000"
+        },
+        {
+          "contractInfo": "No Further Extension Allowed",
+          "contractStatus": "Tag",
+          "contractYear": "0",
+          "id": "13593",
+          "salary": "46000"
+        },
+        {
+          "contractInfo": "CL 1| TCV 50K| AAV 50K| No Further Extensions",
+          "contractStatus": "Veteran",
+          "contractYear": "1",
+          "id": "14073",
+          "salary": "50000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "Veteran",
+          "contractYear": "0",
+          "id": "13714",
+          "salary": "4000"
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "17055",
+          "salary": ""
+        },
+        {
+          "contractInfo": "CL 3| TCV 45K| AAV 15K | Option Eligible",
+          "contractStatus": "Rookie",
+          "contractYear": "2",
+          "id": "17042",
+          "salary": "15000"
+        },
+        {
+          "contractInfo": "CL 2| TCV 96K| AAV 48K| Y1-25K, Y2-71K| Ext:  Sex, Hammer",
+          "contractStatus": "BL",
+          "contractYear": "1",
+          "id": "14836",
+          "salary": "71000"
+        },
+        {
+          "contractInfo": "CL 2| TCV 32K| AAV 21K| Y1-11K, Y2-21K| Ext: Creel, L.A.| GTD: 24K",
+          "contractStatus": "Veteran",
+          "contractYear": "1",
+          "id": "14860",
+          "salary": "21000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 9K| AAV 3K| Y1-7, Y2-1, Y3-1",
+          "contractStatus": "FL",
+          "contractYear": "1",
+          "id": "14833",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "9207",
+          "salary": "15000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 6K| AAV 2K",
+          "contractStatus": "Veteran",
+          "contractYear": "0",
+          "id": "14861",
+          "salary": "2000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 18K| AAV 6K | Option Eligible",
+          "contractStatus": "Rookie",
+          "contractYear": "2",
+          "id": "17048",
+          "salary": "6000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 12K| AAV 4K",
+          "contractStatus": "Veteran",
+          "contractYear": "2",
+          "id": "16175",
+          "salary": "4000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "17079",
+          "salary": "5000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 15K| AAV 5K| Y1-5, Y2-5, Y3-5",
+          "contractStatus": "Rookie",
+          "contractYear": "1",
+          "id": "16649",
+          "salary": "5000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "14864",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "14095",
+          "salary": "3000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 24K| AAV 8K",
+          "contractStatus": "Rookie",
+          "contractYear": "0",
+          "id": "16188",
+          "salary": "8000"
+        },
+        {
+          "contractInfo": "CL 2| TCV 20K| AAV 10K| Y1-15, Y2-5,",
+          "contractStatus": "FL",
+          "contractYear": "0",
+          "id": "13319",
+          "salary": "5000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "Veteran",
+          "contractYear": "0",
+          "id": "14910",
+          "salary": "3000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 73K| AAV 36K| Y1-31 Y2-21 Y3-21",
+          "contractStatus": "FL",
+          "contractYear": "0",
+          "id": "14059",
+          "salary": "21000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "Veteran",
+          "contractYear": "0",
+          "id": "15404",
+          "salary": "4000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 3K| AAV 1K| Y1-1, Y2-1, Y3-1",
+          "contractStatus": "Veteran",
+          "contractYear": "1",
+          "id": "15868",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "16773",
+          "salary": "4000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 24K| AAV 8K | Option Eligible",
+          "contractStatus": "Rookie",
+          "contractYear": "2",
+          "id": "17051",
+          "salary": "8000"
+        },
+        {
+          "contractInfo": "CL 2| TCV 54K| AAV 27K| Y1-27, Y2-27,",
+          "contractStatus": "Veteran",
+          "contractYear": "0",
+          "id": "13132",
+          "salary": "27000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 3K| AAV 1K",
+          "contractStatus": "Veteran",
+          "contractYear": "2",
+          "id": "15808",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "Veteran",
+          "contractYear": "0",
+          "id": "11244",
+          "salary": "21000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 67K| AAV 29K| Ext: PG",
+          "contractStatus": "Veteran",
+          "contractYear": "2",
+          "id": "16213",
+          "salary": "29000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "16676",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 2| TCV 58K| AAV 29K",
+          "contractStatus": "Veteran",
+          "contractYear": "1",
+          "id": "13299",
+          "salary": "29000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 27K| AAV 9K| Y1-20, Y2-1, Y3-6",
+          "contractStatus": "FL",
+          "contractYear": "1",
+          "id": "14867",
+          "salary": "6000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "15727",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "17125",
+          "salary": ""
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "14143",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 6K| AAV 2K",
+          "contractStatus": "Rookie",
+          "contractYear": "0",
+          "id": "16222",
+          "salary": "2000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "Veteran",
+          "contractYear": "0",
+          "id": "13164",
+          "salary": "9000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 15K| AAV 5K",
+          "contractStatus": "Rookie",
+          "contractYear": "0",
+          "id": "16214",
+          "salary": "5000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 3K| AAV 1K| Y1-1, Y2-1, Y3-1",
+          "contractStatus": "Veteran",
+          "contractYear": "1",
+          "id": "15923",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 172K| AAV 64K| Y1- 44K Y2- 64K Y3- 64K| Ext: L.A. Looks, Cleon",
+          "contractStatus": "Veteran",
+          "contractYear": "1",
+          "id": "14832",
+          "salary": "64000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 3K| AAV 1K| Y1-1K, Y2-1K, Y3-1K| GTD: 2K",
+          "contractStatus": "MYM - Rookie",
+          "contractYear": "2",
+          "id": "17205",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "16013",
+          "salary": "2000"
+        },
+        {
+          "contractInfo": "CL 1| TCV 3K| AAV 3K| No Further Extensions",
+          "contractStatus": "Tag",
+          "contractYear": "0",
+          "id": "13700",
+          "salary": "3000"
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "17184",
+          "salary": ""
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "16672",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "16651",
+          "salary": ""
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "16613",
+          "salary": ""
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "11769",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 1| TCV 37K| AAV 37K| GTD 27.8K| Tag| Tier 2| Formula: Avg Top 6-15 QB AAV",
+          "contractStatus": "TAG",
+          "contractYear": "1",
+          "id": "15237",
+          "salary": "37000"
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "16639",
+          "salary": ""
+        },
+        {
+          "contractInfo": "CL 3| TCV 18K| AAV 6K",
+          "contractStatus": "Rookie",
+          "contractYear": "0",
+          "id": "16149",
+          "salary": "6000"
+        },
+        {
+          "contractInfo": "CL 1| TCV 12K| AAV 12K| Y1-12K| Ext: CBP",
+          "contractStatus": "Veteran",
+          "contractYear": "0",
+          "id": "15798",
+          "salary": "12000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "16680",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "15822",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "16604",
+          "salary": ""
+        },
+        {
+          "contractInfo": "CL 2| TCV 66K| AAV 33K| Y1-14, Y2-52| Ext: PG",
+          "contractStatus": "BL",
+          "contractYear": "1",
+          "id": "15751",
+          "salary": "52000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "17222",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 43K| AAV 21K| Y1-1, Y2-21, Y3-21| Ext: PG",
+          "contractStatus": "Veteran",
+          "contractYear": "1",
+          "id": "14782",
+          "salary": "21000"
+        },
+        {
+          "contractInfo": "CL 2| TCV 2K| AAV 1K| Y1-1K, Y2-1K| GTD: 1K",
+          "contractStatus": "MYM - Vet",
+          "contractYear": "1",
+          "id": "14179",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 15K| AAV 5K",
+          "contractStatus": "Rookie",
+          "contractYear": "2",
+          "id": "17104",
+          "salary": "5000"
+        },
+        {
+          "contractInfo": "CL 2| TCV 108K| AAV 54K| Y1-40K,| Y2-68K| No Further Extension Allowed",
+          "contractStatus": "BL",
+          "contractYear": "0",
+          "id": "13116",
+          "salary": "68000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 6K| AAV 2K",
+          "contractStatus": "Rookie",
+          "contractYear": "2",
+          "id": "17053",
+          "salary": "2000"
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "17159",
+          "salary": ""
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "16263",
+          "salary": ""
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "11383",
+          "salary": "5000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 52K| AAV 24K| Y1-14, Y2-14, Y3-24| Ext: LH",
+          "contractStatus": "FL",
+          "contractYear": "2",
+          "id": "15972",
+          "salary": "14000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 24K| AAV 8K",
+          "contractStatus": "Rookie",
+          "contractYear": "1",
+          "id": "16580",
+          "salary": "8000"
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "16212",
+          "salary": ""
+        },
+        {
+          "contractInfo": "CL 2| TCV 62K| AAV 31K| Y1-36, Y2-26,",
+          "contractStatus": "FL",
+          "contractYear": "1",
+          "id": "13590",
+          "salary": "26000"
+        },
+        {
+          "contractInfo": "CL 2| TCV 44K| AAV 22K| Y1-9K, Y2-35K| Ext: Hammer",
+          "contractStatus": "BL",
+          "contractYear": "1",
+          "id": "15794",
+          "salary": "35000"
+        },
+        {
+          "contractInfo": "CL 1| TCV 62K| AAV 62K| GTD 62K| Tag| Tier 1| Formula: Avg Top 1-4 RB AAV | 10% salary floor (rounded up)",
+          "contractStatus": "TAG",
+          "contractYear": "1",
+          "id": "13130",
+          "salary": "62000"
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "16635",
+          "salary": ""
+        },
+        {
+          "contractInfo": "CL 3| TCV 33K| AAV 11K",
+          "contractStatus": "Rookie",
+          "contractYear": "1",
+          "id": "16584",
+          "salary": "11000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 15K| AAV 5K",
+          "contractStatus": "Rookie",
+          "contractYear": "1",
+          "id": "16627",
+          "salary": "5000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 3K| AAV 1K",
+          "contractStatus": "Rookie",
+          "contractYear": "0",
+          "id": "16252",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 3K| AAV 1K",
+          "contractStatus": "Veteran",
+          "contractYear": "2",
+          "id": "15702",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 3K| AAV 1K| Y1-1, Y2-1, Y3-1",
+          "contractStatus": "Veteran",
+          "contractYear": "1",
+          "id": "14908",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 1| TCV 2K| AAV 2K| GTD 2K| Tag| Tier 2| Formula: Avg Top 7-12 DB AAV",
+          "contractStatus": "TAG",
+          "contractYear": "1",
+          "id": "16670",
+          "salary": "2000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "Veteran",
+          "contractYear": "0",
+          "id": "14717",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 57K| AAV 19K",
+          "contractStatus": "Veteran",
+          "contractYear": "2",
+          "id": "14109",
+          "salary": "19000"
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "16628",
+          "salary": ""
+        },
+        {
+          "contractInfo": "CL 3| TCV 21K| AAV 7K | Option Eligible",
+          "contractStatus": "Rookie",
+          "contractYear": "2",
+          "id": "17071",
+          "salary": "7000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "17339",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "13143",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "15368",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 2| TCV 66K| AAV 33K| Y1-28K, Y2-38K| Not eligible for tag or extension",
+          "contractStatus": "BL",
+          "contractYear": "0",
+          "id": "14102",
+          "salary": "38000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "15759",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "16843",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 12K| AAV 4K| Y1-4, Y2-4, Y3-4",
+          "contractStatus": "Veteran",
+          "contractYear": "1",
+          "id": "14127",
+          "salary": "4000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 15K| AAV 5K",
+          "contractStatus": "Rookie",
+          "contractYear": "0",
+          "id": "16171",
+          "salary": "5000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "15252",
+          "salary": "15000"
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "17033",
+          "salary": ""
+        },
+        {
+          "contractInfo": "CL 3| TCV 15K| AAV 5K",
+          "contractStatus": "Rookie",
+          "contractYear": "0",
+          "id": "16189",
+          "salary": "5000"
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "16197",
+          "salary": ""
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "14067",
+          "salary": "48000"
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "16626",
+          "salary": ""
+        },
+        {
+          "contractInfo": "CL 3| TCV 3K| AAV 1K",
+          "contractStatus": "Veteran",
+          "contractYear": "2",
+          "id": "16178",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 2| TCV 38K| AAV 19K| Y1-29K, Y2-9K",
+          "contractStatus": "FL",
+          "contractYear": "0",
+          "id": "13131",
+          "salary": "9000"
+        },
+        {
+          "contractInfo": "CL 1| TCV 3K| AAV 3K| No Further Extensions",
+          "contractStatus": "Tag",
+          "contractYear": "0",
+          "id": "15365",
+          "salary": "3000"
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "17066",
+          "salary": ""
+        },
+        {
+          "contractInfo": "CL 2| TCV 42K| AAV 20K, 30K| Y1-12K, Y2-30K| Ext: Hammer| GTD: 31.5K",
+          "contractStatus": "EXT1",
+          "contractYear": "2",
+          "id": "14071",
+          "salary": "12000"
+        },
+        {
+          "contractInfo": "CL 2| TCV 14K| AAV 12K |Y1-2 Y2-12| Ext: CBP",
+          "contractStatus": "Veteran",
+          "contractYear": "0",
+          "id": "14974",
+          "salary": "12000"
+        },
+        {
+          "contractInfo": "CL 2| TCV 42K| AAV 21K",
+          "contractStatus": "Veteran",
+          "contractYear": "1",
+          "id": "13635",
+          "salary": "21000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "17186",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "12447",
+          "salary": "3000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 3K| AAV 1K| Y1-1K, Y2-1K, Y3-1K| GTD: 2K",
+          "contractStatus": "MYM - Rookie",
+          "contractYear": "2",
+          "id": "17254",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "16689",
+          "salary": ""
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "1",
+          "id": "14056",
+          "salary": "8000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "16725",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "12437",
+          "salary": "4000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 39K| AAV 13K",
+          "contractStatus": "Rookie",
+          "contractYear": "1",
+          "id": "16615",
+          "salary": "13000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 6K| AAV 2K",
+          "contractStatus": "Rookie",
+          "contractYear": "0",
+          "id": "16211",
+          "salary": "2000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "15786",
+          "salary": "14000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 6K| AAV 2K",
+          "contractStatus": "Rookie",
+          "contractYear": "2",
+          "id": "17046",
+          "salary": "2000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 15K| AAV 5K",
+          "contractStatus": "Rookie",
+          "contractYear": "1",
+          "id": "16582",
+          "salary": "5000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "14669",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 2| TCV 54K| AAV 27K",
+          "contractStatus": "Veteran",
+          "contractYear": "1",
+          "id": "13192",
+          "salary": "27000"
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "17080",
+          "salary": ""
+        },
+        {
+          "contractInfo": "CL 3| TCV 30K| AAV 10K",
+          "contractStatus": "Rookie",
+          "contractYear": "1",
+          "id": "16616",
+          "salary": "10000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "15889",
+          "salary": "5000"
+        },
+        {
+          "contractInfo": "CL 2| TCV 62K| AAV 31K| Y1-51, Y2-11| Ext: Blake",
+          "contractStatus": "FL",
+          "contractYear": "1",
+          "id": "15754",
+          "salary": "11000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "Veteran",
+          "contractYear": "0",
+          "id": "13813",
+          "salary": "2000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "15388",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 15K| AAV 5K| Y1-5K, Y2-5K, Y3-5K",
+          "contractStatus": "Veteran",
+          "contractYear": "2",
+          "id": "15802",
+          "salary": "5000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "16283",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 3K| AAV 1K| Y1-1, Y2-1, Y3-1",
+          "contractStatus": "Veteran",
+          "contractYear": "1",
+          "id": "15351",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 2| TCV 20K| AAV 5K/15K| Y1- 5K Y2- 15K| Ext: PG",
+          "contractStatus": "Veteran",
+          "contractYear": "0",
+          "id": "15749",
+          "salary": "15000"
+        },
+        {
+          "contractInfo": "CL 2| TCV 2K| AAV 1K| Y1-1K, Y2-1K| GTD: 1K",
+          "contractStatus": "MYM - Vet",
+          "contractYear": "1",
+          "id": "14871",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 16K| AAV 7K| Ext: Mafia",
+          "contractStatus": "Veteran",
+          "contractYear": "0",
+          "id": "15350",
+          "salary": "7000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 3K| AAV 1K",
+          "contractStatus": "Rookie",
+          "contractYear": "2",
+          "id": "17115",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 15K| AAV 5K",
+          "contractStatus": "Rookie",
+          "contractYear": "1",
+          "id": "16622",
+          "salary": "5000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 15K| AAV 5K",
+          "contractStatus": "Rookie",
+          "contractYear": "1",
+          "id": "16583",
+          "salary": "5000"
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "16196",
+          "salary": ""
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "16703",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 1| TCV 19K| AAV 19K| Y1-19K| Ext: C-Town",
+          "contractStatus": "Veteran",
+          "contractYear": "0",
+          "id": "15762",
+          "salary": "19000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "15692",
+          "salary": "15000"
+        },
+        {
+          "contractInfo": "CL 2| TCV 4K| AAV 2K",
+          "contractStatus": "Veteran",
+          "contractYear": "1",
+          "id": "15768",
+          "salary": "2000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "13719",
+          "salary": "4000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "12323",
+          "salary": "2000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "15850",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 115K| AAV 45K| Y1-25K Y2-45K Y3-45K| Ext: PG",
+          "contractStatus": "Veteran",
+          "contractYear": "1",
+          "id": "14842",
+          "salary": "45000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 69K| AAV 27K| Y1-15 Y2- 27 Y3- 27| Ext: Gride",
+          "contractStatus": "Veteran",
+          "contractYear": "0",
+          "id": "15329",
+          "salary": "27000"
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "16631",
+          "salary": ""
+        },
+        {
+          "contractInfo": "CL 2| TCV 54K| AAV 27K| Y1-27K, Y2-27K| Ext: C-Town",
+          "contractStatus": "Veteran",
+          "contractYear": "1",
+          "id": "14085",
+          "salary": "27000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "14210",
+          "salary": "4000"
+        },
+        {
+          "contractInfo": "CL 2| TCV 90K| AAV 45K| Y1-45, Y2-45,",
+          "contractStatus": "Veteran",
+          "contractYear": "0",
+          "id": "12620",
+          "salary": "45000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 84K| AAV 28K| Y1-40K, Y2-22K, Y3-22K|",
+          "contractStatus": "FL",
+          "contractYear": "2",
+          "id": "15698",
+          "salary": "22000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "14896",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 6K| AAV 2K",
+          "contractStatus": "Rookie",
+          "contractYear": "1",
+          "id": "16586",
+          "salary": "2000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "16927",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 15K| AAV 5K",
+          "contractStatus": "Rookie",
+          "contractYear": "0",
+          "id": "16184",
+          "salary": "5000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "16887",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "16681",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "17077",
+          "salary": ""
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "16623",
+          "salary": ""
+        },
+        {
+          "contractInfo": "CL 3| TCV 55K| AAV 25K| Y1-5 Y2-25, Y3-25| Ext: LH",
+          "contractStatus": "Veteran",
+          "contractYear": "2",
+          "id": "16194",
+          "salary": "25000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 33K| AAV 11K",
+          "contractStatus": "Veteran",
+          "contractYear": "2",
+          "id": "16152",
+          "salary": "11000"
+        },
+        {
+          "contractInfo": "CL 2| TCV 46K| AAV 28K| Y1-24 Y2-28| Ext: Sex",
+          "contractStatus": "Veteran",
+          "contractYear": "0",
+          "id": "13629",
+          "salary": "28000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "7394",
+          "salary": "24000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 55K| AAV 15K",
+          "contractStatus": "Rookie",
+          "contractYear": "0",
+          "id": "16161",
+          "salary": "15000"
+        },
+        {
+          "contractInfo": "CL 1| TCV 15K| AAV 15K| Y1-15K| Ext: C-Town",
+          "contractStatus": "Veteran",
+          "contractYear": "0",
+          "id": "15716",
+          "salary": "15000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 6K| AAV 2K",
+          "contractStatus": "Rookie",
+          "contractYear": "1",
+          "id": "16655",
+          "salary": "2000"
+        },
+        {
+          "contractInfo": "CL 2| TCV 34K| AAV 22K| Y1-12K, Y2-22K| Ext: Blake, LH",
+          "contractStatus": "Veteran",
+          "contractYear": "1",
+          "id": "15757",
+          "salary": "22000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "Veteran",
+          "contractYear": "0",
+          "id": "7836",
+          "salary": "7000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 6K| AAV 2K",
+          "contractStatus": "Rookie",
+          "contractYear": "0",
+          "id": "16174",
+          "salary": "2000"
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "17086",
+          "salary": ""
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "15076",
+          "salary": "3000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "13124",
+          "salary": "21000"
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "17047",
+          "salary": ""
+        },
+        {
+          "contractInfo": "CL 3| TCV 24K| AAV 8K",
+          "contractStatus": "Veteran",
+          "contractYear": "2",
+          "id": "14136",
+          "salary": "8000"
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "16231",
+          "salary": ""
+        },
+        {
+          "contractInfo": "CL 3| TCV 3K| AAV 1K",
+          "contractStatus": "Veteran",
+          "contractYear": "2",
+          "id": "16643",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "17062",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "17031",
+          "salary": ""
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "17167",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "16221",
+          "salary": ""
+        },
+        {
+          "contractInfo": "CL 3| TCV 12K| AAV 4K| Y1-4, Y2-4, Y3-4",
+          "contractStatus": "Veteran",
+          "contractYear": "1",
+          "id": "13772",
+          "salary": "4000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 3K| AAV 1K",
+          "contractStatus": "Rookie",
+          "contractYear": "2",
+          "id": "17147",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "13791",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "14302",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "17119",
+          "salary": ""
+        },
+        {
+          "contractInfo": "CL 3| TCV 21K| AAV 7K| Y1-7K, Y2-7K, Y3-7K",
+          "contractStatus": "Veteran",
+          "contractYear": "2",
+          "id": "16080",
+          "salary": "7000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 57K| AAV 19K| Y1-14K, Y2-25K, Y3-18K",
+          "contractStatus": "BL",
+          "contractYear": "2",
+          "id": "15761",
+          "salary": "25000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "15428",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "16601",
+          "salary": ""
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "17039",
+          "salary": ""
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "Veteran",
+          "contractYear": "0",
+          "id": "14163",
+          "salary": "4000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "14080",
+          "salary": "5000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "14412",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "16644",
+          "salary": ""
+        },
+        {
+          "contractInfo": "CL 3| TCV 15K| AAV 5K",
+          "contractStatus": "Rookie",
+          "contractYear": "2",
+          "id": "17045",
+          "salary": "5000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "14122",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "16686",
+          "salary": ""
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "17049",
+          "salary": ""
+        },
+        {
+          "contractInfo": "CL 2| TCV 42K| AAV 26K|Y1-16 Y2-26|Ext: GRide, CBP",
+          "contractStatus": "Veteran",
+          "contractYear": "0",
+          "id": "15282",
+          "salary": "26000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 45K| AAV 15K| Y1-9K, Y2-1K, Y3-35K",
+          "contractStatus": "BL",
+          "contractYear": "2",
+          "id": "11150",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 18K| AAV 6K| Y1-6K, Y2-6K, Y3-6K",
+          "contractStatus": "Veteran",
+          "contractYear": "2",
+          "id": "13193",
+          "salary": "6000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 6K| AAV 2K",
+          "contractStatus": "Rookie",
+          "contractYear": "0",
+          "id": "16228",
+          "salary": "2000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 12K| AAV 4K| Y1-8, Y2-3, Y3-1",
+          "contractStatus": "FL",
+          "contractYear": "1",
+          "id": "13696",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 2| TCV 5K| AAV 4K|Y1-1 Y2-4 | Ext: LH",
+          "contractStatus": "Veteran",
+          "contractYear": "1",
+          "id": "16708",
+          "salary": "4000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 70K| AAV 30K| Y1-14K, Y2-1K, Y3-55K| Ext: C-Town",
+          "contractStatus": "FL",
+          "contractYear": "2",
+          "id": "16185",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 15K| AAV 5K",
+          "contractStatus": "Rookie",
+          "contractYear": "0",
+          "id": "16165",
+          "salary": "5000"
+        },
+        {
+          "contractInfo": "CL 2| TCV 50K| AAV 25K| Ext: L.A. Looks",
+          "contractStatus": "Veteran",
+          "contractYear": "0",
+          "id": "15287",
+          "salary": "25000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "Veteran",
+          "contractYear": "0",
+          "id": "9431",
+          "salary": "18000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 6K| AAV 2K",
+          "contractStatus": "Rookie",
+          "contractYear": "2",
+          "id": "17132",
+          "salary": "2000"
+        },
+        {
+          "contractInfo": "CL 2| TCV 40K| AAV 25K| Y1-8K, Y2-32K| Ext: Mafia, Hammer",
+          "contractStatus": "BL",
+          "contractYear": "0",
+          "id": "15259",
+          "salary": "32000"
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "17114",
+          "salary": ""
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "15003",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "16642",
+          "salary": ""
+        },
+        {
+          "contractInfo": "CL 3| TCV 6K| AAV 2K",
+          "contractStatus": "Veteran",
+          "contractYear": "2",
+          "id": "16269",
+          "salary": "2000"
+        },
+        {
+          "contractInfo": "CL 1| TCV 22K| AAV 22K| Y1-22K| GTD: 16.5K| Ext: \ud83d\udd28 \u23f0",
+          "contractStatus": "EXT1",
+          "contractYear": "1",
+          "id": "16150",
+          "salary": "22000"
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "17126",
+          "salary": ""
+        },
+        {
+          "contractInfo": "CL 2| TCV 30K| AAV 20K| Y1-15K, Y2-15K| Ext: L.A. Looks",
+          "contractStatus": "Veteran",
+          "contractYear": "1",
+          "id": "13630",
+          "salary": "15000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "14148",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "Veteran",
+          "contractYear": "1",
+          "id": "14797",
+          "salary": "23000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 116K| AAV 49K| Y1-86 Y2-15 Y3-15| Ext: C-Town",
+          "contractStatus": "FL",
+          "contractYear": "1",
+          "id": "14778",
+          "salary": "15000"
+        },
+        {
+          "contractInfo": "CL 1| TCV 38K| AAV 38K| No Further Extensions",
+          "contractStatus": "Tag",
+          "contractYear": "0",
+          "id": "14802",
+          "salary": "38000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 6K| AAV 2K",
+          "contractStatus": "Rookie",
+          "contractYear": "2",
+          "id": "17106",
+          "salary": "2000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 3K| AAV 1K",
+          "contractStatus": "Rookie",
+          "contractYear": "1",
+          "id": "16724",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "17157",
+          "salary": ""
+        },
+        {
+          "contractInfo": "CL 3| TCV 15K| AAV 5K",
+          "contractStatus": "Rookie",
+          "contractYear": "1",
+          "id": "16618",
+          "salary": "5000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "16450",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "17087",
+          "salary": ""
+        },
+        {
+          "contractInfo": "CL 3| TCV 3K| AAV 1K",
+          "contractStatus": "Veteran",
+          "contractYear": "2",
+          "id": "15787",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "16036",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "15051",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 6K| AAV 2K",
+          "contractStatus": "Rookie",
+          "contractYear": "1",
+          "id": "16747",
+          "salary": "2000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 3K| AAV 1K",
+          "contractStatus": "Rookie",
+          "contractYear": "1",
+          "id": "16652",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 6K| AAV 2K",
+          "contractStatus": "Rookie",
+          "contractYear": "0",
+          "id": "16166",
+          "salary": "2000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 3K| AAV 1K| Y1-1, Y2-1, Y3-1",
+          "contractStatus": "Veteran",
+          "contractYear": "1",
+          "id": "16287",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 12K| AAV 4K| Y1-4, Y2-4, Y3-4",
+          "contractStatus": "Veteran",
+          "contractYear": "1",
+          "id": "16266",
+          "salary": "4000"
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "16650",
+          "salary": ""
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "16282",
+          "salary": "4000"
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "17052",
+          "salary": ""
+        },
+        {
+          "contractInfo": "CL 1| TCV 7K| AAV 7K| No Further Extensions",
+          "contractStatus": "Tag",
+          "contractYear": "0",
+          "id": "14249",
+          "salary": "7000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "16788",
+          "salary": "12000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 3K| AAV 1K",
+          "contractStatus": "Rookie",
+          "contractYear": "1",
+          "id": "16653",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 6K| AAV 2K",
+          "contractStatus": "Rookie",
+          "contractYear": "1",
+          "id": "16757",
+          "salary": "2000"
+        },
+        {
+          "contractInfo": "CL 2| TCV 60K| AAV 30K| Ext: Cleon",
+          "contractStatus": "Veteran",
+          "contractYear": "0",
+          "id": "15284",
+          "salary": "30000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "Veteran",
+          "contractYear": "0",
+          "id": "10775",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 2| TCV 74K| AAV 32K, 42K| Y1-15K, Y2-59K| GTD: 55.5K| Ext: PG, RealDeal",
+          "contractStatus": "BL",
+          "contractYear": "2",
+          "id": "15711",
+          "salary": "15000"
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "16621",
+          "salary": ""
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "17122",
+          "salary": ""
+        },
+        {
+          "contractInfo": "CL 2| TCV 2K| AAV 1K",
+          "contractStatus": "Veteran",
+          "contractYear": "1",
+          "id": "15846",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 3K| AAV 1K| Y1-1, Y2-1, Y3-1",
+          "contractStatus": "Veteran",
+          "contractYear": "1",
+          "id": "15815",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "16704",
+          "salary": ""
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "12263",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 30K| AAV 10K | Option Eligible",
+          "contractStatus": "Rookie",
+          "contractYear": "2",
+          "id": "17030",
+          "salary": "10000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 12K| AAV 4K| Y1-4, Y2-4, Y3-4",
+          "contractStatus": "Veteran",
+          "contractYear": "1",
+          "id": "13743",
+          "salary": "4000"
+        },
+        {
+          "contractInfo": "CL 1| TCV 14K| AAV 14K| Y1-14K| Ext: CBP",
+          "contractStatus": "Veteran",
+          "contractYear": "0",
+          "id": "15742",
+          "salary": "14000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 15K| AAV 5K | Option Eligible",
+          "contractStatus": "Rookie",
+          "contractYear": "2",
+          "id": "17102",
+          "salary": "5000"
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "16216",
+          "salary": ""
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "16684",
+          "salary": ""
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "16192",
+          "salary": "8000"
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "16803",
+          "salary": ""
+        },
+        {
+          "contractInfo": "CL 3| TCV 3K| AAV 1K",
+          "contractStatus": "Veteran",
+          "contractYear": "2",
+          "id": "15789",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 3K| AAV 1K",
+          "contractStatus": "Veteran",
+          "contractYear": "2",
+          "id": "13113",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 24K| AAV 8K| Y1-5  Y2-10 Y3-9",
+          "contractStatus": "BL",
+          "contractYear": "0",
+          "id": "13214",
+          "salary": "9000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 3K| AAV 1K",
+          "contractStatus": "Rookie",
+          "contractYear": "2",
+          "id": "17131",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "11985",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 2| TCV 2K| AAV 1K",
+          "contractStatus": "Veteran",
+          "contractYear": "1",
+          "id": "12610",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "15387",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "1",
+          "id": "14168",
+          "salary": "2000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "Veteran",
+          "contractYear": "0",
+          "id": "15721",
+          "salary": "9000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 3K| AAV 1K",
+          "contractStatus": "Veteran",
+          "contractYear": "2",
+          "id": "16195",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 45K| AAV 15K",
+          "contractStatus": "Rookie",
+          "contractYear": "1",
+          "id": "16579",
+          "salary": "15000"
+        },
+        {
+          "contractInfo": "CL 2| TCV 2K| AAV 1K| Y1-1K, Y2-1K| GTD: 1K",
+          "contractStatus": "Veteran",
+          "contractYear": "1",
+          "id": "16630",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 1| TCV 20K| AAV 20K| Y1-20K| Ext: Sex",
+          "contractStatus": "Veteran",
+          "contractYear": "0",
+          "id": "15756",
+          "salary": "20000"
+        },
+        {
+          "contractInfo": "CL 1| TCV 30K| AAV 30K| GTD 22.5K| Tag| Tier 3| Formula: Avg Top 9-31 RB AAV | 10% salary floor (rounded up)",
+          "contractStatus": "TAG",
+          "contractYear": "1",
+          "id": "15256",
+          "salary": "30000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 15K| AAV 5K",
+          "contractStatus": "Rookie",
+          "contractYear": "2",
+          "id": "17134",
+          "salary": "5000"
+        },
+        {
+          "contractInfo": "CL 2| TCV 44K| AAV 22K| Y1-22K, Y2-22K| Ext: Hawks",
+          "contractStatus": "Veteran",
+          "contractYear": "1",
+          "id": "15710",
+          "salary": "22000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "Veteran",
+          "contractYear": "0",
+          "id": "12225",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "17113",
+          "salary": ""
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "Veteran",
+          "contractYear": "0",
+          "id": "14221",
+          "salary": "4000"
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "17096",
+          "salary": ""
+        },
+        {
+          "contractInfo": "CL 1| TCV 41K| AAV 41K| GTD 41K| Tag| Tier 3| Formula: Avg Top 16-24 QB AAV | 10% salary floor (rounded up)",
+          "contractStatus": "TAG",
+          "contractYear": "1",
+          "id": "15694",
+          "salary": "41000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 3K| AAV 1K",
+          "contractStatus": "Rookie",
+          "contractYear": "0",
+          "id": "16432",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 2| TCV 68K| AAV 34K| Y1-24, Y2-44| Ext: CBP",
+          "contractStatus": "BL",
+          "contractYear": "1",
+          "id": "15753",
+          "salary": "44000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 15K| AAV 5K",
+          "contractStatus": "Veteran",
+          "contractYear": "2",
+          "id": "16206",
+          "salary": "5000"
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "16716",
+          "salary": ""
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "16629",
+          "salary": ""
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "16226",
+          "salary": ""
+        },
+        {
+          "contractInfo": "CL 1| TCV 2K| AAV 2K| GTD 2K| Tag| Tier 2| Formula: Avg Top 7-12 DB AAV",
+          "contractStatus": "TAG",
+          "contractYear": "1",
+          "id": "14909",
+          "salary": "2000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "12140",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 6K| AAV 2K",
+          "contractStatus": "Rookie",
+          "contractYear": "0",
+          "id": "16241",
+          "salary": "2000"
+        },
+        {
+          "contractInfo": "CL 3| TCV 15K| AAV 5K",
+          "contractStatus": "Rookie",
+          "contractYear": "1",
+          "id": "16620",
+          "salary": "5000"
+        },
+        {
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
+          "id": "16610",
+          "salary": ""
+        },
+        {
+          "contractInfo": "CL 3| TCV 39K| AAV 13K",
+          "contractStatus": "Rookie",
+          "contractYear": "0",
+          "id": "16148",
+          "salary": "13000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "16276",
+          "salary": "1000"
+        },
+        {
+          "contractInfo": "CL 1|",
+          "contractStatus": "WW",
+          "contractYear": "0",
+          "id": "14877",
+          "salary": "3000"
+        }
+      ],
+      "unit": "LEAGUE"
+    }
+  },
+  "version": "1.0"
+}

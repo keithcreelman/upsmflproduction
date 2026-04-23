@@ -1,0 +1,590 @@
+{
+  "draftResults": {
+    "draftUnit": {
+      "draftPick": [
+        {
+          "comments": "",
+          "franchise": "0011",
+          "pick": "01",
+          "player": "",
+          "round": "01",
+          "timestamp": ""
+        },
+        {
+          "comments": "",
+          "franchise": "0012",
+          "pick": "02",
+          "player": "",
+          "round": "01",
+          "timestamp": ""
+        },
+        {
+          "comments": "",
+          "franchise": "0006",
+          "pick": "03",
+          "player": "",
+          "round": "01",
+          "timestamp": ""
+        },
+        {
+          "comments": "",
+          "franchise": "0008",
+          "pick": "04",
+          "player": "",
+          "round": "01",
+          "timestamp": ""
+        },
+        {
+          "comments": "",
+          "franchise": "0003",
+          "pick": "05",
+          "player": "",
+          "round": "01",
+          "timestamp": ""
+        },
+        {
+          "comments": "[Pick traded from CBP.] ",
+          "franchise": "0012",
+          "pick": "06",
+          "player": "",
+          "round": "01",
+          "timestamp": ""
+        },
+        {
+          "comments": "[Pick traded from Blake Bombers.] ",
+          "franchise": "0003",
+          "pick": "07",
+          "player": "",
+          "round": "01",
+          "timestamp": ""
+        },
+        {
+          "comments": "[Pick traded from L.A. Looks.] ",
+          "franchise": "0002",
+          "pick": "08",
+          "player": "",
+          "round": "01",
+          "timestamp": ""
+        },
+        {
+          "comments": "[Pick traded from C-Town Chivalry.] ",
+          "franchise": "0008",
+          "pick": "09",
+          "player": "",
+          "round": "01",
+          "timestamp": ""
+        },
+        {
+          "comments": "[Pick traded from HammerTime \ud83d\udd28 \u23f0.\nPick traded from Sex Manther.] ",
+          "franchise": "0010",
+          "pick": "10",
+          "player": "",
+          "round": "01",
+          "timestamp": ""
+        },
+        {
+          "comments": "[Pick traded from Sex Manther.] ",
+          "franchise": "0003",
+          "pick": "11",
+          "player": "",
+          "round": "01",
+          "timestamp": ""
+        },
+        {
+          "comments": "[Pick traded from Pure Greatness.] ",
+          "franchise": "0002",
+          "pick": "12",
+          "player": "",
+          "round": "01",
+          "timestamp": ""
+        },
+        {
+          "comments": "[Pick traded from Cleon Ca$h.] ",
+          "franchise": "0002",
+          "pick": "01",
+          "player": "",
+          "round": "02",
+          "timestamp": ""
+        },
+        {
+          "comments": "",
+          "franchise": "0012",
+          "pick": "02",
+          "player": "",
+          "round": "02",
+          "timestamp": ""
+        },
+        {
+          "comments": "",
+          "franchise": "0006",
+          "pick": "03",
+          "player": "",
+          "round": "02",
+          "timestamp": ""
+        },
+        {
+          "comments": "[Pick traded from Real Deal Creel.] ",
+          "franchise": "0010",
+          "pick": "04",
+          "player": "",
+          "round": "02",
+          "timestamp": ""
+        },
+        {
+          "comments": "",
+          "franchise": "0003",
+          "pick": "05",
+          "player": "",
+          "round": "02",
+          "timestamp": ""
+        },
+        {
+          "comments": "[Pick traded from CBP.] ",
+          "franchise": "0004",
+          "pick": "06",
+          "player": "",
+          "round": "02",
+          "timestamp": ""
+        },
+        {
+          "comments": "[Pick traded from Blake Bombers.] ",
+          "franchise": "0011",
+          "pick": "07",
+          "player": "",
+          "round": "02",
+          "timestamp": ""
+        },
+        {
+          "comments": "[Pick traded from L.A. Looks.] ",
+          "franchise": "0002",
+          "pick": "08",
+          "player": "",
+          "round": "02",
+          "timestamp": ""
+        },
+        {
+          "comments": "[Pick traded from C-Town Chivalry.] ",
+          "franchise": "0008",
+          "pick": "09",
+          "player": "",
+          "round": "02",
+          "timestamp": ""
+        },
+        {
+          "comments": "[Pick traded from HammerTime \ud83d\udd28 \u23f0.] ",
+          "franchise": "0003",
+          "pick": "10",
+          "player": "",
+          "round": "02",
+          "timestamp": ""
+        },
+        {
+          "comments": "[Pick traded from Sex Manther.] ",
+          "franchise": "0010",
+          "pick": "11",
+          "player": "",
+          "round": "02",
+          "timestamp": ""
+        },
+        {
+          "comments": "",
+          "franchise": "0004",
+          "pick": "12",
+          "player": "",
+          "round": "02",
+          "timestamp": ""
+        },
+        {
+          "comments": "[Pick traded from Cleon Ca$h.] ",
+          "franchise": "0010",
+          "pick": "01",
+          "player": "",
+          "round": "03",
+          "timestamp": ""
+        },
+        {
+          "comments": "",
+          "franchise": "0012",
+          "pick": "02",
+          "player": "",
+          "round": "03",
+          "timestamp": ""
+        },
+        {
+          "comments": "",
+          "franchise": "0006",
+          "pick": "03",
+          "player": "",
+          "round": "03",
+          "timestamp": ""
+        },
+        {
+          "comments": "[Pick traded from Real Deal Creel.] ",
+          "franchise": "0007",
+          "pick": "04",
+          "player": "",
+          "round": "03",
+          "timestamp": ""
+        },
+        {
+          "comments": "[Pick traded from Gride.] ",
+          "franchise": "0012",
+          "pick": "05",
+          "player": "",
+          "round": "03",
+          "timestamp": ""
+        },
+        {
+          "comments": "[Pick traded from CBP.] ",
+          "franchise": "0007",
+          "pick": "06",
+          "player": "",
+          "round": "03",
+          "timestamp": ""
+        },
+        {
+          "comments": "[Pick traded from Blake Bombers.] ",
+          "franchise": "0011",
+          "pick": "07",
+          "player": "",
+          "round": "03",
+          "timestamp": ""
+        },
+        {
+          "comments": "",
+          "franchise": "0001",
+          "pick": "08",
+          "player": "",
+          "round": "03",
+          "timestamp": ""
+        },
+        {
+          "comments": "[Pick traded from C-Town Chivalry.] ",
+          "franchise": "0008",
+          "pick": "09",
+          "player": "",
+          "round": "03",
+          "timestamp": ""
+        },
+        {
+          "comments": "[Pick traded from HammerTime \ud83d\udd28 \u23f0.] ",
+          "franchise": "0001",
+          "pick": "10",
+          "player": "",
+          "round": "03",
+          "timestamp": ""
+        },
+        {
+          "comments": "[Pick traded from Sex Manther.] ",
+          "franchise": "0006",
+          "pick": "11",
+          "player": "",
+          "round": "03",
+          "timestamp": ""
+        },
+        {
+          "comments": "[Pick traded from Pure Greatness.] ",
+          "franchise": "0008",
+          "pick": "12",
+          "player": "",
+          "round": "03",
+          "timestamp": ""
+        },
+        {
+          "comments": "[Pick traded from Cleon Ca$h.] ",
+          "franchise": "0005",
+          "pick": "01",
+          "player": "",
+          "round": "04",
+          "timestamp": ""
+        },
+        {
+          "comments": "",
+          "franchise": "0012",
+          "pick": "02",
+          "player": "",
+          "round": "04",
+          "timestamp": ""
+        },
+        {
+          "comments": "[Pick traded from The Long Haulers.] ",
+          "franchise": "0002",
+          "pick": "03",
+          "player": "",
+          "round": "04",
+          "timestamp": ""
+        },
+        {
+          "comments": "[Pick traded from Real Deal Creel.] ",
+          "franchise": "0006",
+          "pick": "04",
+          "player": "",
+          "round": "04",
+          "timestamp": ""
+        },
+        {
+          "comments": "[Pick traded from Gride.] ",
+          "franchise": "0006",
+          "pick": "05",
+          "player": "",
+          "round": "04",
+          "timestamp": ""
+        },
+        {
+          "comments": "[Pick traded from CBP.] ",
+          "franchise": "0004",
+          "pick": "06",
+          "player": "",
+          "round": "04",
+          "timestamp": ""
+        },
+        {
+          "comments": "[Pick traded from Blake Bombers.] ",
+          "franchise": "0006",
+          "pick": "07",
+          "player": "",
+          "round": "04",
+          "timestamp": ""
+        },
+        {
+          "comments": "[Pick traded from L.A. Looks.] ",
+          "franchise": "0005",
+          "pick": "08",
+          "player": "",
+          "round": "04",
+          "timestamp": ""
+        },
+        {
+          "comments": "",
+          "franchise": "0009",
+          "pick": "09",
+          "player": "",
+          "round": "04",
+          "timestamp": ""
+        },
+        {
+          "comments": "[Pick traded from HammerTime \ud83d\udd28 \u23f0.] ",
+          "franchise": "0011",
+          "pick": "10",
+          "player": "",
+          "round": "04",
+          "timestamp": ""
+        },
+        {
+          "comments": "[Pick traded from Sex Manther.] ",
+          "franchise": "0011",
+          "pick": "11",
+          "player": "",
+          "round": "04",
+          "timestamp": ""
+        },
+        {
+          "comments": "",
+          "franchise": "0004",
+          "pick": "12",
+          "player": "",
+          "round": "04",
+          "timestamp": ""
+        },
+        {
+          "comments": "[Pick traded from Cleon Ca$h.] ",
+          "franchise": "0005",
+          "pick": "01",
+          "player": "",
+          "round": "05",
+          "timestamp": ""
+        },
+        {
+          "comments": "[Pick traded from Hawks.] ",
+          "franchise": "0004",
+          "pick": "02",
+          "player": "",
+          "round": "05",
+          "timestamp": ""
+        },
+        {
+          "comments": "[Pick traded from The Long Haulers.] ",
+          "franchise": "0001",
+          "pick": "03",
+          "player": "",
+          "round": "05",
+          "timestamp": ""
+        },
+        {
+          "comments": "[Pick traded from Real Deal Creel.] ",
+          "franchise": "0004",
+          "pick": "04",
+          "player": "",
+          "round": "05",
+          "timestamp": ""
+        },
+        {
+          "comments": "[Pick traded from Gride.] ",
+          "franchise": "0007",
+          "pick": "05",
+          "player": "",
+          "round": "05",
+          "timestamp": ""
+        },
+        {
+          "comments": "[Pick traded from CBP.] ",
+          "franchise": "0001",
+          "pick": "06",
+          "player": "",
+          "round": "05",
+          "timestamp": ""
+        },
+        {
+          "comments": "[Pick traded from Blake Bombers.] ",
+          "franchise": "0006",
+          "pick": "07",
+          "player": "",
+          "round": "05",
+          "timestamp": ""
+        },
+        {
+          "comments": "[Pick traded from L.A. Looks.] ",
+          "franchise": "0006",
+          "pick": "08",
+          "player": "",
+          "round": "05",
+          "timestamp": ""
+        },
+        {
+          "comments": "[Pick traded from C-Town Chivalry.] ",
+          "franchise": "0003",
+          "pick": "09",
+          "player": "",
+          "round": "05",
+          "timestamp": ""
+        },
+        {
+          "comments": "[Pick traded from HammerTime \ud83d\udd28 \u23f0.] ",
+          "franchise": "0010",
+          "pick": "10",
+          "player": "",
+          "round": "05",
+          "timestamp": ""
+        },
+        {
+          "comments": "[Pick traded from Sex Manther.] ",
+          "franchise": "0005",
+          "pick": "11",
+          "player": "",
+          "round": "05",
+          "timestamp": ""
+        },
+        {
+          "comments": "[Pick traded from Pure Greatness.] ",
+          "franchise": "0011",
+          "pick": "12",
+          "player": "",
+          "round": "05",
+          "timestamp": ""
+        },
+        {
+          "comments": "",
+          "franchise": "0011",
+          "pick": "01",
+          "player": "",
+          "round": "06",
+          "timestamp": ""
+        },
+        {
+          "comments": "",
+          "franchise": "0012",
+          "pick": "02",
+          "player": "",
+          "round": "06",
+          "timestamp": ""
+        },
+        {
+          "comments": "",
+          "franchise": "0006",
+          "pick": "03",
+          "player": "",
+          "round": "06",
+          "timestamp": ""
+        },
+        {
+          "comments": "",
+          "franchise": "0008",
+          "pick": "04",
+          "player": "",
+          "round": "06",
+          "timestamp": ""
+        },
+        {
+          "comments": "",
+          "franchise": "0003",
+          "pick": "05",
+          "player": "",
+          "round": "06",
+          "timestamp": ""
+        },
+        {
+          "comments": "",
+          "franchise": "0002",
+          "pick": "06",
+          "player": "",
+          "round": "06",
+          "timestamp": ""
+        },
+        {
+          "comments": "",
+          "franchise": "0010",
+          "pick": "07",
+          "player": "",
+          "round": "06",
+          "timestamp": ""
+        },
+        {
+          "comments": "",
+          "franchise": "0001",
+          "pick": "08",
+          "player": "",
+          "round": "06",
+          "timestamp": ""
+        },
+        {
+          "comments": "",
+          "franchise": "0009",
+          "pick": "09",
+          "player": "",
+          "round": "06",
+          "timestamp": ""
+        },
+        {
+          "comments": "",
+          "franchise": "0005",
+          "pick": "10",
+          "player": "",
+          "round": "06",
+          "timestamp": ""
+        },
+        {
+          "comments": "",
+          "franchise": "0007",
+          "pick": "11",
+          "player": "",
+          "round": "06",
+          "timestamp": ""
+        },
+        {
+          "comments": "",
+          "franchise": "0004",
+          "pick": "12",
+          "player": "",
+          "round": "06",
+          "timestamp": ""
+        }
+      ],
+      "draftType": "SAME",
+      "round1DraftOrder": "0011,0012,0006,0008,0003,0012,0003,0002,0008,0010,0003,0002,",
+      "static_url": "https://www48.myfantasyleague.com/fflnetdynamic2026/74598_LEAGUE_draft_results.xml",
+      "unit": "LEAGUE"
+    }
+  },
+  "encoding": "utf-8",
+  "version": "1.0"
+}
