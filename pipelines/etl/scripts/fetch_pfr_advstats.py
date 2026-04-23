@@ -91,18 +91,28 @@ def _col_int(row, *names):
     return None
 
 
-def upsert_rec_weekly(db: sqlite3.Connection, df, pfr_to_gsis: dict) -> int:
+def upsert_rec_weekly(db: sqlite3.Connection, df, pfr_to_gsis: dict, verbose: bool = False) -> int:
     if df is None or df.empty:
         return 0
     rows = []
     skipped = 0
+    unmapped = {}  # pfr_id -> {name, count}
     for row in df.to_dict(orient="records"):
         pfr = row.get("pfr_player_id") or row.get("pfr_id")
         if not pfr:
             skipped += 1; continue
         gsis = pfr_to_gsis.get(str(pfr))
         if not gsis:
-            skipped += 1; continue
+            skipped += 1
+            if verbose:
+                key = str(pfr)
+                if key not in unmapped:
+                    unmapped[key] = {
+                        "name": row.get("pfr_player_name") or "?",
+                        "count": 0,
+                    }
+                unmapped[key]["count"] += 1
+            continue
         season = int(row.get("season") or 0)
         week = int(row.get("week") or 0)
         if not season or not week: continue
@@ -112,6 +122,14 @@ def upsert_rec_weekly(db: sqlite3.Connection, df, pfr_to_gsis: dict) -> int:
         if rec_drops is None and rec_brtkl is None and pass_drops is None:
             continue
         rows.append((rec_drops, rec_brtkl, pass_drops, season, week, gsis))
+
+    if verbose and unmapped:
+        print(f"  [rec] unmapped pfr_ids ({len(unmapped)} distinct players):", file=sys.stderr)
+        top = sorted(unmapped.items(), key=lambda kv: -kv[1]["count"])[:30]
+        for pfr_id, info in top:
+            print(f"    {pfr_id:12s}  {info['count']:3d} rows  {info['name']}", file=sys.stderr)
+        if len(unmapped) > 30:
+            print(f"    ...and {len(unmapped) - 30} more", file=sys.stderr)
 
     if not rows:
         print(f"  [rec] nothing to upsert (skipped {skipped} unmapped)", file=sys.stderr)
@@ -131,18 +149,28 @@ def upsert_rec_weekly(db: sqlite3.Connection, df, pfr_to_gsis: dict) -> int:
     return len(rows)
 
 
-def upsert_rush_weekly(db: sqlite3.Connection, df, pfr_to_gsis: dict) -> int:
+def upsert_rush_weekly(db: sqlite3.Connection, df, pfr_to_gsis: dict, verbose: bool = False) -> int:
     if df is None or df.empty:
         return 0
     rows = []
     skipped = 0
+    unmapped = {}
     for row in df.to_dict(orient="records"):
         pfr = row.get("pfr_player_id") or row.get("pfr_id")
         if not pfr:
             skipped += 1; continue
         gsis = pfr_to_gsis.get(str(pfr))
         if not gsis:
-            skipped += 1; continue
+            skipped += 1
+            if verbose:
+                key = str(pfr)
+                if key not in unmapped:
+                    unmapped[key] = {
+                        "name": row.get("pfr_player_name") or "?",
+                        "count": 0,
+                    }
+                unmapped[key]["count"] += 1
+            continue
         season = int(row.get("season") or 0)
         week = int(row.get("week") or 0)
         if not season or not week: continue
@@ -152,6 +180,14 @@ def upsert_rush_weekly(db: sqlite3.Connection, df, pfr_to_gsis: dict) -> int:
         if rush_brtkl is None and rush_ybc is None and rush_yac is None:
             continue
         rows.append((rush_brtkl, rush_ybc, rush_yac, season, week, gsis))
+
+    if verbose and unmapped:
+        print(f"  [rush] unmapped pfr_ids ({len(unmapped)} distinct players):", file=sys.stderr)
+        top = sorted(unmapped.items(), key=lambda kv: -kv[1]["count"])[:30]
+        for pfr_id, info in top:
+            print(f"    {pfr_id:12s}  {info['count']:3d} rows  {info['name']}", file=sys.stderr)
+        if len(unmapped) > 30:
+            print(f"    ...and {len(unmapped) - 30} more", file=sys.stderr)
 
     if not rows:
         print(f"  [rush] nothing to upsert (skipped {skipped} unmapped)", file=sys.stderr)
@@ -177,6 +213,8 @@ def main() -> None:
                     help='Season list: "2018-2025" (default; PFR rec advstats start 2018)')
     ap.add_argument("--skip-rec", action="store_true", help="Skip the rec stat_type fetch")
     ap.add_argument("--skip-rush", action="store_true", help="Skip the rush stat_type fetch")
+    ap.add_argument("--verbose", action="store_true",
+                    help="Print top-30 unmapped pfr_id + name list at end (diagnostic for crosswalk gaps)")
     args = ap.parse_args()
 
     if not LOCAL_DB.exists():
@@ -194,10 +232,10 @@ def main() -> None:
     total = 0
     if not args.skip_rec:
         df_rec = _load("rec", seasons)
-        total += upsert_rec_weekly(db, df_rec, pfr_to_gsis)
+        total += upsert_rec_weekly(db, df_rec, pfr_to_gsis, verbose=args.verbose)
     if not args.skip_rush:
         df_rush = _load("rush", seasons)
-        total += upsert_rush_weekly(db, df_rush, pfr_to_gsis)
+        total += upsert_rush_weekly(db, df_rush, pfr_to_gsis, verbose=args.verbose)
 
     print(f"DONE: {total} player-week rows updated with PFR advstats", file=sys.stderr)
 
