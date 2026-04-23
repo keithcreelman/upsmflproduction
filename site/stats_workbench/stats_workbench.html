@@ -54,8 +54,15 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
       <option value="punter">Punter</option>
     </select>
   </label>
-  <label>Season
-    <select id="asw-season"></select>
+  <label>Seasons
+    <select id="asw-seasons" multiple size="4" style="min-width:110px; max-height:100px"></select>
+    <span style="font-size:10px; color:var(--muted)">hold ⌘/Ctrl to multi-select</span>
+  </label>
+  <label>Team
+    <select id="asw-team">
+      <option value="">All (league-wide)</option>
+      <option value="FA">Free Agents (no contract)</option>
+    </select>
   </label>
   <label>Scope
     <div style="display:flex;gap:4px">
@@ -89,17 +96,35 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
 
   var THIS_YEAR = new Date().getFullYear();
   var MIN_SEASON = 2011;
+  var LEAGUE_ID = "74598";
 
-  // Populate season dropdown (descending). Default to prior complete season.
-  var seasonSel = document.getElementById("asw-season");
+  // Populate seasons multi-select (descending). Default = last complete season.
+  var seasonsSel = document.getElementById("asw-seasons");
   var defaultSeason = THIS_YEAR - 1;
   for (var y = THIS_YEAR; y >= MIN_SEASON; y--) {
     var opt = document.createElement("option");
     opt.value = String(y);
     opt.textContent = String(y);
     if (y === defaultSeason) opt.selected = true;
-    seasonSel.appendChild(opt);
+    seasonsSel.appendChild(opt);
   }
+
+  var teamSel = document.getElementById("asw-team");
+  // Fetch league franchises once and populate the team dropdown.
+  fetch("https://api.myfantasyleague.com/" + THIS_YEAR + "/export?TYPE=league&L=" + LEAGUE_ID + "&JSON=1")
+    .then(function(r){ return r.ok ? r.json() : null; })
+    .then(function(j){
+      if (!j || !j.league || !j.league.franchises) return;
+      var franchises = j.league.franchises.franchise || [];
+      franchises.sort(function(a,b){ return (a.name || "").localeCompare(b.name || ""); });
+      franchises.forEach(function(f){
+        var o = document.createElement("option");
+        o.value = String(f.id || "");
+        o.textContent = String(f.name || ("Team " + f.id));
+        teamSel.appendChild(o);
+      });
+    })
+    .catch(function(){ /* ignore — dropdown just won't have team options */ });
 
   var posSel = document.getElementById("asw-pos");
   var scopeBtns = document.querySelectorAll("[data-scope]");
@@ -122,7 +147,9 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
       defaultSort: "rec_yds",
       cols: [
         { key:"player_name", label:"Player",  cls:"name" },
-        { key:"team",        label:"Tm",      cls:"dim" },
+        { key:"team",        label:"NFL",     cls:"dim" },
+        { key:"mfl_franchise_name", label:"MFL Team", cls:"dim",
+          compute: function(r){ return r.mfl_franchise_name || "FA"; } },
         { key:"games",       label:"G",       num:true },
         { key:"off_snaps_total", label:"Snaps", num:true },
         { key:"off_snap_rate",   label:"Snap%", num:true, fmt:"pct0" },
@@ -149,7 +176,9 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
       defaultSort: "pass_yds",
       cols: [
         { key:"player_name", label:"Player",  cls:"name" },
-        { key:"team",        label:"Tm",      cls:"dim" },
+        { key:"team",        label:"NFL",     cls:"dim" },
+        { key:"mfl_franchise_name", label:"MFL Team", cls:"dim",
+          compute: function(r){ return r.mfl_franchise_name || "FA"; } },
         { key:"games",       label:"G",       num:true },
         { key:"off_snaps_total", label:"Snaps", num:true },
         { key:"off_snap_rate",   label:"Snap%", num:true, fmt:"pct0" },
@@ -173,7 +202,9 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
       defaultSort: "def_tackles_total",
       cols: [
         { key:"player_name", label:"Player",  cls:"name" },
-        { key:"team",        label:"Tm",      cls:"dim" },
+        { key:"team",        label:"NFL",     cls:"dim" },
+        { key:"mfl_franchise_name", label:"MFL Team", cls:"dim",
+          compute: function(r){ return r.mfl_franchise_name || "FA"; } },
         { key:"position",    label:"Pos",     cls:"dim" },
         { key:"games",       label:"G",       num:true },
         { key:"def_snaps_total", label:"Snaps", num:true },
@@ -194,7 +225,9 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
       defaultSort: "fg_made",
       cols: [
         { key:"player_name", label:"Player",  cls:"name" },
-        { key:"team",        label:"Tm",      cls:"dim" },
+        { key:"team",        label:"NFL",     cls:"dim" },
+        { key:"mfl_franchise_name", label:"MFL Team", cls:"dim",
+          compute: function(r){ return r.mfl_franchise_name || "FA"; } },
         { key:"games",       label:"G",       num:true },
         { key:"fg_made",     label:"FGM",     num:true },
         { key:"fg_miss",     label:"FG Miss", num:true,
@@ -211,7 +244,9 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
       defaultSort: "punts",
       cols: [
         { key:"player_name", label:"Player",  cls:"name" },
-        { key:"team",        label:"Tm",      cls:"dim" },
+        { key:"team",        label:"NFL",     cls:"dim" },
+        { key:"mfl_franchise_name", label:"MFL Team", cls:"dim",
+          compute: function(r){ return r.mfl_franchise_name || "FA"; } },
         { key:"games",       label:"G",       num:true },
         { key:"punts",       label:"Punts",   num:true },
         { key:"punt_yds",    label:"PuntYd",  num:true },
@@ -308,26 +343,41 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
     return btn ? btn.getAttribute("data-scope") : "ups";
   }
 
+  function getSelectedSeasons(){
+    var sel = [];
+    for (var i = 0; i < seasonsSel.options.length; i++) {
+      if (seasonsSel.options[i].selected) sel.push(parseInt(seasonsSel.options[i].value, 10));
+    }
+    sel = sel.filter(function(s){ return s >= MIN_SEASON; });
+    return sel.length ? sel : [defaultSeason];
+  }
+
   function runQuery(){
     var pos = posSel.value;
-    var season = parseInt(seasonSel.value, 10);
+    var seasons = getSelectedSeasons();
     var scope = getScope();
     var minG = Math.max(1, parseInt(minGamesEl.value, 10) || 1);
+    var team = teamSel.value || "";
     state.sortKey = null;  // reset on new query so defaultSort kicks in
     bodyEl.innerHTML = '<div class="asw-loading">Fetching…</div>';
     metaEl.textContent = "";
     var url = API_BASE + "/api/advanced-stats-leaderboard" +
-      "?season=" + encodeURIComponent(season) +
+      "?seasons=" + encodeURIComponent(seasons.join(",")) +
       "&pos="   + encodeURIComponent(pos) +
       "&include_post=" + (scope === "full" ? "1" : "0") +
       "&min_games=" + encodeURIComponent(minG) +
+      (team ? "&team=" + encodeURIComponent(team) : "") +
       "&limit=500";
     fetch(url).then(function(r){
       if (!r.ok) throw new Error("HTTP " + r.status);
       return r.json();
     }).then(function(j){
       state.rows = Array.isArray(j.rows) ? j.rows : [];
-      state.lastQuery = (TMPL[pos] && TMPL[pos].label || pos) + " · " + season + " · " + (scope === "full" ? "Full" : "UPS") + " · min " + minG + "G";
+      var seasonLabel = seasons.length === 1 ? String(seasons[0])
+                      : seasons.length <= 3 ? seasons.sort(function(a,b){return b-a}).join(", ")
+                      : seasons.sort(function(a,b){return a-b})[0] + "-" + seasons.sort(function(a,b){return b-a})[0];
+      var teamLabel = team === "FA" ? " · FA only" : team ? " · " + (teamSel.options[teamSel.selectedIndex].textContent) : "";
+      state.lastQuery = (TMPL[pos] && TMPL[pos].label || pos) + " · " + seasonLabel + " · " + (scope === "full" ? "Full" : "UPS") + " · min " + minG + "G" + teamLabel;
       render();
     }).catch(function(e){
       bodyEl.innerHTML = '<div class="asw-err">Query failed: '+(e && e.message || e)+'</div>';
@@ -337,7 +387,7 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
 
   runBtn.addEventListener("click", runQuery);
   searchEl.addEventListener("input", function(){ if (state.rows.length) render(); });
-  [posSel, seasonSel, minGamesEl].forEach(function(el){
+  [posSel, seasonsSel, teamSel, minGamesEl].forEach(function(el){
     el.addEventListener("change", runQuery);
   });
   scopeBtns.forEach(function(b){ b.addEventListener("click", runQuery); });

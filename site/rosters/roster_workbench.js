@@ -7836,8 +7836,10 @@
     var weeks = Array.isArray(bundle.nfl_weekly) ? bundle.nfl_weekly : [];
     var snapBy = bundle.nfl_snaps_by_week || {};
     var isReg = function (w) {
-      var s = Number(w.season) || 0, wk = Number(w.week) || 0;
-      return (s < 2021 && wk <= 17) || (s >= 2021 && wk <= 18);
+      // UPS Season = NFL weeks 1-17 (Keith 2026-04-23: MFL's
+      // regular-season scoring window caps at 17 for all eras).
+      var wk = Number(w.week) || 0;
+      return wk >= 1 && wk <= 17;
     };
     var fields = [
       "rush_att","rush_yds","rush_tds","rush_fumbles","rush_fumbles_lost",

@@ -628,12 +628,36 @@ export default {
       //   min_games    (optional)  — filter to rows with games >= N (default 1)
       //   limit        (optional)  — max rows (default 200, max 500)
       if (path === "/api/advanced-stats-leaderboard" && request.method === "GET") {
-        const season = parseInt(safeStr(url.searchParams.get("season")), 10);
+        // Multi-season support: accept `seasons=YYYY,YYYY,...` OR the
+        // legacy single `season=YYYY`. Range form "2023-2025" expands.
+        const seasonsParam = safeStr(url.searchParams.get("seasons"));
+        const legacySeason = safeStr(url.searchParams.get("season"));
+        let seasons = [];
+        if (seasonsParam) {
+          for (const part of seasonsParam.split(",")) {
+            const piece = part.trim();
+            if (!piece) continue;
+            if (piece.indexOf("-") >= 0) {
+              const [a, b] = piece.split("-").map(s => parseInt(s.trim(), 10));
+              if (a && b && a <= b) for (let y = a; y <= b; y++) seasons.push(y);
+            } else {
+              const y = parseInt(piece, 10);
+              if (y) seasons.push(y);
+            }
+          }
+        } else if (legacySeason) {
+          const y = parseInt(legacySeason, 10);
+          if (y) seasons = [y];
+        }
+        seasons = Array.from(new Set(seasons)).filter(y => y >= 2011 && y <= 2030);
         const pos = safeStr(url.searchParams.get("pos")).toLowerCase();
         const includePost = safeStr(url.searchParams.get("include_post")) === "1";
         const minGames = Math.max(1, parseInt(safeStr(url.searchParams.get("min_games")), 10) || 1);
         const limit = Math.min(500, Math.max(10, parseInt(safeStr(url.searchParams.get("limit")), 10) || 200));
-        if (!season || season < 2011 || season > 2030) return jsonOut(400, { error: "missing or invalid season" });
+        // Team filter: MFL franchise_id (pad-4 like "0005"), or "FA"
+        // for free agents (players with no current contract row).
+        const teamFilter = safeStr(url.searchParams.get("team")).trim();
+        if (!seasons.length) return jsonOut(400, { error: "missing seasons" });
         if (!pos) return jsonOut(400, { error: "missing pos (skill|qb|idp|kicker|punter)" });
         if (!env.UPS_MFL_DB) return jsonOut(503, { error: "D1 not bound" });
 
@@ -649,14 +673,29 @@ export default {
         // Week-range filter. Default = UPS (NFL regular season).
         const weekFilter = includePost
           ? "1=1"
-          : "((w.season < 2021 AND w.week <= 17) OR (w.season >= 2021 AND w.week <= 18))";
+          : "w.week <= 17";
 
         const posList = posGroups.map(p => `'${p}'`).join(",");
+        const seasonList = seasons.map(s => String(parseInt(s, 10))).join(",");
 
         try {
           const db = env.UPS_MFL_DB;
+          // Multi-season: use WHERE season IN (seasonList). Safe since
+          // seasonList is rebuilt from parsed integers. Snap/stats joins
+          // filter the same way so they stay consistent.
+          // Team filter: LEFT JOIN src_contracts to pick the most recent
+          // contract (MAX season). "FA" keeps rows where no active
+          // contract exists. A specific fid filters to that franchise.
           const sql = `
-            WITH agg AS (
+            WITH latest_contract AS (
+              SELECT c.player_id,
+                     c.franchise_id,
+                     c.team_name,
+                     c.season   AS contract_season
+                FROM src_contracts c
+                WHERE c.season = (SELECT MAX(season) FROM src_contracts)
+            ),
+            agg AS (
               SELECT w.gsis_id,
                      MIN(w.pos_group)   AS pos_group,
                      MAX(w.team)        AS team,
@@ -700,7 +739,7 @@ export default {
                      SUM(COALESCE(w.rushing_yards_before_contact,0)) AS rushing_yards_before_contact,
                      SUM(COALESCE(w.rushing_yards_after_contact,0))  AS rushing_yards_after_contact
                 FROM nfl_player_weekly w
-               WHERE w.season = ? AND w.pos_group IN (${posList})
+               WHERE w.season IN (${seasonList}) AND w.pos_group IN (${posList})
                  AND ${weekFilter}
                GROUP BY w.gsis_id
             ),
@@ -712,8 +751,8 @@ export default {
                      AVG(COALESCE(s.def_snap_pct, 0.0)) AS def_snap_rate
                 FROM nfl_player_snaps s
                 JOIN player_id_crosswalk c ON c.pfr_id = s.pfr_id
-               WHERE s.season = ?
-                 AND ${includePost ? "1=1" : "((s.season < 2021 AND s.week <= 17) OR (s.season >= 2021 AND s.week <= 18))"}
+               WHERE s.season IN (${seasonList})
+                 AND ${includePost ? "1=1" : "s.week <= 17"}
                GROUP BY c.gsis_id
             )
             SELECT a.gsis_id,
@@ -731,21 +770,34 @@ export default {
                    a.rushing_broken_tackles, a.passing_drops,
                    a.rushing_yards_before_contact, a.rushing_yards_after_contact,
                    sa.off_snaps_total, sa.def_snaps_total,
-                   sa.off_snap_rate,   sa.def_snap_rate
+                   sa.off_snap_rate,   sa.def_snap_rate,
+                   lc.franchise_id AS mfl_franchise_id,
+                   lc.team_name    AS mfl_franchise_name
               FROM agg a
               LEFT JOIN player_id_crosswalk c ON c.gsis_id = a.gsis_id
-              LEFT JOIN snap_agg sa             ON sa.gsis_id = a.gsis_id
+              LEFT JOIN snap_agg sa           ON sa.gsis_id = a.gsis_id
+              LEFT JOIN latest_contract lc    ON lc.player_id = c.mfl_player_id
              WHERE a.games >= ?
              ORDER BY a.rush_yds + a.rec_yds + a.pass_yds DESC
              LIMIT ?
           `;
-          const res = await db.prepare(sql).bind(season, season, minGames, limit).all();
-          const rows = res.results || [];
+          const res = await db.prepare(sql).bind(minGames, limit).all();
+          let rows = res.results || [];
           // Punter filter: if pos=punter, keep only rows with actual punts
-          const filtered = pos === "punter" ? rows.filter(r => (r.punts || 0) > 0) : rows;
+          if (pos === "punter") rows = rows.filter(r => (r.punts || 0) > 0);
+          // Team filter applied client-of-Worker: "FA" → no contract,
+          // any specific franchise_id → match.
+          if (teamFilter === "FA") {
+            rows = rows.filter(r => !r.mfl_franchise_id);
+          } else if (teamFilter) {
+            const padded = (teamFilter + "000").slice(0, 4);
+            rows = rows.filter(r => (r.mfl_franchise_id || "") === padded ||
+                                    (r.mfl_franchise_id || "") === teamFilter);
+          }
           return jsonOut(200, {
-            season, pos, include_post: includePost, min_games: minGames, count: filtered.length,
-            rows: filtered,
+            seasons, pos, include_post: includePost, min_games: minGames,
+            team: teamFilter || null, count: rows.length,
+            rows,
           });
         } catch (e) {
           console.error("[advanced-stats-leaderboard] failed:", e);
@@ -1202,10 +1254,10 @@ export default {
                               COUNT(*) AS snap_games
                          FROM nfl_player_snaps
                         WHERE pfr_id = ?
-                          AND (
-                            (season < 2021 AND week <= 17) OR
-                            (season >= 2021 AND week <= 18)
-                          )
+                          AND week <= 17  -- UPS Season scope (Keith 2026-04-23):
+                                          -- cap at wk 17 even in 2021+ 17-game
+                                          -- era. NFL wk 18 games aren't part of
+                                          -- UPS fantasy scoring; drop them here.
                         GROUP BY season
                      )
                      SELECT w.season,
@@ -1287,10 +1339,7 @@ export default {
                        LEFT JOIN snap_totals s
                               ON s.season = w.season
                       WHERE w.gsis_id = ?
-                        AND (
-                          (w.season < 2021 AND w.week <= 17) OR
-                          (w.season >= 2021 AND w.week <= 18)
-                        )
+                        AND w.week <= 17  -- UPS Season scope (see snap_totals CTE above)
                       GROUP BY w.season
                       ORDER BY w.season DESC`
                   ).bind(pfrId, gsisId).all(),
