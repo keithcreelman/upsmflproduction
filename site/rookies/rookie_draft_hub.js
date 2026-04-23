@@ -1171,6 +1171,10 @@
                             title: "Broken tackles combined — receiving + rushing (PFR, 2018+)" },
           { label: "RuAtt", key: "rush_att" },
           { label: "RuYd", key: "rush_yds" },
+          { label: "YBC/A", compute: r => r.rush_att ? (r.rushing_yards_before_contact || 0) / r.rush_att : null, format: "dec2",
+                            title: "Rushing yards before contact per attempt (PFR, 2018+)" },
+          { label: "YAC/A", compute: r => r.rush_att ? (r.rushing_yards_after_contact || 0) / r.rush_att : null, format: "dec2",
+                            title: "Rushing yards after contact per attempt (PFR, 2018+)" },
           { label: "RuTD", key: "rush_tds" },
           { label: "Fum", key: "rush_fumbles" },
           { label: "FumL", key: "rush_fumbles_lost" }
@@ -1437,6 +1441,10 @@
                             title: "Broken tackles combined — receiving + rushing (PFR, 2018+)" },
           { label: "RuAtt", key: "rush_att" },
           { label: "RuYd",  key: "rush_yds" },
+          { label: "YBC/A", compute: r => r.rush_att ? (r.rushing_yards_before_contact || 0) / r.rush_att : null, format: "dec2",
+                            title: "Rushing yards before contact per attempt (PFR, 2018+)" },
+          { label: "YAC/A", compute: r => r.rush_att ? (r.rushing_yards_after_contact || 0) / r.rush_att : null, format: "dec2",
+                            title: "Rushing yards after contact per attempt (PFR, 2018+)" },
           { label: "RuTD",  key: "rush_tds" },
           { label: "Fum",   key: "rush_fumbles" },
           { label: "FumL",  key: "rush_fumbles_lost" }

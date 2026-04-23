@@ -289,7 +289,8 @@ def main():
                 punts, punt_yds, punt_long, punt_inside20, punt_net_avg,
                 starter_nfl, source,
                 receiving_drops, receiving_broken_tackles,
-                rushing_broken_tackles, passing_drops
+                rushing_broken_tackles, passing_drops,
+                rushing_yards_before_contact, rushing_yards_after_contact
          FROM nfl_player_weekly
          """,
          ["season","week","gsis_id","team","opponent","position","pos_group",
@@ -305,7 +306,8 @@ def main():
           "punts","punt_yds","punt_long","punt_inside20","punt_net_avg",
           "starter_nfl","source",
           "receiving_drops","receiving_broken_tackles",
-          "rushing_broken_tackles","passing_drops"]),
+          "rushing_broken_tackles","passing_drops",
+          "rushing_yards_before_contact","rushing_yards_after_contact"]),
         ("nflsnaps", "nfl_player_snaps",
          """
          SELECT season, week, pfr_id, team,

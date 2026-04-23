@@ -1012,7 +1012,8 @@ export default {
                             xp_att, xp_made,
                             punts, punt_yds, punt_inside20, punt_net_avg,
                             receiving_drops, receiving_broken_tackles,
-                            rushing_broken_tackles, passing_drops
+                            rushing_broken_tackles, passing_drops,
+                            rushing_yards_before_contact, rushing_yards_after_contact
                        FROM nfl_player_weekly
                       WHERE gsis_id = ?
                       ORDER BY season DESC, week DESC
@@ -1096,6 +1097,8 @@ export default {
                             SUM(COALESCE(w.receiving_broken_tackles,0)) AS receiving_broken_tackles,
                             SUM(COALESCE(w.rushing_broken_tackles,0))   AS rushing_broken_tackles,
                             SUM(COALESCE(w.passing_drops,0))            AS passing_drops,
+                            SUM(COALESCE(w.rushing_yards_before_contact,0)) AS rushing_yards_before_contact,
+                            SUM(COALESCE(w.rushing_yards_after_contact,0))  AS rushing_yards_after_contact,
                             SUM(COALESCE(w.def_tfl,0))           AS def_tfl,
                             SUM(COALESCE(w.def_sacks,0))         AS def_sacks,
                             SUM(COALESCE(w.def_ff,0))            AS def_ff,
