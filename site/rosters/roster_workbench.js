@@ -7674,6 +7674,147 @@
   //
   // Each has its own html() helper; wrapper composes them behind the
   // toggle; upmWireStatsToggle wires click handlers + sessionStorage.
+  // Per-pos-group Raw Stats templates (Keith 2026-04-22 spec).
+  // Each template defines an ordered column list; each column has
+  // either `key` (pull from season-totals row) or `compute` (derive
+  // client-side, e.g. rates, snaps-per-game). Optional `format`:
+  //   'int'     integer (default)
+  //   'dec1'    1 decimal
+  //   'dec2'    2 decimals
+  //   'pct'     multiply by 100, 1-decimal %
+  //   'pct0'    already in 0-100 range from Worker, format as %
+  //   'avgfg'   avg FG distance made — weighted midpoint of buckets
+  //
+  // Detection: bundle.career_summary[0].pos_group (MFL-derived) first,
+  // then crosswalk.position (NFL raw). 'P' vs 'K' distinction only
+  // comes from crosswalk.position since MFL lumps them as PK.
+  function upmDetectPosGroup(bundle) {
+    var rawPos = (bundle.crosswalk && bundle.crosswalk.position || "").toUpperCase();
+    if (rawPos === "P") return "punter";
+    var pg = (bundle.career_summary && bundle.career_summary[0] && bundle.career_summary[0].pos_group) ||
+             (bundle.nfl_weekly && bundle.nfl_weekly[0] && bundle.nfl_weekly[0].pos_group) ||
+             rawPos;
+    pg = String(pg || "").toUpperCase();
+    if (pg === "QB") return "qb";
+    if (pg === "RB" || pg === "WR" || pg === "TE" || pg === "FB") return "skill";
+    if (pg === "PK" || pg === "K") return "kicker";
+    if (pg === "DL" || pg === "LB" || pg === "DB") return "idp";
+    if (rawPos === "K" || rawPos === "PK") return "kicker";
+    if (["DE","DT","NT","EDGE"].indexOf(rawPos) >= 0) return "idp";
+    if (["OLB","ILB","MLB","LB"].indexOf(rawPos) >= 0) return "idp";
+    if (["CB","S","SS","FS","DB"].indexOf(rawPos) >= 0) return "idp";
+    return "skill";
+  }
+
+  var UPM_RAW_TEMPLATES = {
+    idp: {
+      label: "IDP",
+      cols: [
+        { label: "G",        key: "games" },
+        { label: "Snaps",    key: "def_snaps_total" },
+        { label: "Snap%",    compute: function (r) { return r.def_snap_rate; }, format: "pct0" },
+        { label: "Snaps/G",  compute: function (r) { return r.def_snaps_total && r.games ? r.def_snaps_total / r.games : null; }, format: "dec1" },
+        { label: "Tkl",      key: "def_tackles_total" },
+        { label: "TFL",      key: "def_tfl" },
+        { label: "FF",       key: "def_ff" },
+        { label: "FR",       key: "def_fr" },
+        { label: "Sk",       key: "def_sacks", format: "dec1" },
+        { label: "PD",       key: "def_pass_def" },
+        { label: "Int",      key: "def_ints" },
+        { label: "DefTD",    key: "def_tds" }
+      ]
+    },
+    qb: {
+      label: "QB",
+      cols: [
+        { label: "G",        key: "games" },
+        { label: "Snaps",    key: "off_snaps_total" },
+        { label: "Snap%",    compute: function (r) { return r.off_snap_rate; }, format: "pct0" },
+        { label: "Snaps/G",  compute: function (r) { return r.off_snaps_total && r.games ? r.off_snaps_total / r.games : null; }, format: "dec1" },
+        { label: "RuAtt",    key: "rush_att" },
+        { label: "RuYd",     key: "rush_yds" },
+        { label: "RuTD",     key: "rush_tds" },
+        { label: "Fum",      key: "rush_fumbles" },
+        { label: "FumL",     key: "rush_fumbles_lost" },
+        { label: "Att",      key: "pass_att" },
+        { label: "Cmp",      key: "pass_cmp" },
+        { label: "Cmp%",     compute: function (r) { return r.pass_att ? r.pass_cmp / r.pass_att : null; }, format: "pct" },
+        { label: "PaYd",     key: "pass_yds" },
+        { label: "PaTD",     key: "pass_tds" },
+        { label: "Int",      key: "pass_ints" },
+        { label: "Int%",     compute: function (r) { return r.pass_att ? r.pass_ints / r.pass_att : null; }, format: "pct" }
+      ]
+    },
+    skill: {
+      label: "RB / WR / TE",
+      cols: [
+        { label: "G",        key: "games" },
+        { label: "Snaps",    key: "off_snaps_total" },
+        { label: "Snap%",    compute: function (r) { return r.off_snap_rate; }, format: "pct0" },
+        { label: "Snaps/G",  compute: function (r) { return r.off_snaps_total && r.games ? r.off_snaps_total / r.games : null; }, format: "dec1" },
+        { label: "Tgt",      key: "targets" },
+        { label: "Routes",   key: "routes_run" },
+        { label: "Rec",      key: "receptions" },
+        { label: "RecYd",    key: "rec_yds" },
+        { label: "RecTD",    key: "rec_tds" },
+        { label: "YPRR",     compute: function (r) { return r.routes_run ? r.rec_yds / r.routes_run : null; }, format: "dec2" },
+        { label: "Y/T",      compute: function (r) { return r.targets ? r.rec_yds / r.targets : null; }, format: "dec2" },
+        { label: "RuAtt",    key: "rush_att" },
+        { label: "RuYd",     key: "rush_yds" },
+        { label: "RuTD",     key: "rush_tds" },
+        { label: "Fum",      key: "rush_fumbles" },
+        { label: "FumL",     key: "rush_fumbles_lost" }
+      ]
+    },
+    kicker: {
+      label: "Kicker",
+      cols: [
+        { label: "G",        key: "games" },
+        { label: "XPM",      key: "xp_made" },
+        { label: "XP Miss",  compute: function (r) { return (r.xp_att || 0) - (r.xp_made || 0); } },
+        { label: "FGM",      key: "fg_made" },
+        { label: "FG Miss",  compute: function (r) { return (r.fg_att || 0) - (r.fg_made || 0); } },
+        { label: "Avg FG",   compute: function (r) {
+            // Weighted midpoint of distance buckets (0-39 ≈ 25y,
+            // 40-49 ≈ 44.5y, 50+ ≈ 54y — rough but consistent).
+            var m = (r.fg_made_0_39 || 0) + (r.fg_made_40_49 || 0) + (r.fg_made_50plus || 0);
+            if (!m) return null;
+            return ((r.fg_made_0_39 || 0) * 25 + (r.fg_made_40_49 || 0) * 44.5 + (r.fg_made_50plus || 0) * 54) / m;
+          }, format: "dec1" }
+      ]
+    },
+    punter: {
+      label: "Punter",
+      cols: [
+        { label: "G",         key: "games" },
+        { label: "Punts",     key: "punts" },
+        { label: "PuntYd",    key: "punt_yds" },
+        { label: "Net Avg",   key: "punt_net_avg", format: "dec1" },
+        { label: "Att/G",     compute: function (r) { return r.games ? r.punts / r.games : null; }, format: "dec1" },
+        { label: "I20",       key: "punt_inside20" }
+      ]
+    }
+  };
+
+  function upmFormatCell(v, fmt, dim) {
+    if (v == null || v === 0) {
+      return '<td class="num" style="color:var(' + dim + ')">—</td>';
+    }
+    var s;
+    if (fmt === "dec1") s = Number(v).toFixed(1);
+    else if (fmt === "dec2") s = Number(v).toFixed(2);
+    else if (fmt === "pct")  s = (Number(v) * 100).toFixed(1) + "%";
+    else if (fmt === "pct0") {
+      // nflverse snap_pct is already 0-100 OR 0-1 depending on version.
+      // Normalize to 0-100 display.
+      var n = Number(v);
+      if (n > 0 && n <= 1) n = n * 100;
+      s = n.toFixed(1) + "%";
+    }
+    else s = String(v);
+    return '<td class="num">' + s + '</td>';
+  }
+
   function upmRawStatsHtml(bundle) {
     var totals = Array.isArray(bundle.nfl_season_totals) ? bundle.nfl_season_totals : [];
     var crosswalk = bundle.crosswalk || null;
@@ -7685,71 +7826,20 @@
     if (!totals.length) {
       return '<p style="color:var(--rwb-text-dim); font-size:12px; padding:10px;">'
         + 'NFL raw stats not yet loaded for <code>' + crosswalk.gsis_id + '</code>. '
-        + 'Run <code>fetch_nflverse_weekly.py --seasons 2011-2025</code> then '
-        + '<code>load_local_to_d1.py --only nflweekly,nflsnaps</code>. '
-        + 'Red-zone / goal-line / end-zone columns additionally require '
-        + '<code>fetch_nflverse_pbp.py</code> + <code>--only nflredzone</code>.</p>';
+        + 'Run the nflverse fetchers + '
+        + '<code>load_local_to_d1.py --only nflweekly,nflsnaps,nflredzone</code>.</p>';
     }
-    var COLS = [
-      { key: "games", label: "G" },
-      { key: "rush_att", label: "Ru" },
-      { key: "rush_yds", label: "RuYd" },
-      { key: "rush_tds", label: "RuTD" },
-      { key: "rush_att_i20", label: "Ru I20", rz: true },
-      { key: "rush_att_i5",  label: "GL I5",  rz: true },
-      { key: "targets", label: "Tgt" },
-      { key: "receptions", label: "Rec" },
-      { key: "rec_yds", label: "RecYd" },
-      { key: "rec_tds", label: "RecTD" },
-      { key: "targets_i20", label: "Tgt I20", rz: true },
-      { key: "targets_ez",  label: "Tgt EZ",  rz: true },
-      { key: "pass_att", label: "PaAtt" },
-      { key: "pass_cmp", label: "PaCmp" },
-      { key: "pass_yds", label: "PaYds" },
-      { key: "pass_tds", label: "PaTD" },
-      { key: "pass_ints", label: "Int" },
-      { key: "pass_att_i20", label: "Pa I20", rz: true },
-      { key: "pass_att_ez",  label: "Pa EZ",  rz: true },
-      { key: "def_tackles_total", label: "Tkl" },
-      { key: "def_tfl", label: "TFL" },
-      { key: "def_sacks", label: "Sk" },
-      { key: "def_ff", label: "FF" },
-      { key: "def_ints", label: "DefInt" },
-      { key: "def_pass_def", label: "PD" },
-      { key: "fg_att", label: "FGA" }, { key: "fg_made", label: "FGM" },
-      { key: "xp_att", label: "XPA" }, { key: "xp_made", label: "XPM" },
-      { key: "punts", label: "Punt" }
-    ];
-    function sumNonZero(k) {
-      return totals.some(function (r) { return (Number(r[k]) || 0) !== 0; });
-    }
-    var hasRush = sumNonZero("rush_att");
-    var hasRec  = sumNonZero("targets");
-    var hasPass = sumNonZero("pass_att");
-    var keepRZ = {};
-    if (hasRush) { keepRZ["rush_att_i20"] = true; keepRZ["rush_att_i5"] = true; }
-    if (hasRec)  { keepRZ["targets_i20"] = true; keepRZ["targets_ez"] = true; }
-    if (hasPass) { keepRZ["pass_att_i20"] = true; keepRZ["pass_att_ez"] = true; }
-    var finalCols = COLS.filter(function (c) {
-      if (c.rz && keepRZ[c.key]) return true;
-      return sumNonZero(c.key);
-    });
-    var thRow = '<th>Yr</th>' + finalCols.map(function (c) {
+    var pg = upmDetectPosGroup(bundle);
+    var tmpl = UPM_RAW_TEMPLATES[pg] || UPM_RAW_TEMPLATES.skill;
+    var thRow = '<th>Yr</th>' + tmpl.cols.map(function (c) {
       return '<th class="num">' + c.label + '</th>';
     }).join("");
-    var anyRZ = totals.some(function (r) { return (Number(r.rush_att_i20) || 0) > 0 || (Number(r.targets_i20) || 0) > 0; });
     var bodyRows = totals.map(function (r) {
       var tds = '<td>' + r.season + '</td>';
-      for (var i = 0; i < finalCols.length; i++) {
-        var c = finalCols[i];
-        var v = r[c.key];
-        if (v == null || v === 0) {
-          tds += '<td class="num" style="color:var(--rwb-text-dim)">—</td>';
-        } else if (c.key === "def_sacks") {
-          tds += '<td class="num">' + Number(v).toFixed(1) + '</td>';
-        } else {
-          tds += '<td class="num">' + v + '</td>';
-        }
+      for (var i = 0; i < tmpl.cols.length; i++) {
+        var c = tmpl.cols[i];
+        var v = c.compute ? c.compute(r) : r[c.key];
+        tds += upmFormatCell(v, c.format || "int", "--rwb-text-dim");
       }
       return '<tr>' + tds + '</tr>';
     }).join("");
@@ -7758,15 +7848,14 @@
         + crosswalk.confidence + (crosswalk.match_score ? " (" + Number(crosswalk.match_score).toFixed(2) + ")" : "")
         + ' — review recommended.</div>'
       : "";
-    var rzFoot = !anyRZ
-      ? '<div style="color:var(--rwb-text-dim); font-size:11px; margin-top:4px;">Yardline-banded columns (I20 / I5 / EZ) populate once <code>fetch_nflverse_pbp.py</code> is run.</div>'
-      : "";
+    // Note: Routes / YPRR will read "—" until load_pfr_advstats fetcher
+    // populates routes_run in nfl_player_weekly.
     return ''
       + '<div style="font-size:11px; color:var(--rwb-text-dim); margin-bottom:6px;">'
-      + 'Real NFL on-field counts. Independent of MFL fantasy scoring. I20 = inside-20 (Red Zone). I5 = inside-5 (Goal Line). EZ = End Zone target.</div>'
+      + 'Template: <strong>' + tmpl.label + '</strong>. Real NFL on-field counts + derived rates.</div>'
       + '<table class="upm-stats-table"><thead><tr>' + thRow + '</tr></thead>'
       + '<tbody>' + bodyRows + '</tbody></table>'
-      + confNote + rzFoot;
+      + confNote;
   }
 
   function upmAdvancedStatsHtml(bundle) {

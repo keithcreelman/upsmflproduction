@@ -1081,115 +1081,151 @@
       </div>`;
     })() : `<p class="small" style="color:var(--muted)">No career data yet — this player has no scored weeks on record.</p>`;
 
-    // ── Raw Stats view (bundle.nfl_season_totals) ───────────────────
-    // Three-way toggle (Keith 2026-04-22): Scoring / Raw Stats / Advanced.
-    //   Scoring = MFL fantasy points view (unchanged from "Basic").
-    //   Raw Stats = NFL box-score via nflverse + yardline bands
-    //               (GL carries I5, RZ carries I20, RZ targets, EZ
-    //               targets) via PBP parse.
-    //   Advanced = derived metrics (weighted opp, xFP, FPOE, etc.) —
-    //              TBD placeholder for v2.
+    // ── Raw Stats view (per-pos-group templates, Keith 2026-04-22) ──
+    // Detects position from career_summary[0].pos_group (MFL) with
+    // crosswalk.position fallback. Five templates:
+    //   idp    — DL/LB/DB: snaps, tackles, TFL, FF, FR, sacks, PD, Int, DefTD
+    //   qb     — snaps, rushing, passing (with Cmp% / Int% derived)
+    //   skill  — RB/WR/TE: snaps, targets/routes/recs/yds (+ YPRR, Y/T), rushing
+    //   kicker — XPM/Miss, FGM/Miss, Avg FG distance made
+    //   punter — Punts, yds, Net avg, Att/G, I20
     //
-    // Source of truth: nflverse weekly box score (Phase 2) + PBP
-    // yardline bands (Phase 3, optional — populates I20/I10/I5/EZ).
-    // Pre-pipeline-run, bundle.nfl_season_totals is empty → the view
-    // shows a helpful "data not yet loaded" hint.
+    // Routes_run column stays NULL until load_pfr_advstats fetcher is
+    // added — UI shows "—" for Routes and YPRR in that case.
     const rawStatsHtml = (() => {
       const totals = Array.isArray(bundle.nfl_season_totals) ? bundle.nfl_season_totals : [];
       const crosswalk = bundle.crosswalk || null;
       if (!crosswalk || !crosswalk.gsis_id) {
         return `<p class="small" style="color:var(--muted); padding:10px;">
           No NFL crosswalk for this player yet. Run
-          <code>pipelines/etl/scripts/build_player_id_crosswalk.py</code>
-          to map MFL pid → nflverse gsis_id.</p>`;
+          <code>pipelines/etl/scripts/build_player_id_crosswalk.py</code>.</p>`;
       }
       if (!totals.length) {
         return `<p class="small" style="color:var(--muted); padding:10px;">
           NFL raw stats not yet loaded for <code>${escapeHtml(crosswalk.gsis_id)}</code>.
-          Run <code>pipelines/etl/scripts/fetch_nflverse_weekly.py --seasons 2011-2025</code>
-          then <code>scripts/load_local_to_d1.py --only nflweekly,nflsnaps</code>.
-          Red-zone / goal-line / end-zone columns additionally require
-          <code>fetch_nflverse_pbp.py</code> + <code>load_local_to_d1.py --only nflredzone</code>.</p>`;
+          Run the nflverse fetchers + <code>scripts/load_local_to_d1.py --only nflweekly,nflsnaps,nflredzone</code>.</p>`;
       }
-      // Column set — grouped by meaning. I5/I10/I20/EZ columns render
-      // "—" when PBP hasn't been loaded, keeping them visible so the
-      // user knows the slots exist. Columns with ALL rows zero drop
-      // (keeps width reasonable on mobile).
-      const COLS = [
-        { key: "games", label: "G", group: "core" },
-        { key: "rush_att", label: "Ru", group: "rush" },
-        { key: "rush_yds", label: "RuYd", group: "rush" },
-        { key: "rush_tds", label: "RuTD", group: "rush" },
-        { key: "rush_att_i20", label: "Ru I20", group: "rz", rz: true },
-        { key: "rush_att_i5",  label: "GL I5", group: "rz", rz: true },
-        { key: "targets", label: "Tgt", group: "rec" },
-        { key: "receptions", label: "Rec", group: "rec" },
-        { key: "rec_yds", label: "RecYd", group: "rec" },
-        { key: "rec_tds", label: "RecTD", group: "rec" },
-        { key: "targets_i20", label: "Tgt I20", group: "rz", rz: true },
-        { key: "targets_ez", label: "Tgt EZ", group: "rz", rz: true },
-        { key: "pass_att", label: "PaAtt", group: "pass" },
-        { key: "pass_cmp", label: "PaCmp", group: "pass" },
-        { key: "pass_yds", label: "PaYds", group: "pass" },
-        { key: "pass_tds", label: "PaTD", group: "pass" },
-        { key: "pass_ints", label: "Int", group: "pass" },
-        { key: "pass_att_i20", label: "Pa I20", group: "rz", rz: true },
-        { key: "pass_att_ez",  label: "Pa EZ",  group: "rz", rz: true },
-        { key: "def_tackles_total", label: "Tkl", group: "idp" },
-        { key: "def_tfl", label: "TFL", group: "idp" },
-        { key: "def_sacks", label: "Sk", group: "idp" },
-        { key: "def_ff", label: "FF", group: "idp" },
-        { key: "def_ints", label: "DefInt", group: "idp" },
-        { key: "def_pass_def", label: "PD", group: "idp" },
-        { key: "fg_att", label: "FGA", group: "pk" },
-        { key: "fg_made", label: "FGM", group: "pk" },
-        { key: "xp_att", label: "XPA", group: "pk" },
-        { key: "xp_made", label: "XPM", group: "pk" },
-        { key: "punts", label: "Punt", group: "pk" },
-      ];
-      const activeCols = COLS.filter(c => totals.some(r => (Number(r[c.key]) || 0) !== 0));
-      // Always keep RZ columns visible if there's ANY rush/rec/pass
-      // activity — "—" is meaningful UX (tells operator to run PBP).
-      const hasRush = totals.some(r => (Number(r.rush_att) || 0) > 0);
-      const hasRec  = totals.some(r => (Number(r.targets) || 0) > 0);
-      const hasPass = totals.some(r => (Number(r.pass_att) || 0) > 0);
-      const keepRZ = new Set();
-      if (hasRush) { keepRZ.add("rush_att_i20"); keepRZ.add("rush_att_i5"); }
-      if (hasRec)  { keepRZ.add("targets_i20"); keepRZ.add("targets_ez"); }
-      if (hasPass) { keepRZ.add("pass_att_i20"); keepRZ.add("pass_att_ez"); }
-      const finalCols = COLS.filter(c => {
-        if (c.rz && keepRZ.has(c.key)) return true;
-        return activeCols.includes(c);
-      });
-      const thRow = ["<th>Yr</th>", ...finalCols.map(c => `<th class="num">${c.label}</th>`)].join("");
-      const anyRZ = totals.some(r => (Number(r.rush_att_i20) || 0) > 0 || (Number(r.targets_i20) || 0) > 0);
+      const detectPg = () => {
+        const raw = String((crosswalk.position || "")).toUpperCase();
+        if (raw === "P") return "punter";
+        const pg = String(
+          (bundle.career_summary && bundle.career_summary[0] && bundle.career_summary[0].pos_group) ||
+          (bundle.nfl_weekly && bundle.nfl_weekly[0] && bundle.nfl_weekly[0].pos_group) ||
+          raw
+        ).toUpperCase();
+        if (pg === "QB") return "qb";
+        if (["RB", "WR", "TE", "FB"].includes(pg)) return "skill";
+        if (pg === "PK" || pg === "K") return "kicker";
+        if (["DL", "LB", "DB"].includes(pg)) return "idp";
+        if (["DE","DT","NT","EDGE","OLB","ILB","MLB","CB","S","SS","FS"].includes(raw)) return "idp";
+        if (raw === "K" || raw === "PK") return "kicker";
+        return "skill";
+      };
+      const TMPL = {
+        idp: { label: "IDP", cols: [
+          { label: "G", key: "games" },
+          { label: "Snaps", key: "def_snaps_total" },
+          { label: "Snap%", compute: r => r.def_snap_rate, format: "pct0" },
+          { label: "Snaps/G", compute: r => r.def_snaps_total && r.games ? r.def_snaps_total / r.games : null, format: "dec1" },
+          { label: "Tkl", key: "def_tackles_total" },
+          { label: "TFL", key: "def_tfl" },
+          { label: "FF", key: "def_ff" },
+          { label: "FR", key: "def_fr" },
+          { label: "Sk", key: "def_sacks", format: "dec1" },
+          { label: "PD", key: "def_pass_def" },
+          { label: "Int", key: "def_ints" },
+          { label: "DefTD", key: "def_tds" }
+        ]},
+        qb: { label: "QB", cols: [
+          { label: "G", key: "games" },
+          { label: "Snaps", key: "off_snaps_total" },
+          { label: "Snap%", compute: r => r.off_snap_rate, format: "pct0" },
+          { label: "Snaps/G", compute: r => r.off_snaps_total && r.games ? r.off_snaps_total / r.games : null, format: "dec1" },
+          { label: "RuAtt", key: "rush_att" },
+          { label: "RuYd", key: "rush_yds" },
+          { label: "RuTD", key: "rush_tds" },
+          { label: "Fum", key: "rush_fumbles" },
+          { label: "FumL", key: "rush_fumbles_lost" },
+          { label: "Att", key: "pass_att" },
+          { label: "Cmp", key: "pass_cmp" },
+          { label: "Cmp%", compute: r => r.pass_att ? r.pass_cmp / r.pass_att : null, format: "pct" },
+          { label: "PaYd", key: "pass_yds" },
+          { label: "PaTD", key: "pass_tds" },
+          { label: "Int", key: "pass_ints" },
+          { label: "Int%", compute: r => r.pass_att ? r.pass_ints / r.pass_att : null, format: "pct" }
+        ]},
+        skill: { label: "RB / WR / TE", cols: [
+          { label: "G", key: "games" },
+          { label: "Snaps", key: "off_snaps_total" },
+          { label: "Snap%", compute: r => r.off_snap_rate, format: "pct0" },
+          { label: "Snaps/G", compute: r => r.off_snaps_total && r.games ? r.off_snaps_total / r.games : null, format: "dec1" },
+          { label: "Tgt", key: "targets" },
+          { label: "Routes", key: "routes_run" },
+          { label: "Rec", key: "receptions" },
+          { label: "RecYd", key: "rec_yds" },
+          { label: "RecTD", key: "rec_tds" },
+          { label: "YPRR", compute: r => r.routes_run ? r.rec_yds / r.routes_run : null, format: "dec2" },
+          { label: "Y/T", compute: r => r.targets ? r.rec_yds / r.targets : null, format: "dec2" },
+          { label: "RuAtt", key: "rush_att" },
+          { label: "RuYd", key: "rush_yds" },
+          { label: "RuTD", key: "rush_tds" },
+          { label: "Fum", key: "rush_fumbles" },
+          { label: "FumL", key: "rush_fumbles_lost" }
+        ]},
+        kicker: { label: "Kicker", cols: [
+          { label: "G", key: "games" },
+          { label: "XPM", key: "xp_made" },
+          { label: "XP Miss", compute: r => (r.xp_att || 0) - (r.xp_made || 0) },
+          { label: "FGM", key: "fg_made" },
+          { label: "FG Miss", compute: r => (r.fg_att || 0) - (r.fg_made || 0) },
+          { label: "Avg FG", compute: r => {
+              const m = (r.fg_made_0_39 || 0) + (r.fg_made_40_49 || 0) + (r.fg_made_50plus || 0);
+              if (!m) return null;
+              return ((r.fg_made_0_39 || 0) * 25 + (r.fg_made_40_49 || 0) * 44.5 + (r.fg_made_50plus || 0) * 54) / m;
+            }, format: "dec1" }
+        ]},
+        punter: { label: "Punter", cols: [
+          { label: "G", key: "games" },
+          { label: "Punts", key: "punts" },
+          { label: "PuntYd", key: "punt_yds" },
+          { label: "Net Avg", key: "punt_net_avg", format: "dec1" },
+          { label: "Att/G", compute: r => r.games ? r.punts / r.games : null, format: "dec1" },
+          { label: "I20", key: "punt_inside20" }
+        ]}
+      };
+      const pg = detectPg();
+      const tmpl = TMPL[pg] || TMPL.skill;
+      const formatCell = (v, fmt) => {
+        if (v == null || v === 0) return `<td class="num" style="color:var(--muted)">—</td>`;
+        let s;
+        if (fmt === "dec1") s = Number(v).toFixed(1);
+        else if (fmt === "dec2") s = Number(v).toFixed(2);
+        else if (fmt === "pct") s = (Number(v) * 100).toFixed(1) + "%";
+        else if (fmt === "pct0") {
+          let n = Number(v);
+          if (n > 0 && n <= 1) n = n * 100;
+          s = n.toFixed(1) + "%";
+        } else s = String(v);
+        return `<td class="num">${s}</td>`;
+      };
+      const thRow = [`<th>Yr</th>`, ...tmpl.cols.map(c => `<th class="num">${c.label}</th>`)].join("");
       const bodyRows = totals.map(r => {
         const tds = [`<td>${r.season}</td>`];
-        for (const c of finalCols) {
-          const v = r[c.key];
-          if (v == null || v === 0) {
-            tds.push(`<td class="num" style="color:var(--muted)">—</td>`);
-          } else if (c.key === "def_sacks") {
-            tds.push(`<td class="num">${Number(v).toFixed(1)}</td>`);
-          } else {
-            tds.push(`<td class="num">${v}</td>`);
-          }
+        for (const c of tmpl.cols) {
+          const v = c.compute ? c.compute(r) : r[c.key];
+          tds.push(formatCell(v, c.format || "int"));
         }
         return `<tr>${tds.join("")}</tr>`;
       }).join("");
       const confNote = crosswalk.confidence && crosswalk.confidence !== "exact"
         ? `<div class="small" style="color:var(--warn); margin-top:4px;">Crosswalk confidence: ${escapeHtml(crosswalk.confidence)}${crosswalk.match_score ? " (" + crosswalk.match_score.toFixed(2) + ")" : ""} — review recommended.</div>`
         : "";
-      const rzFoot = !anyRZ
-        ? `<div class="small" style="color:var(--muted); margin-top:4px;">Yardline-banded columns (I20 / I5 / EZ) populate once <code>fetch_nflverse_pbp.py</code> is run.</div>`
-        : "";
       return `
       <div class="profile-block">
-        <h4>Raw Stats — NFL Box Score (nflverse)</h4>
-        <div class="small" style="color:var(--muted); margin-bottom:6px;">Real NFL on-field counts. Independent of MFL fantasy scoring. I20 = inside-20 (Red Zone). I5 = inside-5 (Goal Line). EZ = End Zone target.</div>
+        <h4>Raw Stats — ${tmpl.label}</h4>
+        <div class="small" style="color:var(--muted); margin-bottom:6px;">Real NFL on-field counts + derived rates. Independent of MFL fantasy scoring.</div>
         <table class="rdh-table"><thead><tr>${thRow}</tr></thead><tbody>${bodyRows}</tbody></table>
         ${confNote}
-        ${rzFoot}
       </div>`;
     })();
 

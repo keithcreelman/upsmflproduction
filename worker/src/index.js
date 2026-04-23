@@ -1011,64 +1011,100 @@ export default {
                       LIMIT 400`
                   ).bind(gsisId).all(),
                   db.prepare(
-                    // Season-total aggregation. Simple SUMs over weekly
-                    // rows. NULL-safe via COALESCE(...,0). Pre-aggregating
-                    // here saves the client from having to re-walk weekly
-                    // arrays for the "season summary" row.
+                    // Season-total aggregation. SUMs over weekly rows,
+                    // NULL-safe via COALESCE. LEFT JOINs pull in
+                    // yardline-banded counts (nfl_player_redzone) and
+                    // snap totals (nfl_player_snaps) so the per-season
+                    // row has everything the popup's per-pos-group
+                    // templates need on one round trip.
                     //
-                    // LEFT JOIN nfl_player_redzone so the per-season row
-                    // also carries yardline-banded counts (Goal Line
-                    // carries inside 5, RZ carries inside 20, RZ / EZ
-                    // targets) — empty until fetch_nflverse_pbp.py runs.
-                    `SELECT w.season,
+                    // Fumble + misc fields (rush_fumbles, def_fr,
+                    // def_tds, rush_fumbles_lost, routes_run) added
+                    // 2026-04-22 for the per-pos-group template rewrite.
+                    // fg_long, fg_att/made by distance bucket added for
+                    // the Avg FG Distance Made derivation.
+                    `WITH snap_totals AS (
+                       SELECT season,
+                              SUM(COALESCE(off_snaps, 0)) AS off_snaps_total,
+                              SUM(COALESCE(def_snaps, 0)) AS def_snaps_total,
+                              SUM(COALESCE(st_snaps,  0)) AS st_snaps_total,
+                              AVG(COALESCE(off_snap_pct, 0.0)) AS off_snap_rate,
+                              AVG(COALESCE(def_snap_pct, 0.0)) AS def_snap_rate,
+                              COUNT(*) AS snap_games
+                         FROM nfl_player_snaps
+                        WHERE gsis_id = ?
+                        GROUP BY season
+                     )
+                     SELECT w.season,
                             COUNT(*) AS games,
-                            SUM(COALESCE(w.rush_att,0))     AS rush_att,
-                            SUM(COALESCE(w.rush_yds,0))     AS rush_yds,
-                            SUM(COALESCE(w.rush_tds,0))     AS rush_tds,
-                            SUM(COALESCE(w.targets,0))      AS targets,
-                            SUM(COALESCE(w.receptions,0))   AS receptions,
-                            SUM(COALESCE(w.rec_yds,0))      AS rec_yds,
-                            SUM(COALESCE(w.rec_tds,0))      AS rec_tds,
-                            SUM(COALESCE(w.pass_att,0))     AS pass_att,
-                            SUM(COALESCE(w.pass_cmp,0))     AS pass_cmp,
-                            SUM(COALESCE(w.pass_yds,0))     AS pass_yds,
-                            SUM(COALESCE(w.pass_tds,0))     AS pass_tds,
-                            SUM(COALESCE(w.pass_ints,0))    AS pass_ints,
-                            SUM(COALESCE(w.pass_sacks,0))   AS pass_sacks,
+                            SUM(COALESCE(w.rush_att,0))          AS rush_att,
+                            SUM(COALESCE(w.rush_yds,0))          AS rush_yds,
+                            SUM(COALESCE(w.rush_tds,0))          AS rush_tds,
+                            SUM(COALESCE(w.rush_fumbles,0))      AS rush_fumbles,
+                            SUM(COALESCE(w.rush_fumbles_lost,0)) AS rush_fumbles_lost,
+                            SUM(COALESCE(w.targets,0))           AS targets,
+                            SUM(COALESCE(w.receptions,0))        AS receptions,
+                            SUM(COALESCE(w.rec_yds,0))           AS rec_yds,
+                            SUM(COALESCE(w.rec_tds,0))           AS rec_tds,
+                            SUM(COALESCE(w.routes_run,0))        AS routes_run,
+                            SUM(COALESCE(w.pass_att,0))          AS pass_att,
+                            SUM(COALESCE(w.pass_cmp,0))          AS pass_cmp,
+                            SUM(COALESCE(w.pass_yds,0))          AS pass_yds,
+                            SUM(COALESCE(w.pass_tds,0))          AS pass_tds,
+                            SUM(COALESCE(w.pass_ints,0))         AS pass_ints,
+                            SUM(COALESCE(w.pass_sacks,0))        AS pass_sacks,
                             SUM(COALESCE(w.def_tackles_total,0)) AS def_tackles_total,
-                            SUM(COALESCE(w.def_tfl,0))      AS def_tfl,
-                            SUM(COALESCE(w.def_sacks,0))    AS def_sacks,
-                            SUM(COALESCE(w.def_ff,0))       AS def_ff,
-                            SUM(COALESCE(w.def_ints,0))     AS def_ints,
-                            SUM(COALESCE(w.def_pass_def,0)) AS def_pass_def,
-                            SUM(COALESCE(w.fg_att,0))       AS fg_att,
-                            SUM(COALESCE(w.fg_made,0))      AS fg_made,
-                            SUM(COALESCE(w.xp_att,0))       AS xp_att,
-                            SUM(COALESCE(w.xp_made,0))      AS xp_made,
-                            SUM(COALESCE(w.punts,0))        AS punts,
-                            SUM(COALESCE(w.punt_yds,0))     AS punt_yds,
-                            SUM(COALESCE(rz.rush_att_i20,0)) AS rush_att_i20,
-                            SUM(COALESCE(rz.rush_att_i10,0)) AS rush_att_i10,
-                            SUM(COALESCE(rz.rush_att_i5,0))  AS rush_att_i5,
-                            SUM(COALESCE(rz.rush_tds_i20,0)) AS rush_tds_i20,
-                            SUM(COALESCE(rz.targets_i20,0))  AS targets_i20,
-                            SUM(COALESCE(rz.targets_i10,0))  AS targets_i10,
-                            SUM(COALESCE(rz.targets_i5,0))   AS targets_i5,
-                            SUM(COALESCE(rz.targets_ez,0))   AS targets_ez,
-                            SUM(COALESCE(rz.rec_i20,0))      AS rec_i20,
-                            SUM(COALESCE(rz.rec_tds_i20,0))  AS rec_tds_i20,
-                            SUM(COALESCE(rz.pass_att_i20,0)) AS pass_att_i20,
-                            SUM(COALESCE(rz.pass_tds_i20,0)) AS pass_tds_i20,
-                            SUM(COALESCE(rz.pass_att_ez,0))  AS pass_att_ez
+                            SUM(COALESCE(w.def_tfl,0))           AS def_tfl,
+                            SUM(COALESCE(w.def_sacks,0))         AS def_sacks,
+                            SUM(COALESCE(w.def_ff,0))            AS def_ff,
+                            SUM(COALESCE(w.def_fr,0))            AS def_fr,
+                            SUM(COALESCE(w.def_ints,0))          AS def_ints,
+                            SUM(COALESCE(w.def_pass_def,0))      AS def_pass_def,
+                            SUM(COALESCE(w.def_tds,0))           AS def_tds,
+                            SUM(COALESCE(w.fg_att,0))            AS fg_att,
+                            SUM(COALESCE(w.fg_made,0))           AS fg_made,
+                            MAX(COALESCE(w.fg_long,0))           AS fg_long,
+                            SUM(COALESCE(w.fg_att_0_39,0))       AS fg_att_0_39,
+                            SUM(COALESCE(w.fg_made_0_39,0))      AS fg_made_0_39,
+                            SUM(COALESCE(w.fg_att_40_49,0))      AS fg_att_40_49,
+                            SUM(COALESCE(w.fg_made_40_49,0))     AS fg_made_40_49,
+                            SUM(COALESCE(w.fg_att_50plus,0))     AS fg_att_50plus,
+                            SUM(COALESCE(w.fg_made_50plus,0))    AS fg_made_50plus,
+                            SUM(COALESCE(w.xp_att,0))            AS xp_att,
+                            SUM(COALESCE(w.xp_made,0))           AS xp_made,
+                            SUM(COALESCE(w.punts,0))             AS punts,
+                            SUM(COALESCE(w.punt_yds,0))          AS punt_yds,
+                            SUM(COALESCE(w.punt_inside20,0))     AS punt_inside20,
+                            AVG(w.punt_net_avg)                  AS punt_net_avg,
+                            SUM(COALESCE(rz.rush_att_i20,0))     AS rush_att_i20,
+                            SUM(COALESCE(rz.rush_att_i10,0))     AS rush_att_i10,
+                            SUM(COALESCE(rz.rush_att_i5,0))      AS rush_att_i5,
+                            SUM(COALESCE(rz.rush_tds_i20,0))     AS rush_tds_i20,
+                            SUM(COALESCE(rz.targets_i20,0))      AS targets_i20,
+                            SUM(COALESCE(rz.targets_i10,0))      AS targets_i10,
+                            SUM(COALESCE(rz.targets_i5,0))       AS targets_i5,
+                            SUM(COALESCE(rz.targets_ez,0))       AS targets_ez,
+                            SUM(COALESCE(rz.rec_i20,0))          AS rec_i20,
+                            SUM(COALESCE(rz.rec_tds_i20,0))      AS rec_tds_i20,
+                            SUM(COALESCE(rz.pass_att_i20,0))     AS pass_att_i20,
+                            SUM(COALESCE(rz.pass_tds_i20,0))     AS pass_tds_i20,
+                            SUM(COALESCE(rz.pass_att_ez,0))      AS pass_att_ez,
+                            s.off_snaps_total                    AS off_snaps_total,
+                            s.def_snaps_total                    AS def_snaps_total,
+                            s.st_snaps_total                     AS st_snaps_total,
+                            s.off_snap_rate                      AS off_snap_rate,
+                            s.def_snap_rate                      AS def_snap_rate
                        FROM nfl_player_weekly w
                        LEFT JOIN nfl_player_redzone rz
                               ON rz.season = w.season
                              AND rz.week   = w.week
                              AND rz.gsis_id = w.gsis_id
+                       LEFT JOIN snap_totals s
+                              ON s.season = w.season
                       WHERE w.gsis_id = ?
                       GROUP BY w.season
                       ORDER BY w.season DESC`
-                  ).bind(gsisId).all(),
+                  ).bind(gsisId, gsisId).all(),
                 ]);
                 const nflWeekly = nflWeeklyRes.results || [];
                 bundle.nfl_weekly = nflWeekly;
