@@ -1256,13 +1256,23 @@
     `;
 
     // ── Game Log tab ─────────────────────────────────────────────────
-    const gameLogHtml = bundle.weekly_by_season && Object.keys(bundle.weekly_by_season).length ? `
+    // Scoring / Raw Stats toggle (Keith 2026-04-23) — same shape as
+    // the Stats tab toggle but applies per-week. Raw Stats uses the
+    // bundle.nfl_weekly_by_season rows with per-pos-group column set.
+    const gameLogSeasons = bundle.weekly_by_season && Object.keys(bundle.weekly_by_season).length
+      ? Object.keys(bundle.weekly_by_season)
+      : Object.keys(bundle.nfl_weekly_by_season || {});
+    const gameLogHtml = gameLogSeasons.length ? `
       <div class="profile-block">
         <h4>Game Log — Every Game, Season-by-Season</h4>
+        <div style="display:flex; gap:6px; margin-bottom:10px;">
+          <button type="button" class="rdh-chip" data-gamelog-view="scoring" aria-pressed="true">Scoring (MFL)</button>
+          <button type="button" class="rdh-chip" data-gamelog-view="raw"     aria-pressed="false">Raw Stats (NFL)</button>
+        </div>
         <label style="font-size:11px; color:var(--muted); display:inline-block; margin-bottom:8px;">
           Season
           <select id="profile-season-select" style="margin-left:6px;">
-            ${Object.keys(bundle.weekly_by_season).sort((a,b)=>b-a).map(s => `<option value="${s}">${s}</option>`).join("")}
+            ${gameLogSeasons.sort((a,b)=>b-a).map(s => `<option value="${s}">${s}</option>`).join("")}
           </select>
         </label>
         <div id="profile-game-log"></div>
@@ -1384,16 +1394,101 @@
       // default: current season
       renderWindow("season");
     }
-    // Wire the season dropdown for the game log
+    // Wire the season dropdown + Scoring/Raw toggle for the game log.
     const seasonSel = document.getElementById("profile-season-select");
     const logEl = document.getElementById("profile-game-log");
     if (seasonSel && logEl) {
-      const renderGameLog = (seasonVal) => {
+      // Per-pos-group Raw Stats templates (weekly granularity).
+      // Snap count + snap% look up bundle.nfl_snaps_by_week at render.
+      const GL_TMPL = {
+        idp: { label: "IDP", snap: "def", cols: [
+          { label: "Tkl",   key: "def_tackles_solo" },
+          { label: "Ast",   key: "def_tackles_ast" },
+          { label: "TFL",   key: "def_tfl" },
+          { label: "FF",    key: "def_ff" },
+          { label: "FR",    key: "def_fr" },
+          { label: "Sk",    key: "def_sacks", format: "dec1" },
+          { label: "PD",    key: "def_pass_def" },
+          { label: "Int",   key: "def_ints" },
+          { label: "DefTD", key: "def_tds" }
+        ]},
+        qb: { label: "QB", snap: "off", cols: [
+          { label: "RuAtt", key: "rush_att" },
+          { label: "RuYd",  key: "rush_yds" },
+          { label: "RuTD",  key: "rush_tds" },
+          { label: "Fum",   key: "rush_fumbles" },
+          { label: "FumL",  key: "rush_fumbles_lost" },
+          { label: "Att",   key: "pass_att" },
+          { label: "Cmp",   key: "pass_cmp" },
+          { label: "Cmp%",  compute: r => r.pass_att ? r.pass_cmp / r.pass_att : null, format: "pct" },
+          { label: "PaYd",  key: "pass_yds" },
+          { label: "PaTD",  key: "pass_tds" },
+          { label: "Int",   key: "pass_ints" },
+          { label: "Drops", key: "passing_drops", title: "Receiver drops on this QB's throws (PFR, 2018+)" }
+        ]},
+        skill: { label: "RB / WR / TE", snap: "off", cols: [
+          { label: "Tgt",   key: "targets" },
+          { label: "Rec",   key: "receptions" },
+          { label: "RecYd", key: "rec_yds" },
+          { label: "RecTD", key: "rec_tds" },
+          { label: "Y/T",   compute: r => r.targets ? r.rec_yds / r.targets : null, format: "dec2" },
+          { label: "Drops", key: "receiving_drops", title: "Dropped passes (PFR, 2018+)" },
+          { label: "BrTkl", compute: r => (r.receiving_broken_tackles || 0) + (r.rushing_broken_tackles || 0),
+                            title: "Broken tackles combined — receiving + rushing (PFR, 2018+)" },
+          { label: "RuAtt", key: "rush_att" },
+          { label: "RuYd",  key: "rush_yds" },
+          { label: "RuTD",  key: "rush_tds" },
+          { label: "Fum",   key: "rush_fumbles" },
+          { label: "FumL",  key: "rush_fumbles_lost" }
+        ]},
+        kicker: { label: "Kicker", snap: null, cols: [
+          { label: "XPM",     key: "xp_made" },
+          { label: "XP Miss", compute: r => (r.xp_att || 0) - (r.xp_made || 0) },
+          { label: "FGM",     key: "fg_made" },
+          { label: "FG Miss", compute: r => (r.fg_att || 0) - (r.fg_made || 0) }
+        ]},
+        punter: { label: "Punter", snap: null, cols: [
+          { label: "Punts",   key: "punts" },
+          { label: "PuntYd",  key: "punt_yds" },
+          { label: "Net Avg", key: "punt_net_avg", format: "dec1" },
+          { label: "I20",     key: "punt_inside20" }
+        ]}
+      };
+      const formatCell = (v, fmt) => {
+        if (v == null || v === 0) return `<td class="num" style="color:var(--muted)">—</td>`;
+        let s;
+        if (fmt === "dec1") s = Number(v).toFixed(1);
+        else if (fmt === "dec2") s = Number(v).toFixed(2);
+        else if (fmt === "pct") s = (Number(v) * 100).toFixed(1) + "%";
+        else if (fmt === "pct0") {
+          let n = Number(v);
+          if (n > 0 && n <= 1) n = n * 100;
+          s = n.toFixed(1) + "%";
+        } else s = String(v);
+        return `<td class="num">${s}</td>`;
+      };
+      const detectPg = () => {
+        const raw = String((bundle.crosswalk?.position || "")).toUpperCase();
+        if (raw === "P") return "punter";
+        const pg = String(
+          (bundle.career_summary && bundle.career_summary[0] && bundle.career_summary[0].pos_group) ||
+          (bundle.nfl_weekly && bundle.nfl_weekly[0] && bundle.nfl_weekly[0].pos_group) ||
+          raw
+        ).toUpperCase();
+        if (pg === "QB") return "qb";
+        if (["RB","WR","TE","FB"].includes(pg)) return "skill";
+        if (pg === "PK" || pg === "K") return "kicker";
+        if (["DL","LB","DB"].includes(pg)) return "idp";
+        if (["DE","DT","NT","EDGE","OLB","ILB","MLB","CB","S","SS","FS"].includes(raw)) return "idp";
+        if (raw === "K" || raw === "PK") return "kicker";
+        return "skill";
+      };
+
+      const renderScoring = (seasonVal) => {
         const weeks = (bundle.weekly_by_season || {})[seasonVal] || [];
-        if (!weeks.length) { logEl.innerHTML = '<p class="small" style="color:var(--muted)">No weekly data for this season.</p>'; return; }
+        if (!weeks.length) { logEl.innerHTML = '<p class="small" style="color:var(--muted)">No MFL weekly data for this season.</p>'; return; }
         const weekTierClass = t => t === "Elite" ? "Smash" : t === "Plus" ? "Hit" : t === "Neutral" ? "Contrib" : "Bust";
         const sorted = [...weeks].sort((a,b) => a.week - b.week);
-        // Season summary row
         const starts = sorted.filter(w => w.status === "starter").length;
         const elite = sorted.filter(w => w.week_tier === "Elite").length;
         const plus = sorted.filter(w => w.week_tier === "Plus").length;
@@ -1422,8 +1517,60 @@
             }).join("")}</tbody>
           </table>`;
       };
-      seasonSel.addEventListener("change", e => renderGameLog(e.target.value));
-      renderGameLog(seasonSel.value);
+
+      const renderRaw = (seasonVal) => {
+        const weeks = (bundle.nfl_weekly_by_season || {})[seasonVal] || [];
+        if (!weeks.length) { logEl.innerHTML = '<p class="small" style="color:var(--muted)">No NFL weekly data for this season.</p>'; return; }
+        const sorted = [...weeks].sort((a,b) => a.week - b.week);
+        const pg = detectPg();
+        const tmpl = GL_TMPL[pg] || GL_TMPL.skill;
+        const snapBy = bundle.nfl_snaps_by_week || {};
+        let header = '<th class="num">Wk</th><th>Team</th><th>Opp</th>';
+        if (tmpl.snap) header += '<th class="num">Snaps</th><th class="num">Snap%</th>';
+        header += tmpl.cols.map(c =>
+          `<th class="num"${c.title ? ` title="${c.title.replace(/"/g, "&quot;")}"` : ""}>${c.label}</th>`
+        ).join("");
+        const rows = sorted.map(w => {
+          const snapRow = snapBy[`${w.season}-${w.week}`] || {};
+          const snapCount = tmpl.snap === "def" ? snapRow.def_snaps : tmpl.snap === "off" ? snapRow.off_snaps : null;
+          const snapPct   = tmpl.snap === "def" ? snapRow.def_snap_pct : tmpl.snap === "off" ? snapRow.off_snap_pct : null;
+          let cells = `<td class="num">${w.week}</td><td>${escapeHtml(w.team || "")}</td><td>${escapeHtml(w.opponent || "")}</td>`;
+          if (tmpl.snap) {
+            cells += formatCell(snapCount, "int");
+            cells += formatCell(snapPct, "pct0");
+          }
+          for (const c of tmpl.cols) {
+            const v = c.compute ? c.compute(w) : w[c.key];
+            cells += formatCell(v, c.format || "int");
+          }
+          return `<tr>${cells}</tr>`;
+        }).join("");
+        logEl.innerHTML = `
+          <div class="small" style="color:var(--muted); margin-bottom: 6px;">
+            Template: <strong>${tmpl.label}</strong>. ${sorted.length} games · NFL weekly box score via nflverse.
+          </div>
+          <table class="rdh-table"><thead><tr>${header}</tr></thead><tbody>${rows}</tbody></table>`;
+      };
+
+      const currentView = () => {
+        try { return sessionStorage.getItem("upm.gamelog.view") || "scoring"; } catch (e) { return "scoring"; }
+      };
+      const applyView = () => {
+        const v = currentView();
+        document.querySelectorAll("[data-gamelog-view]").forEach(b => {
+          b.setAttribute("aria-pressed", b.dataset.gamelogView === v ? "true" : "false");
+        });
+        if (v === "raw") renderRaw(seasonSel.value);
+        else renderScoring(seasonSel.value);
+      };
+      document.querySelectorAll("[data-gamelog-view]").forEach(b => {
+        b.addEventListener("click", () => {
+          try { sessionStorage.setItem("upm.gamelog.view", b.dataset.gamelogView); } catch (e) {}
+          applyView();
+        });
+      });
+      seasonSel.addEventListener("change", applyView);
+      applyView();
     }
   }
 

@@ -994,16 +994,25 @@ export default {
               try {
                 const [nflWeeklyRes, nflSnapsRes, nflSeasonRes] = await Promise.all([
                   db.prepare(
+                    // Per-week NFL box score for the Game Log → Raw view.
+                    // Keep everything the season-totals query aggregates so
+                    // the per-pos-group UI templates can render the same
+                    // columns at weekly granularity (Keith 2026-04-23).
+                    // Fumble + broken-tackle + drops columns added here too.
                     `SELECT season, week, team, opponent, position, pos_group,
-                            rush_att, rush_yds, rush_tds,
+                            rush_att, rush_yds, rush_tds, rush_fumbles, rush_fumbles_lost,
                             targets, receptions, rec_yds, rec_tds,
                             pass_att, pass_cmp, pass_yds, pass_tds, pass_ints, pass_sacks,
-                            def_tackles_solo, def_tackles_ast, def_tackles_total,
-                            def_tfl, def_qb_hits, def_sacks, def_ff, def_ints, def_pass_def, def_tds,
+                            def_tackles_solo, def_tackles_ast,
+                            def_tackles_solo AS def_tackles_total,
+                            def_tfl, def_qb_hits, def_sacks, def_ff, def_fr,
+                            def_ints, def_pass_def, def_tds,
                             fg_att, fg_made,
                             fg_att_0_39, fg_made_0_39, fg_att_40_49, fg_made_40_49, fg_att_50plus, fg_made_50plus,
                             xp_att, xp_made,
-                            punts, punt_yds, punt_inside20, punt_net_avg
+                            punts, punt_yds, punt_inside20, punt_net_avg,
+                            receiving_drops, receiving_broken_tackles,
+                            rushing_broken_tackles, passing_drops
                        FROM nfl_player_weekly
                       WHERE gsis_id = ?
                       ORDER BY season DESC, week DESC

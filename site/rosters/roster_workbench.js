@@ -8019,13 +8019,100 @@
       + '</tr></tbody></table>';
   }
 
+  // Per-pos-group Game Log templates — Raw Stats per week (Keith
+  // 2026-04-23). Mirrors the Stats-tab Raw Stats templates but at
+  // weekly granularity, with Week / Team / Opp leading instead of Yr /
+  // G / Snaps-total. Snap count + snap% look up nfl_snaps_by_week at
+  // render time.
+  var UPM_GAMELOG_RAW_TEMPLATES = {
+    idp: {
+      label: "IDP",
+      cols: [
+        { label: "Tkl",   key: "def_tackles_solo" },
+        { label: "Ast",   key: "def_tackles_ast" },
+        { label: "TFL",   key: "def_tfl" },
+        { label: "FF",    key: "def_ff" },
+        { label: "FR",    key: "def_fr" },
+        { label: "Sk",    key: "def_sacks", format: "dec1" },
+        { label: "PD",    key: "def_pass_def" },
+        { label: "Int",   key: "def_ints" },
+        { label: "DefTD", key: "def_tds" }
+      ],
+      snap: "def"
+    },
+    qb: {
+      label: "QB",
+      cols: [
+        { label: "RuAtt", key: "rush_att" },
+        { label: "RuYd",  key: "rush_yds" },
+        { label: "RuTD",  key: "rush_tds" },
+        { label: "Fum",   key: "rush_fumbles" },
+        { label: "FumL",  key: "rush_fumbles_lost" },
+        { label: "Att",   key: "pass_att" },
+        { label: "Cmp",   key: "pass_cmp" },
+        { label: "Cmp%",  compute: function (r) { return r.pass_att ? r.pass_cmp / r.pass_att : null; }, format: "pct" },
+        { label: "PaYd",  key: "pass_yds" },
+        { label: "PaTD",  key: "pass_tds" },
+        { label: "Int",   key: "pass_ints" },
+        { label: "Drops", key: "passing_drops", title: "Receiver drops on this QB's throws (PFR, 2018+)" }
+      ],
+      snap: "off"
+    },
+    skill: {
+      label: "RB / WR / TE",
+      cols: [
+        { label: "Tgt",   key: "targets" },
+        { label: "Rec",   key: "receptions" },
+        { label: "RecYd", key: "rec_yds" },
+        { label: "RecTD", key: "rec_tds" },
+        { label: "Y/T",   compute: function (r) { return r.targets ? r.rec_yds / r.targets : null; }, format: "dec2" },
+        { label: "Drops", key: "receiving_drops",          title: "Dropped passes (PFR, 2018+)" },
+        { label: "BrTkl", compute: function (r) { return (r.receiving_broken_tackles || 0) + (r.rushing_broken_tackles || 0); },
+                          title: "Broken tackles combined — receiving + rushing (PFR, 2018+)" },
+        { label: "RuAtt", key: "rush_att" },
+        { label: "RuYd",  key: "rush_yds" },
+        { label: "RuTD",  key: "rush_tds" },
+        { label: "Fum",   key: "rush_fumbles" },
+        { label: "FumL",  key: "rush_fumbles_lost" }
+      ],
+      snap: "off"
+    },
+    kicker: {
+      label: "Kicker",
+      cols: [
+        { label: "XPM",     key: "xp_made" },
+        { label: "XP Miss", compute: function (r) { return (r.xp_att || 0) - (r.xp_made || 0); } },
+        { label: "FGM",     key: "fg_made" },
+        { label: "FG Miss", compute: function (r) { return (r.fg_att || 0) - (r.fg_made || 0); } }
+      ],
+      snap: null
+    },
+    punter: {
+      label: "Punter",
+      cols: [
+        { label: "Punts",   key: "punts" },
+        { label: "PuntYd",  key: "punt_yds" },
+        { label: "Net Avg", key: "punt_net_avg", format: "dec1" },
+        { label: "I20",     key: "punt_inside20" }
+      ],
+      snap: null
+    }
+  };
+
   function upmGameLogHtml(bundle) {
     var by = bundle.weekly_by_season || {};
-    var seasons = Object.keys(by).sort(function (a, b) { return b - a; });
+    var nflBy = bundle.nfl_weekly_by_season || {};
+    var seasons = Object.keys(by).length
+      ? Object.keys(by).sort(function (a, b) { return b - a; })
+      : Object.keys(nflBy).sort(function (a, b) { return b - a; });
     if (!seasons.length) {
       return '<p style="color:var(--rwb-text-dim); font-size:12px; padding:10px;">No weekly data for this player.</p>';
     }
     return ''
+      + '<div class="upm-stats-view-switch" style="display:flex; gap:6px; margin-bottom:10px;">'
+      + '<button type="button" class="rwb-chip" data-gamelog-view="scoring" aria-pressed="true">Scoring (MFL)</button>'
+      + '<button type="button" class="rwb-chip" data-gamelog-view="raw"     aria-pressed="false">Raw Stats (NFL)</button>'
+      + '</div>'
       + '<label style="font-size:11px; color:var(--rwb-text-dim); display:inline-block; margin-bottom:8px;">'
       + 'Season <select data-upm-gamelog-season>'
       + seasons.map(function (s) { return '<option value="' + s + '">' + s + '</option>'; }).join("")
@@ -8037,9 +8124,11 @@
     var sel = root.querySelector("[data-upm-gamelog-season]");
     var body = root.querySelector("[data-upm-gamelog-body]");
     if (!sel || !body) return;
-    function render(seasonVal) {
+
+    // Scoring (MFL) view — original per-week scoring log.
+    function renderScoring(seasonVal) {
       var weeks = (bundle.weekly_by_season || {})[seasonVal] || [];
-      if (!weeks.length) { body.innerHTML = '<p style="color:var(--rwb-text-dim); font-size:12px;">No weekly data.</p>'; return; }
+      if (!weeks.length) { body.innerHTML = '<p style="color:var(--rwb-text-dim); font-size:12px;">No MFL weekly data for ' + seasonVal + '.</p>'; return; }
       var sorted = weeks.slice().sort(function (a, b) { return a.week - b.week; });
       var starts = sorted.filter(function (w) { return w.status === "starter"; }).length;
       var elite = sorted.filter(function (w) { return w.week_tier === "Elite"; }).length;
@@ -8070,8 +8159,75 @@
           }).join("")
         + '</tbody></table>';
     }
-    sel.addEventListener("change", function (e) { render(e.target.value); });
-    render(sel.value);
+
+    // Raw Stats (NFL) view — per-week NFL box score, per-pos-group.
+    function renderRaw(seasonVal) {
+      var weeks = (bundle.nfl_weekly_by_season || {})[seasonVal] || [];
+      if (!weeks.length) { body.innerHTML = '<p style="color:var(--rwb-text-dim); font-size:12px;">No NFL weekly data for ' + seasonVal + '.</p>'; return; }
+      var sorted = weeks.slice().sort(function (a, b) { return a.week - b.week; });
+      var pg = upmDetectPosGroup(bundle);
+      var tmpl = UPM_GAMELOG_RAW_TEMPLATES[pg] || UPM_GAMELOG_RAW_TEMPLATES.skill;
+      var snapBy = bundle.nfl_snaps_by_week || {};
+
+      // Build thead: Wk · Team · Opp · [snap cols if template needs them] · <stat cols>
+      var header = '<th class="num">Wk</th><th>Team</th><th>Opp</th>';
+      if (tmpl.snap) {
+        header += '<th class="num">Snaps</th><th class="num">Snap%</th>';
+      }
+      header += tmpl.cols.map(function (c) {
+        var t = c.title ? ' title="' + c.title.replace(/"/g, "&quot;") + '"' : "";
+        return '<th class="num"' + t + '>' + c.label + '</th>';
+      }).join("");
+
+      var bodyRows = sorted.map(function (w) {
+        var snapKey = String(w.season) + "-" + String(w.week);
+        var snapRow = snapBy[snapKey] || {};
+        var snapCount = tmpl.snap === "def" ? snapRow.def_snaps : tmpl.snap === "off" ? snapRow.off_snaps : null;
+        var snapPct   = tmpl.snap === "def" ? snapRow.def_snap_pct : tmpl.snap === "off" ? snapRow.off_snap_pct : null;
+
+        var cells = '<td class="num">' + w.week + '</td>'
+          + '<td>' + upmEsc(w.team || "") + '</td>'
+          + '<td>' + upmEsc(w.opponent || "") + '</td>';
+        if (tmpl.snap) {
+          cells += upmFormatCell(snapCount, "int", "--rwb-text-dim");
+          cells += upmFormatCell(snapPct, "pct0", "--rwb-text-dim");
+        }
+        for (var i = 0; i < tmpl.cols.length; i++) {
+          var c = tmpl.cols[i];
+          var v = c.compute ? c.compute(w) : w[c.key];
+          cells += upmFormatCell(v, c.format || "int", "--rwb-text-dim");
+        }
+        return '<tr>' + cells + '</tr>';
+      }).join("");
+
+      body.innerHTML = ''
+        + '<div style="color:var(--rwb-text-dim); font-size:11px; margin-bottom:6px;">'
+        + 'Template: <strong>' + tmpl.label + '</strong>. ' + sorted.length + ' games · NFL weekly box score via nflverse.'
+        + '</div>'
+        + '<table class="upm-game-log-table"><thead><tr>' + header + '</tr></thead><tbody>'
+        + bodyRows + '</tbody></table>';
+    }
+
+    // Toggle wiring (shares sessionStorage key so Stats-tab and
+    // Game-Log preferences don't have to track separately, but uses
+    // a different key so the views can diverge if user chooses).
+    function currentView() {
+      try { return sessionStorage.getItem("upm.gamelog.view") || "scoring"; } catch (e) { return "scoring"; }
+    }
+    function applyView() {
+      var v = currentView();
+      var buttons = root.querySelectorAll("[data-gamelog-view]");
+      buttons.forEach(function (b) { b.setAttribute("aria-pressed", b.dataset.gamelogView === v ? "true" : "false"); });
+      if (v === "raw") { renderRaw(sel.value); } else { renderScoring(sel.value); }
+    }
+    root.querySelectorAll("[data-gamelog-view]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        try { sessionStorage.setItem("upm.gamelog.view", b.dataset.gamelogView); } catch (e) {}
+        applyView();
+      });
+    });
+    sel.addEventListener("change", applyView);
+    applyView();
   }
 
   function upmWireWindow(root, bundle) {
