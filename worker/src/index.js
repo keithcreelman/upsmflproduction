@@ -1035,6 +1035,14 @@ export default {
                     // fg_long, fg_att/made by distance bucket added for
                     // the Avg FG Distance Made derivation.
                     `WITH snap_totals AS (
+                       -- NFL regular-season only (Keith 2026-04-22):
+                       -- pre-2021 schedule = 16 reg games, 2021+ = 17.
+                       -- Playoffs ship as weeks 18-22 in nflverse; we
+                       -- exclude them everywhere so season totals don't
+                       -- double-count postseason games on top of our
+                       -- MFL-scored weeks. Postseason data is still in
+                       -- the tables — a future "Playoff" toggle could
+                       -- surface it.
                        SELECT season,
                               SUM(COALESCE(off_snaps, 0)) AS off_snaps_total,
                               SUM(COALESCE(def_snaps, 0)) AS def_snaps_total,
@@ -1044,6 +1052,10 @@ export default {
                               COUNT(*) AS snap_games
                          FROM nfl_player_snaps
                         WHERE pfr_id = ?
+                          AND (
+                            (season < 2021 AND week <= 17) OR
+                            (season >= 2021 AND week <= 18)
+                          )
                         GROUP BY season
                      )
                      SELECT w.season,
@@ -1065,6 +1077,8 @@ export default {
                             SUM(COALESCE(w.pass_ints,0))         AS pass_ints,
                             SUM(COALESCE(w.pass_sacks,0))        AS pass_sacks,
                             SUM(COALESCE(w.def_tackles_solo,0) + COALESCE(w.def_tackles_ast,0)) AS def_tackles_total,
+                            SUM(COALESCE(w.def_tackles_ast,0)) AS def_tackles_ast,
+                            SUM(COALESCE(w.def_tackles_solo,0)) AS def_tackles_solo,
                             SUM(COALESCE(w.def_tfl,0))           AS def_tfl,
                             SUM(COALESCE(w.def_sacks,0))         AS def_sacks,
                             SUM(COALESCE(w.def_ff,0))            AS def_ff,
@@ -1113,6 +1127,10 @@ export default {
                        LEFT JOIN snap_totals s
                               ON s.season = w.season
                       WHERE w.gsis_id = ?
+                        AND (
+                          (w.season < 2021 AND w.week <= 17) OR
+                          (w.season >= 2021 AND w.week <= 18)
+                        )
                       GROUP BY w.season
                       ORDER BY w.season DESC`
                   ).bind(pfrId, gsisId).all(),

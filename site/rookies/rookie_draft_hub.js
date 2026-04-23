@@ -1128,6 +1128,7 @@
           { label: "Snap%", compute: r => r.def_snap_rate, format: "pct0" },
           { label: "Snaps/G", compute: r => r.def_snaps_total && r.games ? r.def_snaps_total / r.games : null, format: "dec1" },
           { label: "Tkl", key: "def_tackles_total" },
+          { label: "Ast", key: "def_tackles_ast" },
           { label: "TFL", key: "def_tfl" },
           { label: "FF", key: "def_ff" },
           { label: "FR", key: "def_fr" },

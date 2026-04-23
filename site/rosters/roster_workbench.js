@@ -7715,6 +7715,7 @@
         { label: "Snap%",    compute: function (r) { return r.def_snap_rate; }, format: "pct0" },
         { label: "Snaps/G",  compute: function (r) { return r.def_snaps_total && r.games ? r.def_snaps_total / r.games : null; }, format: "dec1" },
         { label: "Tkl",      key: "def_tackles_total" },
+        { label: "Ast",      key: "def_tackles_ast" },
         { label: "TFL",      key: "def_tfl" },
         { label: "FF",       key: "def_ff" },
         { label: "FR",       key: "def_fr" },
@@ -10739,10 +10740,29 @@
 
     var openPlayerBtn = target.closest("[data-action='open-player-modal']");
     if (openPlayerBtn) {
-      openPlayerActionModal(
-        pad4(openPlayerBtn.getAttribute("data-franchise-id")),
-        safeStr(openPlayerBtn.getAttribute("data-player-id"))
-      );
+      // Defensive: Keith reported 2026-04-22 that clicking rookie-
+      // drafted players (e.g. Nacua pid 16211, Reed pid 16184) in
+      // Front Office "did nothing". Silent failure was
+      // renderPlayerActionModal's `if (isOpen)` branch bailing when
+      // findPlayerRecord couldn't locate the player OR when the
+      // render itself threw. Wrap in try/catch so ANY render failure
+      // surfaces as a visible error modal (and a console.error) instead
+      // of a silent no-op.
+      try {
+        var _fid = pad4(openPlayerBtn.getAttribute("data-franchise-id"));
+        var _pid = safeStr(openPlayerBtn.getAttribute("data-player-id"));
+        openPlayerActionModal(_fid, _pid);
+        // If the modal DOM never actually shows a dialog, the record
+        // lookup must have failed — surface that instead of leaving
+        // the user confused.
+        var _record = findPlayerRecord(_fid, _pid);
+        if (!_record || !_record.player) {
+          console.warn("[upm] open-player-modal: findPlayerRecord returned null for fid=" + _fid + " pid=" + _pid);
+        }
+      } catch (e) {
+        console.error("[upm] open-player-modal failed:", e);
+        window.alert("Player modal failed to open: " + (e && e.message || e) + "\n\nCheck console for details.");
+      }
       return;
     }
 
