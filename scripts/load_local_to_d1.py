@@ -304,13 +304,13 @@ def main():
           "starter_nfl","source"]),
         ("nflsnaps", "nfl_player_snaps",
          """
-         SELECT season, week, gsis_id, team,
+         SELECT season, week, pfr_id, team,
                 off_snaps, off_snaps_team, off_snap_pct,
                 def_snaps, def_snaps_team, def_snap_pct,
                 st_snaps,  st_snaps_team,  st_snap_pct
          FROM nfl_player_snaps
          """,
-         ["season","week","gsis_id","team",
+         ["season","week","pfr_id","team",
           "off_snaps","off_snaps_team","off_snap_pct",
           "def_snaps","def_snaps_team","def_snap_pct",
           "st_snaps","st_snaps_team","st_snap_pct"]),

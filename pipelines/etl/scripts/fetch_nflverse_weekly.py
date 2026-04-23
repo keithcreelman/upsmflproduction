@@ -117,7 +117,12 @@ PLAYERSTATS_MAP = {
 }
 
 SNAP_MAP = {
-    "gsis_id":        ["player_id", "pfr_player_id", "gsis_id"],
+    # nflverse load_snap_counts() keys on pfr_player_id — the column
+    # stored in nfl_player_snaps is therefore pfr_id, NOT gsis_id.
+    # (Earlier revisions of this fetcher mis-labeled the column as
+    # gsis_id; migration 0009 renames it and this mapping updates to
+    # match. The Worker JOINs via crosswalk.pfr_id accordingly.)
+    "pfr_id":         ["pfr_player_id", "player_id"],
     "team":           ["team"],
     "off_snaps":      ["offense_snaps"],
     "off_snap_pct":   ["offense_pct"],
@@ -263,16 +268,16 @@ def upsert_snaps(db: sqlite3.Connection, df) -> int:
     count = 0
     rows_to_insert = []
     for row in df.to_dict(orient="records"):
-        gsis = pick(row, SNAP_MAP["gsis_id"])
-        if not gsis:
+        pfr = pick(row, SNAP_MAP["pfr_id"])
+        if not pfr:
             continue
         out = {
             "season": int(row.get("season") or 0),
             "week": int(row.get("week") or 0),
-            "gsis_id": gsis,
+            "pfr_id": pfr,
         }
         for col, candidates in SNAP_MAP.items():
-            if col == "gsis_id":
+            if col == "pfr_id":
                 continue
             v = pick(row, candidates)
             if v is None or str(v) == "":
@@ -302,7 +307,7 @@ def upsert_snaps(db: sqlite3.Connection, df) -> int:
     sql = f"""
         INSERT INTO nfl_player_snaps ({col_list})
         VALUES ({placeholders})
-        ON CONFLICT(season, week, gsis_id)
+        ON CONFLICT(season, week, pfr_id)
         DO UPDATE SET {update_cols}
     """
     db.executemany(sql, [[r[c] for c in cols] for r in rows_to_insert])
@@ -342,15 +347,15 @@ def ensure_tables(db: sqlite3.Connection) -> None:
     db.execute("CREATE INDEX IF NOT EXISTS idx_nflweekly_player ON nfl_player_weekly (gsis_id, season)")
     db.execute("""
         CREATE TABLE IF NOT EXISTS nfl_player_snaps (
-          season INTEGER NOT NULL, week INTEGER NOT NULL, gsis_id TEXT NOT NULL,
+          season INTEGER NOT NULL, week INTEGER NOT NULL, pfr_id TEXT NOT NULL,
           team TEXT,
           off_snaps INTEGER, off_snaps_team INTEGER, off_snap_pct REAL,
           def_snaps INTEGER, def_snaps_team INTEGER, def_snap_pct REAL,
           st_snaps INTEGER, st_snaps_team INTEGER, st_snap_pct REAL,
-          PRIMARY KEY (season, week, gsis_id)
+          PRIMARY KEY (season, week, pfr_id)
         )
     """)
-    db.execute("CREATE INDEX IF NOT EXISTS idx_nflsnaps_player ON nfl_player_snaps (gsis_id, season)")
+    db.execute("CREATE INDEX IF NOT EXISTS idx_nflsnaps_player ON nfl_player_snaps (pfr_id, season)")
     db.commit()
 
 

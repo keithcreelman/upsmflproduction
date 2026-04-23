@@ -968,6 +968,10 @@ export default {
             const crosswalkRows = crosswalkRes.results || [];
             const crosswalkRow = crosswalkRows[0] || null;
             const gsisId = crosswalkRow && crosswalkRow.gsis_id ? crosswalkRow.gsis_id : null;
+            // Snap data comes keyed by PFR ID (not gsis) because
+            // nflverse load_snap_counts() only emits pfr_player_id.
+            // Worker binds pfrId for the snap_totals CTE below.
+            const pfrId = crosswalkRow && crosswalkRow.pfr_id ? crosswalkRow.pfr_id : null;
             bundle.crosswalk = crosswalkRow
               ? {
                   mfl_player_id: crosswalkRow.mfl_player_id,
@@ -1006,15 +1010,17 @@ export default {
                       LIMIT 400`
                   ).bind(gsisId).all(),
                   db.prepare(
+                    // Snaps keyed on PFR ID (not gsis_id) — see
+                    // migration 0009. bind pfrId here.
                     `SELECT season, week,
                             off_snaps, off_snap_pct,
                             def_snaps, def_snap_pct,
                             st_snaps, st_snap_pct
                        FROM nfl_player_snaps
-                      WHERE gsis_id = ?
+                      WHERE pfr_id = ?
                       ORDER BY season DESC, week DESC
                       LIMIT 400`
-                  ).bind(gsisId).all(),
+                  ).bind(pfrId).all(),
                   db.prepare(
                     // Season-total aggregation. SUMs over weekly rows,
                     // NULL-safe via COALESCE. LEFT JOINs pull in
@@ -1037,7 +1043,7 @@ export default {
                               AVG(COALESCE(def_snap_pct, 0.0)) AS def_snap_rate,
                               COUNT(*) AS snap_games
                          FROM nfl_player_snaps
-                        WHERE gsis_id = ?
+                        WHERE pfr_id = ?
                         GROUP BY season
                      )
                      SELECT w.season,
@@ -1109,7 +1115,7 @@ export default {
                       WHERE w.gsis_id = ?
                       GROUP BY w.season
                       ORDER BY w.season DESC`
-                  ).bind(gsisId, gsisId).all(),
+                  ).bind(pfrId, gsisId).all(),
                 ]);
                 const nflWeekly = nflWeeklyRes.results || [];
                 bundle.nfl_weekly = nflWeekly;
