@@ -45,14 +45,19 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
 <div class="asw-subtitle">NFL on-field counts (nflverse) + snap share + PFR advanced. Sort any column; filter by position, season, scope. Player name clicks open full profile (coming soon).</div>
 
 <div class="asw-controls">
-  <label>Position
-    <select id="asw-pos">
-      <option value="skill">Skill (RB/WR/TE)</option>
-      <option value="qb">QB</option>
-      <option value="idp">IDP (DL/LB/DB)</option>
-      <option value="kicker">Kicker</option>
-      <option value="punter">Punter</option>
+  <label>Positions
+    <select id="asw-positions" multiple size="5" style="min-width:140px; max-height:120px">
+      <option value="RB" selected>RB</option>
+      <option value="WR" selected>WR</option>
+      <option value="TE" selected>TE</option>
+      <option value="QB">QB</option>
+      <option value="DL">DL</option>
+      <option value="LB">LB</option>
+      <option value="DB">DB</option>
+      <option value="K">K</option>
+      <option value="P">P</option>
     </select>
+    <span style="font-size:10px; color:var(--muted)">hold ⌘/Ctrl to multi-select</span>
   </label>
   <label>Seasons
     <select id="asw-seasons" multiple size="4" style="min-width:110px; max-height:100px"></select>
@@ -77,7 +82,7 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
   <label>Search
     <input type="text" id="asw-search" placeholder="name contains…">
   </label>
-  <button type="button" class="asw-run" id="asw-run">Run</button>
+  <!-- No Run button — any control change triggers runQuery() below. -->
 </div>
 
 <div class="asw-meta" id="asw-meta"></div>
@@ -174,7 +179,7 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
   var scopeBtns = document.querySelectorAll("[data-scope]");
   var minGamesEl = document.getElementById("asw-min-games");
   var searchEl = document.getElementById("asw-search");
-  var runBtn = document.getElementById("asw-run");
+  var runBtn = null;  // Run button removed 2026-04-23 — auto-run on any change.
   var metaEl = document.getElementById("asw-meta");
   var bodyEl = document.getElementById("asw-body");
 
@@ -197,15 +202,29 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
         { key:"games",       label:"G",       num:true },
         { key:"off_snaps_total", label:"Snaps", num:true },
         { key:"off_snap_rate",   label:"Snap%", num:true, fmt:"pct0" },
+        // Receiving block
         { key:"targets",     label:"Tgt",     num:true },
         { key:"receptions",  label:"Rec",     num:true },
         { key:"rec_yds",     label:"RecYd",   num:true },
         { key:"rec_tds",     label:"RecTD",   num:true },
         { key:"y_per_t",     label:"Y/T",     num:true, fmt:"dec2",
           compute: function(r){ return r.targets ? r.rec_yds / r.targets : null; } },
+        { key:"receiving_adot", label:"ADOT", num:true, fmt:"dec1",
+          title:"Avg Depth of Target (PFR, 2018+)" },
+        { key:"receiving_air_yards", label:"AirYd", num:true,
+          title:"Total air yards on targets" },
+        { key:"receiving_rat", label:"Tgt Rat", num:true, fmt:"dec1",
+          title:"QB rating when targeting this player (PFR)" },
         { key:"receiving_drops", label:"Drops",  num:true },
-        { key:"brtkl_total", label:"BrTkl",   num:true,
-          compute: function(r){ return (r.receiving_broken_tackles||0)+(r.rushing_broken_tackles||0); } },
+        { key:"rec_brtkl",   label:"Rec BrTkl", num:true,
+          compute: function(r){ return r.receiving_broken_tackles; } },
+        { key:"rec_per_br",  label:"Rec/Br", num:true, fmt:"dec1",
+          title:"Receptions per broken tackle",
+          compute: function(r){ return (r.receiving_broken_tackles||0) > 0 ? r.receptions/r.receiving_broken_tackles : null; } },
+        { key:"yac_per_r",   label:"YAC/R", num:true, fmt:"dec1",
+          title:"Rec YAC / receptions — uses passing_yac total when available",
+          compute: function(r){ return null; /* receiving-side YAC not in payload */ } },
+        // Rushing block
         { key:"rush_att",    label:"RuAtt",   num:true },
         { key:"rush_yds",    label:"RuYd",    num:true },
         { key:"rush_tds",    label:"RuTD",    num:true },
@@ -213,6 +232,20 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
           compute: function(r){ return r.rush_att ? (r.rushing_yards_before_contact||0)/r.rush_att : null; } },
         { key:"yac_per_a",   label:"YAC/A",   num:true, fmt:"dec2",
           compute: function(r){ return r.rush_att ? (r.rushing_yards_after_contact||0)/r.rush_att : null; } },
+        { key:"rush_brtkl",  label:"Ru BrTkl", num:true,
+          compute: function(r){ return r.rushing_broken_tackles; } },
+        { key:"att_per_br",  label:"Att/Br", num:true, fmt:"dec1",
+          title:"Carries per broken tackle",
+          compute: function(r){ return (r.rushing_broken_tackles||0) > 0 ? r.rush_att/r.rushing_broken_tackles : null; } },
+        // Yardline bands (need PBP fetcher)
+        { key:"rush_att_i20", label:"Ru I20", num:true,
+          title:"Rush attempts inside opponent 20 (Red Zone)" },
+        { key:"rush_att_i5",  label:"GL I5",  num:true,
+          title:"Goal-line rush attempts inside opponent 5" },
+        { key:"targets_i20",  label:"Tgt I20", num:true,
+          title:"Targets inside opponent 20 (Red Zone)" },
+        { key:"targets_ez",   label:"Tgt EZ",  num:true,
+          title:"End-zone targets" },
       ]
     },
     qb: {
@@ -235,6 +268,19 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
         { key:"pass_ints",   label:"Int",     num:true },
         { key:"int_pct",     label:"Int%",    num:true, fmt:"pct",
           compute: function(r){ return r.pass_att ? r.pass_ints / r.pass_att : null; } },
+        { key:"pass_sacks",  label:"Sacked",  num:true, title:"Times sacked" },
+        { key:"passing_adot", label:"ADOT", num:true, fmt:"dec1", title:"Avg depth of target (PFR)" },
+        { key:"passing_air_yards", label:"AirYd", num:true, title:"Total air yards on attempts" },
+        { key:"passing_bad_throws", label:"BadTh", num:true, title:"Bad throws (PFR, 2018+)" },
+        { key:"passing_bad_throw_pct", label:"BadTh%", num:true, fmt:"pct0",
+          title:"Bad throws as % of attempts" },
+        { key:"passing_times_pressured", label:"Pressured", num:true,
+          title:"Times pressured (PFR, 2018+)" },
+        { key:"passing_pressure_pct", label:"Press%", num:true, fmt:"pct0" },
+        { key:"passing_hurries", label:"Hurries", num:true },
+        { key:"passing_hits", label:"QBHits", num:true, title:"Times QB was hit" },
+        { key:"pass_att_i20", label:"Pa I20", num:true, title:"Pass attempts in Red Zone" },
+        { key:"pass_att_ez",  label:"Pa EZ",  num:true, title:"Pass attempts targeting End Zone" },
         { key:"passing_drops", label:"RecDrops", num:true, title:"Drops by this QB's receivers" },
         { key:"rush_att",    label:"RuAtt",   num:true },
         { key:"rush_yds",    label:"RuYd",    num:true },
@@ -253,15 +299,25 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
         { key:"games",       label:"G",       num:true },
         { key:"def_snaps_total", label:"Snaps", num:true },
         { key:"def_snap_rate",   label:"Snap%", num:true, fmt:"pct0" },
-        { key:"def_tackles_total", label:"Tkl", num:true },
+        { key:"def_tackles_total", label:"Tkl", num:true, title:"Solo tackles" },
         { key:"def_tackles_ast",   label:"Ast", num:true },
         { key:"def_tfl",     label:"TFL",     num:true },
         { key:"def_sacks",   label:"Sk",      num:true, fmt:"dec1" },
         { key:"def_ff",      label:"FF",      num:true },
-        { key:"def_fr",      label:"FR",      num:true },
+        { key:"def_fr",      label:"FR",      num:true, title:"Fumble recoveries" },
         { key:"def_ints",    label:"Int",     num:true },
         { key:"def_pass_def", label:"PD",     num:true },
         { key:"def_tds",     label:"DefTD",   num:true },
+        { key:"def_missed_tackles", label:"Missed", num:true, title:"Missed tackles (PFR, 2018+)" },
+        { key:"def_missed_tackle_pct", label:"Miss%", num:true, fmt:"pct0",
+          title:"Missed tackle rate (PFR)" },
+        { key:"def_passer_rating_allowed", label:"PsRat Allow", num:true, fmt:"dec1",
+          title:"Passer rating allowed when targeted in coverage (PFR)" },
+        { key:"def_completions_allowed", label:"Cmp Allow", num:true,
+          title:"Completions allowed in coverage" },
+        { key:"def_yards_allowed", label:"Yds Allow", num:true },
+        { key:"def_pressures", label:"Pressures", num:true,
+          title:"Pass-rush pressures (PFR, 2018+)" },
       ]
     },
     kicker: {
@@ -278,9 +334,24 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
           compute: function(r){ return (r.fg_att||0)-(r.fg_made||0); } },
         { key:"fg_pct",      label:"FG%",     num:true, fmt:"pct",
           compute: function(r){ return r.fg_att ? r.fg_made / r.fg_att : null; } },
+        { key:"fg_0_39",     label:"0-39", cls:"dim",
+          compute: function(r){ return r.fg_att_0_39 ? (r.fg_made_0_39||0) + "/" + r.fg_att_0_39 : null; } },
+        { key:"fg_40_49",    label:"40-49", cls:"dim",
+          compute: function(r){ return r.fg_att_40_49 ? (r.fg_made_40_49||0) + "/" + r.fg_att_40_49 : null; } },
+        { key:"fg_50plus",   label:"50+", cls:"dim",
+          compute: function(r){ return r.fg_att_50plus ? (r.fg_made_50plus||0) + "/" + r.fg_att_50plus : null; } },
+        { key:"avg_fg_dist", label:"Avg FG", num:true, fmt:"dec1",
+          title:"Weighted midpoint of bucket makes (0-39 ≈ 25y, 40-49 ≈ 44.5y, 50+ ≈ 54y)",
+          compute: function(r){
+            var m = (r.fg_made_0_39||0) + (r.fg_made_40_49||0) + (r.fg_made_50plus||0);
+            if (!m) return null;
+            return ((r.fg_made_0_39||0)*25 + (r.fg_made_40_49||0)*44.5 + (r.fg_made_50plus||0)*54) / m;
+          } },
         { key:"xp_made",     label:"XPM",     num:true },
         { key:"xp_miss",     label:"XP Miss", num:true,
           compute: function(r){ return (r.xp_att||0)-(r.xp_made||0); } },
+        { key:"xp_pct",      label:"XP%",     num:true, fmt:"pct",
+          compute: function(r){ return r.xp_att ? r.xp_made / r.xp_att : null; } },
       ]
     },
     punter: {
@@ -464,7 +535,6 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
     });
   }
 
-  runBtn.addEventListener("click", runQuery);
   searchEl.addEventListener("input", function(){ if (state.rows.length) render(); });
   [posSel, seasonsSel, teamSel, minGamesEl].forEach(function(el){
     el.addEventListener("change", runQuery);

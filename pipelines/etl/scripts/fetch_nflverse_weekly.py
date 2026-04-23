@@ -182,6 +182,12 @@ def fetch_playerstats(seasons: list[int]):
         df = df.to_pandas()
     df = df.rename(columns={c: c.lower() for c in df.columns})
     print(f"  got {len(df)} player-week rows", file=sys.stderr)
+    # Diagnostic: punt / def-fumble-recovery columns that exist
+    punt_cols = [c for c in df.columns if "punt" in c.lower()]
+    fr_cols   = [c for c in df.columns if "fumble" in c.lower() and ("rec" in c.lower() or "fr" in c.lower())]
+    if punt_cols: print(f"  punt-related columns: {punt_cols}", file=sys.stderr)
+    if fr_cols:   print(f"  fumble-recovery-related columns: {fr_cols}", file=sys.stderr)
+    if not punt_cols: print(f"  WARNING: no punt columns in load_player_stats — punter weekly data absent", file=sys.stderr)
     return df
 
 

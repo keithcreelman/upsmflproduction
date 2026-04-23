@@ -794,8 +794,52 @@ export default {
                      SUM(COALESCE(w.rushing_broken_tackles,0))   AS rushing_broken_tackles,
                      SUM(COALESCE(w.passing_drops,0))            AS passing_drops,
                      SUM(COALESCE(w.rushing_yards_before_contact,0)) AS rushing_yards_before_contact,
-                     SUM(COALESCE(w.rushing_yards_after_contact,0))  AS rushing_yards_after_contact
+                     SUM(COALESCE(w.rushing_yards_after_contact,0))  AS rushing_yards_after_contact,
+                     -- Yardline bands (nfl_player_redzone via LEFT JOIN below)
+                     SUM(COALESCE(rz.rush_att_i20,0))                AS rush_att_i20,
+                     SUM(COALESCE(rz.rush_att_i10,0))                AS rush_att_i10,
+                     SUM(COALESCE(rz.rush_att_i5,0))                 AS rush_att_i5,
+                     SUM(COALESCE(rz.targets_i20,0))                 AS targets_i20,
+                     SUM(COALESCE(rz.targets_i10,0))                 AS targets_i10,
+                     SUM(COALESCE(rz.targets_i5,0))                  AS targets_i5,
+                     SUM(COALESCE(rz.targets_ez,0))                  AS targets_ez,
+                     SUM(COALESCE(rz.rec_i20,0))                     AS rec_i20,
+                     SUM(COALESCE(rz.pass_att_i20,0))                AS pass_att_i20,
+                     SUM(COALESCE(rz.pass_att_ez,0))                 AS pass_att_ez,
+                     -- FG buckets (from nfl_player_weekly — already in row)
+                     SUM(COALESCE(w.fg_att_0_39,0))                  AS fg_att_0_39,
+                     SUM(COALESCE(w.fg_made_0_39,0))                 AS fg_made_0_39,
+                     SUM(COALESCE(w.fg_att_40_49,0))                 AS fg_att_40_49,
+                     SUM(COALESCE(w.fg_made_40_49,0))                AS fg_made_40_49,
+                     SUM(COALESCE(w.fg_att_50plus,0))                AS fg_att_50plus,
+                     SUM(COALESCE(w.fg_made_50plus,0))               AS fg_made_50plus,
+                     -- PFR rec extras (migration 0013)
+                     AVG(w.receiving_rat)                            AS receiving_rat,
+                     SUM(COALESCE(w.receiving_int,0))                AS receiving_int,
+                     AVG(w.receiving_adot)                           AS receiving_adot,
+                     SUM(COALESCE(w.receiving_air_yards,0))          AS receiving_air_yards,
+                     -- PFR pass (QB adv)
+                     SUM(COALESCE(w.passing_bad_throws,0))           AS passing_bad_throws,
+                     AVG(w.passing_bad_throw_pct)                    AS passing_bad_throw_pct,
+                     SUM(COALESCE(w.passing_times_pressured,0))      AS passing_times_pressured,
+                     AVG(w.passing_pressure_pct)                     AS passing_pressure_pct,
+                     SUM(COALESCE(w.passing_hurries,0))              AS passing_hurries,
+                     SUM(COALESCE(w.passing_hits,0))                 AS passing_hits,
+                     SUM(COALESCE(w.passing_air_yards,0))            AS passing_air_yards,
+                     AVG(w.passing_adot)                             AS passing_adot,
+                     SUM(COALESCE(w.passing_yards_after_catch,0))    AS passing_yards_after_catch,
+                     -- PFR def (IDP adv)
+                     SUM(COALESCE(w.def_missed_tackles,0))           AS def_missed_tackles,
+                     AVG(w.def_missed_tackle_pct)                    AS def_missed_tackle_pct,
+                     SUM(COALESCE(w.def_completions_allowed,0))      AS def_completions_allowed,
+                     AVG(w.def_passer_rating_allowed)                AS def_passer_rating_allowed,
+                     SUM(COALESCE(w.def_yards_allowed,0))            AS def_yards_allowed,
+                     SUM(COALESCE(w.def_pressures,0))                AS def_pressures
                 FROM nfl_player_weekly w
+                LEFT JOIN nfl_player_redzone rz
+                       ON rz.season = w.season
+                      AND rz.week   = w.week
+                      AND rz.gsis_id = w.gsis_id
                WHERE w.season IN (${seasonList}) AND w.pos_group IN (${posList})
                  AND ${weekFilter}
                GROUP BY w.gsis_id
@@ -826,6 +870,19 @@ export default {
                    a.receiving_drops, a.receiving_broken_tackles,
                    a.rushing_broken_tackles, a.passing_drops,
                    a.rushing_yards_before_contact, a.rushing_yards_after_contact,
+                   a.rush_att_i20, a.rush_att_i10, a.rush_att_i5,
+                   a.targets_i20, a.targets_i10, a.targets_i5, a.targets_ez,
+                   a.rec_i20, a.pass_att_i20, a.pass_att_ez,
+                   a.fg_att_0_39, a.fg_made_0_39, a.fg_att_40_49, a.fg_made_40_49,
+                   a.fg_att_50plus, a.fg_made_50plus,
+                   a.receiving_rat, a.receiving_int, a.receiving_adot, a.receiving_air_yards,
+                   a.passing_bad_throws, a.passing_bad_throw_pct,
+                   a.passing_times_pressured, a.passing_pressure_pct,
+                   a.passing_hurries, a.passing_hits,
+                   a.passing_air_yards, a.passing_adot, a.passing_yards_after_catch,
+                   a.def_missed_tackles, a.def_missed_tackle_pct,
+                   a.def_completions_allowed, a.def_passer_rating_allowed,
+                   a.def_yards_allowed, a.def_pressures,
                    sa.off_snaps_total, sa.def_snaps_total,
                    sa.off_snap_rate,   sa.def_snap_rate,
                    lc.franchise_id AS mfl_franchise_id,

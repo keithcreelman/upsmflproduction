@@ -91,12 +91,26 @@ def _col_int(row, *names):
     return None
 
 
+def _col_float(row, *names):
+    """Like _col_int but preserves decimal — for rates / ADOT / ratings."""
+    for n in names:
+        if n in row and row[n] is not None:
+            try:
+                v = float(row[n])
+                if v != v:
+                    continue
+                return v
+            except (ValueError, TypeError):
+                continue
+    return None
+
+
 def upsert_rec_weekly(db: sqlite3.Connection, df, pfr_to_gsis: dict, verbose: bool = False) -> int:
     if df is None or df.empty:
         return 0
     rows = []
     skipped = 0
-    unmapped = {}  # pfr_id -> {name, count}
+    unmapped = {}
     for row in df.to_dict(orient="records"):
         pfr = row.get("pfr_player_id") or row.get("pfr_id")
         if not pfr:
@@ -107,21 +121,23 @@ def upsert_rec_weekly(db: sqlite3.Connection, df, pfr_to_gsis: dict, verbose: bo
             if verbose:
                 key = str(pfr)
                 if key not in unmapped:
-                    unmapped[key] = {
-                        "name": row.get("pfr_player_name") or "?",
-                        "count": 0,
-                    }
+                    unmapped[key] = {"name": row.get("pfr_player_name") or "?", "count": 0}
                 unmapped[key]["count"] += 1
             continue
         season = int(row.get("season") or 0)
         week = int(row.get("week") or 0)
         if not season or not week: continue
-        rec_drops   = _col_int(row, "receiving_drop", "receiving_drops")
-        rec_brtkl   = _col_int(row, "receiving_broken_tackles")
-        pass_drops  = _col_int(row, "passing_drops")
-        if rec_drops is None and rec_brtkl is None and pass_drops is None:
+        rec_drops    = _col_int(row, "receiving_drop", "receiving_drops")
+        rec_brtkl    = _col_int(row, "receiving_broken_tackles")
+        pass_drops   = _col_int(row, "passing_drops")
+        rec_rat      = _col_float(row, "receiving_rat", "receiving_rating")
+        rec_int      = _col_int(row, "receiving_int", "receiving_ints")
+        rec_drop_pct = _col_float(row, "receiving_drop_pct")
+        rec_adot     = _col_float(row, "receiving_adot", "adot")
+        rec_ay       = _col_int(row, "receiving_air_yards", "air_yards")
+        if all(x is None for x in (rec_drops, rec_brtkl, pass_drops, rec_rat, rec_int, rec_drop_pct, rec_adot, rec_ay)):
             continue
-        rows.append((rec_drops, rec_brtkl, pass_drops, season, week, gsis))
+        rows.append((rec_drops, rec_brtkl, pass_drops, rec_rat, rec_int, rec_drop_pct, rec_adot, rec_ay, season, week, gsis))
 
     if verbose and unmapped:
         print(f"  [rec] unmapped pfr_ids ({len(unmapped)} distinct players):", file=sys.stderr)
@@ -139,13 +155,118 @@ def upsert_rec_weekly(db: sqlite3.Connection, df, pfr_to_gsis: dict, verbose: bo
         UPDATE nfl_player_weekly
            SET receiving_drops          = COALESCE(?, receiving_drops),
                receiving_broken_tackles = COALESCE(?, receiving_broken_tackles),
-               passing_drops            = COALESCE(?, passing_drops)
+               passing_drops            = COALESCE(?, passing_drops),
+               receiving_rat            = COALESCE(?, receiving_rat),
+               receiving_int            = COALESCE(?, receiving_int),
+               receiving_drop_pct       = COALESCE(?, receiving_drop_pct),
+               receiving_adot           = COALESCE(?, receiving_adot),
+               receiving_air_yards      = COALESCE(?, receiving_air_yards)
          WHERE season = ? AND week = ? AND gsis_id = ?
         """,
         rows,
     )
     db.commit()
     print(f"  [rec] updated {len(rows)} rows (skipped {skipped} unmapped)", file=sys.stderr)
+    return len(rows)
+
+
+def upsert_pass_weekly(db: sqlite3.Connection, df, pfr_to_gsis: dict) -> int:
+    """QB advanced from stat_type='pass': bad throws, pressures, air yards, ADOT."""
+    if df is None or df.empty:
+        return 0
+    rows = []
+    skipped = 0
+    for row in df.to_dict(orient="records"):
+        pfr = row.get("pfr_player_id") or row.get("pfr_id")
+        if not pfr:
+            skipped += 1; continue
+        gsis = pfr_to_gsis.get(str(pfr))
+        if not gsis:
+            skipped += 1; continue
+        season = int(row.get("season") or 0)
+        week = int(row.get("week") or 0)
+        if not season or not week: continue
+        bad_throws = _col_int(row, "passing_bad_throws", "bad_throws")
+        bad_pct    = _col_float(row, "passing_bad_throw_pct", "bad_throw_pct")
+        pressured  = _col_int(row, "passing_times_pressured", "times_pressured", "pressured")
+        pr_pct     = _col_float(row, "passing_pressure_pct", "pressure_pct")
+        hurries    = _col_int(row, "passing_hurries", "hurries")
+        hits       = _col_int(row, "passing_hits", "hits")
+        ay         = _col_int(row, "passing_air_yards")
+        adot       = _col_float(row, "passing_adot", "adot")
+        pyac       = _col_int(row, "passing_yards_after_catch", "yards_after_catch")
+        if all(x is None for x in (bad_throws, bad_pct, pressured, pr_pct, hurries, hits, ay, adot, pyac)):
+            continue
+        rows.append((bad_throws, bad_pct, pressured, pr_pct, hurries, hits, ay, adot, pyac, season, week, gsis))
+
+    if not rows:
+        print(f"  [pass] nothing to upsert (skipped {skipped} unmapped)", file=sys.stderr)
+        return 0
+    db.executemany(
+        """
+        UPDATE nfl_player_weekly
+           SET passing_bad_throws        = COALESCE(?, passing_bad_throws),
+               passing_bad_throw_pct     = COALESCE(?, passing_bad_throw_pct),
+               passing_times_pressured   = COALESCE(?, passing_times_pressured),
+               passing_pressure_pct      = COALESCE(?, passing_pressure_pct),
+               passing_hurries           = COALESCE(?, passing_hurries),
+               passing_hits              = COALESCE(?, passing_hits),
+               passing_air_yards         = COALESCE(?, passing_air_yards),
+               passing_adot              = COALESCE(?, passing_adot),
+               passing_yards_after_catch = COALESCE(?, passing_yards_after_catch)
+         WHERE season = ? AND week = ? AND gsis_id = ?
+        """,
+        rows,
+    )
+    db.commit()
+    print(f"  [pass] updated {len(rows)} rows (skipped {skipped} unmapped)", file=sys.stderr)
+    return len(rows)
+
+
+def upsert_def_weekly(db: sqlite3.Connection, df, pfr_to_gsis: dict) -> int:
+    """IDP advanced from stat_type='def': missed tackles, rating allowed, pressures."""
+    if df is None or df.empty:
+        return 0
+    rows = []
+    skipped = 0
+    for row in df.to_dict(orient="records"):
+        pfr = row.get("pfr_player_id") or row.get("pfr_id")
+        if not pfr:
+            skipped += 1; continue
+        gsis = pfr_to_gsis.get(str(pfr))
+        if not gsis:
+            skipped += 1; continue
+        season = int(row.get("season") or 0)
+        week = int(row.get("week") or 0)
+        if not season or not week: continue
+        mt        = _col_int(row, "def_missed_tackles", "missed_tackles")
+        mt_pct    = _col_float(row, "def_missed_tackle_pct", "missed_tackle_pct")
+        cmp_allow = _col_int(row, "def_completions_allowed", "completions_allowed")
+        rat       = _col_float(row, "def_passer_rating_allowed", "passer_rating_allowed")
+        yds_allow = _col_int(row, "def_yards_allowed", "yards_allowed")
+        pressures = _col_int(row, "def_pressures", "pressures")
+        if all(x is None for x in (mt, mt_pct, cmp_allow, rat, yds_allow, pressures)):
+            continue
+        rows.append((mt, mt_pct, cmp_allow, rat, yds_allow, pressures, season, week, gsis))
+
+    if not rows:
+        print(f"  [def] nothing to upsert (skipped {skipped} unmapped)", file=sys.stderr)
+        return 0
+    db.executemany(
+        """
+        UPDATE nfl_player_weekly
+           SET def_missed_tackles        = COALESCE(?, def_missed_tackles),
+               def_missed_tackle_pct     = COALESCE(?, def_missed_tackle_pct),
+               def_completions_allowed   = COALESCE(?, def_completions_allowed),
+               def_passer_rating_allowed = COALESCE(?, def_passer_rating_allowed),
+               def_yards_allowed         = COALESCE(?, def_yards_allowed),
+               def_pressures             = COALESCE(?, def_pressures)
+         WHERE season = ? AND week = ? AND gsis_id = ?
+        """,
+        rows,
+    )
+    db.commit()
+    print(f"  [def] updated {len(rows)} rows (skipped {skipped} unmapped)", file=sys.stderr)
     return len(rows)
 
 
@@ -213,6 +334,8 @@ def main() -> None:
                     help='Season list: "2018-2025" (default; PFR rec advstats start 2018)')
     ap.add_argument("--skip-rec", action="store_true", help="Skip the rec stat_type fetch")
     ap.add_argument("--skip-rush", action="store_true", help="Skip the rush stat_type fetch")
+    ap.add_argument("--skip-pass", action="store_true", help="Skip the pass stat_type fetch (QB adv)")
+    ap.add_argument("--skip-def", action="store_true", help="Skip the def stat_type fetch (IDP adv)")
     ap.add_argument("--verbose", action="store_true",
                     help="Print top-30 unmapped pfr_id + name list at end (diagnostic for crosswalk gaps)")
     args = ap.parse_args()
@@ -236,6 +359,12 @@ def main() -> None:
     if not args.skip_rush:
         df_rush = _load("rush", seasons)
         total += upsert_rush_weekly(db, df_rush, pfr_to_gsis, verbose=args.verbose)
+    if not args.skip_pass:
+        df_pass = _load("pass", seasons)
+        total += upsert_pass_weekly(db, df_pass, pfr_to_gsis)
+    if not args.skip_def:
+        df_def = _load("def", seasons)
+        total += upsert_def_weekly(db, df_def, pfr_to_gsis)
 
     print(f"DONE: {total} player-week rows updated with PFR advstats", file=sys.stderr)
 
