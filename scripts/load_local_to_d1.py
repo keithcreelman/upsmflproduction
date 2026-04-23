@@ -287,7 +287,9 @@ def main():
                 fg_att_0_39, fg_made_0_39, fg_att_40_49, fg_made_40_49,
                 fg_att_50plus, fg_made_50plus, xp_att, xp_made,
                 punts, punt_yds, punt_long, punt_inside20, punt_net_avg,
-                starter_nfl, source
+                starter_nfl, source,
+                receiving_drops, receiving_broken_tackles,
+                rushing_broken_tackles, passing_drops
          FROM nfl_player_weekly
          """,
          ["season","week","gsis_id","team","opponent","position","pos_group",
@@ -301,7 +303,9 @@ def main():
           "fg_att_0_39","fg_made_0_39","fg_att_40_49","fg_made_40_49",
           "fg_att_50plus","fg_made_50plus","xp_att","xp_made",
           "punts","punt_yds","punt_long","punt_inside20","punt_net_avg",
-          "starter_nfl","source"]),
+          "starter_nfl","source",
+          "receiving_drops","receiving_broken_tackles",
+          "rushing_broken_tackles","passing_drops"]),
         ("nflsnaps", "nfl_player_snaps",
          """
          SELECT season, week, pfr_id, team,

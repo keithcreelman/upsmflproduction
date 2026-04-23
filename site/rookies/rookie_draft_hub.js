@@ -1153,7 +1153,8 @@
           { label: "PaYd", key: "pass_yds" },
           { label: "PaTD", key: "pass_tds" },
           { label: "Int", key: "pass_ints" },
-          { label: "Int%", compute: r => r.pass_att ? r.pass_ints / r.pass_att : null, format: "pct" }
+          { label: "Int%", compute: r => r.pass_att ? r.pass_ints / r.pass_att : null, format: "pct" },
+          { label: "Drops", key: "passing_drops", title: "Receiver drops on this QB's throws (PFR, 2018+)" }
         ]},
         skill: { label: "RB / WR / TE", cols: [
           { label: "G", key: "games" },
@@ -1161,15 +1162,16 @@
           { label: "Snap%", compute: r => r.off_snap_rate, format: "pct0" },
           { label: "Snaps/G", compute: r => r.off_snaps_total && r.games ? r.off_snaps_total / r.games : null, format: "dec1" },
           { label: "Tgt", key: "targets" },
-          { label: "Routes", key: "routes_run" },
           { label: "Rec", key: "receptions" },
           { label: "RecYd", key: "rec_yds" },
           { label: "RecTD", key: "rec_tds" },
-          { label: "YPRR", compute: r => r.routes_run ? r.rec_yds / r.routes_run : null, format: "dec2" },
           { label: "Y/T", compute: r => r.targets ? r.rec_yds / r.targets : null, format: "dec2" },
+          { label: "Drops", key: "receiving_drops", title: "Dropped passes (PFR, 2018+)" },
+          { label: "BrTkl", key: "receiving_broken_tackles", title: "Broken tackles on receptions (PFR, 2018+)" },
           { label: "RuAtt", key: "rush_att" },
           { label: "RuYd", key: "rush_yds" },
           { label: "RuTD", key: "rush_tds" },
+          { label: "Ru BrTkl", key: "rushing_broken_tackles", title: "Broken tackles on rushes (PFR, 2018+)" },
           { label: "Fum", key: "rush_fumbles" },
           { label: "FumL", key: "rush_fumbles_lost" }
         ]},
@@ -1209,7 +1211,7 @@
         } else s = String(v);
         return `<td class="num">${s}</td>`;
       };
-      const thRow = [`<th>Yr</th>`, ...tmpl.cols.map(c => `<th class="num">${c.label}</th>`)].join("");
+      const thRow = [`<th>Yr</th>`, ...tmpl.cols.map(c => `<th class="num"${c.title ? ` title="${c.title.replace(/"/g, "&quot;")}"` : ""}>${c.label}</th>`)].join("");
       const bodyRows = totals.map(r => {
         const tds = [`<td>${r.season}</td>`];
         for (const c of tmpl.cols) {

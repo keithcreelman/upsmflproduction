@@ -1080,6 +1080,13 @@ export default {
                             SUM(COALESCE(w.def_tackles_solo,0)) AS def_tackles_total,
                             SUM(COALESCE(w.def_tackles_ast,0))  AS def_tackles_ast,
                             SUM(COALESCE(w.def_tackles_solo,0)) AS def_tackles_solo,
+                            -- Keith 2026-04-23: PFR weekly advstats — drops,
+                            -- broken tackles (receiving + rushing), plus QBs'
+                            -- receiver-drop context via passing_drops.
+                            SUM(COALESCE(w.receiving_drops,0))          AS receiving_drops,
+                            SUM(COALESCE(w.receiving_broken_tackles,0)) AS receiving_broken_tackles,
+                            SUM(COALESCE(w.rushing_broken_tackles,0))   AS rushing_broken_tackles,
+                            SUM(COALESCE(w.passing_drops,0))            AS passing_drops,
                             SUM(COALESCE(w.def_tfl,0))           AS def_tfl,
                             SUM(COALESCE(w.def_sacks,0))         AS def_sacks,
                             SUM(COALESCE(w.def_ff,0))            AS def_ff,

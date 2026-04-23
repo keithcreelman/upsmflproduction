@@ -7743,7 +7743,8 @@
         { label: "PaYd",     key: "pass_yds" },
         { label: "PaTD",     key: "pass_tds" },
         { label: "Int",      key: "pass_ints" },
-        { label: "Int%",     compute: function (r) { return r.pass_att ? r.pass_ints / r.pass_att : null; }, format: "pct" }
+        { label: "Int%",     compute: function (r) { return r.pass_att ? r.pass_ints / r.pass_att : null; }, format: "pct" },
+        { label: "Drops",    key: "passing_drops", title: "Receiver drops on this QB's throws (PFR)" }
       ]
     },
     skill: {
@@ -7754,15 +7755,16 @@
         { label: "Snap%",    compute: function (r) { return r.off_snap_rate; }, format: "pct0" },
         { label: "Snaps/G",  compute: function (r) { return r.off_snaps_total && r.games ? r.off_snaps_total / r.games : null; }, format: "dec1" },
         { label: "Tgt",      key: "targets" },
-        { label: "Routes",   key: "routes_run" },
         { label: "Rec",      key: "receptions" },
         { label: "RecYd",    key: "rec_yds" },
         { label: "RecTD",    key: "rec_tds" },
-        { label: "YPRR",     compute: function (r) { return r.routes_run ? r.rec_yds / r.routes_run : null; }, format: "dec2" },
         { label: "Y/T",      compute: function (r) { return r.targets ? r.rec_yds / r.targets : null; }, format: "dec2" },
+        { label: "Drops",    key: "receiving_drops",          title: "Dropped passes (PFR, 2018+)" },
+        { label: "BrTkl",    key: "receiving_broken_tackles", title: "Broken tackles on receptions (PFR, 2018+)" },
         { label: "RuAtt",    key: "rush_att" },
         { label: "RuYd",     key: "rush_yds" },
         { label: "RuTD",     key: "rush_tds" },
+        { label: "Ru BrTkl", key: "rushing_broken_tackles",   title: "Broken tackles on rushes (PFR, 2018+)" },
         { label: "Fum",      key: "rush_fumbles" },
         { label: "FumL",     key: "rush_fumbles_lost" }
       ]
@@ -7833,7 +7835,8 @@
     var pg = upmDetectPosGroup(bundle);
     var tmpl = UPM_RAW_TEMPLATES[pg] || UPM_RAW_TEMPLATES.skill;
     var thRow = '<th>Yr</th>' + tmpl.cols.map(function (c) {
-      return '<th class="num">' + c.label + '</th>';
+      var t = c.title ? ' title="' + c.title.replace(/"/g, "&quot;") + '"' : "";
+      return '<th class="num"' + t + '>' + c.label + '</th>';
     }).join("");
     var bodyRows = totals.map(function (r) {
       var tds = '<td>' + r.season + '</td>';
