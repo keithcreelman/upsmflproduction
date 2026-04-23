@@ -975,6 +975,11 @@ export default {
                   pfr_id: crosswalkRow.pfr_id,
                   confidence: crosswalkRow.confidence,
                   source: crosswalkRow.source,
+                  // `position` is the raw NFL position (e.g. "P" for
+                  // punter, "K" for kicker, "CB" vs "SS" vs "FS" for
+                  // DBs). UI uses it to disambiguate Kicker vs Punter
+                  // since MFL collapses both under "PK".
+                  position: crosswalkRow.position || null,
                 }
               : null;
             bundle.nfl_weekly = [];
@@ -1053,7 +1058,7 @@ export default {
                             SUM(COALESCE(w.pass_tds,0))          AS pass_tds,
                             SUM(COALESCE(w.pass_ints,0))         AS pass_ints,
                             SUM(COALESCE(w.pass_sacks,0))        AS pass_sacks,
-                            SUM(COALESCE(w.def_tackles_total,0)) AS def_tackles_total,
+                            SUM(COALESCE(w.def_tackles_solo,0) + COALESCE(w.def_tackles_ast,0)) AS def_tackles_total,
                             SUM(COALESCE(w.def_tfl,0))           AS def_tfl,
                             SUM(COALESCE(w.def_sacks,0))         AS def_sacks,
                             SUM(COALESCE(w.def_ff,0))            AS def_ff,
