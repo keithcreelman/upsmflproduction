@@ -2477,7 +2477,11 @@
       var mayDate = tagDeadlineDateForSeason(rookieDeadlineYear);
       var mayLabel = formatDateShort(mayDate) || ("May " + rookieDeadlineYear);
 
-      if (option.eligible && !option.exercised) {
+      // option may be null for rookies who don't carry a ROPT token
+      // in their contract_info (e.g. pre-2025 draft classes, UDFAs
+      // like Emmanuel Wilson). Guard before deref — NPE crash
+      // reported 2026-04-23.
+      if (option && option.eligible && !option.exercised) {
         // 2025+ MFL-1st-round rookies get a 4th-year option. Option
         // deadline = final rookie year's Sep auction-kickoff. Normal
         // rookie-extension May deadline still applies if the option
@@ -7760,11 +7764,11 @@
         { label: "RecTD",    key: "rec_tds" },
         { label: "Y/T",      compute: function (r) { return r.targets ? r.rec_yds / r.targets : null; }, format: "dec2" },
         { label: "Drops",    key: "receiving_drops",          title: "Dropped passes (PFR, 2018+)" },
-        { label: "BrTkl",    key: "receiving_broken_tackles", title: "Broken tackles on receptions (PFR, 2018+)" },
+        { label: "BrTkl",    compute: function (r) { return (r.receiving_broken_tackles || 0) + (r.rushing_broken_tackles || 0); },
+                             title: "Broken tackles combined — receiving + rushing (PFR, 2018+)" },
         { label: "RuAtt",    key: "rush_att" },
         { label: "RuYd",     key: "rush_yds" },
         { label: "RuTD",     key: "rush_tds" },
-        { label: "Ru BrTkl", key: "rushing_broken_tackles",   title: "Broken tackles on rushes (PFR, 2018+)" },
         { label: "Fum",      key: "rush_fumbles" },
         { label: "FumL",     key: "rush_fumbles_lost" }
       ]

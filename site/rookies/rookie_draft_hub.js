@@ -1167,11 +1167,11 @@
           { label: "RecTD", key: "rec_tds" },
           { label: "Y/T", compute: r => r.targets ? r.rec_yds / r.targets : null, format: "dec2" },
           { label: "Drops", key: "receiving_drops", title: "Dropped passes (PFR, 2018+)" },
-          { label: "BrTkl", key: "receiving_broken_tackles", title: "Broken tackles on receptions (PFR, 2018+)" },
+          { label: "BrTkl", compute: r => (r.receiving_broken_tackles || 0) + (r.rushing_broken_tackles || 0),
+                            title: "Broken tackles combined — receiving + rushing (PFR, 2018+)" },
           { label: "RuAtt", key: "rush_att" },
           { label: "RuYd", key: "rush_yds" },
           { label: "RuTD", key: "rush_tds" },
-          { label: "Ru BrTkl", key: "rushing_broken_tackles", title: "Broken tackles on rushes (PFR, 2018+)" },
           { label: "Fum", key: "rush_fumbles" },
           { label: "FumL", key: "rush_fumbles_lost" }
         ]},
