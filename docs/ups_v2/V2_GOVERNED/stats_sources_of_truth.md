@@ -57,6 +57,25 @@ actually DO on the field" question, independent of fantasy points.
 | Yardline bands (I20/I10/I5) | nflverse `load_pbp()` | `nfl_player_redzone` |
 | End-Zone targets | nflverse `load_pbp()` (air_yards ≥ yardline_100) | `nfl_player_redzone.targets_ez` |
 | Route participation / WOPR / ADOT | nflverse `load_nextgen_stats()` | `nfl_player_usage` (future) |
+| Routes run / YPRR | **NOT YET SOURCED** | `nfl_player_weekly.routes_run` (NULL) |
+
+**Known sourcing gap — Routes Run (2026-04-23).** The Raw Stats
+skill-position template has "Routes" and "YPRR" columns, both
+rendering "—" for every season. Rationale:
+
+- nflverse `load_pfr_advstats(stat_type="rec")` currently returns:
+  drops, drop %, broken tackles, QB rating when targeted. No routes.
+- nflverse `load_nextgen_stats(stat_type="receiving")` returns air
+  yards, ADOT, separation, cushion, WOPR-components — no routes.
+- Accurate routes-run requires either (a) direct HTML scrape of
+  pro-football-reference.com `/years/<YYYY>/receiving_advanced.htm`
+  (the "Rt" column, 2018+), or (b) derivation from nflverse
+  `load_participation()` at the play level.
+
+Both are future work. The Routes / YPRR columns are kept in the UI
+template on purpose — they communicate "this metric is known to
+exist and will be surfaced when sourced" rather than silently
+omitted. Do not remove them.
 
 Raw Stats view is **authoritative for real-football usage** —
 independent of MFL scoring. When the user wants "does this RB get

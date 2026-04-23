@@ -54,6 +54,32 @@ def build_pfr_to_gsis(db: sqlite3.Connection) -> dict[str, str]:
 
 
 def fetch_pfr_rec(seasons: list[int]):
+    """Pull PFR advanced receiving stats via nflreadpy.
+
+    **Known limitation** (confirmed 2026-04-23): the current nflreadpy
+    version of `load_pfr_advstats(stat_type="rec")` does NOT expose a
+    routes_run column. Columns returned are:
+      - passing_drop_pct, passing_drops
+      - receiving_broken_tackles, receiving_drop, receiving_drop_pct
+      - receiving_int, receiving_rat   (QB rating when targeted)
+      - rushing_broken_tackles
+      - game_id / pfr_game_id / team / week / season
+      - pfr_player_id / pfr_player_name
+
+    Routes-run is NOT in this dataset. Options for sourcing routes:
+      1. Scrape PFR directly:
+         https://www.pro-football-reference.com/years/<YYYY>/receiving_advanced.htm
+         has a "Rt" column for 2018+ — needs a dedicated HTML scraper.
+      2. Derive from nflverse.load_participation() (2016+): count pass
+         plays where the player was in offense_players. Approximate
+         (doesn't exclude pass-blocking RBs/TEs) but nflverse-native.
+      3. Third-party paid (PFF, NGS subscription).
+
+    Meanwhile this fetcher is a no-op for routes_run and the Raw Stats
+    UI leaves Routes / YPRR as "—". The other PFR advanced columns
+    (drops, broken tackles, QB rating when targeted) are captured here
+    as diagnostics — future migration can surface them in the popup.
+    """
     try:
         import nflreadpy as nfl
     except ImportError:
@@ -65,16 +91,16 @@ def fetch_pfr_rec(seasons: list[int]):
     df = df.rename(columns={c: c.lower() for c in df.columns})
     print(f"  got {len(df)} rows", file=sys.stderr)
     print(f"  columns: {sorted(df.columns.tolist())}", file=sys.stderr)
-    # Spot-check: any column whose name hints at "routes"?
     route_cols = [c for c in df.columns if "rout" in c.lower()]
     if route_cols:
         print(f"  route-related columns: {route_cols}", file=sys.stderr)
-        # Preview one populated value from each to see what's actually there
         for c in route_cols:
             vals = df[c].dropna().head(3).tolist()
             print(f"    {c}: sample non-null values = {vals}", file=sys.stderr)
     else:
-        print(f"  WARNING: no columns matching 'rout' — PFR schema may have renamed it", file=sys.stderr)
+        print(f"  NOTE: no routes_run column in this nflreadpy payload.", file=sys.stderr)
+        print(f"        This fetcher is currently a no-op for routes.", file=sys.stderr)
+        print(f"        See docstring for alternative routes sources.", file=sys.stderr)
     return df
 
 
