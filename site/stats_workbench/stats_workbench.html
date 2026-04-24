@@ -34,12 +34,23 @@ h1{margin:0 0 8px;font-size:18px;letter-spacing:.02em}
 .asw-subtab[aria-pressed="true"]{background:#0a1222;color:#f0f8ff;border-color:#0a1222}
 
 /* Filter controls row */
-.asw-controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;background:var(--panel);padding:10px 12px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px}
+.asw-controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;background:var(--panel);padding:10px 12px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;position:relative}
 .asw-controls label{display:flex;flex-direction:column;gap:2px;font-size:11px;color:var(--muted)}
 .asw-controls select,.asw-controls input{background:var(--panel-alt);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:4px 8px;font-size:12px;min-width:100px}
 .asw-controls input[type="text"]{min-width:160px}
 .asw-controls .asw-chip{background:var(--panel-alt);color:var(--text);border:1px solid var(--border);border-radius:999px;padding:4px 10px;font-size:11px;cursor:pointer;transition:.1s}
 .asw-controls .asw-chip[aria-pressed="true"]{background:var(--accent);color:#0a1222;border-color:var(--accent);font-weight:700}
+
+/* Phase C — collapsed filter summary pill + expandable detail panel.
+   Swaps in when the controls row is collapsed; expanded restores the
+   full inline controls. */
+.asw-filters-pill{background:var(--panel-alt);color:var(--text);border:1px solid var(--border);border-radius:999px;padding:5px 14px;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:8px;transition:.1s;max-width:100%}
+.asw-filters-pill:hover{border-color:var(--border-strong)}
+.asw-filters-pill .sep{opacity:.4;margin:0 2px}
+.asw-filters-pill .summary{color:var(--muted);font-weight:500}
+.asw-filters-pill .chev{font-size:9px;opacity:.7}
+.asw-controls.collapsed > :not(.asw-filters-pill):not(#asw-filters-pill){display:none}
+.asw-controls.expanded > .asw-filters-pill{display:none}
 
 /* Column group controls bar — now a single "Columns" dropdown pill
    + utility toggles (Filters/Heat/CSV) on the right. Replaces the
@@ -85,12 +96,15 @@ h1{margin:0 0 8px;font-size:18px;letter-spacing:.02em}
 /* Column-header active-filter indicator */
 .asw-table tr.asw-col-row th.has-filter::before{content:"•";color:var(--accent);margin-right:3px}
 
-/* Percentile heat-map cell shading (quintiles: q1 worst → q5 best) */
-.asw-table.heat td.pct-q1{background:rgba(224,122,122,.16)}
-.asw-table.heat td.pct-q2{background:rgba(224,122,122,.07)}
-.asw-table.heat td.pct-q3{background:transparent}
-.asw-table.heat td.pct-q4{background:rgba(115,230,140,.07)}
-.asw-table.heat td.pct-q5{background:rgba(115,230,140,.16)}
+/* Percentile heat-map cell shading (quintiles: q1 worst → q5 best).
+   Bumped 2026-04-24: prior opacities (.07/.16) were nearly invisible
+   on dark bg. Stronger colors + bold + colored text on the extremes
+   so the eye catches top/bottom 20% at a glance. */
+.asw-table.heat td.pct-q1{background:rgba(224,80,80,.35);color:#ffc9c9;font-weight:700}
+.asw-table.heat td.pct-q2{background:rgba(224,80,80,.15);color:#ffd9d9}
+.asw-table.heat td.pct-q3{background:rgba(160,160,180,.08);color:var(--muted)}
+.asw-table.heat td.pct-q4{background:rgba(90,220,130,.15);color:#b8ffcf}
+.asw-table.heat td.pct-q5{background:rgba(90,220,130,.35);color:#c4ffd6;font-weight:700}
 
 /* Comparison mode — row checkbox column + sticky compare bar */
 .asw-table th.sel-col,.asw-table td.sel-col{padding:4px 6px;text-align:center;width:28px;background:var(--panel-alt)}
@@ -201,8 +215,15 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
   <button type="button" class="asw-tab" data-tab="pn">PN</button>
 </div>
 
-<!-- Filter row -->
-<div class="asw-controls">
+<!-- Filter row — collapsed by default into a summary pill (Phase C).
+     Click the pill to expand the full Seasons / Team / Scope / Search
+     controls. Click away or hit "Hide" to collapse again. -->
+<div class="asw-controls collapsed" id="asw-controls">
+  <button type="button" class="asw-filters-pill" id="asw-filters-pill" title="Click to edit filters">
+    <span>⚙ Filters</span>
+    <span class="summary" id="asw-filters-summary"></span>
+    <span class="chev">▾</span>
+  </button>
   <label>Seasons
     <select id="asw-seasons" multiple size="4" style="min-width:110px; max-height:100px"></select>
     <span style="font-size:10px; color:var(--muted)">⌘/Ctrl multi-select</span>
@@ -764,7 +785,15 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
           mfl_franchise_name: fidToName[liveFid] || r.mfl_franchise_name,
         });
       }
-      return Object.assign({}, r, { mfl_franchise_id: null, mfl_franchise_name: null });
+      // FA — zero contract details too. src_contracts keeps historic rows
+      // for dropped players; once they're FA those values aren't applicable.
+      return Object.assign({}, r, {
+        mfl_franchise_id: null,
+        mfl_franchise_name: null,
+        mfl_salary: 0,
+        mfl_aav: 0,
+        mfl_years_remaining: 0,
+      });
     });
   }
 
@@ -1718,6 +1747,50 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
   [seasonsSel, teamSel].forEach(function(el){
     el.addEventListener("change", runQuery);
   });
+
+  // ---------- Phase C: filter pill (collapsed summary → expanded controls) ----------
+  var filtersControlsEl = document.getElementById("asw-controls");
+  var filtersPillEl     = document.getElementById("asw-filters-pill");
+  var filtersSummaryEl  = document.getElementById("asw-filters-summary");
+
+  function buildFilterSummary() {
+    var seasons = getSelectedSeasons();
+    var seasonLabel;
+    if (seasons.length === 1) seasonLabel = String(seasons[0]);
+    else if (seasons.length <= 3) seasonLabel = seasons.sort(function(a,b){return b-a;}).join(", ");
+    else seasonLabel = seasons.length + " seasons";
+    var scope = getScopeLabel();
+    var teams = getSelectedTeams();
+    var teamLabel;
+    if (!teams.length) teamLabel = "All";
+    else if (teams.length === 1) {
+      var t = teams[0];
+      teamLabel = t === "FA" ? "FA" : (t === "__ROSTERED__" ? "Rostered" : (fidToName[padFid(t)] || t));
+    } else {
+      teamLabel = teams.length + " teams";
+    }
+    var parts = [seasonLabel, scope, teamLabel];
+    if (searchEl.value) parts.push('"' + searchEl.value + '"');
+    return parts.join(" · ");
+  }
+  function updateFilterSummary() {
+    if (filtersSummaryEl) filtersSummaryEl.textContent = buildFilterSummary();
+  }
+
+  if (filtersPillEl && filtersControlsEl) {
+    filtersPillEl.addEventListener("click", function(){
+      filtersControlsEl.classList.toggle("collapsed");
+      filtersControlsEl.classList.toggle("expanded");
+    });
+    // Keep summary fresh on every filter-affecting change
+    [seasonsSel, teamSel, scopeSel, weekStartSel, weekEndSel].forEach(function(el){
+      if (el) el.addEventListener("change", updateFilterSummary);
+    });
+    searchEl.addEventListener("input", updateFilterSummary);
+    // Initial population after league-state loads (so team name resolves cleanly)
+    leagueStatePromise.then(updateFilterSummary);
+    updateFilterSummary();
+  }
   searchEl.addEventListener("input", function(){ if ((state.rowsByWorkerPos[TABS[state.activeTab].workerPos] || []).length) render(); });
 
   // ---------- Comparison mode ----------
@@ -2266,6 +2339,20 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
              '<line class="grid" x1="'+PAD_L+'" y1="'+y+'" x2="'+(W-PAD_R)+'" y2="'+y+'"/>';
     }).join("");
 
+    // X-axis labels (season # for By Season, "W<n>" for By Week).
+    // Keith 2026-04-24: chart without x-labels was disorienting — you
+    // could see the line slope but not what it was plotted against.
+    // For long sequences we stride the labels so they don't collide.
+    var xLabelStride = Math.max(1, Math.ceil(points.length / 10));
+    var xTicks = points.map(function(p, i){
+      if (i % xLabelStride !== 0 && i !== points.length - 1) return "";
+      var label = mode === "season"
+        ? String(p.row.season || "")
+        : "W" + (p.row.week || "");
+      var x = sx(i).toFixed(1);
+      return '<text class="axis" x="'+x+'" y="'+(H - 4)+'" text-anchor="middle">'+ label +'</text>';
+    }).join("");
+
     // Zero line when it's inside the range
     var zeroLine = "";
     if (yMin < 0 && yMax > 0) {
@@ -2279,6 +2366,7 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
                yTicks + zeroLine +
                '<path class="line" d="'+d+'"/>' +
                dots +
+               xTicks +
              '</svg>' +
            '</div>';
   }

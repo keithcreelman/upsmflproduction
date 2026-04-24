@@ -809,7 +809,7 @@ export default {
                      SUM(COALESCE(sw.score, 0))                                      AS mfl_points,
                      SUM(CASE WHEN COALESCE(sw.score, 0) > 0 THEN 1 ELSE 0 END)      AS mfl_games_scored
                 FROM src_weekly sw
-                JOIN player_id_crosswalk c ON c.mfl_player_id = sw.player_id
+                JOIN player_id_crosswalk c ON CAST(c.mfl_player_id AS TEXT) = sw.player_id
                WHERE sw.season IN (${seasonList})
                  AND ${weekSqlPredicate.replace(/\bw\.week\b/g, "sw.week")}
                GROUP BY c.gsis_id
@@ -1205,7 +1205,11 @@ export default {
             .bind(gsisId)
             .first();
           const pfrId = pfrRow && pfrRow.pfr_id || null;
-          const mflPidLookup = pfrRow && pfrRow.mfl_player_id || null;
+          // Bind as a STRING — src_weekly.player_id is TEXT. If we bind
+          // the INTEGER from the crosswalk D1 may coerce through REAL
+          // (15794 → "15794.0") and the join silently misses every row.
+          const mflPidLookup = pfrRow && pfrRow.mfl_player_id != null
+            ? String(pfrRow.mfl_player_id) : null;
           const sql = `
             SELECT w.season, w.week, w.team, w.opponent, w.position, w.pos_group,
                    COALESCE(sw.score, 0) AS mfl_points,
@@ -1241,8 +1245,9 @@ export default {
               LEFT JOIN nfl_player_snaps s
                      ON s.season = w.season AND s.week = w.week AND s.pfr_id = ?
               -- MFL per-week fantasy points (src_weekly keyed by
-              -- mfl_player_id). COALESCE to 0 so zero-point weeks render
-              -- '0.0' instead of '—' (user saw a gap otherwise).
+              -- mfl_player_id). Keith 2026-04-24: src_weekly.player_id is
+              -- TEXT; we bind mflPidLookup as a String() from JS so
+              -- the join doesn't fail on D1's REAL→TEXT coercion.
               LEFT JOIN src_weekly sw
                      ON sw.season = w.season AND sw.week = w.week AND sw.player_id = ?
              WHERE w.gsis_id = ? AND ${seasonFilter} AND ${weekFilter}
