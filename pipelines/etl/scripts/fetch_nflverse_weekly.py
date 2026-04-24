@@ -90,7 +90,10 @@ PLAYERSTATS_MAP = {
     "def_sacks":         ["def_sacks", "sacks_total"],
     "def_sack_yds":      ["def_sack_yards", "sack_yards_defensive"],
     "def_ff":            ["def_fumbles_forced", "forced_fumbles", "fumbles_forced"],
-    "def_fr":            ["def_fumble_recoveries", "fumble_recoveries"],
+    # nflverse renamed: def_fumble_recovery_opp = defender recovered an
+    # opponent's fumble (the IDP-scoring stat). Keep legacy aliases for
+    # older payloads.
+    "def_fr":            ["def_fumble_recovery_opp", "def_fumble_recoveries", "fumble_recoveries"],
     "def_ints":          ["def_interceptions", "interceptions_defensive"],
     "def_pass_def":      ["def_pass_defended", "passes_defended"],
     "def_tds":           ["def_tds", "defensive_tds"],

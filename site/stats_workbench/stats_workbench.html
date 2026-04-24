@@ -296,6 +296,9 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
     def_sacks:           { label:"Sk",       num:true, fmt:"dec1" },
     def_pass_def:        { label:"PD",       num:true },
     def_pressures:       { label:"Press",    num:true, title:"Pass-rush pressures (PFR, 2018+)" },
+    def_press_rate:      { label:"Press%",   num:true, fmt:"pct",
+      title:"Pressures per defensive snap (PFR, 2018+)",
+      compute: function(r){ return r.def_snaps_total ? (r.def_pressures||0) / r.def_snaps_total : null; } },
     // IDP turnovers
     def_ff:              { label:"FF",       num:true },
     def_fr:              { label:"FR",       num:true, title:"Fumble recoveries" },
@@ -477,7 +480,7 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
       groups: [
         { id:"usage",           label:"Usage",     cols:["games","def_snaps_total","def_snap_rate"], defaultOn:true },
         { id:"idp_tackles",     label:"Tackles",   cols:["def_tackles_total","def_tackles_ast","def_tfl"], defaultOn:true },
-        { id:"idp_pass_rush",   label:"Pass Rush", cols:["def_sacks","def_pressures","def_pass_def"], defaultOn:true },
+        { id:"idp_pass_rush",   label:"Pass Rush", cols:["def_sacks","def_pressures","def_press_rate","def_pass_def"], defaultOn:true },
         { id:"idp_turnovers",   label:"Turnovers", cols:["def_ff","def_fr","def_ints","def_tds"], defaultOn:false },
         { id:"idp_missed",      label:"Missed Tkl (PFR)", cols:["def_missed_tackles","def_missed_tackle_pct"], defaultOn:false },
       ]
@@ -489,7 +492,7 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
       groups: [
         { id:"usage",           label:"Usage",     cols:["games","def_snaps_total","def_snap_rate"], defaultOn:true },
         { id:"idp_tackles",     label:"Tackles",   cols:["def_tackles_total","def_tackles_ast","def_tfl"], defaultOn:true },
-        { id:"idp_pass_rush",   label:"Pass Rush", cols:["def_sacks","def_pressures","def_pass_def"], defaultOn:true },
+        { id:"idp_pass_rush",   label:"Pass Rush", cols:["def_sacks","def_pressures","def_press_rate","def_pass_def"], defaultOn:true },
         { id:"idp_turnovers",   label:"Turnovers", cols:["def_ff","def_fr","def_ints","def_tds"], defaultOn:true },
         { id:"idp_coverage",    label:"Coverage (PFR)",
           cols:["def_completions_allowed","def_yards_allowed","def_passer_rating_allowed","def_adot"], defaultOn:false },
@@ -520,7 +523,7 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
       groups: [
         { id:"usage",           label:"Usage",     cols:["games","def_snaps_total","def_snap_rate"], defaultOn:true },
         { id:"idp_tackles",     label:"Tackles",   cols:["def_tackles_total","def_tackles_ast","def_tfl"], defaultOn:true },
-        { id:"idp_pass_rush",   label:"Pass Rush", cols:["def_sacks","def_pressures","def_pass_def"], defaultOn:true },
+        { id:"idp_pass_rush",   label:"Pass Rush", cols:["def_sacks","def_pressures","def_press_rate","def_pass_def"], defaultOn:true },
         { id:"idp_turnovers",   label:"Turnovers", cols:["def_ff","def_fr","def_ints","def_tds"], defaultOn:false },
         { id:"idp_coverage",    label:"Coverage (PFR)",
           cols:["def_completions_allowed","def_yards_allowed","def_passer_rating_allowed","def_adot"], defaultOn:false },
