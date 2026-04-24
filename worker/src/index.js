@@ -780,6 +780,11 @@ export default {
           // contract exists. A specific fid filters to that franchise.
           const sql = `
             WITH latest_contract AS (
+              -- MFL contract details are always pulled from the MAX season
+              -- in src_contracts (current year when synced). Historical
+              -- contract views (e.g., "what was his 2023 salary?") would
+              -- need a separate season-aware lookup — tabled for later.
+              --
               -- year_values_json is the MFL-API canonical year-by-year
               -- breakdown ({"Y1":25000,"Y2":45000,...}). Its key count is
               -- the true contract length. contract_length in the same row

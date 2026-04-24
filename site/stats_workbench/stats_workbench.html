@@ -495,7 +495,7 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
       label: "QB", workerPos: "qb", positionFilter: null,
       ident: IDENT_BASIC, defaultSort: "pass_yds",
       groups: [
-        { id:"mfl_details",    label:"MFL Details",     cols:["mfl_points","mfl_ppg","mfl_salary","mfl_years_remaining","mfl_aav"], defaultOn:true },
+        { id:"mfl_details",    label:"MFL Details",     cols:["mfl_points","mfl_ppg","mfl_salary","mfl_aav","mfl_years_remaining"], defaultOn:true },
         { id:"usage",          label:"Usage",           cols:["games","off_snaps_total","off_snap_rate"], defaultOn:true },
         { id:"pass_volume",    label:"Passing · Volume",  cols:["pass_att","pass_cmp","cmp_pct","pass_yds","pass_tds","ypa"], defaultOn:true },
         { id:"pass_turnovers", label:"Passing · Turnovers", cols:["pass_ints","int_pct","pass_sacks","pass_sack_yds"], defaultOn:false },
@@ -511,7 +511,7 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
       label: "RB", workerPos: "skill", positionFilter: ["RB","FB"],
       ident: IDENT_BASIC, defaultSort: "rush_yds",
       groups: [
-        { id:"mfl_details",    label:"MFL Details",     cols:["mfl_points","mfl_ppg","mfl_salary","mfl_years_remaining","mfl_aav"], defaultOn:true },
+        { id:"mfl_details",    label:"MFL Details",     cols:["mfl_points","mfl_ppg","mfl_salary","mfl_aav","mfl_years_remaining"], defaultOn:true },
         { id:"usage",          label:"Usage",           cols:["games","off_snaps_total","off_snap_rate"], defaultOn:true },
         { id:"rush_volume",    label:"Rushing · Volume",  cols:["rush_att","rush_yds","rush_tds","y_per_a"], defaultOn:true },
         { id:"rush_efficiency",label:"Rushing · Efficiency", cols:["ybc_per_a","yac_per_a"], defaultOn:false },
@@ -533,7 +533,7 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
       label: "WR", workerPos: "skill", positionFilter: ["WR"],
       ident: IDENT_BASIC, defaultSort: "rec_yds",
       groups: [
-        { id:"mfl_details",    label:"MFL Details",     cols:["mfl_points","mfl_ppg","mfl_salary","mfl_years_remaining","mfl_aav"], defaultOn:true },
+        { id:"mfl_details",    label:"MFL Details",     cols:["mfl_points","mfl_ppg","mfl_salary","mfl_aav","mfl_years_remaining"], defaultOn:true },
         { id:"usage",          label:"Usage",           cols:["games","off_snaps_total","off_snap_rate"], defaultOn:true },
         { id:"rec_volume",     label:"Receiving · Volume", cols:["targets","receptions","rec_yds","rec_tds","rec_per_t"], defaultOn:true },
         { id:"rec_efficiency", label:"Receiving · Efficiency", cols:["y_per_t","y_per_r"], defaultOn:false },
@@ -552,7 +552,7 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
       label: "TE", workerPos: "skill", positionFilter: ["TE"],
       ident: IDENT_BASIC, defaultSort: "rec_yds",
       groups: [
-        { id:"mfl_details",    label:"MFL Details",     cols:["mfl_points","mfl_ppg","mfl_salary","mfl_years_remaining","mfl_aav"], defaultOn:true },
+        { id:"mfl_details",    label:"MFL Details",     cols:["mfl_points","mfl_ppg","mfl_salary","mfl_aav","mfl_years_remaining"], defaultOn:true },
         { id:"usage",          label:"Usage",           cols:["games","off_snaps_total","off_snap_rate"], defaultOn:true },
         { id:"rec_volume",     label:"Receiving · Volume", cols:["targets","receptions","rec_yds","rec_tds","rec_per_t"], defaultOn:true },
         { id:"rec_efficiency", label:"Receiving · Efficiency", cols:["y_per_t","y_per_r"], defaultOn:false },
@@ -570,7 +570,7 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
       label: "Flex·O", workerPos: "skill", positionFilter: null,
       ident: IDENT_FLEX, defaultSort: "rec_yds",
       groups: [
-        { id:"mfl_details",    label:"MFL Details",     cols:["mfl_points","mfl_ppg","mfl_salary","mfl_years_remaining","mfl_aav"], defaultOn:true },
+        { id:"mfl_details",    label:"MFL Details",     cols:["mfl_points","mfl_ppg","mfl_salary","mfl_aav","mfl_years_remaining"], defaultOn:true },
         { id:"usage",          label:"Usage",           cols:["games","off_snaps_total","off_snap_rate"], defaultOn:true },
         { id:"rec_volume",     label:"Receiving · Volume", cols:["targets","receptions","rec_yds","rec_tds"], defaultOn:true },
         { id:"rush_volume",    label:"Rushing · Volume", cols:["rush_att","rush_yds","rush_tds"], defaultOn:true },
@@ -599,7 +599,7 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
       ],
       ident: IDENT_BASIC, defaultSort: "def_sacks",
       groups: [
-        { id:"mfl_details",     label:"MFL Details", cols:["mfl_points","mfl_ppg","mfl_salary","mfl_years_remaining","mfl_aav"], defaultOn:true },
+        { id:"mfl_details",     label:"MFL Details", cols:["mfl_points","mfl_ppg","mfl_salary","mfl_aav","mfl_years_remaining"], defaultOn:true },
         { id:"usage",           label:"Usage",     cols:["games","def_snaps_total","def_snap_rate"], defaultOn:true },
         { id:"idp_tackles",     label:"Tackles",   cols:["def_tackles_total","def_tackles_ast","def_tfl"], defaultOn:true },
         { id:"idp_pass_rush",   label:"Pass Rush", cols:["def_sacks","def_pressures","def_press_rate","def_pass_def"], defaultOn:false },
@@ -612,7 +612,7 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
       positionFilter: ["LB","OLB","ILB","MLB"],
       ident: IDENT_BASIC, defaultSort: "def_tackles_total",
       groups: [
-        { id:"mfl_details",     label:"MFL Details", cols:["mfl_points","mfl_ppg","mfl_salary","mfl_years_remaining","mfl_aav"], defaultOn:true },
+        { id:"mfl_details",     label:"MFL Details", cols:["mfl_points","mfl_ppg","mfl_salary","mfl_aav","mfl_years_remaining"], defaultOn:true },
         { id:"usage",           label:"Usage",     cols:["games","def_snaps_total","def_snap_rate"], defaultOn:true },
         { id:"idp_tackles",     label:"Tackles",   cols:["def_tackles_total","def_tackles_ast","def_tfl"], defaultOn:true },
         { id:"idp_pass_rush",   label:"Pass Rush", cols:["def_sacks","def_pressures","def_press_rate","def_pass_def"], defaultOn:false },
@@ -632,7 +632,7 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
       ],
       ident: IDENT_BASIC, defaultSort: "def_tackles_total",
       groups: [
-        { id:"mfl_details",     label:"MFL Details", cols:["mfl_points","mfl_ppg","mfl_salary","mfl_years_remaining","mfl_aav"], defaultOn:true },
+        { id:"mfl_details",     label:"MFL Details", cols:["mfl_points","mfl_ppg","mfl_salary","mfl_aav","mfl_years_remaining"], defaultOn:true },
         { id:"usage",           label:"Usage",     cols:["games","def_snaps_total","def_snap_rate"], defaultOn:true },
         { id:"idp_tackles",     label:"Tackles",   cols:["def_tackles_total","def_tackles_ast","def_tfl"], defaultOn:true },
         { id:"idp_turnovers",   label:"Turnovers", cols:["def_ints","def_pass_def","def_ff","def_fr","def_tds"], defaultOn:false },
@@ -645,7 +645,7 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
       label: "Flex·IDP", workerPos: "idp", positionFilter: null,
       ident: IDENT_FLEX, defaultSort: "def_tackles_total",
       groups: [
-        { id:"mfl_details",     label:"MFL Details", cols:["mfl_points","mfl_ppg","mfl_salary","mfl_years_remaining","mfl_aav"], defaultOn:true },
+        { id:"mfl_details",     label:"MFL Details", cols:["mfl_points","mfl_ppg","mfl_salary","mfl_aav","mfl_years_remaining"], defaultOn:true },
         { id:"usage",           label:"Usage",     cols:["games","def_snaps_total","def_snap_rate"], defaultOn:true },
         { id:"idp_tackles",     label:"Tackles",   cols:["def_tackles_total","def_tackles_ast","def_tfl"], defaultOn:true },
         { id:"idp_pass_rush",   label:"Pass Rush", cols:["def_sacks","def_pressures","def_press_rate","def_pass_def"], defaultOn:false },
@@ -660,7 +660,7 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
       label: "PK", workerPos: "kicker", positionFilter: null,
       ident: IDENT_BASIC, defaultSort: "fg_made",
       groups: [
-        { id:"mfl_details",  label:"MFL Details", cols:["mfl_points","mfl_ppg","mfl_salary","mfl_years_remaining","mfl_aav"], defaultOn:true },
+        { id:"mfl_details",  label:"MFL Details", cols:["mfl_points","mfl_ppg","mfl_salary","mfl_aav","mfl_years_remaining"], defaultOn:true },
         { id:"usage",        label:"Usage",    cols:["games"], defaultOn:true },
         { id:"fg_totals",    label:"FG Totals", cols:["fg_made","fg_miss","fg_pct","avg_fg_make","avg_fg_att"], defaultOn:true },
         { id:"fg_distance",  label:"FG by Distance", cols:["fg_0_39","fg_40_49","fg_50_59","fg_60plus"], defaultOn:false },
@@ -671,7 +671,7 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
       label: "PN", workerPos: "punter", positionFilter: null,
       ident: IDENT_BASIC, defaultSort: "punts",
       groups: [
-        { id:"mfl_details",     label:"MFL Details",        cols:["mfl_points","mfl_ppg","mfl_salary","mfl_years_remaining","mfl_aav"], defaultOn:true },
+        { id:"mfl_details",     label:"MFL Details",        cols:["mfl_points","mfl_ppg","mfl_salary","mfl_aav","mfl_years_remaining"], defaultOn:true },
         { id:"usage",           label:"Usage",              cols:["games"], defaultOn:true },
         { id:"punt_volume",     label:"Volume",             cols:["punts","punt_yds"], defaultOn:true },
         { id:"punt_efficiency", label:"Efficiency",         cols:["punt_avg","punt_net_avg"], defaultOn:false },
@@ -1755,6 +1755,109 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
     view:         "weekly",
   };
 
+  // When the drawer's metric dropdown picks metric X, the table below
+  // the chart narrows to [X + these related cols] instead of dumping
+  // every visible column group. Each entry is the short list of
+  // supporting metrics that give context without going crazy.
+  // Missing entry → table shows just the picked metric.
+  var METRIC_FOCUS = {
+    // Receiving
+    rec_yds:             ["targets", "receptions", "y_per_r"],
+    targets:             ["receptions", "rec_yds", "rec_per_t"],
+    receptions:          ["targets", "rec_yds"],
+    rec_tds:             ["targets", "receptions", "rec_yds"],
+    y_per_t:             ["targets", "rec_yds"],
+    y_per_r:             ["receptions", "rec_yds"],
+    rec_per_t:           ["receptions", "targets"],
+    receiving_adot:      ["targets", "receiving_air_yards", "rec_yds"],
+    receiving_air_yards: ["targets", "receiving_adot", "rec_yds"],
+    receiving_yac_per_r: ["receptions", "rec_yds"],
+    receiving_drops:     ["targets", "receiving_drop_pct"],
+    receiving_drop_pct:  ["receiving_drops", "targets"],
+    receiving_rat:       ["targets", "receptions"],
+    rec_brtkl:           ["receptions", "rec_per_br"],
+    rec_per_br:          ["rec_brtkl", "receptions"],
+    target_share:        ["targets", "rec_share"],
+    rec_share:           ["receptions", "target_share"],
+    rec_yds_share:       ["rec_yds", "target_share"],
+    // Rushing
+    rush_yds:            ["rush_att", "y_per_a", "rush_tds"],
+    rush_att:            ["rush_yds", "y_per_a"],
+    rush_tds:            ["rush_att", "rush_yds"],
+    y_per_a:             ["rush_att", "rush_yds"],
+    ybc_per_a:           ["rush_att", "yac_per_a"],
+    yac_per_a:           ["rush_att", "ybc_per_a"],
+    rush_brtkl:          ["rush_att", "att_per_br"],
+    att_per_br:          ["rush_brtkl", "rush_att"],
+    rush_share:          ["rush_att", "rush_yds_share"],
+    rush_yds_share:      ["rush_yds", "rush_share"],
+    rz_target_share:     ["targets_i20", "targets"],
+    rz_rec_share:        ["rec_i20", "receptions"],
+    ez_target_share:     ["targets_ez", "targets"],
+    rz_rush_share:       ["rush_att_i20", "rush_att"],
+    gl_rush_share:       ["rush_att_i5", "rush_att"],
+    rush_att_i20:        ["rush_att", "rush_att_i5"],
+    rush_att_i5:         ["rush_att", "rush_att_i20"],
+    targets_i20:         ["targets", "rec_i20"],
+    targets_ez:          ["targets", "targets_i20"],
+    rec_i20:             ["targets_i20", "receptions"],
+    // Passing
+    pass_yds:            ["pass_att", "pass_cmp", "cmp_pct"],
+    pass_att:            ["pass_cmp", "cmp_pct"],
+    pass_cmp:            ["pass_att", "cmp_pct"],
+    cmp_pct:             ["pass_att", "pass_cmp"],
+    pass_tds:            ["pass_att", "pass_yds"],
+    ypa:                 ["pass_att", "pass_yds"],
+    pass_ints:           ["pass_att", "int_pct"],
+    int_pct:             ["pass_att", "pass_ints"],
+    pass_sacks:          ["pass_sack_yds", "pass_att"],
+    pass_sack_yds:       ["pass_sacks"],
+    passing_adot:        ["pass_att", "passing_air_yards"],
+    passing_air_yards:   ["pass_att", "passing_adot"],
+    passing_yards_after_catch: ["pass_cmp", "pass_yds"],
+    passing_bad_throw_pct: ["pass_att"],
+    passing_pressure_pct: ["passing_times_pressured", "pass_att"],
+    passing_times_pressured: ["passing_pressure_pct", "pass_att"],
+    pass_att_i20:        ["pass_att", "pass_att_ez"],
+    pass_att_ez:         ["pass_att", "pass_att_i20"],
+    // IDP
+    def_tackles_total:   ["def_tackles_ast", "def_tfl"],
+    def_tackles_ast:     ["def_tackles_total"],
+    def_tfl:             ["def_tackles_total"],
+    def_sacks:           ["def_pressures", "def_press_rate"],
+    def_pressures:       ["def_sacks", "def_press_rate"],
+    def_press_rate:      ["def_pressures", "def_sacks"],
+    def_pass_def:        ["def_ints"],
+    def_ff:              ["def_fr"],
+    def_fr:              ["def_ff"],
+    def_ints:            ["def_pass_def"],
+    def_tds:             ["def_ints", "def_fr"],
+    def_missed_tackles:  ["def_missed_tackle_pct", "def_tackles_total"],
+    def_missed_tackle_pct: ["def_missed_tackles", "def_tackles_total"],
+    def_adot:            ["def_yards_allowed", "def_passer_rating_allowed"],
+    def_passer_rating_allowed: ["def_yards_allowed", "def_adot"],
+    def_yards_allowed:   ["def_passer_rating_allowed"],
+    // Kicker
+    fg_made:             ["fg_att", "fg_pct", "avg_fg_make"],
+    fg_att:              ["fg_made", "fg_pct"],
+    fg_miss:             ["fg_att", "fg_pct"],
+    fg_pct:              ["fg_made", "fg_att"],
+    avg_fg_make:         ["avg_fg_att", "fg_made"],
+    avg_fg_att:          ["avg_fg_make", "fg_att"],
+    xp_made:             ["xp_att", "xp_pct"],
+    xp_pct:              ["xp_made", "xp_att"],
+    // Punter
+    punts:               ["punt_yds", "punt_avg"],
+    punt_yds:            ["punts", "punt_avg"],
+    punt_avg:            ["punts", "punt_yds"],
+    punt_net_avg:        ["punt_avg", "punts"],
+    punt_inside20:       ["punts", "punt_i20_pct"],
+    punt_i20_pct:        ["punt_inside20", "punts"],
+    punt_tb:             ["punts", "punt_tb_pct"],
+    punt_tb_pct:         ["punt_tb", "punts"],
+    punt_avg_spot:       ["punts", "punt_yds"],
+  };
+
   // Key metrics to chart per tab — picked to match the pos's most load-
   // bearing volume + efficiency stats. Client falls back to the current
   // sort key if the tab config is missing here.
@@ -1814,9 +1917,11 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
     // season-aggregates, not per-week values — surfacing them once in
     // the header avoids spamming identical values on every week row.
     var metaParts = [(pos ? pos : ""), nfl, mfl].filter(Boolean);
+    // Keep Salary adjacent to AAV (Keith 2026-04-24: "salary NEXT to AAV
+    // rather than sticking yrs remain in between").
     if (playerRow.mfl_salary != null) metaParts.push("Salary " + fmtCell(playerRow.mfl_salary, "money"));
-    if (playerRow.mfl_years_remaining != null) metaParts.push(playerRow.mfl_years_remaining + " yr" + (playerRow.mfl_years_remaining === 1 ? "" : "s") + " left");
     if (playerRow.mfl_aav != null) metaParts.push("AAV " + fmtCell(playerRow.mfl_aav, "money"));
+    if (playerRow.mfl_years_remaining != null) metaParts.push(playerRow.mfl_years_remaining + " yr" + (playerRow.mfl_years_remaining === 1 ? "" : "s") + " left");
     if (playerRow.mfl_points != null) metaParts.push(fmtCell(playerRow.mfl_points, "dec1") + " MFL pts");
     if (playerRow.mfl_ppg != null) metaParts.push(fmtCell(playerRow.mfl_ppg, "dec1") + " PPG");
     drawerSub.textContent = metaParts.join(" · ");
@@ -2062,32 +2167,40 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
         buildMiniChart(chartMetric, (COLS[chartMetric] && COLS[chartMetric].label) || chartMetric, rows, mode) +
       '</div>';
 
-    // Table — reuse the same column blocks the main leaderboard is
-    // showing so the two views stay consistent. Identity block swapped
-    // for a timeline column (Season · Wk, or just Season). Drop the
-    // MFL Details group — those values are season-aggregates surfaced
-    // in the drawer header, not useful repeated on every week row.
-    var blocks = buildBlocks().filter(function(b){ return b.groupId !== "mfl_details"; });
-    // Sticky-left: Season, Wk (or G for season mode), MFL Pts per row.
-    // Each period's points are pulled from the src_weekly join server-side
-    // (weekly mode) or SUMmed in aggregateBySeason (season mode).
-    var keyColCount = 3;
-    var groupHeader = '<th class="week-col" colspan="'+keyColCount+'"></th>' +
-      blocks.slice(1).map(function(b){
-        var span = b.colKeys.length;
-        return '<th class="group-sep" colspan="'+span+'">' + (b.groupLabel || "") + '</th>';
-      }).join("");
+    // Metric-focused table (Keith 2026-04-24): instead of dumping every
+    // visible column group, show a narrow strip centered on the chart
+    // metric. Structure:
+    //   [Season, Wk|G, MFL Pts, Snaps, Snap%] + [chartMetric, ...supports]
+    // Identical columns in Weekly and Season modes so eye-to-eye
+    // comparison works when toggling views.
+    var usageGroup = (tab.groups || []).find(function(g){ return g.id === "usage"; });
+    var usageSuffix = usageGroup
+      ? usageGroup.cols.filter(function(c){ return c !== "games" && COLS[c]; })
+      : [];
+    var supports = METRIC_FOCUS[chartMetric] || [];
+    var tableCols = [chartMetric].concat(supports);
+    // Dedupe + drop any keys not in COLS (stale refs)
+    var seen = {};
+    tableCols = tableCols.filter(function(k){
+      if (!k || seen[k] || !COLS[k]) return false;
+      seen[k] = true;
+      return true;
+    });
+
+    // Single-row header — Season | Wk(or G) | MFL Pts | Snaps | Snap% | [metric] | [supports]
     var colHeader = isSeason
       ? '<th class="week-col">Season</th><th class="week-col num">G</th><th class="week-col num">MFL Pts</th>'
       : '<th class="week-col">Season</th><th class="week-col">Wk</th><th class="week-col num">MFL Pts</th>';
-    colHeader += blocks.slice(1).map(function(b){
-      return b.colKeys.map(function(k, ci){
-        var d = COLS[k] || { label: k };
-        var cls = [];
-        if (d.num) cls.push("num");
-        if (ci === 0) cls.push("group-sep");
-        return '<th class="'+cls.join(" ")+'">'+d.label+'</th>';
-      }).join("");
+    colHeader += usageSuffix.map(function(k){
+      var d = COLS[k] || { label: k };
+      return '<th class="num">' + escapeHtml(d.label) + '</th>';
+    }).join("");
+    colHeader += tableCols.map(function(k, i){
+      var d = COLS[k] || { label: k };
+      var cls = d.num ? "num" : "";
+      // Accent the picked chart metric so the eye knows which col drives the chart
+      var accent = i === 0 ? ' style="color:var(--accent)"' : "";
+      return '<th class="'+cls+'"'+accent+' title="'+escapeHtml(d.title || "")+'">'+ escapeHtml(d.label) +'</th>';
     }).join("");
 
     var body = rows.map(function(r){
@@ -2099,16 +2212,17 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
           '<td class="week-col">'+(r.week||"")+'</td>' +
           '<td class="week-col num">'+ fmtCell(r.mfl_points, "dec1") +'</td>';
       var cells = leftCells;
-      blocks.slice(1).forEach(function(b){
-        b.colKeys.forEach(function(k, ci){
-          var d = COLS[k] || {};
-          var v = getVal(r, k);
-          var cls = [];
-          if (d.num) cls.push("num");
-          if (d.cls) cls.push(d.cls);
-          if (ci === 0) cls.push("group-sep");
-          cells += '<td class="'+cls.join(" ")+'">'+fmtCell(v, d.fmt)+'</td>';
-        });
+      usageSuffix.forEach(function(k){
+        var d = COLS[k] || {};
+        var v = getVal(r, k);
+        cells += '<td class="num">'+ fmtCell(v, d.fmt) +'</td>';
+      });
+      tableCols.forEach(function(k, i){
+        var d = COLS[k] || {};
+        var v = getVal(r, k);
+        var cls = d.num ? "num" : "";
+        var accent = i === 0 ? ' style="color:var(--accent);font-weight:600"' : "";
+        cells += '<td class="'+cls+'"'+accent+'>'+ fmtCell(v, d.fmt) +'</td>';
       });
       return '<tr>'+cells+'</tr>';
     }).join("");
