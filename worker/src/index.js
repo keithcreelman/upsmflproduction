@@ -924,20 +924,35 @@ export default {
                  AND ${weekSqlPredicate.replace(/\bw\.week\b/g, "s.week")}
                GROUP BY c.gsis_id
             ),
-            -- Team-level totals for market-share % (grouped by team, all
-            -- positions, same season/week filter as agg so player-over-team
-            -- is an apples-to-apples ratio). Position-agnostic — a WR's
-            -- target share is measured against ALL team targets.
+            -- Per-game-active market share (Keith 2026-04-24): prior
+            -- version summed team stats across the whole season. If a
+            -- player missed 4 games the team still racked up targets
+            -- those weeks, dragging the player's share % down unfairly.
+            -- Fix: sum team weekly stats ONLY in weeks the player had
+            -- a row in nfl_player_weekly (i.e., weeks they were active).
+            --
+            -- Two-step: (1) team_week_totals aggregates per (season,
+            -- week, team); (2) team_agg joins those to each player's
+            -- own weekly rows so the denominator lines up with the
+            -- numerator's game set. Keyed by gsis_id now.
             team_agg AS (
-              SELECT w.team,
-                     SUM(COALESCE(w.targets,0))     AS team_targets,
-                     SUM(COALESCE(w.receptions,0)) AS team_rec,
-                     SUM(COALESCE(w.rec_yds,0))    AS team_rec_yds,
-                     SUM(COALESCE(w.rush_att,0))   AS team_rush_att,
-                     SUM(COALESCE(w.rush_yds,0))   AS team_rush_yds
-                FROM nfl_player_weekly w
-               WHERE w.season IN (${seasonList}) AND ${weekFilter}
-               GROUP BY w.team
+              SELECT pw.gsis_id,
+                     SUM(twt.team_targets_wk)   AS team_targets,
+                     SUM(twt.team_rec_wk)       AS team_rec,
+                     SUM(twt.team_rush_att_wk)  AS team_rush_att
+                FROM nfl_player_weekly pw
+                JOIN (
+                  SELECT season, week, team,
+                         SUM(COALESCE(targets,0))    AS team_targets_wk,
+                         SUM(COALESCE(receptions,0)) AS team_rec_wk,
+                         SUM(COALESCE(rush_att,0))   AS team_rush_att_wk
+                    FROM nfl_player_weekly
+                   WHERE season IN (${seasonList}) AND ${weekFilter.replace(/w\.week/g, "week")}
+                   GROUP BY season, week, team
+                ) twt ON twt.season = pw.season AND twt.week = pw.week AND twt.team = pw.team
+               WHERE pw.season IN (${seasonList}) AND ${weekFilter.replace(/\bw\./g, "pw.")}
+                 AND pw.pos_group IN (${posList})
+               GROUP BY pw.gsis_id
             ),
             -- Team-level situational rates (migration 0016). 4th-down
             -- go-for-it rate + stall-punt frequency per team across the
@@ -954,23 +969,48 @@ export default {
                  AND ${weekSqlPredicate.replace(/\bw\.week\b/g, "tw.week")}
                GROUP BY tw.team
             ),
+            -- Whole-team RZ totals (used for team context cols
+            -- team_rz_plays + team_rz_pass_rate). Team-wide regardless
+            -- of which player we're looking at.
             team_rz_agg AS (
               SELECT w.team,
-                     SUM(COALESCE(rz.targets_i20,0))   AS team_targets_i20,
-                     SUM(COALESCE(rz.rec_i20,0))       AS team_rec_i20,
-                     SUM(COALESCE(rz.targets_ez,0))    AS team_targets_ez,
-                     SUM(COALESCE(rz.rush_att_i20,0))  AS team_rush_att_i20,
-                     SUM(COALESCE(rz.rush_att_i5,0))   AS team_rush_att_i5,
-                     -- Team RZ pass attempts — feeds team_rz_plays +
-                     -- team_rz_pass_rate below so QB context shows how
-                     -- often their team goes to the air in the RZ.
-                     SUM(COALESCE(rz.pass_att_i20,0))  AS team_pass_att_i20
+                     SUM(COALESCE(rz.pass_att_i20,0))  AS team_pass_att_i20,
+                     SUM(COALESCE(rz.rush_att_i20,0))  AS team_rush_att_i20_all
                 FROM nfl_player_redzone rz
                 JOIN nfl_player_weekly w
                        ON w.season = rz.season AND w.week = rz.week AND w.gsis_id = rz.gsis_id
                WHERE rz.season IN (${seasonList})
                  AND ${rzWeekSqlPredicate}
                GROUP BY w.team
+            ),
+            -- Player-active RZ share denominators: team RZ stats only
+            -- in weeks this player also played. Same per-game-active
+            -- logic as team_agg above. Keyed by gsis_id.
+            team_rz_player_active AS (
+              SELECT pw.gsis_id,
+                     SUM(trzw.team_targets_i20_wk)   AS team_targets_i20,
+                     SUM(trzw.team_rec_i20_wk)       AS team_rec_i20,
+                     SUM(trzw.team_targets_ez_wk)    AS team_targets_ez,
+                     SUM(trzw.team_rush_att_i20_wk)  AS team_rush_att_i20,
+                     SUM(trzw.team_rush_att_i5_wk)   AS team_rush_att_i5
+                FROM nfl_player_weekly pw
+                JOIN (
+                  SELECT w.season, w.week, w.team,
+                         SUM(COALESCE(rz.targets_i20,0))  AS team_targets_i20_wk,
+                         SUM(COALESCE(rz.rec_i20,0))      AS team_rec_i20_wk,
+                         SUM(COALESCE(rz.targets_ez,0))   AS team_targets_ez_wk,
+                         SUM(COALESCE(rz.rush_att_i20,0)) AS team_rush_att_i20_wk,
+                         SUM(COALESCE(rz.rush_att_i5,0))  AS team_rush_att_i5_wk
+                    FROM nfl_player_redzone rz
+                    JOIN nfl_player_weekly w
+                           ON w.season = rz.season AND w.week = rz.week AND w.gsis_id = rz.gsis_id
+                   WHERE rz.season IN (${seasonList})
+                     AND ${rzWeekSqlPredicate}
+                   GROUP BY w.season, w.week, w.team
+                ) trzw ON trzw.season = pw.season AND trzw.week = pw.week AND trzw.team = pw.team
+               WHERE pw.season IN (${seasonList}) AND ${weekFilter.replace(/\bw\./g, "pw.")}
+                 AND pw.pos_group IN (${posList})
+               GROUP BY pw.gsis_id
             ),
             -- PFR season-level adv stats: ADOT, YAC/R, YBC/R, IAY, etc.
             -- Trimmed to only columns the workbench template consumes —
@@ -1045,18 +1085,22 @@ export default {
                    -- Market share (Keith 2026-04-24) — ratios against
                    -- team-level totals across the same season/week window.
                    -- Values are 0..1 decimals; client formats as pct.
-                   CAST(a.targets AS REAL)      / NULLIF(ta.team_targets, 0)      AS target_share,
-                   CAST(a.receptions AS REAL)   / NULLIF(ta.team_rec, 0)          AS rec_share,
-                   CAST(a.rush_att AS REAL)     / NULLIF(ta.team_rush_att, 0)     AS rush_share,
-                   CAST(a.targets_i20 AS REAL)  / NULLIF(tr.team_targets_i20, 0)  AS rz_target_share,
-                   CAST(a.rec_i20 AS REAL)      / NULLIF(tr.team_rec_i20, 0)      AS rz_rec_share,
-                   CAST(a.targets_ez AS REAL)   / NULLIF(tr.team_targets_ez, 0)   AS ez_target_share,
-                   CAST(a.rush_att_i20 AS REAL) / NULLIF(tr.team_rush_att_i20, 0) AS rz_rush_share,
-                   CAST(a.rush_att_i5 AS REAL)  / NULLIF(tr.team_rush_att_i5, 0)  AS gl_rush_share,
-                   -- Team RZ context (Keith 2026-04-24): for QB volume context.
-                   (COALESCE(tr.team_pass_att_i20,0) + COALESCE(tr.team_rush_att_i20,0)) AS team_rz_plays,
+                   -- Market share — denominators come from player-active
+                   -- weeks only (see team_agg / team_rz_player_active
+                   -- CTEs). Missing games don't drag the share down.
+                   CAST(a.targets AS REAL)      / NULLIF(ta.team_targets, 0)         AS target_share,
+                   CAST(a.receptions AS REAL)   / NULLIF(ta.team_rec, 0)             AS rec_share,
+                   CAST(a.rush_att AS REAL)     / NULLIF(ta.team_rush_att, 0)        AS rush_share,
+                   CAST(a.targets_i20 AS REAL)  / NULLIF(trpa.team_targets_i20, 0)   AS rz_target_share,
+                   CAST(a.rec_i20 AS REAL)      / NULLIF(trpa.team_rec_i20, 0)       AS rz_rec_share,
+                   CAST(a.targets_ez AS REAL)   / NULLIF(trpa.team_targets_ez, 0)    AS ez_target_share,
+                   CAST(a.rush_att_i20 AS REAL) / NULLIF(trpa.team_rush_att_i20, 0)  AS rz_rush_share,
+                   CAST(a.rush_att_i5 AS REAL)  / NULLIF(trpa.team_rush_att_i5, 0)   AS gl_rush_share,
+                   -- Team RZ context — whole-team totals for QB volume
+                   -- context, not player-active-scoped.
+                   (COALESCE(tr.team_pass_att_i20,0) + COALESCE(tr.team_rush_att_i20_all,0)) AS team_rz_plays,
                    CAST(tr.team_pass_att_i20 AS REAL) /
-                     NULLIF(COALESCE(tr.team_pass_att_i20,0) + COALESCE(tr.team_rush_att_i20,0), 0) AS team_rz_pass_rate,
+                     NULLIF(COALESCE(tr.team_pass_att_i20,0) + COALESCE(tr.team_rush_att_i20_all,0), 0) AS team_rz_pass_rate,
                    -- Team situational rates (migration 0016)
                    CAST(a.punt_spot_sum AS REAL) / NULLIF(a.punt_spot_count, 0)          AS punt_avg_spot,
                    CAST(tsa.team_fourth_down_go AS REAL) / NULLIF(tsa.team_fourth_down_total, 0) AS team_fourth_down_go_rate,
@@ -1067,8 +1111,9 @@ export default {
               LEFT JOIN player_id_crosswalk c ON c.gsis_id = a.gsis_id
               LEFT JOIN snap_agg sa           ON sa.gsis_id = a.gsis_id
               LEFT JOIN season_adv_agg sv     ON sv.gsis_id = a.gsis_id
-              LEFT JOIN team_agg ta           ON ta.team = a.team
+              LEFT JOIN team_agg ta           ON ta.gsis_id = a.gsis_id
               LEFT JOIN team_rz_agg tr        ON tr.team = a.team
+              LEFT JOIN team_rz_player_active trpa ON trpa.gsis_id = a.gsis_id
               LEFT JOIN team_situational_agg tsa ON tsa.team = a.team
               LEFT JOIN mfl_scoring_agg msa   ON msa.gsis_id = a.gsis_id
               LEFT JOIN latest_contract lc    ON lc.player_id = c.mfl_player_id
