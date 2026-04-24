@@ -1549,6 +1549,7 @@
         <a class="ccc-pill" href="//%HOST%/%YEAR%/ajax_ls?L=%LEAGUEID%"><i class="fa-solid fa-gauge-high"></i>Scoreboard</a>
         <a class="ccc-pill" data-owner-action="trades" href="//%HOST%/%YEAR%/home/%LEAGUEID%?MODULE=MESSAGE6=N"><i class="fa-solid fa-handshake"></i>Trades</a>
         <a class="ccc-pill" data-owner-action="draft-hub" href="//%HOST%/%YEAR%/home/%LEAGUEID%?MODULE=MESSAGE12"><i class="fa-solid fa-football"></i>Rookie Draft Hub</a>
+        <a class="ccc-pill" data-owner-action="stats-workbench" href="//%HOST%/%YEAR%/home/%LEAGUEID%?MODULE=MESSAGE13"><i class="fa-solid fa-chart-line"></i>Player Stats</a>
       </div>
     </div>
   </div>
@@ -3104,6 +3105,96 @@
       document.addEventListener("DOMContentLoaded", loadDraftHubLoader);
     } else {
       loadDraftHubLoader();
+    }
+  })();
+
+  // Stats Workbench embed helper for MESSAGE13.
+  (function () {
+    var STATS_HEADER_BUILD = "2026.04.24.1";
+    if (window.__ups_stats_workbench_header_autoload === STATS_HEADER_BUILD) return;
+    window.__ups_stats_workbench_header_autoload = STATS_HEADER_BUILD;
+
+    function safeStr(v) {
+      return String(v || "").trim();
+    }
+
+    function safeUpper(v) {
+      return safeStr(v).toUpperCase();
+    }
+
+    function getModuleName() {
+      try {
+        var u = new URL(window.location.href);
+        return safeUpper(u.searchParams.get("MODULE") || "");
+      } catch (e) {
+        return "";
+      }
+    }
+
+    function ensureMountNearTop() {
+      var mount = document.getElementById("upsStatsWorkbenchMount");
+      if (mount) return mount;
+      mount = document.createElement("div");
+      mount.id = "upsStatsWorkbenchMount";
+      var anchor =
+        document.querySelector(".ups-hotlinks-shell") ||
+        document.getElementById("container-wrap") ||
+        document.body;
+      if (anchor && anchor.parentNode) {
+        anchor.parentNode.insertBefore(mount, anchor.nextSibling);
+      } else {
+        document.body.appendChild(mount);
+      }
+      return mount;
+    }
+
+    function clearLegacyStatsEmbeds() {
+      var scripts = document.querySelectorAll('script[src*="/site/stats_workbench/mfl_hpm_embed_loader.js"]');
+      for (var i = 0; i < scripts.length; i += 1) {
+        var n = scripts[i];
+        if (n && n.parentNode) n.parentNode.removeChild(n);
+      }
+      var mount = document.getElementById("upsStatsWorkbenchMount");
+      if (mount) mount.innerHTML = "";
+    }
+
+    function loadStatsWorkbenchLoader() {
+      ensureMountNearTop();
+      clearLegacyStatsEmbeds();
+
+      var releaseRef = safeStr(window.UPS_RELEASE_SHA || "main") || "main";
+      var cacheKey = encodeURIComponent(String(Date.now()));
+      var candidates = [
+        "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@" +
+          releaseRef +
+          "/site/stats_workbench/mfl_hpm_embed_loader.js?v=" +
+          cacheKey,
+        "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/stats_workbench/mfl_hpm_embed_loader.js?v=" +
+          cacheKey
+      ];
+
+      function tryLoader(idx) {
+        if (idx >= candidates.length) return;
+        var s = document.createElement("script");
+        s.setAttribute("data-ups-stats-workbench-loader", "1");
+        s.setAttribute("data-target-id", "upsStatsWorkbenchMount");
+        s.src = candidates[idx];
+        s.async = true;
+        s.onerror = function () {
+          tryLoader(idx + 1);
+        };
+        document.body.appendChild(s);
+      }
+
+      tryLoader(0);
+    }
+
+    if (getModuleName() !== "MESSAGE13") return;
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", loadStatsWorkbenchLoader);
+    } else {
+      loadStatsWorkbenchLoader();
     }
   })();
 </script>
