@@ -1,16 +1,18 @@
 #!/usr/bin/env python3
-"""Parse nflverse PBP into per-player yardline-banded counts.
+"""Parse nflverse PBP into per-player aggregates across 3 domains:
 
-Lands in nfl_player_redzone — populates the Raw Stats view columns
-Keith called out 2026-04-22: Goal Line Carries (inside 5), RZ Carries
-(inside 20), Red Zone Targets, End Zone Targets.
+  1) Yardline-banded rush/target/pass counts (Red-Zone bands) →
+     nfl_player_redzone
+  2) FG attempts + makes bucketed by kick distance (0-39 / 40-49 /
+     50-59 / 60+) and PBP-derived sum-of-distance → nfl_player_weekly
+     (fg_att_0_39 ... fg_att_60plus, fg_distance_sum_made, fg_made_pbp)
+  3) Punter volume / distance / inside-20 / touchbacks → nfl_player_weekly
+     (punts, punt_yds, punt_long, punt_inside20, punt_tb). The nflverse
+     weekly `load_player_stats` payload has zero punter coverage, so PBP
+     is our only source for those.
 
-PBP data is heavy: ~45k plays per season × 15 seasons ≈ 700k plays.
-Filter aggressively at the query level — we only care about:
-  - rushing plays (play_type = 'run')
-  - passing plays (play_type = 'pass')
-and we only need the columns needed to bucket by yardline and
-attribute to a player.
+PBP is heavy: ~45k plays per season × 15 seasons ≈ 700k plays. We scan
+each play once and dispatch into whichever aggregator(s) apply.
 
 Dependencies:
   pip install nflreadpy pandas
@@ -18,14 +20,22 @@ Dependencies:
 Usage:
   python3 pipelines/etl/scripts/fetch_nflverse_pbp.py --seasons 2011-2025
   python3 pipelines/etl/scripts/fetch_nflverse_pbp.py --seasons 2024,2025
+  # Domain flags (all default on):
+  #   --skip-redzone   skip red-zone band aggregator
+  #   --skip-fg        skip FG distance buckets
+  #   --skip-punts     skip punter volume/distance
+
+Override DB path with $MFL_DB_PATH.
 """
 from __future__ import annotations
 import argparse
+import os
 import sqlite3
 import sys
 from pathlib import Path
 
-LOCAL_DB = Path("/Users/keithcreelman/Desktop/MFL_Scripts/Datastorage/mfl_database.db")
+_DEFAULT_DB = Path("/Users/keithcreelman/Desktop/MFL_Scripts/Datastorage/mfl_database.db")
+LOCAL_DB = Path(os.environ.get("MFL_DB_PATH") or _DEFAULT_DB)
 
 
 def parse_seasons(spec: str) -> list[int]:
@@ -60,11 +70,14 @@ def ensure_table(db: sqlite3.Connection) -> None:
     db.commit()
 
 
-def process_season(db: sqlite3.Connection, season: int) -> int:
+def process_season(db: sqlite3.Connection, season: int,
+                   do_redzone: bool = True,
+                   do_fg: bool = True,
+                   do_punts: bool = True) -> dict:
     try:
         import nflreadpy as nfl
-    except ImportError:
-        sys.exit("FATAL: nflreadpy not installed. Run: pip install nflreadpy pandas")
+    except Exception as e:
+        sys.exit(f"FATAL: could not import nflreadpy: {type(e).__name__}: {e}")
 
     print(f"  loading PBP for {season}...", file=sys.stderr)
     df = nfl.load_pbp(seasons=[season])
@@ -75,29 +88,122 @@ def process_season(db: sqlite3.Connection, season: int) -> int:
     # Filter to reg + post (skip preseason)
     if "season_type" in df.columns:
         df = df[df["season_type"].isin(["REG", "POST"])]
-    # Only run/pass
-    df = df[df["play_type"].isin(["run", "pass"])]
 
-    # yardline_100 = distance from opponent's end zone (0..99); <=20 is red zone.
-    # air_yards = how far past LoS the ball traveled (nullable).
-    # rusher_player_id / receiver_player_id / passer_player_id are gsis IDs.
-    agg = {}
-    def bucket(gsis, week):
+    # We want: run/pass (redzone), field_goal (FG buckets), punt (punter totals).
+    # Keep all three — filter the dataframe accordingly before the single-pass
+    # loop so we don't scan irrelevant plays.
+    want_types = []
+    if do_redzone: want_types.extend(["run", "pass"])
+    if do_fg:      want_types.append("field_goal")
+    if do_punts:   want_types.append("punt")
+    if not want_types:
+        print("  (no domains enabled — skipping season)", file=sys.stderr)
+        return {"redzone": 0, "fg": 0, "punt": 0}
+    df = df[df["play_type"].isin(want_types)]
+
+    # ---- Aggregators (each domain has its own dict keyed by (season,week,gsis)) ----
+    rz_agg = {}   # redzone
+    fg_agg = {}   # kicker FG
+    pt_agg = {}   # punter
+
+    def rz_bucket(gsis, week):
         if not gsis:
             return None
         key = (season, int(week), str(gsis))
-        if key not in agg:
-            agg[key] = {
+        if key not in rz_agg:
+            rz_agg[key] = {
                 "rush_att_i20": 0, "rush_att_i10": 0, "rush_att_i5": 0,
                 "rush_yds_i20": 0, "rush_tds_i20": 0,
                 "targets_i20": 0, "targets_i10": 0, "targets_i5": 0,
                 "targets_ez": 0, "rec_i20": 0, "rec_tds_i20": 0,
                 "pass_att_i20": 0, "pass_tds_i20": 0, "pass_att_ez": 0,
             }
-        return agg[key]
+        return rz_agg[key]
+
+    def fg_bucket(gsis, week):
+        if not gsis:
+            return None
+        key = (season, int(week), str(gsis))
+        if key not in fg_agg:
+            fg_agg[key] = {
+                "fg_att_0_39": 0, "fg_made_0_39": 0,
+                "fg_att_40_49": 0, "fg_made_40_49": 0,
+                "fg_att_50_59": 0, "fg_made_50_59": 0,
+                "fg_att_60plus": 0, "fg_made_60plus": 0,
+                "fg_distance_sum_made": 0, "fg_made_pbp": 0,
+            }
+        return fg_agg[key]
+
+    def pt_bucket(gsis, week):
+        if not gsis:
+            return None
+        key = (season, int(week), str(gsis))
+        if key not in pt_agg:
+            pt_agg[key] = {
+                "punts": 0, "punt_yds": 0, "punt_long": 0,
+                "punt_inside20": 0, "punt_tb": 0,
+            }
+        return pt_agg[key]
 
     for row in df.to_dict(orient="records"):
         week = row.get("week") or 0
+        ptype = row.get("play_type")
+
+        # ---- FG play: distance-bucket + PBP avg ----
+        if ptype == "field_goal" and do_fg:
+            kicker = row.get("kicker_player_id") or row.get("kicker_id")
+            if kicker:
+                dist = row.get("kick_distance")
+                try:
+                    dist = int(dist) if dist is not None else None
+                except (ValueError, TypeError):
+                    dist = None
+                if dist is not None:
+                    b = fg_bucket(kicker, week)
+                    result = (row.get("field_goal_result") or "").lower()
+                    is_made = result == "made"
+                    if dist < 40:
+                        b["fg_att_0_39"]  += 1
+                        if is_made: b["fg_made_0_39"]  += 1
+                    elif dist < 50:
+                        b["fg_att_40_49"] += 1
+                        if is_made: b["fg_made_40_49"] += 1
+                    elif dist < 60:
+                        b["fg_att_50_59"] += 1
+                        if is_made: b["fg_made_50_59"] += 1
+                    else:
+                        b["fg_att_60plus"] += 1
+                        if is_made: b["fg_made_60plus"] += 1
+                    if is_made:
+                        b["fg_distance_sum_made"] += dist
+                        b["fg_made_pbp"] += 1
+            continue  # FG plays don't also fall into redzone bucketing
+
+        # ---- Punt play: punter volume/distance/inside20/touchbacks ----
+        if ptype == "punt" and do_punts:
+            punter = row.get("punter_player_id") or row.get("punter_id")
+            if punter:
+                dist = row.get("kick_distance")
+                try:
+                    dist = int(dist) if dist is not None else None
+                except (ValueError, TypeError):
+                    dist = None
+                b = pt_bucket(punter, week)
+                b["punts"] += 1
+                if dist is not None:
+                    b["punt_yds"] += dist
+                    if dist > b["punt_long"]:
+                        b["punt_long"] = dist
+                # touchback and inside_twenty — both nullable 0/1
+                if row.get("touchback") in (1, True, "1"):
+                    b["punt_tb"] += 1
+                if row.get("punt_inside_twenty") in (1, True, "1"):
+                    b["punt_inside20"] += 1
+            continue  # punt plays don't also fall into redzone bucketing
+
+        # ---- Redzone aggregation (only run/pass) ----
+        if not do_redzone:
+            continue
         yl = row.get("yardline_100")
         if yl is None:
             continue
@@ -105,8 +211,8 @@ def process_season(db: sqlite3.Connection, season: int) -> int:
             yl = int(yl)
         except (ValueError, TypeError):
             continue
-
-        ptype = row.get("play_type")
+        # Restore original run/pass redzone logic from here:
+        bucket = rz_bucket
         if ptype == "run":
             rusher = row.get("rusher_player_id") or row.get("rusher_id")
             if not rusher:
@@ -161,64 +267,152 @@ def process_season(db: sqlite3.Connection, season: int) -> int:
                     if yl <= 5:  br["targets_i5"]  += 1
                     if is_ez:    br["targets_ez"]  += 1
 
-    if not agg:
-        print(f"  (no rows for {season})", file=sys.stderr)
-        return 0
+    counts = {"redzone": 0, "fg": 0, "punt": 0}
 
-    rows = []
-    for (s, wk, gid), v in agg.items():
-        rows.append((s, wk, gid, v["rush_att_i20"], v["rush_att_i10"], v["rush_att_i5"],
-                     v["rush_yds_i20"], v["rush_tds_i20"],
-                     v["targets_i20"], v["targets_i10"], v["targets_i5"],
-                     v["targets_ez"], v["rec_i20"], v["rec_tds_i20"],
-                     v["pass_att_i20"], v["pass_tds_i20"], v["pass_att_ez"]))
+    # ---- Redzone upsert ----
+    if do_redzone and rz_agg:
+        rz_rows = []
+        for (s, wk, gid), v in rz_agg.items():
+            rz_rows.append((s, wk, gid, v["rush_att_i20"], v["rush_att_i10"], v["rush_att_i5"],
+                            v["rush_yds_i20"], v["rush_tds_i20"],
+                            v["targets_i20"], v["targets_i10"], v["targets_i5"],
+                            v["targets_ez"], v["rec_i20"], v["rec_tds_i20"],
+                            v["pass_att_i20"], v["pass_tds_i20"], v["pass_att_ez"]))
+        db.executemany("""
+            INSERT INTO nfl_player_redzone
+                (season, week, gsis_id, rush_att_i20, rush_att_i10, rush_att_i5,
+                 rush_yds_i20, rush_tds_i20,
+                 targets_i20, targets_i10, targets_i5,
+                 targets_ez, rec_i20, rec_tds_i20,
+                 pass_att_i20, pass_tds_i20, pass_att_ez)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            ON CONFLICT(season, week, gsis_id) DO UPDATE SET
+              rush_att_i20 = excluded.rush_att_i20,
+              rush_att_i10 = excluded.rush_att_i10,
+              rush_att_i5  = excluded.rush_att_i5,
+              rush_yds_i20 = excluded.rush_yds_i20,
+              rush_tds_i20 = excluded.rush_tds_i20,
+              targets_i20  = excluded.targets_i20,
+              targets_i10  = excluded.targets_i10,
+              targets_i5   = excluded.targets_i5,
+              targets_ez   = excluded.targets_ez,
+              rec_i20      = excluded.rec_i20,
+              rec_tds_i20  = excluded.rec_tds_i20,
+              pass_att_i20 = excluded.pass_att_i20,
+              pass_tds_i20 = excluded.pass_tds_i20,
+              pass_att_ez  = excluded.pass_att_ez
+        """, rz_rows)
+        counts["redzone"] = len(rz_rows)
 
-    db.executemany("""
-        INSERT INTO nfl_player_redzone
-            (season, week, gsis_id, rush_att_i20, rush_att_i10, rush_att_i5,
-             rush_yds_i20, rush_tds_i20,
-             targets_i20, targets_i10, targets_i5,
-             targets_ez, rec_i20, rec_tds_i20,
-             pass_att_i20, pass_tds_i20, pass_att_ez)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-        ON CONFLICT(season, week, gsis_id) DO UPDATE SET
-          rush_att_i20 = excluded.rush_att_i20,
-          rush_att_i10 = excluded.rush_att_i10,
-          rush_att_i5  = excluded.rush_att_i5,
-          rush_yds_i20 = excluded.rush_yds_i20,
-          rush_tds_i20 = excluded.rush_tds_i20,
-          targets_i20  = excluded.targets_i20,
-          targets_i10  = excluded.targets_i10,
-          targets_i5   = excluded.targets_i5,
-          targets_ez   = excluded.targets_ez,
-          rec_i20      = excluded.rec_i20,
-          rec_tds_i20  = excluded.rec_tds_i20,
-          pass_att_i20 = excluded.pass_att_i20,
-          pass_tds_i20 = excluded.pass_tds_i20,
-          pass_att_ez  = excluded.pass_att_ez
-    """, rows)
+    # ---- FG upsert (updates nfl_player_weekly — row must already exist via
+    # fetch_nflverse_weekly.py; UPDATE leaves other columns alone) ----
+    if do_fg and fg_agg:
+        fg_rows = []
+        for (s, wk, gid), v in fg_agg.items():
+            fg_rows.append((
+                v["fg_att_0_39"], v["fg_made_0_39"],
+                v["fg_att_40_49"], v["fg_made_40_49"],
+                v["fg_att_50_59"], v["fg_made_50_59"],
+                v["fg_att_60plus"], v["fg_made_60plus"],
+                v["fg_distance_sum_made"], v["fg_made_pbp"],
+                s, wk, gid,
+            ))
+        db.executemany("""
+            UPDATE nfl_player_weekly SET
+              fg_att_0_39 = ?, fg_made_0_39 = ?,
+              fg_att_40_49 = ?, fg_made_40_49 = ?,
+              fg_att_50_59 = ?, fg_made_50_59 = ?,
+              fg_att_60plus = ?, fg_made_60plus = ?,
+              fg_distance_sum_made = ?, fg_made_pbp = ?
+            WHERE season = ? AND week = ? AND gsis_id = ?
+        """, fg_rows)
+        counts["fg"] = db.total_changes  # approximate — we reset before each season
+        # More accurate FG count: how many row updates had at least one attempt
+        counts["fg"] = sum(1 for r in fg_rows if any(x > 0 for x in r[:8]))
+
+    # ---- Punter upsert ----
+    # Some punter-only weeks may have no existing row in nfl_player_weekly
+    # (the weekly payload omits punters entirely). Use INSERT OR IGNORE of
+    # a stub row first, then UPDATE, so punter data lands even when the
+    # weekly fetcher never saw the player.
+    if do_punts and pt_agg:
+        # Stub inserts: minimal row keyed by (season, week, gsis_id). The stubs
+        # have all NULL non-key fields, so the subsequent UPDATE sets punt
+        # columns cleanly without stomping on anything real.
+        stubs = [(s, wk, gid) for (s, wk, gid) in pt_agg.keys()]
+        db.executemany("""
+            INSERT OR IGNORE INTO nfl_player_weekly (season, week, gsis_id)
+            VALUES (?, ?, ?)
+        """, stubs)
+        pt_rows = []
+        for (s, wk, gid), v in pt_agg.items():
+            pt_rows.append((
+                v["punts"], v["punt_yds"], v["punt_long"],
+                v["punt_inside20"], v["punt_tb"],
+                s, wk, gid,
+            ))
+        db.executemany("""
+            UPDATE nfl_player_weekly SET
+              punts = ?, punt_yds = ?, punt_long = ?,
+              punt_inside20 = ?, punt_tb = ?
+            WHERE season = ? AND week = ? AND gsis_id = ?
+        """, pt_rows)
+        counts["punt"] = len(pt_rows)
+
     db.commit()
-    print(f"  {season}: {len(rows)} player-week rows", file=sys.stderr)
-    return len(rows)
+    print(f"  {season}: redzone={counts['redzone']} fg={counts['fg']} punt={counts['punt']}", file=sys.stderr)
+    return counts
+
+
+def ensure_weekly_columns(db: sqlite3.Connection) -> None:
+    """Mirror of migration 0015 for standalone runs on fresh local DBs."""
+    for stmt in [
+        "ALTER TABLE nfl_player_weekly ADD COLUMN fg_att_50_59 INTEGER",
+        "ALTER TABLE nfl_player_weekly ADD COLUMN fg_made_50_59 INTEGER",
+        "ALTER TABLE nfl_player_weekly ADD COLUMN fg_att_60plus INTEGER",
+        "ALTER TABLE nfl_player_weekly ADD COLUMN fg_made_60plus INTEGER",
+        "ALTER TABLE nfl_player_weekly ADD COLUMN punt_tb INTEGER",
+    ]:
+        try:
+            db.execute(stmt)
+        except sqlite3.OperationalError:
+            pass  # column already exists
+    db.commit()
 
 
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--seasons", default="2011-2025")
+    ap.add_argument("--skip-redzone", action="store_true",
+                    help="Skip redzone band aggregator (nfl_player_redzone)")
+    ap.add_argument("--skip-fg", action="store_true",
+                    help="Skip FG distance buckets (nfl_player_weekly)")
+    ap.add_argument("--skip-punts", action="store_true",
+                    help="Skip punter volume/distance (nfl_player_weekly)")
     args = ap.parse_args()
 
     if not LOCAL_DB.exists():
-        sys.exit(f"local DB missing at {LOCAL_DB}")
+        sys.exit(f"local DB missing at {LOCAL_DB}\n"
+                 f"(set MFL_DB_PATH env var if DB lives elsewhere)")
+    print(f"DB: {LOCAL_DB}", file=sys.stderr)
     db = sqlite3.connect(str(LOCAL_DB))
     ensure_table(db)
+    ensure_weekly_columns(db)
 
     seasons = parse_seasons(args.seasons)
     print(f"Target seasons: {seasons}", file=sys.stderr)
 
-    total = 0
+    totals = {"redzone": 0, "fg": 0, "punt": 0}
     for s in seasons:
-        total += process_season(db, s)
-    print(f"DONE: {total} total player-week rows across {len(seasons)} seasons", file=sys.stderr)
+        c = process_season(
+            db, s,
+            do_redzone=not args.skip_redzone,
+            do_fg=not args.skip_fg,
+            do_punts=not args.skip_punts,
+        )
+        for k in totals: totals[k] += c.get(k, 0)
+    print(f"DONE: redzone={totals['redzone']} fg={totals['fg']} punt={totals['punt']} "
+          f"rows across {len(seasons)} seasons", file=sys.stderr)
 
 
 if __name__ == "__main__":
