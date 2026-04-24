@@ -86,6 +86,39 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
 .asw-empty{padding:40px;text-align:center;color:var(--muted)}
 .asw-loading{padding:20px;text-align:center;color:var(--muted);font-style:italic}
 .asw-err{padding:12px;color:var(--err);border:1px solid var(--err);border-radius:4px;background:rgba(255,123,123,.05);margin-bottom:8px}
+
+/* Row click → drill-down */
+.asw-table tbody tr{cursor:pointer}
+.asw-table tbody tr.is-active{background:rgba(106,168,255,.14) !important;box-shadow:inset 3px 0 0 var(--accent)}
+
+/* Slide-in drawer for per-week drill-down */
+.asw-drawer-scrim{position:fixed;inset:0;background:rgba(0,0,0,.55);opacity:0;pointer-events:none;transition:opacity .18s ease;z-index:40}
+.asw-drawer-scrim.open{opacity:1;pointer-events:auto}
+.asw-drawer{position:fixed;top:0;right:0;bottom:0;width:min(980px,92vw);background:var(--bg);border-left:1px solid var(--border-strong);box-shadow:-8px 0 30px rgba(0,0,0,.45);transform:translateX(100%);transition:transform .22s ease;z-index:41;display:flex;flex-direction:column;overflow:hidden}
+.asw-drawer.open{transform:translateX(0)}
+.asw-drawer-head{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);background:var(--panel)}
+.asw-drawer-head h2{margin:0;font-size:15px;letter-spacing:.01em}
+.asw-drawer-head .asw-drawer-sub{color:var(--muted);font-size:11px;margin-left:8px}
+.asw-drawer-head .asw-drawer-close{margin-left:auto;background:transparent;border:1px solid var(--border);color:var(--text);width:32px;height:32px;border-radius:6px;font-size:16px;cursor:pointer}
+.asw-drawer-head .asw-drawer-close:hover{background:var(--panel-alt);border-color:var(--border-strong)}
+.asw-drawer-body{flex:1;overflow:auto;padding:12px 14px}
+.asw-drawer-section{margin-bottom:14px}
+.asw-drawer-section h3{margin:0 0 6px;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:700}
+.asw-chart{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:10px}
+.asw-chart svg{display:block;width:100%;height:auto}
+.asw-chart-title{font-size:11px;color:var(--muted);margin-bottom:4px}
+.asw-chart line.grid{stroke:var(--border);stroke-width:.5}
+.asw-chart line.zero{stroke:var(--border-strong);stroke-width:.8}
+.asw-chart path.line{fill:none;stroke:var(--accent);stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+.asw-chart circle.pt{fill:var(--accent);stroke:var(--bg);stroke-width:1.5}
+.asw-chart text.axis{fill:var(--muted);font-size:9px;font-family:-apple-system,sans-serif}
+.asw-chart text.label{fill:var(--text);font-size:10px;font-family:-apple-system,sans-serif;font-weight:600}
+.asw-week-table{font-size:11px}
+.asw-week-table th.week-col,.asw-week-table td.week-col{position:sticky;left:0;background:var(--panel-alt);z-index:2;font-weight:700}
+.asw-week-table tbody tr{cursor:default}
+.asw-drawer-sub-controls{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:8px}
+.asw-week-chip{background:var(--panel-alt);color:var(--text);border:1px solid var(--border);border-radius:999px;padding:3px 10px;font-size:11px;cursor:pointer;user-select:none}
+.asw-week-chip[aria-pressed="true"]{background:var(--accent);color:#0a1222;border-color:var(--accent);font-weight:700}
 </style>
 </head>
 <body>
@@ -152,6 +185,17 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
 <div class="asw-meta" id="asw-meta"></div>
 <div class="asw-table-wrap"><div id="asw-body"></div></div>
 </div>
+
+<!-- Drill-down drawer (slides in on row click) -->
+<div class="asw-drawer-scrim" id="asw-drawer-scrim" hidden></div>
+<aside class="asw-drawer" id="asw-drawer" aria-hidden="true">
+  <div class="asw-drawer-head">
+    <h2 id="asw-drawer-title">Player</h2>
+    <span class="asw-drawer-sub" id="asw-drawer-sub"></span>
+    <button type="button" class="asw-drawer-close" id="asw-drawer-close" aria-label="Close">×</button>
+  </div>
+  <div class="asw-drawer-body" id="asw-drawer-body"></div>
+</aside>
 
 <script>
 (function(){
@@ -962,6 +1006,23 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
       });
     });
 
+    // Wire row click → drill-down panel. Stash the matching row object
+    // on each <tr> via an index lookup so the handler can pass it straight
+    // into openDrawer without a second find.
+    var tbodyRows = bodyEl.querySelectorAll("tbody tr");
+    tbodyRows.forEach(function(tr, idx){
+      var rowObj = rows[idx];
+      if (!rowObj || !rowObj.gsis_id) return;
+      tr.addEventListener("click", function(){
+        // Clear prior active highlight
+        bodyEl.querySelectorAll("tbody tr.is-active").forEach(function(x){
+          x.classList.remove("is-active");
+        });
+        tr.classList.add("is-active");
+        openDrawer(rowObj);
+      });
+    });
+
     // Wire filter-row inputs. Debounce keystrokes so typing doesn't thrash.
     // After the debounced render() fires, the input node is destroyed/recreated —
     // so we capture focus + caret before render and restore on the new element.
@@ -1211,6 +1272,223 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
     el.addEventListener("change", runQuery);
   });
   searchEl.addEventListener("input", function(){ if ((state.rowsByWorkerPos[TABS[state.activeTab].workerPos] || []).length) render(); });
+
+  // ---------- Drill-down drawer (row click → per-week view) ----------
+  // Drawer state lives outside `state` since it's ephemeral UI-only and
+  // doesn't need to survive tab switches. Null means closed.
+  var drawerEl       = document.getElementById("asw-drawer");
+  var drawerScrim    = document.getElementById("asw-drawer-scrim");
+  var drawerTitle    = document.getElementById("asw-drawer-title");
+  var drawerSub      = document.getElementById("asw-drawer-sub");
+  var drawerBody     = document.getElementById("asw-drawer-body");
+  var drawerCloseBtn = document.getElementById("asw-drawer-close");
+
+  // Key metrics to chart per tab — picked to match the pos's most load-
+  // bearing volume + efficiency stats. Client falls back to the current
+  // sort key if the tab config is missing here.
+  var CHART_METRICS_BY_TAB = {
+    qb:       ["pass_yds", "pass_tds", "pass_ints"],
+    rb:       ["rush_yds", "rush_att", "targets"],
+    wr:       ["rec_yds", "targets", "receptions"],
+    te:       ["rec_yds", "targets", "receptions"],
+    flex_o:   ["rec_yds", "rush_yds"],
+    dl:       ["def_sacks", "def_pressures", "def_tackles_total"],
+    lb:       ["def_tackles_total", "def_sacks", "def_tfl"],
+    db:       ["def_tackles_total", "def_pass_def", "def_ints"],
+    flex_idp: ["def_tackles_total", "def_sacks", "def_pass_def"],
+    pk:       ["fg_made", "fg_att", "xp_made"],
+    pn:       ["punts", "punt_yds", "punt_inside20"],
+  };
+
+  function closeDrawer() {
+    drawerEl.classList.remove("open");
+    drawerScrim.classList.remove("open");
+    drawerScrim.setAttribute("hidden", "");
+    drawerEl.setAttribute("aria-hidden", "true");
+    // Clear active-row highlight
+    bodyEl.querySelectorAll("tbody tr.is-active").forEach(function(x){
+      x.classList.remove("is-active");
+    });
+  }
+
+  function openDrawer(playerRow) {
+    drawerScrim.removeAttribute("hidden");
+    drawerScrim.classList.add("open");
+    drawerEl.classList.add("open");
+    drawerEl.setAttribute("aria-hidden", "false");
+
+    var name = playerRow.player_name || "—";
+    var nfl = playerRow.team || "—";
+    var mfl = playerRow.mfl_franchise_name || "FA";
+    var pos = playerRow.position || "";
+    drawerTitle.textContent = name;
+    drawerSub.textContent = (pos ? pos + " · " : "") + nfl + " · " + mfl;
+    drawerBody.innerHTML = '<div class="asw-loading">Fetching week-by-week…</div>';
+
+    var seasons = getSelectedSeasons();
+    var scope = getScope();
+    var url = API_BASE + "/api/advanced-stats-player-weekly" +
+      "?gsis_id=" + encodeURIComponent(playerRow.gsis_id) +
+      "&seasons=" + encodeURIComponent(seasons.join(",")) +
+      "&include_post=" + (scope === "full" ? "1" : "0");
+    fetch(url)
+      .then(function(r){
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r.json();
+      })
+      .then(function(j){
+        var weekRows = Array.isArray(j.rows) ? j.rows : [];
+        if (!weekRows.length) {
+          drawerBody.innerHTML = '<div class="asw-empty">No week-by-week data for this season filter.</div>';
+          return;
+        }
+        renderDrawer(playerRow, weekRows);
+      })
+      .catch(function(e){
+        drawerBody.innerHTML = '<div class="asw-err">Drill-down failed: ' + (e && e.message || e) + '</div>';
+      });
+  }
+
+  // Build a simple SVG line chart for a single metric across a series of
+  // week rows. Returns an HTML string embedding the SVG. Keep this
+  // dependency-free so the workbench stays a single drop-in file.
+  function buildMiniChart(metricKey, label, weekRows) {
+    var def = COLS[metricKey] || { label: metricKey };
+    var W = 520, H = 110, PAD_L = 36, PAD_R = 8, PAD_T = 10, PAD_B = 20;
+    var innerW = W - PAD_L - PAD_R;
+    var innerH = H - PAD_T - PAD_B;
+
+    // Build (x, y) series. x = sequential index (we preserve input order
+    // which is season DESC, week ASC).
+    var points = weekRows.map(function(r, i){
+      var v = getVal(r, { key: metricKey, compute: def.compute });
+      return { x: i, y: (typeof v === "number" && !isNaN(v)) ? v : null, row: r };
+    });
+    var validYs = points.map(function(p){ return p.y; }).filter(function(y){ return y != null; });
+    if (!validYs.length) {
+      return '<div class="asw-chart"><div class="asw-chart-title">'+label+'</div>' +
+             '<div class="asw-empty" style="padding:16px">No values.</div></div>';
+    }
+    var yMin = Math.min.apply(null, validYs.concat([0]));
+    var yMax = Math.max.apply(null, validYs);
+    if (yMax === yMin) yMax = yMin + 1;
+    var xCount = Math.max(1, points.length - 1);
+
+    function sx(i){ return PAD_L + (i / xCount) * innerW; }
+    function sy(v){ return PAD_T + innerH - ((v - yMin) / (yMax - yMin)) * innerH; }
+
+    // Build path d-attribute, breaking on nulls
+    var d = "";
+    var penUp = true;
+    points.forEach(function(p){
+      if (p.y == null) { penUp = true; return; }
+      d += (penUp ? "M" : "L") + sx(p.x).toFixed(1) + " " + sy(p.y).toFixed(1) + " ";
+      penUp = false;
+    });
+
+    // Dots + hover title on every valid point
+    var dots = points.map(function(p){
+      if (p.y == null) return "";
+      var label = (p.row.season || "") + " W" + (p.row.week || "") + ": " + fmtCell(p.y, def.fmt);
+      return '<circle class="pt" cx="'+sx(p.x).toFixed(1)+'" cy="'+sy(p.y).toFixed(1)+'" r="2.8">' +
+             '<title>'+label.replace(/</g,"&lt;")+'</title></circle>';
+    }).join("");
+
+    // Y-axis labels (min / max / mid)
+    var yMid = (yMin + yMax) / 2;
+    var yTicks = [yMin, yMid, yMax].map(function(v){
+      var y = sy(v).toFixed(1);
+      return '<text class="axis" x="'+(PAD_L-4)+'" y="'+y+'" text-anchor="end" dy="3">' + fmtCell(v, def.fmt) + '</text>' +
+             '<line class="grid" x1="'+PAD_L+'" y1="'+y+'" x2="'+(W-PAD_R)+'" y2="'+y+'"/>';
+    }).join("");
+
+    // Zero line when it's inside the range
+    var zeroLine = "";
+    if (yMin < 0 && yMax > 0) {
+      var z = sy(0).toFixed(1);
+      zeroLine = '<line class="zero" x1="'+PAD_L+'" y1="'+z+'" x2="'+(W-PAD_R)+'" y2="'+z+'"/>';
+    }
+
+    return '<div class="asw-chart">' +
+             '<div class="asw-chart-title">'+label+'</div>' +
+             '<svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none">' +
+               yTicks + zeroLine +
+               '<path class="line" d="'+d+'"/>' +
+               dots +
+             '</svg>' +
+           '</div>';
+  }
+
+  // Render drawer body: chart(s) + full week-by-week table (same column
+  // structure as the main leaderboard for consistency).
+  function renderDrawer(playerRow, weekRows) {
+    var tab = TABS[state.activeTab];
+
+    // Charts — pick up to 3 metrics, filter to those with actual cols
+    var metrics = (CHART_METRICS_BY_TAB[state.activeTab] || []).filter(function(k){ return COLS[k]; });
+    if (!metrics.length && state.sortKey) metrics = [state.sortKey];
+    var chartsHtml = metrics.map(function(k){
+      return buildMiniChart(k, (COLS[k] && COLS[k].label) || k, weekRows);
+    }).join("");
+
+    // Week table — reuse the same column blocks the main leaderboard is
+    // showing so the two views stay consistent. Identity block swapped
+    // for a "Season · Week" header at the left.
+    var blocks = buildBlocks();
+    var groupHeader = '<th class="week-col" colspan="2"></th>' + blocks.slice(1).map(function(b, i){
+      var span = b.colKeys.length;
+      return '<th class="group-sep" colspan="'+span+'">' + (b.groupLabel || "") + '</th>';
+    }).join("");
+    var colHeader = '<th class="week-col">Season</th><th class="week-col">Wk</th>' +
+      blocks.slice(1).map(function(b, bi){
+        return b.colKeys.map(function(k, ci){
+          var d = COLS[k] || { label: k };
+          var cls = [];
+          if (d.num) cls.push("num");
+          if (ci === 0) cls.push("group-sep");
+          return '<th class="'+cls.join(" ")+'">'+d.label+'</th>';
+        }).join("");
+      }).join("");
+
+    var body = weekRows.map(function(r){
+      var cells = '<td class="week-col">'+(r.season||"")+'</td>' +
+                  '<td class="week-col">'+(r.week||"")+'</td>';
+      blocks.slice(1).forEach(function(b, bi){
+        b.colKeys.forEach(function(k, ci){
+          var d = COLS[k] || {};
+          var v = getVal(r, { key:k, compute: d.compute });
+          var cls = [];
+          if (d.num) cls.push("num");
+          if (d.cls) cls.push(d.cls);
+          if (ci === 0) cls.push("group-sep");
+          cells += '<td class="'+cls.join(" ")+'">'+fmtCell(v, d.fmt)+'</td>';
+        });
+      });
+      return '<tr>'+cells+'</tr>';
+    }).join("");
+
+    drawerBody.innerHTML =
+      '<section class="asw-drawer-section">' +
+        '<h3>Trend (' + tab.label + ')</h3>' +
+        chartsHtml +
+      '</section>' +
+      '<section class="asw-drawer-section">' +
+        '<h3>Week-by-week · ' + weekRows.length + ' weeks</h3>' +
+        '<div class="asw-table-wrap"><table class="asw-table asw-week-table">' +
+          '<thead>' +
+            '<tr class="asw-group-row">' + groupHeader + '</tr>' +
+            '<tr class="asw-col-row">' + colHeader + '</tr>' +
+          '</thead>' +
+          '<tbody>' + body + '</tbody>' +
+        '</table></div>' +
+      '</section>';
+  }
+
+  drawerCloseBtn.addEventListener("click", closeDrawer);
+  drawerScrim.addEventListener("click", closeDrawer);
+  document.addEventListener("keydown", function(e){
+    if (e.key === "Escape" && drawerEl.classList.contains("open")) closeDrawer();
+  });
 
   // ---------- Initial load ----------
   resetVisibleGroupsForTab(state.activeTab);
