@@ -246,6 +246,7 @@ export default {
         path !== "/admin/snapshot-mfl-now" &&
         path !== "/api/corrections" &&
         path !== "/api/advanced-stats-leaderboard" &&
+        path !== "/api/advanced-stats-player-weekly" &&
         path !== "/api/mfl-league-state" &&
         path !== "/bug-report" &&
         path !== "/bug-reports" &&
@@ -995,6 +996,101 @@ export default {
           });
         } catch (e) {
           console.error("[advanced-stats-leaderboard] failed:", e);
+          return jsonOut(500, { error: String(e && e.message || e) });
+        }
+      }
+
+      // ---------- Advanced Stats Workbench drill-down: per-week rows ----------
+      // Keith 2026-04-24: row click on the workbench opens a side panel
+      // showing this player's season/week breakdown. Returns one row per
+      // (season, week) for a single gsis_id. Joins weekly stats + snap
+      // shares + redzone bands. Skips team-share + season-level PFR
+      // columns — those aren't meaningful at the per-week grain.
+      if (path === "/api/advanced-stats-player-weekly" && request.method === "GET") {
+        const gsisId = safeStr(url.searchParams.get("gsis_id"));
+        if (!gsisId) return jsonOut(400, { error: "missing gsis_id" });
+        if (!env.UPS_MFL_DB) return jsonOut(503, { error: "D1 not bound" });
+
+        const seasonsParam = safeStr(url.searchParams.get("seasons"));
+        let seasons = [];
+        if (seasonsParam) {
+          for (const part of seasonsParam.split(",")) {
+            const piece = part.trim();
+            if (!piece) continue;
+            if (piece.indexOf("-") >= 0) {
+              const [a, b] = piece.split("-").map(s => parseInt(s.trim(), 10));
+              if (a && b && a <= b) for (let y = a; y <= b; y++) seasons.push(y);
+            } else {
+              const y = parseInt(piece, 10);
+              if (y) seasons.push(y);
+            }
+          }
+        }
+        seasons = Array.from(new Set(seasons)).filter(y => y >= 2011 && y <= 2030);
+        const includePost = safeStr(url.searchParams.get("include_post")) === "1";
+        const seasonFilter = seasons.length
+          ? `w.season IN (${seasons.map(s => String(parseInt(s, 10))).join(",")})`
+          : "1=1";
+        const weekFilter = includePost ? "1=1" : "w.week <= 17";
+
+        try {
+          const db = env.UPS_MFL_DB;
+          // Lookup gsis_id → pfr_id once so snap JOIN can resolve. Snaps
+          // are keyed by pfr_id in the source payload.
+          const pfrRow = await db
+            .prepare("SELECT pfr_id, full_name, mfl_player_id FROM player_id_crosswalk WHERE gsis_id = ? LIMIT 1")
+            .bind(gsisId)
+            .first();
+          const pfrId = pfrRow && pfrRow.pfr_id || null;
+          const sql = `
+            SELECT w.season, w.week, w.team, w.opponent, w.position, w.pos_group,
+                   w.rush_att, w.rush_yds, w.rush_tds,
+                   w.targets, w.receptions, w.rec_yds, w.rec_tds,
+                   w.pass_att, w.pass_cmp, w.pass_yds, w.pass_tds, w.pass_ints,
+                   w.pass_sacks, w.pass_sack_yds,
+                   w.def_tackles_solo AS def_tackles_total, w.def_tackles_ast,
+                   w.def_tfl, w.def_sacks, w.def_ff, w.def_fr, w.def_ints,
+                   w.def_pass_def, w.def_tds,
+                   w.fg_att, w.fg_made,
+                   w.fg_att_0_39, w.fg_made_0_39, w.fg_att_40_49, w.fg_made_40_49,
+                   w.fg_att_50_59, w.fg_made_50_59, w.fg_att_60plus, w.fg_made_60plus,
+                   w.fg_distance_sum_made, w.fg_made_pbp,
+                   w.xp_att, w.xp_made,
+                   w.punts, w.punt_yds, w.punt_long, w.punt_inside20, w.punt_tb, w.punt_net_avg,
+                   w.receiving_drops, w.receiving_broken_tackles,
+                   w.rushing_broken_tackles, w.passing_drops,
+                   w.rushing_yards_before_contact, w.rushing_yards_after_contact,
+                   w.passing_bad_throws, w.passing_bad_throw_pct,
+                   w.passing_times_pressured, w.passing_pressure_pct,
+                   w.passing_hurries, w.passing_hits,
+                   w.def_missed_tackles, w.def_missed_tackle_pct,
+                   w.def_completions_allowed, w.def_passer_rating_allowed,
+                   w.def_yards_allowed, w.def_pressures,
+                   rz.rush_att_i20, rz.rush_att_i5, rz.targets_i20, rz.targets_ez,
+                   rz.rec_i20, rz.pass_att_i20, rz.pass_att_ez,
+                   s.off_snaps AS off_snaps_total, s.off_snap_pct AS off_snap_rate,
+                   s.def_snaps AS def_snaps_total, s.def_snap_pct AS def_snap_rate
+              FROM nfl_player_weekly w
+              LEFT JOIN nfl_player_redzone rz
+                     ON rz.season = w.season AND rz.week = w.week AND rz.gsis_id = w.gsis_id
+              LEFT JOIN nfl_player_snaps s
+                     ON s.season = w.season AND s.week = w.week AND s.pfr_id = ?
+             WHERE w.gsis_id = ? AND ${seasonFilter} AND ${weekFilter}
+             ORDER BY w.season DESC, w.week ASC
+          `;
+          const res = await db.prepare(sql).bind(pfrId, gsisId).all();
+          return jsonOut(200, {
+            gsis_id: gsisId,
+            pfr_id: pfrId,
+            player_name: pfrRow && pfrRow.full_name || null,
+            mfl_pid: pfrRow && pfrRow.mfl_player_id || null,
+            seasons,
+            include_post: includePost,
+            count: (res.results || []).length,
+            rows: res.results || [],
+          });
+        } catch (e) {
+          console.error("[advanced-stats-player-weekly] failed:", e);
           return jsonOut(500, { error: String(e && e.message || e) });
         }
       }
