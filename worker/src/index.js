@@ -715,6 +715,43 @@ export default {
         // Team filter: MFL franchise_id (pad-4 like "0005"), or "FA"
         // for free agents (players with no current contract row).
         const teamFilter = safeStr(url.searchParams.get("team")).trim();
+
+        // Week filter — three modes, in priority order:
+        //   1. weeks=1,3,5,...   explicit list (for Custom picker). Int-validated.
+        //   2. week_min + week_max   inclusive range [min, max].
+        //   3. include_post (legacy)   1 → all weeks, 0 → <= 17.
+        // Keith 2026-04-24: scope presets (MFL Reg 1-14, MFL Playoffs 15-17,
+        // MFL Total 1-17, Full+Post 1-22) use #2; custom picker uses #1.
+        const weeksParam = safeStr(url.searchParams.get("weeks"));
+        const weekMinParam = parseInt(safeStr(url.searchParams.get("week_min")), 10);
+        const weekMaxParam = parseInt(safeStr(url.searchParams.get("week_max")), 10);
+        let weekSqlPredicate;   // SQL fragment evaluated as "w.week <condition>"
+        let rzWeekSqlPredicate; // same fragment but for rz.week
+        if (weeksParam) {
+          const wks = weeksParam.split(",")
+            .map(s => parseInt(s.trim(), 10))
+            .filter(w => Number.isFinite(w) && w >= 1 && w <= 22);
+          if (wks.length) {
+            const list = Array.from(new Set(wks)).join(",");
+            weekSqlPredicate = `w.week IN (${list})`;
+            rzWeekSqlPredicate = `rz.week IN (${list})`;
+          } else {
+            weekSqlPredicate = "1=1";
+            rzWeekSqlPredicate = "1=1";
+          }
+        } else if (Number.isFinite(weekMinParam) || Number.isFinite(weekMaxParam)) {
+          const lo = Number.isFinite(weekMinParam) ? Math.max(1, weekMinParam) : 1;
+          const hi = Number.isFinite(weekMaxParam) ? Math.min(22, weekMaxParam) : 22;
+          weekSqlPredicate = `w.week BETWEEN ${lo} AND ${hi}`;
+          rzWeekSqlPredicate = `rz.week BETWEEN ${lo} AND ${hi}`;
+        } else if (includePost) {
+          weekSqlPredicate = "1=1";
+          rzWeekSqlPredicate = "1=1";
+        } else {
+          weekSqlPredicate = "w.week <= 17";
+          rzWeekSqlPredicate = "rz.week <= 17";
+        }
+
         if (!seasons.length) return jsonOut(400, { error: "missing seasons" });
         if (!pos) return jsonOut(400, { error: "missing pos (skill|qb|idp|kicker|punter)" });
         if (!env.UPS_MFL_DB) return jsonOut(503, { error: "D1 not bound" });
@@ -728,10 +765,7 @@ export default {
         else if (pos === "punter") posGroups = ["PK"]; // MFL collapses — filter on raw position later
         else return jsonOut(400, { error: "invalid pos" });
 
-        // Week-range filter. Default = UPS (NFL regular season).
-        const weekFilter = includePost
-          ? "1=1"
-          : "w.week <= 17";
+        const weekFilter = weekSqlPredicate;
 
         const posList = posGroups.map(p => `'${p}'`).join(",");
         const seasonList = seasons.map(s => String(parseInt(s, 10))).join(",");
@@ -858,7 +892,7 @@ export default {
                 FROM nfl_player_snaps s
                 JOIN player_id_crosswalk c ON c.pfr_id = s.pfr_id
                WHERE s.season IN (${seasonList})
-                 AND ${includePost ? "1=1" : "s.week <= 17"}
+                 AND ${weekSqlPredicate.replace(/\bw\.week\b/g, "s.week")}
                GROUP BY c.gsis_id
             ),
             -- Team-level totals for market-share % (grouped by team, all
@@ -887,7 +921,7 @@ export default {
                 JOIN nfl_player_weekly w
                        ON w.season = rz.season AND w.week = rz.week AND w.gsis_id = rz.gsis_id
                WHERE rz.season IN (${seasonList})
-                 AND ${includePost ? "1=1" : "rz.week <= 17"}
+                 AND ${rzWeekSqlPredicate}
                GROUP BY w.team
             ),
             -- PFR season-level adv stats: ADOT, YAC/R, YBC/R, IAY, etc.
@@ -1031,7 +1065,25 @@ export default {
         const seasonFilter = seasons.length
           ? `w.season IN (${seasons.map(s => String(parseInt(s, 10))).join(",")})`
           : "1=1";
-        const weekFilter = includePost ? "1=1" : "w.week <= 17";
+
+        // Same scope logic as leaderboard endpoint — weeks list / range / legacy
+        const weeksParam = safeStr(url.searchParams.get("weeks"));
+        const weekMinParam = parseInt(safeStr(url.searchParams.get("week_min")), 10);
+        const weekMaxParam = parseInt(safeStr(url.searchParams.get("week_max")), 10);
+        let weekFilter;
+        if (weeksParam) {
+          const wks = weeksParam.split(",").map(s => parseInt(s.trim(), 10))
+            .filter(w => Number.isFinite(w) && w >= 1 && w <= 22);
+          weekFilter = wks.length
+            ? `w.week IN (${Array.from(new Set(wks)).join(",")})`
+            : "1=1";
+        } else if (Number.isFinite(weekMinParam) || Number.isFinite(weekMaxParam)) {
+          const lo = Number.isFinite(weekMinParam) ? Math.max(1, weekMinParam) : 1;
+          const hi = Number.isFinite(weekMaxParam) ? Math.min(22, weekMaxParam) : 22;
+          weekFilter = `w.week BETWEEN ${lo} AND ${hi}`;
+        } else {
+          weekFilter = includePost ? "1=1" : "w.week <= 17";
+        }
 
         try {
           const db = env.UPS_MFL_DB;

@@ -166,10 +166,16 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
     <span style="font-size:10px; color:var(--muted)">⌘/Ctrl multi-select</span>
   </label>
   <label>Scope
-    <div style="display:flex;gap:4px">
-      <button type="button" class="asw-chip" data-scope="ups"  aria-pressed="true"  title="NFL regular season only">UPS</button>
-      <button type="button" class="asw-chip" data-scope="full" aria-pressed="false" title="Include playoffs">Full</button>
+    <div style="display:flex;gap:4px;flex-wrap:wrap">
+      <button type="button" class="asw-chip" data-scope="mfl_reg"      aria-pressed="false" title="MFL regular season (NFL weeks 1-14)">MFL Reg</button>
+      <button type="button" class="asw-chip" data-scope="mfl_playoffs" aria-pressed="false" title="MFL playoffs (NFL weeks 15-17)">MFL Playoffs</button>
+      <button type="button" class="asw-chip" data-scope="mfl_total"    aria-pressed="true"  title="MFL full season (NFL weeks 1-17)">MFL Total</button>
+      <button type="button" class="asw-chip" data-scope="full"         aria-pressed="false" title="NFL regular + postseason (weeks 1-22)">Full + NFL Playoffs</button>
+      <button type="button" class="asw-chip" data-scope="custom"       aria-pressed="false" title="Pick specific weeks below">Custom…</button>
     </div>
+  </label>
+  <label id="asw-weeks-label" hidden>Weeks
+    <div id="asw-weeks-picker" style="display:flex;gap:3px;flex-wrap:wrap;max-width:440px"></div>
   </label>
   <label>Search
     <input type="text" id="asw-search" placeholder="name contains…">
@@ -192,6 +198,10 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
   <div class="asw-drawer-head">
     <h2 id="asw-drawer-title">Player</h2>
     <span class="asw-drawer-sub" id="asw-drawer-sub"></span>
+    <div id="asw-drawer-view-toggle" style="display:flex;gap:4px;margin-left:12px">
+      <button type="button" class="asw-chip" data-view="weekly" aria-pressed="true"  title="Week-by-week within the selected season(s)">By Week</button>
+      <button type="button" class="asw-chip" data-view="season" aria-pressed="false" title="Year-over-year: one row per season across ALL years this player has data">By Season</button>
+    </div>
     <button type="button" class="asw-drawer-close" id="asw-drawer-close" aria-label="Close">×</button>
   </div>
   <div class="asw-drawer-body" id="asw-drawer-body"></div>
@@ -1160,11 +1170,71 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
     });
   }
 
-  // ---------- Filter helpers ----------
+  // ---------- Scope presets + custom week picker ----------
+  // Scope is now one of: mfl_reg (1-14), mfl_playoffs (15-17),
+  // mfl_total (1-17, default), full (1-22), custom (explicit list).
+  var SCOPE_RANGES = {
+    mfl_reg:      { min: 1,  max: 14, label: "MFL Reg" },
+    mfl_playoffs: { min: 15, max: 17, label: "MFL Playoffs" },
+    mfl_total:    { min: 1,  max: 17, label: "MFL Total" },
+    full:         { min: 1,  max: 22, label: "Full + NFL Playoffs" },
+  };
+  var customWeeks = new Set([1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17]);
+  var weeksLabelEl  = document.getElementById("asw-weeks-label");
+  var weeksPickerEl = document.getElementById("asw-weeks-picker");
+
   function getScope(){
     var btn = document.querySelector("[data-scope][aria-pressed='true']");
-    return btn ? btn.getAttribute("data-scope") : "ups";
+    return btn ? btn.getAttribute("data-scope") : "mfl_total";
   }
+  function getScopeLabel(){
+    var s = getScope();
+    if (s === "custom") {
+      var n = customWeeks.size;
+      return n === 22 ? "All weeks" : "Weeks " + Array.from(customWeeks).sort(function(a,b){return a-b}).join(",");
+    }
+    return (SCOPE_RANGES[s] && SCOPE_RANGES[s].label) || s;
+  }
+  // Translate active scope → URL params for the leaderboard + drawer APIs.
+  function getScopeQueryParams(){
+    var s = getScope();
+    if (s === "custom") {
+      if (!customWeeks.size) return "&weeks=0";  // none selected → no weeks
+      return "&weeks=" + Array.from(customWeeks).sort(function(a,b){return a-b}).join(",");
+    }
+    var r = SCOPE_RANGES[s] || SCOPE_RANGES.mfl_total;
+    return "&week_min=" + r.min + "&week_max=" + r.max;
+  }
+  function renderWeeksPicker(){
+    weeksPickerEl.innerHTML = "";
+    for (var w = 1; w <= 22; w++) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "asw-chip";
+      b.setAttribute("data-week", String(w));
+      b.setAttribute("aria-pressed", customWeeks.has(w) ? "true" : "false");
+      b.style.minWidth = "26px";
+      b.style.padding = "2px 6px";
+      b.textContent = String(w);
+      b.title = w <= 14 ? "Reg week " + w : w <= 17 ? "MFL playoff wk " + w : "NFL postseason wk " + w;
+      (function(wk, btn){
+        btn.addEventListener("click", function(){
+          if (customWeeks.has(wk)) customWeeks.delete(wk); else customWeeks.add(wk);
+          btn.setAttribute("aria-pressed", customWeeks.has(wk) ? "true" : "false");
+          runQuery();
+        });
+      })(w, b);
+      weeksPickerEl.appendChild(b);
+    }
+  }
+  function updateCustomPickerVisibility(){
+    if (getScope() === "custom") {
+      weeksLabelEl.removeAttribute("hidden");
+    } else {
+      weeksLabelEl.setAttribute("hidden", "");
+    }
+  }
+  renderWeeksPicker();
   function getSelectedSeasons(){
     var sel = [];
     for (var i = 0; i < seasonsSel.options.length; i++) {
@@ -1198,7 +1268,7 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
     var url = API_BASE + "/api/advanced-stats-leaderboard" +
       "?seasons=" + encodeURIComponent(seasons.join(",")) +
       "&pos="    + encodeURIComponent(workerPos) +
-      "&include_post=" + (scope === "full" ? "1" : "0") +
+      getScopeQueryParams() +
       "&min_games=1" +
       "&limit=500";
     Promise.all([
@@ -1231,7 +1301,7 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
       } else if (teams.length > 1) {
         teamLabel = " · " + teams.length + " teams";
       }
-      state.lastQuery = tab.label + " · " + seasonLabel + " · " + (scope === "full" ? "Full" : "UPS") + teamLabel;
+      state.lastQuery = tab.label + " · " + seasonLabel + " · " + getScopeLabel() + teamLabel;
       render();
     }).catch(function(e){
       bodyEl.innerHTML = '<div class="asw-err">Query failed: '+(e && e.message || e)+'</div>';
@@ -1265,9 +1335,12 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
   scopeBtns.forEach(function(b){
     b.addEventListener("click", function(){
       scopeBtns.forEach(function(x){ x.setAttribute("aria-pressed", x === b ? "true" : "false"); });
+      updateCustomPickerVisibility();
       runQuery();
     });
   });
+  // Initial visibility sync (default scope is mfl_total → picker hidden)
+  updateCustomPickerVisibility();
   [seasonsSel, teamSel].forEach(function(el){
     el.addEventListener("change", runQuery);
   });
@@ -1282,6 +1355,18 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
   var drawerSub      = document.getElementById("asw-drawer-sub");
   var drawerBody     = document.getElementById("asw-drawer-body");
   var drawerCloseBtn = document.getElementById("asw-drawer-close");
+  var drawerViewBtns = document.querySelectorAll('#asw-drawer-view-toggle [data-view]');
+
+  // Drawer-scoped state — cache both weekly (selected seasons) and
+  // per-season-aggregated (all-years) rows so toggle is instant after
+  // first fetch of each.
+  var drawerState = {
+    playerRow:    null,
+    weekRows:     null,  // raw rows from /api/advanced-stats-player-weekly, selected-seasons scope
+    allYearRows:  null,  // raw rows from same endpoint but ALL seasons (for By Season aggregation)
+    seasonRows:   null,  // aggregated one-row-per-season synthesized from allYearRows
+    view:         "weekly",
+  };
 
   // Key metrics to chart per tab — picked to match the pos's most load-
   // bearing volume + efficiency stats. Client falls back to the current
@@ -1317,6 +1402,16 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
     drawerEl.classList.add("open");
     drawerEl.setAttribute("aria-hidden", "false");
 
+    // Reset drawer-scoped state for the new player
+    drawerState.playerRow   = playerRow;
+    drawerState.weekRows    = null;
+    drawerState.allYearRows = null;
+    drawerState.seasonRows  = null;
+    drawerState.view        = "weekly";
+    drawerViewBtns.forEach(function(b){
+      b.setAttribute("aria-pressed", b.getAttribute("data-view") === "weekly" ? "true" : "false");
+    });
+
     var name = playerRow.player_name || "—";
     var nfl = playerRow.team || "—";
     var mfl = playerRow.mfl_franchise_name || "FA";
@@ -1325,34 +1420,133 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
     drawerSub.textContent = (pos ? pos + " · " : "") + nfl + " · " + mfl;
     drawerBody.innerHTML = '<div class="asw-loading">Fetching week-by-week…</div>';
 
+    // Fetch weekly-scoped data using current leaderboard filters
     var seasons = getSelectedSeasons();
-    var scope = getScope();
     var url = API_BASE + "/api/advanced-stats-player-weekly" +
       "?gsis_id=" + encodeURIComponent(playerRow.gsis_id) +
       "&seasons=" + encodeURIComponent(seasons.join(",")) +
-      "&include_post=" + (scope === "full" ? "1" : "0");
+      getScopeQueryParams();
     fetch(url)
       .then(function(r){
         if (!r.ok) throw new Error("HTTP " + r.status);
         return r.json();
       })
       .then(function(j){
-        var weekRows = Array.isArray(j.rows) ? j.rows : [];
-        if (!weekRows.length) {
+        drawerState.weekRows = Array.isArray(j.rows) ? j.rows : [];
+        if (!drawerState.weekRows.length) {
           drawerBody.innerHTML = '<div class="asw-empty">No week-by-week data for this season filter.</div>';
           return;
         }
-        renderDrawer(playerRow, weekRows);
+        renderDrawerContent();
       })
       .catch(function(e){
         drawerBody.innerHTML = '<div class="asw-err">Drill-down failed: ' + (e && e.message || e) + '</div>';
       });
   }
 
+  // Fetch all-year rows for By Season view. Omits seasons param and sets
+  // scope to Full (1-22) so we get every week the player has ever played.
+  function fetchAllYears() {
+    if (!drawerState.playerRow) return Promise.reject(new Error("no player"));
+    var url = API_BASE + "/api/advanced-stats-player-weekly" +
+      "?gsis_id=" + encodeURIComponent(drawerState.playerRow.gsis_id) +
+      "&week_min=1&week_max=22";
+    return fetch(url).then(function(r){
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r.json();
+    });
+  }
+
+  // Heuristic — does this column represent a rate/% that should be AVG'd
+  // across weeks rather than SUM'd? Covers both fmt-based and name-based
+  // cases so we don't need to mark every column individually.
+  function isRateColumn(key, def) {
+    if (def && (def.fmt === "pct" || def.fmt === "pct0")) return true;
+    if (/_pct$|_rate$|_per_|_avg$|_pct_|_adot$/.test(key)) return true;
+    return false;
+  }
+
+  // Collapse an array of weekly rows into one synthetic row per season.
+  // Counting stats are SUM'd, rate stats AVG'd. Computed columns ignored
+  // (their `compute` function runs naturally on the aggregated row).
+  function aggregateBySeason(weekRows) {
+    var bySeason = {};
+    weekRows.forEach(function(r){
+      var s = r.season;
+      if (!bySeason[s]) bySeason[s] = [];
+      bySeason[s].push(r);
+    });
+
+    // Collect ALL column keys seen across rows + COLS — some may not
+    // appear on every row (e.g., PFR cols for pre-2018 weeks).
+    var keySet = {};
+    weekRows.forEach(function(r){ Object.keys(r).forEach(function(k){ keySet[k] = true; }); });
+
+    return Object.keys(bySeason).map(function(s){
+      var rows = bySeason[s];
+      var agg = { season: parseInt(s, 10), week: null };
+      // Games played = weeks with ANY offensive/defensive production
+      agg.games = rows.filter(function(r){
+        return (r.rush_att||0) + (r.targets||0) + (r.pass_att||0) +
+               (r.def_tackles_total||0) + (r.fg_att||0) + (r.punts||0) +
+               (r.def_tackles_ast||0) > 0;
+      }).length;
+
+      Object.keys(keySet).forEach(function(k){
+        if (k === "season" || k === "week" || k === "games") return;
+        var def = COLS[k] || {};
+        if (def.compute) return; // computed columns derive from aggregates
+        var vals = [];
+        rows.forEach(function(r){ if (typeof r[k] === "number") vals.push(r[k]); });
+        if (!vals.length) { agg[k] = null; return; }
+        if (isRateColumn(k, def)) {
+          agg[k] = vals.reduce(function(a,b){return a+b;}, 0) / vals.length;
+        } else {
+          agg[k] = vals.reduce(function(a,b){return a+b;}, 0);
+        }
+      });
+
+      // Passthrough identity fields from the last weekly row (player may
+      // have changed teams mid-season — show the final affiliation)
+      var last = rows[rows.length - 1];
+      ["team","opponent","position","pos_group","mfl_franchise_id",
+       "mfl_franchise_name","mfl_pid","gsis_id","player_name"].forEach(function(k){
+        agg[k] = last && last[k];
+      });
+      return agg;
+    }).sort(function(a, b){ return b.season - a.season; });
+  }
+
+  // Dispatcher — renders weekly or seasonal view using the drawerState
+  // cache, fetching lazily when switching to By Season for the first time.
+  function renderDrawerContent() {
+    if (drawerState.view === "weekly") {
+      if (drawerState.weekRows) renderDrawer(drawerState.playerRow, drawerState.weekRows, "weekly");
+      return;
+    }
+    // season mode
+    if (drawerState.seasonRows) {
+      renderDrawer(drawerState.playerRow, drawerState.seasonRows, "season");
+      return;
+    }
+    drawerBody.innerHTML = '<div class="asw-loading">Fetching all seasons…</div>';
+    fetchAllYears().then(function(j){
+      drawerState.allYearRows = Array.isArray(j.rows) ? j.rows : [];
+      drawerState.seasonRows = aggregateBySeason(drawerState.allYearRows);
+      if (!drawerState.seasonRows.length) {
+        drawerBody.innerHTML = '<div class="asw-empty">No career data.</div>';
+        return;
+      }
+      renderDrawer(drawerState.playerRow, drawerState.seasonRows, "season");
+    }).catch(function(e){
+      drawerBody.innerHTML = '<div class="asw-err">All-seasons fetch failed: ' + (e && e.message || e) + '</div>';
+    });
+  }
+
   // Build a simple SVG line chart for a single metric across a series of
-  // week rows. Returns an HTML string embedding the SVG. Keep this
-  // dependency-free so the workbench stays a single drop-in file.
-  function buildMiniChart(metricKey, label, weekRows) {
+  // rows (weeks OR seasons). Returns an HTML string embedding the SVG.
+  // Keep this dependency-free so the workbench stays a single drop-in file.
+  function buildMiniChart(metricKey, label, weekRows, mode) {
     var def = COLS[metricKey] || { label: metricKey };
     var W = 520, H = 110, PAD_L = 36, PAD_R = 8, PAD_T = 10, PAD_B = 20;
     var innerW = W - PAD_L - PAD_R;
@@ -1386,10 +1580,13 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
       penUp = false;
     });
 
-    // Dots + hover title on every valid point
+    // Dots + hover title on every valid point (format depends on mode)
     var dots = points.map(function(p){
       if (p.y == null) return "";
-      var label = (p.row.season || "") + " W" + (p.row.week || "") + ": " + fmtCell(p.y, def.fmt);
+      var stamp = mode === "season"
+        ? String(p.row.season || "")
+        : (p.row.season || "") + " W" + (p.row.week || "");
+      var label = stamp + ": " + fmtCell(p.y, def.fmt);
       return '<circle class="pt" cx="'+sx(p.x).toFixed(1)+'" cy="'+sy(p.y).toFixed(1)+'" r="2.8">' +
              '<title>'+label.replace(/</g,"&lt;")+'</title></circle>';
     }).join("");
@@ -1419,41 +1616,52 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
            '</div>';
   }
 
-  // Render drawer body: chart(s) + full week-by-week table (same column
-  // structure as the main leaderboard for consistency).
-  function renderDrawer(playerRow, weekRows) {
+  // Render drawer body: chart(s) + table (week-by-week OR per-season).
+  // mode: "weekly" shows (Season, Wk) as leftmost sticky cols.
+  // mode: "season" shows (Season) only; each row is one year.
+  function renderDrawer(playerRow, rows, mode) {
     var tab = TABS[state.activeTab];
+    mode = mode || "weekly";
+    var isSeason = mode === "season";
 
     // Charts — pick up to 3 metrics, filter to those with actual cols
     var metrics = (CHART_METRICS_BY_TAB[state.activeTab] || []).filter(function(k){ return COLS[k]; });
     if (!metrics.length && state.sortKey) metrics = [state.sortKey];
     var chartsHtml = metrics.map(function(k){
-      return buildMiniChart(k, (COLS[k] && COLS[k].label) || k, weekRows);
+      return buildMiniChart(k, (COLS[k] && COLS[k].label) || k, rows, mode);
     }).join("");
 
-    // Week table — reuse the same column blocks the main leaderboard is
+    // Table — reuse the same column blocks the main leaderboard is
     // showing so the two views stay consistent. Identity block swapped
-    // for a "Season · Week" header at the left.
+    // for a timeline column (Season · Wk, or just Season).
     var blocks = buildBlocks();
-    var groupHeader = '<th class="week-col" colspan="2"></th>' + blocks.slice(1).map(function(b, i){
-      var span = b.colKeys.length;
-      return '<th class="group-sep" colspan="'+span+'">' + (b.groupLabel || "") + '</th>';
-    }).join("");
-    var colHeader = '<th class="week-col">Season</th><th class="week-col">Wk</th>' +
-      blocks.slice(1).map(function(b, bi){
-        return b.colKeys.map(function(k, ci){
-          var d = COLS[k] || { label: k };
-          var cls = [];
-          if (d.num) cls.push("num");
-          if (ci === 0) cls.push("group-sep");
-          return '<th class="'+cls.join(" ")+'">'+d.label+'</th>';
-        }).join("");
+    var keyColCount = isSeason ? 2 : 2;  // [Season, G] for season; [Season, Wk] for weekly
+    var groupHeader = '<th class="week-col" colspan="'+keyColCount+'"></th>' +
+      blocks.slice(1).map(function(b){
+        var span = b.colKeys.length;
+        return '<th class="group-sep" colspan="'+span+'">' + (b.groupLabel || "") + '</th>';
       }).join("");
+    var colHeader = isSeason
+      ? '<th class="week-col">Season</th><th class="week-col num">G</th>'
+      : '<th class="week-col">Season</th><th class="week-col">Wk</th>';
+    colHeader += blocks.slice(1).map(function(b){
+      return b.colKeys.map(function(k, ci){
+        var d = COLS[k] || { label: k };
+        var cls = [];
+        if (d.num) cls.push("num");
+        if (ci === 0) cls.push("group-sep");
+        return '<th class="'+cls.join(" ")+'">'+d.label+'</th>';
+      }).join("");
+    }).join("");
 
-    var body = weekRows.map(function(r){
-      var cells = '<td class="week-col">'+(r.season||"")+'</td>' +
-                  '<td class="week-col">'+(r.week||"")+'</td>';
-      blocks.slice(1).forEach(function(b, bi){
+    var body = rows.map(function(r){
+      var leftCells = isSeason
+        ? '<td class="week-col">'+(r.season||"")+'</td>' +
+          '<td class="week-col num">'+(r.games != null ? r.games : "—")+'</td>'
+        : '<td class="week-col">'+(r.season||"")+'</td>' +
+          '<td class="week-col">'+(r.week||"")+'</td>';
+      var cells = leftCells;
+      blocks.slice(1).forEach(function(b){
         b.colKeys.forEach(function(k, ci){
           var d = COLS[k] || {};
           var v = getVal(r, { key:k, compute: d.compute });
@@ -1467,13 +1675,17 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
       return '<tr>'+cells+'</tr>';
     }).join("");
 
+    var sectionLabel = isSeason
+      ? 'Year-over-year · ' + rows.length + ' seasons'
+      : 'Week-by-week · ' + rows.length + ' weeks';
+
     drawerBody.innerHTML =
       '<section class="asw-drawer-section">' +
-        '<h3>Trend (' + tab.label + ')</h3>' +
+        '<h3>Trend (' + tab.label + (isSeason ? ' · By Season' : ' · By Week') + ')</h3>' +
         chartsHtml +
       '</section>' +
       '<section class="asw-drawer-section">' +
-        '<h3>Week-by-week · ' + weekRows.length + ' weeks</h3>' +
+        '<h3>' + sectionLabel + '</h3>' +
         '<div class="asw-table-wrap"><table class="asw-table asw-week-table">' +
           '<thead>' +
             '<tr class="asw-group-row">' + groupHeader + '</tr>' +
@@ -1488,6 +1700,18 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
   drawerScrim.addEventListener("click", closeDrawer);
   document.addEventListener("keydown", function(e){
     if (e.key === "Escape" && drawerEl.classList.contains("open")) closeDrawer();
+  });
+  // By Week / By Season view toggle
+  drawerViewBtns.forEach(function(btn){
+    btn.addEventListener("click", function(){
+      var view = btn.getAttribute("data-view");
+      if (drawerState.view === view) return;
+      drawerState.view = view;
+      drawerViewBtns.forEach(function(x){
+        x.setAttribute("aria-pressed", x === btn ? "true" : "false");
+      });
+      renderDrawerContent();
+    });
   });
 
   // ---------- Initial load ----------
