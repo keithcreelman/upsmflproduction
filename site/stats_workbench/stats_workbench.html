@@ -210,8 +210,12 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
       <option value="custom">Custom weeks…</option>
     </select>
   </label>
-  <label id="asw-weeks-label" hidden style="flex-basis:100%">Weeks
-    <div id="asw-weeks-picker" style="display:flex;gap:3px;flex-wrap:wrap"></div>
+  <label id="asw-weeks-label" hidden>Weeks
+    <div style="display:flex;gap:6px;align-items:center">
+      <select id="asw-week-start" style="min-width:70px"></select>
+      <span style="color:var(--muted);font-size:11px">to</span>
+      <select id="asw-week-end"   style="min-width:70px"></select>
+    </div>
   </label>
   <label>Search
     <input type="text" id="asw-search" placeholder="name contains…">
@@ -277,12 +281,12 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
     mfl_ppg:             { label:"MFL PPG",  num:true, fmt:"dec2",
       title:"MFL fantasy points per game (games = weeks with score > 0)",
       compute: function(r){ return r.mfl_games_scored ? r.mfl_points / r.mfl_games_scored : null; } },
-    mfl_salary:          { label:"Salary",   num:true, fmt:"dec1",
-      title:"Current MFL contract salary (most recent season in src_contracts)" },
+    mfl_salary:          { label:"Salary",   num:true, fmt:"money",
+      title:"Current MFL contract salary (compact: 45K / 1.25M)" },
     mfl_years_remaining: { label:"Yrs Left", num:true,
       title:"Years remaining on current MFL contract (length - contract_year + 1)" },
-    mfl_aav:             { label:"AAV",      num:true, fmt:"dec1",
-      title:"Annual Average Value of current MFL contract" },
+    mfl_aav:             { label:"AAV",      num:true, fmt:"money",
+      title:"Annual Average Value of current MFL contract (compact: 45K / 1.25M)" },
     // Usage — offense
     games:               { label:"G",        num:true },
     off_snaps_total:     { label:"Snaps",    num:true, title:"Offensive snaps" },
@@ -437,18 +441,22 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
       compute: function(r){ return r.fg_att_50_59 ? (r.fg_made_50_59||0) + "/" + r.fg_att_50_59 : null; } },
     fg_60plus:           { label:"60+",      cls:"dim",
       compute: function(r){ return r.fg_att_60plus ? (r.fg_made_60plus||0) + "/" + r.fg_att_60plus : null; } },
-    avg_fg_dist:         { label:"Avg FG",   num:true, fmt:"dec1",
-      title:"Avg distance of made FGs (PBP-derived, exact)",
+    avg_fg_make:         { label:"Avg Make",  num:true, fmt:"dec1",
+      title:"Avg distance of MADE FGs (PBP-exact when available, bucket-midpoint fallback)",
       compute: function(r){
-        // Exact avg from PBP when available; fallback to bucket-midpoint
-        // approximation for historical weeks where only the aggregated
-        // bucket counts exist. fg_made_pbp will be > 0 once PBP ingest runs.
         if ((r.fg_made_pbp||0) > 0) {
           return (r.fg_distance_sum_made||0) / r.fg_made_pbp;
         }
         var m = (r.fg_made_0_39||0) + (r.fg_made_40_49||0) + (r.fg_made_50_59||0) + (r.fg_made_60plus||0);
         if (!m) return null;
         return ((r.fg_made_0_39||0)*25 + (r.fg_made_40_49||0)*44.5 + (r.fg_made_50_59||0)*54 + (r.fg_made_60plus||0)*62) / m;
+      } },
+    avg_fg_att:          { label:"Avg Att",   num:true, fmt:"dec1",
+      title:"Avg distance of ALL FG attempts (makes + misses, bucket-midpoint)",
+      compute: function(r){
+        var a = (r.fg_att_0_39||0) + (r.fg_att_40_49||0) + (r.fg_att_50_59||0) + (r.fg_att_60plus||0);
+        if (!a) return null;
+        return ((r.fg_att_0_39||0)*25 + (r.fg_att_40_49||0)*44.5 + (r.fg_att_50_59||0)*54 + (r.fg_att_60plus||0)*62) / a;
       } },
     xp_made:             { label:"XPM",      num:true },
     xp_miss:             { label:"XP Miss",  num:true, invertRank:true,
@@ -472,6 +480,13 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
     punt_tb_pct:         { label:"TB%",      num:true, fmt:"pct", invertRank:true,
       title:"Percent of punts that resulted in a touchback",
       compute: function(r){ return r.punts ? (r.punt_tb||0) / r.punts : null; } },
+    punt_avg_spot:       { label:"Avg Spot", num:true, fmt:"dec1",
+      title:"Average own-yardline at LoS when punting (PBP). Higher = better field position before punt." },
+    // Team situational context (shown on PN tab — contextualizes punt volume)
+    team_fourth_down_go_rate: { label:"Tm 4th-Dn Go%", num:true, fmt:"pct",
+      title:"Team's 4th-down go-for-it rate (run/pass plays / all 4th-down plays)" },
+    team_stall_punt_rate: { label:"Tm Stall%", num:true, fmt:"pct", invertRank:true,
+      title:"% of team punts from the 'stall zone' (midfield to opp 40). High = punting instead of attempting long FG." },
   };
 
   // Identity columns — every tab shares these. Flex tabs prepend "position".
@@ -657,7 +672,7 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
       groups: [
         { id:"mfl_details",  label:"MFL Details", cols:["mfl_points","mfl_ppg","mfl_salary","mfl_years_remaining","mfl_aav"], defaultOn:true },
         { id:"usage",        label:"Usage",    cols:["games"], defaultOn:true },
-        { id:"fg_totals",    label:"FG Totals", cols:["fg_made","fg_miss","fg_pct","avg_fg_dist"], defaultOn:true },
+        { id:"fg_totals",    label:"FG Totals", cols:["fg_made","fg_miss","fg_pct","avg_fg_make","avg_fg_att"], defaultOn:true },
         { id:"fg_distance",  label:"FG by Distance", cols:["fg_0_39","fg_40_49","fg_50_59","fg_60plus"], defaultOn:false },
         { id:"xp",           label:"Extra Points",   cols:["xp_made","xp_miss","xp_pct"], defaultOn:false },
       ]
@@ -670,7 +685,8 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
         { id:"usage",           label:"Usage",              cols:["games"], defaultOn:true },
         { id:"punt_volume",     label:"Volume",             cols:["punts","punt_yds"], defaultOn:true },
         { id:"punt_efficiency", label:"Efficiency",         cols:["punt_avg","punt_net_avg"], defaultOn:false },
-        { id:"punt_situation",  label:"Field Position",     cols:["punt_inside20","punt_i20_pct","punt_tb","punt_tb_pct"], defaultOn:false },
+        { id:"punt_situation",  label:"Field Position",     cols:["punt_inside20","punt_i20_pct","punt_tb","punt_tb_pct","punt_avg_spot"], defaultOn:false },
+        { id:"punt_team_ctx",    label:"Team Context",       cols:["team_fourth_down_go_rate","team_stall_punt_rate"], defaultOn:false },
       ]
     },
   };
@@ -873,6 +889,16 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
       var n = Number(v);
       if (n > 0 && n <= 1) n = n * 100;
       return n.toFixed(1)+"%";
+    }
+    if (fmt === "money") {
+      // Compact dollar formatting — 45000 → $45K, 1250000 → $1.25M.
+      var m = Number(v);
+      if (m === 0) return "$0";
+      var abs = Math.abs(m);
+      var sign = m < 0 ? "-" : "";
+      if (abs >= 1e6) return sign + "$" + (abs / 1e6).toFixed(abs >= 1e7 ? 1 : 2) + "M";
+      if (abs >= 1e3) return sign + "$" + (abs / 1e3).toFixed(abs >= 1e4 ? 0 : 1) + "K";
+      return sign + "$" + abs.toFixed(0);
     }
     return String(v);
   }
@@ -1355,9 +1381,35 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
     mfl_total:    { min: 1,  max: 17, label: "MFL Total" },
     full:         { min: 1,  max: 22, label: "Full + NFL Playoffs" },
   };
-  var customWeeks = new Set([1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17]);
-  var weeksLabelEl  = document.getElementById("asw-weeks-label");
-  var weeksPickerEl = document.getElementById("asw-weeks-picker");
+  // Custom weeks as a [start, end] range (two dropdowns) — replaces the
+  // 22-chip picker that was painful to use. Contiguous-only, which
+  // covers the realistic cases (first-N, last-N, playoffs, arbitrary
+  // sub-window). Non-contiguous analysis was fringe enough to cut.
+  var weeksLabelEl = document.getElementById("asw-weeks-label");
+  var weekStartSel = document.getElementById("asw-week-start");
+  var weekEndSel   = document.getElementById("asw-week-end");
+
+  (function populateWeekSelects(){
+    for (var w = 1; w <= 22; w++) {
+      var a = document.createElement("option");
+      a.value = String(w); a.textContent = "Wk " + w;
+      if (w === 1)  a.selected = true;
+      weekStartSel.appendChild(a);
+      var b = document.createElement("option");
+      b.value = String(w); b.textContent = "Wk " + w;
+      if (w === 17) b.selected = true;
+      weekEndSel.appendChild(b);
+    }
+  })();
+
+  function getCustomWeekRange(){
+    var lo = parseInt(weekStartSel.value, 10);
+    var hi = parseInt(weekEndSel.value, 10);
+    if (!Number.isFinite(lo)) lo = 1;
+    if (!Number.isFinite(hi)) hi = 22;
+    if (lo > hi) { var t = lo; lo = hi; hi = t; } // auto-swap on inversion
+    return { lo: Math.max(1, lo), hi: Math.min(22, hi) };
+  }
 
   function getScope(){
     return scopeSel ? scopeSel.value : "mfl_total";
@@ -1365,54 +1417,26 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
   function getScopeLabel(){
     var s = getScope();
     if (s === "custom") {
-      var n = customWeeks.size;
-      if (!n) return "No weeks";
-      if (n === 22) return "All weeks";
-      var wks = Array.from(customWeeks).sort(function(a,b){return a-b;});
-      return wks.length > 4 ? wks.length + " weeks" : "Wks " + wks.join(",");
+      var r = getCustomWeekRange();
+      return "Wks " + r.lo + "-" + r.hi;
     }
     return (SCOPE_RANGES[s] && SCOPE_RANGES[s].label) || s;
   }
-  // Translate active scope → URL params for the leaderboard + drawer APIs.
   function getScopeQueryParams(){
     var s = getScope();
     if (s === "custom") {
-      if (!customWeeks.size) return "&weeks=0";  // none selected → no weeks
-      return "&weeks=" + Array.from(customWeeks).sort(function(a,b){return a-b}).join(",");
+      var r = getCustomWeekRange();
+      return "&week_min=" + r.lo + "&week_max=" + r.hi;
     }
-    var r = SCOPE_RANGES[s] || SCOPE_RANGES.mfl_total;
-    return "&week_min=" + r.min + "&week_max=" + r.max;
-  }
-  function renderWeeksPicker(){
-    weeksPickerEl.innerHTML = "";
-    for (var w = 1; w <= 22; w++) {
-      var b = document.createElement("button");
-      b.type = "button";
-      b.className = "asw-chip";
-      b.setAttribute("data-week", String(w));
-      b.setAttribute("aria-pressed", customWeeks.has(w) ? "true" : "false");
-      b.style.minWidth = "26px";
-      b.style.padding = "2px 6px";
-      b.textContent = String(w);
-      b.title = w <= 14 ? "Reg week " + w : w <= 17 ? "MFL playoff wk " + w : "NFL postseason wk " + w;
-      (function(wk, btn){
-        btn.addEventListener("click", function(){
-          if (customWeeks.has(wk)) customWeeks.delete(wk); else customWeeks.add(wk);
-          btn.setAttribute("aria-pressed", customWeeks.has(wk) ? "true" : "false");
-          runQuery();
-        });
-      })(w, b);
-      weeksPickerEl.appendChild(b);
-    }
+    var preset = SCOPE_RANGES[s] || SCOPE_RANGES.mfl_total;
+    return "&week_min=" + preset.min + "&week_max=" + preset.max;
   }
   function updateCustomPickerVisibility(){
-    if (getScope() === "custom") {
-      weeksLabelEl.removeAttribute("hidden");
-    } else {
-      weeksLabelEl.setAttribute("hidden", "");
-    }
+    if (getScope() === "custom") weeksLabelEl.removeAttribute("hidden");
+    else weeksLabelEl.setAttribute("hidden", "");
   }
-  renderWeeksPicker();
+  weekStartSel.addEventListener("change", runQuery);
+  weekEndSel.addEventListener("change", runQuery);
   function getSelectedSeasons(){
     var sel = [];
     for (var i = 0; i < seasonsSel.options.length; i++) {
@@ -2091,8 +2115,10 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
       if (seasons.length) params.set("seasons", seasons.join(","));
       var scope = getScope();
       if (scope === "custom") {
-        var wks = Array.from(customWeeks).sort(function(a,b){return a-b;});
-        if (wks.length) params.set("weeks", wks.join(","));
+        var r = getCustomWeekRange();
+        params.set("scope", "custom");
+        params.set("week_min", String(r.lo));
+        params.set("week_max", String(r.hi));
       } else {
         params.set("scope", scope);
       }
@@ -2148,15 +2174,26 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
     }
 
     var scope = params.get("scope");
-    var weeksParam = params.get("weeks");
-    if (weeksParam) {
-      customWeeks = new Set(weeksParam.split(",").map(function(w){ return parseInt(w, 10); }).filter(function(w){ return w >= 1 && w <= 22; }));
+    if (scope === "custom") {
       scopeSel.value = "custom";
-      renderWeeksPicker();
+      var wmin = parseInt(params.get("week_min"), 10);
+      var wmax = parseInt(params.get("week_max"), 10);
+      if (Number.isFinite(wmin) && wmin >= 1 && wmin <= 22) weekStartSel.value = String(wmin);
+      if (Number.isFinite(wmax) && wmax >= 1 && wmax <= 22) weekEndSel.value   = String(wmax);
       touched = true;
     } else if (scope) {
       scopeSel.value = scope;
       touched = true;
+    } else if (params.get("weeks")) {
+      // Legacy URLs used weeks=1,2,3 (list). Collapse to a [lo,hi] range.
+      var wks = params.get("weeks").split(",").map(function(w){ return parseInt(w, 10); })
+                     .filter(function(w){ return w >= 1 && w <= 22; });
+      if (wks.length) {
+        scopeSel.value = "custom";
+        weekStartSel.value = String(Math.min.apply(null, wks));
+        weekEndSel.value   = String(Math.max.apply(null, wks));
+        touched = true;
+      }
     }
 
     // Teams — franchise options arrive async. Defer to leagueStatePromise.

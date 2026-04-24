@@ -844,6 +844,8 @@ export default {
                      MAX(COALESCE(w.punt_long,0))         AS punt_long,
                      SUM(COALESCE(w.punt_inside20,0))     AS punt_inside20,
                      SUM(COALESCE(w.punt_tb,0))           AS punt_tb,
+                     SUM(COALESCE(w.punt_spot_sum,0))     AS punt_spot_sum,
+                     SUM(COALESCE(w.punt_spot_count,0))   AS punt_spot_count,
                      AVG(w.punt_net_avg)                  AS punt_net_avg,
                      SUM(COALESCE(w.receiving_drops,0))          AS receiving_drops,
                      SUM(COALESCE(w.receiving_broken_tackles,0)) AS receiving_broken_tackles,
@@ -926,6 +928,21 @@ export default {
                 FROM nfl_player_weekly w
                WHERE w.season IN (${seasonList}) AND ${weekFilter}
                GROUP BY w.team
+            ),
+            -- Team-level situational rates (migration 0016). 4th-down
+            -- go-for-it rate + stall-punt frequency per team across the
+            -- selected season/week window. Summed across (season, week)
+            -- rows then joined by team.
+            team_situational_agg AS (
+              SELECT tw.team,
+                     SUM(COALESCE(tw.fourth_down_total,0)) AS team_fourth_down_total,
+                     SUM(COALESCE(tw.fourth_down_go,0))    AS team_fourth_down_go,
+                     SUM(COALESCE(tw.stall_punts,0))       AS team_stall_punts,
+                     SUM(COALESCE(tw.team_punts,0))        AS team_all_punts
+                FROM nfl_team_weekly tw
+               WHERE tw.season IN (${seasonList})
+                 AND ${weekSqlPredicate.replace(/\bw\.week\b/g, "tw.week")}
+               GROUP BY tw.team
             ),
             team_rz_agg AS (
               SELECT w.team,
@@ -1022,6 +1039,10 @@ export default {
                    CAST(a.targets_ez AS REAL)   / NULLIF(tr.team_targets_ez, 0)   AS ez_target_share,
                    CAST(a.rush_att_i20 AS REAL) / NULLIF(tr.team_rush_att_i20, 0) AS rz_rush_share,
                    CAST(a.rush_att_i5 AS REAL)  / NULLIF(tr.team_rush_att_i5, 0)  AS gl_rush_share,
+                   -- Team situational rates (migration 0016)
+                   CAST(a.punt_spot_sum AS REAL) / NULLIF(a.punt_spot_count, 0)          AS punt_avg_spot,
+                   CAST(tsa.team_fourth_down_go AS REAL) / NULLIF(tsa.team_fourth_down_total, 0) AS team_fourth_down_go_rate,
+                   CAST(tsa.team_stall_punts AS REAL) / NULLIF(tsa.team_all_punts, 0)    AS team_stall_punt_rate,
                    lc.franchise_id AS mfl_franchise_id,
                    lc.team_name    AS mfl_franchise_name
               FROM agg a
@@ -1030,6 +1051,7 @@ export default {
               LEFT JOIN season_adv_agg sv     ON sv.gsis_id = a.gsis_id
               LEFT JOIN team_agg ta           ON ta.team = a.team
               LEFT JOIN team_rz_agg tr        ON tr.team = a.team
+              LEFT JOIN team_situational_agg tsa ON tsa.team = a.team
               LEFT JOIN mfl_scoring_agg msa   ON msa.gsis_id = a.gsis_id
               LEFT JOIN latest_contract lc    ON lc.player_id = c.mfl_player_id
              WHERE a.games >= ?

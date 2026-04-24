@@ -46,6 +46,20 @@ TMP_DIR: Path = TMP_DIR_DEFAULT
 
 CHUNK_SIZE = 200  # rows per INSERT statement — D1 caps single-statement size at ~100KB; trades/comments push us near the ceiling at higher counts
 
+# Primary-key map used to drive UPSERT mode (Keith 2026-04-24 — incremental
+# syncs, no more DELETE+INSERT wipe windows). Tables NOT in this map keep
+# the legacy reset-then-insert behavior. Only populate for tables where the
+# PK is stable and well-understood — incorrect PK here causes silent data
+# loss as rows upsert onto each other.
+PK_MAP: dict[str, list[str]] = {
+    "nfl_player_weekly":          ["season", "week", "gsis_id"],
+    "nfl_player_snaps":           ["season", "week", "pfr_id"],
+    "nfl_player_redzone":         ["season", "week", "gsis_id"],
+    "nfl_player_advstats_season": ["season", "gsis_id"],
+    "nfl_team_weekly":            ["season", "week", "team"],
+    "player_id_crosswalk":        ["mfl_player_id"],
+}
+
 
 def sql_escape(v):
     if v is None:
@@ -58,17 +72,43 @@ def sql_escape(v):
     return f"'{s}'"
 
 
-def build_insert(table: str, cols: list[str], rows: list[tuple]) -> str:
+def build_insert(
+    table: str,
+    cols: list[str],
+    rows: list[tuple],
+    pk_cols: list[str] | None = None,
+) -> str:
+    """Build an INSERT (or UPSERT) SQL statement for a batch of rows.
+
+    When `pk_cols` is provided we emit `INSERT ... ON CONFLICT DO UPDATE`
+    so re-running the sync updates in place instead of requiring a
+    DELETE+INSERT cycle (Keith 2026-04-24 — incremental syncs never
+    leave D1 in a half-empty state mid-run).
+
+    Without `pk_cols` we fall back to `INSERT OR IGNORE` (legacy;
+    absorbs dupes but won't overwrite).
+    """
     col_list = ", ".join(cols)
     value_tuples = []
     for row in rows:
         vals = ", ".join(sql_escape(v) for v in row)
         value_tuples.append(f"({vals})")
     newline_join = ",\n"
-    # OR IGNORE absorbs rare dupes on composite PKs (e.g. ~200 duplicate
-    # (season, week, player_id) rows in player_weeklyscoringresults where
-    # a player appeared on two franchises in the same week).
-    return f"INSERT OR IGNORE INTO {table} ({col_list}) VALUES\n{newline_join.join(value_tuples)};\n"
+    values_sql = newline_join.join(value_tuples)
+
+    if pk_cols:
+        update_cols = [c for c in cols if c not in pk_cols]
+        if update_cols:
+            set_clause = ", ".join(f"{c} = excluded.{c}" for c in update_cols)
+            pk_list = ", ".join(pk_cols)
+            return (
+                f"INSERT INTO {table} ({col_list}) VALUES\n{values_sql}\n"
+                f"ON CONFLICT ({pk_list}) DO UPDATE SET {set_clause};\n"
+            )
+        # Table is PK-only (unusual) — an INSERT OR IGNORE is effectively the same
+        return f"INSERT OR IGNORE INTO {table} ({col_list}) VALUES\n{values_sql};\n"
+
+    return f"INSERT OR IGNORE INTO {table} ({col_list}) VALUES\n{values_sql};\n"
 
 
 def wrangler_execute(sql_path: Path, db: str, max_attempts: int = 4) -> None:
@@ -115,9 +155,16 @@ def load_table(
     dst_table: str,
     dst_cols: list[str],
     db_name: str,
+    pk_cols: list[str] | None = None,
+    reset: bool = False,
 ) -> int:
     TMP_DIR.mkdir(parents=True, exist_ok=True)
-    reset_table(dst_table, db_name)
+    # Keith 2026-04-24: default is INCREMENTAL upsert — no DELETE. Pass
+    # reset=True (or --reset on the CLI) to force a full-table wipe first.
+    # Incremental mode means a partial/failed sync never leaves D1 in an
+    # empty state — only changed rows get rewritten.
+    if reset:
+        reset_table(dst_table, db_name)
 
     total = 0
     chunk_idx = 0
@@ -128,7 +175,7 @@ def load_table(
         if not chunk:
             return
         chunk_idx += 1
-        sql = build_insert(dst_table, dst_cols, chunk)
+        sql = build_insert(dst_table, dst_cols, chunk, pk_cols=pk_cols)
         path = TMP_DIR / f"{dst_table}__{chunk_idx:04d}.sql"
         path.write_text(sql)
         wrangler_execute(path, db_name)
@@ -174,6 +221,9 @@ def main():
     ap.add_argument("--wrangler-config", help="Path to wrangler.toml for standalone invocations")
     ap.add_argument("--worker-cwd", help="Directory to cd into before running wrangler (defaults to repo worker/)")
     ap.add_argument("--tmp-dir", help="Scratch dir for generated SQL chunks (defaults to <worker>/.tmp/d1_load)")
+    ap.add_argument("--reset", action="store_true",
+                    help="Wipe destination tables before loading. Default is incremental UPSERT "
+                         "(Keith 2026-04-24 — no more empty-D1 mid-sync windows).")
     args = ap.parse_args()
 
     global WRANGLER_CONFIG, WORKER_CWD, TMP_DIR
@@ -295,6 +345,7 @@ def main():
                 fg_distance_sum_made, fg_made_pbp,
                 xp_att, xp_made,
                 punts, punt_yds, punt_long, punt_inside20, punt_net_avg, punt_tb,
+                punt_spot_sum, punt_spot_count,
                 starter_nfl, source,
                 receiving_drops, receiving_broken_tackles,
                 rushing_broken_tackles, passing_drops,
@@ -324,6 +375,7 @@ def main():
           "fg_distance_sum_made","fg_made_pbp",
           "xp_att","xp_made",
           "punts","punt_yds","punt_long","punt_inside20","punt_net_avg","punt_tb",
+          "punt_spot_sum","punt_spot_count",
           "starter_nfl","source",
           "receiving_drops","receiving_broken_tackles",
           "rushing_broken_tackles","passing_drops",
@@ -365,6 +417,18 @@ def main():
           "targets_i20","targets_i10","targets_i5",
           "targets_ez","rec_i20","rec_tds_i20",
           "pass_att_i20","pass_tds_i20","pass_att_ez"]),
+        ("nflteam", "nfl_team_weekly",
+         """
+         SELECT season, week, team,
+                fourth_down_total, fourth_down_go,
+                fourth_down_punt, fourth_down_fg,
+                stall_punts, team_punts
+         FROM nfl_team_weekly
+         """,
+         ["season","week","team",
+          "fourth_down_total","fourth_down_go",
+          "fourth_down_punt","fourth_down_fg",
+          "stall_punts","team_punts"]),
         ("pfrseason", "nfl_player_advstats_season",
          """
          SELECT season, gsis_id, pfr_id,
@@ -431,8 +495,16 @@ def main():
     for flag, label, src_sql, dst_cols in plan:
         if selected and flag not in selected:
             continue
-        print(f"Loading {flag} → {label}")
-        n = load_table(conn, src_sql, label, dst_cols, args.db)
+        pk_cols = PK_MAP.get(label)
+        # Incremental mode: table in PK_MAP → UPSERT (no reset).
+        # Legacy mode: no PK known → DELETE+INSERT.
+        # --reset on the CLI forces reset for every table regardless.
+        use_reset = bool(args.reset) or (pk_cols is None)
+        mode = "upsert" if (pk_cols and not args.reset) else "reset+insert"
+        print(f"Loading {flag} → {label} ({mode})")
+        n = load_table(conn, src_sql, label, dst_cols, args.db,
+                       pk_cols=pk_cols if not args.reset else None,
+                       reset=use_reset)
         rows_by_table[label] = n
 
     print("Recording manifest...")

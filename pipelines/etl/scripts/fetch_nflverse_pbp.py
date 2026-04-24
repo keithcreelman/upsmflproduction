@@ -73,7 +73,8 @@ def ensure_table(db: sqlite3.Connection) -> None:
 def process_season(db: sqlite3.Connection, season: int,
                    do_redzone: bool = True,
                    do_fg: bool = True,
-                   do_punts: bool = True) -> dict:
+                   do_punts: bool = True,
+                   do_team: bool = True) -> dict:
     try:
         import nflreadpy as nfl
     except Exception as e:
@@ -89,22 +90,25 @@ def process_season(db: sqlite3.Connection, season: int,
     if "season_type" in df.columns:
         df = df[df["season_type"].isin(["REG", "POST"])]
 
-    # We want: run/pass (redzone), field_goal (FG buckets), punt (punter totals).
-    # Keep all three — filter the dataframe accordingly before the single-pass
-    # loop so we don't scan irrelevant plays.
-    want_types = []
-    if do_redzone: want_types.extend(["run", "pass"])
-    if do_fg:      want_types.append("field_goal")
-    if do_punts:   want_types.append("punt")
+    # We want: run/pass (redzone + team 4th-down go), field_goal (FG
+    # buckets + team 4th-down fg), punt (punter totals + team stall-punt
+    # + team 4th-down punt). Team-level 4th-down aggregator needs ALL
+    # four play types on 4th down so union them up here.
+    want_types = set()
+    if do_redzone: want_types.update(["run", "pass"])
+    if do_fg:      want_types.add("field_goal")
+    if do_punts:   want_types.add("punt")
+    if do_team:    want_types.update(["run", "pass", "field_goal", "punt"])
     if not want_types:
         print("  (no domains enabled — skipping season)", file=sys.stderr)
-        return {"redzone": 0, "fg": 0, "punt": 0}
-    df = df[df["play_type"].isin(want_types)]
+        return {"redzone": 0, "fg": 0, "punt": 0, "team": 0}
+    df = df[df["play_type"].isin(list(want_types))]
 
     # ---- Aggregators (each domain has its own dict keyed by (season,week,gsis)) ----
-    rz_agg = {}   # redzone
-    fg_agg = {}   # kicker FG
-    pt_agg = {}   # punter
+    rz_agg = {}   # redzone (player)
+    fg_agg = {}   # kicker FG (player)
+    pt_agg = {}   # punter (player)
+    tw_agg = {}   # team-weekly (keyed by (season,week,team))
 
     def rz_bucket(gsis, week):
         if not gsis:
@@ -142,12 +146,45 @@ def process_season(db: sqlite3.Connection, season: int,
             pt_agg[key] = {
                 "punts": 0, "punt_yds": 0, "punt_long": 0,
                 "punt_inside20": 0, "punt_tb": 0,
+                # Avg punt spot — own-yardline at LoS. Sum of (100-yl_100)
+                # across punts with known yardline, and count denominator.
+                "punt_spot_sum": 0, "punt_spot_count": 0,
             }
         return pt_agg[key]
+
+    def tw_bucket(team, week):
+        if not team:
+            return None
+        key = (season, int(week), str(team))
+        if key not in tw_agg:
+            tw_agg[key] = {
+                "fourth_down_total": 0, "fourth_down_go": 0,
+                "fourth_down_punt": 0, "fourth_down_fg": 0,
+                "stall_punts": 0, "team_punts": 0,
+            }
+        return tw_agg[key]
 
     for row in df.to_dict(orient="records"):
         week = row.get("week") or 0
         ptype = row.get("play_type")
+        posteam = row.get("posteam") or row.get("pos_team")
+
+        # yardline_100 parsed once per row — needed by redzone, stall-punt,
+        # and punt-spot branches below.
+        yl100 = row.get("yardline_100")
+        try:
+            yl100 = int(yl100) if yl100 is not None else None
+        except (ValueError, TypeError):
+            yl100 = None
+
+        # ---- Team 4th-down bookkeeping (runs on every play — cheap) ----
+        if do_team and row.get("down") == 4 and posteam and ptype in ("run","pass","field_goal","punt"):
+            tb = tw_bucket(posteam, week)
+            if tb is not None:
+                tb["fourth_down_total"] += 1
+                if ptype in ("run","pass"): tb["fourth_down_go"]   += 1
+                elif ptype == "punt":       tb["fourth_down_punt"] += 1
+                elif ptype == "field_goal": tb["fourth_down_fg"]   += 1
 
         # ---- FG play: distance-bucket + PBP avg ----
         if ptype == "field_goal" and do_fg:
@@ -180,38 +217,44 @@ def process_season(db: sqlite3.Connection, season: int,
             continue  # FG plays don't also fall into redzone bucketing
 
         # ---- Punt play: punter volume/distance/inside20/touchbacks ----
-        if ptype == "punt" and do_punts:
-            punter = row.get("punter_player_id") or row.get("punter_id")
-            if punter:
-                dist = row.get("kick_distance")
-                try:
-                    dist = int(dist) if dist is not None else None
-                except (ValueError, TypeError):
-                    dist = None
-                b = pt_bucket(punter, week)
-                b["punts"] += 1
-                if dist is not None:
-                    b["punt_yds"] += dist
-                    if dist > b["punt_long"]:
-                        b["punt_long"] = dist
-                # touchback and inside_twenty — both nullable 0/1
-                if row.get("touchback") in (1, True, "1"):
-                    b["punt_tb"] += 1
-                if row.get("punt_inside_twenty") in (1, True, "1"):
-                    b["punt_inside20"] += 1
+        if ptype == "punt":
+            # Team-level: every punt counts toward team_punts; stall-punt
+            # = yardline_100 in [40, 50] (midfield → opp 40 zone).
+            if do_team and posteam:
+                tb = tw_bucket(posteam, week)
+                if tb is not None:
+                    tb["team_punts"] += 1
+                    if yl100 is not None and 40 <= yl100 <= 50:
+                        tb["stall_punts"] += 1
+
+            if do_punts:
+                punter = row.get("punter_player_id") or row.get("punter_id")
+                if punter:
+                    dist = row.get("kick_distance")
+                    try:
+                        dist = int(dist) if dist is not None else None
+                    except (ValueError, TypeError):
+                        dist = None
+                    b = pt_bucket(punter, week)
+                    b["punts"] += 1
+                    if dist is not None:
+                        b["punt_yds"] += dist
+                        if dist > b["punt_long"]:
+                            b["punt_long"] = dist
+                    if yl100 is not None:
+                        b["punt_spot_sum"] += (100 - yl100)  # own-yardline
+                        b["punt_spot_count"] += 1
+                    # touchback and inside_twenty — both nullable 0/1
+                    if row.get("touchback") in (1, True, "1"):
+                        b["punt_tb"] += 1
+                    if row.get("punt_inside_twenty") in (1, True, "1"):
+                        b["punt_inside20"] += 1
             continue  # punt plays don't also fall into redzone bucketing
 
         # ---- Redzone aggregation (only run/pass) ----
-        if not do_redzone:
+        if not do_redzone or yl100 is None:
             continue
-        yl = row.get("yardline_100")
-        if yl is None:
-            continue
-        try:
-            yl = int(yl)
-        except (ValueError, TypeError):
-            continue
-        # Restore original run/pass redzone logic from here:
+        yl = yl100  # reuse the top-of-loop parse
         bucket = rz_bucket
         if ptype == "run":
             rusher = row.get("rusher_player_id") or row.get("rusher_id")
@@ -267,7 +310,7 @@ def process_season(db: sqlite3.Connection, season: int,
                     if yl <= 5:  br["targets_i5"]  += 1
                     if is_ez:    br["targets_ez"]  += 1
 
-    counts = {"redzone": 0, "fg": 0, "punt": 0}
+    counts = {"redzone": 0, "fg": 0, "punt": 0, "team": 0}
 
     # ---- Redzone upsert ----
     if do_redzone and rz_agg:
@@ -349,34 +392,78 @@ def process_season(db: sqlite3.Connection, season: int,
             pt_rows.append((
                 v["punts"], v["punt_yds"], v["punt_long"],
                 v["punt_inside20"], v["punt_tb"],
+                v["punt_spot_sum"], v["punt_spot_count"],
                 s, wk, gid,
             ))
         db.executemany("""
             UPDATE nfl_player_weekly SET
               punts = ?, punt_yds = ?, punt_long = ?,
-              punt_inside20 = ?, punt_tb = ?
+              punt_inside20 = ?, punt_tb = ?,
+              punt_spot_sum = ?, punt_spot_count = ?
             WHERE season = ? AND week = ? AND gsis_id = ?
         """, pt_rows)
         counts["punt"] = len(pt_rows)
 
+    # ---- Team-weekly upsert (nfl_team_weekly, migration 0016) ----
+    if do_team and tw_agg:
+        tw_rows = []
+        for (s, wk, team), v in tw_agg.items():
+            tw_rows.append((
+                s, wk, team,
+                v["fourth_down_total"], v["fourth_down_go"],
+                v["fourth_down_punt"], v["fourth_down_fg"],
+                v["stall_punts"], v["team_punts"],
+            ))
+        db.executemany("""
+            INSERT INTO nfl_team_weekly
+                (season, week, team, fourth_down_total, fourth_down_go,
+                 fourth_down_punt, fourth_down_fg, stall_punts, team_punts)
+            VALUES (?,?,?,?,?,?,?,?,?)
+            ON CONFLICT(season, week, team) DO UPDATE SET
+              fourth_down_total = excluded.fourth_down_total,
+              fourth_down_go    = excluded.fourth_down_go,
+              fourth_down_punt  = excluded.fourth_down_punt,
+              fourth_down_fg    = excluded.fourth_down_fg,
+              stall_punts       = excluded.stall_punts,
+              team_punts        = excluded.team_punts
+        """, tw_rows)
+        counts["team"] = len(tw_rows)
+
     db.commit()
-    print(f"  {season}: redzone={counts['redzone']} fg={counts['fg']} punt={counts['punt']}", file=sys.stderr)
+    print(f"  {season}: redzone={counts['redzone']} fg={counts['fg']} punt={counts['punt']} team={counts['team']}", file=sys.stderr)
     return counts
 
 
 def ensure_weekly_columns(db: sqlite3.Connection) -> None:
-    """Mirror of migration 0015 for standalone runs on fresh local DBs."""
+    """Mirror of migrations 0015 + 0016 for standalone runs on fresh local DBs."""
     for stmt in [
         "ALTER TABLE nfl_player_weekly ADD COLUMN fg_att_50_59 INTEGER",
         "ALTER TABLE nfl_player_weekly ADD COLUMN fg_made_50_59 INTEGER",
         "ALTER TABLE nfl_player_weekly ADD COLUMN fg_att_60plus INTEGER",
         "ALTER TABLE nfl_player_weekly ADD COLUMN fg_made_60plus INTEGER",
         "ALTER TABLE nfl_player_weekly ADD COLUMN punt_tb INTEGER",
+        "ALTER TABLE nfl_player_weekly ADD COLUMN punt_spot_sum INTEGER",
+        "ALTER TABLE nfl_player_weekly ADD COLUMN punt_spot_count INTEGER",
     ]:
         try:
             db.execute(stmt)
         except sqlite3.OperationalError:
             pass  # column already exists
+    db.execute("""
+        CREATE TABLE IF NOT EXISTS nfl_team_weekly (
+          season            INTEGER NOT NULL,
+          week              INTEGER NOT NULL,
+          team              TEXT    NOT NULL,
+          fourth_down_total INTEGER,
+          fourth_down_go    INTEGER,
+          fourth_down_punt  INTEGER,
+          fourth_down_fg    INTEGER,
+          stall_punts       INTEGER,
+          team_punts        INTEGER,
+          PRIMARY KEY (season, week, team)
+        )
+    """)
+    db.execute("CREATE INDEX IF NOT EXISTS idx_team_weekly_team ON nfl_team_weekly (team, season)")
     db.commit()
 
 
@@ -389,6 +476,8 @@ def main() -> None:
                     help="Skip FG distance buckets (nfl_player_weekly)")
     ap.add_argument("--skip-punts", action="store_true",
                     help="Skip punter volume/distance (nfl_player_weekly)")
+    ap.add_argument("--skip-team", action="store_true",
+                    help="Skip team-level 4th-down + stall-punt (nfl_team_weekly)")
     args = ap.parse_args()
 
     if not LOCAL_DB.exists():
@@ -402,17 +491,18 @@ def main() -> None:
     seasons = parse_seasons(args.seasons)
     print(f"Target seasons: {seasons}", file=sys.stderr)
 
-    totals = {"redzone": 0, "fg": 0, "punt": 0}
+    totals = {"redzone": 0, "fg": 0, "punt": 0, "team": 0}
     for s in seasons:
         c = process_season(
             db, s,
             do_redzone=not args.skip_redzone,
             do_fg=not args.skip_fg,
             do_punts=not args.skip_punts,
+            do_team=not args.skip_team,
         )
         for k in totals: totals[k] += c.get(k, 0)
     print(f"DONE: redzone={totals['redzone']} fg={totals['fg']} punt={totals['punt']} "
-          f"rows across {len(seasons)} seasons", file=sys.stderr)
+          f"team={totals['team']} rows across {len(seasons)} seasons", file=sys.stderr)
 
 
 if __name__ == "__main__":
