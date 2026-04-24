@@ -783,9 +783,26 @@ export default {
               SELECT c.player_id,
                      c.franchise_id,
                      c.team_name,
+                     c.salary,
+                     c.contract_year,
+                     c.contract_length,
+                     c.aav,
                      c.season   AS contract_season
                 FROM src_contracts c
                 WHERE c.season = (SELECT MAX(season) FROM src_contracts)
+            ),
+            -- MFL per-player fantasy scoring for the same season/week
+            -- window as the NFL stat aggregates. src_weekly.player_id is
+            -- the MFL player_id, so we join via player_id_crosswalk.
+            mfl_scoring_agg AS (
+              SELECT c.gsis_id,
+                     SUM(COALESCE(sw.score, 0))                                      AS mfl_points,
+                     SUM(CASE WHEN COALESCE(sw.score, 0) > 0 THEN 1 ELSE 0 END)      AS mfl_games_scored
+                FROM src_weekly sw
+                JOIN player_id_crosswalk c ON c.mfl_player_id = sw.player_id
+               WHERE sw.season IN (${seasonList})
+                 AND ${weekSqlPredicate.replace(/\bw\.week\b/g, "sw.week")}
+               GROUP BY c.gsis_id
             ),
             agg AS (
               SELECT w.gsis_id,
@@ -955,9 +972,9 @@ export default {
                    a.def_tackles_total, a.def_tackles_ast, a.def_tfl, a.def_sacks,
                    a.def_ff, a.def_fr, a.def_ints, a.def_pass_def, a.def_tds,
                    a.fg_att, a.fg_made, a.xp_att, a.xp_made,
-                   a.punts, a.punt_yds, a.punt_long, a.punt_inside20, a.punt_tb, a.punt_net_avg,
+                   a.punts, a.punt_yds, a.punt_inside20, a.punt_tb, a.punt_net_avg,
                    a.receiving_drops, a.receiving_broken_tackles,
-                   a.rushing_broken_tackles, a.passing_drops,
+                   a.rushing_broken_tackles,
                    a.rushing_yards_before_contact, a.rushing_yards_after_contact,
                    a.rush_att_i20, a.rush_att_i5,
                    a.targets_i20, a.targets_ez,
@@ -966,11 +983,12 @@ export default {
                    a.fg_att_50_59, a.fg_made_50_59, a.fg_att_60plus, a.fg_made_60plus,
                    a.fg_distance_sum_made, a.fg_made_pbp,
                    a.receiving_rat,
-                   a.passing_bad_throws, a.passing_bad_throw_pct,
+                   a.passing_bad_throw_pct,
                    a.passing_times_pressured, a.passing_pressure_pct,
-                   a.passing_hurries, a.passing_hits,
+                   -- passing_hurries / passing_hits dropped from output to stay
+                   -- within D1 100-col result limit. Press / Press% cover them.
                    a.def_missed_tackles, a.def_missed_tackle_pct,
-                   a.def_completions_allowed, a.def_passer_rating_allowed,
+                   a.def_passer_rating_allowed,
                    a.def_yards_allowed, a.def_pressures,
                    sa.off_snaps_total, sa.def_snaps_total,
                    sa.off_snap_rate,   sa.def_snap_rate,
@@ -984,6 +1002,13 @@ export default {
                    sv.s_pass_adot        AS passing_adot,
                    sv.s_pass_yac         AS passing_yards_after_catch,
                    sv.s_def_adot         AS def_adot,
+                   -- MFL details (league-specific — salary, years remaining, AAV, points)
+                   lc.salary             AS mfl_salary,
+                   lc.aav                AS mfl_aav,
+                   (CASE WHEN lc.contract_length IS NULL OR lc.contract_year IS NULL THEN NULL
+                         ELSE lc.contract_length - lc.contract_year + 1 END)  AS mfl_years_remaining,
+                   msa.mfl_points        AS mfl_points,
+                   msa.mfl_games_scored  AS mfl_games_scored,
                    -- Market share (Keith 2026-04-24) — ratios against
                    -- team-level totals across the same season/week window.
                    -- Values are 0..1 decimals; client formats as pct.
@@ -1005,6 +1030,7 @@ export default {
               LEFT JOIN season_adv_agg sv     ON sv.gsis_id = a.gsis_id
               LEFT JOIN team_agg ta           ON ta.team = a.team
               LEFT JOIN team_rz_agg tr        ON tr.team = a.team
+              LEFT JOIN mfl_scoring_agg msa   ON msa.gsis_id = a.gsis_id
               LEFT JOIN latest_contract lc    ON lc.player_id = c.mfl_player_id
              WHERE a.games >= ?
              ORDER BY a.rush_yds + a.rec_yds + a.pass_yds DESC
