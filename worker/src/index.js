@@ -956,11 +956,15 @@ export default {
             ),
             team_rz_agg AS (
               SELECT w.team,
-                     SUM(COALESCE(rz.targets_i20,0))  AS team_targets_i20,
-                     SUM(COALESCE(rz.rec_i20,0))      AS team_rec_i20,
-                     SUM(COALESCE(rz.targets_ez,0))   AS team_targets_ez,
-                     SUM(COALESCE(rz.rush_att_i20,0)) AS team_rush_att_i20,
-                     SUM(COALESCE(rz.rush_att_i5,0))  AS team_rush_att_i5
+                     SUM(COALESCE(rz.targets_i20,0))   AS team_targets_i20,
+                     SUM(COALESCE(rz.rec_i20,0))       AS team_rec_i20,
+                     SUM(COALESCE(rz.targets_ez,0))    AS team_targets_ez,
+                     SUM(COALESCE(rz.rush_att_i20,0))  AS team_rush_att_i20,
+                     SUM(COALESCE(rz.rush_att_i5,0))   AS team_rush_att_i5,
+                     -- Team RZ pass attempts — feeds team_rz_plays +
+                     -- team_rz_pass_rate below so QB context shows how
+                     -- often their team goes to the air in the RZ.
+                     SUM(COALESCE(rz.pass_att_i20,0))  AS team_pass_att_i20
                 FROM nfl_player_redzone rz
                 JOIN nfl_player_weekly w
                        ON w.season = rz.season AND w.week = rz.week AND w.gsis_id = rz.gsis_id
@@ -1043,14 +1047,16 @@ export default {
                    -- Values are 0..1 decimals; client formats as pct.
                    CAST(a.targets AS REAL)      / NULLIF(ta.team_targets, 0)      AS target_share,
                    CAST(a.receptions AS REAL)   / NULLIF(ta.team_rec, 0)          AS rec_share,
-                   CAST(a.rec_yds AS REAL)      / NULLIF(ta.team_rec_yds, 0)      AS rec_yds_share,
                    CAST(a.rush_att AS REAL)     / NULLIF(ta.team_rush_att, 0)     AS rush_share,
-                   CAST(a.rush_yds AS REAL)     / NULLIF(ta.team_rush_yds, 0)     AS rush_yds_share,
                    CAST(a.targets_i20 AS REAL)  / NULLIF(tr.team_targets_i20, 0)  AS rz_target_share,
                    CAST(a.rec_i20 AS REAL)      / NULLIF(tr.team_rec_i20, 0)      AS rz_rec_share,
                    CAST(a.targets_ez AS REAL)   / NULLIF(tr.team_targets_ez, 0)   AS ez_target_share,
                    CAST(a.rush_att_i20 AS REAL) / NULLIF(tr.team_rush_att_i20, 0) AS rz_rush_share,
                    CAST(a.rush_att_i5 AS REAL)  / NULLIF(tr.team_rush_att_i5, 0)  AS gl_rush_share,
+                   -- Team RZ context (Keith 2026-04-24): for QB volume context.
+                   (COALESCE(tr.team_pass_att_i20,0) + COALESCE(tr.team_rush_att_i20,0)) AS team_rz_plays,
+                   CAST(tr.team_pass_att_i20 AS REAL) /
+                     NULLIF(COALESCE(tr.team_pass_att_i20,0) + COALESCE(tr.team_rush_att_i20,0), 0) AS team_rz_pass_rate,
                    -- Team situational rates (migration 0016)
                    CAST(a.punt_spot_sum AS REAL) / NULLIF(a.punt_spot_count, 0)          AS punt_avg_spot,
                    CAST(tsa.team_fourth_down_go AS REAL) / NULLIF(tsa.team_fourth_down_total, 0) AS team_fourth_down_go_rate,
