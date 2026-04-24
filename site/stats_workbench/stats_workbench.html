@@ -72,6 +72,34 @@ h1{margin:0 0 8px;font-size:18px;letter-spacing:.02em}
 .asw-table.heat td.pct-q4{background:rgba(115,230,140,.07)}
 .asw-table.heat td.pct-q5{background:rgba(115,230,140,.16)}
 
+/* Comparison mode — row checkbox column + sticky compare bar */
+.asw-table th.sel-col,.asw-table td.sel-col{padding:4px 6px;text-align:center;width:28px;background:var(--panel-alt)}
+.asw-table td.sel-col{background:inherit}
+.asw-compare-check{width:14px;height:14px;cursor:pointer;accent-color:var(--accent)}
+.asw-compare-bar{position:sticky;top:0;z-index:30;background:linear-gradient(90deg,var(--accent) 0%,#4a82d4 100%);color:#0a1222;padding:8px 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;border-radius:8px;margin-bottom:8px;font-weight:600;box-shadow:0 4px 14px rgba(106,168,255,.25);animation:asw-compare-in .18s ease-out}
+@keyframes asw-compare-in{from{transform:translateY(-6px);opacity:0}to{transform:translateY(0);opacity:1}}
+.asw-compare-bar-label{font-size:11px;text-transform:uppercase;letter-spacing:.08em;font-weight:800}
+.asw-compare-chip{background:rgba(10,18,34,.2);border:1px solid rgba(10,18,34,.25);color:#0a1222;padding:3px 4px 3px 10px;border-radius:999px;font-size:11px;font-weight:700;display:inline-flex;align-items:center;gap:4px}
+.asw-compare-chip button{background:transparent;border:0;color:inherit;cursor:pointer;font-size:14px;line-height:1;padding:0 6px;border-radius:999px}
+.asw-compare-chip button:hover{background:rgba(10,18,34,.18)}
+.asw-compare-primary{margin-left:auto;background:#0a1222;color:#f0f8ff;border:1px solid #1a2a45;padding:6px 16px;font-weight:800;border-radius:6px;cursor:pointer;font-size:12px;letter-spacing:.02em}
+.asw-compare-primary:hover{background:#13213a;border-color:var(--accent)}
+.asw-compare-primary:disabled{opacity:.5;cursor:not-allowed}
+.asw-compare-clear{background:transparent;border:0;color:#0a1222;cursor:pointer;font-size:11px;text-decoration:underline;padding:0 6px;opacity:.85;font-weight:700}
+.asw-compare-clear:hover{opacity:1}
+
+/* Comparison drawer — side-by-side table */
+.asw-compare-table{width:100%;border-collapse:collapse;font-size:12px}
+.asw-compare-table th,.asw-compare-table td{padding:6px 10px;border-bottom:1px solid var(--border);white-space:nowrap}
+.asw-compare-table thead th{background:var(--panel-alt);color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.03em;font-weight:700;position:sticky;top:0}
+.asw-compare-table thead th.player{color:var(--text);text-align:right;font-size:12px;text-transform:none;letter-spacing:0}
+.asw-compare-table thead th.player .sub{display:block;color:var(--muted);font-size:10px;font-weight:500}
+.asw-compare-table td.metric{color:var(--muted);font-weight:600;background:var(--panel);position:sticky;left:0;z-index:1}
+.asw-compare-table td.num{text-align:right;font-variant-numeric:tabular-nums}
+.asw-compare-table td.best{background:rgba(115,230,140,.14);font-weight:700;color:#b5ffcc}
+.asw-compare-table td.worst{background:rgba(224,122,122,.10);color:#ffb9b9}
+.asw-compare-section-row td{background:var(--panel);color:var(--accent);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--border-strong)}
+
 .asw-meta{color:var(--muted);font-size:11px;margin-bottom:6px}
 .asw-table-wrap{overflow-x:auto;background:var(--panel);border:1px solid var(--border);border-radius:8px}
 table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
@@ -174,16 +202,16 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
     <span style="font-size:10px; color:var(--muted)">⌘/Ctrl multi-select · Franchises below</span>
   </label>
   <label>Scope
-    <div style="display:flex;gap:4px;flex-wrap:wrap">
-      <button type="button" class="asw-chip" data-scope="mfl_reg"      aria-pressed="false" title="MFL regular season (NFL weeks 1-14)">MFL Reg</button>
-      <button type="button" class="asw-chip" data-scope="mfl_playoffs" aria-pressed="false" title="MFL playoffs (NFL weeks 15-17)">MFL Playoffs</button>
-      <button type="button" class="asw-chip" data-scope="mfl_total"    aria-pressed="true"  title="MFL full season (NFL weeks 1-17)">MFL Total</button>
-      <button type="button" class="asw-chip" data-scope="full"         aria-pressed="false" title="NFL regular + postseason (weeks 1-22)">Full + NFL Playoffs</button>
-      <button type="button" class="asw-chip" data-scope="custom"       aria-pressed="false" title="Pick specific weeks below">Custom…</button>
-    </div>
+    <select id="asw-scope" style="min-width:180px">
+      <option value="mfl_reg">MFL Reg (wks 1-14)</option>
+      <option value="mfl_playoffs">MFL Playoffs (wks 15-17)</option>
+      <option value="mfl_total" selected>MFL Total (wks 1-17)</option>
+      <option value="full">Full + NFL Playoffs (1-22)</option>
+      <option value="custom">Custom weeks…</option>
+    </select>
   </label>
-  <label id="asw-weeks-label" hidden>Weeks
-    <div id="asw-weeks-picker" style="display:flex;gap:3px;flex-wrap:wrap;max-width:440px"></div>
+  <label id="asw-weeks-label" hidden style="flex-basis:100%">Weeks
+    <div id="asw-weeks-picker" style="display:flex;gap:3px;flex-wrap:wrap"></div>
   </label>
   <label>Search
     <input type="text" id="asw-search" placeholder="name contains…">
@@ -194,6 +222,14 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
 <div class="asw-cols-bar" id="asw-cols-bar">
   <span class="asw-cols-label">Columns</span>
   <!-- group chips injected by JS, then the filter toggle block appended -->
+</div>
+
+<!-- Sticky compare bar — appears above the table when 1+ players selected -->
+<div class="asw-compare-bar" id="asw-compare-bar" hidden>
+  <span class="asw-compare-bar-label">Compare</span>
+  <span id="asw-compare-chips" style="display:inline-flex;flex-wrap:wrap;gap:6px"></span>
+  <button type="button" class="asw-compare-clear" id="asw-compare-clear">Clear</button>
+  <button type="button" class="asw-compare-primary" id="asw-compare-go">Compare →</button>
 </div>
 
 <div class="asw-meta" id="asw-meta"></div>
@@ -621,7 +657,7 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
   var subTabsEl   = document.getElementById("asw-subtabs");
   var seasonsSel  = document.getElementById("asw-seasons");
   var teamSel     = document.getElementById("asw-team");
-  var scopeBtns   = document.querySelectorAll("[data-scope]");
+  var scopeSel    = document.getElementById("asw-scope");
   var searchEl    = document.getElementById("asw-search");
   var colsBarEl   = document.getElementById("asw-cols-bar");
   var metaEl      = document.getElementById("asw-meta");
@@ -695,6 +731,8 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
     filtersVisible: false, // header filter row shown?
     filters: {},           // { colKey: "expr string" } — raw user input per column
     heatOn: false,         // percentile-rank cell coloring
+    compareSet: new Set(), // gsis_ids selected for side-by-side comparison (max 4)
+    compareRows: {},       // cached leaderboard rows keyed by gsis_id for the compare drawer
   };
 
   // ---------- Per-column filter expressions ----------
@@ -909,8 +947,14 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
     });
 
     // ---- Build table HTML ----
+    // First cell in every header + body row is a compare-checkbox column
+    // (not part of the blocks — it's a fixed prefix that doesn't affect
+    // sort/filter/heat logic).
+    var SEL_TH_GROUP = '<th class="sel-col"></th>';
+    var SEL_TH_COL   = '<th class="sel-col" title="Select for comparison"></th>';
+
     // Group header row
-    var groupRow = blocks.map(function(b, i){
+    var groupRow = SEL_TH_GROUP + blocks.map(function(b, i){
       var span = b.colKeys.length;
       var sepCls = i > 0 ? "group-sep" : "";
       if (!b.groupLabel) {
@@ -920,7 +964,7 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
     }).join("");
 
     // Column header row
-    var colRow = "";
+    var colRow = SEL_TH_COL;
     blocks.forEach(function(b, bi){
       b.colKeys.forEach(function(k, ci){
         var def = COLS[k] || { label: k };
@@ -939,6 +983,7 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
     // Filter row (third thead row). Only rendered when filtersVisible is true.
     var filterRow = "";
     if (state.filtersVisible) {
+      filterRow = '<th class="sel-col"></th>';
       blocks.forEach(function(b, bi){
         b.colKeys.forEach(function(k, ci){
           var def = COLS[k] || {};
@@ -1001,9 +1046,14 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
       return " pct-q" + q;
     }
 
-    // Body
+    // Body — prefix each row with the compare checkbox
     var body = rows.map(function(r){
-      var cells = "";
+      var gid = r.gsis_id || "";
+      var checked = state.compareSet.has(gid) ? " checked" : "";
+      var selCell = '<td class="sel-col">' +
+        '<input type="checkbox" class="asw-compare-check" data-compare-gsis="'+gid+'"'+checked+'>' +
+        '</td>';
+      var cells = selCell;
       blocks.forEach(function(b, bi){
         b.colKeys.forEach(function(k, ci){
           var def = COLS[k] || {};
@@ -1029,7 +1079,7 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
             '<tr class="asw-col-row">'+colRow+'</tr>' +
             theadFilter +
           '</thead>' +
-          '<tbody>'+ (rows.length ? body : '<tr><td colspan="'+cols.length+'" class="asw-empty">No rows match filters.</td></tr>') +'</tbody>' +
+          '<tbody>'+ (rows.length ? body : '<tr><td colspan="'+(cols.length + 1)+'" class="asw-empty">No rows match filters.</td></tr>') +'</tbody>' +
         '</table>'
       : '<div class="asw-empty">No rows.</div>';
 
@@ -1051,6 +1101,11 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
     var countLabel = narrowed
       ? (rows.length + " of " + total + " players")
       : (total + " player" + (total === 1 ? "" : "s"));
+    // Stash what's currently visible so CSV export + comparison mode
+    // can pull it without re-running the filter/sort pipeline.
+    state.lastRows = rows;
+    state.lastCols = cols;
+
     var filterCount = countActiveFilters();
     var filterHint = filterCount ? " · " + filterCount + " filter" + (filterCount === 1 ? "" : "s") : "";
     metaEl.textContent = (state.lastQuery || "") + " · " + countLabel + (searchQ ? " (search)" : "") + filterHint;
@@ -1076,13 +1131,37 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
     tbodyRows.forEach(function(tr, idx){
       var rowObj = rows[idx];
       if (!rowObj || !rowObj.gsis_id) return;
-      tr.addEventListener("click", function(){
-        // Clear prior active highlight
+      // Cache the row for the compare drawer (values are pre-aggregated
+      // per the current filter window).
+      state.compareRows[rowObj.gsis_id] = rowObj;
+      tr.addEventListener("click", function(e){
+        // Ignore clicks on the checkbox — they have their own handler.
+        if (e.target && e.target.matches && e.target.matches(".asw-compare-check")) return;
         bodyEl.querySelectorAll("tbody tr.is-active").forEach(function(x){
           x.classList.remove("is-active");
         });
         tr.classList.add("is-active");
         openDrawer(rowObj);
+      });
+    });
+
+    // Wire comparison checkboxes — toggle compareSet, stop propagation
+    // so the row-click handler doesn't fire underneath.
+    bodyEl.querySelectorAll(".asw-compare-check").forEach(function(inp){
+      inp.addEventListener("click", function(e){ e.stopPropagation(); });
+      inp.addEventListener("change", function(e){
+        var gid = inp.getAttribute("data-compare-gsis");
+        if (!gid) return;
+        if (inp.checked) {
+          if (state.compareSet.size >= 4) {
+            inp.checked = false;
+            return;
+          }
+          state.compareSet.add(gid);
+        } else {
+          state.compareSet.delete(gid);
+        }
+        renderCompareBar();
       });
     });
 
@@ -1185,6 +1264,14 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
     });
     colsBarEl.appendChild(heatBtn);
 
+    var csvBtn = document.createElement("button");
+    csvBtn.type = "button";
+    csvBtn.className = "asw-filter-toggle";
+    csvBtn.textContent = "📥 CSV";
+    csvBtn.title = "Export the currently visible rows and columns to a CSV file";
+    csvBtn.addEventListener("click", exportCsv);
+    colsBarEl.appendChild(csvBtn);
+
     _filterClearBtn = document.createElement("button");
     _filterClearBtn.type = "button";
     _filterClearBtn.className = "asw-filter-clear";
@@ -1250,14 +1337,16 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
   var weeksPickerEl = document.getElementById("asw-weeks-picker");
 
   function getScope(){
-    var btn = document.querySelector("[data-scope][aria-pressed='true']");
-    return btn ? btn.getAttribute("data-scope") : "mfl_total";
+    return scopeSel ? scopeSel.value : "mfl_total";
   }
   function getScopeLabel(){
     var s = getScope();
     if (s === "custom") {
       var n = customWeeks.size;
-      return n === 22 ? "All weeks" : "Weeks " + Array.from(customWeeks).sort(function(a,b){return a-b}).join(",");
+      if (!n) return "No weeks";
+      if (n === 22) return "All weeks";
+      var wks = Array.from(customWeeks).sort(function(a,b){return a-b;});
+      return wks.length > 4 ? wks.length + " weeks" : "Wks " + wks.join(",");
     }
     return (SCOPE_RANGES[s] && SCOPE_RANGES[s].label) || s;
   }
@@ -1415,12 +1504,9 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
   tabsEl.querySelectorAll(".asw-tab").forEach(function(btn){
     btn.addEventListener("click", function(){ activateTab(btn.getAttribute("data-tab")); });
   });
-  scopeBtns.forEach(function(b){
-    b.addEventListener("click", function(){
-      scopeBtns.forEach(function(x){ x.setAttribute("aria-pressed", x === b ? "true" : "false"); });
-      updateCustomPickerVisibility();
-      runQuery();
-    });
+  scopeSel.addEventListener("change", function(){
+    updateCustomPickerVisibility();
+    runQuery();
   });
   // Initial visibility sync (default scope is mfl_total → picker hidden)
   updateCustomPickerVisibility();
@@ -1428,6 +1514,176 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
     el.addEventListener("change", runQuery);
   });
   searchEl.addEventListener("input", function(){ if ((state.rowsByWorkerPos[TABS[state.activeTab].workerPos] || []).length) render(); });
+
+  // ---------- Comparison mode ----------
+  // Top-of-page sticky bar shows selected players as removable chips +
+  // a prominent "Compare →" button. The Compare button opens a side-by-
+  // side drawer reusing cached leaderboard rows (no refetch needed for
+  // aggregate comparisons). Drill-down drawer (single-player) and
+  // compare drawer share the drawer DOM.
+  var compareBarEl    = document.getElementById("asw-compare-bar");
+  var compareChipsEl  = document.getElementById("asw-compare-chips");
+  var compareGoBtn    = document.getElementById("asw-compare-go");
+  var compareClearBtn = document.getElementById("asw-compare-clear");
+
+  function renderCompareBar() {
+    var ids = Array.from(state.compareSet);
+    if (!ids.length) {
+      compareBarEl.setAttribute("hidden", "");
+      return;
+    }
+    compareBarEl.removeAttribute("hidden");
+    compareChipsEl.innerHTML = ids.map(function(gid){
+      var row = state.compareRows[gid] || {};
+      var name = row.player_name || gid;
+      var team = row.team || "";
+      var teamSuffix = team ? " · " + team : "";
+      return '<span class="asw-compare-chip" data-compare-chip="'+gid+'">' +
+        escapeHtml(name) + escapeHtml(teamSuffix) +
+        '<button type="button" aria-label="Remove" data-remove-gsis="'+gid+'">×</button>' +
+        '</span>';
+    }).join("");
+    compareGoBtn.textContent = "Compare " + ids.length + " player" + (ids.length === 1 ? "" : "s") + " →";
+    compareGoBtn.disabled = ids.length < 2;
+
+    // Wire chip × removes (re-rendered each call)
+    compareChipsEl.querySelectorAll("[data-remove-gsis]").forEach(function(btn){
+      btn.addEventListener("click", function(){
+        var gid = btn.getAttribute("data-remove-gsis");
+        state.compareSet.delete(gid);
+        // Uncheck matching checkbox(es) in table
+        bodyEl.querySelectorAll('input.asw-compare-check[data-compare-gsis="'+gid+'"]').forEach(function(c){
+          c.checked = false;
+        });
+        renderCompareBar();
+      });
+    });
+  }
+  function escapeHtml(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  }
+
+  function clearCompareSet() {
+    state.compareSet.clear();
+    bodyEl.querySelectorAll(".asw-compare-check").forEach(function(c){ c.checked = false; });
+    renderCompareBar();
+  }
+
+  // Build the comparison drawer: rows = metrics (from active tab's
+  // visible groups), cols = players. Best/worst values per row flagged
+  // with heat-style classes so eye can pick out advantages instantly.
+  function openCompareDrawer() {
+    var ids = Array.from(state.compareSet);
+    if (ids.length < 2) return;
+    var players = ids.map(function(gid){ return state.compareRows[gid]; }).filter(Boolean);
+    if (players.length < 2) return;
+
+    drawerScrim.removeAttribute("hidden");
+    drawerScrim.classList.add("open");
+    drawerEl.classList.add("open");
+    drawerEl.setAttribute("aria-hidden", "false");
+
+    // Drawer state resets (not single-player mode here)
+    drawerState.playerRow = null;
+    drawerState.weekRows = null;
+    drawerState.allYearRows = null;
+    drawerState.seasonRows = null;
+
+    drawerTitle.textContent = "Comparison";
+    drawerSub.textContent = players.length + " players · " + getScopeLabel();
+
+    var blocks = buildBlocks();
+    var tab = TABS[state.activeTab];
+
+    // Each block → section header row + one row per metric
+    var sections = blocks.slice(1).map(function(b){
+      var groupHeader = '<tr class="asw-compare-section-row">' +
+        '<td colspan="'+(players.length + 1)+'">'+ (b.groupLabel || "") +'</td></tr>';
+      var rows = b.colKeys.map(function(k){
+        var def = COLS[k] || { label: k };
+        // Compute each player's value for this metric
+        var vals = players.map(function(p){ return getVal(p, k); });
+        var numericVals = vals.filter(function(v){ return typeof v === "number" && !isNaN(v); });
+        var best = numericVals.length ? (def.invertRank ? Math.min.apply(null, numericVals) : Math.max.apply(null, numericVals)) : null;
+        var worst = numericVals.length ? (def.invertRank ? Math.max.apply(null, numericVals) : Math.min.apply(null, numericVals)) : null;
+        var cells = players.map(function(p){
+          var v = getVal(p, k);
+          var cls = ["num"];
+          if (typeof v === "number" && !isNaN(v) && numericVals.length > 1) {
+            if (v === best && best !== worst) cls.push("best");
+            else if (v === worst && best !== worst) cls.push("worst");
+          }
+          return '<td class="'+cls.join(" ")+'">' + fmtCell(v, def.fmt) + '</td>';
+        }).join("");
+        return '<tr><td class="metric">'+ escapeHtml(def.label) +'</td>' + cells + '</tr>';
+      }).join("");
+      return groupHeader + rows;
+    }).join("");
+
+    var playerHeaders = players.map(function(p){
+      var team = p.team || "";
+      var mfl  = p.mfl_franchise_name || "FA";
+      var pos  = p.position || "";
+      return '<th class="player num">' +
+        escapeHtml(p.player_name || "—") +
+        '<span class="sub">'+ escapeHtml((pos ? pos + " · " : "") + team + " · " + mfl) +'</span>' +
+        '</th>';
+    }).join("");
+
+    drawerBody.innerHTML =
+      '<section class="asw-drawer-section">' +
+        '<h3>Head-to-head (' + tab.label + ')</h3>' +
+        '<div class="asw-table-wrap"><table class="asw-compare-table">' +
+          '<thead><tr><th>Metric</th>' + playerHeaders + '</tr></thead>' +
+          '<tbody>' + sections + '</tbody>' +
+        '</table></div>' +
+      '</section>';
+  }
+
+  compareClearBtn.addEventListener("click", clearCompareSet);
+  compareGoBtn.addEventListener("click", openCompareDrawer);
+
+  // ---------- CSV export ----------
+  // Exports exactly what's on screen: visible rows (post search + per-
+  // column filter + sub-tab filter), visible columns (identity +
+  // active column groups). Numbers go raw (no pct/dec formatting) so
+  // Excel/Google Sheets can parse them cleanly. Strings with commas,
+  // quotes, or newlines get RFC-4180 quoted.
+  function csvEscape(v) {
+    var s = (v == null) ? "" : String(v);
+    if (/[,"\n\r]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+    return s;
+  }
+  function exportCsv() {
+    var rows = state.lastRows || [];
+    var cols = state.lastCols || [];
+    if (!rows.length || !cols.length) return;
+    var header = cols.map(function(k){
+      return csvEscape((COLS[k] && COLS[k].label) || k);
+    }).join(",");
+    var body = rows.map(function(r){
+      return cols.map(function(k){
+        var v = getVal(r, k);
+        if (v == null || (typeof v === "number" && isNaN(v))) return "";
+        if (typeof v === "number") return String(v);
+        return csvEscape(v);
+      }).join(",");
+    }).join("\n");
+    var tab = TABS[state.activeTab];
+    var seasons = getSelectedSeasons();
+    var seasonPart = seasons.length ? seasons.sort(function(a,b){return a-b;}).join("-") : "all";
+    var fname = "upsmfl_stats_" + (tab.label || state.activeTab).toLowerCase().replace(/[^a-z0-9]+/g, "") +
+      "_" + seasonPart + ".csv";
+    var blob = new Blob([header + "\n" + body], { type: "text/csv;charset=utf-8" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = fname;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function(){ URL.revokeObjectURL(url); a.remove(); }, 100);
+  }
 
   // ---------- Drill-down drawer (row click → per-week view) ----------
   // Drawer state lives outside `state` since it's ephemeral UI-only and
@@ -1872,15 +2128,11 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
     var weeksParam = params.get("weeks");
     if (weeksParam) {
       customWeeks = new Set(weeksParam.split(",").map(function(w){ return parseInt(w, 10); }).filter(function(w){ return w >= 1 && w <= 22; }));
-      document.querySelectorAll("[data-scope]").forEach(function(b){
-        b.setAttribute("aria-pressed", b.getAttribute("data-scope") === "custom" ? "true" : "false");
-      });
+      scopeSel.value = "custom";
       renderWeeksPicker();
       touched = true;
     } else if (scope) {
-      document.querySelectorAll("[data-scope]").forEach(function(b){
-        b.setAttribute("aria-pressed", b.getAttribute("data-scope") === scope ? "true" : "false");
-      });
+      scopeSel.value = scope;
       touched = true;
     }
 
