@@ -1213,9 +1213,25 @@ export default {
           // (15794 → "15794.0") and the join silently misses every row.
           const mflPidLookup = pfrRow && pfrRow.mfl_player_id != null
             ? String(pfrRow.mfl_player_id) : null;
+          // Subqueries for team-week denominators — feed client-side
+          // share calcs (target_share, rec_share, rush_share, RZ shares).
+          // Keith 2026-04-24: drawer charts were blank on ratio metrics
+          // because per-week endpoint didn't return team totals.
+          const seasonInClause = seasons.length
+            ? `season IN (${seasons.map(s => String(parseInt(s, 10))).join(",")})`
+            : "1=1";
           const sql = `
             SELECT w.season, w.week, w.team, w.opponent, w.position, w.pos_group,
                    COALESCE(sw.score, 0) AS mfl_points,
+                   -- Team-week denominators for share ratios
+                   tw.team_targets_wk   AS team_targets,
+                   tw.team_rec_wk       AS team_rec,
+                   tw.team_rush_att_wk  AS team_rush_att,
+                   trzw.team_targets_i20_wk  AS team_targets_i20,
+                   trzw.team_rec_i20_wk      AS team_rec_i20,
+                   trzw.team_targets_ez_wk   AS team_targets_ez,
+                   trzw.team_rush_att_i20_wk AS team_rush_att_i20,
+                   trzw.team_rush_att_i5_wk  AS team_rush_att_i5,
                    w.rush_att, w.rush_yds, w.rush_tds,
                    w.targets, w.receptions, w.rec_yds, w.rec_tds,
                    w.pass_att, w.pass_cmp, w.pass_yds, w.pass_tds, w.pass_ints,
@@ -1248,11 +1264,33 @@ export default {
               LEFT JOIN nfl_player_snaps s
                      ON s.season = w.season AND s.week = w.week AND s.pfr_id = ?
               -- MFL per-week fantasy points (src_weekly keyed by
-              -- mfl_player_id). Keith 2026-04-24: src_weekly.player_id is
-              -- TEXT; we bind mflPidLookup as a String() from JS so
-              -- the join doesn't fail on D1's REAL→TEXT coercion.
+              -- mfl_player_id, TEXT; bound as String from JS).
               LEFT JOIN src_weekly sw
                      ON sw.season = w.season AND sw.week = w.week AND sw.player_id = ?
+              -- Team-week basic totals for share denominators.
+              LEFT JOIN (
+                SELECT season, week, team,
+                       SUM(COALESCE(targets,0))    AS team_targets_wk,
+                       SUM(COALESCE(receptions,0)) AS team_rec_wk,
+                       SUM(COALESCE(rush_att,0))   AS team_rush_att_wk
+                  FROM nfl_player_weekly
+                 WHERE ${seasonInClause}
+                 GROUP BY season, week, team
+              ) tw ON tw.season = w.season AND tw.week = w.week AND tw.team = w.team
+              -- Team-week RZ totals (joined via redzone→player's team).
+              LEFT JOIN (
+                SELECT rz2.season, rz2.week, w2.team,
+                       SUM(COALESCE(rz2.targets_i20,0))  AS team_targets_i20_wk,
+                       SUM(COALESCE(rz2.rec_i20,0))      AS team_rec_i20_wk,
+                       SUM(COALESCE(rz2.targets_ez,0))   AS team_targets_ez_wk,
+                       SUM(COALESCE(rz2.rush_att_i20,0)) AS team_rush_att_i20_wk,
+                       SUM(COALESCE(rz2.rush_att_i5,0))  AS team_rush_att_i5_wk
+                  FROM nfl_player_redzone rz2
+                  JOIN nfl_player_weekly w2
+                         ON w2.season = rz2.season AND w2.week = rz2.week AND w2.gsis_id = rz2.gsis_id
+                 WHERE ${seasonInClause.replace(/\bseason\b/, "rz2.season")}
+                 GROUP BY rz2.season, rz2.week, w2.team
+              ) trzw ON trzw.season = w.season AND trzw.week = w.week AND trzw.team = w.team
              WHERE w.gsis_id = ? AND ${seasonFilter} AND ${weekFilter}
              ORDER BY w.season DESC, w.week ASC
           `;

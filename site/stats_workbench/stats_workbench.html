@@ -392,23 +392,57 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:13px}
     rec_i20:             { label:"Rec I20",  num:true, title:"Receptions inside opponent 20" },
     pass_att_i20:        { label:"Pa I20",   num:true, title:"Pass attempts in Red Zone" },
     pass_att_ez:         { label:"Pa EZ",    num:true, title:"Pass attempts targeting End Zone" },
-    // Market share — worker computes ratio against team totals; values 0..1
+    // Market share — leaderboard returns the pre-computed share; drawer's
+    // per-week endpoint returns raw numerator + team denominator per row
+    // so compute() falls through to derive it. Same formula either way.
     target_share:        { label:"Tgt%",     num:true, fmt:"pct",
-      title:"Share of team targets (player / team total across selected range)" },
+      title:"Share of team targets (player / team total across selected range)",
+      compute: function(r){
+        if (r.target_share != null) return r.target_share;
+        return r.team_targets ? (r.targets||0) / r.team_targets : null;
+      } },
     rec_share:           { label:"Rec%",     num:true, fmt:"pct",
-      title:"Share of team receptions" },
+      title:"Share of team receptions",
+      compute: function(r){
+        if (r.rec_share != null) return r.rec_share;
+        return r.team_rec ? (r.receptions||0) / r.team_rec : null;
+      } },
     rush_share:          { label:"Ru%",      num:true, fmt:"pct",
-      title:"Share of team rush attempts" },
+      title:"Share of team rush attempts",
+      compute: function(r){
+        if (r.rush_share != null) return r.rush_share;
+        return r.team_rush_att ? (r.rush_att||0) / r.team_rush_att : null;
+      } },
     rz_target_share:     { label:"RZ Tgt%",  num:true, fmt:"pct",
-      title:"Share of team red-zone targets" },
+      title:"Share of team red-zone targets",
+      compute: function(r){
+        if (r.rz_target_share != null) return r.rz_target_share;
+        return r.team_targets_i20 ? (r.targets_i20||0) / r.team_targets_i20 : null;
+      } },
     rz_rec_share:        { label:"RZ Rec%",  num:true, fmt:"pct",
-      title:"Share of team red-zone receptions" },
+      title:"Share of team red-zone receptions",
+      compute: function(r){
+        if (r.rz_rec_share != null) return r.rz_rec_share;
+        return r.team_rec_i20 ? (r.rec_i20||0) / r.team_rec_i20 : null;
+      } },
     ez_target_share:     { label:"EZ Tgt%",  num:true, fmt:"pct",
-      title:"Share of team end-zone targets" },
+      title:"Share of team end-zone targets",
+      compute: function(r){
+        if (r.ez_target_share != null) return r.ez_target_share;
+        return r.team_targets_ez ? (r.targets_ez||0) / r.team_targets_ez : null;
+      } },
     rz_rush_share:       { label:"RZ Ru%",   num:true, fmt:"pct",
-      title:"Share of team red-zone rushing attempts" },
+      title:"Share of team red-zone rushing attempts",
+      compute: function(r){
+        if (r.rz_rush_share != null) return r.rz_rush_share;
+        return r.team_rush_att_i20 ? (r.rush_att_i20||0) / r.team_rush_att_i20 : null;
+      } },
     gl_rush_share:       { label:"GL Ru%",   num:true, fmt:"pct",
-      title:"Share of team goal-line (inside-5) rushing attempts" },
+      title:"Share of team goal-line (inside-5) rushing attempts",
+      compute: function(r){
+        if (r.gl_rush_share != null) return r.gl_rush_share;
+        return r.team_rush_att_i5 ? (r.rush_att_i5||0) / r.team_rush_att_i5 : null;
+      } },
     team_rz_plays:       { label:"Tm RZ Plays", num:true,
       title:"Team's total red-zone plays (pass attempts + rush attempts inside opp 20)" },
     team_rz_pass_rate:   { label:"Tm RZ Pass%", num:true, fmt:"pct",
@@ -1164,10 +1198,18 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:13px}
     var theadFilter = state.filtersVisible
       ? '<tr class="asw-filter-row">'+filterRow+'</tr>'
       : "";
+    // Phase D (2026-04-24): group-header thead row only renders when
+    // Heat is on. Without the color bands the group labels are visual
+    // ink without payoff — a vertical accent separator between groups
+    // (the .group-sep class on the col-row + body cells) carries the
+    // grouping visually without the extra row.
+    var theadGroup = state.heatOn
+      ? '<tr class="asw-group-row">'+groupRow+'</tr>'
+      : "";
     bodyEl.innerHTML = rows.length || state.filtersVisible
       ? '<table class="asw-table' + (state.heatOn ? ' heat' : '') + '">' +
           '<thead>' +
-            '<tr class="asw-group-row">'+groupRow+'</tr>' +
+            theadGroup +
             '<tr class="asw-col-row">'+colRow+'</tr>' +
             theadFilter +
           '</thead>' +
