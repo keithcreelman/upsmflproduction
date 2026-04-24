@@ -136,8 +136,11 @@ h1{margin:0 0 8px;font-size:18px;letter-spacing:.02em}
 
 .asw-meta{color:var(--muted);font-size:11px;margin-bottom:6px}
 .asw-table-wrap{overflow-x:auto;background:var(--panel);border:1px solid var(--border);border-radius:8px}
-table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
-.asw-table th,.asw-table td{padding:5px 8px;border-bottom:1px solid var(--border);white-space:nowrap}
+/* Phase E (2026-04-24): bump table to 13px + a touch more row padding.
+   12px was dense enough that long sessions strained; 13px reads clean
+   without forcing horizontal scroll on reasonable screens. */
+table.asw-table{width:100%;border-collapse:collapse;font-size:13px}
+.asw-table th,.asw-table td{padding:7px 10px;border-bottom:1px solid var(--border);white-space:nowrap}
 /* Group header row */
 .asw-table tr.asw-group-row th{position:sticky;top:0;background:var(--panel);color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:.05em;font-size:10px;padding:4px 8px;border-bottom:1px solid var(--border-strong);text-align:center;cursor:default}
 .asw-table tr.asw-group-row th.no-group{color:transparent;border-bottom-color:var(--border)}
@@ -2123,11 +2126,15 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
     drawerEl.classList.add("open");
     drawerEl.setAttribute("aria-hidden", "false");
 
-    // Reset drawer-scoped state for the new player
+    // Reset drawer-scoped state for the new player (Keith 2026-04-24:
+    // chartMetric must clear too, otherwise opening a TE after a QB
+    // leaves the drawer charting pass_yds, and the metric-focus table
+    // below renders QB-support cols against a TE's row data).
     drawerState.playerRow   = playerRow;
     drawerState.weekRows    = null;
     drawerState.allYearRows = null;
     drawerState.seasonRows  = null;
+    drawerState.chartMetric = null;
     drawerState.view        = "weekly";
     drawerViewBtns.forEach(function(b){
       b.setAttribute("aria-pressed", b.getAttribute("data-view") === "weekly" ? "true" : "false");
@@ -2490,15 +2497,15 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
         '</table></div>' +
       '</section>';
 
-    // Wire the metric dropdown — swap only the chart mount, not the
-    // whole drawer body (preserves table scroll + week-by-week state).
+    // Wire the metric dropdown — re-render the whole drawer body so
+    // the supporting-metrics table beneath the chart also swaps to
+    // match the new pick (prior version only updated the chart, which
+    // left a stale QB table under a TE's chart, etc.).
     var sel = document.getElementById("asw-chart-metric");
-    var mount = document.getElementById("asw-chart-mount");
-    if (sel && mount) {
+    if (sel) {
       sel.addEventListener("change", function(){
         drawerState.chartMetric = sel.value;
-        var k = drawerState.chartMetric;
-        mount.innerHTML = buildMiniChart(k, (COLS[k] && COLS[k].label) || k, rows, mode);
+        renderDrawer(playerRow, rows, mode);
       });
     }
   }
