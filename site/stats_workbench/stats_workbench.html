@@ -2293,7 +2293,16 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:13px}
   // Build a simple SVG line chart for a single metric across a series of
   // rows (weeks OR seasons). Returns an HTML string embedding the SVG.
   // Keep this dependency-free so the workbench stays a single drop-in file.
+  //
+  // Rows may arrive in either direction (table wants newest-first; chart
+  // wants oldest→newest left-to-right). Sort here so the chart always
+  // reads chronologically regardless of caller order.
   function buildMiniChart(metricKey, label, weekRows, mode) {
+    weekRows = weekRows.slice().sort(function(a, b){
+      var sa = a.season || 0, sb = b.season || 0;
+      if (sa !== sb) return sa - sb;                 // oldest season first
+      return (a.week || 0) - (b.week || 0);          // then ascending week
+    });
     var def = COLS[metricKey] || { label: metricKey };
     var W = 520, H = 110, PAD_L = 36, PAD_R = 8, PAD_T = 10, PAD_B = 20;
     var innerW = W - PAD_L - PAD_R;
