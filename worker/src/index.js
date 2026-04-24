@@ -780,12 +780,17 @@ export default {
           // contract exists. A specific fid filters to that franchise.
           const sql = `
             WITH latest_contract AS (
+              -- year_values_json is the MFL-API canonical year-by-year
+              -- breakdown ({"Y1":25000,"Y2":45000,...}). Its key count is
+              -- the true contract length. contract_length in the same row
+              -- is parsed from the unreliable contract_info text (Keith
+              -- 2026-04-24: don't use it for year-count).
               SELECT c.player_id,
                      c.franchise_id,
                      c.team_name,
                      c.salary,
                      c.contract_year,
-                     c.contract_length,
+                     (SELECT COUNT(*) FROM json_each(COALESCE(c.year_values_json, '{}'))) AS years_total,
                      c.aav,
                      c.season   AS contract_season
                 FROM src_contracts c
@@ -1024,8 +1029,8 @@ export default {
                    -- MFL details (league-specific — salary, years remaining, AAV, points)
                    lc.salary             AS mfl_salary,
                    lc.aav                AS mfl_aav,
-                   (CASE WHEN lc.contract_length IS NULL OR lc.contract_year IS NULL THEN NULL
-                         ELSE lc.contract_length - lc.contract_year + 1 END)  AS mfl_years_remaining,
+                   (CASE WHEN lc.years_total IS NULL OR lc.years_total = 0 OR lc.contract_year IS NULL THEN NULL
+                         ELSE lc.years_total - lc.contract_year + 1 END)      AS mfl_years_remaining,
                    msa.mfl_points        AS mfl_points,
                    CAST(msa.mfl_points AS REAL) / NULLIF(msa.mfl_games_scored, 0) AS mfl_ppg,
                    -- Market share (Keith 2026-04-24) — ratios against

@@ -26,12 +26,12 @@ h1{margin:0 0 8px;font-size:18px;letter-spacing:.02em}
 .asw-tab[aria-pressed="true"]{background:var(--accent);color:#0a1222;border-color:var(--accent)}
 .asw-tabs-sep{width:1px;height:18px;background:var(--border);margin:0 4px}
 
-/* Sub-position chips (shown only for DL / DB) */
-.asw-subtabs{display:none;gap:4px;align-items:center;background:var(--panel);padding:6px 12px;border:1px solid var(--border);border-top:none;border-radius:0 0 8px 8px;margin:-8px 0 6px}
-.asw-subtabs.visible{display:flex}
-.asw-subtabs-label{color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.06em;margin-right:4px}
-.asw-subtab{background:var(--panel-alt);color:var(--text);border:1px solid var(--border);border-radius:999px;padding:3px 10px;font-size:11px;cursor:pointer}
-.asw-subtab[aria-pressed="true"]{background:var(--accent);color:#0a1222;border-color:var(--accent);font-weight:700}
+/* Sub-position chips — inline inside the active DL / DB tab button */
+.asw-tab .asw-subtab-group{display:none;gap:3px;margin-left:8px;padding-left:8px;border-left:1px solid rgba(255,255,255,.22)}
+.asw-tab[aria-pressed="true"] .asw-subtab-group{display:inline-flex;align-items:center}
+.asw-subtab{background:rgba(10,18,34,.28);color:inherit;border:1px solid rgba(10,18,34,.3);border-radius:999px;padding:1px 8px;font-size:10px;cursor:pointer;font-weight:600;line-height:1.5}
+.asw-subtab:hover{background:rgba(10,18,34,.4)}
+.asw-subtab[aria-pressed="true"]{background:#0a1222;color:#f0f8ff;border-color:#0a1222}
 
 /* Filter controls row */
 .asw-controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;background:var(--panel);padding:10px 12px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px}
@@ -181,12 +181,6 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
   <button type="button" class="asw-tab" data-tab="pn">PN</button>
 </div>
 
-<!-- Sub-position chips (DL/DB only) -->
-<div class="asw-subtabs" id="asw-subtabs">
-  <span class="asw-subtabs-label">Sub-position</span>
-  <!-- chips injected by JS based on active tab -->
-</div>
-
 <!-- Filter row -->
 <div class="asw-controls">
   <label>Seasons
@@ -278,7 +272,7 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
     // MFL Details (league-specific scoring + contract)
     mfl_points:          { label:"MFL Pts",  num:true, fmt:"dec1",
       title:"Total MFL fantasy points over the selected season/scope" },
-    mfl_ppg:             { label:"MFL PPG",  num:true, fmt:"dec2",
+    mfl_ppg:             { label:"MFL PPG",  num:true, fmt:"dec1",
       title:"MFL fantasy points per game (weeks with score > 0 — computed server-side)" },
     mfl_salary:          { label:"Salary",   num:true, fmt:"money",
       title:"Current MFL contract salary (compact: 45K / 1.25M)" },
@@ -689,7 +683,6 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
 
   // ---------- DOM refs ----------
   var tabsEl      = document.getElementById("asw-tabs");
-  var subTabsEl   = document.getElementById("asw-subtabs");
   var seasonsSel  = document.getElementById("asw-seasons");
   var teamSel     = document.getElementById("asw-team");
   var scopeSel    = document.getElementById("asw-scope");
@@ -887,14 +880,16 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
       return n.toFixed(1)+"%";
     }
     if (fmt === "money") {
-      // Compact dollar formatting — 45000 → $45K, 1250000 → $1.25M.
+      // Compact dollar formatting — 45000 → 45K, 1250000 → 1.25M, 250 → 250.
+      // No $ sign, integer K whole-numbers drop the decimal ("8K" not "8.0K").
       var m = Number(v);
-      if (m === 0) return "$0";
+      if (m === 0) return "0";
       var abs = Math.abs(m);
       var sign = m < 0 ? "-" : "";
-      if (abs >= 1e6) return sign + "$" + (abs / 1e6).toFixed(abs >= 1e7 ? 1 : 2) + "M";
-      if (abs >= 1e3) return sign + "$" + (abs / 1e3).toFixed(abs >= 1e4 ? 0 : 1) + "K";
-      return sign + "$" + abs.toFixed(0);
+      function trim(n){ return n.endsWith(".0") ? n.slice(0,-2) : n; }
+      if (abs >= 1e6) return sign + trim((abs / 1e6).toFixed(2)) + "M";
+      if (abs >= 1e3) return sign + trim((abs / 1e3).toFixed(abs >= 1e4 ? 0 : 1)) + "K";
+      return sign + abs.toFixed(0);
     }
     return String(v);
   }
@@ -1340,16 +1335,19 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
     if (_filterClearBtn) _filterClearBtn.style.display = n ? "" : "none";
   }
 
-  // ---------- Render the sub-tab chips (DL/DB only) ----------
+  // ---------- Render sub-position chips inline inside the active tab button ----------
+  // (Phase A cleanup: dropped the separate sub-tabs row. DL/DB get an
+  // inline chip cluster rendered inside their own tab button — only
+  // shows when that tab is active via CSS [aria-pressed="true"].)
   function renderSubTabs() {
+    // Clear any existing sub-chip groups first
+    tabsEl.querySelectorAll(".asw-subtab-group").forEach(function(g){ g.remove(); });
     var tab = TABS[state.activeTab];
-    if (!tab.subTabs) {
-      subTabsEl.classList.remove("visible");
-      subTabsEl.innerHTML = '<span class="asw-subtabs-label">Sub-position</span>';
-      return;
-    }
-    subTabsEl.classList.add("visible");
-    subTabsEl.innerHTML = '<span class="asw-subtabs-label">' + tab.label + '</span>';
+    if (!tab.subTabs) return;
+    var parentBtn = tabsEl.querySelector('[data-tab="' + state.activeTab + '"]');
+    if (!parentBtn) return;
+    var group = document.createElement("span");
+    group.className = "asw-subtab-group";
     tab.subTabs.forEach(function(st){
       var btn = document.createElement("button");
       btn.type = "button";
@@ -1357,15 +1355,19 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
       btn.setAttribute("data-subtab", st.id);
       btn.setAttribute("aria-pressed", state.activeSubTab === st.id ? "true" : "false");
       btn.textContent = st.label;
-      btn.addEventListener("click", function(){
+      btn.addEventListener("click", function(e){
+        // Swallow the click so it doesn't bubble up to the parent tab
+        // (would re-activate the tab and reset state).
+        e.stopPropagation();
         state.activeSubTab = st.id;
-        subTabsEl.querySelectorAll(".asw-subtab").forEach(function(x){
+        group.querySelectorAll(".asw-subtab").forEach(function(x){
           x.setAttribute("aria-pressed", x === btn ? "true" : "false");
         });
         render();
       });
-      subTabsEl.appendChild(btn);
+      group.appendChild(btn);
     });
+    parentBtn.appendChild(group);
   }
 
   // ---------- Scope presets + custom week picker ----------
@@ -1632,6 +1634,9 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
     drawerState.weekRows = null;
     drawerState.allYearRows = null;
     drawerState.seasonRows = null;
+    // Hide the Week/Season view toggle — it's single-player only.
+    var toggleBox = document.getElementById("asw-drawer-view-toggle");
+    if (toggleBox) toggleBox.style.display = "none";
 
     drawerTitle.textContent = "Comparison";
     drawerSub.textContent = players.length + " players · " + getScopeLabel();
@@ -1793,13 +1798,28 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
     drawerViewBtns.forEach(function(b){
       b.setAttribute("aria-pressed", b.getAttribute("data-view") === "weekly" ? "true" : "false");
     });
+    // Toggle is single-player-only; the compare-drawer path hides it.
+    var toggleBox = document.getElementById("asw-drawer-view-toggle");
+    if (toggleBox) toggleBox.style.display = "";
 
     var name = playerRow.player_name || "—";
     var nfl = playerRow.team || "—";
     var mfl = playerRow.mfl_franchise_name || "FA";
     var pos = playerRow.position || "";
     drawerTitle.textContent = name;
-    drawerSub.textContent = (pos ? pos + " · " : "") + nfl + " · " + mfl;
+
+    // Subtitle now carries MFL contract details (salary / years / AAV)
+    // + season fantasy totals (points / PPG) pulled from the leaderboard
+    // row. Per-week rendering doesn't include these because they're
+    // season-aggregates, not per-week values — surfacing them once in
+    // the header avoids spamming identical values on every week row.
+    var metaParts = [(pos ? pos : ""), nfl, mfl].filter(Boolean);
+    if (playerRow.mfl_salary != null) metaParts.push("Salary " + fmtCell(playerRow.mfl_salary, "money"));
+    if (playerRow.mfl_years_remaining != null) metaParts.push(playerRow.mfl_years_remaining + " yr" + (playerRow.mfl_years_remaining === 1 ? "" : "s") + " left");
+    if (playerRow.mfl_aav != null) metaParts.push("AAV " + fmtCell(playerRow.mfl_aav, "money"));
+    if (playerRow.mfl_points != null) metaParts.push(fmtCell(playerRow.mfl_points, "dec1") + " MFL pts");
+    if (playerRow.mfl_ppg != null) metaParts.push(fmtCell(playerRow.mfl_ppg, "dec1") + " PPG");
+    drawerSub.textContent = metaParts.join(" · ");
     drawerBody.innerHTML = '<div class="asw-loading">Fetching week-by-week…</div>';
 
     // Fetch weekly-scoped data using current leaderboard filters
@@ -1826,13 +1846,15 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
       });
   }
 
-  // Fetch all-year rows for By Season view. Omits seasons param and sets
-  // scope to Full (1-22) so we get every week the player has ever played.
+  // Fetch all-seasons rows for By Season view. Omits the seasons param
+  // so we get every year the player has data for, but honors the main
+  // screen's scope (Keith 2026-04-24 — "MFL Reg" on the main view means
+  // MFL Reg per-season in the drawer too, not full-year regardless).
   function fetchAllYears() {
     if (!drawerState.playerRow) return Promise.reject(new Error("no player"));
     var url = API_BASE + "/api/advanced-stats-player-weekly" +
       "?gsis_id=" + encodeURIComponent(drawerState.playerRow.gsis_id) +
-      "&week_min=1&week_max=22";
+      getScopeQueryParams();
     return fetch(url).then(function(r){
       if (!r.ok) throw new Error("HTTP " + r.status);
       return r.json();
@@ -1937,7 +1959,7 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
     // Build (x, y) series. x = sequential index (we preserve input order
     // which is season DESC, week ASC).
     var points = weekRows.map(function(r, i){
-      var v = getVal(r, { key: metricKey, compute: def.compute });
+      var v = getVal(r, metricKey);
       return { x: i, y: (typeof v === "number" && !isNaN(v)) ? v : null, row: r };
     });
     var validYs = points.map(function(p){ return p.y; }).filter(function(y){ return y != null; });
@@ -1998,7 +2020,7 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
            '</div>';
   }
 
-  // Render drawer body: chart(s) + table (week-by-week OR per-season).
+  // Render drawer body: chart + table (week-by-week OR per-season).
   // mode: "weekly" shows (Season, Wk) as leftmost sticky cols.
   // mode: "season" shows (Season) only; each row is one year.
   function renderDrawer(playerRow, rows, mode) {
@@ -2006,17 +2028,46 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
     mode = mode || "weekly";
     var isSeason = mode === "season";
 
-    // Charts — pick up to 3 metrics, filter to those with actual cols
-    var metrics = (CHART_METRICS_BY_TAB[state.activeTab] || []).filter(function(k){ return COLS[k]; });
-    if (!metrics.length && state.sortKey) metrics = [state.sortKey];
-    var chartsHtml = metrics.map(function(k){
-      return buildMiniChart(k, (COLS[k] && COLS[k].label) || k, rows, mode);
-    }).join("");
+    // Default chart metric — first entry in the tab's chart list, or
+    // fall back to the leaderboard's active sort key. Remembered across
+    // re-renders via drawerState.chartMetric so the user's pick survives
+    // By Week ↔ By Season toggles.
+    var defaultMetrics = (CHART_METRICS_BY_TAB[state.activeTab] || []).filter(function(k){ return COLS[k]; });
+    if (!drawerState.chartMetric || !COLS[drawerState.chartMetric]) {
+      drawerState.chartMetric = defaultMetrics[0] || state.sortKey || "games";
+    }
+    var chartMetric = drawerState.chartMetric;
+
+    // Grouped metric dropdown — reuses the tab's column-group structure
+    // so charts are organized the same way the leaderboard cols are.
+    var metricSelectHtml = (function(){
+      var opts = (tab.groups || []).map(function(g){
+        var innerOpts = g.cols
+          .filter(function(k){ return COLS[k] && COLS[k].num; })
+          .map(function(k){
+            var sel = k === chartMetric ? ' selected' : '';
+            return '<option value="'+k+'"'+sel+'>'+ escapeHtml(COLS[k].label || k) +'</option>';
+          }).join("");
+        if (!innerOpts) return "";
+        return '<optgroup label="'+ escapeHtml(g.label) +'">'+ innerOpts +'</optgroup>';
+      }).filter(Boolean).join("");
+      return '<select id="asw-chart-metric" style="background:var(--panel-alt);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:3px 8px;font-size:11px;min-width:200px">' + opts + '</select>';
+    })();
+    var chartsHtml =
+      '<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">' +
+        '<span style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:700">Chart</span>' +
+        metricSelectHtml +
+      '</div>' +
+      '<div id="asw-chart-mount">' +
+        buildMiniChart(chartMetric, (COLS[chartMetric] && COLS[chartMetric].label) || chartMetric, rows, mode) +
+      '</div>';
 
     // Table — reuse the same column blocks the main leaderboard is
     // showing so the two views stay consistent. Identity block swapped
-    // for a timeline column (Season · Wk, or just Season).
-    var blocks = buildBlocks();
+    // for a timeline column (Season · Wk, or just Season). Drop the
+    // MFL Details group — those values are season-aggregates surfaced
+    // in the drawer header, not useful repeated on every week row.
+    var blocks = buildBlocks().filter(function(b){ return b.groupId !== "mfl_details"; });
     var keyColCount = isSeason ? 2 : 2;  // [Season, G] for season; [Season, Wk] for weekly
     var groupHeader = '<th class="week-col" colspan="'+keyColCount+'"></th>' +
       blocks.slice(1).map(function(b){
@@ -2046,7 +2097,7 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
       blocks.slice(1).forEach(function(b){
         b.colKeys.forEach(function(k, ci){
           var d = COLS[k] || {};
-          var v = getVal(r, { key:k, compute: d.compute });
+          var v = getVal(r, k);
           var cls = [];
           if (d.num) cls.push("num");
           if (d.cls) cls.push(d.cls);
@@ -2076,6 +2127,18 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
           '<tbody>' + body + '</tbody>' +
         '</table></div>' +
       '</section>';
+
+    // Wire the metric dropdown — swap only the chart mount, not the
+    // whole drawer body (preserves table scroll + week-by-week state).
+    var sel = document.getElementById("asw-chart-metric");
+    var mount = document.getElementById("asw-chart-mount");
+    if (sel && mount) {
+      sel.addEventListener("change", function(){
+        drawerState.chartMetric = sel.value;
+        var k = drawerState.chartMetric;
+        mount.innerHTML = buildMiniChart(k, (COLS[k] && COLS[k].label) || k, rows, mode);
+      });
+    }
   }
 
   drawerCloseBtn.addEventListener("click", closeDrawer);

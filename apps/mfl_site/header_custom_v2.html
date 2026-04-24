@@ -3159,7 +3159,36 @@
       if (mount) mount.innerHTML = "";
     }
 
+    function hideHomeSectionsForWorkbench() {
+      // Keith 2026-04-24 — the champion banner / title-leaders block
+      // above the HotLinks row isn't useful when the workbench is the
+      // focused module. Mark the body so CSS below hides common MFL
+      // league-home widgets. Aggressive: covers trophy image grids,
+      // champion lists, and the leagueshowcase table row MFL wraps
+      // around "Last 10 Champions" + banner.
+      document.body.classList.add("ups-on-stats-workbench");
+      if (document.getElementById("ups-stats-banner-hide-css")) return;
+      var style = document.createElement("style");
+      style.id = "ups-stats-banner-hide-css";
+      style.textContent = [
+        "body.ups-on-stats-workbench #leaguehome_champions,",
+        "body.ups-on-stats-workbench .home_champions,",
+        "body.ups-on-stats-workbench .championship_banner,",
+        "body.ups-on-stats-workbench .home_trophies_container,",
+        "body.ups-on-stats-workbench .home_trophies_img,",
+        "body.ups-on-stats-workbench .title-leaders,",
+        "body.ups-on-stats-workbench #title-leaders,",
+        "body.ups-on-stats-workbench .last-10-champions,",
+        "body.ups-on-stats-workbench #last-10-champions,",
+        "body.ups-on-stats-workbench .pagebody > table:first-of-type,",
+        "body.ups-on-stats-workbench div[style*='UPS CHAMPION']",
+        "{ display:none !important; }"
+      ].join("\n");
+      document.head.appendChild(style);
+    }
+
     function loadStatsWorkbenchLoader() {
+      hideHomeSectionsForWorkbench();
       ensureMountNearTop();
       clearLegacyStatsEmbeds();
 
