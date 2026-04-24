@@ -65,6 +65,13 @@ h1{margin:0 0 8px;font-size:18px;letter-spacing:.02em}
 /* Column-header active-filter indicator */
 .asw-table tr.asw-col-row th.has-filter::before{content:"•";color:var(--accent);margin-right:3px}
 
+/* Percentile heat-map cell shading (quintiles: q1 worst → q5 best) */
+.asw-table.heat td.pct-q1{background:rgba(224,122,122,.16)}
+.asw-table.heat td.pct-q2{background:rgba(224,122,122,.07)}
+.asw-table.heat td.pct-q3{background:transparent}
+.asw-table.heat td.pct-q4{background:rgba(115,230,140,.07)}
+.asw-table.heat td.pct-q5{background:rgba(115,230,140,.16)}
+
 .asw-meta{color:var(--muted);font-size:11px;margin-bottom:6px}
 .asw-table-wrap{overflow-x:auto;background:var(--panel);border:1px solid var(--border);border-radius:8px}
 table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
@@ -159,11 +166,12 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
     <span style="font-size:10px; color:var(--muted)">⌘/Ctrl multi-select</span>
   </label>
   <label>Team
-    <select id="asw-team" multiple size="5" style="min-width:180px; max-height:120px">
+    <select id="asw-team" multiple size="6" style="min-width:180px; max-height:140px">
       <option value="__ALL__" selected>All (league-wide)</option>
+      <option value="__ROSTERED__">All (Rostered)</option>
       <option value="FA">Free Agents</option>
     </select>
-    <span style="font-size:10px; color:var(--muted)">⌘/Ctrl multi-select</span>
+    <span style="font-size:10px; color:var(--muted)">⌘/Ctrl multi-select · Franchises below</span>
   </label>
   <label>Scope
     <div style="display:flex;gap:4px;flex-wrap:wrap">
@@ -255,9 +263,9 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
       title:"Total air yards on targets (PFR, season-level)" },
     receiving_yac_per_r: { label:"YAC/R",    num:true, fmt:"dec1",
       title:"Yards after catch per reception (PFR, season-level)" },
-    receiving_drops:     { label:"Drops",    num:true,
+    receiving_drops:     { label:"Drops",    num:true, invertRank:true,
       title:"Receiver drops (PFR, weekly)" },
-    receiving_drop_pct:  { label:"Drop%",    num:true, fmt:"pct0",
+    receiving_drop_pct:  { label:"Drop%",    num:true, fmt:"pct0", invertRank:true,
       title:"Drops as % of targets (PFR, season-level)" },
     receiving_rat:       { label:"Tgt Rat",  num:true, fmt:"dec1",
       title:"QB rating when targeting this player (PFR)" },
@@ -326,23 +334,23 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
     ypa:                 { label:"Y/A",      num:true, fmt:"dec1",
       title:"Yards per attempt",
       compute: function(r){ return r.pass_att ? r.pass_yds / r.pass_att : null; } },
-    // Passing turnovers / sacks
-    pass_ints:           { label:"Int",      num:true },
-    int_pct:             { label:"Int%",     num:true, fmt:"pct",
+    // Passing turnovers / sacks (all invertRank — lower is better for a QB)
+    pass_ints:           { label:"Int",      num:true, invertRank:true },
+    int_pct:             { label:"Int%",     num:true, fmt:"pct", invertRank:true,
       compute: function(r){ return r.pass_att ? r.pass_ints / r.pass_att : null; } },
-    pass_sacks:          { label:"Sacks",    num:true, title:"Times sacked" },
-    pass_sack_yds:       { label:"Sk Yds",   num:true, title:"Yards lost on sacks (MFL-scored)" },
+    pass_sacks:          { label:"Sacks",    num:true, invertRank:true, title:"Times sacked" },
+    pass_sack_yds:       { label:"Sk Yds",   num:true, invertRank:true, title:"Yards lost on sacks (MFL-scored)" },
     // Passing advanced (PFR)
     passing_adot:        { label:"ADOT",     num:true, fmt:"dec1", title:"Intended air yards per attempt (PFR, season)" },
     passing_air_yards:   { label:"AirYd",    num:true, title:"Intended air yards total (PFR, season)" },
     passing_yards_after_catch: { label:"YAC", num:true, title:"Total YAC on completions (PFR, season)" },
-    passing_bad_throws:  { label:"BadTh",    num:true, title:"Bad throws (PFR, 2018+)" },
-    passing_bad_throw_pct:{label:"BadTh%",   num:true, fmt:"pct0" },
-    passing_times_pressured:{label:"Press",  num:true, title:"Times pressured" },
-    passing_pressure_pct:{ label:"Press%",   num:true, fmt:"pct0" },
-    passing_hurries:     { label:"Hurries",  num:true },
-    passing_hits:        { label:"QBHits",   num:true, title:"Times QB was hit" },
-    passing_drops:       { label:"RecDrops", num:true, title:"Drops by this QB's receivers" },
+    passing_bad_throws:  { label:"BadTh",    num:true, invertRank:true, title:"Bad throws (PFR, 2018+)" },
+    passing_bad_throw_pct:{label:"BadTh%",   num:true, fmt:"pct0", invertRank:true },
+    passing_times_pressured:{label:"Press",  num:true, invertRank:true, title:"Times pressured" },
+    passing_pressure_pct:{ label:"Press%",   num:true, fmt:"pct0", invertRank:true },
+    passing_hurries:     { label:"Hurries",  num:true, invertRank:true },
+    passing_hits:        { label:"QBHits",   num:true, invertRank:true, title:"Times QB was hit" },
+    passing_drops:       { label:"RecDrops", num:true, invertRank:true, title:"Drops by this QB's receivers" },
     // IDP tackles
     def_tackles_total:   { label:"Tkl",      num:true, title:"Solo tackles" },
     def_tackles_ast:     { label:"Ast",      num:true },
@@ -364,12 +372,12 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
     def_yards_allowed:   { label:"Yds Allow", num:true },
     def_passer_rating_allowed: { label:"PsRat Allow", num:true, fmt:"dec1" },
     def_adot:            { label:"cADOT",    num:true, fmt:"dec1", title:"ADOT allowed in coverage (PFR)" },
-    // IDP missed tackles
-    def_missed_tackles:  { label:"Missed",   num:true, title:"Missed tackles (PFR, 2018+)" },
-    def_missed_tackle_pct:{label:"Miss%",    num:true, fmt:"pct0" },
+    // IDP missed tackles (invertRank — fewer missed tackles is better)
+    def_missed_tackles:  { label:"Missed",   num:true, invertRank:true, title:"Missed tackles (PFR, 2018+)" },
+    def_missed_tackle_pct:{label:"Miss%",    num:true, fmt:"pct0", invertRank:true },
     // Kicker
     fg_made:             { label:"FGM",      num:true },
-    fg_miss:             { label:"FG Miss",  num:true,
+    fg_miss:             { label:"FG Miss",  num:true, invertRank:true,
       compute: function(r){ return (r.fg_att||0) - (r.fg_made||0); } },
     fg_pct:              { label:"FG%",      num:true, fmt:"pct",
       compute: function(r){ return r.fg_att ? r.fg_made / r.fg_att : null; } },
@@ -395,7 +403,7 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
         return ((r.fg_made_0_39||0)*25 + (r.fg_made_40_49||0)*44.5 + (r.fg_made_50_59||0)*54 + (r.fg_made_60plus||0)*62) / m;
       } },
     xp_made:             { label:"XPM",      num:true },
-    xp_miss:             { label:"XP Miss",  num:true,
+    xp_miss:             { label:"XP Miss",  num:true, invertRank:true,
       compute: function(r){ return (r.xp_att||0) - (r.xp_made||0); } },
     xp_pct:              { label:"XP%",      num:true, fmt:"pct",
       compute: function(r){ return r.xp_att ? r.xp_made / r.xp_att : null; } },
@@ -412,8 +420,8 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
     punt_i20_pct:        { label:"I20%",     num:true, fmt:"pct",
       title:"Percent of punts landed inside opponent 20",
       compute: function(r){ return r.punts ? r.punt_inside20 / r.punts : null; } },
-    punt_tb:             { label:"TB",       num:true, title:"Touchbacks (PBP)" },
-    punt_tb_pct:         { label:"TB%",      num:true, fmt:"pct",
+    punt_tb:             { label:"TB",       num:true, invertRank:true, title:"Touchbacks (PBP)" },
+    punt_tb_pct:         { label:"TB%",      num:true, fmt:"pct", invertRank:true,
       title:"Percent of punts that resulted in a touchback",
       compute: function(r){ return r.punts ? (r.punt_tb||0) / r.punts : null; } },
   };
@@ -686,6 +694,7 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
     lastQuery: null,
     filtersVisible: false, // header filter row shown?
     filters: {},           // { colKey: "expr string" } — raw user input per column
+    heatOn: false,         // percentile-rank cell coloring
   };
 
   // ---------- Per-column filter expressions ----------
@@ -949,6 +958,49 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
       });
     }
 
+    // Percentile heat map — quintile boundaries per numeric column.
+    // Computed against the CURRENT visible row set (post filter+search)
+    // so you're always ranking against whoever else is on the screen.
+    // Identity / text cols skipped. Stable under changing tabs.
+    var heatBuckets = {};
+    if (state.heatOn) {
+      cols.forEach(function(k){
+        var def = COLS[k] || {};
+        if (!def.num) return;
+        var vals = [];
+        for (var i = 0; i < rows.length; i++) {
+          var v = getVal(rows[i], k);
+          if (typeof v === "number" && !isNaN(v)) vals.push(v);
+        }
+        if (vals.length < 4) return; // not enough spread to be meaningful
+        var sorted = vals.slice().sort(function(a,b){ return a - b; });
+        function quantile(q){
+          var idx = (sorted.length - 1) * q;
+          var lo = Math.floor(idx), hi = Math.ceil(idx);
+          return lo === hi ? sorted[lo] : sorted[lo] + (sorted[hi] - sorted[lo]) * (idx - lo);
+        }
+        heatBuckets[k] = {
+          b1: quantile(0.2),
+          b2: quantile(0.4),
+          b3: quantile(0.6),
+          b4: quantile(0.8),
+          invert: !!def.invertRank,
+        };
+      });
+    }
+    function heatClass(k, v) {
+      var b = heatBuckets[k];
+      if (!b || typeof v !== "number" || isNaN(v)) return "";
+      var q;
+      if      (v <= b.b1) q = 1;
+      else if (v <= b.b2) q = 2;
+      else if (v <= b.b3) q = 3;
+      else if (v <= b.b4) q = 4;
+      else                q = 5;
+      if (b.invert) q = 6 - q; // lower values should get the "good" color
+      return " pct-q" + q;
+    }
+
     // Body
     var body = rows.map(function(r){
       var cells = "";
@@ -960,7 +1012,8 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
           if (def.num) cls.push("num");
           if (def.cls) cls.push(def.cls);
           if (bi > 0 && ci === 0) cls.push("group-sep");
-          cells += '<td class="'+cls.join(" ")+'">'+fmtCell(v, def.fmt)+'</td>';
+          var hc = state.heatOn ? heatClass(k, v) : "";
+          cells += '<td class="'+cls.join(" ")+hc+'">'+fmtCell(v, def.fmt)+'</td>';
         });
       });
       return '<tr>'+cells+'</tr>';
@@ -970,7 +1023,7 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
       ? '<tr class="asw-filter-row">'+filterRow+'</tr>'
       : "";
     bodyEl.innerHTML = rows.length || state.filtersVisible
-      ? '<table class="asw-table">' +
+      ? '<table class="asw-table' + (state.heatOn ? ' heat' : '') + '">' +
           '<thead>' +
             '<tr class="asw-group-row">'+groupRow+'</tr>' +
             '<tr class="asw-col-row">'+colRow+'</tr>' +
@@ -1119,6 +1172,19 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
     });
     colsBarEl.appendChild(_filterToggleBtn);
 
+    var heatBtn = document.createElement("button");
+    heatBtn.type = "button";
+    heatBtn.className = "asw-filter-toggle";
+    heatBtn.textContent = "🔥 Heat";
+    heatBtn.setAttribute("aria-pressed", state.heatOn ? "true" : "false");
+    heatBtn.title = "Color each numeric cell by its position-group percentile rank. Green = top quintile, red = bottom. Stats where lower is better (Drops, INTs, Sacks, Miss%) are auto-inverted.";
+    heatBtn.addEventListener("click", function(){
+      state.heatOn = !state.heatOn;
+      heatBtn.setAttribute("aria-pressed", state.heatOn ? "true" : "false");
+      render();
+    });
+    colsBarEl.appendChild(heatBtn);
+
     _filterClearBtn = document.createElement("button");
     _filterClearBtn.type = "button";
     _filterClearBtn.className = "asw-filter-clear";
@@ -1248,6 +1314,7 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
     for (var i = 0; i < teamSel.options.length; i++) {
       if (teamSel.options[i].selected) sel.push(teamSel.options[i].value);
     }
+    // "All (league-wide)" wins over everything else — returns [] meaning no filter.
     if (sel.indexOf("__ALL__") >= 0) return [];
     return sel;
   }
@@ -1282,12 +1349,23 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
       var rows = Array.isArray(j.rows) ? j.rows : [];
       rows = applyLiveOwnership(rows);
       // Team filter (post-ownership-overlay)
+      // Special values:
+      //   [] / __ALL__        → no filter (every player)
+      //   __ROSTERED__        → any active franchise roster (exclude FAs)
+      //   FA                  → free agents only
+      //   <fid>               → that specific franchise
+      // Multi-select: if __ROSTERED__ picked alongside specific fids,
+      // __ROSTERED__ wins (superset). If FA also picked, add FAs back.
       if (teams.length) {
+        var wantAllRostered = teams.indexOf("__ROSTERED__") >= 0;
         var wantFA = teams.indexOf("FA") >= 0;
         var wantFids = {};
-        teams.forEach(function(t){ if (t !== "FA") wantFids[padFid(t)] = true; });
+        teams.forEach(function(t){
+          if (t !== "FA" && t !== "__ROSTERED__" && t !== "__ALL__") wantFids[padFid(t)] = true;
+        });
         rows = rows.filter(function(r){
           if (!r.mfl_franchise_id) return wantFA;
+          if (wantAllRostered) return true;
           return wantFids[r.mfl_franchise_id] === true;
         });
       }
@@ -1297,7 +1375,12 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
                       : seasons.sort(function(a,b){return a-b})[0] + "-" + seasons.sort(function(a,b){return b-a})[0];
       var teamLabel = "";
       if (teams.length === 1) {
-        teamLabel = " · " + (teams[0] === "FA" ? "Free Agents" : (fidToName[padFid(teams[0])] || teams[0]));
+        var t0 = teams[0];
+        teamLabel = " · " + (
+          t0 === "FA"           ? "Free Agents" :
+          t0 === "__ROSTERED__" ? "All Rostered" :
+          (fidToName[padFid(t0)] || t0)
+        );
       } else if (teams.length > 1) {
         teamLabel = " · " + teams.length + " teams";
       }
@@ -1714,11 +1797,149 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
     });
   });
 
+  // ---------- URL state ----------
+  // Serialize the full current view (tab, sub, seasons, scope, teams,
+  // groups, sort, heat, filter-row visibility, per-column filters,
+  // search) into window.location.hash so a copied URL reproduces the
+  // exact view. Hash avoids server round-trips and keeps it out of
+  // history (replaceState).
+  function syncUrl() {
+    try {
+      var params = new URLSearchParams();
+      params.set("tab", state.activeTab);
+      if (state.activeSubTab && state.activeSubTab !== "all") params.set("sub", state.activeSubTab);
+      var seasons = getSelectedSeasons();
+      if (seasons.length) params.set("seasons", seasons.join(","));
+      var scope = getScope();
+      if (scope === "custom") {
+        var wks = Array.from(customWeeks).sort(function(a,b){return a-b;});
+        if (wks.length) params.set("weeks", wks.join(","));
+      } else {
+        params.set("scope", scope);
+      }
+      var teams = [];
+      for (var ti = 0; ti < teamSel.options.length; ti++) {
+        if (teamSel.options[ti].selected) teams.push(teamSel.options[ti].value);
+      }
+      if (teams.length && !(teams.length === 1 && teams[0] === "__ALL__")) {
+        params.set("teams", teams.join(","));
+      }
+      var groups = Array.from(state.visibleGroups).sort();
+      if (groups.length) params.set("groups", groups.join(","));
+      if (state.sortKey) params.set("sort", state.sortKey + "." + state.sortDir);
+      if (state.heatOn) params.set("heat", "1");
+      if (state.filtersVisible) params.set("fv", "1");
+      Object.keys(state.filters).forEach(function(k){
+        var v = (state.filters[k] || "").trim();
+        if (v) params.set("f." + k, v);
+      });
+      if (searchEl.value) params.set("q", searchEl.value);
+      var hash = "#" + params.toString();
+      if (window.location.hash !== hash) {
+        history.replaceState(null, "", hash);
+      }
+    } catch (e) { /* URL API unavailable — silently ignore */ }
+  }
+
+  // Read URL on boot. Returns true if any URL state was applied so the
+  // initial-load bootstrap can skip its default group reset.
+  function readStateFromUrl() {
+    var hash = String(window.location.hash || "").replace(/^#/, "");
+    if (!hash) return false;
+    var params;
+    try { params = new URLSearchParams(hash); } catch (e) { return false; }
+    var touched = false;
+
+    var t = params.get("tab");
+    if (t && TABS[t]) { state.activeTab = t; touched = true; }
+    var sub = params.get("sub");
+    if (sub) { state.activeSubTab = sub; touched = true; }
+
+    var seasonsParam = params.get("seasons");
+    if (seasonsParam) {
+      var wanted = {};
+      seasonsParam.split(",").forEach(function(s){
+        var y = parseInt(s, 10);
+        if (y) wanted[y] = true;
+      });
+      for (var i = 0; i < seasonsSel.options.length; i++) {
+        seasonsSel.options[i].selected = !!wanted[parseInt(seasonsSel.options[i].value, 10)];
+      }
+      touched = true;
+    }
+
+    var scope = params.get("scope");
+    var weeksParam = params.get("weeks");
+    if (weeksParam) {
+      customWeeks = new Set(weeksParam.split(",").map(function(w){ return parseInt(w, 10); }).filter(function(w){ return w >= 1 && w <= 22; }));
+      document.querySelectorAll("[data-scope]").forEach(function(b){
+        b.setAttribute("aria-pressed", b.getAttribute("data-scope") === "custom" ? "true" : "false");
+      });
+      renderWeeksPicker();
+      touched = true;
+    } else if (scope) {
+      document.querySelectorAll("[data-scope]").forEach(function(b){
+        b.setAttribute("aria-pressed", b.getAttribute("data-scope") === scope ? "true" : "false");
+      });
+      touched = true;
+    }
+
+    // Teams — franchise options arrive async. Defer to leagueStatePromise.
+    var teamsParam = params.get("teams");
+    if (teamsParam) {
+      leagueStatePromise.then(function(){
+        var wants = {};
+        teamsParam.split(",").forEach(function(t){ if (t) wants[t] = true; });
+        for (var j = 0; j < teamSel.options.length; j++) {
+          teamSel.options[j].selected = !!wants[teamSel.options[j].value];
+        }
+        runQuery();
+      });
+      touched = true;
+    }
+
+    var groupsParam = params.get("groups");
+    if (groupsParam) {
+      state.visibleGroups = new Set(groupsParam.split(",").filter(Boolean));
+      touched = true;
+    }
+
+    var sortParam = params.get("sort");
+    if (sortParam) {
+      var parts = sortParam.split(".");
+      state.sortKey = parts[0] || null;
+      state.sortDir = parts[1] === "asc" ? "asc" : "desc";
+      touched = true;
+    }
+    if (params.get("heat") === "1") { state.heatOn = true; touched = true; }
+    if (params.get("fv") === "1")   { state.filtersVisible = true; touched = true; }
+    params.forEach(function(v, k){
+      if (k.indexOf("f.") === 0) { state.filters[k.slice(2)] = v; touched = true; }
+    });
+    if (params.get("q")) { searchEl.value = params.get("q"); touched = true; }
+    return touched;
+  }
+
   // ---------- Initial load ----------
-  resetVisibleGroupsForTab(state.activeTab);
+  var urlApplied = readStateFromUrl();
+  if (!urlApplied || state.visibleGroups.size === 0) {
+    resetVisibleGroupsForTab(state.activeTab);
+  }
+  // Highlight the active tab (readStateFromUrl doesn't touch aria-pressed on tabs)
+  tabsEl.querySelectorAll(".asw-tab").forEach(function(btn){
+    btn.setAttribute("aria-pressed", btn.getAttribute("data-tab") === state.activeTab ? "true" : "false");
+  });
   renderSubTabs();
   renderColsBar();
+  updateCustomPickerVisibility();
   runQuery();
+
+  // Keep URL in sync after every render (covers sort/filter/heat/group
+  // toggle changes in addition to the runQuery path).
+  (function(){
+    var origRender = render;
+    render = function(){ origRender.apply(null, arguments); syncUrl(); };
+  })();
 })();
 </script>
 </body>
