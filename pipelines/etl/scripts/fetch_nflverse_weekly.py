@@ -76,8 +76,11 @@ PLAYERSTATS_MAP = {
     "pass_yds":          ["passing_yards"],
     "pass_tds":          ["passing_tds"],
     "pass_ints":         ["interceptions", "passing_interceptions"],
-    "pass_sacks":        ["sacks", "passing_sacks"],
-    "pass_sack_yds":     ["sack_yards", "passing_sack_yards"],
+    # Keith 2026-04-24: nflverse renamed the QB-side sack fields.
+    # sacks_suffered = times this QB was sacked.
+    # sack_yards_lost = yards lost on those sacks (MFL scores this).
+    "pass_sacks":        ["sacks_suffered", "sacks", "passing_sacks"],
+    "pass_sack_yds":     ["sack_yards_lost", "sack_yards", "passing_sack_yards"],
     "pass_long":         ["passing_long"],
     "pass_2pt":          ["passing_2pt_conversions"],
 

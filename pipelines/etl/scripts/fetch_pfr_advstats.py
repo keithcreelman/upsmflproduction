@@ -189,7 +189,7 @@ def upsert_pass_weekly(db: sqlite3.Connection, df, pfr_to_gsis: dict) -> int:
         bad_throws = _col_int(row, "passing_bad_throws", "bad_throws")
         bad_pct    = _col_float(row, "passing_bad_throw_pct", "bad_throw_pct")
         pressured  = _col_int(row, "passing_times_pressured", "times_pressured", "pressured")
-        pr_pct     = _col_float(row, "passing_pressure_pct", "pressure_pct")
+        pr_pct     = _col_float(row, "times_pressured_pct", "passing_pressure_pct", "pressure_pct")
         hurries    = _col_int(row, "passing_hurries", "hurries")
         hits       = _col_int(row, "passing_hits", "hits")
         ay         = _col_int(row, "passing_air_yards")

@@ -276,7 +276,8 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
     pass_ints:           { label:"Int",      num:true },
     int_pct:             { label:"Int%",     num:true, fmt:"pct",
       compute: function(r){ return r.pass_att ? r.pass_ints / r.pass_att : null; } },
-    pass_sacks:          { label:"Sacked",   num:true, title:"Times sacked" },
+    pass_sacks:          { label:"Sacks",    num:true, title:"Times sacked" },
+    pass_sack_yds:       { label:"Sk Yds",   num:true, title:"Yards lost on sacks (MFL-scored)" },
     // Passing advanced (PFR)
     passing_adot:        { label:"ADOT",     num:true, fmt:"dec1", title:"Intended air yards per attempt (PFR, season)" },
     passing_air_yards:   { label:"AirYd",    num:true, title:"Intended air yards total (PFR, season)" },
@@ -381,7 +382,7 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
       groups: [
         { id:"usage",          label:"Usage",           cols:["games","off_snaps_total","off_snap_rate"], defaultOn:true },
         { id:"pass_volume",    label:"Passing · Volume",  cols:["pass_att","pass_cmp","cmp_pct","pass_yds","pass_tds","ypa"], defaultOn:true },
-        { id:"pass_turnovers", label:"Passing · Turnovers", cols:["pass_ints","int_pct","pass_sacks"], defaultOn:true },
+        { id:"pass_turnovers", label:"Passing · Turnovers", cols:["pass_ints","int_pct","pass_sacks","pass_sack_yds"], defaultOn:true },
         { id:"pass_advanced",  label:"Passing · Advanced (PFR)",
           cols:["passing_adot","passing_air_yards","passing_yards_after_catch",
                 "passing_bad_throws","passing_bad_throw_pct","passing_times_pressured",
