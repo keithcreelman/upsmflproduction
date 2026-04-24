@@ -47,15 +47,11 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
 <div class="asw-controls">
   <label>Positions
     <select id="asw-positions" multiple size="5" style="min-width:140px; max-height:120px">
-      <option value="RB" selected>RB</option>
-      <option value="WR" selected>WR</option>
-      <option value="TE" selected>TE</option>
-      <option value="QB">QB</option>
-      <option value="DL">DL</option>
-      <option value="LB">LB</option>
-      <option value="DB">DB</option>
-      <option value="K">K</option>
-      <option value="P">P</option>
+      <option value="skill" selected>RB / WR / TE</option>
+      <option value="qb">QB</option>
+      <option value="idp">IDP (DL/LB/DB)</option>
+      <option value="kicker">Kicker</option>
+      <option value="punter">Punter</option>
     </select>
     <span style="font-size:10px; color:var(--muted)">hold ⌘/Ctrl to multi-select</span>
   </label>
@@ -393,7 +389,8 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
   }
 
   function render(){
-    var pos = posSel.value;
+    var groups = getSelectedGroups();
+    var pos = groups[0] || "skill";
     var tmpl = TMPL[pos] || TMPL.skill;
     if (!state.sortKey) {
       state.sortKey = tmpl.defaultSort;
@@ -458,6 +455,14 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
     return btn ? btn.getAttribute("data-scope") : "ups";
   }
 
+  function getSelectedGroups(){
+    var sel = [];
+    for (var i = 0; i < posSel.options.length; i++) {
+      if (posSel.options[i].selected) sel.push(posSel.options[i].value);
+    }
+    return sel.length ? sel : ["skill"];
+  }
+
   function getSelectedSeasons(){
     var sel = [];
     for (var i = 0; i < seasonsSel.options.length; i++) {
@@ -478,7 +483,7 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
   }
 
   function runQuery(){
-    var pos = posSel.value;
+    var groups = getSelectedGroups();
     var seasons = getSelectedSeasons();
     var scope = getScope();
     var minG = Math.max(1, parseInt(minGamesEl.value, 10) || 1);
@@ -486,24 +491,29 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
     state.sortKey = null;
     bodyEl.innerHTML = '<div class="asw-loading">Fetching…</div>';
     metaEl.textContent = "";
-    // Worker endpoint — team filter intentionally omitted. We apply
-    // live ownership (from mfl-league-state proxy) client-side so the
-    // attribution reflects TODAY, not the last src_contracts snapshot.
-    var url = API_BASE + "/api/advanced-stats-leaderboard" +
-      "?seasons=" + encodeURIComponent(seasons.join(",")) +
-      "&pos="   + encodeURIComponent(pos) +
-      "&include_post=" + (scope === "full" ? "1" : "0") +
-      "&min_games=" + encodeURIComponent(minG) +
-      "&limit=500";
-    Promise.all([
-      fetch(url).then(function(r){
-        if (!r.ok) throw new Error("HTTP " + r.status);
+    // Worker only accepts one pos alias at a time — fetch each selected
+    // group in parallel and merge rows client-side.
+    var fetches = groups.map(function(g){
+      var url = API_BASE + "/api/advanced-stats-leaderboard" +
+        "?seasons=" + encodeURIComponent(seasons.join(",")) +
+        "&pos="   + encodeURIComponent(g) +
+        "&include_post=" + (scope === "full" ? "1" : "0") +
+        "&min_games=" + encodeURIComponent(minG) +
+        "&limit=500";
+      return fetch(url).then(function(r){
+        if (!r.ok) throw new Error("HTTP " + r.status + " (" + g + ")");
         return r.json();
-      }),
+      });
+    });
+    Promise.all([
+      Promise.all(fetches),
       leagueStatePromise,
     ]).then(function(pair){
-      var j = pair[0];
-      var rows = Array.isArray(j.rows) ? j.rows : [];
+      var results = pair[0];
+      var rows = [];
+      results.forEach(function(j){
+        rows = rows.concat(Array.isArray(j.rows) ? j.rows : []);
+      });
       rows = applyLiveOwnership(rows);
       // Team filter: multi-select. Empty = all. Otherwise keep rows
       // whose mfl_franchise_id matches any picked id, OR is null (FA)
@@ -527,7 +537,8 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
       } else if (teams.length > 1) {
         teamLabel = " · " + teams.length + " teams";
       }
-      state.lastQuery = (TMPL[pos] && TMPL[pos].label || pos) + " · " + seasonLabel + " · " + (scope === "full" ? "Full" : "UPS") + " · min " + minG + "G" + teamLabel;
+      var groupLabel = groups.map(function(g){ return (TMPL[g] && TMPL[g].label) || g; }).join(" + ");
+      state.lastQuery = groupLabel + " · " + seasonLabel + " · " + (scope === "full" ? "Full" : "UPS") + " · min " + minG + "G" + teamLabel;
       render();
     }).catch(function(e){
       bodyEl.innerHTML = '<div class="asw-err">Query failed: '+(e && e.message || e)+'</div>';
