@@ -1149,8 +1149,10 @@ export default {
             .bind(gsisId)
             .first();
           const pfrId = pfrRow && pfrRow.pfr_id || null;
+          const mflPidLookup = pfrRow && pfrRow.mfl_player_id || null;
           const sql = `
             SELECT w.season, w.week, w.team, w.opponent, w.position, w.pos_group,
+                   COALESCE(sw.score, 0) AS mfl_points,
                    w.rush_att, w.rush_yds, w.rush_tds,
                    w.targets, w.receptions, w.rec_yds, w.rec_tds,
                    w.pass_att, w.pass_cmp, w.pass_yds, w.pass_tds, w.pass_ints,
@@ -1182,10 +1184,15 @@ export default {
                      ON rz.season = w.season AND rz.week = w.week AND rz.gsis_id = w.gsis_id
               LEFT JOIN nfl_player_snaps s
                      ON s.season = w.season AND s.week = w.week AND s.pfr_id = ?
+              -- MFL per-week fantasy points (src_weekly keyed by
+              -- mfl_player_id). COALESCE to 0 so zero-point weeks render
+              -- '0.0' instead of '—' (user saw a gap otherwise).
+              LEFT JOIN src_weekly sw
+                     ON sw.season = w.season AND sw.week = w.week AND sw.player_id = ?
              WHERE w.gsis_id = ? AND ${seasonFilter} AND ${weekFilter}
              ORDER BY w.season DESC, w.week ASC
           `;
-          const res = await db.prepare(sql).bind(pfrId, gsisId).all();
+          const res = await db.prepare(sql).bind(pfrId, mflPidLookup, gsisId).all();
           return jsonOut(200, {
             gsis_id: gsisId,
             pfr_id: pfrId,

@@ -2068,15 +2068,18 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
     // MFL Details group — those values are season-aggregates surfaced
     // in the drawer header, not useful repeated on every week row.
     var blocks = buildBlocks().filter(function(b){ return b.groupId !== "mfl_details"; });
-    var keyColCount = isSeason ? 2 : 2;  // [Season, G] for season; [Season, Wk] for weekly
+    // Sticky-left: Season, Wk (or G for season mode), MFL Pts per row.
+    // Each period's points are pulled from the src_weekly join server-side
+    // (weekly mode) or SUMmed in aggregateBySeason (season mode).
+    var keyColCount = 3;
     var groupHeader = '<th class="week-col" colspan="'+keyColCount+'"></th>' +
       blocks.slice(1).map(function(b){
         var span = b.colKeys.length;
         return '<th class="group-sep" colspan="'+span+'">' + (b.groupLabel || "") + '</th>';
       }).join("");
     var colHeader = isSeason
-      ? '<th class="week-col">Season</th><th class="week-col num">G</th>'
-      : '<th class="week-col">Season</th><th class="week-col">Wk</th>';
+      ? '<th class="week-col">Season</th><th class="week-col num">G</th><th class="week-col num">MFL Pts</th>'
+      : '<th class="week-col">Season</th><th class="week-col">Wk</th><th class="week-col num">MFL Pts</th>';
     colHeader += blocks.slice(1).map(function(b){
       return b.colKeys.map(function(k, ci){
         var d = COLS[k] || { label: k };
@@ -2090,9 +2093,11 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
     var body = rows.map(function(r){
       var leftCells = isSeason
         ? '<td class="week-col">'+(r.season||"")+'</td>' +
-          '<td class="week-col num">'+(r.games != null ? r.games : "—")+'</td>'
+          '<td class="week-col num">'+(r.games != null ? r.games : "—")+'</td>' +
+          '<td class="week-col num">'+ fmtCell(r.mfl_points, "dec1") +'</td>'
         : '<td class="week-col">'+(r.season||"")+'</td>' +
-          '<td class="week-col">'+(r.week||"")+'</td>';
+          '<td class="week-col">'+(r.week||"")+'</td>' +
+          '<td class="week-col num">'+ fmtCell(r.mfl_points, "dec1") +'</td>';
       var cells = leftCells;
       blocks.slice(1).forEach(function(b){
         b.colKeys.forEach(function(k, ci){
