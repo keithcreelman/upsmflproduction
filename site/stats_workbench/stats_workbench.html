@@ -279,8 +279,7 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
     mfl_points:          { label:"MFL Pts",  num:true, fmt:"dec1",
       title:"Total MFL fantasy points over the selected season/scope" },
     mfl_ppg:             { label:"MFL PPG",  num:true, fmt:"dec2",
-      title:"MFL fantasy points per game (games = weeks with score > 0)",
-      compute: function(r){ return r.mfl_games_scored ? r.mfl_points / r.mfl_games_scored : null; } },
+      title:"MFL fantasy points per game (weeks with score > 0 — computed server-side)" },
     mfl_salary:          { label:"Salary",   num:true, fmt:"money",
       title:"Current MFL contract salary (compact: 45K / 1.25M)" },
     mfl_years_remaining: { label:"Yrs Left", num:true,
@@ -442,11 +441,8 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
     fg_60plus:           { label:"60+",      cls:"dim",
       compute: function(r){ return r.fg_att_60plus ? (r.fg_made_60plus||0) + "/" + r.fg_att_60plus : null; } },
     avg_fg_make:         { label:"Avg Make",  num:true, fmt:"dec1",
-      title:"Avg distance of MADE FGs (PBP-exact when available, bucket-midpoint fallback)",
+      title:"Avg distance of MADE FGs (bucket-midpoint: 0-39≈25y, 40-49≈44.5y, 50-59≈54y, 60+≈62y)",
       compute: function(r){
-        if ((r.fg_made_pbp||0) > 0) {
-          return (r.fg_distance_sum_made||0) / r.fg_made_pbp;
-        }
         var m = (r.fg_made_0_39||0) + (r.fg_made_40_49||0) + (r.fg_made_50_59||0) + (r.fg_made_60plus||0);
         if (!m) return null;
         return ((r.fg_made_0_39||0)*25 + (r.fg_made_40_49||0)*44.5 + (r.fg_made_50_59||0)*54 + (r.fg_made_60plus||0)*62) / m;

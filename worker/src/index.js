@@ -998,7 +998,9 @@ export default {
                    a.rec_i20, a.pass_att_i20, a.pass_att_ez,
                    a.fg_att_0_39, a.fg_made_0_39, a.fg_att_40_49, a.fg_made_40_49,
                    a.fg_att_50_59, a.fg_made_50_59, a.fg_att_60plus, a.fg_made_60plus,
-                   a.fg_distance_sum_made, a.fg_made_pbp,
+                   -- fg_distance_sum_made + fg_made_pbp dropped from output
+                   -- to stay under D1's 100-col cap. Avg FG Make falls back
+                   -- to bucket-midpoint approximation client-side.
                    a.receiving_rat,
                    a.passing_bad_throw_pct,
                    a.passing_times_pressured, a.passing_pressure_pct,
@@ -1025,7 +1027,7 @@ export default {
                    (CASE WHEN lc.contract_length IS NULL OR lc.contract_year IS NULL THEN NULL
                          ELSE lc.contract_length - lc.contract_year + 1 END)  AS mfl_years_remaining,
                    msa.mfl_points        AS mfl_points,
-                   msa.mfl_games_scored  AS mfl_games_scored,
+                   CAST(msa.mfl_points AS REAL) / NULLIF(msa.mfl_games_scored, 0) AS mfl_ppg,
                    -- Market share (Keith 2026-04-24) — ratios against
                    -- team-level totals across the same season/week window.
                    -- Values are 0..1 decimals; client formats as pct.
