@@ -41,12 +41,32 @@ h1{margin:0 0 8px;font-size:18px;letter-spacing:.02em}
 .asw-controls .asw-chip{background:var(--panel-alt);color:var(--text);border:1px solid var(--border);border-radius:999px;padding:4px 10px;font-size:11px;cursor:pointer;transition:.1s}
 .asw-controls .asw-chip[aria-pressed="true"]{background:var(--accent);color:#0a1222;border-color:var(--accent);font-weight:700}
 
-/* Column group toggle chips */
-.asw-cols-bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;background:var(--panel);padding:8px 12px;border:1px solid var(--border);border-radius:8px;margin-bottom:10px}
+/* Column group controls bar — now a single "Columns" dropdown pill
+   + utility toggles (Filters/Heat/CSV) on the right. Replaces the
+   7-chip row that wrapped on narrower screens. */
+.asw-cols-bar{display:flex;gap:8px;align-items:center;background:var(--panel);padding:8px 12px;border:1px solid var(--border);border-radius:8px;margin-bottom:10px;position:relative}
 .asw-cols-label{color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.08em;font-weight:700;margin-right:4px}
-.asw-col-chip{background:var(--panel-alt);color:var(--text);border:1px solid var(--border);border-radius:999px;padding:3px 10px;font-size:11px;cursor:pointer;user-select:none;transition:.1s}
-.asw-col-chip:hover{border-color:var(--border-strong)}
-.asw-col-chip[aria-pressed="true"]{background:var(--accent);color:#0a1222;border-color:var(--accent);font-weight:700}
+
+/* "Columns · N active" pill — the popover trigger */
+.asw-cols-trigger{background:var(--panel-alt);color:var(--text);border:1px solid var(--border);border-radius:999px;padding:4px 12px;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:.1s;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.asw-cols-trigger:hover{border-color:var(--border-strong)}
+.asw-cols-trigger.is-customized{background:var(--accent);color:#0a1222;border-color:var(--accent)}
+.asw-cols-trigger .chev{font-size:9px;opacity:.7}
+
+/* Popover panel */
+.asw-cols-popover{position:absolute;top:calc(100% + 4px);left:12px;z-index:35;background:var(--panel);border:1px solid var(--border-strong);border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,.5);padding:12px 0;min-width:260px;max-width:320px;max-height:70vh;overflow-y:auto;display:none}
+.asw-cols-popover.open{display:block}
+.asw-cols-popover h4{margin:0 12px 6px;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:700}
+.asw-cols-popover .section-label{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--accent);font-weight:700;padding:8px 12px 2px}
+.asw-cols-popover .section-label:first-of-type{padding-top:0}
+.asw-cols-popover label.group-item{display:flex;align-items:center;gap:8px;padding:4px 12px;font-size:12px;cursor:pointer;user-select:none}
+.asw-cols-popover label.group-item:hover{background:var(--panel-alt)}
+.asw-cols-popover label.group-item input{accent-color:var(--accent);cursor:pointer}
+.asw-cols-popover hr{border:0;border-top:1px solid var(--border);margin:6px 0}
+.asw-cols-popover .footer{padding:8px 12px 0;display:flex;gap:8px;justify-content:space-between;border-top:1px solid var(--border);margin-top:6px}
+.asw-cols-popover .reset-btn{background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 10px;font-size:11px;border-radius:4px;cursor:pointer}
+.asw-cols-popover .reset-btn:hover{color:var(--text);border-color:var(--border-strong)}
+.asw-cols-popover .done-btn{background:var(--accent);color:#0a1222;border:0;padding:4px 14px;font-size:11px;font-weight:700;border-radius:4px;cursor:pointer}
 .asw-cols-spacer{flex:1}
 .asw-filter-toggle{background:var(--panel-alt);color:var(--muted);border:1px solid var(--border);border-radius:4px;padding:4px 10px;font-size:11px;cursor:pointer;font-weight:600}
 .asw-filter-toggle:hover{border-color:var(--border-strong);color:var(--text)}
@@ -1250,29 +1270,169 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
   // Focus hand-off across renders (filter-row typing restores caret position)
   var pendingFocus = null;
 
-  // ---------- Render the column-group chip bar + filter-row toggle ----------
+  // ---------- Render the columns control bar ----------
+  // Phase B (2026-04-24): replaced the 7-chip row with a single
+  // "Columns · N active" dropdown trigger that opens a popover with
+  // grouped checkboxes. Keeps all utility toggles (Filters / Heat /
+  // CSV) on the right of the same row. Saves a whole row at idle.
   var _filterToggleBtn = null;
   var _filterClearBtn = null;
+
+  // Group section labels are derived from the group's `label` prefix
+  // ("Receiving · Advanced" → section "Receiving"). Groups without a
+  // " · " delimiter go into a catch-all "General" section.
+  function colsSectionFor(groupLabel) {
+    var idx = (groupLabel || "").indexOf(" · ");
+    if (idx > 0) return groupLabel.slice(0, idx);
+    return null; // render without a section header
+  }
+
+  // "Columns · 3 active" or (if ≤3) "MFL Details · Usage · Volume".
+  function buildColsTriggerLabel(tab) {
+    var active = (tab.groups || []).filter(function(g){
+      return state.visibleGroups.has(g.id);
+    });
+    if (!active.length) return "Columns · 0 active";
+    if (active.length <= 3) {
+      return active.map(function(g){
+        // Short label — drop " · " suffix ("Receiving · Volume" → "Volume")
+        var idx = (g.label || "").lastIndexOf(" · ");
+        return idx > 0 ? g.label.slice(idx + 3) : g.label;
+      }).join(" · ");
+    }
+    return "Columns · " + active.length + " active";
+  }
+
+  function isCustomizedFromDefaults(tab) {
+    var defaults = new Set((tab.groups || []).filter(function(g){ return g.defaultOn; }).map(function(g){ return g.id; }));
+    if (defaults.size !== state.visibleGroups.size) return true;
+    var diff = false;
+    defaults.forEach(function(id){ if (!state.visibleGroups.has(id)) diff = true; });
+    return diff;
+  }
+
+  // Renders into a container region (NOT the popover root) so the
+  // caller can keep a header above it without getting wiped on rebuild.
+  function renderColsPopover(tab, containerEl) {
+    containerEl.innerHTML = "";
+    var groups = tab.groups || [];
+    var lastSection = null;
+    groups.forEach(function(g){
+      var section = colsSectionFor(g.label);
+      if (section && section !== lastSection) {
+        var sh = document.createElement("div");
+        sh.className = "section-label";
+        sh.textContent = section;
+        containerEl.appendChild(sh);
+        lastSection = section;
+      } else if (!section && lastSection !== "_general_") {
+        // Only draw a "General" divider if we previously had a section
+        if (lastSection) containerEl.appendChild(document.createElement("hr"));
+        lastSection = "_general_";
+      }
+      var lbl = document.createElement("label");
+      lbl.className = "group-item";
+      var cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.checked = state.visibleGroups.has(g.id);
+      cb.addEventListener("change", function(){
+        if (cb.checked) state.visibleGroups.add(g.id);
+        else state.visibleGroups.delete(g.id);
+        render();
+        // Update trigger label + customized style without a full re-render
+        var trigger = colsBarEl.querySelector(".asw-cols-trigger");
+        if (trigger) {
+          trigger.querySelector(".cols-trigger-label").textContent = buildColsTriggerLabel(tab);
+          trigger.classList.toggle("is-customized", isCustomizedFromDefaults(tab));
+        }
+      });
+      // Short label inside the sectioned popover (drop section prefix)
+      var short = section ? g.label.slice(section.length + 3) : g.label;
+      lbl.appendChild(cb);
+      lbl.appendChild(document.createTextNode(short));
+      containerEl.appendChild(lbl);
+    });
+
+    var footer = document.createElement("div");
+    footer.className = "footer";
+    var resetBtn = document.createElement("button");
+    resetBtn.type = "button";
+    resetBtn.className = "reset-btn";
+    resetBtn.textContent = "Reset to defaults";
+    resetBtn.addEventListener("click", function(){
+      resetVisibleGroupsForTab(state.activeTab);
+      renderColsPopover(tab, containerEl);
+      render();
+      var trigger = colsBarEl.querySelector(".asw-cols-trigger");
+      if (trigger) {
+        trigger.querySelector(".cols-trigger-label").textContent = buildColsTriggerLabel(tab);
+        trigger.classList.toggle("is-customized", isCustomizedFromDefaults(tab));
+      }
+    });
+    var doneBtn = document.createElement("button");
+    doneBtn.type = "button";
+    doneBtn.className = "done-btn";
+    doneBtn.textContent = "Done";
+    doneBtn.addEventListener("click", function(){
+      // Close the popover (container's parent is the popover root)
+      var pop = containerEl.parentElement;
+      if (pop) pop.classList.remove("open");
+    });
+    footer.appendChild(resetBtn);
+    footer.appendChild(doneBtn);
+    containerEl.appendChild(footer);
+  }
 
   function renderColsBar() {
     var tab = TABS[state.activeTab];
     var label = colsBarEl.querySelector(".asw-cols-label");
     colsBarEl.innerHTML = "";
     colsBarEl.appendChild(label);
-    (tab.groups || []).forEach(function(g){
-      var btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "asw-col-chip";
-      btn.setAttribute("data-group-id", g.id);
-      btn.setAttribute("aria-pressed", state.visibleGroups.has(g.id) ? "true" : "false");
-      btn.textContent = g.label;
-      btn.addEventListener("click", function(){
-        if (state.visibleGroups.has(g.id)) state.visibleGroups.delete(g.id);
-        else state.visibleGroups.add(g.id);
-        btn.setAttribute("aria-pressed", state.visibleGroups.has(g.id) ? "true" : "false");
-        render();
-      });
-      colsBarEl.appendChild(btn);
+
+    // Trigger pill — "Columns · N active" (or short group list if ≤3)
+    var trigger = document.createElement("button");
+    trigger.type = "button";
+    trigger.className = "asw-cols-trigger";
+    trigger.title = "Click to pick which column groups show in the table";
+    if (isCustomizedFromDefaults(tab)) trigger.classList.add("is-customized");
+    var triggerLabel = document.createElement("span");
+    triggerLabel.className = "cols-trigger-label";
+    triggerLabel.textContent = buildColsTriggerLabel(tab);
+    trigger.appendChild(triggerLabel);
+    var chev = document.createElement("span");
+    chev.className = "chev";
+    chev.textContent = "▾";
+    trigger.appendChild(chev);
+    colsBarEl.appendChild(trigger);
+
+    // Popover — sibling of trigger, absolutely positioned. Structure:
+    //   <div.popover>
+    //     <h4>Columns for {tab}</h4>
+    //     <div.region> ← renderColsPopover writes here; h4 never wipes
+    //   </div>
+    var popover = document.createElement("div");
+    popover.className = "asw-cols-popover";
+    var header = document.createElement("h4");
+    header.textContent = "Columns for " + tab.label;
+    popover.appendChild(header);
+    var region = document.createElement("div");
+    region.className = "cols-groups-region";
+    popover.appendChild(region);
+    renderColsPopover(tab, region);
+    colsBarEl.appendChild(popover);
+
+    trigger.addEventListener("click", function(e){
+      e.stopPropagation();
+      popover.classList.toggle("open");
+    });
+    // Close on outside click or Esc
+    document.addEventListener("click", function handler(e){
+      if (!popover.classList.contains("open")) return;
+      if (popover.contains(e.target) || trigger.contains(e.target)) return;
+      popover.classList.remove("open");
+    });
+    document.addEventListener("keydown", function(e){
+      if (e.key === "Escape" && popover.classList.contains("open")) popover.classList.remove("open");
     });
     // Right side: filter toggle + clear
     var spacer = document.createElement("span");
@@ -2237,10 +2397,7 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
       '<section class="asw-drawer-section">' +
         '<h3>' + sectionLabel + '</h3>' +
         '<div class="asw-table-wrap"><table class="asw-table asw-week-table">' +
-          '<thead>' +
-            '<tr class="asw-group-row">' + groupHeader + '</tr>' +
-            '<tr class="asw-col-row">' + colHeader + '</tr>' +
-          '</thead>' +
+          '<thead><tr class="asw-col-row">' + colHeader + '</tr></thead>' +
           '<tbody>' + body + '</tbody>' +
         '</table></div>' +
       '</section>';
