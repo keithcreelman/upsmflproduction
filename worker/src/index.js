@@ -782,20 +782,23 @@ export default {
             WITH latest_contract AS (
               -- MFL contract details are always pulled from the MAX season
               -- in src_contracts (current year when synced). Historical
-              -- contract views (e.g., "what was his 2023 salary?") would
-              -- need a separate season-aware lookup — tabled for later.
+              -- contract views would need a separate lookup — later.
               --
-              -- year_values_json is the MFL-API canonical year-by-year
-              -- breakdown ({"Y1":25000,"Y2":45000,...}). Its key count is
-              -- the true contract length. contract_length in the same row
-              -- is parsed from the unreliable contract_info text (Keith
-              -- 2026-04-24: don't use it for year-count).
+              -- Total-years source: prefer year_values_json key count
+              -- (MFL-API canonical {"Y1":...,"Y2":...}), fall back to
+              -- contract_length (parsed from the 'CL 3' text). Keith
+              -- 2026-04-24: year_values_json is empty for rookie
+              -- entries (e.g., Drake Maye), so relying on it alone
+              -- returned NULL years-remaining where 2 was correct.
               SELECT c.player_id,
                      c.franchise_id,
                      c.team_name,
                      c.salary,
                      c.contract_year,
-                     (SELECT COUNT(*) FROM json_each(COALESCE(c.year_values_json, '{}'))) AS years_total,
+                     COALESCE(
+                       NULLIF((SELECT COUNT(*) FROM json_each(COALESCE(c.year_values_json, '{}'))), 0),
+                       c.contract_length
+                     ) AS years_total,
                      c.aav,
                      c.season   AS contract_season
                 FROM src_contracts c
