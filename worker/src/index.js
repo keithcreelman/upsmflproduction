@@ -772,6 +772,7 @@ export default {
                      SUM(COALESCE(w.pass_yds,0))          AS pass_yds,
                      SUM(COALESCE(w.pass_tds,0))          AS pass_tds,
                      SUM(COALESCE(w.pass_ints,0))         AS pass_ints,
+                     SUM(COALESCE(w.pass_sacks,0))        AS pass_sacks,
                      SUM(COALESCE(w.def_tackles_solo,0))  AS def_tackles_total,
                      SUM(COALESCE(w.def_tackles_ast,0))   AS def_tackles_ast,
                      SUM(COALESCE(w.def_tfl,0))           AS def_tfl,
@@ -787,7 +788,9 @@ export default {
                      SUM(COALESCE(w.xp_made,0))           AS xp_made,
                      SUM(COALESCE(w.punts,0))             AS punts,
                      SUM(COALESCE(w.punt_yds,0))          AS punt_yds,
+                     MAX(COALESCE(w.punt_long,0))         AS punt_long,
                      SUM(COALESCE(w.punt_inside20,0))     AS punt_inside20,
+                     SUM(COALESCE(w.punt_tb,0))           AS punt_tb,
                      AVG(w.punt_net_avg)                  AS punt_net_avg,
                      SUM(COALESCE(w.receiving_drops,0))          AS receiving_drops,
                      SUM(COALESCE(w.receiving_broken_tackles,0)) AS receiving_broken_tackles,
@@ -806,28 +809,28 @@ export default {
                      SUM(COALESCE(rz.rec_i20,0))                     AS rec_i20,
                      SUM(COALESCE(rz.pass_att_i20,0))                AS pass_att_i20,
                      SUM(COALESCE(rz.pass_att_ez,0))                 AS pass_att_ez,
-                     -- FG buckets (from nfl_player_weekly — already in row)
+                     -- FG buckets (PBP-derived via fetch_nflverse_pbp.py —
+                     -- weekly payload doesn't populate these)
                      SUM(COALESCE(w.fg_att_0_39,0))                  AS fg_att_0_39,
                      SUM(COALESCE(w.fg_made_0_39,0))                 AS fg_made_0_39,
                      SUM(COALESCE(w.fg_att_40_49,0))                 AS fg_att_40_49,
                      SUM(COALESCE(w.fg_made_40_49,0))                AS fg_made_40_49,
-                     SUM(COALESCE(w.fg_att_50plus,0))                AS fg_att_50plus,
-                     SUM(COALESCE(w.fg_made_50plus,0))               AS fg_made_50plus,
-                     -- PFR rec extras (migration 0013)
+                     SUM(COALESCE(w.fg_att_50_59,0))                 AS fg_att_50_59,
+                     SUM(COALESCE(w.fg_made_50_59,0))                AS fg_made_50_59,
+                     SUM(COALESCE(w.fg_att_60plus,0))                AS fg_att_60plus,
+                     SUM(COALESCE(w.fg_made_60plus,0))               AS fg_made_60plus,
+                     SUM(COALESCE(w.fg_distance_sum_made,0))         AS fg_distance_sum_made,
+                     SUM(COALESCE(w.fg_made_pbp,0))                  AS fg_made_pbp,
+                     -- PFR rec extras (migration 0013, weekly)
                      AVG(w.receiving_rat)                            AS receiving_rat,
                      SUM(COALESCE(w.receiving_int,0))                AS receiving_int,
-                     AVG(w.receiving_adot)                           AS receiving_adot,
-                     SUM(COALESCE(w.receiving_air_yards,0))          AS receiving_air_yards,
-                     -- PFR pass (QB adv)
+                     -- PFR pass (QB adv) — weekly fields (per-attempt counts)
                      SUM(COALESCE(w.passing_bad_throws,0))           AS passing_bad_throws,
                      AVG(w.passing_bad_throw_pct)                    AS passing_bad_throw_pct,
                      SUM(COALESCE(w.passing_times_pressured,0))      AS passing_times_pressured,
                      AVG(w.passing_pressure_pct)                     AS passing_pressure_pct,
                      SUM(COALESCE(w.passing_hurries,0))              AS passing_hurries,
                      SUM(COALESCE(w.passing_hits,0))                 AS passing_hits,
-                     SUM(COALESCE(w.passing_air_yards,0))            AS passing_air_yards,
-                     AVG(w.passing_adot)                             AS passing_adot,
-                     SUM(COALESCE(w.passing_yards_after_catch,0))    AS passing_yards_after_catch,
                      -- PFR def (IDP adv)
                      SUM(COALESCE(w.def_missed_tackles,0))           AS def_missed_tackles,
                      AVG(w.def_missed_tackle_pct)                    AS def_missed_tackle_pct,
@@ -855,41 +858,117 @@ export default {
                WHERE s.season IN (${seasonList})
                  AND ${includePost ? "1=1" : "s.week <= 17"}
                GROUP BY c.gsis_id
+            ),
+            -- Team-level totals for market-share % (grouped by team, all
+            -- positions, same season/week filter as agg so player-over-team
+            -- is an apples-to-apples ratio). Position-agnostic — a WR's
+            -- target share is measured against ALL team targets.
+            team_agg AS (
+              SELECT w.team,
+                     SUM(COALESCE(w.targets,0))     AS team_targets,
+                     SUM(COALESCE(w.receptions,0)) AS team_rec,
+                     SUM(COALESCE(w.rec_yds,0))    AS team_rec_yds,
+                     SUM(COALESCE(w.rush_att,0))   AS team_rush_att,
+                     SUM(COALESCE(w.rush_yds,0))   AS team_rush_yds
+                FROM nfl_player_weekly w
+               WHERE w.season IN (${seasonList}) AND ${weekFilter}
+               GROUP BY w.team
+            ),
+            team_rz_agg AS (
+              SELECT w.team,
+                     SUM(COALESCE(rz.targets_i20,0))  AS team_targets_i20,
+                     SUM(COALESCE(rz.rec_i20,0))      AS team_rec_i20,
+                     SUM(COALESCE(rz.targets_ez,0))   AS team_targets_ez,
+                     SUM(COALESCE(rz.rush_att_i20,0)) AS team_rush_att_i20,
+                     SUM(COALESCE(rz.rush_att_i5,0))  AS team_rush_att_i5
+                FROM nfl_player_redzone rz
+                JOIN nfl_player_weekly w
+                       ON w.season = rz.season AND w.week = rz.week AND w.gsis_id = rz.gsis_id
+               WHERE rz.season IN (${seasonList})
+                 AND ${includePost ? "1=1" : "rz.week <= 17"}
+               GROUP BY w.team
+            ),
+            -- PFR season-level adv stats: ADOT, YAC/R, YBC/R, IAY, etc.
+            -- Trimmed to only columns the workbench template consumes —
+            -- adding more here risks D1's result-column limit. Additional
+            -- season-level fields (pocket time, blitz, on-tgt%, etc.) stay
+            -- in nfl_player_advstats_season and can be queried ad-hoc.
+            season_adv_agg AS (
+              SELECT gsis_id,
+                     AVG(rec_adot)         AS s_rec_adot,
+                     SUM(COALESCE(rec_ybc,0))   AS s_rec_air_yards,
+                     AVG(rec_yac_per_r)    AS s_rec_yac_per_r,
+                     AVG(rec_drop_pct)     AS s_rec_drop_pct,
+                     AVG(rush_ybc_per_a)   AS s_rush_ybc_per_a,
+                     AVG(rush_yac_per_a)   AS s_rush_yac_per_a,
+                     SUM(COALESCE(pass_iay,0))  AS s_pass_air_yards,
+                     AVG(pass_iay_per_att) AS s_pass_adot,
+                     SUM(COALESCE(pass_yac,0))  AS s_pass_yac,
+                     AVG(def_adot)         AS s_def_adot
+                FROM nfl_player_advstats_season
+               WHERE season IN (${seasonList})
+               GROUP BY gsis_id
             )
             SELECT a.gsis_id,
                    c.mfl_player_id AS mfl_pid,
                    c.full_name     AS player_name,
                    a.position, a.team, a.pos_group, a.games,
-                   a.rush_att, a.rush_yds, a.rush_tds, a.rush_fumbles, a.rush_fumbles_lost,
+                   a.rush_att, a.rush_yds, a.rush_tds,
                    a.targets, a.receptions, a.rec_yds, a.rec_tds,
-                   a.pass_att, a.pass_cmp, a.pass_yds, a.pass_tds, a.pass_ints,
+                   a.pass_att, a.pass_cmp, a.pass_yds, a.pass_tds, a.pass_ints, a.pass_sacks,
                    a.def_tackles_total, a.def_tackles_ast, a.def_tfl, a.def_sacks,
                    a.def_ff, a.def_fr, a.def_ints, a.def_pass_def, a.def_tds,
                    a.fg_att, a.fg_made, a.xp_att, a.xp_made,
-                   a.punts, a.punt_yds, a.punt_inside20, a.punt_net_avg,
+                   a.punts, a.punt_yds, a.punt_long, a.punt_inside20, a.punt_tb, a.punt_net_avg,
                    a.receiving_drops, a.receiving_broken_tackles,
                    a.rushing_broken_tackles, a.passing_drops,
                    a.rushing_yards_before_contact, a.rushing_yards_after_contact,
-                   a.rush_att_i20, a.rush_att_i10, a.rush_att_i5,
-                   a.targets_i20, a.targets_i10, a.targets_i5, a.targets_ez,
+                   a.rush_att_i20, a.rush_att_i5,
+                   a.targets_i20, a.targets_ez,
                    a.rec_i20, a.pass_att_i20, a.pass_att_ez,
                    a.fg_att_0_39, a.fg_made_0_39, a.fg_att_40_49, a.fg_made_40_49,
-                   a.fg_att_50plus, a.fg_made_50plus,
-                   a.receiving_rat, a.receiving_int, a.receiving_adot, a.receiving_air_yards,
+                   a.fg_att_50_59, a.fg_made_50_59, a.fg_att_60plus, a.fg_made_60plus,
+                   a.fg_distance_sum_made, a.fg_made_pbp,
+                   a.receiving_rat,
                    a.passing_bad_throws, a.passing_bad_throw_pct,
                    a.passing_times_pressured, a.passing_pressure_pct,
                    a.passing_hurries, a.passing_hits,
-                   a.passing_air_yards, a.passing_adot, a.passing_yards_after_catch,
                    a.def_missed_tackles, a.def_missed_tackle_pct,
                    a.def_completions_allowed, a.def_passer_rating_allowed,
                    a.def_yards_allowed, a.def_pressures,
                    sa.off_snaps_total, sa.def_snaps_total,
                    sa.off_snap_rate,   sa.def_snap_rate,
+                   -- season-level PFR adv (migration 0014). Aliases preserve
+                   -- the column contract the workbench HTML template expects.
+                   sv.s_rec_adot         AS receiving_adot,
+                   sv.s_rec_air_yards    AS receiving_air_yards,
+                   sv.s_rec_yac_per_r    AS receiving_yac_per_r,
+                   sv.s_rec_drop_pct     AS receiving_drop_pct,
+                   sv.s_pass_air_yards   AS passing_air_yards,
+                   sv.s_pass_adot        AS passing_adot,
+                   sv.s_pass_yac         AS passing_yards_after_catch,
+                   sv.s_def_adot         AS def_adot,
+                   -- Market share (Keith 2026-04-24) — ratios against
+                   -- team-level totals across the same season/week window.
+                   -- Values are 0..1 decimals; client formats as pct.
+                   CAST(a.targets AS REAL)      / NULLIF(ta.team_targets, 0)      AS target_share,
+                   CAST(a.receptions AS REAL)   / NULLIF(ta.team_rec, 0)          AS rec_share,
+                   CAST(a.rec_yds AS REAL)      / NULLIF(ta.team_rec_yds, 0)      AS rec_yds_share,
+                   CAST(a.rush_att AS REAL)     / NULLIF(ta.team_rush_att, 0)     AS rush_share,
+                   CAST(a.rush_yds AS REAL)     / NULLIF(ta.team_rush_yds, 0)     AS rush_yds_share,
+                   CAST(a.targets_i20 AS REAL)  / NULLIF(tr.team_targets_i20, 0)  AS rz_target_share,
+                   CAST(a.rec_i20 AS REAL)      / NULLIF(tr.team_rec_i20, 0)      AS rz_rec_share,
+                   CAST(a.targets_ez AS REAL)   / NULLIF(tr.team_targets_ez, 0)   AS ez_target_share,
+                   CAST(a.rush_att_i20 AS REAL) / NULLIF(tr.team_rush_att_i20, 0) AS rz_rush_share,
+                   CAST(a.rush_att_i5 AS REAL)  / NULLIF(tr.team_rush_att_i5, 0)  AS gl_rush_share,
                    lc.franchise_id AS mfl_franchise_id,
                    lc.team_name    AS mfl_franchise_name
               FROM agg a
               LEFT JOIN player_id_crosswalk c ON c.gsis_id = a.gsis_id
               LEFT JOIN snap_agg sa           ON sa.gsis_id = a.gsis_id
+              LEFT JOIN season_adv_agg sv     ON sv.gsis_id = a.gsis_id
+              LEFT JOIN team_agg ta           ON ta.team = a.team
+              LEFT JOIN team_rz_agg tr        ON tr.team = a.team
               LEFT JOIN latest_contract lc    ON lc.player_id = c.mfl_player_id
              WHERE a.games >= ?
              ORDER BY a.rush_yds + a.rec_yds + a.pass_yds DESC

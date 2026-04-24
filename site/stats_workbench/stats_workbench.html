@@ -16,21 +16,70 @@ body{margin:0;background:var(--bg);color:var(--text);font:13px/1.45 -apple-syste
 .asw-shell{max-width:1400px;margin:0 auto;padding:12px}
 h1{margin:0 0 8px;font-size:18px;letter-spacing:.02em}
 .asw-subtitle{color:var(--muted);font-size:11px;margin-bottom:12px}
-.asw-controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;background:var(--panel);padding:10px 12px;border:1px solid var(--border);border-radius:8px;margin-bottom:10px}
+
+/* Primary position tabs — grouped by phase (Offense / Defense / Special) */
+.asw-tabs{display:flex;flex-wrap:wrap;gap:6px;align-items:center;background:var(--panel);padding:10px 12px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px}
+.asw-tabs-label{color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.08em;font-weight:700;margin-right:4px;padding-left:6px}
+.asw-tabs-label:first-child{padding-left:0}
+.asw-tab{background:var(--panel-alt);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;transition:.1s}
+.asw-tab:hover{border-color:var(--border-strong)}
+.asw-tab[aria-pressed="true"]{background:var(--accent);color:#0a1222;border-color:var(--accent)}
+.asw-tabs-sep{width:1px;height:18px;background:var(--border);margin:0 4px}
+
+/* Sub-position chips (shown only for DL / DB) */
+.asw-subtabs{display:none;gap:4px;align-items:center;background:var(--panel);padding:6px 12px;border:1px solid var(--border);border-top:none;border-radius:0 0 8px 8px;margin:-8px 0 6px}
+.asw-subtabs.visible{display:flex}
+.asw-subtabs-label{color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.06em;margin-right:4px}
+.asw-subtab{background:var(--panel-alt);color:var(--text);border:1px solid var(--border);border-radius:999px;padding:3px 10px;font-size:11px;cursor:pointer}
+.asw-subtab[aria-pressed="true"]{background:var(--accent);color:#0a1222;border-color:var(--accent);font-weight:700}
+
+/* Filter controls row */
+.asw-controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;background:var(--panel);padding:10px 12px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px}
 .asw-controls label{display:flex;flex-direction:column;gap:2px;font-size:11px;color:var(--muted)}
 .asw-controls select,.asw-controls input{background:var(--panel-alt);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:4px 8px;font-size:12px;min-width:100px}
 .asw-controls input[type="text"]{min-width:160px}
 .asw-controls .asw-chip{background:var(--panel-alt);color:var(--text);border:1px solid var(--border);border-radius:999px;padding:4px 10px;font-size:11px;cursor:pointer;transition:.1s}
 .asw-controls .asw-chip[aria-pressed="true"]{background:var(--accent);color:#0a1222;border-color:var(--accent);font-weight:700}
-.asw-controls .asw-run{background:var(--accent);color:#0a1222;border:none;border-radius:4px;padding:6px 14px;font-weight:700;cursor:pointer;margin-left:auto}
+
+/* Column group toggle chips */
+.asw-cols-bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;background:var(--panel);padding:8px 12px;border:1px solid var(--border);border-radius:8px;margin-bottom:10px}
+.asw-cols-label{color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.08em;font-weight:700;margin-right:4px}
+.asw-col-chip{background:var(--panel-alt);color:var(--text);border:1px solid var(--border);border-radius:999px;padding:3px 10px;font-size:11px;cursor:pointer;user-select:none;transition:.1s}
+.asw-col-chip:hover{border-color:var(--border-strong)}
+.asw-col-chip[aria-pressed="true"]{background:var(--accent);color:#0a1222;border-color:var(--accent);font-weight:700}
+.asw-cols-spacer{flex:1}
+.asw-filter-toggle{background:var(--panel-alt);color:var(--muted);border:1px solid var(--border);border-radius:4px;padding:4px 10px;font-size:11px;cursor:pointer;font-weight:600}
+.asw-filter-toggle:hover{border-color:var(--border-strong);color:var(--text)}
+.asw-filter-toggle[aria-pressed="true"]{background:var(--accent);color:#0a1222;border-color:var(--accent)}
+.asw-filter-clear{background:transparent;color:var(--warn);border:1px solid var(--warn);border-radius:4px;padding:4px 8px;font-size:11px;cursor:pointer}
+.asw-filter-clear:hover{background:rgba(240,196,101,.08)}
+
+/* Filter row (third thead row with inline inputs under column headers) */
+.asw-table tr.asw-filter-row th{position:sticky;background:var(--panel-alt);padding:2px 4px;border-bottom:1px solid var(--border-strong);cursor:default}
+.asw-table tr.asw-filter-row th.group-sep{border-left:1px solid var(--border-strong)}
+.asw-table tr.asw-filter-row input{background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:3px;padding:2px 5px;font-size:11px;width:100%;min-width:55px;font-family:inherit}
+.asw-table tr.asw-filter-row input:focus{border-color:var(--accent);outline:none}
+.asw-table tr.asw-filter-row input.active{border-color:var(--accent);background:rgba(106,168,255,.08);color:var(--accent)}
+.asw-table tr.asw-filter-row input.invalid{border-color:var(--err);color:var(--err)}
+.asw-table tr.asw-filter-row input.num-filter{text-align:right;font-variant-numeric:tabular-nums}
+/* Column-header active-filter indicator */
+.asw-table tr.asw-col-row th.has-filter::before{content:"•";color:var(--accent);margin-right:3px}
+
 .asw-meta{color:var(--muted);font-size:11px;margin-bottom:6px}
 .asw-table-wrap{overflow-x:auto;background:var(--panel);border:1px solid var(--border);border-radius:8px}
 table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
 .asw-table th,.asw-table td{padding:5px 8px;border-bottom:1px solid var(--border);white-space:nowrap}
-.asw-table th{position:sticky;top:0;background:var(--panel-alt);color:var(--muted);font-weight:600;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.03em;cursor:pointer;user-select:none}
+/* Group header row */
+.asw-table tr.asw-group-row th{position:sticky;top:0;background:var(--panel);color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:.05em;font-size:10px;padding:4px 8px;border-bottom:1px solid var(--border-strong);text-align:center;cursor:default}
+.asw-table tr.asw-group-row th.no-group{color:transparent;border-bottom-color:var(--border)}
+.asw-table tr.asw-group-row th.group-sep{border-left:1px solid var(--border-strong)}
+/* Column header row */
+.asw-table tr.asw-col-row th{position:sticky;background:var(--panel-alt);color:var(--muted);font-weight:600;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.03em;cursor:pointer;user-select:none}
+.asw-table tr.asw-col-row th.group-sep{border-left:1px solid var(--border-strong)}
 .asw-table th.num,.asw-table td.num{text-align:right;font-variant-numeric:tabular-nums}
 .asw-table th[aria-sort="ascending"]::after{content:" ▲";color:var(--accent)}
 .asw-table th[aria-sort="descending"]::after{content:" ▼";color:var(--accent)}
+.asw-table td.group-sep{border-left:1px solid var(--border-strong)}
 .asw-table tbody tr:hover{background:rgba(106,168,255,.06)}
 .asw-table td.name{font-weight:600}
 .asw-table td.dim{color:var(--muted)}
@@ -42,29 +91,46 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
 <body>
 <div class="asw-shell">
 <h1>Advanced Stats Workbench</h1>
-<div class="asw-subtitle">NFL on-field counts (nflverse) + snap share + PFR advanced. Sort any column; filter by position, season, scope. Player name clicks open full profile (coming soon).</div>
+<div class="asw-subtitle">NFL on-field counts (nflverse) + snap share + PFR advanced. Tab picks the position; chips pick column groups. Player row click opens full profile (coming soon).</div>
 
+<!-- Primary position tabs -->
+<div class="asw-tabs" id="asw-tabs">
+  <span class="asw-tabs-label">Offense</span>
+  <button type="button" class="asw-tab" data-tab="qb">QB</button>
+  <button type="button" class="asw-tab" data-tab="rb" aria-pressed="true">RB</button>
+  <button type="button" class="asw-tab" data-tab="wr">WR</button>
+  <button type="button" class="asw-tab" data-tab="te">TE</button>
+  <button type="button" class="asw-tab" data-tab="flex_o">Flex·O</button>
+  <span class="asw-tabs-sep"></span>
+  <span class="asw-tabs-label">Defense</span>
+  <button type="button" class="asw-tab" data-tab="dl">DL</button>
+  <button type="button" class="asw-tab" data-tab="lb">LB</button>
+  <button type="button" class="asw-tab" data-tab="db">DB</button>
+  <button type="button" class="asw-tab" data-tab="flex_idp">Flex·IDP</button>
+  <span class="asw-tabs-sep"></span>
+  <span class="asw-tabs-label">Special</span>
+  <button type="button" class="asw-tab" data-tab="pk">PK</button>
+  <button type="button" class="asw-tab" data-tab="pn">PN</button>
+</div>
+
+<!-- Sub-position chips (DL/DB only) -->
+<div class="asw-subtabs" id="asw-subtabs">
+  <span class="asw-subtabs-label">Sub-position</span>
+  <!-- chips injected by JS based on active tab -->
+</div>
+
+<!-- Filter row -->
 <div class="asw-controls">
-  <label>Positions
-    <select id="asw-positions" multiple size="5" style="min-width:140px; max-height:120px">
-      <option value="skill" selected>RB / WR / TE</option>
-      <option value="qb">QB</option>
-      <option value="idp">IDP (DL/LB/DB)</option>
-      <option value="kicker">Kicker</option>
-      <option value="punter">Punter</option>
-    </select>
-    <span style="font-size:10px; color:var(--muted)">hold ⌘/Ctrl to multi-select</span>
-  </label>
   <label>Seasons
     <select id="asw-seasons" multiple size="4" style="min-width:110px; max-height:100px"></select>
-    <span style="font-size:10px; color:var(--muted)">hold ⌘/Ctrl to multi-select</span>
+    <span style="font-size:10px; color:var(--muted)">⌘/Ctrl multi-select</span>
   </label>
   <label>Team
     <select id="asw-team" multiple size="5" style="min-width:180px; max-height:120px">
       <option value="__ALL__" selected>All (league-wide)</option>
       <option value="FA">Free Agents</option>
     </select>
-    <span style="font-size:10px; color:var(--muted)">hold ⌘/Ctrl to multi-select</span>
+    <span style="font-size:10px; color:var(--muted)">⌘/Ctrl multi-select</span>
   </label>
   <label>Scope
     <div style="display:flex;gap:4px">
@@ -72,19 +138,19 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
       <button type="button" class="asw-chip" data-scope="full" aria-pressed="false" title="Include playoffs">Full</button>
     </div>
   </label>
-  <label>Min Games
-    <input type="number" id="asw-min-games" value="3" min="1" max="22" style="width:70px">
-  </label>
   <label>Search
     <input type="text" id="asw-search" placeholder="name contains…">
   </label>
-  <!-- No Run button — any control change triggers runQuery() below. -->
+</div>
+
+<!-- Column-group toggle chips + filter-row toggle -->
+<div class="asw-cols-bar" id="asw-cols-bar">
+  <span class="asw-cols-label">Columns</span>
+  <!-- group chips injected by JS, then the filter toggle block appended -->
 </div>
 
 <div class="asw-meta" id="asw-meta"></div>
-<div class="asw-table-wrap">
-  <div id="asw-body"></div>
-</div>
+<div class="asw-table-wrap"><div id="asw-body"></div></div>
 </div>
 
 <script>
@@ -92,16 +158,410 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
   "use strict";
 
   // ---------- Config ----------
-  // API base: production worker. Override via window.UPS_ASW_API_BASE.
   var API_BASE = (typeof window !== "undefined" && window.UPS_ASW_API_BASE) ||
                  "https://upsmflproduction.keith-creelman.workers.dev";
-
   var THIS_YEAR = new Date().getFullYear();
   var MIN_SEASON = 2011;
   var LEAGUE_ID = "74598";
 
-  // Populate seasons multi-select (descending). Default = last complete season.
-  var seasonsSel = document.getElementById("asw-seasons");
+  // ---------- Column manifest (single source of truth) ----------
+  // Each column: label, num, fmt, cls, title, compute? (derived value)
+  var COLS = {
+    // Identity
+    player_name:         { label:"Player",   cls:"name" },
+    team:                { label:"NFL",      cls:"dim" },
+    mfl_franchise_name:  { label:"MFL Team", cls:"dim",
+      compute: function(r){ return r.mfl_franchise_name || "FA"; } },
+    position:            { label:"Pos",      cls:"dim" },
+    // Usage — offense
+    games:               { label:"G",        num:true },
+    off_snaps_total:     { label:"Snaps",    num:true, title:"Offensive snaps" },
+    off_snap_rate:       { label:"Snap%",    num:true, fmt:"pct0" },
+    // Usage — defense
+    def_snaps_total:     { label:"Snaps",    num:true, title:"Defensive snaps" },
+    def_snap_rate:       { label:"Snap%",    num:true, fmt:"pct0" },
+    // Receiving volume
+    targets:             { label:"Tgt",      num:true },
+    receptions:          { label:"Rec",      num:true },
+    rec_yds:             { label:"RecYd",    num:true },
+    rec_tds:             { label:"RecTD",    num:true },
+    // Receiving efficiency
+    y_per_t:             { label:"Y/T",      num:true, fmt:"dec2",
+      title:"Yards per target",
+      compute: function(r){ return r.targets ? r.rec_yds / r.targets : null; } },
+    y_per_r:             { label:"Y/R",      num:true, fmt:"dec1",
+      title:"Yards per reception",
+      compute: function(r){ return r.receptions ? r.rec_yds / r.receptions : null; } },
+    rec_per_t:           { label:"Catch%",   num:true, fmt:"pct",
+      compute: function(r){ return r.targets ? r.receptions / r.targets : null; } },
+    // Receiving advanced (PFR, season-level)
+    receiving_adot:      { label:"ADOT",     num:true, fmt:"dec1",
+      title:"Avg Depth of Target (PFR, 2018+, season-level)" },
+    receiving_air_yards: { label:"AirYd",    num:true,
+      title:"Total air yards on targets (PFR, season-level)" },
+    receiving_yac_per_r: { label:"YAC/R",    num:true, fmt:"dec1",
+      title:"Yards after catch per reception (PFR, season-level)" },
+    receiving_drops:     { label:"Drops",    num:true,
+      title:"Receiver drops (PFR, weekly)" },
+    receiving_drop_pct:  { label:"Drop%",    num:true, fmt:"pct0",
+      title:"Drops as % of targets (PFR, season-level)" },
+    receiving_rat:       { label:"Tgt Rat",  num:true, fmt:"dec1",
+      title:"QB rating when targeting this player (PFR)" },
+    rec_brtkl:           { label:"Rec BrTkl", num:true,
+      title:"Receiving broken tackles (PFR, 2018+)",
+      compute: function(r){ return r.receiving_broken_tackles; } },
+    rec_per_br:          { label:"Rec/Br",   num:true, fmt:"dec1",
+      title:"Receptions per broken tackle",
+      compute: function(r){ return (r.receiving_broken_tackles||0) > 0 ? r.receptions / r.receiving_broken_tackles : null; } },
+    // Rushing volume
+    rush_att:            { label:"RuAtt",    num:true },
+    rush_yds:            { label:"RuYd",     num:true },
+    rush_tds:            { label:"RuTD",     num:true },
+    // Rushing efficiency
+    y_per_a:             { label:"Y/A",      num:true, fmt:"dec2",
+      title:"Yards per carry",
+      compute: function(r){ return r.rush_att ? r.rush_yds / r.rush_att : null; } },
+    ybc_per_a:           { label:"YBC/A",    num:true, fmt:"dec2",
+      title:"Yards before contact per carry (PFR)",
+      compute: function(r){ return r.rush_att ? (r.rushing_yards_before_contact||0) / r.rush_att : null; } },
+    yac_per_a:           { label:"YAC/A",    num:true, fmt:"dec2",
+      title:"Yards after contact per carry (PFR)",
+      compute: function(r){ return r.rush_att ? (r.rushing_yards_after_contact||0) / r.rush_att : null; } },
+    rush_brtkl:          { label:"Ru BrTkl", num:true,
+      title:"Rushing broken tackles (PFR, 2018+)",
+      compute: function(r){ return r.rushing_broken_tackles; } },
+    att_per_br:          { label:"Att/Br",   num:true, fmt:"dec1",
+      title:"Carries per broken tackle",
+      compute: function(r){ return (r.rushing_broken_tackles||0) > 0 ? r.rush_att / r.rushing_broken_tackles : null; } },
+    // Red zone (requires nfl_player_redzone population — will be NULL until PBP fetch runs)
+    rush_att_i20:        { label:"Ru I20",   num:true, title:"Rush attempts inside opponent 20" },
+    rush_att_i5:         { label:"GL I5",    num:true, title:"Goal-line rush attempts inside 5" },
+    targets_i20:         { label:"Tgt I20",  num:true, title:"Targets inside opponent 20" },
+    targets_ez:          { label:"Tgt EZ",   num:true, title:"End-zone targets" },
+    rec_i20:             { label:"Rec I20",  num:true, title:"Receptions inside opponent 20" },
+    pass_att_i20:        { label:"Pa I20",   num:true, title:"Pass attempts in Red Zone" },
+    pass_att_ez:         { label:"Pa EZ",    num:true, title:"Pass attempts targeting End Zone" },
+    // Market share — worker computes ratio against team totals; values 0..1
+    target_share:        { label:"Tgt%",     num:true, fmt:"pct",
+      title:"Share of team targets (player / team total across selected range)" },
+    rec_share:           { label:"Rec%",     num:true, fmt:"pct",
+      title:"Share of team receptions" },
+    rec_yds_share:       { label:"RecYd%",   num:true, fmt:"pct",
+      title:"Share of team receiving yards" },
+    rush_share:          { label:"Ru%",      num:true, fmt:"pct",
+      title:"Share of team rush attempts" },
+    rush_yds_share:      { label:"RuYd%",    num:true, fmt:"pct",
+      title:"Share of team rush yards" },
+    rz_target_share:     { label:"RZ Tgt%",  num:true, fmt:"pct",
+      title:"Share of team red-zone targets" },
+    rz_rec_share:        { label:"RZ Rec%",  num:true, fmt:"pct",
+      title:"Share of team red-zone receptions" },
+    ez_target_share:     { label:"EZ Tgt%",  num:true, fmt:"pct",
+      title:"Share of team end-zone targets" },
+    rz_rush_share:       { label:"RZ Ru%",   num:true, fmt:"pct",
+      title:"Share of team red-zone rushing attempts" },
+    gl_rush_share:       { label:"GL Ru%",   num:true, fmt:"pct",
+      title:"Share of team goal-line (inside-5) rushing attempts" },
+    // Passing volume
+    pass_att:            { label:"Att",      num:true },
+    pass_cmp:            { label:"Cmp",      num:true },
+    pass_yds:            { label:"PaYd",     num:true },
+    pass_tds:            { label:"PaTD",     num:true },
+    cmp_pct:             { label:"Cmp%",     num:true, fmt:"pct",
+      compute: function(r){ return r.pass_att ? r.pass_cmp / r.pass_att : null; } },
+    ypa:                 { label:"Y/A",      num:true, fmt:"dec1",
+      title:"Yards per attempt",
+      compute: function(r){ return r.pass_att ? r.pass_yds / r.pass_att : null; } },
+    // Passing turnovers / sacks
+    pass_ints:           { label:"Int",      num:true },
+    int_pct:             { label:"Int%",     num:true, fmt:"pct",
+      compute: function(r){ return r.pass_att ? r.pass_ints / r.pass_att : null; } },
+    pass_sacks:          { label:"Sacked",   num:true, title:"Times sacked" },
+    // Passing advanced (PFR)
+    passing_adot:        { label:"ADOT",     num:true, fmt:"dec1", title:"Intended air yards per attempt (PFR, season)" },
+    passing_air_yards:   { label:"AirYd",    num:true, title:"Intended air yards total (PFR, season)" },
+    passing_yards_after_catch: { label:"YAC", num:true, title:"Total YAC on completions (PFR, season)" },
+    passing_bad_throws:  { label:"BadTh",    num:true, title:"Bad throws (PFR, 2018+)" },
+    passing_bad_throw_pct:{label:"BadTh%",   num:true, fmt:"pct0" },
+    passing_times_pressured:{label:"Press",  num:true, title:"Times pressured" },
+    passing_pressure_pct:{ label:"Press%",   num:true, fmt:"pct0" },
+    passing_hurries:     { label:"Hurries",  num:true },
+    passing_hits:        { label:"QBHits",   num:true, title:"Times QB was hit" },
+    passing_drops:       { label:"RecDrops", num:true, title:"Drops by this QB's receivers" },
+    // IDP tackles
+    def_tackles_total:   { label:"Tkl",      num:true, title:"Solo tackles" },
+    def_tackles_ast:     { label:"Ast",      num:true },
+    def_tfl:             { label:"TFL",      num:true },
+    // IDP pass rush
+    def_sacks:           { label:"Sk",       num:true, fmt:"dec1" },
+    def_pass_def:        { label:"PD",       num:true },
+    def_pressures:       { label:"Press",    num:true, title:"Pass-rush pressures (PFR, 2018+)" },
+    // IDP turnovers
+    def_ff:              { label:"FF",       num:true },
+    def_fr:              { label:"FR",       num:true, title:"Fumble recoveries" },
+    def_ints:            { label:"Int",      num:true },
+    def_tds:             { label:"DefTD",    num:true },
+    // IDP coverage
+    def_completions_allowed: { label:"Cmp Allow", num:true },
+    def_yards_allowed:   { label:"Yds Allow", num:true },
+    def_passer_rating_allowed: { label:"PsRat Allow", num:true, fmt:"dec1" },
+    def_adot:            { label:"cADOT",    num:true, fmt:"dec1", title:"ADOT allowed in coverage (PFR)" },
+    // IDP missed tackles
+    def_missed_tackles:  { label:"Missed",   num:true, title:"Missed tackles (PFR, 2018+)" },
+    def_missed_tackle_pct:{label:"Miss%",    num:true, fmt:"pct0" },
+    // Kicker
+    fg_made:             { label:"FGM",      num:true },
+    fg_miss:             { label:"FG Miss",  num:true,
+      compute: function(r){ return (r.fg_att||0) - (r.fg_made||0); } },
+    fg_pct:              { label:"FG%",      num:true, fmt:"pct",
+      compute: function(r){ return r.fg_att ? r.fg_made / r.fg_att : null; } },
+    fg_0_39:             { label:"0-39",     cls:"dim",
+      compute: function(r){ return r.fg_att_0_39 ? (r.fg_made_0_39||0) + "/" + r.fg_att_0_39 : null; } },
+    fg_40_49:            { label:"40-49",    cls:"dim",
+      compute: function(r){ return r.fg_att_40_49 ? (r.fg_made_40_49||0) + "/" + r.fg_att_40_49 : null; } },
+    fg_50_59:            { label:"50-59",    cls:"dim",
+      compute: function(r){ return r.fg_att_50_59 ? (r.fg_made_50_59||0) + "/" + r.fg_att_50_59 : null; } },
+    fg_60plus:           { label:"60+",      cls:"dim",
+      compute: function(r){ return r.fg_att_60plus ? (r.fg_made_60plus||0) + "/" + r.fg_att_60plus : null; } },
+    avg_fg_dist:         { label:"Avg FG",   num:true, fmt:"dec1",
+      title:"Avg distance of made FGs (PBP-derived, exact)",
+      compute: function(r){
+        // Exact avg from PBP when available; fallback to bucket-midpoint
+        // approximation for historical weeks where only the aggregated
+        // bucket counts exist. fg_made_pbp will be > 0 once PBP ingest runs.
+        if ((r.fg_made_pbp||0) > 0) {
+          return (r.fg_distance_sum_made||0) / r.fg_made_pbp;
+        }
+        var m = (r.fg_made_0_39||0) + (r.fg_made_40_49||0) + (r.fg_made_50_59||0) + (r.fg_made_60plus||0);
+        if (!m) return null;
+        return ((r.fg_made_0_39||0)*25 + (r.fg_made_40_49||0)*44.5 + (r.fg_made_50_59||0)*54 + (r.fg_made_60plus||0)*62) / m;
+      } },
+    xp_made:             { label:"XPM",      num:true },
+    xp_miss:             { label:"XP Miss",  num:true,
+      compute: function(r){ return (r.xp_att||0) - (r.xp_made||0); } },
+    xp_pct:              { label:"XP%",      num:true, fmt:"pct",
+      compute: function(r){ return r.xp_att ? r.xp_made / r.xp_att : null; } },
+    // Punter
+    punts:               { label:"Punts",    num:true },
+    punt_yds:            { label:"PuntYd",   num:true },
+    punt_long:           { label:"Long",     num:true, title:"Longest punt (yards)" },
+    punt_avg:            { label:"Avg",      num:true, fmt:"dec1",
+      title:"Gross yards per punt",
+      compute: function(r){ return r.punts ? r.punt_yds / r.punts : null; } },
+    punt_net_avg:        { label:"Net Avg",  num:true, fmt:"dec1",
+      title:"Net punt yards per attempt (gross minus returns/touchbacks)" },
+    punt_inside20:       { label:"I20",      num:true, title:"Punts downed inside opponent 20" },
+    punt_i20_pct:        { label:"I20%",     num:true, fmt:"pct",
+      title:"Percent of punts landed inside opponent 20",
+      compute: function(r){ return r.punts ? r.punt_inside20 / r.punts : null; } },
+    punt_tb:             { label:"TB",       num:true, title:"Touchbacks (PBP)" },
+    punt_tb_pct:         { label:"TB%",      num:true, fmt:"pct",
+      title:"Percent of punts that resulted in a touchback",
+      compute: function(r){ return r.punts ? (r.punt_tb||0) / r.punts : null; } },
+  };
+
+  // Identity columns — every tab shares these. Flex tabs prepend "position".
+  var IDENT_BASIC = ["player_name", "team", "mfl_franchise_name"];
+  var IDENT_FLEX  = ["player_name", "team", "mfl_franchise_name", "position"];
+
+  // ---------- Tab definitions ----------
+  // Each tab: workerPos (pos param to /api/advanced-stats-leaderboard),
+  // positionFilter (array of r.position values to keep; null = all),
+  // defaultSort, groups (identity always prepended).
+  // Each group: id, label, cols, defaultOn. Groups render as visual blocks
+  // in the table header (two-row thead with group row + column row).
+  var TABS = {
+    // ---------- OFFENSE ----------
+    qb: {
+      label: "QB", workerPos: "qb", positionFilter: null,
+      ident: IDENT_BASIC, defaultSort: "pass_yds",
+      groups: [
+        { id:"usage",          label:"Usage",           cols:["games","off_snaps_total","off_snap_rate"], defaultOn:true },
+        { id:"pass_volume",    label:"Passing · Volume",  cols:["pass_att","pass_cmp","cmp_pct","pass_yds","pass_tds","ypa"], defaultOn:true },
+        { id:"pass_turnovers", label:"Passing · Turnovers", cols:["pass_ints","int_pct","pass_sacks"], defaultOn:true },
+        { id:"pass_advanced",  label:"Passing · Advanced (PFR)",
+          cols:["passing_adot","passing_air_yards","passing_yards_after_catch",
+                "passing_bad_throws","passing_bad_throw_pct","passing_times_pressured",
+                "passing_pressure_pct","passing_hurries","passing_hits","passing_drops"], defaultOn:false },
+        { id:"qb_red_zone",    label:"Red Zone", cols:["pass_att_i20","pass_att_ez"], defaultOn:false },
+        { id:"qb_rush",        label:"Rushing",  cols:["rush_att","rush_yds","rush_tds"], defaultOn:false },
+      ]
+    },
+    rb: {
+      label: "RB", workerPos: "skill", positionFilter: ["RB","FB"],
+      ident: IDENT_BASIC, defaultSort: "rush_yds",
+      groups: [
+        { id:"usage",          label:"Usage",           cols:["games","off_snaps_total","off_snap_rate"], defaultOn:true },
+        { id:"rush_volume",    label:"Rushing · Volume",  cols:["rush_att","rush_yds","rush_tds","y_per_a"], defaultOn:true },
+        { id:"rush_efficiency",label:"Rushing · Efficiency", cols:["ybc_per_a","yac_per_a"], defaultOn:true },
+        { id:"rush_advanced",  label:"Rushing · Advanced (PFR)", cols:["rush_brtkl","att_per_br"], defaultOn:false },
+        { id:"rec_volume",     label:"Receiving · Volume", cols:["targets","receptions","rec_yds","rec_tds","rec_per_t"], defaultOn:true },
+        { id:"rec_efficiency", label:"Receiving · Efficiency", cols:["y_per_t","y_per_r"], defaultOn:false },
+        { id:"rec_advanced",   label:"Receiving · Advanced (PFR)",
+          cols:["receiving_adot","receiving_air_yards","receiving_yac_per_r",
+                "receiving_drops","receiving_drop_pct","receiving_rat",
+                "rec_brtkl","rec_per_br"], defaultOn:false },
+        { id:"red_zone",       label:"Red Zone",
+          cols:["rush_att_i20","rush_att_i5","targets_i20","rec_i20","targets_ez"], defaultOn:false },
+        { id:"market_share",   label:"Market Share",
+          cols:["rush_share","rush_yds_share","target_share","rec_share","rec_yds_share",
+                "rz_rush_share","gl_rush_share","rz_target_share","rz_rec_share","ez_target_share"], defaultOn:false },
+      ]
+    },
+    wr: {
+      label: "WR", workerPos: "skill", positionFilter: ["WR"],
+      ident: IDENT_BASIC, defaultSort: "rec_yds",
+      groups: [
+        { id:"usage",          label:"Usage",           cols:["games","off_snaps_total","off_snap_rate"], defaultOn:true },
+        { id:"rec_volume",     label:"Receiving · Volume", cols:["targets","receptions","rec_yds","rec_tds","rec_per_t"], defaultOn:true },
+        { id:"rec_efficiency", label:"Receiving · Efficiency", cols:["y_per_t","y_per_r"], defaultOn:true },
+        { id:"rec_advanced",   label:"Receiving · Advanced (PFR)",
+          cols:["receiving_adot","receiving_air_yards","receiving_yac_per_r",
+                "receiving_drops","receiving_drop_pct","receiving_rat",
+                "rec_brtkl","rec_per_br"], defaultOn:false },
+        { id:"red_zone",       label:"Red Zone", cols:["targets_i20","rec_i20","targets_ez"], defaultOn:false },
+        { id:"wr_rush",        label:"Rushing",  cols:["rush_att","rush_yds","rush_tds"], defaultOn:false },
+        { id:"market_share",   label:"Market Share",
+          cols:["target_share","rec_share","rec_yds_share",
+                "rz_target_share","rz_rec_share","ez_target_share"], defaultOn:false },
+      ]
+    },
+    te: {
+      label: "TE", workerPos: "skill", positionFilter: ["TE"],
+      ident: IDENT_BASIC, defaultSort: "rec_yds",
+      groups: [
+        { id:"usage",          label:"Usage",           cols:["games","off_snaps_total","off_snap_rate"], defaultOn:true },
+        { id:"rec_volume",     label:"Receiving · Volume", cols:["targets","receptions","rec_yds","rec_tds","rec_per_t"], defaultOn:true },
+        { id:"rec_efficiency", label:"Receiving · Efficiency", cols:["y_per_t","y_per_r"], defaultOn:true },
+        { id:"rec_advanced",   label:"Receiving · Advanced (PFR)",
+          cols:["receiving_adot","receiving_air_yards","receiving_yac_per_r",
+                "receiving_drops","receiving_drop_pct","receiving_rat",
+                "rec_brtkl","rec_per_br"], defaultOn:false },
+        { id:"red_zone",       label:"Red Zone", cols:["targets_i20","rec_i20","targets_ez"], defaultOn:false },
+        { id:"market_share",   label:"Market Share",
+          cols:["target_share","rec_share","rec_yds_share",
+                "rz_target_share","rz_rec_share","ez_target_share"], defaultOn:false },
+      ]
+    },
+    flex_o: {
+      label: "Flex·O", workerPos: "skill", positionFilter: null,
+      ident: IDENT_FLEX, defaultSort: "rec_yds",
+      groups: [
+        { id:"usage",          label:"Usage",           cols:["games","off_snaps_total","off_snap_rate"], defaultOn:true },
+        { id:"rec_volume",     label:"Receiving · Volume", cols:["targets","receptions","rec_yds","rec_tds"], defaultOn:true },
+        { id:"rush_volume",    label:"Rushing · Volume", cols:["rush_att","rush_yds","rush_tds"], defaultOn:true },
+        { id:"rec_efficiency", label:"Receiving · Efficiency", cols:["y_per_t","y_per_r","rec_per_t"], defaultOn:false },
+        { id:"rec_advanced",   label:"Receiving · Advanced (PFR)",
+          cols:["receiving_adot","receiving_air_yards","receiving_yac_per_r",
+                "receiving_drops","receiving_rat","rec_brtkl"], defaultOn:false },
+        { id:"rush_efficiency",label:"Rushing · Efficiency", cols:["y_per_a","ybc_per_a","yac_per_a"], defaultOn:false },
+        { id:"rush_advanced",  label:"Rushing · Advanced (PFR)", cols:["rush_brtkl","att_per_br"], defaultOn:false },
+        { id:"red_zone",       label:"Red Zone",
+          cols:["rush_att_i20","rush_att_i5","targets_i20","rec_i20","targets_ez"], defaultOn:false },
+        { id:"market_share",   label:"Market Share",
+          cols:["target_share","rec_share","rec_yds_share","rush_share","rush_yds_share",
+                "rz_target_share","rz_rec_share","ez_target_share","rz_rush_share","gl_rush_share"], defaultOn:false },
+      ]
+    },
+    // ---------- DEFENSE ----------
+    dl: {
+      label: "DL", workerPos: "idp",
+      // NFL position strings: DT, DE, NT (cover all). Sub-tab narrows.
+      positionFilter: ["DT","DE","NT","DL"],
+      subTabs: [
+        { id:"all", label:"All", positions:["DT","DE","NT","DL"] },
+        { id:"dt",  label:"DT",  positions:["DT","NT"] },
+        { id:"de",  label:"DE",  positions:["DE"] },
+      ],
+      ident: IDENT_BASIC, defaultSort: "def_sacks",
+      groups: [
+        { id:"usage",           label:"Usage",     cols:["games","def_snaps_total","def_snap_rate"], defaultOn:true },
+        { id:"idp_tackles",     label:"Tackles",   cols:["def_tackles_total","def_tackles_ast","def_tfl"], defaultOn:true },
+        { id:"idp_pass_rush",   label:"Pass Rush", cols:["def_sacks","def_pressures","def_pass_def"], defaultOn:true },
+        { id:"idp_turnovers",   label:"Turnovers", cols:["def_ff","def_fr","def_ints","def_tds"], defaultOn:false },
+        { id:"idp_missed",      label:"Missed Tkl (PFR)", cols:["def_missed_tackles","def_missed_tackle_pct"], defaultOn:false },
+      ]
+    },
+    lb: {
+      label: "LB", workerPos: "idp",
+      positionFilter: ["LB","OLB","ILB","MLB"],
+      ident: IDENT_BASIC, defaultSort: "def_tackles_total",
+      groups: [
+        { id:"usage",           label:"Usage",     cols:["games","def_snaps_total","def_snap_rate"], defaultOn:true },
+        { id:"idp_tackles",     label:"Tackles",   cols:["def_tackles_total","def_tackles_ast","def_tfl"], defaultOn:true },
+        { id:"idp_pass_rush",   label:"Pass Rush", cols:["def_sacks","def_pressures","def_pass_def"], defaultOn:true },
+        { id:"idp_turnovers",   label:"Turnovers", cols:["def_ff","def_fr","def_ints","def_tds"], defaultOn:true },
+        { id:"idp_coverage",    label:"Coverage (PFR)",
+          cols:["def_completions_allowed","def_yards_allowed","def_passer_rating_allowed","def_adot"], defaultOn:false },
+        { id:"idp_missed",      label:"Missed Tkl (PFR)", cols:["def_missed_tackles","def_missed_tackle_pct"], defaultOn:false },
+      ]
+    },
+    db: {
+      label: "DB", workerPos: "idp",
+      positionFilter: ["CB","S","SS","FS","DB"],
+      subTabs: [
+        { id:"all", label:"All", positions:["CB","S","SS","FS","DB"] },
+        { id:"cb",  label:"CB",  positions:["CB"] },
+        { id:"s",   label:"S",   positions:["S","SS","FS"] },
+      ],
+      ident: IDENT_BASIC, defaultSort: "def_tackles_total",
+      groups: [
+        { id:"usage",           label:"Usage",     cols:["games","def_snaps_total","def_snap_rate"], defaultOn:true },
+        { id:"idp_tackles",     label:"Tackles",   cols:["def_tackles_total","def_tackles_ast","def_tfl"], defaultOn:true },
+        { id:"idp_turnovers",   label:"Turnovers", cols:["def_ints","def_pass_def","def_ff","def_fr","def_tds"], defaultOn:true },
+        { id:"idp_coverage",    label:"Coverage (PFR)",
+          cols:["def_completions_allowed","def_yards_allowed","def_passer_rating_allowed","def_adot"], defaultOn:false },
+        { id:"idp_missed",      label:"Missed Tkl (PFR)", cols:["def_missed_tackles","def_missed_tackle_pct"], defaultOn:false },
+      ]
+    },
+    flex_idp: {
+      label: "Flex·IDP", workerPos: "idp", positionFilter: null,
+      ident: IDENT_FLEX, defaultSort: "def_tackles_total",
+      groups: [
+        { id:"usage",           label:"Usage",     cols:["games","def_snaps_total","def_snap_rate"], defaultOn:true },
+        { id:"idp_tackles",     label:"Tackles",   cols:["def_tackles_total","def_tackles_ast","def_tfl"], defaultOn:true },
+        { id:"idp_pass_rush",   label:"Pass Rush", cols:["def_sacks","def_pressures","def_pass_def"], defaultOn:true },
+        { id:"idp_turnovers",   label:"Turnovers", cols:["def_ff","def_fr","def_ints","def_tds"], defaultOn:false },
+        { id:"idp_coverage",    label:"Coverage (PFR)",
+          cols:["def_completions_allowed","def_yards_allowed","def_passer_rating_allowed","def_adot"], defaultOn:false },
+        { id:"idp_missed",      label:"Missed Tkl (PFR)", cols:["def_missed_tackles","def_missed_tackle_pct"], defaultOn:false },
+      ]
+    },
+    // ---------- SPECIAL ----------
+    pk: {
+      label: "PK", workerPos: "kicker", positionFilter: null,
+      ident: IDENT_BASIC, defaultSort: "fg_made",
+      groups: [
+        { id:"usage",        label:"Usage",    cols:["games"], defaultOn:true },
+        { id:"fg_totals",    label:"FG Totals", cols:["fg_made","fg_miss","fg_pct","avg_fg_dist"], defaultOn:true },
+        { id:"fg_distance",  label:"FG by Distance", cols:["fg_0_39","fg_40_49","fg_50_59","fg_60plus"], defaultOn:true },
+        { id:"xp",           label:"Extra Points",   cols:["xp_made","xp_miss","xp_pct"], defaultOn:true },
+      ]
+    },
+    pn: {
+      label: "PN", workerPos: "punter", positionFilter: null,
+      ident: IDENT_BASIC, defaultSort: "punts",
+      groups: [
+        { id:"usage",           label:"Usage",              cols:["games"], defaultOn:true },
+        { id:"punt_volume",     label:"Volume",             cols:["punts","punt_yds","punt_long"], defaultOn:true },
+        { id:"punt_efficiency", label:"Efficiency",         cols:["punt_avg","punt_net_avg"], defaultOn:true },
+        { id:"punt_situation",  label:"Field Position",     cols:["punt_inside20","punt_i20_pct","punt_tb","punt_tb_pct"], defaultOn:true },
+      ]
+    },
+  };
+
+  // ---------- DOM refs ----------
+  var tabsEl      = document.getElementById("asw-tabs");
+  var subTabsEl   = document.getElementById("asw-subtabs");
+  var seasonsSel  = document.getElementById("asw-seasons");
+  var teamSel     = document.getElementById("asw-team");
+  var scopeBtns   = document.querySelectorAll("[data-scope]");
+  var searchEl    = document.getElementById("asw-search");
+  var colsBarEl   = document.getElementById("asw-cols-bar");
+  var metaEl      = document.getElementById("asw-meta");
+  var bodyEl      = document.getElementById("asw-body");
+
+  // ---------- Seasons multi-select ----------
   var defaultSeason = THIS_YEAR - 1;
   for (var y = THIS_YEAR; y >= MIN_SEASON; y--) {
     var opt = document.createElement("option");
@@ -111,15 +571,9 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
     seasonsSel.appendChild(opt);
   }
 
-  var teamSel = document.getElementById("asw-team");
-
-  // Live MFL ownership map: mfl_pid → franchise_id.  Worker's team
-  // attribution comes from src_contracts (nightly snapshot) which is
-  // stale for recent moves (drops, trades, FA pickups). Keith 2026-04-23:
-  // override with live MFL rosters so a player dropped TO FA yesterday
-  // shows FA TODAY.
-  var fidToName = {};            // "0005" → "HammerTime 🔨 ⏰"
-  var pidToFid  = {};            // "16211" → "0005"
+  // ---------- Live MFL ownership overlay ----------
+  var fidToName = {};
+  var pidToFid  = {};
 
   function padFid(fid) {
     fid = String(fid || "");
@@ -127,8 +581,6 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
     return fid.slice(0, 4);
   }
 
-  // Fetch league + rosters via the Worker proxy (avoids MFL CORS
-  // blocking our iframe-srcdoc null origin).
   var leagueStatePromise = fetch(API_BASE + "/api/mfl-league-state?L=" + encodeURIComponent(LEAGUE_ID) + "&YEAR=" + THIS_YEAR)
     .then(function(r){ return r.ok ? r.json() : null; })
     .then(function(j){
@@ -151,7 +603,6 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
       console.warn("[asw] mfl-league-state fetch failed:", e && e.message || e);
     });
 
-  // Apply live ownership overlay to rows (called after render fetch).
   function applyLiveOwnership(rows) {
     return rows.map(function(r){
       var pid = r.mfl_pid ? String(r.mfl_pid) : null;
@@ -163,213 +614,128 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
           mfl_franchise_name: fidToName[liveFid] || r.mfl_franchise_name,
         });
       }
-      // Not on any active roster → Free Agent (override stale snapshot)
-      return Object.assign({}, r, {
-        mfl_franchise_id: null,
-        mfl_franchise_name: null,
-      });
+      return Object.assign({}, r, { mfl_franchise_id: null, mfl_franchise_name: null });
     });
   }
 
-  var posSel = document.getElementById("asw-positions");
-  var scopeBtns = document.querySelectorAll("[data-scope]");
-  var minGamesEl = document.getElementById("asw-min-games");
-  var searchEl = document.getElementById("asw-search");
-  var runBtn = null;  // Run button removed 2026-04-23 — auto-run on any change.
-  var metaEl = document.getElementById("asw-meta");
-  var bodyEl = document.getElementById("asw-body");
-
-  scopeBtns.forEach(function(b){
-    b.addEventListener("click", function(){
-      scopeBtns.forEach(function(x){ x.setAttribute("aria-pressed", x === b ? "true" : "false"); });
-    });
-  });
-
-  // ---------- Per-pos-group templates (mirror popup logic) ----------
-  var TMPL = {
-    skill: {
-      label: "RB / WR / TE",
-      defaultSort: "rec_yds",
-      cols: [
-        { key:"player_name", label:"Player",  cls:"name" },
-        { key:"team",        label:"NFL",     cls:"dim" },
-        { key:"mfl_franchise_name", label:"MFL Team", cls:"dim",
-          compute: function(r){ return r.mfl_franchise_name || "FA"; } },
-        { key:"games",       label:"G",       num:true },
-        { key:"off_snaps_total", label:"Snaps", num:true },
-        { key:"off_snap_rate",   label:"Snap%", num:true, fmt:"pct0" },
-        // Receiving block
-        { key:"targets",     label:"Tgt",     num:true },
-        { key:"receptions",  label:"Rec",     num:true },
-        { key:"rec_yds",     label:"RecYd",   num:true },
-        { key:"rec_tds",     label:"RecTD",   num:true },
-        { key:"y_per_t",     label:"Y/T",     num:true, fmt:"dec2",
-          compute: function(r){ return r.targets ? r.rec_yds / r.targets : null; } },
-        { key:"receiving_adot", label:"ADOT", num:true, fmt:"dec1",
-          title:"Avg Depth of Target (PFR, 2018+)" },
-        { key:"receiving_air_yards", label:"AirYd", num:true,
-          title:"Total air yards on targets" },
-        { key:"receiving_rat", label:"Tgt Rat", num:true, fmt:"dec1",
-          title:"QB rating when targeting this player (PFR)" },
-        { key:"receiving_drops", label:"Drops",  num:true },
-        { key:"rec_brtkl",   label:"Rec BrTkl", num:true,
-          compute: function(r){ return r.receiving_broken_tackles; } },
-        { key:"rec_per_br",  label:"Rec/Br", num:true, fmt:"dec1",
-          title:"Receptions per broken tackle",
-          compute: function(r){ return (r.receiving_broken_tackles||0) > 0 ? r.receptions/r.receiving_broken_tackles : null; } },
-        { key:"yac_per_r",   label:"YAC/R", num:true, fmt:"dec1",
-          title:"Rec YAC / receptions — uses passing_yac total when available",
-          compute: function(r){ return null; /* receiving-side YAC not in payload */ } },
-        // Rushing block
-        { key:"rush_att",    label:"RuAtt",   num:true },
-        { key:"rush_yds",    label:"RuYd",    num:true },
-        { key:"rush_tds",    label:"RuTD",    num:true },
-        { key:"ybc_per_a",   label:"YBC/A",   num:true, fmt:"dec2",
-          compute: function(r){ return r.rush_att ? (r.rushing_yards_before_contact||0)/r.rush_att : null; } },
-        { key:"yac_per_a",   label:"YAC/A",   num:true, fmt:"dec2",
-          compute: function(r){ return r.rush_att ? (r.rushing_yards_after_contact||0)/r.rush_att : null; } },
-        { key:"rush_brtkl",  label:"Ru BrTkl", num:true,
-          compute: function(r){ return r.rushing_broken_tackles; } },
-        { key:"att_per_br",  label:"Att/Br", num:true, fmt:"dec1",
-          title:"Carries per broken tackle",
-          compute: function(r){ return (r.rushing_broken_tackles||0) > 0 ? r.rush_att/r.rushing_broken_tackles : null; } },
-        // Yardline bands (need PBP fetcher)
-        { key:"rush_att_i20", label:"Ru I20", num:true,
-          title:"Rush attempts inside opponent 20 (Red Zone)" },
-        { key:"rush_att_i5",  label:"GL I5",  num:true,
-          title:"Goal-line rush attempts inside opponent 5" },
-        { key:"targets_i20",  label:"Tgt I20", num:true,
-          title:"Targets inside opponent 20 (Red Zone)" },
-        { key:"targets_ez",   label:"Tgt EZ",  num:true,
-          title:"End-zone targets" },
-      ]
-    },
-    qb: {
-      label: "QB",
-      defaultSort: "pass_yds",
-      cols: [
-        { key:"player_name", label:"Player",  cls:"name" },
-        { key:"team",        label:"NFL",     cls:"dim" },
-        { key:"mfl_franchise_name", label:"MFL Team", cls:"dim",
-          compute: function(r){ return r.mfl_franchise_name || "FA"; } },
-        { key:"games",       label:"G",       num:true },
-        { key:"off_snaps_total", label:"Snaps", num:true },
-        { key:"off_snap_rate",   label:"Snap%", num:true, fmt:"pct0" },
-        { key:"pass_att",    label:"Att",     num:true },
-        { key:"pass_cmp",    label:"Cmp",     num:true },
-        { key:"cmp_pct",     label:"Cmp%",    num:true, fmt:"pct",
-          compute: function(r){ return r.pass_att ? r.pass_cmp / r.pass_att : null; } },
-        { key:"pass_yds",    label:"PaYd",    num:true },
-        { key:"pass_tds",    label:"PaTD",    num:true },
-        { key:"pass_ints",   label:"Int",     num:true },
-        { key:"int_pct",     label:"Int%",    num:true, fmt:"pct",
-          compute: function(r){ return r.pass_att ? r.pass_ints / r.pass_att : null; } },
-        { key:"pass_sacks",  label:"Sacked",  num:true, title:"Times sacked" },
-        { key:"passing_adot", label:"ADOT", num:true, fmt:"dec1", title:"Avg depth of target (PFR)" },
-        { key:"passing_air_yards", label:"AirYd", num:true, title:"Total air yards on attempts" },
-        { key:"passing_bad_throws", label:"BadTh", num:true, title:"Bad throws (PFR, 2018+)" },
-        { key:"passing_bad_throw_pct", label:"BadTh%", num:true, fmt:"pct0",
-          title:"Bad throws as % of attempts" },
-        { key:"passing_times_pressured", label:"Pressured", num:true,
-          title:"Times pressured (PFR, 2018+)" },
-        { key:"passing_pressure_pct", label:"Press%", num:true, fmt:"pct0" },
-        { key:"passing_hurries", label:"Hurries", num:true },
-        { key:"passing_hits", label:"QBHits", num:true, title:"Times QB was hit" },
-        { key:"pass_att_i20", label:"Pa I20", num:true, title:"Pass attempts in Red Zone" },
-        { key:"pass_att_ez",  label:"Pa EZ",  num:true, title:"Pass attempts targeting End Zone" },
-        { key:"passing_drops", label:"RecDrops", num:true, title:"Drops by this QB's receivers" },
-        { key:"rush_att",    label:"RuAtt",   num:true },
-        { key:"rush_yds",    label:"RuYd",    num:true },
-        { key:"rush_tds",    label:"RuTD",    num:true },
-      ]
-    },
-    idp: {
-      label: "IDP",
-      defaultSort: "def_tackles_total",
-      cols: [
-        { key:"player_name", label:"Player",  cls:"name" },
-        { key:"team",        label:"NFL",     cls:"dim" },
-        { key:"mfl_franchise_name", label:"MFL Team", cls:"dim",
-          compute: function(r){ return r.mfl_franchise_name || "FA"; } },
-        { key:"position",    label:"Pos",     cls:"dim" },
-        { key:"games",       label:"G",       num:true },
-        { key:"def_snaps_total", label:"Snaps", num:true },
-        { key:"def_snap_rate",   label:"Snap%", num:true, fmt:"pct0" },
-        { key:"def_tackles_total", label:"Tkl", num:true, title:"Solo tackles" },
-        { key:"def_tackles_ast",   label:"Ast", num:true },
-        { key:"def_tfl",     label:"TFL",     num:true },
-        { key:"def_sacks",   label:"Sk",      num:true, fmt:"dec1" },
-        { key:"def_ff",      label:"FF",      num:true },
-        { key:"def_fr",      label:"FR",      num:true, title:"Fumble recoveries" },
-        { key:"def_ints",    label:"Int",     num:true },
-        { key:"def_pass_def", label:"PD",     num:true },
-        { key:"def_tds",     label:"DefTD",   num:true },
-        { key:"def_missed_tackles", label:"Missed", num:true, title:"Missed tackles (PFR, 2018+)" },
-        { key:"def_missed_tackle_pct", label:"Miss%", num:true, fmt:"pct0",
-          title:"Missed tackle rate (PFR)" },
-        { key:"def_passer_rating_allowed", label:"PsRat Allow", num:true, fmt:"dec1",
-          title:"Passer rating allowed when targeted in coverage (PFR)" },
-        { key:"def_completions_allowed", label:"Cmp Allow", num:true,
-          title:"Completions allowed in coverage" },
-        { key:"def_yards_allowed", label:"Yds Allow", num:true },
-        { key:"def_pressures", label:"Pressures", num:true,
-          title:"Pass-rush pressures (PFR, 2018+)" },
-      ]
-    },
-    kicker: {
-      label: "Kicker",
-      defaultSort: "fg_made",
-      cols: [
-        { key:"player_name", label:"Player",  cls:"name" },
-        { key:"team",        label:"NFL",     cls:"dim" },
-        { key:"mfl_franchise_name", label:"MFL Team", cls:"dim",
-          compute: function(r){ return r.mfl_franchise_name || "FA"; } },
-        { key:"games",       label:"G",       num:true },
-        { key:"fg_made",     label:"FGM",     num:true },
-        { key:"fg_miss",     label:"FG Miss", num:true,
-          compute: function(r){ return (r.fg_att||0)-(r.fg_made||0); } },
-        { key:"fg_pct",      label:"FG%",     num:true, fmt:"pct",
-          compute: function(r){ return r.fg_att ? r.fg_made / r.fg_att : null; } },
-        { key:"fg_0_39",     label:"0-39", cls:"dim",
-          compute: function(r){ return r.fg_att_0_39 ? (r.fg_made_0_39||0) + "/" + r.fg_att_0_39 : null; } },
-        { key:"fg_40_49",    label:"40-49", cls:"dim",
-          compute: function(r){ return r.fg_att_40_49 ? (r.fg_made_40_49||0) + "/" + r.fg_att_40_49 : null; } },
-        { key:"fg_50plus",   label:"50+", cls:"dim",
-          compute: function(r){ return r.fg_att_50plus ? (r.fg_made_50plus||0) + "/" + r.fg_att_50plus : null; } },
-        { key:"avg_fg_dist", label:"Avg FG", num:true, fmt:"dec1",
-          title:"Weighted midpoint of bucket makes (0-39 ≈ 25y, 40-49 ≈ 44.5y, 50+ ≈ 54y)",
-          compute: function(r){
-            var m = (r.fg_made_0_39||0) + (r.fg_made_40_49||0) + (r.fg_made_50plus||0);
-            if (!m) return null;
-            return ((r.fg_made_0_39||0)*25 + (r.fg_made_40_49||0)*44.5 + (r.fg_made_50plus||0)*54) / m;
-          } },
-        { key:"xp_made",     label:"XPM",     num:true },
-        { key:"xp_miss",     label:"XP Miss", num:true,
-          compute: function(r){ return (r.xp_att||0)-(r.xp_made||0); } },
-        { key:"xp_pct",      label:"XP%",     num:true, fmt:"pct",
-          compute: function(r){ return r.xp_att ? r.xp_made / r.xp_att : null; } },
-      ]
-    },
-    punter: {
-      label: "Punter",
-      defaultSort: "punts",
-      cols: [
-        { key:"player_name", label:"Player",  cls:"name" },
-        { key:"team",        label:"NFL",     cls:"dim" },
-        { key:"mfl_franchise_name", label:"MFL Team", cls:"dim",
-          compute: function(r){ return r.mfl_franchise_name || "FA"; } },
-        { key:"games",       label:"G",       num:true },
-        { key:"punts",       label:"Punts",   num:true },
-        { key:"punt_yds",    label:"PuntYd",  num:true },
-        { key:"punt_net_avg", label:"Net Avg", num:true, fmt:"dec1" },
-        { key:"punt_inside20", label:"I20",   num:true },
-      ]
-    }
+  // ---------- State ----------
+  var state = {
+    activeTab:    "rb",
+    activeSubTab: "all",   // only relevant for DL/DB
+    visibleGroups: new Set(),
+    rowsByWorkerPos: {},   // cache keyed by workerPos ("skill"|"qb"|"idp"|"kicker"|"punter")
+    sortKey: null, sortDir: "desc",
+    lastQuery: null,
+    filtersVisible: false, // header filter row shown?
+    filters: {},           // { colKey: "expr string" } — raw user input per column
   };
 
-  // Current state
-  var state = { rows:[], sortKey:null, sortDir:"desc", lastQuery:null };
+  // ---------- Per-column filter expressions ----------
+  // Grammar (per cell):
+  //   ""          → no filter
+  //   "150"       → >= 150  (bare number defaults to >=)
+  //   ">150"      → strictly greater
+  //   ">=150"     → at least
+  //   "<5"/"<=5"  → strict / inclusive less
+  //   "=5"        → exact
+  //   "150-300"   → inclusive range
+  //   "10%" / "10" on a pct column → 0.10
+  //   (fallback for string/dim cols) → substring (case-insensitive)
+  function buildPredicate(expr, colKey) {
+    if (!expr || !expr.trim()) return null;
+    var s = expr.trim();
+    var def = COLS[colKey] || {};
+    var isPct = def.fmt === "pct" || def.fmt === "pct0";
+    var isNumCol = !!def.num;
 
+    function toNum(raw) {
+      if (raw == null) return null;
+      var hadPct = /%$/.test(raw);
+      var n = parseFloat(String(raw).replace(/%$/, "").trim());
+      if (isNaN(n)) return null;
+      // For pct columns, user typing "10" or "10%" means 0.10.
+      // Stored values come as decimals (0.10) from dec cols; pct0 cols
+      // may already be in 0-100 form (e.g., 57.3). Let the compare-side
+      // normalize — we just bring the filter to the same scale as value.
+      if (isPct && (hadPct || n > 1)) n = n / 100;
+      return n;
+    }
+    function normalizeCellForPct(v) {
+      // Cell values in pct/pct0 columns are heterogeneous: base `fmt:pct` stores
+      // 0-1 decimals; `fmt:pct0` may store 0-1 OR 0-100. Bring > 1 values down.
+      if (v == null) return null;
+      var n = Number(v);
+      if (isNaN(n)) return null;
+      if (isPct && n > 1) n = n / 100;
+      return n;
+    }
+
+    if (isNumCol) {
+      // Range "a-b"
+      var rangeM = /^(-?\d+(?:\.\d+)?%?)\s*-\s*(-?\d+(?:\.\d+)?%?)$/.exec(s);
+      if (rangeM) {
+        var lo = toNum(rangeM[1]); var hi = toNum(rangeM[2]);
+        if (lo == null || hi == null) return { invalid: true };
+        return { test: function(v){
+          var n = isPct ? normalizeCellForPct(v) : Number(v);
+          return n != null && !isNaN(n) && n >= lo && n <= hi;
+        }};
+      }
+      // Op-prefixed or bare number
+      var opM = /^(>=|<=|>|<|=)?\s*(-?\d+(?:\.\d+)?%?)$/.exec(s);
+      if (opM) {
+        var op = opM[1] || ">=";
+        var n = toNum(opM[2]);
+        if (n == null) return { invalid: true };
+        return { test: function(v){
+          var x = isPct ? normalizeCellForPct(v) : Number(v);
+          if (x == null || isNaN(x)) return false;
+          switch (op) {
+            case ">=": return x >= n;
+            case "<=": return x <= n;
+            case ">":  return x >  n;
+            case "<":  return x <  n;
+            case "=":  return x === n;
+          }
+          return false;
+        }};
+      }
+      return { invalid: true };
+    }
+    // Text columns → substring match
+    var lower = s.toLowerCase();
+    return { test: function(v){
+      return String(v == null ? "" : v).toLowerCase().indexOf(lower) >= 0;
+    }};
+  }
+
+  // Cached predicates so we don't re-parse on every render cycle. Invalidated
+  // whenever state.filters changes.
+  var _predicateCache = {};
+  function predicateFor(colKey) {
+    if (_predicateCache[colKey] !== undefined) return _predicateCache[colKey];
+    _predicateCache[colKey] = buildPredicate(state.filters[colKey], colKey);
+    return _predicateCache[colKey];
+  }
+  function invalidatePredicateCache() { _predicateCache = {}; }
+
+  function countActiveFilters() {
+    var n = 0;
+    Object.keys(state.filters).forEach(function(k){
+      if ((state.filters[k] || "").trim()) n++;
+    });
+    return n;
+  }
+
+  // Default-visible groups for the current tab.
+  function resetVisibleGroupsForTab(tabId) {
+    var tab = TABS[tabId];
+    state.visibleGroups = new Set(
+      (tab.groups || []).filter(function(g){ return g.defaultOn; }).map(function(g){ return g.id; })
+    );
+  }
+
+  // ---------- Cell formatting ----------
   function fmtCell(v, fmt){
     if (v == null || v === "" || (typeof v === "number" && isNaN(v))) return "—";
     if (fmt === "dec1") return Number(v).toFixed(1);
@@ -383,29 +749,89 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
     return String(v);
   }
 
-  function getVal(row, col){
-    if (col.compute) return col.compute(row);
-    return row[col.key];
+  function getVal(row, colKey){
+    var def = COLS[colKey];
+    if (def && def.compute) return def.compute(row);
+    return row[colKey];
   }
 
-  function render(){
-    var groups = getSelectedGroups();
-    var pos = groups[0] || "skill";
-    var tmpl = TMPL[pos] || TMPL.skill;
-    if (!state.sortKey) {
-      state.sortKey = tmpl.defaultSort;
-      state.sortDir = "desc";
+  // ---------- Build the visible column list (respecting group toggles) ----------
+  // Returns an array of "blocks" — each block is { groupId, groupLabel, colKeys }.
+  // Identity block always first (no group label in the group header row).
+  function buildBlocks() {
+    var tab = TABS[state.activeTab];
+    var blocks = [];
+    blocks.push({ groupId: "ident", groupLabel: null, colKeys: tab.ident.slice() });
+    (tab.groups || []).forEach(function(g){
+      if (!state.visibleGroups.has(g.id)) return;
+      blocks.push({ groupId: g.id, groupLabel: g.label, colKeys: g.cols.slice() });
+    });
+    return blocks;
+  }
+
+  function flatCols(blocks) {
+    var out = [];
+    blocks.forEach(function(b){ b.colKeys.forEach(function(k){ out.push(k); }); });
+    return out;
+  }
+
+  // ---------- Render table (two-row thead: group headers + column headers) ----------
+  function render() {
+    var tab = TABS[state.activeTab];
+    var blocks = buildBlocks();
+    var cols = flatCols(blocks);
+
+    // Ensure a valid sort key
+    if (!state.sortKey || cols.indexOf(state.sortKey) < 0) {
+      state.sortKey = cols.indexOf(tab.defaultSort) >= 0 ? tab.defaultSort : cols[0];
+      state.sortDir = (COLS[state.sortKey] && COLS[state.sortKey].num) ? "desc" : "asc";
     }
+
+    // Filter rows
+    var workerPos = tab.workerPos;
+    var allRows = state.rowsByWorkerPos[workerPos] || [];
+    var rows = allRows.slice();
+
+    // Position filter (client-side, from tab definition)
+    var posFilter = tab.positionFilter;
+    if (posFilter && posFilter.length) {
+      rows = rows.filter(function(r){ return posFilter.indexOf(r.position) >= 0; });
+    }
+    // Sub-tab filter (DL/DB)
+    if (tab.subTabs) {
+      var active = tab.subTabs.find(function(st){ return st.id === state.activeSubTab; }) || tab.subTabs[0];
+      if (active && active.positions && active.positions.length) {
+        rows = rows.filter(function(r){ return active.positions.indexOf(r.position) >= 0; });
+      }
+    }
+
+    // Search
     var searchQ = (searchEl.value || "").trim().toLowerCase();
-    var rows = state.rows.slice();
     if (searchQ) rows = rows.filter(function(r){
       return String(r.player_name||"").toLowerCase().indexOf(searchQ) !== -1;
     });
+
+    // Per-column filters (only apply to currently visible columns — a filter
+    // on a hidden column is parked, not lost, until the group is re-enabled)
+    var activeCols = cols.filter(function(k){
+      var p = predicateFor(k);
+      return p && !p.invalid;
+    });
+    if (activeCols.length) {
+      rows = rows.filter(function(r){
+        for (var i = 0; i < activeCols.length; i++) {
+          var k = activeCols[i];
+          var v = getVal(r, k);
+          if (!predicateFor(k).test(v)) return false;
+        }
+        return true;
+      });
+    }
+
     // Sort
-    rows.sort(function(a,b){
-      var col = tmpl.cols.find(function(c){ return c.key === state.sortKey; }) || { key: state.sortKey };
-      var av = getVal(a, col);
-      var bv = getVal(b, col);
+    rows.sort(function(a, b){
+      var av = getVal(a, state.sortKey);
+      var bv = getVal(b, state.sortKey);
       if (av == null) av = state.sortDir === "asc" ? Infinity : -Infinity;
       if (bv == null) bv = state.sortDir === "asc" ? Infinity : -Infinity;
       if (typeof av === "string" || typeof bv === "string") {
@@ -414,28 +840,111 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
       }
       return state.sortDir === "asc" ? av - bv : bv - av;
     });
-    // Render table
-    var th = tmpl.cols.map(function(c){
-      var sortAttr = c.key === state.sortKey ? ' aria-sort="' + (state.sortDir === "asc" ? "ascending" : "descending") + '"' : "";
-      var cls = c.num ? "num" : "";
-      var titleAttr = c.title ? ' title="' + c.title.replace(/"/g, "&quot;") + '"' : "";
-      return '<th class="'+cls+'"'+sortAttr+titleAttr+' data-col-key="'+c.key+'">'+c.label+'</th>';
+
+    // ---- Build table HTML ----
+    // Group header row
+    var groupRow = blocks.map(function(b, i){
+      var span = b.colKeys.length;
+      var sepCls = i > 0 ? "group-sep" : "";
+      if (!b.groupLabel) {
+        return '<th class="no-group '+sepCls+'" colspan="'+span+'"></th>';
+      }
+      return '<th class="'+sepCls+'" colspan="'+span+'">'+b.groupLabel+'</th>';
     }).join("");
-    var body = rows.map(function(r){
-      var tds = tmpl.cols.map(function(c){
-        var v = getVal(r, c);
+
+    // Column header row
+    var colRow = "";
+    blocks.forEach(function(b, bi){
+      b.colKeys.forEach(function(k, ci){
+        var def = COLS[k] || { label: k };
+        var sortAttr = k === state.sortKey
+          ? ' aria-sort="' + (state.sortDir === "asc" ? "ascending" : "descending") + '"'
+          : "";
         var cls = [];
-        if (c.num) cls.push("num");
-        if (c.cls) cls.push(c.cls);
-        return '<td class="'+cls.join(" ")+'">'+fmtCell(v, c.fmt)+'</td>';
-      }).join("");
-      return '<tr>'+tds+'</tr>';
+        if (def.num) cls.push("num");
+        if (bi > 0 && ci === 0) cls.push("group-sep");
+        if ((state.filters[k] || "").trim()) cls.push("has-filter");
+        var titleAttr = def.title ? ' title="' + def.title.replace(/"/g, "&quot;") + '"' : "";
+        colRow += '<th class="'+cls.join(" ")+'"'+sortAttr+titleAttr+' data-col-key="'+k+'">'+def.label+'</th>';
+      });
+    });
+
+    // Filter row (third thead row). Only rendered when filtersVisible is true.
+    var filterRow = "";
+    if (state.filtersVisible) {
+      blocks.forEach(function(b, bi){
+        b.colKeys.forEach(function(k, ci){
+          var def = COLS[k] || {};
+          var raw = state.filters[k] || "";
+          var p = raw.trim() ? buildPredicate(raw, k) : null;
+          var inputCls = [];
+          if (def.num) inputCls.push("num-filter");
+          if (p && p.invalid) inputCls.push("invalid");
+          else if (raw.trim()) inputCls.push("active");
+          var thCls = [];
+          if (bi > 0 && ci === 0) thCls.push("group-sep");
+          var placeholder = def.num ? (def.fmt === "pct" || def.fmt === "pct0" ? ">10%" : ">150") : "";
+          filterRow += '<th class="'+thCls.join(" ")+'">' +
+            '<input type="text" class="'+inputCls.join(" ")+'" data-filter-key="'+k+'" ' +
+            'value="'+raw.replace(/"/g,"&quot;")+'" placeholder="'+placeholder+'"></th>';
+        });
+      });
+    }
+
+    // Body
+    var body = rows.map(function(r){
+      var cells = "";
+      blocks.forEach(function(b, bi){
+        b.colKeys.forEach(function(k, ci){
+          var def = COLS[k] || {};
+          var v = getVal(r, k);
+          var cls = [];
+          if (def.num) cls.push("num");
+          if (def.cls) cls.push(def.cls);
+          if (bi > 0 && ci === 0) cls.push("group-sep");
+          cells += '<td class="'+cls.join(" ")+'">'+fmtCell(v, def.fmt)+'</td>';
+        });
+      });
+      return '<tr>'+cells+'</tr>';
     }).join("");
-    bodyEl.innerHTML = rows.length
-      ? '<table class="asw-table"><thead><tr>'+th+'</tr></thead><tbody>'+body+'</tbody></table>'
+
+    var theadFilter = state.filtersVisible
+      ? '<tr class="asw-filter-row">'+filterRow+'</tr>'
+      : "";
+    bodyEl.innerHTML = rows.length || state.filtersVisible
+      ? '<table class="asw-table">' +
+          '<thead>' +
+            '<tr class="asw-group-row">'+groupRow+'</tr>' +
+            '<tr class="asw-col-row">'+colRow+'</tr>' +
+            theadFilter +
+          '</thead>' +
+          '<tbody>'+ (rows.length ? body : '<tr><td colspan="'+cols.length+'" class="asw-empty">No rows match filters.</td></tr>') +'</tbody>' +
+        '</table>'
       : '<div class="asw-empty">No rows.</div>';
-    metaEl.textContent = (state.lastQuery || "") + " · " + rows.length + " player" + (rows.length === 1 ? "" : "s") + (searchQ ? " (filtered)" : "");
-    // Wire sort
+
+    // "42 of 240 players" when any narrowing applied; plain "240 players" otherwise.
+    // The denominator counts rows already narrowed by position/sub-tab (the
+    // "universe" for this tab), so the fraction stays meaningful.
+    var universe = allRows.slice();
+    if (posFilter && posFilter.length) {
+      universe = universe.filter(function(r){ return posFilter.indexOf(r.position) >= 0; });
+    }
+    if (tab.subTabs) {
+      var st = tab.subTabs.find(function(x){ return x.id === state.activeSubTab; }) || tab.subTabs[0];
+      if (st && st.positions && st.positions.length) {
+        universe = universe.filter(function(r){ return st.positions.indexOf(r.position) >= 0; });
+      }
+    }
+    var total = universe.length;
+    var narrowed = rows.length !== total;
+    var countLabel = narrowed
+      ? (rows.length + " of " + total + " players")
+      : (total + " player" + (total === 1 ? "" : "s"));
+    var filterCount = countActiveFilters();
+    var filterHint = filterCount ? " · " + filterCount + " filter" + (filterCount === 1 ? "" : "s") : "";
+    metaEl.textContent = (state.lastQuery || "") + " · " + countLabel + (searchQ ? " (search)" : "") + filterHint;
+
+    // Wire sort (column-header clicks)
     bodyEl.querySelectorAll("th[data-col-key]").forEach(function(el){
       el.addEventListener("click", function(){
         var key = el.getAttribute("data-col-key");
@@ -443,26 +952,154 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
           state.sortDir = state.sortDir === "asc" ? "desc" : "asc";
         } else {
           state.sortKey = key;
-          state.sortDir = "desc";
+          state.sortDir = (COLS[key] && COLS[key].num) ? "desc" : "asc";
         }
         render();
       });
     });
+
+    // Wire filter-row inputs. Debounce keystrokes so typing doesn't thrash.
+    // After the debounced render() fires, the input node is destroyed/recreated —
+    // so we capture focus + caret before render and restore on the new element.
+    if (state.filtersVisible) {
+      var debTimer = null;
+      bodyEl.querySelectorAll("input[data-filter-key]").forEach(function(inp){
+        // Restore focus to this field if it was the pending one (handles the
+        // re-render that ran while user was typing).
+        if (pendingFocus && pendingFocus.key === inp.getAttribute("data-filter-key")) {
+          requestAnimationFrame(function(){
+            inp.focus();
+            try {
+              var pos = Math.min(pendingFocus.pos, inp.value.length);
+              inp.setSelectionRange(pos, pos);
+            } catch(e) {}
+            pendingFocus = null;
+          });
+        }
+        inp.addEventListener("input", function(){
+          var key = inp.getAttribute("data-filter-key");
+          state.filters[key] = inp.value;
+          invalidatePredicateCache();
+          updateFilterToggleLabel();
+          // Live-validate this input's visual state without a full render
+          var raw = inp.value.trim();
+          inp.classList.remove("active","invalid");
+          if (raw) {
+            var p = buildPredicate(raw, key);
+            inp.classList.add(p && p.invalid ? "invalid" : "active");
+          }
+          clearTimeout(debTimer);
+          debTimer = setTimeout(function(){
+            // Before re-render, record where the caret is so render() can
+            // hand focus back to the freshly-mounted input.
+            pendingFocus = { key: key, pos: inp.selectionStart || inp.value.length };
+            render();
+          }, 250);
+        });
+      });
+    }
   }
 
+  // Focus hand-off across renders (filter-row typing restores caret position)
+  var pendingFocus = null;
+
+  // ---------- Render the column-group chip bar + filter-row toggle ----------
+  var _filterToggleBtn = null;
+  var _filterClearBtn = null;
+
+  function renderColsBar() {
+    var tab = TABS[state.activeTab];
+    var label = colsBarEl.querySelector(".asw-cols-label");
+    colsBarEl.innerHTML = "";
+    colsBarEl.appendChild(label);
+    (tab.groups || []).forEach(function(g){
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "asw-col-chip";
+      btn.setAttribute("data-group-id", g.id);
+      btn.setAttribute("aria-pressed", state.visibleGroups.has(g.id) ? "true" : "false");
+      btn.textContent = g.label;
+      btn.addEventListener("click", function(){
+        if (state.visibleGroups.has(g.id)) state.visibleGroups.delete(g.id);
+        else state.visibleGroups.add(g.id);
+        btn.setAttribute("aria-pressed", state.visibleGroups.has(g.id) ? "true" : "false");
+        render();
+      });
+      colsBarEl.appendChild(btn);
+    });
+    // Right side: filter toggle + clear
+    var spacer = document.createElement("span");
+    spacer.className = "asw-cols-spacer";
+    colsBarEl.appendChild(spacer);
+
+    _filterToggleBtn = document.createElement("button");
+    _filterToggleBtn.type = "button";
+    _filterToggleBtn.className = "asw-filter-toggle";
+    _filterToggleBtn.setAttribute("aria-pressed", state.filtersVisible ? "true" : "false");
+    _filterToggleBtn.title = "Show inline column filters — type >150, <5, 10%, 150-300, etc.";
+    _filterToggleBtn.addEventListener("click", function(){
+      state.filtersVisible = !state.filtersVisible;
+      _filterToggleBtn.setAttribute("aria-pressed", state.filtersVisible ? "true" : "false");
+      render();
+    });
+    colsBarEl.appendChild(_filterToggleBtn);
+
+    _filterClearBtn = document.createElement("button");
+    _filterClearBtn.type = "button";
+    _filterClearBtn.className = "asw-filter-clear";
+    _filterClearBtn.textContent = "Clear";
+    _filterClearBtn.title = "Clear all column filters";
+    _filterClearBtn.addEventListener("click", function(){
+      state.filters = {};
+      invalidatePredicateCache();
+      updateFilterToggleLabel();
+      render();
+    });
+    colsBarEl.appendChild(_filterClearBtn);
+
+    updateFilterToggleLabel();
+  }
+
+  function updateFilterToggleLabel() {
+    if (!_filterToggleBtn) return;
+    var n = countActiveFilters();
+    _filterToggleBtn.textContent = n ? "☰ Filters (" + n + ")" : "☰ Filters";
+    if (_filterClearBtn) _filterClearBtn.style.display = n ? "" : "none";
+  }
+
+  // ---------- Render the sub-tab chips (DL/DB only) ----------
+  function renderSubTabs() {
+    var tab = TABS[state.activeTab];
+    if (!tab.subTabs) {
+      subTabsEl.classList.remove("visible");
+      subTabsEl.innerHTML = '<span class="asw-subtabs-label">Sub-position</span>';
+      return;
+    }
+    subTabsEl.classList.add("visible");
+    subTabsEl.innerHTML = '<span class="asw-subtabs-label">' + tab.label + '</span>';
+    tab.subTabs.forEach(function(st){
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "asw-subtab";
+      btn.setAttribute("data-subtab", st.id);
+      btn.setAttribute("aria-pressed", state.activeSubTab === st.id ? "true" : "false");
+      btn.textContent = st.label;
+      btn.addEventListener("click", function(){
+        state.activeSubTab = st.id;
+        subTabsEl.querySelectorAll(".asw-subtab").forEach(function(x){
+          x.setAttribute("aria-pressed", x === btn ? "true" : "false");
+        });
+        render();
+      });
+      subTabsEl.appendChild(btn);
+    });
+  }
+
+  // ---------- Filter helpers ----------
   function getScope(){
     var btn = document.querySelector("[data-scope][aria-pressed='true']");
     return btn ? btn.getAttribute("data-scope") : "ups";
   }
-
-  function getSelectedGroups(){
-    var sel = [];
-    for (var i = 0; i < posSel.options.length; i++) {
-      if (posSel.options[i].selected) sel.push(posSel.options[i].value);
-    }
-    return sel.length ? sel : ["skill"];
-  }
-
   function getSelectedSeasons(){
     var sel = [];
     for (var i = 0; i < seasonsSel.options.length; i++) {
@@ -471,53 +1108,45 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
     sel = sel.filter(function(s){ return s >= MIN_SEASON; });
     return sel.length ? sel : [defaultSeason];
   }
-
   function getSelectedTeams(){
     var sel = [];
     for (var i = 0; i < teamSel.options.length; i++) {
       if (teamSel.options[i].selected) sel.push(teamSel.options[i].value);
     }
-    // Auto-collapse: if "All" is picked alongside specific teams, "All" wins.
-    if (sel.indexOf("__ALL__") >= 0) return [];  // empty = no filter
+    if (sel.indexOf("__ALL__") >= 0) return [];
     return sel;
   }
 
-  function runQuery(){
-    var groups = getSelectedGroups();
+  // ---------- Fetch for the current tab's workerPos ----------
+  function runQuery() {
+    var tab = TABS[state.activeTab];
+    var workerPos = tab.workerPos;
     var seasons = getSelectedSeasons();
     var scope = getScope();
-    var minG = Math.max(1, parseInt(minGamesEl.value, 10) || 1);
-    var teams = getSelectedTeams();  // [] = all, or [fid|"FA", ...]
+    var teams = getSelectedTeams();
     state.sortKey = null;
     bodyEl.innerHTML = '<div class="asw-loading">Fetching…</div>';
     metaEl.textContent = "";
-    // Worker only accepts one pos alias at a time — fetch each selected
-    // group in parallel and merge rows client-side.
-    var fetches = groups.map(function(g){
-      var url = API_BASE + "/api/advanced-stats-leaderboard" +
-        "?seasons=" + encodeURIComponent(seasons.join(",")) +
-        "&pos="   + encodeURIComponent(g) +
-        "&include_post=" + (scope === "full" ? "1" : "0") +
-        "&min_games=" + encodeURIComponent(minG) +
-        "&limit=500";
-      return fetch(url).then(function(r){
-        if (!r.ok) throw new Error("HTTP " + r.status + " (" + g + ")");
-        return r.json();
-      });
-    });
+    // Server-side min_games=1 — real game-count filtering is done per-column
+    // in the header filter row (type a number into G). Keep limit=500 so
+    // multi-season queries still fit the D1 row cap.
+    var url = API_BASE + "/api/advanced-stats-leaderboard" +
+      "?seasons=" + encodeURIComponent(seasons.join(",")) +
+      "&pos="    + encodeURIComponent(workerPos) +
+      "&include_post=" + (scope === "full" ? "1" : "0") +
+      "&min_games=1" +
+      "&limit=500";
     Promise.all([
-      Promise.all(fetches),
+      fetch(url).then(function(r){
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r.json();
+      }),
       leagueStatePromise,
     ]).then(function(pair){
-      var results = pair[0];
-      var rows = [];
-      results.forEach(function(j){
-        rows = rows.concat(Array.isArray(j.rows) ? j.rows : []);
-      });
+      var j = pair[0];
+      var rows = Array.isArray(j.rows) ? j.rows : [];
       rows = applyLiveOwnership(rows);
-      // Team filter: multi-select. Empty = all. Otherwise keep rows
-      // whose mfl_franchise_id matches any picked id, OR is null (FA)
-      // if "FA" is in the list.
+      // Team filter (post-ownership-overlay)
       if (teams.length) {
         var wantFA = teams.indexOf("FA") >= 0;
         var wantFids = {};
@@ -527,7 +1156,7 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
           return wantFids[r.mfl_franchise_id] === true;
         });
       }
-      state.rows = rows;
+      state.rowsByWorkerPos[workerPos] = rows;
       var seasonLabel = seasons.length === 1 ? String(seasons[0])
                       : seasons.length <= 3 ? seasons.sort(function(a,b){return b-a}).join(", ")
                       : seasons.sort(function(a,b){return a-b})[0] + "-" + seasons.sort(function(a,b){return b-a})[0];
@@ -537,8 +1166,7 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
       } else if (teams.length > 1) {
         teamLabel = " · " + teams.length + " teams";
       }
-      var groupLabel = groups.map(function(g){ return (TMPL[g] && TMPL[g].label) || g; }).join(" + ");
-      state.lastQuery = groupLabel + " · " + seasonLabel + " · " + (scope === "full" ? "Full" : "UPS") + " · min " + minG + "G" + teamLabel;
+      state.lastQuery = tab.label + " · " + seasonLabel + " · " + (scope === "full" ? "Full" : "UPS") + teamLabel;
       render();
     }).catch(function(e){
       bodyEl.innerHTML = '<div class="asw-err">Query failed: '+(e && e.message || e)+'</div>';
@@ -546,13 +1174,44 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:12px}
     });
   }
 
-  searchEl.addEventListener("input", function(){ if (state.rows.length) render(); });
-  [posSel, seasonsSel, teamSel, minGamesEl].forEach(function(el){
+  // ---------- Tab switching ----------
+  function activateTab(tabId) {
+    if (!TABS[tabId]) return;
+    state.activeTab = tabId;
+    state.activeSubTab = "all";
+    state.sortKey = null;
+    // Per-column filters are scoped to a position — they rarely make sense
+    // across tabs (RuAtt≥150 becomes noise on a DB table). Clear on switch.
+    state.filters = {};
+    invalidatePredicateCache();
+    resetVisibleGroupsForTab(tabId);
+    tabsEl.querySelectorAll(".asw-tab").forEach(function(btn){
+      btn.setAttribute("aria-pressed", btn.getAttribute("data-tab") === tabId ? "true" : "false");
+    });
+    renderSubTabs();
+    renderColsBar();
+    runQuery();
+  }
+
+  // ---------- Wiring ----------
+  tabsEl.querySelectorAll(".asw-tab").forEach(function(btn){
+    btn.addEventListener("click", function(){ activateTab(btn.getAttribute("data-tab")); });
+  });
+  scopeBtns.forEach(function(b){
+    b.addEventListener("click", function(){
+      scopeBtns.forEach(function(x){ x.setAttribute("aria-pressed", x === b ? "true" : "false"); });
+      runQuery();
+    });
+  });
+  [seasonsSel, teamSel].forEach(function(el){
     el.addEventListener("change", runQuery);
   });
-  scopeBtns.forEach(function(b){ b.addEventListener("click", runQuery); });
+  searchEl.addEventListener("input", function(){ if ((state.rowsByWorkerPos[TABS[state.activeTab].workerPos] || []).length) render(); });
 
-  // Initial query
+  // ---------- Initial load ----------
+  resetVisibleGroupsForTab(state.activeTab);
+  renderSubTabs();
+  renderColsBar();
   runQuery();
 })();
 </script>

@@ -22,6 +22,7 @@ from __future__ import annotations
 import argparse
 import os
 import shutil
+import os
 import sqlite3
 import subprocess
 import sys
@@ -30,7 +31,11 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 WORKER_DIR_DEFAULT = REPO_ROOT / "worker"
 TMP_DIR_DEFAULT = WORKER_DIR_DEFAULT / ".tmp" / "d1_load"
-LOCAL_DB = Path("/Users/keithcreelman/Documents/mfl/Development/pipelines/etl/data/mfl_database.db")
+# Keith 2026-04-23 — honor $MFL_DB_PATH so the same env var drives every
+# fetcher + the sync step. Default kept for backwards compat on machines
+# that already have the DB at the legacy path.
+_DEFAULT_DB = Path("/Users/keithcreelman/Documents/mfl/Development/pipelines/etl/data/mfl_database.db")
+LOCAL_DB = Path(os.environ.get("MFL_DB_PATH") or _DEFAULT_DB)
 
 # Runtime overrides (set in main()) so the standalone copy installed in
 # ~/Library/Scripts/ can point wrangler at an explicit config file
@@ -285,8 +290,11 @@ def main():
                 def_sacks, def_sack_yds, def_ff, def_fr, def_ints, def_pass_def, def_tds,
                 fg_att, fg_made, fg_long,
                 fg_att_0_39, fg_made_0_39, fg_att_40_49, fg_made_40_49,
-                fg_att_50plus, fg_made_50plus, xp_att, xp_made,
-                punts, punt_yds, punt_long, punt_inside20, punt_net_avg,
+                fg_att_50plus, fg_made_50plus,
+                fg_att_50_59, fg_made_50_59, fg_att_60plus, fg_made_60plus,
+                fg_distance_sum_made, fg_made_pbp,
+                xp_att, xp_made,
+                punts, punt_yds, punt_long, punt_inside20, punt_net_avg, punt_tb,
                 starter_nfl, source,
                 receiving_drops, receiving_broken_tackles,
                 rushing_broken_tackles, passing_drops,
@@ -311,8 +319,11 @@ def main():
           "def_sacks","def_sack_yds","def_ff","def_fr","def_ints","def_pass_def","def_tds",
           "fg_att","fg_made","fg_long",
           "fg_att_0_39","fg_made_0_39","fg_att_40_49","fg_made_40_49",
-          "fg_att_50plus","fg_made_50plus","xp_att","xp_made",
-          "punts","punt_yds","punt_long","punt_inside20","punt_net_avg",
+          "fg_att_50plus","fg_made_50plus",
+          "fg_att_50_59","fg_made_50_59","fg_att_60plus","fg_made_60plus",
+          "fg_distance_sum_made","fg_made_pbp",
+          "xp_att","xp_made",
+          "punts","punt_yds","punt_long","punt_inside20","punt_net_avg","punt_tb",
           "starter_nfl","source",
           "receiving_drops","receiving_broken_tackles",
           "rushing_broken_tackles","passing_drops",
@@ -354,6 +365,52 @@ def main():
           "targets_i20","targets_i10","targets_i5",
           "targets_ez","rec_i20","rec_tds_i20",
           "pass_att_i20","pass_tds_i20","pass_att_ez"]),
+        ("pfrseason", "nfl_player_advstats_season",
+         """
+         SELECT season, gsis_id, pfr_id,
+                rec_adot, rec_ybc, rec_ybc_per_r, rec_yac, rec_yac_per_r,
+                rec_brk_tkl, rec_per_br, rec_drops, rec_drop_pct,
+                rec_int, rec_rat,
+                rush_ybc, rush_ybc_per_a, rush_yac, rush_yac_per_a,
+                rush_brk_tkl, rush_att_per_br,
+                pass_iay, pass_iay_per_att, pass_cay, pass_cay_per_cmp,
+                pass_yac, pass_yac_per_cmp,
+                pass_bad_throws, pass_bad_throw_pct,
+                pass_on_tgt, pass_on_tgt_pct,
+                pass_drops, pass_drop_pct,
+                pass_pressures, pass_pressure_pct,
+                pass_times_blitzed, pass_times_hurried,
+                pass_times_hit, pass_times_sacked, pass_pocket_time,
+                def_adot, def_air_yards_completed, def_yac,
+                def_targets, def_completions_allowed, def_cmp_pct,
+                def_yards_allowed, def_yards_per_cmp, def_yards_per_tgt,
+                def_tds_allowed, def_ints, def_rating_allowed,
+                def_blitz, def_hurries, def_qb_knockdowns,
+                def_sacks, def_pressures, def_combined_tackles,
+                def_missed_tackles, def_missed_tackle_pct
+         FROM nfl_player_advstats_season
+         """,
+         ["season","gsis_id","pfr_id",
+          "rec_adot","rec_ybc","rec_ybc_per_r","rec_yac","rec_yac_per_r",
+          "rec_brk_tkl","rec_per_br","rec_drops","rec_drop_pct",
+          "rec_int","rec_rat",
+          "rush_ybc","rush_ybc_per_a","rush_yac","rush_yac_per_a",
+          "rush_brk_tkl","rush_att_per_br",
+          "pass_iay","pass_iay_per_att","pass_cay","pass_cay_per_cmp",
+          "pass_yac","pass_yac_per_cmp",
+          "pass_bad_throws","pass_bad_throw_pct",
+          "pass_on_tgt","pass_on_tgt_pct",
+          "pass_drops","pass_drop_pct",
+          "pass_pressures","pass_pressure_pct",
+          "pass_times_blitzed","pass_times_hurried",
+          "pass_times_hit","pass_times_sacked","pass_pocket_time",
+          "def_adot","def_air_yards_completed","def_yac",
+          "def_targets","def_completions_allowed","def_cmp_pct",
+          "def_yards_allowed","def_yards_per_cmp","def_yards_per_tgt",
+          "def_tds_allowed","def_ints","def_rating_allowed",
+          "def_blitz","def_hurries","def_qb_knockdowns",
+          "def_sacks","def_pressures","def_combined_tackles",
+          "def_missed_tackles","def_missed_tackle_pct"]),
     ]
 
     selected = set((args.only or "").split(",")) if args.only else None
