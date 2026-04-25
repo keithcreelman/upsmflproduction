@@ -42,6 +42,10 @@ from pathlib import Path
 _DEFAULT_DB = Path("/Users/keithcreelman/Desktop/MFL_Scripts/Datastorage/mfl_database.db")
 LOCAL_DB = Path(os.environ.get("MFL_DB_PATH") or _DEFAULT_DB)
 
+# Dual-write D1 path. Local SQLite stays primary until verified.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from lib.d1_io import D1Writer  # noqa: E402
+
 
 # ---------------------------------------------------------------
 # Column mapping — nflverse returns many columns; we select a
@@ -107,7 +111,11 @@ PLAYERSTATS_MAP = {
     # nflverse renamed: def_fumble_recovery_opp = defender recovered an
     # opponent's fumble (the IDP-scoring stat). Keep legacy aliases for
     # older payloads.
-    "def_fr":            ["def_fumble_recovery_opp", "def_fumble_recoveries", "fumble_recoveries"],
+    # nflverse 2025 payload exposes this as `fumble_recovery_opp` (no
+    # `def_` prefix) — the legacy `def_fumble_recovery_opp` alias was
+    # silent-NULL. Adding the bare name as the primary alias.
+    "def_fr":            ["fumble_recovery_opp", "def_fumble_recovery_opp",
+                          "def_fumble_recoveries", "fumble_recoveries"],
     "def_ints":          ["def_interceptions", "interceptions_defensive"],
     "def_pass_def":      ["def_pass_defended", "passes_defended"],
     "def_tds":           ["def_tds", "defensive_tds"],
@@ -231,14 +239,9 @@ def fetch_snaps(seasons: list[int]):
     return df
 
 
-def upsert_player_weekly(db: sqlite3.Connection, df) -> int:
+def upsert_player_weekly(db: sqlite3.Connection, df, args) -> int:
     if df is None or df.empty:
         return 0
-    db.execute("""
-        CREATE TABLE IF NOT EXISTS nfl_player_weekly AS
-        SELECT * FROM (SELECT 0 AS _placeholder) WHERE 0
-    """)  # no-op if table doesn't exist yet — the migration defines it
-    # For local sqlite, ensure the real table exists by reading schema from migration if missing
     count = 0
     rows_to_insert = []
     for row in df.to_dict(orient="records"):
@@ -276,21 +279,41 @@ def upsert_player_weekly(db: sqlite3.Connection, df) -> int:
         return 0
 
     cols = list(rows_to_insert[0].keys())
-    placeholders = ",".join("?" for _ in cols)
-    col_list = ",".join(cols)
-    update_cols = ",".join(f"{c}=excluded.{c}" for c in cols if c not in {"season", "week", "gsis_id"})
-    sql = f"""
-        INSERT INTO nfl_player_weekly ({col_list})
-        VALUES ({placeholders})
-        ON CONFLICT(season, week, gsis_id)
-        DO UPDATE SET {update_cols}
-    """
-    db.executemany(sql, [[r[c] for c in cols] for r in rows_to_insert])
-    db.commit()
+    row_tuples = [tuple(r[c] for c in cols) for r in rows_to_insert]
+
+    if not args.skip_local:
+        try:
+            placeholders = ",".join("?" for _ in cols)
+            col_list = ",".join(cols)
+            update_cols = ",".join(f"{c}=excluded.{c}" for c in cols if c not in {"season", "week", "gsis_id"})
+            sql = f"""
+                INSERT INTO nfl_player_weekly ({col_list})
+                VALUES ({placeholders})
+                ON CONFLICT(season, week, gsis_id)
+                DO UPDATE SET {update_cols}
+            """
+            db.executemany(sql, row_tuples)
+            db.commit()
+            print(f"  [weekly] local: upserted {count} rows", file=sys.stderr)
+        except sqlite3.OperationalError as e:
+            print(f"  [weekly] local: FAILED ({e})", file=sys.stderr)
+
+    if not args.skip_d1 and row_tuples:
+        print(f"  [weekly] D1: writing {len(row_tuples)} rows ...", file=sys.stderr)
+        # Wide table (~55 cols) — keep chunk_size at the default 80 which
+        # the d1_io chunker tested at ~46KB/statement, well under D1's
+        # 100KB cap.
+        with D1Writer(
+            table="nfl_player_weekly", cols=cols,
+            pk_cols=["season","week","gsis_id"],
+        ) as w:
+            for r in row_tuples:
+                w.add(r)
+
     return count
 
 
-def upsert_snaps(db: sqlite3.Connection, df) -> int:
+def upsert_snaps(db: sqlite3.Connection, df, args) -> int:
     if df is None or df.empty:
         return 0
     count = 0
@@ -329,17 +352,34 @@ def upsert_snaps(db: sqlite3.Connection, df) -> int:
         return 0
 
     cols = list(rows_to_insert[0].keys())
-    placeholders = ",".join("?" for _ in cols)
-    col_list = ",".join(cols)
-    update_cols = ",".join(f"{c}=excluded.{c}" for c in cols if c not in {"season", "week", "gsis_id"})
-    sql = f"""
-        INSERT INTO nfl_player_snaps ({col_list})
-        VALUES ({placeholders})
-        ON CONFLICT(season, week, pfr_id)
-        DO UPDATE SET {update_cols}
-    """
-    db.executemany(sql, [[r[c] for c in cols] for r in rows_to_insert])
-    db.commit()
+    row_tuples = [tuple(r[c] for c in cols) for r in rows_to_insert]
+
+    if not args.skip_local:
+        try:
+            placeholders = ",".join("?" for _ in cols)
+            col_list = ",".join(cols)
+            update_cols = ",".join(f"{c}=excluded.{c}" for c in cols if c not in {"season", "week", "pfr_id"})
+            sql = f"""
+                INSERT INTO nfl_player_snaps ({col_list})
+                VALUES ({placeholders})
+                ON CONFLICT(season, week, pfr_id)
+                DO UPDATE SET {update_cols}
+            """
+            db.executemany(sql, row_tuples)
+            db.commit()
+            print(f"  [snaps] local: upserted {count} rows", file=sys.stderr)
+        except sqlite3.OperationalError as e:
+            print(f"  [snaps] local: FAILED ({e})", file=sys.stderr)
+
+    if not args.skip_d1 and row_tuples:
+        print(f"  [snaps] D1: writing {len(row_tuples)} rows ...", file=sys.stderr)
+        with D1Writer(
+            table="nfl_player_snaps", cols=cols,
+            pk_cols=["season","week","pfr_id"],
+        ) as w:
+            for r in row_tuples:
+                w.add(r)
+
     return count
 
 
@@ -393,9 +433,13 @@ def main() -> None:
                     help='Season list: "2011-2025" or "2023,2024" (default: 2011-2025)')
     ap.add_argument("--skip-snaps", action="store_true")
     ap.add_argument("--skip-playerstats", action="store_true")
+    ap.add_argument("--skip-local", action="store_true",
+                    help="Skip the local SQLite UPSERT — useful when iCloud is holding the DB lock")
+    ap.add_argument("--skip-d1", action="store_true",
+                    help="Skip the D1 dual-write — useful for local-only debug runs")
     args = ap.parse_args()
 
-    if not LOCAL_DB.exists():
+    if not args.skip_local and not LOCAL_DB.exists():
         sys.exit(f"local DB missing at {LOCAL_DB}")
     db = sqlite3.connect(str(LOCAL_DB), timeout=30)
     try:
@@ -403,23 +447,32 @@ def main() -> None:
         db.execute("PRAGMA busy_timeout=30000")
     except sqlite3.DatabaseError:
         pass
-    ensure_tables(db)
+    if not args.skip_local:
+        try:
+            ensure_tables(db)
+        except sqlite3.OperationalError as e:
+            print(f"  [schema] local ensure FAILED ({e}) — continuing in D1-only mode",
+                  file=sys.stderr)
 
     seasons = parse_seasons(args.seasons)
     print(f"Target seasons: {seasons}", file=sys.stderr)
 
     if not args.skip_playerstats:
         df_ps = fetch_playerstats(seasons)
-        n = upsert_player_weekly(db, df_ps)
+        n = upsert_player_weekly(db, df_ps, args)
         print(f"  nfl_player_weekly: {n} rows upserted", file=sys.stderr)
 
     if not args.skip_snaps:
         df_sn = fetch_snaps(seasons)
         if df_sn is not None:
-            n = upsert_snaps(db, df_sn)
+            n = upsert_snaps(db, df_sn, args)
             print(f"  nfl_player_snaps:  {n} rows upserted", file=sys.stderr)
         else:
             print("  (snaps skipped — no seasons >= 2012)", file=sys.stderr)
+
+    local_status = "skipped" if args.skip_local else "ok"
+    d1_status = "skipped" if args.skip_d1 else "ok"
+    print(f"DONE: nflverse weekly fetch (local={local_status}, d1={d1_status})", file=sys.stderr)
 
 
 if __name__ == "__main__":

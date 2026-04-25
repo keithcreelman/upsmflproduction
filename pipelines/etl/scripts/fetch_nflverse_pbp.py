@@ -37,6 +37,21 @@ from pathlib import Path
 _DEFAULT_DB = Path("/Users/keithcreelman/Desktop/MFL_Scripts/Datastorage/mfl_database.db")
 LOCAL_DB = Path(os.environ.get("MFL_DB_PATH") or _DEFAULT_DB)
 
+# Dual-write D1 path. Local SQLite stays primary until verified.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from lib.d1_io import D1Writer  # noqa: E402
+
+
+def _d1_write(table: str, pk_cols: list[str], cols: list[str],
+              rows: list[tuple], skip_d1: bool, label: str = "") -> None:
+    """Push rows to D1 via UPSERT-by-PK."""
+    if skip_d1 or not rows:
+        return
+    print(f"  [{label}] D1: writing {len(rows)} rows ...", file=sys.stderr)
+    with D1Writer(table=table, cols=cols, pk_cols=pk_cols) as w:
+        for r in rows:
+            w.add(r)
+
 
 def parse_seasons(spec: str) -> list[int]:
     out = set()
@@ -70,7 +85,7 @@ def ensure_table(db: sqlite3.Connection) -> None:
     db.commit()
 
 
-def process_season(db: sqlite3.Connection, season: int,
+def process_season(db: sqlite3.Connection, season: int, args,
                    do_redzone: bool = True,
                    do_fg: bool = True,
                    do_punts: bool = True,
@@ -356,36 +371,51 @@ def process_season(db: sqlite3.Connection, season: int,
                             v["targets_i20"], v["targets_i10"], v["targets_i5"],
                             v["targets_ez"], v["rec_i20"], v["rec_tds_i20"],
                             v["pass_att_i20"], v["pass_tds_i20"], v["pass_att_ez"]))
-        db.executemany("""
-            INSERT INTO nfl_player_redzone
-                (season, week, gsis_id, rush_att_i20, rush_att_i10, rush_att_i5,
-                 rush_yds_i20, rush_tds_i20,
-                 targets_i20, targets_i10, targets_i5,
-                 targets_ez, rec_i20, rec_tds_i20,
-                 pass_att_i20, pass_tds_i20, pass_att_ez)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-            ON CONFLICT(season, week, gsis_id) DO UPDATE SET
-              rush_att_i20 = excluded.rush_att_i20,
-              rush_att_i10 = excluded.rush_att_i10,
-              rush_att_i5  = excluded.rush_att_i5,
-              rush_yds_i20 = excluded.rush_yds_i20,
-              rush_tds_i20 = excluded.rush_tds_i20,
-              targets_i20  = excluded.targets_i20,
-              targets_i10  = excluded.targets_i10,
-              targets_i5   = excluded.targets_i5,
-              targets_ez   = excluded.targets_ez,
-              rec_i20      = excluded.rec_i20,
-              rec_tds_i20  = excluded.rec_tds_i20,
-              pass_att_i20 = excluded.pass_att_i20,
-              pass_tds_i20 = excluded.pass_tds_i20,
-              pass_att_ez  = excluded.pass_att_ez
-        """, rz_rows)
+        if not args.skip_local:
+            try:
+                db.executemany("""
+                    INSERT INTO nfl_player_redzone
+                        (season, week, gsis_id, rush_att_i20, rush_att_i10, rush_att_i5,
+                         rush_yds_i20, rush_tds_i20,
+                         targets_i20, targets_i10, targets_i5,
+                         targets_ez, rec_i20, rec_tds_i20,
+                         pass_att_i20, pass_tds_i20, pass_att_ez)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                    ON CONFLICT(season, week, gsis_id) DO UPDATE SET
+                      rush_att_i20 = excluded.rush_att_i20,
+                      rush_att_i10 = excluded.rush_att_i10,
+                      rush_att_i5  = excluded.rush_att_i5,
+                      rush_yds_i20 = excluded.rush_yds_i20,
+                      rush_tds_i20 = excluded.rush_tds_i20,
+                      targets_i20  = excluded.targets_i20,
+                      targets_i10  = excluded.targets_i10,
+                      targets_i5   = excluded.targets_i5,
+                      targets_ez   = excluded.targets_ez,
+                      rec_i20      = excluded.rec_i20,
+                      rec_tds_i20  = excluded.rec_tds_i20,
+                      pass_att_i20 = excluded.pass_att_i20,
+                      pass_tds_i20 = excluded.pass_tds_i20,
+                      pass_att_ez  = excluded.pass_att_ez
+                """, rz_rows)
+            except sqlite3.OperationalError as e:
+                print(f"  [redzone {season}] local: FAILED ({e})", file=sys.stderr)
+        _d1_write(
+            "nfl_player_redzone",
+            ["season","week","gsis_id"],
+            ["season","week","gsis_id","rush_att_i20","rush_att_i10","rush_att_i5",
+             "rush_yds_i20","rush_tds_i20",
+             "targets_i20","targets_i10","targets_i5",
+             "targets_ez","rec_i20","rec_tds_i20",
+             "pass_att_i20","pass_tds_i20","pass_att_ez"],
+            rz_rows, args.skip_d1, label=f"redzone {season}",
+        )
         counts["redzone"] = len(rz_rows)
 
     # ---- FG upsert (updates nfl_player_weekly — row must already exist via
     # fetch_nflverse_weekly.py; UPDATE leaves other columns alone) ----
     if do_fg and fg_agg:
         fg_rows = []
+        d1_fg_rows = []
         for (s, wk, gid), v in fg_agg.items():
             fg_rows.append((
                 v["fg_att_0_39"], v["fg_made_0_39"],
@@ -395,17 +425,39 @@ def process_season(db: sqlite3.Connection, season: int,
                 v["fg_distance_sum_made"], v["fg_made_pbp"],
                 s, wk, gid,
             ))
-        db.executemany("""
-            UPDATE nfl_player_weekly SET
-              fg_att_0_39 = ?, fg_made_0_39 = ?,
-              fg_att_40_49 = ?, fg_made_40_49 = ?,
-              fg_att_50_59 = ?, fg_made_50_59 = ?,
-              fg_att_60plus = ?, fg_made_60plus = ?,
-              fg_distance_sum_made = ?, fg_made_pbp = ?
-            WHERE season = ? AND week = ? AND gsis_id = ?
-        """, fg_rows)
-        counts["fg"] = db.total_changes  # approximate — we reset before each season
-        # More accurate FG count: how many row updates had at least one attempt
+            d1_fg_rows.append((
+                s, wk, gid,
+                v["fg_att_0_39"], v["fg_made_0_39"],
+                v["fg_att_40_49"], v["fg_made_40_49"],
+                v["fg_att_50_59"], v["fg_made_50_59"],
+                v["fg_att_60plus"], v["fg_made_60plus"],
+                v["fg_distance_sum_made"], v["fg_made_pbp"],
+            ))
+        if not args.skip_local:
+            try:
+                db.executemany("""
+                    UPDATE nfl_player_weekly SET
+                      fg_att_0_39 = ?, fg_made_0_39 = ?,
+                      fg_att_40_49 = ?, fg_made_40_49 = ?,
+                      fg_att_50_59 = ?, fg_made_50_59 = ?,
+                      fg_att_60plus = ?, fg_made_60plus = ?,
+                      fg_distance_sum_made = ?, fg_made_pbp = ?
+                    WHERE season = ? AND week = ? AND gsis_id = ?
+                """, fg_rows)
+            except sqlite3.OperationalError as e:
+                print(f"  [fg {season}] local: FAILED ({e})", file=sys.stderr)
+        _d1_write(
+            "nfl_player_weekly",
+            ["season","week","gsis_id"],
+            ["season","week","gsis_id",
+             "fg_att_0_39","fg_made_0_39",
+             "fg_att_40_49","fg_made_40_49",
+             "fg_att_50_59","fg_made_50_59",
+             "fg_att_60plus","fg_made_60plus",
+             "fg_distance_sum_made","fg_made_pbp"],
+            d1_fg_rows, args.skip_d1, label=f"fg {season}",
+        )
+        # accurate FG count: rows with at least one attempt across buckets
         counts["fg"] = sum(1 for r in fg_rows if any(x > 0 for x in r[:8]))
 
     # ---- Punter upsert ----
@@ -414,15 +466,8 @@ def process_season(db: sqlite3.Connection, season: int,
     # a stub row first, then UPDATE, so punter data lands even when the
     # weekly fetcher never saw the player.
     if do_punts and pt_agg:
-        # Stub inserts: minimal row keyed by (season, week, gsis_id). The stubs
-        # have all NULL non-key fields, so the subsequent UPDATE sets punt
-        # columns cleanly without stomping on anything real.
-        stubs = [(s, wk, gid) for (s, wk, gid) in pt_agg.keys()]
-        db.executemany("""
-            INSERT OR IGNORE INTO nfl_player_weekly (season, week, gsis_id)
-            VALUES (?, ?, ?)
-        """, stubs)
         pt_rows = []
+        d1_pt_rows = []
         for (s, wk, gid), v in pt_agg.items():
             pt_rows.append((
                 v["punts"], v["punt_yds"], v["punt_long"],
@@ -433,16 +478,49 @@ def process_season(db: sqlite3.Connection, season: int,
                 v["punt_inside20_pbp"],
                 s, wk, gid,
             ))
-        db.executemany("""
-            UPDATE nfl_player_weekly SET
-              punts = ?, punt_yds = ?, punt_long = ?,
-              punt_inside20 = ?, punt_tb = ?,
-              punt_spot_sum = ?, punt_spot_count = ?,
-              punt_net_yds_sum = ?,
-              punt_inside5 = ?, punt_inside10 = ?, punt_inside15 = ?,
-              punt_inside20_pbp = ?
-            WHERE season = ? AND week = ? AND gsis_id = ?
-        """, pt_rows)
+            d1_pt_rows.append((
+                s, wk, gid,
+                v["punts"], v["punt_yds"], v["punt_long"],
+                v["punt_inside20"], v["punt_tb"],
+                v["punt_spot_sum"], v["punt_spot_count"],
+                v["punt_net_yds_sum"],
+                v["punt_inside5"], v["punt_inside10"], v["punt_inside15"],
+                v["punt_inside20_pbp"],
+            ))
+        if not args.skip_local:
+            try:
+                # Stub inserts: minimal row keyed by (season, week, gsis_id). The stubs
+                # have all NULL non-key fields, so the subsequent UPDATE sets punt
+                # columns cleanly without stomping on anything real.
+                stubs = [(s, wk, gid) for (s, wk, gid) in pt_agg.keys()]
+                db.executemany("""
+                    INSERT OR IGNORE INTO nfl_player_weekly (season, week, gsis_id)
+                    VALUES (?, ?, ?)
+                """, stubs)
+                db.executemany("""
+                    UPDATE nfl_player_weekly SET
+                      punts = ?, punt_yds = ?, punt_long = ?,
+                      punt_inside20 = ?, punt_tb = ?,
+                      punt_spot_sum = ?, punt_spot_count = ?,
+                      punt_net_yds_sum = ?,
+                      punt_inside5 = ?, punt_inside10 = ?, punt_inside15 = ?,
+                      punt_inside20_pbp = ?
+                    WHERE season = ? AND week = ? AND gsis_id = ?
+                """, pt_rows)
+            except sqlite3.OperationalError as e:
+                print(f"  [punt {season}] local: FAILED ({e})", file=sys.stderr)
+        _d1_write(
+            "nfl_player_weekly",
+            ["season","week","gsis_id"],
+            ["season","week","gsis_id",
+             "punts","punt_yds","punt_long",
+             "punt_inside20","punt_tb",
+             "punt_spot_sum","punt_spot_count",
+             "punt_net_yds_sum",
+             "punt_inside5","punt_inside10","punt_inside15",
+             "punt_inside20_pbp"],
+            d1_pt_rows, args.skip_d1, label=f"punt {season}",
+        )
         counts["punt"] = len(pt_rows)
 
     # ---- Team-weekly upsert (nfl_team_weekly, migration 0016) ----
@@ -455,22 +533,39 @@ def process_season(db: sqlite3.Connection, season: int,
                 v["fourth_down_punt"], v["fourth_down_fg"],
                 v["stall_punts"], v["team_punts"],
             ))
-        db.executemany("""
-            INSERT INTO nfl_team_weekly
-                (season, week, team, fourth_down_total, fourth_down_go,
-                 fourth_down_punt, fourth_down_fg, stall_punts, team_punts)
-            VALUES (?,?,?,?,?,?,?,?,?)
-            ON CONFLICT(season, week, team) DO UPDATE SET
-              fourth_down_total = excluded.fourth_down_total,
-              fourth_down_go    = excluded.fourth_down_go,
-              fourth_down_punt  = excluded.fourth_down_punt,
-              fourth_down_fg    = excluded.fourth_down_fg,
-              stall_punts       = excluded.stall_punts,
-              team_punts        = excluded.team_punts
-        """, tw_rows)
+        if not args.skip_local:
+            try:
+                db.executemany("""
+                    INSERT INTO nfl_team_weekly
+                        (season, week, team, fourth_down_total, fourth_down_go,
+                         fourth_down_punt, fourth_down_fg, stall_punts, team_punts)
+                    VALUES (?,?,?,?,?,?,?,?,?)
+                    ON CONFLICT(season, week, team) DO UPDATE SET
+                      fourth_down_total = excluded.fourth_down_total,
+                      fourth_down_go    = excluded.fourth_down_go,
+                      fourth_down_punt  = excluded.fourth_down_punt,
+                      fourth_down_fg    = excluded.fourth_down_fg,
+                      stall_punts       = excluded.stall_punts,
+                      team_punts        = excluded.team_punts
+                """, tw_rows)
+            except sqlite3.OperationalError as e:
+                print(f"  [team {season}] local: FAILED ({e})", file=sys.stderr)
+        _d1_write(
+            "nfl_team_weekly",
+            ["season","week","team"],
+            ["season","week","team",
+             "fourth_down_total","fourth_down_go",
+             "fourth_down_punt","fourth_down_fg",
+             "stall_punts","team_punts"],
+            tw_rows, args.skip_d1, label=f"team {season}",
+        )
         counts["team"] = len(tw_rows)
 
-    db.commit()
+    if not args.skip_local:
+        try:
+            db.commit()
+        except sqlite3.OperationalError as e:
+            print(f"  [{season}] local commit FAILED ({e})", file=sys.stderr)
     print(f"  {season}: redzone={counts['redzone']} fg={counts['fg']} punt={counts['punt']} team={counts['team']}", file=sys.stderr)
     return counts
 
@@ -524,9 +619,13 @@ def main() -> None:
                     help="Skip punter volume/distance (nfl_player_weekly)")
     ap.add_argument("--skip-team", action="store_true",
                     help="Skip team-level 4th-down + stall-punt (nfl_team_weekly)")
+    ap.add_argument("--skip-local", action="store_true",
+                    help="Skip the local SQLite UPSERT — useful when iCloud is holding the DB lock")
+    ap.add_argument("--skip-d1", action="store_true",
+                    help="Skip the D1 dual-write — useful for local-only debug runs")
     args = ap.parse_args()
 
-    if not LOCAL_DB.exists():
+    if not args.skip_local and not LOCAL_DB.exists():
         sys.exit(f"local DB missing at {LOCAL_DB}\n"
                  f"(set MFL_DB_PATH env var if DB lives elsewhere)")
     print(f"DB: {LOCAL_DB}", file=sys.stderr)
@@ -538,8 +637,13 @@ def main() -> None:
         db.execute("PRAGMA busy_timeout=30000")
     except sqlite3.DatabaseError:
         pass
-    ensure_table(db)
-    ensure_weekly_columns(db)
+    if not args.skip_local:
+        try:
+            ensure_table(db)
+            ensure_weekly_columns(db)
+        except sqlite3.OperationalError as e:
+            print(f"  [schema] local ensure FAILED ({e}) — continuing in D1-only mode",
+                  file=sys.stderr)
 
     seasons = parse_seasons(args.seasons)
     print(f"Target seasons: {seasons}", file=sys.stderr)
@@ -547,15 +651,18 @@ def main() -> None:
     totals = {"redzone": 0, "fg": 0, "punt": 0, "team": 0}
     for s in seasons:
         c = process_season(
-            db, s,
+            db, s, args,
             do_redzone=not args.skip_redzone,
             do_fg=not args.skip_fg,
             do_punts=not args.skip_punts,
             do_team=not args.skip_team,
         )
         for k in totals: totals[k] += c.get(k, 0)
+    local_status = "skipped" if args.skip_local else "ok"
+    d1_status = "skipped" if args.skip_d1 else "ok"
     print(f"DONE: redzone={totals['redzone']} fg={totals['fg']} punt={totals['punt']} "
-          f"team={totals['team']} rows across {len(seasons)} seasons", file=sys.stderr)
+          f"team={totals['team']} rows across {len(seasons)} seasons "
+          f"(local={local_status}, d1={d1_status})", file=sys.stderr)
 
 
 if __name__ == "__main__":

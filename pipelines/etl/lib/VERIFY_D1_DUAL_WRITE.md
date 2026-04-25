@@ -1,10 +1,10 @@
 # Verifying dual-write: local SQLite + D1 stay in sync
 
-**Status: 2 of 4 fetchers converted to dual-write.**
+**Status: 4 of 4 fetchers converted to dual-write.**
 - ✅ `fetch_pfr_season_advstats.py` — proof-of-concept
 - ✅ `fetch_pfr_advstats.py` — weekly PFR rec/rush/pass/def
-- ⏳ `fetch_nflverse_pbp.py`
-- ⏳ `fetch_nflverse_weekly.py`
+- ✅ `fetch_nflverse_pbp.py` — redzone + FG buckets + punter + nfl_team_weekly
+- ✅ `fetch_nflverse_weekly.py` — weekly box-score + snap counts
 
 Local SQLite remains the primary, authoritative path. D1Writer adds a parallel UPSERT to D1 in the same fetch run. After a few runs that confirm equivalence, individual fetchers can be flipped to `--skip-local` (D1-only) and eventually cut from the SQLite hop entirely.
 
