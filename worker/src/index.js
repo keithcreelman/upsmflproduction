@@ -651,18 +651,33 @@ export default {
           }
           franchises.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
           const pidToFid = {};
+          // Live contract overlay (Keith 2026-04-25): MFL's rosters
+          // export carries salary + contract fields per player. By
+          // exposing them here the leaderboard can drop its dependency
+          // on the manual src_contracts sync — values are always live.
+          const pidToContract = {};
           const rosterList = rj?.rosters?.franchise || [];
           for (const f of rosterList) {
             const fid = pad4(f.id);
             let players = f.player || [];
             if (!Array.isArray(players)) players = [players];
             for (const p of players) {
-              if (p && p.id) pidToFid[String(p.id)] = fid;
+              if (!p || !p.id) continue;
+              const pid = String(p.id);
+              pidToFid[pid] = fid;
+              // Capture raw fields; client parses contractInfo for CL/AAV
+              const c = {};
+              if (p.salary != null) c.salary = Number(p.salary) || 0;
+              if (p.contractYear != null) c.contractYear = Number(p.contractYear) || null;
+              if (p.contractInfo) c.contractInfo = String(p.contractInfo);
+              if (p.contractStatus) c.contractStatus = String(p.contractStatus);
+              if (Object.keys(c).length) pidToContract[pid] = c;
             }
           }
           return jsonOut(200, {
             season: Number(year), league_id: leagueId,
             franchises, pid_to_fid: pidToFid,
+            pid_to_contract: pidToContract,
             franchise_count: franchises.length,
             rostered_count: Object.keys(pidToFid).length,
           });
@@ -856,10 +871,13 @@ export default {
                      SUM(COALESCE(w.punt_yds,0))          AS punt_yds,
                      MAX(COALESCE(w.punt_long,0))         AS punt_long,
                      SUM(COALESCE(w.punt_inside20,0))     AS punt_inside20,
+                     SUM(COALESCE(w.punt_inside15,0))     AS punt_inside15,
+                     SUM(COALESCE(w.punt_inside10,0))     AS punt_inside10,
+                     SUM(COALESCE(w.punt_inside5,0))      AS punt_inside5,
                      SUM(COALESCE(w.punt_tb,0))           AS punt_tb,
                      SUM(COALESCE(w.punt_spot_sum,0))     AS punt_spot_sum,
                      SUM(COALESCE(w.punt_spot_count,0))   AS punt_spot_count,
-                     AVG(w.punt_net_avg)                  AS punt_net_avg,
+                     SUM(COALESCE(w.punt_net_yds_sum,0))  AS punt_net_yds_sum,
                      SUM(COALESCE(w.receiving_drops,0))          AS receiving_drops,
                      SUM(COALESCE(w.receiving_broken_tackles,0)) AS receiving_broken_tackles,
                      SUM(COALESCE(w.rushing_broken_tackles,0))   AS rushing_broken_tackles,
@@ -1046,7 +1064,9 @@ export default {
                    a.def_tackles_total, a.def_tackles_ast, a.def_tfl, a.def_sacks,
                    a.def_ff, a.def_fr, a.def_ints, a.def_pass_def, a.def_tds,
                    a.fg_att, a.fg_made, a.xp_att, a.xp_made,
-                   a.punts, a.punt_yds, a.punt_inside20, a.punt_tb, a.punt_net_avg,
+                   a.punts, a.punt_yds,
+                   a.punt_inside20, a.punt_inside15, a.punt_inside10, a.punt_inside5, a.punt_tb,
+                   CAST(a.punt_net_yds_sum AS REAL) / NULLIF(a.punts, 0) AS punt_net_avg,
                    a.receiving_drops, a.receiving_broken_tackles,
                    a.rushing_broken_tackles,
                    a.rushing_yards_before_contact, a.rushing_yards_after_contact,

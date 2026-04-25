@@ -540,10 +540,17 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:13px}
       compute: function(r){ return r.punts ? r.punt_yds / r.punts : null; } },
     punt_net_avg:        { label:"Net Avg",  num:true, fmt:"dec1",
       title:"Net punt yards per attempt (gross minus returns/touchbacks)" },
-    punt_inside20:       { label:"I20",      num:true, title:"Punts downed inside opponent 20" },
+    punt_inside20:       { label:"I20",      num:true, title:"Punts downed inside opponent 20 (nflverse PBP I20 flag)" },
+    punt_inside15:       { label:"I15",      num:true, title:"Punts ending with ball inside opponent 15 (PBP-derived)" },
+    punt_inside10:       { label:"I10",      num:true, title:"Punts ending with ball inside opponent 10 (PBP-derived)" },
+    punt_inside5:        { label:"I5",       num:true, title:"Punts pinned inside opponent 5 (PBP-derived)" },
     punt_i20_pct:        { label:"I20%",     num:true, fmt:"pct",
       title:"Percent of punts landed inside opponent 20",
       compute: function(r){ return r.punts ? r.punt_inside20 / r.punts : null; } },
+    punt_i10_pct:        { label:"I10%",     num:true, fmt:"pct",
+      compute: function(r){ return r.punts ? (r.punt_inside10||0) / r.punts : null; } },
+    punt_i5_pct:         { label:"I5%",      num:true, fmt:"pct",
+      compute: function(r){ return r.punts ? (r.punt_inside5||0) / r.punts : null; } },
     punt_tb:             { label:"TB",       num:true, invertRank:true, title:"Touchbacks (PBP)" },
     punt_tb_pct:         { label:"TB%",      num:true, fmt:"pct", invertRank:true,
       title:"Percent of punts that resulted in a touchback",
@@ -752,8 +759,8 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:13px}
         { id:"mfl_details",     label:"MFL Details",        cols:["mfl_points","mfl_ppg","mfl_salary","mfl_aav","mfl_years_remaining"], defaultOn:true },
         { id:"usage",           label:"Usage",              cols:["games"], defaultOn:true },
         { id:"punt_volume",     label:"Volume",             cols:["punts","punt_yds"], defaultOn:true },
-        { id:"punt_efficiency", label:"Efficiency",         cols:["punt_avg","punt_net_avg"], defaultOn:false },
-        { id:"punt_situation",  label:"Field Position",     cols:["punt_inside20","punt_i20_pct","punt_tb","punt_tb_pct","punt_avg_spot"], defaultOn:false },
+        { id:"punt_efficiency", label:"Efficiency",         cols:["punt_avg","punt_net_avg","punt_avg_spot"], defaultOn:false },
+        { id:"punt_situation",  label:"Field Position",     cols:["punt_inside20","punt_i20_pct","punt_inside15","punt_inside10","punt_i10_pct","punt_inside5","punt_i5_pct","punt_tb","punt_tb_pct"], defaultOn:false },
         { id:"punt_team_ctx",    label:"Team Context",       cols:["team_fourth_down_go_rate","team_stall_punt_rate"], defaultOn:false },
       ]
     },
@@ -779,9 +786,10 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:13px}
     seasonsSel.appendChild(opt);
   }
 
-  // ---------- Live MFL ownership overlay ----------
+  // ---------- Live MFL ownership + contract overlay ----------
   var fidToName = {};
   var pidToFid  = {};
+  var pidToContract = {}; // { pid: { salary, aav, yearsRemaining } } from MFL live rosters
 
   function padFid(fid) {
     fid = String(fid || "");
@@ -804,8 +812,32 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:13px}
       Object.keys(j.pid_to_fid || {}).forEach(function(pid){
         pidToFid[pid] = padFid(j.pid_to_fid[pid]);
       });
+      // Live contract overlay — parse contractInfo for total years (CL N)
+      // and AAV ("AAV NK"). MFL gives us contractYear directly. salary
+      // comes through as a number. yearsRemaining = CL - contractYear + 1.
+      Object.keys(j.pid_to_contract || {}).forEach(function(pid){
+        var c = j.pid_to_contract[pid] || {};
+        var ci = String(c.contractInfo || "");
+        var clMatch = ci.match(/CL\s*(\d+)/i);
+        var totalYears = clMatch ? parseInt(clMatch[1], 10) : null;
+        var aavMatch = ci.match(/AAV\s*([\d.]+)\s*([KkMm]?)/);
+        var aav = null;
+        if (aavMatch) {
+          var n = parseFloat(aavMatch[1]) || 0;
+          var unit = aavMatch[2].toUpperCase();
+          aav = unit === "M" ? n * 1e6 : (unit === "K" ? n * 1e3 : n);
+        }
+        var yr = (c.contractYear && totalYears) ? Math.max(0, totalYears - c.contractYear + 1) : null;
+        pidToContract[pid] = {
+          salary: typeof c.salary === "number" ? c.salary : null,
+          aav: aav,
+          yearsRemaining: yr,
+          contractStatus: c.contractStatus || null,
+        };
+      });
       console.log("[asw] loaded " + (j.franchises || []).length + " franchises, " +
-                  Object.keys(pidToFid).length + " rostered players");
+                  Object.keys(pidToFid).length + " rostered players, " +
+                  Object.keys(pidToContract).length + " live contracts");
     })
     .catch(function(e){
       console.warn("[asw] mfl-league-state fetch failed:", e && e.message || e);
@@ -817,13 +849,23 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:13px}
       if (!pid) return r;
       var liveFid = pidToFid[pid];
       if (liveFid) {
-        return Object.assign({}, r, {
+        // Rostered — overlay franchise + LIVE contract details from MFL
+        // rosters API. Replaces stale src_contracts values when present;
+        // falls back to whatever the leaderboard returned otherwise.
+        var liveC = pidToContract[pid];
+        var patch = {
           mfl_franchise_id: liveFid,
           mfl_franchise_name: fidToName[liveFid] || r.mfl_franchise_name,
-        });
+        };
+        if (liveC) {
+          if (liveC.salary != null)         patch.mfl_salary = liveC.salary;
+          if (liveC.aav != null)            patch.mfl_aav = liveC.aav;
+          if (liveC.yearsRemaining != null) patch.mfl_years_remaining = liveC.yearsRemaining;
+        }
+        return Object.assign({}, r, patch);
       }
-      // FA — zero contract details too. src_contracts keeps historic rows
-      // for dropped players; once they're FA those values aren't applicable.
+      // FA — zero contract details. MFL doesn't track contracts for FAs;
+      // src_contracts keeps historic rows but they aren't applicable now.
       return Object.assign({}, r, {
         mfl_franchise_id: null,
         mfl_franchise_name: null,

@@ -146,9 +146,17 @@ def process_season(db: sqlite3.Connection, season: int,
             pt_agg[key] = {
                 "punts": 0, "punt_yds": 0, "punt_long": 0,
                 "punt_inside20": 0, "punt_tb": 0,
-                # Avg punt spot — own-yardline at LoS. Sum of (100-yl_100)
-                # across punts with known yardline, and count denominator.
+                # Avg punt spot — own-yardline at LoS.
                 "punt_spot_sum": 0, "punt_spot_count": 0,
+                # Net yardage (gross - return_yards). Sum + count derive
+                # client-side as net_avg = sum / punts.
+                "punt_net_yds_sum": 0,
+                # Inside-N buckets — where the ball ended up after the
+                # play. End yardline_100 = 100 - end_yard_line (offense
+                # perspective). Using nflverse 'punt_inside_twenty'
+                # as the canonical I20 source (parity check against
+                # bucket-derived I20 lives in the worker).
+                "punt_inside5": 0, "punt_inside10": 0, "punt_inside15": 0,
             }
         return pt_agg[key]
 
@@ -235,20 +243,46 @@ def process_season(db: sqlite3.Connection, season: int,
                         dist = int(dist) if dist is not None else None
                     except (ValueError, TypeError):
                         dist = None
+                    ret_yds = row.get("return_yards")
+                    try:
+                        ret_yds = int(ret_yds) if ret_yds is not None else 0
+                    except (ValueError, TypeError):
+                        ret_yds = 0
                     b = pt_bucket(punter, week)
                     b["punts"] += 1
                     if dist is not None:
                         b["punt_yds"] += dist
+                        b["punt_net_yds_sum"] += max(0, dist - ret_yds)
                         if dist > b["punt_long"]:
                             b["punt_long"] = dist
                     if yl100 is not None:
                         b["punt_spot_sum"] += (100 - yl100)  # own-yardline
                         b["punt_spot_count"] += 1
-                    # touchback and inside_twenty — both nullable 0/1
+                    # touchback + inside-N flag (nullable 0/1)
                     if row.get("touchback") in (1, True, "1"):
                         b["punt_tb"] += 1
                     if row.get("punt_inside_twenty") in (1, True, "1"):
                         b["punt_inside20"] += 1
+                    # Inside-5/10/15 from end-of-play yardline. nflverse
+                    # PBP exposes the receiving team's resulting LoS as
+                    # `yardline_100` on the FOLLOWING play; the punt row
+                    # itself doesn't carry the end-spot directly. We
+                    # reconstruct: end_spot_100 = max(0, yl100_at_punt -
+                    # net_yards). Only when both inputs are known.
+                    if yl100 is not None and dist is not None:
+                        # Net yards on this punt — gross - return. Touchbacks
+                        # are conventionally 20-yard returns from the goal
+                        # line, but nflverse's return_yards already reflects
+                        # touchback-adjusted distance, so plain subtract.
+                        net = max(0, dist - ret_yds)
+                        end_100 = yl100 - net  # offense perspective: yardline_100 of receiving team's LoS
+                        # end_100 < 0 = ball pushed into / past the EZ;
+                        # touchbacks cap at 20 in the official stat. Skip
+                        # negative + zero (touchback) for inside-N buckets.
+                        if end_100 is not None and 0 < end_100:
+                            if end_100 <= 5:  b["punt_inside5"]  += 1
+                            if end_100 <= 10: b["punt_inside10"] += 1
+                            if end_100 <= 15: b["punt_inside15"] += 1
             continue  # punt plays don't also fall into redzone bucketing
 
         # ---- Redzone aggregation (only run/pass) ----
@@ -393,13 +427,17 @@ def process_season(db: sqlite3.Connection, season: int,
                 v["punts"], v["punt_yds"], v["punt_long"],
                 v["punt_inside20"], v["punt_tb"],
                 v["punt_spot_sum"], v["punt_spot_count"],
+                v["punt_net_yds_sum"],
+                v["punt_inside5"], v["punt_inside10"], v["punt_inside15"],
                 s, wk, gid,
             ))
         db.executemany("""
             UPDATE nfl_player_weekly SET
               punts = ?, punt_yds = ?, punt_long = ?,
               punt_inside20 = ?, punt_tb = ?,
-              punt_spot_sum = ?, punt_spot_count = ?
+              punt_spot_sum = ?, punt_spot_count = ?,
+              punt_net_yds_sum = ?,
+              punt_inside5 = ?, punt_inside10 = ?, punt_inside15 = ?
             WHERE season = ? AND week = ? AND gsis_id = ?
         """, pt_rows)
         counts["punt"] = len(pt_rows)
@@ -444,6 +482,10 @@ def ensure_weekly_columns(db: sqlite3.Connection) -> None:
         "ALTER TABLE nfl_player_weekly ADD COLUMN punt_tb INTEGER",
         "ALTER TABLE nfl_player_weekly ADD COLUMN punt_spot_sum INTEGER",
         "ALTER TABLE nfl_player_weekly ADD COLUMN punt_spot_count INTEGER",
+        "ALTER TABLE nfl_player_weekly ADD COLUMN punt_net_yds_sum INTEGER",
+        "ALTER TABLE nfl_player_weekly ADD COLUMN punt_inside5 INTEGER",
+        "ALTER TABLE nfl_player_weekly ADD COLUMN punt_inside10 INTEGER",
+        "ALTER TABLE nfl_player_weekly ADD COLUMN punt_inside15 INTEGER",
     ]:
         try:
             db.execute(stmt)
