@@ -540,10 +540,20 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:13px}
       compute: function(r){ return r.punts ? r.punt_yds / r.punts : null; } },
     punt_net_avg:        { label:"Net Avg",  num:true, fmt:"dec1",
       title:"Net punt yards per attempt (gross minus returns/touchbacks)" },
-    punt_inside20:       { label:"I20",      num:true, title:"Punts downed inside opponent 20 (nflverse PBP I20 flag)" },
-    punt_inside15:       { label:"I15",      num:true, title:"Punts ending with ball inside opponent 15 (PBP-derived)" },
-    punt_inside10:       { label:"I10",      num:true, title:"Punts ending with ball inside opponent 10 (PBP-derived)" },
-    punt_inside5:        { label:"I5",       num:true, title:"Punts pinned inside opponent 5 (PBP-derived)" },
+    // Inside-N — official I20 from nflverse golden flag, plus PBP-
+    // derived I5/I10/I15 + I20-parity. Compare punt_inside20 vs
+    // punt_inside20_pbp to verify our end-spot derivation alignment.
+    punt_inside5:        { label:"I5",       num:true, title:"Punts pinned inside opponent 5 (PBP-derived from end-spot)" },
+    punt_inside10:       { label:"I10",      num:true, title:"Punts inside opponent 10 (PBP-derived)" },
+    punt_inside15:       { label:"I15",      num:true, title:"Punts inside opponent 15 (PBP-derived)" },
+    punt_inside20:       { label:"I20",      num:true, title:"Punts inside opponent 20 — nflverse golden flag (official)" },
+    punt_inside20_pbp:   { label:"I20*",     num:true, title:"PBP-derived I20 using same end-spot math as I5/I10/I15. Should match I20 closely; drift signals end-spot calc bug." },
+    punt_i20_parity:     { label:"I20 Δ",    num:true,
+      title:"I20 (golden) − I20 (PBP). 0 = perfect alignment.",
+      compute: function(r){
+        if (r.punt_inside20 == null || r.punt_inside20_pbp == null) return null;
+        return r.punt_inside20 - r.punt_inside20_pbp;
+      } },
     punt_i20_pct:        { label:"I20%",     num:true, fmt:"pct",
       title:"Percent of punts landed inside opponent 20",
       compute: function(r){ return r.punts ? r.punt_inside20 / r.punts : null; } },
@@ -760,7 +770,12 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:13px}
         { id:"usage",           label:"Usage",              cols:["games"], defaultOn:true },
         { id:"punt_volume",     label:"Volume",             cols:["punts","punt_yds"], defaultOn:true },
         { id:"punt_efficiency", label:"Efficiency",         cols:["punt_avg","punt_net_avg","punt_avg_spot"], defaultOn:false },
-        { id:"punt_situation",  label:"Field Position",     cols:["punt_inside20","punt_i20_pct","punt_inside15","punt_inside10","punt_i10_pct","punt_inside5","punt_i5_pct","punt_tb","punt_tb_pct"], defaultOn:false },
+        // Inside-N buckets default ON — they're the punter's job. Order:
+        // I5 → I10 → I15 → I20 (golden) → I20* (PBP-derived parity) → Δ.
+        // Δ should hover near 0; non-zero signals end-spot math drift.
+        { id:"punt_situation",  label:"Field Position",
+          cols:["punt_inside5","punt_i5_pct","punt_inside10","punt_i10_pct","punt_inside15","punt_inside20","punt_i20_pct","punt_inside20_pbp","punt_i20_parity","punt_tb","punt_tb_pct"],
+          defaultOn:true },
         { id:"punt_team_ctx",    label:"Team Context",       cols:["team_fourth_down_go_rate","team_stall_punt_rate"], defaultOn:false },
       ]
     },

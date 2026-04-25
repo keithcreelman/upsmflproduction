@@ -157,6 +157,8 @@ def process_season(db: sqlite3.Connection, season: int,
                 # as the canonical I20 source (parity check against
                 # bucket-derived I20 lives in the worker).
                 "punt_inside5": 0, "punt_inside10": 0, "punt_inside15": 0,
+                # PBP-derived I20 for parity vs nflverse golden flag.
+                "punt_inside20_pbp": 0,
             }
         return pt_agg[key]
 
@@ -263,26 +265,25 @@ def process_season(db: sqlite3.Connection, season: int,
                         b["punt_tb"] += 1
                     if row.get("punt_inside_twenty") in (1, True, "1"):
                         b["punt_inside20"] += 1
-                    # Inside-5/10/15 from end-of-play yardline. nflverse
-                    # PBP exposes the receiving team's resulting LoS as
-                    # `yardline_100` on the FOLLOWING play; the punt row
-                    # itself doesn't carry the end-spot directly. We
-                    # reconstruct: end_spot_100 = max(0, yl100_at_punt -
-                    # net_yards). Only when both inputs are known.
+                    # Inside-N derivation from end-of-play yardline.
+                    # nflverse PBP exposes the receiving team's resulting
+                    # LoS via the FOLLOWING play; here we reconstruct:
+                    #   end_spot_100 = yl100_at_punt - net_yards.
+                    # Negative / zero = touchback (skip). punt_inside20
+                    # itself comes from nflverse's `punt_inside_twenty`
+                    # flag (golden source). punt_inside20_pbp uses the
+                    # SAME end-spot math as I5/I10/I15 — the user can
+                    # eyeball golden vs derived for parity. (Keith
+                    # 2026-04-25: if these drift, our return_yards
+                    # calc is off.)
                     if yl100 is not None and dist is not None:
-                        # Net yards on this punt — gross - return. Touchbacks
-                        # are conventionally 20-yard returns from the goal
-                        # line, but nflverse's return_yards already reflects
-                        # touchback-adjusted distance, so plain subtract.
                         net = max(0, dist - ret_yds)
-                        end_100 = yl100 - net  # offense perspective: yardline_100 of receiving team's LoS
-                        # end_100 < 0 = ball pushed into / past the EZ;
-                        # touchbacks cap at 20 in the official stat. Skip
-                        # negative + zero (touchback) for inside-N buckets.
+                        end_100 = yl100 - net
                         if end_100 is not None and 0 < end_100:
                             if end_100 <= 5:  b["punt_inside5"]  += 1
                             if end_100 <= 10: b["punt_inside10"] += 1
                             if end_100 <= 15: b["punt_inside15"] += 1
+                            if end_100 <= 20: b["punt_inside20_pbp"] += 1
             continue  # punt plays don't also fall into redzone bucketing
 
         # ---- Redzone aggregation (only run/pass) ----
@@ -429,6 +430,7 @@ def process_season(db: sqlite3.Connection, season: int,
                 v["punt_spot_sum"], v["punt_spot_count"],
                 v["punt_net_yds_sum"],
                 v["punt_inside5"], v["punt_inside10"], v["punt_inside15"],
+                v["punt_inside20_pbp"],
                 s, wk, gid,
             ))
         db.executemany("""
@@ -437,7 +439,8 @@ def process_season(db: sqlite3.Connection, season: int,
               punt_inside20 = ?, punt_tb = ?,
               punt_spot_sum = ?, punt_spot_count = ?,
               punt_net_yds_sum = ?,
-              punt_inside5 = ?, punt_inside10 = ?, punt_inside15 = ?
+              punt_inside5 = ?, punt_inside10 = ?, punt_inside15 = ?,
+              punt_inside20_pbp = ?
             WHERE season = ? AND week = ? AND gsis_id = ?
         """, pt_rows)
         counts["punt"] = len(pt_rows)
@@ -486,6 +489,7 @@ def ensure_weekly_columns(db: sqlite3.Connection) -> None:
         "ALTER TABLE nfl_player_weekly ADD COLUMN punt_inside5 INTEGER",
         "ALTER TABLE nfl_player_weekly ADD COLUMN punt_inside10 INTEGER",
         "ALTER TABLE nfl_player_weekly ADD COLUMN punt_inside15 INTEGER",
+        "ALTER TABLE nfl_player_weekly ADD COLUMN punt_inside20_pbp INTEGER",
     ]:
         try:
             db.execute(stmt)
