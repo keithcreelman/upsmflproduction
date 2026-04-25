@@ -23,8 +23,27 @@ def get_conn(db_path: str | None = None) -> sqlite3.Connection:
 
     Args:
         db_path: Optional override path. If None, uses DEFAULT_DB_PATH.
+
+    Sets WAL mode + a 30-second busy timeout (Keith 2026-04-25 — the
+    iCloud-backed DB serializes write locks badly when the iCloud
+    daemon is reading the file mid-write; WAL lets reads stay
+    non-blocking and busy_timeout gives concurrent writers a chance
+    to finish instead of failing instantly).
     """
-    return sqlite3.connect(db_path or DEFAULT_DB_PATH)
+    conn = sqlite3.connect(db_path or DEFAULT_DB_PATH, timeout=30)
+    try:
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA busy_timeout=30000")
+    except sqlite3.DatabaseError:
+        pass  # SQLite version may not support; non-fatal
+    return conn
+
+
+def open_local_db(db_path: str | os.PathLike | None = None) -> sqlite3.Connection:
+    """Same as get_conn but accepts a Path or string. Used by the
+    fetcher scripts that hold a single connection for a long run.
+    """
+    return get_conn(str(db_path) if db_path else None)
 
 
 @contextmanager

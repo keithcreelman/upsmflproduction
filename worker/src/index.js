@@ -1170,6 +1170,36 @@ export default {
         }
       }
 
+      // ---------- Stickiness report (Phase 1) ----------
+      // Keith 2026-04-25: YoY stickiness rank for per-position metrics.
+      // Reads metric_stickiness, populated by
+      // pipelines/etl/scripts/build_stickiness_report.py. One row per
+      // (position, metric, min_games). Phase 1 ships QB only; defaults
+      // mirror the script defaults (pos=QB, min_games=8).
+      if (path === "/api/advanced-stats-stickiness" && request.method === "GET") {
+        if (!env.UPS_MFL_DB) return jsonOut(503, { error: "D1 not bound" });
+        try {
+          const db = env.UPS_MFL_DB;
+          const pos = safeStr(url.searchParams.get("pos") || "QB").toUpperCase();
+          const minGames = Math.max(1, parseInt(safeStr(url.searchParams.get("min_games")), 10) || 8);
+          const sql = `
+            SELECT position, metric, min_games, n_pairs, n_players,
+                   corr_pearson, corr_spearman, season_min, season_max, computed_at
+              FROM metric_stickiness
+             WHERE position = ? AND min_games = ?
+             ORDER BY corr_pearson DESC NULLS LAST, metric ASC
+          `;
+          const res = await db.prepare(sql).bind(pos, minGames).all();
+          const rows = res.results || [];
+          return jsonOut(200, {
+            position: pos, min_games: minGames, count: rows.length, rows,
+          });
+        } catch (e) {
+          console.error("[advanced-stats-stickiness] failed:", e);
+          return jsonOut(500, { error: String(e && e.message || e) });
+        }
+      }
+
       // ---------- Advanced Stats Workbench drill-down: per-week rows ----------
       // Keith 2026-04-24: row click on the workbench opens a side panel
       // showing this player's season/week breakdown. Returns one row per

@@ -30,11 +30,17 @@ Usage:
 """
 from __future__ import annotations
 import argparse
+import os
 import sqlite3
 import sys
 from pathlib import Path
 
-LOCAL_DB = Path("/Users/keithcreelman/Desktop/MFL_Scripts/Datastorage/mfl_database.db")
+# Honor $MFL_DB_PATH like every other ETL script in the repo. Default
+# kept as the legacy Desktop path for backwards compat on machines
+# that already have it there. (Keith 2026-04-25 — finally made every
+# script consistent.)
+_DEFAULT_DB = Path("/Users/keithcreelman/Desktop/MFL_Scripts/Datastorage/mfl_database.db")
+LOCAL_DB = Path(os.environ.get("MFL_DB_PATH") or _DEFAULT_DB)
 
 
 # ---------------------------------------------------------------
@@ -76,11 +82,16 @@ PLAYERSTATS_MAP = {
     "pass_yds":          ["passing_yards"],
     "pass_tds":          ["passing_tds"],
     "pass_ints":         ["interceptions", "passing_interceptions"],
-    # Keith 2026-04-24: nflverse renamed the QB-side sack fields.
-    # sacks_suffered = times this QB was sacked.
-    # sack_yards_lost = yards lost on those sacks (MFL scores this).
-    "pass_sacks":        ["sacks_suffered", "sacks", "passing_sacks"],
-    "pass_sack_yds":     ["sack_yards_lost", "sack_yards", "passing_sack_yards"],
+    # QB sack-suffered counts. nflreadpy/nflverse have renamed this
+    # multiple times across releases — alias broadly so we match
+    # whichever flavor is current. Diagnostic below prints what
+    # actually came back from the dataframe so future renames are
+    # caught faster (Keith 2026-04-25 — pass_sacks was silent-NULL
+    # because none of our 3 prior aliases matched current schema).
+    "pass_sacks":        ["sacks_suffered", "times_sacked", "sacks", "sack",
+                          "passing_sacks", "sack_count"],
+    "pass_sack_yds":     ["sack_yards_lost", "sack_yards_suffered",
+                          "sack_yards", "sack_yds", "passing_sack_yards"],
     "pass_long":         ["passing_long"],
     "pass_2pt":          ["passing_2pt_conversions"],
 
@@ -188,12 +199,17 @@ def fetch_playerstats(seasons: list[int]):
         df = df.to_pandas()
     df = df.rename(columns={c: c.lower() for c in df.columns})
     print(f"  got {len(df)} player-week rows", file=sys.stderr)
-    # Diagnostic: punt / def-fumble-recovery columns that exist
-    punt_cols = [c for c in df.columns if "punt" in c.lower()]
-    fr_cols   = [c for c in df.columns if "fumble" in c.lower() and ("rec" in c.lower() or "fr" in c.lower())]
+    # Diagnostic — print what nflverse currently calls each of the
+    # historically-renamed fields. Saves the next debug round-trip
+    # when nflreadpy ships another rename. (Keith 2026-04-25.)
+    punt_cols  = [c for c in df.columns if "punt" in c.lower()]
+    fr_cols    = [c for c in df.columns if "fumble" in c.lower() and ("rec" in c.lower() or "fr" in c.lower())]
+    sack_cols  = [c for c in df.columns if "sack" in c.lower()]
     if punt_cols: print(f"  punt-related columns: {punt_cols}", file=sys.stderr)
     if fr_cols:   print(f"  fumble-recovery-related columns: {fr_cols}", file=sys.stderr)
+    if sack_cols: print(f"  sack-related columns: {sack_cols}", file=sys.stderr)
     if not punt_cols: print(f"  WARNING: no punt columns in load_player_stats — punter weekly data absent", file=sys.stderr)
+    if not sack_cols: print(f"  WARNING: no sack columns in load_player_stats — pass_sacks/pass_sack_yds will be NULL", file=sys.stderr)
     return df
 
 
@@ -381,7 +397,12 @@ def main() -> None:
 
     if not LOCAL_DB.exists():
         sys.exit(f"local DB missing at {LOCAL_DB}")
-    db = sqlite3.connect(str(LOCAL_DB))
+    db = sqlite3.connect(str(LOCAL_DB), timeout=30)
+    try:
+        db.execute("PRAGMA journal_mode=WAL")
+        db.execute("PRAGMA busy_timeout=30000")
+    except sqlite3.DatabaseError:
+        pass
     ensure_tables(db)
 
     seasons = parse_seasons(args.seasons)

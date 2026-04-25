@@ -154,7 +154,12 @@ def main() -> None:
         sys.exit(f"local DB missing at {LOCAL_DB}\n"
                  f"(set MFL_DB_PATH env var if DB lives elsewhere)")
     print(f"DB: {LOCAL_DB}", file=sys.stderr)
-    db = sqlite3.connect(str(LOCAL_DB))
+    db = sqlite3.connect(str(LOCAL_DB), timeout=30)
+    try:
+        db.execute("PRAGMA journal_mode=WAL")
+        db.execute("PRAGMA busy_timeout=30000")
+    except sqlite3.DatabaseError:
+        pass
     ensure_table(db)
 
     wanted_seasons = parse_seasons(args.seasons)

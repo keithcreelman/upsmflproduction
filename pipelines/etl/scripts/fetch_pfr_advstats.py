@@ -342,7 +342,12 @@ def main() -> None:
 
     if not LOCAL_DB.exists():
         sys.exit(f"local DB missing at {LOCAL_DB}")
-    db = sqlite3.connect(str(LOCAL_DB))
+    db = sqlite3.connect(str(LOCAL_DB), timeout=30)
+    try:
+        db.execute("PRAGMA journal_mode=WAL")
+        db.execute("PRAGMA busy_timeout=30000")
+    except sqlite3.DatabaseError:
+        pass
 
     seasons = parse_seasons(args.seasons)
     print(f"Target seasons: {seasons}", file=sys.stderr)

@@ -34,7 +34,10 @@ TMP_DIR_DEFAULT = WORKER_DIR_DEFAULT / ".tmp" / "d1_load"
 # Keith 2026-04-23 — honor $MFL_DB_PATH so the same env var drives every
 # fetcher + the sync step. Default kept for backwards compat on machines
 # that already have the DB at the legacy path.
-_DEFAULT_DB = Path("/Users/keithcreelman/Documents/mfl/Development/pipelines/etl/data/mfl_database.db")
+# Canonical default — matches db_utils.py + every fetcher in
+# pipelines/etl/scripts/. iCloud-Desktop users on the new Mac must
+# export MFL_DB_PATH explicitly; the env var always wins.
+_DEFAULT_DB = Path("/Users/keithcreelman/Desktop/MFL_Scripts/Datastorage/mfl_database.db")
 LOCAL_DB = Path(os.environ.get("MFL_DB_PATH") or _DEFAULT_DB)
 
 # Runtime overrides (set in main()) so the standalone copy installed in
@@ -62,6 +65,7 @@ PK_MAP: dict[str, list[str]] = {
     "nfl_player_advstats_season": ["season", "gsis_id"],
     "nfl_team_weekly":            ["season", "week", "team"],
     "player_id_crosswalk":        ["mfl_player_id"],
+    "metric_stickiness":          ["position", "metric", "min_games"],
 }
 
 
@@ -243,7 +247,12 @@ def main():
 
     if not LOCAL_DB.exists():
         sys.exit(f"local DB missing at {LOCAL_DB}")
-    conn = sqlite3.connect(str(LOCAL_DB))
+    conn = sqlite3.connect(str(LOCAL_DB), timeout=30)
+    try:
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA busy_timeout=30000")
+    except sqlite3.DatabaseError:
+        pass
 
     plan = [
         ("contracts", "src_contracts",
@@ -484,6 +493,14 @@ def main():
           "def_blitz","def_hurries","def_qb_knockdowns",
           "def_sacks","def_pressures","def_combined_tackles",
           "def_missed_tackles","def_missed_tackle_pct"]),
+        ("stickiness", "metric_stickiness",
+         """
+         SELECT position, metric, min_games, n_pairs, n_players,
+                corr_pearson, corr_spearman, season_min, season_max, computed_at
+         FROM metric_stickiness
+         """,
+         ["position","metric","min_games","n_pairs","n_players",
+          "corr_pearson","corr_spearman","season_min","season_max","computed_at"]),
     ]
 
     selected = set((args.only or "").split(",")) if args.only else None
