@@ -14,6 +14,7 @@ Usage:
 
 import argparse
 import json
+import os
 import sqlite3
 import statistics
 import sys
@@ -24,7 +25,10 @@ from urllib.request import urlopen
 SCRIPT_DIR = Path(__file__).resolve().parent
 ETL_ROOT = SCRIPT_DIR.parent
 DATA_DIR = ETL_ROOT / "data"
-MFL_DB = Path("/Users/keithcreelman/Documents/mfl/mfl_python/dev/ups_mfl_database.db")
+# Honor MFL_DB_PATH (set by Keith's iCloud workflow). Falls back to the
+# legacy hard-coded dev path so older machines keep working.
+MFL_DB = Path(os.environ.get("MFL_DB_PATH") or
+              "/Users/keithcreelman/Documents/mfl/mfl_python/dev/ups_mfl_database.db")
 OUT_DB = DATA_DIR / "yoy_signals.db"
 POINTS_HISTORY = Path(
     "/Users/keithcreelman/Documents/New project/site/rosters/player_points_history.json"
@@ -145,20 +149,53 @@ def fetch_weekly_games(year: int) -> dict[str, dict]:
 
 
 def load_salaries_from_db() -> dict[tuple[int, str], dict]:
-    """Map (year, player_id) -> {salary, contract_year, contract_length, ...} from the MFL DB."""
+    """Map (year, player_id) -> {salary, contract_year, contract_length, ...} from the MFL DB.
+
+    Prefers `contract_history_snapshots` (canonical, current — 2017-2025+).
+    Falls back to legacy `raw_rosters_start` if that table still exists on
+    older machines that haven't migrated. Keith 2026-04-25 — Phase-2 fix:
+    raw_rosters_start was retired so 2025 salaries were silently empty in
+    yoy_player_signals; switching the source backfills them.
+    """
     if not MFL_DB.exists():
         return {}
     conn = sqlite3.connect(str(MFL_DB))
     out: dict[tuple[int, str], dict] = {}
-    # raw_rosters_start has 2017-2024
-    rows = conn.execute("""
-        SELECT year, player_id, salary, contract_year, contract_info, contract_status
-        FROM raw_rosters_start
-    """).fetchall()
     import re
+    tables = {r[0] for r in conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table'"
+    ).fetchall()}
+    if "contract_history_snapshots" in tables:
+        # contract_history_snapshots has one row per (season, player_id) at
+        # snapshot_week=1 (start-of-season). Pick the row from the smallest
+        # snapshot_week so we always get the start-of-year contract terms,
+        # even on backfilled snapshot batches.
+        rows = conn.execute("""
+            SELECT chs.season, chs.player_id, chs.salary, chs.contract_year,
+                   chs.contract_info, chs.contract_status
+              FROM contract_history_snapshots chs
+              JOIN (
+                SELECT season, player_id, MIN(snapshot_week) AS min_w
+                  FROM contract_history_snapshots
+                 GROUP BY season, player_id
+              ) m
+                ON m.season = chs.season AND m.player_id = chs.player_id
+               AND m.min_w = chs.snapshot_week
+        """).fetchall()
+    elif "raw_rosters_start" in tables:
+        rows = conn.execute("""
+            SELECT year, player_id, salary, contract_year, contract_info, contract_status
+              FROM raw_rosters_start
+        """).fetchall()
+    else:
+        conn.close()
+        return {}
     for yr, pid, sal, cy, ci, cs in rows:
         cl_match = re.search(r"CL\s*(\d+)", ci or "")
         cl = int(cl_match.group(1)) if cl_match else None
+        # Multiple position_filter rows per (season, player) collapse here;
+        # last one wins, which is fine — salary/contract terms don't differ
+        # across position_filter for the same (season, player_id).
         out[(int(yr), str(pid))] = {
             "salary": int(sal or 0),
             "contract_year": int(cy or 0),
@@ -292,12 +329,32 @@ def fetch_and_store_ages():
                 "UPDATE yoy_player_signals SET age_at_season=? WHERE player_id=? AND year=?",
                 (int(age), pid, int(yr)))
             updated += 1
-    # Rookie flag: join raw_rosters_start contract_status and match /rookie/i
+    # Rookie flag: join contract_status and match /rookie/i. Same source
+    # cascade as load_salaries_from_db() — prefer contract_history_snapshots,
+    # fall back to legacy raw_rosters_start.
     if MFL_DB.exists():
         src = sqlite3.connect(str(MFL_DB))
-        rows = src.execute("""
-            SELECT year, player_id, contract_status FROM raw_rosters_start
-        """).fetchall()
+        src_tables = {r[0] for r in src.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        ).fetchall()}
+        if "contract_history_snapshots" in src_tables:
+            rows = src.execute("""
+                SELECT chs.season, chs.player_id, chs.contract_status
+                  FROM contract_history_snapshots chs
+                  JOIN (
+                    SELECT season, player_id, MIN(snapshot_week) AS min_w
+                      FROM contract_history_snapshots
+                     GROUP BY season, player_id
+                  ) m
+                    ON m.season = chs.season AND m.player_id = chs.player_id
+                   AND m.min_w = chs.snapshot_week
+            """).fetchall()
+        elif "raw_rosters_start" in src_tables:
+            rows = src.execute("""
+                SELECT year, player_id, contract_status FROM raw_rosters_start
+            """).fetchall()
+        else:
+            rows = []
         src.close()
         for yr, pid, cs in rows:
             is_rookie = 1 if cs and "rookie" in cs.lower() else 0

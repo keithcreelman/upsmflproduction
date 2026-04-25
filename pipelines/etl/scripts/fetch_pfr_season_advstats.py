@@ -342,36 +342,56 @@ def main() -> None:
         rows.append(row)
 
     # Local SQLite UPSERT — primary path (still authoritative until
-    # the D1 direct path is verified equivalent over multiple runs).
+    # the D1 direct path is verified equivalent). Wrapped in try/except
+    # so an iCloud-Drive file lock or other transient SQLite error
+    # doesn't kill the D1 write that follows.
+    local_ok = False
     if not args.skip_local:
-        sql = f"""
-            INSERT INTO nfl_player_advstats_season ({",".join(COLS)})
-            VALUES ({placeholders})
-            ON CONFLICT(season, gsis_id) DO UPDATE SET {update_clause}
-        """
-        db.executemany(sql, rows)
-        db.commit()
-        print(f"  local SQLite: upserted {len(rows)} rows", file=sys.stderr)
+        try:
+            sql = f"""
+                INSERT INTO nfl_player_advstats_season ({",".join(COLS)})
+                VALUES ({placeholders})
+                ON CONFLICT(season, gsis_id) DO UPDATE SET {update_clause}
+            """
+            db.executemany(sql, rows)
+            db.commit()
+            print(f"  local SQLite: upserted {len(rows)} rows", file=sys.stderr)
+            local_ok = True
+        except sqlite3.OperationalError as e:
+            print(f"  local SQLite: FAILED ({e}). Continuing with D1 write.",
+                  file=sys.stderr)
     else:
         print(f"  local SQLite: SKIPPED (--skip-local)", file=sys.stderr)
 
-    # Dual-write parallel path: also push to D1 directly. Same UPSERT
-    # semantics. After a few runs of confirming D1 == local for the
-    # same player-seasons, --skip-local can become the new default.
+    # Dual-write parallel path: D1 directly. Independent of local —
+    # local lock failures don't block D1 from getting fresh data.
+    d1_ok = False
     if not args.skip_d1:
-        print(f"  D1: writing {len(rows)} rows to nfl_player_advstats_season ...", file=sys.stderr)
-        with D1Writer(
-            table="nfl_player_advstats_season",
-            cols=COLS,
-            pk_cols=["season", "gsis_id"],
-        ) as w:
-            for r in rows:
-                w.add(tuple(r))
+        print(f"  D1: writing {len(rows)} rows to nfl_player_advstats_season ...",
+              file=sys.stderr)
+        try:
+            with D1Writer(
+                table="nfl_player_advstats_season",
+                cols=COLS,
+                pk_cols=["season", "gsis_id"],
+            ) as w:
+                for r in rows:
+                    w.add(tuple(r))
+            d1_ok = True
+        except SystemExit:
+            print(f"  D1: FAILED. Local SQLite is{'' if local_ok else ' ALSO'} stale.",
+                  file=sys.stderr)
+            raise
     else:
         print(f"  D1: SKIPPED (--skip-d1)", file=sys.stderr)
 
-    print(f"DONE: {len(rows)} player-season rows "
-          f"across {len(set(r[0] for r in rows))} seasons", file=sys.stderr)
+    if not local_ok and not d1_ok:
+        sys.exit("Both writes failed — data not persisted anywhere.")
+    print(f"DONE: {len(rows)} player-season rows across "
+          f"{len(set(r[0] for r in rows))} seasons "
+          f"(local={'ok' if local_ok else ('skipped' if args.skip_local else 'FAILED')}, "
+          f"d1={'ok' if d1_ok else ('skipped' if args.skip_d1 else 'FAILED')})",
+          file=sys.stderr)
 
 
 if __name__ == "__main__":
