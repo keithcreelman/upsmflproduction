@@ -34,6 +34,11 @@ import sys
 import urllib.request
 from pathlib import Path
 
+# Shared D1 writer (Keith 2026-04-25 — dual-write; local SQLite remains
+# the primary path until D1 direct-write is verified equivalent).
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from lib.d1_io import D1Writer  # noqa: E402
+
 DEFAULT_DB = Path("/Users/keithcreelman/Desktop/MFL_Scripts/Datastorage/mfl_database.db")
 LOCAL_DB = Path(os.environ.get("MFL_DB_PATH") or DEFAULT_DB)
 
@@ -148,6 +153,13 @@ def main() -> None:
     ap.add_argument("--skip-rush", action="store_true")
     ap.add_argument("--skip-pass", action="store_true")
     ap.add_argument("--skip-def", action="store_true")
+    # Dual-write controls (Keith 2026-04-25). Local SQLite stays primary
+    # for now; D1 gets a parallel write so we can verify before cutting
+    # the local hop. Pass --skip-d1 to fall back to legacy local-only.
+    ap.add_argument("--skip-d1", action="store_true",
+                    help="Skip the parallel D1 UPSERT — leaves only local SQLite write")
+    ap.add_argument("--skip-local", action="store_true",
+                    help="Skip the local SQLite UPSERT — D1-only mode (use after verification)")
     args = ap.parse_args()
 
     if not LOCAL_DB.exists():
@@ -329,14 +341,36 @@ def main() -> None:
             row.append(d.get(c))
         rows.append(row)
 
-    sql = f"""
-        INSERT INTO nfl_player_advstats_season ({",".join(COLS)})
-        VALUES ({placeholders})
-        ON CONFLICT(season, gsis_id) DO UPDATE SET {update_clause}
-    """
-    db.executemany(sql, rows)
-    db.commit()
-    print(f"DONE: upserted {len(rows)} player-season rows "
+    # Local SQLite UPSERT — primary path (still authoritative until
+    # the D1 direct path is verified equivalent over multiple runs).
+    if not args.skip_local:
+        sql = f"""
+            INSERT INTO nfl_player_advstats_season ({",".join(COLS)})
+            VALUES ({placeholders})
+            ON CONFLICT(season, gsis_id) DO UPDATE SET {update_clause}
+        """
+        db.executemany(sql, rows)
+        db.commit()
+        print(f"  local SQLite: upserted {len(rows)} rows", file=sys.stderr)
+    else:
+        print(f"  local SQLite: SKIPPED (--skip-local)", file=sys.stderr)
+
+    # Dual-write parallel path: also push to D1 directly. Same UPSERT
+    # semantics. After a few runs of confirming D1 == local for the
+    # same player-seasons, --skip-local can become the new default.
+    if not args.skip_d1:
+        print(f"  D1: writing {len(rows)} rows to nfl_player_advstats_season ...", file=sys.stderr)
+        with D1Writer(
+            table="nfl_player_advstats_season",
+            cols=COLS,
+            pk_cols=["season", "gsis_id"],
+        ) as w:
+            for r in rows:
+                w.add(tuple(r))
+    else:
+        print(f"  D1: SKIPPED (--skip-d1)", file=sys.stderr)
+
+    print(f"DONE: {len(rows)} player-season rows "
           f"across {len(set(r[0] for r in rows))} seasons", file=sys.stderr)
 
 
