@@ -35,11 +35,39 @@ Usage:
 """
 from __future__ import annotations
 import argparse
+import os
 import sqlite3
 import sys
 from pathlib import Path
 
-LOCAL_DB = Path("/Users/keithcreelman/Desktop/MFL_Scripts/Datastorage/mfl_database.db")
+# Honor $MFL_DB_PATH like every other ETL script (Keith 2026-04-25).
+_DEFAULT_DB = Path("/Users/keithcreelman/Desktop/MFL_Scripts/Datastorage/mfl_database.db")
+LOCAL_DB = Path(os.environ.get("MFL_DB_PATH") or _DEFAULT_DB)
+
+# Dual-write D1 path. Local SQLite stays primary until verified.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from lib.d1_io import D1Writer  # noqa: E402
+
+
+def _dual_write_d1(table: str, pk_cols: list[str], augment_cols: list[str],
+                   rows: list[tuple], skip_d1: bool, label: str = "") -> bool:
+    """Push the same rows that just went to local SQLite up to D1.
+
+    Local UPDATE row format is (augment_cols..., *pk_cols) — reorder
+    here to (pk_cols..., augment_cols...) which is what D1Writer +
+    UPSERT-by-PK expect. Returns True if D1 wrote, False if skipped.
+    """
+    if skip_d1 or not rows:
+        return False
+    d1_cols = list(pk_cols) + list(augment_cols)
+    pk_n = len(pk_cols)
+    aug_n = len(augment_cols)
+    d1_rows = [tuple(list(r[aug_n:aug_n+pk_n]) + list(r[:aug_n])) for r in rows]
+    print(f"  [{label}] D1: writing {len(d1_rows)} rows ...", file=sys.stderr)
+    with D1Writer(table=table, cols=d1_cols, pk_cols=pk_cols) as w:
+        for r in d1_rows:
+            w.add(r)
+    return True
 
 
 def parse_seasons(spec: str) -> list[int]:
@@ -105,7 +133,7 @@ def _col_float(row, *names):
     return None
 
 
-def upsert_rec_weekly(db: sqlite3.Connection, df, pfr_to_gsis: dict, verbose: bool = False) -> int:
+def upsert_rec_weekly(db: sqlite3.Connection, df, pfr_to_gsis: dict, args, verbose: bool = False) -> int:
     if df is None or df.empty:
         return 0
     rows = []
@@ -150,27 +178,38 @@ def upsert_rec_weekly(db: sqlite3.Connection, df, pfr_to_gsis: dict, verbose: bo
     if not rows:
         print(f"  [rec] nothing to upsert (skipped {skipped} unmapped)", file=sys.stderr)
         return 0
-    db.executemany(
-        """
-        UPDATE nfl_player_weekly
-           SET receiving_drops          = COALESCE(?, receiving_drops),
-               receiving_broken_tackles = COALESCE(?, receiving_broken_tackles),
-               passing_drops            = COALESCE(?, passing_drops),
-               receiving_rat            = COALESCE(?, receiving_rat),
-               receiving_int            = COALESCE(?, receiving_int),
-               receiving_drop_pct       = COALESCE(?, receiving_drop_pct),
-               receiving_adot           = COALESCE(?, receiving_adot),
-               receiving_air_yards      = COALESCE(?, receiving_air_yards)
-         WHERE season = ? AND week = ? AND gsis_id = ?
-        """,
-        rows,
+    if not args.skip_local:
+        try:
+            db.executemany(
+                """
+                UPDATE nfl_player_weekly
+                   SET receiving_drops          = COALESCE(?, receiving_drops),
+                       receiving_broken_tackles = COALESCE(?, receiving_broken_tackles),
+                       passing_drops            = COALESCE(?, passing_drops),
+                       receiving_rat            = COALESCE(?, receiving_rat),
+                       receiving_int            = COALESCE(?, receiving_int),
+                       receiving_drop_pct       = COALESCE(?, receiving_drop_pct),
+                       receiving_adot           = COALESCE(?, receiving_adot),
+                       receiving_air_yards      = COALESCE(?, receiving_air_yards)
+                 WHERE season = ? AND week = ? AND gsis_id = ?
+                """,
+                rows,
+            )
+            db.commit()
+            print(f"  [rec] local: updated {len(rows)} rows", file=sys.stderr)
+        except sqlite3.OperationalError as e:
+            print(f"  [rec] local: FAILED ({e})", file=sys.stderr)
+    _dual_write_d1(
+        "nfl_player_weekly", ["season","week","gsis_id"],
+        ["receiving_drops","receiving_broken_tackles","passing_drops",
+         "receiving_rat","receiving_int","receiving_drop_pct",
+         "receiving_adot","receiving_air_yards"],
+        rows, args.skip_d1, label="rec",
     )
-    db.commit()
-    print(f"  [rec] updated {len(rows)} rows (skipped {skipped} unmapped)", file=sys.stderr)
     return len(rows)
 
 
-def upsert_pass_weekly(db: sqlite3.Connection, df, pfr_to_gsis: dict) -> int:
+def upsert_pass_weekly(db: sqlite3.Connection, df, pfr_to_gsis: dict, args) -> int:
     """QB advanced from stat_type='pass': bad throws, pressures, air yards, ADOT."""
     if df is None or df.empty:
         return 0
@@ -202,28 +241,39 @@ def upsert_pass_weekly(db: sqlite3.Connection, df, pfr_to_gsis: dict) -> int:
     if not rows:
         print(f"  [pass] nothing to upsert (skipped {skipped} unmapped)", file=sys.stderr)
         return 0
-    db.executemany(
-        """
-        UPDATE nfl_player_weekly
-           SET passing_bad_throws        = COALESCE(?, passing_bad_throws),
-               passing_bad_throw_pct     = COALESCE(?, passing_bad_throw_pct),
-               passing_times_pressured   = COALESCE(?, passing_times_pressured),
-               passing_pressure_pct      = COALESCE(?, passing_pressure_pct),
-               passing_hurries           = COALESCE(?, passing_hurries),
-               passing_hits              = COALESCE(?, passing_hits),
-               passing_air_yards         = COALESCE(?, passing_air_yards),
-               passing_adot              = COALESCE(?, passing_adot),
-               passing_yards_after_catch = COALESCE(?, passing_yards_after_catch)
-         WHERE season = ? AND week = ? AND gsis_id = ?
-        """,
-        rows,
+    if not args.skip_local:
+        try:
+            db.executemany(
+                """
+                UPDATE nfl_player_weekly
+                   SET passing_bad_throws        = COALESCE(?, passing_bad_throws),
+                       passing_bad_throw_pct     = COALESCE(?, passing_bad_throw_pct),
+                       passing_times_pressured   = COALESCE(?, passing_times_pressured),
+                       passing_pressure_pct      = COALESCE(?, passing_pressure_pct),
+                       passing_hurries           = COALESCE(?, passing_hurries),
+                       passing_hits              = COALESCE(?, passing_hits),
+                       passing_air_yards         = COALESCE(?, passing_air_yards),
+                       passing_adot              = COALESCE(?, passing_adot),
+                       passing_yards_after_catch = COALESCE(?, passing_yards_after_catch)
+                 WHERE season = ? AND week = ? AND gsis_id = ?
+                """,
+                rows,
+            )
+            db.commit()
+            print(f"  [pass] local: updated {len(rows)} rows", file=sys.stderr)
+        except sqlite3.OperationalError as e:
+            print(f"  [pass] local: FAILED ({e})", file=sys.stderr)
+    _dual_write_d1(
+        "nfl_player_weekly", ["season","week","gsis_id"],
+        ["passing_bad_throws","passing_bad_throw_pct","passing_times_pressured",
+         "passing_pressure_pct","passing_hurries","passing_hits",
+         "passing_air_yards","passing_adot","passing_yards_after_catch"],
+        rows, args.skip_d1, label="pass",
     )
-    db.commit()
-    print(f"  [pass] updated {len(rows)} rows (skipped {skipped} unmapped)", file=sys.stderr)
     return len(rows)
 
 
-def upsert_def_weekly(db: sqlite3.Connection, df, pfr_to_gsis: dict) -> int:
+def upsert_def_weekly(db: sqlite3.Connection, df, pfr_to_gsis: dict, args) -> int:
     """IDP advanced from stat_type='def': missed tackles, rating allowed, pressures."""
     if df is None or df.empty:
         return 0
@@ -252,25 +302,35 @@ def upsert_def_weekly(db: sqlite3.Connection, df, pfr_to_gsis: dict) -> int:
     if not rows:
         print(f"  [def] nothing to upsert (skipped {skipped} unmapped)", file=sys.stderr)
         return 0
-    db.executemany(
-        """
-        UPDATE nfl_player_weekly
-           SET def_missed_tackles        = COALESCE(?, def_missed_tackles),
-               def_missed_tackle_pct     = COALESCE(?, def_missed_tackle_pct),
-               def_completions_allowed   = COALESCE(?, def_completions_allowed),
-               def_passer_rating_allowed = COALESCE(?, def_passer_rating_allowed),
-               def_yards_allowed         = COALESCE(?, def_yards_allowed),
-               def_pressures             = COALESCE(?, def_pressures)
-         WHERE season = ? AND week = ? AND gsis_id = ?
-        """,
-        rows,
+    if not args.skip_local:
+        try:
+            db.executemany(
+                """
+                UPDATE nfl_player_weekly
+                   SET def_missed_tackles        = COALESCE(?, def_missed_tackles),
+                       def_missed_tackle_pct     = COALESCE(?, def_missed_tackle_pct),
+                       def_completions_allowed   = COALESCE(?, def_completions_allowed),
+                       def_passer_rating_allowed = COALESCE(?, def_passer_rating_allowed),
+                       def_yards_allowed         = COALESCE(?, def_yards_allowed),
+                       def_pressures             = COALESCE(?, def_pressures)
+                 WHERE season = ? AND week = ? AND gsis_id = ?
+                """,
+                rows,
+            )
+            db.commit()
+            print(f"  [def] local: updated {len(rows)} rows", file=sys.stderr)
+        except sqlite3.OperationalError as e:
+            print(f"  [def] local: FAILED ({e})", file=sys.stderr)
+    _dual_write_d1(
+        "nfl_player_weekly", ["season","week","gsis_id"],
+        ["def_missed_tackles","def_missed_tackle_pct","def_completions_allowed",
+         "def_passer_rating_allowed","def_yards_allowed","def_pressures"],
+        rows, args.skip_d1, label="def",
     )
-    db.commit()
-    print(f"  [def] updated {len(rows)} rows (skipped {skipped} unmapped)", file=sys.stderr)
     return len(rows)
 
 
-def upsert_rush_weekly(db: sqlite3.Connection, df, pfr_to_gsis: dict, verbose: bool = False) -> int:
+def upsert_rush_weekly(db: sqlite3.Connection, df, pfr_to_gsis: dict, args, verbose: bool = False) -> int:
     if df is None or df.empty:
         return 0
     rows = []
@@ -313,18 +373,27 @@ def upsert_rush_weekly(db: sqlite3.Connection, df, pfr_to_gsis: dict, verbose: b
     if not rows:
         print(f"  [rush] nothing to upsert (skipped {skipped} unmapped)", file=sys.stderr)
         return 0
-    db.executemany(
-        """
-        UPDATE nfl_player_weekly
-           SET rushing_broken_tackles        = COALESCE(?, rushing_broken_tackles),
-               rushing_yards_before_contact  = COALESCE(?, rushing_yards_before_contact),
-               rushing_yards_after_contact   = COALESCE(?, rushing_yards_after_contact)
-         WHERE season = ? AND week = ? AND gsis_id = ?
-        """,
-        rows,
+    if not args.skip_local:
+        try:
+            db.executemany(
+                """
+                UPDATE nfl_player_weekly
+                   SET rushing_broken_tackles        = COALESCE(?, rushing_broken_tackles),
+                       rushing_yards_before_contact  = COALESCE(?, rushing_yards_before_contact),
+                       rushing_yards_after_contact   = COALESCE(?, rushing_yards_after_contact)
+                 WHERE season = ? AND week = ? AND gsis_id = ?
+                """,
+                rows,
+            )
+            db.commit()
+            print(f"  [rush] local: updated {len(rows)} rows (skipped {skipped} unmapped)", file=sys.stderr)
+        except sqlite3.OperationalError as e:
+            print(f"  [rush] local: FAILED ({e})", file=sys.stderr)
+    _dual_write_d1(
+        "nfl_player_weekly", ["season","week","gsis_id"],
+        ["rushing_broken_tackles","rushing_yards_before_contact","rushing_yards_after_contact"],
+        rows, args.skip_d1, label="rush",
     )
-    db.commit()
-    print(f"  [rush] updated {len(rows)} rows (skipped {skipped} unmapped)", file=sys.stderr)
     return len(rows)
 
 
@@ -338,9 +407,13 @@ def main() -> None:
     ap.add_argument("--skip-def", action="store_true", help="Skip the def stat_type fetch (IDP adv)")
     ap.add_argument("--verbose", action="store_true",
                     help="Print top-30 unmapped pfr_id + name list at end (diagnostic for crosswalk gaps)")
+    ap.add_argument("--skip-local", action="store_true",
+                    help="Skip the local SQLite UPDATE — useful when iCloud is holding the DB lock")
+    ap.add_argument("--skip-d1", action="store_true",
+                    help="Skip the D1 dual-write — useful for local-only debug runs")
     args = ap.parse_args()
 
-    if not LOCAL_DB.exists():
+    if not args.skip_local and not LOCAL_DB.exists():
         sys.exit(f"local DB missing at {LOCAL_DB}")
     db = sqlite3.connect(str(LOCAL_DB), timeout=30)
     try:
@@ -360,18 +433,20 @@ def main() -> None:
     total = 0
     if not args.skip_rec:
         df_rec = _load("rec", seasons)
-        total += upsert_rec_weekly(db, df_rec, pfr_to_gsis, verbose=args.verbose)
+        total += upsert_rec_weekly(db, df_rec, pfr_to_gsis, args, verbose=args.verbose)
     if not args.skip_rush:
         df_rush = _load("rush", seasons)
-        total += upsert_rush_weekly(db, df_rush, pfr_to_gsis, verbose=args.verbose)
+        total += upsert_rush_weekly(db, df_rush, pfr_to_gsis, args, verbose=args.verbose)
     if not args.skip_pass:
         df_pass = _load("pass", seasons)
-        total += upsert_pass_weekly(db, df_pass, pfr_to_gsis)
+        total += upsert_pass_weekly(db, df_pass, pfr_to_gsis, args)
     if not args.skip_def:
         df_def = _load("def", seasons)
-        total += upsert_def_weekly(db, df_def, pfr_to_gsis)
+        total += upsert_def_weekly(db, df_def, pfr_to_gsis, args)
 
-    print(f"DONE: {total} player-week rows updated with PFR advstats", file=sys.stderr)
+    local_status = "skipped" if args.skip_local else "ok"
+    d1_status = "skipped" if args.skip_d1 else "ok"
+    print(f"DONE: {total} player-week rows updated (local={local_status}, d1={d1_status})", file=sys.stderr)
 
 
 if __name__ == "__main__":

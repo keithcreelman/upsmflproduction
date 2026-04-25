@@ -1,8 +1,8 @@
 # Verifying dual-write: local SQLite + D1 stay in sync
 
-**Status: 1 of 4 fetchers converted to dual-write.**
+**Status: 2 of 4 fetchers converted to dual-write.**
 - ✅ `fetch_pfr_season_advstats.py` — proof-of-concept
-- ⏳ `fetch_pfr_advstats.py`
+- ✅ `fetch_pfr_advstats.py` — weekly PFR rec/rush/pass/def
 - ⏳ `fetch_nflverse_pbp.py`
 - ⏳ `fetch_nflverse_weekly.py`
 
