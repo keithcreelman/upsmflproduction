@@ -45,6 +45,10 @@ WORKER_CWD: Path = WORKER_DIR_DEFAULT
 TMP_DIR: Path = TMP_DIR_DEFAULT
 
 CHUNK_SIZE = 200  # rows per INSERT statement — D1 caps single-statement size at ~100KB; trades/comments push us near the ceiling at higher counts
+# UPSERT mode adds an `ON CONFLICT DO UPDATE SET col=excluded.col, ...`
+# clause per insert. For wide tables (nfl_player_weekly has ~80 cols)
+# the statement roughly doubles in size and trips SQLITE_TOOBIG.
+UPSERT_CHUNK_SIZE = 80
 
 # Primary-key map used to drive UPSERT mode (Keith 2026-04-24 — incremental
 # syncs, no more DELETE+INSERT wipe windows). Tables NOT in this map keep
@@ -190,9 +194,12 @@ def load_table(
             f"column count mismatch for {dst_table}: src has {len(src_keys)} "
             f"({src_keys}) vs dst expects {len(dst_cols)}"
         )
+    # Smaller chunks in UPSERT mode — `ON CONFLICT DO UPDATE SET col=excluded.col, ...`
+    # roughly doubles the per-statement size on wide tables.
+    chunk_target = UPSERT_CHUNK_SIZE if pk_cols else CHUNK_SIZE
     for row in cur:
         chunk.append(row)
-        if len(chunk) >= CHUNK_SIZE:
+        if len(chunk) >= chunk_target:
             flush()
     flush()
     print(f"  [{dst_table}] DONE: {total} rows", flush=True)
