@@ -3,8 +3,8 @@
     "schema_version": 1,
     "league_id": "74598",
     "season": 2026,
-    "updated_at": "2026-04-18T21:15:13.939Z",
-    "row_count": 22,
+    "updated_at": "2026-04-26T14:17:59.755Z",
+    "row_count": 23,
     "source": "worker-trade-offers"
   },
   "offers": [
@@ -3869,6 +3869,228 @@
       "twb_meta": null,
       "mfl_trade_id": "1028",
       "trade_id": "1028",
+      "mfl_present": true,
+      "mfl_status": "PENDING"
+    },
+    {
+      "id": "MFL-1029",
+      "league_id": "74598",
+      "season": 2026,
+      "status": "PENDING",
+      "created_at": "2026-04-26T14:17:59.755Z",
+      "updated_at": "2026-04-26T14:17:59.755Z",
+      "from_franchise_id": "0008",
+      "to_franchise_id": "0012",
+      "from_franchise_name": "Real Deal Creel",
+      "to_franchise_name": "Hawks",
+      "message": "",
+      "comment": "",
+      "comments": "",
+      "raw_comment": "",
+      "will_give_up": "13674,DP_0_3,DP_1_8",
+      "will_receive": "DP_0_1",
+      "source": "trade-workbench-ui",
+      "summary": {
+        "from_asset_count": 3,
+        "to_asset_count": 1,
+        "from_trade_salary_k": 0,
+        "to_trade_salary_k": 0,
+        "extension_request_count": 0
+      },
+      "payload": {
+        "schema_version": 1,
+        "generated_at": "2026-04-26T14:17:56.391Z",
+        "source": "ups-trade-workbench",
+        "league_id": "74598",
+        "season": 2026,
+        "teams": [
+          {
+            "role": "left",
+            "franchise_id": "0008",
+            "franchise_name": "Real Deal Creel",
+            "selected_assets": [
+              {
+                "asset_id": "player:13674",
+                "type": "PLAYER",
+                "player_id": "13674",
+                "player_name": "Goedert, Dallas",
+                "description": null,
+                "position": "TE",
+                "nfl_team": "PHI",
+                "salary": 7000,
+                "years": 1,
+                "contract_type": "Veteran",
+                "contract_info": "CL 2| TCV 14K| AAV 7K",
+                "taxi": false,
+                "pick_key": null,
+                "pick_season": null,
+                "pick_round": null,
+                "pick_slot": null
+              },
+              {
+                "asset_id": "pick:DP_0_3",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2026 1.04",
+                "position": null,
+                "nfl_team": null,
+                "salary": 12000,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "DP_0_3",
+                "pick_season": 2026,
+                "pick_round": 1,
+                "pick_slot": 4
+              },
+              {
+                "asset_id": "pick:DP_1_8",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2026 2.09",
+                "position": null,
+                "nfl_team": null,
+                "salary": 0,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "DP_1_8",
+                "pick_season": 2026,
+                "pick_round": 2,
+                "pick_slot": 9
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 3,
+            "selected_non_taxi_salary_dollars": 7000
+          },
+          {
+            "role": "right",
+            "franchise_id": "0012",
+            "franchise_name": "Hawks",
+            "selected_assets": [
+              {
+                "asset_id": "pick:DP_0_1",
+                "type": "PICK",
+                "player_id": null,
+                "player_name": null,
+                "description": "2026 1.02",
+                "position": null,
+                "nfl_team": null,
+                "salary": 14000,
+                "years": null,
+                "contract_type": "Pick",
+                "contract_info": null,
+                "taxi": false,
+                "pick_key": "DP_0_1",
+                "pick_season": 2026,
+                "pick_round": 1,
+                "pick_slot": 2
+              }
+            ],
+            "traded_salary_adjustment_dollars": 0,
+            "traded_salary_adjustment_k": 0,
+            "traded_salary_adjustment_max_k": 0,
+            "selected_non_taxi_salary_dollars": 0
+          }
+        ],
+        "extension_requests": [],
+        "filters": {
+          "search": ""
+        },
+        "ui": {
+          "left_team_id": "0008",
+          "right_team_id": "0012"
+        },
+        "salary_reconciliation": {
+          "left": {
+            "franchise_id": "0008",
+            "franchise_name": "Real Deal Creel",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 61000,
+            "salary_adjustment_total_dollars": 5450,
+            "outgoing_dollars": 7000,
+            "incoming_dollars": 0,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": -7000,
+            "new_salary_dollars": 54000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 3,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": 7000,
+            "available_salary_before_dollars": 233550,
+            "available_salary_after_dollars": 240550,
+            "over_cap_dollars": 0
+          },
+          "right": {
+            "franchise_id": "0012",
+            "franchise_name": "Hawks",
+            "salary_cap_dollars": 300000,
+            "starting_salary_dollars": 139000,
+            "salary_adjustment_total_dollars": 6500,
+            "outgoing_dollars": 0,
+            "incoming_dollars": 7000,
+            "salary_trade_adjustment_dollars": 0,
+            "net_salary_adjustment_dollars": 7000,
+            "new_salary_dollars": 146000,
+            "trade_salary_adjustment_k": 0,
+            "trade_salary_adjustment_max_k": 0,
+            "net_trade_salary_k": 0,
+            "net_cap_change_dollars": -7000,
+            "available_salary_before_dollars": 154500,
+            "available_salary_after_dollars": 147500,
+            "over_cap_dollars": 0
+          },
+          "has_over_cap": false
+        },
+        "multi_year_salary_impact": {
+          "current_season": 2026,
+          "left_franchise_name": "Real Deal Creel",
+          "right_franchise_name": "Hawks",
+          "rows": [
+            {
+              "season": 2026,
+              "left_before_dollars": 80000,
+              "left_after_dollars": 75000,
+              "left_change_dollars": -5000,
+              "right_before_dollars": 163000,
+              "right_after_dollars": 168000,
+              "right_change_dollars": 5000
+            },
+            {
+              "season": 2027,
+              "left_before_dollars": 61000,
+              "left_after_dollars": 54000,
+              "left_change_dollars": -7000,
+              "right_before_dollars": 139000,
+              "right_after_dollars": 146000,
+              "right_change_dollars": 7000
+            },
+            {
+              "season": 2028,
+              "left_before_dollars": 25000,
+              "left_after_dollars": 25000,
+              "left_change_dollars": 0,
+              "right_before_dollars": 58000,
+              "right_after_dollars": 58000,
+              "right_change_dollars": 0
+            }
+          ]
+        },
+        "validation": {
+          "status": "ready",
+          "issues": []
+        },
+        "comment": ""
+      },
+      "twb_meta": null,
+      "mfl_trade_id": "1029",
+      "trade_id": "1029",
       "mfl_present": true,
       "mfl_status": "PENDING"
     }
