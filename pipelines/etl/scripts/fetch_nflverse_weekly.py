@@ -120,25 +120,24 @@ PLAYERSTATS_MAP = {
     "def_pass_def":      ["def_pass_defended", "passes_defended"],
     "def_tds":           ["def_tds", "defensive_tds"],
 
-    # Kicking (PK)
+    # Kicking (PK) — totals only. FG distance buckets (0-39/40-49/50-59/
+    # 60+) are PBP-derived in fetch_nflverse_pbp.py; do NOT alias them
+    # here or this fetcher will UPSERT them to NULL whenever it runs after
+    # PBP (race condition discovered 2026-04-26 — punter + FG bucket cols
+    # were being silently clobbered).
     "fg_att":            ["fg_att", "fga"],
     "fg_made":           ["fg_made", "fgm"],
     "fg_long":           ["fg_long"],
-    "fg_att_0_39":       ["fg_att_0_39", "fg_att_short"],
-    "fg_made_0_39":      ["fg_made_0_39", "fg_made_short"],
-    "fg_att_40_49":      ["fg_att_40_49"],
-    "fg_made_40_49":     ["fg_made_40_49"],
-    "fg_att_50plus":     ["fg_att_50plus", "fg_att_long"],
-    "fg_made_50plus":    ["fg_made_50plus", "fg_made_long"],
     "xp_att":            ["pat_att", "xp_att"],
     "xp_made":           ["pat_made", "xp_made"],
 
-    # Punting
-    "punts":             ["punts"],
-    "punt_yds":          ["punt_yards"],
-    "punt_long":         ["punt_long"],
-    "punt_inside20":     ["punts_inside_twenty", "punts_inside_20"],
-    "punt_net_avg":      ["punt_net_avg", "punt_avg_net"],
+    # Punting — INTENTIONALLY EMPTY. nflverse weekly does not include
+    # punter stats (diagnostic confirmed: only 'punt_returns' and
+    # 'punt_return_yards' are present, no actual punter cols). All punter
+    # data — punts, punt_yds, punt_long, punt_inside20, punt_net_avg,
+    # punt_inside5/10/15, punt_spot_*, punt_net_yds_sum, punt_inside20_pbp
+    # — is owned by fetch_nflverse_pbp.py. Aliasing them here just causes
+    # the weekly fetcher to overwrite them with NULL.
 }
 
 SNAP_MAP = {
@@ -210,12 +209,14 @@ def fetch_playerstats(seasons: list[int]):
     # Diagnostic — print what nflverse currently calls each of the
     # historically-renamed fields. Saves the next debug round-trip
     # when nflreadpy ships another rename. (Keith 2026-04-25.)
-    punt_cols  = [c for c in df.columns if "punt" in c.lower()]
-    fr_cols    = [c for c in df.columns if "fumble" in c.lower() and ("rec" in c.lower() or "fr" in c.lower())]
-    sack_cols  = [c for c in df.columns if "sack" in c.lower()]
-    if punt_cols: print(f"  punt-related columns: {punt_cols}", file=sys.stderr)
-    if fr_cols:   print(f"  fumble-recovery-related columns: {fr_cols}", file=sys.stderr)
-    if sack_cols: print(f"  sack-related columns: {sack_cols}", file=sys.stderr)
+    punt_cols   = [c for c in df.columns if "punt" in c.lower()]
+    fr_cols     = [c for c in df.columns if "fumble" in c.lower() and ("rec" in c.lower() or "fr" in c.lower())]
+    sack_cols   = [c for c in df.columns if "sack" in c.lower()]
+    tackle_cols = [c for c in df.columns if "tackle" in c.lower() or "_tk" in c.lower()]
+    if punt_cols:   print(f"  punt-related columns: {punt_cols}", file=sys.stderr)
+    if fr_cols:     print(f"  fumble-recovery-related columns: {fr_cols}", file=sys.stderr)
+    if sack_cols:   print(f"  sack-related columns: {sack_cols}", file=sys.stderr)
+    if tackle_cols: print(f"  tackle-related columns: {tackle_cols}", file=sys.stderr)
     if not punt_cols: print(f"  WARNING: no punt columns in load_player_stats — punter weekly data absent", file=sys.stderr)
     if not sack_cols: print(f"  WARNING: no sack columns in load_player_stats — pass_sacks/pass_sack_yds will be NULL", file=sys.stderr)
     return df
@@ -264,7 +265,7 @@ def upsert_player_weekly(db: sqlite3.Connection, df, args) -> int:
                 out[col] = None
             else:
                 try:
-                    if col in {"def_sacks", "punt_net_avg"}:
+                    if col in {"def_sacks"}:
                         out[col] = float(v)
                     elif col in {"team", "opponent", "position"}:
                         out[col] = str(v)
@@ -272,6 +273,12 @@ def upsert_player_weekly(db: sqlite3.Connection, df, args) -> int:
                         out[col] = int(float(v))
                 except (ValueError, TypeError):
                     out[col] = None
+        # Derive def_tackles_total = solo + ast (nflverse aliases for the total
+        # silently miss; both solo and ast populate reliably). Keith 2026-04-26.
+        solo = out.get("def_tackles_solo")
+        ast  = out.get("def_tackles_ast")
+        if solo is not None or ast is not None:
+            out["def_tackles_total"] = (solo or 0) + (ast or 0)
         rows_to_insert.append(out)
         count += 1
 
