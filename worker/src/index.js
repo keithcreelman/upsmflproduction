@@ -1062,17 +1062,14 @@ export default {
                    a.rush_att, a.rush_yds, a.rush_tds,
                    a.targets, a.receptions, a.rec_yds, a.rec_tds,
                    a.pass_att, a.pass_cmp, a.pass_yds, a.pass_tds, a.pass_ints, a.pass_sacks, a.pass_sack_yds,
-                   -- def_tackles_ast dropped 2026-04-26 (D1 100-col cap) —
-                   -- def_tackles_total covers the headline; ast is derivable
-                   -- from total - solo if needed in the drawer.
+                   -- def_tackles_ast + def_tds dropped 2026-04-26 (D1 100-col cap).
+                   -- def_tackles_total covers the headline (ast = total - solo if
+                   -- ever needed in drawer). def_tds is a rare event, low UI value.
                    a.def_tackles_total, a.def_tfl, a.def_sacks,
-                   a.def_ff, a.def_fr, a.def_ints, a.def_pass_def, a.def_tds,
+                   a.def_ff, a.def_fr, a.def_ints, a.def_pass_def,
                    a.fg_att, a.fg_made, a.xp_att, a.xp_made,
                    a.punts, a.punt_yds,
-                   -- punt_inside20_pbp dropped 2026-04-26 (D1 100-col cap) -
-                   -- nflverse punt_inside20 is the golden source; PBP-derived
-                   -- parity column was a sanity check, no UI consumer.
-                   a.punt_inside20,
+                   a.punt_inside20, a.punt_inside20_pbp,
                    a.punt_inside15, a.punt_inside10, a.punt_inside5, a.punt_tb,
                    CAST(a.punt_net_yds_sum AS REAL) / NULLIF(a.punts, 0) AS punt_net_avg,
                    a.receiving_drops, a.receiving_broken_tackles,
