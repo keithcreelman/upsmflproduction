@@ -163,10 +163,17 @@ TE_PREMIUM_BOOST = {
 }
 
 # Quality premium scaling. When a player's ADP is materially better than
-# the historical median for their rank, bid scales up. Capped to avoid
-# extrapolation into nonsense (e.g. Allen ADP 1.0 vs historical median 50).
-QUALITY_PREMIUM_MAX = 1.60   # cap individual bid bump to 1.6×
-QUALITY_PREMIUM_SLOPE = 0.25 # how aggressively ADP gap maps to bid bump
+# the historical median for their rank, bid scales up. Capped tightly to
+# avoid extrapolation into nonsense (e.g. Allen ADP 1.0 vs historical median 50).
+QUALITY_PREMIUM_MAX = 1.20   # cap individual bid bump
+QUALITY_PREMIUM_SLOPE = 0.15 # how aggressively ADP gap maps to bid bump
+
+# Elite cluster decay: even when 4 elite QBs are all at top-2 ADP, only
+# ONE team can win each. Real auctions: the team that wants Allen most
+# wins him at ~$70K, Burrow goes for less because that team's already out,
+# Lamar even less, Mahomes drops off because QB-needy teams are exhausted.
+# Steeper than initial estimate based on Keith's 2026-04-26 calibration.
+ELITE_CLUSTER_DECAY = [1.00, 0.75, 0.55, 0.35, 0.25]
 
 
 # Elite cluster: when N players within a position have ADP <= ELITE_ADP_THRESHOLD,
@@ -177,19 +184,23 @@ ELITE_ADP_THRESHOLD = 5.0
 
 
 def predict_bid(adp: float, rank: int, position: str, season: int,
-                hist: dict, elite_cluster_size: int = 0) -> int:
+                hist: dict, elite_cluster_size: int = 0,
+                cluster_rank: int = 0) -> int:
     """Predict winning bid for a single FA.
 
     `elite_cluster_size` = how many position-mates also have ADP <= threshold.
-    When >= 2, this player is in an elite cluster — ALL cluster members get
-    rk1 bucket treatment (with their own ADP premium), not declining ranks.
+    `cluster_rank` = rank within the elite cluster (1=best ADP among elites).
+    When elite_cluster_size >= 2, ALL cluster members use rk1 bucket but
+    apply ELITE_CLUSTER_DECAY by cluster_rank (best gets full price, rest
+    step down — only one team can win each player).
 
     Returns predicted bid in dollars, integer (rounded to $1k MFL increment).
     """
     pos = (position or "").upper()
 
-    # Elite cluster handling: anyone in a 2+ elite cluster uses rk1 bucket
-    if adp <= ELITE_ADP_THRESHOLD and elite_cluster_size >= 2:
+    # Elite cluster handling
+    in_cluster = adp <= ELITE_ADP_THRESHOLD and elite_cluster_size >= 2
+    if in_cluster:
         bkt = "rk1"
     else:
         bkt = bucket_for_rank(rank)
@@ -208,6 +219,11 @@ def predict_bid(adp: float, rank: int, position: str, season: int,
         premium = 1.0 + QUALITY_PREMIUM_SLOPE * (ratio - 1.0)
         premium = min(premium, QUALITY_PREMIUM_MAX)
         base *= premium
+
+    # Elite cluster decay — within cluster, ranks 1/2/3/4 get 1.0/0.85/0.70/0.55
+    if in_cluster and cluster_rank > 0:
+        decay_idx = min(cluster_rank - 1, len(ELITE_CLUSTER_DECAY) - 1)
+        base *= ELITE_CLUSTER_DECAY[decay_idx]
 
     # TE Premium boost (2025+)
     if pos == "TE" and era_for(season) == "SF_TE_PREM":
@@ -299,12 +315,19 @@ def cmd_report(conn: sqlite3.Connection, args) -> None:
         by_pos[fa["pos"]].append(fa)
     for pos, players in by_pos.items():
         players.sort(key=lambda p: p["adp"])
-        # Detect elite cluster: count players with ADP <= ELITE_ADP_THRESHOLD
-        elite_cluster_size = sum(1 for p in players if p["adp"] <= ELITE_ADP_THRESHOLD)
+        # Detect elite cluster: players with ADP <= ELITE_ADP_THRESHOLD
+        elite_cluster = [i for i, p in enumerate(players) if p["adp"] <= ELITE_ADP_THRESHOLD]
+        elite_cluster_size = len(elite_cluster)
+        # Map player index → cluster rank (1-indexed within cluster)
+        cluster_rank_map = {idx: ci + 1 for ci, idx in enumerate(elite_cluster)}
         for rank, p in enumerate(players, 1):
             p["rank"] = rank
-            p["bid"] = predict_bid(p["adp"], rank, pos, season, hist,
-                                   elite_cluster_size=elite_cluster_size)
+            p["cluster_rank"] = cluster_rank_map.get(rank - 1, 0)
+            p["bid"] = predict_bid(
+                p["adp"], rank, pos, season, hist,
+                elite_cluster_size=elite_cluster_size,
+                cluster_rank=p["cluster_rank"],
+            )
 
     # ---- 3. Cap state (compute first so we can budget-normalize) ----
     franchises = load_franchise_cap_state(conn, season)
@@ -319,18 +342,34 @@ def cmd_report(conn: sqlite3.Connection, args) -> None:
     hist_avg = historical_position_totals(conn)
     raw_grand_total = sum(pos_total.values())
 
-    # If raw exceeds target, gently rescale top bids only (don't compress
-    # $1k floors). Rescale anything above $5k proportionally.
+    # If raw exceeds target, scale TIER-WEIGHTED — top bids absorb more
+    # of the cut than mid-tier (preserves the realistic "top guys come down
+    # to fit budget" pattern, vs flat-rescale which compresses everything).
+    # Tiers: $30k+ scaled most, $10-30k less, $5-10k least, <$5k untouched.
     if raw_grand_total > target_spend:
         excess = raw_grand_total - target_spend
-        big_bids = [p for plist in by_pos.values() for p in plist if p["bid"] > 5_000]
-        big_total = sum(p["bid"] for p in big_bids)
-        if big_total > 0:
-            # Scale big bids so the total drops by `excess`
-            # new_total = big_total - excess; ratio = (big_total - excess) / big_total
-            ratio = max(0.5, (big_total - excess) / big_total)
-            for p in big_bids:
-                p["bid"] = max(5_000, round(p["bid"] * ratio / 1000) * 1000)
+        tiers = [
+            (30_000, 999_999, 1.5),  # top tier: 1.5× the share of cut
+            (10_000, 30_000,  1.0),  # mid tier: baseline
+            ( 5_000, 10_000,  0.5),  # low tier: half share
+        ]
+        # Compute weighted total
+        weighted_total = 0
+        for plist in by_pos.values():
+            for p in plist:
+                for lo, hi, w in tiers:
+                    if lo <= p["bid"] < hi:
+                        weighted_total += p["bid"] * w
+                        break
+        if weighted_total > 0:
+            cut_per_dollar = excess / weighted_total
+            for plist in by_pos.values():
+                for p in plist:
+                    for lo, hi, w in tiers:
+                        if lo <= p["bid"] < hi:
+                            new_bid = p["bid"] * (1 - cut_per_dollar * w)
+                            p["bid"] = max(5_000, round(new_bid / 1000) * 1000)
+                            break
         # Recompute totals
         pos_total = {p: sum(x["bid"] for x in by_pos[p]) for p in by_pos}
 
@@ -379,16 +418,22 @@ def cmd_report(conn: sqlite3.Connection, args) -> None:
           f"({grand_total/total_available*100:5.1f}% of available)")
     leftover = total_available - grand_total
     avg_left = leftover / len(franchises)
-    print(f"  Implied leftover per team:     ${avg_left:>13,.0f}  (target: $5-10K)")
+    print(f"  Implied leftover per team:     ${avg_left:>13,.0f}  (target: $5-10K avg, "
+          f"but cap-tight teams may spend less)")
 
+    # Reality check: total spend should be in the $1.0-1.4M range based on
+    # historical SF-era totals ($853K-$1,270K). Outside that, flag.
     if grand_total > total_available:
         print(f"\n  ⚠️  OVERSPEND: ${grand_total - total_available:,.0f} above available cap")
-    elif avg_left < 4_000:
-        print(f"\n  ⚠️  TIGHT: leaves ${avg_left:,.0f}/team — below 5-10K target")
-    elif avg_left > 12_000:
-        print(f"\n  ℹ️   LOOSE: leaves ${avg_left:,.0f}/team — above target, model under-shoots")
+    elif grand_total < 950_000:
+        print(f"\n  ⚠️  LOW: ${grand_total:,.0f} is below historical SF-era floor "
+              f"(~$850-1,270K range)")
+    elif grand_total > 1_400_000:
+        print(f"\n  ℹ️   HIGH: ${grand_total:,.0f} above historical SF-era ceiling — "
+              f"reasonable for unprecedented elite-FA year")
     else:
-        print(f"\n  ✅  HEALTHY: ${avg_left:,.0f}/team leftover")
+        print(f"\n  ✅  HEALTHY: ${grand_total:,.0f} total within SF-era historical range "
+              f"(${950}K - $1,270K)")
 
     # ---- 5. Top-N detailed list ----
     all_predicted = sorted(
