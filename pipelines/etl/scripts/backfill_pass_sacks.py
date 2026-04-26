@@ -60,8 +60,10 @@ def _to_int(v):
 
 
 def fetch_rows(season: int) -> list[tuple]:
-    """Pull (season, week, gsis_id, pass_sacks, pass_sack_yds, def_fr,
-    def_tackles_total) tuples for one season."""
+    """Pull all backfill cols for one season:
+    (season, week, gsis_id, pass_sacks, pass_sack_yds, def_fr,
+     def_tackles_total, passing_air_yards, passing_yards_after_catch)
+    """
     try:
         import nflreadpy as nfl
     except ImportError:
@@ -98,27 +100,31 @@ def fetch_rows(season: int) -> list[tuple]:
             total = (solo or 0) + (ast or 0)
         else:
             total = None
+        air_yds = _to_int(_get_first(r, "passing_air_yards"))
+        yac     = _to_int(_get_first(r, "passing_yards_after_catch"))
 
-        if all(x is None for x in (sacks, yds, fr, total)):
+        if all(x is None for x in (sacks, yds, fr, total, air_yds, yac)):
             continue
-        rows.append((season, wk, gsis, sacks, yds, fr, total))
+        rows.append((season, wk, gsis, sacks, yds, fr, total, air_yds, yac))
     print(f"  {season}: {len(rows)} rows with backfill data", file=sys.stderr)
     return rows
 
 
 def upsert_local(db: sqlite3.Connection, rows: list[tuple]) -> int:
-    """Local SQLite UPDATE for the four columns."""
+    """Local SQLite UPDATE for all backfill cols."""
     if not rows:
         return 0
-    # Local UPDATE order: (sacks, yds, fr, total, season, week, gsis)
-    local_rows = [(r[3], r[4], r[5], r[6], r[0], r[1], r[2]) for r in rows]
+    # Local UPDATE order: (sacks, yds, fr, total, air_yds, yac, season, week, gsis)
+    local_rows = [(r[3], r[4], r[5], r[6], r[7], r[8], r[0], r[1], r[2]) for r in rows]
     try:
         db.executemany("""
             UPDATE nfl_player_weekly
-               SET pass_sacks        = COALESCE(?, pass_sacks),
-                   pass_sack_yds     = COALESCE(?, pass_sack_yds),
-                   def_fr            = COALESCE(?, def_fr),
-                   def_tackles_total = COALESCE(?, def_tackles_total)
+               SET pass_sacks                = COALESCE(?, pass_sacks),
+                   pass_sack_yds             = COALESCE(?, pass_sack_yds),
+                   def_fr                    = COALESCE(?, def_fr),
+                   def_tackles_total         = COALESCE(?, def_tackles_total),
+                   passing_air_yards         = COALESCE(?, passing_air_yards),
+                   passing_yards_after_catch = COALESCE(?, passing_yards_after_catch)
              WHERE season = ? AND week = ? AND gsis_id = ?
         """, local_rows)
         db.commit()
@@ -172,7 +178,8 @@ def main() -> None:
             with D1Writer(
                 table="nfl_player_weekly",
                 cols=["season", "week", "gsis_id",
-                      "pass_sacks", "pass_sack_yds", "def_fr", "def_tackles_total"],
+                      "pass_sacks", "pass_sack_yds", "def_fr", "def_tackles_total",
+                      "passing_air_yards", "passing_yards_after_catch"],
                 pk_cols=["season", "week", "gsis_id"],
             ) as w:
                 for r in rows:

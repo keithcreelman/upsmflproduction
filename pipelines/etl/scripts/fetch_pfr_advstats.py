@@ -103,6 +103,24 @@ def _load(stat_type: str, seasons: list[int]):
         df = df.to_pandas()
     df = df.rename(columns={c: c.lower() for c in df.columns})
     print(f"  got {len(df)} rows", file=sys.stderr)
+    # Diagnostic — print columns matching the trouble keywords. Saves a
+    # debug round trip when nflreadpy renames cols. (Keith 2026-04-26.)
+    if stat_type == "pass":
+        keywords = ["pressure", "air_yards", "yac", "yards_after_catch", "adot",
+                    "hurr", "hits", "bad_throw"]
+    elif stat_type == "rec":
+        keywords = ["adot", "air_yards", "drop", "rat", "yac", "broken"]
+    elif stat_type == "rush":
+        keywords = ["broken", "before_contact", "after_contact", "ybc", "yac"]
+    elif stat_type == "def":
+        keywords = ["missed", "passer_rating", "completions", "yards_allowed",
+                    "pressure", "adot"]
+    else:
+        keywords = []
+    for kw in keywords:
+        matches = [c for c in df.columns if kw in c.lower()]
+        if matches:
+            print(f"  [{stat_type}] cols matching '{kw}': {matches}", file=sys.stderr)
     return df
 
 
@@ -229,14 +247,16 @@ def upsert_pass_weekly(db: sqlite3.Connection, df, pfr_to_gsis: dict, args) -> i
         bad_pct    = _col_float(row, "passing_bad_throw_pct", "bad_throw_pct")
         pressured  = _col_int(row, "passing_times_pressured", "times_pressured", "pressured")
         pr_pct     = _col_float(row, "times_pressured_pct", "passing_pressure_pct", "pressure_pct")
-        hurries    = _col_int(row, "passing_hurries", "hurries")
+        hurries    = _col_int(row, "times_hurried", "passing_hurries", "hurries")
         hits       = _col_int(row, "passing_hits", "hits")
-        ay         = _col_int(row, "passing_air_yards")
-        adot       = _col_float(row, "passing_adot", "adot")
-        pyac       = _col_int(row, "passing_yards_after_catch", "yards_after_catch")
-        if all(x is None for x in (bad_throws, bad_pct, pressured, pr_pct, hurries, hits, ay, adot, pyac)):
+        # passing_air_yards / passing_yards_after_catch / passing_adot are NOT
+        # in PFR pass payload (verified 2026-04-26). They come from nflverse
+        # weekly load_player_stats, populated by fetch_nflverse_weekly.py.
+        # Removed from this fetcher's UPDATE entirely (was clobbering with
+        # NULL via D1 dual-write).
+        if all(x is None for x in (bad_throws, bad_pct, pressured, pr_pct, hurries, hits)):
             continue
-        rows.append((bad_throws, bad_pct, pressured, pr_pct, hurries, hits, ay, adot, pyac, season, week, gsis))
+        rows.append((bad_throws, bad_pct, pressured, pr_pct, hurries, hits, season, week, gsis))
 
     if not rows:
         print(f"  [pass] nothing to upsert (skipped {skipped} unmapped)", file=sys.stderr)
@@ -251,10 +271,7 @@ def upsert_pass_weekly(db: sqlite3.Connection, df, pfr_to_gsis: dict, args) -> i
                        passing_times_pressured   = COALESCE(?, passing_times_pressured),
                        passing_pressure_pct      = COALESCE(?, passing_pressure_pct),
                        passing_hurries           = COALESCE(?, passing_hurries),
-                       passing_hits              = COALESCE(?, passing_hits),
-                       passing_air_yards         = COALESCE(?, passing_air_yards),
-                       passing_adot              = COALESCE(?, passing_adot),
-                       passing_yards_after_catch = COALESCE(?, passing_yards_after_catch)
+                       passing_hits              = COALESCE(?, passing_hits)
                  WHERE season = ? AND week = ? AND gsis_id = ?
                 """,
                 rows,
@@ -266,8 +283,7 @@ def upsert_pass_weekly(db: sqlite3.Connection, df, pfr_to_gsis: dict, args) -> i
     _dual_write_d1(
         "nfl_player_weekly", ["season","week","gsis_id"],
         ["passing_bad_throws","passing_bad_throw_pct","passing_times_pressured",
-         "passing_pressure_pct","passing_hurries","passing_hits",
-         "passing_air_yards","passing_adot","passing_yards_after_catch"],
+         "passing_pressure_pct","passing_hurries","passing_hits"],
         rows, args.skip_d1, label="pass",
     )
     return len(rows)

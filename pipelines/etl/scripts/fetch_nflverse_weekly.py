@@ -98,6 +98,12 @@ PLAYERSTATS_MAP = {
                           "sack_yards", "sack_yds", "passing_sack_yards"],
     "pass_long":         ["passing_long"],
     "pass_2pt":          ["passing_2pt_conversions"],
+    # passing_air_yards + passing_yards_after_catch live in nflverse weekly,
+    # NOT in PFR pass advstats payload (verified 2026-04-26 — diagnostic
+    # showed PFR pass has no air_yards or yac columns at all). Aliased here
+    # so the weekly fetcher populates them from the right source.
+    "passing_air_yards":         ["passing_air_yards"],
+    "passing_yards_after_catch": ["passing_yards_after_catch"],
 
     # IDP
     "def_tackles_solo":  ["def_tackles_solo", "solo_tackles", "tackles_solo"],
@@ -213,10 +219,12 @@ def fetch_playerstats(seasons: list[int]):
     fr_cols     = [c for c in df.columns if "fumble" in c.lower() and ("rec" in c.lower() or "fr" in c.lower())]
     sack_cols   = [c for c in df.columns if "sack" in c.lower()]
     tackle_cols = [c for c in df.columns if "tackle" in c.lower() or "_tk" in c.lower()]
+    air_cols    = [c for c in df.columns if "air_yards" in c.lower() or "yards_after_catch" in c.lower() or "yac" in c.lower() or "adot" in c.lower()]
     if punt_cols:   print(f"  punt-related columns: {punt_cols}", file=sys.stderr)
     if fr_cols:     print(f"  fumble-recovery-related columns: {fr_cols}", file=sys.stderr)
     if sack_cols:   print(f"  sack-related columns: {sack_cols}", file=sys.stderr)
     if tackle_cols: print(f"  tackle-related columns: {tackle_cols}", file=sys.stderr)
+    if air_cols:    print(f"  air_yards/yac/adot columns: {air_cols}", file=sys.stderr)
     if not punt_cols: print(f"  WARNING: no punt columns in load_player_stats — punter weekly data absent", file=sys.stderr)
     if not sack_cols: print(f"  WARNING: no sack columns in load_player_stats — pass_sacks/pass_sack_yds will be NULL", file=sys.stderr)
     return df
