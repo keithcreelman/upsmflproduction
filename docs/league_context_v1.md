@@ -1,232 +1,231 @@
-# UPS Salary Cap Dynasty — League Context (v1, working draft)
+# UPS Salary Cap Dynasty — League Context (v2, post-67-comment correction)
 
-**Purpose:** This is Claude's working understanding of how the UPS league operates, written so Keith can correct it before we use it as the foundation for the 2026 auction bid sheet. Each section is delivered iteratively. **Anywhere I'm uncertain I've flagged with ❓Q — please answer or correct.**
+**Purpose:** Claude's working understanding of how the UPS league operates, written so Keith can correct it before we use it as the foundation for the 2026 auction bid sheet. Sections delivered iteratively.
+
+**v2 changes (2026-04-26):** Rolled in all 67 PR comments from Section 1 review. Substantive deltas now also persisted in memory:
+- `league_history_timeline.md` (founding, dispersals, owner timeline, draft-order mechanics)
+- `league_rules_2026_corrections.md` (rules that drift from rules.json)
 
 **Section status:**
-- [x] Section 1 — Player Lifecycle (this draft)
+- [x] Section 1 — Player Lifecycle (this v2)
 - [ ] Section 2 — Transaction Catalog
 - [ ] Section 3 — Annual Calendar
 - [ ] Section 4 — Scoring & Roster Eras (timeline)
-- [ ] Section 5 — Franchise History (joins, rebrands, dispersals)
+- [ ] Section 5 — Franchise History (joins, rebrands, dispersals) — partial draft in memory
 - [ ] Section 6 — Cap mechanics (penalties, guarantees, floor/ceiling)
 
-> **Source material I've read so far:**
-> - `services/rulebook/data/rules.json` (rule version 2026.5, last_updated 2026-02-14)
-> - `services/rulebook/sources/rules/settings_changes.md` (consolidated change history)
-> - Memory: `scoring_history_eras.md` (auth'd timeline of scoring changes)
-> - Memory: `data_quality_findings_20260425.md`, `direct_to_d1_etl_plan.md` (data infra context)
-> - `docs/MFL_API.md`, `docs/MFL_IMPORT_EXPORT_DETAILED.md` (MFL endpoints)
->
-> **Source material I have NOT yet read:**
-> - The raw `.docx` rulebooks under `services/rulebook/sources/rules/` (Master Rulebook HTML was the consolidated input — going to spot-check the raw docs as Keith pushes back)
-> - Live MFL API for current rosters/salaries/league settings
-> - `services/rulebook/sources/rules/mfl_message_boards/` (forum precedent)
+> **Source-of-truth ranking** (highest first):
+> 1. The Discord channels (live discussions, deadlines, precedent)
+> 2. The MFL **calendar/event log** for the current season (deadlines)
+> 3. Code under `services/rulebook/` and `pipelines/etl/scripts/` (tag system, restructure logic, MYM mechanics) — **read code over rulebook for current behavior**
+> 4. `services/rulebook/data/rules.json` v2026.5 — baseline, **but stale relative to 2026** for several material rules (MYM cap, loaded cap, tag system, ERA opening bid). See `league_rules_2026_corrections.md`.
+> 5. Legacy rulebook source files under `services/rulebook/sources/rules/` — historical reference only, often superseded.
+
+> **Open external sources to read still:**
+> - **Calvin Johnson Rule Google Doc** (linked in PR review): https://docs.google.com/document/d/1pXPxnab9bfEOs0QcPVDNI8EkQYRHOefOtVwv2EHrq04/edit?usp=drivesdk — WebFetch couldn't extract body text (auth-required). Need Keith to share content or grant access.
+> - **Discord channels** — owner has tokens; can request access if needed for forum precedent.
+> - **MFL Draft War Room module** — has the rookie salary table per pick.
+> - **MFL settings page** — verify max-roster, IR limit, and similar live settings before relying on them.
 
 ---
 
-# Section 1 — Player Lifecycle
+# Section 1 — Player Lifecycle (v2)
 
-A UPS player passes through some combination of: **(A) Entry → (B) Roster state → (C) Contract events → (D) Exit**. The path determines what kind of contract the player is on, what loading is permitted, what extension schedule applies, and how (and how expensively) they can be cut.
+A UPS player passes through some combination of: **(A) Entry → (B) Roster state → (C) Contract events → (D) Exit**.
 
 ---
 
-## A. ENTRY PATHS — how a player ends up on a UPS roster
+## A. ENTRY PATHS — how a player gets onto a UPS roster
 
-There are **7 distinct entry paths** in the current rulebook. Each one creates a different default contract and constrains future contract events.
+There are **7 entry paths**. Each creates a different default contract and constrains future contract events.
 
 ### A1. Rookie Draft (Memorial Day Sunday, 6 rounds, 12 picks)
 
 - **Eligibility:** any player MFL classifies as an NFL rookie that year.
 - **Round 1** — must stay on **active roster**. NOT taxi-eligible. **3-year contract**.
-  - **1st-Round Rookie Option** (effective 2025 draft+): a 4th "option year" attached. Must be exercised before the **contract deadline date of the player's final original rookie season** (so for a 2025 1st-rounder, that's late-season 2027 — the original 3-year deal covers 2025/2026/2027).
-  - ❓**Q1.** What's the option-year salary? The rulebook says "full details in Contract Transactions section" but I don't see the formula in the rules I've read. Is it AAV + a fixed escalator (like the extension schedule)? A multiplier on Year 3 salary? A new-flat-amount? Something else?
-  - ❓**Q2.** What happens if the option is *not* exercised — does the player become an Expired Rookie next May like a non-1st-rounder, or is there a different mechanism?
-- **Rounds 2–5** — 3-year contract, **taxi-squad eligible for first 3 NFL years**, can stay on active roster instead.
-- **Round 6** — Must be used to select **IDP, Kicker, or Punter**. **Cannot be traded.** 3-year contract. Draft order is **random** for round 6 (not based on prior playoff finish like Rounds 1–5). Taxi-eligible.
-- **Salaries:** Rookie salaries are fixed by round. The current rulebook references a salary table I haven't fully transcribed.
-  - ❓**Q3.** Confirm 2026 rookie salary scale by round (1.01–1.12, 2.01–2.12, etc.). The settings-history doc says: *"Current rulebook does not specify rookie salaries for rounds 3+; confirm whether legacy $2K/$1K rules still apply."* So my best guess is Rounds 1–2 have explicit per-pick salaries and Rounds 3–6 default to $2K or $1K. **Please give me the actual number per pick.**
-- **Draft order (Rounds 1–5):** determined by **prior season's playoff results** — higher playoff finishers pick later, lower finishers pick earlier.
-- **Roster impact:** A drafted rookie counts toward roster max once placed on active. Taxi-demoted rookies do **not** count against the active roster. Demotion deadline = contract deadline date (last Sunday before NFL Week 1). For mid-season trade-acquired rookies: demote prior to that player's NFL kickoff that week (with leniency on day-of-kickoff trades — moves to following week).
-- **Contract length removed pre-2025?** The settings-history file says: *"Rookie contract length was 2 years in 2012, moved to 3 years starting 2013 by league vote, then **removed prior to the 2025 season by commissioner ruling for ease of management**."* That contradicts the current rulebook which still says rookies are 3-year contracts. ❓**Q4.** Is the 3-year rookie contract still the default, or was it actually relaxed? If relaxed, what's the new rule (variable length? owner choice?)?
+  - **1st-Round Rookie Option** (effective 2025 draft+): a 4th option year tacked on.
+    - **Option-year salary = original Year 3 salary + $5,000.** ($5K = half of the +$10K Schedule 1 extension cost.) Simple formula, not a multiplier.
+    - **Decision deadline:** September contract deadline of the player's **final original-contract season** (same as a normal extension decision window). E.g., a 2025 1st-rounder's option must be decided by Sept 2027.
+    - **If exercised:** player plays the option year. After the option year, owner can **extend again** (1 or 2 more years, normal AAV escalator off the option-year salary). Worked example from Keith: 1.01 at $15K → exercise option → year 4 = $20K → extend 2 more years → could become 15/15/15/20/40/40 across 6 years.
+    - **If NOT exercised:** player is treated like any other expired rookie (extension deadline before the May Rookie Draft, otherwise → Expired Rookie Auction).
+- **Rounds 2–5** — 3-year contract, **taxi-squad eligible for first 3 LEAGUE years** (NOT NFL service time — see B2). Can stay on active roster instead.
+- **Round 6** — Must be used to select **IDP, Kicker, or Punter**. Pick is **NOT tradeable** (forces every team to make at least one IDP-class selection per year). Player can be traded after the pick is made. 3-year contract. Random draft order.
+- **Salaries:** rookie salary table by pick lives in the **MFL Draft War Room module** — Keith pointed there as the source of truth. **Action item:** Claude needs to extract the per-pick salary table and persist it in repo data. (Not blocking the rest of this doc but blocks the bid sheet.)
+- **Draft order (Rounds 1–5):** based on prior season's playoff bracket — see [memory: league_history_timeline.md](../../.claude/projects/-Users-keithcreelman-Code-upsmflproduction/memory/league_history_timeline.md) for the full mapping (1.1 = Toilet Bowl champ … 1.12 = UPS champ).
+- **Roster impact:** drafted rookie counts toward roster max once placed on active. Taxi-demoted rookies don't count vs. active roster. Demotion deadline = contract deadline date. Mid-season trade-acquired rookies on taxi: code (future) will auto-demote OR offer the acquiring owner a choice.
+- **Rookie contract length:** still default 3 years for 2025 draft class onward (with 1st-round option). 2025 was the first year option years existed.
 
-### A2. Free Agent Auction (last weekend of July, ~1 week duration)
+### A2. Free Agent Auction (last weekend of July, ~1 week)
 
-- **Format:** "eBay proxy style" — bid must remain highest for **24 hours** to win the player. ❓**Q5.** Earlier in the rulebook it says 36 hours for FA Auction lock; later it says 24 hours and Expired Rookie Auction is 36 hours. Which is correct for the **regular FA Auction**? My best read: FA Auction = 24hr, Expired Rookie Auction = 36hr.
-- **Nominations:** Owners must nominate within 24 hours. Missing a nomination = escalating fines (start $3K, increases each offense). Mandatory league event.
+- **Format:** eBay proxy bidding. **24-hour** lock window for the FA Auction.
+- **Nominations:** **2 per 24-hour window**. Day 1 starts at 12 PM with a 12-hour kickoff window. Missed nominations escalate fines. Mandatory league event.
 - **Roster window during auction:**
-  - Max roster: **35** (during auction)
-  - Min roster: **27** (must hit by completion of auction)
-  - Must be able to submit a valid starting lineup by completion
-  - Cap floor: **$260K** committed by auction completion or contract deadline
-  - Cap ceiling: **$300K** (system-enforced; system does NOT enforce minimum-roster-flexibility — owner's responsibility)
-- **Auction Roster Lock Date:** 3 days before auction start. Last chance to cut before auction; rosters are then locked until auction completes.
-- **Default contract:** **1 year** if no Multi-Year Auction Contract is submitted. Multi-Year option = 2 or 3 years, Veteran (even split) or Loaded (front/back). Submission deadline = contract deadline date.
-- **Salary:** Whatever the winning bid is (in $1K increments — ❓**Q6** confirm $1K is still the bid increment? legacy says $1K min/$1K increments; not explicit in current rulebook).
+  - Max roster: **35** during auction
+  - Min roster: **27 at CLOSE of auction** (not during — roster floats during)
+  - Cap floor: **$260K** committed at SOME point during the auction. Front-loading is an explicit tool to satisfy the floor. If a team hits $270K and then loses cap to an IR designation, they're still considered compliant.
+  - Cap ceiling: **$300K** (system-enforced)
+  - Owner is responsible for managing minimum-roster headroom — system doesn't enforce that.
+- **Auction Roster Lock Date:** historically 3 days before auction. Existed so commissioner could compile cap penalties + cut lists. Keith's note: probably collapse this into "no cuts during auction" + auto-unlock at auction start via MFL API call.
+- **Cut-then-rebid prohibition:** if you cut a player who was under contract during the offseason, you cannot nominate or bid on them in the FA Auction. Commissioner-enforced (NOT MFL-enforced). Mostly self-enforcing.
+- **Default contract:** **1 year** if no Multi-Year Auction Contract is submitted. Multi-Year option = 2-year or 3-year, Veteran or Loaded.
+- **Bid increments:** **$1K** (always).
+- **Naming note:** Keith is considering renaming "Veteran" contracts → "Auction" contracts to better reflect the contract's genesis. Not yet final. Current data uses "Veteran."
 
-### A3. Expired Rookie Auction (first week of May)
+### A3. Expired Rookie Auction (before the Rookie Draft — date in event log)
 
-- **Eligibility:** any player whose **rookie contract expired** and was **NOT extended** by April 30 deadline.
+- **Eligibility:** any player whose **rookie contract expired** and was **NOT extended** by the deadline (the deadline is "before the rookie draft" — event log is source of truth, NOT the legacy April 30 date).
 - **Format:**
   - 2–3 day nomination window
-  - Starting bid = prior year's salary + $1K
-  - **36-hour** lock (vs. 24hr in regular FA Auction — see Q5). Timer resets on new high bid.
-- **Contract on win:** 1 to 3 years (same options as regular FA Auction). Multi-year deals must be submitted by September contract deadline.
-- **Cut restriction:** players won in this auction **cannot be cut by any team prior to the next FA Auction** (forced retention through the season).
-- ❓**Q7.** Does a player won in Expired Rookie Auction get loaded contracts? Same rules as FA Auction (front-load OR back-load, capped at 5 loaded contracts on roster)?
-- ❓**Q8.** If a 1st-rounder's option year is NOT exercised, do they hit Expired Rookie Auction the May after their final original-contract year? Or some other path?
+  - **Starting bid: $1K** (changed in 2025 — old "prior-year salary + $1K" rule is dead). Reason: under the old rule a $13K player needed a $14K opening nomination; nobody wanted that. $1K floor lets someone start the bidding.
+  - **36-hour** lock window. Resets on new high bid.
+- **Contract on win:** 1, 2, or 3 years, same loading rules as FA Auction (front-load OR back-load, capped at 3 loaded contracts on roster). No "sign immediately" benefit — FA Auction submission deadline applies.
+- **Forced retention:** players won in Expired Rookie Auction **cannot be cut until after that summer's FA Auction** (just through the auction window, not the entire season). Concept: no "get out of jail free" — you bid, you hold through auction.
 
-### A4. Blind Bid Waivers (in-season, Thu/Fri/Sat/Sun 9 AM)
+### A4. Blind Bid Waivers (in-season — Thu/Fri/Sat/Sun 9 AM)
 
 - **Mechanism:** Conditional blind bidding. Bid amount **becomes the player's salary for the current season**.
-- **Default contract:** 1 year (Veteran-style if pre-contract-deadline; **WW (Waiver Wire)** type if post-contract-deadline).
-- **Tiebreakers** (when two teams bid identical amount on same player):
-  1. All-Play record
-  2. Overall record
-  3. Total points
-  4. Head-to-Head record
-  - **Pre-season + Week 1:** custom order based on **prior season's final draft slot finish** (i.e., reverse of draft order — bad teams get priority).
-- **Bid Processing:** Top-down within each group; first valid bid accepted, rest in that group ignored. Groups processed without priority over each other.
-- ❓**Q9.** "Conditional blind bidding" — confirm format: e.g., a chain like *(want player A for $5, dropping B; if not, want player C for $3 dropping D)*. MFL supports this via `blindBidWaiverRequest` import. Yes?
+- **Contract type: always WW (Waiver Wire)** during the season — because blind bids start Week 1 Sunday (post-contract-deadline).
+- **Conditional bidding format:** owners group bids; within each group, the highest-bid player is awarded; groups have NO priority over each other (they're placeholders, not priorities). Winners determined by bid amount across all groups.
+- **Tiebreakers:** All-Play → Overall → Total Points → H2H. Pre-season + Week 1 use prior-season's final draft slot (reverse order — bad teams priority).
+- **MFL doc reference:** the "How do I enter blind bid request?" MFL help page should be added to repo documentation for owner reference.
 
 ### A5. First-Come, First-Serve (FCFS) Free Agency (Sunday after waiver run → kickoff)
 
-- **Trigger:** After the Sunday morning waiver run completes, free agency opens FCFS until each player's NFL kickoff.
-- **Salary:** **$1K** flat for current season.
-- **Contract:** 1-year default. WW-type if post-contract-deadline.
-- **Purpose stated:** ensures teams can always field a starting lineup.
+- **Trigger:** after the Sunday morning waiver run, FA opens FCFS until each player's NFL kickoff.
+- **Salary:** $1K flat for current season.
+- **Contract:** 1-year WW (always WW in-season). For pre-season pickups, see in-season MYM rules.
 
 ### A6. Trade Acquisition
 
-- **Trade window:** offseason through **NFL Thanksgiving week kickoff** (the trade deadline). After deadline → no trades until next offseason.
+- **Trade window:** offseason through **NFL Thanksgiving week kickoff** (the trade deadline). Then closed until next offseason.
 - **Eligibility:**
   - Players with **1+ years remaining** on contract.
-  - **Expired rookies** can be traded up to the extension deadline (April 30); other expired contracts cannot be traded.
-  - **Round 6 picks: NOT tradeable.**
+  - **Expired rookies** can be traded up to the extension deadline (date in event log). Other expired contracts cannot be traded.
+  - **Round 6 picks: NOT tradeable** (the pick — the player can be traded once selected).
   - Future draft picks: current year + 1 year out only.
-  - Salary can be traded as part of deal (with rules — see Cap Adjustments / Section 6).
-- **Asset requirement:** every trade must include at least one **non-salary asset** (no pure salary dumps).
-- **Inheritance:** the contract transfers as-is. Acquiring team owns the cap consequences from that point forward.
-- **Special rules:**
-  - **Trade-and-extend:** if traded player is in final year, acquiring team can pre-agree to apply an extension as part of the trade (must be in trade comments OR proof of discussion).
-  - **In-season trade for player in final year:** acquiring team has **4 weeks from acquisition** to extend.
-  - **Roster compliance:** if a trade puts either team out of compliance (roster size, contract limits), they have **24 hours** to fix.
-- **Review:** Trades process **immediately** but are subject to commissioner review (and reversal if egregious). Currently no veto poll mechanism.
-- ❓**Q10.** Can salary AND a draft pick BOTH be sent (i.e., team A sends $5K + 2026 3rd to team B for player X)? I assume yes, but want to confirm the asset-requirement is satisfied as long as ONE non-salary asset is in the package.
+- **Cap money:** can be traded up to **50% of the salary of a traded-away player**. Cannot send only money + a draft pick — must include at least one player or pick from each side as the asset.
+- **Asset requirement:** every trade must include at least one **non-salary asset**. Salary alone does not satisfy the asset requirement.
+- **Inheritance:** contract transfers as-is. Acquiring team owns the cap consequences from that point forward.
+- **In-season trade-and-extend window:** acquiring team has **4 weeks from acquisition** to extend a player in their final year. **No pre-agreement needed** — the right to extend is automatic for the acquiring team. Pre-agreement only matters if a tagged player is involved (tagged players are NOT extension-eligible by the acquiring team), or if the trading-away team is using their own extension on the player as part of the deal. Default behavior: the acquiring team extends.
+- **Tagged players:** cannot be extended by the acquiring team after a trade (tag locks them out of extension that season).
+- **Roster compliance:** trades must put both teams in compliance immediately or within 24 hours for contract limits. In-season: MFL system blocks invalid lineups, which carries its own penalty — that's the practical enforcement mechanism.
+- **No vetoes.** Trades process immediately and stand unless there's blatant collusion or massive cap violation. Commissioner intervenes only in extreme cases.
 
 ### A7. Dispersal Draft (when a new owner joins)
 
-- **Trigger:** new owner replaces an outgoing one (or there's no outgoing owner — TBD).
-- **Mechanism:** Existing teams may **opt in** by throwing their roster + future-eligible picks (excluding 6th rounders) into a pool with the new owner's assets. Random snake draft order is generated. Draft conducted in Discord.
-- **Once a team commits, they cannot withdraw.**
-- ❓**Q11.** Has the dispersal draft actually been used? When? With what frequency? (This goes more in Section 5: Franchise History, but it's relevant to entry paths.)
-- ❓**Q12.** What happens to a player whose existing team didn't opt-in but who was on the **outgoing** owner's roster? Does the new owner inherit them straight up, or does that roster go into the pool by default?
+- **Trigger:** new owner replaces an outgoing one.
+- **Default behavior changed (post-Lima/Hammer/Whitman event):** anytime a new owner joins, the league opens it up to all teams to opt in. The outgoing owner's roster goes into the pool **by default**.
+- **Mechanism:** opt-in teams throw their roster + future eligible picks (excluding 6th-rounders) into the pool. Random snake draft order. Conducted in Discord. Once committed, no withdrawal.
+- **Inherited contracts:** dispersal-acquired players keep their **existing contract** (old contract carries forward). New owner doesn't get a fresh deal.
+- **History:** see [memory: league_history_timeline.md](../../.claude/projects/-Users-keithcreelman-Code-upsmflproduction/memory/league_history_timeline.md) — 3 confirmed dispersal events.
 
 ---
 
-## B. ROSTER STATES — where the player can sit on a UPS roster
+## B. ROSTER STATES — where the player can sit
 
 A rostered player is always in exactly one of three states.
 
 ### B1. Active Roster
-- **Size:** 27 (min) – 30 (max) **after the contract deadline date**.
-- **Auction window:** 27 (min) – 35 (max).
+- **Size:** 27 (min, at close of auction) – 30 (max, after contract deadline).
+- **Auction window:** 27 (close min) – 35 (max).
 - Player counts against active roster size, contributes salary fully toward cap, can start.
 
 ### B2. Taxi Squad
-- **Size:** **Max 10 players, min 1 IDP.**
-- **Eligibility:** Players selected in the **Rookie Draft, Round 2 or later**, for **first 3 NFL years only**. (1st-rounders cannot be on taxi.)
-- **Salary on taxi:** ❓**Q13.** Does taxi squad get any cap relief? Settings-history mentions legacy "no cap charge if cut while on taxi (never promoted)" but doesn't say their salary is reduced while ON taxi. I think the answer is "full salary still counts" — but want to confirm.
-- **Cut economics:** Taxi-squad players who have **never been promoted** can be cut **cap-free**. Once promoted to active, normal cut penalties apply going forward.
-- **Demotion deadline:** Contract deadline date (last Sunday before Week 1). For mid-season trade-acquired rookies, demote before next NFL kickoff for that player.
-- ❓**Q14.** Does a player auto-graduate off taxi after 3 NFL years, or does their eligibility expire and they have to be promoted (or cut)? What if they were drafted as a rookie but are 3 years into the league with no NFL games played — does the clock run on NFL years or league years?
+- **Size:** Max 10 players, min 1 IDP.
+- **Eligibility:** Players selected in the **Rookie Draft, Round 2 or later**, for **first 3 LEAGUE years** (NOT NFL service time — eligibility resets when promoted, otherwise auto-graduates after 3 league years on taxi).
+- **Salary on taxi: does NOT count against the cap.** This is a major correction from the v1 draft.
+- **Cut economics:** Taxi-squad players never promoted to active can be cut **cap-free**. Once promoted to active, normal cut penalties apply going forward.
+- **Demotion deadline:** contract deadline date. Mid-season trade-acquired rookies: planned automation will auto-demote (or owner-choice on trade).
+- **3-year clock end:** when a player's 3 league years on taxi expire, they're treated like any other expired rookie. If extended → promoted to active. If not → Expired Rookie Auction. **League years, not NFL years.**
 
 ### B3. Injured Reserve (IR)
 - **Eligibility:**
   - NFL Injured Reserve (or any IR designation MFL recognizes)
-  - COVID-19 IR (legacy, may not be relevant 2026)
-  - **Holdouts** — i.e., players holding out from their NFL team
-  - **Suspended players** — special treatment (see below)
+  - COVID-19 IR (legacy)
+  - **Holdouts**
+  - **Suspended players** (special handling, see below)
 - **Cap relief:** **50%** of salary refunded while on IR.
 - **Roster impact:** IR players do NOT count against active roster max.
-- **Suspended player special handling:**
-  - **Off-season suspension** (season-long or rest-of-season): owner's choice — contract can be set NOT to roll forward (salary = $0 that year, original salary resumes after suspension ends). Decision must be made before contract deadline.
-  - **In-season suspension:** contract rolls forward normally.
-- ❓**Q15.** Does a player on IR still earn guarantee credit (i.e., do the Oct/Nov/Dec 25%-each-month earning checkpoints accrue while on IR)? My read: yes, because the contract is still active. But want to confirm.
-- ❓**Q16.** Are there limits on how many players can be on IR simultaneously? Legacy 2014 says "no limit"; current rulebook doesn't say.
+- **No team-side IR limit.** MFL setting is set very high — effectively unlimited.
+- **IR + guarantee earning:** confirmed — earning continues on Oct/Nov/Dec checkpoints while on IR.
+- **Suspended player handling:**
+  - **Off-season suspension** (season-long): owner can opt to NOT roll forward the contract → salary $0 that year, original salary resumes after suspension. Decision before contract deadline.
+  - **In-season suspension:** "rest-of-season doesn't apply" — contract rolls forward normally. Precedent: Josh Gordon was given a 10-game suspension to start the season, then mid-suspension extended to full season; was NOT granted the $0 option.
 
 ---
 
 ## C. CONTRACT EVENTS — what happens to a player's contract while rostered
 
-These are the **transactions you can do TO** a player who's already on your roster. Each one is a defined `contract_type` in the data model: **Auction, Extension, MYM, Restructure** (per `R-D-1` data standard).
+These are transactions you can do TO a player who's already on your roster. Defined `contract_type` values: **Auction, Extension, MYM, Restructure** (per `R-D-1` data standard).
 
 ### C1. Initial contract assignment (varies by entry path)
 
-Per Section A above:
-- Rookie Draft → 3-year rookie deal (Round 1: +Option Year)
-- FA Auction → 1, 2, or 3-year Veteran or Loaded
-- Expired Rookie Auction → 1, 2, or 3-year (same as FA Auction)
-- Blind Bid → 1-year (Veteran or WW based on timing)
-- FCFS → 1-year, $1K (Veteran or WW based on timing)
+- Rookie Draft → 3-year rookie deal (Round 1: +Option Year if 2025+)
+- FA Auction → 1, 2, or 3-year Veteran (or "Auction" — pending rename) or Loaded
+- Expired Rookie Auction → 1, 2, or 3-year (same as FA Auction, no immediate-sign benefit)
+- Blind Bid → 1-year WW
+- FCFS → 1-year, $1K WW
 - Trade → inherit existing contract
-- Dispersal → ❓**Q17.** Does a dispersal-acquired player keep their old contract, or does the new owner get a fresh deal? Probably old contract carries — confirm.
+- Dispersal → inherit existing contract
 
 ### C2. Multi-Year Auction Contract (MYAC) submission
 - **Window:** From acquisition (FA Auction or pre-deadline waivers) through the **September contract deadline date** (last Sunday before NFL Week 1).
 - **Result:** Converts a 1-year default into 2-year or 3-year, Veteran or Loaded.
 - **Loaded rules:**
-  - **Front-loaded:** Year 1 salary > AAV. Allowed only on FA-acquired or Expired Rookie Auction or offseason restructures. Total split must equal TCV.
-  - **Back-loaded:** Year 1 salary < AAV. Min 20% of TCV in Year 1.
-  - Roster cap: **5 Loaded contracts max** (front + back combined).
-  - Total 3-year contracts: **6 max** (excludes rookie 3-year deals).
+  - **Front-loaded:** Year 1 salary > AAV. Total split must equal TCV.
+  - **Back-loaded:** Year 1 salary < AAV. Min 20% of TCV in Year 1. **Same constraints as front-loaded** (TCV preserved, valid distribution).
+  - **Loaded contracts cap (UPDATED 2025): MAX 3 LOADED CONTRACTS PER ROSTER.** Lowered from 5 mid-season alongside the in-season restructure ban — owners were exploiting WW + restructure to dump current-year salary into the pickup year.
+  - Total 3-year contracts: 6 max (excludes rookie 3-year deals).
 
 ### C3. Mid-Year Multi (MYM)
 - **What it is:** Convert an existing 1-year contract into a multi-year deal at the SAME salary (no raise). Cannot be loaded.
-- **Limit:** **Max 3 MYMs per season per team.**
+- **Limit (UPDATED 2025): MAX 4 MYMs per season per team** (raised from 3).
 - **Eligibility:**
-  - Player acquired via FA Auction or pre-season waivers, NOT given a multi-year contract by Sept deadline → MYM available **through end of NFL Week 2**.
-  - Player acquired via in-season waivers (own pickup or post-trade for them) → MYM available **within 2 weeks of acquisition**.
-- **Type rule:** WW contracts MYM'd → become Veteran contracts.
-- ❓**Q18.** Is the MYM converted contract a 2-year or 3-year deal (or owner's choice)? I'd assume owner's choice between 2 and 3 just like MYAC, but want to confirm.
+  - Player acquired via FA Auction or pre-season waivers, NOT given a multi-year contract by Sept deadline → MYM available **before kickoff of NFL Week 3** (per Keith's recall — verify in event log).
+  - In-season WW pickup or post-trade for them → MYM available within 2 weeks of acquisition.
+- **Type rule:** WW contracts that get MYM'd → become Veteran/Auction contracts. Open question: how does a WW MYM read as an "Auction" contract? Possibly the data layer keeps it as "WW-MYM" or similar — TBD on naming.
+- **Length on MYM:** **owner's choice — 2 or 3 years.**
 
 ### C4. Extension
 - **Eligibility:** Player in **final year** of contract.
 - **Length:** 1 or 2 years.
-- **AAV escalator** (the new contract's AAV is computed from the OLD AAV plus a position-based bump):
+- **AAV escalator** (applied to the extension years only, not the current year):
   - **Schedule 1 (QB / RB / WR / TE):** +$10K (1yr) / +$20K (2yr)
   - **Schedule 2 (DL / LB / DB / K / P):** +$3K (1yr) / +$5K (2yr)
-- **Effect:** Resets TCV and guarantees from scratch.
-- **Mechanics example (Schedule 1):** 1-yr left, $17K AAV → extend 1yr → new AAV = $27K → new TCV = $27K × 2 = $54K? Wait, the rulebook example says new AAV = $27K → TCV = **$44K**. That's $17K (current year) + $27K (extended year) — i.e., the **current year stays at original salary** and only the new extension years get the bumped AAV. Let me re-read… Yes, that matches. So extension is a *forward-looking* AAV change, not a retroactive one.
-- ❓**Q19.** Does the bumped AAV apply only to the extension years, or does it apply to ALL remaining years (including the current final year)? My read of the example: only extension years. Confirm.
-- **Deadlines (multiple flavors):**
-  - **Standard:** by contract deadline date.
-  - **Rookie / preseason waiver pickups w/ no contract by Sept and no MYM by Week 2:** extend by **end of Week 4**.
-  - **In-season trade-acquired in final year:** extend within **4 weeks of acquisition**.
-  - **Expired rookies (no extension by April 30):** lose extension right → Expired Rookie Auction.
+- **Effect:** Resets TCV and 75% guarantee against the new TCV. Forward-looking only.
+- **Worked example (Schedule 1):** 1yr remaining at $17K AAV → extend 1yr → AAV for the extension year = $27K. **Current year stays at $17K.** New TCV = $17K + $27K = $44K. (Note: TCV is the SUM of remaining year salaries, not AAV × years — because the AAV bump only applies forward.)
+- **Worked example, 2-year extension:** 1yr remaining at $30K AAV → extend 2yr Schedule 1 → AAV for both extension years = $50K each. Current year stays $30K. New TCV = $30K + $50K + $50K = $130K.
+- **Deadlines:**
+  - **Standard:** by September contract deadline.
+  - **Rookie / preseason waiver pickups w/ no contract by Sept and no MYM by Week 2-ish:** extend by Week 4. (Edge case — also covered by in-season MYM/extension paths.)
+  - **In-season trade-acquired in final year:** extend within **4 weeks of acquisition.**
+  - **Expired rookies (no extension by deadline):** lose extension right → Expired Rookie Auction.
 
 ### C5. Restructure
 - **Purpose:** Adjust salary distribution across remaining contract years (front-load or back-load) without extending.
-- **Window:** Offseason only. Specifically called out as a way to meet the $260K cap floor.
+- **Window: OFFSEASON ONLY.** Mid-season restructures are BANNED (changed in 2025 alongside the loaded-cap drop). Reason: WW pickups + restructure was being used to dump current-year salary into a 1-year-tail pickup.
 - **Loading rules:** same as MYAC loading — front-load or back-load, with TCV preserved.
-- **Counts toward 5-loaded-contracts cap.**
-- **Legacy 2014 rule (settings_changes.md):** Restructures historically only allowed *with* an extension. ❓**Q20.** Is restructure now a STANDALONE transaction (without extension required), or still must accompany an extension? The current rulebook lists restructure independently in cap-floor context, suggesting standalone — but I want to confirm.
-- ❓**Q21.** Per-team annual restructure limit? Legacy was 2/season; current rulebook doesn't say.
+- **Counts toward 3-loaded-contracts roster cap.**
+- **Standalone restructure allowed:** legacy 2014 rule (must accompany extension) is dead. Restructure on its own is fine in offseason.
+- **Per-team annual limit?** Not specified in current rulebook. Effectively gated by the 3-loaded-contracts roster cap. Verify in Discord/event log if a soft limit exists.
 
-### C6. 1st-Round Rookie Option (Effective 2025+)
-- Already covered in A1. Reproducing here as a contract event:
-  - Applies to 2025 1st-round picks onward.
-  - Must be exercised before contract deadline of the player's **final original-contract season**.
-  - Adds 1 option year onto the 3-year rookie deal.
-  - ❓**Q1 again** — what's the salary mechanic?
+### C6. 1st-Round Rookie Option (effective 2025+)
+- See A1 for full mechanics. Reproducing key facts:
+  - Salary = original Year-3 salary + $5K
+  - Decision deadline = September of the player's final original-contract year
+  - If not exercised → expired rookie path
+  - If exercised → can be re-extended (normal AAV escalator) after the option year
 
 ### C7. Annual Roll-Forward (March 1–15)
-- **What:** All contracts decrement by 1 year remaining; salaries advance to next-year value.
-- **Timing:** Goal March 1, can extend to March 15.
-- **Effect on guarantees:** prior-year salary becomes 100% earned at rollover.
+- All contracts decrement by 1 year remaining; salaries advance to next-year value.
+- Prior-year salary becomes 100% earned at rollover (sunk cost — no penalty thereafter).
 
-### C8. Tag (Franchise / Transition) — LEGACY ❓**Q22**
-- Settings-history doc says: *"Legacy docs include franchise/transition tag systems with compensation rules; current rulebook does not mention tags."*
-- BUT the codebase has `build_tag_tracking.py`, `build_tag_submissions_json.py`, and Discord-style tag references. ❓**Q22.** Is the tag system still active? If yes, what are the current mechanics (window, salary effect, compensation rules)? If no, when was it removed?
+### C8. Tags (UPDATED 2025) — STILL ACTIVE
+- **Updated structure:** **1 Offense tag + 1 Defense/ST tag** per team per year (no longer the legacy Franchise/Transition naming).
+- **Mechanics:** Live in the codebase — see `pipelines/etl/scripts/build_tag_tracking.py` and `build_tag_submissions_json.py`. **Read the code, not the rulebook**, for current tag behavior.
+- **Tagged player constraints:**
+  - Tagged players **cannot be extended by an acquiring team** in an in-season trade.
+  - (Other tag mechanics — salary effect, eligibility, compensation, deadline — to be enumerated in Section 2 by reading the code.)
 
 ---
 
@@ -234,84 +233,85 @@ Per Section A above:
 
 ### D1. Cut / Release (cap penalty applies)
 - **Cap penalty formula:** `(TCV × 75%) − Salary Earned`
-- **Earning schedule (the "75% guarantee earning curve"):**
+- **Earning schedule:**
   - 25% earned at end of October
   - 25% more earned at end of November
   - 25% more earned at end of December
-  - **100% earned once the season completes and the new season has rolled forward** (i.e., after March 1–15 rollover, the prior-year salary is fully sunk and no longer subject to penalty)
+  - 100% earned once the season completes and the new season has rolled forward (post-March rollover)
 - **Penalty timing:**
-  - Penalty incurred **before Roster Lock Date (3 days before auction)** → applies to **current season** cap.
+  - Penalty incurred **before Roster Lock Date** → applies to **current season** cap.
   - Penalty incurred **from auction start onward** → applies to **following season** cap.
-- ❓**Q23.** Walk me through a worked example: player on a 3-year, $30K/yr Veteran contract (TCV $90K), entering Year 2 in March. If cut in March of Year 2, what's the cap hit and to which season? My math: Year 1 was fully earned (no penalty from Year 1). Year 2+3 remaining = $60K. Guarantee = $90K × 75% = $67.5K. Earned = $30K (Year 1 was fully earned by rollover). Penalty = $67.5K − $30K = $37.5K. But this happened in offseason before Roster Lock so it hits THIS season's cap. Right?
+- **Confirmed example:** player on 3-year, $30K/yr Veteran contract (TCV $90K), cut March of Year 2 (offseason):
+  - Year 1 fully earned at rollover → $30K earned, no penalty contribution from Y1.
+  - Penalty = (TCV × 75%) - Earned = ($90K × 75%) - $30K = $67.5K - $30K = **$37.5K cap hit** to the **2026 (current) season**.
 
 ### D2. Cap-free cut categories (no penalty)
-- **Veteran/WW 1-year contracts under $5K:** 0% guarantee. Cut anytime, no penalty.
-- **Taxi Squad (never promoted):** 0% guarantee while on taxi. Cut cap-free.
-- **WW $5K+ specifically:** 65% earned (35% penalty if dropped before season rollover).
-- **Jail Bird Rule:** Player whose career is derailed by legal issue → released by NFL team → cap-free cut for UPS owner.
-- **Retired Players Rule:** Retired = cap-free cut. (Optional — can keep on roster but contract stays as-is, no cap relief.)
-- **Tier-1 Retired (Calvin Johnson Rule):** ❓**Q24.** What's the actual compensation structure here? Rulebook says "specific compensation rules apply" but doesn't enumerate.
-- **Off-season suspension opt-out:** salary = $0 that year, no penalty (already covered in B3).
+- **1-year original-length contracts under $5K (Veteran or WW):** 0% guarantee. Cap-free cut anytime. Note: this only applies to **1-year original** contracts — a 2-year veteran under $5K can still incur penalty depending on cut timing.
+- **Taxi Squad (never promoted):** 0% guarantee while on taxi. Cap-free cut.
+- **WW $5K+ in-season:** 65% earned → **35% penalty** if dropped during season. Off-season is academic since no drops allowed in offseason — those rosters just clean up at season end.
+- **Jail Bird Rule:** vague rule. Aaron Hernandez was the canonical case, but "released by NFL team" is NOT sufficient — players are released all the time. Commissioner discretion required for what qualifies as a "career derailed by legal case."
+- **Retired Players Rule:** retired = cap-free cut. Optional to keep on roster, but no relief if kept.
+- **Tier-1 Retired (Calvin Johnson Rule):** Lives in a Google Doc — link in PR review. Need to read for full mechanics. Not yet integrated into Claude's understanding.
+- **Off-season suspension opt-out:** salary = $0 that year, no penalty (covered in B3).
 
 ### D3. Trade-away
 - Contract transfers to acquiring team (covered in A6).
-- No cap consequence to the trading-away team beyond losing the asset.
+- No cap consequence to trading-away team beyond losing the asset.
 
 ### D4. Expired Contract → free agent OR Expired Rookie Auction
-- **Rookie contract expired AND not extended by April 30** → goes to **Expired Rookie Auction** (first week of May).
-- **Veteran contract expired AND not extended** → ❓**Q25.** Where does this player go? My assumption: full free agent, available in FA Auction in late July (since they're no longer rookie-eligible). Confirm.
+- **Rookie contract expired AND not extended by deadline** → Expired Rookie Auction (before the rookie draft).
+- **Veteran contract expired AND not extended** → **full free agent unless tagged.** Available in FA Auction in late July. Tagged players are retained on the team that tagged them per the tag-system rules.
 
 ### D5. Retired
-- Already covered in D2. Cap-free cut available.
+- Covered in D2. Cap-free cut available.
 
 ### D6. Suspended (offseason, contract paused)
-- Already covered in B3.
+- Covered in B3.
 
 ---
 
-## E. END-TO-END LIFECYCLE EXAMPLES
+## E. END-TO-END LIFECYCLE EXAMPLES (corrected)
 
-To stress-test my understanding, here are 3 hypothetical players. **Tell me which steps I have wrong.**
-
-### Example 1: 1st-round rookie WR, drafted 2025
-- May 2025: Drafted 1.05. 3-year contract at the rookie 1.05 salary (❓whatever that is).
+### Example 1: 1st-round rookie WR, drafted 2025 at 1.05
+- May 2025: Drafted 1.05. 3-year rookie contract at the 1.05 salary (per draft war room table — TBD).
 - Stays on active roster (Round 1 — taxi-ineligible).
-- 2025/2026/2027: plays out original contract. Original AAV = rookie 1.05 salary.
-- Pre–Sept 2027 contract deadline: owner exercises **1st-Round Rookie Option** (a 4th year).
-- 2028: plays year 4 at the option year salary (❓formula).
-- Assuming no extension: contract expires after 2028 → enters Expired Rookie Auction May 2029. ❓**Q26.** Or does the option year change this — does an exercised option count as "extended" so they bypass Expired Rookie Auction?
+- 2025/2026/2027: plays out original contract.
+- **Sept 2027 contract deadline:** owner exercises 1st-Round Rookie Option for 2028 → 2028 salary = original Y3 salary + $5K.
+- 2028: plays option year.
+- **Sept 2028 contract deadline:** owner can extend again (1 or 2 years, Schedule 1 escalator off the option-year salary).
+- If not extended → **expired rookie path** (same as 2nd-6th rounders): extension deadline before May 2029 rookie draft, otherwise → Expired Rookie Auction. **No "auto-extend via option" — option year just adds Y4.**
 
-### Example 2: 4th-round rookie RB, drafted 2026
-- May 2026: Drafted 4.07. 3-year contract at rookie 4.07 salary (❓).
-- Demoted to taxi squad before Sept 2026 contract deadline. Doesn't count toward active roster.
+### Example 2: 4th-round rookie RB, drafted 2026 at 4.07
+- May 2026: Drafted 4.07. 3-year rookie contract at the 4.07 salary.
+- Demoted to taxi squad before Sept 2026 contract deadline. Doesn't count vs. active roster. **Salary doesn't count vs. cap.**
 - 2026/2027: stays on taxi. Cap-free cut available at any time.
-- 2028: promoted to active roster mid-season (taxi clock about to run out — 3 NFL years).
-- Pre-Sept 2028 contract deadline: extension window opens. Owner extends 2 years → +$10K/yr AAV for 2 years (Schedule 1 RB).
-- 2029/2030: plays extension years.
+- 2028: 3-league-year clock runs out. Must be promoted, extended, or hit Expired Rookie Auction.
+- If extended (Schedule 1, +$10K/$20K) → promoted to active. If not → Expired Rookie Auction May 2029.
 
 ### Example 3: $25K UDFA WR, picked up Week 5 via blind bid 2026
 - Bid $25K, won. Salary = $25K for 2026. WW 1-year contract.
-- Within 2 weeks of acquisition (Week 7 cutoff): owner does MYM, converts to 2-year Veteran contract at $25K/yr.
-- Plays out 2026 + 2027.
-- Pre-Sept 2027 contract deadline: extension eligible (final year of 2-yr deal). Extends 1 year → AAV $35K (Schedule 1 WR, +$10K). New TCV: $25K (current year remains?) + $35K (extended year) = $60K.
-- ❓**Q27.** Or does the AAV reset apply across BOTH years? Can't tell from the example in the rulebook.
+- Within 2 weeks (by Week 7): owner does MYM, converts to 2 or 3-year **Veteran/Auction** contract at $25K/yr (no raise). Cannot be loaded.
+- Plays out 2026 + 2027 (assuming 2-year MYM).
+- **Sept 2027 contract deadline:** extension eligible. Extends 2 years Schedule 1 → AAV for the 2 extension years = $45K each ($25K + $20K). Current 2027 year stays $25K. New TCV = $25K + $45K + $45K = $115K.
 
 ---
 
-## F. THINGS I'M MOST UNCERTAIN ABOUT
+## F. STILL-OPEN QUESTIONS (post-v2)
 
-Top 5 things to confirm before we use this for the bid sheet:
+The 67-comment review resolved most of v1's open Qs. These remain:
 
-1. **Q3** — Rookie salaries by pick (need explicit table).
-2. **Q4** — Is the 3-year rookie default still in force, or was it relaxed for 2025+?
-3. **Q5** — FA Auction lock window: 24hr or 36hr?
-4. **Q19** — Extension AAV: does the bump apply to extension years only, or all remaining years?
-5. **Q22** — Are franchise/transition tags still in the rulebook?
+1. **Rookie salary table by pick** — extract from MFL Draft War Room module and persist to repo data. Blocks bid sheet calibration.
+2. **In-season MYM exact deadline** — "before Week 3 kickoff" for pre-season pickups, "2 weeks after acquisition" for in-season pickups. Verify via MFL event log for 2026.
+3. **Tag system mechanics** — Section 2 will enumerate by reading code under `pipelines/etl/scripts/build_tag_*.py`. What's the tag salary effect? Eligibility window? Compensation rules to other team if applicable?
+4. **Calvin Johnson Rule** — read the linked Google Doc once accessible.
+5. **Per-team annual restructure limit** — likely none (gated by 3-loaded-contracts cap), but confirm.
+6. **Naming convention** — "Veteran" vs. "Auction" contract type — pending Keith's decision. Data layer impact TBD.
+7. **WW MYM type renaming** — when a WW gets MYM'd, what does it become? "Veteran" today; if the rename happens, "Auction" feels wrong. Possibly "WW-MYM" sub-type. Open.
 
-These all materially affect cap math for the bid sheet.
+These do NOT block the bid sheet (cap math, valuation curves) — they're cleanup for Section 2.
 
 ---
 
-## END Section 1
+## END Section 1 v2
 
-Reply with corrections inline (PR comments) or in a Discord/chat reply that references Q-numbers. Once Section 1 is solid, I'll start Section 2 (Transaction Catalog — every MFL transaction TYPE, who can initiate, eligibility, downstream cap effect).
+Reply with corrections inline (PR comments) or push edits directly. Once Section 1 is locked, Section 2 (Transaction Catalog) will enumerate every MFL `transactions` TYPE (WAIVER, BBID_WAIVER, FREE_AGENT, TRADE, IR, TAXI, AUCTION_INIT, AUCTION_BID, AUCTION_WON, etc.) with eligibility, who can initiate, and downstream cap effect — pulled from both MFL API and the live UPS rule customizations.
