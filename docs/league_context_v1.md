@@ -1,4 +1,4 @@
-# UPS Salary Cap Dynasty — League Context (v14, Section 4 Forumotion-confirmed dates)
+# UPS Salary Cap Dynasty — League Context (v15, Section 4 scoring details from MFL metadata_rawrules)
 
 **Purpose:** Claude's working understanding of how the UPS league operates, written so Keith can correct it before we use it as the foundation for the 2026 auction bid sheet. Sections delivered iteratively.
 
@@ -1083,13 +1083,23 @@ Eras are NOT mutually exclusive — Superflex and TE Premium are concurrent (bot
 - **Starting lineup: 1 RB mandatory** (per rulebook archive — 1QB / **1RB** / 2WR / 1TE / 2Flex / DL / LB / DB / 3 DefFlex / K / P). The 1-RB minimum stayed in effect through ~2014 (see 2015 below).
 - IDP added: split out DT/DE/LB/CB/S, added PN; RB=1-3, TE=1-3, WR=2-4 (these are starter MAXIMUMS, not minimums).
 
-### 2012 — First rookie draft + Year-1 to Year-2 cleanup
-- **First rookie draft** (rookie draft format introduced this year — dynasty cap needed it once contracts started persisting).
-- **4-owner dispersal draft.** Original results in Forumotion (not yet ingested into repo). Capture for franchise-history work.
-- **MAJOR punter scoring overhaul** (after Y1). Punters were scoring obscenely high in 2011 — scoring revamped to bring them in line. ❓DETAIL NEEDED: original formula → new formula. In Forumotion.
-- Big-game bonus added (any-position pts at 45+/50+/60+).
-- Tackles + KY (kickoff return yards) + PNY (punt yards) scoring overhaul. ❓DETAIL NEEDED: exact old → new values.
-- **Taxi squad introduced at size 5** (Keith recalls 5 or 6; memory says 5). Verify in Forumotion.
+### 2012 — CONFIRMED via MFL `metadata_rawrules` (66 rule changes 2011→2012)
+- **First rookie draft** (introduced this year — dynasty cap needed it once contracts persisted).
+- **4-owner dispersal draft.** Original results in Forumotion.
+- **MAJOR punter scoring overhaul:** **`PNY` (gross punt yards) entirely REMOVED.** Pre-2012 punters scored on `PNY 0-999 = .1/2` (0.1 pts per 2 yards of gross punting) — that's why they scored obscene amounts in 2011. 2012 onwards: PNY abolished; punters score on the new ANY/big-game tier + KY/UY return yards.
+- **Big-game / ANY bonus added** for ALL positions: `ANY 60-100 = 5` (5 pts if any single-game position score reaches 60+).
+- **Tackles added (TKL):** `TKL 0-25 = *1` for all positions — 1 pt per tackle, capped at 25.
+- **Return-yardage scoring added:**
+  - `KY -50 to 999 = .025/yd` (kickoff return yards: 1 pt per 40 yds)
+  - `UY -50 to 999 = .05/yd` (punt return yards: 1 pt per 20 yds)
+- **Pass interference DOUBLED:** `PI 0-20 = *2` → `PI 0-20 = *4`.
+- **Taxi squad introduced at size 5.**
+
+### 2013 — NO scoring changes (verified)
+2012→2013 diff: zero rule changes.
+
+### 2014 — NO scoring changes (verified)
+2013→2014 diff: zero rule changes (lineup/contract rules were the 2014-02-11 forum votes — see above).
 
 ### 2013
 - Rookie contracts: 2 years → **3 years** (by league vote).
@@ -1115,8 +1125,11 @@ Inaugural Winter Meetings agenda. Several items here became 2016+ rules. Capture
 5. Backup Player tiebreaker for all-play.
 6. Taxi-squad practice-squad sniping (proposed; didn't pass).
 
-### 2016
-- **FG scoring tier-based → per-yard** (`FG=*.1`). Proposed in 2015-12-01 Comp Committee agenda item 4 (above), implemented 2016. Per Keith's proposal: 30yd = 3 pts, +0.1/yd deeper, -0.1/yd closer; missed FG penalties scaled by distance with 45+ exempt.
+### 2016 — CONFIRMED via MFL `metadata_rawrules` (22 rule changes)
+- **FG scoring overhaul: per-yard.**
+  - **OLD (2011-2015):** `FG 60-99 = 8` (flat 8 pts for ANY FG 60+; below 60 yds default 3 pts).
+  - **NEW (2016+):** `FG 0-99 = .1/yd` (0.1 pts per yard — 30-yarder = 3 pts; 50-yarder = 5 pts).
+- **Missed FG (MG) range narrowed:** `MG 30-99 = 0` → `MG 45-99 = 0` (penalty-free range pulled in from 30+ to 45+; misses 30-44 yds now incur penalty).
 
 ### RB PPR evolution (years TBD, multiple changes)
 - Original: 1.0 PPR (catch counts as 1 point)
@@ -1130,25 +1143,40 @@ Inaugural Winter Meetings agenda. Several items here became 2016+ rules. Capture
 - Then: ALL 1st downs (incl. QBs)
 - ❓DETAIL NEEDED: year breaks for each step. Memory has 2021 as initial; subsequent expansions need dates.
 
-### 2018 — major roster expansion
+### 2017 — NO scoring changes (verified)
+2016→2017 diff: zero rule changes.
+
+### 2018 — MAJOR scoring rebalance + roster expansion (CONFIRMED via `metadata_rawrules`, 46 rule changes)
+
+**Scoring rebalance:**
+- **RB PPR: 0.75 → 0.80** (`RB CC 0-99=*.75` → `RB CC 0-99=*.8`). This is the RB PPR transition; only ONE transition has happened — RB started at 0.75 in 2011 and went to 0.80 in 2018. (Keith's recall of "1.0 → 0.75 → 0.80" — the 1.0 era didn't exist in MFL data; possibly pre-2011 / pre-MFL.)
+- **IDP tackles boosted:**
+  - DB (CB, S): `AS 0.5 → 0.8`, `TK 1.0 → 1.3`, `TKL 1.0 → 1.5`
+  - DL (DE, DT): `TK 1.0 → 1.5`, `TKL 1.0 → 1.5`
+- **Pass defensed (PD) tripled** all positions: `PD 0.5 → 1.5`.
+- **Forced/intercepted catches boosted:** `FC 3 → 4`, `IC 3 → 4`.
+
+**Roster expansion (from `metadata_starters`):**
 - Active roster: 26 → **30** (auction max 31 → 35).
 - Taxi: 9 → **10** (min 1 IDP).
-- IDP starters: 5 → **7**.
+- IDP starter MIN: 1 → **2** for CB+S, DT+DE, LB (each went `1-3` → `2-3`). Total IDP starters: 5 → **7**.
 - Total starters: 15 → **17**.
-- DB split: CB/S separated from LB; PD/PI bumped to *1.5/4.
 
 ### 2018 or 2019 (verify in Forumotion)
 - **In-season restructure BANNED.** Same vote also overturned the 2014 "restructure-only-with-extension" rule. Restructures are now offseason-only and standalone-allowed.
 
-### 2020
-- Yardage notation: `.1/1` → `*.1` (cosmetic — same scoring, different MFL notation).
-- COVID-IR rule added (later removed in 2022).
+### 2019 — NO scoring changes (verified)
+2018→2019 diff: zero rule changes.
 
-### 2021
-- First downs added — receiving FD = 0.2 (initial vote).
-- Rushing first downs added (0.2) as follow-up vote 2021-07-04 (Josh Martel raised oversight).
-- **Waiver runs day swap (2021-08-17, 9-0 vote): Wed/Thu/Sat/Sun → Thu/Fri/Sat/Sun.** Full schedule replacement, not just "Wed→Fri." Affects historical waiver-pickup date alignment.
-- **SF lead-up year had real cap math:** non-expiring rookie QBs got the new (10/20) extension cost **immediately in 2021**; expiring rookie QBs got the old (6/12) cost. (Was a tied 5-13 vote broken by commissioner.)
+### 2020 — Cosmetic notation only (CONFIRMED via `metadata_rawrules`)
+- Yardage notation: `.1/1` → `*.1` (cosmetic — same scoring, different MFL formatting). Affects: 1C, FG, KY, TSY, UY for all positions.
+- COVID-IR rule added (later removed in 2022).
+- ⚠️ The rulebook archive's "2021 first downs added" claim is **WRONG per MFL data.** First-down scoring (`1C` abbreviation, `1-50 = .2/1`, all positions including QBs) has been in MFL continuously since 2011. The Slack 2021-07-04 vote about "rushing first downs" was likely a **clarification or rule reaffirmation**, not a new addition. (Or the league was tracking only receiving FDs in practice despite the MFL rule including all positions — verify in Slack archive.)
+
+### 2021 — Cosmetic FD rename (CONFIRMED via `metadata_rawrules`)
+- **`1C` abbreviation renamed to `FD`** (First Down). Same scoring (0.2 pts per FD), but **range expanded `1-50` → `1-999`** (now correctly handles drives with 50+ first downs, edge case).
+- **Waiver runs day swap (2021-08-17 Slack vote, 9-0): Wed/Thu/Sat/Sun → Thu/Fri/Sat/Sun.** Full schedule replacement.
+- **SF lead-up year had real cap math:** non-expiring rookie QBs got the new (10/20) extension cost immediately in 2021; expiring rookie QBs got the old (6/12) cost.
 
 ### 2022 — Superflex transition (CONCURRENT with rest of league rules going forward)
 - **★ QB starter cap 1 → 1-2 (Superflex era begins, ONGOING).** All skill (RB/WR/TE) max +1.
@@ -1160,15 +1188,30 @@ Inaugural Winter Meetings agenda. Several items here became 2016+ rules. Capture
 - **Trade window opened immediately after season end** (used to lock until March rollover).
 - Tag Auction + ERA switched to FA-Auction-style proxy bid with 3-day window (2022-05-03). ❓Need: what was format BEFORE this change? When did ERA itself start? Are tag results captured anywhere?
 
-### 2025 — TE Premium + cleanup year (CONCURRENT with SF)
-- **★ TE Premium: `CC=*1.5` for TE only** (1.5 PPR, TE only). Voted year before (2024) per Keith.
-- **ST TD range tweaks** were a **league-wide uniformity** change (NOT TE-Premium specific) — all positions normalized for consistency. ❓DETAIL NEEDED: old ranges → new ranges.
+### 2023 — NO scoring changes (verified)
+2022→2023 diff: zero rule changes.
+
+### 2024 — NO scoring changes (verified)
+2023→2024 diff: zero rule changes.
+
+### 2025 — TE Premium + ST/D TD range uniformity + cleanup year (CONFIRMED via `metadata_rawrules`, 87 rule changes)
+- **★ TE Premium: TE got separate `CC = 0-99 = *1.5`** (1.5 PPR for TE only). Other positions kept `CC=*1` (note: range also tightened from 0-100 → 0-99 for cosmetic precision). Voted 2024 per Keith (verify).
+- **ST/D TD ranges UNIFIED across all positions** (the league-wide uniformity change Keith mentioned):
+  - `DR` (defensive return TD?): `85-110=7` → `50-110=7`
+  - `IR` (interception return TD): `85-110=7` → `50-110=7`
+  - `KO` (kickoff return TD): `91-110=7` → `50-110=7`
+  - `PR` (punt return TD): `60-110=7` → `50-110=7`
+  - All ST/D TD ranges normalized to `50-110=7`.
+- **New rules added 2025:**
+  - `D2` (defensive 2-point conversion): `0-10=*2` for all positions
+  - `FR` (fumble recovery TD): `50-110=7` for all positions
+  - `MF` (missed FG?): `50-110=7` for all positions
 - **MYM cap raised 3 → 4.**
 - **ERA opening bid: $1K floor** (was prior-yr-salary + $1K).
 - **1st-Round Rookie Option** introduced (4th option year, salary = original Y3 + $5K; first exercise window 2027 for the 2025 R1 class). Voted 2024, implemented 2025.
-- **Round 6 PK/PN eligibility REVERSED** — back to strict IDP-only. **History (Keith v13):** Round 6 was ALWAYS IDP-intent from inception. One year an owner selected a PK or PN in Round 6. The league voted ON DRAFT NIGHT that it was OK they were included (no explicit rule against). PK/PN remained informally allowed in subsequent years until 2025, when the rule was tightened back to strict IDP-only. ❓Year of the draft-night vote — review auction data for first PK/PN selection in Round 6.
-- **3-starting-QB cap eased**: rule changed in 2025 to **3 starters at start of season; mid-season changes don't matter.** Was getting too challenging to enforce mid-season depth-chart changes.
-- **Bench-player tiebreaker removed.** New rule: tie = tie in regular season; in playoffs the higher seed advances (manual adjustment by commissioner, rare).
+- **Round 6 PK/PN eligibility REVERSED** — back to strict IDP-only. **History (Keith v13):** Round 6 was always IDP-intent from inception. One year an owner selected a PK/PN; league voted draft-night to allow. PK/PN informally allowed until 2025 reversion. ❓Year of the draft-night vote — review auction data for first PK/PN selection in Round 6.
+- **3-starting-QB cap eased**: 3 starters at start of season; mid-season changes no longer enforced.
+- **Bench-player tiebreaker removed**: ties stand in regular season; playoffs higher seed advances (manual).
 
 ### 2026 — Active changes
 - **Division realignment year** (next: 2029, 2032). Realignment uses prior 3-year all-play records to slot teams into divisions.
@@ -1201,34 +1244,46 @@ Inaugural Winter Meetings agenda. Several items here became 2016+ rules. Capture
 - **`settings_changes.md` says "rounds 3+ rookie salaries not in current rulebook."** They ARE in 2024.2 §4.5 (R3-5 = $2K, R6 = $1K). settings_changes.md is outdated.
 - **2024 rulebook v1 (8/4) had wrong lineup spec** — only v2 (8/31) is correct. Don't trust v1 archive.
 
-## E. STILL-OPEN for Section 4 (post-v14)
+## E. STILL-OPEN for Section 4 (post-v15)
 
-✅ **CONFIRMED v14** via Forumotion authenticated browse:
-- 2014-02-11 votes: restructure-with-extension rule (7-5), 9-player taxi tiered (7-5), cap-free taxi cuts (passed), 6×3-yr cap reaffirmed (tied → no change)
-- 2015 = first year of 2-RB minimum (proposed Feb 2014, deferred to 2015)
-- 2016 FG per-yard scoring proposed in 2015-12-01 Comp Committee agenda
-- 2014 6×3-yr cap had no wait period — votes happened Feb 2014, took effect 2014 season
+✅ **CONFIRMED v15** via MFL `metadata_rawrules` year-over-year diff (PRIMARY SOURCE — every scoring change 2011-2025 is now in the doc with exact old → new values):
+- 2012 punter overhaul: PNY (`0-999=.1/2`) entirely REMOVED
+- 2012 tackles added: TKL (`0-25=*1`) for all positions
+- 2012 return-yardage: KY (`.025/yd`), UY (`.05/yd`)
+- 2012 PI doubled: `*2 → *4`
+- 2012 ANY/big-game bonus added (60-100=5)
+- 2016 FG per-yard: `60-99=8` → `0-99=*.1`
+- 2016 missed FG range: `30-99=0` → `45-99=0`
+- **2018 RB PPR: 0.75 → 0.80** (the famous transition — only ONE transition in MFL data; the "1.0" era didn't exist in MFL)
+- 2018 IDP tackles boosted: AS, TK, TKL, FC, IC, PD all up
+- 2020 yardage notation cosmetic
+- 2021 1C → FD rename + range expansion (FD scoring has been in continuously since 2011)
+- 2022 FD notation cosmetic
+- 2025 TE Premium (`TE CC=*1.5`)
+- 2025 ST/D TD range uniformity (all → 50-110)
+- 2025 added: D2 (def 2pt), FR (fumble recovery TD), MF (missed FG?)
+- 2013, 2014, 2017, 2019, 2023, 2024: ZERO scoring rule changes (verified via diff)
 
-⏳ **Still open** (Forumotion didn't have these — most are post-2017 era):
-1. **Punter scoring overhaul (post-Y1, ~2012)** — original formula → new formula. Likely in OneDrive scoring xlsx archive.
-2. **2012 dispersal draft results** — Forumotion thread search didn't surface; may be in `f11-new-owner-s-distribution-draft` (not yet pulled). Capture for franchise-history work.
-3. **2012 tackles + KY + PNY scoring overhaul** — old → new values. Likely in OneDrive scoring xlsx archive.
-4. **RB PPR transitions** — exact years for 1.0 → 0.75 → 0.80. Post-2017 — not in Forumotion. Check Slack 2021-2022 + OneDrive `League Scoring.xlsx`.
-5. **First Downs expansion** — receiving → +rushing → all 1st D (incl QBs). Post-2021 era; Slack has receiving + rushing 2021. ALL-1stD-incl-QB year still TBD.
-6. **In-season restructure ban year** — Forumotion thread `t245` (2015-12-01) shows the agenda discussion but the actual ban implementation date is post-2017 (not in forum). Check Slack 2021-2022 + Discord.
-7. **"Restructure-only-with-extension" overturn year** — same as #6.
-8. **6th-round PK/PN draft-night vote year** — review auction data for first PK/PN selection in Round 6.
-9. **Bench-player tiebreaker removal year** (pre-2025) — Discord likely.
-10. **2025 ST TD range tweaks** — old ranges → new ranges.
-11. **Tag Auction + ERA pre-2022 format** — what was it before the proxy-bid switch on 2022-05-03?
-12. **Original ERA start year** — when did the Expired Rookie Auction format itself start?
-13. **TE Premium vote year** — Keith says agreed-upon year before; confirm if 2024 vote.
+✅ **CONFIRMED v14** via Forumotion:
+- 2014-02-11 votes (4 simultaneous): restructure-with-extension (7-5), 9-player taxi tiered (7-5), cap-free taxi cuts (passed), 6×3-yr cap reaffirmed (tied)
+- 2015 = first year of 2-RB minimum (proposed Feb 2014)
+- 2016 FG per-yard scoring proposed 2015-12-01 Comp Committee agenda
+
+⏳ **Still open** — none of these are scoring-related (already closed via metadata_rawrules):
+1. **2012 dispersal draft results** — Forumotion `f11-new-owner-s-distribution-draft` not yet pulled.
+2. **First Downs expansion narrative** — MFL data shows 1C/FD has been in continuously for ALL positions since 2011. The 2021 Slack vote about "rushing FDs" is contradicted by the data — was likely a clarification/reaffirmation, not new addition. Verify in Slack archive.
+3. **In-season restructure ban year** (post-2017, slack/discord).
+4. **"Restructure-only-with-extension" overturn year** (same as #3).
+5. **6th-round PK/PN draft-night vote year** — review historical auction data for first PK/PN selection in Round 6.
+6. **Tag Auction + ERA pre-2022 format** — what was the format before 2022-05-03 proxy-bid switch?
+7. **Original ERA start year** — when did Expired Rookie Auction format itself start?
+8. **TE Premium vote year** — Keith says 2024; verify in Discord.
 
 Source notes:
-- **Forumotion** (https://upsdynastycap.forumotion.com/forum) — auth'd browse confirms forum is most useful for 2011-2017. Last threads are November 2017. Credentials saved to `~/.config/ups_secrets/forumotion.env` (chmod 600, outside repo).
-- **Slack era began ~2021** (Keith v13). Pre-Slack: forum (cleanest) + group texts (lost noise). Slack export covers May 2021 - Sep 2022.
-- **Discord** (2022+): primary source for post-2022 rule discussions.
-- **OneDrive `Scoring Details By Year/`** has historical scoring xlsx files (2013, 2019 confirmed) — likely the source of truth for pre-Slack scoring formula details.
+- **MFL `metadata_rawrules`** (in `mfl_database.db`) — PRIMARY SOURCE for all scoring rule changes 2011-2025. Diff via `python3 /tmp/diff_rules.py`. Re-runnable; pulls full per-position scoring snapshots from `TYPE=rules` for every season.
+- **Forumotion** — best for 2011-2017 rule discussions/votes. Last rule threads November 2017.
+- **Slack** — May 2021 - Sep 2022 actual coverage (export window misleading).
+- **Discord** — 2022+ rule discussions.
 
 ## F. Slack history note (Keith v13)
 
