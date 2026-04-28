@@ -1,4 +1,4 @@
-# UPS Salary Cap Dynasty — League Context (v9, Section 6 Cap Mechanics added)
+# UPS Salary Cap Dynasty — League Context (v10, Section 6 Cap Mechanics review corrections)
 
 **Purpose:** Claude's working understanding of how the UPS league operates, written so Keith can correct it before we use it as the foundation for the 2026 auction bid sheet. Sections delivered iteratively.
 
@@ -120,9 +120,11 @@ There are **7 entry paths**. Each creates a different default contract and const
   - Cap ceiling: **$300K** (system-enforced)
   - Owner is responsible for managing minimum-roster headroom — system doesn't enforce that.
 - **Auction Roster Lock Date:** historically 3 days before auction. Existed so commissioner could compile cap penalties + cut lists. Keith's note: probably collapse this into "no cuts during auction" + auto-unlock at auction start via MFL API call.
-- **Cut-then-rebid prohibition (with example):** if you cut a player who was under contract during the offseason, you cannot nominate or bid on them in the FA Auction. Commissioner-enforced (NOT MFL-enforced). Mostly self-enforcing because cut players are usually disappointments owners don't want back.
-  - **Example:** Owner X has Player A on a 1-year, $4K contract entering the 2026 season. In April 2026 (offseason), Owner X cuts Player A. In the July 2026 FA Auction, Owner X **cannot nominate or bid on Player A** — locked out from re-acquiring him via auction.
-  - **Pre-auction drop reset (Keith 2026-04-27):** drops done within the pre-auction window (the few days immediately before auction start, prior to roster lock) "reset" the prohibition — the drop is fine and Owner X CAN bid on Player A in the auction. The cut-then-rebid lockout only applies to drops earlier in the offseason.
+- **Cut-then-rebid prohibition (with example, v10 rules):** if you cut a player who was **under contractual control** in the offseason, you **cannot nominate or bid on them in the FA Auction**. Commissioner-enforced (NOT MFL-enforced). Mostly self-enforcing because cut players are usually disappointments owners don't want back.
+  - **Example:** Owner X has Player A on a 1-year, $2K contract entering the 2026 season. In April 2026 (offseason), Owner X cuts Player A. In the July 2026 FA Auction, Owner X **cannot nominate or bid on Player A** — locked out from re-acquiring him via auction.
+  - **Tagged-player exception (Keith v10):** if the player you cut was on a **TAG**, the prohibition does NOT apply. You CAN bid on a tagged player you cut. (Tags effectively "open" the player back into the FA pool with no carryover restrictions.)
+  - **Pre-auction drop reset (Keith 2026-04-27):** drops done within the pre-auction window (the few days immediately before auction start, prior to roster lock) "reset" the prohibition — the drop is fine and Owner X CAN bid on Player A. The cut-then-rebid lockout only applies to drops earlier in the offseason.
+  - **Cutdown day (Keith v10, future direction):** a 2-day-before-auction "cutdown day" is being added — that day exists to verify everything is set up properly (testing) before auction goes live. Reconciles with the existing 3-day-prior Auction Roster Lock; final mechanism still being settled.
 - **Default contract:** **1 year** if no Multi-Year Auction Contract is submitted. Multi-Year option = 2-year or 3-year, Veteran or Loaded.
 - **Bid increments:** **$1K** (always).
 - **Naming note (decided 2026-04-27):** Keep "Veteran" contract type as-is. Rename idea parking-lotted.
@@ -163,7 +165,9 @@ There are **7 entry paths**. Each creates a different default contract and const
 - **Cap money:** can be traded up to **50% of the salary of a traded-away player**. Cannot send only money + a draft pick — must include at least one player or pick from each side as the asset.
 - **Asset requirement:** every trade must include at least one **non-salary asset**. Salary alone does not satisfy the asset requirement.
 - **Inheritance:** contract transfers as-is. Acquiring team owns the cap consequences from that point forward.
-- **In-season trade-and-extend window:** acquiring team has **4 weeks from acquisition** to extend a player in their final year. **No pre-agreement needed** — the right to extend is automatic for the acquiring team. Pre-agreement only matters if a tagged player is involved (tagged players are NOT extension-eligible by the acquiring team), or if the trading-away team is using their own extension on the player as part of the deal. Default behavior: the acquiring team extends.
+- **In-season trade-and-extend window:** acquiring team has **4 weeks from acquisition** to extend a player in their final year. The right to extend is automatic for the acquiring team.
+- **Pre-trade extension (wired in the Trade War Room module):** if the trading-away team currently has extension eligibility on the player, they can apply that extension as their last action before the trade. The now-extended player goes to the acquiring team carrying the extended contract. (This is NOT a "pre-agreement" — it's the trading-away team using their own extension right before the trade closes.)
+- **Tagged players: cannot be extended by the acquiring team** in trade. Tag overrides extension eligibility.
 - **Tagged players:** cannot be extended by the acquiring team after a trade (tag locks them out of extension that season).
 - **Roster compliance:** trades must put both teams in compliance immediately or within 24 hours for contract limits. In-season: MFL system blocks invalid lineups, which carries its own penalty — that's the practical enforcement mechanism.
 - **No vetoes.** Trades process immediately and stand unless there's blatant collusion or massive cap violation. Commissioner intervenes only in extreme cases.
@@ -474,14 +478,14 @@ For each transaction below: **Source** (MFL TYPE / UPS table) · **Initiator** (
   - Players with 1+ years remaining on contract (expired Vets ineligible; expired Rookies eligible up to extension deadline).
   - Round 6 picks: NOT tradeable (the pick — player is tradeable post-selection).
   - Future picks: current year + 1 year out only.
-  - Cap money: max 50% of traded-away player's salary; cannot send money without a non-salary asset.
+  - **Cap money: each side independently capped at 50% of THEIR OWN traded-away player's salary.** Multi-player trade: max = 50% of sum. Cannot send money without a non-salary asset (Keith v10 corrected).
 - **Cap effect:**
   - Salary moves with the player (acquiring team takes on salary, trading team sheds it).
-  - Cap cash transferred (if any) → reflected as a **`salary_adjustment` row** (same data path as cap penalties): NEGATIVE for the team shedding salary, POSITIVE for the team acquiring salary.
+  - Cap cash transferred (if any) → reflected as paired **`salary_adjustment` rows**: NEGATIVE for the team shedding cap, POSITIVE for the team acquiring cap.
 - **Contract impact:** Player's contract transfers as-is to acquiring team. Acquiring team gains:
-  - 4-week extension window if player is in final year (automatic, no pre-agree).
+  - 4-week extension window if player is in final year (automatic; "pre-agreement" verbiage is stale — see Trade War Room module pre-trade extension flow in Section 6.E3).
   - Right to MYM **only if** the player was a recent WW/FCFS pickup AND is still in the 14-day MYM window. The MYM clock continues — does not reset on trade. Trading does NOT automatically make a player MYM-eligible.
-  - Cannot extend or MYM a tagged player (until they enter FA Auction).
+  - Cannot extend or MYM a tagged player.
 - **Trade window:** offseason through NFL Thanksgiving week kickoff.
 
 ### T1.8 Rookie Draft Selection
@@ -1058,9 +1062,9 @@ The bid sheet's math depends on getting cap mechanics right. This section enumer
 ### A1. Cap ceiling = $300,000
 
 - **Hard ceiling** of $300K total committed salary.
-- **DOES NOT apply during offseason before the FA Auction starts.** No upper cap during the offseason — owners can be over $300K committed (e.g., from extensions/restructures) until the auction starts.
-- **Applies from FA Auction completion onward** through the entire fantasy season + into the next offseason — *up until* the next year's FA Auction starts.
-- **Tagged salaries count** as active salary against the ceiling.
+- **Applies: FA Auction start → end of fantasy season ONLY.** (Corrected v10 per Keith.)
+- **DOES NOT apply during the offseason** — both the offseason BEFORE FA Auction and the offseason AFTER fantasy season ends. Cap turns OFF at season end and stays off until next FA Auction. Trades after the fantasy season can be over cap — that's fine.
+- **Tagged salaries count** as active roster salary against the ceiling. Tagged players ARE on the active roster — no separate accounting.
 - **Taxi salaries do NOT count** — taxi is off-cap entirely.
 - **IR cap relief reduces the count** — 50% of IR'd player's salary refunds against the ceiling.
 
@@ -1068,58 +1072,39 @@ The bid sheet's math depends on getting cap mechanics right. This section enumer
 
 - **Soft floor.** Must be hit at SOME timestamp during the FA Auction window (touch-and-go counts) **OR** by the September contract deadline.
 - Failing both = out of compliance → cap penalty.
-- Touch-and-go example: hit $270K mid-auction, then a $40K player goes IR dropping committed to $230K → still compliant (touched $260K earlier).
-- Front-loading contracts is the explicit tool to satisfy the floor when an owner is light on commitments.
+- **Touch-and-go example (corrected v10):** team hits $270K mid-auction, then a $40K player goes IR. **IR refund = 50% × $40K = $20K**, so committed salary drops to **$250K** (still < $260K, but the team had touched $260K earlier so they're compliant for floor purposes).
+- **Front-loading contracts OR restructuring** is the explicit tool to satisfy the floor when an owner is light on commitments.
 
 ### A3. Future direction (parked — Open Items A1.4 + A2.4)
 Whether to keep, eliminate, or reform the auction roster lock + cap floor mechanic — Keith is reviewing.
 
 ---
 
-## B. Earning curve (75% guarantee schedule)
+## B. Earning curve — CANONICAL (Keith confirmed 2026-04-28)
 
-### B1. Rulebook spec (the official rule)
+### B1. The rule
 
-A contract's salary "earns" pro-rata over the season. **Once the season is completed and the new season has rolled forward, 100% is earned (sunk).**
+A contract's salary "earns" by **calendar-month bucket**. Earning ticks UP at the start of each month (10/1, 11/1, 12/1) and concludes at season end. Once season ends, 100% is earned (no need to wait for March roll-forward — and offseason cuts aren't allowed anyway, so the distinction is academic).
 
-| Checkpoint | % of Y1 salary earned |
+| Cut Date Range | % earned |
 |---|---|
-| Pre-Oct (kickoff through Sep) | 0% |
-| End of October | 25% |
-| End of November | 50% |
-| End of December (or season end) | 75% |
-| March roll-forward (next year) | 100% |
+| FA Auction start through 9/30 | **0%** |
+| 10/1 – 10/31 (any day in October) | **25%** |
+| 11/1 – 11/30 (any day in November) | **50%** |
+| 12/1 – season end | **75%** |
+| After season end | **100%** |
 
-### B2. Code implementation (`build_contract_history_snapshots.py`)
+**Key clarification:** "all of October = 25%" — the moment 10/1 hits, you're in the 25% bucket for the entire month. Same for Nov (50%) and Dec (75%). The earning ticks UP at the START of each month, not the end.
 
-The reporting code uses **4 milestones at 25% each** but starts the clock at September 30 instead of October 31:
+### B2. ⚠️ Code bug (file follow-up)
 
-```python
-milestones = [Sep 30, Oct 31, Nov 30, season_end]
-earned = (salary / 4) × (count of milestones that are ≤ drop_date)
-```
+The reporting code in `build_contract_history_snapshots.py` uses milestones `[Sep 30, Oct 31, Nov 30, season_end]` — which gives 25% earning at Sep 30 (too generous for preseason cuts). **The canonical rule above (B1) supersedes the code.** A code-fix follow-up is in Open Items (memory + Open Items A2).
 
-So per code:
-| Drop date | % earned |
-|---|---|
-| Before Sep 30 | 0% |
-| Sep 30 – Oct 30 | 25% |
-| Oct 31 – Nov 29 | 50% |
-| Nov 30 – season end | 75% |
-| After season end | 100% |
+The fix needed: change milestones from `[Sep 30, Oct 31, Nov 30, season_end]` to `[Oct 1, Nov 1, Dec 1, season_end]` (or equivalent: trigger at start of month, not end of prior month).
 
-### B3. ⚠️ DISCREPANCY (Open Item — needs Keith's resolution)
+### B3. Future direction — per-game prorated earning (Open A1.1)
 
-The rulebook earning curve and the code's earning curve are **off by one milestone**:
-- Rulebook: 0% → Oct → Nov → Dec → March (5 boundary points)
-- Code: 0% → **Sep 30** → Oct → Nov → SeasonEnd (5 boundary points)
-
-The code is **more lenient** — a player surviving preseason gets 25% earned at Sep 30, vs. rulebook says 0% until Oct 31.
-
-**Action item:** decide whether the rulebook is wrong (and code is right — codify Sep 30 as a real checkpoint) or the code is buggy (fix to start at Oct 31). Either way, the bid sheet calc must match the chosen rule. **Added to Open Items A2.**
-
-### B4. Future direction — per-game prorated earning (Open A1.1)
-Keith wants the league to consider switching from calendar checkpoints to a **per-game prorated** earning model — also for FA pickups. Would more accurately represent the truth than arbitrary calendar dates. Pending league review.
+Keith wants the league to consider switching from calendar-month buckets to a **per-game prorated** earning model — also for FA pickups. Would more accurately represent the truth than arbitrary calendar dates. Pending league review.
 
 ---
 
@@ -1165,48 +1150,54 @@ Rationale: WW pickups have a different guarantee structure (65% earned vs 75% st
 - Penalty = (75% × $90K) − $30K = $67.5K − $30K = **$37.5K**
 - Hits **current season cap** (bucket 1 — offseason before FA Auction).
 
-**C4.2: Same 3-yr $30K, cut Oct 15 (Y1 in-season)**
-- Earned through Oct 15: $7.5K (per code, 1/4 of Y1) OR $0 (per rulebook, before Oct 31)
-- Penalty (rulebook): $67.5K − $0 = **$67.5K**
-- Penalty (code): $67.5K − $7.5K = **$60K**
+**C4.2: Same 3-yr $30K, cut Oct 15 (Y1 in-season)** — recomputed v10
+- Earned through Oct 15: 25% × $30K = **$7.5K** (in 10/1–10/31 bucket)
+- Penalty = (75% × $90K) − $7.5K = $67.5K − $7.5K = **$60K**
 - Hits **following season cap** (bucket 2 — between FA Auction start and season end).
 
-**C4.3: 3-year Front-Loaded ($40K Y1 / $30K Y2 / $20K Y3, TCV $90K), cut March of Y2 (offseason, Y1 sunk)**
+**C4.3: 3-year Front-Loaded ($40K Y1 / $30K Y2 / $20K Y3, TCV $90K), cut March of Y2 (offseason, Y1 sunk)** — flagged for review
 - Earned through rollover: $40K (Y1 fully sunk)
-- Penalty = (75% × $90K) − $40K = $67.5K − $40K = **$27.5K**
+- **Per literal formula (TCV × 0.75 − earned):** $67.5K − $40K = **$27.5K**
+- ❓ Keith flagged this example "not correct" in v9 review — formula clarification needed. Possible alternative interpretations:
+  - Maybe Y1 earned is treated as AAV ($30K avg) for guarantee purposes, not actual $40K loaded amount → penalty = $67.5K − $30K = $37.5K (same as flat $30K case)
+  - Maybe TCV resets to remaining-year salaries after rollover → TCV = $50K (Y2 + Y3 only) → penalty = 0.75 × $50K = $37.5K
+  - **Open Item — needs Keith's worked answer for front-loaded penalty math.**
 - Hits **current season cap**.
 
-**C4.4: 1-yr Veteran $20K, cut December (Week 14, last earning checkpoint already hit)**
-- Earned through Dec: $15K (75% per rulebook OR Sep30+Oct+Nov = 75% per code — these align here)
+**C4.4: 1-yr Veteran $20K, cut December 5 (Week 14)** — recomputed v10
+- Earned through Dec 5: 75% × $20K = **$15K** (in 12/1–season-end bucket)
 - Penalty = (75% × $20K) − $15K = $15K − $15K = **$0**
 - This is the case where 75% guarantee equals what's already been paid — no further charge.
 
-**C4.5: 1.01 Rookie ($15K flat × 3yr = $45K TCV), cut October Y2 (Y1 sunk, mid-Y2)**
-- Earned: $15K (Y1 sunk) + $3.75K (Sep30 milestone Y2 per code) = $18.75K (or $15K + $0 = $15K per rulebook)
-- Penalty (rulebook): $33.75K − $15K = **$18.75K**
-- Penalty (code): $33.75K − $18.75K = **$15K**
+**C4.5: 1.01 Rookie ($15K flat × 3yr = $45K TCV), cut October Y2 (Y1 sunk, mid-Y2)** — recomputed v10
+- Earned: $15K (Y1 sunk) + 25% × $15K (Y2 in Oct bucket) = $15K + $3.75K = **$18.75K**
+- Penalty = (75% × $45K) − $18.75K = $33.75K − $18.75K = **$15K**
 - Hits **following season cap**.
 
-**C4.6: 1-yr Extension Ext1 ($25K → $35K extension year, current year stays $25K so TCV = $25K + $35K = $60K), cut March of extension year**
-- Earned through rollover: $25K (current/prior Y sunk)
-- Penalty = (75% × $60K) − $25K = $45K − $25K = **$20K**
+**C4.6: 1-yr Extension Ext1 ($25K → $35K extension year, current year stays $25K so TCV = $25K + $35K = $60K), cut March of extension year** — flagged for review
+- Earned through rollover: $25K (current/prior Y sunk; extension year hasn't started)
+- **Per literal formula:** $60K × 0.75 − $25K = $45K − $25K = **$20K**
+- ❓ Keith flagged this example "not correct" in v9 review. Possible alternative:
+  - After roll-forward, only the extension year remains as the active contract → TCV resets to $35K (just the ext year salary) → penalty = 0.75 × $35K = **$26.25K**
+  - **Open Item — needs Keith's worked answer for post-rollover extension penalty math.**
 - Hits **current season cap**.
 
-**C4.7: WW $25K pickup Week 5, dropped Week 10 (in-season WW special case)**
-- Penalty = 35% × $25K = **$8.75K**
+**C4.7: WW $25K pickup picked up Oct 5, dropped Nov 5 (in-season WW special case)**
+- Penalty = 35% × $25K = **$8.75K** (WW $5K+ rule applies regardless of timing within season)
 - Hits **following season cap**.
 
-**C4.8: WW $4K pickup Week 5, dropped Week 10 (under $5K threshold)**
+**C4.8: WW $4K pickup Oct 5, dropped Nov 5 (under $5K threshold)**
 - Penalty = **$0** (1-yr Veteran/WW under $5K cap-free)
 
 **C4.9: Tagged player ($30K tag), cut May before FA Auction starts**
 - Penalty = **$0** (tag-cut-pre-auction special case — tag nullified)
+- **NOTE:** the team that cut the tagged player CAN bid on / nominate them in the FA Auction (tagged-player exception to cut-then-rebid prohibition).
 
-**C4.10: Tagged player ($30K tag), cut Week 8 in-season**
-- Standard formula applies (tag is a 1-yr contract, treated like a Veteran)
-- Earned (per code): $7.5K (Sep30 milestone hit)
+**C4.10: Tagged player ($30K tag), cut October 15 in-season** — recomputed v10 (no week numbers; calendar month controls)
+- Earned through Oct 15: 25% × $30K = $7.5K (10/1–10/31 bucket)
 - Penalty = (75% × $30K) − $7.5K = $22.5K − $7.5K = **$15K**
 - Hits **following season cap**.
+- (Keith correction: don't reference "Week 8" — calendar month is what matters, not NFL week. A Week 8 in early Nov would yield a different penalty than Week 8 in late Oct.)
 
 ### C5. Worked examples — cap-free categories
 
@@ -1223,17 +1214,20 @@ Rationale: WW pickups have a different guarantee structure (65% earned vs 75% st
 
 ## D. Cap adjustment subtypes
 
-The umbrella term is **cap adjustment**. "Cap penalty" is one specific subtype.
+The umbrella term is **cap adjustment** for things that move the cap. "Cap penalty" is one specific subtype.
+
+> **Naming note (Keith v10):** "this was cap penalties" — the OG term was "cap penalties." The umbrella name "cap adjustment" is the more precise modern term, but historical references use "cap penalty" for what's now formalized as a subtype.
 
 | Subtype | Sign | Source / Trigger |
 |---|---|---|
 | Drop penalty | − | Cut event (formula in C1) |
-| Trade salary cash | ± | Trade event (negative for sender, positive for receiver, capped at 50% of traded-away player's salary) |
+| Trade salary cash | ± | Trade event (paired adjustment — see E1) |
 | IR cap relief | + | Player on IR (50% of salary refunded for duration on IR) |
-| Late dues fine | − | $3K per week late (commissioner-applied) |
-| Missed nomination fine | − | Auction nomination missed (escalates from $3K) |
-| Logo change fee | $0 | Retired (was $15) |
 | Manual commissioner adjustment | ± | One-off corrections |
+| ❓ Late dues fine | − | $3K per week late — **flagged for review** (Keith v10): may be real-dollar fine, not cap impact |
+| ❓ Missed nomination fine | − | Auction nomination missed (escalates from $3K) — **flagged for review** same as above |
+
+> **Removed in v10:** Logo change fee — that was real dollars (and now $0 since AI). Not a cap adjustment.
 
 All adjustments stored in MFL via `salary_adjustments` (commissioner import `TYPE=salaryAdj`) or auto-derived from transactions.
 
@@ -1241,9 +1235,10 @@ All adjustments stored in MFL via `salary_adjustments` (commissioner import `TYP
 
 ## E. Cap movement in trades
 
-### E1. Cap money rule
-- Maximum cash transferable in a trade = **50% of the salary of the traded-away player** (the sender's player).
-- If trading multiple players, max is 50% of the SUM (verify in Open Item — Section 6.H #4).
+### E1. Cap money rule (corrected v10)
+- **Each side's cap-money contribution is independently capped at 50% of THE SALARY OF THEIR OWN TRADED-AWAY PLAYER** (i.e., sender's outgoing player).
+- **NOT pooled.** Owner A's max cash sent is based on Owner A's traded-away player. Owner B's max is based on Owner B's traded-away player.
+- **Multi-player trade:** max cap-money sent = 50% of the SUM of all traded-away player salaries (Keith v10 confirmed).
 - Cannot send only money — must include at least one non-salary asset (player or pick).
 - Recorded as paired `salary_adjustment` rows: NEGATIVE for the team shedding cap, POSITIVE for the team acquiring cap.
 
@@ -1251,16 +1246,21 @@ All adjustments stored in MFL via `salary_adjustments` (commissioner import `TYP
 - Contract goes with the player as-is. No re-negotiation at trade time.
 - Acquiring team owns all future cap implications (year-by-year salaries, TCV, guarantee).
 
-### E3. In-season trade-and-extend window
-- If the traded player is in their final year, the acquiring team gets **4 weeks from acquisition** to extend (no pre-agreement needed).
-- Tagged players cannot be extended after trade.
+### E3. In-season trade-and-extend
+- If the traded player is in their final year, the acquiring team gets **4 weeks from acquisition** to extend.
+- **Pre-trade extension (wired in trade war room module):** in some cases, teams CAN ask for a pre-trade extension — IF the team currently holding the player has the eligibility. This is "the trading-away team's last action for that player" before sending. Example: Owner A's player is extension-eligible by Owner A. Owner A applies the extension as part of the trade negotiation, then trades the now-extended player to Owner B. Owner B inherits the extended contract.
+- **Tagged players: cannot be extended after trade** (tag rule supersedes).
 
-### E4. Worked example — trade with cap money
-- Owner A trades Player X ($10K salary, 1 yr left) + 2026 3rd-round pick to Owner B for Player Y ($8K salary, 1 yr left) + $5K cap money.
-- Owner A receives $5K cap relief (positive adjustment). Owner A acquires Player Y at $8K.
-- Owner B sends $5K cap money (negative adjustment). Owner B acquires Player X at $10K.
-- $5K = 50% of Player X's $10K salary ✓ valid.
-- Asset requirement satisfied (both teams send a player + Owner A sends a pick) ✓.
+### E4. Worked example — trade with cap money (corrected v10)
+- Owner A trades **Player X ($10K salary, 1 yr left)** + 2026 3rd-round pick to Owner B for **Player Y ($8K salary, 1 yr left)** + cap money.
+- **Max cap money each side could send:**
+  - Owner A could send up to 50% × $10K = **$5K** (based on Player X)
+  - Owner B could send up to 50% × $8K = **$4K** (based on Player Y)
+- So Owner B can send Owner A AT MOST **$4K** in cap money — NOT $5K.
+- Final trade: Player X + 2026 3rd → Player Y + $4K cap money.
+- Owner A: receives $4K cap relief (positive `salary_adjustment`). Acquires Player Y at $8K.
+- Owner B: sends $4K cap money (negative `salary_adjustment`). Acquires Player X at $10K.
+- Asset requirement satisfied (both sides send player + Owner A sends pick).
 
 ---
 
@@ -1269,21 +1269,37 @@ All adjustments stored in MFL via `salary_adjustments` (commissioner import `TYP
 For the bid sheet's expected-bid math, each franchise's available cap at a moment in time:
 
 ```
-available_cap_remaining = $300,000  
-                        − sum(active_roster_salaries)         # excludes taxi
-                        − sum(tagged_salaries)
+available_cap_remaining = $300,000
+                        − sum(active_roster_salaries)        # tagged players included; taxi excluded
                         + sum(IR_refunds_50%)
-                        + sum(positive_cap_adjustments_owed)  # trade cap acquired, etc.
-                        − sum(outstanding_cap_charges)        # drop penalties, traded-away cap, fines
+                        + sum(positive_cap_adjustments_owed) # trade cap acquired, IR refunds
+                        − sum(outstanding_cap_charges)       # drop penalties, traded-away cap
 ```
+
+> **Tagged salaries are part of `active_roster_salaries`** — tagged players ARE active roster, no separate accounting needed (Keith v10 simplification).
 
 Then for the FA Auction:
 ```
 max_bid_remaining = available_cap_remaining
-                  − ($1K × roster_slots_remaining_to_minimum_27)
+                  − ($1K × roster_slots_needed_to_reach_minimum_27)
 ```
 
 **Caveat for offseason pre-FA-Auction:** the $300K ceiling does NOT apply — owners can be over $300K committed. Their `available_cap` can be NEGATIVE (representing how much they need to cut/restructure to get under by FA Auction start).
+
+### F1. Worked example — single-position need
+- Owner has 26 active players, $230K committed, $0 outstanding adjustments.
+- Owner needs **1 more player to reach 27-min** (any position).
+- `available_cap_remaining = $300K − $230K = $70K`
+- `max_bid_remaining = $70K − ($1K × 1) = $69K`
+- Owner can bid up to $69K on a single player while reserving $1K for the 27th-roster-spot minimum.
+
+### F2. Worked example — multi-position need (Keith v10)
+- Owner has 26 active players, but they only have 1 RB and the league requires they end the auction with enough RBs to fill 2 RB + 2 Flex starting slots → say minimum 3 RBs.
+- They have a $50K cap-floor concern: they need 2 more RBs + 1 more flex-eligible player, so 3 more roster spots not just 1.
+- `available_cap = $300K − $230K = $70K`
+- `max_bid = $70K − ($1K × 3) = $67K` (reserve $3K for the other 2 mandatory pickups)
+- Even though they only NEED 1 player to reach 27, they should reserve cash for the positional needs they still have to fill.
+- **Practical bid sheet rule:** compute `roster_slots_needed = max(27 − active_count, sum(min_positional_gaps))` to avoid overbidding.
 
 **For the bid sheet:** compute `available_cap` as of "auction start" — i.e., snapshot the rosters + commitments AT that moment, then run the auction simulation.
 
@@ -1311,15 +1327,19 @@ The 15 invariants in Section 2.G all apply to cap math. Bid sheet must enforce t
 
 ## H. STILL-OPEN ITEMS for Section 6
 
-1. **Earning curve discrepancy** (rulebook vs code) — needs Keith decision on which is canonical. **CRITICAL for bid sheet** (changes penalty numbers materially). Flagged in Open Items A2.
+1. **C4.3 + C4.6 examples flagged "not correct" by Keith** — front-loaded penalty math + post-rollover extension penalty math need clarification. Possible interpretations are flagged inline; needs Keith's worked answer.
 2. **Per-game prorated earning** — league discussion (Open A1.1).
-3. **Cut-then-rebid pre-auction reset rule** — exact window for the pre-auction drop reset (currently described as "few days before auction" but not pinned down).
-4. **Trade cap-money cap when multi-player trade** — is it 50% of sum, or 50% per player?
-5. **Auction Roster Lock future direction** (Open A1.4).
+3. **Late dues fines + missed-nomination fines** — Keith flagged for review. May be real-dollar (cash) penalties, not cap adjustments. Confirm before bid sheet uses them as cap inputs.
+4. **Auction Roster Lock future direction** (Open A1.4) — also: a 2-day-before-auction "cutdown day" is being added for testing purposes per Keith v10. Reconcile with the current 3-day-prior roster lock rule.
+
+✅ **Resolved in v10 (no longer open):**
+- Earning curve canonical = Keith's spec (10/1, 11/1, 12/1, season end). Code has a bug (file follow-up).
+- Multi-player trade cap money = 50% of sum (was Open Item).
+- 50% rule is per-traded-away-player (not pooled).
 
 ---
 
-## END Section 6 (LOCKED v9 candidate)
+## END Section 6 (LOCKED v10 candidate)
 
 ---
 
