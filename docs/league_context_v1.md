@@ -1,4 +1,4 @@
-# UPS Salary Cap Dynasty — League Context (v10, Section 6 Cap Mechanics review corrections)
+# UPS Salary Cap Dynasty — League Context (v11, C4.3 + C4.6 confirmed; "earned per year" + "TCV fixed" rules locked)
 
 **Purpose:** Claude's working understanding of how the UPS league operates, written so Keith can correct it before we use it as the foundation for the 2026 auction bid sheet. Sections delivered iteratively.
 
@@ -31,7 +31,7 @@ Memory updated:
 - [x] Section 3 — Annual Calendar — **LOCKED** (v8)
 - [ ] Section 4 — Scoring & Roster Eras (timeline) — deferred
 - [ ] Section 5 — Franchise History (joins, rebrands, dispersals) — deferred (skeleton in memory)
-- [x] Section 6 — Cap mechanics (penalties, guarantees, floor/ceiling, worked examples) — **LOCKED candidate v9**
+- [x] Section 6 — Cap mechanics (penalties, guarantees, floor/ceiling, worked examples) — **LOCKED v11**
 - [ ] Section 7 — Bot Integration Spec (deferred to last; depends on all prior sections)
 
 > **Source-of-truth ranking** (highest first):
@@ -1110,13 +1110,24 @@ Keith wants the league to consider switching from calendar-month buckets to a **
 
 ## C. Cut/Drop Penalty — by contract type
 
-### C1. Rulebook formula (canonical)
+### C1. Canonical formula
 
 ```
 Penalty = (TCV × 0.75) − Salary Earned
 ```
 
 Applied to the cap of the season determined by cut-timing buckets (see Section 3.C).
+
+**Two key rules for evaluating this formula (Keith confirmed v11):**
+
+1. **TCV is fixed at the time of contract creation OR extension and does NOT change over the contract's life.**
+   - Front-loaded $40/$30/$20 contract → TCV = $90K, stays $90K throughout.
+   - 1-yr $25K contract extended (Ext1, +$10K) → AAV $35K for ext year → **TCV = $25K + $35K = $60K, stays $60K** through the rest of the contract's life. Does NOT reset to $35K after rollover.
+
+2. **"Salary Earned" is based on THE YEAR'S actual salary (not AAV).** Apply the earning curve % to the year's actual dollar amount:
+   - Front-loaded $40K Y1 cut Oct 15 → 25% × **$40K** = $10K earned (NOT 25% × $30K AAV).
+   - Same contract Y2 = $30K, cut Oct 15 of Y2 → 25% × $30K = $7.5K earned.
+   - Earned accrues across years: prior years that played out fully count at 100% of THAT year's actual salary.
 
 ### C2. Special-case overrides (NO penalty regardless of formula)
 
@@ -1155,13 +1166,10 @@ Rationale: WW pickups have a different guarantee structure (65% earned vs 75% st
 - Penalty = (75% × $90K) − $7.5K = $67.5K − $7.5K = **$60K**
 - Hits **following season cap** (bucket 2 — between FA Auction start and season end).
 
-**C4.3: 3-year Front-Loaded ($40K Y1 / $30K Y2 / $20K Y3, TCV $90K), cut March of Y2 (offseason, Y1 sunk)** — flagged for review
-- Earned through rollover: $40K (Y1 fully sunk)
-- **Per literal formula (TCV × 0.75 − earned):** $67.5K − $40K = **$27.5K**
-- ❓ Keith flagged this example "not correct" in v9 review — formula clarification needed. Possible alternative interpretations:
-  - Maybe Y1 earned is treated as AAV ($30K avg) for guarantee purposes, not actual $40K loaded amount → penalty = $67.5K − $30K = $37.5K (same as flat $30K case)
-  - Maybe TCV resets to remaining-year salaries after rollover → TCV = $50K (Y2 + Y3 only) → penalty = 0.75 × $50K = $37.5K
-  - **Open Item — needs Keith's worked answer for front-loaded penalty math.**
+**C4.3: 3-year Front-Loaded ($40K Y1 / $30K Y2 / $20K Y3, TCV $90K), cut March of Y2 (offseason, Y1 sunk)** — LOCKED v11
+- TCV = $90K (fixed at contract creation; doesn't change).
+- Earned through Y1 (played out fully) = **actual Y1 salary = $40K** (NOT AAV $30K — earned tracks the year's actual amount per Keith).
+- Penalty = (75% × $90K) − $40K = $67.5K − $40K = **$27.5K**
 - Hits **current season cap**.
 
 **C4.4: 1-yr Veteran $20K, cut December 5 (Week 14)** — recomputed v10
@@ -1174,12 +1182,12 @@ Rationale: WW pickups have a different guarantee structure (65% earned vs 75% st
 - Penalty = (75% × $45K) − $18.75K = $33.75K − $18.75K = **$15K**
 - Hits **following season cap**.
 
-**C4.6: 1-yr Extension Ext1 ($25K → $35K extension year, current year stays $25K so TCV = $25K + $35K = $60K), cut March of extension year** — flagged for review
-- Earned through rollover: $25K (current/prior Y sunk; extension year hasn't started)
-- **Per literal formula:** $60K × 0.75 − $25K = $45K − $25K = **$20K**
-- ❓ Keith flagged this example "not correct" in v9 review. Possible alternative:
-  - After roll-forward, only the extension year remains as the active contract → TCV resets to $35K (just the ext year salary) → penalty = 0.75 × $35K = **$26.25K**
-  - **Open Item — needs Keith's worked answer for post-rollover extension penalty math.**
+**C4.6: 1-yr contract $25K extended Ext1 (+$10K → ext year AAV $35K). At time of extension: TCV = $25K + $35K = $60K. Cut March of extension year (offseason, original Y1 sunk).** — LOCKED v11
+- TCV = $60K (fixed at extension submission; does NOT reset after rollover — Keith confirmed).
+- Earned through original Y1 (played out fully) = **$25K** (actual Y1 salary).
+- Earned through extension year (March = before any earning milestone) = **$0**.
+- Total earned = $25K.
+- Penalty = (75% × $60K) − $25K = $45K − $25K = **$20K**
 - Hits **current season cap**.
 
 **C4.7: WW $25K pickup picked up Oct 5, dropped Nov 5 (in-season WW special case)**
@@ -1327,19 +1335,24 @@ The 15 invariants in Section 2.G all apply to cap math. Bid sheet must enforce t
 
 ## H. STILL-OPEN ITEMS for Section 6
 
-1. **C4.3 + C4.6 examples flagged "not correct" by Keith** — front-loaded penalty math + post-rollover extension penalty math need clarification. Possible interpretations are flagged inline; needs Keith's worked answer.
-2. **Per-game prorated earning** — league discussion (Open A1.1).
-3. **Late dues fines + missed-nomination fines** — Keith flagged for review. May be real-dollar (cash) penalties, not cap adjustments. Confirm before bid sheet uses them as cap inputs.
-4. **Auction Roster Lock future direction** (Open A1.4) — also: a 2-day-before-auction "cutdown day" is being added for testing purposes per Keith v10. Reconcile with the current 3-day-prior roster lock rule.
+1. **Per-game prorated earning** — league discussion (Open A1.1).
+2. **Late dues fines + missed-nomination fines** — Keith flagged for review. May be real-dollar (cash) penalties, not cap adjustments. Confirm before bid sheet uses them as cap inputs.
+3. **Auction Roster Lock future direction** (Open A1.4) — also: a 2-day-before-auction "cutdown day" is being added for testing purposes per Keith v10. Reconcile with the current 3-day-prior roster lock rule.
 
-✅ **Resolved in v10 (no longer open):**
+✅ **Resolved in v11 (closed):**
+- C4.3 (front-loaded penalty math) — confirmed $27.5K. Earned tracks actual Y1 salary ($40K), not AAV.
+- C4.6 (post-rollover extension penalty) — confirmed $20K. TCV stays at $60K post-extension; does NOT reset to ext-year salary.
+- "Earned per year salary" rule formalized in C1.
+- "TCV fixed at extension/creation time" rule formalized in C1.
+
+✅ **Resolved in v10 (still closed):**
 - Earning curve canonical = Keith's spec (10/1, 11/1, 12/1, season end). Code has a bug (file follow-up).
-- Multi-player trade cap money = 50% of sum (was Open Item).
+- Multi-player trade cap money = 50% of sum.
 - 50% rule is per-traded-away-player (not pooled).
 
 ---
 
-## END Section 6 (LOCKED v10 candidate)
+## END Section 6 (**LOCKED v11**)
 
 ---
 
