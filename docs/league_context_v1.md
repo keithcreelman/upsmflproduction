@@ -1,4 +1,4 @@
-# UPS Salary Cap Dynasty — League Context (v12, Section 4 League History added + Round 6 IDP-only correction)
+# UPS Salary Cap Dynasty — League Context (v13, Section 4 corrections from review)
 
 **Purpose:** Claude's working understanding of how the UPS league operates, written so Keith can correct it before we use it as the foundation for the 2026 auction bid sheet. Sections delivered iteratively.
 
@@ -33,6 +33,7 @@ Memory updated:
 - [ ] Section 5 — Franchise History (joins, rebrands, dispersals) — deferred (skeleton in memory)
 - [x] Section 6 — Cap mechanics (penalties, guarantees, floor/ceiling, worked examples) — **LOCKED v11**
 - [ ] Section 7 — Bot Integration Spec (deferred to last; depends on all prior sections)
+- [ ] Section 8 — Contract Activity & Player Lineage Tracking (added v13 — non-critical but Keith wants it)
 
 > **Source-of-truth ranking** (highest first):
 > 1. The Discord channels (live discussions, deadlines, precedent)
@@ -1055,44 +1056,69 @@ The 2026 bid sheet must understand that historical contract values, scoring data
 
 > Full year-by-year details with source citations are in [memory: `league_history_chronicle.md`](../../.claude/projects/-Users-keithcreelman-Code-upsmflproduction/memory/league_history_chronicle.md). Section 4 is the bid-sheet-relevant subset.
 
-## A. Major eras at a glance
+## A. Major eras at a glance (corrected v13)
 
-| Era | Years | Defining characteristic |
-|---|---|---|
-| **Pre-history** | 2010 | One-year **redraft auction** league. Not dynasty cap — different format entirely. **EXCLUDE from dynasty-comparable historical data.** |
-| **Founding dynasty** | 2011 | First year of the current dynasty cap format. Rules + cap that exist today. |
-| **IDP / classic format** | 2011–2021 | Standard QB/RB/WR/TE flex with full IDP support. QB starter limit = 1. No SF, no TE Premium. |
-| **Superflex era** | 2022–2024 | QB starter limit 1 → 1-2. All skill flex maxes +1. **3-starting-QB cap** with FantasyPros depth chart enforcement. QB market reprices upward. |
-| **TE Premium era** | 2025+ | TE-only `CC=*1.5` (1.5 PPR for TE only) + ST TD range tweaks. TE inflation; year-1 (2025) prices likely undershoot equilibrium. |
+Eras are NOT mutually exclusive — Superflex and TE Premium are concurrent (both ongoing in 2026).
+
+| Era | Years | Status | Defining characteristic |
+|---|---|---|---|
+| **Pre-history** | 2010 | Closed | One-year **FA Auction only** (no rookie draft, no dynasty cap). Contracts maintained on Forumotion. **EXCLUDE from dynasty-comparable historical data.** |
+| **Founding dynasty** | 2011 | Closed | First year of the current dynasty cap format. **Treat 2011 as Y1 for historical comparisons.** |
+| **IDP / classic format** | 2011–2021 | Closed | Standard QB/RB/WR/TE flex with full IDP support. QB starter limit = 1. No SF, no TE Premium. |
+| **Superflex era** | 2022–**ongoing** | Active | QB starter limit 1 → 1-2. All skill flex maxes +1. **3-starting-QB cap** (rule eased in 2025 — see below). QB market reprices upward. |
+| **TE Premium era** | 2025–**ongoing** | Active | TE-only `CC=*1.5` (1.5 PPR for TE only). **Concurrent with Superflex era.** Voted year before (2024) per Keith — verify. |
+
+> **Data lineage emphasis (Keith v13):** every stat/scoring change must be documented in enough detail to **convert old data to the modern era.** When this section says "scoring changed," the bid sheet needs to know the EXACT old → new formula to normalize historical points. Cross-reference rulebook archive + `metadata_rawrules` + Forumotion for primary sources.
 
 ## B. Rule changes by year (bid-sheet relevant)
 
+> Each entry should record OLD value → NEW value with enough precision to normalize historical data. Where I have the old value, it's in this doc. Where I don't, **❓DETAIL NEEDED** flags it as a follow-up item for the chronicle work.
+
 ### 2010
-- **Year 1 = redraft auction only.** Not the current dynasty cap format. Auction values from 2010 are NOT comparable to modern data.
+- **FA Auction only — NO rookie draft.** Contracts maintained on Forumotion. Format was one-and-done by design.
+- Auction values from 2010 are **NOT comparable** to modern dynasty data. Exclude entirely.
 
-### 2011
-- First year of the current dynasty cap format. **Treat 2011 as Year 1 for historical comparisons.**
-- IDP added: split out DT/DE/LB/CB/S, added PN; RB=1-3, TE=1-3, WR=2-4.
+### 2011 — Founding dynasty Year 1
+- **Also FA Auction only — NO rookie draft yet.** The ONLY difference from 2010: in 2011 the league knew the format was permanent (dynasty), so contracts persisted forward into 2012. In 2010 the format was acknowledged as one-and-done.
+- **Starting lineup: 1 RB mandatory** (per rulebook archive — 1QB / **1RB** / 2WR / 1TE / 2Flex / DL / LB / DB / 3 DefFlex / K / P). The 1-RB minimum stayed in effect through ~2014 (see 2015 below).
+- IDP added: split out DT/DE/LB/CB/S, added PN; RB=1-3, TE=1-3, WR=2-4 (these are starter MAXIMUMS, not minimums).
 
-### 2012
-- 4-owner replacement → first dispersal draft (between Y1 and Y2 of dynasty cap).
+### 2012 — First rookie draft + Year-1 to Year-2 cleanup
+- **First rookie draft** (rookie draft format introduced this year — dynasty cap needed it once contracts started persisting).
+- **4-owner dispersal draft.** Original results in Forumotion (not yet ingested into repo). Capture for franchise-history work.
+- **MAJOR punter scoring overhaul** (after Y1). Punters were scoring obscenely high in 2011 — scoring revamped to bring them in line. ❓DETAIL NEEDED: original formula → new formula. In Forumotion.
 - Big-game bonus added (any-position pts at 45+/50+/60+).
-- Tackles + KY (kickoff return yards) + PNY (punt yards) scoring overhaul.
+- Tackles + KY (kickoff return yards) + PNY (punt yards) scoring overhaul. ❓DETAIL NEEDED: exact old → new values.
+- **Taxi squad introduced at size 5** (Keith recalls 5 or 6; memory says 5). Verify in Forumotion.
 
 ### 2013
 - Rookie contracts: 2 years → **3 years** (by league vote).
-- **Trade votes removed.** Commissioner-led trade processing. 5 collusion votes still trigger a veto poll.
+- **Trade votes removed.** Commissioner-led trade processing replaced league veto poll. 5 collusion votes still trigger a veto poll.
+- Contract dynamics for the bid sheet: extension + restructure data from Forumotion is the primary source for understanding how contracts behaved pre-2018.
 
 ### 2014
-- Forum vote 2014-02-11 reaffirmed: **6 three-year contracts max per roster** (excluding rookie 3-year deals). **STILL ACTIVE in 2026.**
-- Forum vote 2014-02-11 (7-5): Restructure-only-with-extension rule (later overturned — see "Restructure ban").
+- **Forum vote 2014-02-11 reaffirmed: 6 three-year contracts max per roster** (excluding rookie 3-yr deals). **STILL ACTIVE in 2026** (per Keith v12). ❓Verify if there was a 1-year wait period before implementation.
+- Forum vote 2014-02-11 (7-5): Restructure-only-with-extension rule (later overturned — same year as in-season restructure ban; see below).
 - Taxi: max 9 with contract-year tiers.
 
 ### 2015
-- RB starter max bumped from 1-3 → 2-4.
+- **RB starter MIN went from 1 → 2** (the change Keith pointed to — was a 2014 forum proposal effective 2015 per `services/rulebook/sources/rules/settings_changes.md`). Lineup became 1QB / **2RB** / 2WR / 1TE / 2Flex / etc.
+- RB starter MAX bumped from 1-3 → 2-4 (per memory `scoring_history_eras.md`).
 
 ### 2016
-- FG scoring: tier-based → per-yard (`FG=*.1`).
+- FG scoring overhaul: tier-based → per-yard (`FG=*.1`). ❓DETAIL NEEDED: original tiered formula values.
+
+### RB PPR evolution (years TBD, multiple changes)
+- Original: 1.0 PPR (catch counts as 1 point)
+- Then changed to 0.75 (3/4 PPR)
+- Then changed to 0.80 (current 4/5 PPR)
+- ❓DETAIL NEEDED: years for each transition. Find in Forumotion or scoring_history_eras.md cross-reference.
+
+### First Downs evolution (Keith v13)
+- Initially: receiving FDs only (0.2)
+- Then: rushing FDs added (0.2)
+- Then: ALL 1st downs (incl. QBs)
+- ❓DETAIL NEEDED: year breaks for each step. Memory has 2021 as initial; subsequent expansions need dates.
 
 ### 2018 — major roster expansion
 - Active roster: 26 → **30** (auction max 31 → 35).
@@ -1105,56 +1131,59 @@ The 2026 bid sheet must understand that historical contract values, scoring data
 - **In-season restructure BANNED.** Same vote also overturned the 2014 "restructure-only-with-extension" rule. Restructures are now offseason-only and standalone-allowed.
 
 ### 2020
-- Yardage notation: `.1/1` → `*.1` (cosmetic).
+- Yardage notation: `.1/1` → `*.1` (cosmetic — same scoring, different MFL notation).
 - COVID-IR rule added (later removed in 2022).
 
 ### 2021
-- **First downs added** — receiving FD = 0.2 (initial vote).
-- **Rushing first downs added** (0.2) as a follow-up vote 2021-07-04 (Josh Martel raised oversight).
-- **Waiver run day moved Wed → Fri** by 9-0 vote (2021-08-17). Affects historical waiver-pickup dates.
-- **SF lead-up year had real cap-math:** non-expiring rookie QBs got the new (10/20) extension cost immediately in 2021; expiring rookie QBs got the old (6/12) cost.
+- First downs added — receiving FD = 0.2 (initial vote).
+- Rushing first downs added (0.2) as follow-up vote 2021-07-04 (Josh Martel raised oversight).
+- **Waiver runs day swap (2021-08-17, 9-0 vote): Wed/Thu/Sat/Sun → Thu/Fri/Sat/Sun.** Full schedule replacement, not just "Wed→Fri." Affects historical waiver-pickup date alignment.
+- **SF lead-up year had real cap math:** non-expiring rookie QBs got the new (10/20) extension cost **immediately in 2021**; expiring rookie QBs got the old (6/12) cost. (Was a tied 5-13 vote broken by commissioner.)
 
-### 2022 — Superflex transition
-- **★ QB starter cap 1 → 1-2 (Superflex starts).** All skill (RB/WR/TE) max +1.
-- One-time **"QB Keeper Selection" event:** owners dropped non-keeper QBs penalty-free; 2021 2nd-QB rookies (Mond/Mills/Fields/Lawrence) auto-eligible.
-- **3-starting-QB cap** codified separately with FantasyPros depth-chart enforcement.
+### 2022 — Superflex transition (CONCURRENT with rest of league rules going forward)
+- **★ QB starter cap 1 → 1-2 (Superflex era begins, ONGOING).** All skill (RB/WR/TE) max +1.
+- One-time **QB Keeper Selection event**: owners declared which QBs to keep; non-keepers dropped penalty-free. 2021 2nd-QB rookies (Mond/Mills/Fields/Lawrence) auto-eligible to be kept.
+- **3-starting-QB cap** codified with FantasyPros depth-chart enforcement (later eased — see 2025).
 - **League dues $125 → $200** (10-2 vote, 2022-02-20).
 - **Payout overhaul** (2022-08-12): Champion $600→$900, 2nd $290→$450, 3rd $100→$150, Division winners $25→$50, Weekly HS $20→$30, new Toilet Bowl payouts.
-- **COVID-IR/Taxi rule removed** (2022-08-12).
+- COVID-IR/Taxi rule removed (2022-08-12).
 - **Trade window opened immediately after season end** (used to lock until March rollover).
-- Tag Auction + ERA switched to FA-Auction-style proxy bid with 3-day window (2022-05-03).
+- Tag Auction + ERA switched to FA-Auction-style proxy bid with 3-day window (2022-05-03). ❓Need: what was format BEFORE this change? When did ERA itself start? Are tag results captured anywhere?
 
-### 2025 — TE Premium + several other changes
-- **★ TE Premium: `CC=*1.5` for TE only** (1.5 PPR, TE only) + ST TD range tweaks.
+### 2025 — TE Premium + cleanup year (CONCURRENT with SF)
+- **★ TE Premium: `CC=*1.5` for TE only** (1.5 PPR, TE only). Voted year before (2024) per Keith.
+- **ST TD range tweaks** were a **league-wide uniformity** change (NOT TE-Premium specific) — all positions normalized for consistency. ❓DETAIL NEEDED: old ranges → new ranges.
 - **MYM cap raised 3 → 4.**
-- **Loaded contracts roster cap LOWERED 5 → ... no wait, 5 stayed; what changed was related** — actually the in-season restructure exploit was already closed pre-2025, so this is pre-existing.
 - **ERA opening bid: $1K floor** (was prior-yr-salary + $1K).
-- **1st-Round Rookie Option** introduced (4th option year, salary = original Y3 + $5K; first exercise window 2027 for the 2025 R1 class).
-- **Round 6 reverted to IDP-only** — PK/PN eligibility eliminated. Earlier expansion vote (8-1) reversed.
-- **Bench-player tiebreaker removed** (commissioner ruling, exact pre-2025 date TBD).
+- **1st-Round Rookie Option** introduced (4th option year, salary = original Y3 + $5K; first exercise window 2027 for the 2025 R1 class). Voted 2024, implemented 2025.
+- **Round 6 PK/PN eligibility REVERSED** — back to strict IDP-only. **History (Keith v13):** Round 6 was ALWAYS IDP-intent from inception. One year an owner selected a PK or PN in Round 6. The league voted ON DRAFT NIGHT that it was OK they were included (no explicit rule against). PK/PN remained informally allowed in subsequent years until 2025, when the rule was tightened back to strict IDP-only. ❓Year of the draft-night vote — review auction data for first PK/PN selection in Round 6.
+- **3-starting-QB cap eased**: rule changed in 2025 to **3 starters at start of season; mid-season changes don't matter.** Was getting too challenging to enforce mid-season depth-chart changes.
+- **Bench-player tiebreaker removed.** New rule: tie = tie in regular season; in playoffs the higher seed advances (manual adjustment by commissioner, rare).
 
-### 2026 — Coming in
-- **Division realignment year** (next: 2029, 2032). Affects perceived division strength heading into auction.
-- **TE Premium year 2:** market likely re-prices TEs more aggressively than year 1 (which underdiscounted the new scoring).
+### 2026 — Active changes
+- **Division realignment year** (next: 2029, 2032). Realignment uses prior 3-year all-play records to slot teams into divisions.
+- **TE Premium year 2** (concurrent with SF). Year-2 TE pricing: open question — see Section C below.
 
-## C. Implications for the 2026 bid sheet
+## C. Implications for the 2026 bid sheet (corrected v13)
 
 1. **Filter or weight historical auction data by era:**
-   - 2010: exclude (different format)
-   - 2011–2021: pre-SF, pre-TE-Premium baseline
-   - 2022–2024: SF-only era (QB inflation, no TE premium)
-   - 2025: SF + TE-Premium year 1 (TE prices NOT at equilibrium)
-   - 2026: SF + TE-Premium year 2 (expect TE inflation correction upward)
+   - **2010:** exclude (different format — FA Auction only)
+   - **2011–2021:** pre-SF, pre-TE-Premium baseline
+   - **2022–2024:** SF-only era (QB inflation, no TE premium)
+   - **2025:** SF + TE Premium year 1 (concurrent eras)
+   - **2026:** SF + TE Premium year 2 (concurrent eras)
 
-2. **Don't conflate 2022 SF with TE Premium.** Some models (`build_auction_value_model_v2.py`) lump them as one era — that's wrong. They're 3 years apart.
+2. **Don't conflate 2022 SF with TE Premium.** Some models (`build_auction_value_model_v2.py`) lump them as one era — that's wrong. They're 3 years apart. **`build_auction_value_model_v2.py` should be SUNSETTED** — Keith doesn't want multiple sources of truth floating around. We need a way to deprecate stale models cleanly.
 
-3. **2026 TE pricing should be ABOVE 2025 TE pricing** (year-2 market correction), not at parity.
+3. ~~**2026 TE pricing should be ABOVE 2025 TE pricing** (year-2 market correction)~~ — **REMOVED v13.** Keith disagrees; not a correct assumption.
 
-4. **Owner-strategy signal: 2026 is a realignment year.** Owners who finished poorly may push harder this auction to avoid being slotted into a tougher division.
+4. ~~**Owner-strategy signal: 2026 is a realignment year.**~~ — **REMOVED v13.** Keith says: realignment matters but FA market talent is low, so realignment doesn't drive significant auction shifts. Don't bake this into pricing models.
 
-5. **Round 6 is IDP-only in 2026** (changed from 2025+). Don't include kickers/punters in 6th-round bid models.
+5. **Round 6 is strict IDP-only in 2026** (PK/PN reversed in 2025). Don't include kickers/punters in 6th-round bid models. **Also exclude PK/PN from 6th-round STARTERS BASELINES** (the historical baseline used to estimate Round 6 production must filter PK/PN out for 2026 going forward).
 
-6. **Historical contract data pre-2018 has different roster math** (26 active vs 30, 15 starters vs 17, etc.) — normalize before comparing.
+6. **Historical contract data pre-2018 has different roster math** (26 active vs 30, 15 starters vs 17, taxi 9 vs 10, etc.) — normalize before comparing.
+
+7. **Data lineage for stat normalization:** every scoring change in Section 4.B that has a ❓DETAIL NEEDED flag must be filled in before we can confidently convert pre-change auction prices to current-era equivalents. Forumotion + scoring archive xlsx files are the primary sources. This is a prerequisite for any cross-era model.
 
 ## D. Source-data conflicts to resolve
 
@@ -1164,17 +1193,38 @@ The 2026 bid sheet must understand that historical contract values, scoring data
 
 ## E. STILL-OPEN for Section 4
 
-1. **Forumotion verification** (https://upsdynastycap.forumotion.com/forum) — find threads/votes that pin exact years for:
-   - In-season restructure ban (2018 or 2019)
-   - "Restructure-only-with-extension" overturn (same year)
-   - 6th-round PK/PN expansion vote (year unknown)
-   - 6th-round PK/PN reversion (2025 — verify forum thread)
-   - Bench-player tiebreaker removal year
-2. **Pre-2021 slack data unavailable** — slack export labeled "May 2016 - Sep 2022" actually only contains messages from May 2021 onward. Pre-2021 history relies on rulebook archive + governance docs.
+Detail needed (Forumotion verification + scoring archive xlsx):
+1. **Year 1 (2011) starting lineup details** — confirm 1 RB mandatory, find duration before 2-RB started.
+2. **Punter scoring overhaul (post-Y1)** — original formula → new formula.
+3. **2012 dispersal draft results** — capture from Forumotion.
+4. **2012 taxi size at inception** — confirm 5 (or 6).
+5. **2012 tackles + KY + PNY scoring overhaul** — exact old → new values.
+6. **2016 FG scoring (tier-based → per-yard)** — original tier values.
+7. **RB PPR transitions** — exact years for 1.0 → 0.75 → 0.80.
+8. **First Downs expansion** — exact years for receiving → +rushing → all 1st D (incl QBs).
+9. **In-season restructure ban year** (2018 or 2019).
+10. **"Restructure-only-with-extension" overturn year** (same as #9).
+11. **2014 6×3-yr cap** — was there a 1-year wait period before implementation?
+12. **6th-round PK/PN draft-night vote year** — review auction data for first PK/PN selection in Round 6.
+13. **Bench-player tiebreaker removal year** (pre-2025).
+14. **2025 ST TD range tweaks** — old ranges → new ranges.
+15. **Tag Auction + ERA pre-2022 format** — what was it before the proxy-bid switch on 2022-05-03?
+16. **Original ERA start year** — when did the Expired Rookie Auction format itself start?
+17. **TE Premium vote year** — Keith says agreed-upon year before; confirm if 2024 vote.
+
+Source notes:
+- **Pre-2021 slack data unavailable** — slack export labeled "May 2016 - Sep 2022" actually only contains messages from May 2021 onward.
+- **Forumotion** (https://upsdynastycap.forumotion.com/forum) is the primary source for 2011-2020 era detail. Forum posts were clean; group texts (pre-Slack) were noise. From 2021 forward, Slack + Discord.
+
+## F. Slack history note (Keith v13)
+
+- **Slack era began ~2021.** Before Slack, the league used **group texts** (which is why Keith eventually moved to Slack — texts were unmanageable).
+- Forum (Forumotion) was the original communication channel; Slack supplanted it ~2021; Discord supplanted Slack later.
+- Implication for data-lineage: Forum posts are the cleanest historical source. Slack covers ~2021-2022 with high fidelity. Discord covers 2022-present.
 
 ---
 
-## END Section 4 (LOCKED v12)
+## END Section 4 (LOCKED v13)
 
 ---
 
@@ -1482,6 +1532,43 @@ The 15 invariants in Section 2.G all apply to cap math. Bid sheet must enforce t
 ---
 
 ## END Section 6 (**LOCKED v11**)
+
+---
+
+# Section 8 — Contract Activity & Player Lineage Tracking (placeholder, added v13)
+
+> Keith v13 (L1167): "let's use this as a means to start our tracking of contract activity. This can be section 8...not critical but I want it. Has to do with confirming the player's life cycle. We should be able to reconcile the data and supporting documentation. Forum was clean. Ever since it's not — you'll need to work through that. We'll start from beginning and work forward rather than backwards. I do believe there's a player lineage file(s) in repo already started — we should start there."
+
+## A. Goal
+
+Reconcile every player's contract lifecycle event-by-event — from initial acquisition to current state — against the supporting documentation (Forumotion posts, Slack messages, Discord threads, MFL transactions, contract-history snapshots). The end product is a per-player audit trail with provenance for every contract decision.
+
+## B. Approach (per Keith)
+
+- **Start from the beginning (2011) and work forward** — NOT backwards.
+- Anchor on the existing player-lineage files in the repo (Keith mentions "I do believe there's a player lineage file(s) in repo already started").
+- Forum era (2011 → ~2020): clean, well-organized data.
+- Post-forum (2021+): scattered across Slack/Discord/MFL — needs work.
+- Goal: every contract event has a documented source.
+
+## C. Inputs to inventory
+
+1. **Existing player-lineage files in repo** — locate and assess current state.
+2. **Forumotion posts** (https://upsdynastycap.forumotion.com/forum) — Contract Central / Tag Central / Expired Rookies threads.
+3. **Slack channels** (May 2021 - Sep 2022) — `4a-contract-central-station/`, `2a-league-transactions/`, `3a-expired-rookies/`, etc.
+4. **Discord** — 2022-present league discussions.
+5. **MFL `transactions` data** — already in `mfl_database.db`.
+6. **`contract_history_*.csv` reports** — existing repo artifact.
+
+## D. Open scope
+
+- **Section 8 is NOT critical for the 2026 bid sheet** — the bid sheet uses Sections 1-6 as authoritative spec.
+- This work is for ongoing data quality + future bot use.
+- Defer detailed scoping until Sections 1-7 are locked + bid sheet is shipped.
+
+---
+
+## END Section 8 (placeholder, v13)
 
 ---
 
