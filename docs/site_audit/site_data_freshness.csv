@@ -1,0 +1,77 @@
+displayed_data,source_path,writer,schedule,expected_staleness_max,consuming_artifact,last_modified,staleness_days_now,failure_mode,monitoring,severity
+Standings (2026),site/standings/standings_74598_2026.json,build_standings_snapshot.py,manual,weekly,hpm-standings.html,2026-02-24,64,silent_stale,no,Critical
+Standings (2025),site/standings/standings_74598_2025.json,build_standings_snapshot.py,manual,season-static,hpm-standings.html,2026-02-24,64,silent_stale,no,Low
+Standings (2024),site/standings/standings_74598_2024.json,build_standings_snapshot.py,manual,season-static,hpm-standings.html,2026-02-24,64,silent_stale,no,Low
+Standings (2023),site/standings/standings_74598_2023.json,build_standings_snapshot.py,manual,season-static,hpm-standings.html,2026-02-24,64,silent_stale,no,Low
+Contract Command Center (CCC) - MYM Dashboard,site/ccc/mym_dashboard.json,refresh_mym_dashboard_from_mfl.py,cron: 20 * * * * (hourly),1h,hpm-ccc.html,2026-03-07,52,silent_stale,no,Critical
+Contract Command Center - Tag Tracking,site/ccc/tag_tracking.json,build_tag_tracking.py,manual,weekly,hpm-ccc.html,2026-03-09,50,silent_stale,no,Critical
+Contract Command Center - Player Points History,site/ccc/player_points_history.json,build_player_points_history_json.py,manual,weekly,hpm-ccc.html,2026-02-16,71,silent_stale,no,Critical
+Contract Command Center - CCC Release Log,site/ccc/ccc_release_log.json,manual,manual,season-static,hpm-ccc.html,2026-02-16,71,silent_stale,no,Low
+MYM Submissions (historical),site/ccc/mym_submissions.json,log_mym_submission.py,on-push (GitHub Action),weekly,hpm-ccc.html,2026-02-16,71,silent_stale,no,Low
+Restructure Submissions,site/ccc/restructure_submissions.json,log_restructure_submission.py,on-push (GitHub Action),weekly,hpm-ccc.html,2026-02-16,71,silent_stale,no,Low
+Tag Submissions,site/ccc/tag_submissions.json,log_contract_activity.py,on-push (GitHub Action),weekly,hpm-ccc.html,2026-02-16,71,silent_stale,no,Low
+Rookie Draft Hub - 2026 State,site/rookies/rookie_draft_hub_2026.json,build_rookie_draft_hub.py,manual,weekly,hpm-draft-hub.html,2026-04-21,7,silent_stale,no,Critical
+Rookie Draft Hub - Prospects 2026,site/rookies/rookie_prospects_2026.json,build_rookie_draft_hub.py,manual,weekly,hpm-draft-hub.html,2026-04-21,7,silent_stale,no,Critical
+Rookie Draft Hub - Tiers,site/rookies/rookie_draft_tiers.json,build_rookie_draft_hub.py,manual,season-static,hpm-draft-hub.html,2026-04-21,7,silent_stale,no,Low
+Rookie Draft History,site/rookies/rookie_draft_history.json,rookie_hit_rate_build.py + rookie_extension_followthrough.py,manual,season-static,hpm-draft-hub.html + acquisition_hub.html,2026-04-21,7,silent_stale,no,Low
+Rookie AP vs Expected Performance,site/rookies/rookie_ap_vs_ep.json,build_rookie_draft_hub.py,manual,weekly,hpm-draft-hub.html,2026-04-21,7,silent_stale,no,Low
+Rookie Team Tendencies,site/rookies/rookie_draft_team_tendencies.json,build_rookie_draft_hub.py,manual,season-static,hpm-draft-hub.html,2026-04-21,7,silent_stale,no,Low
+Rookie Draft Day Trades,site/rookies/rookie_draft_day_trades.json,build_rookie_draft_hub.py,manual,season-static,hpm-draft-hub.html,2026-04-21,7,silent_stale,no,Low
+Rookie Future Picks,site/rookies/rookie_future_picks.json,build_rookie_draft_hub.py,manual,season-static,hpm-draft-hub.html,2026-04-21,7,silent_stale,no,Low
+Rookie Cohort Outcomes,site/rookies/rookie_cohort_outcomes.csv,rookie_hit_rate_build.py,manual,monthly,hpm-draft-hub.html,2026-04-21,7,silent_stale,no,Low
+Acquisition Hub - Rookie Draft History,site/acquisition/rookie_draft_history.json,build_acquisition_hub_artifacts.py,cron: 15 * * * * (hourly),weekly,hpm-draft-hub.html,2026-03-11,48,silent_stale,no,Critical
+Acquisition Hub - Waiver History,site/acquisition/waiver_history.json,build_acquisition_hub_artifacts.py,cron: 15 * * * * (hourly),weekly,hpm-draft-hub.html,2026-03-11,48,silent_stale,no,Low
+Acquisition Hub - Free Agent Auction History,site/acquisition/free_agent_auction_history.json,build_acquisition_hub_artifacts.py,cron: 15 * * * * (hourly),weekly,hpm-draft-hub.html,2026-03-11,48,silent_stale,no,Low
+Acquisition Hub - Expired Rookie History,site/acquisition/expired_rookie_history.json,build_acquisition_hub_artifacts.py,cron: 15 * * * * (hourly),weekly,hpm-draft-hub.html,2026-03-11,48,silent_stale,no,Low
+Acquisition Hub - Manifest,site/acquisition/manifest.json,build_acquisition_hub_artifacts.py,cron: 15 * * * * (hourly),weekly,hpm-draft-hub.html,2026-03-11,48,silent_stale,no,Low
+Roster Acquisition Lookup,site/rosters/player_acquisition_lookup_2026.json,build_roster_acquisition_lookup.py,manual,weekly,hpm-myteam.html,2026-03-10,49,silent_stale,no,Critical
+Roster Points History,site/rosters/player_points_history.json,build_roster_points_history_json.py,manual,weekly,hpm-myteam.html,2026-03-27,32,silent_stale,no,Critical
+Trade Value Model 2026,site/trade-value/trade_value_model_2026.json,pick_valuation.py + trade_grader.py,manual,weekly,hpm-trades.html,2026-04-21,7,silent_stale,no,Critical
+Reports - Player Scoring 2025,site/reports/player_scoring/player_scoring_2025.json,build_player_scoring_report.py,manual,season-static,hpm-reports.html,2026-03-09,50,silent_stale,no,Low
+Reports - Player Scoring 2024,site/reports/player_scoring/player_scoring_2024.json,build_player_scoring_report.py,manual,season-static,hpm-reports.html,2026-03-09,50,silent_stale,no,Low
+Reports - Salary Adjustments 2026,site/reports/salary_adjustments/salary_adjustments_2026.json,build_salary_adjustments_report.py,manual,monthly,hpm-reports.html,2026-03-17,42,silent_stale,no,Low
+Reports - Salary Adjustments 2025,site/reports/salary_adjustments/salary_adjustments_2025.json,build_salary_adjustments_report.py,manual,season-static,hpm-reports.html,2026-03-17,42,silent_stale,no,Low
+Reports - Salary Adjustments 2024,site/reports/salary_adjustments/salary_adjustments_2024.json,build_salary_adjustments_report.py,manual,season-static,hpm-reports.html,2026-03-17,42,silent_stale,no,Low
+Reports - Contract History (QB),site/reports/contract_history_qb.csv,build_contract_history_snapshots.py,manual,season-static,hpm-reports.html,2026-02-16,71,silent_stale,no,Low
+Reports - Bug Reports 2026,site/reports/bug_reports_74598_2026.json,manual via worker POST,on-demand,unknown,hpm-issue-report.html,2026-03-15,44,partial_data,no,Low
+MCM - Nominations,site/mcm/mcm_nominations.json,log_mcm_nomination.py,on-push (GitHub Action),season-static,hpm-mcm.html,2026-02-16,71,silent_stale,no,Low
+MCM - Votes,site/mcm/mcm_votes.json,log_mcm_vote.py,on-push (GitHub Action),season-static,hpm-mcm.html,2026-02-16,71,silent_stale,no,Low
+MCM - Seed Data,site/mcm/mcm_seed.json,manual,manual,season-static,hpm-mcm.html,2026-02-16,71,silent_stale,no,Low
+Champions Panels,site/champions_panels.json,build_champion_panels_json.py,manual,annual,hpm-default.html,2026-02-16,71,silent_stale,no,Low
+UPS Options Widget - Schedule 2026,site/ups_options_widget_schedule_2026.json,manual,change-driven,season-static,hpm-widget.html,2026-02-16,71,silent_stale,no,Low
+Extension Submissions (historical),site/ccc/extension_submissions.json,extension_audit.py,manual,weekly,hpm-ccc.html,2026-02-16,71,silent_stale,no,Low
+Unmatched Rookies Audit,site/rookies/_unmatched_rookies.csv,rookie_hit_rate_build.py,manual,monthly,hpm-draft-hub.html,2026-04-21,7,silent_stale,no,Gray
+Extension Audit Anomalies,site/rookies/_extension_audit_anomalies.csv,extension_audit.py,manual,monthly,hpm-ccc.html,2026-04-21,7,silent_stale,no,Gray
+Historical Records,site/rookies/historical_records.json,build_historical_records.py,manual,annual,hpm-draft-hub.html,2026-04-21,7,silent_stale,no,Low
+Metadata - Positional Win Profile,site/rookies/metadata_positionalwinprofile.json,build_metadata_positionalwinprofile.py,manual,annual,hpm-draft-hub.html,2026-04-21,7,silent_stale,no,Low
+Stickiness Report,site/rosters/stickiness_report.json,build_stickiness_report.py,manual,annual,hpm-myteam.html,2026-04-25,3,silent_stale,no,Low
+YOY Player Signals,site/rosters/player_yoy_signals.json,yoy_signals.py,manual,annual,hpm-myteam.html,2026-04-25,3,silent_stale,no,Low
+Salary Adjustments 2023,site/reports/salary_adjustments/salary_adjustments_2023.json,build_salary_adjustments_report.py,manual,season-static,hpm-reports.html,2026-03-17,42,silent_stale,no,Low
+Salary Adjustments 2022,site/reports/salary_adjustments/salary_adjustments_2022.json,build_salary_adjustments_report.py,manual,season-static,hpm-reports.html,2026-03-17,42,silent_stale,no,Low
+Salary Adjustments 2021,site/reports/salary_adjustments/salary_adjustments_2021.json,build_salary_adjustments_report.py,manual,season-static,hpm-reports.html,2026-03-17,42,silent_stale,no,Low
+Salary Adjustments 2020,site/reports/salary_adjustments/salary_adjustments_2020.json,build_salary_adjustments_report.py,manual,season-static,hpm-reports.html,2026-03-17,42,silent_stale,no,Low
+Salary Adjustments 2019,site/reports/salary_adjustments/salary_adjustments_2019.json,build_salary_adjustments_report.py,manual,season-static,hpm-reports.html,2026-03-17,42,silent_stale,no,Low
+Salary Adjustments 2018,site/reports/salary_adjustments/salary_adjustments_2018.json,build_salary_adjustments_report.py,manual,season-static,hpm-reports.html,2026-03-17,42,silent_stale,no,Low
+Salary Adjustments 2017,site/reports/salary_adjustments/salary_adjustments_2017.json,build_salary_adjustments_report.py,manual,season-static,hpm-reports.html,2026-03-17,42,silent_stale,no,Low
+Salary Adjustments 2012,site/reports/salary_adjustments/salary_adjustments_2012.json,build_salary_adjustments_report.py,manual,season-static,hpm-reports.html,2026-03-17,42,silent_stale,no,Low
+Salary Adjustments Manifest,site/reports/salary_adjustments/salary_adjustments_manifest.json,build_salary_adjustments_report.py,manual,season-static,hpm-reports.html,2026-03-17,42,silent_stale,no,Low
+Player Scoring Manifest,site/reports/player_scoring/player_scoring_manifest.json,build_player_scoring_report.py,manual,season-static,hpm-reports.html,2026-03-09,50,silent_stale,no,Low
+Salary Adjustments vs MFL Mismatches,site/reports/salary_adjustments/salary_adjustments_2025_derived_vs_mfl_mismatches.csv,build_salary_adjustments_comparison.py,manual,monthly,hpm-reports.html,2026-03-17,42,silent_stale,no,Gray
+Earnings by Year (2025 vs 2026),site/reports/contract_review_2025_vs_2026_current.csv,manual data collection,manual,season-static,hpm-reports.html,2026-03-07,52,silent_stale,no,Gray
+Standings by League (Other),site/standings/standings_*.json (6 other leagues),build_standings_snapshot.py,manual,season-static,hpm-standings.html,2026-02-24,64,silent_stale,no,Low
+Tagging 2026 Exclusions,site/reports/tagging_2026_exclusions.json,manual,change-driven,hpm-reports.html,2026-02-16,71,silent_stale,no,Low
+Early Projection Data (D1 tables),D1:early_projection_*,build_early_projection.py,manual,weekly,worker + projected reports,2026-03-17,42,silent_stale,no,Critical
+Auction Value Model v2 (D1),D1:auction_player_value_model_v2,build_auction_value_model_v2.py,manual,weekly,worker + site/rosters/,2026-04-25,3,silent_stale,no,Critical
+Player ID Crosswalk (D1),D1:player_id_crosswalk,build_player_id_crosswalk.py,manual,season-static,all downstream ETL,2026-04-22,6,silent_stale,no,Critical
+League Settings (D1),D1:league_years + D1:metadata_starters,fetch_league_settings.py,manual,annual,worker + all ETL,2026-04-25,3,silent_stale,no,Critical
+NFL Weekly Stats (D1),D1:nfl_player_weekly + D1:nfl_player_snaps,fetch_nflverse_weekly.py,manual,weekly,worker + projection models,2026-04-26,2,silent_stale,no,Critical
+NFL Advanced Stats (D1),D1:nfl_player_advstats_season,fetch_pfr_season_advstats.py,manual,weekly,worker + projection models,2026-04-25,3,silent_stale,no,Critical
+NFL PBP Aggregates (D1),D1:nfl_player_redzone + D1:nfl_team_weekly,fetch_nflverse_pbp.py,manual,weekly,worker + projection models,2026-04-25,3,silent_stale,no,Critical
+MFL Live Roster via Worker,worker.upsmflproduction.com/api/mfl-league-state,worker via MFL API,on-demand + caching,15 minutes,site/rosters/ + site/ccc/,live,0,explicit_error,unknown,Critical
+MFL Live Salaries via Worker,worker.upsmflproduction.com/api/mfl-rosters,worker via MFL API,on-demand + caching,hourly,site/rosters/ + site/ccc/,live,0,explicit_error,unknown,Critical
+Contract Submissions Log,D1:contract_submissions,sync_contract_activity_to_db.py,on-push (GitHub Action),daily,worker + hpm-ccc.html,2026-03-12,47,silent_stale,no,Critical
+Extension Submissions Log,D1:extension_submissions,log_extension_submission.py,on-push (GitHub Action),daily,hpm-ccc.html,2026-03-12,47,silent_stale,no,Critical
+Restructure Submissions Log,D1:restructure_submissions,log_restructure_submission.py,on-push (GitHub Action),daily,hpm-ccc.html,2026-03-12,47,silent_stale,no,Critical
+MCM Nominations Log,D1:mcm_nominations,log_mcm_nomination.py,on-push (GitHub Action),daily,hpm-mcm.html,2026-02-16,71,silent_stale,no,Low
+MCM Votes Log,D1:mcm_votes,log_mcm_vote.py,on-push (GitHub Action),daily,hpm-mcm.html,2026-02-16,71,silent_stale,no,Low
+MYM Submissions Log,D1:mym_submissions,load_mym_submissions_2025.py,on-push (GitHub Action),daily,hpm-ccc.html,2026-02-16,71,silent_stale,no,Critical
