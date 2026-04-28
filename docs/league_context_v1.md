@@ -1,4 +1,4 @@
-# UPS Salary Cap Dynasty — League Context (v7, Section 3 corrections from review)
+# UPS Salary Cap Dynasty — League Context (v8, audit corrections + 6 follow-up answers integrated)
 
 **Purpose:** Claude's working understanding of how the UPS league operates, written so Keith can correct it before we use it as the foundation for the 2026 auction bid sheet. Sections delivered iteratively.
 
@@ -26,9 +26,9 @@ Memory updated:
 - `feedback_iterative_doc_corrections.md` — workflow guidance
 
 **Section status:**
-- [x] Section 1 — Player Lifecycle — **LOCKED** (v4)
-- [x] Section 2 — Transaction Catalog — **LOCKED** (v4)
-- [x] Section 3 — Annual Calendar (this v4)
+- [x] Section 1 — Player Lifecycle — **LOCKED** (v8)
+- [x] Section 2 — Transaction Catalog — **LOCKED** (v8)
+- [x] Section 3 — Annual Calendar — **LOCKED** (v8)
 - [ ] Section 4 — Scoring & Roster Eras (timeline)
 - [ ] Section 5 — Franchise History (joins, rebrands, dispersals) — partial draft in memory
 - [ ] Section 6 — Cap mechanics (penalties, guarantees, floor/ceiling, worked examples)
@@ -127,20 +127,21 @@ There are **7 entry paths**. Each creates a different default contract and const
 - **Bid increments:** **$1K** (always).
 - **Naming note (decided 2026-04-27):** Keep "Veteran" contract type as-is. Rename idea parking-lotted.
 
-### A3. Expired Rookie Auction (before the Rookie Draft — date in event log)
+### A3. Expired Rookie Auction (overlaps with Rookie Draft weekend)
 
-- **Eligibility:** any player whose **rookie contract expired** and was **NOT extended** by the deadline (the deadline is "before the rookie draft" — event log is source of truth, NOT the legacy April 30 date).
+- **Eligibility:** any player whose **rookie contract expired** and was **NOT extended** by the rookie extension deadline (Thu before Memorial Day weekend — see Section 3 for exact date).
+- **Timing (NEW PATTERN, 2025+):** ERA **starts on the Saturday before Memorial Day weekend** and runs **through the Rookie Draft on Memorial Day Sunday**. ERA and the Rookie Draft now overlap. Historical pattern (pre-2025) had ERA in early-to-mid May, separated from the draft.
 - **Format:**
-  - 2–3 day nomination window
+  - 2–3 day nomination window (overlapping with rookie draft active hours)
   - **Starting bid: $1K** (changed in 2025 — old "prior-year salary + $1K" rule is dead). Reason: under the old rule a $13K player needed a $14K opening nomination; nobody wanted that. $1K floor lets someone start the bidding.
   - **36-hour** lock window. Resets on new high bid.
-- **Contract on win:** 1, 2, or 3 years, same loading rules as FA Auction (front-load OR back-load, capped at 3 loaded contracts on roster). No "sign immediately" benefit — FA Auction submission deadline applies.
+- **Contract on win:** 1, 2, or 3 years, same loading rules as FA Auction (front-load OR back-load, capped at **5 loaded contracts** on roster). No "sign immediately" benefit — FA Auction submission deadline applies.
 - **Forced retention:** players won in Expired Rookie Auction **cannot be cut until after that summer's FA Auction** (just through the auction window, not the entire season). Concept: no "get out of jail free" — you bid, you hold through auction.
 
-### A4. Blind Bid Waivers (in-season — Thu/Fri/Sat/Sun 9 AM)
+### A4. Blind Bid Waivers (in-season — Thu/Fri/Sat/Sun 9 AM ET)
 
 - **Mechanism:** Conditional blind bidding. Bid amount **becomes the player's salary for the current season**.
-- **Contract type during season:** **WW** (Waiver Wire) for non-rookies; **WW-Rookie** for NFL rookies (preserves Expired Rookie Auction eligibility when contract expires).
+- **Contract type during season:** **WW** (Waiver Wire) for all in-season blind bid pickups, regardless of player NFL status. NFL rookies picked up via WW are still WW during the season — Keith **manually converts WW → Rookie status at year-end** for any rookies who survived the year, so they enter the next-year ERA path. Not a separate `contract_type`; it's a year-end data cleanup.
 - **Conditional bidding format:** owners group bids; within each group, the highest-bid player is awarded; groups have NO priority over each other (they're placeholders, not priorities). Winners determined by bid amount across all groups.
 - **Tiebreakers:** All-Play → Overall → Total Points → H2H. Pre-season + Week 1 use prior-season's final draft slot (reverse order — bad teams priority).
 - **MFL doc reference:** the "How do I enter blind bid request?" MFL help page should be added to repo documentation for owner reference.
@@ -149,7 +150,7 @@ There are **7 entry paths**. Each creates a different default contract and const
 
 - **Trigger:** after the Sunday morning waiver run, FA opens FCFS until each player's NFL kickoff.
 - **Salary:** $1K flat for current season.
-- **Contract:** 1-year WW for non-rookies; **WW-Rookie** for NFL rookies. For pre-season pickups, see in-season MYM rules.
+- **Contract:** 1-year WW. NFL rookies picked up via FCFS are tagged WW during season; Keith manually converts WW → Rookie at year-end so they hit ERA path next May.
 
 ### A6. Trade Acquisition
 
@@ -293,12 +294,12 @@ These are transactions you can do TO a player who's already on your roster. Defi
 ### C8. Tags (UPDATED 2025) — STILL ACTIVE
 - **Updated structure:** **1 Offense tag + 1 Defense/ST tag** per team per year (no longer the legacy Franchise/Transition naming).
 - **Mechanics:** Live in the codebase — see `pipelines/etl/scripts/build_tag_tracking.py` and `build_tag_submissions_json.py`. **Read the code, not the rulebook**, for current tag behavior. Tier formulas open for review (Keith wants to revisit the math).
-- **Eligibility window:** Tag candidates are players with **0 years remaining** post-roll-forward (i.e., on the prior season's ending roster with 1 year left, now expired). Tag eligibility is determined from the prior-season ending roster.
-- **Tagged player constraints (corrected):**
+- **Eligibility window:** Tag candidates are players whose contract is set to expire heading into the upcoming season (i.e., 1 year remaining at end of prior season → 0 years remaining heading into next season). Eligibility is computed from the **prior-season ending roster**.
+- **Tagged player constraints (CONFIRMED 2026-04-28):**
   - A player CAN be extended in a prior year and then tagged the following year — extension does NOT permanently block tag.
   - Cannot be **pre-extended by same owner** in the year they're tagged.
-  - Cannot be **tagged by anyone else** until they enter the FA Auction.
-  - Once tagged, **cannot be extended OR MYM'd by ANY team** until they enter the FA Auction. This applies even if dropped mid-season.
+  - Cannot be **tagged by anyone else** in the current season.
+  - **Once tagged, the player CANNOT be extended OR MYM'd by ANY team — period.** No 1-year tag → re-extension path. The tagged year is a 1-year contract; **the player MUST enter next summer's FA Auction**. The team that tagged them retains the player for that one season only (no extension option afterward).
   - **Exception:** if cut **before FA Auction starts**, normal rules resume — they're treated like any other free agent.
 - **Tag salary fallback (unranked players):** `max(lowest-tier salary for the position, prior-season AAV × 1.10 rounded up to $1K)`.
 
@@ -328,14 +329,22 @@ These are transactions you can do TO a player who's already on your roster. Defi
 - **Jail Bird Rule:** vague rule. Aaron Hernandez was the canonical case, but "released by NFL team" is NOT sufficient — players are released all the time. Commissioner discretion required for what qualifies as a "career derailed by legal case."
 - **Retired Players Rule:** retired = cap-free cut. Optional to keep on roster, but no relief if kept.
 - **Tier-1 Retired (Calvin Johnson Rule):** Compensation pick awarded when a player retires meeting tier-1 criteria.
-  - **Eligibility:** Player must be (1) under contract AND on a roster at retirement, (2) not PK or PN, (3) most recently completed season qualified as "Tier 1" at their position (tier breakdown in [separate Google Doc](https://docs.google.com/document/d/11e8RxzlTwryhMOornrmAqGIwYkgT8jZWFyj-zN_g7jk/)).
+  - **Eligibility:** Player must be (1) under contract AND on a roster at retirement, (2) not PK or PN, (3) most recently completed season qualified as **"Tier 1"** at their position. **"Tier 1" definitions align with the Tag Tier Calcs** (see C8 / T3.5):
+    - QB Tier 1 = top 1–5 by AAV
+    - RB Tier 1 = top 1–4
+    - WR Tier 1 = top 1–6
+    - TE Tier 1 = top 1–3
+    - DL Tier 1 = top 1–6
+    - LB Tier 1 = top 1–6
+    - DB Tier 1 = top 1–6
+    - PK / PN = excluded entirely from Calvin Johnson Rule
   - **What counts as "under contract":** Excludes expired Veteran contracts. **Includes** expired Rookie contracts (rookie just expired but player retires before re-signing → owner still gets comp).
   - **Compensation:**
-    - Offensive Tier-1 retiree → comp pick **1.13** (extra Round 1 slot at position 13). **Not taxi-eligible.**
+    - Offensive Tier-1 retiree → comp pick **1.13** (extra Round 1 slot, sequential after pick 1.12). **Not taxi-eligible.**
     - Defensive Tier-1 retiree → comp pick **3.13**. **IS taxi-eligible.**
+    - **Multiple retirees same side same year:** sequential slots — 1.13, 1.14, 1.15… (or 3.13, 3.14, 3.15…). Random generator determines order, but each gets their own pick (slots are not collapsed).
   - **Awarded for the current season's rookie draft.** If the retirement happens AFTER that season's rookie draft, the comp pick is held over to next season's draft (MFL future-pick handling).
   - **Comp pick cannot be traded until following season.**
-  - **Tiebreakers:** if multiple retirees on the same side (offense or defense) in the same year, random generator determines pick order.
 - **Off-season suspension opt-out:** salary = $0 that year, no penalty (covered in B3).
 
 ### D3. Trade-away
@@ -380,14 +389,15 @@ These are transactions you can do TO a player who's already on your roster. Defi
 
 ---
 
-## F. STILL-OPEN QUESTIONS (post-v3, none blocking)
+## F. STILL-OPEN QUESTIONS (post-v8)
 
-1. **In-season MYM exact deadline** — "before Week 3 kickoff" for pre-season pickups, "2 weeks after acquisition" for in-season pickups. Verify via MFL event log for 2026.
-2. **Jail Bird Rule** — vague by design (commissioner discretion). No formal definition needed for code, but flag at decision time.
+1. **Jail Bird Rule** — vague by design (commissioner discretion). No formal definition needed for code, but flag at decision time. (Aaron Hernandez was the canonical case; "released by NFL team" is NOT sufficient on its own.)
+
+(MYM in-season deadline was resolved in v8 — see Section 3 for "Thursday Night Football kickoff" standard. Other prior open items resolved or moved to "Open Items Master List" appendix.)
 
 ---
 
-## END Section 1 (LOCKED v3)
+## END Section 1 (LOCKED v8)
 
 ---
 
@@ -745,8 +755,8 @@ These are invariants that must hold across the data layer for any 2026 contract 
 9. **A player can have at most ONE active contract at a time.** Trades transfer the contract; they don't create a new one.
 10. **Round 6 picks are NOT in `transactions_trades` with `asset_type='DRAFT_PICK'` or `'FUTURE_PICK'`.** If they appear, the trade is invalid.
 11. **For an extension event, the player must be in the final year (`contract_year=1`) OR be in an in-season WW pickup window days 15-28 OR an expired rookie pre-deadline.**
-12. **Tag eligibility:** player has 0 years remaining post-roll-forward (from prior season ending roster). Cannot be pre-extended by same owner this year. Cannot be tagged by anyone else until after they enter FA Auction. Mid-season drop does NOT reset this. (Prior-year extensions DO NOT block tag eligibility.)
-13. **For a comp-pick award, the retiring player must have been under contract** at retirement (excludes expired Veteran contracts; includes expired Rookie contracts). Comp pick is **additive** — does not displace any existing pick.
+12. **Tag eligibility:** player has 1 year remaining at end of prior season (= 0 years remaining heading into upcoming season). Cannot be pre-extended by same owner this year. Cannot be tagged by anyone else this year. **Once tagged, NEVER extend or MYM — period.** Tagged players MUST go to next summer's FA Auction (no path to re-extend). Mid-season drop does NOT reset this. Prior-year extensions DO NOT block tag eligibility.
+13. **For a comp-pick award, the retiring player must have been under contract** at retirement (excludes expired Veteran contracts; includes expired Rookie contracts). Comp pick is **additive** — does not displace any existing pick. Multiple Tier-1 retirees on same side → sequential slots (1.13, 1.14, 1.15… or 3.13, 3.14, 3.15…), not collapsed. PK/PN excluded from comp.
 14. **Once promoted from taxi, a player is never re-eligible for taxi.**
 15. **MYM 14-day clock from acquisition does not reset on trade.** Trade alone does not make a player MYM-eligible.
 
@@ -763,7 +773,7 @@ These are invariants that must hold across the data layer for any 2026 contract 
 
 ---
 
-## END Section 2 (LOCKED v4)
+## END Section 2 (LOCKED v8)
 
 ---
 
@@ -867,19 +877,18 @@ The local SQLite `auction` table (`mfl_database.db`) records every winning bid b
 
 > **2025 ERA precedent confirmed (Keith 2026-04-28):** "'25 ERA started before the rookie draft but it was the same weekend and this is **new pattern** and you will see overlap."
 
-**FA Auction (verify via MFL calendar):**
-- **Window:** "last week of July, 1st of August" — exact start day depends on owners' schedules.
-- **Format option A:** start Saturday → 12-day auction (matches recent history).
-- **Format option B:** start Thursday → guaranteed 2-week auction.
-- **Auction Cut Deadline (Roster Lock):** still 3 days before auction start. **OPEN: Keith says verify + validate, not worth fixing right now.**
-- **Auction Close:** ~10-14 days after start.
-- **Waivers Begin:** **1st Thursday after FA Auction completes.** (Confirmed by Keith.)
+**FA Auction (2026 format LOCKED 2026-04-28):**
+- **Format:** **Saturday start, 12-day window** (Keith confirmed). Auction completes the following Thursday (Sat + 12 days).
+- **Window:** last week of July / first of August. Exact 2026 start date TBD via MFL calendar.
+- **Auction Cut Deadline (Roster Lock):** still 3 days before auction start (Wed before the Saturday start). **Open: Keith plans to verify + validate this rule's future direction; not worth fixing right now.**
+- **Auction Close:** Sat-start + 12 days = the following Thursday.
+- **Waivers Begin:** **1st Thursday after FA Auction completes** (Keith confirmed).
 
 **Earning checkpoints (current rule):** 25% / 50% / 75% at end of Oct / Nov / Dec.
 
 > **Future direction (Keith 2026-04-28):** Consider switching to **per-game prorated earning** rather than calendar checkpoints (also for FA pickups — would more accurately represent the truth). Needs league review.
 
-**MYM + extension deadline timing (new standard):** Use **kickoff of Thursday Night Football game** as the consistent cutoff for both — be consistent across MYM and extension.
+**MYM + extension deadline timing (new standard, confirmed 2026-04-28):** Use **kickoff of the FIRST Thursday Night game in the relevant week** as the consistent cutoff for both MYM and extension. If a Thursday slate has multiple games, the deadline is the kickoff of the FIRST game on that Thursday.
 
 ### 2025 reference dates (from `league_events` SQLite table — for cross-validation)
 
@@ -992,15 +1001,20 @@ The local SQLite `auction` table (`mfl_database.db`) records every winning bid b
 
 ## C. Calendar-Driven Cap Penalty Timing
 
-The same `(TCV × 75%) − Earned` cap penalty formula has 3 different timing buckets based on when the cut occurs:
+The `(TCV × 75%) − Earned` cap penalty formula applies to the cap of one specific season, determined by WHEN the cut happens. There are 3 timing buckets:
 
 | Cut Window | Hits Which Season's Cap |
 |---|---|
-| Offseason → Roster Lock Date (3 days before FA Auction) | **Current season** |
-| FA Auction start → end of fantasy season | **Following season** |
-| Post-fantasy-season → next year's Roster Lock Date | **Current season** (same as bucket 1, treats it as offseason of upcoming year) |
+| **Bucket 1:** After fantasy-season end (post-Dec/Jan) → through Roster Lock Date (Wed before FA Auction) | **Upcoming season** (the season starting that fall) |
+| **Bucket 2:** FA Auction start → end of fantasy season | **Following season** (the one AFTER the active season) |
+| **Bucket 3:** Same as Bucket 1, post-roll-forward | **Current/upcoming season** (the one starting that fall) |
 
-The "current season" in bucket 3 means the season that just rolled over.
+**Worked examples:**
+- Cut Player A (TCV $90K, $30K Y1 already 100% earned at March rollover) on **Mar 15, 2026** → penalty $37.5K hits **2026 cap** (bucket 1).
+- Cut Player B mid-October 2026 → penalty hits **2027 cap** (bucket 2 — the auction-start trigger has already happened in late July 2026).
+- Cut Player C on Jan 5, 2027 (post-Week 17, before March 2027 rollover) → penalty hits **2027 cap** (bucket 1/3 — the season starting that fall).
+
+**The rule of thumb:** during the offseason between roll-forward and the next FA Auction, penalties hit the upcoming season. From auction start through season end, penalties roll into the next year.
 
 ---
 
@@ -1027,4 +1041,83 @@ Late dues fines accrue at $3K/week.
 
 ---
 
-## END Section 3
+## END Section 3 (LOCKED v8)
+
+---
+
+# Appendix — Open Items Master List
+
+Consolidated parking lot for things flagged across Sections 1–3 that need follow-up. Three categories:
+
+## A1. League discussion needed (bring to all owners)
+
+1. **Earning checkpoints — switch to per-game prorated?** Currently calendar Oct/Nov/Dec end. Keith wants league to consider a prorated-per-game model (also for FA pickups) — more accurate representation.
+2. **Tag tier formula math** — current tiers (avg top-N AAVs) are working but Keith wants a more dynamic / mathematically grounded calculation. Open for proposals.
+3. **"UPS Championship" rename** — current name sounds weak. Need a better non-cheesy name. Toilet Bowl = Hawktuah Bowl already locked; Championship side rename pending.
+4. **Auction Roster Lock Date future direction** — eliminate the 3-day-prior lock? Auto-unlock at auction start via MFL API? Or keep as-is? Keith says "verify + validate, not worth fixing right now" but it's worth a league-wide chat.
+
+## A2. Keith decisions / Discord verification
+
+5. **Suspension opt-out rule current state** — verify in Discord whether the OG "owner declares before contract deadline" rule still applies, or whether it was simplified to "drop player to suspended status, see 50% discount automatically." Possibly extend to "drop to taxi" since that auto-removes salary.
+6. **Pre-2025 in-season restructure ban** — verify exact year via forum/Discord (Keith said "before 2025 — verify").
+7. **MFL waiver lock duration + lock semantics** — research MFL behavior precisely. Specifically: 9 AM Thu drop during waiver run vs 10 PM Thu standalone drop have different lock durations. Document the rule + edge cases.
+8. **Cut-then-rebid prohibition future** — Keith wants to consider eliminating; auto-unlock at auction start would handle the underlying compile-cut-list need.
+9. **Comprehensive UPS site / homepage review** (Keith L3, L20) — go through every home-page message + every doc + every script to identify possible issues / inconsistencies. Schedule a dedicated session.
+10. **Jail Bird Rule** — vague by design (commissioner discretion). Aaron Hernandez canonical case; "released by NFL" alone is not sufficient. No formal definition needed but flag at decision time.
+
+## A3. Data-layer / automation work
+
+11. **Backfill historical UPS event dates with verification flags** — sources scattered across forum (cleanest, oldest) → Google Forms → Slack → Discord → governed CSVs. Need a dedicated session to parse, cross-reference player lineage, identify anomalies, dedupe. Will be MESSY for transition years. Older forum data is relatively clean.
+12. **Contract deadline historical drift** — currently Sunday before Week 1; used to be NFL Cut Date + extra day (~Wed before Week 1). Moved to Sunday in last ~5 years. Cleanup needed alongside #11.
+13. **2026 actual ERA + FA Auction dates** — confirm via MFL `TYPE=calendar&L=74598` API call. Lock specific Saturday start date for FA Auction once announced.
+14. **Pull MFL TYPE=calendar live** to verify 2026 specifics not yet in `event_window_matrix.csv`.
+
+## A4. Future automation / bot integration ideas
+
+15. **Daily NFL retirement search** — auto-flag players retiring (Schefter, Rapoport, credible source) → trigger Tier-1 / Calvin Johnson Rule check.
+16. **Automated dues posting** to Josh Martel (treasurer) via Venmo. Allow owners to submit "I'll have it by X" responses. Reduce nag overhead.
+17. **Per-game prorated earning calculator** (depends on A1 #1 league decision).
+18. **Auction-time auto-unlock** via MFL API (depends on A2 #4 decision).
+19. **Trade module enforcement** — once promoted from taxi, no re-demotion (currently MFL would auto-promote on trade; UPS workaround was manual re-demote, deprecated). Trade module should enforce.
+20. **Auction nomination tracking + alerts** — daily notifications about who's nominated, who's behind, who's compliant.
+21. **Logo AI generator** — already in use (replaces $15 logo fee). Codify in tooling.
+
+---
+
+## Appendix B — Resolved in v8 (no longer open)
+
+For audit trail. These were open in earlier versions and are now closed:
+
+- ✅ Loaded cap = 5 (NOT 3 — that was restructure limit). Resolved Sec 1+2 v4, fixed leftover line 137 in v8.
+- ✅ Restructure limit = 3 (separate from loaded cap). Resolved v4.
+- ✅ Extension types `Ext1` / `Ext2`. Resolved v4.
+- ✅ WW pickup → 4-week window (days 1-14 MYM, 15-28 extension). Resolved v4.
+- ✅ MYM 14-day clock does NOT reset on trade. Resolved v4.
+- ✅ Tag eligibility = 0 yrs remaining post-rollover (from prior season ending roster). Resolved v4, wording clarified v8.
+- ✅ Tagged players: NO extensions, NO MYM — must go to next FA Auction. Strict rule confirmed v8.
+- ✅ WW-Rookie sub-type → not a separate type; Keith manually converts WW → Rookie at year-end for ERA path. Clarified v8.
+- ✅ New owner onboarding: cap-penalty wipe + 1 cap-free cut. Resolved v4.
+- ✅ Cap "penalties" → "cap adjustments" (subtypes including traded salary, drop penalty, late dues). Resolved v4.
+- ✅ $300K ceiling does NOT apply offseason pre-FA-Auction. Resolved v4.
+- ✅ $260K floor: by FA Auction completion OR contract deadline. Resolved v4.
+- ✅ Survivor Pool / NFL Pool removed from catalog (UPS doesn't run them). Resolved v4.
+- ✅ $15 logo fee retired (AI now). Resolved v4.
+- ✅ Once promoted from taxi, NEVER re-eligible for taxi. Resolved v4.
+- ✅ Pick provenance: track TRUE pick owner, not clicker (Bortles example). Resolved v4.
+- ✅ Trade cap money = `salary_adjustment` row (positive/negative pair). Resolved v4.
+- ✅ Tag fallback formula clarified. Resolved v4.
+- ✅ Drop penalty timing 3 buckets — clarified with worked examples in v8.
+- ✅ ERA conducted alongside Tag period (overlapping with Rookie Draft from 2025+). Resolved v6, propagated to Sec 1 in v8.
+- ✅ Suspension opt-out flagged for Discord verification. (Open Item #5.)
+- ✅ Restructure window: offseason until contract deadline. Resolved v4.
+- ✅ Restructure eligibility: 2+ years remaining. Resolved v4.
+- ✅ Calvin Johnson Rule fully documented + Tier 1 = Tag tier definitions. Resolved v8.
+- ✅ Comp pick 1.13 / 3.13 — sequential slots if multiple retirees same side (1.13, 1.14, 1.15...). Resolved v8.
+- ✅ FA Auction 2026 format: Saturday start, 12-day window. LOCKED v8.
+- ✅ TNF kickoff = first Thursday game on the slate (start of TNF). Confirmed v8.
+- ✅ Hawktuah Bowl naming (Toilet) confirmed; UPS Championship rename remains open (#3).
+- ✅ Treasurer = Josh Martel. Resolved v7.
+
+---
+
+## END APPENDIX
