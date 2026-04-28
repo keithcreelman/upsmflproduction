@@ -1,4 +1,4 @@
-# UPS Salary Cap Dynasty — League Context (v4, Sections 1+2 LOCKED + Section 3 added)
+# UPS Salary Cap Dynasty — League Context (v5, Section 3 rebuilt with real dates)
 
 **Purpose:** Claude's working understanding of how the UPS league operates, written so Keith can correct it before we use it as the foundation for the 2026 auction bid sheet. Sections delivered iteratively.
 
@@ -91,7 +91,21 @@ There are **7 entry paths**. Each creates a different default contract and const
 | 6.01 – 6.12 | $1K | $3K | IDP/K/P only, pick not tradeable |
 
   Note: the Draft War Room HTML labels the Round 1 option as a "5th-year team option" — that's borrowed NFL parlance. UPS rookie base is 3 years, so the option year is technically the 4th season (per Keith's worked example: 1.01 path 15/15/15/20/40/40).
-- **Draft order (Rounds 1–5):** based on prior season's playoff bracket — see [memory: league_history_timeline.md](../../.claude/projects/-Users-keithcreelman-Code-upsmflproduction/memory/league_history_timeline.md) for the full mapping (1.1 = Toilet Bowl champ … 1.12 = UPS champ).
+- **Draft order (Rounds 1–5):** based on prior season's playoff bracket. Inverse: Toilet Bowl winner picks 1st (rewards being bad enough to win the toilet); UPS Champion picks 12th. Full bracket mapping:
+
+  **Toilet Bowl side (picks 1.01–1.06):**
+  - 1.01 = Toilet Bowl champion (won the Toilet)
+  - 1.02 = Toilet Bowl runner-up (lost in Toilet championship)
+  - 1.03 = Toilet Bowl semifinal winner
+  - 1.04 = Toilet Bowl semifinal loser
+  - 1.05 + 1.06 = decided by a Week 16 matchup between the two Week-15 first-round Toilet losers (winner gets 1.05, loser gets 1.06)
+
+  **Championship side (picks 1.07–1.12):**
+  - 1.07 + 1.08 = decided by a Week 16 matchup between the two Week-15 first-round championship losers (winner gets 1.07, loser gets 1.08)
+  - 1.09 = championship semifinal loser
+  - 1.10 = championship semifinal winner (consolation winner — gets later pick because they advanced + got money)
+  - 1.11 = championship runner-up (lost in UPS championship)
+  - 1.12 = UPS champion
 - **Roster impact:** drafted rookie counts toward roster max once placed on active. Taxi-demoted rookies don't count vs. active roster. Demotion deadline = contract deadline date. Mid-season trade-acquired rookies on taxi: code (future) will auto-demote OR offer the acquiring owner a choice.
 - **Rookie contract length:** still default 3 years for 2025 draft class onward (with 1st-round option). 2025 was the first year option years existed.
 
@@ -106,7 +120,9 @@ There are **7 entry paths**. Each creates a different default contract and const
   - Cap ceiling: **$300K** (system-enforced)
   - Owner is responsible for managing minimum-roster headroom — system doesn't enforce that.
 - **Auction Roster Lock Date:** historically 3 days before auction. Existed so commissioner could compile cap penalties + cut lists. Keith's note: probably collapse this into "no cuts during auction" + auto-unlock at auction start via MFL API call.
-- **Cut-then-rebid prohibition:** if you cut a player who was under contract during the offseason, you cannot nominate or bid on them in the FA Auction. Commissioner-enforced (NOT MFL-enforced). Mostly self-enforcing.
+- **Cut-then-rebid prohibition (with example):** if you cut a player who was under contract during the offseason, you cannot nominate or bid on them in the FA Auction. Commissioner-enforced (NOT MFL-enforced). Mostly self-enforcing because cut players are usually disappointments owners don't want back.
+  - **Example:** Owner X has Player A on a 1-year, $4K contract entering the 2026 season. In April 2026 (offseason), Owner X cuts Player A. In the July 2026 FA Auction, Owner X **cannot nominate or bid on Player A** — locked out from re-acquiring him via auction.
+  - **Pre-auction drop reset (Keith 2026-04-27):** drops done within the pre-auction window (the few days immediately before auction start, prior to roster lock) "reset" the prohibition — the drop is fine and Owner X CAN bid on Player A in the auction. The cut-then-rebid lockout only applies to drops earlier in the offseason.
 - **Default contract:** **1 year** if no Multi-Year Auction Contract is submitted. Multi-Year option = 2-year or 3-year, Veteran or Loaded.
 - **Bid increments:** **$1K** (always).
 - **Naming note (decided 2026-04-27):** Keep "Veteran" contract type as-is. Rename idea parking-lotted.
@@ -753,115 +769,159 @@ These are invariants that must hold across the data layer for any 2026 contract 
 
 # Section 3 — Annual Calendar
 
-The UPS league year operates on a 12-month cycle anchored to the NFL season. This section enumerates **every recurring deadline + event** with exact 2026 dates where known. The MFL **calendar/event log** is the source of truth for any specific deadline — dates here should be cross-checked against it before relying on them for the bid sheet.
+The UPS league year is a 12-month cycle anchored to the NFL season. **Dates below are pulled from authoritative repo sources** — not estimated:
 
-> **2026 anchor dates (NFL):** Memorial Day = Mon May 25, 2026 → Rookie Draft Sunday = May 24. NFL Week 1 likely Sept 10 (Thu kickoff). Thanksgiving = Thu Nov 26, 2026.
-> **Action item:** pull the current 2026 MFL calendar via `TYPE=calendar&L=74598` and lock these dates in.
+- **`docs/ups_v2/V2_GOVERNED/mfl/event_window_matrix.csv`** — governed UPS deadline seeds, approved 2026-03-17 / 2026-03-18 (`user_directive_2026-03-17` / `_2026-03-18`).
+- **`site/ups_options_widget_schedule_2026.json`** — NFL Week kickoff timestamps for the 2026 fantasy season (used by the options widget).
+- **Local `league_events` table** (mfl_database.db) — historical 2010-2025 event dates.
+
+**Source-of-truth ranking when calendar dates conflict:**
+1. MFL `TYPE=calendar&L=74598` live API for the active season
+2. `event_window_matrix.csv` (governed seed dates with audit trail)
+3. `ups_options_widget_schedule_2026.json` (NFL kickoff timestamps)
+4. `league_events` SQLite table (historical reference)
 
 ---
 
-## A. Annual Cycle by Month
+## A. 2026 Confirmed Dates (from sources above)
 
-### January
-- **Off-season after fantasy playoffs.**
-- League standings are settled; Toilet Bowl + Hawktuah Bowl results determine the start of next year's draft order (1.1–1.6 toilet side, 1.7–1.12 championship side).
-- **No transactions allowed** — drops not permitted in offseason. Trade window is open (offseason).
+### Pre-season UPS deadlines (from `event_window_matrix.csv`)
 
-### February
-- **Off-season continues.**
-- Tag eligibility lists begin to firm up (using prior season's ending roster — players with 1 year remaining at season end become 0-year-remaining post-roll-forward → tag candidates).
-- Trade activity heats up as owners plan offseason moves.
+| Date | Day | Event | Source |
+|---|---|---|---|
+| 2026-03-11 | Wed | NFL league year starts | official_nfl_dates |
+| 2026-04-23 | Thu | NFL Draft starts | official_nfl_dates |
+| **2026-05-21** | **Thu** | **UPS rookie extension deadline** | `event_window_matrix.csv` |
+| 2026-05-24 | Sun | UPS Rookie Draft (Memorial Day Sunday — inferred from rule) | rule + Memorial Day = May 25 |
+| **2026-09-06** | **Sun** | **UPS contract deadline** (last Sun before NFL Week 1) | `event_window_matrix.csv` |
+| **2026-09-10** | **Thu** | **NFL Week 1 kickoff** | `event_window_matrix.csv` |
+| **2026-09-24** | **Thu** | **UPS preseason MYM deadline** (= Week 3 kickoff Thu) | `event_window_matrix.csv` |
+| **2026-10-07** | **Wed** | **UPS preseason extension deadline** (day before Week 5 kickoff) | `event_window_matrix.csv` |
+| **2026-11-26** | **Thu** | **UPS trade deadline** (Thanksgiving kickoff) | `event_window_matrix.csv` |
 
-### March (1–15)
-- **Annual Roll-Forward.**
-  - Goal date: March 1; can extend to March 15 depending on commissioner preparation.
-  - All contracts decrement by 1 year remaining; salaries advance to next-year value (per-year salary table from each contract).
-  - Prior-year salary becomes 100% earned at this moment (sunk cost — no future cap penalty contribution from that year).
-  - Players with 0 years remaining become candidates for tag, extension (if rookie), or expiry to free agency.
-- **Trade window** continues throughout offseason.
-- **Restructure window opens** (offseason restructure runs from rollover through September contract deadline).
+### NFL Week kickoffs (decoded from `ups_options_widget_schedule_2026.json`)
 
-### April / Early May
-- **Tag deadline + Expired Rookie Auction (combined cluster).**
-  - **Tag submissions** (offense tag + defense/ST tag per team) — exact date in MFL event log.
-  - **Rookie extension deadline** — extensions for expired rookie contracts must be submitted before this. Exact date is in the event log; legacy "April 30" is no longer authoritative.
-  - **Expired Rookie Auction (ERA)** — runs after rookie extension deadline. Format:
-    - Starting bid: $1K (changed from prior-yr+$1K rule in 2025)
-    - 36-hour proxy lock
-    - 2-3 day nomination window
-    - Forced retention through next FA Auction
-  - **Note:** ERA is typically conducted alongside the Tag period (Apr-May). They're not the same event but share the calendar slot.
+| Week | Kickoff (Thu, ET) |
+|---|---|
+| 1 | Thu 2026-09-10 04:20 PM |
+| 2 | Thu 2026-09-17 04:15 PM |
+| 3 | Thu 2026-09-24 04:15 PM |
+| 4 | Thu 2026-10-01 04:15 PM |
+| 5 | Thu 2026-10-08 04:15 PM |
+| 6 | Thu 2026-10-15 04:15 PM |
+| 7 | Thu 2026-10-22 04:15 PM |
+| 8 | Thu 2026-10-29 04:15 PM |
+| 9 | Thu 2026-11-05 04:15 PM |
+| 10 | Thu 2026-11-12 04:15 PM |
+| 11 | Thu 2026-11-19 04:15 PM |
+| 12 | **Thu 2026-11-26** (Thanksgiving — trade deadline) |
+| 13 | Thu 2026-12-03 09:00 AM |
+| 14 | Thu 2026-12-10 04:15 PM |
+| 15 | **Thu 2026-12-17 04:15 PM** (UPS Playoffs Round 1 starts) |
+| 16 | **Thu 2026-12-24 04:15 PM** (UPS Playoffs Round 2 / Toilet placement) |
+| 17 | **Thu 2026-12-31 09:00 AM** (UPS Championship + Hawktuah Bowl) |
+| 18 | Sat 2027-01-09 12:30 PM (NFL Wild Card weekend; not used for UPS) |
 
-### Late May (Memorial Day Sunday) — May 24, 2026
-- **Annual Rookie Draft.**
-  - Sunday of Memorial Day weekend.
-  - 6 rounds × 12 picks. Live, broadcast on Discord.
-  - Mandatory league event. Typically starts 6:00–6:30 PM, runs ~4 hours, expect 10-15 trades during the event.
-  - Round 1 picks: Active roster (no taxi). 1st-round option year applies (2025+).
-  - Rounds 2-5: Taxi-eligible.
-  - Round 6: IDP/K/P only, pick not tradeable, random draft order.
+### Dates NOT yet locked in repo for 2026 (TBD — pull from MFL `TYPE=calendar`)
 
-### June
-- **Quiet month.** Trade activity continues. Owners begin preparing for FA Auction (rosters, cuts, cap analysis).
+- **Tag submission deadline 2026** (offense + defense/ST tags) — expected late April / early May, before rookie extension deadline.
+- **Expired Rookie Auction (ERA) 2026** — expected early-to-mid May, after Tag, before Rookie Draft. ERA is typically run alongside the Tag period.
+- **Auction Roster Lock Date 2026** — historically 3 days before FA Auction starts.
+- **Free Agent Auction Start 2026** — last weekend of July; expect Sat 2026-07-25 or similar.
+- **Free Agent Auction Close 2026** — ~7 days after start, early August.
+- **First Blind Bid Waiver Run 2026** — first Wed/Thu after FA Auction completes.
+- **Earning checkpoints** (25%/50%/75%) — end of October, end of November, end of December (calendar month boundaries; not pulled from event log).
 
-### July (Last Weekend)
-- **Auction Roster Lock Date** (3 days before auction start) — last chance to cut players before auction. Locked until auction completes.
-  - **Note:** Keith may consolidate this into "no cuts during auction" + auto-unlock via MFL API in a future rule revision.
-  - Cut-then-rebid prohibition: any player you cut during offseason is off-limits for nomination/bidding in the auction.
-- **Free Agent Auction begins (last weekend of July).**
+### 2025 reference dates (from `league_events` SQLite table — for cross-validation)
+
+- 2025-05-25 (Sun): rookie extension deadline (Memorial Day Sunday — note: same day as draft for 2025; for 2026 it's a Thu before)
+- 2025-08-31 (Sun): UPS contract deadline
+- 2025-09-04 (Thu): NFL kickoff
+- 2025-09-17 (Wed): preseason MYM deadline
+- 2025-10-01 (Wed): preseason extension deadline
+- 2025-12-29 (Mon): UPS season complete
+
+---
+
+## B. Annual Cycle by Month (with 2026 dates)
+
+### January 2026 → Off-season
+- **Fantasy playoffs end** late Dec 2025; off-season runs Jan 1 → Mar 11.
+- League standings settled. Toilet Bowl + Hawktuah Bowl results determined the 2026 rookie draft order.
+- **No drops allowed** in offseason. **Trade window open.**
+
+### February 2026 → Off-season
+- Trade activity peaks as owners plan offseason moves.
+- Tag eligibility lists firming up (players with 0 years remaining post-rollover from prior season's ending roster).
+
+### March 2026 → Roll-Forward + League Year Start
+- **2026-03-11 (Wed):** NFL league year starts.
+- **March 1–15 window:** UPS Annual Roll-Forward.
+  - All contracts decrement years remaining.
+  - Salaries advance to next-year value.
+  - Prior-year salary 100% earned (sunk; no further penalty contribution).
+  - Players hitting 0 years remaining → tag/extension/free-agent paths.
+- **Restructure window open** (March → September contract deadline).
+
+### April 2026 → NFL Draft + Tag Period
+- **2026-04-23 (Thu):** NFL Draft starts (real NFL, sets rookie pool).
+- **Tag submissions** open (date TBD — pre-rookie-extension-deadline, in early May).
+
+### May 2026 → Rookie Extension + Rookie Draft
+- **Tag deadline** (date TBD — between Apr 23 and May 21).
+- **Expired Rookie Auction (ERA)** (date TBD — typically before rookie ext deadline).
+- **2026-05-21 (Thu):** **Rookie extension deadline.** Expired rookies not extended by this go to ERA path.
+- **2026-05-24 (Sun, Memorial Day Sunday):** **Annual Rookie Draft.** 6 rounds × 12 picks. Live, Discord. Mandatory.
+
+### June 2026 → Quiet
+- Trades continue. Owners prep for July FA Auction.
+
+### July 2026 → FA Auction Begins (Last Weekend)
+- **Auction Roster Lock Date 2026:** ~3 days before auction start (date TBD — Wed July 22 if auction starts Sat July 25).
+- **FA Auction starts:** last weekend of July (date TBD; typically Sat).
   - 7-day minimum nomination window.
   - eBay proxy bidding, 24-hour lock.
   - 2 nominations per 24-hour window (Day 1 has 12-hour kickoff).
-  - Mandatory league event.
-  - Roster floats up to 35 players during auction.
-  - $260K cap floor must be hit at SOME point during auction (can be satisfied via front-loading post-auction).
+- **Mandatory league event.**
 
-### August
-- **Auction completes (~early August).**
-- **Min roster check (27 players)** at close of auction.
-- **Waivers open** at completion of auction. First Blind Bid waiver run typically the first Wednesday-or-Thursday after auction (verify in MFL settings).
-- **Payment milestone:** half of $200 league dues owed by FA Auction start (some flexibility on completion).
+### August 2026 → FA Auction Close + Waivers Open
+- **FA Auction completes** ~Aug 1-2 (date TBD).
+- **Min roster check (27)** at close.
+- **Waivers open** post-auction. First BBID run typically first Wed/Thu after.
+- **Half league dues** ($100 of $200) due by FA Auction start.
 
-### September (Last Sunday before NFL Week 1) — likely Sun Sept 6, 2026
-- **Contract Finalization Deadline** (a.k.a. September contract deadline).
-  - Last day to submit Multi-Year Auction Contracts (MYAC) for FA-Auction or pre-deadline waiver pickups.
-  - Last day for standard extensions.
-  - Restructure window closes.
-  - Tag confirmations finalized.
-  - Roster max drops from 35 → 30 after this date.
-- **Cap floor compliance check:** must be at $260K committed by this date if not already during auction.
+### September 2026 → Contract Deadline + NFL Week 1
+- **2026-09-06 (Sun):** **UPS contract deadline.** Last day for:
+  - Multi-Year Auction Contract (MYAC) submissions
+  - Standard extensions
+  - Tag confirmations
+  - Restructure window closes
+  - Roster max drops from 35 → 30
+- **Cap floor compliance check:** $260K must be hit by this date.
+- **2026-09-10 (Thu):** **NFL Week 1 kickoff.** Fantasy season starts.
+  - Blind Bid Waivers begin: Thu/Fri/Sat/Sun 9 AM.
+  - FCFS opens post-Sun-waiver run, runs to each player's kickoff.
 
-### NFL Week 1 (likely Sept 10–14, 2026)
-- **Fantasy season starts.**
-- Lineup submissions due before each player's NFL kickoff (system auto-locks).
-- Blind Bid Waivers begin: Thu/Fri/Sat/Sun 9 AM. FCFS opens after Sunday morning waiver run, runs until each player's kickoff.
+### Late September 2026 → Pre-season MYM Deadline
+- **2026-09-24 (Thu, Week 3 kickoff):** **UPS preseason MYM deadline.** Last day to MYM a FA-Auction or pre-season-waiver pickup that didn't get a contract by Sept 6.
 
-### NFL Week 2 (mid-Sept 2026)
-- **MYM deadline for FA-Auction / pre-season waiver pickups** without a contract by Sept deadline. Verify in event log — Keith recalls "before Week 3 kickoff" (i.e., end of Week 2).
+### Early October 2026 → Pre-season Extension Deadline
+- **2026-10-07 (Wed, day before Week 5 kickoff):** **UPS preseason extension deadline.** Last day to extend a rookie / pre-season waiver player still on a 1-year deal (the path for players who missed the Sept deadline AND missed the MYM window).
+- **End of October:** **First earning checkpoint** (25% of current-year salary earned).
 
-### NFL Week 4 (early Oct 2026)
-- **Extension deadline for rookie / preseason-waiver no-contract path** (players who weren't given a contract at Sept deadline AND didn't get a MYM by Week 2).
+### November 2026 → Trade Deadline
+- **2026-11-26 (Thu, Thanksgiving, Week 12 kickoff):** **UPS trade deadline.** No trades until next offseason after this kickoff.
+- **End of November:** **Second earning checkpoint** (50% earned).
+- **Remaining league dues** ($100) due by trade deadline.
 
-### October 31 (or end of NFL October)
-- **First earning checkpoint:** 25% of current-year salary earned. Cuts after this point have less penalty exposure.
+### December 2026 → Fantasy Playoffs
+- **2026-12-17 (Thu, Week 15):** **UPS Playoffs Round 1 starts.** 3-week format.
+- **2026-12-24 (Thu, Week 16):** Playoffs Round 2 / Toilet Bowl bracket continues.
+- **2026-12-31 (Thu, Week 17):** **UPS Championship + Hawktuah Bowl.** Final weekend.
+- **End of December:** **Third earning checkpoint** (75% earned).
 
-### November 26, 2026 (Thanksgiving) — Trade Deadline
-- **Trade deadline:** kickoff of Thanksgiving Day game(s). After kickoff, no trades until next offseason.
-- **Second earning checkpoint:** 50% earned (end of November).
-- **Payment milestone:** remaining $100 league dues owed by trade deadline.
-
-### December 14, 2026 (NFL Week 15) — Playoffs Begin
-- **Fantasy Playoffs start (Week 15)**, 3-week format running through NFL Week 17.
-- **Third earning checkpoint:** 75% earned (end of December).
-- Toilet Bowl runs in parallel with the championship bracket.
-
-### NFL Week 17 (early Jan 2027)
-- **Fantasy Playoffs end.** Champion crowned. Toilet Bowl champion crowned (Hawktuah Bowl).
-- Rookie draft order finalized based on bracket results (see [memory: league_history_timeline.md](../../.claude/projects/-Users-keithcreelman-Code-upsmflproduction/memory/league_history_timeline.md)).
-
-### Post-Season Roll-Forward (back to March)
-- After fantasy playoffs end → off-season → cycle repeats.
-- 100% earning checkpoint hits at March 1–15 roll-forward.
+### January 2027 → Off-season Begins
+- Cycle repeats. 100% earning hits at March 2027 roll-forward.
 
 ---
 
@@ -906,10 +966,11 @@ Late dues fines accrue at $3K/week.
 
 ## E. STILL-OPEN ITEMS for Section 3
 
-1. **2026 actual dates** — pull from MFL `TYPE=calendar&L=74598` and lock the exact day-of-week for: Auction Roster Lock, Auction Start, Auction Close, Sept Contract Deadline, Week 2/3/4 boundaries.
-2. **MFL waiver lock duration** — exact hours from drop → waiver clear.
-3. **In-season MYM precise deadline** — verify "before Week 3 kickoff" via event log.
-4. **Roster Lock Date future** — Keith may eliminate this; consolidate into auction-start auto-unlock.
+1. **Tag deadline 2026, ERA dates 2026, FA Auction Roster Lock + Start + Close 2026** — not in `event_window_matrix.csv` yet. Pull from MFL `TYPE=calendar&L=74598` for the live league or stage in the CSV with a `user_directive_*` audit trail.
+2. **MFL waiver lock duration** — exact hours from drop → waiver clear (verify in MFL settings).
+3. **First Blind Bid waiver run 2026** — exact date depends on FA Auction close date + auction completion.
+4. **Earning checkpoints (25%/50%/75%)** — currently inferred as month-end Oct/Nov/Dec; confirm exact day-of-month convention (calendar vs NFL week).
+5. **Roster Lock Date future** — Keith may eliminate this; consolidate into auction-start auto-unlock.
 
 ---
 
