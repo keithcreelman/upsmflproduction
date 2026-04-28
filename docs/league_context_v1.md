@@ -1,4 +1,4 @@
-# UPS Salary Cap Dynasty — League Context (v13, Section 4 corrections from review)
+# UPS Salary Cap Dynasty — League Context (v14, Section 4 Forumotion-confirmed dates)
 
 **Purpose:** Claude's working understanding of how the UPS league operates, written so Keith can correct it before we use it as the foundation for the 2026 auction bid sheet. Sections delivered iteratively.
 
@@ -1096,17 +1096,27 @@ Eras are NOT mutually exclusive — Superflex and TE Premium are concurrent (bot
 - **Trade votes removed.** Commissioner-led trade processing replaced league veto poll. 5 collusion votes still trigger a veto poll.
 - Contract dynamics for the bid sheet: extension + restructure data from Forumotion is the primary source for understanding how contracts behaved pre-2018.
 
-### 2014
-- **Forum vote 2014-02-11 reaffirmed: 6 three-year contracts max per roster** (excluding rookie 3-yr deals). **STILL ACTIVE in 2026** (per Keith v12). ❓Verify if there was a 1-year wait period before implementation.
-- Forum vote 2014-02-11 (7-5): Restructure-only-with-extension rule (later overturned — same year as in-season restructure ban; see below).
-- Taxi: max 9 with contract-year tiers.
+### 2014 — multiple forum votes 2014-02-11 (CONFIRMED via Forumotion)
+- **6×3-yr cap (excluding rookie 3-yr deals) REAFFIRMED** — vote tied, rule remained as-is. Forum thread `t65 Contract Length`, started 2013-06-09. Still active in 2026 (Keith v12).
+- **Restructure-only-with-extension rule PASSED 7-5.** Rule text from thread `t92 Ability to restructure contracts` (started 2013-08-18): *"Any player given an extension, the owner may incorporate the cost of the extension into the current year. Restructure may be split evenly across all remaining years OR incorporate as front/back load."* Later overturned (year still TBD).
+- **9-player taxi squad with tier limits PASSED 7-5.** Tiers: 5 with 3 yrs left / 3 with 2 yrs left / 1 with 1 yr left. Forum thread `t83 Taxi Squad thoughts`, started 2013-06-30.
+- **Cap-free cuts for taxi-eligible rookies PASSED.** *"No player not on Active Roster who is cut incurs a cap charge. Any rookie drafted in R2+ cut prior to contract deadline = no cap hit if never demoted to taxi."* Forum thread `t91 Taxi-Squad Contracts Guaranteed?`, started 2013-08-18.
 
-### 2015
-- **RB starter MIN went from 1 → 2** (the change Keith pointed to — was a 2014 forum proposal effective 2015 per `services/rulebook/sources/rules/settings_changes.md`). Lineup became 1QB / **2RB** / 2WR / 1TE / 2Flex / etc.
+### 2015 — Lineup expansion (CONFIRMED via Forumotion)
+- **RB starter MIN went 1 → 2.** Forum thread `t111 Added offensive Position` started 2014-02-27 by Blake Bombers. Keith's compromise: keep 1-RB minimum for 2014 (rosters/values already locked), implement 2-RB for 2015 to give owners full year to plan. Lineup became 1QB / **2RB** / 2WR / 1TE / 2Flex / IDP / K / P.
 - RB starter MAX bumped from 1-3 → 2-4 (per memory `scoring_history_eras.md`).
 
+### 2015-12-01 — 2016 Comp Committee agenda (Forumotion `t245`)
+Inaugural Winter Meetings agenda. Several items here became 2016+ rules. Captured topics:
+1. **Restrictions on Contract Restructures** (limit similar mid-season extensions to 2; extend to front/back load; cap at 2 each per season per team). **Precursor to the eventual in-season restructure ban.**
+2. Toilet Bowl 1 & 2 seed bye (similar to Championship).
+3. Grace Period for cut-then-rebid (X weeks).
+4. **Kicker scoring overhaul** — proposed: 30yd FG = 3 pts; +0.1/yd deeper; -0.1/yd closer; misses 45+ exempt from minus, otherwise -0.1/yd. **Became the 2016 FG per-yard rule.**
+5. Backup Player tiebreaker for all-play.
+6. Taxi-squad practice-squad sniping (proposed; didn't pass).
+
 ### 2016
-- FG scoring overhaul: tier-based → per-yard (`FG=*.1`). ❓DETAIL NEEDED: original tiered formula values.
+- **FG scoring tier-based → per-yard** (`FG=*.1`). Proposed in 2015-12-01 Comp Committee agenda item 4 (above), implemented 2016. Per Keith's proposal: 30yd = 3 pts, +0.1/yd deeper, -0.1/yd closer; missed FG penalties scaled by distance with 45+ exempt.
 
 ### RB PPR evolution (years TBD, multiple changes)
 - Original: 1.0 PPR (catch counts as 1 point)
@@ -1191,30 +1201,34 @@ Eras are NOT mutually exclusive — Superflex and TE Premium are concurrent (bot
 - **`settings_changes.md` says "rounds 3+ rookie salaries not in current rulebook."** They ARE in 2024.2 §4.5 (R3-5 = $2K, R6 = $1K). settings_changes.md is outdated.
 - **2024 rulebook v1 (8/4) had wrong lineup spec** — only v2 (8/31) is correct. Don't trust v1 archive.
 
-## E. STILL-OPEN for Section 4
+## E. STILL-OPEN for Section 4 (post-v14)
 
-Detail needed (Forumotion verification + scoring archive xlsx):
-1. **Year 1 (2011) starting lineup details** — confirm 1 RB mandatory, find duration before 2-RB started.
-2. **Punter scoring overhaul (post-Y1)** — original formula → new formula.
-3. **2012 dispersal draft results** — capture from Forumotion.
-4. **2012 taxi size at inception** — confirm 5 (or 6).
-5. **2012 tackles + KY + PNY scoring overhaul** — exact old → new values.
-6. **2016 FG scoring (tier-based → per-yard)** — original tier values.
-7. **RB PPR transitions** — exact years for 1.0 → 0.75 → 0.80.
-8. **First Downs expansion** — exact years for receiving → +rushing → all 1st D (incl QBs).
-9. **In-season restructure ban year** (2018 or 2019).
-10. **"Restructure-only-with-extension" overturn year** (same as #9).
-11. **2014 6×3-yr cap** — was there a 1-year wait period before implementation?
-12. **6th-round PK/PN draft-night vote year** — review auction data for first PK/PN selection in Round 6.
-13. **Bench-player tiebreaker removal year** (pre-2025).
-14. **2025 ST TD range tweaks** — old ranges → new ranges.
-15. **Tag Auction + ERA pre-2022 format** — what was it before the proxy-bid switch on 2022-05-03?
-16. **Original ERA start year** — when did the Expired Rookie Auction format itself start?
-17. **TE Premium vote year** — Keith says agreed-upon year before; confirm if 2024 vote.
+✅ **CONFIRMED v14** via Forumotion authenticated browse:
+- 2014-02-11 votes: restructure-with-extension rule (7-5), 9-player taxi tiered (7-5), cap-free taxi cuts (passed), 6×3-yr cap reaffirmed (tied → no change)
+- 2015 = first year of 2-RB minimum (proposed Feb 2014, deferred to 2015)
+- 2016 FG per-yard scoring proposed in 2015-12-01 Comp Committee agenda
+- 2014 6×3-yr cap had no wait period — votes happened Feb 2014, took effect 2014 season
+
+⏳ **Still open** (Forumotion didn't have these — most are post-2017 era):
+1. **Punter scoring overhaul (post-Y1, ~2012)** — original formula → new formula. Likely in OneDrive scoring xlsx archive.
+2. **2012 dispersal draft results** — Forumotion thread search didn't surface; may be in `f11-new-owner-s-distribution-draft` (not yet pulled). Capture for franchise-history work.
+3. **2012 tackles + KY + PNY scoring overhaul** — old → new values. Likely in OneDrive scoring xlsx archive.
+4. **RB PPR transitions** — exact years for 1.0 → 0.75 → 0.80. Post-2017 — not in Forumotion. Check Slack 2021-2022 + OneDrive `League Scoring.xlsx`.
+5. **First Downs expansion** — receiving → +rushing → all 1st D (incl QBs). Post-2021 era; Slack has receiving + rushing 2021. ALL-1stD-incl-QB year still TBD.
+6. **In-season restructure ban year** — Forumotion thread `t245` (2015-12-01) shows the agenda discussion but the actual ban implementation date is post-2017 (not in forum). Check Slack 2021-2022 + Discord.
+7. **"Restructure-only-with-extension" overturn year** — same as #6.
+8. **6th-round PK/PN draft-night vote year** — review auction data for first PK/PN selection in Round 6.
+9. **Bench-player tiebreaker removal year** (pre-2025) — Discord likely.
+10. **2025 ST TD range tweaks** — old ranges → new ranges.
+11. **Tag Auction + ERA pre-2022 format** — what was it before the proxy-bid switch on 2022-05-03?
+12. **Original ERA start year** — when did the Expired Rookie Auction format itself start?
+13. **TE Premium vote year** — Keith says agreed-upon year before; confirm if 2024 vote.
 
 Source notes:
-- **Pre-2021 slack data unavailable** — slack export labeled "May 2016 - Sep 2022" actually only contains messages from May 2021 onward.
-- **Forumotion** (https://upsdynastycap.forumotion.com/forum) is the primary source for 2011-2020 era detail. Forum posts were clean; group texts (pre-Slack) were noise. From 2021 forward, Slack + Discord.
+- **Forumotion** (https://upsdynastycap.forumotion.com/forum) — auth'd browse confirms forum is most useful for 2011-2017. Last threads are November 2017. Credentials saved to `~/.config/ups_secrets/forumotion.env` (chmod 600, outside repo).
+- **Slack era began ~2021** (Keith v13). Pre-Slack: forum (cleanest) + group texts (lost noise). Slack export covers May 2021 - Sep 2022.
+- **Discord** (2022+): primary source for post-2022 rule discussions.
+- **OneDrive `Scoring Details By Year/`** has historical scoring xlsx files (2013, 2019 confirmed) — likely the source of truth for pre-Slack scoring formula details.
 
 ## F. Slack history note (Keith v13)
 
