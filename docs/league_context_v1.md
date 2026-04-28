@@ -1,4 +1,4 @@
-# UPS Salary Cap Dynasty — League Context (v5, Section 3 rebuilt with real dates)
+# UPS Salary Cap Dynasty — League Context (v6, Section 3 augmented with computed dates from ccc.js + auction history)
 
 **Purpose:** Claude's working understanding of how the UPS league operates, written so Keith can correct it before we use it as the foundation for the 2026 auction bid sheet. Sections delivered iteratively.
 
@@ -822,15 +822,45 @@ The UPS league year is a 12-month cycle anchored to the NFL season. **Dates belo
 | 17 | **Thu 2026-12-31 09:00 AM** (UPS Championship + Hawktuah Bowl) |
 | 18 | Sat 2027-01-09 12:30 PM (NFL Wild Card weekend; not used for UPS) |
 
-### Dates NOT yet locked in repo for 2026 (TBD — pull from MFL `TYPE=calendar`)
+### Tag Deadline + Rookie Draft (CONFIRMED via `site/ccc/ccc.js` formula)
 
-- **Tag submission deadline 2026** (offense + defense/ST tags) — expected late April / early May, before rookie extension deadline.
-- **Expired Rookie Auction (ERA) 2026** — expected early-to-mid May, after Tag, before Rookie Draft. ERA is typically run alongside the Tag period.
-- **Auction Roster Lock Date 2026** — historically 3 days before FA Auction starts.
-- **Free Agent Auction Start 2026** — last weekend of July; expect Sat 2026-07-25 or similar.
-- **Free Agent Auction Close 2026** — ~7 days after start, early August.
-- **First Blind Bid Waiver Run 2026** — first Wed/Thu after FA Auction completes.
-- **Earning checkpoints** (25%/50%/75%) — end of October, end of November, end of December (calendar month boundaries; not pulled from event log).
+The Contract Command Center widget code (`site/ccc/ccc.js`) defines two computed dates anchored to Memorial Day:
+- **`tagDeadline = MemorialDay − 4 days` = Thursday before Memorial Day weekend**
+- **`rookieDraft = MemorialDay − 1 day` = Sunday before Memorial Day**
+
+For 2026 (Memorial Day = Mon May 25):
+
+| Date | Day | Event | Source |
+|---|---|---|---|
+| **2026-05-21** | **Thu** | **UPS Tag deadline** (offense + def/ST submissions) | `ccc.js` `getTagDeadlineInfo` (memorial − 4) |
+| 2026-05-21 | Thu | UPS Rookie Extension deadline (same day as tag deadline — combined) | `event_window_matrix.csv` |
+| **2026-05-24** | **Sun** | **UPS Rookie Draft** | `ccc.js` `getTagDeadlineInfo` (memorial − 1) |
+| 2026-05-25 | Mon | Memorial Day (NFL holiday) | calendar |
+
+### ERA + FA Auction (inferred from historical `auction` table)
+
+The local SQLite `auction` table (`mfl_database.db`) records every winning bid by `time_started` (epoch). Aggregating 2020–2024 reveals the ERA and FA Auction windows directly:
+
+| Year | ERA window | FA Auction window |
+|---|---|---|
+| 2020 | May 16 – mid-May | Jul – Aug 27 |
+| 2021 | (none in May; auction ran Jun 1 → Aug 10) | Jun – Aug 10 |
+| 2022 | May 6 – May 11 | Aug 2 – Aug 7 |
+| 2023 | May 12 – May 14 | Jul 29 – Aug 6 |
+| 2024 | May 14 – May 19 | Jul 27 – Aug 6 |
+| 2025 | May 26 – May 27 (post-draft tail) | Aug 7 – Aug 9 (per CSV reports) |
+
+**Pattern:** ERA runs in mid-May (~5–10 days before Tag deadline + Rookie Draft); FA Auction runs late July through early-to-mid August (~10-day window).
+
+**2026 expected (TBD — verify via MFL `TYPE=calendar&L=74598`):**
+- ERA: ~**May 13–18, 2026** (mid-May, before Tag deadline May 21)
+- FA Auction Roster Lock: **3 days before auction start** (~Wed Jul 22, 2026 if auction starts Sat Jul 25)
+- FA Auction start: ~**Sat Jul 25, 2026** (last weekend of July per rule)
+- FA Auction close: ~**early-to-mid August 2026** (~10 days after start; historical close ranges Aug 6–10)
+- First Blind Bid Waiver Run: first Thu after auction completes (~Aug 13–20, 2026)
+- Earning checkpoints (25%/50%/75%): end of Oct / Nov / Dec (calendar month boundaries; not in event log)
+
+> **Note on 2025 ERA timing anomaly:** The 2025 ERA picks dated 2025-05-26/27 are AFTER Memorial Day Sunday (rookie draft day = May 25, 2025). This is unusual — historical pattern was ERA before draft. Either (a) ERA was held post-draft in 2025, (b) the auction_date represents finalization rather than auction completion, or (c) a timing anomaly. Worth flagging if 2026 needs to follow the post-draft pattern.
 
 ### 2025 reference dates (from `league_events` SQLite table — for cross-validation)
 
@@ -966,10 +996,10 @@ Late dues fines accrue at $3K/week.
 
 ## E. STILL-OPEN ITEMS for Section 3
 
-1. **Tag deadline 2026, ERA dates 2026, FA Auction Roster Lock + Start + Close 2026** — not in `event_window_matrix.csv` yet. Pull from MFL `TYPE=calendar&L=74598` for the live league or stage in the CSV with a `user_directive_*` audit trail.
-2. **MFL waiver lock duration** — exact hours from drop → waiver clear (verify in MFL settings).
-3. **First Blind Bid waiver run 2026** — exact date depends on FA Auction close date + auction completion.
-4. **Earning checkpoints (25%/50%/75%)** — currently inferred as month-end Oct/Nov/Dec; confirm exact day-of-month convention (calendar vs NFL week).
+1. **2026 ERA window + FA Auction start/close exact dates** — historical ranges documented above; live 2026 dates need MFL `TYPE=calendar&L=74598` confirmation OR addition to `event_window_matrix.csv` with audit trail.
+2. **2025 ERA post-draft anomaly** — auction_date for 2025 ERA picks is 2025-05-26/27 (after rookie draft May 25). Either ERA was held post-draft in 2025 or the date represents something else. Worth confirming.
+3. **MFL waiver lock duration** — exact hours from drop → waiver clear (verify in MFL settings).
+4. **Earning checkpoints (25%/50%/75%)** — confirm convention is calendar month-end vs NFL week boundary.
 5. **Roster Lock Date future** — Keith may eliminate this; consolidate into auction-start auto-unlock.
 
 ---
