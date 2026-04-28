@@ -1,4 +1,4 @@
-# UPS Salary Cap Dynasty — League Context (v15, Section 4 scoring details from MFL metadata_rawrules)
+# UPS Salary Cap Dynasty — League Context (v16, RB PPR 2010 = 1.0 confirmed; settings-vs-intent caveat)
 
 **Purpose:** Claude's working understanding of how the UPS league operates, written so Keith can correct it before we use it as the foundation for the 2026 auction bid sheet. Sections delivered iteratively.
 
@@ -1070,6 +1070,8 @@ Eras are NOT mutually exclusive — Superflex and TE Premium are concurrent (bot
 
 > **Data lineage emphasis (Keith v13):** every stat/scoring change must be documented in enough detail to **convert old data to the modern era.** When this section says "scoring changed," the bid sheet needs to know the EXACT old → new formula to normalize historical points. Cross-reference rulebook archive + `metadata_rawrules` + Forumotion for primary sources.
 
+> **CRITICAL caveat — settings vs. intent (Keith v16):** League rules and MFL settings can drift. A vote can be passed in the forum/Slack/Discord with intent for year N, but the actual MFL `TYPE=rules` settings may not be updated until year N+1 or later. The bid sheet MUST use **MFL `metadata_rawrules` as the authoritative source for what scoring actually applied in a given year**, NOT the forum/Slack vote dates. **Always check settings.** Where a forum vote and the MFL settings disagree, the MFL settings are what scored fantasy points that year. (Example: the 2021 first-downs vote may reflect intent that was already in the MFL settings since 2011 — the rule pre-existed in MFL, the league just didn't enforce/track it. The settings — not the vote — define what counted.)
+
 ## B. Rule changes by year (bid-sheet relevant)
 
 > Each entry should record OLD value → NEW value with enough precision to normalize historical data. Where I have the old value, it's in this doc. Where I don't, **❓DETAIL NEEDED** flags it as a follow-up item for the chronicle work.
@@ -1079,9 +1081,10 @@ Eras are NOT mutually exclusive — Superflex and TE Premium are concurrent (bot
 - Auction values from 2010 are **NOT comparable** to modern dynasty data. Exclude entirely.
 
 ### 2011 — Founding dynasty Year 1
-- **Also FA Auction only — NO rookie draft yet.** The ONLY difference from 2010: in 2011 the league knew the format was permanent (dynasty), so contracts persisted forward into 2012. In 2010 the format was acknowledged as one-and-done.
-- **Starting lineup: 1 RB mandatory** (per rulebook archive — 1QB / **1RB** / 2WR / 1TE / 2Flex / DL / LB / DB / 3 DefFlex / K / P). The 1-RB minimum stayed in effect through ~2014 (see 2015 below).
-- IDP added: split out DT/DE/LB/CB/S, added PN; RB=1-3, TE=1-3, WR=2-4 (these are starter MAXIMUMS, not minimums).
+- **Also FA Auction only — NO rookie draft yet.** ONLY difference from 2010: 2011 league knew the format was permanent (dynasty), so contracts persisted forward into 2012.
+- **Starting lineup: 1 RB mandatory** (1QB / **1RB** / 2WR / 1TE / 2Flex / DL / LB / DB / 3 DefFlex / K / P). The 1-RB minimum stayed in effect through ~2014 (see 2015).
+- IDP added: split out DT/DE/LB/CB/S, added PN; RB=1-3, TE=1-3, WR=2-4 (starter MAXIMUMS, not minimums).
+- **RB PPR: 1.0 → 0.75** (CONFIRMED via MFL `metadata_rawrules` 2010→2011 diff). 2010 had `RB CC 0-99=*1` (1.0 PPR for ALL positions including RB — redraft format). 2011 dynasty-Y1 reset extracted RB into its own group at `*.75` while other positions stayed at `*1`. **Keith was right** — there ARE two RB PPR transitions in MFL data: 1.0 (2010) → 0.75 (2011) → 0.80 (2018).
 
 ### 2012 — CONFIRMED via MFL `metadata_rawrules` (66 rule changes 2011→2012)
 - **First rookie draft** (introduced this year — dynasty cap needed it once contracts persisted).
@@ -1149,7 +1152,7 @@ Inaugural Winter Meetings agenda. Several items here became 2016+ rules. Capture
 ### 2018 — MAJOR scoring rebalance + roster expansion (CONFIRMED via `metadata_rawrules`, 46 rule changes)
 
 **Scoring rebalance:**
-- **RB PPR: 0.75 → 0.80** (`RB CC 0-99=*.75` → `RB CC 0-99=*.8`). This is the RB PPR transition; only ONE transition has happened — RB started at 0.75 in 2011 and went to 0.80 in 2018. (Keith's recall of "1.0 → 0.75 → 0.80" — the 1.0 era didn't exist in MFL data; possibly pre-2011 / pre-MFL.)
+- **RB PPR: 0.75 → 0.80** (`RB CC 0-99=*.75` → `RB CC 0-99=*.8`). Second of TWO RB PPR transitions in MFL data (first was 1.0 → 0.75 in 2011 dynasty reset).
 - **IDP tackles boosted:**
   - DB (CB, S): `AS 0.5 → 0.8`, `TK 1.0 → 1.3`, `TKL 1.0 → 1.5`
   - DL (DE, DT): `TK 1.0 → 1.5`, `TKL 1.0 → 1.5`
@@ -1254,7 +1257,7 @@ Inaugural Winter Meetings agenda. Several items here became 2016+ rules. Capture
 - 2012 ANY/big-game bonus added (60-100=5)
 - 2016 FG per-yard: `60-99=8` → `0-99=*.1`
 - 2016 missed FG range: `30-99=0` → `45-99=0`
-- **2018 RB PPR: 0.75 → 0.80** (the famous transition — only ONE transition in MFL data; the "1.0" era didn't exist in MFL)
+- **RB PPR transitions: 1.0 (2010) → 0.75 (2011) → 0.80 (2018)** — confirmed via `metadata_rawrules` 2010, 2011, 2018 snapshots
 - 2018 IDP tackles boosted: AS, TK, TKL, FC, IC, PD all up
 - 2020 yardage notation cosmetic
 - 2021 1C → FD rename + range expansion (FD scoring has been in continuously since 2011)
