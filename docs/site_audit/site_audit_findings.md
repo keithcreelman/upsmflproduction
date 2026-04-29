@@ -9,12 +9,16 @@
 
 ## Executive Summary
 
-This audit identified **8 Critical findings** that impact league functionality and **1 Low finding** across site, worker, and ETL modules.
+**Updated 2026-04-28 after verification pass.** Final count: **6 confirmed Critical findings** + **1 Low finding** + **1 architectural Critical-or-Low (pending Keith decision)**.
+
+Two of the original 8 Critical findings were retracted:
+- **F-CRIT-003** retracted by Keith (Trade 50% cap IS enforced via UI compute → `validation.status` flag → worker reject; original audit missed the indirection). See F-CRIT-003-AMENDED for the residual server-trust risk.
+- **F-CRIT-006** rescinded after re-verification (tag limit IS correctly enforced — 1 per side via offense/defense filtering = 2 total per team per season).
 
 **Top 3 Owner-Impacting Findings:**
 1. **F-CRIT-001**: MYM submissions NOT validated for 4-per-season cap — unlimited MYM submissions are currently accepted.
 2. **F-CRIT-002**: Earnings curve bug in drop penalty calculation — pre-season cuts get 0% earning at Sep 30 instead of Oct 1, more lenient by ~25%.
-3. **F-CRIT-003**: Trade salary cap (50% per side) NOT enforced in UI or worker — multi-player trade cap math unvalidated.
+3. **F-CRIT-003**: ~~Trade salary cap (50% per side) NOT enforced~~ — **RETRACTED 2026-04-28 after Keith verified the rule fires in production.** The cap is enforced via an indirect path the original audit missed: UI computes `getTradeSalaryMaxK = selectedNonTaxiSalary / 2000` (`trade_workbench.js:4152`), validates `traded_salary_adjustment_k <= max_k` (`trade_workbench.js:5171-5172`), and only sets `payload.validation.status = "ready"` when all checks pass. Worker rejects any POST whose `validation.status !== "ready"` (`worker/src/index.js:14508-14538`). See F-CRIT-003-AMENDED below for the actual residual risk (non-UI clients could bypass by hand-crafting `validation.status="ready"`) — that's a separate, lower-severity issue.
 
 **Coverage:** 117 validated checks across rule categories; 8 gaps flagged.
 
@@ -100,40 +104,48 @@ This audit identified **8 Critical findings** that impact league functionality a
 
 ---
 
-### F-CRIT-003: Trade Salary Cap (50% per side) NOT Enforced
+### F-CRIT-003: ~~Trade Salary Cap (50% per side) NOT Enforced~~ — **RETRACTED 2026-04-28**
+
+**Status:** RETRACTED. Keith verified in production that the 50% cap fires correctly. The original audit missed an indirect enforcement path.
+
+**Actual enforcement chain:**
+1. UI computes max: `getTradeSalaryMaxK(teamId)` returns `selectedNonTaxiSalary / 2000` at `site/trades/trade_workbench.js:4152` — that's `÷1000` (dollars→K) × `÷2` (50%). Both sides' max is computed from the salary that side is GIVING UP, matching the spec's "50% of THEIR OWN traded-away player's salary."
+2. UI input `<input max="...">` is bound to that max at line 4458; UI displays the max at line 4461.
+3. UI validation at lines 5171–5172: pushes "Left/Right traded salary exceeds max" issue if `traded_salary_adjustment_k > traded_salary_adjustment_max_k`.
+4. UI sets `payload.validation.status = "ready"` only when there are zero issues.
+5. Worker `POST /trade-offers` at `worker/src/index.js:14508-14538` rejects with HTTP 400 `validation_pre_post` if `validation.status !== "ready"`.
+
+The 50% cap therefore IS enforced for trades submitted via the UI (the only supported submission path). The Phase 3 agent saw the `0.5` IR-relief multiplier at line 4105 and did not trace `getTradeSalaryMaxK` to its `÷ 2000` definition.
+
+**Residual risk → see F-CRIT-003-AMENDED below.**
+
+---
+
+### F-CRIT-003-AMENDED: Server-Side Trade Validation Trusts UI's `validation.status` Flag
 
 - **Module(s) affected:**
-  - `/Users/keithcreelman/Code/upsmflproduction/site/trades/trade_workbench.js` (1–6725 lines) — No 50% validation found in UI
-  - `/Users/keithcreelman/Code/upsmflproduction/worker/src/index.js` (lines 20600+) — POST /trade-offers handler has no cap money validation
+  - `/Users/keithcreelman/Code/upsmflproduction/worker/src/index.js:14508-14538` — POST /trade-offers handler
 
 - **Authoritative rule:**
-  - Section 2, T1.7 (Trade), lines 482:
-    > "Cap money: each side independently capped at 50% of THEIR OWN traded-away player's salary. Multi-player trade: max = 50% of sum. Cannot send money without a non-salary asset (player or pick)."
-  - Section 6, E1 (Cap money rule), lines 1497–1502: Reiterates 50% per-traded-away-player rule + multi-player cap.
+  - Section 2, T1.7 + 2.G #15 — server-side enforcement of trade rules is implicitly required ("league-functionality-impacting" per Keith's 2026-04-28 governance).
 
 - **Observed behavior:**
-  - `trade_workbench.js` line 4105: "if (assetCountsAsCurrentIr(asset)) return Math.round(salary * 0.5);" — this is IR relief (50% salary), NOT trade cap money rule.
-  - Worker POST /trade-offers handler: no grep results for "50\|percent\|salary.*cap" in trade validation.
+  - The worker's only trade-validation gate is `payload.validation.status === "ready"`. It does not independently re-compute the 50% cap, the asset-requirement, or any other UI-side check.
 
 - **Gap:**
-  - No validation that cap money in a trade respects the 50% limit per side.
-  - No check that at least one non-salary asset is included.
-  - Owner could propose trade: "Send $100K (100% of opponent's $100K player) + pick" and submission would be accepted by UI + worker.
+  - Any client (curl, script, browser dev tools, malicious page) can hand-craft a JSON body with `validation.status: "ready"` and arbitrary asset/salary content. The worker will accept it and forward to MFL.
 
 - **Risk:**
-  - Trade proposals violate Section 2.G rule and cap-floor rules.
-  - Bid sheet's available-cap formula assumes compliant trades; non-compliant trades corrupt cap state.
-  - Post-trade cap penalties may be miscalculated if trades violate the 50% rule.
+  - For the normal owner-via-UI flow, no risk — the UI computes validation honestly.
+  - For dev-tools tampering or scripted abuse, all the UI-side rules (50% cap, asset requirement, tagged-player block, untradeable-pick block) can be bypassed.
+  - Severity assessment depends on threat model: if commish trusts that owners only use the UI, Low. If you want defense-in-depth, the worker should re-validate.
 
-- **Recommended fix:**
-  - **Worker POST /trade-offers (lines 20600+):** 
-    1. Parse each side's traded-away players and sum their salaries.
-    2. For each side, validate: `trade_cap_money_sent <= 50% * sum_of_traded_away_player_salaries`.
-    3. Validate: trade includes at least one non-salary asset (player or pick).
-    4. Reject with `validation_fail` if either fails.
-  - **UI trade_workbench.js:** Add real-time cap-money validation display when building trade.
+- **Recommended fix (Critical if defense-in-depth is wanted; Low otherwise — Keith decision):**
+  - Add server-side recomputation of `traded_salary_adjustment_max_k` from `proposalAssets` + roster data; reject if exceeded.
+  - Same for: asset requirement, tagged-player ineligibility, untradeable picks.
+  - Treat `validation.status` as advisory, not authoritative.
 
-- **Blocked by:** Worker validation code + UI display logic.
+- **Blocked by:** Keith decision on whether defense-in-depth is desired given league size and trust model. The same architectural pattern applies to other endpoints — flagged as F-ARCH-001 below.
 
 ---
 
@@ -205,7 +217,7 @@ This audit identified **8 Critical findings** that impact league functionality a
 
 ---
 
-### F-CRIT-006: Tag Limit Count Bug (Should be 2 Total, NOT 2 "per side")
+### F-CRIT-006: ~~Tag Limit Count Bug~~ — **RESCINDED 2026-04-28** (code is correct; tag limit IS enforced)
 
 - **Module(s) affected:**
   - `/Users/keithcreelman/Code/upsmflproduction/site/ccc/ccc.js` (line 15) — `const TAG_LIMIT_PER_SIDE = 1;`
