@@ -1,0 +1,60 @@
+method,path,purpose,auth_required,writes_to,reads_from,consumed_by,validation,rate_limit,notes
+GET,/api/corrections,Retrieve corrections override layer,No,None,D1 corrections,Unknown,entity_kind; entity_id filters,None,JSON validation
+GET,/api/mfl-league-state,Fetch current MFL league and rosters,No,None,MFL API (league; rosters),Unknown,year; leagueId from query params,None,JSON validation
+GET,/api/advanced-stats-leaderboard,Advanced stats leaderboard for players,No,None,D1 advanced_stats tables,Unknown,Query params for filters,None,D1 may be missing in dev
+GET,/api/advanced-stats-stickiness,Player stats stickiness/consistency metric,No,None,D1 metric_stickiness table,Unknown,Query params for season/week,None,D1 dependency
+GET,/api/advanced-stats-player-weekly,Player weekly advanced stats breakdown,No,None,D1 nfl_player_weekly; advanced_stats,Unknown,Query params,None,D1 dependency
+GET,/api/player-bundle,Combined player stats (MFL + advanced + corrections),No,None,MFL API; D1 corrections; D1 advanced_stats,rookies/rookie_draft_hub.js; rosters/roster_workbench.js,Query params validation,None,Merges multiple sources
+GET,/mcm/config,MCM (Matchup Championship) configuration,No,None,GitHub CDN (mcm_seed.json),Unknown,None,None,Public MCM seed fetch
+GET,/mcm/week,Current MCM week info,No,None,GitHub CDN (mcm_seed.json),Unknown,None,None,Public MCM
+GET,/mcm/botd,MCM Breakout of the Day selection,No,None,GitHub CDN (mcm_seed.json; votes; nominations),Unknown,None,None,Public MCM
+GET,/mcm/ballot,MCM ballot (nominees for current week),No,None,GitHub CDN (mcm_seed.json; nominations),Unknown,None,None,Public MCM
+GET,/mcm/results,MCM voting results for a week,No,None,GitHub CDN (votes; nominations),Unknown,None,None,Public MCM
+POST,/mcm/nominate,Submit MCM nomination,No,GitHub dispatch (add-mcm-nomination),GitHub nominations JSON,Unknown,Player name validation,None,SECURITY CONCERN: Public write without auth
+POST,/mcm/vote,Submit MCM vote,No,GitHub dispatch (add-mcm-vote),GitHub votes JSON; seed,Unknown,Vote data validation,None,SECURITY CONCERN: Public write without auth
+GET,/acquisition-hub/*,Acquisition hub read-only routes (wildcard),Conditional,None,MFL API; league state,acquisition/acquisition_hub.js,None,None,Optional commish cookie
+GET,/api/trades/proposals/:id,Fetch specific trade proposal by ID,No,None,MFL pending trades,Unknown,proposal_id from URL path,None,Wildcard path pattern
+GET,/trade-pending,Get pending trade proposals for viewer,Conditional,None,MFL pendingTrades export,Unknown,Query params validation,None,Requires owner session
+POST,/trade-offers,Submit new trade proposal to MFL,Conditional,MFL trade_pending,MFL rosters; salaries,Unknown,Complex trade validation logic,None,DUPLICATE with /api/trades/proposals POST
+POST,/api/trades/proposals,Submit new trade proposal to MFL,Conditional,MFL trade_pending,MFL rosters; salaries,Unknown,Complex trade validation logic,None,DUPLICATE with /trade-offers
+GET,/acquisition-hub/bootstrap,Fetch league/rosters/players for Acq Hub,Conditional,None,MFL league; rosters; salaries,acquisition/acquisition_hub.js,Query param validation,None,Optional commish cookie
+GET,/acquisition-hub/rookie-draft/live,Current rookie draft live state,Conditional,None,MFL; R2 (rookie_draft_history.json),Unknown,Query param validation,None,Optional auth
+GET,/acquisition-hub/rookie-draft/history,Historical rookie draft results,Conditional,None,R2 (rookie_draft_history.json),Unknown,None,None,Artifact-based
+POST,/acquisition-hub/rookie-draft/action,Submit draft action (bid/skip/nominate),Yes,MFL form submission,MFL league state; rosters; salaries,Unknown,Action type validation,None,SECURITY CONCERN: Admin-only; mutates state
+POST,/acquisition-hub/rookie-draft/reconcile-contracts,Reconcile salaries after draft,Yes,MFL salary adjustments,MFL salaries export,Unknown,Salary calculation validation,None,SECURITY CONCERN: Admin-only; modifies salaries
+GET,/acquisition-hub/free-agent-auction/live,Current FA auction live state,Conditional,None,MFL; R2 artifacts,Unknown,Query param validation,None,Optional auth
+GET,/acquisition-hub/free-agent-auction/history,Historical FA auction results,Conditional,None,R2 (free_agent_auction_history.json),Unknown,None,None,Artifact-based
+POST,/acquisition-hub/free-agent-auction/action,Submit FA auction action,Yes,MFL form submission,MFL league state,Unknown,Action type validation,None,SECURITY CONCERN: Admin-only
+GET,/acquisition-hub/expired-rookie-auction/live,Expired rookie auction state,Conditional,None,MFL; R2 artifacts,Unknown,Query param validation,None,Optional auth
+GET,/acquisition-hub/expired-rookie-auction/history,Expired rookie auction history,Conditional,None,R2 (expired_rookie_history.json),Unknown,None,None,Artifact-based
+POST,/acquisition-hub/expired-rookie-auction/action,Submit expired rookie action,Yes,MFL form submission,MFL league state,Unknown,Action type validation,None,SECURITY CONCERN: Admin-only
+GET,/acquisition-hub/waivers,Current waiver claims state,No,None,MFL waiverOrder export,Unknown,None,None,Public read
+POST,/acquisition-hub/admin/refresh,Force refresh of acq hub data,Yes,GitHub dispatch (refresh-mfl-data),None,Unknown,None,None,SECURITY CONCERN: Admin-only; external trigger
+GET,/roster-workbench,Fetch roster/players for workbench UI,Conditional,None,MFL league; rosters; players; salaries,rosters/roster_workbench.js,Query param validation,None,Optional commish cookie
+POST,/roster-workbench/action,Submit roster action (tag/extend/etc),Conditional,MFL form submission or GitHub dispatch,MFL league state; salaries; rosters,rosters/roster_workbench.js,Action type validation,None,SECURITY CONCERN: Requires owner session; modifies state
+GET,/roster-workbench/admin-state,Admin-only state for workbench,Yes,None,MFL league state; tag tracking JSON,Unknown,None,None,SECURITY CONCERN: Admin-only
+GET,/trade-workbench,Fetch data for trade workbench UI,Conditional,None,MFL league; rosters; salaries; pending trades,trades/trade_workbench.js,Query param validation,None,Optional commish cookie
+GET,/admin/salary-change-log,View salary change history,Yes,None,MFL salaryAdjustments export,Unknown,None,None,SECURITY CONCERN: Admin-only
+POST,/admin/import-salaries,Import/update salary data from MFL/form,Yes,MFL salary imports,Form data; MFL rosters,Unknown,Form field validation,None,SECURITY CONCERN: Admin-only; modifies salaries
+POST,/admin/import-drop-penalties,Import drop penalties,Yes,MFL salary adjustments,Form data,Unknown,Form field validation,None,SECURITY CONCERN: Admin-only; modifies league state
+POST,/admin/test-sync/prod-rosters,Test sync of prod rosters (debug),Yes (X-Internal-Auth),None,MFL rosters export,Unknown,None,None,Internal debug endpoint
+POST,/admin/discord/post,Post manual Discord message,Yes,Discord webhook,Form data,Unknown,Message validation,None,SECURITY CONCERN: Admin-only; external write
+POST,/admin/deadline-reminders/test-discord,Test deadline reminder message,Yes,Discord webhook (test),MFL league state,Unknown,None,None,SECURITY CONCERN: Admin-only
+POST,/admin/deadline-reminders/run,Queue deadline reminders processing,Yes,GitHub dispatch,MFL league state,Unknown,None,None,SECURITY CONCERN: Admin-only
+POST,/admin/contract-activity/test-discord,Test contract activity message,Yes,Discord webhook (test),MFL league state,Unknown,None,None,SECURITY CONCERN: Admin-only
+POST,/admin/contract-activity/test-discord-batch,Test batch contract messages,Yes,Discord webhook (test),MFL league state,Unknown,None,None,SECURITY CONCERN: Admin-only
+POST,/admin/contract-activity/post,Post contract activity notification,Yes,Discord webhook,Form data,Unknown,None,None,SECURITY CONCERN: Admin-only
+POST,/admin/contract-activity/post-batch,Post batch contract notifications,Yes,Discord webhook,Form data,Unknown,None,None,SECURITY CONCERN: Admin-only
+POST,/admin/contract-activity/edit,Edit posted contract notification,Yes,Discord webhook (edit),Form data,Unknown,None,None,SECURITY CONCERN: Admin-only
+POST,/admin/bug-report/test-discord,Test bug report Discord message,Yes,Discord webhook (test),Form data,Unknown,None,None,SECURITY CONCERN: Admin-only
+POST,/bug-report,Submit bug report,No,GitHub dispatch (new-bug-report),Form data,Unknown,Form field validation,None,SECURITY CONCERN: Public write without auth
+GET,/bug-reports,List bug reports,Conditional,None,GitHub issues (via API/artifact),Unknown,None,None,Optional auth
+POST,/admin/bug-report/status,Update bug report status/triage,Yes,GitHub dispatch (update-bug-report-status),Form data,Unknown,Status value validation,None,SECURITY CONCERN: Admin-only
+POST,/admin/bug-report/triage-note,Add triage note to bug report,Yes,GitHub dispatch (add-bug-report-note),Form data,Unknown,Note text validation,None,SECURITY CONCERN: Admin-only
+GET,/salary-alignment-check,Verify salary alignment vs MFL,No,None,D1 (if available); MFL salaries,Unknown,Query params validation,None,D1 optional
+POST,/admin/snapshot-mfl-now,Manual trigger for MFL→R2 snapshot,Yes (X-Internal-Auth),R2 bucket UPS_MFL_BACKUPS,MFL public exports,Unknown,None,None,SECURITY: Internal auth header required
+POST,/refresh-mym-json,Queue refresh of MYM JSON (rosters/salaries),Yes,GitHub dispatch (refresh-mym-json),None,Unknown,None,None,SECURITY CONCERN: Admin-only; external trigger
+POST,/offer-mym,Submit Multi-Year contract (MYM) offer,Conditional,GitHub dispatch (log-mym-submission),Form data; MFL league state,Unknown,Form field validation; salary validation,None,SECURITY CONCERN: Requires owner session; modifies contracts
+POST,/offer-restructure,Submit restructure contract offer,Conditional,GitHub dispatch (log-restructure-submission),Form data; MFL league state,Unknown,Form field validation; salary validation,None,SECURITY CONCERN: Requires owner session; modifies contracts
+POST,/commish-contract-update,Commish manual contract update/extension,Yes,GitHub dispatch (log-extension-submission or log-manual-contract-update),Form data; MFL league state,Unknown,Form field validation; contract validation,None,SECURITY CONCERN: Admin-only; high-privilege
+POST,/extension-assistant,AI-powered extension rules assistant,No,None (Anthropic API call only),Request (question + context); Anthropic API,Unknown,Question/context length limits (600/4000 chars),None,SECURITY CONCERN: Public AI endpoint; needs rate limiting
