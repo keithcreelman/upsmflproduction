@@ -1,0 +1,36 @@
+player_name,position,nfl_team,adp_sf,adp_1qb,source,as_of_date,notes
+Jeremiyah Love,RB,ARI,1.01,1.01,KTC+DynastyNerds+PFN consensus,2026-04-28,Unanimous 1.01 across all 4 post-draft sources
+Carnell Tate,WR,TEN,1.02,1.02,KTC+DynastyNerds+PFN consensus,2026-04-28,KTC SF: 1.02; DN SF: 1.03; PFN SF: 1.03; 1QB: 1.02 unanimous
+Fernando Mendoza,QB,LVR,1.03,1.08,KTC+DynastyNerds+PFN consensus,2026-04-28,Big SF/1QB gap (expected for QB1). DN SF: 1.02; PFN SF: 1.02; KTC SF: 1.03; KTC 1QB: 1.08
+Jordyn Tyson,WR,NOS,1.04,1.03,KTC+DynastyNerds+PFN consensus,2026-04-28,KTC SF: 1.04; PFN SF: 1.04; DN SF: 1.05; KTC 1QB: 1.03
+Makai Lemon,WR,PHI,1.05,1.04,KTC+DynastyNerds+PFN consensus,2026-04-28,KTC SF: 1.05; PFN SF: 1.05; DN SF: 1.06; KTC 1QB: 1.04
+Jadarian Price,RB,SEA,1.06,1.05,KTC+DynastyNerds+PFN consensus,2026-04-28,KTC SF: 1.06; KTC 1QB: 1.05; DN SF: 1.07; PFN SF: 1.07
+KC Concepcion,WR,CLE,1.06,1.06,KTC+DynastyNerds+PFN consensus,2026-04-28,DN SF rates highest at 1.04; KTC SF: 1.07; PFN SF: 1.06; KTC 1QB: 1.06
+Kenyon Sadiq,TE,NYJ,1.08,1.07,KTC+DynastyNerds+PFN consensus,2026-04-28,TE Premium relevant. KTC SF: 1.08; PFN SF: 1.08; DN SF: 1.11; KTC 1QB: 1.07
+Omar Cooper Jr.,WR,NYJ,1.09,1.09,KTC+DynastyNerds+PFN consensus,2026-04-28,KTC SF/1QB and DN SF and PFN SF all 1.09 - tight consensus
+Ty Simpson,QB,LAR,1.10,2.04,KTC+DynastyNerds+PFN consensus,2026-04-28,QB2. PFN SF: 1.10; KTC SF: 1.10; DN SF: 1.12; KTC 1QB: 1.16 (~2.04)
+Eli Stowers,TE,PHI,1.11,1.11,KTC+DynastyNerds consensus,2026-04-28,TE Premium relevant. KTC SF: 1.11; DN SF: 1.10; not in PFN top 12
+Denzel Boston,WR,CLE,1.10,1.10,KTC+DynastyNerds+PFN consensus,2026-04-28,DN SF: 1.08; KTC SF: 1.12; KTC 1QB: 1.10; PFN SF: 1.11
+De'Zhaun Stribling,WR,SF,1.12,2.05,DynastyNerds+PFN,2026-04-28,DN SF: 1.17 (~2.05); PFN SF: 1.12; not in KTC top 30
+Jonah Coleman,RB,DEN,2.01,1.12,KTC+DynastyNerds consensus,2026-04-28,KTC 1QB: 1.12; KTC SF: 2.01; DN SF: 2.06
+Nicholas Singleton,RB,TEN,2.02,2.01,KTC consensus,2026-04-28,KTC SF: 2.02; KTC 1QB: 2.01; not in DN/PFN top 30
+Chris Bell,WR,MIA,2.03,2.02,KTC+DynastyNerds consensus,2026-04-28,KTC SF: 2.03; KTC 1QB: 2.02; DN SF: 2.04
+Germie Bernard,WR,PIT,2.04,2.03,KTC consensus,2026-04-28,KTC SF: 2.04; KTC 1QB: 2.03; DN SF: 2.03 (Ted Hurst at 2.01 in DN)
+Elijah Sarratt,WR,BAL,2.05,2.06,KTC+DynastyNerds consensus,2026-04-28,KTC SF: 2.05; KTC 1QB: 2.06; DN SF: 2.12
+Chris Brazzell II,WR,CAR,2.06,2.05,KTC+DynastyNerds consensus,2026-04-28,KTC SF: 2.06; KTC 1QB: 2.05; DN SF: 2.02
+Mike Washington Jr.,RB,LVR,2.07,2.07,KTC+DynastyNerds consensus,2026-04-28,KTC SF: 2.07; KTC 1QB: 2.07; DN SF: 2.06
+Malachi Fields,WR,NYG,2.08,2.10,KTC+DynastyNerds consensus,2026-04-28,KTC SF: 2.08; KTC 1QB: 2.10; DN SF: 2.05
+Zachariah Branch,WR,ATL,2.09,2.08,KTC consensus,2026-04-28,KTC SF: 2.09; KTC 1QB: 2.08; not in DN/PFN top 30
+Emmett Johnson,RB,KCC,2.10,2.09,KTC consensus,2026-04-28,KTC SF: 2.10; KTC 1QB: 2.09; pre-draft top 10 - fell on lack of NFL draft capital (R6)
+Skyler Bell,WR,BUF,2.11,2.13,KTC+DynastyNerds consensus,2026-04-28,KTC SF: 2.11; KTC 1QB: 2.13; DN SF: 2.09
+Ja'Kobi Lane,WR,BAL,2.12,2.12,KTC+DynastyNerds consensus,2026-04-28,KTC SF: 2.12; KTC 1QB: 2.12; DN SF: 2.04 (sharp DN tilt)
+Kaytron Allen,RB,WAS,3.01,2.11,KTC consensus,2026-04-28,KTC SF: 2.13 (~3.01); KTC 1QB: 2.11; not in DN/PFN top 30
+Antonio Williams,WR,WAS,3.02,2.14,KTC+DynastyNerds consensus,2026-04-28,KTC SF: 2.14; KTC 1QB: 2.14; DN SF: 2.11
+Garrett Nussmeier,QB,KCC,3.03,2.18,KTC consensus,2026-04-28,KTC SF: 2.15 (~3.03); KTC 1QB: 2.18; QB3+ in class
+Max Klare,TE,LAR,3.04,3.03,KTC+DynastyNerds consensus,2026-04-28,TE Premium relevant. KTC SF: 2.16; DN SF: 2.13; KTC 1QB: 2.15
+Ted Hurst,WR,TBB,3.05,3.05,KTC+DynastyNerds consensus,2026-04-28,DN SF much higher at 2.01; KTC SF: 2.17; KTC 1QB: 2.16
+Kevin Coleman Jr.,WR,MIA,3.06,3.05,KTC+DynastyNerds consensus,2026-04-28,KTC SF: 2.18; DN SF: 2.10; KTC 1QB: 2.17
+Bryce Lance,WR,NOS,2.03,,DynastyNerds only,2026-04-28,DN SF: 1.15 (~2.03); not in KTC top 30 - DN-only ranking
+Oscar Delp,TE,NOS,2.07,,DynastyNerds only,2026-04-28,TE Premium relevant. DN SF: 1.19 (~2.07); not in KTC top 30
+Eli Raridon,TE,NE,2.08,,DynastyNerds only,2026-04-28,TE Premium relevant. DN SF: 1.20 (~2.08); not in KTC top 30
+Matthew Hibner,TE,BAL,3.02,,DynastyNerds only,2026-04-28,TE Premium relevant. DN SF: 2.14; not in KTC top 30

@@ -1,0 +1,64 @@
+pick_overall,round,pick_in_round,nfl_team,player_name,position,college
+1,1,1,LVR,Fernando Mendoza,QB,Indiana
+3,1,3,ARI,Jeremiyah Love,RB,Notre Dame
+4,1,4,TEN,Carnell Tate,WR,Ohio State
+8,1,8,NOS,Jordyn Tyson,WR,Arizona State
+16,1,16,NYJ,Kenyon Sadiq,TE,Oregon
+20,1,20,PHI,Makai Lemon,WR,USC
+30,1,30,NYJ,Omar Cooper Jr.,WR,Indiana
+32,1,32,SEA,Jadarian Price,RB,Notre Dame
+33,2,33,SFO,De'Zhaun Stribling,WR,Ole Miss
+39,2,39,CLE,Denzel Boston,WR,Washington
+47,2,47,PIT,Germie Bernard,WR,Alabama
+54,2,54,PHI,Eli Stowers,TE,Vanderbilt
+56,2,56,JAX,Nate Boerkircher,TE,Texas A&M
+59,2,59,HOU,Marlin Klein,TE,Michigan
+61,2,61,LAR,Max Klare,TE,Ohio State
+65,3,65,ARI,Carson Beck,QB,Miami (FL)
+73,3,73,NOS,Oscar Delp,TE,Georgia
+74,3,74,NYG,Malachi Fields,WR,Notre Dame
+75,3,75,MIA,Caleb Douglas,WR,Texas Tech
+76,3,76,PIT,Drew Allar,QB,Penn State
+79,3,79,ATL,Zachariah Branch,WR,Georgia
+80,3,80,BAL,Ja'Kobi Lane,WR,USC
+83,3,83,CAR,Chris Brazzell II,WR,Tennessee
+84,3,84,TBB,Ted Hurst,WR,Georgia State
+87,3,87,MIA,Will Kacmarek,TE,Ohio State
+89,3,89,CHI,Zavion Thomas,WR,LSU
+90,3,90,SFO,Kaelon Black,RB,Indiana
+95,3,95,NEP,Eli Raridon,TE,Notre Dame
+105,4,105,LAC,Brenen Thompson,WR,Mississippi State
+108,4,108,DEN,Jonah Coleman,RB,Washington
+110,4,110,NYJ,Cade Klubnik,QB,Clemson
+115,4,115,BAL,Elijah Sarratt,WR,Indiana
+121,4,121,PIT,Kaden Wetjen,WR,Iowa
+122,4,122,LVR,Mike Washington Jr.,RB,Arkansas
+136,4,136,NOS,Bryce Lance,WR,North Dakota State
+140,4,140,CIN,Colbie Young,WR,Georgia
+143,5,143,ARI,Reggie Virgil,WR,Texas Tech
+152,5,152,DEN,Justin Joly,TE,NC State
+161,5,161,KCC,Emmett Johnson,RB,Nebraska
+165,5,165,TEN,Nicholas Singleton,RB,Penn State
+169,5,169,PIT,Riley Nowakowski,TE,Indiana
+170,5,170,CLE,Joe Royer,TE,Cincinnati
+173,5,173,BAL,Josh Cuevas,TE,Alabama
+174,5,174,BAL,Adam Randall,RB,Clemson
+176,5,176,KCC,Cyrus Allen,WR,Cincinnati
+177,5,177,MIA,Kevin Coleman Jr.,WR,Missouri
+178,5,178,PHI,Cole Payton,QB,North Dakota State
+180,5,180,MIA,Seydou Traore,TE,Mississippi State
+185,6,185,TBB,Bauer Sharp,TE,LSU
+187,6,187,WAS,Kaytron Allen,RB,Penn State
+190,6,190,NOS,Barion Brown,WR,LSU
+191,6,191,JAX,Josh Cameron,WR,Baylor
+195,6,195,LVR,Malik Benson,WR,Oregon
+198,6,198,MIN,Demond Claiborne,RB,Wake Forest
+199,6,199,SEA,Emmanuel Henderson Jr.,WR,Kansas
+204,6,204,HOU,Lewis Bond,WR,Boston College
+218,7,218,DAL,Anthony Smith,WR,East Carolina
+225,7,225,TEN,Jaren Kanak,TE,Oklahoma
+230,7,230,PIT,Eli Heidenreich,RB,Navy
+234,7,234,NEP,Behren Morton,QB,Texas Tech
+237,7,237,IND,Seth McGowan,RB,Kentucky
+245,7,245,NEP,Jam Miller,RB,Alabama
+249,7,249,KCC,Garrett Nussmeier,QB,LSU

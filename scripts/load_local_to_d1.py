@@ -59,13 +59,19 @@ UPSERT_CHUNK_SIZE = 80
 # PK is stable and well-understood — incorrect PK here causes silent data
 # loss as rows upsert onto each other.
 PK_MAP: dict[str, list[str]] = {
-    "nfl_player_weekly":          ["season", "week", "gsis_id"],
-    "nfl_player_snaps":           ["season", "week", "pfr_id"],
-    "nfl_player_redzone":         ["season", "week", "gsis_id"],
-    "nfl_player_advstats_season": ["season", "gsis_id"],
-    "nfl_team_weekly":            ["season", "week", "team"],
-    "player_id_crosswalk":        ["mfl_player_id"],
-    "metric_stickiness":          ["position", "metric", "min_games"],
+    "nfl_player_weekly":                  ["season", "week", "gsis_id"],
+    "nfl_player_snaps":                   ["season", "week", "pfr_id"],
+    "nfl_player_redzone":                 ["season", "week", "gsis_id"],
+    "nfl_player_advstats_season":         ["season", "gsis_id"],
+    "nfl_team_weekly":                    ["season", "week", "team"],
+    "player_id_crosswalk":                ["mfl_player_id"],
+    "metric_stickiness":                  ["position", "metric", "min_games"],
+    # Advanced ETL deliverables (Keith 2026-04-26 — handoff plan)
+    "nfl_player_pbp_season":              ["season", "gsis_id", "role"],
+    "nfl_team_pbp_season":                ["season", "team"],
+    "nfl_player_ff_opportunity_season":   ["season", "gsis_id"],
+    "nfl_team_vegas_weekly":              ["season", "week", "team"],
+    "nfl_team_coaching_history":          ["season", "team"],
 }
 
 
@@ -501,6 +507,53 @@ def main():
          """,
          ["position","metric","min_games","n_pairs","n_players",
           "corr_pearson","corr_spearman","season_min","season_max","computed_at"]),
+        # Advanced ETL deliverables (Keith 2026-04-26 — handoff plan).
+        # Each fetcher dual-writes to D1 directly, but these entries let the
+        # legacy SQLite→D1 sync rebuild D1 from local if needed.
+        ("pbpplayer", "nfl_player_pbp_season",
+         """
+         SELECT season, gsis_id, position, role,
+                n_plays, epa_per_play, cpoe, success_rate
+         FROM nfl_player_pbp_season
+         """,
+         ["season","gsis_id","position","role",
+          "n_plays","epa_per_play","cpoe","success_rate"]),
+        ("pbpteam", "nfl_team_pbp_season",
+         """
+         SELECT season, team, proe, neutral_pass_rate, sec_per_play,
+                off_epa_per_play, def_epa_per_play
+         FROM nfl_team_pbp_season
+         """,
+         ["season","team","proe","neutral_pass_rate","sec_per_play",
+          "off_epa_per_play","def_epa_per_play"]),
+        ("ffopp", "nfl_player_ff_opportunity_season",
+         """
+         SELECT season, gsis_id, position, games,
+                total_fp, total_xfp, fpoe, fpoe_per_g,
+                rec_xfp, rec_fpoe, rush_xfp, rush_fpoe, pass_xfp, pass_fpoe
+         FROM nfl_player_ff_opportunity_season
+         """,
+         ["season","gsis_id","position","games",
+          "total_fp","total_xfp","fpoe","fpoe_per_g",
+          "rec_xfp","rec_fpoe","rush_xfp","rush_fpoe","pass_xfp","pass_fpoe"]),
+        ("vegas", "nfl_team_vegas_weekly",
+         """
+         SELECT season, week, team, opponent, is_home,
+                spread, total_line, implied_total, actual_score
+         FROM nfl_team_vegas_weekly
+         """,
+         ["season","week","team","opponent","is_home",
+          "spread","total_line","implied_total","actual_score"]),
+        ("coaching", "nfl_team_coaching_history",
+         """
+         SELECT season, team, hc_name, oc_name, dc_name,
+                hc_year_with_team, oc_year_with_team, dc_year_with_team,
+                hc_change_flag, oc_change_flag, dc_change_flag
+         FROM nfl_team_coaching_history
+         """,
+         ["season","team","hc_name","oc_name","dc_name",
+          "hc_year_with_team","oc_year_with_team","dc_year_with_team",
+          "hc_change_flag","oc_change_flag","dc_change_flag"]),
     ]
 
     selected = set((args.only or "").split(",")) if args.only else None

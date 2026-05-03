@@ -1,0 +1,32 @@
+player_name,position,rank_pos,model_score,tier,nfl_team,source_url,notes
+Cam Ward,QB,1,75,Tier 1,TEN,https://www.thefantasyfootballers.com/author/marvin_e/,QB tiering inferred from Footballers QB profiles; not formal Range of Outcomes article
+Jaxson Dart,QB,2,60,Tier 2,NYG,https://www.thefantasyfootballers.com/author/marvin_e/,Inferred from Footballers QB profile
+Shedeur Sanders,QB,3,50,Tier 3,CLE,https://www.thefantasyfootballers.com/author/marvin_e/,Inferred from Footballers QB profile (capital uncertainty)
+Jalen Milroe,QB,4,45,Tier 3,SEA,https://www.thefantasyfootballers.com/author/marvin_e/,Inferred from Footballers QB profile
+Tyler Shough,QB,5,38,Tier 4,NOS,https://www.thefantasyfootballers.com/author/marvin_e/,Inferred from Footballers QB profile
+Ashton Jeanty,RB,1,99,Tier 1 - Elite (99.9th pct),LVR,https://www.thefantasyfootballers.com/dynasty/dynasty-range-of-outcomes-2025-running-back-class/,Most productive drafted RB season since 2013; CMC/Bijan-tier draft capital
+Omarion Hampton,RB,2,90,Tier 1 - 100% Hit Rate Profile,LAC,https://www.thefantasyfootballers.com/dynasty/dynasty-range-of-outcomes-2025-running-back-class/,Early declare R1 with positive exp-adj prod = 100% NFL hit rate; Gurley/CMC/Barkley/Elliott group
+Quinshon Judkins,RB,3,75,Tier 2 - High Upside,CLE,https://www.thefantasyfootballers.com/dynasty/dynasty-range-of-outcomes-2025-running-back-class/,97th pct true freshman; Mixon/Bell/Swift comps with Akers/Guice bust risk
+Kaleb Johnson,RB,4,70,Tier 2 - Production Profile,PIT,https://www.thefantasyfootballers.com/dynasty/dynasty-range-of-outcomes-2025-running-back-class/,97th pct junior; 52% Iowa offensive prod; D2 RBs w/ pos prod = 75% hit rate
+TreVeyon Henderson,RB,5,68,Tier 2,NEP,https://www.thefantasyfootballers.com/dynasty/dynasty-range-of-outcomes-2025-running-back-class/,Round 2 capital; receiving upside
+RJ Harvey,RB,6,52,Tier 3 - Older Profile,DEN,https://www.thefantasyfootballers.com/dynasty/dynasty-range-of-outcomes-2025-running-back-class/,38th pct exp-adj; older but open backfield
+Jaydon Blue,RB,7,45,Tier 3 - Committee Risk,DAL,https://www.thefantasyfootballers.com/dynasty/dynasty-range-of-outcomes-2025-running-back-class/,1.04 SY/team play (38th pct); committee w/ Williams/Sanders
+Cam Skattebo,RB,8,40,Tier 4 - Receiving Skill,NYG,https://www.thefantasyfootballers.com/dynasty/dynasty-range-of-outcomes-2025-running-back-class/,11.2% rec yards mkt share leads class; R4 limits ceiling
+Devin Neal,RB,9,35,Tier 4 - Day 3,NOS,https://www.thefantasyfootballers.com/dynasty/dynasty-range-of-outcomes-2025-running-back-class/,3rd in class in exp-adj prod; D3 hits at 13.6%
+Tetairoa McMillan,WR,1,94,Tier 1 - Elite,CAR,https://www.thefantasyfootballers.com/dynasty/dynasty-range-of-outcomes-2025-wide-receiver-class/,Top-10 capital; 99th pct efficiency; Julio/Hopkins comps
+Emeka Egbuka,WR,2,88,Tier 1,TBB,https://www.thefantasyfootballers.com/dynasty/dynasty-range-of-outcomes-2025-wide-receiver-class/,92nd pct sophomore; Aiyuk best-case
+Matthew Golden,WR,3,68,Tier 2 - Spot Bet,GBP,https://www.thefantasyfootballers.com/dynasty/dynasty-range-of-outcomes-2025-wide-receiver-class/,53rd pct prod; Ruggs > Cooks profile; great GB landing
+Luther Burden III,WR,4,65,Tier 2,CHI,https://www.thefantasyfootballers.com/dynasty/dynasty-range-of-outcomes-2025-wide-receiver-class/,3rd-highest exp-adj prod in class; Landry/Woods comps
+Jayden Higgins,WR,5,58,Tier 3 - Positive Exp-Adj,HOU,https://www.thefantasyfootballers.com/dynasty/dynasty-range-of-outcomes-2025-wide-receiver-class/,One of 8 WRs with pos exp-adj prod; D2 group hits 50% vs 33%
+Kyle Williams,WR,6,52,Tier 3 - Early Producer,NEP,https://www.thefantasyfootballers.com/dynasty/dynasty-range-of-outcomes-2025-wide-receiver-class/,38.2% rec yards mkt share as freshman
+Jalen Royals,WR,7,45,Tier 3 - Efficiency,KAN,https://www.thefantasyfootballers.com/dynasty/dynasty-range-of-outcomes-2025-wide-receiver-class/,1.35 EPA/Tgt (highest in class); weak draft profile
+Tre Harris,WR,8,42,Tier 4,LAC,https://www.thefantasyfootballers.com/dynasty/dynasty-range-of-outcomes-2025-wide-receiver-class/,Round 2 capital
+Jaylin Noel,WR,9,40,Tier 4,HOU,https://www.thefantasyfootballers.com/dynasty/dynasty-range-of-outcomes-2025-wide-receiver-class/,Day 2 prod profile
+Elic Ayomanor,WR,10,38,Tier 4 - Day 3 Best,TEN,https://www.thefantasyfootballers.com/dynasty/dynasty-range-of-outcomes-2025-wide-receiver-class/,Best D3 option; consistent 34%+ dominator; ARSB comp
+Colston Loveland,TE,1,90,Tier 1 - Top of Model,CHI,https://www.thefantasyfootballers.com/dynasty/dynasty-range-of-outcomes-2025-tight-end-class/,Highest graded TE in Elequin's model; R1 capital; 30%+ Mich rec prod
+Tyler Warren,TE,2,87,Tier 1 - Historic Production,IND,https://www.thefantasyfootballers.com/dynasty/dynasty-range-of-outcomes-2025-tight-end-class/,100+ rec / 1200+ yds; 97th pct since 2013
+Harold Fannin Jr.,TE,3,68,Tier 2 - Value,CLE,https://www.thefantasyfootballers.com/dynasty/dynasty-range-of-outcomes-2025-tight-end-class/,3.7 rec yds per team pass att 2024 = most productive drafted TE since 2010
+Terrance Ferguson,TE,4,55,Tier 3 - Athletic 85th+,LAR,https://www.thefantasyfootballers.com/dynasty/dynasty-range-of-outcomes-2025-tight-end-class/,One of 5 TEs +85th pct; underwhelming college prod
+Mason Taylor,TE,5,50,Tier 3 - R2 Capital,NYJ,https://www.thefantasyfootballers.com/dynasty/dynasty-range-of-outcomes-2025-tight-end-class/,R2 capital; never truly broke out at LSU
+Oronde Gadsden II,TE,6,38,Tier 4 - Capital Limit,LAC,https://www.thefantasyfootballers.com/dynasty/dynasty-range-of-outcomes-2025-tight-end-class/,3rd in class exp-adj prod; capped by R5 capital
+Gunnar Helm,TE,7,32,Tier 4 - 12.5% Hit Rate,TEN,https://www.thefantasyfootballers.com/dynasty/dynasty-range-of-outcomes-2025-tight-end-class/,Only 3 TEs broke out R4 since 2013

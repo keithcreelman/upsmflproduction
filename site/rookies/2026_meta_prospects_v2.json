@@ -1,0 +1,4883 @@
+{
+  "meta": {
+    "generated_at": "2026-04-29",
+    "n_prospects": 108,
+    "sources": [
+      "barrett",
+      "boone",
+      "dlf",
+      "elequin",
+      "fantasypros_aggregate",
+      "harmon",
+      "hermsmeyer",
+      "jj",
+      "kerrane",
+      "koalaty",
+      "pff",
+      "sanderson",
+      "winks"
+    ],
+    "udfa_floor": 35.0,
+    "consensus_method": "trimmed mean (drop high+low) if n>=4 sources, else simple mean"
+  },
+  "prospects": [
+    {
+      "player_name": "Fernando Mendoza",
+      "position": "QB",
+      "nfl_pick": 1,
+      "nfl_round": 1,
+      "nfl_team": "LVR",
+      "n_sources": 8,
+      "per_source": {
+        "barrett": {
+          "raw": 85.0,
+          "effective": 85.0,
+          "tier": "Elite Producer",
+          "label": "Tier 1 - QB1 (Superflex)"
+        },
+        "boone": {
+          "raw": 95.6,
+          "effective": 95.6,
+          "tier": "Legendary Performer",
+          "label": "Tier1"
+        },
+        "dlf": {
+          "raw": 68.3,
+          "effective": 68.3,
+          "tier": "Weekly Starter",
+          "label": "Tier4"
+        },
+        "elequin": {
+          "raw": 80.0,
+          "effective": 80.0,
+          "tier": "Elite Producer",
+          "label": "Tier 1 - R1 Capital"
+        },
+        "fantasypros_aggregate": {
+          "raw": 85.0,
+          "effective": 85.0,
+          "tier": "Elite Producer",
+          "label": "Tier2"
+        },
+        "kerrane": {
+          "raw": 75.0,
+          "effective": 75.0,
+          "tier": "Elite Producer",
+          "label": "Tier 1 - Day 1 Starter (Size+Capital Bet)"
+        },
+        "sanderson": {
+          "raw": 93.5,
+          "effective": 93.5,
+          "tier": "Legendary Performer",
+          "label": "Tier2"
+        },
+        "winks": {
+          "raw": 95.0,
+          "effective": 95.0,
+          "tier": "Legendary Performer",
+          "label": "Tier1"
+        }
+      },
+      "consensus_score": 85.6,
+      "consensus_tier": "Elite Producer",
+      "consensus_method": "trimmed_mean",
+      "score_range": 27.3,
+      "sources_in_band": 8,
+      "sources_loving": [],
+      "sources_fading": [],
+      "adp_sf": "1.03",
+      "tice_nfl_context": {
+        "overall_rank": 1,
+        "tier": "Elite"
+      }
+    },
+    {
+      "player_name": "Ty Simpson",
+      "position": "QB",
+      "nfl_pick": null,
+      "nfl_round": null,
+      "nfl_team": "UDFA",
+      "n_sources": 7,
+      "per_source": {
+        "boone": {
+          "raw": 88.9,
+          "effective": 88.9,
+          "tier": "Elite Producer",
+          "label": "Tier2"
+        },
+        "dlf": {
+          "raw": 35.0,
+          "effective": 35.0,
+          "tier": "Benchwarmer",
+          "label": "Tier5"
+        },
+        "elequin": {
+          "raw": 55.0,
+          "effective": 55.0,
+          "tier": "Flex Play",
+          "label": "Tier 2"
+        },
+        "fantasypros_aggregate": {
+          "raw": 60.0,
+          "effective": 60.0,
+          "tier": "Weekly Starter",
+          "label": "Tier4"
+        },
+        "kerrane": {
+          "raw": 60.0,
+          "effective": 60.0,
+          "tier": "Weekly Starter",
+          "label": "Tier 2 - Because the NFL Seems Interested"
+        },
+        "sanderson": {
+          "raw": 68.0,
+          "effective": 68.0,
+          "tier": "Weekly Starter",
+          "label": "Tier4"
+        },
+        "winks": {
+          "raw": 50.0,
+          "effective": 50.0,
+          "tier": "Flex Play",
+          "label": "Tier3"
+        }
+      },
+      "consensus_score": 58.6,
+      "consensus_tier": "Flex Play",
+      "consensus_method": "trimmed_mean",
+      "score_range": 53.9,
+      "sources_in_band": 6,
+      "sources_loving": [
+        "boone"
+      ],
+      "sources_fading": [],
+      "adp_sf": "1.10",
+      "tice_nfl_context": {
+        "overall_rank": 37,
+        "tier": "Tier3"
+      }
+    },
+    {
+      "player_name": "Drew Allar",
+      "position": "QB",
+      "nfl_pick": 76,
+      "nfl_round": 3,
+      "nfl_team": "PIT",
+      "n_sources": 4,
+      "per_source": {
+        "boone": {
+          "raw": 72.2,
+          "effective": 72.2,
+          "tier": "Weekly Starter",
+          "label": "Tier3"
+        },
+        "elequin": {
+          "raw": 42.0,
+          "effective": 42.0,
+          "tier": "Flex Play",
+          "label": "Tier 3"
+        },
+        "fantasypros_aggregate": {
+          "raw": 36.7,
+          "effective": 36.7,
+          "tier": "Benchwarmer",
+          "label": "Tier5"
+        },
+        "kerrane": {
+          "raw": 35.0,
+          "effective": 35.0,
+          "tier": "Benchwarmer",
+          "label": "Tier 4-5 (Implied)"
+        }
+      },
+      "consensus_score": 39.4,
+      "consensus_tier": "Benchwarmer",
+      "consensus_method": "trimmed_mean",
+      "score_range": 37.2,
+      "sources_in_band": 3,
+      "sources_loving": [
+        "boone"
+      ],
+      "sources_fading": [],
+      "adp_sf": null,
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Carson Beck",
+      "position": "QB",
+      "nfl_pick": 65,
+      "nfl_round": 3,
+      "nfl_team": "ARI",
+      "n_sources": 5,
+      "per_source": {
+        "boone": {
+          "raw": 80.0,
+          "effective": 80.0,
+          "tier": "Elite Producer",
+          "label": "Tier2"
+        },
+        "elequin": {
+          "raw": 32.0,
+          "effective": 32.0,
+          "tier": "Benchwarmer",
+          "label": "Tier 4"
+        },
+        "fantasypros_aggregate": {
+          "raw": 38.3,
+          "effective": 38.3,
+          "tier": "Benchwarmer",
+          "label": "Tier5"
+        },
+        "kerrane": {
+          "raw": 40.0,
+          "effective": 40.0,
+          "tier": "Flex Play",
+          "label": "Tier 4 (Implied)"
+        },
+        "winks": {
+          "raw": 25.0,
+          "effective": 25.0,
+          "tier": "Waiver Wire Add",
+          "label": "Tier4"
+        }
+      },
+      "consensus_score": 36.8,
+      "consensus_tier": "Benchwarmer",
+      "consensus_method": "trimmed_mean",
+      "score_range": 55.0,
+      "sources_in_band": 4,
+      "sources_loving": [
+        "boone"
+      ],
+      "sources_fading": [],
+      "adp_sf": null,
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Cole Payton",
+      "position": "QB",
+      "nfl_pick": 178,
+      "nfl_round": 5,
+      "nfl_team": "PHI",
+      "n_sources": 4,
+      "per_source": {
+        "boone": {
+          "raw": 56.7,
+          "effective": 56.7,
+          "tier": "Flex Play",
+          "label": "Tier4"
+        },
+        "elequin": {
+          "raw": 28.0,
+          "effective": 28.0,
+          "tier": "Waiver Wire Add",
+          "label": "Tier 4"
+        },
+        "fantasypros_aggregate": {
+          "raw": 23.3,
+          "effective": 23.3,
+          "tier": "Waiver Wire Add",
+          "label": "Tier5"
+        },
+        "kerrane": {
+          "raw": 45.0,
+          "effective": 45.0,
+          "tier": "Flex Play",
+          "label": "Tier 3 - Live a Little"
+        }
+      },
+      "consensus_score": 36.5,
+      "consensus_tier": "Benchwarmer",
+      "consensus_method": "trimmed_mean",
+      "score_range": 33.4,
+      "sources_in_band": 4,
+      "sources_loving": [],
+      "sources_fading": [],
+      "adp_sf": null,
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Taylen Green",
+      "position": "QB",
+      "nfl_pick": null,
+      "nfl_round": null,
+      "nfl_team": "UDFA",
+      "n_sources": 2,
+      "per_source": {
+        "boone": {
+          "raw": 55.6,
+          "effective": 55.6,
+          "tier": "Flex Play",
+          "label": "Tier4"
+        },
+        "fantasypros_aggregate": {
+          "raw": 16.7,
+          "effective": 16.7,
+          "tier": "Dart Throw",
+          "label": "Tier6"
+        }
+      },
+      "consensus_score": 36.1,
+      "consensus_tier": "Benchwarmer",
+      "consensus_method": "mean",
+      "score_range": 38.9,
+      "sources_in_band": 1,
+      "sources_loving": [],
+      "sources_fading": [
+        "fantasypros_aggregate"
+      ],
+      "adp_sf": null,
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Jalon Daniels",
+      "position": "QB",
+      "nfl_pick": null,
+      "nfl_round": null,
+      "nfl_team": "UDFA",
+      "n_sources": 1,
+      "per_source": {
+        "boone": {
+          "raw": 34.4,
+          "effective": 34.4,
+          "tier": "Benchwarmer",
+          "label": "Tier4"
+        }
+      },
+      "consensus_score": 34.4,
+      "consensus_tier": "Benchwarmer",
+      "consensus_method": "mean",
+      "score_range": 0,
+      "sources_in_band": 1,
+      "sources_loving": [],
+      "sources_fading": [],
+      "adp_sf": null,
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Cade Klubnik",
+      "position": "QB",
+      "nfl_pick": 110,
+      "nfl_round": 4,
+      "nfl_team": "NYJ",
+      "n_sources": 4,
+      "per_source": {
+        "boone": {
+          "raw": 52.2,
+          "effective": 52.2,
+          "tier": "Flex Play",
+          "label": "Tier4"
+        },
+        "elequin": {
+          "raw": 38.0,
+          "effective": 38.0,
+          "tier": "Benchwarmer",
+          "label": "Tier 3"
+        },
+        "fantasypros_aggregate": {
+          "raw": 26.7,
+          "effective": 26.7,
+          "tier": "Waiver Wire Add",
+          "label": "Tier5"
+        },
+        "kerrane": {
+          "raw": 30.0,
+          "effective": 30.0,
+          "tier": "Benchwarmer",
+          "label": "Tier 5-6 (Implied)"
+        }
+      },
+      "consensus_score": 34.0,
+      "consensus_tier": "Benchwarmer",
+      "consensus_method": "trimmed_mean",
+      "score_range": 25.5,
+      "sources_in_band": 4,
+      "sources_loving": [],
+      "sources_fading": [],
+      "adp_sf": null,
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Garrett Nussmeier",
+      "position": "QB",
+      "nfl_pick": 249,
+      "nfl_round": 7,
+      "nfl_team": "KCC",
+      "n_sources": 2,
+      "per_source": {
+        "boone": {
+          "raw": 41.1,
+          "effective": 41.1,
+          "tier": "Flex Play",
+          "label": "Tier4"
+        },
+        "fantasypros_aggregate": {
+          "raw": 25.0,
+          "effective": 25.0,
+          "tier": "Waiver Wire Add",
+          "label": "Tier5"
+        }
+      },
+      "consensus_score": 33.0,
+      "consensus_tier": "Benchwarmer",
+      "consensus_method": "mean",
+      "score_range": 16.1,
+      "sources_in_band": 2,
+      "sources_loving": [],
+      "sources_fading": [],
+      "adp_sf": "3.03",
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Sawyer Robertson",
+      "position": "QB",
+      "nfl_pick": null,
+      "nfl_round": null,
+      "nfl_team": "UDFA",
+      "n_sources": 1,
+      "per_source": {
+        "boone": {
+          "raw": 4.4,
+          "effective": 4.4,
+          "tier": "Dart Throw",
+          "label": "Tier4"
+        }
+      },
+      "consensus_score": 4.4,
+      "consensus_tier": "Dart Throw",
+      "consensus_method": "mean",
+      "score_range": 0,
+      "sources_in_band": 1,
+      "sources_loving": [],
+      "sources_fading": [],
+      "adp_sf": null,
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Luke Altmyer",
+      "position": "QB",
+      "nfl_pick": null,
+      "nfl_round": null,
+      "nfl_team": "UDFA",
+      "n_sources": 1,
+      "per_source": {
+        "boone": {
+          "raw": 3.3,
+          "effective": 3.3,
+          "tier": "Dart Throw",
+          "label": "Tier4"
+        }
+      },
+      "consensus_score": 3.3,
+      "consensus_tier": "Dart Throw",
+      "consensus_method": "mean",
+      "score_range": 0,
+      "sources_in_band": 1,
+      "sources_loving": [],
+      "sources_fading": [],
+      "adp_sf": null,
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Jeremiyah Love",
+      "position": "RB",
+      "nfl_pick": 3,
+      "nfl_round": 1,
+      "nfl_team": "ARI",
+      "n_sources": 10,
+      "per_source": {
+        "barrett": {
+          "raw": 98.0,
+          "effective": 98.0,
+          "tier": "Legendary Performer",
+          "label": "Tier 1 - Generational"
+        },
+        "boone": {
+          "raw": 100.0,
+          "effective": 100.0,
+          "tier": "Legendary Performer",
+          "label": "Tier1"
+        },
+        "dlf": {
+          "raw": 100.0,
+          "effective": 100.0,
+          "tier": "Legendary Performer",
+          "label": "Tier1"
+        },
+        "elequin": {
+          "raw": 90.0,
+          "effective": 90.0,
+          "tier": "Legendary Performer",
+          "label": "Tier 1 - ~90th Pct (if R1 capital)"
+        },
+        "fantasypros_aggregate": {
+          "raw": 100.0,
+          "effective": 100.0,
+          "tier": "Legendary Performer",
+          "label": "Tier1"
+        },
+        "jj": {
+          "raw": 97.6,
+          "effective": 97.6,
+          "tier": "Legendary Performer",
+          "label": ""
+        },
+        "kerrane": {
+          "raw": 99.0,
+          "effective": 99.0,
+          "tier": "Legendary Performer",
+          "label": "Tier 1 - Nearly Generational (1.01 Consensus)"
+        },
+        "koalaty": {
+          "raw": 98.7,
+          "effective": 98.7,
+          "tier": "Legendary Performer",
+          "label": "God"
+        },
+        "sanderson": {
+          "raw": 100.0,
+          "effective": 100.0,
+          "tier": "Legendary Performer",
+          "label": "Tier1"
+        },
+        "winks": {
+          "raw": 100.0,
+          "effective": 100.0,
+          "tier": "Legendary Performer",
+          "label": "Generational"
+        }
+      },
+      "consensus_score": 99.2,
+      "consensus_tier": "Legendary Performer",
+      "consensus_method": "trimmed_mean",
+      "score_range": 10.0,
+      "sources_in_band": 10,
+      "sources_loving": [],
+      "sources_fading": [],
+      "adp_sf": "1.01",
+      "tice_nfl_context": {
+        "overall_rank": 2,
+        "tier": "Elite"
+      }
+    },
+    {
+      "player_name": "Jadarian Price",
+      "position": "RB",
+      "nfl_pick": 32,
+      "nfl_round": 1,
+      "nfl_team": "SEA",
+      "n_sources": 8,
+      "per_source": {
+        "boone": {
+          "raw": 93.3,
+          "effective": 93.3,
+          "tier": "Legendary Performer",
+          "label": "Tier2"
+        },
+        "dlf": {
+          "raw": 81.7,
+          "effective": 81.7,
+          "tier": "Elite Producer",
+          "label": "Tier3"
+        },
+        "fantasypros_aggregate": {
+          "raw": 91.7,
+          "effective": 91.7,
+          "tier": "Legendary Performer",
+          "label": "Tier2"
+        },
+        "jj": {
+          "raw": 69.3,
+          "effective": 69.3,
+          "tier": "Weekly Starter",
+          "label": ""
+        },
+        "kerrane": {
+          "raw": 72.0,
+          "effective": 72.0,
+          "tier": "Weekly Starter",
+          "label": "Tier 2 - Potential Exception (LU exception bet)"
+        },
+        "koalaty": {
+          "raw": 71.9,
+          "effective": 71.9,
+          "tier": "Weekly Starter",
+          "label": "B"
+        },
+        "sanderson": {
+          "raw": 77.0,
+          "effective": 77.0,
+          "tier": "Elite Producer",
+          "label": "Tier3"
+        },
+        "winks": {
+          "raw": 77.8,
+          "effective": 77.8,
+          "tier": "Elite Producer",
+          "label": "Tier2"
+        }
+      },
+      "consensus_score": 78.7,
+      "consensus_tier": "Elite Producer",
+      "consensus_method": "trimmed_mean",
+      "score_range": 24.0,
+      "sources_in_band": 8,
+      "sources_loving": [],
+      "sources_fading": [],
+      "adp_sf": "1.06",
+      "tice_nfl_context": {
+        "overall_rank": 41,
+        "tier": "Tier4"
+      }
+    },
+    {
+      "player_name": "Makhi Hughes",
+      "position": "RB",
+      "nfl_pick": null,
+      "nfl_round": null,
+      "nfl_team": "UDFA",
+      "n_sources": 1,
+      "per_source": {
+        "elequin": {
+          "raw": 72.0,
+          "effective": 72.0,
+          "tier": "Weekly Starter",
+          "label": "Tier 2 - +80th Pct"
+        }
+      },
+      "consensus_score": 72.0,
+      "consensus_tier": "Weekly Starter",
+      "consensus_method": "mean",
+      "score_range": 0,
+      "sources_in_band": 1,
+      "sources_loving": [],
+      "sources_fading": [],
+      "adp_sf": null,
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Jonah Coleman",
+      "position": "RB",
+      "nfl_pick": 108,
+      "nfl_round": 4,
+      "nfl_team": "DEN",
+      "n_sources": 9,
+      "per_source": {
+        "boone": {
+          "raw": 85.6,
+          "effective": 85.6,
+          "tier": "Elite Producer",
+          "label": "Tier2"
+        },
+        "dlf": {
+          "raw": 61.7,
+          "effective": 61.7,
+          "tier": "Weekly Starter",
+          "label": "Tier4"
+        },
+        "elequin": {
+          "raw": 52.0,
+          "effective": 52.0,
+          "tier": "Flex Play",
+          "label": "Tier 3 - 65th Pct"
+        },
+        "fantasypros_aggregate": {
+          "raw": 78.3,
+          "effective": 78.3,
+          "tier": "Elite Producer",
+          "label": "Tier3"
+        },
+        "jj": {
+          "raw": 48.7,
+          "effective": 48.7,
+          "tier": "Flex Play",
+          "label": ""
+        },
+        "kerrane": {
+          "raw": 62.0,
+          "effective": 62.0,
+          "tier": "Weekly Starter",
+          "label": "Tier 3 - Wild Card"
+        },
+        "koalaty": {
+          "raw": 77.1,
+          "effective": 77.1,
+          "tier": "Elite Producer",
+          "label": "B"
+        },
+        "sanderson": {
+          "raw": 62.0,
+          "effective": 62.0,
+          "tier": "Weekly Starter",
+          "label": "Tier4"
+        },
+        "winks": {
+          "raw": 44.4,
+          "effective": 44.4,
+          "tier": "Flex Play",
+          "label": "Tier3"
+        }
+      },
+      "consensus_score": 63.1,
+      "consensus_tier": "Weekly Starter",
+      "consensus_method": "trimmed_mean",
+      "score_range": 41.2,
+      "sources_in_band": 9,
+      "sources_loving": [],
+      "sources_fading": [],
+      "adp_sf": "2.01",
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Mike Washington Jr.",
+      "position": "RB",
+      "nfl_pick": 122,
+      "nfl_round": 4,
+      "nfl_team": "LVR",
+      "n_sources": 8,
+      "per_source": {
+        "boone": {
+          "raw": 74.4,
+          "effective": 74.4,
+          "tier": "Weekly Starter",
+          "label": "Tier3"
+        },
+        "dlf": {
+          "raw": 58.3,
+          "effective": 58.3,
+          "tier": "Flex Play",
+          "label": "Tier5"
+        },
+        "fantasypros_aggregate": {
+          "raw": 71.7,
+          "effective": 71.7,
+          "tier": "Weekly Starter",
+          "label": "Tier3"
+        },
+        "jj": {
+          "raw": 41.4,
+          "effective": 41.4,
+          "tier": "Flex Play",
+          "label": ""
+        },
+        "kerrane": {
+          "raw": 58.0,
+          "effective": 58.0,
+          "tier": "Flex Play",
+          "label": "Tier 3 - Wild Card (Athleticism Bet)"
+        },
+        "koalaty": {
+          "raw": 22.2,
+          "effective": 22.2,
+          "tier": "Waiver Wire Add",
+          "label": "D"
+        },
+        "sanderson": {
+          "raw": 44.0,
+          "effective": 44.0,
+          "tier": "Flex Play",
+          "label": "Tier5"
+        },
+        "winks": {
+          "raw": 66.7,
+          "effective": 66.7,
+          "tier": "Weekly Starter",
+          "label": "Tier3"
+        }
+      },
+      "consensus_score": 56.7,
+      "consensus_tier": "Flex Play",
+      "consensus_method": "trimmed_mean",
+      "score_range": 52.2,
+      "sources_in_band": 7,
+      "sources_loving": [],
+      "sources_fading": [
+        "koalaty"
+      ],
+      "adp_sf": "2.07",
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Nicholas Singleton",
+      "position": "RB",
+      "nfl_pick": 165,
+      "nfl_round": 5,
+      "nfl_team": "TEN",
+      "n_sources": 9,
+      "per_source": {
+        "boone": {
+          "raw": 82.2,
+          "effective": 82.2,
+          "tier": "Elite Producer",
+          "label": "Tier2"
+        },
+        "dlf": {
+          "raw": 28.3,
+          "effective": 28.3,
+          "tier": "Waiver Wire Add",
+          "label": "Tier5"
+        },
+        "elequin": {
+          "raw": 80.0,
+          "effective": 80.0,
+          "tier": "Elite Producer",
+          "label": "Tier 1 - +90th Pct (if R1 capital)"
+        },
+        "fantasypros_aggregate": {
+          "raw": 66.7,
+          "effective": 66.7,
+          "tier": "Weekly Starter",
+          "label": "Tier4"
+        },
+        "jj": {
+          "raw": 33.2,
+          "effective": 33.2,
+          "tier": "Benchwarmer",
+          "label": ""
+        },
+        "kerrane": {
+          "raw": 55.0,
+          "effective": 55.0,
+          "tier": "Flex Play",
+          "label": "Tier 3 - Wild Card"
+        },
+        "koalaty": {
+          "raw": 37.9,
+          "effective": 37.9,
+          "tier": "Benchwarmer",
+          "label": "C-"
+        },
+        "sanderson": {
+          "raw": 26.0,
+          "effective": 26.0,
+          "tier": "Waiver Wire Add",
+          "label": "Tier5"
+        },
+        "winks": {
+          "raw": 11.1,
+          "effective": 11.1,
+          "tier": "Dart Throw",
+          "label": "Tier3"
+        }
+      },
+      "consensus_score": 46.7,
+      "consensus_tier": "Flex Play",
+      "consensus_method": "trimmed_mean",
+      "score_range": 71.1,
+      "sources_in_band": 4,
+      "sources_loving": [
+        "boone",
+        "elequin"
+      ],
+      "sources_fading": [
+        "dlf",
+        "sanderson",
+        "winks"
+      ],
+      "adp_sf": "2.02",
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Nick Singleton",
+      "position": "RB",
+      "nfl_pick": 165,
+      "nfl_round": 5,
+      "nfl_team": "TEN",
+      "n_sources": 9,
+      "per_source": {
+        "boone": {
+          "raw": 82.2,
+          "effective": 82.2,
+          "tier": "Elite Producer",
+          "label": "Tier2"
+        },
+        "dlf": {
+          "raw": 28.3,
+          "effective": 28.3,
+          "tier": "Waiver Wire Add",
+          "label": "Tier5"
+        },
+        "elequin": {
+          "raw": 80.0,
+          "effective": 80.0,
+          "tier": "Elite Producer",
+          "label": "Tier 1 - +90th Pct (if R1 capital)"
+        },
+        "fantasypros_aggregate": {
+          "raw": 66.7,
+          "effective": 66.7,
+          "tier": "Weekly Starter",
+          "label": "Tier4"
+        },
+        "jj": {
+          "raw": 33.2,
+          "effective": 33.2,
+          "tier": "Benchwarmer",
+          "label": ""
+        },
+        "kerrane": {
+          "raw": 55.0,
+          "effective": 55.0,
+          "tier": "Flex Play",
+          "label": "Tier 3 - Wild Card"
+        },
+        "koalaty": {
+          "raw": 37.9,
+          "effective": 37.9,
+          "tier": "Benchwarmer",
+          "label": "C-"
+        },
+        "sanderson": {
+          "raw": 26.0,
+          "effective": 26.0,
+          "tier": "Waiver Wire Add",
+          "label": "Tier5"
+        },
+        "winks": {
+          "raw": 11.1,
+          "effective": 11.1,
+          "tier": "Dart Throw",
+          "label": "Tier3"
+        }
+      },
+      "consensus_score": 46.7,
+      "consensus_tier": "Flex Play",
+      "consensus_method": "trimmed_mean",
+      "score_range": 71.1,
+      "sources_in_band": 4,
+      "sources_loving": [
+        "boone",
+        "elequin"
+      ],
+      "sources_fading": [
+        "dlf",
+        "sanderson",
+        "winks"
+      ],
+      "adp_sf": "2.02",
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "J'Mari Taylor",
+      "position": "RB",
+      "nfl_pick": null,
+      "nfl_round": null,
+      "nfl_team": "UDFA",
+      "n_sources": 3,
+      "per_source": {
+        "boone": {
+          "raw": 31.1,
+          "effective": 31.1,
+          "tier": "Benchwarmer",
+          "label": "Tier4"
+        },
+        "elequin": {
+          "raw": 92.0,
+          "effective": 92.0,
+          "tier": "Legendary Performer",
+          "label": "Tier 1 - +90th Pct (PRE-DRAFT EARLY)"
+        },
+        "jj": {
+          "raw": 10.2,
+          "effective": 10.2,
+          "tier": "Dart Throw",
+          "label": ""
+        }
+      },
+      "consensus_score": 44.4,
+      "consensus_tier": "Flex Play",
+      "consensus_method": "mean",
+      "score_range": 81.8,
+      "sources_in_band": 1,
+      "sources_loving": [
+        "elequin"
+      ],
+      "sources_fading": [
+        "jj"
+      ],
+      "adp_sf": null,
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Darius Taylor",
+      "position": "RB",
+      "nfl_pick": null,
+      "nfl_round": null,
+      "nfl_team": "UDFA",
+      "n_sources": 3,
+      "per_source": {
+        "boone": {
+          "raw": 31.1,
+          "effective": 31.1,
+          "tier": "Benchwarmer",
+          "label": "Tier4"
+        },
+        "elequin": {
+          "raw": 92.0,
+          "effective": 92.0,
+          "tier": "Legendary Performer",
+          "label": "Tier 1 - +90th Pct (PRE-DRAFT EARLY)"
+        },
+        "jj": {
+          "raw": 10.2,
+          "effective": 10.2,
+          "tier": "Dart Throw",
+          "label": ""
+        }
+      },
+      "consensus_score": 44.4,
+      "consensus_tier": "Flex Play",
+      "consensus_method": "mean",
+      "score_range": 81.8,
+      "sources_in_band": 1,
+      "sources_loving": [
+        "elequin"
+      ],
+      "sources_fading": [
+        "jj"
+      ],
+      "adp_sf": null,
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Kaytron Allen",
+      "position": "RB",
+      "nfl_pick": 187,
+      "nfl_round": 6,
+      "nfl_team": "WAS",
+      "n_sources": 7,
+      "per_source": {
+        "boone": {
+          "raw": 77.8,
+          "effective": 77.8,
+          "tier": "Elite Producer",
+          "label": "Tier3"
+        },
+        "dlf": {
+          "raw": 21.7,
+          "effective": 21.7,
+          "tier": "Waiver Wire Add",
+          "label": "Tier5"
+        },
+        "fantasypros_aggregate": {
+          "raw": 55.0,
+          "effective": 55.0,
+          "tier": "Flex Play",
+          "label": "Tier4"
+        },
+        "jj": {
+          "raw": 23.3,
+          "effective": 23.3,
+          "tier": "Waiver Wire Add",
+          "label": ""
+        },
+        "kerrane": {
+          "raw": 42.0,
+          "effective": 42.0,
+          "tier": "Flex Play",
+          "label": "Tier 4-5 (Implied)"
+        },
+        "koalaty": {
+          "raw": 41.2,
+          "effective": 41.2,
+          "tier": "Flex Play",
+          "label": ""
+        },
+        "winks": {
+          "raw": 55.6,
+          "effective": 55.6,
+          "tier": "Flex Play",
+          "label": "Tier3"
+        }
+      },
+      "consensus_score": 43.4,
+      "consensus_tier": "Flex Play",
+      "consensus_method": "trimmed_mean",
+      "score_range": 56.1,
+      "sources_in_band": 4,
+      "sources_loving": [
+        "boone"
+      ],
+      "sources_fading": [
+        "dlf",
+        "jj"
+      ],
+      "adp_sf": "3.01",
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Emmett Johnson",
+      "position": "RB",
+      "nfl_pick": 161,
+      "nfl_round": 5,
+      "nfl_team": "KCC",
+      "n_sources": 8,
+      "per_source": {
+        "boone": {
+          "raw": 73.3,
+          "effective": 73.3,
+          "tier": "Weekly Starter",
+          "label": "Tier3"
+        },
+        "dlf": {
+          "raw": 31.7,
+          "effective": 31.7,
+          "tier": "Benchwarmer",
+          "label": "Tier5"
+        },
+        "fantasypros_aggregate": {
+          "raw": 68.3,
+          "effective": 68.3,
+          "tier": "Weekly Starter",
+          "label": "Tier3"
+        },
+        "jj": {
+          "raw": 34.7,
+          "effective": 34.7,
+          "tier": "Benchwarmer",
+          "label": ""
+        },
+        "kerrane": {
+          "raw": 32.0,
+          "effective": 32.0,
+          "tier": "Benchwarmer",
+          "label": "Tier 5-6 (Implied)"
+        },
+        "koalaty": {
+          "raw": 49.0,
+          "effective": 49.0,
+          "tier": "Flex Play",
+          "label": ""
+        },
+        "sanderson": {
+          "raw": 35.0,
+          "effective": 35.0,
+          "tier": "Benchwarmer",
+          "label": "Tier5"
+        },
+        "winks": {
+          "raw": 22.2,
+          "effective": 22.2,
+          "tier": "Waiver Wire Add",
+          "label": "Tier3"
+        }
+      },
+      "consensus_score": 41.8,
+      "consensus_tier": "Flex Play",
+      "consensus_method": "trimmed_mean",
+      "score_range": 51.1,
+      "sources_in_band": 7,
+      "sources_loving": [],
+      "sources_fading": [
+        "winks"
+      ],
+      "adp_sf": "2.10",
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Kaelon Black",
+      "position": "RB",
+      "nfl_pick": 90,
+      "nfl_round": 3,
+      "nfl_team": "SFO",
+      "n_sources": 6,
+      "per_source": {
+        "boone": {
+          "raw": 61.1,
+          "effective": 61.1,
+          "tier": "Weekly Starter",
+          "label": "Tier3"
+        },
+        "fantasypros_aggregate": {
+          "raw": 46.7,
+          "effective": 46.7,
+          "tier": "Flex Play",
+          "label": "Tier5"
+        },
+        "jj": {
+          "raw": 46.5,
+          "effective": 46.5,
+          "tier": "Flex Play",
+          "label": ""
+        },
+        "kerrane": {
+          "raw": 40.0,
+          "effective": 40.0,
+          "tier": "Flex Play",
+          "label": "Tier 4-5 (Implied)"
+        },
+        "koalaty": {
+          "raw": 32.0,
+          "effective": 32.0,
+          "tier": "Benchwarmer",
+          "label": "C-"
+        },
+        "winks": {
+          "raw": 33.3,
+          "effective": 33.3,
+          "tier": "Benchwarmer",
+          "label": "Tier3"
+        }
+      },
+      "consensus_score": 41.6,
+      "consensus_tier": "Flex Play",
+      "consensus_method": "trimmed_mean",
+      "score_range": 29.1,
+      "sources_in_band": 6,
+      "sources_loving": [],
+      "sources_fading": [],
+      "adp_sf": null,
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Demond Claiborne",
+      "position": "RB",
+      "nfl_pick": 198,
+      "nfl_round": 6,
+      "nfl_team": "MIN",
+      "n_sources": 5,
+      "per_source": {
+        "boone": {
+          "raw": 76.7,
+          "effective": 76.7,
+          "tier": "Elite Producer",
+          "label": "Tier3"
+        },
+        "fantasypros_aggregate": {
+          "raw": 40.0,
+          "effective": 40.0,
+          "tier": "Flex Play",
+          "label": "Tier5"
+        },
+        "jj": {
+          "raw": 25.3,
+          "effective": 25.3,
+          "tier": "Waiver Wire Add",
+          "label": ""
+        },
+        "kerrane": {
+          "raw": 35.0,
+          "effective": 35.0,
+          "tier": "Benchwarmer",
+          "label": "Tier 5 (Implied)"
+        },
+        "koalaty": {
+          "raw": 34.0,
+          "effective": 34.0,
+          "tier": "Benchwarmer",
+          "label": ""
+        }
+      },
+      "consensus_score": 36.3,
+      "consensus_tier": "Benchwarmer",
+      "consensus_method": "trimmed_mean",
+      "score_range": 51.4,
+      "sources_in_band": 4,
+      "sources_loving": [
+        "boone"
+      ],
+      "sources_fading": [],
+      "adp_sf": null,
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Eli Heidenreich",
+      "position": "RB",
+      "nfl_pick": 230,
+      "nfl_round": 7,
+      "nfl_team": "PIT",
+      "n_sources": 3,
+      "per_source": {
+        "boone": {
+          "raw": 51.1,
+          "effective": 51.1,
+          "tier": "Flex Play",
+          "label": "Tier4"
+        },
+        "fantasypros_aggregate": {
+          "raw": 28.3,
+          "effective": 28.3,
+          "tier": "Waiver Wire Add",
+          "label": "Tier5"
+        },
+        "jj": {
+          "raw": 27.3,
+          "effective": 27.3,
+          "tier": "Waiver Wire Add",
+          "label": ""
+        }
+      },
+      "consensus_score": 35.6,
+      "consensus_tier": "Benchwarmer",
+      "consensus_method": "mean",
+      "score_range": 23.8,
+      "sources_in_band": 3,
+      "sources_loving": [],
+      "sources_fading": [],
+      "adp_sf": null,
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Jaydn Ott",
+      "position": "RB",
+      "nfl_pick": null,
+      "nfl_round": null,
+      "nfl_team": "UDFA",
+      "n_sources": 3,
+      "per_source": {
+        "boone": {
+          "raw": 30.0,
+          "effective": 30.0,
+          "tier": "Benchwarmer",
+          "label": "Tier4"
+        },
+        "elequin": {
+          "raw": 55.0,
+          "effective": 55.0,
+          "tier": "Flex Play",
+          "label": "Tier 2 - Top-5 if Healthy"
+        },
+        "fantasypros_aggregate": {
+          "raw": 20.0,
+          "effective": 20.0,
+          "tier": "Waiver Wire Add",
+          "label": "Tier6"
+        }
+      },
+      "consensus_score": 35.0,
+      "consensus_tier": "Benchwarmer",
+      "consensus_method": "mean",
+      "score_range": 35.0,
+      "sources_in_band": 3,
+      "sources_loving": [],
+      "sources_fading": [],
+      "adp_sf": null,
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Seth McGowan",
+      "position": "RB",
+      "nfl_pick": 237,
+      "nfl_round": 7,
+      "nfl_team": "IND",
+      "n_sources": 4,
+      "per_source": {
+        "boone": {
+          "raw": 47.8,
+          "effective": 47.8,
+          "tier": "Flex Play",
+          "label": "Tier4"
+        },
+        "fantasypros_aggregate": {
+          "raw": 45.0,
+          "effective": 45.0,
+          "tier": "Flex Play",
+          "label": "Tier5"
+        },
+        "jj": {
+          "raw": 20.0,
+          "effective": 20.0,
+          "tier": "Waiver Wire Add",
+          "label": ""
+        },
+        "koalaty": {
+          "raw": 13.7,
+          "effective": 13.7,
+          "tier": "Dart Throw",
+          "label": ""
+        }
+      },
+      "consensus_score": 32.5,
+      "consensus_tier": "Benchwarmer",
+      "consensus_method": "trimmed_mean",
+      "score_range": 34.1,
+      "sources_in_band": 3,
+      "sources_loving": [],
+      "sources_fading": [
+        "koalaty"
+      ],
+      "adp_sf": null,
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Adam Randall",
+      "position": "RB",
+      "nfl_pick": 174,
+      "nfl_round": 5,
+      "nfl_team": "BAL",
+      "n_sources": 6,
+      "per_source": {
+        "boone": {
+          "raw": 60.0,
+          "effective": 60.0,
+          "tier": "Weekly Starter",
+          "label": "Tier3"
+        },
+        "fantasypros_aggregate": {
+          "raw": 48.3,
+          "effective": 48.3,
+          "tier": "Flex Play",
+          "label": "Tier5"
+        },
+        "jj": {
+          "raw": 29.9,
+          "effective": 29.9,
+          "tier": "Waiver Wire Add",
+          "label": ""
+        },
+        "kerrane": {
+          "raw": 28.0,
+          "effective": 28.0,
+          "tier": "Waiver Wire Add",
+          "label": "Tier 6 (Implied)"
+        },
+        "koalaty": {
+          "raw": 1.3,
+          "effective": 1.3,
+          "tier": "Dart Throw",
+          "label": "D"
+        },
+        "winks": {
+          "raw": 5.6,
+          "effective": 5.6,
+          "tier": "Dart Throw",
+          "label": "Tier4"
+        }
+      },
+      "consensus_score": 27.9,
+      "consensus_tier": "Waiver Wire Add",
+      "consensus_method": "trimmed_mean",
+      "score_range": 58.7,
+      "sources_in_band": 4,
+      "sources_loving": [
+        "boone",
+        "fantasypros_aggregate"
+      ],
+      "sources_fading": [],
+      "adp_sf": null,
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Terion Stewart",
+      "position": "RB",
+      "nfl_pick": null,
+      "nfl_round": null,
+      "nfl_team": "UDFA",
+      "n_sources": 1,
+      "per_source": {
+        "boone": {
+          "raw": 27.8,
+          "effective": 27.8,
+          "tier": "Waiver Wire Add",
+          "label": "Tier4"
+        }
+      },
+      "consensus_score": 27.8,
+      "consensus_tier": "Waiver Wire Add",
+      "consensus_method": "mean",
+      "score_range": 0,
+      "sources_in_band": 1,
+      "sources_loving": [],
+      "sources_fading": [],
+      "adp_sf": null,
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Jamal Haynes",
+      "position": "RB",
+      "nfl_pick": null,
+      "nfl_round": null,
+      "nfl_team": "UDFA",
+      "n_sources": 1,
+      "per_source": {
+        "boone": {
+          "raw": 24.4,
+          "effective": 24.4,
+          "tier": "Waiver Wire Add",
+          "label": "Tier4"
+        }
+      },
+      "consensus_score": 24.4,
+      "consensus_tier": "Waiver Wire Add",
+      "consensus_method": "mean",
+      "score_range": 0,
+      "sources_in_band": 1,
+      "sources_loving": [],
+      "sources_fading": [],
+      "adp_sf": null,
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Jam Miller",
+      "position": "RB",
+      "nfl_pick": 245,
+      "nfl_round": 7,
+      "nfl_team": "NEP",
+      "n_sources": 4,
+      "per_source": {
+        "boone": {
+          "raw": 33.3,
+          "effective": 33.3,
+          "tier": "Benchwarmer",
+          "label": "Tier4"
+        },
+        "fantasypros_aggregate": {
+          "raw": 21.7,
+          "effective": 21.7,
+          "tier": "Waiver Wire Add",
+          "label": "Tier6"
+        },
+        "jj": {
+          "raw": 17.1,
+          "effective": 17.1,
+          "tier": "Dart Throw",
+          "label": ""
+        },
+        "koalaty": {
+          "raw": 17.6,
+          "effective": 17.6,
+          "tier": "Dart Throw",
+          "label": ""
+        }
+      },
+      "consensus_score": 19.6,
+      "consensus_tier": "Dart Throw",
+      "consensus_method": "trimmed_mean",
+      "score_range": 16.2,
+      "sources_in_band": 3,
+      "sources_loving": [
+        "boone"
+      ],
+      "sources_fading": [],
+      "adp_sf": null,
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Le'Veon Moss",
+      "position": "RB",
+      "nfl_pick": null,
+      "nfl_round": null,
+      "nfl_team": "UDFA",
+      "n_sources": 2,
+      "per_source": {
+        "boone": {
+          "raw": 32.2,
+          "effective": 32.2,
+          "tier": "Benchwarmer",
+          "label": "Tier4"
+        },
+        "jj": {
+          "raw": 4.7,
+          "effective": 4.7,
+          "tier": "Dart Throw",
+          "label": ""
+        }
+      },
+      "consensus_score": 18.5,
+      "consensus_tier": "Dart Throw",
+      "consensus_method": "mean",
+      "score_range": 27.5,
+      "sources_in_band": 1,
+      "sources_loving": [
+        "boone"
+      ],
+      "sources_fading": [],
+      "adp_sf": null,
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Robert Henry Jr.",
+      "position": "RB",
+      "nfl_pick": null,
+      "nfl_round": null,
+      "nfl_team": "UDFA",
+      "n_sources": 2,
+      "per_source": {
+        "boone": {
+          "raw": 25.6,
+          "effective": 25.6,
+          "tier": "Waiver Wire Add",
+          "label": "Tier4"
+        },
+        "jj": {
+          "raw": 11.1,
+          "effective": 11.1,
+          "tier": "Dart Throw",
+          "label": ""
+        }
+      },
+      "consensus_score": 18.4,
+      "consensus_tier": "Dart Throw",
+      "consensus_method": "mean",
+      "score_range": 14.5,
+      "sources_in_band": 2,
+      "sources_loving": [],
+      "sources_fading": [],
+      "adp_sf": null,
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Noah Whittington",
+      "position": "RB",
+      "nfl_pick": null,
+      "nfl_round": null,
+      "nfl_team": "UDFA",
+      "n_sources": 2,
+      "per_source": {
+        "boone": {
+          "raw": 28.9,
+          "effective": 28.9,
+          "tier": "Waiver Wire Add",
+          "label": "Tier4"
+        },
+        "jj": {
+          "raw": 7.3,
+          "effective": 7.3,
+          "tier": "Dart Throw",
+          "label": ""
+        }
+      },
+      "consensus_score": 18.1,
+      "consensus_tier": "Dart Throw",
+      "consensus_method": "mean",
+      "score_range": 21.6,
+      "sources_in_band": 2,
+      "sources_loving": [],
+      "sources_fading": [],
+      "adp_sf": null,
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Roman Hemby",
+      "position": "RB",
+      "nfl_pick": null,
+      "nfl_round": null,
+      "nfl_team": "UDFA",
+      "n_sources": 3,
+      "per_source": {
+        "boone": {
+          "raw": 26.7,
+          "effective": 26.7,
+          "tier": "Waiver Wire Add",
+          "label": "Tier4"
+        },
+        "fantasypros_aggregate": {
+          "raw": 11.7,
+          "effective": 11.7,
+          "tier": "Dart Throw",
+          "label": "Tier6"
+        },
+        "jj": {
+          "raw": 12.4,
+          "effective": 12.4,
+          "tier": "Dart Throw",
+          "label": ""
+        }
+      },
+      "consensus_score": 16.9,
+      "consensus_tier": "Dart Throw",
+      "consensus_method": "mean",
+      "score_range": 15.0,
+      "sources_in_band": 3,
+      "sources_loving": [],
+      "sources_fading": [],
+      "adp_sf": null,
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Desmond Reid",
+      "position": "RB",
+      "nfl_pick": null,
+      "nfl_round": null,
+      "nfl_team": "UDFA",
+      "n_sources": 2,
+      "per_source": {
+        "boone": {
+          "raw": 7.8,
+          "effective": 7.8,
+          "tier": "Dart Throw",
+          "label": "Tier4"
+        },
+        "jj": {
+          "raw": 15.2,
+          "effective": 15.2,
+          "tier": "Dart Throw",
+          "label": ""
+        }
+      },
+      "consensus_score": 11.5,
+      "consensus_tier": "Dart Throw",
+      "consensus_method": "mean",
+      "score_range": 7.4,
+      "sources_in_band": 2,
+      "sources_loving": [],
+      "sources_fading": [],
+      "adp_sf": null,
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "CJ Donaldson",
+      "position": "RB",
+      "nfl_pick": null,
+      "nfl_round": null,
+      "nfl_team": "UDFA",
+      "n_sources": 1,
+      "per_source": {
+        "jj": {
+          "raw": 10.9,
+          "effective": 10.9,
+          "tier": "Dart Throw",
+          "label": ""
+        }
+      },
+      "consensus_score": 10.9,
+      "consensus_tier": "Dart Throw",
+      "consensus_method": "mean",
+      "score_range": 0,
+      "sources_in_band": 1,
+      "sources_loving": [],
+      "sources_fading": [],
+      "adp_sf": null,
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Chip Trayanum",
+      "position": "RB",
+      "nfl_pick": null,
+      "nfl_round": null,
+      "nfl_team": "UDFA",
+      "n_sources": 1,
+      "per_source": {
+        "boone": {
+          "raw": 6.7,
+          "effective": 6.7,
+          "tier": "Dart Throw",
+          "label": "Tier4"
+        }
+      },
+      "consensus_score": 6.7,
+      "consensus_tier": "Dart Throw",
+      "consensus_method": "mean",
+      "score_range": 0,
+      "sources_in_band": 1,
+      "sources_loving": [],
+      "sources_fading": [],
+      "adp_sf": null,
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Dean Connors",
+      "position": "RB",
+      "nfl_pick": null,
+      "nfl_round": null,
+      "nfl_team": "UDFA",
+      "n_sources": 1,
+      "per_source": {
+        "boone": {
+          "raw": 5.6,
+          "effective": 5.6,
+          "tier": "Dart Throw",
+          "label": "Tier4"
+        }
+      },
+      "consensus_score": 5.6,
+      "consensus_tier": "Dart Throw",
+      "consensus_method": "mean",
+      "score_range": 0,
+      "sources_in_band": 1,
+      "sources_loving": [],
+      "sources_fading": [],
+      "adp_sf": null,
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Rahsul Faison",
+      "position": "RB",
+      "nfl_pick": null,
+      "nfl_round": null,
+      "nfl_team": "UDFA",
+      "n_sources": 1,
+      "per_source": {
+        "jj": {
+          "raw": 0.0,
+          "effective": 0.0,
+          "tier": "Dart Throw",
+          "label": ""
+        }
+      },
+      "consensus_score": 0.0,
+      "consensus_tier": "\u2014",
+      "consensus_method": "mean",
+      "score_range": 0,
+      "sources_in_band": 0,
+      "sources_loving": [],
+      "sources_fading": [
+        "jj"
+      ],
+      "adp_sf": null,
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Jack Velling",
+      "position": "TE",
+      "nfl_pick": null,
+      "nfl_round": null,
+      "nfl_team": "UDFA",
+      "n_sources": 1,
+      "per_source": {
+        "elequin": {
+          "raw": 85.0,
+          "effective": 85.0,
+          "tier": "Elite Producer",
+          "label": "Tier 1 - Efficiency Leader"
+        }
+      },
+      "consensus_score": 85.0,
+      "consensus_tier": "Elite Producer",
+      "consensus_method": "mean",
+      "score_range": 0,
+      "sources_in_band": 1,
+      "sources_loving": [],
+      "sources_fading": [],
+      "adp_sf": null,
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Kenyon Sadiq",
+      "position": "TE",
+      "nfl_pick": 16,
+      "nfl_round": 1,
+      "nfl_team": "NYJ",
+      "n_sources": 9,
+      "per_source": {
+        "boone": {
+          "raw": 91.1,
+          "effective": 91.1,
+          "tier": "Legendary Performer",
+          "label": "Tier2"
+        },
+        "dlf": {
+          "raw": 78.3,
+          "effective": 78.3,
+          "tier": "Elite Producer",
+          "label": "Tier3"
+        },
+        "elequin": {
+          "raw": 38.0,
+          "effective": 38.0,
+          "tier": "Benchwarmer",
+          "label": "Tier 3 - Athletic"
+        },
+        "fantasypros_aggregate": {
+          "raw": 88.3,
+          "effective": 88.3,
+          "tier": "Elite Producer",
+          "label": "Tier2"
+        },
+        "jj": {
+          "raw": 98.5,
+          "effective": 98.5,
+          "tier": "Legendary Performer",
+          "label": ""
+        },
+        "kerrane": {
+          "raw": 88.0,
+          "effective": 88.0,
+          "tier": "Elite Producer",
+          "label": "Tier 1 - Big Slot WRs (Athleticism+Capital)"
+        },
+        "koalaty": {
+          "raw": 84.4,
+          "effective": 84.4,
+          "tier": "Elite Producer",
+          "label": "A"
+        },
+        "sanderson": {
+          "raw": 82.0,
+          "effective": 82.0,
+          "tier": "Elite Producer",
+          "label": "Tier3"
+        },
+        "winks": {
+          "raw": 66.7,
+          "effective": 66.7,
+          "tier": "Weekly Starter",
+          "label": "Tier3"
+        }
+      },
+      "consensus_score": 82.7,
+      "consensus_tier": "Elite Producer",
+      "consensus_method": "trimmed_mean",
+      "score_range": 60.5,
+      "sources_in_band": 8,
+      "sources_loving": [],
+      "sources_fading": [
+        "elequin"
+      ],
+      "adp_sf": "1.08",
+      "tice_nfl_context": {
+        "overall_rank": 14,
+        "tier": "Tier1"
+      }
+    },
+    {
+      "player_name": "Eli Stowers",
+      "position": "TE",
+      "nfl_pick": 54,
+      "nfl_round": 2,
+      "nfl_team": "PHI",
+      "n_sources": 9,
+      "per_source": {
+        "boone": {
+          "raw": 90.0,
+          "effective": 90.0,
+          "tier": "Legendary Performer",
+          "label": "Tier2"
+        },
+        "dlf": {
+          "raw": 71.7,
+          "effective": 71.7,
+          "tier": "Weekly Starter",
+          "label": "Tier4"
+        },
+        "elequin": {
+          "raw": 82.0,
+          "effective": 82.0,
+          "tier": "Elite Producer",
+          "label": "Tier 1 - 93rd Pct"
+        },
+        "fantasypros_aggregate": {
+          "raw": 86.7,
+          "effective": 86.7,
+          "tier": "Elite Producer",
+          "label": "Tier2"
+        },
+        "jj": {
+          "raw": 75.4,
+          "effective": 75.4,
+          "tier": "Elite Producer",
+          "label": ""
+        },
+        "kerrane": {
+          "raw": 82.0,
+          "effective": 82.0,
+          "tier": "Elite Producer",
+          "label": "Tier 1 - Big Slot WRs"
+        },
+        "koalaty": {
+          "raw": 95.6,
+          "effective": 95.6,
+          "tier": "Legendary Performer",
+          "label": "God"
+        },
+        "sanderson": {
+          "raw": 74.0,
+          "effective": 74.0,
+          "tier": "Weekly Starter",
+          "label": "Tier3"
+        },
+        "winks": {
+          "raw": 33.3,
+          "effective": 33.3,
+          "tier": "Benchwarmer",
+          "label": "Tier4"
+        }
+      },
+      "consensus_score": 80.3,
+      "consensus_tier": "Elite Producer",
+      "consensus_method": "trimmed_mean",
+      "score_range": 62.3,
+      "sources_in_band": 8,
+      "sources_loving": [],
+      "sources_fading": [
+        "winks"
+      ],
+      "adp_sf": "1.11",
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Max Klare",
+      "position": "TE",
+      "nfl_pick": 61,
+      "nfl_round": 2,
+      "nfl_team": "LAR",
+      "n_sources": 7,
+      "per_source": {
+        "boone": {
+          "raw": 71.1,
+          "effective": 71.1,
+          "tier": "Weekly Starter",
+          "label": "Tier3"
+        },
+        "elequin": {
+          "raw": 72.0,
+          "effective": 72.0,
+          "tier": "Weekly Starter",
+          "label": "Tier 2 - 94th Pct Vol"
+        },
+        "fantasypros_aggregate": {
+          "raw": 50.0,
+          "effective": 50.0,
+          "tier": "Flex Play",
+          "label": "Tier5"
+        },
+        "jj": {
+          "raw": 63.4,
+          "effective": 63.4,
+          "tier": "Weekly Starter",
+          "label": ""
+        },
+        "kerrane": {
+          "raw": 48.0,
+          "effective": 48.0,
+          "tier": "Flex Play",
+          "label": "Tier 2 - Post-Draft Dart Throws (Implied)"
+        },
+        "koalaty": {
+          "raw": 81.5,
+          "effective": 81.5,
+          "tier": "Elite Producer",
+          "label": "B"
+        },
+        "sanderson": {
+          "raw": 29.0,
+          "effective": 29.0,
+          "tier": "Waiver Wire Add",
+          "label": "Tier5"
+        }
+      },
+      "consensus_score": 60.9,
+      "consensus_tier": "Weekly Starter",
+      "consensus_method": "trimmed_mean",
+      "score_range": 52.5,
+      "sources_in_band": 6,
+      "sources_loving": [],
+      "sources_fading": [
+        "sanderson"
+      ],
+      "adp_sf": "3.04",
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Eli Raridon",
+      "position": "TE",
+      "nfl_pick": 95,
+      "nfl_round": 3,
+      "nfl_team": "NEP",
+      "n_sources": 6,
+      "per_source": {
+        "boone": {
+          "raw": 62.2,
+          "effective": 62.2,
+          "tier": "Weekly Starter",
+          "label": "Tier3"
+        },
+        "fantasypros_aggregate": {
+          "raw": 43.3,
+          "effective": 43.3,
+          "tier": "Flex Play",
+          "label": "Tier5"
+        },
+        "jj": {
+          "raw": 51.5,
+          "effective": 51.5,
+          "tier": "Flex Play",
+          "label": ""
+        },
+        "kerrane": {
+          "raw": 55.0,
+          "effective": 55.0,
+          "tier": "Flex Play",
+          "label": "Tier 2 - Post-Draft Dart Throws"
+        },
+        "koalaty": {
+          "raw": 43.0,
+          "effective": 43.0,
+          "tier": "Flex Play",
+          "label": "A"
+        },
+        "sanderson": {
+          "raw": 32.0,
+          "effective": 32.0,
+          "tier": "Benchwarmer",
+          "label": "Tier5"
+        }
+      },
+      "consensus_score": 48.2,
+      "consensus_tier": "Flex Play",
+      "consensus_method": "trimmed_mean",
+      "score_range": 30.2,
+      "sources_in_band": 6,
+      "sources_loving": [],
+      "sources_fading": [],
+      "adp_sf": "2.08",
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Oscar Delp",
+      "position": "TE",
+      "nfl_pick": 73,
+      "nfl_round": 3,
+      "nfl_team": "NOS",
+      "n_sources": 7,
+      "per_source": {
+        "boone": {
+          "raw": 64.4,
+          "effective": 64.4,
+          "tier": "Weekly Starter",
+          "label": "Tier3"
+        },
+        "dlf": {
+          "raw": 38.3,
+          "effective": 38.3,
+          "tier": "Benchwarmer",
+          "label": "Tier5"
+        },
+        "fantasypros_aggregate": {
+          "raw": 53.3,
+          "effective": 53.3,
+          "tier": "Flex Play",
+          "label": "Tier4"
+        },
+        "jj": {
+          "raw": 55.5,
+          "effective": 55.5,
+          "tier": "Flex Play",
+          "label": ""
+        },
+        "kerrane": {
+          "raw": 40.0,
+          "effective": 40.0,
+          "tier": "Flex Play",
+          "label": "Tier 2 - Post-Draft Dart Throws (Implied)"
+        },
+        "koalaty": {
+          "raw": 48.9,
+          "effective": 48.9,
+          "tier": "Flex Play",
+          "label": "B"
+        },
+        "sanderson": {
+          "raw": 41.0,
+          "effective": 41.0,
+          "tier": "Flex Play",
+          "label": "Tier5"
+        }
+      },
+      "consensus_score": 47.7,
+      "consensus_tier": "Flex Play",
+      "consensus_method": "trimmed_mean",
+      "score_range": 26.1,
+      "sources_in_band": 7,
+      "sources_loving": [],
+      "sources_fading": [],
+      "adp_sf": "2.07",
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Marlin Klein",
+      "position": "TE",
+      "nfl_pick": 59,
+      "nfl_round": 2,
+      "nfl_team": "HOU",
+      "n_sources": 4,
+      "per_source": {
+        "boone": {
+          "raw": 50.0,
+          "effective": 50.0,
+          "tier": "Flex Play",
+          "label": "Tier4"
+        },
+        "fantasypros_aggregate": {
+          "raw": 8.3,
+          "effective": 8.3,
+          "tier": "Dart Throw",
+          "label": "Tier6"
+        },
+        "jj": {
+          "raw": 59.7,
+          "effective": 59.7,
+          "tier": "Flex Play",
+          "label": ""
+        },
+        "koalaty": {
+          "raw": 42.2,
+          "effective": 42.2,
+          "tier": "Flex Play",
+          "label": "D"
+        }
+      },
+      "consensus_score": 46.1,
+      "consensus_tier": "Flex Play",
+      "consensus_method": "trimmed_mean",
+      "score_range": 51.4,
+      "sources_in_band": 3,
+      "sources_loving": [],
+      "sources_fading": [
+        "fantasypros_aggregate"
+      ],
+      "adp_sf": null,
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Justin Joly",
+      "position": "TE",
+      "nfl_pick": 152,
+      "nfl_round": 5,
+      "nfl_team": "DEN",
+      "n_sources": 7,
+      "per_source": {
+        "boone": {
+          "raw": 63.3,
+          "effective": 63.3,
+          "tier": "Weekly Starter",
+          "label": "Tier3"
+        },
+        "elequin": {
+          "raw": 55.0,
+          "effective": 55.0,
+          "tier": "Flex Play",
+          "label": "Tier 2 - Experience Leader"
+        },
+        "fantasypros_aggregate": {
+          "raw": 41.7,
+          "effective": 41.7,
+          "tier": "Flex Play",
+          "label": "Tier5"
+        },
+        "jj": {
+          "raw": 31.7,
+          "effective": 31.7,
+          "tier": "Benchwarmer",
+          "label": ""
+        },
+        "kerrane": {
+          "raw": 35.0,
+          "effective": 35.0,
+          "tier": "Benchwarmer",
+          "label": "Tier 2 - Post-Draft Dart Throws (Implied)"
+        },
+        "koalaty": {
+          "raw": 85.2,
+          "effective": 85.2,
+          "tier": "Elite Producer",
+          "label": "A"
+        },
+        "sanderson": {
+          "raw": 20.0,
+          "effective": 20.0,
+          "tier": "Waiver Wire Add",
+          "label": "Tier5"
+        }
+      },
+      "consensus_score": 45.3,
+      "consensus_tier": "Flex Play",
+      "consensus_method": "trimmed_mean",
+      "score_range": 65.2,
+      "sources_in_band": 5,
+      "sources_loving": [
+        "koalaty"
+      ],
+      "sources_fading": [
+        "sanderson"
+      ],
+      "adp_sf": null,
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Matthew Hibner",
+      "position": "TE",
+      "nfl_pick": null,
+      "nfl_round": null,
+      "nfl_team": "UDFA",
+      "n_sources": 3,
+      "per_source": {
+        "boone": {
+          "raw": 48.9,
+          "effective": 48.9,
+          "tier": "Flex Play",
+          "label": "Tier4"
+        },
+        "jj": {
+          "raw": 36.1,
+          "effective": 36.1,
+          "tier": "Benchwarmer",
+          "label": ""
+        },
+        "koalaty": {
+          "raw": 45.9,
+          "effective": 35.0,
+          "tier": "Benchwarmer",
+          "label": "D"
+        }
+      },
+      "consensus_score": 40.0,
+      "consensus_tier": "Flex Play",
+      "consensus_method": "mean",
+      "score_range": 13.9,
+      "sources_in_band": 3,
+      "sources_loving": [],
+      "sources_fading": [],
+      "adp_sf": "3.02",
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Terrance Carter Jr.",
+      "position": "TE",
+      "nfl_pick": null,
+      "nfl_round": null,
+      "nfl_team": "UDFA",
+      "n_sources": 1,
+      "per_source": {
+        "elequin": {
+          "raw": 40.0,
+          "effective": 40.0,
+          "tier": "Flex Play",
+          "label": "Tier 3 - Versatile"
+        }
+      },
+      "consensus_score": 40.0,
+      "consensus_tier": "Flex Play",
+      "consensus_method": "mean",
+      "score_range": 0,
+      "sources_in_band": 1,
+      "sources_loving": [],
+      "sources_fading": [],
+      "adp_sf": null,
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Sam Roush",
+      "position": "TE",
+      "nfl_pick": null,
+      "nfl_round": null,
+      "nfl_team": "UDFA",
+      "n_sources": 4,
+      "per_source": {
+        "boone": {
+          "raw": 36.7,
+          "effective": 36.7,
+          "tier": "Benchwarmer",
+          "label": "Tier4"
+        },
+        "fantasypros_aggregate": {
+          "raw": 31.7,
+          "effective": 31.7,
+          "tier": "Benchwarmer",
+          "label": "Tier5"
+        },
+        "jj": {
+          "raw": 61.2,
+          "effective": 61.2,
+          "tier": "Weekly Starter",
+          "label": ""
+        },
+        "koalaty": {
+          "raw": 57.8,
+          "effective": 35.0,
+          "tier": "Benchwarmer",
+          "label": "B"
+        }
+      },
+      "consensus_score": 35.9,
+      "consensus_tier": "Benchwarmer",
+      "consensus_method": "trimmed_mean",
+      "score_range": 29.5,
+      "sources_in_band": 3,
+      "sources_loving": [
+        "jj"
+      ],
+      "sources_fading": [],
+      "adp_sf": null,
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Joe Royer",
+      "position": "TE",
+      "nfl_pick": 170,
+      "nfl_round": 5,
+      "nfl_team": "CLE",
+      "n_sources": 3,
+      "per_source": {
+        "boone": {
+          "raw": 37.8,
+          "effective": 37.8,
+          "tier": "Benchwarmer",
+          "label": "Tier4"
+        },
+        "jj": {
+          "raw": 25.6,
+          "effective": 25.6,
+          "tier": "Waiver Wire Add",
+          "label": ""
+        },
+        "koalaty": {
+          "raw": 38.5,
+          "effective": 38.5,
+          "tier": "Benchwarmer",
+          "label": "D"
+        }
+      },
+      "consensus_score": 34.0,
+      "consensus_tier": "Benchwarmer",
+      "consensus_method": "mean",
+      "score_range": 12.9,
+      "sources_in_band": 3,
+      "sources_loving": [],
+      "sources_fading": [],
+      "adp_sf": null,
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Nate Boerkircher",
+      "position": "TE",
+      "nfl_pick": 56,
+      "nfl_round": 2,
+      "nfl_team": "JAX",
+      "n_sources": 4,
+      "per_source": {
+        "boone": {
+          "raw": 42.2,
+          "effective": 42.2,
+          "tier": "Flex Play",
+          "label": "Tier4"
+        },
+        "fantasypros_aggregate": {
+          "raw": 1.7,
+          "effective": 1.7,
+          "tier": "Dart Throw",
+          "label": "Tier6"
+        },
+        "jj": {
+          "raw": 25.6,
+          "effective": 25.6,
+          "tier": "Waiver Wire Add",
+          "label": ""
+        },
+        "koalaty": {
+          "raw": 57.0,
+          "effective": 57.0,
+          "tier": "Flex Play",
+          "label": "D"
+        }
+      },
+      "consensus_score": 33.9,
+      "consensus_tier": "Benchwarmer",
+      "consensus_method": "trimmed_mean",
+      "score_range": 55.3,
+      "sources_in_band": 3,
+      "sources_loving": [],
+      "sources_fading": [
+        "fantasypros_aggregate"
+      ],
+      "adp_sf": null,
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Tanner Koziol",
+      "position": "TE",
+      "nfl_pick": null,
+      "nfl_round": null,
+      "nfl_team": "UDFA",
+      "n_sources": 4,
+      "per_source": {
+        "boone": {
+          "raw": 35.6,
+          "effective": 35.6,
+          "tier": "Benchwarmer",
+          "label": "Tier4"
+        },
+        "fantasypros_aggregate": {
+          "raw": 30.0,
+          "effective": 30.0,
+          "tier": "Benchwarmer",
+          "label": "Tier5"
+        },
+        "jj": {
+          "raw": 28.3,
+          "effective": 28.3,
+          "tier": "Waiver Wire Add",
+          "label": ""
+        },
+        "koalaty": {
+          "raw": 75.6,
+          "effective": 35.0,
+          "tier": "Benchwarmer",
+          "label": "C"
+        }
+      },
+      "consensus_score": 32.5,
+      "consensus_tier": "Benchwarmer",
+      "consensus_method": "trimmed_mean",
+      "score_range": 7.3,
+      "sources_in_band": 4,
+      "sources_loving": [],
+      "sources_fading": [],
+      "adp_sf": null,
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Will Kacmarek",
+      "position": "TE",
+      "nfl_pick": 87,
+      "nfl_round": 3,
+      "nfl_team": "MIA",
+      "n_sources": 3,
+      "per_source": {
+        "boone": {
+          "raw": 22.2,
+          "effective": 22.2,
+          "tier": "Waiver Wire Add",
+          "label": "Tier4"
+        },
+        "jj": {
+          "raw": 43.7,
+          "effective": 43.7,
+          "tier": "Flex Play",
+          "label": ""
+        },
+        "koalaty": {
+          "raw": 28.9,
+          "effective": 28.9,
+          "tier": "Waiver Wire Add",
+          "label": "D"
+        }
+      },
+      "consensus_score": 31.6,
+      "consensus_tier": "Benchwarmer",
+      "consensus_method": "mean",
+      "score_range": 21.5,
+      "sources_in_band": 3,
+      "sources_loving": [],
+      "sources_fading": [],
+      "adp_sf": null,
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Jack Endries",
+      "position": "TE",
+      "nfl_pick": null,
+      "nfl_round": null,
+      "nfl_team": "UDFA",
+      "n_sources": 5,
+      "per_source": {
+        "boone": {
+          "raw": 38.9,
+          "effective": 38.9,
+          "tier": "Benchwarmer",
+          "label": "Tier4"
+        },
+        "elequin": {
+          "raw": 48.0,
+          "effective": 48.0,
+          "tier": "Flex Play",
+          "label": "Tier 3 - Efficiency Play"
+        },
+        "fantasypros_aggregate": {
+          "raw": 18.3,
+          "effective": 18.3,
+          "tier": "Dart Throw",
+          "label": "Tier6"
+        },
+        "jj": {
+          "raw": 14.3,
+          "effective": 14.3,
+          "tier": "Dart Throw",
+          "label": ""
+        },
+        "koalaty": {
+          "raw": 31.1,
+          "effective": 31.1,
+          "tier": "Benchwarmer",
+          "label": "D"
+        }
+      },
+      "consensus_score": 29.4,
+      "consensus_tier": "Waiver Wire Add",
+      "consensus_method": "trimmed_mean",
+      "score_range": 33.7,
+      "sources_in_band": 4,
+      "sources_loving": [
+        "elequin"
+      ],
+      "sources_fading": [],
+      "adp_sf": null,
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Josh Cuevas",
+      "position": "TE",
+      "nfl_pick": 173,
+      "nfl_round": 5,
+      "nfl_team": "BAL",
+      "n_sources": 3,
+      "per_source": {
+        "boone": {
+          "raw": 16.7,
+          "effective": 16.7,
+          "tier": "Dart Throw",
+          "label": "Tier4"
+        },
+        "jj": {
+          "raw": 20.6,
+          "effective": 20.6,
+          "tier": "Waiver Wire Add",
+          "label": ""
+        },
+        "koalaty": {
+          "raw": 27.4,
+          "effective": 27.4,
+          "tier": "Waiver Wire Add",
+          "label": "D"
+        }
+      },
+      "consensus_score": 21.6,
+      "consensus_tier": "Waiver Wire Add",
+      "consensus_method": "mean",
+      "score_range": 10.7,
+      "sources_in_band": 3,
+      "sources_loving": [],
+      "sources_fading": [],
+      "adp_sf": null,
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Riley Nowakowski",
+      "position": "TE",
+      "nfl_pick": 169,
+      "nfl_round": 5,
+      "nfl_team": "PIT",
+      "n_sources": 3,
+      "per_source": {
+        "boone": {
+          "raw": 12.2,
+          "effective": 12.2,
+          "tier": "Dart Throw",
+          "label": "Tier4"
+        },
+        "jj": {
+          "raw": 21.0,
+          "effective": 21.0,
+          "tier": "Waiver Wire Add",
+          "label": ""
+        },
+        "koalaty": {
+          "raw": 20.7,
+          "effective": 20.7,
+          "tier": "Waiver Wire Add",
+          "label": "D"
+        }
+      },
+      "consensus_score": 18.0,
+      "consensus_tier": "Dart Throw",
+      "consensus_method": "mean",
+      "score_range": 8.8,
+      "sources_in_band": 3,
+      "sources_loving": [],
+      "sources_fading": [],
+      "adp_sf": null,
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Bauer Sharp",
+      "position": "TE",
+      "nfl_pick": 185,
+      "nfl_round": 6,
+      "nfl_team": "TBB",
+      "n_sources": 2,
+      "per_source": {
+        "jj": {
+          "raw": 21.1,
+          "effective": 21.1,
+          "tier": "Waiver Wire Add",
+          "label": ""
+        },
+        "koalaty": {
+          "raw": 13.3,
+          "effective": 13.3,
+          "tier": "Dart Throw",
+          "label": "D"
+        }
+      },
+      "consensus_score": 17.2,
+      "consensus_tier": "Dart Throw",
+      "consensus_method": "mean",
+      "score_range": 7.8,
+      "sources_in_band": 2,
+      "sources_loving": [],
+      "sources_fading": [],
+      "adp_sf": null,
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Jaren Kanak",
+      "position": "TE",
+      "nfl_pick": 225,
+      "nfl_round": 7,
+      "nfl_team": "TEN",
+      "n_sources": 2,
+      "per_source": {
+        "jj": {
+          "raw": 13.6,
+          "effective": 13.6,
+          "tier": "Dart Throw",
+          "label": ""
+        },
+        "koalaty": {
+          "raw": 20.0,
+          "effective": 20.0,
+          "tier": "Waiver Wire Add",
+          "label": "D"
+        }
+      },
+      "consensus_score": 16.8,
+      "consensus_tier": "Dart Throw",
+      "consensus_method": "mean",
+      "score_range": 6.4,
+      "sources_in_band": 2,
+      "sources_loving": [],
+      "sources_fading": [],
+      "adp_sf": null,
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Seydou Traore",
+      "position": "TE",
+      "nfl_pick": 180,
+      "nfl_round": 5,
+      "nfl_team": "MIA",
+      "n_sources": 3,
+      "per_source": {
+        "boone": {
+          "raw": 2.2,
+          "effective": 2.2,
+          "tier": "Dart Throw",
+          "label": "Tier4"
+        },
+        "jj": {
+          "raw": 22.9,
+          "effective": 22.9,
+          "tier": "Waiver Wire Add",
+          "label": ""
+        },
+        "koalaty": {
+          "raw": 14.1,
+          "effective": 14.1,
+          "tier": "Dart Throw",
+          "label": "D"
+        }
+      },
+      "consensus_score": 13.1,
+      "consensus_tier": "Dart Throw",
+      "consensus_method": "mean",
+      "score_range": 20.7,
+      "sources_in_band": 3,
+      "sources_loving": [],
+      "sources_fading": [],
+      "adp_sf": null,
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Dallen Bentley",
+      "position": "TE",
+      "nfl_pick": null,
+      "nfl_round": null,
+      "nfl_team": "UDFA",
+      "n_sources": 2,
+      "per_source": {
+        "boone": {
+          "raw": 15.6,
+          "effective": 15.6,
+          "tier": "Dart Throw",
+          "label": "Tier4"
+        },
+        "jj": {
+          "raw": 10.1,
+          "effective": 10.1,
+          "tier": "Dart Throw",
+          "label": ""
+        }
+      },
+      "consensus_score": 12.8,
+      "consensus_tier": "Dart Throw",
+      "consensus_method": "mean",
+      "score_range": 5.5,
+      "sources_in_band": 2,
+      "sources_loving": [],
+      "sources_fading": [],
+      "adp_sf": null,
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "John Michael Gyllenborg",
+      "position": "TE",
+      "nfl_pick": null,
+      "nfl_round": null,
+      "nfl_team": "UDFA",
+      "n_sources": 2,
+      "per_source": {
+        "boone": {
+          "raw": 8.9,
+          "effective": 8.9,
+          "tier": "Dart Throw",
+          "label": "Tier4"
+        },
+        "jj": {
+          "raw": 10.5,
+          "effective": 10.5,
+          "tier": "Dart Throw",
+          "label": ""
+        }
+      },
+      "consensus_score": 9.7,
+      "consensus_tier": "Dart Throw",
+      "consensus_method": "mean",
+      "score_range": 1.6,
+      "sources_in_band": 2,
+      "sources_loving": [],
+      "sources_fading": [],
+      "adp_sf": null,
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Michael Trigg",
+      "position": "TE",
+      "nfl_pick": null,
+      "nfl_round": null,
+      "nfl_team": "UDFA",
+      "n_sources": 2,
+      "per_source": {
+        "boone": {
+          "raw": 11.1,
+          "effective": 11.1,
+          "tier": "Dart Throw",
+          "label": "Tier4"
+        },
+        "jj": {
+          "raw": 7.0,
+          "effective": 7.0,
+          "tier": "Dart Throw",
+          "label": ""
+        }
+      },
+      "consensus_score": 9.1,
+      "consensus_tier": "Dart Throw",
+      "consensus_method": "mean",
+      "score_range": 4.1,
+      "sources_in_band": 2,
+      "sources_loving": [],
+      "sources_fading": [],
+      "adp_sf": null,
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Dae'Quan Wright",
+      "position": "TE",
+      "nfl_pick": null,
+      "nfl_round": null,
+      "nfl_team": "UDFA",
+      "n_sources": 2,
+      "per_source": {
+        "boone": {
+          "raw": 10.0,
+          "effective": 10.0,
+          "tier": "Dart Throw",
+          "label": "Tier4"
+        },
+        "jj": {
+          "raw": 6.9,
+          "effective": 6.9,
+          "tier": "Dart Throw",
+          "label": ""
+        }
+      },
+      "consensus_score": 8.4,
+      "consensus_tier": "Dart Throw",
+      "consensus_method": "mean",
+      "score_range": 3.1,
+      "sources_in_band": 2,
+      "sources_loving": [],
+      "sources_fading": [],
+      "adp_sf": null,
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "RJ Maryland",
+      "position": "TE",
+      "nfl_pick": null,
+      "nfl_round": null,
+      "nfl_team": "UDFA",
+      "n_sources": 1,
+      "per_source": {
+        "jj": {
+          "raw": 7.1,
+          "effective": 7.1,
+          "tier": "Dart Throw",
+          "label": ""
+        }
+      },
+      "consensus_score": 7.1,
+      "consensus_tier": "Dart Throw",
+      "consensus_method": "mean",
+      "score_range": 0,
+      "sources_in_band": 1,
+      "sources_loving": [],
+      "sources_fading": [],
+      "adp_sf": null,
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Carsen Ryan",
+      "position": "TE",
+      "nfl_pick": null,
+      "nfl_round": null,
+      "nfl_team": "UDFA",
+      "n_sources": 2,
+      "per_source": {
+        "jj": {
+          "raw": 7.2,
+          "effective": 7.2,
+          "tier": "Dart Throw",
+          "label": ""
+        },
+        "koalaty": {
+          "raw": 3.0,
+          "effective": 3.0,
+          "tier": "Dart Throw",
+          "label": "D"
+        }
+      },
+      "consensus_score": 5.1,
+      "consensus_tier": "Dart Throw",
+      "consensus_method": "mean",
+      "score_range": 4.2,
+      "sources_in_band": 2,
+      "sources_loving": [],
+      "sources_fading": [],
+      "adp_sf": null,
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Jordyn Tyson",
+      "position": "WR",
+      "nfl_pick": 8,
+      "nfl_round": 1,
+      "nfl_team": "NOS",
+      "n_sources": 10,
+      "per_source": {
+        "barrett": {
+          "raw": 82.0,
+          "effective": 82.0,
+          "tier": "Elite Producer",
+          "label": "Tier 2"
+        },
+        "boone": {
+          "raw": 96.7,
+          "effective": 96.7,
+          "tier": "Legendary Performer",
+          "label": "Tier1"
+        },
+        "dlf": {
+          "raw": 91.7,
+          "effective": 91.7,
+          "tier": "Legendary Performer",
+          "label": "Tier2"
+        },
+        "elequin": {
+          "raw": 94.0,
+          "effective": 94.0,
+          "tier": "Legendary Performer",
+          "label": "Tier 1 - 94th Pct"
+        },
+        "fantasypros_aggregate": {
+          "raw": 96.7,
+          "effective": 96.7,
+          "tier": "Legendary Performer",
+          "label": "Tier1"
+        },
+        "jj": {
+          "raw": 96.2,
+          "effective": 96.2,
+          "tier": "Legendary Performer",
+          "label": ""
+        },
+        "kerrane": {
+          "raw": 60.0,
+          "effective": 60.0,
+          "tier": "Weekly Starter",
+          "label": "Tier 5-6 (Polarizing; Late 2nd)"
+        },
+        "koalaty": {
+          "raw": 95.2,
+          "effective": 95.2,
+          "tier": "Legendary Performer",
+          "label": "God"
+        },
+        "sanderson": {
+          "raw": 90.5,
+          "effective": 90.5,
+          "tier": "Legendary Performer",
+          "label": "Tier2"
+        },
+        "winks": {
+          "raw": 96.0,
+          "effective": 96.0,
+          "tier": "Legendary Performer",
+          "label": "Elite"
+        }
+      },
+      "consensus_score": 92.8,
+      "consensus_tier": "Legendary Performer",
+      "consensus_method": "trimmed_mean",
+      "score_range": 36.7,
+      "sources_in_band": 9,
+      "sources_loving": [],
+      "sources_fading": [
+        "kerrane"
+      ],
+      "adp_sf": "1.04",
+      "tice_nfl_context": {
+        "overall_rank": 18,
+        "tier": "Tier2"
+      }
+    },
+    {
+      "player_name": "Carnell Tate",
+      "position": "WR",
+      "nfl_pick": 4,
+      "nfl_round": 1,
+      "nfl_team": "TEN",
+      "n_sources": 10,
+      "per_source": {
+        "barrett": {
+          "raw": 92.0,
+          "effective": 92.0,
+          "tier": "Legendary Performer",
+          "label": "Tier 1 - Elite WR"
+        },
+        "boone": {
+          "raw": 98.9,
+          "effective": 98.9,
+          "tier": "Legendary Performer",
+          "label": "Tier1"
+        },
+        "dlf": {
+          "raw": 95.0,
+          "effective": 95.0,
+          "tier": "Legendary Performer",
+          "label": "Tier2"
+        },
+        "elequin": {
+          "raw": 75.0,
+          "effective": 75.0,
+          "tier": "Elite Producer",
+          "label": "Tier 2 - 94th Pct Career Success"
+        },
+        "fantasypros_aggregate": {
+          "raw": 98.3,
+          "effective": 98.3,
+          "tier": "Legendary Performer",
+          "label": "Tier1"
+        },
+        "jj": {
+          "raw": 88.3,
+          "effective": 88.3,
+          "tier": "Elite Producer",
+          "label": ""
+        },
+        "kerrane": {
+          "raw": 93.0,
+          "effective": 93.0,
+          "tier": "Legendary Performer",
+          "label": "Tier 1 - Downfield Alpha"
+        },
+        "koalaty": {
+          "raw": 90.1,
+          "effective": 90.1,
+          "tier": "Legendary Performer",
+          "label": "A"
+        },
+        "sanderson": {
+          "raw": 92.0,
+          "effective": 92.0,
+          "tier": "Legendary Performer",
+          "label": "Tier2"
+        },
+        "winks": {
+          "raw": 92.0,
+          "effective": 92.0,
+          "tier": "Legendary Performer",
+          "label": "Tier1"
+        }
+      },
+      "consensus_score": 92.6,
+      "consensus_tier": "Legendary Performer",
+      "consensus_method": "trimmed_mean",
+      "score_range": 23.9,
+      "sources_in_band": 10,
+      "sources_loving": [],
+      "sources_fading": [],
+      "adp_sf": "1.02",
+      "tice_nfl_context": {
+        "overall_rank": 10,
+        "tier": "Tier1"
+      }
+    },
+    {
+      "player_name": "Makai Lemon",
+      "position": "WR",
+      "nfl_pick": 20,
+      "nfl_round": 1,
+      "nfl_team": "PHI",
+      "n_sources": 10,
+      "per_source": {
+        "barrett": {
+          "raw": 72.0,
+          "effective": 72.0,
+          "tier": "Weekly Starter",
+          "label": "Tier 2"
+        },
+        "boone": {
+          "raw": 97.8,
+          "effective": 97.8,
+          "tier": "Legendary Performer",
+          "label": "Tier1"
+        },
+        "dlf": {
+          "raw": 88.3,
+          "effective": 88.3,
+          "tier": "Elite Producer",
+          "label": "Tier3"
+        },
+        "elequin": {
+          "raw": 78.0,
+          "effective": 78.0,
+          "tier": "Elite Producer",
+          "label": "Tier 2 - Class 2nd Efficiency"
+        },
+        "fantasypros_aggregate": {
+          "raw": 95.0,
+          "effective": 95.0,
+          "tier": "Legendary Performer",
+          "label": "Tier2"
+        },
+        "jj": {
+          "raw": 77.4,
+          "effective": 77.4,
+          "tier": "Elite Producer",
+          "label": ""
+        },
+        "kerrane": {
+          "raw": 87.0,
+          "effective": 87.0,
+          "tier": "Elite Producer",
+          "label": "Tier 2 - High-End Target Upside"
+        },
+        "koalaty": {
+          "raw": 90.4,
+          "effective": 90.4,
+          "tier": "Legendary Performer",
+          "label": "A"
+        },
+        "sanderson": {
+          "raw": 84.0,
+          "effective": 84.0,
+          "tier": "Elite Producer",
+          "label": "Tier3"
+        },
+        "winks": {
+          "raw": 77.8,
+          "effective": 77.8,
+          "tier": "Elite Producer",
+          "label": "Tier2"
+        }
+      },
+      "consensus_score": 84.7,
+      "consensus_tier": "Elite Producer",
+      "consensus_method": "trimmed_mean",
+      "score_range": 25.8,
+      "sources_in_band": 10,
+      "sources_loving": [],
+      "sources_fading": [],
+      "adp_sf": "1.05",
+      "tice_nfl_context": {
+        "overall_rank": 12,
+        "tier": "Tier1"
+      }
+    },
+    {
+      "player_name": "Eric Singleton Jr.",
+      "position": "WR",
+      "nfl_pick": null,
+      "nfl_round": null,
+      "nfl_team": "UDFA",
+      "n_sources": 1,
+      "per_source": {
+        "elequin": {
+          "raw": 82.0,
+          "effective": 82.0,
+          "tier": "Elite Producer",
+          "label": "Tier 2 - 76-95th Pct"
+        }
+      },
+      "consensus_score": 82.0,
+      "consensus_tier": "Elite Producer",
+      "consensus_method": "mean",
+      "score_range": 0,
+      "sources_in_band": 1,
+      "sources_loving": [],
+      "sources_fading": [],
+      "adp_sf": null,
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "KC Concepcion",
+      "position": "WR",
+      "nfl_pick": null,
+      "nfl_round": null,
+      "nfl_team": "UDFA",
+      "n_sources": 8,
+      "per_source": {
+        "boone": {
+          "raw": 94.4,
+          "effective": 94.4,
+          "tier": "Legendary Performer",
+          "label": "Tier2"
+        },
+        "dlf": {
+          "raw": 85.0,
+          "effective": 85.0,
+          "tier": "Elite Producer",
+          "label": "Tier3"
+        },
+        "fantasypros_aggregate": {
+          "raw": 93.3,
+          "effective": 93.3,
+          "tier": "Legendary Performer",
+          "label": "Tier2"
+        },
+        "jj": {
+          "raw": 75.4,
+          "effective": 75.4,
+          "tier": "Elite Producer",
+          "label": ""
+        },
+        "kerrane": {
+          "raw": 72.0,
+          "effective": 72.0,
+          "tier": "Weekly Starter",
+          "label": "Tier 3 - Phenom or Fraudulent"
+        },
+        "koalaty": {
+          "raw": 74.6,
+          "effective": 35.0,
+          "tier": "Benchwarmer",
+          "label": "B"
+        },
+        "sanderson": {
+          "raw": 80.0,
+          "effective": 80.0,
+          "tier": "Elite Producer",
+          "label": "Tier3"
+        },
+        "winks": {
+          "raw": 66.7,
+          "effective": 66.7,
+          "tier": "Weekly Starter",
+          "label": "Tier2"
+        }
+      },
+      "consensus_score": 78.7,
+      "consensus_tier": "Elite Producer",
+      "consensus_method": "trimmed_mean",
+      "score_range": 59.4,
+      "sources_in_band": 7,
+      "sources_loving": [],
+      "sources_fading": [
+        "koalaty"
+      ],
+      "adp_sf": "1.06",
+      "tice_nfl_context": {
+        "overall_rank": null,
+        "tier": "Tier3"
+      }
+    },
+    {
+      "player_name": "Omar Cooper Jr.",
+      "position": "WR",
+      "nfl_pick": 30,
+      "nfl_round": 1,
+      "nfl_team": "NYJ",
+      "n_sources": 8,
+      "per_source": {
+        "boone": {
+          "raw": 92.2,
+          "effective": 92.2,
+          "tier": "Legendary Performer",
+          "label": "Tier2"
+        },
+        "dlf": {
+          "raw": 75.0,
+          "effective": 75.0,
+          "tier": "Elite Producer",
+          "label": "Tier4"
+        },
+        "fantasypros_aggregate": {
+          "raw": 90.0,
+          "effective": 90.0,
+          "tier": "Legendary Performer",
+          "label": "Tier2"
+        },
+        "jj": {
+          "raw": 65.2,
+          "effective": 65.2,
+          "tier": "Weekly Starter",
+          "label": ""
+        },
+        "kerrane": {
+          "raw": 68.0,
+          "effective": 68.0,
+          "tier": "Weekly Starter",
+          "label": "Tier 4 - Round 1 Intrigue"
+        },
+        "koalaty": {
+          "raw": 93.4,
+          "effective": 93.4,
+          "tier": "Legendary Performer",
+          "label": "A"
+        },
+        "sanderson": {
+          "raw": 71.0,
+          "effective": 71.0,
+          "tier": "Weekly Starter",
+          "label": "Tier3"
+        },
+        "winks": {
+          "raw": 44.4,
+          "effective": 44.4,
+          "tier": "Flex Play",
+          "label": "Tier3"
+        }
+      },
+      "consensus_score": 76.9,
+      "consensus_tier": "Elite Producer",
+      "consensus_method": "trimmed_mean",
+      "score_range": 49.0,
+      "sources_in_band": 7,
+      "sources_loving": [],
+      "sources_fading": [
+        "winks"
+      ],
+      "adp_sf": "1.09",
+      "tice_nfl_context": {
+        "overall_rank": 21,
+        "tier": "Tier2"
+      }
+    },
+    {
+      "player_name": "Denzel Boston",
+      "position": "WR",
+      "nfl_pick": 39,
+      "nfl_round": 2,
+      "nfl_team": "CLE",
+      "n_sources": 8,
+      "per_source": {
+        "boone": {
+          "raw": 87.8,
+          "effective": 87.8,
+          "tier": "Elite Producer",
+          "label": "Tier2"
+        },
+        "dlf": {
+          "raw": 65.0,
+          "effective": 65.0,
+          "tier": "Weekly Starter",
+          "label": "Tier4"
+        },
+        "fantasypros_aggregate": {
+          "raw": 83.3,
+          "effective": 83.3,
+          "tier": "Elite Producer",
+          "label": "Tier3"
+        },
+        "jj": {
+          "raw": 62.3,
+          "effective": 62.3,
+          "tier": "Weekly Starter",
+          "label": ""
+        },
+        "kerrane": {
+          "raw": 62.0,
+          "effective": 62.0,
+          "tier": "Weekly Starter",
+          "label": "Tier 5 - Intriguing Traits"
+        },
+        "koalaty": {
+          "raw": 89.9,
+          "effective": 89.9,
+          "tier": "Elite Producer",
+          "label": "B"
+        },
+        "sanderson": {
+          "raw": 65.0,
+          "effective": 65.0,
+          "tier": "Weekly Starter",
+          "label": "Tier4"
+        },
+        "winks": {
+          "raw": 11.1,
+          "effective": 11.1,
+          "tier": "Dart Throw",
+          "label": "Tier3"
+        }
+      },
+      "consensus_score": 70.9,
+      "consensus_tier": "Weekly Starter",
+      "consensus_method": "trimmed_mean",
+      "score_range": 78.8,
+      "sources_in_band": 7,
+      "sources_loving": [],
+      "sources_fading": [
+        "winks"
+      ],
+      "adp_sf": "1.10",
+      "tice_nfl_context": {
+        "overall_rank": 27,
+        "tier": "Tier3"
+      }
+    },
+    {
+      "player_name": "Germie Bernard",
+      "position": "WR",
+      "nfl_pick": 47,
+      "nfl_round": 2,
+      "nfl_team": "PIT",
+      "n_sources": 7,
+      "per_source": {
+        "boone": {
+          "raw": 81.1,
+          "effective": 81.1,
+          "tier": "Elite Producer",
+          "label": "Tier2"
+        },
+        "dlf": {
+          "raw": 51.7,
+          "effective": 51.7,
+          "tier": "Flex Play",
+          "label": "Tier5"
+        },
+        "fantasypros_aggregate": {
+          "raw": 81.7,
+          "effective": 81.7,
+          "tier": "Elite Producer",
+          "label": "Tier3"
+        },
+        "jj": {
+          "raw": 64.8,
+          "effective": 64.8,
+          "tier": "Weekly Starter",
+          "label": ""
+        },
+        "kerrane": {
+          "raw": 48.0,
+          "effective": 48.0,
+          "tier": "Flex Play",
+          "label": "Tier 6 (Implied)"
+        },
+        "koalaty": {
+          "raw": 78.5,
+          "effective": 78.5,
+          "tier": "Elite Producer",
+          "label": "C"
+        },
+        "sanderson": {
+          "raw": 56.0,
+          "effective": 56.0,
+          "tier": "Flex Play",
+          "label": "Tier4"
+        }
+      },
+      "consensus_score": 66.4,
+      "consensus_tier": "Weekly Starter",
+      "consensus_method": "trimmed_mean",
+      "score_range": 33.7,
+      "sources_in_band": 7,
+      "sources_loving": [],
+      "sources_fading": [],
+      "adp_sf": "2.04",
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Eugene Wilson III",
+      "position": "WR",
+      "nfl_pick": null,
+      "nfl_round": null,
+      "nfl_team": "UDFA",
+      "n_sources": 1,
+      "per_source": {
+        "elequin": {
+          "raw": 65.0,
+          "effective": 65.0,
+          "tier": "Weekly Starter",
+          "label": "Tier 3 - 2nd Exp-Adj Behind Tyson"
+        }
+      },
+      "consensus_score": 65.0,
+      "consensus_tier": "Weekly Starter",
+      "consensus_method": "mean",
+      "score_range": 0,
+      "sources_in_band": 1,
+      "sources_loving": [],
+      "sources_fading": [],
+      "adp_sf": null,
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Elijah Sarratt",
+      "position": "WR",
+      "nfl_pick": 115,
+      "nfl_round": 4,
+      "nfl_team": "BAL",
+      "n_sources": 4,
+      "per_source": {
+        "boone": {
+          "raw": 68.9,
+          "effective": 68.9,
+          "tier": "Weekly Starter",
+          "label": "Tier3"
+        },
+        "fantasypros_aggregate": {
+          "raw": 58.3,
+          "effective": 58.3,
+          "tier": "Flex Play",
+          "label": "Tier4"
+        },
+        "jj": {
+          "raw": 40.1,
+          "effective": 40.1,
+          "tier": "Flex Play",
+          "label": ""
+        },
+        "koalaty": {
+          "raw": 79.7,
+          "effective": 79.7,
+          "tier": "Elite Producer",
+          "label": "C"
+        }
+      },
+      "consensus_score": 63.6,
+      "consensus_tier": "Weekly Starter",
+      "consensus_method": "trimmed_mean",
+      "score_range": 39.6,
+      "sources_in_band": 4,
+      "sources_loving": [],
+      "sources_fading": [],
+      "adp_sf": "2.05",
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Antonio Williams",
+      "position": "WR",
+      "nfl_pick": null,
+      "nfl_round": null,
+      "nfl_team": "UDFA",
+      "n_sources": 8,
+      "per_source": {
+        "boone": {
+          "raw": 86.7,
+          "effective": 86.7,
+          "tier": "Elite Producer",
+          "label": "Tier2"
+        },
+        "dlf": {
+          "raw": 55.0,
+          "effective": 55.0,
+          "tier": "Flex Play",
+          "label": "Tier5"
+        },
+        "elequin": {
+          "raw": 40.0,
+          "effective": 40.0,
+          "tier": "Flex Play",
+          "label": "Tier 4 - Sub-Elite Analytics"
+        },
+        "fantasypros_aggregate": {
+          "raw": 80.0,
+          "effective": 80.0,
+          "tier": "Elite Producer",
+          "label": "Tier3"
+        },
+        "jj": {
+          "raw": 53.3,
+          "effective": 53.3,
+          "tier": "Flex Play",
+          "label": ""
+        },
+        "koalaty": {
+          "raw": 63.9,
+          "effective": 35.0,
+          "tier": "Benchwarmer",
+          "label": "C"
+        },
+        "sanderson": {
+          "raw": 59.0,
+          "effective": 59.0,
+          "tier": "Flex Play",
+          "label": "Tier4"
+        },
+        "winks": {
+          "raw": 55.6,
+          "effective": 55.6,
+          "tier": "Flex Play",
+          "label": "Tier3"
+        }
+      },
+      "consensus_score": 57.1,
+      "consensus_tier": "Flex Play",
+      "consensus_method": "trimmed_mean",
+      "score_range": 51.7,
+      "sources_in_band": 6,
+      "sources_loving": [
+        "boone",
+        "fantasypros_aggregate"
+      ],
+      "sources_fading": [],
+      "adp_sf": "3.02",
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "CJ Williams",
+      "position": "WR",
+      "nfl_pick": null,
+      "nfl_round": null,
+      "nfl_team": "UDFA",
+      "n_sources": 8,
+      "per_source": {
+        "boone": {
+          "raw": 86.7,
+          "effective": 86.7,
+          "tier": "Elite Producer",
+          "label": "Tier2"
+        },
+        "dlf": {
+          "raw": 55.0,
+          "effective": 55.0,
+          "tier": "Flex Play",
+          "label": "Tier5"
+        },
+        "elequin": {
+          "raw": 40.0,
+          "effective": 40.0,
+          "tier": "Flex Play",
+          "label": "Tier 4 - Sub-Elite Analytics"
+        },
+        "fantasypros_aggregate": {
+          "raw": 80.0,
+          "effective": 80.0,
+          "tier": "Elite Producer",
+          "label": "Tier3"
+        },
+        "jj": {
+          "raw": 53.3,
+          "effective": 53.3,
+          "tier": "Flex Play",
+          "label": ""
+        },
+        "koalaty": {
+          "raw": 3.9,
+          "effective": 3.9,
+          "tier": "Dart Throw",
+          "label": ""
+        },
+        "sanderson": {
+          "raw": 59.0,
+          "effective": 59.0,
+          "tier": "Flex Play",
+          "label": "Tier4"
+        },
+        "winks": {
+          "raw": 55.6,
+          "effective": 55.6,
+          "tier": "Flex Play",
+          "label": "Tier3"
+        }
+      },
+      "consensus_score": 57.1,
+      "consensus_tier": "Flex Play",
+      "consensus_method": "trimmed_mean",
+      "score_range": 82.8,
+      "sources_in_band": 5,
+      "sources_loving": [
+        "boone",
+        "fantasypros_aggregate"
+      ],
+      "sources_fading": [
+        "koalaty"
+      ],
+      "adp_sf": "3.02",
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Zachariah Branch",
+      "position": "WR",
+      "nfl_pick": 79,
+      "nfl_round": 3,
+      "nfl_team": "ATL",
+      "n_sources": 5,
+      "per_source": {
+        "boone": {
+          "raw": 75.6,
+          "effective": 75.6,
+          "tier": "Elite Producer",
+          "label": "Tier3"
+        },
+        "fantasypros_aggregate": {
+          "raw": 61.7,
+          "effective": 61.7,
+          "tier": "Weekly Starter",
+          "label": "Tier4"
+        },
+        "jj": {
+          "raw": 49.1,
+          "effective": 49.1,
+          "tier": "Flex Play",
+          "label": ""
+        },
+        "kerrane": {
+          "raw": 38.0,
+          "effective": 38.0,
+          "tier": "Benchwarmer",
+          "label": "Tier 7 (Implied)"
+        },
+        "koalaty": {
+          "raw": 55.8,
+          "effective": 55.8,
+          "tier": "Flex Play",
+          "label": "D+"
+        }
+      },
+      "consensus_score": 55.5,
+      "consensus_tier": "Flex Play",
+      "consensus_method": "trimmed_mean",
+      "score_range": 37.6,
+      "sources_in_band": 4,
+      "sources_loving": [
+        "boone"
+      ],
+      "sources_fading": [],
+      "adp_sf": "2.09",
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Malachi Fields",
+      "position": "WR",
+      "nfl_pick": 74,
+      "nfl_round": 3,
+      "nfl_team": "NYG",
+      "n_sources": 7,
+      "per_source": {
+        "boone": {
+          "raw": 78.9,
+          "effective": 78.9,
+          "tier": "Elite Producer",
+          "label": "Tier3"
+        },
+        "dlf": {
+          "raw": 41.7,
+          "effective": 41.7,
+          "tier": "Flex Play",
+          "label": "Tier5"
+        },
+        "fantasypros_aggregate": {
+          "raw": 73.3,
+          "effective": 73.3,
+          "tier": "Weekly Starter",
+          "label": "Tier3"
+        },
+        "jj": {
+          "raw": 46.7,
+          "effective": 46.7,
+          "tier": "Flex Play",
+          "label": ""
+        },
+        "kerrane": {
+          "raw": 42.0,
+          "effective": 42.0,
+          "tier": "Flex Play",
+          "label": "Tier 6-7 (Implied)"
+        },
+        "koalaty": {
+          "raw": 60.3,
+          "effective": 60.3,
+          "tier": "Weekly Starter",
+          "label": "C"
+        },
+        "sanderson": {
+          "raw": 50.0,
+          "effective": 50.0,
+          "tier": "Flex Play",
+          "label": "Tier4"
+        }
+      },
+      "consensus_score": 54.5,
+      "consensus_tier": "Flex Play",
+      "consensus_method": "trimmed_mean",
+      "score_range": 37.2,
+      "sources_in_band": 6,
+      "sources_loving": [
+        "boone"
+      ],
+      "sources_fading": [],
+      "adp_sf": "2.08",
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Ted Hurst",
+      "position": "WR",
+      "nfl_pick": 84,
+      "nfl_round": 3,
+      "nfl_team": "TBB",
+      "n_sources": 4,
+      "per_source": {
+        "boone": {
+          "raw": 70.0,
+          "effective": 70.0,
+          "tier": "Weekly Starter",
+          "label": "Tier3"
+        },
+        "fantasypros_aggregate": {
+          "raw": 63.3,
+          "effective": 63.3,
+          "tier": "Weekly Starter",
+          "label": "Tier4"
+        },
+        "jj": {
+          "raw": 45.6,
+          "effective": 45.6,
+          "tier": "Flex Play",
+          "label": ""
+        },
+        "koalaty": {
+          "raw": 40.6,
+          "effective": 40.6,
+          "tier": "Flex Play",
+          "label": "D"
+        }
+      },
+      "consensus_score": 54.5,
+      "consensus_tier": "Flex Play",
+      "consensus_method": "trimmed_mean",
+      "score_range": 29.4,
+      "sources_in_band": 4,
+      "sources_loving": [],
+      "sources_fading": [],
+      "adp_sf": "3.05",
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Ja'Kobi Lane",
+      "position": "WR",
+      "nfl_pick": 80,
+      "nfl_round": 3,
+      "nfl_team": "BAL",
+      "n_sources": 5,
+      "per_source": {
+        "boone": {
+          "raw": 66.7,
+          "effective": 66.7,
+          "tier": "Weekly Starter",
+          "label": "Tier3"
+        },
+        "fantasypros_aggregate": {
+          "raw": 65.0,
+          "effective": 65.0,
+          "tier": "Weekly Starter",
+          "label": "Tier4"
+        },
+        "jj": {
+          "raw": 54.4,
+          "effective": 54.4,
+          "tier": "Flex Play",
+          "label": ""
+        },
+        "kerrane": {
+          "raw": 35.0,
+          "effective": 35.0,
+          "tier": "Benchwarmer",
+          "label": "Tier 7 (Implied)"
+        },
+        "koalaty": {
+          "raw": 41.5,
+          "effective": 41.5,
+          "tier": "Flex Play",
+          "label": "D"
+        }
+      },
+      "consensus_score": 53.6,
+      "consensus_tier": "Flex Play",
+      "consensus_method": "trimmed_mean",
+      "score_range": 31.7,
+      "sources_in_band": 5,
+      "sources_loving": [],
+      "sources_fading": [],
+      "adp_sf": "2.12",
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Chris Brazzell II",
+      "position": "WR",
+      "nfl_pick": 83,
+      "nfl_round": 3,
+      "nfl_team": "CAR",
+      "n_sources": 6,
+      "per_source": {
+        "boone": {
+          "raw": 67.8,
+          "effective": 67.8,
+          "tier": "Weekly Starter",
+          "label": "Tier3"
+        },
+        "dlf": {
+          "raw": 48.3,
+          "effective": 48.3,
+          "tier": "Flex Play",
+          "label": "Tier5"
+        },
+        "fantasypros_aggregate": {
+          "raw": 75.0,
+          "effective": 75.0,
+          "tier": "Elite Producer",
+          "label": "Tier3"
+        },
+        "jj": {
+          "raw": 46.5,
+          "effective": 46.5,
+          "tier": "Flex Play",
+          "label": ""
+        },
+        "koalaty": {
+          "raw": 47.5,
+          "effective": 47.5,
+          "tier": "Flex Play",
+          "label": "D+"
+        },
+        "sanderson": {
+          "raw": 47.0,
+          "effective": 47.0,
+          "tier": "Flex Play",
+          "label": "Tier4"
+        }
+      },
+      "consensus_score": 52.6,
+      "consensus_tier": "Flex Play",
+      "consensus_method": "trimmed_mean",
+      "score_range": 28.5,
+      "sources_in_band": 5,
+      "sources_loving": [
+        "fantasypros_aggregate"
+      ],
+      "sources_fading": [],
+      "adp_sf": "2.06",
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Chris Bell",
+      "position": "WR",
+      "nfl_pick": null,
+      "nfl_round": null,
+      "nfl_team": "UDFA",
+      "n_sources": 7,
+      "per_source": {
+        "boone": {
+          "raw": 84.4,
+          "effective": 84.4,
+          "tier": "Elite Producer",
+          "label": "Tier2"
+        },
+        "dlf": {
+          "raw": 45.0,
+          "effective": 45.0,
+          "tier": "Flex Play",
+          "label": "Tier5"
+        },
+        "fantasypros_aggregate": {
+          "raw": 76.7,
+          "effective": 76.7,
+          "tier": "Elite Producer",
+          "label": "Tier3"
+        },
+        "jj": {
+          "raw": 42.9,
+          "effective": 42.9,
+          "tier": "Flex Play",
+          "label": ""
+        },
+        "koalaty": {
+          "raw": 52.8,
+          "effective": 35.0,
+          "tier": "Benchwarmer",
+          "label": "D+"
+        },
+        "sanderson": {
+          "raw": 53.0,
+          "effective": 53.0,
+          "tier": "Flex Play",
+          "label": "Tier4"
+        },
+        "winks": {
+          "raw": 22.2,
+          "effective": 22.2,
+          "tier": "Waiver Wire Add",
+          "label": "Tier3"
+        }
+      },
+      "consensus_score": 50.5,
+      "consensus_tier": "Flex Play",
+      "consensus_method": "trimmed_mean",
+      "score_range": 62.2,
+      "sources_in_band": 4,
+      "sources_loving": [
+        "boone",
+        "fantasypros_aggregate"
+      ],
+      "sources_fading": [
+        "winks"
+      ],
+      "adp_sf": "2.03",
+      "tice_nfl_context": {
+        "overall_rank": 49,
+        "tier": "Tier4"
+      }
+    },
+    {
+      "player_name": "De'Zhaun Stribling",
+      "position": "WR",
+      "nfl_pick": 33,
+      "nfl_round": 2,
+      "nfl_team": "SFO",
+      "n_sources": 8,
+      "per_source": {
+        "boone": {
+          "raw": 83.3,
+          "effective": 83.3,
+          "tier": "Elite Producer",
+          "label": "Tier2"
+        },
+        "dlf": {
+          "raw": 25.0,
+          "effective": 25.0,
+          "tier": "Waiver Wire Add",
+          "label": "Tier5"
+        },
+        "fantasypros_aggregate": {
+          "raw": 70.0,
+          "effective": 70.0,
+          "tier": "Weekly Starter",
+          "label": "Tier3"
+        },
+        "jj": {
+          "raw": 58.7,
+          "effective": 58.7,
+          "tier": "Flex Play",
+          "label": ""
+        },
+        "kerrane": {
+          "raw": 52.0,
+          "effective": 52.0,
+          "tier": "Flex Play",
+          "label": "Tier 6 (Implied; Day 2 Capital)"
+        },
+        "koalaty": {
+          "raw": 49.9,
+          "effective": 49.9,
+          "tier": "Flex Play",
+          "label": "D+"
+        },
+        "sanderson": {
+          "raw": 38.0,
+          "effective": 38.0,
+          "tier": "Benchwarmer",
+          "label": "Tier5"
+        },
+        "winks": {
+          "raw": 33.3,
+          "effective": 33.3,
+          "tier": "Benchwarmer",
+          "label": "Tier3"
+        }
+      },
+      "consensus_score": 50.3,
+      "consensus_tier": "Flex Play",
+      "consensus_method": "trimmed_mean",
+      "score_range": 58.3,
+      "sources_in_band": 6,
+      "sources_loving": [
+        "boone"
+      ],
+      "sources_fading": [
+        "dlf"
+      ],
+      "adp_sf": "1.12",
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Skyler Bell",
+      "position": "WR",
+      "nfl_pick": null,
+      "nfl_round": null,
+      "nfl_team": "UDFA",
+      "n_sources": 4,
+      "per_source": {
+        "boone": {
+          "raw": 65.6,
+          "effective": 65.6,
+          "tier": "Weekly Starter",
+          "label": "Tier3"
+        },
+        "fantasypros_aggregate": {
+          "raw": 56.7,
+          "effective": 56.7,
+          "tier": "Flex Play",
+          "label": "Tier4"
+        },
+        "jj": {
+          "raw": 34.3,
+          "effective": 34.3,
+          "tier": "Benchwarmer",
+          "label": ""
+        },
+        "koalaty": {
+          "raw": 43.9,
+          "effective": 35.0,
+          "tier": "Benchwarmer",
+          "label": "D"
+        }
+      },
+      "consensus_score": 45.9,
+      "consensus_tier": "Flex Play",
+      "consensus_method": "trimmed_mean",
+      "score_range": 31.3,
+      "sources_in_band": 4,
+      "sources_loving": [],
+      "sources_fading": [],
+      "adp_sf": "2.11",
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Bryce Lance",
+      "position": "WR",
+      "nfl_pick": 136,
+      "nfl_round": 4,
+      "nfl_team": "NOS",
+      "n_sources": 4,
+      "per_source": {
+        "boone": {
+          "raw": 54.4,
+          "effective": 54.4,
+          "tier": "Flex Play",
+          "label": "Tier4"
+        },
+        "fantasypros_aggregate": {
+          "raw": 51.7,
+          "effective": 51.7,
+          "tier": "Flex Play",
+          "label": "Tier4"
+        },
+        "jj": {
+          "raw": 31.3,
+          "effective": 31.3,
+          "tier": "Benchwarmer",
+          "label": ""
+        },
+        "sanderson": {
+          "raw": 23.0,
+          "effective": 23.0,
+          "tier": "Waiver Wire Add",
+          "label": "Tier5"
+        }
+      },
+      "consensus_score": 41.5,
+      "consensus_tier": "Flex Play",
+      "consensus_method": "trimmed_mean",
+      "score_range": 31.4,
+      "sources_in_band": 3,
+      "sources_loving": [],
+      "sources_fading": [
+        "sanderson"
+      ],
+      "adp_sf": "2.03",
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Kevin Coleman Jr.",
+      "position": "WR",
+      "nfl_pick": 177,
+      "nfl_round": 5,
+      "nfl_team": "MIA",
+      "n_sources": 4,
+      "per_source": {
+        "boone": {
+          "raw": 53.3,
+          "effective": 53.3,
+          "tier": "Flex Play",
+          "label": "Tier4"
+        },
+        "fantasypros_aggregate": {
+          "raw": 35.0,
+          "effective": 35.0,
+          "tier": "Benchwarmer",
+          "label": "Tier5"
+        },
+        "jj": {
+          "raw": 29.8,
+          "effective": 29.8,
+          "tier": "Waiver Wire Add",
+          "label": ""
+        },
+        "koalaty": {
+          "raw": 46.9,
+          "effective": 46.9,
+          "tier": "Flex Play",
+          "label": "D"
+        }
+      },
+      "consensus_score": 41.0,
+      "consensus_tier": "Flex Play",
+      "consensus_method": "trimmed_mean",
+      "score_range": 23.5,
+      "sources_in_band": 3,
+      "sources_loving": [],
+      "sources_fading": [
+        "jj"
+      ],
+      "adp_sf": "3.06",
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "CJ Daniels",
+      "position": "WR",
+      "nfl_pick": null,
+      "nfl_round": null,
+      "nfl_team": "UDFA",
+      "n_sources": 2,
+      "per_source": {
+        "boone": {
+          "raw": 40.0,
+          "effective": 40.0,
+          "tier": "Flex Play",
+          "label": "Tier4"
+        },
+        "koalaty": {
+          "raw": 38.5,
+          "effective": 35.0,
+          "tier": "Benchwarmer",
+          "label": ""
+        }
+      },
+      "consensus_score": 37.5,
+      "consensus_tier": "Benchwarmer",
+      "consensus_method": "mean",
+      "score_range": 5.0,
+      "sources_in_band": 2,
+      "sources_loving": [],
+      "sources_fading": [],
+      "adp_sf": null,
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Caleb Douglas",
+      "position": "WR",
+      "nfl_pick": 75,
+      "nfl_round": 3,
+      "nfl_team": "MIA",
+      "n_sources": 5,
+      "per_source": {
+        "boone": {
+          "raw": 58.9,
+          "effective": 58.9,
+          "tier": "Flex Play",
+          "label": "Tier3"
+        },
+        "fantasypros_aggregate": {
+          "raw": 10.0,
+          "effective": 10.0,
+          "tier": "Dart Throw",
+          "label": "Tier6"
+        },
+        "jj": {
+          "raw": 47.2,
+          "effective": 47.2,
+          "tier": "Flex Play",
+          "label": ""
+        },
+        "kerrane": {
+          "raw": 30.0,
+          "effective": 30.0,
+          "tier": "Benchwarmer",
+          "label": "Tier 7 (Implied)"
+        },
+        "koalaty": {
+          "raw": 27.2,
+          "effective": 27.2,
+          "tier": "Waiver Wire Add",
+          "label": "D"
+        }
+      },
+      "consensus_score": 34.8,
+      "consensus_tier": "Benchwarmer",
+      "consensus_method": "trimmed_mean",
+      "score_range": 48.9,
+      "sources_in_band": 4,
+      "sources_loving": [],
+      "sources_fading": [
+        "fantasypros_aggregate"
+      ],
+      "adp_sf": null,
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Brenen Thompson",
+      "position": "WR",
+      "nfl_pick": 105,
+      "nfl_round": 4,
+      "nfl_team": "LAC",
+      "n_sources": 4,
+      "per_source": {
+        "boone": {
+          "raw": 57.8,
+          "effective": 57.8,
+          "tier": "Flex Play",
+          "label": "Tier3"
+        },
+        "fantasypros_aggregate": {
+          "raw": 33.3,
+          "effective": 33.3,
+          "tier": "Benchwarmer",
+          "label": "Tier5"
+        },
+        "jj": {
+          "raw": 33.8,
+          "effective": 33.8,
+          "tier": "Benchwarmer",
+          "label": ""
+        },
+        "koalaty": {
+          "raw": 24.5,
+          "effective": 24.5,
+          "tier": "Waiver Wire Add",
+          "label": ""
+        }
+      },
+      "consensus_score": 33.5,
+      "consensus_tier": "Benchwarmer",
+      "consensus_method": "trimmed_mean",
+      "score_range": 33.3,
+      "sources_in_band": 4,
+      "sources_loving": [],
+      "sources_fading": [],
+      "adp_sf": null,
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Cyrus Allen",
+      "position": "WR",
+      "nfl_pick": 176,
+      "nfl_round": 5,
+      "nfl_team": "KCC",
+      "n_sources": 2,
+      "per_source": {
+        "boone": {
+          "raw": 45.6,
+          "effective": 45.6,
+          "tier": "Flex Play",
+          "label": "Tier4"
+        },
+        "koalaty": {
+          "raw": 21.2,
+          "effective": 21.2,
+          "tier": "Waiver Wire Add",
+          "label": ""
+        }
+      },
+      "consensus_score": 33.4,
+      "consensus_tier": "Benchwarmer",
+      "consensus_method": "mean",
+      "score_range": 24.4,
+      "sources_in_band": 2,
+      "sources_loving": [],
+      "sources_fading": [],
+      "adp_sf": null,
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Deion Burks",
+      "position": "WR",
+      "nfl_pick": null,
+      "nfl_round": null,
+      "nfl_team": "UDFA",
+      "n_sources": 2,
+      "per_source": {
+        "boone": {
+          "raw": 43.3,
+          "effective": 43.3,
+          "tier": "Flex Play",
+          "label": "Tier4"
+        },
+        "fantasypros_aggregate": {
+          "raw": 15.0,
+          "effective": 15.0,
+          "tier": "Dart Throw",
+          "label": "Tier6"
+        }
+      },
+      "consensus_score": 29.1,
+      "consensus_tier": "Waiver Wire Add",
+      "consensus_method": "mean",
+      "score_range": 28.3,
+      "sources_in_band": 1,
+      "sources_loving": [
+        "boone"
+      ],
+      "sources_fading": [],
+      "adp_sf": null,
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Malik Benson",
+      "position": "WR",
+      "nfl_pick": 195,
+      "nfl_round": 6,
+      "nfl_team": "LVR",
+      "n_sources": 2,
+      "per_source": {
+        "boone": {
+          "raw": 44.4,
+          "effective": 44.4,
+          "tier": "Flex Play",
+          "label": "Tier4"
+        },
+        "koalaty": {
+          "raw": 11.3,
+          "effective": 11.3,
+          "tier": "Dart Throw",
+          "label": ""
+        }
+      },
+      "consensus_score": 27.9,
+      "consensus_tier": "Waiver Wire Add",
+      "consensus_method": "mean",
+      "score_range": 33.1,
+      "sources_in_band": 1,
+      "sources_loving": [
+        "boone"
+      ],
+      "sources_fading": [],
+      "adp_sf": null,
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Zavion Thomas",
+      "position": "WR",
+      "nfl_pick": 89,
+      "nfl_round": 3,
+      "nfl_team": "CHI",
+      "n_sources": 4,
+      "per_source": {
+        "boone": {
+          "raw": 46.7,
+          "effective": 46.7,
+          "tier": "Flex Play",
+          "label": "Tier4"
+        },
+        "fantasypros_aggregate": {
+          "raw": 5.0,
+          "effective": 5.0,
+          "tier": "Dart Throw",
+          "label": "Tier6"
+        },
+        "jj": {
+          "raw": 40.7,
+          "effective": 40.7,
+          "tier": "Flex Play",
+          "label": ""
+        },
+        "koalaty": {
+          "raw": 11.6,
+          "effective": 11.6,
+          "tier": "Dart Throw",
+          "label": ""
+        }
+      },
+      "consensus_score": 26.2,
+      "consensus_tier": "Waiver Wire Add",
+      "consensus_method": "trimmed_mean",
+      "score_range": 41.7,
+      "sources_in_band": 2,
+      "sources_loving": [
+        "boone",
+        "jj"
+      ],
+      "sources_fading": [],
+      "adp_sf": null,
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Kaden Wetjen",
+      "position": "WR",
+      "nfl_pick": 121,
+      "nfl_round": 4,
+      "nfl_team": "PIT",
+      "n_sources": 2,
+      "per_source": {
+        "boone": {
+          "raw": 21.1,
+          "effective": 21.1,
+          "tier": "Waiver Wire Add",
+          "label": "Tier4"
+        },
+        "jj": {
+          "raw": 27.9,
+          "effective": 27.9,
+          "tier": "Waiver Wire Add",
+          "label": ""
+        }
+      },
+      "consensus_score": 24.5,
+      "consensus_tier": "Waiver Wire Add",
+      "consensus_method": "mean",
+      "score_range": 6.8,
+      "sources_in_band": 2,
+      "sources_loving": [],
+      "sources_fading": [],
+      "adp_sf": null,
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Reggie Virgil",
+      "position": "WR",
+      "nfl_pick": 143,
+      "nfl_round": 5,
+      "nfl_team": "ARI",
+      "n_sources": 4,
+      "per_source": {
+        "boone": {
+          "raw": 23.3,
+          "effective": 23.3,
+          "tier": "Waiver Wire Add",
+          "label": "Tier4"
+        },
+        "fantasypros_aggregate": {
+          "raw": 13.3,
+          "effective": 13.3,
+          "tier": "Dart Throw",
+          "label": "Tier6"
+        },
+        "jj": {
+          "raw": 35.2,
+          "effective": 35.2,
+          "tier": "Benchwarmer",
+          "label": ""
+        },
+        "koalaty": {
+          "raw": 20.9,
+          "effective": 20.9,
+          "tier": "Waiver Wire Add",
+          "label": ""
+        }
+      },
+      "consensus_score": 22.1,
+      "consensus_tier": "Waiver Wire Add",
+      "consensus_method": "trimmed_mean",
+      "score_range": 21.9,
+      "sources_in_band": 4,
+      "sources_loving": [],
+      "sources_fading": [],
+      "adp_sf": null,
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Barion Brown",
+      "position": "WR",
+      "nfl_pick": 190,
+      "nfl_round": 6,
+      "nfl_team": "NOS",
+      "n_sources": 3,
+      "per_source": {
+        "boone": {
+          "raw": 18.9,
+          "effective": 18.9,
+          "tier": "Dart Throw",
+          "label": "Tier4"
+        },
+        "jj": {
+          "raw": 30.8,
+          "effective": 30.8,
+          "tier": "Benchwarmer",
+          "label": ""
+        },
+        "koalaty": {
+          "raw": 12.5,
+          "effective": 12.5,
+          "tier": "Dart Throw",
+          "label": ""
+        }
+      },
+      "consensus_score": 20.7,
+      "consensus_tier": "Waiver Wire Add",
+      "consensus_method": "mean",
+      "score_range": 18.3,
+      "sources_in_band": 3,
+      "sources_loving": [],
+      "sources_fading": [],
+      "adp_sf": null,
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Colbie Young",
+      "position": "WR",
+      "nfl_pick": 140,
+      "nfl_round": 4,
+      "nfl_team": "CIN",
+      "n_sources": 2,
+      "per_source": {
+        "boone": {
+          "raw": 17.8,
+          "effective": 17.8,
+          "tier": "Dart Throw",
+          "label": "Tier4"
+        },
+        "koalaty": {
+          "raw": 14.3,
+          "effective": 14.3,
+          "tier": "Dart Throw",
+          "label": ""
+        }
+      },
+      "consensus_score": 16.1,
+      "consensus_tier": "Dart Throw",
+      "consensus_method": "mean",
+      "score_range": 3.5,
+      "sources_in_band": 2,
+      "sources_loving": [],
+      "sources_fading": [],
+      "adp_sf": null,
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Jeff Caldwell",
+      "position": "WR",
+      "nfl_pick": null,
+      "nfl_round": null,
+      "nfl_team": "UDFA",
+      "n_sources": 1,
+      "per_source": {
+        "boone": {
+          "raw": 14.4,
+          "effective": 14.4,
+          "tier": "Dart Throw",
+          "label": "Tier4"
+        }
+      },
+      "consensus_score": 14.4,
+      "consensus_tier": "Dart Throw",
+      "consensus_method": "mean",
+      "score_range": 0,
+      "sources_in_band": 1,
+      "sources_loving": [],
+      "sources_fading": [],
+      "adp_sf": null,
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Josh Cameron",
+      "position": "WR",
+      "nfl_pick": 191,
+      "nfl_round": 6,
+      "nfl_team": "JAX",
+      "n_sources": 3,
+      "per_source": {
+        "boone": {
+          "raw": 13.3,
+          "effective": 13.3,
+          "tier": "Dart Throw",
+          "label": "Tier4"
+        },
+        "fantasypros_aggregate": {
+          "raw": 6.7,
+          "effective": 6.7,
+          "tier": "Dart Throw",
+          "label": "Tier6"
+        },
+        "koalaty": {
+          "raw": 23.0,
+          "effective": 23.0,
+          "tier": "Waiver Wire Add",
+          "label": ""
+        }
+      },
+      "consensus_score": 14.3,
+      "consensus_tier": "Dart Throw",
+      "consensus_method": "mean",
+      "score_range": 16.3,
+      "sources_in_band": 3,
+      "sources_loving": [],
+      "sources_fading": [],
+      "adp_sf": null,
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Kendrick Law",
+      "position": "WR",
+      "nfl_pick": null,
+      "nfl_round": null,
+      "nfl_team": "UDFA",
+      "n_sources": 3,
+      "per_source": {
+        "boone": {
+          "raw": 20.0,
+          "effective": 20.0,
+          "tier": "Waiver Wire Add",
+          "label": "Tier4"
+        },
+        "fantasypros_aggregate": {
+          "raw": 3.3,
+          "effective": 3.3,
+          "tier": "Dart Throw",
+          "label": "Tier6"
+        },
+        "koalaty": {
+          "raw": 8.1,
+          "effective": 8.1,
+          "tier": "Dart Throw",
+          "label": ""
+        }
+      },
+      "consensus_score": 10.5,
+      "consensus_tier": "Dart Throw",
+      "consensus_method": "mean",
+      "score_range": 16.7,
+      "sources_in_band": 3,
+      "sources_loving": [],
+      "sources_fading": [],
+      "adp_sf": null,
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Emmanuel Henderson Jr.",
+      "position": "WR",
+      "nfl_pick": 199,
+      "nfl_round": 6,
+      "nfl_team": "SEA",
+      "n_sources": 2,
+      "per_source": {
+        "boone": {
+          "raw": 1.1,
+          "effective": 1.1,
+          "tier": "Dart Throw",
+          "label": "Tier4"
+        },
+        "koalaty": {
+          "raw": 10.7,
+          "effective": 10.7,
+          "tier": "Dart Throw",
+          "label": ""
+        }
+      },
+      "consensus_score": 5.9,
+      "consensus_tier": "Dart Throw",
+      "consensus_method": "mean",
+      "score_range": 9.6,
+      "sources_in_band": 2,
+      "sources_loving": [],
+      "sources_fading": [],
+      "adp_sf": null,
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Lewis Bond",
+      "position": "WR",
+      "nfl_pick": 204,
+      "nfl_round": 6,
+      "nfl_team": "HOU",
+      "n_sources": 1,
+      "per_source": {
+        "koalaty": {
+          "raw": 1.5,
+          "effective": 1.5,
+          "tier": "Dart Throw",
+          "label": ""
+        }
+      },
+      "consensus_score": 1.5,
+      "consensus_tier": "Dart Throw",
+      "consensus_method": "mean",
+      "score_range": 0,
+      "sources_in_band": 1,
+      "sources_loving": [],
+      "sources_fading": [],
+      "adp_sf": null,
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Anthony Smith",
+      "position": "WR",
+      "nfl_pick": 218,
+      "nfl_round": 7,
+      "nfl_team": "DAL",
+      "n_sources": 1,
+      "per_source": {
+        "koalaty": {
+          "raw": 0.6,
+          "effective": 0.6,
+          "tier": "Dart Throw",
+          "label": ""
+        }
+      },
+      "consensus_score": 0.6,
+      "consensus_tier": "Dart Throw",
+      "consensus_method": "mean",
+      "score_range": 0,
+      "sources_in_band": 1,
+      "sources_loving": [],
+      "sources_fading": [],
+      "adp_sf": null,
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Eric McAlister",
+      "position": "WR",
+      "nfl_pick": null,
+      "nfl_round": null,
+      "nfl_team": "UDFA",
+      "n_sources": 0,
+      "per_source": {},
+      "consensus_score": null,
+      "consensus_tier": "\u2014",
+      "consensus_method": "none",
+      "score_range": 0,
+      "sources_in_band": 0,
+      "sources_loving": [],
+      "sources_fading": [],
+      "adp_sf": null,
+      "tice_nfl_context": null
+    },
+    {
+      "player_name": "Harrison Wallace III",
+      "position": "WR",
+      "nfl_pick": null,
+      "nfl_round": null,
+      "nfl_team": "UDFA",
+      "n_sources": 0,
+      "per_source": {},
+      "consensus_score": null,
+      "consensus_tier": "\u2014",
+      "consensus_method": "none",
+      "score_range": 0,
+      "sources_in_band": 0,
+      "sources_loving": [],
+      "sources_fading": [],
+      "adp_sf": null,
+      "tice_nfl_context": null
+    }
+  ]
+}

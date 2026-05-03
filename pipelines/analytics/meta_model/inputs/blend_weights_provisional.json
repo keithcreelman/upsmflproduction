@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "as_of": "2026-04-29",
+  "method": "JJ-only 2024 calibration; Koalaty 2024 unavailable",
+  "default_blend": {
+    "jj": 0.5,
+    "koalaty": 0.5
+  },
+  "spearman_2024_jj": {
+    "RB": {
+      "n": 18,
+      "spearman_rank_corr": -0.059,
+      "median_y1_ppg": 3.17
+    },
+    "WR": {
+      "n": 25,
+      "spearman_rank_corr": 0.749,
+      "median_y1_ppg": 4.06
+    },
+    "TE": {
+      "n": 12,
+      "spearman_rank_corr": 0.217,
+      "median_y1_ppg": 3.61
+    }
+  },
+  "notes": "Re-fit when 2026 cohort data and Koalaty 2026 model are both observable."
+}
