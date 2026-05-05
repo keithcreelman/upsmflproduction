@@ -1,0 +1,522 @@
+{
+  "encoding": "utf-8",
+  "transactions": {
+    "transaction": [
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1776955027",
+        "transaction": "|15256,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "comments": "",
+        "expires": "1776693201",
+        "franchise": "0005",
+        "franchise1_gave_up": "FP_0005_2027_2,",
+        "franchise2": "0001",
+        "franchise2_gave_up": "14071,",
+        "timestamp": "1776396348",
+        "type": "TRADE"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1776258838",
+        "transaction": "|14073,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1776257976",
+        "transaction": "15256,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1776257974",
+        "transaction": "14073,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1776255438",
+        "transaction": "|14797,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1776255368",
+        "transaction": "14797,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1776255368",
+        "transaction": "|14073,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1776255365",
+        "transaction": "14073,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1776255051",
+        "transaction": "|14797,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1776255049",
+        "transaction": "14797,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1776254620",
+        "transaction": "|15256,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1776254618",
+        "transaction": "15256,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1776217219",
+        "transaction": "|14797,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1776217217",
+        "transaction": "14797,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1776214638",
+        "transaction": "|14797,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1776214637",
+        "transaction": "14797,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1776195427",
+        "transaction": "|15256,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1776195425",
+        "transaction": "15256,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1776195409",
+        "transaction": "|14797,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1776195407",
+        "transaction": "14797,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1776194815",
+        "transaction": "|14797,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1776194813",
+        "transaction": "14797,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1776178754",
+        "transaction": "|15256,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1776178752",
+        "transaction": "15256,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1776176757",
+        "transaction": "|15256,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1776176755",
+        "transaction": "15256,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1776176655",
+        "transaction": "|15256,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1776176653",
+        "transaction": "15256,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1776176611",
+        "transaction": "|15256,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1776176608",
+        "transaction": "15256,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "comments": "Pre-trade extension: Extend Walker III, Kenneth 1-year ",
+        "expires": "1776693472",
+        "franchise": "0005",
+        "franchise1_gave_up": "FP_0005_2027_1,",
+        "franchise2": "0008",
+        "franchise2_gave_up": "15711,",
+        "timestamp": "1776092645",
+        "type": "TRADE"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0010",
+        "timestamp": "1775787535",
+        "transaction": "12616,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "comments": "Keith, I will use my extension for Hurts at contract time work later on .",
+        "expires": "1776371712",
+        "franchise": "0006",
+        "franchise1_gave_up": "FP_0006_2027_1,FP_0006_2027_2,",
+        "franchise2": "0005",
+        "franchise2_gave_up": "14783,BB_20000,",
+        "timestamp": "1775772921",
+        "type": "TRADE"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0006",
+        "timestamp": "1775525764",
+        "transaction": "|14168,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "comments": "",
+        "expires": "1775228054",
+        "franchise": "0007",
+        "franchise1_gave_up": "DP_0_9,",
+        "franchise2": "0010",
+        "franchise2_gave_up": "FP_0010_2027_1,",
+        "timestamp": "1774623376",
+        "type": "TRADE"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1773693331",
+        "transaction": "|14056,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1773541020",
+        "transaction": "14056,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1773540802",
+        "transaction": "|14056,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0006",
+        "timestamp": "1773438087",
+        "transaction": "14168,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0006",
+        "timestamp": "1773437934",
+        "transaction": "15237,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1773356483",
+        "transaction": "14056,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1773356463",
+        "transaction": "|15779,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0007",
+        "timestamp": "1773315865",
+        "transaction": "13130,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1773235260",
+        "transaction": "|14171,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1773232167",
+        "transaction": "15779,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1773232135",
+        "transaction": "|15256,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1773158462",
+        "transaction": "14171,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0005",
+        "timestamp": "1773149141",
+        "transaction": "15256,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0006",
+        "timestamp": "1773105932",
+        "transaction": "|15237,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0006",
+        "timestamp": "1773105893",
+        "transaction": "15237,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0008",
+        "timestamp": "1773101791",
+        "transaction": "|15694,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0008",
+        "timestamp": "1773098885",
+        "transaction": "15694,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0008",
+        "timestamp": "1773098857",
+        "transaction": "|14909,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0008",
+        "timestamp": "1773096467",
+        "transaction": "14909,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0008",
+        "timestamp": "1773095718",
+        "transaction": "|16670,",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0008",
+        "timestamp": "1773095632",
+        "transaction": "16670,|",
+        "type": "LOAD_ROSTERS"
+      },
+      {
+        "activated": "13743,14800,15351,",
+        "by_commish": "1",
+        "deactivated": "",
+        "franchise": "0012",
+        "timestamp": "1772934921",
+        "type": "IR"
+      },
+      {
+        "activated": "16222,16615,16652,",
+        "by_commish": "1",
+        "deactivated": "",
+        "franchise": "0011",
+        "timestamp": "1772934921",
+        "type": "IR"
+      },
+      {
+        "activated": "13284,",
+        "by_commish": "1",
+        "deactivated": "",
+        "franchise": "0010",
+        "timestamp": "1772934921",
+        "type": "IR"
+      },
+      {
+        "activated": "12678,15923,16214,16641,",
+        "by_commish": "1",
+        "deactivated": "",
+        "franchise": "0009",
+        "timestamp": "1772934921",
+        "type": "IR"
+      },
+      {
+        "activated": "13113,15787,16594,",
+        "by_commish": "1",
+        "deactivated": "",
+        "franchise": "0008",
+        "timestamp": "1772934921",
+        "type": "IR"
+      },
+      {
+        "activated": "12801,16194,16204,16597,17074,",
+        "by_commish": "1",
+        "deactivated": "",
+        "franchise": "0007",
+        "timestamp": "1772934921",
+        "type": "IR"
+      },
+      {
+        "activated": "16149,16175,",
+        "by_commish": "1",
+        "deactivated": "",
+        "franchise": "0006",
+        "timestamp": "1772934920",
+        "type": "IR"
+      },
+      {
+        "activated": "16152,16583,",
+        "by_commish": "1",
+        "deactivated": "",
+        "franchise": "0005",
+        "timestamp": "1772934920",
+        "type": "IR"
+      },
+      {
+        "activated": "11247,14147,",
+        "by_commish": "1",
+        "deactivated": "",
+        "franchise": "0004",
+        "timestamp": "1772934920",
+        "type": "IR"
+      },
+      {
+        "activated": "16171,17045,17046,",
+        "by_commish": "1",
+        "deactivated": "",
+        "franchise": "0003",
+        "timestamp": "1772934920",
+        "type": "IR"
+      },
+      {
+        "activated": "15753,",
+        "by_commish": "1",
+        "deactivated": "",
+        "franchise": "0002",
+        "timestamp": "1772934920",
+        "type": "IR"
+      },
+      {
+        "activated": "12610,16244,13806,",
+        "by_commish": "1",
+        "deactivated": "",
+        "franchise": "0001",
+        "timestamp": "1772934752",
+        "type": "IR"
+      },
+      {
+        "by_commish": "1",
+        "franchise": "0001",
+        "timestamp": "1772928825",
+        "transaction": "14860,|",
+        "type": "LOAD_ROSTERS"
+      }
+    ]
+  },
+  "version": "1.0"
+}
