@@ -3,7 +3,7 @@
     "schema_version": 1,
     "league_id": "74598",
     "season": 2026,
-    "updated_at": "2026-05-06T15:12:40.325Z",
+    "updated_at": "2026-05-06T21:17:53.913Z",
     "row_count": 24,
     "source": "worker-trade-offers"
   },
@@ -4100,7 +4100,7 @@
       "season": 2026,
       "status": "PENDING",
       "created_at": "2026-05-06T15:12:40.325Z",
-      "updated_at": "2026-05-06T15:12:40.325Z",
+      "updated_at": "2026-05-06T21:17:53.913Z",
       "from_franchise_id": "0004",
       "to_franchise_id": "0006",
       "from_franchise_name": "Pure Greatness",
@@ -4121,7 +4121,7 @@
       },
       "payload": {
         "schema_version": 1,
-        "generated_at": "2026-05-06T15:12:35.834Z",
+        "generated_at": "2026-05-06T21:17:49.520Z",
         "source": "ups-trade-workbench",
         "league_id": "74598",
         "season": 2026,
@@ -4292,8 +4292,8 @@
         "comment": "Pre-trade extension: Extend Johnston, Quentin 1-year | New length 2 | New AAV 18K | New TCV 26K"
       },
       "twb_meta": null,
-      "mfl_trade_id": "1031",
-      "trade_id": "1031",
+      "mfl_trade_id": "1032",
+      "trade_id": "1032",
       "mfl_present": true,
       "mfl_status": "PENDING"
     }
