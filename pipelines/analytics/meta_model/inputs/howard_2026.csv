@@ -1,0 +1,36 @@
+player_name,position,rank_pos,model_score,tier,nfl_team,source_url,notes
+Fernando Mendoza,QB,1,82,Tier 1 - R1 Capital,LVR,https://dynastyleaguefootball.com/author/peterhoward/,PAYWALL: Howard's actual rankings are DLF Premium / Patreon subscriber-only. Score is directional consensus + Howard methodology priors
+Ty Simpson,QB,2,55,Tier 2,LAR,https://dynastyleaguefootball.com/author/peterhoward/,PAYWALL: directional only
+Drew Allar,QB,3,42,Tier 3 - Older Profile,PIT,https://dynastyleaguefootball.com/author/peterhoward/,PAYWALL: Howard age curve likely fades Allar below consensus
+Cade Klubnik,QB,4,38,Tier 3,NYJ,https://dynastyleaguefootball.com/author/peterhoward/,PAYWALL: directional only
+Carson Beck,QB,5,30,Tier 4 - Senior,ARI,https://dynastyleaguefootball.com/author/peterhoward/,PAYWALL: Howard likely well below consensus on Beck (older + capital)
+Cole Payton,QB,6,28,Tier 4,PHI,https://dynastyleaguefootball.com/author/peterhoward/,PAYWALL: directional only
+Jeremiyah Love,RB,1,95,Tier 1 - Top Athlete,ARI,https://dynastyleaguefootball.com/author/peterhoward/,PAYWALL: directional only. R1 capital + ARI landing = consensus 1.01
+Jadarian Price,RB,2,68,Tier 2 - Sleeper,SEA,https://dynastyleaguefootball.com/author/peterhoward/,PAYWALL: Howard's analytics-leaning style likely a Price lean (athletic profile + landing)
+Mike Washington Jr.,RB,3,62,Tier 2,LVR,https://dynastyleaguefootball.com/author/peterhoward/,PAYWALL: directional only
+Kaytron Allen,RB,4,52,Tier 3,WAS,https://dynastyleaguefootball.com/author/peterhoward/,PAYWALL: directional only
+Jonah Coleman,RB,5,48,Tier 3,DEN,https://dynastyleaguefootball.com/author/peterhoward/,PAYWALL: directional only
+Nicholas Singleton,RB,6,42,Tier 3 - R5 Capital Hit,TEN,https://dynastyleaguefootball.com/author/peterhoward/,PAYWALL: WhipperSnapper friendly (early breakout) but R5 capital is heavy fade
+Kaelon Black,RB,7,38,Tier 4,SFO,https://dynastyleaguefootball.com/author/peterhoward/,PAYWALL: directional only
+Demond Claiborne,RB,8,35,Tier 4,MIN,https://dynastyleaguefootball.com/author/peterhoward/,PAYWALL: directional only
+Emmett Johnson,RB,9,32,Tier 4,KAN,https://dynastyleaguefootball.com/author/peterhoward/,PAYWALL: directional only
+Adam Randall,RB,10,28,Tier 4,BAL,https://dynastyleaguefootball.com/author/peterhoward/,PAYWALL: directional only
+Carnell Tate,WR,1,92,Tier 1 - Top Capital,TEN,https://dynastyleaguefootball.com/author/peterhoward/,PAYWALL: directional only. R1 + young breakout = strong Howard profile
+Jordyn Tyson,WR,2,88,Tier 1 - WhipperSnapper Champ,NOS,https://dynastyleaguefootball.com/author/peterhoward/,PAYWALL: Tyson's elite efficiency + early breakout = likely Howard lean ABOVE consensus
+Makai Lemon,WR,3,80,Tier 2,PHI,https://dynastyleaguefootball.com/author/peterhoward/,PAYWALL: very young early producer - Howard methodology likely high
+KC Concepcion,WR,4,72,Tier 2,CLE,https://dynastyleaguefootball.com/author/peterhoward/,PAYWALL: directional only
+Omar Cooper Jr.,WR,5,62,Tier 3,NYJ,https://dynastyleaguefootball.com/author/peterhoward/,PAYWALL: directional only
+Eric Singleton Jr.,WR,6,58,Tier 3,UDF,https://dynastyleaguefootball.com/author/peterhoward/,PAYWALL: directional only
+Antonio Williams,WR,7,52,Tier 3,WAS,https://dynastyleaguefootball.com/author/peterhoward/,PAYWALL: directional only. R1 capital but WhipperSnapper unfriendly
+Denzel Boston,WR,8,48,Tier 4,CLE,https://dynastyleaguefootball.com/author/peterhoward/,PAYWALL: directional only
+Jordan Anthony,WR,9,42,Tier 4,UDF,https://dynastyleaguefootball.com/author/peterhoward/,PAYWALL: directional only
+Germie Bernard,WR,10,38,Tier 4,PIT,https://dynastyleaguefootball.com/author/peterhoward/,PAYWALL: directional only
+Zachariah Branch,WR,11,35,Tier 4,ATL,https://dynastyleaguefootball.com/author/peterhoward/,PAYWALL: directional only
+Caleb Douglas,WR,12,32,Tier 4,MIA,https://dynastyleaguefootball.com/author/peterhoward/,PAYWALL: directional only
+Kenyon Sadiq,TE,1,72,Tier 1 - Athletic R1/R2,NYJ,https://dynastyleaguefootball.com/author/peterhoward/,PAYWALL: directional only
+Eli Stowers,TE,2,68,Tier 1,PHI,https://dynastyleaguefootball.com/author/peterhoward/,PAYWALL: directional only
+Max Klare,TE,3,55,Tier 2,LAR,https://dynastyleaguefootball.com/author/peterhoward/,PAYWALL: directional only
+Jack Velling,TE,4,48,Tier 3,UDF,https://dynastyleaguefootball.com/author/peterhoward/,PAYWALL: directional only
+Justin Joly,TE,5,42,Tier 3,DEN,https://dynastyleaguefootball.com/author/peterhoward/,PAYWALL: directional only
+Eli Raridon,TE,6,38,Tier 3,NEP,https://dynastyleaguefootball.com/author/peterhoward/,PAYWALL: directional only
+Oscar Delp,TE,7,35,Tier 4,NOS,https://dynastyleaguefootball.com/author/peterhoward/,PAYWALL: directional only

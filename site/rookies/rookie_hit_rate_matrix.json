@@ -1,0 +1,967 @@
+{
+  "meta": {
+    "cohort": "2012-2022",
+    "ext_observable_from": 2014,
+    "ext_window_seasons": 4,
+    "total_picks": 719,
+    "min_cell_n": 5,
+    "definitions": {
+      "production_hit": "tier in {Smash, Hit} per build_rookie_draft_hub.py classify_tier",
+      "extension_worthy": "any extension_flag=1 in seasons [rookie_year, rookie_year+4] for that player_id"
+    }
+  },
+  "by_position_round": {
+    "DEF": {
+      "2": {
+        "n": 7,
+        "production": {
+          "hits": 3,
+          "rate": 0.4286,
+          "wilson_lo": 0.1582,
+          "wilson_hi": 0.7495
+        },
+        "extension_worthy": {
+          "n_observable": 5,
+          "hits": 0,
+          "rate": 0.0,
+          "wilson_lo": 0.0,
+          "wilson_hi": 0.4345
+        }
+      },
+      "3": {
+        "n": 24,
+        "production": {
+          "hits": 10,
+          "rate": 0.4167,
+          "wilson_lo": 0.2447,
+          "wilson_hi": 0.6117
+        },
+        "extension_worthy": {
+          "n_observable": 16,
+          "hits": 0,
+          "rate": 0.0,
+          "wilson_lo": 0.0,
+          "wilson_hi": 0.1936
+        }
+      },
+      "4": {
+        "n": 40,
+        "production": {
+          "hits": 19,
+          "rate": 0.475,
+          "wilson_lo": 0.3294,
+          "wilson_hi": 0.625
+        },
+        "extension_worthy": {
+          "n_observable": 30,
+          "hits": 0,
+          "rate": 0.0,
+          "wilson_lo": 0.0,
+          "wilson_hi": 0.1135
+        }
+      },
+      "5": {
+        "n": 41,
+        "production": {
+          "hits": 13,
+          "rate": 0.3171,
+          "wilson_lo": 0.1956,
+          "wilson_hi": 0.4698
+        },
+        "extension_worthy": {
+          "n_observable": 28,
+          "hits": 0,
+          "rate": 0.0,
+          "wilson_lo": 0.0,
+          "wilson_hi": 0.1206
+        }
+      },
+      "6": {
+        "n": 59,
+        "production": {
+          "hits": 10,
+          "rate": 0.1695,
+          "wilson_lo": 0.0948,
+          "wilson_hi": 0.2846
+        },
+        "extension_worthy": {
+          "n_observable": 59,
+          "hits": 0,
+          "rate": 0.0,
+          "wilson_lo": 0.0,
+          "wilson_hi": 0.0611
+        }
+      }
+    },
+    "QB": {
+      "1": {
+        "n": 6,
+        "production": {
+          "hits": 1,
+          "rate": 0.1667,
+          "wilson_lo": 0.0301,
+          "wilson_hi": 0.5635
+        },
+        "extension_worthy": {
+          "n_observable": 4,
+          "hits": 3,
+          "rate": 0.75,
+          "wilson_lo": 0.3006,
+          "wilson_hi": 0.9544
+        }
+      },
+      "2": {
+        "n": 14,
+        "production": {
+          "hits": 4,
+          "rate": 0.2857,
+          "wilson_lo": 0.1172,
+          "wilson_hi": 0.5465
+        },
+        "extension_worthy": {
+          "n_observable": 12,
+          "hits": 7,
+          "rate": 0.5833,
+          "wilson_lo": 0.3195,
+          "wilson_hi": 0.8067
+        }
+      },
+      "3": {
+        "n": 13,
+        "production": {
+          "hits": 3,
+          "rate": 0.2308,
+          "wilson_lo": 0.0818,
+          "wilson_hi": 0.5026
+        },
+        "extension_worthy": {
+          "n_observable": 10,
+          "hits": 3,
+          "rate": 0.3,
+          "wilson_lo": 0.1078,
+          "wilson_hi": 0.6032
+        }
+      },
+      "4": {
+        "n": 9,
+        "production": {
+          "hits": 2,
+          "rate": 0.2222,
+          "wilson_lo": 0.0632,
+          "wilson_hi": 0.5474
+        },
+        "extension_worthy": {
+          "n_observable": 9,
+          "hits": 2,
+          "rate": 0.2222,
+          "wilson_lo": 0.0632,
+          "wilson_hi": 0.5474
+        }
+      },
+      "5": {
+        "n": 18,
+        "production": {
+          "hits": 5,
+          "rate": 0.2778,
+          "wilson_lo": 0.125,
+          "wilson_hi": 0.5087
+        },
+        "extension_worthy": {
+          "n_observable": 15,
+          "hits": 3,
+          "rate": 0.2,
+          "wilson_lo": 0.0705,
+          "wilson_hi": 0.4519
+        }
+      }
+    },
+    "RB": {
+      "1": {
+        "n": 53,
+        "production": {
+          "hits": 24,
+          "rate": 0.4528,
+          "wilson_lo": 0.3266,
+          "wilson_hi": 0.5855
+        },
+        "extension_worthy": {
+          "n_observable": 42,
+          "hits": 25,
+          "rate": 0.5952,
+          "wilson_lo": 0.4449,
+          "wilson_hi": 0.7296
+        }
+      },
+      "2": {
+        "n": 46,
+        "production": {
+          "hits": 6,
+          "rate": 0.1304,
+          "wilson_lo": 0.0612,
+          "wilson_hi": 0.2567
+        },
+        "extension_worthy": {
+          "n_observable": 41,
+          "hits": 13,
+          "rate": 0.3171,
+          "wilson_lo": 0.1956,
+          "wilson_hi": 0.4698
+        }
+      },
+      "3": {
+        "n": 40,
+        "production": {
+          "hits": 3,
+          "rate": 0.075,
+          "wilson_lo": 0.0258,
+          "wilson_hi": 0.1986
+        },
+        "extension_worthy": {
+          "n_observable": 34,
+          "hits": 5,
+          "rate": 0.1471,
+          "wilson_lo": 0.0645,
+          "wilson_hi": 0.3013
+        }
+      },
+      "4": {
+        "n": 39,
+        "production": {
+          "hits": 1,
+          "rate": 0.0256,
+          "wilson_lo": 0.0045,
+          "wilson_hi": 0.1318
+        },
+        "extension_worthy": {
+          "n_observable": 31,
+          "hits": 1,
+          "rate": 0.0323,
+          "wilson_lo": 0.0057,
+          "wilson_hi": 0.1619
+        }
+      },
+      "5": {
+        "n": 22,
+        "production": {
+          "hits": 2,
+          "rate": 0.0909,
+          "wilson_lo": 0.0253,
+          "wilson_hi": 0.2782
+        },
+        "extension_worthy": {
+          "n_observable": 19,
+          "hits": 1,
+          "rate": 0.0526,
+          "wilson_lo": 0.0094,
+          "wilson_hi": 0.2464
+        }
+      }
+    },
+    "TE": {
+      "1": {
+        "n": 9,
+        "production": {
+          "hits": 4,
+          "rate": 0.4444,
+          "wilson_lo": 0.1888,
+          "wilson_hi": 0.7334
+        },
+        "extension_worthy": {
+          "n_observable": 7,
+          "hits": 4,
+          "rate": 0.5714,
+          "wilson_lo": 0.2505,
+          "wilson_hi": 0.8418
+        }
+      },
+      "2": {
+        "n": 9,
+        "production": {
+          "hits": 2,
+          "rate": 0.2222,
+          "wilson_lo": 0.0632,
+          "wilson_hi": 0.5474
+        },
+        "extension_worthy": {
+          "n_observable": 8,
+          "hits": 4,
+          "rate": 0.5,
+          "wilson_lo": 0.2152,
+          "wilson_hi": 0.7848
+        }
+      },
+      "3": {
+        "n": 9,
+        "production": {
+          "hits": 2,
+          "rate": 0.2222,
+          "wilson_lo": 0.0632,
+          "wilson_hi": 0.5474
+        },
+        "extension_worthy": {
+          "n_observable": 7,
+          "hits": 4,
+          "rate": 0.5714,
+          "wilson_lo": 0.2505,
+          "wilson_hi": 0.8418
+        }
+      },
+      "4": {
+        "n": 12,
+        "production": {
+          "hits": 1,
+          "rate": 0.0833,
+          "wilson_lo": 0.0149,
+          "wilson_hi": 0.3539
+        },
+        "extension_worthy": {
+          "n_observable": 9,
+          "hits": 1,
+          "rate": 0.1111,
+          "wilson_lo": 0.0199,
+          "wilson_hi": 0.435
+        }
+      },
+      "5": {
+        "n": 17,
+        "production": {
+          "hits": 2,
+          "rate": 0.1176,
+          "wilson_lo": 0.0329,
+          "wilson_hi": 0.3434
+        },
+        "extension_worthy": {
+          "n_observable": 16,
+          "hits": 1,
+          "rate": 0.0625,
+          "wilson_lo": 0.0111,
+          "wilson_hi": 0.2833
+        }
+      }
+    },
+    "WR": {
+      "1": {
+        "n": 63,
+        "production": {
+          "hits": 22,
+          "rate": 0.3492,
+          "wilson_lo": 0.2433,
+          "wilson_hi": 0.4725
+        },
+        "extension_worthy": {
+          "n_observable": 55,
+          "hits": 30,
+          "rate": 0.5455,
+          "wilson_lo": 0.4152,
+          "wilson_hi": 0.6697
+        }
+      },
+      "2": {
+        "n": 56,
+        "production": {
+          "hits": 12,
+          "rate": 0.2143,
+          "wilson_lo": 0.1271,
+          "wilson_hi": 0.3382
+        },
+        "extension_worthy": {
+          "n_observable": 42,
+          "hits": 14,
+          "rate": 0.3333,
+          "wilson_lo": 0.2101,
+          "wilson_hi": 0.4845
+        }
+      },
+      "3": {
+        "n": 46,
+        "production": {
+          "hits": 5,
+          "rate": 0.1087,
+          "wilson_lo": 0.0473,
+          "wilson_hi": 0.2304
+        },
+        "extension_worthy": {
+          "n_observable": 41,
+          "hits": 9,
+          "rate": 0.2195,
+          "wilson_lo": 0.12,
+          "wilson_hi": 0.3671
+        }
+      },
+      "4": {
+        "n": 31,
+        "production": {
+          "hits": 0,
+          "rate": 0.0,
+          "wilson_lo": 0.0,
+          "wilson_hi": 0.1103
+        },
+        "extension_worthy": {
+          "n_observable": 28,
+          "hits": 3,
+          "rate": 0.1071,
+          "wilson_lo": 0.0371,
+          "wilson_hi": 0.272
+        }
+      },
+      "5": {
+        "n": 34,
+        "production": {
+          "hits": 0,
+          "rate": 0.0,
+          "wilson_lo": 0.0,
+          "wilson_hi": 0.1015
+        },
+        "extension_worthy": {
+          "n_observable": 30,
+          "hits": 2,
+          "rate": 0.0667,
+          "wilson_lo": 0.0185,
+          "wilson_hi": 0.2132
+        }
+      }
+    }
+  },
+  "by_position_round_era": {
+    "DEF": {
+      "2": {
+        "pre_sf": {
+          "n": 7,
+          "production": {
+            "hits": 3,
+            "rate": 0.4286,
+            "wilson_lo": 0.1582,
+            "wilson_hi": 0.7495
+          },
+          "extension_worthy": {
+            "n_observable": 5,
+            "hits": 0,
+            "rate": 0.0,
+            "wilson_lo": 0.0,
+            "wilson_hi": 0.4345
+          }
+        }
+      },
+      "3": {
+        "pre_sf": {
+          "n": 23,
+          "production": {
+            "hits": 9,
+            "rate": 0.3913,
+            "wilson_lo": 0.2216,
+            "wilson_hi": 0.5921
+          },
+          "extension_worthy": {
+            "n_observable": 15,
+            "hits": 0,
+            "rate": 0.0,
+            "wilson_lo": 0.0,
+            "wilson_hi": 0.2039
+          }
+        }
+      },
+      "4": {
+        "pre_sf": {
+          "n": 35,
+          "production": {
+            "hits": 15,
+            "rate": 0.4286,
+            "wilson_lo": 0.2798,
+            "wilson_hi": 0.5914
+          },
+          "extension_worthy": {
+            "n_observable": 25,
+            "hits": 0,
+            "rate": 0.0,
+            "wilson_lo": 0.0,
+            "wilson_hi": 0.1332
+          }
+        },
+        "sf": {
+          "n": 5,
+          "production": {
+            "hits": 4,
+            "rate": 0.8,
+            "wilson_lo": 0.3755,
+            "wilson_hi": 0.9638
+          },
+          "extension_worthy": {
+            "n_observable": 5,
+            "hits": 0,
+            "rate": 0.0,
+            "wilson_lo": 0.0,
+            "wilson_hi": 0.4345
+          }
+        }
+      },
+      "5": {
+        "pre_sf": {
+          "n": 37,
+          "production": {
+            "hits": 12,
+            "rate": 0.3243,
+            "wilson_lo": 0.1963,
+            "wilson_hi": 0.4854
+          },
+          "extension_worthy": {
+            "n_observable": 24,
+            "hits": 0,
+            "rate": 0.0,
+            "wilson_lo": 0.0,
+            "wilson_hi": 0.138
+          }
+        }
+      },
+      "6": {
+        "pre_sf": {
+          "n": 48,
+          "production": {
+            "hits": 9,
+            "rate": 0.1875,
+            "wilson_lo": 0.1019,
+            "wilson_hi": 0.3194
+          },
+          "extension_worthy": {
+            "n_observable": 48,
+            "hits": 0,
+            "rate": 0.0,
+            "wilson_lo": 0.0,
+            "wilson_hi": 0.0741
+          }
+        },
+        "sf": {
+          "n": 11,
+          "production": {
+            "hits": 1,
+            "rate": 0.0909,
+            "wilson_lo": 0.0162,
+            "wilson_hi": 0.3774
+          },
+          "extension_worthy": {
+            "n_observable": 11,
+            "hits": 0,
+            "rate": 0.0,
+            "wilson_lo": 0.0,
+            "wilson_hi": 0.2588
+          }
+        }
+      }
+    },
+    "QB": {
+      "1": {
+        "pre_sf": {
+          "n": 6,
+          "production": {
+            "hits": 1,
+            "rate": 0.1667,
+            "wilson_lo": 0.0301,
+            "wilson_hi": 0.5635
+          },
+          "extension_worthy": {
+            "n_observable": 4,
+            "hits": 3,
+            "rate": 0.75,
+            "wilson_lo": 0.3006,
+            "wilson_hi": 0.9544
+          }
+        }
+      },
+      "2": {
+        "pre_sf": {
+          "n": 12,
+          "production": {
+            "hits": 4,
+            "rate": 0.3333,
+            "wilson_lo": 0.1381,
+            "wilson_hi": 0.6094
+          },
+          "extension_worthy": {
+            "n_observable": 10,
+            "hits": 7,
+            "rate": 0.7,
+            "wilson_lo": 0.3968,
+            "wilson_hi": 0.8922
+          }
+        }
+      },
+      "3": {
+        "pre_sf": {
+          "n": 10,
+          "production": {
+            "hits": 2,
+            "rate": 0.2,
+            "wilson_lo": 0.0567,
+            "wilson_hi": 0.5098
+          },
+          "extension_worthy": {
+            "n_observable": 7,
+            "hits": 3,
+            "rate": 0.4286,
+            "wilson_lo": 0.1582,
+            "wilson_hi": 0.7495
+          }
+        }
+      },
+      "4": {
+        "pre_sf": {
+          "n": 9,
+          "production": {
+            "hits": 2,
+            "rate": 0.2222,
+            "wilson_lo": 0.0632,
+            "wilson_hi": 0.5474
+          },
+          "extension_worthy": {
+            "n_observable": 9,
+            "hits": 2,
+            "rate": 0.2222,
+            "wilson_lo": 0.0632,
+            "wilson_hi": 0.5474
+          }
+        }
+      },
+      "5": {
+        "pre_sf": {
+          "n": 17,
+          "production": {
+            "hits": 5,
+            "rate": 0.2941,
+            "wilson_lo": 0.1328,
+            "wilson_hi": 0.5313
+          },
+          "extension_worthy": {
+            "n_observable": 14,
+            "hits": 3,
+            "rate": 0.2143,
+            "wilson_lo": 0.0757,
+            "wilson_hi": 0.4759
+          }
+        }
+      }
+    },
+    "RB": {
+      "1": {
+        "pre_sf": {
+          "n": 50,
+          "production": {
+            "hits": 21,
+            "rate": 0.42,
+            "wilson_lo": 0.2937,
+            "wilson_hi": 0.5577
+          },
+          "extension_worthy": {
+            "n_observable": 39,
+            "hits": 22,
+            "rate": 0.5641,
+            "wilson_lo": 0.4098,
+            "wilson_hi": 0.707
+          }
+        }
+      },
+      "2": {
+        "pre_sf": {
+          "n": 39,
+          "production": {
+            "hits": 5,
+            "rate": 0.1282,
+            "wilson_lo": 0.056,
+            "wilson_hi": 0.2671
+          },
+          "extension_worthy": {
+            "n_observable": 34,
+            "hits": 11,
+            "rate": 0.3235,
+            "wilson_lo": 0.1913,
+            "wilson_hi": 0.4916
+          }
+        },
+        "sf": {
+          "n": 7,
+          "production": {
+            "hits": 1,
+            "rate": 0.1429,
+            "wilson_lo": 0.0257,
+            "wilson_hi": 0.5131
+          },
+          "extension_worthy": {
+            "n_observable": 7,
+            "hits": 2,
+            "rate": 0.2857,
+            "wilson_lo": 0.0822,
+            "wilson_hi": 0.6411
+          }
+        }
+      },
+      "3": {
+        "pre_sf": {
+          "n": 38,
+          "production": {
+            "hits": 2,
+            "rate": 0.0526,
+            "wilson_lo": 0.0146,
+            "wilson_hi": 0.1729
+          },
+          "extension_worthy": {
+            "n_observable": 32,
+            "hits": 4,
+            "rate": 0.125,
+            "wilson_lo": 0.0497,
+            "wilson_hi": 0.2807
+          }
+        }
+      },
+      "4": {
+        "pre_sf": {
+          "n": 36,
+          "production": {
+            "hits": 1,
+            "rate": 0.0278,
+            "wilson_lo": 0.0049,
+            "wilson_hi": 0.1417
+          },
+          "extension_worthy": {
+            "n_observable": 28,
+            "hits": 1,
+            "rate": 0.0357,
+            "wilson_lo": 0.0063,
+            "wilson_hi": 0.1771
+          }
+        }
+      },
+      "5": {
+        "pre_sf": {
+          "n": 21,
+          "production": {
+            "hits": 2,
+            "rate": 0.0952,
+            "wilson_lo": 0.0265,
+            "wilson_hi": 0.2891
+          },
+          "extension_worthy": {
+            "n_observable": 18,
+            "hits": 1,
+            "rate": 0.0556,
+            "wilson_lo": 0.0099,
+            "wilson_hi": 0.2576
+          }
+        }
+      }
+    },
+    "TE": {
+      "1": {
+        "pre_sf": {
+          "n": 9,
+          "production": {
+            "hits": 4,
+            "rate": 0.4444,
+            "wilson_lo": 0.1888,
+            "wilson_hi": 0.7334
+          },
+          "extension_worthy": {
+            "n_observable": 7,
+            "hits": 4,
+            "rate": 0.5714,
+            "wilson_lo": 0.2505,
+            "wilson_hi": 0.8418
+          }
+        }
+      },
+      "2": {
+        "pre_sf": {
+          "n": 9,
+          "production": {
+            "hits": 2,
+            "rate": 0.2222,
+            "wilson_lo": 0.0632,
+            "wilson_hi": 0.5474
+          },
+          "extension_worthy": {
+            "n_observable": 8,
+            "hits": 4,
+            "rate": 0.5,
+            "wilson_lo": 0.2152,
+            "wilson_hi": 0.7848
+          }
+        }
+      },
+      "3": {
+        "pre_sf": {
+          "n": 8,
+          "production": {
+            "hits": 1,
+            "rate": 0.125,
+            "wilson_lo": 0.0224,
+            "wilson_hi": 0.4709
+          },
+          "extension_worthy": {
+            "n_observable": 6,
+            "hits": 3,
+            "rate": 0.5,
+            "wilson_lo": 0.1876,
+            "wilson_hi": 0.8124
+          }
+        }
+      },
+      "4": {
+        "pre_sf": {
+          "n": 10,
+          "production": {
+            "hits": 1,
+            "rate": 0.1,
+            "wilson_lo": 0.0179,
+            "wilson_hi": 0.4042
+          },
+          "extension_worthy": {
+            "n_observable": 7,
+            "hits": 1,
+            "rate": 0.1429,
+            "wilson_lo": 0.0257,
+            "wilson_hi": 0.5131
+          }
+        }
+      },
+      "5": {
+        "pre_sf": {
+          "n": 14,
+          "production": {
+            "hits": 2,
+            "rate": 0.1429,
+            "wilson_lo": 0.0401,
+            "wilson_hi": 0.3994
+          },
+          "extension_worthy": {
+            "n_observable": 13,
+            "hits": 1,
+            "rate": 0.0769,
+            "wilson_lo": 0.0137,
+            "wilson_hi": 0.3331
+          }
+        }
+      }
+    },
+    "WR": {
+      "1": {
+        "pre_sf": {
+          "n": 54,
+          "production": {
+            "hits": 18,
+            "rate": 0.3333,
+            "wilson_lo": 0.2224,
+            "wilson_hi": 0.4664
+          },
+          "extension_worthy": {
+            "n_observable": 46,
+            "hits": 25,
+            "rate": 0.5435,
+            "wilson_lo": 0.4018,
+            "wilson_hi": 0.6785
+          }
+        },
+        "sf": {
+          "n": 9,
+          "production": {
+            "hits": 4,
+            "rate": 0.4444,
+            "wilson_lo": 0.1888,
+            "wilson_hi": 0.7334
+          },
+          "extension_worthy": {
+            "n_observable": 9,
+            "hits": 5,
+            "rate": 0.5556,
+            "wilson_lo": 0.2666,
+            "wilson_hi": 0.8112
+          }
+        }
+      },
+      "2": {
+        "pre_sf": {
+          "n": 53,
+          "production": {
+            "hits": 12,
+            "rate": 0.2264,
+            "wilson_lo": 0.1345,
+            "wilson_hi": 0.3553
+          },
+          "extension_worthy": {
+            "n_observable": 39,
+            "hits": 14,
+            "rate": 0.359,
+            "wilson_lo": 0.2274,
+            "wilson_hi": 0.5158
+          }
+        }
+      },
+      "3": {
+        "pre_sf": {
+          "n": 41,
+          "production": {
+            "hits": 5,
+            "rate": 0.122,
+            "wilson_lo": 0.0532,
+            "wilson_hi": 0.2554
+          },
+          "extension_worthy": {
+            "n_observable": 36,
+            "hits": 8,
+            "rate": 0.2222,
+            "wilson_lo": 0.1172,
+            "wilson_hi": 0.3809
+          }
+        },
+        "sf": {
+          "n": 5,
+          "production": {
+            "hits": 0,
+            "rate": 0.0,
+            "wilson_lo": 0.0,
+            "wilson_hi": 0.4345
+          },
+          "extension_worthy": {
+            "n_observable": 5,
+            "hits": 1,
+            "rate": 0.2,
+            "wilson_lo": 0.0362,
+            "wilson_hi": 0.6245
+          }
+        }
+      },
+      "4": {
+        "pre_sf": {
+          "n": 29,
+          "production": {
+            "hits": 0,
+            "rate": 0.0,
+            "wilson_lo": 0.0,
+            "wilson_hi": 0.117
+          },
+          "extension_worthy": {
+            "n_observable": 26,
+            "hits": 3,
+            "rate": 0.1154,
+            "wilson_lo": 0.04,
+            "wilson_hi": 0.2898
+          }
+        }
+      },
+      "5": {
+        "pre_sf": {
+          "n": 31,
+          "production": {
+            "hits": 0,
+            "rate": 0.0,
+            "wilson_lo": 0.0,
+            "wilson_hi": 0.1103
+          },
+          "extension_worthy": {
+            "n_observable": 27,
+            "hits": 2,
+            "rate": 0.0741,
+            "wilson_lo": 0.0206,
+            "wilson_hi": 0.2337
+          }
+        }
+      }
+    }
+  }
+}

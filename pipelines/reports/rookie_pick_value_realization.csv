@@ -1,0 +1,756 @@
+season,pick_label,pick_overall,draft_round,round_segment,tier,player_id,player_name,position,offense_defense,rookie_salary_y1,event,event_season,event_year_offset,event_dollar_value,resolving_franchise_id,notes,generated_at_utc
+2025,1.01,1,1,Early,early_1st,17042,"Jeanty, Ashton",RB,Offense,15000,pending,2025,0,0,,right-censored; only rookie-year row visible,2026-04-30T16:14:22+00:00
+2025,1.02,2,1,Early,early_1st,17074,"Hunter, Travis",WR,Offense,14000,pending,2025,0,0,,right-censored; only rookie-year row visible,2026-04-30T16:14:22+00:00
+2025,1.03,3,1,Early,early_1st,17044,"Hampton, Omarion",RB,Offense,13000,pending,2025,0,0,,right-censored; only rookie-year row visible,2026-04-30T16:14:22+00:00
+2025,1.04,4,1,Early,early_1st,17043,"Henderson, TreVeyon",RB,Offense,12000,pending,2025,0,0,,right-censored; only rookie-year row visible,2026-04-30T16:14:22+00:00
+2025,1.05,5,1,Middle,mid_1st,17068,"Harvey, RJ",RB,Offense,11000,pending,2025,0,0,,right-censored; only rookie-year row visible,2026-04-30T16:14:22+00:00
+2025,1.06,6,1,Middle,mid_1st,17030,"Ward, Cam",QB,Offense,10000,pending,2025,0,0,,right-censored; only rookie-year row visible,2026-04-30T16:14:22+00:00
+2025,1.07,7,1,Middle,mid_1st,17032,"Dart, Jaxson",QB,Offense,9000,pending,2025,0,0,,right-censored; only rookie-year row visible,2026-04-30T16:14:22+00:00
+2025,1.08,8,1,Middle,mid_1st,17051,"Judkins, Quinshon",RB,Offense,8000,pending,2025,0,0,,right-censored; only rookie-year row visible,2026-04-30T16:14:22+00:00
+2025,1.09,9,1,Late,late_1st,17071,"McMillan, Tetairoa",WR,Offense,7000,pending,2025,0,0,,right-censored; only rookie-year row visible,2026-04-30T16:14:22+00:00
+2025,1.10,10,1,Late,late_1st,17048,"Johnson, Kaleb",RB,Offense,6000,pending,2025,0,0,,right-censored; only rookie-year row visible,2026-04-30T16:14:22+00:00
+2025,1.11,11,1,Late,late_1st,17102,"Warren, Tyler",TE,Offense,5000,pending,2025,0,0,,right-censored; only rookie-year row visible,2026-04-30T16:14:22+00:00
+2025,1.12,12,1,Late,late_1st,17070,"Burden, Luther",WR,Offense,0,pending,2025,0,0,,right-censored; only rookie-year row visible,2026-04-30T16:14:22+00:00
+2025,2.01,13,2,Early,early_2nd,17081,"Egbuka, Emeka",WR,Offense,5000,pending,2025,0,0,,right-censored; only rookie-year row visible,2026-04-30T16:14:22+00:00
+2025,2.02,14,2,Early,early_2nd,17045,"Skattebo, Cam",RB,Offense,5000,pending,2025,0,0,,right-censored; only rookie-year row visible,2026-04-30T16:14:22+00:00
+2025,2.03,15,2,Early,early_2nd,17104,"Loveland, Colston",TE,Offense,5000,pending,2025,0,0,,right-censored; only rookie-year row visible,2026-04-30T16:14:22+00:00
+2025,2.04,16,2,Early,early_2nd,17083,"Higgins, Jayden",WR,Offense,5000,pending,2025,0,0,,right-censored; only rookie-year row visible,2026-04-30T16:14:22+00:00
+2025,2.05,17,2,Middle,mid_2nd,17075,"Golden, Matthew",WR,Offense,5000,pending,2025,0,0,,right-censored; only rookie-year row visible,2026-04-30T16:14:22+00:00
+2025,2.06,18,2,Middle,mid_2nd,17033,"Milroe, Jalen",QB,Offense,5000,pending,2025,0,0,,right-censored; only rookie-year row visible,2026-04-30T16:14:22+00:00
+2025,2.07,19,2,Middle,mid_2nd,17072,"Harris, Tre",WR,Offense,5000,pending,2025,0,0,,right-censored; only rookie-year row visible,2026-04-30T16:14:22+00:00
+2025,2.08,20,2,Middle,mid_2nd,17134,"Williams, Kyle",WR,Offense,5000,pending,2025,0,0,,right-censored; only rookie-year row visible,2026-04-30T16:14:22+00:00
+2025,2.09,21,2,Late,late_2nd,17039,"Shough, Tyler",QB,Offense,5000,pending,2025,0,0,,right-censored; only rookie-year row visible,2026-04-30T16:14:22+00:00
+2025,2.10,22,2,Late,late_2nd,17103,"Fannin, Harold",TE,Offense,5000,pending,2025,0,0,,right-censored; only rookie-year row visible,2026-04-30T16:14:22+00:00
+2025,2.11,23,2,Late,late_2nd,17078,"Bech, Jack",WR,Offense,5000,pending,2025,0,0,,right-censored; only rookie-year row visible,2026-04-30T16:14:22+00:00
+2025,2.12,24,2,Late,late_2nd,17052,"Tuten, Bhayshul",RB,Offense,5000,pending,2025,0,0,,right-censored; only rookie-year row visible,2026-04-30T16:14:22+00:00
+2025,3.01,25,3,Early,early_3rd,17080,"Noel, Jaylin",WR,Offense,2000,pending,2025,0,0,,right-censored; only rookie-year row visible,2026-04-30T16:14:22+00:00
+2025,3.02,26,3,Early,early_3rd,17106,"Taylor, Mason",TE,Offense,2000,pending,2025,0,0,,right-censored; only rookie-year row visible,2026-04-30T16:14:22+00:00
+2025,3.03,27,3,Early,early_3rd,17047,"Sampson, Dylan",RB,Offense,2000,pending,2025,0,0,,right-censored; only rookie-year row visible,2026-04-30T16:14:22+00:00
+2025,3.04,28,3,Early,early_3rd,17031,"Sanders, Shedeur",QB,Offense,2000,pending,2025,0,0,,right-censored; only rookie-year row visible,2026-04-30T16:14:22+00:00
+2025,3.05,29,3,Middle,mid_3rd,17107,"Ferguson, Terrance",TE,Offense,2000,pending,2025,0,0,,right-censored; only rookie-year row visible,2026-04-30T16:14:22+00:00
+2025,3.06,30,3,Middle,mid_3rd,17064,"Hunter, Jarquez",RB,Offense,2000,pending,2025,0,0,,right-censored; only rookie-year row visible,2026-04-30T16:14:22+00:00
+2025,3.07,31,3,Middle,mid_3rd,17086,"Royals, Jalen",WR,Offense,2000,pending,2025,0,0,,right-censored; only rookie-year row visible,2026-04-30T16:14:22+00:00
+2025,3.08,32,3,Middle,mid_3rd,17108,"Arroyo, Elijah",TE,Offense,2000,pending,2025,0,0,,right-censored; only rookie-year row visible,2026-04-30T16:14:22+00:00
+2025,3.09,33,3,Late,late_3rd,17112,"Carter, Abdul",DE,Defense,2000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2025,3.10,34,3,Late,late_3rd,17073,"Ayomanor, Elic",WR,Offense,2000,pending,2025,0,0,,right-censored; only rookie-year row visible,2026-04-30T16:14:22+00:00
+2025,3.11,35,3,Late,late_3rd,17049,"Smith, Brashard",RB,Offense,2000,pending,2025,0,0,,right-censored; only rookie-year row visible,2026-04-30T16:14:22+00:00
+2025,3.12,36,3,Late,late_3rd,17082,"Bryant, Pat",WR,Offense,2000,pending,2025,0,0,,right-censored; only rookie-year row visible,2026-04-30T16:14:22+00:00
+2025,4.01,37,4,Early,4th_plus,17069,"Blue, Jaydon",RB,Offense,2000,pending,2025,0,0,,right-censored; only rookie-year row visible,2026-04-30T16:14:22+00:00
+2025,4.02,38,4,Early,4th_plus,17098,"Horton, Tory",WR,Offense,2000,pending,2025,0,0,,right-censored; only rookie-year row visible,2026-04-30T16:14:22+00:00
+2025,4.03,39,4,Early,4th_plus,17157,"TeSlaa, Isaac",WR,Offense,2000,pending,2025,0,0,,right-censored; only rookie-year row visible,2026-04-30T16:14:22+00:00
+2025,4.04,40,4,Early,4th_plus,17056,"Etienne, Trevor",RB,Offense,2000,pending,2025,0,0,,right-censored; only rookie-year row visible,2026-04-30T16:14:22+00:00
+2025,4.05,41,4,Middle,4th_plus,17055,"James, Jordan",RB,Offense,2000,pending,2025,0,0,,right-censored; only rookie-year row visible,2026-04-30T16:14:22+00:00
+2025,4.06,42,4,Middle,4th_plus,17060,"Giddens, DJ",RB,Offense,2000,pending,2025,0,0,,right-censored; only rookie-year row visible,2026-04-30T16:14:22+00:00
+2025,4.07,43,4,Middle,4th_plus,17046,"Neal, Devin",RB,Offense,2000,pending,2025,0,0,,right-censored; only rookie-year row visible,2026-04-30T16:14:22+00:00
+2025,4.08,44,4,Middle,4th_plus,17066,"Monangai, Kyle",RB,Offense,2000,pending,2025,0,0,,right-censored; only rookie-year row visible,2026-04-30T16:14:22+00:00
+2025,4.09,45,4,Late,4th_plus,17184,"Lane, Jaylin",WR,Offense,2000,pending,2025,0,0,,right-censored; only rookie-year row visible,2026-04-30T16:14:22+00:00
+2025,4.10,46,4,Late,4th_plus,17059,"Gordon, Ollie",RB,Offense,2000,pending,2025,0,0,,right-censored; only rookie-year row visible,2026-04-30T16:14:22+00:00
+2025,4.11,47,4,Late,4th_plus,17058,"Brooks, Tahj",RB,Offense,2000,pending,2025,0,0,,right-censored; only rookie-year row visible,2026-04-30T16:14:22+00:00
+2025,4.12,48,4,Late,4th_plus,17120,"Green, Mike",DE,Defense,2000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2025,5.01,49,5,Early,4th_plus,17036,"Howard, Will",QB,Offense,2000,pending,2025,0,0,,right-censored; only rookie-year row visible,2026-04-30T16:14:22+00:00
+2025,5.02,50,5,Early,4th_plus,17087,"Thornton, Dont'e",WR,Offense,2000,pending,2025,0,0,,right-censored; only rookie-year row visible,2026-04-30T16:14:22+00:00
+2025,5.03,51,5,Early,4th_plus,17037,"Gabriel, Dillon",QB,Offense,2000,pending,2025,0,0,,right-censored; only rookie-year row visible,2026-04-30T16:14:22+00:00
+2025,5.04,52,5,Early,4th_plus,17113,"Williams, Mykel",DE,Defense,2000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2025,5.05,53,5,Middle,4th_plus,17132,"Starks, Malaki",S,Defense,2000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2025,5.06,54,5,Middle,4th_plus,17096,"Williams, Savion",WR,Offense,2000,pending,2025,0,0,,right-censored; only rookie-year row visible,2026-04-30T16:14:22+00:00
+2025,5.07,55,5,Middle,4th_plus,17053,"Marks, Woody",RB,Offense,2000,pending,2025,0,0,,right-censored; only rookie-year row visible,2026-04-30T16:14:22+00:00
+2025,5.08,56,5,Middle,4th_plus,17061,"Allen, LeQuint",RB,Offense,2000,pending,2025,0,0,,right-censored; only rookie-year row visible,2026-04-30T16:14:22+00:00
+2025,5.09,57,5,Late,4th_plus,17034,"Ewers, Quinn",QB,Offense,2000,pending,2025,0,0,,right-censored; only rookie-year row visible,2026-04-30T16:14:22+00:00
+2025,5.10,58,5,Late,4th_plus,17077,"Restrepo, Xavier",WR,Offense,2000,pending,2025,0,0,,right-censored; only rookie-year row visible,2026-04-30T16:14:22+00:00
+2025,5.11,59,5,Late,4th_plus,17256,"Croskey-Merritt, Jacory",RB,Offense,2000,pending,2025,0,0,,right-censored; only rookie-year row visible,2026-04-30T16:14:22+00:00
+2025,5.12,60,5,Late,4th_plus,17123,"Campbell, Jihaad",LB,Defense,2000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2025,6.01,61,6,Early,4th_plus,17147,"Schwesinger, Carson",LB,Defense,1000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2025,6.02,62,6,Early,4th_plus,17137,"Harmon, Derrick",DT,Defense,1000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2025,6.03,63,6,Early,4th_plus,17125,"Knight, Demetrius",LB,Defense,1000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2025,6.04,64,6,Early,4th_plus,17122,"Walker, Jalon",DE,Defense,1000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2025,6.05,65,6,Middle,4th_plus,17115,"Pearce, James",DE,Defense,1000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2025,6.06,66,6,Middle,4th_plus,17119,"Scourton, Nic",DE,Defense,1000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2025,6.07,67,6,Middle,4th_plus,17114,"Stewart, Shemar",DE,Defense,1000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2025,6.08,68,6,Middle,4th_plus,17159,"Martin, Nick",LB,Defense,1000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2025,6.09,69,6,Late,4th_plus,17144,"Emmanwori, Nick",S,Defense,1000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2025,6.10,70,6,Late,4th_plus,17135,"Ezeiruaku, Donovan",DE,Defense,1000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2025,6.11,71,6,Late,4th_plus,17121,"Graham, Mason",DT,Defense,1000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2025,6.12,72,6,Late,4th_plus,17126,"Stutsman, Danny",LB,Defense,1000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2024,1.01,1,1,Early,early_1st,16579,"Williams, Caleb",QB,Offense,15000,pending,2025,1,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2024,1.02,2,1,Early,early_1st,16614,"Harrison Jr., Marvin",WR,Offense,14000,pending,2025,1,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2024,1.03,3,1,Early,early_1st,16615,"Nabers, Malik",WR,Offense,13000,pending,2025,1,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2024,1.04,4,1,Early,early_1st,16581,"Daniels, Jayden",QB,Offense,12000,pending,2025,1,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2024,1.05,5,1,Middle,mid_1st,16584,"McCarthy, J.J.",QB,Offense,11000,pending,2025,1,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2024,1.06,6,1,Middle,mid_1st,16616,"Odunze, Rome",WR,Offense,10000,pending,2025,1,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2024,1.07,7,1,Middle,mid_1st,16641,"Bowers, Brock",TE,Offense,9000,pending,2025,1,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2024,1.08,8,1,Middle,mid_1st,16580,"Maye, Drake",QB,Offense,8000,pending,2025,1,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2024,1.09,9,1,Late,late_1st,16597,"Brooks, Jonathon",RB,Offense,7000,pending,2025,1,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2024,1.10,10,1,Late,late_1st,16594,"Benson, Trey",RB,Offense,6000,pending,2025,1,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2024,1.11,11,1,Late,late_1st,16620,"Worthy, Xavier",WR,Offense,5000,pending,2025,1,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2024,1.12,12,1,Late,late_1st,16627,"McConkey, Ladd",WR,Offense,0,pending,2025,1,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2024,2.01,13,2,Early,early_2nd,16617,"Coleman, Keon",WR,Offense,5000,pending,2025,1,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2024,2.02,14,2,Early,early_2nd,16632,"Burton, Jermaine",WR,Offense,5000,pending,2025,1,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2024,2.03,15,2,Early,early_2nd,16618,"Thomas Jr., Brian",WR,Offense,5000,pending,2025,1,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2024,2.04,16,2,Early,early_2nd,16593,"Corum, Blake",RB,Offense,5000,pending,2025,1,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2024,2.05,17,2,Middle,mid_2nd,16583,"Penix Jr., Michael",QB,Offense,5000,pending,2025,1,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2024,2.06,18,2,Middle,mid_2nd,16582,"Nix, Bo",QB,Offense,5000,pending,2025,1,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2024,2.07,19,2,Middle,mid_2nd,16622,"Pearsall, Ricky",WR,Offense,5000,pending,2025,1,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2024,2.08,20,2,Middle,mid_2nd,16610,"Wright, Jaylen",RB,Offense,5000,pending,2025,1,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2024,2.09,21,2,Late,late_2nd,16619,"Franklin, Troy",WR,Offense,5000,pending,2025,1,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2024,2.10,22,2,Late,late_2nd,16626,"Mitchell, Adonai",WR,Offense,5000,pending,2025,1,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2024,2.11,23,2,Late,late_2nd,16604,"Lloyd, MarShawn",RB,Offense,5000,pending,2025,1,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2024,2.12,24,2,Late,late_2nd,16601,"Shipley, Will",RB,Offense,5000,pending,2025,1,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2024,3.01,25,3,Early,early_3rd,16637,"Baker, Javon",WR,Offense,2000,pending,2025,1,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2024,3.02,26,3,Early,early_3rd,16757,"Vidal, Kimani",RB,Offense,2000,pending,2025,1,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2024,3.03,27,3,Early,early_3rd,16644,"Sinnott, Ben",TE,Offense,2000,pending,2025,1,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2024,3.04,28,3,Early,early_3rd,16639,"Legette, Xavier",WR,Offense,2000,pending,2025,1,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2024,3.05,29,3,Middle,mid_3rd,16629,"Wilson, Roman",WR,Offense,2000,pending,2025,1,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2024,3.06,30,3,Middle,mid_3rd,16631,"Polk, Ja'Lynn",WR,Offense,2000,pending,2025,1,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2024,3.07,31,3,Middle,mid_3rd,16595,"Estime, Audric",RB,Offense,2000,pending,2025,1,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2024,3.08,32,3,Middle,mid_3rd,16684,"Washington, Malik",WR,Offense,2000,pending,2025,1,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2024,3.09,33,3,Late,late_3rd,16603,"Davis, Ray",RB,Offense,2000,pending,2025,1,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2024,3.10,34,3,Late,late_3rd,16598,"Irving, Bucky",RB,Offense,2000,pending,2025,1,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2024,3.11,35,3,Late,late_3rd,16635,"McCaffrey, Luke",WR,Offense,2000,pending,2025,1,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2024,3.12,36,3,Late,late_3rd,16643,"Sanders, Ja'Tavion",TE,Offense,2000,extension,2025,1,1000,0003,extension_inferred,2026-04-30T16:14:22+00:00
+2024,4.01,37,4,Early,4th_plus,16655,"Robinson, Chop",DE,Defense,2000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2024,4.02,38,4,Early,4th_plus,16613,"Laube, Dylan",RB,Offense,2000,pending,2025,1,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2024,4.03,39,4,Early,4th_plus,16648,"Wiley, Jared",TE,Offense,2000,pending,2025,1,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2024,4.04,40,4,Early,4th_plus,16747,"Tracy, Tyrone",RB,Offense,2000,pending,2025,1,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2024,4.05,41,4,Middle,4th_plus,16621,"Walker, Devontez",WR,Offense,2000,pending,2025,1,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2024,4.06,42,4,Middle,4th_plus,16596,"Allen, Braelon",RB,Offense,2000,pending,2025,1,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2024,4.07,43,4,Middle,4th_plus,16688,"Guerendo, Isaac",RB,Offense,2000,pending,2025,1,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2024,4.08,44,4,Middle,4th_plus,16628,"McMillan, Jalen",WR,Offense,2000,pending,2025,1,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2024,4.09,45,4,Late,4th_plus,16642,"Stover, Cade",TE,Offense,2000,pending,2025,1,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2024,4.10,46,4,Late,4th_plus,16746,"Ali, Rasheen",RB,Offense,2000,pending,2025,1,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2024,4.11,47,4,Late,4th_plus,16611,"Bailey, Emani",RB,Offense,2000,pending,2024,0,0,,right-censored; only rookie-year row visible,2026-04-30T16:14:22+00:00
+2024,4.12,48,4,Late,4th_plus,16645,"All, Erick",TE,Offense,2000,pending,2025,1,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2024,5.01,49,5,Early,4th_plus,16636,"Corley, Malachi",WR,Offense,2000,pending,2025,1,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2024,5.02,50,5,Early,4th_plus,16623,"Rice, Brenden",WR,Offense,2000,pending,2025,1,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2024,5.03,51,5,Early,4th_plus,16586,"Rattler, Spencer",QB,Offense,2000,pending,2025,1,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2024,5.04,52,5,Early,4th_plus,16640,"Cowing, Jacob",WR,Offense,2000,pending,2025,1,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2024,5.05,53,5,Middle,4th_plus,16665,"Colson, Junior",LB,Defense,2000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2024,5.06,54,5,Middle,4th_plus,16686,"Smith, Ainias",WR,Offense,2000,pending,2025,1,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2024,5.07,55,5,Middle,4th_plus,16696,"Cooper, Edgerrin",LB,Defense,2000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2024,5.08,56,5,Middle,4th_plus,16589,"Travis, Jordan",QB,Offense,2000,pending,2025,1,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2024,5.09,57,5,Late,4th_plus,16605,"McClellan, Jase",RB,Offense,2000,pending,2025,1,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2024,5.10,58,5,Late,4th_plus,16706,"Reiman, Tip",TE,Offense,2000,pending,2025,1,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2024,5.11,59,5,Late,4th_plus,16803,"Watson, Blake",RB,Offense,2000,pending,2025,1,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2024,5.12,60,5,Late,4th_plus,16651,"Latu, Laiatu",DE,Defense,2000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2024,6.01,61,6,Early,4th_plus,16650,"Turner, Dallas",DE,Defense,1000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2024,6.02,62,6,Early,4th_plus,16653,"Verse, Jared",DE,Defense,1000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2024,6.03,63,6,Early,4th_plus,16716,"Wilson, Payton",LB,Defense,1000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2024,6.04,64,6,Early,4th_plus,16667,"Gray, Cedric",LB,Defense,1000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2024,6.05,65,6,Middle,4th_plus,16679,"Nubin, Tyler",S,Defense,1000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2024,6.06,66,6,Middle,4th_plus,16704,"Wallace, Trevin",LB,Defense,1000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2024,6.07,67,6,Middle,4th_plus,16727,"Hicks, Jaden",S,Defense,1000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2024,6.08,68,6,Middle,4th_plus,16693,"Sweat, T'Vondre",DT,Defense,1000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2024,6.09,69,6,Late,4th_plus,16677,"Bullard, Javon",S,Defense,1000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2024,6.10,70,6,Late,4th_plus,16652,"Trice, Bralen",DE,Defense,1000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2024,6.11,71,6,Late,4th_plus,16724,"Taylor, Tory",PN,Defense,1000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2024,6.12,72,6,Late,4th_plus,16689,"Murphy, Byron",DT,Defense,1000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2023,1.01,1,1,Early,early_1st,16161,"Robinson, Bijan",RB,OFFENSE,15000,pending,2025,2,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2023,1.02,2,1,Early,early_1st,16152,"Richardson, Anthony",QB,OFFENSE,14000,pending,2025,2,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2023,1.03,3,1,Early,early_1st,16148,"Young, Bryce",QB,OFFENSE,13000,pending,2025,2,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2023,1.04,4,1,Early,early_1st,16150,"Stroud, C.J.",QB,OFFENSE,12000,pending,2025,2,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2023,1.05,5,1,Middle,mid_1st,16162,"Gibbs, Jahmyr",RB,OFFENSE,11000,extension,2025,2,11000,0004,extension_inferred,2026-04-30T16:14:22+00:00
+2023,1.06,6,1,Middle,mid_1st,16185,"Smith-Njigba, Jaxon",WR,OFFENSE,10000,extension,2025,2,10000,0009,extension_inferred,2026-04-30T16:14:22+00:00
+2023,1.07,7,1,Middle,mid_1st,16213,"Kincaid, Dalton",TE,OFFENSE,9000,extension,2025,2,9000,0004,extension_inferred,2026-04-30T16:14:22+00:00
+2023,1.08,8,1,Middle,mid_1st,16188,"Johnston, Quentin",WR,OFFENSE,8000,pending,2025,2,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2023,1.09,9,1,Late,late_1st,16186,"Addison, Jordan",WR,OFFENSE,7000,extension,2025,2,7000,0005,extension_inferred,2026-04-30T16:14:22+00:00
+2023,1.10,10,1,Late,late_1st,16149,"Levis, Will",QB,OFFENSE,6000,pending,2025,2,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2023,1.11,11,1,Late,late_1st,16190,"Flowers, Zay",WR,OFFENSE,5000,extension,2025,2,5000,0004,extension_inferred,2026-04-30T16:14:22+00:00
+2023,1.12,12,1,Late,late_1st,16171,"Miller, Kendre",RB,OFFENSE,0,pending,2025,2,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2023,2.01,13,2,Early,early_2nd,16167,"Achane, De'Von",RB,OFFENSE,5000,extension,2025,2,5000,0003,extension_inferred,2026-04-30T16:14:22+00:00
+2023,2.02,14,2,Early,early_2nd,16169,"Charbonnet, Zach",RB,OFFENSE,5000,pending,2025,2,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2023,2.03,15,2,Early,early_2nd,16184,"Reed, Jayden",WR,OFFENSE,5000,pending,2025,2,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2023,2.04,16,2,Early,early_2nd,16197,"Mingo, Jonathan",WR,OFFENSE,5000,pending,2025,2,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2023,2.05,17,2,Middle,mid_2nd,16165,"Spears, Tyjae",RB,OFFENSE,5000,pending,2025,2,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2023,2.06,18,2,Middle,mid_2nd,16194,"Rice, Rashee",WR,OFFENSE,5000,extension,2025,2,5000,0006,extension_inferred,2026-04-30T16:14:22+00:00
+2023,2.07,19,2,Middle,mid_2nd,16175,"Johnson, Roschon",RB,OFFENSE,5000,fa_auction,2025,2,4000,0006,fa_auction,2026-04-30T16:14:22+00:00
+2023,2.08,20,2,Middle,mid_2nd,16189,"Mims, Marvin",WR,OFFENSE,5000,pending,2025,2,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2023,2.09,21,2,Late,late_2nd,16214,"LaPorta, Sam",TE,OFFENSE,5000,pending,2025,2,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2023,2.10,22,2,Late,late_2nd,16164,"Bigsby, Tank",RB,OFFENSE,5000,pending,2025,2,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2023,2.11,23,2,Late,late_2nd,16179,"McBride, DeWayne",RB,OFFENSE,5000,pending,2025,2,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2023,2.12,24,2,Late,late_2nd,16151,"Hooker, Hendon",QB,OFFENSE,5000,pending,2025,2,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2023,3.01,25,3,Early,early_3rd,16212,"Mayer, Michael",TE,OFFENSE,2000,pending,2025,2,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2023,3.02,26,3,Early,early_3rd,16187,"Downs, Josh",WR,OFFENSE,2000,extension,2025,2,2000,0003,extension_inferred,2026-04-30T16:14:22+00:00
+2023,3.03,27,3,Early,early_3rd,16181,"Brown, Chase",RB,OFFENSE,2000,pending,2025,2,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2023,3.04,28,3,Early,early_3rd,16180,"Hull, Evan",RB,OFFENSE,2000,pending,2025,2,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2023,3.05,29,3,Middle,mid_3rd,16163,"Evans, Zach",RB,OFFENSE,2000,pending,2025,2,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2023,3.06,30,3,Middle,mid_3rd,16153,"Bennett, Stetson",QB,OFFENSE,2000,pending,2025,2,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2023,3.07,31,3,Middle,mid_3rd,16204,"Dell, Tank",WR,OFFENSE,2000,extension,2025,2,1000,0007,extension_inferred,2026-04-30T16:14:22+00:00
+2023,3.08,32,3,Middle,mid_3rd,16221,"Schoonmaker, Luke",TE,OFFENSE,2000,pending,2025,2,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2023,3.09,33,3,Late,late_3rd,16176,"Vaughn, Deuce",RB,OFFENSE,2000,pending,2025,2,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2023,3.10,34,3,Late,late_3rd,16183,"Hyatt, Jalin",WR,OFFENSE,2000,pending,2025,2,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2023,3.11,35,3,Late,late_3rd,16215,"Musgrave, Luke",TE,OFFENSE,2000,pending,2025,2,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2023,3.12,36,3,Late,late_3rd,16206,"Wilson, Michael",WR,OFFENSE,2000,extension,2025,2,5000,0010,extension_inferred,2026-04-30T16:14:22+00:00
+2023,4.01,37,4,Early,4th_plus,16173,"Gray, Eric",RB,OFFENSE,2000,pending,2025,2,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2023,4.02,38,4,Early,4th_plus,16191,"Tillman, Cedric",WR,OFFENSE,2000,pending,2025,2,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2023,4.03,39,4,Early,4th_plus,16203,"Jones, Charlie",WR,OFFENSE,2000,pending,2025,2,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2023,4.04,40,4,Early,4th_plus,16193,"Boutte, Kayshon",WR,OFFENSE,2000,pending,2025,2,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2023,4.05,41,4,Middle,4th_plus,16216,"Washington, Darnell",TE,OFFENSE,2000,pending,2025,2,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2023,4.06,42,4,Middle,4th_plus,16223,"Anderson, Will",DE,OFFENSE,2000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2023,4.07,43,4,Middle,4th_plus,16168,"Abanikanda, Israel",RB,OFFENSE,2000,pending,2025,2,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2023,4.08,44,4,Middle,4th_plus,16205,"Scott, Tyler",WR,OFFENSE,2000,pending,2025,2,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2023,4.09,45,4,Late,4th_plus,16233,"Carter, Jalen",DT,OFFENSE,2000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2023,4.10,46,4,Late,4th_plus,16241,"Witherspoon, Devon",CB,OFFENSE,2000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2023,4.11,47,4,Late,4th_plus,16224,"Murphy, Myles",DE,OFFENSE,2000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2023,4.12,48,4,Late,4th_plus,16230,"Van Ness, Lukas",DE,OFFENSE,2000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2023,5.01,49,5,Early,4th_plus,16222,"Kraft, Tucker",TE,OFFENSE,2000,pending,2025,2,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2023,5.02,50,5,Early,4th_plus,16201,"Hutchinson, Xavier",WR,OFFENSE,2000,pending,2025,2,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2023,5.03,51,5,Early,4th_plus,16211,"Nacua, Puka",WR,OFFENSE,2000,pending,2025,2,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2023,5.04,52,5,Early,4th_plus,16196,"Perry, A.T.",WR,OFFENSE,2000,pending,2025,2,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2023,5.05,53,5,Middle,4th_plus,16239,"Campbell, Jack",LB,OFFENSE,2000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2023,5.06,54,5,Middle,4th_plus,16231,"Sanders, Drew",LB,OFFENSE,2000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2023,5.07,55,5,Middle,4th_plus,16257,"Anudike-Uzomah, Felix",DE,OFFENSE,2000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2023,5.08,56,5,Middle,4th_plus,16249,"Kuntz, Zack",TE,OFFENSE,2000,pending,2025,2,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2023,5.09,57,5,Late,4th_plus,16174,"Rodriguez, Chris",RB,OFFENSE,2000,pending,2025,2,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2023,5.10,58,5,Late,4th_plus,16156,"Haener, Jake",QB,OFFENSE,2000,pending,2025,2,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2023,5.11,59,5,Late,4th_plus,16166,"Tucker, Sean",RB,OFFENSE,2000,pending,2025,2,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2023,5.12,60,5,Late,4th_plus,16228,"Smith, Nolan",DE,OFFENSE,2000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2023,6.01,61,6,Early,4th_plus,16226,"Wilson, Tyree",DE,OFFENSE,1000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2023,6.02,62,6,Early,4th_plus,16244,"Branch, Brian",S,OFFENSE,1000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2023,6.03,63,6,Early,4th_plus,16252,"McDonald, Will",DE,OFFENSE,1000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2023,6.04,64,6,Early,4th_plus,16271,"Brown, Sydney",S,OFFENSE,1000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2023,6.05,65,6,Middle,4th_plus,16280,"Henley, Daiyan",LB,OFFENSE,1000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2023,6.06,66,6,Middle,4th_plus,16245,"Battle, Jordan",S,OFFENSE,1000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2023,6.07,67,6,Middle,4th_plus,16286,"Moody, Jake",PK,OFFENSE,1000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2023,6.08,68,6,Middle,4th_plus,16234,"Simpson, Trenton",LB,OFFENSE,1000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2023,6.09,69,6,Late,4th_plus,16330,"Baringer, Bryce",PN,OFFENSE,1000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2023,6.10,70,6,Late,4th_plus,16284,"Williams, Dorian",LB,OFFENSE,1000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2023,6.11,71,6,Late,4th_plus,16263,"Martin, Jartavius",S,OFFENSE,1000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2023,6.12,72,6,Late,4th_plus,16251,"Gonzalez, Christian",CB,OFFENSE,1000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2022,1.01,1,1,Early,early_1st,15708,"Hall, Breece",RB,OFFENSE,15000,extension,2025,3,35000,0008,extension_inferred,2026-04-30T16:14:22+00:00
+2022,1.02,2,1,Early,early_1st,15753,"Wilson, Garrett",WR,OFFENSE,14000,extension,2025,3,34000,0002,extension_inferred,2026-04-30T16:14:22+00:00
+2022,1.03,3,1,Early,early_1st,15751,"London, Drake",WR,OFFENSE,13000,extension,2024,2,13000,0004,extension_inferred,2026-04-30T16:14:22+00:00
+2022,1.04,4,1,Early,early_1st,15711,"Walker III, Kenneth",RB,OFFENSE,12000,extension,2024,2,12000,0004,extension_inferred,2026-04-30T16:14:22+00:00
+2022,1.05,5,1,Middle,mid_1st,15754,"Olave, Chris",WR,OFFENSE,11000,extension,2024,2,11000,0010,extension_inferred,2026-04-30T16:14:22+00:00
+2022,1.06,6,1,Middle,mid_1st,15756,"Williams, Jameson",WR,OFFENSE,10000,extension,2025,3,20000,0007,extension_inferred,2026-04-30T16:14:22+00:00
+2022,1.07,7,1,Middle,mid_1st,15762,"Pickens, George",WR,OFFENSE,9000,extension,2025,3,19000,0009,extension_inferred,2026-04-30T16:14:22+00:00
+2022,1.08,8,1,Middle,mid_1st,15766,"Moore, Skyy",WR,OFFENSE,8000,pending,2024,2,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2022,1.09,9,1,Late,late_1st,15715,"Cook, James",RB,OFFENSE,7000,extension,2024,2,7000,0009,extension_inferred,2026-04-30T16:14:22+00:00
+2022,1.10,10,1,Late,late_1st,15789,"Watson, Christian",WR,OFFENSE,6000,fa_auction,2025,3,3000,0008,expired_rookie_or_tag_auction,2026-04-30T16:14:22+00:00
+2022,1.11,11,1,Late,late_1st,15752,"Burks, Treylon",WR,OFFENSE,5000,fa_auction,2024,2,4000,,fa_auction,2026-04-30T16:14:22+00:00
+2022,1.12,12,1,Late,late_1st,15755,"Dotson, Jahan",WR,OFFENSE,0,pending,2024,2,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2022,2.01,13,2,Early,early_2nd,15714,"White, Zamir",RB,OFFENSE,5000,pending,2025,3,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2022,2.02,14,2,Early,early_2nd,15709,"Spiller, Isaiah",RB,OFFENSE,5000,pending,2025,3,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2022,2.03,15,2,Early,early_2nd,15721,"White, Rachaad",RB,OFFENSE,5000,fa_auction,2025,3,9000,0004,expired_rookie_or_tag_auction,2026-04-30T16:14:22+00:00
+2022,2.04,16,2,Early,early_2nd,15758,"Bell, David",WR,OFFENSE,5000,pending,2024,2,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2022,2.05,17,2,Middle,mid_2nd,15717,"Pierce, Dameon",RB,OFFENSE,5000,fa_auction,2025,3,1000,0008,expired_rookie_or_tag_auction,2026-04-30T16:14:22+00:00
+2022,2.06,18,2,Middle,mid_2nd,15768,"Pierce, Alec",WR,OFFENSE,5000,fa_auction,2025,3,2000,0001,expired_rookie_or_tag_auction,2026-04-30T16:14:22+00:00
+2022,2.07,19,2,Middle,mid_2nd,15692,"Pickett, Kenny",QB,OFFENSE,5000,pending,2024,2,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2022,2.08,20,2,Middle,mid_2nd,15712,"Allgeier, Tyler",RB,OFFENSE,5000,extension,2025,3,15000,0011,extension_inferred,2026-04-30T16:14:22+00:00
+2022,2.09,21,2,Late,late_2nd,15716,"Robinson, Brian",RB,OFFENSE,5000,extension,2025,3,15000,0006,extension_inferred,2026-04-30T16:14:22+00:00
+2022,2.10,22,2,Late,late_2nd,15697,"Ridder, Desmond",QB,OFFENSE,5000,pending,2025,3,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2022,2.11,23,2,Late,late_2nd,15759,"Metchie, John",WR,OFFENSE,5000,pending,2025,3,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2022,2.12,24,2,Late,late_2nd,15746,"Davis-Price, Tyrion",RB,OFFENSE,5000,pending,2024,2,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2022,3.01,25,3,Early,early_3rd,15757,"Robinson, Wan'Dale",WR,OFFENSE,2000,extension,2025,3,12000,0006,extension_inferred,2026-04-30T16:14:22+00:00
+2022,3.02,26,3,Early,early_3rd,15694,"Willis, Malik",QB,OFFENSE,2000,pending,2025,3,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2022,3.03,27,3,Early,early_3rd,15788,"Tolbert, Jalen",WR,OFFENSE,2000,fa_auction,2025,3,1000,0002,fa_auction,2026-04-30T16:14:22+00:00
+2022,3.04,28,3,Early,early_3rd,15691,"Corral, Matt",QB,OFFENSE,2000,pending,2025,3,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2022,3.05,29,3,Middle,mid_3rd,15761,"Shakir, Khalil",WR,OFFENSE,2000,fa_auction,2025,3,19000,0010,expired_rookie_or_tag_auction,2026-04-30T16:14:22+00:00
+2022,3.06,30,3,Middle,mid_3rd,15794,"McBride, Trey",TE,OFFENSE,2000,extension,2025,3,22000,0005,extension_inferred,2026-04-30T16:14:22+00:00
+2022,3.07,31,3,Middle,mid_3rd,15720,"Haskins, Hassan",RB,OFFENSE,2000,pending,2024,2,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2022,3.08,32,3,Middle,mid_3rd,15710,"Williams, Kyren",RB,OFFENSE,2000,extension,2025,3,22000,0012,extension_inferred,2026-04-30T16:14:22+00:00
+2022,3.09,33,3,Late,late_3rd,15805,"Hutchinson, Aidan",DE,OFFENSE,2000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2022,3.10,34,3,Late,late_3rd,15787,"Thornton, Tyquan",WR,OFFENSE,2000,pending,2025,3,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2022,3.11,35,3,Late,late_3rd,15763,"Ross, Justyn",WR,OFFENSE,2000,fa_auction,2023,1,15000,0011,fa_auction,2026-04-30T16:14:22+00:00
+2022,3.12,36,3,Late,late_3rd,15693,"Howell, Sam",QB,OFFENSE,2000,fa_auction,2024,2,4000,,fa_auction,2026-04-30T16:14:22+00:00
+2022,4.01,37,4,Early,4th_plus,15806,"Thibodeaux, Kayvon",LB,OFFENSE,2000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2022,4.02,38,4,Early,4th_plus,15777,"Austin III, Calvin",WR,OFFENSE,2000,fa_auction,2024,2,1000,,fa_auction,2026-04-30T16:14:22+00:00
+2022,4.03,39,4,Early,4th_plus,15822,"Lloyd, Devin",LB,OFFENSE,2000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2022,4.04,40,4,Early,4th_plus,15779,"Doubs, Romeo",WR,OFFENSE,2000,fa_auction,2025,3,4000,0005,expired_rookie_or_tag_auction,2026-04-30T16:14:22+00:00
+2022,4.05,41,4,Middle,4th_plus,15718,"Badie, Tyler",RB,OFFENSE,2000,pending,2024,2,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2022,4.06,42,4,Middle,4th_plus,15733,"Strong Jr., Pierre",RB,OFFENSE,2000,fa_auction,2024,2,1000,0008,fa_auction,2026-04-30T16:14:22+00:00
+2022,4.07,43,4,Middle,4th_plus,15734,"Ingram, Keaontay",RB,OFFENSE,2000,pending,2025,3,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2022,4.08,44,4,Middle,4th_plus,15808,"Karlaftis, George",DE,OFFENSE,2000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2022,4.09,45,4,Late,4th_plus,15834,"Hamilton, Kyle",S,OFFENSE,2000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2022,4.10,46,4,Late,4th_plus,15797,"Dulcich, Greg",TE,OFFENSE,2000,pending,2024,2,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2022,4.11,47,4,Late,4th_plus,15815,"Walker, Travon",DE,OFFENSE,2000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2022,4.12,48,4,Late,4th_plus,15840,"Woods, Jelani",TE,OFFENSE,2000,pending,2024,2,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2022,5.01,49,5,Early,4th_plus,15796,"Ruckert, Jeremy",TE,OFFENSE,2000,pending,2023,1,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2022,5.02,50,5,Early,4th_plus,15846,"Walker, Quay",LB,OFFENSE,2000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2022,5.03,51,5,Early,4th_plus,15809,"Johnson, Jermaine",DE,OFFENSE,2000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2022,5.04,52,5,Early,4th_plus,15767,"Jones, Velus",WR,OFFENSE,2000,pending,2023,1,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2022,5.05,53,5,Middle,4th_plus,15695,"Strong, Carson",QB,OFFENSE,2000,pending,2023,1,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2022,5.06,54,5,Middle,4th_plus,15821,"Dean, Nakobe",LB,OFFENSE,2000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2022,5.07,55,5,Middle,4th_plus,15782,"Gray, Danny",WR,OFFENSE,2000,pending,2025,3,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2022,5.08,56,5,Middle,4th_plus,15802,"Otton, Cade",TE,OFFENSE,2000,fa_auction,2025,3,5000,0006,expired_rookie_or_tag_auction,2026-04-30T16:14:22+00:00
+2022,5.09,57,5,Late,4th_plus,15785,"Melton, Bo",WR,OFFENSE,2000,pending,2025,3,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2022,5.10,58,5,Late,4th_plus,15873,"Bellinger, Daniel",TE,OFFENSE,2000,pending,2023,1,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2022,5.11,59,5,Late,4th_plus,15837,"Cine, Lewis",S,OFFENSE,2000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2022,5.12,60,5,Late,4th_plus,15713,"Ford, Jerome",RB,OFFENSE,2000,fa_auction,2025,3,6000,0007,fa_auction,2026-04-30T16:14:22+00:00
+2022,6.01,61,6,Early,4th_plus,15832,"Stingley Jr., Derek",CB,OFFENSE,1000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2022,6.02,62,6,Early,4th_plus,15857,"Williams, Sam",DE,OFFENSE,1000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2022,6.03,63,6,Early,4th_plus,15817,"Davis, Jordan",DT,OFFENSE,1000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2022,6.04,64,6,Early,4th_plus,15851,"Ebiketie, Arnold",LB,OFFENSE,1000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2022,6.05,65,6,Middle,4th_plus,15853,"Mafe, Boye",DE,OFFENSE,1000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2022,6.06,66,6,Middle,4th_plus,15901,"Philips, Kyle",WR,OFFENSE,1000,pending,2023,1,0,,right-censored (rookie deal not yet expired),2026-04-30T16:14:22+00:00
+2022,6.07,67,6,Middle,4th_plus,15823,"Harris, Christian",LB,OFFENSE,1000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2022,6.08,68,6,Middle,4th_plus,15858,"Andersen, Troy",LB,OFFENSE,1000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2022,6.09,69,6,Late,4th_plus,15824,"Tindall, Channing",LB,OFFENSE,1000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2022,6.10,70,6,Late,4th_plus,15831,"Chenal, Leo",LB,OFFENSE,1000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2022,6.11,71,6,Late,4th_plus,15911,"Araiza, Matt",PN,OFFENSE,1000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2022,6.12,72,6,Late,4th_plus,15835,"Brisker, Jaquan",S,OFFENSE,1000,pending,,,0,,right-censored; no contract_history rows yet,2026-04-30T16:14:22+00:00
+2021,1.01,1,1,Early,early_1st,15329,"Pitts, Kyle",TE,OFFENSE,15000,extension,2023,2,15000,0008,extension_inferred,2026-04-30T16:14:22+00:00
+2021,1.02,2,1,Early,early_1st,15281,"Chase, Ja'Marr",WR,OFFENSE,14000,extension,2023,2,14000,0008,extension_inferred,2026-04-30T16:14:22+00:00
+2021,1.03,3,1,Early,early_1st,15254,"Harris, Najee",RB,OFFENSE,13000,extension,2023,2,13000,0002,extension_inferred,2026-04-30T16:14:22+00:00
+2021,1.04,4,1,Early,early_1st,15253,"Etienne, Travis",RB,OFFENSE,12000,extension,2024,3,22000,0011,extension_inferred,2026-04-30T16:14:22+00:00
+2021,1.05,5,1,Middle,mid_1st,15240,"Lance, Trey",QB,OFFENSE,11000,extension,2023,2,1000,0007,extension_inferred,2026-04-30T16:14:22+00:00
+2021,1.06,6,1,Middle,mid_1st,15284,"Waddle, Jaylen",WR,OFFENSE,10000,extension,2024,3,30000,0011,extension_inferred,2026-04-30T16:14:22+00:00
+2021,1.07,7,1,Middle,mid_1st,15237,"Lawrence, Trevor",QB,OFFENSE,9000,extension,2024,3,29000,0009,extension_inferred,2026-04-30T16:14:22+00:00
+2021,1.08,8,1,Middle,mid_1st,15257,"Sermon, Trey",RB,OFFENSE,8000,fa_auction,2024,3,3000,0008,fa_auction,2026-04-30T16:14:22+00:00
+2021,1.09,9,1,Late,late_1st,15256,"Williams, Javonte",RB,OFFENSE,7000,extension,2024,3,27000,0005,extension_inferred,2026-04-30T16:14:22+00:00
+2021,1.10,10,1,Late,late_1st,15282,"Smith, DeVonta",WR,OFFENSE,6000,extension,2023,2,6000,0003,extension_inferred,2026-04-30T16:14:22+00:00
+2021,1.11,11,1,Late,late_1st,15293,"Bateman, Rashod",WR,OFFENSE,5000,extension,2023,2,1000,0010,extension_inferred,2026-04-30T16:14:22+00:00
+2021,1.12,12,1,Late,late_1st,15238,"Fields, Justin",QB,OFFENSE,0,extension,2024,3,25000,0004,extension_inferred,2026-04-30T16:14:22+00:00
+2021,2.01,13,2,Early,early_2nd,15239,"Wilson, Zach",QB,OFFENSE,5000,expired_unsigned,2023,2,0,,rookie deal lapsed; no extension/tag/FA-auction event,2026-04-30T16:14:22+00:00
+2021,2.02,14,2,Early,early_2nd,15241,"Jones, Mac",QB,OFFENSE,5000,extension,2023,2,1000,0008,extension_inferred,2026-04-30T16:14:22+00:00
+2021,2.03,15,2,Early,early_2nd,15258,"Carter, Michael",RB,OFFENSE,5000,cut_unsigned,2025,4,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2021,2.04,16,2,Early,early_2nd,15289,"Toney, Kadarius",WR,OFFENSE,5000,extension,2023,2,5000,0008,extension_inferred,2026-04-30T16:14:22+00:00
+2021,2.05,17,2,Middle,mid_2nd,15283,"Moore, Rondale",WR,OFFENSE,5000,fa_auction,2024,3,6000,,expired_rookie_or_tag_auction,2026-04-30T16:14:22+00:00
+2021,2.06,18,2,Middle,mid_2nd,15308,"Marshall, Terrace",WR,OFFENSE,5000,expired_unsigned,2022,1,0,,rookie deal lapsed; no extension/tag/FA-auction event,2026-04-30T16:14:22+00:00
+2021,2.07,19,2,Middle,mid_2nd,15288,"Moore, Elijah",WR,OFFENSE,5000,fa_auction,2024,3,1000,0008,fa_auction,2026-04-30T16:14:22+00:00
+2021,2.08,20,2,Middle,mid_2nd,15287,"St. Brown, Amon-Ra",WR,OFFENSE,5000,extension,2024,3,25000,0001,extension_inferred,2026-04-30T16:14:22+00:00
+2021,2.09,21,2,Late,late_2nd,15297,"Rodgers, Amari",WR,OFFENSE,5000,cut_unsigned,2023,2,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2021,2.10,22,2,Late,late_2nd,15259,"Stevenson, Rhamondre",RB,OFFENSE,5000,extension,2023,2,5000,0005,extension_inferred,2026-04-30T16:14:22+00:00
+2021,2.11,23,2,Late,late_2nd,15255,"Gainwell, Kenneth",RB,OFFENSE,5000,fa_auction,2024,3,1000,0006,fa_auction,2026-04-30T16:14:22+00:00
+2021,2.12,24,2,Late,late_2nd,15292,"Brown, Dyami",WR,OFFENSE,5000,cut_unsigned,2024,3,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2021,3.01,25,3,Early,early_3rd,15331,"Freiermuth, Pat",TE,OFFENSE,2000,extension,2024,3,12000,0005,extension_inferred,2026-04-30T16:14:22+00:00
+2021,3.02,26,3,Early,early_3rd,15261,"Hubbard, Chuba",RB,OFFENSE,2000,fa_auction,2023,2,1000,0011,fa_auction,2026-04-30T16:14:22+00:00
+2021,3.03,27,3,Early,early_3rd,15319,"Palmer, Josh",WR,OFFENSE,2000,extension,2024,3,22000,0006,extension_inferred,2026-04-30T16:14:22+00:00
+2021,3.04,28,3,Early,early_3rd,15290,"Collins, Nico",WR,OFFENSE,2000,extension,2024,3,22000,0002,extension_inferred,2026-04-30T16:14:22+00:00
+2021,3.05,29,3,Middle,mid_3rd,15275,"Evans, Chris",RB,OFFENSE,2000,cut_unsigned,2023,2,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2021,3.06,30,3,Middle,mid_3rd,15302,"Eskridge, D'Wayne",WR,OFFENSE,2000,cut_unsigned,2024,3,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2021,3.07,31,3,Middle,mid_3rd,15243,"Mond, Kellen",QB,OFFENSE,2000,cut_unsigned,2023,2,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2021,3.08,32,3,Middle,mid_3rd,15373,"Davis, Jamin",LB,OFFENSE,2000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2021,3.09,33,3,Late,late_3rd,15271,"Herbert, Khalil",RB,OFFENSE,2000,extension,2023,2,2000,0002,extension_inferred,2026-04-30T16:14:22+00:00
+2021,3.10,34,3,Late,late_3rd,15350,"Parsons, Micah",LB,OFFENSE,2000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2021,3.11,35,3,Late,late_3rd,15349,"Phillips, Jaelan",DE,OFFENSE,2000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2021,3.12,36,3,Late,late_3rd,15366,"Holland, Jevon",S,OFFENSE,2000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2021,4.01,37,4,Early,4th_plus,15352,"Collins, Zaven",LB,OFFENSE,2000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2021,4.02,38,4,Early,4th_plus,15263,"Mitchell, Elijah",RB,OFFENSE,2000,fa_auction,2024,3,3000,,fa_auction,2026-04-30T16:14:22+00:00
+2021,4.03,39,4,Early,4th_plus,15345,"Paye, Kwity",DE,OFFENSE,2000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2021,4.04,40,4,Early,4th_plus,15351,"Owusu-Koramoah, Jeremiah",LB,OFFENSE,2000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2021,4.05,41,4,Middle,4th_plus,15316,"Powell, Cornell",WR,OFFENSE,2000,cut_unsigned,2022,1,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2021,4.06,42,4,Middle,4th_plus,15285,"Wallace, Tylan",WR,OFFENSE,2000,cut_unsigned,2024,3,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2021,4.07,43,4,Middle,4th_plus,15265,"Hill, Kylin",RB,OFFENSE,2000,cut_unsigned,2023,2,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2021,4.08,44,4,Middle,4th_plus,15262,"Jefferson, Jermar",RB,OFFENSE,2000,cut_unsigned,2022,1,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2021,4.09,45,4,Late,4th_plus,15381,"Grant, Richie",S,OFFENSE,2000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2021,4.10,46,4,Late,4th_plus,15242,"Trask, Kyle",QB,OFFENSE,2000,cut_unsigned,2024,3,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2021,4.11,47,4,Late,4th_plus,15296,"Schwartz, Anthony",WR,OFFENSE,2000,cut_unsigned,2022,1,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2021,4.12,48,4,Late,4th_plus,15365,"Moehrig, Trevon",S,OFFENSE,2000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2021,5.01,49,5,Early,4th_plus,15355,"Bolton, Nick",LB,OFFENSE,2000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2021,5.02,50,5,Early,4th_plus,15268,"Hawkins, Javian",RB,OFFENSE,2000,cut_unsigned,2022,1,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2021,5.03,51,5,Early,4th_plus,15317,"Stevenson, Marquez",WR,OFFENSE,2000,cut_unsigned,2022,1,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2021,5.04,52,5,Early,4th_plus,15301,"Atwell, Tutu",WR,OFFENSE,2000,cut_unsigned,2024,3,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2021,5.05,53,5,Middle,4th_plus,15266,"Williams, Pooka",RB,OFFENSE,2000,expired_unsigned,2023,2,0,,rookie deal lapsed; no extension/tag/FA-auction event,2026-04-30T16:14:22+00:00
+2021,5.06,54,5,Middle,4th_plus,15252,"Mills, Davis",QB,OFFENSE,2000,cut_unsigned,2023,2,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2021,5.07,55,5,Middle,4th_plus,15260,"Patterson, Jaret",RB,OFFENSE,2000,cut_unsigned,2024,3,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2021,5.08,56,5,Middle,4th_plus,15272,"Rountree, Larry",RB,OFFENSE,2000,cut_unsigned,2024,3,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2021,5.09,57,5,Late,4th_plus,15404,"Jones, Ernest",LB,OFFENSE,2000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2021,5.10,58,5,Late,4th_plus,15325,"Johnson, Cade",WR,OFFENSE,2000,cut_unsigned,2023,2,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2021,5.11,59,5,Late,4th_plus,15334,"Long, Hunter",TE,OFFENSE,2000,cut_unsigned,2023,2,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2021,5.12,60,5,Late,4th_plus,15321,"Darden, Jaelon",WR,OFFENSE,2000,cut_unsigned,2023,2,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2021,6.01,61,6,Early,4th_plus,15396,"Deablo, Divine",S,OFFENSE,1000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2021,6.02,62,6,Early,4th_plus,15346,"Rousseau, Gregory",DE,OFFENSE,1000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2021,6.03,63,6,Early,4th_plus,15387,"Werner, Pete",LB,OFFENSE,1000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2021,6.04,64,6,Early,4th_plus,15356,"Browning, Baron",LB,OFFENSE,1000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2021,6.05,65,6,Middle,4th_plus,15385,"Ojulari, Azeez",LB,OFFENSE,1000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2021,6.06,66,6,Middle,4th_plus,15364,"Cisco, Andre",S,OFFENSE,1000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2021,6.07,67,6,Middle,4th_plus,15362,"Surtain II, Patrick",CB,OFFENSE,1000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2021,6.08,68,6,Middle,4th_plus,15357,"Barmore, Christian",DT,OFFENSE,1000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2021,6.09,69,6,Late,4th_plus,15379,"Tryon, Joe",LB,OFFENSE,1000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2021,6.10,70,6,Late,4th_plus,15378,"Oweh, Jayson",LB,OFFENSE,1000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2021,6.11,71,6,Late,4th_plus,15360,"Farley, Caleb",CB,OFFENSE,1000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2021,6.12,72,6,Late,4th_plus,15409,"Barnes, Derrick",LB,OFFENSE,1000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2020,1.01,1,1,Early,early_1st,14803,"Edwards-Helaire, Clyde",RB,OFFENSE,15000,fa_auction,2023,3,1000,0004,fa_auction,2026-04-30T16:14:22+00:00
+2020,1.02,2,1,Early,early_1st,14802,"Taylor, Jonathan",RB,OFFENSE,14000,extension,2023,3,34000,0002,extension_inferred,2026-04-30T16:14:22+00:00
+2020,1.03,3,1,Early,early_1st,14800,"Dobbins, J.K.",RB,OFFENSE,13000,extension,2022,2,13000,0001,extension_inferred,2026-04-30T16:14:22+00:00
+2020,1.04,4,1,Early,early_1st,14832,"Lamb, CeeDee",WR,OFFENSE,12000,extension,2023,3,32000,0001,extension_inferred,2026-04-30T16:14:22+00:00
+2020,1.05,5,1,Middle,mid_1st,14797,"Swift, D'Andre",RB,OFFENSE,11000,extension,2022,2,11000,0003,extension_inferred,2026-04-30T16:14:22+00:00
+2020,1.06,6,1,Middle,mid_1st,14833,"Jeudy, Jerry",WR,OFFENSE,10000,extension,2023,3,20000,0001,extension_inferred,2026-04-30T16:14:22+00:00
+2020,1.07,7,1,Middle,mid_1st,14839,"Reagor, Jalen",WR,OFFENSE,9000,cut_unsigned,2022,2,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2020,1.08,8,1,Middle,mid_1st,14836,"Jefferson, Justin",WR,OFFENSE,8000,extension,2023,3,28000,0007,extension_inferred,2026-04-30T16:14:22+00:00
+2020,1.09,9,1,Late,late_1st,14835,"Higgins, Tee",WR,OFFENSE,7000,extension,2023,3,27000,0006,extension_inferred,2026-04-30T16:14:22+00:00
+2020,1.10,10,1,Late,late_1st,14799,"Akers, Cam",RB,OFFENSE,6000,extension,2023,3,26000,0012,extension_inferred,2026-04-30T16:14:22+00:00
+2020,1.11,11,1,Late,late_1st,14834,"Ruggs, Henry",WR,OFFENSE,5000,expired_unsigned,2022,2,0,,rookie deal lapsed; no extension/tag/FA-auction event,2026-04-30T16:14:22+00:00
+2020,1.12,12,1,Late,late_1st,14846,"Mims, Denzel",WR,OFFENSE,0,cut_unsigned,2022,2,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2020,2.01,13,2,Early,early_2nd,14842,"Pittman, Michael",WR,OFFENSE,5000,extension,2022,2,5000,0007,extension_inferred,2026-04-30T16:14:22+00:00
+2020,2.02,14,2,Early,early_2nd,14810,"Vaughn, Ke'Shawn",RB,OFFENSE,5000,cut_unsigned,2023,3,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2020,2.03,15,2,Early,early_2nd,14877,"Young, Chase",DE,OFFENSE,5000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2020,2.04,16,2,Early,early_2nd,14777,"Burrow, Joe",QB,OFFENSE,5000,extension,2023,3,25000,0001,extension_inferred,2026-04-30T16:14:22+00:00
+2020,2.05,17,2,Middle,mid_2nd,14798,"Moss, Zack",RB,OFFENSE,5000,fa_auction,2023,3,4000,0008,fa_auction,2026-04-30T16:14:22+00:00
+2020,2.06,18,2,Middle,mid_2nd,14840,"Aiyuk, Brandon",WR,OFFENSE,5000,extension,2023,3,15000,0002,extension_inferred,2026-04-30T16:14:22+00:00
+2020,2.07,19,2,Middle,mid_2nd,14778,"Tagovailoa, Tua",QB,OFFENSE,5000,fa_auction,2022,2,29000,0002,fa_auction,2026-04-30T16:14:22+00:00
+2020,2.08,20,2,Middle,mid_2nd,14805,"Dillon, AJ",RB,OFFENSE,5000,extension,2023,3,25000,0003,extension_inferred,2026-04-30T16:14:22+00:00
+2020,2.09,21,2,Late,late_2nd,14887,"Simmons, Isaiah",LB,OFFENSE,5000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2020,2.10,22,2,Late,late_2nd,14844,"Edwards, Bryan",WR,OFFENSE,5000,expired_unsigned,2022,2,0,,rookie deal lapsed; no extension/tag/FA-auction event,2026-04-30T16:14:22+00:00
+2020,2.11,23,2,Late,late_2nd,14838,"Shenault, Laviska",WR,OFFENSE,5000,expired_unsigned,2022,2,0,,rookie deal lapsed; no extension/tag/FA-auction event,2026-04-30T16:14:22+00:00
+2020,2.12,24,2,Late,late_2nd,14852,"Gibson, Antonio",RB,OFFENSE,5000,fa_auction,2023,3,10000,0003,expired_rookie_or_tag_auction,2026-04-30T16:14:22+00:00
+2020,3.01,25,3,Early,early_3rd,14867,"Kmet, Cole",TE,OFFENSE,2000,extension,2022,2,2000,0008,extension_inferred,2026-04-30T16:14:22+00:00
+2020,3.02,26,3,Early,early_3rd,14807,"Kelley, Joshua",RB,OFFENSE,2000,fa_auction,2023,3,1000,0009,fa_auction,2026-04-30T16:14:22+00:00
+2020,3.03,27,3,Early,early_3rd,14804,"McFarland, Anthony",RB,OFFENSE,2000,cut_unsigned,2023,3,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2020,3.04,28,3,Early,early_3rd,14841,"Claypool, Chase",WR,OFFENSE,2000,fa_auction,2023,3,3000,0002,expired_rookie_or_tag_auction,2026-04-30T16:14:22+00:00
+2020,3.05,29,3,Middle,mid_3rd,14808,"Evans, Darrynton",RB,OFFENSE,2000,cut_unsigned,2022,2,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2020,3.06,30,3,Middle,mid_3rd,14837,"Hamler, KJ",WR,OFFENSE,2000,cut_unsigned,2023,3,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2020,3.07,31,3,Middle,mid_3rd,14896,"Queen, Patrick",LB,OFFENSE,2000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2020,3.08,32,3,Middle,mid_3rd,14801,"Benjamin, Eno",RB,OFFENSE,2000,cut_unsigned,2023,3,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2020,3.09,33,3,Late,late_3rd,14870,"Trautman, Adam",TE,OFFENSE,2000,cut_unsigned,2023,3,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2020,3.10,34,3,Late,late_3rd,14815,"Dallas, DeeJay",RB,OFFENSE,2000,cut_unsigned,2023,3,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2020,3.11,35,3,Late,late_3rd,14858,"Jefferson, Van",WR,OFFENSE,2000,fa_auction,2023,3,6000,0006,expired_rookie_or_tag_auction,2026-04-30T16:14:22+00:00
+2020,3.12,36,3,Late,late_3rd,14850,"Cephus, Quintez",WR,OFFENSE,2000,cut_unsigned,2022,2,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2020,4.01,37,4,Early,4th_plus,14873,"Okwuegbunam, Albert",TE,OFFENSE,2000,expired_unsigned,2022,2,0,,rookie deal lapsed; no extension/tag/FA-auction event,2026-04-30T16:14:22+00:00
+2020,4.02,38,4,Early,4th_plus,14847,"Duvernay, Devin",WR,OFFENSE,2000,cut_unsigned,2023,3,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2020,4.03,39,4,Early,4th_plus,14843,"Bowden, Lynn",RB,OFFENSE,2000,cut_unsigned,2023,3,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2020,4.04,40,4,Early,4th_plus,14851,"Hill, K.J.",WR,OFFENSE,2000,expired_unsigned,2021,1,0,,rookie deal lapsed; no extension/tag/FA-auction event,2026-04-30T16:14:22+00:00
+2020,4.05,41,4,Middle,4th_plus,14888,"Chaisson, K'Lavon",DE,OFFENSE,2000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2020,4.06,42,4,Middle,4th_plus,14806,"Perine, Lamical",RB,OFFENSE,2000,expired_unsigned,2021,1,0,,rookie deal lapsed; no extension/tag/FA-auction event,2026-04-30T16:14:22+00:00
+2020,4.07,43,4,Middle,4th_plus,14889,"Murray, Kenneth",LB,OFFENSE,2000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2020,4.08,44,4,Middle,4th_plus,14864,"Johnson, Tyler",WR,OFFENSE,2000,cut_unsigned,2020,0,0,,rookie-year-only timeline; presumed dropped + cleared,2026-04-30T16:14:22+00:00
+2020,4.09,45,4,Late,4th_plus,14863,"Gandy-Golden, Antonio",WR,OFFENSE,2000,cut_unsigned,2022,2,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2020,4.10,46,4,Late,4th_plus,14939,"Keene, Dalton",TE,OFFENSE,2000,expired_unsigned,2022,2,0,,rookie deal lapsed; no extension/tag/FA-auction event,2026-04-30T16:14:22+00:00
+2020,4.11,47,4,Late,4th_plus,14977,"Osborn, K.J.",WR,OFFENSE,2000,fa_auction,2023,3,2000,0009,fa_auction,2026-04-30T16:14:22+00:00
+2020,4.12,48,4,Late,4th_plus,14857,"Peoples-Jones, Donovan",WR,OFFENSE,2000,extension,2023,3,22000,0012,extension_inferred,2026-04-30T16:14:22+00:00
+2020,5.01,49,5,Early,4th_plus,14845,"Davis, Gabriel",WR,OFFENSE,2000,extension,2023,3,12000,0011,extension_inferred,2026-04-30T16:14:22+00:00
+2020,5.02,50,5,Early,4th_plus,14779,"Herbert, Justin",QB,OFFENSE,2000,extension,2023,3,22000,0006,extension_inferred,2026-04-30T16:14:22+00:00
+2020,5.03,51,5,Early,4th_plus,14908,"McKinney, Xavier",S,OFFENSE,2000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2020,5.04,52,5,Early,4th_plus,14821,"Hasty, JaMycal",RB,OFFENSE,2000,cut_unsigned,2023,3,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2020,5.05,53,5,Middle,4th_plus,14782,"Love, Jordan",QB,OFFENSE,2000,fa_auction,2022,2,1000,0003,fa_auction,2026-04-30T16:14:22+00:00
+2020,5.06,54,5,Middle,4th_plus,15037,"Lipscomb, Kalija",WR,OFFENSE,2000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2020,5.07,55,5,Middle,4th_plus,14972,"Coulter, Isaiah",WR,OFFENSE,2000,cut_unsigned,2023,3,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2020,5.08,56,5,Middle,4th_plus,14936,"Asiasi, Devin",TE,OFFENSE,2000,cut_unsigned,2022,2,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2020,5.09,57,5,Late,4th_plus,14783,"Hurts, Jalen",QB,OFFENSE,2000,extension,2023,3,22000,0003,extension_inferred,2026-04-30T16:14:22+00:00
+2020,5.10,58,5,Late,4th_plus,14907,"Delpit, Grant",S,OFFENSE,2000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2020,5.11,59,5,Late,4th_plus,14879,"Epenesa, A.J.",DE,OFFENSE,2000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2020,5.12,60,5,Late,4th_plus,14921,"Dugger, Kyle",S,OFFENSE,2000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2020,6.01,61,6,Early,4th_plus,14927,"Chinn, Jeremy",S,OFFENSE,1000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2020,6.02,62,6,Early,4th_plus,14909,"Winfield, Antoine",S,OFFENSE,1000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2020,6.03,63,6,Early,4th_plus,14926,"Gay, Willie",LB,OFFENSE,1000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2020,6.04,64,6,Early,4th_plus,14893,"Baun, Zack",LB,OFFENSE,1000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2020,6.05,65,6,Middle,4th_plus,14950,"Wallace, K'Von",S,OFFENSE,1000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2020,6.06,66,6,Middle,4th_plus,14892,"Brooks, Jordyn",LB,OFFENSE,1000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2020,6.07,67,6,Middle,4th_plus,14878,"Gross-Matos, Yetur",DE,OFFENSE,1000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2020,6.08,68,6,Middle,4th_plus,14925,"Uche, Josh",LB,OFFENSE,1000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2020,6.09,69,6,Late,4th_plus,14891,"Harrison, Malik",LB,OFFENSE,1000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2020,6.10,70,6,Late,4th_plus,14899,"Kinlaw, Javon",DT,OFFENSE,1000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2020,6.11,71,6,Late,4th_plus,14928,"Wilson, Logan",LB,OFFENSE,1000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2020,6.12,72,6,Late,4th_plus,14911,"Davis, Ashtyn",S,OFFENSE,1000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2019,1.01,1,1,Early,early_1st,14073,"Jacobs, Josh",RB,OFFENSE,15000,extension,2021,2,15000,0004,extension_inferred,2026-04-30T16:14:22+00:00
+2019,1.02,2,1,Early,early_1st,14071,"Montgomery, David",RB,OFFENSE,14000,extension,2021,2,14000,0003,extension_inferred,2026-04-30T16:14:22+00:00
+2019,1.03,3,1,Early,early_1st,14101,"Harry, N'Keal",WR,OFFENSE,13000,fa_auction,2021,2,1000,0010,fa_auction,2026-04-30T16:14:22+00:00
+2019,1.04,4,1,Early,early_1st,14079,"Sanders, Miles",RB,OFFENSE,12000,extension,2022,3,22000,0008,extension_inferred,2026-04-30T16:14:22+00:00
+2019,1.05,5,1,Middle,mid_1st,14087,"Henderson, Darrell",RB,OFFENSE,11000,fa_auction,2022,3,12000,0001,expired_rookie_or_tag_auction,2026-04-30T16:14:22+00:00
+2019,1.06,6,1,Middle,mid_1st,14105,"Brown, Marquise",WR,OFFENSE,10000,extension,2021,2,10000,0009,extension_inferred,2026-04-30T16:14:22+00:00
+2019,1.07,7,1,Middle,mid_1st,14112,"Campbell, Parris",WR,OFFENSE,9000,fa_auction,2022,3,4000,0010,fa_auction,2026-04-30T16:14:22+00:00
+2019,1.08,8,1,Middle,mid_1st,14138,"Hockenson, T.J.",TE,OFFENSE,8000,extension,2022,3,20000,0004,extension_inferred,2026-04-30T16:14:22+00:00
+2019,1.09,9,1,Late,late_1st,14113,"Hardman, Mecole",WR,OFFENSE,7000,fa_auction,2022,3,4000,0008,fa_auction,2026-04-30T16:14:22+00:00
+2019,1.10,10,1,Late,late_1st,14104,"Brown, A.J.",WR,OFFENSE,6000,extension,2022,3,26000,0008,extension_inferred,2026-04-30T16:14:22+00:00
+2019,1.11,11,1,Late,late_1st,14102,"Metcalf, DK",WR,OFFENSE,5000,extension,2022,3,25000,0004,extension_inferred,2026-04-30T16:14:22+00:00
+2019,1.12,12,1,Late,late_1st,14121,"Isabella, Andy",WR,OFFENSE,0,expired_unsigned,2021,2,0,,rookie deal lapsed; no extension/tag/FA-auction event,2026-04-30T16:14:22+00:00
+2019,2.01,13,2,Early,early_2nd,14106,"Butler, Hakeem",WR,OFFENSE,5000,expired_unsigned,2021,2,0,,rookie deal lapsed; no extension/tag/FA-auction event,2026-04-30T16:14:22+00:00
+2019,2.02,14,2,Early,early_2nd,14056,"Murray, Kyler",QB,OFFENSE,5000,extension,2021,2,5000,0004,extension_inferred,2026-04-30T16:14:22+00:00
+2019,2.03,15,2,Early,early_2nd,14136,"Samuel, Deebo",WR,OFFENSE,5000,extension,2021,2,18333,0007,extension_inferred,2026-04-30T16:14:22+00:00
+2019,2.04,16,2,Early,early_2nd,14107,"Arcega-Whiteside, JJ",WR,OFFENSE,5000,expired_unsigned,2022,3,0,,rookie deal lapsed; no extension/tag/FA-auction event,2026-04-30T16:14:22+00:00
+2019,2.05,17,2,Middle,mid_2nd,14086,"Hill, Justice",RB,OFFENSE,5000,fa_auction,2024,5,4000,0010,fa_auction,2026-04-30T16:14:22+00:00
+2019,2.06,18,2,Middle,mid_2nd,14141,"Smith Jr., Irv",TE,OFFENSE,5000,fa_auction,2022,3,8000,0008,fa_auction,2026-04-30T16:14:22+00:00
+2019,2.07,19,2,Middle,mid_2nd,14137,"Fant, Noah",TE,OFFENSE,5000,extension,2021,2,2000,0005,extension_inferred,2026-04-30T16:14:22+00:00
+2019,2.08,20,2,Middle,mid_2nd,14075,"Harris, Damien",RB,OFFENSE,5000,extension,2022,3,15000,0004,extension_inferred,2026-04-30T16:14:22+00:00
+2019,2.09,21,2,Late,late_2nd,14208,"Johnson, Diontae",WR,OFFENSE,5000,extension,2022,3,25000,0009,extension_inferred,2026-04-30T16:14:22+00:00
+2019,2.10,22,2,Late,late_2nd,14103,"Ridley, Riley",WR,OFFENSE,5000,expired_unsigned,2021,2,0,,rookie deal lapsed; no extension/tag/FA-auction event,2026-04-30T16:14:22+00:00
+2019,2.11,23,2,Late,late_2nd,14080,"Singletary, Devin",RB,OFFENSE,5000,extension,2022,3,15000,0004,extension_inferred,2026-04-30T16:14:22+00:00
+2019,2.12,24,2,Late,late_2nd,14125,"Boykin, Miles",WR,OFFENSE,5000,expired_unsigned,2021,2,0,,rookie deal lapsed; no extension/tag/FA-auction event,2026-04-30T16:14:22+00:00
+2019,3.01,25,3,Early,early_3rd,14147,"Bosa, Nick",DE,OFFENSE,2000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2019,3.02,26,3,Early,early_3rd,14170,"Bush, Devin",LB,OFFENSE,2000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2019,3.03,27,3,Early,early_3rd,14284,"Thompson, Darwin",RB,OFFENSE,2000,cut_unsigned,2021,2,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2019,3.04,28,3,Early,early_3rd,14116,"Hurd, Jalen",WR,OFFENSE,2000,cut_unsigned,2022,3,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2019,3.05,29,3,Middle,mid_3rd,14223,"Mattison, Alexander",RB,OFFENSE,2000,fa_auction,2022,3,12000,0003,expired_rookie_or_tag_auction,2026-04-30T16:14:22+00:00
+2019,3.06,30,3,Middle,mid_3rd,14081,"Gaskin, Myles",RB,OFFENSE,2000,extension,2022,3,22000,0012,extension_inferred,2026-04-30T16:14:22+00:00
+2019,3.07,31,3,Middle,mid_3rd,14058,"Haskins, Dwayne",QB,OFFENSE,2000,cut_unsigned,2022,3,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2019,3.08,32,3,Middle,mid_3rd,14148,"Sweat, Montez",LB,OFFENSE,2000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2019,3.09,33,3,Late,late_3rd,14168,"White, Devin",LB,OFFENSE,2000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2019,3.10,34,3,Late,late_3rd,14093,"Armstead, Ryquell",RB,OFFENSE,2000,expired_unsigned,2021,2,0,,rookie deal lapsed; no extension/tag/FA-auction event,2026-04-30T16:14:22+00:00
+2019,3.11,35,3,Late,late_3rd,14114,"Harmon, Kelvin",WR,OFFENSE,2000,cut_unsigned,2022,3,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2019,3.12,36,3,Late,late_3rd,14109,"McLaurin, Terry",WR,OFFENSE,2000,extension,2022,3,22000,0006,extension_inferred,2026-04-30T16:14:22+00:00
+2019,4.01,37,4,Early,4th_plus,14140,"Sternberger, Jace",TE,OFFENSE,2000,cut_unsigned,2021,2,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2019,4.02,38,4,Early,4th_plus,14120,"Jennings, Gary",WR,OFFENSE,2000,cut_unsigned,2022,3,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2019,4.03,39,4,Early,4th_plus,14062,"Grier, Will",QB,OFFENSE,2000,cut_unsigned,2020,1,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2019,4.04,40,4,Early,4th_plus,14082,"Love, Bryce",RB,OFFENSE,2000,cut_unsigned,2021,2,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2019,4.05,41,4,Middle,4th_plus,14167,"Allen, Josh",DE,OFFENSE,2000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2019,4.06,42,4,Middle,4th_plus,14143,"Knox, Dawson",TE,OFFENSE,2000,fa_auction,2022,3,9000,0002,expired_rookie_or_tag_auction,2026-04-30T16:14:22+00:00
+2019,4.07,43,4,Middle,4th_plus,14115,"Hall, Emanuel",WR,OFFENSE,2000,cut_unsigned,2021,2,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2019,4.08,44,4,Middle,4th_plus,14088,"Anderson, Rodney",RB,OFFENSE,2000,expired_unsigned,2021,2,0,,rookie deal lapsed; no extension/tag/FA-auction event,2026-04-30T16:14:22+00:00
+2019,4.09,45,4,Late,4th_plus,14097,"Ollison, Qadree",RB,OFFENSE,2000,cut_unsigned,2022,3,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2019,4.10,46,4,Late,4th_plus,14074,"Williams, Dexter",RB,OFFENSE,2000,cut_unsigned,2020,1,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2019,4.11,47,4,Late,4th_plus,14157,"Williams, Quinnen",DT,OFFENSE,2000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2019,4.12,48,4,Late,4th_plus,14085,"Pollard, Tony",RB,OFFENSE,2000,extension,2021,2,2000,0001,extension_inferred,2026-04-30T16:14:22+00:00
+2019,5.01,49,5,Early,4th_plus,14158,"Oliver, Ed",DT,OFFENSE,2000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2019,5.02,50,5,Early,4th_plus,14076,"Williams, Trayveon",RB,OFFENSE,2000,cut_unsigned,2022,3,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2019,5.03,51,5,Early,4th_plus,14072,"Snell, Benny",RB,OFFENSE,2000,cut_unsigned,2021,2,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2019,5.04,52,5,Early,4th_plus,14315,"Dulin, Ashton",WR,OFFENSE,2000,cut_unsigned,2021,2,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2019,5.05,53,5,Middle,4th_plus,14123,"Renfrow, Hunter",WR,OFFENSE,2000,extension,2022,3,22000,0010,extension_inferred,2026-04-30T16:14:22+00:00
+2019,5.06,54,5,Middle,4th_plus,14146,"Sample, Drew",TE,OFFENSE,2000,expired_unsigned,2020,1,0,,rookie deal lapsed; no extension/tag/FA-auction event,2026-04-30T16:14:22+00:00
+2019,5.07,55,5,Middle,4th_plus,14126,"Williams, Preston",WR,OFFENSE,2000,expired_unsigned,2021,2,0,,rookie deal lapsed; no extension/tag/FA-auction event,2026-04-30T16:14:22+00:00
+2019,5.08,56,5,Middle,4th_plus,14209,"Oliver, Josh",TE,OFFENSE,2000,cut_unsigned,2024,5,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2019,5.09,57,5,Late,4th_plus,14314,"Anderson, Bruce",RB,OFFENSE,2000,cut_unsigned,2020,1,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2019,5.10,58,5,Late,4th_plus,14057,"Lock, Drew",QB,OFFENSE,2000,fa_auction,2021,2,1000,,fa_auction,2026-04-30T16:14:22+00:00
+2019,5.11,59,5,Late,4th_plus,14195,"Warring, Kahale",TE,OFFENSE,2000,cut_unsigned,2021,2,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2019,5.12,60,5,Late,4th_plus,14171,"Burns, Brian",DE,OFFENSE,2000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2019,6.01,61,6,Early,4th_plus,14178,"Baker, Deandre",CB,OFFENSE,1000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2019,6.02,62,6,Early,4th_plus,14184,"Abram, Johnathan",S,OFFENSE,1000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2019,6.03,63,6,Early,4th_plus,14198,"Ya-Sin, Rock",CB,OFFENSE,1000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2019,6.04,64,6,Early,4th_plus,14207,"Thornhill, Juan",S,OFFENSE,1000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2019,6.05,65,6,Middle,4th_plus,14151,"Ferrell, Clelin",DE,OFFENSE,1000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2019,6.06,66,6,Middle,4th_plus,14176,"Winovich, Chase",DE,OFFENSE,1000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2019,6.07,67,6,Middle,4th_plus,14197,"Savage, Darnell",S,OFFENSE,1000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2019,6.08,68,6,Middle,4th_plus,14185,"Adderley, Nasir",S,OFFENSE,1000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2019,6.09,69,6,Late,4th_plus,14177,"Williams, Greedy",CB,OFFENSE,1000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2019,6.10,70,6,Late,4th_plus,14149,"Gary, Rashan",LB,OFFENSE,1000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2019,6.11,71,6,Late,4th_plus,14218,"Okereke, Bobby",LB,OFFENSE,1000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2019,6.12,72,6,Late,4th_plus,14186,"Rapp, Taylor",S,OFFENSE,1000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2018,1.01,1,1,Early,early_1st,13604,"Barkley, Saquon",RB,OFFENSE,15000,extension,2020,2,28333,0007,extension_inferred,2026-04-30T16:14:22+00:00
+2018,1.02,2,1,Early,early_1st,13605,"Guice, Derrius",RB,OFFENSE,14000,cut_unsigned,2022,4,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2018,1.03,3,1,Early,early_1st,13607,"Michel, Sony",RB,OFFENSE,13000,fa_auction,2021,3,1000,0010,fa_auction,2026-04-30T16:14:22+00:00
+2018,1.04,4,1,Early,early_1st,13606,"Jones, Ronald",RB,OFFENSE,12000,cut_unsigned,2022,4,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2018,1.05,5,1,Middle,mid_1st,13617,"Freeman, Royce",RB,OFFENSE,11000,cut_unsigned,2023,5,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2018,1.06,6,1,Middle,mid_1st,13608,"Penny, Rashaad",RB,OFFENSE,10000,fa_auction,2021,3,6000,0009,fa_auction,2026-04-30T16:14:22+00:00
+2018,1.07,7,1,Middle,mid_1st,13635,"Moore, D.J.",WR,OFFENSE,9000,extension,2021,3,29000,0001,extension_inferred,2026-04-30T16:14:22+00:00
+2018,1.08,8,1,Middle,mid_1st,13612,"Johnson, Kerryon",RB,OFFENSE,8000,cut_unsigned,2021,3,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2018,1.09,9,1,Late,late_1st,13610,"Chubb, Nick",RB,OFFENSE,7000,extension,2020,2,20333,0010,extension_inferred,2026-04-30T16:14:22+00:00
+2018,1.10,10,1,Late,late_1st,13629,"Ridley, Calvin",WR,OFFENSE,6000,extension,2020,2,19333,0012,extension_inferred,2026-04-30T16:14:22+00:00
+2018,1.11,11,1,Late,late_1st,13646,"Gallup, Michael",WR,OFFENSE,5000,fa_auction,2023,5,1000,0001,fa_auction,2026-04-30T16:14:22+00:00
+2018,1.12,12,1,Late,late_1st,13639,"Miller, Anthony",WR,OFFENSE,0,extension,2020,2,3000,0001,extension_inferred,2026-04-30T16:14:22+00:00
+2018,2.01,13,2,Early,early_2nd,13633,"Kirk, Christian",WR,OFFENSE,5000,fa_auction,2021,3,4000,0007,fa_auction,2026-04-30T16:14:22+00:00
+2018,2.02,14,2,Early,early_2nd,13621,"Ballage, Kalen",RB,OFFENSE,5000,cut_unsigned,2021,3,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2018,2.03,15,2,Early,early_2nd,13630,"Sutton, Courtland",WR,OFFENSE,5000,extension,2021,3,25000,0004,extension_inferred,2026-04-30T16:14:22+00:00
+2018,2.04,16,2,Early,early_2nd,13631,"Washington, James",WR,OFFENSE,5000,cut_unsigned,2022,4,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2018,2.05,17,2,Middle,mid_2nd,13672,"Gesicki, Mike",TE,OFFENSE,5000,extension,2019,1,1000,0009,extension_inferred,2026-04-30T16:14:22+00:00
+2018,2.06,18,2,Middle,mid_2nd,13634,"Pettis, Dante",WR,OFFENSE,5000,expired_unsigned,2020,2,0,,rookie deal lapsed; no extension/tag/FA-auction event,2026-04-30T16:14:22+00:00
+2018,2.07,19,2,Middle,mid_2nd,13668,"Chark, D.J.",WR,OFFENSE,5000,extension,2021,3,25000,0009,extension_inferred,2026-04-30T16:14:22+00:00
+2018,2.08,20,2,Middle,mid_2nd,13640,"Callaway, Antonio",WR,OFFENSE,5000,expired_unsigned,2020,2,0,,rookie deal lapsed; no extension/tag/FA-auction event,2026-04-30T16:14:22+00:00
+2018,2.09,21,2,Late,late_2nd,13622,"Hines, Nyheim",RB,OFFENSE,5000,fa_auction,2022,4,8000,0007,fa_auction,2026-04-30T16:14:22+00:00
+2018,2.10,22,2,Late,late_2nd,13593,"Jackson, Lamar",QB,OFFENSE,5000,extension,2021,3,17000,0002,extension_inferred,2026-04-30T16:14:22+00:00
+2018,2.11,23,2,Late,late_2nd,13674,"Goedert, Dallas",TE,OFFENSE,5000,extension,2021,3,17000,0009,extension_inferred,2026-04-30T16:14:22+00:00
+2018,2.12,24,2,Late,late_2nd,13696,"Smith, Roquan",LB,OFFENSE,5000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2018,3.01,25,3,Early,early_3rd,13697,"Edmunds, Tremaine",LB,OFFENSE,2000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2018,3.02,26,3,Early,early_3rd,13680,"Hurst, Hayden",TE,OFFENSE,2000,extension,2020,2,5000,0007,extension_inferred,2026-04-30T16:14:22+00:00
+2018,3.03,27,3,Early,early_3rd,13590,"Mayfield, Baker",QB,OFFENSE,2000,extension,2021,3,14000,0011,extension_inferred,2026-04-30T16:14:22+00:00
+2018,3.04,28,3,Early,early_3rd,13726,"Edmonds, Chase",RB,OFFENSE,2000,extension,2021,3,22000,0004,extension_inferred,2026-04-30T16:14:22+00:00
+2018,3.05,29,3,Middle,mid_3rd,13619,"Kelly, John",RB,OFFENSE,2000,expired_unsigned,2019,1,0,,rookie deal lapsed; no extension/tag/FA-auction event,2026-04-30T16:14:22+00:00
+2018,3.06,30,3,Middle,mid_3rd,13657,"Moore, J'Mon",WR,OFFENSE,2000,cut_unsigned,2020,2,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2018,3.07,31,3,Middle,mid_3rd,13662,"Coutee, Keke",WR,OFFENSE,2000,fa_auction,2021,3,1000,,fa_auction,2026-04-30T16:14:22+00:00
+2018,3.08,32,3,Middle,mid_3rd,13638,"Berrios, Braxton",WR,OFFENSE,2000,fa_auction,2022,4,2000,0011,fa_auction,2026-04-30T16:14:22+00:00
+2018,3.09,33,3,Late,late_3rd,13789,"Wilkins, Jordan",RB,OFFENSE,2000,expired_unsigned,2020,2,0,,rookie deal lapsed; no extension/tag/FA-auction event,2026-04-30T16:14:22+00:00
+2018,3.10,34,3,Late,late_3rd,13613,"Samuels, Jaylen",RB,OFFENSE,2000,expired_unsigned,2020,2,0,,rookie deal lapsed; no extension/tag/FA-auction event,2026-04-30T16:14:22+00:00
+2018,3.11,35,3,Late,late_3rd,13591,"Rosen, Josh",QB,OFFENSE,2000,cut_unsigned,2021,3,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2018,3.12,36,3,Late,late_3rd,13645,"Smith, Tre'Quan",WR,OFFENSE,2000,cut_unsigned,2021,3,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2018,4.01,37,4,Early,4th_plus,13592,"Darnold, Sam",QB,OFFENSE,2000,fa_auction,2021,3,6000,0005,fa_auction,2026-04-30T16:14:22+00:00
+2018,4.02,38,4,Early,4th_plus,13681,"Chubb, Bradley",LB,OFFENSE,2000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2018,4.03,39,4,Early,4th_plus,13636,"Cain, Deon",WR,OFFENSE,2000,cut_unsigned,2021,3,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2018,4.04,40,4,Early,4th_plus,13620,"Jackson, Justin",RB,OFFENSE,2000,fa_auction,2021,3,3000,0004,fa_auction,2026-04-30T16:14:22+00:00
+2018,4.05,41,4,Middle,4th_plus,13768,"Smith, Ito",RB,OFFENSE,2000,cut_unsigned,2021,3,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2018,4.06,42,4,Middle,4th_plus,13589,"Allen, Josh",QB,OFFENSE,2000,fa_auction,2019,1,10000,0006,expired_rookie_or_tag_auction,2026-04-30T16:14:22+00:00
+2018,4.07,43,4,Middle,4th_plus,13699,"Evans, Rashaan",LB,OFFENSE,2000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2018,4.08,44,4,Middle,4th_plus,13595,"Rudolph, Mason",QB,OFFENSE,2000,cut_unsigned,2025,7,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2018,4.09,45,4,Late,4th_plus,13616,"Walton, Mark",RB,OFFENSE,2000,cut_unsigned,2021,3,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2018,4.10,46,4,Late,4th_plus,13727,"Vander Esch, Leighton",LB,OFFENSE,2000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2018,4.11,47,4,Late,4th_plus,13714,"James, Derwin",S,OFFENSE,2000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2018,5.01,49,5,Early,4th_plus,13733,"Leonard, Darius",LB,OFFENSE,2000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2018,5.02,50,5,Early,4th_plus,13688,"Davenport, Marcus",DE,OFFENSE,2000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2018,5.03,51,5,Early,4th_plus,13637,"St. Brown, Equanimeous",WR,OFFENSE,2000,cut_unsigned,2020,2,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2018,5.04,52,5,Early,4th_plus,13649,"Hamilton, DaeSean",WR,OFFENSE,2000,cut_unsigned,2021,3,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2018,5.05,53,5,Middle,4th_plus,13666,"Fountain, Daurice",WR,OFFENSE,2000,cut_unsigned,2021,3,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2018,5.06,54,5,Middle,4th_plus,13776,"Watson, Justin",WR,OFFENSE,2000,waiver_add,2022,4,1000,0010,waiver_contract_add,2026-04-30T16:14:22+00:00
+2018,5.07,55,5,Middle,4th_plus,13814,"Scott, Boston",RB,OFFENSE,2000,fa_auction,2022,4,4000,0001,fa_auction,2026-04-30T16:14:22+00:00
+2018,5.08,56,5,Middle,4th_plus,13615,"Scarbrough, Bo",RB,OFFENSE,2000,cut_unsigned,2021,3,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2018,5.09,57,5,Late,4th_plus,13678,"Thomas, Ian",TE,OFFENSE,2000,fa_auction,2019,1,6000,0007,expired_rookie_or_tag_auction,2026-04-30T16:14:22+00:00
+2018,5.10,58,5,Late,4th_plus,13793,"Valdes-Scantling, Marquez",WR,OFFENSE,2000,fa_auction,2022,4,5000,0011,fa_auction,2026-04-30T16:14:22+00:00
+2018,5.11,59,5,Late,4th_plus,13716,"Edmunds, Terrell",S,OFFENSE,2000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2018,5.12,60,5,Late,4th_plus,13609,"Wadley, Akrum",RB,OFFENSE,2000,cut_unsigned,2019,1,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2018,6.01,61,6,Early,4th_plus,13706,"Baker, Jerome",LB,OFFENSE,1000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2018,6.02,62,6,Early,4th_plus,13743,"Warner, Fred",LB,OFFENSE,1000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2018,6.03,63,6,Early,4th_plus,13723,"Payne, Da'Ron",DT,OFFENSE,1000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2018,6.04,64,6,Early,4th_plus,13826,"Adams, Matthew",LB,OFFENSE,1000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2018,6.05,65,6,Middle,4th_plus,13713,"Fitzpatrick, Minkah",S,OFFENSE,1000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2018,6.06,66,6,Middle,4th_plus,13737,"Bates, Jessie",S,OFFENSE,1000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2018,6.07,67,6,Middle,4th_plus,13746,"Green, Rasheem",DE,OFFENSE,1000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2018,6.08,68,6,Middle,4th_plus,13707,"Ward, Denzel",CB,OFFENSE,1000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2018,6.09,69,6,Late,4th_plus,13695,"Bryan, Taven",DE,OFFENSE,1000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2018,6.10,70,6,Late,4th_plus,13700,"Landry, Harold",LB,OFFENSE,1000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2018,6.11,71,6,Late,4th_plus,13691,"Hurst, Maurice",DT,OFFENSE,1000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2018,6.12,72,6,Late,4th_plus,13739,"Dawson, Duke",CB,OFFENSE,1000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2017,1.01,1,1,Early,early_1st,13130,"McCaffrey, Christian",RB,OFFENSE,15000,extension,2019,2,28333,0005,extension_inferred,2026-04-30T16:14:22+00:00
+2017,1.02,2,1,Early,early_1st,13153,"Davis, Corey",WR,OFFENSE,14000,fa_auction,2020,3,6000,0003,fa_auction,2026-04-30T16:14:22+00:00
+2017,1.03,3,1,Early,early_1st,13131,"Mixon, Joe",RB,OFFENSE,13000,extension,2019,2,13000,0009,extension_inferred,2026-04-30T16:14:22+00:00
+2017,1.04,4,1,Early,early_1st,13154,"Williams, Mike",WR,OFFENSE,12000,extension,2019,2,17000,0007,extension_inferred,2026-04-30T16:14:22+00:00
+2017,1.05,5,1,Middle,mid_1st,13129,"Fournette, Leonard",RB,OFFENSE,11000,extension,2020,3,31000,0002,extension_inferred,2026-04-30T16:14:22+00:00
+2017,1.06,6,1,Middle,mid_1st,13128,"Cook, Dalvin",RB,OFFENSE,10000,extension,2019,2,23333,0009,extension_inferred,2026-04-30T16:14:22+00:00
+2017,1.07,7,1,Middle,mid_1st,13138,"Hunt, Kareem",RB,OFFENSE,9000,extension,2020,3,24000,0010,extension_inferred,2026-04-30T16:14:22+00:00
+2017,1.08,8,1,Middle,mid_1st,13188,"Howard, O.J.",TE,OFFENSE,8000,fa_auction,2021,4,4000,0011,fa_auction,2026-04-30T16:14:22+00:00
+2017,1.09,9,1,Late,late_1st,13189,"Engram, Evan",TE,OFFENSE,7000,extension,2019,2,15000,0008,extension_inferred,2026-04-30T16:14:22+00:00
+2017,1.01,10,1,Early,early_1st,13155,"Ross, John",WR,OFFENSE,15000,fa_auction,2020,3,2000,0008,fa_auction,2026-04-30T16:14:22+00:00
+2017,1.11,11,1,Late,late_1st,13156,"Smith-Schuster, JuJu",WR,OFFENSE,5000,extension,2020,3,25000,0011,extension_inferred,2026-04-30T16:14:22+00:00
+2017,1.12,12,1,Late,late_1st,13192,"Njoku, David",TE,OFFENSE,0,extension,2019,2,8000,0011,extension_inferred,2026-04-30T16:14:22+00:00
+2017,2.01,13,2,Early,early_2nd,13132,"Kamara, Alvin",RB,OFFENSE,5000,extension,2019,2,5000,0003,extension_inferred,2026-04-30T16:14:22+00:00
+2017,2.02,14,2,Early,early_2nd,13237,"Williams, Joe",RB,OFFENSE,5000,cut_unsigned,2019,2,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2017,2.03,15,2,Early,early_2nd,13176,"Jones, Zay",WR,OFFENSE,5000,fa_auction,2024,7,1000,,fa_auction,2026-04-30T16:14:22+00:00
+2017,2.04,16,2,Early,early_2nd,13133,"Perine, Samaje",RB,OFFENSE,5000,fa_auction,2021,4,1000,0006,fa_auction,2026-04-30T16:14:22+00:00
+2017,2.05,17,2,Middle,mid_2nd,13234,"Mack, Marlon",RB,OFFENSE,5000,extension,2020,3,15000,0001,extension_inferred,2026-04-30T16:14:22+00:00
+2017,2.06,18,2,Middle,mid_2nd,13146,"Conner, James",RB,OFFENSE,5000,extension,2020,3,20000,0001,extension_inferred,2026-04-30T16:14:22+00:00
+2017,2.07,19,2,Middle,mid_2nd,13134,"Foreman, D'Onta",RB,OFFENSE,5000,fa_auction,2021,4,1000,0003,fa_auction,2026-04-30T16:14:22+00:00
+2017,2.08,20,2,Middle,mid_2nd,13139,"Williams, Jamaal",RB,OFFENSE,5000,fa_auction,2022,5,14000,0004,fa_auction,2026-04-30T16:14:22+00:00
+2017,2.09,21,2,Late,late_2nd,13277,"Golladay, Kenny",WR,OFFENSE,5000,extension,2021,4,18000,0005,extension_inferred,2026-04-30T16:14:22+00:00
+2017,2.01,22,2,Early,early_2nd,13157,"Samuel, Curtis",WR,OFFENSE,5000,extension,2019,2,10000,0007,extension_inferred,2026-04-30T16:14:22+00:00
+2017,2.11,23,2,Late,late_2nd,13198,"Garrett, Myles",DE,OFFENSE,5000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2017,2.12,24,2,Late,late_2nd,13163,"Godwin, Chris",WR,OFFENSE,5000,extension,2019,2,18333,0012,extension_inferred,2026-04-30T16:14:22+00:00
+2017,3.01,25,3,Early,early_3rd,13168,"Reynolds, Josh",WR,OFFENSE,2000,extension,2019,2,2000,0012,extension_inferred,2026-04-30T16:14:22+00:00
+2017,3.02,26,3,Early,early_3rd,13236,"Everett, Gerald",TE,OFFENSE,2000,fa_auction,2021,4,2000,0006,fa_auction,2026-04-30T16:14:22+00:00
+2017,3.03,27,3,Early,early_3rd,13319,"Jones, Aaron",RB,OFFENSE,2000,extension,2020,3,22000,0004,extension_inferred,2026-04-30T16:14:22+00:00
+2017,3.04,28,3,Early,early_3rd,13137,"Pumphrey, Donnel",RB,OFFENSE,2000,cut_unsigned,2018,1,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2017,3.05,29,3,Middle,mid_3rd,13113,"Watson, Deshaun",QB,OFFENSE,2000,extension,2019,2,10000,0008,extension_inferred,2026-04-30T16:14:22+00:00
+2017,3.06,30,3,Middle,mid_3rd,13164,"Kupp, Cooper",WR,OFFENSE,2000,extension,2020,3,22000,0002,extension_inferred,2026-04-30T16:14:22+00:00
+2017,3.07,31,3,Middle,mid_3rd,13171,"Henderson, Carlos",WR,OFFENSE,2000,cut_unsigned,2019,2,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2017,3.08,32,3,Middle,mid_3rd,13280,"Williams, Chad",WR,OFFENSE,2000,cut_unsigned,2020,3,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2017,3.09,33,3,Late,late_3rd,13135,"Gallman, Wayne",RB,OFFENSE,2000,fa_auction,2019,2,1000,0009,fa_auction,2026-04-30T16:14:22+00:00
+2017,3.01,34,3,Early,early_3rd,13158,"Westbrook, Dede",WR,OFFENSE,2000,cut_unsigned,2020,3,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2017,3.11,35,3,Late,late_3rd,13143,"McNichols, Jeremy",RB,OFFENSE,2000,cut_unsigned,2025,8,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2017,3.12,36,3,Late,late_3rd,13167,"Taylor, Taywan",WR,OFFENSE,2000,cut_unsigned,2020,3,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2017,4.01,37,4,Early,4th_plus,13221,"Davis, Jarrad",LB,OFFENSE,2000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2017,4.02,38,4,Early,4th_plus,13254,"Shaheen, Adam",TE,OFFENSE,2000,cut_unsigned,2020,3,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2017,4.03,39,4,Early,4th_plus,13116,"Mahomes, Patrick",QB,OFFENSE,2000,extension,2019,2,10000,0007,extension_inferred,2026-04-30T16:14:22+00:00
+2017,4.04,40,4,Early,4th_plus,13193,"Smith, Jonnu",TE,OFFENSE,2000,extension,2021,4,1000,0009,extension_inferred,2026-04-30T16:14:22+00:00
+2017,4.05,41,4,Middle,4th_plus,13173,"Stewart, ArDarius",WR,OFFENSE,2000,cut_unsigned,2018,1,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2017,4.06,42,4,Middle,4th_plus,13244,"Zamora, Ishmael",WR,OFFENSE,2000,cut_unsigned,2018,1,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2017,4.07,43,4,Middle,4th_plus,13141,"Hood, Elijah",RB,OFFENSE,2000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2017,4.08,44,4,Middle,4th_plus,13215,"Foster, Reuben",LB,OFFENSE,2000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2017,4.09,45,4,Late,4th_plus,13240,"Hill, Brian",RB,OFFENSE,2000,fa_auction,2019,2,1000,,fa_auction,2026-04-30T16:14:22+00:00
+2017,4.01,46,4,Early,4th_plus,13370,"Hogan, Krishawn",WR,OFFENSE,2000,cut_unsigned,2019,2,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2017,4.11,47,4,Late,4th_plus,13230,"Adams, Jamal",S,OFFENSE,2000,never_rostered,,,0,,no contract_history row (drafted but cut pre-snapshot?),2026-04-30T16:14:22+00:00
+2017,4.12,48,4,Late,4th_plus,13165,"Switzer, Ryan",WR,OFFENSE,2000,cut_unsigned,2019,2,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2017,5.01,49,5,Early,4th_plus,13187,"Yancey, DeAngelo",WR,OFFENSE,2000,expired_unsigned,2020,3,0,,rookie deal lapsed; no extension/tag/FA-auction event,2026-04-30T16:14:22+00:00
+2017,5.02,50,5,Early,4th_plus,13160,"Dupre, Malachi",WR,OFFENSE,2000,expired_unsigned,2018,1,0,,rookie deal lapsed; no extension/tag/FA-auction event,2026-04-30T16:14:22+00:00
+2017,5.03,51,5,Early,4th_plus,13357,"Mays, Devante",RB,OFFENSE,2000,expired_unsigned,2020,3,0,,rookie deal lapsed; no extension/tag/FA-auction event,2026-04-30T16:14:22+00:00
+2017,5.04,52,5,Early,4th_plus,13166,"Darboh, Amara",WR,OFFENSE,2000,cut_unsigned,2019,2,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2017,5.05,53,5,Middle,4th_plus,13136,"Clement, Corey",RB,OFFENSE,2000,fa_auction,2018,1,22000,0011,fa_auction,2026-04-30T16:14:22+00:00
+2017,5.06,54,5,Middle,4th_plus,13115,"Trubisky, Mitchell",QB,OFFENSE,2000,fa_auction,2022,5,17000,0009,fa_auction,2026-04-30T16:14:22+00:00
+2017,5.07,55,5,Middle,4th_plus,13299,"Kittle, George",TE,OFFENSE,2000,extension,2020,3,14000,0004,extension_inferred,2026-04-30T16:14:22+00:00
+2017,5.08,56,5,Middle,4th_plus,13190,"Butt, Jake",TE,OFFENSE,2000,cut_unsigned,2019,2,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2017,5.09,57,5,Late,4th_plus,13191,"Hodges, Bucky",TE,OFFENSE,2000,expired_unsigned,2019,2,0,,rookie deal lapsed; no extension/tag/FA-auction event,2026-04-30T16:14:22+00:00
+2017,5.01,58,5,Early,4th_plus,13121,"Kelly, Chad",QB,OFFENSE,2000,expired_unsigned,2019,2,0,,rookie deal lapsed; no extension/tag/FA-auction event,2026-04-30T16:14:22+00:00
+2017,5.11,59,5,Late,4th_plus,13162,"Ford, Isaiah",WR,OFFENSE,2000,cut_unsigned,2021,4,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2017,5.12,60,5,Late,4th_plus,13290,"Cohen, Tarik",RB,OFFENSE,2000,extension,2020,3,12000,0003,extension_inferred,2026-04-30T16:14:22+00:00
+2016,1.01,1,1,Early,early_1st,12625,"Elliott, Ezekiel",RB,OFFENSE,15000,extension,2018,2,15000,0006,extension_inferred,2026-04-30T16:14:22+00:00
+2016,1.02,2,1,Early,early_1st,12646,"Coleman, Corey",WR,OFFENSE,14000,cut_unsigned,2018,2,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2016,1.03,3,1,Early,early_1st,12645,"Treadwell, Laquon",WR,OFFENSE,13000,cut_unsigned,2018,2,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2016,1.04,4,1,Early,early_1st,12648,"Doctson, Josh",WR,OFFENSE,12000,fa_auction,2019,3,1000,,fa_auction,2026-04-30T16:14:22+00:00
+2016,1.05,5,1,Middle,mid_1st,12658,"Shepard, Sterling",WR,OFFENSE,11000,extension,2018,2,24333,0005,extension_inferred,2026-04-30T16:14:22+00:00
+2016,1.06,6,1,Middle,mid_1st,11613,"Thomas, Michael",S,OFFENSE,10000,pre_data_no_trace,,,0,,draft_season=2016 < data_start=2017; no rows in window,2026-04-30T16:14:22+00:00
+2016,1.07,7,1,Middle,mid_1st,12626,"Henry, Derrick",RB,OFFENSE,9000,extension,2019,3,29000,0004,extension_inferred,2026-04-30T16:14:22+00:00
+2016,1.08,8,1,Middle,mid_1st,12650,"Boyd, Tyler",WR,OFFENSE,8000,fa_auction,2018,2,4000,0008,fa_auction,2026-04-30T16:14:22+00:00
+2016,1.09,9,1,Late,late_1st,12627,"Prosise, C.J.",RB,OFFENSE,7000,expired_unsigned,2018,2,0,,rookie deal lapsed; no extension/tag/FA-auction event,2026-04-30T16:14:22+00:00
+2016,1.01,10,1,Early,early_1st,12647,"Fuller, Will",WR,OFFENSE,15000,extension,2019,3,26000,0003,extension_inferred,2026-04-30T16:14:22+00:00
+2016,1.11,11,1,Late,late_1st,12632,"Dixon, Kenneth",RB,OFFENSE,5000,cut_unsigned,2019,3,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2016,1.12,12,1,Late,late_1st,12655,"Carroo, Leonte",WR,OFFENSE,0,cut_unsigned,2018,2,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2016,2.01,13,2,Early,early_2nd,12634,"Howard, Jordan",RB,OFFENSE,5000,extension,2018,2,18333,0005,extension_inferred,2026-04-30T16:14:22+00:00
+2016,2.02,14,2,Early,early_2nd,12676,"Henry, Hunter",TE,OFFENSE,5000,extension,2019,3,17000,0007,extension_inferred,2026-04-30T16:14:22+00:00
+2016,2.03,15,2,Early,early_2nd,12631,"Perkins, Paul",RB,OFFENSE,5000,cut_unsigned,2019,3,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2016,2.04,16,2,Early,early_2nd,12657,"Sharpe, Tajae",WR,OFFENSE,5000,cut_unsigned,2018,2,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2016,2.05,17,2,Middle,mid_2nd,12651,"Miller, Braxton",WR,OFFENSE,5000,cut_unsigned,2019,3,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2016,2.06,18,2,Middle,mid_2nd,12611,"Goff, Jared",QB,OFFENSE,5000,extension,2019,3,11000,0001,extension_inferred,2026-04-30T16:14:22+00:00
+2016,2.07,19,2,Middle,mid_2nd,12629,"Booker, Devontae",RB,OFFENSE,5000,fa_auction,2021,5,1000,0004,fa_auction,2026-04-30T16:14:22+00:00
+2016,2.08,20,2,Middle,mid_2nd,12660,"Cooper, Pharoh",WR,OFFENSE,5000,cut_unsigned,2019,3,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2016,2.09,21,2,Late,late_2nd,12630,"Drake, Kenyan",RB,OFFENSE,5000,fa_auction,2019,3,21000,0001,expired_rookie_or_tag_auction,2026-04-30T16:14:22+00:00
+2016,2.01,22,2,Early,early_2nd,12669,"Mitchell, Malcolm",WR,OFFENSE,5000,cut_unsigned,2018,2,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2016,2.11,23,2,Late,late_2nd,12675,"Thomas, Mike",WR,OFFENSE,5000,cut_unsigned,2019,3,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2016,2.12,24,2,Late,late_2nd,12677,"Hooper, Austin",TE,OFFENSE,5000,fa_auction,2019,3,10000,0005,expired_rookie_or_tag_auction,2026-04-30T16:14:22+00:00
+2016,3.01,25,3,Early,early_3rd,12656,"Higgins, Rashard",WR,OFFENSE,2000,fa_auction,2019,3,5000,0006,fa_auction,2026-04-30T16:14:22+00:00
+2016,3.02,26,3,Early,early_3rd,12678,"Higbee, Tyler",TE,OFFENSE,2000,fa_auction,2020,4,19000,0001,expired_rookie_or_tag_auction,2026-04-30T16:14:22+00:00
+2016,3.03,27,3,Early,early_3rd,12726,"Garrett, Keyarris",WR,OFFENSE,2000,expired_unsigned,2018,2,0,,rookie deal lapsed; no extension/tag/FA-auction event,2026-04-30T16:14:22+00:00
+2016,3.04,28,3,Early,early_3rd,12643,"Marshall, Keith",RB,OFFENSE,2000,expired_unsigned,2018,2,0,,rookie deal lapsed; no extension/tag/FA-auction event,2026-04-30T16:14:22+00:00
+2016,3.05,29,3,Middle,mid_3rd,12857,"Washington, DeAndre",RB,OFFENSE,2000,fa_auction,2020,4,5000,,fa_auction,2026-04-30T16:14:22+00:00
+2016,3.06,30,3,Middle,mid_3rd,12721,"Aguayo, Roberto",PK,OFFENSE,2000,pre_data_no_trace,,,0,,draft_season=2016 < data_start=2017; no rows in window,2026-04-30T16:14:22+00:00
+2016,3.07,31,3,Middle,mid_3rd,12610,"Wentz, Carson",QB,OFFENSE,2000,extension,2019,3,8000,0010,extension_inferred,2026-04-30T16:14:22+00:00
+2016,3.08,32,3,Middle,mid_3rd,12636,"Smallwood, Wendell",RB,OFFENSE,2000,cut_unsigned,2019,3,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2016,3.09,33,3,Late,late_3rd,12635,"Williams, Jonathan",RB,OFFENSE,2000,cut_unsigned,2022,6,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2016,3.01,34,3,Early,early_3rd,12628,"Collins, Alex",RB,OFFENSE,2000,cut_unsigned,2019,3,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2016,3.11,35,3,Late,late_3rd,12612,"Lynch, Paxton",QB,OFFENSE,2000,cut_unsigned,2019,3,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2016,3.12,36,3,Late,late_3rd,12663,"Payton, Jordan",WR,OFFENSE,2000,expired_unsigned,2018,2,0,,rookie deal lapsed; no extension/tag/FA-auction event,2026-04-30T16:14:22+00:00
+2016,4.01,37,4,Early,4th_plus,12639,"Ervin, Tyler",RB,OFFENSE,2000,cut_unsigned,2018,2,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2016,4.02,38,4,Early,4th_plus,12672,"Braverman, Daniel",WR,OFFENSE,2000,expired_unsigned,2018,2,0,,rookie deal lapsed; no extension/tag/FA-auction event,2026-04-30T16:14:22+00:00
+2016,4.03,39,4,Early,4th_plus,12615,"Jones, Cardale",QB,OFFENSE,2000,cut_unsigned,2019,3,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2016,4.04,40,4,Early,4th_plus,12777,"Louis, Ricardo",WR,OFFENSE,2000,cut_unsigned,2018,2,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2016,4.05,41,4,Middle,4th_plus,12640,"Ferguson, Josh",RB,OFFENSE,2000,fa_auction,2019,3,1000,,fa_auction,2026-04-30T16:14:22+00:00
+2016,4.06,42,4,Middle,4th_plus,12637,"Barber, Peyton",RB,OFFENSE,2000,fa_auction,2018,2,5000,0003,fa_auction,2026-04-30T16:14:22+00:00
+2016,4.07,43,4,Middle,4th_plus,12674,"Cajuste, Devon",WR,OFFENSE,2000,expired_unsigned,2018,2,0,,rookie deal lapsed; no extension/tag/FA-auction event,2026-04-30T16:14:22+00:00
+2016,4.08,44,4,Middle,4th_plus,12846,"Lasco, Daniel",RB,OFFENSE,2000,pre_data_no_trace,,,0,,draft_season=2016 < data_start=2017; no rows in window,2026-04-30T16:14:22+00:00
+2016,4.09,45,4,Late,4th_plus,12673,"Peake, Charone",WR,OFFENSE,2000,pre_data_no_trace,,,0,,draft_season=2016 < data_start=2017; no rows in window,2026-04-30T16:14:22+00:00
+2016,4.01,46,4,Early,4th_plus,12867,"Wilds, Brandon",RB,OFFENSE,2000,expired_unsigned,2018,2,0,,rookie deal lapsed; no extension/tag/FA-auction event,2026-04-30T16:14:22+00:00
+2016,4.11,47,4,Late,4th_plus,12654,"Lawler, Kenny",WR,OFFENSE,2000,pre_data_no_trace,,,0,,draft_season=2016 < data_start=2017; no rows in window,2026-04-30T16:14:22+00:00
+2016,4.12,48,4,Late,4th_plus,12705,"Lee, Darron",LB,OFFENSE,2000,pre_data_no_trace,,,0,,draft_season=2016 < data_start=2017; no rows in window,2026-04-30T16:14:22+00:00
+2016,5.01,49,5,Early,4th_plus,12686,"Bosa, Joey",DE,OFFENSE,2000,pre_data_no_trace,,,0,,draft_season=2016 < data_start=2017; no rows in window,2026-04-30T16:14:22+00:00
+2016,5.02,50,5,Early,4th_plus,12649,"Lewis, Roger",WR,OFFENSE,2000,pre_data_no_trace,,,0,,draft_season=2016 < data_start=2017; no rows in window,2026-04-30T16:14:22+00:00
+2016,5.03,51,5,Early,4th_plus,12859,"Anderson, Stephen",TE,OFFENSE,2000,cut_unsigned,2019,3,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2016,5.04,52,5,Early,4th_plus,12702,"Jack, Myles",LB,OFFENSE,2000,pre_data_no_trace,,,0,,draft_season=2016 < data_start=2017; no rows in window,2026-04-30T16:14:22+00:00
+2016,5.05,53,5,Middle,4th_plus,12874,"Valles, Hakeem",TE,OFFENSE,2000,pre_data_no_trace,,,0,,draft_season=2016 < data_start=2017; no rows in window,2026-04-30T16:14:22+00:00
+2016,5.06,54,5,Middle,4th_plus,12620,"Prescott, Dak",QB,OFFENSE,2000,fa_auction,2019,3,9000,0007,fa_auction,2026-04-30T16:14:22+00:00
+2016,5.07,55,5,Middle,4th_plus,12800,"Davis, Trevor",WR,OFFENSE,2000,cut_unsigned,2019,3,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2016,5.08,56,5,Middle,4th_plus,12845,"Washington, Dwayne",RB,OFFENSE,2000,cut_unsigned,2018,2,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2016,5.09,57,5,Late,4th_plus,12871,"Foster, D.J.",RB,OFFENSE,2000,pre_data_no_trace,,,0,,draft_season=2016 < data_start=2017; no rows in window,2026-04-30T16:14:22+00:00
+2016,5.01,58,5,Early,4th_plus,12896,"Scott, Rashawn",WR,OFFENSE,2000,expired_unsigned,2018,2,0,,rookie deal lapsed; no extension/tag/FA-auction event,2026-04-30T16:14:22+00:00
+2016,5.11,59,5,Late,4th_plus,12809,"Boehringer, Moritz",WR,OFFENSE,2000,expired_unsigned,2018,2,0,,rookie deal lapsed; no extension/tag/FA-auction event,2026-04-30T16:14:22+00:00
+2016,5.12,60,5,Late,4th_plus,12701,"Smith, Jaylon",LB,OFFENSE,2000,pre_data_no_trace,,,0,,draft_season=2016 < data_start=2017; no rows in window,2026-04-30T16:14:22+00:00
+2015,1.01,1,1,Early,early_1st,12150,"Gurley, Todd",RB,OFFENSE,15000,extension,2018,3,35000,0007,extension_inferred,2026-04-30T16:14:22+00:00
+2015,1.02,2,1,Early,early_1st,12151,"Gordon, Melvin",RB,OFFENSE,14000,extension,2018,3,34000,0010,extension_inferred,2026-04-30T16:14:22+00:00
+2015,1.03,3,1,Early,early_1st,12175,"Cooper, Amari",WR,OFFENSE,13000,extension,2018,3,33000,0008,extension_inferred,2026-04-30T16:14:22+00:00
+2015,1.04,4,1,Early,early_1st,12177,"White, Kevin",WR,OFFENSE,12000,fa_auction,2018,3,2000,,fa_auction,2026-04-30T16:14:22+00:00
+2015,1.05,5,1,Middle,mid_1st,12176,"Parker, DeVante",WR,OFFENSE,11000,extension,2018,3,21000,0003,extension_inferred,2026-04-30T16:14:22+00:00
+2015,1.06,6,1,Middle,mid_1st,12180,"Green-Beckham, Dorial",WR,OFFENSE,10000,pre_data_no_trace,,,0,,draft_season=2015 < data_start=2017; no rows in window,2026-04-30T16:14:22+00:00
+2015,1.07,7,1,Middle,mid_1st,12197,"Perriman, Breshad",WR,OFFENSE,9000,fa_auction,2019,4,1000,0008,fa_auction,2026-04-30T16:14:22+00:00
+2015,1.08,8,1,Middle,mid_1st,12155,"Abdullah, Ameer",RB,OFFENSE,8000,fa_auction,2018,3,1000,,fa_auction,2026-04-30T16:14:22+00:00
+2015,1.09,9,1,Late,late_1st,12153,"Yeldon, T.J.",RB,OFFENSE,7000,expired_unsigned,2019,4,0,,rookie deal lapsed; no extension/tag/FA-auction event,2026-04-30T16:14:22+00:00
+2015,1.01,10,1,Early,early_1st,12152,"Coleman, Tevin",RB,OFFENSE,15000,extension,2018,3,29333,0002,extension_inferred,2026-04-30T16:14:22+00:00
+2015,1.11,11,1,Late,late_1st,12181,"Agholor, Nelson",WR,OFFENSE,5000,fa_auction,2017,2,2000,0005,fa_auction,2026-04-30T16:14:22+00:00
+2015,1.12,12,1,Late,late_1st,12140,"Winston, Jameis",QB,OFFENSE,0,fa_auction,2020,5,1000,0012,fa_auction,2026-04-30T16:14:22+00:00
+2015,2.01,13,2,Early,early_2nd,12154,"Ajayi, Jay",RB,OFFENSE,5000,extension,2018,3,25000,0009,extension_inferred,2026-04-30T16:14:22+00:00
+2015,2.02,14,2,Early,early_2nd,12141,"Mariota, Marcus",QB,OFFENSE,5000,extension,2018,3,11000,0008,extension_inferred,2026-04-30T16:14:22+00:00
+2015,2.03,15,2,Early,early_2nd,12205,"Funchess, Devin",WR,OFFENSE,5000,extension,2018,3,25000,0001,extension_inferred,2026-04-30T16:14:22+00:00
+2015,2.04,16,2,Early,early_2nd,12171,"Johnson, David",RB,OFFENSE,5000,extension,2018,3,25000,0009,extension_inferred,2026-04-30T16:14:22+00:00
+2015,2.05,17,2,Middle,mid_2nd,12206,"Williams, Maxx",TE,OFFENSE,5000,cut_unsigned,2018,3,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2015,2.06,18,2,Middle,mid_2nd,12188,"Dorsett, Phillip",WR,OFFENSE,5000,waiver_add,2018,3,1000,0004,waiver_contract_add,2026-04-30T16:14:22+00:00
+2015,2.07,19,2,Middle,mid_2nd,12158,"Cobb, David",RB,OFFENSE,5000,pre_data_no_trace,,,0,,draft_season=2015 < data_start=2017; no rows in window,2026-04-30T16:14:22+00:00
+2015,2.08,20,2,Middle,mid_2nd,12179,"Strong, Jaelen",WR,OFFENSE,5000,cut_unsigned,2018,3,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2015,2.09,21,2,Late,late_2nd,12157,"Johnson, Duke",RB,OFFENSE,5000,extension,2018,3,4000,0012,extension_inferred,2026-04-30T16:14:22+00:00
+2015,2.01,22,2,Early,early_2nd,12159,"Allen, Javorius",RB,OFFENSE,5000,cut_unsigned,2019,4,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2015,2.11,23,2,Late,late_2nd,12161,"Artis-Payne, Cameron",RB,OFFENSE,5000,cut_unsigned,2018,3,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2015,2.12,24,2,Late,late_2nd,12164,"Davis, Mike",RB,OFFENSE,5000,fa_auction,2019,4,2000,0006,fa_auction,2026-04-30T16:14:22+00:00
+2015,3.01,25,3,Early,early_3rd,12187,"Lockett, Tyler",WR,OFFENSE,2000,extension,2018,3,12000,0002,extension_inferred,2026-04-30T16:14:22+00:00
+2015,3.02,26,3,Early,early_3rd,12257,"Conley, Chris",WR,OFFENSE,2000,fa_auction,2020,5,1000,0012,fa_auction,2026-04-30T16:14:22+00:00
+2015,3.03,27,3,Early,early_3rd,12178,"Coates, Sammie",WR,OFFENSE,2000,pre_data_no_trace,,,0,,draft_season=2015 < data_start=2017; no rows in window,2026-04-30T16:14:22+00:00
+2015,3.04,28,3,Early,early_3rd,12162,"Jones, Matt",RB,OFFENSE,2000,pre_data_no_trace,,,0,,draft_season=2015 < data_start=2017; no rows in window,2026-04-30T16:14:22+00:00
+2015,3.05,29,3,Middle,mid_3rd,12182,"Smith, Devin",WR,OFFENSE,2000,pre_data_no_trace,,,0,,draft_season=2015 < data_start=2017; no rows in window,2026-04-30T16:14:22+00:00
+2015,3.06,30,3,Middle,mid_3rd,12185,"Hardy, Justin",WR,OFFENSE,2000,pre_data_no_trace,,,0,,draft_season=2015 < data_start=2017; no rows in window,2026-04-30T16:14:22+00:00
+2015,3.07,31,3,Middle,mid_3rd,12195,"Bell, Kenny",WR,OFFENSE,2000,pre_data_no_trace,,,0,,draft_season=2015 < data_start=2017; no rows in window,2026-04-30T16:14:22+00:00
+2015,3.08,32,3,Middle,mid_3rd,10811,"Robinson, Josh",CB,OFFENSE,2000,pre_data_no_trace,,,0,,draft_season=2015 < data_start=2017; no rows in window,2026-04-30T16:14:22+00:00
+2015,3.09,33,3,Late,late_3rd,12156,"Langford, Jeremy",RB,OFFENSE,2000,pre_data_no_trace,,,0,,draft_season=2015 < data_start=2017; no rows in window,2026-04-30T16:14:22+00:00
+2015,3.01,34,3,Early,early_3rd,12186,"Diggs, Stefon",WR,OFFENSE,2000,extension,2018,3,22000,0010,extension_inferred,2026-04-30T16:14:22+00:00
+2015,3.11,35,3,Late,late_3rd,12183,"Greene, Rashad",WR,OFFENSE,2000,pre_data_no_trace,,,0,,draft_season=2015 < data_start=2017; no rows in window,2026-04-30T16:14:22+00:00
+2015,3.12,36,3,Late,late_3rd,12263,"Waller, Darren",WR,OFFENSE,2000,fa_auction,2019,4,6000,0006,fa_auction,2026-04-30T16:14:22+00:00
+2015,4.01,37,4,Early,4th_plus,12204,"Smelter, DeAndre",WR,OFFENSE,2000,pre_data_no_trace,,,0,,draft_season=2015 < data_start=2017; no rows in window,2026-04-30T16:14:22+00:00
+2015,4.02,38,4,Early,4th_plus,12260,"McBride, Tre",WR,OFFENSE,2000,pre_data_no_trace,,,0,,draft_season=2015 < data_start=2017; no rows in window,2026-04-30T16:14:22+00:00
+2015,4.03,39,4,Early,4th_plus,12261,"Montgomery, Ty",WR,OFFENSE,2000,extension,2018,3,22000,0011,extension_inferred,2026-04-30T16:14:22+00:00
+2015,4.04,40,4,Early,4th_plus,12239,"Kendricks, Eric",LB,OFFENSE,2000,pre_data_no_trace,,,0,,draft_season=2015 < data_start=2017; no rows in window,2026-04-30T16:14:22+00:00
+2015,4.05,41,4,Middle,4th_plus,12264,"Zenner, Zach",RB,OFFENSE,2000,cut_unsigned,2019,4,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2015,4.06,42,4,Middle,4th_plus,12210,"Walford, Clive",TE,OFFENSE,2000,pre_data_no_trace,,,0,,draft_season=2015 < data_start=2017; no rows in window,2026-04-30T16:14:22+00:00
+2015,4.07,43,4,Middle,4th_plus,12160,"Williams, Karlos",RB,OFFENSE,2000,pre_data_no_trace,,,0,,draft_season=2015 < data_start=2017; no rows in window,2026-04-30T16:14:22+00:00
+2015,4.08,44,4,Middle,4th_plus,12386,"Brown, Malcolm",RB,OFFENSE,2000,fa_auction,2019,4,4000,0010,fa_auction,2026-04-30T16:14:22+00:00
+2015,4.09,45,4,Late,4th_plus,12265,"Davis, Devante",WR,OFFENSE,2000,pre_data_no_trace,,,0,,draft_season=2015 < data_start=2017; no rows in window,2026-04-30T16:14:22+00:00
+2015,4.01,46,4,Early,4th_plus,12243,"Anthony, Stephone",LB,OFFENSE,2000,pre_data_no_trace,,,0,,draft_season=2015 < data_start=2017; no rows in window,2026-04-30T16:14:22+00:00
+2015,4.11,47,4,Late,4th_plus,12392,"Williams, Trey",RB,OFFENSE,2000,pre_data_no_trace,,,0,,draft_season=2015 < data_start=2017; no rows in window,2026-04-30T16:14:22+00:00
+2015,4.12,48,4,Late,4th_plus,12391,"Williams, Tyrell",WR,OFFENSE,2000,fa_auction,2018,3,5000,0008,fa_auction,2026-04-30T16:14:22+00:00
+2015,5.01,49,5,Early,4th_plus,12387,"Days, Synjyn",RB,OFFENSE,2000,pre_data_no_trace,,,0,,draft_season=2015 < data_start=2017; no rows in window,2026-04-30T16:14:22+00:00
+2015,5.02,50,5,Early,4th_plus,12230,"Beasley, Vic",DE,OFFENSE,2000,pre_data_no_trace,,,0,,draft_season=2015 < data_start=2017; no rows in window,2026-04-30T16:14:22+00:00
+2015,5.03,51,5,Early,4th_plus,12394,"Carter, DeAndre",WR,OFFENSE,2000,cut_unsigned,2023,8,0,,"dropped, no future re-acquisition",2026-04-30T16:14:22+00:00
+2015,5.04,52,5,Early,4th_plus,12211,"James, Jesse",TE,OFFENSE,2000,fa_auction,2018,3,1000,,fa_auction,2026-04-30T16:14:22+00:00
+2015,5.05,53,5,Middle,4th_plus,12144,"Petty, Bryce",QB,OFFENSE,2000,pre_data_no_trace,,,0,,draft_season=2015 < data_start=2017; no rows in window,2026-04-30T16:14:22+00:00
+2015,5.06,54,5,Middle,4th_plus,12409,"Davis, Darius",WR,OFFENSE,2000,pre_data_no_trace,,,0,,draft_season=2015 < data_start=2017; no rows in window,2026-04-30T16:14:22+00:00
+2015,5.07,55,5,Middle,4th_plus,12350,"Sasser, Bud",WR,OFFENSE,2000,pre_data_no_trace,,,0,,draft_season=2015 < data_start=2017; no rows in window,2026-04-30T16:14:22+00:00
+2015,5.08,56,5,Middle,4th_plus,12142,"Hundley, Brett",QB,OFFENSE,2000,expired_unsigned,2017,2,0,,rookie deal lapsed; no extension/tag/FA-auction event,2026-04-30T16:14:22+00:00
+2015,5.09,57,5,Late,4th_plus,12146,"Grayson, Garrett",QB,OFFENSE,2000,pre_data_no_trace,,,0,,draft_season=2015 < data_start=2017; no rows in window,2026-04-30T16:14:22+00:00
+2015,5.01,58,5,Early,4th_plus,12217,"Fowler, Dante",DE,OFFENSE,2000,pre_data_no_trace,,,0,,draft_season=2015 < data_start=2017; no rows in window,2026-04-30T16:14:22+00:00
+2015,5.11,59,5,Late,4th_plus,12215,"Gregory, Randy",DE,OFFENSE,2000,pre_data_no_trace,,,0,,draft_season=2015 < data_start=2017; no rows in window,2026-04-30T16:14:22+00:00
+2015,5.12,60,5,Late,4th_plus,12388,"Crockett, John",RB,OFFENSE,2000,pre_data_no_trace,,,0,,draft_season=2015 < data_start=2017; no rows in window,2026-04-30T16:14:22+00:00

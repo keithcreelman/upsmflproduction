@@ -1,0 +1,30 @@
+{
+  "version": 2,
+  "as_of": "2026-04-29",
+  "method": "JJ multi-cohort B2S grading; 2022 full, 2024 partial",
+  "default_blend": {
+    "jj": 0.5,
+    "koalaty": 0.5
+  },
+  "spearman_jj": {
+    "RB": {
+      "2022_b2s_full": 0.463,
+      "2024_b2s_partial": -0.247,
+      "2022_lift_top_vs_bot": 50.0,
+      "2024_lift_top_vs_bot": -16.7
+    },
+    "WR": {
+      "2022_b2s_full": 0.699,
+      "2024_b2s_partial": 0.785,
+      "2022_lift_top_vs_bot": 37.5,
+      "2024_lift_top_vs_bot": 12.5
+    },
+    "TE": {
+      "2022_b2s_full": null,
+      "2024_b2s_partial": 0.462,
+      "2022_lift_top_vs_bot": null,
+      "2024_lift_top_vs_bot": 25.0
+    }
+  },
+  "notes": "2022 cohort is the cleanest grade \u2014 Z-Prospect V1 against full B2S. 2024 cohort is best-of-Y1-Y2 (ZAP 1.0). Use 2022 \u03c1 as the primary signal."
+}

@@ -1,0 +1,1507 @@
+{
+  "meta": {
+    "source": "rosters_weekly + weeklyresults (MFL DB iCloud)",
+    "filter": "champion of each season 2017-2025, starter weeks only",
+    "lineup": "1QB / 2RB / 2WR / 1TE / 2FLEX / 1SF / K / P / 2DL / 2LB / 2DB / 1DefFlex (UPS)",
+    "core_starter_def": "weeks_started >= 6 AND position in {QB,RB,WR,TE}"
+  },
+  "champions": [
+    {
+      "season": 2017,
+      "franchise_id": "0006",
+      "team_name": "Good in Da Hood",
+      "era": "1QB",
+      "final_score": 174.3,
+      "core_starters_count": 6,
+      "core_starters": [
+        {
+          "player_name": "Hopkins, DeAndre",
+          "position": "WR",
+          "weeks_started": 14,
+          "playoff_weeks_started": 2,
+          "total_pts": 301.0,
+          "ppg": 21.5,
+          "salary": 29000,
+          "contract_status": "STANDARD"
+        },
+        {
+          "player_name": "Hunt, Kareem",
+          "position": "RB",
+          "weeks_started": 14,
+          "playoff_weeks_started": 2,
+          "total_pts": 265.3,
+          "ppg": 18.95,
+          "salary": 9000,
+          "contract_status": "ROOKIE"
+        },
+        {
+          "player_name": "Thomas, Michael",
+          "position": "WR",
+          "weeks_started": 14,
+          "playoff_weeks_started": 2,
+          "total_pts": 234.0,
+          "ppg": 16.71,
+          "salary": 10000,
+          "contract_status": "ROOKIE"
+        },
+        {
+          "player_name": "Tate, Golden",
+          "position": "WR",
+          "weeks_started": 10,
+          "playoff_weeks_started": 2,
+          "total_pts": 120.7,
+          "ppg": 12.07,
+          "salary": 27000,
+          "contract_status": "STANDARD"
+        },
+        {
+          "player_name": "Rudolph, Kyle",
+          "position": "TE",
+          "weeks_started": 8,
+          "playoff_weeks_started": 2,
+          "total_pts": 78.8,
+          "ppg": 9.85,
+          "salary": 25000,
+          "contract_status": "STANDARD"
+        },
+        {
+          "player_name": "Cook, Jared",
+          "position": "TE",
+          "weeks_started": 6,
+          "playoff_weeks_started": 0,
+          "total_pts": 56.5,
+          "ppg": 9.42,
+          "salary": 1000,
+          "contract_status": "STANDARD"
+        }
+      ],
+      "qb_room": [
+        {
+          "player_name": "Rivers, Philip",
+          "weeks_started": 5,
+          "total_pts": 104.4,
+          "ppg": 20.88,
+          "salary": 6000
+        },
+        {
+          "player_name": "Dalton, Andy",
+          "weeks_started": 4,
+          "total_pts": 69.3,
+          "ppg": 17.32,
+          "salary": 16000
+        }
+      ],
+      "te_room": [
+        {
+          "player_name": "Rudolph, Kyle",
+          "weeks_started": 8,
+          "total_pts": 78.8,
+          "ppg": 9.85,
+          "salary": 25000
+        },
+        {
+          "player_name": "Cook, Jared",
+          "weeks_started": 6,
+          "total_pts": 56.5,
+          "ppg": 9.42,
+          "salary": 1000
+        },
+        {
+          "player_name": "Ebron, Eric",
+          "weeks_started": 1,
+          "total_pts": 19.7,
+          "ppg": 19.7,
+          "salary": 2000
+        }
+      ],
+      "core_cap_by_position": {
+        "WR": 66000,
+        "RB": 9000,
+        "TE": 26000
+      },
+      "core_total_cap": 101000
+    },
+    {
+      "season": 2018,
+      "franchise_id": "0011",
+      "team_name": "Cleon Ca$h",
+      "era": "1QB",
+      "final_score": 267.8,
+      "core_starters_count": 12,
+      "core_starters": [
+        {
+          "player_name": "Smith-Schuster, JuJu",
+          "position": "WR",
+          "weeks_started": 14,
+          "playoff_weeks_started": 3,
+          "total_pts": 301.2,
+          "ppg": 21.51,
+          "salary": 5000,
+          "contract_status": "Rookie"
+        },
+        {
+          "player_name": "Drake, Kenyan",
+          "position": "RB",
+          "weeks_started": 15,
+          "playoff_weeks_started": 3,
+          "total_pts": 192.0,
+          "ppg": 12.8,
+          "salary": 5000,
+          "contract_status": "Rookie"
+        },
+        {
+          "player_name": "Brees, Drew",
+          "position": "QB",
+          "weeks_started": 8,
+          "playoff_weeks_started": 3,
+          "total_pts": 190.2,
+          "ppg": 23.77,
+          "salary": 13000,
+          "contract_status": "BL"
+        },
+        {
+          "player_name": "Ryan, Matt",
+          "position": "QB",
+          "weeks_started": 6,
+          "playoff_weeks_started": 0,
+          "total_pts": 155.4,
+          "ppg": 25.9,
+          "salary": 12000,
+          "contract_status": "Veteran"
+        },
+        {
+          "player_name": "Sanu, Mohamed",
+          "position": "WR",
+          "weeks_started": 12,
+          "playoff_weeks_started": 3,
+          "total_pts": 133.3,
+          "ppg": 11.11,
+          "salary": 1000,
+          "contract_status": "Veteran"
+        },
+        {
+          "player_name": "Collins, Alex",
+          "position": "RB",
+          "weeks_started": 8,
+          "playoff_weeks_started": 0,
+          "total_pts": 89.5,
+          "ppg": 11.19,
+          "salary": 2000,
+          "contract_status": "Rookie"
+        },
+        {
+          "player_name": "Cobb, Randall",
+          "position": "WR",
+          "weeks_started": 8,
+          "playoff_weeks_started": 2,
+          "total_pts": 83.8,
+          "ppg": 10.47,
+          "salary": 15000,
+          "contract_status": "Veteran"
+        },
+        {
+          "player_name": "Nelson, Jordy",
+          "position": "WR",
+          "weeks_started": 9,
+          "playoff_weeks_started": 3,
+          "total_pts": 76.2,
+          "ppg": 8.47,
+          "salary": 70000,
+          "contract_status": "Veteran"
+        },
+        {
+          "player_name": "Allen, Javorius",
+          "position": "RB",
+          "weeks_started": 8,
+          "playoff_weeks_started": 0,
+          "total_pts": 70.2,
+          "ppg": 8.78,
+          "salary": 7000,
+          "contract_status": "Veteran"
+        },
+        {
+          "player_name": "Clement, Corey",
+          "position": "RB",
+          "weeks_started": 8,
+          "playoff_weeks_started": 1,
+          "total_pts": 61.1,
+          "ppg": 7.64,
+          "salary": 22000,
+          "contract_status": "Veteran"
+        },
+        {
+          "player_name": "Engram, Evan",
+          "position": "TE",
+          "weeks_started": 7,
+          "playoff_weeks_started": 1,
+          "total_pts": 58.9,
+          "ppg": 8.41,
+          "salary": 7000,
+          "contract_status": "Rookie"
+        },
+        {
+          "player_name": "McDonald, Vance",
+          "position": "TE",
+          "weeks_started": 6,
+          "playoff_weeks_started": 0,
+          "total_pts": 57.0,
+          "ppg": 9.5,
+          "salary": 7000,
+          "contract_status": "Veteran"
+        }
+      ],
+      "qb_room": [
+        {
+          "player_name": "Brees, Drew",
+          "weeks_started": 8,
+          "total_pts": 190.2,
+          "ppg": 23.77,
+          "salary": 13000
+        },
+        {
+          "player_name": "Ryan, Matt",
+          "weeks_started": 6,
+          "total_pts": 155.4,
+          "ppg": 25.9,
+          "salary": 12000
+        },
+        {
+          "player_name": "Garoppolo, Jimmy",
+          "weeks_started": 1,
+          "total_pts": 15.6,
+          "ppg": 15.6,
+          "salary": 7000
+        },
+        {
+          "player_name": "Manning, Eli",
+          "weeks_started": 1,
+          "total_pts": 10.6,
+          "ppg": 10.6,
+          "salary": 2000
+        }
+      ],
+      "te_room": [
+        {
+          "player_name": "Rudolph, Kyle",
+          "weeks_started": 5,
+          "total_pts": 65.5,
+          "ppg": 13.1,
+          "salary": 25000
+        },
+        {
+          "player_name": "Engram, Evan",
+          "weeks_started": 7,
+          "total_pts": 58.9,
+          "ppg": 8.41,
+          "salary": 7000
+        },
+        {
+          "player_name": "McDonald, Vance",
+          "weeks_started": 6,
+          "total_pts": 57.0,
+          "ppg": 9.5,
+          "salary": 7000
+        }
+      ],
+      "core_cap_by_position": {
+        "WR": 91000,
+        "RB": 36000,
+        "QB": 25000,
+        "TE": 14000
+      },
+      "core_total_cap": 166000
+    },
+    {
+      "season": 2019,
+      "franchise_id": "0007",
+      "team_name": "Sex Manther",
+      "era": "1QB",
+      "final_score": 270.7,
+      "core_starters_count": 10,
+      "core_starters": [
+        {
+          "player_name": "Mahomes, Patrick",
+          "position": "QB",
+          "weeks_started": 13,
+          "playoff_weeks_started": 3,
+          "total_pts": 328.1,
+          "ppg": 25.24,
+          "salary": 2000,
+          "contract_status": "Rookie/Veteran GF"
+        },
+        {
+          "player_name": "Kupp, Cooper",
+          "position": "WR",
+          "weeks_started": 14,
+          "playoff_weeks_started": 2,
+          "total_pts": 260.3,
+          "ppg": 18.59,
+          "salary": 2000,
+          "contract_status": "Rookie GF"
+        },
+        {
+          "player_name": "Ekeler, Austin",
+          "position": "RB",
+          "weeks_started": 14,
+          "playoff_weeks_started": 3,
+          "total_pts": 251.7,
+          "ppg": 17.98,
+          "salary": 21000,
+          "contract_status": "Veteran"
+        },
+        {
+          "player_name": "Barkley, Saquon",
+          "position": "RB",
+          "weeks_started": 12,
+          "playoff_weeks_started": 3,
+          "total_pts": 223.2,
+          "ppg": 18.6,
+          "salary": 15000,
+          "contract_status": "Rookie GF"
+        },
+        {
+          "player_name": "Thomas, Michael",
+          "position": "WR",
+          "weeks_started": 7,
+          "playoff_weeks_started": 3,
+          "total_pts": 204.9,
+          "ppg": 29.27,
+          "salary": 30000,
+          "contract_status": "Veteran GF"
+        },
+        {
+          "player_name": "Conner, James",
+          "position": "RB",
+          "weeks_started": 9,
+          "playoff_weeks_started": 1,
+          "total_pts": 128.0,
+          "ppg": 14.22,
+          "salary": 5000,
+          "contract_status": "Rookie GF"
+        },
+        {
+          "player_name": "Henry, Hunter",
+          "position": "TE",
+          "weeks_started": 8,
+          "playoff_weeks_started": 1,
+          "total_pts": 98.4,
+          "ppg": 12.3,
+          "salary": 17000,
+          "contract_status": "Veteran GF"
+        },
+        {
+          "player_name": "Samuel, Curtis",
+          "position": "WR",
+          "weeks_started": 7,
+          "playoff_weeks_started": 0,
+          "total_pts": 94.8,
+          "ppg": 13.54,
+          "salary": 5000,
+          "contract_status": "Rookie/Veteran GF"
+        },
+        {
+          "player_name": "Olsen, Greg",
+          "position": "TE",
+          "weeks_started": 6,
+          "playoff_weeks_started": 0,
+          "total_pts": 69.2,
+          "ppg": 11.53,
+          "salary": 1000,
+          "contract_status": "WW"
+        },
+        {
+          "player_name": "Sanders, Emmanuel",
+          "position": "WR",
+          "weeks_started": 6,
+          "playoff_weeks_started": 1,
+          "total_pts": 50.4,
+          "ppg": 8.4,
+          "salary": 18000,
+          "contract_status": "Veteran"
+        }
+      ],
+      "qb_room": [
+        {
+          "player_name": "Mahomes, Patrick",
+          "weeks_started": 13,
+          "total_pts": 328.1,
+          "ppg": 25.24,
+          "salary": 2000
+        },
+        {
+          "player_name": "Prescott, Dak",
+          "weeks_started": 2,
+          "total_pts": 34.4,
+          "ppg": 17.2,
+          "salary": 9000
+        },
+        {
+          "player_name": "Tannehill, Ryan",
+          "weeks_started": 1,
+          "total_pts": 23.5,
+          "ppg": 23.5,
+          "salary": 6000
+        }
+      ],
+      "te_room": [
+        {
+          "player_name": "Henry, Hunter",
+          "weeks_started": 8,
+          "total_pts": 98.4,
+          "ppg": 12.3,
+          "salary": 17000
+        },
+        {
+          "player_name": "Kelce, Travis",
+          "weeks_started": 4,
+          "total_pts": 84.6,
+          "ppg": 21.15,
+          "salary": 52000
+        },
+        {
+          "player_name": "Olsen, Greg",
+          "weeks_started": 6,
+          "total_pts": 69.2,
+          "ppg": 11.53,
+          "salary": 1000
+        }
+      ],
+      "core_cap_by_position": {
+        "QB": 2000,
+        "WR": 55000,
+        "RB": 41000,
+        "TE": 18000
+      },
+      "core_total_cap": 116000
+    },
+    {
+      "season": 2020,
+      "franchise_id": "0002",
+      "team_name": "The Bash Bros",
+      "era": "1QB",
+      "final_score": 273.7,
+      "core_starters_count": 9,
+      "core_starters": [
+        {
+          "player_name": "Allen, Josh",
+          "position": "QB",
+          "weeks_started": 14,
+          "playoff_weeks_started": 2,
+          "total_pts": 421.8,
+          "ppg": 30.13,
+          "salary": 8000,
+          "contract_status": "Veteran"
+        },
+        {
+          "player_name": "Kupp, Cooper",
+          "position": "WR",
+          "weeks_started": 14,
+          "playoff_weeks_started": 2,
+          "total_pts": 215.6,
+          "ppg": 15.4,
+          "salary": 22000,
+          "contract_status": "Veteran"
+        },
+        {
+          "player_name": "Montgomery, David",
+          "position": "RB",
+          "weeks_started": 13,
+          "playoff_weeks_started": 2,
+          "total_pts": 206.5,
+          "ppg": 15.88,
+          "salary": 14000,
+          "contract_status": "Rookie GF"
+        },
+        {
+          "player_name": "Cooks, Brandin",
+          "position": "WR",
+          "weeks_started": 11,
+          "playoff_weeks_started": 2,
+          "total_pts": 184.0,
+          "ppg": 16.73,
+          "salary": 43000,
+          "contract_status": "BL"
+        },
+        {
+          "player_name": "Graham, Jimmy",
+          "position": "TE",
+          "weeks_started": 8,
+          "playoff_weeks_started": 1,
+          "total_pts": 104.1,
+          "ppg": 13.01,
+          "salary": 1000,
+          "contract_status": "WW"
+        },
+        {
+          "player_name": "Jeudy, Jerry",
+          "position": "WR",
+          "weeks_started": 8,
+          "playoff_weeks_started": 0,
+          "total_pts": 100.2,
+          "ppg": 12.53,
+          "salary": 10000,
+          "contract_status": "Rookie"
+        },
+        {
+          "player_name": "Mixon, Joe",
+          "position": "RB",
+          "weeks_started": 6,
+          "playoff_weeks_started": 0,
+          "total_pts": 99.4,
+          "ppg": 16.57,
+          "salary": 33000,
+          "contract_status": "Veteran"
+        },
+        {
+          "player_name": "Singletary, Devin",
+          "position": "RB",
+          "weeks_started": 9,
+          "playoff_weeks_started": 1,
+          "total_pts": 86.5,
+          "ppg": 9.61,
+          "salary": 5000,
+          "contract_status": "Rookie GF"
+        },
+        {
+          "player_name": "Henry, Hunter",
+          "position": "TE",
+          "weeks_started": 8,
+          "playoff_weeks_started": 1,
+          "total_pts": 84.2,
+          "ppg": 10.53,
+          "salary": 25000,
+          "contract_status": "Veteran"
+        }
+      ],
+      "qb_room": [
+        {
+          "player_name": "Allen, Josh",
+          "weeks_started": 14,
+          "total_pts": 421.8,
+          "ppg": 30.13,
+          "salary": 8000
+        },
+        {
+          "player_name": "Smith, Alex",
+          "weeks_started": 1,
+          "total_pts": 9.8,
+          "ppg": 9.8,
+          "salary": 1000
+        }
+      ],
+      "te_room": [
+        {
+          "player_name": "Graham, Jimmy",
+          "weeks_started": 8,
+          "total_pts": 104.1,
+          "ppg": 13.01,
+          "salary": 1000
+        },
+        {
+          "player_name": "Henry, Hunter",
+          "weeks_started": 8,
+          "total_pts": 84.2,
+          "ppg": 10.53,
+          "salary": 25000
+        },
+        {
+          "player_name": "Doyle, Jack",
+          "weeks_started": 1,
+          "total_pts": 8.3,
+          "ppg": 8.3,
+          "salary": 7000
+        }
+      ],
+      "core_cap_by_position": {
+        "QB": 8000,
+        "WR": 75000,
+        "RB": 52000,
+        "TE": 26000
+      },
+      "core_total_cap": 161000
+    },
+    {
+      "season": 2021,
+      "franchise_id": "0011",
+      "team_name": "Cleon Ca$h",
+      "era": "1QB",
+      "final_score": 225.7,
+      "core_starters_count": 10,
+      "core_starters": [
+        {
+          "player_name": "Kupp, Cooper",
+          "position": "WR",
+          "weeks_started": 15,
+          "playoff_weeks_started": 2,
+          "total_pts": 416.9,
+          "ppg": 27.79,
+          "salary": 22000,
+          "contract_status": "Veteran"
+        },
+        {
+          "player_name": "Rodgers, Aaron",
+          "position": "QB",
+          "weeks_started": 14,
+          "playoff_weeks_started": 2,
+          "total_pts": 387.9,
+          "ppg": 27.71,
+          "salary": 60000,
+          "contract_status": "FL"
+        },
+        {
+          "player_name": "Harris, Najee",
+          "position": "RB",
+          "weeks_started": 14,
+          "playoff_weeks_started": 2,
+          "total_pts": 291.9,
+          "ppg": 20.85,
+          "salary": 13000,
+          "contract_status": "Rookie"
+        },
+        {
+          "player_name": "Waddle, Jaylen",
+          "position": "WR",
+          "weeks_started": 11,
+          "playoff_weeks_started": 2,
+          "total_pts": 191.8,
+          "ppg": 17.44,
+          "salary": 10000,
+          "contract_status": "Rookie"
+        },
+        {
+          "player_name": "Gibson, Antonio",
+          "position": "RB",
+          "weeks_started": 12,
+          "playoff_weeks_started": 0,
+          "total_pts": 165.3,
+          "ppg": 13.78,
+          "salary": 5000,
+          "contract_status": "Rookie"
+        },
+        {
+          "player_name": "Gesicki, Mike",
+          "position": "TE",
+          "weeks_started": 11,
+          "playoff_weeks_started": 0,
+          "total_pts": 129.7,
+          "ppg": 11.79,
+          "salary": 1000,
+          "contract_status": "Veteran"
+        },
+        {
+          "player_name": "Landry, Jarvis",
+          "position": "WR",
+          "weeks_started": 9,
+          "playoff_weeks_started": 1,
+          "total_pts": 102.8,
+          "ppg": 11.42,
+          "salary": 11000,
+          "contract_status": "FL"
+        },
+        {
+          "player_name": "Edwards-Helaire, Clyde",
+          "position": "RB",
+          "weeks_started": 6,
+          "playoff_weeks_started": 1,
+          "total_pts": 90.8,
+          "ppg": 15.13,
+          "salary": 15000,
+          "contract_status": "Rookie"
+        },
+        {
+          "player_name": "Beckham, Odell",
+          "position": "WR",
+          "weeks_started": 6,
+          "playoff_weeks_started": 2,
+          "total_pts": 71.6,
+          "ppg": 11.93,
+          "salary": 58000,
+          "contract_status": "Veteran"
+        },
+        {
+          "player_name": "Anderson, Robby",
+          "position": "WR",
+          "weeks_started": 8,
+          "playoff_weeks_started": 1,
+          "total_pts": 59.4,
+          "ppg": 7.42,
+          "salary": 27000,
+          "contract_status": "Veteran"
+        }
+      ],
+      "qb_room": [
+        {
+          "player_name": "Rodgers, Aaron",
+          "weeks_started": 14,
+          "total_pts": 387.9,
+          "ppg": 27.71,
+          "salary": 60000
+        },
+        {
+          "player_name": "Mayfield, Baker",
+          "weeks_started": 1,
+          "total_pts": 22.1,
+          "ppg": 22.1,
+          "salary": 14000
+        },
+        {
+          "player_name": "Garoppolo, Jimmy",
+          "weeks_started": 1,
+          "total_pts": 21.9,
+          "ppg": 21.9,
+          "salary": 1000
+        }
+      ],
+      "te_room": [
+        {
+          "player_name": "Gesicki, Mike",
+          "weeks_started": 11,
+          "total_pts": 129.7,
+          "ppg": 11.79,
+          "salary": 1000
+        },
+        {
+          "player_name": "Schultz, Dalton",
+          "weeks_started": 5,
+          "total_pts": 62.1,
+          "ppg": 12.42,
+          "salary": 1000
+        }
+      ],
+      "core_cap_by_position": {
+        "WR": 128000,
+        "QB": 60000,
+        "RB": 33000,
+        "TE": 1000
+      },
+      "core_total_cap": 222000
+    },
+    {
+      "season": 2022,
+      "franchise_id": "0009",
+      "team_name": "C-Town Chivalry",
+      "era": "SF",
+      "final_score": 254.8,
+      "core_starters_count": 10,
+      "core_starters": [
+        {
+          "player_name": "Mahomes, Patrick",
+          "position": "QB",
+          "weeks_started": 16,
+          "playoff_weeks_started": 3,
+          "total_pts": 538.4,
+          "ppg": 33.65,
+          "salary": 2000,
+          "contract_status": "FL"
+        },
+        {
+          "player_name": "Ekeler, Austin",
+          "position": "RB",
+          "weeks_started": 16,
+          "playoff_weeks_started": 3,
+          "total_pts": 364.7,
+          "ppg": 22.79,
+          "salary": 57000,
+          "contract_status": "Veteran"
+        },
+        {
+          "player_name": "Chubb, Nick",
+          "position": "RB",
+          "weeks_started": 16,
+          "playoff_weeks_started": 3,
+          "total_pts": 275.8,
+          "ppg": 17.24,
+          "salary": 25000,
+          "contract_status": "BL"
+        },
+        {
+          "player_name": "Brady, Tom",
+          "position": "QB",
+          "weeks_started": 11,
+          "playoff_weeks_started": 3,
+          "total_pts": 248.6,
+          "ppg": 22.6,
+          "salary": 66000,
+          "contract_status": "Veteran"
+        },
+        {
+          "player_name": "Kelce, Travis",
+          "position": "TE",
+          "weeks_started": 11,
+          "playoff_weeks_started": 3,
+          "total_pts": 215.7,
+          "ppg": 19.61,
+          "salary": 26000,
+          "contract_status": "BL"
+        },
+        {
+          "player_name": "Moore, D.J.",
+          "position": "WR",
+          "weeks_started": 15,
+          "playoff_weeks_started": 2,
+          "total_pts": 196.0,
+          "ppg": 13.07,
+          "salary": 26000,
+          "contract_status": "BL"
+        },
+        {
+          "player_name": "Fournette, Leonard",
+          "position": "RB",
+          "weeks_started": 13,
+          "playoff_weeks_started": 2,
+          "total_pts": 186.6,
+          "ppg": 14.35,
+          "salary": 39000,
+          "contract_status": "Veteran"
+        },
+        {
+          "player_name": "Johnson, Diontae",
+          "position": "WR",
+          "weeks_started": 13,
+          "playoff_weeks_started": 3,
+          "total_pts": 145.6,
+          "ppg": 11.2,
+          "salary": 25000,
+          "contract_status": "Veteran"
+        },
+        {
+          "player_name": "Goedert, Dallas",
+          "position": "TE",
+          "weeks_started": 10,
+          "playoff_weeks_started": 1,
+          "total_pts": 132.9,
+          "ppg": 13.29,
+          "salary": 1000,
+          "contract_status": "FL"
+        },
+        {
+          "player_name": "Allen, Keenan",
+          "position": "WR",
+          "weeks_started": 6,
+          "playoff_weeks_started": 3,
+          "total_pts": 116.1,
+          "ppg": 19.35,
+          "salary": 60000,
+          "contract_status": "Veteran"
+        }
+      ],
+      "qb_room": [
+        {
+          "player_name": "Mahomes, Patrick",
+          "weeks_started": 16,
+          "total_pts": 538.4,
+          "ppg": 33.65,
+          "salary": 2000
+        },
+        {
+          "player_name": "Brady, Tom",
+          "weeks_started": 11,
+          "total_pts": 248.6,
+          "ppg": 22.6,
+          "salary": 66000
+        },
+        {
+          "player_name": "Mayfield, Baker",
+          "weeks_started": 3,
+          "total_pts": 47.8,
+          "ppg": 15.93,
+          "salary": 40000
+        },
+        {
+          "player_name": "Trubisky, Mitchell",
+          "weeks_started": 1,
+          "total_pts": -0.1,
+          "ppg": -0.1,
+          "salary": 1000
+        }
+      ],
+      "te_room": [
+        {
+          "player_name": "Kelce, Travis",
+          "weeks_started": 11,
+          "total_pts": 215.7,
+          "ppg": 19.61,
+          "salary": 26000
+        },
+        {
+          "player_name": "Goedert, Dallas",
+          "weeks_started": 10,
+          "total_pts": 132.9,
+          "ppg": 13.29,
+          "salary": 1000
+        },
+        {
+          "player_name": "Dulcich, Greg",
+          "weeks_started": 1,
+          "total_pts": 13.3,
+          "ppg": 13.3,
+          "salary": 2000
+        }
+      ],
+      "core_cap_by_position": {
+        "QB": 68000,
+        "RB": 121000,
+        "TE": 27000,
+        "WR": 111000
+      },
+      "core_total_cap": 327000
+    },
+    {
+      "season": 2023,
+      "franchise_id": "0010",
+      "team_name": "Blake Bombers",
+      "era": "SF",
+      "final_score": 259.7,
+      "core_starters_count": 10,
+      "core_starters": [
+        {
+          "player_name": "Hall, Breece",
+          "position": "RB",
+          "weeks_started": 15,
+          "playoff_weeks_started": 2,
+          "total_pts": 261.7,
+          "ppg": 17.45,
+          "salary": 15000,
+          "contract_status": "Rookie"
+        },
+        {
+          "player_name": "Allen, Keenan",
+          "position": "WR",
+          "weeks_started": 11,
+          "playoff_weeks_started": 0,
+          "total_pts": 257.8,
+          "ppg": 23.44,
+          "salary": 28000,
+          "contract_status": "Veteran"
+        },
+        {
+          "player_name": "Moore, D.J.",
+          "position": "WR",
+          "weeks_started": 13,
+          "playoff_weeks_started": 2,
+          "total_pts": 254.7,
+          "ppg": 19.59,
+          "salary": 61000,
+          "contract_status": "FL"
+        },
+        {
+          "player_name": "Olave, Chris",
+          "position": "WR",
+          "weeks_started": 15,
+          "playoff_weeks_started": 2,
+          "total_pts": 238.5,
+          "ppg": 15.9,
+          "salary": 11000,
+          "contract_status": "Rookie"
+        },
+        {
+          "player_name": "Nacua, Puka",
+          "position": "WR",
+          "weeks_started": 12,
+          "playoff_weeks_started": 2,
+          "total_pts": 233.5,
+          "ppg": 19.46,
+          "salary": 2000,
+          "contract_status": "Rookie"
+        },
+        {
+          "player_name": "Mostert, Raheem",
+          "position": "RB",
+          "weeks_started": 12,
+          "playoff_weeks_started": 1,
+          "total_pts": 218.3,
+          "ppg": 18.19,
+          "salary": 10000,
+          "contract_status": "Veteran"
+        },
+        {
+          "player_name": "Mayfield, Baker",
+          "position": "QB",
+          "weeks_started": 11,
+          "playoff_weeks_started": 2,
+          "total_pts": 218.1,
+          "ppg": 19.83,
+          "salary": 5000,
+          "contract_status": "Veteran"
+        },
+        {
+          "player_name": "Samuel, Deebo",
+          "position": "WR",
+          "weeks_started": 11,
+          "playoff_weeks_started": 2,
+          "total_pts": 211.2,
+          "ppg": 19.2,
+          "salary": 25000,
+          "contract_status": "Veteran"
+        },
+        {
+          "player_name": "Herbert, Justin",
+          "position": "QB",
+          "weeks_started": 9,
+          "playoff_weeks_started": 0,
+          "total_pts": 172.6,
+          "ppg": 19.18,
+          "salary": 22000,
+          "contract_status": "Veteran"
+        },
+        {
+          "player_name": "Engram, Evan",
+          "position": "TE",
+          "weeks_started": 11,
+          "playoff_weeks_started": 2,
+          "total_pts": 144.2,
+          "ppg": 13.11,
+          "salary": 17000,
+          "contract_status": "Tag"
+        }
+      ],
+      "qb_room": [
+        {
+          "player_name": "Mayfield, Baker",
+          "weeks_started": 11,
+          "total_pts": 218.1,
+          "ppg": 19.83,
+          "salary": 5000
+        },
+        {
+          "player_name": "Herbert, Justin",
+          "weeks_started": 9,
+          "total_pts": 172.6,
+          "ppg": 19.18,
+          "salary": 22000
+        },
+        {
+          "player_name": "Watson, Deshaun",
+          "weeks_started": 3,
+          "total_pts": 55.4,
+          "ppg": 18.47,
+          "salary": 16000
+        },
+        {
+          "player_name": "Jones, Daniel",
+          "weeks_started": 5,
+          "total_pts": 49.3,
+          "ppg": 9.86,
+          "salary": 31000
+        },
+        {
+          "player_name": "Dobbs, Joshua",
+          "weeks_started": 1,
+          "total_pts": 30.2,
+          "ppg": 30.2,
+          "salary": 10000
+        },
+        {
+          "player_name": "Stick, Easton",
+          "weeks_started": 2,
+          "total_pts": 29.3,
+          "ppg": 14.65,
+          "salary": 4000
+        }
+      ],
+      "te_room": [
+        {
+          "player_name": "Engram, Evan",
+          "weeks_started": 11,
+          "total_pts": 144.2,
+          "ppg": 13.11,
+          "salary": 17000
+        },
+        {
+          "player_name": "Ferguson, Jake",
+          "weeks_started": 4,
+          "total_pts": 43.1,
+          "ppg": 10.78,
+          "salary": 1000
+        },
+        {
+          "player_name": "Likely, Isaiah",
+          "weeks_started": 1,
+          "total_pts": 1.4,
+          "ppg": 1.4,
+          "salary": 2000
+        }
+      ],
+      "core_cap_by_position": {
+        "RB": 25000,
+        "WR": 127000,
+        "QB": 27000,
+        "TE": 17000
+      },
+      "core_total_cap": 196000
+    },
+    {
+      "season": 2024,
+      "franchise_id": "0005",
+      "team_name": "HammerTime \ud83d\udd28 \u23f0",
+      "era": "SF",
+      "final_score": 275.4,
+      "core_starters_count": 12,
+      "core_starters": [
+        {
+          "player_name": "Hurts, Jalen",
+          "position": "QB",
+          "weeks_started": 15,
+          "playoff_weeks_started": 2,
+          "total_pts": 367.1,
+          "ppg": 24.47,
+          "salary": 22000,
+          "contract_status": "Veteran"
+        },
+        {
+          "player_name": "Jefferson, Justin",
+          "position": "WR",
+          "weeks_started": 16,
+          "playoff_weeks_started": 3,
+          "total_pts": 334.5,
+          "ppg": 20.91,
+          "salary": 48000,
+          "contract_status": "Veteran"
+        },
+        {
+          "player_name": "McBride, Trey",
+          "position": "TE",
+          "weeks_started": 15,
+          "playoff_weeks_started": 3,
+          "total_pts": 241.9,
+          "ppg": 16.13,
+          "salary": 2000,
+          "contract_status": "Rookie"
+        },
+        {
+          "player_name": "Chase, Ja'Marr",
+          "position": "WR",
+          "weeks_started": 8,
+          "playoff_weeks_started": 3,
+          "total_pts": 241.3,
+          "ppg": 30.16,
+          "salary": 14000,
+          "contract_status": "BL"
+        },
+        {
+          "player_name": "Brown, A.J.",
+          "position": "WR",
+          "weeks_started": 13,
+          "playoff_weeks_started": 3,
+          "total_pts": 239.1,
+          "ppg": 18.39,
+          "salary": 19000,
+          "contract_status": "BL"
+        },
+        {
+          "player_name": "Jacobs, Josh",
+          "position": "RB",
+          "weeks_started": 11,
+          "playoff_weeks_started": 3,
+          "total_pts": 231.6,
+          "ppg": 21.05,
+          "salary": 45000,
+          "contract_status": "FL"
+        },
+        {
+          "player_name": "Herbert, Justin",
+          "position": "QB",
+          "weeks_started": 9,
+          "playoff_weeks_started": 3,
+          "total_pts": 199.1,
+          "ppg": 22.12,
+          "salary": 22000,
+          "contract_status": "Veteran"
+        },
+        {
+          "player_name": "Stroud, C.J.",
+          "position": "QB",
+          "weeks_started": 8,
+          "playoff_weeks_started": 0,
+          "total_pts": 147.8,
+          "ppg": 18.48,
+          "salary": 12000,
+          "contract_status": "Rookie"
+        },
+        {
+          "player_name": "McConkey, Ladd",
+          "position": "WR",
+          "weeks_started": 7,
+          "playoff_weeks_started": 3,
+          "total_pts": 130.0,
+          "ppg": 18.57,
+          "salary": 5000,
+          "contract_status": "Rookie"
+        },
+        {
+          "player_name": "Stevenson, Rhamondre",
+          "position": "RB",
+          "weeks_started": 10,
+          "playoff_weeks_started": 0,
+          "total_pts": 119.9,
+          "ppg": 11.99,
+          "salary": 8000,
+          "contract_status": "Veteran"
+        },
+        {
+          "player_name": "Flowers, Zay",
+          "position": "WR",
+          "weeks_started": 7,
+          "playoff_weeks_started": 0,
+          "total_pts": 105.5,
+          "ppg": 15.07,
+          "salary": 5000,
+          "contract_status": "Rookie"
+        },
+        {
+          "player_name": "Mostert, Raheem",
+          "position": "RB",
+          "weeks_started": 6,
+          "playoff_weeks_started": 0,
+          "total_pts": 50.7,
+          "ppg": 8.45,
+          "salary": 10000,
+          "contract_status": "BL"
+        }
+      ],
+      "qb_room": [
+        {
+          "player_name": "Hurts, Jalen",
+          "weeks_started": 15,
+          "total_pts": 367.1,
+          "ppg": 24.47,
+          "salary": 22000
+        },
+        {
+          "player_name": "Herbert, Justin",
+          "weeks_started": 9,
+          "total_pts": 199.1,
+          "ppg": 22.12,
+          "salary": 22000
+        },
+        {
+          "player_name": "Stroud, C.J.",
+          "weeks_started": 8,
+          "total_pts": 147.8,
+          "ppg": 18.48,
+          "salary": 12000
+        },
+        {
+          "player_name": "Jones, Mac",
+          "weeks_started": 1,
+          "total_pts": 23.7,
+          "ppg": 23.7,
+          "salary": 4000
+        }
+      ],
+      "te_room": [
+        {
+          "player_name": "McBride, Trey",
+          "weeks_started": 15,
+          "total_pts": 241.9,
+          "ppg": 16.13,
+          "salary": 2000
+        },
+        {
+          "player_name": "Kelce, Travis",
+          "weeks_started": 5,
+          "total_pts": 48.9,
+          "ppg": 9.78,
+          "salary": 76000
+        },
+        {
+          "player_name": "Freiermuth, Pat",
+          "weeks_started": 4,
+          "total_pts": 33.7,
+          "ppg": 8.43,
+          "salary": 12000
+        }
+      ],
+      "core_cap_by_position": {
+        "QB": 56000,
+        "WR": 91000,
+        "TE": 2000,
+        "RB": 63000
+      },
+      "core_total_cap": 212000
+    },
+    {
+      "season": 2025,
+      "franchise_id": "0011",
+      "team_name": "Cleon Ca$h",
+      "era": "SF_TEP",
+      "final_score": 294.4,
+      "core_starters_count": 12,
+      "core_starters": [
+        {
+          "player_name": "Herbert, Justin",
+          "position": "QB",
+          "weeks_started": 16,
+          "playoff_weeks_started": 3,
+          "total_pts": 354.0,
+          "ppg": 22.13,
+          "salary": 61000,
+          "contract_status": "FL"
+        },
+        {
+          "player_name": "Robinson, Bijan",
+          "position": "RB",
+          "weeks_started": 15,
+          "playoff_weeks_started": 2,
+          "total_pts": 351.6,
+          "ppg": 23.44,
+          "salary": 15000,
+          "contract_status": "Rookie"
+        },
+        {
+          "player_name": "Dart, Jaxson",
+          "position": "QB",
+          "weeks_started": 11,
+          "playoff_weeks_started": 3,
+          "total_pts": 258.0,
+          "ppg": 23.45,
+          "salary": 9000,
+          "contract_status": "Rookie"
+        },
+        {
+          "player_name": "Lamb, CeeDee",
+          "position": "WR",
+          "weeks_started": 11,
+          "playoff_weeks_started": 3,
+          "total_pts": 175.2,
+          "ppg": 15.93,
+          "salary": 64000,
+          "contract_status": "Veteran"
+        },
+        {
+          "player_name": "Robinson, Wan'Dale",
+          "position": "WR",
+          "weeks_started": 10,
+          "playoff_weeks_started": 3,
+          "total_pts": 152.8,
+          "ppg": 15.28,
+          "salary": 12000,
+          "contract_status": "Veteran"
+        },
+        {
+          "player_name": "Henry, Hunter",
+          "position": "TE",
+          "weeks_started": 12,
+          "playoff_weeks_started": 3,
+          "total_pts": 148.8,
+          "ppg": 12.4,
+          "salary": 2000,
+          "contract_status": "Veteran"
+        },
+        {
+          "player_name": "Kraft, Tucker",
+          "position": "TE",
+          "weeks_started": 7,
+          "playoff_weeks_started": 0,
+          "total_pts": 130.5,
+          "ppg": 18.64,
+          "salary": 2000,
+          "contract_status": "Rookie"
+        },
+        {
+          "player_name": "Shakir, Khalil",
+          "position": "WR",
+          "weeks_started": 11,
+          "playoff_weeks_started": 3,
+          "total_pts": 121.9,
+          "ppg": 11.08,
+          "salary": 14000,
+          "contract_status": "BL"
+        },
+        {
+          "player_name": "Stevenson, Rhamondre",
+          "position": "RB",
+          "weeks_started": 11,
+          "playoff_weeks_started": 2,
+          "total_pts": 111.2,
+          "ppg": 10.11,
+          "salary": 32000,
+          "contract_status": "BL"
+        },
+        {
+          "player_name": "Jeudy, Jerry",
+          "position": "WR",
+          "weeks_started": 11,
+          "playoff_weeks_started": 1,
+          "total_pts": 99.0,
+          "ppg": 9.0,
+          "salary": 1000,
+          "contract_status": "FL"
+        },
+        {
+          "player_name": "Allgeier, Tyler",
+          "position": "RB",
+          "weeks_started": 6,
+          "playoff_weeks_started": 1,
+          "total_pts": 68.4,
+          "ppg": 11.4,
+          "salary": 15000,
+          "contract_status": "Veteran"
+        },
+        {
+          "player_name": "Boutte, Kayshon",
+          "position": "WR",
+          "weeks_started": 6,
+          "playoff_weeks_started": 1,
+          "total_pts": 47.9,
+          "ppg": 7.98,
+          "salary": 2000,
+          "contract_status": "Rookie"
+        }
+      ],
+      "qb_room": [
+        {
+          "player_name": "Herbert, Justin",
+          "weeks_started": 16,
+          "total_pts": 354.0,
+          "ppg": 22.13,
+          "salary": 61000
+        },
+        {
+          "player_name": "Dart, Jaxson",
+          "weeks_started": 11,
+          "total_pts": 258.0,
+          "ppg": 23.45,
+          "salary": 9000
+        },
+        {
+          "player_name": "McCarthy, J.J.",
+          "weeks_started": 5,
+          "total_pts": 59.3,
+          "ppg": 11.86,
+          "salary": 11000
+        }
+      ],
+      "te_room": [
+        {
+          "player_name": "Henry, Hunter",
+          "weeks_started": 12,
+          "total_pts": 148.8,
+          "ppg": 12.4,
+          "salary": 2000
+        },
+        {
+          "player_name": "Kraft, Tucker",
+          "weeks_started": 7,
+          "total_pts": 130.5,
+          "ppg": 18.64,
+          "salary": 2000
+        },
+        {
+          "player_name": "Loveland, Colston",
+          "weeks_started": 4,
+          "total_pts": 60.7,
+          "ppg": 15.17,
+          "salary": 5000
+        }
+      ],
+      "core_cap_by_position": {
+        "QB": 70000,
+        "RB": 62000,
+        "WR": 93000,
+        "TE": 4000
+      },
+      "core_total_cap": 229000
+    }
+  ]
+}

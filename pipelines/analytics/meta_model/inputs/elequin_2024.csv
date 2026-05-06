@@ -1,0 +1,32 @@
+player_name,position,rank_pos,model_score,tier,nfl_team,source_url,notes
+Caleb Williams,QB,1,90,Tier 1,CHI,https://www.thefantasyfootballers.com/author/marvin_e/,QBs not formal Range of Outcomes piece; assigned by inferred tiering from Footballers QB coverage
+Jayden Daniels,QB,2,85,Tier 1,WAS,https://www.thefantasyfootballers.com/author/marvin_e/,Inferred from Footballers QB profile coverage
+Drake Maye,QB,3,75,Tier 2,NEP,https://www.thefantasyfootballers.com/author/marvin_e/,Inferred from Footballers QB profile coverage
+J.J. McCarthy,QB,4,55,Tier 3,MIN,https://www.thefantasyfootballers.com/author/marvin_e/,Inferred from Footballers QB profile coverage
+Bo Nix,QB,5,40,Tier 4,DEN,https://www.thefantasyfootballers.com/author/marvin_e/,Inferred from Footballers QB profile coverage
+Michael Penix Jr.,QB,6,35,Tier 4,ATL,https://www.thefantasyfootballers.com/author/marvin_e/,Inferred from Footballers QB profile coverage
+Jonathon Brooks,RB,1,90,Tier 1 - Top Upside,CAR,https://www.thefantasyfootballers.com/dynasty/dynasty-range-of-outcomes-2024-running-back-class/,2.03 SY/team play; comps Walker/Swift/Akers
+Blake Corum,RB,2,70,Tier 2 - Production Profile,LAR,https://www.thefantasyfootballers.com/dynasty/dynasty-range-of-outcomes-2024-running-back-class/,32% team dominance; blocked by Kyren Williams
+Trey Benson,RB,3,62,Tier 2 - Pathway Bet,ARI,https://www.thefantasyfootballers.com/dynasty/dynasty-range-of-outcomes-2024-running-back-class/,54th pct prod; clear path post-Conner; Kamara ceiling/Vaughn floor
+Braelon Allen,RB,4,52,Tier 3 - Day 3 Limit,NYJ,https://www.thefantasyfootballers.com/dynasty/dynasty-range-of-outcomes-2024-running-back-class/,Day 3 capital limits breakout
+Ray Davis,RB,5,45,Tier 3,BUF,https://www.thefantasyfootballers.com/dynasty/dynasty-range-of-outcomes-2024-running-back-class/,Inconsistent path; Langford-to-Williams range
+MarShawn Lloyd,RB,6,38,Tier 4 - Weak Profile,GBP,https://www.thefantasyfootballers.com/dynasty/dynasty-range-of-outcomes-2024-running-back-class/,43rd pct production; rarely break out
+Kimani Vidal,RB,7,30,Tier 4,LAC,https://www.thefantasyfootballers.com/dynasty/dynasty-range-of-outcomes-2024-running-back-class/,6th-round capital severely caps opportunity
+Marvin Harrison Jr.,WR,1,99,Tier 1 - Elite,ARI,https://www.thefantasyfootballers.com/dynasty/dynasty-range-of-outcomes-2024-wide-receiver-class/,99th percentile; A.J. Green-tier comp
+Malik Nabers,WR,2,98,Tier 1 - Elite,NYG,https://www.thefantasyfootballers.com/dynasty/dynasty-range-of-outcomes-2024-wide-receiver-class/,98th pct; comps Chase/Jefferson; broke out earlier than MHJ/Odunze
+Rome Odunze,WR,3,90,Tier 2 - High End,CHI,https://www.thefantasyfootballers.com/dynasty/dynasty-range-of-outcomes-2024-wide-receiver-class/,93rd pct; slightly below MHJ/Nabers ceiling
+Xavier Worthy,WR,4,80,Tier 2 - Waddle Comp,KAN,https://www.thefantasyfootballers.com/dynasty/dynasty-range-of-outcomes-2024-wide-receiver-class/,Comp to Jaylen Waddle
+Brian Thomas Jr.,WR,5,72,Tier 3,JAX,https://www.thefantasyfootballers.com/dynasty/dynasty-range-of-outcomes-2024-wide-receiver-class/,Solid production profile
+Keon Coleman,WR,6,65,Tier 3 - Round 2,BUF,https://www.thefantasyfootballers.com/dynasty/dynasty-range-of-outcomes-2024-wide-receiver-class/,80-90th pct range; 58% hit rate for R2 WRs
+Ladd McConkey,WR,7,55,Tier 4 - Negative Production,LAC,https://www.thefantasyfootballers.com/dynasty/dynasty-range-of-outcomes-2024-wide-receiver-class/,Negative experience-adjusted production; 21% breakout rate for similar profile
+Adonai Mitchell,WR,8,52,Tier 4,IND,https://www.thefantasyfootballers.com/dynasty/dynasty-range-of-outcomes-2024-wide-receiver-class/,Round 2 capital; mid efficiency
+Ricky Pearsall,WR,9,48,Tier 4,SFO,https://www.thefantasyfootballers.com/dynasty/dynasty-range-of-outcomes-2024-wide-receiver-class/,Round 1 capital but late breakout
+Jermaine Burton,WR,10,40,Tier 5 - Late Breakout,CIN,https://www.thefantasyfootballers.com/dynasty/dynasty-range-of-outcomes-2024-wide-receiver-class/,Non-early declare; 8-16% hit rate
+Jacob Cowing,WR,11,35,Tier 5 - Day 3,SFO,https://www.thefantasyfootballers.com/dynasty/dynasty-range-of-outcomes-2024-wide-receiver-class/,Excellent prod but Day 3 limits opportunity
+Javon Baker,WR,12,30,Tier 5,NEP,https://www.thefantasyfootballers.com/dynasty/dynasty-range-of-outcomes-2024-wide-receiver-class/,~3% breakout rate for R4 day-three WRs
+Brock Bowers,TE,1,99,Tier 1 - Generational,LVR,https://www.thefantasyfootballers.com/dynasty/dynasty-range-of-outcomes-2024-tight-end-class/,99.9th pct; one of most accomplished collegiate TEs since 2013
+Ben Sinnott,TE,2,70,Tier 2 - Athleticism Bet,WAS,https://www.thefantasyfootballers.com/dynasty/dynasty-range-of-outcomes-2024-tight-end-class/,9.72 RAS; Ertz-tier upside
+Ja'Tavion Sanders,TE,3,55,Tier 3 - Day 2,CAR,https://www.thefantasyfootballers.com/dynasty/dynasty-range-of-outcomes-2024-tight-end-class/,R4 capital limits breakout probability
+Cade Stover,TE,4,42,Tier 3,HOU,https://www.thefantasyfootballers.com/dynasty/dynasty-range-of-outcomes-2024-tight-end-class/,Late-round; weak college production
+Theo Johnson,TE,5,38,Tier 3 - Athletic Outlier,NYG,https://www.thefantasyfootballers.com/dynasty/dynasty-range-of-outcomes-2024-tight-end-class/,Athlete; struggled to produce at PSU
+Erick All,TE,6,32,Tier 4 - Situation Bet,CIN,https://www.thefantasyfootballers.com/dynasty/dynasty-range-of-outcomes-2024-tight-end-class/,Five-year prospect; open TE1 slot at CIN

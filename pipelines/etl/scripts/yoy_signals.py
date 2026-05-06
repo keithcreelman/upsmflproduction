@@ -182,6 +182,27 @@ def load_salaries_from_db() -> dict[tuple[int, str], dict]:
                 ON m.season = chs.season AND m.player_id = chs.player_id
                AND m.min_w = chs.snapshot_week
         """).fetchall()
+        # Overlay live data from rosters_current for the current/upcoming
+        # season(s). contract_history_snapshots is a cron-snapshotted view
+        # of start-of-season contracts; for the current season Keith wants
+        # the LIVE roster pulled from MFL's API (which the existing roster
+        # ETL already lands in `rosters_current`).
+        if "rosters_current" in tables:
+            current_rows = conn.execute("""
+                SELECT season, player_id, salary, contract_year,
+                       contract_info, contract_status
+                  FROM rosters_current
+                 WHERE salary IS NOT NULL
+            """).fetchall()
+            # rosters_current may have multiple (season, player_id) rows
+            # from different weeks. Last write wins on append; that's fine
+            # because we already prefer the live source for these years.
+            existing_by_year = {(yr, str(pid)) for yr, pid, *_ in rows}
+            # Keep existing snapshot rows that aren't in live data; live
+            # rows fully replace where present.
+            current_keys = {(int(yr), str(pid)) for yr, pid, *_ in current_rows}
+            kept = [r for r in rows if (r[0], str(r[1])) not in current_keys]
+            rows = kept + list(current_rows)
     elif "raw_rosters_start" in tables:
         rows = conn.execute("""
             SELECT year, player_id, salary, contract_year, contract_info, contract_status

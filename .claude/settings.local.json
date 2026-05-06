@@ -11,7 +11,9 @@
       "Bash(git add:*)",
       "Bash(git checkout --ours site/ccc/ccc.css site/ccc/ccc.js)",
       "Bash(git rebase --continue)",
-      "Bash(python3 /Users/keithcreelman/Code/upsmflproduction/pipelines/etl/scripts/build_stickiness_report.py)"
+      "Bash(python3 /Users/keithcreelman/Code/upsmflproduction/pipelines/etl/scripts/build_stickiness_report.py)",
+      "Bash(mkdir -p /Users/keithcreelman/.claude/plans)",
+      "Read(//Users/keithcreelman/.claude/plans/**)"
     ]
   }
 }
