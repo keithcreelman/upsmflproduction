@@ -3,7 +3,7 @@
     "schema_version": 1,
     "league_id": "74598",
     "season": 2026,
-    "updated_at": "2026-05-06T21:07:20.945Z",
+    "updated_at": "2026-05-06T21:07:22.038Z",
     "row_count": 48,
     "source": "worker-trade-outbox"
   },
@@ -8837,14 +8837,14 @@
         },
         "comment": "Pre-trade extension: Extend Johnston, Quentin 1-year | New length 2 | New AAV 18K | New TCV 26K"
       },
-      "comment_trailer": "",
+      "comment_trailer": "[UPS_TWB_INTENT_BEGIN]\nUPS_OUTBOX_ID:48\nUPS_PAYLOAD_HASH:97925db75b33e34d99d83a840c7ecbd69147130f16c0cdb4573a5df35bb6cfb8\n[UPS_TWB_INTENT_END]",
       "payload_hash": "97925db75b33e34d99d83a840c7ecbd69147130f16c0cdb4573a5df35bb6cfb8",
       "status": "PENDING",
       "mfl_post_response_snip": "",
       "mfl_verify_response_snip": "",
       "league_id": "74598",
       "season": "2026",
-      "updated_ts": "2026-05-06T21:07:20.732Z",
+      "updated_ts": "2026-05-06T21:07:21.914Z",
       "id": "48"
     }
   ]
