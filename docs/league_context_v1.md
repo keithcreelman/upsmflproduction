@@ -269,6 +269,9 @@ These are transactions you can do TO a player who's already on your roster. Defi
 - **Effect:** Resets TCV and 75% guarantee against the new TCV. Forward-looking only.
 - **Worked example (Schedule 1):** 1yr remaining at $17K AAV → extend 1yr (Ext1) → AAV for the extension year = $27K. **Current year stays at $17K.** New TCV = $17K + $27K = $44K. (Note: TCV is the SUM of remaining year salaries, not AAV × years — because the AAV bump only applies forward.)
 - **Worked example, 2-year extension:** 1yr remaining at $30K AAV → extend 2yr Schedule 1 (Ext2) → AAV for both extension years = $50K each. Current year stays $30K. New TCV = $30K + $50K + $50K = $130K.
+- **Special case — 0 years remaining (expired rookie before extension deadline):** when an expired rookie is extended (during the rookie-extension window or as a pre-trade extension before the deadline), there is no current year to preserve. The new contract IS the extension years only. CL = extension term, every year's salary = AAV + raise, TCV = (AAV + raise) × CL.
+- **Worked example, expired rookie 1yr extension:** Quentin Johnston (WR / Schedule 1), prior rookie deal at AAV $8K, 0 years remaining post-roll-forward → Ext1 → fresh 1-year deal at $18K ($8K + $10K). **CL = 1, salary = $18K, AAV = $18K, TCV = $18K, GTD = $13.5K (75%)**. No current-year carry-over because the original contract is already complete.
+- **Worked example, expired rookie 2yr extension:** same player → Ext2 (Schedule 1) → fresh 2-year deal at $28K/yr ($8K + $20K). **CL = 2, AAV = $28K, TCV = $56K, Y1-$28K, Y2-$28K**.
 - **Deadlines:**
   - **Standard:** by September contract deadline.
   - **Rookie / preseason waiver pickups w/ no contract by Sept and no MYM by Week 2-ish:** extend by Week 4. (Edge case.)
