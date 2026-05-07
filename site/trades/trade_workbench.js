@@ -1864,8 +1864,59 @@
         if (assets[i].type !== "PICK") continue;
         if (normalizePickKey(assets[i].asset_id) === pickKey) return assets[i];
       }
+      // Fallback: pick may be missing from this team's live roster snapshot
+      // (e.g. MFL assets export omitted it). Synthesize a minimal PICK asset
+      // from the token so the offer can still hydrate and render correctly.
+      if (/^(FP_|DP_)/.test(upper)) {
+        return synthesizePickAssetForTeam(teamId, { pick_key: upper, asset_id: "pick:" + upper });
+      }
     }
     return null;
+  }
+
+  function synthesizePickAssetForTeam(teamId, rawOfferAsset) {
+    var team = getTeamById(teamId);
+    if (!team || !rawOfferAsset) return null;
+    if (!Array.isArray(team.assets)) team.assets = [];
+    var raw = {};
+    var k;
+    for (k in rawOfferAsset) {
+      if (Object.prototype.hasOwnProperty.call(rawOfferAsset, k)) raw[k] = rawOfferAsset[k];
+    }
+    raw.type = "PICK";
+    var asset = normalizeAsset(raw, teamId, {}, getCurrentTradeSeason());
+    if (!asset || !asset.asset_id) return null;
+    var i;
+    for (i = 0; i < team.assets.length; i += 1) {
+      if (team.assets[i].asset_id === asset.asset_id) return team.assets[i];
+    }
+    asset.synthesized_from_offer = true;
+    team.assets.push(asset);
+    return asset;
+  }
+
+  function synthesizeAssetForTeamFromOffer(teamId, rawOfferAsset) {
+    var team = getTeamById(teamId);
+    if (!team || !rawOfferAsset) return null;
+    var type = safeStr(rawOfferAsset.type).toUpperCase();
+    if (type === "PICK") return synthesizePickAssetForTeam(teamId, rawOfferAsset);
+    if (type !== "PLAYER") return null;
+    if (!Array.isArray(team.assets)) team.assets = [];
+    var raw = {};
+    var k;
+    for (k in rawOfferAsset) {
+      if (Object.prototype.hasOwnProperty.call(rawOfferAsset, k)) raw[k] = rawOfferAsset[k];
+    }
+    raw.type = "PLAYER";
+    var asset = normalizeAsset(raw, teamId, {}, getCurrentTradeSeason());
+    if (!asset || !asset.asset_id) return null;
+    var i;
+    for (i = 0; i < team.assets.length; i += 1) {
+      if (team.assets[i].asset_id === asset.asset_id) return team.assets[i];
+    }
+    asset.synthesized_from_offer = true;
+    team.assets.push(asset);
+    return asset;
   }
 
   function extensionPreviewForAssetOption(asset, optionKey, termHint) {
@@ -2350,6 +2401,13 @@
     var i;
     for (i = 0; i < selectedAssets.length; i += 1) {
       var selectedAssetId = resolveSelectedAssetId(teamId, selectedAssets[i]);
+      if (!selectedAssetId) {
+        // Asset on the offer isn't in this team's live roster snapshot
+        // (e.g. MFL assets export missed a future pick). Inject the offer's
+        // asset entry so the recipient still sees what was actually offered.
+        var injected = synthesizeAssetForTeamFromOffer(teamId, selectedAssets[i]);
+        if (injected) selectedAssetId = injected.asset_id;
+      }
       if (!selectedAssetId) continue;
       state.selections[teamId][selectedAssetId] = true;
     }
