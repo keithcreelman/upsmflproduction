@@ -12647,17 +12647,6 @@ export default {
           contract_status: "",
         };
 
-        const contractYearText = safeStr(
-          current?.contractYear || payloadPlayer?.contractYear || payloadPlayer?.contractyear || req?.contract_year || req?.contractYear
-        );
-        const contractYear = safeInt(contractYearText, NaN);
-        if (!Number.isFinite(contractYear) || contractYear <= 0) {
-          plan.reason = "invalid_contract_year";
-          plan.diagnostics.contract_year_raw = contractYearText;
-          return plan;
-        }
-        plan.contract_year = contractYear;
-
         const contractInfoText = safeStr(req?.preview_contract_info_string || current?.contractInfo);
         if (!contractInfoText) {
           plan.reason = "missing_contract_info";
@@ -12667,6 +12656,21 @@ export default {
         plan.contract_status = normalizeExtensionContractStatusForImport(req, current?.contractStatus);
 
         const contractLengthFromPreview = contractLengthFromInfo(contractInfoText);
+
+        // Per docs/league_context_v1.md C4 (Extension): a fresh extension is
+        // always applied at year 1 of the new contract — there's no "carry
+        // forward" from MFL's pre-import contractYear (which reflects the OLD
+        // contract state). For expired rookies (0 years remaining) the new
+        // contract IS year 1 only; for final-year players the new year 1 is
+        // the current season at carry-over salary. Either way the salary key
+        // we look up is "1".
+        const contractYearRaw = safeStr(
+          current?.contractYear || payloadPlayer?.contractYear || payloadPlayer?.contractyear || req?.contract_year || req?.contractYear
+        );
+        const contractYear = 1;
+        plan.contract_year = contractYear;
+        plan.diagnostics.contract_year_raw = contractYearRaw;
+        plan.diagnostics.contract_year_rebased_to_year_one = true;
 
         const structuredCandidates = [
           req?.salary_by_year,

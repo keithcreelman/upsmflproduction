@@ -310,7 +310,12 @@
     var metrics = resolveAssetDisplayContractMetrics(asset);
     if (!assetAllowsSyntheticExtension(asset, metrics)) return [];
 
-    var currentYears = Math.max(1, safeInt(metrics && metrics.years_remaining, 0) || 1);
+    // Per docs/league_context_v1.md C4: expired rookies (0 years remaining,
+    // before rookie-extension deadline) get a FRESH contract — every year
+    // is at the extension salary, no current-year carry-over. Players with
+    // 1+ years remaining keep the current year and tack the extension years
+    // forward.
+    var currentYears = Math.max(0, safeInt(metrics && metrics.years_remaining, 0));
     var currentSalary = Math.max(1000, roundToNearestK(asset.salary));
     if (currentSalary <= 0) return [];
 
@@ -325,10 +330,13 @@
         );
       }
       var tcv = currentSalary * currentYears + futureSalary * yearsToAdd;
+      var aavLabel = currentYears === 0
+        ? "AAV " + formatContractKToken(futureSalary)
+        : "AAV " + formatContractKToken(currentSalary) + ", " + formatContractKToken(futureSalary);
       var previewInfo = [
         "CL " + totalLength,
         "TCV " + formatContractKToken(tcv),
-        "AAV " + formatContractKToken(currentSalary) + ", " + formatContractKToken(futureSalary),
+        aavLabel,
         yearParts.join(", ")
       ].join("| ");
       out.push({
