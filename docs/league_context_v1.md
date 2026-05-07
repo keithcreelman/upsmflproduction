@@ -1662,6 +1662,111 @@ Reconcile every player's contract lifecycle event-by-event — from initial acqu
 
 ---
 
+# Section 9 — MFL Data Layer (Import / Export Reference)
+
+UPS is built on top of MyFantasyLeague (MFL). Every league mutation that should reflect in MFL has to round-trip through MFL's HTTP API. Every league read either comes from an MFL export, a worker-side cache of one, or our own derived store. This section catalogs **what we use**, **how to use it safely**, and **where to find the full schema reference**.
+
+## A. Reference docs
+
+- **`docs/MFL_IMPORT_EXPORT_DETAILED.md`** — full schema for **58 export types** and **27 import types** (formats, required params, access restrictions). This is the canonical reference. Section 9 here is the *operating layer* — UPS-specific patterns, safety rules, and which subset we actually depend on.
+- **MFL host:** `https://www48.myfantasyleague.com/<season>/...` for exports and imports. Always include `L=<leagueId>` (74598 for UPS).
+
+## B. Auth model
+
+- **Read-only exports** (most) — no auth needed for public-readable types. For private-readable types (`salaries`, `assets`, `myDraftList`, etc.), use the league's API key (`APIKEY=...`) or a session cookie.
+- **Imports** — almost all require **commissioner cookie** (`MFL_COOKIE` worker secret). API-key-only auth does NOT work for most imports. Mixing cookie + APIKEY in the same form has caused MFL to silently reject imports — pick one auth path per request.
+- **Browser-like User-Agent required.** MFL silently 200s with empty body if it sees a custom UA like `upsmflproduction-worker`. Always send a real Chrome/Safari UA on import POSTs.
+
+## C. Imports we use (current set)
+
+| MFL `TYPE` | Endpoint in worker | Purpose | Critical safety rule |
+|---|---|---|---|
+| `salaries` | `/admin/import-salaries` | Push contract changes (extensions, restructures, manual adjustments, post-trade contract pass) | **`APPEND=1` is mandatory** — see D below |
+| `salaryAdj` | trade outbox + `/admin/salary-adj/import` | Cap-money trade-side adjustments (`+$X` to one team, `-$X` to the other) | Always sends paired adjustments; amounts are deltas, not absolutes |
+| `tradeProposal` / `tradeResponse` | trade-offers flow | Submit + accept/reject trade offers in MFL | MFL is the source of truth for trade state; our DB stores intent |
+| `calendarEvent` | (commissioner action only) | Add/edit league calendar entries | Manual; not automated today |
+| `messageBoard` | Discord ↔ MFL bridge (planned) | Cross-post Discord announcements as MFL message-board entries | Not yet wired |
+
+Other MFL imports (waivers, lineup, IR, taxi, draftResults, etc.) are owner actions performed natively on MFL and are NOT proxied through our worker — owners use MFL's UI directly for those.
+
+## D. CRITICAL: `APPEND=1` for salaries imports
+
+> **MFL's `TYPE=salaries` import is destructive by default.** Per `docs/MFL_IMPORT_EXPORT_DETAILED.md` line ~756 — `APPEND`: *"If this parameter is set to any non-zero value, the passed in data will overlay the existing data. Salaries not uploaded will be left as is. If this parameter is not set, the salaries not passed in will be erased."*
+
+**Rule: every salaries import the worker fires MUST include `&APPEND=1` in the URL.** Do not omit it. Do not rely on "merge then post the full set" — that's an extra failure mode (any player missing from the export gets wiped when posted back).
+
+The worker enforces this at `worker/src/index.js` (`/admin/import-salaries` handler). Any new code path that hits MFL's salaries import must do the same.
+
+## E. Imports we do NOT use (and reasons)
+
+These appear in `MFL_IMPORT_EXPORT_DETAILED.md` but are deliberately not wired through UPS:
+
+- `lineup`, `fcfsWaiver`, `waiverRequest`, `blindBidWaiverRequest`, `ir`, `taxi_squad` — owner-managed in MFL UI.
+- `franchises`, `keepers`, `draftResults`, `auctionResults` — commissioner-only, manual via MFL.
+- `playerScoreAdjustment`, `franchiseScoreAdjustment` — commissioner-only, manual.
+- `pollVote`, `emailMessage`, `add_device_token`, `myDraftList`, `myWatchList` — out of UPS scope (owner-personal data).
+- `accounting`, `tradeBait` — not used.
+- `poolPicks`, `survivorPoolPick` — UPS does not run pools (per Section 4 history).
+
+## F. Exports we depend on (current set)
+
+Critical exports — UPS reads these on a regular cadence (workbench load, salary reconciliation, snapshot snapshots, trade audits):
+
+| `TYPE` | Used by | Cadence |
+|---|---|---|
+| `league` | All modules (team list, settings, current week) | Every load |
+| `rosters` | Workbench, CCC, Draft Hub | Every load |
+| `salaries` | Workbench, CCC, salary-change-log audits, post-import verification | Every load + every salaries-import round-trip |
+| `assets` | Workbench (future-pick eligibility), Draft Hub | Every load |
+| `transactions` | Trade audit, contract activity tracker | Discord post triggers + nightly snapshot |
+| `futureDraftPicks` | Workbench, dispersal tracking | Every load |
+| `tradeBait` | Trade workbench (incoming offers list) | Every load |
+| `pendingTrades` | Workbench (offers received) | Every load |
+| `players` | Player meta cache (positions, NFL teams) | Daily |
+| `nflSchedule` | Bye-week and game-time displays | Weekly |
+| `injuries` | Roster status display | Daily during season |
+| `liveScoring`, `playerScores`, `weeklyResults`, `projectedScores` | Reports, Stats Workbench | In-season weekly |
+| `calendar` | Event log, deadline reminders | Daily |
+| `messageBoard`, `messageBoardThread` | Forum-style cross-posts | On demand |
+
+Read-only — never causes mutation, no `APPEND` consideration.
+
+## G. Exports we do NOT actively consume
+
+Available per the reference doc but not currently wired:
+
+- `polls`, `device_tokens`, `contestPlayers`, `myWatchList`, `pool`, `survivorPool`, `abilities`, `appearance`, `rss`, `ics`, `myleagues`, `leagueSearch`, `siteNews`, `whoShouldIStart`, `topAdds/Drops/Starters/Trades/Owns`, `playerRanks`, `adp`, `aav`, `playerProfile`, `allRules`, `pointsAllowed`, `nflByeWeeks` (we derive from `nflSchedule`), `playoffBrackets`, `playoffBracket`, `selectedKeepers`, `freeAgents`, `pendingWaivers`, `auctionResults`, `draftResults`, `playerRosterStatus`.
+
+If a future module needs one of these, it's a green-field add — no migration concerns.
+
+## H. Operational guardrails (worker conventions)
+
+These are coded into `worker/src/index.js` and should be preserved on every new MFL-touching endpoint:
+
+1. **`APPEND=1` on every salaries import.** Non-negotiable.
+2. **Browser-like User-Agent** (`Mozilla/5.0 ... Chrome/120 ...`). MFL silently rejects custom UAs.
+3. **`redirect: "follow"`** on import POSTs. MFL redirects to a success page; manual redirect mode returns empty body and looks like a silent fail.
+4. **`Accept-Encoding: identity`** on imports. Avoid gzip handshake surprises that have caused empty-body responses.
+5. **Cookie-only auth on imports.** Do NOT include `APIKEY` in the form when posting via cookie — combining the two has triggered silent rejects.
+6. **Pre/post-state fetch for audit.** Every salaries-import call records before/after state in the `salary_change_log` table, marking each row `landed: true/false`. This catches MFL silent-reject scenarios (HTTP 200, empty persistence).
+7. **Verify by re-fetch.** After an import, re-fetch `salaries` and confirm each posted row landed with the expected fields. Surface mismatches in the audit log + response payload.
+
+## I. Adding a new MFL-touching endpoint — checklist
+
+Before merging:
+
+- [ ] Read `docs/MFL_IMPORT_EXPORT_DETAILED.md` for the specific TYPE.
+- [ ] Salaries import? `APPEND=1` in URL. (Section 9.D.)
+- [ ] Browser UA? `redirect: follow`? `Accept-Encoding: identity`? Cookie-only? (Section 9.H 2-5.)
+- [ ] Audit logging hooked? Before/after state captured? (Section 9.H 6.)
+- [ ] Re-fetch verification step? (Section 9.H 7.)
+- [ ] Dry-run mode on the worker handler so commish can preview before committing.
+- [ ] Admin auth gate (`getLeagueAdminState` or `COMMISH_API_KEY` session check).
+
+## END Section 9
+
+---
+
 # Appendix — Open Items Master List
 
 Consolidated parking lot for things flagged across Sections 1–3 + Section 6 that need follow-up. Three categories:
