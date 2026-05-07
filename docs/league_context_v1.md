@@ -1697,6 +1697,23 @@ Other MFL imports (waivers, lineup, IR, taxi, draftResults, etc.) are owner acti
 
 The worker enforces this at `worker/src/index.js` (`/admin/import-salaries` handler). Any new code path that hits MFL's salaries import must do the same.
 
+## D2. CRITICAL: salary unit is **raw dollar integers**, never K-decimals
+
+**Confirmed live 2026-05-07** (Quentin Johnston post-trade extension): MFL stores `salary` as a **raw dollar integer string** in this league. `salary="8000"` means $8,000. `salary="18000"` means $18,000.
+
+If you send `salary="18.000"` (intending "18 thousand"), MFL parses it as the **number 18** and silently stores **$18** — and the import returns `<status>OK</status>` like nothing went wrong. The cap math then breaks until someone notices and re-imports correctly.
+
+**Rule:** every salary value sent to MFL via `TYPE=salaries` must be a digit-only integer string in dollar units.
+- ✅ `"18000"` → $18,000
+- ✅ `"1000"` → $1,000
+- ❌ `"18.000"` → MFL parses as 18, stores $18
+- ❌ `"18.0"` → same problem
+- ❌ `"18K"` → silently rejected or stored as 0
+
+The worker validates this at `/admin/import-salaries` and rejects decimal-style salaries with `reason: "salary_must_be_raw_dollar_integer"`. Any new import path must do the same — the silent-success failure mode is too dangerous to leave unguarded.
+
+(Note: MFL's API docs show example `salary="7.56"` which suggests decimals are accepted in some leagues — but in UPS's salary-cap setup, decimals get truncated to integer dollars. Don't rely on the docs; rely on what `TYPE=salaries` returns for our league.)
+
 ## E. Imports we do NOT use (and reasons)
 
 These appear in `MFL_IMPORT_EXPORT_DETAILED.md` but are deliberately not wired through UPS:
@@ -1757,6 +1774,7 @@ Before merging:
 
 - [ ] Read `docs/MFL_IMPORT_EXPORT_DETAILED.md` for the specific TYPE.
 - [ ] Salaries import? `APPEND=1` in URL. (Section 9.D.)
+- [ ] Salaries import? Salary values are raw dollar integer strings, NOT K-decimals. (Section 9.D2.)
 - [ ] Browser UA? `redirect: follow`? `Accept-Encoding: identity`? Cookie-only? (Section 9.H 2-5.)
 - [ ] Audit logging hooked? Before/after state captured? (Section 9.H 6.)
 - [ ] Re-fetch verification step? (Section 9.H 7.)
