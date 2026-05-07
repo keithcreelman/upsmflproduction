@@ -168,8 +168,10 @@ There are **7 entry paths**. Each creates a different default contract and const
 - **Inheritance:** contract transfers as-is. Acquiring team owns the cap consequences from that point forward.
 - **In-season trade-and-extend window:** acquiring team has **4 weeks from acquisition** to extend a player in their final year. The right to extend is automatic for the acquiring team.
 - **Pre-trade extension (wired in the Trade War Room module):** if the trading-away team currently has extension eligibility on the player, they can apply that extension as their last action before the trade. The now-extended player goes to the acquiring team carrying the extended contract. (This is NOT a "pre-agreement" — it's the trading-away team using their own extension right before the trade closes.)
+- **Tagged-player trade window (CURRENT RULE):** tagged players are **NOT tradeable until the tag deadline has passed** (Thursday before Memorial Day weekend — the same date as the rookie extension deadline). Once the tag deadline has passed for the season, tagged players become tradeable for the rest of the trade window. Workbench enforces this gate. *(Open rule proposal — see "Rule Proposals" — to lock tagged players for the entire tagged season; not in effect today.)*
 - **Tagged players: cannot be extended by the acquiring team** in trade. Tag overrides extension eligibility.
 - **Tagged players:** cannot be extended by the acquiring team after a trade (tag locks them out of extension that season).
+- **Trades over the cap are allowed.** A trade may put the acquiring team over the $300K cap ceiling. It is the receiving team's responsibility to get back under cap within the league's compliance window (offseason: by next FA Auction start; in-season: per the roster-compliance rule above and the cap ceiling enforcement window in F1). The trade itself is not blocked.
 - **Roster compliance:** trades must put both teams in compliance immediately or within 24 hours for contract limits. In-season: MFL system blocks invalid lineups, which carries its own penalty — that's the practical enforcement mechanism.
 - **No vetoes.** Trades process immediately and stand unless there's blatant collusion or massive cap violation. Commissioner intervenes only in extreme cases.
 
@@ -272,6 +274,19 @@ These are transactions you can do TO a player who's already on your roster. Defi
 - **Special case — 0 years remaining (expired rookie before extension deadline):** when an expired rookie is extended (during the rookie-extension window or as a pre-trade extension before the deadline), there is no current year to preserve. The new contract IS the extension years only. CL = extension term, every year's salary = AAV + raise, TCV = (AAV + raise) × CL.
 - **Worked example, expired rookie 1yr extension:** Quentin Johnston (WR / Schedule 1), prior rookie deal at AAV $8K, 0 years remaining post-roll-forward → Ext1 → fresh 1-year deal at $18K ($8K + $10K). **CL = 1, salary = $18K, AAV = $18K, TCV = $18K, GTD = $13.5K (75%)**. No current-year carry-over because the original contract is already complete.
 - **Worked example, expired rookie 2yr extension:** same player → Ext2 (Schedule 1) → fresh 2-year deal at $28K/yr ($8K + $20K). **CL = 2, AAV = $28K, TCV = $56K, Y1-$28K, Y2-$28K**.
+- **Loaded extensions (`Ext2-FL` / `Ext2-BL`):** loading is **only allowed on 2-year extensions** (`Ext2`). 1-year extensions cannot be loaded — there's only one extension year, nothing to redistribute.
+  - **Current year is never touched.** Loading redistributes salary across the **extension years only**. For players with 1+ years remaining, Y1 stays at the carry-over salary; for expired rookies (0 years remaining), the entire 2-year contract is the loaded window.
+  - **TCV preserved.** Same TCV as the unloaded `Ext2` — loading just shifts dollars between the two extension years.
+  - **20% floor.** The smaller-loaded extension year must be **≥ 20% of new TCV** (mirrors C5 / MYAC loading floors).
+  - **Counts toward the 5-loaded-contracts roster cap.**
+  - **Worked example, 1+ year remaining (Schedule 1):** $1K player, 1 year remaining, Ext2 (+$20K AAV) → unloaded = Y1-$1K / Y2-$21K / Y3-$21K, **TCV $43K**. Loadable range on Y2/Y3:
+    - 20% floor on the lighter year = $43K × 0.2 = **$8.6K**.
+    - **Back-loaded:** Y1-$1K / Y2-$8.6K / Y3-$33.4K (Y2 at floor, Y3 = 43 − 1 − 8.6).
+    - **Front-loaded:** Y1-$1K / Y2-$33.4K / Y3-$8.6K.
+  - **Worked example, expired rookie (0 years remaining):** $8K WR, 0 years remaining, Ext2 → unloaded = Y1-$28K / Y2-$28K, **TCV $56K**. Loadable:
+    - 20% floor = $56K × 0.2 = **$11.2K**.
+    - **Front-loaded:** Y1-$44.8K / Y2-$11.2K.
+    - **Back-loaded:** Y1-$11.2K / Y2-$44.8K.
 - **Deadlines:**
   - **Standard:** by September contract deadline.
   - **Rookie / preseason waiver pickups w/ no contract by Sept and no MYM by Week 2-ish:** extend by Week 4. (Edge case.)
