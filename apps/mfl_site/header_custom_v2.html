@@ -1628,38 +1628,14 @@
       updateThemeToggleUi();
     });
 
-    function initExtAssistBtn() {
-      var btn = document.getElementById("upsExtAssistBtn");
-      if (!btn || btn.dataset.wired) return;
-      btn.dataset.wired = "1";
-      btn.addEventListener("click", function () {
-        /* If the Extension Assistant JS is already loaded, open the drawer directly */
-        if (typeof window.openExtensionAssistant === "function") {
-          window.openExtensionAssistant();
-          return;
-        }
-        /* Navigate to the standalone Extension Assistant message module.
-           ?ext=chat tells extension_assistant.js to auto-open the drawer on load.
-           Configure Message 8 in MFL Admin → Custom HTML with:
-             data-ups-partial="hpm-ext-assist" */
-        var ctx      = typeof window.getLeagueContext === "function" ? window.getLeagueContext() : {};
-        var host     = ctx.host     || window.location.host;
-        var season   = ctx.season   || new Date().getFullYear();
-        var leagueId = ctx.leagueId || "";
-        window.location.href = "//" + host + "/" + season + "/home/" + leagueId + "?MODULE=MESSAGE8&ext=chat";
-      });
-    }
-
     if (document.readyState === "loading") {
       document.addEventListener("DOMContentLoaded", function () {
         initThemeToggle();
         initOwnerActionsMenu();
-        initExtAssistBtn();
       });
     } else {
       initThemeToggle();
       initOwnerActionsMenu();
-      initExtAssistBtn();
     }
   })();
 </script>
