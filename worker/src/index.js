@@ -18036,61 +18036,39 @@ export default {
           return jsonOut(400, { ok: false, error: "No valid rows", invalid });
         }
 
-        // CRITICAL: MFL's TYPE=salaries import REPLACES the entire salaries table,
-        // not merges. We MUST fetch the current salaries, merge in our updates,
-        // and post the full merged set, or every other player's contract gets wiped.
-        const mergeCurrentRes = await mflExportJson(targetSeason, leagueId, "salaries", {}, { useCookie: true });
-        if (!mergeCurrentRes.ok) {
-          return jsonOut(502, {
-            ok: false,
-            error: "Failed to fetch current salaries for merge (refusing to post — would wipe other players)",
-            upstream: mergeCurrentRes,
-          });
-        }
-        const currentPlayers = (() => {
-          const root = mergeCurrentRes.data?.salaries?.leagueUnit?.player;
-          return Array.isArray(root) ? root : (root ? [root] : []);
-        })();
-        // Build merged map keyed by player_id: start with current, overwrite with our updates.
-        const mergedById = {};
-        for (const p of currentPlayers) {
-          const pid = safeStr(p?.id).replace(/\D/g, "");
-          if (!pid) continue;
-          const sal = safeStr(p?.salary);
-          const info = safeStr(p?.contractInfo);
-          if (!sal && !info) continue; // skip empty rows — don't ossify blanks
-          mergedById[pid] = {
-            id: pid,
-            salary: sal,
-            contractStatus: safeStr(p?.contractStatus),
-            contractYear: safeStr(p?.contractYear),
-            contractInfo: info,
-          };
-        }
-        for (const r of valid) {
-          mergedById[r.id] = {
-            id: r.id,
-            salary: r.salary,
-            contractStatus: r.contractStatus,
-            contractYear: r.contractYear,
-            contractInfo: r.contractInfo,
-          };
-        }
-        const mergedRows = Object.values(mergedById).sort((a, b) => a.id.localeCompare(b.id));
-
-        // Build XML from MERGED set (preserves all other players)
+        // APPEND-ONLY mode (per docs/league_context_v1.md MFL Import section):
+        // We post ONLY the rows we want changed, with &APPEND=1 on the import
+        // URL. MFL guarantees that salaries not included in the payload are
+        // left as-is, so untouched players cannot be wiped — even if a future
+        // bug or partial response would have produced an incomplete merge.
+        // The fetch-and-merge approach was the prior implementation; it was
+        // strictly more dangerous (any missing player in the export would be
+        // wiped), so it has been removed.
         const xmlEsc = (s) => String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-        const playerXml = mergedRows.map((r) =>
+        const playerXml = valid.map((r) =>
           `<player id="${xmlEsc(r.id)}" salary="${xmlEsc(r.salary)}" contractStatus="${xmlEsc(r.contractStatus)}" contractYear="${xmlEsc(r.contractYear)}" contractInfo="${xmlEsc(r.contractInfo)}" />`
         ).join("");
         const dataXml = `<salaries><leagueUnit unit="LEAGUE">${playerXml}</leagueUnit></salaries>`;
+
+        // Fetch current state of touched players for audit (before-state).
+        // Even in APPEND mode this is read-only and only used for the
+        // before/after diff in the salary_change_log audit trail.
+        const preDryRunExportRes = dryRun
+          ? await mflExportJson(targetSeason, leagueId, "salaries", {}, { useCookie: true })
+          : null;
+        const preDryRunMap = {};
+        if (preDryRunExportRes && preDryRunExportRes.ok) {
+          const plist = preDryRunExportRes.data?.salaries?.leagueUnit?.player;
+          const arr = Array.isArray(plist) ? plist : (plist ? [plist] : []);
+          for (const p of arr) preDryRunMap[safeStr(p?.id).replace(/\D/g, "")] = p;
+        }
 
         if (dryRun) {
           // Log dry-run intent per player so we have a record of "someone
           // previewed changing these salaries" even if they never committed.
           const nowIso = new Date().toISOString();
           for (const r of valid) {
-            const before = mergedById[r.id] && currentPlayers.find((p) => safeStr(p?.id).replace(/\D/g, "") === r.id);
+            const before = preDryRunMap[r.id];
             await logSalaryChangeRow(auditDb, {
               created_ts: nowIso,
               endpoint: "/admin/import-salaries",
@@ -18117,14 +18095,25 @@ export default {
           return jsonOut(200, {
             ok: true,
             dry_run: true,
+            mode: "APPEND_ONLY",
             season: targetSeason,
             league_id: leagueId,
             rows_valid: valid,
             rows_invalid: invalid,
-            rows_merged_total: mergedRows.length,
-            rows_preserved_count: mergedRows.length - valid.length,
-            xml_preview_first_2kb: dataXml.slice(0, 2000),
+            rows_to_post: valid.length,
+            untouched_players_preserved: "MFL APPEND=1 leaves untouched players unchanged",
+            xml_preview: dataXml,
             xml_length: dataXml.length,
+            before_state: valid.map((r) => {
+              const b = preDryRunMap[r.id];
+              return b ? {
+                id: r.id,
+                salary: safeStr(b?.salary),
+                contractStatus: safeStr(b?.contractStatus),
+                contractYear: safeStr(b?.contractYear),
+                contractInfo: safeStr(b?.contractInfo),
+              } : { id: r.id, note: "player not in current salaries export" };
+            }),
           });
         }
 
@@ -18156,7 +18145,10 @@ export default {
         //   - Accept-Encoding: identity — avoid any gzip surprises.
         //   - NO APIKEY in form — cookie-only auth works; mixing cookie+APIKEY
         //     was also causing silent reject.
-        const importUrl = `https://www48.myfantasyleague.com/${encodeURIComponent(targetSeason)}/import?TYPE=salaries&L=${encodeURIComponent(leagueId)}`;
+        // APPEND=1 — guarantees MFL only updates the rows we send, leaving
+        // every other player untouched. See docs/league_context_v1.md MFL
+        // Import section for the rule and rationale.
+        const importUrl = `https://www48.myfantasyleague.com/${encodeURIComponent(targetSeason)}/import?TYPE=salaries&L=${encodeURIComponent(leagueId)}&APPEND=1`;
         const importFetchRes = await fetch(importUrl, {
           method: "POST",
           headers: {
@@ -18180,7 +18172,7 @@ export default {
           text: importText,
           upstreamPreview: importText.slice(0, 2000),
           targetImportUrl: importFetchRes.url,
-          formFields: { TYPE: "salaries", L: leagueId, DATA: `<${dataXml.length} bytes>` },
+          formFields: { TYPE: "salaries", L: leagueId, APPEND: "1", DATA: `<${dataXml.length} bytes>` },
           error: importErrorXml ? importErrorXml[1] : (importStatusXml ? "" : "unexpected_response"),
         };
 
