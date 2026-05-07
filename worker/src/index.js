@@ -18030,6 +18030,18 @@ export default {
           const contractYear = safeStr(r.contractYear || r.contract_year || "");
           const contractInfo = safeStr(r.contractInfo || r.contract_info || "");
           if (!salary || !contractInfo) { invalid.push({ reason: "missing_salary_or_contractInfo", row: r }); continue; }
+          // Salaries are stored in MFL as raw dollar integers (e.g., 18000
+          // for $18K). Decimal-style strings like "18.000" get parsed by MFL
+          // as the number 18 and silently stored as $18 — wrecking the cap.
+          // See docs/league_context_v1.md Section 9 (MFL Data Layer).
+          if (!/^\d+$/.test(salary)) {
+            invalid.push({
+              reason: "salary_must_be_raw_dollar_integer",
+              hint: "Send '18000' for $18K, not '18.000' or '18'. MFL stores salaries in raw dollars and parses decimal strings as small integers.",
+              row: r,
+            });
+            continue;
+          }
           valid.push({ id: pid, salary, contractStatus, contractYear, contractInfo });
         }
         if (!valid.length) {
