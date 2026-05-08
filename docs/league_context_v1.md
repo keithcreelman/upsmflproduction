@@ -2116,7 +2116,6 @@ The NFL regular season has a fixed structure: 18 weeks (regular season) starting
 | `services/rulebook/web/rulebook_embed.html` | HTML | EMBED widget | Verify consumers (rules.json?). If yes, retire the widget. |
 | `docs/rulebook_inbox.md` | MD | NOT-A-LEAGUE-RULE | Keep. Engineering notes (Claude operating rules), different concern. |
 | `services/rulebook/sources/rules/archive/league_divisions.csv` | CSV | DATA SOURCE | Keep as archived input. MFL DB `franchises` table is the live equivalent. |
-| `site/rulebook/index.html` | HTML | **PLACEHOLDER 2026-05-08** | Replaced redirect-to-preview with a "rulebook moved" page pointing at `docs/league_context_v1.md` on GitHub. |
 
 ### Files DELETED 2026-05-08 (per Keith — "get rid of html")
 
@@ -2124,7 +2123,8 @@ The NFL regular season has a fixed structure: 18 weeks (regular season) starting
 |------|-------------|
 | `services/rulebook/sources/rules/UPS_Master_Rulebook.html` | Source for the now-archived `rules.json`. Out-of-date with current rules (taxi mechanics, salary depreciation, realignment). |
 | `docs/ups_v2/V2_GOVERNED/rules/ups_v2_fantasy_rulebook_browser_comprehensive_draft.html` | Draft preview, not deployed. Out-of-date. |
-| `site/rulebook/ups_v2_rulebook_mobile_preview.html` | Mobile preview. The old `site/rulebook/index.html` redirected here; replaced with a "moved" placeholder. |
+| `site/rulebook/ups_v2_rulebook_mobile_preview.html` | Mobile preview. Was redirected to from `site/rulebook/index.html`. |
+| `site/rulebook/index.html` | The page that used to redirect to the mobile preview. Deleted along with the rest of `site/rulebook/` per Keith — the directory was never actually trafficked by owners. |
 
 ### Migration plan (work-in-progress checklist)
 
@@ -2150,14 +2150,14 @@ The NFL regular season has a fixed structure: 18 weeks (regular season) starting
   - `site/rulebook/ups_v2_rulebook_mobile_preview.html`
 - [x] Archive headers added to `services/rulebook/data/rules.json` and `services/rulebook/sources/rules/archive/current_rulebook_struct.json` (frozen, not authoritative)
 - [x] `services/rulebook/tools/build_rulebook_json.py` marked DEPRECATED (its source HTML was deleted)
-- [x] `site/rulebook/index.html` rewritten as a "rulebook moved" placeholder pointing at the canonical markdown
+- [x] DELETE the entire `site/rulebook/` directory (Keith confirmed 2026-05-08 the redirect page was never trafficked — no need to keep a "moved" placeholder)
 - [ ] Move `claude_canonical_rules.md` to `docs/archive/` (next pass)
 - [ ] Decide fate of remaining draft HTML: `ups_v2_rulebook_v4.html`, `services/rulebook/web/rulebook_embed.html` (next pass)
 
 **Phase 5 — Owner-facing public surface (DEFERRED):**
 Per Keith 2026-05-08: a future "all rules" public HTML site will be a separate dedicated build. For now, owners consult:
 - The Discord bot (`/rules` + the *Questions? 🤖* button on each thread — bot grounds in `league_context_v1.md`)
-- `docs/league_context_v1.md` directly on GitHub (linked from `site/rulebook/index.html`)
+- `docs/league_context_v1.md` directly on GitHub
 
 ### Rule-passage workflow (for bot-driven rules)
 
