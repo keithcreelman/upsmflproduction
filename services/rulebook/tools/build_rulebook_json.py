@@ -1,4 +1,20 @@
 #!/usr/bin/env python3
+# DEPRECATED 2026-05-08 — DO NOT RUN.
+#
+# This script generated services/rulebook/data/rules.json from the legacy
+# UPS_Master_Rulebook.html (and other archived .docx/.txt sources). Both
+# the source HTML and the output rules.json have been frozen as archive
+# reference; rules.json is no longer the bot's source of truth.
+#
+# Current source of truth: docs/league_context_v1.md (bundled into the
+# Cloudflare Worker via wrangler.toml [[rules]] config).
+#
+# Kept in the repo for historical reference only — running it would
+# regenerate rules.json from sources that no longer reflect current rules
+# (e.g., the May 2026 vote changes to taxi mechanics, salary depreciation,
+# and realignment). If you need to update rules going forward, edit
+# docs/league_context_v1.md directly; the rule integrator workflow
+# (worker/src/rule_integrator.js) handles passed-rule integration.
 import json
 import os
 import re

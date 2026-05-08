@@ -3,8 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>UPS Rulebook Mobile Preview</title>
-  <meta http-equiv="refresh" content="0; url=./ups_v2_rulebook_mobile_preview.html">
+  <title>UPS Rulebook</title>
   <style>
     body {
       margin: 0;
@@ -16,22 +15,35 @@
       font: 16px/1.5 "Avenir Next", "Segoe UI", Arial, sans-serif;
     }
     .card {
-      max-width: 620px;
-      padding: 1.5rem;
+      max-width: 680px;
+      padding: 1.75rem 1.5rem;
       margin: 1rem;
       border-radius: 18px;
       background: rgba(255, 255, 255, 0.96);
       border: 1px solid #d9e0e8;
       box-shadow: 0 16px 42px rgba(15, 25, 40, 0.12);
     }
-    a { color: #21476d; }
+    h1 { margin-top: 0; }
+    a { color: #21476d; word-break: break-all; }
+    .note { font-size: 0.92rem; color: #4a5b6c; margin-top: 1rem; }
+    .links li { margin: 0.4rem 0; }
   </style>
 </head>
 <body>
   <div class="card">
-    <h1>UPS Rulebook Mobile Preview</h1>
-    <p>Redirecting to the current standalone review draft.</p>
-    <p><a href="./ups_v2_rulebook_mobile_preview.html">Open the preview</a></p>
+    <h1>UPS Rulebook — Moved</h1>
+    <p>The standalone HTML rulebook previews have been retired. The single source of truth for current league rules is now the league context markdown:</p>
+    <ul class="links">
+      <li>📖 <a href="https://github.com/keithcreelman/upsmflproduction/blob/main/docs/league_context_v1.md">docs/league_context_v1.md</a> — current rules</li>
+      <li>📜 <a href="https://github.com/keithcreelman/upsmflproduction/blob/main/docs/league_context_changelog.md">docs/league_context_changelog.md</a> — rule-change history</li>
+    </ul>
+    <p class="note">
+      For specific questions, the Hall bot in Discord (<code>/rules</code> command + the <em>Questions? 🤖</em> button on each thread)
+      grounds its answers in the markdown above and is the fastest way to look something up.
+    </p>
+    <p class="note">
+      A future public-facing HTML rulebook will replace this page when ready.
+    </p>
   </div>
 </body>
 </html>

@@ -28,7 +28,15 @@ const REPO_OWNER = "keithcreelman";
 const REPO_NAME = "upsmflproduction";
 const DEFAULT_BRANCH = "main";
 
-const SONNET_MODEL = "claude-sonnet-4-5-20250929"; // Sonnet 4.5; upgrade as new versions ship
+// Haiku 4.5: same model the existing /Questions? 🤖 explainer uses, so we
+// know it handles the league_context grounding well. Picked over Sonnet
+// 4.5 because Anthropic Tier 1 caps Sonnet at 30K ITPM — the
+// league_context alone is ~40K tokens, so a single Sonnet call exceeds
+// the per-minute rate limit. Haiku 4.5 Tier 1 = 50K ITPM, plus prompt
+// caching drops passes 2-5 to ~10% rate-limit charge → comfortably
+// under budget. If Anthropic plan tier is upgraded later, swap to
+// claude-sonnet-4-5 for sharper editorial research.
+const SONNET_MODEL = "claude-haiku-4-5-20251001";
 const SONNET_MAX_TOKENS = 2000;
 
 function safeStr(v) { return String(v == null ? "" : v).trim(); }
@@ -138,7 +146,13 @@ async function openPR(env, branch, title, body) {
 
 // ---------- Sonnet researcher ----------
 
-async function callSonnet(env, systemPrompt, userPrompt, opts = {}) {
+// Sonnet caller with structured content blocks. The big league_context
+// payload is sent as a separate block with cache_control: ephemeral so
+// the first call writes it to Anthropic's prompt cache and subsequent
+// calls (within ~5 minutes) read from cache at ~10% the input-token
+// cost AND ~10% the rate-limit charge. Critical for staying under the
+// per-minute ITPM cap when running 5 sequential research passes.
+async function callSonnet(env, systemPrompt, contentBlocks, opts = {}) {
   const apiKey = safeStr(env.ANTHROPIC_API_KEY || "");
   if (!apiKey) throw new Error("ANTHROPIC_API_KEY not configured");
   const r = await fetch("https://api.anthropic.com/v1/messages", {
@@ -152,13 +166,15 @@ async function callSonnet(env, systemPrompt, userPrompt, opts = {}) {
       model: SONNET_MODEL,
       max_tokens: opts.maxTokens || SONNET_MAX_TOKENS,
       system: systemPrompt,
-      messages: [{ role: "user", content: userPrompt }],
+      messages: [{ role: "user", content: contentBlocks }],
     }),
   });
   const text = await r.text();
   if (!r.ok) throw new Error(`Sonnet ${r.status}: ${text.slice(0, 400)}`);
   const data = JSON.parse(text);
   const out = (data?.content || []).filter((b) => b?.type === "text").map((b) => String(b.text || "")).join("\n").trim();
+  const u = data?.usage || {};
+  console.log(`[integrator/sonnet] in=${u.input_tokens || 0} (cache_write=${u.cache_creation_input_tokens || 0} cache_read=${u.cache_read_input_tokens || 0}) out=${u.output_tokens || 0}`);
   return out;
 }
 
@@ -251,10 +267,22 @@ const PASS_DEFINITIONS = [
   },
 ];
 
-// Run all five Sonnet passes in sequence (cheap calls, sequential is fine).
+// Run all five Sonnet passes in sequence. Structured content blocks
+// cache the bulky league_context (and proposal body) so passes 2-5
+// pay ~10% the input-token cost AND ~10% the rate-limit charge.
+// First pass writes the cache; subsequent passes read it (within 5 min).
 async function runResearcherPasses(env, currentMd, proposal, verdict) {
   const results = {};
-  const proposalContext = [
+
+  // The cached block: league_context + proposal. This is identical
+  // across all five passes — Anthropic deduplicates by content hash.
+  const cachedPreamble = [
+    `=== CURRENT league_context_v1.md (single source of truth — do NOT modify, only research) ===`,
+    ``,
+    currentMd,
+    ``,
+    `=== END league_context_v1.md ===`,
+    ``,
     `=== PROPOSAL THAT JUST PASSED ===`,
     ``,
     `**Title:** ${proposal.title}`,
@@ -268,18 +296,13 @@ async function runResearcherPasses(env, currentMd, proposal, verdict) {
   ].join("\n");
 
   for (const pass of PASS_DEFINITIONS) {
-    const userPrompt = [
-      `=== CURRENT league_context_v1.md (single source of truth — do NOT modify, only research) ===`,
-      ``,
-      currentMd,
-      ``,
-      `=== END league_context_v1.md ===`,
-      ``,
-      proposalContext,
-      ``,
-      pass.instruction,
-    ].join("\n");
-    const out = await callSonnet(env, RESEARCHER_SYSTEM, userPrompt);
+    const contentBlocks = [
+      // Big shared payload — cached. Reused across all 5 passes.
+      { type: "text", text: cachedPreamble, cache_control: { type: "ephemeral" } },
+      // Per-pass task instruction — small, fresh tokens each call.
+      { type: "text", text: pass.instruction },
+    ];
+    const out = await callSonnet(env, RESEARCHER_SYSTEM, contentBlocks);
     results[pass.key] = out;
   }
   return results;
@@ -406,10 +429,14 @@ export async function integrateApprovedRule(env, proposalId) {
   const proposal = proposalRows?.[0];
   if (!proposal) return { ok: false, error: "proposal_not_found" };
 
+  // A proposal can appear in multiple rounds (e.g., a defunct test round
+  // PLUS the live prod round). Pick the most recent row that actually has
+  // a verdict — order by votes_locked_at_utc DESC NULLS LAST.
   const { results: itemRows } = await env.UPS_MFL_DB.prepare(`
     SELECT round_id, proposal_id, final_outcome, final_yes, final_no, final_abstain,
            threshold_reached_at_utc, votes_locked_at_utc, discord_thread_id
     FROM discord_round_items WHERE proposal_id = ?
+    ORDER BY (final_outcome IS NULL) ASC, votes_locked_at_utc DESC
   `).bind(proposalId).all();
   const item = itemRows?.[0];
   if (!item) return { ok: false, error: "no_round_item_for_proposal" };

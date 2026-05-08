@@ -23,6 +23,11 @@ This document is the **canonical source of truth** for UPS league rules. The Hal
 - 2026-05-04: 🆕 Divisional Co-tenancy History appendix (computed from MFL DB)
 - 2026-05-05: 🆕 Bot Grounding Clarifications appendix (cap-free <$4K, multi-yr <$5K, rounding, taxi "active", NFL calendar reference, vote-change grace, pot-splitting)
 - 2026-05-05: 🆕 League Rules Migration appendix (catalog of legacy docs + sunset plan)
+- 2026-05-08: ✅ Three rules passed (May 2026 round, 7-0-0 each) and integrated:
+  - **Taxi squad flexibility — temporary call-ups** (B2, T2.4, D2): owners can call up a taxi player for up to 3 weeks before the call-up becomes permanent
+  - **Salary depreciation — true pro-rated** (D1, B section calendar checkpoints, Section 6 earning curve): per-week pro-rated earning replaces the calendar-month buckets and the 35% flat WW model
+  - **Realignment — captain-based division draft** (Section 4 active changes, new Realignment section): top 4 by All-Play % become Division Captains and snake-draft the league into divisions every 3 years
+  See `docs/league_context_changelog.md` for proposal text + vote tally + before/after snippets per rule.
 
 **Provenance:** every line in this document should be traceable to either (a) Keith's verbatim instruction, (b) a Discord/Forumotion/MFL-API source citation, or (c) a marked computed-from-data fact (e.g. AP% leaders pulled from `mfl_database.db`). When the bot can't trace a fact, it must say so.
 
@@ -224,11 +229,21 @@ A rostered player is always in exactly one of three states.
 - **Auction window:** 27 (close min) – 35 (max).
 - Player counts against active roster size, contributes salary fully toward cap, can start.
 
-### B2. Taxi Squad
+### B2. Taxi Squad (UPDATED 2026-05-08)
 - **Size:** Max 10 players, min 1 IDP.
-- **Eligibility:** Players selected in the **Rookie Draft, Round 2 or later**, for **first 3 LEAGUE years** (NOT NFL service time — eligibility resets when promoted, otherwise auto-graduates after 3 league years on taxi).
-- **Salary on taxi: does NOT count against the cap.** This is a major correction from the v1 draft.
-- **Cut economics:** Taxi-squad players never promoted to active can be cut **cap-free**. Once promoted to active, normal cut penalties apply going forward.
+- **Eligibility:** Players selected in the **Rookie Draft, Round 2 or later**, for **first 3 LEAGUE years** (NOT NFL service time — eligibility resets when promoted *permanently*, otherwise auto-graduates after 3 league years on taxi). See "Promotion mechanic" below for what counts as a permanent promotion vs a temporary call-up.
+- **Salary on taxi: does NOT count against the cap.**
+- **Promotion mechanic (UPDATED 2026-05-08 — temporary call-ups):**
+  - An owner can call a taxi player up to the active roster **temporarily** for a single NFL week.
+  - Each temporary call-up burns **1 of 3** allowed weeks per player across that player's entire 3-year taxi-eligible window. Weeks are cumulative across seasons — consecutive or non-consecutive both count.
+  - During an active week, the player **counts against the active roster limit AND the salary cap** for that week.
+  - After the week, the owner can demote back to the taxi squad before rosters lock for the next NFL week. If they do, the call-up was temporary.
+  - **On the 4th activation, the call-up becomes permanent.** From that point forward, the player is treated as fully promoted — taxi eligibility ends, normal cut penalties apply, and the player can never re-enter the taxi squad. (See T2.4 for the transactional details.)
+  - "Active for the week" definition: the player was on the active roster (or on IR) at the time rosters and lineups locked for that NFL week, and appears in that week's weekly results. Putting a called-up player on IR does NOT avoid burning the week.
+  - Every owner's call-up usage is tracked and visible — eligibility is auditable. Source of truth: roster snapshots; the bot can answer "how many weeks has [player] been activated?" any time.
+- **Cut economics:**
+  - **Taxi-squad players never *permanently* promoted (≤3 temporary call-ups) can still be cut cap-free.** Temporary call-ups do NOT trigger the "permanently promoted" flag, so cap-free cut remains available between activations and after a player returns to taxi.
+  - **Once permanently promoted (4th activation OR an MYAC/extension/restructure that explicitly promotes), normal cut penalties apply going forward.**
 - **Demotion deadline:** contract deadline date. Mid-season trade-acquired rookies: planned automation will auto-demote (or owner-choice on trade).
 - **3-year clock end:** when a player's 3 league years on taxi expire, they're treated like any other expired rookie. If extended → promoted to active. If not → Expired Rookie Auction. **League years, not NFL years.**
 
@@ -338,25 +353,37 @@ These are transactions you can do TO a player who's already on your roster. Defi
 
 ## D. EXIT PATHS — how a player leaves a UPS roster
 
-### D1. Cut / Release (cap penalty applies)
+### D1. Cut / Release (cap penalty applies)  (UPDATED 2026-05-08 — true pro-rated earning)
 - **Cap penalty formula:** `(TCV × 75%) − Salary Earned`
-- **Earning schedule:**
-  - 25% earned at end of October
-  - 25% more earned at end of November
-  - 25% more earned at end of December
-  - 100% earned once the season completes and the new season has rolled forward (post-March rollover)
-- **Penalty timing (3 buckets):**
+- **Earning schedule (per-week pro-rated, effective 2026-05-08):** Each completed NFL regular-season week earns one share of that year's salary. The denominator is the player's **eligible weeks remaining at acquisition**.
+  - **Auction + Week-1 acquisitions:** 17 weeks total. After Week 1 → **1/17 earned**, Week 2 → 2/17, Week 3 → 3/17, … Week 17 → 17/17 = 100%.
+  - **Mid-season pickups (Waiver Wire / FCFS / trade):** denominator = NFL weeks remaining at the time of acquisition (Weeks W through 17). Same earning math, different window.
+    - Example A — picked up in Week 9 (9 weeks remaining: Weeks 9–17): Week 9 → 1/9, Week 10 → 2/9, … Week 17 → 9/9 = 100%.
+    - Example B — picked up in Week 7 (11 weeks remaining: Weeks 7–17): Week 7 → 1/11, Week 8 → 2/11, … Week 17 → 11/11 = 100%.
+  - **WW pickups under the new model are treated identically to auction contracts** — same 75% guarantee, same earning math, same cap-penalty timing. The only difference is the eligible-weeks window. The flat 35% WW rule is RETIRED.
+  - **Once the season completes and rollover happens:** prior-year salary is 100% earned (sunk; no further penalty contribution).
+  - Apply % to **the year's actual salary** (not AAV). See Section 6.B for the canonical formula and worked examples.
+- **What does NOT change** *(carried forward unchanged from prior rule)*:
+  - Total cap hit over a contract's life is unchanged — only the *timing* of when salary is earned is now pro-rated.
+  - **WW pickups under $4K** remain cap-penalty-free if dropped (see D2 + Bot Grounding appendix).
+  - **Multi-year contracts where TCV < $5K** still carry the **fixed $1K penalty** if dropped with more than 1 year remaining (see Bot Grounding appendix).
+  - All cap penalties are **rounded based on the SUM of penalties accrued**, not per-penalty.
+- **Penalty timing (3 buckets — unchanged):**
   - Penalty incurred **before Roster Lock Date** (i.e., offseason early) → applies to **current season** cap.
   - Penalty incurred **from auction start through end of season** → applies to **following season** cap.
   - Penalty incurred **after end of season but before next Roster Lock Date** → applies to **current season** cap (same as bucket 1).
-- **Confirmed example:** player on 3-year, $30K/yr Veteran contract (TCV $90K), cut March of Year 2 (offseason):
+- **Confirmed example (offseason cut — unchanged by the rule):** player on 3-year, $30K/yr Veteran contract (TCV $90K), cut March of Year 2 (offseason):
   - Year 1 fully earned at rollover → $30K earned, no penalty contribution from Y1.
-  - Penalty = (TCV × 75%) - Earned = ($90K × 75%) - $30K = $67.5K - $30K = **$37.5K cap hit** to the **2026 (current) season**.
+  - Penalty = (TCV × 75%) - Earned = ($90K × 75%) - $30K = $67.5K - $30K = **$37.5K cap hit** to the current season.
+- **In-season example under the new rule:** $25K UDFA WR picked up Week 5 via blind bid 2026, dropped after Week 9 (player has been "active" for Weeks 5–9 = 5 weeks; eligible-weeks window = Weeks 5–17 = 13 weeks).
+  - Earned = (5/13) × $25K = **$9,615 earned**.
+  - TCV = $25K (1-year WW). Penalty = ($25K × 75%) − $9,615 = $18,750 − $9,615 = **$9,135 cap hit** to the **following season** (in-season cut bucket).
+  - Under the OLD rule (flat 35% WW), this would have been: 35% × $25K = $8,750 earned → ($25K × 75%) − $8,750 = $10,000. The new rule earns slightly more here because the player was active for 5/13 of the eligible window.
 
 ### D2. Cap-free cut categories (no penalty)
 - **1-year original-length contracts under $5K (Veteran or WW):** 0% guarantee. Cap-free cut anytime. Note: this only applies to **1-year original** contracts — a 2-year veteran under $5K can still incur penalty depending on cut timing.
-- **Taxi Squad (never promoted):** 0% guarantee while on taxi. Cap-free cut.
-- **WW $5K+ in-season:** 65% earned → **35% penalty** if dropped during season. Off-season is academic since no drops allowed in offseason — those rosters just clean up at season end.
+- **Taxi Squad (never *permanently* promoted):** 0% guarantee while on taxi. Cap-free cut. Temporary call-ups (≤3 weeks) do NOT trigger permanent promotion; the player can return to taxi and remain cap-free-cuttable. Permanent promotion (4th activation or explicit MYAC/extension/restructure) ends this — normal cut penalties apply going forward. See **B2** for the call-up budget rule.
+- **WW $5K+ in-season (UPDATED 2026-05-08):** Same 75% guarantee + per-week pro-rated earning as auction contracts (the old flat 35% WW penalty is RETIRED). The eligible-weeks denominator is `18 − pickup_week`. See Section 6.B for the canonical formula and D1 for an in-season worked example.
 - **Jail Bird Rule:** vague rule. Aaron Hernandez was the canonical case, but "released by NFL team" is NOT sufficient — players are released all the time. Commissioner discretion required for what qualifies as a "career derailed by legal case."
 - **Retired Players Rule:** retired = cap-free cut. Optional to keep on roster, but no relief if kept.
 - **Tier-1 Retired (Calvin Johnson Rule):** Compensation pick awarded when a player retires meeting tier-1 criteria.
@@ -566,12 +593,15 @@ For each transaction below: **Source** (MFL TYPE / UPS table) · **Initiator** (
 - **Cap effect:** **Salary leaves the cap** while on taxi.
 - **Contract impact:** Roster status changes; contract still active but in suspended state. Cap-free cut available while on taxi (never-promoted clause).
 
-### T2.4 Promote from Taxi (`TAXI` reverse)
+### T2.4 Promote from Taxi (`TAXI` reverse)  (UPDATED 2026-05-08)
 - **Source:** Same MFL TYPE; `import?TYPE=taxi_squad&PROMOTE=...`.
 - **Initiator:** Owner.
 - **Eligibility:** Player on taxi.
-- **Cap effect:** Salary returns to cap.
-- **Contract impact:** Player on active roster. **Once promoted, the player is NEVER re-eligible for taxi.** (Legacy behavior: MFL would auto-promote on trade, and UPS would manually re-demote — that workaround is GONE in the modern rules.) The trade module (planned) will need to enforce no-re-demotion explicitly.
+- **Cap effect (per active week):** Salary counts against the cap **for the NFL week the player is active**. If demoted back to taxi before the next week's roster lock, the cap impact ends with the week.
+- **Two flavors of promotion (UPDATED 2026-05-08):**
+  1. **Temporary call-up:** weeks 1–3 of activation across a player's taxi-eligible window. Player can be demoted back to taxi after the week and remains taxi-eligible. Each week burns 1 of 3 allowed activations per player.
+  2. **Permanent promotion:** triggered automatically on the **4th activation week**, OR explicitly when the owner converts the contract via MYAC / extension / restructure during a call-up. **Once permanent, the player is NEVER re-eligible for taxi.** (Legacy behavior: MFL would auto-promote on trade, and UPS would manually re-demote — that workaround is GONE in the modern rules.) The trade module (planned) will need to enforce no-re-demotion explicitly.
+- See **B2** for the full call-up budget mechanic + auditability rules.
 
 ---
 
@@ -915,9 +945,7 @@ The local SQLite `auction` table (`mfl_database.db`) records every winning bid b
 - **Auction Close:** Sat-start + 12 days = the following Thursday.
 - **Waivers Begin:** **1st Thursday after FA Auction completes** (Keith confirmed).
 
-**Earning checkpoints (current rule):** 25% / 50% / 75% at end of Oct / Nov / Dec.
-
-> **Future direction (Keith 2026-04-28):** Consider switching to **per-game prorated earning** rather than calendar checkpoints (also for FA pickups — would more accurately represent the truth). Needs league review.
+**Earning curve (UPDATED 2026-05-08):** True pro-rated per completed NFL regular-season week. See **Section 6.B** for the canonical rule. The previous calendar-month bucket model (25% / 50% / 75% at end of Oct / Nov / Dec) is RETIRED.
 
 **MYM + extension deadline timing (new standard, confirmed 2026-04-28):** Use **kickoff of the FIRST Thursday Night game in the relevant week** as the consistent cutoff for both MYM and extension. If a Thursday slate has multiple games, the deadline is the kickoff of the FIRST game on that Thursday.
 
@@ -995,18 +1023,18 @@ The local SQLite `auction` table (`mfl_database.db`) records every winning bid b
 
 ### Early October 2026 → Pre-season Extension Deadline
 - **2026-10-07 (Wed) → updating to Thu Night Football kickoff** for consistency with MYM. Effective deadline: **kickoff of Week 5 Thursday Night game** (~Thu 2026-10-08).
-- **End of October:** **First earning checkpoint** (25% of current-year salary earned). **Open: Keith wants to consider per-game prorated earning instead of calendar checkpoints — needs league review.**
+- **(UPDATED 2026-05-08)** Earning is now per-completed-week (Section 6.B). The old "end of October = 25%" checkpoint is retired. By the start of Week 5, ~4/17 ≈ 24% of an auction salary is earned.
 
 ### November 2026 → Trade Deadline
 - **2026-11-26 (Thu, Thanksgiving, Week 12 kickoff):** **UPS trade deadline.** No trades until next offseason after this kickoff.
-- **End of November:** **Second earning checkpoint** (50% earned). (Per-game prorated proposal pending — see October note.)
+- **(UPDATED 2026-05-08)** No discrete earning checkpoint — earning accrues per completed week (Section 6.B). By end of Week 12 (Thanksgiving week), ~12/17 ≈ 71% of an auction salary is earned.
 - **Remaining league dues** ($100) due by trade deadline. Venmo to @Keith-Creelman → treasurer Josh Martel.
 
 ### December 2026 → Fantasy Playoffs
 - **2026-12-17 (Thu, Week 15):** **UPS Playoffs Round 1 starts.** 3-week format.
 - **2026-12-24 (Thu, Week 16):** Playoffs Round 2 / Toilet Bowl bracket continues.
 - **2026-12-31 (Thu, Week 17):** **UPS bracket finals — championship name TBD (rename pending) + Hawktuah Bowl** (Toilet Bowl, named after viral girl + Hawks team perennial worst finisher).
-- **End of December:** **Third earning checkpoint** (75% earned). (Per-game prorated proposal pending.)
+- **(UPDATED 2026-05-08)** No discrete earning checkpoint — earning accrues per completed week (Section 6.B). By end of Week 17 (regular season end), 17/17 = 100% earned.
 
 ### January 2027 → Off-season Begins
 - Cycle repeats. 100% earning hits at March 2027 roll-forward.
@@ -1243,7 +1271,10 @@ Inaugural Winter Meetings agenda. Several items here became 2016+ rules. Capture
 - **Bench-player tiebreaker removed**: ties stand in regular season; playoffs higher seed advances (manual).
 
 ### 2026 — Active changes
-- **Division realignment year** (next: 2029, 2032). Realignment uses prior 3-year all-play records to slot teams into divisions.
+- **Division realignment year** (next: 2029, 2032). Cadence is every 3 years.
+  - **(UPDATED 2026-05-08)** Realignment now uses **captain-based snake draft** (see "Division Realignment" section near the end of this doc for the full rule). Top 4 teams by All-Play % become Division Captains; Captains snake-draft their division mates in 2 rounds.
+  - **For the 2026 realignment specifically:** Captain seeding uses **full historical All-Play %** (the standard 3-year rolling window doesn't apply for the first cycle under the new rule).
+  - **Going forward (2029, 2032, …):** Captain seeding uses **rolling 3-year All-Play %** of the immediately prior 3 seasons.
 - **TE Premium year 2** (concurrent with SF). Year-2 TE pricing: open question — see Section C below.
 
 ## C. Implications for the 2026 bid sheet (corrected v13)
@@ -1357,31 +1388,43 @@ Whether to keep, eliminate, or reform the auction roster lock + cap floor mechan
 
 ---
 
-## B. Earning curve — CANONICAL (Keith confirmed 2026-04-28)
+## B. Earning curve — CANONICAL (UPDATED 2026-05-08 — true pro-rated by NFL week)
 
-### B1. The rule
+### B1. The rule (effective 2026-05-08, replaces calendar-month buckets)
 
-A contract's salary "earns" by **calendar-month bucket**. Earning ticks UP at the start of each month (10/1, 11/1, 12/1) and concludes at season end. Once season ends, 100% is earned (no need to wait for March roll-forward — and offseason cuts aren't allowed anyway, so the distinction is academic).
+A contract's salary "earns" **per completed NFL regular-season week**. The denominator is the player's **eligible weeks remaining at the time of acquisition** — i.e., the number of regular-season weeks from the player's acquisition through Week 17.
 
-| Cut Date Range | % earned |
-|---|---|
-| FA Auction start through 9/30 | **0%** |
-| 10/1 – 10/31 (any day in October) | **25%** |
-| 11/1 – 11/30 (any day in November) | **50%** |
-| 12/1 – season end | **75%** |
-| After season end | **100%** |
+**Earning formula:**
 
-**Key clarification:** "all of October = 25%" — the moment 10/1 hits, you're in the 25% bucket for the entire month. Same for Nov (50%) and Dec (75%). The earning ticks UP at the START of each month, not the end.
+```
+Salary Earned (year's actual salary basis)
+   = (completed_eligible_weeks / total_eligible_weeks) × year's actual salary
+```
 
-### B2. ⚠️ Code bug (file follow-up)
+| Acquisition path | Total eligible weeks | Notes |
+|---|---|---|
+| FA Auction + pre-Week-1 pickups (BBID, FCFS, trade) | **17** | Full season available |
+| Mid-season pickup in Week W (W ≥ 1) | **18 − W** | Weeks W through 17, inclusive |
+| Pre-rolloover offseason cut | **N/A — 100% earned at rollover** | Prior year is sunk |
 
-The reporting code in `build_contract_history_snapshots.py` uses milestones `[Sep 30, Oct 31, Nov 30, season_end]` — which gives 25% earning at Sep 30 (too generous for preseason cuts). **The canonical rule above (B1) supersedes the code.** A code-fix follow-up is in Open Items (memory + Open Items A2).
+**Worked rates:**
+- Auction acquisition, dropped after **Week 9** completes: 9/17 = ~53% of year's actual salary earned.
+- WW pickup in **Week 9**, dropped after Week 13 completes (4 weeks active in a 9-week eligible window): 4/9 ≈ 44% earned.
+- Auction acquisition, dropped at season end (Week 17 complete): 17/17 = 100%.
+- Auction acquisition, dropped before Week 1 (preseason cut): 0/17 = 0%.
 
-The fix needed: change milestones from `[Sep 30, Oct 31, Nov 30, season_end]` to `[Oct 1, Nov 1, Dec 1, season_end]` (or equivalent: trigger at start of month, not end of prior month).
+**Key clarifications:**
+- Earning ticks up at the **end of each completed NFL regular-season week** (Tuesday after Monday Night Football kicks off the next NFL week, or per the league_events week-boundary convention — see Section 3.A and the NFL calendar reference in the Bot Grounding appendix).
+- "Active for the week" follows the same definition as the taxi-squad rule: rosters and lineups locked, player appears in weekly results.
+- This rule applies **uniformly** to Auction, WW, FCFS, and trade-acquired contracts. The flat 35% WW rule is RETIRED.
 
-### B3. Future direction — per-game prorated earning (Open A1.1)
+### B2. ⚠️ Code follow-up (transition note)
 
-Keith wants the league to consider switching from calendar-month buckets to a **per-game prorated** earning model — also for FA pickups. Would more accurately represent the truth than arbitrary calendar dates. Pending league review.
+Reporting code that previously used calendar milestones `[Oct 1, Nov 1, Dec 1, season_end]` (and the older buggy `[Sep 30, Oct 31, Nov 30, season_end]`) needs to be repointed to **per-completed-week** anchored to `league_events.nfl_kickoff` for the season. Tracker: this is the canonical rule going forward; legacy code is being updated.
+
+### B3. ✅ Resolved — pro-rated earning (was Open A1.1)
+
+The league voted in May 2026 to adopt true pro-rated earning. The per-game/per-week model **replaces** the calendar-month bucket model both for auction contracts and for WW pickups (the old flat-35% WW rule is retired — same earning math now applies to all acquisition paths, just with a different denominator).
 
 ---
 
@@ -1401,9 +1444,9 @@ Applied to the cap of the season determined by cut-timing buckets (see Section 3
    - Front-loaded $40/$30/$20 contract → TCV = $90K, stays $90K throughout.
    - 1-yr $25K contract extended (Ext1, +$10K) → AAV $35K for ext year → **TCV = $25K + $35K = $60K, stays $60K** through the rest of the contract's life. Does NOT reset to $35K after rollover.
 
-2. **"Salary Earned" is based on THE YEAR'S actual salary (not AAV).** Apply the earning curve % to the year's actual dollar amount:
-   - Front-loaded $40K Y1 cut Oct 15 → 25% × **$40K** = $10K earned (NOT 25% × $30K AAV).
-   - Same contract Y2 = $30K, cut Oct 15 of Y2 → 25% × $30K = $7.5K earned.
+2. **"Salary Earned" is based on THE YEAR'S actual salary (not AAV).** Apply the per-week pro-rated curve to the year's actual dollar amount (UPDATED 2026-05-08 — see Section 6.B):
+   - Front-loaded $40K Y1, cut after Week 5 (5 completed weeks of 17 eligible): 5/17 × **$40K** = $11,765 earned (NOT 5/17 × $30K AAV).
+   - Same contract Y2 = $30K, cut after Week 5 of Y2: 5/17 × $30K = $8,824 earned.
    - Earned accrues across years: prior years that played out fully count at 100% of THAT year's actual salary.
 
 ### C2. Special-case overrides (NO penalty regardless of formula)
@@ -1418,18 +1461,29 @@ Applied to the cap of the season determined by cut-timing buckets (see Section 3
 | Off-season suspension opt-out | $0 (contract pause; salary $0 that year) |
 | New owner, 1 cap-free cut within onboarding window | $0 |
 
-### C3. WW $5K+ in-season special case
+### C3. WW $5K+ in-season special case (UPDATED 2026-05-08 — RETIRED, replaced by uniform per-week pro-rated)
 
-WW pickups with salary > $4K dropped during the season → **35% × salary** penalty (NOT the standard 75% formula).
+The old flat 35% WW penalty rule has been **retired** as of the 2026-05-08 salary-depreciation rule. WW pickups with salary > $4K now use **the same 75% guarantee + per-week pro-rated earning** as auction contracts. The only difference between WW and auction is the eligible-weeks denominator (auction = 17, WW pickup in Week W = 18 − W).
 
-Rationale: WW pickups have a different guarantee structure (65% earned vs 75% standard). Penalty applies only if drop happens DURING the season; post-season WW drops show $0 because contract reaches full earned at season end.
+**Penalty formula (now uniform across all acquisition paths):**
+```
+Penalty = (Salary × 75%) − Salary Earned
+where Salary Earned = (completed_weeks_active / total_eligible_weeks) × salary
+```
 
-| In-season WW cut | Penalty |
-|---|---|
-| WW $5K, mid-season | 35% × $5K = $1.75K |
-| WW $25K, mid-season | 35% × $25K = $8.75K |
-| WW $50K, mid-season | 35% × $50K = $17.5K |
-| WW any $, post-season (before next rollover) | $0 (counted as full year) |
+**WW $4K-and-under stays cap-free** (preserved by the 2026-05-08 rule — see Bot Grounding appendix).
+
+**Worked WW examples under the new rule** (assumes player picked up Week W and dropped after Week W+N completes; eligible_weeks = 18 − W):
+
+| Pickup | Drop after | Active weeks | Eligible weeks | Earned | Penalty |
+|---|---|---|---|---|---|
+| WW $25K, Week 5 pickup | Week 9 (4 weeks active) | 4 | 13 | (4/13) × $25K = $7.69K | ($25K × 75%) − $7.69K = **$11.06K** |
+| WW $25K, Week 9 pickup | Week 12 (3 weeks active) | 3 | 9 | (3/9) × $25K = $8.33K | ($25K × 75%) − $8.33K = **$10.42K** |
+| WW $50K, Week 1 pickup | Week 8 (7 weeks active) | 7 | 17 | (7/17) × $50K = $20.59K | ($50K × 75%) − $20.59K = **$16.91K** |
+| WW any $, post-season cut | end of Week 17 | full | full | 100% × salary | $0 (full earning achieved) |
+| WW under $4K, any time | any | n/a | n/a | n/a | **$0 (cap-free, preserved)** |
+
+**Note for code maintainers:** any callers that hard-coded the old `35% × salary` formula need to be updated to the per-week pro-rated math. Tracker: included in the "Per-game prorated earning calculator" follow-up (Section 7.A4 #17).
 
 ### C4. Worked examples — standard contracts
 
@@ -1467,9 +1521,13 @@ Rationale: WW pickups have a different guarantee structure (65% earned vs 75% st
 - Penalty = (75% × $60K) − $25K = $45K − $25K = **$20K**
 - Hits **current season cap**.
 
-**C4.7: WW $25K pickup picked up Oct 5, dropped Nov 5 (in-season WW special case)**
-- Penalty = 35% × $25K = **$8.75K** (WW $5K+ rule applies regardless of timing within season)
-- Hits **following season cap**.
+**C4.7: WW $25K pickup picked up Oct 5, dropped Nov 5 (in-season WW — UPDATED 2026-05-08, per-week pro-rated)**
+- Pickup week ≈ Week 5 (early Oct 2026; Week 1 Thursday is Sept 10). Eligible weeks = 18 − 5 = **13** (Weeks 5–17).
+- Drop ~Nov 5 ≈ end of Week 8 / start of Week 9. Active weeks completed = **4** (Weeks 5, 6, 7, 8).
+- Earned = (4 / 13) × $25K = **$7,692**.
+- Penalty = (75% × $25K) − $7,692 = $18,750 − $7,692 = **$11,058**.
+- Hits **following season cap** (in-season cut bucket).
+- *Old rule (retired 2026-05-08): flat 35% × $25K = $8.75K. Retained here for audit-trail clarity; new rule above is canonical.*
 
 **C4.8: WW $4K pickup Oct 5, dropped Nov 5 (under $5K threshold)**
 - Penalty = **$0** (1-yr Veteran/WW under $5K cap-free)
@@ -1612,7 +1670,7 @@ The 15 invariants in Section 2.G all apply to cap math. Bid sheet must enforce t
 
 ## H. STILL-OPEN ITEMS for Section 6
 
-1. **Per-game prorated earning** — league discussion (Open A1.1).
+1. ~~**Per-game prorated earning**~~ — **RESOLVED 2026-05-08** (Hall round May 2026, 7-0-0). See Section 6.B.
 2. **Late dues fines + missed-nomination fines** — Keith flagged for review. May be real-dollar (cash) penalties, not cap adjustments. Confirm before bid sheet uses them as cap inputs.
 3. **Auction Roster Lock future direction** (Open A1.4) — also: a 2-day-before-auction "cutdown day" is being added for testing purposes per Keith v10. Reconcile with the current 3-day-prior roster lock rule.
 
@@ -1676,7 +1734,7 @@ Consolidated parking lot for things flagged across Sections 1–3 + Section 6 th
 
 ## A1. League discussion needed (bring to all owners)
 
-1. **Earning checkpoints — switch to per-game prorated?** Currently calendar Oct/Nov/Dec end. Keith wants league to consider a prorated-per-game model (also for FA pickups) — more accurate representation.
+1. ~~**Earning checkpoints — switch to per-game prorated?**~~ — **RESOLVED 2026-05-08.** League voted YES (7-0-0) to true pro-rated per-week earning. Replaces the calendar Oct/Nov/Dec buckets and the flat 35% WW rule. See Section 6.B.
 2. **Tag tier formula math** — current tiers (avg top-N AAVs) are working but Keith wants a more dynamic / mathematically grounded calculation. Open for proposals.
 3. **"UPS Championship" rename** — current name sounds weak. Need a better non-cheesy name. Toilet Bowl = Hawktuah Bowl already locked; Championship side rename pending.
 4. **Auction Roster Lock Date future direction** — eliminate the 3-day-prior lock? Auto-unlock at auction start via MFL API? Or keep as-is? Keith says "verify + validate, not worth fixing right now" but it's worth a league-wide chat.
@@ -1704,7 +1762,7 @@ Consolidated parking lot for things flagged across Sections 1–3 + Section 6 th
 
 15. **Daily NFL retirement search** — auto-flag players retiring (Schefter, Rapoport, credible source) → trigger Tier-1 / Calvin Johnson Rule check.
 16. **Automated dues posting** to Josh Martel (treasurer) via Venmo. Allow owners to submit "I'll have it by X" responses. Reduce nag overhead.
-17. **Per-game prorated earning calculator** (depends on A1 #1 league decision).
+17. **Per-game prorated earning calculator** — A1 #1 was approved 2026-05-08 (true pro-rated). Calculator now needs to be built; consumes `league_events.nfl_kickoff` to determine completed weeks per acquisition path.
 18. **Auction-time auto-unlock** via MFL API (depends on A2 #4 decision).
 19. **Trade module enforcement** — once promoted from taxi, no re-demotion (currently MFL would auto-promote on trade; UPS workaround was manual re-demote, deprecated). Trade module should enforce.
 20. **Auction nomination tracking + alerts** — daily notifications about who's nominated, who's behind, who's compliant.
@@ -1776,6 +1834,43 @@ Every 3 years the league realigns divisions. Owners only get the chance to be pa
 | 2017–2019 | 2017, 2018, 2019 |
 | 2020–2022 | 2020, 2021, 2022 |
 | 2023–2025 | 2023, 2024, 2025 |
+| 2026–2028 | 2026, 2027, 2028 ← *first cycle under captain-draft rule (UPDATED 2026-05-08)* |
+| 2029–2031 | 2029, 2030, 2031 |
+| 2032–2034 | 2032, 2033, 2034 |
+
+### Realignment mechanic — Captain-based snake draft (UPDATED 2026-05-08)
+
+**Effective the 2026 realignment** (Hall round May 2026, passed 7-0-0). Replaces the prior formula-based assignment that grouped teams by 3-year All-Play %.
+
+**Rule:**
+- **Top 4 teams by All-Play %** become **Division Captains**.
+- **Snake draft, 2 rounds:**
+  - Round 1: Captains pick in order 1 → 2 → 3 → 4
+  - Round 2: Captains pick in reverse, 4 → 3 → 2 → 1
+- After both rounds, each Captain has 3 division mates (themselves + 2 picks = 3 per division). 4 Captains × 3 = 12 teams aligned across 4 divisions.
+- Divisions are **no longer formula-generated**. The snake draft IS the realignment.
+
+**When it happens:**
+- The snake draft happens **at the Rookie Draft** every 3 years (when everyone is present in person/Discord).
+- Per Keith's framing: yes, that means the last-picked dodgeball kid (the #1 pick — i.e., the team picked LAST, going into the worst Captain's division) gets ridiculed in person. Adds an extra layer of league entertainment.
+
+**Captain seeding (which All-Play % is used to pick the Captains):**
+- **2026 (this realignment, first cycle under the new rule):** **full historical All-Play %** across all seasons each owner has played. Provides a deeper data foundation for the inaugural Captain pool.
+- **Going forward (2029, 2032, …):** **rolling 3-year All-Play %** of the immediately prior cycle (e.g., 2029 uses 2026–2028 AP%; 2032 uses 2029–2031 AP%).
+
+**Captain eligibility:**
+- An owner must have been in the league the **full 3-year prior window** to be eligible to be a Captain.
+- For the 2026 realignment specifically (where seeding uses *full historical* AP%), eligibility is similarly full-historical — owners with insufficient tenure (e.g., joined mid-cycle) are not Captain-eligible but still get drafted into a division.
+
+**Why this rule was adopted (from the proposal):**
+- The prior formula-based realignment produced repeat clustering — same teams kept landing in the same divisions cycle after cycle.
+- Of 66 possible current-owner pairings, only 29 have ever shared a division — **37 pairs have never been divisional opponents-of-record across the 5 realignment cycles since 2011**.
+- Some pairs have shared 15 seasons of league time without ever once landing in the same division.
+- Captain draft creates more variety in pairings AND moves the realignment moment from "spreadsheet output" to "live in-person event," which adds an entertainment layer.
+
+**Bot guidance for "when's the next realignment?" queries:**
+- Next: 2029 (post-2026/2027/2028 cycle), with seeding from rolling 3-year AP% across those seasons.
+- Captain-draft mechanic is the same every 3 years going forward.
 
 ### Per-owner: division mates ever, mates still in league
 
@@ -1940,27 +2035,29 @@ These are corrections + clarifications fed back from solo-test of the AI explain
 - The player **auto-locks on tag deadline day** (current behavior; no early lock-in today).
 - Per the proposed early-lock-in rule (May 2026 round): a "Lock in" button will appear in the contract command center once a tag is applied. Pressing it commits the tag early and makes the tag asset tradeable. Until either deadline-auto-lock or owner-clicked-lock, the tag is reversible.
 
-### Cap-penalty-free pickups (current rule, NOT changed by salary depreciation proposal)
+### Cap-penalty-free pickups (preserved by 2026-05-08 salary-depreciation rule)
 
 - **Players picked up via Waiver Wire (WW) for under $4K are cap-penalty-free if dropped.** No cap penalty applies regardless of when in the season they're dropped.
-- This carve-out continues unchanged under the proposed pro-rated model.
+- This carve-out is preserved under the new true-pro-rated earning model (effective 2026-05-08).
 
-### Multi-year low-TCV penalty (current rule, NOT changed by salary depreciation proposal)
+### Multi-year low-TCV penalty (preserved by 2026-05-08 salary-depreciation rule)
 
 - **Multi-year contracts where TCV < $5K carry a fixed $1K penalty if dropped with more than 1 year remaining.**
-- This rule is independent of the auction earning curve and the WW flat 35% rule.
-- Continues unchanged under the proposed pro-rated model.
+- This rule is independent of the per-week earning curve.
+- Continues unchanged under the new pro-rated model.
 
 ### Penalty rounding rule (current rule)
 
 - **All cap penalties are rounded based on the SUM of penalties accrued, not per-penalty rounding.**
 - Rounding is applied to the cumulative total, not to each individual drop penalty in isolation.
 
-### Taxi squad — "active for the week" definition
+### Taxi squad — temporary call-up "active week" definition (effective 2026-05-08)
 
+This clarifies the rule in **B2 / T2.4** for the bot.
 - **"Active for the week"** = the player was on the active roster (OR on IR — same effect for this purpose) at the time rosters and lineups locked for that NFL week, and appears in that week's weekly results.
 - Active = 1 toward the 3-week call-up budget; not active = 0.
 - Putting a called-up player on IR does NOT avoid burning the week — it still counts. The owner's only way to not burn the week is to demote back to taxi BEFORE rosters lock.
+- Counting is per-player and cumulative across seasons (consecutive or non-consecutive both count). On the 4th activation the call-up becomes permanent.
 
 ### NFL calendar reference (for the bot — derive, don't guess)
 
@@ -2001,25 +2098,33 @@ The NFL regular season has a fixed structure: 18 weeks (regular season) starting
 
 ---
 
-## Appendix — League Rules Migration (added 2026-05-05) 🆕
+## Appendix — League Rules Migration (added 2026-05-05, updated 2026-05-08) 🆕
 
-**Status:** 🆕 NEW (pending review). Catalog + sunset plan for the legacy rule documents in this repo. Goal: this file (`docs/league_context_v1.md`) becomes the **single canonical source**; everything else either (a) gets archived as historical artifact, (b) gets folded into this file, or (c) gets retired entirely.
+**Status:** Phases 1–4 partially complete (see checklist below). Goal: this file (`docs/league_context_v1.md`) is the **single canonical source**; everything else either (a) gets archived as historical artifact, (b) gets folded into this file, or (c) gets retired entirely.
 
-### Inventory of rule documents currently in repo
+### Inventory of rule documents currently in repo (updated 2026-05-08)
 
-| Path | Format | Used by | Status | Migration disposition |
-|------|--------|---------|--------|------------------------|
-| `docs/league_context_v1.md` | MD | Hall bot (sole grounding source) | **CANONICAL** | Keep. Source of truth. |
-| `services/rulebook/data/rules.json` | JSON | (formerly Hall bot — removed 2026-05-04); rulebook embed widget; possibly other downstream tooling | LEGACY ARTIFACT | Audit downstream consumers. Once nothing reads it, archive under `archive/rulebook_legacy/`. New rule changes → context file only, NOT this file. |
-| `docs/ups_v2/V2_GOVERNED/rules/claude_canonical_rules.md` | MD | (formerly Hall bot — removed 2026-05-04); referenced from a few governance docs | LEGACY ARTIFACT | Reconcile any unique content into context file (next pass). Then archive. |
-| `docs/ups_v2/V2_GOVERNED/rules/ups_v2_rulebook_v4.html` | HTML | League website (canonical owner-facing rulebook) | **PUBLIC-FACING** | Keep static for now. **New rule changes do NOT auto-update this** — manual update required after league_context is the source. Decision: regenerate HTML from league_context content monthly OR retire when bot is the primary owner-facing answer surface. |
-| `docs/ups_v2/V2_GOVERNED/rules/ups_v2_fantasy_rulebook_browser_comprehensive_draft.html` | HTML | (draft — not deployed) | DRAFT | Archive. |
-| `docs/ups_v2/V2_GOVERNED/rules/ups_v2_fantasy_rulebook_browser_first_pass.html` | HTML | (draft — not deployed) | DRAFT | Archive. |
-| `docs/ups_v2/V2_GOVERNED/rules/ups_v2_rulebook_browser_first_pass.html` | HTML | (draft — not deployed) | DRAFT | Archive. |
-| `site/rulebook/ups_v2_rulebook_mobile_preview.html` | HTML | League website (mobile preview) | **PUBLIC-FACING** | Same disposition as v4.html. |
-| `services/rulebook/web/rulebook_embed.html` | HTML | Embeddable widget | EMBED | Verify what this widget consumes (rules.json?). If yes, plan to repoint to a `league_context.json` derived from this MD. |
-| `docs/rulebook_inbox.md` | MD | Engineering notes (Claude operating rules, NOT league rules) | NOT-A-LEAGUE-RULE | Keep. Different concern (how Claude works on the codebase). Rename/move so the distinction is clear. |
-| `services/rulebook/sources/rules/archive/league_divisions.csv` | CSV | Pulled into context appendix | DATA SOURCE | Keep as archived input. The MFL DB `franchises` table is the live equivalent. |
+| Path | Format | Status | Migration disposition |
+|------|--------|--------|------------------------|
+| `docs/league_context_v1.md` | MD | **CANONICAL** | Keep. Source of truth. |
+| `docs/league_context_changelog.md` | MD | **CANONICAL — history** | Keep. Append-only audit trail. |
+| `services/rulebook/data/rules.json` | JSON | **ARCHIVED 2026-05-08** | Frozen at v2026.5. `_archived_note` header added. NOT regenerated, NOT bot-grounded, NOT authoritative. Kept as historical reference only. |
+| `services/rulebook/sources/rules/archive/current_rulebook_struct.json` | JSON | **ARCHIVED 2026-05-08** | `_archived_note` header added. Kept as historical reference. |
+| `services/rulebook/tools/build_rulebook_json.py` | Python | **DEPRECATED 2026-05-08** | Header comment marks DO NOT RUN — its source HTML was deleted. Kept for historical reference. |
+| `docs/ups_v2/V2_GOVERNED/rules/claude_canonical_rules.md` | MD | LEGACY ARTIFACT | Reconcile any unique content into context file (next pass). Then archive. |
+| `docs/ups_v2/V2_GOVERNED/rules/ups_v2_rulebook_v4.html` | HTML | LEGACY ARTIFACT | Slated for deletion in next cleanup pass. |
+| `services/rulebook/web/rulebook_embed.html` | HTML | EMBED widget | Verify consumers (rules.json?). If yes, retire the widget. |
+| `docs/rulebook_inbox.md` | MD | NOT-A-LEAGUE-RULE | Keep. Engineering notes (Claude operating rules), different concern. |
+| `services/rulebook/sources/rules/archive/league_divisions.csv` | CSV | DATA SOURCE | Keep as archived input. MFL DB `franchises` table is the live equivalent. |
+| `site/rulebook/index.html` | HTML | **PLACEHOLDER 2026-05-08** | Replaced redirect-to-preview with a "rulebook moved" page pointing at `docs/league_context_v1.md` on GitHub. |
+
+### Files DELETED 2026-05-08 (per Keith — "get rid of html")
+
+| Path | Why deleted |
+|------|-------------|
+| `services/rulebook/sources/rules/UPS_Master_Rulebook.html` | Source for the now-archived `rules.json`. Out-of-date with current rules (taxi mechanics, salary depreciation, realignment). |
+| `docs/ups_v2/V2_GOVERNED/rules/ups_v2_fantasy_rulebook_browser_comprehensive_draft.html` | Draft preview, not deployed. Out-of-date. |
+| `site/rulebook/ups_v2_rulebook_mobile_preview.html` | Mobile preview. The old `site/rulebook/index.html` redirected here; replaced with a "moved" placeholder. |
 
 ### Migration plan (work-in-progress checklist)
 
@@ -2028,28 +2133,31 @@ The NFL regular season has a fixed structure: 18 weeks (regular season) starting
 - [x] Hall bot uses **only** `league_context_v1.md`
 - [x] Document the rule that this file is canonical (this appendix)
 
-**Phase 2 — Audit downstream consumers (TO DO):**
-- [ ] Find every reader of `services/rulebook/data/rules.json` (grep `rules.json` across repo)
-- [ ] Find every reader of `claude_canonical_rules.md`
-- [ ] For each consumer: decide → (a) repoint to `league_context_v1.md`, (b) leave on legacy file frozen at current content, (c) retire the consumer
-- [ ] Owner: (TBD)
+**Phase 2 — Audit downstream consumers (DONE 2026-05-08):**
+- [x] Find every reader of `services/rulebook/data/rules.json` (grep `rules.json` across repo) — only `build_rulebook_json.py` (the generator) and the embed widget (TBD whether actively served)
+- [x] Find every reader of `claude_canonical_rules.md` — only governance handoff docs reference it
+- [x] For each consumer: rules.json is now archive-frozen (no readers depend on it being current); generator script marked DEPRECATED.
 
 **Phase 3 — Reconcile unique content (TO DO):**
 - [ ] Diff `claude_canonical_rules.md` against `league_context_v1.md` — what's only in canonical_rules?
-- [ ] Diff `rules.json` against `league_context_v1.md` — what structured rules aren't in MD form yet?
 - [ ] For each unique item: add to league_context (with status tag 🆕 pending review) and remove from origin file
 - [ ] Owner: Keith review for each migrated rule
 
-**Phase 4 — Archive legacy (TO DO):**
-- [ ] Move `claude_canonical_rules.md` to `docs/archive/`
-- [ ] Move `services/rulebook/data/rules.json` to `services/rulebook/archive/`
-- [ ] Update any tooling that referenced them (or break it deliberately to surface remaining consumers)
+**Phase 4 — Retire legacy (DONE 2026-05-08 for HTML; data files archived in place):**
+- [x] DELETE three HTML rulebook files (per Keith's directive 2026-05-08 — "get rid of html"):
+  - `services/rulebook/sources/rules/UPS_Master_Rulebook.html`
+  - `docs/ups_v2/V2_GOVERNED/rules/ups_v2_fantasy_rulebook_browser_comprehensive_draft.html`
+  - `site/rulebook/ups_v2_rulebook_mobile_preview.html`
+- [x] Archive headers added to `services/rulebook/data/rules.json` and `services/rulebook/sources/rules/archive/current_rulebook_struct.json` (frozen, not authoritative)
+- [x] `services/rulebook/tools/build_rulebook_json.py` marked DEPRECATED (its source HTML was deleted)
+- [x] `site/rulebook/index.html` rewritten as a "rulebook moved" placeholder pointing at the canonical markdown
+- [ ] Move `claude_canonical_rules.md` to `docs/archive/` (next pass)
+- [ ] Decide fate of remaining draft HTML: `ups_v2_rulebook_v4.html`, `services/rulebook/web/rulebook_embed.html` (next pass)
 
-**Phase 5 — Owner-facing surface (TO DO):**
-- [ ] Decide fate of public HTML rulebook (`ups_v2_rulebook_v4.html`):
-  - Option A: regenerate from `league_context_v1.md` on rule passage (auto)
-  - Option B: leave static, update manually after rule changes
-  - Option C: retire entirely; bot becomes the primary surface (Hall site shows passed rules from the archive)
+**Phase 5 — Owner-facing public surface (DEFERRED):**
+Per Keith 2026-05-08: a future "all rules" public HTML site will be a separate dedicated build. For now, owners consult:
+- The Discord bot (`/rules` + the *Questions? 🤖* button on each thread — bot grounds in `league_context_v1.md`)
+- `docs/league_context_v1.md` directly on GitHub (linked from `site/rulebook/index.html`)
 
 ### Rule-passage workflow (for bot-driven rules)
 
