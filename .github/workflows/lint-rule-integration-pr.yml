@@ -1,0 +1,42 @@
+name: Lint rule-integration PR
+
+# Blocks merge of any PR titled "Rule Integration: …" if the description
+# contains any unchecked checkboxes ( - [ ] … ). Forces the commish to
+# explicitly check each impact-analysis item or mark it `[N/A — reviewed]`
+# before the rule edit can land.
+#
+# Setup once: in GitHub repo Settings → Branches → branch protection
+# rule for `main`, mark this check as "Required". After that, the merge
+# button is grayed out until the lint passes.
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+    branches: [main]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    if: startsWith(github.event.pull_request.title, 'Rule Integration:')
+    steps:
+      - name: Check unchecked checkboxes in PR description
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          set -e
+          if [ -z "$PR_BODY" ]; then
+            echo "::error::Rule integration PR has empty body. Description must include the integration checklist."
+            exit 1
+          fi
+          # Count unchecked boxes ( - [ ] ) in the PR body. Allow checked
+          # ( - [x] ) and case-insensitive variants.
+          UNCHECKED=$(printf '%s' "$PR_BODY" | grep -cE '^- \[ \]' || true)
+          if [ "$UNCHECKED" -gt 0 ]; then
+            echo "::error::Rule integration PR has $UNCHECKED unchecked checkbox(es). Check each item or mark it [N/A — reviewed] before merging."
+            echo "Title: $PR_TITLE"
+            echo "First few unchecked items:"
+            printf '%s' "$PR_BODY" | grep -nE '^- \[ \]' | head -10
+            exit 1
+          fi
+          echo "✓ All checkboxes resolved in '$PR_TITLE'."

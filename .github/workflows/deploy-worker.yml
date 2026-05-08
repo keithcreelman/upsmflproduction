@@ -1,0 +1,52 @@
+name: Deploy worker
+
+# Auto-deploy the Cloudflare Worker whenever bundle inputs change:
+#   - worker/** (source code)
+#   - docs/league_context_v1.md (bundled into the worker as
+#     LEAGUE_CONTEXT_TEXT for the AI explainer + impact analysis;
+#     editing this requires a redeploy for the bot to see the update)
+#
+# This is the auto-deploy half of the rule-integration workflow:
+# when a passed rule is merged into league_context_v1.md, the bot
+# refreshes within ~2 minutes (build + deploy time) without anyone
+# needing to run wrangler manually.
+#
+# Setup once: add CLOUDFLARE_API_TOKEN to repo secrets
+# (Settings → Secrets and variables → Actions). Token must have
+# the "Edit Cloudflare Workers" permission template — Cloudflare
+# dashboard → My Profile → API Tokens → Create Token.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "worker/**"
+      - "docs/league_context_v1.md"
+  workflow_dispatch: {}
+
+concurrency:
+  # Only one deploy at a time. Newer pushes cancel in-flight deploys
+  # so we always end up running the most recent code.
+  group: deploy-worker
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: worker
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install wrangler + deps
+        run: npm ci || npm install
+
+      - name: Deploy to Cloudflare
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: npx wrangler deploy

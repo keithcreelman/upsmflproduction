@@ -1,3 +1,11 @@
+import { handleHallRequest } from "./hall.js";
+import { handleDiscordInteraction } from "./discord_bot.js";
+import {
+  processPendingSummaries as processHallPendingSummaries,
+  processAutoNudges as processHallAutoNudges,
+  processOverdueRoundCloses as processHallOverdueCloses,
+} from "./discord_round.js";
+
 const acquisitionLiveMemoryCache = new Map();
 const contractDiscordChannelQueues = new Map();
 const contractDiscordChannelLastSendMs = new Map();
@@ -93,6 +101,52 @@ export default {
   // Announcement for each (batched per-team). MFL's salaryAdjustments export
   // is the dedup ledger — runs are idempotent by ups_drop_penalty:{ledger_key}.
   async scheduled(event, env, ctx) {
+    // Two cron schedules dispatch into this handler:
+    //   "5 * * * *"   — hourly: cap-penalty drop scan + R2 daily snapshot
+    //   "*/2 * * * *" — every 2 min: Hall round sweeps (snappy lock+announce)
+    // Branch on event.cron so each fires only its own work.
+    const cronTrigger = String(event && event.cron || "");
+    const isHallFastSweep = cronTrigger === "*/2 * * * *";
+    const isHourlyCron = cronTrigger === "5 * * * *" || !cronTrigger;
+
+    // Job isolation by cron expression. Each cron does ONE thing so that
+    // one expensive sweep (e.g. Anthropic impact analysis) can't starve
+    // the others for CPU. See wrangler.toml triggers comment.
+    const isHallSummarySweep = cronTrigger === "*/2 * * * *";
+    const isHallNudgeSweep   = cronTrigger === "5 0,12,18 * * *";
+
+    // ---------- HALL SUMMARY SWEEP (every 2 min, summaries only) ----------
+    if (isHallSummarySweep) {
+      try {
+        ctx.waitUntil(processHallPendingSummaries(env).then((r) => {
+          if (r?.posted) console.log(`[scheduled */2] hall summary sweep: posted=${r.posted} candidates=${r.candidates || 0}`);
+        }).catch((e) => console.error(`[scheduled */2] hall summary sweep failed: ${e && e.message}`)));
+      } catch (e) {
+        console.error(`[scheduled */2] hall summary dispatch failed: ${e && e.message}`);
+      }
+      return; // summary sweep is the only job on */2
+    }
+
+    // ---------- HALL NUDGE SWEEP (3× per day, never overnight) ----------
+    if (isHallNudgeSweep) {
+      try {
+        ctx.waitUntil(processHallAutoNudges(env).then((r) => {
+          if (r?.nudged) console.log(`[scheduled nudge] hall auto-nudge: nudged=${r.nudged} rounds=${r.rounds}`);
+          if (r?.skipped) console.log(`[scheduled nudge] hall auto-nudge skipped: ${r.skipped}`);
+        }).catch((e) => console.error(`[scheduled nudge] hall auto-nudge failed: ${e && e.message}`)));
+      } catch (e) {
+        console.error(`[scheduled nudge] hall auto-nudge dispatch failed: ${e && e.message}`);
+      }
+      return; // nudge sweep is the only job on this cron
+    }
+
+    // ---------- HOURLY CRON (5 * * * *) ----------
+    if (!isHourlyCron) {
+      // Unknown cron pattern — log and bail.
+      console.log(`[scheduled] unknown cron trigger: "${cronTrigger}"`);
+      return;
+    }
+
     // Phase 2 backup: once per day (at the 09:05 UTC firing) snapshot the
     // MFL public exports for our league to R2. This runs in parallel with
     // the existing drop-penalty scan below — independent try/catch so one
@@ -107,6 +161,17 @@ export default {
       }
     } catch (e) {
       console.error(`[scheduled] snapshot dispatch failed: ${e && e.message}`);
+    }
+
+    // Hall overdue-close sweep — fast SQL only, runs once an hour. The
+    // voting deadline is day-granularity so a 60-min check window is
+    // plenty. Summaries run on */2; nudges run on the 6h cron.
+    try {
+      ctx.waitUntil(processHallOverdueCloses(env).then((r) => {
+        if (r?.closed) console.log(`[scheduled hourly] hall overdue-close: closed=${r.closed} candidates=${r.candidates || 0}`);
+      }).catch((e) => console.error(`[scheduled hourly] hall overdue-close failed: ${e && e.message}`)));
+    } catch (e) {
+      console.error(`[scheduled hourly] hall overdue-close dispatch failed: ${e && e.message}`);
     }
 
     try {
@@ -171,7 +236,7 @@ export default {
     }
   },
 
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     try {
       // ---------- CORS ----------
       const corsHeaders = {
@@ -182,6 +247,20 @@ export default {
       if (request.method === "OPTIONS") {
         return new Response("", { headers: corsHeaders });
       }
+
+      // ---------- Hall (League proposals/voting) ----------
+      // Self-contained module — handles every /api/hall/* and /admin/hall/*
+      // path and returns null for everything else so the main dispatcher
+      // continues. Defined in worker/src/hall.js.
+      const hallResp = await handleHallRequest(request, env, corsHeaders);
+      if (hallResp) return hallResp;
+
+      // ---------- Discord bot interactions (POST /discord/interactions) ----------
+      // Discord sends every button click, slash command, and modal submit here.
+      // Module verifies Ed25519 signature using DISCORD_PUBLIC_KEY worker secret,
+      // then dispatches by interaction.type. Returns null for non-discord paths.
+      const discordResp = await handleDiscordInteraction(request, env, ctx);
+      if (discordResp) return discordResp;
 
       // ---------- Inputs ----------
       const url = new URL(request.url);

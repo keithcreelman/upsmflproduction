@@ -12,7 +12,24 @@ compatibility_date = "2026-02-02"
 #   3. at 09:05 UTC, snapshots MFL public exports to R2 bucket (Phase 2
 #      backup — see docs/BACKUP_STRATEGY.md).
 [triggers]
-crons = ["5 * * * *"]
+# Three crons, isolated by job to avoid CPU-budget collisions (lesson from
+# 2026-05-08 — three sweeps in parallel on */2 starved each other and the
+# */2 ticks all returned "Exceeded CPU Limit"):
+#
+#   "5 * * * *"        — hourly: cap-penalty drop scan + once-daily R2
+#                        snapshot at 09:05 UTC + Hall overdue-close sweep
+#                        (deadline-driven, fast SQL only).
+#   "*/2 * * * *"      — every 2 min: ONLY processPendingSummaries with
+#                        LIMIT 1 — at most one Anthropic impact analysis
+#                        per tick. Keeps post-lock verdict announcements
+#                        snappy (~2-4 min lag) while staying under budget.
+#   "5 0,12,18 * * *"  — 3× per day at 00:05, 12:05, 18:05 UTC. That's
+#                        8 PM / 8 AM / 2 PM ET (EDT) and 7 PM / 7 AM /
+#                        1 PM ET (EST). Avoids the 2 AM ET overnight tick
+#                        entirely. Auto-nudge sweep runs here only.
+#                        Code-level quiet-hours guard (10 PM – 6 AM ET)
+#                        as belt-and-suspenders against DST drift.
+crons = ["5 * * * *", "*/2 * * * *", "5 0,12,18 * * *"]
 
 # R2 bucket for MFL data snapshots + DB backups.
 # Access via `env.UPS_MFL_BACKUPS.put(key, body)` inside the Worker.
@@ -29,3 +46,12 @@ binding = "UPS_MFL_DB"
 database_name = "ups-mfl-db"
 database_id = "8cfe1ddd-749e-476a-9c2c-a359410c6fc1"
 migrations_dir = "migrations"
+
+# Bundle league_context_v1.md as a string at build time. Per Keith's
+# directive (2026-05-04), this is the SOLE source of truth the AI explainer
+# uses for league rules — other rulebook files (rules.json, canonical_rules.md)
+# will be folded into league_context over time.
+[[rules]]
+type = "Text"
+globs = ["**/league_context_v1.md"]
+fallthrough = true
