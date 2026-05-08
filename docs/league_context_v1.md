@@ -1104,6 +1104,88 @@ Late dues fines accrue at $3K/week.
 
 ---
 
+# Section 3.5 — Standings, Weekly Scoring, & Matchups
+
+Added 2026-05-08. Companion to the Divisional Co-tenancy History appendix at the bottom of this document. Section 3.5 documents the **data model and rules** for weekly scoring, head-to-head matchups, and standings. The appendix documents **historical pair frequencies**.
+
+## A. Schedule structure (current era, 2023-2025; 2026 alignment pending draft night)
+
+The UPS regular-season schedule is built from two week types, both played by all teams in the league:
+
+- **Divisional weeks** — every team plays every other team in their division.
+- **Intra-divisional weeks** — every team plays opponents from outside their division.
+
+All divisions share the **same weekly schedule type** — i.e., when one division has a divisional week, every division does. Some weeks are **multi-opponent** (double-headers or triple-headers), so a single (season, week, franchise) tuple can have **2 or 3 simultaneous H2H opponents**. The data model preserves all opponents and per-opponent results.
+
+**Playoffs are always single-matchup** (one H2H opponent per round). The `is_playoff` flag on `src_schedule` distinguishes regular-season from post-season rows.
+
+## B. Division alignment & realignment cadence
+
+Divisions realign every 3 years. Cycles:
+
+| Cycle | Seasons |
+|-------|---------|
+| 2011–2013 | 2011, 2012, 2013 |
+| 2014–2016 | 2014, 2015, 2016 |
+| 2017–2019 | 2017, 2018, 2019 |
+| 2020–2022 | 2020, 2021, 2022 |
+| 2023–2025 | 2023, 2024, 2025 |
+| 2026–2028 | 2026, 2027, 2028 |
+
+**2026 alignment is pending.** A rule vote (in progress 2026-05-08) approved that **divisions will be selected on draft night**. The 2026 division composition will be backfilled into `src_franchises` once MFL reflects the post-draft alignment. Until then, queries that group by 2026 division will return `NULL`.
+
+Cross-link: full owner-by-owner pair history is in the **Appendix — Divisional Co-tenancy History (2011-2025)** at the bottom of this document.
+
+## C. All-Play Winning Percentage
+
+Each week, every franchise's score is compared against **every other franchise's score** in the league. Each pairwise comparison records a win, loss, or tie independent of who that franchise actually played head-to-head.
+
+Why we track it:
+
+- **Matchup-luck-neutral.** A team can score the league's 2nd-highest total, lose H2H, and still go 11-1 in all-play that week. All-play measures *how the team scored*, not *who they happened to draw*.
+- **Feeds the (informal) 3-year-cycle AP% leaderboard** documented in the appendix — a Dynasty-Pot-style metric the league has discussed but never paid out.
+- **Computed at ingest time, not query time.** `src_weekly_franchise_summary.allplay_wins/losses/ties` are pre-computed in the local source DB; D1 queries don't need to recompute pairwise comparisons.
+
+## D. Bye-week semantics
+
+A franchise may have **no H2H opponent** in a given week. When that happens:
+
+- `src_schedule` will have **no row** for (season, week, franchise).
+- `src_weekly_franchise_summary` will **still have a row** for (season, week, franchise) with the franchise's actual score and the week's all-play counts.
+
+This separation means **all-play continues to count even when H2H doesn't**. Any consumer that wants "weeks with a real matchup only" should filter on `EXISTS (SELECT 1 FROM src_schedule …)`.
+
+## E. Source tables on D1 (added in migration 0029)
+
+These four `src_*` tables are the canonical cloud-side store for franchise-level fantasy results. Populated nightly from the local `mfl_database.db` via `scripts/load_local_to_d1.py`. **Never mutate these directly** — apply data fixes via the `corrections` table per migration 0001's overlay model.
+
+| Table | Grain | What it answers |
+|-------|-------|-----------------|
+| `src_franchises` | (season, franchise_id) | Owner, team name, division for any season — the dim every other table joins to |
+| `src_schedule` | (season, week, franchise_id, opponent_franchise_id) | Each H2H matchup row: scores, W/L, `is_divisional`, `is_playoff`. Multi-opponent weeks produce 2-3 rows per franchise. Bye = no row. |
+| `src_weekly_franchise_summary` | (season, week, franchise_id) | The **canonical per-week franchise score**, plus pre-computed all-play W/L/T and (when applicable) up to 3 H2H opponents inline. **Bye weeks DO have rows here.** |
+| `src_standings` | (season, franchise_id) | Season-aggregate H2H, division, all-play %, points-for, points-against, EFF |
+
+`is_divisional` on `src_schedule` is computed at load-time via JOIN against `src_franchises` (cheaper to bake in once than to JOIN on every D1 read).
+
+## F. Upstream automation (current state)
+
+The local DB tables `franchises`, `schedule`, `weeklyresults`, `weeklyresults_summary`, `standings` are populated by a **fetcher that lives outside this repo** (legacy `~/Desktop/MFL_Scripts/`). `scripts/run_pipeline_live.sh` does **not** refresh these — only `scripts/sync_d1.sh` reads them and pushes to D1. A 24h staleness check in `sync_d1.sh` fails the nightly cron loudly if the external fetcher stops running.
+
+Follow-up: port the legacy fetcher into `pipelines/etl/scripts/` so this repo becomes the single source of truth. See `pipelines/etl/README.md` "External fetchers (not yet ported)".
+
+## G. STILL-OPEN ITEMS for Section 3.5
+
+1. **2026 division composition** — locks at draft night. Backfill `src_franchises` 2026 rows once MFL publishes.
+2. **Weeks-per-regular-season transition** — schedule length changed when NFL went 16→17 (2021); document the per-era table of total reg-season weeks.
+3. **Multi-opponent week scheduling rules** — when does the league use double- vs triple-headers? Document the calendar pattern so the bot can answer "is week 4 a triple-header?" without reading the schedule table.
+
+---
+
+## END Section 3.5 (NEW 2026-05-08)
+
+---
+
 # Section 4 — League History (Scoring & Roster Eras + Rule Change Timeline)
 
 The 2026 bid sheet must understand that historical contract values, scoring data, and auction prices come from **different rule eras**. This section gives the year-by-year change log so models can correctly weight or filter prior data.
@@ -1221,6 +1303,27 @@ Inaugural Winter Meetings agenda. Several items here became 2016+ rules. Capture
 
 ### 2018 or 2019 (verify in Forumotion)
 - **In-season restructure BANNED.** Same vote also overturned the 2014 "restructure-only-with-extension" rule. Restructures are now offseason-only and standalone-allowed.
+
+### 2019 — Cap-penalty system overhaul (CONFIRMED 2026-05-08 via `services/rulebook/sources/rules/archive/UPS Contract Rules.txt`)
+
+**Effective the 2019 NFL Season** the league replaced the original flat 20% cap-penalty model with the 75% TCV guarantee + monthly earning curve + flat 35% WW model that was in effect through 2026-05-07 (when it was replaced again by the per-week pro-rated rule — see 2026 below).
+
+**Pre-2019 rule (2010 → 2018 NFL season):**
+- Penalty = **20% × total salary remaining** (no "earned" concept; penalty was simply 20% of value left).
+- TCV < $5K → no penalty (the original buffer-zone rule from 2011).
+- This was the only cap-penalty mechanic since the league founded.
+
+**2019+ rule (2019 NFL season → 2026-05-07):**
+- 75% TCV guarantee on Non-Waiver contracts.
+- Earning curve: 0% before Oct 1, 25% Oct, 50% Nov, 75% Dec, 100% post-rollover.
+- WW $5K+ in-season cuts: flat **35% × salary** penalty (separate WW-specific rule, not the 75% formula).
+- Multi-year low-TCV rule (TCV < $5K with multiple years remaining): **fixed $1K penalty** if cut with > 1 year remaining.
+
+**Grandfather clause (CONFIRMED 2026-05-08 via Keith):**
+- Contracts that were **active at end of 2018 with 2+ years remaining** were "grandfathered" into the OLD 20% flat rule.
+- Tagged with `GF` in the MFL `contract_info` field. The GF tag persisted for the contract's life — until the contract was "touched" (extension / restructure / release / natural expiration). Once touched, the contract joined the new system.
+- 1-year-remaining contracts at end of 2018 were NOT grandfathered — they were expiring anyway and rolled into the new system on completion.
+- Implication for backfill: a player drop in (say) 2020 could fall under EITHER rule depending on whether the contract was a `GF` salary_type at the moment of drop. The cap-penalty calculator must check the contract's `salary_type` flag, not just the drop date.
 
 ### 2019 — NO scoring changes (verified)
 2018→2019 diff: zero rule changes.
