@@ -1,0 +1,16 @@
+{
+  "name": "upsmfl-worker",
+  "version": "1.0.0",
+  "private": true,
+  "description": "UPS Salary Cap Dynasty league Cloudflare Worker — MFL automation, Hall vote rounds, AI explainer/impact analysis, rule integrator.",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev",
+    "tail": "wrangler tail"
+  },
+  "devDependencies": {
+    "wrangler": "^4.87.0"
+  }
+}
