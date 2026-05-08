@@ -1,0 +1,380 @@
+{
+  "encoding": "utf-8",
+  "league": {
+    "auctionStartAmount": "300000",
+    "auction_kind": "email",
+    "baseURL": "https://www48.myfantasyleague.com",
+    "bbidConditional": "Yes",
+    "bbidIncrement": "1000",
+    "bbidMinimum": "1000",
+    "bbidSeasonLimit": "9999999999",
+    "bbidTiebreaker": "SORT",
+    "bestLineup": "No",
+    "bidIncrement": "1000",
+    "currentWaiverType": "BBID_FCFS",
+    "defaultTradeExpirationDays": "7",
+    "divisions": {
+      "count": "4",
+      "division": [
+        {
+          "id": "00",
+          "name": "ICE UP SON!"
+        },
+        {
+          "id": "01",
+          "name": "LEGION OF BOOM"
+        },
+        {
+          "id": "02",
+          "name": "MAKE IT RAIN"
+        },
+        {
+          "id": "03",
+          "name": "DOG POUND 4 LIFE"
+        }
+      ]
+    },
+    "draftLimitHours": "0:25",
+    "draftPlayerPool": "Rookie",
+    "draftTimer": "OFF",
+    "draft_kind": "live",
+    "endWeek": "17",
+    "franchises": {
+      "count": "12",
+      "franchise": [
+        {
+          "abbrev": "L.A.",
+          "bbidAvailableBalance": "9999999999.00",
+          "division": "03",
+          "icon": "https://www48.myfantasyleague.com/fflnetdynamic2025/74598_franchise_icon0001.png",
+          "id": "0001",
+          "logo": "https://www48.myfantasyleague.com/fflnetdynamic2025/74598_franchise_logo0001.png",
+          "name": "L.A. Looks",
+          "salaryCapAmount": "",
+          "stadium": "The Steel Cage",
+          "waiverSortOrder": "5"
+        },
+        {
+          "abbrev": "DBCA",
+          "bbidAvailableBalance": "9999999999.00",
+          "division": "00",
+          "icon": "https://www48.myfantasyleague.com/fflnetdynamic2023/74598_franchise_icon0002.png",
+          "id": "0002",
+          "logo": "https://www48.myfantasyleague.com/fflnetdynamic2023/74598_franchise_logo0002.png",
+          "name": "CBP",
+          "salaryCapAmount": "",
+          "stadium": "Dos Hermanos",
+          "waiverSortOrder": "7"
+        },
+        {
+          "abbrev": "GRID",
+          "bbidAvailableBalance": "9999999999.00",
+          "division": "01",
+          "icon": "https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_icon0003.png",
+          "id": "0003",
+          "logo": "https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_logo0003.png",
+          "name": "Gride",
+          "salaryCapAmount": "",
+          "stadium": "Ride or Die Stadium",
+          "waiverSortOrder": "8"
+        },
+        {
+          "abbrev": "PG",
+          "bbidAvailableBalance": "9999999999.00",
+          "division": "01",
+          "icon": "https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_icon0004.png",
+          "id": "0004",
+          "logo": "https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_logo0004.png",
+          "name": "Pure Greatness",
+          "salaryCapAmount": "",
+          "stadium": "Greatness Park",
+          "waiverSortOrder": "1"
+        },
+        {
+          "abbrev": "\ud83d\udd28 \u23f0",
+          "bbidAvailableBalance": "9999979999.00",
+          "division": "00",
+          "icon": "https://www48.myfantasyleague.com/fflnetdynamic2025/74598_franchise_icon0005.jpg",
+          "id": "0005",
+          "logo": "https://www48.myfantasyleague.com/fflnetdynamic2025/74598_franchise_logo0005.jpg",
+          "name": "HammerTime \ud83d\udd28 \u23f0",
+          "salaryCapAmount": "",
+          "stadium": "Suck It Stadium",
+          "waiverSortOrder": "3"
+        },
+        {
+          "abbrev": "LH",
+          "bbidAvailableBalance": "10000019999.00",
+          "division": "00",
+          "icon": "https://www48.myfantasyleague.com/fflnetdynamic2024/74598_franchise_icon0006.jpg",
+          "id": "0006",
+          "logo": "https://www48.myfantasyleague.com/fflnetdynamic2024/74598_franchise_icon0006.jpg",
+          "name": "The Long Haulers",
+          "salaryCapAmount": "",
+          "stadium": "Spy Gate Stadium",
+          "waiverSortOrder": "10"
+        },
+        {
+          "abbrev": "SEX",
+          "bbidAvailableBalance": "9999999999.00",
+          "division": "01",
+          "icon": "https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_icon0007.png",
+          "id": "0007",
+          "logo": "https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_logo0007.png",
+          "name": "Sex Manther",
+          "salaryCapAmount": "",
+          "stadium": "NFL Combine - Lucas Oil Stadium",
+          "waiverSortOrder": "2"
+        },
+        {
+          "abbrev": "RealDeal",
+          "bbidAvailableBalance": "9999999999.00",
+          "division": "02",
+          "icon": "https://www48.myfantasyleague.com/fflnetdynamic2023/74598_franchise_icon0008.png",
+          "id": "0008",
+          "logo": "https://www48.myfantasyleague.com/fflnetdynamic2023/74598_franchise_logo0008.png",
+          "name": "Real Deal Creel",
+          "salaryCapAmount": "",
+          "stadium": "Gordon's Way",
+          "waiverSortOrder": "9"
+        },
+        {
+          "abbrev": "CTwn",
+          "bbidAvailableBalance": "9999999999.00",
+          "division": "03",
+          "icon": "https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_icon0009.png",
+          "id": "0009",
+          "logo": "https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_logo0009.png",
+          "name": "C-Town Chivalry",
+          "salaryCapAmount": "",
+          "stadium": "Camelot Stadium",
+          "waiverSortOrder": "4"
+        },
+        {
+          "abbrev": "Bomb",
+          "bbidAvailableBalance": "9999999999.00",
+          "division": "02",
+          "icon": "https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_icon0010.png",
+          "id": "0010",
+          "logo": "https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_logo0010.png",
+          "name": "Blake Bombers",
+          "salaryCapAmount": "",
+          "stadium": "Bomber Stadium",
+          "waiverSortOrder": "6"
+        },
+        {
+          "abbrev": "Cash",
+          "bbidAvailableBalance": "9999999999.00",
+          "division": "03",
+          "icon": "https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_icon0011.png",
+          "id": "0011",
+          "logo": "https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_logo0011.png",
+          "name": "Cleon Ca$h",
+          "salaryCapAmount": "",
+          "stadium": "Ca$h Money",
+          "waiverSortOrder": "12"
+        },
+        {
+          "abbrev": "Hawk",
+          "bbidAvailableBalance": "9999999999.00",
+          "division": "02",
+          "icon": "https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_icon0012.png",
+          "id": "0012",
+          "logo": "https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_logo0012.png",
+          "name": "Hawks",
+          "salaryCapAmount": "",
+          "stadium": "Dome of Hawks",
+          "waiverSortOrder": "11"
+        }
+      ]
+    },
+    "h2h": "YES",
+    "history": {
+      "league": [
+        {
+          "url": "https://www48.myfantasyleague.com/2026/home/74598",
+          "year": "2026"
+        },
+        {
+          "url": "https://www45.myfantasyleague.com/2010/home/60671",
+          "year": "2010"
+        },
+        {
+          "url": "https://www46.myfantasyleague.com/2011/home/40832",
+          "year": "2011"
+        },
+        {
+          "url": "https://www45.myfantasyleague.com/2012/home/37227",
+          "year": "2012"
+        },
+        {
+          "url": "https://www46.myfantasyleague.com/2013/home/42721",
+          "year": "2013"
+        },
+        {
+          "url": "https://www45.myfantasyleague.com/2014/home/30590",
+          "year": "2014"
+        },
+        {
+          "url": "https://www44.myfantasyleague.com/2015/home/29015",
+          "year": "2015"
+        },
+        {
+          "url": "https://www48.myfantasyleague.com/2016/home/27191",
+          "year": "2016"
+        },
+        {
+          "url": "https://www48.myfantasyleague.com/2017/home/74598",
+          "year": "2017"
+        },
+        {
+          "url": "https://www48.myfantasyleague.com/2018/home/74598",
+          "year": "2018"
+        },
+        {
+          "url": "https://www48.myfantasyleague.com/2019/home/74598",
+          "year": "2019"
+        },
+        {
+          "url": "https://www48.myfantasyleague.com/2020/home/74598",
+          "year": "2020"
+        },
+        {
+          "url": "https://www48.myfantasyleague.com/2021/home/74598",
+          "year": "2021"
+        },
+        {
+          "url": "https://www48.myfantasyleague.com/2022/home/74598",
+          "year": "2022"
+        },
+        {
+          "url": "https://www48.myfantasyleague.com/2023/home/74598",
+          "year": "2023"
+        },
+        {
+          "url": "https://www48.myfantasyleague.com/2024/home/74598",
+          "year": "2024"
+        },
+        {
+          "url": "https://www48.myfantasyleague.com/2025/home/74598",
+          "year": "2025"
+        }
+      ]
+    },
+    "id": "74598",
+    "includeIRWithSalary": "50",
+    "injuredReserve": "15",
+    "keeperType": "dynasty",
+    "lastRegularSeasonWeek": "14",
+    "loadRosters": "live_draft_email_auction",
+    "lockout": "Yes",
+    "maxWaiverRounds": "8",
+    "minBid": "1000",
+    "mobileAlerts": "",
+    "name": "UPS Salary Cap Dynasty",
+    "nflPoolEndWeek": "17",
+    "nflPoolStartWeek": "1",
+    "nflPoolType": "Pickem",
+    "partialLineupAllowed": "YES",
+    "playerLimitUnit": "LEAGUE",
+    "precision": "1",
+    "rosterLimits": {
+      "position": [
+        {
+          "limit": "0-5",
+          "name": "QB"
+        },
+        {
+          "limit": "0-0",
+          "name": "RB"
+        },
+        {
+          "limit": "0-0",
+          "name": "WR"
+        },
+        {
+          "limit": "0-0",
+          "name": "TE"
+        },
+        {
+          "limit": "0-0",
+          "name": "PK"
+        },
+        {
+          "limit": "0-0",
+          "name": "PN"
+        },
+        {
+          "limit": "0-0",
+          "name": "DT+DE"
+        },
+        {
+          "limit": "0-0",
+          "name": "LB"
+        },
+        {
+          "limit": "0-0",
+          "name": "CB+S"
+        }
+      ]
+    },
+    "rosterSize": "50",
+    "rostersPerPlayer": "1",
+    "salaryCapAmount": "300000.49",
+    "standingsSort": "PCT,DIVPCT,H2H,PTS,ALL_PLAY_PCT,PWR,",
+    "startWeek": "1",
+    "starters": {
+      "count": "18",
+      "idp_starters": "7",
+      "iop_starters": "9",
+      "position": [
+        {
+          "limit": "1-2",
+          "name": "QB"
+        },
+        {
+          "limit": "2-5",
+          "name": "RB"
+        },
+        {
+          "limit": "2-5",
+          "name": "WR"
+        },
+        {
+          "limit": "1-4",
+          "name": "TE"
+        },
+        {
+          "limit": "1",
+          "name": "PK"
+        },
+        {
+          "limit": "1",
+          "name": "PN"
+        },
+        {
+          "limit": "2-3",
+          "name": "DT+DE"
+        },
+        {
+          "limit": "2-3",
+          "name": "LB"
+        },
+        {
+          "limit": "2-3",
+          "name": "CB+S"
+        }
+      ]
+    },
+    "taxiSquad": "10",
+    "usesContractYear": "1",
+    "usesSalaries": "1",
+    "victoryPointsBuckets": "2 1 0",
+    "victoryPointsEndWeek": "17",
+    "victoryPointsLoss": "0",
+    "victoryPointsStartWeek": "1",
+    "victoryPointsTie": "1",
+    "victoryPointsWin": "2"
+  },
+  "version": "1.0"
+}
