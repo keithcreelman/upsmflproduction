@@ -1,0 +1,89 @@
+[
+  {
+    "id": "owners-meeting-pushed-one-week",
+    "type": "fyi",
+    "category": "ops",
+    "title": "Annual Owner's Meeting pushed one week",
+    "tldr": "The virtual discussion has been moved back a week. A more detailed breakdown will be sent before the new date.",
+    "body_md": "The Annual Owner's Meeting is being pushed back **one week**.\n\nA more detailed breakdown of every item below will go out before the new date. Open to other thoughts as well — drop anything you want to add by replying in Discord or posting a comment on the relevant Hall item.\n\nThanks for bearing with the reshuffle.",
+    "quorum_min": 0,
+    "threshold_yes_pct": 0
+  },
+  {
+    "id": "website-overall-feedback",
+    "type": "sentiment",
+    "category": "website",
+    "title": "Website overall feedback",
+    "tldr": "How is the league site / Hub working for you? What's broken, what's missing, what should we double down on?",
+    "body_md": "We've been pushing a lot of features to the league site this year (Contract Command Center, draft hub, MCM, rookies hub, etc.).\n\n## What I want from you\n\n- **What's working** — the views or features you actually open more than once.\n- **What's broken** — anything that's confusing, slow, or wrong.\n- **What's missing** — what would make you visit weekly instead of monthly.\n\nDrop a 👍 / 👎 / 🤷 for general read, then leave a comment with the specifics. This isn't a vote — it's input that drives what I prioritize next."
+  },
+  {
+    "id": "superflex-year1-retro",
+    "type": "sentiment",
+    "category": "superflex",
+    "title": "Superflex — Year 1 retro with relaxed rules",
+    "tldr": "Did the year-one tweaks (3 starting QBs by deadline, max 5 QB active roster) work, or do they need adjustment?",
+    "body_md": "Year 1 of Superflex shipped with relaxed rules:\n\n- **3 starting QBs required** by the tag deadline\n- **Max 5 QBs** on the active roster\n\n## What I want to know\n\n- Did the added flexibility actually help your roster construction?\n- Did the cap of 5 active QBs ever bite you?\n- Did the 3-QB minimum feel like the right floor, or do we need more / less?\n\nThis is sentiment + comments only — feeds into a possible **formal vote** for Year 2 changes (which would be its own Hall item).",
+    "deadline_utc": null
+  },
+  {
+    "id": "realignment-captain-draft-2026",
+    "type": "vote",
+    "category": "realignment",
+    "title": "Realignment — captain-based division draft",
+    "tldr": "Replace formula-based division alignment with a captain-based draft. All-Play % picks 4 captains; captains snake-draft their division mates. Realignment runs every 3 years.",
+    "body_md": "**The change**\n\nAll-Play % no longer picks divisions — it picks **Division Captains** only. Captains snake-draft their division mates.\n\n**Format**\n- **Top 4 teams by All-Play %** become Division Captains\n- **Snake draft, 2 rounds:** Round 1 picks 1→4, Round 2 picks 4→1\n- Divisions are no longer formula-generated\n- **The snake draft happens at the Rookie Draft every 3 years** — when everyone is present. Yes, that means the last-picked dodgeball kid (the #1 pick) gets ridiculed in person. Adds an excellent layer of league entertainment.\n\n**Seeding**\n- **2026 (this realignment):** full historical All-Play %\n- **Going forward (every 3 years):** rolling 3-year All-Play %\n- **Captain eligibility:** owners must have been in the league the full 3-year prior window to be eligible for Captain\n\n**Why**\n- Current formula produces repeat clustering — same teams keep landing in the same divisions cycle after cycle\n- **Of 66 possible current-owner pairings, only 29 have ever shared a division — 37 pairs have never been divisional opponents-of-record across the 5 realignment cycles since 2011**\n- Some pairs have shared 15 seasons of league time without ever once landing in the same division\n- Captain draft creates more variety — and more fun\n\n**The vote**\n- ✅ **YES** — adopt captain-based draft + rolling 3-yr All-Play\n- ❌ **NO** — keep current formula-based assignment\n- ➖ **ABSTAIN** — recorded but doesn't decide",
+    "pass_yes_count": 7
+  },
+  {
+    "id": "tagging-early-lock-in-tradeable",
+    "type": "vote",
+    "category": "tagging",
+    "title": "Tagging — early lock-in becomes a tradeable asset",
+    "tldr": "Allow owners to lock in their tag selection early. Once locked, it becomes a tradeable asset and is final.",
+    "body_md": "*Note: this rule is **most relevant for next year** — we're already at the tag lock deadline this season, so the early-lock-in mechanic effectively kicks in for the 2027 cycle.*\n\n**The change**\n\nAllow owners to **lock in** their tag selection early. Today, applying a tag does not lock the player — they auto-lock on tag deadline day. This proposal adds an explicit \"Lock in\" action: once a tagged player is locked in, the tag is final and the asset is tradeable.\n\nOnce locked:\n- The tag becomes a **tradeable asset** — packageable in trades like any other contract\n- The selection is **final** — no take-backs, no swaps to a different player after lock-in\n\n**Why**\n- Adds a real strategic lever — owners who know early which player they want to retain can use the tag itself as a trade chip\n\n**Risk / what to watch**\n- A tag locked early can't be undone if the player suffers a season-ending injury before the deadline\n- *Mitigation:* the player can still be dropped cap-penalty-free up until the deadline\n\n**Trade mechanics (clarified)**\n- The receiving team acquires the player **and** the contract\n- The tag does **not** count against the receiving team's tag totals — they retain full control over their own tags\n\n**The vote**\n- ✅ **YES** — adopt early lock-in + tradeable tag\n- ❌ **NO** — keep tags as deadline-only, non-tradeable\n- ➖ **ABSTAIN** — recorded but doesn't decide",
+    "quorum_min": 8,
+    "threshold_yes_pct": 60
+  },
+  {
+    "id": "salary-depreciation-true-prorated",
+    "type": "vote",
+    "category": "salary-cap",
+    "title": "Salary depreciation — move to true pro-rated model",
+    "tldr": "Replace the current step-based depreciation with a true pro-rated model that earns salary by completed week of eligibility.",
+    "body_md": "**Current model**\n- *Non-WW Players:* 25% earned by end of Oct · 50% by end of Nov · 75% by end of Dec · 100% by season end\n- *Waiver wire (WW):* flat 35% regardless of pickup date\n\n**Proposed — true pro-rated**\n\n*Non-WW Players (Auction + Week-1 acquisitions):* earned per completed week.\n- After Week 1 → 1/17 earned · Week 2 → 2/17 · Week 3 → 3/17 · …through full season\n\n*Mid-season pickups:* pro-rated over remaining eligible weeks.\n- Example A — picked up in Week 9 (**9 weeks remaining**: Weeks 9–17): Week 9 → 1/9 · Week 10 → 2/9 · …\n- Example B — picked up in Week 7 (**11 weeks remaining**: Weeks 7–17): Week 7 → 1/11 · Week 8 → 2/11 · …\n\n*WW pickups under this model* — treated identically to auction contracts: same **75% guarantee**, same earning math, same cap-penalty timing. The only difference is the window — WW pickups have fewer weeks remaining to earn.\n\n**Why now**\n- Available data makes this easy to track and maintain\n- Better reflects how real contracts accrue value over time\n- Can be applied immediately — offseason timing allows a clean transition across all teams\n\n**What changes for owners**\n- Total cap hit over a contract's life is **unchanged**\n- Only the *timing* of when salary is earned changes\n\n**What does NOT change** *(current rules carry forward)*\n- WW pickups **under $4K** remain cap-penalty-free if dropped\n- Multi-year contracts where TCV < $5K still carry the **fixed $1K penalty** if dropped with more than 1 year remaining\n- All cap penalties are **rounded based on the SUM of penalties accrued**, not per-penalty\n\n**The vote**\n- ✅ **YES** — adopt true pro-rated depreciation (replaces both auction curve and WW)\n- ❌ **NO** — keep the current model (auction step-function + flat 35% WW)\n- ➖ **ABSTAIN** — recorded but doesn't decide",
+    "quorum_min": 8,
+    "threshold_yes_pct": 60
+  },
+  {
+    "id": "taxi-squad-flexibility-temporary-callups",
+    "type": "vote",
+    "category": "roster",
+    "title": "Taxi squad flexibility — temporary call-ups before permanent move",
+    "tldr": "Owners can temporarily call up a taxi player up to 3 weeks across their 3-year taxi window before the move becomes permanent.",
+    "body_md": "**The change**\n\nOwners can call up a taxi player to the active roster temporarily — up to **3 weeks total per player** across their taxi-eligible window (their first 3 years in the league). After that, the call-up becomes permanent. All standard taxi eligibility rules still apply.\n\n**How it works**\n- Each call-up is a one-week commitment. Player counts against active roster limits **and** salary cap for that NFL week.\n- After the week, the owner can return the player to the taxi squad.\n- Each active week counts as **1** toward the player's 3-week limit. Weeks are cumulative across seasons — consecutive or non-consecutive both count.\n- On the **4th week** of activation, the call-up becomes **permanent**.\n\n**Why**\n- We now have the tracking in place to manage this with minimal manual work\n- Lets owners use taxi players in short-term roles without permanently committing\n- Removes the current \"one-week activation = permanent loss\" trap\n- Mirrors how NFL teams use practice squad elevations\n- Introduces strategy while keeping accountability — every activation burns a finite allowance\n\n**The vote**\n- ✅ **YES** — adopt temporary call-ups with the 3-week limit per player\n- ❌ **NO** — keep the current taxi rule (permanent call-up only)\n- ➖ **ABSTAIN** — recorded but doesn't decide\n\n*Behind the scenes: every owner's call-up usage will be tracked and visible so eligibility is auditable.*",
+    "quorum_min": 8,
+    "threshold_yes_pct": 60
+  },
+  {
+    "id": "dynasty-pot-50-dues-3year-prize",
+    "type": "vote",
+    "category": "dues",
+    "title": "Dynasty Pot — +$50 annual dues, 3-year prize",
+    "tldr": "Add $50 to annual dues to fund a 3-year Dynasty Pot — annual prize boost plus a larger cumulative prize at the end of each 3-year cycle.",
+    "body_md": "**The change**\n\nAdd **$50 to annual dues** to fund a 3-year Dynasty Pot — annual prize boost + a larger cumulative prize at end of each 3-year cycle. Coincides with the divisional realignment cycle, so each Dynasty Pot tracks the same 3-year window as captaincy seeding.\n\n**Pot math**\n- 12 teams × $50 × 3 years = **$1,800** per cycle\n- **$900** — 3-Year Dynasty Prize: best 3-year All-Play % at end of cycle\n- **$900** — annual payouts: $300/yr (suggested **$200 → 1st · $100 → 2nd**, open to alternatives)\n\n**Eligibility**\n- Owners must be in the league all 3 years to be eligible\n- Owners who leave forfeit all contributions — no reimbursement\n- New owners pay the $50 upon joining but aren't eligible until they complete a full 3-year cycle\n- **All-Play %** is the deciding factor\n- **Prize splitting** is only allowed in the event of a tie — voluntary splits aren't recognized\n\n**Why**\n- Rewards sustained dynasty success, not just single-season performance\n- Longer-term incentive for every team, including rebuilds — you don't need to win a title, just perform best over 3 years\n- Given the time + effort owners pour in, **$50/yr is a small investment** for a meaningful prize\n\n**Historical 3-year cycle AP% leaders** *(informal — never paid out)*\n- 2011–2013: Derrick Whitman (70.5%)\n- 2014–2016: Ryan Bousquet (70.2%)\n- 2017–2019: Josh Martel (73.8%)\n- 2020–2022: Steve Bousquet (67.6%)\n- 2023–2025: Ryan Bousquet (64.9%)\n\n**Approval threshold**\nDues change — **requires 75% approval (9 of 12 YES)** to pass.\n\n**The vote**\n- ✅ **YES** — fund the Dynasty Pot\n- ❌ **NO** — keep dues unchanged\n- ➖ **ABSTAIN** — recorded but doesn't decide",
+    "quorum_min": 8,
+    "threshold_yes_pct": 60,
+    "pass_yes_count": 9
+  },
+  {
+    "id": "mym-end-of-season-restriction",
+    "type": "vote",
+    "category": "mym",
+    "title": "MYM — restrict eligibility on late-season drops",
+    "tldr": "Direction-setting vote: should players dropped from December 1st onward (in the final year of their deal) become ineligible for MYM acquisition?",
+    "body_md": "**Direction-setting vote** — gauging whether the league wants to pursue this rule.\n\n**The end-of-season problem**\n\nIn December, contracts in their final year carry **no cap penalty** to drop. Teams can release known stars who are temporarily devalued (injured, slumping) — and other teams can grab them via MYM at a steeply discounted value.\n\n*Real example — 2025:* CMC injured on IR taking ~50% of cap. Owner held him to avoid handing the league a discounted MYM opportunity. But other owners wouldn't necessarily do the same. As commish, my bias toward league integrity becomes a competitive disadvantage.\n\n**The conflict**\n- Competitive fairness vs. individual roster flexibility\n- MYM was designed for waiver-wire value discovery — not for acquiring established stars at discounted rates\n\n**Potential direction**\nA player becomes **ineligible for MYM** if ALL of the following are true:\n1. They were under contract at the **contract deadline date**\n2. They were on a roster **all season** (never dropped or traded out earlier)\n3. They were dropped **in December**\n\nThe restriction lasts the remainder of the season.\n\n*Note: this is separate from the existing 1-week-wait rule (a player dropped, then re-acquired, must wait one week before being offered as MYM). That rule is unchanged here — different problem.*\n\n**The vote**\n- ✅ **YES** — pursue this direction; draft a formal rule\n- ❌ **NO** — keep the current rule\n- ➖ **ABSTAIN** — recorded but doesn't decide\n\n*If you have a better mechanism, drop it in the reasoning when you vote.*",
+    "pass_yes_count": 7,
+    "discussion_only": true
+  }
+]

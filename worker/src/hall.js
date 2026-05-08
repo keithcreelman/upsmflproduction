@@ -16,9 +16,9 @@ const HALL_RESPONSE_KINDS = new Set(["ack", "sentiment", "vote", "comment"]);
 const HALL_VOTE_VALUES = new Set(["yes", "no", "abstain"]);
 const HALL_SENTIMENT_VALUES = new Set(["up", "down", "meh"]);
 
-// Frontend lives on GitHub Pages; reference for Discord announcement
-// links. Override with env.HALL_SITE_BASE_URL when deploying elsewhere.
-const DEFAULT_HALL_SITE_BASE = "https://keithcreelman.github.io/upsmflproduction/site/hall";
+// (The legacy site/hall/ frontend was removed 2026-05-08 — voting moved
+// fully to Discord threads. A future "all rules" public site will be a
+// separate build; the bot is the interactive surface in the meantime.)
 
 function safeStr(v) {
   return String(v == null ? "" : v).trim();
@@ -87,14 +87,6 @@ function announcementChannelId(env) {
   return safeStr(env.DISCORD_HALL_CHANNEL_ID || env.DISCORD_REMINDER_CHANNEL_ID || "").replace(/\D/g, "");
 }
 
-function siteBaseUrl(env) {
-  return safeStr(env.HALL_SITE_BASE_URL || DEFAULT_HALL_SITE_BASE).replace(/\/+$/, "");
-}
-
-function proposalUrl(env, id) {
-  return `${siteBaseUrl(env)}/proposal.html?id=${encodeURIComponent(id)}`;
-}
-
 function typeBadge(type) {
   if (type === "vote") return "🟥 Vote required";
   if (type === "sentiment") return "🟨 Sentiment check";
@@ -113,13 +105,7 @@ function buildAnnouncementContent(env, proposal) {
     lines.push(proposal.tldr);
   }
   lines.push("");
-  if (proposal.type === "vote") {
-    lines.push(`Cast your vote: ${proposalUrl(env, proposal.id)}`);
-  } else if (proposal.type === "sentiment") {
-    lines.push(`Share your read: ${proposalUrl(env, proposal.id)}`);
-  } else {
-    lines.push(`Details + acknowledge: ${proposalUrl(env, proposal.id)}`);
-  }
+  lines.push(`Voting + discussion happens in the rules channel — use \`/rules start\` to spin up the round.`);
   return lines.join("\n");
 }
 
@@ -538,7 +524,6 @@ function buildCloseTallyContent(env, proposal, finalStatus, tally) {
     lines.push(`📊 **FYI closed:** ${proposal.title}`);
     lines.push(`👁️ ${tally.ack} acknowledgment${tally.ack === 1 ? "" : "s"}`);
   }
-  lines.push(`Archive: ${proposalUrl(env, proposal.id)}`);
   return lines.join("\n");
 }
 

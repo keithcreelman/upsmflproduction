@@ -10,6 +10,10 @@ pipelines/etl/inputs/*.xlsx
 pipelines/etl/inputs/*.csv
 pipelines/etl/artifacts/
 services/rulebook/data/feedback.db
+services/rulebook/data/rule_feedback.db
+services/**/*.db-journal
+services/**/*.db-wal
+services/**/*.db-shm
 
 # Python
 __pycache__/
