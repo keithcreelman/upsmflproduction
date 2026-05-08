@@ -46,6 +46,45 @@ Each entry follows this structure:
      point. New entries push older ones further down so reverse-chronological
      order is preserved. -->
 
+## 2026-05-08 — Taxi squad flexibility — temporary call-ups before permanent move (PASSED 7-0-0)
+
+**Round:** May2026 · **Locked:** 2026-05-08T09:49:04.784Z
+**Discord thread:** https://discord.com/channels/1057655884475531324/1501643162567966903
+**Integration PR:** _pending_
+
+### Proposal body
+> **The change**
+> 
+> Owners can call up a taxi player to the active roster temporarily — up to **3 weeks total per player** across their taxi-eligible window (their first 3 years in the league). After that, the call-up becomes permanent. All standard taxi eligibility rules still apply.
+> 
+> **How it works**
+> - Each call-up is a one-week commitment. Player counts against active roster limits **and** salary cap for that NFL week.
+> - After the week, the owner can return the player to the taxi squad.
+> - Each active week counts as **1** toward the player's 3-week limit. Weeks are cumulative across seasons — consecutive or non-consecutive both count.
+> - On the **4th week** of activation, the call-up becomes **permanent**.
+> 
+> **Why**
+> - We now have the tracking in place to manage this with minimal manual work
+> - Lets owners use taxi players in short-term roles without permanently committing
+> - Removes the current "one-week activation = permanent loss" trap
+> - Mirrors how NFL teams use practice squad elevations
+> - Introduces strategy while keeping accountability — every activation burns a finite allowance
+> 
+> **The vote**
+> - ✅ **YES** — adopt temporary call-ups with the 3-week limit per player
+> - ❌ **NO** — keep the current taxi rule (permanent call-up only)
+> - ➖ **ABSTAIN** — recorded but doesn't decide
+> 
+> *Behind the scenes: every owner's call-up usage will be tracked and visible so eligibility is auditable.*
+
+### Sections affected
+_To be filled in by the commissioner during PR review (see PR description for the impact-analysis checklist)._
+
+### Before → After
+_To be filled in by the commissioner during PR review._
+
+---
+
 <!-- No entries yet. The first entry will be added when the rule integrator
      runs against a passed rule (manually triggered for taxi-squad and
      salary-depreciation, then automatic for future passes). -->
