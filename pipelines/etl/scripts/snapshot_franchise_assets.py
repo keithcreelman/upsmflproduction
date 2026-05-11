@@ -185,6 +185,11 @@ def main() -> int:
             pid = str(p.get("id"))
             info = player_idx.get(pid, {})
             display = info.get("name") or f"Player #{pid}"
+            # Taxi flag — universal site convention. Surfaced wherever the
+            # player is rendered (My Team, trade modal, profile card, etc.).
+            roster_status = str(p.get("status") or p.get("rosterStatus") or "").upper()
+            contract_status = p.get("contractStatus") or ""
+            is_taxi = ("TAXI" in roster_status) or (str(contract_status).upper() == "TAXI")
             players.append({
                 "asset_id": f"P_{pid}",
                 "display": display,
@@ -193,9 +198,14 @@ def main() -> int:
                 "nfl_team": info.get("team") or "",
                 "salary": int(float(p.get("salary") or 0)),
                 "contract_year": int(p.get("contractYear") or 0),
-                "contract_status": p.get("contractStatus") or "",
+                "contract_status": contract_status,
+                "roster_status": roster_status,
+                "taxi": is_taxi,
             })
-        players.sort(key=lambda p: (-(p["salary"] or 0), p["display"]))
+        # Sort: non-taxi first by salary desc, then taxi at the bottom (also
+        # by salary desc within group). Keeps cap-relevant guys at the top
+        # while taxi stay visible without dominating the active list.
+        players.sort(key=lambda p: (1 if p["taxi"] else 0, -(p["salary"] or 0), p["display"]))
 
         # Future picks — display "via <Team Name> · <Owner>" when traded.
         future_picks = []

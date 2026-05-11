@@ -26,6 +26,32 @@ logic is doing without digging into code).
 
 ---
 
+## v1.7.27 — 2026-05-11 — Taxi pill + salary universal across My Team + Profile card
+
+Per Keith: the universal taxi rule from v1.7.26 (trade modal) now applies
+everywhere a player is rendered.
+
+**My Team panel:**
+- Per-player row: TAXI badge next to player name, salary always shown
+  (yellow-tinted on taxi rows so it reads as "real money but separate
+  category").
+- Per-position bucket header: `Active cap $X + $Y taxi` callout when the
+  bucket has taxi players.
+- Roster summary: `Roster · N players · $X cap + $Y taxi (N)` so the
+  cap-relevant payroll is the lead number with taxi as a parenthetical.
+
+**Player profile card:**
+- Contract card surfaces TAXI badge when the contract data carries the
+  flag (or roster/contract status contains "TAXI").
+
+**Snapshot script:**
+- `snapshot_franchise_assets.py` now emits `taxi: bool` + `roster_status`
+  on each player. Sorts non-taxi first within each franchise. Future
+  regenerations of `franchise_assets_2026.json` will include taxi data
+  automatically — no script changes needed elsewhere.
+
+---
+
 ## v1.7.26 — 2026-05-11 — Mobile polish round 1 (5 fixes from first phone test)
 
 1. **Tabs back at the top.** Bottom nav was removed (DOM kept, hidden via

@@ -2052,7 +2052,7 @@
         <div class="upm-salary-card"><span class="lbl">Years Remaining</span><span class="val">${currentContract.contract_length ? currentContract.contract_length - (currentContract.contract_year || 1) + 1 : "—"}</span></div>
         <div class="upm-salary-card"><span class="lbl">AAV</span><span class="val">${currentContract.aav ? "$" + Number(currentContract.aav).toLocaleString() : "—"}</span></div>
         <div class="upm-salary-card"><span class="lbl">TCV</span><span class="val">${currentContract.tcv ? "$" + Number(currentContract.tcv).toLocaleString() : "—"}</span></div>
-        <div class="upm-salary-card"><span class="lbl">Contract</span><span class="val" style="font-size:13px;">${escapeHtml(currentContract.contract_status || (currentContract.extension_flag ? "Extended" : "Active"))}</span></div>
+        <div class="upm-salary-card"><span class="lbl">Contract</span><span class="val" style="font-size:13px;">${escapeHtml(currentContract.contract_status || (currentContract.extension_flag ? "Extended" : "Active"))}${(currentContract.taxi || currentContract.is_taxi || /TAXI/i.test(String(currentContract.contract_status || currentContract.roster_status || ""))) ? '<span class="taxi-pill">TAXI</span>' : ''}</span></div>
       </div>` : ""}
 
       ${(() => {
@@ -5539,7 +5539,13 @@
               && STATE.franchise_assets_snapshot.by_fid
               && STATE.franchise_assets_snapshot.by_fid[padFid];
     const rosterPlayers = (snap && snap.players) || [];
-    const totalSalary = rosterPlayers.reduce((sum, p) => sum + Number(p.salary || 0), 0);
+    // Cap math: taxi salaries are real money but DO NOT count vs the cap
+    // (UPS rule). Show both numbers so owners see total payroll AND
+    // cap-relevant payroll. Salary always rendered alongside TAXI badge.
+    const activeCapSalary = rosterPlayers.filter(p => !p.taxi).reduce((s, p) => s + Number(p.salary || 0), 0);
+    const taxiSalary = rosterPlayers.filter(p => p.taxi).reduce((s, p) => s + Number(p.salary || 0), 0);
+    const totalSalary = activeCapSalary + taxiSalary;
+    const taxiCount = rosterPlayers.filter(p => p.taxi).length;
 
     // Group roster by position group: Offense (QB/RB/WR/TE), Defense, Special.
     // Sort within each group by salary desc so the most-expensive players
@@ -5568,20 +5574,22 @@
     const rosterGroupHtml = (bucket) => {
       const players = rosterByPos[bucket] || [];
       if (!players.length) return "";
-      const totalK = players.reduce((sum, p) => sum + Number(p.salary || 0), 0);
+      // Per-bucket cap-relevant total + taxi-aside callout when applicable.
+      const capTotal = players.filter(p => !p.taxi).reduce((s, p) => s + Number(p.salary || 0), 0);
+      const bucketTaxi = players.filter(p => p.taxi).reduce((s, p) => s + Number(p.salary || 0), 0);
       const fmtK = (v) => "$" + (v / 1000).toFixed(0) + "K";
       return `
         <details class="my-team-pos-group">
           <summary>
             <span class="my-team-pos-bucket">${bucket}</span>
             <span class="my-team-pos-count">${players.length}</span>
-            <span class="my-team-pos-total">${fmtK(totalK)}</span>
+            <span class="my-team-pos-total">${fmtK(capTotal)}${bucketTaxi ? ` <span class="small" style="opacity:0.65; font-weight:400;">+ ${fmtK(bucketTaxi)} taxi</span>` : ''}</span>
             <span class="my-team-pos-caret">▾</span>
           </summary>
           <div class="my-team-pos-body">
             ${players.map(p => `
-              <div class="my-team-player-row">
-                <span class="my-team-player-name" title="${escapeHtml(p.display)}">${escapeHtml(p.display)}</span>
+              <div class="my-team-player-row${p.taxi ? ' is-taxi' : ''}">
+                <span class="my-team-player-name" title="${escapeHtml(p.display)}${p.taxi ? ' (TAXI — salary does not count vs cap)' : ''}">${escapeHtml(p.display)}${p.taxi ? '<span class="taxi-pill">TAXI</span>' : ''}</span>
                 <span class="my-team-player-meta">${escapeHtml(p.position || '')}${p.contract_year ? ' · Y' + p.contract_year : ''}</span>
                 <span class="my-team-player-sal">${fmtK(Number(p.salary || 0))}</span>
               </div>
@@ -5611,7 +5619,7 @@
       ${rosterPlayers.length ? `
         <details class="my-team-section my-team-roster-section">
           <summary class="my-team-section-summary">
-            <span class="my-team-section-head">Roster · ${rosterPlayers.length} players · $${totalSalary.toLocaleString()}</span>
+            <span class="my-team-section-head">Roster · ${rosterPlayers.length} players · $${activeCapSalary.toLocaleString()} cap${taxiCount ? ` <span class="small" style="opacity:0.7; font-weight:400;">+ $${taxiSalary.toLocaleString()} taxi (${taxiCount})</span>` : ""}</span>
             <span class="my-team-pos-caret">▾</span>
           </summary>
           <div class="my-team-roster-groups">
