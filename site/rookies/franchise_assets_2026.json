@@ -1,0 +1,3908 @@
+{
+  "meta": {
+    "generated_at_utc": "2026-05-10T17:07:23.175211+00:00",
+    "league_id": "74598",
+    "year": "2026",
+    "n_franchises": 12
+  },
+  "by_fid": {
+    "0001": {
+      "players": [
+        {
+          "asset_id": "P_15799",
+          "display": "Jake Ferguson",
+          "player_id": "15799",
+          "position": "TE",
+          "nfl_team": "DAL",
+          "salary": 21000,
+          "contract_year": 1,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_14860",
+          "display": "Jauan Jennings",
+          "player_id": "14860",
+          "position": "WR",
+          "nfl_team": "MIN",
+          "salary": 21000,
+          "contract_year": 1,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_13630",
+          "display": "Courtland Sutton",
+          "player_id": "13630",
+          "position": "WR",
+          "nfl_team": "DEN",
+          "salary": 15000,
+          "contract_year": 1,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_16582",
+          "display": "Bo Nix",
+          "player_id": "16582",
+          "position": "QB",
+          "nfl_team": "DEN",
+          "salary": 5000,
+          "contract_year": 1,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_16164",
+          "display": "Tank Bigsby",
+          "player_id": "16164",
+          "position": "RB",
+          "nfl_team": "PHI",
+          "salary": 5000,
+          "contract_year": 0,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_16169",
+          "display": "Zach Charbonnet",
+          "player_id": "16169",
+          "position": "RB",
+          "nfl_team": "SEA",
+          "salary": 5000,
+          "contract_year": 0,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_15768",
+          "display": "Alec Pierce",
+          "player_id": "15768",
+          "position": "WR",
+          "nfl_team": "IND",
+          "salary": 2000,
+          "contract_year": 1,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_16414",
+          "display": "Brandon Aubrey",
+          "player_id": "16414",
+          "position": "PK",
+          "nfl_team": "DAL",
+          "salary": 2000,
+          "contract_year": 1,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_16181",
+          "display": "Chase Brown",
+          "player_id": "16181",
+          "position": "RB",
+          "nfl_team": "CIN",
+          "salary": 2000,
+          "contract_year": 0,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_16244",
+          "display": "Brian Branch",
+          "player_id": "16244",
+          "position": "S",
+          "nfl_team": "DET",
+          "salary": 1000,
+          "contract_year": 0,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_12610",
+          "display": "Carson Wentz",
+          "player_id": "12610",
+          "position": "QB",
+          "nfl_team": "MIN",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_14871",
+          "display": "Colby Parkinson",
+          "player_id": "14871",
+          "position": "TE",
+          "nfl_team": "LAR",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "MYM - Vet"
+        },
+        {
+          "asset_id": "P_13806",
+          "display": "DeShon Elliott",
+          "player_id": "13806",
+          "position": "S",
+          "nfl_team": "PIT",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_16630",
+          "display": "Isaiah Williams",
+          "player_id": "16630",
+          "position": "WR",
+          "nfl_team": "NYJ",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_17144",
+          "display": "Nick Emmanwori",
+          "player_id": "17144",
+          "position": "S",
+          "nfl_team": "SEA",
+          "salary": 1000,
+          "contract_year": 2,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_16626",
+          "display": "Adonai Mitchell",
+          "player_id": "16626",
+          "position": "WR",
+          "nfl_team": "NYJ",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        },
+        {
+          "asset_id": "P_16596",
+          "display": "Braelon Allen",
+          "player_id": "16596",
+          "position": "RB",
+          "nfl_team": "NYJ",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        },
+        {
+          "asset_id": "P_16650",
+          "display": "Dallas Turner",
+          "player_id": "16650",
+          "position": "DE",
+          "nfl_team": "MIN",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        },
+        {
+          "asset_id": "P_17047",
+          "display": "Dylan Sampson",
+          "player_id": "17047",
+          "position": "RB",
+          "nfl_team": "CLE",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        },
+        {
+          "asset_id": "P_16651",
+          "display": "Laiatu Latu",
+          "player_id": "16651",
+          "position": "DE",
+          "nfl_team": "IND",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        },
+        {
+          "asset_id": "P_16212",
+          "display": "Michael Mayer",
+          "player_id": "16212",
+          "position": "TE",
+          "nfl_team": "LVR",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        },
+        {
+          "asset_id": "P_17120",
+          "display": "Mike Green",
+          "player_id": "17120",
+          "position": "DE",
+          "nfl_team": "BAL",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        },
+        {
+          "asset_id": "P_17031",
+          "display": "Shedeur Sanders",
+          "player_id": "17031",
+          "position": "QB",
+          "nfl_team": "CLE",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        }
+      ],
+      "future_picks": [
+        {
+          "asset_id": "FP_2027_1_0001",
+          "display": "2027 R1",
+          "year": "2027",
+          "round": "1",
+          "original_fid": "0001",
+          "original_team_name": "L.A. Looks",
+          "original_owner_name": "Ryan Bousquet"
+        },
+        {
+          "asset_id": "FP_2027_2_0001",
+          "display": "2027 R2",
+          "year": "2027",
+          "round": "2",
+          "original_fid": "0001",
+          "original_team_name": "L.A. Looks",
+          "original_owner_name": "Ryan Bousquet"
+        },
+        {
+          "asset_id": "FP_2027_2_0005",
+          "display": "2027 R2  (via HammerTime \ud83d\udd28 \u23f0 \u00b7 Eric Martel)",
+          "year": "2027",
+          "round": "2",
+          "original_fid": "0005",
+          "original_team_name": "HammerTime \ud83d\udd28 \u23f0",
+          "original_owner_name": "Eric Martel"
+        },
+        {
+          "asset_id": "FP_2027_3_0001",
+          "display": "2027 R3",
+          "year": "2027",
+          "round": "3",
+          "original_fid": "0001",
+          "original_team_name": "L.A. Looks",
+          "original_owner_name": "Ryan Bousquet"
+        },
+        {
+          "asset_id": "FP_2027_4_0001",
+          "display": "2027 R4",
+          "year": "2027",
+          "round": "4",
+          "original_fid": "0001",
+          "original_team_name": "L.A. Looks",
+          "original_owner_name": "Ryan Bousquet"
+        },
+        {
+          "asset_id": "FP_2027_5_0001",
+          "display": "2027 R5",
+          "year": "2027",
+          "round": "5",
+          "original_fid": "0001",
+          "original_team_name": "L.A. Looks",
+          "original_owner_name": "Ryan Bousquet"
+        }
+      ],
+      "current_picks": [
+        {
+          "asset_id": "DP_2026_03_08",
+          "display": "2026 03.08",
+          "round": "03",
+          "slot": "08"
+        },
+        {
+          "asset_id": "DP_2026_03_10",
+          "display": "2026 03.10",
+          "round": "03",
+          "slot": "10"
+        },
+        {
+          "asset_id": "DP_2026_05_03",
+          "display": "2026 05.03",
+          "round": "05",
+          "slot": "03"
+        },
+        {
+          "asset_id": "DP_2026_05_06",
+          "display": "2026 05.06",
+          "round": "05",
+          "slot": "06"
+        },
+        {
+          "asset_id": "DP_2026_06_08",
+          "display": "2026 06.08",
+          "round": "06",
+          "slot": "08"
+        }
+      ]
+    },
+    "0002": {
+      "players": [
+        {
+          "asset_id": "P_15290",
+          "display": "Nico Collins",
+          "player_id": "15290",
+          "position": "WR",
+          "nfl_team": "HOU",
+          "salary": 47000,
+          "contract_year": 2,
+          "contract_status": "BL"
+        },
+        {
+          "asset_id": "P_15753",
+          "display": "Garrett Wilson",
+          "player_id": "15753",
+          "position": "WR",
+          "nfl_team": "NYJ",
+          "salary": 44000,
+          "contract_year": 1,
+          "contract_status": "BL"
+        },
+        {
+          "asset_id": "P_14782",
+          "display": "Jordan Love",
+          "player_id": "14782",
+          "position": "QB",
+          "nfl_team": "GBP",
+          "salary": 21000,
+          "contract_year": 1,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_14867",
+          "display": "Cole Kmet",
+          "player_id": "14867",
+          "position": "TE",
+          "nfl_team": "CHI",
+          "salary": 6000,
+          "contract_year": 1,
+          "contract_status": "FL"
+        },
+        {
+          "asset_id": "P_17081",
+          "display": "Emeka Egbuka",
+          "player_id": "17081",
+          "position": "WR",
+          "nfl_team": "TBB",
+          "salary": 5000,
+          "contract_year": 2,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_16622",
+          "display": "Ricky Pearsall",
+          "player_id": "16622",
+          "position": "WR",
+          "nfl_team": "SFO",
+          "salary": 5000,
+          "contract_year": 1,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_16586",
+          "display": "Spencer Rattler",
+          "player_id": "16586",
+          "position": "QB",
+          "nfl_team": "NOS",
+          "salary": 2000,
+          "contract_year": 1,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_16653",
+          "display": "Jared Verse",
+          "player_id": "16653",
+          "position": "DE",
+          "nfl_team": "LAR",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_16178",
+          "display": "Keaton Mitchell",
+          "player_id": "16178",
+          "position": "RB",
+          "nfl_team": "LAC",
+          "salary": 1000,
+          "contract_year": 2,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_16196",
+          "display": "A.T. Perry",
+          "player_id": "16196",
+          "position": "WR",
+          "nfl_team": "PIT",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        },
+        {
+          "asset_id": "P_17037",
+          "display": "Dillon Gabriel",
+          "player_id": "17037",
+          "position": "QB",
+          "nfl_team": "CLE",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        },
+        {
+          "asset_id": "P_16629",
+          "display": "Roman Wilson",
+          "player_id": "16629",
+          "position": "WR",
+          "nfl_team": "PIT",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        },
+        {
+          "asset_id": "P_17039",
+          "display": "Tyler Shough",
+          "player_id": "17039",
+          "position": "QB",
+          "nfl_team": "NOS",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        },
+        {
+          "asset_id": "P_17036",
+          "display": "Will Howard",
+          "player_id": "17036",
+          "position": "QB",
+          "nfl_team": "PIT",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        }
+      ],
+      "future_picks": [
+        {
+          "asset_id": "FP_2027_1_0002",
+          "display": "2027 R1",
+          "year": "2027",
+          "round": "1",
+          "original_fid": "0002",
+          "original_team_name": "CBP",
+          "original_owner_name": "Derrick Whitman"
+        },
+        {
+          "asset_id": "FP_2027_2_0002",
+          "display": "2027 R2",
+          "year": "2027",
+          "round": "2",
+          "original_fid": "0002",
+          "original_team_name": "CBP",
+          "original_owner_name": "Derrick Whitman"
+        },
+        {
+          "asset_id": "FP_2027_3_0002",
+          "display": "2027 R3",
+          "year": "2027",
+          "round": "3",
+          "original_fid": "0002",
+          "original_team_name": "CBP",
+          "original_owner_name": "Derrick Whitman"
+        },
+        {
+          "asset_id": "FP_2027_4_0002",
+          "display": "2027 R4",
+          "year": "2027",
+          "round": "4",
+          "original_fid": "0002",
+          "original_team_name": "CBP",
+          "original_owner_name": "Derrick Whitman"
+        },
+        {
+          "asset_id": "FP_2027_5_0002",
+          "display": "2027 R5",
+          "year": "2027",
+          "round": "5",
+          "original_fid": "0002",
+          "original_team_name": "CBP",
+          "original_owner_name": "Derrick Whitman"
+        }
+      ],
+      "current_picks": [
+        {
+          "asset_id": "DP_2026_01_08",
+          "display": "2026 01.08",
+          "round": "01",
+          "slot": "08"
+        },
+        {
+          "asset_id": "DP_2026_01_12",
+          "display": "2026 01.12",
+          "round": "01",
+          "slot": "12"
+        },
+        {
+          "asset_id": "DP_2026_02_01",
+          "display": "2026 02.01",
+          "round": "02",
+          "slot": "01"
+        },
+        {
+          "asset_id": "DP_2026_02_08",
+          "display": "2026 02.08",
+          "round": "02",
+          "slot": "08"
+        },
+        {
+          "asset_id": "DP_2026_04_03",
+          "display": "2026 04.03",
+          "round": "04",
+          "slot": "03"
+        },
+        {
+          "asset_id": "DP_2026_06_06",
+          "display": "2026 06.06",
+          "round": "06",
+          "slot": "06"
+        }
+      ]
+    },
+    "0003": {
+      "players": [
+        {
+          "asset_id": "P_14842",
+          "display": "Michael Pittman",
+          "player_id": "14842",
+          "position": "WR",
+          "nfl_team": "PIT",
+          "salary": 45000,
+          "contract_year": 1,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_13192",
+          "display": "David Njoku",
+          "player_id": "13192",
+          "position": "TE",
+          "nfl_team": "FA",
+          "salary": 27000,
+          "contract_year": 1,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_13635",
+          "display": "D.J. Moore",
+          "player_id": "13635",
+          "position": "WR",
+          "nfl_team": "BUF",
+          "salary": 21000,
+          "contract_year": 1,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_13592",
+          "display": "Sam Darnold",
+          "player_id": "13592",
+          "position": "QB",
+          "nfl_team": "SEA",
+          "salary": 18000,
+          "contract_year": 1,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_16148",
+          "display": "Bryce Young",
+          "player_id": "16148",
+          "position": "QB",
+          "nfl_team": "CAR",
+          "salary": 13000,
+          "contract_year": 0,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_14136",
+          "display": "Deebo Samuel",
+          "player_id": "14136",
+          "position": "WR",
+          "nfl_team": "WAS",
+          "salary": 8000,
+          "contract_year": 2,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_17045",
+          "display": "Cam Skattebo",
+          "player_id": "17045",
+          "position": "RB",
+          "nfl_team": "NYG",
+          "salary": 5000,
+          "contract_year": 2,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_16171",
+          "display": "Kendre Miller",
+          "player_id": "16171",
+          "position": "RB",
+          "nfl_team": "NOS",
+          "salary": 5000,
+          "contract_year": 0,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_16165",
+          "display": "Tyjae Spears",
+          "player_id": "16165",
+          "position": "RB",
+          "nfl_team": "TEN",
+          "salary": 5000,
+          "contract_year": 0,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_16174",
+          "display": "Chris Rodriguez",
+          "player_id": "16174",
+          "position": "RB",
+          "nfl_team": "JAC",
+          "salary": 2000,
+          "contract_year": 0,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_17046",
+          "display": "Devin Neal",
+          "player_id": "17046",
+          "position": "RB",
+          "nfl_team": "NOS",
+          "salary": 2000,
+          "contract_year": 2,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_16757",
+          "display": "Kimani Vidal",
+          "player_id": "16757",
+          "position": "RB",
+          "nfl_team": "LAC",
+          "salary": 2000,
+          "contract_year": 1,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_16809",
+          "display": "Jalen Coker",
+          "player_id": "16809",
+          "position": "WR",
+          "nfl_team": "CAR",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_16623",
+          "display": "Brenden Rice",
+          "player_id": "16623",
+          "position": "WR",
+          "nfl_team": "LVR",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        },
+        {
+          "asset_id": "P_17060",
+          "display": "DJ Giddens",
+          "player_id": "17060",
+          "position": "RB",
+          "nfl_team": "IND",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        },
+        {
+          "asset_id": "P_17078",
+          "display": "Jack Bech",
+          "player_id": "17078",
+          "position": "WR",
+          "nfl_team": "LVR",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        },
+        {
+          "asset_id": "P_17066",
+          "display": "Kyle Monangai",
+          "player_id": "17066",
+          "position": "RB",
+          "nfl_team": "CHI",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        },
+        {
+          "asset_id": "P_17121",
+          "display": "Mason Graham",
+          "player_id": "17121",
+          "position": "DT",
+          "nfl_team": "CLE",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        },
+        {
+          "asset_id": "P_16716",
+          "display": "Payton Wilson",
+          "player_id": "16716",
+          "position": "LB",
+          "nfl_team": "PIT",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        },
+        {
+          "asset_id": "P_17056",
+          "display": "Trevor Etienne",
+          "player_id": "17056",
+          "position": "RB",
+          "nfl_team": "CAR",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        }
+      ],
+      "future_picks": [
+        {
+          "asset_id": "FP_2027_1_0003",
+          "display": "2027 R1",
+          "year": "2027",
+          "round": "1",
+          "original_fid": "0003",
+          "original_team_name": "Gride",
+          "original_owner_name": "Matt Gerardi"
+        },
+        {
+          "asset_id": "FP_2027_2_0003",
+          "display": "2027 R2",
+          "year": "2027",
+          "round": "2",
+          "original_fid": "0003",
+          "original_team_name": "Gride",
+          "original_owner_name": "Matt Gerardi"
+        },
+        {
+          "asset_id": "FP_2027_3_0003",
+          "display": "2027 R3",
+          "year": "2027",
+          "round": "3",
+          "original_fid": "0003",
+          "original_team_name": "Gride",
+          "original_owner_name": "Matt Gerardi"
+        },
+        {
+          "asset_id": "FP_2027_4_0003",
+          "display": "2027 R4",
+          "year": "2027",
+          "round": "4",
+          "original_fid": "0003",
+          "original_team_name": "Gride",
+          "original_owner_name": "Matt Gerardi"
+        },
+        {
+          "asset_id": "FP_2027_5_0003",
+          "display": "2027 R5",
+          "year": "2027",
+          "round": "5",
+          "original_fid": "0003",
+          "original_team_name": "Gride",
+          "original_owner_name": "Matt Gerardi"
+        }
+      ],
+      "current_picks": [
+        {
+          "asset_id": "DP_2026_01_05",
+          "display": "2026 01.05",
+          "round": "01",
+          "slot": "05"
+        },
+        {
+          "asset_id": "DP_2026_01_07",
+          "display": "2026 01.07",
+          "round": "01",
+          "slot": "07"
+        },
+        {
+          "asset_id": "DP_2026_01_11",
+          "display": "2026 01.11",
+          "round": "01",
+          "slot": "11"
+        },
+        {
+          "asset_id": "DP_2026_02_05",
+          "display": "2026 02.05",
+          "round": "02",
+          "slot": "05"
+        },
+        {
+          "asset_id": "DP_2026_02_10",
+          "display": "2026 02.10",
+          "round": "02",
+          "slot": "10"
+        },
+        {
+          "asset_id": "DP_2026_05_09",
+          "display": "2026 05.09",
+          "round": "05",
+          "slot": "09"
+        },
+        {
+          "asset_id": "DP_2026_06_05",
+          "display": "2026 06.05",
+          "round": "06",
+          "slot": "05"
+        }
+      ]
+    },
+    "0004": {
+      "players": [
+        {
+          "asset_id": "P_14836",
+          "display": "Justin Jefferson",
+          "player_id": "14836",
+          "position": "WR",
+          "nfl_team": "MIN",
+          "salary": 71000,
+          "contract_year": 1,
+          "contract_status": "BL"
+        },
+        {
+          "asset_id": "P_16162",
+          "display": "Jahmyr Gibbs",
+          "player_id": "16162",
+          "position": "RB",
+          "nfl_team": "DET",
+          "salary": 31000,
+          "contract_year": 2,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_13590",
+          "display": "Baker Mayfield",
+          "player_id": "13590",
+          "position": "QB",
+          "nfl_team": "TBB",
+          "salary": 26000,
+          "contract_year": 1,
+          "contract_status": "FL"
+        },
+        {
+          "asset_id": "P_16190",
+          "display": "Zay Flowers",
+          "player_id": "16190",
+          "position": "WR",
+          "nfl_team": "BAL",
+          "salary": 25000,
+          "contract_year": 2,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_11675",
+          "display": "Davante Adams",
+          "player_id": "11675",
+          "position": "WR",
+          "nfl_team": "LAR",
+          "salary": 20000,
+          "contract_year": 1,
+          "contract_status": "FL"
+        },
+        {
+          "asset_id": "P_17042",
+          "display": "Ashton Jeanty",
+          "player_id": "17042",
+          "position": "RB",
+          "nfl_team": "LVR",
+          "salary": 15000,
+          "contract_year": 2,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_15754",
+          "display": "Chris Olave",
+          "player_id": "15754",
+          "position": "WR",
+          "nfl_team": "NOS",
+          "salary": 11000,
+          "contract_year": 1,
+          "contract_status": "FL"
+        },
+        {
+          "asset_id": "P_16580",
+          "display": "Drake Maye",
+          "player_id": "16580",
+          "position": "QB",
+          "nfl_team": "NEP",
+          "salary": 8000,
+          "contract_year": 1,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_16618",
+          "display": "Brian Thomas Jr.",
+          "player_id": "16618",
+          "position": "WR",
+          "nfl_team": "JAC",
+          "salary": 5000,
+          "contract_year": 1,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_14147",
+          "display": "Nick Bosa",
+          "player_id": "14147",
+          "position": "DE",
+          "nfl_team": "SFO",
+          "salary": 5000,
+          "contract_year": 1,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_13772",
+          "display": "Dalton Schultz",
+          "player_id": "13772",
+          "position": "TE",
+          "nfl_team": "HOU",
+          "salary": 4000,
+          "contract_year": 1,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_16708",
+          "display": "Tykee Smith",
+          "player_id": "16708",
+          "position": "S",
+          "nfl_team": "TBB",
+          "salary": 4000,
+          "contract_year": 1,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_16598",
+          "display": "Bucky Irving",
+          "player_id": "16598",
+          "position": "RB",
+          "nfl_team": "TBB",
+          "salary": 2000,
+          "contract_year": 1,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_11247",
+          "display": "Zach Ertz",
+          "player_id": "11247",
+          "position": "TE",
+          "nfl_team": "WAS",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "MYM - Vet"
+        },
+        {
+          "asset_id": "P_16216",
+          "display": "Darnell Washington",
+          "player_id": "16216",
+          "position": "TE",
+          "nfl_team": "PIT",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        },
+        {
+          "asset_id": "P_17087",
+          "display": "Dont'e Thornton",
+          "player_id": "17087",
+          "position": "WR",
+          "nfl_team": "LVR",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        },
+        {
+          "asset_id": "P_16645",
+          "display": "Erick All",
+          "player_id": "16645",
+          "position": "TE",
+          "nfl_team": "CIN",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        },
+        {
+          "asset_id": "P_17119",
+          "display": "Nic Scourton",
+          "player_id": "17119",
+          "position": "DE",
+          "nfl_team": "CAR",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        },
+        {
+          "asset_id": "P_16263",
+          "display": "Quan Martin",
+          "player_id": "16263",
+          "position": "S",
+          "nfl_team": "WAS",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        },
+        {
+          "asset_id": "P_17096",
+          "display": "Savion Williams",
+          "player_id": "17096",
+          "position": "WR",
+          "nfl_team": "GBP",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        },
+        {
+          "asset_id": "P_16153",
+          "display": "Stetson Bennett",
+          "player_id": "16153",
+          "position": "QB",
+          "nfl_team": "LAR",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        },
+        {
+          "asset_id": "P_17098",
+          "display": "Tory Horton",
+          "player_id": "17098",
+          "position": "WR",
+          "nfl_team": "SEA",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        },
+        {
+          "asset_id": "P_16704",
+          "display": "Trevin Wallace",
+          "player_id": "16704",
+          "position": "LB",
+          "nfl_team": "CAR",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        },
+        {
+          "asset_id": "P_16639",
+          "display": "Xavier Legette",
+          "player_id": "16639",
+          "position": "WR",
+          "nfl_team": "CAR",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        }
+      ],
+      "future_picks": [
+        {
+          "asset_id": "FP_2027_1_0004",
+          "display": "2027 R1",
+          "year": "2027",
+          "round": "1",
+          "original_fid": "0004",
+          "original_team_name": "Pure Greatness",
+          "original_owner_name": "Brian Cutting"
+        },
+        {
+          "asset_id": "FP_2027_2_0004",
+          "display": "2027 R2",
+          "year": "2027",
+          "round": "2",
+          "original_fid": "0004",
+          "original_team_name": "Pure Greatness",
+          "original_owner_name": "Brian Cutting"
+        },
+        {
+          "asset_id": "FP_2027_3_0004",
+          "display": "2027 R3",
+          "year": "2027",
+          "round": "3",
+          "original_fid": "0004",
+          "original_team_name": "Pure Greatness",
+          "original_owner_name": "Brian Cutting"
+        },
+        {
+          "asset_id": "FP_2027_3_0006",
+          "display": "2027 R3  (via The Long Haulers \u00b7 Brian Cross)",
+          "year": "2027",
+          "round": "3",
+          "original_fid": "0006",
+          "original_team_name": "The Long Haulers",
+          "original_owner_name": "Brian Cross"
+        },
+        {
+          "asset_id": "FP_2027_4_0004",
+          "display": "2027 R4",
+          "year": "2027",
+          "round": "4",
+          "original_fid": "0004",
+          "original_team_name": "Pure Greatness",
+          "original_owner_name": "Brian Cutting"
+        },
+        {
+          "asset_id": "FP_2027_5_0004",
+          "display": "2027 R5",
+          "year": "2027",
+          "round": "5",
+          "original_fid": "0004",
+          "original_team_name": "Pure Greatness",
+          "original_owner_name": "Brian Cutting"
+        }
+      ],
+      "current_picks": [
+        {
+          "asset_id": "DP_2026_02_06",
+          "display": "2026 02.06",
+          "round": "02",
+          "slot": "06"
+        },
+        {
+          "asset_id": "DP_2026_02_12",
+          "display": "2026 02.12",
+          "round": "02",
+          "slot": "12"
+        },
+        {
+          "asset_id": "DP_2026_04_06",
+          "display": "2026 04.06",
+          "round": "04",
+          "slot": "06"
+        },
+        {
+          "asset_id": "DP_2026_04_12",
+          "display": "2026 04.12",
+          "round": "04",
+          "slot": "12"
+        },
+        {
+          "asset_id": "DP_2026_05_02",
+          "display": "2026 05.02",
+          "round": "05",
+          "slot": "02"
+        },
+        {
+          "asset_id": "DP_2026_05_04",
+          "display": "2026 05.04",
+          "round": "05",
+          "slot": "04"
+        },
+        {
+          "asset_id": "DP_2026_06_12",
+          "display": "2026 06.12",
+          "round": "06",
+          "slot": "12"
+        }
+      ]
+    },
+    "0005": {
+      "players": [
+        {
+          "asset_id": "P_15794",
+          "display": "Trey McBride",
+          "player_id": "15794",
+          "position": "TE",
+          "nfl_team": "ARI",
+          "salary": 35000,
+          "contract_year": 1,
+          "contract_status": "BL"
+        },
+        {
+          "asset_id": "P_15281",
+          "display": "Ja'Marr Chase",
+          "player_id": "15281",
+          "position": "WR",
+          "nfl_team": "CIN",
+          "salary": 26000,
+          "contract_year": 2,
+          "contract_status": "BL"
+        },
+        {
+          "asset_id": "P_16150",
+          "display": "C.J. Stroud",
+          "player_id": "16150",
+          "position": "QB",
+          "nfl_team": "HOU",
+          "salary": 22000,
+          "contract_year": 1,
+          "contract_status": "EXT1"
+        },
+        {
+          "asset_id": "P_16186",
+          "display": "Jordan Addison",
+          "player_id": "16186",
+          "position": "WR",
+          "nfl_team": "MIN",
+          "salary": 17000,
+          "contract_year": 1,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_15711",
+          "display": "Kenneth Walker III",
+          "player_id": "15711",
+          "position": "RB",
+          "nfl_team": "KCC",
+          "salary": 15000,
+          "contract_year": 2,
+          "contract_status": "BL"
+        },
+        {
+          "asset_id": "P_14071",
+          "display": "David Montgomery",
+          "player_id": "14071",
+          "position": "RB",
+          "nfl_team": "HOU",
+          "salary": 12000,
+          "contract_year": 2,
+          "contract_status": "EXT1"
+        },
+        {
+          "asset_id": "P_16152",
+          "display": "Anthony Richardson",
+          "player_id": "16152",
+          "position": "QB",
+          "nfl_team": "IND",
+          "salary": 11000,
+          "contract_year": 2,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_14138",
+          "display": "T.J. Hockenson",
+          "player_id": "14138",
+          "position": "TE",
+          "nfl_team": "MIN",
+          "salary": 11000,
+          "contract_year": 2,
+          "contract_status": "MYM - Vet"
+        },
+        {
+          "asset_id": "P_13193",
+          "display": "Jonnu Smith",
+          "player_id": "13193",
+          "position": "TE",
+          "nfl_team": "FA",
+          "salary": 6000,
+          "contract_year": 2,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_16627",
+          "display": "Ladd McConkey",
+          "player_id": "16627",
+          "position": "WR",
+          "nfl_team": "LAC",
+          "salary": 5000,
+          "contract_year": 1,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_17070",
+          "display": "Luther Burden",
+          "player_id": "17070",
+          "position": "WR",
+          "nfl_team": "CHI",
+          "salary": 5000,
+          "contract_year": 2,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_16583",
+          "display": "Michael Penix Jr.",
+          "player_id": "16583",
+          "position": "QB",
+          "nfl_team": "ATL",
+          "salary": 5000,
+          "contract_year": 1,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_15293",
+          "display": "Rashod Bateman",
+          "player_id": "15293",
+          "position": "WR",
+          "nfl_team": "BAL",
+          "salary": 5000,
+          "contract_year": 2,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_16619",
+          "display": "Troy Franklin",
+          "player_id": "16619",
+          "position": "WR",
+          "nfl_team": "DEN",
+          "salary": 5000,
+          "contract_year": 1,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_16239",
+          "display": "Jack Campbell",
+          "player_id": "16239",
+          "position": "LB",
+          "nfl_team": "DET",
+          "salary": 3000,
+          "contract_year": 1,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_17106",
+          "display": "Mason Taylor",
+          "player_id": "17106",
+          "position": "TE",
+          "nfl_team": "NYJ",
+          "salary": 2000,
+          "contract_year": 2,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_16166",
+          "display": "Sean Tucker",
+          "player_id": "16166",
+          "position": "RB",
+          "nfl_team": "TBB",
+          "salary": 2000,
+          "contract_year": 0,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_16667",
+          "display": "Cedric Gray",
+          "player_id": "16667",
+          "position": "LB",
+          "nfl_team": "TEN",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_11150",
+          "display": "Geno Smith",
+          "player_id": "11150",
+          "position": "QB",
+          "nfl_team": "NYJ",
+          "salary": 1000,
+          "contract_year": 2,
+          "contract_status": "BL"
+        },
+        {
+          "asset_id": "P_16686",
+          "display": "Ainias Smith",
+          "player_id": "16686",
+          "position": "WR",
+          "nfl_team": "CAR",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        },
+        {
+          "asset_id": "P_16644",
+          "display": "Ben Sinnott",
+          "player_id": "16644",
+          "position": "TE",
+          "nfl_team": "WAS",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        },
+        {
+          "asset_id": "P_16689",
+          "display": "Byron Murphy",
+          "player_id": "16689",
+          "position": "DT",
+          "nfl_team": "SEA",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        },
+        {
+          "asset_id": "P_16642",
+          "display": "Cade Stover",
+          "player_id": "16642",
+          "position": "TE",
+          "nfl_team": "HOU",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        },
+        {
+          "asset_id": "P_16613",
+          "display": "Dylan Laube",
+          "player_id": "16613",
+          "position": "RB",
+          "nfl_team": "LVR",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        },
+        {
+          "asset_id": "P_17122",
+          "display": "Jalon Walker",
+          "player_id": "17122",
+          "position": "DE",
+          "nfl_team": "ATL",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        },
+        {
+          "asset_id": "P_16226",
+          "display": "Tyree Wilson",
+          "player_id": "16226",
+          "position": "DE",
+          "nfl_team": "NOS",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        }
+      ],
+      "future_picks": [
+        {
+          "asset_id": "FP_2027_1_0006",
+          "display": "2027 R1  (via The Long Haulers \u00b7 Brian Cross)",
+          "year": "2027",
+          "round": "1",
+          "original_fid": "0006",
+          "original_team_name": "The Long Haulers",
+          "original_owner_name": "Brian Cross"
+        },
+        {
+          "asset_id": "FP_2027_2_0006",
+          "display": "2027 R2  (via The Long Haulers \u00b7 Brian Cross)",
+          "year": "2027",
+          "round": "2",
+          "original_fid": "0006",
+          "original_team_name": "The Long Haulers",
+          "original_owner_name": "Brian Cross"
+        },
+        {
+          "asset_id": "FP_2027_3_0005",
+          "display": "2027 R3",
+          "year": "2027",
+          "round": "3",
+          "original_fid": "0005",
+          "original_team_name": "HammerTime \ud83d\udd28 \u23f0",
+          "original_owner_name": "Eric Martel"
+        },
+        {
+          "asset_id": "FP_2027_4_0005",
+          "display": "2027 R4",
+          "year": "2027",
+          "round": "4",
+          "original_fid": "0005",
+          "original_team_name": "HammerTime \ud83d\udd28 \u23f0",
+          "original_owner_name": "Eric Martel"
+        },
+        {
+          "asset_id": "FP_2027_5_0005",
+          "display": "2027 R5",
+          "year": "2027",
+          "round": "5",
+          "original_fid": "0005",
+          "original_team_name": "HammerTime \ud83d\udd28 \u23f0",
+          "original_owner_name": "Eric Martel"
+        }
+      ],
+      "current_picks": [
+        {
+          "asset_id": "DP_2026_04_01",
+          "display": "2026 04.01",
+          "round": "04",
+          "slot": "01"
+        },
+        {
+          "asset_id": "DP_2026_04_08",
+          "display": "2026 04.08",
+          "round": "04",
+          "slot": "08"
+        },
+        {
+          "asset_id": "DP_2026_05_01",
+          "display": "2026 05.01",
+          "round": "05",
+          "slot": "01"
+        },
+        {
+          "asset_id": "DP_2026_05_11",
+          "display": "2026 05.11",
+          "round": "05",
+          "slot": "11"
+        },
+        {
+          "asset_id": "DP_2026_06_10",
+          "display": "2026 06.10",
+          "round": "06",
+          "slot": "10"
+        }
+      ]
+    },
+    "0006": {
+      "players": [
+        {
+          "asset_id": "P_14783",
+          "display": "Jalen Hurts",
+          "player_id": "14783",
+          "position": "QB",
+          "nfl_team": "PHI",
+          "salary": 67000,
+          "contract_year": 1,
+          "contract_status": "BL"
+        },
+        {
+          "asset_id": "P_14104",
+          "display": "A.J. Brown",
+          "player_id": "14104",
+          "position": "WR",
+          "nfl_team": "PHI",
+          "salary": 56000,
+          "contract_year": 1,
+          "contract_status": "BL"
+        },
+        {
+          "asset_id": "P_12626",
+          "display": "Derrick Henry",
+          "player_id": "12626",
+          "position": "RB",
+          "nfl_team": "BAL",
+          "salary": 44000,
+          "contract_year": 1,
+          "contract_status": "BL"
+        },
+        {
+          "asset_id": "P_15237",
+          "display": "Trevor Lawrence",
+          "player_id": "15237",
+          "position": "QB",
+          "nfl_team": "JAC",
+          "salary": 37000,
+          "contract_year": 1,
+          "contract_status": "TAG"
+        },
+        {
+          "asset_id": "P_16188",
+          "display": "Quentin Johnston",
+          "player_id": "16188",
+          "position": "WR",
+          "nfl_team": "LAC",
+          "salary": 18000,
+          "contract_year": 1,
+          "contract_status": "EXT1"
+        },
+        {
+          "asset_id": "P_15972",
+          "display": "Jordan Mason",
+          "player_id": "15972",
+          "position": "RB",
+          "nfl_team": "MIN",
+          "salary": 14000,
+          "contract_year": 2,
+          "contract_status": "FL"
+        },
+        {
+          "asset_id": "P_16187",
+          "display": "Josh Downs",
+          "player_id": "16187",
+          "position": "WR",
+          "nfl_team": "IND",
+          "salary": 12000,
+          "contract_year": 1,
+          "contract_status": "EXT1"
+        },
+        {
+          "asset_id": "P_16149",
+          "display": "Will Levis",
+          "player_id": "16149",
+          "position": "QB",
+          "nfl_team": "TEN",
+          "salary": 6000,
+          "contract_year": 0,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_15802",
+          "display": "Cade Otton",
+          "player_id": "15802",
+          "position": "TE",
+          "nfl_team": "TBB",
+          "salary": 5000,
+          "contract_year": 2,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_17076",
+          "display": "Isaiah Bond",
+          "player_id": "17076",
+          "position": "WR",
+          "nfl_team": "CLE",
+          "salary": 5000,
+          "contract_year": 2,
+          "contract_status": "BL"
+        },
+        {
+          "asset_id": "P_16649",
+          "display": "Theo Johnson",
+          "player_id": "16649",
+          "position": "TE",
+          "nfl_team": "NYG",
+          "salary": 5000,
+          "contract_year": 1,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_17102",
+          "display": "Tyler Warren",
+          "player_id": "17102",
+          "position": "TE",
+          "nfl_team": "IND",
+          "salary": 5000,
+          "contract_year": 2,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_16175",
+          "display": "Roschon Johnson",
+          "player_id": "16175",
+          "position": "RB",
+          "nfl_team": "CHI",
+          "salary": 4000,
+          "contract_year": 2,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_16241",
+          "display": "Devon Witherspoon",
+          "player_id": "16241",
+          "position": "CB",
+          "nfl_team": "SEA",
+          "salary": 2000,
+          "contract_year": 0,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_17053",
+          "display": "Woody Marks",
+          "player_id": "17053",
+          "position": "RB",
+          "nfl_team": "HOU",
+          "salary": 2000,
+          "contract_year": 2,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_15418",
+          "display": "Camryn Bynum",
+          "player_id": "15418",
+          "position": "S",
+          "nfl_team": "IND",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_16195",
+          "display": "Dontayvion Wicks",
+          "player_id": "16195",
+          "position": "WR",
+          "nfl_team": "PHI",
+          "salary": 1000,
+          "contract_year": 2,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_15484",
+          "display": "Jonathon Cooper",
+          "player_id": "15484",
+          "position": "DE",
+          "nfl_team": "DEN",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_17205",
+          "display": "KeAndre Lambert-Smith",
+          "player_id": "17205",
+          "position": "WR",
+          "nfl_team": "LAC",
+          "salary": 1000,
+          "contract_year": 2,
+          "contract_status": "MYM - Rookie"
+        },
+        {
+          "asset_id": "P_17254",
+          "display": "Konata Mumpfield",
+          "player_id": "17254",
+          "position": "WR",
+          "nfl_team": "LAR",
+          "salary": 1000,
+          "contract_year": 2,
+          "contract_status": "MYM - Rookie"
+        },
+        {
+          "asset_id": "P_16287",
+          "display": "Tre Tucker",
+          "player_id": "16287",
+          "position": "WR",
+          "nfl_team": "LVR",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_17049",
+          "display": "Brashard Smith",
+          "player_id": "17049",
+          "position": "RB",
+          "nfl_team": "KCC",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        },
+        {
+          "asset_id": "P_17069",
+          "display": "Jaydon Blue",
+          "player_id": "17069",
+          "position": "RB",
+          "nfl_team": "DAL",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        },
+        {
+          "asset_id": "P_16635",
+          "display": "Luke McCaffrey",
+          "player_id": "16635",
+          "position": "WR",
+          "nfl_team": "WAS",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        },
+        {
+          "asset_id": "P_16684",
+          "display": "Malik Washington",
+          "player_id": "16684",
+          "position": "WR",
+          "nfl_team": "MIA",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        },
+        {
+          "asset_id": "P_17059",
+          "display": "Ollie Gordon",
+          "player_id": "17059",
+          "position": "RB",
+          "nfl_team": "MIA",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        },
+        {
+          "asset_id": "P_17034",
+          "display": "Quinn Ewers",
+          "player_id": "17034",
+          "position": "QB",
+          "nfl_team": "MIA",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        },
+        {
+          "asset_id": "P_16746",
+          "display": "Rasheen Ali",
+          "player_id": "16746",
+          "position": "RB",
+          "nfl_team": "BAL",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        },
+        {
+          "asset_id": "P_17114",
+          "display": "Shemar Stewart",
+          "player_id": "17114",
+          "position": "DE",
+          "nfl_team": "CIN",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        },
+        {
+          "asset_id": "P_17077",
+          "display": "Xavier Restrepo",
+          "player_id": "17077",
+          "position": "WR",
+          "nfl_team": "TEN",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        }
+      ],
+      "future_picks": [
+        {
+          "asset_id": "FP_2027_4_0006",
+          "display": "2027 R4",
+          "year": "2027",
+          "round": "4",
+          "original_fid": "0006",
+          "original_team_name": "The Long Haulers",
+          "original_owner_name": "Brian Cross"
+        },
+        {
+          "asset_id": "FP_2027_5_0006",
+          "display": "2027 R5",
+          "year": "2027",
+          "round": "5",
+          "original_fid": "0006",
+          "original_team_name": "The Long Haulers",
+          "original_owner_name": "Brian Cross"
+        }
+      ],
+      "current_picks": [
+        {
+          "asset_id": "DP_2026_01_03",
+          "display": "2026 01.03",
+          "round": "01",
+          "slot": "03"
+        },
+        {
+          "asset_id": "DP_2026_02_03",
+          "display": "2026 02.03",
+          "round": "02",
+          "slot": "03"
+        },
+        {
+          "asset_id": "DP_2026_03_03",
+          "display": "2026 03.03",
+          "round": "03",
+          "slot": "03"
+        },
+        {
+          "asset_id": "DP_2026_03_11",
+          "display": "2026 03.11",
+          "round": "03",
+          "slot": "11"
+        },
+        {
+          "asset_id": "DP_2026_04_04",
+          "display": "2026 04.04",
+          "round": "04",
+          "slot": "04"
+        },
+        {
+          "asset_id": "DP_2026_04_05",
+          "display": "2026 04.05",
+          "round": "04",
+          "slot": "05"
+        },
+        {
+          "asset_id": "DP_2026_04_07",
+          "display": "2026 04.07",
+          "round": "04",
+          "slot": "07"
+        },
+        {
+          "asset_id": "DP_2026_05_07",
+          "display": "2026 05.07",
+          "round": "05",
+          "slot": "07"
+        },
+        {
+          "asset_id": "DP_2026_05_08",
+          "display": "2026 05.08",
+          "round": "05",
+          "slot": "08"
+        },
+        {
+          "asset_id": "DP_2026_06_03",
+          "display": "2026 06.03",
+          "round": "06",
+          "slot": "03"
+        }
+      ]
+    },
+    "0007": {
+      "players": [
+        {
+          "asset_id": "P_13130",
+          "display": "Christian McCaffrey",
+          "player_id": "13130",
+          "position": "RB",
+          "nfl_team": "SFO",
+          "salary": 62000,
+          "contract_year": 1,
+          "contract_status": "TAG"
+        },
+        {
+          "asset_id": "P_12801",
+          "display": "Tyreek Hill",
+          "player_id": "12801",
+          "position": "WR",
+          "nfl_team": "FA",
+          "salary": 62000,
+          "contract_year": 1,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_13299",
+          "display": "George Kittle",
+          "player_id": "13299",
+          "position": "TE",
+          "nfl_team": "SFO",
+          "salary": 29000,
+          "contract_year": 1,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_16167",
+          "display": "De'Von Achane",
+          "player_id": "16167",
+          "position": "RB",
+          "nfl_team": "MIA",
+          "salary": 25000,
+          "contract_year": 2,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_16194",
+          "display": "Rashee Rice",
+          "player_id": "16194",
+          "position": "WR",
+          "nfl_team": "KCC",
+          "salary": 25000,
+          "contract_year": 2,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_16579",
+          "display": "Caleb Williams",
+          "player_id": "16579",
+          "position": "QB",
+          "nfl_team": "CHI",
+          "salary": 15000,
+          "contract_year": 1,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_17074",
+          "display": "Travis Hunter",
+          "player_id": "17074",
+          "position": "WR",
+          "nfl_team": "JAC",
+          "salary": 14000,
+          "contract_year": 2,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_16616",
+          "display": "Rome Odunze",
+          "player_id": "16616",
+          "position": "WR",
+          "nfl_team": "CHI",
+          "salary": 10000,
+          "contract_year": 1,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_16597",
+          "display": "Jonathon Brooks",
+          "player_id": "16597",
+          "position": "RB",
+          "nfl_team": "CAR",
+          "salary": 7000,
+          "contract_year": 1,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_17103",
+          "display": "Harold Fannin",
+          "player_id": "17103",
+          "position": "TE",
+          "nfl_team": "CLE",
+          "salary": 5000,
+          "contract_year": 2,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_17134",
+          "display": "Kyle Williams",
+          "player_id": "17134",
+          "position": "WR",
+          "nfl_team": "NEP",
+          "salary": 5000,
+          "contract_year": 2,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_17099",
+          "display": "Oronde Gadsden",
+          "player_id": "17099",
+          "position": "TE",
+          "nfl_team": "LAC",
+          "salary": 4000,
+          "contract_year": 2,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_16266",
+          "display": "Tuli Tuipulotu",
+          "player_id": "16266",
+          "position": "DE",
+          "nfl_team": "LAC",
+          "salary": 4000,
+          "contract_year": 1,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_17256",
+          "display": "Jacory Croskey-Merritt",
+          "player_id": "17256",
+          "position": "RB",
+          "nfl_team": "WAS",
+          "salary": 2000,
+          "contract_year": 2,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_17058",
+          "display": "Tahj Brooks",
+          "player_id": "17058",
+          "position": "RB",
+          "nfl_team": "CIN",
+          "salary": 2000,
+          "contract_year": 2,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_17147",
+          "display": "Carson Schwesinger",
+          "player_id": "17147",
+          "position": "LB",
+          "nfl_team": "CLE",
+          "salary": 1000,
+          "contract_year": 2,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_17269",
+          "display": "Efton Chism",
+          "player_id": "17269",
+          "position": "WR",
+          "nfl_team": "NEP",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "MYM - Rookie"
+        },
+        {
+          "asset_id": "P_14179",
+          "display": "Julian Love",
+          "player_id": "14179",
+          "position": "S",
+          "nfl_team": "SEA",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "MYM - Vet"
+        },
+        {
+          "asset_id": "P_16204",
+          "display": "Tank Dell",
+          "player_id": "16204",
+          "position": "WR",
+          "nfl_team": "HOU",
+          "salary": 1000,
+          "contract_year": 2,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_15702",
+          "display": "Tanner McKee",
+          "player_id": "15702",
+          "position": "QB",
+          "nfl_team": "PHI",
+          "salary": 1000,
+          "contract_year": 2,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_16384",
+          "display": "Tyson Bagent",
+          "player_id": "16384",
+          "position": "QB",
+          "nfl_team": "CHI",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "MYM - Vet"
+        },
+        {
+          "asset_id": "P_17083",
+          "display": "Jayden Higgins",
+          "player_id": "17083",
+          "position": "WR",
+          "nfl_team": "HOU",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        },
+        {
+          "asset_id": "P_17080",
+          "display": "Jaylin Noel",
+          "player_id": "17080",
+          "position": "WR",
+          "nfl_team": "HOU",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        },
+        {
+          "asset_id": "P_16632",
+          "display": "Jermaine Burton",
+          "player_id": "16632",
+          "position": "WR",
+          "nfl_team": "FA",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        },
+        {
+          "asset_id": "P_17123",
+          "display": "Jihaad Campbell",
+          "player_id": "17123",
+          "position": "LB",
+          "nfl_team": "PHI",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        },
+        {
+          "asset_id": "P_17055",
+          "display": "Jordan James",
+          "player_id": "17055",
+          "position": "RB",
+          "nfl_team": "SFO",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        },
+        {
+          "asset_id": "P_16604",
+          "display": "MarShawn Lloyd",
+          "player_id": "16604",
+          "position": "RB",
+          "nfl_team": "GBP",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        },
+        {
+          "asset_id": "P_16601",
+          "display": "Will Shipley",
+          "player_id": "16601",
+          "position": "RB",
+          "nfl_team": "PHI",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        }
+      ],
+      "future_picks": [
+        {
+          "asset_id": "FP_2027_1_0007",
+          "display": "2027 R1",
+          "year": "2027",
+          "round": "1",
+          "original_fid": "0007",
+          "original_team_name": "Sex Manther",
+          "original_owner_name": "Josh Martel"
+        },
+        {
+          "asset_id": "FP_2027_1_0010",
+          "display": "2027 R1  (via Blake Bombers \u00b7 Shawn Blake)",
+          "year": "2027",
+          "round": "1",
+          "original_fid": "0010",
+          "original_team_name": "Blake Bombers",
+          "original_owner_name": "Shawn Blake"
+        },
+        {
+          "asset_id": "FP_2027_2_0007",
+          "display": "2027 R2",
+          "year": "2027",
+          "round": "2",
+          "original_fid": "0007",
+          "original_team_name": "Sex Manther",
+          "original_owner_name": "Josh Martel"
+        },
+        {
+          "asset_id": "FP_2027_3_0007",
+          "display": "2027 R3",
+          "year": "2027",
+          "round": "3",
+          "original_fid": "0007",
+          "original_team_name": "Sex Manther",
+          "original_owner_name": "Josh Martel"
+        },
+        {
+          "asset_id": "FP_2027_4_0007",
+          "display": "2027 R4",
+          "year": "2027",
+          "round": "4",
+          "original_fid": "0007",
+          "original_team_name": "Sex Manther",
+          "original_owner_name": "Josh Martel"
+        },
+        {
+          "asset_id": "FP_2027_5_0007",
+          "display": "2027 R5",
+          "year": "2027",
+          "round": "5",
+          "original_fid": "0007",
+          "original_team_name": "Sex Manther",
+          "original_owner_name": "Josh Martel"
+        }
+      ],
+      "current_picks": [
+        {
+          "asset_id": "DP_2026_03_04",
+          "display": "2026 03.04",
+          "round": "03",
+          "slot": "04"
+        },
+        {
+          "asset_id": "DP_2026_03_06",
+          "display": "2026 03.06",
+          "round": "03",
+          "slot": "06"
+        },
+        {
+          "asset_id": "DP_2026_05_05",
+          "display": "2026 05.05",
+          "round": "05",
+          "slot": "05"
+        },
+        {
+          "asset_id": "DP_2026_06_11",
+          "display": "2026 06.11",
+          "round": "06",
+          "slot": "11"
+        }
+      ]
+    },
+    "0008": {
+      "players": [
+        {
+          "asset_id": "P_16614",
+          "display": "Marvin Harrison Jr.",
+          "player_id": "16614",
+          "position": "WR",
+          "nfl_team": "ARI",
+          "salary": 14000,
+          "contract_year": 1,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_17043",
+          "display": "TreVeyon Henderson",
+          "player_id": "17043",
+          "position": "RB",
+          "nfl_team": "NEP",
+          "salary": 12000,
+          "contract_year": 2,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_13674",
+          "display": "Dallas Goedert",
+          "player_id": "13674",
+          "position": "TE",
+          "nfl_team": "PHI",
+          "salary": 7000,
+          "contract_year": 1,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_17071",
+          "display": "Tetairoa McMillan",
+          "player_id": "17071",
+          "position": "WR",
+          "nfl_team": "CAR",
+          "salary": 7000,
+          "contract_year": 2,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_16594",
+          "display": "Trey Benson",
+          "player_id": "16594",
+          "position": "RB",
+          "nfl_team": "ARI",
+          "salary": 6000,
+          "contract_year": 1,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_16617",
+          "display": "Keon Coleman",
+          "player_id": "16617",
+          "position": "WR",
+          "nfl_team": "BUF",
+          "salary": 5000,
+          "contract_year": 1,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_14137",
+          "display": "Noah Fant",
+          "player_id": "14137",
+          "position": "TE",
+          "nfl_team": "NOS",
+          "salary": 4000,
+          "contract_year": 1,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_15789",
+          "display": "Christian Watson",
+          "player_id": "15789",
+          "position": "WR",
+          "nfl_team": "GBP",
+          "salary": 1000,
+          "contract_year": 2,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_13113",
+          "display": "Deshaun Watson",
+          "player_id": "13113",
+          "position": "QB",
+          "nfl_team": "CLE",
+          "salary": 1000,
+          "contract_year": 2,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_16432",
+          "display": "Emanuel Wilson",
+          "player_id": "16432",
+          "position": "RB",
+          "nfl_team": "SEA",
+          "salary": 1000,
+          "contract_year": 0,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_15808",
+          "display": "George Karlaftis",
+          "player_id": "15808",
+          "position": "DE",
+          "nfl_team": "KCC",
+          "salary": 1000,
+          "contract_year": 2,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_16643",
+          "display": "Ja'Tavion Sanders",
+          "player_id": "16643",
+          "position": "TE",
+          "nfl_team": "CAR",
+          "salary": 1000,
+          "contract_year": 2,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_17115",
+          "display": "James Pearce",
+          "player_id": "17115",
+          "position": "DE",
+          "nfl_team": "ATL",
+          "salary": 1000,
+          "contract_year": 2,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_15787",
+          "display": "Tyquan Thornton",
+          "player_id": "15787",
+          "position": "WR",
+          "nfl_team": "KCC",
+          "salary": 1000,
+          "contract_year": 2,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_16803",
+          "display": "Blake Watson",
+          "player_id": "16803",
+          "position": "RB",
+          "nfl_team": "FA",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        },
+        {
+          "asset_id": "P_16233",
+          "display": "Jalen Carter",
+          "player_id": "16233",
+          "position": "DT",
+          "nfl_team": "PHI",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        }
+      ],
+      "future_picks": [
+        {
+          "asset_id": "FP_2027_1_0008",
+          "display": "2027 R1",
+          "year": "2027",
+          "round": "1",
+          "original_fid": "0008",
+          "original_team_name": "Real Deal Creel",
+          "original_owner_name": "Keith Creelman"
+        },
+        {
+          "asset_id": "FP_2027_1_0005",
+          "display": "2027 R1  (via HammerTime \ud83d\udd28 \u23f0 \u00b7 Eric Martel)",
+          "year": "2027",
+          "round": "1",
+          "original_fid": "0005",
+          "original_team_name": "HammerTime \ud83d\udd28 \u23f0",
+          "original_owner_name": "Eric Martel"
+        },
+        {
+          "asset_id": "FP_2027_2_0008",
+          "display": "2027 R2",
+          "year": "2027",
+          "round": "2",
+          "original_fid": "0008",
+          "original_team_name": "Real Deal Creel",
+          "original_owner_name": "Keith Creelman"
+        },
+        {
+          "asset_id": "FP_2027_3_0008",
+          "display": "2027 R3",
+          "year": "2027",
+          "round": "3",
+          "original_fid": "0008",
+          "original_team_name": "Real Deal Creel",
+          "original_owner_name": "Keith Creelman"
+        },
+        {
+          "asset_id": "FP_2027_4_0008",
+          "display": "2027 R4",
+          "year": "2027",
+          "round": "4",
+          "original_fid": "0008",
+          "original_team_name": "Real Deal Creel",
+          "original_owner_name": "Keith Creelman"
+        },
+        {
+          "asset_id": "FP_2027_5_0008",
+          "display": "2027 R5",
+          "year": "2027",
+          "round": "5",
+          "original_fid": "0008",
+          "original_team_name": "Real Deal Creel",
+          "original_owner_name": "Keith Creelman"
+        }
+      ],
+      "current_picks": [
+        {
+          "asset_id": "DP_2026_01_04",
+          "display": "2026 01.04",
+          "round": "01",
+          "slot": "04"
+        },
+        {
+          "asset_id": "DP_2026_01_09",
+          "display": "2026 01.09",
+          "round": "01",
+          "slot": "09"
+        },
+        {
+          "asset_id": "DP_2026_02_09",
+          "display": "2026 02.09",
+          "round": "02",
+          "slot": "09"
+        },
+        {
+          "asset_id": "DP_2026_03_09",
+          "display": "2026 03.09",
+          "round": "03",
+          "slot": "09"
+        },
+        {
+          "asset_id": "DP_2026_03_12",
+          "display": "2026 03.12",
+          "round": "03",
+          "slot": "12"
+        },
+        {
+          "asset_id": "DP_2026_06_04",
+          "display": "2026 06.04",
+          "round": "06",
+          "slot": "04"
+        }
+      ]
+    },
+    "0009": {
+      "players": [
+        {
+          "asset_id": "P_15751",
+          "display": "Drake London",
+          "player_id": "15751",
+          "position": "WR",
+          "nfl_team": "ATL",
+          "salary": 52000,
+          "contract_year": 1,
+          "contract_status": "BL"
+        },
+        {
+          "asset_id": "P_15708",
+          "display": "Breece Hall",
+          "player_id": "15708",
+          "position": "RB",
+          "nfl_team": "NYJ",
+          "salary": 35000,
+          "contract_year": 1,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_15715",
+          "display": "James Cook",
+          "player_id": "15715",
+          "position": "RB",
+          "nfl_team": "BUF",
+          "salary": 27000,
+          "contract_year": 1,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_14085",
+          "display": "Tony Pollard",
+          "player_id": "14085",
+          "position": "RB",
+          "nfl_team": "TEN",
+          "salary": 27000,
+          "contract_year": 1,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_14835",
+          "display": "Tee Higgins",
+          "player_id": "14835",
+          "position": "WR",
+          "nfl_team": "CIN",
+          "salary": 24000,
+          "contract_year": 1,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_14778",
+          "display": "Tua Tagovailoa",
+          "player_id": "14778",
+          "position": "QB",
+          "nfl_team": "ATL",
+          "salary": 15000,
+          "contract_year": 1,
+          "contract_status": "FL"
+        },
+        {
+          "asset_id": "P_16581",
+          "display": "Jayden Daniels",
+          "player_id": "16581",
+          "position": "QB",
+          "nfl_team": "WAS",
+          "salary": 12000,
+          "contract_year": 1,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_16641",
+          "display": "Brock Bowers",
+          "player_id": "16641",
+          "position": "TE",
+          "nfl_team": "LVR",
+          "salary": 9000,
+          "contract_year": 1,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_16214",
+          "display": "Sam LaPorta",
+          "player_id": "16214",
+          "position": "TE",
+          "nfl_team": "DET",
+          "salary": 5000,
+          "contract_year": 0,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_16747",
+          "display": "Tyrone Tracy",
+          "player_id": "16747",
+          "position": "RB",
+          "nfl_team": "NYG",
+          "salary": 2000,
+          "contract_year": 1,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_15292",
+          "display": "Dyami Brown",
+          "player_id": "15292",
+          "position": "WR",
+          "nfl_team": "WAS",
+          "salary": 1000,
+          "contract_year": 2,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_16752",
+          "display": "Isaiah Davis",
+          "player_id": "16752",
+          "position": "RB",
+          "nfl_team": "NYJ",
+          "salary": 1000,
+          "contract_year": 2,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_16185",
+          "display": "Jaxon Smith-Njigba",
+          "player_id": "16185",
+          "position": "WR",
+          "nfl_team": "SEA",
+          "salary": 1000,
+          "contract_year": 2,
+          "contract_status": "FL"
+        },
+        {
+          "asset_id": "P_15923",
+          "display": "Quentin Lake",
+          "player_id": "15923",
+          "position": "S",
+          "nfl_team": "LAR",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_16724",
+          "display": "Tory Taylor",
+          "player_id": "16724",
+          "position": "PN",
+          "nfl_team": "CHI",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_12678",
+          "display": "Tyler Higbee",
+          "player_id": "12678",
+          "position": "TE",
+          "nfl_team": "LAR",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_14908",
+          "display": "Xavier McKinney",
+          "player_id": "14908",
+          "position": "S",
+          "nfl_team": "GBP",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_17126",
+          "display": "Danny Stutsman",
+          "player_id": "17126",
+          "position": "LB",
+          "nfl_team": "NOS",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        },
+        {
+          "asset_id": "P_17073",
+          "display": "Elic Ayomanor",
+          "player_id": "17073",
+          "position": "WR",
+          "nfl_team": "TEN",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        },
+        {
+          "asset_id": "P_16151",
+          "display": "Hendon Hooker",
+          "player_id": "16151",
+          "position": "QB",
+          "nfl_team": "TEN",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        },
+        {
+          "asset_id": "P_16156",
+          "display": "Jake Haener",
+          "player_id": "16156",
+          "position": "QB",
+          "nfl_team": "FA",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        },
+        {
+          "asset_id": "P_17033",
+          "display": "Jalen Milroe",
+          "player_id": "17033",
+          "position": "QB",
+          "nfl_team": "SEA",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        },
+        {
+          "asset_id": "P_16610",
+          "display": "Jaylen Wright",
+          "player_id": "16610",
+          "position": "RB",
+          "nfl_team": "MIA",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        },
+        {
+          "asset_id": "P_16197",
+          "display": "Jonathan Mingo",
+          "player_id": "16197",
+          "position": "WR",
+          "nfl_team": "DAL",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        },
+        {
+          "asset_id": "P_16603",
+          "display": "Ray Davis",
+          "player_id": "16603",
+          "position": "RB",
+          "nfl_team": "BUF",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        }
+      ],
+      "future_picks": [
+        {
+          "asset_id": "FP_2027_1_0009",
+          "display": "2027 R1",
+          "year": "2027",
+          "round": "1",
+          "original_fid": "0009",
+          "original_team_name": "C-Town Chivalry",
+          "original_owner_name": "Bear Dunn"
+        },
+        {
+          "asset_id": "FP_2027_2_0009",
+          "display": "2027 R2",
+          "year": "2027",
+          "round": "2",
+          "original_fid": "0009",
+          "original_team_name": "C-Town Chivalry",
+          "original_owner_name": "Bear Dunn"
+        },
+        {
+          "asset_id": "FP_2027_3_0009",
+          "display": "2027 R3",
+          "year": "2027",
+          "round": "3",
+          "original_fid": "0009",
+          "original_team_name": "C-Town Chivalry",
+          "original_owner_name": "Bear Dunn"
+        },
+        {
+          "asset_id": "FP_2027_4_0009",
+          "display": "2027 R4",
+          "year": "2027",
+          "round": "4",
+          "original_fid": "0009",
+          "original_team_name": "C-Town Chivalry",
+          "original_owner_name": "Bear Dunn"
+        },
+        {
+          "asset_id": "FP_2027_5_0009",
+          "display": "2027 R5",
+          "year": "2027",
+          "round": "5",
+          "original_fid": "0009",
+          "original_team_name": "C-Town Chivalry",
+          "original_owner_name": "Bear Dunn"
+        }
+      ],
+      "current_picks": [
+        {
+          "asset_id": "DP_2026_04_09",
+          "display": "2026 04.09",
+          "round": "04",
+          "slot": "09"
+        },
+        {
+          "asset_id": "DP_2026_06_09",
+          "display": "2026 06.09",
+          "round": "06",
+          "slot": "09"
+        }
+      ]
+    },
+    "0010": {
+      "players": [
+        {
+          "asset_id": "P_15698",
+          "display": "Brock Purdy",
+          "player_id": "15698",
+          "position": "QB",
+          "nfl_team": "SFO",
+          "salary": 22000,
+          "contract_year": 2,
+          "contract_status": "FL"
+        },
+        {
+          "asset_id": "P_14109",
+          "display": "Terry McLaurin",
+          "player_id": "14109",
+          "position": "WR",
+          "nfl_team": "WAS",
+          "salary": 19000,
+          "contract_year": 2,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_12616",
+          "display": "Jacoby Brissett",
+          "player_id": "12616",
+          "position": "QB",
+          "nfl_team": "ARI",
+          "salary": 16000,
+          "contract_year": 1,
+          "contract_status": "TAG"
+        },
+        {
+          "asset_id": "P_17044",
+          "display": "Omarion Hampton",
+          "player_id": "17044",
+          "position": "RB",
+          "nfl_team": "LAC",
+          "salary": 13000,
+          "contract_year": 2,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_14823",
+          "display": "Rico Dowdle",
+          "player_id": "14823",
+          "position": "RB",
+          "nfl_team": "PIT",
+          "salary": 11000,
+          "contract_year": 1,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_17030",
+          "display": "Cam Ward",
+          "player_id": "17030",
+          "position": "QB",
+          "nfl_team": "TEN",
+          "salary": 10000,
+          "contract_year": 2,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_13163",
+          "display": "Chris Godwin",
+          "player_id": "13163",
+          "position": "WR",
+          "nfl_team": "TBB",
+          "salary": 10000,
+          "contract_year": 1,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_17051",
+          "display": "Quinshon Judkins",
+          "player_id": "17051",
+          "position": "RB",
+          "nfl_team": "CLE",
+          "salary": 8000,
+          "contract_year": 2,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_16080",
+          "display": "Rashid Shaheed",
+          "player_id": "16080",
+          "position": "WR",
+          "nfl_team": "SEA",
+          "salary": 7000,
+          "contract_year": 2,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_16184",
+          "display": "Jayden Reed",
+          "player_id": "16184",
+          "position": "WR",
+          "nfl_team": "GBP",
+          "salary": 5000,
+          "contract_year": 0,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_13284",
+          "display": "Trey Hendrickson",
+          "player_id": "13284",
+          "position": "DE",
+          "nfl_team": "BAL",
+          "salary": 3000,
+          "contract_year": 1,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_16269",
+          "display": "Brenton Strange",
+          "player_id": "16269",
+          "position": "TE",
+          "nfl_team": "JAC",
+          "salary": 2000,
+          "contract_year": 2,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_16280",
+          "display": "Daiyan Henley",
+          "player_id": "16280",
+          "position": "LB",
+          "nfl_team": "LAC",
+          "salary": 2000,
+          "contract_year": 1,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_16211",
+          "display": "Puka Nacua",
+          "player_id": "16211",
+          "position": "WR",
+          "nfl_team": "LAR",
+          "salary": 2000,
+          "contract_year": 0,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_16723",
+          "display": "AJ Barner",
+          "player_id": "16723",
+          "position": "TE",
+          "nfl_team": "SEA",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_15846",
+          "display": "Quay Walker",
+          "player_id": "15846",
+          "position": "LB",
+          "nfl_team": "LVR",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_16223",
+          "display": "Will Anderson",
+          "player_id": "16223",
+          "position": "DE",
+          "nfl_team": "HOU",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_17131",
+          "display": "Xavier Watts",
+          "player_id": "17131",
+          "position": "S",
+          "nfl_team": "ATL",
+          "salary": 1000,
+          "contract_year": 2,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_16595",
+          "display": "Audric Estime",
+          "player_id": "16595",
+          "position": "RB",
+          "nfl_team": "NOS",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        },
+        {
+          "asset_id": "P_17052",
+          "display": "Bhayshul Tuten",
+          "player_id": "17052",
+          "position": "RB",
+          "nfl_team": "JAC",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        },
+        {
+          "asset_id": "P_16593",
+          "display": "Blake Corum",
+          "player_id": "16593",
+          "position": "RB",
+          "nfl_team": "LAR",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        },
+        {
+          "asset_id": "P_17125",
+          "display": "Demetrius Knight",
+          "player_id": "17125",
+          "position": "LB",
+          "nfl_team": "CIN",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        },
+        {
+          "asset_id": "P_16631",
+          "display": "Ja'Lynn Polk",
+          "player_id": "16631",
+          "position": "WR",
+          "nfl_team": "NOS",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        },
+        {
+          "asset_id": "P_17064",
+          "display": "Jarquez Hunter",
+          "player_id": "17064",
+          "position": "RB",
+          "nfl_team": "LAR",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        },
+        {
+          "asset_id": "P_17075",
+          "display": "Matthew Golden",
+          "player_id": "17075",
+          "position": "WR",
+          "nfl_team": "GBP",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        },
+        {
+          "asset_id": "P_17082",
+          "display": "Pat Bryant",
+          "player_id": "17082",
+          "position": "WR",
+          "nfl_team": "DEN",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        },
+        {
+          "asset_id": "P_17107",
+          "display": "Terrance Ferguson",
+          "player_id": "17107",
+          "position": "TE",
+          "nfl_team": "LAR",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        }
+      ],
+      "future_picks": [
+        {
+          "asset_id": "FP_2027_2_0010",
+          "display": "2027 R2",
+          "year": "2027",
+          "round": "2",
+          "original_fid": "0010",
+          "original_team_name": "Blake Bombers",
+          "original_owner_name": "Shawn Blake"
+        },
+        {
+          "asset_id": "FP_2027_3_0010",
+          "display": "2027 R3",
+          "year": "2027",
+          "round": "3",
+          "original_fid": "0010",
+          "original_team_name": "Blake Bombers",
+          "original_owner_name": "Shawn Blake"
+        },
+        {
+          "asset_id": "FP_2027_4_0010",
+          "display": "2027 R4",
+          "year": "2027",
+          "round": "4",
+          "original_fid": "0010",
+          "original_team_name": "Blake Bombers",
+          "original_owner_name": "Shawn Blake"
+        },
+        {
+          "asset_id": "FP_2027_5_0010",
+          "display": "2027 R5",
+          "year": "2027",
+          "round": "5",
+          "original_fid": "0010",
+          "original_team_name": "Blake Bombers",
+          "original_owner_name": "Shawn Blake"
+        }
+      ],
+      "current_picks": [
+        {
+          "asset_id": "DP_2026_01_10",
+          "display": "2026 01.10",
+          "round": "01",
+          "slot": "10"
+        },
+        {
+          "asset_id": "DP_2026_02_04",
+          "display": "2026 02.04",
+          "round": "02",
+          "slot": "04"
+        },
+        {
+          "asset_id": "DP_2026_02_11",
+          "display": "2026 02.11",
+          "round": "02",
+          "slot": "11"
+        },
+        {
+          "asset_id": "DP_2026_03_01",
+          "display": "2026 03.01",
+          "round": "03",
+          "slot": "01"
+        },
+        {
+          "asset_id": "DP_2026_05_10",
+          "display": "2026 05.10",
+          "round": "05",
+          "slot": "10"
+        },
+        {
+          "asset_id": "DP_2026_06_07",
+          "display": "2026 06.07",
+          "round": "06",
+          "slot": "07"
+        }
+      ]
+    },
+    "0011": {
+      "players": [
+        {
+          "asset_id": "P_14832",
+          "display": "CeeDee Lamb",
+          "player_id": "14832",
+          "position": "WR",
+          "nfl_team": "DAL",
+          "salary": 64000,
+          "contract_year": 1,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_14779",
+          "display": "Justin Herbert",
+          "player_id": "14779",
+          "position": "QB",
+          "nfl_team": "LAC",
+          "salary": 51000,
+          "contract_year": 2,
+          "contract_status": "FL"
+        },
+        {
+          "asset_id": "P_15761",
+          "display": "Khalil Shakir",
+          "player_id": "15761",
+          "position": "WR",
+          "nfl_team": "BUF",
+          "salary": 25000,
+          "contract_year": 2,
+          "contract_status": "BL"
+        },
+        {
+          "asset_id": "P_15757",
+          "display": "Wan'Dale Robinson",
+          "player_id": "15757",
+          "position": "WR",
+          "nfl_team": "TEN",
+          "salary": 22000,
+          "contract_year": 1,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_16161",
+          "display": "Bijan Robinson",
+          "player_id": "16161",
+          "position": "RB",
+          "nfl_team": "ATL",
+          "salary": 15000,
+          "contract_year": 0,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_16615",
+          "display": "Malik Nabers",
+          "player_id": "16615",
+          "position": "WR",
+          "nfl_team": "NYG",
+          "salary": 13000,
+          "contract_year": 1,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_16584",
+          "display": "J.J. McCarthy",
+          "player_id": "16584",
+          "position": "QB",
+          "nfl_team": "MIN",
+          "salary": 11000,
+          "contract_year": 1,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_17032",
+          "display": "Jaxson Dart",
+          "player_id": "17032",
+          "position": "QB",
+          "nfl_team": "NYG",
+          "salary": 9000,
+          "contract_year": 2,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_17104",
+          "display": "Colston Loveland",
+          "player_id": "17104",
+          "position": "TE",
+          "nfl_team": "CHI",
+          "salary": 5000,
+          "contract_year": 2,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_16189",
+          "display": "Marvin Mims",
+          "player_id": "16189",
+          "position": "WR",
+          "nfl_team": "DEN",
+          "salary": 5000,
+          "contract_year": 0,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_16193",
+          "display": "Kayshon Boutte",
+          "player_id": "16193",
+          "position": "WR",
+          "nfl_team": "NEP",
+          "salary": 2000,
+          "contract_year": 0,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_17132",
+          "display": "Malaki Starks",
+          "player_id": "17132",
+          "position": "S",
+          "nfl_team": "BAL",
+          "salary": 2000,
+          "contract_year": 2,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_16222",
+          "display": "Tucker Kraft",
+          "player_id": "16222",
+          "position": "TE",
+          "nfl_team": "GBP",
+          "salary": 2000,
+          "contract_year": 0,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_16652",
+          "display": "Bralen Trice",
+          "player_id": "16652",
+          "position": "DE",
+          "nfl_team": "ATL",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_14833",
+          "display": "Jerry Jeudy",
+          "player_id": "14833",
+          "position": "WR",
+          "nfl_team": "CLE",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "FL"
+        },
+        {
+          "asset_id": "P_13696",
+          "display": "Roquan Smith",
+          "player_id": "13696",
+          "position": "LB",
+          "nfl_team": "BAL",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "FL"
+        },
+        {
+          "asset_id": "P_15815",
+          "display": "Travon Walker",
+          "player_id": "15815",
+          "position": "DE",
+          "nfl_team": "JAC",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_16252",
+          "display": "Will McDonald",
+          "player_id": "16252",
+          "position": "DE",
+          "nfl_team": "NYJ",
+          "salary": 1000,
+          "contract_year": 0,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_16621",
+          "display": "Devontez Walker",
+          "player_id": "16621",
+          "position": "WR",
+          "nfl_team": "BAL",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        },
+        {
+          "asset_id": "P_17108",
+          "display": "Elijah Arroyo",
+          "player_id": "17108",
+          "position": "TE",
+          "nfl_team": "SEA",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        },
+        {
+          "asset_id": "P_17157",
+          "display": "Isaac TeSlaa",
+          "player_id": "17157",
+          "position": "WR",
+          "nfl_team": "DET",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        },
+        {
+          "asset_id": "P_16628",
+          "display": "Jalen McMillan",
+          "player_id": "16628",
+          "position": "WR",
+          "nfl_team": "TBB",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        },
+        {
+          "asset_id": "P_17086",
+          "display": "Jalen Royals",
+          "player_id": "17086",
+          "position": "WR",
+          "nfl_team": "KCC",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        },
+        {
+          "asset_id": "P_17113",
+          "display": "Mykel Williams",
+          "player_id": "17113",
+          "position": "DE",
+          "nfl_team": "SFO",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        },
+        {
+          "asset_id": "P_17072",
+          "display": "Tre Harris",
+          "player_id": "17072",
+          "position": "WR",
+          "nfl_team": "LAC",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        }
+      ],
+      "future_picks": [
+        {
+          "asset_id": "FP_2027_1_0011",
+          "display": "2027 R1",
+          "year": "2027",
+          "round": "1",
+          "original_fid": "0011",
+          "original_team_name": "Cleon Ca$h",
+          "original_owner_name": "Eric Mannila"
+        },
+        {
+          "asset_id": "FP_2027_2_0011",
+          "display": "2027 R2",
+          "year": "2027",
+          "round": "2",
+          "original_fid": "0011",
+          "original_team_name": "Cleon Ca$h",
+          "original_owner_name": "Eric Mannila"
+        },
+        {
+          "asset_id": "FP_2027_3_0011",
+          "display": "2027 R3",
+          "year": "2027",
+          "round": "3",
+          "original_fid": "0011",
+          "original_team_name": "Cleon Ca$h",
+          "original_owner_name": "Eric Mannila"
+        },
+        {
+          "asset_id": "FP_2027_4_0011",
+          "display": "2027 R4",
+          "year": "2027",
+          "round": "4",
+          "original_fid": "0011",
+          "original_team_name": "Cleon Ca$h",
+          "original_owner_name": "Eric Mannila"
+        },
+        {
+          "asset_id": "FP_2027_5_0011",
+          "display": "2027 R5",
+          "year": "2027",
+          "round": "5",
+          "original_fid": "0011",
+          "original_team_name": "Cleon Ca$h",
+          "original_owner_name": "Eric Mannila"
+        }
+      ],
+      "current_picks": [
+        {
+          "asset_id": "DP_2026_01_01",
+          "display": "2026 01.01",
+          "round": "01",
+          "slot": "01"
+        },
+        {
+          "asset_id": "DP_2026_02_07",
+          "display": "2026 02.07",
+          "round": "02",
+          "slot": "07"
+        },
+        {
+          "asset_id": "DP_2026_03_07",
+          "display": "2026 03.07",
+          "round": "03",
+          "slot": "07"
+        },
+        {
+          "asset_id": "DP_2026_04_10",
+          "display": "2026 04.10",
+          "round": "04",
+          "slot": "10"
+        },
+        {
+          "asset_id": "DP_2026_04_11",
+          "display": "2026 04.11",
+          "round": "04",
+          "slot": "11"
+        },
+        {
+          "asset_id": "DP_2026_05_12",
+          "display": "2026 05.12",
+          "round": "05",
+          "slot": "12"
+        },
+        {
+          "asset_id": "DP_2026_06_01",
+          "display": "2026 06.01",
+          "round": "06",
+          "slot": "01"
+        }
+      ]
+    },
+    "0012": {
+      "players": [
+        {
+          "asset_id": "P_16213",
+          "display": "Dalton Kincaid",
+          "player_id": "16213",
+          "position": "TE",
+          "nfl_team": "BUF",
+          "salary": 29000,
+          "contract_year": 2,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_11671",
+          "display": "Mike Evans",
+          "player_id": "11671",
+          "position": "WR",
+          "nfl_team": "SFO",
+          "salary": 24000,
+          "contract_year": 1,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_15710",
+          "display": "Kyren Williams",
+          "player_id": "15710",
+          "position": "RB",
+          "nfl_team": "LAR",
+          "salary": 22000,
+          "contract_year": 1,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_17068",
+          "display": "RJ Harvey",
+          "player_id": "17068",
+          "position": "RB",
+          "nfl_team": "DEN",
+          "salary": 11000,
+          "contract_year": 2,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_14800",
+          "display": "J.K. Dobbins",
+          "player_id": "14800",
+          "position": "RB",
+          "nfl_team": "DEN",
+          "salary": 9000,
+          "contract_year": 1,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_14105",
+          "display": "Marquise Brown",
+          "player_id": "14105",
+          "position": "WR",
+          "nfl_team": "PHI",
+          "salary": 8000,
+          "contract_year": 1,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_17048",
+          "display": "Kaleb Johnson",
+          "player_id": "17048",
+          "position": "RB",
+          "nfl_team": "PIT",
+          "salary": 6000,
+          "contract_year": 2,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_17171",
+          "display": "Chimere Dike",
+          "player_id": "17171",
+          "position": "WR",
+          "nfl_team": "TEN",
+          "salary": 5000,
+          "contract_year": 2,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_16206",
+          "display": "Michael Wilson",
+          "player_id": "16206",
+          "position": "WR",
+          "nfl_team": "ARI",
+          "salary": 5000,
+          "contract_year": 2,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_16620",
+          "display": "Xavier Worthy",
+          "player_id": "16620",
+          "position": "WR",
+          "nfl_team": "KCC",
+          "salary": 5000,
+          "contract_year": 1,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_13743",
+          "display": "Fred Warner",
+          "player_id": "13743",
+          "position": "LB",
+          "nfl_team": "SFO",
+          "salary": 4000,
+          "contract_year": 1,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_14127",
+          "display": "Jakobi Meyers",
+          "player_id": "14127",
+          "position": "WR",
+          "nfl_team": "JAC",
+          "salary": 4000,
+          "contract_year": 1,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_17112",
+          "display": "Abdul Carter",
+          "player_id": "17112",
+          "position": "DE",
+          "nfl_team": "NYG",
+          "salary": 2000,
+          "contract_year": 2,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_16655",
+          "display": "Chop Robinson",
+          "player_id": "16655",
+          "position": "DE",
+          "nfl_team": "MIA",
+          "salary": 2000,
+          "contract_year": 1,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_16228",
+          "display": "Nolan Smith",
+          "player_id": "16228",
+          "position": "DE",
+          "nfl_team": "PHI",
+          "salary": 2000,
+          "contract_year": 0,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_16677",
+          "display": "Javon Bullard",
+          "player_id": "16677",
+          "position": "S",
+          "nfl_team": "GBP",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_15351",
+          "display": "Jeremiah Owusu-Koramoah",
+          "player_id": "15351",
+          "position": "LB",
+          "nfl_team": "CLE",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_16245",
+          "display": "Jordan Battle",
+          "player_id": "16245",
+          "position": "S",
+          "nfl_team": "CIN",
+          "salary": 1000,
+          "contract_year": 0,
+          "contract_status": "Rookie"
+        },
+        {
+          "asset_id": "P_15868",
+          "display": "Marcus Jones",
+          "player_id": "15868",
+          "position": "CB",
+          "nfl_team": "NEP",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Veteran"
+        },
+        {
+          "asset_id": "P_16231",
+          "display": "Drew Sanders",
+          "player_id": "16231",
+          "position": "LB",
+          "nfl_team": "DEN",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        },
+        {
+          "asset_id": "P_17184",
+          "display": "Jaylin Lane",
+          "player_id": "17184",
+          "position": "WR",
+          "nfl_team": "WAS",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        },
+        {
+          "asset_id": "P_17061",
+          "display": "LeQuint Allen",
+          "player_id": "17061",
+          "position": "RB",
+          "nfl_team": "JAC",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        },
+        {
+          "asset_id": "P_16221",
+          "display": "Luke Schoonmaker",
+          "player_id": "16221",
+          "position": "TE",
+          "nfl_team": "DAL",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        },
+        {
+          "asset_id": "P_16636",
+          "display": "Malachi Corley",
+          "player_id": "16636",
+          "position": "WR",
+          "nfl_team": "CLE",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        },
+        {
+          "asset_id": "P_17159",
+          "display": "Nick Martin",
+          "player_id": "17159",
+          "position": "LB",
+          "nfl_team": "SFO",
+          "salary": 0,
+          "contract_year": 0,
+          "contract_status": ""
+        }
+      ],
+      "future_picks": [
+        {
+          "asset_id": "FP_2027_1_0012",
+          "display": "2027 R1",
+          "year": "2027",
+          "round": "1",
+          "original_fid": "0012",
+          "original_team_name": "Hawks",
+          "original_owner_name": "Chris Klingenberg"
+        },
+        {
+          "asset_id": "FP_2027_2_0012",
+          "display": "2027 R2",
+          "year": "2027",
+          "round": "2",
+          "original_fid": "0012",
+          "original_team_name": "Hawks",
+          "original_owner_name": "Chris Klingenberg"
+        },
+        {
+          "asset_id": "FP_2027_3_0012",
+          "display": "2027 R3",
+          "year": "2027",
+          "round": "3",
+          "original_fid": "0012",
+          "original_team_name": "Hawks",
+          "original_owner_name": "Chris Klingenberg"
+        },
+        {
+          "asset_id": "FP_2027_4_0012",
+          "display": "2027 R4",
+          "year": "2027",
+          "round": "4",
+          "original_fid": "0012",
+          "original_team_name": "Hawks",
+          "original_owner_name": "Chris Klingenberg"
+        },
+        {
+          "asset_id": "FP_2027_5_0012",
+          "display": "2027 R5",
+          "year": "2027",
+          "round": "5",
+          "original_fid": "0012",
+          "original_team_name": "Hawks",
+          "original_owner_name": "Chris Klingenberg"
+        }
+      ],
+      "current_picks": [
+        {
+          "asset_id": "DP_2026_01_02",
+          "display": "2026 01.02",
+          "round": "01",
+          "slot": "02"
+        },
+        {
+          "asset_id": "DP_2026_01_06",
+          "display": "2026 01.06",
+          "round": "01",
+          "slot": "06"
+        },
+        {
+          "asset_id": "DP_2026_02_02",
+          "display": "2026 02.02",
+          "round": "02",
+          "slot": "02"
+        },
+        {
+          "asset_id": "DP_2026_03_02",
+          "display": "2026 03.02",
+          "round": "03",
+          "slot": "02"
+        },
+        {
+          "asset_id": "DP_2026_03_05",
+          "display": "2026 03.05",
+          "round": "03",
+          "slot": "05"
+        },
+        {
+          "asset_id": "DP_2026_04_02",
+          "display": "2026 04.02",
+          "round": "04",
+          "slot": "02"
+        },
+        {
+          "asset_id": "DP_2026_06_02",
+          "display": "2026 06.02",
+          "round": "06",
+          "slot": "02"
+        }
+      ]
+    }
+  }
+}

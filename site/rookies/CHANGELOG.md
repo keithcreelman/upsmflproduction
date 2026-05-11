@@ -26,6 +26,55 @@ logic is doing without digging into code).
 
 ---
 
+## v1.1.0 — 2026-05-10 — Live Draft tab built out (simulate + LIVE modes)
+
+The Live Draft tab is no longer a placeholder. Owners can now run picks and
+trades from the hub itself, with a default-ON SIMULATE mode for risk-free
+rehearsal before draft day.
+
+**UI**
+- Modern 3-column live layout (prospects | board | on-the-clock).
+- Sticky mode banner at top — SIMULATE (amber, default) vs LIVE (red,
+  commissioner-only flip with a confirmation dialog). Mode persists across
+  refreshes.
+- Filter chips (status) + segmented control (ADP source) replace dropdown
+  soup. Visible-count badge on the prospect rail. Empty-state hint when
+  filters yield zero results.
+- Keyboard: `/` focuses search, `Esc` closes modals, `?` opens help.
+- Reduced-motion media query honored; mobile/tablet collapses gracefully.
+
+**Auth**
+- Auto-login via MFL HPM context — when an owner opens the hub from MFL's
+  homepage iframe, FRANCHISE_ID is detected from URL params (no cookie
+  paste in the happy path). Cookie fallback retained for non-HPM contexts.
+
+**Submit a pick**
+- Confirm modal shows the rookie contract MFL will apply (Y1 AAV, 3yr TCV,
+  length, taxi/IDP/option-year notes) computed per slot from
+  `docs/league_context_v1.md` §A1.
+- Simulate mode: validates + previews + posts to test Discord channel.
+- Live mode: POSTs to MFL `draftResults` import + announces in
+  #1498680803419357234.
+
+**Propose a trade**
+- Existing trade modal carries the simulate flag through to the worker —
+  simulate validates, live POSTs to MFL `tradeProposal`.
+
+**Player search**
+- New collapsible panel — searches the entire MFL player pool by name and
+  opens the same rich profile card used by Front Office.
+
+**Worker**
+- 6 new endpoints: `/api/me`, `/api/settings`, `/api/pick`, `/api/trade`,
+  `/api/franchise-assets`, `/api/players-search` (under
+  `worker/src/index.js` near `/api/player-bundle`).
+- Discord posting reuses the existing bot-token + allowed-mentions
+  pattern. Channels controlled by env vars
+  `DISCORD_DRAFT_CHANNEL_ID` and `DISCORD_DRAFT_TEST_CHANNEL_ID`.
+- Commish gate driven by `COMMISH_FRANCHISE_IDS` env var.
+
+---
+
 ## v1.0.1 — 2026-04-20 — Best/Worst → NET; Bang-for-$ → Draft Rating
 
 **Patch** — methodology realignment to the NET-centric model.

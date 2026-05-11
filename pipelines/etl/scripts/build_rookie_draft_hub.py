@@ -1604,14 +1604,37 @@ def build_prospects() -> dict:
             return {}
 
     adp_sources = {
-        "mfl_rookie": _fetch_adp("IS_MOCK=-1&ROOKIES=1"),
-        "mfl_rookie_sf":   _fetch_adp("IS_MOCK=-1&ROOKIES=1&IS_PPR=0&IS_KEEPER=Y"),
-        "mfl_dynasty": _fetch_adp("IS_MOCK=-1&IS_KEEPER=Y"),
+        # All-format completed-draft ADP — broadest, our anchor signal.
+        "mfl_rookie":  _fetch_adp("IS_MOCK=-1&ROOKIES=1"),
+        # Dynasty (keeper) cross-league ADP — slower-tilted than redraft.
+        "mfl_dynasty": _fetch_adp("IS_MOCK=-1&IS_KEEPER=Y&ROOKIES=1"),
+        # Mock-draft only — earlier signal but noisier.
         "mfl_mock":    _fetch_adp("IS_MOCK=1&ROOKIES=1"),
     }
     adp_by_pid = adp_sources["mfl_rookie"]  # primary default
 
-    # Optional ZAP/KTC overlays by name
+    # External rookie sources (FantasyCalc + KTC + DynastyProcess), produced
+    # by pipelines/etl/scripts/fetch_external_adp.py. File may not exist on
+    # a fresh checkout; the build still works without it (just MFL signals).
+    # Resolve to the in-repo site/rookies path (not OUT_DIR — the legacy
+    # OUT_DIR points at a stale /Users/.../New project location).
+    _REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent
+    EXT_ADP_FILE = _REPO_ROOT / "site" / "rookies" / "external_adp_2026.json"
+    ext_adp = {}
+    ext_by_mfl = {}
+    ext_by_name = {}
+    ext_by_rotowire = {}
+    if EXT_ADP_FILE.exists():
+        try:
+            ext_adp = json.loads(EXT_ADP_FILE.read_text())
+            ext_by_mfl = ext_adp.get("by_mfl_id", {}) or {}
+            ext_by_name = ext_adp.get("by_name", {}) or {}
+            ext_by_rotowire = ext_adp.get("by_rotowire_id", {}) or {}
+        except Exception:
+            pass
+
+    # Optional ZAP/KTC overlays by name (kept for back-compat — KTC live data
+    # now flows through external_adp_2026.json instead of the local file).
     zap = json.loads(ZAP_FILE.read_text()) if ZAP_FILE.exists() else {}
     ktc = json.loads(KTC_FILE.read_text()) if KTC_FILE.exists() else {}
     zap_players = zap.get("sf_rankings", zap.get("players", [])) or []
@@ -1624,6 +1647,34 @@ def build_prospects() -> dict:
 
     zap_by_name = {_nkey(p.get("player") or p.get("name", "")): p for p in zap_players}
     ktc_by_name = {_nkey(p.get("name", "")): p for p in ktc_players}
+
+    # Helpers for the bio enrichment added 2026-05-10 (post-NFL-draft refresh).
+    def _safe_int(v):
+        try:
+            n = int(str(v).strip())
+            return n if n > 0 else None
+        except Exception:
+            return None
+
+    def _age_from_birthdate(unix_ts):
+        """Return decimal age in years (e.g. 21.4) — fractional precision is
+        what scouts use ('20.6yo RB' is meaningfully different from '21.4yo')."""
+        try:
+            ts = int(unix_ts)
+            from datetime import datetime as _dt, timezone as _tz
+            born = _dt.fromtimestamp(ts, tz=_tz.utc)
+            today = _dt.now(tz=_tz.utc)
+            seconds = (today - born).total_seconds()
+            years = seconds / (365.25 * 86400)
+            return round(years, 1) if 16.5 <= years <= 36 else None
+        except Exception:
+            return None
+
+    def _height_str(inches):
+        n = _safe_int(inches)
+        if not n:
+            return None
+        return f"{n // 12}'{n % 12}\""
 
     prospects: list[dict] = []
     for p in rookies:
@@ -1639,12 +1690,52 @@ def build_prospects() -> dict:
             r = src_by_pid.get(pid, {})
             return float(r.get(key) or 0) or None if r.get(key) else None
         adp_mfl_rookie     = _v(adp_sources["mfl_rookie"], "averagePick")
-        adp_mfl_rookie_sf  = _v(adp_sources["mfl_rookie_sf"], "averagePick")
         adp_mfl_dynasty    = _v(adp_sources["mfl_dynasty"], "averagePick")
         adp_mfl_mock       = _v(adp_sources["mfl_mock"], "averagePick")
-        # Average across available sources for a consensus number
-        adp_pool = [x for x in (adp_mfl_rookie, adp_mfl_rookie_sf, adp_mfl_dynasty, adp_mfl_mock) if x]
+        # Average across available MFL sources for a quick legacy consensus
+        # (the new median-rank consensus_rank below is the canonical one).
+        adp_pool = [x for x in (adp_mfl_rookie, adp_mfl_dynasty, adp_mfl_mock) if x]
         adp_avg = round(sum(adp_pool) / len(adp_pool), 2) if adp_pool else None
+
+        # External-source rookie rankings. Try, in priority order:
+        #   1. by_rotowire_id   — Sleeper exposes this; rock-solid join key
+        #                          since MFL DETAILS=1 also exposes it.
+        #   2. by_mfl_id        — FantasyCalc occasionally has it.
+        #   3. by_name          — fallback for everyone else (KTC, FantasyCalc
+        #                          rookies without an MFL ID, etc.).
+        # The fetcher uses a stricter name normalizer (alpha-only) so we
+        # recompute here in BOTH orderings — MFL serves names "Last, First"
+        # while the external sources serve "First Last".
+        import re as _re
+        def _alpha(s): return _re.sub(r"[^a-z]", "", (s or "").lower())
+        parts = [s.strip() for s in (name or "").split(",")]
+        nkey_lf = _alpha(name)
+        nkey_fl = _alpha((parts[1] + " " + parts[0]) if len(parts) == 2 else name)
+        rotowire = str(p.get("rotowire_id") or "").strip()
+        ext = dict(ext_by_rotowire.get(rotowire) or {}) if rotowire else {}
+        # Merge mfl_id hits + name hits on top — additive (different sources
+        # contribute different fields, none overwrite each other's keys).
+        for src in (ext_by_mfl.get(pid),
+                    ext_by_name.get(nkey_fl),
+                    ext_by_name.get(nkey_lf),
+                    ext_by_name.get(nkey)):
+            if src: ext.update({k: v for k, v in src.items() if k not in ext})
+
+        # Bio enrichment from MFL DETAILS=1
+        nfl_round = _safe_int(p.get("draft_round"))
+        nfl_pick = _safe_int(p.get("draft_pick"))
+        nfl_draft_team = (p.get("draft_team") or "").upper() or None
+        # UDFA detection: MFL drops draft_round/pick (or sets to 0/empty) for
+        # undrafted free agents who signed with an NFL team.
+        is_udfa = (nfl_round is None) and bool(p.get("team"))
+        # Build a compact "draft string" the UI can render directly.
+        if nfl_round and nfl_pick:
+            draft_str = f"R{nfl_round}.{nfl_pick}{(' · ' + nfl_draft_team) if nfl_draft_team else ''}"
+        elif is_udfa:
+            draft_str = f"UDFA{(' · ' + (p.get('team') or '').upper()) if p.get('team') else ''}"
+        else:
+            draft_str = None
+
         prospects.append({
             "player_id": pid,
             "name": name,
@@ -1652,33 +1743,150 @@ def build_prospects() -> dict:
             "pos_group": pos_group(pos),
             "pos_subgroup": pos_subgroup(pos),
             "nfl_team": p.get("team"),
+            # NFL draft details
+            "nfl_draft_round": nfl_round,
+            "nfl_draft_pick_in_round": nfl_pick,
+            "nfl_draft_team": nfl_draft_team,
+            "is_udfa": is_udfa,
+            "nfl_draft_summary": draft_str,
+            # Bio
+            "college": p.get("college") or None,
+            "height": _height_str(p.get("height")),
+            "weight": _safe_int(p.get("weight")),
+            "age": _age_from_birthdate(p.get("birthdate")),
+            "birthdate_unix": _safe_int(p.get("birthdate")),
+            "espn_id": p.get("espn_id") or None,
+            "rotowire_id": p.get("rotowire_id") or None,
             # Legacy single-source fields kept for back-compat
             "rookie_adp": float(adp_row.get("averagePick") or 0) or None,
             "rookie_adp_rank": int(adp_row.get("rank") or 0) or None,
             "rookie_adp_n_drafts": int(adp_row.get("draftsSelectedIn") or 0) or None,
-            # Multi-source ADPs
+            # Multi-source ADPs (one canonical block — merged from MFL APIs
+            # AND external sources via fetch_external_adp.py).
             "adp_sources": {
+                # MFL completed-draft ADPs (broadest coverage)
                 "mfl_rookie":    adp_mfl_rookie,
-                "mfl_rookie_sf": adp_mfl_rookie_sf,
                 "mfl_dynasty":   adp_mfl_dynasty,
                 "mfl_mock":      adp_mfl_mock,
-                "ktc_sf":        ktc_row.get("sf_value"),  # KTC uses value not pick #
-                "avg":           adp_avg,
+                # External community + expert sources (live-scraped)
+                "fantasycalc_sf":      ext.get("fantasycalc_sf_rookie_rank"),
+                "fantasycalc_sf_value": ext.get("fantasycalc_sf_value"),
+                "ktc_sf":              ext.get("ktc_sf_rookie_rank"),
+                "ktc_sf_value":        ext.get("ktc_sf_value"),
+                "dp_sf":               ext.get("dp_sf_rookie_rank"),
+                "dp_sf_ecr":           ext.get("dp_sf_ecr"),
+                "sleeper_sf":          ext.get("sleeper_sf_rookie_rank"),
+                "sleeper_overall":     ext.get("sleeper_overall_rank"),
+                "fantasypros_sf":      ext.get("fantasypros_sf_rookie_rank"),
+                "fantasypros_rank_min": ext.get("fantasypros_sf_rank_min"),
+                "fantasypros_rank_max": ext.get("fantasypros_sf_rank_max"),
+                "fantasypros_tier":    ext.get("fantasypros_sf_tier"),
+                # Legacy: KTC value from the stale local config (kept for
+                # back-compat; the live ktc_sf_value above supersedes it).
+                "ktc_sf_legacy":       ktc_row.get("sf_value"),
+                "avg":                 adp_avg,
             },
             "profile_url": _mfl_profile_url(pid, CURRENT_YEAR),
             "zap_score": zap_row.get("zap"),
             "zap_sf_rank": zap_row.get("sf_rank"),
-            "ktc_sf_value": ktc_row.get("sf_value"),
         })
 
-    # Sort by rookie ADP (lower = better). Unranked go to end.
-    prospects.sort(key=lambda p: p.get("rookie_adp") or 9999)
+    # ── Consensus rank: median across non-null source ranks ────────────────
+    # Sources contributing a rookie-rank signal:
+    #   - MFL rookie ADP rank (rookie_adp_rank from adp_by_pid)
+    #   - FantasyCalc SF rookie rank
+    #   - KTC SF rookie rank
+    #   - DynastyProcess SF rookie rank
+    #   - MFL dynasty/mock derived ranks (re-rank from raw averagePick)
+    # We use median (not mean) so a single outlier source can't drag the
+    # consensus rank far from where the wisdom of crowds places the player.
+    def _re_rank(getter):
+        ranked = sorted(prospects, key=lambda p: (getter(p) is None, getter(p) or 1e9))
+        out = {}
+        for i, p in enumerate(ranked, start=1):
+            v = getter(p)
+            if v is not None:
+                out[p["player_id"]] = i
+        return out
+    mfl_rookie_rank   = _re_rank(lambda p: p.get("adp_sources", {}).get("mfl_rookie"))
+    mfl_dyn_rank      = _re_rank(lambda p: p.get("adp_sources", {}).get("mfl_dynasty"))
+    mfl_mock_rank     = _re_rank(lambda p: p.get("adp_sources", {}).get("mfl_mock"))
+    for p in prospects:
+        pid_ = p["player_id"]
+        ranks: list[int] = []
+        for r in (
+            mfl_rookie_rank.get(pid_),
+            mfl_dyn_rank.get(pid_),
+            mfl_mock_rank.get(pid_),
+            p.get("adp_sources", {}).get("fantasycalc_sf"),
+            p.get("adp_sources", {}).get("ktc_sf"),
+            p.get("adp_sources", {}).get("dp_sf"),
+            p.get("adp_sources", {}).get("sleeper_sf"),
+            p.get("adp_sources", {}).get("fantasypros_sf"),
+        ):
+            if isinstance(r, (int, float)) and r > 0:
+                ranks.append(int(r))
+        if ranks:
+            ranks.sort()
+            mid = len(ranks) // 2
+            consensus = ranks[mid] if len(ranks) % 2 else (ranks[mid - 1] + ranks[mid]) / 2
+            p["consensus_rank"] = round(consensus, 1)
+            p["consensus_n_sources"] = len(ranks)
+            p["consensus_rank_min"] = min(ranks)
+            p["consensus_rank_max"] = max(ranks)
+        else:
+            p["consensus_rank"] = None
+            p["consensus_n_sources"] = 0
+        # Per-source ranks (for transparency / source-pill UI)
+        p["source_ranks"] = {
+            "mfl_rookie":   mfl_rookie_rank.get(pid_),
+            "mfl_dynasty":  mfl_dyn_rank.get(pid_),
+            "mfl_mock":     mfl_mock_rank.get(pid_),
+            "fantasycalc":  p.get("adp_sources", {}).get("fantasycalc_sf"),
+            "ktc":          p.get("adp_sources", {}).get("ktc_sf"),
+            "dp":           p.get("adp_sources", {}).get("dp_sf"),
+            "sleeper":      p.get("adp_sources", {}).get("sleeper_sf"),
+            "fantasypros":  p.get("adp_sources", {}).get("fantasypros_sf"),
+        }
+
+    # Sort by consensus rank (lower = better). Unranked go to end.
+    prospects.sort(key=lambda p: (p.get("consensus_rank") is None, p.get("consensus_rank") or 9999))
+
+    # Source meta — surfaces in the hub footer so owners know what's blended.
+    # `format` is whether the source's rank is calibrated for SF (SuperFlex,
+    # 2 QBs) — UPS is SF, so SF-native sources are most accurate. Blended
+    # sources are 1QB-leaning aggregates that under-rank QBs vs UPS reality.
+    source_meta = [
+        {"id": "mfl_rookie",   "label": "MFL Rookie ADP",        "kind": "live",     "format": "blended", "format_note": "Cross-league rookie drafts — most leagues are 1QB so QBs rank lower than SF."},
+        {"id": "mfl_dynasty",  "label": "MFL Dynasty ADP",       "kind": "live",     "format": "blended", "format_note": "Cross-league dynasty ADP — same caveat as MFL Rookie."},
+        {"id": "mfl_mock",     "label": "MFL Mock ADP",          "kind": "live",     "format": "blended", "format_note": "Cross-league rookie mocks — same caveat."},
+        {"id": "fantasycalc",  "label": "FantasyCalc SF",        "kind": "external", "format": "sf",      "format_note": "numQbs=2 (SuperFlex) trade values."},
+        {"id": "ktc",          "label": "KeepTradeCut SF",       "kind": "external", "format": "sf",      "format_note": "superflexValues from KTC dynasty rankings."},
+        {"id": "sleeper",      "label": "Sleeper",               "kind": "external", "format": "blended", "format_note": "search_rank is overall (1QB-leaning by default)."},
+        {"id": "fantasypros",  "label": "FantasyPros Dynasty SF","kind": "external", "format": "sf",      "format_note": "Expert consensus from /rankings/dynasty-rookies-superflex."},
+        {"id": "dp",           "label": "DynastyProcess SF",     "kind": "external", "format": "sf",      "format_note": "value_2qb / ecr_2qb — SuperFlex."},
+    ]
+    if EXT_ADP_FILE.exists():
+        try:
+            ext_meta = (json.loads(EXT_ADP_FILE.read_text()).get("meta") or {})
+            for sm in source_meta:
+                for ext_src in (ext_meta.get("sources") or []):
+                    if ext_src.get("id") == sm["id"]:
+                        sm["as_of"] = ext_src.get("as_of")
+                        sm["n_rookies"] = ext_src.get("n_rookies")
+        except Exception:
+            pass
 
     return {
         "meta": {
             "generated_at_utc": datetime.now(timezone.utc).isoformat(),
-            "sources": ["MFL players (draft_year=CURRENT)", "MFL rookie ADP", "ZAP", "KTC"],
+            "sources": ["MFL players (draft_year=CURRENT)", "MFL rookie ADP",
+                        "MFL dynasty ADP", "MFL mock ADP",
+                        "FantasyCalc SF", "KeepTradeCut SF",
+                        "DynastyProcess SF (when available)"],
+            "source_detail": source_meta,
             "n_prospects": len(prospects),
+            "consensus_method": "median rank across non-null sources",
         },
         "prospects": prospects,
     }

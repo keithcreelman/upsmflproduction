@@ -1,7 +1,7 @@
 {
-  "version": "1.0.1",
-  "released": "2026-04-20",
-  "label": "V1.0.1 — Best/Worst → NET; Bang-for-$ → Draft Rating",
+  "version": "1.5.4",
+  "released": "2026-05-10",
+  "label": "V1.5.4 — Removed verbose 'Consensus rank blends:' source-attribution footer",
   "description": "First published version of the Draft Hub analytics model. This establishes the V1 baseline. Future tweaks bump the version and are logged here.",
   "methodology_signature": {
     "tier_classifier": "NET = 3yr-games-weighted E+P rate − 0.5 × 3yr-games-weighted Dud rate",
@@ -28,6 +28,401 @@
     "lineup_efficiency": 0.012
   },
   "changes": [
+    {
+      "version": "1.5.4",
+      "date": "2026-05-10",
+      "type": "patch",
+      "summary": "Removed the 'Consensus rank blends: MFL Rookie ADP · MFL Dynasty ADP · ...' attribution footer at the bottom of the live tab. Source detail is still visible per-prospect in the rank-cell tooltip and on the on-clock card chips.",
+      "details": [
+        "Removed the <p id=\"adp-sources-footer\"> element from the HTML.",
+        "Removed renderAdpSourcesFooter() from the JS and the call in renderAll().",
+        "Source visibility is preserved where it actually matters: the rank-by picker dropdown (which sources you blend), the rank-cell tooltip on each prospect row (per-source breakdown for that player), and the on-clock card chips (MFL #X · FC #Y · KTC #Z · SLP #W · FP #V)."
+      ]
+    },
+    {
+      "version": "1.5.3",
+      "date": "2026-05-10",
+      "type": "patch",
+      "summary": "Rookie profile cleanup pass: ESPN college headshots, decimal age (21.4 not 21), 'Stats / Game Log / News' tabs stripped for rookies (Bio only), 'League Status' block hidden when there's nothing meaningful, modal glass effect removed (now opaque), 'Select none' button removed.",
+      "details": [
+        "Headshots: chained fallback img.onerror — MFL icon_url → ESPN college (a.espncdn.com/i/headshots/college-football/players/full/{espn_id}.png) → ESPN NFL → MFL stable archive (player_photos_2014/{pid}_thumb.jpg). Fresh rookies who don't have an MFL photo yet now show their college portrait via espn_id (already in our prospect data).",
+        "Age: now decimal (e.g. 21.4yo). build_prospects() computes via (today − birthdate).total_seconds() / (365.25 * 86400), rounded to 1 dp. Eligibility window widened to 16.5–36 to catch all rookies. Display sites already use {p.age}yo so no JS change needed.",
+        "League Status block: hidden entirely when bundle has no team_name, no FA flag, no injury, no acquisition, AND tier is unset/Unclassified. Was showing 'Status: Unknown · Hub Tier: UNCLASSIFIED' for every rookie — pure noise.",
+        "Tab strip: for fresh rookies (career_summary empty AND in current-year prospect board), the Stats / Game Log / News tabs are removed and the body shows just the Bio block. Veterans get the full tab strip as before.",
+        "Modal glass: rdh-modal-overlay scrim went from rgba(8,11,18,0.88) + 2px backdrop-blur → rgba(0,0,0,0.96) with NO blur. Modal is fully opaque. No more 'glass' bleed.",
+        "Select none button removed from the rank-by-picker — empty selection wasn't allowed anyway (it re-ticked all). 'All sources' button kept for the reset case."
+      ]
+    },
+    {
+      "version": "1.5.2",
+      "date": "2026-05-10",
+      "type": "feature",
+      "summary": "Normalized rookie ranks for SuperFlex (UPS format). Switched FantasyPros from the 1QB /adp/rookies page to the /rankings/dynasty-rookies-superflex page (158 rookies, embedded ecrData JSON). Each source in the consensus picker is now labeled SF or 1QB-blended so the user knows what they're blending. New 'SF only' shortcut.",
+      "details": [
+        "FantasyPros: switched scrape target to /rankings/dynasty-rookies-superflex.php which embeds an `ecrData = {...}` JS variable with full SF expert consensus. Cleaner than HTML scraping AND properly SF-calibrated (Mendoza is #2 SF vs #9 in their 1QB rookie ADP). Now includes rank_min, rank_max, rank_ave, tier alongside rank_ecr.",
+        "Note: ?2qb=1 query param on the /adp/rookies page is silently ignored — returns the same 1QB list. Only the /rankings page distinguishes SF.",
+        "Source meta: every source now carries `format` ('sf' or 'blended') + `format_note` explaining why. Surfaces in the picker as a green SF or amber 1QB badge next to the source name.",
+        "Picker UI: rows grouped under 'SuperFlex (matches UPS)' (FantasyCalc, KTC, FantasyPros) and 'Blended (1QB-skewed)' (MFL Rookie, Sleeper). Section heads make the grouping visible at a glance.",
+        "New 'SF only' shortcut button: ticks the 3 SF-native sources only, un-ticks MFL + Sleeper. Summary label reads 'SF only · 3 SF-native sources'.",
+        "Verified: Ty Simpson (QB sleeper) lands at consensus #10 with the new FP feed (FP #8, KTC #10, FC #10, SLP #14, MFL #16). Without SF normalization he'd be ~#16 — a real-world SF mistake the engine would otherwise make.",
+        "Sleeper renamed in the picker from 'Sleeper SF' to just 'Sleeper' since their search_rank is overall (1QB-leaning by default), not SF-specific."
+      ]
+    },
+    {
+      "version": "1.5.1",
+      "date": "2026-05-10",
+      "type": "feature",
+      "summary": "Added FantasyPros rookie ADP scrape (5th source). Replaced the single-source 'Rank by' pill with a custom-consensus picker: a checkbox dropdown that lets the user pick which sources blend into the displayed consensus rank.",
+      "details": [
+        "FantasyPros rookie ADP scraper: /nfl/adp/rookies.php public HTML page (their /api is auth-locked). Parses the table#data rows for rank, fp_id, name, team, position, avg_pick. 133 rookies pulled.",
+        "Top 5 prospects now have 5-source consensus. Delp consensus #42 across MFL #42, FC #34, KTC #43, SLP #139, FP #34 — the FP signal corroborates FantasyCalc's view that he's a slight reach at #42.",
+        "Custom consensus picker (replaces the old segmented pill):",
+        "  • Click 'Rank by: Consensus · all sources' to open a dropdown with checkboxes for each source (MFL Rookie ADP, FantasyCalc SF, KeepTradeCut SF, Sleeper SF, FantasyPros Rookie).",
+        "  • Tick/un-tick to define your own consensus blend. Median is computed live from the selected subset.",
+        "  • 'Select all' / 'Select none' shortcuts. Empty selection isn't allowed (re-ticks all with a toast).",
+        "  • Persists in sessionStorage so a refresh keeps your blend.",
+        "  • Summary label shows 'Consensus · all sources' / 'Custom · N of 5 sources' / 'Single · ktc'.",
+        "  • The selected source-set drives BOTH the displayed rank number AND the sort order. Per-prospect 'Nsrc' chip reflects how many of the SELECTED sources actually have that prospect.",
+        "  • Tooltip on the rank cell shows the full per-source breakdown for context.",
+        "Probed but rejected: DynastyDataLab (Nuxt SPA with minified bundle and an opaque api.dynastydatalab.com that 404s on every guessed endpoint — would need to either run a headless browser or reverse-engineer their JS bundle; noted as a future TODO if it stays high-signal)."
+      ]
+    },
+    {
+      "version": "1.5.0",
+      "date": "2026-05-10",
+      "type": "feature",
+      "summary": "Added Sleeper SF as a 4th live rookie-ranking source. Probed FantasyPros, DraftSharks, DynastyDaddy, and Sleeper /adp — only Sleeper had open public data with current 2026 rookies (152 ranked, joins on rotowire_id with 147 hits = 97% match rate).",
+      "details": [
+        "Sleeper search_rank is overall fantasy rank — re-ranked rookies among themselves to get a SF-style rookie rank.",
+        "Join key: rotowire_id (Sleeper exposes it; MFL DETAILS=1 also exposes it). 97% of Sleeper rookies matched to an MFL prospect by rotowire_id; rest fall back to name match.",
+        "Consensus rank (median across non-null sources) now blends 4 live sources: MFL Rookie ADP, FantasyCalc SF, KeepTradeCut SF, Sleeper SF. (DynastyProcess still wired for when they catch up to 2026.)",
+        "Top 5 prospects now have 4-source consensus. Delp at consensus #42.5 with Sleeper as the 4th data point (Sleeper has him at #139 — illustrative of WHY median is robust to one-source outliers).",
+        "UI: 'Sleeper' button added to the Rank-by segmented control. On-clock breakdown chips include 'SLP #N'. Profile-card pre-NFL banner lists Sleeper rank too.",
+        "FantasyCalc bonus: their feed now exposes mflId for 60 of 70 rookies (was 0 last week) — better join coverage all around.",
+        "Probed but rejected: FantasyPros (locked behind auth), DraftSharks (404), DynastyDaddy (empty response), Sleeper /adp endpoint (404). Notes left in the fetcher for future revisits."
+      ]
+    },
+    {
+      "version": "1.4.9",
+      "date": "2026-05-10",
+      "type": "patch",
+      "summary": "Removed the cryptic '(press / to focus)' hint from the prospect-search placeholder. The slash shortcut still works — discoverable via the keyboard-shortcuts footer at the bottom of the tab and the ? help modal.",
+      "details": [
+        "Placeholder now reads simply 'Search prospects…' instead of 'Search prospects…  (press / to focus)'.",
+        "The `/`, `Esc`, and `?` shortcuts are still wired and listed in the discoverable help locations — just no longer cluttering the input."
+      ]
+    },
+    {
+      "version": "1.4.8",
+      "date": "2026-05-10",
+      "type": "patch",
+      "summary": "Stopped auto-injecting synthetic trade offers from random franchises during auto-draft. The Incoming Trades inbox card is now hidden in simulate mode entirely — appears only in LIVE mode for real proposals from real owners.",
+      "details": [
+        "Removed the ~12% per-pick chance of a synthetic offer from another franchise during auto-sim. Those offers were unrealistic (real owners don't randomly send trade pressure during a draft) and noisy.",
+        "Inbox card hidden in SIM via card.hidden=true, restored when flipping to LIVE.",
+        "Inbox refresh button in SIM now toasts 'Inbox is live-mode only — propose your own trade in sim instead.' instead of generating a fake offer.",
+        "Removed the dead _simSyntheticOffer() function (~40 lines).",
+        "Mode-flip handler also drops any leftover items when entering SIM (paranoia — there shouldn't be any since the polling stopped).",
+        "Reasoning: the user can propose their own trades in sim to test the trade flow + the board mutation. Receiving fake offers from teams who'd never send them in real life just clutters the rehearsal."
+      ]
+    },
+    {
+      "version": "1.4.7",
+      "date": "2026-05-10",
+      "type": "patch",
+      "summary": "Removed the 'Search Any Player' panel from the prospect rail. The prospect search above already covers the rookie pool, and looking up veterans during a draft isn't a real workflow.",
+      "details": [
+        "HTML: removed the <details id=\"player-search-panel\"> block under the prospect filters.",
+        "JS: removed wirePlayerSearch() and doPlayerSearch() functions plus the wirePlayerSearch() call in wireLiveDraftListeners().",
+        "Worker /api/players-search endpoint left in place (no client uses it; harmless and may be revived for a different surface)."
+      ]
+    },
+    {
+      "version": "1.4.6",
+      "date": "2026-05-10",
+      "type": "patch",
+      "summary": "Three trade-modal fixes: (1) clear 'You're on the clock' banner appears in the on-clock card whenever the active pick belongs to your franchise — no more confusion about why the Draft Player button is greyed out after a trade swap; (2) cap-$ (BB) trade rule enforced per docs/league_context_v1.md §E1 — max sent = 50% of YOUR outgoing player salaries, not pooled, and trade must include at least one non-cash asset on each side that has cap-$; (3) cap-$ + comments fields no longer have placeholder ghost text that looked like pre-filled values.",
+      "details": [
+        "On-clock banner: a green 'You're on the clock' callout sits above the queued-prospect block whenever STATE.live.active_pick.franchise_id matches the user's franchise. Tells them whether to click a prospect (none queued) or confirm below (one queued). Solves the problem from the user's report: 'I made a trade and the board moved up but it's not allowing me to pick.'",
+        "Cap-$ (BB) trade rule (UPS §E1): each side's max cap money sent = 50% × sum of THAT side's outgoing player salaries. NOT pooled. Multi-player trades sum the salaries first.",
+        "Live helper text under the cap-$ row reads: 'Cap $ rule: YOU OFFER max = $X (N players · combined salary $Y) · already added $Z · $REMAINING left'. Updates whenever the basket changes or the user toggles which side they're adding cap-$ to.",
+        "Add-cap-$ button validates: must be > 0, must have at least one player on that side first (max=0 otherwise), cannot exceed remaining cap-$ allowance. Failures show a toast.",
+        "Submit handler also re-validates cap-$ totals (a user could remove players after adding BB$ which would invalidate the trade) and the 'must include non-cash asset' rule before submitting.",
+        "BB$ field placeholder removed (was '5000' which looked pre-filled). Comments field placeholder removed (was 'Optional comments…' which looked pre-filled). Both inputs get autocomplete=off so browser autofill doesn't add ghost values.",
+        "Cap-$ field renamed from 'Blind Bid $' to 'Cap $ (BB)' since it's a CAP-MONEY adjustment recorded as a salary_adjustment row, not a literal blind-bid auction nomination — matches league_context terminology."
+      ]
+    },
+    {
+      "version": "1.4.5",
+      "date": "2026-05-10",
+      "type": "fix",
+      "summary": "Hard guard against duplicate picks. The same player_id can never be added to picks_made twice (was producing Stribling at 2.09 AND 3.09, Sadiq Kenyon at 1.07 AND 1.09 in some sims). Same-slot conflicts are also blocked.",
+      "details": [
+        "_autoSimRecordPick now checks STATE.live.picks_made for an existing entry with the same player_id. If found, the new pick is BLOCKED with a console.error showing both attempt sites + a toast for the user.",
+        "Same-slot guard: refuses to add a second pick at the same round.slot.",
+        "Prospect-row click in the rail now blocks queueing an already-drafted prospect (was relying on the click handler letting it through, then the engine deduping later).",
+        "On-the-Clock 'Draft Player' button is disabled (greyed-out, cursor:not-allowed) when the queued prospect is already drafted somewhere — with a tooltip showing the slot they were taken at.",
+        "Errors are surfaced rather than silently swallowed — root cause of the duplicate selection (race / stale closure / synthetic-offer leak) will now be visible in the console next time it triggers."
+      ]
+    },
+    {
+      "version": "1.4.4",
+      "date": "2026-05-10",
+      "type": "fix",
+      "summary": "Auto-draft engine no longer takes defense in early rounds and never doubles up on defense in the same round. Per-round defense penalty calibrated against the actual UPS draft history (2020+).",
+      "details": [
+        "Per-round defense penalty added to score: R1=+80 (impossible), R2=+50 (very rare), R3=+28 (rare), R4=+26 (creeping in), R5=+25 (common), R6=0 (filter handles it).",
+        "Same-round double-up penalty: if a franchise already drafted a defensive player THIS round, defense candidates get an extra penalty (R1=+100, R2=+80, R3=+50, R4=+30, R5=+22). Historical rate of double-up was <2% so this is effectively a hard block in early rounds.",
+        "Defense-heavy owners (offense_pct < 0.45) get a 40% reduction on the defense penalty — they're more likely than average to take a defender, just not in R1-R2.",
+        "Validated with 300-iteration sim against rookie_draft_history.json: simulated def% per round matches historical within ~1%pt across R1-R5. Same-round doubles: 0 per draft (matches reality).",
+        "Calibration table:",
+        "  R1: sim 0% / hist 0% / 0 doubles",
+        "  R2: sim 0% / hist 2% / 0 doubles",
+        "  R3: sim 8% / hist 9% / 0 doubles",
+        "  R4: sim 26% / hist 26% / 0 doubles",
+        "  R5: sim 28% / hist 27% / 0 doubles"
+      ]
+    },
+    {
+      "version": "1.4.3",
+      "date": "2026-05-10",
+      "type": "patch",
+      "summary": "Profile card now falls back to the prospect-board record when the MFL bundle is empty (fixes the empty bio for current-year rookies in local preview). Simulated trades now mutate STATE.live.draft_order in real time so the board reflects pick swaps the instant a sim trade is accepted.",
+      "details": [
+        "Profile bio: when bundle.profile.playerProfile.player is empty (always in local preview, often for fresh rookies), pull height/weight/college/age/draft_summary from the prospect record we already loaded. ESPN ID surfaces as a clickable link to their college page.",
+        "Pre-NFL banner above the bio fields when career_summary is empty AND the player exists in the 2026 prospect board: shows draft summary, NFL signing team, and the consensus rank with per-source breakdown (MFL #X · FC #Y · KTC #Z).",
+        "Sim trades — proposed: after a simulate trade succeeds, _applySimTradeToState walks the give/receive baskets and re-assigns ownership of any current-year picks (DP_year_round_slot) in STATE.live.draft_order. Future picks (FP_*) and player swaps are recorded in STATE.live._sim_future_pick_moves / _sim_player_swaps for downstream display but the rookie hub doesn't render rosters here.",
+        "Sim trades — incoming inbox: accepting a synthetic offer also applies the swap. From the recipient's POV, offer.give → flows from recipient to proposer, offer.receive → flows from proposer to recipient.",
+        "Real-time consequence: if you trade your 1.09 for the partner's 1.08 in sim mode, the BOARD instantly shows your franchise on 1.08 and the partner's on 1.09, and the auto-sim engine picks for the new owners on the next tick.",
+        "Synthetic offer generator now tags every snapshot record with kind ('player' / 'dp' / 'fp') and asks for a pick-swap 50% of the time (vs random asset mix) so users get to see the board mutation more often during rehearsal.",
+        "Toast on successful sim trade reads 'Trade simulated — board updated (N picks swapped)' when picks moved."
+      ]
+    },
+    {
+      "version": "1.4.2",
+      "date": "2026-05-10",
+      "type": "feature",
+      "summary": "Revert / undo individual picks. SIMULATE mode: any user can revert any pick. LIVE mode: commissioner-only, with a clear warning that MFL must be corrected manually since MFL has no clean draftResults undo API.",
+      "details": [
+        "Hover over a made pick cell on the board → small ↶ icon appears in the slot label. Click it to open the revert confirmation modal.",
+        "Permission gate via _canRevert(): SIM mode returns true for everyone; LIVE mode requires STATE.me.is_commish.",
+        "Revert modal shows the player + franchise + slot label being reverted. If LIVE, a red banner reminds the commissioner to also undo in MFL admin tools.",
+        "If picks were made AFTER the slot being reverted, an amber warning explains the choice — and a second 'Revert this + N after' button appears for cascade-undo (useful when re-running an auto-sim from a specific point).",
+        "Revert mutates STATE.live.picks_made + AUTO_SIM.history + restores active_pick to the earliest unmade slot via _autoSimNextSlot().",
+        "↶ icon stays hidden until the cell is hovered — keeps the board visually clean. Hover affordance is opacity 0.85 → 1.0 on hover with a soft red background.",
+        "No new worker call yet — LIVE undo is hub-state-only (commish must manually correct MFL). A /api/pick/undo worker endpoint is a follow-up if the manual MFL step gets annoying."
+      ]
+    },
+    {
+      "version": "1.4.1",
+      "date": "2026-05-10",
+      "type": "fix",
+      "summary": "Pre-trade extension dropdown corrected to mirror site/trades/trade_workbench.js + docs/league_context_v1.md §C4 exactly. The previous fabricated options (3YR, Front-Loaded, Back-Loaded) violated UPS rules and have been removed.",
+      "details": [
+        "Only valid extensions are Ext1 (1YR) and Ext2 (2YR) — confirmed in league_context_v1.md:299-312 and trade_workbench.js buildSyntheticExtensionOptions().",
+        "Removed: 3YR, Front-Loaded, Back-Loaded extension options (loading is for FA/ERA multi-year contracts, NOT for extensions).",
+        "Per-asset position-based AAV escalator added (mirrors trade_workbench.js PRETRADE_EXTENSION_RAISES at line 11):",
+        "  Schedule 1 (QB/RB/WR/TE): +$10K (1yr) / +$20K (2yr)",
+        "  Schedule 2 (DL/LB/DB/PK/PN/OTHER): +$3K (1yr) / +$5K (2yr)",
+        "Dropdown now shows the COMPUTED new AAV in the option label (e.g. '+1yr (Ext1) · new AAV $27K') so the proposing owner sees what they're committing to. Mirrors the trade workbench's preview behavior.",
+        "Basket pill now reads 'Ext1' / 'Ext2' (matches MFL contract_type token) instead of the raw '1YR'/'2YR' code.",
+        "Eligibility check still defers to the worker — UI offers the option, MFL/worker enforces (must have 1yr remaining or be expired-rookie pre-deadline; no tags; no 'no further extensions' players)."
+      ]
+    },
+    {
+      "version": "1.4.0",
+      "date": "2026-05-10",
+      "type": "feature",
+      "summary": "Incoming Trades inbox in the right rail with Accept / Counter / Decline. Live mode polls the existing /api/trades/proposals worker endpoint every 30s. Simulate mode auto-injects synthetic offers from random franchises during auto-draft so the user can rehearse responding to trade pressure.",
+      "details": [
+        "New 'Incoming Trades' card under On-the-Clock with a pulsing red badge showing the pending offer count.",
+        "Click any inbox row to open a Trade Detail modal showing both baskets ('YOU RECEIVE' green, 'YOU GIVE' red) plus comments and three action buttons.",
+        "Accept (green): in LIVE mode POSTs to /api/trades/proposals/action with action=accept; in SIM mode just clears from local inbox.",
+        "Decline (red): same wiring with action=decline.",
+        "Counter (amber): swaps and copies the offer's baskets into a fresh proposal — opens openTradeModal pre-populated with reversed terms + the proposing partner already selected. User edits and submits as a new proposal. The original offer is removed from the inbox (it's superseded).",
+        "Live polling: every 30s when not in simulate mode. Polling auto-stops when flipping to SIM and auto-starts when flipping back to LIVE. Simulated items are dropped from the inbox on LIVE flip so users don't act on them.",
+        "Simulate-mode synthetic offers: ~12% chance per engine pick during auto-draft that another franchise sends YOU an offer (random give from your snapshot, random receive from theirs, random one-line comment). Caps at 2 pending offers so the inbox doesn't spam during sim.",
+        "Manual refresh button: in SIM forces a synthetic offer; in LIVE forces an immediate poll.",
+        "Reuses the existing trade-workbench worker endpoints (/api/trades/proposals + /api/trades/proposals/action) — no new worker code required.",
+        "Counter wiring: STATE._counterPrepopulate carries {partner_fid, give[], receive[], comments, original_offer_id} into the next openTradeModal call, which consumes it once and pre-populates baskets + partner select + comments."
+      ]
+    },
+    {
+      "version": "1.3.8",
+      "date": "2026-05-10",
+      "type": "patch",
+      "summary": "Trade modal: opaque scrim (no more glass bleed), all picks under one 'Draft Picks' section, BB$ promoted to a single inline row, and pre-trade extensions wired the same way as trade_workbench.js. Submit no longer crashes when the worker is unreachable in local preview.",
+      "details": [
+        "Modal overlay scrim is now rgba(8,11,18,0.88) + 2px backdrop-blur — page content no longer bleeds through. Z-index lifted to 1000 so sticky banners + on-clock cards can't punch through. Modal box gets a 0/20/60 box-shadow for clear separation.",
+        "Combined 'Future Picks' + 'Current-Year Picks' into one 'Draft Picks' section. Current-year picks come first (sorted by round/slot), then future picks (sorted by year/round).",
+        "BB$ promoted out of the collapsed 'optional' details — sits as a single inline row in the footer alongside the comments box. Always visible, easier to discover.",
+        "Pre-trade extension dropdown per player asset in the basket — same 10 option_keys the trade workbench uses (1YR / 2YR / 3YR Veteran / Front-Loaded / Back-Loaded). Selected extension shows as an accent-colored pill on the basket row.",
+        "Trade payload now sends both legacy flat give[]/receive[] arrays AND rich give_assets[]/receive_assets[] objects with extension_term — so the worker can opt into the richer shape without breaking back-compat.",
+        "Trade submit handler wraps the fetch in a content-type check (matches the /api/franchise-assets pattern). Local-preview simulate trades succeed via a stub when the worker is unreachable — was crashing with 'SyntaxError: The string did not match the expected pattern' before."
+      ],
+      "deferred": [
+        "Accept / counter / decline workflow for INCOMING trade offers — needs a new inbox view, counter-offer composer, and worker endpoints for /api/trades/respond. Tracked as a separate v1.4.0 follow-up since it touches D1 + the worker, not just the hub UI."
+      ]
+    },
+    {
+      "version": "1.3.7",
+      "date": "2026-05-10",
+      "type": "patch",
+      "summary": "Live tab restructured: full-width draft board on top (all 12 picks per round visible), prospects + on-the-clock side-by-side underneath. Click-anchored modal positioning removed everywhere — every modal now centers via the overlay flexbox.",
+      "details": [
+        "Layout v3: was 3-col (prospects | board | on-clock). Now 1-col board on top, 2-col below (prospects 360px | right-rail 1fr).",
+        "Board cells bigger and more readable: min-height 64px, font 12px, slot label 12px bold, player name with line-through when drafted.",
+        "Board stays 12-wide down to 720px viewport; collapses to 6-wide on phone, 4-wide on small phone.",
+        "Board legend (made / on-clock / queued) sits directly below the grid.",
+        "openModal() no longer reads _lastClickY — every modal centers via the overlay's flexbox. Trade modal dropped its custom fixed-positioning override since the overlay now handles it.",
+        "On-the-Clock card no longer 'sticky' — was getting in the way at narrow widths since it now sits in the right rail under the board."
+      ]
+    },
+    {
+      "version": "1.3.6",
+      "date": "2026-05-10",
+      "type": "patch",
+      "summary": "Trade modal redesigned around a four-region layout (sticky header / sticky baskets strip / scrollable pickers / sticky footer) so the user can always see what they're offering AND the submit button regardless of how long the asset list is.",
+      "details": [
+        "Modal is centered in viewport (was anchored to click-Y, which often pushed it off-screen for trade interactions).",
+        "New 'baskets strip' near the top: 'YOU OFFER' (red border) on the left, 'YOU RECEIVE' (green border) on the right, with a ⇄ divider. Always visible — no scrolling required to see what's in the cart. Each basket has a count chip (e.g. '3 assets').",
+        "Pickers occupy the middle scrollable region. Inner asset lists no longer have nested scroll boxes — the body scrolls as one unit, no fighting overflow zones.",
+        "Submit + Cancel buttons live in a sticky footer at the bottom. Always reachable.",
+        "Trade-partner select moved to the header (next to '↔ Trade with:'); BB$ + comments moved into a collapsed 'optional' details disclosure to declutter the default view.",
+        "Submit button label switches between 'Simulate Trade' (amber) and '🔴 Submit Proposal LIVE' (red) based on STATE.simulationMode.",
+        "Removed click-Y positioning override for the trade modal — fixed center positioning works better for tall content."
+      ]
+    },
+    {
+      "version": "1.3.5",
+      "date": "2026-05-10",
+      "type": "patch",
+      "summary": "Future draft picks acquired in trades now display the original team name + owner ('2027 R1 (via HammerTime · Eric Martel)') instead of the cryptic franchise ID ('orig 0005').",
+      "details": [
+        "snapshot_franchise_assets.py — added fetch_franchise_names() that pulls team names from MFL TYPE=league, then overlays owner names from rookie_draft_team_tendencies.json. Tendencies file is keyed by owner_name (not fid) and a single fid can have multiple historical owners — picks the active one (is_active=true).",
+        "Future-pick display string: '2027 R1' for own picks, '2027 R1 (via <Team Name> · <Owner>)' for picks acquired via trade.",
+        "Each future-pick record now carries original_team_name and original_owner_name fields (in addition to the legacy original_fid) so the hub can format display strings any way it wants without re-doing the lookup.",
+        "Verified Keith's franchise (0008): 2027 R1 (via HammerTime 🔨 ⏰ · Eric Martel), 2027 R1 (own), R2 (own), R3 (own), R4 (own), R5 (own)."
+      ]
+    },
+    {
+      "version": "1.3.4",
+      "date": "2026-05-10",
+      "type": "patch",
+      "summary": "Trade modal expanded to 1180px with taller scroll regions; real player rosters now visible in local preview via a static MFL snapshot. Modal classes are reset between opens (no more bio-modal CSS leaking into trade modal).",
+      "details": [
+        "Trade modal CSS: max-width 1180px (was 860), max-height 92vh, inner picker boxes 280px (was 140), basket boxes 180px scrollable. Two-column grid collapses to one at <900px.",
+        "openModal() now strips per-modal modifier classes when reused; openTradeModal applies .rdh-modal-trade so the wider rules kick in.",
+        "New script: pipelines/etl/scripts/snapshot_franchise_assets.py — pulls MFL rosters + future picks + current-year unmade picks for all 12 franchises and writes site/rookies/franchise_assets_2026.json (12 franchises · 283 players · 60 future picks).",
+        "Hub loads the snapshot lazily on boot (non-blocking). When /api/franchise-assets is unreachable in local preview, the trade modal falls back to the snapshot — players, salaries, future picks, and current-year picks all render. Banner notes 'static snapshot (timestamp)'.",
+        "Current-year picks always come from live STATE so simulated picks don't reappear as available.",
+        "Rookie players show up in the snapshot as part of each franchise's roster once their draft pick is recorded in MFL — until then the live worker is needed for true real-time data."
+      ]
+    },
+    {
+      "version": "1.3.3",
+      "date": "2026-05-10",
+      "type": "feature",
+      "summary": "Auto-draft engine now uses tier-based sampling driven by continuous MFL ADP gaps. Lone consensus #1s (Love at 1.46 ADP, 2.24 gap to Tate) go deterministically; tight clusters (Tyson/Price/Lemon/Mendoza all at ADP 5.5-6.5) shuffle realistically. Trade modal in local preview no longer crashes when /api/franchise-assets is unreachable.",
+      "details": [
+        "Replaced gaussian jitter + fixed top-N sampling with a tier walker. Walks the score-sorted list and starts a new tier whenever the gap to the next prospect exceeds tune.tierGap (per round). Then samples within the best available tier with mild bias toward the leader.",
+        "Tier boundaries use the prospect's continuous rookie_adp value (not the integer-spaced consensus_rank), so natural clusters are detected instead of bunching all top players into one tier.",
+        "tierBleed parameter — small chance the engine reaches one tier deeper than the current best (rare in R1, climbs to 30-40% by R5).",
+        "Validated with 500-iteration sim: 1.01 = Love 100%, 1.02 = Tate 100%, 1.03-1.06 = realistic spread among Tyson/Price/Lemon/Mendoza.",
+        "Trade modal: when /api/franchise-assets returns non-JSON (e.g. local python.http.server preview that doesn't host the worker), fall back to a local stub built from STATE.live (current-year picks) + STATE.future_picks (future picks). Player rosters still need the live worker; banner explains.",
+        "Removed gaussian jitter sigma — score variation now comes purely from owner position-mix bonus + offense/defense skew + tier sampling. Simpler, more transparent."
+      ]
+    },
+    {
+      "version": "1.3.2",
+      "date": "2026-05-10",
+      "type": "patch",
+      "summary": "Fix critical bug: auto-draft engine was scoring unranked players as rank 0 (better than #1) because Number(null) === 0 in JavaScript, not NaN. LT Overton, Keyshawn James-Newby, and other UDFA DEs were beating Jeremiyah Love at 1.01.",
+      "details": [
+        "Replaced Number.isFinite(Number(x)) checks with explicit null comparisons via _hasRank(v) helper.",
+        "Eligibility filter and score baseline both now treat null/undefined consensus_rank as 'no signal' (defaults to 999), not as rank 0.",
+        "Validated with 100-iteration sim: 100/100 picks at 1.01 are now Jeremiyah Love (was sometimes Overton/James-Newby/etc due to the bug)."
+      ]
+    },
+    {
+      "version": "1.3.1",
+      "date": "2026-05-10",
+      "type": "patch",
+      "summary": "Auto-draft engine tuned per round — Round 1 now always takes the consensus #1 (no jitter, no randomness). UDFAs and unranked players excluded from rounds 1-4. Step button respects 'Play as'.",
+      "details": [
+        "Per-round tuning table: R1 σ=0.3 sample=1 (deterministic), R2 σ=1.0 sample=2, R3 σ=2.0 sample=3, R4 σ=2.5 sample=4, R5 σ=3.0 sample=5, R6 σ=4.0 sample=6.",
+        "R1 always returns the lowest-score prospect — at 1.01 you will see Jeremiyah Love every time. The 70/30 top-N sampling kicks in starting at R2.",
+        "Position-mix bonus capped: posMul scales 0 → 2.0 by round (was a flat 4.0 in v1.3.0). Side bonus (offense/defense skew) scales 0 → 1.0 (was a flat 1.5).",
+        "Eligibility filter: in rounds 1-4, players with NO ranking signal (consensus_rank null AND rookie_adp null) are excluded entirely. UDFAs like Noah Whittington can only enter the pool at R5+.",
+        "Step button now blocks when your franchise is on the clock — toasts a reminder instead of silently picking for you."
+      ]
+    },
+    {
+      "version": "1.3.0",
+      "date": "2026-05-10",
+      "type": "feature",
+      "summary": "Auto-Draft engine — non-user franchises auto-pick on a 10s timer using consensus rank + owner tendencies + randomness. Pause / Resume / Step / Reset controls. Switch which franchise you 'play as' to simulate from any seat.",
+      "details": [
+        "Algorithm per pick: score = consensus_rank + gauss_jitter(σ=2.5) − position_mix_bonus − offense/defense_side_bonus + reach_penalty (rounds 3+).",
+        "80% of the time the engine takes the lowest-score prospect; 20% it samples from the top-3 weighted by softmax — keeps simulations from being identical run-to-run.",
+        "Round 6 picks filtered to defense (UPS IDP-only rule).",
+        "Owner tendencies pulled from rookie_draft_team_tendencies.json: position_mix (e.g. 'WR 26% / RB 22% / QB 17%') and offense_pct shape who each owner gravitates to.",
+        "UI: new Auto-Draft card under On-the-Clock with Play-as dropdown (any franchise), speed selector (5s/10s/20s/Instant), and Start/Pause/Resume/Step/Reset buttons. Animated progress bar between picks.",
+        "When the playing franchise comes on the clock, the sim auto-pauses with a 'Your pick' banner. User can submit manually OR hit Resume to let the engine pick for them too.",
+        "Modal-aware: opening any modal (trade workbench, player profile, pick confirm) pauses the sim; closing resumes. Trades stay manual via the existing modal flow.",
+        "Reset button clears all simulated picks from local STATE — does NOT touch the worker / MFL.",
+        "All client-side: no /api calls, no Discord posts during auto-sim. The 'Submit Pick' modal during a sim records the pick locally so the sim continues."
+      ]
+    },
+    {
+      "version": "1.2.0",
+      "date": "2026-05-10",
+      "type": "feature",
+      "summary": "Multi-source rookie ranking consensus — blends MFL ADP + FantasyCalc + KeepTradeCut (live-scraped) into a median consensus rank. Default sort and on-the-clock breakdown both surface the wisdom of crowds.",
+      "details": [
+        "New script: pipelines/etl/scripts/fetch_external_adp.py — fetches FantasyCalc SF dynasty values, scrapes KeepTradeCut SF rookie rankings (replaces stale local config file), and pulls DynastyProcess weekly CSV. No API keys required. Writes site/rookies/external_adp_2026.json.",
+        "Fixed broken MFL filter: 'mfl_rookie_sf' was using IS_PPR=0 (non-PPR), not SuperFlex — dropped entirely; FantasyCalc and KTC now provide the SF signal instead.",
+        "build_prospects() now merges external_adp_2026.json by (a) MFL player_id where available and (b) name match in BOTH 'Last, First' and 'First Last' orderings (was only matching one direction, missed everyone).",
+        "New consensus_rank field per prospect = MEDIAN rank across all available sources (MFL rookie + FantasyCalc + KTC + DynastyProcess + MFL dynasty + MFL mock). Median, not mean — one outlier source can't drag the consensus.",
+        "Each prospect carries source_ranks, consensus_n_sources, consensus_rank_min, consensus_rank_max so owners see the spread.",
+        "UI: segmented control replaces 'Avg / MFL / KTC SF / ZAP' with 'Consensus / MFL / FC / KTC' — Consensus is the new default sort.",
+        "On-the-Clock card shows the consensus rank + per-source breakdown for the queued prospect (MFL #X · FC #Y · KTC #Z).",
+        "Footer attribution under the live tab lists every blended source + last-pulled date so owners know what they're trusting.",
+        "FantasyCalc 'mflId: UNK' literal handled correctly (was clobbering all 70 rookies into one entry).",
+        "Verified: Oscar Delp (R3.9 NOS) now reports consensus #42 across MFL #42 + FC #35 + KTC #44 — was previously showing only the MFL signal."
+      ]
+    },
+    {
+      "version": "1.1.1",
+      "date": "2026-05-10",
+      "type": "data",
+      "summary": "Refreshed prospect board with post-NFL-draft data; added age, college, NFL draft pick / UDFA flag, height, weight to every prospect; profile card now renders a rich pre-NFL block when career stats are empty.",
+      "details": [
+        "Re-ran build_prospects() — pool grew from 105 to 258 (more rookies in MFL post-draft signing window) and every prospect now carries a current NFL team (was 'FA' for everyone in the v1.1.0 snapshot).",
+        "New fields per prospect: nfl_draft_round, nfl_draft_pick_in_round, nfl_draft_team, is_udfa, nfl_draft_summary ('R1.3 · ARI' or 'UDFA · DAL'), college, height, weight, age, birthdate_unix, espn_id, rotowire_id.",
+        "Prospect rows in the live tab show a green 'R1.3 · ARI' badge for drafted rookies and a slate 'UDFA · DAL' badge for undrafted free-agent signings, plus the college name + age inline.",
+        "Player profile card replaces the 'No career data yet' fallback with a Pre-NFL Prospect block showing draft summary / college / age / height / weight / UPS rookie ADP — only for current-year rookies. Veterans with no logged games still get the original message.",
+        "New script: pipelines/etl/scripts/refresh_prospects.py — slim wrapper around build_prospects() that writes to the in-repo path (the original build_rookie_draft_hub.py points at a stale /Users/keithcreelman/Documents/New project location).",
+        "NCAA stats explicitly skipped (Keith's call) — leaves room to wire CollegeFootballData later if the bio-only view turns out to be too thin."
+      ]
+    },
+    {
+      "version": "1.1.0",
+      "date": "2026-05-10",
+      "type": "feature",
+      "summary": "Live Draft tab fully built out — owners can submit picks + propose trades from the hub, with default-ON simulate mode for risk-free rehearsal.",
+      "details": [
+        "Replaced Live Draft 'Under Construction' placeholder with a modern 3-column UI: prospect rail (chips + segmented ADP control + general player search) · 6×12 draft board · sticky On-the-Clock card.",
+        "Sticky mode banner at top: SIMULATE (amber, default) vs LIVE (red, commissioner-only flip with confirm dialog). Mode persists across refreshes via sessionStorage.",
+        "Auto-login via MFL HPM context — when an owner views the hub from MFL's homepage, FRANCHISE_ID is detected from the iframe URL and used as 'who is acting' (no cookie paste).",
+        "Rookie contract preview in the Confirm Pick modal: Y1 AAV, 3yr TCV, length, taxi/IDP/option-year notes — computed per slot from league_context_v1.md A1.",
+        "New worker endpoints: /api/me, /api/settings, /api/pick, /api/trade, /api/franchise-assets, /api/players-search. Pick submission goes to MFL draftResults import; trade submission goes to MFL tradeProposal import.",
+        "Discord announcements: simulated picks → test channel 1089538054236160010 (with [SIM] prefix); LIVE picks → official channel 1498680803419357234.",
+        "General player search panel — searches the entire MFL player pool by name, opens the same rich profile card used by Front Office (bio, contract, game log).",
+        "Keyboard shortcuts: / focuses prospect search, Esc closes modals, ? opens help.",
+        "Reduced-motion respected; mobile/tablet collapses to stacked layout."
+      ]
+    },
     {
       "version": "1.0.1",
       "date": "2026-04-20",

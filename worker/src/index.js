@@ -2118,6 +2118,470 @@ export default {
         return jsonOut(200, bundle);
       }
 
+      // ══════════════════════════════════════════════════════════════════
+      // Rookie Draft Hub — live-draft write endpoints (2026-05-10)
+      // ══════════════════════════════════════════════════════════════════
+      // Shared scaffolding for the live-draft routes below. (We can't reuse
+      // padFranchiseId here — it's defined further down in this same scope.)
+      const _rdhPadFid = (v) => {
+        const digits = String(v == null ? "" : v).replace(/\D/g, "");
+        return digits ? digits.padStart(4, "0").slice(-4) : "";
+      };
+      const _rdhLeagueId = () => safeStr(L || "74598");
+      const _rdhYear = () => safeStr(YEAR || String(new Date().getUTCFullYear()));
+      const _rdhCommishFids = () => {
+        const raw = safeStr(env.COMMISH_FRANCHISE_IDS || "0001");
+        return raw.split(/[,\s]+/).map(s => _rdhPadFid(s)).filter(Boolean);
+      };
+      const _rdhDiscordChannel = (live) => {
+        const liveCh = safeStr(env.DISCORD_DRAFT_CHANNEL_ID || "1498680803419357234").replace(/\D/g, "");
+        const testCh = safeStr(env.DISCORD_DRAFT_TEST_CHANNEL_ID || "1089538054236160010").replace(/\D/g, "");
+        return live ? liveCh : testCh;
+      };
+      const _rdhPostDiscord = async (channelId, content) => {
+        const botToken = safeStr(env.DISCORD_BOT_TOKEN || env.DISCORD_BOT || env.Discord_bot || "");
+        if (!botToken || !channelId) return { ok: false, error: "missing_discord_config" };
+        try {
+          const r = await fetch(`https://discord.com/api/v10/channels/${encodeURIComponent(channelId)}/messages`, {
+            method: "POST",
+            headers: { Authorization: `Bot ${botToken}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ content: safeStr(content).slice(0, 1900), allowed_mentions: { parse: [] } }),
+          });
+          const ok = r.ok;
+          return { ok, status: r.status };
+        } catch (e) {
+          return { ok: false, error: String(e && e.message || e) };
+        }
+      };
+      // Server-side mirror of rookieSlotContract — keeps Discord copy honest.
+      const _rdhRookieContract = (round, slot) => {
+        const r = Number(round) || 0;
+        const s = Number(slot) || 0;
+        let aav = 0;
+        const length = 3;
+        if (r === 1) aav = s <= 10 ? Math.max(6, 16 - s) : 5;
+        else if (r === 2) aav = 5;
+        else if (r >= 3 && r <= 5) aav = 2;
+        else if (r === 6) aav = 1;
+        return { aav, tcv: aav * length, length, optionYearSalary: r === 1 ? aav + 5 : null };
+      };
+      // Detect MFL franchise for a session cookie via TYPE=myleagues. Mirror
+      // of pipelines/etl/scripts/rookie_draft_bridge.py:_detect_mfl_user_from_cookie.
+      const _rdhDetectFranchise = async (mflUserId) => {
+        const leagueId = _rdhLeagueId();
+        const year = _rdhYear();
+        try {
+          const r = await fetch(
+            `https://www48.myfantasyleague.com/${encodeURIComponent(year)}/export?TYPE=myleagues&L=${encodeURIComponent(leagueId)}&JSON=1`,
+            { headers: { Cookie: `MFL_USER_ID=${mflUserId}`, "User-Agent": "upsmflproduction-worker" } }
+          );
+          if (!r.ok) return { error: `HTTP ${r.status}` };
+          const data = await r.json();
+          let leagues = data?.myleagues?.league || [];
+          if (!Array.isArray(leagues)) leagues = [leagues];
+          for (const lg of leagues) {
+            if (String(lg.league_id) === String(leagueId)) {
+              return {
+                franchise_id: _rdhPadFid(lg.franchise_id),
+                franchise_name: safeStr(lg.franchise_name || lg.name),
+                league_name: safeStr(lg.name),
+              };
+            }
+          }
+          return { error: "MFL_USER_ID not a member of league " + leagueId };
+        } catch (e) {
+          return { error: String(e && e.message || e) };
+        }
+      };
+      const _rdhFranchiseName = async (fid) => {
+        const leagueId = _rdhLeagueId();
+        const year = _rdhYear();
+        try {
+          const r = await fetch(
+            `https://www48.myfantasyleague.com/${encodeURIComponent(year)}/export?TYPE=league&L=${encodeURIComponent(leagueId)}&JSON=1`,
+            { cf: { cacheTtl: 600, cacheEverything: true }, headers: { "User-Agent": "upsmflproduction-worker" } }
+          );
+          if (!r.ok) return "";
+          const data = await r.json();
+          let lf = data?.league?.franchises?.franchise || [];
+          if (!Array.isArray(lf)) lf = [lf];
+          const padded = _rdhPadFid(fid);
+          for (const f of lf) if (_rdhPadFid(f.id) === padded) return safeStr(f.name);
+          return "";
+        } catch (e) { return ""; }
+      };
+
+      // ── GET /api/me — identify the current owner from HPM franchise_id or cookie ──
+      if (path === "/api/me" && request.method === "GET") {
+        const fidFromQuery = _rdhPadFid(url.searchParams.get("franchise_id") || "");
+        const cookieHeader = request.headers.get("Cookie") || "";
+        const cookieMatch = cookieHeader.match(/MFL_USER_ID=([^;]+)/i);
+        const mflUserId = (cookieMatch && cookieMatch[1]) || browserMflUserId || "";
+        let franchise_id = fidFromQuery;
+        let franchise_name = "";
+        if (franchise_id) {
+          franchise_name = await _rdhFranchiseName(franchise_id);
+        } else if (mflUserId) {
+          const det = await _rdhDetectFranchise(mflUserId);
+          if (det && det.franchise_id) {
+            franchise_id = det.franchise_id;
+            franchise_name = det.franchise_name;
+          }
+        }
+        if (!franchise_id) return jsonOut(200, { configured: false });
+        const commishFids = _rdhCommishFids();
+        return jsonOut(200, {
+          configured: true,
+          franchise_id,
+          franchise_name,
+          is_commish: commishFids.includes(franchise_id),
+        });
+      }
+
+      // ── POST /api/settings — accept MFL_USER_ID, look up franchise via myleagues ──
+      if (path === "/api/settings" && request.method === "POST") {
+        let body = {};
+        try { body = await request.json(); } catch (_) {}
+        const mflUserId = safeStr(body.mfl_user_id || body.MFL_USER_ID || "");
+        if (!mflUserId) return jsonOut(400, { error: "mfl_user_id required" });
+        const det = await _rdhDetectFranchise(mflUserId);
+        if (det && det.error) return jsonOut(400, det);
+        return jsonOut(200, det);
+      }
+
+      // ── GET /api/players-search — name substring search across MFL players ──
+      if (path === "/api/players-search" && request.method === "GET") {
+        const q = safeStr(url.searchParams.get("q") || "").toLowerCase();
+        const limit = Math.min(50, Math.max(1, Number(url.searchParams.get("limit") || "25")));
+        if (q.length < 2) return jsonOut(200, { players: [] });
+        const year = _rdhYear();
+        try {
+          const r = await fetch(
+            `https://api.myfantasyleague.com/${encodeURIComponent(year)}/export?TYPE=players&JSON=1`,
+            { cf: { cacheTtl: 3600, cacheEverything: true }, headers: { "User-Agent": "upsmflproduction-worker" } }
+          );
+          if (!r.ok) return jsonOut(502, { error: `MFL HTTP ${r.status}` });
+          const data = await r.json();
+          let arr = data?.players?.player || [];
+          if (!Array.isArray(arr)) arr = [arr];
+          const out = [];
+          for (const p of arr) {
+            const name = safeStr(p.name || "");
+            if (!name.toLowerCase().includes(q)) continue;
+            // MFL player names are formatted "Last, First" — display as "First Last"
+            const display = name.includes(",")
+              ? name.split(",").reverse().map(s => s.trim()).join(" ")
+              : name;
+            out.push({
+              player_id: safeStr(p.id),
+              name: display,
+              position: safeStr(p.position),
+              nfl_team: safeStr(p.team),
+              status: safeStr(p.status || ""),
+            });
+            if (out.length >= limit) break;
+          }
+          return jsonOut(200, { players: out, count: out.length });
+        } catch (e) {
+          return jsonOut(500, { error: String(e && e.message || e) });
+        }
+      }
+
+      // ── GET /api/franchise-assets — players + future picks + current-year picks ──
+      if (path === "/api/franchise-assets" && request.method === "GET") {
+        const fid = _rdhPadFid(url.searchParams.get("fid") || "");
+        if (!fid) return jsonOut(400, { error: "fid required" });
+        const leagueId = _rdhLeagueId();
+        const year = _rdhYear();
+        const mflFetch = (u, ttl) => fetch(u, {
+          cf: { cacheTtl: ttl || 60, cacheEverything: true },
+          headers: { "User-Agent": "upsmflproduction-worker" },
+        });
+        try {
+          const [rosterRes, fpRes, draftRes] = await Promise.allSettled([
+            mflFetch(`https://www48.myfantasyleague.com/${year}/export?TYPE=rosters&L=${leagueId}&FRANCHISE=${fid}&JSON=1`, 60),
+            mflFetch(`https://www48.myfantasyleague.com/${year}/export?TYPE=futureDraftPicks&L=${leagueId}&JSON=1`, 300),
+            mflFetch(`https://www48.myfantasyleague.com/${year}/export?TYPE=draftResults&L=${leagueId}&JSON=1`, 60),
+          ]);
+
+          // Players
+          const players = [];
+          if (rosterRes.status === "fulfilled" && rosterRes.value.ok) {
+            const rd = await rosterRes.value.json();
+            let franchises = rd?.rosters?.franchise || [];
+            if (!Array.isArray(franchises)) franchises = [franchises];
+            for (const f of franchises) {
+              if (_rdhPadFid(f.id) !== fid) continue;
+              let arr = f.player || [];
+              if (!Array.isArray(arr)) arr = [arr];
+              for (const pp of arr) {
+                players.push({
+                  asset_id: `P_${pp.id}`,
+                  display: safeStr(pp.name) || `Player #${pp.id}`,
+                  player_id: safeStr(pp.id),
+                  position: safeStr(pp.position || ""),
+                  salary: Number(pp.salary || 0),
+                });
+              }
+            }
+          }
+
+          // Future picks owned by this franchise
+          const future_picks = [];
+          if (fpRes.status === "fulfilled" && fpRes.value.ok) {
+            const fpd = await fpRes.value.json();
+            let franchises = fpd?.futureDraftPicks?.franchise || [];
+            if (!Array.isArray(franchises)) franchises = [franchises];
+            for (const f of franchises) {
+              if (_rdhPadFid(f.id) !== fid) continue;
+              let picks = f.futureDraftPick || [];
+              if (!Array.isArray(picks)) picks = [picks];
+              for (const fp of picks) {
+                const yr = safeStr(fp.year);
+                const rd = safeStr(fp.round);
+                const orig = _rdhPadFid(fp.originalPickFor || fp.originalOwner || fid);
+                future_picks.push({
+                  asset_id: `FP_${yr}_${rd}_${orig}`,
+                  display: `${yr} R${rd} (orig ${orig})`,
+                  year: yr, round: rd, original_fid: orig,
+                });
+              }
+            }
+          }
+
+          // Current-year picks not yet made (still owned by this franchise)
+          const current_picks = [];
+          if (draftRes.status === "fulfilled" && draftRes.value.ok) {
+            const dd = await draftRes.value.json();
+            let units = dd?.draftResults?.draftUnit || [];
+            if (!Array.isArray(units)) units = [units];
+            for (const u of units) {
+              let arr = u.draftPick || u.pick || [];
+              if (!Array.isArray(arr)) arr = [arr];
+              for (const dp of arr) {
+                if (dp.player) continue; // already made
+                const owner = _rdhPadFid(dp.franchise || dp.currentOwner);
+                if (owner !== fid) continue;
+                const round = safeStr(dp.round);
+                const slot = safeStr(dp.pick);
+                current_picks.push({
+                  asset_id: `DP_${year}_${round}_${slot}`,
+                  display: `${year} ${round}.${String(slot).padStart(2, "0")}`,
+                  round, slot,
+                });
+              }
+            }
+          }
+
+          return jsonOut(200, { players, future_picks, current_picks });
+        } catch (e) {
+          return jsonOut(500, { error: String(e && e.message || e) });
+        }
+      }
+
+      // ── POST /api/pick — submit (or simulate) a rookie draft pick ──
+      if (path === "/api/pick" && request.method === "POST") {
+        let body = {};
+        try { body = await request.json(); } catch (_) {}
+        const fid = _rdhPadFid(body.franchise_id || "");
+        const playerId = safeStr(body.player_id || "");
+        const simulate = body.simulate !== false; // default true (safer)
+        if (!fid || !playerId) return jsonOut(400, { error: "franchise_id and player_id required" });
+        const leagueId = _rdhLeagueId();
+        const year = _rdhYear();
+
+        // Verify franchise is on the clock + figure out the slot.
+        let onClockRound = null, onClockSlot = null;
+        let playerName = "";
+        let playerPos = "";
+        let nflTeam = "";
+        try {
+          const r = await fetch(
+            `https://www48.myfantasyleague.com/${year}/export?TYPE=draftResults&L=${leagueId}&JSON=1`,
+            { cf: { cacheTtl: 5, cacheEverything: true }, headers: { "User-Agent": "upsmflproduction-worker" } }
+          );
+          if (r.ok) {
+            const data = await r.json();
+            let units = data?.draftResults?.draftUnit || [];
+            if (!Array.isArray(units)) units = [units];
+            outer: for (const u of units) {
+              let arr = u.draftPick || u.pick || [];
+              if (!Array.isArray(arr)) arr = [arr];
+              for (const dp of arr) {
+                if (dp.player) continue;
+                const owner = _rdhPadFid(dp.franchise || dp.currentOwner);
+                if (owner === fid) {
+                  onClockRound = Number(dp.round);
+                  onClockSlot = Number(dp.pick);
+                  break outer;
+                }
+              }
+            }
+          }
+        } catch (_) {}
+
+        // Resolve player name for the announcement.
+        try {
+          const pr = await fetch(
+            `https://api.myfantasyleague.com/${year}/export?TYPE=players&PLAYERS=${encodeURIComponent(playerId)}&JSON=1`,
+            { cf: { cacheTtl: 86400, cacheEverything: true }, headers: { "User-Agent": "upsmflproduction-worker" } }
+          );
+          if (pr.ok) {
+            const pd = await pr.json();
+            let parr = pd?.players?.player || [];
+            if (!Array.isArray(parr)) parr = [parr];
+            if (parr[0]) {
+              const name = safeStr(parr[0].name || "");
+              playerName = name.includes(",")
+                ? name.split(",").reverse().map(s => s.trim()).join(" ")
+                : name;
+              playerPos = safeStr(parr[0].position || "");
+              nflTeam = safeStr(parr[0].team || "");
+            }
+          }
+        } catch (_) {}
+
+        const fname = await _rdhFranchiseName(fid);
+        const slotLabel = (onClockRound != null && onClockSlot != null)
+          ? `R${onClockRound}.${String(onClockSlot).padStart(2, "0")}`
+          : "?";
+        const contract = (onClockRound != null) ? _rdhRookieContract(onClockRound, onClockSlot) : null;
+        const optionNote = contract && contract.optionYearSalary
+          ? ` · 4th-yr option @ $${contract.optionYearSalary}K`
+          : "";
+        const discordContent = contract
+          ? `🏈 ${slotLabel} — ${fname || fid} selects **${playerName || `Player #${playerId}`}** (${playerPos}${nflTeam ? " · " + nflTeam : ""}) · 3yr/$${contract.aav}K AAV ($${contract.tcv}K TCV)${optionNote}`
+          : `🏈 ${slotLabel} — ${fname || fid} selects **${playerName || `Player #${playerId}`}**`;
+
+        if (simulate) {
+          const ch = _rdhDiscordChannel(false);
+          const dRes = await _rdhPostDiscord(ch, `[SIM] ${discordContent}`);
+          return jsonOut(200, {
+            ok: true, simulated: true,
+            slot: slotLabel, round: onClockRound, pick: onClockSlot,
+            franchise_id: fid, franchise_name: fname,
+            player_id: playerId, player_name: playerName,
+            contract,
+            discord_test_posted: !!(dRes && dRes.ok),
+            discord_error: dRes && dRes.error,
+          });
+        }
+
+        if (onClockRound == null) {
+          return jsonOut(409, { ok: false, error: `Franchise ${fid} is not on the clock — cannot submit live pick.` });
+        }
+
+        // LIVE write to MFL.
+        const apiKey = safeStr(env.MFL_APIKEY || "");
+        if (!apiKey) return jsonOut(500, { ok: false, error: "MFL_APIKEY missing in worker env" });
+        const importUrl = `https://www48.myfantasyleague.com/${year}/import?TYPE=draftResults&L=${leagueId}&APIKEY=${encodeURIComponent(apiKey)}&JSON=1`;
+        const form = new URLSearchParams();
+        form.set("FRANCHISE_ID", fid);
+        form.set("PLAYER_ID", String(playerId));
+        let mflResp = "";
+        let mflStatus = 0;
+        try {
+          const r = await fetch(importUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded", "User-Agent": "upsmflproduction-worker" },
+            body: form.toString(),
+          });
+          mflStatus = r.status;
+          mflResp = await r.text();
+        } catch (e) {
+          return jsonOut(502, { ok: false, error: `MFL fetch failed: ${e?.message || String(e)}` });
+        }
+        const mflOk = mflStatus >= 200 && mflStatus < 300 && !/error/i.test(mflResp);
+        if (mflOk) {
+          const ch = _rdhDiscordChannel(true);
+          const dRes = await _rdhPostDiscord(ch, discordContent);
+          return jsonOut(200, {
+            ok: true, simulated: false,
+            slot: slotLabel, round: onClockRound, pick: onClockSlot,
+            franchise_id: fid, franchise_name: fname,
+            player_id: playerId, player_name: playerName,
+            contract, mfl_response: mflResp,
+            discord_posted: !!(dRes && dRes.ok),
+          });
+        }
+        return jsonOut(502, { ok: false, status: mflStatus, mfl_response: mflResp });
+      }
+
+      // ── POST /api/trade — propose (or simulate) a trade ──
+      if (path === "/api/trade" && request.method === "POST") {
+        let body = {};
+        try { body = await request.json(); } catch (_) {}
+        const fromFid = _rdhPadFid(body.from_fid || "");
+        const toFid = _rdhPadFid(body.to_fid || "");
+        const give = Array.isArray(body.give) ? body.give.map(safeStr).filter(Boolean) : [];
+        const receive = Array.isArray(body.receive) ? body.receive.map(safeStr).filter(Boolean) : [];
+        const comments = safeStr(body.comments || "");
+        const simulate = body.simulate !== false;
+        if (!fromFid || !toFid) return jsonOut(400, { error: "from_fid and to_fid required" });
+        if (fromFid === toFid) return jsonOut(400, { error: "cannot trade with self" });
+        if (!give.length && !receive.length) return jsonOut(400, { error: "give[] or receive[] must have at least one asset" });
+
+        // Translate asset_ids to MFL trade format: P_xxx → "xxx", FP_yr_rd_orig → "FP_<orig>_<yr>_<rd>",
+        // DP_yr_rd_slot → "DP_<rd>_<slot>" (current-year). MFL accepts comma-separated lists.
+        const _toMflAsset = (a) => {
+          if (a.startsWith("P_")) return a.slice(2);
+          if (a.startsWith("FP_")) {
+            const [, yr, rd, orig] = a.split("_");
+            return `FP_${orig}_${yr}_${rd}`;
+          }
+          if (a.startsWith("DP_")) {
+            const [, , rd, slot] = a.split("_");
+            return `DP_${String(Number(rd) - 1).padStart(2, "0")}_${String(Number(slot) - 1).padStart(2, "0")}`;
+          }
+          if (a.startsWith("BB_")) return `BB_${a.slice(3)}`;
+          return a;
+        };
+        const giveMfl = give.map(_toMflAsset).join(",");
+        const receiveMfl = receive.map(_toMflAsset).join(",");
+        const fromName = await _rdhFranchiseName(fromFid);
+        const toName = await _rdhFranchiseName(toFid);
+
+        if (simulate) {
+          return jsonOut(200, {
+            ok: true, simulated: true,
+            from_franchise_id: fromFid, from_franchise_name: fromName,
+            to_franchise_id: toFid, to_franchise_name: toName,
+            give: giveMfl, receive: receiveMfl, comments,
+          });
+        }
+
+        // LIVE: POST to MFL TYPE=tradeProposal (originate the offer).
+        const apiKey = safeStr(env.MFL_APIKEY || "");
+        if (!apiKey) return jsonOut(500, { ok: false, error: "MFL_APIKEY missing in worker env" });
+        const leagueId = _rdhLeagueId();
+        const year = _rdhYear();
+        const importUrl = `https://www48.myfantasyleague.com/${year}/import?TYPE=tradeProposal&L=${leagueId}&APIKEY=${encodeURIComponent(apiKey)}&JSON=1`;
+        const form = new URLSearchParams();
+        form.set("FRANCHISE_ID", fromFid);
+        form.set("OFFEREDTO", toFid);
+        form.set("WILL_GIVE_UP", giveMfl);
+        form.set("WILL_RECEIVE", receiveMfl);
+        if (comments) form.set("COMMENTS", comments);
+        let mflResp = "";
+        let mflStatus = 0;
+        try {
+          const r = await fetch(importUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded", "User-Agent": "upsmflproduction-worker" },
+            body: form.toString(),
+          });
+          mflStatus = r.status;
+          mflResp = await r.text();
+        } catch (e) {
+          return jsonOut(502, { ok: false, error: `MFL fetch failed: ${e?.message || String(e)}` });
+        }
+        const mflOk = mflStatus >= 200 && mflStatus < 300 && !/error/i.test(mflResp);
+        return jsonOut(mflOk ? 200 : 502, {
+          ok: mflOk, status: mflStatus, mfl_response: mflResp,
+          from_franchise_name: fromName, to_franchise_name: toName,
+        });
+      }
+
       if (path.startsWith("/mcm")) {
         const seed = await fetchJson(MCM_SEED_URL, null);
         if (!seed || seed.schema_version !== "v1") {
