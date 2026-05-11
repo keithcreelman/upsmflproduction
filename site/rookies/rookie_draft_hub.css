@@ -325,6 +325,36 @@ tr td.num[style*="var(--err)"] { color: var(--err) !important; }
 /* Team card per-row pick detail */
 .team-card .tier { margin-left: 4px; }
 
+/* Profile "Watch + Read" link row */
+.profile-watch-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.profile-watch-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--panel-alt);
+  color: var(--text);
+  text-decoration: none;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  transition: border-color 100ms, color 100ms, background 100ms;
+}
+.profile-watch-link:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--panel);
+}
+.profile-watch-link.yt:hover {
+  border-color: #ff0033;
+  color: #ff5566;
+}
+
 /* Player profile card */
 .rdh-modal {
   max-width: 860px;
@@ -1281,6 +1311,89 @@ tr td.num[style*="var(--err)"] { color: var(--err) !important; }
   .live-toast { animation: none !important; }
 }
 
+/* ── Phone-specific tightening (≤640px) ───────────────────────────────
+   Live-draft is data-dense — on a phone we need to claw back vertical
+   space, allow controls to wrap, and make tap targets reachable. */
+@media (max-width: 640px) {
+  /* Outer layout */
+  main.rdh-main { padding: 12px 12px; }
+  header.rdh-header { padding: 12px 14px 8px; }
+  header.rdh-header h1 { font-size: 17px; gap: 6px; flex-wrap: wrap; }
+  nav.rdh-tabs { padding: 0 8px; overflow-x: auto; gap: 0; }
+  nav.rdh-tabs button { padding: 10px 11px; font-size: 12px; flex-shrink: 0; }
+
+  /* Live mode banner — already responsive but tighten further */
+  .live-mode-banner { padding: 6px 10px; gap: 4px; margin: -12px -12px 10px; }
+  .lmb-pill { font-size: 9px; padding: 2px 7px; }
+  .lmb-headline { font-size: 12px; }
+  #live-mode-toggle { padding: 5px 9px; font-size: 11px; }
+
+  /* Cards — tighter padding so right-rail doesn't dominate */
+  .rdh-card { padding: 10px 12px; }
+  .live-2col { gap: 10px; }
+  .live-2row { gap: 10px; }
+
+  /* Mock Draft Sim hero — keep impact but compact */
+  .auto-sim-hero-title { font-size: 14px; }
+  .auto-sim-hero-emoji { font-size: 18px; }
+  .auto-sim-controls { grid-template-columns: 1fr; gap: 6px; }
+  .auto-sim-buttons .btn { font-size: 11px; min-width: 60px; }
+  .auto-sim-disclaimer { font-size: 10.5px; padding: 6px 8px; }
+
+  /* My Team / My Queue cards — more compact */
+  .my-team-card .live-card-head h2,
+  .my-queue-card .live-card-head h2,
+  .on-clock-card h2 { font-size: 14px; }
+  .my-queue-row { grid-template-columns: 16px 1fr auto; padding: 4px; }
+  .my-queue-actions { gap: 1px; }
+  .my-queue-btn { padding: 1px 4px; font-size: 10px; }
+
+  /* On-the-clock — keep submit button prominent (still 44px hit target) */
+  .on-clock-panel #submit-pick-btn { font-size: 13px; min-height: 44px; }
+
+  /* Trade modal — already collapses to 1 col below 900px; force fullscreen */
+  .rdh-modal.rdh-modal-trade {
+    width: 100%;
+    max-width: 100%;
+    max-height: 100vh;
+    border-radius: 0;
+  }
+  .trade-modal-shell { height: 100vh; }
+  .trade-modal-header { padding: 10px 14px; }
+  .trade-modal-footer { padding: 10px 14px; }
+  .trade-pickers-body { padding: 10px 14px; }
+  .trade-baskets-strip { padding: 8px 14px; }
+  .trade-actions .btn { min-width: 100px; padding: 9px 12px; font-size: 12px; }
+
+  /* Player profile modal — also full-screen */
+  .rdh-modal {
+    width: 100%;
+    max-width: 100%;
+    max-height: 100vh;
+    border-radius: 0;
+    padding: 14px 14px 80px;
+  }
+  .profile-bio { grid-template-columns: 80px 1fr; gap: 10px; }
+  .profile-photo, .profile-photo-placeholder { width: 80px; height: 80px; }
+
+  /* Rank-by picker dropdown — keep it on-screen */
+  .rank-by-menu { left: -4px; right: -4px; }
+
+  /* Cap-$ row in trade modal — stack instead of squashing */
+  .trade-bb-row { gap: 6px; }
+  .trade-bb-row input,
+  .trade-bb-row select { font-size: 12px; }
+}
+
+/* Even tighter at <420px (small phones) */
+@media (max-width: 420px) {
+  .live-mode-banner .lmb-greeting { display: none; }
+  .auto-sim-buttons { gap: 4px; }
+  .live-board-card .pk-name { font-size: 10px; }
+  .live-board-card .pk-team { display: none; }   /* save vertical space */
+  .live-board-card .pk-chips { display: none; }  /* tier % chips */
+}
+
 /* ── Incoming Trades inbox ──────────────────────────────────────────── */
 .trade-inbox-card { border-color: var(--border); }
 .trade-inbox-badge {
@@ -1410,11 +1523,321 @@ tr td.num[style*="var(--err)"] { color: var(--err) !important; }
 }
 .trade-detail-asset-row:last-child { border-bottom: 0; }
 
-/* ── Auto-Draft control card ────────────────────────────────────────── */
-.auto-sim-card { border-color: var(--border); }
+/* ── My Team card ─────────────────────────────────────────────────── */
+.my-team-card { border-left: 3px solid var(--accent); }
+.my-team-body { font-size: 12px; }
+.my-team-section { margin-bottom: 10px; }
+.my-team-section:last-child { margin-bottom: 0; }
+.my-team-section-head {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+.my-team-picks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.my-team-pick-chip {
+  background: var(--panel-alt);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 3px 7px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.my-team-pick-chip.next-up {
+  background: rgba(74,222,128,0.15);
+  border-color: var(--ok);
+  color: var(--ok);
+}
+.my-team-pick-chip.future {
+  background: transparent;
+  color: var(--muted);
+  font-weight: 500;
+}
+.my-team-stat {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--muted);
+  padding: 2px 0;
+}
+.my-team-stat strong { color: var(--text); font-weight: 600; }
+
+/* Roster (collapsible by position group) */
+.my-team-roster-section { border-top: 1px solid var(--border); padding-top: 8px; }
+.my-team-section-summary {
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  list-style: none;
+  user-select: none;
+}
+.my-team-section-summary::-webkit-details-marker { display: none; }
+.my-team-section-summary .my-team-pos-caret {
+  color: var(--muted);
+  font-size: 11px;
+  transition: transform 120ms;
+}
+.my-team-roster-section[open] .my-team-section-summary .my-team-pos-caret { transform: rotate(180deg); }
+.my-team-roster-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+}
+.my-team-pos-group {
+  background: var(--panel-alt);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0;
+  overflow: hidden;
+}
+.my-team-pos-group > summary {
+  display: grid;
+  grid-template-columns: 30px auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  cursor: pointer;
+  font-size: 11px;
+  list-style: none;
+  user-select: none;
+}
+.my-team-pos-group > summary::-webkit-details-marker { display: none; }
+.my-team-pos-bucket {
+  font-weight: 800;
+  color: var(--text);
+  letter-spacing: 0.4px;
+}
+.my-team-pos-count {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.my-team-pos-count::before { content: "× "; opacity: 0.6; }
+.my-team-pos-total {
+  color: var(--ok);
+  font-weight: 600;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.my-team-pos-caret {
+  color: var(--muted);
+  font-size: 10px;
+  transition: transform 120ms;
+}
+.my-team-pos-group[open] > summary .my-team-pos-caret { transform: rotate(180deg); }
+.my-team-pos-body {
+  border-top: 1px solid var(--border);
+  background: var(--panel);
+  max-height: 240px;
+  overflow-y: auto;
+}
+.my-team-player-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 6px;
+  padding: 4px 8px;
+  font-size: 11px;
+  border-bottom: 1px solid var(--border);
+}
+.my-team-player-row:last-child { border-bottom: 0; }
+.my-team-player-name {
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.my-team-player-meta { color: var(--muted); font-size: 10px; }
+.my-team-player-sal {
+  color: var(--text);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  min-width: 38px;
+}
+
+/* ── My Queue card ────────────────────────────────────────────────── */
+.my-queue-card { border-left: 3px solid var(--warn); }
+.my-queue-count {
+  background: var(--panel-alt);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 1px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  margin-left: 6px;
+}
+.my-queue-clear {
+  padding: 3px 10px;
+  font-size: 11px;
+  line-height: 1;
+}
+.my-queue-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.my-queue-empty {
+  font-size: 12px;
+  color: var(--muted);
+  font-style: italic;
+  padding: 8px 4px;
+  text-align: center;
+}
+.my-queue-row {
+  display: grid;
+  grid-template-columns: 18px 1fr auto auto;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 6px;
+  background: var(--panel-alt);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 12px;
+}
+.my-queue-row:hover { border-color: var(--accent-soft); }
+.my-queue-row.is-drafted { opacity: 0.5; text-decoration: line-through; }
+.my-queue-row.is-next-pick {
+  border-color: var(--ok);
+  background: rgba(74,222,128,0.10);
+}
+.my-queue-autopick-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 6px 8px;
+  background: var(--panel-alt);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 11px;
+  color: var(--text);
+  cursor: pointer;
+  user-select: none;
+}
+.my-queue-autopick-toggle input { accent-color: var(--accent); cursor: pointer; }
+.my-queue-autopick-toggle:hover { border-color: var(--accent-soft); }
+.my-queue-autopick-toggle:has(input:checked) {
+  border-color: var(--ok);
+  background: rgba(74,222,128,0.10);
+}
+.my-queue-pos { color: var(--muted); font-size: 10px; font-weight: 600; }
+.my-queue-name { color: var(--text); font-weight: 500; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.my-queue-meta { color: var(--muted); font-size: 10px; }
+.my-queue-actions { display: flex; gap: 2px; }
+.my-queue-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  border-radius: 3px;
+  padding: 1px 5px;
+  font-size: 11px;
+  cursor: pointer;
+  line-height: 1;
+}
+.my-queue-btn:hover { color: var(--text); border-color: var(--accent-soft); }
+.my-queue-btn.remove:hover { color: var(--err); border-color: var(--err); }
+
+/* "+" button on prospect rows for queueing */
+.prospect-queue-btn {
+  background: transparent;
+  border: 0;
+  color: var(--muted);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 0 6px;
+  line-height: 1;
+  transition: color 80ms;
+}
+.prospect-queue-btn:hover { color: var(--accent); }
+.prospect-queue-btn.is-queued { color: var(--ok); cursor: default; }
+.prospect-queue-btn.is-queued:hover { color: var(--ok); }
+
+/* ── Auto-Draft / Mock Draft Simulation card ──────────────────────── */
+.auto-sim-card {
+  border: 1px solid var(--accent-soft);
+  background: linear-gradient(180deg, rgba(91,141,255,0.06), var(--panel) 60%);
+  position: relative;
+  overflow: hidden;
+}
+.auto-sim-card::before {
+  /* Glow stripe at the top */
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--accent), #a35bff, var(--accent));
+  opacity: 0.85;
+}
+.auto-sim-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: -2px 0 8px;
+  gap: 10px;
+}
+.auto-sim-hero-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: 0.2px;
+  color: var(--text);
+}
+.auto-sim-hero-emoji {
+  font-size: 22px;
+  filter: drop-shadow(0 0 6px rgba(91,141,255,0.5));
+}
+.auto-sim-hero-text {
+  background: linear-gradient(90deg, var(--accent), #b58bff 70%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.auto-sim-disclaimer {
+  font-size: 11px;
+  line-height: 1.55;
+  color: var(--muted);
+  background: var(--panel-alt);
+  border: 1px dashed var(--border);
+  border-radius: 5px;
+  padding: 7px 10px;
+}
+.auto-sim-disclaimer strong { color: var(--text); }
+.auto-sim-disclaimer em {
+  color: var(--warn);
+  font-style: italic;
+  font-weight: 600;
+}
+.auto-sim-disclaimer code {
+  background: rgba(91,141,255,0.12);
+  color: var(--accent);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 10.5px;
+}
+
 .auto-sim-status {
   font-variant-numeric: tabular-nums;
-  font-weight: 600;
+  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--panel-alt);
+  color: var(--muted);
+  border: 1px solid var(--border);
 }
 .auto-sim-status[data-state="running"] { color: var(--ok); }
 .auto-sim-status[data-state="paused"]  { color: var(--warn); }

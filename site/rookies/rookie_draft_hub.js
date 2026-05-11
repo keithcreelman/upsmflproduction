@@ -57,6 +57,10 @@
       } catch (e) {}
       return new Set(["mfl_rookie", "fantasycalc", "ktc", "sleeper", "fantasypros"]);
     })(),
+    // My Queue — array of prospect player_ids in priority order. Persisted
+    // per franchise so a refresh keeps the stack intact. Drafted prospects
+    // are auto-trimmed in renderMyQueue.
+    myQueue: [],
     // LIVE DRAFT MODE — defaults to simulate so nothing hits MFL or live Discord
     // until the commish flips it. Persisted in sessionStorage so a refresh
     // doesn't accidentally land in LIVE mid-draft.
@@ -88,7 +92,22 @@
 
   // Resolve a worker /api/* path through the configured API_BASE so iframe-
   // embedded hubs (HPM) hit the Cloudflare worker instead of the MFL origin.
-  // Falls back to relative URLs when no base is set (local dev with bridge).
+  // Local-dev override: ?api=http://localhost:8787 in the URL points the
+  // hub at a local `wrangler dev` (no rebuild required). Persists for the
+  // session so subsequent loads in the same tab keep using it.
+  (function _resolveApiBaseFromUrl() {
+    try {
+      const u = new URL(window.location.href);
+      const fromQs = u.searchParams.get("api");
+      if (fromQs) {
+        window.UPS_DRAFT_HUB_API_BASE = fromQs.replace(/\/$/, "");
+        sessionStorage.setItem("rdh_api_base", window.UPS_DRAFT_HUB_API_BASE);
+      } else if (!window.UPS_DRAFT_HUB_API_BASE) {
+        const cached = sessionStorage.getItem("rdh_api_base");
+        if (cached) window.UPS_DRAFT_HUB_API_BASE = cached;
+      }
+    } catch (e) {}
+  })();
   function apiUrl(path) {
     const base = (typeof window.UPS_DRAFT_HUB_API_BASE === "string" && window.UPS_DRAFT_HUB_API_BASE) || "";
     if (!base) return path;
@@ -543,6 +562,35 @@
 
     // Live Draft tab — chip groups, mode banner, keyboard shortcuts
     wireLiveDraftListeners();
+
+    // Load saved queue (per-franchise) from sessionStorage
+    _loadMyQueue();
+
+    // Wire Clear-queue button
+    const clearBtn = document.getElementById("my-queue-clear");
+    if (clearBtn) clearBtn.addEventListener("click", () => {
+      if (!STATE.myQueue.length) return;
+      if (!confirm(`Clear all ${STATE.myQueue.length} queued prospects?`)) return;
+      STATE.myQueue = [];
+      _saveMyQueue();
+      renderMyQueue();
+      renderProspects();
+    });
+
+    // Wire the auto-pick toggle (off by default; persists per franchise)
+    const autoCb = document.getElementById("my-queue-autopick");
+    if (autoCb) {
+      const key = `rdh_queue_autopick_${_myFid() || "default"}`;
+      try { autoCb.checked = sessionStorage.getItem(key) === "1"; } catch (e) {}
+      autoCb.addEventListener("change", () => {
+        try { sessionStorage.setItem(key, autoCb.checked ? "1" : "0"); } catch (e) {}
+        if (autoCb.checked) {
+          showToast("Auto-pick ON — top of queue will be selected on your turn", "ok");
+        } else {
+          showToast("Auto-pick OFF — you'll confirm every pick yourself", "ok");
+        }
+      });
+    }
   }
 
   // ── Live-draft UI wiring (mode banner, chips, segmented controls, shortcuts) ──
@@ -876,6 +924,9 @@
     document.getElementById("live-board-summary").textContent =
       `${madeCount} picks made · ${queuedCount} on the clock · snapshot ${new Date(live.meta.generated_at_utc).toLocaleString()}`;
 
+    renderMyTeam();
+    renderMyQueue();
+    _maybeAutoSelectFromQueue();
     renderProspects();
     renderSalarySchedule();
     renderOnClockPanel();
@@ -1055,6 +1106,11 @@
             </div>
             ${draftedTag}
           </div>
+          <button class="prospect-queue-btn ${STATE.myQueue.includes(String(p.player_id)) ? 'is-queued' : ''}"
+                  data-pid="${p.player_id}"
+                  title="${STATE.myQueue.includes(String(p.player_id)) ? 'Already queued' : 'Add to my queue'}"
+                  ${d ? 'style="opacity:0.3; cursor:not-allowed;"' : ''}
+                  ${d ? 'disabled' : ''}>${STATE.myQueue.includes(String(p.player_id)) ? '✓' : '+'}</button>
           <button class="prospect-profile-btn" data-pid="${p.player_id}"
                   style="background:transparent; border:0; color:var(--muted); font-size:14px; cursor:pointer; margin: 0 6px; align-self:center;"
                   title="View profile">ⓘ</button>
@@ -1105,6 +1161,16 @@
       el.addEventListener("click", (e) => {
         e.stopPropagation();
         showPlayerProfileCard(el.dataset.pid);
+      });
+    });
+    list.querySelectorAll(".prospect-queue-btn").forEach(el => {
+      el.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (el.disabled) return;
+        const pid = el.dataset.pid;
+        if (STATE.myQueue.includes(String(pid))) return;  // already queued
+        _addToQueue(pid);
+        showToast("Added to your queue", "ok");
       });
     });
     // Update visible-count chip + empty-state
@@ -1428,6 +1494,46 @@
           ${prospectFallback.espn_id ? `<div><span class="lbl">ESPN ID</span><a href="https://www.espn.com/college-football/player/_/id/${escapeHtml(prospectFallback.espn_id)}" target="_blank" rel="noopener" style="color:var(--accent);">${escapeHtml(prospectFallback.espn_id)}</a></div>` : ""}
         </div>
       </div>
+
+      ${(() => {
+        // Highlight & scouting links — opens YouTube/Google searches in new tabs.
+        // Better than embedding (no API key, no quota, no risk) and the search
+        // results page lets the user pick the best clip rather than a stale
+        // hand-curated one. Skipped for ancient veterans where there's not much
+        // to scout (have NFL career stats AND no current-year prospect record).
+        if (career.length && !prospectFallback.player_id) return "";
+        const yt = (q) => `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}`;
+        const goog = (q) => `https://www.google.com/search?q=${encodeURIComponent(q)}`;
+        const college = bioCollege || "";
+        // Outer `nflTeam` is already defined in showPlayerProfileCard scope;
+        // build a local one with broader fallbacks here.
+        const team = nflTeam || prospectFallback.nfl_team || pp.team || "";
+        const yearStr = String((window.UPS_DRAFT_HUB_YEAR || new Date().getFullYear()));
+        const links = [];
+        if (college && isFreshRookie) {
+          links.push({ label: "🎬 College highlights", url: yt(`${name} ${college} highlights`), kind: "yt" });
+        }
+        if (team && team !== "FA") {
+          links.push({ label: "🏈 NFL highlights",  url: yt(`${name} ${team} highlights`), kind: "yt" });
+        }
+        if (isFreshRookie) {
+          links.push({ label: "📋 Combine + workout", url: yt(`${name} NFL combine ${yearStr}`), kind: "yt" });
+          links.push({ label: "📰 Scouting report",   url: goog(`"${name}" ${college || "draft"} scouting report dynasty`), kind: "g" });
+        } else {
+          links.push({ label: "📰 News + analysis",   url: goog(`"${name}" ${team || ""} fantasy 2026`), kind: "g" });
+        }
+        if (!links.length) return "";
+        return `
+          <div class="profile-block">
+            <h4>Watch + Read</h4>
+            <div class="profile-watch-links">
+              ${links.map(l => `<a href="${escapeHtml(l.url)}" target="_blank" rel="noopener noreferrer" class="profile-watch-link ${l.kind}">${l.label}</a>`).join("")}
+            </div>
+            <p class="small" style="color:var(--muted); margin-top:6px; font-size:10.5px;">
+              Opens a fresh search in a new tab. We don't curate specific videos so the results stay current.
+            </p>
+          </div>`;
+      })()}
 
       ${currentContract ? `
       <div class="upm-salary-strip">
@@ -4345,6 +4451,261 @@
   // Also post when our content re-renders (tab switch, filter, etc.)
   const _resizeObs = new ResizeObserver(() => _postHeight());
   _resizeObs.observe(document.body);
+
+  // ══════════════════════════════════════════════════════════════════════
+  // MY TEAM + MY QUEUE (v1.5.5)
+  // ══════════════════════════════════════════════════════════════════════
+  // My Team card shows the user's franchise: which picks they own this
+  // draft (with the next-up one highlighted), how many roster players + cap
+  // load. Sourced from STATE.live (draft order) + the franchise_assets snapshot.
+  //
+  // My Queue is a priority list of prospects the user wants to draft in
+  // order. Persisted per-franchise in sessionStorage. On the user's turn,
+  // the top-most non-drafted entry is auto-promoted to STATE.selectedProspect.
+
+  function _myFid() {
+    return (STATE.me && STATE.me.franchise_id) || (AUTO_SIM && AUTO_SIM.playAsFid) || null;
+  }
+  function _queueStorageKey() {
+    const fid = _myFid();
+    return fid ? `rdh_queue_${fid}` : "rdh_queue_default";
+  }
+  function _loadMyQueue() {
+    try {
+      const raw = sessionStorage.getItem(_queueStorageKey());
+      STATE.myQueue = raw ? JSON.parse(raw) : [];
+    } catch (e) { STATE.myQueue = []; }
+    if (!Array.isArray(STATE.myQueue)) STATE.myQueue = [];
+  }
+  function _saveMyQueue() {
+    try { sessionStorage.setItem(_queueStorageKey(), JSON.stringify(STATE.myQueue)); } catch (e) {}
+  }
+  function _addToQueue(playerId) {
+    const pid = String(playerId);
+    if (!pid) return;
+    if (STATE.myQueue.includes(pid)) return;
+    STATE.myQueue.push(pid);
+    _saveMyQueue();
+    renderMyQueue();
+    renderProspects();   // refresh "+" → "✓ queued" indicators
+  }
+  function _removeFromQueue(playerId) {
+    const pid = String(playerId);
+    STATE.myQueue = STATE.myQueue.filter(x => x !== pid);
+    _saveMyQueue();
+    renderMyQueue();
+    renderProspects();
+  }
+  function _moveInQueue(playerId, dir) {
+    const pid = String(playerId);
+    const i = STATE.myQueue.indexOf(pid);
+    if (i < 0) return;
+    const j = i + dir;
+    if (j < 0 || j >= STATE.myQueue.length) return;
+    const tmp = STATE.myQueue[i];
+    STATE.myQueue[i] = STATE.myQueue[j];
+    STATE.myQueue[j] = tmp;
+    _saveMyQueue();
+    renderMyQueue();
+  }
+
+  function renderMyTeam() {
+    const card = document.getElementById("my-team-card");
+    if (!card) return;
+    const fid = _myFid();
+    if (!fid) { card.hidden = true; return; }
+    card.hidden = false;
+    const franchises = (STATE.live && STATE.live.franchises) || {};
+    const fname = franchises[fid] || fid;
+    document.getElementById("my-team-name").textContent = fname;
+
+    // Picks owned this draft — split into 'made', 'next up' (earliest unmade
+    // owned by us), and the rest as 'future'.
+    const order = (STATE.live && STATE.live.draft_order) || [];
+    const made = (STATE.live && STATE.live.picks_made) || [];
+    const madeKeys = new Set(made.map(p => `${p.round}.${p.pick}`));
+    const myPicksAll = order.filter(o => String(o.owned_by_franchise_id) === String(fid));
+    const myPicksUnmade = myPicksAll.filter(o => !madeKeys.has(`${o.round}.${o.pick}`));
+    // Earliest unmade across the WHOLE order — that's "next on the clock for someone".
+    // Then we mark MY earliest unmade as my "next up".
+    const myNextUp = myPicksUnmade[0]; // already in draft order
+
+    const pickChip = (o, type) => {
+      const slot = `${o.round}.${String(o.pick).padStart(2, "0")}`;
+      const cls = type === "next" ? "my-team-pick-chip next-up" : "my-team-pick-chip";
+      return `<span class="${cls}" title="${type === 'next' ? 'Your next pick' : ''}">${slot}</span>`;
+    };
+    const futurePickChips = ((STATE.future_picks && STATE.future_picks.picks) || [])
+      .filter(fp => String(fp.current_owner_fid || fp.owner_fid) === String(fid))
+      .slice(0, 8)
+      .map(fp => `<span class="my-team-pick-chip future" title="${fp.year} R${fp.round}">${fp.year} R${fp.round}</span>`)
+      .join("");
+
+    // Snapshot for roster summary
+    const padFid = String(fid).padStart(4, "0").slice(-4);
+    const snap = STATE.franchise_assets_snapshot
+              && STATE.franchise_assets_snapshot.by_fid
+              && STATE.franchise_assets_snapshot.by_fid[padFid];
+    const rosterPlayers = (snap && snap.players) || [];
+    const totalSalary = rosterPlayers.reduce((sum, p) => sum + Number(p.salary || 0), 0);
+
+    // Group roster by position group: Offense (QB/RB/WR/TE), Defense, Special.
+    // Sort within each group by salary desc so the most-expensive players
+    // surface first. Compact rows: name + salary chip on the right.
+    const POS_BUCKET = (pos) => {
+      const p = String(pos || "").toUpperCase();
+      if (p === "QB") return "QB";
+      if (p === "RB") return "RB";
+      if (p === "WR") return "WR";
+      if (p === "TE") return "TE";
+      if (["DL","DE","DT","NT","EDGE"].includes(p)) return "DL";
+      if (["LB","ILB","OLB"].includes(p)) return "LB";
+      if (["DB","CB","S","FS","SS"].includes(p)) return "DB";
+      if (["PK","K"].includes(p)) return "PK";
+      if (["P","PN"].includes(p)) return "PN";
+      return "—";
+    };
+    const BUCKET_ORDER = ["QB","RB","WR","TE","DL","LB","DB","PK","PN","—"];
+    const rosterByPos = {};
+    for (const pl of rosterPlayers) {
+      const b = POS_BUCKET(pl.position);
+      (rosterByPos[b] = rosterByPos[b] || []).push(pl);
+    }
+    Object.values(rosterByPos).forEach(arr => arr.sort((a, b) => (b.salary || 0) - (a.salary || 0)));
+
+    const rosterGroupHtml = (bucket) => {
+      const players = rosterByPos[bucket] || [];
+      if (!players.length) return "";
+      const totalK = players.reduce((sum, p) => sum + Number(p.salary || 0), 0);
+      const fmtK = (v) => "$" + (v / 1000).toFixed(0) + "K";
+      return `
+        <details class="my-team-pos-group">
+          <summary>
+            <span class="my-team-pos-bucket">${bucket}</span>
+            <span class="my-team-pos-count">${players.length}</span>
+            <span class="my-team-pos-total">${fmtK(totalK)}</span>
+            <span class="my-team-pos-caret">▾</span>
+          </summary>
+          <div class="my-team-pos-body">
+            ${players.map(p => `
+              <div class="my-team-player-row">
+                <span class="my-team-player-name" title="${escapeHtml(p.display)}">${escapeHtml(p.display)}</span>
+                <span class="my-team-player-meta">${escapeHtml(p.position || '')}${p.contract_year ? ' · Y' + p.contract_year : ''}</span>
+                <span class="my-team-player-sal">${fmtK(Number(p.salary || 0))}</span>
+              </div>
+            `).join("")}
+          </div>
+        </details>`;
+    };
+
+    document.getElementById("my-team-body").innerHTML = `
+      ${myPicksUnmade.length ? `
+        <div class="my-team-section">
+          <div class="my-team-section-head">Picks left this draft (${myPicksUnmade.length})</div>
+          <div class="my-team-picks">
+            ${myPicksUnmade.map(o => pickChip(o, o === myNextUp ? "next" : "")).join("")}
+          </div>
+        </div>` : `
+        <div class="my-team-section">
+          <div class="my-team-section-head">No picks left this draft</div>
+        </div>`}
+
+      ${futurePickChips ? `
+        <div class="my-team-section">
+          <div class="my-team-section-head">Future picks</div>
+          <div class="my-team-picks">${futurePickChips}</div>
+        </div>` : ""}
+
+      ${rosterPlayers.length ? `
+        <details class="my-team-section my-team-roster-section">
+          <summary class="my-team-section-summary">
+            <span class="my-team-section-head">Roster · ${rosterPlayers.length} players · $${totalSalary.toLocaleString()}</span>
+            <span class="my-team-pos-caret">▾</span>
+          </summary>
+          <div class="my-team-roster-groups">
+            ${BUCKET_ORDER.map(rosterGroupHtml).join("")}
+          </div>
+        </details>` : ""}
+    `;
+  }
+
+  function renderMyQueue() {
+    const card = document.getElementById("my-queue-card");
+    if (!card) return;
+    const fid = _myFid();
+    if (!fid) { card.hidden = true; return; }
+    card.hidden = false;
+
+    const list = document.getElementById("my-queue-list");
+    const countEl = document.getElementById("my-queue-count");
+    const drafted = _draftedPickIndex();
+    const prospects = (STATE.prospects && STATE.prospects.prospects) || [];
+    // Auto-trim drafted from queue
+    const before = STATE.myQueue.length;
+    STATE.myQueue = STATE.myQueue.filter(pid => !drafted[String(pid)]);
+    if (STATE.myQueue.length !== before) _saveMyQueue();
+
+    if (countEl) countEl.textContent = STATE.myQueue.length;
+    if (!STATE.myQueue.length) {
+      list.innerHTML = `<div class="my-queue-empty">No prospects queued yet.</div>`;
+      return;
+    }
+
+    // The earliest available is the one we'd auto-select on the user's turn.
+    const nextAvail = STATE.myQueue.find(pid => !drafted[String(pid)]);
+
+    list.innerHTML = STATE.myQueue.map((pid, i) => {
+      const p = prospects.find(x => String(x.player_id) === String(pid));
+      if (!p) return "";
+      const dispName = (p.name || "").includes(",")
+        ? p.name.split(",").reverse().map(s => s.trim()).join(" ")
+        : p.name;
+      const isNext = (pid === nextAvail);
+      return `
+        <div class="my-queue-row${isNext ? ' is-next-pick' : ''}" data-pid="${escapeHtml(pid)}">
+          <span class="my-queue-pos">${escapeHtml(p.position || '')}</span>
+          <span class="my-queue-name" title="${escapeHtml(dispName)}${p.nfl_team ? ' · ' + escapeHtml(p.nfl_team) : ''}">${i + 1}. ${escapeHtml(dispName)}</span>
+          <span class="my-queue-meta">${p.consensus_rank ? '#' + p.consensus_rank : ''}</span>
+          <div class="my-queue-actions">
+            <button class="my-queue-btn move-up" data-pid="${escapeHtml(pid)}" title="Move up" ${i === 0 ? 'disabled style="opacity:0.3;"' : ''}>▲</button>
+            <button class="my-queue-btn move-down" data-pid="${escapeHtml(pid)}" title="Move down" ${i === STATE.myQueue.length - 1 ? 'disabled style="opacity:0.3;"' : ''}>▼</button>
+            <button class="my-queue-btn remove" data-pid="${escapeHtml(pid)}" title="Remove from queue">✕</button>
+          </div>
+        </div>`;
+    }).join("");
+
+    list.querySelectorAll(".move-up").forEach(b => b.addEventListener("click", () => _moveInQueue(b.dataset.pid, -1)));
+    list.querySelectorAll(".move-down").forEach(b => b.addEventListener("click", () => _moveInQueue(b.dataset.pid, +1)));
+    list.querySelectorAll(".remove").forEach(b => b.addEventListener("click", () => _removeFromQueue(b.dataset.pid)));
+  }
+
+  // Auto-promote the queue's first available prospect to selectedProspect
+  // when the user is on the clock — ONLY if they've explicitly opted in via
+  // the checkbox. Default is OFF so owners always confirm picks themselves.
+  function _autoPickFromQueueEnabled() {
+    try {
+      return sessionStorage.getItem(`rdh_queue_autopick_${_myFid() || "default"}`) === "1";
+    } catch (e) { return false; }
+  }
+  function _maybeAutoSelectFromQueue() {
+    if (!_autoPickFromQueueEnabled()) return;  // opt-in only
+    if (!STATE.myQueue.length) return;
+    const fid = _myFid();
+    if (!fid) return;
+    const active = STATE.live && STATE.live.active_pick;
+    if (!active || String(active.franchise_id) !== String(fid)) return;
+    // If user already has someone queued in the on-clock card, don't override.
+    if (STATE.selectedProspect) return;
+    const drafted = _draftedPickIndex();
+    const nextPid = STATE.myQueue.find(pid => !drafted[String(pid)]);
+    if (!nextPid) return;
+    const p = (STATE.prospects && STATE.prospects.prospects || [])
+      .find(x => String(x.player_id) === String(nextPid));
+    if (p) {
+      STATE.selectedProspect = p;
+      // Don't re-render here — caller (renderLive) will pick it up on next pass.
+    }
+  }
 
   // ══════════════════════════════════════════════════════════════════════
   // INCOMING TRADES INBOX (v1.4.0)

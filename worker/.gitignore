@@ -1,3 +1,8 @@
 # Loader scratch files (INSERT chunks applied to D1 via wrangler d1 execute --file)
 .tmp/
 node_modules/
+
+# Local wrangler dev secrets — NEVER commit. See .dev.vars.example for the
+# template. Copy values from production via Discord Developer Portal +
+# previously-noted MFL APIKEY.
+.dev.vars
