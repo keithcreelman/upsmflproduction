@@ -26,6 +26,19 @@ logic is doing without digging into code).
 
 ---
 
+## v1.7.6 — 2026-05-11 — Commish toggle visible in prod + slow-draft speeds
+
+- Worker default `COMMISH_FRANCHISE_IDS` now `"0008,0001"` (was `"0001"` only).
+  Keith's franchise (0008 — Real Deal Creel) now sees the **Go LIVE** button on
+  the live-mode banner without needing a Cloudflare secret. Override via env
+  still wins.
+- Auto-sim **Speed** dropdown gains `1 min / pick`, `5 min / pick`, and
+  `10 min / pick` options for slow real-time drafts. Existing fast options
+  (5s / 10s / 20s / Instant) unchanged. Tick progress bar already uses an
+  elapsed-ratio fill so it scales correctly to multi-minute intervals.
+
+---
+
 ## v1.1.0 — 2026-05-10 — Live Draft tab built out (simulate + LIVE modes)
 
 The Live Draft tab is no longer a placeholder. Owners can now run picks and
