@@ -978,8 +978,8 @@
         renderLiveModeBanner();
         showToast(
           STATE.silenceTradeAnnouncements
-            ? "🔕 Trade announcements OFF — processed trades won't post to Discord"
-            : "📢 Trade announcements ON — processed trades will post to live Discord",
+            ? "🔕 Discord announcements OFF — picks AND trades won't post. MFL writes still happen."
+            : "📢 Discord announcements ON — picks and trades will post to live Discord",
           "ok"
         );
       });
@@ -1048,16 +1048,16 @@
         toggle.hidden = true;
       }
     }
-    // Commish-only Discord trade announce toggle
+    // Commish-only master Discord toggle (covers picks AND trades)
     const tradeDmBtn = document.getElementById("trade-discord-toggle");
     if (tradeDmBtn) {
       if (isCommish) {
         tradeDmBtn.hidden = false;
         const off = !!STATE.silenceTradeAnnouncements;
-        tradeDmBtn.textContent = off ? "🔕 Trade DM: OFF" : "📢 Trade DM: ON";
+        tradeDmBtn.textContent = off ? "🔕 DM: OFF" : "📢 DM: ON";
         tradeDmBtn.title = off
-          ? "Commish only — trade announcements are OFF. Click to re-enable Discord posts on Process Trade."
-          : "Commish only — trade announcements are ON. Click to silence Discord posts on Process Trade.";
+          ? "Commish only — Discord announcements are OFF for picks AND trades. MFL writes still happen. Click to re-enable."
+          : "Commish only — Discord announcements are ON. Click to silence ALL live Discord posts (picks + trades).";
         tradeDmBtn.className = off ? "btn warn" : "btn secondary";
       } else {
         tradeDmBtn.hidden = true;
@@ -3673,6 +3673,9 @@
           // commish exercise the full LIVE flow without the worker hitting
           // MFL or live Discord. Worker treats it as "validate + preview".
           dry_run: !isSim && !!STATE.dryRun,
+          // Master commish DM toggle — silences Discord post for this pick
+          // (worker still writes to MFL). Picks AND trades both honor it.
+          silence_discord: !isSim && !!STATE.silenceTradeAnnouncements,
         };
         if (userId) payload.user_id = userId;
         const r = await fetch(apiUrl("/api/pick") + "?L=74598", {
@@ -3689,8 +3692,11 @@
             result.innerHTML = `<div style="color: var(--warn);">🧪 DRY-RUN — MFL request validated and previewed (no write). Test Discord posted.</div>`;
             showToast(`🧪 DRY-RUN R${slot} → ${prospect.name} — no MFL write`, "ok");
           } else {
-            result.innerHTML = `<div style="color: var(--ok);">✅ Pick submitted to MFL & announced in Discord.</div>`;
-            showToast(`LIVE pick: R${slot} → ${prospect.name}`, "ok");
+            const discordBit = data.discord_silenced
+              ? " · 🔕 Discord muted (per your DM toggle)"
+              : (data.discord_posted ? " · announced in Discord" : "");
+            result.innerHTML = `<div style="color: var(--ok);">✅ Pick submitted to MFL${discordBit}.</div>`;
+            showToast(`LIVE pick: R${slot} → ${prospect.name}${data.discord_silenced ? " · Discord muted" : ""}`, "ok");
           }
         } else {
           result.innerHTML = `<div style="color: var(--err)">Failed: ${escapeHtml(data.error || data.mfl_response || JSON.stringify(data)).slice(0, 400)}</div>`;

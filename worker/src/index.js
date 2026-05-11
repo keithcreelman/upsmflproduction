@@ -2538,6 +2538,8 @@ export default {
         // site without risking a real pick on the real league. Activated via
         // ?dryrun=1 URL param (forwarded by frontend in pick/trade payload).
         const dryRun = body.dry_run === true || body.dryrun === true;
+        // Commish opt-in master mute for live Discord (covers picks AND trades).
+        const silenceDiscord = body.silence_discord === true || body.silenceDiscord === true;
         if (!fid || !playerId) return jsonOut(400, { error: "franchise_id and player_id required" });
         const leagueId = _rdhLeagueId();
         const year = _rdhYear();
@@ -2667,8 +2669,17 @@ export default {
         }
         const mflOk = mflStatus >= 200 && mflStatus < 300 && !/error/i.test(mflResp);
         if (mflOk) {
-          const ch = _rdhDiscordChannel(true);
-          const dRes = await _rdhPostDiscord(ch, discordContent);
+          let dRes = null;
+          if (!silenceDiscord) {
+            try {
+              const ch = _rdhDiscordChannel(true);
+              dRes = await _rdhPostDiscord(ch, discordContent);
+            } catch (e) { dRes = { ok: false, error: String(e) }; }
+          } else {
+            // Commish opted to silence Discord — record so frontend can show
+            // "🔕 Discord muted" in the toast.
+            dRes = { ok: false, silenced: true };
+          }
           return jsonOut(200, {
             ok: true, simulated: false,
             slot: slotLabel, round: onClockRound, pick: onClockSlot,
@@ -2676,6 +2687,7 @@ export default {
             player_id: playerId, player_name: playerName,
             contract, mfl_response: mflResp,
             discord_posted: !!(dRes && dRes.ok),
+            discord_silenced: !!(dRes && dRes.silenced),
           });
         }
         return jsonOut(502, { ok: false, status: mflStatus, mfl_response: mflResp });

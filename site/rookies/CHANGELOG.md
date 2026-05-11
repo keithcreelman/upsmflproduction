@@ -26,6 +26,22 @@ logic is doing without digging into code).
 
 ---
 
+## v1.7.19 — 2026-05-11 — DM toggle is now a master Discord mute (picks + trades)
+
+The v1.7.18 toggle only silenced trade announcements. Per Keith: it should
+cover picks too. Renamed and rescoped:
+
+- Button label: **📢 DM: ON** / **🔕 DM: OFF** (was "Trade DM").
+- When OFF, both `/api/pick` LIVE and `/api/trade/process` LIVE skip the
+  Discord post. MFL writes happen in both cases — only the announcement is
+  silenced.
+- Pick success message gains the same "🔕 Discord muted (per your DM
+  toggle)" trailer the trade success path already had.
+- localStorage key unchanged (`rdh_silence_trade_announce`) so any prior
+  setting carries over.
+
+---
+
 ## v1.7.18 — 2026-05-11 — Trade-process robust trade_id + Trade DM toggle
 
 **Bug**: Process Trade failed with `extract_trade_id · Trade was proposed but

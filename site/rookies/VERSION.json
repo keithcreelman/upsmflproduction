@@ -1,7 +1,7 @@
 {
-  "version": "1.7.18",
+  "version": "1.7.19",
   "released": "2026-05-11",
-  "label": "V1.7.18 — Trade-process: more permissive trade_id parser + pendingTrades fallback; commish-only Trade DM ON/OFF toggle in banner",
+  "label": "V1.7.19 — Discord DM toggle is now a master mute (silences picks AND trades, not just trades)",
   "description": "First published version of the Draft Hub analytics model. This establishes the V1 baseline. Future tweaks bump the version and are logged here.",
   "methodology_signature": {
     "tier_classifier": "NET = 3yr-games-weighted E+P rate − 0.5 × 3yr-games-weighted Dud rate",
@@ -28,6 +28,18 @@
     "lineup_efficiency": 0.012
   },
   "changes": [
+    {
+      "version": "1.7.19",
+      "date": "2026-05-11",
+      "type": "feature",
+      "summary": "The commish DM toggle is now a master mute — when OFF, it silences live Discord posts for BOTH picks AND processed trades (was trades only in v1.7.18). MFL writes still happen in either case. Button relabeled '📢 DM: ON' / '🔕 DM: OFF' since it's no longer trade-specific.",
+      "details": [
+        "Worker /api/pick: accepts silence_discord in payload; when true + LIVE + MFL write succeeded, skips Discord post and returns discord_silenced:true.",
+        "Frontend: pick payload now includes silence_discord:!isSim && STATE.silenceTradeAnnouncements (same flag the trade payload already used).",
+        "Pick success messaging: '✅ Pick submitted to MFL · 🔕 Discord muted (per your DM toggle)' when silenced, '· announced in Discord' when posted.",
+        "Banner button label: '📢 Trade DM: ON' → '📢 DM: ON'. Tooltip explains it covers picks AND trades. localStorage key unchanged so the previous toggle state carries over."
+      ]
+    },
     {
       "version": "1.7.18",
       "date": "2026-05-11",
