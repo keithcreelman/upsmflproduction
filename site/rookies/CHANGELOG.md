@@ -26,6 +26,33 @@ logic is doing without digging into code).
 
 ---
 
+## v1.7.16 — 2026-05-11 — Pick clock survives page refresh (resets only on pick/trade)
+
+Keith hit two related bugs in LIVE mode:
+
+1. **Refresh reset the clock.** `activePickStartedAt` was an in-memory-only
+   field. Reload the page mid-pick and the countdown jumped back to 10:00.
+2. **Authoritative timestamp wasn't winning.** The live-state poller passes
+   MFL's actual pick timestamp into `_pickClockEnsureStarted`, but the helper
+   bailed if the slot key hadn't changed — so a bootstrap `Date.now()` stamp
+   would never get corrected by the more accurate MFL value.
+
+Fixes:
+
+- **Persistence**: `activePickStartedAt` + `activePickClockKey` written to
+  sessionStorage on every change, restored on STATE init. A refresh keeps
+  the same countdown intact.
+- **Authoritative wins**: when called with `opts.startedAtMs`, the helper
+  now ALWAYS prefers that value — corrects stale Date.now() bootstraps.
+- **Trade triggers immediate refresh**: after a successful commish Process
+  Trade in LIVE, fire `_refreshLiveDraftState` so the clock resets to the
+  new on-clock owner's full time instead of waiting for the 20s poll.
+
+Net behavior: refresh in LIVE = clock keeps running. Pick or trade = clock
+resets. Cold load = stamps now until poller corrects with MFL timestamp.
+
+---
+
 ## v1.7.15 — 2026-05-11 — Surface the real MFL error on trade failure
 
 Keith hit "Error: api returned 502 application/json" trying to process a

@@ -1,7 +1,7 @@
 {
-  "version": "1.7.15",
+  "version": "1.7.16",
   "released": "2026-05-11",
-  "label": "V1.7.15 — Surface the actual MFL error on trade failure (was 'api returned 502 application/json'); worker sniffs common failure modes (lockout, deadline, bad asset)",
+  "label": "V1.7.16 — Pick clock persists across page refresh in LIVE mode + resets on trade (not on refresh)",
   "description": "First published version of the Draft Hub analytics model. This establishes the V1 baseline. Future tweaks bump the version and are logged here.",
   "methodology_signature": {
     "tier_classifier": "NET = 3yr-games-weighted E+P rate − 0.5 × 3yr-games-weighted Dud rate",
@@ -28,6 +28,18 @@
     "lineup_efficiency": 0.012
   },
   "changes": [
+    {
+      "version": "1.7.16",
+      "date": "2026-05-11",
+      "type": "fix",
+      "summary": "Pick clock now survives a page refresh in LIVE mode. Two bugs fixed: (1) activePickStartedAt was only in memory — gone on refresh, so the clock would reset to a fresh 10:00 every reload. (2) When the live-state poller passed an authoritative MFL pick timestamp, the helper bailed if the slot key hadn't changed — so the bootstrap's Date.now() stamp would never get corrected.",
+      "details": [
+        "Persistence: activePickStartedAt + activePickClockKey persisted to sessionStorage on every change, restored on STATE init. Refresh keeps the same countdown.",
+        "Authoritative-timestamp wins: when _pickClockEnsureStarted is called with opts.startedAtMs (the poller), it now ALWAYS prefers that value — corrects stale Date.now() stamps from the bootstrap.",
+        "Trade auto-refresh: after a successful commish Process Trade in LIVE, immediately fire _refreshLiveDraftState so the clock resets to the new on-clock owner's full time instead of waiting for the 20s poll.",
+        "Net result: refresh in LIVE = clock keeps running. Pick or trade = clock resets. Open clock from cold = stamps now until poller corrects with MFL timestamp."
+      ]
+    },
     {
       "version": "1.7.15",
       "date": "2026-05-11",
