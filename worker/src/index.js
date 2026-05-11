@@ -2840,6 +2840,9 @@ export default {
         const receive = Array.isArray(body.receive) ? body.receive.map(safeStr).filter(Boolean) : [];
         const comments = safeStr(body.comments || "");
         const dryRun = body.dry_run === true || body.dryrun === true;
+        // Commish opt-in to silence the live-Discord post on Process Trade.
+        // Picks still announce; this only covers /api/trade/process.
+        const silenceDiscord = body.silence_discord === true || body.silenceDiscord === true;
         if (!fromFid || !toFid) return jsonOut(400, { ok: false, error: "from_fid and to_fid required" });
         if (fromFid === toFid) return jsonOut(400, { ok: false, error: "cannot trade with self" });
         if (!give.length && !receive.length) return jsonOut(400, { ok: false, error: "give[] or receive[] must have at least one asset" });
@@ -2991,14 +2994,67 @@ export default {
         // Extract trade_id from MFL's response (varies by format) — only when
         // we proposed successfully. Recovery path already populated tradeId.
         if (!tradeId) {
-          const m1 = proposeResp.match(/TradeID[^\d]*(\d{6,})/i);
-          const m2 = proposeResp.match(/trade[_ ]?id[^\d]*(\d{6,})/i);
-          const m3 = proposeResp.match(/"id"\s*:\s*"?(\d{6,})"?/i);
-          tradeId = (m1 && m1[1]) || (m2 && m2[1]) || (m3 && m3[1]) || "";
+          // Permissive: try every documented MFL field name across XML/JSON
+          // shapes. Note "tradeId" may appear with various casings/separators.
+          const patterns = [
+            /TradeID[^\d]*(\d{4,})/i,
+            /trade[_ -]?id[^\d]*(\d{4,})/i,
+            /"id"\s*:\s*"?(\d{4,})"?/i,
+            /\bid\s*=\s*"?(\d{4,})"?/i,                      // XML attr
+            /<trade[^>]*\sid\s*=\s*"?(\d{4,})"?/i,           // <trade id="...">
+            /<tradeProposal[^>]*\stradeId\s*=\s*"?(\d{4,})"?/i,
+          ];
+          for (const re of patterns) {
+            const m = proposeResp.match(re);
+            if (m && m[1]) { tradeId = m[1]; break; }
+          }
         }
+
+        // ── Fallback: query pendingTrades and find OUR brand-new offer ──
+        // Some MFL responses to tradeProposal don't echo a parseable id.
+        // Just-proposed offers are at the TOP of pendingTrades for the
+        // recipient (sorted by recency). Match by sender + receiver +
+        // asset equivalence, take the most recent.
+        if (!tradeId) {
+          try {
+            const ptUrl = `https://www48.myfantasyleague.com/${year}/export?TYPE=pendingTrades&L=${leagueId}&FRANCHISE_ID=${toFid}&APIKEY=${encodeURIComponent(apiKey)}&JSON=1`;
+            const ptR = await fetch(ptUrl, {
+              headers: { "User-Agent": "upsmflproduction-worker", "Accept": "application/json" },
+            });
+            const ptJson = await ptR.json().catch(() => null);
+            const ptRoot = ptJson && (ptJson.pendingTrades || ptJson.pendingtrades) || {};
+            let ptArr = ptRoot.pendingTrade || ptRoot.pendingtrade || ptRoot.trade || ptRoot.trades || [];
+            if (!Array.isArray(ptArr)) ptArr = [ptArr];
+            const matchFid = (val) => _rdhPadFid(safeStr(val)) === fromFid;
+            const matchOffered = (val) => _rdhPadFid(safeStr(val)) === toFid;
+            const candidates = ptArr.filter(p => {
+              const sender = p.franchise || p.offeredBy || p.offeredby || p.proposedBy || p.proposedby;
+              const offeredTo = p.offeredTo || p.offeredto || p.target;
+              return matchFid(sender) && matchOffered(offeredTo);
+            });
+            const normSet = (csv) => String(csv || "").split(/[,;\s]+/).filter(Boolean).sort().join(",");
+            const wantGive = normSet(giveMfl);
+            const wantRecv = normSet(receiveMfl);
+            const matchExact = candidates.find(p => {
+              const g = normSet(p.willGiveUp || p.willgiveup || p.give);
+              const r = normSet(p.willReceive || p.willreceive || p.receive);
+              return g === wantGive && r === wantRecv;
+            });
+            // Sort fallback by timestamp DESC so the freshest matches first.
+            const sortedByTs = candidates.slice().sort((a, b) =>
+              (Number(b.offeredAt || b.offeredat || b.timestamp || 0)) -
+              (Number(a.offeredAt || a.offeredat || a.timestamp || 0))
+            );
+            const pick = matchExact || sortedByTs[0];
+            if (pick) {
+              tradeId = safeStr(pick.tradeId || pick.tradeid || pick.id || pick.trade_id || "");
+            }
+          } catch (_) { /* fall through */ }
+        }
+
         if (!tradeId) {
           return jsonOut(502, { ok: false, step: "extract_trade_id",
-            error: "Trade was proposed but MFL response didn't include a parseable trade_id",
+            error: "Trade was proposed but neither the response nor pendingTrades surfaced a trade_id. Check Commissioner → Trades → Pending Trades and accept manually.",
             propose_response: proposeResp });
         }
 
@@ -3041,11 +3097,15 @@ export default {
           `   ${toName} sends: ${_readableAssets(receiveMfl)}` +
           (comments ? `\n   _"${comments.slice(0, 200)}"_` : "");
         let discordResult = null;
-        if (acceptOk) {
+        if (acceptOk && !silenceDiscord) {
           try {
             const ch = _rdhDiscordChannel(true);
             discordResult = await _rdhPostDiscord(ch, tradeDiscord);
           } catch (e) { discordResult = { ok: false, error: String(e) }; }
+        } else if (acceptOk && silenceDiscord) {
+          // Commish opted to silence Discord for this trade — record it in
+          // the response so the frontend can show "Discord muted" in the toast.
+          discordResult = { ok: false, silenced: true };
         }
 
         let acceptHint = "";
