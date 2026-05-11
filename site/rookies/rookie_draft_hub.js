@@ -3611,19 +3611,50 @@
       return;
     }
 
-    const myFid = me.franchise_id;
-    const myName = franchises[myFid] || myFid;
-    const toOptions = Object.entries(franchises)
-      .filter(([id]) => id !== myFid)
-      .sort((a,b) => a[1].localeCompare(b[1]))
-      .map(([id, name]) => `<option value="${id}">${name}</option>`).join("");
+    // Commish broker mode — pick BOTH sides as a third party (e.g. process a
+    // trade between Team A and Team B verbally agreed on draft day). For
+    // regular owners, the from-side is always their own franchise.
+    const isCommishBroker = !!(STATE.me && STATE.me.is_commish);
+    // Preserve the commish's true franchise_id for audit fields (requested_by)
+    // — myFid below gets reassigned when the from-selector changes, but
+    // `commishOwnFid` always points at whoever's actually running the modal.
+    const commishOwnFid = me.franchise_id;
+    let myFid = me.franchise_id;
+    let myName = franchises[myFid] || myFid || "—";
+    // Sorted franchise list for dropdowns (used by both from + to selectors).
+    const allFranchises = Object.entries(franchises)
+      .sort((a,b) => String(a[1]).localeCompare(String(b[1])));
+    function _tradeOpts(excludeFid) {
+      return allFranchises
+        .filter(([id]) => id !== excludeFid)
+        .map(([id, name]) => `<option value="${id}">${escapeHtml(name)}</option>`).join("");
+    }
+    function _tradeFromOpts(selectedFid) {
+      return allFranchises
+        .map(([id, name]) => `<option value="${id}"${id === selectedFid ? " selected" : ""}>${escapeHtml(name)}</option>`).join("");
+    }
+    // For commish: default the from-side to whoever the commish is (0008
+    // when logged in as own team, or first franchise alphabetically when
+    // logged in as 0000 pseudo-franchise).
+    if (isCommishBroker && (!myFid || myFid === "0000" || !franchises[myFid])) {
+      const firstReal = allFranchises[0];
+      if (firstReal) { myFid = firstReal[0]; myName = firstReal[1]; }
+    }
+    const toOptions = _tradeOpts(myFid);
+    const fromHeader = isCommishBroker
+      ? `<div style="font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px;">🔨 COMMISH BROKER · pick both sides</div>
+         <div style="display:flex; align-items:center; gap:10px; margin-top:4px;">
+           <strong style="font-size:14px; color:var(--text); white-space:nowrap;">From:</strong>
+           <select id="trade-from" style="flex:1; padding:6px 10px; font-size:13px; background:var(--panel-alt); color:var(--text); border:1px solid var(--accent-soft); border-radius:4px;">${_tradeFromOpts(myFid)}</select>
+         </div>`
+      : `<div style="font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px;">Propose Trade · You = ${escapeHtml(myName)}</div>`;
     openModal(`
       <div class="trade-modal-shell">
         <header class="trade-modal-header">
           <div>
-            <div style="font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px;">Propose Trade · You = ${escapeHtml(myName)}</div>
+            ${fromHeader}
             <div style="display:flex; align-items:center; gap:10px; margin-top:4px;">
-              <strong style="font-size:14px; color:var(--text);">↔ Trade with:</strong>
+              <strong style="font-size:14px; color:var(--text); white-space:nowrap;">${isCommishBroker ? "To:" : "↔ Trade with:"}</strong>
               <select id="trade-to" style="flex:1; padding:6px 10px; font-size:13px; background:var(--panel-alt); color:var(--text); border:1px solid var(--accent-soft); border-radius:4px;">${toOptions}</select>
               <button class="btn secondary" type="button" aria-label="Close" onclick="document.getElementById('rdh-modal-overlay').classList.remove('open')" style="padding:6px 12px;">✕</button>
             </div>
@@ -3632,23 +3663,23 @@
 
         <div class="trade-baskets-strip">
           <div class="trade-basket-card give">
-            <div class="trade-basket-title">YOU OFFER <span class="trade-basket-count" id="trade-give-count">0 assets</span></div>
+            <div class="trade-basket-title"><span id="trade-give-label">${isCommishBroker ? escapeHtml(myName).toUpperCase() + " OFFERS" : "YOU OFFER"}</span> <span class="trade-basket-count" id="trade-give-count">0 assets</span></div>
             <div id="trade-give-basket" class="trade-basket"></div>
           </div>
           <div class="trade-basket-divider">⇄</div>
           <div class="trade-basket-card receive">
-            <div class="trade-basket-title">YOU RECEIVE <span class="trade-basket-count" id="trade-receive-count">0 assets</span></div>
+            <div class="trade-basket-title"><span id="trade-receive-label">${isCommishBroker ? "PARTNER RECEIVES" : "YOU RECEIVE"}</span> <span class="trade-basket-count" id="trade-receive-count">0 assets</span></div>
             <div id="trade-receive-basket" class="trade-basket"></div>
           </div>
         </div>
 
         <div class="trade-pickers-body">
           <div class="trade-picker-col">
-            <h4 class="trade-col-h4">Pick from <strong>${escapeHtml(myName)}</strong>'s assets</h4>
+            <h4 class="trade-col-h4">Pick from <strong id="trade-give-picker-name">${escapeHtml(myName)}</strong>'s assets</h4>
             <div id="trade-give-picker" class="trade-asset-picker"></div>
           </div>
           <div class="trade-picker-col">
-            <h4 class="trade-col-h4">Pick from partner's assets</h4>
+            <h4 class="trade-col-h4">Pick from <strong id="trade-receive-picker-name">partner</strong>'s assets</h4>
             <div id="trade-receive-picker" class="trade-asset-picker"></div>
           </div>
         </div>
@@ -3658,8 +3689,8 @@
             <span class="small" style="color:var(--muted); text-transform:uppercase; letter-spacing:0.4px; margin-right:6px;">Cap $ (BB)</span>
             <input type="number" id="trade-bb-amt" placeholder="" min="0" step="100" style="width:110px; padding:6px;" autocomplete="off">
             <select id="trade-bb-side" style="padding:6px;">
-              <option value="give">to YOU OFFER</option>
-              <option value="receive">to YOU RECEIVE</option>
+              <option value="give">to OFFER side</option>
+              <option value="receive">to RECEIVE side</option>
             </select>
             <button class="btn secondary" id="trade-bb-add" type="button" style="padding:6px 12px;">+ Add</button>
             <input type="text" id="trade-comments" placeholder="" style="flex:1; min-width:120px; padding:6px;" autocomplete="off">
@@ -3887,13 +3918,66 @@
       }));
     }
 
-    document.getElementById("trade-to").addEventListener("change", () => { basket.receive = []; renderBasket("receive"); loadAndRender("receive"); });
+    document.getElementById("trade-to").addEventListener("change", () => {
+      basket.receive = [];
+      _refreshReceiveLabel();
+      renderBasket("receive");
+      loadAndRender("receive");
+    });
+    // Commish broker mode: changing the FROM side rebuilds everything —
+    // basket clears, partner dropdown re-options excluding new from, and
+    // the give-side picker reloads with the new franchise's assets.
+    function _refreshReceiveLabel() {
+      const toSel = document.getElementById("trade-to");
+      const toFid = toSel && toSel.value;
+      const toName = toFid && (franchises[toFid] || toFid) || "PARTNER";
+      const lbl = document.getElementById("trade-receive-label");
+      if (lbl) lbl.textContent = isCommishBroker ? `${String(toName).toUpperCase()} RECEIVES` : "YOU RECEIVE";
+      const pn = document.getElementById("trade-receive-picker-name");
+      if (pn) pn.textContent = toName;
+    }
+    function _refreshGiveLabel() {
+      const lbl = document.getElementById("trade-give-label");
+      if (lbl) lbl.textContent = isCommishBroker ? `${String(myName).toUpperCase()} OFFERS` : "YOU OFFER";
+      const pn = document.getElementById("trade-give-picker-name");
+      if (pn) pn.textContent = myName;
+    }
+    if (isCommishBroker) {
+      const fromSel = document.getElementById("trade-from");
+      if (fromSel) fromSel.addEventListener("change", () => {
+        myFid = fromSel.value;
+        myName = franchises[myFid] || myFid;
+        // Rebuild the to-options to exclude the new from-fid (preserve
+        // current selection if it's still valid).
+        const toSel = document.getElementById("trade-to");
+        const prevTo = toSel ? toSel.value : "";
+        if (toSel) {
+          toSel.innerHTML = _tradeOpts(myFid);
+          if (prevTo && prevTo !== myFid && franchises[prevTo]) {
+            toSel.value = prevTo;
+          }
+        }
+        // Clear both baskets — assets belong to a different franchise now.
+        basket.give = [];
+        basket.receive = [];
+        _refreshGiveLabel();
+        _refreshReceiveLabel();
+        renderBasket("give");
+        renderBasket("receive");
+        loadAndRender("give");
+        loadAndRender("receive");
+      });
+    }
+    // Initial label paint (covers the case where receive-side label needs
+    // the to-fid name on first render).
+    _refreshReceiveLabel();
     // If we're countering, set the partner select + comments + render baskets immediately.
     if (_counterFromOffer) {
       const toSel = document.getElementById("trade-to");
       if (toSel && _counterFromOffer.partner_fid) toSel.value = _counterFromOffer.partner_fid;
       const commentsEl = document.getElementById("trade-comments");
       if (commentsEl) commentsEl.value = _counterFromOffer.comments || "";
+      _refreshReceiveLabel();
       renderBasket("give"); renderBasket("receive");
     }
 
@@ -3918,7 +4002,9 @@
       if (!el) return;
       const sideSel = document.getElementById("trade-bb-side");
       const side = (sideSel && sideSel.value) || "give";
-      const sideLabel = side === "give" ? "YOU OFFER" : "YOU RECEIVE";
+      const sideLabel = isCommishBroker
+        ? (side === "give" ? `${String(myName).toUpperCase()} OFFERS` : `PARTNER RECEIVES`)
+        : (side === "give" ? "YOU OFFER" : "YOU RECEIVE");
       const maxBb = _bbMaxFor(side);
       const currentBb = _bbCurrentFor(side);
       const remaining = Math.max(0, maxBb - currentBb);
@@ -3991,12 +4077,16 @@
       }
       // Cap-$ (BB) rule §E1: must include at least one non-cash asset on each
       // side that has cap-$ on it. ("Cannot send only money.")
+      const _giveLbl = isCommishBroker ? `${String(myName).toUpperCase()} OFFERS` : "YOU OFFER";
+      const _recvLbl = isCommishBroker
+        ? `${String(franchises[document.getElementById("trade-to").value] || "PARTNER").toUpperCase()} RECEIVES`
+        : "YOU RECEIVE";
       if (basket.give.length && !_bbHasNonCash("give") && basket.give.some(a => a.kind === "bb")) {
-        result.innerHTML = `<div style="color:var(--err)">YOU OFFER side has cap $ but no player or pick — at least one non-cash asset is required.</div>`;
+        result.innerHTML = `<div style="color:var(--err)">${_giveLbl} side has cap $ but no player or pick — at least one non-cash asset is required.</div>`;
         return;
       }
       if (basket.receive.length && !_bbHasNonCash("receive") && basket.receive.some(a => a.kind === "bb")) {
-        result.innerHTML = `<div style="color:var(--err)">YOU RECEIVE side has cap $ but no player or pick — at least one non-cash asset is required.</div>`;
+        result.innerHTML = `<div style="color:var(--err)">${_recvLbl} side has cap $ but no player or pick — at least one non-cash asset is required.</div>`;
         return;
       }
       // Re-validate cap-$ totals (might have changed if user added a BB then removed players).
@@ -4004,7 +4094,7 @@
         const cur = _bbCurrentFor(side);
         const max = _bbMaxFor(side);
         if (cur > max) {
-          const sideLabel = side === "give" ? "YOU OFFER" : "YOU RECEIVE";
+          const sideLabel = side === "give" ? _giveLbl : _recvLbl;
           result.innerHTML = `<div style="color:var(--err)">${sideLabel} cap $ ($${cur.toLocaleString()}) exceeds the rule limit ($${max.toLocaleString()} = 50% of outgoing player salaries). Remove a BB or add more salary.</div>`;
           return;
         }
@@ -4049,7 +4139,10 @@
         receive_assets: _packAssets(basket.receive),
         comments,
         simulate: isSim,
-        ...(isCommishProcess ? { requested_by: myFid } : {}),
+        // requested_by tracks WHO ran the action (the commish), not which
+        // franchise is the from-side of the trade. In commish-broker mode
+        // myFid is the from-team, so use commishOwnFid instead.
+        ...(isCommishProcess ? { requested_by: commishOwnFid || myFid } : {}),
       };
       const endpoint = isCommishProcess ? "/api/trade/process" : "/api/trade";
       result.innerHTML = `<div class="small" style="color: var(--muted)">${

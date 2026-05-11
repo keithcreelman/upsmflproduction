@@ -26,6 +26,30 @@ logic is doing without digging into code).
 
 ---
 
+## v1.7.13 — 2026-05-11 — Commish broker mode in the trade modal
+
+When two owners verbally agree on a trade during the live draft, the commish
+needs to be able to pick **both** sides and process it. Previously the trade
+modal locked the from-side to whoever was logged in — and Keith hits this
+hard when logged in as MFL's pseudo-franchise 0000 (no roster), where the
+modal showed an empty "PICK FROM 0000'S ASSETS" column.
+
+When `STATE.me.is_commish` is true, the trade modal now shows:
+
+- **🔨 COMMISH BROKER · pick both sides** header
+- **From:** dropdown — every franchise alphabetically
+- **To:** dropdown — every franchise except the from-side (auto-rebuilds)
+- Basket titles become team-aware: *"BLAKE BOMBERS OFFERS"* / *"KEITH RECEIVES"*
+- Picker headers say *"Pick from Blake Bombers's assets"*
+- Switching the From dropdown clears both baskets and reloads both pickers
+
+Audit field `requested_by` carries the commish's true franchise_id (not the
+from-team) so MFL + Discord still show who ran the action.
+
+For non-commish owners, the modal is unchanged.
+
+---
+
 ## v1.7.12 — 2026-05-11 — Pick clock is LIVE-mode only
 
 The per-pick countdown was auto-starting on page load, which meant owners
