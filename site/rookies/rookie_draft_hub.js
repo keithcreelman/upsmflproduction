@@ -183,41 +183,36 @@
     "calcs":        { icon: "📊", label: "Calcs" },
   };
   function _initMobileShell(setActiveTab) {
-    // Build the bottom nav from the existing top-tab buttons. Mirrored once
-    // at init; if tabs change at runtime (they don't currently), call again.
     const topNav = document.getElementById("rdh-tabs");
     if (!topNav) return;
-    let bottom = document.querySelector(".mobile-bottom-nav");
-    if (!bottom) {
-      bottom = document.createElement("nav");
-      bottom.className = "mobile-bottom-nav";
-      bottom.setAttribute("role", "navigation");
-      bottom.setAttribute("aria-label", "Mobile primary navigation");
-      const inner = document.createElement("div");
-      inner.className = "mobile-bottom-nav-inner";
-      bottom.appendChild(inner);
-      // Build buttons in the same order as the top tabs (so the visual
-      // ordering matches what desktop users learn).
+
+    // Stash desktop label text on each tab so we can swap to icon-style
+    // labels on mobile and restore on resize back to desktop.
+    topNav.querySelectorAll("button[data-tab]").forEach(srcBtn => {
+      if (!srcBtn.dataset.desktopLabel) {
+        srcBtn.dataset.desktopLabel = srcBtn.textContent.trim();
+      }
+    });
+    function applyTopNavMobileLabels(isMobile) {
       topNav.querySelectorAll("button[data-tab]").forEach(srcBtn => {
         const tab = srcBtn.dataset.tab;
         const meta = MOBILE_TAB_META[tab] || { icon: "•", label: tab };
-        const b = document.createElement("button");
-        b.type = "button";
-        b.dataset.tab = tab;
-        if (srcBtn.classList.contains("active")) b.classList.add("active");
-        b.innerHTML = `<span class="mbn-icon" aria-hidden="true">${meta.icon}</span><span>${meta.label}</span>`;
-        b.addEventListener("click", () => setActiveTab(tab));
-        inner.appendChild(b);
+        if (isMobile) {
+          srcBtn.innerHTML = `<span class="mbn-icon" aria-hidden="true">${meta.icon}</span><span class="mbn-label">${meta.label}</span>`;
+        } else {
+          srcBtn.textContent = srcBtn.dataset.desktopLabel || tab;
+        }
       });
-      // Insert at the very end of <body> so it overlays correctly.
-      document.body.appendChild(bottom);
     }
 
-    // Viewport observer: toggle .is-mobile at ≤768px. Modern matchMedia
-    // listener — fires on resize + orientation change + window scaling.
+    // Viewport observer: toggle .is-mobile at ≤768px + swap top-nav labels.
+    // Per Keith: keep the icon-style labels on the TOP nav on mobile (the
+    // bottom nav stays hidden — DOM unused).
     const mq = window.matchMedia("(max-width: 768px)");
     const apply = () => {
-      document.body.classList.toggle("is-mobile", mq.matches);
+      const isMobile = mq.matches;
+      document.body.classList.toggle("is-mobile", isMobile);
+      applyTopNavMobileLabels(isMobile);
     };
     apply();
     if (mq.addEventListener) mq.addEventListener("change", apply);
@@ -1081,13 +1076,16 @@
     _startPickClockTick();
 
 
-    // Keyboard shortcuts (only when live tab visible & no modal/input focused)
+    // Esc-to-close modal works on EVERY tab now (was only Live). If a
+    // modal locks up for any reason, Esc gets the user out.
     document.addEventListener("keydown", (e) => {
+      const overlay = document.getElementById("rdh-modal-overlay");
+      const overlayOpen = overlay && overlay.classList.contains("open");
+      if (e.key === "Escape" && overlayOpen) { closeModal(); return; }
+      // Live-tab-only shortcuts (don't interfere with typing)
       if (STATE.activeTab !== "live") return;
       const tag = (document.activeElement && document.activeElement.tagName) || "";
       const isInput = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
-      const overlayOpen = document.getElementById("rdh-modal-overlay").classList.contains("open");
-      if (e.key === "Escape" && overlayOpen) { closeModal(); return; }
       if (isInput) return;
       if (e.key === "/") {
         const s = document.getElementById("prospect-search");
@@ -1097,6 +1095,16 @@
         showLiveHelp();
       }
     });
+
+    // Backdrop click to dismiss any modal — important on mobile where the
+    // user might miss a small ✕ button. Only fires when clicking the
+    // overlay itself, not anything inside the modal panel.
+    const overlayEl = document.getElementById("rdh-modal-overlay");
+    if (overlayEl) {
+      overlayEl.addEventListener("click", (e) => {
+        if (e.target === overlayEl) closeModal();
+      });
+    }
   }
 
   function renderLiveModeBanner() {
@@ -4141,8 +4149,13 @@
       pickerEl.innerHTML = `<div class="small" style="color:var(--muted)">Loading ${franchises[fid] || fid}'s assets…</div>`;
       let data;
       let isStub = false;
+      // 15s hard timeout via AbortController — without this, a CF worker
+      // cold-start or MFL hang leaves the picker spinning forever and the
+      // user has no way to recover except closing the modal.
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 15000);
       try {
-        const r = await fetch(apiUrl(`/api/franchise-assets`) + `?L=74598&fid=${encodeURIComponent(fid)}`);
+        const r = await fetch(apiUrl(`/api/franchise-assets`) + `?L=74598&fid=${encodeURIComponent(fid)}`, { signal: ctrl.signal });
         const ct = r.headers.get("content-type") || "";
         if (!r.ok || !ct.includes("json")) throw new Error(`api returned ${r.status} ${ct}`);
         data = await r.json();
@@ -4151,6 +4164,20 @@
         // already-loaded STATE so the trade flow is testable in dev too.
         data = _localFranchiseAssetsStub(fid);
         isStub = true;
+        // If even the stub returns nothing usable, surface a retry button so
+        // the user can try again instead of staring at empty columns.
+        if (!data || (!data.players?.length && !data.current_picks?.length && !data.future_picks?.length)) {
+          pickerEl.innerHTML = `
+            <div class="small" style="color:var(--err); padding:6px;">
+              Failed to load ${franchises[fid] || fid}'s assets (${escapeHtml(String(e && e.message || e))}).
+            </div>
+            <button class="btn secondary" type="button" data-trade-retry="${side}" style="margin-top:6px;">↻ Retry</button>`;
+          pickerEl.querySelector('[data-trade-retry]')?.addEventListener('click', () => loadAndRender(side));
+          clearTimeout(timer);
+          return;
+        }
+      } finally {
+        clearTimeout(timer);
       }
       try {
         // Combined picks list: current-year + future, sorted (current first by round/slot, then future by year/round).
