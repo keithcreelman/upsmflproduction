@@ -1,7 +1,7 @@
 {
-  "version": "1.7.0",
+  "version": "1.7.1",
   "released": "2026-05-11",
-  "label": "V1.7.0 — Trade announcements: sim other-owner trades + on-screen popup + Discord post",
+  "label": "V1.7.1 — Roll back auto-generated other-owner trades (popup + Discord remain for user trades)",
   "description": "First published version of the Draft Hub analytics model. This establishes the V1 baseline. Future tweaks bump the version and are logged here.",
   "methodology_signature": {
     "tier_classifier": "NET = 3yr-games-weighted E+P rate − 0.5 × 3yr-games-weighted Dud rate",
@@ -28,6 +28,19 @@
     "lineup_efficiency": 0.012
   },
   "changes": [
+    {
+      "version": "1.7.1",
+      "date": "2026-05-11",
+      "type": "patch",
+      "summary": "Removed the auto-generated other-owner trade simulator (was added in v1.7.0; not requested). Trade popup + Discord posts remain for USER-initiated trades only. Revert/commish controls already exist via the per-pick ↶ icon (commish-only in LIVE).",
+      "details": [
+        "_simulateOtherTrade() removed — auto-sim no longer fires random pick swaps between non-user franchises.",
+        "Engine pick path is back to its v1.6.5 behavior: pick → record → schedule next tick. No trade injection.",
+        "Trade popup banner kept but only fires for user-initiated trades (sim-user variant or live variant). The 'sim-other' robot-emoji variant is removed.",
+        "Discord post on /api/trade kept for both sim and live paths — that part WAS requested.",
+        "Revert/commish controls (already in v1.4.2): hover any made pick on the board → ↶ icon → confirm modal with optional cascade-undo. _canRevert() gates LIVE-mode revert to commish-only (STATE.me.is_commish from COMMISH_FRANCHISE_IDS env var). Reset button on Mock Draft Sim card clears all local picks."
+      ]
+    },
     {
       "version": "1.7.0",
       "date": "2026-05-11",
