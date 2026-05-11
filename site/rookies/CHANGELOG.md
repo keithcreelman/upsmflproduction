@@ -26,6 +26,17 @@ logic is doing without digging into code).
 
 ---
 
+## v1.7.30 — 2026-05-11 — Remove Draft-Day Trades tab entirely
+
+Per Keith: the under-construction Draft-Day Trades placeholder wasn't
+earning its tab. Removed entirely from desktop and mobile. Net: 6 tabs
+across the board — Live, History, Teams, R6, Future Picks, Calcs.
+
+`renderDayTrades` left in code as a no-op (early-returns when its DOM
+target is missing) so render-pipeline call sites don't need touching.
+
+---
+
 ## v1.7.29 — 2026-05-11 — Hide Trades tab on mobile
 
 Per Keith: the **Draft-Day Trades** tab (historical trade-history reference)

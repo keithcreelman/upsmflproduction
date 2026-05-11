@@ -177,7 +177,6 @@
     "live":         { icon: "🎯", label: "Live" },
     "history":      { icon: "📜", label: "History" },
     "teams":        { icon: "👥", label: "Teams" },
-    "day-trades":   { icon: "🔄", label: "Trades" },
     "r6-order":     { icon: "🎲", label: "R6" },
     "future-picks": { icon: "📅", label: "Picks" },
     "calcs":        { icon: "📊", label: "Calcs" },
@@ -193,9 +192,10 @@
         srcBtn.dataset.desktopLabel = srcBtn.textContent.trim();
       }
     });
-    // Tabs to hide on mobile only (kept on desktop). Trades tab is
-    // historical reference data — not relevant draft-day on a phone.
-    const MOBILE_HIDE_TABS = new Set(["day-trades"]);
+    // No mobile-hidden tabs at the moment — Draft-Day Trades was removed
+    // entirely in v1.7.30. Add tab keys to this Set if you ever want to
+    // hide one only on mobile.
+    const MOBILE_HIDE_TABS = new Set();
     function applyTopNavMobileLabels(isMobile) {
       topNav.querySelectorAll("button[data-tab]").forEach(srcBtn => {
         const tab = srcBtn.dataset.tab;

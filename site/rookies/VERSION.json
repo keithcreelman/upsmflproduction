@@ -1,7 +1,7 @@
 {
-  "version": "1.7.29",
+  "version": "1.7.30",
   "released": "2026-05-11",
-  "label": "V1.7.29 — 'Trades' tab hidden on mobile (kept on desktop) — historical reference data, not draft-day-on-phone",
+  "label": "V1.7.30 — Draft-Day Trades tab removed entirely (desktop AND mobile) — was an under-construction placeholder",
   "description": "First published version of the Draft Hub analytics model. This establishes the V1 baseline. Future tweaks bump the version and are logged here.",
   "methodology_signature": {
     "tier_classifier": "NET = 3yr-games-weighted E+P rate − 0.5 × 3yr-games-weighted Dud rate",
@@ -28,6 +28,18 @@
     "lineup_efficiency": 0.012
   },
   "changes": [
+    {
+      "version": "1.7.30",
+      "date": "2026-05-11",
+      "type": "ux",
+      "summary": "Per Keith: remove the Draft-Day Trades tab entirely (desktop + mobile). It was an under-construction placeholder — not earning its slot in the nav.",
+      "details": [
+        "rookie_draft_hub.html: removed <button data-tab='day-trades'> from nav and the entire <section data-section='day-trades'> placeholder block.",
+        "rookie_draft_hub.js MOBILE_TAB_META: dropped 'day-trades' entry. MOBILE_HIDE_TABS Set is now empty (kept the mechanism for future use).",
+        "renderDayTrades function kept but never finds its DOM target → early-returns cleanly. Listeners are null-guarded.",
+        "Net: 6 tabs visible everywhere — Live, History, Teams, R6, Future Picks, Calcs."
+      ]
+    },
     {
       "version": "1.7.29",
       "date": "2026-05-11",
