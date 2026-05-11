@@ -26,6 +26,32 @@ logic is doing without digging into code).
 
 ---
 
+## v1.7.22 — 2026-05-11 — Honor MFL's actual field names in pendingTrades + picks-first
+
+The v1.7.21 diagnostic dump revealed two real causes:
+
+1. **MFL's tradeProposal response is literally just `<status>OK</status>`** —
+   no trade_id at all. None of the 6 regex patterns can match what isn't
+   there. The pendingTrades fallback is the ONLY path forward for this MFL
+   response shape.
+2. **MFL's pendingTrades JSON uses field names** `offeringteam`, `offeredto`,
+   `will_give_up`, `will_receive`, `trade_id` — none of which the v1.7.21
+   lookup looked for. That's why `candidates_found: 0` despite 2 pending
+   trades being in the response.
+
+Fixed both:
+- Sender reader prepended with `offeringteam` (current MFL JSON name).
+- Asset readers accept `will_give_up` / `will_receive` (snake_case) alongside
+  the camel-lowered + legacy variants.
+- trade_id reader prioritizes the snake_case `trade_id`.
+- When match still fails, diagnostic shows ALL pending offers (not just
+  direction-matched), so we can see what fields/values MFL actually returned.
+
+**UX**: trade asset picker now shows **Draft Picks** above Players on both
+sides of the basket. Picks are the dominant trade currency on draft day.
+
+---
+
 ## v1.7.21 — 2026-05-11 — Robust pendingTrades lookup applied to BOTH paths
 
 After v1.7.20, Keith's trade-process still failed with `step: extract_trade_id`.

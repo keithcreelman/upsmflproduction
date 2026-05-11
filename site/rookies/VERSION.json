@@ -1,7 +1,7 @@
 {
-  "version": "1.7.21",
+  "version": "1.7.22",
   "released": "2026-05-11",
-  "label": "V1.7.21 — Robust pendingTrades lookup applied to BOTH duplicate-recovery AND post-success extract paths; error toast now dumps propose_response + recovery diagnostics so we can see why match misses",
+  "label": "V1.7.22 — pendingTrades match fix: support 'offeringteam' sender + 'will_give_up'/'will_receive' (snake_case) asset fields. Trade picker shows Draft Picks before Players.",
   "description": "First published version of the Draft Hub analytics model. This establishes the V1 baseline. Future tweaks bump the version and are logged here.",
   "methodology_signature": {
     "tier_classifier": "NET = 3yr-games-weighted E+P rate − 0.5 × 3yr-games-weighted Dud rate",
@@ -28,6 +28,19 @@
     "lineup_efficiency": 0.012
   },
   "changes": [
+    {
+      "version": "1.7.22",
+      "date": "2026-05-11",
+      "type": "fix+ux",
+      "summary": "Diagnostic dump from v1.7.21 revealed (a) MFL's tradeProposal response is just <status>OK</status> with no trade_id at all, and (b) MFL's pendingTrades JSON uses field names 'offeringteam', 'offeredto', 'will_give_up', 'will_receive', 'trade_id' — none of which the v1.7.21 lookup recognized. Fixed both. Plus: trade picker now shows Draft Picks before Players (most-traded asset on draft day).",
+      "details": [
+        "Sender field reader expanded: offeringteam (CURRENT MFL JSON) added at the front of the precedence list. Still falls back to offeredby/proposedby/franchise/franchise_id/fromfid for older formats.",
+        "Asset field readers: will_give_up / will_receive (snake_case) now accepted alongside willgiveup / willreceive (lowered camel) and the legacy give / receive.",
+        "trade_id reader: trade_id (snake_case) prioritized over tradeId/tradeid/id.",
+        "Diagnostic candidate_summaries now shows ALL pending offers (not just direction-matched candidates) when zero matched — so we can see if direction or asset format is what's missing.",
+        "UX: in the trade modal, Draft Picks group renders ABOVE Players for both give/receive sides. Picks are the dominant trade currency on draft day; players come second."
+      ]
+    },
     {
       "version": "1.7.21",
       "date": "2026-05-11",

@@ -2954,7 +2954,9 @@ export default {
           const [forTo, forFrom] = await Promise.all([fetchPending(toFid), fetchPending(fromFid)]);
           const byId = new Map();
           for (const p of [...forTo, ...forFrom]) {
-            const id = safeStr(p.tradeId || p.tradeid || p.id || p.trade_id || "");
+            // MFL uses trade_id (snake_case) in current JSON shape; keep
+            // tradeId/tradeid/id as fallbacks for older/variant responses.
+            const id = safeStr(p.trade_id || p.tradeId || p.tradeid || p.id || "");
             if (id && !byId.has(id)) byId.set(id, p);
           }
           const allPending = Array.from(byId.values());
@@ -2964,20 +2966,36 @@ export default {
             return out;
           };
           const fid = (v) => _rdhPadFid(safeStr(v));
+          // Sender field names observed in the wild:
+          //   offeringteam (current MFL JSON, snake_case style)
+          //   franchise, franchise_id (some leagues)
+          //   offeredby, offeredBy, proposedby, proposedBy
+          //   fromfid (custom)
+          const senderOf = (lo) => fid(
+            lo.offeringteam || lo.offeredby || lo.proposedby ||
+            lo.franchise || lo.franchise_id || lo.fromfid
+          );
+          const receiverOf = (lo) => fid(
+            lo.offeredto || lo.target || lo.tofid
+          );
           const candidates = allPending.filter(p => {
             const lo = lowerKeys(p);
-            const sender = fid(lo.franchise || lo.franchise_id || lo.offeredby || lo.proposedby || lo.fromfid);
-            const receiver = fid(lo.offeredto || lo.target || lo.tofid);
+            const sender = senderOf(lo);
+            const receiver = receiverOf(lo);
             return (sender === fromFid && receiver === toFid) ||
                    (sender === toFid && receiver === fromFid);
           });
           const normSet = (csv) => String(csv || "").split(/[,;\s]+/).filter(Boolean).sort().join(",");
           const wantGive = normSet(giveMfl);
           const wantRecv = normSet(receiveMfl);
+          // Asset field names: will_give_up / will_receive (snake) OR
+          // willgiveup / willreceive (camel-lowered) OR give / receive.
+          const giveOf = (lo) => lo.will_give_up || lo.willgiveup || lo.give;
+          const receiveOf = (lo) => lo.will_receive || lo.willreceive || lo.receive;
           const matchExact = candidates.find(p => {
             const lo = lowerKeys(p);
-            const g = normSet(lo.willgiveup || lo.give);
-            const r = normSet(lo.willreceive || lo.receive);
+            const g = normSet(giveOf(lo));
+            const r = normSet(receiveOf(lo));
             return (g === wantGive && r === wantRecv) || (g === wantRecv && r === wantGive);
           });
           const sortedByTs = candidates.slice().sort((a, b) => {
@@ -2986,7 +3004,7 @@ export default {
             return tb - ta;
           });
           const pick = matchExact || sortedByTs[0];
-          const tradeIdFound = pick ? safeStr(pick.tradeId || pick.tradeid || pick.id || pick.trade_id || "") : "";
+          const tradeIdFound = pick ? safeStr(pick.trade_id || pick.tradeId || pick.tradeid || pick.id || "") : "";
           const diagnostics = {
             candidates_found: candidates.length,
             total_pending_for_to: forTo.length,
@@ -2994,14 +3012,16 @@ export default {
             wanted_give: wantGive,
             wanted_receive: wantRecv,
             sample_pending_keys: allPending.slice(0, 1).map(p => Object.keys(p || {})),
-            candidate_summaries: candidates.slice(0, 5).map(p => {
+            // Show ALL pending offers (not just direction-matched candidates)
+            // when no candidates were found. Helps diagnose why match missed.
+            candidate_summaries: (candidates.length ? candidates : allPending).slice(0, 5).map(p => {
               const lo = lowerKeys(p);
               return {
-                trade_id: safeStr(lo.tradeid || lo.id || lo.trade_id || ""),
-                sender: fid(lo.franchise || lo.franchise_id || lo.offeredby || lo.proposedby),
-                receiver: fid(lo.offeredto || lo.target),
-                give: safeStr(lo.willgiveup || lo.give),
-                receive: safeStr(lo.willreceive || lo.receive),
+                trade_id: safeStr(lo.trade_id || lo.tradeid || lo.id || ""),
+                sender: senderOf(lo),
+                receiver: receiverOf(lo),
+                give: safeStr(giveOf(lo)),
+                receive: safeStr(receiveOf(lo)),
               };
             }),
           };
