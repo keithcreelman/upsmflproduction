@@ -114,10 +114,22 @@
     //   advances active_pick.
     // - Reset by the ↺ button if the commish needs to give the on-clock
     //   owner a do-over after a delay.
-    activePickStartedAt: null,
-    // Tracks which slot _activePickStartedAt corresponds to so we know
-    // when active_pick has changed and the clock should restart.
-    activePickClockKey: null,
+    // Restored from sessionStorage on every page load so a LIVE-mode refresh
+    // doesn't reset the on-clock owner's countdown to a fresh 10:00. The
+    // poller's MFL-pick-timestamp seed will overwrite this on next refresh
+    // if it differs, but the restored value keeps the clock running smoothly
+    // through the brief moment before the worker responds.
+    activePickStartedAt: (function () {
+      try {
+        const v = sessionStorage.getItem("rdh_clock_started_at");
+        const n = v ? Number(v) : 0;
+        return Number.isFinite(n) && n > 0 ? n : null;
+      } catch (e) { return null; }
+    })(),
+    activePickClockKey: (function () {
+      try { return sessionStorage.getItem("rdh_clock_slot_key") || null; }
+      catch (e) { return null; }
+    })(),
   };
 
   // MFL HPM context — the embed loader injects window.UPS_DRAFT_HUB_FRANCHISE_ID
@@ -147,17 +159,30 @@
     if (!active) return null;
     return `${active.round}.${active.pick}.${active.franchise_id || active.owned_by_franchise_id || ""}`;
   }
+  function _pickClockPersist() {
+    try {
+      if (STATE.activePickStartedAt) {
+        sessionStorage.setItem("rdh_clock_started_at", String(STATE.activePickStartedAt));
+        sessionStorage.setItem("rdh_clock_slot_key", STATE.activePickClockKey || "");
+      } else {
+        sessionStorage.removeItem("rdh_clock_started_at");
+        sessionStorage.removeItem("rdh_clock_slot_key");
+      }
+    } catch (e) {}
+  }
   function _pickClockEnsureStarted(opts) {
     // Called whenever active_pick may have changed. Stamps started_at if
-    // (a) we have no started_at, or (b) the slot key changed. `opts.startedAtMs`
-    // lets the caller seed the clock from an authoritative source (MFL
-    // picks_made[-1].timestamp * 1000 in LIVE) instead of "now".
+    // (a) we have no started_at, or (b) the slot key changed.
+    // `opts.startedAtMs` is AUTHORITATIVE — when provided, we always prefer
+    // it over Date.now() AND over any previously stored value (the MFL pick
+    // timestamp poll-seed beats wall-clock stamps every time).
     //
     // The clock is a LIVE-mode-only feature — don't stamp anything in SIM
     // so the clock stays cleanly off until the commish flips to LIVE.
     if (STATE.simulationMode) {
       STATE.activePickStartedAt = null;
       STATE.activePickClockKey = null;
+      _pickClockPersist();
       return;
     }
     const active = STATE.live && STATE.live.active_pick;
@@ -165,11 +190,28 @@
     if (!active || !key) {
       STATE.activePickStartedAt = null;
       STATE.activePickClockKey = null;
+      _pickClockPersist();
       return;
     }
-    if (STATE.activePickClockKey !== key || !STATE.activePickStartedAt) {
-      STATE.activePickStartedAt = (opts && opts.startedAtMs) || Date.now();
+    const slotChanged = STATE.activePickClockKey !== key;
+    const authoritative = opts && Number.isFinite(opts.startedAtMs) && opts.startedAtMs > 0;
+    if (slotChanged) {
+      // New slot (trade, new pick made, draft advance) → restart from
+      // authoritative MFL timestamp if provided, otherwise from now.
+      STATE.activePickStartedAt = authoritative ? opts.startedAtMs : Date.now();
       STATE.activePickClockKey = key;
+      _pickClockPersist();
+    } else if (authoritative && opts.startedAtMs !== STATE.activePickStartedAt) {
+      // Same slot, but caller has an authoritative timestamp (MFL pick
+      // timestamp from the poller). Always honor it — corrects any
+      // stale Date.now() stamp from a previous bootstrap.
+      STATE.activePickStartedAt = opts.startedAtMs;
+      _pickClockPersist();
+    } else if (!STATE.activePickStartedAt) {
+      // No stamp yet and no authoritative value — stamp now as a fallback.
+      STATE.activePickStartedAt = Date.now();
+      STATE.activePickClockKey = key;
+      _pickClockPersist();
     }
   }
   function _pickClockReset() {
@@ -177,6 +219,7 @@
     if (!STATE.live || !STATE.live.active_pick) return;
     STATE.activePickStartedAt = Date.now();
     STATE.activePickClockKey = _pickClockSlotKey(STATE.live.active_pick);
+    _pickClockPersist();
     renderPickClock();
     showToast("Pick clock reset to full time", "ok");
   }
@@ -1038,6 +1081,7 @@
       // started_at if we flip back to LIVE later.
       STATE.activePickStartedAt = null;
       STATE.activePickClockKey = null;
+      _pickClockPersist();
       renderPickClock();
     } else {
       _inboxStartPolling();
@@ -4281,6 +4325,12 @@
             } else {
               result.innerHTML = `<div style="color: var(--ok);">🔨 Trade processed — completed in MFL${data.discord_posted ? " · Discord posted to live channel" : ""}.${stubNote}</div>`;
               showToast(`🔨 Trade processed: ${myName} ↔ ${franchises[toFid] || toFid}`, "ok");
+              // A trade may have changed on-clock ownership (pick swap) → pull
+              // fresh MFL state immediately so the pick clock resets to the
+              // new owner's full time instead of waiting for the 20s poll.
+              if (typeof _refreshLiveDraftState === "function") {
+                _refreshLiveDraftState({ initial: false }).catch(() => {});
+              }
             }
             showTradePopup({
               fromName: myName, toName: franchises[toFid] || toFid,
