@@ -26,6 +26,29 @@ logic is doing without digging into code).
 
 ---
 
+## v1.7.18 — 2026-05-11 — Trade-process robust trade_id + Trade DM toggle
+
+**Bug**: Process Trade failed with `extract_trade_id · Trade was proposed but
+MFL response didn't include a parseable trade_id`. The propose actually
+worked but our 3 regex patterns missed MFL's response format.
+
+**Fix**:
+- Expanded to 6 regex patterns covering XML attrs (`<trade id="...">`,
+  `<tradeProposal tradeId="...">`), JSON shapes, generic `id=...` attrs.
+- New fallback: when no regex matches, fetch `pendingTrades` for the
+  receiver, find the matching sender→receiver offer (asset equivalence
+  preferred, freshest timestamp as tiebreaker), use its trade_id.
+- Same lookup logic powers v1.7.17 duplicate recovery, just used as a
+  positive lookup here.
+
+**Feature**: Commish-only **🔕 Trade DM: ON/OFF** toggle in the banner
+right column. When OFF, Process Trade still completes in MFL but skips the
+live Discord post. Picks always announce regardless. Toggle persists in
+localStorage. Toast/result inline says "🔕 Discord muted (per your toggle)"
+when applied.
+
+---
+
 ## v1.7.17 — 2026-05-11 — Recover from MFL "Duplicate trade offer" error
 
 Direct fallout from Keith's lockout-blocked trade attempt: the earlier attempt

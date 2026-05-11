@@ -70,6 +70,15 @@
         return v == null ? true : v === "true";
       } catch (e) { return true; }
     })(),
+    // ── Commish toggle: silence trade Discord announcements in LIVE ──
+    // When ON, /api/trade/process won't post to the live #draft channel
+    // (picks still announce). Useful for testing in production or when
+    // you're processing a flurry of trades and don't want to spam
+    // Discord. Persisted in localStorage. Commish-only UI.
+    silenceTradeAnnouncements: (function () {
+      try { return localStorage.getItem("rdh_silence_trade_announce") === "true"; }
+      catch (e) { return false; }
+    })(),
     // ── DRY-RUN mode ──
     // Activated by ?dryrun=1 in the URL (or sessionStorage). Lets the commish
     // exercise the FULL LIVE-mode UI flow (red banner, confirm dialogs, success
@@ -958,6 +967,23 @@
     }
     const clockReset = document.getElementById("pick-clock-reset");
     if (clockReset) clockReset.addEventListener("click", _pickClockReset);
+
+    // Commish-only Discord trade-announcement toggle. Rendered hidden by
+    // default; renderLiveModeBanner unhides for commish.
+    const tradeDmBtn = document.getElementById("trade-discord-toggle");
+    if (tradeDmBtn) {
+      tradeDmBtn.addEventListener("click", () => {
+        STATE.silenceTradeAnnouncements = !STATE.silenceTradeAnnouncements;
+        try { localStorage.setItem("rdh_silence_trade_announce", String(STATE.silenceTradeAnnouncements)); } catch (e) {}
+        renderLiveModeBanner();
+        showToast(
+          STATE.silenceTradeAnnouncements
+            ? "🔕 Trade announcements OFF — processed trades won't post to Discord"
+            : "📢 Trade announcements ON — processed trades will post to live Discord",
+          "ok"
+        );
+      });
+    }
     // Stamp the clock immediately for whatever's currently on the board
     // (auto-sim default first slot etc.) and start the 1Hz repaint.
     _pickClockEnsureStarted();
@@ -1012,14 +1038,29 @@
     }
     // Commish-only LIVE toggle
     const toggle = document.getElementById("live-mode-toggle");
+    const isCommish = !!(STATE.me && STATE.me.is_commish);
     if (toggle) {
-      const isCommish = !!(STATE.me && STATE.me.is_commish);
       if (isCommish) {
         toggle.hidden = false;
         toggle.textContent = STATE.simulationMode ? "Go LIVE" : "Back to SIMULATE";
         toggle.className = STATE.simulationMode ? "btn danger" : "btn warn";
       } else {
         toggle.hidden = true;
+      }
+    }
+    // Commish-only Discord trade announce toggle
+    const tradeDmBtn = document.getElementById("trade-discord-toggle");
+    if (tradeDmBtn) {
+      if (isCommish) {
+        tradeDmBtn.hidden = false;
+        const off = !!STATE.silenceTradeAnnouncements;
+        tradeDmBtn.textContent = off ? "🔕 Trade DM: OFF" : "📢 Trade DM: ON";
+        tradeDmBtn.title = off
+          ? "Commish only — trade announcements are OFF. Click to re-enable Discord posts on Process Trade."
+          : "Commish only — trade announcements are ON. Click to silence Discord posts on Process Trade.";
+        tradeDmBtn.className = off ? "btn warn" : "btn secondary";
+      } else {
+        tradeDmBtn.hidden = true;
       }
     }
     // On-the-clock headline
@@ -4237,6 +4278,10 @@
         // and /api/trade/process. Worker validates + previews the MFL
         // request without firing the actual POST.
         dry_run: !isSim && !!STATE.dryRun,
+        // Commish-only opt-in: silence the Discord post on /api/trade/process
+        // (only relevant for the LIVE commish-process path). Picks still
+        // announce; this is just a per-action override.
+        silence_discord: !isSim && !!STATE.silenceTradeAnnouncements,
         // requested_by tracks WHO ran the action (the commish), not which
         // franchise is the from-side of the trade. In commish-broker mode
         // myFid is the from-team, so use commishOwnFid instead.
@@ -4326,8 +4371,11 @@
               const recoveredNote = data.recovered_from_duplicate
                 ? " · <em>recovered from previous incomplete attempt (accepted existing pending offer)</em>"
                 : "";
-              result.innerHTML = `<div style="color: var(--ok);">🔨 Trade processed — completed in MFL${data.discord_posted ? " · Discord posted to live channel" : ""}${recoveredNote}.${stubNote}</div>`;
-              showToast(`🔨 Trade processed: ${myName} ↔ ${franchises[toFid] || toFid}${data.recovered_from_duplicate ? " (recovered duplicate)" : ""}`, "ok");
+              const discordNote = data.discord_posted
+                ? " · Discord posted to live channel"
+                : (STATE.silenceTradeAnnouncements ? " · 🔕 Discord muted (per your toggle)" : "");
+              result.innerHTML = `<div style="color: var(--ok);">🔨 Trade processed — completed in MFL${discordNote}${recoveredNote}.${stubNote}</div>`;
+              showToast(`🔨 Trade processed: ${myName} ↔ ${franchises[toFid] || toFid}${data.recovered_from_duplicate ? " (recovered duplicate)" : ""}${STATE.silenceTradeAnnouncements ? " · Discord muted" : ""}`, "ok");
               // A trade may have changed on-clock ownership (pick swap) → pull
               // fresh MFL state immediately so the pick clock resets to the
               // new owner's full time instead of waiting for the 20s poll.

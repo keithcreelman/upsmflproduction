@@ -1,7 +1,7 @@
 {
-  "version": "1.7.17",
+  "version": "1.7.18",
   "released": "2026-05-11",
-  "label": "V1.7.17 — Trade-process recovers from 'Duplicate trade offer' by accepting the existing pending proposal (no more orphaned half-trades after lockout-blocked attempts)",
+  "label": "V1.7.18 — Trade-process: more permissive trade_id parser + pendingTrades fallback; commish-only Trade DM ON/OFF toggle in banner",
   "description": "First published version of the Draft Hub analytics model. This establishes the V1 baseline. Future tweaks bump the version and are logged here.",
   "methodology_signature": {
     "tier_classifier": "NET = 3yr-games-weighted E+P rate − 0.5 × 3yr-games-weighted Dud rate",
@@ -28,6 +28,20 @@
     "lineup_efficiency": 0.012
   },
   "changes": [
+    {
+      "version": "1.7.18",
+      "date": "2026-05-11",
+      "type": "fix+feature",
+      "summary": "Two changes. (1) Fix: trade_id extraction in /api/trade/process now tries 6 regex patterns covering XML attrs / JSON / various MFL response shapes, AND falls back to fetching pendingTrades and matching the freshest sender→receiver offer when none of the regexes match. (2) Feature: commish-only 'Trade DM: ON/OFF' button in the banner — when OFF, Process Trade still goes through to MFL but skips the live Discord post.",
+      "details": [
+        "Worker /api/trade/process: regex patterns expanded to cover <trade id=...>, <tradeProposal tradeId=...>, generic id=... XML attr forms.",
+        "Worker /api/trade/process: pendingTrades fallback after a successful propose — fetches the receiver's pending offers, matches by sender+offeredTo+asset equivalence, takes the freshest by timestamp. Same logic that powers v1.7.17 duplicate recovery, just used as a positive lookup here.",
+        "Frontend: STATE.silenceTradeAnnouncements (localStorage rdh_silence_trade_announce) drives a #trade-discord-toggle button visible only to commish.",
+        "Frontend: trade payload now includes silence_discord:true when toggle is OFF and we're in LIVE mode.",
+        "Worker /api/trade/process honors silence_discord — skips Discord post, returns {discord_posted:false, silenced:true}.",
+        "Frontend toast/result inline shows 🔕 Discord muted (per your toggle) when applied."
+      ]
+    },
     {
       "version": "1.7.17",
       "date": "2026-05-11",
