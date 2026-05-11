@@ -1,7 +1,7 @@
 {
-  "version": "1.7.13",
+  "version": "1.7.14",
   "released": "2026-05-11",
-  "label": "V1.7.13 — Commish broker mode in trade modal: pick BOTH sides to process a third-party trade",
+  "label": "V1.7.14 — DRY-RUN mode: rehearse the FULL LIVE pick/trade UX without writing to MFL or live Discord (?dryrun=1)",
   "description": "First published version of the Draft Hub analytics model. This establishes the V1 baseline. Future tweaks bump the version and are logged here.",
   "methodology_signature": {
     "tier_classifier": "NET = 3yr-games-weighted E+P rate − 0.5 × 3yr-games-weighted Dud rate",
@@ -28,6 +28,21 @@
     "lineup_efficiency": 0.012
   },
   "changes": [
+    {
+      "version": "1.7.14",
+      "date": "2026-05-11",
+      "type": "feature",
+      "summary": "DRY-RUN mode for LIVE rehearsal. Append ?dryrun=1 to the hub URL on a test site, flip Go LIVE, and Keith can exercise the entire submit flow (red banner, confirm dialog, button click, success toast, board update) without the worker actually POSTing to MFL or to the live #draft Discord channel. Posts a [DRY-RUN] preview to the test Discord channel instead, so the message format is verifiable.",
+      "details": [
+        "Frontend: STATE.dryRun read from URL ?dryrun=1 (or sessionStorage rdh_dry_run). Propagated as `dry_run: true` in /api/pick + /api/trade + /api/trade/process payloads when in LIVE mode.",
+        "Banner: when LIVE+dryRun is active, pill reads 'LIVE • 🧪 DRY-RUN' on a red+amber 45° striped background — visually unmistakable.",
+        "Confirm dialog: Go LIVE rewords entirely when dryRun is active to call out the safe-rehearsal effect.",
+        "Worker /api/pick: dryRun short-circuits the MFL fetch — builds the request, returns the preview (with API key redacted), posts [DRY-RUN] to test Discord.",
+        "Worker /api/trade: dryRun skips the MFL tradeProposal POST, returns request preview.",
+        "Worker /api/trade/process: dryRun skips BOTH the propose and accept fetches, returns previews of both, posts the trade summary to test Discord.",
+        "Toggle: ?dryrun=0 forces it off; once set, persists in sessionStorage so a refresh keeps the dry-run state."
+      ]
+    },
     {
       "version": "1.7.13",
       "date": "2026-05-11",

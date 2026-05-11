@@ -771,6 +771,23 @@ tr td.num[style*="var(--err)"] { color: var(--err) !important; }
   background: linear-gradient(180deg, rgba(239,68,68,0.22), rgba(239,68,68,0.08));
   border-bottom-color: rgba(239,68,68,0.5);
 }
+/* DRY-RUN: red+amber striped background — visually unmistakable so Keith
+   never confuses the test site for production. Same animation cadence as
+   regular LIVE. */
+.live-mode-banner[data-mode="live-dry"] {
+  background: repeating-linear-gradient(
+    135deg,
+    rgba(239,68,68,0.18) 0 12px,
+    rgba(251,191,36,0.18) 12px 24px
+  );
+  border-bottom-color: rgba(251,191,36,0.7);
+}
+.live-mode-banner[data-mode="live-dry"] .lmb-pill {
+  background: rgba(251,191,36,0.32);
+  color: var(--warn);
+  border-color: rgba(251,191,36,0.7);
+  animation: lmb-pulse 2s ease-in-out infinite;
+}
 .live-mode-banner .lmb-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .live-mode-banner .lmb-center { text-align: center; }
 .live-mode-banner .lmb-right { text-align: right; display: flex; justify-content: flex-end; gap: 8px; }
