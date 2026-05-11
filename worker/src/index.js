@@ -2887,6 +2887,121 @@ export default {
         return jsonOut(200, { ok: true, posted: true, preview: msg, channel_id: ch });
       }
 
+      // ── POST /api/r6/apply-order — commish writes the R6 slot order to
+      // MFL by re-importing draftResults with R1-R5 preserved + R6 set to
+      // the new order. SAFETY: refuses to run if ANY picks have already
+      // been made anywhere in the draft (the draftResults import is
+      // destructive — it wipes all existing picks). Tonight the rookie
+      // draft hasn't started yet so this is safe; we hard-block it after
+      // any pick is made to prevent nuking real data.
+      // Body: { requested_by, order: [{pick, franchise_id}] }
+      if (path === "/api/r6/apply-order" && request.method === "POST") {
+        let body = {};
+        try { body = await request.json(); } catch (_) {}
+        const reqFid = _rdhPadFid(body.requested_by || "");
+        const commishFids = _rdhCommishFids();
+        if (!reqFid || !commishFids.includes(reqFid)) {
+          return jsonOut(403, { ok: false, error: "Commish-only — requested_by must be a commish franchise_id" });
+        }
+        const order = Array.isArray(body.order) ? body.order : [];
+        if (order.length !== 12) {
+          return jsonOut(400, { ok: false, error: `R6 order must have exactly 12 entries; got ${order.length}` });
+        }
+        // Build a pick→franchise map (1-indexed pick numbers from frontend).
+        const r6Map = {};
+        for (const o of order) {
+          const pickN = Number(o.pick);
+          const fid = _rdhPadFid(safeStr(o.franchise_id || ""));
+          if (!Number.isInteger(pickN) || pickN < 1 || pickN > 12) {
+            return jsonOut(400, { ok: false, error: `invalid pick number: ${o.pick}` });
+          }
+          if (!fid) return jsonOut(400, { ok: false, error: `invalid franchise_id at pick ${o.pick}` });
+          r6Map[pickN] = fid;
+        }
+        // Validate uniqueness — no franchise can be in two slots.
+        const fids = Object.values(r6Map);
+        if (new Set(fids).size !== 12) return jsonOut(400, { ok: false, error: "duplicate franchise in R6 order" });
+
+        const apiKey = safeStr(env.MFL_APIKEY || "");
+        if (!apiKey) return jsonOut(500, { ok: false, error: "MFL_APIKEY missing in worker env" });
+        const leagueId = _rdhLeagueId();
+        const year = _rdhYear();
+        const dryRun = body.dry_run === true;
+
+        // Fetch current draftResults so we can preserve R1-R5 ownership.
+        let current;
+        try {
+          const r = await fetch(`https://www48.myfantasyleague.com/${year}/export?TYPE=draftResults&L=${leagueId}&JSON=1`, {
+            headers: { "User-Agent": "upsmflproduction-worker", "Accept": "application/json" },
+            cf: { cacheTtl: 0 },
+          });
+          current = await r.json();
+        } catch (e) {
+          return jsonOut(502, { ok: false, error: `Failed to fetch current draftResults: ${e?.message || String(e)}` });
+        }
+        let units = current?.draftResults?.draftUnit || [];
+        if (!Array.isArray(units)) units = [units];
+        // Find the LEAGUE unit (or first unit if there's no labeled LEAGUE).
+        const unit = units.find(u => safeStr(u.unit).toUpperCase() === "LEAGUE") || units[0];
+        if (!unit) return jsonOut(502, { ok: false, error: "MFL draftResults has no draftUnit" });
+        let picks = unit.draftPick || unit.pick || [];
+        if (!Array.isArray(picks)) picks = [picks];
+        // Hard-block: any non-empty player field means a pick has been made.
+        const made = picks.filter(p => safeStr(p.player).length > 0);
+        if (made.length > 0) {
+          return jsonOut(409, {
+            ok: false,
+            error: `Refusing to apply: ${made.length} pick(s) have already been made. The MFL draftResults import wipes all existing picks. Update R6 order manually in MFL Commissioner Tools instead.`,
+            made_count: made.length,
+            sample_made: made.slice(0, 3).map(p => ({ round: p.round, pick: p.pick, franchise: p.franchise, player: p.player })),
+          });
+        }
+
+        // Build the new XML: preserve R1-R5 exactly as MFL has them, replace
+        // R6 franchise slot ownership per the order map.
+        const xmlPicks = picks.map(p => {
+          const r = String(p.round).padStart(2, "0");
+          const pn = String(p.pick).padStart(2, "0");
+          const round6 = Number(p.round) === 6;
+          const franchise = round6 ? r6Map[Number(p.pick)] : _rdhPadFid(safeStr(p.franchise));
+          // Empty player + timestamp + comments — pre-draft state.
+          return `<draftPick round="${r}" pick="${pn}" franchise="${franchise}" player="" timestamp="" comments=""/>`;
+        }).join("");
+        const dataXml = `<draftResults><draftUnit unit="LEAGUE">${xmlPicks}</draftUnit></draftResults>`;
+
+        if (dryRun) {
+          return jsonOut(200, {
+            ok: true, dry_run: true,
+            r6_order_map: r6Map,
+            preview_xml_length: dataXml.length,
+            sample_xml: dataXml.slice(0, 600) + "…",
+          });
+        }
+
+        const importUrl = `https://www48.myfantasyleague.com/${year}/import?TYPE=draftResults&L=${leagueId}&APIKEY=${encodeURIComponent(apiKey)}&JSON=1`;
+        const form = new URLSearchParams();
+        form.set("DATA", dataXml);
+        let mflResp = "", mflStatus = 0;
+        try {
+          const r = await fetch(importUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded", "User-Agent": "upsmflproduction-worker" },
+            body: form.toString(),
+          });
+          mflStatus = r.status;
+          mflResp = await r.text();
+        } catch (e) {
+          return jsonOut(502, { ok: false, error: `MFL fetch failed: ${e?.message || String(e)}` });
+        }
+        const mflOk = mflStatus >= 200 && mflStatus < 300 && !/error/i.test(mflResp);
+        if (!mflOk) {
+          let hint = "";
+          if (/lockout|locked/i.test(mflResp)) hint = "MFL Commissioner Lockout is enabled. Disable in League → Commissioner Tools → Lockout.";
+          return jsonOut(502, { ok: false, mfl_status: mflStatus, mfl_response: mflResp, hint });
+        }
+        return jsonOut(200, { ok: true, applied: true, r6_order_map: r6Map, mfl_response: mflResp });
+      }
+
       // ── POST /api/r6/publish-final-order — commish posts the FINAL R6
       // draft order to live Discord ONCE. Body carries the order array
       // [{ pick, franchise_name, franchise_id }] from the frontend after

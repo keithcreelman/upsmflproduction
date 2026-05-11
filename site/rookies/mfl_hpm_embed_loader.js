@@ -118,6 +118,11 @@
       'window.UPS_DRAFT_HUB_IS_COMMISH=' + JSON.stringify(!!ctx.isCommish) + ';' +
       'window.UPS_DRAFT_HUB_RELEASE_SHA=' + JSON.stringify(ctx.sha) + ';' +
       'window.UPS_DRAFT_HUB_API_BASE=' + JSON.stringify(ctx.apiBase) + ';' +
+      // Parent URL — the iframe runs as srcdoc which makes window.location
+      // resolve to about:srcdoc. Anywhere we want a "click here to open the
+      // hub" link (e.g. R6 Discord announcements), we need the OUTER MFL
+      // page URL. Loader sees it; iframe doesn't.
+      'window.UPS_DRAFT_HUB_PARENT_URL=' + JSON.stringify(ctx.parentUrl || "") + ';' +
       // Post height back to host for auto-resize.
       '(function(){function post(){try{var h=Math.max(document.documentElement.scrollHeight,document.body?document.body.scrollHeight:0);parent.postMessage({type:"draft-hub-height",height:h},"*");}catch(e){}}' +
       'window.addEventListener("load",post);window.addEventListener("resize",post);' +
@@ -134,7 +139,7 @@
       return r.text();
     })
     .then(function (html) {
-      const headInject = buildHead(ASSET_BASE, { leagueId: L, year: YEAR, franchiseId: FRANCHISE_ID, isCommish: IS_COMMISH, sha: SHA, apiBase: API_BASE });
+      const headInject = buildHead(ASSET_BASE, { leagueId: L, year: YEAR, franchiseId: FRANCHISE_ID, isCommish: IS_COMMISH, sha: SHA, apiBase: API_BASE, parentUrl: safeStr(window.location && window.location.href) });
       if (/<head[^>]*>/i.test(html)) {
         html = html.replace(/<head([^>]*)>/i, '<head$1>' + headInject);
       } else {
