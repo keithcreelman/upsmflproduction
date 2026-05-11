@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var BUILD = "2026.05.11.09";
+  var BUILD = "2026.05.11.10";
   var BOOT_FLAG = "__ups_team_operations_boot_" + BUILD;
   if (window[BOOT_FLAG]) {
     if (typeof window.UPS_TEAMOPS_INIT === "function") window.UPS_TEAMOPS_INIT();
@@ -1269,16 +1269,12 @@
     });
   }
 
-  // Open MFL's native player profile in a new tab. Stopgap until the
-  // Front Office 4-tab modal gets extracted into a shared module
-  // both hubs can load.
-  function openPlayerProfileModal(pid) {
-    if (!pid) return;
-    var url = "https://www.myfantasyleague.com/" + encodeURIComponent(state.ctx.year) +
-      "/options?L=" + encodeURIComponent(state.ctx.leagueId) +
-      "&O=04&P=" + encodeURIComponent(pid);
-    window.open(url, "_blank", "noopener");
-  }
+  // [v1.7.40 cleanup] The old openMflPlayerProfile redirect-to-MFL
+  // function previously lived here. v1.7.38's global rename
+  // accidentally renamed it to openPlayerProfileModal, creating a
+  // duplicate that overrode the new 4-tab modal — JavaScript takes the
+  // last declaration so clicks went to window.open(...) instead of the
+  // modal. Function removed entirely.
 
   // Friendly empty state when no franchise could be resolved. Surfaces a
   // dropdown of league franchises so the viewer can pick manually rather
