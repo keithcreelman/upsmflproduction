@@ -1,7 +1,7 @@
 {
-  "version": "1.7.23",
+  "version": "1.7.24",
   "released": "2026-05-11",
-  "label": "V1.7.23 — R6 drawing rescheduled to tonight 9PM ET; Discord kickoff + final-order publish (idempotent, preview-then-confirm); R6 picks filtered out of trade modal (untradeable)",
+  "label": "V1.7.24 — R6 final order writes directly to MFL (no Discord publish); HPM loader injects parent URL so the kickoff Discord link points to the actual MFL page (not about:srcdoc)",
   "description": "First published version of the Draft Hub analytics model. This establishes the V1 baseline. Future tweaks bump the version and are logged here.",
   "methodology_signature": {
     "tier_classifier": "NET = 3yr-games-weighted E+P rate − 0.5 × 3yr-games-weighted Dud rate",
@@ -28,6 +28,19 @@
     "lineup_efficiency": 0.012
   },
   "changes": [
+    {
+      "version": "1.7.24",
+      "date": "2026-05-11",
+      "type": "fix+feature",
+      "summary": "Two changes per Keith. (1) Kickoff Discord link was 'about:srcdoc' because the hub runs in a srcdoc iframe — now the HPM loader injects window.UPS_DRAFT_HUB_PARENT_URL from the OUTER MFL page so the link in Discord points where you'd expect. (2) After the official R6 drawing finishes, the hub no longer prompts to publish to Discord — instead it offers to write the order DIRECTLY to MFL via draftResults import. Worker preserves R1-R5 ownership and refuses to run if any picks have been made (which would otherwise wipe them).",
+      "details": [
+        "site/rookies/mfl_hpm_embed_loader.js: passes window.location.href from the outer page into the iframe as window.UPS_DRAFT_HUB_PARENT_URL.",
+        "Frontend _r6CallAnnounce uses parent URL precedence: HPM-injected parent URL → window.location.href if http(s) → hardcoded fallback. Never sends 'about:srcdoc'.",
+        "Worker POST /api/r6/apply-order: commish gate, validates 12-entry order with unique franchises, fetches current draftResults to preserve R1-R5, refuses if any pick has a non-empty player field (returns 409 with diagnostic), builds new <draftResults><draftUnit unit=LEAGUE>...</draftUnit></draftResults> XML, POSTs to import?TYPE=draftResults.",
+        "Frontend _r6OpenApplyOrderModal replaces _r6OpenPublishOrderModal: shows the on-screen order table preview + 'Apply R6 Order to MFL' button. On success: '✓ R6 order written to MFL'. On error: surfaces the worker's hint + made-pick count + MFL response excerpt.",
+        "/api/r6/publish-final-order endpoint kept in worker as dead code — could revive later if you want a Discord summary too. Frontend doesn't call it anymore."
+      ]
+    },
     {
       "version": "1.7.23",
       "date": "2026-05-11",

@@ -3527,9 +3527,21 @@
   async function _r6CallAnnounce(endpoint, extraBody = {}, dryRun = false) {
     const me = STATE.me || {};
     const requestedBy = me.franchise_id;
-    const hubUrl = (typeof window !== "undefined" && window.UPS_DRAFT_HUB_PARENT_URL)
-      || (window.location && window.location.href)
-      || "https://www48.myfantasyleague.com/2026/options?L=74598&O=07";
+    // Hub URL precedence:
+    //   1. window.UPS_DRAFT_HUB_PARENT_URL — set by the HPM loader on the
+    //      OUTER MFL page (the only place that can read window.location
+    //      without about:srcdoc nonsense).
+    //   2. window.location.href if it's a real http(s) URL (direct loads,
+    //      workers.dev preview).
+    //   3. Hardcoded fallback to the league's options page.
+    // Never send "about:srcdoc" — the iframe srcdoc URL is meaningless to
+    // users who click it from Discord.
+    const parentUrl = (typeof window !== "undefined" && window.UPS_DRAFT_HUB_PARENT_URL) || "";
+    const ownUrl = (window.location && window.location.href) || "";
+    const isUsable = (u) => /^https?:\/\//i.test(String(u || ""));
+    const hubUrl = isUsable(parentUrl) ? parentUrl
+                 : isUsable(ownUrl) ? ownUrl
+                 : "https://www48.myfantasyleague.com/2026/options?L=74598&O=07";
     const r = await fetch(apiUrl(endpoint) + "?L=74598", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -3595,52 +3607,54 @@
     });
   }
 
-  async function _r6OpenPublishOrderModal(orderArray) {
+  async function _r6OpenApplyOrderModal(orderArray) {
     if (!STATE.me || !STATE.me.is_commish) return;
+    // Render the ordered list inline so the commish can see what's about to
+    // hit MFL. No Discord post — the on-screen R6 table is the record.
+    const sorted = orderArray.slice().sort((a, b) => Number(a.pick) - Number(b.pick));
+    const tableRows = sorted.map(p =>
+      `<tr><td style="padding:4px 8px;">${Number(p.pick)}</td><td style="padding:4px 8px;">${escapeHtml(p.franchise_name || p.franchise_id || "—")}</td></tr>`
+    ).join("");
     openModal(`
-      <h3>📢 Publish R6 Final Order to Discord</h3>
-      <p class="small" style="color: var(--muted)">The official drawing finished. Review the message below — it will post to <strong>#live</strong> exactly as shown.</p>
-      <div id="r6-publish-preview" style="margin-top:8px;"></div>
-      <div class="actions">
-        <button class="btn secondary" onclick="document.getElementById('rdh-modal-overlay').classList.remove('open')">Skip Posting</button>
-        <button class="btn warn" id="r6-publish-confirm" disabled>Post Final Order to #live</button>
+      <h3>🔧 Apply R6 Order to MFL</h3>
+      <p class="small" style="color: var(--muted)">The official drawing finished. Below is the order that will be written to MFL's draft setup. The on-screen R6 table stays as the visible record.</p>
+      <div style="background:var(--panel-alt); padding:8px; border-radius:6px; margin-top:8px; border:1px solid var(--border); max-height:280px; overflow:auto;">
+        <table class="rdh-table" style="margin:0;"><thead><tr><th style="text-align:left; padding:4px 8px;">Pick</th><th style="text-align:left; padding:4px 8px;">Franchise</th></tr></thead><tbody>${tableRows}</tbody></table>
       </div>
-      <div id="r6-publish-result" class="small" style="margin-top:8px;"></div>
+      <p class="small" style="color: var(--muted); margin-top: 8px;">
+        ⚠ This uses MFL's <code>draftResults</code> import. It will <strong>preserve all R1-R5 slot
+        assignments</strong> and only update R6. The worker refuses to run if any picks have
+        already been made anywhere (MFL would wipe them).
+      </p>
+      <div class="actions">
+        <button class="btn secondary" onclick="document.getElementById('rdh-modal-overlay').classList.remove('open')">Skip — Apply Manually</button>
+        <button class="btn warn" id="r6-apply-confirm">Apply R6 Order to MFL</button>
+      </div>
+      <div id="r6-apply-result" class="small" style="margin-top:8px;"></div>
     `);
-    let preview = "";
-    let alreadyPosted = false;
-    try {
-      const dry = await _r6CallAnnounce("/api/r6/publish-final-order", { order: orderArray }, true);
-      preview = dry.preview || "";
-      alreadyPosted = !!dry.already_posted;
-    } catch (e) {
-      document.getElementById("r6-publish-preview").innerHTML =
-        `<div style="color:var(--err)">Preview failed: ${escapeHtml(String(e.message || e))}</div>`;
-      return;
-    }
-    document.getElementById("r6-publish-preview").innerHTML =
-      (alreadyPosted ? `<div class="small" style="color:var(--ok); margin-bottom:6px;">✓ Final order already posted earlier — this will be a no-op.</div>` : "") +
-      `<div style="background:var(--panel-alt); padding:10px; border-radius:6px; white-space:pre-wrap; font-family: var(--font-base); border:1px solid var(--border);">${escapeHtml(preview)}</div>`;
-    const btn = document.getElementById("r6-publish-confirm");
-    btn.disabled = false;
-    btn.textContent = alreadyPosted ? "Already posted — close" : "Post Final Order to #live";
+    const btn = document.getElementById("r6-apply-confirm");
     btn.addEventListener("click", async () => {
-      const result = document.getElementById("r6-publish-result");
-      if (alreadyPosted) {
-        document.getElementById("rdh-modal-overlay").classList.remove("open");
-        return;
-      }
+      const result = document.getElementById("r6-apply-result");
       btn.disabled = true;
-      result.innerHTML = `<div style="color: var(--muted)">Posting…</div>`;
+      result.innerHTML = `<div style="color: var(--muted)">Writing R6 order to MFL…</div>`;
       try {
-        const data = await _r6CallAnnounce("/api/r6/publish-final-order", { order: orderArray }, false);
-        result.innerHTML = data.already_posted
-          ? `<div style="color: var(--warn)">⚠ Already posted earlier — no duplicate sent.</div>`
-          : `<div style="color: var(--ok)">✓ Final order posted to #live Discord.</div>`;
-        showToast(data.already_posted ? "Already posted earlier" : "📢 R6 final order announced", "ok");
-        setTimeout(() => document.getElementById("rdh-modal-overlay").classList.remove("open"), 1500);
+        const me = STATE.me || {};
+        const r = await fetch(apiUrl("/api/r6/apply-order") + "?L=74598", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ requested_by: me.franchise_id, order: orderArray }),
+        });
+        const data = await r.json().catch(() => null);
+        if (!r.ok || !data || data.ok === false) {
+          const hint = data && data.hint ? `⚠ ${data.hint}` : "";
+          const made = data && data.made_count ? ` · ${data.made_count} picks already made — refusing to wipe.` : "";
+          const mfl = data && data.mfl_response ? ` · MFL: ${String(data.mfl_response).slice(0, 200)}` : "";
+          throw new Error([hint, (data && data.error) || `worker ${r.status}`, made, mfl].filter(Boolean).join(" · "));
+        }
+        result.innerHTML = `<div style="color: var(--ok);">✓ R6 order written to MFL. Verify in <strong>MFL → Commissioner → Draft Setup</strong>.</div>`;
+        showToast("✓ R6 order applied to MFL", "ok");
       } catch (e) {
-        result.innerHTML = `<div style="color: var(--err)">Failed: ${escapeHtml(String(e.message || e))}</div>`;
+        result.innerHTML = `<div style="color: var(--err)">Failed: ${escapeHtml(String(e.message || e))}<br><span class="small" style="color:var(--muted);">You can still update R6 order manually in MFL Commissioner Tools — the on-screen table is the canonical record.</span></div>`;
         btn.disabled = false;
       }
     });
@@ -3723,12 +3737,12 @@
     }
     document.getElementById("r6-now").innerHTML = `<div class="r6-announce">R6 Draft Order Complete ${isSimulate ? "(simulation)" : "✓"}</div>`;
     STATE.r6_running = false;
-    // After the OFFICIAL drawing finishes, immediately offer to publish
-    // the final order to Discord. Modal previews the message + commish
-    // confirms. Worker is idempotent so accidental double-confirm is fine.
+    // After the OFFICIAL drawing finishes, offer to write the order
+    // directly to MFL (no Discord post — the on-screen table is the
+    // record per Keith). Worker preserves R1-R5 ownership and refuses if
+    // any picks have been made anywhere.
     if (!isSimulate && STATE.me && STATE.me.is_commish) {
-      // Sort ascending so pick 1 is first in the published list.
-      const orderForPost = STATE.r6_order
+      const orderForApply = STATE.r6_order
         .slice()
         .sort((a, b) => Number(a.pick) - Number(b.pick))
         .map(o => ({
@@ -3736,8 +3750,7 @@
           franchise_id: o.franchise_id,
           franchise_name: o.franchise_name,
         }));
-      // Tiny delay so the final on-screen "complete" message has a beat to land.
-      setTimeout(() => _r6OpenPublishOrderModal(orderForPost), 800);
+      setTimeout(() => _r6OpenApplyOrderModal(orderForApply), 800);
     }
   }
 

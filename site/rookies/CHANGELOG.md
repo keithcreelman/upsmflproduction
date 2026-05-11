@@ -26,6 +26,46 @@ logic is doing without digging into code).
 
 ---
 
+## v1.7.24 — 2026-05-11 — R6 final order writes to MFL + parent-URL fix
+
+Two things from Keith's first test of v1.7.23:
+
+### 1. Kickoff Discord link was `about:srcdoc`
+The hub runs in a `srcdoc` iframe so `window.location.href` inside it
+resolves to `about:srcdoc` — useless as a clickable link.
+
+The outer HPM loader (which runs on the actual MFL page) now injects
+`window.UPS_DRAFT_HUB_PARENT_URL` so the Discord announcement link
+points at the real MFL page. Frontend skips `about:srcdoc` entirely
+and falls back to a hardcoded league URL if both injected + own URL
+are unusable.
+
+(The earlier bad-link kickoff post is still in Discord — delete it
+manually and re-click 📢 Announce Kickoff to repost with the correct URL.)
+
+### 2. R6 final order goes to MFL, not Discord
+Per Keith: skip the Discord publish modal, write the order directly
+to MFL instead and leave the on-screen R6 table as the visible record.
+
+After the official drawing completes, hub auto-opens an **Apply R6
+Order to MFL** modal. Confirm and the worker:
+
+1. Fetches current `draftResults`
+2. Checks no picks have been made anywhere (refuses with 409 if any have
+   — destructive `draftResults` import would wipe them)
+3. Builds new XML preserving R1-R5 ownership exactly as MFL has it +
+   updating R6 slot ownership per the drawn order
+4. POSTs `import?TYPE=draftResults`
+5. Returns success (or detailed error)
+
+Toast on success: `✓ R6 order applied to MFL`. Verify in **MFL →
+Commissioner → Draft Setup**.
+
+If anything goes wrong, the on-screen table is still the canonical
+record — apply manually as a fallback.
+
+---
+
 ## v1.7.23 — 2026-05-11 — R6 drawing tonight + Discord publish + R6 untradeable
 
 Three things for tonight's R6 random drawing:
