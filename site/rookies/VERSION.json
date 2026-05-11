@@ -1,7 +1,7 @@
 {
-  "version": "1.7.28",
+  "version": "1.7.29",
   "released": "2026-05-11",
-  "label": "V1.7.28 — Mobile top tabs use icon+1word style; trade picker has 15s timeout + retry button; Esc and backdrop click close any stuck modal",
+  "label": "V1.7.29 — 'Trades' tab hidden on mobile (kept on desktop) — historical reference data, not draft-day-on-phone",
   "description": "First published version of the Draft Hub analytics model. This establishes the V1 baseline. Future tweaks bump the version and are logged here.",
   "methodology_signature": {
     "tier_classifier": "NET = 3yr-games-weighted E+P rate − 0.5 × 3yr-games-weighted Dud rate",
@@ -28,6 +28,16 @@
     "lineup_efficiency": 0.012
   },
   "changes": [
+    {
+      "version": "1.7.29",
+      "date": "2026-05-11",
+      "type": "ux",
+      "summary": "Per Keith: hide the 'Trades' (Draft-Day Trades) tab on mobile. It's historical reference data — not relevant when drafting from a phone. Kept visible on desktop.",
+      "details": [
+        "_initMobileShell: new MOBILE_HIDE_TABS = Set(['day-trades']). applyTopNavMobileLabels sets srcBtn.hidden=true on mobile, false on desktop.",
+        "Desktop layout unchanged — Trades tab still in the top nav above 768px viewport."
+      ]
+    },
     {
       "version": "1.7.28",
       "date": "2026-05-11",

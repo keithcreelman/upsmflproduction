@@ -193,13 +193,18 @@
         srcBtn.dataset.desktopLabel = srcBtn.textContent.trim();
       }
     });
+    // Tabs to hide on mobile only (kept on desktop). Trades tab is
+    // historical reference data — not relevant draft-day on a phone.
+    const MOBILE_HIDE_TABS = new Set(["day-trades"]);
     function applyTopNavMobileLabels(isMobile) {
       topNav.querySelectorAll("button[data-tab]").forEach(srcBtn => {
         const tab = srcBtn.dataset.tab;
         const meta = MOBILE_TAB_META[tab] || { icon: "•", label: tab };
         if (isMobile) {
+          srcBtn.hidden = MOBILE_HIDE_TABS.has(tab);
           srcBtn.innerHTML = `<span class="mbn-icon" aria-hidden="true">${meta.icon}</span><span class="mbn-label">${meta.label}</span>`;
         } else {
+          srcBtn.hidden = false;
           srcBtn.textContent = srcBtn.dataset.desktopLabel || tab;
         }
       });
