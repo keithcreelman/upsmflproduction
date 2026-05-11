@@ -26,6 +26,37 @@ logic is doing without digging into code).
 
 ---
 
+## v1.7.14 — 2026-05-11 — DRY-RUN mode (rehearse LIVE without writing)
+
+Keith's pre-draft concern: he wants to rehearse the full LIVE pick submission
+flow on a test site without risking a fat-finger that lands a real pick on
+the real league. SIM mode wasn't enough — he wanted to feel the EXACT
+draft-day workflow: red banner, confirm dialog, button click, success toast,
+board update.
+
+**Activate:** append `?dryrun=1` to the hub URL on the test site. Flag persists
+across refreshes (sessionStorage). Append `?dryrun=0` to clear.
+
+What it does:
+- **Frontend**: passes `dry_run: true` in `/api/pick`, `/api/trade`,
+  `/api/trade/process` payloads when LIVE mode is active.
+- **Banner**: pill reads **LIVE • 🧪 DRY-RUN** on a red+amber 45° striped
+  background — visually unmistakable.
+- **Worker `/api/pick`**: short-circuits the MFL fetch. Returns the request
+  preview (API key redacted) + posts `[DRY-RUN — would have posted to #live]`
+  to the test Discord channel.
+- **Worker `/api/trade`**: skips the MFL `tradeProposal` POST.
+- **Worker `/api/trade/process`**: skips BOTH the propose and accept fetches.
+- **UI toasts/results**: 🧪 DRY-RUN messaging instead of the LIVE success copy.
+- **Confirm dialog**: rewords completely when dryRun is on so you know what
+  you're about to rehearse.
+
+This way the test site can exercise every line of UI code, every API
+roundtrip, every error-state branch — without writing anything to MFL
+or to the production Discord channel.
+
+---
+
 ## v1.7.13 — 2026-05-11 — Commish broker mode in the trade modal
 
 When two owners verbally agree on a trade during the live draft, the commish

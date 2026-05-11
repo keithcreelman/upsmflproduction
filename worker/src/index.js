@@ -2532,6 +2532,12 @@ export default {
         const fid = _rdhPadFid(body.franchise_id || "");
         const playerId = safeStr(body.player_id || "");
         const simulate = body.simulate !== false; // default true (safer)
+        // dry_run: full LIVE-mode UI rehearsal — validate everything, build the
+        // MFL request, log it, post to TEST Discord channel, but DO NOT POST to
+        // MFL. Lets the commish rehearse the exact draft-day flow on the test
+        // site without risking a real pick on the real league. Activated via
+        // ?dryrun=1 URL param (forwarded by frontend in pick/trade payload).
+        const dryRun = body.dry_run === true || body.dryrun === true;
         if (!fid || !playerId) return jsonOut(400, { error: "franchise_id and player_id required" });
         const leagueId = _rdhLeagueId();
         const year = _rdhYear();
@@ -2627,6 +2633,25 @@ export default {
         const form = new URLSearchParams();
         form.set("FRANCHISE_ID", fid);
         form.set("PLAYER_ID", String(playerId));
+        // ── DRY-RUN short-circuit ──
+        // Build the full request, validate everything, post a [DRY-RUN] preview
+        // to the test Discord channel — but DON'T fire the MFL fetch. Lets the
+        // commish exercise the whole LIVE pick UX (red banner, confirm dialog,
+        // success toast, board update) on the test site without committing a
+        // real pick.
+        if (dryRun) {
+          const ch = _rdhDiscordChannel(false);
+          const dRes = await _rdhPostDiscord(ch, `[DRY-RUN — would have posted to #live] ${discordContent}`);
+          return jsonOut(200, {
+            ok: true, simulated: false, dry_run: true,
+            slot: slotLabel, round: onClockRound, pick: onClockSlot,
+            franchise_id: fid, franchise_name: fname,
+            player_id: playerId, player_name: playerName,
+            contract,
+            mfl_request_preview: { url: importUrl.replace(apiKey, "***APIKEY***"), body: form.toString() },
+            discord_test_posted: !!(dRes && dRes.ok),
+          });
+        }
         let mflResp = "";
         let mflStatus = 0;
         try {
@@ -2666,6 +2691,7 @@ export default {
         const receive = Array.isArray(body.receive) ? body.receive.map(safeStr).filter(Boolean) : [];
         const comments = safeStr(body.comments || "");
         const simulate = body.simulate !== false;
+        const dryRun = body.dry_run === true || body.dryrun === true;
         if (!fromFid || !toFid) return jsonOut(400, { error: "from_fid and to_fid required" });
         if (fromFid === toFid) return jsonOut(400, { error: "cannot trade with self" });
         if (!give.length && !receive.length) return jsonOut(400, { error: "give[] or receive[] must have at least one asset" });
@@ -2740,6 +2766,19 @@ export default {
         form.set("WILL_GIVE_UP", giveMfl);
         form.set("WILL_RECEIVE", receiveMfl);
         if (comments) form.set("COMMENTS", comments);
+        if (dryRun) {
+          // Dry-run: skip MFL POST. Return validated request preview so the
+          // frontend can show the same success UI it would show for a real
+          // proposal. No Discord post (Discord fires on accept, not propose).
+          return jsonOut(200, {
+            ok: true, simulated: false, dry_run: true,
+            from_franchise_id: fromFid, from_franchise_name: fromName,
+            to_franchise_id: toFid, to_franchise_name: toName,
+            give: giveMfl, receive: receiveMfl, comments,
+            mfl_request_preview: { url: importUrl.replace(apiKey, "***APIKEY***"), body: form.toString() },
+            discord_message: tradeDiscord,
+          });
+        }
         let mflResp = "";
         let mflStatus = 0;
         try {
@@ -2800,6 +2839,7 @@ export default {
         const give = Array.isArray(body.give) ? body.give.map(safeStr).filter(Boolean) : [];
         const receive = Array.isArray(body.receive) ? body.receive.map(safeStr).filter(Boolean) : [];
         const comments = safeStr(body.comments || "");
+        const dryRun = body.dry_run === true || body.dryrun === true;
         if (!fromFid || !toFid) return jsonOut(400, { ok: false, error: "from_fid and to_fid required" });
         if (fromFid === toFid) return jsonOut(400, { ok: false, error: "cannot trade with self" });
         if (!give.length && !receive.length) return jsonOut(400, { ok: false, error: "give[] or receive[] must have at least one asset" });
@@ -2843,6 +2883,32 @@ export default {
         proposeForm.set("WILL_GIVE_UP", giveMfl);
         proposeForm.set("WILL_RECEIVE", receiveMfl);
         if (comments) proposeForm.set("COMMENTS", "[Commish-processed] " + comments);
+        // Dry-run: skip BOTH MFL fetches (propose + accept). Build the
+        // request preview, post a [DRY-RUN] preview to test Discord, return
+        // a ok:true response so the frontend can show the success UI.
+        if (dryRun) {
+          const fromName_ = await _rdhFranchiseName(fromFid);
+          const toName_ = await _rdhFranchiseName(toFid);
+          const previewMsg = `🔄 TRADE PROCESSED (Commish, DRY-RUN) — ${fromName_} ↔ ${toName_}\n` +
+            `   ${fromName_} sends: ${giveMfl}\n` +
+            `   ${toName_} sends: ${receiveMfl}` +
+            (comments ? `\n   _"${comments.slice(0, 200)}"_` : "");
+          let dRes = null;
+          try {
+            const ch = _rdhDiscordChannel(false);
+            dRes = await _rdhPostDiscord(ch, `[DRY-RUN — would have posted to #live] ${previewMsg}`);
+          } catch (e) { dRes = { ok: false, error: String(e) }; }
+          return jsonOut(200, {
+            ok: true, step: "complete", dry_run: true,
+            from_franchise_id: fromFid, from_franchise_name: fromName_,
+            to_franchise_id: toFid, to_franchise_name: toName_,
+            give: giveMfl, receive: receiveMfl, comments,
+            mfl_propose_preview: { url: proposeUrl.replace(apiKey, "***APIKEY***"), body: proposeForm.toString() },
+            mfl_accept_preview: "TYPE=tradeResponse with TRADE_ID + RESPONSE=accept (would fire after propose)",
+            discord_message: previewMsg,
+            discord_test_posted: !!(dRes && dRes.ok),
+          });
+        }
         let proposeResp = "", proposeStatus = 0;
         try {
           const r = await fetch(proposeUrl, {

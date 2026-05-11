@@ -70,6 +70,31 @@
         return v == null ? true : v === "true";
       } catch (e) { return true; }
     })(),
+    // ── DRY-RUN mode ──
+    // Activated by ?dryrun=1 in the URL (or sessionStorage). Lets the commish
+    // exercise the FULL LIVE-mode UI flow (red banner, confirm dialogs, success
+    // toasts, board updates) without the worker actually POSTing to MFL or to
+    // the live #draft Discord channel. Worker still validates the request,
+    // builds the MFL payload, posts a [DRY-RUN] preview to the test Discord
+    // channel, and returns ok:true with `dry_run: true` in the response.
+    // Use case: Keith rehearses draft-day flow on the test site without risking
+    // a real pick on the real league.
+    dryRun: (function () {
+      try {
+        const u = new URL(window.location.href);
+        const fromUrl = u.searchParams.get("dryrun");
+        if (fromUrl === "1" || fromUrl === "true") {
+          sessionStorage.setItem("rdh_dry_run", "true");
+          return true;
+        }
+        if (fromUrl === "0" || fromUrl === "false") {
+          sessionStorage.setItem("rdh_dry_run", "false");
+          return false;
+        }
+        const stored = sessionStorage.getItem("rdh_dry_run");
+        return stored === "true";
+      } catch (e) { return false; }
+    })(),
     // Per-pick clock (real-time draft pacing). Persisted across refreshes so
     // the commish doesn't have to re-set it. 0 = clock OFF (no countdown
     // displayed). Default 10 minutes (UPS slow-draft cadence).
@@ -921,7 +946,18 @@
     const mode = STATE.simulationMode ? "simulate" : "live";
     banner.dataset.mode = mode;
     const pill = document.getElementById("live-mode-pill");
-    if (pill) pill.textContent = mode === "live" ? "LIVE" : "SIMULATE";
+    if (pill) {
+      // When dry-run is active AND we're in LIVE mode, label the pill
+      // "LIVE • DRY-RUN" so it's impossible to mistake the test site for
+      // production. The data-mode attribute also gets a "live-dry" variant
+      // for CSS to render an unmistakable amber+red striped background.
+      if (mode === "live" && STATE.dryRun) {
+        pill.textContent = "LIVE • 🧪 DRY-RUN";
+        banner.dataset.mode = "live-dry";
+      } else {
+        pill.textContent = mode === "live" ? "LIVE" : "SIMULATE";
+      }
+    }
     const greet = document.getElementById("live-mode-greeting");
     if (greet) {
       const me = STATE.me || {};
@@ -963,18 +999,25 @@
 
   function flipLiveMode() {
     if (STATE.simulationMode) {
-      const ok = confirm(
-        "Switch to LIVE mode?\n\n" +
-        "Submitting a pick will:\n" +
-        "  • POST to MFL's live draft (the player is drafted for real, " +
-        "with the slot's rookie contract applied)\n" +
-        "  • Post an announcement to the #live draft Discord channel\n\n" +
-        "Both are recoverable if you mess up:\n" +
-        "  • MFL pick → undo via Commissioner → Modify Draft Results\n" +
-        "  • Discord post → delete the message\n\n" +
-        "...but the hub itself has no \"undo\" button, so be deliberate.\n" +
-        "Only do this on draft day. Continue?"
-      );
+      const dryNote = STATE.dryRun
+        ? "🧪 DRY-RUN MODE IS ACTIVE — submissions will be VALIDATED and PREVIEWED in test Discord, but NOT written to MFL or live Discord. Safe to rehearse.\n\n"
+        : "";
+      const baseCopy = STATE.dryRun
+        ? "Submitting a pick will:\n" +
+          "  • Validate the MFL request (no actual write)\n" +
+          "  • Post a [DRY-RUN] preview to the TEST Discord channel\n" +
+          "  • Show the same success UI you'll see on draft day\n\n" +
+          "Continue?"
+        : "Submitting a pick will:\n" +
+          "  • POST to MFL's live draft (the player is drafted for real, " +
+          "with the slot's rookie contract applied)\n" +
+          "  • Post an announcement to the #live draft Discord channel\n\n" +
+          "Both are recoverable if you mess up:\n" +
+          "  • MFL pick → undo via Commissioner → Modify Draft Results\n" +
+          "  • Discord post → delete the message\n\n" +
+          "...but the hub itself has no \"undo\" button, so be deliberate.\n" +
+          "Only do this on draft day. Continue?";
+      const ok = confirm("Switch to LIVE mode?\n\n" + dryNote + baseCopy);
       if (!ok) return;
     }
     STATE.simulationMode = !STATE.simulationMode;
@@ -3541,6 +3584,10 @@
           franchise_id: fid,
           player_id: String(prospect.player_id),
           simulate: isSim,
+          // Dry-run is meaningful only when NOT simulating — it lets the
+          // commish exercise the full LIVE flow without the worker hitting
+          // MFL or live Discord. Worker treats it as "validate + preview".
+          dry_run: !isSim && !!STATE.dryRun,
         };
         if (userId) payload.user_id = userId;
         const r = await fetch(apiUrl("/api/pick") + "?L=74598", {
@@ -3551,8 +3598,11 @@
         const data = await r.json();
         if (data.ok) {
           if (isSim) {
-            result.innerHTML = `<div style="color: var(--warn);">✓ Simulated — no MFL write, test Discord posted.</div>`;
+            result.innerHTML = `<div style="color: var(--warn);">✓ Simulated — no MFL write, no Discord post.</div>`;
             showToast(`Simulated R${slot} → ${prospect.name}`, "ok");
+          } else if (data.dry_run) {
+            result.innerHTML = `<div style="color: var(--warn);">🧪 DRY-RUN — MFL request validated and previewed (no write). Test Discord posted.</div>`;
+            showToast(`🧪 DRY-RUN R${slot} → ${prospect.name} — no MFL write`, "ok");
           } else {
             result.innerHTML = `<div style="color: var(--ok);">✅ Pick submitted to MFL & announced in Discord.</div>`;
             showToast(`LIVE pick: R${slot} → ${prospect.name}`, "ok");
@@ -4139,6 +4189,10 @@
         receive_assets: _packAssets(basket.receive),
         comments,
         simulate: isSim,
+        // Dry-run only meaningful in LIVE flows — propagates to /api/trade
+        // and /api/trade/process. Worker validates + previews the MFL
+        // request without firing the actual POST.
+        dry_run: !isSim && !!STATE.dryRun,
         // requested_by tracks WHO ran the action (the commish), not which
         // franchise is the from-side of the trade. In commish-broker mode
         // myFid is the from-team, so use commishOwnFid instead.
@@ -4193,16 +4247,28 @@
           } else if (isCommishProcess) {
             // LIVE commish-process: trade was proposed AND accepted on the
             // server. Discord was posted to live channel. Show popup.
+            // Dry-run path: same UI but with a 🧪 prefix and a clear
+            // "no MFL write" message so Keith knows nothing landed.
             const giveSummary = basket.give.map(a => a.display).join(" + ") || "—";
             const receiveSummary = basket.receive.map(a => a.display).join(" + ") || "—";
-            result.innerHTML = `<div style="color: var(--ok);">🔨 Trade processed — completed in MFL${data.discord_posted ? " · Discord posted to live channel" : ""}.${stubNote}</div>`;
-            showToast(`🔨 Trade processed: ${myName} ↔ ${franchises[toFid] || toFid}`, "ok");
+            if (data.dry_run) {
+              result.innerHTML = `<div style="color: var(--warn);">🧪 DRY-RUN — trade validated, MFL request previewed (no write). Test Discord posted.${stubNote}</div>`;
+              showToast(`🧪 DRY-RUN trade: ${myName} ↔ ${franchises[toFid] || toFid} — no MFL write`, "ok");
+            } else {
+              result.innerHTML = `<div style="color: var(--ok);">🔨 Trade processed — completed in MFL${data.discord_posted ? " · Discord posted to live channel" : ""}.${stubNote}</div>`;
+              showToast(`🔨 Trade processed: ${myName} ↔ ${franchises[toFid] || toFid}`, "ok");
+            }
             showTradePopup({
               fromName: myName, toName: franchises[toFid] || toFid,
               fromGives: giveSummary, toGives: receiveSummary,
-              source: "live",
+              source: data.dry_run ? "sim-user" : "live",
             });
             setTimeout(() => document.getElementById("rdh-modal-overlay").classList.remove("open"), 1800);
+          } else if (data.dry_run) {
+            // LIVE non-commish dry-run: proposal would have been sent, but
+            // wasn't. Frame it that way.
+            result.innerHTML = `<div style="color: var(--warn);">🧪 DRY-RUN — proposal validated and previewed (no MFL write).${stubNote}</div>`;
+            showToast(`🧪 DRY-RUN proposal to ${franchises[toFid] || toFid} — no MFL write`, "ok");
           } else {
             // LIVE mode (non-commish): trade is a PROPOSAL — the other team
             // has to accept in MFL. No Discord announcement yet, no popup.
