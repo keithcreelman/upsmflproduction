@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var BUILD = "2026.05.11.08";
+  var BUILD = "2026.05.11.09";
   var BOOT_FLAG = "__ups_team_operations_boot_" + BUILD;
   if (window[BOOT_FLAG]) {
     if (typeof window.UPS_TEAMOPS_INIT === "function") window.UPS_TEAMOPS_INIT();
@@ -126,7 +126,22 @@
 
   function mflExportUrl(type, extra) {
     var ctx = state.ctx || {};
-    var url = mflHost() + "/" + encodeURIComponent(ctx.year) + "/export?TYPE=" + encodeURIComponent(type) + "&L=" + encodeURIComponent(ctx.leagueId) + "&JSON=1";
+    // When the page is NOT on an MFL host (local dev, workers.dev preview,
+    // anywhere cross-origin), MFL's CORS blocks direct fetches. Route
+    // through the worker's /api/mfl-export proxy which serves the same
+    // payload with CORS-friendly headers.
+    var onMflHost = false;
+    try {
+      var h = String(window.location && window.location.hostname || "").toLowerCase();
+      onMflHost = /\.myfantasyleague\.com$/.test(h);
+    } catch (e) {}
+    var base = onMflHost
+      ? mflHost() + "/" + encodeURIComponent(ctx.year) + "/export"
+      : workerUrl("/api/mfl-export");
+    var url = base + "?TYPE=" + encodeURIComponent(type) +
+              "&L=" + encodeURIComponent(ctx.leagueId) +
+              "&YEAR=" + encodeURIComponent(ctx.year) +
+              "&JSON=1";
     if (extra && typeof extra === "object") {
       for (var k in extra) {
         if (Object.prototype.hasOwnProperty.call(extra, k) && extra[k] != null && extra[k] !== "") {
@@ -140,7 +155,16 @@
   function fetchJson(url) {
     var controller = ("AbortController" in window) ? new AbortController() : null;
     var timeout = setTimeout(function () { if (controller) controller.abort(); }, 7000);
-    var opts = { credentials: "include", mode: "cors" };
+    // credentials:"include" is only needed for same-origin MFL calls (so
+    // MFL's session cookies authenticate). For the worker proxy, omit
+    // credentials — the worker is public-read and including credentials
+    // forces stricter CORS.
+    var sameOriginMfl = false;
+    try {
+      var u = new URL(url, window.location.href);
+      sameOriginMfl = /\.myfantasyleague\.com$/i.test(u.hostname);
+    } catch (e) {}
+    var opts = { credentials: sameOriginMfl ? "include" : "omit", mode: "cors" };
     if (controller) opts.signal = controller.signal;
     return fetch(url, opts)
       .then(function (r) {

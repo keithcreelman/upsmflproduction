@@ -2381,6 +2381,55 @@ export default {
         }
       }
 
+      // ── GET /api/mfl-export — generic CORS-friendly proxy for MFL exports ──
+      // Whitelist of read-only TYPE= calls. Lets the My Team hub (which
+      // can't talk to MFL directly from localhost or any non-MFL origin
+      // due to MFL's same-origin CORS) fetch league data through the
+      // worker. NOT a credentials proxy — public-only data.
+      // Usage: /api/mfl-export?TYPE=league&L=74598&YEAR=2026&JSON=1
+      if (path === "/api/mfl-export" && request.method === "GET") {
+        const allowedTypes = new Set([
+          "league", "rosters", "salaries", "players", "transactions",
+          "pendingTrades", "tradeBait", "futureDraftPicks", "schedule",
+          "nflByeWeeks", "injuries", "calendar", "draftResults",
+          "playerProfile", "playerScores",
+        ]);
+        const type = safeStr(url.searchParams.get("TYPE") || "");
+        if (!type || !allowedTypes.has(type)) {
+          return jsonOut(400, { error: "TYPE missing or not in allowlist", allowed: [...allowedTypes] });
+        }
+        const lid = safeStr(url.searchParams.get("L") || "74598").replace(/\D/g, "");
+        const yr = safeStr(url.searchParams.get("YEAR") || YEAR || String(new Date().getUTCFullYear())).replace(/\D/g, "");
+        // Forward arbitrary extra params (DETAILS, P, FRANCHISE, DAYS, etc.)
+        const extra = new URLSearchParams();
+        url.searchParams.forEach((v, k) => {
+          if (["TYPE", "L", "YEAR", "JSON"].includes(k)) return;
+          extra.set(k, v);
+        });
+        const extraStr = extra.toString();
+        // www48 is the league shard for 74598; use api.* otherwise (it 302s
+        // to the right shard, but since we're server-side the 302 follow
+        // works without CORS drama).
+        const host = lid === "74598" ? "https://www48.myfantasyleague.com" : "https://api.myfantasyleague.com";
+        const upstream = `${host}/${encodeURIComponent(yr)}/export?TYPE=${encodeURIComponent(type)}&L=${encodeURIComponent(lid)}&JSON=1${extraStr ? "&" + extraStr : ""}`;
+        try {
+          const r = await fetch(upstream, {
+            cf: { cacheTtl: 60, cacheEverything: true },
+            headers: { "User-Agent": "upsmflproduction-worker", "Accept": "application/json" },
+          });
+          const body = await r.text();
+          // Pass through whatever MFL returned; jsonOut sets CORS headers.
+          // Try to parse JSON; if it isn't, wrap as { raw } so caller still
+          // gets a structured response.
+          let data;
+          try { data = JSON.parse(body); }
+          catch (e) { data = { raw: body, parse_error: String(e && e.message || e) }; }
+          return jsonOut(r.ok ? 200 : 502, data);
+        } catch (e) {
+          return jsonOut(502, { error: `MFL fetch failed: ${e?.message || String(e)}` });
+        }
+      }
+
       // ── GET /api/franchise-assets — players + future picks + current-year picks ──
       if (path === "/api/franchise-assets" && request.method === "GET") {
         const fid = _rdhPadFid(url.searchParams.get("fid") || "");
