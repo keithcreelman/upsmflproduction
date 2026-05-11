@@ -1496,42 +1496,24 @@
       </div>
 
       ${(() => {
-        // Highlight & scouting links — opens YouTube/Google searches in new tabs.
-        // Better than embedding (no API key, no quota, no risk) and the search
-        // results page lets the user pick the best clip rather than a stale
-        // hand-curated one. Skipped for ancient veterans where there's not much
-        // to scout (have NFL career stats AND no current-year prospect record).
-        if (career.length && !prospectFallback.player_id) return "";
+        // One highlight link per player — opens a YouTube search in a new tab.
+        // Rookies → College highlights. Veterans → NFL highlights.
+        // No embedding (would need YouTube API + quota for video IDs).
         const yt = (q) => `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}`;
-        const goog = (q) => `https://www.google.com/search?q=${encodeURIComponent(q)}`;
         const college = bioCollege || "";
-        // Outer `nflTeam` is already defined in showPlayerProfileCard scope;
-        // build a local one with broader fallbacks here.
         const team = nflTeam || prospectFallback.nfl_team || pp.team || "";
-        const yearStr = String((window.UPS_DRAFT_HUB_YEAR || new Date().getFullYear()));
-        const links = [];
-        if (college && isFreshRookie) {
-          links.push({ label: "🎬 College highlights", url: yt(`${name} ${college} highlights`), kind: "yt" });
+        let link = null;
+        if (isFreshRookie && college) {
+          link = { label: "🎬 College highlights", url: yt(`${name} ${college} highlights`) };
+        } else if (team && team !== "FA") {
+          link = { label: "🏈 NFL highlights", url: yt(`${name} ${team} highlights`) };
         }
-        if (team && team !== "FA") {
-          links.push({ label: "🏈 NFL highlights",  url: yt(`${name} ${team} highlights`), kind: "yt" });
-        }
-        if (isFreshRookie) {
-          links.push({ label: "📋 Combine + workout", url: yt(`${name} NFL combine ${yearStr}`), kind: "yt" });
-          links.push({ label: "📰 Scouting report",   url: goog(`"${name}" ${college || "draft"} scouting report dynasty`), kind: "g" });
-        } else {
-          links.push({ label: "📰 News + analysis",   url: goog(`"${name}" ${team || ""} fantasy 2026`), kind: "g" });
-        }
-        if (!links.length) return "";
+        if (!link) return "";
         return `
           <div class="profile-block">
-            <h4>Watch + Read</h4>
             <div class="profile-watch-links">
-              ${links.map(l => `<a href="${escapeHtml(l.url)}" target="_blank" rel="noopener noreferrer" class="profile-watch-link ${l.kind}">${l.label}</a>`).join("")}
+              <a href="${escapeHtml(link.url)}" target="_blank" rel="noopener noreferrer" class="profile-watch-link yt">${link.label}</a>
             </div>
-            <p class="small" style="color:var(--muted); margin-top:6px; font-size:10.5px;">
-              Opens a fresh search in a new tab. We don't curate specific videos so the results stay current.
-            </p>
           </div>`;
       })()}
 

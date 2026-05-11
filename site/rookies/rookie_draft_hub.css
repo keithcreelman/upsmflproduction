@@ -1769,6 +1769,27 @@ tr td.num[style*="var(--err)"] { color: var(--err) !important; }
   position: relative;
   overflow: hidden;
 }
+/* Full-width hero variant — sits between the board and the 2-col layout.
+   Inside, a 2-col grid puts the description+disclaimer on the left and the
+   controls on the right so the section is short vertically (no wasted space
+   on a wide monitor). */
+.auto-sim-card-fullwidth { margin-bottom: 0; }
+.auto-sim-fullwidth-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+.auto-sim-fullwidth-grid .auto-sim-controls {
+  grid-template-columns: 1fr 1fr;
+  margin-bottom: 8px;
+}
+.auto-sim-fullwidth-grid .auto-sim-buttons {
+  margin-bottom: 0;
+}
+@media (max-width: 900px) {
+  .auto-sim-fullwidth-grid { grid-template-columns: 1fr; gap: 10px; }
+}
 .auto-sim-card::before {
   /* Glow stripe at the top */
   content: "";
