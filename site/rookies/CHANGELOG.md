@@ -26,6 +26,22 @@ logic is doing without digging into code).
 
 ---
 
+## v1.7.12 — 2026-05-11 — Pick clock is LIVE-mode only
+
+The per-pick countdown was auto-starting on page load, which meant owners
+running a mock draft saw a phantom 10:00 ticking down even in SIM mode
+(where the auto-sim already has its own per-pick countdown).
+
+The clock is now strictly a LIVE-mode tool:
+- **SIM (default)**: clock hidden entirely.
+- **Page load → flip to LIVE**: clock starts from now (overwritten by the
+  MFL pick timestamp on the next live-state refresh).
+- **LIVE → SIM**: clock state cleared.
+
+The 1Hz repaint timer still runs but no-ops cleanly when SIM is active.
+
+---
+
 ## v1.7.11 — 2026-05-11 — SIM mode no longer posts to Discord
 
 Every simulated pick + simulated trade was pinging the test Discord channel
