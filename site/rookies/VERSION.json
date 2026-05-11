@@ -1,7 +1,7 @@
 {
-  "version": "1.6.3",
-  "released": "2026-05-10",
-  "label": "V1.6.3 — Mock Sim full-width hero + single-link Watch + Read + opt-in queue + roster",
+  "version": "1.6.4",
+  "released": "2026-05-11",
+  "label": "V1.6.4 — Trade modal: real player names in production + scroll-into-view in iframe",
   "description": "First published version of the Draft Hub analytics model. This establishes the V1 baseline. Future tweaks bump the version and are logged here.",
   "methodology_signature": {
     "tier_classifier": "NET = 3yr-games-weighted E+P rate − 0.5 × 3yr-games-weighted Dud rate",
@@ -28,6 +28,18 @@
     "lineup_efficiency": 0.012
   },
   "changes": [
+    {
+      "version": "1.6.4",
+      "date": "2026-05-11",
+      "type": "fix",
+      "summary": "Two production-only bugs fixed: (1) trade modal showed 'Player #16432' instead of real names because /api/franchise-assets only returned IDs (rosters endpoint doesn't carry names); (2) trade modal opened off-screen when the iframe is taller than the viewport.",
+      "details": [
+        "Worker /api/franchise-assets now does 5 parallel fetches: rosters + futureDraftPicks + draftResults + TYPE=players (24h cached, ~2MB) + TYPE=league (24h cached). Builds a player_id → {name, position, team} map and joins it to roster IDs. Names flip 'Last, First' → 'First Last' for display. Players sorted by salary desc.",
+        "Future picks now show 'via <Team Name>' for trade-acquired picks (was 'orig 0008'), pulling franchise names from TYPE=league.",
+        "openModal() now postMessages parent ('draft-hub-modal-open') AND scrolls iframe to top. mfl_hpm_embed_loader.js listens and scrollIntoView's the iframe so modals land in the visible viewport regardless of iframe height.",
+        "Verified locally: /api/franchise-assets?fid=0008 returns 'Marvin Harrison Jr.' / 'TreVeyon Henderson' / 'Tetairoa McMillan' with correct positions + salaries."
+      ]
+    },
     {
       "version": "1.6.1",
       "date": "2026-05-10",

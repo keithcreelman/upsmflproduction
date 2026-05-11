@@ -829,6 +829,19 @@
     modal.id = "rdh-modal";
     modal.innerHTML = html;
     document.getElementById("rdh-modal-overlay").classList.add("open");
+    // When rendered inside an iframe (HPM embed), the modal's centered
+    // position fixes to the IFRAME's viewport, not the parent page's. If
+    // the iframe is taller than the visible parent viewport (common for
+    // a 1600px+ hub on a phone or laptop), the modal lands off-screen.
+    // Two-pronged fix:
+    //   1. Scroll the iframe's own viewport to top (no-op outside iframe).
+    //   2. postMessage the parent to scroll the iframe into view.
+    try {
+      window.scrollTo(0, 0);
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ type: "draft-hub-modal-open" }, "*");
+      }
+    } catch (e) {}
     // Always center via the overlay's flexbox — no click-anchored positioning.
     // (The trade modal applies its own fixed centering on top of this for
     //  consistency in tall-content cases.)

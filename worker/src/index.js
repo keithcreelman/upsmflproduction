@@ -2298,13 +2298,51 @@ export default {
           headers: { "User-Agent": "upsmflproduction-worker" },
         });
         try {
-          const [rosterRes, fpRes, draftRes] = await Promise.allSettled([
+          // 5 fetches in parallel — players index (24h cache, ~2MB) + league
+          // (24h cache, for franchise names) + roster + futureDraftPicks +
+          // draftResults. Without the players index, rosters return only IDs
+          // and we end up displaying 'Player #16432' instead of names.
+          const [rosterRes, fpRes, draftRes, playersRes, leagueRes] = await Promise.allSettled([
             mflFetch(`https://www48.myfantasyleague.com/${year}/export?TYPE=rosters&L=${leagueId}&FRANCHISE=${fid}&JSON=1`, 60),
             mflFetch(`https://www48.myfantasyleague.com/${year}/export?TYPE=futureDraftPicks&L=${leagueId}&JSON=1`, 300),
             mflFetch(`https://www48.myfantasyleague.com/${year}/export?TYPE=draftResults&L=${leagueId}&JSON=1`, 60),
+            mflFetch(`https://api.myfantasyleague.com/${year}/export?TYPE=players&JSON=1`, 86400),
+            mflFetch(`https://www48.myfantasyleague.com/${year}/export?TYPE=league&L=${leagueId}&JSON=1`, 86400),
           ]);
 
-          // Players
+          // Build player_id → {name, position, team} index from TYPE=players.
+          const playerIdx = new Map();
+          if (playersRes.status === "fulfilled" && playersRes.value.ok) {
+            const pd = await playersRes.value.json();
+            let arr = pd?.players?.player || [];
+            if (!Array.isArray(arr)) arr = [arr];
+            for (const p of arr) {
+              const pid = safeStr(p.id);
+              if (!pid) continue;
+              // MFL stores names "Last, First" — flip to "First Last" for display.
+              let name = safeStr(p.name || "");
+              if (name.includes(",")) name = name.split(",").reverse().map(s => s.trim()).join(" ");
+              playerIdx.set(pid, {
+                name,
+                position: safeStr(p.position || "").toUpperCase(),
+                team: safeStr(p.team || "").toUpperCase(),
+              });
+            }
+          }
+
+          // Build fid → {team_name, owner_name} from TYPE=league for future-pick labels.
+          const franchiseIdx = new Map();
+          if (leagueRes.status === "fulfilled" && leagueRes.value.ok) {
+            const ld = await leagueRes.value.json();
+            let arr = ld?.league?.franchises?.franchise || [];
+            if (!Array.isArray(arr)) arr = [arr];
+            for (const f of arr) {
+              const fpid = _rdhPadFid(f.id);
+              if (fpid) franchiseIdx.set(fpid, { team_name: safeStr(f.name || "") });
+            }
+          }
+
+          // Players (now with names + positions from the index)
           const players = [];
           if (rosterRes.status === "fulfilled" && rosterRes.value.ok) {
             const rd = await rosterRes.value.json();
@@ -2315,18 +2353,26 @@ export default {
               let arr = f.player || [];
               if (!Array.isArray(arr)) arr = [arr];
               for (const pp of arr) {
+                const pid = safeStr(pp.id);
+                const info = playerIdx.get(pid) || {};
                 players.push({
-                  asset_id: `P_${pp.id}`,
-                  display: safeStr(pp.name) || `Player #${pp.id}`,
-                  player_id: safeStr(pp.id),
-                  position: safeStr(pp.position || ""),
+                  asset_id: `P_${pid}`,
+                  display: info.name || safeStr(pp.name) || `Player #${pid}`,
+                  player_id: pid,
+                  position: info.position || safeStr(pp.position || ""),
+                  nfl_team: info.team || "",
                   salary: Number(pp.salary || 0),
+                  contract_year: Number(pp.contractYear || 0),
+                  contract_status: safeStr(pp.contractStatus || ""),
                 });
               }
             }
+            // Sort by salary desc so most-expensive players show first.
+            players.sort((a, b) => (b.salary || 0) - (a.salary || 0));
           }
 
-          // Future picks owned by this franchise
+          // Future picks — display "via <Team Name>" when the original owner
+          // isn't the current owner (matches snapshot_franchise_assets.py).
           const future_picks = [];
           if (fpRes.status === "fulfilled" && fpRes.value.ok) {
             const fpd = await fpRes.value.json();
@@ -2340,13 +2386,19 @@ export default {
                 const yr = safeStr(fp.year);
                 const rd = safeStr(fp.round);
                 const orig = _rdhPadFid(fp.originalPickFor || fp.originalOwner || fid);
+                const origInfo = franchiseIdx.get(orig) || {};
+                const via = (orig && orig !== fid && origInfo.team_name)
+                  ? `  (via ${origInfo.team_name})`
+                  : "";
                 future_picks.push({
                   asset_id: `FP_${yr}_${rd}_${orig}`,
-                  display: `${yr} R${rd} (orig ${orig})`,
+                  display: `${yr} R${rd}${via}`,
                   year: yr, round: rd, original_fid: orig,
+                  original_team_name: origInfo.team_name || "",
                 });
               }
             }
+            future_picks.sort((a, b) => (a.year + a.round).localeCompare(b.year + b.round));
           }
 
           // Current-year picks not yet made (still owned by this franchise)
