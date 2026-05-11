@@ -26,6 +26,25 @@ logic is doing without digging into code).
 
 ---
 
+## v1.7.10 — 2026-05-11 — Reword LIVE-mode dialogs (picks are recoverable)
+
+The LIVE-mode confirm dialog called picks "irreversible" — that's wrong. The
+hub itself has no undo button, but the underlying actions are recoverable:
+
+- **A pick** that hit MFL → undo via *Commissioner → Modify Draft Results*.
+- **A Discord announcement** → delete the message.
+- **A processed trade** → punch in the reverse trade (messier, but doable).
+
+Updated copy:
+- `flipLiveMode()` confirm now spells out the actual effects + recovery paths.
+- Trade-process confirm: "IRREVERSIBLE without manual cleanup" → "Recovery
+  requires punching in a reverse trade manually".
+- Mode-help modal gained a "What if I make a mistake in LIVE?" subsection.
+
+So: be deliberate, but don't panic if you fat-finger.
+
+---
+
 ## v1.7.9 — 2026-05-11 — Commish detection handles MFL pseudo-franchise 0000
 
 When Keith logs into MFL through the **commissioner dashboard** (rather than as
