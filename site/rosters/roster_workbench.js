@@ -3398,6 +3398,33 @@
     return valueText + " " + formatRank(rankValue);
   }
 
+  // ── Taxi-aware salary/amount formatters ────────────────────────────
+  // Universal site rule (per Keith): taxi salaries DON'T count vs the cap
+  // but they're real money and should always be visible. For active
+  // players a zero salary is rendered as "—" (meaningful empty), but for
+  // taxi players we always render the dollar value so trade-value math
+  // is unambiguous. Falls through to the standard formatter when not
+  // taxi so nothing else changes.
+  function taxiAwareSalaryHtml(player, amount, rank) {
+    if (player && player.isTaxi) {
+      return pointsStatWithRankHtml(compactContractAmountAllowZero(amount), rank);
+    }
+    return compactContractValueWithRankHtml(amount, rank);
+  }
+  function taxiAwareSalaryText(player, amount, rank) {
+    if (player && player.isTaxi) {
+      var valueText = compactContractAmountAllowZero(amount);
+      var rankValue = safeInt(rank, 0);
+      if (rankValue <= 0) return valueText;
+      return valueText + " " + formatRank(rankValue);
+    }
+    return compactContractValueWithRankText(amount, rank);
+  }
+  function taxiAwareAmountText(player, amount) {
+    if (player && player.isTaxi) return compactContractAmountAllowZero(amount);
+    return compactContractAmount(amount);
+  }
+
   function capPenaltyAmountForPlayer(player) {
     return safeInt(dropPenaltyEstimate(player).amount, 0);
   }
@@ -8440,9 +8467,9 @@
               '<dl class="rwb-mobile-details">' +
                 '<div><dt>Contract Length</dt><dd>' + escapeHtml(contractLength > 0 ? String(contractLength) : "—") + '</dd></div>' +
                 '<div><dt>Years Left</dt><dd>' + escapeHtml(String(p.years)) + '</dd></div>' +
-                '<div><dt>Salary</dt><dd>' + escapeHtml(compactContractValueWithRankText(p.salary, p.positionSalaryRank)) + '</dd></div>' +
-                '<div><dt>AAV</dt><dd>' + escapeHtml(compactContractValueWithRankText(p.aav, p.positionAavRank)) + '</dd></div>' +
-                '<div><dt>TCV</dt><dd>' + escapeHtml(compactContractAmount(totalContractValue)) + '</dd></div>' +
+                '<div><dt>Salary</dt><dd>' + escapeHtml(taxiAwareSalaryText(p, p.salary, p.positionSalaryRank)) + '</dd></div>' +
+                '<div><dt>AAV</dt><dd>' + escapeHtml(taxiAwareSalaryText(p, p.aav, p.positionAavRank)) + '</dd></div>' +
+                '<div><dt>TCV</dt><dd>' + escapeHtml(taxiAwareAmountText(p, totalContractValue)) + '</dd></div>' +
                 '<div><dt>Orig GTD</dt><dd>' + escapeHtml(compactContractAmountAllowZero(contractGuarantee)) + '</dd></div>' +
                 '<div><dt>Cap Pen</dt><dd>' + escapeHtml(compactContractAmountAllowZero(capPenalty)) + '</dd></div>' +
               '</dl>' +
@@ -8450,9 +8477,9 @@
           '</td>' +
           '<td class="rwb-cell-num">' + escapeHtml(contractLength > 0 ? String(contractLength) : "—") + '</td>' +
           '<td class="rwb-cell-num">' + escapeHtml(String(p.years)) + '</td>' +
-          '<td class="rwb-cell-num">' + compactContractValueWithRankHtml(p.salary, p.positionSalaryRank) + '</td>' +
-          '<td class="rwb-cell-num">' + compactContractValueWithRankHtml(p.aav, p.positionAavRank) + '</td>' +
-          '<td class="rwb-cell-num">' + escapeHtml(compactContractAmount(totalContractValue)) + '</td>' +
+          '<td class="rwb-cell-num">' + taxiAwareSalaryHtml(p, p.salary, p.positionSalaryRank) + '</td>' +
+          '<td class="rwb-cell-num">' + taxiAwareSalaryHtml(p, p.aav, p.positionAavRank) + '</td>' +
+          '<td class="rwb-cell-num">' + escapeHtml(taxiAwareAmountText(p, totalContractValue)) + '</td>' +
           '<td class="rwb-cell-num">' + escapeHtml(compactContractAmountAllowZero(contractGuarantee)) + '</td>' +
           '<td class="rwb-cell-num">' + escapeHtml(compactContractAmountAllowZero(capPenalty)) + '</td>' +
         '</tr>'
