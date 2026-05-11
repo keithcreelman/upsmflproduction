@@ -80,23 +80,58 @@ jobs:
             "site/team_operations/mfl_hpm_embed_loader.js"
             "site/stats_workbench/mfl_hpm_embed_loader.js"
           )
+          # IMPORTANT: jsDelivr's GET-based purge returns HTTP 200 even when
+          # the request was throttled — you have to inspect the JSON body for
+          # `"throttled": true`. We learned this 2026-05-11 when a throttled
+          # purge silently kept v1.7.7+ stuck at v1.7.6 for 20+ minutes
+          # despite "successful" workflow runs. Fix: parse the body, retry
+          # throttled paths after a 60s pause (jsDelivr's typical throttle
+          # window is 30-60s), and FAIL the workflow if any path is still
+          # throttled after retry — so future stuck-cache regressions are
+          # visible in red on the Actions tab instead of silently rotting.
           echo "Purging ${#FILES[@]} files..."
           OK=0
-          FAIL=0
+          THROTTLED=()
+          ERRORS=()
           for f in "${FILES[@]}"; do
-            CODE=$(curl -sS --max-time 12 -o /dev/null -w "%{http_code}" \
+            BODY=$(curl -sS --max-time 12 \
               "https://purge.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/${f}")
-            if [[ "$CODE" =~ ^(200|404)$ ]]; then
+            if echo "$BODY" | grep -q '"throttled": *true'; then
+              THROTTLED+=("$f")
+            elif echo "$BODY" | grep -q '"status": *"finished"'; then
               OK=$((OK + 1))
             else
-              FAIL=$((FAIL + 1))
-              echo "  ${CODE}  ${f}"
+              ERRORS+=("$f")
+              echo "  ERROR  ${f}: ${BODY:0:200}"
             fi
           done
-          echo "Done: ${OK} ok, ${FAIL} failed"
-          # Don't fail the workflow on individual purge failures (jsDelivr
-          # occasionally rate-limits). Cache will refresh on its own TTL.
-          exit 0
+          echo "First pass: ${OK} ok, ${#THROTTLED[@]} throttled, ${#ERRORS[@]} errors"
+          if [ ${#THROTTLED[@]} -gt 0 ]; then
+            echo "Throttled — sleeping 60s then retrying..."
+            sleep 60
+            REMAINING=()
+            for f in "${THROTTLED[@]}"; do
+              BODY=$(curl -sS --max-time 12 \
+                "https://purge.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/${f}")
+              if echo "$BODY" | grep -q '"throttled": *true'; then
+                REMAINING+=("$f")
+                echo "  STILL_THROTTLED  ${f}"
+              elif echo "$BODY" | grep -q '"status": *"finished"'; then
+                OK=$((OK + 1))
+              else
+                ERRORS+=("$f")
+                echo "  ERROR  ${f}: ${BODY:0:200}"
+              fi
+            done
+            THROTTLED=("${REMAINING[@]}")
+          fi
+          echo "Final: ${OK} ok, ${#THROTTLED[@]} still throttled, ${#ERRORS[@]} errors"
+          # Fail loudly if any file is still throttled or errored after retry
+          # so we don't silently ship stale assets again.
+          if [ ${#THROTTLED[@]} -gt 0 ] || [ ${#ERRORS[@]} -gt 0 ]; then
+            echo "::error::jsDelivr purge incomplete — throttled=${#THROTTLED[@]} errors=${#ERRORS[@]}"
+            exit 1
+          fi
 
       - name: Verify VERSION.json refreshed
         run: |
