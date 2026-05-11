@@ -26,6 +26,31 @@ logic is doing without digging into code).
 
 ---
 
+## v1.7.28 — 2026-05-11 — Mobile icon tabs + trade picker timeout + Esc-anywhere
+
+Two changes from Keith.
+
+### UX: top tabs use icon-style on mobile
+The top tab nav now renders as compact icon + 1-word labels on mobile
+(same `MOBILE_TAB_META` that powered the now-hidden bottom nav):
+- 🎯 LIVE · 📜 HISTORY · 👥 TEAMS · 🔄 TRADES · 🎲 R6 · 📅 PICKS · 📊 CALCS
+- 56px wide, 9px label, 16px icon. All 7 tabs fit cleanly.
+- Desktop full-text labels restored on resize back above 768px.
+
+### Fix: trade modal can no longer lock up
+Trade picker had no timeout — if the worker hangs (CF cold-start, MFL
+slowness), the columns spun forever with no recovery.
+- Added 15s `AbortController` timeout on `/api/franchise-assets`.
+- On timeout, if the local stub fallback also yields nothing usable, the
+  picker shows a `↻ Retry` button instead of empty columns.
+
+### Escape hatches for any stuck modal
+- **Esc-to-close** now works on every tab (was Live-tab-only).
+- **Backdrop click** dismisses any modal — important on mobile where the
+  ✕ button can be tiny.
+
+---
+
 ## v1.7.27 — 2026-05-11 — Taxi pill + salary universal across My Team + Profile card
 
 Per Keith: the universal taxi rule from v1.7.26 (trade modal) now applies

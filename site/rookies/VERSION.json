@@ -1,7 +1,7 @@
 {
-  "version": "1.7.27",
+  "version": "1.7.28",
   "released": "2026-05-11",
-  "label": "V1.7.27 — Taxi pill + salary now universal across My Team panel + player profile card; cap-relevant salary split from taxi salary in roster totals",
+  "label": "V1.7.28 — Mobile top tabs use icon+1word style; trade picker has 15s timeout + retry button; Esc and backdrop click close any stuck modal",
   "description": "First published version of the Draft Hub analytics model. This establishes the V1 baseline. Future tweaks bump the version and are logged here.",
   "methodology_signature": {
     "tier_classifier": "NET = 3yr-games-weighted E+P rate − 0.5 × 3yr-games-weighted Dud rate",
@@ -28,6 +28,19 @@
     "lineup_efficiency": 0.012
   },
   "changes": [
+    {
+      "version": "1.7.28",
+      "date": "2026-05-11",
+      "type": "fix+ux",
+      "summary": "Two changes from Keith. (1) UX: top tab nav switches to icon-style buttons on mobile (emoji icon + 1-word label, ALL CAPS, 56px wide) — easier to tap, fits all 7 tabs without overflow. Same MOBILE_TAB_META that powered the (now-hidden) bottom nav. Desktop labels restored on resize back above 768px. (2) Fix: trade picker now has a 15s AbortController timeout + retry button so if the worker hangs (CF cold-start, MFL slowness) the modal can recover instead of spinning forever. Plus Esc-to-close works on every tab now (was Live-only) and clicking the modal backdrop dismisses any modal (mobile-friendly).",
+      "details": [
+        "_initMobileShell stashes desktop label text on each tab as data-desktopLabel. applyTopNavMobileLabels() swaps to icon+label HTML on mobile, restores plain text on desktop. Runs on every matchMedia change.",
+        "CSS: body.is-mobile nav.rdh-tabs button — flex column, 56px min width, 9px label, 16px icon. Active state has subtle bg highlight.",
+        "loadAndRender wrapped in AbortController(15000ms). On timeout/error, if the local stub also yields nothing usable, picker shows '↻ Retry' button instead of empty columns.",
+        "Esc keydown handler hoisted out of the Live-tab gate — works on every tab whenever the modal overlay is open. Live-tab-only shortcuts (/, ?) still gated below.",
+        "Modal overlay click handler: clicking the dark backdrop (not the panel) closes the modal. Critical on phone where the close ✕ button can be hard to hit."
+      ]
+    },
     {
       "version": "1.7.27",
       "date": "2026-05-11",
