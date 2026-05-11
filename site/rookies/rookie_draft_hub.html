@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Rookie Draft Hub — UPS League</title>
-<link rel="stylesheet" href="rookie_draft_hub.css?v=2026.05.11.v1.7.6">
+<link rel="stylesheet" href="rookie_draft_hub.css?v=2026.05.11.v1.7.7">
 </head>
 <body>
 <header class="rdh-header">
@@ -35,8 +35,24 @@
       </div>
       <div class="lmb-center">
         <span id="on-clock-headline" class="lmb-headline">—</span>
+        <span id="pick-clock-display" class="lmb-clock" title="Time remaining on the pick clock">—</span>
       </div>
       <div class="lmb-right">
+        <label class="lmb-clock-cfg" title="Per-pick time limit (minutes). Saved locally.">
+          Clock
+          <select id="pick-clock-mins">
+            <option value="0">Off</option>
+            <option value="2">2m</option>
+            <option value="5">5m</option>
+            <option value="10" selected>10m</option>
+            <option value="15">15m</option>
+            <option value="30">30m</option>
+            <option value="60">1h</option>
+            <option value="240">4h</option>
+            <option value="480">8h</option>
+          </select>
+        </label>
+        <button type="button" id="pick-clock-reset" class="btn secondary" title="Reset clock to full time (e.g. after a delay)" style="font-size:11px; padding:4px 8px;">↺</button>
         <button type="button" id="live-mode-toggle" class="btn warn" hidden title="Commissioner only — flip to LIVE">Go LIVE</button>
       </div>
     </div>
@@ -677,6 +693,6 @@
   <div class="rdh-modal" id="rdh-modal"></div>
 </div>
 
-<script src="rookie_draft_hub.js?v=2026.05.11.v1.7.6"></script>
+<script src="rookie_draft_hub.js?v=2026.05.11.v1.7.7"></script>
 </body>
 </html>

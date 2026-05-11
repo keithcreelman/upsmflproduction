@@ -806,6 +806,62 @@ tr td.num[style*="var(--err)"] { color: var(--err) !important; }
 }
 .lmb-headline strong { color: var(--accent); font-weight: 700; }
 
+/* Per-pick clock — sits in the banner's center column next to the on-clock
+   headline. Empty (no countdown) = invisible. State data attribute drives
+   color: ok=green, warn=amber, danger=red, expired=blinking-red. Tabular
+   nums keep digits aligned so the eye doesn't jump. */
+.lmb-clock {
+  display: inline-block;
+  margin-left: 12px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.4px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid transparent;
+  color: var(--muted);
+  vertical-align: baseline;
+}
+.lmb-clock:empty { display: none; }
+.lmb-clock[data-state="ok"]      { color: var(--ok);   border-color: rgba(74,222,128,0.35); background: rgba(74,222,128,0.10); }
+.lmb-clock[data-state="warn"]    { color: var(--warn); border-color: rgba(251,191,36,0.45); background: rgba(251,191,36,0.10); }
+.lmb-clock[data-state="danger"]  { color: var(--err);  border-color: rgba(248,113,113,0.55); background: rgba(248,113,113,0.14); }
+.lmb-clock[data-state="expired"] {
+  color: #fff;
+  background: var(--err);
+  border-color: var(--err);
+  animation: rdh-clock-flash 1s steps(2, end) infinite;
+}
+@keyframes rdh-clock-flash {
+  0%,100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lmb-clock[data-state="expired"] { animation: none; }
+}
+
+/* Per-pick clock minutes selector — small pill in the right column */
+.lmb-clock-cfg {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+.lmb-clock-cfg select {
+  background: var(--panel-alt, rgba(255,255,255,0.06));
+  color: var(--text);
+  border: 1px solid var(--border, rgba(255,255,255,0.12));
+  border-radius: 4px;
+  padding: 2px 4px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
 /* New layout: full-width board on top, 2-col below (prospects | right-rail) */
 .live-2row { display: flex; flex-direction: column; gap: 16px; }
 .live-board-top { margin-bottom: 0; }
@@ -826,6 +882,10 @@ tr td.num[style*="var(--err)"] { color: var(--err) !important; }
 @media (max-width: 640px) {
   .live-mode-banner { padding: 8px 12px; gap: 8px; margin: -16px -16px 12px; }
   .lmb-greeting { display: none; }
+  /* Phone: keep the countdown number, drop the config selector + reset
+     (commish can change it on desktop; everyone else just watches) */
+  .lmb-clock-cfg, #pick-clock-reset { display: none; }
+  .lmb-clock { font-size: 12px; padding: 1px 6px; margin-left: 6px; }
 }
 
 /* Card head bar */
