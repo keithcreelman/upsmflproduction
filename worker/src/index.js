@@ -2287,6 +2287,93 @@ export default {
         }
       }
 
+      // ── GET /api/draft-state — LIVE draft state from MFL (no caching).
+      // Returns: { franchises, draft_order, picks_made, active_pick, meta }
+      // Designed to OVERLAY the static rookie_draft_hub_2026.json snapshot
+      // so the hub reflects real picks made on draft day.
+      if (path === "/api/draft-state" && request.method === "GET") {
+        const leagueId = _rdhLeagueId();
+        const year = _rdhYear();
+        const noStore = (u, ttl) => fetch(u, {
+          // Tiny TTL (5s) so multiple browsers don't pummel MFL but the
+          // data is still effectively live during a draft.
+          cf: { cacheTtl: ttl || 5, cacheEverything: true },
+          headers: { "User-Agent": "upsmflproduction-worker" },
+        });
+        try {
+          const [drRes, lgRes] = await Promise.allSettled([
+            noStore(`https://www48.myfantasyleague.com/${year}/export?TYPE=draftResults&L=${leagueId}&JSON=1`, 5),
+            noStore(`https://www48.myfantasyleague.com/${year}/export?TYPE=league&L=${leagueId}&JSON=1`, 86400),
+          ]);
+
+          // Build franchise name index from league
+          const franchises = {};
+          if (lgRes.status === "fulfilled" && lgRes.value.ok) {
+            const ld = await lgRes.value.json();
+            let arr = ld?.league?.franchises?.franchise || [];
+            if (!Array.isArray(arr)) arr = [arr];
+            for (const f of arr) {
+              const fid = _rdhPadFid(f.id);
+              if (fid) franchises[fid] = safeStr(f.name || "");
+            }
+          }
+
+          // Walk the draftResults: every slot is either made (has player) or
+          // queued (empty). Build picks_made, draft_order, active_pick.
+          const picks_made = [];
+          const draft_order = [];
+          let active_pick = null;
+          if (drRes.status === "fulfilled" && drRes.value.ok) {
+            const dd = await drRes.value.json();
+            let units = dd?.draftResults?.draftUnit || [];
+            if (!Array.isArray(units)) units = [units];
+            for (const u of units) {
+              let arr = u.draftPick || u.pick || [];
+              if (!Array.isArray(arr)) arr = [arr];
+              for (const dp of arr) {
+                const round = Number(dp.round);
+                const pick = Number(dp.pick);
+                const owner = _rdhPadFid(dp.franchise || dp.currentOwner);
+                draft_order.push({
+                  round, pick,
+                  owned_by_franchise_id: owner,
+                  original_franchise_id: _rdhPadFid(dp.originalPickFor || dp.originalOwner) || null,
+                });
+                if (dp.player) {
+                  picks_made.push({
+                    round, pick,
+                    franchise_id: owner,
+                    player_id: safeStr(dp.player),
+                    timestamp: safeStr(dp.timestamp || ""),
+                    comments: safeStr(dp.comments || ""),
+                  });
+                } else if (!active_pick) {
+                  // First unmade slot in iteration order = on the clock.
+                  active_pick = { round, pick, franchise_id: owner, player_id: "", timestamp: "", comments: "" };
+                }
+              }
+            }
+          }
+
+          return jsonOut(200, {
+            franchises,
+            draft_order,
+            picks_made,
+            active_pick,
+            meta: {
+              source: "mfl_live",
+              league_id: leagueId,
+              year,
+              as_of: new Date().toISOString(),
+              n_picks_made: picks_made.length,
+              n_picks_total: draft_order.length,
+            },
+          });
+        } catch (e) {
+          return jsonOut(500, { error: String(e && e.message || e) });
+        }
+      }
+
       // ── GET /api/franchise-assets — players + future picks + current-year picks ──
       if (path === "/api/franchise-assets" && request.method === "GET") {
         const fid = _rdhPadFid(url.searchParams.get("fid") || "");
