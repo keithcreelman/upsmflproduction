@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Rookie Draft Hub — UPS League</title>
-<link rel="stylesheet" href="rookie_draft_hub.css?v=2026.05.10.v1.5.4">
+<link rel="stylesheet" href="rookie_draft_hub.css?v=2026.05.10.v1.6.3">
 </head>
 <body>
 <header class="rdh-header">
@@ -55,6 +55,62 @@
           <span class="legend-dot legend-made"></span> made
           <span class="legend-dot legend-onclock"></span> on the clock
           <span class="legend-dot legend-queued"></span> queued
+        </div>
+      </div>
+
+      <!-- ── FULL-WIDTH HERO: Mock Draft Simulation (controls + roast) ── -->
+      <div class="rdh-card auto-sim-card auto-sim-card-fullwidth" id="auto-sim-card">
+        <div class="auto-sim-hero">
+          <div class="auto-sim-hero-title">
+            <span class="auto-sim-hero-emoji">🎲</span>
+            <span class="auto-sim-hero-text">Mock Draft Simulation</span>
+          </div>
+          <span class="auto-sim-status" id="auto-sim-status">Idle</span>
+        </div>
+        <div class="auto-sim-fullwidth-grid">
+          <div class="auto-sim-left">
+            <p class="small" style="color:var(--muted); margin: 0 0 8px;">
+              Auto-pick for every franchise except yours, on a timer. Algorithm blends
+              consensus rank + owner tendencies + small randomness. Pauses on your turn
+              (or when any modal is open).
+            </p>
+            <p class="auto-sim-disclaimer" style="margin: 0;">
+              <strong>No, Bousquet — I'm not harvesting your data.</strong><br>
+              All sim state lives in your browser's <code>sessionStorage</code>.
+              Never leaves the tab. Never hits the server. Never touches MFL.<br><br>
+              I'm just out here building an absolute unit of a fantasy league
+              and trying to have nice things.<br><br>
+              <em>#sorrynotsorry</em>
+            </p>
+          </div>
+          <div class="auto-sim-right">
+            <div class="auto-sim-controls">
+              <label class="live-filter">
+                <span>Play as</span>
+                <select id="auto-sim-play-as"></select>
+              </label>
+              <label class="live-filter">
+                <span>Speed</span>
+                <select id="auto-sim-speed">
+                  <option value="5000">5 sec / pick</option>
+                  <option value="10000" selected>10 sec / pick</option>
+                  <option value="20000">20 sec / pick</option>
+                  <option value="0">Instant</option>
+                </select>
+              </label>
+            </div>
+            <div class="auto-sim-buttons">
+              <button class="btn" id="auto-sim-start">▶ Start</button>
+              <button class="btn warn" id="auto-sim-pause" hidden>⏸ Pause</button>
+              <button class="btn" id="auto-sim-resume" hidden>▶ Resume</button>
+              <button class="btn secondary" id="auto-sim-step" title="Pick once instantly, then pause">⏭ Step</button>
+              <button class="btn secondary" id="auto-sim-reset" title="Clear all simulated picks (does NOT touch real draft)">↺ Reset</button>
+            </div>
+            <div class="auto-sim-tick" id="auto-sim-tick" hidden>
+              <div class="auto-sim-bar"><div class="auto-sim-bar-fill" id="auto-sim-bar-fill"></div></div>
+              <div class="small" style="color:var(--muted); margin-top:4px;" id="auto-sim-ticker">—</div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -162,6 +218,31 @@
 
       <!-- ── RIGHT RAIL: on-the-clock + auto-sim + salary table ─── -->
       <div class="live-col live-col-right">
+        <div class="rdh-card my-team-card" id="my-team-card" hidden>
+          <div class="live-card-head">
+            <h2>👤 My Team</h2>
+            <span class="small" id="my-team-name" style="color:var(--muted);"></span>
+          </div>
+          <div id="my-team-body" class="my-team-body"></div>
+        </div>
+
+        <div class="rdh-card my-queue-card" id="my-queue-card" hidden>
+          <div class="live-card-head">
+            <h2>📋 My Queue <span class="my-queue-count" id="my-queue-count">0</span></h2>
+            <button type="button" class="btn secondary my-queue-clear" id="my-queue-clear" title="Clear queue">Clear</button>
+          </div>
+          <div id="my-queue-list" class="my-queue-list"></div>
+          <label class="my-queue-autopick-toggle" id="my-queue-autopick-toggle">
+            <input type="checkbox" id="my-queue-autopick">
+            <span>🤖 Auto-pick top of queue when I'm on the clock</span>
+          </label>
+          <p class="small my-queue-hint" style="color:var(--muted); margin: 6px 0 0; font-size:11px;">
+            Click <strong>+</strong> on any prospect to queue them. Drafted players auto-clear.
+            Auto-pick is <strong>OFF</strong> by default — you confirm every pick yourself unless
+            you tick the box above (or the commish runs auto-draft for you).
+          </p>
+        </div>
+
         <div class="rdh-card on-clock-card">
           <h2>On the Clock</h2>
           <div id="on-clock-panel" class="on-clock-panel">
@@ -176,44 +257,6 @@
           </div>
           <div id="trade-inbox-list" class="trade-inbox-list">
             <div class="trade-inbox-empty">No pending trade offers.</div>
-          </div>
-        </div>
-
-        <div class="rdh-card auto-sim-card" id="auto-sim-card">
-          <div class="live-card-head">
-            <h2>🤖 Auto-Draft</h2>
-            <span class="small auto-sim-status" id="auto-sim-status" style="color:var(--muted);">Idle</span>
-          </div>
-          <p class="small" style="color:var(--muted); margin: 0 0 8px;">
-            Auto-pick for every franchise except yours, on a timer. Algorithm
-            blends consensus rank + owner tendencies + small randomness. Pauses
-            on your turn (or when any modal is open).
-          </p>
-          <div class="auto-sim-controls">
-            <label class="live-filter">
-              <span>Play as</span>
-              <select id="auto-sim-play-as"></select>
-            </label>
-            <label class="live-filter">
-              <span>Speed</span>
-              <select id="auto-sim-speed">
-                <option value="5000">5 sec / pick</option>
-                <option value="10000" selected>10 sec / pick</option>
-                <option value="20000">20 sec / pick</option>
-                <option value="0">Instant</option>
-              </select>
-            </label>
-          </div>
-          <div class="auto-sim-buttons">
-            <button class="btn" id="auto-sim-start">▶ Start</button>
-            <button class="btn warn" id="auto-sim-pause" hidden>⏸ Pause</button>
-            <button class="btn" id="auto-sim-resume" hidden>▶ Resume</button>
-            <button class="btn secondary" id="auto-sim-step" title="Pick once instantly, then pause">⏭ Step</button>
-            <button class="btn secondary" id="auto-sim-reset" title="Clear all simulated picks (does NOT touch real draft)">↺ Reset</button>
-          </div>
-          <div class="auto-sim-tick" id="auto-sim-tick" hidden>
-            <div class="auto-sim-bar"><div class="auto-sim-bar-fill" id="auto-sim-bar-fill"></div></div>
-            <div class="small" style="color:var(--muted); margin-top:4px;" id="auto-sim-ticker">—</div>
           </div>
         </div>
 
@@ -631,6 +674,6 @@
   <div class="rdh-modal" id="rdh-modal"></div>
 </div>
 
-<script src="rookie_draft_hub.js?v=2026.05.10.v1.5.4"></script>
+<script src="rookie_draft_hub.js?v=2026.05.10.v1.6.3"></script>
 </body>
 </html>
