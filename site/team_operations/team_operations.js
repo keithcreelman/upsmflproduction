@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var BUILD = "2026.05.11.03";
+  var BUILD = "2026.05.11.04";
   var BOOT_FLAG = "__ups_team_operations_boot_" + BUILD;
   if (window[BOOT_FLAG]) {
     if (typeof window.UPS_TEAMOPS_INIT === "function") window.UPS_TEAMOPS_INIT();
@@ -166,6 +166,32 @@
     var ctx = state.ctx;
     var fid = pad4(ctx.franchiseId);
 
+    // ── Fallback chain (in priority order) ──
+    // 1. Already-set ctx.franchiseId (from URL ?FRANCHISE_ID= or window.FRANCHISE_ID)
+    // 2. MFL_LAST_LOGIN_FRANCHISE_ID cookie — MFL sets this for any
+    //    logged-in user. Most reliable signal on MFL pages where
+    //    window.FRANCHISE_ID isn't injected (e.g. some custom HPMs).
+    // 3. localStorage rdh_my_fid — set by the Draft Hub when it figures
+    //    out the user. Survives across hubs.
+    // 4. URL path /home/<league>/<franchise> — already handled by the
+    //    embed loader but re-check in case ctx wasn't populated.
+    // 5. MFL_USER_ID cookie matched against league franchise records.
+    if (!fid) {
+      var lastLogin = readCookie("MFL_LAST_LOGIN_FRANCHISE_ID");
+      if (lastLogin) fid = pad4(lastLogin);
+    }
+    if (!fid) {
+      try {
+        var lsFid = window.localStorage && window.localStorage.getItem("rdh_my_fid");
+        if (lsFid) fid = pad4(lsFid);
+      } catch (e) {}
+    }
+    if (!fid) {
+      try {
+        var pathMatch = String(window.location.pathname || "").match(/\/home\/\d+\/(\d{1,4})(?:\/|$)/i);
+        if (pathMatch && pathMatch[1]) fid = pad4(pathMatch[1]);
+      } catch (e) {}
+    }
     if (!fid && state.league) {
       var lg = state.league.league || {};
       var fr = asArray(lg.franchises && lg.franchises.franchise);
@@ -183,6 +209,12 @@
 
     state.viewerFranchiseId = fid;
     state.viewerFranchise = state.franchises.find(function (f) { return f.id === fid; }) || null;
+
+    // Persist for cross-hub reuse so the Draft Hub + future hubs share
+    // the same identity without re-resolving every page load.
+    if (fid) {
+      try { window.localStorage && window.localStorage.setItem("rdh_my_fid", fid); } catch (e) {}
+    }
   }
 
   function readCookie(name) {
@@ -691,6 +723,15 @@
 
   function renderAll() {
     renderShell();
+    // If we couldn't figure out who the viewer is, render a clear "pick
+    // your franchise" empty state rather than silently zeroing every
+    // card. Common causes: HPM mounted on a page MFL doesn't inject
+    // FRANCHISE_ID for; cross-origin local testing where MFL fetches
+    // are CORS-blocked; user not logged in.
+    if (!state.viewerFranchiseId || !state.viewerFranchise) {
+      renderViewerEmptyState();
+      return;
+    }
     renderSummary();
     renderMatchup();
     renderLineup();
@@ -707,6 +748,66 @@
     renderFuturePicks();
     renderSchedule();
     renderCalendar();
+  }
+
+  // Friendly empty state when no franchise could be resolved. Surfaces a
+  // dropdown of league franchises so the viewer can pick manually rather
+  // than staring at all zeros. Selection is persisted to localStorage
+  // so future loads remember.
+  function renderViewerEmptyState() {
+    var summaryEl = els.cards.summary;
+    if (!summaryEl) return;
+    var franchises = (state.franchises || []).slice().sort(function (a, b) {
+      return safeStr(a.name).localeCompare(safeStr(b.name));
+    });
+    var diagnostics = [];
+    if (!state.league) diagnostics.push("league fetch failed (CORS or network)");
+    if (!franchises.length) diagnostics.push("no franchises in league data");
+    if (state.loadErrors && state.loadErrors.length) {
+      diagnostics.push(state.loadErrors.length + " endpoint error(s)");
+    }
+    var optsHtml = franchises.map(function (f) {
+      return '<option value="' + escapeHtml(f.id) + '">' + escapeHtml(f.name) + '</option>';
+    }).join("");
+    var diagHtml = diagnostics.length
+      ? '<div class="tops-empty" style="margin-top:8px; color:var(--tops-bad,#ff6b6b);">' +
+        '⚠ ' + escapeHtml(diagnostics.join(" · ")) + '</div>'
+      : "";
+    summaryEl.innerHTML = [
+      '<div class="tops-card-title">Pick Your Franchise</div>',
+      '<div class="tops-empty" style="margin-bottom:10px; line-height:1.5;">',
+      "  We couldn't figure out which franchise is yours from this page.",
+      "  Pick from the list below — we'll remember it for next time.",
+      '</div>',
+      franchises.length
+        ? '<div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">' +
+          '  <select id="topsViewerPicker" style="flex:1; min-width:180px; padding:8px 10px; font-size:14px; background:#0f1116; color:#fff; border:1px solid rgba(255,255,255,0.15); border-radius:6px;">' +
+          '    <option value="">— Pick franchise —</option>' +
+          optsHtml +
+          '  </select>' +
+          '  <button id="topsViewerPickerSave" class="tops-link-pill" style="cursor:pointer; border:none; font-size:13px;">Use this</button>' +
+          '</div>'
+        : '<div class="tops-empty">League data hasn\'t loaded — refresh to retry.</div>',
+      diagHtml,
+    ].join("");
+    var btn = document.getElementById("topsViewerPickerSave");
+    if (btn) {
+      btn.addEventListener("click", function () {
+        var sel = document.getElementById("topsViewerPicker");
+        var pickedFid = sel && sel.value;
+        if (!pickedFid) return;
+        try { window.localStorage && window.localStorage.setItem("rdh_my_fid", pickedFid); } catch (e) {}
+        state.viewerFranchiseId = pickedFid;
+        state.viewerFranchise = state.franchises.find(function (f) { return f.id === pickedFid; }) || null;
+        renderAll();
+      });
+    }
+    // Blank out the rest of the cards so the page doesn't look broken.
+    Object.keys(els.cards).forEach(function (k) {
+      if (k === "summary") return;
+      var el = els.cards[k];
+      if (el) el.innerHTML = '<div class="tops-empty">Pick your franchise above to populate.</div>';
+    });
   }
 
   function renderLoadingShell() {

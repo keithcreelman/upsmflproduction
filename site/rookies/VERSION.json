@@ -1,7 +1,7 @@
 {
-  "version": "1.7.33",
+  "version": "1.7.34",
   "released": "2026-05-11",
-  "label": "V1.7.33 — Register hpm-myteam in loader.js PARTIAL_MAP so the existing MFL message-slot pattern (data-ups-partial=hpm-myteam) resolves",
+  "label": "V1.7.34 — My Team: beefier viewer-franchise resolution + clear empty state with manual picker when no franchise can be detected",
   "description": "First published version of the Draft Hub analytics model. This establishes the V1 baseline. Future tweaks bump the version and are logged here.",
   "methodology_signature": {
     "tier_classifier": "NET = 3yr-games-weighted E+P rate − 0.5 × 3yr-games-weighted Dud rate",
@@ -28,6 +28,20 @@
     "lineup_efficiency": 0.012
   },
   "changes": [
+    {
+      "version": "1.7.34",
+      "date": "2026-05-11",
+      "type": "fix",
+      "summary": "My Team showed all-zeros 'silently' when the embed loader couldn't detect the viewer's franchise. Now: (a) wider fallback chain (MFL_LAST_LOGIN_FRANCHISE_ID cookie, localStorage rdh_my_fid shared with Draft Hub, /home/<league>/<fid> URL path), (b) friendly empty state with a manual franchise-picker dropdown when nothing resolves, (c) selection persisted to localStorage so future loads remember.",
+      "details": [
+        "site/team_operations/team_operations.js resolveViewerFranchise: priority chain now ctx.franchiseId → MFL_LAST_LOGIN_FRANCHISE_ID cookie (MFL standard auth marker) → localStorage rdh_my_fid (shared with Draft Hub) → /home/<league>/<fid> path → MFL_USER_ID cookie matched against franchise records.",
+        "On successful resolve, persists fid to localStorage rdh_my_fid for cross-hub reuse.",
+        "renderAll: when no franchise resolved, calls renderViewerEmptyState instead of running every card with empty data.",
+        "renderViewerEmptyState: Pick Your Franchise card with sorted dropdown of league franchises + 'Use this' button. On selection, persists to localStorage and re-renders. Other cards swapped to 'Pick your franchise above to populate.' so the page doesn't look broken.",
+        "Diagnostic line in the empty state surfaces specific causes (CORS-blocked league fetch, no franchises in data, N endpoint errors).",
+        "Build stamp: 2026.05.11.03 → 2026.05.11.04."
+      ]
+    },
     {
       "version": "1.7.33",
       "date": "2026-05-11",
