@@ -26,6 +26,33 @@ logic is doing without digging into code).
 
 ---
 
+## v1.7.34 — 2026-05-11 — My Team: viewer-franchise resolution + empty state
+
+Keith's screenshot: My Team loaded but showed all zeros. Two causes
+collapsed into one bad UX:
+
+1. **Local testing**: MFL blocks cross-origin so the 12 fetches all fail
+   silently and the league data is empty.
+2. **Production HPM**: on certain pages MFL doesn't inject `window.FRANCHISE_ID`
+   and the cookie-based fallback was too narrow.
+
+Fixes:
+
+- **Wider resolution chain**: `ctx.franchiseId` → `MFL_LAST_LOGIN_FRANCHISE_ID`
+  cookie → `localStorage rdh_my_fid` (shared with Draft Hub) → `/home/<league>/<fid>`
+  URL path → `MFL_USER_ID` cookie matched against franchise records.
+- **Persist on resolve** to `localStorage rdh_my_fid` so future loads
+  remember + the Draft Hub picks up the same identity.
+- **Friendly empty state** with a "Pick your franchise" dropdown when
+  nothing resolves. Selection persists.
+- **Diagnostics** in the empty card surface why resolution failed
+  (CORS-blocked league fetch, no franchises in data, etc.) so we don't
+  guess next time.
+
+Build stamp `2026.05.11.04`.
+
+---
+
 ## v1.7.33 — 2026-05-11 — Register hpm-myteam in loader PARTIAL_MAP
 
 The MFL deployment pattern is one persistent snippet per message slot
