@@ -627,9 +627,13 @@
         for (const s of seasons) el.insertAdjacentHTML("beforeend", `<option value="${s}">${s}</option>`);
       }
     }
+    // Draft-Day Trades tab removed in v1.7.30 — guard the dd-season
+    // populate so loadAll doesn't NPE when the element is gone.
     const ddSeason = document.getElementById("dd-season");
-    for (const s of Object.keys(STATE.day_trades.trades_by_season).sort((a, b) => b - a)) {
-      ddSeason.insertAdjacentHTML("beforeend", `<option value="${s}">${s}</option>`);
+    if (ddSeason && STATE.day_trades && STATE.day_trades.trades_by_season) {
+      for (const s of Object.keys(STATE.day_trades.trades_by_season).sort((a, b) => b - a)) {
+        ddSeason.insertAdjacentHTML("beforeend", `<option value="${s}">${s}</option>`);
+      }
     }
     // Static slot dropdowns (1..12 — always the same)
     for (const sel of ["h-slot", "t-slot"]) {
