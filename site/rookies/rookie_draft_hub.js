@@ -4329,11 +4329,15 @@
             if (data.step) parts.push(`step: ${data.step}`);
             if (data.error) parts.push(data.error);
             if (data.mfl_response) parts.push(`MFL: ${String(data.mfl_response).slice(0, 400)}`);
+            // propose_response is included on extract_trade_id failures —
+            // shows MFL's actual response body so we can see why no regex
+            // matched a trade_id.
+            if (data.propose_response) parts.push(`propose_resp: ${String(data.propose_response).slice(0, 500)}`);
             if (data.mfl_status) parts.push(`MFL HTTP ${data.mfl_status}`);
-            // Surface duplicate-recovery diagnostics if present — tells us
-            // what pendingTrades actually returned vs. what we tried to match.
+            // Surface recovery / pendingTrades diagnostics if present —
+            // tells us what MFL had vs. what we tried to match.
             if (data.recovery) {
-              parts.push(`recovery: ${JSON.stringify(data.recovery).slice(0, 800)}`);
+              parts.push(`recovery: ${JSON.stringify(data.recovery).slice(0, 1200)}`);
             }
             throw new Error(parts.join(" · ") || `api returned ${r.status}`);
           }

@@ -26,6 +26,26 @@ logic is doing without digging into code).
 
 ---
 
+## v1.7.21 — 2026-05-11 — Robust pendingTrades lookup applied to BOTH paths
+
+After v1.7.20, Keith's trade-process still failed with `step: extract_trade_id`.
+Root cause: the v1.7.20 robust lookup was only wired into the duplicate-recovery
+path (propose returns "Duplicate trade offer"). When propose SUCCEEDED but
+MFL didn't echo a parseable trade_id, the OLDER narrower lookup ran — and
+missed for the same reasons (fetched only the receiver, fragile field names).
+
+Refactored into one shared `_findPendingTradeId()` helper used by both
+paths. Same robust behavior either way.
+
+Also: the `extract_trade_id` error response now dumps `propose_response`
+(truncated to 1500 chars) so we can see exactly what MFL returned and
+why none of the 6 regex patterns matched. Plus the same `recovery: {...}`
+diagnostics block we added in v1.7.20.
+
+Frontend appends both to the error toast so it's visible without DevTools.
+
+---
+
 ## v1.7.20 — 2026-05-11 — Tougher duplicate-trade recovery + diagnostics
 
 The v1.7.17 duplicate-recovery first cut was failing for Keith because:

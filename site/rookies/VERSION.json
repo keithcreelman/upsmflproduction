@@ -1,7 +1,7 @@
 {
-  "version": "1.7.20",
+  "version": "1.7.21",
   "released": "2026-05-11",
-  "label": "V1.7.20 — Duplicate-trade recovery: try BOTH directions, lower-case all field reads, dedupe by trade_id, surface diagnostics on fail",
+  "label": "V1.7.21 — Robust pendingTrades lookup applied to BOTH duplicate-recovery AND post-success extract paths; error toast now dumps propose_response + recovery diagnostics so we can see why match misses",
   "description": "First published version of the Draft Hub analytics model. This establishes the V1 baseline. Future tweaks bump the version and are logged here.",
   "methodology_signature": {
     "tier_classifier": "NET = 3yr-games-weighted E+P rate − 0.5 × 3yr-games-weighted Dud rate",
@@ -28,6 +28,19 @@
     "lineup_efficiency": 0.012
   },
   "changes": [
+    {
+      "version": "1.7.21",
+      "date": "2026-05-11",
+      "type": "fix",
+      "summary": "Found why Keith's trade still failed after v1.7.20: the robust both-sides pendingTrades lookup was only wired into the duplicate-recovery path (when propose returns 'Duplicate trade offer'). When propose SUCCEEDED but didn't echo a parseable trade_id, the OLD narrow lookup ran. Refactored into a shared _findPendingTradeId() helper used by both paths. Error response now also dumps propose_response (truncated) + recovery diagnostics so we can see exactly what MFL returned vs. what we tried to match.",
+      "details": [
+        "New _findPendingTradeId() helper: fetches pendingTrades for fromFid AND toFid in parallel, dedupes by trade_id, lower-cases all field reads, matches either direction (A→B or B→A), strict asset equivalence first then freshest-by-timestamp.",
+        "Duplicate-recovery (propose-fail) path uses the helper.",
+        "Post-success extract (propose-OK but no parseable trade_id) path uses the SAME helper. Previously it ran the older narrower version.",
+        "extract_trade_id error response now includes: propose_response (1500 char excerpt), propose_status, recovery: { candidates_found, total_pending_for_to/from, wanted_give/receive, sample_pending_keys, candidate_summaries[] }.",
+        "Frontend appends propose_resp: <excerpt> + recovery: <json> to the error toast so the diagnostic is visible without DevTools."
+      ]
+    },
     {
       "version": "1.7.20",
       "date": "2026-05-11",
