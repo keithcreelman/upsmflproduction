@@ -4323,8 +4323,11 @@
               result.innerHTML = `<div style="color: var(--warn);">🧪 DRY-RUN — trade validated, MFL request previewed (no write). Test Discord posted.${stubNote}</div>`;
               showToast(`🧪 DRY-RUN trade: ${myName} ↔ ${franchises[toFid] || toFid} — no MFL write`, "ok");
             } else {
-              result.innerHTML = `<div style="color: var(--ok);">🔨 Trade processed — completed in MFL${data.discord_posted ? " · Discord posted to live channel" : ""}.${stubNote}</div>`;
-              showToast(`🔨 Trade processed: ${myName} ↔ ${franchises[toFid] || toFid}`, "ok");
+              const recoveredNote = data.recovered_from_duplicate
+                ? " · <em>recovered from previous incomplete attempt (accepted existing pending offer)</em>"
+                : "";
+              result.innerHTML = `<div style="color: var(--ok);">🔨 Trade processed — completed in MFL${data.discord_posted ? " · Discord posted to live channel" : ""}${recoveredNote}.${stubNote}</div>`;
+              showToast(`🔨 Trade processed: ${myName} ↔ ${franchises[toFid] || toFid}${data.recovered_from_duplicate ? " (recovered duplicate)" : ""}`, "ok");
               // A trade may have changed on-clock ownership (pick swap) → pull
               // fresh MFL state immediately so the pick clock resets to the
               // new owner's full time instead of waiting for the 20s poll.

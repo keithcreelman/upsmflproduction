@@ -26,6 +26,31 @@ logic is doing without digging into code).
 
 ---
 
+## v1.7.17 — 2026-05-11 — Recover from MFL "Duplicate trade offer" error
+
+Direct fallout from Keith's lockout-blocked trade attempt: the earlier attempt
+proposed successfully but the accept step got rejected (lockout was on).
+That left an **orphaned pending trade offer** sitting in MFL. Now every
+retry of the same trade gets blocked by `Duplicate trade offer` because MFL
+sees the existing proposal.
+
+Fix: `/api/trade/process` now detects this case automatically.
+
+1. Propose returns "duplicate" → don't error out
+2. Fetch `pendingTrades` for the receiving franchise
+3. Match by sender + receiver + normalized asset equivalence
+4. Pull the existing trade_id from the match
+5. Skip straight to ACCEPT using that trade_id
+
+Response includes `recovered_from_duplicate: true` and the success toast
+mentions it explicitly so you know what happened.
+
+If the lookup yields no match (e.g. the pending offer has different
+assets), falls through to a clearer error message pointing you to
+**Commissioner → Trades → Pending Trades** to clean up manually.
+
+---
+
 ## v1.7.16 — 2026-05-11 — Pick clock survives page refresh (resets only on pick/trade)
 
 Keith hit two related bugs in LIVE mode:

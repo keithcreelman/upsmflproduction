@@ -2922,13 +2922,61 @@ export default {
           return jsonOut(502, { ok: false, step: "propose", error: `MFL fetch failed: ${e?.message || String(e)}` });
         }
         const proposeOk = proposeStatus >= 200 && proposeStatus < 300 && !/error/i.test(proposeResp);
-        if (!proposeOk) {
+        // ── Duplicate-trade recovery ──
+        // Common pattern: a previous /api/trade/process attempt completed the
+        // PROPOSE step but failed the ACCEPT step (e.g. commish lockout was
+        // on at the time). MFL now has a pending proposal sitting there, so
+        // the next attempt to propose the same trade returns "Duplicate trade
+        // offer". Solution: fetch pendingTrades, find the matching offer's
+        // trade_id, and skip straight to ACCEPT.
+        let tradeId = "";
+        let recoveredFromDuplicate = false;
+        if (!proposeOk && /duplicate/i.test(proposeResp)) {
+          try {
+            const ptUrl = `https://www48.myfantasyleague.com/${year}/export?TYPE=pendingTrades&L=${leagueId}&FRANCHISE_ID=${toFid}&APIKEY=${encodeURIComponent(apiKey)}&JSON=1`;
+            const ptR = await fetch(ptUrl, {
+              headers: { "User-Agent": "upsmflproduction-worker", "Accept": "application/json" },
+            });
+            const ptJson = await ptR.json().catch(() => null);
+            const ptRoot = ptJson && (ptJson.pendingTrades || ptJson.pendingtrades) || {};
+            let ptArr = ptRoot.pendingTrade || ptRoot.pendingtrade || ptRoot.trade || ptRoot.trades || [];
+            if (!Array.isArray(ptArr)) ptArr = [ptArr];
+            // Match the pending trade by sender + receiver. MFL field names
+            // vary across leagues — accept several shapes.
+            const matchFid = (val) => _rdhPadFid(safeStr(val)) === fromFid;
+            const matchOffered = (val) => _rdhPadFid(safeStr(val)) === toFid;
+            const candidates = ptArr.filter(p => {
+              const sender = p.franchise || p.offeredBy || p.offeredby || p.proposedBy || p.proposedby;
+              const offeredTo = p.offeredTo || p.offeredto || p.target;
+              return matchFid(sender) && matchOffered(offeredTo);
+            });
+            // Asset-equivalence check — same assets in both directions, in
+            // any order. Compare normalized comma-separated strings.
+            const normSet = (csv) => String(csv || "").split(/[,;\s]+/).filter(Boolean).sort().join(",");
+            const wantGive = normSet(giveMfl);
+            const wantRecv = normSet(receiveMfl);
+            const matchExact = candidates.find(p => {
+              const g = normSet(p.willGiveUp || p.willgiveup || p.give);
+              const r = normSet(p.willReceive || p.willreceive || p.receive);
+              return g === wantGive && r === wantRecv;
+            });
+            const pick = matchExact || candidates[0];
+            if (pick) {
+              tradeId = safeStr(pick.tradeId || pick.tradeid || pick.id || pick.trade_id || "");
+              if (tradeId) recoveredFromDuplicate = true;
+            }
+          } catch (e) { /* fall through to error path below */ }
+        }
+
+        if (!proposeOk && !recoveredFromDuplicate) {
           // Sniff the response body for known MFL failure modes so the
           // frontend can surface a clear diagnosis instead of "502
           // application/json".
           let hint = "";
           const respLower = String(proposeResp).toLowerCase();
-          if (/lockout|locked|disabled|not allowed|not permitted/.test(respLower)) {
+          if (/duplicate/.test(respLower)) {
+            hint = "MFL says this trade is already proposed but we couldn't find a matching pending offer to accept. Check Commissioner → Trades → Pending Trades in MFL and either accept manually or cancel the duplicate before retrying.";
+          } else if (/lockout|locked|disabled|not allowed|not permitted/.test(respLower)) {
             hint = "Likely cause: MFL Commissioner Lockout is enabled. Disable in League → Commissioner Tools → Lockout to allow API trade writes.";
           } else if (/deadline|past|closed/.test(respLower)) {
             hint = "Likely cause: trade deadline has passed for this league.";
@@ -2940,11 +2988,14 @@ export default {
           return jsonOut(502, { ok: false, step: "propose", mfl_status: proposeStatus, mfl_response: proposeResp, hint });
         }
 
-        // Extract trade_id from MFL's response (varies by format)
-        const m1 = proposeResp.match(/TradeID[^\d]*(\d{6,})/i);
-        const m2 = proposeResp.match(/trade[_ ]?id[^\d]*(\d{6,})/i);
-        const m3 = proposeResp.match(/"id"\s*:\s*"?(\d{6,})"?/i);
-        const tradeId = (m1 && m1[1]) || (m2 && m2[1]) || (m3 && m3[1]) || "";
+        // Extract trade_id from MFL's response (varies by format) — only when
+        // we proposed successfully. Recovery path already populated tradeId.
+        if (!tradeId) {
+          const m1 = proposeResp.match(/TradeID[^\d]*(\d{6,})/i);
+          const m2 = proposeResp.match(/trade[_ ]?id[^\d]*(\d{6,})/i);
+          const m3 = proposeResp.match(/"id"\s*:\s*"?(\d{6,})"?/i);
+          tradeId = (m1 && m1[1]) || (m2 && m2[1]) || (m3 && m3[1]) || "";
+        }
         if (!tradeId) {
           return jsonOut(502, { ok: false, step: "extract_trade_id",
             error: "Trade was proposed but MFL response didn't include a parseable trade_id",
@@ -3012,6 +3063,7 @@ export default {
           ok: acceptOk,
           step: acceptOk ? "complete" : "accept_failed",
           trade_id: tradeId,
+          recovered_from_duplicate: recoveredFromDuplicate || undefined,
           from_franchise_id: fromFid, from_franchise_name: fromName,
           to_franchise_id: toFid, to_franchise_name: toName,
           propose_status: proposeStatus,

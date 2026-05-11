@@ -1,7 +1,7 @@
 {
-  "version": "1.7.16",
+  "version": "1.7.17",
   "released": "2026-05-11",
-  "label": "V1.7.16 — Pick clock persists across page refresh in LIVE mode + resets on trade (not on refresh)",
+  "label": "V1.7.17 — Trade-process recovers from 'Duplicate trade offer' by accepting the existing pending proposal (no more orphaned half-trades after lockout-blocked attempts)",
   "description": "First published version of the Draft Hub analytics model. This establishes the V1 baseline. Future tweaks bump the version and are logged here.",
   "methodology_signature": {
     "tier_classifier": "NET = 3yr-games-weighted E+P rate − 0.5 × 3yr-games-weighted Dud rate",
@@ -28,6 +28,17 @@
     "lineup_efficiency": 0.012
   },
   "changes": [
+    {
+      "version": "1.7.17",
+      "date": "2026-05-11",
+      "type": "fix",
+      "summary": "Trade-process now recovers from MFL's 'Duplicate trade offer' error by fetching pendingTrades, matching the existing pending proposal (same from/to + assets), and going straight to ACCEPT. Common case: a previous attempt got blocked by Commish Lockout AFTER the propose step succeeded — leaving an orphaned pending offer that blocks future retries.",
+      "details": [
+        "/api/trade/process: on propose-fail with /duplicate/ in MFL response, fetch ?TYPE=pendingTrades&FRANCHISE_ID=<toFid>, match by sender + offeredTo + asset equivalence (normalized comma-sorted), grab the existing trade_id, skip to accept step.",
+        "Response includes `recovered_from_duplicate: true` so the frontend can flag it in the success toast.",
+        "If pendingTrades lookup yields no match (e.g. asset list differs), fall through to the existing error path with a clearer hint pointing the commish to Commissioner → Trades → Pending Trades to clean up manually."
+      ]
+    },
     {
       "version": "1.7.16",
       "date": "2026-05-11",
