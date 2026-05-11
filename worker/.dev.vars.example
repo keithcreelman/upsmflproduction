@@ -1,0 +1,31 @@
+# worker/.dev.vars — Local secrets for `wrangler dev`. Gitignored.
+#
+# Copy this file to `.dev.vars` (no extension), fill in the values, then
+# (re)start wrangler dev. Cloudflare reads these only in local dev mode;
+# production uses `wrangler secret put` for the same keys.
+#
+# Pull the same values that production already has by either:
+#   1. Discord Developer Portal → your bot → Bot tab → Reset Token (then
+#      `wrangler secret put DISCORD_BOT_TOKEN` to update prod with the new one
+#      AND paste it here).
+#   2. Or use the values you already have stored elsewhere (1Password, etc.).
+#
+# DO NOT commit .dev.vars. The .gitignore catches it.
+
+# ── Required for /api/pick + /api/trade Discord posts ──────────────────
+DISCORD_BOT_TOKEN=PASTE_YOUR_BOT_TOKEN_HERE
+
+# Optional override — defaults are baked into the worker code:
+#   live=1498680803419357234  test=1089538054236160010
+# DISCORD_DRAFT_CHANNEL_ID=
+# DISCORD_DRAFT_TEST_CHANNEL_ID=
+
+# ── Required for /api/pick + /api/trade LIVE writes to MFL ─────────────
+# (The simulate=true path doesn't need it.)
+MFL_APIKEY=PASTE_YOUR_LEAGUE_APIKEY_HERE
+
+# ── Commish gating ─────────────────────────────────────────────────────
+# Comma-separated franchise IDs that get is_commish=true from /api/me.
+# Drives the "Go LIVE" button visibility + LIVE-mode revert permission.
+# Default if unset: just 0001.
+COMMISH_FRANCHISE_IDS=0008

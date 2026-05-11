@@ -1,7 +1,7 @@
 {
-  "version": "1.5.4",
+  "version": "1.6.1",
   "released": "2026-05-10",
-  "label": "V1.5.4 — Removed verbose 'Consensus rank blends:' source-attribution footer",
+  "label": "V1.6.1 — Queue auto-pick is opt-in (off by default) + roster + phone pass",
   "description": "First published version of the Draft Hub analytics model. This establishes the V1 baseline. Future tweaks bump the version and are logged here.",
   "methodology_signature": {
     "tier_classifier": "NET = 3yr-games-weighted E+P rate − 0.5 × 3yr-games-weighted Dud rate",
@@ -28,6 +28,96 @@
     "lineup_efficiency": 0.012
   },
   "changes": [
+    {
+      "version": "1.6.1",
+      "date": "2026-05-10",
+      "type": "fix",
+      "summary": "Queue auto-pick is now OPT-IN. The owner has to tick a checkbox to enable auto-selection of their queue head when their pick comes up. Default is OFF — every pick gets manually confirmed unless you explicitly turn it on.",
+      "details": [
+        "New checkbox in the My Queue card: '🤖 Auto-pick top of queue when I'm on the clock'. Default unchecked.",
+        "_maybeAutoSelectFromQueue() bails immediately if the checkbox isn't ticked.",
+        "Toast on toggle confirms which mode you're in.",
+        "Persists in sessionStorage per franchise (rdh_queue_autopick_{fid}).",
+        "Helper hint text rewritten to reflect the new default ('Auto-pick is OFF by default — you confirm every pick yourself unless you tick the box above (or the commish runs auto-draft for you)').",
+        "Commish path unchanged: the auto-draft engine still picks for any non-user franchise as before. The queue auto-pick is purely the owner's own opt-in for THEIR slot."
+      ]
+    },
+    {
+      "version": "1.6.0",
+      "date": "2026-05-10",
+      "type": "feature",
+      "summary": "My Team card now includes a collapsible position-grouped Roster section (QB / RB / WR / TE / DL / LB / DB / PK / PN). Plus a phone-rendering pass: tighter cards, full-screen modals, hidden non-essentials at <420px.",
+      "details": [
+        "ROSTER SECTION — collapsed by default to keep My Team compact when not needed. Click 'Roster · 24 players · $187K' header to open. Inside, each position group is its own nested <details>: 'QB × 2 · $43K ▾'. Tap the position to expand a list of players sorted by salary (highest first) with name + position+contract-year + salary chip.",
+        "Position buckets: QB / RB / WR / TE (offense), DL (DE/DT/NT/EDGE roll-up), LB (LB/ILB/OLB), DB (CB/S/FS/SS), PK, PN. Buckets with 0 players are hidden.",
+        "PHONE PASS — new @media (max-width: 640px) block tightens almost everything:",
+        "  • Tab strip horizontally scrolls",
+        "  • Live-mode banner shrinks pill, drops greeting at <420px",
+        "  • Card padding 16px → 10px",
+        "  • Mock Draft Sim hero scales down; controls stack to 1 col; disclaimer tightens",
+        "  • My Team / My Queue / On-the-Clock card heads compact",
+        "  • Trade modal goes full-screen (100vw × 100vh, no border-radius) instead of trying to fit a wide layout in a narrow viewport",
+        "  • Player profile modal also full-screen with smaller headshot (80px instead of 110px)",
+        "  • Rank-by picker dropdown extends edge-to-edge",
+        "At <420px (small phones): hides board pk-team line and tier % chips inside cells to save vertical space; further compresses banner.",
+        "Submit-pick button stays at min-height: 44px (Apple HIG tap target) on every breakpoint."
+      ]
+    },
+    {
+      "version": "1.5.8",
+      "date": "2026-05-10",
+      "type": "patch",
+      "summary": "Hub now honors a ?api= URL param to point at a local wrangler dev worker (no rebuild needed). Persists in sessionStorage so subsequent loads in the same tab keep using it. Added worker/.dev.vars.example template + .gitignore for .dev.vars.",
+      "details": [
+        "_resolveApiBaseFromUrl() runs at script load — reads ?api=<url> and sets window.UPS_DRAFT_HUB_API_BASE + caches in sessionStorage as 'rdh_api_base'.",
+        "Reaches every /api/* call via apiUrl(). Stays empty in production HPM context (the embed loader sets it to the prod workers.dev URL).",
+        "worker/.dev.vars.example documents the required local-dev secrets (DISCORD_BOT_TOKEN, MFL_APIKEY, COMMISH_FRANCHISE_IDS=0008). User copies to .dev.vars and fills in the values from Discord Developer Portal + their league APIKEY. Wrangler auto-loads on next dev start.",
+        "worker/.gitignore now blocks .dev.vars from being committed."
+      ]
+    },
+    {
+      "version": "1.5.7",
+      "date": "2026-05-10",
+      "type": "patch",
+      "summary": "Auto-Draft card promoted to 'Mock Draft Simulation' with hero treatment — gradient text title, glow stripe at top, accent-soft border, status pill. Dashed-border disclaimer block addresses Bousquet's data-harvesting concerns directly: 'No Bousquet, I am not harvesting this data. All sim state lives locally in your browser sessionStorage. #sorrynotsorry'",
+      "details": [
+        "Card border switched from neutral to accent-soft + faint vertical gradient background.",
+        "2px gradient stripe (accent → purple → accent) at the top of the card draws the eye.",
+        "Title is now an 17px gradient-text 'Mock Draft Simulation' with 22px 🎲 emoji + drop-shadow glow.",
+        "Status badge ('Idle / Running / Paused / Your pick / Draft complete') is now a pill with uppercase letterspaced text.",
+        "Disclaimer block: dashed border, panel-alt background, 11px text. Strong 'No Bousquet' opener, code-styled 'sessionStorage' callout, italic warm-amber #sorrynotsorry sign-off."
+      ]
+    },
+    {
+      "version": "1.5.6",
+      "date": "2026-05-10",
+      "type": "feature",
+      "summary": "Profile bio gets a 'Watch + Read' row of search links — opens fresh YouTube + Google searches in new tabs. Better than embedding (no API key, no quota, search results always current).",
+      "details": [
+        "Decision: link instead of embed. YouTube only embeds specific video IDs (which would require either YouTube Data API + quota OR hand-curating a video per player — neither scales). Search-result links keep the experience fresh (top videos rotate as new highlights post) and add zero infra.",
+        "Links shown depend on whether the player is a fresh rookie or veteran:",
+        "  • Fresh rookie: '🎬 College highlights' (YouTube), '🏈 NFL highlights' (when signed), '📋 Combine + workout' (YouTube), '📰 Scouting report' (Google)",
+        "  • Veteran: '🏈 NFL highlights' (YouTube), '📰 News + analysis' (Google)",
+        "All links open in new tab with rel=noopener noreferrer.",
+        "Query templates use the player's full name + their college (rookies) or NFL team (vets). Quoted name in Google searches for tighter matching.",
+        "Skipped for ancient veterans with no current-year prospect record AND existing career stats — those have plenty of data already."
+      ]
+    },
+    {
+      "version": "1.5.5",
+      "date": "2026-05-10",
+      "type": "feature",
+      "summary": "Two new right-rail cards: 'My Team' (your picks owned this draft + future picks + roster snapshot) and 'My Queue' (prospect stack in priority order with reorder + clear + auto-select on your turn). Click '+' on any prospect to queue them. Drafted prospects auto-trim from the queue. Per-franchise persistence in sessionStorage.",
+      "details": [
+        "My Team card at the top of the right rail. Shows team name, picks left this draft (next-up chip in green), future picks (year + round), and roster snapshot (player count + combined salary from the franchise_assets_2026.json snapshot).",
+        "My Queue card below. Each row: priority # · position · player name · consensus rank · ▲ move up / ▼ move down / ✕ remove. Top available is highlighted in green (the one that auto-selects on your turn).",
+        "New '+' button on every prospect row in the prospect list (next to the ⓘ profile button). Click to queue. Already-queued shows ✓ and is disabled. Drafted prospects show + greyed out + disabled.",
+        "Auto-trim: drafted prospects are removed from the queue on every render (renderMyQueue runs after renderProspects in renderLive).",
+        "Auto-select: when the user's franchise is on the clock AND nothing is queued in the on-clock card, the top non-drafted prospect from My Queue is promoted to STATE.selectedProspect so the Draft Player button is one-click-ready.",
+        "Per-franchise persistence: queue key is `rdh_queue_{fid}` in sessionStorage. Switching franchises (via the auto-sim Play-as dropdown or via a different ?F= URL) loads a different queue.",
+        "Clear button on the My Queue card with confirm dialog."
+      ]
+    },
     {
       "version": "1.5.4",
       "date": "2026-05-10",
