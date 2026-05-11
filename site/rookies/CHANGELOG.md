@@ -26,6 +26,26 @@ logic is doing without digging into code).
 
 ---
 
+## v1.7.8 — 2026-05-11 — Defensive commish detection for the Go LIVE toggle
+
+The v1.7.6 fix made the worker default `COMMISH_FRANCHISE_IDS` include `0008`,
+but the **Go LIVE** toggle still wasn't reliably appearing for Keith because
+the frontend's `/api/me` call could race the HPM franchise-id injection (or
+fail entirely on workers.dev preview / direct page loads).
+
+Three layers of belt-and-suspenders:
+
+1. **Client-side commish allowlist.** After `/api/me` + HPM overlay, the hub
+   cross-checks `STATE.me.franchise_id` against `["0008","0001"]` and forces
+   `is_commish:true` on match. So the toggle appears as long as the hub
+   knows your franchise — regardless of whether the worker round-tripped it.
+2. **`?commish=1` URL override.** Append to the URL to force-show the
+   toggle (or `?commish=0` to hide). Useful for testing on workers.dev.
+3. **`console.info("[draft-hub] me:", ...)`** debug log on every load — open
+   DevTools and you can see exactly what `STATE.me` resolved to.
+
+---
+
 ## v1.7.7 — 2026-05-11 — Per-pick countdown clock in the banner
 
 A real-time pick countdown now sits next to the on-the-clock headline.
