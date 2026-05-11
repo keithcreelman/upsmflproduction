@@ -2593,12 +2593,44 @@ export default {
         const fromName = await _rdhFranchiseName(fromFid);
         const toName = await _rdhFranchiseName(toFid);
 
+        // Build a human-readable Discord message for the trade.
+        // Translates raw asset IDs into something readable.
+        const _readableAssets = (idsCsv) => {
+          if (!idsCsv) return "—";
+          return idsCsv.split(",").map(id => {
+            // FP_<orig>_<yr>_<rd>  → "<yr> R<rd>"
+            const fp = id.match(/^FP_(\d{4})_(\d{4})_(\d+)$/);
+            if (fp) return `${fp[2]} R${fp[3]}`;
+            // DP_<rd-1>_<slot-1>  → "R<rd>.<slot>" (note: MFL is 0-indexed)
+            const dp = id.match(/^DP_(\d{2})_(\d{2})$/);
+            if (dp) return `R${Number(dp[1]) + 1}.${String(Number(dp[2]) + 1).padStart(2, "0")}`;
+            // BB_<amt>  → "$<amt>"
+            const bb = id.match(/^BB_(\d+)$/);
+            if (bb) return `$${Number(bb[1]).toLocaleString()}`;
+            // P_<id> or bare id — best effort: just show ID (we don't have name lookup here)
+            return id.replace(/^P_/, "Player #");
+          }).join(" + ");
+        };
+        const tradeDiscord = `🔄 TRADE — ${fromName} ↔ ${toName}\n` +
+          `   ${fromName} sends: ${_readableAssets(giveMfl)}\n` +
+          `   ${toName} sends: ${_readableAssets(receiveMfl)}` +
+          (comments ? `\n   _"${comments.slice(0, 200)}"_` : "");
+
         if (simulate) {
+          // Post to TEST channel with [SIM] prefix so the user can verify the format.
+          let discordResult = null;
+          try {
+            const ch = _rdhDiscordChannel(false);
+            discordResult = await _rdhPostDiscord(ch, `[SIM] ${tradeDiscord}`);
+          } catch (e) { discordResult = { ok: false, error: String(e) }; }
           return jsonOut(200, {
             ok: true, simulated: true,
             from_franchise_id: fromFid, from_franchise_name: fromName,
             to_franchise_id: toFid, to_franchise_name: toName,
             give: giveMfl, receive: receiveMfl, comments,
+            discord_message: tradeDiscord,
+            discord_test_posted: !!(discordResult && discordResult.ok),
+            discord_error: discordResult && discordResult.error,
           });
         }
 
@@ -2628,9 +2660,18 @@ export default {
           return jsonOut(502, { ok: false, error: `MFL fetch failed: ${e?.message || String(e)}` });
         }
         const mflOk = mflStatus >= 200 && mflStatus < 300 && !/error/i.test(mflResp);
+        let liveDiscord = null;
+        if (mflOk) {
+          try {
+            const ch = _rdhDiscordChannel(true);
+            liveDiscord = await _rdhPostDiscord(ch, tradeDiscord);
+          } catch (e) { liveDiscord = { ok: false, error: String(e) }; }
+        }
         return jsonOut(mflOk ? 200 : 502, {
           ok: mflOk, status: mflStatus, mfl_response: mflResp,
           from_franchise_name: fromName, to_franchise_name: toName,
+          discord_message: tradeDiscord,
+          discord_posted: !!(liveDiscord && liveDiscord.ok),
         });
       }
 

@@ -1,7 +1,7 @@
 {
-  "version": "1.6.5",
+  "version": "1.7.0",
   "released": "2026-05-11",
-  "label": "V1.6.5 — Queue auto-pick now actually submits (3s cancel window)",
+  "label": "V1.7.0 — Trade announcements: sim other-owner trades + on-screen popup + Discord post",
   "description": "First published version of the Draft Hub analytics model. This establishes the V1 baseline. Future tweaks bump the version and are logged here.",
   "methodology_signature": {
     "tier_classifier": "NET = 3yr-games-weighted E+P rate − 0.5 × 3yr-games-weighted Dud rate",
@@ -28,6 +28,27 @@
     "lineup_efficiency": 0.012
   },
   "changes": [
+    {
+      "version": "1.7.0",
+      "date": "2026-05-11",
+      "type": "feature",
+      "summary": "Trade announcements end-to-end. Auto-sim now generates pick-for-pick trades between random non-user franchises (~4% per pick, capped 1/round). Every trade — user-initiated or simulated — triggers an on-screen popup banner that slides in from the top. User-initiated trades also post to Discord (test channel in SIM, live channel in LIVE).",
+      "details": [
+        "_simulateOtherTrade() during auto-sim: picks two random non-user franchises with 2+ unmade picks, swaps a random pick from each, mutates STATE.live.draft_order ownership, recomputes active_pick, logs to STATE.live._sim_trade_log to enforce per-round cap.",
+        "Cap: max 1 simulated other-owner trade per round (historical UPS draft-day average is ~3-5/draft total = roughly 1 every ~2 rounds). Random firing keeps it feeling organic.",
+        "showTradePopup({fromName, toName, fromGives, toGives, source}) — slides in from top center of viewport, auto-dismisses after 8s, Cancel ✕ button. Three sources distinguish styling:",
+        "  • 'sim-other' (engine-generated, accent border, 🤖 prefix)",
+        "  • 'sim-user' (user-initiated sim, accent border, no 🤖)",
+        "  • 'live' (real MFL trade, red border, glow background)",
+        "Worker /api/trade now posts to Discord on BOTH paths:",
+        "  • simulate=true → posts to TEST channel with [SIM] prefix",
+        "  • LIVE (mflOk) → posts to LIVE channel",
+        "Discord message format: '🔄 TRADE — Bombers ↔ Hawks · Bombers sends: 2027 R1 · Hawks sends: R1.07' with optional comments quoted.",
+        "Asset IDs decoded: FP_<orig>_<yr>_<rd> → '<yr> R<rd>'; DP_<rd-1>_<slot-1> → 'R<rd>.<slot>'; BB_<amt> → '$<amt>'; P_<id> → 'Player #<id>' (best-effort without name lookup).",
+        "Simulated other-owner trades show popup ONLY (no Discord) to keep rehearsal noise in your tab.",
+        "Mobile: popup spans full width with edge padding; same animation."
+      ]
+    },
     {
       "version": "1.6.5",
       "date": "2026-05-11",

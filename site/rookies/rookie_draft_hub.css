@@ -1321,6 +1321,100 @@ tr td.num[style*="var(--err)"] { color: var(--err) !important; }
   line-height: 1.5;
 }
 
+/* Trade announcement popup — slides in from top center, auto-dismisses 8s.
+   Distinct from .live-toast (which is for state changes / errors). */
+.trade-popup {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2000;
+  min-width: 280px;
+  max-width: 480px;
+  background: var(--panel);
+  border: 2px solid var(--accent);
+  border-radius: 8px;
+  padding: 12px 36px 12px 14px;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.7);
+  animation: trade-popup-in 240ms cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+.trade-popup.is-live {
+  border-color: var(--err);
+  background: linear-gradient(180deg, rgba(239, 68, 68, 0.10), var(--panel) 60%);
+}
+.trade-popup-tag {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1.4px;
+  color: var(--accent);
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.trade-popup.is-live .trade-popup-tag { color: var(--err); }
+.trade-popup-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+}
+.trade-popup-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1.4fr);
+  align-items: center;
+  gap: 8px;
+}
+.trade-popup-row strong {
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.trade-popup-arrow {
+  color: var(--muted);
+  font-size: 11px;
+}
+.trade-popup-asset {
+  color: var(--accent);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.trade-popup.is-live .trade-popup-asset { color: var(--ok); }
+.trade-popup-close {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  background: transparent;
+  border: 0;
+  color: var(--muted);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 4px 6px;
+  line-height: 1;
+}
+.trade-popup-close:hover { color: var(--text); }
+@keyframes trade-popup-in {
+  from { opacity: 0; transform: translate(-50%, -16px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}
+@media (max-width: 640px) {
+  .trade-popup {
+    left: 8px; right: 8px;
+    transform: none;
+    min-width: 0;
+    max-width: none;
+  }
+  @keyframes trade-popup-in {
+    from { opacity: 0; transform: translateY(-16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .trade-popup { animation: none; }
+}
+
 /* Inline toast (non-blocking error feedback) */
 .live-toast {
   position: fixed;
