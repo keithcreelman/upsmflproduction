@@ -1,7 +1,7 @@
 {
-  "version": "1.7.11",
+  "version": "1.7.12",
   "released": "2026-05-11",
-  "label": "V1.7.11 — SIM mode no longer posts to Discord at all (test channel was getting flooded during mock drafts)",
+  "label": "V1.7.12 — Pick clock is LIVE-mode only (no longer auto-starts on page load in SIM)",
   "description": "First published version of the Draft Hub analytics model. This establishes the V1 baseline. Future tweaks bump the version and are logged here.",
   "methodology_signature": {
     "tier_classifier": "NET = 3yr-games-weighted E+P rate − 0.5 × 3yr-games-weighted Dud rate",
@@ -28,6 +28,18 @@
     "lineup_efficiency": 0.012
   },
   "changes": [
+    {
+      "version": "1.7.12",
+      "date": "2026-05-11",
+      "type": "fix",
+      "summary": "Pick clock no longer auto-starts when the page opens. The clock is a LIVE-mode-only feature now: hidden in SIM, kicked on at the moment of Go LIVE, cleared when flipping back to SIM. Auto-sim already has its own per-pick countdown, so the live-mode banner clock would have been a phantom timer during mock drafts.",
+      "details": [
+        "renderPickClock(): bails (empty display) when STATE.simulationMode is true.",
+        "_pickClockEnsureStarted(): no-ops in SIM so we don't carry over a stale started_at if the user flips to LIVE later.",
+        "flipLiveMode() handler: SIM→LIVE stamps the clock from now (overwritten by MFL pick timestamp on the next refresh); LIVE→SIM clears state and re-renders the empty display.",
+        "Page-load bootstrap unchanged — it still calls the helpers, but they no-op cleanly in SIM (which is the default mode)."
+      ]
+    },
     {
       "version": "1.7.11",
       "date": "2026-05-11",

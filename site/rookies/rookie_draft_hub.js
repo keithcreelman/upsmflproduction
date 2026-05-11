@@ -127,6 +127,14 @@
     // (a) we have no started_at, or (b) the slot key changed. `opts.startedAtMs`
     // lets the caller seed the clock from an authoritative source (MFL
     // picks_made[-1].timestamp * 1000 in LIVE) instead of "now".
+    //
+    // The clock is a LIVE-mode-only feature — don't stamp anything in SIM
+    // so the clock stays cleanly off until the commish flips to LIVE.
+    if (STATE.simulationMode) {
+      STATE.activePickStartedAt = null;
+      STATE.activePickClockKey = null;
+      return;
+    }
     const active = STATE.live && STATE.live.active_pick;
     const key = _pickClockSlotKey(active);
     if (!active || !key) {
@@ -158,7 +166,11 @@
     if (!el) return;
     const mins = STATE.pickClockMins;
     const active = STATE.live && STATE.live.active_pick;
-    if (!mins || mins <= 0 || !active || !STATE.activePickStartedAt) {
+    // The pick clock is a LIVE-mode feature only — it shouldn't tick during
+    // SIM (the auto-sim has its own per-tick countdown). Hide the display
+    // entirely in SIM so owners aren't watching a phantom clock during
+    // mock drafts.
+    if (STATE.simulationMode || !mins || mins <= 0 || !active || !STATE.activePickStartedAt) {
       el.textContent = "";
       el.className = "lmb-clock";
       el.removeAttribute("data-state");
@@ -969,7 +981,7 @@
     try { sessionStorage.setItem("rdh_sim_mode", String(STATE.simulationMode)); } catch (e) {}
     renderLiveModeBanner();
     showToast(STATE.simulationMode ? "Switched to SIMULATE — picks won't hit MFL" : "🔴 LIVE MODE — picks will be submitted to MFL", STATE.simulationMode ? "ok" : "err");
-    // Mode flip toggles inbox visibility + polling.
+    // Mode flip toggles inbox visibility + polling + the pick clock.
     if (STATE.simulationMode) {
       if (TRADE_INBOX.pollTimer) clearInterval(TRADE_INBOX.pollTimer);
       // Drop any leftover items from a previous LIVE session.
@@ -979,11 +991,22 @@
         clearTimeout(_liveStatePollTimer);
         _liveStatePollTimer = null;
       }
+      // Pick clock OFF in SIM — clear state so we don't carry over a stale
+      // started_at if we flip back to LIVE later.
+      STATE.activePickStartedAt = null;
+      STATE.activePickClockKey = null;
+      renderPickClock();
     } else {
       _inboxStartPolling();
       // Kick off live-state polling immediately and pull a fresh state so the
-      // commissioner sees real picks the moment they flip to LIVE.
+      // commissioner sees real picks the moment they flip to LIVE. The
+      // refresh handler will seed the clock from MFL's pick timestamp.
       _refreshLiveDraftState({ initial: true });
+      // Stamp NOW as a fallback — the live-state refresh above will
+      // overwrite with the MFL timestamp if available, but if it races
+      // we still want the clock running from the moment of the flip.
+      _pickClockEnsureStarted();
+      renderPickClock();
     }
     _refreshInboxVisibility();
     _inboxRender();
