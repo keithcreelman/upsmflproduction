@@ -1,7 +1,7 @@
 {
-  "version": "1.7.1",
+  "version": "1.7.2",
   "released": "2026-05-11",
-  "label": "V1.7.1 — Roll back auto-generated other-owner trades (popup + Discord remain for user trades)",
+  "label": "V1.7.2 — LIVE trade Discord post moves from PROPOSE to ACCEPT (sim auto-accepts, live waits)",
   "description": "First published version of the Draft Hub analytics model. This establishes the V1 baseline. Future tweaks bump the version and are logged here.",
   "methodology_signature": {
     "tier_classifier": "NET = 3yr-games-weighted E+P rate − 0.5 × 3yr-games-weighted Dud rate",
@@ -28,6 +28,21 @@
     "lineup_efficiency": 0.012
   },
   "changes": [
+    {
+      "version": "1.7.2",
+      "date": "2026-05-11",
+      "type": "fix",
+      "summary": "LIVE-mode trade Discord post no longer fires on PROPOSAL submit. Real life: a proposal is just an offer until the other team accepts in MFL. Now: SIM mode auto-accepts (popup + Discord), LIVE mode shows 'Proposal sent — awaits acceptance' (no popup, no Discord) until the trade is actually accepted.",
+      "details": [
+        "Worker /api/trade LIVE path: removed the Discord post on successful MFL proposal submission. Returns discord_message_preview (echo of what would be sent) instead, with note: 'Discord announcement will fire when the trade is accepted.'",
+        "Frontend LIVE submit handler: result message now reads '📤 Proposal sent to <Partner> — awaits their acceptance in MFL.' Toast updated. No celebratory popup.",
+        "Frontend SIM submit handler unchanged — still fires popup + Discord (sim has no real other side; auto-accept is the right semantic).",
+        "Inbox accept (incoming trade): /api/trades/proposals/action wires through the trade-workbench infrastructure for accept/decline. Discord post on accept is a TODO — that needs hooking into the existing trade-workbench accept handler (large blast radius, separate iteration)."
+      ],
+      "deferred": [
+        "Discord post when an INCOMING trade gets accepted in LIVE mode — needs to wire into /api/trades/proposals/action's existing accept flow (which already handles salary adjustments, extensions, taxi sync). Touches shared trade-workbench infrastructure; better as its own iteration with focused testing."
+      ]
+    },
     {
       "version": "1.7.1",
       "date": "2026-05-11",

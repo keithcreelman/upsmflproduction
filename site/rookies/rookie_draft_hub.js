@@ -3800,15 +3800,11 @@
               source: "sim-user",
             });
           } else {
-            result.innerHTML = `<div style="color: var(--ok);">✅ Trade proposal sent to ${escapeHtml(franchises[toFid] || toFid)}.${stubNote}</div>`;
-            showToast("Trade sent", "ok");
-            const giveSummary = basket.give.map(a => a.display).join(" + ") || "—";
-            const receiveSummary = basket.receive.map(a => a.display).join(" + ") || "—";
-            showTradePopup({
-              fromName: myName, toName: franchises[toFid] || toFid,
-              fromGives: giveSummary, toGives: receiveSummary,
-              source: "live",
-            });
+            // LIVE mode: trade is a PROPOSAL — the other team has to accept
+            // in MFL. No Discord announcement yet, no celebratory popup.
+            // Just confirm the proposal was sent.
+            result.innerHTML = `<div style="color: var(--ok);">📤 Proposal sent to ${escapeHtml(franchises[toFid] || toFid)} — awaits their acceptance in MFL.${stubNote}</div>`;
+            showToast(`Proposal sent to ${franchises[toFid] || toFid} — waiting for them to accept`, "ok");
           }
         } else {
           result.innerHTML = `<div style="color: var(--err)">Failed: ${escapeHtml(data.error || data.mfl_response || JSON.stringify(data)).slice(0, 400)}</div>`;
