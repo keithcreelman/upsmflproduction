@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Rookie Draft Hub — UPS League</title>
-<link rel="stylesheet" href="rookie_draft_hub.css?v=2026.05.11.v1.7.22">
+<link rel="stylesheet" href="rookie_draft_hub.css?v=2026.05.11.v1.7.23">
 </head>
 <body>
 <header class="rdh-header">
@@ -436,7 +436,7 @@
       <h2>6th Round Rookie Draft — Random Order Selection</h2>
       <p class="small" style="color: var(--muted); margin: 0 0 6px;">
         R6 is IDP-only. Slot order is drawn live on
-        <strong>May 2, 2026 @ 6:00 PM ET</strong>. Teams are announced in reverse —
+        <strong>May 11, 2026 @ 9:00 PM ET</strong>. Teams are announced in reverse —
         the 12th pick first, then 11th, then 10th, etc. 10-second timer between picks.
       </p>
       <p class="small" style="color: var(--muted); margin: 0 0 10px;">
@@ -446,11 +446,12 @@
       <div id="r6-pre-live" class="r6-countdown" style="margin-bottom: 10px;">
         <div class="r6-banner">Time until Official R6 Drawing</div>
         <div class="r6-timer" id="r6-event-countdown">—</div>
-        <div class="r6-now" id="r6-event-countdown-label">May 2, 2026 · 6:00 PM ET</div>
+        <div class="r6-now" id="r6-event-countdown-label">May 11, 2026 · 9:00 PM ET</div>
       </div>
       <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px;">
         <button class="btn" id="r6-simulate-btn">Simulate (dry-run, non-binding)</button>
         <button class="btn warn" id="r6-start-btn" disabled title="Only the commissioner can run the official drawing">Start Official Selection (Commish Only)</button>
+        <button class="btn secondary" id="r6-announce-btn" hidden title="Commissioner only — post the kickoff announcement to #live Discord (one-time)">📢 Announce Kickoff to Discord</button>
         <button class="btn secondary" id="r6-reset-btn">Reset</button>
       </div>
       <div id="r6-countdown" class="r6-countdown"></div>
@@ -694,6 +695,6 @@
   <div class="rdh-modal" id="rdh-modal"></div>
 </div>
 
-<script src="rookie_draft_hub.js?v=2026.05.11.v1.7.22"></script>
+<script src="rookie_draft_hub.js?v=2026.05.11.v1.7.23"></script>
 </body>
 </html>

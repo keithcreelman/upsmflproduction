@@ -1,7 +1,7 @@
 {
-  "version": "1.7.22",
+  "version": "1.7.23",
   "released": "2026-05-11",
-  "label": "V1.7.22 — pendingTrades match fix: support 'offeringteam' sender + 'will_give_up'/'will_receive' (snake_case) asset fields. Trade picker shows Draft Picks before Players.",
+  "label": "V1.7.23 — R6 drawing rescheduled to tonight 9PM ET; Discord kickoff + final-order publish (idempotent, preview-then-confirm); R6 picks filtered out of trade modal (untradeable)",
   "description": "First published version of the Draft Hub analytics model. This establishes the V1 baseline. Future tweaks bump the version and are logged here.",
   "methodology_signature": {
     "tier_classifier": "NET = 3yr-games-weighted E+P rate − 0.5 × 3yr-games-weighted Dud rate",
@@ -28,6 +28,20 @@
     "lineup_efficiency": 0.012
   },
   "changes": [
+    {
+      "version": "1.7.23",
+      "date": "2026-05-11",
+      "type": "feature+fix",
+      "summary": "Three changes for the R6 drawing tonight: (1) countdown target moved from May 2 6PM ET → May 11 9PM ET (today). (2) New '📢 Announce Kickoff' commish-only button posts a one-time announcement to #live Discord with hub link, and the official drawing now auto-prompts to publish the FINAL ORDER to #live when complete. Both flows preview the EXACT message on screen first, then commish confirms. Worker is idempotent (scans Discord channel for marker tags) so re-clicks are no-ops. (3) R6 picks (round 6) are filtered out of the trade modal asset picker — they're untradeable per UPS rules.",
+      "details": [
+        "_startR6EventCountdown target updated to Date.UTC(2026, 4, 12, 1, 0, 0) — May 12 01:00 UTC = May 11 9PM ET (DST).",
+        "HTML labels: 'May 2, 2026 @ 6:00 PM ET' → 'May 11, 2026 @ 9:00 PM ET'.",
+        "Worker POST /api/r6/announce-kickoff: commish gate (requested_by must be commish fid). Builds a kickoff message with [r6-kickoff-2026] marker tag. Scans last 100 channel messages for the marker; if found, returns already_posted:true. dry_run:true returns preview without posting. Posts to live channel id 1498680803419357234.",
+        "Worker POST /api/r6/publish-final-order: same idempotent + dry-run pattern. Body carries order:[{pick, franchise_id, franchise_name}]. Builds a numbered list message with [r6-final-order-2026] marker.",
+        "Frontend: _r6OpenKickoffAnnounceModal + _r6OpenPublishOrderModal — two-step preview-then-confirm flows. r6Start auto-opens the publish-order modal when official drawing completes.",
+        "Trade picker: _isR6 helper filters round=6 from both current_picks and future_picks before rendering, so commish/owner can't accidentally include them in a trade."
+      ]
+    },
     {
       "version": "1.7.22",
       "date": "2026-05-11",

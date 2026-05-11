@@ -839,7 +839,11 @@
       if (confirm("Start OFFICIAL R6 draft order selection? This is binding.")) r6Start(false);
     });
     document.getElementById("r6-reset-btn").addEventListener("click", r6Reset);
-    // Enable Official button once we know the user is commish
+    const announceBtn = document.getElementById("r6-announce-btn");
+    if (announceBtn) {
+      announceBtn.addEventListener("click", () => _r6OpenKickoffAnnounceModal());
+    }
+    // Enable Official button + show Announce button once we know the user is commish
     _refreshCommishGating();
     // Start countdown timer to event
     _startR6EventCountdown();
@@ -3506,20 +3510,146 @@
   // ══════════════════════════════════════════════════════════════════════
   function _refreshCommishGating() {
     const btn = document.getElementById("r6-start-btn");
-    if (!btn) return;
-    if (STATE.me && STATE.me.is_commish) {
-      btn.disabled = false;
-      btn.title = "Start the official R6 order drawing";
-    } else {
-      btn.disabled = true;
-      btn.title = "Only the commissioner can run the official drawing";
+    const announceBtn = document.getElementById("r6-announce-btn");
+    const isCommish = !!(STATE.me && STATE.me.is_commish);
+    if (btn) {
+      btn.disabled = !isCommish;
+      btn.title = isCommish ? "Start the official R6 order drawing" : "Only the commissioner can run the official drawing";
     }
+    if (announceBtn) announceBtn.hidden = !isCommish;
+  }
+
+  // ── R6 Discord announcement modals ──
+  // Two-step flow: dry-run preview from worker (so we display the EXACT text
+  // Discord will see), commish confirms, then a second call posts for real.
+  // Worker is idempotent (scans channel for marker tag), so even if the user
+  // double-clicks we won't double-post.
+  async function _r6CallAnnounce(endpoint, extraBody = {}, dryRun = false) {
+    const me = STATE.me || {};
+    const requestedBy = me.franchise_id;
+    const hubUrl = (typeof window !== "undefined" && window.UPS_DRAFT_HUB_PARENT_URL)
+      || (window.location && window.location.href)
+      || "https://www48.myfantasyleague.com/2026/options?L=74598&O=07";
+    const r = await fetch(apiUrl(endpoint) + "?L=74598", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ requested_by: requestedBy, hub_url: hubUrl, dry_run: dryRun, ...extraBody }),
+    });
+    const data = await r.json().catch(() => null);
+    if (!r.ok || !data || data.ok === false) {
+      throw new Error((data && (data.error || data.detail)) || `worker returned ${r.status}`);
+    }
+    return data;
+  }
+
+  async function _r6OpenKickoffAnnounceModal() {
+    if (!STATE.me || !STATE.me.is_commish) return;
+    openModal(`
+      <h3>📢 Announce R6 Kickoff to Discord</h3>
+      <p class="small" style="color: var(--muted)">Loading message preview from worker…</p>
+      <div id="r6-announce-preview" style="margin-top:8px;"></div>
+      <div class="actions">
+        <button class="btn secondary" onclick="document.getElementById('rdh-modal-overlay').classList.remove('open')">Cancel</button>
+        <button class="btn warn" id="r6-announce-confirm" disabled>Post to #live Discord</button>
+      </div>
+      <div id="r6-announce-result" class="small" style="margin-top:8px;"></div>
+    `);
+    let preview = "";
+    let alreadyPosted = false;
+    try {
+      const dry = await _r6CallAnnounce("/api/r6/announce-kickoff", {}, true);
+      preview = dry.preview || "";
+      // If the worker's idempotency check already finds an existing post,
+      // surface it so we don't pretend we're about to post fresh.
+      alreadyPosted = !!dry.already_posted;
+    } catch (e) {
+      document.getElementById("r6-announce-preview").innerHTML =
+        `<div style="color:var(--err)">Preview failed: ${escapeHtml(String(e.message || e))}</div>`;
+      return;
+    }
+    document.getElementById("r6-announce-preview").innerHTML =
+      (alreadyPosted ? `<div class="small" style="color:var(--ok); margin-bottom:6px;">✓ Already posted — re-clicking will be a no-op.</div>` : "") +
+      `<div style="background:var(--panel-alt); padding:10px; border-radius:6px; white-space:pre-wrap; font-family: var(--font-base); border:1px solid var(--border);">${escapeHtml(preview)}</div>`;
+    const btn = document.getElementById("r6-announce-confirm");
+    btn.disabled = false;
+    btn.textContent = alreadyPosted ? "Already posted — close" : "Post to #live Discord";
+    btn.addEventListener("click", async () => {
+      const result = document.getElementById("r6-announce-result");
+      if (alreadyPosted) {
+        document.getElementById("rdh-modal-overlay").classList.remove("open");
+        return;
+      }
+      btn.disabled = true;
+      result.innerHTML = `<div style="color: var(--muted)">Posting…</div>`;
+      try {
+        const data = await _r6CallAnnounce("/api/r6/announce-kickoff", {}, false);
+        result.innerHTML = data.already_posted
+          ? `<div style="color: var(--warn)">⚠ Already posted earlier — no duplicate sent.</div>`
+          : `<div style="color: var(--ok)">✓ Posted to #live Discord.</div>`;
+        showToast(data.already_posted ? "Already posted earlier" : "📢 R6 kickoff announced in Discord", "ok");
+        setTimeout(() => document.getElementById("rdh-modal-overlay").classList.remove("open"), 1500);
+      } catch (e) {
+        result.innerHTML = `<div style="color: var(--err)">Failed: ${escapeHtml(String(e.message || e))}</div>`;
+        btn.disabled = false;
+      }
+    });
+  }
+
+  async function _r6OpenPublishOrderModal(orderArray) {
+    if (!STATE.me || !STATE.me.is_commish) return;
+    openModal(`
+      <h3>📢 Publish R6 Final Order to Discord</h3>
+      <p class="small" style="color: var(--muted)">The official drawing finished. Review the message below — it will post to <strong>#live</strong> exactly as shown.</p>
+      <div id="r6-publish-preview" style="margin-top:8px;"></div>
+      <div class="actions">
+        <button class="btn secondary" onclick="document.getElementById('rdh-modal-overlay').classList.remove('open')">Skip Posting</button>
+        <button class="btn warn" id="r6-publish-confirm" disabled>Post Final Order to #live</button>
+      </div>
+      <div id="r6-publish-result" class="small" style="margin-top:8px;"></div>
+    `);
+    let preview = "";
+    let alreadyPosted = false;
+    try {
+      const dry = await _r6CallAnnounce("/api/r6/publish-final-order", { order: orderArray }, true);
+      preview = dry.preview || "";
+      alreadyPosted = !!dry.already_posted;
+    } catch (e) {
+      document.getElementById("r6-publish-preview").innerHTML =
+        `<div style="color:var(--err)">Preview failed: ${escapeHtml(String(e.message || e))}</div>`;
+      return;
+    }
+    document.getElementById("r6-publish-preview").innerHTML =
+      (alreadyPosted ? `<div class="small" style="color:var(--ok); margin-bottom:6px;">✓ Final order already posted earlier — this will be a no-op.</div>` : "") +
+      `<div style="background:var(--panel-alt); padding:10px; border-radius:6px; white-space:pre-wrap; font-family: var(--font-base); border:1px solid var(--border);">${escapeHtml(preview)}</div>`;
+    const btn = document.getElementById("r6-publish-confirm");
+    btn.disabled = false;
+    btn.textContent = alreadyPosted ? "Already posted — close" : "Post Final Order to #live";
+    btn.addEventListener("click", async () => {
+      const result = document.getElementById("r6-publish-result");
+      if (alreadyPosted) {
+        document.getElementById("rdh-modal-overlay").classList.remove("open");
+        return;
+      }
+      btn.disabled = true;
+      result.innerHTML = `<div style="color: var(--muted)">Posting…</div>`;
+      try {
+        const data = await _r6CallAnnounce("/api/r6/publish-final-order", { order: orderArray }, false);
+        result.innerHTML = data.already_posted
+          ? `<div style="color: var(--warn)">⚠ Already posted earlier — no duplicate sent.</div>`
+          : `<div style="color: var(--ok)">✓ Final order posted to #live Discord.</div>`;
+        showToast(data.already_posted ? "Already posted earlier" : "📢 R6 final order announced", "ok");
+        setTimeout(() => document.getElementById("rdh-modal-overlay").classList.remove("open"), 1500);
+      } catch (e) {
+        result.innerHTML = `<div style="color: var(--err)">Failed: ${escapeHtml(String(e.message || e))}</div>`;
+        btn.disabled = false;
+      }
+    });
   }
 
   function _startR6EventCountdown() {
-    // Target: May 2, 2026 at 6:00 PM ET. ET = UTC-5 (standard) / UTC-4 (DST);
-    // early May is DST so UTC-4 → target = 22:00 UTC.
-    const target = Date.UTC(2026, 4, 2, 22, 0, 0);
+    // Target: May 11, 2026 at 9:00 PM ET. ET = UTC-4 in May (DST), so
+    // 9PM ET = 01:00 UTC the NEXT day (May 12, 01:00 UTC).
+    const target = Date.UTC(2026, 4, 12, 1, 0, 0);
     const timerEl = document.getElementById("r6-event-countdown");
     const labelEl = document.getElementById("r6-event-countdown-label");
     if (!timerEl) return;
@@ -3593,6 +3723,22 @@
     }
     document.getElementById("r6-now").innerHTML = `<div class="r6-announce">R6 Draft Order Complete ${isSimulate ? "(simulation)" : "✓"}</div>`;
     STATE.r6_running = false;
+    // After the OFFICIAL drawing finishes, immediately offer to publish
+    // the final order to Discord. Modal previews the message + commish
+    // confirms. Worker is idempotent so accidental double-confirm is fine.
+    if (!isSimulate && STATE.me && STATE.me.is_commish) {
+      // Sort ascending so pick 1 is first in the published list.
+      const orderForPost = STATE.r6_order
+        .slice()
+        .sort((a, b) => Number(a.pick) - Number(b.pick))
+        .map(o => ({
+          pick: Number(o.pick),
+          franchise_id: o.franchise_id,
+          franchise_name: o.franchise_name,
+        }));
+      // Tiny delay so the final on-screen "complete" message has a beat to land.
+      setTimeout(() => _r6OpenPublishOrderModal(orderForPost), 800);
+    }
   }
 
   function r6AppendOrder(entry) {
@@ -3888,10 +4034,14 @@
         isStub = true;
       }
       try {
-        // Combined picks list: current-year + future, sorted (current first by round/slot, then future by year/round)
+        // Combined picks list: current-year + future, sorted (current first by round/slot, then future by year/round).
+        // R6 picks are league-rule untradeable (UPS rule: no R6 trades) so we
+        // filter them out before the picker even renders. Both current_picks
+        // and future_picks may carry round=6 so apply to both.
+        const _isR6 = (p) => Number(p && p.round) === 6;
         const allPicks = []
-          .concat((data.current_picks || []).map(p => ({ ...p, _kind: "dp" })))
-          .concat((data.future_picks || []).map(p => ({ ...p, _kind: "fp" })));
+          .concat((data.current_picks || []).filter(p => !_isR6(p)).map(p => ({ ...p, _kind: "dp" })))
+          .concat((data.future_picks || []).filter(p => !_isR6(p)).map(p => ({ ...p, _kind: "fp" })));
         const renderGroup = (label, items, kind) => {
           if (!items || !items.length) return "";
           return `

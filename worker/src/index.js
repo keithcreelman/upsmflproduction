@@ -2831,6 +2831,120 @@ export default {
         });
       }
 
+      // ── POST /api/r6/announce-kickoff — commish posts the R6 drawing
+      // kickoff announcement to the live Discord channel ONCE. Idempotency
+      // via a unique marker tag in the message body — we scan recent channel
+      // messages for the marker before posting. Discord is the source of
+      // truth; no KV/D1 needed.
+      // Body: {requested_by, hub_url?, when_label?, dry_run?}
+      if (path === "/api/r6/announce-kickoff" && request.method === "POST") {
+        let body = {};
+        try { body = await request.json(); } catch (_) {}
+        const reqFid = _rdhPadFid(body.requested_by || "");
+        const commishFids = _rdhCommishFids();
+        if (!reqFid || !commishFids.includes(reqFid)) {
+          return jsonOut(403, { ok: false, error: "Commish-only — requested_by must be a commish franchise_id" });
+        }
+        const dryRun = body.dry_run === true;
+        const hubUrl = safeStr(body.hub_url || "https://www48.myfantasyleague.com/2026/options?L=74598&O=07");
+        const whenLabel = safeStr(body.when_label || "tonight at 9:00 PM ET");
+        const MARKER = "[r6-kickoff-2026]";
+        const msg = `🎲 **6th Round Rookie Draft Order — Live Drawing ${whenLabel}**\n\n` +
+          `Tune in to watch the random slot order get drawn live. Teams are announced in reverse — 12th pick first, then 11th, all the way to the 1st pick.\n\n` +
+          `Watch live → ${hubUrl}\n` +
+          `${MARKER}`;
+        const ch = _rdhDiscordChannel(true);  // live channel
+        const botToken = safeStr(env.DISCORD_BOT_TOKEN || env.DISCORD_BOT || env.Discord_bot || "");
+        if (!botToken || !ch) return jsonOut(500, { ok: false, error: "Discord bot token or channel id missing" });
+
+        // Idempotency: scan recent messages for the marker.
+        try {
+          const histR = await fetch(`https://discord.com/api/v10/channels/${encodeURIComponent(ch)}/messages?limit=100`, {
+            headers: { "Authorization": `Bot ${botToken}` },
+          });
+          if (histR.ok) {
+            const messages = await histR.json().catch(() => []);
+            const existing = Array.isArray(messages) ? messages.find(m => String(m.content || "").includes(MARKER)) : null;
+            if (existing) {
+              return jsonOut(200, {
+                ok: true, already_posted: true,
+                message_url: `https://discord.com/channels/@me/${ch}/${existing.id}`,
+                message_id: existing.id,
+                preview: msg,
+              });
+            }
+          }
+        } catch (e) { /* fall through, attempt the post */ }
+
+        if (dryRun) {
+          return jsonOut(200, { ok: true, dry_run: true, preview: msg, channel_id: ch });
+        }
+
+        const postR = await _rdhPostDiscord(ch, msg);
+        if (!postR || !postR.ok) {
+          return jsonOut(502, { ok: false, error: "Discord post failed", detail: postR && postR.error });
+        }
+        return jsonOut(200, { ok: true, posted: true, preview: msg, channel_id: ch });
+      }
+
+      // ── POST /api/r6/publish-final-order — commish posts the FINAL R6
+      // draft order to live Discord ONCE. Body carries the order array
+      // [{ pick, franchise_name, franchise_id }] from the frontend after
+      // the official drawing completes. Idempotent via marker tag.
+      if (path === "/api/r6/publish-final-order" && request.method === "POST") {
+        let body = {};
+        try { body = await request.json(); } catch (_) {}
+        const reqFid = _rdhPadFid(body.requested_by || "");
+        const commishFids = _rdhCommishFids();
+        if (!reqFid || !commishFids.includes(reqFid)) {
+          return jsonOut(403, { ok: false, error: "Commish-only — requested_by must be a commish franchise_id" });
+        }
+        const order = Array.isArray(body.order) ? body.order : [];
+        if (!order.length) return jsonOut(400, { ok: false, error: "order[] required" });
+        const dryRun = body.dry_run === true;
+        const hubUrl = safeStr(body.hub_url || "https://www48.myfantasyleague.com/2026/options?L=74598&O=07");
+        const MARKER = "[r6-final-order-2026]";
+        // Build a clean numbered list, sorted by pick ascending.
+        const sorted = order.slice().sort((a, b) => Number(a.pick) - Number(b.pick));
+        const lines = sorted.map(p => `  **${String(p.pick).padStart(2," ")}.** ${safeStr(p.franchise_name) || safeStr(p.franchise_id) || "—"}`);
+        const msg = `🎲 **6th Round Rookie Draft — Final Order**\n\n` +
+          `Drawn live. R6 is IDP-only.\n\n` +
+          lines.join("\n") + "\n\n" +
+          `Hub → ${hubUrl}\n` +
+          `${MARKER}`;
+        const ch = _rdhDiscordChannel(true);
+        const botToken = safeStr(env.DISCORD_BOT_TOKEN || env.DISCORD_BOT || env.Discord_bot || "");
+        if (!botToken || !ch) return jsonOut(500, { ok: false, error: "Discord bot token or channel id missing" });
+
+        // Idempotency check.
+        try {
+          const histR = await fetch(`https://discord.com/api/v10/channels/${encodeURIComponent(ch)}/messages?limit=100`, {
+            headers: { "Authorization": `Bot ${botToken}` },
+          });
+          if (histR.ok) {
+            const messages = await histR.json().catch(() => []);
+            const existing = Array.isArray(messages) ? messages.find(m => String(m.content || "").includes(MARKER)) : null;
+            if (existing) {
+              return jsonOut(200, {
+                ok: true, already_posted: true,
+                message_url: `https://discord.com/channels/@me/${ch}/${existing.id}`,
+                message_id: existing.id,
+                preview: msg,
+              });
+            }
+          }
+        } catch (e) { /* fall through */ }
+
+        if (dryRun) {
+          return jsonOut(200, { ok: true, dry_run: true, preview: msg, channel_id: ch });
+        }
+        const postR = await _rdhPostDiscord(ch, msg);
+        if (!postR || !postR.ok) {
+          return jsonOut(502, { ok: false, error: "Discord post failed", detail: postR && postR.error });
+        }
+        return jsonOut(200, { ok: true, posted: true, preview: msg, channel_id: ch });
+      }
+
       // ── POST /api/trade/process — COMMISH-ONLY one-shot trade execution.
       // During a live draft, two owners often agree on a trade verbally
       // (Slack / verbal / Discord chat). Instead of one of them proposing
