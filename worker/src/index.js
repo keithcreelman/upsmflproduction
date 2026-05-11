@@ -2660,19 +2660,181 @@ export default {
           return jsonOut(502, { ok: false, error: `MFL fetch failed: ${e?.message || String(e)}` });
         }
         const mflOk = mflStatus >= 200 && mflStatus < 300 && !/error/i.test(mflResp);
-        // NO Discord post on LIVE proposal submit. The trade is just a
-        // PROPOSAL until the other team accepts in MFL. Discord
-        // announcements should fire when the trade is actually accepted —
-        // that path goes through /api/trades/proposals/action with
-        // action=ACCEPT (handled by the trade-workbench infrastructure).
+        // Try to extract MFL's trade_id so the frontend can call
+        // /api/trade/respond (commish-only act-as-partner accept) right
+        // after. MFL's response format varies — try a few patterns.
+        let mflTradeId = "";
+        if (mflOk) {
+          const m1 = mflResp.match(/TradeID[^\d]*(\d{6,})/i);
+          const m2 = mflResp.match(/trade[_ ]?id[^\d]*(\d{6,})/i);
+          const m3 = mflResp.match(/"id"\s*:\s*"?(\d{6,})"?/i);
+          mflTradeId = (m1 && m1[1]) || (m2 && m2[1]) || (m3 && m3[1]) || "";
+        }
+        // NO Discord post on LIVE proposal submit. Discord fires when
+        // the trade is actually accepted — either by the partner in MFL
+        // OR by the commish via /api/trade/respond.
         return jsonOut(mflOk ? 200 : 502, {
           ok: mflOk, status: mflStatus, mfl_response: mflResp,
-          from_franchise_name: fromName, to_franchise_name: toName,
-          // Echo what the message WOULD look like — for the proposing
-          // owner's reference. Not actually posted yet.
+          from_franchise_id: fromFid, from_franchise_name: fromName,
+          to_franchise_id: toFid, to_franchise_name: toName,
+          mfl_trade_id: mflTradeId,
           discord_message_preview: tradeDiscord,
           discord_posted: false,
-          note: "Proposal sent to MFL. Discord announcement will fire when the trade is accepted.",
+          note: mflTradeId
+            ? "Proposal sent. Commish can act as the partner via /api/trade/respond."
+            : "Proposal sent. Discord announcement will fire when accepted.",
+        });
+      }
+
+      // ── POST /api/trade/process — COMMISH-ONLY one-shot trade execution.
+      // During a live draft, two owners often agree on a trade verbally
+      // (Slack / verbal / Discord chat). Instead of one of them proposing
+      // and the other accepting in MFL UI, the commish punches it in here
+      // and the trade is processed immediately on both sides.
+      //
+      // Two-step MFL flow done server-side:
+      //   1. POST tradeProposal as fromFid → MFL records, returns trade_id
+      //   2. POST tradeResponse with TRADE_ID + RESPONSE=accept + FRANCHISE_ID=toFid
+      //      → MFL accepts on behalf of toFid (commish APIKEY allows this)
+      //
+      // Posts to LIVE Discord channel since the trade completes immediately.
+      if (path === "/api/trade/process" && request.method === "POST") {
+        let body = {};
+        try { body = await request.json(); } catch (_) {}
+        const fromFid = _rdhPadFid(body.from_fid || "");
+        const toFid = _rdhPadFid(body.to_fid || "");
+        const give = Array.isArray(body.give) ? body.give.map(safeStr).filter(Boolean) : [];
+        const receive = Array.isArray(body.receive) ? body.receive.map(safeStr).filter(Boolean) : [];
+        const comments = safeStr(body.comments || "");
+        if (!fromFid || !toFid) return jsonOut(400, { ok: false, error: "from_fid and to_fid required" });
+        if (fromFid === toFid) return jsonOut(400, { ok: false, error: "cannot trade with self" });
+        if (!give.length && !receive.length) return jsonOut(400, { ok: false, error: "give[] or receive[] must have at least one asset" });
+
+        // Commish gate — caller must identify themselves as a commish franchise.
+        const commishFids = _rdhCommishFids();
+        const reqFid = _rdhPadFid(body.requested_by || "");
+        if (!reqFid || !commishFids.includes(reqFid)) {
+          return jsonOut(403, { ok: false, error: "Commish-only action — requested_by must be a commish franchise_id" });
+        }
+
+        const apiKey = safeStr(env.MFL_APIKEY || "");
+        if (!apiKey) return jsonOut(500, { ok: false, error: "MFL_APIKEY missing in worker env" });
+        const leagueId = _rdhLeagueId();
+        const year = _rdhYear();
+
+        // Reuse asset-id translator from /api/trade
+        const _toMflAsset = (a) => {
+          if (a.startsWith("P_")) return a.slice(2);
+          if (a.startsWith("FP_")) {
+            const [, yr, rd, orig] = a.split("_");
+            return `FP_${orig}_${yr}_${rd}`;
+          }
+          if (a.startsWith("DP_")) {
+            const [, , rd, slot] = a.split("_");
+            return `DP_${String(Number(rd) - 1).padStart(2, "0")}_${String(Number(slot) - 1).padStart(2, "0")}`;
+          }
+          if (a.startsWith("BB_")) return `BB_${a.slice(3)}`;
+          return a;
+        };
+        const giveMfl = give.map(_toMflAsset).join(",");
+        const receiveMfl = receive.map(_toMflAsset).join(",");
+        const fromName = await _rdhFranchiseName(fromFid);
+        const toName = await _rdhFranchiseName(toFid);
+
+        // Step 1 — propose
+        const proposeUrl = `https://www48.myfantasyleague.com/${year}/import?TYPE=tradeProposal&L=${leagueId}&APIKEY=${encodeURIComponent(apiKey)}&JSON=1`;
+        const proposeForm = new URLSearchParams();
+        proposeForm.set("FRANCHISE_ID", fromFid);
+        proposeForm.set("OFFEREDTO", toFid);
+        proposeForm.set("WILL_GIVE_UP", giveMfl);
+        proposeForm.set("WILL_RECEIVE", receiveMfl);
+        if (comments) proposeForm.set("COMMENTS", "[Commish-processed] " + comments);
+        let proposeResp = "", proposeStatus = 0;
+        try {
+          const r = await fetch(proposeUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded", "User-Agent": "upsmflproduction-worker" },
+            body: proposeForm.toString(),
+          });
+          proposeStatus = r.status;
+          proposeResp = await r.text();
+        } catch (e) {
+          return jsonOut(502, { ok: false, step: "propose", error: `MFL fetch failed: ${e?.message || String(e)}` });
+        }
+        const proposeOk = proposeStatus >= 200 && proposeStatus < 300 && !/error/i.test(proposeResp);
+        if (!proposeOk) {
+          return jsonOut(502, { ok: false, step: "propose", mfl_status: proposeStatus, mfl_response: proposeResp });
+        }
+
+        // Extract trade_id from MFL's response (varies by format)
+        const m1 = proposeResp.match(/TradeID[^\d]*(\d{6,})/i);
+        const m2 = proposeResp.match(/trade[_ ]?id[^\d]*(\d{6,})/i);
+        const m3 = proposeResp.match(/"id"\s*:\s*"?(\d{6,})"?/i);
+        const tradeId = (m1 && m1[1]) || (m2 && m2[1]) || (m3 && m3[1]) || "";
+        if (!tradeId) {
+          return jsonOut(502, { ok: false, step: "extract_trade_id",
+            error: "Trade was proposed but MFL response didn't include a parseable trade_id",
+            propose_response: proposeResp });
+        }
+
+        // Step 2 — accept on behalf of toFid
+        const acceptUrl = `https://www48.myfantasyleague.com/${year}/import?TYPE=tradeResponse&L=${leagueId}&APIKEY=${encodeURIComponent(apiKey)}&JSON=1`;
+        const acceptForm = new URLSearchParams();
+        acceptForm.set("TRADE_ID", tradeId);
+        acceptForm.set("RESPONSE", "accept");
+        acceptForm.set("FRANCHISE_ID", toFid);
+        acceptForm.set("COMMENTS", "[Commish-processed]");
+        let acceptResp = "", acceptStatus = 0;
+        try {
+          const r = await fetch(acceptUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded", "User-Agent": "upsmflproduction-worker" },
+            body: acceptForm.toString(),
+          });
+          acceptStatus = r.status;
+          acceptResp = await r.text();
+        } catch (e) {
+          return jsonOut(502, { ok: false, step: "accept", error: `MFL fetch failed: ${e?.message || String(e)}`, trade_id: tradeId });
+        }
+        const acceptOk = acceptStatus >= 200 && acceptStatus < 300 && !/error/i.test(acceptResp);
+
+        // Build readable Discord message (same format as /api/trade)
+        const _readableAssets = (idsCsv) => {
+          if (!idsCsv) return "—";
+          return idsCsv.split(",").map(id => {
+            const fp = id.match(/^FP_(\d{4})_(\d{4})_(\d+)$/);
+            if (fp) return `${fp[2]} R${fp[3]}`;
+            const dp = id.match(/^DP_(\d{2})_(\d{2})$/);
+            if (dp) return `R${Number(dp[1]) + 1}.${String(Number(dp[2]) + 1).padStart(2, "0")}`;
+            const bb = id.match(/^BB_(\d+)$/);
+            if (bb) return `$${Number(bb[1]).toLocaleString()}`;
+            return id.replace(/^P_/, "Player #");
+          }).join(" + ");
+        };
+        const tradeDiscord = `🔄 TRADE PROCESSED (Commish) — ${fromName} ↔ ${toName}\n` +
+          `   ${fromName} sends: ${_readableAssets(giveMfl)}\n` +
+          `   ${toName} sends: ${_readableAssets(receiveMfl)}` +
+          (comments ? `\n   _"${comments.slice(0, 200)}"_` : "");
+        let discordResult = null;
+        if (acceptOk) {
+          try {
+            const ch = _rdhDiscordChannel(true);
+            discordResult = await _rdhPostDiscord(ch, tradeDiscord);
+          } catch (e) { discordResult = { ok: false, error: String(e) }; }
+        }
+
+        return jsonOut(acceptOk ? 200 : 502, {
+          ok: acceptOk,
+          step: acceptOk ? "complete" : "accept_failed",
+          trade_id: tradeId,
+          from_franchise_id: fromFid, from_franchise_name: fromName,
+          to_franchise_id: toFid, to_franchise_name: toName,
+          propose_status: proposeStatus,
+          accept_status: acceptStatus,
+          accept_response: acceptResp,
+          discord_message: tradeDiscord,
+          discord_posted: !!(discordResult && discordResult.ok),
+          discord_error: discordResult && discordResult.error,
         });
       }
 

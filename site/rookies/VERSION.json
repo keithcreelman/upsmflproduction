@@ -1,7 +1,7 @@
 {
-  "version": "1.7.3",
+  "version": "1.7.4",
   "released": "2026-05-11",
-  "label": "V1.7.3 — Act as partner: SIM trades show inline Accept/Counter/Decline panel",
+  "label": "V1.7.4 — Commish 'Process Trade' (LIVE one-shot propose+accept) + revert SIM act-as-partner",
   "description": "First published version of the Draft Hub analytics model. This establishes the V1 baseline. Future tweaks bump the version and are logged here.",
   "methodology_signature": {
     "tier_classifier": "NET = 3yr-games-weighted E+P rate − 0.5 × 3yr-games-weighted Dud rate",
@@ -28,6 +28,25 @@
     "lineup_efficiency": 0.012
   },
   "changes": [
+    {
+      "version": "1.7.4",
+      "date": "2026-05-11",
+      "type": "feature",
+      "summary": "New commish-only 'Process Trade' button in LIVE mode — when two owners agree on a trade verbally during the draft, the commish punches it in and the trade is processed immediately on both sides via MFL APIKEY (propose + auto-accept on behalf of partner). SIM act-as-partner panel rolled back per user request.",
+      "details": [
+        "SIM mode behavior reverted to v1.7.1: trade auto-applies on submit, popup fires, Discord posts to test channel. No more 'act as partner' panel.",
+        "LIVE mode for non-commish owners unchanged from v1.7.2: 'Submit Proposal LIVE' → MFL records proposal → other team accepts in MFL UI.",
+        "LIVE mode for commish: button reads '🔨 Process Trade (Commish)'. Click triggers a confirm dialog showing both sides of the trade and 'irreversible' warning. On confirm, hits new /api/trade/process endpoint:",
+        "  1. POST tradeProposal as fromFid → MFL records, returns trade_id",
+        "  2. Parse trade_id from MFL response (handles 3 format variations)",
+        "  3. POST tradeResponse with TRADE_ID + RESPONSE=accept + FRANCHISE_ID=toFid",
+        "  4. Both sides committed in MFL — irreversible without manual cleanup",
+        "  5. Discord post to LIVE channel: '🔄 TRADE PROCESSED (Commish) — Bombers ↔ Hawks · Bombers sends: 2027 R1 · Hawks sends: R1.07'",
+        "  6. On-screen popup banner with red border (live styling)",
+        "Commish gate on the worker side: requested_by must match a franchise_id in COMMISH_FRANCHISE_IDS env var. 403 if not.",
+        "Use case: Eric and Blake have a discussion mid-draft, agree on a swap. Eric (or Blake) tells the commish. Commish opens trade modal, builds the trade, hits Process. Both teams' rosters/picks update in MFL within seconds. No back-and-forth proposal/acceptance choreography needed."
+      ]
+    },
     {
       "version": "1.7.3",
       "date": "2026-05-11",
