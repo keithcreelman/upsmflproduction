@@ -164,6 +164,7 @@
     "hpm-widget": "/site/hpm-widget.html",
     "hpm-reports": "/site/hpm-reports.html",
     "hpm-draft-hub": "/site/hpm-draft-hub.html",
+    "hpm-myteam": "/site/hpm-myteam.html",
     "hpm-stats-workbench": "/site/hpm-stats-workbench.html"
   };
 
