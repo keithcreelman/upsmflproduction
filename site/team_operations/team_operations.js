@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var BUILD = "2026.05.11.05";
+  var BUILD = "2026.05.11.06";
   var BOOT_FLAG = "__ups_team_operations_boot_" + BUILD;
   if (window[BOOT_FLAG]) {
     if (typeof window.UPS_TEAMOPS_INIT === "function") window.UPS_TEAMOPS_INIT();
@@ -74,8 +74,25 @@
     playerNews: null,
     capAmount: 0,
     loadErrors: [],
-    lastLoaded: null
+    lastLoaded: null,
+    // Per-player bundle cache populated lazily via /api/player-bundle on
+    // the Cloudflare worker. Same endpoint Draft Hub + Front Office use,
+    // so once any hub primes a player, all three benefit (worker edge cache).
+    playerBundles: {},
+    teamNewsItems: null,
+    teamNewsLoading: false
   };
+
+  // Cloudflare worker base for /api/player-bundle calls. Override via
+  // window.UPS_TEAMOPS_API_BASE for local dev / preview deploys.
+  function workerBase() {
+    var override = (window.UPS_TEAMOPS_API_BASE || window.UPS_DRAFT_HUB_API_BASE || "").trim();
+    if (override) return override.replace(/\/+$/, "");
+    return "https://upsmflproduction.keith-creelman.workers.dev";
+  }
+  function workerUrl(path) {
+    return workerBase() + path;
+  }
 
   var els = {};
 
@@ -497,6 +514,7 @@
         ? '<span class="tops-inj tops-inj-' + escapeHtml(injury.status || "?") + '" title="' + escapeHtml(injury.details || "") + '">' + escapeHtml(injury.status || "") + '</span>'
         : '';
       return {
+        id: String(r.id),
         pos: safeStr(p.position),
         name: safeStr(p.name) || r.id,
         team: safeStr(p.team),
@@ -519,7 +537,7 @@
     }
 
     el.innerHTML = [
-      '<div class="tops-card-title">My Roster <span class="tops-count">' + rows.length + '</span></div>',
+      '<div class="tops-card-title">My Roster <span class="tops-count">' + rows.length + '</span> <span class="tops-card-hint">tap a player for profile + news</span></div>',
       '<div class="tops-roster-table-wrap">',
       '<table class="tops-roster-table">',
       '  <thead><tr><th>Pos</th><th>Player</th><th>Team</th><th class="num">Salary</th><th>Contract</th><th>Status</th></tr></thead>',
@@ -533,7 +551,9 @@
         var salaryCell = r.isTaxi
           ? '<span style="color:var(--warn,#fbbf24); opacity:0.9;">' + fmtUsd(r.salary) + '</span>'
           : (r.salary > 0 ? fmtUsd(r.salary) : '—');
-        return '<tr' + (r.isTaxi ? ' class="is-taxi"' : '') + '>' +
+        // data-pid powers the click → profile-modal handler below. tabindex+role
+        // make the row keyboard-actionable (Enter/Space).
+        return '<tr class="tops-roster-row' + (r.isTaxi ? ' is-taxi' : '') + '" data-pid="' + escapeHtml(r.id) + '" tabindex="0" role="button" aria-label="Open ' + escapeHtml(r.name) + ' profile">' +
           '<td><span class="tops-pos tops-pos-' + escapeHtml(r.pos) + '">' + escapeHtml(r.pos) + '</span></td>' +
           '<td>' + escapeHtml(r.name) + ' ' + r.injuryBadge + taxiBadge + '</td>' +
           '<td>' + escapeHtml(r.team) + '</td>' +
@@ -546,32 +566,20 @@
       '</table>',
       '</div>'
     ].join("");
+    // Wire click + keyboard activation on each row.
+    el.querySelectorAll(".tops-roster-row").forEach(function (tr) {
+      tr.addEventListener("click", function () { openPlayerProfileModal(tr.getAttribute("data-pid")); });
+      tr.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openPlayerProfileModal(tr.getAttribute("data-pid")); }
+      });
+    });
   }
 
   // ----- Card: News (skeleton) -----
-  function renderNews() {
-    var el = els.cards.news;
-    if (!el) return;
-    var inj = (state.injuries && asArray(state.injuries.injuries && state.injuries.injuries.injury)) || [];
-    var mine = getMyRoster();
-    var mineIds = {};
-    mine.forEach(function (p) { mineIds[p.id] = true; });
-    var myInj = inj.filter(function (i) { return mineIds[String(i.id)]; });
-
-    var items = myInj.slice(0, 8).map(function (i) {
-      var p = playerById(i.id) || {};
-      return '<li class="tops-news-item">' +
-        '<span class="tops-inj tops-inj-' + escapeHtml(i.status || "?") + '">' + escapeHtml(i.status || "?") + '</span> ' +
-        '<strong>' + escapeHtml(p.name || i.id) + '</strong> — ' + escapeHtml(i.details || "") +
-        '</li>';
-    }).join("");
-
-    el.innerHTML = [
-      '<div class="tops-card-title">News &amp; Injuries <span class="tops-count">' + myInj.length + '</span></div>',
-      myInj.length ? '<ul class="tops-news-list">' + items + '</ul>'
-        : '<div class="tops-empty">No injury designations on your roster. Full news feed ships in Phase 2 (Sleeper integration).</div>'
-    ].join("");
-  }
+  // Old injury-only renderNews removed in v1.7.36. The full news-feed
+  // implementation lives further down (uses /api/player-bundle for real
+  // headlines, not just injury statuses) and is wired through renderAll
+  // via the same name. Search for "News Feed for owned players".
 
   // ----- Differentiator cards (skeletons) -----
   function renderNextDecision() {
@@ -770,6 +778,210 @@
     renderFuturePicks();
     renderSchedule();
     renderCalendar();
+  }
+
+  // ── Player Bundle (worker /api/player-bundle) ──
+  // Cached per-pid. Returns the same shape Draft Hub + Front Office consume:
+  // { player_id, profile (MFL playerProfile + DETAILS merge), news, injuries, ... }
+  function fetchPlayerBundle(pid) {
+    var key = String(pid);
+    if (state.playerBundles[key]) return Promise.resolve(state.playerBundles[key]);
+    var url = workerUrl("/api/player-bundle?L=" + encodeURIComponent(state.ctx.leagueId) +
+                        "&YEAR=" + encodeURIComponent(state.ctx.year) +
+                        "&pid=" + encodeURIComponent(pid));
+    return fetch(url, { cache: "no-store" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (data) {
+        if (data) state.playerBundles[key] = data;
+        return data;
+      })
+      .catch(function () { return null; });
+  }
+
+  // ── Player Profile Modal (click any player to open) ──
+  // Uses /api/player-bundle for live MFL data (career stats, news, injury,
+  // headshot URL). Mirrors the Bio + News surfaces from the Front Office
+  // profile but is intentionally lighter than Front Office's 4-tab modal —
+  // owners on My Team need quick context, not the full editing surface.
+  // For anything more, the modal links out to the Front Office page.
+  function openPlayerProfileModal(pid) {
+    if (!pid) return;
+    closePlayerProfileModal();  // collapse any prior open
+    var overlay = document.createElement("div");
+    overlay.id = "topsProfileOverlay";
+    overlay.className = "tops-profile-overlay";
+    overlay.innerHTML =
+      '<div class="tops-profile-modal" role="dialog" aria-modal="true">' +
+      '  <button class="tops-profile-close" aria-label="Close">×</button>' +
+      '  <div class="tops-profile-body" id="topsProfileBody">' +
+      '    <div class="tops-empty">Loading player profile…</div>' +
+      '  </div>' +
+      '</div>';
+    document.body.appendChild(overlay);
+    overlay.addEventListener("click", function (e) {
+      if (e.target === overlay) closePlayerProfileModal();
+    });
+    overlay.querySelector(".tops-profile-close").addEventListener("click", closePlayerProfileModal);
+    document.addEventListener("keydown", _topsProfileEsc);
+
+    fetchPlayerBundle(pid).then(function (bundle) {
+      var body = document.getElementById("topsProfileBody");
+      if (!body) return;
+      if (!bundle) {
+        body.innerHTML = '<div class="tops-empty" style="color:var(--tops-bad,#ff6b6b);">Could not load profile (worker unreachable or unknown player ID).</div>';
+        return;
+      }
+      body.innerHTML = renderProfileBundle(bundle, pid);
+    });
+  }
+  function closePlayerProfileModal() {
+    var ov = document.getElementById("topsProfileOverlay");
+    if (ov && ov.parentNode) ov.parentNode.removeChild(ov);
+    document.removeEventListener("keydown", _topsProfileEsc);
+  }
+  function _topsProfileEsc(e) { if (e.key === "Escape") closePlayerProfileModal(); }
+
+  function renderProfileBundle(bundle, pid) {
+    var profile = (bundle && bundle.profile && bundle.profile.playerProfile) || {};
+    var player = profile.player || {};
+    var name = safeStr(player.name || profile.name || "Player #" + pid);
+    var pos = safeStr(player.position || "");
+    var team = safeStr(player.team || "");
+    var jersey = safeStr(player.jersey || player.jersey_number || "");
+    var hgt = safeStr(player.height || "");
+    var wgt = safeStr(player.weight || "");
+    var dob = safeStr(player.birthdate || "");
+    var college = safeStr(player.college || "");
+    var newsItems = asArray(bundle && bundle.news);
+    if (!newsItems.length && bundle && bundle.profile && bundle.profile.playerProfile) {
+      newsItems = asArray(bundle.profile.playerProfile.news);
+    }
+    // Sort newest first (timestamp may be unix seconds string).
+    newsItems = newsItems.slice().sort(function (a, b) {
+      return Number(b.timestamp || 0) - Number(a.timestamp || 0);
+    });
+    // Injury overlay
+    var inj = getInjuryFor(String(pid));
+    var injHtml = inj
+      ? '<div class="tops-profile-injury"><strong>' + escapeHtml(inj.status || "") + '</strong> — ' + escapeHtml(safeStr(inj.details) || "no detail") + '</div>'
+      : "";
+    var bioBits = [];
+    if (jersey) bioBits.push("#" + jersey);
+    if (pos) bioBits.push(pos);
+    if (team) bioBits.push(team);
+    if (hgt) bioBits.push(hgt);
+    if (wgt) bioBits.push(wgt + " lbs");
+    if (college) bioBits.push(college);
+    if (dob) bioBits.push("DOB " + dob);
+    var fullProfileHref = "https://www.myfantasyleague.com/" + encodeURIComponent(state.ctx.year) +
+      "/options?L=" + encodeURIComponent(state.ctx.leagueId) +
+      "&O=04&P=" + encodeURIComponent(pid);
+    var newsHtml = newsItems.length
+      ? '<ul class="tops-profile-news">' + newsItems.slice(0, 12).map(function (n) {
+          var when = n.timestamp ? new Date(Number(n.timestamp) * 1000).toLocaleDateString() : "";
+          var src = safeStr(n.source) || safeStr(n.author);
+          var headline = safeStr(n.headline) || safeStr(n.title);
+          var body = safeStr(n.story) || safeStr(n.body);
+          return '<li class="tops-profile-news-item">' +
+            '<div class="tops-profile-news-meta">' + escapeHtml(when) + (src ? ' · ' + escapeHtml(src) : '') + '</div>' +
+            (headline ? '<div class="tops-profile-news-head">' + escapeHtml(headline) + '</div>' : '') +
+            (body ? '<div class="tops-profile-news-body">' + escapeHtml(body.slice(0, 600)) + '</div>' : '') +
+            '</li>';
+        }).join("") + '</ul>'
+      : '<div class="tops-empty">No recent news for this player.</div>';
+    return [
+      '<div class="tops-profile-head">',
+      '  <h3 class="tops-profile-name">' + escapeHtml(name) + '</h3>',
+      bioBits.length ? '  <div class="tops-profile-bio">' + escapeHtml(bioBits.join(" · ")) + '</div>' : '',
+      injHtml,
+      '</div>',
+      '<div class="tops-profile-section-title">Recent News</div>',
+      newsHtml,
+      '<div class="tops-profile-actions">',
+      '  <a class="tops-link-pill" href="' + fullProfileHref + '" target="_top">Open in MFL →</a>',
+      '</div>'
+    ].join("");
+  }
+
+  // ── News Feed for owned players ──
+  // Replaces the prior News card (which only surfaced injuries). Pulls
+  // /api/player-bundle for each owned player (worker caches per-pid),
+  // collects news[], merges + sorts by recency, shows top 12.
+  function renderNews() {
+    var el = els.cards.news;
+    if (!el) return;
+    var roster = getMyRoster();
+    if (!roster.length) {
+      el.innerHTML = '<div class="tops-card-title">News & Injuries</div><div class="tops-empty">No roster loaded.</div>';
+      return;
+    }
+    if (!state.teamNewsItems && !state.teamNewsLoading) {
+      state.teamNewsLoading = true;
+      el.innerHTML = '<div class="tops-card-title">News & Injuries</div><div class="tops-empty">Loading news for your roster…</div>';
+      var pids = roster.map(function (r) { return r.id; }).filter(Boolean);
+      Promise.all(pids.map(fetchPlayerBundle)).then(function (bundles) {
+        var items = [];
+        bundles.forEach(function (b, i) {
+          if (!b) return;
+          var pid = pids[i];
+          var pInfo = playerById(pid) || {};
+          var newsArr = asArray(b.news);
+          if (!newsArr.length && b.profile && b.profile.playerProfile) {
+            newsArr = asArray(b.profile.playerProfile.news);
+          }
+          newsArr.forEach(function (n) {
+            items.push({
+              pid: pid,
+              player: safeStr(pInfo.name) || ("Player #" + pid),
+              position: safeStr(pInfo.position),
+              team: safeStr(pInfo.team),
+              when: Number(n.timestamp || 0),
+              headline: safeStr(n.headline) || safeStr(n.title),
+              body: safeStr(n.story) || safeStr(n.body),
+              source: safeStr(n.source) || safeStr(n.author)
+            });
+          });
+        });
+        items.sort(function (a, b) { return b.when - a.when; });
+        state.teamNewsItems = items;
+        state.teamNewsLoading = false;
+        renderNews();
+      }).catch(function () {
+        state.teamNewsLoading = false;
+        el.innerHTML = '<div class="tops-card-title">News & Injuries</div><div class="tops-empty" style="color:var(--tops-bad,#ff6b6b);">News fetch failed. Refresh to retry.</div>';
+      });
+      return;
+    }
+    var items = state.teamNewsItems || [];
+    var top = items.slice(0, 12);
+    if (!top.length) {
+      el.innerHTML = '<div class="tops-card-title">News & Injuries</div><div class="tops-empty">No recent news on your roster. Injuries below if any.</div>';
+      return;
+    }
+    el.innerHTML = [
+      '<div class="tops-card-title">News & Injuries <span class="tops-count">' + items.length + '</span></div>',
+      '<ul class="tops-news-list">',
+      top.map(function (n) {
+        var when = n.when ? new Date(n.when * 1000).toLocaleDateString() : "";
+        return '<li class="tops-news-item" data-pid="' + escapeHtml(n.pid) + '" tabindex="0" role="button" aria-label="Open ' + escapeHtml(n.player) + ' profile">' +
+          '<div class="tops-news-row1">' +
+            '<span class="tops-news-player">' + escapeHtml(n.player) + '</span>' +
+            (n.position ? '<span class="tops-news-pos">' + escapeHtml(n.position) + '</span>' : '') +
+            (when ? '<span class="tops-news-when">' + escapeHtml(when) + '</span>' : '') +
+          '</div>' +
+          (n.headline ? '<div class="tops-news-head">' + escapeHtml(n.headline) + '</div>' : '') +
+          (n.body ? '<div class="tops-news-body">' + escapeHtml(n.body.slice(0, 220)) + (n.body.length > 220 ? '…' : '') + '</div>' : '') +
+          '</li>';
+      }).join(""),
+      '</ul>'
+    ].join("");
+    // Wire each item to open the player profile modal.
+    el.querySelectorAll(".tops-news-item").forEach(function (li) {
+      li.addEventListener("click", function () { openPlayerProfileModal(li.getAttribute("data-pid")); });
+      li.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openPlayerProfileModal(li.getAttribute("data-pid")); }
+      });
+    });
   }
 
   // Friendly empty state when no franchise could be resolved. Surfaces a

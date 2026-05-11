@@ -1,7 +1,7 @@
 {
-  "version": "1.7.35",
+  "version": "1.7.36",
   "released": "2026-05-11",
-  "label": "V1.7.35 — My Team: route MFL fetches through same-origin host (was api.myfantasyleague.com which 302s and breaks CORS preflight chain — caused 12/12 endpoint errors and the all-zero page)",
+  "label": "V1.7.36 — My Team: real player news feed (per-player /api/player-bundle aggregation) + click any player → profile modal with Bio + Recent News + Open in MFL link",
   "description": "First published version of the Draft Hub analytics model. This establishes the V1 baseline. Future tweaks bump the version and are logged here.",
   "methodology_signature": {
     "tier_classifier": "NET = 3yr-games-weighted E+P rate − 0.5 × 3yr-games-weighted Dud rate",
@@ -28,6 +28,22 @@
     "lineup_efficiency": 0.012
   },
   "changes": [
+    {
+      "version": "1.7.36",
+      "date": "2026-05-11",
+      "type": "feature",
+      "summary": "My Team: two new things. (1) Real player news feed (replaces the prior injury-only stub). News card aggregates /api/player-bundle for every owned player, merges + sorts by recency, shows top 12 headlines. Each item is clickable → opens that player's profile modal. (2) Player profile modal — click any roster row OR any news item to open a modal with Bio (name/pos/team/jersey/height/weight/college/DOB), injury overlay, recent news (up to 12), and an 'Open in MFL →' deep-link to the full MFL profile page. Uses the same /api/player-bundle endpoint Draft Hub + Front Office use, so once any hub primes a player the worker edge cache benefits all three.",
+      "details": [
+        "site/team_operations/team_operations.js: new workerBase() / workerUrl() helpers (window.UPS_TEAMOPS_API_BASE override, defaults to upsmflproduction.keith-creelman.workers.dev).",
+        "fetchPlayerBundle(pid): cached per-pid wrapper around /api/player-bundle.",
+        "openPlayerProfileModal(pid) / closePlayerProfileModal / Esc-handler: full-screen overlay with backdrop click, ✕ button, Esc dismissal. Mobile becomes 100dvh sheet.",
+        "renderProfileBundle: bio bits (jersey/pos/team/hgt/wgt/college/DOB), injury chip, sorted news list, MFL deep link.",
+        "renderNews refactored: was injury-list stub; now aggregates news[] from each rostered player's bundle (parallel fetches, sorted desc by timestamp, top 12). Each list item opens the profile modal on click/Enter.",
+        "Roster rows now have data-pid + tabindex + role=button; click/Enter opens the player profile modal. Hover affordance + focus-visible outline added.",
+        "team_operations.css: new .tops-profile-* + .tops-news-list styles. Mobile @media collapses modal to full-screen sheet.",
+        "Build stamp: 2026.05.11.05 → 2026.05.11.06."
+      ]
+    },
     {
       "version": "1.7.35",
       "date": "2026-05-11",

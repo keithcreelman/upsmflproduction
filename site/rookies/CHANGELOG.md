@@ -26,6 +26,34 @@ logic is doing without digging into code).
 
 ---
 
+## v1.7.36 — 2026-05-11 — My Team: real news feed + player profile modal
+
+### Player news feed
+The News card now aggregates real headlines instead of just injuries.
+For every owned player it pulls `/api/player-bundle` (the same worker
+endpoint the Draft Hub + Front Office use), merges all `news[]` arrays,
+sorts by recency, and surfaces the top 12.
+
+Each item shows player name + position + date + headline + body excerpt.
+Click any item → opens that player's profile modal.
+
+### Click any player → profile modal
+Roster rows (and news items) now open a player profile modal:
+- **Bio**: name, jersey, position, team, height, weight, college, DOB
+- **Injury overlay** if MFL has a designation on file
+- **Recent news** — up to 12 items sourced from the same bundle
+- **Open in MFL →** deep-link to the full MFL player profile page
+
+Same `/api/player-bundle` Draft Hub + Front Office consume, so the worker
+edge cache benefits all three hubs.
+
+Modal: backdrop click + Esc + ✕ button all close. Mobile collapses to
+a full-screen sheet (`100dvh`) with safe-area-inset padding.
+
+Build stamp `2026.05.11.06`.
+
+---
+
 ## v1.7.35 — 2026-05-11 — My Team: same-origin MFL fetches (root cause of zeros)
 
 The v1.7.34 diagnostic surfaced "12 endpoint error(s)" on Keith's
