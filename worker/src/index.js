@@ -2130,9 +2130,14 @@ export default {
       const _rdhLeagueId = () => safeStr(L || "74598");
       const _rdhYear = () => safeStr(YEAR || String(new Date().getUTCFullYear()));
       const _rdhCommishFids = () => {
-        // Default includes 0008 (Keith / Real Deal Creel — actual UPS commish).
-        // 0001 kept as legacy fallback. Override via env COMMISH_FRANCHISE_IDS.
-        const raw = safeStr(env.COMMISH_FRANCHISE_IDS || "0008,0001");
+        // Default commish allowlist:
+        //   0008 — Keith / Real Deal Creel (actual UPS commish team)
+        //   0000 — MFL pseudo-franchise for the league owner login (no
+        //          roster, but commish view; Keith uses this when running
+        //          the draft from the commish dashboard)
+        //   0001 — legacy fallback retained for compatibility
+        // Override via env COMMISH_FRANCHISE_IDS.
+        const raw = safeStr(env.COMMISH_FRANCHISE_IDS || "0008,0000,0001");
         return raw.split(/[,\s]+/).map(s => _rdhPadFid(s)).filter(Boolean);
       };
       const _rdhDiscordChannel = (live) => {

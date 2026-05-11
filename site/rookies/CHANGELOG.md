@@ -26,6 +26,29 @@ logic is doing without digging into code).
 
 ---
 
+## v1.7.9 — 2026-05-11 — Commish detection handles MFL pseudo-franchise 0000
+
+When Keith logs into MFL through the **commissioner dashboard** (rather than as
+his own team Real Deal Creel / fid 0008), MFL routes him in as pseudo-franchise
+**0000** — a special "league owner" login that doesn't have its own roster. The
+v1.7.6 / v1.7.8 commish allowlist only knew about real-team fids, so the
+**Go LIVE** toggle stayed hidden in this case.
+
+This release fixes that with three changes:
+
+1. **HPM loader sniffs `ISMFLCOMMISH` cookie** on the outer MFL page (where
+   MFL cookies are readable) and forwards an explicit
+   `window.UPS_DRAFT_HUB_IS_COMMISH` flag into the iframe. This is the
+   cleanest signal because MFL only sets that cookie for accounts with
+   commish privileges.
+2. **Frontend** now treats fid `0000` as a commish indicator in the
+   client-side allowlist; falls back to `"Commissioner"` for the banner
+   greeting when no real franchise name is known.
+3. **Worker** default `COMMISH_FRANCHISE_IDS` expanded from `"0008,0001"` to
+   `"0008,0000,0001"`.
+
+---
+
 ## v1.7.8 — 2026-05-11 — Defensive commish detection for the Go LIVE toggle
 
 The v1.7.6 fix made the worker default `COMMISH_FRANCHISE_IDS` include `0008`,

@@ -1,7 +1,7 @@
 {
-  "version": "1.7.8",
+  "version": "1.7.9",
   "released": "2026-05-11",
-  "label": "V1.7.8 — Defensive client-side commish detection so 'Go LIVE' button reliably appears for fid 0008/0001 + ?commish=1 URL override",
+  "label": "V1.7.9 — Commish-via-fid-0000 + ISMFLCOMMISH cookie sniff in HPM loader (Keith logged in as MFL pseudo-franchise sees Go LIVE)",
   "description": "First published version of the Draft Hub analytics model. This establishes the V1 baseline. Future tweaks bump the version and are logged here.",
   "methodology_signature": {
     "tier_classifier": "NET = 3yr-games-weighted E+P rate − 0.5 × 3yr-games-weighted Dud rate",
@@ -28,6 +28,18 @@
     "lineup_efficiency": 0.012
   },
   "changes": [
+    {
+      "version": "1.7.9",
+      "date": "2026-05-11",
+      "type": "fix",
+      "summary": "Commish detection now handles MFL's pseudo-franchise 0000 (the 'league owner' login that doesn't have its own roster). The HPM loader sniffs the ISMFLCOMMISH cookie on the outer MFL page (where MFL cookies are readable) and forwards an explicit window.UPS_DRAFT_HUB_IS_COMMISH flag into the iframe. Worker default COMMISH_FRANCHISE_IDS expanded to 0008,0000,0001.",
+      "details": [
+        "site/rookies/mfl_hpm_embed_loader.js: detectIsCommish() reads document.cookie on the outer page for ISMFLCOMMISH=(1|Y|true); also true when FRANCHISE_ID resolves to 0000. Forwarded into iframe via window.UPS_DRAFT_HUB_IS_COMMISH.",
+        "Frontend: defensive commish block now checks (a) window.UPS_DRAFT_HUB_IS_COMMISH from HPM, (b) document.cookie ISMFLCOMMISH (same-origin only), (c) franchise_id in [0008,0001,0000], (d) ?commish=1 URL override. Any one is enough.",
+        "When commish-via-cookie/0000 is detected and no franchise_name is known, displays 'Commissioner' in the banner greeting.",
+        "Worker /api/me default COMMISH_FRANCHISE_IDS expanded from '0008,0001' to '0008,0000,0001'."
+      ]
+    },
     {
       "version": "1.7.8",
       "date": "2026-05-11",
