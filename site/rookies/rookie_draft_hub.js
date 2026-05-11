@@ -4213,10 +4213,34 @@
             body: JSON.stringify(payload),
           });
           const ct = r.headers.get("content-type") || "";
-          if (!r.ok || !ct.includes("json")) {
-            throw new Error(`api returned ${r.status} ${ct || "(no content-type)"}`);
+          // Always try to read the body — the worker returns structured
+          // {ok:false, step, mfl_response} JSON even on 502. Throwing
+          // before reading the body (the previous behavior) was hiding
+          // the MFL error message that explains what actually broke
+          // (e.g. commish lockout, invalid asset, trade-deadline).
+          let bodyText = "";
+          try { bodyText = await r.text(); } catch (_) {}
+          if (ct.includes("json") && bodyText) {
+            try { data = JSON.parse(bodyText); } catch (_) {}
           }
-          data = await r.json();
+          if (!r.ok && data && data.ok === false) {
+            // Build a clear, surface-the-actual-cause message rather than
+            // a generic "502 application/json". The worker tries to sniff
+            // common MFL failure modes (commish lockout, deadline, bad
+            // asset_id) and ship a one-line `hint` — surface that first
+            // since it's actionable.
+            const parts = [];
+            if (data.hint) parts.push("⚠ " + data.hint);
+            if (data.step) parts.push(`step: ${data.step}`);
+            if (data.error) parts.push(data.error);
+            if (data.mfl_response) parts.push(`MFL: ${String(data.mfl_response).slice(0, 400)}`);
+            if (data.mfl_status) parts.push(`MFL HTTP ${data.mfl_status}`);
+            throw new Error(parts.join(" · ") || `api returned ${r.status}`);
+          }
+          if (!r.ok || !ct.includes("json")) {
+            throw new Error(`api returned ${r.status} ${ct || "(no content-type)"} · body: ${(bodyText || "").slice(0, 200)}`);
+          }
+          if (!data) data = JSON.parse(bodyText);
         } catch (apiErr) {
           // Local-preview / no-worker fallback — pretend the trade was
           // accepted by the simulator. No MFL write happens here in dev.
