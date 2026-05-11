@@ -1,7 +1,7 @@
 {
-  "version": "1.7.26",
+  "version": "1.7.27",
   "released": "2026-05-11",
-  "label": "V1.7.26 — Mobile polish round 1: tabs back at top (sticky), tighter trade modal header, universal Taxi pill + salary, 20-row pagination on Historical Picks + Future Picks",
+  "label": "V1.7.27 — Taxi pill + salary now universal across My Team panel + player profile card; cap-relevant salary split from taxi salary in roster totals",
   "description": "First published version of the Draft Hub analytics model. This establishes the V1 baseline. Future tweaks bump the version and are logged here.",
   "methodology_signature": {
     "tier_classifier": "NET = 3yr-games-weighted E+P rate − 0.5 × 3yr-games-weighted Dud rate",
@@ -28,6 +28,19 @@
     "lineup_efficiency": 0.012
   },
   "changes": [
+    {
+      "version": "1.7.27",
+      "date": "2026-05-11",
+      "type": "feature",
+      "summary": "Per Keith — both the TAXI pill AND always-shown salary are now universal across the site. Extended from the trade modal (v1.7.26) to the My Team panel (per-player rows + per-position bucket totals + roster summary header) and the Player Profile card contract block. Cap-relevant salary is now split from taxi salary in totals so cap math stays accurate.",
+      "details": [
+        "renderMyTeam: per-player row gets TAXI pill if p.taxi=true. Salary always shown via my-team-player-sal chip (was already there; now color-tinted yellow on taxi rows).",
+        "Per-position bucket total: shows 'Active cap' as primary + '+ $X taxi' callout when bucket has taxi players. Cap math = sum of non-taxi salaries in that bucket.",
+        "Roster summary header: 'Roster · N players · $X cap + $Y taxi (count)' so total payroll AND cap-relevant payroll are both visible.",
+        "showPlayerProfileCard: contract card surfaces TAXI badge when contract data carries the flag (or roster_status/contract_status contains 'TAXI').",
+        "snapshot_franchise_assets.py: emits taxi:bool + roster_status on each player row, sorts non-taxi-first then by salary desc. Future regenerations of franchise_assets_2026.json will include taxi data automatically."
+      ]
+    },
     {
       "version": "1.7.26",
       "date": "2026-05-11",

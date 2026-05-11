@@ -2193,7 +2193,9 @@ tr td.num[style*="var(--err)"] { color: var(--err) !important; }
   font-variant-numeric: tabular-nums;
 }
 .trade-asset-row.is-taxi,
-.trade-basket-row.is-taxi { background: rgba(251,191,36,0.04); }
+.trade-basket-row.is-taxi,
+.my-team-player-row.is-taxi { background: rgba(251,191,36,0.04); }
+.my-team-player-row.is-taxi .my-team-player-sal { color: var(--warn); opacity: 0.85; }
 
 /* ═══════════════════════════════════════════════════════════════════
    MOBILE APP SHELL  (v1.7.25 — Option B from the mobile plan)
