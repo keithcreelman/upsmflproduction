@@ -2660,18 +2660,19 @@ export default {
           return jsonOut(502, { ok: false, error: `MFL fetch failed: ${e?.message || String(e)}` });
         }
         const mflOk = mflStatus >= 200 && mflStatus < 300 && !/error/i.test(mflResp);
-        let liveDiscord = null;
-        if (mflOk) {
-          try {
-            const ch = _rdhDiscordChannel(true);
-            liveDiscord = await _rdhPostDiscord(ch, tradeDiscord);
-          } catch (e) { liveDiscord = { ok: false, error: String(e) }; }
-        }
+        // NO Discord post on LIVE proposal submit. The trade is just a
+        // PROPOSAL until the other team accepts in MFL. Discord
+        // announcements should fire when the trade is actually accepted —
+        // that path goes through /api/trades/proposals/action with
+        // action=ACCEPT (handled by the trade-workbench infrastructure).
         return jsonOut(mflOk ? 200 : 502, {
           ok: mflOk, status: mflStatus, mfl_response: mflResp,
           from_franchise_name: fromName, to_franchise_name: toName,
-          discord_message: tradeDiscord,
-          discord_posted: !!(liveDiscord && liveDiscord.ok),
+          // Echo what the message WOULD look like — for the proposing
+          // owner's reference. Not actually posted yet.
+          discord_message_preview: tradeDiscord,
+          discord_posted: false,
+          note: "Proposal sent to MFL. Discord announcement will fire when the trade is accepted.",
         });
       }
 
