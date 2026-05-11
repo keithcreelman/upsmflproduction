@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var BUILD = "2026.05.11.06";
+  var BUILD = "2026.05.11.07";
   var BOOT_FLAG = "__ups_team_operations_boot_" + BUILD;
   if (window[BOOT_FLAG]) {
     if (typeof window.UPS_TEAMOPS_INIT === "function") window.UPS_TEAMOPS_INIT();
@@ -537,7 +537,7 @@
     }
 
     el.innerHTML = [
-      '<div class="tops-card-title">My Roster <span class="tops-count">' + rows.length + '</span> <span class="tops-card-hint">tap a player for profile + news</span></div>',
+      '<div class="tops-card-title">My Roster <span class="tops-count">' + rows.length + '</span> <span class="tops-card-hint">tap a player → MFL profile</span></div>',
       '<div class="tops-roster-table-wrap">',
       '<table class="tops-roster-table">',
       '  <thead><tr><th>Pos</th><th>Player</th><th>Team</th><th class="num">Salary</th><th>Contract</th><th>Status</th></tr></thead>',
@@ -566,11 +566,12 @@
       '</table>',
       '</div>'
     ].join("");
-    // Wire click + keyboard activation on each row.
+    // Roster row click → MFL native player profile (new tab). Stopgap
+    // until Front Office's 4-tab modal is extracted into a shared module.
     el.querySelectorAll(".tops-roster-row").forEach(function (tr) {
-      tr.addEventListener("click", function () { openPlayerProfileModal(tr.getAttribute("data-pid")); });
+      tr.addEventListener("click", function () { openMflPlayerProfile(tr.getAttribute("data-pid")); });
       tr.addEventListener("keydown", function (e) {
-        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openPlayerProfileModal(tr.getAttribute("data-pid")); }
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openMflPlayerProfile(tr.getAttribute("data-pid")); }
       });
     });
   }
@@ -903,10 +904,12 @@
     ].join("");
   }
 
-  // ── News Feed for owned players ──
-  // Replaces the prior News card (which only surfaced injuries). Pulls
-  // /api/player-bundle for each owned player (worker caches per-pid),
-  // collects news[], merges + sorts by recency, shows top 12.
+  // ── News Feed for owned players (LAZY — don't auto-fetch) ──
+  // Default state: list MFL injury designations (free — already in
+  // state.injuries from the initial load). News headlines are LAZY:
+  // user clicks "Load news feed" to trigger ~25 parallel
+  // /api/player-bundle calls. Avoids slowing every page load when
+  // most owners just want to see their roster + cap.
   function renderNews() {
     var el = els.cards.news;
     if (!el) return;
@@ -915,73 +918,118 @@
       el.innerHTML = '<div class="tops-card-title">News & Injuries</div><div class="tops-empty">No roster loaded.</div>';
       return;
     }
-    if (!state.teamNewsItems && !state.teamNewsLoading) {
-      state.teamNewsLoading = true;
-      el.innerHTML = '<div class="tops-card-title">News & Injuries</div><div class="tops-empty">Loading news for your roster…</div>';
-      var pids = roster.map(function (r) { return r.id; }).filter(Boolean);
-      Promise.all(pids.map(fetchPlayerBundle)).then(function (bundles) {
-        var items = [];
-        bundles.forEach(function (b, i) {
-          if (!b) return;
-          var pid = pids[i];
-          var pInfo = playerById(pid) || {};
-          var newsArr = asArray(b.news);
-          if (!newsArr.length && b.profile && b.profile.playerProfile) {
-            newsArr = asArray(b.profile.playerProfile.news);
-          }
-          newsArr.forEach(function (n) {
-            items.push({
-              pid: pid,
-              player: safeStr(pInfo.name) || ("Player #" + pid),
-              position: safeStr(pInfo.position),
-              team: safeStr(pInfo.team),
-              when: Number(n.timestamp || 0),
-              headline: safeStr(n.headline) || safeStr(n.title),
-              body: safeStr(n.story) || safeStr(n.body),
-              source: safeStr(n.source) || safeStr(n.author)
+
+    // Always-on injuries panel (cheap — already loaded).
+    var injs = (state.injuries && asArray(state.injuries.injuries && state.injuries.injuries.injury)) || [];
+    var rosterIds = {};
+    roster.forEach(function (r) { rosterIds[String(r.id)] = true; });
+    var myInjs = injs.filter(function (i) { return rosterIds[String(i.id)]; });
+    var injHtml = myInjs.length
+      ? '<ul class="tops-news-list">' + myInjs.slice(0, 8).map(function (i) {
+          var p = playerById(i.id) || {};
+          var name = safeStr(p.name) || ("Player #" + i.id);
+          return '<li class="tops-news-item" data-pid="' + escapeHtml(String(i.id)) + '">' +
+            '<div class="tops-news-row1">' +
+              '<span class="tops-inj tops-inj-' + escapeHtml(i.status || "?") + '">' + escapeHtml(i.status || "?") + '</span> ' +
+              '<span class="tops-news-player">' + escapeHtml(name) + '</span>' +
+            '</div>' +
+            (i.details ? '<div class="tops-news-body">' + escapeHtml(i.details) + '</div>' : '') +
+            '</li>';
+        }).join("") + '</ul>'
+      : '<div class="tops-empty" style="font-size:11px; padding:6px 0;">No injury designations on your roster.</div>';
+
+    // News feed section — three states: idle (button), loading, loaded.
+    var newsSectionHtml;
+    if (state.teamNewsLoading) {
+      newsSectionHtml = '<div class="tops-empty">Loading news for ' + roster.length + ' players… (one-time, then cached)</div>';
+    } else if (state.teamNewsItems) {
+      var top = state.teamNewsItems.slice(0, 12);
+      newsSectionHtml = top.length
+        ? '<ul class="tops-news-list">' + top.map(function (n) {
+            var when = n.when ? new Date(n.when * 1000).toLocaleDateString() : "";
+            var pid = String(n.pid);
+            return '<li class="tops-news-item" data-pid="' + escapeHtml(pid) + '">' +
+              '<div class="tops-news-row1">' +
+                '<span class="tops-news-player">' + escapeHtml(n.player) + '</span>' +
+                (n.position ? '<span class="tops-news-pos">' + escapeHtml(n.position) + '</span>' : '') +
+                (when ? '<span class="tops-news-when">' + escapeHtml(when) + '</span>' : '') +
+              '</div>' +
+              (n.headline ? '<div class="tops-news-head">' + escapeHtml(n.headline) + '</div>' : '') +
+              (n.body ? '<div class="tops-news-body">' + escapeHtml(n.body.slice(0, 220)) + (n.body.length > 220 ? '…' : '') + '</div>' : '') +
+              '</li>';
+          }).join("") + '</ul>'
+        : '<div class="tops-empty" style="font-size:11px; padding:6px 0;">No recent news on your roster.</div>';
+    } else {
+      newsSectionHtml = '<button id="topsLoadNews" class="tops-link-pill" style="cursor:pointer; border:none; font-size:12px; margin-top:6px;">Load news feed (' + roster.length + ' players)</button>';
+    }
+
+    el.innerHTML = [
+      '<div class="tops-card-title">News & Injuries' +
+        (myInjs.length ? ' <span class="tops-count">' + myInjs.length + '</span>' : '') +
+      '</div>',
+      injHtml,
+      '<div class="tops-news-divider"></div>',
+      '<div class="tops-news-section-title">Latest Headlines</div>',
+      newsSectionHtml
+    ].join("");
+
+    // Wire the load-news button.
+    var loadBtn = document.getElementById("topsLoadNews");
+    if (loadBtn) {
+      loadBtn.addEventListener("click", function () {
+        state.teamNewsLoading = true;
+        renderNews();
+        var pids = roster.map(function (r) { return r.id; }).filter(Boolean);
+        Promise.all(pids.map(fetchPlayerBundle)).then(function (bundles) {
+          var items = [];
+          bundles.forEach(function (b, i) {
+            if (!b) return;
+            var pid = pids[i];
+            var pInfo = playerById(pid) || {};
+            var newsArr = asArray(b.news);
+            if (!newsArr.length && b.profile && b.profile.playerProfile) {
+              newsArr = asArray(b.profile.playerProfile.news);
+            }
+            newsArr.forEach(function (n) {
+              items.push({
+                pid: pid,
+                player: safeStr(pInfo.name) || ("Player #" + pid),
+                position: safeStr(pInfo.position),
+                team: safeStr(pInfo.team),
+                when: Number(n.timestamp || 0),
+                headline: safeStr(n.headline) || safeStr(n.title),
+                body: safeStr(n.story) || safeStr(n.body),
+                source: safeStr(n.source) || safeStr(n.author)
+              });
             });
           });
+          items.sort(function (a, b) { return b.when - a.when; });
+          state.teamNewsItems = items;
+          state.teamNewsLoading = false;
+          renderNews();
+        }).catch(function () {
+          state.teamNewsLoading = false;
+          state.teamNewsItems = [];
+          renderNews();
         });
-        items.sort(function (a, b) { return b.when - a.when; });
-        state.teamNewsItems = items;
-        state.teamNewsLoading = false;
-        renderNews();
-      }).catch(function () {
-        state.teamNewsLoading = false;
-        el.innerHTML = '<div class="tops-card-title">News & Injuries</div><div class="tops-empty" style="color:var(--tops-bad,#ff6b6b);">News fetch failed. Refresh to retry.</div>';
       });
-      return;
     }
-    var items = state.teamNewsItems || [];
-    var top = items.slice(0, 12);
-    if (!top.length) {
-      el.innerHTML = '<div class="tops-card-title">News & Injuries</div><div class="tops-empty">No recent news on your roster. Injuries below if any.</div>';
-      return;
-    }
-    el.innerHTML = [
-      '<div class="tops-card-title">News & Injuries <span class="tops-count">' + items.length + '</span></div>',
-      '<ul class="tops-news-list">',
-      top.map(function (n) {
-        var when = n.when ? new Date(n.when * 1000).toLocaleDateString() : "";
-        return '<li class="tops-news-item" data-pid="' + escapeHtml(n.pid) + '" tabindex="0" role="button" aria-label="Open ' + escapeHtml(n.player) + ' profile">' +
-          '<div class="tops-news-row1">' +
-            '<span class="tops-news-player">' + escapeHtml(n.player) + '</span>' +
-            (n.position ? '<span class="tops-news-pos">' + escapeHtml(n.position) + '</span>' : '') +
-            (when ? '<span class="tops-news-when">' + escapeHtml(when) + '</span>' : '') +
-          '</div>' +
-          (n.headline ? '<div class="tops-news-head">' + escapeHtml(n.headline) + '</div>' : '') +
-          (n.body ? '<div class="tops-news-body">' + escapeHtml(n.body.slice(0, 220)) + (n.body.length > 220 ? '…' : '') + '</div>' : '') +
-          '</li>';
-      }).join(""),
-      '</ul>'
-    ].join("");
-    // Wire each item to open the player profile modal.
+    // Item clicks → MFL native player profile (until Front Office's
+    // 4-tab modal is properly extracted into a shared module).
     el.querySelectorAll(".tops-news-item").forEach(function (li) {
-      li.addEventListener("click", function () { openPlayerProfileModal(li.getAttribute("data-pid")); });
-      li.addEventListener("keydown", function (e) {
-        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openPlayerProfileModal(li.getAttribute("data-pid")); }
-      });
+      li.addEventListener("click", function () { openMflPlayerProfile(li.getAttribute("data-pid")); });
     });
+  }
+
+  // Open MFL's native player profile in a new tab. Stopgap until the
+  // Front Office 4-tab modal gets extracted into a shared module
+  // both hubs can load.
+  function openMflPlayerProfile(pid) {
+    if (!pid) return;
+    var url = "https://www.myfantasyleague.com/" + encodeURIComponent(state.ctx.year) +
+      "/options?L=" + encodeURIComponent(state.ctx.leagueId) +
+      "&O=04&P=" + encodeURIComponent(pid);
+    window.open(url, "_blank", "noopener");
   }
 
   // Friendly empty state when no franchise could be resolved. Surfaces a

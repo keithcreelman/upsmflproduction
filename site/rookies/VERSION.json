@@ -1,7 +1,7 @@
 {
-  "version": "1.7.36",
+  "version": "1.7.37",
   "released": "2026-05-11",
-  "label": "V1.7.36 — My Team: real player news feed (per-player /api/player-bundle aggregation) + click any player → profile modal with Bio + Recent News + Open in MFL link",
+  "label": "V1.7.37 — My Team: lazy news feed (button to load — was auto-firing 25 worker calls on every page load) + roster-row click opens MFL native profile (custom modal didn't match Front Office's 4-tab; proper extraction parked)",
   "description": "First published version of the Draft Hub analytics model. This establishes the V1 baseline. Future tweaks bump the version and are logged here.",
   "methodology_signature": {
     "tier_classifier": "NET = 3yr-games-weighted E+P rate − 0.5 × 3yr-games-weighted Dud rate",
@@ -28,6 +28,22 @@
     "lineup_efficiency": 0.012
   },
   "changes": [
+    {
+      "version": "1.7.37",
+      "date": "2026-05-11",
+      "type": "fix",
+      "summary": "Two regressions from v1.7.36 caught by Keith. (1) Slow page load — News feed was auto-firing 25 parallel /api/player-bundle calls on every page open. Now: News card defaults to MFL injuries (free, already loaded) + a 'Load news feed (N players)' button. Headlines fetched on demand. (2) Custom player profile modal didn't match the Front Office 4-tab modal Keith expected. Removed the modal; roster-row click + news-item click now open MFL's native player profile in a new tab. Proper Front Office modal extraction parked for post-draft.",
+      "details": [
+        "renderNews refactored: always shows MFL injury list (cheap), news section renders a 'Load news feed' button by default. Click triggers the per-player bundle fetches with loading state. Cached after first load via state.teamNewsItems so flipping back doesn't re-fetch.",
+        "openMflPlayerProfile(pid) helper: opens https://www.myfantasyleague.com/<year>/options?L=<lid>&O=04&P=<pid> in a new tab (target='_blank' noopener).",
+        "Roster row click handler swapped from openPlayerProfileModal → openMflPlayerProfile.",
+        "News item click handler swapped same way.",
+        "Custom modal JS (openPlayerProfileModal/closePlayerProfileModal/renderProfileBundle) and CSS (.tops-profile-*) left in place as dead code so it can be revived if/when the proper Front Office extraction lands.",
+        "Card title hint updated: 'tap a player → MFL profile'.",
+        "Build stamp: 2026.05.11.06 → 2026.05.11.07.",
+        "Parked for post-draft: extract Front Office's openPlayerActionModal + 4-tab Bio/Stats/Game Log/News renderer into a shared module both hubs load."
+      ]
+    },
     {
       "version": "1.7.36",
       "date": "2026-05-11",

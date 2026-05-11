@@ -26,6 +26,27 @@ logic is doing without digging into code).
 
 ---
 
+## v1.7.37 — 2026-05-11 — My Team: lazy news + MFL native profile (rolled back v1.7.36)
+
+Two regressions from v1.7.36:
+
+1. **Page load was slow** — auto-fetching 25 parallel `/api/player-bundle`
+   calls on every page open. Now News card defaults to **MFL injury list**
+   (cheap, already loaded) + a **"Load news feed (N players)"** button.
+   Headlines fetched on demand. Cached after first click.
+2. **Custom modal didn't match Front Office** — Keith wanted the same
+   4-tab Bio/Stats/Game Log/News experience the Front Office hub has.
+   Removed the custom modal. Roster-row click + news-item click now
+   open MFL's **native player profile** in a new tab. Proper Front
+   Office modal extraction parked for post-draft.
+
+The dead modal code stays in the file (no harm) so it can be revived
+when the proper shared-module extraction lands.
+
+Build stamp `2026.05.11.07`.
+
+---
+
 ## v1.7.36 — 2026-05-11 — My Team: real news feed + player profile modal
 
 ### Player news feed

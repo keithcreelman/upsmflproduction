@@ -531,6 +531,19 @@
   color: rgba(255, 255, 255, 0.65);
   line-height: 1.45;
 }
+.tops-news-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.06);
+  margin: 12px 0 8px;
+}
+.tops-news-section-title {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: rgba(255, 255, 255, 0.5);
+  font-weight: 700;
+  margin-bottom: 4px;
+}
 
 /* Player profile modal — full-screen dim, centered card. Mobile sheet
    is full-screen (max-width:none). Esc / backdrop click both close. */
