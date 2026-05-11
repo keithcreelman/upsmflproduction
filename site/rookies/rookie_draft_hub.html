@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Rookie Draft Hub — UPS League</title>
-<link rel="stylesheet" href="rookie_draft_hub.css?v=2026.04.20.v1.0.1">
+<link rel="stylesheet" href="rookie_draft_hub.css?v=2026.05.10.v1.5.4">
 </head>
 <body>
 <header class="rdh-header">
@@ -25,24 +25,214 @@
 </nav>
 
 <main class="rdh-main">
-  <!-- ── LIVE DRAFT (Under Construction) ────────────────────────── -->
+  <!-- ── LIVE DRAFT ──────────────────────────────────────────────── -->
   <section class="rdh-section active" data-section="live">
-    <div class="rdh-card" style="text-align:center; padding: 40px 20px;">
-      <h2 style="color: var(--warn); margin-bottom: 12px;">🚧 Under Construction</h2>
-      <p style="max-width: 620px; margin: 0 auto 12px; color: var(--text); line-height: 1.6;">
-        When the live draft goes live, this tab will show:
-      </p>
-      <ul style="max-width: 620px; margin: 0 auto 12px; text-align: left; color: var(--muted); line-height: 1.8;">
-        <li>Live draft board with every pick as it happens</li>
-        <li>Prospect board filterable by position, NFL team, ADP source (MFL Rookie, KTC SF, etc.)</li>
-        <li>On-the-Clock analyzer: slot history, Smash/Bust rates, best available</li>
-        <li>Submit picks directly via the hub (tied to your logged-in MFL account)</li>
-        <li>Rookie contract salaries auto-applied per slot</li>
-      </ul>
-      <p class="small" style="color: var(--muted); margin-top: 20px;">
-        In the meantime, use the other tabs to review historical drafts, team tendencies, and future pick projections.
-      </p>
+    <!-- Sticky On-the-Clock banner: who's up, mode pill, commish toggle -->
+    <div class="live-mode-banner" id="live-mode-banner" data-mode="simulate">
+      <div class="lmb-left">
+        <span class="lmb-pill" id="live-mode-pill" title="Click to learn about modes">SIMULATE</span>
+        <span class="lmb-greeting" id="live-mode-greeting">Loading…</span>
+      </div>
+      <div class="lmb-center">
+        <span id="on-clock-headline" class="lmb-headline">—</span>
+      </div>
+      <div class="lmb-right">
+        <button type="button" id="live-mode-toggle" class="btn warn" hidden title="Commissioner only — flip to LIVE">Go LIVE</button>
+      </div>
     </div>
+
+    <!-- Full-width draft board on top, then 2-col below (prospects | right-rail) -->
+    <div class="live-2row">
+
+      <!-- ── TOP: full-width 6×12 board ──────────────────────── -->
+      <div class="rdh-card live-board-card live-board-top">
+        <div class="live-card-head">
+          <h2>Draft Board <span class="small" style="color:var(--muted); font-weight:400; margin-left:8px;">6 rounds × 12 picks</span></h2>
+          <span class="small" id="live-board-summary" style="color:var(--muted);">Loading snapshot…</span>
+        </div>
+        <div id="live-board" class="draft-board" aria-label="Live draft board"></div>
+        <div class="live-board-legend">
+          <span class="legend-dot legend-made"></span> made
+          <span class="legend-dot legend-onclock"></span> on the clock
+          <span class="legend-dot legend-queued"></span> queued
+        </div>
+      </div>
+
+      <!-- ── BOTTOM 2-col: prospects (left) | on-clock + auto-sim (right) ── -->
+      <div class="live-2col">
+
+      <!-- ── LEFT RAIL: prospects + player search ───────────────── -->
+      <div class="live-col live-col-left">
+        <div class="rdh-card live-prospects-card">
+          <div class="live-card-head">
+            <h2>Rookie Prospects</h2>
+            <span class="small" id="prospect-count" style="color:var(--muted);"></span>
+          </div>
+
+          <input type="search" id="prospect-search" class="live-search"
+                 placeholder="Search prospects…"
+                 aria-label="Search rookie prospects by name">
+
+          <div class="chip-group" role="radiogroup" aria-label="Availability filter">
+            <button type="button" class="chip" data-status="" aria-pressed="true">All</button>
+            <button type="button" class="chip" data-status="available">Available</button>
+            <button type="button" class="chip" data-status="drafted">Drafted</button>
+          </div>
+          <!-- hidden mirror so existing JS picks up the value -->
+          <select id="prospect-status" hidden>
+            <option value="" selected>All</option>
+            <option value="available">Available</option>
+            <option value="drafted">Drafted</option>
+          </select>
+
+          <div class="live-filter-row">
+            <label class="live-filter">
+              <span>Pos Group</span>
+              <select id="prospect-pg"><option value="">All</option></select>
+            </label>
+            <label class="live-filter">
+              <span>Position</span>
+              <select id="prospect-pos"><option value="">All</option></select>
+            </label>
+            <label class="live-filter">
+              <span>NFL Team</span>
+              <select id="prospect-nfl"><option value="">All</option></select>
+            </label>
+            <label class="live-filter">
+              <span>Drafted by</span>
+              <select id="prospect-owner"><option value="">All</option></select>
+            </label>
+          </div>
+
+          <div class="rank-by-block">
+            <div class="rank-by-head">
+              <span class="seg-label">Rank by</span>
+              <details class="rank-by-picker" id="rank-by-picker">
+                <summary>
+                  <span id="rank-by-summary-label">Consensus · all sources</span>
+                  <span class="rank-by-caret">▾</span>
+                </summary>
+                <div class="rank-by-menu" role="group" aria-label="Pick which sources blend into your consensus rank">
+                  <div class="rank-by-section-head">SuperFlex (matches UPS)</div>
+                  <label class="rank-by-row sf" data-source="fantasycalc">
+                    <input type="checkbox" data-source="fantasycalc" checked>
+                    <span class="rank-by-name">FantasyCalc SF <span class="rank-by-badge sf">SF</span></span>
+                    <span class="rank-by-meta">community trade values · numQbs=2</span>
+                  </label>
+                  <label class="rank-by-row sf" data-source="ktc">
+                    <input type="checkbox" data-source="ktc" checked>
+                    <span class="rank-by-name">KeepTradeCut SF <span class="rank-by-badge sf">SF</span></span>
+                    <span class="rank-by-meta">superflexValues · live-scraped</span>
+                  </label>
+                  <label class="rank-by-row sf" data-source="fantasypros">
+                    <input type="checkbox" data-source="fantasypros" checked>
+                    <span class="rank-by-name">FantasyPros Dynasty SF <span class="rank-by-badge sf">SF</span></span>
+                    <span class="rank-by-meta">expert ECR · /dynasty-rookies-superflex</span>
+                  </label>
+                  <div class="rank-by-section-head">Blended (1QB-skewed — under-ranks QBs vs UPS)</div>
+                  <label class="rank-by-row blended" data-source="mfl_rookie">
+                    <input type="checkbox" data-source="mfl_rookie" checked>
+                    <span class="rank-by-name">MFL Rookie ADP <span class="rank-by-badge blended">1QB</span></span>
+                    <span class="rank-by-meta">cross-league completed drafts</span>
+                  </label>
+                  <label class="rank-by-row blended" data-source="sleeper">
+                    <input type="checkbox" data-source="sleeper" checked>
+                    <span class="rank-by-name">Sleeper <span class="rank-by-badge blended">1QB</span></span>
+                    <span class="rank-by-meta">overall search_rank · re-ranked</span>
+                  </label>
+                  <div class="rank-by-actions">
+                    <button type="button" class="btn secondary" id="rank-by-sf-only" title="Only SF-native sources">SF only</button>
+                    <button type="button" class="btn secondary" id="rank-by-all">All sources</button>
+                  </div>
+                </div>
+              </details>
+            </div>
+          </div>
+          <!-- Hidden mirror — existing renderProspects() still reads .value;
+               we set it to "consensus" + drive the actual selection from
+               STATE.rankSourceFilter (set of source ids). -->
+          <select id="prospect-adp-source" hidden>
+            <option value="consensus" selected>Consensus</option>
+          </select>
+
+          <div id="prospect-list" class="prospect-list" role="listbox" aria-label="Rookie prospects"></div>
+        </div>
+
+      </div>
+
+      <!-- ── RIGHT RAIL: on-the-clock + auto-sim + salary table ─── -->
+      <div class="live-col live-col-right">
+        <div class="rdh-card on-clock-card">
+          <h2>On the Clock</h2>
+          <div id="on-clock-panel" class="on-clock-panel">
+            <p class="loading">Waiting for draft state…</p>
+          </div>
+        </div>
+
+        <div class="rdh-card trade-inbox-card" id="trade-inbox-card">
+          <div class="live-card-head">
+            <h2>📬 Incoming Trades <span class="trade-inbox-badge" id="trade-inbox-badge" hidden>0</span></h2>
+            <button class="btn secondary trade-inbox-refresh" id="trade-inbox-refresh" title="Refresh inbox" type="button">↻</button>
+          </div>
+          <div id="trade-inbox-list" class="trade-inbox-list">
+            <div class="trade-inbox-empty">No pending trade offers.</div>
+          </div>
+        </div>
+
+        <div class="rdh-card auto-sim-card" id="auto-sim-card">
+          <div class="live-card-head">
+            <h2>🤖 Auto-Draft</h2>
+            <span class="small auto-sim-status" id="auto-sim-status" style="color:var(--muted);">Idle</span>
+          </div>
+          <p class="small" style="color:var(--muted); margin: 0 0 8px;">
+            Auto-pick for every franchise except yours, on a timer. Algorithm
+            blends consensus rank + owner tendencies + small randomness. Pauses
+            on your turn (or when any modal is open).
+          </p>
+          <div class="auto-sim-controls">
+            <label class="live-filter">
+              <span>Play as</span>
+              <select id="auto-sim-play-as"></select>
+            </label>
+            <label class="live-filter">
+              <span>Speed</span>
+              <select id="auto-sim-speed">
+                <option value="5000">5 sec / pick</option>
+                <option value="10000" selected>10 sec / pick</option>
+                <option value="20000">20 sec / pick</option>
+                <option value="0">Instant</option>
+              </select>
+            </label>
+          </div>
+          <div class="auto-sim-buttons">
+            <button class="btn" id="auto-sim-start">▶ Start</button>
+            <button class="btn warn" id="auto-sim-pause" hidden>⏸ Pause</button>
+            <button class="btn" id="auto-sim-resume" hidden>▶ Resume</button>
+            <button class="btn secondary" id="auto-sim-step" title="Pick once instantly, then pause">⏭ Step</button>
+            <button class="btn secondary" id="auto-sim-reset" title="Clear all simulated picks (does NOT touch real draft)">↺ Reset</button>
+          </div>
+          <div class="auto-sim-tick" id="auto-sim-tick" hidden>
+            <div class="auto-sim-bar"><div class="auto-sim-bar-fill" id="auto-sim-bar-fill"></div></div>
+            <div class="small" style="color:var(--muted); margin-top:4px;" id="auto-sim-ticker">—</div>
+          </div>
+        </div>
+
+        <details class="rdh-card live-salary-card">
+          <summary>
+            <span>📋 Rookie Salary Schedule</span>
+            <span class="small" style="color:var(--muted);">UPS scale</span>
+          </summary>
+          <div id="salary-schedule" class="salary-schedule"></div>
+        </details>
+      </div>
+
+      </div><!-- /.live-2col -->
+    </div><!-- /.live-2row -->
+
+    <!-- Inline keyboard help -->
+    <p class="small live-kbd-hint" style="color:var(--muted);">
+      Shortcuts: <kbd>/</kbd> search · <kbd>Esc</kbd> close modal · <kbd>?</kbd> help
+    </p>
   </section>
 
   <!-- ── HISTORICAL PICKS ─────────────────────────────────────────── -->
@@ -441,6 +631,6 @@
   <div class="rdh-modal" id="rdh-modal"></div>
 </div>
 
-<script src="rookie_draft_hub.js?v=2026.04.20.v1.0.1"></script>
+<script src="rookie_draft_hub.js?v=2026.05.10.v1.5.4"></script>
 </body>
 </html>
