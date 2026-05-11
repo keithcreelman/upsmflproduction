@@ -26,6 +26,36 @@ logic is doing without digging into code).
 
 ---
 
+## v1.7.23 — 2026-05-11 — R6 drawing tonight + Discord publish + R6 untradeable
+
+Three things for tonight's R6 random drawing:
+
+### 1. Countdown rescheduled
+- Target time moved from `May 2, 2026 @ 6:00 PM ET` → `May 11, 2026 @ 9:00 PM ET`.
+- Hub label updated to match. Countdown ticks down to the new time.
+
+### 2. Discord kickoff + final-order publish (commish-only, idempotent)
+- New **📢 Announce Kickoff to Discord** button next to the R6 controls
+  (commish only). Posts a one-time announcement to `#live` (channel id
+  `1498680803419357234`):
+  > 🎲 **6th Round Rookie Draft Order — Live Drawing tonight at 9:00 PM ET**
+  > Tune in to watch the random slot order get drawn live...
+  > Watch live → `<hub URL>`
+- After the **official drawing completes**, the hub auto-opens a publish
+  modal showing the final ordered list, ready to post to `#live`.
+- **Two-step flow** for both: worker dry-run returns the EXACT message
+  text → modal previews on screen → commish confirms → worker posts.
+- **Idempotency**: worker scans the last 100 channel messages for marker
+  tags (`[r6-kickoff-2026]`, `[r6-final-order-2026]`) and refuses to
+  duplicate. Re-clicks are no-ops.
+
+### 3. R6 picks are now hidden from the trade modal
+- Per UPS rules, R6 picks aren't tradeable. The asset picker now filters
+  `round === 6` from both current-year and future picks so they can't be
+  accidentally added to a basket.
+
+---
+
 ## v1.7.22 — 2026-05-11 — Honor MFL's actual field names in pendingTrades + picks-first
 
 The v1.7.21 diagnostic dump revealed two real causes:
