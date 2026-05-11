@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var BUILD = "2026.05.11.07";
+  var BUILD = "2026.05.11.08";
   var BOOT_FLAG = "__ups_team_operations_boot_" + BUILD;
   if (window[BOOT_FLAG]) {
     if (typeof window.UPS_TEAMOPS_INIT === "function") window.UPS_TEAMOPS_INIT();
@@ -537,7 +537,7 @@
     }
 
     el.innerHTML = [
-      '<div class="tops-card-title">My Roster <span class="tops-count">' + rows.length + '</span> <span class="tops-card-hint">tap a player → MFL profile</span></div>',
+      '<div class="tops-card-title">My Roster <span class="tops-count">' + rows.length + '</span> <span class="tops-card-hint">tap a player for profile + news</span></div>',
       '<div class="tops-roster-table-wrap">',
       '<table class="tops-roster-table">',
       '  <thead><tr><th>Pos</th><th>Player</th><th>Team</th><th class="num">Salary</th><th>Contract</th><th>Status</th></tr></thead>',
@@ -569,9 +569,9 @@
     // Roster row click → MFL native player profile (new tab). Stopgap
     // until Front Office's 4-tab modal is extracted into a shared module.
     el.querySelectorAll(".tops-roster-row").forEach(function (tr) {
-      tr.addEventListener("click", function () { openMflPlayerProfile(tr.getAttribute("data-pid")); });
+      tr.addEventListener("click", function () { openPlayerProfileModal(tr.getAttribute("data-pid")); });
       tr.addEventListener("keydown", function (e) {
-        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openMflPlayerProfile(tr.getAttribute("data-pid")); }
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openPlayerProfileModal(tr.getAttribute("data-pid")); }
       });
     });
   }
@@ -805,17 +805,134 @@
   // profile but is intentionally lighter than Front Office's 4-tab modal —
   // owners on My Team need quick context, not the full editing surface.
   // For anything more, the modal links out to the Front Office page.
+  // ── Contract helpers (mirror Front Office's parsers so My Team can
+  //    render the same Bio metrics: TCV / AAV / SALARY / YRS REMAIN /
+  //    EARNED TO DATE / CAP PENALTY / ACQUIRE DATE / HOW ACQUIRED). ──
+  function tops_parseContractMoney(token) {
+    var s = String(token || "").trim().toUpperCase();
+    if (!s) return 0;
+    s = s.replace(/[$,]/g, "");
+    var mult = 1;
+    if (/K$/.test(s)) { mult = 1000; s = s.slice(0, -1); }
+    else if (/M$/.test(s)) { mult = 1000000; s = s.slice(0, -1); }
+    var n = Number(s);
+    return Number.isFinite(n) ? Math.round(n * mult) : 0;
+  }
+  function tops_parseContractInfo(info) {
+    var s = String(info || "");
+    var out = { tcv: 0, length: 0, yearVals: {}, aav: 0, gtd: 0 };
+    if (!s) return out;
+    var m;
+    if ((m = s.match(/(?:^|\|)\s*TCV\s+([^|]+)/i))) out.tcv = tops_parseContractMoney(m[1]);
+    if ((m = s.match(/(?:^|\|)\s*CL\s*:?\s*(\d+)/i))) out.length = parseInt(m[1], 10) || 0;
+    if ((m = s.match(/(?:^|\|)\s*AAV\s+([^|]+)/i))) out.aav = tops_parseContractMoney(m[1]);
+    if ((m = s.match(/(?:^|\|)\s*GTD\s*:?\s*([^|]+)/i))) out.gtd = tops_parseContractMoney(m[1]);
+    var yearRe = /(?:^|\|)\s*Y(\d+)\s*[=:]\s*([^|]+)/gi;
+    while ((m = yearRe.exec(s))) {
+      var idx = parseInt(m[1], 10);
+      if (idx > 0) out.yearVals[idx] = tops_parseContractMoney(m[2]);
+    }
+    return out;
+  }
+  function tops_yearsRemain(sal) {
+    var info = tops_parseContractInfo(sal && sal.contractInfo);
+    var cy = parseInt(sal && sal.contractYear, 10) || 0;
+    var len = info.length;
+    if (len > 0 && cy > 0) return Math.max(0, len - cy + 1);
+    if (len > 0) return len;
+    return 0;
+  }
+  function tops_earnedToDate(sal) {
+    var info = tops_parseContractInfo(sal && sal.contractInfo);
+    var cy = parseInt(sal && sal.contractYear, 10) || 1;
+    var earned = 0;
+    for (var i = 1; i < cy; i++) {
+      earned += info.yearVals[i] || 0;
+    }
+    return earned;
+  }
+  function tops_dropPenalty(sal) {
+    // Modern UPS rule: cap penalty on cut = (TCV × 75%) − Earned. Floor 0.
+    var info = tops_parseContractInfo(sal && sal.contractInfo);
+    var tcv = info.tcv;
+    if (!tcv) return 0;
+    var earned = tops_earnedToDate(sal);
+    return Math.max(0, Math.round(tcv * 0.75) - earned);
+  }
+  function tops_findAcquisition(pid) {
+    // Walk transactions for the most recent acquisition of this player by
+    // the viewer. Returns { date: ISO, method: humanized, amount } or null.
+    var pidStr = String(pid);
+    var txns = (state.transactions && state.transactions.transactions && asArray(state.transactions.transactions.transaction)) || [];
+    var fid = state.viewerFranchiseId;
+    var found = null;
+    txns.forEach(function (t) {
+      if (pad4(t.franchise) !== fid) return;
+      var typ = safeStr(t.type).toUpperCase();
+      // FREE_AGENT, AUCTION_DRAFT, BBID_AUCTION, TAXI_PROMOTION, IR, TRADE etc.
+      // The transaction structure varies; check several fields for the pid.
+      var hits = [t.transaction, t.added, t.player_added, t.promoted, t.activated, t.demoted];
+      for (var i = 0; i < hits.length; i++) {
+        var raw = safeStr(hits[i]);
+        if (!raw) continue;
+        // Some MFL fields are comma-separated player IDs; others have
+        // pipe-separated `id,salary,etc` tuples per player.
+        if (raw.indexOf(pidStr) === -1) continue;
+        var ts = Number(t.timestamp) || 0;
+        if (!found || ts > found.ts) {
+          found = {
+            ts: ts,
+            type: typ,
+            method: typ.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, function (c) { return c.toUpperCase(); })
+          };
+        }
+        break;
+      }
+    });
+    return found;
+  }
+
   function openPlayerProfileModal(pid) {
     if (!pid) return;
     closePlayerProfileModal();  // collapse any prior open
+    var pInfo = playerById(pid) || {};
+    var name = safeStr(pInfo.name) || ("Player #" + pid);
+    var pos = safeStr(pInfo.position);
+    var team = safeStr(pInfo.team);
+    var headshotUrl = "https://www55.myfantasyleague.com/fflnetdynamic" +
+      encodeURIComponent(state.ctx.year) + "/players/" + encodeURIComponent(pid) + ".jpg";
+
     var overlay = document.createElement("div");
     overlay.id = "topsProfileOverlay";
     overlay.className = "tops-profile-overlay";
     overlay.innerHTML =
-      '<div class="tops-profile-modal" role="dialog" aria-modal="true">' +
+      '<div class="tops-profile-modal" role="dialog" aria-modal="true" aria-labelledby="topsProfileTitle">' +
       '  <button class="tops-profile-close" aria-label="Close">×</button>' +
-      '  <div class="tops-profile-body" id="topsProfileBody">' +
-      '    <div class="tops-empty">Loading player profile…</div>' +
+      '  <header class="tops-profile-header">' +
+      '    <img class="tops-profile-photo" src="' + escapeHtml(headshotUrl) + '" alt="" onerror="this.style.visibility=\'hidden\'">' +
+      '    <div class="tops-profile-id">' +
+      '      <div class="tops-profile-pos-row">' +
+      (pos ? '<span class="tops-profile-pos-pill">' + escapeHtml(pos) + '</span>' : '') +
+      '        <h3 id="topsProfileTitle" class="tops-profile-name">' + escapeHtml(name) + '</h3>' +
+      '      </div>' +
+      '      <div class="tops-profile-sub">' +
+        escapeHtml((state.viewerFranchise && state.viewerFranchise.name) || "") +
+        (pos ? ' | ' + escapeHtml(pos) : '') +
+        (team ? ' | ' + escapeHtml(team) : '') +
+      '      </div>' +
+      '    </div>' +
+      '  </header>' +
+      '  <nav class="tops-profile-tabs" role="tablist">' +
+      '    <button class="tops-profile-tab is-active" role="tab" data-topstab="bio" aria-selected="true">BIO</button>' +
+      '    <button class="tops-profile-tab" role="tab" data-topstab="stats" aria-selected="false">STATS</button>' +
+      '    <button class="tops-profile-tab" role="tab" data-topstab="gamelog" aria-selected="false">GAME LOG</button>' +
+      '    <button class="tops-profile-tab" role="tab" data-topstab="news" aria-selected="false">NEWS</button>' +
+      '  </nav>' +
+      '  <div class="tops-profile-panels">' +
+      '    <div class="tops-profile-panel" data-topspanel="bio">' + renderProfileBio(pid) + '</div>' +
+      '    <div class="tops-profile-panel" data-topspanel="stats" hidden><div class="tops-empty">Loading stats…</div></div>' +
+      '    <div class="tops-profile-panel" data-topspanel="gamelog" hidden><div class="tops-empty">Loading game log…</div></div>' +
+      '    <div class="tops-profile-panel" data-topspanel="news" hidden><div class="tops-empty">Loading news…</div></div>' +
       '  </div>' +
       '</div>';
     document.body.appendChild(overlay);
@@ -825,15 +942,122 @@
     overlay.querySelector(".tops-profile-close").addEventListener("click", closePlayerProfileModal);
     document.addEventListener("keydown", _topsProfileEsc);
 
-    fetchPlayerBundle(pid).then(function (bundle) {
-      var body = document.getElementById("topsProfileBody");
-      if (!body) return;
-      if (!bundle) {
-        body.innerHTML = '<div class="tops-empty" style="color:var(--tops-bad,#ff6b6b);">Could not load profile (worker unreachable or unknown player ID).</div>';
-        return;
-      }
-      body.innerHTML = renderProfileBundle(bundle, pid);
+    // Tab switcher.
+    overlay.querySelectorAll(".tops-profile-tab").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var tab = btn.getAttribute("data-topstab");
+        overlay.querySelectorAll(".tops-profile-tab").forEach(function (b) {
+          var active = b === btn;
+          b.classList.toggle("is-active", active);
+          b.setAttribute("aria-selected", active ? "true" : "false");
+        });
+        overlay.querySelectorAll(".tops-profile-panel").forEach(function (p) {
+          p.hidden = p.getAttribute("data-topspanel") !== tab;
+        });
+      });
     });
+
+    // Lazy-fetch the bundle for Stats / Game Log / News.
+    fetchPlayerBundle(pid).then(function (bundle) {
+      if (!document.getElementById("topsProfileOverlay")) return;  // closed already
+      var statsEl = overlay.querySelector('[data-topspanel="stats"]');
+      var glEl    = overlay.querySelector('[data-topspanel="gamelog"]');
+      var newsEl  = overlay.querySelector('[data-topspanel="news"]');
+      if (statsEl) statsEl.innerHTML = renderProfileStats(bundle, pid);
+      if (glEl)    glEl.innerHTML    = renderProfileGameLog(bundle, pid);
+      if (newsEl)  newsEl.innerHTML  = renderProfileNews(bundle, pid);
+    });
+  }
+  function renderProfileBio(pid) {
+    var pInfo = playerById(pid) || {};
+    var sal = (getMySalaries() || []).find(function (s) { return String(s.id) === String(pid); }) || {};
+    var info = tops_parseContractInfo(sal.contractInfo);
+    var tcv = info.tcv || (function () {
+      var sum = 0;
+      for (var k in info.yearVals) sum += info.yearVals[k] || 0;
+      return sum;
+    })();
+    var aav = info.aav || (info.length > 0 ? Math.round(tcv / info.length) : Number(sal.salary || 0));
+    var salary = Number(sal.salary || 0);
+    var yrsRemain = tops_yearsRemain(sal);
+    var earned = tops_earnedToDate(sal);
+    var penalty = tops_dropPenalty(sal);
+    var acq = tops_findAcquisition(pid);
+    var acqDate = acq && acq.ts ? new Date(acq.ts * 1000).toLocaleDateString() : "—";
+    var acqMethod = acq && acq.method ? acq.method : "—";
+    var inj = getInjuryFor(String(pid));
+    var injHtml = inj
+      ? '<div class="tops-profile-injury"><strong>' + escapeHtml(inj.status || "") + '</strong> — ' + escapeHtml(safeStr(inj.details) || "no detail") + '</div>'
+      : "";
+    return [
+      injHtml,
+      '<div class="tops-profile-grid">',
+      '  <div class="tops-profile-metric"><span>TCV</span><strong>' + (tcv > 0 ? fmtUsd(tcv) : '—') + '</strong></div>',
+      '  <div class="tops-profile-metric"><span>AAV</span><strong>' + (aav > 0 ? fmtUsd(aav) : '—') + '</strong></div>',
+      '  <div class="tops-profile-metric"><span>Salary</span><strong>' + (salary > 0 ? fmtUsd(salary) : '—') + '</strong></div>',
+      '  <div class="tops-profile-metric"><span>Yrs Remain</span><strong>' + (yrsRemain > 0 ? String(yrsRemain) : '—') + '</strong></div>',
+      '  <div class="tops-profile-metric"><span>Earned to Date</span><strong>' + (earned > 0 ? fmtUsd(earned) : '$0') + '</strong></div>',
+      '  <div class="tops-profile-metric"><span>Cap Penalty</span><strong>' + (penalty > 0 ? fmtUsd(penalty) : '$0') + '</strong></div>',
+      '  <div class="tops-profile-metric"><span>Acquire Date</span><strong>' + escapeHtml(acqDate) + '</strong></div>',
+      '  <div class="tops-profile-metric"><span>How Acquired</span><strong>' + escapeHtml(acqMethod) + '</strong></div>',
+      '</div>'
+    ].join("");
+  }
+  function renderProfileStats(bundle, pid) {
+    var profile = (bundle && bundle.profile && bundle.profile.playerProfile) || {};
+    var player = profile.player || {};
+    var seasons = asArray(profile.season || profile.seasons || player.season);
+    if (!seasons.length) {
+      return '<div class="tops-empty">No season-by-season stats available from MFL for this player.</div>';
+    }
+    var rows = seasons.slice(0, 8).map(function (s) {
+      return '<tr>' +
+        '<td>' + escapeHtml(safeStr(s.year || s.season)) + '</td>' +
+        '<td>' + escapeHtml(safeStr(s.team)) + '</td>' +
+        '<td class="num">' + escapeHtml(safeStr(s.fantasy_points || s.points || s.fp || "—")) + '</td>' +
+        '<td>' + escapeHtml(safeStr(s.summary || s.note || "")) + '</td>' +
+        '</tr>';
+    }).join("");
+    return '<table class="tops-profile-table"><thead><tr><th>Season</th><th>Team</th><th class="num">FP</th><th>Notes</th></tr></thead><tbody>' + rows + '</tbody></table>';
+  }
+  function renderProfileGameLog(bundle, pid) {
+    var profile = (bundle && bundle.profile && bundle.profile.playerProfile) || {};
+    var games = asArray(profile.gameLog || profile.game_log || profile.weekly_stats);
+    if (!games.length) {
+      return '<div class="tops-empty">No game-by-game log available from MFL for this player.</div>';
+    }
+    var rows = games.slice(0, 18).map(function (g) {
+      return '<tr>' +
+        '<td>' + escapeHtml(safeStr(g.week || g.wk)) + '</td>' +
+        '<td>' + escapeHtml(safeStr(g.opp || g.opponent)) + '</td>' +
+        '<td class="num">' + escapeHtml(safeStr(g.fantasy_points || g.points || g.fp || "—")) + '</td>' +
+        '<td>' + escapeHtml(safeStr(g.summary || "")) + '</td>' +
+        '</tr>';
+    }).join("");
+    return '<table class="tops-profile-table"><thead><tr><th>Wk</th><th>Opp</th><th class="num">FP</th><th>Notes</th></tr></thead><tbody>' + rows + '</tbody></table>';
+  }
+  function renderProfileNews(bundle, pid) {
+    var newsItems = asArray(bundle && bundle.news);
+    if (!newsItems.length && bundle && bundle.profile && bundle.profile.playerProfile) {
+      newsItems = asArray(bundle.profile.playerProfile.news);
+    }
+    newsItems = newsItems.slice().sort(function (a, b) {
+      return Number(b.timestamp || 0) - Number(a.timestamp || 0);
+    });
+    if (!newsItems.length) {
+      return '<div class="tops-empty">No recent news for this player.</div>';
+    }
+    return '<ul class="tops-profile-news">' + newsItems.slice(0, 12).map(function (n) {
+      var when = n.timestamp ? new Date(Number(n.timestamp) * 1000).toLocaleDateString() : "";
+      var src = safeStr(n.source) || safeStr(n.author);
+      var headline = safeStr(n.headline) || safeStr(n.title);
+      var body = safeStr(n.story) || safeStr(n.body);
+      return '<li class="tops-profile-news-item">' +
+        '<div class="tops-profile-news-meta">' + escapeHtml(when) + (src ? ' · ' + escapeHtml(src) : '') + '</div>' +
+        (headline ? '<div class="tops-profile-news-head">' + escapeHtml(headline) + '</div>' : '') +
+        (body ? '<div class="tops-profile-news-body">' + escapeHtml(body.slice(0, 800)) + '</div>' : '') +
+        '</li>';
+    }).join("") + '</ul>';
   }
   function closePlayerProfileModal() {
     var ov = document.getElementById("topsProfileOverlay");
@@ -1017,14 +1241,14 @@
     // Item clicks → MFL native player profile (until Front Office's
     // 4-tab modal is properly extracted into a shared module).
     el.querySelectorAll(".tops-news-item").forEach(function (li) {
-      li.addEventListener("click", function () { openMflPlayerProfile(li.getAttribute("data-pid")); });
+      li.addEventListener("click", function () { openPlayerProfileModal(li.getAttribute("data-pid")); });
     });
   }
 
   // Open MFL's native player profile in a new tab. Stopgap until the
   // Front Office 4-tab modal gets extracted into a shared module
   // both hubs can load.
-  function openMflPlayerProfile(pid) {
+  function openPlayerProfileModal(pid) {
     if (!pid) return;
     var url = "https://www.myfantasyleague.com/" + encodeURIComponent(state.ctx.year) +
       "/options?L=" + encodeURIComponent(state.ctx.leagueId) +
