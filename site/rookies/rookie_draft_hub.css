@@ -2172,3 +2172,249 @@ tr td.num[style*="var(--err)"] { color: var(--err) !important; }
 @media (prefers-reduced-motion: reduce) {
   .auto-sim-bar-fill { transition: none; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   MOBILE APP SHELL  (v1.7.25 — Option B from the mobile plan)
+   Activated by JS toggling body.is-mobile when viewport ≤ 768px.
+   Everything is gated on .is-mobile so desktop layout is untouched.
+   Goals:
+     - Bottom tab nav (thumb reach, app-like)
+     - Single-column live view (no horizontal eye-jumping on phone)
+     - Full-screen modal sheets
+     - 44px min touch targets
+     - Sticky primary action button (Submit Pick / Propose Trade)
+     - Compact live-mode banner (just the essentials)
+   iOS: uses 100dvh (dynamic viewport) where helpful + safe-area padding.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* Top desktop tabs hidden on mobile — bottom nav replaces them. */
+body.is-mobile nav.rdh-tabs { display: none; }
+
+/* Bottom tab nav: pinned to bottom, horizontally scrollable for >5 tabs.
+   Fixed position so it stays in view on every scroll. */
+.mobile-bottom-nav {
+  display: none;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  background: var(--panel, #14161c);
+  border-top: 1px solid var(--border, rgba(255,255,255,0.10));
+  padding: 6px 4px calc(6px + env(safe-area-inset-bottom, 0px));
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.mobile-bottom-nav::-webkit-scrollbar { display: none; }
+.mobile-bottom-nav-inner {
+  display: flex;
+  gap: 2px;
+  min-width: 100%;
+  justify-content: space-around;
+}
+.mobile-bottom-nav button {
+  flex: 1 0 auto;
+  min-width: 64px;
+  min-height: 50px;
+  padding: 4px 8px;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  cursor: pointer;
+  border-radius: 6px;
+}
+.mobile-bottom-nav button .mbn-icon {
+  font-size: 18px;
+  line-height: 1;
+}
+.mobile-bottom-nav button.active {
+  color: var(--accent);
+  background: rgba(255,255,255,0.04);
+}
+body.is-mobile .mobile-bottom-nav { display: block; }
+
+/* Push main content above the bottom nav so it isn't hidden under it. */
+body.is-mobile main.rdh-main { padding-bottom: 80px; }
+
+/* Header: shrink the title + version badge so it fits. */
+body.is-mobile header.rdh-header { padding: 8px 12px; }
+body.is-mobile header.rdh-header h1 { font-size: 16px; line-height: 1.2; }
+body.is-mobile header.rdh-header .subtitle { display: block; font-size: 10px; margin-top: 2px; }
+body.is-mobile header.rdh-header .meta { font-size: 10px; }
+body.is-mobile #rdh-version-badge { font-size: 10px; padding: 2px 5px; }
+
+/* Live banner: ultra-compact. Pill + clock only. Hide greeting/clock-cfg
+   selector/reset button — those are commish desk tools. */
+body.is-mobile .live-mode-banner {
+  padding: 6px 10px;
+  gap: 4px;
+  margin: -8px -12px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+body.is-mobile .live-mode-banner .lmb-left,
+body.is-mobile .live-mode-banner .lmb-center,
+body.is-mobile .live-mode-banner .lmb-right { display: flex; align-items: center; gap: 6px; }
+body.is-mobile .lmb-greeting { display: none; }
+body.is-mobile .lmb-clock-cfg,
+body.is-mobile #pick-clock-reset,
+body.is-mobile #trade-discord-toggle { display: none; }
+body.is-mobile .lmb-pill { font-size: 9px; padding: 2px 6px; }
+body.is-mobile .lmb-headline { font-size: 11px; }
+body.is-mobile .lmb-clock { font-size: 12px; padding: 2px 5px; margin-left: 4px; }
+
+/* Live tab: force single-column, on-clock card pinned at top, draft board
+   shrunk + scrollable. */
+body.is-mobile .live-2col,
+body.is-mobile .live-2row { grid-template-columns: 1fr !important; display: flex !important; flex-direction: column; gap: 12px; }
+body.is-mobile .auto-sim-card-fullwidth { order: 99; }   /* push mock-sim down — owners don't run mock during real draft */
+body.is-mobile .live-board-top { order: 1; }
+body.is-mobile .live-col-left { order: 2; }
+body.is-mobile .live-col-right { order: 0; }              /* on-clock + my queue at the TOP */
+body.is-mobile .live-col-right .auto-sim-card,
+body.is-mobile .auto-sim-card-fullwidth { display: none; } /* mock sim hidden on phone — desktop tool */
+
+/* Draft board — auto-fit to viewport width with horizontal scroll. */
+body.is-mobile .draft-board {
+  font-size: 10px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+body.is-mobile .live-board-card { padding: 10px; }
+body.is-mobile .live-board-legend { font-size: 9px; gap: 8px; }
+
+/* Cards: tighter padding, smaller title, but keep readable. */
+body.is-mobile .rdh-card { padding: 12px; margin-bottom: 12px; border-radius: 8px; }
+body.is-mobile .rdh-card h2 { font-size: 14px; margin: 0 0 8px; }
+body.is-mobile .live-card-head { flex-direction: column; align-items: flex-start; gap: 4px; }
+
+/* Sticky primary action: when on-clock with a prospect queued, big bottom
+   button always visible above the bottom nav for one-thumb submit. */
+body.is-mobile .on-clock-card .btn,
+body.is-mobile #submit-pick-btn,
+body.is-mobile #propose-trade-btn {
+  min-height: 48px;
+  font-size: 14px;
+  font-weight: 700;
+}
+body.is-mobile #submit-pick-btn {
+  width: 100%;
+  margin-bottom: 4px;
+}
+
+/* Touch-target floor for everything that's interactive. */
+body.is-mobile .btn,
+body.is-mobile button:not(.mobile-bottom-nav button):not(.trade-basket-remove):not(.chip) {
+  min-height: 44px;
+  font-size: 13px;
+  padding: 10px 14px;
+}
+body.is-mobile .chip { min-height: 36px; padding: 8px 14px; font-size: 12px; }
+
+/* Inputs/selects: bigger, no iOS zoom (font-size ≥ 16px). */
+body.is-mobile input[type="text"],
+body.is-mobile input[type="search"],
+body.is-mobile input[type="number"],
+body.is-mobile input[type="password"],
+body.is-mobile select,
+body.is-mobile textarea {
+  font-size: 16px !important;
+  min-height: 40px;
+  padding: 8px 10px;
+}
+body.is-mobile .live-search { width: 100%; box-sizing: border-box; }
+
+/* Prospect rows: bigger tap target, bigger name, hide secondary metadata. */
+body.is-mobile .prospect-row { min-height: 56px; padding: 10px 12px; }
+body.is-mobile .prospect-row .small { font-size: 11px; }
+
+/* Tables: horizontal scroll wrapper to prevent overflow. */
+body.is-mobile .rdh-table { font-size: 11px; }
+body.is-mobile .rdh-table th,
+body.is-mobile .rdh-table td { padding: 6px 8px; }
+body.is-mobile section.rdh-section { overflow-x: auto; }
+
+/* Modal becomes a full-screen sheet that slides up from the bottom.
+   Native-app feel without any framework. */
+body.is-mobile .rdh-modal-overlay { padding: 0; align-items: stretch; justify-content: stretch; }
+body.is-mobile .rdh-modal {
+  max-width: none !important;
+  width: 100% !important;
+  height: 100dvh;
+  max-height: 100dvh !important;
+  border-radius: 0;
+  margin: 0;
+  padding: 16px;
+  padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  animation: mobile-sheet-up 200ms cubic-bezier(.2, .9, .25, 1);
+}
+@keyframes mobile-sheet-up {
+  from { transform: translateY(8%); opacity: 0; }
+  to   { transform: translateY(0);   opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  body.is-mobile .rdh-modal { animation: none; }
+}
+body.is-mobile .rdh-modal h3 { font-size: 16px; margin-bottom: 12px; padding-right: 40px; }
+body.is-mobile .rdh-modal .actions {
+  position: sticky;
+  bottom: 0;
+  background: var(--panel-alt, var(--panel));
+  margin: 12px -16px -16px;
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column-reverse;  /* primary action on top of stacked buttons (closer to thumb) */
+  gap: 8px;
+}
+body.is-mobile .rdh-modal .actions .btn { width: 100%; min-height: 48px; }
+
+/* Trade modal: full-screen with stacked baskets (give above receive). */
+body.is-mobile .rdh-modal.rdh-modal-trade {
+  width: 100% !important;
+  max-width: none !important;
+  height: 100dvh !important;
+  max-height: 100dvh !important;
+}
+body.is-mobile .trade-baskets-strip { flex-direction: column; gap: 8px; }
+body.is-mobile .trade-basket-divider { display: none; }
+body.is-mobile .trade-pickers-body { grid-template-columns: 1fr; gap: 12px; }
+body.is-mobile .trade-modal-shell { height: 100dvh; padding-bottom: env(safe-area-inset-bottom, 0px); }
+body.is-mobile .trade-bb-row { flex-wrap: wrap; gap: 6px; }
+
+/* Auto-sim card: collapsed entirely on mobile — desktop simulation tool. */
+body.is-mobile .auto-sim-card,
+body.is-mobile #auto-sim-card { display: none !important; }
+
+/* Right-rail panels stacking on mobile: keep On-the-Clock + My Queue +
+   Inbox visible, push Salary Schedule down (reference data). */
+body.is-mobile #salary-schedule { order: 50; }
+body.is-mobile #inbox-panel { order: 1; }       /* incoming trade offers near the top */
+body.is-mobile #on-clock-panel { order: 0; }    /* who's up — most important */
+body.is-mobile #my-queue-panel { order: 2; }
+body.is-mobile #my-team-panel { order: 30; }
+
+/* Toast: lift above the bottom nav so it doesn't hide behind it. */
+body.is-mobile .rdh-toast,
+body.is-mobile #rdh-toast {
+  bottom: calc(80px + env(safe-area-inset-bottom, 0px)) !important;
+  left: 12px !important;
+  right: 12px !important;
+  width: auto !important;
+  max-width: none !important;
+}
+

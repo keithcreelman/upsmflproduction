@@ -26,6 +26,31 @@ logic is doing without digging into code).
 
 ---
 
+## v1.7.25 — 2026-05-11 — Mobile app shell (Option B from the mobile plan)
+
+Below 768px viewport, the hub swaps in a phone-friendly layout:
+
+- **Bottom tab nav** — always within thumb reach. Mirrors the desktop top
+  tabs (auto-discovers any future tab additions). Each tab gets an emoji
+  icon + 1-word label. Horizontally scrollable.
+- **Single-column live view** — on-clock card pinned at top, prospects
+  below. Mock Draft Simulation card hidden entirely on mobile.
+- **Full-screen modal sheets** — pick confirm + trade builder slide up
+  from the bottom (`100dvh`), primary action button sticks to bottom
+  above the iOS home indicator (safe-area-inset).
+- **44px touch targets** floor on every button. Inputs sized at 16px
+  to defeat iOS auto-zoom on focus.
+- **Compact live banner** — pill + headline + clock only on mobile.
+  Greeting / clock-config / reset / Trade DM toggle hidden (commish desk
+  tools).
+- **Toast sticks above the bottom nav** so notifications stay visible.
+
+Activated by `body.is-mobile` via `matchMedia('(max-width: 768px)')` with
+a change listener so orientation flips re-evaluate without a reload.
+Desktop layout is bit-identical — all changes gated on `.is-mobile`.
+
+---
+
 ## v1.7.24 — 2026-05-11 — R6 final order writes to MFL + parent-URL fix
 
 Two things from Keith's first test of v1.7.23:
