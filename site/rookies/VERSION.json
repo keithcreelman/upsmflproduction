@@ -1,7 +1,7 @@
 {
-  "version": "1.7.30",
+  "version": "1.7.31",
   "released": "2026-05-11",
-  "label": "V1.7.30 — Draft-Day Trades tab removed entirely (desktop AND mobile) — was an under-construction placeholder",
+  "label": "V1.7.31 — Front Office: taxi salary always shown (was '—' for zero) so trade-value math is visible per Keith's universal rule",
   "description": "First published version of the Draft Hub analytics model. This establishes the V1 baseline. Future tweaks bump the version and are logged here.",
   "methodology_signature": {
     "tier_classifier": "NET = 3yr-games-weighted E+P rate − 0.5 × 3yr-games-weighted Dud rate",
@@ -28,6 +28,17 @@
     "lineup_efficiency": 0.012
   },
   "changes": [
+    {
+      "version": "1.7.31",
+      "date": "2026-05-11",
+      "type": "fix",
+      "summary": "Front Office (site/rosters): taxi player salary/AAV/TCV cells were rendering as '—' when the underlying value was 0, hiding the fact that the player has a real (cap-irrelevant) contract. Per Keith's universal taxi rule: salary always visible. New taxi-aware formatters fall through to allow-zero rendering for taxi rows; non-taxi rows are unchanged.",
+      "details": [
+        "site/rosters/roster_workbench.js: added taxiAwareSalaryHtml/Text + taxiAwareAmountText helpers that use compactContractAmountAllowZero (renders '$0K' instead of '—') when player.isTaxi=true.",
+        "Row builder swapped salary/AAV/TCV cells to the taxi-aware variants. Mobile <dl> details block uses the same. Orig GTD + Cap Pen already used allow-zero.",
+        "Active-player rows: zero salary still renders '—' (semantically meaningful 'no contract' marker)."
+      ]
+    },
     {
       "version": "1.7.30",
       "date": "2026-05-11",

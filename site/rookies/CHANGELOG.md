@@ -26,6 +26,20 @@ logic is doing without digging into code).
 
 ---
 
+## v1.7.31 — 2026-05-11 — Front Office: taxi salary always shown
+
+Per Keith's universal taxi rule: taxi player salary/AAV/TCV must show in
+the Front Office hub, not collapse to "—" when the underlying value is 0.
+
+Added taxi-aware formatters in `site/rosters/roster_workbench.js`:
+- `taxiAwareSalaryHtml` / `taxiAwareSalaryText` — when `player.isTaxi`,
+  uses the allow-zero formatter that renders "$0K" instead of "—".
+- `taxiAwareAmountText` — same for non-rank-bearing amounts (TCV).
+- Active-player rows unchanged — zero salary there still means "no
+  contract on file" and renders "—" as a meaningful empty marker.
+
+---
+
 ## v1.7.30 — 2026-05-11 — Remove Draft-Day Trades tab entirely
 
 Per Keith: the under-construction Draft-Day Trades placeholder wasn't
