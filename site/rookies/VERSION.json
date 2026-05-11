@@ -1,7 +1,7 @@
 {
-  "version": "1.7.7",
+  "version": "1.7.8",
   "released": "2026-05-11",
-  "label": "V1.7.7 — Per-pick countdown clock in the banner (defaults to 10 min; LIVE clock derived from MFL pick timestamp)",
+  "label": "V1.7.8 — Defensive client-side commish detection so 'Go LIVE' button reliably appears for fid 0008/0001 + ?commish=1 URL override",
   "description": "First published version of the Draft Hub analytics model. This establishes the V1 baseline. Future tweaks bump the version and are logged here.",
   "methodology_signature": {
     "tier_classifier": "NET = 3yr-games-weighted E+P rate − 0.5 × 3yr-games-weighted Dud rate",
@@ -28,6 +28,18 @@
     "lineup_efficiency": 0.012
   },
   "changes": [
+    {
+      "version": "1.7.8",
+      "date": "2026-05-11",
+      "type": "fix",
+      "summary": "Belt-and-suspenders for the 'Go LIVE' commish toggle. Even if the worker /api/me call races HPM franchise injection or the user loads outside HPM context, the hub now sets is_commish locally for franchise 0008 (Keith) and 0001 (legacy fallback). Adds ?commish=1 URL override and console.info('[draft-hub] me:', ...) debug log.",
+      "details": [
+        "Frontend: after the /api/me + HPM overlay, cross-check STATE.me.franchise_id against client-side COMMISH_FIDS_CLIENT = ['0008','0001']. Sets is_commish:true on match.",
+        "?commish=1 / ?commish=true → force is_commish:true (e.g. for testing on workers.dev preview without an HPM context).",
+        "?commish=0 / ?commish=false → force is_commish:false (hide the toggle).",
+        "console.info('[draft-hub] me:', ...) — surfaces what STATE.me looks like so the right answer to 'why don't I see Go LIVE?' is one DevTools peek away."
+      ]
+    },
     {
       "version": "1.7.7",
       "date": "2026-05-11",
