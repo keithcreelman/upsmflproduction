@@ -1167,6 +1167,10 @@
         }
         const p = STATE.prospects.prospects.find(x => x.player_id === pid);
         STATE.selectedProspect = p;
+        // Manually picking a prospect cancels any pending auto-pick from queue
+        // — this prospect overrides the queue head.
+        _cancelAutoPick(typeof _autoPickTimer !== "undefined" && _autoPickTimer
+          ? "Auto-pick cancelled — you picked a different prospect" : null);
         renderOnClockPanel();
       });
     });
@@ -1269,17 +1273,43 @@
         ${consensusLine}
       </div>
     ` : `<div class="small" style="color: var(--muted); margin-bottom: 10px;">${userOnClock ? "" : "Click a prospect to queue up a pick."}</div>`;
+    // If an auto-pick is pending (queue + opt-in checkbox + user on clock),
+    // surface a clearly-labeled inline panel with a Cancel button. The
+    // toast alone is too easy to miss.
+    const autoPickPending = (typeof _autoPickTimer !== "undefined" && _autoPickTimer)
+      && prospect && _autoPickPid && String(_autoPickPid) === String(prospect.player_id);
+    const autoPickBanner = autoPickPending ? `
+      <div class="auto-pick-pending">
+        <span class="auto-pick-pending-label">🤖 Auto-picking <strong>${escapeHtml(prospectDisplayName)}</strong> in <span id="auto-pick-countdown">3</span>s…</span>
+        <button class="btn warn" id="auto-pick-cancel" type="button">Cancel</button>
+      </div>` : "";
     panel.innerHTML = `
       <div style="font-size: 20px; font-weight: 600;">${slotLabel}</div>
       <div style="color: var(--muted); margin-bottom: 10px;">${fname} on the clock</div>
       ${yourTurnBanner}
       ${tierHtml}
       ${prospectHtml}
+      ${autoPickBanner}
       <button class="btn" id="submit-pick-btn" ${prospect ? "" : "disabled style='opacity:0.5; cursor: not-allowed;'"}>
         Draft Player
       </button>
       <button class="btn secondary" id="propose-trade-btn" style="margin-left: 6px;">Propose Trade</button>
     `;
+    if (autoPickPending) {
+      const cancelBtn = document.getElementById("auto-pick-cancel");
+      if (cancelBtn) cancelBtn.addEventListener("click", () => {
+        _cancelAutoPick("Auto-pick cancelled — confirm your pick manually");
+        renderOnClockPanel();
+      });
+      // Visible 3-2-1 countdown
+      let remaining = 3;
+      const cdEl = document.getElementById("auto-pick-countdown");
+      const cdTimer = setInterval(() => {
+        remaining -= 1;
+        if (cdEl) cdEl.textContent = String(Math.max(0, remaining));
+        if (remaining <= 0 || !_autoPickTimer) clearInterval(cdTimer);
+      }, 1000);
+    }
     panel.querySelectorAll(".tier-click").forEach(el => {
       el.addEventListener("click", () => showTierPopup(el.dataset.tier));
     });
@@ -4675,31 +4705,83 @@
   }
 
   // Auto-promote the queue's first available prospect to selectedProspect
-  // when the user is on the clock — ONLY if they've explicitly opted in via
-  // the checkbox. Default is OFF so owners always confirm picks themselves.
+  // AND auto-submit the pick after a 3-second cancel window — but only if
+  // the user has explicitly ticked the auto-pick checkbox. Default is OFF
+  // so owners always confirm manually.
+  //
+  // SIM mode: submits via local _autoSimRecordPick (no worker call).
+  // LIVE mode: only sets selectedProspect — user must still confirm via
+  //   the modal. (Auto-submitting an MFL write is too risky.)
   function _autoPickFromQueueEnabled() {
     try {
       return sessionStorage.getItem(`rdh_queue_autopick_${_myFid() || "default"}`) === "1";
     } catch (e) { return false; }
   }
+  // Module-level state for the pending auto-pick countdown — guards against
+  // multiple timers stacking up across re-renders.
+  let _autoPickTimer = null;
+  let _autoPickPid = null;
+  function _cancelAutoPick(reason) {
+    if (_autoPickTimer) clearTimeout(_autoPickTimer);
+    _autoPickTimer = null;
+    _autoPickPid = null;
+    if (reason) showToast(reason, "ok");
+  }
   function _maybeAutoSelectFromQueue() {
     if (!_autoPickFromQueueEnabled()) return;  // opt-in only
     if (!STATE.myQueue.length) return;
     const fid = _myFid();
-    if (!fid) return;
+    if (!fid) return _cancelAutoPick(null);
     const active = STATE.live && STATE.live.active_pick;
-    if (!active || String(active.franchise_id) !== String(fid)) return;
-    // If user already has someone queued in the on-clock card, don't override.
-    if (STATE.selectedProspect) return;
+    if (!active || String(active.franchise_id) !== String(fid)) {
+      // No longer on the clock — cancel any pending countdown.
+      return _cancelAutoPick(null);
+    }
     const drafted = _draftedPickIndex();
     const nextPid = STATE.myQueue.find(pid => !drafted[String(pid)]);
-    if (!nextPid) return;
+    if (!nextPid) return _cancelAutoPick(null);
     const p = (STATE.prospects && STATE.prospects.prospects || [])
       .find(x => String(x.player_id) === String(nextPid));
-    if (p) {
-      STATE.selectedProspect = p;
-      // Don't re-render here — caller (renderLive) will pick it up on next pass.
+    if (!p) return _cancelAutoPick(null);
+
+    // Always set selectedProspect so the on-clock card shows the queue head.
+    STATE.selectedProspect = p;
+
+    // If a timer is already running for THIS prospect, leave it alone.
+    if (_autoPickTimer && _autoPickPid === nextPid) return;
+    // Different prospect than the pending one (queue reordered, etc.) — restart.
+    if (_autoPickTimer) clearTimeout(_autoPickTimer);
+    _autoPickPid = nextPid;
+
+    const isSim = !!STATE.simulationMode;
+    if (!isSim) {
+      // LIVE mode — don't auto-submit MFL writes. Just keep selectedProspect set.
+      // User must click Draft Player → confirm in the modal.
+      _autoPickTimer = null;
+      _autoPickPid = null;
+      return;
     }
+
+    showToast(`🤖 Auto-picking ${p.name.includes(",") ? p.name.split(",").reverse().map(s=>s.trim()).join(" ") : p.name} in 3s — click anywhere on the on-clock card to cancel`, "ok");
+    _autoPickTimer = setTimeout(() => {
+      // Re-validate everything (queue may have changed, prospect may be drafted, sim may have advanced)
+      _autoPickTimer = null;
+      _autoPickPid = null;
+      const stillActive = STATE.live && STATE.live.active_pick;
+      if (!stillActive || String(stillActive.franchise_id) !== String(fid)) return;
+      if ((STATE.live.picks_made || []).find(pp => String(pp.player_id) === String(p.player_id))) return;
+      // Submit via local sim record + advance the sim if running
+      _autoSimRecordPick({
+        round: stillActive.round, pick: stillActive.pick,
+        franchise_id: stillActive.franchise_id,
+      }, p, "user-queue-auto");
+      showToast(`✓ Auto-picked ${p.name.includes(",") ? p.name.split(",").reverse().map(s=>s.trim()).join(" ") : p.name} from your queue`, "ok");
+      if (AUTO_SIM.running) {
+        AUTO_SIM.paused = false;
+        _autoSimUiSetState("running");
+        _autoSimSchedule();
+      }
+    }, 3000);
   }
 
   // ══════════════════════════════════════════════════════════════════════
