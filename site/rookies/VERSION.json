@@ -1,7 +1,7 @@
 {
-  "version": "1.7.9",
+  "version": "1.7.10",
   "released": "2026-05-11",
-  "label": "V1.7.9 — Commish-via-fid-0000 + ISMFLCOMMISH cookie sniff in HPM loader (Keith logged in as MFL pseudo-franchise sees Go LIVE)",
+  "label": "V1.7.10 — Reword LIVE-mode dialogs (picks are recoverable via MFL Modify Draft Results, not 'irreversible')",
   "description": "First published version of the Draft Hub analytics model. This establishes the V1 baseline. Future tweaks bump the version and are logged here.",
   "methodology_signature": {
     "tier_classifier": "NET = 3yr-games-weighted E+P rate − 0.5 × 3yr-games-weighted Dud rate",
@@ -28,6 +28,17 @@
     "lineup_efficiency": 0.012
   },
   "changes": [
+    {
+      "version": "1.7.10",
+      "date": "2026-05-11",
+      "type": "copy",
+      "summary": "Reworded the LIVE-mode confirm dialog and mode-help modal — picks are NOT 'irreversible'. They go to MFL's live draft and Discord, but the commish can undo via Modify Draft Results in MFL and delete the Discord post. Hub itself has no undo button, but the underlying actions are recoverable.",
+      "details": [
+        "flipLiveMode() confirm dialog: 'POST to MFL draftResults (irreversible)' → spelled out the actual effect + recovery path.",
+        "Trade Process confirm: 'IRREVERSIBLE without manual cleanup' → 'Recovery requires punching in a reverse trade manually'.",
+        "showModeHelp modal: added a 'What if I make a mistake in LIVE?' subsection with the recovery steps."
+      ]
+    },
     {
       "version": "1.7.9",
       "date": "2026-05-11",

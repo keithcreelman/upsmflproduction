@@ -954,8 +954,13 @@
       const ok = confirm(
         "Switch to LIVE mode?\n\n" +
         "Submitting a pick will:\n" +
-        "  • POST to MFL draftResults (irreversible)\n" +
-        "  • Announce in #live Discord channel\n\n" +
+        "  • POST to MFL's live draft (the player is drafted for real, " +
+        "with the slot's rookie contract applied)\n" +
+        "  • Post an announcement to the #live draft Discord channel\n\n" +
+        "Both are recoverable if you mess up:\n" +
+        "  • MFL pick → undo via Commissioner → Modify Draft Results\n" +
+        "  • Discord post → delete the message\n\n" +
+        "...but the hub itself has no \"undo\" button, so be deliberate.\n" +
         "Only do this on draft day. Continue?"
       );
       if (!ok) return;
@@ -997,6 +1002,18 @@
         <strong style="color:var(--err);">LIVE</strong> (commissioner only) — picks POST to MFL's <code>draftResults</code>
         endpoint and announce in the official Discord channel. Only flip during
         the real draft on Memorial Day Sunday.
+      </p>
+      <p style="line-height:1.6; margin-top: 10px; color: var(--muted);">
+        <strong>What if I make a mistake in LIVE?</strong> Picks are recoverable —
+        the hub itself doesn't have an undo button, but you can:
+      </p>
+      <ul style="line-height:1.6; color: var(--muted); margin-top: 4px;">
+        <li>Undo a pick via <em>Commissioner → Modify Draft Results</em> in MFL.</li>
+        <li>Delete the Discord post manually.</li>
+        <li>Reverse a processed trade by punching in the opposite trade.</li>
+      </ul>
+      <p style="line-height:1.6; margin-top: 6px; color: var(--muted);">
+        So it's deliberate, not irreversible. Click carefully — but don't panic if you fat-finger.
       </p>
       <div class="actions">
         <button class="btn" onclick="document.getElementById('rdh-modal-overlay').classList.remove('open')">Got it</button>
@@ -3979,7 +3996,8 @@
       // Commish-only LIVE-mode "process" path: hits /api/trade/process which
       // proposes + auto-accepts on behalf of the partner via MFL APIKEY. Two
       // owners agree verbally during the draft → commish punches it in →
-      // trade is done. Big confirm dialog because this is irreversible.
+      // trade is done. Big confirm dialog because it executes immediately —
+      // recoverable only by punching in a reverse trade, which is messy.
       const isCommishProcess = !isSim && STATE.me && STATE.me.is_commish;
       if (isCommishProcess) {
         const partnerName = franchises[toFid] || toFid;
@@ -3990,8 +4008,8 @@
           `${myName} ↔ ${partnerName}\n\n` +
           `${myName} sends:\n  ${giveSummaryC}\n\n` +
           `${partnerName} sends:\n  ${receiveSummaryC}\n\n` +
-          `This will execute IMMEDIATELY in MFL on behalf of both teams. ` +
-          `It is IRREVERSIBLE without manual cleanup. Continue?`
+          `This will execute IMMEDIATELY in MFL on behalf of both teams.\n` +
+          `Recovery requires punching in a reverse trade manually. Continue?`
         );
         if (!ok) {
           result.innerHTML = `<div class="small" style="color: var(--muted)">Cancelled.</div>`;
