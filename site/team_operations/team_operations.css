@@ -472,6 +472,172 @@
 }
 .tops-roster-table tr.is-taxi { background: rgba(251, 191, 36, 0.04); }
 
+/* Roster row click affordance — feels like a tap target. */
+.tops-roster-table tr.tops-roster-row { cursor: pointer; transition: background 80ms ease; }
+.tops-roster-table tr.tops-roster-row:hover { background: rgba(255, 255, 255, 0.04); }
+.tops-roster-table tr.tops-roster-row.is-taxi:hover { background: rgba(251, 191, 36, 0.10); }
+.tops-roster-table tr.tops-roster-row:focus-visible {
+  outline: 2px solid var(--tops-accent, #fbbf24);
+  outline-offset: -2px;
+}
+.tops-card-hint {
+  font-size: 11px;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.45);
+  margin-left: 8px;
+}
+
+/* News feed — same tap pattern as roster rows so any news item opens
+   the player profile modal. */
+.tops-news-list { list-style: none; padding: 0; margin: 0; }
+.tops-news-item {
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  cursor: pointer;
+  transition: background 80ms ease;
+}
+.tops-news-item:hover { background: rgba(255, 255, 255, 0.04); }
+.tops-news-item:focus-visible {
+  outline: 2px solid var(--tops-accent, #fbbf24);
+  outline-offset: -2px;
+}
+.tops-news-row1 {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.tops-news-player { font-weight: 700; font-size: 13px; color: #fff; }
+.tops-news-pos {
+  font-size: 10px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.55);
+  letter-spacing: 0.5px;
+}
+.tops-news-when {
+  margin-left: auto;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.45);
+  font-variant-numeric: tabular-nums;
+}
+.tops-news-head {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.85);
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+.tops-news-body {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.65);
+  line-height: 1.45;
+}
+
+/* Player profile modal — full-screen dim, centered card. Mobile sheet
+   is full-screen (max-width:none). Esc / backdrop click both close. */
+.tops-profile-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  z-index: 1000;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 32px 16px;
+  overflow-y: auto;
+}
+.tops-profile-modal {
+  background: #14161c;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 12px;
+  max-width: 620px;
+  width: 100%;
+  padding: 20px 22px 18px;
+  position: relative;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+  animation: tops-profile-fade 160ms ease;
+}
+@keyframes tops-profile-fade {
+  from { transform: translateY(8px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+.tops-profile-close {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 22px;
+  cursor: pointer;
+  border-radius: 6px;
+}
+.tops-profile-close:hover { background: rgba(255, 255, 255, 0.08); color: #fff; }
+.tops-profile-head { margin-bottom: 14px; padding-right: 36px; }
+.tops-profile-name { font-size: 20px; margin: 0 0 4px; color: #fff; }
+.tops-profile-bio { font-size: 12px; color: rgba(255, 255, 255, 0.65); }
+.tops-profile-injury {
+  margin-top: 8px;
+  padding: 6px 10px;
+  background: rgba(255, 107, 107, 0.10);
+  border: 1px solid rgba(255, 107, 107, 0.35);
+  color: #ffb3b3;
+  font-size: 12px;
+  border-radius: 6px;
+}
+.tops-profile-section-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: rgba(255, 255, 255, 0.55);
+  margin: 14px 0 8px;
+  font-weight: 700;
+}
+.tops-profile-news { list-style: none; padding: 0; margin: 0; }
+.tops-profile-news-item {
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.tops-profile-news-item:last-child { border-bottom: none; }
+.tops-profile-news-meta {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.45);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin-bottom: 3px;
+}
+.tops-profile-news-head {
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 4px;
+}
+.tops-profile-news-body {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.75);
+  line-height: 1.5;
+}
+.tops-profile-actions {
+  margin-top: 16px;
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  padding-top: 12px;
+}
+
+@media (max-width: 768px) {
+  .tops-profile-overlay { padding: 0; align-items: stretch; }
+  .tops-profile-modal {
+    border-radius: 0;
+    max-width: none;
+    min-height: 100dvh;
+    padding: 18px 16px calc(18px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
 /* Sticky header on mobile — franchise name + Submit Lineup / Full
    Rosters / Trade Room shortcuts stay reachable while scrolling. */
 @media (max-width: 768px) {
