@@ -1,7 +1,7 @@
 {
-  "version": "1.7.34",
+  "version": "1.7.35",
   "released": "2026-05-11",
-  "label": "V1.7.34 — My Team: beefier viewer-franchise resolution + clear empty state with manual picker when no franchise can be detected",
+  "label": "V1.7.35 — My Team: route MFL fetches through same-origin host (was api.myfantasyleague.com which 302s and breaks CORS preflight chain — caused 12/12 endpoint errors and the all-zero page)",
   "description": "First published version of the Draft Hub analytics model. This establishes the V1 baseline. Future tweaks bump the version and are logged here.",
   "methodology_signature": {
     "tier_classifier": "NET = 3yr-games-weighted E+P rate − 0.5 × 3yr-games-weighted Dud rate",
@@ -28,6 +28,17 @@
     "lineup_efficiency": 0.012
   },
   "changes": [
+    {
+      "version": "1.7.35",
+      "date": "2026-05-11",
+      "type": "fix",
+      "summary": "ROOT CAUSE found for Keith's all-zero My Team page on production. team_operations.js hardcoded mflHost() to api.myfantasyleague.com, which 302-redirects to the league's actual shard (www48 for league 74598). The 302 doesn't carry CORS headers, and combined with credentials:'include' in the fetch the browser drops the entire chain BEFORE following the redirect. Diagnostic from v1.7.34's empty state confirmed this: '12 endpoint error(s)'. Fix: when the page is on a *.myfantasyleague.com host, use that exact origin so the fetch is same-origin and skips the redirect entirely.",
+      "details": [
+        "site/team_operations/team_operations.js: mflHost() now reads window.location.hostname; if it matches /\\.myfantasyleague\\.com$/, use that exact protocol+host. Falls back to https://www48.myfantasyleague.com for local dev (CORS will still fail there but the empty-state picker handles it).",
+        "All 12 MFL exports now resolve via the same-origin path on production HPMs — Franchise Summary, Roster, News, etc. should populate cleanly.",
+        "Build stamp: 2026.05.11.04 → 2026.05.11.05."
+      ]
+    },
     {
       "version": "1.7.34",
       "date": "2026-05-11",

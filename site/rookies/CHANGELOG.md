@@ -26,6 +26,30 @@ logic is doing without digging into code).
 
 ---
 
+## v1.7.35 — 2026-05-11 — My Team: same-origin MFL fetches (root cause of zeros)
+
+The v1.7.34 diagnostic surfaced "12 endpoint error(s)" on Keith's
+production HPM page. Root cause: `team_operations.js` hardcoded
+`mflHost()` to `api.myfantasyleague.com`, which 302-redirects to the
+league's actual shard (`www48` for league 74598).
+
+The 302 itself doesn't carry CORS headers. Combined with
+`credentials: "include"` on the fetch, browsers drop the entire chain
+before following the redirect. **Every fetch died → no league data →
+no franchises → all-zero page.**
+
+Fix: `mflHost()` now reads `window.location.hostname` and uses the same
+origin when it's a `*.myfantasyleague.com` host. Same-origin → no
+preflight, no redirect, fetch succeeds.
+
+Falls back to `https://www48.myfantasyleague.com` for local dev (still
+CORS-blocked there, but the empty-state picker from v1.7.34 handles
+that case cleanly).
+
+Build stamp `2026.05.11.05`.
+
+---
+
 ## v1.7.34 — 2026-05-11 — My Team: viewer-franchise resolution + empty state
 
 Keith's screenshot: My Team loaded but showed all zeros. Two causes
