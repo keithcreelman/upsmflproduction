@@ -1,7 +1,7 @@
 {
-  "version": "1.7.25",
+  "version": "1.7.26",
   "released": "2026-05-11",
-  "label": "V1.7.25 — Mobile app shell: bottom tab nav, single-column live, full-screen modal sheets, 44px touch targets — Option B from the mobile plan, scoped for draft day",
+  "label": "V1.7.26 — Mobile polish round 1: tabs back at top (sticky), tighter trade modal header, universal Taxi pill + salary, 20-row pagination on Historical Picks + Future Picks",
   "description": "First published version of the Draft Hub analytics model. This establishes the V1 baseline. Future tweaks bump the version and are logged here.",
   "methodology_signature": {
     "tier_classifier": "NET = 3yr-games-weighted E+P rate − 0.5 × 3yr-games-weighted Dud rate",
@@ -28,6 +28,25 @@
     "lineup_efficiency": 0.012
   },
   "changes": [
+    {
+      "version": "1.7.26",
+      "date": "2026-05-11",
+      "type": "fix+feature",
+      "summary": "Five fixes from Keith's first mobile pass. (1) Tabs moved BACK to the top on mobile — Keith hated bottom nav. Top nav becomes sticky on mobile so it stays accessible while scrolling. Bottom-nav DOM kept but display:none. (2) Trade modal header collapsed into ONE compact row (From → To → ✕) instead of two stacked rows with separate labels. (3) Universal TAXI pill added everywhere players are rendered (trade picker rows, basket rows, follows the player wherever they appear) — site-wide rule. (4) Taxi salary always shown (it doesn't count vs cap but is real for trade math). (5) Pagination at 20 rows/page on Historical Picks and Future Picks tables, with prev/next + 'X-Y of Z · page N/M' summary.",
+      "details": [
+        "CSS: removed body.is-mobile nav.rdh-tabs { display: none } — top nav stays visible on mobile + becomes position:sticky top:0 z-index:50.",
+        "CSS: .mobile-bottom-nav { display: none !important } — DOM still constructed by _initMobileShell, just hidden. Easy to revive if Keith changes his mind.",
+        "Mobile toast bottom inset reduced from 80px → 12px (no bottom nav to clear anymore).",
+        "Trade modal header: single row with [from-select] → [to-select] [✕], gap 6px, 10/14px fonts. Saves ~30px vertical on commish broker mode.",
+        "Worker /api/franchise-assets: returns taxi:bool on each player object (computed from MFL roster status containing 'TAXI' OR contractStatus='TAXI'). Players sorted non-taxi-first, both groups by salary desc.",
+        "Frontend trade picker + basket: TAXI pill rendered next to player name. Salary chip on basket rows ALWAYS shows the dollar amount (taxi included). Taxi rows get a subtle yellow tint.",
+        "New .taxi-pill CSS — yellow-tinted 9px badge for use anywhere a player is displayed (universal site convention).",
+        "New paginate(rows, keyName, opts) helper: 20/page default, builds Prev/Next + 'X-Y of Z · page N/M' control strip. Returns {visible, html, attach}.",
+        "Applied to renderHistory (was hard-cap 500, now paginated 20). h_filters change handler resets STATE.h_page=0.",
+        "Applied to renderFuturePicks. FP_STATE filter change handler resets STATE.fp_page=0.",
+        "Both paginators auto-mount below their tables; auto-hide when total ≤ pageSize."
+      ]
+    },
     {
       "version": "1.7.25",
       "date": "2026-05-11",

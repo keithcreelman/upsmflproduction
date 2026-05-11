@@ -26,6 +26,31 @@ logic is doing without digging into code).
 
 ---
 
+## v1.7.26 — 2026-05-11 — Mobile polish round 1 (5 fixes from first phone test)
+
+1. **Tabs back at the top.** Bottom nav was removed (DOM kept, hidden via
+   CSS so it's easy to revive if needed). Top nav becomes `position: sticky`
+   on mobile so it stays accessible while scrolling.
+2. **Trade modal header tightened.** Two stacked rows with their own labels
+   collapsed to ONE compact row: `[From-select] → [To-select] [✕]`.
+3. **Universal TAXI pill** wherever a player is rendered (trade picker
+   rows, basket rows, anywhere new). Yellow-tinted 9px badge.
+4. **Taxi salary always shown** even though it doesn't count vs cap —
+   it's still real money for trade-value comparisons.
+5. **Pagination at 20/page** on Historical Picks and Future Picks tables,
+   with prev/next buttons + "X-Y of Z · page N/M" summary. Filters reset
+   to page 0.
+
+New worker behavior:
+- `/api/franchise-assets` now returns `taxi: bool` on each player and
+  sorts non-taxi-first.
+
+New util:
+- `paginate(rows, keyName, opts)` — drop-in pagination helper. Mounts
+  controls below any table.
+
+---
+
 ## v1.7.25 — 2026-05-11 — Mobile app shell (Option B from the mobile plan)
 
 Below 768px viewport, the hub swaps in a phone-friendly layout:
