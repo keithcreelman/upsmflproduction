@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var BUILD = "2026.05.11.04";
+  var BUILD = "2026.05.11.05";
   var BOOT_FLAG = "__ups_team_operations_boot_" + BUILD;
   if (window[BOOT_FLAG]) {
     if (typeof window.UPS_TEAMOPS_INIT === "function") window.UPS_TEAMOPS_INIT();
@@ -82,7 +82,29 @@
   // ---------- MFL API ----------
 
   function mflHost() {
-    return "https://api.myfantasyleague.com";
+    // Prefer the SAME-ORIGIN host the page is on. MFL serves league data
+    // from a sharded sub-domain (www48 for league 74598). The legacy
+    // api.myfantasyleague.com host 302-redirects to that shard, but the
+    // 302 doesn't carry CORS headers — combined with credentials:"include"
+    // the browser drops the entire fetch chain BEFORE it ever reaches
+    // the redirect target. Net result: 12/12 endpoint errors and an
+    // all-zero My Team page.
+    //
+    // Fix: when the page is already on a *.myfantasyleague.com host,
+    // use that exact origin so the fetch is same-origin and bypasses
+    // the redirect entirely. Fallback to the canonical www host
+    // when running outside MFL (local dev, where CORS will block
+    // anyway — the empty-state picker handles that case).
+    try {
+      var loc = window.location || {};
+      var host = String(loc.hostname || "").toLowerCase();
+      if (host && /\.myfantasyleague\.com$/.test(host)) {
+        return loc.protocol + "//" + host;
+      }
+    } catch (e) {}
+    // Local-dev fallback. Will CORS-fail; renderViewerEmptyState surfaces
+    // a clear diagnostic so we know what's happening.
+    return "https://www48.myfantasyleague.com";
   }
 
   function mflExportUrl(type, extra) {
