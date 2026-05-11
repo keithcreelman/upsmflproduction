@@ -1,7 +1,7 @@
 {
-  "version": "1.7.5",
+  "version": "1.7.6",
   "released": "2026-05-11",
-  "label": "V1.7.5 — Live draft state from MFL (no more stale snapshot timestamp)",
+  "label": "V1.7.6 — Commish toggle visible in prod (default 0008) + slow-draft speeds (1/5/10 min)",
   "description": "First published version of the Draft Hub analytics model. This establishes the V1 baseline. Future tweaks bump the version and are logged here.",
   "methodology_signature": {
     "tier_classifier": "NET = 3yr-games-weighted E+P rate − 0.5 × 3yr-games-weighted Dud rate",
@@ -28,6 +28,17 @@
     "lineup_efficiency": 0.012
   },
   "changes": [
+    {
+      "version": "1.7.6",
+      "date": "2026-05-11",
+      "type": "fix+feature",
+      "summary": "Commish 'Go LIVE' toggle now appears for franchise 0008 (Real Deal Creel) by default — no Cloudflare secret required. Auto-sim Speed dropdown adds 1 min, 5 min, and 10 min/pick options for slow real-time drafts.",
+      "details": [
+        "Worker default COMMISH_FRANCHISE_IDS changed from '0001' to '0008,0001'. /api/me now returns is_commish:true for Keith without setting a production secret. Override env var still wins if set.",
+        "site/rookies/rookie_draft_hub.html: <select id='auto-sim-speed'> gains 60000 / 300000 / 600000 ms options (1 / 5 / 10 min per pick). Existing 5s/10s/20s/Instant unchanged.",
+        "Tick progress bar already uses elapsed/speedMs ratio — works correctly for any duration; no JS change needed."
+      ]
+    },
     {
       "version": "1.7.5",
       "date": "2026-05-11",
