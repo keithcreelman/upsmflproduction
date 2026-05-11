@@ -1,7 +1,7 @@
 {
-  "version": "1.6.4",
+  "version": "1.6.5",
   "released": "2026-05-11",
-  "label": "V1.6.4 — Trade modal: real player names in production + scroll-into-view in iframe",
+  "label": "V1.6.5 — Queue auto-pick now actually submits (3s cancel window)",
   "description": "First published version of the Draft Hub analytics model. This establishes the V1 baseline. Future tweaks bump the version and are logged here.",
   "methodology_signature": {
     "tier_classifier": "NET = 3yr-games-weighted E+P rate − 0.5 × 3yr-games-weighted Dud rate",
@@ -28,6 +28,20 @@
     "lineup_efficiency": 0.012
   },
   "changes": [
+    {
+      "version": "1.6.5",
+      "date": "2026-05-11",
+      "type": "fix",
+      "summary": "Queue auto-pick was only QUEUING the prospect (setting on-clock card), not actually submitting. Now in SIM mode it auto-submits after a 3-second cancel window. LIVE mode still requires manual confirmation (we never auto-write to MFL).",
+      "details": [
+        "When auto-pick is ON + you're on the clock + queue has an eligible prospect: a yellow 'Auto-picking <Name> in 3s' banner appears in the on-clock card with a visible countdown and a Cancel button.",
+        "After 3s with no cancel: the pick is recorded locally (in sim mode) and the auto-sim resumes if running.",
+        "Cancel button OR clicking any other prospect cancels the pending auto-pick.",
+        "LIVE mode: only sets selectedProspect (queue head shows in on-clock card), does NOT auto-submit — you must click Draft Player and confirm in the modal. Auto-submitting an MFL write is too risky.",
+        "Pulse animation on the pending banner so it's obvious; respects prefers-reduced-motion.",
+        "Module-level _autoPickTimer + _autoPickPid prevent multiple stacked timers across re-renders."
+      ]
+    },
     {
       "version": "1.6.4",
       "date": "2026-05-11",
