@@ -31,38 +31,75 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build path list
-        id: paths
+      - name: Purge jsDelivr (per-file GETs)
         run: |
-          # Enumerate every cacheable file under site/ + key docs.
-          # Paths are URL-relative to https://cdn.jsdelivr.net/gh/<repo>@main/
-          PATHS=()
-          for f in $(find site -type f \( -name "*.html" -o -name "*.js" -o -name "*.css" -o -name "*.json" \) | sort); do
-            PATHS+=("/gh/keithcreelman/upsmflproduction@main/$f")
+          # jsDelivr's batch POST endpoint requires auth and caps at 5 files
+          # per minute for anonymous calls. The simpler GET endpoint has no
+          # such limit — purge each file individually.
+          # Anonymous rate limit on GET /purge is generous (~10/sec); we
+          # purge ~15 files so we're well under.
+          #
+          # FILES TO PURGE — only the ones the league HPM modules actually
+          # fetch. Adding more here is fine, but pruning prevents accidental
+          # purge of files the HPM doesn't pull.
+          FILES=(
+            "site/loader.js"
+            "site/hpm-draft-hub.html"
+            "site/hpm-default.html"
+            "site/hpm-ccc.html"
+            "site/hpm-mcm.html"
+            "site/hpm-myteam.html"
+            "site/hpm-reports.html"
+            "site/hpm-standings.html"
+            "site/hpm-stats-workbench.html"
+            "site/hpm-widget.html"
+            "site/hpm-issue-report.html"
+            "site/rookies/mfl_hpm_embed_loader.js"
+            "site/rookies/rookie_draft_hub.html"
+            "site/rookies/rookie_draft_hub.js"
+            "site/rookies/rookie_draft_hub.css"
+            "site/rookies/VERSION.json"
+            "site/rookies/rookie_prospects_2026.json"
+            "site/rookies/external_adp_2026.json"
+            "site/rookies/franchise_assets_2026.json"
+            "site/rookies/rookie_draft_hub_2026.json"
+            "site/trades/mfl_hpm_embed_loader.js"
+            "site/trades/trade_workbench.html"
+            "site/trades/trade_workbench.js"
+            "site/trades/trade_workbench.css"
+            "site/rosters/mfl_hpm_embed_loader.js"
+            "site/rosters/roster_workbench.html"
+            "site/rosters/roster_workbench.js"
+            "site/rosters/roster_workbench.css"
+            "site/ccc/mfl_hpm_embed_loader.js"
+            "site/ccc/ccc.js"
+            "site/ccc/ccc.css"
+            "site/standings/mfl_hpm_embed_loader.js"
+            "site/reports/mfl_hpm_embed_loader.js"
+            "site/acquisition/mfl_hpm_embed_loader.js"
+            "site/team_operations/mfl_hpm_embed_loader.js"
+            "site/stats_workbench/mfl_hpm_embed_loader.js"
+          )
+          echo "Purging ${#FILES[@]} files..."
+          OK=0
+          FAIL=0
+          for f in "${FILES[@]}"; do
+            CODE=$(curl -sS --max-time 12 -o /dev/null -w "%{http_code}" \
+              "https://purge.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/${f}")
+            if [[ "$CODE" =~ ^(200|404)$ ]]; then
+              OK=$((OK + 1))
+            else
+              FAIL=$((FAIL + 1))
+              echo "  ${CODE}  ${f}"
+            fi
           done
-          # JSON-encode for the body
-          BODY=$(printf '%s\n' "${PATHS[@]}" | jq -R . | jq -sc '{path: .}')
-          echo "n_paths=${#PATHS[@]}" >> "$GITHUB_OUTPUT"
-          # Multi-line outputs need the heredoc trick
-          echo "body<<EOF" >> "$GITHUB_OUTPUT"
-          echo "$BODY" >> "$GITHUB_OUTPUT"
-          echo "EOF" >> "$GITHUB_OUTPUT"
-
-      - name: Purge jsDelivr
-        run: |
-          echo "Purging ${{ steps.paths.outputs.n_paths }} paths from jsDelivr..."
-          curl -fsSL --max-time 30 \
-            -X POST \
-            -H "Content-Type: application/json" \
-            -d '${{ steps.paths.outputs.body }}' \
-            https://purge.jsdelivr.net/ \
-            -o /tmp/purge.out
-          echo "Response:"
-          head -c 4000 /tmp/purge.out
+          echo "Done: ${OK} ok, ${FAIL} failed"
+          # Don't fail the workflow on individual purge failures (jsDelivr
+          # occasionally rate-limits). Cache will refresh on its own TTL.
+          exit 0
 
       - name: Verify VERSION.json refreshed
         run: |
-          # Wait a moment for jsDelivr edges to settle then fetch and log
           sleep 5
           echo "VERSION.json after purge:"
           curl -sSL --max-time 10 \
