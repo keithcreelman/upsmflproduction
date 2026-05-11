@@ -26,6 +26,17 @@ logic is doing without digging into code).
 
 ---
 
+## v1.7.29 — 2026-05-11 — Hide Trades tab on mobile
+
+Per Keith: the **Draft-Day Trades** tab (historical trade-history reference)
+isn't draft-day-relevant when drafting from a phone. Hidden on mobile via a
+`MOBILE_HIDE_TABS` set in the mobile shell setup. Kept visible on desktop.
+
+If you want to add or remove other tabs from the mobile nav later, just
+edit that one Set.
+
+---
+
 ## v1.7.28 — 2026-05-11 — Mobile icon tabs + trade picker timeout + Esc-anywhere
 
 Two changes from Keith.
