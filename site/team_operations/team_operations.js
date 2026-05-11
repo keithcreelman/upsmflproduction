@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var BUILD = "2026.05.11.10";
+  var BUILD = "2026.05.11.11";
   var BOOT_FLAG = "__ups_team_operations_boot_" + BUILD;
   if (window[BOOT_FLAG]) {
     if (typeof window.UPS_TEAMOPS_INIT === "function") window.UPS_TEAMOPS_INIT();
@@ -1028,37 +1028,61 @@
     ].join("");
   }
   function renderProfileStats(bundle, pid) {
-    var profile = (bundle && bundle.profile && bundle.profile.playerProfile) || {};
-    var player = profile.player || {};
-    var seasons = asArray(profile.season || profile.seasons || player.season);
-    if (!seasons.length) {
-      return '<div class="tops-empty">No season-by-season stats available from MFL for this player.</div>';
+    // Bundle uses UPS-flavored career_summary[] — season-by-season fantasy
+    // performance with UPS-specific ranks (win_chunks, elite_pct, dud_pct).
+    // Most recent season first.
+    var rows = asArray(bundle && bundle.career_summary).slice().sort(function (a, b) {
+      return Number(b.season || 0) - Number(a.season || 0);
+    });
+    if (!rows.length) {
+      return '<div class="tops-empty">No season stats on file (player may be a rookie or hasn\'t recorded a fantasy week yet).</div>';
     }
-    var rows = seasons.slice(0, 8).map(function (s) {
+    var html = rows.slice(0, 10).map(function (s) {
       return '<tr>' +
-        '<td>' + escapeHtml(safeStr(s.year || s.season)) + '</td>' +
-        '<td>' + escapeHtml(safeStr(s.team)) + '</td>' +
-        '<td class="num">' + escapeHtml(safeStr(s.fantasy_points || s.points || s.fp || "—")) + '</td>' +
-        '<td>' + escapeHtml(safeStr(s.summary || s.note || "")) + '</td>' +
+        '<td>' + escapeHtml(safeStr(s.season)) + '</td>' +
+        '<td>' + escapeHtml(safeStr(s.pos_group)) + '</td>' +
+        '<td class="num">' + escapeHtml(safeStr(s.games_played)) + '</td>' +
+        '<td class="num">' + escapeHtml(safeStr(s.season_points)) + '</td>' +
+        '<td class="num">' + escapeHtml(safeStr(s.avg_ppg)) + '</td>' +
+        '<td class="num">' + (s.pos_rank != null ? '#' + escapeHtml(safeStr(s.pos_rank)) : '—') + '</td>' +
+        '<td class="num">' + (s.elite_pct != null ? escapeHtml(safeStr(s.elite_pct)) + '%' : '—') + '</td>' +
+        '<td class="num">' + (s.dud_pct != null ? escapeHtml(safeStr(s.dud_pct)) + '%' : '—') + '</td>' +
         '</tr>';
     }).join("");
-    return '<table class="tops-profile-table"><thead><tr><th>Season</th><th>Team</th><th class="num">FP</th><th>Notes</th></tr></thead><tbody>' + rows + '</tbody></table>';
+    return '<table class="tops-profile-table"><thead><tr>' +
+      '<th>Season</th><th>Pos</th><th class="num">GP</th><th class="num">Pts</th>' +
+      '<th class="num">PPG</th><th class="num">Pos #</th>' +
+      '<th class="num">Elite</th><th class="num">Dud</th>' +
+      '</tr></thead><tbody>' + html + '</tbody></table>';
   }
   function renderProfileGameLog(bundle, pid) {
-    var profile = (bundle && bundle.profile && bundle.profile.playerProfile) || {};
-    var games = asArray(profile.gameLog || profile.game_log || profile.weekly_stats);
+    // Bundle stores weekly_by_season as an object keyed by year. Flatten
+    // to a list, newest season first, all weeks within. Cap at 24 rows
+    // so the modal stays readable.
+    var byYear = (bundle && bundle.weekly_by_season) || {};
+    var years = Object.keys(byYear).sort(function (a, b) { return Number(b) - Number(a); });
+    var games = [];
+    years.forEach(function (yr) {
+      asArray(byYear[yr]).forEach(function (g) { games.push(g); });
+    });
     if (!games.length) {
-      return '<div class="tops-empty">No game-by-game log available from MFL for this player.</div>';
+      return '<div class="tops-empty">No weekly results on file for this player.</div>';
     }
-    var rows = games.slice(0, 18).map(function (g) {
+    var rows = games.slice(0, 24).map(function (g) {
+      var rosterFid = safeStr(g.roster_franchise_name || g.status);
       return '<tr>' +
-        '<td>' + escapeHtml(safeStr(g.week || g.wk)) + '</td>' +
-        '<td>' + escapeHtml(safeStr(g.opp || g.opponent)) + '</td>' +
-        '<td class="num">' + escapeHtml(safeStr(g.fantasy_points || g.points || g.fp || "—")) + '</td>' +
-        '<td>' + escapeHtml(safeStr(g.summary || "")) + '</td>' +
+        '<td>' + escapeHtml(safeStr(g.season)) + '</td>' +
+        '<td class="num">' + escapeHtml(safeStr(g.week)) + '</td>' +
+        '<td class="num">' + escapeHtml(safeStr(g.score)) + '</td>' +
+        '<td class="num">' + (g.pos_rank != null ? '#' + escapeHtml(safeStr(g.pos_rank)) : '—') + '</td>' +
+        '<td>' + escapeHtml(safeStr(g.week_tier || g.status)) + '</td>' +
+        '<td>' + escapeHtml(rosterFid) + '</td>' +
         '</tr>';
     }).join("");
-    return '<table class="tops-profile-table"><thead><tr><th>Wk</th><th>Opp</th><th class="num">FP</th><th>Notes</th></tr></thead><tbody>' + rows + '</tbody></table>';
+    return '<table class="tops-profile-table"><thead><tr>' +
+      '<th>Season</th><th class="num">Wk</th><th class="num">Pts</th>' +
+      '<th class="num">Pos #</th><th>Tier</th><th>Roster</th>' +
+      '</tr></thead><tbody>' + rows + '</tbody></table>';
   }
   function renderProfileNews(bundle, pid) {
     var newsItems = asArray(bundle && bundle.news);
