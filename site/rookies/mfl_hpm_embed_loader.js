@@ -43,6 +43,28 @@
   const L = getLeagueId(u);
   const YEAR = getYear(u);
   const FRANCHISE_ID = getFranchiseId(u);
+  // ── Detect MFL commish session ──
+  // Runs on the OUTER MFL page where myfantasyleague.com cookies are
+  // readable. MFL sets ISMFLCOMMISH on accounts with commissioner
+  // privileges; it's also visible when an admin logs in as franchise
+  // 0000 (the special "league owner" pseudo-franchise that doesn't have
+  // its own roster). We sniff the cookie here and forward an explicit
+  // is_commish signal into the iframe — the inner hub then forces the
+  // Go LIVE toggle visible without depending on franchise_id matching
+  // an allowlist.
+  function detectIsCommish() {
+    try {
+      const c = String(document.cookie || "");
+      // ISMFLCOMMISH=1 is the canonical MFL commish marker. Also catch
+      // ISMFLCOMMISH=Y / true for safety.
+      if (/(?:^|;\s*)ISMFLCOMMISH\s*=\s*(1|Y|true)/i.test(c)) return true;
+    } catch (e) {}
+    // Franchise 0000 is MFL's commish pseudo-franchise — owners never
+    // see this fid because it's not a real team.
+    if (FRANCHISE_ID === "0000") return true;
+    return false;
+  }
+  const IS_COMMISH = detectIsCommish();
 
   const SHA = safeStr(window.UPS_DRAFT_HUB_RELEASE_SHA || window.UPS_RELEASE_SHA) || "main";
   // jsDelivr serves .html with Content-Type: text/plain (+ nosniff), so an iframe
@@ -93,6 +115,7 @@
       'window.UPS_DRAFT_HUB_LEAGUE_ID=' + JSON.stringify(ctx.leagueId) + ';' +
       'window.UPS_DRAFT_HUB_YEAR=' + JSON.stringify(ctx.year) + ';' +
       'window.UPS_DRAFT_HUB_FRANCHISE_ID=' + JSON.stringify(ctx.franchiseId) + ';' +
+      'window.UPS_DRAFT_HUB_IS_COMMISH=' + JSON.stringify(!!ctx.isCommish) + ';' +
       'window.UPS_DRAFT_HUB_RELEASE_SHA=' + JSON.stringify(ctx.sha) + ';' +
       'window.UPS_DRAFT_HUB_API_BASE=' + JSON.stringify(ctx.apiBase) + ';' +
       // Post height back to host for auto-resize.
@@ -111,7 +134,7 @@
       return r.text();
     })
     .then(function (html) {
-      const headInject = buildHead(ASSET_BASE, { leagueId: L, year: YEAR, franchiseId: FRANCHISE_ID, sha: SHA, apiBase: API_BASE });
+      const headInject = buildHead(ASSET_BASE, { leagueId: L, year: YEAR, franchiseId: FRANCHISE_ID, isCommish: IS_COMMISH, sha: SHA, apiBase: API_BASE });
       if (/<head[^>]*>/i.test(html)) {
         html = html.replace(/<head([^>]*)>/i, '<head$1>' + headInject);
       } else {

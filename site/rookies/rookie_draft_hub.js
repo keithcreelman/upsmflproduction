@@ -271,18 +271,30 @@
     // The worker's /api/me sets is_commish based on COMMISH_FRANCHISE_IDS env
     // var, but a) the call may have raced HPM injection so franchise_id
     // wasn't sent, b) workers.dev preview / direct page loads have no
-    // franchise context. Cross-check against a client-side allowlist so the
-    // commish toggle reliably appears for the right people regardless.
-    // Override via URL: append `?commish=1` (e.g. for testing) or
-    // `?commish=0` (to hide the toggle).
-    const COMMISH_FIDS_CLIENT = ["0008", "0001"];  // Keith / legacy fallback
+    // franchise context, c) Keith logs in as MFL pseudo-franchise 0000
+    // (commish view) which doesn't match any real-team allowlist.
+    // Three signals (any one is enough to flip is_commish:true):
+    //   1. Outer HPM loader sniffed ISMFLCOMMISH cookie + injected
+    //      window.UPS_DRAFT_HUB_IS_COMMISH=true. Cleanest signal because
+    //      the cookie is only set by MFL for accounts with commish privs.
+    //   2. franchise_id matches client-side allowlist (0008/0001/0000).
+    //   3. URL ?commish=1 override (testing on workers.dev preview).
+    const COMMISH_FIDS_CLIENT = ["0008", "0001", "0000"];  // Keith / legacy / MFL pseudo
     try {
       const u = new URL(window.location.href);
       const override = u.searchParams.get("commish");
+      const hpmCommish = !!window.UPS_DRAFT_HUB_IS_COMMISH;
+      // Inside the iframe MFL cookies aren't typically readable, but if
+      // the hub is loaded same-origin (e.g. proxied) we still try.
+      let cookieCommish = false;
+      try { cookieCommish = /(?:^|;\s*)ISMFLCOMMISH\s*=\s*(1|Y|true)/i.test(String(document.cookie || "")); } catch (e) {}
       if (override === "1" || override === "true") {
         STATE.me = Object.assign({}, STATE.me || {}, { is_commish: true, configured: true });
       } else if (override === "0" || override === "false") {
         STATE.me = Object.assign({}, STATE.me || {}, { is_commish: false });
+      } else if (hpmCommish || cookieCommish) {
+        STATE.me = Object.assign({}, STATE.me || {}, { is_commish: true, configured: true });
+        if (!STATE.me.franchise_name) STATE.me.franchise_name = "Commissioner";
       } else if (STATE.me && STATE.me.franchise_id && COMMISH_FIDS_CLIENT.includes(STATE.me.franchise_id)) {
         STATE.me.is_commish = true;
       }
@@ -290,7 +302,7 @@
     // Surface what the hub thinks "I am" so Keith can debug from console
     // when the Go LIVE button doesn't appear: `STATE.me` in DevTools.
     try {
-      console.info("[draft-hub] me:", JSON.stringify(STATE.me), "hpmFid:", hpmFid);
+      console.info("[draft-hub] me:", JSON.stringify(STATE.me), "hpmFid:", hpmFid, "hpmCommish:", !!window.UPS_DRAFT_HUB_IS_COMMISH);
     } catch (e) {}
     try {
       STATE.future_picks = await fetchJSON("rookie_future_picks.json");
