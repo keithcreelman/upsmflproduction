@@ -3403,7 +3403,11 @@
           <div id="trade-result" class="trade-result"></div>
           <div class="trade-actions">
             <button class="btn secondary" type="button" onclick="document.getElementById('rdh-modal-overlay').classList.remove('open')">Cancel</button>
-            <button class="btn" id="propose-trade-go" type="button">${STATE.simulationMode ? "Simulate Trade" : "🔴 Submit Proposal LIVE"}</button>
+            <button class="btn" id="propose-trade-go" type="button">${
+              STATE.simulationMode ? "Simulate Trade"
+              : (STATE.me && STATE.me.is_commish) ? "🔨 Process Trade (Commish)"
+              : "🔴 Submit Proposal LIVE"
+            }</button>
           </div>
         </footer>
       </div>
@@ -3743,6 +3747,28 @@
         player_id: a.player_id || undefined,
         extension_term: a.extension_term || undefined,
       }));
+      // Commish-only LIVE-mode "process" path: hits /api/trade/process which
+      // proposes + auto-accepts on behalf of the partner via MFL APIKEY. Two
+      // owners agree verbally during the draft → commish punches it in →
+      // trade is done. Big confirm dialog because this is irreversible.
+      const isCommishProcess = !isSim && STATE.me && STATE.me.is_commish;
+      if (isCommishProcess) {
+        const partnerName = franchises[toFid] || toFid;
+        const giveSummaryC = basket.give.map(a => a.display).join(" + ") || "—";
+        const receiveSummaryC = basket.receive.map(a => a.display).join(" + ") || "—";
+        const ok = confirm(
+          `🔨 PROCESS TRADE (Commish Action)\n\n` +
+          `${myName} ↔ ${partnerName}\n\n` +
+          `${myName} sends:\n  ${giveSummaryC}\n\n` +
+          `${partnerName} sends:\n  ${receiveSummaryC}\n\n` +
+          `This will execute IMMEDIATELY in MFL on behalf of both teams. ` +
+          `It is IRREVERSIBLE without manual cleanup. Continue?`
+        );
+        if (!ok) {
+          result.innerHTML = `<div class="small" style="color: var(--muted)">Cancelled.</div>`;
+          return;
+        }
+      }
       const payload = {
         from_fid: myFid,
         to_fid: toFid,
@@ -3753,12 +3779,18 @@
         receive_assets: _packAssets(basket.receive),
         comments,
         simulate: isSim,
+        ...(isCommishProcess ? { requested_by: myFid } : {}),
       };
-      result.innerHTML = `<div class="small" style="color: var(--muted)">${isSim ? "Validating trade…" : "Submitting trade to MFL…"}</div>`;
+      const endpoint = isCommishProcess ? "/api/trade/process" : "/api/trade";
+      result.innerHTML = `<div class="small" style="color: var(--muted)">${
+        isSim ? "Validating trade…"
+        : isCommishProcess ? "🔨 Processing trade in MFL (propose + accept)…"
+        : "Submitting trade to MFL…"
+      }</div>`;
       try {
         let r, data;
         try {
-          r = await fetch(apiUrl("/api/trade") + "?L=74598", {
+          r = await fetch(apiUrl(endpoint) + "?L=74598", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload),
@@ -3780,79 +3812,37 @@
         if (data.ok) {
           const stubNote = data._local_stub ? " <em>(local stub — worker not reachable)</em>" : "";
           if (isSim) {
-            // SIM mode — proposal is PENDING until the user acts as the partner
-            // and Accepts / Counters / Declines. Don't apply to STATE yet.
-            // Render an inline action panel so the user can play the partner's
-            // role right here without switching their playAs franchise.
-            const partnerName = franchises[toFid] || toFid;
-            const giveSummary = basket.give.map(a => a.display).join(" + ") || "—";
-            const receiveSummary = basket.receive.map(a => a.display).join(" + ") || "—";
+            // SIM mode — auto-applies (no real "other side"). v1.7.1 behavior.
+            const swap = _applySimTradeToState(basket.give, basket.receive, myFid, toFid);
             const extCount = [...basket.give, ...basket.receive].filter(a => a.extension_term).length;
             const extBit = extCount ? ` · ${extCount} pre-trade extension${extCount === 1 ? "" : "s"} attached` : "";
-            // Stash a snapshot of the proposal so the action handlers can
-            // act on it (the basket might mutate if the user re-opens the
-            // modal later).
-            const proposalSnapshot = {
-              fromFid: myFid, fromName: myName,
-              toFid, toName: partnerName,
-              give: basket.give.map(a => ({ ...a })),
-              receive: basket.receive.map(a => ({ ...a })),
-              comments: comments,
-            };
-            result.innerHTML = `
-              <div style="color: var(--warn); margin-bottom: 12px;">📤 Proposal sent to <strong>${escapeHtml(partnerName)}</strong>${extBit}${stubNote}</div>
-              <div class="trade-act-as-panel">
-                <div class="trade-act-as-head">🎭 Now act as <strong>${escapeHtml(partnerName)}</strong> and decide:</div>
-                <div class="trade-act-as-summary">
-                  <div><span class="taa-lbl">${escapeHtml(partnerName)} sends</span><span class="taa-val">${escapeHtml(receiveSummary)}</span></div>
-                  <div><span class="taa-lbl">${escapeHtml(partnerName)} gets</span><span class="taa-val">${escapeHtml(giveSummary)}</span></div>
-                </div>
-                <div class="trade-act-as-buttons">
-                  <button class="btn" id="taa-accept" type="button">✓ Accept</button>
-                  <button class="btn warn" id="taa-counter" type="button">↻ Counter</button>
-                  <button class="btn danger" id="taa-decline" type="button">✕ Decline</button>
-                </div>
-              </div>
-            `;
-            // Wire the three action buttons
-            document.getElementById("taa-accept").addEventListener("click", () => {
-              // Apply the trade to STATE (board updates), popup, post Discord (test)
-              const swap = _applySimTradeToState(proposalSnapshot.give, proposalSnapshot.receive, proposalSnapshot.fromFid, proposalSnapshot.toFid);
-              showTradePopup({
-                fromName: proposalSnapshot.fromName, toName: proposalSnapshot.toName,
-                fromGives: giveSummary, toGives: receiveSummary,
-                source: "sim-user",
-              });
-              const swapNote = swap.swappedCount ? ` · ${swap.swappedCount} pick${swap.swappedCount===1?"":"s"} swapped on board` : "";
-              result.innerHTML = `<div style="color: var(--ok);">✅ <strong>${escapeHtml(partnerName)}</strong> accepted — trade applied${swapNote}</div>`;
-              showToast(`✅ ${partnerName} accepted the trade`, "ok");
-              setTimeout(() => document.getElementById("rdh-modal-overlay").classList.remove("open"), 1200);
+            const swapBit = swap.swappedCount
+              ? ` · <strong>${swap.swappedCount} pick${swap.swappedCount === 1 ? "" : "s"} swapped on the board</strong>`
+              : "";
+            result.innerHTML = `<div style="color: var(--warn);">✓ Trade simulated${extBit}${swapBit}${stubNote}</div>`;
+            const giveSummary = basket.give.map(a => a.display).join(" + ") || "—";
+            const receiveSummary = basket.receive.map(a => a.display).join(" + ") || "—";
+            showTradePopup({
+              fromName: myName, toName: franchises[toFid] || toFid,
+              fromGives: giveSummary, toGives: receiveSummary,
+              source: "sim-user",
             });
-            document.getElementById("taa-decline").addEventListener("click", () => {
-              result.innerHTML = `<div style="color: var(--err);">✕ <strong>${escapeHtml(partnerName)}</strong> declined — no trade made</div>`;
-              showToast(`✕ ${partnerName} declined the trade`, "err");
-              setTimeout(() => document.getElementById("rdh-modal-overlay").classList.remove("open"), 1200);
+          } else if (isCommishProcess) {
+            // LIVE commish-process: trade was proposed AND accepted on the
+            // server. Discord was posted to live channel. Show popup.
+            const giveSummary = basket.give.map(a => a.display).join(" + ") || "—";
+            const receiveSummary = basket.receive.map(a => a.display).join(" + ") || "—";
+            result.innerHTML = `<div style="color: var(--ok);">🔨 Trade processed — completed in MFL${data.discord_posted ? " · Discord posted to live channel" : ""}.${stubNote}</div>`;
+            showToast(`🔨 Trade processed: ${myName} ↔ ${franchises[toFid] || toFid}`, "ok");
+            showTradePopup({
+              fromName: myName, toName: franchises[toFid] || toFid,
+              fromGives: giveSummary, toGives: receiveSummary,
+              source: "live",
             });
-            document.getElementById("taa-counter").addEventListener("click", () => {
-              // Stash a counter-prepopulate so the next openTradeModal pre-fills.
-              // Counter swaps perspectives: now the user IS the partner, sending
-              // back what they originally would have received, getting back what
-              // they originally would have given.
-              STATE._counterPrepopulate = {
-                partner_fid: proposalSnapshot.fromFid,
-                partner_name: proposalSnapshot.fromName,
-                give: proposalSnapshot.receive.map(a => ({ ...a })),
-                receive: proposalSnapshot.give.map(a => ({ ...a })),
-                comments: `Counter from ${partnerName}: ${proposalSnapshot.comments || ""}`.trim(),
-              };
-              showToast(`↻ Composing counter as ${partnerName}…`, "ok");
-              document.getElementById("rdh-modal-overlay").classList.remove("open");
-              setTimeout(() => openTradeModal(), 200);
-            });
+            setTimeout(() => document.getElementById("rdh-modal-overlay").classList.remove("open"), 1800);
           } else {
-            // LIVE mode: trade is a PROPOSAL — the other team has to accept
-            // in MFL. No Discord announcement yet, no celebratory popup.
-            // Just confirm the proposal was sent.
+            // LIVE mode (non-commish): trade is a PROPOSAL — the other team
+            // has to accept in MFL. No Discord announcement yet, no popup.
             result.innerHTML = `<div style="color: var(--ok);">📤 Proposal sent to ${escapeHtml(franchises[toFid] || toFid)} — awaits their acceptance in MFL.${stubNote}</div>`;
             showToast(`Proposal sent to ${franchises[toFid] || toFid} — waiting for them to accept`, "ok");
           }
