@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Rookie Draft Hub — UPS League</title>
-<link rel="stylesheet" href="rookie_draft_hub.css?v=2026.05.11.v1.7.29">
+<link rel="stylesheet" href="rookie_draft_hub.css?v=2026.05.11.v1.7.30">
 </head>
 <body>
 <header class="rdh-header">
@@ -18,7 +18,6 @@
   <button data-tab="live" class="active">Live Draft</button>
   <button data-tab="history">Historical Picks</button>
   <button data-tab="teams">Team Tendencies</button>
-  <button data-tab="day-trades">Draft-Day Trades</button>
   <button data-tab="r6-order">R6 Order Selection</button>
   <button data-tab="future-picks">Future Draft Picks</button>
   <button data-tab="calcs">Calculations</button>
@@ -409,26 +408,9 @@
     </div>
   </section>
 
-  <!-- ── DRAFT-DAY TRADES ─────────────────────────────────────────── -->
-  <section class="rdh-section" data-section="day-trades">
-    <div class="rdh-card" style="text-align:center; padding: 40px 20px;">
-      <h2 style="color: var(--warn); margin-bottom: 12px;">🚧 Under Construction</h2>
-      <p style="max-width: 620px; margin: 0 auto 12px; color: var(--text); line-height: 1.6;">
-        This tab will surface every trade executed within ±24 hours of rookie draft day:
-      </p>
-      <ul style="max-width: 620px; margin: 0 auto 12px; text-align: left; color: var(--muted); line-height: 1.8;">
-        <li>Historical draft-day trades timeline (2017-2025)</li>
-        <li>Live draft-day trades as they happen (next rookie draft)</li>
-        <li>What each pick became — did the team that traded up win?</li>
-        <li>Cross-reference to affected slots in the live draft board</li>
-      </ul>
-      <p class="small" style="color: var(--muted); margin-top: 20px;">
-        Historical trade data is available in the source DB — will ship here alongside the Live Draft build.
-      </p>
-    </div>
-    <!-- hidden: original filter ref kept so JS doesn't null-deref -->
-    <select id="dd-season" style="display:none"><option value="">All</option></select>
-  </section>
+  <!-- Draft-Day Trades tab removed in v1.7.30 — under-construction placeholder
+       wasn't carrying its weight. Section + nav button gone; renderDayTrades
+       JS kept as a no-op so the render pipeline doesn't NPE. -->
 
   <!-- ── R6 ORDER SELECTION ─────────────────────────────────────────── -->
   <section class="rdh-section" data-section="r6-order">
@@ -695,6 +677,6 @@
   <div class="rdh-modal" id="rdh-modal"></div>
 </div>
 
-<script src="rookie_draft_hub.js?v=2026.05.11.v1.7.29"></script>
+<script src="rookie_draft_hub.js?v=2026.05.11.v1.7.30"></script>
 </body>
 </html>
