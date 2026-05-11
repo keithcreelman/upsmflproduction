@@ -1,7 +1,7 @@
 {
-  "version": "1.7.2",
+  "version": "1.7.3",
   "released": "2026-05-11",
-  "label": "V1.7.2 — LIVE trade Discord post moves from PROPOSE to ACCEPT (sim auto-accepts, live waits)",
+  "label": "V1.7.3 — Act as partner: SIM trades show inline Accept/Counter/Decline panel",
   "description": "First published version of the Draft Hub analytics model. This establishes the V1 baseline. Future tweaks bump the version and are logged here.",
   "methodology_signature": {
     "tier_classifier": "NET = 3yr-games-weighted E+P rate − 0.5 × 3yr-games-weighted Dud rate",
@@ -28,6 +28,25 @@
     "lineup_efficiency": 0.012
   },
   "changes": [
+    {
+      "version": "1.7.3",
+      "date": "2026-05-11",
+      "type": "feature",
+      "summary": "SIM trades no longer auto-apply on submit. Instead the trade modal shows an inline 'Act as <Partner>' panel with Accept / Counter / Decline buttons so the user can play both teams' roles in rehearsal.",
+      "details": [
+        "SIM trade flow before: propose → submit → trade auto-applied to STATE → popup fired immediately. The user had no way to be the receiving team.",
+        "SIM trade flow now: propose → submit → 'Proposal sent to Bombers' message + inline action panel:",
+        "  🎭 Now act as <PartnerName> and decide:",
+        "  PartnerName sends: <their give summary>",
+        "  PartnerName gets: <their receive summary>",
+        "  [✓ Accept] [↻ Counter] [✕ Decline]",
+        "Accept → applies the trade to STATE, board updates, popup fires, sim Discord post (test channel) — 'PartnerName accepted'.",
+        "Counter → opens a fresh trade modal pre-populated with reversed terms (you become the partner sending what they would have offered, getting back what they would have received).",
+        "Decline → dismisses, no STATE mutation, toast 'PartnerName declined'.",
+        "LIVE flow unchanged from v1.7.2: 'Proposal sent — awaits acceptance' (real MFL acceptance happens in MFL UI).",
+        "Counter wiring reuses STATE._counterPrepopulate (same path as the inbox counter) — single code path for both 'I countered' and 'partner countered'."
+      ]
+    },
     {
       "version": "1.7.2",
       "date": "2026-05-11",

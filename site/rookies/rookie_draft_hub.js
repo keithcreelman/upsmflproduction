@@ -3780,24 +3780,74 @@
         if (data.ok) {
           const stubNote = data._local_stub ? " <em>(local stub — worker not reachable)</em>" : "";
           if (isSim) {
-            // Apply the trade to local STATE so the board reflects pick swaps
-            // in real time. Players don't move on the board (no live roster
-            // there), but draft picks DO swap ownership, which matters because
-            // the auto-sim engine picks based on draft_order ownership.
-            const swap = _applySimTradeToState(basket.give, basket.receive, myFid, toFid);
-            const extCount = [...basket.give, ...basket.receive].filter(a => a.extension_term).length;
-            const extBit = extCount ? ` · ${extCount} pre-trade extension${extCount === 1 ? "" : "s"} attached` : "";
-            const swapBit = swap.swappedCount
-              ? ` · <strong>${swap.swappedCount} pick${swap.swappedCount === 1 ? "" : "s"} swapped on the board</strong>`
-              : "";
-            result.innerHTML = `<div style="color: var(--warn);">✓ Trade simulated${extBit}${swapBit}${stubNote}</div>`;
-            // On-screen trade popup for user-simulated trades too
+            // SIM mode — proposal is PENDING until the user acts as the partner
+            // and Accepts / Counters / Declines. Don't apply to STATE yet.
+            // Render an inline action panel so the user can play the partner's
+            // role right here without switching their playAs franchise.
+            const partnerName = franchises[toFid] || toFid;
             const giveSummary = basket.give.map(a => a.display).join(" + ") || "—";
             const receiveSummary = basket.receive.map(a => a.display).join(" + ") || "—";
-            showTradePopup({
-              fromName: myName, toName: franchises[toFid] || toFid,
-              fromGives: giveSummary, toGives: receiveSummary,
-              source: "sim-user",
+            const extCount = [...basket.give, ...basket.receive].filter(a => a.extension_term).length;
+            const extBit = extCount ? ` · ${extCount} pre-trade extension${extCount === 1 ? "" : "s"} attached` : "";
+            // Stash a snapshot of the proposal so the action handlers can
+            // act on it (the basket might mutate if the user re-opens the
+            // modal later).
+            const proposalSnapshot = {
+              fromFid: myFid, fromName: myName,
+              toFid, toName: partnerName,
+              give: basket.give.map(a => ({ ...a })),
+              receive: basket.receive.map(a => ({ ...a })),
+              comments: comments,
+            };
+            result.innerHTML = `
+              <div style="color: var(--warn); margin-bottom: 12px;">📤 Proposal sent to <strong>${escapeHtml(partnerName)}</strong>${extBit}${stubNote}</div>
+              <div class="trade-act-as-panel">
+                <div class="trade-act-as-head">🎭 Now act as <strong>${escapeHtml(partnerName)}</strong> and decide:</div>
+                <div class="trade-act-as-summary">
+                  <div><span class="taa-lbl">${escapeHtml(partnerName)} sends</span><span class="taa-val">${escapeHtml(receiveSummary)}</span></div>
+                  <div><span class="taa-lbl">${escapeHtml(partnerName)} gets</span><span class="taa-val">${escapeHtml(giveSummary)}</span></div>
+                </div>
+                <div class="trade-act-as-buttons">
+                  <button class="btn" id="taa-accept" type="button">✓ Accept</button>
+                  <button class="btn warn" id="taa-counter" type="button">↻ Counter</button>
+                  <button class="btn danger" id="taa-decline" type="button">✕ Decline</button>
+                </div>
+              </div>
+            `;
+            // Wire the three action buttons
+            document.getElementById("taa-accept").addEventListener("click", () => {
+              // Apply the trade to STATE (board updates), popup, post Discord (test)
+              const swap = _applySimTradeToState(proposalSnapshot.give, proposalSnapshot.receive, proposalSnapshot.fromFid, proposalSnapshot.toFid);
+              showTradePopup({
+                fromName: proposalSnapshot.fromName, toName: proposalSnapshot.toName,
+                fromGives: giveSummary, toGives: receiveSummary,
+                source: "sim-user",
+              });
+              const swapNote = swap.swappedCount ? ` · ${swap.swappedCount} pick${swap.swappedCount===1?"":"s"} swapped on board` : "";
+              result.innerHTML = `<div style="color: var(--ok);">✅ <strong>${escapeHtml(partnerName)}</strong> accepted — trade applied${swapNote}</div>`;
+              showToast(`✅ ${partnerName} accepted the trade`, "ok");
+              setTimeout(() => document.getElementById("rdh-modal-overlay").classList.remove("open"), 1200);
+            });
+            document.getElementById("taa-decline").addEventListener("click", () => {
+              result.innerHTML = `<div style="color: var(--err);">✕ <strong>${escapeHtml(partnerName)}</strong> declined — no trade made</div>`;
+              showToast(`✕ ${partnerName} declined the trade`, "err");
+              setTimeout(() => document.getElementById("rdh-modal-overlay").classList.remove("open"), 1200);
+            });
+            document.getElementById("taa-counter").addEventListener("click", () => {
+              // Stash a counter-prepopulate so the next openTradeModal pre-fills.
+              // Counter swaps perspectives: now the user IS the partner, sending
+              // back what they originally would have received, getting back what
+              // they originally would have given.
+              STATE._counterPrepopulate = {
+                partner_fid: proposalSnapshot.fromFid,
+                partner_name: proposalSnapshot.fromName,
+                give: proposalSnapshot.receive.map(a => ({ ...a })),
+                receive: proposalSnapshot.give.map(a => ({ ...a })),
+                comments: `Counter from ${partnerName}: ${proposalSnapshot.comments || ""}`.trim(),
+              };
+              showToast(`↻ Composing counter as ${partnerName}…`, "ok");
+              document.getElementById("rdh-modal-overlay").classList.remove("open");
+              setTimeout(() => openTradeModal(), 200);
             });
           } else {
             // LIVE mode: trade is a PROPOSAL — the other team has to accept
