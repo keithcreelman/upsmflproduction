@@ -1,0 +1,70 @@
+name: Purge jsDelivr cache
+
+# jsDelivr aggressively caches branch refs (@main) for up to ~12 hours.
+# Pinning to specific SHAs sidesteps this, but the league's MFL HPM uses
+# @main for convenience. This workflow purges jsDelivr's cache for every
+# site/** path the league HPM modules might fetch — runs after a push to
+# main when any cached file changes. Effect: production users see fresh
+# code within ~30s of a merge instead of waiting hours for jsDelivr's TTL.
+#
+# Setup: no secrets needed. jsDelivr's purge endpoint is public:
+#   POST https://purge.jsdelivr.net/  with {"path": ["/gh/.../file", ...]}
+# Up to 500 paths per call. We enumerate the known cacheable files explicitly
+# (vs walking the tree) so the workflow doesn't accidentally purge unrelated
+# files like data CSVs.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "site/**"
+      - "docs/league_context_v1.md"
+  workflow_dispatch: {}
+
+concurrency:
+  group: purge-jsdelivr
+  cancel-in-progress: false
+
+jobs:
+  purge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build path list
+        id: paths
+        run: |
+          # Enumerate every cacheable file under site/ + key docs.
+          # Paths are URL-relative to https://cdn.jsdelivr.net/gh/<repo>@main/
+          PATHS=()
+          for f in $(find site -type f \( -name "*.html" -o -name "*.js" -o -name "*.css" -o -name "*.json" \) | sort); do
+            PATHS+=("/gh/keithcreelman/upsmflproduction@main/$f")
+          done
+          # JSON-encode for the body
+          BODY=$(printf '%s\n' "${PATHS[@]}" | jq -R . | jq -sc '{path: .}')
+          echo "n_paths=${#PATHS[@]}" >> "$GITHUB_OUTPUT"
+          # Multi-line outputs need the heredoc trick
+          echo "body<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$BODY" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Purge jsDelivr
+        run: |
+          echo "Purging ${{ steps.paths.outputs.n_paths }} paths from jsDelivr..."
+          curl -fsSL --max-time 30 \
+            -X POST \
+            -H "Content-Type: application/json" \
+            -d '${{ steps.paths.outputs.body }}' \
+            https://purge.jsdelivr.net/ \
+            -o /tmp/purge.out
+          echo "Response:"
+          head -c 4000 /tmp/purge.out
+
+      - name: Verify VERSION.json refreshed
+        run: |
+          # Wait a moment for jsDelivr edges to settle then fetch and log
+          sleep 5
+          echo "VERSION.json after purge:"
+          curl -sSL --max-time 10 \
+            "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/rookies/VERSION.json" \
+            | python3 -c "import json,sys; d=json.load(sys.stdin); print(f'  {d[\"version\"]} · {d[\"label\"]}')"
