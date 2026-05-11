@@ -123,10 +123,20 @@
       mount.innerHTML = '<div style="padding:24px;color:#f88;font-family:sans-serif">Rookie Draft Hub failed to load: ' + escapeAttr(err.message) + '</div>';
     });
 
-  // Auto-resize iframe to content height.
+  // Auto-resize iframe to content height + scroll iframe into view when the
+  // hub opens a modal (modals are positioned fixed inside the iframe; if the
+  // iframe is taller than the parent viewport, the modal lands off-screen).
   window.addEventListener("message", function (ev) {
-    if (!ev || !ev.data || ev.data.type !== "draft-hub-height") return;
-    const h = Number(ev.data.height);
-    if (h && h > 100) frame.style.minHeight = h + "px";
+    if (!ev || !ev.data) return;
+    if (ev.data.type === "draft-hub-height") {
+      const h = Number(ev.data.height);
+      if (h && h > 100) frame.style.minHeight = h + "px";
+    } else if (ev.data.type === "draft-hub-modal-open") {
+      try {
+        // Scroll the iframe to top of the parent's viewport so the modal
+        // (centered inside the iframe) lands in the visible area.
+        frame.scrollIntoView({ behavior: "smooth", block: "start" });
+      } catch (e) {}
+    }
   });
 })();
