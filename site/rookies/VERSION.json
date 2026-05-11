@@ -1,7 +1,7 @@
 {
-  "version": "1.7.4",
+  "version": "1.7.5",
   "released": "2026-05-11",
-  "label": "V1.7.4 — Commish 'Process Trade' (LIVE one-shot propose+accept) + revert SIM act-as-partner",
+  "label": "V1.7.5 — Live draft state from MFL (no more stale snapshot timestamp)",
   "description": "First published version of the Draft Hub analytics model. This establishes the V1 baseline. Future tweaks bump the version and are logged here.",
   "methodology_signature": {
     "tier_classifier": "NET = 3yr-games-weighted E+P rate − 0.5 × 3yr-games-weighted Dud rate",
@@ -28,6 +28,22 @@
     "lineup_efficiency": 0.012
   },
   "changes": [
+    {
+      "version": "1.7.5",
+      "date": "2026-05-11",
+      "type": "feature",
+      "summary": "Live draft state now pulls from MFL on every load + auto-refreshes every 20s in LIVE mode. The 'snapshot 4/19/2026...' stamp is replaced with 'live from MFL HH:MM:SS' once the worker call lands.",
+      "details": [
+        "New worker endpoint GET /api/draft-state — fetches MFL TYPE=draftResults (5s edge-cache) + TYPE=league (24h edge-cache), returns {franchises, draft_order, picks_made, active_pick, meta:{source:'mfl_live', as_of:<ISO>}}.",
+        "Frontend _refreshLiveDraftState() runs once on load (always, even in SIM) so the initial board reflects real picks. In LIVE mode it then polls every 20s. In SIM mode no polling — your local sim picks aren't overwritten.",
+        "Mode flip handler also kicks an immediate refresh on SIM→LIVE flip; clears the poll timer on LIVE→SIM.",
+        "SIM mode merge logic: LIVE picks (from MFL) + LOCAL sim picks (the user's rehearsal mutations) coexist, with MFL picks taking precedence at slots both sides have.",
+        "Board summary line now reads:",
+        "  • 'X picks made · Y on the clock · live from MFL 11:45:23' when overlay succeeded",
+        "  • 'X picks made · Y on the clock · snapshot 4/19/2026, 4:58:47 PM' fallback if worker unreachable",
+        "Toast on first LIVE-mode load: 'Live draft state loaded — N/72 picks made'."
+      ]
+    },
     {
       "version": "1.7.4",
       "date": "2026-05-11",

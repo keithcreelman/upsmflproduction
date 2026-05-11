@@ -192,6 +192,56 @@
     hydrateFilters();
     wireListeners();
     renderAll();
+    // After the initial render with the static snapshot, fetch live MFL
+    // state and overlay. Always fires at startup so even SIM users see
+    // accurate as-of-now picks. Polling continues only in LIVE mode.
+    _refreshLiveDraftState({ initial: true });
+  }
+
+  // Hit the worker for live MFL draft state and overlay onto STATE.live.
+  // We REPLACE draft_order + picks_made + active_pick + franchises (those
+  // are MFL's source of truth) but PRESERVE meta.season + meta.league_id
+  // from the snapshot for back-compat. Local sim picks are kept ONLY in
+  // SIM mode — LIVE mode trusts MFL completely.
+  let _liveStatePollTimer = null;
+  async function _refreshLiveDraftState({ initial } = {}) {
+    if (!STATE.live) return;
+    try {
+      const r = await fetch(apiUrl("/api/draft-state") + "?L=74598", { cache: "no-store" });
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      const ct = r.headers.get("content-type") || "";
+      if (!ct.includes("json")) throw new Error("not JSON");
+      const live = await r.json();
+      if (!live || !Array.isArray(live.draft_order)) throw new Error("bad shape");
+      // Merge: replace authoritative fields, preserve metadata
+      const prevMeta = STATE.live.meta || {};
+      // SIM mode: merge picks_made — the user may have local sim picks
+      //   we don't want to lose. LIVE mode: trust MFL completely.
+      const localSimPicks = STATE.simulationMode
+        ? (STATE.live.picks_made || []).filter(p => !live.picks_made.find(lp =>
+            Number(lp.round) === Number(p.round) && Number(lp.pick) === Number(p.pick)))
+        : [];
+      STATE.live.franchises = Object.keys(live.franchises || {}).length
+        ? live.franchises : STATE.live.franchises;
+      STATE.live.draft_order = live.draft_order;
+      STATE.live.picks_made = live.picks_made.concat(localSimPicks);
+      STATE.live.active_pick = live.active_pick || _autoSimNextSlot();
+      STATE.live.meta = Object.assign({}, prevMeta, live.meta);
+      renderLive();
+      if (initial && !STATE.simulationMode) {
+        showToast(`Live draft state loaded — ${live.meta.n_picks_made}/${live.meta.n_picks_total} picks made`, "ok");
+      }
+    } catch (e) {
+      if (initial) {
+        // Worker unreachable — silent in SIM, log a hint in LIVE
+        if (!STATE.simulationMode) console.warn("[draft-state] LIVE refresh failed, falling back to static snapshot:", e);
+      }
+    }
+    // Schedule next poll only in LIVE mode (every 20s)
+    if (_liveStatePollTimer) clearTimeout(_liveStatePollTimer);
+    if (!STATE.simulationMode) {
+      _liveStatePollTimer = setTimeout(() => _refreshLiveDraftState({}), 20000);
+    }
   }
 
   function showVersionChangelog() {
@@ -754,8 +804,16 @@
       if (TRADE_INBOX.pollTimer) clearInterval(TRADE_INBOX.pollTimer);
       // Drop any leftover items from a previous LIVE session.
       TRADE_INBOX.items = [];
+      // Stop live-state polling — keep showing whatever's currently on the board.
+      if (typeof _liveStatePollTimer !== "undefined" && _liveStatePollTimer) {
+        clearTimeout(_liveStatePollTimer);
+        _liveStatePollTimer = null;
+      }
     } else {
       _inboxStartPolling();
+      // Kick off live-state polling immediately and pull a fresh state so the
+      // commissioner sees real picks the moment they flip to LIVE.
+      _refreshLiveDraftState({ initial: true });
     }
     _refreshInboxVisibility();
     _inboxRender();
@@ -934,8 +992,14 @@
     }
     const madeCount = live.picks_made ? live.picks_made.length : 0;
     const queuedCount = live.draft_order ? live.draft_order.length : 0;
+    // Source label: 'live' if we successfully overlaid MFL data, else fall
+    // back to 'snapshot' tagged with the static-build timestamp.
+    const isLive = live.meta && live.meta.source === "mfl_live" && live.meta.as_of;
+    const stamp = isLive
+      ? `live from MFL ${new Date(live.meta.as_of).toLocaleTimeString()}`
+      : `snapshot ${new Date(live.meta.generated_at_utc).toLocaleString()}`;
     document.getElementById("live-board-summary").textContent =
-      `${madeCount} picks made · ${queuedCount} on the clock · snapshot ${new Date(live.meta.generated_at_utc).toLocaleString()}`;
+      `${madeCount} picks made · ${queuedCount - madeCount} on the clock · ${stamp}`;
 
     renderMyTeam();
     renderMyQueue();
