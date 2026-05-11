@@ -70,6 +70,29 @@
         return v == null ? true : v === "true";
       } catch (e) { return true; }
     })(),
+    // Per-pick clock (real-time draft pacing). Persisted across refreshes so
+    // the commish doesn't have to re-set it. 0 = clock OFF (no countdown
+    // displayed). Default 10 minutes (UPS slow-draft cadence).
+    pickClockMins: (function () {
+      try {
+        const v = localStorage.getItem("rdh_pick_clock_mins");
+        const n = v == null ? 10 : parseInt(v, 10);
+        return Number.isFinite(n) ? Math.max(0, n) : 10;
+      } catch (e) { return 10; }
+    })(),
+    // Wall-clock epoch (ms) when the current active_pick went on the clock.
+    // - LIVE: derived from MFL picks_made[-1].timestamp (the moment the
+    //   previous pick was recorded, which IS when the next slot started).
+    //   Falls back to "first time we observed this slot" if MFL doesn't
+    //   give us a timestamp.
+    // - SIM: stamped to Date.now() whenever the auto-sim or a manual pick
+    //   advances active_pick.
+    // - Reset by the ↺ button if the commish needs to give the on-clock
+    //   owner a do-over after a delay.
+    activePickStartedAt: null,
+    // Tracks which slot _activePickStartedAt corresponds to so we know
+    // when active_pick has changed and the clock should restart.
+    activePickClockKey: null,
   };
 
   // MFL HPM context — the embed loader injects window.UPS_DRAFT_HUB_FRANCHISE_ID
@@ -89,6 +112,87 @@
   }
 
   const fetchJSON = (path) => fetch(path + "?v=" + Date.now(), { cache: "no-store" }).then(r => r.json());
+
+  // ── Per-pick clock helpers ─────────────────────────────────────────
+  // The clock runs entirely client-side off STATE.activePickStartedAt. The
+  // 1Hz tick updates the banner display; it does NOT auto-submit picks
+  // (MFL is still the authority on what happens when time runs out — owner
+  // gets a warning and the commish can intervene).
+  function _pickClockSlotKey(active) {
+    if (!active) return null;
+    return `${active.round}.${active.pick}.${active.franchise_id || active.owned_by_franchise_id || ""}`;
+  }
+  function _pickClockEnsureStarted(opts) {
+    // Called whenever active_pick may have changed. Stamps started_at if
+    // (a) we have no started_at, or (b) the slot key changed. `opts.startedAtMs`
+    // lets the caller seed the clock from an authoritative source (MFL
+    // picks_made[-1].timestamp * 1000 in LIVE) instead of "now".
+    const active = STATE.live && STATE.live.active_pick;
+    const key = _pickClockSlotKey(active);
+    if (!active || !key) {
+      STATE.activePickStartedAt = null;
+      STATE.activePickClockKey = null;
+      return;
+    }
+    if (STATE.activePickClockKey !== key || !STATE.activePickStartedAt) {
+      STATE.activePickStartedAt = (opts && opts.startedAtMs) || Date.now();
+      STATE.activePickClockKey = key;
+    }
+  }
+  function _pickClockReset() {
+    // Commish ↺ button — restart the current pick's clock from now.
+    if (!STATE.live || !STATE.live.active_pick) return;
+    STATE.activePickStartedAt = Date.now();
+    STATE.activePickClockKey = _pickClockSlotKey(STATE.live.active_pick);
+    renderPickClock();
+    showToast("Pick clock reset to full time", "ok");
+  }
+  function _pickClockSetMinutes(mins) {
+    const n = Math.max(0, parseInt(mins, 10) || 0);
+    STATE.pickClockMins = n;
+    try { localStorage.setItem("rdh_pick_clock_mins", String(n)); } catch (e) {}
+    renderPickClock();
+  }
+  function renderPickClock() {
+    const el = document.getElementById("pick-clock-display");
+    if (!el) return;
+    const mins = STATE.pickClockMins;
+    const active = STATE.live && STATE.live.active_pick;
+    if (!mins || mins <= 0 || !active || !STATE.activePickStartedAt) {
+      el.textContent = "";
+      el.className = "lmb-clock";
+      el.removeAttribute("data-state");
+      return;
+    }
+    const totalSec = mins * 60;
+    const elapsedSec = Math.floor((Date.now() - STATE.activePickStartedAt) / 1000);
+    const remainSec = totalSec - elapsedSec;
+    let state, label;
+    if (remainSec <= 0) {
+      state = "expired";
+      // Show how far over they are — e.g. "OT 1:23"
+      const over = -remainSec;
+      label = `⏰ OT ${Math.floor(over / 60)}:${String(over % 60).padStart(2, "0")}`;
+    } else {
+      const m = Math.floor(remainSec / 60);
+      const s = remainSec % 60;
+      label = `${m}:${String(s).padStart(2, "0")}`;
+      if (remainSec <= 60) state = "danger";
+      else if (remainSec <= 120) state = "warn";
+      else state = "ok";
+    }
+    el.textContent = label;
+    el.setAttribute("data-state", state);
+  }
+  // 1Hz tick — repaint the clock every second while a pick is on the
+  // clock. Cheap (one DOM textContent write); we don't gate it behind
+  // visibility because owners may have the tab in a side window.
+  let _pickClockTickTimer = null;
+  function _startPickClockTick() {
+    if (_pickClockTickTimer) return;
+    _pickClockTickTimer = setInterval(renderPickClock, 1000);
+  }
+
 
   // Resolve a worker /api/* path through the configured API_BASE so iframe-
   // embedded hubs (HPM) hit the Cloudflare worker instead of the MFL origin.
@@ -227,7 +331,16 @@
       STATE.live.picks_made = live.picks_made.concat(localSimPicks);
       STATE.live.active_pick = live.active_pick || _autoSimNextSlot();
       STATE.live.meta = Object.assign({}, prevMeta, live.meta);
+      // Seed the per-pick clock: in LIVE, the previous pick's MFL timestamp
+      // IS when the next slot started. In SIM, we stamp "now" inside the
+      // helper. This re-runs every poll, but the helper no-ops when the
+      // slot key hasn't changed, so the clock keeps ticking from its
+      // original start time across polls.
+      const lastPick = (live.picks_made || []).slice().reverse().find(p => Number(p.timestamp));
+      const startedAtMs = lastPick && Number(lastPick.timestamp) ? Number(lastPick.timestamp) * 1000 : null;
+      _pickClockEnsureStarted({ startedAtMs });
       renderLive();
+      renderPickClock();
       if (initial && !STATE.simulationMode) {
         showToast(`Live draft state loaded — ${live.meta.n_picks_made}/${live.meta.n_picks_total} picks made`, "ok");
       }
@@ -718,6 +831,21 @@
     if (toggle) toggle.addEventListener("click", flipLiveMode);
     const pill = document.getElementById("live-mode-pill");
     if (pill) pill.addEventListener("click", showModeHelp);
+
+    // Per-pick clock controls (shown to everyone — visible reference even
+    // for non-commish owners watching the draft go).
+    const clockSel = document.getElementById("pick-clock-mins");
+    if (clockSel) {
+      clockSel.value = String(STATE.pickClockMins);
+      clockSel.addEventListener("change", (e) => _pickClockSetMinutes(e.target.value));
+    }
+    const clockReset = document.getElementById("pick-clock-reset");
+    if (clockReset) clockReset.addEventListener("click", _pickClockReset);
+    // Stamp the clock immediately for whatever's currently on the board
+    // (auto-sim default first slot etc.) and start the 1Hz repaint.
+    _pickClockEnsureStarted();
+    renderPickClock();
+    _startPickClockTick();
 
 
     // Keyboard shortcuts (only when live tab visible & no modal/input focused)
@@ -5432,11 +5560,15 @@
     // Advance active_pick to next slot
     const next = _autoSimNextSlot();
     STATE.live.active_pick = next || null;
+    // SIM clock: stamp now so the next slot's countdown starts from this
+    // moment. (LIVE clock comes from MFL's pick timestamp via the poller.)
+    _pickClockEnsureStarted();
     AUTO_SIM.history.push({
       round: slot.round, pick: slot.pick, fid: slot.franchise_id,
       player_id: pid, name: prospect.name, by,
     });
     renderLive();
+    renderPickClock();
   }
 
   // ── Apply a simulated trade to local STATE.live.draft_order ─────────
@@ -5507,7 +5639,9 @@
     if (swapped) {
       // Recompute active_pick — it's now whoever owns the next unmade slot.
       STATE.live.active_pick = _autoSimNextSlot();
+      _pickClockEnsureStarted();
       renderLive();
+      renderPickClock();
     }
     return { swappedCount: swapped };
   }
@@ -5589,6 +5723,10 @@
     const removed = before - STATE.live.picks_made.length;
     // Restore active_pick to the earliest unmade slot in draft_order
     STATE.live.active_pick = _autoSimNextSlot();
+    // Revert resets the clock — the on-clock owner is now somebody new
+    // (or somebody re-getting the slot), so the timer should restart.
+    STATE.activePickClockKey = null;
+    _pickClockEnsureStarted();
     // Also drop matching entries from the auto-sim history log
     if (Array.isArray(AUTO_SIM.history)) {
       AUTO_SIM.history = AUTO_SIM.history.filter(h => {
@@ -5767,9 +5905,12 @@
     if (STATE.live) {
       STATE.live.picks_made = [];
       STATE.live.active_pick = _autoSimNextSlot();
+      STATE.activePickClockKey = null;
+      _pickClockEnsureStarted();
     }
     _autoSimUiSetState("idle");
     renderLive();
+    renderPickClock();
     showToast("Sim reset — board cleared", "ok");
   }
 

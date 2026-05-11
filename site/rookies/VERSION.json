@@ -1,7 +1,7 @@
 {
-  "version": "1.7.6",
+  "version": "1.7.7",
   "released": "2026-05-11",
-  "label": "V1.7.6 — Commish toggle visible in prod (default 0008) + slow-draft speeds (1/5/10 min)",
+  "label": "V1.7.7 — Per-pick countdown clock in the banner (defaults to 10 min; LIVE clock derived from MFL pick timestamp)",
   "description": "First published version of the Draft Hub analytics model. This establishes the V1 baseline. Future tweaks bump the version and are logged here.",
   "methodology_signature": {
     "tier_classifier": "NET = 3yr-games-weighted E+P rate − 0.5 × 3yr-games-weighted Dud rate",
@@ -28,6 +28,21 @@
     "lineup_efficiency": 0.012
   },
   "changes": [
+    {
+      "version": "1.7.7",
+      "date": "2026-05-11",
+      "type": "feature",
+      "summary": "Per-pick countdown clock added to the live-mode banner. Default 10 minutes (UPS slow-draft cadence). LIVE clock seeds from the MFL timestamp of the previous pick; SIM clock stamps now whenever the auto-sim or a manual pick advances the slot.",
+      "details": [
+        "Banner now shows MM:SS remaining next to the on-clock-headline. Color states: green >2min, amber 1-2min, red <60s, blinking-red OT (over time).",
+        "Clock minutes selector in the banner right column: Off / 2m / 5m / 10m (default) / 15m / 30m / 1h / 4h / 8h. Persisted to localStorage as rdh_pick_clock_mins.",
+        "↺ reset button restarts the current pick's clock from the moment of click (commish use: e.g. owner had a connectivity blip, give them the full clock back).",
+        "Frontend: STATE.activePickStartedAt (epoch ms) + STATE.activePickClockKey (slot fingerprint) + 1Hz tick repaint via setInterval.",
+        "LIVE seed: _refreshLiveDraftState() picks the most recent picks_made entry with a numeric MFL timestamp and uses that × 1000 as started_at. Falls back to first-observed-now if MFL didn't return a timestamp (e.g. pick #1).",
+        "SIM seed: _autoSimRecordPick + revert + reset all stamp now (or null + re-stamp) so the next slot's clock starts from zero.",
+        "Mobile: clock stays visible (smaller text), but the minutes selector and reset button are hidden — owners just watch."
+      ]
+    },
     {
       "version": "1.7.6",
       "date": "2026-05-11",

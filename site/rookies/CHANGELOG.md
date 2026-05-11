@@ -26,6 +26,30 @@ logic is doing without digging into code).
 
 ---
 
+## v1.7.7 — 2026-05-11 — Per-pick countdown clock in the banner
+
+A real-time pick countdown now sits next to the on-the-clock headline.
+
+- **Default 10 minutes** (UPS slow-draft cadence). Configurable from a small
+  selector in the banner right column: Off / 2m / 5m / 10m / 15m / 30m / 1h / 4h / 8h.
+  Saved to `localStorage` so it persists across refreshes.
+- **Color bands**: green >2min, amber 1–2min, red <60s, blinking-red OT
+  (over time, owner is past the limit).
+- **LIVE mode**: seeds from the MFL timestamp of the most recent pick (the
+  moment the previous pick was recorded IS when the next slot started).
+  Falls back to "first time we observed this slot" for pick #1.
+- **SIM mode**: stamps now whenever the auto-sim or a manual pick advances
+  active_pick. Revert + Reset both restart the clock cleanly.
+- **↺ reset button**: commish-friendly do-over — restarts the current pick's
+  clock from the moment of click (e.g. after a connectivity blip).
+- **Mobile**: countdown stays visible (smaller); selector + reset hidden.
+
+The clock does NOT auto-submit picks. MFL is still the authority on what
+happens at expiry — the on-clock owner sees a flashing red OT and the
+commish can intervene.
+
+---
+
 ## v1.7.6 — 2026-05-11 — Commish toggle visible in prod + slow-draft speeds
 
 - Worker default `COMMISH_FRANCHISE_IDS` now `"0008,0001"` (was `"0001"` only).
