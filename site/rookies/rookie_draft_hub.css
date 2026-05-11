@@ -1321,6 +1321,65 @@ tr td.num[style*="var(--err)"] { color: var(--err) !important; }
   line-height: 1.5;
 }
 
+/* "Act as partner" panel — appears in trade modal result section after a
+   sim trade is proposed. Lets the user play the partner's role inline. */
+.trade-act-as-panel {
+  background: var(--panel-alt);
+  border: 1px solid var(--accent-soft);
+  border-left: 3px solid var(--accent);
+  border-radius: 6px;
+  padding: 12px 14px;
+}
+.trade-act-as-head {
+  font-size: 12px;
+  color: var(--text);
+  margin-bottom: 10px;
+}
+.trade-act-as-head strong { color: var(--accent); }
+.trade-act-as-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 8px 10px;
+  margin-bottom: 12px;
+  font-size: 12px;
+}
+.trade-act-as-summary > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+.taa-lbl {
+  color: var(--muted);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  flex-shrink: 0;
+}
+.taa-val {
+  color: var(--text);
+  font-weight: 600;
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.trade-act-as-buttons {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.trade-act-as-buttons .btn {
+  flex: 1;
+  min-width: 90px;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
 /* Trade announcement popup — slides in from top center, auto-dismisses 8s.
    Distinct from .live-toast (which is for state changes / errors). */
 .trade-popup {
