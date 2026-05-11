@@ -827,6 +827,9 @@
     for (const [id, key] of hBindings) {
       document.getElementById(id).addEventListener("change", (e) => {
         STATE.h_filters[key] = e.target.value;
+        // Reset to first page on any filter change so user doesn't end up
+        // on an empty page after narrowing the result set.
+        STATE.h_page = 0;
         // Cascading: pg change may invalidate current pos/tier; pos may invalidate tier.
         if (key === "pg") {
           // Clear pos if it's not in the new group, clear tier if not present
@@ -909,7 +912,7 @@
     // Future Draft Picks filters
     for (const [id, key] of [["fp-year","year"],["fp-owner","owner"],["fp-original","original"],["fp-round","round"]]) {
       const el = document.getElementById(id);
-      if (el) el.addEventListener("change", e => { FP_STATE[key] = e.target.value; renderFuturePicks(); });
+      if (el) el.addEventListener("change", e => { FP_STATE[key] = e.target.value; STATE.fp_page = 0; renderFuturePicks(); });
     }
 
     // R6 countdown controls
@@ -3162,8 +3165,10 @@
   function renderHistory() {
     const rows = applyHistoryFilters();
     const tbody = document.querySelector("#h-table tbody");
-    const cap = 500;
-    const shown = rows.slice(0, cap);
+    // Paginate at 20/page (was hard-cap 500). Page state persists in
+    // STATE.h_page until filters change (those handlers reset it to 0).
+    const pager = paginate(rows, "h_page", { size: 20 });
+    const shown = pager.visible;
     const m = STATE.h_metric;
     const ml = METRIC_LABELS[m];
     // Dynamically hide Total / vs Exp columns when the metric marks them "—".
@@ -3247,8 +3252,21 @@
         showPlayerProfileCard(el.dataset.pid);
       });
     });
-    document.getElementById("h-summary").textContent =
-      `Showing ${shown.length} of ${rows.length} picks` + (rows.length > cap ? " (cap 500, refine filters)" : "");
+    document.getElementById("h-summary").innerHTML =
+      `Showing ${shown.length} of ${rows.length} picks` +
+      (pager.totalPages > 1 ? ` · page ${pager.page + 1}/${pager.totalPages}` : "");
+    // Mount paginator below the table — find the parent .rdh-card or fallback.
+    const tableEl = document.getElementById("h-table");
+    let pagBox = document.getElementById("h-paginator");
+    if (!pagBox && tableEl && tableEl.parentNode) {
+      pagBox = document.createElement("div");
+      pagBox.id = "h-paginator";
+      tableEl.parentNode.insertBefore(pagBox, tableEl.nextSibling);
+    }
+    if (pagBox) {
+      pagBox.innerHTML = pager.html;
+      pager.attach(pagBox, renderHistory);
+    }
   }
 
   // ══════════════════════════════════════════════════════════════════════
@@ -4024,23 +4042,28 @@
       if (firstReal) { myFid = firstReal[0]; myName = firstReal[1]; }
     }
     const toOptions = _tradeOpts(myFid);
-    const fromHeader = isCommishBroker
-      ? `<div style="font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px;">🔨 COMMISH BROKER · pick both sides</div>
-         <div style="display:flex; align-items:center; gap:10px; margin-top:4px;">
-           <strong style="font-size:14px; color:var(--text); white-space:nowrap;">From:</strong>
-           <select id="trade-from" style="flex:1; padding:6px 10px; font-size:13px; background:var(--panel-alt); color:var(--text); border:1px solid var(--accent-soft); border-radius:4px;">${_tradeFromOpts(myFid)}</select>
+    // Header: keep it ONE compact row when commish-broker (From → To → ✕)
+    // instead of stacked rows with their own labels. Saves vertical space
+    // and reads as a single direction-of-trade statement at a glance.
+    const headerHtml = isCommishBroker
+      ? `<div style="font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px;">🔨 Commish Broker</div>
+         <div style="display:flex; align-items:center; gap:6px; margin-top:2px;">
+           <select id="trade-from" style="flex:1; min-width:0; padding:6px 8px; font-size:13px; background:var(--panel-alt); color:var(--text); border:1px solid var(--accent-soft); border-radius:4px;">${_tradeFromOpts(myFid)}</select>
+           <span style="color:var(--muted); font-size:14px; font-weight:600;">→</span>
+           <select id="trade-to" style="flex:1; min-width:0; padding:6px 8px; font-size:13px; background:var(--panel-alt); color:var(--text); border:1px solid var(--accent-soft); border-radius:4px;">${toOptions}</select>
+           <button class="btn secondary" type="button" aria-label="Close" onclick="document.getElementById('rdh-modal-overlay').classList.remove('open')" style="padding:6px 10px; flex-shrink:0;">✕</button>
          </div>`
-      : `<div style="font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px;">Propose Trade · You = ${escapeHtml(myName)}</div>`;
+      : `<div style="font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px;">Propose Trade · You = ${escapeHtml(myName)}</div>
+         <div style="display:flex; align-items:center; gap:8px; margin-top:2px;">
+           <strong style="font-size:13px; color:var(--text); white-space:nowrap;">↔ With:</strong>
+           <select id="trade-to" style="flex:1; min-width:0; padding:6px 8px; font-size:13px; background:var(--panel-alt); color:var(--text); border:1px solid var(--accent-soft); border-radius:4px;">${toOptions}</select>
+           <button class="btn secondary" type="button" aria-label="Close" onclick="document.getElementById('rdh-modal-overlay').classList.remove('open')" style="padding:6px 10px; flex-shrink:0;">✕</button>
+         </div>`;
     openModal(`
       <div class="trade-modal-shell">
         <header class="trade-modal-header">
           <div>
-            ${fromHeader}
-            <div style="display:flex; align-items:center; gap:10px; margin-top:4px;">
-              <strong style="font-size:14px; color:var(--text); white-space:nowrap;">${isCommishBroker ? "To:" : "↔ Trade with:"}</strong>
-              <select id="trade-to" style="flex:1; padding:6px 10px; font-size:13px; background:var(--panel-alt); color:var(--text); border:1px solid var(--accent-soft); border-radius:4px;">${toOptions}</select>
-              <button class="btn secondary" type="button" aria-label="Close" onclick="document.getElementById('rdh-modal-overlay').classList.remove('open')" style="padding:6px 12px;">✕</button>
-            </div>
+            ${headerHtml}
           </div>
         </header>
 
@@ -4149,16 +4172,25 @@
               <div data-asset-list="asset-${side}-${kind}" style="border:1px solid var(--border); border-radius:4px; padding:2px; margin-top:2px;">
                 ${items.map(it => {
                   const k = it._kind || kind;
+                  // TAXI badge: universal site logic — wherever a player is
+                  // displayed, taxi status is surfaced. Salary still shown
+                  // (taxi salary doesn't count vs cap but is real money for
+                  // trade-value comparisons).
+                  const taxiPill = it.taxi
+                    ? `<span class="taxi-pill" title="Taxi squad — salary doesn't count vs cap, but real for trade math">TAXI</span>`
+                    : "";
                   return `
-                  <div class="trade-asset-row" data-asset-id="${escapeHtml(it.asset_id)}" data-display="${escapeHtml(it.display)}" data-kind="${k}"
+                  <div class="trade-asset-row${it.taxi ? " is-taxi" : ""}" data-asset-id="${escapeHtml(it.asset_id)}" data-display="${escapeHtml(it.display)}" data-kind="${k}"
                        data-player-id="${escapeHtml(it.player_id || '')}"
                        data-position="${escapeHtml(it.position || '')}"
                        data-salary="${escapeHtml(String(it.salary || ''))}"
+                       data-taxi="${it.taxi ? '1' : '0'}"
                        style="cursor:pointer; font-size:12px; border-bottom:1px solid var(--border);">
                     <div style="padding:4px 8px; display:flex; justify-content:space-between; align-items:center; gap:8px;">
                       <div style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
                         ${escapeHtml(it.display)}
                         ${it.position ? `<span class="small" style="color:var(--muted); margin-left:6px;">${escapeHtml(it.position)}</span>` : ""}
+                        ${taxiPill}
                       </div>
                       ${it.salary ? `<span class="small" style="color:var(--muted); white-space:nowrap;">$${Math.round(it.salary).toLocaleString()}</span>` : ""}
                     </div>
@@ -4205,6 +4237,7 @@
               player_id: row.dataset.playerId || "",
               position: row.dataset.position || "",
               salary: Number(row.dataset.salary || 0),
+              taxi: row.dataset.taxi === "1",  // surface in basket so the TAXI pill shows there too
               extension_term: "",  // none by default — basket UI lets user choose
             });
             renderBasket(side);
@@ -4278,6 +4311,14 @@
         const extPill = a.extension_term
           ? `<span class="trade-basket-ext-pill" title="${escapeHtml((selected && selected.label) || a.extension_term)}">+ ${escapeHtml(a.extension_term === "1YR" ? "Ext1" : "Ext2")}</span>`
           : "";
+        const taxiBadge = a.taxi
+          ? `<span class="taxi-pill" title="Taxi squad — salary doesn't count vs cap, but real for trade math">TAXI</span>`
+          : "";
+        // Salary chip on basket rows so trade math is visible at a glance
+        // (especially important for taxi players whose value isn't obvious).
+        const salaryChip = (a.kind === "player" && a.salary)
+          ? `<span class="small" style="color:var(--muted); margin-left:6px;">$${Math.round(a.salary).toLocaleString()}${a.taxi ? ' <span style="opacity:0.6">(taxi)</span>' : ''}</span>`
+          : "";
         const extDropdown = isPlayer
           ? `<div class="trade-basket-ext-row">
               <label class="small" style="color:var(--muted); font-size:10px;">Pre-trade extension <span style="opacity:0.6;">· eligibility checked at submit</span></label>
@@ -4288,9 +4329,9 @@
               </select>
             </div>` : "";
         return `
-        <div class="trade-basket-row" data-kind="${escapeHtml(a.kind || "")}">
+        <div class="trade-basket-row${a.taxi ? " is-taxi" : ""}" data-kind="${escapeHtml(a.kind || "")}">
           <div style="display:flex; justify-content:space-between; align-items:center; gap:6px;">
-            <span class="trade-basket-display">${escapeHtml(a.display)}${extPill}</span>
+            <span class="trade-basket-display">${escapeHtml(a.display)}${taxiBadge}${extPill}${salaryChip}</span>
             <button class="trade-basket-remove" data-side="${side}" data-idx="${i}" title="Remove">✕</button>
           </div>
           ${extDropdown}
@@ -4672,6 +4713,48 @@
     });
   }
 
+  // ── Generic pagination helper ─────────────────────────────────────
+  // Slices rows[] for the current page + builds a Prev/Next/page-N control
+  // strip. Returns { visible, html, attach }. Caller stamps html into a
+  // container then calls attach(container, onChange) to wire buttons.
+  // Page state stored on STATE under keyName so it persists across renders
+  // (until filters change — caller can reset via STATE[keyName] = 0).
+  const PAGE_SIZE_DEFAULT = 20;
+  function paginate(rows, keyName, opts = {}) {
+    const size = opts.size || PAGE_SIZE_DEFAULT;
+    const total = rows.length;
+    const totalPages = Math.max(1, Math.ceil(total / size));
+    let page = Number(STATE[keyName] || 0);
+    if (page < 0) page = 0;
+    if (page >= totalPages) page = totalPages - 1;
+    STATE[keyName] = page;
+    const start = page * size;
+    const end = Math.min(start + size, total);
+    const visible = rows.slice(start, end);
+    const disabledPrev = page === 0 ? "disabled" : "";
+    const disabledNext = page >= totalPages - 1 ? "disabled" : "";
+    const html = total <= size
+      ? ""  // single-page: no controls needed
+      : `<div class="rdh-paginator" data-key="${keyName}" style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin: 8px 0; padding: 6px 4px; font-size: 12px; color: var(--muted);">
+           <button class="btn secondary" data-page-action="prev" ${disabledPrev} style="padding:6px 14px; min-height:32px;">‹ Prev</button>
+           <span style="font-variant-numeric: tabular-nums;">
+             <strong style="color: var(--text);">${start + 1}–${end}</strong> of ${total} · page ${page + 1} of ${totalPages}
+           </span>
+           <button class="btn secondary" data-page-action="next" ${disabledNext} style="padding:6px 14px; min-height:32px;">Next ›</button>
+         </div>`;
+    function attach(container, onChange) {
+      if (!container) return;
+      container.querySelectorAll('[data-page-action]').forEach(b => {
+        b.addEventListener("click", () => {
+          if (b.disabled) return;
+          STATE[keyName] = page + (b.dataset.pageAction === "next" ? 1 : -1);
+          if (typeof onChange === "function") onChange();
+        });
+      });
+    }
+    return { visible, html, attach, page, totalPages, total };
+  }
+
   function escapeHtml(s) {
     return String(s).replace(/[&<>"']/g, (c) => ({
       "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"
@@ -4737,7 +4820,10 @@
       return (a.current_owner_name || "").localeCompare(b.current_owner_name || "");
     });
 
-    tbody.innerHTML = rows.map(p => {
+    // Paginate at 20/page so the report scrolls cleanly on mobile + desktop.
+    // Page state persists on STATE.fp_page; reset to 0 on filter changes.
+    const fpPager = paginate(rows, "fp_page", { size: 20 });
+    tbody.innerHTML = fpPager.visible.map(p => {
       const traded = p.current_owner_fid !== p.original_owner_fid;
       const nonTradeable = p.tradeable === false;
       return `
@@ -4750,7 +4836,21 @@
           <td>${traded ? '<span style="color:var(--warn)">Yes</span>' : '<span class="small" style="color:var(--muted)">No</span>'}</td>
         </tr>`;
     }).join("");
-    summary.textContent = `${rows.length} future picks · ${rows.filter(r => r.current_owner_fid !== r.original_owner_fid).length} traded`;
+    const tradedCount = rows.filter(r => r.current_owner_fid !== r.original_owner_fid).length;
+    summary.textContent = `${rows.length} future picks · ${tradedCount} traded` +
+      (fpPager.totalPages > 1 ? ` · page ${fpPager.page + 1}/${fpPager.totalPages}` : "");
+    // Mount paginator below the table.
+    const fpTable = tbody.closest("table");
+    let fpPagBox = document.getElementById("fp-paginator");
+    if (!fpPagBox && fpTable && fpTable.parentNode) {
+      fpPagBox = document.createElement("div");
+      fpPagBox.id = "fp-paginator";
+      fpTable.parentNode.insertBefore(fpPagBox, fpTable.nextSibling);
+    }
+    if (fpPagBox) {
+      fpPagBox.innerHTML = fpPager.html;
+      fpPager.attach(fpPagBox, renderFuturePicks);
+    }
 
     // Projection Basis table — optional (card was removed in the simplified UI;
     // keep the population logic so if a future version re-adds it, it just works).

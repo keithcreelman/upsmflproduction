@@ -2449,6 +2449,16 @@ export default {
               for (const pp of arr) {
                 const pid = safeStr(pp.id);
                 const info = playerIdx.get(pid) || {};
+                // Taxi flag: MFL marks taxi players via roster status field
+                // (often "TAXI") and/or contractStatus="TAXI". Universal site
+                // logic: ALWAYS surface taxi status on player display so
+                // owners + commish see it everywhere a player appears. Taxi
+                // salaries don't count against the cap but we still report
+                // the dollar amount so trade math + value comparisons work.
+                const rosterStatus = safeStr(pp.status || pp.rosterStatus || "").toUpperCase();
+                const contractStatusRaw = safeStr(pp.contractStatus || "");
+                const isTaxi = rosterStatus.includes("TAXI") ||
+                               contractStatusRaw.toUpperCase() === "TAXI";
                 players.push({
                   asset_id: `P_${pid}`,
                   display: info.name || safeStr(pp.name) || `Player #${pid}`,
@@ -2457,12 +2467,20 @@ export default {
                   nfl_team: info.team || "",
                   salary: Number(pp.salary || 0),
                   contract_year: Number(pp.contractYear || 0),
-                  contract_status: safeStr(pp.contractStatus || ""),
+                  contract_status: contractStatusRaw,
+                  roster_status: rosterStatus,
+                  taxi: isTaxi,
                 });
               }
             }
-            // Sort by salary desc so most-expensive players show first.
-            players.sort((a, b) => (b.salary || 0) - (a.salary || 0));
+            // Sort: non-taxi by salary desc first, then taxi players (also by
+            // salary desc) at the bottom. Taxi guys are typically the cheaper
+            // dev-squad picks so this lands them naturally last; keeping them
+            // visually grouped helps trade decisions.
+            players.sort((a, b) => {
+              if (!!a.taxi !== !!b.taxi) return a.taxi ? 1 : -1;
+              return (b.salary || 0) - (a.salary || 0);
+            });
           }
 
           // Future picks — display "via <Team Name>" when the original owner

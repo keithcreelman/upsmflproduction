@@ -2173,6 +2173,28 @@ tr td.num[style*="var(--err)"] { color: var(--err) !important; }
   .auto-sim-bar-fill { transition: none; }
 }
 
+/* Universal Taxi badge — surfaced anywhere a player is rendered (trade
+   modal, basket, profile, anywhere). Yellow-tinted so it reads as
+   "category marker" rather than warning. Cap-doesn't-count is implied
+   visually, but the title attribute spells it out for the curious. */
+.taxi-pill {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  background: rgba(251,191,36,0.18);
+  color: var(--warn);
+  border: 1px solid rgba(251,191,36,0.45);
+  vertical-align: middle;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+}
+.trade-asset-row.is-taxi,
+.trade-basket-row.is-taxi { background: rgba(251,191,36,0.04); }
+
 /* ═══════════════════════════════════════════════════════════════════
    MOBILE APP SHELL  (v1.7.25 — Option B from the mobile plan)
    Activated by JS toggling body.is-mobile when viewport ≤ 768px.
@@ -2187,65 +2209,18 @@ tr td.num[style*="var(--err)"] { color: var(--err) !important; }
    iOS: uses 100dvh (dynamic viewport) where helpful + safe-area padding.
    ═══════════════════════════════════════════════════════════════════ */
 
-/* Top desktop tabs hidden on mobile — bottom nav replaces them. */
-body.is-mobile nav.rdh-tabs { display: none; }
-
-/* Bottom tab nav: pinned to bottom, horizontally scrollable for >5 tabs.
-   Fixed position so it stays in view on every scroll. */
-.mobile-bottom-nav {
-  display: none;
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  z-index: 100;
+/* Mobile keeps the top tab nav (Keith preferred top over bottom). Bottom
+   nav DOM is built but kept hidden — we may revive it later. The top nav
+   already has horizontal-scroll styles for narrow screens. Just make it
+   sticky on mobile so it stays accessible while scrolling. */
+.mobile-bottom-nav { display: none !important; }
+body.is-mobile nav.rdh-tabs {
+  position: sticky;
+  top: 0;
+  z-index: 50;
   background: var(--panel, #14161c);
-  border-top: 1px solid var(--border, rgba(255,255,255,0.10));
-  padding: 6px 4px calc(6px + env(safe-area-inset-bottom, 0px));
-  overflow-x: auto;
-  overflow-y: hidden;
-  scrollbar-width: none;
-  -webkit-overflow-scrolling: touch;
+  border-bottom: 1px solid var(--border, rgba(255,255,255,0.10));
 }
-.mobile-bottom-nav::-webkit-scrollbar { display: none; }
-.mobile-bottom-nav-inner {
-  display: flex;
-  gap: 2px;
-  min-width: 100%;
-  justify-content: space-around;
-}
-.mobile-bottom-nav button {
-  flex: 1 0 auto;
-  min-width: 64px;
-  min-height: 50px;
-  padding: 4px 8px;
-  background: transparent;
-  border: none;
-  color: var(--muted);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.3px;
-  text-transform: uppercase;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-  cursor: pointer;
-  border-radius: 6px;
-}
-.mobile-bottom-nav button .mbn-icon {
-  font-size: 18px;
-  line-height: 1;
-}
-.mobile-bottom-nav button.active {
-  color: var(--accent);
-  background: rgba(255,255,255,0.04);
-}
-body.is-mobile .mobile-bottom-nav { display: block; }
-
-/* Push main content above the bottom nav so it isn't hidden under it. */
-body.is-mobile main.rdh-main { padding-bottom: 80px; }
 
 /* Header: shrink the title + version badge so it fits. */
 body.is-mobile header.rdh-header { padding: 8px 12px; }
@@ -2411,7 +2386,7 @@ body.is-mobile #my-team-panel { order: 30; }
 /* Toast: lift above the bottom nav so it doesn't hide behind it. */
 body.is-mobile .rdh-toast,
 body.is-mobile #rdh-toast {
-  bottom: calc(80px + env(safe-area-inset-bottom, 0px)) !important;
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px)) !important;
   left: 12px !important;
   right: 12px !important;
   width: auto !important;
