@@ -1,7 +1,7 @@
 {
-  "version": "1.7.24",
+  "version": "1.7.25",
   "released": "2026-05-11",
-  "label": "V1.7.24 — R6 final order writes directly to MFL (no Discord publish); HPM loader injects parent URL so the kickoff Discord link points to the actual MFL page (not about:srcdoc)",
+  "label": "V1.7.25 — Mobile app shell: bottom tab nav, single-column live, full-screen modal sheets, 44px touch targets — Option B from the mobile plan, scoped for draft day",
   "description": "First published version of the Draft Hub analytics model. This establishes the V1 baseline. Future tweaks bump the version and are logged here.",
   "methodology_signature": {
     "tier_classifier": "NET = 3yr-games-weighted E+P rate − 0.5 × 3yr-games-weighted Dud rate",
@@ -28,6 +28,22 @@
     "lineup_efficiency": 0.012
   },
   "changes": [
+    {
+      "version": "1.7.25",
+      "date": "2026-05-11",
+      "type": "feature",
+      "summary": "Mobile app shell — Option B from the mobile plan. Below 768px viewport width, the hub swaps in a phone-friendly layout: bottom tab nav (always within thumb reach), single-column live view (on-clock card pinned at top, mock-sim hidden), full-screen modal sheets (pick confirm + trade builder slide up from the bottom), 44px touch targets, sticky primary action button. Desktop layout untouched.",
+      "details": [
+        "site/rookies/rookie_draft_hub.css: ~250 lines of mobile-only CSS gated on body.is-mobile so desktop is bit-identical.",
+        "site/rookies/rookie_draft_hub.js: _initMobileShell() builds bottom nav by mirroring #rdh-tabs (auto-discovers any future tabs via data-tab attribute). MOBILE_TAB_META gives each tab an emoji icon + short label.",
+        "JS toggles body.is-mobile via matchMedia('(max-width: 768px)') with proper change listener so orientation flips re-evaluate.",
+        "Tab switch logic refactored into _setActiveTab() shared by top nav + bottom nav so both stay in sync.",
+        "Modal becomes 100dvh sheet with slide-up animation; primary action button sticks to bottom (above iOS home indicator via env(safe-area-inset-bottom)).",
+        "Touch + a11y: input/select font-size ≥16px to defeat iOS auto-zoom; min-height 44px floor on every button; bottom nav has aria-label.",
+        "Mock Draft Simulation card hidden on mobile — desktop tool, not draft-day-on-phone.",
+        "Right rail re-orders for mobile: On-the-Clock first, Inbox, My Queue, then My Team and Salary Schedule pushed down."
+      ]
+    },
     {
       "version": "1.7.24",
       "date": "2026-05-11",

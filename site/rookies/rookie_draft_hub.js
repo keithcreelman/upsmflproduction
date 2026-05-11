@@ -159,6 +159,72 @@
 
   const fetchJSON = (path) => fetch(path + "?v=" + Date.now(), { cache: "no-store" }).then(r => r.json());
 
+  // ══════════════════════════════════════════════════════════════════════
+  // MOBILE APP SHELL (v1.7.25)
+  // ══════════════════════════════════════════════════════════════════════
+  // Single MQ at 768px toggles body.is-mobile. CSS handles 99% of the
+  // mobile layout from there (single-column, full-screen modals, sticky
+  // bottom nav, 44px touch targets). JS only:
+  //   1. Mirrors the desktop top-tabs into a bottom-pinned nav (one source
+  //      of truth: the existing #rdh-tabs HTML; we generate icons/labels
+  //      from data-tab attribute).
+  //   2. Listens to viewport changes so flipping orientation between
+  //      portrait phone and landscape iPad updates without reload.
+  //
+  // Tab → icon/short-label map. Order is intentional: most-used first
+  // (Live), draft-day-relevant next (R6, Future Picks), reference at end.
+  const MOBILE_TAB_META = {
+    "live":         { icon: "🎯", label: "Live" },
+    "history":      { icon: "📜", label: "History" },
+    "teams":        { icon: "👥", label: "Teams" },
+    "day-trades":   { icon: "🔄", label: "Trades" },
+    "r6-order":     { icon: "🎲", label: "R6" },
+    "future-picks": { icon: "📅", label: "Picks" },
+    "calcs":        { icon: "📊", label: "Calcs" },
+  };
+  function _initMobileShell(setActiveTab) {
+    // Build the bottom nav from the existing top-tab buttons. Mirrored once
+    // at init; if tabs change at runtime (they don't currently), call again.
+    const topNav = document.getElementById("rdh-tabs");
+    if (!topNav) return;
+    let bottom = document.querySelector(".mobile-bottom-nav");
+    if (!bottom) {
+      bottom = document.createElement("nav");
+      bottom.className = "mobile-bottom-nav";
+      bottom.setAttribute("role", "navigation");
+      bottom.setAttribute("aria-label", "Mobile primary navigation");
+      const inner = document.createElement("div");
+      inner.className = "mobile-bottom-nav-inner";
+      bottom.appendChild(inner);
+      // Build buttons in the same order as the top tabs (so the visual
+      // ordering matches what desktop users learn).
+      topNav.querySelectorAll("button[data-tab]").forEach(srcBtn => {
+        const tab = srcBtn.dataset.tab;
+        const meta = MOBILE_TAB_META[tab] || { icon: "•", label: tab };
+        const b = document.createElement("button");
+        b.type = "button";
+        b.dataset.tab = tab;
+        if (srcBtn.classList.contains("active")) b.classList.add("active");
+        b.innerHTML = `<span class="mbn-icon" aria-hidden="true">${meta.icon}</span><span>${meta.label}</span>`;
+        b.addEventListener("click", () => setActiveTab(tab));
+        inner.appendChild(b);
+      });
+      // Insert at the very end of <body> so it overlays correctly.
+      document.body.appendChild(bottom);
+    }
+
+    // Viewport observer: toggle .is-mobile at ≤768px. Modern matchMedia
+    // listener — fires on resize + orientation change + window scaling.
+    const mq = window.matchMedia("(max-width: 768px)");
+    const apply = () => {
+      document.body.classList.toggle("is-mobile", mq.matches);
+    };
+    apply();
+    if (mq.addEventListener) mq.addEventListener("change", apply);
+    else if (mq.addListener) mq.addListener(apply);  // legacy Safari
+  }
+
+
   // ── Per-pick clock helpers ─────────────────────────────────────────
   // The clock runs entirely client-side off STATE.activePickStartedAt. The
   // 1Hz tick updates the banner display; it does NOT auto-submit picks
@@ -725,17 +791,34 @@
   }
 
   function wireListeners() {
-    document.getElementById("rdh-tabs").addEventListener("click", (e) => {
-      const btn = e.target.closest("button[data-tab]");
-      if (!btn) return;
-      document.querySelectorAll("#rdh-tabs button").forEach(b => b.classList.remove("active"));
-      btn.classList.add("active");
-      const tab = btn.dataset.tab;
+    // Shared tab-switch logic — invoked by BOTH the desktop top nav and
+    // the mobile bottom nav so they stay in sync.
+    function _setActiveTab(tab) {
+      if (!tab) return;
+      document.querySelectorAll("#rdh-tabs button").forEach(b => b.classList.toggle("active", b.dataset.tab === tab));
+      document.querySelectorAll(".mobile-bottom-nav button").forEach(b => b.classList.toggle("active", b.dataset.tab === tab));
       document.querySelectorAll(".rdh-section").forEach(s => {
         s.classList.toggle("active", s.dataset.section === tab);
       });
       STATE.activeTab = tab;
+      // On mobile, scroll to top when changing tabs so the user lands at the
+      // start of the new section instead of mid-scroll from where they were.
+      if (document.body.classList.contains("is-mobile")) {
+        try { window.scrollTo({ top: 0, behavior: "instant" }); } catch (e) { window.scrollTo(0, 0); }
+      }
+    }
+    document.getElementById("rdh-tabs").addEventListener("click", (e) => {
+      const btn = e.target.closest("button[data-tab]");
+      if (!btn) return;
+      _setActiveTab(btn.dataset.tab);
     });
+
+    // ── Mobile app shell setup ──
+    // Build the bottom tab nav by mirroring the existing top tabs (so any
+    // future tab additions in HTML automatically show up here too). Toggle
+    // body.is-mobile based on viewport width — CSS handles all the layout
+    // changes from there.
+    _initMobileShell(_setActiveTab);
 
     // Historical filters
     const hBindings = [["h-season", "season"], ["h-team", "team"], ["h-round", "round"],
