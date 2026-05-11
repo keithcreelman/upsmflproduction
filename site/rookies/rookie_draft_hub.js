@@ -3931,9 +3931,11 @@
                 ⚠ Local preview · using ${escapeHtml(src)}. Real-time worker call will replace this in production.
               </div>`;
             })() : "";
+        // Draft picks first — they're the most-traded asset on draft day,
+        // so prioritize them visually. Players follow below.
         pickerEl.innerHTML = stubBanner +
-          renderGroup("Players", data.players, "player") +
-          renderGroup("Draft Picks", allPicks, "pick");
+          renderGroup("Draft Picks", allPicks, "pick") +
+          renderGroup("Players", data.players, "player");
 
         // Wire search inputs
         pickerEl.querySelectorAll("input[data-filter-target]").forEach(inp => {
