@@ -1,7 +1,7 @@
 {
-  "version": "1.7.19",
+  "version": "1.7.20",
   "released": "2026-05-11",
-  "label": "V1.7.19 — Discord DM toggle is now a master mute (silences picks AND trades, not just trades)",
+  "label": "V1.7.20 — Duplicate-trade recovery: try BOTH directions, lower-case all field reads, dedupe by trade_id, surface diagnostics on fail",
   "description": "First published version of the Draft Hub analytics model. This establishes the V1 baseline. Future tweaks bump the version and are logged here.",
   "methodology_signature": {
     "tier_classifier": "NET = 3yr-games-weighted E+P rate − 0.5 × 3yr-games-weighted Dud rate",
@@ -28,6 +28,20 @@
     "lineup_efficiency": 0.012
   },
   "changes": [
+    {
+      "version": "1.7.20",
+      "date": "2026-05-11",
+      "type": "fix",
+      "summary": "Beefier duplicate-trade recovery in /api/trade/process. The v1.7.17 first cut was failing for Keith because (a) MFL's pendingTrades JSON uses different field names per league, (b) a pending offer from A→B can show up under either franchise's pendingTrades but we were only fetching one, and (c) we had no diagnostic when matching failed. Now: fetch BOTH sides, dedupe by trade_id, lower-case every field read so casing doesn't trip us, match either direction (A→B or B→A), surface candidate summaries in the error response if recovery still can't pinpoint a match.",
+      "details": [
+        "Fetch pendingTrades for fromFid AND toFid in parallel; merge + dedupe by trade_id.",
+        "lowerKeys() helper normalizes all field names so MFL's casing variance doesn't matter.",
+        "Match either direction (sender=fromFid+receiver=toFid OR sender=toFid+receiver=fromFid).",
+        "Strict asset equivalence still tried first; falls back to freshest-by-timestamp candidate.",
+        "Error response now includes recovery: { candidates_found, total_pending_for_to, total_pending_for_from, wanted_give, wanted_receive, candidate_summaries[] } so we can see exactly what pendingTrades returned.",
+        "Frontend appends `recovery: <json>` to the error toast so the diagnostic is visible without DevTools."
+      ]
+    },
     {
       "version": "1.7.19",
       "date": "2026-05-11",
