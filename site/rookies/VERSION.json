@@ -1,7 +1,7 @@
 {
-  "version": "1.7.14",
+  "version": "1.7.15",
   "released": "2026-05-11",
-  "label": "V1.7.14 — DRY-RUN mode: rehearse the FULL LIVE pick/trade UX without writing to MFL or live Discord (?dryrun=1)",
+  "label": "V1.7.15 — Surface the actual MFL error on trade failure (was 'api returned 502 application/json'); worker sniffs common failure modes (lockout, deadline, bad asset)",
   "description": "First published version of the Draft Hub analytics model. This establishes the V1 baseline. Future tweaks bump the version and are logged here.",
   "methodology_signature": {
     "tier_classifier": "NET = 3yr-games-weighted E+P rate − 0.5 × 3yr-games-weighted Dud rate",
@@ -28,6 +28,19 @@
     "lineup_efficiency": 0.012
   },
   "changes": [
+    {
+      "version": "1.7.15",
+      "date": "2026-05-11",
+      "type": "fix",
+      "summary": "Trade-process error messages now show the actual MFL response + a one-line diagnostic hint instead of the generic 'api returned 502 application/json'. The worker tries to sniff common MFL failure modes (commish lockout, trade deadline, invalid asset_id, missing/wrong APIKEY) and ships the diagnosis with the response.",
+      "details": [
+        "Frontend trade submit handler: read response body BEFORE throwing (was throwing on !r.ok before reading the JSON body, which was hiding the worker's structured error).",
+        "Error display now formats: ⚠ <hint> · step: <step> · MFL: <response excerpt> · MFL HTTP <status>.",
+        "Worker /api/trade/process propose-fail: matches /lockout|locked|disabled/ → 'Likely cause: MFL Commissioner Lockout enabled. Disable in League → Commissioner Tools.'",
+        "Worker /api/trade/process accept-fail: same lockout sniff + 'already accepted' detection.",
+        "Other matched modes: /deadline|past|closed/ → trade deadline, /invalid|not own|asset/ → bad asset_id, /apikey|authentication/ → APIKEY problem."
+      ]
+    },
     {
       "version": "1.7.14",
       "date": "2026-05-11",

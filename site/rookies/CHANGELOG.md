@@ -26,6 +26,27 @@ logic is doing without digging into code).
 
 ---
 
+## v1.7.15 — 2026-05-11 — Surface the real MFL error on trade failure
+
+Keith hit "Error: api returned 502 application/json" trying to process a
+trade and had no way to tell whether it was a Commish Lockout issue, a
+trade-deadline issue, or a bad asset_id. The worker WAS returning the MFL
+error in the JSON body, but the frontend threw before reading it.
+
+Fix:
+- Frontend always reads the response body before throwing.
+- Error display now reads: `⚠ <hint> · step: <step> · MFL: <response excerpt> · MFL HTTP <status>`.
+- Worker pattern-matches the MFL response on failure and ships a one-line
+  `hint` covering the common modes:
+  - `lockout|locked|disabled` → "MFL Commissioner Lockout enabled. Disable in League → Commissioner Tools."
+  - `deadline|past|closed` → "Trade deadline has passed."
+  - `invalid|not own|asset` → "One of the give/receive asset_ids is invalid or doesn't belong to the listed franchise."
+  - `apikey|authentication` → "MFL APIKEY missing or unauthorized."
+
+So next time a trade fails, the toast tells you what to fix.
+
+---
+
 ## v1.7.14 — 2026-05-11 — DRY-RUN mode (rehearse LIVE without writing)
 
 Keith's pre-draft concern: he wants to rehearse the full LIVE pick submission

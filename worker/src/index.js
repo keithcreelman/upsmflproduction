@@ -2923,7 +2923,21 @@ export default {
         }
         const proposeOk = proposeStatus >= 200 && proposeStatus < 300 && !/error/i.test(proposeResp);
         if (!proposeOk) {
-          return jsonOut(502, { ok: false, step: "propose", mfl_status: proposeStatus, mfl_response: proposeResp });
+          // Sniff the response body for known MFL failure modes so the
+          // frontend can surface a clear diagnosis instead of "502
+          // application/json".
+          let hint = "";
+          const respLower = String(proposeResp).toLowerCase();
+          if (/lockout|locked|disabled|not allowed|not permitted/.test(respLower)) {
+            hint = "Likely cause: MFL Commissioner Lockout is enabled. Disable in League → Commissioner Tools → Lockout to allow API trade writes.";
+          } else if (/deadline|past|closed/.test(respLower)) {
+            hint = "Likely cause: trade deadline has passed for this league.";
+          } else if (/invalid|not own|does not own|player_id|asset/.test(respLower)) {
+            hint = "Likely cause: one of the give/receive asset_ids is invalid or doesn't belong to the listed franchise.";
+          } else if (/apikey|api_key|authentication/.test(respLower)) {
+            hint = "Likely cause: MFL APIKEY is missing or unauthorized for this league.";
+          }
+          return jsonOut(502, { ok: false, step: "propose", mfl_status: proposeStatus, mfl_response: proposeResp, hint });
         }
 
         // Extract trade_id from MFL's response (varies by format)
@@ -2983,6 +2997,17 @@ export default {
           } catch (e) { discordResult = { ok: false, error: String(e) }; }
         }
 
+        let acceptHint = "";
+        if (!acceptOk) {
+          const respLower = String(acceptResp).toLowerCase();
+          if (/lockout|locked|disabled|not allowed|not permitted/.test(respLower)) {
+            acceptHint = "Likely cause: MFL Commissioner Lockout is enabled — propose succeeded but accept was rejected. Disable lockout in League → Commissioner Tools.";
+          } else if (/already|duplicate/.test(respLower)) {
+            acceptHint = "Likely cause: trade was already accepted (duplicate accept). Check MFL trade history.";
+          } else if (/apikey|api_key|authentication/.test(respLower)) {
+            acceptHint = "Likely cause: MFL APIKEY missing or insufficient privileges for tradeResponse.";
+          }
+        }
         return jsonOut(acceptOk ? 200 : 502, {
           ok: acceptOk,
           step: acceptOk ? "complete" : "accept_failed",
@@ -2992,6 +3017,8 @@ export default {
           propose_status: proposeStatus,
           accept_status: acceptStatus,
           accept_response: acceptResp,
+          mfl_response: acceptOk ? undefined : acceptResp,  // surfaced by frontend error renderer
+          hint: acceptHint || undefined,
           discord_message: tradeDiscord,
           discord_posted: !!(discordResult && discordResult.ok),
           discord_error: discordResult && discordResult.error,
