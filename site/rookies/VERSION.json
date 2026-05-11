@@ -1,7 +1,7 @@
 {
-  "version": "1.6.1",
+  "version": "1.6.3",
   "released": "2026-05-10",
-  "label": "V1.6.1 — Queue auto-pick is opt-in (off by default) + roster + phone pass",
+  "label": "V1.6.3 — Mock Sim full-width hero + single-link Watch + Read + opt-in queue + roster",
   "description": "First published version of the Draft Hub analytics model. This establishes the V1 baseline. Future tweaks bump the version and are logged here.",
   "methodology_signature": {
     "tier_classifier": "NET = 3yr-games-weighted E+P rate − 0.5 × 3yr-games-weighted Dud rate",
