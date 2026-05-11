@@ -26,6 +26,19 @@ logic is doing without digging into code).
 
 ---
 
+## v1.7.33 — 2026-05-11 — Register hpm-myteam in loader PARTIAL_MAP
+
+The MFL deployment pattern is one persistent snippet per message slot
+that loads `site/loader.js` with `data-ups-partial=<name>`. The loader
+maps the name to a `site/hpm-*.html` file and injects it.
+
+`hpm-myteam` was missing from `PARTIAL_MAP` — so the existing slot was
+falling back to `hpm-default`. One-line fix in `site/loader.js`. Once
+jsDelivr serves the new loader, the existing MFL slot resolves to the
+v1.7.32-aligned My Team hub. No MFL-side change required.
+
+---
+
 ## v1.7.32 — 2026-05-11 — My Team hub aligned (items 1-5 from the audit)
 
 Shipped the five short-term items from the My Team audit:

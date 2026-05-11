@@ -1,7 +1,7 @@
 {
-  "version": "1.7.32",
+  "version": "1.7.33",
   "released": "2026-05-11",
-  "label": "V1.7.32 — My Team hub aligned: TAXI pill + always-show salary, cap-vs-taxi split, placeholders dropped, sticky mobile header, cross-link from Draft Hub",
+  "label": "V1.7.33 — Register hpm-myteam in loader.js PARTIAL_MAP so the existing MFL message-slot pattern (data-ups-partial=hpm-myteam) resolves",
   "description": "First published version of the Draft Hub analytics model. This establishes the V1 baseline. Future tweaks bump the version and are logged here.",
   "methodology_signature": {
     "tier_classifier": "NET = 3yr-games-weighted E+P rate − 0.5 × 3yr-games-weighted Dud rate",
@@ -28,6 +28,17 @@
     "lineup_efficiency": 0.012
   },
   "changes": [
+    {
+      "version": "1.7.33",
+      "date": "2026-05-11",
+      "type": "fix",
+      "summary": "Register hpm-myteam in site/loader.js PARTIAL_MAP. The MFL message-slot pattern is one persistent snippet per slot that loads loader.js with data-ups-partial=<name>; loader fans out to the corresponding /site/hpm-*.html. hpm-myteam was the only HPM with a partial file but no PARTIAL_MAP entry, so the slot defaulted to hpm-default.",
+      "details": [
+        "site/loader.js: added 'hpm-myteam': '/site/hpm-myteam.html' to PARTIAL_MAP.",
+        "Once jsDelivr serves the new loader.js, any MFL message slot with <script src='.../site/loader.js' data-ups-partial='hpm-myteam'> will fetch and inject site/hpm-myteam.html, which mounts <div id='teamOpsMount'> and loads the team_operations module.",
+        "No MFL-side change required — the existing slot pattern already references hpm-myteam."
+      ]
+    },
     {
       "version": "1.7.32",
       "date": "2026-05-11",
