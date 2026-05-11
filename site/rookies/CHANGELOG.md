@@ -26,6 +26,32 @@ logic is doing without digging into code).
 
 ---
 
+## v1.7.20 — 2026-05-11 — Tougher duplicate-trade recovery + diagnostics
+
+The v1.7.17 duplicate-recovery first cut was failing for Keith because:
+- MFL's `pendingTrades` JSON uses different field names per league
+- A pending offer from A→B can show up under EITHER franchise's
+  `pendingTrades` but we were only fetching one side
+- We had no diagnostic when matching failed — error just said "couldn't
+  find a matching pending offer"
+
+Tightened the recovery and made the failure case visible:
+
+- **Fetch both sides** of the trade in parallel; merge + dedupe by trade_id.
+- **Lower-case all field reads** so MFL's casing variance doesn't matter.
+- **Match either direction** (sender=fromFid+receiver=toFid OR the reverse).
+- **Strict asset equivalence first**, fall back to freshest by timestamp.
+- **Surface candidate diagnostics** when recovery still fails — error now
+  includes `recovery: { candidates_found, total_pending_for_to,
+  total_pending_for_from, wanted_give, wanted_receive,
+  candidate_summaries[] }`. Frontend appends this to the error toast so
+  we can see exactly what MFL returned.
+
+Next time a "Duplicate trade offer" recovery fails, the toast will show
+the candidate list so we can pinpoint why matching missed.
+
+---
+
 ## v1.7.19 — 2026-05-11 — DM toggle is now a master Discord mute (picks + trades)
 
 The v1.7.18 toggle only silenced trade announcements. Per Keith: it should

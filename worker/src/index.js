@@ -2938,49 +2938,101 @@ export default {
         }
         const proposeOk = proposeStatus >= 200 && proposeStatus < 300 && !/error/i.test(proposeResp);
         // ── Duplicate-trade recovery ──
-        // Common pattern: a previous /api/trade/process attempt completed the
-        // PROPOSE step but failed the ACCEPT step (e.g. commish lockout was
-        // on at the time). MFL now has a pending proposal sitting there, so
-        // the next attempt to propose the same trade returns "Duplicate trade
-        // offer". Solution: fetch pendingTrades, find the matching offer's
-        // trade_id, and skip straight to ACCEPT.
+        // A previous /api/trade/process attempt may have completed the PROPOSE
+        // step but failed the ACCEPT step (e.g. commish lockout was on),
+        // leaving a pending proposal that MFL refuses to duplicate. Look it up
+        // and skip straight to ACCEPT.
+        //
+        // Match strategy is deliberately permissive: MFL's pendingTrades JSON
+        // uses different field names across leagues/seasons — and a pending
+        // offer may show up when fetched for EITHER side (sender or receiver),
+        // so we fetch both and dedupe.
         let tradeId = "";
         let recoveredFromDuplicate = false;
+        let recoveryDiagnostics = null;  // surfaced in error response if recovery fails
         if (!proposeOk && /duplicate/i.test(proposeResp)) {
           try {
-            const ptUrl = `https://www48.myfantasyleague.com/${year}/export?TYPE=pendingTrades&L=${leagueId}&FRANCHISE_ID=${toFid}&APIKEY=${encodeURIComponent(apiKey)}&JSON=1`;
-            const ptR = await fetch(ptUrl, {
-              headers: { "User-Agent": "upsmflproduction-worker", "Accept": "application/json" },
+            const fetchPending = async (asFid) => {
+              const u = `https://www48.myfantasyleague.com/${year}/export?TYPE=pendingTrades&L=${leagueId}&FRANCHISE_ID=${asFid}&APIKEY=${encodeURIComponent(apiKey)}&JSON=1`;
+              const r = await fetch(u, { headers: { "User-Agent": "upsmflproduction-worker", "Accept": "application/json" } });
+              const j = await r.json().catch(() => null);
+              const root = j && (j.pendingTrades || j.pendingtrades) || {};
+              let arr = root.pendingTrade || root.pendingtrade || root.trade || root.trades || [];
+              if (!Array.isArray(arr)) arr = arr ? [arr] : [];
+              return arr;
+            };
+            const [forTo, forFrom] = await Promise.all([fetchPending(toFid), fetchPending(fromFid)]);
+            // Dedupe by trade id across both fetches.
+            const byId = new Map();
+            for (const p of [...forTo, ...forFrom]) {
+              const id = safeStr(p.tradeId || p.tradeid || p.id || p.trade_id || "");
+              if (id && !byId.has(id)) byId.set(id, p);
+            }
+            const allPending = Array.from(byId.values());
+
+            // Permissive field reader: lower-cases all keys before reading the
+            // candidate set so MFL's case variance doesn't trip us.
+            const lowerKeys = (obj) => {
+              const out = {};
+              for (const [k, v] of Object.entries(obj || {})) out[String(k).toLowerCase()] = v;
+              return out;
+            };
+            const fid = (v) => _rdhPadFid(safeStr(v));
+
+            // Match either direction (sender = fromFid → receiver = toFid, OR
+            // the reverse). MFL stores both perspectives in pendingTrades.
+            const candidates = allPending.filter(p => {
+              const lo = lowerKeys(p);
+              const sender = fid(lo.franchise || lo.franchise_id || lo.offeredby || lo.proposedby || lo.fromfid);
+              const receiver = fid(lo.offeredto || lo.target || lo.tofid);
+              return (sender === fromFid && receiver === toFid) ||
+                     (sender === toFid && receiver === fromFid);
             });
-            const ptJson = await ptR.json().catch(() => null);
-            const ptRoot = ptJson && (ptJson.pendingTrades || ptJson.pendingtrades) || {};
-            let ptArr = ptRoot.pendingTrade || ptRoot.pendingtrade || ptRoot.trade || ptRoot.trades || [];
-            if (!Array.isArray(ptArr)) ptArr = [ptArr];
-            // Match the pending trade by sender + receiver. MFL field names
-            // vary across leagues — accept several shapes.
-            const matchFid = (val) => _rdhPadFid(safeStr(val)) === fromFid;
-            const matchOffered = (val) => _rdhPadFid(safeStr(val)) === toFid;
-            const candidates = ptArr.filter(p => {
-              const sender = p.franchise || p.offeredBy || p.offeredby || p.proposedBy || p.proposedby;
-              const offeredTo = p.offeredTo || p.offeredto || p.target;
-              return matchFid(sender) && matchOffered(offeredTo);
-            });
-            // Asset-equivalence check — same assets in both directions, in
-            // any order. Compare normalized comma-separated strings.
+
+            // Try strict asset equivalence first (commas/semicolons normalized).
             const normSet = (csv) => String(csv || "").split(/[,;\s]+/).filter(Boolean).sort().join(",");
             const wantGive = normSet(giveMfl);
             const wantRecv = normSet(receiveMfl);
             const matchExact = candidates.find(p => {
-              const g = normSet(p.willGiveUp || p.willgiveup || p.give);
-              const r = normSet(p.willReceive || p.willreceive || p.receive);
-              return g === wantGive && r === wantRecv;
+              const lo = lowerKeys(p);
+              const g = normSet(lo.willgiveup || lo.give);
+              const r = normSet(lo.willreceive || lo.receive);
+              return (g === wantGive && r === wantRecv) || (g === wantRecv && r === wantGive);
             });
-            const pick = matchExact || candidates[0];
+
+            // Sort candidates by timestamp DESC so the freshest match wins.
+            const sortedByTs = candidates.slice().sort((a, b) => {
+              const ta = Number(a.offeredAt || a.offeredat || a.timestamp || 0);
+              const tb = Number(b.offeredAt || b.offeredat || b.timestamp || 0);
+              return tb - ta;
+            });
+            const pick = matchExact || sortedByTs[0];
             if (pick) {
               tradeId = safeStr(pick.tradeId || pick.tradeid || pick.id || pick.trade_id || "");
               if (tradeId) recoveredFromDuplicate = true;
             }
-          } catch (e) { /* fall through to error path below */ }
+            // Stash diagnostics so the error response (if recovery still
+            // fails) shows what we actually saw in pendingTrades.
+            recoveryDiagnostics = {
+              candidates_found: candidates.length,
+              total_pending_for_to: forTo.length,
+              total_pending_for_from: forFrom.length,
+              wanted_give: wantGive,
+              wanted_receive: wantRecv,
+              candidate_summaries: candidates.slice(0, 5).map(p => {
+                const lo = lowerKeys(p);
+                return {
+                  trade_id: safeStr(lo.tradeid || lo.id || lo.trade_id || ""),
+                  sender: fid(lo.franchise || lo.franchise_id || lo.offeredby || lo.proposedby),
+                  receiver: fid(lo.offeredto || lo.target),
+                  give: safeStr(lo.willgiveup || lo.give),
+                  receive: safeStr(lo.willreceive || lo.receive),
+                };
+              }),
+            };
+          } catch (e) {
+            recoveryDiagnostics = { recovery_error: String(e && e.message || e) };
+          }
         }
 
         if (!proposeOk && !recoveredFromDuplicate) {
@@ -3000,7 +3052,14 @@ export default {
           } else if (/apikey|api_key|authentication/.test(respLower)) {
             hint = "Likely cause: MFL APIKEY is missing or unauthorized for this league.";
           }
-          return jsonOut(502, { ok: false, step: "propose", mfl_status: proposeStatus, mfl_response: proposeResp, hint });
+          return jsonOut(502, {
+            ok: false, step: "propose", mfl_status: proposeStatus,
+            mfl_response: proposeResp, hint,
+            // recoveryDiagnostics is populated only on duplicate-recovery
+            // attempts. Surfacing it here lets us see what pendingTrades
+            // actually contained vs. what the worker was trying to match.
+            recovery: recoveryDiagnostics || undefined,
+          });
         }
 
         // Extract trade_id from MFL's response (varies by format) — only when
