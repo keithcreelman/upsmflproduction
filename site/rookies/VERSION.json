@@ -1,7 +1,7 @@
 {
-  "version": "1.7.12",
+  "version": "1.7.13",
   "released": "2026-05-11",
-  "label": "V1.7.12 — Pick clock is LIVE-mode only (no longer auto-starts on page load in SIM)",
+  "label": "V1.7.13 — Commish broker mode in trade modal: pick BOTH sides to process a third-party trade",
   "description": "First published version of the Draft Hub analytics model. This establishes the V1 baseline. Future tweaks bump the version and are logged here.",
   "methodology_signature": {
     "tier_classifier": "NET = 3yr-games-weighted E+P rate − 0.5 × 3yr-games-weighted Dud rate",
@@ -28,6 +28,19 @@
     "lineup_efficiency": 0.012
   },
   "changes": [
+    {
+      "version": "1.7.13",
+      "date": "2026-05-11",
+      "type": "feature",
+      "summary": "Commish trade-broker mode: when STATE.me.is_commish, the trade modal now exposes a 'From' dropdown alongside the existing 'To' dropdown — so the commish can pick ANY two franchises and process a trade between them. Previously the from-side was locked to the current user's franchise, making third-party brokering impossible (Keith hits this when logged in as MFL pseudo-franchise 0000, which has no roster).",
+      "details": [
+        "openTradeModal: introduces let myFid + let myName (was const). When isCommishBroker is true, renders a 'From:' selector at the top with all franchises sorted alphabetically. To-selector dynamically rebuilds to exclude the new from-fid.",
+        "Basket titles + picker headers + cap-$ rule labels are team-aware: 'BLAKE BOMBERS OFFERS', 'KEITH RECEIVES', etc. instead of 'YOU OFFER' / 'YOU RECEIVE'.",
+        "Switching the From dropdown clears both baskets and reloads both pickers (assets belong to a different franchise now).",
+        "When commish is logged in as fid 0000 (no roster), the from-side defaults to the first franchise alphabetically. They can change it via the dropdown.",
+        "Audit field requested_by uses the commish's true fid (commishOwnFid) — not the from-team — so MFL/Discord show who actually ran the trade."
+      ]
+    },
     {
       "version": "1.7.12",
       "date": "2026-05-11",
