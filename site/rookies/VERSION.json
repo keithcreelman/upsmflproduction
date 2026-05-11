@@ -1,7 +1,7 @@
 {
-  "version": "1.7.10",
+  "version": "1.7.11",
   "released": "2026-05-11",
-  "label": "V1.7.10 — Reword LIVE-mode dialogs (picks are recoverable via MFL Modify Draft Results, not 'irreversible')",
+  "label": "V1.7.11 — SIM mode no longer posts to Discord at all (test channel was getting flooded during mock drafts)",
   "description": "First published version of the Draft Hub analytics model. This establishes the V1 baseline. Future tweaks bump the version and are logged here.",
   "methodology_signature": {
     "tier_classifier": "NET = 3yr-games-weighted E+P rate − 0.5 × 3yr-games-weighted Dud rate",
@@ -28,6 +28,18 @@
     "lineup_efficiency": 0.012
   },
   "changes": [
+    {
+      "version": "1.7.11",
+      "date": "2026-05-11",
+      "type": "fix",
+      "summary": "SIM mode no longer posts to Discord at all. Previously every simulated pick + simulated trade pinged the test channel with a [SIM] prefix. The test channel was getting flooded during owner mock drafts and the noise wasn't useful — the hub already shows the planned message in the confirm modal.",
+      "details": [
+        "/api/pick simulate path: removed _rdhPostDiscord call. Response still returns the formatted message in `discord_message` so the client can preview it.",
+        "/api/trade simulate path: same — removed Discord post, kept `discord_message` in response.",
+        "/api/trade/process LIVE path: unchanged (commish-only, posts to live channel).",
+        "/api/pick LIVE path: unchanged (posts to live channel)."
+      ]
+    },
     {
       "version": "1.7.10",
       "date": "2026-05-11",

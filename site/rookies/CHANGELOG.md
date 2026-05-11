@@ -26,6 +26,25 @@ logic is doing without digging into code).
 
 ---
 
+## v1.7.11 — 2026-05-11 — SIM mode no longer posts to Discord
+
+Every simulated pick + simulated trade was pinging the test Discord channel
+with a `[SIM]` prefix. During owner mock-drafts the channel was getting
+flooded — and the noise wasn't useful, since the hub already shows the
+planned message in the confirm modal.
+
+Removed the Discord post from:
+- `/api/pick` simulate path
+- `/api/trade` simulate path
+
+Both still return the formatted `discord_message` in the response so the
+client can preview what the LIVE post would look like.
+
+LIVE paths unchanged: real picks + processed trades still announce in
+the live channel.
+
+---
+
 ## v1.7.10 — 2026-05-11 — Reword LIVE-mode dialogs (picks are recoverable)
 
 The LIVE-mode confirm dialog called picks "irreversible" — that's wrong. The

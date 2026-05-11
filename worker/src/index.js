@@ -2600,16 +2600,19 @@ export default {
           : `🏈 ${slotLabel} — ${fname || fid} selects **${playerName || `Player #${playerId}`}**`;
 
         if (simulate) {
-          const ch = _rdhDiscordChannel(false);
-          const dRes = await _rdhPostDiscord(ch, `[SIM] ${discordContent}`);
+          // SIM mode no longer posts to Discord at all (per Keith 2026-05-11).
+          // Previously posted to the test channel with [SIM] prefix, but the
+          // noise wasn't useful — the hub already shows the planned message
+          // in the confirm modal, and during owner mock-drafts the test
+          // channel was getting flooded.
           return jsonOut(200, {
             ok: true, simulated: true,
             slot: slotLabel, round: onClockRound, pick: onClockSlot,
             franchise_id: fid, franchise_name: fname,
             player_id: playerId, player_name: playerName,
             contract,
-            discord_test_posted: !!(dRes && dRes.ok),
-            discord_error: dRes && dRes.error,
+            discord_test_posted: false,
+            discord_message: discordContent,  // returned for client-side preview
           });
         }
 
@@ -2711,20 +2714,17 @@ export default {
           (comments ? `\n   _"${comments.slice(0, 200)}"_` : "");
 
         if (simulate) {
-          // Post to TEST channel with [SIM] prefix so the user can verify the format.
-          let discordResult = null;
-          try {
-            const ch = _rdhDiscordChannel(false);
-            discordResult = await _rdhPostDiscord(ch, `[SIM] ${tradeDiscord}`);
-          } catch (e) { discordResult = { ok: false, error: String(e) }; }
+          // SIM mode no longer posts to Discord (per Keith 2026-05-11) —
+          // the test channel was getting flooded during mock drafts. The
+          // formatted message is still returned in `discord_message` so
+          // the client can preview what the LIVE post would look like.
           return jsonOut(200, {
             ok: true, simulated: true,
             from_franchise_id: fromFid, from_franchise_name: fromName,
             to_franchise_id: toFid, to_franchise_name: toName,
             give: giveMfl, receive: receiveMfl, comments,
             discord_message: tradeDiscord,
-            discord_test_posted: !!(discordResult && discordResult.ok),
-            discord_error: discordResult && discordResult.error,
+            discord_test_posted: false,
           });
         }
 
