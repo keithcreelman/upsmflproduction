@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Rookie Draft Hub — UPS League</title>
-<link rel="stylesheet" href="rookie_draft_hub.css?v=2026.05.11.v1.7.31">
+<link rel="stylesheet" href="rookie_draft_hub.css?v=2026.05.11.v1.7.32">
 </head>
 <body>
 <header class="rdh-header">
@@ -240,7 +240,10 @@
         <div class="rdh-card my-team-card" id="my-team-card" hidden>
           <div class="live-card-head">
             <h2>👤 My Team</h2>
-            <span class="small" id="my-team-name" style="color:var(--muted);"></span>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span class="small" id="my-team-name" style="color:var(--muted);"></span>
+              <a id="my-team-fullview-link" href="#" target="_top" rel="noopener" class="small" style="color:var(--accent); text-decoration:none; font-weight:600; white-space:nowrap;" title="Open the full My Team page on MFL">Full view →</a>
+            </div>
           </div>
           <div id="my-team-body" class="my-team-body"></div>
         </div>
@@ -677,6 +680,6 @@
   <div class="rdh-modal" id="rdh-modal"></div>
 </div>
 
-<script src="rookie_draft_hub.js?v=2026.05.11.v1.7.31"></script>
+<script src="rookie_draft_hub.js?v=2026.05.11.v1.7.32"></script>
 </body>
 </html>

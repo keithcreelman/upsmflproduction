@@ -450,3 +450,41 @@
   border-radius: 10px;
   font-size: 0.9rem;
 }
+
+/* Universal TAXI pill — same convention as Draft Hub + Front Office.
+   Yellow-tinted 9px badge that signals "salary doesn't count vs cap,
+   but real money for trade math". Surfaces next to player names in
+   the My Team Roster card. */
+.taxi-pill {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  background: rgba(251, 191, 36, 0.18);
+  color: #fbbf24;
+  border: 1px solid rgba(251, 191, 36, 0.45);
+  vertical-align: middle;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+}
+.tops-roster-table tr.is-taxi { background: rgba(251, 191, 36, 0.04); }
+
+/* Sticky header on mobile — franchise name + Submit Lineup / Full
+   Rosters / Trade Room shortcuts stay reachable while scrolling. */
+@media (max-width: 768px) {
+  .tops-header {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: var(--tops-bg, #0f1116);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(8px);
+    padding: 8px 12px;
+  }
+  .tops-title { font-size: 14px; }
+  .tops-subtitle { font-size: 11px; }
+  .tops-link-pill { font-size: 11px; padding: 6px 10px; }
+}

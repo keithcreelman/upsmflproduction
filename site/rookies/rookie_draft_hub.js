@@ -5542,6 +5542,14 @@
     const franchises = (STATE.live && STATE.live.franchises) || {};
     const fname = franchises[fid] || fid;
     document.getElementById("my-team-name").textContent = fname;
+    // Cross-link to the My Team HPM page (lives at the league home for
+    // the viewer's franchise). Falls back to the league options page if
+    // we don't have a franchise context.
+    const myTeamLink = document.getElementById("my-team-fullview-link");
+    if (myTeamLink) {
+      const padFidStr = String(fid).padStart(4, "0").slice(-4);
+      myTeamLink.href = `https://www48.myfantasyleague.com/2026/home/74598/${padFidStr}`;
+    }
 
     // Picks owned this draft — split into 'made', 'next up' (earliest unmade
     // owned by us), and the rest as 'future'.

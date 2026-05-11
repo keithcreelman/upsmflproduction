@@ -1,7 +1,7 @@
 {
-  "version": "1.7.31",
+  "version": "1.7.32",
   "released": "2026-05-11",
-  "label": "V1.7.31 — Front Office: taxi salary always shown (was '—' for zero) so trade-value math is visible per Keith's universal rule",
+  "label": "V1.7.32 — My Team hub aligned: TAXI pill + always-show salary, cap-vs-taxi split, placeholders dropped, sticky mobile header, cross-link from Draft Hub",
   "description": "First published version of the Draft Hub analytics model. This establishes the V1 baseline. Future tweaks bump the version and are logged here.",
   "methodology_signature": {
     "tier_classifier": "NET = 3yr-games-weighted E+P rate − 0.5 × 3yr-games-weighted Dud rate",
@@ -28,6 +28,20 @@
     "lineup_efficiency": 0.012
   },
   "changes": [
+    {
+      "version": "1.7.32",
+      "date": "2026-05-11",
+      "type": "feature+fix",
+      "summary": "My Team hub (site/team_operations/) aligned with the rest of the site. Shipped items 1-5 from the audit: dropped Risk Heatmap + Cap Trajectory placeholder cards; TAXI pill rendered next to taxi player names in the Roster card; salary always shown for taxi rows (was hidden); Franchise Summary 'Cap Used' now reflects active-roster only with taxi $ as an off-cap callout; new 'Full view →' link in the Draft Hub My Team card opens the full MFL My Team page; sticky header on mobile so franchise name + Submit Lineup / Full Rosters / Trade Room shortcuts stay reachable while scrolling 12 cards on a phone.",
+      "details": [
+        "site/team_operations/team_operations.js: renderShell drops <section data-card='riskHeatmap'> + 'capTrajectory'; renderAll skips the calls. Functions kept as dead code in case other refs exist.",
+        "renderSummary: splits salaries into capUsed (non-taxi) + taxiSalary (taxi). 'Cap Used' headline + bar reflect capUsed only. Taxi $ surfaces as a parenthetical '+ $X taxi (off-cap)' under the cap-used number when present.",
+        "renderRoster: rows tagged isTaxi based on roster status. Sort puts non-taxi first by salary desc, taxi at the bottom. Taxi rows get .is-taxi class (subtle yellow tint), TAXI pill next to player name, salary always rendered (yellow-tinted for taxi rows). Status column shows 'TAXI'/'IR'/'ACTIVE'.",
+        "site/team_operations/team_operations.css: added .taxi-pill (same yellow-tinted badge from Draft Hub + Front Office) and .tops-roster-table tr.is-taxi tint. New @media (max-width:768px) block makes .tops-header position:sticky top:0 with backdrop-blur — shortcuts stay accessible while scrolling.",
+        "site/rookies/rookie_draft_hub.html + js: new <a id='my-team-fullview-link'> 'Full view →' link in the My Team card header. Renders pointing at https://www48.myfantasyleague.com/2026/home/74598/<fid> — the MFL franchise home page where the My Team HPM is hosted.",
+        "Team Operations build stamp bumped to 2026.05.11.03 (was 2026.04.18.02)."
+      ]
+    },
     {
       "version": "1.7.31",
       "date": "2026-05-11",
