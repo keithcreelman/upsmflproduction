@@ -5554,87 +5554,17 @@
       return;
     }
     _autoSimRecordPick(slot, prospect, "engine");
-    // ~4% chance per engine pick to simulate a trade between two other
-    // (non-user) franchises. Caps at 1 simulated trade per round to keep
-    // the noise level realistic — historical UPS draft-day trade count
-    // averages ~3-5 per draft (from rookie_draft_day_trades.json).
-    if (STATE.simulationMode && Math.random() < 0.04) {
-      const tradeCount = ((STATE.live._sim_trade_log || []).filter(t => t.round === slot.round)).length;
-      if (tradeCount < 1) {
-        _simulateOtherTrade(slot.round);
-      }
-    }
     _autoSimSchedule();
   }
 
-  // Simulate a pick-for-pick trade between two non-user franchises.
-  // Picks two random franchises (excluding the user's), finds a plausible
-  // 1-for-1 swap of unmade picks, mutates draft_order ownership, posts to
-  // Discord (test channel), and shows the popup banner.
-  function _simulateOtherTrade(currentRound) {
-    if (!STATE.live || !Array.isArray(STATE.live.draft_order)) return;
-    const myFid = _myFid();
-    const order = STATE.live.draft_order;
-    const made = STATE.live.picks_made || [];
-    const madeKeys = new Set(made.map(p => `${p.round}.${p.pick}`));
-    const unmade = order.filter(o => !madeKeys.has(`${o.round}.${o.pick}`));
-    // Pool of franchises with at least 2 unmade picks — give one, take one
-    const fidPicks = {};
-    for (const o of unmade) {
-      const f = String(o.owned_by_franchise_id);
-      if (f === String(myFid)) continue;  // skip user's franchise
-      (fidPicks[f] = fidPicks[f] || []).push(o);
-    }
-    const eligible = Object.keys(fidPicks).filter(f => fidPicks[f].length >= 2);
-    if (eligible.length < 2) return;
-    // Random pair
-    const fromFid = eligible[Math.floor(Math.random() * eligible.length)];
-    const others = eligible.filter(f => f !== fromFid);
-    if (!others.length) return;
-    const toFid = others[Math.floor(Math.random() * others.length)];
-    // Pick swap: each side gives an early pick, gets a later pick (or vice versa).
-    // Simplest: random pick from each side.
-    const fromGives = fidPicks[fromFid][Math.floor(Math.random() * fidPicks[fromFid].length)];
-    const toGives = fidPicks[toFid][Math.floor(Math.random() * fidPicks[toFid].length)];
-    if (!fromGives || !toGives) return;
-    // Don't swap same slot
-    if (fromGives === toGives) return;
-    // Mutate ownership
-    fromGives.owned_by_franchise_id = toFid;
-    toGives.owned_by_franchise_id = fromFid;
-    // Recompute active_pick (might have changed owner if it was one of these)
-    STATE.live.active_pick = _autoSimNextSlot();
-    // Log it
-    STATE.live._sim_trade_log = STATE.live._sim_trade_log || [];
-    STATE.live._sim_trade_log.push({
-      round: currentRound,
-      from_fid: fromFid, to_fid: toFid,
-      from_gives: `R${fromGives.round}.${String(fromGives.pick).padStart(2,"0")}`,
-      to_gives: `R${toGives.round}.${String(toGives.pick).padStart(2,"0")}`,
-    });
-    const franchises = STATE.live.franchises || {};
-    const fromName = franchises[fromFid] || fromFid;
-    const toName = franchises[toFid] || toFid;
-    const fromGivesLabel = `R${fromGives.round}.${String(fromGives.pick).padStart(2,"0")}`;
-    const toGivesLabel = `R${toGives.round}.${String(toGives.pick).padStart(2,"0")}`;
-    showTradePopup({
-      fromName, toName, fromGives: fromGivesLabel, toGives: toGivesLabel,
-      source: "sim-other",
-    });
-    renderLive();
-  }
-
-  // On-screen popup banner for any trade — slides in from the top of the
-  // live tab, auto-dismisses after 8s. Source labels:
-  //   'sim-other' = engine generated this trade between two non-user franchises
-  //   'sim-user'  = user just simulated a trade (proposed + accepted)
-  //   'live'      = real MFL trade went through
+  // On-screen popup banner for user-initiated trades — slides in from the top
+  // of the live tab, auto-dismisses after 8s. Source labels:
+  //   'sim-user' = user just simulated a trade (proposed + accepted)
+  //   'live'     = real MFL trade went through
   function showTradePopup({ fromName, toName, fromGives, toGives, source }) {
     const old = document.querySelector(".trade-popup");
     if (old) old.remove();
-    const tag = source === "live" ? "TRADE"
-              : source === "sim-user" ? "SIM TRADE"
-              : "🤖 SIM TRADE";
+    const tag = source === "live" ? "TRADE" : "SIM TRADE";
     const popup = document.createElement("div");
     popup.className = "trade-popup" + (source === "live" ? " is-live" : "");
     popup.innerHTML = `
