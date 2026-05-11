@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var BUILD = "2026.04.18.02";
+  var BUILD = "2026.05.11.03";
   var BOOT_FLAG = "__ups_team_operations_boot_" + BUILD;
   if (window[BOOT_FLAG]) {
     if (typeof window.UPS_TEAMOPS_INIT === "function") window.UPS_TEAMOPS_INIT();
@@ -286,8 +286,11 @@
       '    <section data-card="roster" class="tops-card tops-card-wide"></section>',
       '    <section data-card="news" class="tops-card"></section>',
       '    <section data-card="nextDecision" class="tops-card tops-card-highlight"></section>',
-      '    <section data-card="riskHeatmap" class="tops-card"></section>',
-      '    <section data-card="capTrajectory" class="tops-card tops-card-wide"></section>',
+      // Risk Heatmap + Cap Trajectory placeholder cards removed in
+      // v1.7.32 — they explicitly said "Phase 1b" which confused owners
+      // about what was real. Real implementations live on the post-draft
+      // backlog (heatmap = depth × games × injury risk; trajectory =
+      // year-by-year obligations from CCC contract data).
       '    <section data-card="whatChanged" class="tops-card"></section>',
       '    <section data-card="pendingTrades" class="tops-card"></section>',
       '    <section data-card="waivers" class="tops-card"></section>',
@@ -318,10 +321,23 @@
 
     var salaries = getMySalaries();
     var roster = getMyRoster();
-    var used = salaries.reduce(function (s, p) { return s + p.salary; }, 0);
+    // Index roster status by player_id so we can flag taxi salaries.
+    var statusById = {};
+    roster.forEach(function (r) { statusById[r.id] = safeStr(r.status); });
+
+    // Universal taxi rule: salary is real money but DOES NOT count vs the
+    // cap. Split the totals so the headline "Cap Used" is cap-relevant
+    // only; taxi $ surfaces as a secondary callout.
+    var capUsed = 0;
+    var taxiSalary = 0;
+    salaries.forEach(function (s) {
+      var amt = Number(s.salary || 0);
+      if (/taxi/i.test(statusById[s.id] || "")) taxiSalary += amt;
+      else capUsed += amt;
+    });
     var cap = state.capAmount;
-    var remain = cap - used;
-    var pct = cap > 0 ? Math.min(100, Math.round((used / cap) * 100)) : 0;
+    var remain = cap - capUsed;
+    var pct = cap > 0 ? Math.min(100, Math.round((capUsed / cap) * 100)) : 0;
 
     var rosterCount = roster.length;
     var irCount = roster.filter(function (p) { return /ir/i.test(p.status); }).length;
@@ -336,8 +352,10 @@
       '<div class="tops-summary-grid">',
       '  <div class="tops-kv">',
       '    <div class="tops-kv-label">Cap Used</div>',
-      '    <div class="tops-kv-value">' + fmtUsd(used) + '</div>',
-      '    <div class="tops-kv-note">' + pct + '% of ' + fmtUsd(cap) + '</div>',
+      '    <div class="tops-kv-value">' + fmtUsd(capUsed) + '</div>',
+      '    <div class="tops-kv-note">' + pct + '% of ' + fmtUsd(cap) +
+        (taxiSalary > 0 ? ' · <span style="opacity:0.75;">+ ' + fmtUsd(taxiSalary) + ' taxi (off-cap)</span>' : '') +
+        '</div>',
       '    <div class="tops-bar"><div class="tops-bar-fill" style="width:' + pct + '%"></div></div>',
       '  </div>',
       '  <div class="tops-kv">',
@@ -430,10 +448,16 @@
         team: safeStr(p.team),
         salary: Number(sal.salary || 0),
         status: r.status,
+        isTaxi: /taxi/i.test(safeStr(r.status)),
+        isIr: /ir/i.test(safeStr(r.status)),
         contract: safeStr(sal.contractInfo || sal.contractStatus),
         injuryBadge: injuryBadge
       };
-    }).sort(function (a, b) { return b.salary - a.salary; });
+    }).sort(function (a, b) {
+      // Non-taxi first by salary desc, then taxi at the bottom (also salary desc).
+      if (a.isTaxi !== b.isTaxi) return a.isTaxi ? 1 : -1;
+      return b.salary - a.salary;
+    });
 
     if (!rows.length) {
       el.innerHTML = '<div class="tops-card-title">My Roster</div><div class="tops-empty">No roster data loaded yet.</div>';
@@ -447,13 +471,21 @@
       '  <thead><tr><th>Pos</th><th>Player</th><th>Team</th><th class="num">Salary</th><th>Contract</th><th>Status</th></tr></thead>',
       '  <tbody>',
       rows.map(function (r) {
-        return '<tr>' +
+        // Universal taxi pill — same convention as Draft Hub + Front Office.
+        // Salary always rendered (even if 0) for taxi rows so the trade-value
+        // math is visible.
+        var taxiBadge = r.isTaxi ? '<span class="taxi-pill" title="Taxi squad — salary doesn\'t count vs cap, but real for trade math">TAXI</span>' : '';
+        var statusLabel = r.isTaxi ? 'TAXI' : (r.isIr ? 'IR' : (r.status || 'ACTIVE'));
+        var salaryCell = r.isTaxi
+          ? '<span style="color:var(--warn,#fbbf24); opacity:0.9;">' + fmtUsd(r.salary) + '</span>'
+          : (r.salary > 0 ? fmtUsd(r.salary) : '—');
+        return '<tr' + (r.isTaxi ? ' class="is-taxi"' : '') + '>' +
           '<td><span class="tops-pos tops-pos-' + escapeHtml(r.pos) + '">' + escapeHtml(r.pos) + '</span></td>' +
-          '<td>' + escapeHtml(r.name) + ' ' + r.injuryBadge + '</td>' +
+          '<td>' + escapeHtml(r.name) + ' ' + r.injuryBadge + taxiBadge + '</td>' +
           '<td>' + escapeHtml(r.team) + '</td>' +
-          '<td class="num">' + fmtUsd(r.salary) + '</td>' +
+          '<td class="num">' + salaryCell + '</td>' +
           '<td>' + escapeHtml(r.contract) + '</td>' +
-          '<td>' + escapeHtml(r.status || 'ACTIVE') + '</td>' +
+          '<td>' + escapeHtml(statusLabel) + '</td>' +
           '</tr>';
       }).join(""),
       '  </tbody>',
@@ -665,8 +697,9 @@
     renderRoster();
     renderNews();
     renderNextDecision();
-    renderRiskHeatmap();
-    renderCapTrajectory();
+    // renderRiskHeatmap + renderCapTrajectory removed in v1.7.32 — were
+    // placeholder cards. Functions kept below as no-ops in case anything
+    // else still calls them; safe to delete in a future cleanup pass.
     renderWhatChanged();
     renderPendingTrades();
     renderWaivers();

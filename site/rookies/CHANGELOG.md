@@ -26,6 +26,32 @@ logic is doing without digging into code).
 
 ---
 
+## v1.7.32 — 2026-05-11 — My Team hub aligned (items 1-5 from the audit)
+
+Shipped the five short-term items from the My Team audit:
+
+1. **Cut placeholder cards.** Risk Heatmap + Cap Trajectory said "Phase 1b"
+   and confused owners about what was real. Both gone from the grid.
+2. **TAXI pill in Roster card.** Same yellow-tinted badge from Draft Hub +
+   Front Office, next to player names. Taxi rows get a subtle yellow tint
+   and sort to the bottom (after active, by salary desc within each group).
+3. **Taxi salary always shown.** Yellow-tinted dollar value for taxi rows;
+   non-taxi unchanged.
+4. **Cap summary respects taxi rule.** Franchise Summary "Cap Used" now =
+   non-taxi salaries only. Taxi $ surfaces as an off-cap callout under the
+   cap number when applicable.
+5. **Cross-link from Draft Hub.** New `Full view →` link in the My Team
+   card header on the Draft Hub opens the MFL franchise home page where
+   the full My Team HPM lives.
+
+Plus #6 (sticky mobile header) thrown in for free — `.tops-header` is
+`position: sticky; top: 0` on mobile so Submit Lineup / Full Rosters /
+Trade Room shortcuts stay reachable while scrolling 12 cards on a phone.
+
+Build stamp bumped to `2026.05.11.03`.
+
+---
+
 ## v1.7.31 — 2026-05-11 — Front Office: taxi salary always shown
 
 Per Keith's universal taxi rule: taxi player salary/AAV/TCV must show in
