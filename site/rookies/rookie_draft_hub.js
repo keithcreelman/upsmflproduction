@@ -3823,13 +3823,13 @@
       cd.innerHTML = `<p class="small" style="color:var(--err)">Need 12 franchises in live state to run selection.</p>`;
       return;
     }
-    // Reverse order of selection: pick 12 first, down to pick 1
-    // For simulation, use franchises in random order. For official, we'd take
-    // the submitted deadline-ordered list. For MVP we cycle franchises shuffled.
+    // Reverse order of selection: pick 12 first, down to pick 1.
+    // BOTH simulate AND official drawings must shuffle the pool — UPS rule
+    // is a RANDOM order drawing. v1.7.23 only shuffled in simulate mode,
+    // which produced an identity order in the 2026-05-11 official run
+    // (pick 1→0001, pick 2→0002, ...). Fixed in v1.7.43: shuffle always.
     const pool = franchises.slice();
-    if (isSimulate) {
-      pool.sort(() => Math.random() - 0.5);
-    }
+    pool.sort(() => Math.random() - 0.5);
     const banner = isSimulate
       ? `<div class="r6-banner r6-sim">SIMULATION MODE · non-binding</div>`
       : `<div class="r6-banner">OFFICIAL SELECTION · May 2, 2026 @ 6:00 PM ET</div>`;
