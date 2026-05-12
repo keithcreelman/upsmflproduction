@@ -237,6 +237,20 @@
     '.upm-modal .upm-salary-card { padding: 10px 12px; background: #1a2230; border-radius: 6px; border: 1px solid #2a3446; }',
     '.upm-modal .upm-salary-card .lbl { font-size: 10px; color: #8a97ad; text-transform: uppercase; letter-spacing: 0.3px; display: block; margin-bottom: 4px; }',
     '.upm-modal .upm-salary-card .val { font-size: 16px; font-weight: 700; color: #e8edf5; }',
+    /* Contract Options panel content (rendered inside its own tab). */
+    '.upm-modal .upm-co-panel { padding: 6px 0; }',
+    '.upm-modal .upm-co-panel .upm-co-empty { color: #8a97ad; padding: 30px 0; text-align: center; font-size: 13px; }',
+    /* Player news feed (inside the News tab). */
+    '.upm-modal .upm-news-list { display: flex; flex-direction: column; gap: 10px; padding: 4px 0; }',
+    '.upm-modal .upm-news-item { padding: 10px 12px; background: #1a2230; border-radius: 6px; border-left: 3px solid #2a3446; }',
+    '.upm-modal .upm-news-item.is-injury { border-left-color: #fbbf24; }',
+    '.upm-modal .upm-news-item.is-headline { border-left-color: #5b8dff; }',
+    '.upm-modal .upm-news-item.is-status { border-left-color: #4ade80; }',
+    '.upm-modal .upm-news-item .upm-news-headline { font-size: 13px; font-weight: 600; color: #e8edf5; margin-bottom: 3px; line-height: 1.4; }',
+    '.upm-modal .upm-news-item .upm-news-meta { font-size: 11px; color: #8a97ad; }',
+    '.upm-modal .upm-news-item .upm-news-meta a { color: #5b8dff; text-decoration: none; }',
+    '.upm-modal .upm-news-item .upm-news-meta a:hover { text-decoration: underline; }',
+    '.upm-modal .upm-news-item .upm-news-body { font-size: 12px; color: #c2d3ee; margin-top: 4px; line-height: 1.5; }',
 
     /* Tier badges */
     '.upm-modal .tier { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: 600; }',
@@ -353,13 +367,18 @@
   }
 
   // ── Photo fallback chain ────────────────────────────────────────────────
+  // Per Keith 2026-05-12: drop ESPN NFL from the chain — it tends to render
+  // a low-quality / odd-cropped headshot. Order is now:
+  //   1) MFL icon_url           — usually the pro shirt-and-tie shot
+  //   2) ESPN college            — fallback for fresh rookies
+  //   3) MFL stable archive      — last resort for very old / unmapped players
+  // Future TODO: pick a better headshot source (Sleeper, Sportradar, etc.).
   function buildPhotoChain(pid, pp, prospectRow) {
     var espnId = (prospectRow && prospectRow.espn_id) || pp.espn_id || null;
     var chain = [];
     if (pp.icon_url) chain.push(pp.icon_url);
     if (espnId) {
       chain.push("https://a.espncdn.com/i/headshots/college-football/players/full/" + espnId + ".png");
-      chain.push("https://a.espncdn.com/i/headshots/nfl/players/full/" + espnId + ".png");
     }
     if (pid) chain.push("https://www48.myfantasyleague.com/player_photos_2014/" + pid + "_thumb.jpg");
     return chain;
@@ -465,10 +484,18 @@
         + escapeHtml(prospectRow.espn_id) + '</a></div>');
     }
 
-    var bioHeadHtml = '<div class="profile-bio">'
-      + (photoUrl
-        ? '<img src="' + escapeHtml(photoUrl) + '" alt="' + escapeHtml(name) + '" class="profile-photo" onerror="' + photoOnError + '">'
-        : '<div class="profile-photo-placeholder"></div>')
+    // When the caller (e.g., Roster Workbench) is rendering its own header
+    // photo above us, hide ours to avoid double-photo. ctx.hidePhoto OR
+    // ctx.hideHeader both opt out of the Bio photo.
+    var suppressPhoto = !!(ctx.hidePhoto || ctx.hideHeader);
+    var bioHeadHtml = '<div class="profile-bio"'
+      + (suppressPhoto ? ' style="grid-template-columns: 1fr;"' : '')
+      + '>'
+      + (suppressPhoto
+        ? ''
+        : (photoUrl
+          ? '<img src="' + escapeHtml(photoUrl) + '" alt="' + escapeHtml(name) + '" class="profile-photo" onerror="' + photoOnError + '">'
+          : '<div class="profile-photo-placeholder"></div>'))
       + '<div class="profile-bio-text">' + bioRows.join("") + '</div>'
       + '</div>';
 
@@ -488,6 +515,7 @@
     // ── Cap-math strip (8 cards when MFL salary present, 4 when only D1 contract) ──
     // Front Office: ctx.contractSalary supplies the live MFL row.
     // Rookie Draft / no salary: fall back to the D1 most-recent contract.
+    // (Contract Options moved to its own tab — see buildContractOptionsHtml.)
     var capHtml = "";
     var sal = ctx.contractSalary || null;
     var contractInfo = sal ? parseContractInfo(sal.contractInfo) : null;

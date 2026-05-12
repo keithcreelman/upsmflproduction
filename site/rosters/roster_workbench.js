@@ -7531,10 +7531,12 @@
         // Action buttons + commish/non-manage notes live outside any tab —
         // they sit above the player-profile content so they're always
         // visible regardless of which tab the user is on.
+        // Per Keith 2026-05-12: extensionSummaryHtml + rookieOptionSummaryHtml
+        // are MOVED into a "Contract Options" card inside master's cap-math
+        // strip (no longer floating above). Notes about commish-acting and
+        // can't-manage stay above since they apply to the action buttons.
         var actionsAboveHtml =
           '<div class="rwb-modal-actions-wrap" style="margin-bottom:14px;">' + actions.join("") + '</div>' +
-          rookieOptionSummaryHtml +
-          extensionSummaryHtml +
           (!canManage ? '<div class="rwb-modal-note">Roster-management actions are unavailable for this session. Trade is available from any team.</div>' : '') +
           (viewerCanManageAnyRoster() && !ownRoster ? '<div class="rwb-modal-note"><strong>Commish:</strong> Acting on behalf of ' + escapeHtml(team.name) + '.</div>' : '');
 
@@ -7546,11 +7548,16 @@
 
         if (masterAvailable) {
           // Master takes over the 4-tab body. Action buttons stay above.
+          // Stash the contract-options HTML on the modal body so the
+          // delegation block below can pass it into master via ctx.
+          state.actionModal._contractOptionsHtml =
+            (rookieOptionSummaryHtml || "") + (extensionSummaryHtml || "");
           content =
             playerHeaderHtml +
             actionsAboveHtml +
             '<div id="rwb-upm-mount" data-upm-mount-pending="1"></div>';
         } else {
+          state.actionModal._contractOptionsHtml = "";
           // Legacy local 4-tab implementation. Cap-math grid lives inline
           // in the Bio panel here because there's no master to render it.
           var bioContentHtml =
@@ -7565,6 +7572,10 @@
               '<div class="rwb-modal-metric"><span>How Acquired</span><strong>' + escapeHtml(acquisitionTypeLabelForPlayer(player)) + '</strong></div>' +
               extendedByHtml +
             '</div>' +
+            // Legacy path — restore the inline extension summaries (master
+            // path moves these into a Contract Options card instead).
+            (rookieOptionSummaryHtml || "") +
+            (extensionSummaryHtml || "") +
             actionsAboveHtml;
 
           var tabStripHtml =
