@@ -1845,6 +1845,19 @@
   // MFL sometimes injects message HTML with innerHTML, which makes <script> tags inert.
   // Loading the CCC embed loader from the header ensures it executes.
   (function () {
+    // ── ARCHIVED 2026-05-12 ─────────────────────────────────────────
+    // Contract Command Center retired. Source moved to
+    // site/_archived/2026-05-12/ccc/. Owners now submit
+    // extensions / restructures / tags via Roster Workbench (which
+    // posts to the same worker endpoints — /commish-contract-update,
+    // /offer-restructure, /offer-mym).
+    //
+    // We leave the rest of the IIFE in place (normalizer functions,
+    // mutation observers, etc.) so any future re-enable is a single
+    // line revert. The early-return below is the only behavior change.
+    // ────────────────────────────────────────────────────────────────
+    return;
+
     var CCC_HEADER_BUILD = "2026.02.28.2";
     if (window.__ups_ccc_header_autoload === CCC_HEADER_BUILD) return;
     window.__ups_ccc_header_autoload = CCC_HEADER_BUILD;
@@ -2755,6 +2768,15 @@
 <script>
   // Acquisition Hub embed helper for MESSAGE10.
   (function () {
+    // ── ARCHIVED 2026-05-12 ─────────────────────────────────────────
+    // Acquisition Hub retired. Source moved to
+    // site/_archived/2026-05-12/acquisition/. ERA + FA Auction +
+    // waivers won't run again before May 24; a clean Auction Hub
+    // will be designed post-draft per Keith. Worker /acquisition-hub/*
+    // routes remain (dormant) until they're audited for removal.
+    // ────────────────────────────────────────────────────────────────
+    return;
+
     var ACQ_HEADER_BUILD = "2026.03.11.1";
     if (window.__ups_acq_header_autoload === ACQ_HEADER_BUILD) return;
     window.__ups_acq_header_autoload = ACQ_HEADER_BUILD;
