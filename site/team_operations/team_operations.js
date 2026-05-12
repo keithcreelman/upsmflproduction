@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var BUILD = "2026.05.11.11";
+  var BUILD = "2026.05.11.12";
   var BOOT_FLAG = "__ups_team_operations_boot_" + BUILD;
   if (window[BOOT_FLAG]) {
     if (typeof window.UPS_TEAMOPS_INIT === "function") window.UPS_TEAMOPS_INIT();
@@ -1084,28 +1084,55 @@
       '<th class="num">Pos #</th><th>Tier</th><th>Roster</th>' +
       '</tr></thead><tbody>' + rows + '</tbody></table>';
   }
+  // News tab now uses the worker's /api/player-news multi-source aggregator
+  // (Sleeper structured info + ESPN team articles fuzzy-matched to player
+  // last name). The MFL playerProfile.news bundle field is deprecated and
+  // returns empty for everyone — that was the v1.7.36 mistake.
   function renderProfileNews(bundle, pid) {
-    var newsItems = asArray(bundle && bundle.news);
-    if (!newsItems.length && bundle && bundle.profile && bundle.profile.playerProfile) {
-      newsItems = asArray(bundle.profile.playerProfile.news);
-    }
-    newsItems = newsItems.slice().sort(function (a, b) {
-      return Number(b.timestamp || 0) - Number(a.timestamp || 0);
-    });
-    if (!newsItems.length) {
-      return '<div class="tops-empty">No recent news for this player.</div>';
-    }
-    return '<ul class="tops-profile-news">' + newsItems.slice(0, 12).map(function (n) {
-      var when = n.timestamp ? new Date(Number(n.timestamp) * 1000).toLocaleDateString() : "";
-      var src = safeStr(n.source) || safeStr(n.author);
-      var headline = safeStr(n.headline) || safeStr(n.title);
-      var body = safeStr(n.story) || safeStr(n.body);
-      return '<li class="tops-profile-news-item">' +
-        '<div class="tops-profile-news-meta">' + escapeHtml(when) + (src ? ' · ' + escapeHtml(src) : '') + '</div>' +
-        (headline ? '<div class="tops-profile-news-head">' + escapeHtml(headline) + '</div>' : '') +
-        (body ? '<div class="tops-profile-news-body">' + escapeHtml(body.slice(0, 800)) + '</div>' : '') +
-        '</li>';
-    }).join("") + '</ul>';
+    // Render a placeholder + lazy fetch from /api/player-news.
+    // Using a stable id on the container so we can target it after fetch.
+    var nid = "topsProfileNewsBody-" + pid;
+    setTimeout(function () { _topsLoadProfileNews(pid, nid); }, 0);
+    return '<div id="' + nid + '"><div class="tops-empty">Loading news…</div></div>';
+  }
+  function _topsLoadProfileNews(pid, containerId) {
+    var url = workerUrl("/api/player-news?L=" + encodeURIComponent(state.ctx.leagueId) +
+                        "&YEAR=" + encodeURIComponent(state.ctx.year) +
+                        "&pids=" + encodeURIComponent(pid));
+    fetch(url, { cache: "no-store" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (data) {
+        var el = document.getElementById(containerId);
+        if (!el) return;
+        var items = (data && data.items_by_pid && data.items_by_pid[String(pid)]) || [];
+        if (!items.length) {
+          el.innerHTML = '<div class="tops-empty">No recent news, injury notes, or depth-chart info for this player.</div>';
+          return;
+        }
+        el.innerHTML = '<ul class="tops-profile-news">' + items.map(function (n) {
+          var when = n.timestamp ? new Date(Number(n.timestamp) * 1000).toLocaleDateString() : "";
+          var typeClass = n.type === "status" ? " is-status" : (n.type === "depth" ? " is-depth" : "");
+          var typeBadge = n.type === "status" ? '<span class="tops-news-type-badge is-status">INJURY</span>'
+                       : n.type === "depth" ? '<span class="tops-news-type-badge is-depth">DEPTH</span>'
+                       : '';
+          var src = safeStr(n.source);
+          var headline = safeStr(n.headline);
+          var body = safeStr(n.body);
+          var linkHtml = n.url
+            ? '<a class="tops-profile-news-link" href="' + escapeHtml(n.url) + '" target="_blank" rel="noopener">Read full →</a>'
+            : '';
+          return '<li class="tops-profile-news-item' + typeClass + '">' +
+            '<div class="tops-profile-news-meta">' + typeBadge + escapeHtml(when) + (src ? ' · ' + escapeHtml(src) : '') + '</div>' +
+            (headline ? '<div class="tops-profile-news-head">' + escapeHtml(headline) + '</div>' : '') +
+            (body ? '<div class="tops-profile-news-body">' + escapeHtml(body.slice(0, 800)) + '</div>' : '') +
+            linkHtml +
+            '</li>';
+        }).join("") + '</ul>';
+      })
+      .catch(function () {
+        var el = document.getElementById(containerId);
+        if (el) el.innerHTML = '<div class="tops-empty" style="color:var(--tops-bad,#ff6b6b);">News fetch failed. Refresh to retry.</div>';
+      });
   }
   function closePlayerProfileModal() {
     var ov = document.getElementById("topsProfileOverlay");
@@ -1211,17 +1238,24 @@
       : '<div class="tops-empty" style="font-size:11px; padding:6px 0;">No injury designations on your roster.</div>';
 
     // News feed section — three states: idle (button), loading, loaded.
+    // Uses /api/player-news (single batched call for the whole roster) which
+    // joins Sleeper structured info (injury/depth/practice) with ESPN team
+    // articles fuzzy-matched by last name. Cached on the worker edge.
     var newsSectionHtml;
     if (state.teamNewsLoading) {
-      newsSectionHtml = '<div class="tops-empty">Loading news for ' + roster.length + ' players… (one-time, then cached)</div>';
+      newsSectionHtml = '<div class="tops-empty">Loading news for ' + roster.length + ' players… (one batch call, then cached)</div>';
     } else if (state.teamNewsItems) {
       var top = state.teamNewsItems.slice(0, 12);
       newsSectionHtml = top.length
         ? '<ul class="tops-news-list">' + top.map(function (n) {
             var when = n.when ? new Date(n.when * 1000).toLocaleDateString() : "";
             var pid = String(n.pid);
+            var typeBadge = n.type === "status" ? '<span class="tops-news-type-badge is-status">INJURY</span>'
+                         : n.type === "depth" ? '<span class="tops-news-type-badge is-depth">DEPTH</span>'
+                         : '';
             return '<li class="tops-news-item" data-pid="' + escapeHtml(pid) + '">' +
               '<div class="tops-news-row1">' +
+                typeBadge +
                 '<span class="tops-news-player">' + escapeHtml(n.player) + '</span>' +
                 (n.position ? '<span class="tops-news-pos">' + escapeHtml(n.position) + '</span>' : '') +
                 (when ? '<span class="tops-news-when">' + escapeHtml(when) + '</span>' : '') +
@@ -1230,7 +1264,7 @@
               (n.body ? '<div class="tops-news-body">' + escapeHtml(n.body.slice(0, 220)) + (n.body.length > 220 ? '…' : '') + '</div>' : '') +
               '</li>';
           }).join("") + '</ul>'
-        : '<div class="tops-empty" style="font-size:11px; padding:6px 0;">No recent news on your roster.</div>';
+        : '<div class="tops-empty" style="font-size:11px; padding:6px 0;">No recent news / injury notes on your roster.</div>';
     } else {
       newsSectionHtml = '<button id="topsLoadNews" class="tops-link-pill" style="cursor:pointer; border:none; font-size:12px; margin-top:6px;">Load news feed (' + roster.length + ' players)</button>';
     }
@@ -1245,45 +1279,49 @@
       newsSectionHtml
     ].join("");
 
-    // Wire the load-news button.
+    // Wire the load-news button — single batched /api/player-news call
+    // for the whole roster. Worker fans out to Sleeper + ESPN per-team
+    // and dedupes per pid.
     var loadBtn = document.getElementById("topsLoadNews");
     if (loadBtn) {
       loadBtn.addEventListener("click", function () {
         state.teamNewsLoading = true;
         renderNews();
         var pids = roster.map(function (r) { return r.id; }).filter(Boolean);
-        Promise.all(pids.map(fetchPlayerBundle)).then(function (bundles) {
-          var items = [];
-          bundles.forEach(function (b, i) {
-            if (!b) return;
-            var pid = pids[i];
-            var pInfo = playerById(pid) || {};
-            var newsArr = asArray(b.news);
-            if (!newsArr.length && b.profile && b.profile.playerProfile) {
-              newsArr = asArray(b.profile.playerProfile.news);
-            }
-            newsArr.forEach(function (n) {
-              items.push({
-                pid: pid,
-                player: safeStr(pInfo.name) || ("Player #" + pid),
-                position: safeStr(pInfo.position),
-                team: safeStr(pInfo.team),
-                when: Number(n.timestamp || 0),
-                headline: safeStr(n.headline) || safeStr(n.title),
-                body: safeStr(n.story) || safeStr(n.body),
-                source: safeStr(n.source) || safeStr(n.author)
+        var url = workerUrl("/api/player-news?L=" + encodeURIComponent(state.ctx.leagueId) +
+                            "&YEAR=" + encodeURIComponent(state.ctx.year) +
+                            "&pids=" + encodeURIComponent(pids.join(",")));
+        fetch(url, { cache: "no-store" })
+          .then(function (r) { return r.ok ? r.json() : null; })
+          .then(function (data) {
+            var items = [];
+            var byPid = (data && data.items_by_pid) || {};
+            Object.keys(byPid).forEach(function (pid) {
+              var pInfo = playerById(pid) || {};
+              (byPid[pid] || []).forEach(function (n) {
+                items.push({
+                  pid: pid,
+                  player: safeStr(pInfo.name) || ("Player #" + pid),
+                  position: safeStr(pInfo.position),
+                  team: safeStr(pInfo.team),
+                  when: Number(n.timestamp || 0),
+                  headline: safeStr(n.headline),
+                  body: safeStr(n.body),
+                  source: safeStr(n.source),
+                  type: safeStr(n.type),
+                });
               });
             });
+            items.sort(function (a, b) { return b.when - a.when; });
+            state.teamNewsItems = items;
+            state.teamNewsLoading = false;
+            renderNews();
+          })
+          .catch(function () {
+            state.teamNewsLoading = false;
+            state.teamNewsItems = [];
+            renderNews();
           });
-          items.sort(function (a, b) { return b.when - a.when; });
-          state.teamNewsItems = items;
-          state.teamNewsLoading = false;
-          renderNews();
-        }).catch(function () {
-          state.teamNewsLoading = false;
-          state.teamNewsItems = [];
-          renderNews();
-        });
       });
     }
     // Item clicks → MFL native player profile (until Front Office's

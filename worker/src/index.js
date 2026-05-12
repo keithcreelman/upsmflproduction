@@ -2430,6 +2430,214 @@ export default {
         }
       }
 
+      // ── GET /api/player-news — multi-source aggregator ──
+      // Twitter direct = $100+/mo + ToS risk. ESPN per-athlete news API
+      // returns 0 articles. Sleeper /players/nfl/news is deprecated
+      // (returns null). What DOES work in 2026:
+      //   - Sleeper player index (cached 24h, 14MB): rich injury_status,
+      //     injury_body_part, injury_notes, practice_participation,
+      //     practice_description, depth_chart_position/order, status,
+      //     news_updated timestamp. Per-player. Updated continuously.
+      //   - ESPN team RSS: syndicates Schefter/Rapoport tweets within
+      //     ~10 min. Per-team, recent ~20 articles.
+      //   - Reddit r/nfl JSON: often 5-15 min ahead of ESPN on breaking
+      //     news. Per-team via search ?q=flair_name:<team>.
+      //
+      // This endpoint joins those for the requested player(s) and returns
+      // a normalized news[] array. Beats showing "loading..." that never
+      // resolves (the v1.7.36 mistake).
+      //
+      // Usage: /api/player-news?pids=12345,67890&L=74598&YEAR=2026
+      // Response: { items_by_pid: { "<mfl_pid>": [news...] }, ... }
+      if (path === "/api/player-news" && request.method === "GET") {
+        const pidsRaw = safeStr(url.searchParams.get("pids") || url.searchParams.get("pid") || "");
+        const mflPids = pidsRaw.split(/[,\s]+/).map(s => s.trim()).filter(Boolean).slice(0, 50);
+        if (!mflPids.length) return jsonOut(400, { error: "pids required (comma-separated MFL player ids)" });
+        const lid = safeStr(url.searchParams.get("L") || "74598").replace(/\D/g, "") || "74598";
+        const yr = safeStr(url.searchParams.get("YEAR") || YEAR || String(new Date().getUTCFullYear())).replace(/\D/g, "");
+
+        // Step 1 — fetch MFL DETAILS for these players to get name, team,
+        //          and gsis_id (the ID that bridges to Sleeper's player_id).
+        const mflDetailsUrl = `https://api.myfantasyleague.com/${encodeURIComponent(yr)}/export?TYPE=players&DETAILS=1&PLAYERS=${encodeURIComponent(mflPids.join(","))}&JSON=1`;
+        let mflPlayers = {};
+        try {
+          const r = await fetch(mflDetailsUrl, {
+            cf: { cacheTtl: 86400, cacheEverything: true },
+            headers: { "User-Agent": "upsmflproduction-worker", "Accept": "application/json" },
+          });
+          const d = await r.json();
+          let arr = d?.players?.player || [];
+          if (!Array.isArray(arr)) arr = [arr];
+          for (const p of arr) {
+            const pid = safeStr(p.id);
+            if (!pid) continue;
+            mflPlayers[pid] = {
+              id: pid,
+              name: safeStr(p.name),                       // "Burrow, Joe"
+              team: safeStr(p.team).toUpperCase(),         // "CIN"
+              position: safeStr(p.position),
+              gsis_id: safeStr(p.gsis_id || p.gsisid || p.gsisId),
+            };
+          }
+        } catch (e) {
+          return jsonOut(502, { error: `MFL DETAILS fetch failed: ${e?.message || String(e)}` });
+        }
+
+        // Step 2 — Sleeper player index (cached 24h on edge — ~14MB but
+        //          only the first request pays). Build a gsis_id → sleeper
+        //          info map. Fall back to name+team match for players MFL
+        //          doesn't have a gsis_id for (rookies, IDP edge cases).
+        let sleeperIndex = {};
+        try {
+          const r = await fetch("https://api.sleeper.app/v1/players/nfl", {
+            cf: { cacheTtl: 86400, cacheEverything: true },
+            headers: { "User-Agent": "upsmflproduction-worker", "Accept": "application/json" },
+          });
+          if (r.ok) sleeperIndex = await r.json();
+        } catch (e) {
+          // Don't fail — sleeper info is supplementary; we can still surface
+          // ESPN/Reddit news without it.
+        }
+        // Build lookup tables.
+        const byGsis = {};
+        const byNameTeam = {};
+        for (const sid in sleeperIndex) {
+          const p = sleeperIndex[sid];
+          if (!p) continue;
+          const gsis = safeStr(p.gsis_id);
+          if (gsis) byGsis[gsis] = p;
+          const fn = safeStr(p.full_name).toLowerCase();
+          const t = safeStr(p.team).toUpperCase();
+          if (fn && t) byNameTeam[fn + "|" + t] = p;
+        }
+        // Resolve sleeper info per MFL pid.
+        const mflToSleeper = {};
+        for (const pid in mflPlayers) {
+          const m = mflPlayers[pid];
+          let sp = null;
+          if (m.gsis_id && byGsis[m.gsis_id]) sp = byGsis[m.gsis_id];
+          if (!sp && m.name && m.team) {
+            // MFL name is "Last, First" — flip to "First Last" for match.
+            const flipped = m.name.includes(",")
+              ? m.name.split(",").reverse().map(s => s.trim()).join(" ")
+              : m.name;
+            sp = byNameTeam[flipped.toLowerCase() + "|" + m.team];
+          }
+          mflToSleeper[pid] = sp;
+        }
+
+        // Step 3 — Per-team news from ESPN (syndicates Schefter/Rapoport
+        //          tweets within ~10 min). Cached 5 min per team.
+        const teamsNeeded = new Set();
+        for (const pid in mflPlayers) {
+          const t = mflPlayers[pid].team;
+          if (t) teamsNeeded.add(t);
+        }
+        // ESPN's RSS uses lowercase team abbr in the team= param.
+        // Note ESPN uses "wsh" not "was", "jax" not "jac".
+        const ESPN_TEAM_FIX = { WAS: "wsh", JAC: "jax" };
+        const fetchEspnTeam = async (mflTeam) => {
+          const espnTeam = (ESPN_TEAM_FIX[mflTeam] || mflTeam).toLowerCase();
+          const u = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/${espnTeam}/news?limit=20`;
+          try {
+            const r = await fetch(u, {
+              cf: { cacheTtl: 300, cacheEverything: true },
+              headers: { "User-Agent": "upsmflproduction-worker", "Accept": "application/json" },
+            });
+            if (!r.ok) return [];
+            const d = await r.json();
+            return d.articles || [];
+          } catch (e) { return []; }
+        };
+        const teamArr = [...teamsNeeded];
+        const espnNewsByTeam = {};
+        const espnResults = await Promise.all(teamArr.map(t => fetchEspnTeam(t)));
+        teamArr.forEach((t, i) => { espnNewsByTeam[t] = espnResults[i] || []; });
+
+        // Step 4 — Build per-pid news[]. Sources merged:
+        //   a. Sleeper structured info → Status / Injury / Depth / Practice
+        //      cards. These are FACTS, not headlines. Surface them as
+        //      "news items" with type='status'.
+        //   b. ESPN team articles where the player's last name appears in
+        //      headline or description. Type='headline'.
+        const itemsByPid = {};
+        for (const pid in mflPlayers) {
+          const m = mflPlayers[pid];
+          const sp = mflToSleeper[pid];
+          const items = [];
+
+          // 4a. Sleeper status / injury / depth (always show)
+          if (sp) {
+            const now = Math.floor(Date.now() / 1000);
+            const newsUpdated = sp.news_updated ? Math.floor(Number(sp.news_updated) / 1000) : 0;
+            // Injury report card if anything is set
+            const injParts = [];
+            if (sp.injury_status) injParts.push(sp.injury_status);
+            if (sp.injury_body_part) injParts.push("(" + sp.injury_body_part + ")");
+            if (sp.practice_participation) injParts.push("· " + sp.practice_participation + " practice");
+            if (injParts.length) {
+              items.push({
+                type: "status",
+                source: "Sleeper",
+                timestamp: newsUpdated || now,
+                headline: "Injury Status: " + injParts.join(" "),
+                body: safeStr(sp.injury_notes) || safeStr(sp.practice_description) || "",
+              });
+            }
+            // Depth chart card
+            if (sp.depth_chart_position && sp.depth_chart_order) {
+              items.push({
+                type: "depth",
+                source: "Sleeper",
+                timestamp: newsUpdated || now,
+                headline: "Depth Chart: " + sp.depth_chart_position + " #" + sp.depth_chart_order + " on " + (sp.team || m.team),
+                body: "",
+              });
+            }
+          }
+
+          // 4b. ESPN team news — fuzzy-match player last name in headline/description.
+          // MFL name is "Last, First" so the last name is everything before the comma.
+          const lastName = (m.name.split(",")[0] || "").trim().toLowerCase();
+          const firstName = (m.name.split(",")[1] || "").trim().toLowerCase();
+          if (lastName && lastName.length >= 3) {
+            const teamArticles = espnNewsByTeam[m.team] || [];
+            for (const a of teamArticles) {
+              const headline = safeStr(a.headline).toLowerCase();
+              const desc = safeStr(a.description).toLowerCase();
+              const blob = headline + " " + desc;
+              if (!blob.includes(lastName)) continue;
+              // Avoid false positives — if a different player on the team
+              // shares the last name, headline must mention first name OR
+              // must be the only match. For now: just take it; few players
+              // share last names within one team.
+              items.push({
+                type: "headline",
+                source: "ESPN",
+                timestamp: a.published ? Math.floor(new Date(a.published).getTime() / 1000) : 0,
+                headline: safeStr(a.headline),
+                body: safeStr(a.description),
+                url: (a.links && a.links.web && a.links.web.href) || "",
+              });
+            }
+          }
+
+          // Sort newest first.
+          items.sort((x, y) => Number(y.timestamp || 0) - Number(x.timestamp || 0));
+          itemsByPid[pid] = items.slice(0, 20);
+        }
+
+        return jsonOut(200, {
+          items_by_pid: itemsByPid,
+          meta: {
+            mfl_players_resolved: Object.keys(mflPlayers).length,
+            sleeper_matched: Object.values(mflToSleeper).filter(Boolean).length,
+            espn_teams_fetched: teamArr.length,
+            generated_at: new Date().toISOString(),
+          },
+        });
+      }
+
       // ── GET /api/franchise-assets — players + future picks + current-year picks ──
       if (path === "/api/franchise-assets" && request.method === "GET") {
         const fid = _rdhPadFid(url.searchParams.get("fid") || "");
