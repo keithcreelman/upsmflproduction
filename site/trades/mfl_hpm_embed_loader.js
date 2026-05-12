@@ -385,8 +385,50 @@
   iframe.setAttribute("loading", "lazy");
   iframe.setAttribute("scrolling", "no");
   iframe.setAttribute("title", "UPS Trade War Room");
-  iframe.src = buildIframeSrc(iframeUrl, apiUrl, context, pageUrl, releaseRef, directMflMode);
   mount.appendChild(iframe);
+
+  // ── Render via srcdoc, NOT iframe.src ──
+  // jsDelivr serves .html with Content-Type: text/plain + nosniff, so an
+  // iframe.src pointing directly at the HTML renders the markup as plain
+  // text in newer browsers (Safari especially) → blank page. Same fix the
+  // rookie hub loader uses: fetch the HTML as text, inject <base href=...>
+  // so relative .css/.js/.json paths resolve against jsDelivr, then feed
+  // it via srcdoc which renders regardless of the upstream Content-Type.
+  //
+  // Query params (api, L, YEAR, F, MFL_USER_ID, debug, etc.) still get
+  // appended to the iframe URL so they're visible in window.location
+  // inside the iframe (the workbench reads them via URLSearchParams).
+  var twbSrcUrl = buildIframeSrc(iframeUrl, apiUrl, context, pageUrl, releaseRef, directMflMode);
+  var twbBaseUrl = (function () {
+    try {
+      var u = new URL(twbSrcUrl);
+      var parts = u.pathname.split("/");
+      parts.pop();
+      u.pathname = parts.join("/") + "/";
+      u.search = ""; u.hash = "";
+      return u.toString();
+    } catch (e) { return twbSrcUrl; }
+  })();
+  fetch(twbSrcUrl, { cache: "no-store" })
+    .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.text(); })
+    .then(function (html) {
+      var headInject = '<base href="' + twbBaseUrl.replace(/"/g, "&quot;") + '">';
+      // Pass the full intended URL (with query params) so the workbench
+      // can read URLSearchParams from window.location.
+      var qsScript = "<script>try{history.replaceState(null,'','" +
+        twbSrcUrl.replace(/'/g, "\\'") + "');}catch(e){}<\/script>";
+      if (/<head[^>]*>/i.test(html)) {
+        html = html.replace(/<head([^>]*)>/i, '<head$1>' + headInject + qsScript);
+      } else {
+        html = headInject + qsScript + html;
+      }
+      iframe.srcdoc = html;
+    })
+    .catch(function (e) {
+      // Last-resort fallback — try iframe.src; if browser allows the
+      // text/plain HTML to render, at least something shows.
+      iframe.src = twbSrcUrl;
+    });
 
   function onMessage(ev) {
     if (!iframe.contentWindow || ev.source !== iframe.contentWindow) return;
