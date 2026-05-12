@@ -2619,6 +2619,12 @@ export default {
           items.sort((x, y) => Number(y.timestamp || 0) - Number(x.timestamp || 0));
           itemsByPid[pid] = items.slice(0, 20);
         }
+        // Backfill empty arrays for any requested pid that MFL DETAILS
+        // didn't return — frontend can then render "no news" cleanly
+        // instead of silently dropping the player.
+        for (const pid of mflPids) {
+          if (!(pid in itemsByPid)) itemsByPid[pid] = [];
+        }
 
         return jsonOut(200, {
           items_by_pid: itemsByPid,
