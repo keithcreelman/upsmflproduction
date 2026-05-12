@@ -7528,39 +7528,61 @@
         // Draft Hub uses). Panels show "Loading…" until the fetch
         // returns, then render via upmRenderBundleTabs(). If the fetch
         // fails, tabs still work — Bio alone is useful.
-        var bioContentHtml =
-          '<div class="rwb-modal-grid">' +
-            '<div class="rwb-modal-metric"><span>TCV</span><strong>' + escapeHtml(modalTcv > 0 ? money(modalTcv) : "—") + '</strong></div>' +
-            '<div class="rwb-modal-metric"><span>AAV</span><strong>' + escapeHtml(modalAav > 0 ? money(modalAav) : "—") + '</strong></div>' +
-            '<div class="rwb-modal-metric"><span>Salary</span><strong>' + escapeHtml(money(player.salary)) + '</strong></div>' +
-            '<div class="rwb-modal-metric"><span>Yrs Remain</span><strong>' + escapeHtml(String(player.years)) + '</strong></div>' +
-            '<div class="rwb-modal-metric"><span>Earned To Date</span><strong>' + escapeHtml(modalEarned > 0 ? money(modalEarned) : "$0") + '</strong></div>' +
-            '<div class="rwb-modal-metric"><span>Cap Penalty</span><strong>' + escapeHtml(money(penalty.amount)) + '</strong></div>' +
-            '<div class="rwb-modal-metric"><span>Acquire Date</span><strong>' + escapeHtml(acquisitionDateLabelForPlayer(player)) + '</strong></div>' +
-            '<div class="rwb-modal-metric"><span>How Acquired</span><strong>' + escapeHtml(acquisitionTypeLabelForPlayer(player)) + '</strong></div>' +
-            extendedByHtml +
-          '</div>' +
-          '<div class="rwb-modal-actions-wrap">' + actions.join("") + '</div>' +
+        // Action buttons + commish/non-manage notes live outside any tab —
+        // they sit above the player-profile content so they're always
+        // visible regardless of which tab the user is on.
+        var actionsAboveHtml =
+          '<div class="rwb-modal-actions-wrap" style="margin-bottom:14px;">' + actions.join("") + '</div>' +
           rookieOptionSummaryHtml +
           extensionSummaryHtml +
           (!canManage ? '<div class="rwb-modal-note">Roster-management actions are unavailable for this session. Trade is available from any team.</div>' : '') +
           (viewerCanManageAnyRoster() && !ownRoster ? '<div class="rwb-modal-note"><strong>Commish:</strong> Acting on behalf of ' + escapeHtml(team.name) + '.</div>' : '');
 
-        var tabStripHtml =
-          '<nav class="upm-view-switch" role="tablist" aria-label="Player profile sections">' +
-            '<button type="button" role="tab" aria-selected="true"  data-upm-tab="bio">Bio</button>' +
-            '<button type="button" role="tab" aria-selected="false" data-upm-tab="stats">Stats</button>' +
-            '<button type="button" role="tab" aria-selected="false" data-upm-tab="gamelog">Game Log</button>' +
-            '<button type="button" role="tab" aria-selected="false" data-upm-tab="news">News</button>' +
-          '</nav>';
-        var loadingMsg = '<p style="color:var(--rwb-text-dim); font-size:12px; padding:10px;">Loading…</p>';
-        content =
-          playerHeaderHtml +
-          tabStripHtml +
-          '<div class="upm-tab-panel" data-upm-panel="bio">' + bioContentHtml + '</div>' +
-          '<div class="upm-tab-panel" data-upm-panel="stats" hidden>' + loadingMsg + '</div>' +
-          '<div class="upm-tab-panel" data-upm-panel="gamelog" hidden>' + loadingMsg + '</div>' +
-          '<div class="upm-tab-panel" data-upm-panel="news" hidden>' + loadingMsg + '</div>';
+        // Branch on master-modal availability. Master gives us Rookie
+        // Hub's look + the full Stats/Game Log power views + cap-math
+        // strip in Bio. Legacy fallback below preserves the old local
+        // 4-tab implementation in case master fails to load.
+        var masterAvailable = typeof window.UPS_openPlayerProfile === "function";
+
+        if (masterAvailable) {
+          // Master takes over the 4-tab body. Action buttons stay above.
+          content =
+            playerHeaderHtml +
+            actionsAboveHtml +
+            '<div id="rwb-upm-mount" data-upm-mount-pending="1"></div>';
+        } else {
+          // Legacy local 4-tab implementation. Cap-math grid lives inline
+          // in the Bio panel here because there's no master to render it.
+          var bioContentHtml =
+            '<div class="rwb-modal-grid">' +
+              '<div class="rwb-modal-metric"><span>TCV</span><strong>' + escapeHtml(modalTcv > 0 ? money(modalTcv) : "—") + '</strong></div>' +
+              '<div class="rwb-modal-metric"><span>AAV</span><strong>' + escapeHtml(modalAav > 0 ? money(modalAav) : "—") + '</strong></div>' +
+              '<div class="rwb-modal-metric"><span>Salary</span><strong>' + escapeHtml(money(player.salary)) + '</strong></div>' +
+              '<div class="rwb-modal-metric"><span>Yrs Remain</span><strong>' + escapeHtml(String(player.years)) + '</strong></div>' +
+              '<div class="rwb-modal-metric"><span>Earned To Date</span><strong>' + escapeHtml(modalEarned > 0 ? money(modalEarned) : "$0") + '</strong></div>' +
+              '<div class="rwb-modal-metric"><span>Cap Penalty</span><strong>' + escapeHtml(money(penalty.amount)) + '</strong></div>' +
+              '<div class="rwb-modal-metric"><span>Acquire Date</span><strong>' + escapeHtml(acquisitionDateLabelForPlayer(player)) + '</strong></div>' +
+              '<div class="rwb-modal-metric"><span>How Acquired</span><strong>' + escapeHtml(acquisitionTypeLabelForPlayer(player)) + '</strong></div>' +
+              extendedByHtml +
+            '</div>' +
+            actionsAboveHtml;
+
+          var tabStripHtml =
+            '<nav class="upm-view-switch" role="tablist" aria-label="Player profile sections">' +
+              '<button type="button" role="tab" aria-selected="true"  data-upm-tab="bio">Bio</button>' +
+              '<button type="button" role="tab" aria-selected="false" data-upm-tab="stats">Stats</button>' +
+              '<button type="button" role="tab" aria-selected="false" data-upm-tab="gamelog">Game Log</button>' +
+              '<button type="button" role="tab" aria-selected="false" data-upm-tab="news">News</button>' +
+            '</nav>';
+          var loadingMsg = '<p style="color:var(--rwb-text-dim); font-size:12px; padding:10px;">Loading…</p>';
+          content =
+            playerHeaderHtml +
+            tabStripHtml +
+            '<div class="upm-tab-panel" data-upm-panel="bio">' + bioContentHtml + '</div>' +
+            '<div class="upm-tab-panel" data-upm-panel="stats" hidden>' + loadingMsg + '</div>' +
+            '<div class="upm-tab-panel" data-upm-panel="gamelog" hidden>' + loadingMsg + '</div>' +
+            '<div class="upm-tab-panel" data-upm-panel="news" hidden>' + loadingMsg + '</div>';
+        }
       }
     }
 
@@ -7575,11 +7597,50 @@
     }
 
     // Wire tab switching + kick off bundle fetch whenever we render the
-    // default (non-restructure) player profile. The tab strip exists only
-    // in that mode; querySelector no-ops harmlessly in restructure mode.
+    // default (non-restructure) player profile. Branch on the
+    // data-upm-mount-pending marker the renderer emits — that's how we
+    // signal master-modal mode vs. legacy-local mode.
     if (isOpen && els.playerModalBody && state.actionModal.mode !== "restructure") {
-      upmWireTabs(els.playerModalBody);
-      upmLoadPlayerBundle(state.actionModal.playerId, els.playerModalBody);
+      var pendingMount = els.playerModalBody.querySelector('#rwb-upm-mount[data-upm-mount-pending]');
+      if (pendingMount && typeof window.UPS_openPlayerProfile === "function") {
+        // Master-modal path. Delegate the entire 4-tab body to
+        // site/shared/player_profile_master.js. Match the look of
+        // Rookie Hub + ship the Stats/Game Log power views.
+        pendingMount.removeAttribute("data-upm-mount-pending");
+        var leagueIdCtx = safeStr(
+          (state.ctx && state.ctx.leagueId) ||
+          window.UPS_TWB_LEAGUE_ID ||
+          window.UPS_DRAFT_HUB_LEAGUE_ID ||
+          window.UPS_RWB_LEAGUE_ID ||
+          "74598"
+        ).replace(/\D/g, "");
+        var yearCtx = safeStr(
+          (state.ctx && state.ctx.year) ||
+          window.UPS_TWB_YEAR ||
+          window.UPS_DRAFT_HUB_YEAR ||
+          window.UPS_RWB_YEAR ||
+          String(new Date().getUTCFullYear())
+        ).replace(/\D/g, "");
+        try {
+          window.UPS_openPlayerProfile(state.actionModal.playerId, {
+            apiBase: upmResolveApiBase(),
+            leagueId: leagueIdCtx,
+            year: yearCtx,
+            mode: "roster_workbench",
+            mountNode: pendingMount,
+            hideHeader: true,
+            hideCloseButton: true
+          });
+        } catch (e) {
+          // Master crashed — leave the mount empty with a small notice
+          // so the action buttons above remain useful.
+          pendingMount.innerHTML = '<p style="color:var(--rwb-text-dim); font-size:12px; padding:10px;">Profile load failed.</p>';
+        }
+      } else {
+        // Legacy local path — wire the local tabs + fetch bundle.
+        upmWireTabs(els.playerModalBody);
+        upmLoadPlayerBundle(state.actionModal.playerId, els.playerModalBody);
+      }
     }
   }
 

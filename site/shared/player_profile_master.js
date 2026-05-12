@@ -1365,19 +1365,43 @@
     }
     var posDisplay = posCombined(pos);
 
-    var header = '<h3>' + escapeHtml(name)
-      + ' <span class="small muted" style="font-weight:400">' + escapeHtml(posDisplay)
-      + (nflTeam ? ' · ' + escapeHtml(nflTeam) : "") + '</span></h3>';
-    var bodyEl = openModalHtml(header
+    var header = ctx.hideHeader
+      ? ""
+      : '<h3>' + escapeHtml(name)
+        + ' <span class="small muted" style="font-weight:400">' + escapeHtml(posDisplay)
+        + (nflTeam ? ' · ' + escapeHtml(nflTeam) : "") + '</span></h3>';
+
+    var loadingHtml = header
       + '<div id="upm-profile-body"><p class="small muted" style="padding:30px; text-align:center;">Fetching profile from MFL…</p></div>'
-      + '<div class="actions"><button class="btn secondary" id="upm-close-btn">Close</button></div>');
+      + (ctx.hideCloseButton ? "" : '<div class="actions"><button class="btn secondary" id="upm-close-btn">Close</button></div>');
+
+    var bodyEl;
+    if (ctx.mountNode && ctx.mountNode.nodeType === 1) {
+      // Inline-render mode: the caller (e.g., Roster Workbench) owns its
+      // own modal shell. We render INTO their mount node, with our scoped
+      // CSS classes attached so styling still applies. Caller controls
+      // open/close, action buttons above us, etc.
+      ensureStyles();
+      var wrapper = document.createElement("div");
+      wrapper.className = "upm-modal upm-modal-inline";
+      wrapper.innerHTML = loadingHtml;
+      ctx.mountNode.innerHTML = "";
+      ctx.mountNode.appendChild(wrapper);
+      bodyEl = wrapper;
+    } else {
+      // Overlay mode: build our own #upm-overlay over the page.
+      bodyEl = openModalHtml(loadingHtml);
+    }
 
     var closeBtn = bodyEl.querySelector("#upm-close-btn");
     if (closeBtn) closeBtn.addEventListener("click", closeModal);
 
     fetchBundle(pid, ctx).then(function (bundle) {
       bundle = bundle || {};
-      var bodyContent = document.getElementById("upm-profile-body");
+      // Scope the body lookup to the rendered wrapper so inline-render
+      // mode doesn't accidentally pick a sibling instance.
+      var bodyContent = bodyEl.querySelector("#upm-profile-body")
+        || document.getElementById("upm-profile-body");
       if (!bodyContent) return;
 
       var bundleError = !bundle.profile && !bundle.career_summary && !bundle.contract_history && !bundle.weekly_by_season;
@@ -1421,7 +1445,8 @@
       wireWindowSelector(bodyContent, bundle);
       wireGameLog(bodyContent, bundle);
     }).catch(function (err) {
-      var bodyContent = document.getElementById("upm-profile-body");
+      var bodyContent = bodyEl.querySelector("#upm-profile-body")
+        || document.getElementById("upm-profile-body");
       if (bodyContent) {
         bodyContent.innerHTML = '<p class="small muted" style="padding:20px;">Profile lookup failed: '
           + escapeHtml(err && err.message ? err.message : String(err))

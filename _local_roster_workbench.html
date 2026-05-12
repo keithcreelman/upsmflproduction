@@ -1,0 +1,108 @@
+<!doctype html>
+<!-- ─────────────────────────────────────────────────────────────────
+     Local Roster Workbench preview for Keith's archival review.
+
+     Open this file by running:
+       cd /Users/keithcreelman/Code/MFL/upsmflproduction/.claude/worktrees/stupefied-liskov-d7ad04
+       python3 -m http.server 8765
+       open http://localhost:8765/_local_roster_workbench.html?F=0008
+
+     (file:// usually works too, but Safari and Chrome refuse cross-origin
+     fetches from file:// in some cases — http.server is the safe path.)
+
+     Default view = Keith's franchise (0008). Switch with ?F=0001..0012 in URL.
+     Reads live data from the production Cloudflare worker (no local backend
+     needed). Read-only — clicking action buttons posts to /roster-workbench/action
+     just like the live hub. If you want a 100% sandbox session, blank out
+     window.UPS_RWB_API below.
+
+     This file is NOT pushed to GitHub. It's purely a worktree-local review aid.
+     ───────────────────────────────────────────────────────────── -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>UPS Roster Workbench — Local Review</title>
+  <meta name="color-scheme" content="dark light">
+
+  <script>
+    // ── Context globals (the hub normally gets these from the HPM loader
+    //    when it runs inside an MFL iframe; here we inject them directly).
+    window.UPS_RWB_LEAGUE_ID = "74598";
+    window.UPS_RWB_YEAR      = "2026";
+    // Worker base URL — live production Cloudflare Worker. Same one the
+    // hub talks to when it runs inside MFL. CORS-friendly.
+    window.UPS_RWB_API       = "https://upsmflproduction.keith-creelman.workers.dev/roster-workbench";
+    // Static data file URLs (served from jsDelivr in production; reuse
+    // the same source here for parity).
+    window.UPS_RWB_POINTS_HISTORY_URL       = "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/rosters/player_points_history.json";
+    window.UPS_RWB_EXTENSION_PREVIEWS_URL   = "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/trades/extension_previews_2026.json";
+    window.UPS_RWB_ACQUISITION_LOOKUP_URL   = "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/rosters/player_acquisition_lookup_2026.json";
+    window.UPS_RWB_SALARY_ADJUSTMENTS_URL   = "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/reports/salary_adjustments/salary_adjustments_2026.json";
+    window.UPS_RWB_TAG_TRACKING_URL         = "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/ccc/tag_tracking.json";
+    window.UPS_RWB_TAG_SUBMISSIONS_URL      = "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/ccc/tag_submissions.json";
+
+    // ── Default franchise lookup. The hub will read ?F= from the URL if
+    //    present (e.g. ?F=0001 for Whitman). If not, we inject 0008 below.
+    (function () {
+      try {
+        var u = new URL(window.location.href);
+        if (!u.searchParams.get("F") && !u.searchParams.get("FRANCHISE_ID") && !u.searchParams.get("FRANCHISE")) {
+          u.searchParams.set("F", "0008");
+          // Rewrite without a reload — hub reads searchParams on init.
+          window.history.replaceState({}, "", u.toString());
+        }
+      } catch (e) { /* file:// throws on history API — that's fine */ }
+    })();
+  </script>
+
+  <!-- Local stylesheet (sibling file at site/rosters/roster_workbench.css). -->
+  <link rel="stylesheet" href="site/rosters/roster_workbench.css">
+
+  <style>
+    /* Keith-only visual banner so it's obvious this isn't live. */
+    .ups-local-banner {
+      position: sticky;
+      top: 0;
+      z-index: 99999;
+      background: linear-gradient(90deg, #ff8c00, #ffa840);
+      color: #1a1a1a;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+      font-weight: 700;
+      font-size: 13px;
+      padding: 8px 16px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+      letter-spacing: 0.2px;
+    }
+    .ups-local-banner code {
+      background: rgba(0, 0, 0, 0.15);
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 12px;
+    }
+    body {
+      background: #0b0f18;
+      color: #d8e2f0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+      margin: 0;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="ups-local-banner">
+    🔍 <strong>LOCAL REVIEW</strong> — UPS Roster Workbench (live data from prod worker).
+    Default franchise <code>?F=0008</code> (Blake Bombers). Edit URL to switch teams.
+    NOT a sandbox — action-button clicks DO hit production MFL.
+  </div>
+
+  <div id="roster-workbench"></div>
+
+  <!-- Master modal must load BEFORE roster_workbench.js so Roster Workbench
+       can delegate its player profile to window.UPS_openPlayerProfile. -->
+  <script src="site/shared/player_profile_master.js" defer></script>
+  <!-- Local script (sibling file at site/rosters/roster_workbench.js). -->
+  <script src="site/rosters/roster_workbench.js" defer></script>
+
+</body>
+</html>
