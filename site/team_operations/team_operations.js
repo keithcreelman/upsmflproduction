@@ -918,6 +918,36 @@
 
   function openPlayerProfileModal(pid) {
     if (!pid) return;
+    // Delegate to the unified master modal when available (v1.7.43+).
+    // The master handles its own overlay; we just hand it the
+    // Front Office context so the cap-math strip, transactions
+    // lookup, and viewer-franchise filter all work. Fall through
+    // to the legacy in-file implementation only if the master
+    // script didn't load.
+    if (typeof window.UPS_openPlayerProfile === "function") {
+      try {
+        var pInfo0 = playerById(pid) || {};
+        var sal0 = (getMySalaries() || []).find(function (s) { return String(s.id) === String(pid); }) || null;
+        window.UPS_openPlayerProfile(pid, {
+          apiBase: workerBase(),
+          leagueId: state.ctx.leagueId,
+          year: state.ctx.year,
+          mode: "front_office",
+          viewerFranchise: state.viewerFranchise ? {
+            id: state.viewerFranchiseId || (state.viewerFranchise && state.viewerFranchise.id) || "",
+            name: state.viewerFranchise.name || ""
+          } : null,
+          contractSalary: sal0,
+          transactions: state.transactions,
+          injury: getInjuryFor(String(pid)),
+          playerInfo: { name: pInfo0.name, position: pInfo0.position, team: pInfo0.team }
+        });
+        return;
+      } catch (e) {
+        // fall through to legacy modal
+        if (window.console) console.warn("[tops] master profile modal failed, falling back:", e);
+      }
+    }
     closePlayerProfileModal();  // collapse any prior open
     var pInfo = playerById(pid) || {};
     var name = safeStr(pInfo.name) || ("Player #" + pid);
