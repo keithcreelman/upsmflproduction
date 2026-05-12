@@ -2526,33 +2526,22 @@ export default {
           mflToSleeper[pid] = sp;
         }
 
-        // Step 3 — Per-team news from ESPN (syndicates Schefter/Rapoport
-        //          tweets within ~10 min). Cached 5 min per team.
-        const teamsNeeded = new Set();
-        for (const pid in mflPlayers) {
-          const t = mflPlayers[pid].team;
-          if (t) teamsNeeded.add(t);
-        }
-        // ESPN's RSS uses lowercase team abbr in the team= param.
-        // Note ESPN uses "wsh" not "was", "jax" not "jac".
-        const ESPN_TEAM_FIX = { WAS: "wsh", JAC: "jax" };
-        const fetchEspnTeam = async (mflTeam) => {
-          const espnTeam = (ESPN_TEAM_FIX[mflTeam] || mflTeam).toLowerCase();
-          const u = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/${espnTeam}/news?limit=20`;
-          try {
-            const r = await fetch(u, {
-              cf: { cacheTtl: 300, cacheEverything: true },
-              headers: { "User-Agent": "upsmflproduction-worker", "Accept": "application/json" },
-            });
-            if (!r.ok) return [];
+        // Step 3 — League-wide ESPN news. The per-team JSON endpoint
+        // returns empty in 2026; the league-wide endpoint still has ~80KB
+        // of recent articles. We fetch once + filter per-player by name +
+        // team match. Cached 5 min on the edge — worth the cache cost
+        // since it serves all players in one fetch.
+        let espnArticles = [];
+        try {
+          const r = await fetch("https://site.api.espn.com/apis/site/v2/sports/football/nfl/news?limit=50", {
+            cf: { cacheTtl: 300, cacheEverything: true },
+            headers: { "User-Agent": "upsmflproduction-worker", "Accept": "application/json" },
+          });
+          if (r.ok) {
             const d = await r.json();
-            return d.articles || [];
-          } catch (e) { return []; }
-        };
-        const teamArr = [...teamsNeeded];
-        const espnNewsByTeam = {};
-        const espnResults = await Promise.all(teamArr.map(t => fetchEspnTeam(t)));
-        teamArr.forEach((t, i) => { espnNewsByTeam[t] = espnResults[i] || []; });
+            espnArticles = d.articles || [];
+          }
+        } catch (e) { /* non-fatal */ }
 
         // Step 4 — Build per-pid news[]. Sources merged:
         //   a. Sleeper structured info → Status / Injury / Depth / Practice
@@ -2596,21 +2585,25 @@ export default {
             }
           }
 
-          // 4b. ESPN team news — fuzzy-match player last name in headline/description.
-          // MFL name is "Last, First" so the last name is everything before the comma.
+          // 4b. ESPN league-wide news — match by player last name + first
+          // name OR last name + team mention. MFL name is "Last, First".
+          // Last name + first name match is precise; last name + team is a
+          // fallback for cases where the article uses "the QB" instead of
+          // first name.
           const lastName = (m.name.split(",")[0] || "").trim().toLowerCase();
-          const firstName = (m.name.split(",")[1] || "").trim().toLowerCase();
+          const firstName = (m.name.split(",")[1] || "").trim().toLowerCase().split(/\s+/)[0];
           if (lastName && lastName.length >= 3) {
-            const teamArticles = espnNewsByTeam[m.team] || [];
-            for (const a of teamArticles) {
+            for (const a of espnArticles) {
               const headline = safeStr(a.headline).toLowerCase();
               const desc = safeStr(a.description).toLowerCase();
               const blob = headline + " " + desc;
-              if (!blob.includes(lastName)) continue;
-              // Avoid false positives — if a different player on the team
-              // shares the last name, headline must mention first name OR
-              // must be the only match. For now: just take it; few players
-              // share last names within one team.
+              const hasLast = blob.includes(lastName);
+              if (!hasLast) continue;
+              // Require either first name OR team mention to avoid false
+              // positives from common surnames (Williams, Brown, Smith).
+              const hasFirst = firstName && firstName.length >= 3 && blob.includes(firstName);
+              const hasTeam = m.team && blob.includes(m.team.toLowerCase());
+              if (!hasFirst && !hasTeam) continue;
               items.push({
                 type: "headline",
                 source: "ESPN",
@@ -2632,7 +2625,7 @@ export default {
           meta: {
             mfl_players_resolved: Object.keys(mflPlayers).length,
             sleeper_matched: Object.values(mflToSleeper).filter(Boolean).length,
-            espn_teams_fetched: teamArr.length,
+            espn_articles_pool: espnArticles.length,
             generated_at: new Date().toISOString(),
           },
         });
