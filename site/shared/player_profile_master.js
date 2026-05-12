@@ -7,11 +7,17 @@
  * Log / News), same 4-tier headshot fallback chain, same prospect-
  * board fallback for fresh rookies.
  *
- * Adds (vs Rookie Draft canonical):
- *   • Cap-math strip in Bio (TCV / AAV / Salary / Yrs Remain / Earned /
- *     Cap Penalty / Acquire Date / How Acquired) — era-aware.
- *   • College + Pre-NFL Prospect panels are gated on the MFL rookie
- *     tag AND pre-NFL-Week-1 date.
+ * v2.0 (2026-05-12): rewritten to be a literal port of Rookie Hub's
+ * showPlayerProfileCard. Preserves the per-pos-group Raw Stats
+ * templates (RB/WR/TE/IDP/QB/kicker/punter), the UPS Season / Full
+ * Season scope toggle, the Stats sub-toggle (Scoring / Raw / Advanced),
+ * and the Game Log Scoring/Raw views. Adds an enhanced cap-math strip
+ * (TCV / AAV / Salary / Yrs Remain / Earned / Cap Penalty / Acquire
+ * Date / How Acquired) on the Bio tab — era-aware (pre-2019 = "—").
+ *
+ * Visual style copied verbatim from rookie_draft_hub.css (.profile-*,
+ * .upm-*, .rdh-table, .tier.*) — inlined so the module works
+ * standalone in Front Office's iframe.
  *
  * Entry point:
  *   window.UPS_openPlayerProfile(pid, ctx)
@@ -19,22 +25,16 @@
  * ctx fields:
  *   apiBase           — string, optional (Cloudflare worker base, default same-origin)
  *   leagueId, year    — strings
- *   mode              — "rookie_draft" | "front_office"  (controls minor visibility)
+ *   mode              — "rookie_draft" | "front_office"
  *   prospects         — array of rookie prospect rows (rookie_draft mode)
  *   history           — { picks: [...] } (rookie_draft mode)
- *   leverageCoefs     — { QB: 0.88, ... } APW β coefficients (rookie_draft mode)
+ *   leverageCoefs     — { QB: 0.88, ... } APW β coefficients
  *   viewerFranchise   — { id, name } (front_office mode)
  *   contractSalary    — MFL salary row for this player (front_office mode)
  *   transactions      — MFL transactions blob (front_office mode)
  *   injury            — MFL injury row for this player (front_office mode)
+ *   playerInfo        — { name, position, team } (front_office mode)
  *   nflWeek1Date      — "YYYY-MM-DD" — Week 1 Thursday opener (default "2026-09-11")
- *
- * Self-contained: ES5/IIFE, no imports, injects its own CSS + overlay
- * the first time it's invoked. Defensive — never throws into the host
- * hub. If the bundle fetch fails, falls back to historical/contract
- * data so the modal is never empty.
- *
- * Created 2026-05-12. v1.0.0 (Phase 1; Trade Workbench wiring deferred).
  * ═══════════════════════════════════════════════════════════════════════════ */
 (function () {
   "use strict";
@@ -56,12 +56,6 @@
   }
   function safeStr(v) { return v == null ? "" : String(v).trim(); }
   function asArr(v) { return Array.isArray(v) ? v : (v ? [v] : []); }
-  function fmtUsd(n) {
-    var num = Number(n) || 0;
-    if (!num) return "$0";
-    if (num >= 1000) return "$" + (num / 1000).toFixed(num % 1000 === 0 ? 0 : 1) + "K";
-    return "$" + num.toLocaleString();
-  }
   function fmtUsdFull(n) {
     var num = Number(n) || 0;
     return num ? "$" + num.toLocaleString() : "—";
@@ -75,7 +69,7 @@
     try { return new Date(n * 1000).toLocaleDateString(); } catch (e) { return String(ts); }
   }
 
-  // POS combination — mirrors rookie hub's POS_COMBINED. Falls back to raw.
+  // POS combination — mirrors rookie hub's POS_COMBINED.
   function posCombined(pos) {
     var p = String(pos || "").toUpperCase();
     if (p === "DT" || p === "DE" || p === "NT" || p === "EDGE") return "DL";
@@ -130,17 +124,16 @@
     return earned;
   }
   // Era-aware cap penalty. Modern formula (2019+): (TCV × 75%) − Earned.
-  // Pre-2019: cap hits were materially smaller than the modern guarantee
-  // (per project memory + league_context_v1.md). Without a fully codified
-  // pre-2019 formula in league_context, we explicitly DO NOT compute a
-  // penalty for historical seasons here — show "—" so a bad number can't
-  // leak into the UI. Current-season + 2019+ uses modern formula.
+  // Pre-2019: per project memory + league_context_v1.md, cap hits are
+  // materially smaller than the modern guarantee. Without a fully
+  // codified pre-2019 formula we suppress the number ("—") so a
+  // wrong figure can't leak into the UI.
   function dropPenalty(sal, info, season) {
     info = info || parseContractInfo(sal && sal.contractInfo);
     var tcv = info.tcv;
     if (!tcv) return null;
     var seasonNum = Number(season) || (new Date().getFullYear());
-    if (seasonNum < 2019) return null;  // pre-2019 era: unknown, suppress
+    if (seasonNum < 2019) return null;
     var earned = earnedToDate(sal, info);
     return Math.max(0, Math.round(tcv * 0.75) - earned);
   }
@@ -175,58 +168,100 @@
   }
 
   // ── CSS injection ────────────────────────────────────────────────────────
-  // Inline + scoped to .upm-overlay so we don't fight either host's CSS.
-  // Pulled from rookie_draft_hub.css's .profile-* and .upm-* blocks; kept
-  // identical in spirit. Color tokens are inlined (the hubs may not define
-  // matching --var names).
+  // Inlined from rookie_draft_hub.css verbatim (in spirit). Color tokens
+  // hard-coded since we may run outside any host that defines --bg etc.
+  // Body: 14px / line-height 1.5; profile-bio-text 12px / 1.9;
+  // h3 18-22px; h4 12px UPPERCASE muted.
   var CSS = [
+    /* overlay + modal shell */
     '.upm-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.96); display: none; align-items: center; justify-content: center; z-index: 10000; }',
     '.upm-overlay.open { display: flex; }',
-    '.upm-modal { background: #141a26; color: #e8edf5; border: 1px solid #2a3446; border-radius: 8px; padding: 20px; max-width: 900px; width: 92%; max-height: 92vh; overflow: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.7); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 13px; line-height: 1.45; }',
-    '.upm-modal h3 { margin: 0 0 12px; font-size: 18px; font-weight: 600; }',
-    '.upm-modal h4 { margin: 0 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; color: #8a97ad; }',
-    '.upm-modal .small { font-size: 11px; }',
+    '.upm-modal-wrap { position: relative; }',
+    '.upm-modal { background: #141a26; color: #e8edf5; border: 1px solid #2a3446; border-radius: 8px; padding: 20px; max-width: 860px; width: 92%; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.7); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 14px; line-height: 1.5; }',
+    '.upm-modal h3 { margin: 0 0 12px; font-size: 22px; font-weight: 600; }',
+    '.upm-modal h4 { margin: 0 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; color: #8a97ad; font-weight: 600; }',
+    '.upm-modal .small { font-size: 12px; }',
     '.upm-modal .muted { color: #8a97ad; }',
-    '.upm-modal .actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; }',
-    '.upm-modal .btn { background: #5b8dff; color: white; border: 0; border-radius: 4px; padding: 7px 14px; font-size: 13px; cursor: pointer; }',
+    '.upm-modal .actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; position: sticky; bottom: -20px; background: #141a26; padding: 10px 20px 0; margin: 14px -20px -20px; border-top: 1px solid #2a3446; }',
+    '.upm-modal .btn { background: #5b8dff; color: white; border: 0; border-radius: 4px; padding: 9px 16px; font-size: 13px; cursor: pointer; }',
     '.upm-modal .btn.secondary { background: #2a3446; color: #e8edf5; }',
     '.upm-modal .btn:hover { filter: brightness(1.15); }',
     '.upm-modal code { background: #1a2230; padding: 1px 4px; border-radius: 3px; font-size: 11px; }',
+    '.upm-modal a { color: #5b8dff; }',
+    '.upm-close { position: absolute; top: 12px; right: 12px; background: transparent; border: 0; color: #8a97ad; font-size: 22px; line-height: 1; cursor: pointer; padding: 4px 10px; z-index: 2; }',
+    '.upm-close:hover { color: #e8edf5; }',
+
+    /* tables */
     '.upm-modal table.rdh-table { width: 100%; border-collapse: collapse; font-size: 12px; }',
-    '.upm-modal table.rdh-table th, .upm-modal table.rdh-table td { padding: 6px 8px; border-bottom: 1px solid #2a3446; text-align: left; }',
-    '.upm-modal table.rdh-table th { color: #8a97ad; font-weight: 500; background: #1a2230; font-size: 11px; text-transform: uppercase; letter-spacing: 0.3px; }',
+    '.upm-modal table.rdh-table th, .upm-modal table.rdh-table td { padding: 8px 10px; border-bottom: 1px solid #2a3446; text-align: left; }',
+    '.upm-modal table.rdh-table th { color: #8a97ad; font-weight: 500; background: #1a2230; }',
     '.upm-modal table.rdh-table .num { text-align: right; font-variant-numeric: tabular-nums; }',
+    '.upm-modal table.rdh-table tbody tr:hover { background: #1a2230; }',
+
+    /* profile bio block */
     '.upm-modal .profile-bio { display: grid; grid-template-columns: auto 1fr; gap: 14px; margin-bottom: 14px; }',
     '.upm-modal .profile-photo { width: 110px; height: 110px; border-radius: 6px; object-fit: cover; background: #1a2230; }',
     '.upm-modal .profile-photo-placeholder { width: 110px; height: 110px; border-radius: 6px; background: #1a2230; }',
     '.upm-modal .profile-bio-text { font-size: 12px; line-height: 1.9; }',
     '.upm-modal .profile-bio-text .lbl { color: #8a97ad; display: inline-block; width: 80px; }',
     '.upm-modal .profile-block { margin-top: 14px; padding-top: 12px; border-top: 1px solid #2a3446; }',
+    '.upm-modal .profile-block h4 { margin: 0 0 8px; }',
     '.upm-modal .profile-kv { font-size: 12px; line-height: 1.8; }',
     '.upm-modal .profile-kv .lbl { color: #8a97ad; display: inline-block; width: 90px; }',
+
+    /* Watch links */
+    '.upm-modal .profile-watch-links { display: flex; flex-wrap: wrap; gap: 6px; }',
+    '.upm-modal .profile-watch-link { display: inline-flex; align-items: center; gap: 4px; background: #1a2230; color: #e8edf5; text-decoration: none; border: 1px solid #2a3446; border-radius: 4px; padding: 6px 10px; font-size: 12px; font-weight: 500; transition: border-color 100ms, color 100ms, background 100ms; }',
+    '.upm-modal .profile-watch-link:hover { border-color: #5b8dff; color: #5b8dff; background: #141a26; }',
+    '.upm-modal .profile-watch-link.yt:hover { border-color: #ff0033; color: #ff5566; }',
+
+    /* Tab nav */
     '.upm-modal .upm-view-switch { display: flex; gap: 2px; margin: 10px 0 12px; border-bottom: 1px solid #2a3446; overflow-x: auto; }',
-    '.upm-modal .upm-view-switch button { background: transparent; border: 0; color: #8a97ad; padding: 8px 14px; font-size: 12px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }',
+    '.upm-modal .upm-view-switch button { background: transparent; border: 0; color: #8a97ad; padding: 8px 14px; font-size: 12px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color 80ms, border-color 80ms; }',
     '.upm-modal .upm-view-switch button:hover { color: #e8edf5; }',
     '.upm-modal .upm-view-switch button[aria-selected="true"] { color: #5b8dff; border-bottom-color: #5b8dff; }',
     '.upm-modal .upm-tab-panel[hidden] { display: none !important; }',
+    '.upm-modal .upm-tab-panel { animation: upm-fade 120ms ease-out; }',
+    '@keyframes upm-fade { from { opacity: 0.4; } to { opacity: 1; } }',
+
+    /* Window selector */
+    '.upm-modal .upm-window-controls { display: flex; align-items: center; gap: 10px; margin: 6px 0 12px; flex-wrap: wrap; }',
+    '.upm-modal .upm-window-controls label { font-size: 11px; color: #8a97ad; text-transform: uppercase; letter-spacing: 0.4px; }',
+    '.upm-modal .upm-window-controls select { background: #1a2230; color: #e8edf5; border: 1px solid #2a3446; border-radius: 4px; padding: 4px 8px; font-size: 12px; }',
+    '.upm-modal .upm-window-summary { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; padding: 10px; background: #1a2230; border-radius: 6px; margin-bottom: 12px; }',
+    '.upm-modal .upm-window-summary .val { font-size: 18px; font-weight: 700; color: #e8edf5; }',
+    '.upm-modal .upm-window-summary .lbl { font-size: 10px; color: #8a97ad; text-transform: uppercase; letter-spacing: 0.3px; }',
+
+    /* Cap-math strip cards */
     '.upm-modal .upm-salary-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin-bottom: 14px; }',
     '.upm-modal .upm-salary-card { padding: 10px 12px; background: #1a2230; border-radius: 6px; border: 1px solid #2a3446; }',
     '.upm-modal .upm-salary-card .lbl { font-size: 10px; color: #8a97ad; text-transform: uppercase; letter-spacing: 0.3px; display: block; margin-bottom: 4px; }',
     '.upm-modal .upm-salary-card .val { font-size: 16px; font-weight: 700; color: #e8edf5; }',
-    '.upm-modal .profile-watch-links { display: flex; gap: 8px; flex-wrap: wrap; margin: 6px 0; }',
-    '.upm-modal .profile-watch-link { display: inline-block; padding: 6px 12px; background: #1a2230; border: 1px solid #2a3446; border-radius: 4px; color: #e8edf5; text-decoration: none; font-size: 12px; }',
-    '.upm-modal .profile-watch-link:hover { background: #2a3446; }',
+
+    /* Tier badges */
     '.upm-modal .tier { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: 600; }',
     '.upm-modal .tier.Smash { background: rgba(16,185,129,0.15); color: #10b981; }',
     '.upm-modal .tier.Hit { background: rgba(59,130,246,0.15); color: #3b82f6; }',
     '.upm-modal .tier.Contrib { background: rgba(234,179,8,0.15); color: #eab308; }',
     '.upm-modal .tier.Bust { background: rgba(239,68,68,0.15); color: #ef4444; }',
+
+    /* Pre-rookie banner */
     '.upm-modal .upm-pre-rookie-banner { background: rgba(91,141,255,0.10); border-left: 3px solid #5b8dff; padding: 10px 14px; border-radius: 4px; margin-bottom: 14px; }',
     '.upm-modal .upm-pre-rookie-banner .hdr { font-size: 11px; color: #5b8dff; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 700; }',
-    '.upm-modal .upm-close { position: absolute; top: 12px; right: 12px; background: transparent; border: 0; color: #8a97ad; font-size: 22px; line-height: 1; cursor: pointer; padding: 4px 10px; }',
-    '.upm-modal .upm-close:hover { color: #e8edf5; }',
-    '.upm-modal-wrap { position: relative; }',
-    '@media (max-width: 600px) { .upm-modal { padding: 14px; width: 96%; max-height: 96vh; } .upm-modal .upm-salary-strip { grid-template-columns: repeat(2, 1fr); } .upm-modal .profile-bio { grid-template-columns: 1fr; } }'
+
+    /* Chips (Stats sub-toggle, Raw scope toggle, Game Log view toggle) */
+    '.upm-modal .rdh-chip { background: #1a2230; color: #e8edf5; border: 1px solid #2a3446; border-radius: 4px; padding: 6px 12px; font-size: 12px; font-weight: 500; cursor: pointer; transition: border-color 80ms, color 80ms; }',
+    '.upm-modal .rdh-chip:hover { border-color: #5b8dff; color: #5b8dff; }',
+    '.upm-modal .rdh-chip[aria-pressed="true"] { background: rgba(91,141,255,0.18); border-color: #5b8dff; color: #5b8dff; }',
+
+    /* Taxi pill */
+    '.upm-modal .taxi-pill { display: inline-block; margin-left: 6px; padding: 1px 5px; border-radius: 3px; font-size: 9px; font-weight: 700; letter-spacing: 0.6px; background: rgba(251,191,36,0.18); color: #fbbf24; border: 1px solid rgba(251,191,36,0.45); vertical-align: middle; text-transform: uppercase; }',
+
+    /* Game log tier sizing */
+    '.upm-modal .tier { font-size: 10px; padding: 1px 5px; }',
+
+    /* Mobile */
+    '@media (max-width: 600px) { .upm-modal { padding: 14px; width: 96%; max-height: 96vh; } .upm-modal .upm-salary-strip { grid-template-columns: repeat(2, 1fr); } .upm-modal .profile-bio { grid-template-columns: 1fr; } .upm-modal .upm-view-switch button { padding: 7px 10px; font-size: 11px; } }'
   ].join("\n");
 
   function ensureStyles() {
@@ -261,7 +296,7 @@
     var body = document.getElementById("upm-modal-body");
     body.innerHTML = '<button class="upm-close" aria-label="Close">×</button>' + html;
     ov.classList.add("open");
-    var closeBtn = body.querySelector(".upm-close");
+    var closeBtn = body.parentNode.querySelector(".upm-close");
     if (closeBtn) closeBtn.addEventListener("click", closeModal);
     try { window.scrollTo(0, 0); } catch (e) {}
     try {
@@ -300,7 +335,7 @@
       });
   }
 
-  // ── College / Pre-NFL Prospect gate ─────────────────────────────────────
+  // ── College / Pre-NFL Prospect gate (preserved from prior file) ─────────
   // Show college + Pre-NFL Prospect panels ONLY when:
   //   • MFL rookie tag is true (is_rookie === "1" or draft_year == current_year), AND
   //   • today is BEFORE the NFL Week 1 kickoff date.
@@ -314,10 +349,10 @@
       var today = new Date();
       var w1 = new Date(week1 + "T00:00:00Z");
       return today.getTime() < w1.getTime();
-    } catch (e) { return true; }  // permissive on parse fail
+    } catch (e) { return true; }
   }
 
-  // ── Build photo fallback chain ──────────────────────────────────────────
+  // ── Photo fallback chain ────────────────────────────────────────────────
   function buildPhotoChain(pid, pp, prospectRow) {
     var espnId = (prospectRow && prospectRow.espn_id) || pp.espn_id || null;
     var chain = [];
@@ -329,7 +364,6 @@
     if (pid) chain.push("https://www48.myfantasyleague.com/player_photos_2014/" + pid + "_thumb.jpg");
     return chain;
   }
-
   function photoOnErrorAttr(chain) {
     if (!chain.length || chain.length === 1) {
       return "this.replaceWith(Object.assign(document.createElement('div'), {className: 'profile-photo-placeholder'}))";
@@ -338,28 +372,47 @@
     return "(function(img,urls){var i=0;img.onerror=function(){i++;if(i<urls.length){img.src=urls[i];}else{img.replaceWith(Object.assign(document.createElement('div'),{className:'profile-photo-placeholder'}));}};})(this, " + json + ")";
   }
 
-  // ── Bio tab ─────────────────────────────────────────────────────────────
-  function renderBio(bundle, ctx, pid, name) {
-    var pp = (bundle.profile && bundle.profile.playerProfile && bundle.profile.playerProfile.player)
-          || (bundle.profile && bundle.profile.player)
-          || {};
-    var cr = bundle.current_roster || {};
-    var inj = bundle.injury || ctx.injury || {};
-    var add = bundle.last_add || {};
-    var ch = Array.isArray(bundle.contract_history) ? bundle.contract_history : [];
-
-    var prospectRow = {};
-    if (ctx.prospects) {
-      var arr = ctx.prospects.prospects || ctx.prospects;
-      if (Array.isArray(arr)) {
-        for (var i = 0; i < arr.length; i++) {
-          if (String(arr[i].player_id) === String(pid)) { prospectRow = arr[i]; break; }
-        }
-      }
+  // ── Lookup helpers — pull a row out of ctx.prospects / ctx.history ──────
+  function lookupProspect(pid, ctx) {
+    if (!ctx.prospects) return {};
+    var arr = ctx.prospects.prospects || ctx.prospects;
+    if (!Array.isArray(arr)) return {};
+    for (var i = 0; i < arr.length; i++) {
+      if (String(arr[i].player_id) === String(pid)) return arr[i];
     }
+    return {};
+  }
+  function lookupHistPick(pid, ctx) {
+    if (!ctx.history || !Array.isArray(ctx.history.picks)) return {};
+    for (var j = 0; j < ctx.history.picks.length; j++) {
+      if (String(ctx.history.picks[j].player_id) === String(pid)) return ctx.history.picks[j];
+    }
+    return {};
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // BIO TAB
+  // ─────────────────────────────────────────────────────────────────────────
+  function buildBioHtml(bundle, ctx, pid, name, nflTeam) {
+    var pp = (bundle && bundle.profile && bundle.profile.playerProfile && bundle.profile.playerProfile.player)
+          || (bundle && bundle.profile && bundle.profile.player)
+          || {};
+    var cr = (bundle && bundle.current_roster) || {};
+    var inj = (bundle && bundle.injury) || ctx.injury || {};
+    var add = (bundle && bundle.last_add) || {};
+    var ch = (bundle && Array.isArray(bundle.contract_history)) ? bundle.contract_history : [];
+    var career = (bundle && bundle.career_summary) || [];
+    var hist = lookupHistPick(pid, ctx);
+    var prospectRow = lookupProspect(pid, ctx);
 
     var showCollege = showCollegePanels(pp, ctx);
 
+    // Photo
+    var photoFallbacks = buildPhotoChain(pid, pp, prospectRow);
+    var photoUrl = photoFallbacks[0] || "";
+    var photoOnError = photoOnErrorAttr(photoFallbacks);
+
+    // Bio fields — gated through showCollege per memory rule
     var bioHeight = pp.height || (showCollege ? prospectRow.height : "") || "";
     var bioWeight = pp.weight || (showCollege && prospectRow.weight ? prospectRow.weight + " lb" : "") || "";
     var bioCollege = showCollege ? (pp.college || prospectRow.college || "") : "";
@@ -373,14 +426,9 @@
       : (showCollege ? (prospectRow.nfl_draft_summary || "") : "");
     var bioJersey = pp.jersey || "";
 
-    var photoChain = buildPhotoChain(pid, pp, prospectRow);
-    var photoUrl = photoChain[0] || "";
-    var photoErr = photoOnErrorAttr(photoChain);
-
-    var career = bundle.career_summary || [];
     var isFreshRookie = showCollege && !career.length;
 
-    // ── Pre-NFL prospect banner (gated by showCollege) ────────────────────
+    // ── Pre-NFL prospect banner (gated) ───────────────────────────────────
     var freshBanner = "";
     if (isFreshRookie && (prospectRow.player_id || prospectRow.consensus_rank || prospectRow.nfl_draft_summary)) {
       var srcRanks = prospectRow.source_ranks || {};
@@ -390,12 +438,12 @@
       if (srcRanks.ktc != null) srcStr += (srcStr ? " · " : "") + "KTC #" + srcRanks.ktc;
       if (srcRanks.sleeper != null) srcStr += (srcStr ? " · " : "") + "SLP #" + srcRanks.sleeper;
       freshBanner = '<div class="upm-pre-rookie-banner">'
-        + '<div class="hdr">' + escapeHtml(ctx.year || new Date().getFullYear()) + ' Rookie Class · Pre-NFL prospect</div>'
-        + '<div style="font-size:13px; margin-top:4px; line-height:1.5;">'
+        + '<div class="hdr">' + escapeHtml(String(ctx.year || new Date().getFullYear())) + ' Rookie Class · Pre-NFL prospect</div>'
+        + '<div style="font-size:13px; color:#e8edf5; margin-top:4px; line-height:1.5;">'
         + (prospectRow.is_udfa ? "UDFA — undrafted free agent" : escapeHtml(prospectRow.nfl_draft_summary || "Draft details TBD"))
         + (prospectRow.nfl_team ? " · signed with <strong>" + escapeHtml(prospectRow.nfl_team) + "</strong>" : "")
         + '</div>'
-        + (prospectRow.consensus_rank ? ('<div class="small muted" style="margin-top:6px;">'
+        + (prospectRow.consensus_rank ? ('<div style="font-size:12px; color:#8a97ad; margin-top:6px;">'
             + 'UPS rookie consensus rank <strong style="color:#e8edf5;">#' + prospectRow.consensus_rank + '</strong>'
             + (prospectRow.consensus_n_sources ? ' <span style="opacity:0.7;">across ' + prospectRow.consensus_n_sources + ' sources</span>' : "")
             + (srcStr ? ' <span style="opacity:0.8; margin-left:8px;">' + srcStr + '</span>' : "")
@@ -413,89 +461,81 @@
     if (bioJersey) bioRows.push('<div><span class="lbl">Jersey</span>#' + escapeHtml(bioJersey) + '</div>');
     if (showCollege && prospectRow.espn_id) {
       bioRows.push('<div><span class="lbl">ESPN ID</span><a href="https://www.espn.com/college-football/player/_/id/'
-        + escapeHtml(prospectRow.espn_id) + '" target="_blank" rel="noopener" style="color:#5b8dff;">'
+        + escapeHtml(prospectRow.espn_id) + '" target="_blank" rel="noopener">'
         + escapeHtml(prospectRow.espn_id) + '</a></div>');
     }
 
     var bioHeadHtml = '<div class="profile-bio">'
       + (photoUrl
-        ? '<img src="' + escapeHtml(photoUrl) + '" alt="' + escapeHtml(name) + '" class="profile-photo" onerror="' + photoErr + '">'
+        ? '<img src="' + escapeHtml(photoUrl) + '" alt="' + escapeHtml(name) + '" class="profile-photo" onerror="' + photoOnError + '">'
         : '<div class="profile-photo-placeholder"></div>')
       + '<div class="profile-bio-text">' + bioRows.join("") + '</div>'
       + '</div>';
 
     // ── Highlights link ───────────────────────────────────────────────────
     var ytLink = "";
-    var teamForLink = (pp.team || prospectRow.nfl_team || "");
-    var nameQ = encodeURIComponent;
+    var teamForLink = nflTeam || prospectRow.nfl_team || pp.team || "";
     if (isFreshRookie && bioCollege) {
       ytLink = '<div class="profile-block"><div class="profile-watch-links"><a href="https://www.youtube.com/results?search_query='
-        + nameQ(name + " " + bioCollege + " highlights") + '" target="_blank" rel="noopener noreferrer" class="profile-watch-link">College highlights</a></div></div>';
+        + encodeURIComponent(name + " " + bioCollege + " highlights")
+        + '" target="_blank" rel="noopener noreferrer" class="profile-watch-link yt">College highlights</a></div></div>';
     } else if (teamForLink && teamForLink !== "FA") {
       ytLink = '<div class="profile-block"><div class="profile-watch-links"><a href="https://www.youtube.com/results?search_query='
-        + nameQ(name + " " + teamForLink + " highlights") + '" target="_blank" rel="noopener noreferrer" class="profile-watch-link">NFL highlights</a></div></div>';
+        + encodeURIComponent(name + " " + teamForLink + " highlights")
+        + '" target="_blank" rel="noopener noreferrer" class="profile-watch-link yt">NFL highlights</a></div></div>';
     }
 
-    // ── Cap-math strip (Front Office + Rookie Draft both — uses MFL salary
-    //    when ctx supplies it, otherwise current_contract from D1) ─────────
+    // ── Cap-math strip (8 cards when MFL salary present, 4 when only D1 contract) ──
+    // Front Office: ctx.contractSalary supplies the live MFL row.
+    // Rookie Draft / no salary: fall back to the D1 most-recent contract.
     var capHtml = "";
     var sal = ctx.contractSalary || null;
     var contractInfo = sal ? parseContractInfo(sal.contractInfo) : null;
     var currentContract = ch[0] || null;
 
-    // Compute the 8-card cap strip. Prefer ctx (live MFL salary) for
-    // Front Office; fall back to D1 contract_history.
-    var tcv = 0, aav = 0, salary = 0, yrsRem = 0, earned = 0, penalty = null;
-    var acqDate = "", acqMethod = "";
-    if (contractInfo) {
-      tcv = contractInfo.tcv || (function () {
+    if (contractInfo && (contractInfo.tcv || contractInfo.aav || sal.salary)) {
+      var tcv = contractInfo.tcv || (function () {
         var s = 0; for (var k in contractInfo.yearVals) s += contractInfo.yearVals[k] || 0; return s;
       })();
-      aav = contractInfo.aav || (contractInfo.length > 0 ? Math.round(tcv / contractInfo.length) : Number(sal.salary || 0));
-      salary = Number(sal.salary || 0);
-      yrsRem = yearsRemain(sal, contractInfo);
-      earned = earnedToDate(sal, contractInfo);
-      penalty = dropPenalty(sal, contractInfo, ctx.year);
+      var aav = contractInfo.aav || (contractInfo.length > 0 ? Math.round(tcv / contractInfo.length) : Number(sal.salary || 0));
+      var salary = Number(sal.salary || 0);
+      var yrsRem = yearsRemain(sal, contractInfo);
+      var earned = earnedToDate(sal, contractInfo);
+      var penalty = dropPenalty(sal, contractInfo, ctx.year);
       var acq = findAcquisition(pid, ctx.transactions, ctx.viewerFranchise && ctx.viewerFranchise.id);
-      if (acq) {
-        acqDate = acq.ts ? new Date(acq.ts * 1000).toLocaleDateString() : "";
-        acqMethod = acq.method || "";
-      }
-    } else if (currentContract) {
-      tcv = currentContract.tcv || 0;
-      aav = currentContract.aav || 0;
-      var len = currentContract.contract_length || 0;
-      var cy = currentContract.contract_year || 1;
-      yrsRem = len ? Math.max(0, len - cy + 1) : 0;
-    }
-    if (tcv || aav || salary || currentContract) {
+      var acqDate = acq && acq.ts ? new Date(acq.ts * 1000).toLocaleDateString() : "—";
+      var acqMethod = acq && acq.method ? acq.method : "—";
+
       capHtml = '<div class="upm-salary-strip">'
-        + '<div class="upm-salary-card"><span class="lbl">TCV</span><span class="val">' + (tcv ? fmtUsdFull(tcv) : "—") + '</span></div>'
-        + '<div class="upm-salary-card"><span class="lbl">AAV</span><span class="val">' + (aav ? fmtUsdFull(aav) : "—") + '</span></div>'
-        + (sal
-          ? '<div class="upm-salary-card"><span class="lbl">Salary</span><span class="val">' + (salary ? fmtUsdFull(salary) : "—") + '</span></div>'
-          : "")
+        + '<div class="upm-salary-card"><span class="lbl">TCV</span><span class="val">' + (tcv > 0 ? fmtUsdFull(tcv) : "—") + '</span></div>'
+        + '<div class="upm-salary-card"><span class="lbl">AAV</span><span class="val">' + (aav > 0 ? fmtUsdFull(aav) : "—") + '</span></div>'
+        + '<div class="upm-salary-card"><span class="lbl">Salary</span><span class="val">' + (salary > 0 ? fmtUsdFull(salary) : "—") + '</span></div>'
         + '<div class="upm-salary-card"><span class="lbl">Yrs Remain</span><span class="val">' + (yrsRem > 0 ? yrsRem : "—") + '</span></div>'
-        + (sal
-          ? ('<div class="upm-salary-card"><span class="lbl">Earned to Date</span><span class="val">' + (earned > 0 ? fmtUsdFull(earned) : "$0") + '</span></div>'
-             + '<div class="upm-salary-card"><span class="lbl">Cap Penalty</span><span class="val">' + (penalty == null ? "—" : (penalty > 0 ? fmtUsdFull(penalty) : "$0")) + '</span></div>'
-             + '<div class="upm-salary-card"><span class="lbl">Acquire Date</span><span class="val" style="font-size:13px;">' + (acqDate ? escapeHtml(acqDate) : "—") + '</span></div>'
-             + '<div class="upm-salary-card"><span class="lbl">How Acquired</span><span class="val" style="font-size:13px;">' + (acqMethod ? escapeHtml(acqMethod) : "—") + '</span></div>')
-          : (currentContract
-            ? ('<div class="upm-salary-card"><span class="lbl">Contract</span><span class="val" style="font-size:13px;">'
-              + escapeHtml(currentContract.contract_status || (currentContract.extension_flag ? "Extended" : "Active"))
-              + '</span></div>')
-            : ""))
+        + '<div class="upm-salary-card"><span class="lbl">Earned</span><span class="val">' + (earned > 0 ? fmtUsdFull(earned) : "$0") + '</span></div>'
+        + '<div class="upm-salary-card"><span class="lbl">Cap Penalty</span><span class="val">' + (penalty == null ? "—" : (penalty > 0 ? fmtUsdFull(penalty) : "$0")) + '</span></div>'
+        + '<div class="upm-salary-card"><span class="lbl">Acquire Date</span><span class="val" style="font-size:13px;">' + escapeHtml(acqDate) + '</span></div>'
+        + '<div class="upm-salary-card"><span class="lbl">How Acquired</span><span class="val" style="font-size:13px;">' + escapeHtml(acqMethod) + '</span></div>'
+        + '</div>';
+    } else if (currentContract) {
+      // D1 fallback — Rookie Draft mode (no MFL salary in ctx)
+      var d1Tcv = currentContract.tcv || 0;
+      var d1Aav = currentContract.aav || 0;
+      var d1Len = currentContract.contract_length || 0;
+      var d1Cy  = currentContract.contract_year || 1;
+      var d1YrsRem = d1Len ? Math.max(0, d1Len - d1Cy + 1) : 0;
+      var taxiBadge = (currentContract.taxi || currentContract.is_taxi || /TAXI/i.test(String(currentContract.contract_status || currentContract.roster_status || "")))
+        ? '<span class="taxi-pill">TAXI</span>' : '';
+      capHtml = '<div class="upm-salary-strip">'
+        + '<div class="upm-salary-card"><span class="lbl">Years Remaining</span><span class="val">' + (d1YrsRem > 0 ? d1YrsRem : "—") + '</span></div>'
+        + '<div class="upm-salary-card"><span class="lbl">AAV</span><span class="val">' + (d1Aav ? fmtUsdFull(d1Aav) : "—") + '</span></div>'
+        + '<div class="upm-salary-card"><span class="lbl">TCV</span><span class="val">' + (d1Tcv ? fmtUsdFull(d1Tcv) : "—") + '</span></div>'
+        + '<div class="upm-salary-card"><span class="lbl">Contract</span><span class="val" style="font-size:13px;">'
+            + escapeHtml(currentContract.contract_status || (currentContract.extension_flag ? "Extended" : "Active"))
+            + taxiBadge + '</span></div>'
         + '</div>';
     }
 
     // ── League status block ───────────────────────────────────────────────
-    var hist = {};
-    if (ctx.history && Array.isArray(ctx.history.picks)) {
-      for (var j = 0; j < ctx.history.picks.length; j++) {
-        if (String(ctx.history.picks[j].player_id) === String(pid)) { hist = ctx.history.picks[j]; break; }
-      }
-    }
     var hasMeaningfulStatus = bundle.is_free_agent || bundle.is_not_rostered || cr.team_name;
     var hasInjury = inj.status && !bundle.is_free_agent && !bundle.is_not_rostered;
     var hasAcq = !bundle.is_free_agent && !bundle.is_not_rostered && add.datetime_et;
@@ -506,7 +546,7 @@
       if (bundle.is_free_agent) {
         rows.push('<div><span class="lbl">Status</span><span style="color:#fbbf24;font-weight:600">Free Agent</span></div>');
       } else if (bundle.is_not_rostered) {
-        rows.push('<div><span class="lbl">Status</span><span class="muted" style="font-weight:600">Not on any roster</span></div>');
+        rows.push('<div><span class="lbl">Status</span><span class="muted" style="font-weight:600">Not on any roster</span> <span class="small muted">(retired / out of league)</span></div>');
       } else if (cr.team_name) {
         rows.push('<div><span class="lbl">Owner</span>' + escapeHtml(cr.team_name) + '</div>');
         if (cr.status) rows.push('<div><span class="lbl">Roster</span>' + escapeHtml(cr.status) + '</div>');
@@ -550,43 +590,69 @@
         + '</tr></thead><tbody>' + rows2 + '</tbody></table></div>';
     }
 
-    // ── Pre-NFL prospect details (gated) ──────────────────────────────────
-    var prospectPanelHtml = "";
-    if (isFreshRookie) {
+    return freshBanner + bioHeadHtml + ytLink + capHtml + leagueStatusHtml + contractHistoryHtml;
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // STATS TAB — Scoring (MFL) view
+  // ─────────────────────────────────────────────────────────────────────────
+  function buildScoringStatsHtml(bundle, ctx, pid, name) {
+    var career = (bundle && bundle.career_summary) || [];
+    var leverageCoefs = ctx.leverageCoefs || (bundle && bundle.leverage_coefs) || {};
+
+    if (!career.length) {
+      // No NFL career on record. For current-year rookies render the Pre-NFL panel.
+      var pp = (bundle && bundle.profile && bundle.profile.playerProfile && bundle.profile.playerProfile.player) || {};
+      var draftYear = String(pp.draft_year || "");
+      var currentYear = String(ctx.year || new Date().getFullYear());
+      var isFreshRookie = draftYear === currentYear || showCollegePanels(pp, ctx);
+      var prospectRow = lookupProspect(pid, ctx);
+      if (!isFreshRookie) {
+        return '<p class="small muted">No career data yet — this player has no scored weeks on record.</p>';
+      }
+      var college = prospectRow.college || pp.college || null;
+      var age = prospectRow.age || null;
+      var height = prospectRow.height || pp.height || null;
+      var weight = prospectRow.weight || pp.weight || null;
+      var nflTeamCur = prospectRow.nfl_team || pp.team || null;
+      var draftSummary = prospectRow.nfl_draft_summary;
+      if (!draftSummary && pp.draft_round && pp.draft_pick) {
+        draftSummary = "R" + pp.draft_round + "." + pp.draft_pick + (pp.draft_team ? " · " + pp.draft_team : "");
+      } else if (!draftSummary && pp.team && draftYear) {
+        draftSummary = "UDFA · " + pp.team;
+      }
       var facts = [];
-      var draftSummary = prospectRow.nfl_draft_summary
-        || (pp.draft_round && pp.draft_pick ? "R" + pp.draft_round + "." + pp.draft_pick + (pp.draft_team ? " · " + pp.draft_team : "") : "")
-        || (pp.team && pp.draft_year ? "UDFA · " + pp.team : "");
       if (draftSummary) facts.push('<div><span class="lbl">' + (prospectRow.is_udfa ? "Status" : "NFL Draft") + '</span><strong style="color:' + (prospectRow.is_udfa ? "#8a97ad" : "#4ade80") + '">' + escapeHtml(draftSummary) + '</strong></div>');
-      if (prospectRow.college || pp.college) facts.push('<div><span class="lbl">College</span>' + escapeHtml(prospectRow.college || pp.college) + '</div>');
-      if (prospectRow.age) facts.push('<div><span class="lbl">Age</span>' + prospectRow.age + '</div>');
-      if (prospectRow.height || pp.height) facts.push('<div><span class="lbl">Height</span>' + escapeHtml(String(prospectRow.height || pp.height)) + '</div>');
-      if (prospectRow.weight || pp.weight) facts.push('<div><span class="lbl">Weight</span>' + escapeHtml(String(prospectRow.weight || pp.weight)) + (typeof (prospectRow.weight || pp.weight) === "number" ? " lbs" : "") + '</div>');
+      else if (nflTeamCur) facts.push('<div><span class="lbl">NFL Team</span><strong>' + escapeHtml(nflTeamCur) + '</strong></div>');
+      if (college) facts.push('<div><span class="lbl">College</span>' + escapeHtml(college) + '</div>');
+      if (age) facts.push('<div><span class="lbl">Age</span>' + age + '</div>');
+      if (height) facts.push('<div><span class="lbl">Height</span>' + escapeHtml(String(height)) + '</div>');
+      if (weight) facts.push('<div><span class="lbl">Weight</span>' + weight + ' lbs</div>');
       var adpLine = prospectRow.rookie_adp != null
         ? '<div class="small muted" style="margin-top:6px;">UPS rookie ADP <strong>' + prospectRow.rookie_adp.toFixed(1) + '</strong>'
           + (prospectRow.rookie_adp_rank ? " (#" + prospectRow.rookie_adp_rank + ")" : "")
           + ' across ' + (prospectRow.rookie_adp_n_drafts || "—") + ' mocks</div>'
         : "";
-      if (facts.length) {
-        prospectPanelHtml = '<div class="profile-block">'
-          + '<h4>Pre-NFL Prospect — ' + escapeHtml(String(ctx.year || new Date().getFullYear())) + ' Rookie Class</h4>'
-          + '<div class="profile-kv" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:8px;">'
-          + facts.join("\n") + '</div>'
-          + adpLine + '</div>';
-      }
+      return '<div class="profile-block">'
+        + '<h4>Pre-NFL Prospect — ' + escapeHtml(currentYear) + ' Rookie Class</h4>'
+        + '<p class="small muted" style="margin: 0 0 10px;">'
+        + escapeHtml(name) + " hasn't logged an NFL game yet. Below is the scouting-relevant snapshot from the MFL profile + UPS prospect board. College stats aren't pulled in (yet) — kept off the hub by design."
+        + '</p>'
+        + '<div class="profile-kv" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:8px;">'
+        + facts.join("\n") + '</div>'
+        + adpLine + '</div>'
+        + '<div class="profile-block">'
+        + '<h4>What you\'ll see here once games start</h4>'
+        + '<ul class="small muted" style="margin:6px 0 0; padding-left:18px; line-height:1.7;">'
+        + '<li>Weekly score + tier classification (Elite / Plus / Neutral / Dud)</li>'
+        + '<li>Season-by-season totals: games, points, PPG, positional ranks</li>'
+        + '<li>Adjusted All-Play Wins (APW) — who the player actually wins matchups for</li>'
+        + '<li>Snap counts + advanced stats (rushing/receiving/passing/IDP templates)</li>'
+        + '</ul></div>';
     }
 
-    return freshBanner + bioHeadHtml + ytLink + capHtml + leagueStatusHtml + contractHistoryHtml + prospectPanelHtml;
-  }
-
-  // ── Stats tab ────────────────────────────────────────────────────────────
-  function renderStats(bundle, ctx) {
-    var career = bundle.career_summary || [];
-    var leverageCoefs = ctx.leverageCoefs || bundle.leverage_coefs || {};
-    if (!career.length) {
-      return '<p class="small muted">No career data yet — this player has no scored weeks on record.</p>';
-    }
     var rows = career.slice(0, 20);
+    var fmtRank = function (r) { return (r == null || r <= 0) ? "—" : "#" + r; };
     var tot = { g: 0, starts: 0, pts: 0, wcn: 0, ep_den: 0, dud_num: 0, el_num: 0, pl_num: 0 };
     rows.forEach(function (c) {
       tot.g += (c.games_played || 0);
@@ -603,7 +669,7 @@
     var careerEl = tot.ep_den ? tot.el_num / tot.ep_den : 0;
     var careerPl = tot.ep_den ? tot.pl_num / tot.ep_den : 0;
     var careerDud = tot.ep_den ? tot.dud_num / tot.ep_den : 0;
-    var fmtRank = function (r) { return (r == null || r <= 0) ? "—" : "#" + r; };
+
     var bodyRows = rows.map(function (c) {
       var wcb = leverageCoefs[c.pos_group] || 0;
       var apw = (c.win_chunks || 0) * wcb;
@@ -626,22 +692,35 @@
         + '<td class="num muted">' + fmtRank(c.wc_per_game_pos_rank) + '</td>'
         + '</tr>';
     }).join("");
-    return '<div class="profile-block"><h4>Career Summary (by MFL season)</h4>'
+
+    return '<div class="upm-window-controls">'
+      + '<label>Window'
+      + '<select id="profile-window-select">'
+      + '<option value="season">Current season</option>'
+      + '<option value="4">Last 4 weeks</option>'
+      + '<option value="6">Last 6 weeks</option>'
+      + '<option value="8">Last 8 weeks</option>'
+      + '</select></label>'
+      + '<span class="small muted">Summarizes the recent weekly window; career table below is full history.</span>'
+      + '</div>'
+      + '<div id="profile-window-summary" class="upm-window-summary" hidden></div>'
+      + '<div class="profile-block">'
+      + '<h4>Career Summary (by MFL season)</h4>'
       + '<table class="rdh-table"><thead><tr>'
       + '<th>Yr</th>'
       + '<th class="num">G</th>'
-      + '<th class="num">MFL Starts</th>'
+      + '<th class="num" title="Weeks in an MFL starting lineup">MFL Starts</th>'
       + '<th class="num">Pts</th>'
-      + '<th class="num">Pts Rk</th>'
+      + '<th class="num" title="Positional rank by total points that season">Pts Rk</th>'
       + '<th class="num">PPG</th>'
-      + '<th class="num">PPG Rk</th>'
-      + '<th class="num">Elite%</th>'
-      + '<th class="num">Plus%</th>'
-      + '<th class="num">Dud%</th>'
-      + '<th class="num" title="Adjusted All-Play Wins = win_chunks × positional leverage β">APW</th>'
-      + '<th class="num">APW Rk</th>'
-      + '<th class="num">APW/G</th>'
-      + '<th class="num">APW/G Rk</th>'
+      + '<th class="num" title="Positional rank by PPG that season">PPG Rk</th>'
+      + '<th class="num" title="Elite weeks (z ≥ 1.0) %">Elite%</th>'
+      + '<th class="num" title="Plus weeks (0.25 ≤ z &lt; 1.0) %">Plus%</th>'
+      + '<th class="num" title="Dud weeks (z &lt; −0.5) %">Dud%</th>'
+      + '<th class="num" title="Adjusted All-Play Wins: win_chunks × positional leverage β.">APW</th>'
+      + '<th class="num" title="Positional rank by APW that season">APW Rk</th>'
+      + '<th class="num" title="APW divided by games played — per-game contribution">APW/G</th>'
+      + '<th class="num" title="Positional rank by APW per game that season">APW/G Rk</th>'
       + '</tr></thead><tbody>'
       + bodyRows
       + '<tr style="border-top:2px solid #2a3446; font-weight:700;">'
@@ -662,93 +741,352 @@
       + '</tr></tbody></table></div>';
   }
 
-  // ── Game Log tab ─────────────────────────────────────────────────────────
-  function renderGameLog(bundle) {
-    var byYear = (bundle && bundle.weekly_by_season) || {};
-    var years = Object.keys(byYear).sort(function (a, b) { return Number(b) - Number(a); });
-    if (!years.length) {
-      return '<p class="small muted">No weekly data available.</p>';
+  // ─────────────────────────────────────────────────────────────────────────
+  // STATS TAB — Raw Stats view (per-pos-group templates + scope toggle)
+  // Ported verbatim from rookie hub's aggregateNflSeasons + buildRawStatsHtml.
+  // ─────────────────────────────────────────────────────────────────────────
+  function aggregateNflSeasons(bundle, scope) {
+    var weeks = (bundle && Array.isArray(bundle.nfl_weekly)) ? bundle.nfl_weekly : [];
+    var snapBy = (bundle && bundle.nfl_snaps_by_week) || {};
+    var isReg = function (w) {
+      var wk = Number(w.week) || 0;
+      return wk >= 1 && wk <= 17;
+    };
+    var fields = [
+      "rush_att","rush_yds","rush_tds","rush_fumbles","rush_fumbles_lost",
+      "targets","receptions","rec_yds","rec_tds",
+      "pass_att","pass_cmp","pass_yds","pass_tds","pass_ints","pass_sacks",
+      "def_tackles_ast","def_tfl","def_sacks","def_ff","def_fr","def_ints",
+      "def_pass_def","def_tds",
+      "fg_att","fg_made","fg_att_0_39","fg_made_0_39",
+      "fg_att_40_49","fg_made_40_49","fg_att_50plus","fg_made_50plus",
+      "xp_att","xp_made","punts","punt_yds","punt_inside20",
+      "receiving_drops","receiving_broken_tackles",
+      "rushing_broken_tackles","passing_drops",
+      "rushing_yards_before_contact","rushing_yards_after_contact"
+    ];
+    var bySeason = {};
+    for (var i = 0; i < weeks.length; i++) {
+      var w = weeks[i];
+      if (scope === "ups" && !isReg(w)) continue;
+      var key = String(w.season);
+      var tgt = bySeason[key];
+      if (!tgt) {
+        tgt = { season: Number(w.season), games: 0,
+                _off_snaps: 0, _def_snaps: 0,
+                _off_rate_sum: 0, _def_rate_sum: 0, _snap_weeks: 0,
+                def_tackles_solo: 0 };
+        for (var fi = 0; fi < fields.length; fi++) tgt[fields[fi]] = 0;
+        bySeason[key] = tgt;
+      }
+      tgt.games += 1;
+      for (var fj = 0; fj < fields.length; fj++) {
+        tgt[fields[fj]] += Number(w[fields[fj]]) || 0;
+      }
+      tgt.def_tackles_solo += Number(w.def_tackles_solo) || 0;
+      var snap = snapBy[w.season + "-" + w.week];
+      if (snap) {
+        tgt._off_snaps += Number(snap.off_snaps) || 0;
+        tgt._def_snaps += Number(snap.def_snaps) || 0;
+        tgt._off_rate_sum += Number(snap.off_snap_pct) || 0;
+        tgt._def_rate_sum += Number(snap.def_snap_pct) || 0;
+        tgt._snap_weeks += 1;
+      }
     }
-    var defaultYear = years[0];
-    var weeks = (byYear[defaultYear] || []).slice().sort(function (a, b) { return a.week - b.week; });
-    var weekTierClass = function (t) { return t === "Elite" ? "Smash" : t === "Plus" ? "Hit" : t === "Neutral" ? "Contrib" : "Bust"; };
-    var starts = weeks.filter(function (w) { return w.status === "starter"; }).length;
-    var elite = weeks.filter(function (w) { return w.week_tier === "Elite"; }).length;
-    var plus = weeks.filter(function (w) { return w.week_tier === "Plus"; }).length;
-    var dud = weeks.filter(function (w) { return w.week_tier === "Dud"; }).length;
-    var tot = weeks.length;
-    var pts = weeks.reduce(function (s, w) { return s + (w.score || 0); }, 0);
-    var rows = weeks.map(function (w) {
-      var playoffTag = w.is_reg === 0 ? ' <span class="small" style="color:#5b8dff;font-weight:600;">P</span>' : "";
-      return '<tr' + (w.is_reg === 0 ? ' style="background:rgba(255,158,77,0.06);"' : "") + '>'
-        + '<td class="num">' + w.week + playoffTag + '</td>'
-        + '<td class="num">' + (w.score != null ? w.score.toFixed(1) : "—") + '</td>'
-        + '<td class="num">' + (w.z_score != null ? (w.z_score > 0 ? "+" : "") + w.z_score.toFixed(2) : "—") + '</td>'
-        + '<td>' + (w.week_tier ? '<span class="tier ' + weekTierClass(w.week_tier) + '">' + w.week_tier + '</span>' : "—") + '</td>'
-        + '<td>' + escapeHtml(w.status || "") + '</td>'
-        + '<td class="small">' + escapeHtml(w.roster_franchise_name || "") + '</td>'
-        + '<td class="num">' + (w.pos_rank || "—") + '</td>'
-        + '</tr>';
+    var out = [];
+    for (var k in bySeason) {
+      if (!Object.prototype.hasOwnProperty.call(bySeason, k)) continue;
+      var r = bySeason[k];
+      r.def_tackles_total = r.def_tackles_solo;
+      r.off_snaps_total = r._off_snaps || null;
+      r.def_snaps_total = r._def_snaps || null;
+      r.off_snap_rate = r._snap_weeks ? r._off_rate_sum / r._snap_weeks : null;
+      r.def_snap_rate = r._snap_weeks ? r._def_rate_sum / r._snap_weeks : null;
+      out.push(r);
+    }
+    out.sort(function (a, b) { return b.season - a.season; });
+    return out;
+  }
+
+  function detectPosGroup(bundle) {
+    var crosswalk = (bundle && bundle.crosswalk) || {};
+    var raw = String(crosswalk.position || "").toUpperCase();
+    if (raw === "P") return "punter";
+    var pg = String(
+      (bundle && bundle.career_summary && bundle.career_summary[0] && bundle.career_summary[0].pos_group) ||
+      (bundle && bundle.nfl_weekly && bundle.nfl_weekly[0] && bundle.nfl_weekly[0].pos_group) ||
+      raw
+    ).toUpperCase();
+    if (pg === "QB") return "qb";
+    if (pg === "RB" || pg === "WR" || pg === "TE" || pg === "FB") return "skill";
+    if (pg === "PK" || pg === "K") return "kicker";
+    if (pg === "DL" || pg === "LB" || pg === "DB") return "idp";
+    var idpRaw = ["DE","DT","NT","EDGE","OLB","ILB","MLB","CB","S","SS","FS"];
+    if (idpRaw.indexOf(raw) >= 0) return "idp";
+    if (raw === "K" || raw === "PK") return "kicker";
+    return "skill";
+  }
+
+  // Per-pos-group templates — same shape as Rookie Hub's TMPL.
+  var RAW_TMPL = {
+    idp: { label: "IDP", cols: [
+      { label: "G", key: "games" },
+      { label: "Snaps", key: "def_snaps_total" },
+      { label: "Snap%", compute: function (r) { return r.def_snap_rate; }, format: "pct0" },
+      { label: "Snaps/G", compute: function (r) { return r.def_snaps_total && r.games ? r.def_snaps_total / r.games : null; }, format: "dec1" },
+      { label: "Tkl", key: "def_tackles_total" },
+      { label: "Ast", key: "def_tackles_ast" },
+      { label: "TFL", key: "def_tfl" },
+      { label: "FF", key: "def_ff" },
+      { label: "FR", key: "def_fr" },
+      { label: "Sk", key: "def_sacks", format: "dec1" },
+      { label: "PD", key: "def_pass_def" },
+      { label: "Int", key: "def_ints" },
+      { label: "DefTD", key: "def_tds" }
+    ]},
+    qb: { label: "QB", cols: [
+      { label: "G", key: "games" },
+      { label: "Snaps", key: "off_snaps_total" },
+      { label: "Snap%", compute: function (r) { return r.off_snap_rate; }, format: "pct0" },
+      { label: "Snaps/G", compute: function (r) { return r.off_snaps_total && r.games ? r.off_snaps_total / r.games : null; }, format: "dec1" },
+      { label: "RuAtt", key: "rush_att" },
+      { label: "RuYd", key: "rush_yds" },
+      { label: "RuTD", key: "rush_tds" },
+      { label: "Fum", key: "rush_fumbles" },
+      { label: "FumL", key: "rush_fumbles_lost" },
+      { label: "Att", key: "pass_att" },
+      { label: "Cmp", key: "pass_cmp" },
+      { label: "Cmp%", compute: function (r) { return r.pass_att ? r.pass_cmp / r.pass_att : null; }, format: "pct" },
+      { label: "PaYd", key: "pass_yds" },
+      { label: "PaTD", key: "pass_tds" },
+      { label: "Int", key: "pass_ints" },
+      { label: "Int%", compute: function (r) { return r.pass_att ? r.pass_ints / r.pass_att : null; }, format: "pct" },
+      { label: "Drops", key: "passing_drops", title: "Receiver drops on this QB's throws (PFR, 2018+)" }
+    ]},
+    skill: { label: "RB / WR / TE", cols: [
+      { label: "G", key: "games" },
+      { label: "Snaps", key: "off_snaps_total" },
+      { label: "Snap%", compute: function (r) { return r.off_snap_rate; }, format: "pct0" },
+      { label: "Snaps/G", compute: function (r) { return r.off_snaps_total && r.games ? r.off_snaps_total / r.games : null; }, format: "dec1" },
+      { label: "Tgt", key: "targets" },
+      { label: "Rec", key: "receptions" },
+      { label: "RecYd", key: "rec_yds" },
+      { label: "RecTD", key: "rec_tds" },
+      { label: "Y/T", compute: function (r) { return r.targets ? r.rec_yds / r.targets : null; }, format: "dec2" },
+      { label: "Drops", key: "receiving_drops", title: "Dropped passes (PFR, 2018+)" },
+      { label: "BrTkl", compute: function (r) { return (r.receiving_broken_tackles || 0) + (r.rushing_broken_tackles || 0); },
+        title: "Broken tackles combined — receiving + rushing (PFR, 2018+)" },
+      { label: "RuAtt", key: "rush_att" },
+      { label: "RuYd", key: "rush_yds" },
+      { label: "YBC/A", compute: function (r) { return r.rush_att ? (r.rushing_yards_before_contact || 0) / r.rush_att : null; }, format: "dec2",
+        title: "Rushing yards before contact per attempt (PFR, 2018+)" },
+      { label: "YAC/A", compute: function (r) { return r.rush_att ? (r.rushing_yards_after_contact || 0) / r.rush_att : null; }, format: "dec2",
+        title: "Rushing yards after contact per attempt (PFR, 2018+)" },
+      { label: "RuTD", key: "rush_tds" },
+      { label: "Fum", key: "rush_fumbles" },
+      { label: "FumL", key: "rush_fumbles_lost" }
+    ]},
+    kicker: { label: "Kicker", cols: [
+      { label: "G", key: "games" },
+      { label: "XPM", key: "xp_made" },
+      { label: "XP Miss", compute: function (r) { return (r.xp_att || 0) - (r.xp_made || 0); } },
+      { label: "FGM", key: "fg_made" },
+      { label: "FG Miss", compute: function (r) { return (r.fg_att || 0) - (r.fg_made || 0); } },
+      { label: "Avg FG", compute: function (r) {
+          var m = (r.fg_made_0_39 || 0) + (r.fg_made_40_49 || 0) + (r.fg_made_50plus || 0);
+          if (!m) return null;
+          return ((r.fg_made_0_39 || 0) * 25 + (r.fg_made_40_49 || 0) * 44.5 + (r.fg_made_50plus || 0) * 54) / m;
+        }, format: "dec1" }
+    ]},
+    punter: { label: "Punter", cols: [
+      { label: "G", key: "games" },
+      { label: "Punts", key: "punts" },
+      { label: "PuntYd", key: "punt_yds" },
+      { label: "Net Avg", key: "punt_net_avg", format: "dec1" },
+      { label: "Att/G", compute: function (r) { return r.games ? r.punts / r.games : null; }, format: "dec1" },
+      { label: "I20", key: "punt_inside20" }
+    ]}
+  };
+
+  function rawFormatCell(v, fmt) {
+    if (v == null || v === 0) return '<td class="num muted">—</td>';
+    var s;
+    if (fmt === "dec1") s = Number(v).toFixed(1);
+    else if (fmt === "dec2") s = Number(v).toFixed(2);
+    else if (fmt === "pct") s = (Number(v) * 100).toFixed(1) + "%";
+    else if (fmt === "pct0") {
+      var n = Number(v);
+      if (n > 0 && n <= 1) n = n * 100;
+      s = n.toFixed(1) + "%";
+    } else s = String(v);
+    return '<td class="num">' + s + '</td>';
+  }
+
+  function buildRawStatsHtml(bundle) {
+    var scope;
+    try { scope = sessionStorage.getItem("upm.stats.scope") || "ups"; } catch (e) { scope = "ups"; }
+    var totals = aggregateNflSeasons(bundle, scope);
+    var crosswalk = (bundle && bundle.crosswalk) || null;
+    if (!crosswalk || !crosswalk.gsis_id) {
+      return '<p class="small muted" style="padding:10px;">No NFL crosswalk for this player yet. '
+        + 'Run <code>pipelines/etl/scripts/build_player_id_crosswalk.py</code>.</p>';
+    }
+    if (!totals.length) {
+      return '<p class="small muted" style="padding:10px;">'
+        + 'NFL raw stats not yet loaded for <code>' + escapeHtml(crosswalk.gsis_id) + '</code>. '
+        + 'Run the nflverse fetchers + <code>scripts/load_local_to_d1.py --only nflweekly,nflsnaps,nflredzone</code>.</p>';
+    }
+    var scopeToggle = '<div style="display:flex; gap:6px; margin-bottom:8px;">'
+      + '<button type="button" class="rdh-chip" data-raw-scope="ups"  aria-pressed="' + (scope === "ups" ? "true" : "false") + '" title="NFL regular season only — matches PFR season totals.">UPS Season</button>'
+      + '<button type="button" class="rdh-chip" data-raw-scope="full" aria-pressed="' + (scope === "full" ? "true" : "false") + '" title="Include NFL playoff weeks.">Full Season</button>'
+      + '</div>';
+    var scopeNote = scope === "full" ? "Full NFL Season (incl. playoffs)." : "UPS Season (NFL regular season).";
+
+    var pg = detectPosGroup(bundle);
+    var tmpl = RAW_TMPL[pg] || RAW_TMPL.skill;
+
+    var thRow = '<th>Yr</th>';
+    for (var ti = 0; ti < tmpl.cols.length; ti++) {
+      var c = tmpl.cols[ti];
+      thRow += '<th class="num"' + (c.title ? ' title="' + c.title.replace(/"/g, "&quot;") + '"' : "") + '>' + c.label + '</th>';
+    }
+    var bodyRows = totals.map(function (r) {
+      var tds = '<td>' + r.season + '</td>';
+      for (var ci = 0; ci < tmpl.cols.length; ci++) {
+        var col = tmpl.cols[ci];
+        var v = col.compute ? col.compute(r) : r[col.key];
+        tds += rawFormatCell(v, col.format || "int");
+      }
+      return '<tr>' + tds + '</tr>';
     }).join("");
 
-    return '<div class="profile-block"><h4>Game Log — Season ' + escapeHtml(String(defaultYear)) + '</h4>'
+    var confNote = (crosswalk.confidence && crosswalk.confidence !== "exact")
+      ? '<div class="small" style="color:#fbbf24; margin-top:4px;">Crosswalk confidence: ' + escapeHtml(crosswalk.confidence)
+        + (crosswalk.match_score ? " (" + crosswalk.match_score.toFixed(2) + ")" : "") + ' — review recommended.</div>'
+      : "";
+
+    return '<div class="profile-block" data-raw-panel-root>'
+      + '<h4>Raw Stats — ' + tmpl.label + '</h4>'
+      + scopeToggle
+      + '<div class="small muted" style="margin-bottom:6px;">' + scopeNote + ' Real NFL on-field counts + derived rates. Independent of MFL fantasy scoring.</div>'
+      + '<table class="rdh-table"><thead><tr>' + thRow + '</tr></thead><tbody>' + bodyRows + '</tbody></table>'
+      + confNote
+      + '</div>';
+  }
+
+  function buildAdvancedStatsHtml() {
+    return '<div class="profile-block">'
+      + '<h4>Advanced Stats — TBD</h4>'
+      + '<div class="small muted">Derived / calculated advanced metrics will live here — weighted opportunity (e.g. a 1-yd carry worth more than a 50-yd carry), expected fantasy points (xFP), fantasy points over expected (FPOE), WOPR, ADOT, snap share, etc. See <code>docs/nfl_advanced_stats_plan.md</code> §"Future enhancements".</div>'
+      + '</div>';
+  }
+
+  function buildStatsPanelHtml(bundle, ctx, pid, name) {
+    var scoringHtml = buildScoringStatsHtml(bundle, ctx, pid, name);
+    var rawHtml = buildRawStatsHtml(bundle);
+    var advHtml = buildAdvancedStatsHtml();
+    return '<div class="upm-stats-view-switch" style="display:flex; gap:6px; margin-bottom:10px; flex-wrap:wrap;">'
+      + '<button type="button" class="rdh-chip" data-stats-view="scoring" aria-pressed="true">Scoring (MFL)</button>'
+      + '<button type="button" class="rdh-chip" data-stats-view="raw" aria-pressed="false">Raw Stats</button>'
+      + '<button type="button" class="rdh-chip" data-stats-view="advanced" aria-pressed="false">Advanced</button>'
+      + '</div>'
+      + '<div data-stats-body="scoring">' + scoringHtml + '</div>'
+      + '<div data-stats-body="raw" hidden>' + rawHtml + '</div>'
+      + '<div data-stats-body="advanced" hidden>' + advHtml + '</div>';
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // GAME LOG TAB — Scoring + Raw views, season-dropdown selector
+  // ─────────────────────────────────────────────────────────────────────────
+  function buildGameLogPanelHtml(bundle) {
+    var glScoringSeasons = bundle && bundle.weekly_by_season ? Object.keys(bundle.weekly_by_season) : [];
+    var glRawSeasons = bundle && bundle.nfl_weekly_by_season ? Object.keys(bundle.nfl_weekly_by_season) : [];
+    var seasons = glScoringSeasons.length ? glScoringSeasons : glRawSeasons;
+    if (!seasons.length) {
+      return '<p class="small muted">No weekly data available.</p>';
+    }
+    seasons = seasons.slice().sort(function (a, b) { return Number(b) - Number(a); });
+    var opts = seasons.map(function (s) { return '<option value="' + s + '">' + s + '</option>'; }).join("");
+    return '<div class="profile-block">'
+      + '<h4>Game Log — Every Game, Season-by-Season</h4>'
+      + '<div style="display:flex; gap:6px; margin-bottom:10px;">'
+      + '<button type="button" class="rdh-chip" data-gamelog-view="scoring" aria-pressed="true">Scoring (MFL)</button>'
+      + '<button type="button" class="rdh-chip" data-gamelog-view="raw"     aria-pressed="false">Raw Stats (NFL)</button>'
+      + '</div>'
       + '<label style="font-size:11px; color:#8a97ad; display:inline-block; margin-bottom:8px;">Season '
-      + '<select id="upm-season-select" style="margin-left:6px; background:#1a2230; color:#e8edf5; border:1px solid #2a3446; border-radius:4px; padding:3px 6px;">'
-      + years.map(function (s) { return '<option value="' + s + '"' + (s === defaultYear ? " selected" : "") + '>' + s + '</option>'; }).join("")
-      + '</select></label>'
-      + '<div id="upm-game-log-body">'
-      + (tot ? ('<div class="small muted" style="margin-bottom:6px;">'
-          + tot + ' games · ' + starts + ' MFL starts · ' + pts.toFixed(1) + ' pts (' + (tot ? (pts / tot).toFixed(1) : "0.0") + ' ppg)'
-          + ' · Elite ' + elite + ' · Plus ' + plus + ' · Dud ' + dud
-          + '</div>'
-          + '<table class="rdh-table"><thead><tr>'
-          + '<th class="num">Wk</th><th class="num">Pts</th><th class="num">z</th><th>Week Tier</th><th>MFL Status</th><th>Roster</th><th class="num">Pos Rk</th>'
-          + '</tr></thead><tbody>' + rows + '</tbody></table>') : '<p class="small muted">No data for this season.</p>')
-      + '</div></div>';
+      + '<select id="profile-season-select" style="margin-left:6px; background:#1a2230; color:#e8edf5; border:1px solid #2a3446; border-radius:4px; padding:3px 6px;">'
+      + opts + '</select></label>'
+      + '<div id="profile-game-log"></div>'
+      + '</div>';
   }
 
-  // Hook season-select after Game Log render
-  function wireGameLogControls(body, bundle) {
-    var sel = body.querySelector("#upm-season-select");
-    var glBody = body.querySelector("#upm-game-log-body");
-    if (!sel || !glBody) return;
-    var byYear = (bundle && bundle.weekly_by_season) || {};
-    var weekTierClass = function (t) { return t === "Elite" ? "Smash" : t === "Plus" ? "Hit" : t === "Neutral" ? "Contrib" : "Bust"; };
-    sel.addEventListener("change", function () {
-      var weeks = (byYear[sel.value] || []).slice().sort(function (a, b) { return a.week - b.week; });
-      if (!weeks.length) { glBody.innerHTML = '<p class="small muted">No data for this season.</p>'; return; }
-      var starts = weeks.filter(function (w) { return w.status === "starter"; }).length;
-      var elite = weeks.filter(function (w) { return w.week_tier === "Elite"; }).length;
-      var plus = weeks.filter(function (w) { return w.week_tier === "Plus"; }).length;
-      var dud = weeks.filter(function (w) { return w.week_tier === "Dud"; }).length;
-      var tot = weeks.length;
-      var pts = weeks.reduce(function (s, w) { return s + (w.score || 0); }, 0);
-      var rows = weeks.map(function (w) {
-        var playoffTag = w.is_reg === 0 ? ' <span class="small" style="color:#5b8dff;font-weight:600;">P</span>' : "";
-        return '<tr' + (w.is_reg === 0 ? ' style="background:rgba(255,158,77,0.06);"' : "") + '>'
-          + '<td class="num">' + w.week + playoffTag + '</td>'
-          + '<td class="num">' + (w.score != null ? w.score.toFixed(1) : "—") + '</td>'
-          + '<td class="num">' + (w.z_score != null ? (w.z_score > 0 ? "+" : "") + w.z_score.toFixed(2) : "—") + '</td>'
-          + '<td>' + (w.week_tier ? '<span class="tier ' + weekTierClass(w.week_tier) + '">' + w.week_tier + '</span>' : "—") + '</td>'
-          + '<td>' + escapeHtml(w.status || "") + '</td>'
-          + '<td class="small">' + escapeHtml(w.roster_franchise_name || "") + '</td>'
-          + '<td class="num">' + (w.pos_rank || "—") + '</td>'
-          + '</tr>';
-      }).join("");
-      glBody.innerHTML = '<div class="small muted" style="margin-bottom:6px;">'
-        + tot + ' games · ' + starts + ' MFL starts · ' + pts.toFixed(1) + ' pts (' + (tot ? (pts / tot).toFixed(1) : "0.0") + ' ppg)'
-        + ' · Elite ' + elite + ' · Plus ' + plus + ' · Dud ' + dud
-        + '</div><table class="rdh-table"><thead><tr>'
-        + '<th class="num">Wk</th><th class="num">Pts</th><th class="num">z</th><th>Week Tier</th><th>MFL Status</th><th>Roster</th><th class="num">Pos Rk</th>'
-        + '</tr></thead><tbody>' + rows + '</tbody></table>';
-    });
-  }
+  // Per-pos-group weekly templates (Game Log Raw view).
+  var GL_TMPL = {
+    idp: { label: "IDP", snap: "def", cols: [
+      { label: "Tkl",   key: "def_tackles_solo" },
+      { label: "Ast",   key: "def_tackles_ast" },
+      { label: "TFL",   key: "def_tfl" },
+      { label: "FF",    key: "def_ff" },
+      { label: "FR",    key: "def_fr" },
+      { label: "Sk",    key: "def_sacks", format: "dec1" },
+      { label: "PD",    key: "def_pass_def" },
+      { label: "Int",   key: "def_ints" },
+      { label: "DefTD", key: "def_tds" }
+    ]},
+    qb: { label: "QB", snap: "off", cols: [
+      { label: "RuAtt", key: "rush_att" },
+      { label: "RuYd",  key: "rush_yds" },
+      { label: "RuTD",  key: "rush_tds" },
+      { label: "Fum",   key: "rush_fumbles" },
+      { label: "FumL",  key: "rush_fumbles_lost" },
+      { label: "Att",   key: "pass_att" },
+      { label: "Cmp",   key: "pass_cmp" },
+      { label: "Cmp%",  compute: function (r) { return r.pass_att ? r.pass_cmp / r.pass_att : null; }, format: "pct" },
+      { label: "PaYd",  key: "pass_yds" },
+      { label: "PaTD",  key: "pass_tds" },
+      { label: "Int",   key: "pass_ints" },
+      { label: "Drops", key: "passing_drops", title: "Receiver drops on this QB's throws (PFR, 2018+)" }
+    ]},
+    skill: { label: "RB / WR / TE", snap: "off", cols: [
+      { label: "Tgt",   key: "targets" },
+      { label: "Rec",   key: "receptions" },
+      { label: "RecYd", key: "rec_yds" },
+      { label: "RecTD", key: "rec_tds" },
+      { label: "Y/T",   compute: function (r) { return r.targets ? r.rec_yds / r.targets : null; }, format: "dec2" },
+      { label: "Drops", key: "receiving_drops", title: "Dropped passes (PFR, 2018+)" },
+      { label: "BrTkl", compute: function (r) { return (r.receiving_broken_tackles || 0) + (r.rushing_broken_tackles || 0); },
+        title: "Broken tackles combined — receiving + rushing (PFR, 2018+)" },
+      { label: "RuAtt", key: "rush_att" },
+      { label: "RuYd",  key: "rush_yds" },
+      { label: "YBC/A", compute: function (r) { return r.rush_att ? (r.rushing_yards_before_contact || 0) / r.rush_att : null; }, format: "dec2",
+        title: "Rushing yards before contact per attempt (PFR, 2018+)" },
+      { label: "YAC/A", compute: function (r) { return r.rush_att ? (r.rushing_yards_after_contact || 0) / r.rush_att : null; }, format: "dec2",
+        title: "Rushing yards after contact per attempt (PFR, 2018+)" },
+      { label: "RuTD",  key: "rush_tds" },
+      { label: "Fum",   key: "rush_fumbles" },
+      { label: "FumL",  key: "rush_fumbles_lost" }
+    ]},
+    kicker: { label: "Kicker", snap: null, cols: [
+      { label: "XPM",     key: "xp_made" },
+      { label: "XP Miss", compute: function (r) { return (r.xp_att || 0) - (r.xp_made || 0); } },
+      { label: "FGM",     key: "fg_made" },
+      { label: "FG Miss", compute: function (r) { return (r.fg_att || 0) - (r.fg_made || 0); } }
+    ]},
+    punter: { label: "Punter", snap: null, cols: [
+      { label: "Punts",   key: "punts" },
+      { label: "PuntYd",  key: "punt_yds" },
+      { label: "Net Avg", key: "punt_net_avg", format: "dec1" },
+      { label: "I20",     key: "punt_inside20" }
+    ]}
+  };
 
-  // ── News tab ─────────────────────────────────────────────────────────────
-  function renderNews(bundle, pid) {
-    var inj = bundle.injury || {};
-    var add = bundle.last_add || {};
-    var trades = bundle.trade_history || [];
+  // ─────────────────────────────────────────────────────────────────────────
+  // NEWS TAB
+  // ─────────────────────────────────────────────────────────────────────────
+  function buildNewsHtml(bundle) {
+    var inj = (bundle && bundle.injury) || {};
+    var add = (bundle && bundle.last_add) || {};
+    var trades = (bundle && bundle.trade_history) || [];
     var items = [];
     if (inj.status) {
       items.push('<div class="profile-block"><h4 style="color:#fbbf24">Injury · ' + escapeHtml(inj.status) + '</h4>'
@@ -774,7 +1112,9 @@
     return html;
   }
 
-  // ── Tab switching ────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────
+  // INTERACTIVITY WIRING
+  // ─────────────────────────────────────────────────────────────────────────
   function wireTabs(body) {
     var btns = body.querySelectorAll(".upm-view-switch button[data-upm-tab]");
     var panels = body.querySelectorAll(".upm-tab-panel[data-upm-panel]");
@@ -794,99 +1134,296 @@
     }
   }
 
-  // ── Main entry point ─────────────────────────────────────────────────────
+  function wireStatsToggle(body, bundle) {
+    var pref;
+    try {
+      var v = sessionStorage.getItem("upm.stats.view");
+      if (v === "basic") pref = "scoring";
+      else if (v === "advanced") pref = "raw";
+      else pref = v || "scoring";
+    } catch (e) { pref = "scoring"; }
+
+    var setView = function (view) {
+      var vbtns = body.querySelectorAll("[data-stats-view]");
+      var vbodies = body.querySelectorAll("[data-stats-body]");
+      for (var i = 0; i < vbtns.length; i++) {
+        vbtns[i].setAttribute("aria-pressed", vbtns[i].getAttribute("data-stats-view") === view ? "true" : "false");
+      }
+      for (var j = 0; j < vbodies.length; j++) {
+        if (vbodies[j].getAttribute("data-stats-body") === view) vbodies[j].removeAttribute("hidden");
+        else vbodies[j].setAttribute("hidden", "");
+      }
+    };
+    setView(pref);
+
+    var vbtns = body.querySelectorAll("[data-stats-view]");
+    for (var i = 0; i < vbtns.length; i++) {
+      (function (btn) {
+        btn.addEventListener("click", function () {
+          var view = btn.getAttribute("data-stats-view");
+          try { sessionStorage.setItem("upm.stats.view", view); } catch (e) {}
+          setView(view);
+        });
+      })(vbtns[i]);
+    }
+
+    // UPS Season / Full Season scope toggle inside Raw Stats — re-renders
+    // the raw panel in place.
+    var rebindRawScope = function () {
+      var sbtns = body.querySelectorAll("[data-raw-scope]");
+      for (var k = 0; k < sbtns.length; k++) {
+        (function (sbtn) {
+          sbtn.addEventListener("click", function () {
+            try { sessionStorage.setItem("upm.stats.scope", sbtn.getAttribute("data-raw-scope")); } catch (e) {}
+            var rawBody = body.querySelector("[data-stats-body='raw']");
+            if (rawBody) {
+              rawBody.innerHTML = buildRawStatsHtml(bundle);
+              rebindRawScope();
+            }
+          });
+        })(sbtns[k]);
+      }
+    };
+    rebindRawScope();
+  }
+
+  function wireWindowSelector(body, bundle) {
+    var winSel = body.querySelector("#profile-window-select");
+    var winSummary = body.querySelector("#profile-window-summary");
+    if (!winSel || !winSummary) return;
+    var renderWindow = function (windowVal) {
+      var all = (bundle && Array.isArray(bundle.weekly)) ? bundle.weekly : [];
+      if (!all.length) { winSummary.setAttribute("hidden", ""); return; }
+      var seasonMax = 0;
+      for (var i = 0; i < all.length; i++) seasonMax = Math.max(seasonMax, all[i].season || 0);
+      var windowWeeks;
+      if (windowVal === "season") {
+        windowWeeks = all.filter(function (w) { return w.season === seasonMax; });
+      } else {
+        var n = parseInt(windowVal, 10);
+        windowWeeks = all.slice().sort(function (a, b) { return (b.season - a.season) || (b.week - a.week); }).slice(0, n);
+      }
+      if (!windowWeeks.length) { winSummary.setAttribute("hidden", ""); return; }
+      var tot = windowWeeks.length;
+      var pts = 0, elite = 0, plus = 0, dud = 0, zSum = 0;
+      windowWeeks.forEach(function (w) {
+        pts += (w.score || 0);
+        if (w.week_tier === "Elite") elite++;
+        if (w.week_tier === "Plus") plus++;
+        if (w.week_tier === "Dud") dud++;
+        zSum += (w.z_score || 0);
+      });
+      var meanZ = tot ? zSum / tot : 0;
+      var ppg = tot ? pts / tot : 0;
+      winSummary.removeAttribute("hidden");
+      winSummary.innerHTML = '<div><span class="lbl">Games</span><div class="val">' + tot + '</div></div>'
+        + '<div><span class="lbl">PPG</span><div class="val">' + ppg.toFixed(1) + '</div></div>'
+        + '<div><span class="lbl">Elite%</span><div class="val" style="color:#10b981">' + (elite/tot*100).toFixed(0) + '%</div></div>'
+        + '<div><span class="lbl">Plus%</span><div class="val" style="color:#3b82f6">' + (plus/tot*100).toFixed(0) + '%</div></div>'
+        + '<div><span class="lbl">Dud%</span><div class="val" style="color:#ef4444">' + (dud/tot*100).toFixed(0) + '%</div></div>'
+        + '<div><span class="lbl">Mean z</span><div class="val">' + (meanZ >= 0 ? "+" : "") + meanZ.toFixed(2) + '</div></div>';
+    };
+    winSel.addEventListener("change", function (e) { renderWindow(e.target.value); });
+    renderWindow("season");
+  }
+
+  function wireGameLog(body, bundle) {
+    var seasonSel = body.querySelector("#profile-season-select");
+    var logEl = body.querySelector("#profile-game-log");
+    if (!seasonSel || !logEl) return;
+
+    var weekTierClass = function (t) {
+      return t === "Elite" ? "Smash" : t === "Plus" ? "Hit" : t === "Neutral" ? "Contrib" : "Bust";
+    };
+
+    var renderScoring = function (seasonVal) {
+      var weeks = ((bundle && bundle.weekly_by_season) || {})[seasonVal] || [];
+      if (!weeks.length) {
+        logEl.innerHTML = '<p class="small muted">No MFL weekly data for this season.</p>';
+        return;
+      }
+      var sorted = weeks.slice().sort(function (a, b) { return a.week - b.week; });
+      var starts = 0, elite = 0, plus = 0, dud = 0, pts = 0;
+      sorted.forEach(function (w) {
+        if (w.status === "starter") starts++;
+        if (w.week_tier === "Elite") elite++;
+        if (w.week_tier === "Plus") plus++;
+        if (w.week_tier === "Dud") dud++;
+        pts += (w.score || 0);
+      });
+      var tot = sorted.length;
+      var rows = sorted.map(function (w) {
+        var playoffTag = w.is_reg === 0 ? ' <span class="small" style="color:#5b8dff;font-weight:600;" title="Playoffs">P</span>' : "";
+        return '<tr' + (w.is_reg === 0 ? ' style="background:rgba(255,158,77,0.06);"' : "") + '>'
+          + '<td class="num">' + w.week + playoffTag + '</td>'
+          + '<td class="num">' + (w.score != null ? w.score.toFixed(1) : "—") + '</td>'
+          + '<td class="num">' + (w.z_score != null ? (w.z_score > 0 ? "+" : "") + w.z_score.toFixed(2) : "—") + '</td>'
+          + '<td>' + (w.week_tier ? '<span class="tier ' + weekTierClass(w.week_tier) + '">' + w.week_tier + '</span>' : "—") + '</td>'
+          + '<td>' + escapeHtml(w.status || "") + '</td>'
+          + '<td class="small">' + escapeHtml(w.roster_franchise_name || "") + '</td>'
+          + '<td class="num">' + (w.pos_rank || "—") + '</td>'
+          + '</tr>';
+      }).join("");
+      logEl.innerHTML = '<div class="small muted" style="margin-bottom:6px;">'
+        + tot + ' games · ' + starts + ' MFL starts · ' + pts.toFixed(1) + ' pts (' + (pts/tot).toFixed(1) + ' ppg)'
+        + ' · Elite ' + elite + ' (' + (elite/tot*100).toFixed(0) + '%) · Plus ' + plus + ' (' + (plus/tot*100).toFixed(0) + '%) · Dud ' + dud + ' (' + (dud/tot*100).toFixed(0) + '%)'
+        + '</div>'
+        + '<table class="rdh-table"><thead><tr>'
+        + '<th class="num">Wk</th><th class="num">Pts</th><th class="num">z</th><th>Week Tier</th><th>MFL Status</th><th class="small">Team</th><th class="num">Pos Rk</th>'
+        + '</tr></thead><tbody>' + rows + '</tbody></table>';
+    };
+
+    var renderRaw = function (seasonVal) {
+      var weeks = ((bundle && bundle.nfl_weekly_by_season) || {})[seasonVal] || [];
+      if (!weeks.length) {
+        logEl.innerHTML = '<p class="small muted">No NFL weekly data for this season.</p>';
+        return;
+      }
+      var sorted = weeks.slice().sort(function (a, b) { return a.week - b.week; });
+      var pg = detectPosGroup(bundle);
+      var tmpl = GL_TMPL[pg] || GL_TMPL.skill;
+      var snapBy = (bundle && bundle.nfl_snaps_by_week) || {};
+      var header = '<th class="num">Wk</th><th>Team</th><th>Opp</th>';
+      if (tmpl.snap) header += '<th class="num">Snaps</th><th class="num">Snap%</th>';
+      for (var hi = 0; hi < tmpl.cols.length; hi++) {
+        var col = tmpl.cols[hi];
+        header += '<th class="num"' + (col.title ? ' title="' + col.title.replace(/"/g, "&quot;") + '"' : "") + '>' + col.label + '</th>';
+      }
+      var rows = sorted.map(function (w) {
+        var snapRow = snapBy[w.season + "-" + w.week] || {};
+        var snapCount = tmpl.snap === "def" ? snapRow.def_snaps : tmpl.snap === "off" ? snapRow.off_snaps : null;
+        var snapPct   = tmpl.snap === "def" ? snapRow.def_snap_pct : tmpl.snap === "off" ? snapRow.off_snap_pct : null;
+        var cells = '<td class="num">' + w.week + '</td><td>' + escapeHtml(w.team || "") + '</td><td>' + escapeHtml(w.opponent || "") + '</td>';
+        if (tmpl.snap) {
+          cells += rawFormatCell(snapCount, "int");
+          cells += rawFormatCell(snapPct, "pct0");
+        }
+        for (var ci = 0; ci < tmpl.cols.length; ci++) {
+          var c2 = tmpl.cols[ci];
+          var v = c2.compute ? c2.compute(w) : w[c2.key];
+          cells += rawFormatCell(v, c2.format || "int");
+        }
+        return '<tr>' + cells + '</tr>';
+      }).join("");
+      logEl.innerHTML = '<div class="small muted" style="margin-bottom:6px;">'
+        + 'Template: <strong>' + tmpl.label + '</strong>. ' + sorted.length + ' games · NFL weekly box score via nflverse.'
+        + '</div>'
+        + '<table class="rdh-table"><thead><tr>' + header + '</tr></thead><tbody>' + rows + '</tbody></table>';
+    };
+
+    var currentView = function () {
+      try { return sessionStorage.getItem("upm.gamelog.view") || "scoring"; } catch (e) { return "scoring"; }
+    };
+    var applyView = function () {
+      var v = currentView();
+      var vbtns = body.querySelectorAll("[data-gamelog-view]");
+      for (var i = 0; i < vbtns.length; i++) {
+        vbtns[i].setAttribute("aria-pressed", vbtns[i].getAttribute("data-gamelog-view") === v ? "true" : "false");
+      }
+      if (v === "raw") renderRaw(seasonSel.value);
+      else renderScoring(seasonSel.value);
+    };
+    var vbtns = body.querySelectorAll("[data-gamelog-view]");
+    for (var i = 0; i < vbtns.length; i++) {
+      (function (btn) {
+        btn.addEventListener("click", function () {
+          try { sessionStorage.setItem("upm.gamelog.view", btn.getAttribute("data-gamelog-view")); } catch (e) {}
+          applyView();
+        });
+      })(vbtns[i]);
+    }
+    seasonSel.addEventListener("change", applyView);
+    applyView();
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // MAIN ENTRY POINT
+  // ─────────────────────────────────────────────────────────────────────────
   function openPlayerProfile(pid, ctx) {
     ctx = ctx || {};
     if (!pid) return;
 
-    // Resolve name + pos for header eagerly from ctx data
+    // Resolve name + pos for header eagerly from ctx data.
     var name = "Player #" + pid;
     var pos = "";
     var nflTeam = "";
-    if (ctx.prospects) {
-      var arr = ctx.prospects.prospects || ctx.prospects;
-      if (Array.isArray(arr)) {
-        for (var i = 0; i < arr.length; i++) {
-          if (String(arr[i].player_id) === String(pid)) {
-            name = arr[i].name || name;
-            pos = arr[i].position || "";
-            nflTeam = arr[i].nfl_team || "";
-            break;
-          }
-        }
-      }
+    var prospectRow = lookupProspect(pid, ctx);
+    if (prospectRow.player_id) {
+      name = prospectRow.name || name;
+      pos = prospectRow.position || "";
+      nflTeam = prospectRow.nfl_team || "";
     }
-    if (ctx.history && Array.isArray(ctx.history.picks)) {
-      for (var j = 0; j < ctx.history.picks.length; j++) {
-        if (String(ctx.history.picks[j].player_id) === String(pid)) {
-          name = ctx.history.picks[j].player_name || name;
-          pos = ctx.history.picks[j].position || pos;
-          break;
-        }
-      }
+    var histPick = lookupHistPick(pid, ctx);
+    if (histPick.player_id) {
+      name = histPick.player_name || name;
+      pos = histPick.position || pos;
     }
     if (ctx.playerInfo) {
       name = ctx.playerInfo.name || name;
       pos = ctx.playerInfo.position || pos;
       nflTeam = ctx.playerInfo.team || nflTeam;
     }
-    pos = posCombined(pos);
+    var posDisplay = posCombined(pos);
 
-    // Eager render: skeleton with loading state, then fill once the bundle arrives.
     var header = '<h3>' + escapeHtml(name)
-      + ' <span class="small muted" style="font-weight:400">' + escapeHtml(pos)
+      + ' <span class="small muted" style="font-weight:400">' + escapeHtml(posDisplay)
       + (nflTeam ? ' · ' + escapeHtml(nflTeam) : "") + '</span></h3>';
-    var body = openModalHtml(header
+    var bodyEl = openModalHtml(header
       + '<div id="upm-profile-body"><p class="small muted" style="padding:30px; text-align:center;">Fetching profile from MFL…</p></div>'
       + '<div class="actions"><button class="btn secondary" id="upm-close-btn">Close</button></div>');
 
-    var closeBtn = body.querySelector("#upm-close-btn");
+    var closeBtn = bodyEl.querySelector("#upm-close-btn");
     if (closeBtn) closeBtn.addEventListener("click", closeModal);
 
     fetchBundle(pid, ctx).then(function (bundle) {
       bundle = bundle || {};
-      var bodyEl = document.getElementById("upm-profile-body");
-      if (!bodyEl) return;  // modal closed before bundle arrived
+      var bodyContent = document.getElementById("upm-profile-body");
+      if (!bodyContent) return;
 
       var bundleError = !bundle.profile && !bundle.career_summary && !bundle.contract_history && !bundle.weekly_by_season;
       var errorBanner = bundleError
         ? '<div class="small muted" style="margin-bottom:8px; padding:6px 8px; background:#1a2230; border-radius:4px;">Live MFL profile data unavailable in this view — showing local data only.</div>'
         : "";
 
-      var bioHtml = renderBio(bundle, ctx, pid, name);
-      var statsHtml = renderStats(bundle, ctx);
-      var gameLogHtml = renderGameLog(bundle);
-      var newsHtml = renderNews(bundle, pid);
-
       var pp = (bundle.profile && bundle.profile.playerProfile && bundle.profile.playerProfile.player) || {};
       var career = bundle.career_summary || [];
       var showCollege = showCollegePanels(pp, ctx);
       var isFreshRookie = showCollege && !career.length;
 
+      var bioHtml = buildBioHtml(bundle, ctx, pid, name, nflTeam);
+
       // Fresh rookies: Bio-only (Stats/Game Log/News are empty noise).
       if (isFreshRookie) {
-        bodyEl.innerHTML = errorBanner + bioHtml
+        bodyContent.innerHTML = errorBanner + bioHtml
           + '<div class="small muted" style="margin-top:10px; text-align:right;">MFL ID: ' + escapeHtml(String(pid)) + '</div>';
-      } else {
-        bodyEl.innerHTML = errorBanner
-          + '<nav class="upm-view-switch" role="tablist">'
-          + '<button type="button" role="tab" aria-selected="true"  data-upm-tab="bio">Bio</button>'
-          + '<button type="button" role="tab" aria-selected="false" data-upm-tab="stats">Stats</button>'
-          + '<button type="button" role="tab" aria-selected="false" data-upm-tab="gamelog">Game Log</button>'
-          + '<button type="button" role="tab" aria-selected="false" data-upm-tab="news">News</button>'
-          + '</nav>'
-          + '<div class="upm-tab-panel" data-upm-panel="bio">' + bioHtml + '</div>'
-          + '<div class="upm-tab-panel" data-upm-panel="stats" hidden>' + statsHtml + '</div>'
-          + '<div class="upm-tab-panel" data-upm-panel="gamelog" hidden>' + gameLogHtml + '</div>'
-          + '<div class="upm-tab-panel" data-upm-panel="news" hidden>' + newsHtml + '</div>'
-          + '<div class="small muted" style="margin-top:10px; text-align:right;">MFL ID: ' + escapeHtml(String(pid)) + '</div>';
-        wireTabs(bodyEl);
-        wireGameLogControls(bodyEl, bundle);
+        return;
       }
+
+      var statsHtml = buildStatsPanelHtml(bundle, ctx, pid, name);
+      var gameLogHtml = buildGameLogPanelHtml(bundle);
+      var newsHtml = buildNewsHtml(bundle);
+
+      bodyContent.innerHTML = errorBanner
+        + '<nav class="upm-view-switch" role="tablist" aria-label="Player profile sections">'
+        + '<button type="button" role="tab" aria-selected="true"  data-upm-tab="bio">Bio</button>'
+        + '<button type="button" role="tab" aria-selected="false" data-upm-tab="stats">Stats</button>'
+        + '<button type="button" role="tab" aria-selected="false" data-upm-tab="gamelog">Game Log</button>'
+        + '<button type="button" role="tab" aria-selected="false" data-upm-tab="news">News</button>'
+        + '</nav>'
+        + '<div class="upm-tab-panel" data-upm-panel="bio">' + bioHtml + '</div>'
+        + '<div class="upm-tab-panel" data-upm-panel="stats" hidden>' + statsHtml + '</div>'
+        + '<div class="upm-tab-panel" data-upm-panel="gamelog" hidden>' + gameLogHtml + '</div>'
+        + '<div class="upm-tab-panel" data-upm-panel="news" hidden>' + newsHtml + '</div>'
+        + '<div class="small muted" style="margin-top:10px; text-align:right;">MFL ID: ' + escapeHtml(String(pid)) + '</div>';
+
+      wireTabs(bodyContent);
+      wireStatsToggle(bodyContent, bundle);
+      wireWindowSelector(bodyContent, bundle);
+      wireGameLog(bodyContent, bundle);
     }).catch(function (err) {
-      var bodyEl = document.getElementById("upm-profile-body");
-      if (bodyEl) {
-        bodyEl.innerHTML = '<p class="small muted" style="padding:20px;">Profile lookup failed: '
+      var bodyContent = document.getElementById("upm-profile-body");
+      if (bodyContent) {
+        bodyContent.innerHTML = '<p class="small muted" style="padding:20px;">Profile lookup failed: '
           + escapeHtml(err && err.message ? err.message : String(err))
           + '<br><br>MFL ID: ' + escapeHtml(String(pid)) + '</p>';
       }
