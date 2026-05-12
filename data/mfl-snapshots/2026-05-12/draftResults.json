@@ -1,0 +1,590 @@
+{
+  "draftResults": {
+    "draftUnit": {
+      "draftPick": [
+        {
+          "comments": "[Pick imported from external source.] ",
+          "franchise": "0011",
+          "pick": "01",
+          "player": "",
+          "round": "01",
+          "timestamp": "1778547777"
+        },
+        {
+          "comments": "[Pick imported from external source.] ",
+          "franchise": "0012",
+          "pick": "02",
+          "player": "",
+          "round": "01",
+          "timestamp": "1778547777"
+        },
+        {
+          "comments": "[Pick imported from external source.] ",
+          "franchise": "0006",
+          "pick": "03",
+          "player": "",
+          "round": "01",
+          "timestamp": "1778547777"
+        },
+        {
+          "comments": "[Pick imported from external source.] ",
+          "franchise": "0008",
+          "pick": "04",
+          "player": "",
+          "round": "01",
+          "timestamp": "1778547777"
+        },
+        {
+          "comments": "[Pick imported from external source.] ",
+          "franchise": "0003",
+          "pick": "05",
+          "player": "",
+          "round": "01",
+          "timestamp": "1778547777"
+        },
+        {
+          "comments": "[Pick traded from CBP.\nPick imported from external source.] ",
+          "franchise": "0012",
+          "pick": "06",
+          "player": "",
+          "round": "01",
+          "timestamp": "1778547777"
+        },
+        {
+          "comments": "[Pick traded from Blake Bombers.\nPick imported from external source.] ",
+          "franchise": "0003",
+          "pick": "07",
+          "player": "",
+          "round": "01",
+          "timestamp": "1778547777"
+        },
+        {
+          "comments": "[Pick traded from L.A. Looks.\nPick imported from external source.] ",
+          "franchise": "0002",
+          "pick": "08",
+          "player": "",
+          "round": "01",
+          "timestamp": "1778547777"
+        },
+        {
+          "comments": "[Pick traded from C-Town Chivalry.\nPick imported from external source.] ",
+          "franchise": "0008",
+          "pick": "09",
+          "player": "",
+          "round": "01",
+          "timestamp": "1778547777"
+        },
+        {
+          "comments": "[Pick traded from HammerTime \u00f0\u009f\u0094\u00a8 \u00e2\u008f\u00b0.\nPick traded from Sex Manther.\nPick imported from external source.] ",
+          "franchise": "0010",
+          "pick": "10",
+          "player": "",
+          "round": "01",
+          "timestamp": "1778547777"
+        },
+        {
+          "comments": "[Pick traded from Sex Manther.\nPick imported from external source.] ",
+          "franchise": "0003",
+          "pick": "11",
+          "player": "",
+          "round": "01",
+          "timestamp": "1778547777"
+        },
+        {
+          "comments": "[Pick traded from Pure Greatness.\nPick imported from external source.] ",
+          "franchise": "0002",
+          "pick": "12",
+          "player": "",
+          "round": "01",
+          "timestamp": "1778547777"
+        },
+        {
+          "comments": "[Pick traded from Cleon Ca$h.\nPick imported from external source.] ",
+          "franchise": "0002",
+          "pick": "01",
+          "player": "",
+          "round": "02",
+          "timestamp": "1778547777"
+        },
+        {
+          "comments": "[Pick imported from external source.] ",
+          "franchise": "0012",
+          "pick": "02",
+          "player": "",
+          "round": "02",
+          "timestamp": "1778547777"
+        },
+        {
+          "comments": "[Pick imported from external source.] ",
+          "franchise": "0006",
+          "pick": "03",
+          "player": "",
+          "round": "02",
+          "timestamp": "1778547777"
+        },
+        {
+          "comments": "[Pick traded from Real Deal Creel.\nPick imported from external source.] ",
+          "franchise": "0010",
+          "pick": "04",
+          "player": "",
+          "round": "02",
+          "timestamp": "1778547777"
+        },
+        {
+          "comments": "[Pick imported from external source.] ",
+          "franchise": "0003",
+          "pick": "05",
+          "player": "",
+          "round": "02",
+          "timestamp": "1778547777"
+        },
+        {
+          "comments": "[Pick traded from CBP.\nPick imported from external source.] ",
+          "franchise": "0004",
+          "pick": "06",
+          "player": "",
+          "round": "02",
+          "timestamp": "1778547777"
+        },
+        {
+          "comments": "[Pick traded from Blake Bombers.\nPick imported from external source.] ",
+          "franchise": "0011",
+          "pick": "07",
+          "player": "",
+          "round": "02",
+          "timestamp": "1778547777"
+        },
+        {
+          "comments": "[Pick traded from L.A. Looks.\nPick imported from external source.] ",
+          "franchise": "0002",
+          "pick": "08",
+          "player": "",
+          "round": "02",
+          "timestamp": "1778547777"
+        },
+        {
+          "comments": "[Pick traded from C-Town Chivalry.\nPick imported from external source.] ",
+          "franchise": "0008",
+          "pick": "09",
+          "player": "",
+          "round": "02",
+          "timestamp": "1778547777"
+        },
+        {
+          "comments": "[Pick traded from HammerTime \u00f0\u009f\u0094\u00a8 \u00e2\u008f\u00b0.\nPick imported from external source.] ",
+          "franchise": "0003",
+          "pick": "10",
+          "player": "",
+          "round": "02",
+          "timestamp": "1778547777"
+        },
+        {
+          "comments": "[Pick traded from Sex Manther.\nPick imported from external source.] ",
+          "franchise": "0010",
+          "pick": "11",
+          "player": "",
+          "round": "02",
+          "timestamp": "1778547777"
+        },
+        {
+          "comments": "[Pick imported from external source.] ",
+          "franchise": "0004",
+          "pick": "12",
+          "player": "",
+          "round": "02",
+          "timestamp": "1778547777"
+        },
+        {
+          "comments": "[Pick traded from Cleon Ca$h.\nPick imported from external source.] ",
+          "franchise": "0010",
+          "pick": "01",
+          "player": "",
+          "round": "03",
+          "timestamp": "1778547777"
+        },
+        {
+          "comments": "[Pick imported from external source.] ",
+          "franchise": "0012",
+          "pick": "02",
+          "player": "",
+          "round": "03",
+          "timestamp": "1778547777"
+        },
+        {
+          "comments": "[Pick imported from external source.] ",
+          "franchise": "0006",
+          "pick": "03",
+          "player": "",
+          "round": "03",
+          "timestamp": "1778547777"
+        },
+        {
+          "comments": "[Pick traded from Real Deal Creel.\nPick traded from Sex Manther.\nPick imported from external source.] ",
+          "franchise": "0006",
+          "pick": "04",
+          "player": "",
+          "round": "03",
+          "timestamp": "1778547777"
+        },
+        {
+          "comments": "[Pick traded from Gride.\nPick imported from external source.] ",
+          "franchise": "0012",
+          "pick": "05",
+          "player": "",
+          "round": "03",
+          "timestamp": "1778547777"
+        },
+        {
+          "comments": "[Pick traded from CBP.\nPick traded from Sex Manther.\nPick imported from external source.] ",
+          "franchise": "0006",
+          "pick": "06",
+          "player": "",
+          "round": "03",
+          "timestamp": "1778547777"
+        },
+        {
+          "comments": "[Pick traded from Blake Bombers.\nPick imported from external source.] ",
+          "franchise": "0011",
+          "pick": "07",
+          "player": "",
+          "round": "03",
+          "timestamp": "1778547777"
+        },
+        {
+          "comments": "[Pick imported from external source.] ",
+          "franchise": "0001",
+          "pick": "08",
+          "player": "",
+          "round": "03",
+          "timestamp": "1778547777"
+        },
+        {
+          "comments": "[Pick traded from C-Town Chivalry.\nPick imported from external source.] ",
+          "franchise": "0008",
+          "pick": "09",
+          "player": "",
+          "round": "03",
+          "timestamp": "1778547777"
+        },
+        {
+          "comments": "[Pick traded from HammerTime \u00f0\u009f\u0094\u00a8 \u00e2\u008f\u00b0.\nPick imported from external source.] ",
+          "franchise": "0001",
+          "pick": "10",
+          "player": "",
+          "round": "03",
+          "timestamp": "1778547777"
+        },
+        {
+          "comments": "[Pick traded from Sex Manther.\nPick traded from The Long Haulers.\nPick imported from external source.] ",
+          "franchise": "0007",
+          "pick": "11",
+          "player": "",
+          "round": "03",
+          "timestamp": "1778547777"
+        },
+        {
+          "comments": "[Pick traded from Pure Greatness.\nPick imported from external source.] ",
+          "franchise": "0008",
+          "pick": "12",
+          "player": "",
+          "round": "03",
+          "timestamp": "1778547777"
+        },
+        {
+          "comments": "[Pick traded from Cleon Ca$h.\nPick imported from external source.] ",
+          "franchise": "0005",
+          "pick": "01",
+          "player": "",
+          "round": "04",
+          "timestamp": "1778547777"
+        },
+        {
+          "comments": "[Pick imported from external source.] ",
+          "franchise": "0012",
+          "pick": "02",
+          "player": "",
+          "round": "04",
+          "timestamp": "1778547777"
+        },
+        {
+          "comments": "[Pick traded from The Long Haulers.\nPick imported from external source.] ",
+          "franchise": "0002",
+          "pick": "03",
+          "player": "",
+          "round": "04",
+          "timestamp": "1778547777"
+        },
+        {
+          "comments": "[Pick traded from Real Deal Creel.\nPick traded from The Long Haulers.\nPick imported from external source.] ",
+          "franchise": "0007",
+          "pick": "04",
+          "player": "",
+          "round": "04",
+          "timestamp": "1778547777"
+        },
+        {
+          "comments": "[Pick traded from Gride.\nPick traded from The Long Haulers.\nPick imported from external source.] ",
+          "franchise": "0007",
+          "pick": "05",
+          "player": "",
+          "round": "04",
+          "timestamp": "1778547777"
+        },
+        {
+          "comments": "[Pick traded from CBP.\nPick imported from external source.] ",
+          "franchise": "0004",
+          "pick": "06",
+          "player": "",
+          "round": "04",
+          "timestamp": "1778547777"
+        },
+        {
+          "comments": "[Pick traded from Blake Bombers.\nPick traded from The Long Haulers.\nPick imported from external source.] ",
+          "franchise": "0007",
+          "pick": "07",
+          "player": "",
+          "round": "04",
+          "timestamp": "1778547777"
+        },
+        {
+          "comments": "[Pick traded from L.A. Looks.\nPick imported from external source.] ",
+          "franchise": "0005",
+          "pick": "08",
+          "player": "",
+          "round": "04",
+          "timestamp": "1778547777"
+        },
+        {
+          "comments": "[Pick imported from external source.] ",
+          "franchise": "0009",
+          "pick": "09",
+          "player": "",
+          "round": "04",
+          "timestamp": "1778547777"
+        },
+        {
+          "comments": "[Pick traded from HammerTime \u00f0\u009f\u0094\u00a8 \u00e2\u008f\u00b0.\nPick imported from external source.] ",
+          "franchise": "0011",
+          "pick": "10",
+          "player": "",
+          "round": "04",
+          "timestamp": "1778547777"
+        },
+        {
+          "comments": "[Pick traded from Sex Manther.\nPick imported from external source.] ",
+          "franchise": "0011",
+          "pick": "11",
+          "player": "",
+          "round": "04",
+          "timestamp": "1778547777"
+        },
+        {
+          "comments": "[Pick imported from external source.] ",
+          "franchise": "0004",
+          "pick": "12",
+          "player": "",
+          "round": "04",
+          "timestamp": "1778547777"
+        },
+        {
+          "comments": "[Pick traded from Cleon Ca$h.\nPick imported from external source.] ",
+          "franchise": "0005",
+          "pick": "01",
+          "player": "",
+          "round": "05",
+          "timestamp": "1778547777"
+        },
+        {
+          "comments": "[Pick traded from Hawks.\nPick imported from external source.] ",
+          "franchise": "0004",
+          "pick": "02",
+          "player": "",
+          "round": "05",
+          "timestamp": "1778547777"
+        },
+        {
+          "comments": "[Pick traded from The Long Haulers.\nPick imported from external source.] ",
+          "franchise": "0001",
+          "pick": "03",
+          "player": "",
+          "round": "05",
+          "timestamp": "1778547777"
+        },
+        {
+          "comments": "[Pick traded from Real Deal Creel.\nPick imported from external source.] ",
+          "franchise": "0004",
+          "pick": "04",
+          "player": "",
+          "round": "05",
+          "timestamp": "1778547777"
+        },
+        {
+          "comments": "[Pick traded from Gride.\nPick imported from external source.] ",
+          "franchise": "0007",
+          "pick": "05",
+          "player": "",
+          "round": "05",
+          "timestamp": "1778547777"
+        },
+        {
+          "comments": "[Pick traded from CBP.\nPick imported from external source.] ",
+          "franchise": "0001",
+          "pick": "06",
+          "player": "",
+          "round": "05",
+          "timestamp": "1778547777"
+        },
+        {
+          "comments": "[Pick traded from Blake Bombers.\nPick traded from The Long Haulers.\nPick imported from external source.] ",
+          "franchise": "0007",
+          "pick": "07",
+          "player": "",
+          "round": "05",
+          "timestamp": "1778547777"
+        },
+        {
+          "comments": "[Pick traded from L.A. Looks.\nPick imported from external source.] ",
+          "franchise": "0006",
+          "pick": "08",
+          "player": "",
+          "round": "05",
+          "timestamp": "1778547777"
+        },
+        {
+          "comments": "[Pick traded from C-Town Chivalry.\nPick imported from external source.] ",
+          "franchise": "0003",
+          "pick": "09",
+          "player": "",
+          "round": "05",
+          "timestamp": "1778547777"
+        },
+        {
+          "comments": "[Pick traded from HammerTime \u00f0\u009f\u0094\u00a8 \u00e2\u008f\u00b0.\nPick imported from external source.] ",
+          "franchise": "0010",
+          "pick": "10",
+          "player": "",
+          "round": "05",
+          "timestamp": "1778547777"
+        },
+        {
+          "comments": "[Pick traded from Sex Manther.\nPick imported from external source.] ",
+          "franchise": "0005",
+          "pick": "11",
+          "player": "",
+          "round": "05",
+          "timestamp": "1778547777"
+        },
+        {
+          "comments": "[Pick traded from Pure Greatness.\nPick imported from external source.] ",
+          "franchise": "0011",
+          "pick": "12",
+          "player": "",
+          "round": "05",
+          "timestamp": "1778547777"
+        },
+        {
+          "comments": "[Pick imported from external source.] ",
+          "franchise": "0001",
+          "pick": "01",
+          "player": "",
+          "round": "06",
+          "timestamp": "1778547777"
+        },
+        {
+          "comments": "[Pick imported from external source.] ",
+          "franchise": "0002",
+          "pick": "02",
+          "player": "",
+          "round": "06",
+          "timestamp": "1778547777"
+        },
+        {
+          "comments": "[Pick imported from external source.] ",
+          "franchise": "0003",
+          "pick": "03",
+          "player": "",
+          "round": "06",
+          "timestamp": "1778547777"
+        },
+        {
+          "comments": "[Pick imported from external source.] ",
+          "franchise": "0004",
+          "pick": "04",
+          "player": "",
+          "round": "06",
+          "timestamp": "1778547777"
+        },
+        {
+          "comments": "[Pick imported from external source.] ",
+          "franchise": "0005",
+          "pick": "05",
+          "player": "",
+          "round": "06",
+          "timestamp": "1778547777"
+        },
+        {
+          "comments": "[Pick imported from external source.] ",
+          "franchise": "0006",
+          "pick": "06",
+          "player": "",
+          "round": "06",
+          "timestamp": "1778547777"
+        },
+        {
+          "comments": "[Pick imported from external source.] ",
+          "franchise": "0007",
+          "pick": "07",
+          "player": "",
+          "round": "06",
+          "timestamp": "1778547777"
+        },
+        {
+          "comments": "[Pick imported from external source.] ",
+          "franchise": "0008",
+          "pick": "08",
+          "player": "",
+          "round": "06",
+          "timestamp": "1778547777"
+        },
+        {
+          "comments": "[Pick imported from external source.] ",
+          "franchise": "0009",
+          "pick": "09",
+          "player": "",
+          "round": "06",
+          "timestamp": "1778547777"
+        },
+        {
+          "comments": "[Pick imported from external source.] ",
+          "franchise": "0010",
+          "pick": "10",
+          "player": "",
+          "round": "06",
+          "timestamp": "1778547777"
+        },
+        {
+          "comments": "[Pick imported from external source.] ",
+          "franchise": "0011",
+          "pick": "11",
+          "player": "",
+          "round": "06",
+          "timestamp": "1778547777"
+        },
+        {
+          "comments": "[Pick imported from external source.] ",
+          "franchise": "0012",
+          "pick": "12",
+          "player": "",
+          "round": "06",
+          "timestamp": "1778547777"
+        }
+      ],
+      "draftType": "SAME",
+      "round1DraftOrder": "0011,0012,0006,0008,0003,0012,0003,0002,0008,0010,0003,0002,",
+      "static_url": "https://www48.myfantasyleague.com/fflnetdynamic2026/74598_LEAGUE_draft_results.xml",
+      "unit": "LEAGUE"
+    }
+  },
+  "encoding": "utf-8",
+  "version": "1.0"
+}
