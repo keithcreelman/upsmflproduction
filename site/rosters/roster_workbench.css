@@ -48,6 +48,10 @@
 .rwb-shell {
   display: grid;
   gap: 12px;
+  /* Bottom padding ensures the LAST card always has breathing room — MFL's
+     parent-page footer can otherwise clip flush content (especially the
+     game-log table's last row). */
+  padding-bottom: 80px;
 }
 
 .rwb-hero {

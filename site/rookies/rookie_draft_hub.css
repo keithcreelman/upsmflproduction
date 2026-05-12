@@ -60,7 +60,10 @@ nav.rdh-tabs button.active {
   border-bottom-color: var(--accent);
 }
 
-main.rdh-main { padding: 20px 24px; max-width: 1400px; margin: 0 auto; }
+/* Bottom padding ensures the LAST card always has breathing room above
+   the viewport edge — critical inside MFL's iframed HPM where the parent
+   page can clip flush content if iframe sizing races content render. */
+main.rdh-main { padding: 20px 24px 80px; max-width: 1400px; margin: 0 auto; }
 
 .rdh-section { display: none; }
 .rdh-section.active { display: block; }
@@ -1622,25 +1625,28 @@ tr td.num[style*="var(--err)"] { color: var(--err) !important; }
   /* On-the-clock — keep submit button prominent (still 44px hit target) */
   .on-clock-panel #submit-pick-btn { font-size: 13px; min-height: 44px; }
 
-  /* Trade modal — already collapses to 1 col below 900px; force fullscreen */
+  /* Trade modal — already collapses to 1 col below 900px; force fullscreen.
+     100vh on Safari includes the URL bar — content extending to 100vh
+     gets clipped behind the bar at the bottom. 100dvh = dynamic viewport,
+     accounts for browser chrome correctly. */
   .rdh-modal.rdh-modal-trade {
     width: 100%;
     max-width: 100%;
-    max-height: 100vh;
+    max-height: 100dvh;
     border-radius: 0;
   }
-  .trade-modal-shell { height: 100vh; }
+  .trade-modal-shell { height: 100dvh; }
   .trade-modal-header { padding: 10px 14px; }
   .trade-modal-footer { padding: 10px 14px; }
   .trade-pickers-body { padding: 10px 14px; }
   .trade-baskets-strip { padding: 8px 14px; }
   .trade-actions .btn { min-width: 100px; padding: 9px 12px; font-size: 12px; }
 
-  /* Player profile modal — also full-screen */
+  /* Player profile modal — also full-screen, dynamic viewport. */
   .rdh-modal {
     width: 100%;
     max-width: 100%;
-    max-height: 100vh;
+    max-height: 100dvh;
     border-radius: 0;
     padding: 14px 14px 80px;
   }

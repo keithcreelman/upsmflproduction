@@ -124,10 +124,30 @@
       // page URL. Loader sees it; iframe doesn't.
       'window.UPS_DRAFT_HUB_PARENT_URL=' + JSON.stringify(ctx.parentUrl || "") + ';' +
       // Post height back to host for auto-resize.
+      // Inner-iframe height beacon. The OUTER MFL page sets the iframe
+      // min-height from these messages. Without this the iframe can be
+      // taller than its content (empty space below) OR shorter than its
+      // content (content clipped, user can't scroll to the bottom of
+      // long tabs like Future Picks or game logs).
+      //
+      // Triggers (priority order):
+      //   1. window.load — initial sizing
+      //   2. window.resize — viewport changes
+      //   3. ResizeObserver on <html> — DOM mutations
+      //   4. Tab clicks — immediate re-post so tab switches don't wait
+      //      for the next setInterval tick (was 1.5s lag, enough to
+      //      clip the visible content on a fast tab change)
+      //   5. setInterval 600ms — safety net (was 1500ms; tightened to
+      //      catch async content like fetched table rows faster)
       '(function(){function post(){try{var h=Math.max(document.documentElement.scrollHeight,document.body?document.body.scrollHeight:0);parent.postMessage({type:"draft-hub-height",height:h},"*");}catch(e){}}' +
       'window.addEventListener("load",post);window.addEventListener("resize",post);' +
       'if(typeof ResizeObserver==="function"){try{new ResizeObserver(post).observe(document.documentElement);}catch(e){}}' +
-      'setInterval(post,1500);' +
+      // Tab nav click → re-post on the NEXT animation frame so the new
+      // section is laid out before we measure.
+      'document.addEventListener("click",function(e){var t=e.target&&e.target.closest&&e.target.closest("#rdh-tabs button[data-tab]");if(t){requestAnimationFrame(function(){requestAnimationFrame(post);});}},true);' +
+      // Paginator clicks (next/prev) — same idea, content changes height.
+      'document.addEventListener("click",function(e){var b=e.target&&e.target.closest&&e.target.closest("[data-page-action]");if(b){requestAnimationFrame(function(){requestAnimationFrame(post);});}},true);' +
+      'setInterval(post,600);' +
       '})();' +
       '<\/script>'
     );
