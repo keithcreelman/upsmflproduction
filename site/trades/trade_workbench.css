@@ -86,7 +86,9 @@ summary:focus-visible {
 .twb-shell {
   max-width: 1500px;
   margin: 0 auto;
-  padding: 1rem 1rem 2rem;
+  /* 5rem bottom padding so the last asset row / negotiation note isn't
+     flush against MFL's parent-page footer (was 2rem). */
+  padding: 1rem 1rem 5rem;
 }
 
 .twb-hero {

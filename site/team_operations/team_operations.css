@@ -29,7 +29,9 @@
   background: var(--tops-bg);
   border: 1px solid var(--tops-card-border);
   border-radius: 14px;
-  padding: 0.9rem 1rem 1.1rem;
+  /* Extra bottom padding so MFL's parent-page footer doesn't clip the last
+     card — especially the calendar / future picks lists. */
+  padding: 0.9rem 1rem 5rem;
   box-shadow: 0 10px 32px rgba(0, 0, 0, 0.35);
 }
 

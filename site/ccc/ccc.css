@@ -352,7 +352,9 @@
 /* ===== Main panel ===== */
 .ccc-main{
   margin-top:0.72rem;
-  padding:1rem;
+  /* Extra bottom padding so MFL's parent-page footer doesn't clip the
+     last contract row in long tables (was 1rem). */
+  padding:1rem 1rem 5rem;
   border-radius:var(--radius);
   background:var(--panel);
   border:1px solid var(--line);
