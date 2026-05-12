@@ -551,6 +551,39 @@
   margin-bottom: 4px;
 }
 
+/* News-item type badges (INJURY / DEPTH) — color-coded so the eye picks
+   out structured Sleeper data vs. ESPN article headlines. */
+.tops-news-type-badge {
+  display: inline-block;
+  padding: 1px 5px;
+  margin-right: 6px;
+  border-radius: 3px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  vertical-align: middle;
+}
+.tops-news-type-badge.is-status {
+  background: rgba(248, 113, 113, 0.18);
+  color: #fca5a5;
+  border: 1px solid rgba(248, 113, 113, 0.45);
+}
+.tops-news-type-badge.is-depth {
+  background: rgba(96, 165, 250, 0.18);
+  color: #93c5fd;
+  border: 1px solid rgba(96, 165, 250, 0.45);
+}
+.tops-profile-news-link {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 11px;
+  color: #fbbf24;
+  text-decoration: none;
+}
+.tops-profile-news-link:hover { text-decoration: underline; }
+.tops-profile-news-item.is-status { background: rgba(248, 113, 113, 0.04); padding-left: 8px; border-left: 2px solid rgba(248, 113, 113, 0.35); }
+.tops-profile-news-item.is-depth  { background: rgba(96, 165, 250, 0.04); padding-left: 8px; border-left: 2px solid rgba(96, 165, 250, 0.35); }
+
 /* Player profile modal — full-screen dim, centered card. Mobile sheet
    is full-screen (max-width:none). Esc / backdrop click both close. */
 .tops-profile-overlay {
