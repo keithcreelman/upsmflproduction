@@ -1845,6 +1845,19 @@
   // MFL sometimes injects message HTML with innerHTML, which makes <script> tags inert.
   // Loading the CCC embed loader from the header ensures it executes.
   (function () {
+    // ── ARCHIVED 2026-05-12 ─────────────────────────────────────────
+    // Contract Command Center retired. Source moved to
+    // site/_archived/2026-05-12/ccc/. Owners now submit
+    // extensions / restructures / tags via Roster Workbench (which
+    // posts to the same worker endpoints — /commish-contract-update,
+    // /offer-restructure, /offer-mym).
+    //
+    // We leave the rest of the IIFE in place (normalizer functions,
+    // mutation observers, etc.) so any future re-enable is a single
+    // line revert. The early-return below is the only behavior change.
+    // ────────────────────────────────────────────────────────────────
+    return;
+
     var CCC_HEADER_BUILD = "2026.02.28.2";
     if (window.__ups_ccc_header_autoload === CCC_HEADER_BUILD) return;
     window.__ups_ccc_header_autoload = CCC_HEADER_BUILD;
@@ -2755,6 +2768,15 @@
 <script>
   // Acquisition Hub embed helper for MESSAGE10.
   (function () {
+    // ── ARCHIVED 2026-05-12 ─────────────────────────────────────────
+    // Acquisition Hub retired. Source moved to
+    // site/_archived/2026-05-12/acquisition/. ERA + FA Auction +
+    // waivers won't run again before May 24; a clean Auction Hub
+    // will be designed post-draft per Keith. Worker /acquisition-hub/*
+    // routes remain (dormant) until they're audited for removal.
+    // ────────────────────────────────────────────────────────────────
+    return;
+
     var ACQ_HEADER_BUILD = "2026.03.11.1";
     if (window.__ups_acq_header_autoload === ACQ_HEADER_BUILD) return;
     window.__ups_acq_header_autoload = ACQ_HEADER_BUILD;
@@ -8592,6 +8614,65 @@
   }
   body#body_options_07 #MFLroster tr.newposition td.player:before {
     width: 0.45rem;
+  }
+
+  /* ─────────────────────────────────────────────────────────────────
+   * MFL native-page scroll-to-bottom defensive fix (added 2026-05-12)
+   *
+   * Owner reported: on native MFL pages (e.g., my_tickets, settings,
+   * options forms) the bottom action button (Submit Reply, Save, etc.)
+   * is hidden behind UPS-injected sticky chrome. Going full-screen
+   * makes the button visible — confirms it's a viewport / safe-area
+   * problem, not a stylesheet load failure.
+   *
+   * The May 11 fix in PR #60 added bottom padding to HUB shells
+   * (.rdh-main, .tops-shell, .rwb-shell, .twb-shell, .ccc-main) but
+   * MFL native page wrappers (#container-wrap, body, .maincontent,
+   * legacy <center> + <table> layouts) were never covered. This
+   * block adds breathing room to those native containers + uses
+   * 100dvh on mobile so iOS Safari's URL bar can't clip content.
+   *
+   * Purely additive CSS. Worst case: extra blank space at the bottom
+   * of a few pages. No risk to functionality. ───────────────────── */
+  html, body {
+    overflow-x: hidden;
+  }
+  /* Native MFL page containers need bottom breathing room so the
+     last interactive control (Submit Reply, etc.) clears any UPS
+     fixed/sticky overlay chrome at the viewport bottom. */
+  body > #container-wrap,
+  body > #container,
+  body > #wrapper,
+  body > .maincontent,
+  body > .content,
+  body > #content_wrap,
+  body > center > form,
+  body > center > table,
+  body > form,
+  body > table {
+    padding-bottom: 6rem !important;
+    box-sizing: border-box;
+  }
+  /* Mobile Safari: 100vh includes the URL bar's expandable region —
+     content sized to 100vh gets clipped behind the URL bar. 100dvh
+     uses the dynamic viewport (URL bar excluded) so content always
+     fits. Also add safe-area inset for notch / home-indicator. */
+  @media (max-width: 980px) {
+    html, body {
+      min-height: 100dvh !important;
+    }
+    body {
+      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 6rem) !important;
+    }
+    /* MFL ticket reply form, options forms, and similar narrow-layout
+       pages on mobile — extra clearance so SUBMIT lives above the
+       footer + safe-area zone. */
+    body[id^="body_my_tickets"] form,
+    body[id^="body_my_tickets"] table,
+    body[id^="body_options_"] form,
+    body[id^="body_options_"] table {
+      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 4rem) !important;
+    }
   }
 </style>
 
