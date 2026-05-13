@@ -647,27 +647,23 @@
     if (ch.length) {
       var rows2 = ch.map(function (c) {
         var typeInfo = classifyContractType(c);
-        var typeBadge = typeInfo.label;
-        var teamName = c.team_name || "";
-        // Append EXT1/EXT2 marker to the team-name cell when this season
-        // was an extension year.
-        var teamCell = escapeHtml(teamName);
-        if (typeInfo.style === "ext1" || typeInfo.style === "ext2") {
-          var extLbl = typeInfo.style === "ext2" ? "EXT2" : "EXT1";
-          teamCell += ' <span class="small" style="color:#5b8dff;font-weight:600;">' + extLbl + '</span>';
-        }
+        // Keith 2026-05-13: drop the team-name EXT1/EXT2 badge — the
+        // Type column already shows Ext1 / Ext2. Don't double-tag.
+        var teamCell = escapeHtml(c.team_name || "");
         var cl = c.contract_length || 0;
         var cy = c.contract_year || 0;
-        var yl = (cl > 0 && cy > 0) ? Math.max(0, cl - cy) : null;  // years LEFT after this season
+        // Years Left (YL) is years remaining INCLUDING the current season
+        // per Keith 2026-05-13. Y1 of CL3 → YL 3, Y2 → YL 2, Y3 → YL 1.
+        // Yr# column dropped since YL carries the same information.
+        var yl = (cl > 0 && cy > 0) ? Math.max(0, cl - cy + 1) : null;
         var tcv = (c.tcv != null && c.tcv > 0) ? c.tcv : (cl && c.aav ? cl * c.aav : 0);
         var tcvCell = tcv > 0 ? "$" + Number(tcv).toLocaleString() : "—";
         var aavCell = (c.aav == null || c.aav === 0) ? "—" : "$" + Number(c.aav).toLocaleString();
         return '<tr>'
           + '<td>' + escapeHtml(String(c.season)) + '</td>'
           + '<td>' + teamCell + '</td>'
-          + '<td>' + escapeHtml(typeBadge) + '</td>'
+          + '<td>' + escapeHtml(typeInfo.label) + '</td>'
           + '<td class="num">' + (cl || "—") + '</td>'
-          + '<td>' + (cy ? "Y" + cy : "—") + '</td>'
           + '<td class="num">' + (yl == null ? "—" : yl) + '</td>'
           + '<td class="num">' + tcvCell + '</td>'
           + '<td class="num">' + aavCell + '</td>'
@@ -676,8 +672,9 @@
       contractHistoryHtml = '<div class="profile-block">'
         + '<h4>Contract History <span class="small muted">(' + ch.length + ' season' + (ch.length === 1 ? "" : "s") + ')</span></h4>'
         + '<table class="rdh-table" style="margin-top:6px;"><thead><tr>'
-        + '<th>Yr</th><th>Team</th><th>Type</th><th class="num" title="Contract Length">CL</th>'
-        + '<th title="Year # within the contract">Yr#</th><th class="num" title="Years Left">YL</th>'
+        + '<th>Yr</th><th>Team</th><th>Type</th>'
+        + '<th class="num" title="Contract Length">CL</th>'
+        + '<th class="num" title="Years Left (includes current season)">YL</th>'
         + '<th class="num">TCV</th><th class="num">AAV</th>'
         + '</tr></thead><tbody>' + rows2 + '</tbody></table></div>';
     }
