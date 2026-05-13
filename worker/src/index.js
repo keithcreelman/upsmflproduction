@@ -327,6 +327,7 @@ export default {
         path !== "/api/advanced-stats-leaderboard" &&
         path !== "/api/advanced-stats-player-weekly" &&
         path !== "/api/mfl-league-state" &&
+        path !== "/api/league-events" &&
         path !== "/bug-report" &&
         path !== "/bug-reports" &&
         !path.startsWith("/api/trades/proposals") &&
