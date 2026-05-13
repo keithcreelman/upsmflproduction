@@ -1936,6 +1936,33 @@
       return t === "Elite" ? "Smash" : t === "Plus" ? "Hit" : t === "Neutral" ? "Contrib" : "Bust";
     };
 
+    // Snap-rate suffix attached to the Week # cell across both views.
+    // Keith 2026-05-13: "add snap rate next to Week #" — surfaces
+    // workload at a glance without forcing the Raw view's column scroll.
+    // Off vs. def picked per pos_group (mirrors GL_TMPL.snap), then
+    // looked up in bundle.nfl_snaps_by_week (keyed "season-week").
+    var pgForSnap = detectPosGroup(bundle);
+    var snapSide = (GL_TMPL[pgForSnap] && GL_TMPL[pgForSnap].snap) || "";  // "off" | "def" | ""
+    var snapsByWeek = (bundle && bundle.nfl_snaps_by_week) || {};
+    var snapPctForWeek = function (season, week) {
+      if (!snapSide) return null;
+      var row = snapsByWeek[season + "-" + week];
+      if (!row) return null;
+      var pct = snapSide === "def" ? row.def_snap_pct : row.off_snap_pct;
+      if (pct == null) return null;
+      var n = Number(pct);
+      if (!isFinite(n) || n <= 0) return null;
+      // nflverse stores snap_pct as 0–1; normalize defensively in case
+      // the loader ever shifts to 0–100.
+      return n <= 1 ? n : n / 100;
+    };
+    var snapTagHtml = function (pct) {
+      if (pct == null) return "";
+      return ' <span class="small muted" style="font-weight:500; font-variant-numeric: tabular-nums;"'
+        + ' title="Snap rate (' + (snapSide === "def" ? "defense" : "offense") + ')">'
+        + Math.round(pct * 100) + '%</span>';
+    };
+
     var renderScoring = function (seasonVal) {
       var weeks = ((bundle && bundle.weekly_by_season) || {})[seasonVal] || [];
       if (!weeks.length) {
@@ -1954,8 +1981,9 @@
       var tot = sorted.length;
       var rows = sorted.map(function (w) {
         var playoffTag = w.is_reg === 0 ? ' <span class="small" style="color:#5b8dff;font-weight:600;" title="Playoffs">P</span>' : "";
+        var snapTag = snapTagHtml(snapPctForWeek(w.season, w.week));
         return '<tr' + (w.is_reg === 0 ? ' style="background:rgba(255,158,77,0.06);"' : "") + '>'
-          + '<td class="num">' + w.week + playoffTag + '</td>'
+          + '<td class="num">' + w.week + playoffTag + snapTag + '</td>'
           + '<td class="num">' + (w.score != null ? w.score.toFixed(1) : "—") + '</td>'
           + '<td class="num">' + (w.z_score != null ? (w.z_score > 0 ? "+" : "") + w.z_score.toFixed(2) : "—") + '</td>'
           + '<td>' + (w.week_tier ? '<span class="tier ' + weekTierClass(w.week_tier) + '">' + w.week_tier + '</span>' : "—") + '</td>'
@@ -1993,7 +2021,9 @@
         var snapRow = snapBy[w.season + "-" + w.week] || {};
         var snapCount = tmpl.snap === "def" ? snapRow.def_snaps : tmpl.snap === "off" ? snapRow.off_snaps : null;
         var snapPct   = tmpl.snap === "def" ? snapRow.def_snap_pct : tmpl.snap === "off" ? snapRow.off_snap_pct : null;
-        var cells = '<td class="num">' + w.week + '</td><td>' + escapeHtml(w.team || "") + '</td><td>' + escapeHtml(w.opponent || "") + '</td>';
+        // Snap-rate suffix on Week #, parallel to the Scoring view.
+        var snapTagRaw = snapTagHtml(snapPctForWeek(w.season, w.week));
+        var cells = '<td class="num">' + w.week + snapTagRaw + '</td><td>' + escapeHtml(w.team || "") + '</td><td>' + escapeHtml(w.opponent || "") + '</td>';
         if (tmpl.snap) {
           cells += rawFormatCell(snapCount, "int");
           cells += rawFormatCell(snapPct, "pct0");
