@@ -468,6 +468,10 @@
     var inj = (bundle && bundle.injury) || ctx.injury || {};
     var add = (bundle && bundle.last_add) || {};
     var ch = (bundle && Array.isArray(bundle.contract_history)) ? bundle.contract_history : [];
+    // Event-chain contract view — preferred when present. Falls back to
+    // per-season ch[] for very old players without event-chain coverage.
+    var contracts = (bundle && Array.isArray(bundle.contracts)) ? bundle.contracts : [];
+    var contractStints = (bundle && Array.isArray(bundle.contract_stints)) ? bundle.contract_stints : [];
     var career = (bundle && bundle.career_summary) || [];
     var hist = lookupHistPick(pid, ctx);
     var prospectRow = lookupProspect(pid, ctx);
@@ -583,7 +587,25 @@
       var aav = contractInfo.aav || (contractInfo.length > 0 ? Math.round(tcv / contractInfo.length) : Number(sal.salary || 0));
       var salary = Number(sal.salary || 0);
       var yrsRem = yearsRemain(sal, contractInfo);
-      var earned = earnedToDate(sal, contractInfo);
+      // Era-aware Earned: when stint data is present, sum per-stint earnings
+      // across the active contract (handles pre-2019 flat / 2019 calendar /
+      // 2026 per-week formulas correctly even when a contract spans eras).
+      // Falls back to single-formula earnedToDate when no stint data.
+      var earned = (function () {
+        if (!contracts.length || !contractStints.length) return earnedToDate(sal, contractInfo);
+        var active = null;
+        for (var i = 0; i < contracts.length; i++) {
+          if (!contracts[i].termination_event) { active = contracts[i]; break; }
+        }
+        if (!active) return earnedToDate(sal, contractInfo);
+        var sum = 0;
+        for (var j = 0; j < contractStints.length; j++) {
+          if (contractStints[j].contract_id === active.contract_id) {
+            sum += Number(contractStints[j].earned_during_stint_usd || 0);
+          }
+        }
+        return sum;
+      })();
       var penalty = dropPenalty(sal, contractInfo, ctx.year);
       var acq = findAcquisition(pid, ctx.transactions, ctx.viewerFranchise && ctx.viewerFranchise.id);
       var acqDate = acq && acq.ts ? new Date(acq.ts * 1000).toLocaleDateString() : "—";
@@ -691,8 +713,120 @@
       return { label: rawStatus ? (rawStatus.charAt(0).toUpperCase() + rawStatus.slice(1)) : "—", style: "" };
     }
 
+    // ── New per-contract classifier (event-chain) ────────────────────────
+    // D1 player_contracts.contract_type values seen in prod:
+    //   Veteran / WW / Rookie / FrontLoaded / BackLoaded /
+    //   Tag-Franchise / Tag-Transition / MYM / RookieExtended /
+    //   admin_adjustment / null
+    // Ext1 vs Ext2 is determined by counting prior extension contracts on
+    // this player (origin_event='extension' OR type in MYM/RookieExtended).
+    function classifyContractTypeFromContractsRow(c, allContracts) {
+      var t = String(c.contract_type || "").toLowerCase();
+      var oe = String(c.origin_event || "").toLowerCase();
+      var fl = t === "frontloaded";
+      var bl = t === "backloaded";
+      if (/^tag/.test(t)) return "Tag";
+      if (t === "rookie") return "Rookie";
+      if (t === "ww" || oe === "ww_bbid") return "Vet - WW";
+      var isExtension = oe === "extension" || t === "mym" || t === "rookieextended";
+      if (isExtension) {
+        var priorExts = 0;
+        var thisDate = c.origin_date_iso || "";
+        for (var i = 0; i < allContracts.length; i++) {
+          var o = allContracts[i];
+          if (o.contract_id === c.contract_id) continue;
+          var oOe = String(o.origin_event || "").toLowerCase();
+          var oT = String(o.contract_type || "").toLowerCase();
+          var oExt = oOe === "extension" || oT === "mym" || oT === "rookieextended";
+          if (oExt && (o.origin_date_iso || "") < thisDate) priorExts++;
+        }
+        var suffix = fl ? " (FL)" : (bl ? " (BL)" : "");
+        return priorExts >= 1 ? ("Ext2" + suffix) : "Ext1";
+      }
+      if (t === "veteran" || fl || bl || oe === "auction") {
+        return "Vet - Auction" + (fl ? " (FL)" : (bl ? " (BL)" : ""));
+      }
+      return c.contract_type || "—";
+    }
+
+    function renderOwnerChain(stints) {
+      // Single stint: just the name. Multi-stint: "A → B → C" — keeps
+      // bug-fix visible for Sanders-style mid-contract trades. (Spec §Step 3
+      // expand-on-click polish intentionally deferred.)
+      return stints.map(function (s) {
+        return escapeHtml(s.owner_name || "—");
+      }).join(" → ");
+    }
+
+    function buildContractHistoryFromContracts(contracts, stints) {
+      var stintsByContract = {};
+      for (var i = 0; i < stints.length; i++) {
+        var s = stints[i];
+        if (!stintsByContract[s.contract_id]) stintsByContract[s.contract_id] = [];
+        stintsByContract[s.contract_id].push(s);
+      }
+      var rows = contracts.map(function (c) {
+        var cStints = stintsByContract[c.contract_id] || [];
+        var startYr = c.origin_date_iso ? c.origin_date_iso.slice(0, 4) : "—";
+        var endYr = c.termination_date_iso ? c.termination_date_iso.slice(0, 4) : "";
+        var cl = c.contract_length_cl || 0;
+        var span;
+        if (endYr && endYr !== startYr) {
+          span = startYr + "–" + endYr;
+        } else if (endYr) {
+          span = startYr;
+        } else if (cl > 1) {
+          span = startYr + "–" + (Number(startYr) + cl - 1) + " (active)";
+        } else {
+          span = startYr + (cl ? " (active)" : "");
+        }
+        var typeLabel = classifyContractTypeFromContractsRow(c, contracts);
+        var tcv = c.tcv_usd || 0;
+        var aav = c.aav_usd || 0;
+        var ownerCell = cStints.length
+          ? renderOwnerChain(cStints)
+          : escapeHtml(c.origin_owner_name || "—");
+        var earnedCell;
+        if (c.earned_at_termination_usd != null) {
+          earnedCell = "$" + Number(c.earned_at_termination_usd).toLocaleString();
+        } else if (c.termination_event) {
+          earnedCell = "—";
+        } else {
+          // Active contract — sum stint earnings to-date if available.
+          var sumE = 0;
+          var anyE = false;
+          for (var k = 0; k < cStints.length; k++) {
+            if (cStints[k].earned_during_stint_usd != null) {
+              sumE += Number(cStints[k].earned_during_stint_usd || 0);
+              anyE = true;
+            }
+          }
+          earnedCell = anyE ? ("$" + sumE.toLocaleString() + " (in progress)") : "in progress";
+        }
+        return '<tr>'
+          + '<td>' + escapeHtml(span) + '</td>'
+          + '<td>' + ownerCell + '</td>'
+          + '<td>' + escapeHtml(typeLabel) + '</td>'
+          + '<td class="num">' + (cl || "—") + '</td>'
+          + '<td class="num">' + (tcv ? "$" + Number(tcv).toLocaleString() : "—") + '</td>'
+          + '<td class="num">' + (aav ? "$" + Number(aav).toLocaleString() : "—") + '</td>'
+          + '<td class="num">' + earnedCell + '</td>'
+          + '</tr>';
+      }).join("");
+      return '<div class="profile-block">'
+        + '<h4>Contract History <span class="small muted">(' + contracts.length + ' contract' + (contracts.length === 1 ? "" : "s") + ')</span></h4>'
+        + '<table class="rdh-table" style="margin-top:6px;"><thead><tr>'
+        + '<th>Span</th><th>Owner</th><th>Type</th>'
+        + '<th class="num" title="Contract Length">CL</th>'
+        + '<th class="num">TCV</th><th class="num">AAV</th>'
+        + '<th class="num">Earned</th>'
+        + '</tr></thead><tbody>' + rows + '</tbody></table></div>';
+    }
+
     var contractHistoryHtml = "";
-    if (ch.length) {
+    if (contracts.length) {
+      contractHistoryHtml = buildContractHistoryFromContracts(contracts, contractStints);
+    } else if (ch.length) {
       var rows2 = ch.map(function (c) {
         var typeInfo = classifyContractType(c);
         // Keith 2026-05-13: drop the team-name EXT1/EXT2 badge — the
@@ -1513,24 +1647,70 @@
 
   // ─────────────────────────────────────────────────────────────────────────
   // NEWS TAB
+  //
+  // Three sections, top to bottom:
+  //   1. Live news feed (async) — fetched from /api/player-news. Worker
+  //      aggregates Sleeper (injury_status / depth_chart / practice) +
+  //      ESPN league-wide RSS articles tagged by player.
+  //   2. MFL injury (sync, from bundle.injury) — current MFL-reported.
+  //   3. Last Acquired / Recent Trades (sync) — UPS context, not news.
   // ─────────────────────────────────────────────────────────────────────────
-  function buildNewsHtml(bundle) {
+
+  // Map item.type → CSS class for left-border color hint.
+  function newsItemClassForType(t) {
+    if (t === "injury" || t === "status") return "is-injury";
+    if (t === "depth") return "is-status";
+    if (t === "headline") return "is-headline";
+    return "";
+  }
+
+  function renderNewsFeedItem(item) {
+    var when = "";
+    if (item.timestamp) {
+      try {
+        var d = new Date(Number(item.timestamp) * 1000);
+        when = d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+      } catch (e) { when = ""; }
+    }
+    var sourceLabel = item.source ? escapeHtml(String(item.source)) : "";
+    var meta = sourceLabel + (when ? " · " + when : "");
+    var headline = item.url
+      ? '<a href="' + escapeHtml(item.url) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(item.headline || "") + '</a>'
+      : escapeHtml(item.headline || "");
+    return '<div class="upm-news-item ' + newsItemClassForType(item.type) + '">'
+      + '<div class="upm-news-headline">' + headline + '</div>'
+      + '<div class="upm-news-meta">' + meta + '</div>'
+      + (item.body ? '<div class="upm-news-body">' + escapeHtml(item.body) + '</div>' : '')
+      + '</div>';
+  }
+
+  function buildNewsHtml(bundle, ctx, pid) {
+    // Section 1 — async feed placeholder. wireNewsAsync fills it after
+    // bundle render completes.
+    var feedSection = '<div class="profile-block">'
+      + '<h4>Player News <span class="small muted">(Sleeper + ESPN)</span></h4>'
+      + '<div id="upm-news-feed-list" data-pid="' + escapeHtml(String(pid || "")) + '">'
+        + '<p class="small muted" style="padding:6px 0;">Fetching player news…</p>'
+      + '</div>'
+    + '</div>';
+
+    // Section 2 + 3 — MFL bundle context (sync, fast)
     var inj = (bundle && bundle.injury) || {};
     var add = (bundle && bundle.last_add) || {};
     var trades = (bundle && bundle.trade_history) || [];
-    var items = [];
+    var ctxItems = [];
     if (inj.status) {
-      items.push('<div class="profile-block"><h4 style="color:#fbbf24">Injury · ' + escapeHtml(inj.status) + '</h4>'
+      ctxItems.push('<div class="profile-block"><h4 style="color:#fbbf24">MFL Injury · ' + escapeHtml(inj.status) + '</h4>'
         + '<div class="small muted">' + escapeHtml(inj.details || "No additional details from MFL.") + '</div></div>');
     }
     if (add.datetime_et) {
-      items.push('<div class="profile-block"><h4>Last Acquired</h4><div class="small">'
+      ctxItems.push('<div class="profile-block"><h4>Last Acquired</h4><div class="small">'
         + escapeHtml(add.datetime_et.slice(0, 10)) + ' · ' + escapeHtml(add.method || "")
         + (add.salary ? " · $" + Number(add.salary).toLocaleString() : "")
         + ' by ' + escapeHtml(add.franchise_name || "") + '</div></div>');
     }
     if (trades.length) {
-      items.push('<div class="profile-block"><h4>Recent Trades (' + trades.length + ')</h4><div class="small muted">'
+      ctxItems.push('<div class="profile-block"><h4>Recent Trades (' + trades.length + ')</h4><div class="small muted">'
         + trades.slice(0, 10).map(function (t) {
           return '<div>' + escapeHtml((t.datetime_et || "").slice(0, 10)) + ' · '
             + escapeHtml(t.franchise_name || "") + ' ' + escapeHtml(t.asset_role || "")
@@ -1538,9 +1718,40 @@
             + '</div>';
         }).join("") + '</div></div>');
     }
-    var html = items.length ? items.join("") : '<p class="small muted">No recent news.</p>';
-    html += '<p class="small muted" style="margin-top:10px; font-style:italic;">Richer player-news feed (RotoWire / ESPN) coming in v2.</p>';
-    return html;
+    return feedSection + ctxItems.join("");
+  }
+
+  // Async news fetch + render. Called from openPlayerProfile after the
+  // tab panels are wired. Fills #upm-news-feed-list in place.
+  function wireNewsAsync(body, ctx, pid) {
+    var feedEl = body.querySelector("#upm-news-feed-list");
+    if (!feedEl || !pid) return;
+    var apiBase = (ctx.apiBase || "").replace(/\/+$/, "");
+    var url = apiBase + "/api/player-news?pids=" + encodeURIComponent(pid)
+      + (ctx.leagueId ? "&L=" + encodeURIComponent(ctx.leagueId) : "")
+      + (ctx.year ? "&YEAR=" + encodeURIComponent(ctx.year) : "");
+    fetch(url, { cache: "no-store" })
+      .then(function (r) {
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r.json();
+      })
+      .then(function (data) {
+        if (!feedEl.parentNode) return;  // tab torn down between fetch + render
+        var items = (data && data.items_by_pid && data.items_by_pid[String(pid)]) || [];
+        if (!items.length) {
+          feedEl.innerHTML = '<p class="small muted" style="padding:6px 0;">No recent player news (Sleeper + ESPN scanned, nothing matched).</p>';
+          return;
+        }
+        feedEl.innerHTML = '<div class="upm-news-list">'
+          + items.map(renderNewsFeedItem).join("")
+          + '</div>';
+      })
+      .catch(function (err) {
+        if (!feedEl.parentNode) return;
+        feedEl.innerHTML = '<p class="small muted" style="padding:6px 0;">News feed unavailable ('
+          + escapeHtml(err && err.message ? err.message : String(err))
+          + ').</p>';
+      });
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -1900,7 +2111,7 @@
 
       var statsHtml = buildStatsPanelHtml(bundle, ctx, pid, name);
       var gameLogHtml = buildGameLogPanelHtml(bundle);
-      var newsHtml = buildNewsHtml(bundle);
+      var newsHtml = buildNewsHtml(bundle, ctx, pid);
       // Contract Options tab — visible only when caller supplies HTML.
       // Roster Workbench (mode: "roster_workbench") passes its extension
       // options + rookie-option summaries via ctx.contractOptionsHtml.
@@ -1931,6 +2142,9 @@
       wireStatsToggle(bodyContent, bundle);
       wireWindowSelector(bodyContent, bundle);
       wireGameLog(bodyContent, bundle);
+      // News feed kicks off async — placeholder shows until /api/player-news
+      // returns. Defensive: skip silently if pid is empty.
+      wireNewsAsync(bodyContent, ctx, pid);
     }).catch(function (err) {
       var bodyContent = bodyEl.querySelector("#upm-profile-body")
         || document.getElementById("upm-profile-body");
