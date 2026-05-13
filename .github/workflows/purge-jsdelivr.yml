@@ -57,7 +57,6 @@ jobs:
             # ── HPM partial HTMLs ──────────────────────────────────────
             "site/hpm-draft-hub.html"
             "site/hpm-default.html"
-            "site/hpm-ccc.html"
             "site/hpm-mcm.html"
             "site/hpm-myteam.html"
             "site/hpm-reports.html"
@@ -71,10 +70,8 @@ jobs:
             "site/rookies/mfl_hpm_embed_loader.js"
             "site/trades/mfl_hpm_embed_loader.js"
             "site/rosters/mfl_hpm_embed_loader.js"
-            "site/ccc/mfl_hpm_embed_loader.js"
             "site/standings/mfl_hpm_embed_loader.js"
             "site/reports/mfl_hpm_embed_loader.js"
-            "site/acquisition/mfl_hpm_embed_loader.js"
             "site/team_operations/mfl_hpm_embed_loader.js"
             "site/stats_workbench/mfl_hpm_embed_loader.js"
             "site/mcm_embed_loader.js"
