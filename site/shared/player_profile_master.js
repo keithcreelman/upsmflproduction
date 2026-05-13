@@ -406,17 +406,22 @@
       + (ctx.leagueId ? "&L=" + encodeURIComponent(ctx.leagueId) : "")
       + (ctx.year ? "&YEAR=" + encodeURIComponent(ctx.year) : "");
     var url = apiBase + "/api/player-bundle?" + qs;
+    // Diagnostic: when the bundle fetch fails, master modal renders the
+    // "Live MFL profile data unavailable" banner with no hint why. Echo
+    // the URL + failure reason to console so future bug reports can pin
+    // it down without browser-side guesswork. Keith 2026-05-13.
     return fetch(url, { cache: "no-store" })
       .then(function (r) {
-        if (!r.ok) throw new Error("HTTP " + r.status);
+        if (!r.ok) throw new Error("HTTP " + r.status + " from " + url);
         return r.json();
       })
       .then(function (data) {
         BUNDLE_CACHE[key] = data || {};
         return BUNDLE_CACHE[key];
       })
-      .catch(function () {
-        BUNDLE_CACHE[key] = {};
+      .catch(function (err) {
+        try { console.warn("[upm] /api/player-bundle failed:", url, err && err.message || err); } catch (_) {}
+        BUNDLE_CACHE[key] = { _fetchError: String(err && err.message || err), _fetchUrl: url };
         return BUNDLE_CACHE[key];
       });
   }
@@ -2217,7 +2222,15 @@
 
       var bundleError = !bundle.profile && !bundle.career_summary && !bundle.contract_history && !bundle.weekly_by_season;
       var errorBanner = bundleError
-        ? '<div class="small muted" style="margin-bottom:8px; padding:6px 8px; background:#1a2230; border-radius:4px;">Live MFL profile data unavailable in this view — showing local data only.</div>'
+        ? '<div class="small" style="margin-bottom:8px; padding:6px 8px; background:#3a1a1a; color:#ffb1b1; border:1px solid #5a2a2a; border-radius:4px;">'
+            + 'Live MFL profile data unavailable. '
+            + (bundle._fetchError
+              ? '<code style="background:#1a2230;padding:1px 4px;border-radius:3px;">' + escapeHtml(bundle._fetchError) + '</code>'
+              : 'Bundle returned empty.')
+            + (bundle._fetchUrl
+              ? ' <span class="muted" style="font-size:11px;">URL: ' + escapeHtml(bundle._fetchUrl.slice(0, 110)) + (bundle._fetchUrl.length > 110 ? '…' : '') + '</span>'
+              : '')
+          + '</div>'
         : "";
 
       var pp = (bundle.profile && bundle.profile.playerProfile && bundle.profile.playerProfile.player) || {};
