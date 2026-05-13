@@ -343,6 +343,137 @@
 .tops-change-when,
 .tops-cal-lbl { color: var(--tops-ink-dim); font-size: 0.78rem; }
 
+/* Schedule game-type badge: Divisional (2 games) vs Intra-pod (3 games) */
+.tops-sched-type {
+  display: inline-block;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border-radius: 3px;
+  margin: 0 6px 0 4px;
+  vertical-align: middle;
+}
+.tops-sched-type--divisional { background: rgba(91,141,255,0.18); color: #5b8dff; }
+.tops-sched-type--intra      { background: rgba(251,191,36,0.18); color: #fbbf24; }
+.tops-sched-opps { color: var(--tops-ink); }
+
+/* Events / Deadlines card */
+.tops-cal-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 4px 0;
+}
+.tops-cal-when {
+  margin-left: auto;
+  font-size: 0.74rem;
+  color: var(--tops-ink-dim);
+  font-variant-numeric: tabular-nums;
+}
+.tops-cal-next {
+  display: inline-block;
+  margin-left: 6px;
+  background: rgba(74,222,128,0.18);
+  color: #4ade80;
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  padding: 1px 5px;
+  border-radius: 3px;
+  vertical-align: middle;
+}
+.tops-cal-soon .tops-cal-date { color: #fbbf24; }
+.tops-cal-soon .tops-cal-when { color: #fbbf24; }
+
+/* Transactions — multi-line detail */
+.tops-txn-list li { padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
+.tops-txn-list li:last-child { border-bottom: 0; }
+.tops-txn-head { display: flex; gap: 0.5rem; align-items: baseline; margin-bottom: 2px; }
+.tops-txn-line { font-size: 0.82rem; line-height: 1.3; color: var(--tops-ink); margin: 1px 0 0 4px; }
+.tops-txn-sub  { color: var(--tops-ink-dim); font-style: italic; font-size: 0.78rem; }
+.tops-txn-arrow {
+  display: inline-block;
+  width: 1.4em;
+  font-size: 0.7rem;
+  color: var(--tops-ink-dim);
+  font-weight: 700;
+}
+.tops-txn-arrow--gave { color: #fbbf24; }
+.tops-txn-arrow--got  { color: #4ade80; }
+
+/* ─── Inner-page tabs (Wave 2a) ────────────────────────────────────────── */
+.tops-tabs {
+  display: flex;
+  gap: 0.4rem;
+  margin: 0.4rem 0 0.75rem;
+  border-bottom: 1px solid var(--tops-card-border);
+}
+.tops-tab {
+  background: transparent;
+  border: 0;
+  color: var(--tops-ink-dim);
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.92rem;
+  padding: 0.55rem 0.9rem;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color 0.12s, border-color 0.12s;
+  border-radius: 6px 6px 0 0;
+}
+.tops-tab:hover { color: var(--tops-ink); }
+.tops-tab[data-active="1"] {
+  color: var(--tops-accent);
+  border-bottom-color: var(--tops-accent);
+}
+.tops-tab-panel { display: none; }
+.tops-tab-panel[data-active="1"] { display: block; }
+.tops-tab-panel--iframe {
+  /* The iframed hubs (roster_workbench, stats_workbench) each have their own
+     theme + scrolling. Give them a roomy frame; let internal scroll handle
+     overflow. 80vh is enough to feel native on most desktop sizes. */
+  background: var(--tops-bg);
+  border: 1px solid var(--tops-card-border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.tops-iframe {
+  width: 100%;
+  height: 80vh;
+  min-height: 600px;
+  border: 0;
+  display: block;
+  background: var(--tops-bg);
+}
+
+/* ─── Collapsible cards (Wave 2b) ──────────────────────────────────────── */
+.tops-card[data-collapsed] .tops-card-title {
+  /* Title row stays visible; gives the chevron a clickable feel */
+  user-select: none;
+}
+.tops-card .tops-collapse-btn {
+  float: right;
+  margin-left: 0.5rem;
+  background: transparent;
+  border: 0;
+  color: var(--tops-ink-dim);
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+  transition: color 0.12s, transform 0.12s;
+}
+.tops-card .tops-collapse-btn:hover { color: var(--tops-ink); }
+/* When collapsed: hide all children of the card except the title itself. */
+.tops-card[data-collapsed="1"] > *:not(.tops-card-title) { display: none !important; }
+.tops-card[data-collapsed="1"] .tops-card-title {
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
 .tops-pick-origin { color: var(--tops-ink-dim); font-weight: 600; font-size: 0.75rem; }
 
 /* Stat row ---------------------------------------------------------------- */
@@ -499,21 +630,104 @@
 .tops-news-item {
   padding: 10px 12px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  cursor: pointer;
+  /* Whole row is no longer clickable — name button + article link own their
+     own targets. Cursor is default; sub-elements set their own. */
+  cursor: default;
   transition: background 80ms ease;
 }
-.tops-news-item:hover { background: rgba(255, 255, 255, 0.04); }
-.tops-news-item:focus-visible {
-  outline: 2px solid var(--tops-accent, #fbbf24);
-  outline-offset: -2px;
-}
+.tops-news-item:hover { background: rgba(255, 255, 255, 0.02); }
 .tops-news-row1 {
   display: flex;
   align-items: baseline;
   gap: 8px;
   margin-bottom: 4px;
 }
-.tops-news-player { font-weight: 700; font-size: 13px; color: #fff; }
+
+/* Player-name button: plain bold text that quietly hints "clickable" on
+   hover — no pill, no border, no white background. Functions as a link. */
+.tops-news-player-link {
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  font-weight: 700;
+  font-size: 13px;
+  color: #e8f1ff;
+  cursor: pointer;
+  text-align: left;
+  text-decoration: none;
+  line-height: 1.2;
+  border-bottom: 1px dotted transparent;
+  transition: color 100ms, border-color 100ms;
+}
+.tops-news-player-link:hover {
+  color: var(--tops-accent, #f3b61f);
+  border-bottom-color: rgba(243, 182, 31, 0.7);
+}
+.tops-news-player-link:focus-visible {
+  outline: 2px solid var(--tops-accent, #f3b61f);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* Article wrapper: anchor when URL exists, plain div otherwise. The whole
+   block (headline + body) is one click target, but styling is restrained —
+   no persistent underline / no bright-blue scream. */
+.tops-news-article-link {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 4px 6px;
+  margin: 2px -6px 0;
+  transition: background 100ms;
+}
+.tops-news-article-link:hover {
+  background: rgba(125, 232, 217, 0.06);
+}
+.tops-news-article-link:hover .tops-news-head {
+  color: var(--tops-accent-2, #7de8d9);
+  text-decoration: underline;
+  text-decoration-color: rgba(125, 232, 217, 0.5);
+  text-underline-offset: 2px;
+}
+.tops-news-article-link:focus-visible {
+  outline: 2px solid var(--tops-accent-2, #7de8d9);
+  outline-offset: 0;
+}
+.tops-news-article-static { cursor: default; padding: 2px 0; }
+
+/* Subtle "external link" arrow only on hover — no permanent visual noise. */
+.tops-news-item.has-article .tops-news-article-link:hover .tops-news-head::after {
+  content: " ↗";
+  font-size: 0.78em;
+  color: var(--tops-accent-2, #7de8d9);
+  vertical-align: super;
+  font-weight: 400;
+  opacity: 0.7;
+}
+
+/* Legacy span (left for static rows that aren't clickable). */
+.tops-news-player { font-weight: 700; font-size: 13px; color: #e8f1ff; }
+
+/* Inline injury badge shown next to the name in a news row when the
+   player has an active injury (Q/D/O/IR). Smaller than the dedicated
+   Injuries-panel badge so it doesn't overpower the name. Reuses the
+   .tops-inj-* color palette already defined above. */
+.tops-news-inj-mini {
+  display: inline-block;
+  padding: 0 5px;
+  margin-right: 6px;
+  border-radius: 3px;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  vertical-align: middle;
+  line-height: 1.5;
+  text-transform: uppercase;
+}
 .tops-news-pos {
   font-size: 10px;
   font-weight: 700;
@@ -551,27 +765,314 @@
   margin-bottom: 4px;
 }
 
-/* News-item type badges (INJURY / DEPTH) — color-coded so the eye picks
-   out structured Sleeper data vs. ESPN article headlines. */
-.tops-news-type-badge {
+/* ─── News card controls (Wave 3a) ───────────────────────────────────── */
+.tops-news-controls {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  margin: 4px 0 8px;
+}
+.tops-news-search {
+  flex: 1 1 auto;
+  min-width: 0;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--tops-card-border);
+  border-radius: 6px;
+  color: var(--tops-ink);
+  padding: 5px 10px;
+  font-size: 0.84rem;
+  font: inherit;
+  font-size: 0.84rem;
+  outline: none;
+  transition: border-color 0.12s, background 0.12s;
+}
+.tops-news-search:focus {
+  border-color: var(--tops-accent);
+  background: rgba(0, 0, 0, 0.4);
+}
+.tops-news-search::placeholder { color: var(--tops-ink-dim); }
+.tops-news-sort {
+  flex: 0 0 auto;
+  background: transparent;
+  border: 1px solid var(--tops-card-border);
+  border-radius: 6px;
+  color: var(--tops-ink-dim);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 5px 9px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.12s, border-color 0.12s;
+}
+.tops-news-sort:hover {
+  color: var(--tops-ink);
+  border-color: var(--tops-accent);
+}
+
+/* Show-more button (pagination) */
+.tops-news-more {
+  display: block;
+  width: 100%;
+  margin: 6px 0 0;
+  background: rgba(91, 141, 255, 0.08);
+  border: 1px dashed rgba(91, 141, 255, 0.3);
+  border-radius: 6px;
+  color: var(--tops-ink);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 7px 10px;
+  cursor: pointer;
+  text-align: center;
+  transition: background 0.12s, border-color 0.12s;
+}
+.tops-news-more:hover {
+  background: rgba(91, 141, 255, 0.18);
+  border-color: rgba(91, 141, 255, 0.6);
+}
+.tops-news-more .muted { color: var(--tops-ink-dim); font-weight: 400; margin-left: 4px; }
+
+/* Team-name pill in news rows */
+.tops-news-team {
   display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--tops-ink-dim);
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 3px;
   padding: 1px 5px;
+  margin-left: 4px;
+}
+
+/* ─── All-Player News card (Wave 3b) ─────────────────────────────────── */
+.tops-allnews-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+  margin: 6px 0 6px;
+}
+.tops-pos-pills { display: flex; gap: 4px; flex-wrap: wrap; }
+.tops-pos-pill {
+  background: transparent;
+  border: 1px solid var(--tops-card-border);
+  border-radius: 999px;
+  color: var(--tops-ink-dim);
+  font: inherit;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 3px 9px;
+  cursor: pointer;
+  transition: color 0.12s, border-color 0.12s, background 0.12s;
+}
+.tops-pos-pill:hover {
+  color: var(--tops-ink);
+  border-color: var(--tops-accent);
+}
+.tops-pos-pill[data-active="1"] {
+  color: var(--tops-bg);
+  background: var(--tops-accent);
+  border-color: var(--tops-accent);
+}
+
+/* "My Team" scope pill — sits before the divider, slightly heavier weight
+   to distinguish it from the position pills. */
+.tops-pos-pill--scope {
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+.tops-pos-pill--scope[data-active="1"] {
+  background: var(--tops-accent);
+  color: var(--tops-bg);
+  box-shadow: 0 0 0 2px rgba(243, 182, 31, 0.25);
+}
+.tops-pill-divider {
+  display: inline-block;
+  width: 1px;
+  height: 16px;
+  background: var(--tops-card-border);
+  margin: 0 4px;
+  vertical-align: middle;
+}
+
+/* Type-filter row (All / Injury / Depth / News). Lives on its own line
+   below the position pills so the bar isn't claustrophobic. */
+.tops-itype-pills {
+  margin-top: 6px;
+  align-items: center;
+}
+.tops-itype-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--tops-ink-dim);
+  margin-right: 6px;
+}
+.tops-allnews-team,
+.tops-allnews-name {
+  flex: 0 1 auto;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--tops-card-border);
+  border-radius: 6px;
+  color: var(--tops-ink);
+  padding: 5px 9px;
+  font: inherit;
+  font-size: 0.84rem;
+  outline: none;
+}
+.tops-allnews-name { min-width: 0; flex: 1 1 160px; }
+.tops-allnews-team:focus,
+.tops-allnews-name:focus {
+  border-color: var(--tops-accent);
+  background: rgba(0, 0, 0, 0.4);
+}
+.tops-allnews-go {
+  background: rgba(91, 141, 255, 0.18);
+  border: 1px solid rgba(91, 141, 255, 0.5);
+  color: var(--tops-ink);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 5px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+.tops-allnews-go:hover {
+  background: rgba(91, 141, 255, 0.3);
+  border-color: rgba(91, 141, 255, 0.8);
+}
+.tops-allnews-go[data-disabled="1"] { opacity: 0.4; cursor: not-allowed; }
+.tops-allnews-status {
+  font-size: 0.74rem;
+  color: var(--tops-ink-dim);
+  margin: 0 0 6px;
+  padding: 0 2px;
+}
+.tops-allnews-status strong { color: var(--tops-ink); }
+
+/* ─── Next Decision (promoted to top, full-width) ──────────────────────── */
+.tops-card-highlight {
+  background: linear-gradient(180deg, rgba(243,182,31,0.07) 0%, rgba(15,29,52,1) 100%);
+  border-color: rgba(243,182,31,0.4);
+}
+.tops-nd-list {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.5rem;
+}
+.tops-nd-list li {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 8px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.tops-nd-list li.tops-nd-soon {
+  border-color: rgba(251,191,36,0.5);
+  background: rgba(251,191,36,0.06);
+}
+.tops-nd-main {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.tops-nd-label {
+  font-weight: 700;
+  font-size: 0.88rem;
+  color: var(--tops-ink);
+  flex: 1 1 auto;
+}
+.tops-nd-label.muted { color: var(--tops-ink-dim); font-weight: 500; }
+.tops-nd-when {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--tops-accent);
+  font-variant-numeric: tabular-nums;
+}
+.tops-nd-soon .tops-nd-when { color: #fbbf24; }
+.tops-nd-sub {
+  font-size: 0.74rem;
+  color: var(--tops-ink-dim);
+}
+.tops-nd-next {
+  display: inline-block;
+  background: rgba(74,222,128,0.18);
+  color: #4ade80;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  padding: 1px 5px;
+  border-radius: 3px;
+  margin-left: 4px;
+}
+.tops-nd-pending .tops-nd-sub code {
+  background: rgba(0,0,0,0.25);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 0.72rem;
+}
+
+/* News-item type badges — color-coded so the eye picks out structured
+   Sleeper data vs. ESPN article headlines. Each carries a small leading
+   glyph: INJURY ⚕ (medical cross-ish), DEPTH ⇅ (chart movement), NEWS 📰. */
+.tops-news-type-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 6px;
   margin-right: 6px;
   border-radius: 3px;
   font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.5px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
   vertical-align: middle;
+  text-transform: uppercase;
+  line-height: 1;
 }
 .tops-news-type-badge.is-status {
-  background: rgba(248, 113, 113, 0.18);
+  background: rgba(248, 113, 113, 0.22);
+  color: #fecaca;
+  border: 1px solid rgba(248, 113, 113, 0.55);
+}
+.tops-news-type-badge.is-status::before {
+  content: "✚";
+  font-size: 11px;
+  line-height: 1;
+  font-weight: 900;
   color: #fca5a5;
-  border: 1px solid rgba(248, 113, 113, 0.45);
 }
 .tops-news-type-badge.is-depth {
-  background: rgba(96, 165, 250, 0.18);
+  background: rgba(96, 165, 250, 0.22);
+  color: #bfdbfe;
+  border: 1px solid rgba(96, 165, 250, 0.55);
+}
+.tops-news-type-badge.is-depth::before {
+  content: "⇅";
+  font-size: 11px;
+  line-height: 1;
+  font-weight: 700;
   color: #93c5fd;
-  border: 1px solid rgba(96, 165, 250, 0.45);
+}
+.tops-news-type-badge.is-headline {
+  background: rgba(125, 232, 217, 0.16);
+  color: #bef0e6;
+  border: 1px solid rgba(125, 232, 217, 0.45);
+}
+.tops-news-type-badge.is-headline::before {
+  content: "▰";
+  font-size: 10px;
+  line-height: 1;
+  color: var(--tops-accent-2, #7de8d9);
 }
 .tops-profile-news-link {
   display: inline-block;

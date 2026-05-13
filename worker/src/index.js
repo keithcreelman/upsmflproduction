@@ -2509,6 +2509,45 @@ export default {
         }
       }
 
+      // ── GET /api/league-events — UPS calendar (deadlines + milestones) ──
+      // Source: D1 `league_events` table (migration 0026). Read-only.
+      // Usage: /api/league-events?season=2026&from=today&limit=10
+      //   season  - 4-digit year; defaults to the worker's YEAR / current year
+      //   from    - 'today' (default) returns events on/after today; 'all'
+      //             returns the full season; an ISO date filters from that.
+      //   limit   - max rows; default 10, hard cap 50.
+      if (path === "/api/league-events" && request.method === "GET") {
+        try {
+          const db = env.UPS_MFL_DB;
+          if (!db) return jsonOut(503, { ok: false, reason: "D1 not bound" });
+          const season = safeStr(url.searchParams.get("season") || YEAR || String(new Date().getUTCFullYear())).replace(/\D/g, "");
+          const fromParam = safeStr(url.searchParams.get("from") || "today").toLowerCase();
+          const lim = Math.min(50, Math.max(1, parseInt(url.searchParams.get("limit") || "10", 10) || 10));
+          let dateFilter = "";
+          const binds = [season];
+          if (fromParam === "all") {
+            // no date filter
+          } else if (/^\d{4}-\d{2}-\d{2}$/.test(fromParam)) {
+            dateFilter = " AND date >= ?";
+            binds.push(fromParam);
+          } else {
+            // default: today
+            dateFilter = " AND date >= date('now')";
+          }
+          const stmt = db.prepare(
+            `SELECT event, date, nfl_season, description
+               FROM league_events
+              WHERE nfl_season = ?${dateFilter}
+              ORDER BY date ASC
+              LIMIT ${lim}`
+          );
+          const res = await stmt.bind(...binds).all();
+          return jsonOut(200, { ok: true, season, events: res.results || [] });
+        } catch (e) {
+          return jsonOut(500, { ok: false, error: String(e && e.message || e) });
+        }
+      }
+
       // ── GET /api/player-news — multi-source aggregator ──
       // Twitter direct = $100+/mo + ToS risk. ESPN per-athlete news API
       // returns 0 articles. Sleeper /players/nfl/news is deprecated
