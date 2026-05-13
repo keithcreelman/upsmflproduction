@@ -1600,7 +1600,7 @@ export default {
         if (env.UPS_MFL_DB) {
           try {
             const db = env.UPS_MFL_DB;
-            const [careerRes, tradeRes, addRes, weeklyRes, contractRes, crosswalkRes] = await Promise.all([
+            const [careerRes, tradeRes, addRes, weeklyRes, contractRes, contractsRes, stintsRes, crosswalkRes] = await Promise.all([
               db.prepare(
                 // Career summary joined with baselines to compute per-season
                 // Elite / Plus / E+P / Dud % the same way the Python bridge
@@ -1738,6 +1738,36 @@ export default {
                   WHERE player_id = ?
                   ORDER BY season DESC`
               ).bind(pid).all(),
+              // Canonical contract view — one row per CONTRACT (event-chain
+              // reconstruction). Source of truth for new Contract History
+              // renderer; bundle.contract_history kept as legacy fallback.
+              db.prepare(
+                `SELECT contract_id, contract_seq,
+                        origin_event, origin_date_iso, origin_franchise_id, origin_owner_name,
+                        contract_type, contract_length_cl, aav_usd, tcv_usd, year_salaries_json,
+                        last_modification_event, last_modification_date_iso,
+                        origin_aav_usd, origin_tcv_usd, origin_cl,
+                        termination_event, termination_date_iso,
+                        termination_franchise_id, termination_owner_name,
+                        cap_hit_usd, earned_at_termination_usd, notes
+                   FROM player_contracts
+                  WHERE player_id = ?
+                  ORDER BY origin_date_iso DESC`
+              ).bind(pid).all(),
+              // Per-stint owner chain for those contracts. Enables Sanders-style
+              // "Gride → Real Deal Creel" owner cell + era-aware Earned via
+              // cumulative_earned_at_end_usd sum across stints.
+              db.prepare(
+                `SELECT s.contract_id, s.stint_seq,
+                        s.start_date_iso, s.end_date_iso, s.start_event, s.end_event,
+                        s.franchise_id, s.owner_name,
+                        s.earned_during_stint_usd, s.earned_era,
+                        s.cumulative_earned_at_start_usd, s.cumulative_earned_at_end_usd
+                   FROM player_contract_stints s
+                   JOIN player_contracts c ON c.contract_id = s.contract_id
+                  WHERE c.player_id = ?
+                  ORDER BY s.contract_id, s.stint_seq`
+              ).bind(pid).all(),
               // Advanced stats block — Phase 0 + Phase 2 tables.
               // Crosswalk resolves MFL pid → nflverse gsis_id; downstream
               // queries fan out from gsis_id. LEFT JOINs so a player with
@@ -1787,6 +1817,19 @@ export default {
             const contracts = contractRes.results || [];
             if (contracts.length) {
               bundle.contract_history = contracts;
+              d1Satisfied = true;
+            }
+            // Event-chain contract view (per-contract + per-stint).
+            // Master modal prefers these when present; falls back to
+            // bundle.contract_history when empty (very old players).
+            const contractsRows = contractsRes.results || [];
+            if (contractsRows.length) {
+              bundle.contracts = contractsRows;
+              d1Satisfied = true;
+            }
+            const stintsRows = stintsRes.results || [];
+            if (stintsRows.length) {
+              bundle.contract_stints = stintsRows;
               d1Satisfied = true;
             }
 
