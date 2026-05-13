@@ -1,23 +1,34 @@
 name: Purge jsDelivr cache
 
 # jsDelivr aggressively caches branch refs (@main) for up to ~12 hours.
-# Pinning to specific SHAs sidesteps this, but the league's MFL HPM uses
-# @main for convenience. This workflow purges jsDelivr's cache for every
-# site/** path the league HPM modules might fetch — runs after a push to
-# main when any cached file changes. Effect: production users see fresh
-# code within ~30s of a merge instead of waiting hours for jsDelivr's TTL.
+# This workflow purges + pre-warms the cache for every site/** path the
+# league HPM modules might fetch — runs after a push to main when any
+# cached file changes. Effect: production users see fresh code within
+# ~60s of a merge AND we proactively catch jsDelivr-side 404 caching
+# (the "rot" that bit us 2026-05-12 when SHA 7cc24de had loader.js +
+# rookie_draft_hub.css cached as 404 for ~12 hours after a bad GitHub
+# fetch during cold-cache priming).
 #
-# Setup: no secrets needed. jsDelivr's purge endpoint is public:
-#   POST https://purge.jsdelivr.net/  with {"path": ["/gh/.../file", ...]}
-# Up to 500 paths per call. We enumerate the known cacheable files explicitly
-# (vs walking the tree) so the workflow doesn't accidentally purge unrelated
-# files like data CSVs.
+# Two phases:
+#   1) PURGE   — invalidate any cached response (200 or 404) for each
+#                file at @main. jsDelivr's GET /purge endpoint returns
+#                a JSON body — must check for "throttled":true or the
+#                purge silently no-ops.
+#   2) PRE-WARM — immediately fetch each file. This forces jsDelivr to
+#                go to GitHub and cache the FRESH response. If GitHub
+#                hiccups (the real root cause of "rot"), the pre-warm
+#                fetch hits the 404 → workflow retries → if still 404
+#                after 3 retries the workflow FAILS LOUDLY so the rot
+#                is visible immediately, not 12 hours later.
+#
+# Setup: no secrets needed. jsDelivr purge + fetch endpoints are public.
 
 on:
   push:
     branches: [main]
     paths:
       - "site/**"
+      - "apps/mfl_site/**"
       - "docs/league_context_v1.md"
   workflow_dispatch: {}
 
@@ -26,24 +37,24 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  purge:
+  purge-and-prewarm:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Purge jsDelivr (per-file GETs)
+      - name: Build file list + purge + pre-warm
         run: |
-          # jsDelivr's batch POST endpoint requires auth and caps at 5 files
-          # per minute for anonymous calls. The simpler GET endpoint has no
-          # such limit — purge each file individually.
-          # Anonymous rate limit on GET /purge is generous (~10/sec); we
-          # purge ~15 files so we're well under.
-          #
-          # FILES TO PURGE — only the ones the league HPM modules actually
-          # fetch. Adding more here is fine, but pruning prevents accidental
-          # purge of files the HPM doesn't pull.
+          # FILES TO PURGE + PRE-WARM — every URL jsDelivr serves that
+          # the league HPM modules pull. Add new files here when a hub
+          # ships a new asset. Pruning is fine — extras are wasted purge
+          # calls, missing files invite rot.
           FILES=(
+            # ── Bootstrap chain (load order) ───────────────────────────
+            "apps/mfl_site/header_custom_v2.html"
+            "apps/mfl_site/footer_custom_v2.html"
+            "apps/mfl_site/contract_command_center_bridge.js"
             "site/loader.js"
+            # ── HPM partial HTMLs ──────────────────────────────────────
             "site/hpm-draft-hub.html"
             "site/hpm-default.html"
             "site/hpm-ccc.html"
@@ -54,7 +65,20 @@ jobs:
             "site/hpm-stats-workbench.html"
             "site/hpm-widget.html"
             "site/hpm-issue-report.html"
+            # ── Shared modules ─────────────────────────────────────────
+            "site/shared/player_profile_master.js"
+            # ── Per-hub embed loaders ──────────────────────────────────
             "site/rookies/mfl_hpm_embed_loader.js"
+            "site/trades/mfl_hpm_embed_loader.js"
+            "site/rosters/mfl_hpm_embed_loader.js"
+            "site/ccc/mfl_hpm_embed_loader.js"
+            "site/standings/mfl_hpm_embed_loader.js"
+            "site/reports/mfl_hpm_embed_loader.js"
+            "site/acquisition/mfl_hpm_embed_loader.js"
+            "site/team_operations/mfl_hpm_embed_loader.js"
+            "site/stats_workbench/mfl_hpm_embed_loader.js"
+            "site/mcm_embed_loader.js"
+            # ── Rookie Draft Hub ───────────────────────────────────────
             "site/rookies/rookie_draft_hub.html"
             "site/rookies/rookie_draft_hub.js"
             "site/rookies/rookie_draft_hub.css"
@@ -63,38 +87,45 @@ jobs:
             "site/rookies/external_adp_2026.json"
             "site/rookies/franchise_assets_2026.json"
             "site/rookies/rookie_draft_hub_2026.json"
-            "site/trades/mfl_hpm_embed_loader.js"
+            # ── Trade Workbench ────────────────────────────────────────
             "site/trades/trade_workbench.html"
             "site/trades/trade_workbench.js"
             "site/trades/trade_workbench.css"
-            "site/rosters/mfl_hpm_embed_loader.js"
+            # ── Roster Workbench ───────────────────────────────────────
             "site/rosters/roster_workbench.html"
             "site/rosters/roster_workbench.js"
             "site/rosters/roster_workbench.css"
-            "site/ccc/mfl_hpm_embed_loader.js"
-            "site/ccc/ccc.js"
-            "site/ccc/ccc.css"
-            "site/standings/mfl_hpm_embed_loader.js"
-            "site/reports/mfl_hpm_embed_loader.js"
-            "site/acquisition/mfl_hpm_embed_loader.js"
-            "site/team_operations/mfl_hpm_embed_loader.js"
-            "site/stats_workbench/mfl_hpm_embed_loader.js"
+            "site/rosters/ups_trade_offer_patch.js"
+            "site/rosters/player_acquisition_lookup_2026.json"
+            "site/rosters/player_points_history.json"
+            # ── Team Operations / Front Office ─────────────────────────
+            "site/team_operations/team_operations.js"
+            "site/team_operations/team_operations.css"
+            # ── Stats Workbench + Standings ────────────────────────────
+            "site/stats_workbench/stats_workbench.html"
+            "site/standings/mfl_hpm_standings.html"
+            # ── CCC (archived 2026-05-12, kept for tag JSON references) ─
+            "site/ccc/tag_tracking.json"
+            "site/ccc/tag_submissions.json"
+            # ── Reports / Issue + Widget ───────────────────────────────
+            "site/ups_issue_report.html"
+            "site/ups_options_widget.html"
+            "site/ups_options_widget.css"
+            "site/ups_options_widget.js"
           )
-          # IMPORTANT: jsDelivr's GET-based purge returns HTTP 200 even when
-          # the request was throttled — you have to inspect the JSON body for
-          # `"throttled": true`. We learned this 2026-05-11 when a throttled
-          # purge silently kept v1.7.7+ stuck at v1.7.6 for 20+ minutes
-          # despite "successful" workflow runs. Fix: parse the body, retry
-          # throttled paths after a 60s pause (jsDelivr's typical throttle
-          # window is 30-60s), and FAIL the workflow if any path is still
-          # throttled after retry — so future stuck-cache regressions are
-          # visible in red on the Actions tab instead of silently rotting.
-          echo "Purging ${#FILES[@]} files..."
+
+          UA="ups-purge-workflow"
           OK=0
           THROTTLED=()
           ERRORS=()
+
+          # ─── PHASE 1: PURGE ─────────────────────────────────────────────
+          # jsDelivr's GET /purge endpoint returns 200 even when throttled.
+          # Body contains "throttled":true OR "status":"finished". Parse and
+          # retry throttled paths after 60s (jsDelivr's throttle window).
+          echo "::group::Phase 1 — purge ${#FILES[@]} files"
           for f in "${FILES[@]}"; do
-            BODY=$(curl -sS --max-time 12 \
+            BODY=$(curl -sS --max-time 12 -A "$UA" \
               "https://purge.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/${f}")
             if echo "$BODY" | grep -q '"throttled": *true'; then
               THROTTLED+=("$f")
@@ -102,7 +133,7 @@ jobs:
               OK=$((OK + 1))
             else
               ERRORS+=("$f")
-              echo "  ERROR  ${f}: ${BODY:0:200}"
+              echo "  PURGE_ERROR  ${f}: ${BODY:0:200}"
             fi
           done
           echo "First pass: ${OK} ok, ${#THROTTLED[@]} throttled, ${#ERRORS[@]} errors"
@@ -111,32 +142,60 @@ jobs:
             sleep 60
             REMAINING=()
             for f in "${THROTTLED[@]}"; do
-              BODY=$(curl -sS --max-time 12 \
+              BODY=$(curl -sS --max-time 12 -A "$UA" \
                 "https://purge.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/${f}")
               if echo "$BODY" | grep -q '"throttled": *true'; then
-                REMAINING+=("$f")
-                echo "  STILL_THROTTLED  ${f}"
+                REMAINING+=("$f"); echo "  STILL_THROTTLED  ${f}"
               elif echo "$BODY" | grep -q '"status": *"finished"'; then
                 OK=$((OK + 1))
               else
-                ERRORS+=("$f")
-                echo "  ERROR  ${f}: ${BODY:0:200}"
+                ERRORS+=("$f"); echo "  PURGE_ERROR(retry)  ${f}: ${BODY:0:200}"
               fi
             done
             THROTTLED=("${REMAINING[@]}")
           fi
-          echo "Final: ${OK} ok, ${#THROTTLED[@]} still throttled, ${#ERRORS[@]} errors"
-          # Fail loudly if any file is still throttled or errored after retry
-          # so we don't silently ship stale assets again.
+          echo "Purge final: ${OK} ok, ${#THROTTLED[@]} still throttled, ${#ERRORS[@]} errors"
           if [ ${#THROTTLED[@]} -gt 0 ] || [ ${#ERRORS[@]} -gt 0 ]; then
             echo "::error::jsDelivr purge incomplete — throttled=${#THROTTLED[@]} errors=${#ERRORS[@]}"
             exit 1
           fi
+          echo "::endgroup::"
 
-      - name: Verify VERSION.json refreshed
+          # ─── PHASE 2: PRE-WARM ──────────────────────────────────────────
+          # Fetch each file via cdn.jsdelivr.net to force a fresh cache fill
+          # from GitHub. If any URL 404s here, jsDelivr just cached a bad
+          # response — retry up to 3 times with 10s sleep. Loud failure if
+          # still 404 after retries means we found a real broken path OR
+          # GitHub is actively rotting jsDelivr caches (see 2026-05-12).
+          echo "::group::Phase 2 — pre-warm ${#FILES[@]} files"
+          ROTTED=()
+          sleep 5  # let purge propagate to edges
+          for f in "${FILES[@]}"; do
+            STATUS=""
+            for attempt in 1 2 3; do
+              STATUS=$(curl -sS --max-time 15 -A "$UA" -o /dev/null -w "%{http_code}" \
+                "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/${f}")
+              if [ "$STATUS" = "200" ]; then break; fi
+              echo "  attempt ${attempt}: ${f} → HTTP ${STATUS} — sleeping 10s"
+              sleep 10
+            done
+            if [ "$STATUS" != "200" ]; then
+              ROTTED+=("${f} (final=${STATUS})")
+              echo "  ROTTED  ${f}: HTTP ${STATUS} after 3 attempts"
+            fi
+          done
+          if [ ${#ROTTED[@]} -gt 0 ]; then
+            echo "::error::jsDelivr pre-warm failed for ${#ROTTED[@]} files — rotted cache or missing files"
+            for r in "${ROTTED[@]}"; do echo "::error:: ${r}"; done
+            exit 1
+          fi
+          echo "Pre-warm: ${#FILES[@]} files all return 200 OK"
+          echo "::endgroup::"
+
+      - name: Verify VERSION.json reflects latest
         run: |
-          sleep 5
-          echo "VERSION.json after purge:"
-          curl -sSL --max-time 10 \
+          echo "VERSION.json after purge+prewarm:"
+          curl -sSL --max-time 10 -A "ups-purge-verify" \
             "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/rookies/VERSION.json" \
-            | python3 -c "import json,sys; d=json.load(sys.stdin); print(f'  {d[\"version\"]} · {d[\"label\"]}')"
+            | python3 -c "import json,sys; d=json.load(sys.stdin); print(f'  {d[\"version\"]} · {d.get(\"label\",\"(no label)\")}')" \
+            || echo "  (VERSION.json parse failed — non-fatal)"
