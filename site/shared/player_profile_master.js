@@ -1659,9 +1659,17 @@
   // Map item.type → CSS class for left-border color hint.
   function newsItemClassForType(t) {
     if (t === "injury" || t === "status") return "is-injury";
-    if (t === "depth") return "is-status";
     if (t === "headline") return "is-headline";
+    // depth charts are not "news" per Keith — filtered upstream.
     return "";
+  }
+
+  // Filter what counts as a "news item" for the News tab.
+  // Per Keith 2026-05-13: exclude depth-chart entries (depth is roster
+  // info, not news). Keep injury/status + ESPN headlines.
+  function isRealNewsItem(item) {
+    if (!item || !item.type) return false;
+    return item.type === "injury" || item.type === "status" || item.type === "headline";
   }
 
   function renderNewsFeedItem(item) {
@@ -1737,9 +1745,15 @@
       })
       .then(function (data) {
         if (!feedEl.parentNode) return;  // tab torn down between fetch + render
-        var items = (data && data.items_by_pid && data.items_by_pid[String(pid)]) || [];
+        var rawItems = (data && data.items_by_pid && data.items_by_pid[String(pid)]) || [];
+        // Filter to real news (injury / status / headline) — depth-chart
+        // entries are roster info, not news. Per Keith 2026-05-13.
+        var items = rawItems.filter(isRealNewsItem);
         if (!items.length) {
-          feedEl.innerHTML = '<p class="small muted" style="padding:6px 0;">No recent player news (Sleeper + ESPN scanned, nothing matched).</p>';
+          var hadDepth = rawItems.some(function (it) { return it && it.type === "depth"; });
+          feedEl.innerHTML = '<p class="small muted" style="padding:6px 0;">No injury reports or news headlines for this player.'
+            + (hadDepth ? ' (Depth chart position available — see Bio tab.)' : '')
+            + '</p>';
           return;
         }
         feedEl.innerHTML = '<div class="upm-news-list">'
@@ -2119,23 +2133,34 @@
       var showContractOptions = hasContractOptions(ctx);
       var contractOptionsHtml = showContractOptions ? buildContractOptionsHtml(ctx) : "";
 
+      // Initial tab — Bio by default, or ctx.openTab when supplied
+      // (Roster Workbench's news-icon click opens directly to News).
+      var allowedTabs = { bio: 1, stats: 1, gamelog: 1, "contract-options": showContractOptions ? 1 : 0, news: 1 };
+      var openTab = ctx.openTab && allowedTabs[ctx.openTab] ? ctx.openTab : "bio";
+      function tabAttrs(name) {
+        return 'aria-selected="' + (openTab === name ? "true" : "false") + '" data-upm-tab="' + name + '"';
+      }
+      function panelAttrs(name) {
+        return 'class="upm-tab-panel" data-upm-panel="' + name + '"' + (openTab === name ? '' : ' hidden');
+      }
+
       bodyContent.innerHTML = errorBanner
         + '<nav class="upm-view-switch" role="tablist" aria-label="Player profile sections">'
-        + '<button type="button" role="tab" aria-selected="true"  data-upm-tab="bio">Bio</button>'
-        + '<button type="button" role="tab" aria-selected="false" data-upm-tab="stats">Stats</button>'
-        + '<button type="button" role="tab" aria-selected="false" data-upm-tab="gamelog">Game Log</button>'
+        + '<button type="button" role="tab" ' + tabAttrs("bio") + '>Bio</button>'
+        + '<button type="button" role="tab" ' + tabAttrs("stats") + '>Stats</button>'
+        + '<button type="button" role="tab" ' + tabAttrs("gamelog") + '>Game Log</button>'
         + (showContractOptions
-          ? '<button type="button" role="tab" aria-selected="false" data-upm-tab="contract-options">Contract Options</button>'
+          ? '<button type="button" role="tab" ' + tabAttrs("contract-options") + '>Contract Options</button>'
           : '')
-        + '<button type="button" role="tab" aria-selected="false" data-upm-tab="news">News</button>'
+        + '<button type="button" role="tab" ' + tabAttrs("news") + '>News</button>'
         + '</nav>'
-        + '<div class="upm-tab-panel" data-upm-panel="bio">' + bioHtml + '</div>'
-        + '<div class="upm-tab-panel" data-upm-panel="stats" hidden>' + statsHtml + '</div>'
-        + '<div class="upm-tab-panel" data-upm-panel="gamelog" hidden>' + gameLogHtml + '</div>'
+        + '<div ' + panelAttrs("bio") + '>' + bioHtml + '</div>'
+        + '<div ' + panelAttrs("stats") + '>' + statsHtml + '</div>'
+        + '<div ' + panelAttrs("gamelog") + '>' + gameLogHtml + '</div>'
         + (showContractOptions
-          ? '<div class="upm-tab-panel" data-upm-panel="contract-options" hidden>' + contractOptionsHtml + '</div>'
+          ? '<div ' + panelAttrs("contract-options") + '>' + contractOptionsHtml + '</div>'
           : '')
-        + '<div class="upm-tab-panel" data-upm-panel="news" hidden>' + newsHtml + '</div>'
+        + '<div ' + panelAttrs("news") + '>' + newsHtml + '</div>'
         + '<div class="small muted" style="margin-top:10px; text-align:right;">MFL ID: ' + escapeHtml(String(pid)) + '</div>';
 
       wireTabs(bodyContent);

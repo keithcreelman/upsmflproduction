@@ -148,6 +148,10 @@
       playerId: "",
       franchiseId: "",
       mode: "actions",
+      // openTab — if set ("bio"/"stats"/"gamelog"/"contract-options"/"news"),
+      // the master modal opens directly on that tab. Used by the news-icon
+      // click handler to land on the News tab when a player has injury/news.
+      openTab: "",
       restructureYear1: "",
       restructureYear2: "",
       restructureBaseTcv: 0,
@@ -155,6 +159,13 @@
       restructureYears: 2,
       restructureExtSuffix: ""
     },
+    // News flags by MFL pid — populated by kickoffNewsFetch() after rosters
+    // render. Shape: { "<pid>": { hasInjury, hasHeadline, hasStatus } }.
+    // Drives the small icon next to player names + lets the click handler
+    // skip the fetch + open the modal directly.
+    newsByPid: Object.create(null),
+    newsFetchKey: "",     // dedupe key — "<leagueId>:<year>"
+    newsFetching: false,
     busyActionKey: "",
     rosterPointsSummaryCacheKey: "",
     rosterPointsSummaryByPlayer: Object.create(null),
@@ -7216,6 +7227,7 @@
 
   function actionModalResetMode() {
     state.actionModal.mode = "actions";
+    state.actionModal.openTab = "";
     state.actionModal.restructureYear1 = "";
     state.actionModal.restructureYear2 = "";
     state.actionModal.restructureBaseTcv = 0;
@@ -7305,11 +7317,19 @@
     renderPlayerActionModal();
   }
 
-  function openPlayerActionModal(franchiseId, playerId) {
+  function openPlayerActionModal(franchiseId, playerId, options) {
     state.actionModal.open = true;
     state.actionModal.franchiseId = pad4(franchiseId);
     state.actionModal.playerId = safeStr(playerId).replace(/\D/g, "");
     actionModalResetMode();
+    // Optional openTab — caller (e.g. news-icon click) can pin which master
+    // tab opens. actionModalResetMode() wiped it; re-stash AFTER the reset.
+    if (options && typeof options === "object") {
+      var t = safeStr(options.openTab).toLowerCase();
+      if (t === "bio" || t === "stats" || t === "gamelog" || t === "contract-options" || t === "news") {
+        state.actionModal.openTab = t;
+      }
+    }
     renderPlayerActionModal();
   }
 
@@ -7669,7 +7689,10 @@
             // Extension options + rookie-option summaries — surfaced as
             // the master modal's "Contract Options" tab. Pre-stashed in
             // renderPlayerActionModal where the canManage gate also lives.
-            contractOptionsHtml: state.actionModal._contractOptionsHtml || ""
+            contractOptionsHtml: state.actionModal._contractOptionsHtml || "",
+            // Direct-to-tab — set when caller invoked openPlayerActionModal
+            // with { openTab: "news" } (e.g. clicking the news-flag icon).
+            openTab: state.actionModal.openTab || undefined
           });
         } catch (e) {
           // Master crashed — leave the mount empty with a small notice
@@ -7717,6 +7740,170 @@
       }
     } catch (_) {}
     return "https://upsmflproduction.keith-creelman.workers.dev";
+  }
+
+  // ── News-flag pre-fetch (Roster Workbench-wide) ───────────────────
+  // Keith 2026-05-13: surface an injury/news icon next to player names
+  // so owners see something is up WITHOUT having to open every profile.
+  // Depth-chart-only items are explicitly excluded (per Keith) — a player
+  // having a depth slot isn't "news".
+  //
+  // Strategy:
+  //   1. Collect every pid we render (across teams).
+  //   2. Hit /api/player-news in 50-pid batches (endpoint cap).
+  //   3. For each pid, compute { hasInjury, hasHeadline } from items.
+  //   4. After each batch, repaint icons.
+  // Dedupe by league+year so flipping tabs / re-rendering doesn't
+  // re-fetch.
+  function isRealRwbNewsItem(item) {
+    if (!item || !item.type) return false;
+    var t = String(item.type).toLowerCase();
+    return t === "injury" || t === "status" || t === "headline";
+  }
+
+  function collectAllRosterPids() {
+    var seen = Object.create(null);
+    var pids = [];
+    var teams = state.teams || [];
+    for (var i = 0; i < teams.length; i += 1) {
+      var players = (teams[i] && teams[i].players) || [];
+      for (var j = 0; j < players.length; j += 1) {
+        var pid = safeStr(players[j] && players[j].id).replace(/\D/g, "");
+        if (!pid || seen[pid]) continue;
+        seen[pid] = 1;
+        pids.push(pid);
+      }
+    }
+    return pids;
+  }
+
+  function kickoffNewsFetch() {
+    if (typeof fetch !== "function") return;
+    var leagueId = safeStr(
+      (state.ctx && state.ctx.leagueId) ||
+      window.UPS_TWB_LEAGUE_ID ||
+      window.UPS_DRAFT_HUB_LEAGUE_ID ||
+      window.UPS_RWB_LEAGUE_ID ||
+      "74598"
+    ).replace(/\D/g, "");
+    var year = safeStr(
+      (state.ctx && state.ctx.year) ||
+      window.UPS_TWB_YEAR ||
+      window.UPS_DRAFT_HUB_YEAR ||
+      window.UPS_RWB_YEAR ||
+      String(new Date().getUTCFullYear())
+    ).replace(/\D/g, "");
+    var key = leagueId + ":" + year;
+    if (state.newsFetchKey === key && !state.newsFetching) {
+      // Cache hit — just repaint with whatever we already have.
+      paintNewsIcons();
+      return;
+    }
+    if (state.newsFetching) {
+      paintNewsIcons();
+      return;
+    }
+    var pids = collectAllRosterPids();
+    if (!pids.length) return;
+    state.newsFetching = true;
+    state.newsFetchKey = key;
+    state.newsByPid = Object.create(null);
+    var base = upmResolveApiBase();
+
+    var batches = [];
+    for (var i = 0; i < pids.length; i += 50) batches.push(pids.slice(i, i + 50));
+    var completed = 0;
+
+    batches.forEach(function (batch) {
+      var url = base + "/api/player-news?pids=" + encodeURIComponent(batch.join(","))
+        + "&L=" + encodeURIComponent(leagueId)
+        + "&YEAR=" + encodeURIComponent(year);
+      fetch(url, { credentials: "omit" })
+        .then(function (r) { return r.ok ? r.json() : { items_by_pid: {} }; })
+        .then(function (data) {
+          var byPid = (data && data.items_by_pid) || {};
+          for (var k = 0; k < batch.length; k += 1) {
+            var pid = batch[k];
+            var raw = byPid[pid] || [];
+            var flags = { hasInjury: false, hasStatus: false, hasHeadline: false };
+            for (var m = 0; m < raw.length; m += 1) {
+              if (!isRealRwbNewsItem(raw[m])) continue;
+              var t = String(raw[m].type).toLowerCase();
+              if (t === "injury") {
+                flags.hasInjury = true;
+              } else if (t === "status") {
+                // Worker emits `status` with headline "Injury Status: …"
+                // for Sleeper injuries. Treat those as injury so the icon
+                // is unambiguously injury-flavored (orange/bell) instead
+                // of generic "status" (yellow).
+                var headline = String(raw[m].headline || "").toLowerCase();
+                if (headline.indexOf("injury") !== -1) flags.hasInjury = true;
+                else flags.hasStatus = true;
+              } else if (t === "headline") {
+                flags.hasHeadline = true;
+              }
+            }
+            if (flags.hasInjury || flags.hasStatus || flags.hasHeadline) {
+              state.newsByPid[pid] = flags;
+            }
+          }
+          paintNewsIcons();
+        })
+        .catch(function () { /* swallow — non-essential UI */ })
+        .then(function () {
+          completed += 1;
+          if (completed === batches.length) state.newsFetching = false;
+        });
+    });
+  }
+
+  function newsFlagButtonHtml(pid, fid, flags) {
+    if (!flags) return "";
+    // Priority: injury > status > headline. One icon, with a tooltip
+    // that hints at WHAT (so hovering tells you "Injury report" vs.
+    // "News headline" without opening the modal).
+    var label = "";
+    var variant = "";
+    if (flags.hasInjury) { label = "Injury report"; variant = "is-injury"; }
+    else if (flags.hasStatus) { label = "Roster status"; variant = "is-status"; }
+    else if (flags.hasHeadline) { label = "News headline"; variant = "is-headline"; }
+    if (!variant) return "";
+    // Inline SVG (no external dep) — bell / exclamation in a small circle.
+    var svg = flags.hasInjury
+      ? '<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" focusable="false"><path d="M12 2a1 1 0 0 1 1 1v8a1 1 0 0 1-2 0V3a1 1 0 0 1 1-1zm0 14a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3z" fill="currentColor"/></svg>'
+      : '<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" focusable="false"><path d="M12 2a7 7 0 0 0-7 7v3.586l-1.293 1.293A1 1 0 0 0 4.414 16H19.586a1 1 0 0 0 .707-1.707L19 13.586V9a7 7 0 0 0-7-7zm-2 16a2 2 0 1 0 4 0h-4z" fill="currentColor"/></svg>';
+    return (
+      '<button type="button" class="rwb-news-flag ' + variant + '"'
+        + ' data-action="open-player-news"'
+        + ' data-player-id="' + escapeHtml(pid) + '"'
+        + ' data-franchise-id="' + escapeHtml(fid) + '"'
+        + ' title="' + escapeHtml(label) + ' — click for details"'
+        + ' aria-label="' + escapeHtml(label) + ' for player ' + escapeHtml(pid) + '">'
+        + svg
+      + '</button>'
+    );
+  }
+
+  function paintNewsIcons() {
+    if (!els || !els.teamList) return;
+    var slots = els.teamList.querySelectorAll("[data-news-slot]");
+    for (var i = 0; i < slots.length; i += 1) {
+      var slot = slots[i];
+      var pid = safeStr(slot.getAttribute("data-news-slot")).replace(/\D/g, "");
+      var fid = pad4(slot.getAttribute("data-news-fid") || "");
+      var flags = state.newsByPid[pid];
+      var current = slot.innerHTML;
+      var next = flags ? newsFlagButtonHtml(pid, fid, flags) : "";
+      if (current !== next) slot.innerHTML = next;
+    }
+  }
+
+  function newsSlotHtml(pid, fid) {
+    // Empty placeholder — paintNewsIcons() fills it in after fetch.
+    return (
+      '<span class="rwb-news-slot" data-news-slot="' + escapeHtml(pid) + '"'
+        + ' data-news-fid="' + escapeHtml(fid) + '"></span>'
+    );
   }
 
   function upmFillPanel(root, panelName, html) {
@@ -8562,6 +8749,7 @@
                   '<span class="rwb-player-name">' + escapeHtml(p.name) + '</span>' +
                   '<span class="rwb-type-pill ' + typeTone(p.type) + ' rwb-player-contract-pill">' + escapeHtml(contractTypeText) + '</span>' +
                 '</button>' +
+                newsSlotHtml(p.id, p.fid) +
                 tags.join("") +
                 '<button type="button" class="rwb-row-more" data-action="row-more" aria-expanded="false">More</button>' +
               '</div>' +
@@ -8654,6 +8842,7 @@
                   '<span class="rwb-player-name">' + escapeHtml(p.name) + '</span>' +
                   '<span class="rwb-type-pill ' + typeTone(p.type) + ' rwb-player-contract-pill">' + escapeHtml(contractTypeText) + '</span>' +
                 '</button>' +
+                newsSlotHtml(p.id, p.fid) +
                 (p.isTaxi ? '<span class="rwb-tag is-taxi">Taxi</span>' : '') +
                 (p.isIr ? '<span class="rwb-tag is-ir">IR</span>' : '') +
               '</div>' +
@@ -9454,6 +9643,7 @@
           '<div class="rwb-player-name-wrap">' +
             '<div class="rwb-player-line">' +
               '<button type="button" class="rwb-player-open" data-action="open-player-modal" data-player-id="' + escapeHtml(player.id) + '" data-franchise-id="' + escapeHtml(player.fid) + '"><span class="rwb-player-name">' + escapeHtml(player.name) + '</span></button>' +
+              newsSlotHtml(player.id, player.fid) +
               tags.join("") +
             '</div>' +
             '<div class="rwb-points-player-sub">' + escapeHtml(player.position + " | " + (player.nflTeam || "-")) + '</div>' +
@@ -9593,6 +9783,7 @@
                 '<button type="button" class="rwb-player-open" data-action="open-player-modal" data-player-id="' + escapeHtml(row.player_id) + '" data-franchise-id="' + escapeHtml(team.id) + '">' +
                   '<span class="rwb-player-name">' + escapeHtml(row.player_name) + '</span>' +
                 '</button>' +
+                newsSlotHtml(row.player_id, team.id) +
                 (isActive ? '<span class="rwb-tag is-tagged">Tagged</span>' : '') +
               '</div>' +
               '<div class="rwb-points-player-sub">' + escapeHtml(tagPriorAavSubtext(row)) + '</div>' +
@@ -10053,6 +10244,14 @@
 
     renderToolbarNote(visiblePlayers, totalPlayers, visibleTeams.length, totalTeams);
     renderPlayerActionModal();
+    // Kick off news/injury icon population — fetch is deduped by
+    // leagueId:year, so repeated renders are cheap. paintNewsIcons() is
+    // also called eagerly here so cached flags appear without waiting
+    // for the network round-trip.
+    try {
+      paintNewsIcons();
+      kickoffNewsFetch();
+    } catch (_) { /* never let icon enrichment break rendering */ }
   }
 
   function collectExportRows() {
@@ -11139,6 +11338,21 @@
       }
       persistState();
       renderTeams();
+      return;
+    }
+
+    // ── News-flag icon → open modal on News tab ────────────────────
+    // Match BEFORE the open-player-modal handler so clicking the icon
+    // doesn't fall through to the generic player-open behavior.
+    var newsFlagBtn = target.closest("[data-action='open-player-news']");
+    if (newsFlagBtn) {
+      try {
+        var _nfFid = pad4(newsFlagBtn.getAttribute("data-franchise-id"));
+        var _nfPid = safeStr(newsFlagBtn.getAttribute("data-player-id"));
+        openPlayerActionModal(_nfFid, _nfPid, { openTab: "news" });
+      } catch (e) {
+        console.error("[upm] open-player-news failed:", e);
+      }
       return;
     }
 

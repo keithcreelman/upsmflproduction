@@ -1067,6 +1067,67 @@
   color: #dff8ea;
 }
 
+/* ── News-flag icon (next to player name) ──────────────────────────
+   Surfaces injuries / headlines without forcing the user to open the
+   profile. Depth-chart-only items are explicitly excluded server-side
+   (per Keith 2026-05-13) so the icon means "something is up" — not
+   just "player has a depth-chart slot". */
+.rwb-news-slot {
+  display: inline-flex;
+  align-items: center;
+  /* No visible footprint until paintNewsIcons() fills it in. */
+}
+.rwb-news-flag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 4px;
+  padding: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  vertical-align: middle;
+  transition: transform 0.12s ease, background-color 0.12s ease;
+}
+.rwb-news-flag:hover,
+.rwb-news-flag:focus-visible {
+  transform: scale(1.08);
+  outline: none;
+}
+.rwb-news-flag.is-injury {
+  color: #ffb86b;
+  border-color: rgba(255, 184, 107, 0.45);
+  background: rgba(255, 184, 107, 0.14);
+}
+.rwb-news-flag.is-injury:hover,
+.rwb-news-flag.is-injury:focus-visible {
+  background: rgba(255, 184, 107, 0.28);
+}
+.rwb-news-flag.is-status {
+  color: #f6d36b;
+  border-color: rgba(246, 211, 107, 0.4);
+  background: rgba(246, 211, 107, 0.12);
+}
+.rwb-news-flag.is-status:hover,
+.rwb-news-flag.is-status:focus-visible {
+  background: rgba(246, 211, 107, 0.24);
+}
+.rwb-news-flag.is-headline {
+  color: #88c5ff;
+  border-color: rgba(136, 197, 255, 0.4);
+  background: rgba(136, 197, 255, 0.12);
+}
+.rwb-news-flag.is-headline:hover,
+.rwb-news-flag.is-headline:focus-visible {
+  background: rgba(136, 197, 255, 0.24);
+}
+.rwb-news-flag svg {
+  display: block;
+}
+
 .rwb-type-pill {
   display: inline-flex;
   border-radius: 999px;
