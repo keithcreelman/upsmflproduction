@@ -1109,6 +1109,30 @@
   };
 
   // ─────────────────────────────────────────────────────────────────────────
+  // CONTRACT OPTIONS TAB
+  //
+  // Renders caller-supplied HTML describing extension options, rookie-option
+  // decisions, restructure eligibility, etc. The caller (Roster Workbench)
+  // already knows the player's situation in depth — we just take the HTML
+  // it produces and frame it in the master modal's visual language.
+  //
+  // Tab visibility is gated on ctx.contractOptionsHtml being non-empty —
+  // tab nav hides Contract Options when there's nothing to show (e.g.,
+  // Front Office viewer of a vet who has no extension options).
+  // ─────────────────────────────────────────────────────────────────────────
+  function buildContractOptionsHtml(ctx) {
+    var html = String(ctx.contractOptionsHtml || "").trim();
+    if (!html) {
+      return '<div class="upm-co-panel"><p class="upm-co-empty">No contract options available for this player.</p></div>';
+    }
+    return '<div class="upm-co-panel">' + html + '</div>';
+  }
+
+  function hasContractOptions(ctx) {
+    return !!(ctx && ctx.contractOptionsHtml && String(ctx.contractOptionsHtml).trim());
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
   // NEWS TAB
   // ─────────────────────────────────────────────────────────────────────────
   function buildNewsHtml(bundle) {
@@ -1454,17 +1478,29 @@
       var statsHtml = buildStatsPanelHtml(bundle, ctx, pid, name);
       var gameLogHtml = buildGameLogPanelHtml(bundle);
       var newsHtml = buildNewsHtml(bundle);
+      // Contract Options tab — visible only when caller supplies HTML.
+      // Roster Workbench (mode: "roster_workbench") passes its extension
+      // options + rookie-option summaries via ctx.contractOptionsHtml.
+      // Rookie Draft / Front Office leave it empty → tab hides itself.
+      var showContractOptions = hasContractOptions(ctx);
+      var contractOptionsHtml = showContractOptions ? buildContractOptionsHtml(ctx) : "";
 
       bodyContent.innerHTML = errorBanner
         + '<nav class="upm-view-switch" role="tablist" aria-label="Player profile sections">'
         + '<button type="button" role="tab" aria-selected="true"  data-upm-tab="bio">Bio</button>'
         + '<button type="button" role="tab" aria-selected="false" data-upm-tab="stats">Stats</button>'
         + '<button type="button" role="tab" aria-selected="false" data-upm-tab="gamelog">Game Log</button>'
+        + (showContractOptions
+          ? '<button type="button" role="tab" aria-selected="false" data-upm-tab="contract-options">Contract Options</button>'
+          : '')
         + '<button type="button" role="tab" aria-selected="false" data-upm-tab="news">News</button>'
         + '</nav>'
         + '<div class="upm-tab-panel" data-upm-panel="bio">' + bioHtml + '</div>'
         + '<div class="upm-tab-panel" data-upm-panel="stats" hidden>' + statsHtml + '</div>'
         + '<div class="upm-tab-panel" data-upm-panel="gamelog" hidden>' + gameLogHtml + '</div>'
+        + (showContractOptions
+          ? '<div class="upm-tab-panel" data-upm-panel="contract-options" hidden>' + contractOptionsHtml + '</div>'
+          : '')
         + '<div class="upm-tab-panel" data-upm-panel="news" hidden>' + newsHtml + '</div>'
         + '<div class="small muted" style="margin-top:10px; text-align:right;">MFL ID: ' + escapeHtml(String(pid)) + '</div>';
 

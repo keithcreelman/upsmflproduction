@@ -7640,7 +7640,11 @@
             mode: "roster_workbench",
             mountNode: pendingMount,
             hideHeader: true,
-            hideCloseButton: true
+            hideCloseButton: true,
+            // Extension options + rookie-option summaries — surfaced as
+            // the master modal's "Contract Options" tab. Pre-stashed in
+            // renderPlayerActionModal where the canManage gate also lives.
+            contractOptionsHtml: state.actionModal._contractOptionsHtml || ""
           });
         } catch (e) {
           // Master crashed — leave the mount empty with a small notice
