@@ -883,6 +883,25 @@
         // is just cy directly. No inversion needed.
         var yl = cy > 0 ? cy : null;
         var tcv = (c.tcv != null && c.tcv > 0) ? c.tcv : (cl && c.aav ? cl * c.aav : 0);
+        // Salary/AAV cell — when this season's salary differs from the
+        // contract's AAV (FL/BL/restructure years), show BOTH as
+        // "$40K/$29K" so the year-over-year salary curve is visible.
+        // When they match (vet auctions, rookies, MYM), collapse to a
+        // single value. Keith 2026-05-13.
+        var salary = Number(c.salary || 0);
+        var aav = Number(c.aav || 0);
+        var salAavCell;
+        if (salary > 0 && aav > 0 && Math.abs(salary - aav) >= 500) {
+          // Treat <$500 difference as a rounding artifact (MFL stores in
+          // dollars; year_salaries can drift by a few hundred).
+          salAavCell = fmtUsdK(salary) + '<span class="muted">/</span>' + fmtUsdK(aav);
+        } else if (aav > 0) {
+          salAavCell = fmtUsdK(aav);
+        } else if (salary > 0) {
+          salAavCell = fmtUsdK(salary);
+        } else {
+          salAavCell = "—";
+        }
         return '<tr>'
           + '<td>' + escapeHtml(String(c.season)) + '</td>'
           + '<td>' + teamCell + '</td>'
@@ -890,7 +909,7 @@
           + '<td class="num">' + (cl || "—") + '</td>'
           + '<td class="num">' + (yl == null ? "—" : yl) + '</td>'
           + '<td class="num">' + fmtUsdK(tcv) + '</td>'
-          + '<td class="num">' + fmtUsdK(c.aav) + '</td>'
+          + '<td class="num">' + salAavCell + '</td>'
           + '</tr>';
       }).join("");
       contractHistoryHtml = '<div class="profile-block">'
@@ -900,7 +919,7 @@
         + '<th class="num" title="Contract Length">CL</th>'
         + '<th class="num" title="Years Left (includes current season)">YL</th>'
         + '<th class="num">TCV</th>'
-        + '<th class="num" title="Per-year salary (= AAV for non-FL/BL contracts)">Salary/AAV</th>'
+        + '<th class="num" title="Year salary / AAV — collapsed to one value when they match (most contracts), split when this year\'s salary differs from the contract average (Front-Loaded / Back-Loaded / restructured)">Salary/AAV</th>'
         + '</tr></thead><tbody>' + rows2 + '</tbody></table></div>';
     }
 
