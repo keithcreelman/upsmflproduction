@@ -60,6 +60,25 @@
     var num = Number(n) || 0;
     return num ? "$" + num.toLocaleString() : "—";
   }
+  // Compact USD — collapses thousands so contract-history rows don't
+  // eat a third of the modal width. $42,000 → $42K; $1,250,000 → $1.25M.
+  // Sub-$1K values stay literal so we don't lose precision on rookies.
+  function fmtUsdK(n) {
+    var num = Number(n) || 0;
+    if (!num) return "—";
+    var abs = Math.abs(num);
+    if (abs >= 1000000) {
+      var m = num / 1000000;
+      return "$" + (m >= 10 ? m.toFixed(0) : m.toFixed(m >= 1 ? 2 : 2).replace(/\.?0+$/, "")) + "M";
+    }
+    if (abs >= 1000) {
+      var k = num / 1000;
+      // Drop trailing .0 — $42.0K reads worse than $42K.
+      var kStr = k >= 100 ? k.toFixed(0) : k.toFixed(1).replace(/\.0$/, "");
+      return "$" + kStr + "K";
+    }
+    return "$" + num.toLocaleString();
+  }
   function tierSlug(t) { return String(t || "Bust").replace(/\s+/g, ""); }
 
   function fmtMflDate(ts) {
@@ -200,6 +219,11 @@
 
     /* profile bio block */
     '.upm-modal .profile-bio { display: grid; grid-template-columns: auto 1fr; gap: 14px; margin-bottom: 14px; }',
+    '.upm-modal .profile-bio-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }',
+    '.upm-modal .profile-bio-actions button { background: #2a3446; color: #e8edf5; border: 1px solid #3a455c; border-radius: 4px; padding: 4px 10px; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; cursor: pointer; }',
+    '.upm-modal .profile-bio-actions button:hover { background: #364257; }',
+    '.upm-modal .profile-bio-actions button:disabled { opacity: 0.4; cursor: not-allowed; }',
+    '.upm-modal .profile-bio-commish { margin-bottom: 8px; font-size: 11px; font-style: italic; opacity: 0.75; }',
     '.upm-modal .profile-photo { width: 110px; height: 110px; border-radius: 6px; object-fit: cover; background: #1a2230; }',
     '.upm-modal .profile-photo-placeholder { width: 110px; height: 110px; border-radius: 6px; background: #1a2230; }',
     '.upm-modal .profile-bio-text { font-size: 12px; line-height: 1.9; }',
@@ -530,7 +554,20 @@
     }
 
     // Bio header (photo + key facts)
+    // Optional inline-action row supplied by the caller (Roster Workbench
+    // passes Trade/Drop/IR/Taxi/Untag here so they sit next to height/weight
+    // instead of consuming a full-width row above the modal). Keith
+    // 2026-05-13: "Trade and Drop can be added into Bio next to height
+    // and weight. There's a lot of wasted space."
+    var bioActionsHtml = ctx.bioActionsHtml ? String(ctx.bioActionsHtml) : "";
+    var bioCommishNote = ctx.bioCommishNote ? String(ctx.bioCommishNote) : "";
     var bioRows = [];
+    if (bioActionsHtml) {
+      bioRows.push('<div class="profile-bio-actions">' + bioActionsHtml + '</div>');
+    }
+    if (bioCommishNote) {
+      bioRows.push('<div class="profile-bio-commish small muted">' + bioCommishNote + '</div>');
+    }
     if (bioHeight) bioRows.push('<div><span class="lbl">Height</span>' + escapeHtml(bioHeight) + '</div>');
     if (bioWeight) bioRows.push('<div><span class="lbl">Weight</span>' + escapeHtml(String(bioWeight)) + '</div>');
     if (bioCollege) bioRows.push('<div><span class="lbl">College</span>' + escapeHtml(bioCollege) + '</div>');
@@ -788,7 +825,7 @@
           : escapeHtml(c.origin_owner_name || "—");
         var earnedCell;
         if (c.earned_at_termination_usd != null) {
-          earnedCell = "$" + Number(c.earned_at_termination_usd).toLocaleString();
+          earnedCell = fmtUsdK(c.earned_at_termination_usd);
         } else if (c.termination_event) {
           earnedCell = "—";
         } else {
@@ -801,15 +838,15 @@
               anyE = true;
             }
           }
-          earnedCell = anyE ? ("$" + sumE.toLocaleString() + " (in progress)") : "in progress";
+          earnedCell = anyE ? (fmtUsdK(sumE) + " (in progress)") : "in progress";
         }
         return '<tr>'
           + '<td>' + escapeHtml(span) + '</td>'
           + '<td>' + ownerCell + '</td>'
           + '<td>' + escapeHtml(typeLabel) + '</td>'
           + '<td class="num">' + (cl || "—") + '</td>'
-          + '<td class="num">' + (tcv ? "$" + Number(tcv).toLocaleString() : "—") + '</td>'
-          + '<td class="num">' + (aav ? "$" + Number(aav).toLocaleString() : "—") + '</td>'
+          + '<td class="num">' + fmtUsdK(tcv) + '</td>'
+          + '<td class="num">' + fmtUsdK(aav) + '</td>'
           + '<td class="num">' + earnedCell + '</td>'
           + '</tr>';
       }).join("");
@@ -818,7 +855,8 @@
         + '<table class="rdh-table" style="margin-top:6px;"><thead><tr>'
         + '<th>Span</th><th>Owner</th><th>Type</th>'
         + '<th class="num" title="Contract Length">CL</th>'
-        + '<th class="num">TCV</th><th class="num">AAV</th>'
+        + '<th class="num">TCV</th>'
+        + '<th class="num" title="Per-year salary (= AAV for non-FL/BL contracts)">Salary/AAV</th>'
         + '<th class="num">Earned</th>'
         + '</tr></thead><tbody>' + rows + '</tbody></table></div>';
     }
@@ -840,16 +878,14 @@
         // is just cy directly. No inversion needed.
         var yl = cy > 0 ? cy : null;
         var tcv = (c.tcv != null && c.tcv > 0) ? c.tcv : (cl && c.aav ? cl * c.aav : 0);
-        var tcvCell = tcv > 0 ? "$" + Number(tcv).toLocaleString() : "—";
-        var aavCell = (c.aav == null || c.aav === 0) ? "—" : "$" + Number(c.aav).toLocaleString();
         return '<tr>'
           + '<td>' + escapeHtml(String(c.season)) + '</td>'
           + '<td>' + teamCell + '</td>'
           + '<td>' + escapeHtml(typeInfo.label) + '</td>'
           + '<td class="num">' + (cl || "—") + '</td>'
           + '<td class="num">' + (yl == null ? "—" : yl) + '</td>'
-          + '<td class="num">' + tcvCell + '</td>'
-          + '<td class="num">' + aavCell + '</td>'
+          + '<td class="num">' + fmtUsdK(tcv) + '</td>'
+          + '<td class="num">' + fmtUsdK(c.aav) + '</td>'
           + '</tr>';
       }).join("");
       contractHistoryHtml = '<div class="profile-block">'
@@ -858,7 +894,8 @@
         + '<th>Yr</th><th>Team</th><th>Type</th>'
         + '<th class="num" title="Contract Length">CL</th>'
         + '<th class="num" title="Years Left (includes current season)">YL</th>'
-        + '<th class="num">TCV</th><th class="num">AAV</th>'
+        + '<th class="num">TCV</th>'
+        + '<th class="num" title="Per-year salary (= AAV for non-FL/BL contracts)">Salary/AAV</th>'
         + '</tr></thead><tbody>' + rows2 + '</tbody></table></div>';
     }
 

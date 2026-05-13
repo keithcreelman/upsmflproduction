@@ -7571,6 +7571,20 @@
         //     live with the option-summary text that governs them.
         // Notes about commish-acting / can't-manage stay above since they
         // apply to the always-visible action row.
+        // Per Keith 2026-05-13: the always-visible action row + commish
+        // notes used to sit ABOVE the master modal in a full-width band
+        // that wasted vertical space. They now move INTO the Bio panel
+        // (compact inline row next to height/weight). For the legacy
+        // fallback path we still render the old above-the-modal layout.
+        var bioActionsHtml = actionsRowAbove.join("");
+        var bioCommishNote = "";
+        if (!canManage) {
+          bioCommishNote = "Roster-management actions unavailable. Trade only.";
+        } else if (viewerCanManageAnyRoster() && !ownRoster) {
+          bioCommishNote = "Commish — acting on behalf of " + escapeHtml(team.name) + ".";
+        }
+        // Legacy fallback still needs a full-width block. Master path
+        // gets these via ctx.bioActionsHtml / ctx.bioCommishNote instead.
         var actionsAboveHtml =
           '<div class="rwb-modal-actions-wrap" style="margin-bottom:14px;">' + actionsRowAbove.join("") + '</div>' +
           (!canManage ? '<div class="rwb-modal-note">Roster-management actions are unavailable for this session. Trade is available from any team.</div>' : '') +
@@ -7597,9 +7611,14 @@
           contractOptionsBody +=
             (rookieOptionSummaryHtml || "") + (extensionSummaryHtml || "");
           state.actionModal._contractOptionsHtml = contractOptionsBody;
+          // Stash the bio-row payload so the delegation block below can
+          // hand it to the master modal via ctx. Master renders it inside
+          // the Bio panel next to height/weight (compact) instead of as
+          // a full-width band above.
+          state.actionModal._bioActionsHtml = bioActionsHtml;
+          state.actionModal._bioCommishNote = bioCommishNote;
           content =
             playerHeaderHtml +
-            actionsAboveHtml +
             '<div id="rwb-upm-mount" data-upm-mount-pending="1"></div>';
         } else {
           state.actionModal._contractOptionsHtml = "";
@@ -7690,6 +7709,10 @@
             // the master modal's "Contract Options" tab. Pre-stashed in
             // renderPlayerActionModal where the canManage gate also lives.
             contractOptionsHtml: state.actionModal._contractOptionsHtml || "",
+            // Bio-inline actions + commish note — moved out of the
+            // full-width band above (Keith 2026-05-13: reduce wasted space).
+            bioActionsHtml: state.actionModal._bioActionsHtml || "",
+            bioCommishNote: state.actionModal._bioCommishNote || "",
             // Direct-to-tab — set when caller invoked openPlayerActionModal
             // with { openTab: "news" } (e.g. clicking the news-flag icon).
             openTab: state.actionModal.openTab || undefined
