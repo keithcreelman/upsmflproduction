@@ -672,10 +672,11 @@
         var teamCell = escapeHtml(c.team_name || "");
         var cl = c.contract_length || 0;
         var cy = c.contract_year || 0;
-        // Years Left (YL) is years remaining INCLUDING the current season
-        // per Keith 2026-05-13. Y1 of CL3 → YL 3, Y2 → YL 2, Y3 → YL 1.
-        // Yr# column dropped since YL carries the same information.
-        var yl = (cl > 0 && cy > 0) ? Math.max(0, cl - cy + 1) : null;
+        // Years Left (YL): src_contracts.contract_year is ALREADY stored
+        // as years-remaining (inverted from MFL convention). For a 3-yr
+        // rookie verified in D1: 2023 cy=3, 2024 cy=2, 2025 cy=1. So YL
+        // is just cy directly. No inversion needed.
+        var yl = cy > 0 ? cy : null;
         var tcv = (c.tcv != null && c.tcv > 0) ? c.tcv : (cl && c.aav ? cl * c.aav : 0);
         var tcvCell = tcv > 0 ? "$" + Number(tcv).toLocaleString() : "—";
         var aavCell = (c.aav == null || c.aav === 0) ? "—" : "$" + Number(c.aav).toLocaleString();
@@ -1107,7 +1108,13 @@
   function buildHeadlineStripHtml(career, leverageCoefs) {
     if (!career || !career.length) return "";
     // Career totals weighted properly.
+    // wcAvailable tracks whether the underlying src_weekly.win_chunks
+    // column has any real values. As of 2026-05-13 the ETL that writes
+    // win_chunks (build_metadata_positionalwinprofile.py) appears to be
+    // not running — every row is NULL. We render APW as "—" instead of
+    // a misleading "0.0" when that's the case.
     var tot = { g: 0, pts: 0, wcn: 0 };
+    var wcAvailable = false;
     var bestYr = null, bestYrPts = -1, bestYrPPG = 0;
     for (var i = 0; i < career.length; i++) {
       var c = career[i];
@@ -1116,6 +1123,7 @@
       var wcb = (leverageCoefs && leverageCoefs[c.pos_group]) || 0;
       tot.g += g;
       tot.pts += pts;
+      if (c.win_chunks != null && c.win_chunks > 0) wcAvailable = true;
       tot.wcn += (c.win_chunks || 0) * wcb;
       if (pts > bestYrPts) {
         bestYrPts = pts;
@@ -1144,8 +1152,8 @@
       + '</div>'
       + '<div class="upm-headline-card" title="Adjusted All-Play Wins = win_chunks × positional leverage β. How many All-Play wins this player is responsible for if every other lineup slot turned in median output.">'
         + '<span class="upm-headline-lbl">Career APW</span>'
-        + '<span class="upm-headline-val">' + tot.wcn.toFixed(1) + '</span>'
-        + '<span class="upm-headline-sub">' + apwPerG.toFixed(2) + ' / game</span>'
+        + '<span class="upm-headline-val">' + (wcAvailable ? tot.wcn.toFixed(1) : "—") + '</span>'
+        + '<span class="upm-headline-sub">' + (wcAvailable ? (apwPerG.toFixed(2) + ' / game') : 'data pending') + '</span>'
       + '</div>'
       + '</div>';
   }
@@ -1155,6 +1163,10 @@
     var rows = career.slice(0, 20);
     var fmtRank = function (r) { return (r == null || r <= 0) ? "—" : "#" + r; };
     var tot = { g: 0, pts: 0, wcn: 0, el_num: 0, ep_den: 0 };
+    var wcAvailable = false;
+    for (var i = 0; i < rows.length; i++) {
+      if (rows[i].win_chunks != null && rows[i].win_chunks > 0) { wcAvailable = true; break; }
+    }
     var bodyRows = rows.map(function (c) {
       var wcb = (leverageCoefs && leverageCoefs[c.pos_group]) || 0;
       var apw = (c.win_chunks || 0) * wcb;
@@ -1162,6 +1174,11 @@
       tot.pts += (c.season_points || 0);
       tot.wcn += apw;
       if (c.elite_pct != null) { tot.el_num += c.elite_pct * c.games_played; tot.ep_den += c.games_played; }
+      // APW cell: render "—" when the upstream win_chunks data isn't
+      // populated for this row (avoid showing a misleading "0.0").
+      var apwCell = (c.win_chunks != null && c.win_chunks > 0)
+        ? '<strong>' + apw.toFixed(1) + '</strong>'
+        : '<span class="muted">—</span>';
       return '<tr class="upm-season-row" data-season="' + escapeHtml(String(c.season)) + '">'
         + '<td>' + escapeHtml(String(c.season)) + '</td>'
         + '<td class="num">' + (c.games_played || 0) + '</td>'
@@ -1170,7 +1187,7 @@
         + '<td class="num">' + (c.avg_ppg != null ? c.avg_ppg.toFixed(1) : "—") + '</td>'
         + '<td class="num muted">' + fmtRank(c.pos_ppg_rank) + '</td>'
         + '<td class="num" style="color:#10b981">' + (c.elite_pct != null ? c.elite_pct.toFixed(0) + "%" : "—") + '</td>'
-        + '<td class="num"><strong>' + apw.toFixed(1) + '</strong></td>'
+        + '<td class="num">' + apwCell + '</td>'
         + '</tr>';
     }).join("");
     var careerPPG = tot.g ? tot.pts / tot.g : 0;
@@ -1195,9 +1212,10 @@
         + '<td class="num">' + careerPPG.toFixed(1) + '</td>'
         + '<td class="num muted">—</td>'
         + '<td class="num" style="color:#10b981">' + careerEl.toFixed(0) + '%</td>'
-        + '<td class="num">' + tot.wcn.toFixed(1) + '</td>'
+        + '<td class="num">' + (wcAvailable ? tot.wcn.toFixed(1) : '<span class="muted">—</span>') + '</td>'
       + '</tr>'
-      + '</tbody></table></div>';
+      + '</tbody></table></div>'
+      + (wcAvailable ? '' : '<p class="small muted" style="margin-top:6px;">APW shows "—" — upstream <code>src_weekly.win_chunks</code> not currently populated. ETL backfill pending.</p>');
   }
 
   function buildStatsPanelHtml(bundle, ctx, pid, name) {
