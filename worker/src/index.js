@@ -2622,7 +2622,27 @@ export default {
         //   { source, headline, description, url, published_ts }
         const headlinePool = [];
         const seenUrls = new Set();
+        // Cross-source title-prefix + old-year filter. r/nfl wasn't the
+        // only offender — ESPN occasionally syndicates \"[Watch]\" video
+        // packages, CBS does \"[Throwback]\" retrospectives. One filter
+        // applied at pool-build time keeps the surface area small.
+        const globalBlockedPrefix = /^\s*\[(highlight|image|look|watch|throwback|gif|photo|meme|oc|video|stat|stats|chart|infographic|listen)\]/i;
+        const globalCurrentYear = new Date().getUTCFullYear();
+        const globalOldYearRe = /\b(19|20)\d{2}\b/g;
+        const isStaleHeadline = (it) => {
+          const title = String((it && it.headline) || "");
+          if (!title) return true;
+          if (globalBlockedPrefix.test(title)) return true;
+          const years = title.match(globalOldYearRe);
+          if (years) {
+            for (const y of years) {
+              if ((globalCurrentYear - Number(y)) >= 2) return true;
+            }
+          }
+          return false;
+        };
         const addHeadline = (it) => {
+          if (isStaleHeadline(it)) return;
           const url = String(it.url || "").trim();
           if (url && seenUrls.has(url)) return;
           if (url) seenUrls.add(url);
@@ -2682,20 +2702,62 @@ export default {
           })(),
           // ── Reddit r/nfl /new ─────────────────────────────────────────
           // Public JSON; no auth needed at our cache cadence. Reddit can
-          // still 403 us if they shadow-block worker IPs — that's fine,
-          // the other 3 sources continue to populate.
+          // still 403 us if they shadow-block worker IPs — fail-soft.
+          //
+          // Filtering (Keith 2026-05-13: \"[Highlight] Tee Higgins ... 2023
+          // Week 15 ... This should not be a news article — it's from 2023\"):
+          //
+          //   1. FLAIR allowlist — r/nfl uses link_flair_text. Keep only
+          //      news-style flairs. Reject Highlight / Image / Look / Free
+          //      Talk / Meme / Discussion / Throwback / Stats / Serious.
+          //      Many breaking stories use flair \"News\" or no flair, so
+          //      we also accept null flair when the title doesn't shout
+          //      \"Highlight\".
+          //   2. TITLE prefix blacklist — \"[Highlight]\", \"[Image]\",
+          //      \"[Look]\", \"[Watch]\", \"[Throwback]\", \"[GIF]\",
+          //      \"[Photo]\", \"[Meme]\", \"[OC]\" are content shares, not
+          //      news.
+          //   3. YEAR in title — strip posts mentioning a past season
+          //      (e.g. \"[Vikings vs. Bengals, 2023 Week 15]\"). Anything
+          //      with a 4-digit year ≥ 4 years older than the current
+          //      year is treated as throwback content.
           (async () => {
             const r = await fetch("https://www.reddit.com/r/nfl/new.json?limit=100", fetchOpts);
             if (!r.ok) return [];
             const d = await r.json();
             const posts = (d?.data?.children || []).map(c => c.data || {});
-            return posts.map(p => ({
-              source: "r/nfl",
-              headline: safeStr(p.title),
-              description: safeStr(p.selftext || "").slice(0, 280),
-              url: p.permalink ? "https://www.reddit.com" + p.permalink : safeStr(p.url),
-              published_ts: p.created_utc ? Math.floor(Number(p.created_utc)) : 0,
-            }));
+            const allowedFlairs = new Set(["news", "media", "rumor", "report"]);
+            const blockedPrefixes = /^\s*\[(highlight|image|look|watch|throwback|gif|photo|meme|oc|video|stat|stats|chart|infographic)\]/i;
+            const currentYear = new Date().getUTCFullYear();
+            const oldYearRe = /\b(19|20)\d{2}\b/g;
+            return posts
+              .filter(p => {
+                const title = String(p.title || "");
+                if (!title) return false;
+                if (blockedPrefixes.test(title)) return false;
+                const flair = String(p.link_flair_text || "").toLowerCase().trim();
+                // If flair is set, require it be in the allowlist — drops
+                // \"Highlight\" / \"Free Talk\" / etc. without false positives
+                // on unflaired breaking-news posts.
+                if (flair && !allowedFlairs.has(flair)) return false;
+                // Drop posts that reference a year ≥ 2 seasons older than
+                // current. Catches \"... 2023 Week 15\" + \"[2020 Throwback]\"
+                // even when posted today.
+                const years = title.match(oldYearRe);
+                if (years) {
+                  for (const y of years) {
+                    if ((currentYear - Number(y)) >= 2) return false;
+                  }
+                }
+                return true;
+              })
+              .map(p => ({
+                source: "r/nfl",
+                headline: safeStr(p.title),
+                description: safeStr(p.selftext || "").slice(0, 280),
+                url: p.permalink ? "https://www.reddit.com" + p.permalink : safeStr(p.url),
+                published_ts: p.created_utc ? Math.floor(Number(p.created_utc)) : 0,
+              }));
           })(),
         ]);
         for (const r of sources) {
