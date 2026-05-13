@@ -659,12 +659,27 @@
         + '<div class="upm-salary-card"><span class="lbl">How Acquired</span><span class="val" style="font-size:13px;">' + escapeHtml(acqMethod) + '</span></div>'
         + '</div>';
     } else if (currentContract) {
-      // D1 fallback — Rookie Draft mode (no MFL salary in ctx)
+      // D1 fallback — Rookie Draft mode + Roster Workbench (neither
+      // pass ctx.contractSalary). src_contracts.contract_year is
+      // stored as YEARS-REMAINING-AS-OF-THAT-SEASON (not MFL's 1-indexed
+      // year position). Verified: a 3-yr rookie has 2023:cy=3,
+      // 2024:cy=2, 2025:cy=1.
+      // Keith 2026-05-13 Brock Purdy bug: 2025 BL contract has
+      // cy=3 (3 years remaining at start of 2025). The old math
+      // (d1Len - d1Cy + 1) computed 3-3+1=1, showing "Years Remaining
+      // = 1" when 2 was correct (we're in 2026; 2025+1 elapsed).
       var d1Tcv = currentContract.tcv || 0;
       var d1Aav = currentContract.aav || 0;
       var d1Len = currentContract.contract_length || 0;
-      var d1Cy  = currentContract.contract_year || 1;
-      var d1YrsRem = d1Len ? Math.max(0, d1Len - d1Cy + 1) : 0;
+      var d1Cy  = currentContract.contract_year || 0;
+      var d1Season = Number(currentContract.season) || 0;
+      var ctxYear = Number(ctx.year) || new Date().getFullYear();
+      // Adjust for elapsed seasons since the snapshot was taken — if
+      // ch[0] is 2025 (last EOS snapshot) and we're viewing in 2026,
+      // one season has elapsed so subtract 1.
+      var d1YrsRem = d1Cy > 0
+        ? Math.max(0, d1Cy - Math.max(0, ctxYear - d1Season))
+        : 0;
       var taxiBadge = (currentContract.taxi || currentContract.is_taxi || /TAXI/i.test(String(currentContract.contract_status || currentContract.roster_status || "")))
         ? '<span class="taxi-pill">TAXI</span>' : '';
       capHtml = '<div class="upm-salary-strip">'

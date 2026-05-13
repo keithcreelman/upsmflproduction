@@ -7696,6 +7696,32 @@
           window.UPS_RWB_YEAR ||
           String(new Date().getUTCFullYear())
         ).replace(/\D/g, "");
+        // Synthesize a live MFL salary row from the RWB player record
+        // so the master modal's cap-math strip can use the LIVE contract
+        // (TCV/AAV/Salary/Yrs Remain/Earned/Cap Penalty/Acquire) instead
+        // of falling back to the D1 per-season snapshot. Mirrors what
+        // Front Office passes via getMySalaries(). Keith 2026-05-13:
+        // Brock Purdy was showing Yrs Remain=1 because the D1 fallback
+        // used ch[0]'s 2025-EOS snapshot — but he's now in Y2 of 3 per
+        // MFL (current contractYear=2). Live ctx.contractSalary fixes that.
+        var rwbPlayerRecord = (function () {
+          var rec = findPlayerRecord(state.actionModal.franchiseId, state.actionModal.playerId);
+          return rec && rec.player ? rec.player : null;
+        })();
+        var contractSalaryShape = null;
+        if (rwbPlayerRecord) {
+          contractSalaryShape = {
+            id: safeStr(rwbPlayerRecord.id),
+            salary: safeInt(rwbPlayerRecord.salary, 0),
+            contractInfo: safeStr(rwbPlayerRecord.special || ""),
+            // player.years stores MFL's contractYear (1-indexed year
+            // position within the contract, NOT years-remaining).
+            contractYear: safeInt(rwbPlayerRecord.years, 0),
+            contractStatus: safeStr(rwbPlayerRecord.type || ""),
+            taxi: !!rwbPlayerRecord.isTaxi,
+            injured_reserve: !!rwbPlayerRecord.isIr
+          };
+        }
         try {
           window.UPS_openPlayerProfile(state.actionModal.playerId, {
             apiBase: upmResolveApiBase(),
@@ -7705,6 +7731,11 @@
             mountNode: pendingMount,
             hideHeader: true,
             hideCloseButton: true,
+            // Live MFL salary row — gives the master modal its 8-card
+            // cap-math strip (TCV / AAV / Salary / Yrs Remain / Earned
+            // / Cap Penalty / Acquire Date / How Acquired) instead of
+            // the D1-snapshot 4-card fallback.
+            contractSalary: contractSalaryShape,
             // Extension options + rookie-option summaries — surfaced as
             // the master modal's "Contract Options" tab. Pre-stashed in
             // renderPlayerActionModal where the canManage gate also lives.
