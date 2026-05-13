@@ -444,6 +444,42 @@ export default {
 
       const safeStr = (v) => String(v == null ? "" : v).trim();
 
+      // Tiny RSS 2.0 parser — enough for player-news ingest (NFL.com,
+      // ProFootballTalk, etc.). Returns [{ source, headline, description,
+      // url, published_ts }, ...]. Strips CDATA + basic HTML in description
+      // so the per-pid name-match filter sees plain text.
+      const parseRssItems = (xml, source) => {
+        const out = [];
+        if (!xml || typeof xml !== "string") return out;
+        const items = xml.split(/<item[\s>]/i).slice(1);
+        for (const chunk of items) {
+          const end = chunk.indexOf("</item>");
+          const body = end >= 0 ? chunk.slice(0, end) : chunk;
+          const pick = (tag) => {
+            const m = body.match(new RegExp("<" + tag + "[^>]*>([\\s\\S]*?)</" + tag + ">", "i"));
+            if (!m) return "";
+            let v = m[1].trim();
+            // Strip CDATA wrappers.
+            v = v.replace(/^<!\[CDATA\[([\s\S]*?)\]\]>$/i, "$1");
+            // Strip simple HTML tags (description often contains <p>).
+            v = v.replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim();
+            return v;
+          };
+          const headline = pick("title");
+          const description = pick("description");
+          const url = pick("link") || pick("guid");
+          const pubDate = pick("pubDate") || pick("dc:date");
+          let ts = 0;
+          if (pubDate) {
+            const parsed = Date.parse(pubDate);
+            if (!isNaN(parsed)) ts = Math.floor(parsed / 1000);
+          }
+          if (!headline && !url) continue;
+          out.push({ source, headline, description, url, published_ts: ts });
+        }
+        return out;
+      };
+
       const isValidUrl = (v) => {
         const s = safeStr(v);
         if (!s) return false;
@@ -2569,22 +2605,106 @@ export default {
           mflToSleeper[pid] = sp;
         }
 
-        // Step 3 — League-wide ESPN news. The per-team JSON endpoint
-        // returns empty in 2026; the league-wide endpoint still has ~80KB
-        // of recent articles. We fetch once + filter per-player by name +
-        // team match. Cached 5 min on the edge — worth the cache cost
-        // since it serves all players in one fetch.
-        let espnArticles = [];
-        try {
-          const r = await fetch("https://site.api.espn.com/apis/site/v2/sports/football/nfl/news?limit=50", {
-            cf: { cacheTtl: 300, cacheEverything: true },
-            headers: { "User-Agent": "upsmflproduction-worker", "Accept": "application/json" },
-          });
-          if (r.ok) {
+        // Step 3 — Headline aggregators. The plan from commit 9225c5e was
+        // Sleeper + ESPN + Reddit; Reddit never got wired so Keith reported
+        // 2026-05-13 the news feed was thin. Now we fan out across multiple
+        // public feeds in parallel, dedupe by URL, and merge into one pool.
+        // Each source is fail-soft — if any feed 403/429/timeouts, the
+        // others still populate. All cached 5 min on the edge.
+        //
+        // Pool sources:
+        //   a. ESPN nfl/news (limit bumped 50 → 100)
+        //   b. NFL.com news.xml RSS — official, free, no auth
+        //   c. r/nfl /new.json (limit=100) — often 5-15 min ahead of ESPN
+        //   d. ProFootballTalk RSS — Florio's network, fast on breaking news
+        //
+        // Per-article shape after normalize:
+        //   { source, headline, description, url, published_ts }
+        const headlinePool = [];
+        const seenUrls = new Set();
+        const addHeadline = (it) => {
+          const url = String(it.url || "").trim();
+          if (url && seenUrls.has(url)) return;
+          if (url) seenUrls.add(url);
+          headlinePool.push(it);
+        };
+
+        const fetchOpts = {
+          cf: { cacheTtl: 300, cacheEverything: true },
+          headers: { "User-Agent": "upsmflproduction-worker (player-news; +https://upsmflproduction.keith-creelman.workers.dev)", "Accept": "*/*" },
+        };
+
+        const sources = await Promise.allSettled([
+          // ── ESPN league-wide ──────────────────────────────────────────
+          (async () => {
+            const r = await fetch("https://site.api.espn.com/apis/site/v2/sports/football/nfl/news?limit=100", fetchOpts);
+            if (!r.ok) return [];
             const d = await r.json();
-            espnArticles = d.articles || [];
-          }
-        } catch (e) { /* non-fatal */ }
+            return (d.articles || []).map(a => ({
+              source: "ESPN",
+              headline: safeStr(a.headline),
+              description: safeStr(a.description),
+              url: (a.links && a.links.web && a.links.web.href) || "",
+              published_ts: a.published ? Math.floor(new Date(a.published).getTime() / 1000) : 0,
+            }));
+          })(),
+          // ── Yahoo NFL RSS ─────────────────────────────────────────────
+          // Broad NFL coverage from across Yahoo Sports. Free, no auth.
+          // Probed 2026-05-13 — returns 200 with valid RSS 2.0.
+          (async () => {
+            const r = await fetch("https://sports.yahoo.com/nfl/rss.xml", { ...fetchOpts, redirect: "follow" });
+            if (!r.ok) return [];
+            const xml = await r.text();
+            return parseRssItems(xml, "Yahoo");
+          })(),
+          // ── ProFootballTalk RSS ───────────────────────────────────────
+          (async () => {
+            const r = await fetch("https://profootballtalk.nbcsports.com/feed/", fetchOpts);
+            if (!r.ok) return [];
+            const xml = await r.text();
+            return parseRssItems(xml, "PFT");
+          })(),
+          // ── ProFootballRumors RSS ─────────────────────────────────────
+          // Rumor-heavy syndication of Schefter/Rapoport tweets — often
+          // first to surface breaking-news posts. Probed 2026-05-13.
+          (async () => {
+            const r = await fetch("https://www.profootballrumors.com/feed", fetchOpts);
+            if (!r.ok) return [];
+            const xml = await r.text();
+            return parseRssItems(xml, "PFR");
+          })(),
+          // ── CBS Sports NFL RSS ────────────────────────────────────────
+          (async () => {
+            const r = await fetch("https://www.cbssports.com/rss/headlines/nfl/", fetchOpts);
+            if (!r.ok) return [];
+            const xml = await r.text();
+            return parseRssItems(xml, "CBS");
+          })(),
+          // ── Reddit r/nfl /new ─────────────────────────────────────────
+          // Public JSON; no auth needed at our cache cadence. Reddit can
+          // still 403 us if they shadow-block worker IPs — that's fine,
+          // the other 3 sources continue to populate.
+          (async () => {
+            const r = await fetch("https://www.reddit.com/r/nfl/new.json?limit=100", fetchOpts);
+            if (!r.ok) return [];
+            const d = await r.json();
+            const posts = (d?.data?.children || []).map(c => c.data || {});
+            return posts.map(p => ({
+              source: "r/nfl",
+              headline: safeStr(p.title),
+              description: safeStr(p.selftext || "").slice(0, 280),
+              url: p.permalink ? "https://www.reddit.com" + p.permalink : safeStr(p.url),
+              published_ts: p.created_utc ? Math.floor(Number(p.created_utc)) : 0,
+            }));
+          })(),
+        ]);
+        for (const r of sources) {
+          if (r.status !== "fulfilled") continue;
+          for (const it of (r.value || [])) addHeadline(it);
+        }
+        // Legacy alias retained for downstream code that still reads
+        // espnArticles — see the per-pid filter loop below.
+        const espnArticles = headlinePool;
 
         // Step 4 — Build per-pid news[]. Sources merged:
         //   a. Sleeper structured info → Status / Injury / Depth / Practice
@@ -2628,14 +2748,17 @@ export default {
             }
           }
 
-          // 4b. ESPN league-wide news — match by player last name + first
-          // name OR last name + team mention. MFL name is "Last, First".
-          // Last name + first name match is precise; last name + team is a
-          // fallback for cases where the article uses "the QB" instead of
-          // first name.
+          // 4b. Headline pool (ESPN + NFL.com + PFT + r/nfl) — match by
+          // player last name + first name OR last name + team mention.
+          // MFL name is "Last, First". Last name + first name match is
+          // precise; last name + team is a fallback for cases where the
+          // article uses "the QB" instead of first name. Dedupe by URL
+          // so the same Schefter tweet syndicated across PFT + ESPN +
+          // r/nfl shows once.
           const lastName = (m.name.split(",")[0] || "").trim().toLowerCase();
           const firstName = (m.name.split(",")[1] || "").trim().toLowerCase().split(/\s+/)[0];
           if (lastName && lastName.length >= 3) {
+            const seenHeadlines = new Set();
             for (const a of espnArticles) {
               const headline = safeStr(a.headline).toLowerCase();
               const desc = safeStr(a.description).toLowerCase();
@@ -2647,13 +2770,20 @@ export default {
               const hasFirst = firstName && firstName.length >= 3 && blob.includes(firstName);
               const hasTeam = m.team && blob.includes(m.team.toLowerCase());
               if (!hasFirst && !hasTeam) continue;
+              // Per-player dedupe — if Schefter's "Player X traded to Y"
+              // appears in ESPN + PFT + r/nfl, pick the first source we
+              // see and skip the rest (already URL-deduped at pool build,
+              // this dedupes by headline text for fuzzy duplicates).
+              const headlineKey = headline.slice(0, 80);
+              if (seenHeadlines.has(headlineKey)) continue;
+              seenHeadlines.add(headlineKey);
               items.push({
                 type: "headline",
-                source: "ESPN",
-                timestamp: a.published ? Math.floor(new Date(a.published).getTime() / 1000) : 0,
+                source: a.source || "News",
+                timestamp: Number(a.published_ts || 0),
                 headline: safeStr(a.headline),
                 body: safeStr(a.description),
-                url: (a.links && a.links.web && a.links.web.href) || "",
+                url: safeStr(a.url),
               });
             }
           }
@@ -2669,12 +2799,25 @@ export default {
           if (!(pid in itemsByPid)) itemsByPid[pid] = [];
         }
 
+        // Per-source counts for diagnostic visibility — when Keith says
+        // "not enough news", inspect /api/player-news?pids=… meta block
+        // to confirm whether the pool's thin or the name-match filter
+        // is too tight.
+        const sourceCounts = headlinePool.reduce((acc, it) => {
+          const s = it.source || "?";
+          acc[s] = (acc[s] || 0) + 1;
+          return acc;
+        }, {});
+
         return jsonOut(200, {
           items_by_pid: itemsByPid,
           meta: {
             mfl_players_resolved: Object.keys(mflPlayers).length,
             sleeper_matched: Object.values(mflToSleeper).filter(Boolean).length,
-            espn_articles_pool: espnArticles.length,
+            headline_pool: headlinePool.length,
+            sources: sourceCounts,
+            // Back-compat alias — legacy frontend code reads espn_articles_pool.
+            espn_articles_pool: headlinePool.length,
             generated_at: new Date().toISOString(),
           },
         });
