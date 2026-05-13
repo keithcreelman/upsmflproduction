@@ -188,10 +188,20 @@
 
     var cssCandidates = [];
     var jsCandidates = [];
+    // Master player-profile modal — shared by Roster Workbench + Rookie Draft.
+    // roster_workbench.js checks `window.UPS_openPlayerProfile` at modal-open
+    // time and falls back to its legacy 4-tab impl if missing, so we inject
+    // master FIRST (its own self-CSS handles styling) and then roster_workbench.
+    // Keith 2026-05-13: without this, players opened from RWB showed the old
+    // stats / no Snap%-by-Wk / no K-format contract history because the
+    // legacy fallback fired silently.
+    var masterCandidates = [];
 
     if (base) {
       cssCandidates.push(base + "roster_workbench.css?v=" + cacheKey);
       jsCandidates.push(base + "roster_workbench.js?v=" + cacheKey);
+      // base sits at site/rosters/ — master is one dir up under site/shared/.
+      masterCandidates.push(base + "../shared/player_profile_master.js?v=" + cacheKey);
     }
 
     cssCandidates.push("https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@" + releaseRef + "/site/rosters/roster_workbench.css?v=" + cacheKey);
@@ -200,11 +210,19 @@
     jsCandidates.push("https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@" + releaseRef + "/site/rosters/roster_workbench.js?v=" + cacheKey);
     jsCandidates.push("https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/rosters/roster_workbench.js?v=" + cacheKey);
 
+    masterCandidates.push("https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@" + releaseRef + "/site/shared/player_profile_master.js?v=" + cacheKey);
+    masterCandidates.push("https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/shared/player_profile_master.js?v=" + cacheKey);
+
     injectCssCandidates(cssCandidates);
 
-    // roster_workbench.js self-initializes on load; avoid double-init
-    // because that can replace DOM after listeners are attached.
-    injectScript(jsCandidates, function () {});
+    // Load master modal first — it registers window.UPS_openPlayerProfile.
+    // Even if it fails (404/network), roster_workbench.js still works via
+    // its legacy fallback path; we just lose the unified-modal UX.
+    injectScript(masterCandidates, function () {
+      // roster_workbench.js self-initializes on load; avoid double-init
+      // because that can replace DOM after listeners are attached.
+      injectScript(jsCandidates, function () {});
+    });
   }
 
   if (document.readyState === "loading") {
