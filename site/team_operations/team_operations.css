@@ -431,21 +431,52 @@
 .tops-tab-panel { display: none; }
 .tops-tab-panel[data-active="1"] { display: block; }
 .tops-tab-panel--iframe {
-  /* The iframed hubs (roster_workbench, stats_workbench) each have their own
-     theme + scrolling. Give them a roomy frame; let internal scroll handle
-     overflow. 80vh is enough to feel native on most desktop sizes. */
+  /* Hubs (roster_workbench, stats_workbench, trade_workbench) are full-page
+     apps with their own theme and scroll. Render them flush — no inset
+     border / radius — so they feel like real pages, not embedded widgets.
+     Pop-out link in the toolbar above gives users a true full-screen
+     escape when the embedded view feels cramped. */
   background: var(--tops-bg);
-  border: 1px solid var(--tops-card-border);
-  border-radius: 10px;
-  overflow: hidden;
+  margin: 0 -1rem;  /* counter the .tops-shell padding so iframe is edge-to-edge */
+  overflow: visible;
+}
+.tops-iframe-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding: 6px 14px;
+  background: rgba(0, 0, 0, 0.25);
+  border-top: 1px solid var(--tops-card-border);
+  border-bottom: 1px solid var(--tops-card-border);
+  font-size: 0.78rem;
+  color: var(--tops-ink-dim);
+}
+.tops-iframe-pop {
+  color: var(--tops-accent-2, #7de8d9);
+  text-decoration: none;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid rgba(125, 232, 217, 0.35);
+  transition: background 100ms, border-color 100ms;
+}
+.tops-iframe-pop:hover {
+  background: rgba(125, 232, 217, 0.1);
+  border-color: rgba(125, 232, 217, 0.7);
 }
 .tops-iframe {
+  /* Tall enough that nested scrollbars rarely show. calc subtracts the
+     hub-shell chrome (header, tab strip, footer, toolbar) so the iframe
+     fills the remaining viewport. min-height fallback for short screens. */
   width: 100%;
-  height: 80vh;
-  min-height: 600px;
+  height: calc(100vh - 240px);
+  min-height: 720px;
   border: 0;
   display: block;
   background: var(--tops-bg);
+  color-scheme: dark;
 }
 
 /* ─── Collapsible cards (Wave 2b) ──────────────────────────────────────── */

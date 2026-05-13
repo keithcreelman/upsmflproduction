@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var BUILD = "2026.05.13.polish";
+  var BUILD = "2026.05.13.iframe";
   var BOOT_FLAG = "__ups_team_operations_boot_" + BUILD;
   if (window[BOOT_FLAG]) {
     if (typeof window.UPS_TEAMOPS_INIT === "function") window.UPS_TEAMOPS_INIT();
@@ -371,8 +371,9 @@
   // there. iframes are lazy: src is set the first time the tab activates.
   var TAB_DEFS = [
     { id: "overview",     label: "Overview" },
-    { id: "front-office", label: "Front Office", iframe: "../rosters/roster_workbench.html" },
-    { id: "player-stats", label: "Player Stats", iframe: "../stats_workbench/stats_workbench.html" }
+    { id: "front-office", label: "Front Office",  iframe: "../rosters/roster_workbench.html" },
+    { id: "player-stats", label: "Player Stats",  iframe: "../stats_workbench/stats_workbench.html" },
+    { id: "trade-room",   label: "Trade War Room", iframe: "../trades/trade_workbench.html" }
   ];
 
   function readActiveTab() {
@@ -443,12 +444,20 @@
 
     // Build iframe panels. data-lazysrc holds the URL; switchTab sets src on
     // first activation so default-tab page load stays light.
+    // "Pop out" link above each iframe lets the user escape to the hub's own
+    // full-screen page when the embedded view feels cramped (modals stay in
+    // the iframe viewport, no way around that without rebuilding the modals
+    // to use parent-frame postMessage).
     var hubPanels = TAB_DEFS.filter(function (t) { return !!t.iframe; }).map(function (t) {
       var src = t.iframe + ctxQs;
       var on = (t.id === activeTab) ? '1' : '0';
       var lazy = (t.id === activeTab) ? ' src="' + escapeHtml(src) + '"' : ' data-lazysrc="' + escapeHtml(src) + '"';
       return '<section class="tops-tab-panel tops-tab-panel--iframe" data-tab-panel="' + t.id + '" data-active="' + on + '" role="tabpanel">'
-        + '<iframe class="tops-iframe" title="' + escapeHtml(t.label) + '"' + lazy + ' loading="lazy"></iframe>'
+        + '<div class="tops-iframe-toolbar">'
+        +   '<span class="tops-iframe-label">' + escapeHtml(t.label) + ' is embedded — for a roomier view, pop it out.</span>'
+        +   '<a class="tops-iframe-pop" href="' + escapeHtml(src) + '" target="_blank" rel="noopener noreferrer">Open in new tab ↗</a>'
+        + '</div>'
+        + '<iframe class="tops-iframe" title="' + escapeHtml(t.label) + '"' + lazy + ' loading="lazy" allow="clipboard-read; clipboard-write" referrerpolicy="no-referrer"></iframe>'
         + '</section>';
     }).join("");
 
