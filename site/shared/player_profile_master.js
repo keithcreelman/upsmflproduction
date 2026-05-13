@@ -861,10 +861,15 @@
         + '</tr></thead><tbody>' + rows + '</tbody></table></div>';
     }
 
+    // Renderer choice — Keith 2026-05-13: stick with the per-SEASON
+    // legacy renderer. The newer event-chain (per-contract) view
+    // collapses 3-year contracts into 1 row, losing the year-over-year
+    // YL / salary clarity Keith needs for cap planning. The contracts/
+    // stints data stays available on the bundle for future use; the
+    // per-contract renderer (buildContractHistoryFromContracts) is
+    // kept above for opt-in but no longer the default.
     var contractHistoryHtml = "";
-    if (contracts.length) {
-      contractHistoryHtml = buildContractHistoryFromContracts(contracts, contractStints);
-    } else if (ch.length) {
+    if (ch.length) {
       var rows2 = ch.map(function (c) {
         var typeInfo = classifyContractType(c);
         // Keith 2026-05-13: drop the team-name EXT1/EXT2 badge — the
@@ -1993,11 +1998,14 @@
       // the loader ever shifts to 0–100.
       return n <= 1 ? n : n / 100;
     };
-    var snapTagHtml = function (pct) {
-      if (pct == null) return "";
-      return ' <span class="small muted" style="font-weight:500; font-variant-numeric: tabular-nums;"'
-        + ' title="Snap rate (' + (snapSide === "def" ? "defense" : "offense") + ')">'
-        + Math.round(pct * 100) + '%</span>';
+    // Snap% as its own narrow column (Keith 2026-05-13: inline-suffix
+    // form jammed "2 100%" into a single right-aligned cell — header
+    // said only "Wk" so the snap rate looked unlabelled and the week
+    // numbers no longer aligned with the column heading).
+    var snapCellHtml = function (pct) {
+      if (pct == null) return '<td class="num muted">—</td>';
+      return '<td class="num" title="Snap rate (' + (snapSide === "def" ? "defense" : "offense") + ')">'
+        + Math.round(pct * 100) + '%</td>';
     };
 
     var renderScoring = function (seasonVal) {
@@ -2018,9 +2026,9 @@
       var tot = sorted.length;
       var rows = sorted.map(function (w) {
         var playoffTag = w.is_reg === 0 ? ' <span class="small" style="color:#5b8dff;font-weight:600;" title="Playoffs">P</span>' : "";
-        var snapTag = snapTagHtml(snapPctForWeek(w.season, w.week));
         return '<tr' + (w.is_reg === 0 ? ' style="background:rgba(255,158,77,0.06);"' : "") + '>'
-          + '<td class="num">' + w.week + playoffTag + snapTag + '</td>'
+          + '<td class="num">' + w.week + playoffTag + '</td>'
+          + (snapSide ? snapCellHtml(snapPctForWeek(w.season, w.week)) : "")
           + '<td class="num">' + (w.score != null ? w.score.toFixed(1) : "—") + '</td>'
           + '<td class="num">' + (w.z_score != null ? (w.z_score > 0 ? "+" : "") + w.z_score.toFixed(2) : "—") + '</td>'
           + '<td>' + (w.week_tier ? '<span class="tier ' + weekTierClass(w.week_tier) + '">' + w.week_tier + '</span>' : "—") + '</td>'
@@ -2034,7 +2042,9 @@
         + ' · Elite ' + elite + ' (' + (elite/tot*100).toFixed(0) + '%) · Plus ' + plus + ' (' + (plus/tot*100).toFixed(0) + '%) · Dud ' + dud + ' (' + (dud/tot*100).toFixed(0) + '%)'
         + '</div>'
         + '<table class="rdh-table"><thead><tr>'
-        + '<th class="num">Wk</th><th class="num">Pts</th><th class="num">z</th><th>Week Tier</th><th>MFL Status</th><th class="small">Team</th><th class="num">Pos Rk</th>'
+        + '<th class="num">Wk</th>'
+        + (snapSide ? '<th class="num" title="Snap rate (' + (snapSide === "def" ? "defense" : "offense") + ')">Snap%</th>' : "")
+        + '<th class="num">Pts</th><th class="num">z</th><th>Week Tier</th><th>MFL Status</th><th class="small">Team</th><th class="num">Pos Rk</th>'
         + '</tr></thead><tbody>' + rows + '</tbody></table>';
     };
 
@@ -2058,9 +2068,9 @@
         var snapRow = snapBy[w.season + "-" + w.week] || {};
         var snapCount = tmpl.snap === "def" ? snapRow.def_snaps : tmpl.snap === "off" ? snapRow.off_snaps : null;
         var snapPct   = tmpl.snap === "def" ? snapRow.def_snap_pct : tmpl.snap === "off" ? snapRow.off_snap_pct : null;
-        // Snap-rate suffix on Week #, parallel to the Scoring view.
-        var snapTagRaw = snapTagHtml(snapPctForWeek(w.season, w.week));
-        var cells = '<td class="num">' + w.week + snapTagRaw + '</td><td>' + escapeHtml(w.team || "") + '</td><td>' + escapeHtml(w.opponent || "") + '</td>';
+        // Raw view already carries dedicated Snaps + Snap% columns
+        // (see tmpl.snap branch below) — no inline suffix needed.
+        var cells = '<td class="num">' + w.week + '</td><td>' + escapeHtml(w.team || "") + '</td><td>' + escapeHtml(w.opponent || "") + '</td>';
         if (tmpl.snap) {
           cells += rawFormatCell(snapCount, "int");
           cells += rawFormatCell(snapPct, "pct0");
@@ -2180,6 +2190,26 @@
       var career = bundle.career_summary || [];
       var showCollege = showCollegePanels(pp, ctx);
       var isFreshRookie = showCollege && !career.length;
+
+      // Caller (e.g., Roster Workbench) doesn't always supply a real
+      // name in ctx.playerInfo — falls back to "Player #16175" which
+      // then leaks into YouTube search URLs ("Player #16175 CHI
+      // highlights"). Re-derive from MFL profile if we have it. MFL
+      // stores names as "Last, First Suffix" → reorder for display.
+      if (pp && pp.name && /^Player #\d+$/.test(name)) {
+        var mflName = String(pp.name);
+        if (mflName.indexOf(",") >= 0) {
+          var parts = mflName.split(",");
+          var last = (parts[0] || "").trim();
+          var firstRest = (parts[1] || "").trim();
+          if (last && firstRest) name = firstRest + " " + last;
+          else name = mflName;
+        } else {
+          name = mflName;
+        }
+      }
+      // Also pick up MFL team for YT/NFL fallback when caller didn't.
+      if (!nflTeam && pp && pp.team) nflTeam = pp.team;
 
       var bioHtml = buildBioHtml(bundle, ctx, pid, name, nflTeam);
 
