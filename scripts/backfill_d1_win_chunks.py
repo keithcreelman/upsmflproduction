@@ -34,9 +34,10 @@ _DEFAULT_DB = Path(
 )
 LOCAL_DB = Path(os.environ.get("MFL_DB_PATH") or _DEFAULT_DB)
 
-# D1 caps a single SQL statement at ~100 KB. Each row in the VALUES tuple
-# is ~30-40 chars (season, week, pid, win_chunks). Keep chunks well under
-# the cap with room for the surrounding UPDATE...FROM (VALUES ...) wrapper.
+# D1 caps a single .sql file at ~10 MB; each UPDATE statement is ~110 B
+# (season, week, pid, win_chunks). 500 statements ≈ 55 KB.
+# Verified 2026-05-13: D1 does NOT support UPDATE...FROM (VALUES ...)
+# (returns SQLITE_ERROR near "("). Fall back to one UPDATE per row.
 CHUNK_SIZE = 500
 
 
@@ -67,8 +68,10 @@ def fetch_rows(conn: sqlite3.Connection, limit: int | None) -> list[tuple]:
 
 
 def write_chunk_files(rows: list[tuple], tmp_dir: Path) -> list[Path]:
-    """Build UPDATE...FROM (VALUES ...) chunks. SQLite-flavored UPDATE-FROM
-    is supported by D1. The composite key is (season, week, player_id)."""
+    """Build one .sql file per CHUNK_SIZE rows; each row = one UPDATE.
+    The composite WHERE key is (season, week, player_id). D1's libsql
+    variant rejects UPDATE...FROM (VALUES ...) with SQLITE_ERROR near "("
+    so we use the boring per-row form."""
     tmp_dir.mkdir(parents=True, exist_ok=True)
     # Clean prior runs so chunk numbering stays consistent.
     for old in tmp_dir.glob("win_chunks_*.sql"):
@@ -77,21 +80,17 @@ def write_chunk_files(rows: list[tuple], tmp_dir: Path) -> list[Path]:
     paths: list[Path] = []
     for i in range(0, len(rows), CHUNK_SIZE):
         chunk = rows[i : i + CHUNK_SIZE]
-        values = ",\n  ".join(
-            "({}, {}, {}, {})".format(
-                sql_num(r[0]), sql_num(r[1]), sql_num(r[2]), sql_num(r[3])
+        lines = []
+        for r in chunk:
+            season, week, pid, wc = r
+            lines.append(
+                "UPDATE src_weekly SET win_chunks = {} "
+                "WHERE season = {} AND week = {} AND player_id = {};".format(
+                    sql_num(wc), sql_num(season), sql_num(week), sql_num(pid)
+                )
             )
-            for r in chunk
-        )
-        sql = (
-            "UPDATE src_weekly SET win_chunks = v.wc\n"
-            "FROM (VALUES\n  " + values + "\n) AS v(season, week, player_id, wc)\n"
-            "WHERE src_weekly.season = v.season\n"
-            "  AND src_weekly.week = v.week\n"
-            "  AND src_weekly.player_id = v.player_id;\n"
-        )
         out = tmp_dir / f"win_chunks_{i // CHUNK_SIZE:04d}.sql"
-        out.write_text(sql)
+        out.write_text("\n".join(lines) + "\n")
         paths.append(out)
     return paths
 
