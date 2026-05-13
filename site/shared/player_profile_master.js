@@ -240,6 +240,26 @@
     /* Contract Options panel content (rendered inside its own tab). */
     '.upm-modal .upm-co-panel { padding: 6px 0; }',
     '.upm-modal .upm-co-panel .upm-co-empty { color: #8a97ad; padding: 30px 0; text-align: center; font-size: 13px; }',
+
+    /* Stats tab — Card-first redesign (2026-05-13). Zone 1: headline strip. */
+    '.upm-modal .upm-headline-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 14px; }',
+    '.upm-modal .upm-headline-card { background: #1a2230; border: 1px solid #2a3446; border-radius: 8px; padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; }',
+    '.upm-modal .upm-headline-lbl { font-size: 10px; color: #8a97ad; text-transform: uppercase; letter-spacing: 0.4px; font-weight: 600; }',
+    '.upm-modal .upm-headline-val { font-size: 24px; font-weight: 800; color: #e8edf5; line-height: 1.1; font-variant-numeric: tabular-nums; }',
+    '.upm-modal .upm-headline-sub { font-size: 11px; color: #8a97ad; }',
+    /* Stats tab — Zone 2: compact season table (8 cols desktop, scroll on mobile). */
+    '.upm-modal .upm-season-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; margin-top: 4px; }',
+    '.upm-modal .upm-season-table { width: 100%; min-width: 520px; }',
+    '.upm-modal .upm-season-table th, .upm-modal .upm-season-table td { padding: 6px 8px; }',
+    '.upm-modal .upm-season-row:hover { background: rgba(91, 141, 255, 0.06); }',
+    '.upm-modal .upm-career-row { border-top: 2px solid #2a3446; font-weight: 700; background: rgba(91, 141, 255, 0.04); }',
+    /* Mobile: tighten the headline cards + shrink season-table padding. */
+    '@media (max-width: 600px) {' +
+      ' .upm-modal .upm-headline-strip { grid-template-columns: repeat(2, 1fr); gap: 6px; }' +
+      ' .upm-modal .upm-headline-card { padding: 10px 10px; }' +
+      ' .upm-modal .upm-headline-val { font-size: 20px; }' +
+      ' .upm-modal .upm-season-table th, .upm-modal .upm-season-table td { padding: 4px 6px; font-size: 11px; }' +
+    ' }',
     /* Player news feed (inside the News tab). */
     '.upm-modal .upm-news-list { display: flex; flex-direction: column; gap: 10px; padding: 4px 0; }',
     '.upm-modal .upm-news-item { padding: 10px 12px; background: #1a2230; border-radius: 6px; border-left: 3px solid #2a3446; }',
@@ -1063,25 +1083,145 @@
       + '</div>';
   }
 
-  function buildAdvancedStatsHtml() {
-    return '<div class="profile-block">'
-      + '<h4>Advanced Stats — TBD</h4>'
-      + '<div class="small muted">Derived / calculated advanced metrics will live here — weighted opportunity (e.g. a 1-yd carry worth more than a 50-yd carry), expected fantasy points (xFP), fantasy points over expected (FPOE), WOPR, ADOT, snap share, etc. See <code>docs/nfl_advanced_stats_plan.md</code> §"Future enhancements".</div>'
+  // ─────────────────────────────────────────────────────────────────────────
+  // STATS TAB — redesigned 2026-05-13 (Card-first, mobile-friendly)
+  //
+  // Per Keith 2026-05-13: the prior layout was a 3-way chip toggle
+  // (Scoring/Raw/Advanced) where Advanced was a TBD placeholder and the
+  // Raw view buried the UPS/Full Season scope chips inside another layer.
+  // The Career Summary table was 14 columns wide — unreadable on mobile.
+  //
+  // Redesign zones:
+  //   Zone 1  — HEADLINE STRIP. 4 big cards: Career Pts, PPG, Best Yr, APW.
+  //             Answers "is this player good?" in a glance.
+  //   Zone 2  — TOGGLES + TABLE. Two flat chip groups at the same level:
+  //             [Scoring (MFL) | Raw Stats (NFL)] and (when Raw selected)
+  //             [UPS Season | Full Season]. Below: compact 8-column table
+  //             on desktop, horizontal-scrollable on mobile.
+  //   Advanced view RETIRED. (Was empty TBD placeholder. Future advanced
+  //             metrics belong as inline columns in Scoring view.)
+  //
+  // Game Log + per-week drill-down stays in the Game Log tab — Stats is for
+  // season-level summary, Game Log is for week-level. No double-rendering.
+  // ─────────────────────────────────────────────────────────────────────────
+  function buildHeadlineStripHtml(career, leverageCoefs) {
+    if (!career || !career.length) return "";
+    // Career totals weighted properly.
+    var tot = { g: 0, pts: 0, wcn: 0 };
+    var bestYr = null, bestYrPts = -1, bestYrPPG = 0;
+    for (var i = 0; i < career.length; i++) {
+      var c = career[i];
+      var g = c.games_played || 0;
+      var pts = c.season_points || 0;
+      var wcb = (leverageCoefs && leverageCoefs[c.pos_group]) || 0;
+      tot.g += g;
+      tot.pts += pts;
+      tot.wcn += (c.win_chunks || 0) * wcb;
+      if (pts > bestYrPts) {
+        bestYrPts = pts;
+        bestYr = c.season;
+        bestYrPPG = c.avg_ppg != null ? c.avg_ppg : (g ? pts / g : 0);
+      }
+    }
+    var careerPPG = tot.g ? tot.pts / tot.g : 0;
+    var apwPerG = tot.g ? tot.wcn / tot.g : 0;
+    var fmtPts = function (n) { return Number(n || 0).toFixed(0); };
+    return '<div class="upm-headline-strip">'
+      + '<div class="upm-headline-card">'
+        + '<span class="upm-headline-lbl">Career Pts</span>'
+        + '<span class="upm-headline-val">' + fmtPts(tot.pts).replace(/\B(?=(\d{3})+(?!\d))/g, ",") + '</span>'
+        + '<span class="upm-headline-sub">' + tot.g + ' G across ' + career.length + ' season' + (career.length === 1 ? "" : "s") + '</span>'
+      + '</div>'
+      + '<div class="upm-headline-card">'
+        + '<span class="upm-headline-lbl">Career PPG</span>'
+        + '<span class="upm-headline-val">' + careerPPG.toFixed(1) + '</span>'
+        + '<span class="upm-headline-sub">Average per game</span>'
+      + '</div>'
+      + '<div class="upm-headline-card">'
+        + '<span class="upm-headline-lbl">Best Season</span>'
+        + '<span class="upm-headline-val">' + (bestYr || "—") + '</span>'
+        + '<span class="upm-headline-sub">' + (bestYrPts >= 0 ? fmtPts(bestYrPts) + ' pts · ' + bestYrPPG.toFixed(1) + ' PPG' : "") + '</span>'
+      + '</div>'
+      + '<div class="upm-headline-card" title="Adjusted All-Play Wins = win_chunks × positional leverage β. How many All-Play wins this player is responsible for if every other lineup slot turned in median output.">'
+        + '<span class="upm-headline-lbl">Career APW</span>'
+        + '<span class="upm-headline-val">' + tot.wcn.toFixed(1) + '</span>'
+        + '<span class="upm-headline-sub">' + apwPerG.toFixed(2) + ' / game</span>'
+      + '</div>'
       + '</div>';
   }
 
+  function buildCompactScoringTableHtml(career, leverageCoefs) {
+    if (!career || !career.length) return "";
+    var rows = career.slice(0, 20);
+    var fmtRank = function (r) { return (r == null || r <= 0) ? "—" : "#" + r; };
+    var tot = { g: 0, pts: 0, wcn: 0, el_num: 0, ep_den: 0 };
+    var bodyRows = rows.map(function (c) {
+      var wcb = (leverageCoefs && leverageCoefs[c.pos_group]) || 0;
+      var apw = (c.win_chunks || 0) * wcb;
+      tot.g += (c.games_played || 0);
+      tot.pts += (c.season_points || 0);
+      tot.wcn += apw;
+      if (c.elite_pct != null) { tot.el_num += c.elite_pct * c.games_played; tot.ep_den += c.games_played; }
+      return '<tr class="upm-season-row" data-season="' + escapeHtml(String(c.season)) + '">'
+        + '<td>' + escapeHtml(String(c.season)) + '</td>'
+        + '<td class="num">' + (c.games_played || 0) + '</td>'
+        + '<td class="num">' + (c.season_points != null ? c.season_points.toFixed(0) : "—") + '</td>'
+        + '<td class="num muted">' + fmtRank(c.pos_rank) + '</td>'
+        + '<td class="num">' + (c.avg_ppg != null ? c.avg_ppg.toFixed(1) : "—") + '</td>'
+        + '<td class="num muted">' + fmtRank(c.pos_ppg_rank) + '</td>'
+        + '<td class="num" style="color:#10b981">' + (c.elite_pct != null ? c.elite_pct.toFixed(0) + "%" : "—") + '</td>'
+        + '<td class="num"><strong>' + apw.toFixed(1) + '</strong></td>'
+        + '</tr>';
+    }).join("");
+    var careerPPG = tot.g ? tot.pts / tot.g : 0;
+    var careerEl = tot.ep_den ? tot.el_num / tot.ep_den : 0;
+    return '<div class="upm-season-table-wrap">'
+      + '<table class="rdh-table upm-season-table"><thead><tr>'
+      + '<th>Yr</th>'
+      + '<th class="num">G</th>'
+      + '<th class="num">Pts</th>'
+      + '<th class="num" title="Positional rank by total points">Pts Rk</th>'
+      + '<th class="num">PPG</th>'
+      + '<th class="num" title="Positional rank by PPG">PPG Rk</th>'
+      + '<th class="num" title="Elite weeks (z ≥ 1.0) %">Elite%</th>'
+      + '<th class="num" title="Adjusted All-Play Wins">APW</th>'
+      + '</tr></thead><tbody>'
+      + bodyRows
+      + '<tr class="upm-career-row">'
+        + '<td><strong>Career</strong></td>'
+        + '<td class="num">' + tot.g + '</td>'
+        + '<td class="num">' + tot.pts.toFixed(0) + '</td>'
+        + '<td class="num muted">—</td>'
+        + '<td class="num">' + careerPPG.toFixed(1) + '</td>'
+        + '<td class="num muted">—</td>'
+        + '<td class="num" style="color:#10b981">' + careerEl.toFixed(0) + '%</td>'
+        + '<td class="num">' + tot.wcn.toFixed(1) + '</td>'
+      + '</tr>'
+      + '</tbody></table></div>';
+  }
+
   function buildStatsPanelHtml(bundle, ctx, pid, name) {
-    var scoringHtml = buildScoringStatsHtml(bundle, ctx, pid, name);
+    var career = (bundle && bundle.career_summary) || [];
+    var leverageCoefs = ctx.leverageCoefs || (bundle && bundle.leverage_coefs) || {};
+    // Fresh-rookie + no-career fallback — preserve buildScoringStatsHtml's
+    // rich Pre-NFL Prospect panel when there's nothing else to show.
+    if (!career.length) {
+      return buildScoringStatsHtml(bundle, ctx, pid, name);
+    }
+
+    var headlineHtml = buildHeadlineStripHtml(career, leverageCoefs);
+    var scoringTableHtml = buildCompactScoringTableHtml(career, leverageCoefs);
     var rawHtml = buildRawStatsHtml(bundle);
-    var advHtml = buildAdvancedStatsHtml();
-    return '<div class="upm-stats-view-switch" style="display:flex; gap:6px; margin-bottom:10px; flex-wrap:wrap;">'
-      + '<button type="button" class="rdh-chip" data-stats-view="scoring" aria-pressed="true">Scoring (MFL)</button>'
-      + '<button type="button" class="rdh-chip" data-stats-view="raw" aria-pressed="false">Raw Stats</button>'
-      + '<button type="button" class="rdh-chip" data-stats-view="advanced" aria-pressed="false">Advanced</button>'
+
+    return headlineHtml
+      // View toggle (Scoring/Raw) sits at the top of the body so it
+      // gates which table renders below. No more nested chips.
+      + '<div class="upm-stats-view-switch" style="display:flex; gap:6px; margin: 4px 0 12px; flex-wrap:wrap;">'
+        + '<button type="button" class="rdh-chip" data-stats-view="scoring" aria-pressed="true">Scoring (MFL)</button>'
+        + '<button type="button" class="rdh-chip" data-stats-view="raw" aria-pressed="false">Raw Stats (NFL)</button>'
       + '</div>'
-      + '<div data-stats-body="scoring">' + scoringHtml + '</div>'
-      + '<div data-stats-body="raw" hidden>' + rawHtml + '</div>'
-      + '<div data-stats-body="advanced" hidden>' + advHtml + '</div>';
+      + '<div data-stats-body="scoring">' + scoringTableHtml + '</div>'
+      + '<div data-stats-body="raw" hidden>' + rawHtml + '</div>';
   }
 
   // ─────────────────────────────────────────────────────────────────────────
