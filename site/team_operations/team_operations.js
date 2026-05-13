@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var BUILD = "2026.05.13.iframe";
+  var BUILD = "2026.05.13.iframe-fix";
   var BOOT_FLAG = "__ups_team_operations_boot_" + BUILD;
   if (window[BOOT_FLAG]) {
     if (typeof window.UPS_TEAMOPS_INIT === "function") window.UPS_TEAMOPS_INIT();
@@ -369,11 +369,21 @@
   // roster_workbench) · Player Stats (iframes stats_workbench). The hub URLs
   // resolve relative to /upsmflproduction/site/ since both target hubs live
   // there. iframes are lazy: src is set the first time the tab activates.
+  // Iframe URLs use ABSOLUTE jsDelivr paths because the embed runs inside
+  // MFL's domain (www48.myfantasyleague.com). Relative paths like
+  // "../rosters/roster_workbench.html" resolve against the parent page's
+  // origin and 404 there. The local test page (_local_test.html) also
+  // serves from the same origin as the hub HTML, so absolute jsDelivr URLs
+  // work in both contexts.
+  function hubUrl(relPath) {
+    var ref = (window.UPS_RELEASE_SHA && String(window.UPS_RELEASE_SHA).trim()) || "main";
+    return "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@" + encodeURIComponent(ref) + "/site/" + relPath;
+  }
   var TAB_DEFS = [
     { id: "overview",     label: "Overview" },
-    { id: "front-office", label: "Front Office",  iframe: "../rosters/roster_workbench.html" },
-    { id: "player-stats", label: "Player Stats",  iframe: "../stats_workbench/stats_workbench.html" },
-    { id: "trade-room",   label: "Trade War Room", iframe: "../trades/trade_workbench.html" }
+    { id: "front-office", label: "Front Office",  iframe: hubUrl("rosters/roster_workbench.html") },
+    { id: "player-stats", label: "Player Stats",  iframe: hubUrl("stats_workbench/stats_workbench.html") },
+    { id: "trade-room",   label: "Trade War Room", iframe: hubUrl("trades/trade_workbench.html") }
   ];
 
   function readActiveTab() {
@@ -980,12 +990,18 @@
 
   // Map raw league_events.event tokens to human-readable labels.
   var EVENT_LABEL = {
-    ups_contract_deadline:          "Contract Deadline",
-    ups_rookieextension_deadline:   "Rookie Extension Deadline",
-    preseason_mymdeadline:          "MYM Deadline",
-    preseason_extensiondeadline:    "Extension Deadline",
-    nfl_kickoff:                    "NFL Kickoff",
-    ups_season_complete:            "UPS Season End"
+    ups_contract_deadline:             "Contract Deadline",
+    ups_rookieextension_deadline:      "Rookie Extension Deadline",
+    ups_tag_deadline:                  "Tag Deadline",
+    ups_expired_rookie_auction_start:  "Expired Rookie Auction",
+    ups_rookie_draft:                  "Rookie Draft",
+    ups_last_day_for_cuts:             "Last Day for Cuts",
+    ups_fa_auction_start:              "FA Auction",
+    ups_trade_deadline:                "Trade Deadline",
+    preseason_mymdeadline:             "MYM Deadline",
+    preseason_extensiondeadline:       "Extension Deadline",
+    nfl_kickoff:                       "NFL Kickoff",
+    ups_season_complete:               "UPS Season End"
   };
   function eventLabel(ev) {
     if (!ev) return "—";

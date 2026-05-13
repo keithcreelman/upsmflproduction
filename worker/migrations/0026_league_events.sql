@@ -58,3 +58,13 @@ INSERT INTO league_events (event, date, nfl_season) VALUES ('ups_contract_deadli
 INSERT INTO league_events (event, date, nfl_season) VALUES ('nfl_kickoff', '2026-09-10', '2026');
 INSERT INTO league_events (event, date, nfl_season) VALUES ('preseason_mymdeadline', '2026-09-24', '2026');
 INSERT INTO league_events (event, date, nfl_season) VALUES ('preseason_extensiondeadline', '2026-10-07', '2026');
+
+-- 2026 preseason additions (2026-05-13). Source: docs/ups_v2/V2_GOVERNED/mfl/event_window_matrix.csv
+-- + docs/league_context_v1.md Section 3. Uses INSERT OR REPLACE so re-running the migration is safe
+-- (and so the upstream loader can refresh dates without DROPing first).
+INSERT OR REPLACE INTO league_events (event, date, nfl_season, description) VALUES ('ups_tag_deadline',                '2026-05-21', '2026', 'Thursday before Memorial Day (memorial − 4) — same day as Rookie Extension deadline');
+INSERT OR REPLACE INTO league_events (event, date, nfl_season, description) VALUES ('ups_expired_rookie_auction_start','2026-05-23', '2026', 'Saturday before Memorial Day (NEW PATTERN 2025+: ERA overlaps the Rookie Draft)');
+INSERT OR REPLACE INTO league_events (event, date, nfl_season, description) VALUES ('ups_rookie_draft',                '2026-05-24', '2026', 'Memorial Day Sunday (6 rounds, 12 picks)');
+INSERT OR REPLACE INTO league_events (event, date, nfl_season, description) VALUES ('ups_last_day_for_cuts',           '2026-07-22', '2026', 'Auction Roster Lock — 3 days before FA Auction start (placeholder until 2026 date confirmed)');
+INSERT OR REPLACE INTO league_events (event, date, nfl_season, description) VALUES ('ups_fa_auction_start',            '2026-07-25', '2026', 'Last weekend of July (~10-day window — placeholder until 2026 date confirmed)');
+INSERT OR REPLACE INTO league_events (event, date, nfl_season, description) VALUES ('ups_trade_deadline',              '2026-11-26', '2026', 'Thanksgiving Thursday — kickoff trade lockout');
