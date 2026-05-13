@@ -148,6 +148,10 @@
       playerId: "",
       franchiseId: "",
       mode: "actions",
+      // openTab — if set ("bio"/"stats"/"gamelog"/"contract-options"/"news"),
+      // the master modal opens directly on that tab. Used by the news-icon
+      // click handler to land on the News tab when a player has injury/news.
+      openTab: "",
       restructureYear1: "",
       restructureYear2: "",
       restructureBaseTcv: 0,
@@ -155,6 +159,13 @@
       restructureYears: 2,
       restructureExtSuffix: ""
     },
+    // News flags by MFL pid — populated by kickoffNewsFetch() after rosters
+    // render. Shape: { "<pid>": { hasInjury, hasHeadline, hasStatus } }.
+    // Drives the small icon next to player names + lets the click handler
+    // skip the fetch + open the modal directly.
+    newsByPid: Object.create(null),
+    newsFetchKey: "",     // dedupe key — "<leagueId>:<year>"
+    newsFetching: false,
     busyActionKey: "",
     rosterPointsSummaryCacheKey: "",
     rosterPointsSummaryByPlayer: Object.create(null),
@@ -7216,6 +7227,7 @@
 
   function actionModalResetMode() {
     state.actionModal.mode = "actions";
+    state.actionModal.openTab = "";
     state.actionModal.restructureYear1 = "";
     state.actionModal.restructureYear2 = "";
     state.actionModal.restructureBaseTcv = 0;
@@ -7305,11 +7317,19 @@
     renderPlayerActionModal();
   }
 
-  function openPlayerActionModal(franchiseId, playerId) {
+  function openPlayerActionModal(franchiseId, playerId, options) {
     state.actionModal.open = true;
     state.actionModal.franchiseId = pad4(franchiseId);
     state.actionModal.playerId = safeStr(playerId).replace(/\D/g, "");
     actionModalResetMode();
+    // Optional openTab — caller (e.g. news-icon click) can pin which master
+    // tab opens. actionModalResetMode() wiped it; re-stash AFTER the reset.
+    if (options && typeof options === "object") {
+      var t = safeStr(options.openTab).toLowerCase();
+      if (t === "bio" || t === "stats" || t === "gamelog" || t === "contract-options" || t === "news") {
+        state.actionModal.openTab = t;
+      }
+    }
     renderPlayerActionModal();
   }
 
@@ -7341,46 +7361,58 @@
       var rookieOption = rookieOptionStateForPlayer(player);
       var modalBusyKey = "restructure:" + safeStr(player.id);
       var restructureBusy = state.busyActionKey === modalBusyKey;
-      var actions = [];
-      actions.push(
+      // Two action buckets per Keith 2026-05-13:
+      //   actionsRowAbove   — non-contract roster actions (Trade, Drop, IR,
+      //                       Taxi, Untag). Stay above the master modal so
+      //                       they're always visible regardless of tab.
+      //   actionsInContractTab — contract-decision actions (Exercise Option,
+      //                       Extend 1Y/2Y, Restructure). Live INSIDE the
+      //                       Contract Options tab body so they sit with
+      //                       the option summary text they govern.
+      var actionsRowAbove = [];
+      var actionsInContractTab = [];
+      actionsRowAbove.push(
         '<button type="button" class="rwb-modal-action" data-action="trade-player" data-player-id="' + escapeHtml(player.id) + '" data-franchise-id="' + escapeHtml(player.fid) + '">Trade</button>'
       );
       if (canManage) {
         if (safeStr(player.type).toUpperCase() === "TAG") {
-          actions.push(
+          actionsRowAbove.push(
             '<button type="button" class="rwb-modal-action" data-action="untag-player" data-player-id="' + escapeHtml(player.id) + '" data-franchise-id="' + escapeHtml(player.fid) + '">Untag</button>'
           );
         }
         if (rookieOptionActionEligible(player)) {
-          actions.push(
+          actionsInContractTab.push(
             '<button type="button" class="rwb-modal-action" data-action="exercise-rookie-option" data-player-id="' + escapeHtml(player.id) + '" data-franchise-id="' + escapeHtml(player.fid) + '">Exercise Option</button>'
           );
         }
         for (var i = 0; i < extensionOptions.length; i += 1) {
           var extensionOption = extensionOptions[i];
-          actions.push(
+          actionsInContractTab.push(
             '<button type="button" class="rwb-modal-action" data-action="extend-player" data-option-key="' + escapeHtml(extensionOption.optionKey) + '" data-player-id="' + escapeHtml(player.id) + '" data-franchise-id="' + escapeHtml(player.fid) + '">' + escapeHtml(extensionActionLabel(extensionOption)) + '</button>'
           );
         }
         if (contractEligibility.restructureEligible) {
-          actions.push(
+          actionsInContractTab.push(
             '<button type="button" class="rwb-modal-action" data-action="restructure-player" data-player-id="' + escapeHtml(player.id) + '" data-franchise-id="' + escapeHtml(player.fid) + '">Restructure</button>'
           );
         }
         if (player.isIr) {
-          actions.push(
+          actionsRowAbove.push(
             '<button type="button" class="rwb-modal-action" data-action="activate-ir-player" data-player-id="' + escapeHtml(player.id) + '" data-franchise-id="' + escapeHtml(player.fid) + '">Activate From IR</button>'
           );
         }
         if (player.isTaxi) {
-          actions.push(
+          actionsRowAbove.push(
             '<button type="button" class="rwb-modal-action" data-action="promote-taxi-player" data-player-id="' + escapeHtml(player.id) + '" data-franchise-id="' + escapeHtml(player.fid) + '">Promote From Taxi</button>'
           );
         }
-        actions.push(
+        actionsRowAbove.push(
           '<button type="button" class="rwb-modal-action" data-action="drop-player" data-player-id="' + escapeHtml(player.id) + '" data-franchise-id="' + escapeHtml(player.fid) + '">Drop</button>'
         );
       }
+      // Legacy fallback path reuses the combined list — old local
+      // 4-tab modal renders all actions inline in the Bio panel.
+      var actions = actionsRowAbove.concat(actionsInContractTab);
 
       var extensionSummaryHtml = "";
       var rookieOptionSummaryHtml = "";
@@ -7528,39 +7560,104 @@
         // Draft Hub uses). Panels show "Loading…" until the fetch
         // returns, then render via upmRenderBundleTabs(). If the fetch
         // fails, tabs still work — Bio alone is useful.
-        var bioContentHtml =
-          '<div class="rwb-modal-grid">' +
-            '<div class="rwb-modal-metric"><span>TCV</span><strong>' + escapeHtml(modalTcv > 0 ? money(modalTcv) : "—") + '</strong></div>' +
-            '<div class="rwb-modal-metric"><span>AAV</span><strong>' + escapeHtml(modalAav > 0 ? money(modalAav) : "—") + '</strong></div>' +
-            '<div class="rwb-modal-metric"><span>Salary</span><strong>' + escapeHtml(money(player.salary)) + '</strong></div>' +
-            '<div class="rwb-modal-metric"><span>Yrs Remain</span><strong>' + escapeHtml(String(player.years)) + '</strong></div>' +
-            '<div class="rwb-modal-metric"><span>Earned To Date</span><strong>' + escapeHtml(modalEarned > 0 ? money(modalEarned) : "$0") + '</strong></div>' +
-            '<div class="rwb-modal-metric"><span>Cap Penalty</span><strong>' + escapeHtml(money(penalty.amount)) + '</strong></div>' +
-            '<div class="rwb-modal-metric"><span>Acquire Date</span><strong>' + escapeHtml(acquisitionDateLabelForPlayer(player)) + '</strong></div>' +
-            '<div class="rwb-modal-metric"><span>How Acquired</span><strong>' + escapeHtml(acquisitionTypeLabelForPlayer(player)) + '</strong></div>' +
-            extendedByHtml +
-          '</div>' +
-          '<div class="rwb-modal-actions-wrap">' + actions.join("") + '</div>' +
-          rookieOptionSummaryHtml +
-          extensionSummaryHtml +
+        // Action buttons + commish/non-manage notes live outside any tab —
+        // they sit above the player-profile content so they're always
+        // visible regardless of which tab the user is on.
+        // Per Keith 2026-05-13: action buttons split into two buckets.
+        //   - actionsRowAbove  (Trade/Drop/IR/Taxi/Untag) stays above the
+        //     master modal so they're always visible regardless of tab.
+        //   - actionsInContractTab (Exercise Option/Extend 1Y-2Y/Restructure)
+        //     moves INTO the Contract Options tab so contract decisions
+        //     live with the option-summary text that governs them.
+        // Notes about commish-acting / can't-manage stay above since they
+        // apply to the always-visible action row.
+        // Per Keith 2026-05-13: the always-visible action row + commish
+        // notes used to sit ABOVE the master modal in a full-width band
+        // that wasted vertical space. They now move INTO the Bio panel
+        // (compact inline row next to height/weight). For the legacy
+        // fallback path we still render the old above-the-modal layout.
+        var bioActionsHtml = actionsRowAbove.join("");
+        var bioCommishNote = "";
+        if (!canManage) {
+          bioCommishNote = "Roster-management actions unavailable. Trade only.";
+        } else if (viewerCanManageAnyRoster() && !ownRoster) {
+          bioCommishNote = "Commish — acting on behalf of " + escapeHtml(team.name) + ".";
+        }
+        // Legacy fallback still needs a full-width block. Master path
+        // gets these via ctx.bioActionsHtml / ctx.bioCommishNote instead.
+        var actionsAboveHtml =
+          '<div class="rwb-modal-actions-wrap" style="margin-bottom:14px;">' + actionsRowAbove.join("") + '</div>' +
           (!canManage ? '<div class="rwb-modal-note">Roster-management actions are unavailable for this session. Trade is available from any team.</div>' : '') +
           (viewerCanManageAnyRoster() && !ownRoster ? '<div class="rwb-modal-note"><strong>Commish:</strong> Acting on behalf of ' + escapeHtml(team.name) + '.</div>' : '');
 
-        var tabStripHtml =
-          '<nav class="upm-view-switch" role="tablist" aria-label="Player profile sections">' +
-            '<button type="button" role="tab" aria-selected="true"  data-upm-tab="bio">Bio</button>' +
-            '<button type="button" role="tab" aria-selected="false" data-upm-tab="stats">Stats</button>' +
-            '<button type="button" role="tab" aria-selected="false" data-upm-tab="gamelog">Game Log</button>' +
-            '<button type="button" role="tab" aria-selected="false" data-upm-tab="news">News</button>' +
-          '</nav>';
-        var loadingMsg = '<p style="color:var(--rwb-text-dim); font-size:12px; padding:10px;">Loading…</p>';
-        content =
-          playerHeaderHtml +
-          tabStripHtml +
-          '<div class="upm-tab-panel" data-upm-panel="bio">' + bioContentHtml + '</div>' +
-          '<div class="upm-tab-panel" data-upm-panel="stats" hidden>' + loadingMsg + '</div>' +
-          '<div class="upm-tab-panel" data-upm-panel="gamelog" hidden>' + loadingMsg + '</div>' +
-          '<div class="upm-tab-panel" data-upm-panel="news" hidden>' + loadingMsg + '</div>';
+        // Branch on master-modal availability. Master gives us Rookie
+        // Hub's look + the full Stats/Game Log power views + cap-math
+        // strip in Bio. Legacy fallback below preserves the old local
+        // 4-tab implementation in case master fails to load.
+        var masterAvailable = typeof window.UPS_openPlayerProfile === "function";
+
+        if (masterAvailable) {
+          // Master takes over the 4-tab body. Action buttons stay above.
+          // Stash the contract-options HTML on the modal body so the
+          // delegation block below can pass it into master via ctx.
+          // Layout: action buttons row → option summaries (rookie + ext) →
+          // any commish notes.
+          var contractOptionsBody = "";
+          if (actionsInContractTab.length) {
+            contractOptionsBody +=
+              '<div class="rwb-modal-actions-wrap" style="margin-bottom:12px;">' +
+              actionsInContractTab.join("") + '</div>';
+          }
+          contractOptionsBody +=
+            (rookieOptionSummaryHtml || "") + (extensionSummaryHtml || "");
+          state.actionModal._contractOptionsHtml = contractOptionsBody;
+          // Stash the bio-row payload so the delegation block below can
+          // hand it to the master modal via ctx. Master renders it inside
+          // the Bio panel next to height/weight (compact) instead of as
+          // a full-width band above.
+          state.actionModal._bioActionsHtml = bioActionsHtml;
+          state.actionModal._bioCommishNote = bioCommishNote;
+          content =
+            playerHeaderHtml +
+            '<div id="rwb-upm-mount" data-upm-mount-pending="1"></div>';
+        } else {
+          state.actionModal._contractOptionsHtml = "";
+          // Legacy local 4-tab implementation. Cap-math grid lives inline
+          // in the Bio panel here because there's no master to render it.
+          var bioContentHtml =
+            '<div class="rwb-modal-grid">' +
+              '<div class="rwb-modal-metric"><span>TCV</span><strong>' + escapeHtml(modalTcv > 0 ? money(modalTcv) : "—") + '</strong></div>' +
+              '<div class="rwb-modal-metric"><span>AAV</span><strong>' + escapeHtml(modalAav > 0 ? money(modalAav) : "—") + '</strong></div>' +
+              '<div class="rwb-modal-metric"><span>Salary</span><strong>' + escapeHtml(money(player.salary)) + '</strong></div>' +
+              '<div class="rwb-modal-metric"><span>Yrs Remain</span><strong>' + escapeHtml(String(player.years)) + '</strong></div>' +
+              '<div class="rwb-modal-metric"><span>Earned To Date</span><strong>' + escapeHtml(modalEarned > 0 ? money(modalEarned) : "$0") + '</strong></div>' +
+              '<div class="rwb-modal-metric"><span>Cap Penalty</span><strong>' + escapeHtml(money(penalty.amount)) + '</strong></div>' +
+              '<div class="rwb-modal-metric"><span>Acquire Date</span><strong>' + escapeHtml(acquisitionDateLabelForPlayer(player)) + '</strong></div>' +
+              '<div class="rwb-modal-metric"><span>How Acquired</span><strong>' + escapeHtml(acquisitionTypeLabelForPlayer(player)) + '</strong></div>' +
+              extendedByHtml +
+            '</div>' +
+            // Legacy path — restore the inline extension summaries (master
+            // path moves these into a Contract Options card instead).
+            (rookieOptionSummaryHtml || "") +
+            (extensionSummaryHtml || "") +
+            actionsAboveHtml;
+
+          var tabStripHtml =
+            '<nav class="upm-view-switch" role="tablist" aria-label="Player profile sections">' +
+              '<button type="button" role="tab" aria-selected="true"  data-upm-tab="bio">Bio</button>' +
+              '<button type="button" role="tab" aria-selected="false" data-upm-tab="stats">Stats</button>' +
+              '<button type="button" role="tab" aria-selected="false" data-upm-tab="gamelog">Game Log</button>' +
+              '<button type="button" role="tab" aria-selected="false" data-upm-tab="news">News</button>' +
+            '</nav>';
+          var loadingMsg = '<p style="color:var(--rwb-text-dim); font-size:12px; padding:10px;">Loading…</p>';
+          content =
+            playerHeaderHtml +
+            tabStripHtml +
+            '<div class="upm-tab-panel" data-upm-panel="bio">' + bioContentHtml + '</div>' +
+            '<div class="upm-tab-panel" data-upm-panel="stats" hidden>' + loadingMsg + '</div>' +
+            '<div class="upm-tab-panel" data-upm-panel="gamelog" hidden>' + loadingMsg + '</div>' +
+            '<div class="upm-tab-panel" data-upm-panel="news" hidden>' + loadingMsg + '</div>';
+        }
       }
     }
 
@@ -7575,11 +7672,61 @@
     }
 
     // Wire tab switching + kick off bundle fetch whenever we render the
-    // default (non-restructure) player profile. The tab strip exists only
-    // in that mode; querySelector no-ops harmlessly in restructure mode.
+    // default (non-restructure) player profile. Branch on the
+    // data-upm-mount-pending marker the renderer emits — that's how we
+    // signal master-modal mode vs. legacy-local mode.
     if (isOpen && els.playerModalBody && state.actionModal.mode !== "restructure") {
-      upmWireTabs(els.playerModalBody);
-      upmLoadPlayerBundle(state.actionModal.playerId, els.playerModalBody);
+      var pendingMount = els.playerModalBody.querySelector('#rwb-upm-mount[data-upm-mount-pending]');
+      if (pendingMount && typeof window.UPS_openPlayerProfile === "function") {
+        // Master-modal path. Delegate the entire 4-tab body to
+        // site/shared/player_profile_master.js. Match the look of
+        // Rookie Hub + ship the Stats/Game Log power views.
+        pendingMount.removeAttribute("data-upm-mount-pending");
+        var leagueIdCtx = safeStr(
+          (state.ctx && state.ctx.leagueId) ||
+          window.UPS_TWB_LEAGUE_ID ||
+          window.UPS_DRAFT_HUB_LEAGUE_ID ||
+          window.UPS_RWB_LEAGUE_ID ||
+          "74598"
+        ).replace(/\D/g, "");
+        var yearCtx = safeStr(
+          (state.ctx && state.ctx.year) ||
+          window.UPS_TWB_YEAR ||
+          window.UPS_DRAFT_HUB_YEAR ||
+          window.UPS_RWB_YEAR ||
+          String(new Date().getUTCFullYear())
+        ).replace(/\D/g, "");
+        try {
+          window.UPS_openPlayerProfile(state.actionModal.playerId, {
+            apiBase: upmResolveApiBase(),
+            leagueId: leagueIdCtx,
+            year: yearCtx,
+            mode: "roster_workbench",
+            mountNode: pendingMount,
+            hideHeader: true,
+            hideCloseButton: true,
+            // Extension options + rookie-option summaries — surfaced as
+            // the master modal's "Contract Options" tab. Pre-stashed in
+            // renderPlayerActionModal where the canManage gate also lives.
+            contractOptionsHtml: state.actionModal._contractOptionsHtml || "",
+            // Bio-inline actions + commish note — moved out of the
+            // full-width band above (Keith 2026-05-13: reduce wasted space).
+            bioActionsHtml: state.actionModal._bioActionsHtml || "",
+            bioCommishNote: state.actionModal._bioCommishNote || "",
+            // Direct-to-tab — set when caller invoked openPlayerActionModal
+            // with { openTab: "news" } (e.g. clicking the news-flag icon).
+            openTab: state.actionModal.openTab || undefined
+          });
+        } catch (e) {
+          // Master crashed — leave the mount empty with a small notice
+          // so the action buttons above remain useful.
+          pendingMount.innerHTML = '<p style="color:var(--rwb-text-dim); font-size:12px; padding:10px;">Profile load failed.</p>';
+        }
+      } else {
+        // Legacy local path — wire the local tabs + fetch bundle.
+        upmWireTabs(els.playerModalBody);
+        upmLoadPlayerBundle(state.actionModal.playerId, els.playerModalBody);
+      }
     }
   }
 
@@ -7616,6 +7763,170 @@
       }
     } catch (_) {}
     return "https://upsmflproduction.keith-creelman.workers.dev";
+  }
+
+  // ── News-flag pre-fetch (Roster Workbench-wide) ───────────────────
+  // Keith 2026-05-13: surface an injury/news icon next to player names
+  // so owners see something is up WITHOUT having to open every profile.
+  // Depth-chart-only items are explicitly excluded (per Keith) — a player
+  // having a depth slot isn't "news".
+  //
+  // Strategy:
+  //   1. Collect every pid we render (across teams).
+  //   2. Hit /api/player-news in 50-pid batches (endpoint cap).
+  //   3. For each pid, compute { hasInjury, hasHeadline } from items.
+  //   4. After each batch, repaint icons.
+  // Dedupe by league+year so flipping tabs / re-rendering doesn't
+  // re-fetch.
+  function isRealRwbNewsItem(item) {
+    if (!item || !item.type) return false;
+    var t = String(item.type).toLowerCase();
+    return t === "injury" || t === "status" || t === "headline";
+  }
+
+  function collectAllRosterPids() {
+    var seen = Object.create(null);
+    var pids = [];
+    var teams = state.teams || [];
+    for (var i = 0; i < teams.length; i += 1) {
+      var players = (teams[i] && teams[i].players) || [];
+      for (var j = 0; j < players.length; j += 1) {
+        var pid = safeStr(players[j] && players[j].id).replace(/\D/g, "");
+        if (!pid || seen[pid]) continue;
+        seen[pid] = 1;
+        pids.push(pid);
+      }
+    }
+    return pids;
+  }
+
+  function kickoffNewsFetch() {
+    if (typeof fetch !== "function") return;
+    var leagueId = safeStr(
+      (state.ctx && state.ctx.leagueId) ||
+      window.UPS_TWB_LEAGUE_ID ||
+      window.UPS_DRAFT_HUB_LEAGUE_ID ||
+      window.UPS_RWB_LEAGUE_ID ||
+      "74598"
+    ).replace(/\D/g, "");
+    var year = safeStr(
+      (state.ctx && state.ctx.year) ||
+      window.UPS_TWB_YEAR ||
+      window.UPS_DRAFT_HUB_YEAR ||
+      window.UPS_RWB_YEAR ||
+      String(new Date().getUTCFullYear())
+    ).replace(/\D/g, "");
+    var key = leagueId + ":" + year;
+    if (state.newsFetchKey === key && !state.newsFetching) {
+      // Cache hit — just repaint with whatever we already have.
+      paintNewsIcons();
+      return;
+    }
+    if (state.newsFetching) {
+      paintNewsIcons();
+      return;
+    }
+    var pids = collectAllRosterPids();
+    if (!pids.length) return;
+    state.newsFetching = true;
+    state.newsFetchKey = key;
+    state.newsByPid = Object.create(null);
+    var base = upmResolveApiBase();
+
+    var batches = [];
+    for (var i = 0; i < pids.length; i += 50) batches.push(pids.slice(i, i + 50));
+    var completed = 0;
+
+    batches.forEach(function (batch) {
+      var url = base + "/api/player-news?pids=" + encodeURIComponent(batch.join(","))
+        + "&L=" + encodeURIComponent(leagueId)
+        + "&YEAR=" + encodeURIComponent(year);
+      fetch(url, { credentials: "omit" })
+        .then(function (r) { return r.ok ? r.json() : { items_by_pid: {} }; })
+        .then(function (data) {
+          var byPid = (data && data.items_by_pid) || {};
+          for (var k = 0; k < batch.length; k += 1) {
+            var pid = batch[k];
+            var raw = byPid[pid] || [];
+            var flags = { hasInjury: false, hasStatus: false, hasHeadline: false };
+            for (var m = 0; m < raw.length; m += 1) {
+              if (!isRealRwbNewsItem(raw[m])) continue;
+              var t = String(raw[m].type).toLowerCase();
+              if (t === "injury") {
+                flags.hasInjury = true;
+              } else if (t === "status") {
+                // Worker emits `status` with headline "Injury Status: …"
+                // for Sleeper injuries. Treat those as injury so the icon
+                // is unambiguously injury-flavored (orange/bell) instead
+                // of generic "status" (yellow).
+                var headline = String(raw[m].headline || "").toLowerCase();
+                if (headline.indexOf("injury") !== -1) flags.hasInjury = true;
+                else flags.hasStatus = true;
+              } else if (t === "headline") {
+                flags.hasHeadline = true;
+              }
+            }
+            if (flags.hasInjury || flags.hasStatus || flags.hasHeadline) {
+              state.newsByPid[pid] = flags;
+            }
+          }
+          paintNewsIcons();
+        })
+        .catch(function () { /* swallow — non-essential UI */ })
+        .then(function () {
+          completed += 1;
+          if (completed === batches.length) state.newsFetching = false;
+        });
+    });
+  }
+
+  function newsFlagButtonHtml(pid, fid, flags) {
+    if (!flags) return "";
+    // Priority: injury > status > headline. One icon, with a tooltip
+    // that hints at WHAT (so hovering tells you "Injury report" vs.
+    // "News headline" without opening the modal).
+    var label = "";
+    var variant = "";
+    if (flags.hasInjury) { label = "Injury report"; variant = "is-injury"; }
+    else if (flags.hasStatus) { label = "Roster status"; variant = "is-status"; }
+    else if (flags.hasHeadline) { label = "News headline"; variant = "is-headline"; }
+    if (!variant) return "";
+    // Inline SVG (no external dep) — bell / exclamation in a small circle.
+    var svg = flags.hasInjury
+      ? '<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" focusable="false"><path d="M12 2a1 1 0 0 1 1 1v8a1 1 0 0 1-2 0V3a1 1 0 0 1 1-1zm0 14a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3z" fill="currentColor"/></svg>'
+      : '<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" focusable="false"><path d="M12 2a7 7 0 0 0-7 7v3.586l-1.293 1.293A1 1 0 0 0 4.414 16H19.586a1 1 0 0 0 .707-1.707L19 13.586V9a7 7 0 0 0-7-7zm-2 16a2 2 0 1 0 4 0h-4z" fill="currentColor"/></svg>';
+    return (
+      '<button type="button" class="rwb-news-flag ' + variant + '"'
+        + ' data-action="open-player-news"'
+        + ' data-player-id="' + escapeHtml(pid) + '"'
+        + ' data-franchise-id="' + escapeHtml(fid) + '"'
+        + ' title="' + escapeHtml(label) + ' — click for details"'
+        + ' aria-label="' + escapeHtml(label) + ' for player ' + escapeHtml(pid) + '">'
+        + svg
+      + '</button>'
+    );
+  }
+
+  function paintNewsIcons() {
+    if (!els || !els.teamList) return;
+    var slots = els.teamList.querySelectorAll("[data-news-slot]");
+    for (var i = 0; i < slots.length; i += 1) {
+      var slot = slots[i];
+      var pid = safeStr(slot.getAttribute("data-news-slot")).replace(/\D/g, "");
+      var fid = pad4(slot.getAttribute("data-news-fid") || "");
+      var flags = state.newsByPid[pid];
+      var current = slot.innerHTML;
+      var next = flags ? newsFlagButtonHtml(pid, fid, flags) : "";
+      if (current !== next) slot.innerHTML = next;
+    }
+  }
+
+  function newsSlotHtml(pid, fid) {
+    // Empty placeholder — paintNewsIcons() fills it in after fetch.
+    return (
+      '<span class="rwb-news-slot" data-news-slot="' + escapeHtml(pid) + '"'
+        + ' data-news-fid="' + escapeHtml(fid) + '"></span>'
+    );
   }
 
   function upmFillPanel(root, panelName, html) {
@@ -8461,6 +8772,7 @@
                   '<span class="rwb-player-name">' + escapeHtml(p.name) + '</span>' +
                   '<span class="rwb-type-pill ' + typeTone(p.type) + ' rwb-player-contract-pill">' + escapeHtml(contractTypeText) + '</span>' +
                 '</button>' +
+                newsSlotHtml(p.id, p.fid) +
                 tags.join("") +
                 '<button type="button" class="rwb-row-more" data-action="row-more" aria-expanded="false">More</button>' +
               '</div>' +
@@ -8553,6 +8865,7 @@
                   '<span class="rwb-player-name">' + escapeHtml(p.name) + '</span>' +
                   '<span class="rwb-type-pill ' + typeTone(p.type) + ' rwb-player-contract-pill">' + escapeHtml(contractTypeText) + '</span>' +
                 '</button>' +
+                newsSlotHtml(p.id, p.fid) +
                 (p.isTaxi ? '<span class="rwb-tag is-taxi">Taxi</span>' : '') +
                 (p.isIr ? '<span class="rwb-tag is-ir">IR</span>' : '') +
               '</div>' +
@@ -9353,6 +9666,7 @@
           '<div class="rwb-player-name-wrap">' +
             '<div class="rwb-player-line">' +
               '<button type="button" class="rwb-player-open" data-action="open-player-modal" data-player-id="' + escapeHtml(player.id) + '" data-franchise-id="' + escapeHtml(player.fid) + '"><span class="rwb-player-name">' + escapeHtml(player.name) + '</span></button>' +
+              newsSlotHtml(player.id, player.fid) +
               tags.join("") +
             '</div>' +
             '<div class="rwb-points-player-sub">' + escapeHtml(player.position + " | " + (player.nflTeam || "-")) + '</div>' +
@@ -9486,7 +9800,13 @@
             '<div class="rwb-player-name-wrap">' +
               '<div class="rwb-player-line">' +
                 '<span class="rwb-pos-pill">' + escapeHtml(row.positional_grouping) + '</span>' +
-                '<span class="rwb-player-name">' + escapeHtml(row.player_name) + '</span>' +
+                // Tagging tab — name is clickable like every other tab.
+                // Opens the master player profile modal via the same
+                // data-action="open-player-modal" hook other tabs use.
+                '<button type="button" class="rwb-player-open" data-action="open-player-modal" data-player-id="' + escapeHtml(row.player_id) + '" data-franchise-id="' + escapeHtml(team.id) + '">' +
+                  '<span class="rwb-player-name">' + escapeHtml(row.player_name) + '</span>' +
+                '</button>' +
+                newsSlotHtml(row.player_id, team.id) +
                 (isActive ? '<span class="rwb-tag is-tagged">Tagged</span>' : '') +
               '</div>' +
               '<div class="rwb-points-player-sub">' + escapeHtml(tagPriorAavSubtext(row)) + '</div>' +
@@ -9947,6 +10267,14 @@
 
     renderToolbarNote(visiblePlayers, totalPlayers, visibleTeams.length, totalTeams);
     renderPlayerActionModal();
+    // Kick off news/injury icon population — fetch is deduped by
+    // leagueId:year, so repeated renders are cheap. paintNewsIcons() is
+    // also called eagerly here so cached flags appear without waiting
+    // for the network round-trip.
+    try {
+      paintNewsIcons();
+      kickoffNewsFetch();
+    } catch (_) { /* never let icon enrichment break rendering */ }
   }
 
   function collectExportRows() {
@@ -11033,6 +11361,21 @@
       }
       persistState();
       renderTeams();
+      return;
+    }
+
+    // ── News-flag icon → open modal on News tab ────────────────────
+    // Match BEFORE the open-player-modal handler so clicking the icon
+    // doesn't fall through to the generic player-open behavior.
+    var newsFlagBtn = target.closest("[data-action='open-player-news']");
+    if (newsFlagBtn) {
+      try {
+        var _nfFid = pad4(newsFlagBtn.getAttribute("data-franchise-id"));
+        var _nfPid = safeStr(newsFlagBtn.getAttribute("data-player-id"));
+        openPlayerActionModal(_nfFid, _nfPid, { openTab: "news" });
+      } catch (e) {
+        console.error("[upm] open-player-news failed:", e);
+      }
       return;
     }
 

@@ -38,3 +38,8 @@ node_modules/
 
 # Local-only Claude tooling
 .claude/
+
+# Local-only review aids — created on the fly during hub reviews,
+# always present orange 'LOCAL REVIEW' banners + point at prod worker.
+# Useful in worktree, never meant for main.
+_local_*.html

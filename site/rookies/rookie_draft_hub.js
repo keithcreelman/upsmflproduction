@@ -1905,6 +1905,28 @@
 
   async function showPlayerProfileCard(pid) {
     if (!pid) return;
+    // Delegate to the unified master modal when available (v1.7.43+).
+    // Falls through to the legacy inline implementation if the master
+    // module didn't load (jsDelivr lag, local preview without the
+    // shared script, etc.) so the hub is never left with a dead
+    // click-handler.
+    if (typeof window.UPS_openPlayerProfile === "function") {
+      try {
+        window.UPS_openPlayerProfile(pid, {
+          apiBase: (typeof window.UPS_DRAFT_HUB_API_BASE === "string" && window.UPS_DRAFT_HUB_API_BASE) || "",
+          leagueId: (typeof window.UPS_DRAFT_HUB_LEAGUE_ID === "string" && window.UPS_DRAFT_HUB_LEAGUE_ID) || "",
+          year: (typeof window.UPS_DRAFT_HUB_YEAR === "string" && window.UPS_DRAFT_HUB_YEAR) || "",
+          mode: "rookie_draft",
+          prospects: STATE.prospects,
+          history: STATE.history,
+          leverageCoefs: STATE.leverageCoefs || (STATE.history && STATE.history.leverage_coefs) || null
+        });
+        return;
+      } catch (e) {
+        // fall through to legacy inline render
+        console.warn("[rdh] master profile modal failed, falling back:", e);
+      }
+    }
     const hist = STATE.history.picks.find(p => p.player_id === String(pid)) || {};
     const prosp = STATE.prospects.prospects.find(p => p.player_id === String(pid)) || {};
     const name = hist.player_name || prosp.name || `Player #${pid}`;
