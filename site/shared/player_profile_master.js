@@ -447,16 +447,24 @@
   }
 
   // ── Photo fallback chain ────────────────────────────────────────────────
-  // Per Keith 2026-05-12: drop ESPN NFL from the chain — it tends to render
-  // a low-quality / odd-cropped headshot. Order is now:
-  //   1) MFL icon_url           — usually the pro shirt-and-tie shot
-  //   2) ESPN college            — fallback for fresh rookies
-  //   3) MFL stable archive      — last resort for very old / unmapped players
+  // Photo chain — Keith 2026-05-13: college was showing for every NFL player
+  // because pp.icon_url is always null from MFL's playerProfile export, and
+  // ESPN college was the next entry. Inserted MFL's modern year-based pro
+  // headshot URL between icon_url and ESPN college so NFL players get their
+  // pro shot. College stays as fallback for fresh rookies who haven't been
+  // photographed by MFL yet. Order:
+  //   1) MFL icon_url            — pro shot when MFL surfaces it (rare)
+  //   2) MFL pro headshot        — www55.../fflnetdynamic{YEAR}/players/{pid}.jpg
+  //   3) ESPN college            — fallback for fresh rookies pre-pro photo
+  //   4) MFL stable archive      — last resort for very old / unmapped players
   // Future TODO: pick a better headshot source (Sleeper, Sportradar, etc.).
-  function buildPhotoChain(pid, pp, prospectRow) {
+  function buildPhotoChain(pid, pp, prospectRow, ctxYear) {
     var espnId = (prospectRow && prospectRow.espn_id) || pp.espn_id || null;
     var chain = [];
     if (pp.icon_url) chain.push(pp.icon_url);
+    if (pid && ctxYear) {
+      chain.push("https://www55.myfantasyleague.com/fflnetdynamic" + encodeURIComponent(ctxYear) + "/players/" + encodeURIComponent(pid) + ".jpg");
+    }
     if (espnId) {
       chain.push("https://a.espncdn.com/i/headshots/college-football/players/full/" + espnId + ".png");
     }
@@ -510,8 +518,8 @@
 
     var showCollege = showCollegePanels(pp, ctx);
 
-    // Photo
-    var photoFallbacks = buildPhotoChain(pid, pp, prospectRow);
+    // Photo — pass ctx.year for the MFL pro headshot URL pattern.
+    var photoFallbacks = buildPhotoChain(pid, pp, prospectRow, ctx && ctx.year);
     var photoUrl = photoFallbacks[0] || "";
     var photoOnError = photoOnErrorAttr(photoFallbacks);
 
