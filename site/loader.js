@@ -160,7 +160,11 @@
     "hpm-mcm": "/site/hpm-mcm.html",
     "hpm-standings": "/site/hpm-standings.html",
     "hpm-issue-report": "/site/hpm-issue-report.html",
-    "hpm-ccc": "/site/hpm-ccc.html",
+    // hpm-ccc archived 2026-05-12 — CCC moved to site/_archived/2026-05-12/.
+    // Owners now submit extensions/restructures/tags via Roster Workbench
+    // (source-tag: "front-office-extension-submit"). Worker endpoints
+    // /offer-mym, /offer-restructure, /commish-contract-update remain
+    // live to serve Roster Workbench.
     "hpm-widget": "/site/hpm-widget.html",
     "hpm-reports": "/site/hpm-reports.html",
     "hpm-draft-hub": "/site/hpm-draft-hub.html",
