@@ -241,6 +241,34 @@
     '.upm-modal .upm-co-panel { padding: 6px 0; }',
     '.upm-modal .upm-co-panel .upm-co-empty { color: #8a97ad; padding: 30px 0; text-align: center; font-size: 13px; }',
 
+    /* Stats tab — Raw Stats Columns dropdown (2026-05-13).
+       Pattern lifted from Stats Workbench's .asw-cols-popover. */
+    '.upm-modal .upm-raw-controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 6px; }',
+    '.upm-modal .upm-raw-scope { display: flex; gap: 6px; }',
+    '.upm-modal .upm-cols-dropdown { position: relative; }',
+    '.upm-modal .upm-cols-dropdown[open] .upm-cols-pill-chev { transform: rotate(180deg); }',
+    '.upm-modal .upm-cols-pill { list-style: none; cursor: pointer; user-select: none; background: #1a2230; color: #e8edf5; border: 1px solid #2a3446; border-radius: 999px; padding: 5px 12px; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; transition: border-color 80ms; }',
+    '.upm-modal .upm-cols-pill::-webkit-details-marker { display: none; }',
+    '.upm-modal .upm-cols-pill:hover { border-color: #5b8dff; }',
+    '.upm-modal .upm-cols-pill-count { color: #8a97ad; font-weight: 500; font-size: 11px; padding-left: 4px; border-left: 1px solid #2a3446; }',
+    '.upm-modal .upm-cols-pill-chev { font-size: 10px; opacity: 0.7; transition: transform 120ms; }',
+    '.upm-modal .upm-cols-popover { position: absolute; right: 0; top: calc(100% + 4px); z-index: 30; min-width: 220px; background: #141a26; border: 1px solid #2a3446; border-radius: 6px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); padding: 6px 0; }',
+    '.upm-modal .upm-cols-popover-header { font-size: 10px; color: #8a97ad; text-transform: uppercase; letter-spacing: 0.4px; padding: 6px 14px 4px; font-weight: 600; }',
+    '.upm-modal .upm-cols-group-item { display: flex; align-items: center; gap: 8px; padding: 6px 14px; font-size: 12px; cursor: pointer; user-select: none; color: #e8edf5; }',
+    '.upm-modal .upm-cols-group-item:hover { background: #1a2230; }',
+    '.upm-modal .upm-cols-group-item.is-locked { cursor: default; opacity: 0.7; }',
+    '.upm-modal .upm-cols-group-item input { accent-color: #5b8dff; cursor: pointer; }',
+    '.upm-modal .upm-cols-group-item input:disabled { cursor: not-allowed; }',
+    '.upm-modal .upm-cols-group-label { flex: 1; font-weight: 500; }',
+    '.upm-modal .upm-cols-group-count { font-size: 10px; color: #8a97ad; }',
+    '.upm-modal .upm-cols-reset { width: calc(100% - 28px); margin: 4px 14px 6px; background: transparent; color: #8a97ad; border: 1px solid #2a3446; border-radius: 4px; padding: 5px 8px; font-size: 11px; cursor: pointer; }',
+    '.upm-modal .upm-cols-reset:hover { color: #e8edf5; border-color: #5b8dff; }',
+    '.upm-modal .upm-raw-table { min-width: 100%; }',
+    /* Mobile: popover snaps full-width below the pill for thumb access. */
+    '@media (max-width: 600px) {' +
+      ' .upm-modal .upm-cols-popover { left: 0; right: 0; min-width: 0; }' +
+    ' }',
+
     /* Stats tab — Card-first redesign (2026-05-13). Zone 1: headline strip. */
     '.upm-modal .upm-headline-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 14px; }',
     '.upm-modal .upm-headline-card { background: #1a2230; border: 1px solid #2a3446; border-radius: 8px; padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; }',
@@ -937,86 +965,178 @@
     return "skill";
   }
 
-  // Per-pos-group templates — same shape as Rookie Hub's TMPL.
+  // Per-pos-group templates — restructured 2026-05-13 into GROUPS.
+  // Each pos_group has a `groups` map of { id: { label, cols } } plus a
+  // `defaults` array listing which groups are visible by default. User
+  // selection persists in sessionStorage as `upm.stats.rawCols.<pg>` =
+  // comma-separated group IDs. Pattern lifted from Stats Workbench's
+  // .asw-cols-popover Columns dropdown.
+  //
+  // Group `base` is always on (G + Snaps cells — the row identifier).
+  // Other groups toggle independently in the Columns dropdown.
   var RAW_TMPL = {
-    idp: { label: "IDP", cols: [
-      { label: "G", key: "games" },
-      { label: "Snaps", key: "def_snaps_total" },
-      { label: "Snap%", compute: function (r) { return r.def_snap_rate; }, format: "pct0" },
-      { label: "Snaps/G", compute: function (r) { return r.def_snaps_total && r.games ? r.def_snaps_total / r.games : null; }, format: "dec1" },
-      { label: "Tkl", key: "def_tackles_total" },
-      { label: "Ast", key: "def_tackles_ast" },
-      { label: "TFL", key: "def_tfl" },
-      { label: "FF", key: "def_ff" },
-      { label: "FR", key: "def_fr" },
-      { label: "Sk", key: "def_sacks", format: "dec1" },
-      { label: "PD", key: "def_pass_def" },
-      { label: "Int", key: "def_ints" },
-      { label: "DefTD", key: "def_tds" }
-    ]},
-    qb: { label: "QB", cols: [
-      { label: "G", key: "games" },
-      { label: "Snaps", key: "off_snaps_total" },
-      { label: "Snap%", compute: function (r) { return r.off_snap_rate; }, format: "pct0" },
-      { label: "Snaps/G", compute: function (r) { return r.off_snaps_total && r.games ? r.off_snaps_total / r.games : null; }, format: "dec1" },
-      { label: "RuAtt", key: "rush_att" },
-      { label: "RuYd", key: "rush_yds" },
-      { label: "RuTD", key: "rush_tds" },
-      { label: "Fum", key: "rush_fumbles" },
-      { label: "FumL", key: "rush_fumbles_lost" },
-      { label: "Att", key: "pass_att" },
-      { label: "Cmp", key: "pass_cmp" },
-      { label: "Cmp%", compute: function (r) { return r.pass_att ? r.pass_cmp / r.pass_att : null; }, format: "pct" },
-      { label: "PaYd", key: "pass_yds" },
-      { label: "PaTD", key: "pass_tds" },
-      { label: "Int", key: "pass_ints" },
-      { label: "Int%", compute: function (r) { return r.pass_att ? r.pass_ints / r.pass_att : null; }, format: "pct" },
-      { label: "Drops", key: "passing_drops", title: "Receiver drops on this QB's throws (PFR, 2018+)" }
-    ]},
-    skill: { label: "RB / WR / TE", cols: [
-      { label: "G", key: "games" },
-      { label: "Snaps", key: "off_snaps_total" },
-      { label: "Snap%", compute: function (r) { return r.off_snap_rate; }, format: "pct0" },
-      { label: "Snaps/G", compute: function (r) { return r.off_snaps_total && r.games ? r.off_snaps_total / r.games : null; }, format: "dec1" },
-      { label: "Tgt", key: "targets" },
-      { label: "Rec", key: "receptions" },
-      { label: "RecYd", key: "rec_yds" },
-      { label: "RecTD", key: "rec_tds" },
-      { label: "Y/T", compute: function (r) { return r.targets ? r.rec_yds / r.targets : null; }, format: "dec2" },
-      { label: "Drops", key: "receiving_drops", title: "Dropped passes (PFR, 2018+)" },
-      { label: "BrTkl", compute: function (r) { return (r.receiving_broken_tackles || 0) + (r.rushing_broken_tackles || 0); },
-        title: "Broken tackles combined — receiving + rushing (PFR, 2018+)" },
-      { label: "RuAtt", key: "rush_att" },
-      { label: "RuYd", key: "rush_yds" },
-      { label: "YBC/A", compute: function (r) { return r.rush_att ? (r.rushing_yards_before_contact || 0) / r.rush_att : null; }, format: "dec2",
-        title: "Rushing yards before contact per attempt (PFR, 2018+)" },
-      { label: "YAC/A", compute: function (r) { return r.rush_att ? (r.rushing_yards_after_contact || 0) / r.rush_att : null; }, format: "dec2",
-        title: "Rushing yards after contact per attempt (PFR, 2018+)" },
-      { label: "RuTD", key: "rush_tds" },
-      { label: "Fum", key: "rush_fumbles" },
-      { label: "FumL", key: "rush_fumbles_lost" }
-    ]},
-    kicker: { label: "Kicker", cols: [
-      { label: "G", key: "games" },
-      { label: "XPM", key: "xp_made" },
-      { label: "XP Miss", compute: function (r) { return (r.xp_att || 0) - (r.xp_made || 0); } },
-      { label: "FGM", key: "fg_made" },
-      { label: "FG Miss", compute: function (r) { return (r.fg_att || 0) - (r.fg_made || 0); } },
-      { label: "Avg FG", compute: function (r) {
-          var m = (r.fg_made_0_39 || 0) + (r.fg_made_40_49 || 0) + (r.fg_made_50plus || 0);
-          if (!m) return null;
-          return ((r.fg_made_0_39 || 0) * 25 + (r.fg_made_40_49 || 0) * 44.5 + (r.fg_made_50plus || 0) * 54) / m;
-        }, format: "dec1" }
-    ]},
-    punter: { label: "Punter", cols: [
-      { label: "G", key: "games" },
-      { label: "Punts", key: "punts" },
-      { label: "PuntYd", key: "punt_yds" },
-      { label: "Net Avg", key: "punt_net_avg", format: "dec1" },
-      { label: "Att/G", compute: function (r) { return r.games ? r.punts / r.games : null; }, format: "dec1" },
-      { label: "I20", key: "punt_inside20" }
-    ]}
+    idp: {
+      label: "IDP",
+      defaults: ["base", "tackling"],
+      groups: {
+        base: { label: "Base + Snaps", always: true, cols: [
+          { label: "G", key: "games" },
+          { label: "Snaps", key: "def_snaps_total" },
+          { label: "Snap%", compute: function (r) { return r.def_snap_rate; }, format: "pct0" },
+          { label: "Snaps/G", compute: function (r) { return r.def_snaps_total && r.games ? r.def_snaps_total / r.games : null; }, format: "dec1" }
+        ]},
+        tackling: { label: "Tackling", cols: [
+          { label: "Tkl", key: "def_tackles_total" },
+          { label: "Ast", key: "def_tackles_ast" },
+          { label: "TFL", key: "def_tfl" }
+        ]},
+        impact: { label: "Impact Plays", cols: [
+          { label: "Sk", key: "def_sacks", format: "dec1" },
+          { label: "FF", key: "def_ff" },
+          { label: "FR", key: "def_fr" }
+        ]},
+        coverage: { label: "Coverage", cols: [
+          { label: "PD", key: "def_pass_def" },
+          { label: "Int", key: "def_ints" },
+          { label: "DefTD", key: "def_tds" }
+        ]}
+      }
+    },
+    qb: {
+      label: "QB",
+      defaults: ["base", "passing"],
+      groups: {
+        base: { label: "Base + Snaps", always: true, cols: [
+          { label: "G", key: "games" },
+          { label: "Snaps", key: "off_snaps_total" },
+          { label: "Snap%", compute: function (r) { return r.off_snap_rate; }, format: "pct0" },
+          { label: "Snaps/G", compute: function (r) { return r.off_snaps_total && r.games ? r.off_snaps_total / r.games : null; }, format: "dec1" }
+        ]},
+        passing: { label: "Passing", cols: [
+          { label: "Att", key: "pass_att" },
+          { label: "Cmp", key: "pass_cmp" },
+          { label: "Cmp%", compute: function (r) { return r.pass_att ? r.pass_cmp / r.pass_att : null; }, format: "pct" },
+          { label: "PaYd", key: "pass_yds" },
+          { label: "PaTD", key: "pass_tds" },
+          { label: "Int", key: "pass_ints" },
+          { label: "Int%", compute: function (r) { return r.pass_att ? r.pass_ints / r.pass_att : null; }, format: "pct" }
+        ]},
+        rushing: { label: "Rushing", cols: [
+          { label: "RuAtt", key: "rush_att" },
+          { label: "RuYd", key: "rush_yds" },
+          { label: "RuTD", key: "rush_tds" },
+          { label: "Fum", key: "rush_fumbles" },
+          { label: "FumL", key: "rush_fumbles_lost" }
+        ]},
+        advanced: { label: "Advanced (PFR)", cols: [
+          { label: "Drops", key: "passing_drops", title: "Receiver drops on this QB's throws (PFR, 2018+)" }
+        ]}
+      }
+    },
+    skill: {
+      label: "RB / WR / TE",
+      defaults: ["base", "receiving"],
+      groups: {
+        base: { label: "Base + Snaps", always: true, cols: [
+          { label: "G", key: "games" },
+          { label: "Snaps", key: "off_snaps_total" },
+          { label: "Snap%", compute: function (r) { return r.off_snap_rate; }, format: "pct0" },
+          { label: "Snaps/G", compute: function (r) { return r.off_snaps_total && r.games ? r.off_snaps_total / r.games : null; }, format: "dec1" }
+        ]},
+        receiving: { label: "Receiving", cols: [
+          { label: "Tgt", key: "targets" },
+          { label: "Rec", key: "receptions" },
+          { label: "RecYd", key: "rec_yds" },
+          { label: "RecTD", key: "rec_tds" },
+          { label: "Y/T", compute: function (r) { return r.targets ? r.rec_yds / r.targets : null; }, format: "dec2" },
+          { label: "Drops", key: "receiving_drops", title: "Dropped passes (PFR, 2018+)" },
+          { label: "BrTkl", compute: function (r) { return (r.receiving_broken_tackles || 0) + (r.rushing_broken_tackles || 0); },
+            title: "Broken tackles — receiving + rushing combined (PFR, 2018+)" }
+        ]},
+        rushing: { label: "Rushing", cols: [
+          { label: "RuAtt", key: "rush_att" },
+          { label: "RuYd", key: "rush_yds" },
+          { label: "RuTD", key: "rush_tds" },
+          { label: "Fum", key: "rush_fumbles" },
+          { label: "FumL", key: "rush_fumbles_lost" }
+        ]},
+        advanced: { label: "Advanced (PFR)", cols: [
+          { label: "YBC/A", compute: function (r) { return r.rush_att ? (r.rushing_yards_before_contact || 0) / r.rush_att : null; }, format: "dec2",
+            title: "Rushing yards before contact per attempt (PFR, 2018+)" },
+          { label: "YAC/A", compute: function (r) { return r.rush_att ? (r.rushing_yards_after_contact || 0) / r.rush_att : null; }, format: "dec2",
+            title: "Rushing yards after contact per attempt (PFR, 2018+)" }
+        ]}
+      }
+    },
+    kicker: {
+      label: "Kicker",
+      defaults: ["base", "scoring"],
+      groups: {
+        base: { label: "Base", always: true, cols: [
+          { label: "G", key: "games" }
+        ]},
+        scoring: { label: "Scoring", cols: [
+          { label: "XPM", key: "xp_made" },
+          { label: "XP Miss", compute: function (r) { return (r.xp_att || 0) - (r.xp_made || 0); } },
+          { label: "FGM", key: "fg_made" },
+          { label: "FG Miss", compute: function (r) { return (r.fg_att || 0) - (r.fg_made || 0); } }
+        ]},
+        distance: { label: "Distance", cols: [
+          { label: "Avg FG", compute: function (r) {
+              var m = (r.fg_made_0_39 || 0) + (r.fg_made_40_49 || 0) + (r.fg_made_50plus || 0);
+              if (!m) return null;
+              return ((r.fg_made_0_39 || 0) * 25 + (r.fg_made_40_49 || 0) * 44.5 + (r.fg_made_50plus || 0) * 54) / m;
+            }, format: "dec1" }
+        ]}
+      }
+    },
+    punter: {
+      label: "Punter",
+      defaults: ["base", "production"],
+      groups: {
+        base: { label: "Base", always: true, cols: [
+          { label: "G", key: "games" }
+        ]},
+        production: { label: "Production", cols: [
+          { label: "Punts", key: "punts" },
+          { label: "PuntYd", key: "punt_yds" },
+          { label: "Att/G", compute: function (r) { return r.games ? r.punts / r.games : null; }, format: "dec1" }
+        ]},
+        efficiency: { label: "Efficiency", cols: [
+          { label: "Net Avg", key: "punt_net_avg", format: "dec1" },
+          { label: "I20", key: "punt_inside20" }
+        ]}
+      }
+    }
   };
+
+  // Resolve which group IDs are currently visible for the active pos_group.
+  // Reads sessionStorage; falls back to template defaults; always includes
+  // 'always: true' groups regardless of selection.
+  function getActiveRawGroups(pg) {
+    var tmpl = RAW_TMPL[pg] || RAW_TMPL.skill;
+    var stored;
+    try { stored = sessionStorage.getItem("upm.stats.rawCols." + pg); } catch (e) { stored = null; }
+    var selected = stored ? stored.split(",").filter(Boolean) : (tmpl.defaults || []).slice();
+    var out = [];
+    var gids = Object.keys(tmpl.groups);
+    for (var i = 0; i < gids.length; i++) {
+      var gid = gids[i];
+      var g = tmpl.groups[gid];
+      if (g.always || selected.indexOf(gid) !== -1) out.push(gid);
+    }
+    return out;
+  }
+
+  function flattenRawCols(pg, activeGroupIds) {
+    var tmpl = RAW_TMPL[pg] || RAW_TMPL.skill;
+    var cols = [];
+    for (var i = 0; i < activeGroupIds.length; i++) {
+      var g = tmpl.groups[activeGroupIds[i]];
+      if (g && g.cols) cols = cols.concat(g.cols);
+    }
+    return cols;
+  }
 
   function rawFormatCell(v, fmt) {
     if (v == null || v === 0) return '<td class="num muted">—</td>';
@@ -1030,6 +1150,39 @@
       s = n.toFixed(1) + "%";
     } else s = String(v);
     return '<td class="num">' + s + '</td>';
+  }
+
+  function buildRawColumnsDropdown(pg) {
+    var tmpl = RAW_TMPL[pg] || RAW_TMPL.skill;
+    var activeGroups = getActiveRawGroups(pg);
+    var groupIds = Object.keys(tmpl.groups);
+    var nonAlwaysActive = activeGroups.filter(function (gid) { return !tmpl.groups[gid].always; });
+    var totalToggleable = groupIds.filter(function (gid) { return !tmpl.groups[gid].always; }).length;
+
+    var checkboxHtml = groupIds.map(function (gid) {
+      var g = tmpl.groups[gid];
+      var checked = activeGroups.indexOf(gid) !== -1;
+      var disabled = !!g.always;
+      var colCount = g.cols ? g.cols.length : 0;
+      return '<label class="upm-cols-group-item' + (disabled ? ' is-locked' : '') + '">'
+        + '<input type="checkbox" data-raw-group="' + escapeHtml(gid) + '" ' + (checked ? 'checked' : '') + (disabled ? ' disabled' : '') + '>'
+        + '<span class="upm-cols-group-label">' + escapeHtml(g.label) + '</span>'
+        + '<span class="upm-cols-group-count">' + colCount + ' col' + (colCount === 1 ? "" : "s") + (disabled ? " · always on" : "") + '</span>'
+      + '</label>';
+    }).join("");
+
+    return '<details class="upm-cols-dropdown" data-pos-group="' + escapeHtml(pg) + '">'
+      + '<summary class="upm-cols-pill">'
+        + '<span>📊 Columns</span>'
+        + '<span class="upm-cols-pill-count">' + nonAlwaysActive.length + '/' + totalToggleable + '</span>'
+        + '<span class="upm-cols-pill-chev">▾</span>'
+      + '</summary>'
+      + '<div class="upm-cols-popover" role="menu">'
+        + '<div class="upm-cols-popover-header">Show column groups</div>'
+        + checkboxHtml
+        + '<button type="button" class="upm-cols-reset" data-raw-cols-reset>Reset to defaults</button>'
+      + '</div>'
+    + '</details>';
   }
 
   function buildRawStatsHtml(bundle) {
@@ -1046,24 +1199,31 @@
         + 'NFL raw stats not yet loaded for <code>' + escapeHtml(crosswalk.gsis_id) + '</code>. '
         + 'Run the nflverse fetchers + <code>scripts/load_local_to_d1.py --only nflweekly,nflsnaps,nflredzone</code>.</p>';
     }
-    var scopeToggle = '<div style="display:flex; gap:6px; margin-bottom:8px;">'
-      + '<button type="button" class="rdh-chip" data-raw-scope="ups"  aria-pressed="' + (scope === "ups" ? "true" : "false") + '" title="NFL regular season only — matches PFR season totals.">UPS Season</button>'
-      + '<button type="button" class="rdh-chip" data-raw-scope="full" aria-pressed="' + (scope === "full" ? "true" : "false") + '" title="Include NFL playoff weeks.">Full Season</button>'
-      + '</div>';
-    var scopeNote = scope === "full" ? "Full NFL Season (incl. playoffs)." : "UPS Season (NFL regular season).";
 
     var pg = detectPosGroup(bundle);
     var tmpl = RAW_TMPL[pg] || RAW_TMPL.skill;
+    var activeGroups = getActiveRawGroups(pg);
+    var activeCols = flattenRawCols(pg, activeGroups);
+
+    // Control bar: scope chips on the left, Columns dropdown on the right.
+    var controlBar = '<div class="upm-raw-controls">'
+      + '<div class="upm-raw-scope">'
+        + '<button type="button" class="rdh-chip" data-raw-scope="ups"  aria-pressed="' + (scope === "ups" ? "true" : "false") + '" title="NFL regular season only — matches PFR season totals.">UPS Season</button>'
+        + '<button type="button" class="rdh-chip" data-raw-scope="full" aria-pressed="' + (scope === "full" ? "true" : "false") + '" title="Include NFL playoff weeks.">Full Season</button>'
+      + '</div>'
+      + buildRawColumnsDropdown(pg)
+    + '</div>';
+    var scopeNote = scope === "full" ? "Full NFL Season (incl. playoffs)." : "UPS Season (NFL regular season).";
 
     var thRow = '<th>Yr</th>';
-    for (var ti = 0; ti < tmpl.cols.length; ti++) {
-      var c = tmpl.cols[ti];
+    for (var ti = 0; ti < activeCols.length; ti++) {
+      var c = activeCols[ti];
       thRow += '<th class="num"' + (c.title ? ' title="' + c.title.replace(/"/g, "&quot;") + '"' : "") + '>' + c.label + '</th>';
     }
     var bodyRows = totals.map(function (r) {
       var tds = '<td>' + r.season + '</td>';
-      for (var ci = 0; ci < tmpl.cols.length; ci++) {
-        var col = tmpl.cols[ci];
+      for (var ci = 0; ci < activeCols.length; ci++) {
+        var col = activeCols[ci];
         var v = col.compute ? col.compute(r) : r[col.key];
         tds += rawFormatCell(v, col.format || "int");
       }
@@ -1077,9 +1237,9 @@
 
     return '<div class="profile-block" data-raw-panel-root>'
       + '<h4>Raw Stats — ' + tmpl.label + '</h4>'
-      + scopeToggle
-      + '<div class="small muted" style="margin-bottom:6px;">' + scopeNote + ' Real NFL on-field counts + derived rates. Independent of MFL fantasy scoring.</div>'
-      + '<table class="rdh-table"><thead><tr>' + thRow + '</tr></thead><tbody>' + bodyRows + '</tbody></table>'
+      + controlBar
+      + '<div class="small muted" style="margin: 4px 0 6px;">' + scopeNote + ' Real NFL on-field counts + derived rates. Independent of MFL fantasy scoring.</div>'
+      + '<div class="upm-season-table-wrap"><table class="rdh-table upm-raw-table"><thead><tr>' + thRow + '</tr></thead><tbody>' + bodyRows + '</tbody></table></div>'
       + confNote
       + '</div>';
   }
@@ -1438,9 +1598,11 @@
       })(vbtns[i]);
     }
 
-    // UPS Season / Full Season scope toggle inside Raw Stats — re-renders
-    // the raw panel in place.
-    var rebindRawScope = function () {
+    // Raw Stats control wiring — UPS/Full Season scope chips AND the
+    // Columns dropdown checkboxes both re-render the raw panel in place.
+    // Bound together so re-rendering re-binds both control sets.
+    var rebindRawControls = function () {
+      // Scope chips (UPS / Full Season)
       var sbtns = body.querySelectorAll("[data-raw-scope]");
       for (var k = 0; k < sbtns.length; k++) {
         (function (sbtn) {
@@ -1449,13 +1611,55 @@
             var rawBody = body.querySelector("[data-stats-body='raw']");
             if (rawBody) {
               rawBody.innerHTML = buildRawStatsHtml(bundle);
-              rebindRawScope();
+              rebindRawControls();
             }
           });
         })(sbtns[k]);
       }
+      // Columns dropdown checkboxes — toggle group visibility + persist.
+      var cboxes = body.querySelectorAll(".upm-cols-dropdown [data-raw-group]");
+      for (var i = 0; i < cboxes.length; i++) {
+        (function (cb) {
+          cb.addEventListener("change", function () {
+            // Read current selection state from all checkboxes.
+            var dropdown = cb.closest(".upm-cols-dropdown");
+            var pg = dropdown ? dropdown.getAttribute("data-pos-group") : "";
+            if (!pg) return;
+            var checked = [];
+            var allBoxes = dropdown.querySelectorAll("[data-raw-group]");
+            for (var j = 0; j < allBoxes.length; j++) {
+              if (allBoxes[j].checked || allBoxes[j].disabled) {
+                // Disabled boxes are 'always' groups — include them.
+                if (allBoxes[j].checked) checked.push(allBoxes[j].getAttribute("data-raw-group"));
+              }
+            }
+            try { sessionStorage.setItem("upm.stats.rawCols." + pg, checked.join(",")); } catch (e) {}
+            var rawBody = body.querySelector("[data-stats-body='raw']");
+            if (rawBody) {
+              rawBody.innerHTML = buildRawStatsHtml(bundle);
+              rebindRawControls();
+            }
+          });
+        })(cboxes[i]);
+      }
+      // Reset-to-defaults button
+      var resetBtn = body.querySelector("[data-raw-cols-reset]");
+      if (resetBtn) {
+        resetBtn.addEventListener("click", function (e) {
+          e.preventDefault();
+          var dropdown = resetBtn.closest(".upm-cols-dropdown");
+          var pg = dropdown ? dropdown.getAttribute("data-pos-group") : "";
+          if (!pg) return;
+          try { sessionStorage.removeItem("upm.stats.rawCols." + pg); } catch (e2) {}
+          var rawBody = body.querySelector("[data-stats-body='raw']");
+          if (rawBody) {
+            rawBody.innerHTML = buildRawStatsHtml(bundle);
+            rebindRawControls();
+          }
+        });
+      }
     };
-    rebindRawScope();
+    rebindRawControls();
   }
 
   function wireWindowSelector(body, bundle) {
