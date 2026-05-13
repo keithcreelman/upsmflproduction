@@ -29,9 +29,13 @@
   background: var(--tops-bg);
   border: 1px solid var(--tops-card-border);
   border-radius: 14px;
-  /* Extra bottom padding so MFL's parent-page footer doesn't clip the last
-     card — especially the calendar / future picks lists. */
-  padding: 0.9rem 1rem 5rem;
+  /* Big bottom padding so MFL's UPS-champion footer image doesn't overlap
+     the last card / footer text (was 5rem, screenshots showed the build
+     string getting clipped by the champion section underneath). Also
+     adds bottom margin so the parent .ups-footer has visible separation
+     from the team_ops card edge. */
+  padding: 0.9rem 1rem 7rem;
+  margin-bottom: 2.5rem;
   box-shadow: 0 10px 32px rgba(0, 0, 0, 0.35);
 }
 
@@ -578,12 +582,17 @@
 /* Footer / meta ----------------------------------------------------------- */
 .tops-footer {
   margin-top: 0.9rem;
-  padding-top: 0.65rem;
+  /* Solid background + roomy padding so even if something below the shell
+     visually overlaps, the footer text stays readable. */
+  background: rgba(0, 0, 0, 0.35);
+  border-radius: 6px;
+  padding: 0.8rem 0.85rem;
   border-top: 1px solid rgba(92, 129, 173, 0.35);
   display: flex;
   justify-content: space-between;
   gap: 0.6rem;
   flex-wrap: wrap;
+  font-size: 0.78rem;
 }
 .tops-meta {
   font-size: 0.72rem;
