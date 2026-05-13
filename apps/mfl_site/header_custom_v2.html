@@ -8676,6 +8676,74 @@
   }
 </style>
 
+<script>
+  // ─── UPS menu cleanup (header_custom_v2) ────────────────────────────────
+  // Hide MFL menu items that UPS doesn't use OR has replaced with internal
+  // hubs (Front Office, Player Stats, Trade War Room, Rookie Draft Hub,
+  // Team Operations). The MFL menu is rendered server-side; we strip items
+  // client-side once it's in the DOM. Pattern reuses href substring match
+  // so we don't need to know MFL's <li> internals.
+  //
+  // Blacklist tokens (URL substrings that mark an item as removable):
+  //   - trades            : trade_offer, trade_log, trade_bait, view_trade*,
+  //                         options?O=05 (Trade Room)
+  //   - rosters           : team_rosters, roster_filter, options?O=07,
+  //                         options?O=03 (Player Rankings → CCC duplicate)
+  //   - draft             : draft_results, draft_room, live_draft, auction,
+  //                         rookie_draft, dispersal_draft
+  // Kept (per user 2026-05-13):
+  //   - Submit Lineup (lineup / setup_lineup) until Wave 4 ships our own
+  //     lineup write-path.
+  (function () {
+    "use strict";
+    var BAD_PATTERNS = [
+      // Trades
+      /\/trade_offer/i, /\/trade_log/i, /\/trade_bait/i, /\/view_trade/i,
+      /\bO=05\b/i,
+      // Rosters / standings duplicates that point to MFL native pages
+      /\/team_rosters/i, /\/roster_filter/i,
+      /\bO=07\b/i,
+      // Draft (any flavor)
+      /\/draft_results/i, /\/draft_room/i, /\/live_draft/i, /\/auction\b/i,
+      /\/rookie_draft/i, /\/dispersal_draft/i, /\/draft_history/i
+    ];
+
+    function hrefIsBlacklisted(href) {
+      if (!href) return false;
+      for (var i = 0; i < BAD_PATTERNS.length; i++) {
+        if (BAD_PATTERNS[i].test(href)) return true;
+      }
+      return false;
+    }
+
+    function scrubMenu() {
+      var anchors = document.querySelectorAll(".myfantasyleague_menu a[href], #tabmenu-wrap a[href]");
+      anchors.forEach(function (a) {
+        if (!hrefIsBlacklisted(a.getAttribute("href"))) return;
+        var li = a.closest("li");
+        if (li) li.style.display = "none";
+        else a.style.display = "none";
+      });
+    }
+
+    function runWithRetry() {
+      scrubMenu();
+      // MFL sometimes injects menu items late; re-scrub for a few cycles.
+      var n = 0;
+      var iv = setInterval(function () {
+        scrubMenu();
+        if (++n >= 6) clearInterval(iv);
+      }, 400);
+    }
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", runWithRetry, { once: true });
+    } else {
+      runWithRetry();
+    }
+  })();
+</script>
+
 <div id="container-wrap"><!-- ENTER ALL HPMS AFTER THIS AND CLOSE IN FOOTER -->
 
 <!------------------------------------------------------>

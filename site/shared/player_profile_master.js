@@ -384,7 +384,10 @@
     ov.classList.add("open");
     var closeBtn = body.parentNode.querySelector(".upm-close");
     if (closeBtn) closeBtn.addEventListener("click", closeModal);
-    try { window.scrollTo(0, 0); } catch (e) {}
+    // (Removed window.scrollTo(0,0): the overlay is position:fixed so scroll
+    // position doesn't affect modal visibility — jumping to top just
+    // disorients the user. Keep the postMessage so iframe parents can react
+    // to the modal opening without resetting scroll.)
     try {
       if (window.parent && window.parent !== window) {
         window.parent.postMessage({ type: "draft-hub-modal-open" }, "*");

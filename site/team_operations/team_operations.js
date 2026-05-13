@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var BUILD = "2026.05.11.12";
+  var BUILD = "2026.05.13.iframe";
   var BOOT_FLAG = "__ups_team_operations_boot_" + BUILD;
   if (window[BOOT_FLAG]) {
     if (typeof window.UPS_TEAMOPS_INIT === "function") window.UPS_TEAMOPS_INIT();
@@ -198,7 +198,11 @@
       ["schedule", fetchJson(mflExportUrl("schedule"))],
       ["nflByeWeeks", fetchJson(mflExportUrl("nflByeWeeks"))],
       ["injuries", fetchJson(mflExportUrl("injuries"))],
-      ["calendar", fetchJson(mflExportUrl("calendar"))]
+      ["calendar", fetchJson(mflExportUrl("calendar"))],
+      // UPS deadline calendar from our own D1 (league_events). 404s
+      // gracefully when the worker doesn't have the endpoint yet —
+      // renderEvents handles missing data.
+      ["leagueEvents", fetchJson(workerUrl("/api/league-events?season=" + encodeURIComponent(ctx.year) + "&from=today&limit=10")).catch(function () { return null; })]
     ];
 
     return Promise.all(calls.map(function (pair) { return pair[1]; })).then(function (results) {
@@ -316,24 +320,34 @@
   }
 
   function getMySalaries() {
-    if (!state.salaries || !state.salaries.salaries) return [];
-    var lg = state.salaries.salaries.leagueUnit;
-    var units = asArray(lg);
-    var out = [];
-    units.forEach(function (u) {
-      asArray(u.player).forEach(function (p) {
-        if (pad4(p.franchise_id || u.id) === state.viewerFranchiseId) {
-          out.push({
-            id: String(p.id),
-            salary: Number(p.salary || 0),
-            contractYear: safeStr(p.contractYear),
-            contractInfo: safeStr(p.contractInfo),
-            contractStatus: safeStr(p.contractStatus)
-          });
-        }
+    // MFL's salaries export with unit=LEAGUE returns every player league-wide
+    // with no franchise attribution (sample player has id+salary+contractInfo
+    // only). The roster export, however, includes salary + contract fields
+    // per franchise's player. Source cap math from roster; back-fill any
+    // missing fields from the salaries export keyed by player id.
+    var roster = getMyRoster();
+    if (!roster.length) return [];
+
+    var salaryById = {};
+    if (state.salaries && state.salaries.salaries) {
+      var units = asArray(state.salaries.salaries.leagueUnit);
+      units.forEach(function (u) {
+        asArray(u.player).forEach(function (p) {
+          if (p && p.id) salaryById[String(p.id)] = p;
+        });
       });
+    }
+
+    return roster.map(function (r) {
+      var sp = salaryById[r.id] || {};
+      return {
+        id: r.id,
+        salary: Number(r.salary || sp.salary || 0),
+        contractYear: r.contractYear || safeStr(sp.contractYear),
+        contractInfo: r.contractInfo || safeStr(sp.contractInfo),
+        contractStatus: r.contractStatus || safeStr(sp.contractStatus)
+      };
     });
-    return out;
   }
 
   function getInjuryFor(playerId) {
@@ -351,12 +365,101 @@
     return strings.join("");
   }
 
+  // Inner-page tabs: Overview (default = the cards) · Front Office (iframes
+  // roster_workbench) · Player Stats (iframes stats_workbench). The hub URLs
+  // resolve relative to /upsmflproduction/site/ since both target hubs live
+  // there. iframes are lazy: src is set the first time the tab activates.
+  var TAB_DEFS = [
+    { id: "overview",     label: "Overview" },
+    { id: "front-office", label: "Front Office",  iframe: "../rosters/roster_workbench.html" },
+    { id: "player-stats", label: "Player Stats",  iframe: "../stats_workbench/stats_workbench.html" },
+    { id: "trade-room",   label: "Trade War Room", iframe: "../trades/trade_workbench.html" }
+  ];
+
+  function readActiveTab() {
+    try {
+      var m = String(window.location.hash || "").match(/tab=([a-z0-9-]+)/i);
+      if (m && TAB_DEFS.some(function (t) { return t.id === m[1]; })) return m[1];
+    } catch (e) {}
+    return "overview";
+  }
+
+  function switchTab(id) {
+    if (!els.tabPanels) return;
+    Object.keys(els.tabPanels).forEach(function (k) {
+      var on = (k === id);
+      var panel = els.tabPanels[k];
+      var btn = els.tabBtns && els.tabBtns[k];
+      panel.setAttribute("data-active", on ? "1" : "0");
+      if (btn) btn.setAttribute("data-active", on ? "1" : "0");
+      // Lazy-load iframe src on first activation.
+      var ifrm = panel.querySelector("iframe[data-lazysrc]");
+      if (on && ifrm && !ifrm.getAttribute("src")) {
+        ifrm.setAttribute("src", ifrm.getAttribute("data-lazysrc"));
+      }
+    });
+    // Reflect in URL hash (no scroll jump).
+    try {
+      var u = new URL(window.location.href);
+      u.hash = "tab=" + id;
+      window.history.replaceState(null, "", u.toString());
+    } catch (e) {}
+  }
+
   function renderShell() {
     var mount = document.getElementById("teamOpsMount");
     if (!mount) return;
 
     var viewerName = state.viewerFranchise ? state.viewerFranchise.name : "My Team";
     var viewerIcon = state.viewerFranchise ? state.viewerFranchise.icon : "";
+
+    // Iframe context-forwarding: pass L, YEAR, FRANCHISE_ID through.
+    var ctxQs = "?L=" + encodeURIComponent(state.ctx.leagueId)
+              + "&YEAR=" + encodeURIComponent(state.ctx.year)
+              + (state.viewerFranchiseId ? "&FRANCHISE_ID=" + encodeURIComponent(state.viewerFranchiseId) : "");
+
+    var activeTab = readActiveTab();
+    var tabsHtml = '<nav class="tops-tabs" role="tablist">'
+      + TAB_DEFS.map(function (t) {
+          var on = (t.id === activeTab) ? '1' : '0';
+          return '<button type="button" class="tops-tab" data-tab="' + t.id + '" data-active="' + on + '" role="tab">' + escapeHtml(t.label) + '</button>';
+        }).join("")
+      + '</nav>';
+
+    var overviewPanelHtml = '<main class="tops-grid">'
+      // Next Decision pinned at top, full-width — most important card.
+      + '  <section data-card="nextDecision" class="tops-card tops-card-highlight tops-card-wide"></section>'
+      + '  <section data-card="summary" class="tops-card tops-card-summary"></section>'
+      + '  <section data-card="matchup" class="tops-card"></section>'
+      + '  <section data-card="lineup" class="tops-card"></section>'
+      + '  <section data-card="roster" class="tops-card tops-card-wide"></section>'
+      + '  <section data-card="allPlayerNews" class="tops-card tops-card-wide"></section>'
+      + '  <section data-card="pendingTrades" class="tops-card"></section>'
+      + '  <section data-card="waivers" class="tops-card"></section>'
+      + '  <section data-card="transactions" class="tops-card"></section>'
+      + '  <section data-card="futurePicks" class="tops-card"></section>'
+      + '  <section data-card="schedule" class="tops-card"></section>'
+      + '  <section data-card="calendar" class="tops-card"></section>'
+      + '</main>';
+
+    // Build iframe panels. data-lazysrc holds the URL; switchTab sets src on
+    // first activation so default-tab page load stays light.
+    // "Pop out" link above each iframe lets the user escape to the hub's own
+    // full-screen page when the embedded view feels cramped (modals stay in
+    // the iframe viewport, no way around that without rebuilding the modals
+    // to use parent-frame postMessage).
+    var hubPanels = TAB_DEFS.filter(function (t) { return !!t.iframe; }).map(function (t) {
+      var src = t.iframe + ctxQs;
+      var on = (t.id === activeTab) ? '1' : '0';
+      var lazy = (t.id === activeTab) ? ' src="' + escapeHtml(src) + '"' : ' data-lazysrc="' + escapeHtml(src) + '"';
+      return '<section class="tops-tab-panel tops-tab-panel--iframe" data-tab-panel="' + t.id + '" data-active="' + on + '" role="tabpanel">'
+        + '<div class="tops-iframe-toolbar">'
+        +   '<span class="tops-iframe-label">' + escapeHtml(t.label) + ' is embedded — for a roomier view, pop it out.</span>'
+        +   '<a class="tops-iframe-pop" href="' + escapeHtml(src) + '" target="_blank" rel="noopener noreferrer">Open in new tab ↗</a>'
+        + '</div>'
+        + '<iframe class="tops-iframe" title="' + escapeHtml(t.label) + '"' + lazy + ' loading="lazy" allow="clipboard-read; clipboard-write" referrerpolicy="no-referrer"></iframe>'
+        + '</section>';
+    }).join("");
 
     mount.innerHTML = [
       '<div class="tops-shell">',
@@ -370,30 +473,13 @@
       '    </div>',
       '    <div class="tops-header-actions">',
       '      <a class="tops-link-pill" href="//www.myfantasyleague.com/' + escapeHtml(state.ctx.year) + '/lineup?L=' + escapeHtml(state.ctx.leagueId) + '">Submit Lineup</a>',
-      '      <a class="tops-link-pill" href="//www.myfantasyleague.com/' + escapeHtml(state.ctx.year) + '/options?L=' + escapeHtml(state.ctx.leagueId) + '&O=07">Full Rosters</a>',
-      '      <a class="tops-link-pill" href="//www.myfantasyleague.com/' + escapeHtml(state.ctx.year) + '/options?L=' + escapeHtml(state.ctx.leagueId) + '&O=05">Trade Room</a>',
       '    </div>',
       '  </header>',
-      '  <main class="tops-grid">',
-      '    <section data-card="summary" class="tops-card tops-card-summary"></section>',
-      '    <section data-card="matchup" class="tops-card"></section>',
-      '    <section data-card="lineup" class="tops-card"></section>',
-      '    <section data-card="roster" class="tops-card tops-card-wide"></section>',
-      '    <section data-card="news" class="tops-card"></section>',
-      '    <section data-card="nextDecision" class="tops-card tops-card-highlight"></section>',
-      // Risk Heatmap + Cap Trajectory placeholder cards removed in
-      // v1.7.32 — they explicitly said "Phase 1b" which confused owners
-      // about what was real. Real implementations live on the post-draft
-      // backlog (heatmap = depth × games × injury risk; trajectory =
-      // year-by-year obligations from CCC contract data).
-      '    <section data-card="whatChanged" class="tops-card"></section>',
-      '    <section data-card="pendingTrades" class="tops-card"></section>',
-      '    <section data-card="waivers" class="tops-card"></section>',
-      '    <section data-card="transactions" class="tops-card"></section>',
-      '    <section data-card="futurePicks" class="tops-card"></section>',
-      '    <section data-card="schedule" class="tops-card"></section>',
-      '    <section data-card="calendar" class="tops-card"></section>',
-      '  </main>',
+      tabsHtml,
+      '  <section class="tops-tab-panel" data-tab-panel="overview" data-active="' + (activeTab === "overview" ? "1" : "0") + '" role="tabpanel">',
+           overviewPanelHtml,
+      '  </section>',
+      hubPanels,
       '  <footer class="tops-footer">',
       '    <span class="tops-meta">Build ' + BUILD + '</span>',
       '    <span class="tops-meta">' + (state.lastLoaded ? 'Refreshed ' + state.lastLoaded.toLocaleTimeString() : 'Loading…') + '</span>',
@@ -407,6 +493,15 @@
     mount.querySelectorAll("[data-card]").forEach(function (node) {
       els.cards[node.getAttribute("data-card")] = node;
     });
+    els.tabPanels = {};
+    els.tabBtns = {};
+    mount.querySelectorAll("[data-tab-panel]").forEach(function (n) { els.tabPanels[n.getAttribute("data-tab-panel")] = n; });
+    mount.querySelectorAll("[data-tab]").forEach(function (n) {
+      els.tabBtns[n.getAttribute("data-tab")] = n;
+      n.addEventListener("click", function () { switchTab(n.getAttribute("data-tab")); });
+    });
+    // React to back/forward navigation that changes the hash.
+    window.addEventListener("hashchange", function () { switchTab(readActiveTab()); });
   }
 
   // ----- Card: Franchise Summary -----
@@ -439,9 +534,6 @@
     var taxiCount = roster.filter(function (p) { return /taxi/i.test(p.status); }).length;
     var activeCount = rosterCount - irCount - taxiCount;
 
-    var nextDeadlineIso = "2026-09-06";
-    var days = daysUntil(nextDeadlineIso);
-
     el.innerHTML = [
       '<div class="tops-card-title">Franchise Summary</div>',
       '<div class="tops-summary-grid">',
@@ -463,11 +555,6 @@
       '    <div class="tops-kv-value">' + rosterCount + '</div>',
       '    <div class="tops-kv-note">' + activeCount + ' active · ' + taxiCount + ' taxi · ' + irCount + ' IR</div>',
       '  </div>',
-      '  <div class="tops-kv">',
-      '    <div class="tops-kv-label">Next Deadline</div>',
-      '    <div class="tops-kv-value">' + (days == null ? '—' : days + ' days') + '</div>',
-      '    <div class="tops-kv-note">Contract lock ' + nextDeadlineIso + '</div>',
-      '  </div>',
       '</div>'
     ].join("");
   }
@@ -477,11 +564,13 @@
     var el = els.cards.matchup;
     if (!el) return;
 
-    var opponent = "—";
+    // UPS pod format: each franchise plays 2 (Divisional) or 3 (Intra-pod)
+    // matchups per week. Surface ALL of them — same logic as renderSchedule.
     var week = "—";
+    var opponents = [];      // array of franchise names
+    var weekType = "";       // "Divisional" | "Intra" | ""
     if (state.schedule && state.schedule.schedule) {
       var weeks = asArray(state.schedule.schedule.weeklySchedule);
-      var now = Math.floor(Date.now() / 1000);
       var upcoming = weeks.find(function (w) {
         var matchups = asArray(w.matchup);
         return matchups.some(function (m) {
@@ -492,21 +581,41 @@
         week = upcoming.week;
         asArray(upcoming.matchup).forEach(function (m) {
           var frs = asArray(m.franchise).map(function (f) { return pad4(f.id); });
-          if (frs.indexOf(state.viewerFranchiseId) !== -1) {
-            var other = frs.find(function (id) { return id !== state.viewerFranchiseId; });
-            var opp = state.franchises.find(function (f) { return f.id === other; });
-            if (opp) opponent = opp.name;
-          }
+          if (frs.indexOf(state.viewerFranchiseId) === -1) return;
+          var other = frs.find(function (id) { return id !== state.viewerFranchiseId; });
+          var opp = state.franchises.find(function (f) { return f.id === other; });
+          opponents.push(opp ? opp.name : ("F" + other));
         });
+        weekType = opponents.length === 3 ? "Intra" : (opponents.length === 2 ? "Divisional" : "");
       }
+    }
+
+    var typeBadge = weekType
+      ? '<span class="tops-sched-type tops-sched-type--' + weekType.toLowerCase() + '">' + escapeHtml(weekType) + '</span>'
+      : '';
+
+    // "vs A & B" (2 opps) or "vs A, B & C" (3 opps).
+    var oppHtml;
+    if (!opponents.length) {
+      oppHtml = '<strong>—</strong>';
+    } else if (opponents.length === 1) {
+      oppHtml = '<strong>' + escapeHtml(opponents[0]) + '</strong>';
+    } else if (opponents.length === 2) {
+      oppHtml = '<strong>' + escapeHtml(opponents[0]) + '</strong> &amp; <strong>' + escapeHtml(opponents[1]) + '</strong>';
+    } else {
+      var head = opponents.slice(0, -1).map(function (n) { return '<strong>' + escapeHtml(n) + '</strong>'; }).join(", ");
+      oppHtml = head + ' &amp; <strong>' + escapeHtml(opponents[opponents.length - 1]) + '</strong>';
     }
 
     el.innerHTML = [
       '<div class="tops-card-title">This Week</div>',
       '<div class="tops-matchup">',
-      '  <div class="tops-matchup-week">Week ' + escapeHtml(week) + '</div>',
-      '  <div class="tops-matchup-vs">vs <strong>' + escapeHtml(opponent) + '</strong></div>',
-      '  <div class="tops-matchup-hint">Live score will appear here on game day</div>',
+      '  <div class="tops-matchup-week">Week ' + escapeHtml(week) + ' ' + typeBadge + '</div>',
+      '  <div class="tops-matchup-vs">vs ' + oppHtml + '</div>',
+      '  <div class="tops-matchup-hint">' +
+            (opponents.length > 1 ? opponents.length + ' games this week · ' : '') +
+            'Live scores will appear here on game day' +
+      '  </div>',
       '</div>'
     ].join("");
   }
@@ -610,13 +719,39 @@
   function renderNextDecision() {
     var el = els.cards.nextDecision;
     if (!el) return;
+    // Pull real upcoming events from /api/league-events when present (state.leagueEvents).
+    // Falls back to a hardcoded preview row when the endpoint isn't deployed
+    // yet so the card still telegraphs its purpose.
+    var events = (state.leagueEvents && state.leagueEvents.ok && Array.isArray(state.leagueEvents.events))
+      ? state.leagueEvents.events.slice(0, 4)
+      : [];
+
+    var itemsHtml;
+    if (events.length) {
+      itemsHtml = events.map(function (ev, i) {
+        var d = daysUntil(ev.date);
+        var label = (typeof eventLabel === "function") ? eventLabel(ev.event) : String(ev.event || "");
+        var dateLbl = (typeof fmtEventDate === "function") ? fmtEventDate(ev.date) : ev.date;
+        var soon = (d != null && d <= 14);
+        var nextChip = (i === 0) ? '<span class="tops-nd-next">NEXT</span>' : '';
+        var when = (d == null) ? '' : (d <= 0 ? 'today' : (d === 1 ? 'tomorrow' : 'in ' + d + ' days'));
+        return '<li' + (soon ? ' class="tops-nd-soon"' : '') + '>'
+          + '<div class="tops-nd-main">'
+          +   '<span class="tops-nd-label">' + escapeHtml(label) + '</span>' + nextChip
+          +   (when ? '<span class="tops-nd-when">' + escapeHtml(when) + '</span>' : '')
+          + '</div>'
+          + '<div class="tops-nd-sub">' + escapeHtml(dateLbl) + '</div>'
+          + '</li>';
+      }).join("");
+    } else {
+      itemsHtml = '<li class="tops-nd-pending"><div class="tops-nd-main"><span class="tops-nd-label muted">Calendar loading…</span></div>'
+        + '<div class="tops-nd-sub">If this persists, the <code>/api/league-events</code> worker endpoint hasn\'t deployed yet.</div></li>';
+    }
+
     el.innerHTML = [
       '<div class="tops-card-title">Next Decision</div>',
-      '<div class="tops-empty">Phase 1b will hydrate this with contract-eligibility + deadline math from CCC. Example preview:</div>',
-      '<ul class="tops-bullets">',
-      '  <li><strong>Extension window opens in 14 days</strong> — 3 eligible players on your roster.</li>',
-      '  <li><strong>Tag deadline</strong> — 23 days. You have 1 tag available.</li>',
-      '  <li><strong>Roster lock</strong> — ' + (daysUntil("2026-09-06") || "—") + ' days.</li>',
+      '<ul class="tops-nd-list">',
+      itemsHtml,
       '</ul>'
     ].join("");
   }
@@ -653,27 +788,6 @@
     ].join("");
   }
 
-  function renderWhatChanged() {
-    var el = els.cards.whatChanged;
-    if (!el) return;
-    var txns = (state.transactions && state.transactions.transactions && asArray(state.transactions.transactions.transaction)) || [];
-    var mine = txns.filter(function (t) { return pad4(t.franchise) === state.viewerFranchiseId; }).slice(0, 6);
-    if (!mine.length) {
-      el.innerHTML = '<div class="tops-card-title">What Changed (14d)</div><div class="tops-empty">No transactions affecting your team in the last 14 days.</div>';
-      return;
-    }
-    el.innerHTML = [
-      '<div class="tops-card-title">What Changed (14d) <span class="tops-count">' + mine.length + '</span></div>',
-      '<ul class="tops-changes">',
-      mine.map(function (t) {
-        var when = new Date(Number(t.timestamp || 0) * 1000);
-        return '<li><span class="tops-change-type">' + escapeHtml(t.type || "TXN") + '</span>' +
-               '<span class="tops-change-when">' + when.toLocaleDateString() + '</span></li>';
-      }).join(""),
-      '</ul>'
-    ].join("");
-  }
-
   // ----- MFL-parity cards (skeleton + real data where simple) -----
   function renderPendingTrades() {
     var el = els.cards.pendingTrades;
@@ -705,17 +819,89 @@
     ].join("");
   }
 
+  // Resolve a comma-separated MFL transaction asset string into readable
+  // labels. Token formats observed in the UPS league:
+  //   12345                 → player_id (look up name+pos via playerById)
+  //   DP_<round>_<pick>     → current-year draft pick
+  //   FP_<fid>_<year>_<rd>  → future draft pick (round from franchise <fid>)
+  //   BB_<amount>           → blind-bid amount in BBID transactions
+  function decodeAssetTokens(raw) {
+    var tokens = String(raw || "").split(",").map(function (t) { return t.trim(); }).filter(Boolean);
+    return tokens.map(function (tok) {
+      var m;
+      if (/^\d+$/.test(tok)) {
+        var p = playerById(tok);
+        if (p) {
+          var pos = p.position ? " (" + p.position + ")" : "";
+          return safeStr(p.name).replace(/^([^,]+),\s*(.+)$/, "$2 $1") + pos;
+        }
+        return "Player #" + tok;
+      }
+      if ((m = tok.match(/^DP_(\d+)_(\d+)$/))) {
+        return state.ctx.year + " R" + m[1] + ".P" + m[2];
+      }
+      if ((m = tok.match(/^FP_(\d{4})_(\d+)_(\d+)$/))) {
+        var fr = state.franchises.find(function (f) { return f.id === pad4(m[1]); });
+        return m[2] + " R" + m[3] + (fr ? " (from " + fr.name + ")" : "");
+      }
+      if ((m = tok.match(/^BB_(\d+)$/))) {
+        return "$" + Number(m[1]).toLocaleString() + " BB";
+      }
+      return tok;
+    });
+  }
+
   function renderTransactions() {
     var el = els.cards.transactions;
     if (!el) return;
     var txns = (state.transactions && state.transactions.transactions && asArray(state.transactions.transactions.transaction)) || [];
-    var mine = txns.filter(function (t) { return pad4(t.franchise) === state.viewerFranchiseId; }).slice(0, 10);
+    // Include transactions where viewer is either side of a TRADE.
+    var mine = txns.filter(function (t) {
+      var fa = pad4(t.franchise);
+      var fb = pad4(t.franchise2);
+      return fa === state.viewerFranchiseId || fb === state.viewerFranchiseId;
+    }).slice(0, 10);
+
     el.innerHTML = [
       '<div class="tops-card-title">Recent Transactions <span class="tops-count">' + mine.length + '</span></div>',
       mine.length
         ? '<ul class="tops-txn-list">' + mine.map(function (t) {
             var when = new Date(Number(t.timestamp || 0) * 1000);
-            return '<li><span class="tops-txn-type">' + escapeHtml(t.type || "") + '</span><span class="tops-txn-when">' + when.toLocaleDateString() + '</span></li>';
+            var dateStr = when.toLocaleDateString();
+            var typ = String(t.type || "").toUpperCase();
+            var lines = [];
+
+            if (typ === "TRADE") {
+              var fa = pad4(t.franchise);
+              var fb = pad4(t.franchise2);
+              var iAmFa = (fa === state.viewerFranchiseId);
+              var counterFid = iAmFa ? fb : fa;
+              var counter = state.franchises.find(function (f) { return f.id === counterFid; });
+              var myAssetsRaw = iAmFa ? t.franchise1_gave_up : t.franchise2_gave_up;
+              var theirAssetsRaw = iAmFa ? t.franchise2_gave_up : t.franchise1_gave_up;
+              var gave = decodeAssetTokens(myAssetsRaw);
+              var got  = decodeAssetTokens(theirAssetsRaw);
+              lines.push('<div class="tops-txn-line"><span class="tops-txn-arrow">vs</span> ' + escapeHtml(counter ? counter.name : ("F" + counterFid)) + '</div>');
+              if (gave.length)  lines.push('<div class="tops-txn-line"><span class="tops-txn-arrow tops-txn-arrow--gave">▶</span> ' + gave.map(escapeHtml).join(", ") + '</div>');
+              if (got.length)   lines.push('<div class="tops-txn-line"><span class="tops-txn-arrow tops-txn-arrow--got">◀</span> '   + got.map(escapeHtml).join(", ") + '</div>');
+            } else if (typ === "BBID_WAIVER" || typ === "FREE_AGENT") {
+              // Add/drop tokens: t.transaction is "ADD:pid|DROP:pid|..." or
+              // similar — print whatever players are referenced if possible.
+              var raw = safeStr(t.transaction);
+              var pidsAdded = (raw.match(/\d+/g) || []).slice(0, 4);
+              var labels = decodeAssetTokens(pidsAdded.join(","));
+              if (labels.length) lines.push('<div class="tops-txn-line">' + labels.map(escapeHtml).join(", ") + '</div>');
+              if (t.salary)      lines.push('<div class="tops-txn-line tops-txn-sub">Salary $' + Number(t.salary).toLocaleString() + '</div>');
+            }
+            if (t.comments) lines.push('<div class="tops-txn-line tops-txn-sub">' + escapeHtml(t.comments) + '</div>');
+
+            return '<li>'
+              + '<div class="tops-txn-head">'
+              +   '<span class="tops-txn-type">' + escapeHtml(typ) + '</span>'
+              +   '<span class="tops-txn-when">' + escapeHtml(dateStr) + '</span>'
+              + '</div>'
+              + lines.join("")
+              + '</li>';
           }).join("") + '</ul>'
         : '<div class="tops-empty">No transactions in the last 14 days.</div>'
     ].join("");
@@ -728,11 +914,22 @@
     var mine = picks.find(function (p) { return pad4(p.id) === state.viewerFranchiseId; });
     var items = mine ? asArray(mine.futureDraftPick) : [];
 
+    function originLabel(p) {
+      // originalPickFor is the franchise_id that ORIGINALLY held this pick.
+      // If it's still our own, hide the "(from)" suffix — redundant noise.
+      // Otherwise resolve the id → team name via state.franchises so the
+      // user sees "(from C-Town Chivalry)" not "(from 0005)".
+      var fid = pad4(p.originalPickFor);
+      if (!fid || fid === state.viewerFranchiseId) return "";
+      var fr = state.franchises.find(function (f) { return f.id === fid; });
+      return ' <span class="tops-pick-origin">(from ' + escapeHtml(fr ? fr.name : ("F" + fid)) + ')</span>';
+    }
+
     el.innerHTML = [
       '<div class="tops-card-title">Future Draft Picks <span class="tops-count">' + items.length + '</span></div>',
       items.length
         ? '<ul class="tops-picks-list">' + items.slice(0, 10).map(function (p) {
-            return '<li><strong>' + escapeHtml(p.year) + '</strong> Rd ' + escapeHtml(p.round) + (p.originalPickFor ? ' <span class="tops-pick-origin">(from ' + escapeHtml(p.originalPickFor) + ')</span>' : '') + '</li>';
+            return '<li><strong>' + escapeHtml(p.year) + '</strong> Rd ' + escapeHtml(p.round) + originLabel(p) + '</li>';
           }).join("") + '</ul>'
         : '<div class="tops-empty">No future picks data available.</div>'
     ].join("");
@@ -742,38 +939,95 @@
     var el = els.cards.schedule;
     if (!el) return;
     var weeks = (state.schedule && state.schedule.schedule && asArray(state.schedule.schedule.weeklySchedule)) || [];
+    // UPS pod format: each franchise plays 2 or 3 matchups per week.
+    // Divisional weeks = 2 games (vs each pod-mate). Intra-pod weeks = 3 games.
+    // Filter (not find) so all of viewer's matchups for the week surface.
     var mine = weeks.map(function (w) {
       var matchups = asArray(w.matchup);
-      var myMatch = matchups.find(function (m) {
+      var myMatches = matchups.filter(function (m) {
         return asArray(m.franchise).some(function (f) { return pad4(f.id) === state.viewerFranchiseId; });
       });
-      if (!myMatch) return null;
-      var oppId = asArray(myMatch.franchise).map(function (f) { return pad4(f.id); }).find(function (id) { return id !== state.viewerFranchiseId; });
-      var opp = state.franchises.find(function (f) { return f.id === oppId; });
-      return { week: w.week, opp: opp ? opp.name : "—" };
+      if (!myMatches.length) return null;
+      var opps = myMatches.map(function (m) {
+        var oppId = asArray(m.franchise).map(function (f) { return pad4(f.id); })
+                      .find(function (id) { return id !== state.viewerFranchiseId; });
+        var opp = state.franchises.find(function (f) { return f.id === oppId; });
+        return opp ? opp.name : "—";
+      });
+      return {
+        week: w.week,
+        opps: opps,
+        type: opps.length === 3 ? "Intra" : (opps.length === 2 ? "Divisional" : "")
+      };
     }).filter(Boolean).slice(0, 4);
 
     el.innerHTML = [
       '<div class="tops-card-title">Upcoming Schedule</div>',
       mine.length
         ? '<ul class="tops-sched-list">' + mine.map(function (w) {
-            return '<li><span class="tops-sched-wk">Wk ' + escapeHtml(w.week) + '</span> vs ' + escapeHtml(w.opp) + '</li>';
+            var typeBadge = w.type
+              ? '<span class="tops-sched-type tops-sched-type--' + w.type.toLowerCase() + '">' + escapeHtml(w.type) + '</span>'
+              : '';
+            return '<li>'
+              + '<span class="tops-sched-wk">Wk ' + escapeHtml(w.week) + '</span> '
+              + typeBadge
+              + '<span class="tops-sched-opps"> vs ' + w.opps.map(escapeHtml).join(' &amp; ') + '</span>'
+              + '</li>';
           }).join("") + '</ul>'
         : '<div class="tops-empty">Schedule not yet published.</div>'
     ].join("");
   }
 
-  function renderCalendar() {
+  // Map raw league_events.event tokens to human-readable labels.
+  var EVENT_LABEL = {
+    ups_contract_deadline:          "Contract Deadline",
+    ups_rookieextension_deadline:   "Rookie Extension Deadline",
+    preseason_mymdeadline:          "MYM Deadline",
+    preseason_extensiondeadline:    "Extension Deadline",
+    nfl_kickoff:                    "NFL Kickoff",
+    ups_season_complete:            "UPS Season End"
+  };
+  function eventLabel(ev) {
+    if (!ev) return "—";
+    if (EVENT_LABEL[ev]) return EVENT_LABEL[ev];
+    // Fallback: snake_case → Title Case
+    return String(ev).replace(/_/g, " ").replace(/\b\w/g, function (c) { return c.toUpperCase(); });
+  }
+  function fmtEventDate(iso) {
+    if (!iso) return "TBD";
+    var m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (!m) return iso;
+    var d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+    if (isNaN(d.getTime())) return iso;
+    return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  }
+
+  function renderEvents() {
     var el = els.cards.calendar;
     if (!el) return;
-    el.innerHTML = [
-      '<div class="tops-card-title">Deadlines &amp; Events</div>',
-      '<ul class="tops-cal-list">',
-      '  <li><span class="tops-cal-date">Sep 6, 2026</span><span class="tops-cal-lbl">Contract Lock</span></li>',
-      '  <li><span class="tops-cal-date">TBD</span><span class="tops-cal-lbl">Tag Deadline</span></li>',
-      '  <li><span class="tops-cal-date">TBD</span><span class="tops-cal-lbl">Rookie Draft</span></li>',
-      '</ul>'
-    ].join("");
+    var src = (state.leagueEvents && state.leagueEvents.ok && Array.isArray(state.leagueEvents.events))
+      ? state.leagueEvents.events
+      : [];
+
+    var listHtml;
+    if (!src.length) {
+      // Endpoint not deployed yet or no upcoming events — explicit empty state.
+      listHtml = '<div class="tops-empty">No upcoming events. <span style="opacity:0.7;">(Calendar source: <code>league_events</code> D1 table.)</span></div>';
+    } else {
+      listHtml = '<ul class="tops-cal-list">' + src.map(function (ev, i) {
+        var d = daysUntil(ev.date);
+        var soon = (d != null && d <= 14);
+        var nextBadge = (i === 0) ? '<span class="tops-cal-next">NEXT</span>' : '';
+        var inDays = (d == null) ? '' : (d === 0 ? 'today' : (d === 1 ? 'tomorrow' : (d + ' days')));
+        return '<li' + (soon ? ' class="tops-cal-soon"' : '') + '>'
+          + '<span class="tops-cal-date">' + escapeHtml(fmtEventDate(ev.date)) + '</span>'
+          + '<span class="tops-cal-lbl">' + escapeHtml(eventLabel(ev.event)) + nextBadge + '</span>'
+          + (inDays ? '<span class="tops-cal-when">' + escapeHtml(inDays) + '</span>' : '')
+          + '</li>';
+      }).join("") + '</ul>';
+    }
+
+    el.innerHTML = '<div class="tops-card-title">Events &amp; Deadlines</div>' + listHtml;
   }
 
   function renderAll() {
@@ -791,18 +1045,82 @@
     renderMatchup();
     renderLineup();
     renderRoster();
-    renderNews();
     renderNextDecision();
     // renderRiskHeatmap + renderCapTrajectory removed in v1.7.32 — were
     // placeholder cards. Functions kept below as no-ops in case anything
     // else still calls them; safe to delete in a future cleanup pass.
-    renderWhatChanged();
     renderPendingTrades();
     renderWaivers();
     renderTransactions();
     renderFuturePicks();
     renderSchedule();
-    renderCalendar();
+    renderEvents();
+    renderAllPlayerNews();
+    wireCollapsible();
+  }
+
+  // ── Collapsible cards (Wave 2b) ────────────────────────────────────────
+  // Adds a chevron button to each opt-in card's title; clicking toggles
+  // `data-collapsed` on the card. State persists in sessionStorage so a
+  // reload keeps the user's preference. Cards opted in below have
+  // long, secondary, or scrollable content; always-on operational cards
+  // (Summary / Matchup / Lineup) are excluded so the headline data stays
+  // visible.
+  var COLLAPSIBLE_CARDS = [
+    "allPlayerNews", "transactions", "pendingTrades", "waivers",
+    "futurePicks", "schedule", "calendar"
+  ];
+  var COLLAPSE_STORAGE_PREFIX = "ups_teamops_collapsed_";
+
+  function setCardCollapsed(node, collapsed, persist) {
+    node.setAttribute("data-collapsed", collapsed ? "1" : "0");
+    var btn = node.querySelector(".tops-collapse-btn");
+    if (btn) {
+      btn.textContent = collapsed ? "▸" : "▾";
+      btn.setAttribute("aria-expanded", collapsed ? "false" : "true");
+    }
+    if (persist !== false) {
+      try {
+        var key = COLLAPSE_STORAGE_PREFIX + node.getAttribute("data-card");
+        window.sessionStorage.setItem(key, collapsed ? "1" : "0");
+      } catch (e) {}
+    }
+  }
+
+  function wireCollapsible() {
+    if (!els.cards) return;
+    COLLAPSIBLE_CARDS.forEach(function (id) {
+      var node = els.cards[id];
+      if (!node) return;
+      var title = node.querySelector(".tops-card-title");
+      if (!title) return;
+      // Idempotency — skip if already wired (renderers may re-run without
+      // a full renderShell when only sub-cards refresh).
+      if (title.querySelector(".tops-collapse-btn")) return;
+
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "tops-collapse-btn";
+      btn.setAttribute("aria-expanded", "true");
+      btn.setAttribute("aria-controls", "card-" + id);
+      btn.title = "Collapse / expand";
+      btn.textContent = "▾";
+      title.appendChild(btn);
+      // Make title click-to-toggle for an easier hit-target, but ignore
+      // clicks on real interactive children (links, inputs).
+      title.style.cursor = "pointer";
+      title.addEventListener("click", function (ev) {
+        if (ev.target && ev.target.closest("a,input,select,button:not(.tops-collapse-btn)")) return;
+        var isCollapsed = node.getAttribute("data-collapsed") === "1";
+        setCardCollapsed(node, !isCollapsed, true);
+      });
+
+      // Restore persisted state.
+      try {
+        var saved = window.sessionStorage.getItem(COLLAPSE_STORAGE_PREFIX + id);
+        if (saved === "1") setCardCollapsed(node, true, false);
+      } catch (e) {}
+    });
   }
 
   // ── Player Bundle (worker /api/player-bundle) ──
@@ -919,11 +1237,10 @@
   function openPlayerProfileModal(pid) {
     if (!pid) return;
     // Delegate to the unified master modal when available (v1.7.43+).
-    // The master handles its own overlay; we just hand it the
-    // Front Office context so the cap-math strip, transactions
-    // lookup, and viewer-franchise filter all work. Fall through
-    // to the legacy in-file implementation only if the master
-    // script didn't load.
+    // The master handles its own overlay; we just hand it the Front Office
+    // context so the cap-math strip, transactions lookup, and viewer-
+    // franchise filter all work. Fall through to the legacy in-file
+    // implementation only if the master script didn't load.
     if (typeof window.UPS_openPlayerProfile === "function") {
       try {
         var pInfo0 = playerById(pid) || {};
@@ -1239,126 +1556,566 @@
   // user clicks "Load news feed" to trigger ~25 parallel
   // /api/player-bundle calls. Avoids slowing every page load when
   // most owners just want to see their roster + cap.
-  function renderNews() {
-    var el = els.cards.news;
-    if (!el) return;
-    var roster = getMyRoster();
-    if (!roster.length) {
-      el.innerHTML = '<div class="tops-card-title">News & Injuries</div><div class="tops-empty">No roster loaded.</div>';
-      return;
+  // ── News helpers (shared with All-Player News card) ───────────────────
+  var NEWS_PAGE_SIZE = 12;
+  var NEWS_SORT_KEY = "ups_teamops_news_sort"; // 'newest' (default) or 'oldest'
+
+  function getNewsSortPref() {
+    try {
+      var v = window.sessionStorage.getItem(NEWS_SORT_KEY);
+      if (v === "oldest" || v === "newest") return v;
+    } catch (e) {}
+    return "newest";
+  }
+  function setNewsSortPref(v) {
+    try { window.sessionStorage.setItem(NEWS_SORT_KEY, v); } catch (e) {}
+  }
+
+  // Unix-seconds → "5m ago" / "3h ago" / "2d ago" / "Mar 5" / "Mar 5, 2023".
+  // Falls back to ISO date when timestamp is missing or in the future.
+  function relativeTime(secs) {
+    var t = Number(secs || 0);
+    if (!t || !isFinite(t)) return "";
+    var now = Math.floor(Date.now() / 1000);
+    var diff = now - t;
+    if (diff < 0) return new Date(t * 1000).toLocaleDateString();
+    if (diff < 60) return diff + "s ago";
+    if (diff < 3600) return Math.floor(diff / 60) + "m ago";
+    if (diff < 86400) return Math.floor(diff / 3600) + "h ago";
+    if (diff < 7 * 86400) return Math.floor(diff / 86400) + "d ago";
+    // Older — show absolute date; include year if not current year.
+    var d = new Date(t * 1000);
+    var sameYear = d.getFullYear() === new Date().getFullYear();
+    return d.toLocaleDateString("en-US",
+      sameYear ? { month: "short", day: "numeric" }
+               : { month: "short", day: "numeric", year: "numeric" });
+  }
+
+  // Articles get matched to multiple players by the news handler (e.g., an
+  // SFO team article matches every SFO team-pseudo: TMWR / TMRB / Def / ST
+  // / etc.). Without dedup we render the same headline 10+ times.
+  // Strategy: collapse rows that share (headline + first 80 chars of body),
+  // keeping the first occurrence (after sort, that's the newest representative).
+  // Per-player STATUS / DEPTH entries are NOT deduped across players — each
+  // player legitimately has their own status row even if the headline is "Q".
+  function dedupeNewsItems(items) {
+    var seen = {};
+    var out = [];
+    for (var i = 0; i < items.length; i++) {
+      var n = items[i];
+      var typ = String(n.type || "").toLowerCase();
+      // Keep per-player rows for status/depth — those are legitimate per-player.
+      if (typ === "status" || typ === "depth") {
+        out.push(n);
+        continue;
+      }
+      var hk = (n.headline || "").trim();
+      var bk = (n.body || "").trim().slice(0, 80);
+      var key = hk + "||" + bk;
+      if (!hk && !bk) { out.push(n); continue; }   // nothing to key on
+      if (seen[key]) continue;
+      seen[key] = true;
+      out.push(n);
+    }
+    return out;
+  }
+
+  function filterAndSortNews(items, searchStr, sortOrder) {
+    var q = String(searchStr || "").trim().toLowerCase();
+    var filtered = q
+      ? items.filter(function (n) {
+          var hay = (n.player + " " + (n.position || "") + " " + (n.team || "") + " " + (n.headline || "")).toLowerCase();
+          return hay.indexOf(q) !== -1;
+        })
+      : items.slice();
+    filtered.sort(function (a, b) {
+      return sortOrder === "oldest" ? (a.when - b.when) : (b.when - a.when);
+    });
+    return dedupeNewsItems(filtered);
+  }
+
+  // Format MFL's "Last, First" player names as "First Last" — easier to
+  // scan. Team defenses come as "Bills, Buffalo" → render "Buffalo Bills".
+  function prettyPlayerName(raw) {
+    var s = safeStr(raw);
+    if (!s) return "";
+    var m = s.match(/^([^,]+),\s*(.+)$/);
+    return m ? (m[2].trim() + " " + m[1].trim()) : s;
+  }
+
+  // Lookup an active injury status for a player (Q/D/O/IR/etc.) so news
+  // rows can flash a small badge inline next to the name.
+  function newsInjStatusForPid(pid) {
+    if (!pid) return "";
+    var inj = (typeof getInjuryFor === "function") ? getInjuryFor(pid) : null;
+    return inj && inj.status ? String(inj.status).trim() : "";
+  }
+
+  function newsItemHtml(n) {
+    var pid = String(n.pid);
+    var typeBadge = n.type === "status"   ? '<span class="tops-news-type-badge is-status">Injury</span>'
+                 : n.type === "depth"     ? '<span class="tops-news-type-badge is-depth">Depth</span>'
+                 : n.type === "headline"  ? '<span class="tops-news-type-badge is-headline">News</span>'
+                 : '';
+    var when = relativeTime(n.when);
+    var bodyTrim = n.body ? escapeHtml(n.body.slice(0, 220)) + (n.body.length > 220 ? '…' : '') : "";
+
+    // Inline injury badge: small Q/D/O chip next to the name when the
+    // player has an active designation. Uses the same .tops-inj-* palette
+    // as the always-on Injuries panel for visual consistency.
+    var injStatus = newsInjStatusForPid(pid);
+    var injMini = injStatus
+      ? '<span class="tops-news-inj-mini tops-inj tops-inj-' + escapeHtml(injStatus) + '" title="Injury status: ' + escapeHtml(injStatus) + '">' + escapeHtml(injStatus) + '</span>'
+      : '';
+
+    // Player name = its own click target → opens master profile modal.
+    var displayName = prettyPlayerName(n.player);
+    var nameLink = '<button type="button" class="tops-news-player-link" data-pid="' + escapeHtml(pid) + '" title="Open player profile">' + escapeHtml(displayName) + '</button>';
+
+    // Headline + body wrap in an <a> ONLY if we have an article URL.
+    var headBodyInner =
+      (n.headline ? '<div class="tops-news-head">' + escapeHtml(n.headline) + '</div>' : '') +
+      (bodyTrim ? '<div class="tops-news-body">' + bodyTrim + '</div>' : '');
+    var headBody = '';
+    if (headBodyInner) {
+      headBody = n.url
+        ? '<a class="tops-news-article-link" href="' + escapeHtml(n.url) + '" target="_blank" rel="noopener noreferrer" title="Open article in new tab">' + headBodyInner + '</a>'
+        : '<div class="tops-news-article-static">' + headBodyInner + '</div>';
     }
 
-    // Always-on injuries panel (cheap — already loaded).
-    var injs = (state.injuries && asArray(state.injuries.injuries && state.injuries.injuries.injury)) || [];
-    var rosterIds = {};
-    roster.forEach(function (r) { rosterIds[String(r.id)] = true; });
-    var myInjs = injs.filter(function (i) { return rosterIds[String(i.id)]; });
-    var injHtml = myInjs.length
-      ? '<ul class="tops-news-list">' + myInjs.slice(0, 8).map(function (i) {
-          var p = playerById(i.id) || {};
-          var name = safeStr(p.name) || ("Player #" + i.id);
-          return '<li class="tops-news-item" data-pid="' + escapeHtml(String(i.id)) + '">' +
-            '<div class="tops-news-row1">' +
-              '<span class="tops-inj tops-inj-' + escapeHtml(i.status || "?") + '">' + escapeHtml(i.status || "?") + '</span> ' +
-              '<span class="tops-news-player">' + escapeHtml(name) + '</span>' +
-            '</div>' +
-            (i.details ? '<div class="tops-news-body">' + escapeHtml(i.details) + '</div>' : '') +
-            '</li>';
-        }).join("") + '</ul>'
-      : '<div class="tops-empty" style="font-size:11px; padding:6px 0;">No injury designations on your roster.</div>';
+    return '<li class="tops-news-item' + (n.url ? ' has-article' : '') + '">' +
+      '<div class="tops-news-row1">' +
+        typeBadge +
+        injMini +
+        nameLink +
+        (n.position ? '<span class="tops-news-pos">' + escapeHtml(n.position) + '</span>' : '') +
+        (n.team ? '<span class="tops-news-team">' + escapeHtml(n.team) + '</span>' : '') +
+        (when ? '<span class="tops-news-when" title="' + escapeHtml(new Date(Number(n.when || 0) * 1000).toISOString()) + '">' + escapeHtml(when) + '</span>' : '') +
+      '</div>' +
+      headBody +
+      '</li>';
+  }
 
-    // News feed section — three states: idle (button), loading, loaded.
-    // Uses /api/player-news (single batched call for the whole roster) which
-    // joins Sleeper structured info (injury/depth/practice) with ESPN team
-    // articles fuzzy-matched by last name. Cached on the worker edge.
-    var newsSectionHtml;
-    if (state.teamNewsLoading) {
-      newsSectionHtml = '<div class="tops-empty">Loading news for ' + roster.length + ' players… (one batch call, then cached)</div>';
-    } else if (state.teamNewsItems) {
-      var top = state.teamNewsItems.slice(0, 12);
-      newsSectionHtml = top.length
-        ? '<ul class="tops-news-list">' + top.map(function (n) {
-            var when = n.when ? new Date(n.when * 1000).toLocaleDateString() : "";
-            var pid = String(n.pid);
-            var typeBadge = n.type === "status" ? '<span class="tops-news-type-badge is-status">INJURY</span>'
-                         : n.type === "depth" ? '<span class="tops-news-type-badge is-depth">DEPTH</span>'
-                         : '';
-            return '<li class="tops-news-item" data-pid="' + escapeHtml(pid) + '">' +
-              '<div class="tops-news-row1">' +
-                typeBadge +
-                '<span class="tops-news-player">' + escapeHtml(n.player) + '</span>' +
-                (n.position ? '<span class="tops-news-pos">' + escapeHtml(n.position) + '</span>' : '') +
-                (when ? '<span class="tops-news-when">' + escapeHtml(when) + '</span>' : '') +
-              '</div>' +
-              (n.headline ? '<div class="tops-news-head">' + escapeHtml(n.headline) + '</div>' : '') +
-              (n.body ? '<div class="tops-news-body">' + escapeHtml(n.body.slice(0, 220)) + (n.body.length > 220 ? '…' : '') + '</div>' : '') +
-              '</li>';
-          }).join("") + '</ul>'
-        : '<div class="tops-empty" style="font-size:11px; padding:6px 0;">No recent news / injury notes on your roster.</div>';
-    } else {
-      newsSectionHtml = '<button id="topsLoadNews" class="tops-link-pill" style="cursor:pointer; border:none; font-size:12px; margin-top:6px;">Load news feed (' + roster.length + ' players)</button>';
-    }
+  // Renders just the dynamic list portion of the news card. Called on
+  // every search/sort/show-more so the controls (input/sort toggle) above
+  // it don't get re-built and lose focus.
+  // Only the player-name button opens the master profile modal. The
+  // headline/body region is its own <a> (article link, when present) and
+  // handles its own navigation. Re-binds after list re-renders.
+  function rewireNewsItemClicks(rootEl) {
+    rootEl.querySelectorAll(".tops-news-player-link").forEach(function (btn) {
+      if (btn.__topsBound) return; // idempotent
+      btn.__topsBound = true;
+      btn.addEventListener("click", function (ev) {
+        ev.stopPropagation();
+        openPlayerProfileModal(btn.getAttribute("data-pid"));
+      });
+    });
+  }
 
-    el.innerHTML = [
-      '<div class="tops-card-title">News & Injuries' +
-        (myInjs.length ? ' <span class="tops-count">' + myInjs.length + '</span>' : '') +
-      '</div>',
-      injHtml,
-      '<div class="tops-news-divider"></div>',
-      '<div class="tops-news-section-title">Latest Headlines</div>',
-      newsSectionHtml
-    ].join("");
+  // ── All-Player News (Wave 3b) ──────────────────────────────────────────
+  // League-wide news search. Filters: name (substring) · position pills
+  // (QB/RB/WR/TE/K/DEF) · NFL team dropdown. Resolves the filter into a
+  // list of player IDs (max 50, /api/player-news batch limit) and calls the
+  // same news endpoint the per-roster card uses. Shares the sort
+  // preference with the team news card (newest/oldest).
+  // Offensive skill + kicker + team-defense + IDP. UPS-confirmed player
+  // positions (live count from MFL): WR/LB/CB/RB/DT/DE/S/TE/QB/PK/PN/Def.
+  // IDP grouping mirrors the MFL position values directly.
+  var ALL_NEWS_POSITIONS = ["QB", "RB", "WR", "TE", "PK", "Def", "DT", "DE", "LB", "CB", "S"];
+  var ALL_NEWS_MAX_PIDS = 50;
 
-    // Wire the load-news button — single batched /api/player-news call
-    // for the whole roster. Worker fans out to Sleeper + ESPN per-team
-    // and dedupes per pid.
-    var loadBtn = document.getElementById("topsLoadNews");
-    if (loadBtn) {
-      loadBtn.addEventListener("click", function () {
-        state.teamNewsLoading = true;
-        renderNews();
-        var pids = roster.map(function (r) { return r.id; }).filter(Boolean);
-        var url = workerUrl("/api/player-news?L=" + encodeURIComponent(state.ctx.leagueId) +
-                            "&YEAR=" + encodeURIComponent(state.ctx.year) +
-                            "&pids=" + encodeURIComponent(pids.join(",")));
-        fetch(url, { cache: "no-store" })
-          .then(function (r) { return r.ok ? r.json() : null; })
-          .then(function (data) {
-            var items = [];
-            var byPid = (data && data.items_by_pid) || {};
-            Object.keys(byPid).forEach(function (pid) {
-              var pInfo = playerById(pid) || {};
-              (byPid[pid] || []).forEach(function (n) {
-                items.push({
-                  pid: pid,
-                  player: safeStr(pInfo.name) || ("Player #" + pid),
-                  position: safeStr(pInfo.position),
-                  team: safeStr(pInfo.team),
-                  when: Number(n.timestamp || 0),
-                  headline: safeStr(n.headline),
-                  body: safeStr(n.body),
-                  source: safeStr(n.source),
-                  type: safeStr(n.type),
-                });
-              });
-            });
-            items.sort(function (a, b) { return b.when - a.when; });
-            state.teamNewsItems = items;
-            state.teamNewsLoading = false;
-            renderNews();
-          })
-          .catch(function () {
-            state.teamNewsLoading = false;
-            state.teamNewsItems = [];
-            renderNews();
-          });
+  // Lazily build a player index { pid → {name, position, team} } from the
+  // already-loaded TYPE=players export. Cached for the session.
+  var _allPlayerIndexCache = null;
+  function getAllPlayerIndex() {
+    if (_allPlayerIndexCache) return _allPlayerIndexCache;
+    var out = { byPid: {}, teams: {}, posCounts: {} };
+    if (state.players && state.players.players) {
+      asArray(state.players.players.player).forEach(function (p) {
+        var pid = String(p.id || "");
+        if (!pid) return;
+        var rec = {
+          pid: pid,
+          name: safeStr(p.name),
+          position: safeStr(p.position),
+          team: safeStr(p.team)
+        };
+        out.byPid[pid] = rec;
+        if (rec.team) out.teams[rec.team] = (out.teams[rec.team] || 0) + 1;
+        if (rec.position) out.posCounts[rec.position] = (out.posCounts[rec.position] || 0) + 1;
       });
     }
-    // Item clicks → MFL native player profile (until Front Office's
-    // 4-tab modal is properly extracted into a shared module).
-    el.querySelectorAll(".tops-news-item").forEach(function (li) {
-      li.addEventListener("click", function () { openPlayerProfileModal(li.getAttribute("data-pid")); });
+    _allPlayerIndexCache = out;
+    return out;
+  }
+
+  // Build the candidate player pool based on scope + filters.
+  //   scope === "myteam"  → starts from viewer's roster (the old per-roster
+  //                          News card behavior, with no /api/player-news
+  //                          batch cap since rosters are ≤25 players).
+  //   scope === "all"      → starts from the full NFL player index.
+  // Position / NFL team / name filters then narrow the result.
+  function resolveAllPlayerNewsCandidates() {
+    var f = state.allPlayerNewsFilters || {};
+    var scope = (f.scope === "all") ? "all" : "myteam";
+    var name = String(f.name || "").trim().toLowerCase();
+    var pos  = String(f.position || "").trim();
+    var team = String(f.team || "").trim().toUpperCase();
+    var idx = getAllPlayerIndex();
+
+    var pool;
+    if (scope === "myteam") {
+      var roster = getMyRoster();
+      pool = roster.map(function (r) {
+        return idx.byPid[r.id] || { pid: r.id, name: "Player #" + r.id, position: "", team: "" };
+      });
+    } else {
+      pool = Object.keys(idx.byPid).map(function (pid) { return idx.byPid[pid]; });
+    }
+
+    var out = pool.filter(function (r) {
+      if (pos  && r.position !== pos)  return false;
+      if (team && String(r.team || "").toUpperCase() !== team) return false;
+      if (name && r.name.toLowerCase().indexOf(name) === -1) return false;
+      return true;
     });
+
+    // For All scope, order NFL-active first then alphabetic; for My Team
+    // keep roster order (which is already meaningful — starters first etc).
+    if (scope === "all") {
+      out.sort(function (a, b) {
+        var aFA = !a.team || a.team === "FA";
+        var bFA = !b.team || b.team === "FA";
+        if (aFA !== bFA) return aFA ? 1 : -1;
+        return a.name.localeCompare(b.name);
+      });
+    }
+    return out;
+  }
+
+  function renderAllPlayerNewsList(container) {
+    if (!container) return;
+    if (state.allPlayerNewsLoading) {
+      container.innerHTML = '<div class="tops-empty">Searching news for ' + (state.allPlayerNewsBatchSize || "…") + ' players…</div>';
+      return;
+    }
+    if (!state.allPlayerNewsItems) {
+      var scope = (state.allPlayerNewsFilters && state.allPlayerNewsFilters.scope) || "myteam";
+      var hint = (scope === "myteam")
+        ? 'Loading your team\'s news automatically…'
+        : 'Pick a position / team / name above, then <strong>Find News</strong>.';
+      container.innerHTML = '<div class="tops-empty" style="font-size:11px; padding:6px 0;">' + hint + '</div>';
+      return;
+    }
+    var sortOrder = getNewsSortPref();
+    var sorted = filterAndSortNews(state.allPlayerNewsItems, "", sortOrder);
+    // Client-side type filter (Injury / Depth / News / All). Maps to the
+    // worker's type field: status / depth / headline.
+    var itype = (state.allPlayerNewsFilters && state.allPlayerNewsFilters.itemType) || "";
+    if (itype) {
+      sorted = sorted.filter(function (n) { return String(n.type || "") === itype; });
+    }
+    var showN = Math.min(sorted.length, state.allPlayerNewsShowN || NEWS_PAGE_SIZE);
+    var visible = sorted.slice(0, showN);
+    if (!visible.length) {
+      var emptyMsg = itype
+        ? 'No "' + (itype === "status" ? "Injury" : itype === "depth" ? "Depth" : "News") + '" items for these filters.'
+        : 'No news for these filters in the last few weeks.';
+      container.innerHTML = '<div class="tops-empty" style="font-size:11px; padding:6px 0;">' + emptyMsg + '</div>';
+      return;
+    }
+    var more = sorted.length > showN
+      ? '<button class="tops-news-more" data-news-card="all">Show ' + Math.min(NEWS_PAGE_SIZE, sorted.length - showN) + ' more <span class="muted">(' + (sorted.length - showN) + ' remaining)</span></button>'
+      : '';
+    container.innerHTML = '<ul class="tops-news-list">' + visible.map(newsItemHtml).join("") + '</ul>' + more;
+  }
+
+  function renderAllPlayerNews() {
+    var el = els.cards.allPlayerNews;
+    if (!el) return;
+    if (!state.players || !state.players.players) {
+      el.innerHTML = '<div class="tops-card-title">Player News & Injuries</div><div class="tops-empty">Player index still loading…</div>';
+      return;
+    }
+    // Default scope is My Team — opens straight to the user's roster news
+    // with no extra clicks. Other pills switch to League-wide scope.
+    state.allPlayerNewsFilters = state.allPlayerNewsFilters || { scope: "myteam", name: "", position: "", team: "", itemType: "" };
+    if (!state.allPlayerNewsFilters.scope) state.allPlayerNewsFilters.scope = "myteam";
+    if (state.allPlayerNewsFilters.itemType == null) state.allPlayerNewsFilters.itemType = "";
+    state.allPlayerNewsShowN   = state.allPlayerNewsShowN   || NEWS_PAGE_SIZE;
+    var f = state.allPlayerNewsFilters;
+    var sortOrder = getNewsSortPref();
+    var idx = getAllPlayerIndex();
+
+    // Always-on injuries panel (cheap — already loaded). Only shown when
+    // the viewer is looking at their own team (scope=myteam), since
+    // injuries are filtered to roster players.
+    var injHtml = "";
+    var myInjsCount = 0;
+    if (f.scope === "myteam") {
+      var roster = getMyRoster();
+      var injs = (state.injuries && asArray(state.injuries.injuries && state.injuries.injuries.injury)) || [];
+      var rosterIds = {};
+      roster.forEach(function (r) { rosterIds[String(r.id)] = true; });
+      var myInjs = injs.filter(function (i) { return rosterIds[String(i.id)]; });
+      myInjsCount = myInjs.length;
+      injHtml = myInjs.length
+        ? '<div class="tops-news-section-title">Active Injuries</div>'
+          + '<ul class="tops-news-list">' + myInjs.slice(0, 8).map(function (i) {
+            var p = playerById(i.id) || {};
+            var name = prettyPlayerName(p.name) || ("Player #" + i.id);
+            var stat = String(i.status || "?");
+            return '<li class="tops-news-item">'
+              + '<div class="tops-news-row1">'
+              +   '<span class="tops-news-inj-mini tops-inj tops-inj-' + escapeHtml(stat) + '" title="' + escapeHtml(stat) + '">' + escapeHtml(stat) + '</span>'
+              +   '<button type="button" class="tops-news-player-link" data-pid="' + escapeHtml(String(i.id)) + '" title="Open player profile">' + escapeHtml(name) + '</button>'
+              +   (p.position ? '<span class="tops-news-pos">' + escapeHtml(p.position) + '</span>' : '')
+              +   (p.team ? '<span class="tops-news-team">' + escapeHtml(p.team) + '</span>' : '')
+              + '</div>'
+              + (i.details ? '<div class="tops-news-body">' + escapeHtml(i.details) + '</div>' : '')
+              + '</li>';
+          }).join("") + '</ul>'
+          + '<div class="tops-news-divider"></div>'
+        : '';
+    }
+
+    // Build NFL team dropdown options — alphabetized, with FA last.
+    var teams = Object.keys(idx.teams).filter(function (t) { return t && t !== "FA"; }).sort();
+    var teamOptions = '<option value="">All NFL teams</option>'
+      + teams.map(function (t) { return '<option value="' + escapeHtml(t) + '"' + (t === f.team ? ' selected' : '') + '>' + escapeHtml(t) + ' (' + idx.teams[t] + ')</option>'; }).join("")
+      + '<option value="FA"' + (f.team === "FA" ? ' selected' : '') + '>Free Agents</option>';
+
+    // Pill bar: My Team is a "scope" pill (yellow accent), followed by a
+    // divider, then position pills (All / QB / RB / WR / TE / PK / Def +
+    // IDP DT/DE/LB/CB/S). Clicking My Team → scope=myteam, clears position
+    // filter. Clicking any position pill → scope=all + sets position.
+    var myTeamOn = (f.scope === "myteam") ? "1" : "0";
+    var pillBar = '<div class="tops-pos-pills">'
+      + '<button type="button" class="tops-pos-pill tops-pos-pill--scope" data-scope="myteam" data-active="' + myTeamOn + '">My Team</button>'
+      + '<span class="tops-pill-divider" aria-hidden="true"></span>'
+      + '<button type="button" class="tops-pos-pill" data-pos="" data-active="' + ((f.scope === "all" && !f.position) ? "1" : "0") + '">All</button>'
+      + ALL_NEWS_POSITIONS.map(function (p) {
+          var on = (f.scope === "all" && f.position === p) ? "1" : "0";
+          return '<button type="button" class="tops-pos-pill" data-pos="' + escapeHtml(p) + '" data-active="' + on + '">' + escapeHtml(p) + '</button>';
+        }).join("")
+      + '</div>';
+
+    // Item-type pills (client-side display filter on already-loaded items —
+    // no refetch). All / Injury / Depth / News map to the news handler's
+    // type field: status / depth / headline.
+    var ITYPES = [
+      { id: "",         label: "All" },
+      { id: "status",   label: "Injury" },
+      { id: "depth",    label: "Depth" },
+      { id: "headline", label: "News" }
+    ];
+    var typeBar = '<div class="tops-pos-pills tops-itype-pills">'
+      + '<span class="tops-itype-label">Type</span>'
+      + ITYPES.map(function (t) {
+          var on = (f.itemType === t.id) ? "1" : "0";
+          return '<button type="button" class="tops-pos-pill" data-itype="' + escapeHtml(t.id) + '" data-active="' + on + '">' + escapeHtml(t.label) + '</button>';
+        }).join("")
+      + '</div>';
+
+    var candidates = resolveAllPlayerNewsCandidates();
+    var candCount = candidates.length;
+    var capped = Math.min(candCount, ALL_NEWS_MAX_PIDS);
+    var statusLine;
+    if (f.scope === "myteam") {
+      statusLine = candCount + ' player' + (candCount === 1 ? '' : 's') + ' on your roster' +
+        (f.position ? ' (' + escapeHtml(f.position) + ')' : '') +
+        (f.team ? ' on ' + escapeHtml(f.team) : '') +
+        (f.name ? ' matching "' + escapeHtml(f.name) + '"' : '') + '.';
+    } else if (candCount === 0) {
+      statusLine = 'No players match these filters.';
+    } else if (candCount > ALL_NEWS_MAX_PIDS) {
+      statusLine = candCount + ' matches — narrowing to top <strong>' + capped + '</strong> (alphabetical, NFL-active first).';
+    } else {
+      statusLine = candCount + ' matching player' + (candCount === 1 ? '' : 's') + '.';
+    }
+
+    var titleCount = (f.scope === "myteam" && myInjsCount > 0)
+      ? ' <span class="tops-count">' + myInjsCount + '</span>'
+      : '';
+
+    el.innerHTML = [
+      '<div class="tops-card-title">Player News & Injuries' + titleCount + '</div>',
+      injHtml,
+      '<div class="tops-allnews-controls">',
+      pillBar,
+      '  <select class="tops-allnews-team">' + teamOptions + '</select>',
+      '  <input type="text" class="tops-allnews-name" placeholder="Search player name…" value="' + escapeHtml(f.name) + '">',
+      '  <button type="button" class="tops-allnews-go" data-disabled="' + (candCount === 0 ? "1" : "0") + '">Find News</button>',
+      '  <button type="button" class="tops-news-sort" data-allnews-sort title="Toggle sort order">' + (sortOrder === "newest" ? '↓ Newest' : '↑ Oldest') + '</button>',
+      '</div>',
+      typeBar,
+      '<div class="tops-allnews-status">' + statusLine + '</div>',
+      '<div class="tops-allnews-list-mount"></div>'
+    ].join("");
+
+    var listMount = el.querySelector(".tops-allnews-list-mount");
+    renderAllPlayerNewsList(listMount);
+
+    // ── Wire interactions ──
+    // My Team scope pill — switches to roster-scoped view.
+    el.querySelectorAll("[data-scope]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        state.allPlayerNewsFilters.scope = "myteam";
+        state.allPlayerNewsFilters.position = "";
+        state.allPlayerNewsItems = null;
+        state.allPlayerNewsShowN = NEWS_PAGE_SIZE;
+        renderAllPlayerNews();
+        // Auto-fetch since roster pool is small.
+        setTimeout(doAllPlayerNewsSearch, 0);
+      });
+    });
+
+    // Item-type pills (Injury / Depth / News / All) — purely client-side
+    // display filter, no refetch. Just re-renders the list mount.
+    el.querySelectorAll("[data-itype]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        state.allPlayerNewsFilters.itemType = btn.getAttribute("data-itype");
+        state.allPlayerNewsShowN = NEWS_PAGE_SIZE; // reset pagination
+        // Update the pill-active state without a full re-render so the
+        // search input keeps focus.
+        el.querySelectorAll("[data-itype]").forEach(function (b) {
+          b.setAttribute("data-active", b === btn ? "1" : "0");
+        });
+        renderAllPlayerNewsList(listMount);
+        rewireNewsItemClicks(el);
+      });
+    });
+
+    // Position pills — flip scope to "all" since position-filter implies
+    // league-wide search.
+    el.querySelectorAll("[data-pos]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        state.allPlayerNewsFilters.scope = "all";
+        state.allPlayerNewsFilters.position = btn.getAttribute("data-pos");
+        state.allPlayerNewsItems = null;
+        state.allPlayerNewsShowN = NEWS_PAGE_SIZE;
+        renderAllPlayerNews();
+      });
+    });
+
+    // Team dropdown
+    var teamSel = el.querySelector(".tops-allnews-team");
+    if (teamSel) teamSel.addEventListener("change", function () {
+      state.allPlayerNewsFilters.team = teamSel.value || "";
+      state.allPlayerNewsItems = null;
+      state.allPlayerNewsShowN = NEWS_PAGE_SIZE;
+      renderAllPlayerNews();
+    });
+
+    // Name input — debounced
+    var nameInput = el.querySelector(".tops-allnews-name");
+    if (nameInput) {
+      var deb = null;
+      nameInput.addEventListener("input", function () {
+        if (deb) clearTimeout(deb);
+        deb = setTimeout(function () {
+          state.allPlayerNewsFilters.name = nameInput.value || "";
+          state.allPlayerNewsItems = null;
+          state.allPlayerNewsShowN = NEWS_PAGE_SIZE;
+          renderAllPlayerNews();
+        }, 250);
+      });
+      nameInput.addEventListener("keydown", function (ev) {
+        if (ev.key === "Enter") {
+          state.allPlayerNewsFilters.name = nameInput.value || "";
+          ev.preventDefault();
+          doAllPlayerNewsSearch();
+        }
+      });
+    }
+
+    // Find News button
+    var goBtn = el.querySelector(".tops-allnews-go");
+    if (goBtn) {
+      goBtn.addEventListener("click", function () {
+        if (goBtn.getAttribute("data-disabled") === "1") return;
+        doAllPlayerNewsSearch();
+      });
+    }
+
+    // Sort toggle
+    var sortBtn = el.querySelector("[data-allnews-sort]");
+    if (sortBtn) sortBtn.addEventListener("click", function () {
+      var next = getNewsSortPref() === "newest" ? "oldest" : "newest";
+      setNewsSortPref(next);
+      sortBtn.textContent = next === "newest" ? "↓ Newest" : "↑ Oldest";
+      renderAllPlayerNewsList(listMount);
+      rewireNewsItemClicks(el);
+    });
+
+    // Show-more (delegated)
+    el.addEventListener("click", function (ev) {
+      var more = ev.target.closest('.tops-news-more[data-news-card="all"]');
+      if (!more) return;
+      state.allPlayerNewsShowN = (state.allPlayerNewsShowN || NEWS_PAGE_SIZE) + NEWS_PAGE_SIZE;
+      renderAllPlayerNewsList(listMount);
+      rewireNewsItemClicks(el);
+    });
+
+    rewireNewsItemClicks(el);
+
+    // Auto-fetch for My Team scope on first render when no items loaded yet.
+    if (f.scope === "myteam" && !state.allPlayerNewsItems && !state.allPlayerNewsLoading) {
+      setTimeout(doAllPlayerNewsSearch, 0);
+    }
+  }
+
+  function doAllPlayerNewsSearch() {
+    var el = els.cards && els.cards.allPlayerNews;
+    if (!el) return;
+    var candidates = resolveAllPlayerNewsCandidates();
+    if (!candidates.length) return;
+    // My Team scope: send the full roster pool (rosters are small, well
+    // under the 50 cap). All scope: respect the cap.
+    var scope = (state.allPlayerNewsFilters && state.allPlayerNewsFilters.scope) || "myteam";
+    var capped = (scope === "myteam") ? candidates : candidates.slice(0, ALL_NEWS_MAX_PIDS);
+    state.allPlayerNewsLoading = true;
+    state.allPlayerNewsBatchSize = capped.length;
+    var listMount = el.querySelector(".tops-allnews-list-mount");
+    if (listMount) renderAllPlayerNewsList(listMount);
+
+    var pids = capped.map(function (r) { return r.pid; });
+    var url = workerUrl("/api/player-news?L=" + encodeURIComponent(state.ctx.leagueId) +
+                        "&YEAR=" + encodeURIComponent(state.ctx.year) +
+                        "&pids=" + encodeURIComponent(pids.join(",")));
+    fetch(url, { cache: "no-store" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (data) {
+        var items = [];
+        var byPid = (data && data.items_by_pid) || {};
+        var idx = getAllPlayerIndex();
+        Object.keys(byPid).forEach(function (pid) {
+          var rec = idx.byPid[pid] || {};
+          (byPid[pid] || []).forEach(function (n) {
+            items.push({
+              pid: pid,
+              player: rec.name || ("Player #" + pid),
+              position: rec.position || "",
+              team: rec.team || "",
+              when: Number(n.timestamp || 0),
+              headline: safeStr(n.headline),
+              body: safeStr(n.body),
+              source: safeStr(n.source),
+              type: safeStr(n.type),
+              url: safeStr(n.url)
+            });
+          });
+        });
+        state.allPlayerNewsItems = items;
+        state.allPlayerNewsLoading = false;
+        renderAllPlayerNews();
+      })
+      .catch(function () {
+        state.allPlayerNewsItems = [];
+        state.allPlayerNewsLoading = false;
+        renderAllPlayerNews();
+      });
   }
 
   // [v1.7.40 cleanup] The old openMflPlayerProfile redirect-to-MFL
