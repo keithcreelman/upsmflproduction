@@ -7341,46 +7341,58 @@
       var rookieOption = rookieOptionStateForPlayer(player);
       var modalBusyKey = "restructure:" + safeStr(player.id);
       var restructureBusy = state.busyActionKey === modalBusyKey;
-      var actions = [];
-      actions.push(
+      // Two action buckets per Keith 2026-05-13:
+      //   actionsRowAbove   — non-contract roster actions (Trade, Drop, IR,
+      //                       Taxi, Untag). Stay above the master modal so
+      //                       they're always visible regardless of tab.
+      //   actionsInContractTab — contract-decision actions (Exercise Option,
+      //                       Extend 1Y/2Y, Restructure). Live INSIDE the
+      //                       Contract Options tab body so they sit with
+      //                       the option summary text they govern.
+      var actionsRowAbove = [];
+      var actionsInContractTab = [];
+      actionsRowAbove.push(
         '<button type="button" class="rwb-modal-action" data-action="trade-player" data-player-id="' + escapeHtml(player.id) + '" data-franchise-id="' + escapeHtml(player.fid) + '">Trade</button>'
       );
       if (canManage) {
         if (safeStr(player.type).toUpperCase() === "TAG") {
-          actions.push(
+          actionsRowAbove.push(
             '<button type="button" class="rwb-modal-action" data-action="untag-player" data-player-id="' + escapeHtml(player.id) + '" data-franchise-id="' + escapeHtml(player.fid) + '">Untag</button>'
           );
         }
         if (rookieOptionActionEligible(player)) {
-          actions.push(
+          actionsInContractTab.push(
             '<button type="button" class="rwb-modal-action" data-action="exercise-rookie-option" data-player-id="' + escapeHtml(player.id) + '" data-franchise-id="' + escapeHtml(player.fid) + '">Exercise Option</button>'
           );
         }
         for (var i = 0; i < extensionOptions.length; i += 1) {
           var extensionOption = extensionOptions[i];
-          actions.push(
+          actionsInContractTab.push(
             '<button type="button" class="rwb-modal-action" data-action="extend-player" data-option-key="' + escapeHtml(extensionOption.optionKey) + '" data-player-id="' + escapeHtml(player.id) + '" data-franchise-id="' + escapeHtml(player.fid) + '">' + escapeHtml(extensionActionLabel(extensionOption)) + '</button>'
           );
         }
         if (contractEligibility.restructureEligible) {
-          actions.push(
+          actionsInContractTab.push(
             '<button type="button" class="rwb-modal-action" data-action="restructure-player" data-player-id="' + escapeHtml(player.id) + '" data-franchise-id="' + escapeHtml(player.fid) + '">Restructure</button>'
           );
         }
         if (player.isIr) {
-          actions.push(
+          actionsRowAbove.push(
             '<button type="button" class="rwb-modal-action" data-action="activate-ir-player" data-player-id="' + escapeHtml(player.id) + '" data-franchise-id="' + escapeHtml(player.fid) + '">Activate From IR</button>'
           );
         }
         if (player.isTaxi) {
-          actions.push(
+          actionsRowAbove.push(
             '<button type="button" class="rwb-modal-action" data-action="promote-taxi-player" data-player-id="' + escapeHtml(player.id) + '" data-franchise-id="' + escapeHtml(player.fid) + '">Promote From Taxi</button>'
           );
         }
-        actions.push(
+        actionsRowAbove.push(
           '<button type="button" class="rwb-modal-action" data-action="drop-player" data-player-id="' + escapeHtml(player.id) + '" data-franchise-id="' + escapeHtml(player.fid) + '">Drop</button>'
         );
       }
+      // Legacy fallback path reuses the combined list — old local
+      // 4-tab modal renders all actions inline in the Bio panel.
+      var actions = actionsRowAbove.concat(actionsInContractTab);
 
       var extensionSummaryHtml = "";
       var rookieOptionSummaryHtml = "";
@@ -7531,12 +7543,16 @@
         // Action buttons + commish/non-manage notes live outside any tab —
         // they sit above the player-profile content so they're always
         // visible regardless of which tab the user is on.
-        // Per Keith 2026-05-12: extensionSummaryHtml + rookieOptionSummaryHtml
-        // are MOVED into a "Contract Options" card inside master's cap-math
-        // strip (no longer floating above). Notes about commish-acting and
-        // can't-manage stay above since they apply to the action buttons.
+        // Per Keith 2026-05-13: action buttons split into two buckets.
+        //   - actionsRowAbove  (Trade/Drop/IR/Taxi/Untag) stays above the
+        //     master modal so they're always visible regardless of tab.
+        //   - actionsInContractTab (Exercise Option/Extend 1Y-2Y/Restructure)
+        //     moves INTO the Contract Options tab so contract decisions
+        //     live with the option-summary text that governs them.
+        // Notes about commish-acting / can't-manage stay above since they
+        // apply to the always-visible action row.
         var actionsAboveHtml =
-          '<div class="rwb-modal-actions-wrap" style="margin-bottom:14px;">' + actions.join("") + '</div>' +
+          '<div class="rwb-modal-actions-wrap" style="margin-bottom:14px;">' + actionsRowAbove.join("") + '</div>' +
           (!canManage ? '<div class="rwb-modal-note">Roster-management actions are unavailable for this session. Trade is available from any team.</div>' : '') +
           (viewerCanManageAnyRoster() && !ownRoster ? '<div class="rwb-modal-note"><strong>Commish:</strong> Acting on behalf of ' + escapeHtml(team.name) + '.</div>' : '');
 
@@ -7550,8 +7566,17 @@
           // Master takes over the 4-tab body. Action buttons stay above.
           // Stash the contract-options HTML on the modal body so the
           // delegation block below can pass it into master via ctx.
-          state.actionModal._contractOptionsHtml =
+          // Layout: action buttons row → option summaries (rookie + ext) →
+          // any commish notes.
+          var contractOptionsBody = "";
+          if (actionsInContractTab.length) {
+            contractOptionsBody +=
+              '<div class="rwb-modal-actions-wrap" style="margin-bottom:12px;">' +
+              actionsInContractTab.join("") + '</div>';
+          }
+          contractOptionsBody +=
             (rookieOptionSummaryHtml || "") + (extensionSummaryHtml || "");
+          state.actionModal._contractOptionsHtml = contractOptionsBody;
           content =
             playerHeaderHtml +
             actionsAboveHtml +
@@ -9562,7 +9587,12 @@
             '<div class="rwb-player-name-wrap">' +
               '<div class="rwb-player-line">' +
                 '<span class="rwb-pos-pill">' + escapeHtml(row.positional_grouping) + '</span>' +
-                '<span class="rwb-player-name">' + escapeHtml(row.player_name) + '</span>' +
+                // Tagging tab — name is clickable like every other tab.
+                // Opens the master player profile modal via the same
+                // data-action="open-player-modal" hook other tabs use.
+                '<button type="button" class="rwb-player-open" data-action="open-player-modal" data-player-id="' + escapeHtml(row.player_id) + '" data-franchise-id="' + escapeHtml(team.id) + '">' +
+                  '<span class="rwb-player-name">' + escapeHtml(row.player_name) + '</span>' +
+                '</button>' +
                 (isActive ? '<span class="rwb-tag is-tagged">Tagged</span>' : '') +
               '</div>' +
               '<div class="rwb-points-player-sub">' + escapeHtml(tagPriorAavSubtext(row)) + '</div>' +

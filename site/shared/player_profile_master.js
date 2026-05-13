@@ -431,9 +431,16 @@
     var photoUrl = photoFallbacks[0] || "";
     var photoOnError = photoOnErrorAttr(photoFallbacks);
 
-    // Bio fields — gated through showCollege per memory rule
-    var bioHeight = pp.height || (showCollege ? prospectRow.height : "") || "";
-    var bioWeight = pp.weight || (showCollege && prospectRow.weight ? prospectRow.weight + " lb" : "") || "";
+    // Bio fields — physical bio (height/weight/born) is ALWAYS shown when
+    // we have it. Earlier draft gated the prospect-row fallback on the
+    // college visibility flag, which left vets without height/weight when
+    // MFL's playerProfile didn't carry it. Per Keith 2026-05-13: match
+    // Roster Workbench's prior behavior of always showing the physical
+    // bio when any source has it.
+    var bioHeight = pp.height || prospectRow.height || "";
+    var bioWeight = pp.weight
+      || (prospectRow.weight ? (String(prospectRow.weight).match(/lb|kg/i) ? prospectRow.weight : prospectRow.weight + " lb") : "")
+      || "";
     var bioCollege = showCollege ? (pp.college || prospectRow.college || "") : "";
     var bioBornStr = pp.birthdate
       ? fmtMflDate(pp.birthdate)
@@ -598,23 +605,80 @@
     }
 
     // ── Contract history table (D1 contract_history) ──────────────────────
+    // Per Keith 2026-05-13: standardize on the UPS contract-type vocabulary
+    // so the history reads consistently across eras.
+    //   - Free Agent       (none rostered)
+    //   - Rookie           (initial rookie contract)
+    //   - Vet - Auction    (FL / BL possible)
+    //   - Vet - WW         (waiver wire pickup)
+    //   - Ext1             (first extension)
+    //   - Ext2             (second extension — FL / BL possible)
+    //   - Tag              (franchise / transition tag)
+    function classifyContractType(c) {
+      var rawStatus = String(c.contract_status || "").toLowerCase();
+      var rawType = String(c.contract_type || c.acquisition_type || "").toLowerCase();
+      var extFlag = !!c.extension_flag;
+      var extGen = Number(c.extension_generation || c.extension_seq || 0) || 0;
+      // Tag first — it's the most specific.
+      if (/tag/.test(rawStatus) || /tag/.test(rawType)) return { label: "Tag", style: "" };
+      // Extension chain — distinguish Ext1 vs Ext2 when generation is known.
+      if (extFlag || /ext/.test(rawStatus)) {
+        if (extGen >= 2 || /ext.?2|secondext|second.ext/.test(rawStatus)) {
+          var flStyle = /\bfl\b/.test(rawStatus) ? " (FL)" : (/\bbl\b/.test(rawStatus) ? " (BL)" : "");
+          return { label: "Ext2" + flStyle, style: "ext2" };
+        }
+        return { label: "Ext1", style: "ext1" };
+      }
+      // Rookie
+      if (/rookie/.test(rawStatus) || /rookie/.test(rawType)) return { label: "Rookie", style: "rookie" };
+      // WW
+      if (/\bww\b|waiver/.test(rawStatus) || /ww|waiver/.test(rawType)) return { label: "Vet - WW", style: "" };
+      // Vet auction — FL / BL when contractInfo carries the structure
+      if (/auction/.test(rawType) || /\bfl\b|\bbl\b/.test(rawStatus)) {
+        var struct = /\bfl\b/.test(rawStatus) ? " (FL)" : (/\bbl\b/.test(rawStatus) ? " (BL)" : "");
+        return { label: "Vet - Auction" + struct, style: "" };
+      }
+      // Default vet
+      if (/veteran|vet\b/.test(rawStatus)) return { label: "Vet - Auction", style: "" };
+      return { label: rawStatus ? (rawStatus.charAt(0).toUpperCase() + rawStatus.slice(1)) : "—", style: "" };
+    }
+
     var contractHistoryHtml = "";
     if (ch.length) {
       var rows2 = ch.map(function (c) {
-        var extBadge = c.extension_flag ? ' <span class="small" style="color:#5b8dff;font-weight:600;">EXT</span>' : "";
+        var typeInfo = classifyContractType(c);
+        var typeBadge = typeInfo.label;
+        var teamName = c.team_name || "";
+        // Append EXT1/EXT2 marker to the team-name cell when this season
+        // was an extension year.
+        var teamCell = escapeHtml(teamName);
+        if (typeInfo.style === "ext1" || typeInfo.style === "ext2") {
+          var extLbl = typeInfo.style === "ext2" ? "EXT2" : "EXT1";
+          teamCell += ' <span class="small" style="color:#5b8dff;font-weight:600;">' + extLbl + '</span>';
+        }
+        var cl = c.contract_length || 0;
+        var cy = c.contract_year || 0;
+        var yl = (cl > 0 && cy > 0) ? Math.max(0, cl - cy) : null;  // years LEFT after this season
+        var tcv = (c.tcv != null && c.tcv > 0) ? c.tcv : (cl && c.aav ? cl * c.aav : 0);
+        var tcvCell = tcv > 0 ? "$" + Number(tcv).toLocaleString() : "—";
         var aavCell = (c.aav == null || c.aav === 0) ? "—" : "$" + Number(c.aav).toLocaleString();
         return '<tr>'
           + '<td>' + escapeHtml(String(c.season)) + '</td>'
-          + '<td>' + escapeHtml(c.team_name || "") + extBadge + '</td>'
-          + '<td class="num">' + (c.contract_length || "—") + '</td>'
-          + '<td>' + (c.contract_year ? "Y" + c.contract_year : "—") + '</td>'
+          + '<td>' + teamCell + '</td>'
+          + '<td>' + escapeHtml(typeBadge) + '</td>'
+          + '<td class="num">' + (cl || "—") + '</td>'
+          + '<td>' + (cy ? "Y" + cy : "—") + '</td>'
+          + '<td class="num">' + (yl == null ? "—" : yl) + '</td>'
+          + '<td class="num">' + tcvCell + '</td>'
           + '<td class="num">' + aavCell + '</td>'
           + '</tr>';
       }).join("");
       contractHistoryHtml = '<div class="profile-block">'
         + '<h4>Contract History <span class="small muted">(' + ch.length + ' season' + (ch.length === 1 ? "" : "s") + ')</span></h4>'
         + '<table class="rdh-table" style="margin-top:6px;"><thead><tr>'
-        + '<th>Yr</th><th>Team</th><th class="num">Len</th><th>Yr#</th><th class="num">AAV</th>'
+        + '<th>Yr</th><th>Team</th><th>Type</th><th class="num" title="Contract Length">CL</th>'
+        + '<th title="Year # within the contract">Yr#</th><th class="num" title="Years Left">YL</th>'
+        + '<th class="num">TCV</th><th class="num">AAV</th>'
         + '</tr></thead><tbody>' + rows2 + '</tbody></table></div>';
     }
 
