@@ -12,7 +12,10 @@
   --tops-ink-dim: #9fb3d1;
   --tops-accent: #f3b61f;
   --tops-accent-2: #7de8d9;
-  --tops-bad: #ff6b6b;
+  /* "Bad" / error accent — red was unreadable against the dark gradient,
+     so swapped to bold teal (matches --tops-accent-2 below). Used by
+     .tops-meta-error, .tops-error, and inline error-state messages. */
+  --tops-bad: #7de8d9;
   --tops-warn: #f5a623;
   --tops-ok: #4caf82;
 
@@ -637,7 +640,7 @@
   font-size: 0.72rem;
   color: var(--tops-ink-dim);
 }
-.tops-meta-error { color: var(--tops-bad); }
+.tops-meta-error { color: var(--tops-bad); font-weight: 700; }
 
 /* Loading / error --------------------------------------------------------- */
 .tops-loading {
@@ -660,8 +663,9 @@
 
 .tops-error {
   color: var(--tops-bad);
-  background: rgba(255, 107, 107, 0.1);
-  border: 1px solid rgba(255, 107, 107, 0.35);
+  font-weight: 700;
+  background: rgba(125, 232, 217, 0.08);
+  border: 1px solid rgba(125, 232, 217, 0.35);
   padding: 0.75rem 0.9rem;
   border-radius: 10px;
   font-size: 0.9rem;

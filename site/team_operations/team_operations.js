@@ -1543,7 +1543,7 @@
       })
       .catch(function () {
         var el = document.getElementById(containerId);
-        if (el) el.innerHTML = '<div class="tops-empty" style="color:var(--tops-bad,#ff6b6b);">News fetch failed. Refresh to retry.</div>';
+        if (el) el.innerHTML = '<div class="tops-empty" style="color:var(--tops-bad,#7de8d9); font-weight:700;">News fetch failed. Refresh to retry.</div>';
       });
   }
   function closePlayerProfileModal() {
@@ -2210,7 +2210,7 @@
       return '<option value="' + escapeHtml(f.id) + '">' + escapeHtml(f.name) + '</option>';
     }).join("");
     var diagHtml = diagnostics.length
-      ? '<div class="tops-empty" style="margin-top:8px; color:var(--tops-bad,#ff6b6b);">' +
+      ? '<div class="tops-empty" style="margin-top:8px; color:var(--tops-bad,#7de8d9); font-weight:700;">' +
         '⚠ ' + escapeHtml(diagnostics.join(" · ")) + '</div>'
       : "";
     summaryEl.innerHTML = [
