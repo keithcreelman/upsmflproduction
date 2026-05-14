@@ -95,6 +95,26 @@
   flex-wrap: wrap;
 }
 
+/* Work-in-progress banner — sits at the top of the Overview tab so
+   it doesn't follow the user into Front Office / Stats / Trade
+   War Room (those are mature modules with their own state). */
+.tops-wip-banner {
+  margin: 0 0 0.9rem;
+  padding: 0.7rem 0.95rem;
+  background: linear-gradient(180deg, rgba(243, 182, 31, 0.18), rgba(243, 182, 31, 0.08));
+  border: 1px solid rgba(243, 182, 31, 0.55);
+  border-left: 4px solid var(--tops-accent);
+  border-radius: 8px;
+  color: var(--tops-ink);
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+
+.tops-wip-banner strong {
+  color: var(--tops-accent);
+  margin-right: 0.25em;
+}
+
 .tops-link-pill {
   background: linear-gradient(180deg, #f3b61f 0%, #d99c10 100%);
   color: #1a1306;
