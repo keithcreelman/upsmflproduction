@@ -196,7 +196,7 @@
     '.upm-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.96); display: none; align-items: center; justify-content: center; z-index: 10000; }',
     '.upm-overlay.open { display: flex; }',
     '.upm-modal-wrap { position: relative; }',
-    '.upm-modal { background: #141a26; color: #e8edf5; border: 1px solid #2a3446; border-radius: 8px; padding: 20px; max-width: 860px; width: 92%; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.7); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 14px; line-height: 1.5; }',
+    '.upm-modal { background: #141a26; color: #e8edf5; border: 1px solid #2a3446; border-radius: 8px; padding: 20px; max-width: 1100px; width: 94%; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.7); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 14px; line-height: 1.5; }',
     '.upm-modal h3 { margin: 0 0 12px; font-size: 22px; font-weight: 600; }',
     '.upm-modal h4 { margin: 0 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; color: #8a97ad; font-weight: 600; }',
     '.upm-modal .small { font-size: 12px; }',

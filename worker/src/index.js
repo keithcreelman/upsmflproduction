@@ -2474,13 +2474,13 @@ export default {
           "pendingTrades", "tradeBait", "futureDraftPicks", "schedule",
           "nflByeWeeks", "injuries", "calendar", "draftResults",
           "playerProfile", "playerScores",
-          // myleagues — used by Team Operations to auto-resolve the
-          // viewer's franchise via MFL session cookie. Same-origin
-          // (MFL HPM) returns the user's leagues; off-host (worker
-          // proxy) returns anonymous/empty, which the hub treats as
-          // fall-through. No PII beyond what MFL already exposes
-          // publicly to the franchise owner.
+          // User-specific endpoints: MUST go to api.myfantasyleague.com
+          // (MFL rejects them on shards). Authenticate with the per-user
+          // APIKEY param read from window._apiKey_ in the browser. See
+          // docs/MFL_API.md "User identity via _apiKey_" for the canonical
+          // pattern. Browser → worker → api.* with APIKEY → user data.
           "myleagues",
+          "myfranchise",
         ]);
         const type = safeStr(url.searchParams.get("TYPE") || "");
         if (!type || !allowedTypes.has(type)) {
@@ -2488,17 +2488,27 @@ export default {
         }
         const lid = safeStr(url.searchParams.get("L") || "74598").replace(/\D/g, "");
         const yr = safeStr(url.searchParams.get("YEAR") || YEAR || String(new Date().getUTCFullYear())).replace(/\D/g, "");
-        // Forward arbitrary extra params (DETAILS, P, FRANCHISE, DAYS, etc.)
+        // Forward arbitrary extra params (DETAILS, P, FRANCHISE, DAYS, APIKEY, etc.)
         const extra = new URLSearchParams();
         url.searchParams.forEach((v, k) => {
           if (["TYPE", "L", "YEAR", "JSON"].includes(k)) return;
           extra.set(k, v);
         });
         const extraStr = extra.toString();
-        // www48 is the league shard for 74598; use api.* otherwise (it 302s
-        // to the right shard, but since we're server-side the 302 follow
-        // works without CORS drama).
-        const host = lid === "74598" ? "https://www48.myfantasyleague.com" : "https://api.myfantasyleague.com";
+        // Host selection:
+        // - User-specific endpoints (myleagues/myfranchise) MUST go to
+        //   api.myfantasyleague.com — MFL rejects them on shards.
+        // - Other types use the league shard (www48 for UPS 74598) for
+        //   speed; non-UPS leagues use api.* with 302 follow.
+        const userScopedTypes = new Set(["myleagues", "myfranchise"]);
+        let host;
+        if (userScopedTypes.has(type)) {
+          host = "https://api.myfantasyleague.com";
+        } else if (lid === "74598") {
+          host = "https://www48.myfantasyleague.com";
+        } else {
+          host = "https://api.myfantasyleague.com";
+        }
         const upstream = `${host}/${encodeURIComponent(yr)}/export?TYPE=${encodeURIComponent(type)}&L=${encodeURIComponent(lid)}&JSON=1${extraStr ? "&" + extraStr : ""}`;
         try {
           const r = await fetch(upstream, {

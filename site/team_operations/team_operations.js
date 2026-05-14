@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var BUILD = "2026.05.14.pages-workflow";
+  var BUILD = "2026.05.14.apikey-auth";
   var BOOT_FLAG = "__ups_team_operations_boot_" + BUILD;
   if (window[BOOT_FLAG]) {
     if (typeof window.UPS_TEAMOPS_INIT === "function") window.UPS_TEAMOPS_INIT();
@@ -199,12 +199,19 @@
       ["nflByeWeeks", fetchJson(mflExportUrl("nflByeWeeks"))],
       ["injuries", fetchJson(mflExportUrl("injuries"))],
       ["calendar", fetchJson(mflExportUrl("calendar"))],
-      // myleagues — same-origin only. Returns the leagues + franchise_id
-      // attached to the logged-in MFL user (via session cookie). The
-      // authoritative signal for "who is the viewer" — beats cookie /
-      // localStorage / URL-path heuristics. Off-host: worker proxy
-      // returns anonymous/empty, hub falls back to the existing chain.
-      ["myleagues", fetchJson(mflExportUrl("myleagues"))],
+      // myfranchise — authoritative user-identity lookup via APIKEY.
+      // MFL exposes window._apiKey_ on authenticated pages; we pass
+      // that key as ?APIKEY=... and route through the worker proxy to
+      // api.myfantasyleague.com (where this TYPE is accepted). The
+      // response includes the logged-in user's franchise for the
+      // current league — no cookies needed. See docs/MFL_API.md
+      // "User identity via _apiKey_".
+      ["myfranchise", (function () {
+        var apiKey = "";
+        try { apiKey = String(window._apiKey_ || "").trim(); } catch (e) {}
+        if (!apiKey) return Promise.resolve(null);
+        return fetchJson(mflExportUrl("myfranchise", { APIKEY: apiKey })).catch(function () { return null; });
+      })()],
       // UPS deadline calendar from our own D1 (league_events). 404s
       // gracefully when the worker doesn't have the endpoint yet —
       // renderEvents handles missing data.
@@ -241,32 +248,24 @@
 
     // ── Fallback chain (in priority order) ──
     // 1. Already-set ctx.franchiseId (from URL ?FRANCHISE_ID= or window.FRANCHISE_ID)
-    // 2. MFL TYPE=myleagues authenticated lookup (NEW 2026-05-13) — most
-    //    authoritative signal: MFL knows who the logged-in user is via the
-    //    session cookie our same-origin fetch sends. Returns the user's
-    //    franchise_id directly. Off-host falls through (worker proxy
-    //    returns anonymous/empty).
+    // 2. MFL TYPE=myfranchise authenticated lookup via APIKEY (2026-05-14)
+    //    Most authoritative: api.myfantasyleague.com returns the
+    //    logged-in user's franchise for this league when we pass
+    //    window._apiKey_ as ?APIKEY=. No cookies needed.
     // 3. MFL_LAST_LOGIN_FRANCHISE_ID cookie — MFL sets this for any
     //    logged-in user. Most reliable cookie-based signal.
-    // 4. localStorage rdh_my_fid — set by the Draft Hub when it figures
-    //    out the user. Survives across hubs.
-    // 5. URL path /home/<league>/<franchise> — already handled by the
-    //    embed loader but re-check in case ctx wasn't populated.
+    // 4. localStorage rdh_my_fid — persists once picked.
+    // 5. URL path /home/<league>/<franchise>.
     // 6. MFL_USER_ID cookie matched against league franchise records.
-    if (!fid && state.myleagues) {
-      // Response shape: { myleagues: { league: [{ league_id, franchise_id, ... }] } }
-      // (or a single league object if user has only one). Find the entry
-      // matching the current league_id; use its franchise_id.
+    if (!fid && state.myfranchise) {
+      // Response shape from api.* TYPE=myfranchise:
+      //   { myfranchise: { id: "0008", name: "Real Deal Creel", ... } }
+      // The single object is THIS league's franchise for the user.
       try {
-        var ml = (state.myleagues && state.myleagues.myleagues) || {};
-        var leagues = asArray(ml.league);
-        for (var k = 0; k < leagues.length; k++) {
-          var L = leagues[k];
-          var lid = String(L.league_id || L.id || "").replace(/\D/g, "");
-          if (lid && lid === String(ctx.leagueId)) {
-            var f = pad4(L.franchise_id || L.franchise);
-            if (f) { fid = f; break; }
-          }
+        var mf = (state.myfranchise && state.myfranchise.myfranchise) || null;
+        if (mf) {
+          var f = pad4(mf.id || mf.franchise_id);
+          if (f) fid = f;
         }
       } catch (e) {}
     }
