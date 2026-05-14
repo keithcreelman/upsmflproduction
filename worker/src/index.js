@@ -2916,32 +2916,38 @@ export default {
           }
 
           // 4b. Headline pool (ESPN + NFL.com + PFT + r/nfl) — match by
-          // player last name + first name OR last name + team mention.
-          // MFL name is "Last, First". Last name + first name match is
-          // precise; last name + team is a fallback for cases where the
-          // article uses "the QB" instead of first name. Dedupe by URL
-          // so the same Schefter tweet syndicated across PFT + ESPN +
-          // r/nfl shows once.
+          // full-name proximity. MFL name is "Last, First".
+          //
+          // Previous heuristic (lastName + (firstName OR team)) cross-
+          // attributed: an article mentioning "Russell Wilson" and the
+          // Packers would surface under Emmanuel Wilson because the team
+          // fallback fires whenever first name is absent. Fix: require
+          // BOTH first name AND last name as word-boundary matches in
+          // the same blob. Same-surname players (Wilson, Williams,
+          // Brown) now stay correctly partitioned because Russell ≠
+          // Emmanuel even when both Wilsons exist in the league.
           const lastName = (m.name.split(",")[0] || "").trim().toLowerCase();
           const firstName = (m.name.split(",")[1] || "").trim().toLowerCase().split(/\s+/)[0];
-          if (lastName && lastName.length >= 3) {
+          // Escape regex specials and wrap in \b...\b for whole-word matching.
+          const reEscape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+          const lastRe = lastName && lastName.length >= 3
+            ? new RegExp("\\b" + reEscape(lastName) + "\\b", "i")
+            : null;
+          const firstRe = firstName && firstName.length >= 3
+            ? new RegExp("\\b" + reEscape(firstName) + "\\b", "i")
+            : null;
+          if (lastRe && firstRe) {
             const seenHeadlines = new Set();
             for (const a of espnArticles) {
-              const headline = safeStr(a.headline).toLowerCase();
-              const desc = safeStr(a.description).toLowerCase();
+              const headline = safeStr(a.headline);
+              const desc = safeStr(a.description);
               const blob = headline + " " + desc;
-              const hasLast = blob.includes(lastName);
-              if (!hasLast) continue;
-              // Require either first name OR team mention to avoid false
-              // positives from common surnames (Williams, Brown, Smith).
-              const hasFirst = firstName && firstName.length >= 3 && blob.includes(firstName);
-              const hasTeam = m.team && blob.includes(m.team.toLowerCase());
-              if (!hasFirst && !hasTeam) continue;
+              if (!lastRe.test(blob) || !firstRe.test(blob)) continue;
               // Per-player dedupe — if Schefter's "Player X traded to Y"
               // appears in ESPN + PFT + r/nfl, pick the first source we
               // see and skip the rest (already URL-deduped at pool build,
               // this dedupes by headline text for fuzzy duplicates).
-              const headlineKey = headline.slice(0, 80);
+              const headlineKey = headline.toLowerCase().slice(0, 80);
               if (seenHeadlines.has(headlineKey)) continue;
               seenHeadlines.add(headlineKey);
               items.push({
@@ -23075,6 +23081,52 @@ export default {
           if (changed) anyChanged = true;
 
           if (changed) break;
+        }
+
+        // Tag / untag audit log — write directly to D1 ups_tag_submissions
+        // when the client flagged the submission as a tag-flow action.
+        // Detection priority:
+        //   1. Explicit submission_kind === "tag" | "untag" (Roster Workbench)
+        //   2. Fallback: contractStatus === "TAG" → infer "tag"
+        // Doesn't block the response if the INSERT fails — we just log it.
+        const isTagAction =
+          submissionKindRaw === "tag" ||
+          (submissionKindRaw !== "untag" &&
+            safeStr(statusUsed || contractStatus).toUpperCase() === "TAG");
+        const isUntagAction = submissionKindRaw === "untag";
+        if (looksOk && anyChanged && (isTagAction || isUntagAction) && env.UPS_MFL_DB) {
+          const action = isTagAction ? "tag" : "untag";
+          const tagSideForLog = String(
+            body.tag_side || body.tagSide || body.prior_tag_side || body.priorTagSide || body.side || ""
+          ).trim().toUpperCase();
+          try {
+            await env.UPS_MFL_DB.prepare(
+              `INSERT INTO ups_tag_submissions
+                 (league_id, season, franchise_id, player_id, player_name,
+                  position, tag_side, action, salary, contract_status,
+                  source, acting_user_id, raw_payload_json, submitted_at_utc)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+            ).bind(
+              leagueId,
+              year,
+              franchiseId,
+              playerId,
+              playerName,
+              position,
+              tagSideForLog || null,
+              action,
+              salary ? Number(salary) : null,
+              statusUsed || contractStatus || null,
+              sourceTag || "worker-commish-contract-update",
+              String(body.acting_user_id || body.actingUserId || "") || null,
+              JSON.stringify(body),
+              submittedAtUtc || new Date().toISOString()
+            ).run();
+          } catch (e) {
+            // Audit-write failure shouldn't break the user flow — surface
+            // via console only.
+            console.warn("[tag-audit] D1 insert failed:", e?.message || String(e));
+          }
         }
 
         const shouldDispatchSubmissionLog = !isManualContractUpdate || isExtensionSubmission;
