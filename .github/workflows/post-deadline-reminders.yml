@@ -1,9 +1,12 @@
 name: Post Deadline Reminders
 
+# Schedule retired 2026-05-14 — GitHub Actions cron drifts by 1-2 hours
+# under load, which made the 9 AM ET tag-deadline reminder land at
+# 11:05 AM ET. The Cloudflare worker now sweeps deadline reminders on
+# its own reliable hourly cron (`5 * * * *`) inside scheduled(). This
+# workflow remains for manual ad-hoc runs only.
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "*/15 * * * *"
 
 concurrency:
   group: post-deadline-reminders

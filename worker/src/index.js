@@ -193,11 +193,14 @@ export default {
       const newlyPosted = Array.isArray(importData.posted_rows) ? importData.posted_rows : [];
       // Step 2: for each franchise that got NEW penalties posted this run,
       // fire a Discord Cap Penalty Announcement. We group by franchise.
-      if (!newlyPosted.length) {
-        console.log(`[scheduled ${new Date().toISOString()}] drop-penalty scan: no new drops`);
-        return;
-      }
+      // Note: previously this branch did `return;` when no new drops
+      // existed. Don't return — the deadline-reminder sweep below also
+      // needs to run on every hourly cron, not just ones where drops
+      // happened.
       const byFranchise = {};
+      if (newlyPosted.length === 0) {
+        console.log(`[scheduled ${new Date().toISOString()}] drop-penalty scan: no new drops`);
+      }
       for (const row of newlyPosted) {
         const fid = String(row.franchise_id || "").padStart(4, "0");
         if (!fid) continue;
@@ -233,6 +236,45 @@ export default {
       );
     } catch (err) {
       console.error(`[scheduled] drop-penalty cron failed: ${err && err.message}`);
+    }
+
+    // Deadline reminder sweep on the hourly Cloudflare cron. Previously
+    // triggered by GitHub Actions on */15 cron, but GitHub Actions cron
+    // is wildly imprecise under load (verified 2026-05-14 — the 9:00 AM
+    // ET tag-deadline reminder didn't fire until 11:05 AM ET because
+    // the GH scheduled runs drifted to 12:18 UTC then 15:05 UTC, missing
+    // the 9:00 AM ET window entirely on the first eligible slot).
+    //
+    // Cloudflare's hourly cron at :05 UTC fires reliably every hour, so
+    // the first cron run at or after 09:00 ET (= 13:05 UTC in EDT, or
+    // 14:05 UTC in EST) will deliver the reminder. The sweep is
+    // idempotent — sentKeys dedup prevents double-sending.
+    try {
+      const season = String(env.YEAR || new Date().getUTCFullYear());
+      const leagueId = String(env.LEAGUE_ID || "74598");
+      const origin = String(env.WORKER_ORIGIN || "https://upsmflproduction.keith-creelman.workers.dev");
+      const commishApiKey = String(env.COMMISH_API_KEY || "").trim();
+      if (!commishApiKey) {
+        console.log("[scheduled hourly] deadline-reminder sweep skipped — no COMMISH_API_KEY");
+      } else {
+        const reminderUrl = `${origin}/admin/deadline-reminders/run?APIKEY=${encodeURIComponent(commishApiKey)}&L=${leagueId}&YEAR=${season}`;
+        ctx.waitUntil(
+          fetch(reminderUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({}),
+          })
+            .then(async (r) => {
+              const data = await r.json().catch(() => ({}));
+              const posted = Array.isArray(data?.posted) ? data.posted.length : 0;
+              const skipped = Array.isArray(data?.skipped) ? data.skipped.length : 0;
+              if (posted) console.log(`[scheduled hourly] deadline-reminders: posted=${posted} skipped=${skipped}`);
+            })
+            .catch((e) => console.error(`[scheduled hourly] deadline-reminders failed: ${e && e.message}`))
+        );
+      }
+    } catch (e) {
+      console.error(`[scheduled hourly] deadline-reminders dispatch failed: ${e && e.message}`);
     }
   },
 
