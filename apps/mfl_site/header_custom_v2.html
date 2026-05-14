@@ -8638,8 +8638,10 @@
     overflow-x: hidden;
   }
   /* Native MFL page containers need bottom breathing room so the
-     last interactive control (Submit Reply, etc.) clears any UPS
-     fixed/sticky overlay chrome at the viewport bottom. */
+     last interactive control (Submit Reply, etc.) clears the UPS
+     champion footer at the viewport bottom. Bumped 6rem → 10rem on
+     2026-05-13 after a screenshot showed the SUBMIT REPLY button on
+     my_tickets still getting clipped at desktop sizes. */
   body > #container-wrap,
   body > #container,
   body > #wrapper,
@@ -8650,8 +8652,29 @@
   body > center > table,
   body > form,
   body > table {
-    padding-bottom: 6rem !important;
+    padding-bottom: 10rem !important;
     box-sizing: border-box;
+  }
+  /* Ticket-reply + options forms specifically — give the SUBMIT
+     button its own scroll-margin so it always lands above the
+     champion footer when focused or scrolled into view. Applies to
+     desktop AND mobile. */
+  body[id^="body_my_tickets"],
+  body[id^="body_options_"] {
+    padding-bottom: 6rem !important;
+  }
+  body[id^="body_my_tickets"] form,
+  body[id^="body_my_tickets"] table,
+  body[id^="body_options_"] form,
+  body[id^="body_options_"] table {
+    padding-bottom: 8rem !important;
+  }
+  body[id^="body_my_tickets"] input[type="submit"],
+  body[id^="body_my_tickets"] button[type="submit"],
+  body[id^="body_options_"]  input[type="submit"],
+  body[id^="body_options_"]  button[type="submit"] {
+    scroll-margin-bottom: 12rem;
+    margin-bottom: 2rem;
   }
   /* Mobile Safari: 100vh includes the URL bar's expandable region —
      content sized to 100vh gets clipped behind the URL bar. 100dvh
@@ -8662,16 +8685,13 @@
       min-height: 100dvh !important;
     }
     body {
-      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 6rem) !important;
+      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 8rem) !important;
     }
-    /* MFL ticket reply form, options forms, and similar narrow-layout
-       pages on mobile — extra clearance so SUBMIT lives above the
-       footer + safe-area zone. */
     body[id^="body_my_tickets"] form,
     body[id^="body_my_tickets"] table,
     body[id^="body_options_"] form,
     body[id^="body_options_"] table {
-      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 4rem) !important;
+      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 8rem) !important;
     }
   }
 </style>
