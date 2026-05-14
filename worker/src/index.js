@@ -9397,6 +9397,13 @@ export default {
 
       const TAG_TRACKING_FALLBACK_URL =
         "https://keithcreelman.github.io/upsmflproduction/ccc/tag_tracking.json";
+      // tag_submissions.json is the AUTHORITATIVE record of actual tag
+      // actions per (season, franchise). MFL's salary contractStatus
+      // can carry "Tag" string from prior seasons indefinitely (MFL
+      // doesn't auto-clean), so salary alone produces false positives.
+      // Cross-reference with this file to know which tags are CURRENT.
+      const TAG_SUBMISSIONS_URL =
+        "https://keithcreelman.github.io/upsmflproduction/ccc/tag_submissions.json";
 
       const parseTagTrackingRowsForValidation = (payload, season, leagueId) => {
         const rows = Array.isArray(payload)
@@ -9429,7 +9436,7 @@ export default {
       };
 
       const fetchFranchiseTaggedPlayersBySide = async (cookieHeaderOverride, season, leagueId, franchiseId) => {
-        const [rostersRes, salariesRes, trackingPayload] = await Promise.all([
+        const [rostersRes, salariesRes, trackingPayload, submissionsPayload] = await Promise.all([
           mflExportJsonForCookie(
             cookieHeaderOverride,
             season,
@@ -9447,6 +9454,11 @@ export default {
             { useCookie: true }
           ),
           fetchJson(TAG_TRACKING_FALLBACK_URL, {}),
+          // tag_submissions.json — canonical record of actual tag actions.
+          // Used to distinguish CURRENT-season tags from stale MFL salary
+          // data (MFL leaves contractStatus="Tag" indefinitely after a
+          // tag's season ends, producing false positives in salary alone).
+          fetchJson(TAG_SUBMISSIONS_URL, {}).catch(() => ({})),
         ]);
         if (!rostersRes.ok) {
           return {
@@ -9480,13 +9492,42 @@ export default {
           trackingByPlayerId[row.player_id] = row;
         }
 
+        // Build set of player IDs ACTUALLY tagged this season for this
+        // franchise (canonical source: tag_submissions.json). Used to
+        // gate the salary-based check below — without this, MFL's stale
+        // contractStatus="Tag" from prior seasons produces false
+        // positives (e.g., a player tagged 2 years ago, dropped, then
+        // picked up again would still flag).
+        const currentTaggedPidsBySubmission = new Set();
+        try {
+          const subRows = Array.isArray(submissionsPayload)
+            ? submissionsPayload
+            : (submissionsPayload?.submissions || submissionsPayload?.rows || submissionsPayload?.tag_submissions || []);
+          for (const sub of subRows) {
+            const subSeason = safeStr(sub?.season || sub?.year);
+            const subFid = padFranchiseId(sub?.franchise_id || sub?.franchiseId || "");
+            const subPid = safeStr(sub?.player_id || sub?.playerId || sub?.id).replace(/\D/g, "");
+            if (!subPid) continue;
+            if (subSeason && subSeason !== safeStr(season)) continue;
+            if (subFid && subFid !== franchiseId) continue;
+            currentTaggedPidsBySubmission.add(subPid);
+          }
+        } catch (e) { /* fall through with empty set — salary check still gates */ }
+
         const salaryPlayers = Array.isArray(salariesRes.data?.salaries?.leagueUnit?.player)
           ? salariesRes.data.salaries.leagueUnit.player
           : [];
-        const taggedSalaryRows = salaryPlayers.filter((row) =>
-          contractStatusLooksTagged(row?.contractStatus || row?.contract_status) &&
-          safeInt(row?.contractYear || row?.contract_year, 0) > 0
-        );
+        const taggedSalaryRows = salaryPlayers.filter((row) => {
+          if (!contractStatusLooksTagged(row?.contractStatus || row?.contract_status)) return false;
+          if (safeInt(row?.contractYear || row?.contract_year, 0) <= 0) return false;
+          const pid = String(row?.id || row?.player_id || "").replace(/\D/g, "");
+          // Anti-stale gate: a salary row with contractStatus="Tag" only
+          // counts as a CURRENT tag if tag_submissions.json confirms it
+          // for this season+franchise. MFL doesn't clean up old TAG
+          // contractStatus so this check prevents prior-season ghosts.
+          if (currentTaggedPidsBySubmission.size === 0) return false;
+          return currentTaggedPidsBySubmission.has(pid);
+        });
         if (!taggedSalaryRows.length) {
           return {
             ok: true,
