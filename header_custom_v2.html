@@ -2649,6 +2649,72 @@
 </script>
 
 <script>
+  // Team Operations (HPM11 / MESSAGE11) auto-bootstrap.
+  //
+  // Why this exists: when MFL renders an HPM message INSIDE the home
+  // page (vs as a dedicated MESSAGEnn page), the message HTML lands in
+  // the DOM via innerHTML. Per HTML spec, <script> tags injected via
+  // innerHTML do NOT execute. So the inline script in
+  // site/hpm-myteam.html never fires on the home page.
+  //
+  // Fix: header_custom_v2 (which DOES execute normally) watches for the
+  // #teamOpsMount div anywhere on the page. When seen, it injects the
+  // team-operations loader script via createElement so it runs. The
+  // loader itself gates on the mount's presence so it's safe to fire
+  // even when MFL is rendering some other HPM that happens to include
+  // teamOpsMount in the future.
+  (function () {
+    var BUILD = "2026.05.14.1";
+    if (window.__ups_teamops_header_autoload === BUILD) return;
+    window.__ups_teamops_header_autoload = BUILD;
+
+    function alreadyLoaded() {
+      return !!document.querySelector('script[data-ups-teamops-loader]');
+    }
+
+    function injectLoader() {
+      if (alreadyLoaded()) return;
+      var s = document.createElement("script");
+      s.setAttribute("data-ups-teamops-loader", "1");
+      s.src = "https://keithcreelman.github.io/upsmflproduction/team_operations/mfl_hpm_embed_loader.js?v=" +
+        encodeURIComponent(String(Date.now()));
+      s.async = true;
+      (document.body || document.documentElement).appendChild(s);
+    }
+
+    function checkAndLoad() {
+      if (document.getElementById("teamOpsMount")) injectLoader();
+    }
+
+    // Initial check
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", checkAndLoad);
+    } else {
+      checkAndLoad();
+    }
+
+    // Watch for late mount-div insertion (MFL may inject HPM content
+    // after DOMContentLoaded, especially on the home page). Disconnect
+    // once the loader has been injected — no need to keep observing.
+    if (window.MutationObserver) {
+      var mo = new MutationObserver(function () {
+        if (alreadyLoaded()) {
+          mo.disconnect();
+          return;
+        }
+        if (document.getElementById("teamOpsMount")) {
+          injectLoader();
+          mo.disconnect();
+        }
+      });
+      try {
+        mo.observe(document.documentElement, { childList: true, subtree: true });
+      } catch (e) { /* observer not supported — initial check is the safety net */ }
+    }
+  })();
+</script>
+
+<script>
   // Trade War Room embed helper for MESSAGE6.
   (function () {
     var TWB_HEADER_BUILD = "2026.03.01.3";
