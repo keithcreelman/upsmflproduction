@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var BUILD = "2026.05.13.iframe-fix";
+  var BUILD = "2026.05.13.calm";
   var BOOT_FLAG = "__ups_team_operations_boot_" + BUILD;
   if (window[BOOT_FLAG]) {
     if (typeof window.UPS_TEAMOPS_INIT === "function") window.UPS_TEAMOPS_INIT();
@@ -743,14 +743,14 @@
         var label = (typeof eventLabel === "function") ? eventLabel(ev.event) : String(ev.event || "");
         var dateLbl = (typeof fmtEventDate === "function") ? fmtEventDate(ev.date) : ev.date;
         var soon = (d != null && d <= 14);
-        var nextChip = (i === 0) ? '<span class="tops-nd-next">NEXT</span>' : '';
+        var nextChip = (i === 0) ? ' <span class="tops-nd-next">NEXT</span>' : '';
         var when = (d == null) ? '' : (d <= 0 ? 'today' : (d === 1 ? 'tomorrow' : 'in ' + d + ' days'));
         return '<li' + (soon ? ' class="tops-nd-soon"' : '') + '>'
           + '<div class="tops-nd-main">'
           +   '<span class="tops-nd-label">' + escapeHtml(label) + '</span>' + nextChip
-          +   (when ? '<span class="tops-nd-when">' + escapeHtml(when) + '</span>' : '')
+          +   '<span class="tops-nd-sub">' + escapeHtml(dateLbl) + '</span>'
           + '</div>'
-          + '<div class="tops-nd-sub">' + escapeHtml(dateLbl) + '</div>'
+          + (when ? '<span class="tops-nd-when">' + escapeHtml(when) + '</span>' : '')
           + '</li>';
       }).join("");
     } else {

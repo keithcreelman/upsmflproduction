@@ -539,15 +539,21 @@
   letter-spacing: 0.08em;
 }
 
-.tops-link {
+.tops-link,
+#teamOpsMount a.tops-link {
+  /* !important + #teamOpsMount scope: MFL's parent-page stylesheet
+     defines a default amber link color that wins on specificity alone.
+     Force teal here so internal "Open Trade Room →" / "Open Add/Drop →"
+     links stay visually distinct from MFL chrome. */
   display: inline-block;
   margin-top: 0.4rem;
-  color: var(--tops-accent-2);
+  color: var(--tops-accent-2) !important;
   font-weight: 700;
-  text-decoration: none;
+  text-decoration: none !important;
   font-size: 0.82rem;
 }
-.tops-link:hover { text-decoration: underline; }
+.tops-link:hover,
+#teamOpsMount a.tops-link:hover { text-decoration: underline !important; }
 
 /* Heatmap ----------------------------------------------------------------- */
 .tops-heatmap-hint {
@@ -996,41 +1002,41 @@
 .tops-allnews-status strong { color: var(--tops-ink); }
 
 /* ─── Next Decision (promoted to top, full-width) ──────────────────────── */
+/* Toned down 2026-05-13 (per Keith): the prior grid-of-cards layout had
+   bordered cells with vertical seams that made the section visually
+   shouty. Reverting to a calm bullet-list flow — same spirit as the
+   original Wave 1a "Phase 1b will hydrate this…" preview but now
+   sourced from real league_events data. */
 .tops-card-highlight {
-  background: linear-gradient(180deg, rgba(243,182,31,0.07) 0%, rgba(15,29,52,1) 100%);
-  border-color: rgba(243,182,31,0.4);
+  background: linear-gradient(180deg, rgba(243,182,31,0.04) 0%, rgba(15,29,52,1) 100%);
+  border-color: rgba(243,182,31,0.28);
 }
 .tops-nd-list {
   list-style: none;
   margin: 4px 0 0;
   padding: 0;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 0.5rem;
 }
 .tops-nd-list li {
-  background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.06);
-  border-radius: 8px;
-  padding: 8px 10px;
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 4px 0;
+  font-size: 0.88rem;
+  color: var(--tops-ink);
 }
-.tops-nd-list li.tops-nd-soon {
-  border-color: rgba(251,191,36,0.5);
-  background: rgba(251,191,36,0.06);
+.tops-nd-list li + li {
+  border-top: 1px solid rgba(255,255,255,0.04);
 }
 .tops-nd-main {
+  flex: 1 1 auto;
   display: flex;
-  align-items: center;
-  gap: 0.4rem;
+  align-items: baseline;
+  gap: 0.45rem;
+  min-width: 0;
 }
 .tops-nd-label {
   font-weight: 700;
-  font-size: 0.88rem;
   color: var(--tops-ink);
-  flex: 1 1 auto;
 }
 .tops-nd-label.muted { color: var(--tops-ink-dim); font-weight: 500; }
 .tops-nd-when {
@@ -1038,11 +1044,13 @@
   font-weight: 600;
   color: var(--tops-accent);
   font-variant-numeric: tabular-nums;
+  flex: 0 0 auto;
 }
 .tops-nd-soon .tops-nd-when { color: #fbbf24; }
 .tops-nd-sub {
   font-size: 0.74rem;
   color: var(--tops-ink-dim);
+  margin-left: 0.5rem;
 }
 .tops-nd-next {
   display: inline-block;
@@ -1053,7 +1061,7 @@
   letter-spacing: 0.06em;
   padding: 1px 5px;
   border-radius: 3px;
-  margin-left: 4px;
+  vertical-align: middle;
 }
 .tops-nd-pending .tops-nd-sub code {
   background: rgba(0,0,0,0.25);
