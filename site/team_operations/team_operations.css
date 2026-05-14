@@ -234,6 +234,17 @@
   margin-top: 0.2rem;
 }
 
+/* Sub-note: secondary breakdown line under the main note. Used by the
+   Cap Used card to show salary + adjustments split without crowding
+   the primary "% of cap" line. */
+.tops-kv-subnote {
+  font-size: 0.7rem;
+  color: var(--tops-ink-dim);
+  margin-top: 0.15rem;
+  opacity: 0.85;
+  letter-spacing: 0.01em;
+}
+
 .tops-bar {
   margin-top: 0.45rem;
   height: 6px;
