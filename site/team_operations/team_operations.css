@@ -492,8 +492,16 @@
   font-size: 0.78rem;
   color: var(--tops-ink-dim);
 }
-.tops-iframe-pop {
-  color: var(--tops-accent-2, #7de8d9);
+/* `a.` prefix + :link/:visited/:hover/:active selectors with !important
+   so MFL's host stylesheet (which applies `a:visited { color: red }`
+   globally) can't repaint the pill red. Same reason the Front Office
+   pills did this in roster_workbench.css. */
+a.tops-iframe-pop,
+a.tops-iframe-pop:link,
+a.tops-iframe-pop:visited,
+a.tops-iframe-pop:hover,
+a.tops-iframe-pop:active {
+  color: var(--tops-accent-2, #7de8d9) !important;
   text-decoration: none;
   font-weight: 700;
   letter-spacing: 0.02em;
@@ -502,7 +510,7 @@
   border: 1px solid rgba(125, 232, 217, 0.35);
   transition: background 100ms, border-color 100ms;
 }
-.tops-iframe-pop:hover {
+a.tops-iframe-pop:hover {
   background: rgba(125, 232, 217, 0.1);
   border-color: rgba(125, 232, 217, 0.7);
 }
