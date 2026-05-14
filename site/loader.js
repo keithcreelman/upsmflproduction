@@ -153,23 +153,25 @@
   if (!script) return;
   script.setAttribute("data-ups-bound", "1");
 
+  // Paths are relative to the Pages artifact root (site/ — see
+  // .github/workflows/pages-deploy.yml). header/footer get copied into
+  // the artifact root from apps/mfl_site/ at build time, so no /apps/
+  // prefix here either. Pre-2026-05-14 jsDelivr layout had /site/ and
+  // /apps/mfl_site/ prefixes; those are gone now.
   var PARTIAL_MAP = {
-    header: "/apps/mfl_site/header_custom_v2.html",
-    footer: "/apps/mfl_site/footer_custom_v2.html",
-    "hpm-default": "/site/hpm-default.html",
-    "hpm-mcm": "/site/hpm-mcm.html",
-    "hpm-standings": "/site/hpm-standings.html",
-    "hpm-issue-report": "/site/hpm-issue-report.html",
+    header: "/header_custom_v2.html",
+    footer: "/footer_custom_v2.html",
+    "hpm-default": "/hpm-default.html",
+    "hpm-mcm": "/hpm-mcm.html",
+    "hpm-standings": "/hpm-standings.html",
+    "hpm-issue-report": "/hpm-issue-report.html",
     // hpm-ccc archived 2026-05-12 — CCC moved to site/_archived/2026-05-12/.
-    // Owners now submit extensions/restructures/tags via Roster Workbench
-    // (source-tag: "front-office-extension-submit"). Worker endpoints
-    // /offer-mym, /offer-restructure, /commish-contract-update remain
-    // live to serve Roster Workbench.
+    // Owners now submit extensions/restructures/tags via Roster Workbench.
     // hpm-widget retired 2026-05-14 — options widget removed (#88).
-    "hpm-reports": "/site/hpm-reports.html",
-    "hpm-draft-hub": "/site/hpm-draft-hub.html",
-    "hpm-myteam": "/site/hpm-myteam.html",
-    "hpm-stats-workbench": "/site/hpm-stats-workbench.html"
+    "hpm-reports": "/hpm-reports.html",
+    "hpm-draft-hub": "/hpm-draft-hub.html",
+    "hpm-myteam": "/hpm-myteam.html",
+    "hpm-stats-workbench": "/hpm-stats-workbench.html"
   };
 
   function safeStr(value) {
@@ -395,10 +397,18 @@
   initLaunchOverlay();
 
   function deriveRepoBasePath(scriptPathname) {
+    // Two supported layouts:
+    //   Pages (current):  "/upsmflproduction/loader.js" → "/upsmflproduction"
+    //   jsDelivr (legacy): "/.../site/loader.js"        → "/..." (no /site/)
+    // jsDelivr was retired 2026-05-14 (#88) but we keep the legacy path
+    // resolution so anyone with a cached old loader URL still works.
     var p = (scriptPathname || "").toString();
-    var marker = "/site/loader.js";
-    var idx = p.lastIndexOf(marker);
-    if (idx >= 0) return p.slice(0, idx);
+    var legacyMarker = "/site/loader.js";
+    var legacyIdx = p.lastIndexOf(legacyMarker);
+    if (legacyIdx >= 0) return p.slice(0, legacyIdx);
+    var pagesMarker = "/loader.js";
+    var pagesIdx = p.lastIndexOf(pagesMarker);
+    if (pagesIdx >= 0) return p.slice(0, pagesIdx);
     return "";
   }
 
