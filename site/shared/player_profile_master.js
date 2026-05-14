@@ -196,7 +196,7 @@
     '.upm-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.96); display: none; align-items: center; justify-content: center; z-index: 10000; }',
     '.upm-overlay.open { display: flex; }',
     '.upm-modal-wrap { position: relative; }',
-    '.upm-modal { background: #141a26; color: #e8edf5; border: 1px solid #2a3446; border-radius: 8px; padding: 20px; max-width: 1100px; width: 94%; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.7); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 14px; line-height: 1.5; }',
+    '.upm-modal { background: #141a26; color: #e8edf5; border: 1px solid #2a3446; border-radius: 8px; padding: 20px; max-width: 1400px; width: 96%; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.7); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 14px; line-height: 1.5; }',
     '.upm-modal h3 { margin: 0 0 12px; font-size: 22px; font-weight: 600; }',
     '.upm-modal h4 { margin: 0 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; color: #8a97ad; font-weight: 600; }',
     '.upm-modal .small { font-size: 12px; }',
@@ -447,28 +447,24 @@
   }
 
   // ── Photo fallback chain ────────────────────────────────────────────────
-  // Photo chain — Keith 2026-05-13: college was showing for every NFL player
-  // because pp.icon_url is always null from MFL's playerProfile export, and
-  // ESPN college was the next entry. Inserted MFL's modern year-based pro
-  // headshot URL between icon_url and ESPN college so NFL players get their
-  // pro shot. College stays as fallback for fresh rookies who haven't been
-  // photographed by MFL yet. Order:
+  // Photo chain — Keith 2026-05-14: dropped the www55 fflnetdynamic{YEAR}
+  // entry. That host is unreachable (TCP timeout, not 404) so it stalled
+  // the <img> for 15+s before onerror fired and the fallbacks were tried,
+  // leaving the modal with a blank placeholder in practice. The only
+  // MFL photo URL that reliably returns 200 across all pids is the
+  // stable archive at /player_photos_2014/{pid}_thumb.jpg — promote it
+  // to primary. Order:
   //   1) MFL icon_url            — pro shot when MFL surfaces it (rare)
-  //   2) MFL pro headshot        — www55.../fflnetdynamic{YEAR}/players/{pid}.jpg
-  //   3) ESPN college            — fallback for fresh rookies pre-pro photo
-  //   4) MFL stable archive      — last resort for very old / unmapped players
-  // Future TODO: pick a better headshot source (Sleeper, Sportradar, etc.).
+  //   2) MFL stable archive      — www48/player_photos_2014/{pid}_thumb.jpg (reliable)
+  //   3) ESPN college            — fallback for college-id'd prospects
   function buildPhotoChain(pid, pp, prospectRow, ctxYear) {
     var espnId = (prospectRow && prospectRow.espn_id) || pp.espn_id || null;
     var chain = [];
     if (pp.icon_url) chain.push(pp.icon_url);
-    if (pid && ctxYear) {
-      chain.push("https://www55.myfantasyleague.com/fflnetdynamic" + encodeURIComponent(ctxYear) + "/players/" + encodeURIComponent(pid) + ".jpg");
-    }
+    if (pid) chain.push("https://www48.myfantasyleague.com/player_photos_2014/" + pid + "_thumb.jpg");
     if (espnId) {
       chain.push("https://a.espncdn.com/i/headshots/college-football/players/full/" + espnId + ".png");
     }
-    if (pid) chain.push("https://www48.myfantasyleague.com/player_photos_2014/" + pid + "_thumb.jpg");
     return chain;
   }
   function photoOnErrorAttr(chain) {
