@@ -202,10 +202,17 @@
   // h3 18-22px; h4 12px UPPERCASE muted.
   var CSS = [
     /* overlay + modal shell */
-    '.upm-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.96); display: none; align-items: center; justify-content: center; z-index: 10000; }',
+    /* Overlay pinned with explicit viewport units instead of inset:0 — some
+       MFL pages have a transformed ancestor (transform/filter/perspective)
+       which would make position:fixed relative to that ancestor instead of
+       the viewport, shrinking the modal. vw/vh sizing dodges that. */
+    '.upm-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.96); display: none; align-items: center; justify-content: center; z-index: 10000; }',
     '.upm-overlay.open { display: flex; }',
-    '.upm-modal-wrap { position: relative; }',
-    '.upm-modal { background: #141a26; color: #e8edf5; border: 1px solid #2a3446; border-radius: 8px; padding: 20px; max-width: 1400px; width: 96%; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.7); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 14px; line-height: 1.5; }',
+    '.upm-modal-wrap { position: relative; width: 100%; display: flex; justify-content: center; }',
+    /* width uses 96vw so it scales with the viewport even when the parent
+       is narrower (e.g. confined HPM area). Roster Workbench renders the
+       same master inline at full container width — this matches the feel. */
+    '.upm-modal { background: #141a26; color: #e8edf5; border: 1px solid #2a3446; border-radius: 8px; padding: 20px; width: 96vw; max-width: 1600px; max-height: 92vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.7); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 14px; line-height: 1.5; }',
     '.upm-modal h3 { margin: 0 0 12px; font-size: 22px; font-weight: 600; }',
     '.upm-modal h4 { margin: 0 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; color: #8a97ad; font-weight: 600; }',
     '.upm-modal .small { font-size: 12px; }',
