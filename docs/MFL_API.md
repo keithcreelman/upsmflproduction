@@ -93,6 +93,51 @@ Practical rule:
 - For admin/private extraction, use cookie.
 - For public/global extraction, use no auth or API key as needed.
 
+### 6a) User identity via `_apiKey_` (canonical pattern for in-page hubs)
+
+MFL exposes a per-user, per-page API key as the JavaScript variable
+`window._apiKey_` on every authenticated page. This is the canonical
+way for our in-page hubs (Team Operations, Roster Workbench, etc.) to
+identify the logged-in user without dealing with session cookies.
+
+**Pattern:**
+```js
+var apiKey = window._apiKey_;        // set by MFL on authenticated page loads
+if (apiKey) {
+  var url = "/api/mfl-export?TYPE=myfranchise&L=" + leagueId
+          + "&YEAR=" + year + "&APIKEY=" + apiKey + "&JSON=1";
+  fetch(url).then(r => r.json()).then(data => {
+    // data.myfranchise.id = the user's franchise for this league
+  });
+}
+```
+
+**Host requirements (critical):**
+| TYPE | Must be called on |
+|---|---|
+| `myleagues` | `api.myfantasyleague.com` only — www48 returns "must go to api.*" |
+| `myfranchise` | `api.myfantasyleague.com` only — same error on shards |
+| `myleague` | `api.myfantasyleague.com` only |
+| (all others) | League shard (e.g. `www48`) or `api.*` |
+
+Our worker `/api/mfl-export` proxy routes user-scoped TYPEs to `api.*`
+automatically — frontends just call the proxy with the TYPE + APIKEY
+and the worker picks the right host.
+
+**Why this pattern wins over cookies:**
+- No `MFL_USER_ID` cookie reading required
+- Works through cross-origin worker proxy (cookies don't survive cross-origin)
+- Reliable on every authenticated page; `_apiKey_` is always set when logged in
+- No CORS issues — APIKEY is a URL param, not a header
+
+**Where it doesn't work:**
+- Offline / not logged in (no `_apiKey_` set)
+- Outside MFL pages (e.g., local dev) — fall back to URL `?F=` param or picker
+
+**Response shape examples:**
+- `TYPE=myleagues` → `{ myleagues: { league: [{ league_id, franchise_id, name, host, ... }] } }`
+- `TYPE=myfranchise&L=<lid>` → `{ myfranchise: { id: "0008", name: "Real Deal Creel" } }`
+
 ### 7) Throttling and retry policy (recommended)
 
 - Baseline: 1 request/sec.
