@@ -125,19 +125,28 @@
     }
     return out;
   }
+  // MFL's salaries-export `contractYear` field is YEARS REMAINING
+  // (not years played). cy=1 means LAST year of contract; cy=0 means
+  // expired. Verified 2026-05-14 by sampling 15 multi-year vets in
+  // UPS L=74598 — cy ranges 0..2 for 3-yr deals, never 3. Same
+  // convention as src_contracts.contract_year in D1 (already
+  // documented in the D1 fallback path below).
   function yearsRemain(sal, info) {
     info = info || parseContractInfo(sal && sal.contractInfo);
     var cy = parseInt(sal && sal.contractYear, 10) || 0;
     var len = info.length;
-    if (len > 0 && cy > 0) return Math.max(0, len - cy + 1);
+    if (cy > 0) return cy;
     if (len > 0) return len;
     return 0;
   }
   function earnedToDate(sal, info) {
     info = info || parseContractInfo(sal && sal.contractInfo);
-    var cy = parseInt(sal && sal.contractYear, 10) || 1;
+    var len = info.length || 0;
+    var cy = parseInt(sal && sal.contractYear, 10) || 0;
+    // years already played = total length minus years remaining.
+    var played = Math.max(0, len - cy);
     var earned = 0;
-    for (var i = 1; i < cy; i++) {
+    for (var i = 1; i <= played; i++) {
       earned += info.yearVals[i] || 0;
     }
     return earned;
