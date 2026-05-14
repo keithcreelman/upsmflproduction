@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var BUILD = "2026.05.14.pages";
+  var BUILD = "2026.05.14.pages-workflow";
   var BOOT_FLAG = "__ups_team_operations_boot_" + BUILD;
   if (window[BOOT_FLAG]) {
     if (typeof window.UPS_TEAMOPS_INIT === "function") window.UPS_TEAMOPS_INIT();
@@ -398,14 +398,17 @@
   // there. iframes are lazy: src is set the first time the tab activates.
   // Iframe URLs use GitHub Pages — serves HTML with correct text/html
   // content-type (jsDelivr forces text/plain on HTML by policy, and 403s
-  // when the repo exceeds 50MB). Pages also has no size limit and a much
+  // when the repo exceeds 50MB). Pages has no size limit and a much
   // shorter cache TTL than jsDelivr (~10 min vs ~12hr). See #88.
   //
-  // Falls back to the /api/repo-html worker proxy if Pages is unreachable
-  // (e.g., during a Pages build, or for an unmerged branch view). The
-  // iframe.onerror handler in renderShell wires the fallback chain.
+  // Pages artifact root = site/ (see .github/workflows/pages-deploy.yml),
+  // so paths DROP the "/site/" prefix and live directly under the repo's
+  // Pages root.
+  //
+  // Falls back to the /api/repo-html worker proxy if Pages is unreachable.
+  // Wiring deferred until staged rollout PR 3.
   function hubUrl(relPath) {
-    return "https://keithcreelman.github.io/upsmflproduction/site/" + relPath;
+    return "https://keithcreelman.github.io/upsmflproduction/" + relPath;
   }
   function hubUrlFallback(relPath) {
     var ref = (window.UPS_RELEASE_SHA && String(window.UPS_RELEASE_SHA).trim()) || "main";
