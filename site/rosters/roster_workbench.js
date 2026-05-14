@@ -4230,7 +4230,7 @@
         url.searchParams.set("PLAYERS", slice.join(","));
         var apiKey = resolveApiKey();
         if (apiKey) url.searchParams.set("APIKEY", apiKey);
-        tasks.push(fetchJson(url.toString()));
+        tasks.push(fetchJson(url.toString(), { credentials: "omit" }));
       })(ids.slice(i, i + chunkSize));
     }
 
@@ -11827,7 +11827,7 @@
       var apiKey = resolveApiKey();
       if (apiKey) url.searchParams.set("APIKEY", apiKey);
 
-      return fetchJson(url.toString()).then(function (payload) {
+      return fetchJson(url.toString(), { credentials: "omit" }).then(function (payload) {
         var map = toByeMap(payload);
         var hasAny = Object.keys(map).some(function (team) {
           return !!safeStr(map[team]);
@@ -11843,23 +11843,33 @@
   }
 
   function loadDataFromDirectExports(ctx) {
-    var leagueUrl = buildExportUrl(ctx.hostOrigin, ctx.year, "league", { L: ctx.leagueId });
-    var rostersUrl = buildExportUrl(ctx.hostOrigin, ctx.year, "rosters", { L: ctx.leagueId });
-    var salariesUrl = buildExportUrl(ctx.hostOrigin, ctx.year, "salaries", { L: ctx.leagueId });
-    var salaryAdjUrl = buildExportUrl(ctx.hostOrigin, ctx.year, "salaryAdjustments", { L: ctx.leagueId });
+    // Always hit api.myfantasyleague.com for the direct-export fallback,
+    // NOT ctx.hostOrigin. When RWB is loaded inside the Team Ops iframe
+    // from GitHub Pages, ctx.hostOrigin is keithcreelman.github.io and
+    // every export URL 404s. The fallback only makes sense against MFL.
+    var leagueUrl = buildApiExportUrl(ctx.year, "league", { L: ctx.leagueId });
+    var rostersUrl = buildApiExportUrl(ctx.year, "rosters", { L: ctx.leagueId });
+    var salariesUrl = buildApiExportUrl(ctx.year, "salaries", { L: ctx.leagueId });
+    var salaryAdjUrl = buildApiExportUrl(ctx.year, "salaryAdjustments", { L: ctx.leagueId });
     var pointsUrl = buildApiExportUrl(ctx.year, "playerScores", { L: ctx.leagueId, W: "YTD" });
 
     var priorSeason = String(Math.max(0, safeInt(ctx.year, Number(ctx.year) || 0) - 1));
     var priorSalariesReq = priorSeason && priorSeason !== String(ctx.year)
-      ? fetchJson(buildExportUrl(ctx.hostOrigin, priorSeason, "salaries", { L: ctx.leagueId })).catch(function () { return {}; })
+      ? fetchJson(buildApiExportUrl(priorSeason, "salaries", { L: ctx.leagueId }), { credentials: "omit" }).catch(function () { return {}; })
       : Promise.resolve({});
 
+    // credentials:"omit" — MFL responds with Access-Control-Allow-Origin: *,
+    // which the browser will reject if combined with credentials:"include"
+    // (the fetchJson default). This is the same reason the worker-API
+    // call passes credentials:"omit" — cross-origin to MFL needs the
+    // request to be cookieless from the browser's POV.
+    var noCreds = { credentials: "omit" };
     return Promise.all([
-      fetchJson(leagueUrl),
-      fetchJson(rostersUrl),
-      fetchJson(salariesUrl).catch(function () { return {}; }),
-      fetchJson(salaryAdjUrl).catch(function () { return {}; }),
-      fetchJson(pointsUrl).catch(function () { return {}; }),
+      fetchJson(leagueUrl, noCreds),
+      fetchJson(rostersUrl, noCreds),
+      fetchJson(salariesUrl, noCreds).catch(function () { return {}; }),
+      fetchJson(salaryAdjUrl, noCreds).catch(function () { return {}; }),
+      fetchJson(pointsUrl, noCreds).catch(function () { return {}; }),
       fetchByesWithFallback(ctx),
       priorSalariesReq
     ]).then(function (parts) {
