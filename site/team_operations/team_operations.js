@@ -72,6 +72,7 @@
     players: null,
     injuries: null,
     playerNews: null,
+    salaryAdjustments: null,
     capAmount: 0,
     loadErrors: [],
     lastLoaded: null,
@@ -199,6 +200,10 @@
       ["nflByeWeeks", fetchJson(mflExportUrl("nflByeWeeks"))],
       ["injuries", fetchJson(mflExportUrl("injuries"))],
       ["calendar", fetchJson(mflExportUrl("calendar"))],
+      // Salary adjustments — per-franchise penalty / bonus ledger that
+      // counts against the cap alongside player salaries. Source for the
+      // Adjustments line on the Franchise Summary card.
+      ["salaryAdjustments", fetchJson(mflExportUrl("salaryAdjustments"))],
       // myfranchise — authoritative user-identity lookup via APIKEY.
       // MFL exposes window._apiKey_ on authenticated pages; we pass
       // that key as ?APIKEY=... and route through the worker proxy to
@@ -374,6 +379,34 @@
         contractStatus: r.contractStatus || safeStr(sp.contractStatus)
       };
     });
+  }
+
+  // Sums salaryAdjustments for the viewer's franchise. MFL ships them as
+  // { salaryAdjustments: { salaryAdjustment: [{ franchise_id, amount, description }, ...] } }.
+  // `amount` is positive when it ADDS to a franchise's salary (e.g. cap
+  // penalty pushed by the cap-penalty cron). Negative if it returns cap.
+  // Returns { total, items: [...] } so the card can also show a breakdown.
+  function getMyAdjustments() {
+    var fid = state.viewerFranchiseId;
+    if (!fid || !state.salaryAdjustments) return { total: 0, items: [] };
+    var root = state.salaryAdjustments.salaryAdjustments || state.salaryAdjustments;
+    var raw = (root && (root.salaryAdjustment || root.salary_adjustment)) || [];
+    var list = asArray(raw);
+    var items = [];
+    var total = 0;
+    list.forEach(function (a) {
+      if (!a) return;
+      if (pad4(a.franchise_id || a.franchise) !== pad4(fid)) return;
+      var amt = Number(a.amount || 0);
+      if (!amt) return;
+      total += amt;
+      items.push({
+        amount: amt,
+        description: safeStr(a.description || a.note || ""),
+        timestamp: safeStr(a.timestamp || a.date || "")
+      });
+    });
+    return { total: total, items: items };
   }
 
   function getInjuryFor(playerId) {
@@ -562,28 +595,49 @@
     // Universal taxi rule: salary is real money but DOES NOT count vs the
     // cap. Split the totals so the headline "Cap Used" is cap-relevant
     // only; taxi $ surfaces as a secondary callout.
-    var capUsed = 0;
+    var salaryTotal = 0;
     var taxiSalary = 0;
     salaries.forEach(function (s) {
       var amt = Number(s.salary || 0);
       if (/taxi/i.test(statusById[s.id] || "")) taxiSalary += amt;
-      else capUsed += amt;
+      else salaryTotal += amt;
     });
+    // Salary adjustments — cap penalties (positive = cap-charging, e.g.
+    // drop penalties; negative = cap credit) per the salaryAdjustments
+    // export. Folds into the Total displayed as the headline number.
+    var adj = getMyAdjustments();
+    var adjustmentsTotal = adj.total;
+    var capTotal = salaryTotal + adjustmentsTotal;
     var cap = state.capAmount;
-    var remain = cap - capUsed;
-    var pct = cap > 0 ? Math.min(100, Math.round((capUsed / cap) * 100)) : 0;
+    var remain = cap - capTotal;
+    var pct = cap > 0 ? Math.min(100, Math.round((capTotal / cap) * 100)) : 0;
 
     var rosterCount = roster.length;
     var irCount = roster.filter(function (p) { return /ir/i.test(p.status); }).length;
     var taxiCount = roster.filter(function (p) { return /taxi/i.test(p.status); }).length;
     var activeCount = rosterCount - irCount - taxiCount;
 
+    // Adjustment line styling: warm-tone when positive (cap-charging),
+    // green when negative (cap credit), dim when zero.
+    var adjClass = adjustmentsTotal > 0 ? 'tops-kv-split-warn'
+                  : adjustmentsTotal < 0 ? 'tops-kv-split-ok'
+                  : 'tops-kv-split-zero';
+    var adjPrefix = adjustmentsTotal > 0 ? "+" : "";
+    var adjCount = adj.items.length;
+
     el.innerHTML = [
       '<div class="tops-card-title">Franchise Summary</div>',
       '<div class="tops-summary-grid">',
       '  <div class="tops-kv">',
-      '    <div class="tops-kv-label">Cap Used</div>',
-      '    <div class="tops-kv-value">' + fmtUsd(capUsed) + '</div>',
+      '    <div class="tops-kv-label">Cap Total</div>',
+      '    <div class="tops-kv-value">' + fmtUsd(capTotal) + '</div>',
+      '    <div class="tops-kv-split">',
+      '      <span class="tops-kv-split-line"><span class="tops-kv-split-k">Salary</span><span class="tops-kv-split-v">' + fmtUsd(salaryTotal) + '</span></span>',
+      '      <span class="tops-kv-split-line ' + adjClass + '">',
+      '        <span class="tops-kv-split-k">Adjustments' + (adjCount > 0 ? ' <span style="opacity:0.7;">(' + adjCount + ')</span>' : '') + '</span>',
+      '        <span class="tops-kv-split-v">' + adjPrefix + fmtUsd(adjustmentsTotal) + '</span>',
+      '      </span>',
+      '    </div>',
       '    <div class="tops-kv-note">' + pct + '% of ' + fmtUsd(cap) +
         (taxiSalary > 0 ? ' · <span style="opacity:0.75;">+ ' + fmtUsd(taxiSalary) + ' taxi (off-cap)</span>' : '') +
         '</div>',
@@ -592,7 +646,9 @@
       '  <div class="tops-kv">',
       '    <div class="tops-kv-label">Cap Room</div>',
       '    <div class="tops-kv-value">' + fmtUsd(remain) + '</div>',
-      '    <div class="tops-kv-note">Projected remaining</div>',
+      '    <div class="tops-kv-note">' + fmtUsd(cap) + ' cap − ' + fmtUsd(salaryTotal) + ' salary' +
+        (adjustmentsTotal !== 0 ? ' − ' + adjPrefix + fmtUsd(adjustmentsTotal) + ' adj' : '') +
+        '</div>',
       '  </div>',
       '  <div class="tops-kv">',
       '    <div class="tops-kv-label">Roster</div>',

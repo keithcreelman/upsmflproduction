@@ -1,0 +1,2410 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>UPS Standings v2 (preview)</title>
+  <style>
+    :root {
+      --bg: #061a3a;
+      --panel: #0d2b57;
+      --panel-2: #0f2f5e;
+      --line: #2a4f86;
+      --line-soft: rgba(92, 129, 173, 0.25);
+      --text: #e8effa;
+      --muted: #b9c8e2;
+      --dim: rgba(232, 239, 250, 0.5);
+      --gold: #e7be59;
+      --gold-deep: #d99300;
+      --teal: #7de8d9;
+      --navy: #05224f;
+      --warn: #ff8a65;
+      --silver: #c8d2dd;
+      --bronze: #cd7f32;
+      --hawktuah: #6e3c1e;
+      --champ-bg: rgba(231, 190, 89, 0.15);
+      --hawk-bg: rgba(255, 138, 101, 0.15);
+    }
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Open Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+      min-height: 100vh;
+    }
+    a { color: var(--teal); }
+    .wrap {
+      max-width: 1340px;
+      margin: 0 auto;
+      padding: 14px;
+    }
+    .card {
+      background: linear-gradient(180deg, rgba(14,44,88,0.98), rgba(8,29,61,0.98));
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 10px 24px rgba(0,0,0,0.35);
+    }
+    .head {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(5, 24, 52, 0.55);
+      flex-wrap: wrap;
+    }
+    .title {
+      font-size: 22px;
+      font-weight: 900;
+      letter-spacing: 0.04em;
+      color: var(--gold);
+    }
+    .sub {
+      font-size: 11px;
+      color: var(--muted);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+    .preview-badge {
+      background: rgba(125, 232, 217, 0.12);
+      border: 1px solid rgba(125, 232, 217, 0.4);
+      color: var(--teal);
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .controls {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-left: auto;
+    }
+    .views {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(5, 24, 52, 0.3);
+    }
+    .view-btn {
+      background: transparent;
+      border: 1px solid var(--line);
+      color: var(--muted);
+      padding: 7px 14px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      font-family: inherit;
+    }
+    .view-btn:hover {
+      border-color: var(--gold);
+      color: var(--text);
+    }
+    .view-btn[data-active="1"] {
+      background: rgba(231, 190, 89, 0.16);
+      border-color: var(--gold);
+      color: var(--gold);
+    }
+    .year-picker, .scope-picker {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 12px;
+      letter-spacing: 0.04em;
+    }
+    .year-picker select, .scope-picker select {
+      background: var(--navy);
+      color: var(--text);
+      border: 1px solid var(--line);
+      padding: 5px 10px;
+      border-radius: 5px;
+      font-size: 12px;
+      font-family: inherit;
+    }
+    .scope-picker.disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+    .body {
+      padding: 16px;
+      min-height: 320px;
+    }
+    .loading, .empty, .err {
+      text-align: center;
+      color: var(--muted);
+      padding: 40px 20px;
+      font-size: 13px;
+    }
+    .err { color: var(--warn); }
+    .methodology {
+      background: rgba(125, 232, 217, 0.06);
+      border: 1px dashed rgba(125, 232, 217, 0.3);
+      color: var(--muted);
+      padding: 10px 14px;
+      border-radius: 6px;
+      font-size: 12px;
+      line-height: 1.55;
+      margin-bottom: 14px;
+    }
+    .methodology strong { color: var(--text); }
+    .methodology code {
+      background: rgba(0, 0, 0, 0.3);
+      padding: 1px 4px;
+      border-radius: 3px;
+      color: var(--teal);
+      font-size: 11px;
+    }
+    .banner {
+      background: rgba(231, 190, 89, 0.1);
+      border: 1px solid rgba(231, 190, 89, 0.3);
+      color: var(--gold);
+      padding: 14px 18px;
+      border-radius: 6px;
+      font-size: 13px;
+    }
+    .note {
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 11px;
+      font-style: italic;
+    }
+    .deferred-note {
+      margin-top: 14px;
+      padding: 8px 12px;
+      background: rgba(255, 138, 101, 0.08);
+      border-left: 3px solid var(--warn);
+      color: var(--muted);
+      font-size: 11px;
+      border-radius: 0 4px 4px 0;
+    }
+    .deferred-note strong { color: var(--warn); }
+
+    /* ─── Tables ─── */
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th, td {
+      padding: 7px 10px;
+      text-align: left;
+      border-bottom: 1px solid var(--line-soft);
+    }
+    th {
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      white-space: nowrap;
+      font-weight: 700;
+    }
+    th.sortable {
+      cursor: pointer;
+      user-select: none;
+    }
+    th.sortable:hover { color: var(--gold); }
+    th.sortable[data-sort-active="1"] { color: var(--gold); }
+    th.sortable[data-sort-active="1"]::after {
+      content: " ▾";
+      font-size: 9px;
+      opacity: 0.7;
+    }
+    th.sortable[data-sort-active="1"][data-sort-dir="asc"]::after { content: " ▴"; }
+    tbody tr:hover td { background: rgba(125, 232, 217, 0.04); }
+    td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+    .compact th, .compact td { padding: 4px 7px; font-size: 11px; }
+
+    .team-logo {
+      width: 18px;
+      height: 18px;
+      border-radius: 3px;
+      margin-right: 7px;
+      vertical-align: middle;
+      object-fit: cover;
+    }
+    .leader-pill {
+      display: inline-block;
+      background: var(--gold);
+      color: #1a1208;
+      font-size: 9px;
+      font-weight: 800;
+      padding: 1px 6px;
+      border-radius: 3px;
+      margin-left: 7px;
+      letter-spacing: 0.08em;
+    }
+    .seed-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      padding: 2px 7px;
+      border-radius: 12px;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+    }
+    .seed-badge.champ {
+      background: var(--champ-bg);
+      border: 1px solid rgba(231, 190, 89, 0.5);
+      color: var(--gold);
+    }
+    .seed-badge.hawk {
+      background: var(--hawk-bg);
+      border: 1px solid rgba(255, 138, 101, 0.5);
+      color: var(--warn);
+    }
+    .seed-badge.none {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: var(--dim);
+    }
+    .partial-badge {
+      display: inline-block;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      color: var(--dim);
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      margin-left: 5px;
+      vertical-align: middle;
+    }
+    tr.partial td { opacity: 0.6; }
+    tr.leader-row td:first-child { border-left: 2px solid var(--gold); }
+
+    /* ─── Divisions view ─── */
+    .conf-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 6px 8px;
+      margin: 16px 0 8px;
+      border-bottom: 1px solid var(--line);
+    }
+    .conf-header:first-child { margin-top: 0; }
+    .conf-name {
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--teal);
+    }
+    .conf-ap {
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .conf-ap .val {
+      color: var(--teal);
+      font-variant-numeric: tabular-nums;
+      font-weight: 700;
+      font-size: 14px;
+      text-transform: none;
+      letter-spacing: 0;
+      margin-left: 6px;
+    }
+    .div-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(480px, 1fr));
+      gap: 16px;
+    }
+    .div-grid + .conf-header { margin-top: 24px; }
+    .div-card {
+      background: linear-gradient(180deg, rgba(14,44,88,0.6), rgba(5,24,52,0.6));
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 0;
+      overflow: hidden;
+    }
+    .div-card-header {
+      padding: 12px 16px;
+      background: rgba(5, 24, 52, 0.6);
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .div-card-name {
+      font-size: 17px;
+      font-weight: 800;
+      color: var(--gold);
+      letter-spacing: 0.02em;
+      line-height: 1.2;
+    }
+    .div-card-ap {
+      text-align: right;
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .div-card-ap .val {
+      display: block;
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--teal);
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 0;
+      text-transform: none;
+      margin-top: 2px;
+    }
+    .div-card-body { padding: 4px 12px 12px; }
+    .div-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto auto auto auto;
+      gap: 14px;
+      align-items: center;
+      padding: 10px 8px;
+      border-bottom: 1px solid var(--line-soft);
+      font-size: 13px;
+    }
+    .div-tb-note {
+      grid-column: 1 / -1;
+      font-size: 10px;
+      color: var(--muted);
+      font-style: italic;
+      padding: 2px 0 4px 32px;
+      letter-spacing: 0.02em;
+    }
+    .div-tb-note .step { color: var(--gold); font-weight: 700; font-style: normal; text-transform: uppercase; letter-spacing: 0.06em; font-size: 9px; }
+    .div-row:last-child { border-bottom: none; }
+    .div-row.leader {
+      background: linear-gradient(90deg, rgba(231,190,89,0.08), rgba(231,190,89,0));
+      border-left: 3px solid var(--gold);
+      padding-left: 5px;
+    }
+    .div-row .team-block {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+    .div-row .team-name {
+      font-weight: 700;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .div-row .owner {
+      font-size: 11px;
+      color: var(--muted);
+      display: block;
+      margin-top: 1px;
+    }
+    .div-row .stat {
+      font-variant-numeric: tabular-nums;
+      font-size: 12px;
+      text-align: right;
+      min-width: 56px;
+    }
+    .div-row .stat-label {
+      font-size: 9px;
+      color: var(--muted);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    /* ─── True bracket layout ─── */
+    .bracket-section {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 18px;
+      margin-bottom: 18px;
+    }
+    .bracket-section h3 {
+      font-size: 14px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--gold);
+      margin: 0 0 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .bracket-section.hawktuah h3 { color: #ffc99b; }
+    /* The bracket itself: 4 columns (R1 / Semis / Final / Champion).
+       Each column is a flex container with matchup cells distributed
+       to roughly line up the connectors. */
+    .bracket {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr 0.85fr;
+      gap: 18px;
+      overflow-x: auto;
+      min-height: 360px;
+    }
+    .bracket-col {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      min-width: 200px;
+    }
+    .bracket-col-header {
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--line-soft);
+      margin-bottom: 2px;
+      text-align: center;
+      font-weight: 700;
+    }
+    .bracket-col-header .wk {
+      display: block;
+      color: var(--teal);
+      font-size: 9px;
+      margin-top: 2px;
+      letter-spacing: 0.12em;
+    }
+    .bracket-col-r1, .bracket-col-semis, .bracket-col-final, .bracket-col-champion {
+      flex: 1 1 auto;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-around;
+      gap: 10px;
+    }
+    .bracket-slot {
+      position: relative;
+    }
+    /* Connector lines between rounds (right edge of each matchup). */
+    .bracket-slot.has-connector::after {
+      content: "";
+      position: absolute;
+      right: -10px;
+      top: 50%;
+      width: 10px;
+      height: 1px;
+      background: var(--line);
+    }
+    .matchup {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: rgba(5, 24, 52, 0.6);
+      overflow: hidden;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    }
+    .matchup.bye {
+      border-style: dashed;
+      background: rgba(5, 24, 52, 0.3);
+    }
+    .matchup-team {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      font-size: 12px;
+      color: var(--muted);
+      position: relative;
+    }
+    .matchup-team + .matchup-team { border-top: 1px solid var(--line-soft); }
+    .matchup-team.winner {
+      color: var(--text);
+      font-weight: 700;
+      background: rgba(231, 190, 89, 0.12);
+      border-left: 3px solid var(--gold);
+    }
+    .matchup-team.winner::after {
+      content: "W";
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: var(--gold);
+      color: #1a1208;
+      font-size: 9px;
+      font-weight: 800;
+      padding: 1px 5px;
+      border-radius: 3px;
+      letter-spacing: 0.04em;
+    }
+    .matchup-team.winner .matchup-score { padding-right: 24px; }
+    .matchup-team.loser { opacity: 0.6; }
+    .matchup-team.bye-row {
+      font-style: italic;
+      color: var(--dim);
+      justify-content: center;
+      padding: 6px 10px;
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+    .matchup-seed {
+      display: inline-block;
+      width: 22px;
+      text-align: center;
+      font-weight: 800;
+      color: var(--gold);
+      font-size: 11px;
+    }
+    .matchup-seed.unranked {
+      color: var(--dim);
+      font-weight: 600;
+    }
+    .matchup-name {
+      flex: 1 1 auto;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .matchup-score {
+      font-variant-numeric: tabular-nums;
+      font-weight: 700;
+      font-size: 12px;
+    }
+    /* Champion column — single highlighted card. */
+    .champion-card {
+      background: linear-gradient(135deg, rgba(231,190,89,0.16), rgba(217,147,0,0.1));
+      border: 2px solid var(--gold);
+      border-radius: 8px;
+      padding: 18px 14px;
+      text-align: center;
+      box-shadow: 0 4px 14px rgba(231,190,89,0.15);
+    }
+    .champion-card.hawk-champ {
+      background: linear-gradient(135deg, rgba(110,60,30,0.4), rgba(110,60,30,0.15));
+      border-color: #ffc99b;
+      box-shadow: 0 4px 14px rgba(110,60,30,0.25);
+    }
+    .champion-label {
+      font-size: 9px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--muted);
+      font-weight: 700;
+    }
+    .champion-icon { font-size: 32px; margin: 6px 0 2px; }
+    .champion-name {
+      font-size: 14px;
+      font-weight: 800;
+      color: var(--text);
+      line-height: 1.2;
+      margin-bottom: 4px;
+    }
+    .champion-owner {
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .champion-pending {
+      color: var(--muted);
+      font-size: 11px;
+      font-style: italic;
+    }
+    /* Consolation row underneath the main bracket. */
+    .bracket-consolation {
+      margin-top: 18px;
+      padding-top: 14px;
+      border-top: 1px dashed var(--line-soft);
+    }
+    .bracket-consolation-label {
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+    .bracket-consolation-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 10px;
+    }
+    @media (max-width: 760px) {
+      .bracket { grid-template-columns: 1fr; }
+      .bracket-col { min-width: unset; }
+    }
+
+    /* ─── Historical Finishes grid ─── */
+    .hist-table { font-variant-numeric: tabular-nums; }
+    .hist-table th, .hist-table td { text-align: center; padding: 4px 6px; }
+    .hist-team { text-align: left !important; white-space: nowrap; min-width: 180px; }
+    .hist-team .owner { font-weight: 700; }
+    .hist-team .team { font-size: 10px; color: var(--muted); display: block; }
+    .hist-cell { font-weight: 700; }
+    .hist-cell.empty { color: rgba(255, 255, 255, 0.15); }
+    .hist-cell.champ {
+      background: linear-gradient(135deg, var(--gold), var(--gold-deep));
+      color: #1a1208;
+      border-radius: 3px;
+    }
+    .hist-cell.silver {
+      background: linear-gradient(135deg, var(--silver), #95a3b5);
+      color: #1a1208;
+      border-radius: 3px;
+    }
+    .hist-cell.bronze {
+      background: linear-gradient(135deg, var(--bronze), #8b5a1f);
+      color: #f7e9d0;
+      border-radius: 3px;
+    }
+    .hist-cell.hawktuah {
+      background: rgba(110, 60, 30, 0.5);
+      color: #ffc99b;
+      border-radius: 3px;
+    }
+
+    /* ─── Hall of Champions ─── */
+    .hoc-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+      gap: 16px;
+    }
+    .hoc-card {
+      background: linear-gradient(180deg, rgba(231,190,89,0.10), rgba(14,44,88,0.45) 35%);
+      border: 1px solid var(--gold);
+      border-radius: 10px;
+      padding: 16px;
+      box-shadow: 0 6px 20px rgba(231,190,89,0.08);
+    }
+    .hoc-card-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid rgba(231,190,89,0.25);
+    }
+    .hoc-season {
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--gold);
+    }
+    .hoc-trophy { font-size: 24px; }
+    .hoc-team {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    .hoc-logo {
+      width: 48px; height: 48px;
+      border-radius: 6px;
+      object-fit: cover;
+      border: 1px solid rgba(255,255,255,0.18);
+      background: var(--navy);
+    }
+    .hoc-team-name {
+      font-size: 17px;
+      font-weight: 800;
+      color: var(--text);
+      line-height: 1.1;
+    }
+    .hoc-owner {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+    .hoc-stats {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px 14px;
+      margin-bottom: 14px;
+    }
+    .hoc-stat-rank { grid-column: 1 / -1; }
+    .hoc-stat-k {
+      font-size: 9px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      font-weight: 700;
+    }
+    .hoc-stat-v {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text);
+      font-variant-numeric: tabular-nums;
+      margin-top: 1px;
+    }
+    .hoc-stat-pct {
+      font-size: 11px;
+      color: var(--muted);
+      font-weight: 600;
+      margin-left: 6px;
+    }
+    .hoc-final {
+      background: rgba(5, 24, 52, 0.55);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 10px 12px;
+    }
+    .hoc-final-label {
+      font-size: 9px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    .hoc-final-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 3px 0;
+    }
+    .hoc-final-team {
+      font-size: 12px;
+      color: var(--text);
+      font-weight: 600;
+    }
+    .hoc-final-owner {
+      font-size: 10px;
+      color: var(--muted);
+      font-weight: 400;
+    }
+    .hoc-final-score {
+      font-variant-numeric: tabular-nums;
+      font-weight: 700;
+      color: var(--muted);
+    }
+    .hoc-final-score.champ-win { color: var(--gold); }
+    .hoc-box-link {
+      display: inline-block;
+      margin-top: 8px;
+      font-size: 11px;
+      letter-spacing: 0.04em;
+      color: var(--teal);
+      text-decoration: none;
+    }
+    .hoc-box-link:hover { color: var(--gold); text-decoration: underline; }
+
+    /* ─── Eras ─── */
+    .era-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+      gap: 14px;
+    }
+    .era-card {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 16px;
+      min-width: 0;
+    }
+    .era-card-scroll {
+      overflow-x: auto;
+      margin: 0 -4px;
+      padding: 0 4px;
+    }
+    .era-card .compact { min-width: 540px; }
+    .era-cycle {
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+    .era-name {
+      font-size: 16px;
+      font-weight: 800;
+      color: var(--gold);
+      margin: 4px 0 12px;
+      line-height: 1.3;
+    }
+    .era-captains-label {
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-top: 12px;
+      margin-bottom: 6px;
+    }
+    .era-captains {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      margin-bottom: 14px;
+    }
+    .cap-pill {
+      background: rgba(125, 232, 217, 0.1);
+      border: 1px solid rgba(125, 232, 217, 0.3);
+      color: var(--teal);
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .cap-empty { font-size: 11px; color: var(--muted); font-style: italic; }
+
+    /* ─── Division Power Rankings owner pills ─── */
+    .dp-owner {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 7px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      font-size: 11px;
+      white-space: nowrap;
+      margin-right: 2px;
+    }
+    .dp-owner .dp-name { color: var(--text); font-weight: 600; }
+    .dp-owner .dp-ap { color: var(--muted); font-variant-numeric: tabular-nums; }
+    .dp-owner.dp-winner {
+      background: rgba(231, 190, 89, 0.16);
+      border-color: var(--gold);
+    }
+    .dp-owner.dp-winner .dp-name { color: var(--gold); font-weight: 800; }
+    .dp-owner.dp-winner .dp-ap { color: var(--gold); }
+
+    /* ─── Division Power Rankings modes ─── */
+    .mode-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-bottom: 12px;
+    }
+    .mode-btn {
+      background: transparent;
+      border: 1px solid var(--line);
+      color: var(--muted);
+      padding: 5px 12px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      border-radius: 5px;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .mode-btn[data-active="1"] {
+      background: rgba(231, 190, 89, 0.16);
+      border-color: var(--gold);
+      color: var(--gold);
+    }
+
+    .footer {
+      padding: 12px 16px;
+      border-top: 1px solid var(--line);
+      background: rgba(5, 24, 52, 0.55);
+      color: var(--muted);
+      font-size: 11px;
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .footer code { background: rgba(0,0,0,0.3); padding: 1px 4px; border-radius: 3px; color: var(--teal); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <header class="head">
+        <div>
+          <div class="title">UPS Standings <span class="preview-badge">v2 preview</span></div>
+          <div class="sub">D1-backed · full history · pending review</div>
+        </div>
+        <div class="controls">
+          <label class="year-picker">Season <select id="yearSel"></select></label>
+          <label class="scope-picker disabled" title="Coming soon — needs week-range aggregation in the worker">
+            Scope
+            <select id="scopeSel" disabled>
+              <option>All</option><option>Reg Season</option><option>Playoffs</option><option>Custom weeks…</option>
+            </select>
+          </label>
+        </div>
+      </header>
+
+      <nav class="views" id="viewNav"></nav>
+
+      <main class="body" id="body">
+        <div class="loading">Loading…</div>
+      </main>
+
+      <footer class="footer">
+        <span>Source: D1 via worker <code id="workerLbl"></code></span>
+        <span>Methodology + tenure rules: <code>docs/standings_advanced_stats_proposals.md</code></span>
+      </footer>
+    </div>
+  </div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ────────────────────────────────────────────────────────────────────────
+  // Config
+  // ────────────────────────────────────────────────────────────────────────
+  var qs = new URL(window.location.href).searchParams;
+  var WORKER_BASE = qs.get("worker") || "https://upsmflproduction.keith-creelman.workers.dev";
+  var FIRST_YEAR = 2010;
+  var ERA_FIRST = 2011;
+  var VIEWS = [
+    { id: "overall",     label: "Overall" },
+    { id: "divisions",   label: "Divisions" },
+    { id: "bracket",     label: "Playoff Bracket" },
+    { id: "draftOrder",  label: "Draft Order Finish" },
+    { id: "hallOfChamps",label: "Hall of Champions" },
+    { id: "historical",  label: "Historical Finishes" },
+    { id: "eras",        label: "3-Year Eras" },
+    { id: "divPower",    label: "Division Power Rankings" }
+  ];
+
+  var state = {
+    view: qs.get("view") || "overall",
+    year: parseInt(qs.get("year"), 10) || (new Date().getUTCFullYear()),
+    overall: { sortKey: "allplay_pct", sortDir: "desc" },
+    divisions: { sortKey: "allplay_pct", sortDir: "desc" },
+    dpMode: "allTime",
+    dpSort: { key: "ap_pct", dir: "desc" },
+    cache: {}
+  };
+
+  // ────────────────────────────────────────────────────────────────────────
+  // Helpers
+  // ────────────────────────────────────────────────────────────────────────
+  function el(id) { return document.getElementById(id); }
+  function escapeHtml(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;").replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+  function pad4(v) { var s = String(v == null ? "" : v); while (s.length < 4) s = "0" + s; return s; }
+  function fmtPct(p) {
+    if (p == null || isNaN(p)) return "—";
+    return (Number(p) * 100).toFixed(1) + "%";
+  }
+  function fmtCommas(n, digits) {
+    if (n == null || isNaN(n)) return "—";
+    return Number(n).toLocaleString(undefined, { minimumFractionDigits: digits || 0, maximumFractionDigits: digits || 0 });
+  }
+  function fmtDec(n, digits) {
+    if (n == null || isNaN(n)) return "—";
+    return Number(n).toFixed(digits == null ? 2 : digits);
+  }
+  function rec(w, l, t) {
+    return (w || 0) + "-" + (l || 0) + (t ? "-" + t : "");
+  }
+  function fetchD1(endpoint, year) {
+    var key = endpoint + "|" + (year == null ? "" : year);
+    if (state.cache[key]) return Promise.resolve(state.cache[key]);
+    var url = WORKER_BASE + endpoint + (year ? (endpoint.indexOf("?") >= 0 ? "&" : "?") + "year=" + encodeURIComponent(year) : "");
+    return fetch(url, { credentials: "omit", mode: "cors" })
+      .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+      .then(function (json) { state.cache[key] = json; return json; });
+  }
+  function pushQs() {
+    try {
+      var u = new URL(window.location.href);
+      u.searchParams.set("view", state.view);
+      u.searchParams.set("year", String(state.year));
+      window.history.replaceState(null, "", u.toString());
+    } catch (e) {}
+  }
+  function divisionLabel(r) {
+    return r.division_name || ("Division " + (r.division || "—"));
+  }
+  // Sort utility: stable, click-to-sort.
+  function sortRows(rows, key, dir) {
+    var copy = rows.slice();
+    copy.sort(function (a, b) {
+      var av = a[key], bv = b[key];
+      if (av == null && bv == null) return 0;
+      if (av == null) return 1;
+      if (bv == null) return -1;
+      if (typeof av === "string" || typeof bv === "string") {
+        av = String(av).toLowerCase(); bv = String(bv).toLowerCase();
+        return dir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
+      }
+      return dir === "asc" ? (av - bv) : (bv - av);
+    });
+    return copy;
+  }
+  // Build a clickable th. `align` = "left" or "num".
+  function sortableHeader(label, key, sortState, align) {
+    var active = sortState.key === key ? "1" : "0";
+    return '<th class="sortable' + (align === "num" ? " num" : "") + '" data-sort-key="' + escapeHtml(key) + '" data-sort-active="' + active + '" data-sort-dir="' + sortState.dir + '">' + escapeHtml(label) + '</th>';
+  }
+  function wireSortClicks(host, sortState, rerender) {
+    host.querySelectorAll("th.sortable").forEach(function (th) {
+      th.addEventListener("click", function () {
+        var key = th.getAttribute("data-sort-key");
+        if (sortState.key === key) {
+          sortState.dir = sortState.dir === "asc" ? "desc" : "asc";
+        } else {
+          sortState.key = key;
+          sortState.dir = (key === "owner_name" || key === "franchise_name" || key === "division" || key === "division_name") ? "asc" : "desc";
+        }
+        rerender();
+      });
+    });
+  }
+
+  // ────────────────────────────────────────────────────────────────────────
+  // Shell
+  // ────────────────────────────────────────────────────────────────────────
+  function renderShell() {
+    el("workerLbl").textContent = WORKER_BASE;
+    var nav = el("viewNav");
+    nav.innerHTML = VIEWS.map(function (v) {
+      return '<button type="button" class="view-btn" data-view="' + v.id + '" data-active="' + (v.id === state.view ? "1" : "0") + '">' + escapeHtml(v.label) + '</button>';
+    }).join("");
+    nav.querySelectorAll("[data-view]").forEach(function (b) {
+      b.addEventListener("click", function () { state.view = b.getAttribute("data-view"); pushQs(); render(); });
+    });
+    var sel = el("yearSel");
+    var years = [];
+    var currentYear = (new Date().getUTCFullYear());
+    for (var y = currentYear; y >= FIRST_YEAR; y--) years.push(y);
+    sel.innerHTML = years.map(function (y) {
+      return '<option value="' + y + '"' + (y === state.year ? " selected" : "") + '>' + y + '</option>';
+    }).join("");
+    sel.addEventListener("change", function () { state.year = parseInt(sel.value, 10); pushQs(); render(); });
+  }
+
+  function render() {
+    el("viewNav").querySelectorAll("[data-view]").forEach(function (b) {
+      b.setAttribute("data-active", b.getAttribute("data-view") === state.view ? "1" : "0");
+    });
+    var body = el("body");
+    body.innerHTML = '<div class="loading">Loading…</div>';
+    var v = state.view;
+    if (v === "overall")    return renderOverall(body);
+    if (v === "divisions")  return renderDivisions(body);
+    if (v === "bracket")    return renderBracket(body);
+    if (v === "draftOrder") return renderDraftOrder(body);
+    if (v === "hallOfChamps") return renderHallOfChampions(body);
+    if (v === "historical") return renderHistorical(body);
+    if (v === "eras")       return renderEras(body);
+    if (v === "divPower")   return renderDivPower(body);
+  }
+
+  function showError(host, msg) {
+    host.innerHTML = '<div class="err">' + escapeHtml(msg) + '</div>';
+  }
+  // Deferred-feature footer used inside several views.
+  var DEFERRED_NOTE = '<div class="deferred-note"><strong>Coming soon:</strong> Reg-Season / Playoffs / All toggle + Week range filter '
+    + '(needs worker support to aggregate over a week subset). Bracket "True Draft Order" overlay '
+    + '(maps each playoff result to next year\'s rookie pick 1.01-1.12 per league_context_v1.md §1) — '
+    + 'requires <code>src_final_standings</code> to be loaded into D1.</div>';
+
+  // ────────────────────────────────────────────────────────────────────────
+  // Seed map helper — used by Overall view to badge Champ/Hawktuah seeds
+  // ────────────────────────────────────────────────────────────────────────
+  function buildSeedMap(seeds) {
+    // seeds = ordered by AP%/PCT/PF desc; first 6 = Champ side, 7-12 = Hawktuah.
+    var map = {};
+    (seeds || []).forEach(function (s, i) {
+      var n = i + 1;
+      map[pad4(s.franchise_id)] = { seed: n, side: n <= 6 ? "champ" : "hawk" };
+    });
+    return map;
+  }
+  function seedBadge(seedInfo) {
+    if (!seedInfo) return '<span class="seed-badge none">—</span>';
+    if (seedInfo.side === "champ") return '<span class="seed-badge champ" title="UPS Championship seed">🏆 ' + seedInfo.seed + '</span>';
+    return '<span class="seed-badge hawk" title="Hawktuah Bowl seed">🦅 ' + seedInfo.seed + '</span>';
+  }
+
+  // ────────────────────────────────────────────────────────────────────────
+  // View 1 — Overall
+  // ────────────────────────────────────────────────────────────────────────
+  function renderOverall(host) {
+    Promise.all([
+      fetchD1("/api/standings", state.year),
+      fetchD1("/api/playoff-bracket", state.year)
+    ]).then(function (results) {
+      var resp = results[0], brk = results[1];
+      if (!resp || !resp.ok) return showError(host, "Couldn't load standings for " + state.year + ".");
+      var seedMap = buildSeedMap(brk && brk.seeds);
+      var rows = sortRows(resp.rows || [], state.overall.sortKey, state.overall.sortDir);
+      var sortHdrs = state.overall;
+      var head = '<tr>'
+        + '<th class="num">#</th>'
+        + '<th>Seed</th>'
+        + sortableHeader("Team", "franchise_name", sortHdrs)
+        + sortableHeader("Owner", "owner_name", sortHdrs)
+        + sortableHeader("Division", "division_name", sortHdrs)
+        + sortableHeader("W-L-T", "h2h_w", sortHdrs)
+        + sortableHeader("PCT", "h2h_pct", sortHdrs, "num")
+        + sortableHeader("Div", "div_w", sortHdrs)
+        + sortableHeader("AP W-L-T", "allplay_w", sortHdrs)
+        + sortableHeader("AP %", "allplay_pct", sortHdrs, "num")
+        + sortableHeader("PF", "pf", sortHdrs, "num")
+        + sortableHeader("PA", "pa", sortHdrs, "num")
+        + sortableHeader("PP", "pp", sortHdrs, "num")
+        + sortableHeader("EFF", "eff", sortHdrs, "num")
+        + '</tr>';
+      var body = rows.map(function (r, i) {
+        var s = seedMap[pad4(r.franchise_id)];
+        return '<tr>'
+          + '<td class="num">' + (i + 1) + '</td>'
+          + '<td>' + seedBadge(s) + '</td>'
+          + '<td>' + (r.logo ? '<img class="team-logo" src="' + escapeHtml(r.logo) + '" alt="">' : '') + escapeHtml(r.franchise_name || r.franchise_id) + '</td>'
+          + '<td>' + escapeHtml(r.owner_name || "") + '</td>'
+          + '<td>' + escapeHtml(divisionLabel(r)) + '</td>'
+          + '<td>' + rec(r.h2h_w, r.h2h_l, r.h2h_t) + '</td>'
+          + '<td class="num">' + fmtPct(r.h2h_pct) + '</td>'
+          + '<td>' + rec(r.div_w, r.div_l) + '</td>'
+          + '<td>' + rec(r.allplay_w, r.allplay_l, r.allplay_t) + '</td>'
+          + '<td class="num">' + fmtPct(r.allplay_pct) + '</td>'
+          + '<td class="num">' + fmtCommas(r.pf, 1) + '</td>'
+          + '<td class="num">' + fmtCommas(r.pa, 1) + '</td>'
+          + '<td class="num">' + fmtCommas(r.pp, 1) + '</td>'
+          + '<td class="num">' + fmtDec(r.eff, 3) + '</td>'
+          + '</tr>';
+      }).join("");
+      var meta = resp.meta || {};
+      var note = meta.last_regular_season_week
+        ? '<div class="note">Regular season: weeks 1–' + meta.last_regular_season_week + ' (' + state.year + '). Click any column header to sort. Seeds derived AP % → Overall PCT → PF.</div>'
+        : '<div class="note">Click any column header to sort. Seeds derived AP % → Overall PCT → PF.</div>';
+      host.innerHTML = '<div style="overflow-x:auto"><table><thead>' + head + '</thead><tbody>' + body + '</tbody></table></div>' + note + DEFERRED_NOTE;
+      wireSortClicks(host, state.overall, function () { renderOverall(host); });
+    }).catch(function (e) { showError(host, "Fetch failed: " + e.message); });
+  }
+
+  // ────────────────────────────────────────────────────────────────────────
+  // View 2 — Divisions
+  //   - Uses worker `is_division_leader` (computed by UPS rule).
+  //   - Shows division aggregate AP % (combined W/L across the 3 teams).
+  //   - Pill is "LEADER" during the season, "WINNER" once season_complete.
+  // ────────────────────────────────────────────────────────────────────────
+  function renderDivisions(host) {
+    fetchD1("/api/standings", state.year).then(function (resp) {
+      if (!resp || !resp.ok) return showError(host, "Couldn't load standings for " + state.year + ".");
+      var rows = resp.rows || [];
+      if (!rows.some(function (r) { return !!r.division; })) {
+        host.innerHTML = '<div class="banner">Division alignment pending — locks at draft night for the 2026–2028 cycle (see league context §3.5.B).</div>';
+        return;
+      }
+      var seasonComplete = !!resp.season_complete;
+      var leaderTag = seasonComplete ? "WINNER" : "LEADER";
+      var hasConferences = !!resp.has_conferences;
+
+      // Year-specific tiebreaker chain (from MFL standings_sort).
+      // 2011: PCT,DIVPCT,PTS,H2H,PWR (PTS before H2H — pre-2012 chain)
+      // 2012+: PCT,DIVPCT,H2H,PTS,ALL_PLAY_PCT,PWR
+      var sortStr = resp.standings_sort || "PCT,DIVPCT,H2H,PTS,ALL_PLAY_PCT,PWR";
+      var tokens = sortStr.split(",").map(function (t) { return t.trim().toUpperCase(); }).filter(Boolean);
+      var TBTOKEN = {
+        PCT:          { field: "h2h_pct",     label: "Overall PCT",    fmt: function (v) { return fmtPct(v); } },
+        DIVPCT:       { field: "div_pct",     label: "Divisional PCT", fmt: function (v) { return fmtPct(v); } },
+        PTS:          { field: "pf",          label: "Points For",     fmt: function (v) { return fmtCommas(v, 1); } },
+        ALL_PLAY_PCT: { field: "allplay_pct", label: "All-Play %",     fmt: function (v) { return fmtPct(v); } },
+        PWR:          { field: "pwr",         label: "Power Rank",     fmt: function (v) { return fmtDec(v, 2); } },
+        H2H:          { field: null,          label: "Head-to-Head",   fmt: function () { return "(pairwise — not computed here)"; } }
+      };
+
+      // Group by division.
+      var byDiv = {};
+      rows.forEach(function (r) {
+        var k = r.division || "—";
+        if (!byDiv[k]) byDiv[k] = {
+          name: divisionLabel(r),
+          code: r.division || "—",
+          conference_id: r.conference_id,
+          conference_name: r.conference_name,
+          teams: []
+        };
+        byDiv[k].teams.push(r);
+      });
+
+      Object.keys(byDiv).forEach(function (k) {
+        byDiv[k].teams.sort(function (a, b) {
+          for (var i = 0; i < tokens.length; i++) {
+            var t = TBTOKEN[tokens[i]];
+            if (!t || !t.field) continue; // skip H2H (pairwise) + unknown tokens
+            var av = a[t.field] || 0, bv = b[t.field] || 0;
+            if (av !== bv) return bv - av;
+          }
+          return 0;
+        });
+        var primary = tokens[0] && TBTOKEN[tokens[0]] && TBTOKEN[tokens[0]].field;
+        byDiv[k].teams.forEach(function (t, i) {
+          if (i === 0) return;
+          var prev = byDiv[k].teams[i - 1];
+          if (!primary || (prev[primary] || 0) !== (t[primary] || 0)) return;
+          for (var s = 1; s < tokens.length; s++) {
+            var tok = TBTOKEN[tokens[s]];
+            if (!tok) continue;
+            if (!tok.field) {
+              t._tbStep = tok.label;
+              t._tbVal = tok.fmt();
+              t._tbVs = prev.franchise_name || prev.franchise_id;
+              return;
+            }
+            if ((prev[tok.field] || 0) !== (t[tok.field] || 0)) {
+              t._tbStep = tok.label;
+              t._tbVal = "(" + tok.fmt(prev[tok.field]) + " vs " + tok.fmt(t[tok.field]) + ")";
+              t._tbVs = prev.franchise_name || prev.franchise_id;
+              return;
+            }
+          }
+          t._tbStep = "All metrics tied";
+          t._tbVal = "(commissioner discretion / forfeits, per legacy rule)";
+          t._tbVs = prev.franchise_name || prev.franchise_id;
+        });
+        byDiv[k].teams.forEach(function (t, i) { t._dispLeader = (i === 0); });
+        var apW = 0, apL = 0, apT = 0;
+        byDiv[k].teams.forEach(function (t) {
+          apW += (t.allplay_w || 0);
+          apL += (t.allplay_l || 0);
+          apT += (t.allplay_t || 0);
+        });
+        var games = apW + apL + apT;
+        byDiv[k].divApPct = games > 0 ? (apW + 0.5 * apT) / games : null;
+        byDiv[k].divApRec = apW + "-" + apL + (apT ? "-" + apT : "");
+      });
+
+      // Sections: when conferences exist, group divisions under conferences;
+      // otherwise render a flat list.
+      var sortDivsByAp = function (a, b) { return (byDiv[b].divApPct || 0) - (byDiv[a].divApPct || 0); };
+      var sections = [];
+      if (hasConferences) {
+        var byConf = {};
+        Object.keys(byDiv).forEach(function (k) {
+          var c = byDiv[k].conference_id || "—";
+          if (!byConf[c]) byConf[c] = {
+            confName: byDiv[k].conference_name || ("Conference " + c),
+            confId: c,
+            divs: [],
+            apW: 0, apL: 0, apT: 0
+          };
+          byConf[c].divs.push(k);
+          byDiv[k].teams.forEach(function (t) {
+            byConf[c].apW += (t.allplay_w || 0);
+            byConf[c].apL += (t.allplay_l || 0);
+            byConf[c].apT += (t.allplay_t || 0);
+          });
+        });
+        Object.keys(byConf).forEach(function (c) {
+          byConf[c].divs.sort(sortDivsByAp);
+          var g = byConf[c].apW + byConf[c].apL + byConf[c].apT;
+          byConf[c].confApPct = g > 0 ? (byConf[c].apW + 0.5 * byConf[c].apT) / g : null;
+          sections.push(byConf[c]);
+        });
+        sections.sort(function (a, b) { return (b.confApPct || 0) - (a.confApPct || 0); });
+      } else {
+        sections.push({ confName: null, divs: Object.keys(byDiv).sort(sortDivsByAp) });
+      }
+
+      var html = "";
+      sections.forEach(function (section) {
+        if (section.confName) {
+          html += '<div class="conf-header">'
+            + '<div class="conf-name">' + escapeHtml(section.confName) + ' Conference</div>'
+            + '<div class="conf-ap">Conference All-Play <span class="val">' + fmtPct(section.confApPct) + '</span></div>'
+            + '</div>';
+        }
+        html += '<div class="div-grid">';
+        section.divs.forEach(function (divCode) {
+          var d = byDiv[divCode];
+        var rowsHtml = d.teams.map(function (t) {
+          var isLeader = !!t._dispLeader;
+          var tbHtml = "";
+          if (t._tbStep) {
+            tbHtml = '<div class="div-tb-note">'
+              + '<span class="step">Tiebreaker:</span> ' + escapeHtml(t._tbStep)
+              + ' ' + escapeHtml(t._tbVal)
+              + ' &middot; tied with ' + escapeHtml(t._tbVs) + ' on Overall PCT'
+              + '</div>';
+          }
+          return '<div class="div-row' + (isLeader ? ' leader' : '') + '">'
+            + '<div class="team-block">'
+            +   (t.logo ? '<img class="team-logo" src="' + escapeHtml(t.logo) + '" alt="" style="width:24px;height:24px">' : '')
+            +   '<div>'
+            +     '<div class="team-name">' + escapeHtml(t.franchise_name || t.franchise_id) + (isLeader ? ' <span class="leader-pill">' + leaderTag + '</span>' : '') + '</div>'
+            +     '<div class="owner">' + escapeHtml(t.owner_name || "") + '</div>'
+            +   '</div>'
+            + '</div>'
+            + '<div class="stat"><div class="stat-label">Overall</div>' + rec(t.h2h_w, t.h2h_l, t.h2h_t) + '</div>'
+            + '<div class="stat"><div class="stat-label">Div</div>' + rec(t.div_w, t.div_l) + '</div>'
+            + '<div class="stat"><div class="stat-label">All-Play</div>' + rec(t.allplay_w, t.allplay_l, t.allplay_t) + '</div>'
+            + '<div class="stat"><div class="stat-label">AP %</div>' + fmtPct(t.allplay_pct) + '</div>'
+            + tbHtml
+            + '</div>';
+        }).join("");
+        html += '<section class="div-card">'
+          + '<header class="div-card-header">'
+          +   '<div><div class="div-card-name">' + escapeHtml(d.name) + '</div></div>'
+          +   '<div class="div-card-ap">All-Play<span class="val">' + fmtPct(d.divApPct) + '</span></div>'
+          + '</header>'
+          + '<div class="div-card-body">' + rowsHtml + '</div>'
+          + '</section>';
+        }); // section.divs.forEach
+        html += '</div>'; // .div-grid
+      }); // sections.forEach
+      // Build a human-readable tiebreaker chain label for the footer.
+      var chainLabel = tokens.map(function (tk) { return (TBTOKEN[tk] && TBTOKEN[tk].label) || tk; }).join(" → ");
+      var noteText = (seasonComplete ? "Final standings. " : "In-season standings. ")
+        + (hasConferences ? "Conferences active this year. " : "")
+        + 'UPS tiebreaker chain (' + state.year + '): ' + chainLabel + '. '
+        + '"' + leaderTag + '" pill shows ' + (seasonComplete ? "the team that won" : "current in-season leader of") + ' the division.';
+      host.innerHTML = html + '<div class="note">' + noteText + '</div>' + DEFERRED_NOTE;
+    }).catch(function (e) { showError(host, "Fetch failed: " + e.message); });
+  }
+
+  // ────────────────────────────────────────────────────────────────────────
+  // View 3 — Playoff Bracket (schedule-driven, left-to-right grid)
+  //
+  // We derive the bracket FROM THE SCHEDULE, not from an assumed seed
+  // structure. The UPS playoff format has varied year to year (different
+  // teams have gotten byes; some years run a 5th-6th placement game,
+  // others don't). Trusting the schedule is the only way to render each
+  // year correctly.
+  //
+  // Per side (Championship = seeds 1-6, Hawktuah = seeds 7-12):
+  //   • R1   = every W15 game where BOTH teams are in this side's pool
+  //   • Byes = side teams that have NO W15 game but DO have a W16 game
+  //   • Semis = W16 games where both teams advance from R1 (or from bye)
+  //   • Placement (5th-6th) = W16 games where both teams lost in R1
+  //   • Final = W17 game between the two W16 semi winners → trophy card
+  //   • 3rd-place = W17 game between the two W16 semi losers
+  // ────────────────────────────────────────────────────────────────────────
+  function renderBracket(host) {
+    fetchD1("/api/playoff-bracket", state.year).then(function (resp) {
+      if (!resp || !resp.ok) return showError(host, "Couldn't load bracket for " + state.year + ".");
+      var seeds = resp.seeds || [];
+      var matchups = resp.matchups || [];
+      if (!matchups.length) {
+        host.innerHTML = '<div class="banner">Bracket locks Week 15. Seeds so far:</div>' + renderSeedTable(seeds) + DEFERRED_NOTE;
+        return;
+      }
+      var seedMap = buildSeedMap(seeds);
+      var champSeeds = seeds.slice(0, 6);
+      var hawkSeeds  = seeds.slice(6, 12);
+
+      // Playoff week range (varies by era — 2011-2021: W14-16; 2022+: W15-17).
+      var playoffWeeks = resp.playoff_weeks && resp.playoff_weeks.length === 3
+        ? resp.playoff_weeks
+        : [15, 16, 17];
+      var WK_R1 = playoffWeeks[0];
+      var WK_SEMI = playoffWeeks[1];
+      var WK_FINAL = playoffWeeks[2];
+
+      // Dedupe matchups by (week, sorted-franchise-pair).
+      var games = [];
+      var seenPair = {};
+      matchups.forEach(function (m) {
+        var pair = m.week + "|" + [pad4(m.franchise_id), pad4(m.opponent_franchise_id)].sort().join("-");
+        if (seenPair[pair]) return;
+        seenPair[pair] = true;
+        games.push(m);
+      });
+
+      function winnerId(g) {
+        if (!g) return null;
+        return Number(g.team_score || 0) > Number(g.opponent_score || 0) ? pad4(g.franchise_id) : pad4(g.opponent_franchise_id);
+      }
+      function loserId(g) {
+        if (!g) return null;
+        return Number(g.team_score || 0) > Number(g.opponent_score || 0) ? pad4(g.opponent_franchise_id) : pad4(g.franchise_id);
+      }
+
+      // Schedule-driven side builder.
+      function buildSide(sideSeeds, hawk) {
+        var sideIds = {};
+        sideSeeds.forEach(function (s) { sideIds[pad4(s.franchise_id)] = s; });
+
+        var byWeek = {};
+        byWeek[WK_R1] = []; byWeek[WK_SEMI] = []; byWeek[WK_FINAL] = [];
+        games.forEach(function (g) {
+          if (byWeek[g.week] == null) return;
+          var a = pad4(g.franchise_id), b = pad4(g.opponent_franchise_id);
+          if (sideIds[a] && sideIds[b]) byWeek[g.week].push(g);
+        });
+
+        var r1Games = byWeek[WK_R1];
+        var w16Games = byWeek[WK_SEMI];
+        var w17Games = byWeek[WK_FINAL];
+
+        // R1 winners + losers
+        var r1Winners = {}, r1Losers = {};
+        r1Games.forEach(function (g) {
+          var w = winnerId(g), l = loserId(g);
+          if (w) r1Winners[w] = g;
+          if (l) r1Losers[l] = g;
+        });
+
+        // Byes = side seeds NOT in W15 but participating in W16
+        var w15Participants = {};
+        r1Games.forEach(function (g) {
+          w15Participants[pad4(g.franchise_id)] = true;
+          w15Participants[pad4(g.opponent_franchise_id)] = true;
+        });
+        var w16Participants = {};
+        w16Games.forEach(function (g) {
+          w16Participants[pad4(g.franchise_id)] = true;
+          w16Participants[pad4(g.opponent_franchise_id)] = true;
+        });
+        var byes = sideSeeds.filter(function (s) {
+          var id = pad4(s.franchise_id);
+          return !w15Participants[id] && w16Participants[id];
+        });
+
+        // Classify W16 games:
+        //   - "placement" = both participants lost in R1 (i.e., both in r1Losers)
+        //   - "semi"      = anything else (one or both was a R1 winner or bye)
+        var placementGame = null;
+        var semiGames = [];
+        w16Games.forEach(function (g) {
+          var a = pad4(g.franchise_id), b = pad4(g.opponent_franchise_id);
+          if (r1Losers[a] && r1Losers[b]) placementGame = g;
+          else semiGames.push(g);
+        });
+
+        // W16 semi winners → final; W16 semi losers → 3rd-place game
+        var semiWinners = {};
+        var semiLosers = {};
+        semiGames.forEach(function (g) {
+          var w = winnerId(g), l = loserId(g);
+          if (w) semiWinners[w] = g;
+          if (l) semiLosers[l] = g;
+        });
+
+        // Classify W17:
+        //   - "final"   = both participants are semi winners
+        //   - "thirdPlace" = both participants are semi losers
+        //   - "other"   = anything else (rare; show as consolation)
+        var finalGame = null, thirdPlaceGame = null, otherW17 = [];
+        w17Games.forEach(function (g) {
+          var a = pad4(g.franchise_id), b = pad4(g.opponent_franchise_id);
+          if (semiWinners[a] && semiWinners[b]) finalGame = g;
+          else if (semiLosers[a] && semiLosers[b]) thirdPlaceGame = g;
+          else otherW17.push(g);
+        });
+
+        var champFid = winnerId(finalGame);
+
+        return {
+          hawk: hawk,
+          byes: byes,
+          r1Games: r1Games,
+          semiGames: semiGames,
+          placementGame: placementGame,
+          finalGame: finalGame,
+          thirdPlaceGame: thirdPlaceGame,
+          otherW17: otherW17,
+          champFid: champFid
+        };
+      }
+
+      function teamRow(fid, name, score, isWinner) {
+        var seedInfo = fid ? seedMap[pad4(fid)] : null;
+        var seedNum = seedInfo ? seedInfo.seed : null;
+        return '<div class="matchup-team ' + (isWinner ? "winner" : (score == null ? "" : "loser")) + '">'
+          + (seedNum != null ? '<span class="matchup-seed">#' + seedNum + '</span>' : '<span class="matchup-seed unranked">—</span>')
+          + '<span class="matchup-name">' + escapeHtml(name || (fid || "?")) + '</span>'
+          + '<span class="matchup-score">' + (score == null ? "—" : fmtDec(score)) + '</span>'
+          + '</div>';
+      }
+      function byeCard(seed) {
+        return '<div class="matchup bye">'
+          + '<div class="matchup-team bye-row">'
+          + '<span class="matchup-seed">#' + seed.seed + '</span>'
+          + '<span class="matchup-name" style="text-transform:none;font-style:normal;color:var(--muted);font-size:11px">' + escapeHtml(seed.franchise_name || seed.franchise_id) + '</span>'
+          + '<span style="font-size:9px;letter-spacing:0.1em;color:var(--gold)">BYE</span>'
+          + '</div></div>';
+      }
+      function gameCard(game) {
+        if (!game) {
+          return '<div class="matchup"><div class="matchup-team bye-row" style="color:var(--dim)">pending</div></div>';
+        }
+        var aScore = Number(game.team_score || 0);
+        var bScore = Number(game.opponent_score || 0);
+        var aWon = aScore > bScore;
+        return '<div class="matchup">'
+          + teamRow(game.franchise_id, game.franchise_name, aScore, aWon)
+          + teamRow(game.opponent_franchise_id, game.opponent_franchise_name, bScore, !aWon && bScore > 0)
+          + '</div>';
+      }
+      function gameCardLabeled(label, game) {
+        return '<div><div class="round-label" style="margin-bottom:4px">' + escapeHtml(label) + '</div>' + gameCard(game) + '</div>';
+      }
+
+      function renderSide(label, side, hawk) {
+        // Round 1 column: every W15 game on this side + byes mixed in by seed order.
+        // Sort the column by seed so byes interleave naturally with R1 games.
+        var r1Cells = [];
+        side.r1Games.forEach(function (g) {
+          r1Cells.push({
+            sortKey: Math.min(seedMap[pad4(g.franchise_id)] ? seedMap[pad4(g.franchise_id)].seed : 999,
+                              seedMap[pad4(g.opponent_franchise_id)] ? seedMap[pad4(g.opponent_franchise_id)].seed : 999),
+            html: gameCard(g)
+          });
+        });
+        side.byes.forEach(function (s) {
+          r1Cells.push({ sortKey: s.seed, html: byeCard(s) });
+        });
+        r1Cells.sort(function (a, b) { return a.sortKey - b.sortKey; });
+        var r1Html = r1Cells.map(function (c) {
+          return '<div class="bracket-slot has-connector">' + c.html + '</div>';
+        }).join("");
+        if (!r1Cells.length) r1Html = '<div class="empty" style="padding:14px 0">No W15 games for this side.</div>';
+
+        // Semis column: every W16 semi game (placement game shown separately).
+        var semiCells = side.semiGames.slice().sort(function (a, b) {
+          // Sort by the higher-seeded participant (lower seed number).
+          var sa = Math.min(seedMap[pad4(a.franchise_id)] ? seedMap[pad4(a.franchise_id)].seed : 999,
+                            seedMap[pad4(a.opponent_franchise_id)] ? seedMap[pad4(a.opponent_franchise_id)].seed : 999);
+          var sb = Math.min(seedMap[pad4(b.franchise_id)] ? seedMap[pad4(b.franchise_id)].seed : 999,
+                            seedMap[pad4(b.opponent_franchise_id)] ? seedMap[pad4(b.opponent_franchise_id)].seed : 999);
+          return sa - sb;
+        });
+        var semisHtml = semiCells.length
+          ? semiCells.map(function (g) { return '<div class="bracket-slot has-connector">' + gameCard(g) + '</div>'; }).join("")
+          : '<div class="empty" style="padding:14px 0">No semis yet.</div>';
+
+        // Final column
+        var finalHtml = side.finalGame
+          ? '<div class="bracket-slot has-connector">' + gameCard(side.finalGame) + '</div>'
+          : (side.semiGames.length ? '<div class="bracket-slot"><div class="matchup"><div class="matchup-team bye-row" style="color:var(--dim)">pending W17</div></div></div>' : "");
+
+        // Trophy column
+        var champHtml;
+        if (side.champFid) {
+          var champName = null, champOwner = null;
+          if (side.finalGame) {
+            if (pad4(side.finalGame.franchise_id) === pad4(side.champFid)) {
+              champName = side.finalGame.franchise_name; champOwner = side.finalGame.franchise_owner;
+            } else {
+              champName = side.finalGame.opponent_franchise_name; champOwner = side.finalGame.opponent_owner;
+            }
+          }
+          var champSeed = seedMap[pad4(side.champFid)];
+          champHtml = '<div class="champion-card' + (hawk ? ' hawk-champ' : '') + '">'
+            + '<div class="champion-label">' + (hawk ? "Hawktuah Champ" : "UPS Champion") + '</div>'
+            + '<div class="champion-icon">' + (hawk ? "🦅" : "🏆") + '</div>'
+            + '<div class="champion-name">' + escapeHtml(champName || side.champFid) + (champSeed ? ' <span style="color:var(--gold);font-size:11px">#' + champSeed.seed + '</span>' : "") + '</div>'
+            + '<div class="champion-owner">' + escapeHtml(champOwner || "") + '</div>'
+            + '</div>';
+        } else {
+          champHtml = '<div class="champion-card"><div class="champion-label">' + (hawk ? "Hawktuah Champ" : "UPS Champion") + '</div><div class="champion-pending" style="margin-top:10px">— pending —</div></div>';
+        }
+
+        // Consolation strip beneath the bracket.
+        var consBits = [];
+        if (side.thirdPlaceGame) {
+          consBits.push(gameCardLabeled(hawk ? ("Week " + WK_FINAL + " · Toilet 3rd-place") : ("Week " + WK_FINAL + " · 3rd-place (1.09 / 1.10)"), side.thirdPlaceGame));
+        }
+        if (side.placementGame) {
+          consBits.push(gameCardLabeled(hawk ? ("Week " + WK_SEMI + " · Toilet placement") : ("Week " + WK_SEMI + " · 5th–6th (1.07 / 1.08)"), side.placementGame));
+        }
+        side.otherW17.forEach(function (g) {
+          consBits.push(gameCardLabeled("Week " + WK_FINAL + " · additional", g));
+        });
+        var consHtml = "";
+        if (consBits.length) {
+          consHtml = '<div class="bracket-consolation">'
+            + '<div class="bracket-consolation-label">' + (hawk ? "Toilet side · placement games" : "Consolation rounds") + '</div>'
+            + '<div class="bracket-consolation-row">' + consBits.join("") + '</div>'
+            + '</div>';
+        }
+
+        return ''
+          + '<section class="bracket-section' + (hawk ? ' hawktuah' : '') + '">'
+          +   '<h3>' + (hawk ? "🦅 " : "🏆 ") + escapeHtml(label) + '</h3>'
+          +   '<div class="bracket">'
+          +     '<div class="bracket-col">'
+          +       '<div class="bracket-col-header">Round 1<span class="wk">Week ' + WK_R1 + '</span></div>'
+          +       '<div class="bracket-col-r1">' + r1Html + '</div>'
+          +     '</div>'
+          +     '<div class="bracket-col">'
+          +       '<div class="bracket-col-header">Semifinals<span class="wk">Week ' + WK_SEMI + '</span></div>'
+          +       '<div class="bracket-col-semis">' + semisHtml + '</div>'
+          +     '</div>'
+          +     '<div class="bracket-col">'
+          +       '<div class="bracket-col-header">' + (hawk ? "Hawktuah Bowl" : "Championship") + '<span class="wk">Week ' + WK_FINAL + '</span></div>'
+          +       '<div class="bracket-col-final">' + finalHtml + '</div>'
+          +     '</div>'
+          +     '<div class="bracket-col">'
+          +       '<div class="bracket-col-header">' + (hawk ? "Toilet Champ" : "Trophy") + '</div>'
+          +       '<div class="bracket-col-champion">' + champHtml + '</div>'
+          +     '</div>'
+          +   '</div>'
+          +   consHtml
+          + '</section>';
+      }
+
+      var champSide = buildSide(champSeeds, false);
+      var hawkSide  = buildSide(hawkSeeds, true);
+
+      // Detect conference-bracket format (2011-2013 in UPS): every R1
+      // game on this side has both teams from the same conference. The
+      // alternative is the modern flat-6 layout where R1 freely mixes.
+      function isConferenceBracket(side, sideSeeds) {
+        if (!resp.has_conferences) return false;
+        if (!side.r1Games.length) return false;
+        var seedConf = {};
+        sideSeeds.forEach(function (s) { seedConf[pad4(s.franchise_id)] = s.conference_id || null; });
+        return side.r1Games.every(function (g) {
+          var a = seedConf[pad4(g.franchise_id)];
+          var b = seedConf[pad4(g.opponent_franchise_id)];
+          return a && b && a === b;
+        });
+      }
+
+      var champIsConf = champSide && isConferenceBracket(champSide, champSeeds);
+      var hawkIsConf  = hawkSide  && isConferenceBracket(hawkSide,  hawkSeeds);
+
+      var html = "";
+      if (champSide) {
+        html += champIsConf
+          ? renderConferenceBracket("UPS Championship — Conference Format", champSide, champSeeds, false, resp)
+          : renderSide("UPS Championship — seeds 1-6", champSide, false);
+      }
+      if (hawkSide) {
+        html += hawkIsConf
+          ? renderConferenceBracket("Hawktuah / Toilet — Conference Format", hawkSide, hawkSeeds, true, resp)
+          : renderSide("Hawktuah Bowl — seeds 7-12", hawkSide, true);
+      }
+      var noteSuffix = (champIsConf || hawkIsConf)
+        ? 'Conference-era bracket (2011-2013): each conference seeds top 3 by '
+          + (resp.standings_sort || "Overall PCT") + '. #1 byes Week ' + WK_R1
+          + ', #2 vs #3 in Week ' + WK_R1 + ', winner faces #1 in Week ' + WK_SEMI
+          + '. Conference champions meet in Week ' + WK_FINAL + ' for the UPS title.'
+        : 'Modern bracket: top 2 division winners earn seeds 1-2 (BYE). Wild cards = top 2 non-DW by AP%. Bracket reads left-to-right; gold-bar + "W" tag marks each round\'s winner.';
+      html += '<div class="note">' + noteSuffix + '</div>' + DEFERRED_NOTE;
+      host.innerHTML = html;
+    }).catch(function (e) { showError(host, "Fetch failed: " + e.message); });
+  }
+
+  // ────────────────────────────────────────────────────────────────────────
+  // Conference-format bracket renderer (2011-2013 UPS)
+  //
+  // Each conference seeds top 3 by the year's standings_sort chain.
+  // #1 byes Week N; #2 vs #3 play Week N; winner faces #1 in Week N+1
+  // (conference championship). The two conference champs meet in Week N+2
+  // for the UPS title; semi-losers play a 3rd-place game; etc.
+  // ────────────────────────────────────────────────────────────────────────
+  function renderConferenceBracket(label, side, sideSeeds, hawk, resp) {
+    // BUGFIX: WK_* are local to renderBracket; derive them here from resp.
+    var pw = (resp && resp.playoff_weeks && resp.playoff_weeks.length === 3) ? resp.playoff_weeks : [15, 16, 17];
+    var WK_R1 = pw[0], WK_SEMI = pw[1], WK_FINAL = pw[2];
+    // Build a conference-local seed map so badges read "#1/#2/#3" within
+    // each conference (matching the legacy MFL conference-bracket layout
+    // the user referenced) instead of the global 1-12 numbering.
+    var seedMap = {};
+    sideSeeds.forEach(function (s) {
+      seedMap[pad4(s.franchise_id)] = {
+        seed: s.conference_seed || s.seed,
+        side: hawk ? "hawk" : "champ",
+        conf: s.conference_id
+      };
+    });
+    var confs = {}; // confId -> { name, seeds:[], r1, semi, champFid }
+    sideSeeds.forEach(function (s) {
+      var c = s.conference_id || "—";
+      if (!confs[c]) confs[c] = {
+        confId: c,
+        confName: s.conference_name || ("Conference " + c),
+        seeds: []
+      };
+      confs[c].seeds.push(s);
+    });
+    // Within each conference, sort by conference_seed so the #1 (bye)
+    // shows first, then #2 vs #3 follow in R1.
+    Object.keys(confs).forEach(function (c) {
+      confs[c].seeds.sort(function (a, b) {
+        return (a.conference_seed || a.seed) - (b.conference_seed || b.seed);
+      });
+      var s = confs[c].seeds;
+      // Find R1 (#2 vs #3) and semi (#1 vs R1 winner) in the schedule.
+      var pairR1 = (s.length >= 3) ? findGameInList(side.r1Games, s[1].franchise_id, s[2].franchise_id) : null;
+      confs[c].r1 = pairR1;
+      var r1WinFid = winnerIdOf(pairR1);
+      var r1LoseFid = loserIdOf(pairR1);
+      confs[c].r1WinFid = r1WinFid;
+      confs[c].r1LoseFid = r1LoseFid;
+      var semiOpp = r1WinFid || (s[1] && s[1].franchise_id); // fall back if R1 not played
+      confs[c].semi = (s.length >= 1 && semiOpp) ? findGameInList(side.semiGames.concat(side.placementGame ? [side.placementGame] : []), s[0].franchise_id, semiOpp) : null;
+      confs[c].champFid = winnerIdOf(confs[c].semi) || (confs[c].semi ? null : s[0] && s[0].franchise_id);
+      confs[c].runnerUpFid = loserIdOf(confs[c].semi);
+    });
+
+    // Final week: champion-vs-champion = UPS title; runner-up vs runner-up = 3rd place
+    var confIds = Object.keys(confs);
+    var champA = confIds[0] ? confs[confIds[0]].champFid : null;
+    var champB = confIds[1] ? confs[confIds[1]].champFid : null;
+    var titleGame = (champA && champB) ? findGameInList((side.r1Games.concat(side.semiGames, side.placementGame ? [side.placementGame] : [], side.finalGame ? [side.finalGame] : [], side.thirdPlaceGame ? [side.thirdPlaceGame] : [], side.otherW17 || [])), champA, champB) : null;
+    var titleGameAtFinalWk = titleGame && Number(titleGame.week) === Number(side.finalGame && side.finalGame.week ? side.finalGame.week : null);
+    var overallChampFid = winnerIdOf(titleGame);
+    var runnerUpA = confIds[0] ? confs[confIds[0]].runnerUpFid : null;
+    var runnerUpB = confIds[1] ? confs[confIds[1]].runnerUpFid : null;
+    var thirdGame = (runnerUpA && runnerUpB) ? findGameInList(side.thirdPlaceGame ? [side.thirdPlaceGame].concat(side.otherW17 || []) : (side.otherW17 || []), runnerUpA, runnerUpB) : null;
+
+    function teamRow(fid, name, score, isWinner) {
+      var seedInfo = fid ? seedMap[pad4(fid)] : null;
+      var seedNum = seedInfo ? seedInfo.seed : null;
+      return '<div class="matchup-team ' + (isWinner ? "winner" : (score == null ? "" : "loser")) + '">'
+        + (seedNum != null ? '<span class="matchup-seed">#' + seedNum + '</span>' : '<span class="matchup-seed unranked">—</span>')
+        + '<span class="matchup-name">' + escapeHtml(name || (fid || "?")) + '</span>'
+        + '<span class="matchup-score">' + (score == null ? "—" : fmtDec(score)) + '</span>'
+        + '</div>';
+    }
+    function gameCard(g) {
+      if (!g) return '<div class="matchup"><div class="matchup-team bye-row" style="color:var(--dim)">pending</div></div>';
+      var aScore = Number(g.team_score || 0);
+      var bScore = Number(g.opponent_score || 0);
+      var aWon = aScore > bScore;
+      return '<div class="matchup">'
+        + teamRow(g.franchise_id, g.franchise_name, aScore, aWon)
+        + teamRow(g.opponent_franchise_id, g.opponent_franchise_name, bScore, !aWon && bScore > 0)
+        + '</div>';
+    }
+    function byeCard(seed) {
+      return '<div class="matchup bye">'
+        + '<div class="matchup-team bye-row">'
+        + '<span class="matchup-seed">#' + seed.seed + '</span>'
+        + '<span class="matchup-name" style="text-transform:none;font-style:normal;color:var(--muted);font-size:11px">' + escapeHtml(seed.franchise_name || seed.franchise_id) + '</span>'
+        + '<span style="font-size:9px;letter-spacing:0.1em;color:var(--gold)">BYE</span>'
+        + '</div></div>';
+    }
+
+    function renderConfHalf(c) {
+      var s = c.seeds;
+      var r1Html = '<div class="bracket-slot has-connector">' + (s[0] ? byeCard(s[0]) : "") + '</div>'
+        + '<div class="bracket-slot has-connector">' + gameCard(c.r1) + '</div>';
+      var semiHtml = '<div class="bracket-slot has-connector">' + gameCard(c.semi) + '</div>';
+      var champHtml;
+      if (c.champFid) {
+        // Pull the team name from the semi game (champ is the winner there).
+        var champName = null, champOwner = null;
+        if (c.semi) {
+          if (pad4(c.semi.franchise_id) === pad4(c.champFid)) {
+            champName = c.semi.franchise_name; champOwner = c.semi.franchise_owner;
+          } else {
+            champName = c.semi.opponent_franchise_name; champOwner = c.semi.opponent_owner;
+          }
+        }
+        champHtml = '<div class="champion-card' + (hawk ? ' hawk-champ' : '') + '">'
+          + '<div class="champion-label">' + escapeHtml(c.confName) + ' Champion</div>'
+          + '<div class="champion-icon">' + (hawk ? "🦅" : "🏆") + '</div>'
+          + '<div class="champion-name">' + escapeHtml(champName || c.champFid) + '</div>'
+          + '<div class="champion-owner">' + escapeHtml(champOwner || "") + '</div>'
+          + '</div>';
+      } else {
+        champHtml = '<div class="champion-card"><div class="champion-label">' + escapeHtml(c.confName) + ' Champ</div><div class="champion-pending" style="margin-top:10px">— pending —</div></div>';
+      }
+      return ''
+        + '<section class="bracket-section' + (hawk ? ' hawktuah' : '') + '" style="margin-bottom:14px">'
+        +   '<h3 style="color:' + (hawk ? '#ffc99b' : 'var(--gold)') + '">' + escapeHtml(c.confName) + ' Conference Championship</h3>'
+        +   '<div class="bracket" style="grid-template-columns:1fr 1fr 0.85fr">'
+        +     '<div class="bracket-col">'
+        +       '<div class="bracket-col-header">Round 1<span class="wk">Week ' + WK_R1 + '</span></div>'
+        +       '<div class="bracket-col-r1">' + r1Html + '</div>'
+        +     '</div>'
+        +     '<div class="bracket-col">'
+        +       '<div class="bracket-col-header">Conf. Semifinal<span class="wk">Week ' + WK_SEMI + '</span></div>'
+        +       '<div class="bracket-col-semis">' + semiHtml + '</div>'
+        +     '</div>'
+        +     '<div class="bracket-col">'
+        +       '<div class="bracket-col-header">Conference Champ</div>'
+        +       '<div class="bracket-col-champion">' + champHtml + '</div>'
+        +     '</div>'
+        +   '</div>'
+        + '</section>';
+    }
+
+    // Title game block (UPS Championship for the champ side, or "Hawktuah Final" for hawk side).
+    var titleBlock;
+    if (titleGame) {
+      var trophyLabel = hawk ? "Hawktuah Bowl Champion" : "UPS Champion";
+      var trophyIcon  = hawk ? "🦅" : "🏆";
+      var champ = null, runnerUp = null;
+      if (overallChampFid) {
+        if (pad4(titleGame.franchise_id) === pad4(overallChampFid)) {
+          champ = { name: titleGame.franchise_name, owner: titleGame.franchise_owner, fid: titleGame.franchise_id, score: titleGame.team_score };
+          runnerUp = { name: titleGame.opponent_franchise_name, owner: titleGame.opponent_owner, fid: titleGame.opponent_franchise_id, score: titleGame.opponent_score };
+        } else {
+          champ = { name: titleGame.opponent_franchise_name, owner: titleGame.opponent_owner, fid: titleGame.opponent_franchise_id, score: titleGame.opponent_score };
+          runnerUp = { name: titleGame.franchise_name, owner: titleGame.franchise_owner, fid: titleGame.franchise_id, score: titleGame.team_score };
+        }
+      }
+      titleBlock = ''
+        + '<section class="bracket-section' + (hawk ? ' hawktuah' : '') + '" style="margin-top:10px">'
+        +   '<h3>' + trophyIcon + ' ' + (hawk ? "Hawktuah Bowl" : "UPS Championship") + ' · Week ' + WK_FINAL + '</h3>'
+        +   '<div class="bracket-consolation-row" style="grid-template-columns:1fr 1fr">'
+        +     '<div>' + gameCard(titleGame) + '</div>'
+        +     '<div class="champion-card' + (hawk ? ' hawk-champ' : '') + '">'
+        +       '<div class="champion-label">' + trophyLabel + '</div>'
+        +       '<div class="champion-icon">' + trophyIcon + '</div>'
+        +       '<div class="champion-name">' + escapeHtml(champ ? champ.name : "—") + '</div>'
+        +       '<div class="champion-owner">' + escapeHtml(champ ? (champ.owner || "") : "") + '</div>'
+        +     '</div>'
+        +   '</div>'
+        +   (thirdGame
+            ? '<div style="margin-top:10px"><div class="round-label" style="margin-bottom:4px">' + (hawk ? 'Week ' + WK_FINAL + ' · Toilet 3rd-place' : 'Week ' + WK_FINAL + ' · 3rd-place (1.09 / 1.10)') + '</div>' + gameCard(thirdGame) + '</div>'
+            : "")
+        + '</section>';
+    } else {
+      titleBlock = '<div class="banner" style="margin-top:10px">' + (hawk ? "Hawktuah" : "UPS Championship") + ' Week ' + WK_FINAL + ' pending.</div>';
+    }
+
+    return ''
+      + '<section class="bracket-section' + (hawk ? ' hawktuah' : '') + '" style="background:none;border:none;padding:0">'
+      +   '<h3 style="margin-bottom:10px">' + (hawk ? "🦅 " : "🏆 ") + escapeHtml(label) + '</h3>'
+      +   confIds.map(function (c) { return renderConfHalf(confs[c]); }).join("")
+      +   titleBlock
+      + '</section>';
+  }
+
+  // Helpers used by the conference-bracket renderer.
+  function findGameInList(list, aId, bId) {
+    if (!list || !aId || !bId) return null;
+    var a = pad4(aId), b = pad4(bId);
+    for (var i = 0; i < list.length; i++) {
+      var g = list[i]; if (!g) continue;
+      var ga = pad4(g.franchise_id), gb = pad4(g.opponent_franchise_id);
+      if ((ga === a && gb === b) || (ga === b && gb === a)) return g;
+    }
+    return null;
+  }
+  function winnerIdOf(g) {
+    if (!g) return null;
+    return Number(g.team_score || 0) > Number(g.opponent_score || 0) ? pad4(g.franchise_id) : pad4(g.opponent_franchise_id);
+  }
+  function loserIdOf(g) {
+    if (!g) return null;
+    return Number(g.team_score || 0) > Number(g.opponent_score || 0) ? pad4(g.opponent_franchise_id) : pad4(g.franchise_id);
+  }
+
+  function renderSeedTable(seeds) {
+    if (!seeds.length) return '<div class="empty">No seeds yet.</div>';
+    var rows = seeds.map(function (s) {
+      var badge = s.seed <= 6 ? '<span class="seed-badge champ">🏆 ' + s.seed + '</span>' : '<span class="seed-badge hawk">🦅 ' + s.seed + '</span>';
+      var path = s.path === "DIV" ? '<span class="leader-pill">DIV</span>'
+                : s.path === "WC"  ? '<span class="leader-pill" style="background:var(--teal);color:#08222d">WC</span>'
+                : '';
+      return '<tr><td>' + badge + '</td><td>' + escapeHtml(s.franchise_name || s.franchise_id) + ' ' + path + '</td><td>' + escapeHtml(s.owner_name || "") + '</td><td class="num">' + fmtPct(s.allplay_pct) + '</td><td class="num">' + fmtPct(s.h2h_pct) + '</td><td class="num">' + fmtCommas(s.pf, 1) + '</td></tr>';
+    }).join("");
+    return '<div style="overflow-x:auto;margin-top:14px"><table><thead><tr><th>Seed</th><th>Team</th><th>Owner</th><th class="num">AP %</th><th class="num">PCT</th><th class="num">PF</th></tr></thead><tbody>' + rows + '</tbody></table></div>';
+  }
+
+  // ────────────────────────────────────────────────────────────────────────
+  // View — Hall of Champions
+  // Per closed UPS season: champion card with regular-season AP, playoff
+  // AP, total AP, playoff seed, division-winner flag, total points,
+  // historical AP rank across champions, and the championship game
+  // (opponent, score, MFL box-score link).
+  // ────────────────────────────────────────────────────────────────────────
+  function renderHallOfChampions(host) {
+    fetchD1("/api/hall-of-champions", null).then(function (resp) {
+      if (!resp || !resp.ok) return showError(host, "Couldn't load Hall of Champions.");
+      var champs = resp.champions || [];
+      if (!champs.length) {
+        host.innerHTML = '<div class="banner">No champions identified yet — needs <code>src_final_standings</code> loaded or playoff schedule rows in D1.</div>';
+        return;
+      }
+      function rec3(w, l, t) { return (w || 0) + "-" + (l || 0) + (t ? "-" + t : ""); }
+      function recPct(w, l, t) {
+        var g = (w || 0) + (l || 0) + (t || 0);
+        return g > 0 ? ((w + 0.5 * t) / g) : null;
+      }
+      var html = '<div class="methodology">'
+        + '<strong>Hall of Champions.</strong> '
+        + 'Champion identified per season from <code>src_final_standings</code> when available, else from the playoff schedule. '
+        + 'Historical AP rank ranks all champions by total AP %.'
+        + (resp.has_final_standings ? "" : ' <strong style="color:var(--warn)">⚠ src_final_standings not loaded — champion identification is heuristic.</strong>')
+        + '</div><div class="hoc-grid">';
+      champs.forEach(function (c) {
+        var regPct = recPct(c.regseason_ap_w, c.regseason_ap_l, c.regseason_ap_t);
+        var playPct = recPct(c.playoff_ap_w, c.playoff_ap_l, c.playoff_ap_t);
+        var totalPct = c.total_ap_pct != null ? c.total_ap_pct : recPct(c.total_ap_w, c.total_ap_l, c.total_ap_t);
+        var fg = c.final_game || null;
+        var fgScoreClass = fg ? (fg.champion_score > fg.opponent_score ? "champ-win" : "") : "";
+        html += '<section class="hoc-card">'
+          + '<header class="hoc-card-head">'
+          +   '<div class="hoc-season">' + escapeHtml(c.season) + ' Season</div>'
+          +   '<div class="hoc-trophy">🏆</div>'
+          + '</header>'
+          + '<div class="hoc-team">'
+          +   (c.logo ? '<img class="hoc-logo" src="' + escapeHtml(c.logo) + '" alt="">' : '')
+          +   '<div>'
+          +     '<div class="hoc-team-name">' + escapeHtml(c.franchise_name || c.franchise_id) + '</div>'
+          +     '<div class="hoc-owner">' + escapeHtml(c.owner_name || "") + '</div>'
+          +   '</div>'
+          + '</div>'
+          + '<div class="hoc-stats">'
+          +   '<div class="hoc-stat"><div class="hoc-stat-k">Reg Season AP</div><div class="hoc-stat-v">' + rec3(c.regseason_ap_w, c.regseason_ap_l, c.regseason_ap_t) + '<span class="hoc-stat-pct">' + fmtPct(regPct) + '</span></div></div>'
+          +   '<div class="hoc-stat"><div class="hoc-stat-k">Playoff AP</div><div class="hoc-stat-v">' + rec3(c.playoff_ap_w, c.playoff_ap_l, c.playoff_ap_t) + '<span class="hoc-stat-pct">' + fmtPct(playPct) + '</span></div></div>'
+          +   '<div class="hoc-stat"><div class="hoc-stat-k">Total AP</div><div class="hoc-stat-v">' + rec3(c.total_ap_w, c.total_ap_l, c.total_ap_t) + '<span class="hoc-stat-pct">' + fmtPct(totalPct) + '</span></div></div>'
+          +   '<div class="hoc-stat"><div class="hoc-stat-k">Playoff Seed</div><div class="hoc-stat-v">' + (c.seed_rank_overall != null ? "#" + c.seed_rank_overall + ' overall' : "—") + '</div></div>'
+          +   '<div class="hoc-stat"><div class="hoc-stat-k">Division Winner</div><div class="hoc-stat-v">' + (c.division_winner === true ? '<span style="color:var(--gold)">YES</span>' : (c.division_winner === false ? "No" : "—")) + '</div></div>'
+          +   '<div class="hoc-stat"><div class="hoc-stat-k">Total Points (PF)</div><div class="hoc-stat-v">' + fmtCommas(c.pf, 1) + '</div></div>'
+          +   '<div class="hoc-stat hoc-stat-rank"><div class="hoc-stat-k">Historical AP Rank</div><div class="hoc-stat-v">#' + c.historical_ap_rank + ' of ' + champs.length + '</div></div>'
+          + '</div>'
+          + (fg
+              ? '<div class="hoc-final"><div class="hoc-final-label">Championship — Week ' + fg.week + '</div>'
+                + '<div class="hoc-final-row">'
+                +   '<span class="hoc-final-team">' + escapeHtml(c.franchise_name || c.franchise_id) + '</span>'
+                +   '<span class="hoc-final-score ' + fgScoreClass + '">' + fmtDec(fg.champion_score) + '</span>'
+                + '</div>'
+                + '<div class="hoc-final-row">'
+                +   '<span class="hoc-final-team">' + escapeHtml(fg.opponent_franchise_name || fg.opponent_franchise_id) + ' <span class="hoc-final-owner">· ' + escapeHtml(fg.opponent_owner || "") + '</span></span>'
+                +   '<span class="hoc-final-score">' + fmtDec(fg.opponent_score) + '</span>'
+                + '</div>'
+                + (fg.box_score_url ? '<a class="hoc-box-link" href="' + escapeHtml(fg.box_score_url) + '" target="_blank" rel="noopener">Open MFL box score ↗</a>' : '')
+              + '</div>'
+              : ""
+            )
+          + '</section>';
+      });
+      html += '</div>';
+      host.innerHTML = html + '<div class="note">Historical AP rank computed across all UPS champions only (not all owners). Click any "Open MFL box score" link to jump to the championship-game box score on MFL.</div>' + DEFERRED_NOTE;
+    }).catch(function (e) { showError(host, "Fetch failed: " + e.message); });
+  }
+
+  // ────────────────────────────────────────────────────────────────────────
+  // View — Draft Order Finish
+  //
+  // Derives next-year rookie pick (1.01 → 1.12) from the playoff schedule
+  // per league_context_v1.md §1. Schedule-driven so it adapts to the
+  // year's bracket shape (modern flat, conference-era split, etc.).
+  //
+  // Pick mapping per league_context §1:
+  //   1.01 = Toilet Bowl champion (won the Toilet)
+  //   1.02 = Toilet Bowl runner-up (lost Toilet final)
+  //   1.03 = Toilet semifinal winner
+  //   1.04 = Toilet semifinal loser
+  //   1.05 + 1.06 = Week (final-1) game between two Week-R1 Toilet losers
+  //   1.07 + 1.08 = Week (final-1) game between two Week-R1 Champ losers
+  //   1.09 = Championship semifinal loser
+  //   1.10 = Championship semifinal winner (consolation winner)
+  //   1.11 = Championship runner-up
+  //   1.12 = UPS champion
+  // ────────────────────────────────────────────────────────────────────────
+  function renderDraftOrder(host) {
+    fetchD1("/api/playoff-bracket", state.year).then(function (resp) {
+      if (!resp || !resp.ok) return showError(host, "Couldn't load bracket for " + state.year + ".");
+      var seeds = resp.seeds || [];
+      var matchups = resp.matchups || [];
+      var seedMap = buildSeedMap(seeds);
+      var playoffWeeks = resp.playoff_weeks && resp.playoff_weeks.length === 3 ? resp.playoff_weeks : [15, 16, 17];
+      var WK_R1 = playoffWeeks[0], WK_SEMI = playoffWeeks[1], WK_FINAL = playoffWeeks[2];
+      if (!matchups.length) {
+        host.innerHTML = '<div class="banner">Draft order is set once the playoff bracket completes (final game in Week ' + WK_FINAL + ').</div>' + DEFERRED_NOTE;
+        return;
+      }
+      // Dedupe + scope to each side.
+      var champIds = new Set(seeds.slice(0, 6).map(function (s) { return pad4(s.franchise_id); }));
+      var hawkIds  = new Set(seeds.slice(6, 12).map(function (s) { return pad4(s.franchise_id); }));
+      var seen = {}, games = [];
+      matchups.forEach(function (m) {
+        var k = m.week + "|" + [pad4(m.franchise_id), pad4(m.opponent_franchise_id)].sort().join("-");
+        if (seen[k]) return;
+        seen[k] = true;
+        games.push(m);
+      });
+      function side(g, ids) {
+        return ids.has(pad4(g.franchise_id)) && ids.has(pad4(g.opponent_franchise_id));
+      }
+      function winner(g) { return Number(g.team_score || 0) > Number(g.opponent_score || 0) ? pad4(g.franchise_id) : pad4(g.opponent_franchise_id); }
+      function loser(g)  { return Number(g.team_score || 0) > Number(g.opponent_score || 0) ? pad4(g.opponent_franchise_id) : pad4(g.franchise_id); }
+
+      function pickResults(ids) {
+        var r1   = games.filter(function (g) { return Number(g.week) === WK_R1 && side(g, ids); });
+        var semi = games.filter(function (g) { return Number(g.week) === WK_SEMI && side(g, ids); });
+        var fin  = games.filter(function (g) { return Number(g.week) === WK_FINAL && side(g, ids); });
+        var r1Win = new Set(), r1Lose = new Set();
+        r1.forEach(function (g) { r1Win.add(winner(g)); r1Lose.add(loser(g)); });
+        // Classify W-semi games: placement (both R1 losers) vs semi (everyone else).
+        var placement = null, semis = [];
+        semi.forEach(function (g) {
+          var a = pad4(g.franchise_id), b = pad4(g.opponent_franchise_id);
+          if (r1Lose.has(a) && r1Lose.has(b)) placement = g;
+          else semis.push(g);
+        });
+        var semiWin = new Set(), semiLose = new Set();
+        semis.forEach(function (g) { semiWin.add(winner(g)); semiLose.add(loser(g)); });
+        // Final week: title vs 3rd-place.
+        var title = null, third = null, other = [];
+        fin.forEach(function (g) {
+          var a = pad4(g.franchise_id), b = pad4(g.opponent_franchise_id);
+          if (semiWin.has(a) && semiWin.has(b)) title = g;
+          else if (semiLose.has(a) && semiLose.has(b)) third = g;
+          else other.push(g);
+        });
+        return { r1: r1, semi: semis, placement: placement, fin: fin, title: title, third: third, other: other,
+                 r1Win: r1Win, r1Lose: r1Lose, semiWin: semiWin, semiLose: semiLose };
+      }
+      var champ = pickResults(champIds);
+      var hawk  = pickResults(hawkIds);
+
+      // Build pick → franchise_id map.
+      var picks = {}; // key like "1.12" -> { fid, label, why }
+      // 1.12 = UPS champion
+      if (champ.title) picks["1.12"] = { fid: winner(champ.title), why: "Won UPS Championship" };
+      // 1.11 = UPS runner-up
+      if (champ.title) picks["1.11"] = { fid: loser(champ.title), why: "Lost UPS Championship" };
+      // 1.10 = Champ semifinal winner whose semi-WIN didn't reach final?  Actually:
+      //        "championship semifinal winner (consolation winner — gets later pick because they advanced + got money)"
+      //        That implies the W16 game between R1 LOSERS (placement). Winner = 1.10.
+      if (champ.placement) picks["1.10"] = { fid: winner(champ.placement), why: "Won championship-side W" + WK_SEMI + " placement (1.07/1.08 → 1.10)" };
+      // 1.09 = championship semifinal loser
+      // Per doc: "1.09 = championship semifinal loser" → loser of the 3rd-place W17 game (semi losers).
+      if (champ.third) picks["1.09"] = { fid: loser(champ.third), why: "Lost championship 3rd-place game" };
+      //         The semi-loser who WINS the 3rd-place game maps to 1.10? Re-check.
+      //         Re-reading: 1.10 = "semifinal winner (consolation winner)" — winner of the consolation W17 game.
+      //         1.09 = "semifinal loser" — loser of consolation. Both come from the third-place W17 game.
+      if (champ.third) picks["1.10"] = { fid: winner(champ.third), why: "Won championship 3rd-place (consolation) game" };
+      // 1.07 + 1.08 = decided by W (final-1) game between two W-R1 champ losers
+      //   1.07 = winner of that game
+      //   1.08 = loser of that game
+      if (champ.placement) {
+        picks["1.08"] = { fid: loser(champ.placement), why: "Lost championship W" + WK_SEMI + " placement (1.07/1.08)" };
+        picks["1.07"] = { fid: winner(champ.placement), why: "Won championship W" + WK_SEMI + " placement (1.07/1.08)" };
+        // 1.07/1.08 vs 1.10 — doc says 1.05/1.06 from TOILET-side W(N-1), 1.07/1.08 from CHAMP-side W(N-1).
+        // So 1.07 = champ W16 placement winner, 1.08 = champ W16 placement loser. That conflicts with 1.10.
+        // Re-resolve: 1.10 comes from CHAMPIONSHIP 3RD-PLACE (W17). 1.07/1.08 from CHAMPIONSHIP placement (W16).
+      }
+      // Hawktuah side:
+      // 1.01 = Toilet Bowl champion (won Toilet final)
+      if (hawk.title) picks["1.01"] = { fid: winner(hawk.title), why: "Won Hawktuah Bowl (Toilet champ)" };
+      // 1.02 = Toilet Bowl runner-up
+      if (hawk.title) picks["1.02"] = { fid: loser(hawk.title), why: "Lost Hawktuah Bowl final" };
+      // 1.03 = Toilet semifinal winner (winner of W17 toilet 3rd-place is the consolation winner)
+      if (hawk.third) picks["1.03"] = { fid: winner(hawk.third), why: "Won Toilet 3rd-place (consolation)" };
+      // 1.04 = Toilet semifinal loser (loser of W17 toilet 3rd-place)
+      if (hawk.third) picks["1.04"] = { fid: loser(hawk.third), why: "Lost Toilet 3rd-place" };
+      // 1.05 + 1.06 = W16 placement on hawk side
+      if (hawk.placement) {
+        picks["1.05"] = { fid: winner(hawk.placement), why: "Won Toilet W" + WK_SEMI + " placement (1.05/1.06)" };
+        picks["1.06"] = { fid: loser(hawk.placement), why: "Lost Toilet W" + WK_SEMI + " placement (1.05/1.06)" };
+      }
+
+      // Render the table.
+      var pickOrder = ["1.01","1.02","1.03","1.04","1.05","1.06","1.07","1.08","1.09","1.10","1.11","1.12"];
+      var rowsHtml = pickOrder.map(function (p) {
+        var rec = picks[p];
+        var fid = rec && rec.fid;
+        var seedInfo = fid ? seedMap[pad4(fid)] : null;
+        var seedBadge = seedInfo
+          ? '<span class="seed-badge ' + seedInfo.side + '">' + (seedInfo.side === "champ" ? "🏆" : "🦅") + ' ' + seedInfo.seed + '</span>'
+          : '<span class="seed-badge none">—</span>';
+        var info = fid ? (resp.seeds.find(function (s) { return pad4(s.franchise_id) === pad4(fid); }) || {}) : {};
+        var pickStyle = p === "1.01" ? 'background:rgba(110,60,30,0.15)' : (p === "1.12" ? 'background:rgba(231,190,89,0.12)' : "");
+        return '<tr style="' + pickStyle + '">'
+          + '<td class="num" style="font-weight:800;color:var(--gold);font-size:13px">' + p + '</td>'
+          + '<td>' + seedBadge + '</td>'
+          + '<td>' + (info.franchise_name ? escapeHtml(info.franchise_name) : "<span style='color:var(--dim)'>pending</span>") + '</td>'
+          + '<td>' + escapeHtml(info.owner_name || "") + '</td>'
+          + '<td style="font-size:11px;color:var(--muted);font-style:italic">' + escapeHtml((rec && rec.why) || "—") + '</td>'
+          + '</tr>';
+      }).join("");
+
+      host.innerHTML = ''
+        + '<div class="methodology">'
+        + '<strong>Draft Order Finish</strong> maps each playoff outcome to the next-year rookie draft pick per <code>league_context_v1.md §1</code>. '
+        + 'Toilet Bowl winner picks first (1.01), UPS Champion picks last (1.12). '
+        + 'Picks 1.05/1.06 + 1.07/1.08 are decided by Week ' + WK_SEMI + ' placement games between Week ' + WK_R1 + ' losers. '
+        + '1.09/1.10 are decided by the Week ' + WK_FINAL + ' championship 3rd-place game.'
+        + '</div>'
+        + '<div style="overflow-x:auto"><table><thead><tr>'
+        + '<th class="num">Pick</th><th>Seed</th><th>Team</th><th>Owner</th><th>Why</th>'
+        + '</tr></thead><tbody>' + rowsHtml + '</tbody></table></div>'
+        + '<div class="note">'
+        + (state.year === (new Date().getUTCFullYear()) ? "If picks show 'pending', the bracket hasn't fully completed yet."
+          : "Final draft order for " + state.year + " (used in the " + (state.year + 1) + " rookie draft).")
+        + '</div>'
+        + DEFERRED_NOTE;
+    }).catch(function (e) { showError(host, "Fetch failed: " + e.message); });
+  }
+
+  // ────────────────────────────────────────────────────────────────────────
+  // View 4 — Historical Finishes
+  // ────────────────────────────────────────────────────────────────────────
+  function renderHistorical(host) {
+    fetchD1("/api/historical-finishes", null).then(function (resp) {
+      if (!resp || !resp.ok) return showError(host, "Couldn't load historical finishes.");
+      var rows = resp.rows || [];
+      if (!rows.length && resp.note) {
+        host.innerHTML = '<div class="banner">' + escapeHtml(resp.note) + '</div>' + DEFERRED_NOTE;
+        return;
+      }
+      var seasons = {}, byFid = {};
+      rows.forEach(function (r) {
+        seasons[r.season] = true;
+        var fid = pad4(r.franchise_id);
+        if (!byFid[fid]) byFid[fid] = { fid: fid, ownerSeen: {}, teamSeen: {}, byYear: {} };
+        byFid[fid].byYear[r.season] = r;
+        if (r.owner_name)    byFid[fid].ownerSeen[r.owner_name] = (byFid[fid].ownerSeen[r.owner_name] || 0) + 1;
+        if (r.franchise_name) byFid[fid].teamSeen[r.franchise_name] = (byFid[fid].teamSeen[r.franchise_name] || 0) + 1;
+      });
+      function modal(map) {
+        var best = "", bestN = 0;
+        Object.keys(map).forEach(function (k) { if (map[k] > bestN) { bestN = map[k]; best = k; } });
+        return best;
+      }
+      var seasonsSorted = Object.keys(seasons).map(Number).sort(function (a, b) { return b - a; });
+      var franchiseList = Object.keys(byFid).map(function (fid) {
+        return { fid: fid, owner: modal(byFid[fid].ownerSeen), team: modal(byFid[fid].teamSeen), byYear: byFid[fid].byYear };
+      }).sort(function (a, b) { return a.owner.localeCompare(b.owner); });
+
+      var head = '<tr><th class="hist-team">Owner · Team</th>' + seasonsSorted.map(function (y) { return '<th>' + y + '</th>'; }).join("") + '</tr>';
+      var bodyHtml = franchiseList.map(function (f) {
+        var cells = seasonsSorted.map(function (y) {
+          var r = f.byYear[y];
+          if (!r) return '<td class="hist-cell empty">—</td>';
+          var finish = r.final_finish;
+          var cls = "hist-cell";
+          if (finish === 1)       cls += " champ";
+          else if (finish === 2)  cls += " silver";
+          else if (finish === 3)  cls += " bronze";
+          else if (finish === 12) cls += " hawktuah";
+          var title = "Final " + finish + (r.regular_season_finish ? " · Reg " + r.regular_season_finish : "") + (r.division ? " · " + r.division : "");
+          return '<td class="' + cls + '" title="' + escapeHtml(title) + '">' + (finish == null ? "—" : finish) + '</td>';
+        }).join("");
+        return '<tr><td class="hist-team"><span class="owner">' + escapeHtml(f.owner) + '</span><span class="team">' + escapeHtml(f.team) + '</span></td>' + cells + '</tr>';
+      }).join("");
+
+      host.innerHTML = '<div style="overflow-x:auto"><table class="hist-table compact"><thead>' + head + '</thead><tbody>' + bodyHtml + '</tbody></table></div>'
+        + '<div class="note">🥇 1 = UPS Champion · 🥈 2 = runner-up · 🥉 3 = bronze · 🚽 12 = Hawktuah / Toilet champion</div>'
+        + DEFERRED_NOTE;
+    }).catch(function (e) { showError(host, "Fetch failed: " + e.message); });
+  }
+
+  // ────────────────────────────────────────────────────────────────────────
+  // View 5 — 3-Year Eras
+  // ────────────────────────────────────────────────────────────────────────
+  function renderEras(host) {
+    fetchD1("/api/eras", null).then(function (resp) {
+      if (!resp || !resp.ok) return showError(host, "Couldn't load eras.");
+      var eras = (resp.eras || []).filter(function (e) { return e.era_start >= ERA_FIRST; });
+      var hasFS = resp.has_final_standings;
+      var currentYear = (new Date().getUTCFullYear());
+      var fsBanner = hasFS ? "" : '<div class="banner">⚠ <code>src_final_standings</code> not loaded — championship + hawktuah counts show 0 until migration 0033 runs.</div>';
+      var html = fsBanner
+        + '<div class="methodology">'
+        + '⚠️ <strong>Methodology under review.</strong> '
+        + 'Era headliners = top 2 owners by All-Play <strong>%</strong> across the 3-year cycle, '
+        + '<strong>with a 3-full-season tenure floor</strong> (excludes mid-cycle joiners + dispersal departures). '
+        + 'Retro Captains = top 4 by AP % (same tenure rule). '
+        + 'Partial-tenure owners appear in the leaderboard tagged <span class="partial-badge">partial</span>. '
+        + 'See <code>docs/standings_advanced_stats_proposals.md</code> §1A + Appendix A.'
+        + '</div><div class="era-grid">';
+      eras.forEach(function (era) {
+        var rows = (era.rows || []).slice();
+        var eligible = rows.filter(function (r) { return (r.seasons_played || 0) >= 3; });
+        var byPct = eligible.slice().sort(function (a, b) {
+          if ((b.ap_pct || 0) !== (a.ap_pct || 0)) return (b.ap_pct || 0) - (a.ap_pct || 0);
+          if ((b.ap_w || 0)   !== (a.ap_w || 0))   return (b.ap_w || 0) - (a.ap_w || 0);
+          return (b.pf || 0) - (a.pf || 0);
+        });
+        // Dynamic headliner count by AP% gap:
+        //   - Clear leader (gap to #2 >= 5.0 ppts):   1-team era
+        //   - Tight 2-way (gap to #3 >= 5.0 ppts):    2-team era
+        //   - Genuinely tight pack (all top 3 within  3.0 ppts of each other): 3-team era
+        //   - Default: 2-team era (matches our v1 framing)
+        var HL_GAP_SOLO  = 0.05; // 5.0 pp separates #1 from the pack
+        var HL_GAP_DUO   = 0.05; // 5.0 pp separates #2 from #3
+        var HL_PACK_TIGHT = 0.03; // top 3 within 3.0 pp of each other
+        var p1 = byPct[0] && byPct[0].ap_pct, p2 = byPct[1] && byPct[1].ap_pct, p3 = byPct[2] && byPct[2].ap_pct;
+        var headlinerCount = 2;
+        if (p1 != null && p2 != null && (p1 - p2) >= HL_GAP_SOLO) {
+          headlinerCount = 1;
+        } else if (p1 != null && p2 != null && p3 != null && (p1 - p3) <= HL_PACK_TIGHT) {
+          headlinerCount = 3;
+        } else if (p2 != null && p3 != null && (p2 - p3) < HL_GAP_DUO) {
+          // 2-team isn't clearly better than 3 — bump to 3
+          headlinerCount = 3;
+        }
+        var headliners = byPct.slice(0, headlinerCount);
+        var captains = byPct.slice(0, 4);
+        var inProgress = (era.era_end >= currentYear);
+        var eraTitle = inProgress ? era.era_start + "–" + era.era_end + " (in progress)" : era.era_start + "–" + era.era_end;
+        function pctGapNote() {
+          var bits = [];
+          if (p1 != null && p2 != null) bits.push("#1→#2: " + ((p1 - p2) * 100).toFixed(1) + " pp");
+          if (p2 != null && p3 != null) bits.push("#2→#3: " + ((p2 - p3) * 100).toFixed(1) + " pp");
+          return bits.length ? " <span style=\"color:var(--dim);font-size:10px;font-weight:400;letter-spacing:0;text-transform:none\">(" + bits.join(" · ") + ")</span>" : "";
+        }
+        var headlinerText;
+        if (inProgress) {
+          headlinerText = "Era in progress — headliners pending";
+        } else if (headliners.length === 1) {
+          headlinerText = "The " + (headliners[0].owner_name || "?") + " Era" + pctGapNote();
+        } else if (headliners.length === 2) {
+          headlinerText = "The " + (headliners[0].owner_name || "?") + " & " + (headliners[1].owner_name || "?") + " Era" + pctGapNote();
+        } else if (headliners.length === 3) {
+          headlinerText = "The " + (headliners[0].owner_name || "?") + ", " + (headliners[1].owner_name || "?") + " & " + (headliners[2].owner_name || "?") + " Era" + pctGapNote();
+        } else {
+          headlinerText = "No eligible owners";
+        }
+        var capPills = captains.length
+          ? captains.map(function (c) { return '<span class="cap-pill" title="AP% ' + fmtPct(c.ap_pct) + ' · ' + (c.seasons_played || 0) + ' seasons">' + escapeHtml(c.owner_name || "?") + '</span>'; }).join("")
+          : '<span class="cap-empty">No eligible owners yet (3-season minimum)</span>';
+        var byPctAll = rows.slice().sort(function (a, b) {
+          var ea = (a.seasons_played || 0) >= 3 ? 1 : 0;
+          var eb = (b.seasons_played || 0) >= 3 ? 1 : 0;
+          if (ea !== eb) return eb - ea;
+          if ((b.ap_pct || 0) !== (a.ap_pct || 0)) return (b.ap_pct || 0) - (a.ap_pct || 0);
+          return (b.ap_w || 0) - (a.ap_w || 0);
+        });
+        var lbHead = '<tr><th>Owner</th><th class="num">Yrs</th><th class="num">AP %</th><th class="num">AP W</th><th>H2H</th><th class="num">PF</th><th class="num">🏆</th><th class="num">🚽</th><th class="num">Avg Fin</th></tr>';
+        var lbBody = byPctAll.map(function (r) {
+          var partial = (r.seasons_played || 0) < 3;
+          return '<tr' + (partial ? ' class="partial"' : '') + '>'
+            + '<td>' + escapeHtml(r.owner_name || "—") + (partial ? ' <span class="partial-badge" title="Did not play all 3 seasons of the cycle">partial</span>' : '') + '</td>'
+            + '<td class="num">' + (r.seasons_played || 0) + '</td>'
+            + '<td class="num">' + fmtPct(r.ap_pct) + '</td>'
+            + '<td class="num">' + (r.ap_w || 0) + '</td>'
+            + '<td>' + rec(r.h2h_w, r.h2h_l, r.h2h_t) + '</td>'
+            + '<td class="num">' + fmtCommas(r.pf, 1) + '</td>'
+            + '<td class="num">' + (r.championships || 0) + '</td>'
+            + '<td class="num">' + (r.hawktuah_wins || 0) + '</td>'
+            + '<td class="num">' + (r.avg_finish ? Number(r.avg_finish).toFixed(1) : "—") + '</td>'
+            + '</tr>';
+        }).join("");
+        html += '<section class="era-card">'
+          + '<div class="era-cycle">' + escapeHtml(eraTitle) + '</div>'
+          + '<div class="era-name">' + escapeHtml(headlinerText) + '</div>'
+          + '<div class="era-captains-label">Retro Captains (top 4 AP %, 3-season tenure)</div>'
+          + '<div class="era-captains">' + capPills + '</div>'
+          + '<div class="era-card-scroll"><table class="compact"><thead>' + lbHead + '</thead><tbody>' + lbBody + '</tbody></table></div>'
+          + '</section>';
+      });
+      html += '</div>' + DEFERRED_NOTE;
+      host.innerHTML = html;
+    }).catch(function (e) { showError(host, "Fetch failed: " + e.message); });
+  }
+
+  // ────────────────────────────────────────────────────────────────────────
+  // View 6 — Division Power Rankings
+  // ────────────────────────────────────────────────────────────────────────
+  function renderDivPower(host) {
+    fetchD1("/api/division-power-rankings", null).then(function (resp) {
+      if (!resp || !resp.ok) return showError(host, "Couldn't load division power rankings.");
+      var rows = (resp.rows || []).slice();
+      var mode = state.dpMode;
+      var view = rows.slice();
+      if (mode === "best")       view = view.slice(0, 10);
+      else if (mode === "worst") view = view.slice().sort(function (a, b) { return (a.ap_pct || 0) - (b.ap_pct || 0); }).slice(0, 10);
+      else if (mode === "byCycle") {
+        var grouped = {};
+        rows.forEach(function (r) {
+          var k = r.cycle_start + "|" + r.division;
+          if (!grouped[k]) grouped[k] = {
+            cycle_start: r.cycle_start, division: r.division,
+            division_name: r.division_name || null,
+            owners: r.owners,
+            ap_w: 0, ap_l: 0, ap_t: 0, pf: 0, n: 0, produced_champion: 0
+          };
+          grouped[k].ap_w += (r.ap_w || 0);
+          grouped[k].ap_l += (r.ap_l || 0);
+          grouped[k].ap_t += (r.ap_t || 0);
+          grouped[k].pf   += (r.pf || 0);
+          grouped[k].n    += 1;
+          grouped[k].produced_champion += (r.produced_champion || 0);
+        });
+        view = Object.keys(grouped).map(function (k) {
+          var g = grouped[k];
+          var games = g.ap_w + g.ap_l + g.ap_t;
+          g.ap_pct = games > 0 ? (g.ap_w + 0.5 * g.ap_t) / games : null;
+          return g;
+        }).sort(function (a, b) { return (b.ap_pct || 0) - (a.ap_pct || 0); });
+      }
+      // Apply user sort
+      view = sortRows(view, state.dpSort.key, state.dpSort.dir);
+
+      var modeBtns = [
+        { id: "allTime",  label: "All-time" },
+        { id: "best",     label: "Best ever (top 10)" },
+        { id: "worst",    label: "Worst ever (bottom 10)" },
+        { id: "byCycle",  label: "By 3-year cycle" }
+      ].map(function (m) {
+        return '<button type="button" class="mode-btn" data-mode="' + m.id + '" data-active="' + (mode === m.id ? "1" : "0") + '">' + escapeHtml(m.label) + '</button>';
+      }).join("");
+
+      var sortHdrs = state.dpSort;
+      var head = mode === "byCycle"
+        ? '<tr><th class="num">#</th>'
+          + sortableHeader("Cycle", "cycle_start", sortHdrs)
+          + sortableHeader("Division", "division_name", sortHdrs)
+          + '<th>Owners (cycle aggregate)</th>'
+          + sortableHeader("AP W-L-T", "ap_w", sortHdrs)
+          + sortableHeader("AP %", "ap_pct", sortHdrs, "num")
+          + sortableHeader("PF", "pf", sortHdrs, "num")
+          + sortableHeader("🏆 yrs", "produced_champion", sortHdrs, "num")
+          + '</tr>'
+        : '<tr><th class="num">#</th>'
+          + sortableHeader("Season", "season", sortHdrs)
+          + sortableHeader("Division", "division_name", sortHdrs)
+          + '<th>Owners & AP %</th>'
+          + sortableHeader("AP W-L-T", "ap_w", sortHdrs)
+          + sortableHeader("AP %", "ap_pct", sortHdrs, "num")
+          + sortableHeader("PF", "pf", sortHdrs, "num")
+          + sortableHeader("🏆?", "produced_champion", sortHdrs)
+          + '</tr>';
+
+      // Render per-team breakdown for non-cycle modes (we have team_details
+      // from the worker). For byCycle mode, fall back to the aggregated
+      // owners string since teams may vary year over year within a cycle.
+      function ownersCell(r) {
+        if (mode === "byCycle") return escapeHtml(r.owners || "");
+        var teams = r.team_details || [];
+        if (!teams.length) return escapeHtml(r.owners || "");
+        // Sort within division by overall PCT → div PCT → PF → AP%.
+        var sorted = teams.slice().sort(function (a, b) {
+          if (!!b.is_division_leader !== !!a.is_division_leader) return b.is_division_leader ? 1 : -1;
+          return (b.computed_ap_pct || 0) - (a.computed_ap_pct || 0);
+        });
+        return sorted.map(function (t) {
+          var pct = t.computed_ap_pct;
+          var apStr = (pct != null) ? (Number(pct) * 100).toFixed(1) + "%" : "—";
+          if (t.is_division_leader) {
+            return '<span class="dp-owner dp-winner" title="Division Winner — AP ' + apStr + '"><span class="dp-name">' + escapeHtml(t.owner_name || "?") + '</span> <span class="dp-ap">' + apStr + '</span> 🏆</span>';
+          }
+          return '<span class="dp-owner"><span class="dp-name">' + escapeHtml(t.owner_name || "?") + '</span> <span class="dp-ap">' + apStr + '</span></span>';
+        }).join(" · ");
+      }
+
+      var bodyHtml = view.map(function (r, i) {
+        var divLabel = r.division_name || ("Division " + (r.division || "—"));
+        return '<tr>'
+          + '<td class="num">' + (i + 1) + '</td>'
+          + '<td>' + (mode === "byCycle" ? (r.cycle_start + "–" + (r.cycle_start + 2)) : r.season) + '</td>'
+          + '<td>' + escapeHtml(divLabel) + ' <span style="color:var(--dim);font-size:10px">' + escapeHtml(r.division || "") + '</span></td>'
+          + '<td>' + ownersCell(r) + '</td>'
+          + '<td>' + rec(r.ap_w, r.ap_l, r.ap_t) + '</td>'
+          + '<td class="num">' + fmtPct(r.ap_pct) + '</td>'
+          + '<td class="num">' + fmtCommas(r.pf, 1) + '</td>'
+          + '<td' + (mode === "byCycle" ? ' class="num"' : '') + '>' + (r.produced_champion ? (mode === "byCycle" ? r.produced_champion : "Yes") : "—") + '</td>'
+          + '</tr>';
+      }).join("");
+
+      host.innerHTML = '<div class="methodology">'
+        + '⚠️ <strong>Methodology under review.</strong> Strength = aggregate All-Play % across the 3 teams in the division for that season. '
+        + 'Tie-break AP wins → division PF. AP % is matchup-luck-neutral and normalizes across eras with different game counts. '
+        + 'See <code>docs/standings_advanced_stats_proposals.md</code> §1B.'
+        + '</div>'
+        + '<div class="mode-row">' + modeBtns + '</div>'
+        + '<div style="overflow-x:auto"><table><thead>' + head + '</thead><tbody>' + bodyHtml + '</tbody></table></div>'
+        + '<div class="note">Click any column header to sort. Division names from MFL <code>TYPE=league</code>.</div>'
+        + DEFERRED_NOTE;
+      host.querySelectorAll("[data-mode]").forEach(function (b) {
+        b.addEventListener("click", function () {
+          state.dpMode = b.getAttribute("data-mode");
+          renderDivPower(host);
+        });
+      });
+      wireSortClicks(host, state.dpSort, function () { renderDivPower(host); });
+    }).catch(function (e) { showError(host, "Fetch failed: " + e.message); });
+  }
+
+  // ────────────────────────────────────────────────────────────────────────
+  // Boot
+  // ────────────────────────────────────────────────────────────────────────
+  renderShell();
+  render();
+})();
+</script>
+</body>
+</html>

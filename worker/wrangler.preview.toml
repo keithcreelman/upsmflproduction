@@ -1,0 +1,32 @@
+# Standings v2 preview worker — same code, separate URL, NO scheduled
+# crons (so cap-penalty scans + R2 snapshots + Discord posts don't fire
+# twice). Deploy with:
+#   npx wrangler deploy --config wrangler.preview.toml
+# URL after deploy:
+#   https://upsmflproduction-standings-preview.keith-creelman.workers.dev
+#
+# Created 2026-05-14 because CF's edge-preview API was 5xx-ing and we
+# couldn't run wrangler dev --remote. Throwaway — delete via
+# `npx wrangler delete --name upsmflproduction-standings-preview` once
+# the v2 standings work is merged + deployed to prod.
+
+name = "upsmflproduction-standings-preview"
+main = "src/index.js"
+compatibility_date = "2026-02-02"
+
+# Deliberately NO [triggers] block — preview worker doesn't run crons.
+
+[[r2_buckets]]
+binding = "UPS_MFL_BACKUPS"
+bucket_name = "ups-mfl-backups"
+
+[[d1_databases]]
+binding = "UPS_MFL_DB"
+database_name = "ups-mfl-db"
+database_id = "8cfe1ddd-749e-476a-9c2c-a359410c6fc1"
+migrations_dir = "migrations"
+
+[[rules]]
+type = "Text"
+globs = ["**/league_context_v1.md"]
+fallthrough = true

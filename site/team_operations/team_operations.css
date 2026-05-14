@@ -210,6 +210,38 @@
   color: var(--tops-ink-dim);
   margin-top: 0.2rem;
 }
+/* Split rows under the big Cap Total number — "Salary" + "Adjustments". */
+.tops-kv-split {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 0.4rem;
+  padding: 0.35rem 0;
+  border-top: 1px solid rgba(92, 129, 173, 0.18);
+  border-bottom: 1px solid rgba(92, 129, 173, 0.18);
+}
+.tops-kv-split-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 0.78rem;
+  line-height: 1.25;
+}
+.tops-kv-split-k {
+  color: var(--tops-ink-dim);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: 0.66rem;
+  font-weight: 700;
+}
+.tops-kv-split-v {
+  color: var(--tops-ink);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.tops-kv-split-line.tops-kv-split-warn .tops-kv-split-v { color: var(--tops-warn); }
+.tops-kv-split-line.tops-kv-split-ok .tops-kv-split-v { color: var(--tops-ok); }
+.tops-kv-split-line.tops-kv-split-zero .tops-kv-split-v { color: var(--tops-ink-dim); }
 
 .tops-bar {
   margin-top: 0.45rem;

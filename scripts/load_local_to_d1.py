@@ -66,6 +66,7 @@ PK_MAP: dict[str, list[str]] = {
     "nfl_team_weekly":            ["season", "week", "team"],
     "player_id_crosswalk":        ["mfl_player_id"],
     "metric_stickiness":          ["position", "metric", "min_games"],
+    "src_final_standings":        ["season", "franchise_id"],
 }
 
 
@@ -501,6 +502,20 @@ def main():
          """,
          ["position","metric","min_games","n_pairs","n_players",
           "corr_pearson","corr_spearman","season_min","season_max","computed_at"]),
+        # Final standings (champion / runner-up / playoff finish per season).
+        # Powers the Historical Finishes + Era championship counts + Hall of
+        # Champions in the Standings module.
+        # Local table is `metadata_finalstandings`; columns are
+        # (franchise, year, regular_season_finish, final_finish, franchise_id).
+        # The destination has `division` which the local table doesn't carry —
+        # mark NULL and let queries fall back to src_franchises.division.
+        ("finalstandings", "src_final_standings",
+         """
+         SELECT year AS season, franchise_id, final_finish, regular_season_finish, NULL AS division
+         FROM metadata_finalstandings
+         WHERE franchise_id IS NOT NULL AND franchise_id != ''
+         """,
+         ["season","franchise_id","final_finish","regular_season_finish","division"]),
     ]
 
     selected = set((args.only or "").split(",")) if args.only else None
