@@ -448,9 +448,16 @@
   //             a bare Pages URL.
   var TAB_DEFS = [
     { id: "overview",     label: "Overview" },
-    { id: "front-office", label: "Front Office",   iframe: hubUrl("rosters/roster_workbench.html"),     message: "MESSAGE7" },
+    // Front Office: MESSAGE7 was previously assumed but MFL admin
+    // currently has MESSAGE7 pointing at Team Ops itself (Keith
+    // 2026-05-14). Drop `message` so pop-out falls back to the Pages
+    // URL until the correct MESSAGE# is confirmed.
+    { id: "front-office", label: "Front Office",   iframe: hubUrl("rosters/roster_workbench.html") },
     { id: "player-stats", label: "Player Stats",   iframe: hubUrl("stats_workbench/stats_workbench.html"), message: "MESSAGE13" },
-    { id: "trade-room",   label: "Trade War Room", iframe: hubUrl("trades/trade_workbench.html"),       message: "MESSAGE6=N" }
+    { id: "trade-room",   label: "Trade War Room", iframe: hubUrl("trades/trade_workbench.html"),       message: "MESSAGE6=N" },
+    // Standings: self-contained HPM at site/standings/mfl_hpm_standings.html.
+    // No `message` yet — pending confirmation of the MFL MESSAGE# assignment.
+    { id: "standings",    label: "Standings",      iframe: hubUrl("standings/mfl_hpm_standings.html") }
   ];
 
   // Build the MFL-hosted MESSAGEnn URL for the given tab def. Falls back
@@ -626,15 +633,29 @@
     var statusById = {};
     roster.forEach(function (r) { statusById[r.id] = safeStr(r.status); });
 
-    // Universal taxi rule: salary is real money but DOES NOT count vs the
-    // cap. Split the totals so the headline "Cap Used" is cap-relevant
-    // only; taxi $ surfaces as a secondary callout.
+    // Cap hit rules (must match Roster Workbench's currentCapHit):
+    //   • Taxi: 0% — taxi salary is real money but DOES NOT count vs cap.
+    //   • IR:   50% — half of salary counts toward cap.
+    //   • All other roster states: 100%.
+    // Without the IR 50% rule, Team Ops Cap Used previously ran $X-Y K
+    // higher than Front Office Cap Summary for any team with IR
+    // players. Keith caught this on Long Haulers (2026-05-14) where
+    // FO showed $283K total salary but Team Ops showed $289K — exactly
+    // 50% × IR total off.
     var playerSalaryUsed = 0;
     var taxiSalary = 0;
+    var irSalaryFull = 0;     // raw IR salary before 50% factor, for transparency
     salaries.forEach(function (s) {
       var amt = Number(s.salary || 0);
-      if (/taxi/i.test(statusById[s.id] || "")) taxiSalary += amt;
-      else playerSalaryUsed += amt;
+      var status = statusById[s.id] || "";
+      if (/taxi/i.test(status)) {
+        taxiSalary += amt;
+      } else if (/ir|injured/i.test(status)) {
+        irSalaryFull += amt;
+        playerSalaryUsed += Math.round(amt * 0.5);
+      } else {
+        playerSalaryUsed += amt;
+      }
     });
     // Fold salary-adjustments (trade, cut, manual) into the displayed
     // numbers so Team Ops matches Front Office. MFL convention: positive
