@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var BUILD = "2026.05.14.iframe-proxy";
+  var BUILD = "2026.05.14.pages";
   var BOOT_FLAG = "__ups_team_operations_boot_" + BUILD;
   if (window[BOOT_FLAG]) {
     if (typeof window.UPS_TEAMOPS_INIT === "function") window.UPS_TEAMOPS_INIT();
@@ -396,12 +396,18 @@
   // roster_workbench) · Player Stats (iframes stats_workbench). The hub URLs
   // resolve relative to /upsmflproduction/site/ since both target hubs live
   // there. iframes are lazy: src is set the first time the tab activates.
-  // Iframe URLs route through our worker's /api/repo-html proxy because
-  // jsDelivr 403s HTML files in this repo (50MB package limit — see
-  // tracking issue #88). The worker fetches from raw.github + re-serves
-  // as text/html (no sandbox CSP), so iframes can render + execute scripts.
-  // Relative paths to MFL origin 404 (the embed runs at www48.myfantasyleague.com).
+  // Iframe URLs use GitHub Pages — serves HTML with correct text/html
+  // content-type (jsDelivr forces text/plain on HTML by policy, and 403s
+  // when the repo exceeds 50MB). Pages also has no size limit and a much
+  // shorter cache TTL than jsDelivr (~10 min vs ~12hr). See #88.
+  //
+  // Falls back to the /api/repo-html worker proxy if Pages is unreachable
+  // (e.g., during a Pages build, or for an unmerged branch view). The
+  // iframe.onerror handler in renderShell wires the fallback chain.
   function hubUrl(relPath) {
+    return "https://keithcreelman.github.io/upsmflproduction/site/" + relPath;
+  }
+  function hubUrlFallback(relPath) {
     var ref = (window.UPS_RELEASE_SHA && String(window.UPS_RELEASE_SHA).trim()) || "main";
     return workerUrl("/api/repo-html?ref=" + encodeURIComponent(ref) + "&path=" + encodeURIComponent("site/" + relPath));
   }
