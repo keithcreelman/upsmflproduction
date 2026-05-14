@@ -462,6 +462,19 @@
               + "&YEAR=" + encodeURIComponent(state.ctx.year)
               + (state.viewerFranchiseId ? "&FRANCHISE_ID=" + encodeURIComponent(state.viewerFranchiseId) : "");
 
+    // Trade War Room needs api= + APIKEY= to load the live trade payload
+    // (worker /trade-workbench endpoint with all 12 franchises). Without
+    // these the workbench falls back to its bundled sample which only
+    // ships 3 teams — that's why the partner picker only listed
+    // LA Looks + Ulterior Warrior. mfl_hpm_embed_loader does this for
+    // the standalone HPM mount; team-ops needs to do it inline since
+    // we skip that loader.
+    var twbApiKey = "";
+    try { twbApiKey = String(window._apiKey_ || "").trim(); } catch (e) {}
+    var twbExtraQs = "&api=" + encodeURIComponent("https://upsmflproduction.keith-creelman.workers.dev/trade-workbench")
+                   + "&embed=1"
+                   + (twbApiKey ? "&APIKEY=" + encodeURIComponent(twbApiKey) : "");
+
     var activeTab = readActiveTab();
     var tabsHtml = '<nav class="tops-tabs" role="tablist">'
       + TAB_DEFS.map(function (t) {
@@ -493,7 +506,7 @@
     // the iframe viewport, no way around that without rebuilding the modals
     // to use parent-frame postMessage).
     var hubPanels = TAB_DEFS.filter(function (t) { return !!t.iframe; }).map(function (t) {
-      var src = t.iframe + ctxQs;
+      var src = t.iframe + ctxQs + (t.id === "trade-room" ? twbExtraQs : "");
       var on = (t.id === activeTab) ? '1' : '0';
       var lazy = (t.id === activeTab) ? ' src="' + escapeHtml(src) + '"' : ' data-lazysrc="' + escapeHtml(src) + '"';
       return '<section class="tops-tab-panel tops-tab-panel--iframe" data-tab-panel="' + t.id + '" data-active="' + on + '" role="tabpanel">'

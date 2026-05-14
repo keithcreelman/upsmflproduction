@@ -10945,6 +10945,12 @@
       L: safeStr(state.ctx && state.ctx.leagueId),
       YEAR: safeStr(state.ctx && state.ctx.year),
       type: "MANUAL_CONTRACT_UPDATE",
+      // submission_kind is the explicit channel the worker uses to log
+      // tag/untag actions into the ups_tag_submissions D1 table. Without
+      // this flag the worker can't tell a tag apart from any other
+      // MANUAL_CONTRACT_UPDATE (and an untag's contract_status is the
+      // prior contract, not "TAG", so detection requires the flag).
+      submission_kind: "tag",
       leagueId: safeStr(state.ctx && state.ctx.leagueId),
       year: safeStr(state.ctx && state.ctx.year),
       player_id: safeStr(row && row.player_id),
@@ -10977,6 +10983,11 @@
       L: safeStr(state.ctx && state.ctx.leagueId),
       YEAR: safeStr(state.ctx && state.ctx.year),
       type: "MANUAL_CONTRACT_UPDATE",
+      // See buildTagContractPayload — submission_kind tells the worker
+      // to log this into ups_tag_submissions. prior_tag_side preserves
+      // the side this player was occupying so the audit row records it.
+      submission_kind: "untag",
+      prior_tag_side: getTagSideFromPos((player && (player.positionGroup || player.position)) || ref.position) || "",
       leagueId: safeStr(state.ctx && state.ctx.leagueId),
       year: safeStr(state.ctx && state.ctx.year),
       player_id: safeStr(player && player.id),
