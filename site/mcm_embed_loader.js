@@ -80,9 +80,12 @@
   const DEFAULT_API = "https://upsmflproduction.keith-creelman.workers.dev";
   const apiBase = u && u.searchParams.get("MCM_API") ? safeStr(u.searchParams.get("MCM_API")) : DEFAULT_API;
 
-  // Hosted frame is served from this same repo via jsDelivr.
+  // Hosted frame served from GitHub Pages (#88 — 2026-05-14 jsDelivr cutover).
+  // Was previously @dev branch on jsDelivr; Pages reflects main. If a
+  // separate dev iteration is needed in the future, point this at a
+  // workers.dev preview or use a query-string override.
   const frameBase =
-    "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@dev/site/mcm/mcm_frame.html";
+    "https://keithcreelman.github.io/upsmflproduction/mcm/mcm_frame.html";
 
   const frameUrl = new URL(frameBase);
   frameUrl.searchParams.set("api", apiBase.replace(/\/+$/, ""));

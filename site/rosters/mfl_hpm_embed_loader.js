@@ -204,14 +204,12 @@
       masterCandidates.push(base + "../shared/player_profile_master.js?v=" + cacheKey);
     }
 
-    cssCandidates.push("https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@" + releaseRef + "/site/rosters/roster_workbench.css?v=" + cacheKey);
-    cssCandidates.push("https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/rosters/roster_workbench.css?v=" + cacheKey);
-
-    jsCandidates.push("https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@" + releaseRef + "/site/rosters/roster_workbench.js?v=" + cacheKey);
-    jsCandidates.push("https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/rosters/roster_workbench.js?v=" + cacheKey);
-
-    masterCandidates.push("https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@" + releaseRef + "/site/shared/player_profile_master.js?v=" + cacheKey);
-    masterCandidates.push("https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/shared/player_profile_master.js?v=" + cacheKey);
+    // GitHub Pages is the canonical CDN (see #88). jsDelivr removed as of
+    // 2026-05-14 — Pages: no 50MB limit, correct text/html, predictable
+    // ~10min cache TTL, no rawcdn-style content-type hacks needed.
+    cssCandidates.push("https://keithcreelman.github.io/upsmflproduction/rosters/roster_workbench.css?v=" + cacheKey);
+    jsCandidates.push("https://keithcreelman.github.io/upsmflproduction/rosters/roster_workbench.js?v=" + cacheKey);
+    masterCandidates.push("https://keithcreelman.github.io/upsmflproduction/shared/player_profile_master.js?v=" + cacheKey);
 
     injectCssCandidates(cssCandidates);
 

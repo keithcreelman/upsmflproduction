@@ -2,10 +2,8 @@
 <div id="upsStatsWorkbenchMount"></div>
 <script>
   (function () {
-    var sha = window.UPS_STATS_WORKBENCH_RELEASE_SHA || window.UPS_RELEASE_SHA || "8ee8d8a";
     var s = document.createElement("script");
-    s.src = "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@" +
-            sha + "/site/stats_workbench/mfl_hpm_embed_loader.js";
+    s.src = "https://keithcreelman.github.io/upsmflproduction/stats_workbench/mfl_hpm_embed_loader.js";
     s.setAttribute("data-target-id", "upsStatsWorkbenchMount");
     var anchor = document.currentScript;
     anchor.parentNode.insertBefore(s, anchor);

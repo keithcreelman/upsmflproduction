@@ -2281,7 +2281,7 @@
     }
 
     if (SCRIPT_BASE_URL) return SCRIPT_BASE_URL + "player_points_history.json";
-    return "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/rosters/player_points_history.json";
+    return "https://keithcreelman.github.io/upsmflproduction/rosters/player_points_history.json";
   }
 
   function resolveExtensionPreviewFallbackUrl(season) {
@@ -2306,7 +2306,7 @@
         return new URL("../trades/extension_previews_" + encodeURIComponent(seasonText) + ".json", SCRIPT_BASE_URL).toString();
       } catch (e) {}
     }
-    return "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/trades/extension_previews_" + encodeURIComponent(seasonText) + ".json";
+    return "https://keithcreelman.github.io/upsmflproduction/trades/extension_previews_" + encodeURIComponent(seasonText) + ".json";
   }
 
   function loadExtensionPreviewFallbackRows(season) {
@@ -2344,7 +2344,7 @@
         return new URL("player_acquisition_lookup_" + encodeURIComponent(seasonText) + ".json", SCRIPT_BASE_URL).toString();
       } catch (e) {}
     }
-    return "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/rosters/player_acquisition_lookup_" + encodeURIComponent(seasonText) + ".json";
+    return "https://keithcreelman.github.io/upsmflproduction/rosters/player_acquisition_lookup_" + encodeURIComponent(seasonText) + ".json";
   }
 
   function loadAcquisitionLookupRows(season) {
@@ -2380,7 +2380,7 @@
         return new URL("../reports/salary_adjustments/salary_adjustments_" + encodeURIComponent(seasonText) + ".json", SCRIPT_BASE_URL).toString();
       } catch (e) {}
     }
-    return "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/reports/salary_adjustments/salary_adjustments_" + encodeURIComponent(seasonText) + ".json";
+    return "https://keithcreelman.github.io/upsmflproduction/reports/salary_adjustments/salary_adjustments_" + encodeURIComponent(seasonText) + ".json";
   }
 
   function loadSalaryAdjustmentLedgerRows(season) {
@@ -2629,7 +2629,7 @@
         return new URL("../ccc/tag_tracking.json", SCRIPT_BASE_URL).toString();
       } catch (e) {}
     }
-    return "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/ccc/tag_tracking.json";
+    return "https://keithcreelman.github.io/upsmflproduction/ccc/tag_tracking.json";
   }
 
   function resolveTagSubmissionsUrl() {
@@ -2652,7 +2652,7 @@
         return new URL("../ccc/tag_submissions.json", SCRIPT_BASE_URL).toString();
       } catch (e) {}
     }
-    return "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/ccc/tag_submissions.json";
+    return "https://keithcreelman.github.io/upsmflproduction/ccc/tag_submissions.json";
   }
 
   function loadLocalTagSubmissionStore() {

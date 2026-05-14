@@ -164,10 +164,8 @@
       cssCandidates.push(base + "team_operations.css?v=" + cacheKey);
       jsCandidates.push(base + "team_operations.js?v=" + cacheKey);
     }
-    cssCandidates.push("https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@" + releaseRef + "/site/team_operations/team_operations.css?v=" + cacheKey);
-    cssCandidates.push("https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/team_operations/team_operations.css?v=" + cacheKey);
-    jsCandidates.push("https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@" + releaseRef + "/site/team_operations/team_operations.js?v=" + cacheKey);
-    jsCandidates.push("https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/team_operations/team_operations.js?v=" + cacheKey);
+    cssCandidates.push("https://keithcreelman.github.io/upsmflproduction/team_operations/team_operations.css?v=" + cacheKey);
+    jsCandidates.push("https://keithcreelman.github.io/upsmflproduction/team_operations/team_operations.js?v=" + cacheKey);
 
     // Unified player-profile modal (v1.7.43+). Load BEFORE team_operations.js
     // so window.UPS_openPlayerProfile is available when the hub's
@@ -181,8 +179,7 @@
         masterCandidates.push(sharedBase + "player_profile_master.js?v=" + cacheKey);
       } catch (e) {}
     }
-    masterCandidates.push("https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@" + releaseRef + "/site/shared/player_profile_master.js?v=" + cacheKey);
-    masterCandidates.push("https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/shared/player_profile_master.js?v=" + cacheKey);
+    masterCandidates.push("https://keithcreelman.github.io/upsmflproduction/shared/player_profile_master.js?v=" + cacheKey);
     injectScript(masterCandidates, function () {
       // Load team_operations.js whether or not the master loaded;
       // the hub's wrapper handles fallback.

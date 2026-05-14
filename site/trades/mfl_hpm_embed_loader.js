@@ -267,7 +267,7 @@
     }
     var base = getScriptBaseUrl();
     if (base) return base + "trade_workbench.html";
-    return "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/trades/trade_workbench.html";
+    return "https://keithcreelman.github.io/upsmflproduction/trades/trade_workbench.html";
   }
 
   function resolveApiUrl() {

@@ -69,7 +69,7 @@
       su.hash = "";
       return su.toString();
     } catch (e) {
-      return "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/standings/mfl_hpm_standings.html";
+      return "https://keithcreelman.github.io/upsmflproduction/standings/mfl_hpm_standings.html";
     }
   }
 
