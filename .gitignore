@@ -43,3 +43,11 @@ node_modules/
 # always present orange 'LOCAL REVIEW' banners + point at prod worker.
 # Useful in worktree, never meant for main.
 _local_*.html
+
+# pipelines/reports/ — pipeline build outputs (regeneratable). The
+# pipelines/etl/data/ + /artifacts/ + /inputs/ patterns above already
+# guard most pipeline output, but contract_history_*.csv files escaped
+# into pipelines/reports/ in earlier work. Pruned 2026-05-13 to keep
+# the repo under jsDelivr's 50MB package limit. Re-running the build
+# scripts regenerates them locally.
+pipelines/reports/*.csv
