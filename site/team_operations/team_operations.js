@@ -448,16 +448,10 @@
   //             a bare Pages URL.
   var TAB_DEFS = [
     { id: "overview",     label: "Overview" },
-    // Front Office: MESSAGE7 was previously assumed but MFL admin
-    // currently has MESSAGE7 pointing at Team Ops itself (Keith
-    // 2026-05-14). Drop `message` so pop-out falls back to the Pages
-    // URL until the correct MESSAGE# is confirmed.
-    { id: "front-office", label: "Front Office",   iframe: hubUrl("rosters/roster_workbench.html") },
+    { id: "front-office", label: "Front Office",   iframe: hubUrl("rosters/roster_workbench.html"),     message: "MESSAGE7" },
     { id: "player-stats", label: "Player Stats",   iframe: hubUrl("stats_workbench/stats_workbench.html"), message: "MESSAGE13" },
     { id: "trade-room",   label: "Trade War Room", iframe: hubUrl("trades/trade_workbench.html"),       message: "MESSAGE6=N" },
-    // Standings: self-contained HPM at site/standings/mfl_hpm_standings.html.
-    // No `message` yet — pending confirmation of the MFL MESSAGE# assignment.
-    { id: "standings",    label: "Standings",      iframe: hubUrl("standings/mfl_hpm_standings.html") }
+    { id: "standings",    label: "Standings",      iframe: hubUrl("standings/mfl_hpm_standings.html"), message: "MESSAGE4" }
   ];
 
   // Build the MFL-hosted MESSAGEnn URL for the given tab def. Falls back
