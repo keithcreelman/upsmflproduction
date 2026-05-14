@@ -23127,6 +23127,51 @@ export default {
             // via console only.
             console.warn("[tag-audit] D1 insert failed:", e?.message || String(e));
           }
+
+          // Master tag state — current-state mirror. Tag UPSERTs into the
+          // (season, league, franchise, side) slot so re-tagging the same
+          // side just swaps player. Untag DELETEs the row (by season +
+          // league + franchise + player_id) so the slot frees up.
+          try {
+            if (isTagAction && tagSideForLog) {
+              await env.UPS_MFL_DB.prepare(
+                `INSERT INTO ups_tag_master
+                   (league_id, season, franchise_id, tag_side, player_id,
+                    player_name, position, salary, source, tagged_at_utc, updated_at_utc)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 ON CONFLICT(league_id, season, franchise_id, tag_side) DO UPDATE SET
+                   player_id      = excluded.player_id,
+                   player_name    = excluded.player_name,
+                   position       = excluded.position,
+                   salary         = excluded.salary,
+                   source         = excluded.source,
+                   updated_at_utc = excluded.updated_at_utc`
+              ).bind(
+                leagueId,
+                year,
+                franchiseId,
+                tagSideForLog,
+                playerId,
+                playerName,
+                position,
+                salary ? Number(salary) : null,
+                sourceTag || "worker-commish-contract-update",
+                submittedAtUtc || new Date().toISOString(),
+                new Date().toISOString()
+              ).run();
+            } else if (isUntagAction) {
+              // Untag → free the slot. Match by (season, league, franchise,
+              // player) rather than (season, league, franchise, side) so a
+              // mid-flight side relabel doesn't leave a ghost row.
+              await env.UPS_MFL_DB.prepare(
+                `DELETE FROM ups_tag_master
+                  WHERE league_id = ? AND season = ?
+                    AND franchise_id = ? AND player_id = ?`
+              ).bind(leagueId, year, franchiseId, playerId).run();
+            }
+          } catch (e) {
+            console.warn("[tag-master] D1 upsert/delete failed:", e?.message || String(e));
+          }
         }
 
         const shouldDispatchSubmissionLog = !isManualContractUpdate || isExtensionSubmission;
