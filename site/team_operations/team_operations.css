@@ -17,7 +17,11 @@
   --tops-ok: #4caf82;
 
   margin: 1rem auto;
-  max-width: 1200px;
+  /* Match the UPS HOTLINKS banner sizing (see header_custom_v2.html
+     .ups-hotlinks-shell). Previously capped at 1200px which read as
+     visibly narrower than the banner above. */
+  max-width: min(98rem, calc(100% - 0.7rem));
+  width: 100%;
   padding: 0 0.75rem;
   color: var(--tops-ink);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
