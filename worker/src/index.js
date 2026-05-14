@@ -5275,7 +5275,7 @@ export default {
           candidates.push(extUrlParam);
         } else {
           candidates.push(`${baseUrl}/${fileName}`);
-          candidates.push(`https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/trades/${fileName}`);
+          candidates.push(`https://keithcreelman.github.io/upsmflproduction/trades/${fileName}`);
         }
         let lastErr = null;
         for (const extUrl of candidates) {
@@ -5691,8 +5691,11 @@ export default {
         const repoName = encodeURIComponent(safeStr(env.GITHUB_REPO_NAME || "upsmflproduction"));
         const branch = encodeURIComponent(safeStr(env.GITHUB_REPO_BRANCH || "main"));
         const fallbacks = [
+          // Primary: GitHub Pages — correct content-type, no 50MB limit (#88).
+          `https://${repoOwner}.github.io/${repoName}/acquisition`,
+          // Secondary: raw.github — gives text/plain + sandbox CSP but works
+          // server-side (worker doesn't care about CSP) and has no size limit.
           `https://raw.githubusercontent.com/${repoOwner}/${repoName}/${branch}/site/acquisition`,
-          `https://cdn.jsdelivr.net/gh/${repoOwner}/${repoName}@${branch}/site/acquisition`,
           preferred,
         ];
         return Array.from(new Set(fallbacks.filter(Boolean)));
@@ -7383,9 +7386,11 @@ export default {
       const readTradeOffersDoc = async (leagueId, season) => {
         const filePath = tradeOffersFilePath(leagueId, season);
         if (!githubPat) {
-          const publicUrl = `https://cdn.jsdelivr.net/gh/${encodeURIComponent(githubRepoOwner)}/${encodeURIComponent(
+          // GitHub Pages — Pages artifact root is site/, so strip the
+          // "site/" prefix from filePath. jsDelivr retired 2026-05-14 (#88).
+          const publicUrl = `https://${encodeURIComponent(githubRepoOwner)}.github.io/${encodeURIComponent(
             githubRepoName
-          )}@main/${filePath}`;
+          )}/${filePath.replace(/^site\//, "")}`;
           try {
             const res = await fetch(publicUrl, {
               headers: { "Cache-Control": "no-store" },
@@ -7510,9 +7515,11 @@ export default {
       const readTradeOutboxDoc = async (leagueId, season) => {
         const filePath = tradeOutboxFilePath(leagueId, season);
         if (!githubPat) {
-          const publicUrl = `https://cdn.jsdelivr.net/gh/${encodeURIComponent(githubRepoOwner)}/${encodeURIComponent(
+          // GitHub Pages — Pages artifact root is site/, so strip the
+          // "site/" prefix from filePath. jsDelivr retired 2026-05-14 (#88).
+          const publicUrl = `https://${encodeURIComponent(githubRepoOwner)}.github.io/${encodeURIComponent(
             githubRepoName
-          )}@main/${filePath}`;
+          )}/${filePath.replace(/^site\//, "")}`;
           try {
             const res = await fetch(publicUrl, {
               headers: { "Cache-Control": "no-store" },
@@ -7717,9 +7724,11 @@ export default {
       const readBugReportsDoc = async (leagueId, season) => {
         const filePath = bugReportsFilePath(leagueId, season);
         if (!githubPat) {
-          const publicUrl = `https://cdn.jsdelivr.net/gh/${encodeURIComponent(githubRepoOwner)}/${encodeURIComponent(
+          // GitHub Pages — Pages artifact root is site/, so strip the
+          // "site/" prefix from filePath. jsDelivr retired 2026-05-14 (#88).
+          const publicUrl = `https://${encodeURIComponent(githubRepoOwner)}.github.io/${encodeURIComponent(
             githubRepoName
-          )}@main/${filePath}`;
+          )}/${filePath.replace(/^site\//, "")}`;
           try {
             const res = await fetch(publicUrl, {
               headers: { "Cache-Control": "no-store" },
@@ -7844,9 +7853,11 @@ export default {
       const readDeadlineRemindersDoc = async (season) => {
         const filePath = deadlineReminderFilePath(season);
         if (!githubPat) {
-          const publicUrl = `https://cdn.jsdelivr.net/gh/${encodeURIComponent(githubRepoOwner)}/${encodeURIComponent(
+          // GitHub Pages — Pages artifact root is site/, so strip the
+          // "site/" prefix from filePath. jsDelivr retired 2026-05-14 (#88).
+          const publicUrl = `https://${encodeURIComponent(githubRepoOwner)}.github.io/${encodeURIComponent(
             githubRepoName
-          )}@main/${filePath}`;
+          )}/${filePath.replace(/^site\//, "")}`;
           try {
             const res = await fetch(publicUrl, {
               headers: { "Cache-Control": "no-store" },
@@ -9375,7 +9386,7 @@ export default {
         safeStr(value).toUpperCase().includes("TAG");
 
       const TAG_TRACKING_FALLBACK_URL =
-        "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/ccc/tag_tracking.json";
+        "https://keithcreelman.github.io/upsmflproduction/ccc/tag_tracking.json";
 
       const parseTagTrackingRowsForValidation = (payload, season, leagueId) => {
         const rows = Array.isArray(payload)
@@ -20303,7 +20314,7 @@ export default {
         if (!leagueId) return jsonOut(400, { ok: false, error: "Missing league_id param" });
 
         // Fetch the report JSON from jsDelivr (production-pinned).
-        const reportUrl = `https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/reports/salary_adjustments/salary_adjustments_${encodeURIComponent(targetSeason)}.json`;
+        const reportUrl = `https://keithcreelman.github.io/upsmflproduction/reports/salary_adjustments/salary_adjustments_${encodeURIComponent(targetSeason)}.json`;
         let reportPayload = null;
         try {
           const r = await fetch(reportUrl, { cf: { cacheTtl: 0, cacheEverything: false } });

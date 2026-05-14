@@ -73,7 +73,10 @@
   // .css/.js/.json paths resolve against jsDelivr) plus context globals, and
   // feeding it to the iframe via srcdoc — which renders regardless of the
   // source's Content-Type.
-  const ASSET_BASE = "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@" + SHA + "/site/rookies/";
+  // GitHub Pages is the canonical CDN (see #88). 2026-05-14 cutover from
+  // jsDelivr — no per-package 50MB limit, correct content-types, no need
+  // for srcdoc hack to bypass text/plain HTML.
+  const ASSET_BASE = "https://keithcreelman.github.io/upsmflproduction/rookies/";
   const HTML_URL = ASSET_BASE + "rookie_draft_hub.html?v=" + encodeURIComponent(SHA);
   // Live MFL enrichment (/api/player-bundle etc.) is served by the
   // Cloudflare Worker so every league member gets it — no local bridge

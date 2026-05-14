@@ -1805,8 +1805,8 @@
       var cacheKey = String(Date.now());
       var releaseRef = String(window.UPS_RELEASE_SHA || "v1.0.2").trim() || "v1.0.2";
       var candidates = [
-        "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@" + releaseRef + "/site/champions_panels.json?v=" + cacheKey,
-        "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@v1.0.2/site/champions_panels.json?v=" + cacheKey
+        "https://keithcreelman.github.io/upsmflproduction/champions_panels.json?v=" + cacheKey,
+        "https://keithcreelman.github.io/upsmflproduction/champions_panels.json?v=" + cacheKey
       ];
 
       function attempt(idx) {
@@ -2244,12 +2244,15 @@
       if (!/\/site\/ccc\/mfl_hpm16_contractcommandcenter\.html(?:[?#]|$)/i.test(next)) {
         next = next.replace(
           /https?:\/\/rawcdn\.githack\.com\/keithcreelman\/upsmflproduction\/[^/]+\//i,
-          "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/"
+          "https://keithcreelman.github.io/upsmflproduction/"
         );
       }
+      // Legacy URL rewrite: any old jsDelivr SHA-pinned CCC iframe src
+      // → strip the @<ref>/site/ prefix so it lands on Pages instead.
+      // jsDelivr was retired 2026-05-14 (#88).
       next = next.replace(
-        /https?:\/\/cdn\.jsdelivr\.net\/gh\/keithcreelman\/upsmflproduction@[^/]+/i,
-        "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main"
+        /https?:\/\/cdn\.jsdelivr\.net\/gh\/keithcreelman\/upsmflproduction@[^/]+\/site\//i,
+        "https://keithcreelman.github.io/upsmflproduction/"
       );
 
       if (next !== raw) {
@@ -2320,12 +2323,13 @@
       if (!/\/site\/ccc\/mfl_hpm16_contractcommandcenter\.html(?:[?#]|$)/i.test(next)) {
         next = next.replace(
           /https?:\/\/rawcdn\.githack\.com\/keithcreelman\/upsmflproduction\/[^/]+\//i,
-          "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/"
+          "https://keithcreelman.github.io/upsmflproduction/"
         );
       }
+      // Legacy URL rewrite: jsDelivr SHA-pinned → Pages. jsDelivr retired #88.
       next = next.replace(
-        /https?:\/\/cdn\.jsdelivr\.net\/gh\/keithcreelman\/upsmflproduction@[^/]+/i,
-        "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main"
+        /https?:\/\/cdn\.jsdelivr\.net\/gh\/keithcreelman\/upsmflproduction@[^/]+\/site\//i,
+        "https://keithcreelman.github.io/upsmflproduction/"
       );
       return next;
     }
@@ -2404,8 +2408,8 @@
       var cacheKey = encodeURIComponent(String(Date.now()));
       var releaseRef = safeStr(window.UPS_CCC_RELEASE_SHA || window.UPS_RELEASE_SHA || "main") || "main";
       var loaderCandidates = [
-        "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@" + releaseRef + "/site/ccc/mfl_hpm_embed_loader.js?v=" + cacheKey,
-        "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/ccc/mfl_hpm_embed_loader.js?v=" + cacheKey
+        "https://keithcreelman.github.io/upsmflproduction/ccc/mfl_hpm_embed_loader.js?v=" + cacheKey,
+        "https://keithcreelman.github.io/upsmflproduction/ccc/mfl_hpm_embed_loader.js?v=" + cacheKey
       ];
 
       function tryLoader(idx) {
@@ -2614,8 +2618,8 @@
       var releaseRef = safeStr(window.UPS_RELEASE_SHA || "main") || "main";
       var cacheKey = encodeURIComponent(String(Date.now()));
       var candidates = [
-        "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@" + releaseRef + "/site/rosters/mfl_hpm_embed_loader.js?v=" + cacheKey,
-        "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/rosters/mfl_hpm_embed_loader.js?v=" + cacheKey
+        "https://keithcreelman.github.io/upsmflproduction/rosters/mfl_hpm_embed_loader.js?v=" + cacheKey,
+        "https://keithcreelman.github.io/upsmflproduction/rosters/mfl_hpm_embed_loader.js?v=" + cacheKey
       ];
 
       function tryLoader(idx) {
@@ -2732,11 +2736,7 @@
       var releaseRef = safeStr(window.UPS_RELEASE_SHA || "main") || "main";
       var cacheKey = encodeURIComponent(String(Date.now()));
       var candidates = [
-        "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@" +
-          releaseRef +
-          "/site/trades/mfl_hpm_embed_loader.js?v=" +
-          cacheKey,
-        "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/trades/mfl_hpm_embed_loader.js?v=" +
+        "https://keithcreelman.github.io/upsmflproduction/trades/mfl_hpm_embed_loader.js?v=" +
           cacheKey
       ];
 
@@ -2860,11 +2860,7 @@
       var releaseRef = safeStr(window.UPS_RELEASE_SHA || "main") || "main";
       var cacheKey = encodeURIComponent(String(Date.now()));
       var candidates = [
-        "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@" +
-          releaseRef +
-          "/site/acquisition/mfl_hpm_embed_loader.js?v=" +
-          cacheKey,
-        "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/acquisition/mfl_hpm_embed_loader.js?v=" +
+        "https://keithcreelman.github.io/upsmflproduction/acquisition/mfl_hpm_embed_loader.js?v=" +
           cacheKey
       ];
 
@@ -2963,8 +2959,8 @@
       var releaseRef = safeStr(window.UPS_RELEASE_SHA || "main") || "main";
       var cacheKey = encodeURIComponent(String(Date.now()));
       var candidates = [
-        "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@" + releaseRef + "/site/team_operations/mfl_hpm_embed_loader.js?v=" + cacheKey,
-        "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/team_operations/mfl_hpm_embed_loader.js?v=" + cacheKey
+        "https://keithcreelman.github.io/upsmflproduction/team_operations/mfl_hpm_embed_loader.js?v=" + cacheKey,
+        "https://keithcreelman.github.io/upsmflproduction/team_operations/mfl_hpm_embed_loader.js?v=" + cacheKey
       ];
 
       function tryLoader(idx) {
@@ -3075,11 +3071,7 @@
       var releaseRef = safeStr(window.UPS_RELEASE_SHA || "main") || "main";
       var cacheKey = encodeURIComponent(String(Date.now()));
       var candidates = [
-        "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@" +
-          releaseRef +
-          "/site/rookies/mfl_hpm_embed_loader.js?v=" +
-          cacheKey,
-        "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/rookies/mfl_hpm_embed_loader.js?v=" +
+        "https://keithcreelman.github.io/upsmflproduction/rookies/mfl_hpm_embed_loader.js?v=" +
           cacheKey
       ];
 
@@ -3193,11 +3185,7 @@
       var releaseRef = safeStr(window.UPS_RELEASE_SHA || "main") || "main";
       var cacheKey = encodeURIComponent(String(Date.now()));
       var candidates = [
-        "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@" +
-          releaseRef +
-          "/site/stats_workbench/mfl_hpm_embed_loader.js?v=" +
-          cacheKey,
-        "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@main/site/stats_workbench/mfl_hpm_embed_loader.js?v=" +
+        "https://keithcreelman.github.io/upsmflproduction/stats_workbench/mfl_hpm_embed_loader.js?v=" +
           cacheKey
       ];
 
@@ -6747,8 +6735,8 @@
     var version = "v1.0.2";
     var cacheKey = String(Date.now());
     var baseCandidates = [
-      "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@" + (String(window.UPS_RELEASE_SHA || "").trim() || version) + "/",
-      "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@" + version + "/"
+      "https://keithcreelman.github.io/upsmflproduction/",
+      "https://keithcreelman.github.io/upsmflproduction/"
     ];
 
     var championsPromise = fetchFirstJson(
