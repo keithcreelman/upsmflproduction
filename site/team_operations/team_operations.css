@@ -440,12 +440,17 @@
 .tops-tab-panel[data-active="1"] { display: block; }
 .tops-tab-panel--iframe {
   /* Hubs (roster_workbench, stats_workbench, trade_workbench) are full-page
-     apps with their own theme and scroll. Render them flush — no inset
-     border / radius — so they feel like real pages, not embedded widgets.
-     Pop-out link in the toolbar above gives users a true full-screen
-     escape when the embedded view feels cramped. */
+     apps with their own theme. Match the UPS hotlinks-shell width so the
+     embedded views feel as roomy as the rest of the page chrome.
+     Hotlinks: max-width: min(98rem, calc(100% - 0.7rem)).
+     #teamOpsMount caps at 1200px; we break out via viewport-relative
+     positioning to reach 98rem. */
   background: var(--tops-bg);
-  margin: 0 -1rem;  /* counter the .tops-shell padding so iframe is edge-to-edge */
+  width: min(98rem, calc(100vw - 0.7rem));
+  position: relative;
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
   overflow: visible;
 }
 .tops-iframe-toolbar {
