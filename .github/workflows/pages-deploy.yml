@@ -1,0 +1,50 @@
+name: Pages — deploy site/
+
+# Deploys the site/ directory to GitHub Pages so hub iframes + embed
+# loaders can load HTML/JS/CSS with correct content-type. Replaces
+# jsDelivr as the primary CDN for production (see issue #88 Track B).
+#
+# Pages URL: https://keithcreelman.github.io/upsmflproduction/...
+# (site/ is the artifact root, so paths drop the "/site/" prefix)
+#
+# Triggers: any push to main that touches site/. Manual run via
+# workflow_dispatch for ad-hoc redeploys.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "site/**"
+      - ".github/workflows/pages-deploy.yml"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Only one concurrent Pages deploy at a time. New deploys cancel
+# in-flight runs (latest source wins).
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Upload site/ as Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          # Pages artifact root → site/ contents. URLs become
+          # https://keithcreelman.github.io/upsmflproduction/<path-inside-site>
+          path: site
+
+      - name: Deploy to GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v4
