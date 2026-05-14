@@ -22739,6 +22739,26 @@ export default {
           return raw === "1" || raw === "true" || raw === "yes" ? 1 : 0;
         })();
 
+        // Dry-run mode — when truthy, the worker simulates a successful
+        // MFL salary import without actually POSTing. Audit row still
+        // lands (with dry_run=1); master state stays untouched. Lets us
+        // exercise the full plumbing — D1 audit, Discord routing — with
+        // zero risk of mutating live league data. Recognized inputs:
+        //   • body.dry_run / body.dryRun  (truthy)
+        //   • ?dry_run=1 / ?DRY_RUN=1     (URL query)
+        const dryRunFlag = (() => {
+          const truthy = (v) => {
+            const s = String(v == null ? "" : v).trim().toLowerCase();
+            return s === "1" || s === "true" || s === "yes" || s === "y";
+          };
+          if (truthy(body.dry_run) || truthy(body.dryRun)) return 1;
+          try {
+            const qs = url.searchParams;
+            if (truthy(qs.get("dry_run") || qs.get("DRY_RUN"))) return 1;
+          } catch (_) {}
+          return 0;
+        })();
+
         const providedSubmissionId = String(body.submission_id || body.submissionId || "").trim();
         const submissionId =
           providedSubmissionId ||
@@ -23032,7 +23052,27 @@ export default {
         let anyChanged = false;
         let verifyAvailable = preCheck !== null;
 
-        for (const statusCandidate of statusAttempts) {
+        // Dry-run short-circuit. Simulate the success path:
+        //   - looksOk = true  (downstream code treats it as accepted)
+        //   - anyChanged = true (so audit/Discord blocks fire)
+        //   - statusUsed = the requested contractStatus
+        //   - no MFL POST happens
+        //   - importAttempts gets a synthetic entry for transparency
+        if (dryRunFlag === 1) {
+          looksOk = true;
+          anyChanged = true;
+          statusUsed = contractStatus || (statusAttempts[0] || "");
+          dataXmlUsed = makeDataXml(statusUsed);
+          importAttempts.push({
+            statusTried: statusUsed || "(none)",
+            upstreamStatus: 0,
+            requestOk: true,
+            changed: true,
+            dry_run: true,
+          });
+        }
+
+        for (const statusCandidate of (dryRunFlag ? [] : statusAttempts)) {
           const dataXml = makeDataXml(statusCandidate);
           const bodyData = `DATA=${encodeURIComponent(dataXml)}`;
 
@@ -23104,8 +23144,8 @@ export default {
               `INSERT INTO ups_tag_submissions
                  (league_id, season, franchise_id, player_id, player_name,
                   position, tag_side, action, salary, contract_status,
-                  source, acting_user_id, raw_payload_json, submitted_at_utc)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+                  source, acting_user_id, raw_payload_json, submitted_at_utc, dry_run)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
             ).bind(
               leagueId,
               year,
@@ -23120,7 +23160,8 @@ export default {
               sourceTag || "worker-commish-contract-update",
               String(body.acting_user_id || body.actingUserId || "") || null,
               JSON.stringify(body),
-              submittedAtUtc || new Date().toISOString()
+              submittedAtUtc || new Date().toISOString(),
+              dryRunFlag
             ).run();
           } catch (e) {
             // Audit-write failure shouldn't break the user flow — surface
@@ -23132,8 +23173,14 @@ export default {
           // (season, league, franchise, side) slot so re-tagging the same
           // side just swaps player. Untag DELETEs the row (by season +
           // league + franchise + player_id) so the slot frees up.
+          //
+          // Skip the master write entirely when this is a dry run — the
+          // master tables are the league's source of truth, never touched
+          // by simulated submissions.
           try {
-            if (isTagAction && tagSideForLog) {
+            if (dryRunFlag === 1) {
+              // no-op for dry runs; audit row captured above is enough
+            } else if (isTagAction && tagSideForLog) {
               await env.UPS_MFL_DB.prepare(
                 `INSERT INTO ups_tag_master
                    (league_id, season, franchise_id, tag_side, player_id,
@@ -23208,8 +23255,8 @@ export default {
                   prior_contract_status, prior_salary, prior_contract_year, prior_contract_info,
                   new_contract_status, new_salary, new_contract_year, new_contract_info,
                   extension_term_years, new_tcv, new_aav, new_gtd, ext_token,
-                  source, acting_user_id, raw_payload_json, submitted_at_utc)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+                  source, acting_user_id, raw_payload_json, submitted_at_utc, dry_run)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
             ).bind(
               leagueId,
               year,
@@ -23233,13 +23280,18 @@ export default {
               sourceTag || "worker-commish-contract-update",
               String(body.acting_user_id || body.actingUserId || "") || null,
               JSON.stringify(body),
-              submittedAtUtc || new Date().toISOString()
+              submittedAtUtc || new Date().toISOString(),
+              dryRunFlag
             ).run();
           } catch (e) {
             console.warn("[ext-audit] D1 insert failed:", e?.message || String(e));
           }
 
-          try {
+          // Skip extension master UPSERT for dry runs — keeps the
+          // current-state mirror clean of simulated submissions.
+          if (dryRunFlag === 1) {
+            // intentional no-op
+          } else try {
             await env.UPS_MFL_DB.prepare(
               `INSERT INTO ups_extension_master
                  (league_id, season, franchise_id, player_id, player_name, position,
@@ -23367,13 +23419,18 @@ export default {
               leagueId: leagueId,
               franchiseId: franchiseId,
               franchiseName: franchiseName,
-              playerName: playerName,
+              // Dry-run prefix so the test channel makes it obvious
+              // these aren't real contract changes.
+              playerName: (dryRunFlag === 1 ? "[DRY RUN] " : "") + (playerName || ""),
               contractInfo: activityContractInfo,
               contractYear: activityContractYear,
               contractStatus: activityContractStatus,
               season: year,
               salary: activitySalary,
               submittedAtUtc: submittedAtUtc || new Date().toISOString(),
+              // Force the test channel for dry runs so we never spam
+              // the production contract channel with simulated rows.
+              forceTestOnly: dryRunFlag === 1,
             });
           } catch (e) {
             contractDiscord = {
@@ -23489,8 +23546,10 @@ export default {
         } catch (_) { /* never fail the request on audit errors */ }
 
         return mutationResponse(mutationStatus, submissionId, {
-          reason:
-            mutationStatus === "import_ok_log_dispatched"
+          dry_run: dryRunFlag === 1,
+          reason: dryRunFlag === 1
+            ? "DRY RUN — simulated success; nothing was sent to MFL and the master state was not touched. Audit row recorded with dry_run=1."
+            : mutationStatus === "import_ok_log_dispatched"
               ? isManualContractUpdate
                 ? "Manual contract update submitted to MFL"
                 : "Submitted to MFL and logged"
