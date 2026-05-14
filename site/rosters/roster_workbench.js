@@ -10750,6 +10750,13 @@
       contract_year: Math.max(0, safeInt(option.contractLength, 0) - 1),
       contract_status: safeStr(option.contractStatus),
       contract_info: safeStr(option.contractInfo),
+      // Snapshot the pre-extension contract so the worker's
+      // ups_extension_submissions audit row has a before/after
+      // diff for forensics + cap-math reconstruction.
+      prior_contract_status: safeStr(player.type || player.contractStatus),
+      prior_salary: safeInt(player.salary, 0),
+      prior_contract_year: safeInt(player.contractYear, 0),
+      prior_contract_info: safeStr(player.contractInfo),
       submitted_at_utc: new Date().toISOString(),
       commish_override_flag: commishOverride ? 1 : 0
     };
