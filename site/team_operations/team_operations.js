@@ -483,7 +483,12 @@
         }).join("")
       + '</nav>';
 
-    var overviewPanelHtml = '<main class="tops-grid">'
+    var overviewPanelHtml = ''
+      + '<div class="tops-wip-banner" role="status">'
+      +   '<strong>Heads up:</strong> this page and the Team Ops module are actively being built.'
+      +   ' Expect rough edges, missing data, and frequent changes — not a finished product yet.'
+      + '</div>'
+      + '<main class="tops-grid">'
       // Next Decision pinned at top, full-width — most important card.
       + '  <section data-card="nextDecision" class="tops-card tops-card-highlight tops-card-wide"></section>'
       + '  <section data-card="summary" class="tops-card tops-card-summary"></section>'
@@ -527,9 +532,6 @@
       '        <div class="tops-title">My Team</div>',
       '        <div class="tops-subtitle">' + escapeHtml(viewerName) + '</div>',
       '      </div>',
-      '    </div>',
-      '    <div class="tops-header-actions">',
-      '      <a class="tops-link-pill" href="//www.myfantasyleague.com/' + escapeHtml(state.ctx.year) + '/lineup?L=' + escapeHtml(state.ctx.leagueId) + '">Submit Lineup</a>',
       '    </div>',
       '  </header>',
       tabsHtml,
