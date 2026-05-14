@@ -190,6 +190,12 @@
       ["league", fetchJson(mflExportUrl("league"))],
       ["rosters", fetchJson(mflExportUrl("rosters"))],
       ["salaries", fetchJson(mflExportUrl("salaries"))],
+      // salaryAdjustments — trade adjustments, cut/drop penalties, manual
+      // commish adjustments. Signed integers — positive amounts INCREASE
+      // effective cap usage. Front Office shows these explicitly in its
+      // Cap Summary; we just need the viewer's franchise total here so
+      // the Cap Used / Cap Room cards display the same number FO shows.
+      ["salaryAdjustments", fetchJson(mflExportUrl("salaryAdjustments")).catch(function () { return null; })],
       ["players", fetchJson(mflExportUrl("players", { DETAILS: "1" }))],
       ["transactions", fetchJson(mflExportUrl("transactions", { DAYS: 14 }))],
       ["pendingTrades", fetchJson(mflExportUrl("pendingTrades"))],
@@ -343,6 +349,26 @@
         contractInfo: safeStr(p.contractInfo)
       };
     });
+  }
+
+  // Sum of salaryAdjustments for the viewer's franchise. Signed integer
+  // — positive means INCREASES effective cap usage (the standard MFL
+  // convention; Front Office uses the same sum in calculateCapSpace).
+  // Returns 0 when no adjustments / no viewer franchise resolved.
+  function getMyAdjustmentTotal() {
+    var fid = pad4(state.viewerFranchiseId || (state.viewerFranchise && state.viewerFranchise.id) || "");
+    if (!fid) return 0;
+    var root = state.salaryAdjustments && state.salaryAdjustments.salaryAdjustments;
+    if (!root) return 0;
+    var rows = asArray(root.salaryAdjustment || root.adjustment);
+    var total = 0;
+    rows.forEach(function (row) {
+      if (!row) return;
+      var rowFid = pad4(row.franchise_id || row.franchise || row.id || "");
+      if (rowFid !== fid) return;
+      total += Number(row.amount || 0);
+    });
+    return total;
   }
 
   function getMySalaries() {
@@ -577,13 +603,21 @@
     // Universal taxi rule: salary is real money but DOES NOT count vs the
     // cap. Split the totals so the headline "Cap Used" is cap-relevant
     // only; taxi $ surfaces as a secondary callout.
-    var capUsed = 0;
+    var playerSalaryUsed = 0;
     var taxiSalary = 0;
     salaries.forEach(function (s) {
       var amt = Number(s.salary || 0);
       if (/taxi/i.test(statusById[s.id] || "")) taxiSalary += amt;
-      else capUsed += amt;
+      else playerSalaryUsed += amt;
     });
+    // Fold salary-adjustments (trade, cut, manual) into the displayed
+    // numbers so Team Ops matches Front Office. MFL convention: positive
+    // adjustment amounts INCREASE effective cap usage. Both Cap Used and
+    // Cap Room reflect post-adjustment totals — no breakdown shown here
+    // per Keith 2026-05-14 (Front Office still has the expandable
+    // breakdown for that).
+    var adjustmentTotal = getMyAdjustmentTotal();
+    var capUsed = playerSalaryUsed + adjustmentTotal;
     var cap = state.capAmount;
     var remain = cap - capUsed;
     var pct = cap > 0 ? Math.min(100, Math.round((capUsed / cap) * 100)) : 0;
