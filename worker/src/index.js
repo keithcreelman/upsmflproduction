@@ -193,11 +193,14 @@ export default {
       const newlyPosted = Array.isArray(importData.posted_rows) ? importData.posted_rows : [];
       // Step 2: for each franchise that got NEW penalties posted this run,
       // fire a Discord Cap Penalty Announcement. We group by franchise.
-      if (!newlyPosted.length) {
-        console.log(`[scheduled ${new Date().toISOString()}] drop-penalty scan: no new drops`);
-        return;
-      }
+      // Note: previously this branch did `return;` when no new drops
+      // existed. Don't return — the deadline-reminder sweep below also
+      // needs to run on every hourly cron, not just ones where drops
+      // happened.
       const byFranchise = {};
+      if (newlyPosted.length === 0) {
+        console.log(`[scheduled ${new Date().toISOString()}] drop-penalty scan: no new drops`);
+      }
       for (const row of newlyPosted) {
         const fid = String(row.franchise_id || "").padStart(4, "0");
         if (!fid) continue;
@@ -233,6 +236,45 @@ export default {
       );
     } catch (err) {
       console.error(`[scheduled] drop-penalty cron failed: ${err && err.message}`);
+    }
+
+    // Deadline reminder sweep on the hourly Cloudflare cron. Previously
+    // triggered by GitHub Actions on */15 cron, but GitHub Actions cron
+    // is wildly imprecise under load (verified 2026-05-14 — the 9:00 AM
+    // ET tag-deadline reminder didn't fire until 11:05 AM ET because
+    // the GH scheduled runs drifted to 12:18 UTC then 15:05 UTC, missing
+    // the 9:00 AM ET window entirely on the first eligible slot).
+    //
+    // Cloudflare's hourly cron at :05 UTC fires reliably every hour, so
+    // the first cron run at or after 09:00 ET (= 13:05 UTC in EDT, or
+    // 14:05 UTC in EST) will deliver the reminder. The sweep is
+    // idempotent — sentKeys dedup prevents double-sending.
+    try {
+      const season = String(env.YEAR || new Date().getUTCFullYear());
+      const leagueId = String(env.LEAGUE_ID || "74598");
+      const origin = String(env.WORKER_ORIGIN || "https://upsmflproduction.keith-creelman.workers.dev");
+      const commishApiKey = String(env.COMMISH_API_KEY || "").trim();
+      if (!commishApiKey) {
+        console.log("[scheduled hourly] deadline-reminder sweep skipped — no COMMISH_API_KEY");
+      } else {
+        const reminderUrl = `${origin}/admin/deadline-reminders/run?APIKEY=${encodeURIComponent(commishApiKey)}&L=${leagueId}&YEAR=${season}`;
+        ctx.waitUntil(
+          fetch(reminderUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({}),
+          })
+            .then(async (r) => {
+              const data = await r.json().catch(() => ({}));
+              const posted = Array.isArray(data?.posted) ? data.posted.length : 0;
+              const skipped = Array.isArray(data?.skipped) ? data.skipped.length : 0;
+              if (posted) console.log(`[scheduled hourly] deadline-reminders: posted=${posted} skipped=${skipped}`);
+            })
+            .catch((e) => console.error(`[scheduled hourly] deadline-reminders failed: ${e && e.message}`))
+        );
+      }
+    } catch (e) {
+      console.error(`[scheduled hourly] deadline-reminders dispatch failed: ${e && e.message}`);
     }
   },
 
@@ -4087,32 +4129,38 @@ export default {
           }
 
           // 4b. Headline pool (ESPN + NFL.com + PFT + r/nfl) — match by
-          // player last name + first name OR last name + team mention.
-          // MFL name is "Last, First". Last name + first name match is
-          // precise; last name + team is a fallback for cases where the
-          // article uses "the QB" instead of first name. Dedupe by URL
-          // so the same Schefter tweet syndicated across PFT + ESPN +
-          // r/nfl shows once.
+          // full-name proximity. MFL name is "Last, First".
+          //
+          // Previous heuristic (lastName + (firstName OR team)) cross-
+          // attributed: an article mentioning "Russell Wilson" and the
+          // Packers would surface under Emmanuel Wilson because the team
+          // fallback fires whenever first name is absent. Fix: require
+          // BOTH first name AND last name as word-boundary matches in
+          // the same blob. Same-surname players (Wilson, Williams,
+          // Brown) now stay correctly partitioned because Russell ≠
+          // Emmanuel even when both Wilsons exist in the league.
           const lastName = (m.name.split(",")[0] || "").trim().toLowerCase();
           const firstName = (m.name.split(",")[1] || "").trim().toLowerCase().split(/\s+/)[0];
-          if (lastName && lastName.length >= 3) {
+          // Escape regex specials and wrap in \b...\b for whole-word matching.
+          const reEscape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+          const lastRe = lastName && lastName.length >= 3
+            ? new RegExp("\\b" + reEscape(lastName) + "\\b", "i")
+            : null;
+          const firstRe = firstName && firstName.length >= 3
+            ? new RegExp("\\b" + reEscape(firstName) + "\\b", "i")
+            : null;
+          if (lastRe && firstRe) {
             const seenHeadlines = new Set();
             for (const a of espnArticles) {
-              const headline = safeStr(a.headline).toLowerCase();
-              const desc = safeStr(a.description).toLowerCase();
+              const headline = safeStr(a.headline);
+              const desc = safeStr(a.description);
               const blob = headline + " " + desc;
-              const hasLast = blob.includes(lastName);
-              if (!hasLast) continue;
-              // Require either first name OR team mention to avoid false
-              // positives from common surnames (Williams, Brown, Smith).
-              const hasFirst = firstName && firstName.length >= 3 && blob.includes(firstName);
-              const hasTeam = m.team && blob.includes(m.team.toLowerCase());
-              if (!hasFirst && !hasTeam) continue;
+              if (!lastRe.test(blob) || !firstRe.test(blob)) continue;
               // Per-player dedupe — if Schefter's "Player X traded to Y"
               // appears in ESPN + PFT + r/nfl, pick the first source we
               // see and skip the rest (already URL-deduped at pool build,
               // this dedupes by headline text for fuzzy duplicates).
-              const headlineKey = headline.slice(0, 80);
+              const headlineKey = headline.toLowerCase().slice(0, 80);
               if (seenHeadlines.has(headlineKey)) continue;
               seenHeadlines.add(headlineKey);
               items.push({
@@ -24246,6 +24294,210 @@ export default {
           if (changed) anyChanged = true;
 
           if (changed) break;
+        }
+
+        // Tag / untag audit log — write directly to D1 ups_tag_submissions
+        // when the client flagged the submission as a tag-flow action.
+        // Detection priority:
+        //   1. Explicit submission_kind === "tag" | "untag" (Roster Workbench)
+        //   2. Fallback: contractStatus === "TAG" → infer "tag"
+        // Doesn't block the response if the INSERT fails — we just log it.
+        const isTagAction =
+          submissionKindRaw === "tag" ||
+          (submissionKindRaw !== "untag" &&
+            safeStr(statusUsed || contractStatus).toUpperCase() === "TAG");
+        const isUntagAction = submissionKindRaw === "untag";
+        if (looksOk && anyChanged && (isTagAction || isUntagAction) && env.UPS_MFL_DB) {
+          const action = isTagAction ? "tag" : "untag";
+          const tagSideForLog = String(
+            body.tag_side || body.tagSide || body.prior_tag_side || body.priorTagSide || body.side || ""
+          ).trim().toUpperCase();
+          try {
+            await env.UPS_MFL_DB.prepare(
+              `INSERT INTO ups_tag_submissions
+                 (league_id, season, franchise_id, player_id, player_name,
+                  position, tag_side, action, salary, contract_status,
+                  source, acting_user_id, raw_payload_json, submitted_at_utc)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+            ).bind(
+              leagueId,
+              year,
+              franchiseId,
+              playerId,
+              playerName,
+              position,
+              tagSideForLog || null,
+              action,
+              salary ? Number(salary) : null,
+              statusUsed || contractStatus || null,
+              sourceTag || "worker-commish-contract-update",
+              String(body.acting_user_id || body.actingUserId || "") || null,
+              JSON.stringify(body),
+              submittedAtUtc || new Date().toISOString()
+            ).run();
+          } catch (e) {
+            // Audit-write failure shouldn't break the user flow — surface
+            // via console only.
+            console.warn("[tag-audit] D1 insert failed:", e?.message || String(e));
+          }
+
+          // Master tag state — current-state mirror. Tag UPSERTs into the
+          // (season, league, franchise, side) slot so re-tagging the same
+          // side just swaps player. Untag DELETEs the row (by season +
+          // league + franchise + player_id) so the slot frees up.
+          try {
+            if (isTagAction && tagSideForLog) {
+              await env.UPS_MFL_DB.prepare(
+                `INSERT INTO ups_tag_master
+                   (league_id, season, franchise_id, tag_side, player_id,
+                    player_name, position, salary, source, tagged_at_utc, updated_at_utc)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 ON CONFLICT(league_id, season, franchise_id, tag_side) DO UPDATE SET
+                   player_id      = excluded.player_id,
+                   player_name    = excluded.player_name,
+                   position       = excluded.position,
+                   salary         = excluded.salary,
+                   source         = excluded.source,
+                   updated_at_utc = excluded.updated_at_utc`
+              ).bind(
+                leagueId,
+                year,
+                franchiseId,
+                tagSideForLog,
+                playerId,
+                playerName,
+                position,
+                salary ? Number(salary) : null,
+                sourceTag || "worker-commish-contract-update",
+                submittedAtUtc || new Date().toISOString(),
+                new Date().toISOString()
+              ).run();
+            } else if (isUntagAction) {
+              // Untag → free the slot. Match by (season, league, franchise,
+              // player) rather than (season, league, franchise, side) so a
+              // mid-flight side relabel doesn't leave a ghost row.
+              await env.UPS_MFL_DB.prepare(
+                `DELETE FROM ups_tag_master
+                  WHERE league_id = ? AND season = ?
+                    AND franchise_id = ? AND player_id = ?`
+              ).bind(leagueId, year, franchiseId, playerId).run();
+            }
+          } catch (e) {
+            console.warn("[tag-master] D1 upsert/delete failed:", e?.message || String(e));
+          }
+        }
+
+        // Extension audit + master — parity with the tag flow above.
+        // Fires when submission_kind === "extension" and the salary
+        // import actually changed something. Audit captures the full
+        // before/after; master keeps one row per (league, season, player).
+        if (looksOk && anyChanged && isExtensionSubmission && env.UPS_MFL_DB) {
+          // Parse the new contractInfo for TCV/AAV/GTD/term so the
+          // audit row has structured cap-math fields, not just a raw
+          // string. Pattern matches Roster Workbench's
+          // synthesizeExtensionOption output:
+          //   "CL 3|TCV 1500|AAV 400, 500|Y1-400, Y2-500, Y3-500|GTD: 1125|Ext: AB"
+          const newInfo = String(contractInfo || "");
+          const matchInt = (re) => {
+            const m = newInfo.match(re);
+            return m ? Number(String(m[1]).replace(/[^\d]/g, "")) : null;
+          };
+          const newTcv  = matchInt(/TCV\s*(\d+(?:[.,]?\d+)*)/i);
+          const newAav  = matchInt(/AAV\s*(\d+(?:[.,]?\d+)*)/i);
+          const newGtd  = matchInt(/GTD\s*:?\s*(\d+(?:[.,]?\d+)*)/i);
+          const newLen  = matchInt(/\bCL\s*(\d+)/i);
+          const extTokenMatch = newInfo.match(/Ext\s*:\s*([^|]+)/i);
+          const extToken = extTokenMatch ? String(extTokenMatch[1]).trim() : null;
+          // Extension term = new CL minus the prior contractYear (years
+          // remaining on the original deal). Best-effort; null if either
+          // side is unknown.
+          const priorCyInt = Number(body.prior_contract_year || body.priorContractYear || 0) || null;
+          const extensionTerm = (newLen && priorCyInt) ? Math.max(0, newLen - priorCyInt) : null;
+
+          try {
+            await env.UPS_MFL_DB.prepare(
+              `INSERT INTO ups_extension_submissions
+                 (league_id, season, franchise_id, player_id, player_name, position,
+                  prior_contract_status, prior_salary, prior_contract_year, prior_contract_info,
+                  new_contract_status, new_salary, new_contract_year, new_contract_info,
+                  extension_term_years, new_tcv, new_aav, new_gtd, ext_token,
+                  source, acting_user_id, raw_payload_json, submitted_at_utc)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+            ).bind(
+              leagueId,
+              year,
+              franchiseId,
+              playerId,
+              playerName,
+              position,
+              String(body.prior_contract_status || body.priorContractStatus || "") || null,
+              body.prior_salary != null ? Number(body.prior_salary) : null,
+              priorCyInt,
+              String(body.prior_contract_info || body.priorContractInfo || "") || null,
+              statusUsed || contractStatus || null,
+              salary ? Number(salary) : null,
+              contractYear ? Number(contractYear) : null,
+              newInfo || null,
+              extensionTerm,
+              newTcv,
+              newAav,
+              newGtd,
+              extToken,
+              sourceTag || "worker-commish-contract-update",
+              String(body.acting_user_id || body.actingUserId || "") || null,
+              JSON.stringify(body),
+              submittedAtUtc || new Date().toISOString()
+            ).run();
+          } catch (e) {
+            console.warn("[ext-audit] D1 insert failed:", e?.message || String(e));
+          }
+
+          try {
+            await env.UPS_MFL_DB.prepare(
+              `INSERT INTO ups_extension_master
+                 (league_id, season, franchise_id, player_id, player_name, position,
+                  new_contract_status, new_salary, new_contract_year, new_contract_info,
+                  extension_term_years, new_tcv, new_aav, new_gtd, ext_token,
+                  source, extended_at_utc, updated_at_utc)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+               ON CONFLICT(league_id, season, player_id) DO UPDATE SET
+                 franchise_id         = excluded.franchise_id,
+                 player_name          = excluded.player_name,
+                 position             = excluded.position,
+                 new_contract_status  = excluded.new_contract_status,
+                 new_salary           = excluded.new_salary,
+                 new_contract_year    = excluded.new_contract_year,
+                 new_contract_info    = excluded.new_contract_info,
+                 extension_term_years = excluded.extension_term_years,
+                 new_tcv              = excluded.new_tcv,
+                 new_aav              = excluded.new_aav,
+                 new_gtd              = excluded.new_gtd,
+                 ext_token            = excluded.ext_token,
+                 source               = excluded.source,
+                 updated_at_utc       = excluded.updated_at_utc`
+            ).bind(
+              leagueId,
+              year,
+              franchiseId,
+              playerId,
+              playerName,
+              position,
+              statusUsed || contractStatus || null,
+              salary ? Number(salary) : null,
+              contractYear ? Number(contractYear) : null,
+              newInfo || null,
+              extensionTerm,
+              newTcv,
+              newAav,
+              newGtd,
+              extToken,
+              sourceTag || "worker-commish-contract-update",
+              submittedAtUtc || new Date().toISOString(),
+              new Date().toISOString()
+            ).run();
+          } catch (e) {
+            console.warn("[ext-master] D1 upsert failed:", e?.message || String(e));
+          }
         }
 
         const shouldDispatchSubmissionLog = !isManualContractUpdate || isExtensionSubmission;

@@ -2649,6 +2649,94 @@
 </script>
 
 <script>
+  // Team Operations (HPM11 / MESSAGE11) auto-bootstrap.
+  //
+  // Header-only mode: the HPM body can be empty (just a comment).
+  // This script:
+  //   1. Detects pages that should render Team Ops:
+  //      - MODULE=MESSAGE11 (standalone HPM preview page)
+  //      - MFL home page (path matches /home/<league>)
+  //   2. Creates #teamOpsMount in the right slot if it doesn't exist
+  //   3. Injects the team-operations loader script via createElement
+  //      (innerHTML-inserted <script> tags don't execute, which is
+  //      why the inline IIFE in hpm-myteam.html stops working on
+  //      the home page — this whole module is the workaround)
+  (function () {
+    var BUILD = "2026.05.14.2";
+    if (window.__ups_teamops_header_autoload === BUILD) return;
+    window.__ups_teamops_header_autoload = BUILD;
+
+    function safeUpper(v) { return String(v == null ? "" : v).trim().toUpperCase(); }
+
+    function isTeamOpsContext() {
+      // Standalone HPM page: MODULE=MESSAGE11
+      try {
+        var u = new URL(window.location.href);
+        var mod = safeUpper(u.searchParams.get("MODULE") || "");
+        if (mod === "MESSAGE11" || /^MESSAGE11\b/.test(mod)) return true;
+      } catch (e) {}
+
+      // Home page: path matches /home/<digits>
+      var path = String(window.location.pathname || "");
+      if (/\/home\/\d+/.test(path)) return true;
+
+      // Body-id heuristic: MFL sets <body id="body_home"> on home page.
+      if (document.body && /home/i.test(String(document.body.id || ""))) return true;
+
+      return false;
+    }
+
+    function ensureMount() {
+      var existing = document.getElementById("teamOpsMount");
+      if (existing) return existing;
+
+      // Prefer to place the mount where MFL would have rendered HPM11.
+      // Container search order: explicit MESSAGE11 wrapper → just after
+      // the UPS hotlinks shell → end of body.
+      var anchor =
+        document.querySelector('#MESSAGE11, [id^="MESSAGE11"], .MESSAGE11') ||
+        document.querySelector(".ups-hotlinks-shell") ||
+        document.body;
+
+      var mount = document.createElement("div");
+      mount.id = "teamOpsMount";
+      if (anchor && anchor.parentNode && anchor !== document.body) {
+        anchor.parentNode.insertBefore(mount, anchor.nextSibling);
+      } else {
+        document.body.appendChild(mount);
+      }
+      return mount;
+    }
+
+    function alreadyLoaded() {
+      return !!document.querySelector('script[data-ups-teamops-loader]');
+    }
+
+    function injectLoader() {
+      if (alreadyLoaded()) return;
+      var s = document.createElement("script");
+      s.setAttribute("data-ups-teamops-loader", "1");
+      s.src = "https://keithcreelman.github.io/upsmflproduction/team_operations/mfl_hpm_embed_loader.js?v=" +
+        encodeURIComponent(String(Date.now()));
+      s.async = true;
+      (document.body || document.documentElement).appendChild(s);
+    }
+
+    function bootIfApplicable() {
+      if (!isTeamOpsContext()) return;
+      ensureMount();
+      injectLoader();
+    }
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", bootIfApplicable);
+    } else {
+      bootIfApplicable();
+    }
+  })();
+</script>
+
+<script>
   // Trade War Room embed helper for MESSAGE6.
   (function () {
     var TWB_HEADER_BUILD = "2026.03.01.3";

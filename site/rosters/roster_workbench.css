@@ -1864,8 +1864,15 @@
 }
 
 .rwb-modal {
+  /* Viewport-pinned (vw/vh) instead of inset:0 — MFL pages have
+     transformed ancestors that break position:fixed-vs-viewport, so
+     percentage/inset sizes collapse. Same fix shipped to the player
+     profile master modal (see player_profile_master.js .upm-overlay). */
   position: fixed;
-  inset: 0;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
   z-index: 99999;
   overflow-y: auto;
   padding: 14px;
@@ -1880,9 +1887,14 @@
 }
 
 .rwb-modal-shell {
+  /* Matches the player-profile modal sizing (96vw, max 1600px) so
+     Contract View / Cap Plan / Tagging all open at the same wide
+     size the user signed off on. Was 720px previously — too narrow
+     for cap-plan rows and tagging tables. */
   position: relative;
-  width: min(720px, calc(100vw - 24px));
-  margin: 6vh auto 14px;
+  width: 96vw;
+  max-width: 1600px;
+  margin: 4vh auto 14px;
   border: 1px solid rgba(138, 172, 214, 0.28);
   border-radius: 18px;
   background: linear-gradient(180deg, rgba(10, 22, 40, 0.98), rgba(6, 14, 28, 0.98));

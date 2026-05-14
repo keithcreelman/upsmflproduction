@@ -12,7 +12,10 @@
   --tops-ink-dim: #9fb3d1;
   --tops-accent: #f3b61f;
   --tops-accent-2: #7de8d9;
-  --tops-bad: #ff6b6b;
+  /* "Bad" / error accent — red was unreadable against the dark gradient,
+     so swapped to bold teal (matches --tops-accent-2 below). Used by
+     .tops-meta-error, .tops-error, and inline error-state messages. */
+  --tops-bad: #7de8d9;
   --tops-warn: #f5a623;
   --tops-ok: #4caf82;
 
@@ -93,6 +96,26 @@
   display: flex;
   gap: 0.4rem;
   flex-wrap: wrap;
+}
+
+/* Work-in-progress banner — sits at the top of the Overview tab so
+   it doesn't follow the user into Front Office / Stats / Trade
+   War Room (those are mature modules with their own state). */
+.tops-wip-banner {
+  margin: 0 0 0.9rem;
+  padding: 0.7rem 0.95rem;
+  background: linear-gradient(180deg, rgba(243, 182, 31, 0.18), rgba(243, 182, 31, 0.08));
+  border: 1px solid rgba(243, 182, 31, 0.55);
+  border-left: 4px solid var(--tops-accent);
+  border-radius: 8px;
+  color: var(--tops-ink);
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+
+.tops-wip-banner strong {
+  color: var(--tops-accent);
+  margin-right: 0.25em;
 }
 
 .tops-link-pill {
@@ -242,6 +265,17 @@
 .tops-kv-split-line.tops-kv-split-warn .tops-kv-split-v { color: var(--tops-warn); }
 .tops-kv-split-line.tops-kv-split-ok .tops-kv-split-v { color: var(--tops-ok); }
 .tops-kv-split-line.tops-kv-split-zero .tops-kv-split-v { color: var(--tops-ink-dim); }
+
+/* Sub-note: secondary breakdown line under the main note. Used by the
+   Cap Used card to show salary + adjustments split without crowding
+   the primary "% of cap" line. */
+.tops-kv-subnote {
+  font-size: 0.7rem;
+  color: var(--tops-ink-dim);
+  margin-top: 0.15rem;
+  opacity: 0.85;
+  letter-spacing: 0.01em;
+}
 
 .tops-bar {
   margin-top: 0.45rem;
@@ -501,8 +535,16 @@
   font-size: 0.78rem;
   color: var(--tops-ink-dim);
 }
-.tops-iframe-pop {
-  color: var(--tops-accent-2, #7de8d9);
+/* `a.` prefix + :link/:visited/:hover/:active selectors with !important
+   so MFL's host stylesheet (which applies `a:visited { color: red }`
+   globally) can't repaint the pill red. Same reason the Front Office
+   pills did this in roster_workbench.css. */
+a.tops-iframe-pop,
+a.tops-iframe-pop:link,
+a.tops-iframe-pop:visited,
+a.tops-iframe-pop:hover,
+a.tops-iframe-pop:active {
+  color: var(--tops-accent-2, #7de8d9) !important;
   text-decoration: none;
   font-weight: 700;
   letter-spacing: 0.02em;
@@ -511,7 +553,7 @@
   border: 1px solid rgba(125, 232, 217, 0.35);
   transition: background 100ms, border-color 100ms;
 }
-.tops-iframe-pop:hover {
+a.tops-iframe-pop:hover {
   background: rgba(125, 232, 217, 0.1);
   border-color: rgba(125, 232, 217, 0.7);
 }
@@ -649,7 +691,7 @@
   font-size: 0.72rem;
   color: var(--tops-ink-dim);
 }
-.tops-meta-error { color: var(--tops-bad); }
+.tops-meta-error { color: var(--tops-bad); font-weight: 700; }
 
 /* Loading / error --------------------------------------------------------- */
 .tops-loading {
@@ -672,8 +714,9 @@
 
 .tops-error {
   color: var(--tops-bad);
-  background: rgba(255, 107, 107, 0.1);
-  border: 1px solid rgba(255, 107, 107, 0.35);
+  font-weight: 700;
+  background: rgba(125, 232, 217, 0.08);
+  border: 1px solid rgba(125, 232, 217, 0.35);
   padding: 0.75rem 0.9rem;
   border-radius: 10px;
   font-size: 0.9rem;

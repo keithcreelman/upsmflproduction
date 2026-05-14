@@ -4230,7 +4230,7 @@
         url.searchParams.set("PLAYERS", slice.join(","));
         var apiKey = resolveApiKey();
         if (apiKey) url.searchParams.set("APIKEY", apiKey);
-        tasks.push(fetchJson(url.toString()));
+        tasks.push(fetchJson(url.toString(), { credentials: "omit" }));
       })(ids.slice(i, i + chunkSize));
     }
 
@@ -10750,6 +10750,13 @@
       contract_year: Math.max(0, safeInt(option.contractLength, 0) - 1),
       contract_status: safeStr(option.contractStatus),
       contract_info: safeStr(option.contractInfo),
+      // Snapshot the pre-extension contract so the worker's
+      // ups_extension_submissions audit row has a before/after
+      // diff for forensics + cap-math reconstruction.
+      prior_contract_status: safeStr(player.type || player.contractStatus),
+      prior_salary: safeInt(player.salary, 0),
+      prior_contract_year: safeInt(player.contractYear, 0),
+      prior_contract_info: safeStr(player.contractInfo),
       submitted_at_utc: new Date().toISOString(),
       commish_override_flag: commishOverride ? 1 : 0
     };
@@ -10945,6 +10952,12 @@
       L: safeStr(state.ctx && state.ctx.leagueId),
       YEAR: safeStr(state.ctx && state.ctx.year),
       type: "MANUAL_CONTRACT_UPDATE",
+      // submission_kind is the explicit channel the worker uses to log
+      // tag/untag actions into the ups_tag_submissions D1 table. Without
+      // this flag the worker can't tell a tag apart from any other
+      // MANUAL_CONTRACT_UPDATE (and an untag's contract_status is the
+      // prior contract, not "TAG", so detection requires the flag).
+      submission_kind: "tag",
       leagueId: safeStr(state.ctx && state.ctx.leagueId),
       year: safeStr(state.ctx && state.ctx.year),
       player_id: safeStr(row && row.player_id),
@@ -10977,6 +10990,11 @@
       L: safeStr(state.ctx && state.ctx.leagueId),
       YEAR: safeStr(state.ctx && state.ctx.year),
       type: "MANUAL_CONTRACT_UPDATE",
+      // See buildTagContractPayload — submission_kind tells the worker
+      // to log this into ups_tag_submissions. prior_tag_side preserves
+      // the side this player was occupying so the audit row records it.
+      submission_kind: "untag",
+      prior_tag_side: getTagSideFromPos((player && (player.positionGroup || player.position)) || ref.position) || "",
       leagueId: safeStr(state.ctx && state.ctx.leagueId),
       year: safeStr(state.ctx && state.ctx.year),
       player_id: safeStr(player && player.id),
@@ -11816,7 +11834,7 @@
       var apiKey = resolveApiKey();
       if (apiKey) url.searchParams.set("APIKEY", apiKey);
 
-      return fetchJson(url.toString()).then(function (payload) {
+      return fetchJson(url.toString(), { credentials: "omit" }).then(function (payload) {
         var map = toByeMap(payload);
         var hasAny = Object.keys(map).some(function (team) {
           return !!safeStr(map[team]);
@@ -11832,23 +11850,33 @@
   }
 
   function loadDataFromDirectExports(ctx) {
-    var leagueUrl = buildExportUrl(ctx.hostOrigin, ctx.year, "league", { L: ctx.leagueId });
-    var rostersUrl = buildExportUrl(ctx.hostOrigin, ctx.year, "rosters", { L: ctx.leagueId });
-    var salariesUrl = buildExportUrl(ctx.hostOrigin, ctx.year, "salaries", { L: ctx.leagueId });
-    var salaryAdjUrl = buildExportUrl(ctx.hostOrigin, ctx.year, "salaryAdjustments", { L: ctx.leagueId });
+    // Always hit api.myfantasyleague.com for the direct-export fallback,
+    // NOT ctx.hostOrigin. When RWB is loaded inside the Team Ops iframe
+    // from GitHub Pages, ctx.hostOrigin is keithcreelman.github.io and
+    // every export URL 404s. The fallback only makes sense against MFL.
+    var leagueUrl = buildApiExportUrl(ctx.year, "league", { L: ctx.leagueId });
+    var rostersUrl = buildApiExportUrl(ctx.year, "rosters", { L: ctx.leagueId });
+    var salariesUrl = buildApiExportUrl(ctx.year, "salaries", { L: ctx.leagueId });
+    var salaryAdjUrl = buildApiExportUrl(ctx.year, "salaryAdjustments", { L: ctx.leagueId });
     var pointsUrl = buildApiExportUrl(ctx.year, "playerScores", { L: ctx.leagueId, W: "YTD" });
 
     var priorSeason = String(Math.max(0, safeInt(ctx.year, Number(ctx.year) || 0) - 1));
     var priorSalariesReq = priorSeason && priorSeason !== String(ctx.year)
-      ? fetchJson(buildExportUrl(ctx.hostOrigin, priorSeason, "salaries", { L: ctx.leagueId })).catch(function () { return {}; })
+      ? fetchJson(buildApiExportUrl(priorSeason, "salaries", { L: ctx.leagueId }), { credentials: "omit" }).catch(function () { return {}; })
       : Promise.resolve({});
 
+    // credentials:"omit" — MFL responds with Access-Control-Allow-Origin: *,
+    // which the browser will reject if combined with credentials:"include"
+    // (the fetchJson default). This is the same reason the worker-API
+    // call passes credentials:"omit" — cross-origin to MFL needs the
+    // request to be cookieless from the browser's POV.
+    var noCreds = { credentials: "omit" };
     return Promise.all([
-      fetchJson(leagueUrl),
-      fetchJson(rostersUrl),
-      fetchJson(salariesUrl).catch(function () { return {}; }),
-      fetchJson(salaryAdjUrl).catch(function () { return {}; }),
-      fetchJson(pointsUrl).catch(function () { return {}; }),
+      fetchJson(leagueUrl, noCreds),
+      fetchJson(rostersUrl, noCreds),
+      fetchJson(salariesUrl, noCreds).catch(function () { return {}; }),
+      fetchJson(salaryAdjUrl, noCreds).catch(function () { return {}; }),
+      fetchJson(pointsUrl, noCreds).catch(function () { return {}; }),
       fetchByesWithFallback(ctx),
       priorSalariesReq
     ]).then(function (parts) {

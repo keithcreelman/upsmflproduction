@@ -1,11 +1,41 @@
 {
   "meta": {
-    "generated_at": "2026-03-12 19:42:18",
+    "generated_at": "2026-05-14 20:22:28",
     "source": "contract-activity-log",
-    "count": 1,
+    "count": 2,
     "season": 2026
   },
   "activities": [
+    {
+      "activity_id": "74d7df2aebe9257363dca29a",
+      "submission_id": "74d7df2aebe9257363dca29a",
+      "activity_scope": "contract_mutation",
+      "activity_type": "FA Contract",
+      "season": "2026",
+      "league_id": "74598",
+      "franchise_id": "0006",
+      "franchise_name": "",
+      "player_id": "13700",
+      "player_name": "Harold Landry",
+      "position": "",
+      "salary": 3000,
+      "contract_year": 1,
+      "contract_status": "Veteran",
+      "contract_info": "CL 1| TCV 3K| AAV 3K| No Further Extensions",
+      "tcv": 3000,
+      "aav": 3000,
+      "guaranteed": 0,
+      "submitted_at_utc": "2026-05-14T20:22:15.850Z",
+      "source": "worker-contract-activity",
+      "test_flag": 0,
+      "commish_override_flag": 0,
+      "override_as_of_date": "",
+      "delivery_target": "test",
+      "discord_channel_id": "1089538054236160010",
+      "discord_message_id": "1504579628948394116",
+      "discord_pinned_flag": 0,
+      "notes": ""
+    },
     {
       "activity_id": "4a4d036aa1586d50525596b4",
       "submission_id": "4a4d036aa1586d50525596b4",

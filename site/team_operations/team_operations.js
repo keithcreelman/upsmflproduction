@@ -191,6 +191,12 @@
       ["league", fetchJson(mflExportUrl("league"))],
       ["rosters", fetchJson(mflExportUrl("rosters"))],
       ["salaries", fetchJson(mflExportUrl("salaries"))],
+      // salaryAdjustments — trade adjustments, cut/drop penalties, manual
+      // commish adjustments. Signed integers — positive amounts INCREASE
+      // effective cap usage. Front Office shows these explicitly in its
+      // Cap Summary; we just need the viewer's franchise total here so
+      // the Cap Used / Cap Room cards display the same number FO shows.
+      ["salaryAdjustments", fetchJson(mflExportUrl("salaryAdjustments")).catch(function () { return null; })],
       ["players", fetchJson(mflExportUrl("players", { DETAILS: "1" }))],
       ["transactions", fetchJson(mflExportUrl("transactions", { DAYS: 14 }))],
       ["pendingTrades", fetchJson(mflExportUrl("pendingTrades"))],
@@ -200,10 +206,6 @@
       ["nflByeWeeks", fetchJson(mflExportUrl("nflByeWeeks"))],
       ["injuries", fetchJson(mflExportUrl("injuries"))],
       ["calendar", fetchJson(mflExportUrl("calendar"))],
-      // Salary adjustments — per-franchise penalty / bonus ledger that
-      // counts against the cap alongside player salaries. Source for the
-      // Adjustments line on the Franchise Summary card.
-      ["salaryAdjustments", fetchJson(mflExportUrl("salaryAdjustments"))],
       // myfranchise — authoritative user-identity lookup via APIKEY.
       // MFL exposes window._apiKey_ on authenticated pages; we pass
       // that key as ?APIKEY=... and route through the worker proxy to
@@ -350,6 +352,26 @@
     });
   }
 
+  // Sum of salaryAdjustments for the viewer's franchise. Signed integer
+  // — positive means INCREASES effective cap usage (the standard MFL
+  // convention; Front Office uses the same sum in calculateCapSpace).
+  // Returns 0 when no adjustments / no viewer franchise resolved.
+  function getMyAdjustmentTotal() {
+    var fid = pad4(state.viewerFranchiseId || (state.viewerFranchise && state.viewerFranchise.id) || "");
+    if (!fid) return 0;
+    var root = state.salaryAdjustments && state.salaryAdjustments.salaryAdjustments;
+    if (!root) return 0;
+    var rows = asArray(root.salaryAdjustment || root.adjustment);
+    var total = 0;
+    rows.forEach(function (row) {
+      if (!row) return;
+      var rowFid = pad4(row.franchise_id || row.franchise || row.id || "");
+      if (rowFid !== fid) return;
+      total += Number(row.amount || 0);
+    });
+    return total;
+  }
+
   function getMySalaries() {
     // MFL's salaries export with unit=LEAGUE returns every player league-wide
     // with no franchise attribution (sample player has id+salary+contractInfo
@@ -379,34 +401,6 @@
         contractStatus: r.contractStatus || safeStr(sp.contractStatus)
       };
     });
-  }
-
-  // Sums salaryAdjustments for the viewer's franchise. MFL ships them as
-  // { salaryAdjustments: { salaryAdjustment: [{ franchise_id, amount, description }, ...] } }.
-  // `amount` is positive when it ADDS to a franchise's salary (e.g. cap
-  // penalty pushed by the cap-penalty cron). Negative if it returns cap.
-  // Returns { total, items: [...] } so the card can also show a breakdown.
-  function getMyAdjustments() {
-    var fid = state.viewerFranchiseId;
-    if (!fid || !state.salaryAdjustments) return { total: 0, items: [] };
-    var root = state.salaryAdjustments.salaryAdjustments || state.salaryAdjustments;
-    var raw = (root && (root.salaryAdjustment || root.salary_adjustment)) || [];
-    var list = asArray(raw);
-    var items = [];
-    var total = 0;
-    list.forEach(function (a) {
-      if (!a) return;
-      if (pad4(a.franchise_id || a.franchise) !== pad4(fid)) return;
-      var amt = Number(a.amount || 0);
-      if (!amt) return;
-      total += amt;
-      items.push({
-        amount: amt,
-        description: safeStr(a.description || a.note || ""),
-        timestamp: safeStr(a.timestamp || a.date || "")
-      });
-    });
-    return { total: total, items: items };
   }
 
   function getInjuryFor(playerId) {
@@ -446,12 +440,38 @@
     var ref = (window.UPS_RELEASE_SHA && String(window.UPS_RELEASE_SHA).trim()) || "main";
     return workerUrl("/api/repo-html?ref=" + encodeURIComponent(ref) + "&path=" + encodeURIComponent("site/" + relPath));
   }
+  // Tab definitions:
+  //   iframe  — the URL the embedded iframe loads (Pages so content-type
+  //             headers stay correct and assets cache cleanly).
+  //   message — the MFL MESSAGEnn module the "Open in new tab" link
+  //             routes to, so owners pop out to the league's own hosted
+  //             page (with header chrome, hotlinks, etc.) instead of
+  //             a bare Pages URL.
   var TAB_DEFS = [
     { id: "overview",     label: "Overview" },
-    { id: "front-office", label: "Front Office",  iframe: hubUrl("rosters/roster_workbench.html") },
-    { id: "player-stats", label: "Player Stats",  iframe: hubUrl("stats_workbench/stats_workbench.html") },
-    { id: "trade-room",   label: "Trade War Room", iframe: hubUrl("trades/trade_workbench.html") }
+    { id: "front-office", label: "Front Office",   iframe: hubUrl("rosters/roster_workbench.html"),     message: "MESSAGE7" },
+    { id: "player-stats", label: "Player Stats",   iframe: hubUrl("stats_workbench/stats_workbench.html"), message: "MESSAGE13" },
+    { id: "trade-room",   label: "Trade War Room", iframe: hubUrl("trades/trade_workbench.html"),       message: "MESSAGE6=N" },
+    { id: "standings",    label: "Standings",      iframe: hubUrl("standings/mfl_hpm_standings.html"), message: "MESSAGE4" }
   ];
+
+  // Build the MFL-hosted MESSAGEnn URL for the given tab def. Falls back
+  // to the iframe URL when we're not on MFL (e.g., local dev preview)
+  // because the MFL host/path heuristics won't resolve.
+  function popOutUrlForTab(def) {
+    if (!def || !def.message) return def && def.iframe || "";
+    var host = "";
+    try { host = window.location.host || ""; } catch (e) {}
+    if (!/myfantasyleague\.com$/i.test(host)) {
+      // Not on MFL — best we can do is the bare Pages iframe URL.
+      return def.iframe || "";
+    }
+    var leagueId = state.ctx && state.ctx.leagueId;
+    var year = (state.ctx && state.ctx.year) || String(new Date().getFullYear());
+    if (!leagueId) return def.iframe || "";
+    return "//" + host + "/" + encodeURIComponent(year) +
+      "/home/" + encodeURIComponent(leagueId) + "?MODULE=" + def.message;
+  }
 
   function readActiveTab() {
     try {
@@ -495,6 +515,19 @@
               + "&YEAR=" + encodeURIComponent(state.ctx.year)
               + (state.viewerFranchiseId ? "&FRANCHISE_ID=" + encodeURIComponent(state.viewerFranchiseId) : "");
 
+    // Trade War Room needs api= + APIKEY= to load the live trade payload
+    // (worker /trade-workbench endpoint with all 12 franchises). Without
+    // these the workbench falls back to its bundled sample which only
+    // ships 3 teams — that's why the partner picker only listed
+    // LA Looks + Ulterior Warrior. mfl_hpm_embed_loader does this for
+    // the standalone HPM mount; team-ops needs to do it inline since
+    // we skip that loader.
+    var twbApiKey = "";
+    try { twbApiKey = String(window._apiKey_ || "").trim(); } catch (e) {}
+    var twbExtraQs = "&api=" + encodeURIComponent("https://upsmflproduction.keith-creelman.workers.dev/trade-workbench")
+                   + "&embed=1"
+                   + (twbApiKey ? "&APIKEY=" + encodeURIComponent(twbApiKey) : "");
+
     var activeTab = readActiveTab();
     var tabsHtml = '<nav class="tops-tabs" role="tablist">'
       + TAB_DEFS.map(function (t) {
@@ -503,7 +536,12 @@
         }).join("")
       + '</nav>';
 
-    var overviewPanelHtml = '<main class="tops-grid">'
+    var overviewPanelHtml = ''
+      + '<div class="tops-wip-banner" role="status">'
+      +   '<strong>Heads up:</strong> this page and the Team Ops module are actively being built.'
+      +   ' Expect rough edges, missing data, and frequent changes — not a finished product yet.'
+      + '</div>'
+      + '<main class="tops-grid">'
       // Next Decision pinned at top, full-width — most important card.
       + '  <section data-card="nextDecision" class="tops-card tops-card-highlight tops-card-wide"></section>'
       + '  <section data-card="summary" class="tops-card tops-card-summary"></section>'
@@ -526,13 +564,14 @@
     // the iframe viewport, no way around that without rebuilding the modals
     // to use parent-frame postMessage).
     var hubPanels = TAB_DEFS.filter(function (t) { return !!t.iframe; }).map(function (t) {
-      var src = t.iframe + ctxQs;
+      var src = t.iframe + ctxQs + (t.id === "trade-room" ? twbExtraQs : "");
+      var popOut = popOutUrlForTab(t) || src;
       var on = (t.id === activeTab) ? '1' : '0';
       var lazy = (t.id === activeTab) ? ' src="' + escapeHtml(src) + '"' : ' data-lazysrc="' + escapeHtml(src) + '"';
       return '<section class="tops-tab-panel tops-tab-panel--iframe" data-tab-panel="' + t.id + '" data-active="' + on + '" role="tabpanel">'
         + '<div class="tops-iframe-toolbar">'
         +   '<span class="tops-iframe-label">' + escapeHtml(t.label) + ' is embedded — for a roomier view, pop it out.</span>'
-        +   '<a class="tops-iframe-pop" href="' + escapeHtml(src) + '" target="_blank" rel="noopener noreferrer">Open in new tab ↗</a>'
+        +   '<a class="tops-iframe-pop" href="' + escapeHtml(popOut) + '" target="_blank" rel="noopener noreferrer">Open in new tab ↗</a>'
         + '</div>'
         + '<iframe class="tops-iframe" title="' + escapeHtml(t.label) + '"' + lazy + ' loading="lazy" allow="clipboard-read; clipboard-write" referrerpolicy="no-referrer"></iframe>'
         + '</section>';
@@ -547,9 +586,6 @@
       '        <div class="tops-title">My Team</div>',
       '        <div class="tops-subtitle">' + escapeHtml(viewerName) + '</div>',
       '      </div>',
-      '    </div>',
-      '    <div class="tops-header-actions">',
-      '      <a class="tops-link-pill" href="//www.myfantasyleague.com/' + escapeHtml(state.ctx.year) + '/lineup?L=' + escapeHtml(state.ctx.leagueId) + '">Submit Lineup</a>',
       '    </div>',
       '  </header>',
       tabsHtml,
@@ -592,22 +628,32 @@
     var statusById = {};
     roster.forEach(function (r) { statusById[r.id] = safeStr(r.status); });
 
-    // Universal taxi rule: salary is real money but DOES NOT count vs the
-    // cap. Split the totals so the headline "Cap Used" is cap-relevant
-    // only; taxi $ surfaces as a secondary callout.
-    var salaryTotal = 0;
-    var taxiSalary = 0;
+    // Cap hit rules (must match Roster Workbench's currentCapHit):
+    //   • Taxi: 0% — taxi salary is real money but DOES NOT count vs cap.
+    //   • IR:   50% — half of salary counts toward cap.
+    //   • All other roster states: 100%.
+    // Without the IR 50% rule, Team Ops Cap Used previously ran $X-Y K
+    // higher than Front Office Cap Summary for any team with IR players.
+    var playerSalaryUsed = 0;     // active + IR×0.5 (cap-charging player salary)
+    var taxiSalary = 0;           // off-cap
+    var irSalaryFull = 0;         // raw IR salary before 50% factor, for transparency
     salaries.forEach(function (s) {
       var amt = Number(s.salary || 0);
-      if (/taxi/i.test(statusById[s.id] || "")) taxiSalary += amt;
-      else salaryTotal += amt;
+      var status = statusById[s.id] || "";
+      if (/taxi/i.test(status)) {
+        taxiSalary += amt;
+      } else if (/ir|injured/i.test(status)) {
+        irSalaryFull += amt;
+        playerSalaryUsed += Math.round(amt * 0.5);
+      } else {
+        playerSalaryUsed += amt;
+      }
     });
     // Salary adjustments — cap penalties (positive = cap-charging, e.g.
-    // drop penalties; negative = cap credit) per the salaryAdjustments
-    // export. Folds into the Total displayed as the headline number.
-    var adj = getMyAdjustments();
-    var adjustmentsTotal = adj.total;
-    var capTotal = salaryTotal + adjustmentsTotal;
+    // drop penalties; negative = cap credit). Folded into the headline
+    // total so Team Ops matches Front Office.
+    var adjustmentTotal = getMyAdjustmentTotal();
+    var capTotal = playerSalaryUsed + adjustmentTotal;
     var cap = state.capAmount;
     var remain = cap - capTotal;
     var pct = cap > 0 ? Math.min(100, Math.round((capTotal / cap) * 100)) : 0;
@@ -617,13 +663,14 @@
     var taxiCount = roster.filter(function (p) { return /taxi/i.test(p.status); }).length;
     var activeCount = rosterCount - irCount - taxiCount;
 
-    // Adjustment line styling: warm-tone when positive (cap-charging),
-    // green when negative (cap credit), dim when zero.
-    var adjClass = adjustmentsTotal > 0 ? 'tops-kv-split-warn'
-                  : adjustmentsTotal < 0 ? 'tops-kv-split-ok'
+    // Card 1 explicit split (Keith 2026-05-14): Salary + Adjustments = big
+    // total. Color-code the adjustments line so positive (cap-charging)
+    // reads warm, negative (cap credit) reads green.
+    var adjClass = adjustmentTotal > 0 ? 'tops-kv-split-warn'
+                  : adjustmentTotal < 0 ? 'tops-kv-split-ok'
                   : 'tops-kv-split-zero';
-    var adjPrefix = adjustmentsTotal > 0 ? "+" : "";
-    var adjCount = adj.items.length;
+    var adjPrefix = adjustmentTotal > 0 ? "+" : (adjustmentTotal < 0 ? "−" : "");
+    var adjAmt = Math.abs(adjustmentTotal);
 
     el.innerHTML = [
       '<div class="tops-card-title">Franchise Summary</div>',
@@ -632,13 +679,14 @@
       '    <div class="tops-kv-label">Cap Total</div>',
       '    <div class="tops-kv-value">' + fmtUsd(capTotal) + '</div>',
       '    <div class="tops-kv-split">',
-      '      <span class="tops-kv-split-line"><span class="tops-kv-split-k">Salary</span><span class="tops-kv-split-v">' + fmtUsd(salaryTotal) + '</span></span>',
+      '      <span class="tops-kv-split-line"><span class="tops-kv-split-k">Salary</span><span class="tops-kv-split-v">' + fmtUsd(playerSalaryUsed) + '</span></span>',
       '      <span class="tops-kv-split-line ' + adjClass + '">',
-      '        <span class="tops-kv-split-k">Adjustments' + (adjCount > 0 ? ' <span style="opacity:0.7;">(' + adjCount + ')</span>' : '') + '</span>',
-      '        <span class="tops-kv-split-v">' + adjPrefix + fmtUsd(adjustmentsTotal) + '</span>',
+      '        <span class="tops-kv-split-k">Adjustments</span>',
+      '        <span class="tops-kv-split-v">' + adjPrefix + fmtUsd(adjAmt) + '</span>',
       '      </span>',
       '    </div>',
       '    <div class="tops-kv-note">' + pct + '% of ' + fmtUsd(cap) +
+        (irSalaryFull > 0 ? ' · <span style="opacity:0.75;">IR ' + fmtUsd(irSalaryFull) + ' @ 50%</span>' : '') +
         (taxiSalary > 0 ? ' · <span style="opacity:0.75;">+ ' + fmtUsd(taxiSalary) + ' taxi (off-cap)</span>' : '') +
         '</div>',
       '    <div class="tops-bar"><div class="tops-bar-fill" style="width:' + pct + '%"></div></div>',
@@ -646,8 +694,8 @@
       '  <div class="tops-kv">',
       '    <div class="tops-kv-label">Cap Room</div>',
       '    <div class="tops-kv-value">' + fmtUsd(remain) + '</div>',
-      '    <div class="tops-kv-note">' + fmtUsd(cap) + ' cap − ' + fmtUsd(salaryTotal) + ' salary' +
-        (adjustmentsTotal !== 0 ? ' − ' + adjPrefix + fmtUsd(adjustmentsTotal) + ' adj' : '') +
+      '    <div class="tops-kv-note">' + fmtUsd(cap) + ' cap − ' + fmtUsd(playerSalaryUsed) + ' salary' +
+        (adjustmentTotal !== 0 ? ' − ' + adjPrefix + fmtUsd(adjAmt) + ' adj' : '') +
         '</div>',
       '  </div>',
       '  <div class="tops-kv">',
@@ -1584,7 +1632,7 @@
       })
       .catch(function () {
         var el = document.getElementById(containerId);
-        if (el) el.innerHTML = '<div class="tops-empty" style="color:var(--tops-bad,#ff6b6b);">News fetch failed. Refresh to retry.</div>';
+        if (el) el.innerHTML = '<div class="tops-empty" style="color:var(--tops-bad,#7de8d9); font-weight:700;">News fetch failed. Refresh to retry.</div>';
       });
   }
   function closePlayerProfileModal() {
@@ -2251,7 +2299,7 @@
       return '<option value="' + escapeHtml(f.id) + '">' + escapeHtml(f.name) + '</option>';
     }).join("");
     var diagHtml = diagnostics.length
-      ? '<div class="tops-empty" style="margin-top:8px; color:var(--tops-bad,#ff6b6b);">' +
+      ? '<div class="tops-empty" style="margin-top:8px; color:var(--tops-bad,#7de8d9); font-weight:700;">' +
         '⚠ ' + escapeHtml(diagnostics.join(" · ")) + '</div>'
       : "";
     summaryEl.innerHTML = [
