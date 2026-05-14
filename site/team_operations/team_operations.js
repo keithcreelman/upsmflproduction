@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var BUILD = "2026.05.13.calm";
+  var BUILD = "2026.05.13.auth";
   var BOOT_FLAG = "__ups_team_operations_boot_" + BUILD;
   if (window[BOOT_FLAG]) {
     if (typeof window.UPS_TEAMOPS_INIT === "function") window.UPS_TEAMOPS_INIT();
@@ -199,6 +199,12 @@
       ["nflByeWeeks", fetchJson(mflExportUrl("nflByeWeeks"))],
       ["injuries", fetchJson(mflExportUrl("injuries"))],
       ["calendar", fetchJson(mflExportUrl("calendar"))],
+      // myleagues — same-origin only. Returns the leagues + franchise_id
+      // attached to the logged-in MFL user (via session cookie). The
+      // authoritative signal for "who is the viewer" — beats cookie /
+      // localStorage / URL-path heuristics. Off-host: worker proxy
+      // returns anonymous/empty, hub falls back to the existing chain.
+      ["myleagues", fetchJson(mflExportUrl("myleagues"))],
       // UPS deadline calendar from our own D1 (league_events). 404s
       // gracefully when the worker doesn't have the endpoint yet —
       // renderEvents handles missing data.
@@ -235,14 +241,35 @@
 
     // ── Fallback chain (in priority order) ──
     // 1. Already-set ctx.franchiseId (from URL ?FRANCHISE_ID= or window.FRANCHISE_ID)
-    // 2. MFL_LAST_LOGIN_FRANCHISE_ID cookie — MFL sets this for any
-    //    logged-in user. Most reliable signal on MFL pages where
-    //    window.FRANCHISE_ID isn't injected (e.g. some custom HPMs).
-    // 3. localStorage rdh_my_fid — set by the Draft Hub when it figures
+    // 2. MFL TYPE=myleagues authenticated lookup (NEW 2026-05-13) — most
+    //    authoritative signal: MFL knows who the logged-in user is via the
+    //    session cookie our same-origin fetch sends. Returns the user's
+    //    franchise_id directly. Off-host falls through (worker proxy
+    //    returns anonymous/empty).
+    // 3. MFL_LAST_LOGIN_FRANCHISE_ID cookie — MFL sets this for any
+    //    logged-in user. Most reliable cookie-based signal.
+    // 4. localStorage rdh_my_fid — set by the Draft Hub when it figures
     //    out the user. Survives across hubs.
-    // 4. URL path /home/<league>/<franchise> — already handled by the
+    // 5. URL path /home/<league>/<franchise> — already handled by the
     //    embed loader but re-check in case ctx wasn't populated.
-    // 5. MFL_USER_ID cookie matched against league franchise records.
+    // 6. MFL_USER_ID cookie matched against league franchise records.
+    if (!fid && state.myleagues) {
+      // Response shape: { myleagues: { league: [{ league_id, franchise_id, ... }] } }
+      // (or a single league object if user has only one). Find the entry
+      // matching the current league_id; use its franchise_id.
+      try {
+        var ml = (state.myleagues && state.myleagues.myleagues) || {};
+        var leagues = asArray(ml.league);
+        for (var k = 0; k < leagues.length; k++) {
+          var L = leagues[k];
+          var lid = String(L.league_id || L.id || "").replace(/\D/g, "");
+          if (lid && lid === String(ctx.leagueId)) {
+            var f = pad4(L.franchise_id || L.franchise);
+            if (f) { fid = f; break; }
+          }
+        }
+      } catch (e) {}
+    }
     if (!fid) {
       var lastLogin = readCookie("MFL_LAST_LOGIN_FRANCHISE_ID");
       if (lastLogin) fid = pad4(lastLogin);
