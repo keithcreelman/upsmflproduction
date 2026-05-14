@@ -23174,6 +23174,119 @@ export default {
           }
         }
 
+        // Extension audit + master — parity with the tag flow above.
+        // Fires when submission_kind === "extension" and the salary
+        // import actually changed something. Audit captures the full
+        // before/after; master keeps one row per (league, season, player).
+        if (looksOk && anyChanged && isExtensionSubmission && env.UPS_MFL_DB) {
+          // Parse the new contractInfo for TCV/AAV/GTD/term so the
+          // audit row has structured cap-math fields, not just a raw
+          // string. Pattern matches Roster Workbench's
+          // synthesizeExtensionOption output:
+          //   "CL 3|TCV 1500|AAV 400, 500|Y1-400, Y2-500, Y3-500|GTD: 1125|Ext: AB"
+          const newInfo = String(contractInfo || "");
+          const matchInt = (re) => {
+            const m = newInfo.match(re);
+            return m ? Number(String(m[1]).replace(/[^\d]/g, "")) : null;
+          };
+          const newTcv  = matchInt(/TCV\s*(\d+(?:[.,]?\d+)*)/i);
+          const newAav  = matchInt(/AAV\s*(\d+(?:[.,]?\d+)*)/i);
+          const newGtd  = matchInt(/GTD\s*:?\s*(\d+(?:[.,]?\d+)*)/i);
+          const newLen  = matchInt(/\bCL\s*(\d+)/i);
+          const extTokenMatch = newInfo.match(/Ext\s*:\s*([^|]+)/i);
+          const extToken = extTokenMatch ? String(extTokenMatch[1]).trim() : null;
+          // Extension term = new CL minus the prior contractYear (years
+          // remaining on the original deal). Best-effort; null if either
+          // side is unknown.
+          const priorCyInt = Number(body.prior_contract_year || body.priorContractYear || 0) || null;
+          const extensionTerm = (newLen && priorCyInt) ? Math.max(0, newLen - priorCyInt) : null;
+
+          try {
+            await env.UPS_MFL_DB.prepare(
+              `INSERT INTO ups_extension_submissions
+                 (league_id, season, franchise_id, player_id, player_name, position,
+                  prior_contract_status, prior_salary, prior_contract_year, prior_contract_info,
+                  new_contract_status, new_salary, new_contract_year, new_contract_info,
+                  extension_term_years, new_tcv, new_aav, new_gtd, ext_token,
+                  source, acting_user_id, raw_payload_json, submitted_at_utc)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+            ).bind(
+              leagueId,
+              year,
+              franchiseId,
+              playerId,
+              playerName,
+              position,
+              String(body.prior_contract_status || body.priorContractStatus || "") || null,
+              body.prior_salary != null ? Number(body.prior_salary) : null,
+              priorCyInt,
+              String(body.prior_contract_info || body.priorContractInfo || "") || null,
+              statusUsed || contractStatus || null,
+              salary ? Number(salary) : null,
+              contractYear ? Number(contractYear) : null,
+              newInfo || null,
+              extensionTerm,
+              newTcv,
+              newAav,
+              newGtd,
+              extToken,
+              sourceTag || "worker-commish-contract-update",
+              String(body.acting_user_id || body.actingUserId || "") || null,
+              JSON.stringify(body),
+              submittedAtUtc || new Date().toISOString()
+            ).run();
+          } catch (e) {
+            console.warn("[ext-audit] D1 insert failed:", e?.message || String(e));
+          }
+
+          try {
+            await env.UPS_MFL_DB.prepare(
+              `INSERT INTO ups_extension_master
+                 (league_id, season, franchise_id, player_id, player_name, position,
+                  new_contract_status, new_salary, new_contract_year, new_contract_info,
+                  extension_term_years, new_tcv, new_aav, new_gtd, ext_token,
+                  source, extended_at_utc, updated_at_utc)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+               ON CONFLICT(league_id, season, player_id) DO UPDATE SET
+                 franchise_id         = excluded.franchise_id,
+                 player_name          = excluded.player_name,
+                 position             = excluded.position,
+                 new_contract_status  = excluded.new_contract_status,
+                 new_salary           = excluded.new_salary,
+                 new_contract_year    = excluded.new_contract_year,
+                 new_contract_info    = excluded.new_contract_info,
+                 extension_term_years = excluded.extension_term_years,
+                 new_tcv              = excluded.new_tcv,
+                 new_aav              = excluded.new_aav,
+                 new_gtd              = excluded.new_gtd,
+                 ext_token            = excluded.ext_token,
+                 source               = excluded.source,
+                 updated_at_utc       = excluded.updated_at_utc`
+            ).bind(
+              leagueId,
+              year,
+              franchiseId,
+              playerId,
+              playerName,
+              position,
+              statusUsed || contractStatus || null,
+              salary ? Number(salary) : null,
+              contractYear ? Number(contractYear) : null,
+              newInfo || null,
+              extensionTerm,
+              newTcv,
+              newAav,
+              newGtd,
+              extToken,
+              sourceTag || "worker-commish-contract-update",
+              submittedAtUtc || new Date().toISOString(),
+              new Date().toISOString()
+            ).run();
+          } catch (e) {
+            console.warn("[ext-master] D1 upsert failed:", e?.message || String(e));
+          }
+        }
+
         const shouldDispatchSubmissionLog = !isManualContractUpdate || isExtensionSubmission;
         let logDispatch = {
           ok: false,
