@@ -183,8 +183,11 @@ def main() -> int:
         "player_id": safe_str(args.player_id) or safe_str(payload.get("player_id")) or safe_str(payload.get("playerId")),
         "player_name": safe_str(args.player_name) or safe_str(payload.get("player_name")) or safe_str(payload.get("playerName")),
         "position": safe_str(args.position) or safe_str(payload.get("position")) or safe_str(payload.get("pos")),
-        "salary": safe_int(args.salary if safe_str(args.salary) else payload.get("salary"), 0),
-        "contract_year": safe_int(args.contract_year if safe_str(args.contract_year) else payload.get("contract_year", payload.get("contractYear")), 0),
+        # CLI defaults "--salary 0" / "--contract-year 0" are truthy
+        # strings under safe_str(), which would shadow payload values.
+        # Treat a CLI-derived 0 as "absent" and consult the payload.
+        "salary": (lambda c: c if c > 0 else safe_int(payload.get("salary"), 0))(safe_int(args.salary, 0)),
+        "contract_year": (lambda c: c if c > 0 else safe_int(payload.get("contract_year", payload.get("contractYear")), 0))(safe_int(args.contract_year, 0)),
         "contract_status": safe_str(args.contract_status) or safe_str(payload.get("contract_status")) or safe_str(payload.get("contractStatus")),
         "contract_info": contract_info,
         "tcv": safe_int(payload.get("tcv"), parsed["tcv"]),

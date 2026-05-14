@@ -134,8 +134,12 @@ def main() -> int:
     )
     league_id = safe_str(args.league_id) or safe_str(payload.get("league_id")) or safe_str(payload.get("leagueId"))
     player_id = safe_str(args.player_id) or safe_str(payload.get("player_id")) or safe_str(payload.get("playerId"))
-    contract_year = safe_int(
-        args.contract_year if safe_str(args.contract_year) else payload.get("contract_year", payload.get("contractYear")),
+    # See log_extension_submission.py for the same fix — default
+    # "--contract-year 0" was shadowing the payload value, so dispatches
+    # always reported contract_year as missing.
+    cli_cy = safe_int(args.contract_year, 0)
+    contract_year = cli_cy if cli_cy > 0 else safe_int(
+        payload.get("contract_year", payload.get("contractYear")),
         0,
     )
     contract_status = safe_str(args.contract_status) or safe_str(payload.get("contract_status")) or safe_str(payload.get("contractStatus"))
