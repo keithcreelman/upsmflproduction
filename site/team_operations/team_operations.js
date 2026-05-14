@@ -72,6 +72,7 @@
     players: null,
     injuries: null,
     playerNews: null,
+    salaryAdjustments: null,
     capAmount: 0,
     loadErrors: [],
     lastLoaded: null,
@@ -632,13 +633,10 @@
     //   • IR:   50% — half of salary counts toward cap.
     //   • All other roster states: 100%.
     // Without the IR 50% rule, Team Ops Cap Used previously ran $X-Y K
-    // higher than Front Office Cap Summary for any team with IR
-    // players. Keith caught this on Long Haulers (2026-05-14) where
-    // FO showed $283K total salary but Team Ops showed $289K — exactly
-    // 50% × IR total off.
-    var playerSalaryUsed = 0;
-    var taxiSalary = 0;
-    var irSalaryFull = 0;     // raw IR salary before 50% factor, for transparency
+    // higher than Front Office Cap Summary for any team with IR players.
+    var playerSalaryUsed = 0;     // active + IR×0.5 (cap-charging player salary)
+    var taxiSalary = 0;           // off-cap
+    var irSalaryFull = 0;         // raw IR salary before 50% factor, for transparency
     salaries.forEach(function (s) {
       var amt = Number(s.salary || 0);
       var status = statusById[s.id] || "";
@@ -651,54 +649,54 @@
         playerSalaryUsed += amt;
       }
     });
-    // Fold salary-adjustments (trade, cut, manual) into the displayed
-    // numbers so Team Ops matches Front Office. MFL convention: positive
-    // adjustment amounts INCREASE effective cap usage. Both Cap Used and
-    // Cap Room reflect post-adjustment totals — no breakdown shown here
-    // per Keith 2026-05-14 (Front Office still has the expandable
-    // breakdown for that).
+    // Salary adjustments — cap penalties (positive = cap-charging, e.g.
+    // drop penalties; negative = cap credit). Folded into the headline
+    // total so Team Ops matches Front Office.
     var adjustmentTotal = getMyAdjustmentTotal();
-    var capUsed = playerSalaryUsed + adjustmentTotal;
+    var capTotal = playerSalaryUsed + adjustmentTotal;
     var cap = state.capAmount;
-    var remain = cap - capUsed;
-    var pct = cap > 0 ? Math.min(100, Math.round((capUsed / cap) * 100)) : 0;
+    var remain = cap - capTotal;
+    var pct = cap > 0 ? Math.min(100, Math.round((capTotal / cap) * 100)) : 0;
 
     var rosterCount = roster.length;
     var irCount = roster.filter(function (p) { return /ir/i.test(p.status); }).length;
     var taxiCount = roster.filter(function (p) { return /taxi/i.test(p.status); }).length;
     var activeCount = rosterCount - irCount - taxiCount;
 
-    // Cap Used breakdown — show salary vs adjustments split so the
-    // total isn't a black box. Per Keith 2026-05-14: Card 2 stays
-    // final-number-only, but Card 1 surfaces the components since
-    // adjustments are non-obvious (trade-in/-out, drop penalties,
-    // commish adjustments).
-    var adjustmentSign = adjustmentTotal === 0
-      ? ""
-      : (adjustmentTotal > 0 ? "+" : "−");
-    var adjustmentBreakdownLine = adjustmentTotal === 0
-      ? ''
-      : '<div class="tops-kv-subnote">'
-          + fmtUsd(playerSalaryUsed) + ' salaries '
-          + adjustmentSign + ' ' + fmtUsd(Math.abs(adjustmentTotal)) + ' adjustments'
-        + '</div>';
+    // Card 1 explicit split (Keith 2026-05-14): Salary + Adjustments = big
+    // total. Color-code the adjustments line so positive (cap-charging)
+    // reads warm, negative (cap credit) reads green.
+    var adjClass = adjustmentTotal > 0 ? 'tops-kv-split-warn'
+                  : adjustmentTotal < 0 ? 'tops-kv-split-ok'
+                  : 'tops-kv-split-zero';
+    var adjPrefix = adjustmentTotal > 0 ? "+" : (adjustmentTotal < 0 ? "−" : "");
+    var adjAmt = Math.abs(adjustmentTotal);
 
     el.innerHTML = [
       '<div class="tops-card-title">Franchise Summary</div>',
       '<div class="tops-summary-grid">',
       '  <div class="tops-kv">',
-      '    <div class="tops-kv-label">Cap Used</div>',
-      '    <div class="tops-kv-value">' + fmtUsd(capUsed) + '</div>',
+      '    <div class="tops-kv-label">Cap Total</div>',
+      '    <div class="tops-kv-value">' + fmtUsd(capTotal) + '</div>',
+      '    <div class="tops-kv-split">',
+      '      <span class="tops-kv-split-line"><span class="tops-kv-split-k">Salary</span><span class="tops-kv-split-v">' + fmtUsd(playerSalaryUsed) + '</span></span>',
+      '      <span class="tops-kv-split-line ' + adjClass + '">',
+      '        <span class="tops-kv-split-k">Adjustments</span>',
+      '        <span class="tops-kv-split-v">' + adjPrefix + fmtUsd(adjAmt) + '</span>',
+      '      </span>',
+      '    </div>',
       '    <div class="tops-kv-note">' + pct + '% of ' + fmtUsd(cap) +
+        (irSalaryFull > 0 ? ' · <span style="opacity:0.75;">IR ' + fmtUsd(irSalaryFull) + ' @ 50%</span>' : '') +
         (taxiSalary > 0 ? ' · <span style="opacity:0.75;">+ ' + fmtUsd(taxiSalary) + ' taxi (off-cap)</span>' : '') +
         '</div>',
-      '    ' + adjustmentBreakdownLine,
       '    <div class="tops-bar"><div class="tops-bar-fill" style="width:' + pct + '%"></div></div>',
       '  </div>',
       '  <div class="tops-kv">',
       '    <div class="tops-kv-label">Cap Room</div>',
       '    <div class="tops-kv-value">' + fmtUsd(remain) + '</div>',
-      '    <div class="tops-kv-note">Projected remaining</div>',
+      '    <div class="tops-kv-note">' + fmtUsd(cap) + ' cap − ' + fmtUsd(playerSalaryUsed) + ' salary' +
+        (adjustmentTotal !== 0 ? ' − ' + adjPrefix + fmtUsd(adjAmt) + ' adj' : '') +
+        '</div>',
       '  </div>',
       '  <div class="tops-kv">',
       '    <div class="tops-kv-label">Roster</div>',

@@ -370,6 +370,12 @@ export default {
         path !== "/api/advanced-stats-player-weekly" &&
         path !== "/api/mfl-league-state" &&
         path !== "/api/league-events" &&
+        path !== "/api/standings" &&
+        path !== "/api/playoff-bracket" &&
+        path !== "/api/historical-finishes" &&
+        path !== "/api/eras" &&
+        path !== "/api/division-power-rankings" &&
+        path !== "/api/hall-of-champions" &&
         path !== "/api/repo-html" &&
         path !== "/bug-report" &&
         path !== "/bug-reports" &&
@@ -2604,6 +2610,1171 @@ export default {
           );
           const res = await stmt.bind(...binds).all();
           return jsonOut(200, { ok: true, season, events: res.results || [] });
+        } catch (e) {
+          return jsonOut(500, { ok: false, error: String(e && e.message || e) });
+        }
+      }
+
+      // ── Standings module endpoints (team_operations Standings tab) ──
+      // All read-only. Source tables: src_standings, src_franchises,
+      // src_schedule, src_league_season_meta, src_final_standings.
+      // Schema lives in worker/migrations/0031_franchise_results.sql,
+      // 0030_franchise_weekly_score_and_allplay_metrics.sql, 0033_final_standings.sql.
+      //
+      // src_final_standings TOLERANCE: the 0033 migration may not be
+      // applied yet on a given D1. Each endpoint that touches that
+      // table calls hasFinalStandings() and skips the JOIN if missing,
+      // so the views stay reviewable while data trickles in.
+      //
+      // DIVISION NAMES: src_franchises only stores the division CODE
+      // ("00".."03"). We enrich with the human-readable name by fetching
+      // TYPE=league from MFL on demand (cached in the worker request).
+      const _stdgCache = { hasFinalStandings: null, leagueByYear: {} };
+      async function hasFinalStandings(db) {
+        if (_stdgCache.hasFinalStandings !== null) return _stdgCache.hasFinalStandings;
+        try {
+          const r = await db.prepare(
+            "SELECT 1 AS x FROM sqlite_master WHERE type='table' AND name='src_final_standings'"
+          ).first();
+          _stdgCache.hasFinalStandings = !!(r && r.x);
+        } catch (_) {
+          _stdgCache.hasFinalStandings = false;
+        }
+        return _stdgCache.hasFinalStandings;
+      }
+      // Per-year MFL league metadata: division names, conferences, and the
+      // standingsSort tiebreaker chain (which has changed year to year —
+      // e.g. 2011 was PCT,DIVPCT,PTS,H2H,PWR; 2014+ moved H2H before PTS).
+      // Conferences existed in the early UPS years (2011-2014+) with 2
+      // conferences × 2 divisions; dropped by 2017. Returns:
+      //   {
+      //     divisions:    { "00": { name, conference_id }, ... },
+      //     conferences:  { "00": "Primetime", "01": "Juice" } | {},
+      //     standingsSort: "PCT,DIVPCT,H2H,PTS,ALL_PLAY_PCT,PWR" | null,
+      //     hasConferences: bool
+      //   }
+      async function leagueMetaForSeason(db, yr) {
+        const cacheKey = String(yr);
+        if (_stdgCache.leagueByYear[cacheKey]) return _stdgCache.leagueByYear[cacheKey];
+        let out = { divisions: {}, conferences: {}, standingsSort: null, hasConferences: false };
+        try {
+          const metaR = await db.prepare(
+            "SELECT league_id, mfl_server FROM src_league_season_meta WHERE season = ?"
+          ).bind(yr).first();
+          const leagueId = metaR && metaR.league_id;
+          const server = (metaR && metaR.mfl_server) || "api";
+          if (leagueId) {
+            const u = `https://${server === "api" ? "api" : server}.myfantasyleague.com/${yr}/export?TYPE=league&L=${encodeURIComponent(leagueId)}&JSON=1`;
+            const res = await fetch(u, { headers: { "User-Agent": "upsmflproduction-worker-standings" }, cf: { cacheTtl: 600 } });
+            if (res.ok) {
+              const j = await res.json();
+              const lg = (j && j.league) || {};
+              // Divisions (with optional conference attribution)
+              const divsBlock = lg.divisions && lg.divisions.division;
+              const divArr = Array.isArray(divsBlock) ? divsBlock : (divsBlock ? [divsBlock] : []);
+              for (const d of divArr) {
+                if (d && d.id != null) {
+                  out.divisions[String(d.id)] = {
+                    name: String(d.name || ""),
+                    conference_id: d.conference != null ? String(d.conference) : null,
+                  };
+                }
+              }
+              // Conferences (early UPS years had 2)
+              const confBlock = lg.conferences && lg.conferences.conference;
+              const confArr = Array.isArray(confBlock) ? confBlock : (confBlock ? [confBlock] : []);
+              for (const c of confArr) {
+                if (c && c.id != null) out.conferences[String(c.id)] = String(c.name || "");
+              }
+              out.hasConferences = Object.keys(out.conferences).length > 0;
+              if (lg.standingsSort) out.standingsSort = String(lg.standingsSort);
+            }
+          }
+        } catch (_) {}
+        _stdgCache.leagueByYear[cacheKey] = out;
+        return out;
+      }
+      // Legacy helper kept for endpoints that just want { code -> name }.
+      async function divisionNamesForSeason(db, yr) {
+        const m = await leagueMetaForSeason(db, yr);
+        const out = {};
+        for (const k of Object.keys(m.divisions)) out[k] = m.divisions[k].name;
+        return out;
+      }
+
+      // ── GET /api/standings?year=YYYY ──
+      // Season-aggregate league standings + season metadata. One row per
+      // franchise. Powers the Standings tab Overall + Divisions views.
+      if (path === "/api/standings" && request.method === "GET") {
+        try {
+          const db = env.UPS_MFL_DB;
+          if (!db) return jsonOut(503, { ok: false, reason: "D1 not bound" });
+          const yr = parseInt(safeStr(url.searchParams.get("year")) || YEAR, 10);
+          if (!Number.isFinite(yr) || yr < 2010 || yr > 2099) {
+            return jsonOut(400, { ok: false, reason: "invalid year" });
+          }
+          // PA (points against) = sum of opponent_score across the season
+          // from src_schedule (only regular-season H2H + playoff rows;
+          // bye weeks have no row, which is correct semantics).
+          const rs = await db.prepare(
+            `SELECT s.season,
+                    s.franchise_id,
+                    f.team_name      AS franchise_name,
+                    f.owner_name     AS owner_name,
+                    f.division       AS division,
+                    f.logo           AS logo,
+                    s.div_w, s.div_l, s.div_pct,
+                    s.h2h_w, s.h2h_l, s.h2h_t, s.h2h_pct,
+                    COALESCE(s.allplay_full_w,      s.allplay_w)    AS allplay_w,
+                    COALESCE(s.allplay_full_l,      s.allplay_l)    AS allplay_l,
+                    COALESCE(s.allplay_full_t,      s.allplay_t)    AS allplay_t,
+                    COALESCE(s.allplay_historical_w, s.allplay_w)   AS allplay_historical_w,
+                    COALESCE(s.allplay_historical_l, s.allplay_l)   AS allplay_historical_l,
+                    COALESCE(s.allplay_historical_t, s.allplay_t)   AS allplay_historical_t,
+                    s.allplay_pct,
+                    s.pf, s.pp, s.pwr, s.eff,
+                    (SELECT ROUND(SUM(opponent_score), 2)
+                       FROM src_schedule sc
+                      WHERE sc.season = s.season AND sc.franchise_id = s.franchise_id
+                    ) AS pa
+               FROM src_standings s
+               LEFT JOIN src_franchises f
+                 ON f.season = s.season AND f.franchise_id = s.franchise_id
+              WHERE s.season = ?
+              ORDER BY s.h2h_pct DESC, s.allplay_pct DESC, s.pf DESC`
+          ).bind(yr).all();
+          const metaRs = await db.prepare(
+            `SELECT season, league_id, mfl_server, last_regular_season_week,
+                    total_weeks, reg_weeks, playoff_weeks, notes
+               FROM src_league_season_meta
+              WHERE season = ?`
+          ).bind(yr).all();
+          const leagueMeta = await leagueMetaForSeason(db, yr);
+          const rows = (rs.results || []).map((r) => {
+            const divEntry = r.division != null ? leagueMeta.divisions[String(r.division)] : null;
+            return {
+              ...r,
+              division_name: divEntry ? divEntry.name : null,
+              conference_id: divEntry ? divEntry.conference_id : null,
+              conference_name: (divEntry && divEntry.conference_id) ? (leagueMeta.conferences[divEntry.conference_id] || null) : null,
+            };
+          });
+          // Mark division leaders using the year-specific MFL `standingsSort`
+          // chain (e.g. 2011 was PCT,DIVPCT,PTS,H2H,PWR; 2014+ moved H2H
+          // before PTS). The pairwise H2H step requires schedule data we
+          // don't have at this layer — those ties fall through to PTS / AP%.
+          const cmpDesc2 = (a, b) => (Number(b || 0) - Number(a || 0));
+          const sortFnFromStandingsSort = (sortStr) => {
+            const tokens = (sortStr || "PCT,DIVPCT,H2H,PTS,ALL_PLAY_PCT,PWR")
+              .split(",").map((t) => t.trim().toUpperCase()).filter(Boolean);
+            const tokenToField = {
+              PCT: "h2h_pct",
+              DIVPCT: "div_pct",
+              PTS: "pf",
+              ALL_PLAY_PCT: "allplay_pct",
+              PWR: "pwr",
+              // H2H requires pairwise data — skipped in this comparator.
+            };
+            return (a, b) => {
+              for (const tk of tokens) {
+                const field = tokenToField[tk];
+                if (!field) continue;
+                const d = cmpDesc2(a[field], b[field]);
+                if (d !== 0) return d;
+              }
+              return 0;
+            };
+          };
+          const sortFn = sortFnFromStandingsSort(leagueMeta.standingsSort);
+          const byDiv = new Map();
+          for (const r of rows) {
+            if (r.division == null) continue;
+            const k = String(r.division);
+            if (!byDiv.has(k)) byDiv.set(k, []);
+            byDiv.get(k).push(r);
+          }
+          for (const [, group] of byDiv.entries()) {
+            group.sort(sortFn);
+            group.forEach((r, i) => { r.is_division_leader = (i === 0); r.division_rank = i + 1; });
+          }
+          // Season-complete heuristic: any Week 17 playoff row in src_schedule.
+          let seasonComplete = false;
+          try {
+            const wkR = await db.prepare(
+              "SELECT 1 AS x FROM src_schedule WHERE season = ? AND is_playoff = 1 AND week = 17 LIMIT 1"
+            ).bind(yr).first();
+            seasonComplete = !!(wkR && wkR.x);
+          } catch (_) {}
+          return new Response(JSON.stringify({
+            ok: true,
+            year: yr,
+            meta: (metaRs.results && metaRs.results[0]) || null,
+            season_complete: seasonComplete,
+            standings_sort: leagueMeta.standingsSort,
+            conferences: leagueMeta.conferences,
+            has_conferences: leagueMeta.hasConferences,
+            rows,
+          }), { status: 200, headers: { "content-type": "application/json", "Cache-Control": "public, max-age=60", ...corsHeaders } });
+        } catch (e) {
+          return jsonOut(500, { ok: false, error: String(e && e.message || e) });
+        }
+      }
+
+      // ── GET /api/playoff-bracket?year=YYYY ──
+      // Returns playoff matchup rows + properly-seeded 12-team bracket.
+      //
+      // UPS seeding rule (per legacy site/standings/mfl_hpm_standings.html):
+      //   1. Each of 4 divisions has a winner (overall_pct → div_pct →
+      //      H2H within tied cluster → PF → AP%).
+      //   2. Top 2 division winners (by AP%) get seeds 1 & 2 (BYE).
+      //   3. Wild cards = top 2 non-division-winners by AP% → PF → overall_pct.
+      //   4. Seeds 3-6 = remaining 2 div winners + 2 wild cards, sorted AP%.
+      //   5. Seeds 7-12 (Hawktuah / Toilet) = the 6 non-playoff teams,
+      //      sorted by AP% → PF.
+      //
+      // Each seed in the returned array carries `seed`, `path`
+      // ("DIV" | "WC" | "HAWK"), `is_division_leader`, and `bye` flags.
+      if (path === "/api/playoff-bracket" && request.method === "GET") {
+        try {
+          const db = env.UPS_MFL_DB;
+          if (!db) return jsonOut(503, { ok: false, reason: "D1 not bound" });
+          const yr = parseInt(safeStr(url.searchParams.get("year")) || YEAR, 10);
+          if (!Number.isFinite(yr) || yr < 2010 || yr > 2099) {
+            return jsonOut(400, { ok: false, reason: "invalid year" });
+          }
+          // Pull every franchise's season-aggregate row. Seeding happens
+          // in JS below so the legacy UPS algorithm stays readable.
+          const seedsRs = await db.prepare(
+            `SELECT s.franchise_id,
+                    f.team_name  AS franchise_name,
+                    f.owner_name AS owner_name,
+                    f.division   AS division,
+                    s.allplay_pct,
+                    s.h2h_pct,
+                    s.div_pct,
+                    s.pf
+               FROM src_standings s
+               LEFT JOIN src_franchises f
+                 ON f.season = s.season AND f.franchise_id = s.franchise_id
+              WHERE s.season = ?`
+          ).bind(yr).all();
+          const matchupsRs = await db.prepare(
+            `SELECT season, week, franchise_id, opponent_franchise_id,
+                    franchise_name, opponent_franchise_name,
+                    franchise_owner, opponent_owner,
+                    team_score, opponent_score, result
+               FROM src_schedule
+              WHERE season = ? AND is_playoff = 1
+              ORDER BY week ASC, franchise_id ASC`
+          ).bind(yr).all();
+          // Enrich seeds with division names + conferences + final_finish.
+          const leagueMeta = await leagueMetaForSeason(db, yr);
+          const hasFS = await hasFinalStandings(db);
+          const rawRows = (seedsRs.results || []).map((s) => {
+            const divEntry = s.division != null ? leagueMeta.divisions[String(s.division)] : null;
+            return {
+              ...s,
+              division_name: divEntry ? divEntry.name : null,
+              conference_id: divEntry ? divEntry.conference_id : null,
+              conference_name: (divEntry && divEntry.conference_id) ? (leagueMeta.conferences[divEntry.conference_id] || null) : null,
+            };
+          });
+
+          // ── Tiebreaker chain (year-specific) ──
+          const cmpDesc = (a, b) => (Number(b || 0) - Number(a || 0));
+          const cmpText = (a, b) => String(a || "").localeCompare(String(b || ""));
+          const sortStr = leagueMeta.standingsSort || "PCT,DIVPCT,H2H,PTS,ALL_PLAY_PCT,PWR";
+          const tokens = sortStr.split(",").map((t) => t.trim().toUpperCase()).filter(Boolean);
+          const tokenField = { PCT: "h2h_pct", DIVPCT: "div_pct", PTS: "pf", ALL_PLAY_PCT: "allplay_pct", PWR: "pwr" };
+          const standingsCmp = (a, b) => {
+            for (const tk of tokens) {
+              const f = tokenField[tk];
+              if (!f) continue;
+              const d = cmpDesc(a[f], b[f]);
+              if (d !== 0) return d;
+            }
+            return cmpText(a.franchise_name, b.franchise_name);
+          };
+
+          // CANONICAL SEED SOURCE: when src_final_standings is loaded for
+          // this season, prefer regular_season_finish (the authoritative
+          // MFL-level ranking from local mfl_database.db). Falls back to
+          // standingsCmp when the table is missing or sparse. This fixes
+          // years like 2017 where my computed seeding picked the wrong
+          // 6-team field due to the 5/6-dropped-to-Hawktuah format quirk.
+          let canonicalFinish = null;
+          if (hasFS) {
+            const fsR = await db.prepare(
+              "SELECT franchise_id, regular_season_finish FROM src_final_standings WHERE season = ?"
+            ).bind(yr).all();
+            if ((fsR.results || []).length) {
+              canonicalFinish = {};
+              for (const row of fsR.results) {
+                if (row.regular_season_finish != null) {
+                  canonicalFinish[String(row.franchise_id)] = Number(row.regular_season_finish);
+                }
+              }
+            }
+          }
+          const canonicalCmp = canonicalFinish
+            ? (a, b) => {
+                const fa = canonicalFinish[String(a.franchise_id)];
+                const fb = canonicalFinish[String(b.franchise_id)];
+                // Lower finish = better. Missing values fall to the bottom.
+                if (fa == null && fb == null) return standingsCmp(a, b);
+                if (fa == null) return 1;
+                if (fb == null) return -1;
+                return fa - fb;
+              }
+            : null;
+          // Use canonical when available; else fall back to computed sort.
+          const primaryCmp = canonicalCmp || standingsCmp;
+
+          // 1) Identify division winners using the year-specific chain.
+          const byDiv = new Map();
+          for (const r of rawRows) {
+            const k = r.division == null ? "_NA" : String(r.division);
+            if (!byDiv.has(k)) byDiv.set(k, []);
+            byDiv.get(k).push(r);
+          }
+          const divisionWinnerIds = new Set();
+          for (const [divKey, group] of byDiv.entries()) {
+            if (divKey === "_NA") continue;
+            const sorted = group.slice().sort(standingsCmp);
+            for (let i = 0; i < sorted.length; i++) {
+              sorted[i].is_division_leader = (i === 0);
+              sorted[i].division_rank = i + 1;
+              if (i === 0) divisionWinnerIds.add(String(sorted[i].franchise_id));
+            }
+          }
+          // Conference rank (1 = best by standingsSort within the conference).
+          // Used for conference-era playoff seeding (2011-2016 in UPS).
+          if (leagueMeta.hasConferences) {
+            const byConf = new Map();
+            for (const r of rawRows) {
+              const c = r.conference_id == null ? "_NA" : String(r.conference_id);
+              if (!byConf.has(c)) byConf.set(c, []);
+              byConf.get(c).push(r);
+            }
+            for (const [, group] of byConf.entries()) {
+              const sorted = group.slice().sort(standingsCmp);
+              sorted.forEach((row, i) => { row.conference_rank = i + 1; });
+            }
+          }
+
+          // 2) Wild card pool: non-division-winners sorted by AP% → PF → overall_pct.
+          //    Top 2 become wild cards. (League tiebreaker doc:
+          //    All-Play → Overall → Total Points → H2H — but for WC the
+          //    legacy code uses AP% → PF → overall_pct, which we mirror.)
+          const wcPool = rawRows
+            .filter((r) => !divisionWinnerIds.has(String(r.franchise_id)))
+            .slice()
+            .sort((a, b) =>
+              cmpDesc(a.allplay_pct, b.allplay_pct) ||
+              cmpDesc(a.pf, b.pf) ||
+              cmpDesc(a.h2h_pct, b.h2h_pct) ||
+              cmpText(a.franchise_name, b.franchise_name)
+            );
+          const wildCards = wcPool.slice(0, 2);
+          const wildCardIds = new Set(wildCards.map((r) => String(r.franchise_id)));
+
+          // 3) Determine playoff field. Two paths:
+          //    (a) Conference era (has_conferences true, 2011-2013 in UPS):
+          //        top 3 per conference by standingsCmp make the championship
+          //        side; bottom 3 per conference fall to Hawktuah. Each
+          //        conference's #1 byes Week N; #2 vs #3 play R1.
+          //    (b) Modern era (no conferences, 2017+ or modern-format
+          //        conference settings): 4 div winners (top 2 by AP% bye) + 2
+          //        wild cards (top non-DW by AP%).
+          let champSeeds, hawkSeeds;
+          if (canonicalFinish) {
+            // Canonical-finish path: split by regular_season_finish 1-6 (champ)
+            // vs 7-12 (hawk). This is the authoritative MFL/UPS playoff
+            // field source.
+            const champRows = rawRows.filter((r) => {
+              const f = canonicalFinish[String(r.franchise_id)];
+              return f != null && f <= 6;
+            });
+            const hawkRows = rawRows.filter((r) => {
+              const f = canonicalFinish[String(r.franchise_id)];
+              return f == null || f > 6;
+            });
+            champSeeds = champRows.slice().sort((a, b) => {
+              const fa = canonicalFinish[String(a.franchise_id)] || 99;
+              const fb = canonicalFinish[String(b.franchise_id)] || 99;
+              return fa - fb;
+            });
+            hawkSeeds = hawkRows.slice().sort((a, b) => {
+              const fa = canonicalFinish[String(a.franchise_id)] || 99;
+              const fb = canonicalFinish[String(b.franchise_id)] || 99;
+              return fa - fb;
+            });
+            // Mark conference_seed when conferences are active.
+            if (leagueMeta.hasConferences) {
+              const byConfX = new Map();
+              [...champSeeds, ...hawkSeeds].forEach((r) => {
+                const c = r.conference_id == null ? "_NA" : String(r.conference_id);
+                if (!byConfX.has(c)) byConfX.set(c, []);
+                byConfX.get(c).push(r);
+              });
+              for (const [, group] of byConfX.entries()) {
+                group.sort((a, b) => {
+                  const fa = canonicalFinish[String(a.franchise_id)] || 99;
+                  const fb = canonicalFinish[String(b.franchise_id)] || 99;
+                  return fa - fb;
+                });
+                group.forEach((r, i) => { r.conference_seed = i + 1; });
+              }
+            }
+            champSeeds.forEach((r) => {
+              r.path = divisionWinnerIds.has(String(r.franchise_id)) ? "DIV" : "WC";
+            });
+            hawkSeeds.forEach((r) => { r.path = "HAWK"; });
+          } else if (leagueMeta.hasConferences) {
+            // Conference-era seeding without canonical: top half per conf
+            // by standings_sort, DW-first.
+            const championshipTeams = [];
+            const consolationTeams = [];
+            const byConf = new Map();
+            for (const r of rawRows) {
+              const c = r.conference_id == null ? "_NA" : String(r.conference_id);
+              if (!byConf.has(c)) byConf.set(c, []);
+              byConf.get(c).push(r);
+            }
+            for (const [, group] of byConf.entries()) {
+              const sortedByRec = group.slice().sort(standingsCmp);
+              const half = Math.floor(group.length / 2);
+              const qualifiers = sortedByRec.slice(0, half);
+              const nonQualifiers = sortedByRec.slice(half);
+              const dwQual = qualifiers.filter((r) => divisionWinnerIds.has(String(r.franchise_id)));
+              const wcQual = qualifiers.filter((r) => !divisionWinnerIds.has(String(r.franchise_id)));
+              dwQual.sort(standingsCmp);
+              wcQual.sort(standingsCmp);
+              const confSeededChamp = dwQual.concat(wcQual);
+              confSeededChamp.forEach((row, i) => {
+                row.conference_seed = i + 1;
+                row.path = divisionWinnerIds.has(String(row.franchise_id)) ? "DIV" : "WC";
+                championshipTeams.push(row);
+              });
+              nonQualifiers.forEach((row, i) => {
+                row.conference_seed = half + i + 1;
+                row.path = "HAWK";
+                consolationTeams.push(row);
+              });
+            }
+            champSeeds = championshipTeams.slice().sort(standingsCmp);
+            hawkSeeds  = consolationTeams.slice().sort(standingsCmp);
+          } else {
+            // Modern era without canonical: 4 DW + 2 WC.
+            const allDivWinners = rawRows
+              .filter((r) => divisionWinnerIds.has(String(r.franchise_id)))
+              .slice()
+              .sort((a, b) =>
+                cmpDesc(a.allplay_pct, b.allplay_pct) ||
+                cmpDesc(a.pf, b.pf) ||
+                cmpText(a.franchise_name, b.franchise_name)
+              );
+            const top2DW = allDivWinners.slice(0, 2);
+            const restDW = allDivWinners.slice(2);
+            const rest = restDW.concat(wildCards).sort((a, b) =>
+              cmpDesc(a.allplay_pct, b.allplay_pct) ||
+              cmpDesc(a.pf, b.pf) ||
+              cmpText(a.franchise_name, b.franchise_name)
+            );
+            champSeeds = top2DW.concat(rest);
+            const champIds = new Set(champSeeds.map((r) => String(r.franchise_id)));
+            hawkSeeds = rawRows
+              .filter((r) => !champIds.has(String(r.franchise_id)))
+              .slice()
+              .sort((a, b) =>
+                cmpDesc(a.allplay_pct, b.allplay_pct) ||
+                cmpDesc(a.pf, b.pf) ||
+                cmpText(a.franchise_name, b.franchise_name)
+              );
+          }
+
+          // 4) Assemble the final seed list with metadata.
+          const seeds = [];
+          champSeeds.forEach((r, i) => {
+            const path = leagueMeta.hasConferences
+              ? "CONF"
+              : (divisionWinnerIds.has(String(r.franchise_id)) ? "DIV" : "WC");
+            // Conference-era byes go to #1 in each conference; modern goes
+            // to the top 2 overall.
+            const isBye = leagueMeta.hasConferences
+              ? r.conference_seed === 1
+              : i < 2;
+            seeds.push(Object.assign({}, r, {
+              seed: i + 1,
+              path: path,
+              bye: isBye,
+            }));
+          });
+          hawkSeeds.forEach((r, i) => {
+            const isBye = leagueMeta.hasConferences
+              ? r.conference_seed === Math.ceil((Object.keys(leagueMeta.conferences).length > 0 ? hawkSeeds.length / Object.keys(leagueMeta.conferences).length : hawkSeeds.length) / 2)
+              : i < 2;
+            seeds.push(Object.assign({}, r, {
+              seed: i + 7,
+              path: "HAWK",
+              bye: isBye,
+            }));
+          });
+
+          // Final-standings overlay when available.
+          let finishes = {};
+          if (hasFS) {
+            try {
+              const fr = await db.prepare(
+                "SELECT franchise_id, final_finish, regular_season_finish FROM src_final_standings WHERE season = ?"
+              ).bind(yr).all();
+              for (const row of (fr.results || [])) {
+                finishes[String(row.franchise_id)] = {
+                  final_finish: row.final_finish,
+                  regular_season_finish: row.regular_season_finish,
+                };
+              }
+            } catch (_) {}
+          }
+          for (const s of seeds) {
+            const f = finishes[String(s.franchise_id)];
+            if (f) Object.assign(s, f);
+          }
+
+          // Playoff week range — derived from src_league_season_meta so we
+          // handle both eras: pre-2022 (W14-W16) and 2022+ (W15-W17). If
+          // meta is missing, fall back to 15/16/17 (modern default).
+          const metaR = await db.prepare(
+            "SELECT last_regular_season_week, playoff_weeks FROM src_league_season_meta WHERE season = ?"
+          ).bind(yr).first();
+          const lastReg = (metaR && Number(metaR.last_regular_season_week)) || 14;
+          const playoffWeekCount = (metaR && Number(metaR.playoff_weeks)) || 3;
+          const playoffWeeks = [];
+          for (let i = 1; i <= playoffWeekCount; i++) playoffWeeks.push(lastReg + i);
+
+          // Season-complete heuristic: any final-week playoff matchup present.
+          const matchups = matchupsRs.results || [];
+          const finalWeek = playoffWeeks[playoffWeeks.length - 1];
+          const seasonComplete = matchups.some((m) => Number(m.week) === finalWeek);
+
+          return new Response(JSON.stringify({
+            ok: true,
+            year: yr,
+            seeds,
+            matchups,
+            playoff_weeks: playoffWeeks,
+            has_final_standings: hasFS,
+            season_complete: seasonComplete,
+            standings_sort: leagueMeta.standingsSort,
+            conferences: leagueMeta.conferences,
+            has_conferences: leagueMeta.hasConferences,
+          }), { status: 200, headers: { "content-type": "application/json", "Cache-Control": "public, max-age=60", ...corsHeaders } });
+        } catch (e) {
+          return jsonOut(500, { ok: false, error: String(e && e.message || e) });
+        }
+      }
+
+      // ── GET /api/historical-finishes ──
+      // Cross-season finish grid. One row per (season, franchise_id) with
+      // final_finish + regular_season_finish. Powers the Historical
+      // Finishes view in the Standings module.
+      if (path === "/api/historical-finishes" && request.method === "GET") {
+        try {
+          const db = env.UPS_MFL_DB;
+          if (!db) return jsonOut(503, { ok: false, reason: "D1 not bound" });
+          const hasFS = await hasFinalStandings(db);
+          if (!hasFS) {
+            return new Response(JSON.stringify({
+              ok: true,
+              rows: [],
+              note: "src_final_standings table not yet applied to this D1. Run migration 0033 + load_local_to_d1.py.",
+            }), { status: 200, headers: { "content-type": "application/json", "Cache-Control": "public, max-age=60", ...corsHeaders } });
+          }
+          const rs = await db.prepare(
+            `SELECT fs.season,
+                    fs.franchise_id,
+                    fs.final_finish,
+                    fs.regular_season_finish,
+                    COALESCE(fs.division, f.division) AS division,
+                    f.team_name  AS franchise_name,
+                    f.owner_name AS owner_name
+               FROM src_final_standings fs
+               LEFT JOIN src_franchises f
+                 ON f.season = fs.season AND f.franchise_id = fs.franchise_id
+              ORDER BY fs.season DESC, fs.final_finish ASC`
+          ).all();
+          return new Response(JSON.stringify({
+            ok: true,
+            rows: rs.results || [],
+          }), { status: 200, headers: { "content-type": "application/json", "Cache-Control": "public, max-age=300", ...corsHeaders } });
+        } catch (e) {
+          return jsonOut(500, { ok: false, error: String(e && e.message || e) });
+        }
+      }
+
+      // ── GET /api/eras ──
+      // Aggregates the league's 3-year realignment cycles (§3.5.B):
+      // 2011-13, 2014-16, 2017-19, 2020-22, 2023-25, 2026-28 (in progress).
+      // Per era: every franchise's totals across the 3 seasons; the UI
+      // computes headliners (top 2 by AP wins) and retro Captains (top 4
+      // by AP%) client-side.
+      //
+      // METHODOLOGY REVIEW FLAG (Keith): "headliners" = top 2 owners by
+      // All-Play *wins* summed across the cycle. Reviewable in
+      // docs/standings_advanced_stats_proposals.md.
+      if (path === "/api/eras" && request.method === "GET") {
+        try {
+          const db = env.UPS_MFL_DB;
+          if (!db) return jsonOut(503, { ok: false, reason: "D1 not bound" });
+          const hasFS = await hasFinalStandings(db);
+          // Per-(era, franchise_id) totals: AP wins/losses/ties/pct,
+          // overall record, PF, championships, hawktuah-wins. Era key
+          // = first-year-of-cycle so the UI can group 2011→{2011,2012,2013}, etc.
+          // Each row carries the franchise's identity from the cycle's
+          // first season (owners can move IDs across cycles but rarely
+          // do; the UI shows current-year owner as the pill label).
+          // When src_final_standings isn't applied yet, the championship
+          // / hawktuah counts are returned as 0 and avg_finish as NULL.
+          const fsJoin = hasFS
+            ? `LEFT JOIN src_final_standings fs
+                 ON fs.season = s.season AND fs.franchise_id = s.franchise_id`
+            : "";
+          const fsCols = hasFS
+            ? `SUM(CASE WHEN fs.final_finish = 1  THEN 1 ELSE 0 END) AS championships,
+               SUM(CASE WHEN fs.final_finish = 12 THEN 1 ELSE 0 END) AS hawktuah_wins,
+               AVG(NULLIF(fs.final_finish, 0))                       AS avg_finish`
+            : `0 AS championships, 0 AS hawktuah_wins, NULL AS avg_finish`;
+          // Group by OWNER (not franchise_id) so a franchise that changed
+          // hands mid-cycle (dispersal events) attributes its seasons to
+          // each actual owner. seasons_played = distinct cycle-seasons
+          // where this owner_name appears. The 3-season tenure floor
+          // (see docs/standings_advanced_stats_proposals.md §1A) only
+          // works correctly with owner-keyed grouping.
+          //
+          // Joining src_standings → src_franchises by (season, franchise_id)
+          // grants access to the authoritative owner_name per season.
+          const rs = await db.prepare(
+            `WITH cycle AS (
+               SELECT season, ((season - 2011) / 3) * 3 + 2011 AS era_start
+                 FROM src_standings
+                WHERE season >= 2011
+                GROUP BY season
+             ),
+             per_season AS (
+               SELECT c.era_start,
+                      f.owner_name,
+                      s.season,
+                      s.franchise_id,
+                      f.team_name,
+                      f.division,
+                      COALESCE(s.allplay_historical_w, s.allplay_w, 0) AS ap_w,
+                      COALESCE(s.allplay_historical_l, s.allplay_l, 0) AS ap_l,
+                      COALESCE(s.allplay_historical_t, s.allplay_t, 0) AS ap_t,
+                      COALESCE(s.h2h_w, 0) AS h2h_w,
+                      COALESCE(s.h2h_l, 0) AS h2h_l,
+                      COALESCE(s.h2h_t, 0) AS h2h_t,
+                      COALESCE(s.pf, 0)    AS pf,
+                      ${hasFS ? "COALESCE(fs.final_finish, 0)" : "0"} AS final_finish
+                 FROM src_standings s
+                 JOIN cycle c ON c.season = s.season
+                 JOIN src_franchises f
+                   ON f.season = s.season AND f.franchise_id = s.franchise_id
+                 ${fsJoin}
+                WHERE f.owner_name IS NOT NULL AND f.owner_name <> ''
+             ),
+             agg AS (
+               SELECT era_start,
+                      owner_name,
+                      SUM(ap_w) AS ap_w, SUM(ap_l) AS ap_l, SUM(ap_t) AS ap_t,
+                      SUM(h2h_w) AS h2h_w, SUM(h2h_l) AS h2h_l, SUM(h2h_t) AS h2h_t,
+                      SUM(pf) AS pf,
+                      COUNT(DISTINCT season) AS seasons_played,
+                      SUM(CASE WHEN final_finish = 1  THEN 1 ELSE 0 END) AS championships,
+                      SUM(CASE WHEN final_finish = 12 THEN 1 ELSE 0 END) AS hawktuah_wins,
+                      AVG(NULLIF(final_finish, 0)) AS avg_finish,
+                      MAX(season) AS last_season
+                 FROM per_season
+                GROUP BY era_start, owner_name
+             )
+             SELECT a.era_start,
+                    a.owner_name,
+                    -- Team identity from the owner's most recent season in the cycle.
+                    (SELECT p.franchise_id FROM per_season p
+                      WHERE p.era_start = a.era_start AND p.owner_name = a.owner_name AND p.season = a.last_season
+                      LIMIT 1) AS franchise_id,
+                    (SELECT p.team_name FROM per_season p
+                      WHERE p.era_start = a.era_start AND p.owner_name = a.owner_name AND p.season = a.last_season
+                      LIMIT 1) AS franchise_name,
+                    (SELECT p.division FROM per_season p
+                      WHERE p.era_start = a.era_start AND p.owner_name = a.owner_name AND p.season = a.last_season
+                      LIMIT 1) AS division,
+                    a.ap_w, a.ap_l, a.ap_t,
+                    CASE WHEN (a.ap_w + a.ap_l + a.ap_t) > 0
+                         THEN ROUND(1.0 * (a.ap_w + 0.5 * a.ap_t) / (a.ap_w + a.ap_l + a.ap_t), 4)
+                         ELSE NULL END AS ap_pct,
+                    a.h2h_w, a.h2h_l, a.h2h_t,
+                    a.pf, a.seasons_played,
+                    a.championships, a.hawktuah_wins, a.avg_finish
+               FROM agg a
+              ORDER BY a.era_start ASC, a.ap_w DESC`
+          ).all();
+          // Group rows by era_start on the worker (small, ~6 eras × 12 rows).
+          const byEra = {};
+          for (const row of (rs.results || [])) {
+            const k = String(row.era_start);
+            if (!byEra[k]) byEra[k] = { era_start: row.era_start, era_end: row.era_start + 2, rows: [] };
+            byEra[k].rows.push(row);
+          }
+          const eras = Object.values(byEra).sort((a, b) => a.era_start - b.era_start);
+          return new Response(JSON.stringify({
+            ok: true,
+            eras,
+            has_final_standings: hasFS,
+            methodology_note: "Era headliners = top 2 owners by All-Play % (3-season tenure floor). Retro Captains = top 4 by aggregate AP % across the same window. Pending Keith review per docs/standings_advanced_stats_proposals.md.",
+          }), { status: 200, headers: { "content-type": "application/json", "Cache-Control": "public, max-age=300", ...corsHeaders } });
+        } catch (e) {
+          return jsonOut(500, { ok: false, error: String(e && e.message || e) });
+        }
+      }
+
+      // ── GET /api/division-power-rankings ──
+      // Ranks every (season, division) tuple by aggregate strength.
+      // Metric: combined All-Play % across the division's three teams.
+      // Tie-break: total AP wins → division PF.
+      //
+      // METHODOLOGY REVIEW FLAG (Keith): aggregate AP % chosen because
+      // it's matchup-luck-neutral and consistent across eras with
+      // different game counts. Confirm before promoting beyond v1.
+      if (path === "/api/division-power-rankings" && request.method === "GET") {
+        try {
+          const db = env.UPS_MFL_DB;
+          if (!db) return jsonOut(503, { ok: false, reason: "D1 not bound" });
+          const hasFS = await hasFinalStandings(db);
+          const fsJoin = hasFS
+            ? `LEFT JOIN src_final_standings fs
+                 ON fs.season = s.season AND fs.franchise_id = s.franchise_id`
+            : "";
+          const champCol = hasFS
+            ? `MAX(CASE WHEN fs.final_finish = 1 THEN 1 ELSE 0 END) AS produced_champion`
+            : `0 AS produced_champion`;
+          const rs = await db.prepare(
+            `WITH div_agg AS (
+               SELECT s.season,
+                      f.division,
+                      SUM(COALESCE(s.allplay_historical_w, s.allplay_w, 0)) AS ap_w,
+                      SUM(COALESCE(s.allplay_historical_l, s.allplay_l, 0)) AS ap_l,
+                      SUM(COALESCE(s.allplay_historical_t, s.allplay_t, 0)) AS ap_t,
+                      SUM(COALESCE(s.pf, 0))  AS pf,
+                      AVG(COALESCE(s.eff, 0)) AS avg_eff,
+                      COUNT(*)                AS teams,
+                      ${champCol},
+                      GROUP_CONCAT(f.owner_name, ' | ') AS owners,
+                      GROUP_CONCAT(f.franchise_id, ',') AS franchise_ids
+                 FROM src_standings s
+                 JOIN src_franchises f
+                   ON f.season = s.season AND f.franchise_id = s.franchise_id
+                 ${fsJoin}
+                WHERE s.season >= 2011 AND f.division IS NOT NULL
+                GROUP BY s.season, f.division
+             )
+             SELECT season, division, teams, owners, franchise_ids,
+                    ap_w, ap_l, ap_t,
+                    CASE WHEN (ap_w + ap_l + ap_t) > 0
+                         THEN ROUND(1.0 * (ap_w + 0.5 * ap_t) / (ap_w + ap_l + ap_t), 4)
+                         ELSE NULL END AS ap_pct,
+                    pf, avg_eff, produced_champion,
+                    ((season - 2011) / 3) * 3 + 2011 AS cycle_start
+               FROM div_agg
+              ORDER BY ap_pct DESC NULLS LAST, ap_w DESC, pf DESC`
+          ).all();
+          // Per-team detail for each (season, division) so the UI can
+          // show each owner's individual AP% and highlight the division
+          // winner.
+          const detailRs = await db.prepare(
+            `SELECT s.season, f.division, s.franchise_id,
+                    f.team_name AS franchise_name,
+                    f.owner_name AS owner_name,
+                    COALESCE(s.allplay_historical_w, s.allplay_w, 0) AS ap_w,
+                    COALESCE(s.allplay_historical_l, s.allplay_l, 0) AS ap_l,
+                    COALESCE(s.allplay_historical_t, s.allplay_t, 0) AS ap_t,
+                    s.allplay_pct,
+                    s.h2h_pct,
+                    s.div_pct,
+                    s.pf
+               FROM src_standings s
+               JOIN src_franchises f
+                 ON f.season = s.season AND f.franchise_id = s.franchise_id
+              WHERE s.season >= 2011 AND f.division IS NOT NULL`
+          ).all();
+          // Index team details by (season, division).
+          const detailsByKey = {};
+          for (const t of (detailRs.results || [])) {
+            const k = t.season + "|" + t.division;
+            if (!detailsByKey[k]) detailsByKey[k] = [];
+            detailsByKey[k].push(t);
+          }
+          // Compute division-leader per (season, division) using legacy
+          // tiebreakers (Overall PCT → Div PCT → PF → AP%) and recompute
+          // per-team ap_pct to honor missing allplay_pct values.
+          const cmpD = (a, b) => (Number(b || 0) - Number(a || 0));
+          for (const k of Object.keys(detailsByKey)) {
+            const teams = detailsByKey[k];
+            teams.forEach((t) => {
+              const g = (t.ap_w || 0) + (t.ap_l || 0) + (t.ap_t || 0);
+              t.computed_ap_pct = g > 0 ? (t.ap_w + 0.5 * t.ap_t) / g : null;
+            });
+            const sorted = teams.slice().sort((a, b) =>
+              cmpD(a.h2h_pct, b.h2h_pct) ||
+              cmpD(a.div_pct, b.div_pct) ||
+              cmpD(a.pf, b.pf) ||
+              cmpD(a.computed_ap_pct, b.computed_ap_pct)
+            );
+            sorted.forEach((t, i) => { t.is_division_leader = (i === 0); });
+          }
+
+          // Enrich with division_name per (season, division). Single fetch
+          // per unique season to keep MFL calls bounded.
+          const rows = rs.results || [];
+          const yearSet = Array.from(new Set(rows.map((r) => r.season)));
+          const yearMaps = {};
+          await Promise.all(yearSet.map(async (y) => {
+            yearMaps[y] = await divisionNamesForSeason(db, y);
+          }));
+          const enriched = rows.map((r) => ({
+            ...r,
+            division_name: (yearMaps[r.season] && yearMaps[r.season][String(r.division)]) || null,
+            team_details: detailsByKey[r.season + "|" + r.division] || [],
+          }));
+          return new Response(JSON.stringify({
+            ok: true,
+            rows: enriched,
+            has_final_standings: hasFS,
+            methodology_note: "Strength = aggregate AP % across the 3 teams in the division for that season. Tie-break AP wins → division PF. Pending Keith review.",
+          }), { status: 200, headers: { "content-type": "application/json", "Cache-Control": "public, max-age=300", ...corsHeaders } });
+        } catch (e) {
+          return jsonOut(500, { ok: false, error: String(e && e.message || e) });
+        }
+      }
+
+      // ── GET /api/hall-of-champions ──
+      // One row per closed UPS season identifying the champion + all the
+      // detail the Hall of Champions view shows: reg-season AP, playoff AP,
+      // total AP, playoff seed, division-winner flag, PF, opponent + score
+      // from the championship game, and an MFL box-score URL.
+      //
+      // Champion is identified by:
+      //   1. src_final_standings.final_finish = 1, where available;
+      //   2. else the winner of the final-week playoff game in src_schedule
+      //      (championship match = the game where both participants advanced
+      //      through earlier rounds).
+      //
+      // Historical AP Rank is computed across all champions returned.
+      if (path === "/api/hall-of-champions" && request.method === "GET") {
+        try {
+          const db = env.UPS_MFL_DB;
+          if (!db) return jsonOut(503, { ok: false, reason: "D1 not bound" });
+          const hasFS = await hasFinalStandings(db);
+
+          // 1) Per-season meta (league_id, lastRegWk).
+          const metasRs = await db.prepare(
+            `SELECT season, league_id, mfl_server, last_regular_season_week, playoff_weeks
+               FROM src_league_season_meta
+              ORDER BY season ASC`
+          ).all();
+          const metas = {};
+          for (const m of (metasRs.results || [])) metas[String(m.season)] = m;
+
+          // 2) Identify champion per season.
+          //    Path A: src_final_standings.final_finish = 1 (authoritative).
+          //    Path B: winner of the final-week playoff game (fallback when
+          //            src_final_standings isn't loaded for a year).
+          const champByYear = {};
+          // Per-year runner-up too (final_finish = 2) for nicer "vs Opponent" display.
+          const runnerUpByYear = {};
+          if (hasFS) {
+            const fsR = await db.prepare(
+              "SELECT season, franchise_id, final_finish FROM src_final_standings WHERE final_finish IN (1, 2)"
+            ).all();
+            for (const row of (fsR.results || [])) {
+              if (row.final_finish === 1) champByYear[String(row.season)] = String(row.franchise_id);
+              if (row.final_finish === 2) runnerUpByYear[String(row.season)] = String(row.franchise_id);
+            }
+          }
+          // Path B fallback / fill-in.
+          const seasonsRs = await db.prepare(
+            "SELECT DISTINCT season FROM src_schedule WHERE is_playoff = 1 ORDER BY season"
+          ).all();
+          for (const sRow of (seasonsRs.results || [])) {
+            const yr = sRow.season;
+            if (champByYear[String(yr)]) continue;
+            const meta = metas[String(yr)];
+            const finalWk = (meta && Number(meta.last_regular_season_week))
+              ? Number(meta.last_regular_season_week) + Number(meta.playoff_weeks || 3)
+              : 17;
+            // Pull all final-week playoff games. The championship game is the
+            // one between the two semifinal winners; here we approximate by
+            // picking the highest-scoring final-week game (the title game
+            // tends to be the highest-stakes / highest-PF matchup).
+            // For accuracy, prefer the game between two teams that both also
+            // appeared in the prior (semi) week as winners.
+            const finalsRs = await db.prepare(
+              `SELECT franchise_id, opponent_franchise_id, team_score, opponent_score
+                 FROM src_schedule
+                WHERE season = ? AND is_playoff = 1 AND week = ?`
+            ).bind(yr, finalWk).all();
+            const finals = finalsRs.results || [];
+            // Dedupe matchups (each row appears twice).
+            const seenF = new Set();
+            const uniqueFinals = [];
+            for (const g of finals) {
+              const k = [String(g.franchise_id), String(g.opponent_franchise_id)].sort().join("-");
+              if (seenF.has(k)) continue;
+              seenF.add(k);
+              uniqueFinals.push(g);
+            }
+            // Identify the CHAMPIONSHIP side (the actual 6-team playoff
+            // field) so the Hawktuah final doesn't get mistaken for the
+            // UPS Championship game.
+            //
+            // We mirror the same rules used by /api/playoff-bracket:
+            //   - Conference era (has_conferences true): top half of each
+            //     conference by standings_sort.
+            //   - Modern era: 4 division winners + 2 wild cards (top
+            //     non-DW by AP%).
+            const yrLeagueMeta = await leagueMetaForSeason(db, yr);
+            const champSideRs = await db.prepare(
+              `SELECT s.franchise_id, s.h2h_pct, s.div_pct, s.pf, s.allplay_pct,
+                      f.division, f.team_name, f.owner_name
+                 FROM src_standings s
+                 LEFT JOIN src_franchises f
+                   ON f.season = s.season AND f.franchise_id = s.franchise_id
+                WHERE s.season = ?`
+            ).bind(yr).all();
+            const allRowsThisYear = (champSideRs.results || []).slice();
+            const standingsCmpHOC = (a, b) =>
+              ((b.h2h_pct || 0) - (a.h2h_pct || 0)) ||
+              ((b.div_pct || 0) - (a.div_pct || 0)) ||
+              ((b.pf || 0) - (a.pf || 0)) ||
+              ((b.allplay_pct || 0) - (a.allplay_pct || 0));
+            let champSideIds;
+            if (yrLeagueMeta.hasConferences) {
+              // Per-conference top-half by standings_sort.
+              const byConfH = new Map();
+              for (const r of allRowsThisYear) {
+                const divEntry = yrLeagueMeta.divisions[String(r.division)];
+                const c = divEntry && divEntry.conference_id != null ? String(divEntry.conference_id) : "_NA";
+                if (!byConfH.has(c)) byConfH.set(c, []);
+                byConfH.get(c).push(r);
+              }
+              const top = [];
+              for (const [, group] of byConfH.entries()) {
+                const sorted = group.slice().sort(standingsCmpHOC);
+                const half = Math.floor(group.length / 2);
+                for (let i = 0; i < half; i++) top.push(sorted[i]);
+              }
+              champSideIds = new Set(top.map((r) => String(r.franchise_id)));
+            } else {
+              // Modern era: 4 DW + 2 WC by AP%.
+              // Division winners = top of each division by standingsCmp.
+              const byDivH = new Map();
+              for (const r of allRowsThisYear) {
+                if (r.division == null) continue;
+                const k = String(r.division);
+                if (!byDivH.has(k)) byDivH.set(k, []);
+                byDivH.get(k).push(r);
+              }
+              const dwIds = new Set();
+              for (const [, group] of byDivH.entries()) {
+                const sorted = group.slice().sort(standingsCmpHOC);
+                if (sorted[0]) dwIds.add(String(sorted[0].franchise_id));
+              }
+              // Wild cards = non-DW sorted by AP% → PF.
+              const wcs = allRowsThisYear
+                .filter((r) => !dwIds.has(String(r.franchise_id)))
+                .slice()
+                .sort((a, b) =>
+                  ((b.allplay_pct || 0) - (a.allplay_pct || 0)) ||
+                  ((b.pf || 0) - (a.pf || 0))
+                )
+                .slice(0, 2);
+              champSideIds = new Set([...dwIds, ...wcs.map((r) => String(r.franchise_id))]);
+            }
+            // Semi-week winners filtered to championship-side teams.
+            const semiWk = finalWk - 1;
+            const semiRs = await db.prepare(
+              `SELECT franchise_id, opponent_franchise_id, team_score, opponent_score
+                 FROM src_schedule
+                WHERE season = ? AND is_playoff = 1 AND week = ?`
+            ).bind(yr, semiWk).all();
+            const champSemiWinners = new Set();
+            for (const g of (semiRs.results || [])) {
+              const winnerFid = (g.team_score || 0) > (g.opponent_score || 0)
+                ? String(g.franchise_id) : String(g.opponent_franchise_id);
+              if (champSideIds.has(winnerFid)) champSemiWinners.add(winnerFid);
+            }
+            // Title game = W-final game where BOTH teams are champ-side semi winners.
+            let titleGame = uniqueFinals.find((g) =>
+              champSemiWinners.has(String(g.franchise_id)) && champSemiWinners.has(String(g.opponent_franchise_id))
+            );
+            if (!titleGame) {
+              // Fallback: W-final game between two champ-side teams (regardless of semi history).
+              titleGame = uniqueFinals.find((g) =>
+                champSideIds.has(String(g.franchise_id)) && champSideIds.has(String(g.opponent_franchise_id))
+              );
+            }
+            if (titleGame) {
+              const champFid = (titleGame.team_score || 0) > (titleGame.opponent_score || 0)
+                ? String(titleGame.franchise_id) : String(titleGame.opponent_franchise_id);
+              champByYear[String(yr)] = champFid;
+            }
+          }
+
+          // 3) Hydrate champion details per season.
+          const champions = [];
+          for (const yrStr of Object.keys(champByYear).sort()) {
+            const yr = Number(yrStr);
+            const fid = champByYear[yrStr];
+            const meta = metas[yrStr] || {};
+            const finalWk = Number(meta.last_regular_season_week || 14)
+              + Number(meta.playoff_weeks || 3);
+
+            // Standings row for the champion.
+            const stRow = await db.prepare(
+              `SELECT s.season, s.franchise_id,
+                      f.team_name AS franchise_name, f.owner_name, f.division, f.logo,
+                      s.h2h_w, s.h2h_l, s.h2h_t, s.h2h_pct,
+                      s.div_w, s.div_l, s.div_pct,
+                      s.allplay_w, s.allplay_l, s.allplay_t, s.allplay_pct,
+                      s.allplay_regseason_w, s.allplay_regseason_l, s.allplay_regseason_t,
+                      s.allplay_playoff_w, s.allplay_playoff_l, s.allplay_playoff_t,
+                      s.allplay_full_w, s.allplay_full_l, s.allplay_full_t,
+                      s.allplay_historical_w, s.allplay_historical_l, s.allplay_historical_t,
+                      s.pf, s.pp, s.eff
+                 FROM src_standings s
+                 LEFT JOIN src_franchises f
+                   ON f.season = s.season AND f.franchise_id = s.franchise_id
+                WHERE s.season = ? AND s.franchise_id = ?`
+            ).bind(yr, fid).first();
+            if (!stRow) continue;
+
+            // Title game itself (for opponent + score). Prefer the game
+            // vs the canonical runner-up when known (avoids picking some
+            // other final-week champion game like a consolation).
+            const runnerFid = runnerUpByYear[String(yr)];
+            let titleGame = null;
+            if (runnerFid) {
+              titleGame = await db.prepare(
+                `SELECT week, franchise_id, opponent_franchise_id,
+                        franchise_name, opponent_franchise_name,
+                        franchise_owner, opponent_owner,
+                        team_score, opponent_score
+                   FROM src_schedule
+                  WHERE season = ? AND is_playoff = 1 AND week = ?
+                    AND franchise_id = ? AND opponent_franchise_id = ?
+                  LIMIT 1`
+              ).bind(yr, finalWk, fid, runnerFid).first();
+            }
+            if (!titleGame) {
+              titleGame = await db.prepare(
+                `SELECT week, franchise_id, opponent_franchise_id,
+                        franchise_name, opponent_franchise_name,
+                        franchise_owner, opponent_owner,
+                        team_score, opponent_score
+                   FROM src_schedule
+                  WHERE season = ? AND is_playoff = 1 AND week = ?
+                    AND franchise_id = ?
+                  LIMIT 1`
+              ).bind(yr, finalWk, fid).first();
+            }
+
+            // Playoff seed: re-rank by standings_sort + (modern: top 2 DW bye).
+            // Simpler: read seed via our /api/playoff-bracket would require a
+            // nested fetch. Cheap heuristic — just expose the raw rank by
+            // standings_sort across the whole league.
+            const seedR = await db.prepare(
+              `SELECT COUNT(*) + 1 AS rank
+                 FROM src_standings o
+                WHERE o.season = ?
+                  AND ( COALESCE(o.h2h_pct, 0) > COALESCE(?, 0)
+                     OR (COALESCE(o.h2h_pct, 0) = COALESCE(?, 0) AND COALESCE(o.pf, 0) > COALESCE(?, 0)) )`
+            ).bind(yr, stRow.h2h_pct, stRow.h2h_pct, stRow.pf).first();
+
+            // Division-winner detection: rerun the within-division sort.
+            const divRows = await db.prepare(
+              `SELECT s.franchise_id AS franchise_id, s.h2h_pct, s.div_pct, s.pf, s.allplay_pct
+                 FROM src_standings s
+                 LEFT JOIN src_franchises f
+                   ON f.season = s.season AND f.franchise_id = s.franchise_id
+                WHERE s.season = ? AND f.division = ?`
+            ).bind(yr, stRow.division).all();
+            const dRows = (divRows.results || []).slice().sort((a, b) =>
+              ((b.h2h_pct || 0) - (a.h2h_pct || 0)) ||
+              ((b.div_pct || 0) - (a.div_pct || 0)) ||
+              ((b.pf || 0) - (a.pf || 0)) ||
+              ((b.allplay_pct || 0) - (a.allplay_pct || 0))
+            );
+            const isDW = dRows.length ? String(dRows[0].franchise_id) === String(fid) : null;
+
+            // MFL box-score URL (championship game).
+            let boxUrl = null;
+            if (titleGame && meta.league_id) {
+              const srv = meta.mfl_server || "www48";
+              boxUrl = "https://" + srv + ".myfantasyleague.com/" + yr +
+                "/options?L=" + encodeURIComponent(meta.league_id) +
+                "&O=07&F=" + encodeURIComponent(fid) +
+                "&WEEK=" + encodeURIComponent(finalWk);
+            }
+
+            champions.push({
+              season: yr,
+              franchise_id: fid,
+              franchise_name: stRow.franchise_name,
+              owner_name: stRow.owner_name,
+              division: stRow.division,
+              logo: stRow.logo,
+              league_id: meta.league_id || null,
+              regseason_ap_w: stRow.allplay_regseason_w,
+              regseason_ap_l: stRow.allplay_regseason_l,
+              regseason_ap_t: stRow.allplay_regseason_t,
+              playoff_ap_w:   stRow.allplay_playoff_w,
+              playoff_ap_l:   stRow.allplay_playoff_l,
+              playoff_ap_t:   stRow.allplay_playoff_t,
+              total_ap_w:     stRow.allplay_full_w  != null ? stRow.allplay_full_w  : stRow.allplay_w,
+              total_ap_l:     stRow.allplay_full_l  != null ? stRow.allplay_full_l  : stRow.allplay_l,
+              total_ap_t:     stRow.allplay_full_t  != null ? stRow.allplay_full_t  : stRow.allplay_t,
+              total_ap_pct:   stRow.allplay_pct,
+              hist_ap_w:      stRow.allplay_historical_w != null ? stRow.allplay_historical_w : stRow.allplay_w,
+              hist_ap_l:      stRow.allplay_historical_l != null ? stRow.allplay_historical_l : stRow.allplay_l,
+              hist_ap_t:      stRow.allplay_historical_t != null ? stRow.allplay_historical_t : stRow.allplay_t,
+              overall_w: stRow.h2h_w, overall_l: stRow.h2h_l, overall_t: stRow.h2h_t,
+              overall_pct: stRow.h2h_pct,
+              pf: stRow.pf,
+              pp: stRow.pp,
+              eff: stRow.eff,
+              seed_rank_overall: seedR && seedR.rank,
+              division_winner: isDW,
+              final_game: titleGame ? {
+                week: titleGame.week,
+                opponent_franchise_id: titleGame.opponent_franchise_id,
+                opponent_franchise_name: titleGame.opponent_franchise_name,
+                opponent_owner: titleGame.opponent_owner,
+                champion_score: titleGame.team_score,
+                opponent_score: titleGame.opponent_score,
+                box_score_url: boxUrl,
+              } : null,
+            });
+          }
+
+          // Historical AP rank across champions (by total AP %).
+          const ranked = champions.slice().sort((a, b) => (b.total_ap_pct || 0) - (a.total_ap_pct || 0));
+          ranked.forEach((c, i) => { c.historical_ap_rank = i + 1; });
+
+          return new Response(JSON.stringify({
+            ok: true,
+            count: champions.length,
+            champions: champions.slice().sort((a, b) => b.season - a.season),
+            has_final_standings: hasFS,
+          }), { status: 200, headers: { "content-type": "application/json", "Cache-Control": "public, max-age=300", ...corsHeaders } });
         } catch (e) {
           return jsonOut(500, { ok: false, error: String(e && e.message || e) });
         }

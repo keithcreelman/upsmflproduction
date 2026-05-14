@@ -213,6 +213,8 @@ There are **7 entry paths**. Each creates a different default contract and const
 - **Tracking (legacy):** historically captured in forum threads (upsforumotion → Slack → Discord). Player movement to correct rosters happened via post-draft trades. Modern approach: log dispersal events explicitly in commissioner-side records.
 - **History:** see [memory: league_history_timeline.md](../../.claude/projects/-Users-keithcreelman-Code-upsmflproduction/memory/league_history_timeline.md) — 3 confirmed dispersal events. Year-by-year mechanics weren't always consistent — would need forum reconstruction to fully document.
 
+> **Cross-link — owner tenure & retroactive analytics (Keith 2026-05-14):** the Standings module's 3-Year Eras view enforces a **3-full-season tenure floor** before an owner can be named an era headliner or a retro Captain. Mid-cycle joiners (e.g. Brian Cross in 2025) and the post-Lima/Hammer/Whitman dispersal departures sit in the leaderboard tagged `partial` but are excluded from era naming so a small-sample AP % can't distort the pick. See [docs/standings_advanced_stats_proposals.md](standings_advanced_stats_proposals.md) §1A + Appendix A for the rule + the list of known partial-tenure cases.
+
 ### A7b. New Owner Onboarding (separate from dispersal)
 - **Cap-penalty wipe:** new owner is relieved of all future cap penalties (drop penalties, fines) accumulated by the prior owner. Cap is clean from acquisition forward.
 - **1 cap-free cut:** new owner is allowed ONE cap-free cut within an "acceptable period" of joining (commissioner discretion on timing — gives the new owner time to assess roster + understand rules).
