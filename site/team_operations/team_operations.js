@@ -439,12 +439,37 @@
     var ref = (window.UPS_RELEASE_SHA && String(window.UPS_RELEASE_SHA).trim()) || "main";
     return workerUrl("/api/repo-html?ref=" + encodeURIComponent(ref) + "&path=" + encodeURIComponent("site/" + relPath));
   }
+  // Tab definitions:
+  //   iframe  — the URL the embedded iframe loads (Pages so content-type
+  //             headers stay correct and assets cache cleanly).
+  //   message — the MFL MESSAGEnn module the "Open in new tab" link
+  //             routes to, so owners pop out to the league's own hosted
+  //             page (with header chrome, hotlinks, etc.) instead of
+  //             a bare Pages URL.
   var TAB_DEFS = [
     { id: "overview",     label: "Overview" },
-    { id: "front-office", label: "Front Office",  iframe: hubUrl("rosters/roster_workbench.html") },
-    { id: "player-stats", label: "Player Stats",  iframe: hubUrl("stats_workbench/stats_workbench.html") },
-    { id: "trade-room",   label: "Trade War Room", iframe: hubUrl("trades/trade_workbench.html") }
+    { id: "front-office", label: "Front Office",   iframe: hubUrl("rosters/roster_workbench.html"),     message: "MESSAGE7" },
+    { id: "player-stats", label: "Player Stats",   iframe: hubUrl("stats_workbench/stats_workbench.html"), message: "MESSAGE13" },
+    { id: "trade-room",   label: "Trade War Room", iframe: hubUrl("trades/trade_workbench.html"),       message: "MESSAGE6=N" }
   ];
+
+  // Build the MFL-hosted MESSAGEnn URL for the given tab def. Falls back
+  // to the iframe URL when we're not on MFL (e.g., local dev preview)
+  // because the MFL host/path heuristics won't resolve.
+  function popOutUrlForTab(def) {
+    if (!def || !def.message) return def && def.iframe || "";
+    var host = "";
+    try { host = window.location.host || ""; } catch (e) {}
+    if (!/myfantasyleague\.com$/i.test(host)) {
+      // Not on MFL — best we can do is the bare Pages iframe URL.
+      return def.iframe || "";
+    }
+    var leagueId = state.ctx && state.ctx.leagueId;
+    var year = (state.ctx && state.ctx.year) || String(new Date().getFullYear());
+    if (!leagueId) return def.iframe || "";
+    return "//" + host + "/" + encodeURIComponent(year) +
+      "/home/" + encodeURIComponent(leagueId) + "?MODULE=" + def.message;
+  }
 
   function readActiveTab() {
     try {
@@ -538,12 +563,13 @@
     // to use parent-frame postMessage).
     var hubPanels = TAB_DEFS.filter(function (t) { return !!t.iframe; }).map(function (t) {
       var src = t.iframe + ctxQs + (t.id === "trade-room" ? twbExtraQs : "");
+      var popOut = popOutUrlForTab(t) || src;
       var on = (t.id === activeTab) ? '1' : '0';
       var lazy = (t.id === activeTab) ? ' src="' + escapeHtml(src) + '"' : ' data-lazysrc="' + escapeHtml(src) + '"';
       return '<section class="tops-tab-panel tops-tab-panel--iframe" data-tab-panel="' + t.id + '" data-active="' + on + '" role="tabpanel">'
         + '<div class="tops-iframe-toolbar">'
         +   '<span class="tops-iframe-label">' + escapeHtml(t.label) + ' is embedded — for a roomier view, pop it out.</span>'
-        +   '<a class="tops-iframe-pop" href="' + escapeHtml(src) + '" target="_blank" rel="noopener noreferrer">Open in new tab ↗</a>'
+        +   '<a class="tops-iframe-pop" href="' + escapeHtml(popOut) + '" target="_blank" rel="noopener noreferrer">Open in new tab ↗</a>'
         + '</div>'
         + '<iframe class="tops-iframe" title="' + escapeHtml(t.label) + '"' + lazy + ' loading="lazy" allow="clipboard-read; clipboard-write" referrerpolicy="no-referrer"></iframe>'
         + '</section>';
@@ -627,6 +653,21 @@
     var taxiCount = roster.filter(function (p) { return /taxi/i.test(p.status); }).length;
     var activeCount = rosterCount - irCount - taxiCount;
 
+    // Cap Used breakdown — show salary vs adjustments split so the
+    // total isn't a black box. Per Keith 2026-05-14: Card 2 stays
+    // final-number-only, but Card 1 surfaces the components since
+    // adjustments are non-obvious (trade-in/-out, drop penalties,
+    // commish adjustments).
+    var adjustmentSign = adjustmentTotal === 0
+      ? ""
+      : (adjustmentTotal > 0 ? "+" : "−");
+    var adjustmentBreakdownLine = adjustmentTotal === 0
+      ? ''
+      : '<div class="tops-kv-subnote">'
+          + fmtUsd(playerSalaryUsed) + ' salaries '
+          + adjustmentSign + ' ' + fmtUsd(Math.abs(adjustmentTotal)) + ' adjustments'
+        + '</div>';
+
     el.innerHTML = [
       '<div class="tops-card-title">Franchise Summary</div>',
       '<div class="tops-summary-grid">',
@@ -636,6 +677,7 @@
       '    <div class="tops-kv-note">' + pct + '% of ' + fmtUsd(cap) +
         (taxiSalary > 0 ? ' · <span style="opacity:0.75;">+ ' + fmtUsd(taxiSalary) + ' taxi (off-cap)</span>' : '') +
         '</div>',
+      '    ' + adjustmentBreakdownLine,
       '    <div class="tops-bar"><div class="tops-bar-fill" style="width:' + pct + '%"></div></div>',
       '  </div>',
       '  <div class="tops-kv">',
