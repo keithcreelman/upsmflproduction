@@ -1,13 +1,14 @@
-name: Pages — deploy site/ + apps/mfl_site/
+name: Pages — deploy site/ + repo-root headers
 
 # Deploys the site/ directory to GitHub Pages so hub iframes + embed
 # loaders can load HTML/JS/CSS with correct content-type. Replaces
 # jsDelivr as the primary CDN for production (see issue #88).
 #
-# Also copies apps/mfl_site/header_custom_v2.html + footer_custom_v2.html
-# into the artifact root so MFL admin's "Hosted Header / Hosted Footer"
-# include URLs can fetch them from Pages (they live outside site/ in
-# the repo, but Pages serves a single artifact, so we copy at build time).
+# Also copies header_custom_v2.html + footer_custom_v2.html from the
+# repo root into the artifact root so Pages serves them at
+# /upsmflproduction/header_custom_v2.html. They live at repo root
+# (not under site/ or apps/) because jsDelivr-based fetchers also
+# look there — root is the single canonical location.
 #
 # Pages URLs:
 #   https://keithcreelman.github.io/upsmflproduction/<path-inside-site>
@@ -22,7 +23,8 @@ on:
     branches: [main]
     paths:
       - "site/**"
-      - "apps/mfl_site/**"
+      - "header_custom_v2.html"
+      - "footer_custom_v2.html"
       - ".github/workflows/pages-deploy.yml"
   workflow_dispatch: {}
 
@@ -46,16 +48,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build artifact (site/ + apps/mfl_site/ headers)
+      - name: Build artifact (site/ + repo-root headers)
         run: |
           mkdir -p _site
           cp -R site/. _site/
-          # MFL admin's Hosted Header / Hosted Footer URLs fetch these
-          # two files directly. Put them at the artifact root so they
-          # serve as https://keithcreelman.github.io/upsmflproduction/header_custom_v2.html
-          # and /footer_custom_v2.html.
-          cp apps/mfl_site/header_custom_v2.html _site/
-          cp apps/mfl_site/footer_custom_v2.html _site/
+          cp header_custom_v2.html _site/
+          cp footer_custom_v2.html _site/
           echo "::group::artifact contents (top level)"
           ls -la _site | head -30
           echo "::endgroup::"

@@ -79,8 +79,8 @@ If you want to mount into an existing element:
 ```
 
 ## Notes
-- Header pulls from `/apps/mfl_site/header_custom_v2.html`.
-- Footer pulls from `/apps/mfl_site/footer_custom_v2.html`.
+- Header pulls from `/header_custom_v2.html` (repo root).
+- Footer pulls from `/footer_custom_v2.html` (repo root).
 - HPM default pulls from `/site/hpm-default.html`.
 - Reports Module HPM uses `/site/reports/mfl_hpm_embed_loader.js`.
 - `/site/hpm-reports.html` remains available as a compatibility partial for the shared loader.

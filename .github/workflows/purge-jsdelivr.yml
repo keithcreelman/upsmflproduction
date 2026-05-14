@@ -50,8 +50,8 @@ jobs:
           # calls, missing files invite rot.
           FILES=(
             # ── Bootstrap chain (load order) ───────────────────────────
-            "apps/mfl_site/header_custom_v2.html"
-            "apps/mfl_site/footer_custom_v2.html"
+            "header_custom_v2.html"
+            "footer_custom_v2.html"
             "apps/mfl_site/contract_command_center_bridge.js"
             "site/loader.js"
             # ── HPM partial HTMLs ──────────────────────────────────────
