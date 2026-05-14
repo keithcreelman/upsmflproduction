@@ -1014,19 +1014,20 @@
 .tops-nd-list {
   list-style: none;
   margin: 4px 0 0;
-  padding: 0;
+  padding: 0 0 0.35rem;  /* extra bottom padding so the last row doesn't kiss the card border */
 }
 .tops-nd-list li {
   display: flex;
   align-items: baseline;
   gap: 0.5rem;
-  padding: 4px 0;
+  padding: 6px 0;
   font-size: 0.88rem;
   color: var(--tops-ink);
 }
 .tops-nd-list li + li {
   border-top: 1px solid rgba(255,255,255,0.04);
 }
+.tops-nd-list li:last-child { padding-bottom: 8px; }
 .tops-nd-main {
   flex: 1 1 auto;
   display: flex;

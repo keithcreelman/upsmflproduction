@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var BUILD = "2026.05.13.auth";
+  var BUILD = "2026.05.14.iframe-proxy";
   var BOOT_FLAG = "__ups_team_operations_boot_" + BUILD;
   if (window[BOOT_FLAG]) {
     if (typeof window.UPS_TEAMOPS_INIT === "function") window.UPS_TEAMOPS_INIT();
@@ -396,15 +396,14 @@
   // roster_workbench) · Player Stats (iframes stats_workbench). The hub URLs
   // resolve relative to /upsmflproduction/site/ since both target hubs live
   // there. iframes are lazy: src is set the first time the tab activates.
-  // Iframe URLs use ABSOLUTE jsDelivr paths because the embed runs inside
-  // MFL's domain (www48.myfantasyleague.com). Relative paths like
-  // "../rosters/roster_workbench.html" resolve against the parent page's
-  // origin and 404 there. The local test page (_local_test.html) also
-  // serves from the same origin as the hub HTML, so absolute jsDelivr URLs
-  // work in both contexts.
+  // Iframe URLs route through our worker's /api/repo-html proxy because
+  // jsDelivr 403s HTML files in this repo (50MB package limit — see
+  // tracking issue #88). The worker fetches from raw.github + re-serves
+  // as text/html (no sandbox CSP), so iframes can render + execute scripts.
+  // Relative paths to MFL origin 404 (the embed runs at www48.myfantasyleague.com).
   function hubUrl(relPath) {
     var ref = (window.UPS_RELEASE_SHA && String(window.UPS_RELEASE_SHA).trim()) || "main";
-    return "https://cdn.jsdelivr.net/gh/keithcreelman/upsmflproduction@" + encodeURIComponent(ref) + "/site/" + relPath;
+    return workerUrl("/api/repo-html?ref=" + encodeURIComponent(ref) + "&path=" + encodeURIComponent("site/" + relPath));
   }
   var TAB_DEFS = [
     { id: "overview",     label: "Overview" },

@@ -328,6 +328,7 @@ export default {
         path !== "/api/advanced-stats-player-weekly" &&
         path !== "/api/mfl-league-state" &&
         path !== "/api/league-events" &&
+        path !== "/api/repo-html" &&
         path !== "/bug-report" &&
         path !== "/bug-reports" &&
         !path.startsWith("/api/trades/proposals") &&
@@ -2553,6 +2554,53 @@ export default {
           return jsonOut(200, { ok: true, season, events: res.results || [] });
         } catch (e) {
           return jsonOut(500, { ok: false, error: String(e && e.message || e) });
+        }
+      }
+
+      // ── GET /api/repo-html — proxy GitHub raw → text/html ──
+      // Why: jsDelivr returns 403 for HTML files in this repo because the
+      // total package exceeds their 50MB limit, even though individual JS
+      // files (and sometimes other HTML files) still serve fine. raw.github
+      // works but slaps text/plain + a sandbox CSP that breaks scripts.
+      // This proxy fetches from raw.github and re-serves with proper
+      // text/html + permissive CORS so iframes can load the hub pages
+      // (Front Office / Player Stats / Trade War Room).
+      //
+      // Usage: /api/repo-html?path=site/rosters/roster_workbench.html
+      // Optional ?ref=<branch-or-sha>  default "main"
+      // path is allowlist-validated to site/ to prevent SSRF.
+      if (path === "/api/repo-html" && request.method === "GET") {
+        const relPath = safeStr(url.searchParams.get("path") || "");
+        const ref = safeStr(url.searchParams.get("ref") || "main").replace(/[^A-Za-z0-9._\-/]/g, "");
+        if (!relPath || !/^site\//.test(relPath) || /\.\./.test(relPath)) {
+          return new Response("Invalid path", { status: 400, headers: { "content-type": "text/plain", ...corsHeaders } });
+        }
+        const upstream = `https://raw.githubusercontent.com/keithcreelman/upsmflproduction/${encodeURIComponent(ref)}/${relPath}`;
+        try {
+          const r = await fetch(upstream, {
+            cf: { cacheTtl: 60, cacheEverything: true },
+            headers: { "User-Agent": "upsmflproduction-worker" },
+          });
+          if (!r.ok) {
+            return new Response(`Upstream ${r.status}`, { status: 502, headers: { "content-type": "text/plain", ...corsHeaders } });
+          }
+          const body = await r.text();
+          // Determine content-type from path extension. Default to text/html
+          // for .html (without nosniff or sandbox) so iframes can execute.
+          let ct = "text/html; charset=utf-8";
+          if (/\.css$/i.test(relPath)) ct = "text/css; charset=utf-8";
+          else if (/\.js$/i.test(relPath)) ct = "application/javascript; charset=utf-8";
+          else if (/\.json$/i.test(relPath)) ct = "application/json; charset=utf-8";
+          return new Response(body, {
+            status: 200,
+            headers: {
+              "content-type": ct,
+              "cache-control": "public, max-age=300",
+              "access-control-allow-origin": "*",
+            },
+          });
+        } catch (e) {
+          return new Response(`Fetch failed: ${e?.message || String(e)}`, { status: 502, headers: { "content-type": "text/plain", ...corsHeaders } });
         }
       }
 
