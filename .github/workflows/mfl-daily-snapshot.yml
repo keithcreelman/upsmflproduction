@@ -1,11 +1,12 @@
 name: MFL daily snapshot
 
 # Nightly pull of MFL public exports for the league (TYPE=salaries,
-# transactions, rosters, injuries, league, freeAgents, draftResults).
+# transactions, rosters, injuries, league, freeAgents, draftResults,
+# weeklyResults, schedule, leagueStandings).
 # Commits deltas under data/mfl-snapshots/YYYY-MM-DD/ on main so every
-# contract, transaction, and roster change we can see from MFL is
-# permanently preserved in git history. Git delta-compression keeps
-# the repo size manageable since most fields don't change day-to-day.
+# contract, transaction, roster, and weekly-scoring change we can see
+# from MFL is permanently preserved in git history. Git delta-compression
+# keeps the repo size manageable since most fields don't change day-to-day.
 #
 # This is Phase 1 of the backup strategy — works today without R2.
 # Once R2 is enabled on the Cloudflare account, we'll switch the
@@ -39,16 +40,20 @@ jobs:
 
           # Prefer api.myfantasyleague.com for read endpoints that support it;
           # fall back to www48 for league-context endpoints.
-          for t in salaries transactions rosters injuries league freeAgents draftResults; do
+          for t in salaries transactions rosters injuries league freeAgents draftResults weeklyResults schedule leagueStandings; do
             case "$t" in
-              salaries|draftResults)
+              salaries|draftResults|weeklyResults|schedule|leagueStandings)
                 BASE="https://api.myfantasyleague.com"
                 ;;
               *)
                 BASE="https://www48.myfantasyleague.com"
                 ;;
             esac
-            URL="$BASE/$YEAR/export?TYPE=$t&L=$LEAGUE_ID&JSON=1"
+            # weeklyResults defaults to current week; W=YTD returns the full
+            # season so the snapshot is self-contained for back-fills.
+            EXTRA=""
+            if [ "$t" = "weeklyResults" ]; then EXTRA="&W=YTD"; fi
+            URL="$BASE/$YEAR/export?TYPE=$t&L=$LEAGUE_ID&JSON=1$EXTRA"
             echo "fetch $t -> $DIR/$t.json"
             curl -fsSL -A "$UA" "$URL" -o "$DIR/$t.json.tmp"
             # Pretty-print so git diff is readable and compresses well

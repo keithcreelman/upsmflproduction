@@ -59,14 +59,20 @@ UPSERT_CHUNK_SIZE = 80
 # PK is stable and well-understood — incorrect PK here causes silent data
 # loss as rows upsert onto each other.
 PK_MAP: dict[str, list[str]] = {
-    "nfl_player_weekly":          ["season", "week", "gsis_id"],
-    "nfl_player_snaps":           ["season", "week", "pfr_id"],
-    "nfl_player_redzone":         ["season", "week", "gsis_id"],
-    "nfl_player_advstats_season": ["season", "gsis_id"],
-    "nfl_team_weekly":            ["season", "week", "team"],
-    "player_id_crosswalk":        ["mfl_player_id"],
-    "metric_stickiness":          ["position", "metric", "min_games"],
-    "src_final_standings":        ["season", "franchise_id"],
+    "nfl_player_weekly":             ["season", "week", "gsis_id"],
+    "nfl_player_snaps":              ["season", "week", "pfr_id"],
+    "nfl_player_redzone":            ["season", "week", "gsis_id"],
+    "nfl_player_advstats_season":    ["season", "gsis_id"],
+    "nfl_team_weekly":               ["season", "week", "team"],
+    "player_id_crosswalk":           ["mfl_player_id"],
+    "metric_stickiness":             ["position", "metric", "min_games"],
+    "src_final_standings":           ["season", "franchise_id"],
+    "src_franchises":                ["season", "franchise_id"],
+    "src_schedule":                  ["season", "week", "franchise_id", "opponent_franchise_id"],
+    "src_weekly_franchise_summary":  ["season", "week", "franchise_id"],
+    "src_standings":                 ["season", "franchise_id"],
+    "src_franchise_weekly_score":    ["season", "week", "franchise_id"],
+    "src_league_season_meta":        ["season"],
 }
 
 
@@ -516,6 +522,124 @@ def main():
          WHERE franchise_id IS NOT NULL AND franchise_id != ''
          """,
          ["season","franchise_id","final_finish","regular_season_finish","division"]),
+        # Franchise-level fantasy results (migration 0028). Source-of-truth
+        # for per-franchise weekly scoring, head-to-head matchup outcomes,
+        # divisional flag, all-play %, and season standings.
+        # Local sources: franchises, schedule, weeklyresults_summary, standings.
+        # The is_divisional flag in src_schedule is computed at load-time via
+        # a self-join against franchises (cheaper to bake in once than to
+        # JOIN on every D1 read).
+        ("franchises", "src_franchises",
+         """
+         SELECT season, franchise_id, owner_name, team_name, division, logo
+         FROM franchises
+         WHERE franchise_id IS NOT NULL AND franchise_id != ''
+         """,
+         ["season","franchise_id","owner_name","team_name","division","logo"]),
+        ("schedule", "src_schedule",
+         """
+         SELECT s.season, s.week, s.franchise_id, s.opponent_franchise_id,
+                s.franchise_name, s.opponent_franchise_name,
+                s.franchise_owner, s.opponent_owner,
+                s.is_home, s.result, s.team_score, s.opponent_score,
+                CASE
+                  WHEN f1.division IS NOT NULL
+                   AND f2.division IS NOT NULL
+                   AND f1.division = f2.division
+                  THEN 1 ELSE 0
+                END AS is_divisional,
+                COALESCE((
+                  SELECT MAX(w.is_playoff)
+                  FROM weeklyresults w
+                  WHERE w.season = s.season
+                    AND w.week = s.week
+                    AND w.franchise_id = s.franchise_id
+                ), 0) AS is_playoff
+         FROM schedule s
+         LEFT JOIN franchises f1
+           ON f1.season = s.season AND f1.franchise_id = s.franchise_id
+         LEFT JOIN franchises f2
+           ON f2.season = s.season AND f2.franchise_id = s.opponent_franchise_id
+         """,
+         ["season","week","franchise_id","opponent_franchise_id",
+          "franchise_name","opponent_franchise_name",
+          "franchise_owner","opponent_owner",
+          "is_home","result","team_score","opponent_score",
+          "is_divisional","is_playoff"]),
+        ("weekly_franchise_summary", "src_weekly_franchise_summary",
+         """
+         SELECT season, week, franchise_id, franchise_name, owner_name,
+                h2h_team_score,
+                h2h_opponent1_id, h2h_opponent1_name, h2h_opponent1_owner, h2h_opponent1_score,
+                h2h_opponent2_id, h2h_opponent2_name, h2h_opponent2_owner, h2h_opponent2_score,
+                h2h_opponent3_id, h2h_opponent3_name, h2h_opponent3_owner, h2h_opponent3_score,
+                h2h_result, h2h_wins, h2h_losses, h2h_ties, h2h_games,
+                allplay_wins, allplay_losses, allplay_ties, allplay_games,
+                off_points, def_points,
+                allplay_off_wins, allplay_off_losses, allplay_off_ties,
+                allplay_def_wins, allplay_def_losses, allplay_def_ties
+         FROM weeklyresults_summary
+         """,
+         ["season","week","franchise_id","franchise_name","owner_name",
+          "h2h_team_score",
+          "h2h_opponent1_id","h2h_opponent1_name","h2h_opponent1_owner","h2h_opponent1_score",
+          "h2h_opponent2_id","h2h_opponent2_name","h2h_opponent2_owner","h2h_opponent2_score",
+          "h2h_opponent3_id","h2h_opponent3_name","h2h_opponent3_owner","h2h_opponent3_score",
+          "h2h_result","h2h_wins","h2h_losses","h2h_ties","h2h_games",
+          "allplay_wins","allplay_losses","allplay_ties","allplay_games",
+          "off_points","def_points",
+          "allplay_off_wins","allplay_off_losses","allplay_off_ties",
+          "allplay_def_wins","allplay_def_losses","allplay_def_ties"]),
+        ("standings", "src_standings",
+         # NOTE (Keith 2026-05-09): This loader pushes the legacy/local
+         # standings columns (allplay_w/l/t/pct, h2h_*, div_*, pf/pp/pwr).
+         # The MFL-canonical AP-metric columns (allplay_regseason_*,
+         # allplay_playoff_*, allplay_full_*, allplay_historical_*) are
+         # populated separately via scripts/.tmp_scrape_o101_allplay.py
+         # which scrapes MFL's authoritative O=101 endpoint. That script
+         # is currently a one-time scrape; if MFL data changes mid-season
+         # (live results) re-run it to refresh those columns. The columns
+         # are NOT touched by this nightly loader so MFL-canonical values
+         # are preserved.
+         """
+         SELECT season, franchise_id, franchise_name, owner_name, division,
+                div_w, div_l, div_pct,
+                h2h_w, h2h_l, h2h_t, h2h_pct,
+                allplay_w, allplay_l, allplay_t, allplay_pct,
+                pf, pp, pwr, eff, salary
+         FROM standings
+         """,
+         ["season","franchise_id","franchise_name","owner_name","division",
+          "div_w","div_l","div_pct",
+          "h2h_w","h2h_l","h2h_t","h2h_pct",
+          "allplay_w","allplay_l","allplay_t","allplay_pct",
+          "pf","pp","pwr","eff","salary"]),
+        # Per-week per-franchise scores — canonical source for AP metrics
+        ("franchise_weekly_score", "src_franchise_weekly_score",
+         """
+         SELECT DISTINCT season, week, franchise_id, team_score, team_opt_pts,
+                COALESCE(is_playoff, 0) AS is_playoff
+         FROM weeklyresults
+         WHERE team_score IS NOT NULL
+         """,
+         ["season","week","franchise_id","team_score","team_opt_pts","is_playoff"]),
+        # Per-season league configuration (drives reg vs playoff cutover)
+        ("league_season_meta", "src_league_season_meta",
+         """
+         SELECT
+           wr.season,
+           ly.league_id,
+           ly.server AS mfl_server,
+           (SELECT MAX(week) FROM weeklyresults WHERE season=wr.season AND COALESCE(is_playoff,0)=0) AS last_regular_season_week,
+           (SELECT COUNT(DISTINCT week) FROM weeklyresults WHERE season=wr.season) AS total_weeks,
+           (SELECT COUNT(DISTINCT week) FROM weeklyresults WHERE season=wr.season AND COALESCE(is_playoff,0)=0) AS reg_weeks,
+           (SELECT COUNT(DISTINCT week) FROM weeklyresults WHERE season=wr.season AND COALESCE(is_playoff,0)=1) AS playoff_weeks,
+           NULL AS notes
+         FROM (SELECT DISTINCT season FROM weeklyresults) wr
+         LEFT JOIN league_years ly ON ly.season = wr.season
+         """,
+         ["season","league_id","mfl_server","last_regular_season_week",
+          "total_weeks","reg_weeks","playoff_weeks","notes"]),
     ]
 
     selected = set((args.only or "").split(",")) if args.only else None
