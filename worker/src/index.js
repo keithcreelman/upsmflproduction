@@ -2473,6 +2473,13 @@ export default {
           "pendingTrades", "tradeBait", "futureDraftPicks", "schedule",
           "nflByeWeeks", "injuries", "calendar", "draftResults",
           "playerProfile", "playerScores",
+          // myleagues — used by Team Operations to auto-resolve the
+          // viewer's franchise via MFL session cookie. Same-origin
+          // (MFL HPM) returns the user's leagues; off-host (worker
+          // proxy) returns anonymous/empty, which the hub treats as
+          // fall-through. No PII beyond what MFL already exposes
+          // publicly to the franchise owner.
+          "myleagues",
         ]);
         const type = safeStr(url.searchParams.get("TYPE") || "");
         if (!type || !allowedTypes.has(type)) {
