@@ -635,18 +635,29 @@
     roster.forEach(function (r) { statusById[r.id] = safeStr(r.status); });
 
     // Cap hit rules (must match Roster Workbench's currentCapHit):
+    //   • Expired contract (contractYear <= 0): 0% — player is on roster
+    //     awaiting Expired Rookie Auction / cut, but contract has lapsed
+    //     so no cap charge. (Roster Workbench: `if (y <= 0) return 0;`.)
     //   • Taxi: 0% — taxi salary is real money but DOES NOT count vs cap.
     //   • IR:   50% — half of salary counts toward cap.
     //   • All other roster states: 100%.
-    // Without the IR 50% rule, Team Ops Cap Used previously ran $X-Y K
-    // higher than Front Office Cap Summary for any team with IR players.
+    //
+    // Without the cy<=0 rule, Team Ops Cap Used ran higher than Front
+    // Office Cap Summary by the sum of any expired-contract salaries on
+    // roster (Keith 2026-05-15: Long Haulers, Will Levis cy=0 / $6K).
+    // Without IR 50%, same kind of mismatch for any team with IR players.
     var playerSalaryUsed = 0;     // active + IR×0.5 (cap-charging player salary)
     var taxiSalary = 0;           // off-cap
     var irSalaryFull = 0;         // raw IR salary before 50% factor, for transparency
+    var expiredSalary = 0;        // raw cy<=0 salary, off-cap, for transparency
     salaries.forEach(function (s) {
       var amt = Number(s.salary || 0);
       var status = statusById[s.id] || "";
-      if (/taxi/i.test(status)) {
+      var cy = parseInt(s.contractYear, 10);
+      if (cy === 0) {
+        // Expired contract — keep raw amount for transparency, charge $0.
+        expiredSalary += amt;
+      } else if (/taxi/i.test(status)) {
         taxiSalary += amt;
       } else if (/ir|injured/i.test(status)) {
         irSalaryFull += amt;
@@ -704,6 +715,7 @@
       '    </div>',
       '    <div class="tops-kv-note">' + pct + '% of ' + fmtUsd(cap) +
         (irSalaryFull > 0 ? ' · <span style="opacity:0.75;">IR ' + fmtUsd(irSalaryFull) + ' @ 50%</span>' : '') +
+        (expiredSalary > 0 ? ' · <span style="opacity:0.75;">+ ' + fmtUsd(expiredSalary) + ' expired (off-cap)</span>' : '') +
         (taxiSalary > 0 ? ' · <span style="opacity:0.75;">+ ' + fmtUsd(taxiSalary) + ' taxi (off-cap)</span>' : '') +
         '</div>',
       '    <div class="tops-bar"><div class="tops-bar-fill" style="width:' + pct + '%"></div></div>',
