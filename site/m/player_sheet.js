@@ -105,32 +105,56 @@
     return null;
   }
 
-  function renderStatsBlock(profile) {
-    // playerProfile.seasons.season is an array of season summaries with
-    // games + total fantasy points + ppg.
-    if (!profile) return '<div class="ups-m-sheet-empty">No season stats available.</div>';
-    var pp = profile.playerProfile || {};
-    var seasons = U.asArray(pp.seasons && pp.seasons.season);
-    if (!seasons.length) return '<div class="ups-m-sheet-empty">No season stats available.</div>';
-    // Take the most recent N seasons, sort descending by year.
-    seasons = seasons.slice().sort(function (a, b) {
-      return Number(b.year || b.season || 0) - Number(a.year || a.season || 0);
-    }).slice(0, 6);
-    var rows = seasons.map(function (s) {
-      var yr = U.safeStr(s.year || s.season);
-      var gm = Number(s.games || s.gamesPlayed || 0);
-      var pts = Number(s.fantasyPoints || s.points || s.total || 0);
-      var ppg = gm > 0 ? (pts / gm) : 0;
+  function renderStatsBlock(bundle) {
+    // Always show 3 rows: current season + last 2. Fill missing data with
+    // zeros (Keith 2026-05-15). Columns: Games Played, Points, PPG, PPG Rank.
+    //
+    // Sources from /api/player-bundle:
+    //   bundle.career_summary  → [{ season, season_points }, ...]   (worker-built)
+    //   bundle.profile.playerProfile.seasons.season → [{ year, games, fantasyPoints, ... }]  (MFL)
+    //
+    // PPG Rank is not yet exposed in the bundle, so we render 0 for now.
+    // Wire real ranks later via the advanced-stats-leaderboard endpoint.
+    var ctx = window.UPS_MOBILE.state.ctx;
+    var curYear = Number(ctx.year) || (new Date().getUTCFullYear());
+    var years = [curYear, curYear - 1, curYear - 2];
+
+    var careerByYear = {};
+    if (bundle && Array.isArray(bundle.career_summary)) {
+      bundle.career_summary.forEach(function (r) {
+        if (!r) return;
+        careerByYear[Number(r.season)] = r;
+      });
+    }
+    var seasonsByYear = {};
+    if (bundle && bundle.profile) {
+      var pp = bundle.profile.playerProfile || {};
+      U.asArray(pp.seasons && pp.seasons.season).forEach(function (s) {
+        if (!s) return;
+        seasonsByYear[Number(s.year || s.season)] = s;
+      });
+    }
+
+    var rows = years.map(function (y) {
+      var c = careerByYear[y] || {};
+      var s = seasonsByYear[y] || {};
+      var games = Number(s.games || s.gamesPlayed || c.games_played || 0) || 0;
+      var pts = Number(c.season_points != null ? c.season_points
+                      : (s.fantasyPoints || s.points || s.total || 0)) || 0;
+      var ppg = games > 0 ? (pts / games) : 0;
+      var ppgRank = Number(c.pos_ppg_rank || s.pos_ppg_rank || 0) || 0;
       return '<tr>' +
-        '<td>' + U.escapeHtml(yr) + '</td>' +
-        '<td>' + (gm || 0) + '</td>' +
+        '<td>' + y + '</td>' +
+        '<td>' + games + '</td>' +
         '<td>' + (Math.round(pts * 10) / 10).toFixed(1) + '</td>' +
         '<td>' + (Math.round(ppg * 10) / 10).toFixed(1) + '</td>' +
-        '</tr>';
+        '<td>' + (ppgRank > 0 ? ppgRank : 0) + '</td>' +
+      '</tr>';
     }).join("");
+
     return '' +
       '<table class="ups-m-stat-table">' +
-        '<thead><tr><th>Year</th><th>G</th><th>Pts</th><th>PPG</th></tr></thead>' +
+        '<thead><tr><th>Year</th><th>G</th><th>Pts</th><th>PPG</th><th>PPG Rk</th></tr></thead>' +
         '<tbody>' + rows + '</tbody>' +
       '</table>';
   }
@@ -369,7 +393,7 @@
     loadBundle(pid).then(function (bundle) {
       var slot = document.getElementById("ups-m-sheet-stats");
       if (!slot) return;
-      slot.innerHTML = renderStatsBlock(bundle && bundle.profile);
+      slot.innerHTML = renderStatsBlock(bundle);
     });
   }
 
