@@ -715,7 +715,6 @@
       '    </div>',
       '    <div class="tops-kv-note">' + pct + '% of ' + fmtUsd(cap) +
         (irSalaryFull > 0 ? ' · <span style="opacity:0.75;">IR ' + fmtUsd(irSalaryFull) + ' @ 50%</span>' : '') +
-        (expiredSalary > 0 ? ' · <span style="opacity:0.75;">+ ' + fmtUsd(expiredSalary) + ' expired (off-cap)</span>' : '') +
         (taxiSalary > 0 ? ' · <span style="opacity:0.75;">+ ' + fmtUsd(taxiSalary) + ' taxi (off-cap)</span>' : '') +
         '</div>',
       '    <div class="tops-bar"><div class="tops-bar-fill" style="width:' + pct + '%"></div></div>',
