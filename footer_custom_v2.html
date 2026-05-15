@@ -96,7 +96,18 @@
 <script src="https://www.mflscripts.com/mfl-apps/global/footer.js?v=1.12"></script>
 <script src="https://mflscripts.com/mfl-apps/playoffs/standingsColumns.js"></script>
 <script>
+  // Legacy rosters-page fork. Transforms MFL's native /options?O=05
+  // page into our custom rosters display. Skipped on /options?O=07
+  // (Submit Lineup) — Keith 2026-05-15 wants the vanilla MFL lineup
+  // page there, no UPS overlay. The modern Front Office (MESSAGE7)
+  // uses the Roster Workbench iframe, not this fork, so MESSAGE7
+  // isn't affected by either branch here.
   (function () {
+    try {
+      var u = new URL(window.location.href);
+      var o = String(u.searchParams.get("O") || "").trim();
+      if (o === "07") return;  // bail on Submit Lineup
+    } catch (e) {}
     var sha = window.UPS_RELEASE_SHA || "main";
     var s = document.createElement("script");
     s.src = "https://keithcreelman.github.io/upsmflproduction/rosters/mflscripts_rosters_fork.js";
