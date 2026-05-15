@@ -2371,7 +2371,12 @@ export default {
           );
           if (!r.ok) return { error: `HTTP ${r.status}` };
           const data = await r.json();
-          let leagues = data?.myleagues?.league || [];
+          // MFL's TYPE=myleagues response shape is `data.leagues.league[]`
+          // (NOT data.myleagues.league — that key never existed; the worker
+          // bug had been silently returning "not a member" for everyone
+          // until Keith's direct probe surfaced it on 2026-05-15). Accept
+          // both shapes defensively in case MFL ever changes it back.
+          let leagues = data?.leagues?.league || data?.myleagues?.league || [];
           if (!Array.isArray(leagues)) leagues = [leagues];
           for (const lg of leagues) {
             if (String(lg.league_id) === String(leagueId)) {
