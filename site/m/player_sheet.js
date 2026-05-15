@@ -336,6 +336,7 @@
   function handleCccAction(action) {
     if (action === "tag") { handleTagSubmit(); return; }
     if (action === "untag") { handleUntagSubmit(); return; }
+    if (action === "extension") { handleExtensionPick(); return; }
 
     var FOA = window.UPS_FRONT_OFFICE_ACTIONS;
     if (!FOA) return;
@@ -350,6 +351,148 @@
       leagueId: s.ctx.leagueId
     });
     window.open(url, "_blank");
+  }
+
+  // In-app Extend — fetch precomputed options, show picker, submit.
+  function handleExtensionPick() {
+    var FOX = window.UPS_FRONT_OFFICE_EXT;
+    if (!FOX) return;
+    var s = window.UPS_MOBILE.state;
+    var rosterRow = footerState.rosterRow;
+    var pid = footerState.pid;
+
+    showExtensionLoadingSheet();
+    FOX.loadOptionsForPlayer({
+      year: s.ctx.year,
+      pid: pid,
+      fid: s.viewerFranchiseId,
+      rosterRow: rosterRow
+    }).then(function (options) {
+      renderExtensionOptionsSheet(options);
+    }).catch(function (err) {
+      showExtensionErrorSheet("Failed to load options: " + (err && err.message || err));
+    });
+  }
+
+  function ensureExtMount() {
+    var existing = document.getElementById("ups-m-ext-overlay");
+    if (existing) existing.remove();
+    var html =
+      '<div class="ups-m-drop-overlay" id="ups-m-ext-overlay">' +
+        '<div class="ups-m-drop-sheet">' +
+          '<div class="ups-m-drop-head">' +
+            '<button class="ups-m-drop-close" id="ups-m-ext-close" aria-label="Close">×</button>' +
+            '<div class="grip"></div>' +
+            '<div class="title">Extend ' + U.escapeHtml(footerState.name) + '</div>' +
+            '<div class="sub" id="ups-m-ext-sub">Loading available options…</div>' +
+          '</div>' +
+          '<div class="ups-m-drop-body" id="ups-m-ext-body"></div>' +
+        '</div>' +
+      '</div>';
+    var mount = document.getElementById("ups-m-app");
+    if (!mount) return null;
+    mount.insertAdjacentHTML("beforeend", html);
+    document.body.style.overflow = "hidden";
+    var overlay = document.getElementById("ups-m-ext-overlay");
+    overlay.addEventListener("click", function (e) { if (e.target === overlay) closeExtSheet(); });
+    document.getElementById("ups-m-ext-close").addEventListener("click", closeExtSheet);
+    return overlay;
+  }
+  function closeExtSheet() {
+    var ov = document.getElementById("ups-m-ext-overlay");
+    if (ov) ov.remove();
+    document.body.style.overflow = "";
+  }
+  function showExtensionLoadingSheet() {
+    ensureExtMount();
+    var body = document.getElementById("ups-m-ext-body");
+    if (body) body.innerHTML = '<div class="ups-m-sheet-loading">Loading…</div>';
+  }
+  function showExtensionErrorSheet(msg) {
+    ensureExtMount();
+    var body = document.getElementById("ups-m-ext-body");
+    if (body) body.innerHTML = '<div class="ups-m-sheet-empty">' + U.escapeHtml(msg) + '</div>';
+  }
+  function renderExtensionOptionsSheet(options) {
+    ensureExtMount();
+    var sub = document.getElementById("ups-m-ext-sub");
+    var body = document.getElementById("ups-m-ext-body");
+    if (!body) return;
+    if (!options || !options.length) {
+      if (sub) sub.textContent = "No extension previews available for this player.";
+      body.innerHTML = '<div class="ups-m-sheet-empty">No options. Try the desktop Front Office for manual extension.</div>';
+      return;
+    }
+    if (sub) sub.textContent = "Pick the option to submit. Writes to MFL on confirm.";
+    var FOX = window.UPS_FRONT_OFFICE_EXT;
+    var html = options.map(function (opt) {
+      return '<button class="ups-m-drop-row" data-option-key="' + U.escapeHtml(opt.optionKey) + '">' +
+        '<div class="body">' +
+          '<div class="name">' + U.escapeHtml(FOX.extensionActionLabel(opt)) + '</div>' +
+          '<div class="sub">' + U.escapeHtml(FOX.extensionOptionSummary(opt)) + '</div>' +
+          '<div class="sub" style="margin-top:4px;font-family:monospace;font-size:10px;opacity:0.7">' +
+            U.escapeHtml((opt.contractInfo || "").slice(0, 120)) + '</div>' +
+        '</div>' +
+        '<div class="right">' +
+          '<div class="penalty" style="color:var(--accent)">' + U.escapeHtml(U.fmtUsd(opt.salaryToSend)) + ' Y1</div>' +
+          '<div class="after">TCV ' + U.escapeHtml(U.fmtUsd(opt.tcv)) + '</div>' +
+        '</div>' +
+      '</button>';
+    }).join("");
+    body.innerHTML = html;
+    var rows = body.querySelectorAll(".ups-m-drop-row");
+    for (var i = 0; i < rows.length; i++) {
+      rows[i].addEventListener("click", function () {
+        var key = this.getAttribute("data-option-key");
+        var picked = options.filter(function (o) { return o.optionKey === key; })[0];
+        if (picked) confirmAndSubmitExtension(picked);
+      });
+    }
+  }
+  function confirmAndSubmitExtension(option) {
+    var FOX = window.UPS_FRONT_OFFICE_EXT;
+    var s = window.UPS_MOBILE.state;
+    var rosterRow = footerState.rosterRow;
+    var msg = "Submit extension for " + footerState.name + "?\n\n" +
+              FOX.extensionActionLabel(option) + "\n" +
+              FOX.extensionOptionSummary(option) + "\n\n" +
+              "This writes to MFL and cannot be undone from the app.";
+    if (!window.confirm(msg)) return;
+
+    var body = document.getElementById("ups-m-ext-body");
+    if (body) body.innerHTML = '<div class="ups-m-sheet-loading">Submitting…</div>';
+
+    var player = window.UPS_MOBILE.data.playerById(footerState.pid);
+    FOX.submitExtension({
+      workerBase: window.UPS_MOBILE.api.workerBase(),
+      leagueId: s.ctx.leagueId,
+      year: s.ctx.year,
+      pid: footerState.pid,
+      playerName: U.safeStr(player && player.name) || footerState.name,
+      fid: s.viewerFranchiseId,
+      franchiseName: s.viewerFranchise && s.viewerFranchise.name || "",
+      position: U.safeStr(player && player.position),
+      option: option,
+      rosterRow: rosterRow,
+      dryRun: false,
+      commishOverride: false
+    }).then(function (resp) {
+      if (resp.ok) {
+        window.UPS_MOBILE.ui.showToast("Extension submitted ✓", "ok");
+        closeExtSheet();
+        return window.UPS_MOBILE.actions.reloadData().then(function () {
+          window.UPS_MOBILE.route.renderRoute();
+          close();
+        });
+      }
+      var slot = document.getElementById("ups-m-ext-body");
+      if (slot) slot.innerHTML = '<div class="ups-m-sheet-empty" style="color:var(--danger)">Extension failed: ' +
+        U.escapeHtml(resp.error || "unknown error") + '</div>';
+    }).catch(function (err) {
+      var slot = document.getElementById("ups-m-ext-body");
+      if (slot) slot.innerHTML = '<div class="ups-m-sheet-empty" style="color:var(--danger)">Extension failed: ' +
+        U.escapeHtml(err && err.message || String(err)) + '</div>';
+    });
   }
 
   // In-app Tag submit. Pipeline lives in front_office_tag_submit.js
