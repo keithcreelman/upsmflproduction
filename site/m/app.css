@@ -1,0 +1,420 @@
+/* UPS Mobile — Phase 1 shell + Contracts view.
+   Mobile-first. Dark theme mirrors the desktop player modal palette
+   (#0e1320 background, #5b8dff accent) so visual identity stays consistent.
+   No framework — vanilla CSS, no preprocessor. */
+
+:root {
+  --bg: #0e1320;
+  --bg-elev: #141a26;
+  --bg-elev2: #1a2230;
+  --line: #2a3446;
+  --line-soft: #3a455c;
+  --fg: #e8edf5;
+  --fg-muted: #8a97ad;
+  --accent: #5b8dff;
+  --warn: #ffb86b;
+  --ok: #8be58b;
+  --danger: #ff6b6b;
+  --teal: #2dd4bf;
+  --nav-h: 60px;
+  --hdr-h: 48px;
+  --safe-bot: env(safe-area-inset-bottom, 0px);
+  --safe-top: env(safe-area-inset-top, 0px);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 15px;
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+  -webkit-text-size-adjust: 100%;
+  overscroll-behavior-y: contain;
+}
+
+body { min-height: 100vh; }
+
+.ups-m-app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ----- Header ----- */
+.ups-m-header {
+  position: sticky;
+  top: 0;
+  height: calc(var(--hdr-h) + var(--safe-top));
+  padding-top: var(--safe-top);
+  background: var(--bg-elev);
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-left: 16px;
+  padding-right: 16px;
+  z-index: 20;
+}
+.ups-m-header-title {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--fg);
+}
+.ups-m-header-meta {
+  font-size: 11px;
+  color: var(--fg-muted);
+  text-align: right;
+}
+
+/* ----- Main scroll area ----- */
+.ups-m-main {
+  flex: 1;
+  padding-bottom: calc(var(--nav-h) + var(--safe-bot) + 16px);
+}
+
+.ups-m-loading,
+.ups-m-empty,
+.ups-m-error {
+  padding: 32px 20px;
+  text-align: center;
+  color: var(--fg-muted);
+  font-size: 14px;
+}
+.ups-m-error { color: var(--danger); }
+
+/* ----- Bottom nav ----- */
+.ups-m-nav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: calc(var(--nav-h) + var(--safe-bot));
+  padding-bottom: var(--safe-bot);
+  background: var(--bg-elev);
+  border-top: 1px solid var(--line);
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  z-index: 30;
+}
+.ups-m-nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  color: var(--fg-muted);
+  text-decoration: none;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  -webkit-tap-highlight-color: transparent;
+  transition: color 120ms;
+}
+.ups-m-nav-item.active { color: var(--accent); }
+.ups-m-nav-icon { font-size: 20px; line-height: 1; }
+.ups-m-nav-label { font-size: 11px; }
+
+/* ----- Sub-tabs (used by My Team and League) ----- */
+.ups-m-subtabs {
+  position: sticky;
+  top: calc(var(--hdr-h) + var(--safe-top));
+  background: var(--bg-elev);
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  overflow-x: auto;
+  padding: 0 8px;
+  z-index: 10;
+}
+.ups-m-subtab {
+  flex: 0 0 auto;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg-muted);
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+}
+.ups-m-subtab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+/* ----- Cards ----- */
+.ups-m-card {
+  margin: 12px;
+  padding: 14px;
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.ups-m-card-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+  margin: 0 0 8px;
+}
+
+/* Cap Space card */
+.ups-m-cap-card {
+  margin: 12px;
+  padding: 14px 14px 12px;
+  background: linear-gradient(180deg, #161d2c 0%, #121826 100%);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.ups-m-cap-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.ups-m-cap-kv .lbl {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+.ups-m-cap-kv .val {
+  font-size: 22px;
+  font-weight: 700;
+  margin-top: 2px;
+  font-variant-numeric: tabular-nums;
+}
+.ups-m-cap-kv .val.warn { color: var(--warn); }
+.ups-m-cap-kv .val.ok { color: var(--ok); }
+.ups-m-cap-kv .val.danger { color: var(--danger); }
+
+.ups-m-cap-bar {
+  margin-top: 12px;
+  height: 6px;
+  background: var(--bg-elev2);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.ups-m-cap-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), #7aa9ff);
+  transition: width 200ms;
+}
+.ups-m-cap-bar-fill.over { background: linear-gradient(90deg, var(--warn), var(--danger)); }
+
+.ups-m-cap-foot {
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--fg-muted);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.ups-m-cap-foot .chip {
+  background: var(--bg-elev2);
+  border: 1px solid var(--line);
+  padding: 3px 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  color: var(--fg-muted);
+}
+
+/* ----- Position group headers ----- */
+.ups-m-pos-group {
+  margin: 16px 0 4px;
+  padding: 0 16px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: var(--fg-muted);
+  text-transform: uppercase;
+}
+
+/* ----- Player rows (Contracts view) ----- */
+.ups-m-player-list {
+  display: flex;
+  flex-direction: column;
+}
+.ups-m-player-row {
+  display: grid;
+  grid-template-columns: 32px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 12px 16px;
+  background: var(--bg-elev);
+  border-top: 1px solid var(--line);
+  cursor: pointer;
+  -webkit-tap-highlight-color: rgba(91,141,255,0.12);
+  min-height: 56px;
+}
+.ups-m-player-row:active { background: var(--bg-elev2); }
+.ups-m-player-row .pos {
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+  padding: 3px 0;
+  background: var(--bg-elev2);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--fg-muted);
+  letter-spacing: 0.04em;
+}
+.ups-m-player-row .pos.qb { color: #ef9a9a; }
+.ups-m-player-row .pos.rb { color: #80deea; }
+.ups-m-player-row .pos.wr { color: #a5d6a7; }
+.ups-m-player-row .pos.te { color: #ffcc80; }
+.ups-m-player-row .pos.pk { color: #ce93d8; }
+.ups-m-player-row .pos.def,
+.ups-m-player-row .pos.dl,
+.ups-m-player-row .pos.lb,
+.ups-m-player-row .pos.db { color: #b39ddb; }
+
+.ups-m-player-row .body { min-width: 0; }
+.ups-m-player-row .name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ups-m-player-row .sub {
+  font-size: 11px;
+  color: var(--fg-muted);
+  margin-top: 2px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.ups-m-player-row .sub .badge {
+  background: var(--bg-elev2);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 1px 5px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+.ups-m-player-row .sub .badge.ir { color: var(--warn); border-color: rgba(255,184,107,0.4); }
+.ups-m-player-row .sub .badge.tx { color: var(--teal); border-color: rgba(45,212,191,0.4); }
+.ups-m-player-row .sub .badge.exp { color: var(--danger); border-color: rgba(255,107,107,0.4); }
+
+.ups-m-player-row .right {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.ups-m-player-row .salary {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--fg);
+}
+.ups-m-player-row .cy {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--fg-muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-top: 2px;
+}
+
+/* ----- Empty/placeholder rows ----- */
+.ups-m-stub {
+  padding: 40px 24px;
+  text-align: center;
+  color: var(--fg-muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+.ups-m-stub h3 { color: var(--fg); margin: 0 0 8px; font-size: 16px; }
+
+/* ----- Toast ----- */
+.ups-m-toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--nav-h) + var(--safe-bot) + 20px);
+  transform: translate(-50%, 30px);
+  background: var(--bg-elev2);
+  color: var(--fg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 13px;
+  opacity: 0;
+  transition: opacity 200ms, transform 200ms;
+  z-index: 50;
+  pointer-events: none;
+  max-width: 88%;
+  text-align: center;
+}
+.ups-m-toast.show {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+.ups-m-toast.err { border-color: var(--danger); color: var(--danger); }
+.ups-m-toast.ok { border-color: var(--ok); color: var(--ok); }
+
+/* ----- Franchise picker ----- */
+.ups-m-pick-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ups-m-pick-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--bg-elev2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--fg);
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  min-height: 48px;
+  width: 100%;
+}
+.ups-m-pick-row:active { background: var(--line); }
+.ups-m-pick-row .num {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--fg-muted);
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 2px 6px;
+  letter-spacing: 0.04em;
+}
+.ups-m-pick-row .name { font-weight: 600; flex: 1; }
+.ups-m-pick-row .owner { font-size: 11px; color: var(--fg-muted); }
+
+/* ----- "Use Desktop Site" link ----- */
+.ups-m-desktop-link {
+  display: block;
+  margin: 20px 12px;
+  padding: 14px;
+  text-align: center;
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--accent);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* Hide on very narrow phones where bottom nav gets squeezed */
+@media (max-width: 320px) {
+  .ups-m-nav-label { font-size: 10px; }
+  .ups-m-cap-kv .val { font-size: 18px; }
+}

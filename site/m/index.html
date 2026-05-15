@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#0e1320" />
+  <title>UPS Mobile</title>
+  <link rel="stylesheet" href="./app.css" />
+  <link rel="stylesheet" href="./player_sheet.css" />
+</head>
+<body>
+  <div id="ups-m-app" class="ups-m-app">
+    <header class="ups-m-header">
+      <div class="ups-m-header-title" id="ups-m-header-title">UPS</div>
+      <div class="ups-m-header-meta" id="ups-m-header-meta"></div>
+    </header>
+
+    <main class="ups-m-main" id="ups-m-main">
+      <div class="ups-m-loading" id="ups-m-loading">Loading…</div>
+    </main>
+
+    <nav class="ups-m-nav" id="ups-m-nav">
+      <a href="#myteam/contracts" class="ups-m-nav-item" data-route="myteam">
+        <span class="ups-m-nav-icon" aria-hidden="true">📋</span>
+        <span class="ups-m-nav-label">My Team</span>
+      </a>
+      <a href="#players" class="ups-m-nav-item" data-route="players">
+        <span class="ups-m-nav-icon" aria-hidden="true">🔍</span>
+        <span class="ups-m-nav-label">Players</span>
+      </a>
+      <a href="#league/rosters" class="ups-m-nav-item" data-route="league">
+        <span class="ups-m-nav-icon" aria-hidden="true">🏈</span>
+        <span class="ups-m-nav-label">League</span>
+      </a>
+      <a href="#more" class="ups-m-nav-item" data-route="more">
+        <span class="ups-m-nav-icon" aria-hidden="true">⋯</span>
+        <span class="ups-m-nav-label">More</span>
+      </a>
+    </nav>
+
+    <div id="ups-m-sheet-mount"></div>
+    <div id="ups-m-toast" class="ups-m-toast" role="status" aria-live="polite"></div>
+  </div>
+
+  <script src="./app.js"></script>
+  <script src="./player_sheet.js"></script>
+  <script src="./views/contracts.js"></script>
+  <script>
+    if (window.UPS_MOBILE && window.UPS_MOBILE.boot) window.UPS_MOBILE.boot();
+  </script>
+</body>
+</html>
