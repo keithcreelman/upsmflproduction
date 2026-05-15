@@ -218,7 +218,10 @@
     }
 
     // Step 2 — is THIS player the team's currently-active tag on this side?
-    var side = normalizeTagSideValue(planRow.side) || getTagSideFromPos(planRow.position);
+    // tag_tracking.json uses "tag_side" (e.g. "IDP_K", "OFFENSE"); fall
+    // back to position-derived side for safety.
+    var side = normalizeTagSideValue(planRow.tag_side || planRow.side) ||
+               getTagSideFromPos(planRow.position);
     var active = activeTaggedPlayerForTeam(rosterRowsWithPos, side, tagSubmissions, fid);
     var activePid = active ? String(active.id || active.player_id || "").replace(/\D/g, "") : "";
 

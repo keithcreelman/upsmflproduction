@@ -330,15 +330,17 @@
 
   // Open the desktop Contract Command Center deep-link for this player.
   // URL builder lives in front_office_actions.js (verbatim mirror of
-  // roster_workbench.js:7265). Mobile does NOT reimplement the
-  // extension/tag/restructure picker — the user lands on the desktop CCC
-  // with the player + action pre-targeted and completes from there.
+  // roster_workbench.js:7265). Mobile uses this for Extend / Restructure
+  // / Rookie Option which need the full desktop picker. Tag/Untag now
+  // submit in-app via UPS_FRONT_OFFICE_TAG.
   function handleCccAction(action) {
+    if (action === "tag") { handleTagSubmit(); return; }
+    if (action === "untag") { handleUntagSubmit(); return; }
+
     var FOA = window.UPS_FRONT_OFFICE_ACTIONS;
     if (!FOA) return;
     var pid = footerState.pid;
     var s = window.UPS_MOBILE.state;
-    // Player's franchise (mobile only shows actions on own-roster players).
     var fid = s.viewerFranchiseId;
     var url = FOA.buildContractCenterActionUrl({
       action: action,
@@ -348,6 +350,120 @@
       leagueId: s.ctx.leagueId
     });
     window.open(url, "_blank");
+  }
+
+  // In-app Tag submit. Pipeline lives in front_office_tag_submit.js
+  // (verbatim mirror of roster_workbench.js submitTagPlanSelection).
+  function handleTagSubmit() {
+    var FOA = window.UPS_FRONT_OFFICE_ACTIONS;
+    var FOT = window.UPS_FRONT_OFFICE_TAG;
+    if (!FOA || !FOT) return;
+    var s = window.UPS_MOBILE.state;
+    // Re-run tagActionForPlayer to get the matched plan row.
+    var teamRows = (window.UPS_MOBILE.data.getRosterFor(s.viewerFranchiseId) || []).map(function (r) {
+      var p = window.UPS_MOBILE.data.playerById(r.id);
+      return { id: r.id, contractStatus: r.contractStatus, position: (p && p.position) || "" };
+    });
+    var action = FOA.tagActionForPlayer({
+      rosterRow: footerState.rosterRow,
+      fid: s.viewerFranchiseId,
+      rosterRowsWithPos: teamRows,
+      tagTracking: s.tagTracking || [],
+      tagSubmissions: s.tagSubmissions || []
+    });
+    if (action.kind !== "tag" || !action.row) {
+      window.UPS_MOBILE.ui.showToast("This player isn't in the tag plan.", "err");
+      return;
+    }
+    var row = action.row;
+    var salary = FOT.effectiveTagSalaryForRow(row);
+    var formula = FOT.effectiveTagFormulaForRow(row);
+    var msg = "Tag " + (row.player_name || footerState.name) + " for " + U.fmtUsd(salary) + "?\n\n" +
+              "Side: " + U.safeStr(row.tag_side || row.side) + "\n" +
+              (row.tag_tier ? "Tier: " + row.tag_tier + "\n" : "") +
+              (formula ? "Formula: " + formula + "\n" : "") +
+              "\nThis writes to MFL and logs to UPS tag history.";
+    if (!window.confirm(msg)) return;
+
+    var btn = document.querySelector('[data-act="tag"]') || document.querySelector('[data-ccc-action="tag"]');
+    setBusy(btn, true, "Tagging…");
+    FOT.submitTag({
+      workerBase: window.UPS_MOBILE.api.workerBase(),
+      leagueId: s.ctx.leagueId,
+      year: s.ctx.year,
+      row: row,
+      dryRun: false,
+      commishOverride: false
+    }).then(function (resp) {
+      setBusy(btn, false);
+      if (resp.ok) {
+        window.UPS_MOBILE.ui.showToast((row.player_name || footerState.name) + " tagged ✓", "ok");
+        return window.UPS_MOBILE.actions.reloadData().then(function () {
+          window.UPS_MOBILE.route.renderRoute();
+          close();
+        });
+      }
+      window.UPS_MOBILE.ui.showToast("Tag failed: " + (resp.error || "unknown error"), "err");
+    }).catch(function (err) {
+      setBusy(btn, false);
+      window.UPS_MOBILE.ui.showToast("Tag failed: " + (err && err.message || err), "err");
+    });
+  }
+
+  function handleUntagSubmit() {
+    var FOA = window.UPS_FRONT_OFFICE_ACTIONS;
+    var FOT = window.UPS_FRONT_OFFICE_TAG;
+    if (!FOA || !FOT) return;
+    var s = window.UPS_MOBILE.state;
+    var teamRows = (window.UPS_MOBILE.data.getRosterFor(s.viewerFranchiseId) || []).map(function (r) {
+      var p = window.UPS_MOBILE.data.playerById(r.id);
+      return { id: r.id, contractStatus: r.contractStatus, position: (p && p.position) || "" };
+    });
+    var action = FOA.tagActionForPlayer({
+      rosterRow: footerState.rosterRow,
+      fid: s.viewerFranchiseId,
+      rosterRowsWithPos: teamRows,
+      tagTracking: s.tagTracking || [],
+      tagSubmissions: s.tagSubmissions || []
+    });
+    if (action.kind !== "untag" || !action.row) {
+      window.UPS_MOBILE.ui.showToast("This player isn't currently tagged.", "err");
+      return;
+    }
+    var row = action.row;
+    if (!window.confirm("Untag " + (row.player_name || footerState.name) + "?\n\n" +
+        "Restore: " + U.safeStr(row.contract_status) + " at " + U.fmtUsd(row.salary) + "\n" +
+        "(Removes the tag and reverts the contract.)")) return;
+
+    var player = window.UPS_MOBILE.data.playerById(footerState.pid);
+    var btn = document.querySelector('[data-ccc-action="untag"]');
+    setBusy(btn, true, "Untagging…");
+    FOT.submitUntag({
+      workerBase: window.UPS_MOBILE.api.workerBase(),
+      leagueId: s.ctx.leagueId,
+      year: s.ctx.year,
+      fid: s.viewerFranchiseId,
+      pid: footerState.pid,
+      playerName: U.safeStr(player && player.name) || footerState.name,
+      franchiseName: s.viewerFranchise && s.viewerFranchise.name || "",
+      position: U.safeStr(player && player.position),
+      row: row,
+      dryRun: false,
+      commishOverride: false
+    }).then(function (resp) {
+      setBusy(btn, false);
+      if (resp.ok) {
+        window.UPS_MOBILE.ui.showToast((row.player_name || footerState.name) + " untagged ✓", "ok");
+        return window.UPS_MOBILE.actions.reloadData().then(function () {
+          window.UPS_MOBILE.route.renderRoute();
+          close();
+        });
+      }
+      window.UPS_MOBILE.ui.showToast("Untag failed: " + (resp.error || "unknown error"), "err");
+    }).catch(function (err) {
+      setBusy(btn, false);
+      window.UPS_MOBILE.ui.showToast("Untag failed: " + (err && err.message || err), "err");
+    });
   }
 
   function setBusy(btn, busy, busyText) {
