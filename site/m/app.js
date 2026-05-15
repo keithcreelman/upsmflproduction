@@ -243,7 +243,20 @@
     }
   }
 
-  // ---------- Contract helpers (ported from site/shared/player_profile_master.js:88-167) ----------
+  // ---------- Contract helpers ----------
+  // Drop-penalty algorithm follows docs/league_context_v1.md §6 (canonical,
+  // LOCKED v11). The legacy desktop calendar-month + 35% WW model is
+  // retired per the 2026-05-08 per-week pro-rated rule. Mobile implements
+  // canonical directly rather than mirroring desktop's legacy code.
+  //
+  // §6.C1 formula:   Penalty = (TCV × 0.75) − Salary Earned
+  // §6.B1 earning:   Salary Earned = (completed_weeks / eligible_weeks) × year's actual salary
+  //                  Prior years played out fully count at 100% of THAT year's salary.
+  // §6.C2 cap-free:  cy≤0, taxi, 1-yr Vet/WW under $5K, tag pre-FA-Auction, etc.
+  function safeInt(v, def) {
+    var n = parseInt(v, 10);
+    return isFinite(n) ? n : (def == null ? 0 : def);
+  }
   function parseContractMoney(s) {
     if (s == null) return 0;
     s = String(s).trim().replace(/[$,]/g, "");
@@ -269,32 +282,146 @@
     }
     return out;
   }
-  function earnedToDate(rosterRow, info) {
+
+  function contractLengthFor(rosterRow, info) {
     info = info || parseContractInfo(rosterRow && rosterRow.contractInfo);
-    var len = info.length || 0;
-    var cy = parseInt(rosterRow && rosterRow.contractYear, 10) || 0;
-    var played = Math.max(0, len - cy);
-    var earned = 0;
-    for (var i = 1; i <= played; i++) {
-      earned += info.yearVals[i] || 0;
-    }
-    return earned;
+    var explicit = info.length || 0;
+    var yearKeysMax = 0;
+    Object.keys(info.yearVals || {}).forEach(function (k) {
+      yearKeysMax = Math.max(yearKeysMax, parseInt(k, 10) || 0);
+    });
+    var cy = safeInt(rosterRow && rosterRow.contractYear, 0);
+    return Math.max(explicit, yearKeysMax, cy);
   }
-  // Era-aware dead-cap if dropped today. (TCV × 75%) − Earned, 2019+. Returns
-  // null for pre-2019 (formula differs, see league_context_v1.md). Identical
-  // to player_profile_master.js:159 dropPenalty.
+  function contractYearIndexFor(rosterRow, info) {
+    info = info || parseContractInfo(rosterRow && rosterRow.contractInfo);
+    var length = contractLengthFor(rosterRow, info);
+    var cy = safeInt(rosterRow && rosterRow.contractYear, 0);
+    if (length <= 0 || cy <= 0) return 0;
+    return Math.max(1, length - cy + 1);
+  }
+  function currentContractYearValueFor(rosterRow, info) {
+    info = info || parseContractInfo(rosterRow && rosterRow.contractInfo);
+    var idx = contractYearIndexFor(rosterRow, info);
+    if (idx > 0 && info.yearVals[idx] > 0) return safeInt(info.yearVals[idx], 0);
+    return Math.max(0, safeInt(rosterRow && rosterRow.salary, 0));
+  }
+  function totalContractValueFor(rosterRow, info) {
+    info = info || parseContractInfo(rosterRow && rosterRow.contractInfo);
+    if (info.tcv > 0) return info.tcv;
+    var total = 0;
+    Object.keys(info.yearVals).forEach(function (k) {
+      total += safeInt(info.yearVals[k], 0);
+    });
+    if (total > 0) return total;
+    var length = contractLengthFor(rosterRow, info);
+    return Math.max(0, safeInt(rosterRow && rosterRow.salary, 0)) * length;
+  }
+  function earnedBeforeCurrentYearFor(rosterRow, info) {
+    info = info || parseContractInfo(rosterRow && rosterRow.contractInfo);
+    var idx = contractYearIndexFor(rosterRow, info);
+    if (idx <= 1) return 0;
+    var earned = 0;
+    for (var i = 1; i < idx; i += 1) earned += safeInt(info.yearVals[i], 0);
+    if (earned > 0) return earned;
+    // Fallback: use AAV-shaped flat earning if no explicit yearVals
+    var perYear = Math.max(0, safeInt(rosterRow && rosterRow.salary, 0));
+    return perYear * (idx - 1);
+  }
+  // NFL Week 1 Thursday kickoff dates. Update yearly. League_context §3.A
+  // says earning ticks at the END of each completed regular-season week.
+  // 17-week regular season (NFL standard since 2021).
+  var NFL_WEEK1_KICKOFF = {
+    2024: new Date(2024, 8, 5),   // Sep 5 2024 (Thu)
+    2025: new Date(2025, 8, 4),   // Sep 4 2025 (Thu)
+    2026: new Date(2026, 8, 10),  // Sep 10 2026 (Thu)
+    2027: new Date(2027, 8, 9)    // Sep 9 2027 (Thu)
+  };
+  var REGULAR_SEASON_WEEKS = 17;
+
+  // Completed NFL regular-season weeks for `seasonNum` as of `now`.
+  // A week is "completed" the morning after that week's Monday Night Football
+  // — i.e. 7 days after the prior Thursday. Returns 0 pre-season, 17 post-season.
+  function completedNflWeeks(seasonNum, now) {
+    var kickoff = NFL_WEEK1_KICKOFF[Number(seasonNum)];
+    if (!kickoff) return 0;
+    if (!(now instanceof Date) || isNaN(now.getTime())) return 0;
+    var diffMs = now.getTime() - kickoff.getTime();
+    if (diffMs < 0) return 0;
+    var weeks = Math.floor(diffMs / (7 * 24 * 60 * 60 * 1000));
+    return Math.max(0, Math.min(REGULAR_SEASON_WEEKS, weeks));
+  }
+  function isTagCutPreAuction(rosterRow, seasonNum, now) {
+    var type = safeStr(rosterRow && rosterRow.contractStatus).toUpperCase();
+    if (type !== "TAG") return false;
+    var yr = safeInt(seasonNum, 0);
+    if (yr <= 0 || !(now instanceof Date) || isNaN(now.getTime())) return false;
+    if (now.getFullYear() < yr) return true;
+    if (now.getFullYear() > yr) return false;
+    return now < new Date(yr, 7, 1, 0, 0, 0, 0); // Aug 1
+  }
+  function isLikelyWaiver(rosterRow) {
+    var type = safeStr(rosterRow && rosterRow.contractStatus).toUpperCase();
+    return type === "WW";
+  }
+
+  // Canonical drop-penalty per league_context_v1.md §6 (LOCKED v11).
+  // Returns { amount, note, tcv, currentYearSalary, priorEarned, accrued, earned }.
+  //
+  // Limitation: total eligible weeks defaults to 17 (full-season pickup).
+  // True canonical denominator for a mid-season WW pickup in Week W would be
+  // 18−W, requiring acquisition-week lookup from transactions log. v1
+  // overestimates eligible weeks for waiver pickups → underestimates earned
+  // → may over-penalize WW cuts mid-season. Flagged in the note when WW.
   function dropPenaltyFor(rosterRow, season) {
     if (!rosterRow) return null;
-    var cy = parseInt(rosterRow.contractYear, 10);
-    if (cy <= 0) return { amount: 0, note: "Expired contract — no penalty." };
-    if (/taxi/i.test(rosterRow.status || "")) return { amount: 0, note: "Taxi — no penalty." };
     var info = parseContractInfo(rosterRow.contractInfo);
-    if (!info.tcv) return null;
-    var seasonNum = Number(season) || (new Date().getUTCFullYear());
-    if (seasonNum < 2019) return null;
-    var earned = earnedToDate(rosterRow, info);
-    var amount = Math.max(0, Math.round(info.tcv * 0.75) - earned);
-    return { amount: amount, note: amount === 0 ? "No dead-cap penalty." : "" };
+    var seasonNum = safeInt(season, new Date().getUTCFullYear());
+    var now = new Date();
+    var cy = safeInt(rosterRow.contractYear, 0);
+
+    var tcv = totalContractValueFor(rosterRow, info);
+    var currentYearSalary = currentContractYearValueFor(rosterRow, info);
+    var priorEarned = earnedBeforeCurrentYearFor(rosterRow, info);
+    var contractLength = contractLengthFor(rosterRow, info);
+    var type = safeStr(rosterRow.contractStatus).toUpperCase();
+
+    // Current-year accrued — §6.B1 per-week pro-rated.
+    var totalEligibleWeeks = REGULAR_SEASON_WEEKS;  // v1 assumption; see comment above
+    var completedWeeks = completedNflWeeks(seasonNum, now);
+    var accrued = totalEligibleWeeks > 0
+      ? Math.round((completedWeeks / totalEligibleWeeks) * currentYearSalary)
+      : 0;
+    var earned = priorEarned + accrued;
+
+    var base = {
+      tcv: tcv,
+      currentYearSalary: currentYearSalary,
+      priorEarned: priorEarned, accrued: accrued, earned: earned,
+      completedWeeks: completedWeeks, totalEligibleWeeks: totalEligibleWeeks
+    };
+
+    // §6.C2 cap-free overrides
+    if (cy <= 0) {
+      return Object.assign({}, base, { amount: 0, note: "Expired contract — no penalty." });
+    }
+    if (/taxi/i.test(rosterRow.status || "")) {
+      return Object.assign({}, base, { amount: 0, note: "Taxi never-promoted — $0 penalty." });
+    }
+    if (isTagCutPreAuction(rosterRow, seasonNum, now)) {
+      return Object.assign({}, base, { amount: 0, note: "Pre-FA-Auction tag cut — $0 (tag nullified)." });
+    }
+    if (contractLength === 1 && currentYearSalary < 5000 && (type === "VETERAN" || type === "WW")) {
+      return Object.assign({}, base, { amount: 0, note: "1-yr Vet/WW under $5K — cap-free." });
+    }
+
+    // §6.C1 canonical: Penalty = (TCV × 0.75) − Salary Earned
+    var amount = Math.max(0, Math.round(tcv * 0.75) - earned);
+    var note = amount === 0
+      ? "Guarantee already fully earned."
+      : "Penalty = 75% × TCV (" + fmtUsd(Math.round(tcv * 0.75)) + ") − Earned (" + fmtUsd(earned) + ").";
+    if (type === "WW") note += " WW eligible-weeks denominator approximated as 17.";
+    return Object.assign({}, base, { amount: amount, note: note });
   }
 
   // ---------- Trade Bait helpers ----------
@@ -723,7 +850,9 @@
       getAdjustmentTotalFor: getAdjustmentTotalFor,
       computeCap: computeCap,
       parseContractInfo: parseContractInfo,
-      earnedToDate: earnedToDate,
+      earnedBeforeCurrentYearFor: earnedBeforeCurrentYearFor,
+      totalContractValueFor: totalContractValueFor,
+      currentContractYearValueFor: currentContractYearValueFor,
       dropPenaltyFor: dropPenaltyFor,
       getMyTradeBaitIds: getMyTradeBaitIds,
       getMyTradeBaitLookingFor: getMyTradeBaitLookingFor,

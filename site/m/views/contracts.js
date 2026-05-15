@@ -168,11 +168,17 @@
   }
 
   function renderLineupStub(mount) {
+    // Delegate to lineup.js (Phase 2). Falls back to a stub if the view
+    // hasn't loaded yet (script-order safety).
+    if (M.lineupView && M.lineupView.render) {
+      M.lineupView.render(mount);
+      return;
+    }
     mount.innerHTML =
       subTabs("lineup") +
       '<div class="ups-m-stub">' +
         '<h3>Lineup editor</h3>' +
-        '<div>Ships in Phase 2.</div>' +
+        '<div>Loading…</div>' +
       '</div>';
   }
 
