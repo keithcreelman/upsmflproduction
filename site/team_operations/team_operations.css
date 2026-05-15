@@ -961,6 +961,41 @@ a.tops-iframe-pop:hover {
   border-color: #7de8d9;
   background: rgba(125, 232, 217, 0.05);
 }
+
+/* Per-player note row — slips in under a checked Trade Bait row so the
+   owner can drop a one-line annotation per player. Phase 4 — Keith
+   2026-05-15. */
+.tops-roster-note-row { background: rgba(251, 191, 36, 0.04); }
+.tops-roster-note-cell {
+  padding: 6px 12px 10px !important;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.tops-bait-note-label {
+  font-size: 11px;
+  color: rgba(251, 191, 36, 0.9);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.tops-bait-note-input {
+  flex: 1;
+  padding: 6px 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  color: #e8edf5;
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 1.3;
+}
+.tops-bait-note-input:focus {
+  outline: none;
+  border-color: #fbbf24;
+  background: rgba(251, 191, 36, 0.05);
+}
 .tops-lineup-msg {
   margin: 6px 0 0;
   padding: 8px 12px;

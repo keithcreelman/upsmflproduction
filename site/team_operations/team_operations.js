@@ -96,6 +96,11 @@
     tradeBaitLookingFor: "",   // free text submitted as WILL_TAKE_TEXT
     tradeBaitSubmitting: false,
     tradeBaitMessage: null,
+    // Per-player notes — pid → "free text". UPS-side only; persisted in
+    // D1 via /api/submit-trade-bait + read via /api/trade-bait-notes on
+    // first render of the trade bait tab.
+    tradeBaitNotes: null,      // { [pid]: string } | null
+    tradeBaitNotesLoaded: false,
   };
 
   // Cloudflare worker base for /api/player-bundle calls. Override via
@@ -912,16 +917,50 @@
       });
   }
 
+  // Load this franchise's persisted per-player trade-bait notes from D1.
+  // Idempotent: only fires once per page load. Used to pre-fill the per-
+  // row notes inputs when the user lands on the Trade Bait tab.
+  function loadTradeBaitNotes() {
+    if (state.tradeBaitNotesLoaded) return;
+    var fid = pad4(state.viewerFranchiseId || (state.ctx && state.ctx.franchiseId));
+    if (!fid) return;
+    state.tradeBaitNotesLoaded = true;
+    fetch(workerBase() + "/api/trade-bait-notes?franchiseId=" + encodeURIComponent(fid))
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        if (!j || !j.ok) return;
+        var notes = {};
+        (j.notes || []).forEach(function (n) { notes[String(n.player_id)] = String(n.note || ""); });
+        state.tradeBaitNotes = notes;
+        // Seed the bait set with players that have notes — owner cared
+        // enough to annotate them, so they're presumed still available.
+        if (!state.tradeBaitDraft) state.tradeBaitDraft = new Set();
+        Object.keys(notes).forEach(function (pid) { state.tradeBaitDraft.add(pid); });
+        if (state.rosterMode === "tradeBait") renderRoster();
+      })
+      .catch(function () { /* non-fatal — UI just shows blank notes */ });
+  }
+
   // POST the trade bait draft to the worker. Worker validates caller via
   // cookie and relays to MFL import?TYPE=tradeBait. WILL_GIVE_UP is the
   // CSV of player IDs marked available; WILL_TAKE_TEXT is the free-text
-  // "what I'm looking for" comment.
+  // "what I'm looking for" comment. notes={} is persisted in D1.
   function submitTradeBaitDraft() {
     if (state.tradeBaitSubmitting) return;
     var fid = pad4(state.viewerFranchiseId || (state.ctx && state.ctx.franchiseId));
     if (!fid) return;
     var willGiveUp = state.tradeBaitDraft ? Array.from(state.tradeBaitDraft) : [];
     var lookingFor = String(state.tradeBaitLookingFor || "").trim();
+    // Only send notes for currently-checked players. Unchecking a player
+    // prunes their note via the worker's delete-then-insert pattern.
+    var notesPayload = {};
+    if (state.tradeBaitNotes) {
+      Object.keys(state.tradeBaitNotes).forEach(function (pid) {
+        if (state.tradeBaitDraft && state.tradeBaitDraft.has(pid)) {
+          notesPayload[pid] = state.tradeBaitNotes[pid];
+        }
+      });
+    }
     state.tradeBaitSubmitting = true;
     state.tradeBaitMessage = { kind: "info", text: "Submitting trade bait to MFL…" };
     renderRoster();
@@ -929,7 +968,7 @@
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ franchiseId: fid, willGiveUp: willGiveUp, lookingFor: lookingFor }),
+      body: JSON.stringify({ franchiseId: fid, willGiveUp: willGiveUp, lookingFor: lookingFor, notes: notesPayload }),
     })
       .then(function (r) { return r.json().then(function (j) { return { status: r.status, body: j }; }); })
       .then(function (resp) {
@@ -1029,6 +1068,10 @@
     // in-app Save button handles submission directly.
     var mode = state.rosterMode === "tradeBait" ? "tradeBait" : "lineup";
     if (!state.tradeBaitDraft) state.tradeBaitDraft = new Set();
+    if (!state.tradeBaitNotes)  state.tradeBaitNotes  = {};
+    // Lazily fetch persisted notes the first time we render so the per-
+    // row note inputs land pre-populated on the Trade Bait tab.
+    if (!state.tradeBaitNotesLoaded) loadTradeBaitNotes();
 
     // Per-group section HTML.
     var sections = LINEUP_GROUPS.map(function (g) {
@@ -1087,7 +1130,7 @@
         var modeStateClass = mode === "tradeBait"
           ? (baitChecked ? ' is-trade-bait' : '')
           : (lineupChecked ? ' is-starting' : '');
-        return '<tr class="tops-roster-row' + (r.isTaxi ? ' is-taxi' : '') + (r.isIr ? ' is-ir' : '') + (r.isExpired ? ' is-expired' : '') + modeStateClass + '" data-pid="' + escapeHtml(r.id) + '">' +
+        var mainRow = '<tr class="tops-roster-row' + (r.isTaxi ? ' is-taxi' : '') + (r.isIr ? ' is-ir' : '') + (r.isExpired ? ' is-expired' : '') + modeStateClass + '" data-pid="' + escapeHtml(r.id) + '">' +
           checkboxCell +
           '<td><span class="tops-pos tops-pos-' + escapeHtml(r.pos) + '">' + escapeHtml(r.pos) + '</span></td>' +
           '<td><span class="tops-roster-name" tabindex="0" role="button" aria-label="Open ' + escapeHtml(r.name) + ' profile" data-action="profile">' + escapeHtml(r.name) + '</span> ' + r.injuryBadge + taxiBadge + expiredBadge + '</td>' +
@@ -1096,6 +1139,21 @@
           '<td>' + escapeHtml(r.contract) + '</td>' +
           '<td>' + escapeHtml(statusLabel) + '</td>' +
           '</tr>';
+        // In Trade Bait mode, append a per-player note row underneath
+        // when the player is checked. Hidden when unchecked to keep the
+        // table compact; the note persists in state and is re-shown on
+        // re-check (and on D1 reload).
+        if (mode === "tradeBait" && baitChecked && baitEligible) {
+          var noteVal = state.tradeBaitNotes && state.tradeBaitNotes[r.id] || "";
+          var noteRow = '<tr class="tops-roster-note-row" data-pid="' + escapeHtml(r.id) + '">' +
+            '<td colspan="7" class="tops-roster-note-cell">' +
+              '<label class="tops-bait-note-label">Note for ' + escapeHtml(r.name) + ':</label>' +
+              '<input type="text" class="tops-bait-note-input" data-pid="' + escapeHtml(r.id) + '" maxlength="500" placeholder="why available · floor price · package piece · etc." value="' + escapeHtml(noteVal) + '">' +
+            '</td>' +
+            '</tr>';
+          return mainRow + noteRow;
+        }
+        return mainRow;
       }).join("");
       return '<div class="tops-roster-group">'
         + '<div class="tops-roster-group-head">'
@@ -1222,6 +1280,17 @@
         state.tradeBaitMessage = null;
       });
     }
+    // Per-player note inputs — same no-re-render-on-input pattern as the
+    // looking-for textarea. Notes ride along on the next Save Trade Bait.
+    el.querySelectorAll(".tops-bait-note-input").forEach(function (inp) {
+      inp.addEventListener("input", function () {
+        var pid = inp.getAttribute("data-pid");
+        if (!pid) return;
+        if (!state.tradeBaitNotes) state.tradeBaitNotes = {};
+        state.tradeBaitNotes[pid] = inp.value;
+        state.tradeBaitMessage = null;
+      });
+    });
     // Save buttons.
     var saveLineupEl = el.querySelector(".tops-lineup-save");
     if (saveLineupEl) saveLineupEl.addEventListener("click", function () {
