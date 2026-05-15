@@ -2610,7 +2610,19 @@ export default {
         let gifUrl = "";
         if (!willGiveUp.length) {
           lines.push("**Willing to Give up:** _(all players removed from the block)_");
-          gifUrl = safeStr(envRef.OTB_NO_BAIT_GIF_URL || "");
+          // "Random boobies giggling" pivot per Keith 2026-05-15. Picks a
+          // random GIF from Giphy across a couple of NSFW-adjacent queries
+          // so the same GIF doesn't repeat. Falls through to a static
+          // OTB_NO_BAIT_GIF_URL env override if Giphy returns nothing.
+          const noBaitQueries = [
+            "boobies giggling",
+            "bouncing tits",
+            "boobs jiggle",
+            "bouncing boobies",
+          ];
+          const q = noBaitQueries[Math.floor(Math.random() * noBaitQueries.length)];
+          gifUrl = await pickOtbGifUrl(q);
+          if (!gifUrl) gifUrl = safeStr(envRef.OTB_NO_BAIT_GIF_URL || "");
         } else {
           lines.push("**Willing to Give up:**");
           for (const pid of willGiveUp) {
