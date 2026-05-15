@@ -2307,14 +2307,35 @@
   // - <era_start year> → original per-era card, just filtered to that
   //                      single era (story + blurb visible, table full-
   //                      width so it doesn't need horizontal scroll).
-  function eraPfMean(rows) {
-    var pfSum = 0, pfCount = 0;
+  //
+  // PF Index methodology (Keith 2026-05-15):
+  // Normalize by seasons played first, then average. A 1-season
+  // owner's PF must NOT be compared head-to-head against a 3-season
+  // owner's PF — that punishes mid-era joiners. Compute per-season
+  // PF rate for each row, then the era mean of those rates. Index
+  // value is owner_rate ÷ era_mean_rate. 1.22 = +22% above era pace.
+  function eraPfPerSeasonMean(rows) {
+    var rateSum = 0, rateCount = 0;
     (rows || []).forEach(function (r) {
       var pf = Number(r.pf || 0);
-      if (pf > 0) { pfSum += pf; pfCount += 1; }
+      var seasons = Number(r.seasons_played || 0);
+      if (pf > 0 && seasons > 0) {
+        rateSum += pf / seasons;
+        rateCount += 1;
+      }
     });
-    return pfCount > 0 ? pfSum / pfCount : 0;
+    return rateCount > 0 ? rateSum / rateCount : 0;
   }
+  function eraPfIndex(r, pfPerSeasonMean) {
+    var pf = Number(r.pf || 0);
+    var seasons = Number(r.seasons_played || 0);
+    if (pf <= 0 || seasons <= 0 || pfPerSeasonMean <= 0) return 0;
+    var rate = pf / seasons;
+    return rate / pfPerSeasonMean;
+  }
+  // Legacy name retained so call sites that didn't get updated still
+  // resolve — but it now returns the per-season mean.
+  function eraPfMean(rows) { return eraPfPerSeasonMean(rows); }
   function renderEraPickerHtml(eras) {
     var opts = ['<option value="all"' + (state.eraSelected === "all" ? " selected" : "") + '>All Eras — Summary</option>'];
     eras.forEach(function (era) {
@@ -2336,7 +2357,7 @@
   function renderErasSummaryHtml(eras) {
     var summaryRows = [];
     eras.forEach(function (era) {
-      var pfMean = eraPfMean(era.rows);
+      var pfPerSeasonMean = eraPfPerSeasonMean(era.rows);
       var eraNum = eraNumberFromStart(era.era_start);
       (era.rows || []).forEach(function (r) {
         var pfVal = Number(r.pf || 0);
@@ -2350,11 +2371,10 @@
           ap_w: r.ap_w,
           h2h_w: r.h2h_w, h2h_l: r.h2h_l, h2h_t: r.h2h_t,
           pf: pfVal,
-          pf_mean: pfMean,
-          // pre-computed Idx so the sort comparator can use it directly
-          // (sorting by raw pf gave wrong order when era pf scales
-          // differed — Keith 2026-05-15).
-          idx: pfMean > 0 ? pfVal / pfMean : 0,
+          // Pre-computed Idx (per-season normalized) so the sort
+          // comparator can use it directly and partial-tenure owners
+          // aren't penalized for fewer seasons.
+          idx: eraPfIndex(r, pfPerSeasonMean),
           championships: r.championships,
           hawktuah_wins: r.hawktuah_wins,
           avg_finish: r.avg_finish
@@ -2519,10 +2539,11 @@
           if ((b.ap_pct || 0) !== (a.ap_pct || 0)) return (b.ap_pct || 0) - (a.ap_pct || 0);
           return (b.ap_w || 0) - (a.ap_w || 0);
         });
-        var lbHead = '<tr><th>Owner</th><th class="num">Yrs</th><th class="num">AP %</th><th class="num">AP W</th><th>H2H</th><th class="num" title="Points-For Index — owner PF ÷ era mean PF. 1.22 = +22% above era avg.">Idx</th><th class="num">🏆</th><th class="num">🚽</th><th class="num">Avg Fin</th></tr>';
+        var lbHead = '<tr><th>Owner</th><th class="num">Yrs</th><th class="num">AP %</th><th class="num">AP W</th><th>H2H</th><th class="num" title="Points-For Index — owner PF-per-season ÷ era mean PF-per-season. 1.22 = +22% above era pace. Normalized by seasons played so partial-tenure owners aren\'t penalized.">Idx</th><th class="num">🏆</th><th class="num">🚽</th><th class="num">Avg Fin</th></tr>';
+        var pfPerSeasonMean = eraPfPerSeasonMean(rows);
         var lbBody = byPctAll.map(function (r) {
           var partial = (r.seasons_played || 0) < 3;
-          var idxNum = pfMean > 0 ? Number(r.pf || 0) / pfMean : 0;
+          var idxNum = eraPfIndex(r, pfPerSeasonMean);
           var idxStr = idxNum > 0 ? idxNum.toFixed(2) : "—";
           return '<tr' + (partial ? ' class="partial"' : '') + '>'
             + '<td>' + escapeHtml(r.owner_name || "—") + (partial ? ' <span class="partial-badge" title="Did not play all 3 seasons of the cycle">partial</span>' : '') + '</td>'
