@@ -2496,11 +2496,12 @@ export default {
                 ", cannot submit lineup for " + fidReq,
             });
           }
-          // MFL import?TYPE=lineup — owner cookie auth (per tradeBait pattern
-          // applied 2026-05-15). Use api. subdomain (www48 returns "Invalid
-          // request — must go to api.myfantasyleague.com" for imports too).
-          // Owner-scoped: MFL infers FRANCHISE_ID from the session cookie.
-          const importUrl = `https://api.myfantasyleague.com/${encodeURIComponent(year)}/import?TYPE=lineup&L=${encodeURIComponent(leagueId)}&JSON=1`;
+          // MFL import?TYPE=lineup — owner cookie auth. Target league's home
+          // server (www48) directly — api. subdomain 302-redirects league-
+          // specific calls, and Cloudflare fetch() follows redirects with
+          // POST→GET conversion → silent no-op. Owner-scoped: MFL infers
+          // FRANCHISE_ID from the session cookie.
+          const importUrl = `https://www48.myfantasyleague.com/${encodeURIComponent(year)}/import?TYPE=lineup&L=${encodeURIComponent(leagueId)}&JSON=1`;
           const form = new URLSearchParams();
           form.set("L", String(leagueId));
           form.set("STARTERS", starters.join(","));
@@ -2510,6 +2511,11 @@ export default {
           try {
             const r = await fetch(importUrl, {
               method: "POST",
+              // redirect:"manual" so any 302 from MFL surfaces here instead
+              // of being silently followed with POST→GET conversion (the
+              // bug that made tradeBait submits look successful but persist
+              // nothing — Keith 2026-05-15).
+              redirect: "manual",
               headers: {
                 "Content-Type": "application/x-www-form-urlencoded",
                 "User-Agent": "upsmflproduction-worker",
@@ -2523,6 +2529,9 @@ export default {
             return jsonOut(502, { ok: false, error: `MFL fetch failed: ${e?.message || String(e)}` });
           }
           // MFL returns 200 even for some validation errors — sniff the body.
+          // 3xx is treated as failure here because we set redirect:"manual"
+          // (any 302 would no-op via POST→GET if we followed it; surface it
+          // instead so the failure is loud).
           const mflOk = mflStatus >= 200 && mflStatus < 300 && !/error/i.test(mflResp);
           let parsed = null;
           try { parsed = JSON.parse(mflResp); } catch (_) { /* keep raw text */ }
@@ -2607,9 +2616,16 @@ export default {
           // operates ON the owner's own bait, identified by session.
           // (Earlier attempts WITH APIKEY in URL — even with cookie also
           // forwarded — returned HTTP 400 empty-body. Dropping APIKEY.)
-          // MFL import endpoints also route through api.myfantasyleague.com
-          // per the login docs ("the login API at: https://api.myfantasyleague.com…").
-          const importUrl = `https://api.myfantasyleague.com/${encodeURIComponent(year)}/import?TYPE=tradeBait&L=${encodeURIComponent(leagueId)}&JSON=1`;
+          // MFL import endpoints must target the LEAGUE's actual home server,
+          // not api.myfantasyleague.com. The api. host 302-redirects league-
+          // specific requests to www48.* — and Cloudflare's fetch() follows
+          // 302s by converting POST → GET per the HTTP spec, so our import
+          // silently became a useless GET. Symptom: HTTP 200, empty body,
+          // nothing persisted in MFL (Keith 2026-05-15 verified via curl -v).
+          // api. routing rule per MFL docs: "If the requests are not league-
+          // specific, use api.myfantasyleague.com as the host. That will
+          // spread out your requests across a number of servers."
+          const importUrl = `https://www48.myfantasyleague.com/${encodeURIComponent(year)}/import?TYPE=tradeBait&L=${encodeURIComponent(leagueId)}&JSON=1`;
           const form = new URLSearchParams();
           form.set("L", String(leagueId));
           form.set("WILL_GIVE_UP", willGiveUp.join(","));
@@ -2619,6 +2635,7 @@ export default {
           try {
             const r = await fetch(importUrl, {
               method: "POST",
+              redirect: "manual",  // surface 302s instead of POST→GET no-op
               headers: {
                 "Content-Type": "application/x-www-form-urlencoded",
                 "User-Agent": "upsmflproduction-worker",
