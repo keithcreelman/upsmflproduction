@@ -2558,6 +2558,143 @@ export default {
         }
       }
 
+      // ── OTB ("On the Block") Discord helper ──────────────────────────
+      // Posts a formatted announcement to env.OTB_CHANNEL_ID after a
+      // successful tradeBait submission and creates a Discord thread off
+      // it for discussion. Failure here is logged but never fails the
+      // submit (MFL bait already saved by the time we get here).
+      async function pickOtbGifUrl(playerName) {
+        const apiKey = safeStr(env.GIPHY_API_KEY || "");
+        if (!apiKey || !playerName) return "";
+        const url = new URL("https://api.giphy.com/v1/gifs/search");
+        url.searchParams.set("api_key", apiKey);
+        url.searchParams.set("q", String(playerName));
+        url.searchParams.set("limit", "10");
+        url.searchParams.set("lang", "en");
+        try {
+          const res = await fetch(url.toString(), {
+            headers: { "User-Agent": "upsmflproduction-worker" },
+            cf: { cacheTtl: 300, cacheEverything: false },
+          });
+          if (!res.ok) return "";
+          const data = await res.json();
+          const rows = Array.isArray(data && data.data) ? data.data : [];
+          if (!rows.length) return "";
+          const pick = rows[Math.floor(Math.random() * rows.length)];
+          return safeStr(
+            (pick && pick.images && pick.images.original && pick.images.original.url) ||
+            (pick && pick.images && pick.images.downsized_large && pick.images.downsized_large.url) ||
+            (pick && pick.images && pick.images.fixed_height && pick.images.fixed_height.url) ||
+            (pick && pick.url) || ""
+          );
+        } catch (_) { return ""; }
+      }
+      async function postOtbDiscord(envRef, args) {
+        const channelId = safeStr(envRef.OTB_CHANNEL_ID || "").replace(/\D/g, "");
+        const botToken = safeStr(envRef.DISCORD_BOT_TOKEN || envRef.DISCORD_BOT || envRef.Discord_bot || "");
+        if (!channelId) return { posted: false, reason: "no_channel" };
+        if (!botToken)  return { posted: false, reason: "no_token" };
+
+        const franchiseName = safeStr(args.franchiseName) || ("Franchise " + args.franchiseId);
+        const willGiveUp = Array.isArray(args.willGiveUp) ? args.willGiveUp : [];
+        const names = args.playerNames || {};
+        const notes = args.notes || {};
+        const lookingFor = safeStr(args.lookingForText || "").trim();
+
+        // Build the body text. Full message — no 256-char truncation
+        // (that limit only applies to MFL's IN_EXCHANGE_FOR field).
+        const lines = [];
+        lines.push("**ON THE BLOCK ANNOUNCEMENT:**");
+        lines.push("**Team:** " + franchiseName);
+
+        let gifUrl = "";
+        if (!willGiveUp.length) {
+          lines.push("**Willing to Give up:** _(all players removed from the block)_");
+          gifUrl = safeStr(envRef.OTB_NO_BAIT_GIF_URL || "");
+        } else {
+          lines.push("**Willing to Give up:**");
+          for (const pid of willGiveUp) {
+            const nm = safeStr(names[String(pid)]) || ("Player " + pid);
+            const note = safeStr(notes[String(pid)] || "").trim();
+            lines.push(note ? `• ${nm} — ${note}` : `• ${nm}`);
+          }
+          // Pick a GIF from a random listed player.
+          const seedPid = willGiveUp[Math.floor(Math.random() * willGiveUp.length)];
+          const seedName = safeStr(names[String(seedPid)]) || "";
+          if (seedName) {
+            // Strip "Last, First" → "First Last" for better Giphy hits.
+            const flipped = seedName.includes(",")
+              ? seedName.split(",").reverse().map((s) => s.trim()).join(" ")
+              : seedName;
+            gifUrl = await pickOtbGifUrl(flipped);
+          }
+        }
+        lines.push("");
+        lines.push("**What I'm Looking for:**");
+        lines.push(lookingFor || "_(no preference listed)_");
+        if (gifUrl) {
+          lines.push("");
+          lines.push(gifUrl);
+        }
+        const messageContent = lines.join("\n");
+
+        // Post the message to the channel.
+        let msgRes;
+        try {
+          msgRes = await fetch(`https://discord.com/api/v10/channels/${encodeURIComponent(channelId)}/messages`, {
+            method: "POST",
+            headers: {
+              "Authorization": "Bot " + botToken,
+              "Content-Type": "application/json",
+              "User-Agent": "upsmflproduction-worker (otb-announcement)",
+            },
+            body: JSON.stringify({ content: messageContent, allowed_mentions: { parse: [] } }),
+          });
+        } catch (e) {
+          return { posted: false, reason: "fetch_failed", error: String(e && e.message || e) };
+        }
+        if (!msgRes.ok) {
+          const text = await msgRes.text().catch(() => "");
+          return { posted: false, reason: "discord_message_failed", status: msgRes.status, body: text.slice(0, 400) };
+        }
+        const msgData = await msgRes.json().catch(() => ({}));
+        const messageId = safeStr(msgData && msgData.id);
+        // Create a thread off the message for discussion.
+        let threadId = "";
+        let threadStatus = 0;
+        if (messageId) {
+          try {
+            const threadName = ("OTB · " + franchiseName + " · " + new Date().toISOString().slice(0, 10)).slice(0, 100);
+            const thrRes = await fetch(
+              `https://discord.com/api/v10/channels/${encodeURIComponent(channelId)}/messages/${encodeURIComponent(messageId)}/threads`,
+              {
+                method: "POST",
+                headers: {
+                  "Authorization": "Bot " + botToken,
+                  "Content-Type": "application/json",
+                  "User-Agent": "upsmflproduction-worker (otb-announcement-thread)",
+                },
+                body: JSON.stringify({ name: threadName, auto_archive_duration: 10080 }),
+              }
+            );
+            threadStatus = thrRes.status;
+            if (thrRes.ok) {
+              const thrData = await thrRes.json().catch(() => ({}));
+              threadId = safeStr(thrData && thrData.id);
+            }
+          } catch (_) { /* non-fatal */ }
+        }
+        return {
+          posted: true,
+          channel_id: channelId,
+          message_id: messageId,
+          thread_id: threadId,
+          thread_status: threadStatus,
+          gif_url: gifUrl,
+          char_count: messageContent.length,
+        };
+      }
+
       // ── POST /api/submit-trade-bait — set the franchise's trade bait ──
       // Same auth pattern as /api/submit-lineup: caller franchise must
       // match the body's franchiseId per MFL_USER_ID cookie. Worker uses
@@ -2629,9 +2766,24 @@ export default {
           // URL holds L + TYPE per MFL's official Perl sample; form body
           // carries only the import-specific fields (no L duplication).
           const importUrl = `https://www48.myfantasyleague.com/${encodeURIComponent(year)}/import?TYPE=tradeBait&L=${encodeURIComponent(leagueId)}&JSON=1`;
+          // Build MFL's IN_EXCHANGE_FOR by concatenating the "what I'm
+          // looking for" line + per-player notes (cap 256 chars per MFL
+          // spec). The full unwrapped text goes to the OTB Discord
+          // announcement below — no truncation there.
+          const _playerNames = (body.playerNames && typeof body.playerNames === "object") ? body.playerNames : {};
+          const mflCommentPieces = [];
+          if (lookingFor) mflCommentPieces.push(lookingFor);
+          for (const pid of willGiveUp) {
+            const note = safeStr(notes[String(pid)] || "").trim();
+            if (!note) continue;
+            const nm = safeStr(_playerNames[String(pid)]) || ("Player " + pid);
+            mflCommentPieces.push(nm + ": " + note);
+          }
+          let mflComment = mflCommentPieces.join(" · ");
+          if (mflComment.length > 256) mflComment = mflComment.slice(0, 253) + "…";
           const form = new URLSearchParams();
           form.set("WILL_GIVE_UP", willGiveUp.join(","));
-          if (lookingFor) form.set("IN_EXCHANGE_FOR", lookingFor.slice(0, 256));
+          if (mflComment) form.set("IN_EXCHANGE_FOR", mflComment);
           let mflResp = "";
           let mflStatus = 0;
           try {
@@ -2703,13 +2855,37 @@ export default {
           } catch (e) {
             notesError = String(e && e.message || e);
           }
+
+          // ── OTB Discord announcement (Keith 2026-05-15) ──
+          // Post to the "On the Block" channel as a new thread each save.
+          // Full announcement (NOT truncated to MFL's 256-char cap), GIF
+          // pulled from Giphy for one of the listed players, "no bait"
+          // sentinel uses env.OTB_NO_BAIT_GIF_URL.
+          let otbResult = { posted: false, reason: "not_attempted" };
+          try {
+            const playerNamesIn = (body.playerNames && typeof body.playerNames === "object") ? body.playerNames : {};
+            const franchiseName = safeStr(body.franchiseName || "");
+            otbResult = await postOtbDiscord(env, {
+              franchiseId: fidReq,
+              franchiseName: franchiseName,
+              willGiveUp: willGiveUp,
+              playerNames: playerNamesIn,
+              notes: notes,
+              lookingForText: safeStr(body.lookingFor || ""),  // user's "looking for" line, NOT the truncated MFL comment
+            });
+          } catch (e) {
+            otbResult = { posted: false, reason: "otb_exception", error: String(e && e.message || e) };
+          }
+
           return jsonOut(200, {
             ok: true,
             franchise_id: fidReq,
             will_give_up: willGiveUp,
-            looking_for: lookingFor,
+            looking_for: lookingFor,         // raw user input (echoes back unchanged)
+            mfl_comment: mflComment,         // concatenated + 256-truncated string actually sent to MFL
             notes_persisted: notesPersisted,
             notes_error: notesError,
+            otb_discord: otbResult,
             mfl_status: mflStatus,
             mfl_response: parsed || mflResp,
             // Always echo the exact URL + body we POSTed so we can diff
