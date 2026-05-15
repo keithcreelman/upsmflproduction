@@ -2590,10 +2590,19 @@ export default {
         } catch (_) { return ""; }
       }
       async function postOtbDiscord(envRef, args) {
-        const channelId = safeStr(envRef.OTB_CHANNEL_ID || "").replace(/\D/g, "");
+        // Channel routing — until env.OTB_LIVE_MODE === "1", all posts
+        // go to env.OTB_TEST_CHANNEL_ID. Once Keith is ready, flip
+        // OTB_LIVE_MODE to "1" (no code change) and posts move to
+        // env.OTB_CHANNEL_ID. Mirrors the draft-hub live/test channel
+        // pattern (DISCORD_DRAFT_CHANNEL_ID + DISCORD_DRAFT_TEST_CHANNEL_ID).
+        const liveMode = String(envRef.OTB_LIVE_MODE || "") === "1";
+        const liveChannel = safeStr(envRef.OTB_CHANNEL_ID || "").replace(/\D/g, "");
+        const testChannel = safeStr(envRef.OTB_TEST_CHANNEL_ID || "").replace(/\D/g, "");
+        const channelId = liveMode && liveChannel ? liveChannel : (testChannel || liveChannel);
+        const channelMode = (liveMode && liveChannel) ? "live" : (testChannel ? "test" : (liveChannel ? "live-fallback" : "none"));
         const botToken = safeStr(envRef.DISCORD_BOT_TOKEN || envRef.DISCORD_BOT || envRef.Discord_bot || "");
-        if (!channelId) return { posted: false, reason: "no_channel" };
-        if (!botToken)  return { posted: false, reason: "no_token" };
+        if (!channelId) return { posted: false, reason: "no_channel", channel_mode: channelMode };
+        if (!botToken)  return { posted: false, reason: "no_token", channel_mode: channelMode };
 
         const franchiseName = safeStr(args.franchiseName) || ("Franchise " + args.franchiseId);
         const willGiveUp = Array.isArray(args.willGiveUp) ? args.willGiveUp : [];
@@ -2699,6 +2708,7 @@ export default {
         return {
           posted: true,
           channel_id: channelId,
+          channel_mode: channelMode,  // "live" | "test" | "live-fallback"
           message_id: messageId,
           thread_id: threadId,
           thread_status: threadStatus,
