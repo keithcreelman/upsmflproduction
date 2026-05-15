@@ -882,9 +882,19 @@
     return { ok: errors.length === 0, total: total, byGroup: byGroup, errors: errors };
   }
 
+  // Append MFL_USER_ID as a query param if available. The worker reads
+  // either a Cookie header (same-origin) OR ?MFL_USER_ID=… (cross-origin
+  // — our case). Browser fetch with credentials:include doesn't actually
+  // forward MFL's cookie to the worker domain, so we explicitly pass it.
+  function withMflUserParam(url) {
+    var uid = readCookie("MFL_USER_ID");
+    if (!uid) return url;
+    return url + (url.indexOf("?") === -1 ? "?" : "&") + "MFL_USER_ID=" + encodeURIComponent(uid);
+  }
+
   // POST the lineup draft to the worker. Allow saving incomplete lineups
   // (Keith 2026-05-15) — MFL accepts partial lineups; in-app validation
-  // remains informational. Worker validates caller via MFL_USER_ID cookie.
+  // remains informational. Worker validates caller via MFL_USER_ID param.
   function submitLineupDraft() {
     if (state.lineupSubmitting) return;
     var fid = pad4(state.viewerFranchiseId || (state.ctx && state.ctx.franchiseId));
@@ -893,9 +903,8 @@
     state.lineupSubmitting = true;
     state.lineupMessage = { kind: "info", text: "Submitting lineup to MFL…" };
     renderRoster();
-    fetch(workerBase() + "/api/submit-lineup", {
+    fetch(withMflUserParam(workerBase() + "/api/submit-lineup"), {
       method: "POST",
-      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ franchiseId: fid, starters: starters }),
     })
@@ -964,9 +973,8 @@
     state.tradeBaitSubmitting = true;
     state.tradeBaitMessage = { kind: "info", text: "Submitting trade bait to MFL…" };
     renderRoster();
-    fetch(workerBase() + "/api/submit-trade-bait", {
+    fetch(withMflUserParam(workerBase() + "/api/submit-trade-bait"), {
       method: "POST",
-      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ franchiseId: fid, willGiveUp: willGiveUp, lookingFor: lookingFor, notes: notesPayload }),
     })
