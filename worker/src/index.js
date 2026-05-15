@@ -14244,6 +14244,15 @@ export default {
         safeStr(env.DISCORD_CONTRACT_TEST_CHANNEL_ID || env.DISCORD_BUG_TEST_CHANNEL_ID || "").replace(/\D/g, "");
 
       const contractDiscordChannelTarget = (forceTestOnly = false, forcePrimaryOnly = false) => {
+        // Routing semantics (Keith 2026-05-15: extensions now ship to the
+        // production channel by default):
+        //   - forcePrimaryOnly=true  → always primary
+        //   - forceTestOnly=true     → always test (returns missing-config
+        //                              error if no test channel set)
+        //   - env.DISCORD_CONTRACT_USE_TEST="1" → default to test (legacy
+        //                              behavior for staging environments)
+        //   - otherwise               → default to primary (production)
+        const useTestDefault = String(env.DISCORD_CONTRACT_USE_TEST || "") === "1";
         if (forcePrimaryOnly) {
           const primaryChannelId = contractDiscordPrimaryChannelId();
           return {
@@ -14252,20 +14261,23 @@ export default {
             missingError: primaryChannelId ? "" : "missing_discord_contract_channel_config",
           };
         }
-        const testChannelId = contractDiscordTestChannelId();
-        if (testChannelId) {
+        if (forceTestOnly) {
+          const testChannelId = contractDiscordTestChannelId();
           return {
             channelId: testChannelId,
             deliveryTarget: "test",
-            missingError: "",
+            missingError: testChannelId ? "" : "missing_discord_contract_test_channel_config",
           };
         }
-        if (forceTestOnly) {
-          return {
-            channelId: "",
-            deliveryTarget: "test",
-            missingError: "missing_discord_contract_test_channel_config",
-          };
+        if (useTestDefault) {
+          const testChannelId = contractDiscordTestChannelId();
+          if (testChannelId) {
+            return {
+              channelId: testChannelId,
+              deliveryTarget: "test",
+              missingError: "",
+            };
+          }
         }
         const primaryChannelId = contractDiscordPrimaryChannelId();
         return {
