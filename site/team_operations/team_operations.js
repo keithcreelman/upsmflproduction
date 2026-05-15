@@ -88,6 +88,14 @@
     lineupDraft: null,         // Set<string> | null
     lineupSubmitting: false,
     lineupMessage: null,       // { kind: "ok"|"err", text: string } | null
+    // Roster card mode toggle: "lineup" (default, edit starting lineup) or
+    // "tradeBait" (mark players available for trade + a "what I'm looking
+    // for" comment). Keith 2026-05-15 phase 3.
+    rosterMode: "lineup",
+    tradeBaitDraft: null,      // Set<string> | null — pid -> available
+    tradeBaitLookingFor: "",   // free text submitted as WILL_TAKE_TEXT
+    tradeBaitSubmitting: false,
+    tradeBaitMessage: null,
   };
 
   // Cloudflare worker base for /api/player-bundle calls. Override via
@@ -869,20 +877,20 @@
     return { ok: errors.length === 0, total: total, byGroup: byGroup, errors: errors };
   }
 
-  // POST the lineup draft to the worker. Worker validates the caller
-  // owns the franchise (via MFL_USER_ID cookie) before relaying to MFL.
+  // POST the lineup draft to the worker. Allow saving incomplete lineups
+  // (Keith 2026-05-15) — MFL accepts partial lineups; in-app validation
+  // remains informational. Worker validates caller via MFL_USER_ID cookie.
   function submitLineupDraft() {
     if (state.lineupSubmitting) return;
-    if (!state.lineupDraft) return;
     var fid = pad4(state.viewerFranchiseId || (state.ctx && state.ctx.franchiseId));
     if (!fid) return;
-    var starters = Array.from(state.lineupDraft);
+    var starters = state.lineupDraft ? Array.from(state.lineupDraft) : [];
     state.lineupSubmitting = true;
     state.lineupMessage = { kind: "info", text: "Submitting lineup to MFL…" };
     renderRoster();
     fetch(workerBase() + "/api/submit-lineup", {
       method: "POST",
-      credentials: "include",  // forward MFL_USER_ID cookie if present
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ franchiseId: fid, starters: starters }),
     })
@@ -900,6 +908,43 @@
       })
       .then(function () {
         state.lineupSubmitting = false;
+        renderRoster();
+      });
+  }
+
+  // POST the trade bait draft to the worker. Worker validates caller via
+  // cookie and relays to MFL import?TYPE=tradeBait. WILL_GIVE_UP is the
+  // CSV of player IDs marked available; WILL_TAKE_TEXT is the free-text
+  // "what I'm looking for" comment.
+  function submitTradeBaitDraft() {
+    if (state.tradeBaitSubmitting) return;
+    var fid = pad4(state.viewerFranchiseId || (state.ctx && state.ctx.franchiseId));
+    if (!fid) return;
+    var willGiveUp = state.tradeBaitDraft ? Array.from(state.tradeBaitDraft) : [];
+    var lookingFor = String(state.tradeBaitLookingFor || "").trim();
+    state.tradeBaitSubmitting = true;
+    state.tradeBaitMessage = { kind: "info", text: "Submitting trade bait to MFL…" };
+    renderRoster();
+    fetch(workerBase() + "/api/submit-trade-bait", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ franchiseId: fid, willGiveUp: willGiveUp, lookingFor: lookingFor }),
+    })
+      .then(function (r) { return r.json().then(function (j) { return { status: r.status, body: j }; }); })
+      .then(function (resp) {
+        if (resp.body && resp.body.ok) {
+          state.tradeBaitMessage = { kind: "ok", text: "Trade bait saved to MFL ✓" };
+        } else {
+          var err = (resp.body && (resp.body.error || (resp.body.mfl_response && resp.body.mfl_response.error && resp.body.mfl_response.error.$t))) || ("MFL rejected trade bait (HTTP " + resp.status + ")");
+          state.tradeBaitMessage = { kind: "err", text: String(err) };
+        }
+      })
+      .catch(function (e) {
+        state.tradeBaitMessage = { kind: "err", text: "Submit failed: " + (e && e.message || e) };
+      })
+      .then(function () {
+        state.tradeBaitSubmitting = false;
         renderRoster();
       });
   }
@@ -978,24 +1023,12 @@
     }
     var validation = lineupValidate(state.lineupDraft, rowsByPid);
 
-    // Build Submit Lineup deep link to MFL's native /lineup page.
-    // Carries L= + FRANCHISE= so MFL lands on the right franchise's
-    // Submit Lineup form (verified URL pattern per Keith 2026-05-15:
-    // /YEAR/lineup?L=&FRANCHISE=). Phase 2 will add in-app submission
-    // via worker auth proxy — for now this is a one-click pass-through.
-    var fid = pad4(state.viewerFranchiseId || (state.ctx && state.ctx.franchiseId));
-    var year = state.ctx && state.ctx.year;
-    var leagueId = state.ctx && state.ctx.leagueId;
-    var submitUrl = (year && leagueId && fid)
-      ? "https://www48.myfantasyleague.com/" + encodeURIComponent(year)
-        + "/lineup?L=" + encodeURIComponent(leagueId)
-        + "&FRANCHISE=" + encodeURIComponent(fid)
-      : "";
-    var submitCta = submitUrl
-      ? '<a class="tops-link-pill" href="' + escapeHtml(submitUrl) + '" target="_top" rel="noopener" '
-        + 'title="Open MFL\'s Submit Lineup page in this tab (auth uses your existing MFL session)">'
-        + 'Submit Lineup at MFL →</a>'
-      : '';
+    // Active mode (Lineup vs Trade Bait) — drives which checkbox state
+    // each row binds to + which Save button renders in the card title.
+    // Native MFL deep link CTA was removed (Keith 2026-05-15) since the
+    // in-app Save button handles submission directly.
+    var mode = state.rosterMode === "tradeBait" ? "tradeBait" : "lineup";
+    if (!state.tradeBaitDraft) state.tradeBaitDraft = new Set();
 
     // Per-group section HTML.
     var sections = LINEUP_GROUPS.map(function (g) {
@@ -1010,10 +1043,22 @@
       var groupOver  = g.max > 0 && groupValidation.count > g.max;
       var groupUnder = g.min > 0 && groupValidation.count < g.min;
       var groupStatusClass = groupOver ? "is-over" : (groupUnder ? "is-under" : (groupValidation.count > 0 ? "is-ok" : ""));
-      var groupCountHud = g.min === 0
-        ? ""
-        : '<span class="tops-roster-group-status ' + groupStatusClass + '">'
-            + groupValidation.count + ' starting</span>';
+      // Trade bait mode shows "N available" per group; lineup mode shows
+      // the original starter-count + min/max status colors.
+      var groupCountHud;
+      if (mode === "tradeBait") {
+        var groupBaitCount = groupRows.reduce(function (acc, r) {
+          return acc + ((state.tradeBaitDraft && state.tradeBaitDraft.has(r.id)) ? 1 : 0);
+        }, 0);
+        groupCountHud = groupBaitCount > 0
+          ? '<span class="tops-roster-group-status is-ok">' + groupBaitCount + ' available</span>'
+          : "";
+      } else {
+        groupCountHud = g.min === 0
+          ? ""
+          : '<span class="tops-roster-group-status ' + groupStatusClass + '">'
+              + groupValidation.count + ' starting</span>';
+      }
       var bodyRows = groupRows.map(function (r) {
         var taxiBadge = r.isTaxi ? '<span class="taxi-pill" title="Taxi — off-cap, real for trade math">TAXI</span>' : '';
         var expiredBadge = r.isExpired ? '<span class="taxi-pill" style="background:rgba(239,68,68,0.18); color:#ef4444; border-color:rgba(239,68,68,0.45);" title="Contract expired (cy=0) — awaiting Expired Rookie Auction">EXP</span>' : '';
@@ -1021,18 +1066,28 @@
         var salaryCell = r.isTaxi
           ? '<span style="color:var(--warn,#fbbf24); opacity:0.9;">' + fmtUsd(r.salary) + '</span>'
           : (r.salary > 0 ? fmtUsd(r.salary) : '—');
-        var eligible = lineupEligibleRow(r);
-        var checked = state.lineupDraft && state.lineupDraft.has(r.id);
-        // Checkbox cell — disabled for ineligible (taxi/IR/expired) rows
-        // so users can't accidentally include them. The checkbox is a
-        // separate cell so the rest of the row still acts as a click target
-        // for the player profile modal.
-        var checkboxCell = eligible
-          ? '<td class="tops-roster-check"><input type="checkbox" class="tops-lineup-cbx" data-pid="' + escapeHtml(r.id) + '"' + (checked ? ' checked' : '') + ' aria-label="Start ' + escapeHtml(r.name) + '"></td>'
-          : '<td class="tops-roster-check"><span class="tops-lineup-cbx-disabled" title="' + (r.isTaxi ? "Taxi — can\'t start" : r.isIr ? "On IR — can\'t start" : "Expired contract — can\'t start") + '">—</span></td>';
-        // Player name cell now has separate click target since the
-        // checkbox needs its own click semantics.
-        return '<tr class="tops-roster-row' + (r.isTaxi ? ' is-taxi' : '') + (r.isIr ? ' is-ir' : '') + (r.isExpired ? ' is-expired' : '') + (checked ? ' is-starting' : '') + '" data-pid="' + escapeHtml(r.id) + '">' +
+        var lineupEligible = lineupEligibleRow(r);
+        var lineupChecked  = state.lineupDraft && state.lineupDraft.has(r.id);
+        var baitChecked    = state.tradeBaitDraft && state.tradeBaitDraft.has(r.id);
+        // Trade bait eligibility: any rostered player not on taxi (taxi
+        // players can't be traded). IR + expired CAN still be marked
+        // available — owners may shop expiring rookies before ERA.
+        var baitEligible = !r.isTaxi;
+        var checkboxCell;
+        if (mode === "tradeBait") {
+          checkboxCell = baitEligible
+            ? '<td class="tops-roster-check"><input type="checkbox" class="tops-bait-cbx" data-pid="' + escapeHtml(r.id) + '"' + (baitChecked ? ' checked' : '') + ' aria-label="Mark ' + escapeHtml(r.name) + ' available for trade"></td>'
+            : '<td class="tops-roster-check"><span class="tops-lineup-cbx-disabled" title="Taxi — can\'t trade">—</span></td>';
+        } else {
+          checkboxCell = lineupEligible
+            ? '<td class="tops-roster-check"><input type="checkbox" class="tops-lineup-cbx" data-pid="' + escapeHtml(r.id) + '"' + (lineupChecked ? ' checked' : '') + ' aria-label="Start ' + escapeHtml(r.name) + '"></td>'
+            : '<td class="tops-roster-check"><span class="tops-lineup-cbx-disabled" title="' + (r.isTaxi ? "Taxi — can\'t start" : r.isIr ? "On IR — can\'t start" : "Expired contract — can\'t start") + '">—</span></td>';
+        }
+        var rowChecked = mode === "tradeBait" ? baitChecked : lineupChecked;
+        var modeStateClass = mode === "tradeBait"
+          ? (baitChecked ? ' is-trade-bait' : '')
+          : (lineupChecked ? ' is-starting' : '');
+        return '<tr class="tops-roster-row' + (r.isTaxi ? ' is-taxi' : '') + (r.isIr ? ' is-ir' : '') + (r.isExpired ? ' is-expired' : '') + modeStateClass + '" data-pid="' + escapeHtml(r.id) + '">' +
           checkboxCell +
           '<td><span class="tops-pos tops-pos-' + escapeHtml(r.pos) + '">' + escapeHtml(r.pos) + '</span></td>' +
           '<td><span class="tops-roster-name" tabindex="0" role="button" aria-label="Open ' + escapeHtml(r.name) + ' profile" data-action="profile">' + escapeHtml(r.name) + '</span> ' + r.injuryBadge + taxiBadge + expiredBadge + '</td>' +
@@ -1056,57 +1111,128 @@
         + '</div>';
     }).join("");
 
-    // Validation HUD + Save Lineup button. The Save button is disabled
-    // while submitting OR when validation fails (wrong total, group over/
-    // under). The native MFL link stays in the corner so owners can fall
-    // back to MFL's own form if the in-app submit hits an MFL-side issue.
-    var hudStatusClass = validation.ok ? "is-ok" : "is-err";
+    // Validation HUD + Save button. Save is no longer gated on full
+    // validation (Keith 2026-05-15) — MFL accepts partial lineups, and
+    // owners may want to save mid-edit. The HUD stays informational so
+    // it's still obvious how far from a complete lineup the draft is.
+    var hudStatusClass = validation.ok ? "is-ok" : (validation.total === 0 ? "" : "is-warn");
     var hudMessage = validation.ok
       ? '<strong>14 / 14</strong> starters · ready to submit'
-      : '<strong>' + validation.total + ' / 14</strong> · ' + escapeHtml(validation.errors.join(" · "));
-    var saveBtn = '<button type="button" class="tops-link-pill tops-lineup-save"'
-      + (validation.ok && !state.lineupSubmitting ? "" : " disabled")
+      : '<strong>' + validation.total + ' / 14</strong> · ' + (validation.errors.length ? escapeHtml(validation.errors.join(" · ")) : "draft in progress");
+    var baitCount = state.tradeBaitDraft ? state.tradeBaitDraft.size : 0;
+    var baitHud = baitCount + " player" + (baitCount === 1 ? "" : "s") + " marked available";
+    var lineupSaveBtn = '<button type="button" class="tops-link-pill tops-lineup-save"'
+      + (state.lineupSubmitting ? " disabled" : "")
       + '>' + (state.lineupSubmitting ? "Submitting…" : "Save Lineup") + '</button>';
-    var msgHtml = "";
-    if (state.lineupMessage) {
-      var msgClass = state.lineupMessage.kind === "ok" ? "is-ok"
-                  : state.lineupMessage.kind === "err" ? "is-err" : "";
-      msgHtml = '<div class="tops-lineup-msg ' + msgClass + '">' + escapeHtml(state.lineupMessage.text) + '</div>';
+    var baitSaveBtn = '<button type="button" class="tops-link-pill tops-bait-save"'
+      + (state.tradeBaitSubmitting ? " disabled" : "")
+      + '>' + (state.tradeBaitSubmitting ? "Submitting…" : "Save Trade Bait") + '</button>';
+
+    function modeMsgHtml(kind, msg) {
+      if (!msg) return "";
+      var cls = msg.kind === "ok" ? "is-ok" : msg.kind === "err" ? "is-err" : "";
+      return '<div class="tops-lineup-msg ' + cls + '">' + escapeHtml(msg.text) + '</div>';
     }
+    var msgHtml = mode === "tradeBait"
+      ? modeMsgHtml("bait", state.tradeBaitMessage)
+      : modeMsgHtml("lineup", state.lineupMessage);
+
+    // Mode tabs.
+    var tabsHtml = '<div class="tops-roster-tabs" role="tablist">'
+      + '<button type="button" class="tops-roster-tab' + (mode === "lineup" ? " is-active" : "") + '" data-mode="lineup" role="tab" aria-selected="' + (mode === "lineup" ? "true" : "false") + '">Lineup</button>'
+      + '<button type="button" class="tops-roster-tab' + (mode === "tradeBait" ? " is-active" : "") + '" data-mode="tradeBait" role="tab" aria-selected="' + (mode === "tradeBait" ? "true" : "false") + '">Trade Bait</button>'
+      + '</div>';
+
+    // Active mode HUD + Save button.
+    var modeHudHtml, modeSaveBtn, modeHint;
+    if (mode === "tradeBait") {
+      modeHudHtml = '<div class="tops-lineup-hud">' + baitHud + '</div>';
+      modeSaveBtn = baitSaveBtn;
+      modeHint = 'mark players available · drop a "looking for" note · save anytime';
+    } else {
+      modeHudHtml = '<div class="tops-lineup-hud ' + hudStatusClass + '">' + hudMessage + '</div>';
+      modeSaveBtn = lineupSaveBtn;
+      modeHint = 'grouped by position · check starters · save any time (incomplete OK)';
+    }
+
+    // Trade Bait "what I'm looking for" textarea — only renders in bait mode.
+    var lookingForHtml = mode === "tradeBait"
+      ? '<div class="tops-bait-comment-wrap">'
+        + '<label class="tops-bait-comment-label" for="topsBaitLookingFor">What I\'m looking for</label>'
+        + '<textarea id="topsBaitLookingFor" class="tops-bait-comment" rows="2" placeholder="e.g. WR2 with starter upside, 2027 1st rd pick, anything at TE…">'
+        +   escapeHtml(state.tradeBaitLookingFor || "")
+        + '</textarea>'
+        + '</div>'
+      : "";
 
     el.innerHTML = [
       '<div class="tops-card-title">My Roster + Lineup '
         + '<span class="tops-count">' + rows.length + '</span> '
-        + '<span class="tops-card-hint">grouped by position · check the 14 starters · click name for profile</span>'
-        + '<span class="tops-card-actions">' + saveBtn + (submitCta ? ' ' + submitCta : '') + '</span>'
+        + '<span class="tops-card-hint">' + escapeHtml(modeHint) + '</span>'
+        + '<span class="tops-card-actions">' + modeSaveBtn + '</span>'
       + '</div>',
-      '<div class="tops-lineup-hud ' + hudStatusClass + '">' + hudMessage + '</div>',
+      tabsHtml,
+      modeHudHtml,
       msgHtml,
+      lookingForHtml,
       '<div class="tops-roster-grouped">',
       sections,
       '</div>'
     ].join("");
 
-    // Wire checkboxes — toggle the draft set + re-render.
+    // Wire mode tabs.
+    el.querySelectorAll(".tops-roster-tab").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var next = btn.getAttribute("data-mode");
+        if (next !== state.rosterMode) {
+          state.rosterMode = next;
+          renderRoster();
+        }
+      });
+    });
+
+    // Wire lineup checkboxes.
     el.querySelectorAll(".tops-lineup-cbx").forEach(function (cbx) {
-      cbx.addEventListener("change", function (e) {
+      cbx.addEventListener("change", function () {
         var pid = cbx.getAttribute("data-pid");
         if (!state.lineupDraft) state.lineupDraft = new Set();
         if (cbx.checked) state.lineupDraft.add(pid);
         else state.lineupDraft.delete(pid);
-        // Any prior submit message is stale once the user starts editing.
         state.lineupMessage = null;
         renderRoster();
       });
     });
-    // Save Lineup → POST /api/submit-lineup.
-    var saveEl = el.querySelector(".tops-lineup-save");
-    if (saveEl) {
-      saveEl.addEventListener("click", function () {
-        if (saveEl.hasAttribute("disabled")) return;
-        submitLineupDraft();
+    // Wire trade bait checkboxes.
+    el.querySelectorAll(".tops-bait-cbx").forEach(function (cbx) {
+      cbx.addEventListener("change", function () {
+        var pid = cbx.getAttribute("data-pid");
+        if (!state.tradeBaitDraft) state.tradeBaitDraft = new Set();
+        if (cbx.checked) state.tradeBaitDraft.add(pid);
+        else state.tradeBaitDraft.delete(pid);
+        state.tradeBaitMessage = null;
+        renderRoster();
+      });
+    });
+    // Wire "What I'm looking for" textarea — persist on input without
+    // re-rendering (so the cursor doesn't jump on each keystroke).
+    var lookingForEl = el.querySelector("#topsBaitLookingFor");
+    if (lookingForEl) {
+      lookingForEl.addEventListener("input", function () {
+        state.tradeBaitLookingFor = lookingForEl.value;
+        state.tradeBaitMessage = null;
       });
     }
+    // Save buttons.
+    var saveLineupEl = el.querySelector(".tops-lineup-save");
+    if (saveLineupEl) saveLineupEl.addEventListener("click", function () {
+      if (saveLineupEl.hasAttribute("disabled")) return;
+      submitLineupDraft();
+    });
+    var saveBaitEl = el.querySelector(".tops-bait-save");
+    if (saveBaitEl) saveBaitEl.addEventListener("click", function () {
+      if (saveBaitEl.hasAttribute("disabled")) return;
+      submitTradeBaitDraft();
+    });
     // Player name click → profile modal. Keyboard actionable.
     el.querySelectorAll('[data-action="profile"]').forEach(function (node) {
       var row = node.closest(".tops-roster-row");

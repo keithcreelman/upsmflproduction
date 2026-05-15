@@ -891,8 +891,76 @@ a.tops-iframe-pop:hover {
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.06);
 }
-.tops-lineup-hud.is-ok  { background: rgba(125, 232, 217, 0.08); border-color: rgba(125, 232, 217, 0.3); color: #c9f8f1; }
-.tops-lineup-hud.is-err { background: rgba(239, 68, 68, 0.06); border-color: rgba(239, 68, 68, 0.25); color: #ffb4b4; }
+.tops-lineup-hud.is-ok   { background: rgba(125, 232, 217, 0.08); border-color: rgba(125, 232, 217, 0.3); color: #c9f8f1; }
+.tops-lineup-hud.is-warn { background: rgba(251, 191, 36, 0.08); border-color: rgba(251, 191, 36, 0.3); color: #fbe9a3; }
+.tops-lineup-hud.is-err  { background: rgba(239, 68, 68, 0.06); border-color: rgba(239, 68, 68, 0.25); color: #ffb4b4; }
+
+/* Mode tabs (Lineup | Trade Bait) — sit between the card title and the
+   validation HUD. Visually mirror the rosters/standings/etc. tab strip
+   so behaviour is predictable. Keith 2026-05-15 phase 3. */
+.tops-roster-tabs {
+  display: flex;
+  gap: 4px;
+  margin: 8px 0 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.tops-roster-tab {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: rgba(255, 255, 255, 0.55);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: 11px;
+  padding: 8px 14px;
+  cursor: pointer;
+  transition: color 80ms, border-color 80ms;
+}
+.tops-roster-tab:hover { color: #c9f8f1; }
+.tops-roster-tab.is-active {
+  color: #7de8d9;
+  border-bottom-color: #7de8d9;
+}
+
+/* Trade-bait selected row tinting — warm amber, distinct from the teal
+   "is-starting" lineup tint. */
+.tops-roster-table tr.is-trade-bait    { background: rgba(251, 191, 36, 0.08); }
+.tops-roster-table tr.is-trade-bait td { font-weight: 600; }
+
+/* "What I'm looking for" textarea — fits inline above the position groups
+   when in trade-bait mode. */
+.tops-bait-comment-wrap {
+  margin: 8px 0 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.tops-bait-comment-label {
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+  font-weight: 700;
+}
+.tops-bait-comment {
+  width: 100%;
+  resize: vertical;
+  min-height: 48px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  color: #e8edf5;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.4;
+}
+.tops-bait-comment:focus {
+  outline: none;
+  border-color: #7de8d9;
+  background: rgba(125, 232, 217, 0.05);
+}
 .tops-lineup-msg {
   margin: 6px 0 0;
   padding: 8px 12px;
