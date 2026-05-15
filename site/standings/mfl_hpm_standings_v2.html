@@ -2319,28 +2319,42 @@
     var opts = ['<option value="all"' + (state.eraSelected === "all" ? " selected" : "") + '>All Eras — Summary</option>'];
     eras.forEach(function (era) {
       var val = String(era.era_start);
-      var label = era.era_start + "–" + era.era_end;
+      var num = eraNumberFromStart(era.era_start);
+      var label = "Era " + num + " (" + era.era_start + "–" + era.era_end + ")";
       var story = ERA_STORIES[Number(era.era_start)];
       if (story && story.name) label += " — " + story.name;
       opts.push('<option value="' + escapeHtml(val) + '"' + (state.eraSelected === val ? " selected" : "") + '>' + escapeHtml(label) + '</option>');
     });
     return '<div class="era-picker-row"><label class="era-picker">View <select id="eraSel">' + opts.join("") + '</select></label></div>';
   }
+  // Era number from start year: 2011 → 1, 2014 → 2, 2017 → 3, etc.
+  // First UPS season is 2011 per league_context.
+  function eraNumberFromStart(eraStart) {
+    var n = Math.floor((Number(eraStart) - 2011) / 3) + 1;
+    return n > 0 ? n : 1;
+  }
   function renderErasSummaryHtml(eras) {
     var summaryRows = [];
     eras.forEach(function (era) {
       var pfMean = eraPfMean(era.rows);
+      var eraNum = eraNumberFromStart(era.era_start);
       (era.rows || []).forEach(function (r) {
+        var pfVal = Number(r.pf || 0);
         summaryRows.push({
-          era_label: era.era_start + "–" + era.era_end,
+          era_label: "Era " + eraNum + " (" + era.era_start + "–" + era.era_end + ")",
           era_start: era.era_start,
+          era_num: eraNum,
           owner_name: r.owner_name,
           seasons_played: r.seasons_played,
           ap_pct: r.ap_pct,
           ap_w: r.ap_w,
           h2h_w: r.h2h_w, h2h_l: r.h2h_l, h2h_t: r.h2h_t,
-          pf: r.pf,
+          pf: pfVal,
           pf_mean: pfMean,
+          // pre-computed Idx so the sort comparator can use it directly
+          // (sorting by raw pf gave wrong order when era pf scales
+          // differed — Keith 2026-05-15).
+          idx: pfMean > 0 ? pfVal / pfMean : 0,
           championships: r.championships,
           hawktuah_wins: r.hawktuah_wins,
           avg_finish: r.avg_finish
@@ -2374,15 +2388,14 @@
       + th("ap_pct",         "AP %",    true)
       + th("ap_w",           "AP W",    true)
       + '<th>H2H</th>'
-      + th("pf",             "Idx",     true)
+      + th("idx",            "Idx",     true)
       + th("championships",  "🏆",       true)
       + th("hawktuah_wins",  "🚽",       true)
       + th("avg_finish",     "Avg Fin", true)
       + '</tr>';
     var body = summaryRows.map(function (r) {
       var partial = (r.seasons_played || 0) < 3;
-      var idxNum = r.pf_mean > 0 ? Number(r.pf || 0) / r.pf_mean : 0;
-      var idxStr = idxNum > 0 ? idxNum.toFixed(2) : "—";
+      var idxStr = r.idx > 0 ? r.idx.toFixed(2) : "—";
       return '<tr' + (partial ? ' class="partial"' : '') + '>'
         + '<td>' + escapeHtml(r.era_label) + '</td>'
         + '<td>' + escapeHtml(r.owner_name || "—") + (partial ? ' <span class="partial-badge" title="Did not play all 3 seasons of the cycle">partial</span>' : '') + '</td>'

@@ -5954,12 +5954,18 @@
             '<div class="rwb-toolbar-main" id="rwbToolbarMain">' +
               '<div class="rwb-toolbar-panel rwb-toolbar-panel-nav">' +
                 '<div class="rwb-toolbar-section-label">Views</div>' +
+                // Scoring + Bye Chart tabs removed 2026-05-15 — those
+                // belong to weekly-roster-management, not cap management
+                // (Front Office's job). Player Stats covers the scoring
+                // surface; Bye Chart lives more naturally on a future
+                // Game Day or lineup-management page. Code paths for
+                // `points` + `bye` view modes left in place (renderers,
+                // state handling, etc.) so they can be revived without
+                // archaeology if needed.
                 '<div class="rwb-view-switch" role="tablist" aria-label="View mode">' +
                   '<button type="button" id="rwbViewRoster" class="rwb-btn rwb-btn-ghost is-active" data-action="view-switch" data-view="roster" role="tab" aria-selected="true">Contract View</button>' +
                   '<button type="button" id="rwbViewContract" class="rwb-btn rwb-btn-ghost" data-action="view-switch" data-view="contract" role="tab" aria-selected="false">Cap Plan</button>' +
                   '<button type="button" id="rwbViewTag" class="rwb-btn rwb-btn-ghost" data-action="view-switch" data-view="tag" role="tab" aria-selected="false">Tagging</button>' +
-                  '<button type="button" id="rwbViewPoints" class="rwb-btn rwb-btn-ghost" data-action="view-switch" data-view="points" role="tab" aria-selected="false">Scoring</button>' +
-                  '<button type="button" id="rwbViewBye" class="rwb-btn rwb-btn-ghost" data-action="view-switch" data-view="bye" role="tab" aria-selected="false">Bye Chart</button>' +
                 '</div>' +
               '</div>' +
               '<div class="rwb-toolbar-panel rwb-toolbar-panel-browse">' +
