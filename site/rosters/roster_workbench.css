@@ -1215,6 +1215,13 @@
   color: var(--rwb-text-dim);
 }
 
+/* Drop-preview cap-penalty cell — red so it reads as a penalty hit
+   while preview mode is active on a player row. */
+.rwb-money-penalty {
+  color: #ff7b6f !important;
+  font-weight: 700;
+}
+
 .rwb-row-more {
   border-radius: 999px;
   border: 1px solid rgba(157, 188, 228, 0.35);
@@ -1275,6 +1282,22 @@
 .rwb-row-action:hover,
 .rwb-contract-toggle:hover {
   border-color: rgba(255, 169, 103, 0.7);
+}
+
+/* "Drop" preview button — tinted distinct from the 1Y/2Y extension
+   toggles so the action reads as "destructive preview". */
+.rwb-contract-toggle-drop {
+  border-color: rgba(255, 123, 111, 0.55) !important;
+  color: #ff7b6f !important;
+}
+.rwb-contract-toggle-drop:hover {
+  border-color: rgba(255, 123, 111, 0.95) !important;
+  background: rgba(255, 123, 111, 0.08) !important;
+}
+.rwb-contract-toggle-drop.is-active {
+  background: rgba(255, 123, 111, 0.18) !important;
+  border-color: #ff7b6f !important;
+  color: #fff !important;
 }
 
 .rwb-row-action.is-disabled,

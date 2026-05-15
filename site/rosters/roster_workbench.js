@@ -159,6 +159,8 @@
       points: { key: "points", dir: "desc" }
     },
     contractPreview: {},
+    // Drop preview state — keyed by "fid:pid" → true. See dropPreviewActive().
+    dropPreview: {},
     actionModal: {
       open: false,
       playerId: "",
@@ -978,6 +980,31 @@
   function extensionPreviewYears(player) {
     if (!playerExtensionOptions(player).length) return 0;
     return safeInt(state.contractPreview[contractPreviewKey(player)], 0);
+  }
+
+  // Drop preview state — parallel to contractPreview, keyed by
+  // "fid:pid". When set, the Cap Plan row for that player shows
+  // post-drop values: pre-auction → penalty in current year, future
+  // years $0; in-season → current year $0, penalty in next year,
+  // future years $0. Toggled by the "Drop" button in the Preview
+  // column; persists alongside contractPreview.
+  function dropPreviewKey(player) {
+    return pad4(player && player.fid) + ":" + safeStr(player && player.id);
+  }
+  function dropPreviewActive(player) {
+    return !!state.dropPreview[dropPreviewKey(player)];
+  }
+  // Cap-penalty drop mode for `season`:
+  //   "pre_auction" — penalty hits CURRENT year (offseason drop)
+  //   "in_season"   — penalty hits NEXT year (post-Auction drop)
+  // Mirrors the Aug 1 cutoff used by isTagCutPreAuctionAssumption.
+  function dropMode(season, now) {
+    var yr = safeInt(season, 0);
+    if (yr <= 0) return "pre_auction";
+    var n = now instanceof Date ? now : new Date();
+    if (n.getFullYear() < yr) return "pre_auction";
+    if (n.getFullYear() > yr) return "in_season";
+    return n < new Date(yr, 7, 1) ? "pre_auction" : "in_season";
   }
 
   function normalizeExtensionTermValue(term) {
@@ -8907,6 +8934,13 @@
     var nonTaxiRows = [];
     var taxiRows = [];
 
+    // Pre-compute drop-mode for the current season so each player row
+    // doesn't recompute it. Off-season today (May) is pre_auction;
+    // post-Aug 1 of the current cap year is in_season.
+    var capPlanSeason = currentYearInt();
+    var capPlanNow = new Date();
+    var capPlanDropMode = dropMode(capPlanSeason, capPlanNow);
+
     for (var i = 0; i < sorted.length; i += 1) {
       var p = sorted[i];
       var proj = [displayedSalaryForPlan(p, 0), displayedSalaryForPlan(p, 1), displayedSalaryForPlan(p, 2)];
@@ -8914,12 +8948,28 @@
       var tcv = totalContractValueForPlayer(p);
       var contractTypeText = safeStr(p.type) || "-";
       var extensionOptions = playerExtensionOptions(p);
-      var previewControlsHtml = extensionOptions.length
-        ? '<div class="rwb-contract-toggle-row">' +
-            '<button type="button" class="rwb-contract-toggle' + (extensionPreviewYears(p) === 1 ? ' is-active' : '') + '" data-action="contract-preview" data-years="1" data-player-id="' + escapeHtml(p.id) + '" data-franchise-id="' + escapeHtml(p.fid) + '"' + (extensionOptions.length < 1 ? ' disabled' : '') + '>1Y</button>' +
-            '<button type="button" class="rwb-contract-toggle' + (extensionPreviewYears(p) === 2 ? ' is-active' : '') + '" data-action="contract-preview" data-years="2" data-player-id="' + escapeHtml(p.id) + '" data-franchise-id="' + escapeHtml(p.fid) + '"' + (extensionOptions.length < 2 ? ' disabled' : '') + '>2Y</button>' +
-          '</div>'
-        : '<span class="rwb-row-action-placeholder">—</span>';
+      // Drop preview: when active, override the year columns to show
+      // the post-drop state (penalty in red, all other years $0).
+      var dropPreviewing = dropPreviewActive(p);
+      var dropPenaltyAmount = 0;
+      var dropPenaltyColIdx = -1; // index into proj[] that gets the penalty cell
+      if (dropPreviewing) {
+        var est = dropPenaltyEstimate(p);
+        dropPenaltyAmount = Math.max(0, safeInt(est && est.amount, 0));
+        dropPenaltyColIdx = capPlanDropMode === "pre_auction" ? 0 : 1;
+        // Override all three year cells: zero everything, then drop
+        // the penalty into the correct slot.
+        proj = [0, 0, 0];
+        proj[dropPenaltyColIdx] = dropPenaltyAmount;
+      }
+      var previewControlsHtml =
+          '<div class="rwb-contract-toggle-row">' +
+            (extensionOptions.length
+              ? '<button type="button" class="rwb-contract-toggle' + (extensionPreviewYears(p) === 1 ? ' is-active' : '') + '" data-action="contract-preview" data-years="1" data-player-id="' + escapeHtml(p.id) + '" data-franchise-id="' + escapeHtml(p.fid) + '"' + (extensionOptions.length < 1 ? ' disabled' : '') + '>1Y</button>' +
+                '<button type="button" class="rwb-contract-toggle' + (extensionPreviewYears(p) === 2 ? ' is-active' : '') + '" data-action="contract-preview" data-years="2" data-player-id="' + escapeHtml(p.id) + '" data-franchise-id="' + escapeHtml(p.fid) + '"' + (extensionOptions.length < 2 ? ' disabled' : '') + '>2Y</button>'
+              : '') +
+            '<button type="button" class="rwb-contract-toggle rwb-contract-toggle-drop' + (dropPreviewing ? ' is-active' : '') + '" data-action="drop-preview" data-player-id="' + escapeHtml(p.id) + '" data-franchise-id="' + escapeHtml(p.fid) + '" title="Preview cap impact if this player is dropped (' + (capPlanDropMode === "pre_auction" ? "pre-auction: penalty hits current year" : "in-season: penalty hits next year") + ')">Drop</button>' +
+          '</div>';
 
       var rowHtml =
         '<tr class="rwb-player-row' + (p.isTaxi ? ' rwb-player-row-taxi' : '') + (p.isIr ? ' rwb-player-row-ir' : '') + (extensionPreviewYears(p) ? ' is-projected' : '') + '">' +
@@ -8940,8 +8990,8 @@
           '<td class="rwb-cell-num' + (tcv === 0 ? ' rwb-money-zero' : '') + '">' + escapeHtml(tcv > 0 ? money(tcv) : "—") + '</td>' +
           '<td class="rwb-cell-num' + (aav === 0 ? ' rwb-money-zero' : '') + '">' + escapeHtml(aav > 0 ? money(aav) : "—") + '</td>' +
           '<td class="rwb-cell-num">' + escapeHtml(projectedExpiryLabel(p)) + '</td>' +
-          '<td class="rwb-cell-num' + (proj[0] === 0 ? ' rwb-money-zero' : '') + '">' + escapeHtml(money(proj[0])) + '</td>' +
-          '<td class="rwb-cell-num' + (proj[1] === 0 ? ' rwb-money-zero' : '') + '">' + escapeHtml(money(proj[1])) + '</td>' +
+          '<td class="rwb-cell-num' + (proj[0] === 0 ? ' rwb-money-zero' : '') + (dropPreviewing && dropPenaltyColIdx === 0 ? ' rwb-money-penalty' : '') + '">' + escapeHtml(money(proj[0])) + '</td>' +
+          '<td class="rwb-cell-num' + (proj[1] === 0 ? ' rwb-money-zero' : '') + (dropPreviewing && dropPenaltyColIdx === 1 ? ' rwb-money-penalty' : '') + '">' + escapeHtml(money(proj[1])) + '</td>' +
           '<td class="rwb-cell-num' + (proj[2] === 0 ? ' rwb-money-zero' : '') + '">' + escapeHtml(money(proj[2])) + '</td>' +
           '<td>' +
             previewControlsHtml +
@@ -10441,6 +10491,7 @@
     writeStorage("filterByeImpact", state.filterByeImpact);
     writeStorage("taxiOnly", state.filterRosterStatus === "taxi");
     writeStorage("contractPreview", state.contractPreview);
+    writeStorage("dropPreview", state.dropPreview);
     writeStorage("view", state.view);
     writeStorage("contractSubView", state.contractSubView);
     writeStorage("tagSubView", state.tagSubView);
@@ -10469,6 +10520,7 @@
       state.filterRosterStatus = "taxi";
     }
     state.contractPreview = readStorage("contractPreview", {}) || {};
+    state.dropPreview = readStorage("dropPreview", {}) || {};
     state.sorts = readStorage("sorts", state.sorts) || state.sorts;
     var storedView = safeStr(readStorage("view", "roster"));
     state.contractSubView = normalizeCapPlanSubview(readStorage("contractSubView", "players"));
@@ -11413,6 +11465,26 @@
       if (!previewRecord || !previewRecord.player || !playerExtensionOptions(previewRecord.player).length) return;
       var previewKey = previewFranchiseId + ":" + previewPlayerId;
       state.contractPreview[previewKey] = safeInt(state.contractPreview[previewKey], 0) === previewYears ? 0 : previewYears;
+      persistState();
+      renderTeams();
+      return;
+    }
+
+    // Drop preview toggle — independent of contract preview (a player
+    // can in theory show only one or the other; clicking Drop while
+    // an extension preview is active just flips Drop on without
+    // touching contractPreview).
+    var dropBtn = target.closest("[data-action='drop-preview']");
+    if (dropBtn) {
+      var dropPlayerId = safeStr(dropBtn.getAttribute("data-player-id"));
+      var dropFranchiseId = pad4(dropBtn.getAttribute("data-franchise-id"));
+      if (!dropPlayerId || !dropFranchiseId) return;
+      var dropKey = dropFranchiseId + ":" + dropPlayerId;
+      if (state.dropPreview[dropKey]) {
+        delete state.dropPreview[dropKey];
+      } else {
+        state.dropPreview[dropKey] = true;
+      }
       persistState();
       renderTeams();
       return;
