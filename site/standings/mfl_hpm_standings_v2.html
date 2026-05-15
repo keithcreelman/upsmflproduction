@@ -2231,6 +2231,12 @@
       if (sa === "pf_rank") {
         return ((ranks.pf[a.season] || 99) - (ranks.pf[b.season] || 99)) * dir;
       }
+      if (sa === "pf_index") {
+        return ((Number(a.pf_index) || 0) - (Number(b.pf_index) || 0)) * dir;
+      }
+      if (sa === "idx_rank") {
+        return ((ranks.idx[a.season] || 99) - (ranks.idx[b.season] || 99)) * dir;
+      }
       av = Number(av || 0); bv = Number(bv || 0);
       return (av - bv) * dir;
     });
@@ -2243,7 +2249,8 @@
       + th("total_ap_pct",   "Total AP %", true)
       + th("ap_rank",        "AP Rank",    true)
       + th("pf",             "PF",         true)
-      + th("pf_rank",        "PF Rank",    true)
+      + th("pf_index",       "IDX",        true)
+      + th("idx_rank",       "IDX Rank",   true)
       + '<th>Final Score</th>'
       + '</tr>';
     var body = rows.map(function (c) {
@@ -2253,7 +2260,10 @@
       var seed = c.seed_rank_overall != null ? "#" + c.seed_rank_overall : "—";
       var divWin = c.division_winner === true ? "Yes" : (c.division_winner === false ? "No" : "—");
       var apRank = ranks.ap[c.season] ? "#" + ranks.ap[c.season] : "—";
-      var pfRank = ranks.pf[c.season] ? "#" + ranks.pf[c.season] : "—";
+      var idxRank = ranks.idx[c.season] ? "#" + ranks.idx[c.season] : "—";
+      var idxStr = (c.pf_index != null && isFinite(c.pf_index))
+        ? Number(c.pf_index).toFixed(2)
+        : "—";
       return '<tr>'
         + '<td>' + escapeHtml(c.season) + '</td>'
         + '<td>' + escapeHtml(c.franchise_name || c.franchise_id || "—") + '</td>'
@@ -2263,7 +2273,8 @@
         + '<td class="num">' + fmtPct(totalPct) + '</td>'
         + '<td class="num">' + apRank + '</td>'
         + '<td class="num">' + fmtCommas(c.pf, 1) + '</td>'
-        + '<td class="num">' + pfRank + '</td>'
+        + '<td class="num">' + idxStr + '</td>'
+        + '<td class="num">' + idxRank + '</td>'
         + '<td>' + finalScore + '</td>'
         + '</tr>';
     }).join("");
@@ -2337,7 +2348,11 @@
           return c.total_ap_pct != null ? c.total_ap_pct
             : hocRecPct(c.total_ap_w, c.total_ap_l, c.total_ap_t);
         }),
-        pf: rankChampsDesc(champs, function (c) { return c.pf; })
+        pf: rankChampsDesc(champs, function (c) { return c.pf; }),
+        // PF Index = champ_pf / season_mean_pf — normalizes for scoring
+        // inflation across eras (Keith 2026-05-15: replaced PF Rank with
+        // IDX + IDX Rank in HoC summary).
+        idx: rankChampsDesc(champs, function (c) { return c.pf_index; })
       };
 
       var pickerHtml = renderChampPickerHtml(champs);
