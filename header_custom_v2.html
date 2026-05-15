@@ -2669,18 +2669,29 @@
     function safeUpper(v) { return String(v == null ? "" : v).trim().toUpperCase(); }
 
     function isTeamOpsContext() {
-      // Standalone HPM page: MODULE=MESSAGE11
+      // 1. Standalone HPM page: MODULE=MESSAGE11 → always Team Ops.
+      // 2. Bare home page (no MODULE) on /home/<league> → Team Ops.
+      // 3. Any other MODULE value → NOT Team Ops (let that module's
+      //    own renderer handle the page).
+      //
+      // The old heuristic just checked `/home/\d+/` in the path, which
+      // matched MESSAGE6 / MESSAGE7 / MESSAGE13 / MESSAGE4 / etc. too
+      // — every MFL message URL has that path. Result: Team Ops was
+      // injecting itself onto every page and competing with the
+      // module that was supposed to render (Keith 2026-05-15: "what
+      // the fuck happened" — the Roster card showed IDs because the
+      // players export was still loading when the page was rendered).
       try {
         var u = new URL(window.location.href);
         var mod = safeUpper(u.searchParams.get("MODULE") || "");
         if (mod === "MESSAGE11" || /^MESSAGE11\b/.test(mod)) return true;
+        if (mod) return false;  // any other MODULE → not us
       } catch (e) {}
 
-      // Home page: path matches /home/<digits>
       var path = String(window.location.pathname || "");
-      if (/\/home\/\d+/.test(path)) return true;
+      if (/\/home\/\d+/.test(path)) return true;  // bare home only (MODULE check passed above)
 
-      // Body-id heuristic: MFL sets <body id="body_home"> on home page.
+      // Body-id heuristic: MFL sets <body id="body_home"> on bare home.
       if (document.body && /home/i.test(String(document.body.id || ""))) return true;
 
       return false;
