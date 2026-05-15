@@ -203,6 +203,71 @@
 .btn-act.ropt { border-color: rgba(255, 184, 107, 0.45); color: var(--warn); }
 .btn-act.rstr { border-color: rgba(139, 229, 139, 0.45); color: var(--ok); }
 .btn-act.tag { border-color: rgba(206, 147, 216, 0.45); color: #ce93d8; }
+
+/* ----- Restructure editor sheet ----- */
+.ups-m-rstr-summary {
+  background: var(--bg-elev2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+}
+.ups-m-rstr-summary .row,
+.ups-m-rstr-derived .row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  padding: 2px 0;
+}
+.ups-m-rstr-summary .lbl,
+.ups-m-rstr-derived .lbl { color: var(--fg-muted); }
+.ups-m-rstr-summary .val,
+.ups-m-rstr-derived .val { color: var(--fg); font-variant-numeric: tabular-nums; font-weight: 600; }
+.ups-m-rstr-field { margin-bottom: 12px; }
+.ups-m-rstr-field label {
+  display: block;
+  font-size: 11px;
+  color: var(--fg-muted);
+  margin-bottom: 4px;
+  letter-spacing: 0.04em;
+}
+.ups-m-rstr-field input {
+  width: 100%;
+  padding: 12px;
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 16px;
+  font-family: inherit;
+  font-variant-numeric: tabular-nums;
+  -webkit-appearance: none;
+}
+.ups-m-rstr-field input:focus { outline: none; border-color: var(--accent); }
+.ups-m-rstr-derived {
+  background: rgba(91,141,255,0.06);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 6px 6px 0;
+  padding: 8px 12px;
+  margin: 12px 0 8px;
+}
+.ups-m-rstr-ok {
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: rgba(139,229,139,0.1);
+  color: var(--ok);
+  border-radius: 6px;
+  font-size: 12px;
+  text-align: center;
+}
+.ups-m-rstr-err {
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: rgba(255,107,107,0.1);
+  color: var(--danger);
+  border-radius: 6px;
+  font-size: 12px;
+}
 .btn-act .pn {
   display: block;
   font-size: 10px;

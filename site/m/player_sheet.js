@@ -258,9 +258,11 @@
       // desktop Contract Command Center pre-targeted at this player + action.
       var tagLabel = tagAction.kind === "untag" ? "Untag" : "Tag";
       var tagAct = tagAction.kind === "untag" ? "untag" : "tag";
+      // Rookie Option intentionally not exposed on mobile yet (Keith
+      // 2026-05-15 — skip for now). When ready, mirror submitRookieOptionUpdate
+      // from roster_workbench.js:10912 the same way Tag/Extend were ported.
       var contractActions = [
         { key: "extension", label: "Extend", eligible: elig.extensionEligible, css: "ext" },
-        { key: "rookie_option", label: "Rookie Option", eligible: elig.rookieOptionEligible, css: "ropt" },
         { key: "restructure", label: "Restructure", eligible: elig.restructureEligible, css: "rstr" },
         { key: tagAct, label: tagLabel, eligible: tagEligible, css: "tag" }
       ];
@@ -328,29 +330,15 @@
     }
   }
 
-  // Open the desktop Contract Command Center deep-link for this player.
-  // URL builder lives in front_office_actions.js (verbatim mirror of
-  // roster_workbench.js:7265). Mobile uses this for Extend / Restructure
-  // / Rookie Option which need the full desktop picker. Tag/Untag now
-  // submit in-app via UPS_FRONT_OFFICE_TAG.
+  // All contract actions run in-app via the verbatim Front Office mirrors.
+  // CCC (MODULE=MESSAGE2) is retired (Keith 2026-05-15 — see memory
+  // feedback_roster_workbench_is_truth_not_ccc). No deep-link fallback.
   function handleCccAction(action) {
-    if (action === "tag") { handleTagSubmit(); return; }
-    if (action === "untag") { handleUntagSubmit(); return; }
-    if (action === "extension") { handleExtensionPick(); return; }
-
-    var FOA = window.UPS_FRONT_OFFICE_ACTIONS;
-    if (!FOA) return;
-    var pid = footerState.pid;
-    var s = window.UPS_MOBILE.state;
-    var fid = s.viewerFranchiseId;
-    var url = FOA.buildContractCenterActionUrl({
-      action: action,
-      pid: pid,
-      fid: fid,
-      year: s.ctx.year,
-      leagueId: s.ctx.leagueId
-    });
-    window.open(url, "_blank");
+    if (action === "tag") return handleTagSubmit();
+    if (action === "untag") return handleUntagSubmit();
+    if (action === "extension") return handleExtensionPick();
+    if (action === "restructure") return handleRestructurePick();
+    window.UPS_MOBILE.ui.showToast("Action not yet available on mobile.", "err");
   }
 
   // In-app Extend — fetch precomputed options, show picker, submit.
@@ -492,6 +480,153 @@
       var slot = document.getElementById("ups-m-ext-body");
       if (slot) slot.innerHTML = '<div class="ups-m-sheet-empty" style="color:var(--danger)">Extension failed: ' +
         U.escapeHtml(err && err.message || String(err)) + '</div>';
+    });
+  }
+
+  // In-app Restructure — editor sheet with Y1 input + auto-derived
+  // Y2 (2yr) or Y2 input + auto-derived Y3 (3yr). Validation matches
+  // restructureCalc() (verbatim from roster_workbench.js).
+  var restructureState = { years: 2, tcv: 0, y1: 0, y2: 0 };
+
+  function handleRestructurePick() {
+    var FOR = window.UPS_FRONT_OFFICE_RSTR;
+    if (!FOR) return;
+    var rosterRow = footerState.rosterRow;
+    var adapted = FOR.adaptRosterRow(rosterRow);
+    var cy = parseInt(rosterRow && rosterRow.contractYear, 10) || 0;
+    var years = cy >= 3 ? 3 : 2;
+    var baseline = FOR.restructureBaselineForPlayer(adapted, years);
+    restructureState = {
+      years: years,
+      tcv: baseline.tcv,
+      y1: baseline.y1,
+      y2: years === 2 ? (baseline.tcv - baseline.y1) : baseline.y2
+    };
+    renderRestructureSheet();
+  }
+
+  function ensureRstrMount() {
+    var existing = document.getElementById("ups-m-rstr-overlay");
+    if (existing) existing.remove();
+    var html =
+      '<div class="ups-m-drop-overlay" id="ups-m-rstr-overlay">' +
+        '<div class="ups-m-drop-sheet">' +
+          '<div class="ups-m-drop-head">' +
+            '<button class="ups-m-drop-close" id="ups-m-rstr-close" aria-label="Close">×</button>' +
+            '<div class="grip"></div>' +
+            '<div class="title">Restructure ' + U.escapeHtml(footerState.name) + '</div>' +
+            '<div class="sub">TCV is preserved. Move money between years to flatten or front/back-load.</div>' +
+          '</div>' +
+          '<div class="ups-m-drop-body" id="ups-m-rstr-body" style="padding:14px 16px"></div>' +
+        '</div>' +
+      '</div>';
+    var mount = document.getElementById("ups-m-app");
+    if (!mount) return null;
+    mount.insertAdjacentHTML("beforeend", html);
+    document.body.style.overflow = "hidden";
+    var overlay = document.getElementById("ups-m-rstr-overlay");
+    overlay.addEventListener("click", function (e) { if (e.target === overlay) closeRstrSheet(); });
+    document.getElementById("ups-m-rstr-close").addEventListener("click", closeRstrSheet);
+    return overlay;
+  }
+  function closeRstrSheet() {
+    var ov = document.getElementById("ups-m-rstr-overlay");
+    if (ov) ov.remove();
+    document.body.style.overflow = "";
+  }
+  function renderRestructureSheet() {
+    ensureRstrMount();
+    var body = document.getElementById("ups-m-rstr-body");
+    var FOR = window.UPS_FRONT_OFFICE_RSTR;
+    if (!body) return;
+    var s = restructureState;
+    var calc = FOR.restructureCalc({ years: s.years, tcv: s.tcv, y1: s.y1, y2: s.y2 });
+    var minY1 = Math.ceil((s.tcv * 0.2) / 1000) * 1000;
+    body.innerHTML = '' +
+      '<div class="ups-m-rstr-summary">' +
+        '<div class="row"><span class="lbl">TCV (fixed):</span> <span class="val">' + U.fmtUsd(s.tcv) + '</span></div>' +
+        '<div class="row"><span class="lbl">Years:</span> <span class="val">' + s.years + '</span></div>' +
+      '</div>' +
+      '<div class="ups-m-rstr-field">' +
+        '<label>Year 1 salary (min ' + U.fmtUsd(minY1) + ', 1K increments)</label>' +
+        '<input type="number" step="1000" min="' + minY1 + '" max="' + (s.tcv - (s.years - 1) * 1000) + '" ' +
+          'value="' + s.y1 + '" id="ups-m-rstr-y1" inputmode="numeric" />' +
+      '</div>' +
+      (s.years === 3 ? '<div class="ups-m-rstr-field">' +
+        '<label>Year 2 salary (1K increments)</label>' +
+        '<input type="number" step="1000" min="1000" value="' + s.y2 + '" id="ups-m-rstr-y2" inputmode="numeric" />' +
+      '</div>' : '') +
+      '<div class="ups-m-rstr-derived">' +
+        (s.years === 2
+          ? '<div class="row"><span class="lbl">Year 2 (auto):</span> <span class="val">' + U.fmtUsd(s.tcv - s.y1) + '</span></div>'
+          : '<div class="row"><span class="lbl">Year 3 (auto):</span> <span class="val">' + U.fmtUsd(s.tcv - s.y1 - s.y2) + '</span></div>') +
+        '<div class="row"><span class="lbl">AAV:</span> <span class="val">' + U.fmtUsd(calc.aav) + '</span></div>' +
+        (calc.ok ? '<div class="row"><span class="lbl">GTD:</span> <span class="val">' + U.fmtUsd(calc.gtd) + '</span></div>' : '') +
+      '</div>' +
+      (calc.ok
+        ? '<div class="ups-m-rstr-ok">Ready to submit.</div>'
+        : '<div class="ups-m-rstr-err">' + U.escapeHtml(calc.error || "") + '</div>') +
+      '<button class="btn-act otb on" id="ups-m-rstr-submit" ' + (calc.ok ? "" : "disabled") + ' style="width:100%;margin-top:12px">' +
+        'Submit Restructure' +
+      '</button>';
+
+    var y1Inp = document.getElementById("ups-m-rstr-y1");
+    if (y1Inp) y1Inp.addEventListener("input", function (e) {
+      restructureState.y1 = parseInt(e.target.value, 10) || 0;
+      renderRestructureSheet();
+    });
+    var y2Inp = document.getElementById("ups-m-rstr-y2");
+    if (y2Inp) y2Inp.addEventListener("input", function (e) {
+      restructureState.y2 = parseInt(e.target.value, 10) || 0;
+      renderRestructureSheet();
+    });
+    var submit = document.getElementById("ups-m-rstr-submit");
+    if (submit && calc.ok) submit.addEventListener("click", function () { confirmAndSubmitRestructure(calc); });
+  }
+
+  function confirmAndSubmitRestructure(calc) {
+    var msg = "Submit restructure for " + footerState.name + "?\n\n" +
+              "Years: " + calc.years + "\n" +
+              "Year 1: " + U.fmtUsd(calc.y1) + "\n" +
+              "Year 2: " + U.fmtUsd(calc.y2) + "\n" +
+              (calc.years >= 3 ? "Year 3: " + U.fmtUsd(calc.y3) + "\n" : "") +
+              "TCV: " + U.fmtUsd(calc.tcv) + "\n" +
+              "AAV: " + U.fmtUsd(calc.aav) + "\n" +
+              "GTD: " + U.fmtUsd(calc.gtd);
+    if (!window.confirm(msg)) return;
+    var body = document.getElementById("ups-m-rstr-body");
+    if (body) body.innerHTML = '<div class="ups-m-sheet-loading">Submitting…</div>';
+
+    var FOR = window.UPS_FRONT_OFFICE_RSTR;
+    var s = window.UPS_MOBILE.state;
+    var rosterRow = footerState.rosterRow;
+    var player = window.UPS_MOBILE.data.playerById(footerState.pid);
+    FOR.submitRestructure({
+      workerBase: window.UPS_MOBILE.api.workerBase(),
+      leagueId: s.ctx.leagueId,
+      year: s.ctx.year,
+      pid: footerState.pid,
+      playerName: U.safeStr(player && player.name) || footerState.name,
+      fid: s.viewerFranchiseId,
+      franchiseName: s.viewerFranchise && s.viewerFranchise.name || "",
+      position: U.safeStr(player && player.position),
+      priorContractStatus: U.safeStr(rosterRow && rosterRow.contractStatus),
+      calc: calc,
+      commishOverride: false
+    }).then(function (resp) {
+      if (resp.ok) {
+        window.UPS_MOBILE.ui.showToast("Restructure submitted ✓", "ok");
+        closeRstrSheet();
+        return window.UPS_MOBILE.actions.reloadData().then(function () {
+          window.UPS_MOBILE.route.renderRoute();
+          close();
+        });
+      }
+      var slot = document.getElementById("ups-m-rstr-body");
+      if (slot) slot.innerHTML = '<div class="ups-m-rstr-err">Restructure failed: ' + U.escapeHtml(resp.error || "unknown error") + '</div>';
+    }).catch(function (err) {
+      var slot = document.getElementById("ups-m-rstr-body");
+      if (slot) slot.innerHTML = '<div class="ups-m-rstr-err">Restructure failed: ' + U.escapeHtml(err && err.message || String(err)) + '</div>';
     });
   }
 
