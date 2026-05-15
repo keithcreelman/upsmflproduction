@@ -656,10 +656,21 @@
     // drop penalties; negative = cap credit). Folded into the headline
     // total so Team Ops matches Front Office.
     var adjustmentTotal = getMyAdjustmentTotal();
-    var capTotal = playerSalaryUsed + adjustmentTotal;
     var cap = state.capAmount;
-    var remain = cap - capTotal;
-    var pct = cap > 0 ? Math.min(100, Math.round((capTotal / cap) * 100)) : 0;
+
+    // Round each component to the nearest $1K, then derive Cap Total
+    // and Cap Room from those rounded values so all four displayed
+    // numbers add up consistently:
+    //   displayed salary + displayed adj   = displayed cap total
+    //   displayed cap     − displayed total = displayed cap room
+    // Without this, $272.5K used + $27.5K free both round UP to
+    // $273K + $28K = $301K, breaking the tie (Keith 2026-05-14).
+    function roundToK(n) { return Math.round(Number(n || 0) / 1000) * 1000; }
+    var playerSalaryUsedR = roundToK(playerSalaryUsed);
+    var adjustmentTotalR  = roundToK(adjustmentTotal);
+    var capTotalR         = playerSalaryUsedR + adjustmentTotalR;
+    var remainR           = cap - capTotalR;
+    var pct = cap > 0 ? Math.min(100, Math.round((capTotalR / cap) * 100)) : 0;
 
     var rosterCount = roster.length;
     var irCount = roster.filter(function (p) { return /ir/i.test(p.status); }).length;
@@ -669,23 +680,23 @@
     // Card 1 explicit split (Keith 2026-05-14): Salary + Adjustments = big
     // total. Color-code the adjustments line so positive (cap-charging)
     // reads warm, negative (cap credit) reads green.
-    var adjClass = adjustmentTotal > 0 ? 'tops-kv-split-warn'
-                  : adjustmentTotal < 0 ? 'tops-kv-split-ok'
+    var adjClass = adjustmentTotalR > 0 ? 'tops-kv-split-warn'
+                  : adjustmentTotalR < 0 ? 'tops-kv-split-ok'
                   : 'tops-kv-split-zero';
-    var adjPrefix = adjustmentTotal > 0 ? "+" : (adjustmentTotal < 0 ? "−" : "");
-    var adjAmt = Math.abs(adjustmentTotal);
+    var adjPrefix = adjustmentTotalR > 0 ? "+" : (adjustmentTotalR < 0 ? "−" : "");
+    var adjAmtR = Math.abs(adjustmentTotalR);
 
     el.innerHTML = [
       '<div class="tops-card-title">Franchise Summary</div>',
       '<div class="tops-summary-grid">',
       '  <div class="tops-kv">',
       '    <div class="tops-kv-label">Cap Total</div>',
-      '    <div class="tops-kv-value">' + fmtUsd(capTotal) + '</div>',
+      '    <div class="tops-kv-value">' + fmtUsd(capTotalR) + '</div>',
       '    <div class="tops-kv-split">',
-      '      <span class="tops-kv-split-line"><span class="tops-kv-split-k">Salary</span><span class="tops-kv-split-v">' + fmtUsd(playerSalaryUsed) + '</span></span>',
+      '      <span class="tops-kv-split-line"><span class="tops-kv-split-k">Salary</span><span class="tops-kv-split-v">' + fmtUsd(playerSalaryUsedR) + '</span></span>',
       '      <span class="tops-kv-split-line ' + adjClass + '">',
       '        <span class="tops-kv-split-k">Adjustments</span>',
-      '        <span class="tops-kv-split-v">' + adjPrefix + fmtUsd(adjAmt) + '</span>',
+      '        <span class="tops-kv-split-v">' + adjPrefix + fmtUsd(adjAmtR) + '</span>',
       '      </span>',
       '    </div>',
       '    <div class="tops-kv-note">' + pct + '% of ' + fmtUsd(cap) +
@@ -696,9 +707,9 @@
       '  </div>',
       '  <div class="tops-kv">',
       '    <div class="tops-kv-label">Cap Room</div>',
-      '    <div class="tops-kv-value">' + fmtUsd(remain) + '</div>',
-      '    <div class="tops-kv-note">' + fmtUsd(cap) + ' cap − ' + fmtUsd(playerSalaryUsed) + ' salary' +
-        (adjustmentTotal !== 0 ? ' − ' + adjPrefix + fmtUsd(adjAmt) + ' adj' : '') +
+      '    <div class="tops-kv-value">' + fmtUsd(remainR) + '</div>',
+      '    <div class="tops-kv-note">' + fmtUsd(cap) + ' cap − ' + fmtUsd(playerSalaryUsedR) + ' salary' +
+        (adjustmentTotalR !== 0 ? ' − ' + adjPrefix + fmtUsd(adjAmtR) + ' adj' : '') +
         '</div>',
       '  </div>',
       '  <div class="tops-kv">',
