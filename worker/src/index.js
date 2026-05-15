@@ -2567,12 +2567,17 @@ export default {
           }
           const apiKey = safeStr(env.MFL_APIKEY || "");
           if (!apiKey) return jsonOut(500, { ok: false, error: "MFL_APIKEY missing in worker env" });
+          // MFL import?TYPE=tradeBait field names match the export shape
+          // (TYPE=tradeBait returns objects with `willGiveUp` + `inExchangeFor`).
+          // Initial submission used WILL_TAKE_TEXT (wrong) → MFL HTTP 400.
+          // Fixed 2026-05-15 to use IN_EXCHANGE_FOR. WILL_GIVE_UP stays the
+          // same — that field name was correct.
           const importUrl = `https://www48.myfantasyleague.com/${encodeURIComponent(year)}/import?TYPE=tradeBait&L=${encodeURIComponent(leagueId)}&APIKEY=${encodeURIComponent(apiKey)}&JSON=1`;
           const form = new URLSearchParams();
           form.set("L", String(leagueId));
           form.set("FRANCHISE_ID", fidReq);
           form.set("WILL_GIVE_UP", willGiveUp.join(","));
-          if (lookingFor) form.set("WILL_TAKE_TEXT", lookingFor);
+          if (lookingFor) form.set("IN_EXCHANGE_FOR", lookingFor);
           let mflResp = "";
           let mflStatus = 0;
           try {
