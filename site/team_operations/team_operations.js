@@ -591,11 +591,14 @@
       '      </div>',
       '    </div>',
       '  </header>',
-      tabsHtml,
-      '  <section class="tops-tab-panel" data-tab-panel="overview" data-active="' + (activeTab === "overview" ? "1" : "0") + '" role="tabpanel">',
+      // Inner Team Ops tab strip removed — the header's "My Hub" sub-nav
+      // (Overview / Front Office / Trade War Room / Rookie Hub /
+      // Standings / Player Stats / Player Acquisition / Game Day)
+      // already covers this navigation across every page, so the
+      // duplicate strip just added clutter (Keith 2026-05-15).
+      '  <section class="tops-tab-panel" data-tab-panel="overview" data-active="1" role="tabpanel">',
            overviewPanelHtml,
       '  </section>',
-      hubPanels,
       '  <footer class="tops-footer">',
       '    <span class="tops-meta">Build ' + BUILD + '</span>',
       '    <span class="tops-meta">' + (state.lastLoaded ? 'Refreshed ' + state.lastLoaded.toLocaleTimeString() : 'Loading…') + '</span>',
