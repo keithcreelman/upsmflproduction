@@ -563,7 +563,9 @@
       + '  <section data-card="nextDecision" class="tops-card tops-card-highlight tops-card-wide"></section>'
       + '  <section data-card="summary" class="tops-card tops-card-summary"></section>'
       + '  <section data-card="matchup" class="tops-card"></section>'
-      + '  <section data-card="lineup" class="tops-card"></section>'
+      // Lineup + roster merged into a single position-grouped card (Keith
+      // 2026-05-15). The old standalone lineup stub is gone; the new
+      // roster card carries the Submit Lineup CTA + position group view.
       + '  <section data-card="roster" class="tops-card tops-card-wide"></section>'
       + '  <section data-card="allPlayerNews" class="tops-card tops-card-wide"></section>'
       + '  <section data-card="pendingTrades" class="tops-card"></section>'
@@ -796,17 +798,37 @@
     ].join("");
   }
 
-  // ----- Card: Lineup stub -----
-  function renderLineup() {
-    var el = els.cards.lineup;
-    if (!el) return;
-    el.innerHTML = [
-      '<div class="tops-card-title">Starting Lineup</div>',
-      '<div class="tops-empty">Lineup card coming in Phase 1b — requires MFL <code>TYPE=lineup</code> franchise-auth handshake via the worker.</div>'
-    ].join("");
+  // ----- Card: Lineup stub (deprecated 2026-05-15) -----
+  // Replaced by the merged roster-by-position card below. Keeping the
+  // function as a no-op so any straggler callers in renderAll don't crash.
+  function renderLineup() { /* merged into renderRoster */ }
+
+  // League starting-lineup formation (per /api/league config; verified
+  // 2026-05-15 against 2026 league data — see TYPE=league for L=74598).
+  // Each group: required starting slots (min, max) + label + ordered list
+  // of MFL position codes that count. Order matches the on-screen render.
+  var LINEUP_GROUPS = [
+    { key: "QB", label: "QB",   min: 1, max: 1, positions: ["QB"] },
+    { key: "RB", label: "RB",   min: 1, max: 3, positions: ["RB"] },
+    { key: "WR", label: "WR",   min: 2, max: 4, positions: ["WR"] },
+    { key: "TE", label: "TE",   min: 1, max: 3, positions: ["TE"] },
+    { key: "PK", label: "PK",   min: 1, max: 1, positions: ["PK"] },
+    { key: "PN", label: "PN",   min: 1, max: 1, positions: ["PN"] },
+    { key: "DL", label: "DT/DE",min: 1, max: 3, positions: ["DT", "DE"] },
+    { key: "LB", label: "LB",   min: 1, max: 3, positions: ["LB"] },
+    { key: "DB", label: "CB/S", min: 1, max: 3, positions: ["CB", "S"] },
+    // Catch-all bucket — anything else that ended up on roster.
+    { key: "OTH", label: "Other", min: 0, max: 0, positions: [] }
+  ];
+  function lineupGroupForPos(pos) {
+    var p = safeStr(pos).toUpperCase();
+    for (var i = 0; i < LINEUP_GROUPS.length - 1; i += 1) {
+      if (LINEUP_GROUPS[i].positions.indexOf(p) !== -1) return LINEUP_GROUPS[i];
+    }
+    return LINEUP_GROUPS[LINEUP_GROUPS.length - 1];
   }
 
-  // ----- Card: Roster -----
+  // ----- Card: My Roster + Lineup (position-grouped, with submit CTA) -----
   function renderRoster() {
     var el = els.cards.roster;
     if (!el) return;
@@ -822,61 +844,114 @@
       var injuryBadge = injury
         ? '<span class="tops-inj tops-inj-' + escapeHtml(injury.status || "?") + '" title="' + escapeHtml(injury.details || "") + '">' + escapeHtml(injury.status || "") + '</span>'
         : '';
+      var pos = safeStr(p.position);
+      var cy = parseInt(sal.contractYear, 10);
       return {
         id: String(r.id),
-        pos: safeStr(p.position),
+        pos: pos,
+        group: lineupGroupForPos(pos),
         name: safeStr(p.name) || r.id,
         team: safeStr(p.team),
         salary: Number(sal.salary || 0),
         status: r.status,
         isTaxi: /taxi/i.test(safeStr(r.status)),
         isIr: /ir/i.test(safeStr(r.status)),
+        isExpired: cy === 0,
         contract: safeStr(sal.contractInfo || sal.contractStatus),
         injuryBadge: injuryBadge
       };
-    }).sort(function (a, b) {
-      // Non-taxi first by salary desc, then taxi at the bottom (also salary desc).
-      if (a.isTaxi !== b.isTaxi) return a.isTaxi ? 1 : -1;
-      return b.salary - a.salary;
     });
 
     if (!rows.length) {
-      el.innerHTML = '<div class="tops-card-title">My Roster</div><div class="tops-empty">No roster data loaded yet.</div>';
+      el.innerHTML = '<div class="tops-card-title">My Roster + Lineup</div><div class="tops-empty">No roster data loaded yet.</div>';
       return;
     }
 
-    el.innerHTML = [
-      '<div class="tops-card-title">My Roster <span class="tops-count">' + rows.length + '</span> <span class="tops-card-hint">tap a player for profile + news</span></div>',
-      '<div class="tops-roster-table-wrap">',
-      '<table class="tops-roster-table">',
-      '  <thead><tr><th>Pos</th><th>Player</th><th>Team</th><th class="num">Salary</th><th>Contract</th><th>Status</th></tr></thead>',
-      '  <tbody>',
-      rows.map(function (r) {
-        // Universal taxi pill — same convention as Draft Hub + Front Office.
-        // Salary always rendered (even if 0) for taxi rows so the trade-value
-        // math is visible.
-        var taxiBadge = r.isTaxi ? '<span class="taxi-pill" title="Taxi squad — salary doesn\'t count vs cap, but real for trade math">TAXI</span>' : '';
-        var statusLabel = r.isTaxi ? 'TAXI' : (r.isIr ? 'IR' : (r.status || 'ACTIVE'));
+    // Group rows by lineup position. Within each group, sort eligible
+    // starters (active, not taxi/IR/expired) by salary desc — top of the
+    // depth chart up top. Taxi / IR / expired / non-position go to the
+    // bottom of their group (or into "Other").
+    var byGroup = {};
+    LINEUP_GROUPS.forEach(function (g) { byGroup[g.key] = []; });
+    rows.forEach(function (r) { byGroup[r.group.key].push(r); });
+    Object.keys(byGroup).forEach(function (k) {
+      byGroup[k].sort(function (a, b) {
+        var aSidelined = a.isTaxi || a.isIr || a.isExpired;
+        var bSidelined = b.isTaxi || b.isIr || b.isExpired;
+        if (aSidelined !== bSidelined) return aSidelined ? 1 : -1;
+        return b.salary - a.salary;
+      });
+    });
+
+    // Build Submit Lineup deep link to MFL's native /options?O=07 page.
+    // Carries L=, F= (franchise id), and YEAR= so MFL lands on the right
+    // franchise/year. Phase 2 will add an in-app submission flow that
+    // POSTs through the worker with TYPE=lineup auth — for now this is
+    // a one-click pass-through to MFL's own form.
+    var fid = pad4(state.viewerFranchiseId || (state.ctx && state.ctx.franchiseId));
+    var year = state.ctx && state.ctx.year;
+    var leagueId = state.ctx && state.ctx.leagueId;
+    var submitUrl = (year && leagueId && fid)
+      ? "https://www48.myfantasyleague.com/" + encodeURIComponent(year)
+        + "/options?L=" + encodeURIComponent(leagueId)
+        + "&O=07&F=" + encodeURIComponent(fid)
+      : "";
+    var submitCta = submitUrl
+      ? '<a class="tops-link-pill" href="' + escapeHtml(submitUrl) + '" target="_top" rel="noopener" '
+        + 'title="Open MFL\'s Submit Lineup page in this tab (auth uses your existing MFL session)">'
+        + 'Submit Lineup at MFL →</a>'
+      : '';
+
+    // Per-group section HTML.
+    var sections = LINEUP_GROUPS.map(function (g) {
+      var groupRows = byGroup[g.key] || [];
+      if (!groupRows.length) return "";
+      var slotHint = g.min === 0
+        ? ""
+        : (g.min === g.max
+            ? '<span class="tops-roster-slot-hint">Start ' + g.min + '</span>'
+            : '<span class="tops-roster-slot-hint">Start ' + g.min + '–' + g.max + '</span>');
+      var bodyRows = groupRows.map(function (r) {
+        var taxiBadge = r.isTaxi ? '<span class="taxi-pill" title="Taxi — off-cap, real for trade math">TAXI</span>' : '';
+        var expiredBadge = r.isExpired ? '<span class="taxi-pill" style="background:rgba(239,68,68,0.18); color:#ef4444; border-color:rgba(239,68,68,0.45);" title="Contract expired (cy=0) — awaiting Expired Rookie Auction">EXP</span>' : '';
+        var statusLabel = r.isTaxi ? 'TAXI' : (r.isIr ? 'IR' : (r.isExpired ? 'EXPIRED' : (r.status || 'ACTIVE')));
         var salaryCell = r.isTaxi
           ? '<span style="color:var(--warn,#fbbf24); opacity:0.9;">' + fmtUsd(r.salary) + '</span>'
           : (r.salary > 0 ? fmtUsd(r.salary) : '—');
-        // data-pid powers the click → profile-modal handler below. tabindex+role
-        // make the row keyboard-actionable (Enter/Space).
-        return '<tr class="tops-roster-row' + (r.isTaxi ? ' is-taxi' : '') + '" data-pid="' + escapeHtml(r.id) + '" tabindex="0" role="button" aria-label="Open ' + escapeHtml(r.name) + ' profile">' +
+        return '<tr class="tops-roster-row' + (r.isTaxi ? ' is-taxi' : '') + (r.isIr ? ' is-ir' : '') + (r.isExpired ? ' is-expired' : '') + '" data-pid="' + escapeHtml(r.id) + '" tabindex="0" role="button" aria-label="Open ' + escapeHtml(r.name) + ' profile">' +
           '<td><span class="tops-pos tops-pos-' + escapeHtml(r.pos) + '">' + escapeHtml(r.pos) + '</span></td>' +
-          '<td>' + escapeHtml(r.name) + ' ' + r.injuryBadge + taxiBadge + '</td>' +
+          '<td>' + escapeHtml(r.name) + ' ' + r.injuryBadge + taxiBadge + expiredBadge + '</td>' +
           '<td>' + escapeHtml(r.team) + '</td>' +
           '<td class="num">' + salaryCell + '</td>' +
           '<td>' + escapeHtml(r.contract) + '</td>' +
           '<td>' + escapeHtml(statusLabel) + '</td>' +
           '</tr>';
-      }).join(""),
-      '  </tbody>',
-      '</table>',
+      }).join("");
+      return '<div class="tops-roster-group">'
+        + '<div class="tops-roster-group-head">'
+        +   '<span class="tops-roster-group-label">' + escapeHtml(g.label) + '</span>'
+        +   '<span class="tops-roster-group-count">' + groupRows.length + ' player' + (groupRows.length === 1 ? '' : 's') + '</span>'
+        +   slotHint
+        + '</div>'
+        + '<table class="tops-roster-table">'
+        +   '<thead><tr><th>Pos</th><th>Player</th><th>Team</th><th class="num">Salary</th><th>Contract</th><th>Status</th></tr></thead>'
+        +   '<tbody>' + bodyRows + '</tbody>'
+        + '</table>'
+        + '</div>';
+    }).join("");
+
+    el.innerHTML = [
+      '<div class="tops-card-title">My Roster + Lineup '
+        + '<span class="tops-count">' + rows.length + '</span> '
+        + '<span class="tops-card-hint">grouped by position · tap a player for profile + news</span>'
+        + (submitCta ? '<span class="tops-card-actions">' + submitCta + '</span>' : '')
+      + '</div>',
+      '<div class="tops-roster-grouped">',
+      sections,
       '</div>'
     ].join("");
-    // Roster row click → MFL native player profile (new tab). Stopgap
-    // until Front Office's 4-tab modal is extracted into a shared module.
+    // Player row click → profile modal (shared with the previous flat-table
+    // implementation). Keyboard-actionable (Enter/Space).
     el.querySelectorAll(".tops-roster-row").forEach(function (tr) {
       tr.addEventListener("click", function () { openPlayerProfileModal(tr.getAttribute("data-pid")); });
       tr.addEventListener("keydown", function (e) {
