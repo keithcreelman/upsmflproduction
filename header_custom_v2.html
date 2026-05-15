@@ -669,6 +669,76 @@
     margin-left: 0.15em;
   }
 
+  /* Dropdown items in My Hub (Player Acquisition, Game Day) — the
+     trigger looks like a normal link but renders as a <button>, and
+     when open the .ups-teamops-subnav-menu panel anchors below it. */
+  .ups-teamops-subnav-dropdown {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+  }
+  button.ups-teamops-subnav-trigger {
+    background: transparent;
+    border: 1px solid transparent;
+    color: #e8f1ff;
+    font: inherit;
+    font-weight: 600;
+    padding: 0.35rem 0.7rem;
+    border-radius: 6px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25em;
+    transition: background 0.12s, border-color 0.12s, color 0.12s;
+  }
+  button.ups-teamops-subnav-trigger:hover {
+    background: rgba(125, 232, 217, 0.1);
+    border-color: rgba(125, 232, 217, 0.35);
+    color: #7de8d9;
+  }
+  .ups-teamops-subnav-dropdown[data-open="1"] button.ups-teamops-subnav-trigger {
+    background: rgba(125, 232, 217, 0.15);
+    border-color: rgba(125, 232, 217, 0.55);
+    color: #7de8d9;
+  }
+  .ups-teamops-subnav-menu {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    min-width: 11rem;
+    background: linear-gradient(180deg, rgba(15, 29, 52, 0.98), rgba(13, 25, 48, 0.98));
+    border: 1px solid #28466f;
+    border-radius: 8px;
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
+    padding: 0.25rem;
+    display: none;
+    z-index: 50;
+    flex-direction: column;
+    gap: 0.1rem;
+  }
+  .ups-teamops-subnav-dropdown[data-open="1"] .ups-teamops-subnav-menu {
+    display: flex;
+  }
+  /* Same `!important` cascade defense as the top-level links — MFL's
+     a:visited{color:red} would otherwise repaint menu items. */
+  a.ups-teamops-subnav-menu-item,
+  a.ups-teamops-subnav-menu-item:link,
+  a.ups-teamops-subnav-menu-item:visited,
+  a.ups-teamops-subnav-menu-item:hover,
+  a.ups-teamops-subnav-menu-item:active {
+    color: #e8f1ff !important;
+    text-decoration: none;
+    padding: 0.45rem 0.65rem;
+    border-radius: 5px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    transition: background 0.12s, color 0.12s;
+  }
+  a.ups-teamops-subnav-menu-item:hover {
+    background: rgba(125, 232, 217, 0.12) !important;
+    color: #7de8d9 !important;
+  }
+
   /* CCC message page only: center the UPS header shells without changing the
      home-page HPM alignment behavior. */
   body.ups-message2-ccc .ups-hero-shell,
@@ -2865,14 +2935,92 @@
         "/home/" + encodeURIComponent(ctx.leagueId) +
         (modulePath ? "?MODULE=" + modulePath : "");
     }
+    function buildMflPath(path) {
+      return "//" + ctx.host + "/" + encodeURIComponent(ctx.year) +
+        path + (path.indexOf("?") === -1 ? "?" : "&") +
+        "L=" + encodeURIComponent(ctx.leagueId);
+    }
 
+    // Each entry is either:
+    //   • { id, label, module }                   → direct link to a MESSAGEnn
+    //   • { id, label, children: [{label,href|module}…] } → dropdown submenu
     var TABS = [
       { id: "overview",     label: "Overview",       module: "MESSAGE11" },
       { id: "front-office", label: "Front Office",   module: "MESSAGE7"  },
       { id: "player-stats", label: "Player Stats",   module: "MESSAGE13" },
       { id: "trade-room",   label: "Trade War Room", module: "MESSAGE6=N" },
-      { id: "standings",    label: "Standings",      module: "MESSAGE4"  }
+      { id: "standings",    label: "Standings",      module: "MESSAGE4"  },
+      { id: "acquisition",  label: "Player Acquisition", children: [
+        { label: "Trades",           href: buildMflPath("/trade_offer") },
+        { label: "Add/Drop",         href: buildMflPath("/add_drop") },
+        { label: "Trade Block",      href: buildMflPath("/trade_bait") },
+        { label: "Rookie Draft Hub", href: buildUrl("MESSAGE12") }
+      ]},
+      { id: "gameday",      label: "Game Day", children: [
+        { label: "Submit Lineup", href: buildMflPath("/lineup") },
+        { label: "Taxi Squad",    href: buildMflPath("/taxi_squad") },
+        { label: "Live Scoring",  href: buildMflPath("/ajax_ls") }
+      ]}
     ];
+
+    function closeAllMenus(except) {
+      var open = document.querySelectorAll(".ups-teamops-subnav-dropdown[data-open=\"1\"]");
+      for (var i = 0; i < open.length; i += 1) {
+        if (open[i] !== except) {
+          open[i].removeAttribute("data-open");
+          var btn = open[i].querySelector(".ups-teamops-subnav-trigger");
+          if (btn) btn.setAttribute("aria-expanded", "false");
+        }
+      }
+    }
+
+    function buildDropdown(t) {
+      var wrap = document.createElement("span");
+      wrap.className = "ups-teamops-subnav-dropdown";
+
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "ups-teamops-subnav-link ups-teamops-subnav-trigger";
+      btn.setAttribute("aria-haspopup", "true");
+      btn.setAttribute("aria-expanded", "false");
+      btn.innerHTML = "";
+      btn.appendChild(document.createTextNode(t.label + " "));
+      var arrow = document.createElement("span");
+      arrow.className = "ups-teamops-subnav-arrow";
+      arrow.setAttribute("aria-hidden", "true");
+      arrow.textContent = "▾";
+      btn.appendChild(arrow);
+
+      var menu = document.createElement("div");
+      menu.className = "ups-teamops-subnav-menu";
+      menu.setAttribute("role", "menu");
+      t.children.forEach(function (c) {
+        var a = document.createElement("a");
+        a.className = "ups-teamops-subnav-menu-item";
+        a.href = c.href || (c.module ? buildUrl(c.module) : "#");
+        a.textContent = c.label;
+        a.setAttribute("role", "menuitem");
+        menu.appendChild(a);
+      });
+
+      btn.addEventListener("click", function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        var isOpen = wrap.getAttribute("data-open") === "1";
+        closeAllMenus(wrap);
+        if (isOpen) {
+          wrap.removeAttribute("data-open");
+          btn.setAttribute("aria-expanded", "false");
+        } else {
+          wrap.setAttribute("data-open", "1");
+          btn.setAttribute("aria-expanded", "true");
+        }
+      });
+
+      wrap.appendChild(btn);
+      wrap.appendChild(menu);
+      return wrap;
+    }
 
     function buildSubnav() {
       var nav = document.createElement("nav");
@@ -2883,12 +3031,26 @@
       lbl.textContent = "My Hub";
       nav.appendChild(lbl);
       TABS.forEach(function (t) {
+        if (t.children && t.children.length) {
+          nav.appendChild(buildDropdown(t));
+          return;
+        }
         var a = document.createElement("a");
         a.className = "ups-teamops-subnav-link";
         a.href = buildUrl(t.module);
         a.textContent = t.label;
         if (t.id === activeId) a.setAttribute("data-active", "1");
         nav.appendChild(a);
+      });
+      // Document-wide click closes any open dropdown.
+      document.addEventListener("click", function (e) {
+        if (!e || !e.target) return;
+        if (e.target.closest && e.target.closest(".ups-teamops-subnav-dropdown")) return;
+        closeAllMenus(null);
+      });
+      // Escape key also closes.
+      document.addEventListener("keydown", function (e) {
+        if (e && e.key === "Escape") closeAllMenus(null);
       });
       return nav;
     }
