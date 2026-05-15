@@ -10866,7 +10866,14 @@
       franchise_name: safeStr(player.teamName),
       position: safeStr(player.positionGroup || player.position),
       salary: safeInt(option.salaryToSend, 0),
-      contract_year: Math.max(0, safeInt(option.contractLength, 0) - 1),
+      // contract_year = YEARS REMAINING per MFL semantics (cy=N for a fresh
+      // N-year extension; cy=1 = LAST year; cy=0 = expired). Per league_context
+      // §C4 and memory: send the full extension length, not length-1.
+      // Earlier "-1" was wrong — caused LaPorta 2-yr ext to land as cy=1 on
+      // MFL (Keith 2026-05-15 corrected manually). Same root cause as the
+      // Discord breakdown year mis-mapping fixed in PR #180; this fixes the
+      // value at the SOURCE so MFL stores the right cy.
+      contract_year: Math.max(0, safeInt(option.contractLength, 0)),
       contract_status: safeStr(option.contractStatus),
       contract_info: safeStr(option.contractInfo),
       // Snapshot the pre-extension contract so the worker's
