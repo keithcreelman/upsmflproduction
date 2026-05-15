@@ -2366,12 +2366,20 @@ export default {
           //   { "error": { "$t": "Invalid request. This API request must go to api.myfantasyleague.com" } }
           // (Keith 2026-05-15 — direct curl probe confirmed.)
           const r = await fetch(
-            `https://api.myfantasyleague.com/${encodeURIComponent(year)}/export?TYPE=myleagues&L=${encodeURIComponent(leagueId)}&JSON=1`,
+            // `L` is NOT a documented parameter for TYPE=myleagues (MFL
+            // returns all of the user's leagues regardless). Dropped 2026-05-15
+            // per MFL API forum agent reading. We filter client-side below.
+            `https://api.myfantasyleague.com/${encodeURIComponent(year)}/export?TYPE=myleagues&JSON=1`,
             { headers: { Cookie: `MFL_USER_ID=${_rdhMflCookieValue(mflUserId)}`, "User-Agent": "upsmflproduction-worker" } }
           );
           if (!r.ok) return { error: `HTTP ${r.status}` };
           const data = await r.json();
-          let leagues = data?.myleagues?.league || [];
+          // MFL's TYPE=myleagues response shape is `data.leagues.league[]`
+          // (NOT data.myleagues.league — that key never existed; the worker
+          // bug had been silently returning "not a member" for everyone
+          // until Keith's direct probe surfaced it on 2026-05-15). Accept
+          // both shapes defensively in case MFL ever changes it back.
+          let leagues = data?.leagues?.league || data?.myleagues?.league || [];
           if (!Array.isArray(leagues)) leagues = [leagues];
           for (const lg of leagues) {
             if (String(lg.league_id) === String(leagueId)) {
