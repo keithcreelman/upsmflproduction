@@ -792,6 +792,57 @@ a.tops-iframe-pop:hover {
   margin-left: 8px;
 }
 
+/* Submit Lineup CTA + position-grouped roster (Keith 2026-05-15). */
+.tops-card-actions {
+  float: right;
+  font-weight: 400;
+  font-size: 12px;
+}
+.tops-roster-grouped {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 8px;
+}
+.tops-roster-group {
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.015);
+}
+.tops-roster-group-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: rgba(91, 141, 255, 0.06);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 12px;
+}
+.tops-roster-group-label {
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--text, #e8edf5);
+  font-size: 12px;
+}
+.tops-roster-group-count {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.tops-roster-slot-hint {
+  margin-left: auto;
+  font-size: 11px;
+  color: rgba(91, 141, 255, 0.85);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.tops-roster-group .tops-roster-table { margin: 0; }
+.tops-roster-table tr.is-expired { background: rgba(239, 68, 68, 0.05); }
+.tops-roster-table tr.is-ir { background: rgba(91, 141, 255, 0.04); }
+
 /* News feed — same tap pattern as roster rows so any news item opens
    the player profile modal. */
 .tops-news-list { list-style: none; padding: 0; margin: 0; }
