@@ -1466,6 +1466,26 @@
   }
 
   // ----- MFL-parity cards (skeleton + real data where simple) -----
+  //
+  // Trade War Room URL builder — drops the reader into MFL MESSAGE6
+  // (our trade_workbench iframe) with FRANCHISE_ID pre-selected so they
+  // can directly propose a trade to that team. Used for both "ID Trade
+  // Offers" links AND each OTB row.
+  function tradeWarRoomUrlForFranchise(fid) {
+    var year = (state.ctx && state.ctx.year) || "";
+    var leagueId = (state.ctx && state.ctx.leagueId) || "";
+    var f = pad4(fid);
+    if (!year || !leagueId || !f) return "";
+    return "//www.myfantasyleague.com/" + encodeURIComponent(year)
+      + "/home/" + encodeURIComponent(leagueId)
+      + "?MODULE=MESSAGE6=N&FRANCHISE_ID=" + encodeURIComponent(f);
+  }
+  function franchiseDisplayName(fid) {
+    var f = pad4(fid);
+    var fr = (state.franchises || []).find(function (x) { return pad4(x.id) === f; });
+    return (fr && fr.name) || ("Franchise " + f);
+  }
+
   function renderPendingTrades() {
     var el = els.cards.pendingTrades;
     if (!el) return;
@@ -1474,15 +1494,62 @@
       return pad4(t.offeredTo) === state.viewerFranchiseId || pad4(t.offeringFranchise) === state.viewerFranchiseId;
     });
     var bait = (state.tradeBait && state.tradeBait.tradeBaits && asArray(state.tradeBait.tradeBaits.tradeBait)) || [];
-    var myBait = bait.filter(function (b) { return pad4(b.franchise_id) === state.viewerFranchiseId; });
+
+    // Resolve a comma-separated PID/draft-pick list into readable labels
+    // (uses existing playerById helper). Falls back to raw id if unknown.
+    function labelAssets(csv) {
+      var ids = String(csv || "").split(",").map(function (s) { return s.trim(); }).filter(Boolean);
+      return ids.map(function (id) {
+        var p = playerById(id);
+        if (p && p.name) return safeStr(p.name);
+        if (/^DP_/i.test(id)) return id;  // draft pick id; keep raw for now
+        return id;
+      });
+    }
+
+    // Pending trades involving me — each row clickable → Trade War Room
+    // with the OTHER franchise pre-selected.
+    var pendingRows = mine.length ? mine.map(function (t) {
+      var fromFid = pad4(t.offeringFranchise);
+      var toFid = pad4(t.offeredTo);
+      var iAmFrom = fromFid === state.viewerFranchiseId;
+      var otherFid = iAmFrom ? toFid : fromFid;
+      var url = tradeWarRoomUrlForFranchise(otherFid);
+      var direction = iAmFrom ? "→ " : "← ";
+      var role = iAmFrom ? "offered" : "incoming";
+      return '<a class="tops-trade-row" href="' + escapeHtml(url) + '" target="_top">'
+        + '<span class="tops-trade-dir">' + direction + '</span>'
+        + '<span class="tops-trade-team">' + escapeHtml(franchiseDisplayName(otherFid)) + '</span>'
+        + '<span class="tops-trade-role">' + role + '</span>'
+        + '</a>';
+    }).join("") : '<div class="tops-empty tops-empty--inline">No pending offers.</div>';
+
+    // Whole-league OTB list grouped by franchise.
+    var baitRows = bait.length ? bait.map(function (b) {
+      var fid = pad4(b.franchise_id);
+      var url = tradeWarRoomUrlForFranchise(fid);
+      var assets = labelAssets(b.willGiveUp);
+      var comment = safeStr(b.inExchangeFor).trim();
+      return '<a class="tops-otb-row" href="' + escapeHtml(url) + '" target="_top">'
+        + '<div class="tops-otb-team">' + escapeHtml(franchiseDisplayName(fid)) + '</div>'
+        + '<div class="tops-otb-assets">' + assets.map(function (a) { return escapeHtml(a); }).join(" · ") + '</div>'
+        + (comment ? '<div class="tops-otb-comment">' + escapeHtml(comment) + '</div>' : "")
+        + '</a>';
+    }).join("") : '<div class="tops-empty tops-empty--inline">Nobody on the block right now.</div>';
 
     el.innerHTML = [
-      '<div class="tops-card-title">Trades</div>',
-      '<div class="tops-stat-row">',
-      '  <div class="tops-stat"><span class="tops-stat-num">' + mine.length + '</span><span class="tops-stat-lbl">Pending</span></div>',
-      '  <div class="tops-stat"><span class="tops-stat-num">' + myBait.length + '</span><span class="tops-stat-lbl">My Bait</span></div>',
+      '<div class="tops-card-title">Trades '
+        + '<span class="tops-count">' + mine.length + ' pending</span> '
+        + '<span class="tops-count">' + bait.length + ' OTB</span>'
+      + '</div>',
+      '<div class="tops-trade-subsection">',
+      '  <div class="tops-trade-subhead">ID Trade Offers</div>',
+      '  <div class="tops-trade-list">' + pendingRows + '</div>',
       '</div>',
-      '<a class="tops-link" href="//www.myfantasyleague.com/' + escapeHtml(state.ctx.year) + '/options?L=' + escapeHtml(state.ctx.leagueId) + '&O=05">Open Trade Room →</a>'
+      '<div class="tops-trade-subsection">',
+      '  <div class="tops-trade-subhead">OTB · League-wide Trade Bait</div>',
+      '  <div class="tops-otb-list">' + baitRows + '</div>',
+      '</div>'
     ].join("");
   }
 
