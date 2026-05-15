@@ -14405,17 +14405,31 @@ export default {
         }
         const pairs = salaryByYearToSortedPairs(map);
         const seasonNum = safeInt(season, NaN);
-        const currentContractYear = safeInt(contractYear, NaN);
+        // contractYear from MFL is YEARS REMAINING (cy=1 = last year,
+        // cy=N = N years left). Combined with contract length CL parsed
+        // from contractInfo, the CURRENT season corresponds to relative
+        // year index (CL − cy + 1). Earlier formula treated cy as
+        // current-index → off-by-(CL-cy) on every Y(N) → seasonYear
+        // mapping (Keith 2026-05-15: LaPorta CL=2 cy=2 showed Y1=2025/Y2=2026
+        // instead of 2026/2027).
+        const cyRemaining = safeInt(contractYear, NaN);
+        const clMatch = String(contractInfo || "").match(/\bCL\s*(\d+)/i);
+        const contractLength = clMatch ? safeInt(clMatch[1], NaN) : NaN;
+        const currentIndex =
+          Number.isFinite(contractLength) && contractLength > 0 &&
+          Number.isFinite(cyRemaining) && cyRemaining > 0
+            ? contractLength - cyRemaining + 1
+            : null;
         const normalizedPairs = pairs.map((pair) => {
           const relativeYear = safeInt(pair?.year, NaN);
           const seasonYear =
             Number.isFinite(seasonNum) &&
             seasonNum > 0 &&
-            Number.isFinite(currentContractYear) &&
-            currentContractYear > 0 &&
             Number.isFinite(relativeYear) &&
-            relativeYear > 0
-              ? seasonNum - currentContractYear + relativeYear
+            relativeYear > 0 &&
+            Number.isFinite(currentIndex) &&
+            currentIndex > 0
+              ? seasonNum + (relativeYear - currentIndex)
               : null;
           return {
             year: relativeYear,
