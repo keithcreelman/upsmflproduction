@@ -1157,15 +1157,116 @@ A franchise may have **no H2H opponent** in a given week. When that happens:
 
 This separation means **all-play continues to count even when H2H doesn't**. Any consumer that wants "weeks with a real matchup only" should filter on `EXISTS (SELECT 1 FROM src_schedule …)`.
 
-## E. Source tables on D1 (added in migration 0029)
+## D.1 All-play metrics (regular season / playoff / full)
 
-These four `src_*` tables are the canonical cloud-side store for franchise-level fantasy results. Populated nightly from the local `mfl_database.db` via `scripts/load_local_to_d1.py`. **Never mutate these directly** — apply data fixes via the `corrections` table per migration 0001's overlay model.
+All-play measures performance independent of head-to-head matchup luck: each week, every franchise's score is compared to every other franchise's score in that same week, accumulating wins / losses / ties. Tracked since 2010 (with caveats — see "lineup submission history" below).
 
-| Table | Grain | What it answers |
-|-------|-------|-----------------|
-| `src_franchises` | (season, franchise_id) | Owner, team name, division for any season — the dim every other table joins to |
-| `src_schedule` | (season, week, franchise_id, opponent_franchise_id) | Each H2H matchup row: scores, W/L, `is_divisional`, `is_playoff`. Multi-opponent weeks produce 2-3 rows per franchise. Bye = no row. |
-| `src_weekly_franchise_summary` | (season, week, franchise_id) | The **canonical per-week franchise score**, plus pre-computed all-play W/L/T and (when applicable) up to 3 H2H opponents inline. **Bye weeks DO have rows here.** |
+### Four metrics (all in `src_standings`)
+
+| Metric | Columns | Definition |
+|---|---|---|
+| **Regular season AP** | `allplay_regseason_w/l/t` | All-play across regular-season weeks only (W1-13 for 2010-2020, W1-14 for 2021+). |
+| **Playoff AP** | `allplay_playoff_w/l/t` | All-play across playoff weeks only (W14-16 for 2010-2020, W15-17 for 2021+; 2012 had 4 playoff weeks). |
+| **Full AP** | `allplay_full_w/l/t` | regseason + playoff. Matches MFL's `leagueStandings.all_play_wlt` for 2012-2025 (verified 168/168). |
+| **Historical AP** | `allplay_historical_w/l/t` | **Hybrid league-canonical record:** regseason for 2010-2016, full for 2017+. Reflects how the league has actually tracked AP over its history (the convention switched in 2017 when weekly lineup submission became mandatory via the top-scorer prize). Use this column when you want a single AP record that matches league records as written. |
+
+**Source of truth (current architecture):**
+
+- **Primary path (going forward):** AP metrics derive nightly from `weeklyresults.team_score` via the live MFL API ingest. This is reliable for 2017+ where weekly lineup submission is enforced (verified 180/192 (season, franchise) keys match MFL exactly).
+- **Historical correction (one-time, 2010):** For 2010 specifically, `weeklyresults.team_score` differs slightly from MFL's official record due to the lineup-gap era (some owners didn't submit lineups when out of contention; the weekly top-scorer prize was added later to enforce it). The 2010 row of `src_standings` was corrected once via a scrape of MFL's authoritative **O=101 (All-Play Standings)** endpoint on 2026-05-09.
+- **Validation/backup table:** `src_mfl_o101_validation` stores the full O=101 scrape (16 seasons × 12 franchises × 2 cutoffs = 384 rows). Use it to diff against `src_standings` if you suspect drift, or as a re-seedable historical baseline. Re-scrape via `scripts/.tmp_scrape_o101_allplay.py` if needed (rare; not part of nightly cron).
+
+Per-week per-franchise scores are stored in `src_franchise_weekly_score` (PK: season, week, franchise_id; with `is_playoff` flag and `team_score`/`team_opt_pts`). Per-season metadata is in `src_league_season_meta` (last_regular_season_week, total_weeks, league_id, mfl_server).
+
+### Methodology cutover at 2017
+
+Manual league records pre-2017 used **regular-season-only AP (W1-13)** as the canonical historical metric (143 games per franchise per year). Starting **2017** the league switched to tracking all-weeks AP including playoffs (~176 games/franchise/year for 2017-2020, ~187 games/franchise/year for 2021+ with the longer reg season). The new schema exposes both — `allplay_regseason_*` reproduces the pre-2017 historical convention; `allplay_full_*` matches the modern (and MFL's own) convention.
+
+### Lineup submission history (matters for 2010 data quality)
+
+In the early league era, owners who fell out of contention sometimes **stopped submitting lineups** for late-season weeks. Those non-submission weeks score very low (or zero) and inflate other franchises' AP wins for those weeks. The league later instituted the **weekly top-scorer prize** specifically to enforce lineup submission every week.
+
+Practical impact:
+
+- **2010** is the only year where all three available data sources disagree on AP totals (local `standings`, local `weeklyresults_summary`, and a fresh recompute from `weeklyresults.team_score` produce three different numbers per franchise). Lineup-gap weeks are likely the cause.
+- **2011-2025**: all three data sources match exactly (180/192 (season, franchise) keys agree byte-for-byte). The 12 mismatches are all 2010.
+- The new `allplay_*` columns in `src_standings` are derived from `weeklyresults.team_score` directly. For 2010, this can differ from the pre-existing `standings.allplay_w/l` by ±5-15 wins per franchise. **The new columns are canonical going forward.**
+
+### Querying
+
+```sql
+-- Career regular-season AP% for active 12 (matches pre-2017 historical convention)
+SELECT owner_name,
+       SUM(allplay_regseason_w) AS w,
+       SUM(allplay_regseason_l) AS l,
+       1.0*SUM(allplay_regseason_w) / NULLIF(SUM(allplay_regseason_w)+SUM(allplay_regseason_l)+SUM(allplay_regseason_t),0) AS pct
+FROM src_standings
+WHERE owner_name IN (...)
+GROUP BY owner_name ORDER BY pct DESC;
+
+-- Playoff AP% only (small samples — most franchises have 30-300 playoff AP games depending on tenure)
+SELECT owner_name, SUM(allplay_playoff_w) AS w, SUM(allplay_playoff_l) AS l ...
+
+-- Full AP% (2017+ canonical, matches MFL leagueStandings)
+SELECT owner_name, SUM(allplay_full_w) AS w, SUM(allplay_full_l) AS l ...
+```
+
+The legacy `allplay_w/l/t` columns (from migration 0029) remain in `src_standings` for backward compatibility but should be considered **deprecated** — they have a 2010 inconsistency relative to the new derived metrics. New analytics should use `allplay_regseason_*` / `allplay_playoff_*` / `allplay_full_*`.
+
+## D.2 Mid-season / mid-auction takeover ownership rule
+
+When a franchise changes ownership during a season, **the season's record belongs to whoever drafted the roster and managed it at season kickoff**. The rule:
+
+- **Departing owner takes the year if they completed the auction/draft, even if they leave mid-season** (e.g., personal reasons, work). The replacement inherits a roster they didn't build.
+- **Replacement owner does NOT get credit for the takeover year** — even if they take over before Week 1, if they didn't auction/draft the roster, the year doesn't count for them.
+- A replacement owner's career record starts the **first season they completed an auction/draft as the franchise owner of record**.
+
+### MFL API vs. our data: what to trust
+
+MFL's public API does NOT encode this rule. Examples (verified 2026-05-09):
+
+- **2017 F0002:** MFL API returns `team_name="New Franchise"`. Per our rule, **the year belongs to Derrick Whitman** (he completed the 2017 auction and left mid-year for personal reasons; AJ & Rico Balderelli took over but did not auction).
+- **2022 F0002:** MFL API returns `team_name="DBCA"` (AJ's team name). The year **stays with AJ Balderelli** even though Whitman returned mid-2022 after AJ was ousted for collusion.
+- **2022 F0005:** MFL API returns `team_name="HammerTime"` (Eric Martel's team name). The year **stays with Rico Balderelli** even though Eric Martel entered mid-2022 after Rico was ousted.
+- **2024 F0006:** MFL API returns `team_name="The Long Haulers"` (Cross's team name). The year **stays with Josh Lima** — Cross took over pre-season but Lima had the franchise for the auction-of-record.
+
+The **local `mfl_database.db` already encodes our rule** — the `franchises.owner_name` and `standings.owner_name` columns reflect the auction-of-record owner, not whoever happens to control the franchise at MFL pull-time. Downstream D1 tables (`src_franchises`, `src_standings`, `src_weekly_franchise_summary`) inherit this and **are the canonical source** for any owner-attributed query.
+
+### Known transitions (currently-active owners)
+
+| Year | Franchise | Auction-of-record (counts) | Replacement (does NOT count) | Reason |
+|---|---|---|---|---|
+| 2017 | 0002 | Derrick Whitman | AJ & Rico Balderelli | Whitman left mid-season; he had auctioned the roster |
+| 2022 | 0002 | AJ Balderelli | Derrick Whitman (returning) | AJ ousted mid-season for collusion |
+| 2022 | 0005 | Rico Balderelli | Eric Martel (entering) | Rico ousted mid-season for collusion |
+| 2024 | 0006 | Josh Lima | Brian Cross (entering) | Lima ousted; Cross took over pre-season but did not auction |
+
+### Implementation note
+
+**No exclusion list is needed when querying `src_standings` for owner career aggregates.** The data is pre-rolled to the auction-of-record owner. A simple `GROUP BY owner_name` produces the correct record:
+
+```sql
+SELECT owner_name, SUM(allplay_w), SUM(allplay_l), COUNT(DISTINCT season) AS seasons
+FROM src_standings
+WHERE owner_name IN (...active owners...)
+GROUP BY owner_name
+ORDER BY 1.0 * SUM(allplay_w) / NULLIF(SUM(allplay_w)+SUM(allplay_l)+SUM(allplay_t), 0) DESC;
+```
+
+If a future ingest reads directly from MFL API and bypasses this rule, the `franchises` / `standings` ingestion step must apply the auction-of-record correction before writing to the local DB. The rule is **not** in the daily snapshot or the legacy fetcher today — it's baked in as a manual data correction in the local DB historically. Future port-of-fetcher (see `pipelines/etl/README.md` follow-up) must preserve this behavior.
+
+## E. Source tables on D1 (migrations 0029 + 0030)
+
+These `src_*` tables are the canonical cloud-side store for franchise-level fantasy results. Populated from the local `mfl_database.db` via `scripts/load_local_to_d1.py`. **Never mutate these directly** — apply data fixes via the `corrections` table per migration 0001's overlay model.
+
+| Table | Grain | Migration | What it answers |
+|-------|-------|---|-----------------|
+| `src_franchises` | (season, franchise_id) | 0029 | Owner, team name, division for any season — the dim every other table joins to |
+| `src_schedule` | (season, week, franchise_id, opponent_franchise_id) | 0029 | Each H2H matchup row: scores, W/L, `is_divisional`, `is_playoff`. Multi-opponent weeks produce 2-3 rows per franchise. Bye = no row. |
+| `src_weekly_franchise_summary` | (season, week, franchise_id) | 0029 | Pre-computed per-week H2H + all-play summary (legacy view; for new work prefer `src_franchise_weekly_score`). |
+| `src_franchise_weekly_score` | (season, week, franchise_id) | **0030** | **Canonical per-week franchise score** (`team_score`, `team_opt_pts`, `is_playoff`). Source of truth for the three new AP metrics. |
+| `src_league_season_meta` | (season) | **0030** | Per-season league configuration: `last_regular_season_week`, `total_weeks`, `reg_weeks`, `playoff_weeks`, `league_id`, `mfl_server`. |
+| `src_mfl_o101_validation` | (season, franchise_id, cutoff_label) | **0032** | **Backup/audit only.** MFL O=101 (All-Play Standings) scrape from 2026-05-09. 384 rows (16 seasons × 12 fr × 2 cutoffs). Diff against `src_standings.allplay_*` to catch drift. |
 | `src_standings` | (season, franchise_id) | Season-aggregate H2H, division, all-play %, points-for, points-against, EFF |
 
 `is_divisional` on `src_schedule` is computed at load-time via JOIN against `src_franchises` (cheaper to bake in once than to JOIN on every D1 read).

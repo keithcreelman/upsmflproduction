@@ -45,6 +45,25 @@ log "  tmpdir:  $TMP_DIR"
 # launchd's default PATH.
 export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 
+# Staleness check: the local DB at $MFL_DB_PATH is populated by a fetcher
+# that lives outside this repo (legacy ~/Desktop/MFL_Scripts/). If it
+# hasn't been touched in >24h, the sync would push stale rows to D1
+# silently. Fail loudly instead so the cron log surfaces the problem.
+DB_PATH="${MFL_DB_PATH:-/Users/keithcreelman/Desktop/MFL_Scripts/Datastorage/mfl_database.db}"
+STALE_AFTER_SECONDS="${UPSMFL_DB_STALE_AFTER:-86400}"
+if [ -f "$DB_PATH" ]; then
+  db_mtime=$(stat -f %m "$DB_PATH" 2>/dev/null || stat -c %Y "$DB_PATH" 2>/dev/null || echo 0)
+  now=$(date +%s)
+  age=$(( now - db_mtime ))
+  if [ "$age" -gt "$STALE_AFTER_SECONDS" ]; then
+    log "ERROR: local DB at $DB_PATH is $age seconds old (>$STALE_AFTER_SECONDS). External fetcher may be broken."
+    exit 2
+  fi
+  log "  db age:  ${age}s (path: $DB_PATH)"
+else
+  log "WARN: $DB_PATH not found — loader will fail with a clearer error"
+fi
+
 python3 "$LOADER" \
   --wrangler-config "$WRANGLER_CONFIG" \
   --worker-cwd "$SCRIPT_DIR" \

@@ -18,6 +18,27 @@
 - `migrate_legacy_contract_xml.py`
 - `sync_contract_submissions_to_db.py`
 
+## External fetchers (not yet ported)
+
+The following local-DB tables are **populated by a fetcher that lives outside
+this repo** (legacy `~/Desktop/MFL_Scripts/`). They are read by `scripts/` here
+but never written here, and `scripts/run_pipeline_live.sh` does **not** refresh
+them:
+
+- `franchises`         — per-season franchise/owner/division dim
+- `schedule`           — per-week H2H matchup rows (multi-opponent rows ok)
+- `weeklyresults`      — per-(season, week, franchise, player) raw scoring
+- `weeklyresults_summary` — per-(season, week, franchise) score + all-play
+- `standings`          — per-(season, franchise) season aggregates
+
+These four feed the D1 `src_franchises` / `src_schedule` /
+`src_weekly_franchise_summary` / `src_standings` tables (migration 0029).
+`scripts/sync_d1.sh` enforces a 24h staleness check on the local DB so the
+nightly cron fails loudly if the external fetcher stops running.
+
+**Follow-up:** port these fetchers into `pipelines/etl/scripts/` so this repo
+becomes the single source of truth.
+
 ## Runtime Contract
 - Scripts default to relative paths under this `etl` folder.
 - `MFL_DB_PATH` can override the SQLite DB location.
