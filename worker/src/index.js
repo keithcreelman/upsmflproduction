@@ -2501,9 +2501,10 @@ export default {
           // specific calls, and Cloudflare fetch() follows redirects with
           // POST→GET conversion → silent no-op. Owner-scoped: MFL infers
           // FRANCHISE_ID from the session cookie.
+          // URL holds L + TYPE per MFL's official Perl sample; form body
+          // carries only the import-specific fields (no L duplication).
           const importUrl = `https://www48.myfantasyleague.com/${encodeURIComponent(year)}/import?TYPE=lineup&L=${encodeURIComponent(leagueId)}&JSON=1`;
           const form = new URLSearchParams();
-          form.set("L", String(leagueId));
           form.set("STARTERS", starters.join(","));
           if (week) form.set("W", String(week));
           let mflResp = "";
@@ -2625,9 +2626,10 @@ export default {
           // api. routing rule per MFL docs: "If the requests are not league-
           // specific, use api.myfantasyleague.com as the host. That will
           // spread out your requests across a number of servers."
+          // URL holds L + TYPE per MFL's official Perl sample; form body
+          // carries only the import-specific fields (no L duplication).
           const importUrl = `https://www48.myfantasyleague.com/${encodeURIComponent(year)}/import?TYPE=tradeBait&L=${encodeURIComponent(leagueId)}&JSON=1`;
           const form = new URLSearchParams();
-          form.set("L", String(leagueId));
           form.set("WILL_GIVE_UP", willGiveUp.join(","));
           if (lookingFor) form.set("IN_EXCHANGE_FOR", lookingFor.slice(0, 256));
           let mflResp = "";
