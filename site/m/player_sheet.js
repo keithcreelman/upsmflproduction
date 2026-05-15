@@ -136,27 +136,28 @@
       });
     }
 
-    // Pull current-season leaderboard stats from Advanced Stats Workbench
-    // (canonical UPS scoring + positional rank). Prior years still come
-    // from the player-bundle career_summary + MFL playerProfile.seasons.
-    var advStats = window.UPS_MOBILE.data.getAdvancedStatsFor
-      ? window.UPS_MOBILE.data.getAdvancedStatsFor(window.UPS_MOBILE.state &&
-          window.UPS_MOBILE.state._sheetPid || "")
-      : null;
+    // Per-year leaderboard stats from Advanced Stats Workbench (real PPG +
+    // positional rank). Each of the 3 displayed years gets its own
+    // leaderboard map; we preload all three at app boot.
+    var pid = (window.UPS_MOBILE.state && window.UPS_MOBILE.state._sheetPid) || "";
+    var getStats = window.UPS_MOBILE.data.getAdvancedStatsFor;
     var rows = years.map(function (y) {
       var c = careerByYear[y] || {};
       var s = seasonsByYear[y] || {};
-      var games = Number(s.games || s.gamesPlayed || c.games_played || 0) || 0;
-      var pts = Number(c.season_points != null ? c.season_points
-                      : (s.fantasyPoints || s.points || s.total || 0)) || 0;
-      var ppg = games > 0 ? (pts / games) : 0;
-      var ppgRank = Number(c.pos_ppg_rank || s.pos_ppg_rank || 0) || 0;
-      // Overlay current-year leaderboard data when available.
-      if (y === ctx.curYearForLeaderboard && advStats) {
-        games = advStats.games || games;
-        pts = advStats.mfl_points || pts;
-        ppg = advStats.mfl_ppg || ppg;
-        ppgRank = advStats.posRank || ppgRank;
+      var stats = getStats ? getStats(pid, y) : null;
+      var games, pts, ppg, ppgRank;
+      if (stats) {
+        games = Number(stats.games || 0);
+        pts = Number(stats.mfl_points || 0);
+        ppg = Number(stats.mfl_ppg || 0);
+        ppgRank = Number(stats.posRank || 0);
+      } else {
+        // Fallback: career_summary (pts only) + playerProfile.seasons (games).
+        games = Number(s.games || s.gamesPlayed || c.games_played || 0) || 0;
+        pts = Number(c.season_points != null ? c.season_points
+                    : (s.fantasyPoints || s.points || s.total || 0)) || 0;
+        ppg = games > 0 ? (pts / games) : 0;
+        ppgRank = Number(c.pos_ppg_rank || s.pos_ppg_rank || 0) || 0;
       }
       return '<tr>' +
         '<td>' + y + '</td>' +

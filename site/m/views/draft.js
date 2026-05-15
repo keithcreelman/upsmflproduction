@@ -64,12 +64,54 @@
   }
 
   function buildRookiePool() {
+    // Prefer rookie_prospects_<year>.json (Rookie Draft Hub source) with
+    // consensus_rank. Falls back to MFL player export when prospects file
+    // isn't loaded yet.
+    var prospects = (M.data.getRookieProspects && M.data.getRookieProspects()) || [];
+    if (prospects.length) {
+      // Normalize prospect fields to the shape downstream renderers expect.
+      return prospects.map(function (pr) {
+        return {
+          id: pr.player_id,
+          name: pr.name,
+          position: pr.position,
+          team: pr.nfl_team,
+          college: pr.college,
+          draft_round: pr.nfl_draft_round,
+          draft_pick: pr.nfl_draft_pick_in_round,
+          draft_team: pr.nfl_draft_team,
+          consensus_rank: pr.consensus_rank,
+          consensus_n_sources: pr.consensus_n_sources,
+          rookie_adp: pr.rookie_adp,
+          rookie_adp_rank: pr.rookie_adp_rank,
+          age: pr.age,
+          height: pr.height,
+          _prospect: true
+        };
+      });
+    }
     var year = U.safeStr(M.state.ctx.year);
     var players = (M.state.players && M.state.players.players) || null;
     if (!players) return [];
     return U.asArray(players.player).filter(function (p) {
       return p && U.safeStr(p.draft_year) === year;
     });
+  }
+
+  function onClockPick(picks) {
+    if (!picks || !picks.length) return null;
+    for (var i = 0; i < picks.length; i++) {
+      if (!picks[i].player_id) return picks[i];
+    }
+    return null;
+  }
+  // "Live" means at least one pick has been made + an empty pick still on
+  // the clock. (No picks made → draft hasn't started.)
+  function liveOnClockPick(picks) {
+    if (!picks || !picks.length) return null;
+    var anyMade = picks.some(function (p) { return p.player_id; });
+    var onClock = onClockPick(picks);
+    return (anyMade && onClock) ? onClock : null;
   }
 
   // ---------- Sub-views ----------
@@ -178,11 +220,14 @@
         return group === view.posFilter;
       });
     }
-    // Group by position then by NFL draft slot
+    // Sort by consensus_rank when available (from rookie_prospects JSON),
+    // otherwise fall back to NFL draft slot.
     available.sort(function (a, b) {
-      var posA = U.safeStr(a.position);
-      var posB = U.safeStr(b.position);
-      if (posA !== posB) return posA.localeCompare(posB);
+      var ar = Number(a.consensus_rank || 0);
+      var br = Number(b.consensus_rank || 0);
+      if (ar > 0 && br > 0) return ar - br;
+      if (ar > 0) return -1;
+      if (br > 0) return 1;
       var roundA = parseInt(a.draft_round || 99, 10);
       var roundB = parseInt(b.draft_round || 99, 10);
       if (roundA !== roundB) return roundA - roundB;
@@ -193,36 +238,55 @@
         (view.posFilter === "ALL" ? "" : view.posFilter + " ") +
         'rookies remaining.</div></div>';
     }
-    var byPos = {};
-    available.forEach(function (r) {
-      var pos = U.safeStr(r.position).toUpperCase() || "?";
-      if (!byPos[pos]) byPos[pos] = [];
-      byPos[pos].push(r);
-    });
-    var positions = Object.keys(byPos).sort();
+
+    // Pick gating: button only renders for the viewer's own pick when the
+    // draft is live (≥1 made + an empty pick still on the clock).
+    var onClock = liveOnClockPick(picks);
+    var viewerFid = M.state.viewerFranchiseId;
+    var viewerOnClock = !!(onClock && onClock.franchise_id === viewerFid);
+    var clockLabel = onClock ? onClock.round + "." + (onClock.pick < 10 ? "0" : "") + onClock.pick : "";
+
     var html = '<div class="ups-m-card">' +
       '<div class="ups-m-card-title">' +
       '<strong>' + available.length + '</strong> rookies available' +
       (view.posFilter === "ALL" ? "" : ' · ' + U.escapeHtml(view.posFilter) + ' filter') +
-      '</div></div>';
-    positions.forEach(function (pos) {
-      html += '<div class="ups-m-pos-group">' + U.escapeHtml(pos) + ' · ' + byPos[pos].length + '</div>';
-      byPos[pos].forEach(function (r) {
-        var nflInfo = "";
-        if (r.draft_round) nflInfo += "NFL R" + r.draft_round;
-        if (r.draft_pick) nflInfo += (nflInfo ? "." + r.draft_pick : "P" + r.draft_pick);
-        if (r.draft_team) nflInfo += (nflInfo ? " · " : "") + r.draft_team;
-        html += '<div class="ups-m-player-row" data-pid="' + U.escapeHtml(r.id) + '">' +
-          '<div class="pos">' + U.escapeHtml(pos) + '</div>' +
-          '<div class="body">' +
-            '<div class="name">' + U.escapeHtml(nameFor(r)) + '</div>' +
-            '<div class="sub">' +
-              (r.college ? '<span>' + U.escapeHtml(r.college) + '</span>' : '') +
-              (nflInfo ? '<span>' + U.escapeHtml(nflInfo) + '</span>' : '') +
-            '</div>' +
-          '</div>' +
+      '</div>';
+    if (viewerOnClock) {
+      html += '<div class="ups-m-draft-clock you">' +
+        '<strong>You\'re on the clock</strong> · pick ' + U.escapeHtml(clockLabel) +
         '</div>';
-      });
+    } else if (onClock) {
+      html += '<div class="ups-m-draft-clock">' +
+        'On the clock: ' + U.escapeHtml(franchiseName(onClock.franchise_id)) +
+        ' · pick ' + U.escapeHtml(clockLabel) +
+        '</div>';
+    }
+    html += '</div>';
+
+    available.forEach(function (r) {
+      var pos = U.safeStr(r.position).toUpperCase() || "?";
+      var nflInfo = "";
+      if (r.draft_round) nflInfo += "NFL R" + r.draft_round;
+      if (r.draft_pick) nflInfo += (nflInfo ? "." + r.draft_pick : "P" + r.draft_pick);
+      if (r.draft_team) nflInfo += (nflInfo ? " · " : "") + r.draft_team;
+      var rankBadge = r.consensus_rank > 0
+        ? '<span class="ups-m-rank-badge">#' + r.consensus_rank + '</span>'
+        : '';
+      var pickBtn = viewerOnClock
+        ? '<button class="ups-m-tag-btn tag" data-pick-pid="' + U.escapeHtml(r.id) + '">Pick</button>'
+        : '';
+      html += '<div class="ups-m-player-row" data-pid="' + U.escapeHtml(r.id) + '">' +
+        '<div class="pos">' + U.escapeHtml(pos) + '</div>' +
+        '<div class="body">' +
+          '<div class="name">' + rankBadge + U.escapeHtml(nameFor(r)) + '</div>' +
+          '<div class="sub">' +
+            (r.college ? '<span>' + U.escapeHtml(r.college) + '</span>' : '') +
+            (nflInfo ? '<span>' + U.escapeHtml(nflInfo) + '</span>' : '') +
+            (r.age ? '<span>Age ' + (Math.round(r.age * 10) / 10) + '</span>' : '') +
+          '</div>' +
+        '</div>' +
+        (pickBtn ? '<div class="right">' + pickBtn + '</div>' : '') +
+      '</div>';
     });
     return html;
   }
@@ -255,14 +319,74 @@
         M.route.renderRoute();
       });
     }
+    // Pick button — intercept BEFORE the row click handler.
+    var pickBtns = mount.querySelectorAll("[data-pick-pid]");
+    for (var p = 0; p < pickBtns.length; p++) {
+      pickBtns[p].addEventListener("click", function (e) {
+        e.stopPropagation();
+        var pid = this.getAttribute("data-pick-pid");
+        if (pid) confirmAndSubmitPick(pid);
+      });
+    }
     // Tap any player row → open the slim player sheet.
     var rows = mount.querySelectorAll("[data-pid]");
     for (var k = 0; k < rows.length; k++) {
-      rows[k].addEventListener("click", function () {
+      rows[k].addEventListener("click", function (e) {
+        if (e.target.closest("button[data-pick-pid]")) return;
         var pid = this.getAttribute("data-pid");
         if (pid && M.sheet) M.sheet.open(pid);
       });
     }
+  }
+
+  function confirmAndSubmitPick(pid) {
+    var picks = buildPicks();
+    var onClock = liveOnClockPick(picks);
+    if (!onClock) {
+      M.ui.showToast("Draft isn't live or no pick is on the clock.", "err");
+      return;
+    }
+    if (onClock.franchise_id !== M.state.viewerFranchiseId) {
+      M.ui.showToast("Not your pick — " + franchiseName(onClock.franchise_id) + " is on the clock.", "err");
+      return;
+    }
+    var rookies = buildRookiePool();
+    var player = rookies.filter(function (r) { return String(r.id) === String(pid); })[0];
+    var name = player ? nameFor(player) : "Player " + pid;
+    var pos = player ? U.safeStr(player.position) : "";
+    var clockLabel = onClock.round + "." + (onClock.pick < 10 ? "0" : "") + onClock.pick;
+    if (!window.confirm(
+      "Draft " + name + (pos ? " (" + pos + ")" : "") + " with pick " + clockLabel + "?\n\n" +
+      "This writes to MFL and posts to Discord. Cannot be undone from the app."
+    )) return;
+
+    M.ui.showToast("Drafting…", "info");
+    fetch(M.api.workerUrl("/api/pick"), {
+      method: "POST",
+      mode: "cors",
+      credentials: "omit",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        franchise_id: M.state.viewerFranchiseId,
+        player_id: pid,
+        simulate: false
+      })
+    }).then(function (r) {
+      return r.text().then(function (txt) {
+        var parsed = null;
+        try { parsed = txt ? JSON.parse(txt) : null; } catch (e) {}
+        return { ok: r.ok, status: r.status, body: parsed };
+      });
+    }).then(function (resp) {
+      if (resp.ok) {
+        M.ui.showToast(name + " drafted ✓", "ok");
+        return M.actions.reloadData().then(function () { M.route.renderRoute(); });
+      }
+      var err = (resp.body && (resp.body.error || resp.body.message)) || ("HTTP " + resp.status);
+      M.ui.showToast("Pick failed: " + err, "err");
+    }).catch(function (err) {
+      M.ui.showToast("Pick failed: " + (err && err.message || err), "err");
+    });
   }
 
   function render(mount) {
