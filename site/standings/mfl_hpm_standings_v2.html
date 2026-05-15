@@ -875,13 +875,20 @@
       text-transform: none;
     }
     /* Hand-curated narrative per era — replaces the algorithmic
-       headliner + captain pills (Keith 2026-05-15). */
+       headliner + captain pills (Keith 2026-05-15). Multi-paragraph
+       blurbs are split into <p> elements by renderEraBlurbHtml. */
     .era-blurb {
       font-size: 13px;
       line-height: 1.55;
       color: var(--text);
       margin-bottom: 14px;
       opacity: 0.92;
+    }
+    .era-blurb p {
+      margin: 0 0 10px;
+    }
+    .era-blurb p:last-child {
+      margin-bottom: 0;
     }
     .era-captains-label {
       font-size: 10px;
@@ -2273,30 +2280,51 @@
   // algorithmic "The X & Y Era" headline. Keith 2026-05-15: the
   // headlines should feel evolutionary (league development arc), not
   // a rolling owner-name top-N. Drafts below; tweak as needed.
+  // Narratives drafted by the league-context-aware research agent
+  // (Sonnet, 2026-05-15). Blurbs are multi-paragraph — separator is a
+  // blank line; renderEraBlurbHtml splits into <p> tags. Iterate by
+  // editing the blurb strings directly; the wrapping logic does the
+  // rest. Unverifiable claims tagged "[per Keith's recollection]".
   var ERA_STORIES = {
     2011: {
       name: "Birth of Something Beautiful",
-      blurb: "The league's opening chord. Shawn Blake took the inaugural crown in 2011 with a 25-1 all-play tear that left no doubt who set the standard. The auction that built the league was already a soap opera: Kevin Bousquet (Ryan's brother) got the boot mid-auction in Year 1 and Kris Lake stepped in to inherit the half-finished roster — then promptly won the whole thing in 2012, his first season with the team Kev built. Steve Bousquet, Josh Martel, and Derrick Whitman also took the keys to their franchises in this era; Whitman closed it out with a runaway 2013 title (best record, best all-play, no debate). Bear Dunn drew the very first Hawktuah honors in 2011 — a respectable .485 all-play hidden behind a 12th-place finish, the original \"you weren't actually that bad\" toilet champ. Kyle Creelman owned the last-place trophy in 2012, and Eric Mannila inherited it in 2013 to round out the era's basement tour. Hot-takes corner: Lake's 2012 title came on a .709 all-play — the lowest of any champ in this stretch, and a hint at the parity to come. Whitman's 2012 was the cleanest \"choked it\" performance of the era — second-best all-play in the league at .657, finished fourth. He'd take that lesson and bulldoze the 2013 league for revenge. Three years, three different champions. The blueprint was already showing: regular-season dominance helped, but it wasn't a guarantee."
+      blurb:
+"The inaugural season did not go smoothly, and that is precisely why it is beloved. Kevin Bousquet, Ryan's brother, got booted mid-auction before the first year even started. The league handed his half-built roster to Kris Lake, a name nobody had ever heard, and Lake promptly won Year 2 (2012) with it — finishing with the best all-play record in the league [per Keith's recollection]. Nothing like handing someone else's partially assembled car to a stranger and watching them take it to the championship.\n\n" +
+"The 2011 inaugural title belonged to Shawn Blake (Blake Bombers), who stomped the competition through the regular season and the bracket. He was not the league-best by all-play that year — the era had zero all-play records for 2011, a reminder the league was still figuring out what to track — but his dominance in actual head-to-head wins was undeniable. Derrick Whitman arrived in 2012 and made an immediate statement, running the best all-play win rate in 2013 to take the title with his DBCA squad. Steve Bousquet and Josh Martel also joined the league in this era, filling out the foundational roster of owners who would define the league for the next decade [per Keith's recollection].\n\n" +
+"The format itself was still being assembled. No rookie draft in 2011, a four-owner dispersal in 2012, and the first real dynasty cap rules clicking into place. Everyone was learning together, making it up as they went, and somehow the league that emerged was actually worth keeping."
     },
     2014: {
-      name: "Finding Our Stride",
-      blurb: "The \"we actually know what we're doing now\" era. Rosters stabilized, the cap-and-contract conventions hardened into something resembling tradition, and the league stopped re-litigating its rulebook every offseason. Three different champions, three different owners — Ryan Bousquet broke through in 2014 behind the best all-play in the league (.750, 20-6), Shawn Blake won his second ring in 2015 from the four-seed, and Bear Dunn put together the most dominant regular season of the era (.776 all-play, 19-7) and cashed it in for his first title in 2016. Blake's 2015 run is the era's \"got hot at the right time\" exhibit — a .609 all-play, fourth seed, walked out with the trophy while Derrick Whitman (.703 all-play, division winner) finished third and ate the loss. That's the lowest-AP title in the entire 2011–2016 stretch. Whitman's 2014 deserves its own callout in the \"you can't win 'em all\" file: 20-6 all-play, basically tied with Ryan for the league lead, finished third. Steve Bousquet quietly piled up top-three all-play seasons all three years without a title to show for it — the slow build that would pay off in the next era. Toilet bowl roll call: Chris Klingenberg's 2014 (.188 all-play, 5-21 — the deepest crater of the era), Kyle Creelman's 2015, and Kris Lake's 2016 closed the basement. The league had figured out how to run itself. What it hadn't figured out yet was that change was coming."
+      name: "Figuring Out the Rules Before Breaking Them",
+      blurb:
+"The league grew up in this era. Rule votes happened in earnest, restructure limits got debated, the taxi squad found its form, and everyone stopped asking \"wait, can we do that?\" every week. The competitive landscape reflected the stability: every champion from 2014 to 2016 was a different owner, and none of them ran away with it easily.\n\n" +
+"Bear Dunn's Ulterior Warrior took the 2014 title in a 177.9-to-155.3 final over Blake Bombers, capping a strong head-to-head season. Ryan Bousquet's Crystal Blue Persuasion put up the league-best all-play win rate across the three-year cycle and claimed the 2015 crown, dropping 245 points in the championship game in a genuine beatdown. Then 2016 belonged to Chris Klingenberg's C-Town Chivalry, who posted the best single-season all-play mark of the entire era and won the title going away, 249-to-164 over Josh Martel's squad. Three different champions, three different philosophies. The league had learned enough to be genuinely competitive.\n\n" +
+"The kicker scoring overhaul in 2016 was the most visible mechanical change, moving from flat bonus points to per-yard scoring. It seems minor in retrospect but it was the kind of rule that changed how people valued roster slots. This era set the tone for everything that followed."
     },
     2017: {
-      name: "New Owners — Good & Bad",
-      blurb: "The roster turned over and the results split right down the middle. Steve Bousquet stamped his name on the era first, winning back-to-back in 2017 and 2018 — the 2017 run is statistically the most dominant title in league history (.793 all-play, 22-4, wire-to-wire #1 seed). Josh Martel closed the era with the 2019 crown, his first. Matt Gerardi joined and immediately looked like he belonged — middle of the pack, no embarrassment, building toward something. AJ Balderelli also arrived this era and executed a trade within 34 minutes of joining — the kind of debut that becomes a permanent line on the resume. On the other side of the ledger: John Richard and Jarrade Nieber were a co-managed disaster — two straight bottom-three finishes (.258 and .347 all-play) — and got booted Week 13 or 14 of their second season with a legendary email exchange on the way out [per Keith's recollection]. Derrick Whitman drew the toilet in 2017 with a year-from-hell .255 all-play, and Chris Klingenberg cratered to a .165 all-play to claim 2018's last place — among the worst all-play seasons ever recorded in UPS. The \"choked it\" award goes to Josh Martel's 2018: a Murderer's Row .881 all-play, 25-1 in all-play games, ran into his brother-in-law Steve in the final and lost. The most dominant non-championship season this league has ever seen, by a country mile. Lowest AP champ of the era: Josh Martel in 2019 at .670 — got in as the three-seed and didn't let go."
+      name: "New Owners — Good and Very, Very Bad",
+      blurb:
+"The 2017-2019 era is remembered in two completely different ways depending on who you asked. On one side of the ledger: Josh Martel's Good in Da Hood put together back-to-back championships in 2017 and 2018, posting the best single-season all-play mark in the league to that point. He posted the best three-year cycle all-play stretch anyone has ever put up in this league. Steve Bousquet finally caught fire and won the 2019 title with Sex Manther, and Derrick Whitman returned to manage a transition year before the Balderelli brothers, AJ and Rico, took over his franchise mid-2017. The Balderellis hit the ground running — reportedly executing a trade within 34 minutes of taking over the roster [per Keith's recollection].\n\n" +
+"Then there is the other side. Two new owners, last names Nieber and Richard, joined in 2017 and were so spectacularly bad that the league didn't even let them finish their second season. They were booted around Week 13 or 14 of 2018, reportedly with a legendary email exchange on the way out [per Keith's recollection]. Their combined head-to-head records those two years were a monument to mismanagement.\n\n" +
+"The 2018 departure opened slots for new blood. Meanwhile Steve Bousquet's Sex Manther posted the highest all-play win percentage in league history (.881) that same season — and lost. The most dominant non-championship season this league has ever seen, by a country mile."
     },
     2020: {
-      name: "Covid, Collusion & Calling It Quits",
-      blurb: "The chaos era. Covid scrambled the 2020 NFL calendar and the league rode it out. A real collusion incident hit during this stretch — flagged in the record, details not relitigated here [per Keith's recollection]. Derrick Whitman returned to the league via the auction close, and Eric Martel joined the same way — both stepping into franchises that needed an owner with a pulse. Steve Bousquet's exit looms over the whole period: he left on his own terms after the era with a roster stacked to win and a record across these three years that nobody else could match — second, fourth, runner-up in 2021 — the textbook \"leave on top\" departure. Champions: Josh Martel finally got his second ring in 2020 from the three-seed, Ryan Bousquet won 2021 as the four-seed, and Matt Gerardi broke through in 2022 from the SIX seed with a .652 all-play — the lowest-AP title of the era and one of the lowest in league history. Steve Bousquet's 2021 (.720 all-play, league-best) ended in a finals loss to his brother Ryan — a fittingly Bousquet way to lose a championship. Toilet bowl basement dwellers: Chris Klingenberg drew it in both 2020 and 2022 (with a .235 all-play in 2022 — historically grim), and Matt Gerardi's 2021 sandwich season — last place one year, champion the next — has to go down as one of the most violent year-over-year turnarounds in league lore."
+      name: "Covid, Collusion, and Calling It Quits",
+      blurb:
+"Nothing about this era went according to plan and most of it is nobody's fault — except the parts that very much were someone's fault. Steve Bousquet's Sex Manther opened the era with back-to-back titles in 2019 and 2020, winning the 2020 championship with a 207-to-198 final over Good in Da Hood. Then in 2021 Bear Dunn's Ulterior Warrior won its second title, beating Josh Martel in the finals, as the league adjusted to the longer 17-game NFL schedule that inflated scoring everywhere.\n\n" +
+"The Balderelli situation came to a head in 2022. AJ and Rico Balderelli were found to be colluding and both were ousted mid-season [per Keith's recollection] — Derrick Whitman stepped back into AJ's franchise, and Eric Martel took over Rico's. Neither takeover was enough to matter in the standings; Brian Cutting's Gride rose above the mess and won the 2022 championship with a 241-to-152 finals win. Separately, Derrick Whitman and Eric Martel entered as the replacement owners who would become a two-person wrecking crew in the 2023-2025 era.\n\n" +
+"Steve Bousquet, after three championships and a stacked roster, left the league entirely after this era — reportedly on his own accord and on his own terms, going out with one of the strongest career records and rosters in league history [per Keith's recollection]. That kind of exit is rare. He knew when he was done."
     },
     2023: {
-      name: "Tee Higgins & the 1.1 Dispersal Shit Show",
-      blurb: "The dispersal-draft era. Josh Lima joined the league and immediately handed out a master class in how not to manage a roster — Tee Higgins at the 1.1 dispersal pick became the flashpoint, and the rest of his decisions trailed off from there. Back-to-back last-place finishes in 2023 and 2024 (.203 and .107 all-play — the .107 is the worst season ever recorded in UPS by a comfortable margin) and Lima was booted at the end of the 2024 auction. Brian Cross took his seat for 2025. Champions tell the story of an unpredictable era: Shawn Blake won 2023 (his third ring, from the two-seed), Eric Martel took 2024 as the eighth seed on a .674 all-play — the definition of \"got hot at the right time\" — and Brian Cutting finally broke through in 2025 with the best regular season in the league (.717 all-play, #1 seed wire-to-wire), claiming his first title after fifteen years of trying. Bear Dunn's 2024 (.717 all-play, league-best) is the era's \"choked it\" entry — top seed, finished third. The era's other gut-punch: Derrick Whitman, OG owner, ate the toilet bowl in 2025. A reminder that nobody in this league gets to stay above the basement forever."
+      name: "Tee Higgins and the 1.1 Dispersal Shit Show",
+      blurb:
+"The 2023-2025 era opened with a dispersal that immediately became a flashpoint. Tee Higgins, coming off strong back-to-back seasons, was the consensus 1.01 dispersal pick and everyone wanted him. Who got him, at what price, and whether he lived up to the billing became a running thread through the era [per Keith's recollection]. The drama was loud enough that an entire era gets named after it.\n\n" +
+"On the field, Shawn Blake finally broke through. His Blake Bombers had been a perennial tease for over a decade — multiple playoff appearances, never quite closing — and in 2023 he won the championship in a 259.7-to-256.9 photo finish over Bear Dunn. One point and change separated them. Eric Martel's HammerTime franchise, which had entered via the mid-2022 chaos, became a genuine force: he won the 2024 title in a 275.4-to-272.3 championship game thriller over Ryan Bousquet's CBP. Commissioner Keith Creelman's Pure Greatness won the 2025 title over Sex Manther, completing what might charitably be described as an awkward awards ceremony.\n\n" +
+"Josh Lima entered in this era and promptly became a cautionary tale. His 2024 squad posted historically bad numbers by any measure — among the worst head-to-head records in league history. He was booted after the 2024 auction and replaced by Brian Cross, who inherited a roster that required patience and probably a stiff drink."
     },
     2026: {
       name: "The Modern Era",
-      blurb: "In progress. Story still being written."
+      blurb:
+"The 2026 season is underway. The captain-based division realignment draft just reshuffled everyone for the first time under the new format. New scoring era. New divisions. New drama loading. Check back in 2028."
     }
   };
 
@@ -2353,6 +2381,19 @@
   function eraNumberFromStart(eraStart) {
     var n = Math.floor((Number(eraStart) - 2011) / 3) + 1;
     return n > 0 ? n : 1;
+  }
+  // Era blurbs may be multi-paragraph (separated by \n\n). Render
+  // each chunk as its own <p>; escapeHtml each one so untrusted
+  // characters don't break out. Empty blurb → empty string.
+  function renderEraBlurbHtml(blurb) {
+    var s = String(blurb == null ? "" : blurb).trim();
+    if (!s) return "";
+    var paras = s.split(/\n\s*\n/);
+    return '<div class="era-blurb">'
+      + paras.map(function (p) {
+          return '<p>' + escapeHtml(p.trim()) + '</p>';
+        }).join("")
+      + '</div>';
   }
   function renderErasSummaryHtml(eras) {
     var summaryRows = [];
@@ -2560,7 +2601,7 @@
         html += '<section class="era-card">'
           + '<div class="era-cycle">' + escapeHtml(eraTitle) + '</div>'
           + '<div class="era-name">' + escapeHtml(story.name) + (inProgress ? " <span class=\"era-inprogress\">(in progress)</span>" : "") + '</div>'
-          + (story.blurb ? '<div class="era-blurb">' + escapeHtml(story.blurb) + '</div>' : '')
+          + renderEraBlurbHtml(story.blurb)
           + '<div class="era-card-scroll"><table class="compact"><thead>' + lbHead + '</thead><tbody>' + lbBody + '</tbody></table></div>'
           + '</section>';
       });
