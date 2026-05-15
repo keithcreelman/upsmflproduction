@@ -2567,23 +2567,28 @@ export default {
           }
           const apiKey = safeStr(env.MFL_APIKEY || "");
           if (!apiKey) return jsonOut(500, { ok: false, error: "MFL_APIKEY missing in worker env" });
-          // MFL import?TYPE=tradeBait field names match the export shape
-          // (TYPE=tradeBait returns objects with `willGiveUp` + `inExchangeFor`).
-          // Initial submission used WILL_TAKE_TEXT (wrong) → MFL HTTP 400.
-          // Fixed 2026-05-15 to use IN_EXCHANGE_FOR. WILL_GIVE_UP stays the
-          // same — that field name was correct.
+          // MFL import?TYPE=tradeBait — field naming + auth path probed
+          // 2026-05-15 after both WILL_TAKE_TEXT and IN_EXCHANGE_FOR returned
+          // HTTP 400 with empty body (no MFL diagnostic). The tradeProposal
+          // import uses WILL_GIVE_UP + COMMENTS; trying the same pattern here.
+          // Also forwarding the user's MFL_USER_ID cookie as auth — APIKEY
+          // alone may not satisfy MFL for franchise-scoped tradeBait writes.
           const importUrl = `https://www48.myfantasyleague.com/${encodeURIComponent(year)}/import?TYPE=tradeBait&L=${encodeURIComponent(leagueId)}&APIKEY=${encodeURIComponent(apiKey)}&JSON=1`;
           const form = new URLSearchParams();
           form.set("L", String(leagueId));
           form.set("FRANCHISE_ID", fidReq);
           form.set("WILL_GIVE_UP", willGiveUp.join(","));
-          if (lookingFor) form.set("IN_EXCHANGE_FOR", lookingFor);
+          if (lookingFor) form.set("COMMENTS", lookingFor);
           let mflResp = "";
           let mflStatus = 0;
           try {
             const r = await fetch(importUrl, {
               method: "POST",
-              headers: { "Content-Type": "application/x-www-form-urlencoded", "User-Agent": "upsmflproduction-worker" },
+              headers: {
+                "Content-Type": "application/x-www-form-urlencoded",
+                "User-Agent": "upsmflproduction-worker",
+                "Cookie": `MFL_USER_ID=${mflUserId}`,
+              },
               body: form.toString(),
             });
             mflStatus = r.status;
@@ -2596,11 +2601,19 @@ export default {
           try { parsed = JSON.parse(mflResp); } catch (_) { /* keep raw text */ }
           if (!mflOk) {
             const errMsg = (parsed && (parsed.error?.$t || parsed.error)) || mflResp.slice(0, 400);
+            // When MFL returns 400 with empty body (which it does for some
+            // tradeBait auth failures), include a request preview so we can
+            // diff field names / param order against MFL's expected shape.
+            // APIKEY redacted in the preview URL.
             return jsonOut(mflStatus || 502, {
               ok: false,
-              error: String(errMsg || "MFL rejected trade bait"),
+              error: String(errMsg || ("MFL rejected trade bait — HTTP " + mflStatus + " with empty body. Check field names + auth.")),
               mfl_status: mflStatus,
               mfl_response: parsed || mflResp,
+              mfl_request_preview: {
+                url: importUrl.replace(apiKey, "***APIKEY***"),
+                body: form.toString(),
+              },
             });
           }
           // Persist per-player notes in D1 (UPS-side only — MFL doesn't
