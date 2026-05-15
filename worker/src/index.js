@@ -174,6 +174,41 @@ export default {
       console.error(`[scheduled hourly] hall overdue-close dispatch failed: ${e && e.message}`);
     }
 
+    // News warmer (Keith 2026-05-15) — pre-fetch the 6 upstream RSS /
+    // JSON sources that /api/player-news fans out to so the Cloudflare
+    // edge cache stays hot for the next hour. Without this, the FIRST
+    // user to hit a player profile each hour pays the 6-feed latency
+    // (~800ms–2s). After this warmer, the same call returns in <100ms
+    // from cache. Each fetch uses the same cacheTtl:3600 as the live
+    // endpoint so the warmer and live calls share one cached entry.
+    try {
+      const newsWarmOpts = {
+        cf: { cacheTtl: 3600, cacheEverything: true },
+        headers: {
+          "User-Agent": "upsmflproduction-worker (news-warmer; +https://upsmflproduction.keith-creelman.workers.dev)",
+          "Accept": "*/*",
+        },
+      };
+      const newsUrls = [
+        "https://site.api.espn.com/apis/site/v2/sports/football/nfl/news?limit=100",
+        "https://sports.yahoo.com/nfl/rss.xml",
+        "https://profootballtalk.nbcsports.com/feed/",
+        "https://www.profootballrumors.com/feed",
+        "https://www.cbssports.com/rss/headlines/nfl/",
+        "https://www.reddit.com/r/nfl/new.json?limit=100",
+      ];
+      ctx.waitUntil(
+        Promise.allSettled(newsUrls.map((u) => fetch(u, newsWarmOpts)))
+          .then((results) => {
+            const ok = results.filter((r) => r.status === "fulfilled" && r.value && r.value.ok).length;
+            console.log(`[scheduled hourly] news warmer: ${ok}/${newsUrls.length} sources fresh`);
+          })
+          .catch((e) => console.error(`[scheduled hourly] news warmer failed: ${e && e.message}`))
+      );
+    } catch (e) {
+      console.error(`[scheduled hourly] news warmer dispatch failed: ${e && e.message}`);
+    }
+
     try {
       const season = String(env.YEAR || new Date().getUTCFullYear());
       const leagueId = String(env.LEAGUE_ID || "74598");
@@ -4243,8 +4278,13 @@ export default {
           headlinePool.push(it);
         };
 
+        // Edge cache 1 hour — bumped from 5 min (2026-05-15) so the
+        // hourly scheduled news-warmer keeps the cache hot continuously
+        // and user requests don't pay the 6-RSS-fetch latency on every
+        // page load. The warmer fires the same fetches with the same
+        // cf.cacheTtl so each hour's slot rolls cleanly into the next.
         const fetchOpts = {
-          cf: { cacheTtl: 300, cacheEverything: true },
+          cf: { cacheTtl: 3600, cacheEverything: true },
           headers: { "User-Agent": "upsmflproduction-worker (player-news; +https://upsmflproduction.keith-creelman.workers.dev)", "Accept": "*/*" },
         };
 
