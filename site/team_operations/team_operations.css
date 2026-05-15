@@ -130,8 +130,11 @@
 }
 
 .tops-link-pill {
-  background: linear-gradient(180deg, #f3b61f 0%, #d99c10 100%);
-  color: #1a1306;
+  /* Keith 2026-05-15: teal across the board, consistent with the rest
+     of the UI accent system. Was gold (#f3b61f) — visually clashed with
+     the teal links elsewhere. */
+  background: linear-gradient(180deg, #7de8d9 0%, #4cc7b8 100%);
+  color: #0a1a18;
   font-weight: 800;
   text-decoration: none;
   padding: 0.4rem 0.75rem;
@@ -142,6 +145,7 @@
   transition: transform 0.12s ease, filter 0.12s ease;
 }
 .tops-link-pill:hover { filter: brightness(1.08); transform: translateY(-1px); }
+.tops-link-pill:visited { color: #0a1a18; }
 
 /* Grid -------------------------------------------------------------------- */
 .tops-grid {

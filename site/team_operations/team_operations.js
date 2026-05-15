@@ -883,18 +883,18 @@
       });
     });
 
-    // Build Submit Lineup deep link to MFL's native /options?O=07 page.
-    // Carries L=, F= (franchise id), and YEAR= so MFL lands on the right
-    // franchise/year. Phase 2 will add an in-app submission flow that
-    // POSTs through the worker with TYPE=lineup auth — for now this is
-    // a one-click pass-through to MFL's own form.
+    // Build Submit Lineup deep link to MFL's native /lineup page.
+    // Carries L= + FRANCHISE= so MFL lands on the right franchise's
+    // Submit Lineup form (verified URL pattern per Keith 2026-05-15:
+    // /YEAR/lineup?L=&FRANCHISE=). Phase 2 will add in-app submission
+    // via worker auth proxy — for now this is a one-click pass-through.
     var fid = pad4(state.viewerFranchiseId || (state.ctx && state.ctx.franchiseId));
     var year = state.ctx && state.ctx.year;
     var leagueId = state.ctx && state.ctx.leagueId;
     var submitUrl = (year && leagueId && fid)
       ? "https://www48.myfantasyleague.com/" + encodeURIComponent(year)
-        + "/options?L=" + encodeURIComponent(leagueId)
-        + "&O=07&F=" + encodeURIComponent(fid)
+        + "/lineup?L=" + encodeURIComponent(leagueId)
+        + "&FRANCHISE=" + encodeURIComponent(fid)
       : "";
     var submitCta = submitUrl
       ? '<a class="tops-link-pill" href="' + escapeHtml(submitUrl) + '" target="_top" rel="noopener" '
