@@ -2366,7 +2366,10 @@ export default {
           //   { "error": { "$t": "Invalid request. This API request must go to api.myfantasyleague.com" } }
           // (Keith 2026-05-15 — direct curl probe confirmed.)
           const r = await fetch(
-            `https://api.myfantasyleague.com/${encodeURIComponent(year)}/export?TYPE=myleagues&L=${encodeURIComponent(leagueId)}&JSON=1`,
+            // `L` is NOT a documented parameter for TYPE=myleagues (MFL
+            // returns all of the user's leagues regardless). Dropped 2026-05-15
+            // per MFL API forum agent reading. We filter client-side below.
+            `https://api.myfantasyleague.com/${encodeURIComponent(year)}/export?TYPE=myleagues&JSON=1`,
             { headers: { Cookie: `MFL_USER_ID=${_rdhMflCookieValue(mflUserId)}`, "User-Agent": "upsmflproduction-worker" } }
           );
           if (!r.ok) return { error: `HTTP ${r.status}` };
