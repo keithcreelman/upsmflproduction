@@ -118,6 +118,17 @@
   margin-right: 0.25em;
 }
 
+/* Secondary line within the WIP banner — slightly dimmer so the primary
+   "Heads up" stays the lead. Used for the historical-data accuracy
+   note (Keith 2026-05-14). */
+.tops-wip-subline {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 0.78rem;
+  color: var(--tops-ink-dim);
+  opacity: 0.95;
+}
+
 .tops-link-pill {
   background: linear-gradient(180deg, #f3b61f 0%, #d99c10 100%);
   color: #1a1306;
@@ -505,6 +516,29 @@
 .tops-tab[data-active="1"] {
   color: var(--tops-accent);
   border-bottom-color: var(--tops-accent);
+}
+
+/* External-link tabs (Front Office, Player Stats, Trade War Room,
+   Standings) navigate to MFL MESSAGE pages — styled like in-page
+   tabs but with a small arrow glyph to signal "leaves this page". */
+a.tops-tab.tops-tab-link,
+a.tops-tab.tops-tab-link:link,
+a.tops-tab.tops-tab-link:visited,
+a.tops-tab.tops-tab-link:hover,
+a.tops-tab.tops-tab-link:active {
+  color: var(--tops-ink-dim) !important;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+}
+a.tops-tab.tops-tab-link:hover {
+  color: var(--tops-accent-2, #7de8d9) !important;
+  border-bottom-color: var(--tops-accent-2, #7de8d9);
+}
+.tops-tab-link-arrow {
+  font-size: 0.8em;
+  opacity: 0.7;
 }
 .tops-tab-panel { display: none; }
 .tops-tab-panel[data-active="1"] { display: block; }
