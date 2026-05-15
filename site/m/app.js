@@ -62,6 +62,9 @@
     playerScoresYtd: null,    // MFL playerScores W=YTD export
     tagTracking: null,        // site/ccc/tag_tracking.json rows
     tagSubmissions: null,     // site/ccc/tag_submissions.json rows
+    salaryAdjustmentReport: null, // site/reports/salary_adjustments/<year>.json — overlays the MFL feed
+    advancedStatsByPid: null, // { [pid]: { mfl_points, mfl_ppg, games, pos, posRank } } from /api/advanced-stats-leaderboard
+    draftResults: null,       // /api/mfl-export?TYPE=draftResults
     capAmount: 0,
     loaded: false,
     loadingPromise: null,
@@ -145,6 +148,85 @@
       })
       .catch(function () { return []; });
   }
+  // Advanced Stats Workbench leaderboard — canonical UPS-scored fantasy
+  // points + PPG + game count per player. Mirrors stats_workbench.html's
+  // /api/advanced-stats-leaderboard usage. We fetch once per position
+  // and merge into a single pid-keyed map with positional ranks.
+  var LEADERBOARD_POSITIONS = ["QB", "RB", "WR", "TE", "PK", "PN", "DL", "LB", "DB"];
+  function fetchAdvancedStatsLeaderboard(year) {
+    // Use the PRIOR season for ranks until we're in-season for `year`.
+    // Stats workbench uses the same logic; mirroring it keeps "PPG Rk"
+    // meaningful during offseason (which is when most contract work happens).
+    var seasonInt = parseInt(year, 10) || (new Date().getUTCFullYear());
+    // If the requested season hasn't started (no leaderboard rows yet),
+    // fall back to season-1 automatically — handled at the merge step.
+    var fetches = LEADERBOARD_POSITIONS.map(function (pos) {
+      var url = workerUrl("/api/advanced-stats-leaderboard?season=" + encodeURIComponent(seasonInt) +
+                          "&pos=" + encodeURIComponent(pos) + "&min_games=1");
+      return fetch(url, { mode: "cors", credentials: "omit" })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (j) { return (j && Array.isArray(j.rows)) ? j.rows : []; })
+        .catch(function () { return []; });
+    });
+    return Promise.all(fetches).then(function (perPosArrays) {
+      var totalRows = perPosArrays.reduce(function (s, a) { return s + a.length; }, 0);
+      // If current season has no rows anywhere, retry against (season-1).
+      if (totalRows === 0 && seasonInt > 2010) {
+        return fetchAdvancedStatsLeaderboardForSeason(seasonInt - 1);
+      }
+      return buildLeaderboardMap(perPosArrays);
+    });
+  }
+  function fetchAdvancedStatsLeaderboardForSeason(seasonInt) {
+    var fetches = LEADERBOARD_POSITIONS.map(function (pos) {
+      var url = workerUrl("/api/advanced-stats-leaderboard?season=" + encodeURIComponent(seasonInt) +
+                          "&pos=" + encodeURIComponent(pos) + "&min_games=1");
+      return fetch(url, { mode: "cors", credentials: "omit" })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (j) { return (j && Array.isArray(j.rows)) ? j.rows : []; })
+        .catch(function () { return []; });
+    });
+    return Promise.all(fetches).then(buildLeaderboardMap);
+  }
+  function buildLeaderboardMap(perPosArrays) {
+    var map = {};
+    perPosArrays.forEach(function (rows) {
+      // Already filtered to one position by the API, but mfl_pid grouping
+      // happens here so multiple-eligibility players (rare) take the last.
+      var sorted = rows.slice().sort(function (a, b) {
+        return Number(b.mfl_ppg || 0) - Number(a.mfl_ppg || 0);
+      });
+      sorted.forEach(function (row, idx) {
+        if (!row || !row.mfl_pid) return;
+        map[String(row.mfl_pid)] = {
+          mfl_points: Number(row.mfl_points || 0),
+          mfl_ppg: Number(row.mfl_ppg || 0),
+          games: Number(row.games || 0),
+          pos: String(row.position || row.pos_group || ""),
+          posRank: idx + 1
+        };
+      });
+    });
+    return map;
+  }
+
+  // Salary-adjustments report ledger. Front Office overlays this on top
+  // of the live MFL salaryAdjustments feed (see roster_workbench.js
+  // loadSalaryAdjustmentLedgerRows + mergeReportSalaryAdjustmentsIntoTeams).
+  // LH's −$16K cap credit lives in this file, not the MFL feed.
+  function fetchSalaryAdjustmentReport(year) {
+    var url = "/upsmflproduction/reports/salary_adjustments/salary_adjustments_" + encodeURIComponent(year) + ".json";
+    return fetch(url, { mode: "cors", credentials: "omit", cache: "no-store" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) {
+        if (!j) return [];
+        if (Array.isArray(j)) return j;
+        if (Array.isArray(j.rows)) return j.rows;
+        return [];
+      })
+      .catch(function () { return []; });
+  }
+
   function fetchTagSubmissions() {
     return fetch("/upsmflproduction/ccc/tag_submissions.json", { mode: "cors", credentials: "omit", cache: "no-store" })
       .then(function (r) { return r.ok ? r.json() : null; })
@@ -195,6 +277,9 @@
       fetchJson(mflExportUrl("playerScores", { W: "YTD" })).catch(function () { return null; }),
       fetchTagTracking(),
       fetchTagSubmissions(),
+      fetchSalaryAdjustmentReport(state.ctx.year),
+      fetchAdvancedStatsLeaderboard(state.ctx.year),
+      fetchJson(mflExportUrl("draftResults")),
       fetchMe()
     ]).then(function (results) {
       state.league = results[0];
@@ -206,8 +291,11 @@
       state.playerScoresYtd = results[6];
       state.tagTracking = results[7] || [];
       state.tagSubmissions = results[8] || [];
+      state.salaryAdjustmentReport = results[9] || [];
+      state.advancedStatsByPid = results[10] || {};
+      state.draftResults = results[11] || null;
       parseLeague();
-      resolveViewerFranchise(results[9]);
+      resolveViewerFranchise(results[12]);
       // Now that we know the viewer franchise, fetch their UPS-side trade
       // bait notes (D1-backed). Keep state.loaded=true regardless so a
       // notes-endpoint failure doesn't gate the rest of the app.
@@ -711,7 +799,12 @@
       getMyTradeBaitLookingFor: getMyTradeBaitLookingFor,
       getMyTradeBaitNoteFor: getMyTradeBaitNoteFor,
       getAllRosteredPids: getAllRosteredPids,
-      getYtdScoresMap: getYtdScoresMap
+      getYtdScoresMap: getYtdScoresMap,
+      getAdvancedStatsFor: function (pid) {
+        if (!state.advancedStatsByPid) return null;
+        return state.advancedStatsByPid[String(pid)] || null;
+      },
+      getAdvancedStatsMap: function () { return state.advancedStatsByPid || {}; }
     },
     actions: {
       submitDrop: submitDrop,

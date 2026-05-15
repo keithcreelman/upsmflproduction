@@ -3113,7 +3113,8 @@ export default {
       // Usage: /api/mfl-export?TYPE=league&L=74598&YEAR=2026&JSON=1
       if (path === "/api/mfl-export" && request.method === "GET") {
         const allowedTypes = new Set([
-          "league", "rosters", "salaries", "players", "transactions",
+          "league", "rosters", "salaries", "salaryAdjustments",
+          "players", "transactions",
           "pendingTrades", "tradeBait", "futureDraftPicks", "schedule",
           "nflByeWeeks", "injuries", "calendar", "draftResults",
           "playerProfile", "playerScores",
