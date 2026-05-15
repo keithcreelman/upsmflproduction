@@ -54,6 +54,33 @@
   padding-bottom: 80px;
 }
 
+/* Dry-run mode indicator — bold teal so the user can't miss it. */
+.rwb-dryrun-banner {
+  padding: 12px 16px;
+  background: linear-gradient(180deg, rgba(125, 232, 217, 0.18), rgba(125, 232, 217, 0.08));
+  border: 1px solid rgba(125, 232, 217, 0.55);
+  border-left: 4px solid #7de8d9;
+  border-radius: 10px;
+  color: #e8edf5;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.rwb-dryrun-banner strong {
+  color: #7de8d9;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  margin-right: 0.3em;
+}
+
+.rwb-dryrun-banner code {
+  background: rgba(0, 0, 0, 0.35);
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 0.85em;
+  color: #7de8d9;
+}
+
 .rwb-hero {
   border: 1px solid var(--rwb-border);
   border-radius: var(--rwb-card-radius);

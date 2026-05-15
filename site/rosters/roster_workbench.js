@@ -88,6 +88,22 @@
     TE: 1
   };
 
+  // Dry-run mode — enabled via `?dry_run=1` on the page URL OR
+  // `window.UPS_RWB_DRY_RUN = true` set ahead of script load. When
+  // active, every tag / untag / extension / restructure / MYM
+  // submission gets `dry_run: 1` in the payload, the worker
+  // simulates success without touching MFL, and the audit row is
+  // tagged dry_run=1. Used by Keith to stress-test the full
+  // plumbing (D1 audit, Discord routing) without league side effects.
+  var IS_DRY_RUN_MODE = (function () {
+    try {
+      var u = new URL(window.location.href);
+      var q = (u.searchParams.get("dry_run") || u.searchParams.get("DRY_RUN") || "").toLowerCase();
+      if (q === "1" || q === "true" || q === "yes") return true;
+    } catch (e) {}
+    return !!window.UPS_RWB_DRY_RUN;
+  })();
+
   var state = {
     ctx: null,
     teams: [],
@@ -5910,6 +5926,18 @@
     mount.innerHTML =
       '<div id="rwbApp">' +
         '<div class="rwb-shell">' +
+          // Dry-run banner — only visible when ?dry_run=1 in URL (or
+          // window.UPS_RWB_DRY_RUN set). Bright teal so it can't be
+          // missed when active. See IS_DRY_RUN_MODE near top of file.
+          (IS_DRY_RUN_MODE
+            ? '<div class="rwb-dryrun-banner" role="status">'
+                + '<strong>DRY RUN MODE ACTIVE</strong>'
+                + ' — contract submissions on this page will NOT be sent to MFL.'
+                + ' Audit rows still land in D1 (flagged <code>dry_run=1</code>);'
+                + ' Discord announcements go to the test channel only.'
+                + ' Remove <code>?dry_run=1</code> from the URL to disable.'
+              + '</div>'
+            : '') +
           '<header class="rwb-hero">' +
             '<div class="rwb-hero-main">' +
               '<div class="rwb-hero-copy">' +
@@ -10738,6 +10766,8 @@
       YEAR: season,
       type: "MANUAL_CONTRACT_UPDATE",
       submission_kind: "extension",
+      // See IS_DRY_RUN_MODE comment near top of file.
+      dry_run: IS_DRY_RUN_MODE ? 1 : 0,
       source: "front-office-extension-submit",
       leagueId: leagueId,
       year: season,
@@ -10958,6 +10988,7 @@
       // MANUAL_CONTRACT_UPDATE (and an untag's contract_status is the
       // prior contract, not "TAG", so detection requires the flag).
       submission_kind: "tag",
+      dry_run: IS_DRY_RUN_MODE ? 1 : 0,
       leagueId: safeStr(state.ctx && state.ctx.leagueId),
       year: safeStr(state.ctx && state.ctx.year),
       player_id: safeStr(row && row.player_id),
@@ -10994,6 +11025,7 @@
       // to log this into ups_tag_submissions. prior_tag_side preserves
       // the side this player was occupying so the audit row records it.
       submission_kind: "untag",
+      dry_run: IS_DRY_RUN_MODE ? 1 : 0,
       prior_tag_side: getTagSideFromPos((player && (player.positionGroup || player.position)) || ref.position) || "",
       leagueId: safeStr(state.ctx && state.ctx.leagueId),
       year: safeStr(state.ctx && state.ctx.year),
