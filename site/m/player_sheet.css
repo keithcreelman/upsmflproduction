@@ -161,3 +161,50 @@
   color: var(--fg-muted);
   font-size: 13px;
 }
+
+/* ----- Action buttons (Drop / OTB / Extend / Tag) ----- */
+.ups-m-sheet-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.btn-act {
+  padding: 12px 10px;
+  background: var(--bg-elev2);
+  color: var(--fg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  min-height: 48px;
+  text-align: center;
+  line-height: 1.2;
+}
+.btn-act:active { background: var(--line); }
+.btn-act.busy { opacity: 0.6; cursor: wait; }
+.btn-act.disabled,
+.btn-act[disabled] {
+  opacity: 0.45;
+  cursor: not-allowed;
+  background: transparent;
+  color: var(--fg-muted);
+}
+.btn-act.otb { border-color: rgba(45, 212, 191, 0.45); color: var(--teal); }
+.btn-act.otb.on {
+  background: rgba(45, 212, 191, 0.15);
+  border-color: var(--teal);
+  color: var(--teal);
+}
+.btn-act.drop { border-color: rgba(255, 107, 107, 0.45); color: var(--danger); }
+.btn-act .pn {
+  display: block;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--fg-muted);
+  margin-top: 2px;
+  letter-spacing: 0;
+}
+.btn-act .pn.ok { color: var(--ok); }

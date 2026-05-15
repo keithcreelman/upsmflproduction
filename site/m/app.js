@@ -56,10 +56,12 @@
     salaries: null,
     salaryAdjustments: null,
     players: null,
+    tradeBait: null,
     capAmount: 0,
     loaded: false,
     loadingPromise: null,
-    loadErrors: []
+    loadErrors: [],
+    busyActionKey: ""
   };
 
   // ---------- Context detection ----------
@@ -133,6 +135,7 @@
       fetchJson(mflExportUrl("salaries")),
       fetchJson(mflExportUrl("salaryAdjustments")),
       fetchJson(mflExportUrl("players", { DETAILS: 1 })),
+      fetchJson(mflExportUrl("tradeBait")),
       fetchMe()
     ]).then(function (results) {
       state.league = results[0];
@@ -140,13 +143,22 @@
       state.salaries = results[2];
       state.salaryAdjustments = results[3];
       state.players = results[4];
+      state.tradeBait = results[5];
       parseLeague();
-      resolveViewerFranchise(results[5]);
+      resolveViewerFranchise(results[6]);
       state.loaded = true;
       return state;
     });
     state.loadingPromise = p;
     return p;
+  }
+
+  // Re-fetch league data after a roster mutation. Same shape as loadAllData
+  // but skips the franchise resolution (we already know the viewer).
+  function reloadData() {
+    state.loadingPromise = null;
+    state.loaded = false;
+    return loadAllData();
   }
 
   function parseLeague() {
@@ -197,6 +209,178 @@
     if (fid) {
       try { window.localStorage && window.localStorage.setItem("rdh_my_fid", fid); } catch (e) {}
     }
+  }
+
+  // ---------- Contract helpers (ported from site/shared/player_profile_master.js:88-167) ----------
+  function parseContractMoney(s) {
+    if (s == null) return 0;
+    s = String(s).trim().replace(/[$,]/g, "");
+    var mult = 1;
+    if (/K$/i.test(s)) { mult = 1000; s = s.slice(0, -1); }
+    else if (/M$/i.test(s)) { mult = 1000000; s = s.slice(0, -1); }
+    var n = Number(s);
+    return isFinite(n) ? Math.round(n * mult) : 0;
+  }
+  function parseContractInfo(info) {
+    var s = String(info || "");
+    var out = { tcv: 0, length: 0, yearVals: {}, aav: 0, gtd: 0 };
+    if (!s) return out;
+    var m;
+    if ((m = s.match(/(?:^|\|)\s*TCV\s+([^|]+)/i))) out.tcv = parseContractMoney(m[1]);
+    if ((m = s.match(/(?:^|\|)\s*CL\s*:?\s*(\d+)/i))) out.length = parseInt(m[1], 10) || 0;
+    if ((m = s.match(/(?:^|\|)\s*AAV\s+([^|]+)/i))) out.aav = parseContractMoney(m[1]);
+    if ((m = s.match(/(?:^|\|)\s*GTD\s*:?\s*([^|]+)/i))) out.gtd = parseContractMoney(m[1]);
+    var yearRe = /(?:^|\|)\s*Y(\d+)\s*[=:]\s*([^|]+)/gi;
+    while ((m = yearRe.exec(s))) {
+      var idx = parseInt(m[1], 10);
+      if (idx > 0) out.yearVals[idx] = parseContractMoney(m[2]);
+    }
+    return out;
+  }
+  function earnedToDate(rosterRow, info) {
+    info = info || parseContractInfo(rosterRow && rosterRow.contractInfo);
+    var len = info.length || 0;
+    var cy = parseInt(rosterRow && rosterRow.contractYear, 10) || 0;
+    var played = Math.max(0, len - cy);
+    var earned = 0;
+    for (var i = 1; i <= played; i++) {
+      earned += info.yearVals[i] || 0;
+    }
+    return earned;
+  }
+  // Era-aware dead-cap if dropped today. (TCV × 75%) − Earned, 2019+. Returns
+  // null for pre-2019 (formula differs, see league_context_v1.md). Identical
+  // to player_profile_master.js:159 dropPenalty.
+  function dropPenaltyFor(rosterRow, season) {
+    if (!rosterRow) return null;
+    var cy = parseInt(rosterRow.contractYear, 10);
+    if (cy <= 0) return { amount: 0, note: "Expired contract — no penalty." };
+    if (/taxi/i.test(rosterRow.status || "")) return { amount: 0, note: "Taxi — no penalty." };
+    var info = parseContractInfo(rosterRow.contractInfo);
+    if (!info.tcv) return null;
+    var seasonNum = Number(season) || (new Date().getUTCFullYear());
+    if (seasonNum < 2019) return null;
+    var earned = earnedToDate(rosterRow, info);
+    var amount = Math.max(0, Math.round(info.tcv * 0.75) - earned);
+    return { amount: amount, note: amount === 0 ? "No dead-cap penalty." : "" };
+  }
+
+  // ---------- Trade Bait helpers ----------
+  function getMyTradeBaitIds() {
+    // MFL tradeBait export shape: { tradeBait: { tradeBait: [{ franchise_id, willGiveUp, willTake/... }, ...] } }
+    // or singular tradeBait if only one franchise has it. Return Set of pids
+    // belonging to viewer's franchise.
+    var ids = new Set();
+    var fid = state.viewerFranchiseId;
+    if (!fid || !state.tradeBait) return ids;
+    var root = state.tradeBait.tradeBait || state.tradeBait;
+    var entries = asArray(root && (root.tradeBait || root.franchise || root));
+    entries.forEach(function (e) {
+      if (!e) return;
+      var rowFid = pad4(e.franchise_id || e.id || "");
+      if (rowFid !== fid) return;
+      var ids_csv = safeStr(e.willGiveUp || e.will_give_up || "");
+      ids_csv.split(",").forEach(function (id) {
+        var t = id.trim();
+        if (t) ids.add(t);
+      });
+    });
+    return ids;
+  }
+  function getMyTradeBaitLookingFor() {
+    var fid = state.viewerFranchiseId;
+    if (!fid || !state.tradeBait) return "";
+    var root = state.tradeBait.tradeBait || state.tradeBait;
+    var entries = asArray(root && (root.tradeBait || root.franchise || root));
+    for (var i = 0; i < entries.length; i++) {
+      var e = entries[i];
+      if (!e) continue;
+      if (pad4(e.franchise_id || e.id || "") === fid) {
+        return safeStr(e.willTake || e.willTakeText || e.WILL_TAKE_TEXT || e.lookingFor || "");
+      }
+    }
+    return "";
+  }
+
+  // ---------- Submit actions (mirror desktop endpoints exactly) ----------
+  function postJson(url, payload) {
+    return fetch(url, {
+      method: "POST",
+      mode: "cors",
+      credentials: "omit",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload || {})
+    }).then(function (r) {
+      return r.text().then(function (body) {
+        var parsed = null;
+        try { parsed = body ? JSON.parse(body) : null; } catch (e) {}
+        if (!r.ok) {
+          var msg = (parsed && (parsed.error || parsed.message)) || ("HTTP " + r.status);
+          throw new Error(msg);
+        }
+        return parsed || {};
+      });
+    });
+  }
+
+  // Drop — mirrors roster_workbench.js:10794 submitRosterMove.
+  // POST {worker}/roster-workbench/action with action=drop_player.
+  function submitDrop(playerId, playerName) {
+    var fid = state.viewerFranchiseId;
+    if (!fid) return Promise.reject(new Error("No franchise"));
+    if (state.busyActionKey) return Promise.reject(new Error("Another action is in progress"));
+    state.busyActionKey = "drop:" + playerId;
+    var url = workerUrl("/roster-workbench/action");
+    return postJson(url, {
+      action: "drop_player",
+      league_id: state.ctx.leagueId,
+      season: state.ctx.year,
+      franchise_id: fid,
+      player_id: String(playerId)
+    }).then(function (resp) {
+      state.busyActionKey = "";
+      return resp;
+    }).catch(function (e) {
+      state.busyActionKey = "";
+      throw e;
+    });
+  }
+
+  // Toggle a player on/off the On-the-Block list.
+  // /api/submit-trade-bait is a BULK OVERWRITE — we read the current list,
+  // flip the player, and re-submit. Preserves lookingFor + other players.
+  function submitOTBToggle(playerId, playerName) {
+    var fid = state.viewerFranchiseId;
+    if (!fid) return Promise.reject(new Error("No franchise"));
+    if (state.busyActionKey) return Promise.reject(new Error("Another action is in progress"));
+    state.busyActionKey = "otb:" + playerId;
+    var current = getMyTradeBaitIds();
+    var willBeOn = !current.has(String(playerId));
+    if (willBeOn) current.add(String(playerId));
+    else current.delete(String(playerId));
+    var willGiveUp = [];
+    current.forEach(function (id) { willGiveUp.push(id); });
+    var playerNames = {};
+    willGiveUp.forEach(function (id) {
+      var p = playerById(id);
+      playerNames[id] = safeStr(p && p.name) || id;
+    });
+    var franchiseName = state.viewerFranchise && state.viewerFranchise.name || "";
+    var lookingFor = getMyTradeBaitLookingFor();
+    return postJson(workerUrl("/api/submit-trade-bait"), {
+      franchiseId: fid,
+      franchiseName: franchiseName,
+      willGiveUp: willGiveUp,
+      lookingFor: lookingFor,
+      notes: {},
+      playerNames: playerNames
+    }).then(function (resp) {
+      state.busyActionKey = "";
+      return { resp: resp, isOnBlock: willBeOn };
+    }).catch(function (e) {
+      state.busyActionKey = "";
+      throw e;
+    });
   }
 
   // ---------- Data shaping (mirror team_operations.js) ----------
@@ -471,7 +655,17 @@
       playerById: playerById,
       getRosterFor: getRosterFor,
       getAdjustmentTotalFor: getAdjustmentTotalFor,
-      computeCap: computeCap
+      computeCap: computeCap,
+      parseContractInfo: parseContractInfo,
+      earnedToDate: earnedToDate,
+      dropPenaltyFor: dropPenaltyFor,
+      getMyTradeBaitIds: getMyTradeBaitIds,
+      getMyTradeBaitLookingFor: getMyTradeBaitLookingFor
+    },
+    actions: {
+      submitDrop: submitDrop,
+      submitOTBToggle: submitOTBToggle,
+      reloadData: reloadData
     },
     route: {
       registerView: registerView,

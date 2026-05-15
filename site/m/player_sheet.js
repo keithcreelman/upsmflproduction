@@ -8,6 +8,7 @@
   var U = window.UPS_MOBILE.util;
   var API = window.UPS_MOBILE.api;
   var DATA = window.UPS_MOBILE.data;
+  var ACT = window.UPS_MOBILE.actions;
 
   var bundleCache = {};
 
@@ -22,7 +23,7 @@
         '    <div class="ups-m-sheet-grip"></div>' +
         '    <div class="ups-m-sheet-head" id="ups-m-sheet-head"></div>' +
         '    <div class="ups-m-sheet-body" id="ups-m-sheet-body"></div>' +
-        '    <div class="ups-m-sheet-foot"><button class="btn" id="ups-m-sheet-foot-close">Close</button></div>' +
+        '    <div class="ups-m-sheet-foot" id="ups-m-sheet-foot"></div>' +
         '  </div>' +
         '</div>';
       var overlay = document.getElementById("ups-m-sheet-overlay");
@@ -30,7 +31,6 @@
         if (e.target === overlay) close();
       });
       document.getElementById("ups-m-sheet-close").addEventListener("click", close);
-      document.getElementById("ups-m-sheet-foot-close").addEventListener("click", close);
       document.addEventListener("keydown", function (e) {
         if (e.key === "Escape" && overlay.classList.contains("open")) close();
       });
@@ -143,13 +143,134 @@
       .catch(function () { return null; });
   }
 
+  function isOwnRoster(pid) {
+    var s = window.UPS_MOBILE.state;
+    if (!s.viewerFranchiseId || !s.rosters || !s.rosters.rosters) return false;
+    var fr = U.asArray(s.rosters.rosters.franchise);
+    for (var i = 0; i < fr.length; i++) {
+      if (U.pad4(fr[i].id) !== s.viewerFranchiseId) continue;
+      var players = U.asArray(fr[i].player);
+      for (var j = 0; j < players.length; j++) {
+        if (String(players[j].id) === String(pid)) return true;
+      }
+    }
+    return false;
+  }
+
+  function renderActionsFooter(pid, rosterRow, ownsPlayer) {
+    if (!ownsPlayer) {
+      return '<button class="btn" id="ups-m-sheet-foot-close">Close</button>';
+    }
+    var s = window.UPS_MOBILE.state;
+    var otbIds = DATA.getMyTradeBaitIds();
+    var onBlock = otbIds.has(String(pid));
+    var penalty = DATA.dropPenaltyFor(rosterRow, s.ctx.year);
+    var penaltyLabel = "";
+    if (penalty && typeof penalty.amount === "number") {
+      penaltyLabel = penalty.amount > 0
+        ? ' <span class="pn">(' + U.fmtUsd(penalty.amount) + ' penalty)</span>'
+        : ' <span class="pn ok">(no penalty)</span>';
+    } else {
+      penaltyLabel = ' <span class="pn">(penalty TBD)</span>';
+    }
+    return '' +
+      '<div class="ups-m-sheet-actions">' +
+        '<button class="btn-act otb' + (onBlock ? ' on' : '') + '" data-act="otb">' +
+          (onBlock ? '✓ On the Block' : 'Add to Block') +
+        '</button>' +
+        '<button class="btn-act drop" data-act="drop">Drop' + penaltyLabel + '</button>' +
+        '<button class="btn-act ext disabled" data-act="extend" disabled>Extend (use desktop)</button>' +
+        '<button class="btn-act tag disabled" data-act="tag" disabled>Tag (use desktop)</button>' +
+      '</div>' +
+      '<button class="btn" id="ups-m-sheet-foot-close">Close</button>';
+  }
+
+  function wireFooterActions(pid, rosterRow, name) {
+    var foot = document.getElementById("ups-m-sheet-foot");
+    if (!foot) return;
+    var close = document.getElementById("ups-m-sheet-foot-close");
+    if (close) close.addEventListener("click", window.UPS_MOBILE.sheet.close);
+    var otb = foot.querySelector('[data-act="otb"]');
+    var drop = foot.querySelector('[data-act="drop"]');
+    if (otb) otb.addEventListener("click", function () { handleOTB(pid, name, otb); });
+    if (drop) drop.addEventListener("click", function () { handleDrop(pid, name, rosterRow, drop); });
+  }
+
+  function setBusy(btn, busy, busyText) {
+    if (!btn) return;
+    if (busy) {
+      btn.setAttribute("data-original", btn.textContent || "");
+      btn.textContent = busyText || "Working…";
+      btn.disabled = true;
+      btn.classList.add("busy");
+    } else {
+      var orig = btn.getAttribute("data-original");
+      if (orig != null) btn.textContent = orig;
+      btn.removeAttribute("data-original");
+      btn.disabled = false;
+      btn.classList.remove("busy");
+    }
+  }
+
+  function handleOTB(pid, name, btn) {
+    var on = btn.classList.contains("on");
+    var msg = on
+      ? "Remove " + name + " from On the Block?"
+      : "Add " + name + " to On the Block?\n\nThis updates MFL Trade Bait and posts to the War Room Discord.";
+    if (!window.confirm(msg)) return;
+    setBusy(btn, true, "Saving…");
+    ACT.submitOTBToggle(pid, name).then(function (res) {
+      return ACT.reloadData().then(function () {
+        setBusy(btn, false);
+        window.UPS_MOBILE.ui.showToast(res.isOnBlock ? "Added to On the Block ✓" : "Removed from On the Block ✓", "ok");
+        // Re-render the sheet footer + the current route so badges refresh.
+        var rosterRow = (findRosterRowAcrossLeague(pid) || {}).row;
+        var footEl = document.getElementById("ups-m-sheet-foot");
+        if (footEl) {
+          footEl.innerHTML = renderActionsFooter(pid, rosterRow, isOwnRoster(pid));
+          wireFooterActions(pid, rosterRow, name);
+        }
+        window.UPS_MOBILE.route.renderRoute();
+      });
+    }).catch(function (err) {
+      setBusy(btn, false);
+      window.UPS_MOBILE.ui.showToast("Failed: " + (err && err.message || err), "err");
+    });
+  }
+
+  function handleDrop(pid, name, rosterRow, btn) {
+    var penalty = DATA.dropPenaltyFor(rosterRow, window.UPS_MOBILE.state.ctx.year);
+    var penaltyLine = "";
+    if (penalty && typeof penalty.amount === "number") {
+      penaltyLine = penalty.amount > 0
+        ? "\nEstimated cap penalty: " + U.fmtUsd(penalty.amount)
+        : "\nNo dead-cap penalty.";
+    } else {
+      penaltyLine = "\nCap penalty: unknown (pre-2019 or unparseable contract).";
+    }
+    if (!window.confirm("Drop " + name + "?" + penaltyLine + "\n\nThis writes to MFL and cannot be undone from the app.")) return;
+    setBusy(btn, true, "Dropping…");
+    ACT.submitDrop(pid, name).then(function (resp) {
+      return ACT.reloadData().then(function () {
+        setBusy(btn, false);
+        window.UPS_MOBILE.ui.showToast((resp && resp.message) || (name + " dropped ✓"), "ok");
+        close();
+        window.UPS_MOBILE.route.renderRoute();
+      });
+    }).catch(function (err) {
+      setBusy(btn, false);
+      window.UPS_MOBILE.ui.showToast("Drop failed: " + (err && err.message || err), "err");
+    });
+  }
+
   function open(pid, opts) {
     opts = opts || {};
     ensureMount();
     var overlay = document.getElementById("ups-m-sheet-overlay");
     var head = document.getElementById("ups-m-sheet-head");
     var body = document.getElementById("ups-m-sheet-body");
-    if (!overlay || !head || !body) return;
+    var foot = document.getElementById("ups-m-sheet-foot");
+    if (!overlay || !head || !body || !foot) return;
 
     overlay.classList.add("open");
     document.body.style.overflow = "hidden";
@@ -164,12 +285,17 @@
       '<div class="sub">' + U.escapeHtml(pos) + (team ? ' · ' + U.escapeHtml(team) : '') + '</div>';
 
     var rosterRow = opts.rosterRow || (findRosterRowAcrossLeague(pid) || {}).row || null;
+    var ownsPlayer = isOwnRoster(pid);
+
     body.innerHTML =
       rowContractBlock(rosterRow) +
       '<div class="ups-m-sheet-block">' +
         '<h4>Season Stats</h4>' +
         '<div id="ups-m-sheet-stats"><div class="ups-m-sheet-loading">Loading…</div></div>' +
       '</div>';
+
+    foot.innerHTML = renderActionsFooter(pid, rosterRow, ownsPlayer);
+    wireFooterActions(pid, rosterRow, name || ("Player " + pid));
 
     loadBundle(pid).then(function (bundle) {
       var slot = document.getElementById("ups-m-sheet-stats");

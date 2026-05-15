@@ -307,6 +307,12 @@ body { min-height: 100vh; }
 .ups-m-player-row .sub .badge.ir { color: var(--warn); border-color: rgba(255,184,107,0.4); }
 .ups-m-player-row .sub .badge.tx { color: var(--teal); border-color: rgba(45,212,191,0.4); }
 .ups-m-player-row .sub .badge.exp { color: var(--danger); border-color: rgba(255,107,107,0.4); }
+.ups-m-player-row .sub .badge.otb {
+  color: var(--teal);
+  border-color: rgba(45,212,191,0.5);
+  background: rgba(45,212,191,0.10);
+}
+.ups-m-player-row .sub .badge.ext { color: var(--accent); border-color: rgba(91,141,255,0.4); }
 
 .ups-m-player-row .right {
   text-align: right;

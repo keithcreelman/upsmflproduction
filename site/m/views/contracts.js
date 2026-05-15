@@ -35,7 +35,7 @@
     return raw;
   }
 
-  function statusBadges(rosterRow) {
+  function statusBadges(rosterRow, otbIds) {
     var out = [];
     var cy = parseInt(rosterRow.contractYear, 10);
     var status = U.safeStr(rosterRow.status);
@@ -43,6 +43,8 @@
     if (cy === 0) out.push('<span class="badge exp">Expired</span>');
     if (/taxi/i.test(status)) out.push('<span class="badge tx">Taxi</span>');
     if (/ir|injured/i.test(status)) out.push('<span class="badge ir">IR</span>');
+    if (otbIds && otbIds.has(String(rosterRow.id))) out.push('<span class="badge otb">On Block</span>');
+    if (cy === 1) out.push('<span class="badge ext">Ext Eligible</span>');
     if (contractStatus) out.push('<span class="badge">' + U.escapeHtml(contractStatus) + '</span>');
     return out.join(" ");
   }
@@ -82,6 +84,7 @@
 
   function renderRoster(rosterRows) {
     if (!rosterRows.length) return '<div class="ups-m-stub"><div>No roster found.</div></div>';
+    var otbIds = DATA.getMyTradeBaitIds();
     // Group by position using MFL players export
     var byPos = {};
     rosterRows.forEach(function (r) {
@@ -121,7 +124,7 @@
               '<div class="name">' + U.escapeHtml(name) + '</div>' +
               '<div class="sub">' +
                 (team ? '<span>' + U.escapeHtml(team) + '</span>' : '') +
-                statusBadges(r) +
+                statusBadges(r, otbIds) +
               '</div>' +
             '</div>' +
             '<div class="right">' +
