@@ -2659,13 +2659,19 @@ export default {
         lines.push("");
         lines.push("**What I'm Looking for:**");
         lines.push(lookingFor || "_(no preference listed)_");
-        if (gifUrl) {
-          lines.push("");
-          lines.push(gifUrl);
-        }
         lines.push("");
         lines.push(`→ [Propose a trade with ${franchiseName} in the War Room](${tradeWarRoomUrl})`);
         const messageContent = lines.join("\n");
+
+        // GIF goes in an embed so Discord renders the image without
+        // exposing the raw URL as a text line (Keith 2026-05-15).
+        const messagePayload = {
+          content: messageContent,
+          allowed_mentions: { parse: [] },
+        };
+        if (gifUrl) {
+          messagePayload.embeds = [{ image: { url: gifUrl } }];
+        }
 
         // Post the message to the channel.
         let msgRes;
@@ -2677,7 +2683,7 @@ export default {
               "Content-Type": "application/json",
               "User-Agent": "upsmflproduction-worker (otb-announcement)",
             },
-            body: JSON.stringify({ content: messageContent, allowed_mentions: { parse: [] } }),
+            body: JSON.stringify(messagePayload),
           });
         } catch (e) {
           return { posted: false, reason: "fetch_failed", error: String(e && e.message || e) };
