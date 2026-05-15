@@ -533,9 +533,21 @@
                    + (twbApiKey ? "&APIKEY=" + encodeURIComponent(twbApiKey) : "");
 
     var activeTab = readActiveTab();
+    // Tabs:
+    //   • In-page tab (Overview): rendered as <button data-tab>.
+    //   • External tab (has .message): rendered as <a href> hyperlink
+    //     to the MFL MESSAGE page. Clicking navigates same-window.
+    //     No iframe rendered — Keith 2026-05-14, ditched embeds since
+    //     each target module is already a polished standalone page
+    //     and embedding made modals + scroll behavior awkward.
     var tabsHtml = '<nav class="tops-tabs" role="tablist">'
       + TAB_DEFS.map(function (t) {
           var on = (t.id === activeTab) ? '1' : '0';
+          if (t.message) {
+            var href = popOutUrlForTab(t);
+            return '<a class="tops-tab tops-tab-link" href="' + escapeHtml(href || "#") + '" role="tab" data-tab-link="' + t.id + '" rel="noopener">'
+              + escapeHtml(t.label) + ' <span class="tops-tab-link-arrow" aria-hidden="true">↗</span></a>';
+          }
           return '<button type="button" class="tops-tab" data-tab="' + t.id + '" data-active="' + on + '" role="tab">' + escapeHtml(t.label) + '</button>';
         }).join("")
       + '</nav>';
@@ -544,6 +556,7 @@
       + '<div class="tops-wip-banner" role="status">'
       +   '<strong>Heads up:</strong> this page and the Team Ops module are actively being built.'
       +   ' Expect rough edges, missing data, and frequent changes — not a finished product yet.'
+      +   ' <span class="tops-wip-subline">Historical data (standings, contract history, player stints) is still being reviewed for accuracy and may not be fully correct yet.</span>'
       + '</div>'
       + '<main class="tops-grid">'
       // Next Decision pinned at top, full-width — most important card.
@@ -561,25 +574,11 @@
       + '  <section data-card="calendar" class="tops-card"></section>'
       + '</main>';
 
-    // Build iframe panels. data-lazysrc holds the URL; switchTab sets src on
-    // first activation so default-tab page load stays light.
-    // "Pop out" link above each iframe lets the user escape to the hub's own
-    // full-screen page when the embedded view feels cramped (modals stay in
-    // the iframe viewport, no way around that without rebuilding the modals
-    // to use parent-frame postMessage).
-    var hubPanels = TAB_DEFS.filter(function (t) { return !!t.iframe; }).map(function (t) {
-      var src = t.iframe + ctxQs + (t.id === "trade-room" ? twbExtraQs : "");
-      var popOut = popOutUrlForTab(t) || src;
-      var on = (t.id === activeTab) ? '1' : '0';
-      var lazy = (t.id === activeTab) ? ' src="' + escapeHtml(src) + '"' : ' data-lazysrc="' + escapeHtml(src) + '"';
-      return '<section class="tops-tab-panel tops-tab-panel--iframe" data-tab-panel="' + t.id + '" data-active="' + on + '" role="tabpanel">'
-        + '<div class="tops-iframe-toolbar">'
-        +   '<span class="tops-iframe-label">' + escapeHtml(t.label) + ' is embedded — for a roomier view, pop it out.</span>'
-        +   '<a class="tops-iframe-pop" href="' + escapeHtml(popOut) + '" target="_blank" rel="noopener noreferrer">Open in new tab ↗</a>'
-        + '</div>'
-        + '<iframe class="tops-iframe" title="' + escapeHtml(t.label) + '"' + lazy + ' loading="lazy" allow="clipboard-read; clipboard-write" referrerpolicy="no-referrer"></iframe>'
-        + '</section>';
-    }).join("");
+    // hubPanels intentionally empty — external tabs (Front Office,
+    // Player Stats, Trade War Room, Standings) are now hyperlinks in
+    // the tab strip above, not embedded iframes (Keith 2026-05-14).
+    // Overview is the only real panel rendered below.
+    var hubPanels = "";
 
     mount.innerHTML = [
       '<div class="tops-shell">',

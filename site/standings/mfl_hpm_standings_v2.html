@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>UPS Standings v2 (preview)</title>
+  <title>UPS Standings</title>
   <style>
     :root {
       --bg: #061a3a;
@@ -68,16 +68,25 @@
       text-transform: uppercase;
       letter-spacing: 0.1em;
     }
-    .preview-badge {
-      background: rgba(125, 232, 217, 0.12);
-      border: 1px solid rgba(125, 232, 217, 0.4);
-      color: var(--teal);
-      padding: 3px 8px;
-      border-radius: 4px;
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
+    /* Historical-data accuracy banner. Yellow-accent so it reads as
+       "advisory" (not error). Lives directly under the title so it's
+       impossible to miss across every standings view. */
+    .hist-warn {
+      margin-top: 8px;
+      padding: 8px 12px;
+      background: linear-gradient(180deg, rgba(231, 190, 89, 0.16), rgba(231, 190, 89, 0.06));
+      border: 1px solid rgba(231, 190, 89, 0.55);
+      border-left: 3px solid var(--gold);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 12px;
+      line-height: 1.45;
+      max-width: 640px;
+    }
+    .hist-warn strong {
+      color: var(--gold);
+      font-weight: 800;
+      margin-right: 0.25em;
     }
     .controls {
       display: flex;
@@ -907,8 +916,11 @@
     <div class="card">
       <header class="head">
         <div>
-          <div class="title">UPS Standings <span class="preview-badge">v2 preview</span></div>
-          <div class="sub">D1-backed · full history · pending review</div>
+          <div class="title">UPS Standings</div>
+          <div class="sub">D1-backed · full history</div>
+          <div class="hist-warn" role="status">
+            <strong>Heads up:</strong> historical data is still being reviewed for accuracy and may not be fully correct yet.
+          </div>
         </div>
         <div class="controls">
           <label class="year-picker">Season <select id="yearSel"></select></label>
@@ -956,9 +968,25 @@
     { id: "divPower",    label: "Division Power Rankings" }
   ];
 
+  // Default to the PRIOR season until NFL Week 1 of the current year
+  // (Keith 2026-05-14). Before Week 1 the current-year dataset is
+  // empty/stub-only, so showing it makes the page look broken. Owners
+  // can still pick the current year from the dropdown.
+  function defaultSeasonForToday() {
+    var now = new Date();
+    var year = now.getUTCFullYear();
+    var month = now.getUTCMonth() + 1;
+    var day = now.getUTCDate();
+    // NFL Week 1 lands Thursday after Labor Day — typically Sep 4–10.
+    // Conservative cutover: before Sep 10 → prior year. Sep 10+ →
+    // current. Erring early is harmless since owners can override.
+    if (month < 9 || (month === 9 && day < 10)) return year - 1;
+    return year;
+  }
+
   var state = {
     view: qs.get("view") || "overall",
-    year: parseInt(qs.get("year"), 10) || (new Date().getUTCFullYear()),
+    year: parseInt(qs.get("year"), 10) || defaultSeasonForToday(),
     overall: { sortKey: "allplay_pct", sortDir: "desc" },
     divisions: { sortKey: "allplay_pct", sortDir: "desc" },
     dpMode: "allTime",
@@ -2220,21 +2248,15 @@
         var captains = byPct.slice(0, 4);
         var inProgress = (era.era_end >= currentYear);
         var eraTitle = inProgress ? era.era_start + "–" + era.era_end + " (in progress)" : era.era_start + "–" + era.era_end;
-        function pctGapNote() {
-          var bits = [];
-          if (p1 != null && p2 != null) bits.push("#1→#2: " + ((p1 - p2) * 100).toFixed(1) + " pp");
-          if (p2 != null && p3 != null) bits.push("#2→#3: " + ((p2 - p3) * 100).toFixed(1) + " pp");
-          return bits.length ? " <span style=\"color:var(--dim);font-size:10px;font-weight:400;letter-spacing:0;text-transform:none\">(" + bits.join(" · ") + ")</span>" : "";
-        }
         var headlinerText;
         if (inProgress) {
           headlinerText = "Era in progress — headliners pending";
         } else if (headliners.length === 1) {
-          headlinerText = "The " + (headliners[0].owner_name || "?") + " Era" + pctGapNote();
+          headlinerText = "The " + (headliners[0].owner_name || "?") + " Era";
         } else if (headliners.length === 2) {
-          headlinerText = "The " + (headliners[0].owner_name || "?") + " & " + (headliners[1].owner_name || "?") + " Era" + pctGapNote();
+          headlinerText = "The " + (headliners[0].owner_name || "?") + " & " + (headliners[1].owner_name || "?") + " Era";
         } else if (headliners.length === 3) {
-          headlinerText = "The " + (headliners[0].owner_name || "?") + ", " + (headliners[1].owner_name || "?") + " & " + (headliners[2].owner_name || "?") + " Era" + pctGapNote();
+          headlinerText = "The " + (headliners[0].owner_name || "?") + ", " + (headliners[1].owner_name || "?") + " & " + (headliners[2].owner_name || "?") + " Era";
         } else {
           headlinerText = "No eligible owners";
         }
