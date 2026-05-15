@@ -415,6 +415,8 @@ export default {
         path !== "/api/submit-lineup" &&
         path !== "/api/submit-trade-bait" &&
         path !== "/api/trade-bait-notes" &&
+        path !== "/api/me" &&
+        path !== "/api/settings" &&
         path !== "/bug-report" &&
         path !== "/bug-reports" &&
         !path.startsWith("/api/trades/proposals") &&

@@ -909,12 +909,26 @@
     return fallbackMsg + statSfx;
   }
 
-  // Append MFL_USER_ID as a query param if available. The worker reads
-  // either a Cookie header (same-origin) OR ?MFL_USER_ID=… (cross-origin
-  // — our case). Browser fetch with credentials:include doesn't actually
-  // forward MFL's cookie to the worker domain, so we explicitly pass it.
+  // Read a cookie value WITHOUT decodeURIComponent — needed for forwarding
+  // MFL session tokens that contain literal %-escaped bytes in storage
+  // (e.g. aRBv1sCXvrLtj1DnZQifOg%3D%3D). MFL stores + sends the cookie
+  // with literal %3D%3D and rejects sessions that come back decoded.
+  // Keith 2026-05-15: with the round-trip decode, MFL returned
+  // "not a member of league 74598" because we were forwarding the
+  // wrong-encoded value.
+  function readCookieRaw(name) {
+    try {
+      var m = document.cookie.match(new RegExp("(?:^|;\\s*)" + name + "=([^;]+)"));
+      return m ? m[1] : "";
+    } catch (e) { return ""; }
+  }
+
+  // Append MFL_USER_ID as a query param. encodeURIComponent re-escapes the
+  // raw cookie value (so any literal % in the stored value becomes %25),
+  // the worker URLSearchParams unwraps one layer, and the final Cookie
+  // header to MFL carries the SAME bytes the browser had stored.
   function withMflUserParam(url) {
-    var uid = readCookie("MFL_USER_ID");
+    var uid = readCookieRaw("MFL_USER_ID");
     if (!uid) return url;
     return url + (url.indexOf("?") === -1 ? "?" : "&") + "MFL_USER_ID=" + encodeURIComponent(uid);
   }
