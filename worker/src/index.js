@@ -2712,6 +2712,9 @@ export default {
             notes_error: notesError,
             mfl_status: mflStatus,
             mfl_response: parsed || mflResp,
+            // Always echo the exact URL + body we POSTed so we can diff
+            // against MFL's expected shape when behavior looks off.
+            mfl_request_preview: { url: importUrl, body: form.toString() },
           });
         } catch (e) {
           return jsonOut(500, { ok: false, error: String(e && e.message || e) });
