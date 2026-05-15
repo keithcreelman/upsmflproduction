@@ -799,11 +799,25 @@
       grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
       gap: 14px;
     }
+    /* When the picker filters to a single era, render one full-width
+       card (no grid) so the leaderboard table can breathe. */
+    .era-grid--single {
+      display: block;
+    }
     .era-card {
       background: rgba(255, 255, 255, 0.02);
       border: 1px solid var(--line);
       border-radius: 8px;
       padding: 16px;
+      min-width: 0;
+    }
+    /* Full-width version of .era-card, used by the per-era detail page
+       and the cross-era summary table. */
+    .era-detail-card {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 18px 20px;
       min-width: 0;
     }
     .era-card-scroll {
@@ -812,6 +826,34 @@
       padding: 0 4px;
     }
     .era-card .compact { min-width: 540px; }
+    /* Picker row sits above the era card(s). */
+    .era-picker-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    .era-picker {
+      font-size: 12px;
+      color: var(--muted);
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .era-picker select {
+      background: var(--navy);
+      color: var(--text);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    /* Cross-era summary table — sortable, full width. */
+    .era-summary-table { width: 100%; }
+    .era-summary-th { cursor: pointer; user-select: none; }
+    .era-summary-th:hover { color: var(--gold); }
+    .era-summary-th.active { color: var(--gold); }
     .era-cycle {
       font-size: 11px;
       color: var(--muted);
@@ -1007,6 +1049,9 @@
     divisions: { sortKey: "allplay_pct", sortDir: "desc" },
     dpMode: "allTime",
     dpSort: { key: "ap_pct", dir: "desc" },
+    // Eras view: "all" = cross-era summary table; era_start year = single-era detail page.
+    eraSelected: qs.get("era") || "all",
+    eraSummary: { sortKey: "era_start", sortDir: "asc" },
     cache: {}
   };
 
@@ -1049,6 +1094,11 @@
       var u = new URL(window.location.href);
       u.searchParams.set("view", state.view);
       u.searchParams.set("year", String(state.year));
+      if (state.view === "eras") {
+        u.searchParams.set("era", String(state.eraSelected || "all"));
+      } else {
+        u.searchParams.delete("era");
+      }
       window.history.replaceState(null, "", u.toString());
     } catch (e) {}
   }
@@ -2226,38 +2276,181 @@
   var ERA_STORIES = {
     2011: {
       name: "Birth of Something Beautiful",
-      blurb: "The dawn of UPS. Year 2 brought in four new owners as replacements — Kevin Bousquet (Ryan's brother) was booted mid-auction Y1 and replaced by Lake, who promptly won the league in his first season with the team Kev built. Steve Bousquet, Josh Martel, and Derrick Whitman also joined this stretch — three names that would shape the league's future."
+      blurb: "The league's opening chord. Shawn Blake took the inaugural crown in 2011 with a 25-1 all-play tear that left no doubt who set the standard. The auction that built the league was already a soap opera: Kevin Bousquet (Ryan's brother) got the boot mid-auction in Year 1 and Kris Lake stepped in to inherit the half-finished roster — then promptly won the whole thing in 2012, his first season with the team Kev built. Steve Bousquet, Josh Martel, and Derrick Whitman also took the keys to their franchises in this era; Whitman closed it out with a runaway 2013 title (best record, best all-play, no debate). Bear Dunn drew the very first Hawktuah honors in 2011 — a respectable .485 all-play hidden behind a 12th-place finish, the original \"you weren't actually that bad\" toilet champ. Kyle Creelman owned the last-place trophy in 2012, and Eric Mannila inherited it in 2013 to round out the era's basement tour. Hot-takes corner: Lake's 2012 title came on a .709 all-play — the lowest of any champ in this stretch, and a hint at the parity to come. Whitman's 2012 was the cleanest \"choked it\" performance of the era — second-best all-play in the league at .657, finished fourth. He'd take that lesson and bulldoze the 2013 league for revenge. Three years, three different champions. The blueprint was already showing: regular-season dominance helped, but it wasn't a guarantee."
     },
     2014: {
       name: "Finding Our Stride",
-      blurb: "The league started to figure itself out. Rosters stabilized, rules settled, no major turnover. Cap mechanics and contract conventions hardened into the framework still in use today."
+      blurb: "The \"we actually know what we're doing now\" era. Rosters stabilized, the cap-and-contract conventions hardened into something resembling tradition, and the league stopped re-litigating its rulebook every offseason. Three different champions, three different owners — Ryan Bousquet broke through in 2014 behind the best all-play in the league (.750, 20-6), Shawn Blake won his second ring in 2015 from the four-seed, and Bear Dunn put together the most dominant regular season of the era (.776 all-play, 19-7) and cashed it in for his first title in 2016. Blake's 2015 run is the era's \"got hot at the right time\" exhibit — a .609 all-play, fourth seed, walked out with the trophy while Derrick Whitman (.703 all-play, division winner) finished third and ate the loss. That's the lowest-AP title in the entire 2011–2016 stretch. Whitman's 2014 deserves its own callout in the \"you can't win 'em all\" file: 20-6 all-play, basically tied with Ryan for the league lead, finished third. Steve Bousquet quietly piled up top-three all-play seasons all three years without a title to show for it — the slow build that would pay off in the next era. Toilet bowl roll call: Chris Klingenberg's 2014 (.188 all-play, 5-21 — the deepest crater of the era), Kyle Creelman's 2015, and Kris Lake's 2016 closed the basement. The league had figured out how to run itself. What it hadn't figured out yet was that change was coming."
     },
     2017: {
       name: "New Owners — Good & Bad",
-      blurb: "A wave of replacements with mixed results. Gerardi joined and was an instant hit. Nieber and Richard were dreadful — booted Week 13 (or 14) of their second season with a since-legendary email exchange on their way out. The Balderllis arrived this era and executed a trade within 34 minutes of joining — a clear sign of what was coming."
+      blurb: "The roster turned over and the results split right down the middle. Steve Bousquet stamped his name on the era first, winning back-to-back in 2017 and 2018 — the 2017 run is statistically the most dominant title in league history (.793 all-play, 22-4, wire-to-wire #1 seed). Josh Martel closed the era with the 2019 crown, his first. Matt Gerardi joined and immediately looked like he belonged — middle of the pack, no embarrassment, building toward something. AJ Balderelli also arrived this era and executed a trade within 34 minutes of joining — the kind of debut that becomes a permanent line on the resume. On the other side of the ledger: John Richard and Jarrade Nieber were a co-managed disaster — two straight bottom-three finishes (.258 and .347 all-play) — and got booted Week 13 or 14 of their second season with a legendary email exchange on the way out [per Keith's recollection]. Derrick Whitman drew the toilet in 2017 with a year-from-hell .255 all-play, and Chris Klingenberg cratered to a .165 all-play to claim 2018's last place — among the worst all-play seasons ever recorded in UPS. The \"choked it\" award goes to Josh Martel's 2018: a Murderer's Row .881 all-play, 25-1 in all-play games, ran into his brother-in-law Steve in the final and lost. The most dominant non-championship season this league has ever seen, by a country mile. Lowest AP champ of the era: Josh Martel in 2019 at .670 — got in as the three-seed and didn't let go."
     },
     2020: {
       name: "Covid, Collusion & Calling It Quits",
-      blurb: "COVID, collusion, and the end of an era. Some of the league's most contentious moments happened here. Whitman returned at the close of the auction (alongside E. Martel as a fellow replacement). After the season Steve Bousquet stepped away on his own accord, leaving with a phenomenal record and a stacked roster — a peaceful exit on top."
+      blurb: "The chaos era. Covid scrambled the 2020 NFL calendar and the league rode it out. A real collusion incident hit during this stretch — flagged in the record, details not relitigated here [per Keith's recollection]. Derrick Whitman returned to the league via the auction close, and Eric Martel joined the same way — both stepping into franchises that needed an owner with a pulse. Steve Bousquet's exit looms over the whole period: he left on his own terms after the era with a roster stacked to win and a record across these three years that nobody else could match — second, fourth, runner-up in 2021 — the textbook \"leave on top\" departure. Champions: Josh Martel finally got his second ring in 2020 from the three-seed, Ryan Bousquet won 2021 as the four-seed, and Matt Gerardi broke through in 2022 from the SIX seed with a .652 all-play — the lowest-AP title of the era and one of the lowest in league history. Steve Bousquet's 2021 (.720 all-play, league-best) ended in a finals loss to his brother Ryan — a fittingly Bousquet way to lose a championship. Toilet bowl basement dwellers: Chris Klingenberg drew it in both 2020 and 2022 (with a .235 all-play in 2022 — historically grim), and Matt Gerardi's 2021 sandwich season — last place one year, champion the next — has to go down as one of the most violent year-over-year turnarounds in league lore."
     },
     2023: {
       name: "Tee Higgins & the 1.1 Dispersal Shit Show",
-      blurb: "The dispersal draft fiasco anchors this era. Josh Lima joined, made one bad decision after another, and was booted at the end of the 2024 auction — replaced by Cross. The 1.1 dispersal pick (Tee Higgins) became a flashpoint that defined the cycle."
+      blurb: "The dispersal-draft era. Josh Lima joined the league and immediately handed out a master class in how not to manage a roster — Tee Higgins at the 1.1 dispersal pick became the flashpoint, and the rest of his decisions trailed off from there. Back-to-back last-place finishes in 2023 and 2024 (.203 and .107 all-play — the .107 is the worst season ever recorded in UPS by a comfortable margin) and Lima was booted at the end of the 2024 auction. Brian Cross took his seat for 2025. Champions tell the story of an unpredictable era: Shawn Blake won 2023 (his third ring, from the two-seed), Eric Martel took 2024 as the eighth seed on a .674 all-play — the definition of \"got hot at the right time\" — and Brian Cutting finally broke through in 2025 with the best regular season in the league (.717 all-play, #1 seed wire-to-wire), claiming his first title after fifteen years of trying. Bear Dunn's 2024 (.717 all-play, league-best) is the era's \"choked it\" entry — top seed, finished third. The era's other gut-punch: Derrick Whitman, OG owner, ate the toilet bowl in 2025. A reminder that nobody in this league gets to stay above the basement forever."
     },
     2026: {
       name: "The Modern Era",
-      blurb: "In progress. Stay tuned."
+      blurb: "In progress. Story still being written."
     }
   };
+
+  // Picker + summary-table helpers for the Eras view.
+  // - "all" (default) → one wide summary table, every owner × every era,
+  //                     sortable by any column. No story blurbs here —
+  //                     designed as a scan-the-history overview.
+  // - <era_start year> → original per-era card, just filtered to that
+  //                      single era (story + blurb visible, table full-
+  //                      width so it doesn't need horizontal scroll).
+  function eraPfMean(rows) {
+    var pfSum = 0, pfCount = 0;
+    (rows || []).forEach(function (r) {
+      var pf = Number(r.pf || 0);
+      if (pf > 0) { pfSum += pf; pfCount += 1; }
+    });
+    return pfCount > 0 ? pfSum / pfCount : 0;
+  }
+  function renderEraPickerHtml(eras) {
+    var opts = ['<option value="all"' + (state.eraSelected === "all" ? " selected" : "") + '>All Eras — Summary</option>'];
+    eras.forEach(function (era) {
+      var val = String(era.era_start);
+      var label = era.era_start + "–" + era.era_end;
+      var story = ERA_STORIES[Number(era.era_start)];
+      if (story && story.name) label += " — " + story.name;
+      opts.push('<option value="' + escapeHtml(val) + '"' + (state.eraSelected === val ? " selected" : "") + '>' + escapeHtml(label) + '</option>');
+    });
+    return '<div class="era-picker-row"><label class="era-picker">View <select id="eraSel">' + opts.join("") + '</select></label></div>';
+  }
+  function renderErasSummaryHtml(eras) {
+    var summaryRows = [];
+    eras.forEach(function (era) {
+      var pfMean = eraPfMean(era.rows);
+      (era.rows || []).forEach(function (r) {
+        summaryRows.push({
+          era_label: era.era_start + "–" + era.era_end,
+          era_start: era.era_start,
+          owner_name: r.owner_name,
+          seasons_played: r.seasons_played,
+          ap_pct: r.ap_pct,
+          ap_w: r.ap_w,
+          h2h_w: r.h2h_w, h2h_l: r.h2h_l, h2h_t: r.h2h_t,
+          pf: r.pf,
+          pf_mean: pfMean,
+          championships: r.championships,
+          hawktuah_wins: r.hawktuah_wins,
+          avg_finish: r.avg_finish
+        });
+      });
+    });
+    var sa = state.eraSummary.sortKey;
+    var dir = state.eraSummary.sortDir === "asc" ? 1 : -1;
+    summaryRows.sort(function (a, b) {
+      var av = a[sa], bv = b[sa];
+      if (sa === "owner_name" || sa === "era_label") {
+        return String(av || "").localeCompare(String(bv || "")) * dir;
+      }
+      av = Number(av || 0); bv = Number(bv || 0);
+      if (av === bv) {
+        if (a.era_start !== b.era_start) return a.era_start - b.era_start;
+        return (b.ap_pct || 0) - (a.ap_pct || 0);
+      }
+      return (av - bv) * dir;
+    });
+    function th(key, label, isNum) {
+      var active = state.eraSummary.sortKey === key;
+      var arrow = active ? (state.eraSummary.sortDir === "asc" ? " ▲" : " ▼") : "";
+      var cls = (isNum ? "num " : "") + "era-summary-th" + (active ? " active" : "");
+      return '<th class="' + cls + '" data-era-sort="' + key + '">' + escapeHtml(label) + arrow + '</th>';
+    }
+    var head = '<tr>'
+      + th("era_label",      "Era",     false)
+      + th("owner_name",     "Owner",   false)
+      + th("seasons_played", "Yrs",     true)
+      + th("ap_pct",         "AP %",    true)
+      + th("ap_w",           "AP W",    true)
+      + '<th>H2H</th>'
+      + th("pf",             "Idx",     true)
+      + th("championships",  "🏆",       true)
+      + th("hawktuah_wins",  "🚽",       true)
+      + th("avg_finish",     "Avg Fin", true)
+      + '</tr>';
+    var body = summaryRows.map(function (r) {
+      var partial = (r.seasons_played || 0) < 3;
+      var idxNum = r.pf_mean > 0 ? Number(r.pf || 0) / r.pf_mean : 0;
+      var idxStr = idxNum > 0 ? idxNum.toFixed(2) : "—";
+      return '<tr' + (partial ? ' class="partial"' : '') + '>'
+        + '<td>' + escapeHtml(r.era_label) + '</td>'
+        + '<td>' + escapeHtml(r.owner_name || "—") + (partial ? ' <span class="partial-badge" title="Did not play all 3 seasons of the cycle">partial</span>' : '') + '</td>'
+        + '<td class="num">' + (r.seasons_played || 0) + '</td>'
+        + '<td class="num">' + fmtPct(r.ap_pct) + '</td>'
+        + '<td class="num">' + (r.ap_w || 0) + '</td>'
+        + '<td>' + rec(r.h2h_w, r.h2h_l, r.h2h_t) + '</td>'
+        + '<td class="num">' + idxStr + '</td>'
+        + '<td class="num">' + (r.championships || 0) + '</td>'
+        + '<td class="num">' + (r.hawktuah_wins || 0) + '</td>'
+        + '<td class="num">' + (r.avg_finish ? Number(r.avg_finish).toFixed(1) : "—") + '</td>'
+        + '</tr>';
+    }).join("");
+    return '<section class="era-detail-card">'
+      + '<div class="era-name">All Eras — Owner × Era Summary</div>'
+      + '<div class="era-blurb">Every owner across every 3-year cycle. Click a column header to sort. Pick a specific era from the dropdown above for that era\'s story + a focused leaderboard.</div>'
+      + '<div class="era-card-scroll"><table class="compact era-summary-table"><thead>' + head + '</thead><tbody>' + body + '</tbody></table></div>'
+      + '</section>';
+  }
+  function wireEraPicker(host) {
+    var sel = host.querySelector("#eraSel");
+    if (sel) {
+      sel.addEventListener("change", function () {
+        state.eraSelected = sel.value || "all";
+        pushQs();
+        render();
+      });
+    }
+    host.querySelectorAll("th.era-summary-th").forEach(function (h) {
+      h.addEventListener("click", function () {
+        var key = h.getAttribute("data-era-sort");
+        if (!key) return;
+        if (state.eraSummary.sortKey === key) {
+          state.eraSummary.sortDir = state.eraSummary.sortDir === "asc" ? "desc" : "asc";
+        } else {
+          state.eraSummary.sortKey = key;
+          state.eraSummary.sortDir = (key === "era_label" || key === "owner_name") ? "asc" : "desc";
+        }
+        render();
+      });
+    });
+  }
 
   function renderEras(host) {
     fetchD1("/api/eras", null).then(function (resp) {
       if (!resp || !resp.ok) return showError(host, "Couldn't load eras.");
-      var eras = (resp.eras || []).filter(function (e) { return e.era_start >= ERA_FIRST; });
+      var erasAll = (resp.eras || []).filter(function (e) { return e.era_start >= ERA_FIRST; });
       var hasFS = resp.has_final_standings;
       var currentYear = (new Date().getUTCFullYear());
       var fsBanner = hasFS ? "" : '<div class="banner">⚠ <code>src_final_standings</code> not loaded — championship + hawktuah counts show 0 until migration 0033 runs.</div>';
-      var html = fsBanner + '<div class="era-grid">';
+
+      // Picker first; then either the cross-era summary, or the
+      // existing per-era card filtered to a single era.
+      var pickerHtml = renderEraPickerHtml(erasAll);
+
+      if (state.eraSelected === "all") {
+        host.innerHTML = fsBanner + pickerHtml + renderErasSummaryHtml(erasAll);
+        wireEraPicker(host);
+        return;
+      }
+
+      var eras = erasAll.filter(function (e) { return String(e.era_start) === String(state.eraSelected); });
+      if (!eras.length) {
+        host.innerHTML = fsBanner + pickerHtml + '<div class="banner">Era not found — pick another from the dropdown.</div>';
+        wireEraPicker(host);
+        return;
+      }
+      var html = fsBanner + pickerHtml + '<div class="era-grid era-grid--single">';
       eras.forEach(function (era) {
         var rows = (era.rows || []).slice();
         var eligible = rows.filter(function (r) { return (r.seasons_played || 0) >= 3; });
@@ -2339,6 +2532,7 @@
       });
       html += '</div>' + DEFERRED_NOTE;
       host.innerHTML = html;
+      wireEraPicker(host);
     }).catch(function (e) { showError(host, "Fetch failed: " + e.message); });
   }
 
