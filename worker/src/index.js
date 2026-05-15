@@ -2502,6 +2502,17 @@ export default {
             ? (body.willGiveUp || body.will_give_up).map((s) => String(s).trim()).filter(Boolean)
             : [];
           const lookingFor = safeStr(body.lookingFor || body.looking_for || "");
+          // Per-player notes — { pid: "note text", ... }. UPS-side only;
+          // MFL's tradeBait endpoint doesn't accept per-player notes.
+          // Persisted in D1 (ups_trade_bait_notes) so the Trade War Room
+          // can render them. Blank notes prune existing rows.
+          const notesIn = (body.notes && typeof body.notes === "object") ? body.notes : {};
+          const notes = {};
+          for (const k of Object.keys(notesIn)) {
+            const pid = String(k).trim();
+            const val = safeStr(notesIn[k]).slice(0, 500);  // cap to keep table tidy
+            if (pid) notes[pid] = val;
+          }
           if (!fidReq) return jsonOut(400, { ok: false, error: "franchiseId required" });
           // Caller-franchise identity check via MFL_USER_ID cookie.
           const cookieHeader = request.headers.get("Cookie") || "";
@@ -2552,13 +2563,82 @@ export default {
               mfl_response: parsed || mflResp,
             });
           }
+          // Persist per-player notes in D1 (UPS-side only — MFL doesn't
+          // store these). Strategy: delete this franchise's rows for the
+          // current (league, season) and re-insert from the submitted
+          // payload. Blank/missing notes implicitly prune. Failures here
+          // don't fail the whole submit — MFL trade bait already landed.
+          let notesPersisted = 0;
+          let notesError = null;
+          try {
+            const db = env.UPS_MFL_DB;
+            if (db) {
+              await db.prepare(
+                "DELETE FROM ups_trade_bait_notes WHERE league_id = ? AND season = ? AND franchise_id = ?"
+              ).bind(String(leagueId), Number(year), fidReq).run();
+              const nowIso = new Date().toISOString();
+              const inserts = [];
+              for (const pid of Object.keys(notes)) {
+                const txt = notes[pid];
+                if (!txt) continue;  // blank prunes
+                inserts.push(
+                  db.prepare(
+                    "INSERT INTO ups_trade_bait_notes (league_id, season, franchise_id, player_id, note, updated_at) VALUES (?, ?, ?, ?, ?, ?)"
+                  ).bind(String(leagueId), Number(year), fidReq, pid, txt, nowIso)
+                );
+              }
+              if (inserts.length) await db.batch(inserts);
+              notesPersisted = inserts.length;
+            } else {
+              notesError = "D1 not bound; notes not persisted";
+            }
+          } catch (e) {
+            notesError = String(e && e.message || e);
+          }
           return jsonOut(200, {
             ok: true,
             franchise_id: fidReq,
             will_give_up: willGiveUp,
             looking_for: lookingFor,
+            notes_persisted: notesPersisted,
+            notes_error: notesError,
             mfl_status: mflStatus,
             mfl_response: parsed || mflResp,
+          });
+        } catch (e) {
+          return jsonOut(500, { ok: false, error: String(e && e.message || e) });
+        }
+      }
+
+      // ── GET /api/trade-bait-notes — read per-player trade bait notes ──
+      // Returns notes for ONE franchise (?franchiseId=xxxx) or, if no
+      // franchise param given, the entire league. Year defaults to the
+      // current league year. Read-only; no auth check — bait + notes are
+      // owner-published public info inside the league.
+      if (path === "/api/trade-bait-notes" && request.method === "GET") {
+        try {
+          const db = env.UPS_MFL_DB;
+          if (!db) return jsonOut(503, { ok: false, error: "D1 not bound" });
+          const leagueId = _rdhLeagueId();
+          const year = parseInt(safeStr(url.searchParams.get("year")) || _rdhYear(), 10);
+          const fidParam = _rdhPadFid(safeStr(url.searchParams.get("franchiseId") || url.searchParams.get("franchise_id") || ""));
+          let rs;
+          if (fidParam) {
+            rs = await db.prepare(
+              "SELECT franchise_id, player_id, note, updated_at FROM ups_trade_bait_notes WHERE league_id = ? AND season = ? AND franchise_id = ? ORDER BY player_id"
+            ).bind(String(leagueId), Number(year), fidParam).all();
+          } else {
+            rs = await db.prepare(
+              "SELECT franchise_id, player_id, note, updated_at FROM ups_trade_bait_notes WHERE league_id = ? AND season = ? ORDER BY franchise_id, player_id"
+            ).bind(String(leagueId), Number(year)).all();
+          }
+          return jsonOut(200, {
+            ok: true,
+            league_id: String(leagueId),
+            season: Number(year),
+            franchise_id: fidParam || null,
+            count: (rs.results || []).length,
+            notes: rs.results || [],
           });
         } catch (e) {
           return jsonOut(500, { ok: false, error: String(e && e.message || e) });
