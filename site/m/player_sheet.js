@@ -199,16 +199,35 @@
     } else {
       penaltyLabel = ' <span class="pn">(penalty TBD)</span>';
     }
-    // Eligibility from the verbatim Front Office mirror (same predicate the
-    // desktop Roster Workbench uses). Tag is harder — desktop computes it
-    // from the per-cycle tag plan; for mobile we show the Tag button when
-    // the player has 0 years remaining (the basic gate) and let the CCC
-    // deep-link surface the actual side/salary on the desktop side.
+    // Eligibility from the verbatim Front Office mirror (same predicates the
+    // desktop Roster Workbench uses). Tag check now consults the league
+    // tag plan (site/ccc/tag_tracking.json) + per-team-side conflict scan
+    // — matches Front Office exactly.
     var FOA = window.UPS_FRONT_OFFICE_ACTIONS;
     var elig = FOA ? FOA.eligibilityForRosterRow(rosterRow) :
                { extensionEligible: false, rookieOptionEligible: false, restructureEligible: false };
-    var cy = parseInt(rosterRow && rosterRow.contractYear, 10);
-    var tagEligible = cy === 0; // 0 years remaining → tag-eligible (offseason)
+    var tagAction = { kind: "none" };
+    if (FOA) {
+      // Build a roster-row list with position attached (player.position
+      // comes from state.players, not rosters export). That's what the
+      // FO tag scan needs to match offense/defense slots.
+      var s2 = window.UPS_MOBILE.state;
+      var teamRows = window.UPS_MOBILE.data.getRosterFor(footerState.pid ? s2.viewerFranchiseId : s2.viewerFranchiseId);
+      // Above line just gets the viewer franchise's roster — same fid
+      // as the sheet (we only show contract actions on own roster players).
+      var teamRowsWithPos = (teamRows || []).map(function (r) {
+        var p = window.UPS_MOBILE.data.playerById(r.id);
+        return { id: r.id, contractStatus: r.contractStatus, position: (p && p.position) || "" };
+      });
+      tagAction = FOA.tagActionForPlayer({
+        rosterRow: rosterRow,
+        fid: s2.viewerFranchiseId,
+        rosterRowsWithPos: teamRowsWithPos,
+        tagTracking: s2.tagTracking || [],
+        tagSubmissions: s2.tagSubmissions || []
+      });
+    }
+    var tagEligible = (tagAction.kind === "tag" || tagAction.kind === "untag");
     var html = '';
     if (opts.editingOtb) {
       var headerText = onBlock ? "Update Block note" : "Add to On the Block";
@@ -237,11 +256,15 @@
       // Contract-action grid: Extension / Rookie Option / Restructure /
       // Tag — eligibility comes from the FO mirror. Each button opens the
       // desktop Contract Command Center pre-targeted at this player + action.
+      var tagLabel = tagAction.kind === "untag" ? "Untag" : "Tag";
+      var tagAct = tagAction.kind === "untag" ? "untag" : "tag";
+      // Rookie Option intentionally not exposed on mobile yet (Keith
+      // 2026-05-15 — skip for now). When ready, mirror submitRookieOptionUpdate
+      // from roster_workbench.js:10912 the same way Tag/Extend were ported.
       var contractActions = [
         { key: "extension", label: "Extend", eligible: elig.extensionEligible, css: "ext" },
-        { key: "rookie_option", label: "Rookie Option", eligible: elig.rookieOptionEligible, css: "ropt" },
         { key: "restructure", label: "Restructure", eligible: elig.restructureEligible, css: "rstr" },
-        { key: "tag", label: "Tag", eligible: tagEligible, css: "tag" }
+        { key: tagAct, label: tagLabel, eligible: tagEligible, css: "tag" }
       ];
       var anyEligible = contractActions.some(function (a) { return a.eligible; });
       if (anyEligible) {
@@ -307,26 +330,418 @@
     }
   }
 
-  // Open the desktop Contract Command Center deep-link for this player.
-  // URL builder lives in front_office_actions.js (verbatim mirror of
-  // roster_workbench.js:7265). Mobile does NOT reimplement the
-  // extension/tag/restructure picker — the user lands on the desktop CCC
-  // with the player + action pre-targeted and completes from there.
+  // All contract actions run in-app via the verbatim Front Office mirrors.
+  // CCC (MODULE=MESSAGE2) is retired (Keith 2026-05-15 — see memory
+  // feedback_roster_workbench_is_truth_not_ccc). No deep-link fallback.
   function handleCccAction(action) {
-    var FOA = window.UPS_FRONT_OFFICE_ACTIONS;
-    if (!FOA) return;
-    var pid = footerState.pid;
+    if (action === "tag") return handleTagSubmit();
+    if (action === "untag") return handleUntagSubmit();
+    if (action === "extension") return handleExtensionPick();
+    if (action === "restructure") return handleRestructurePick();
+    window.UPS_MOBILE.ui.showToast("Action not yet available on mobile.", "err");
+  }
+
+  // In-app Extend — fetch precomputed options, show picker, submit.
+  function handleExtensionPick() {
+    var FOX = window.UPS_FRONT_OFFICE_EXT;
+    if (!FOX) return;
     var s = window.UPS_MOBILE.state;
-    // Player's franchise (mobile only shows actions on own-roster players).
-    var fid = s.viewerFranchiseId;
-    var url = FOA.buildContractCenterActionUrl({
-      action: action,
-      pid: pid,
-      fid: fid,
+    var rosterRow = footerState.rosterRow;
+    var pid = footerState.pid;
+
+    showExtensionLoadingSheet();
+    FOX.loadOptionsForPlayer({
       year: s.ctx.year,
-      leagueId: s.ctx.leagueId
+      pid: pid,
+      fid: s.viewerFranchiseId,
+      rosterRow: rosterRow
+    }).then(function (options) {
+      renderExtensionOptionsSheet(options);
+    }).catch(function (err) {
+      showExtensionErrorSheet("Failed to load options: " + (err && err.message || err));
     });
-    window.open(url, "_blank");
+  }
+
+  function ensureExtMount() {
+    var existing = document.getElementById("ups-m-ext-overlay");
+    if (existing) existing.remove();
+    var html =
+      '<div class="ups-m-drop-overlay" id="ups-m-ext-overlay">' +
+        '<div class="ups-m-drop-sheet">' +
+          '<div class="ups-m-drop-head">' +
+            '<button class="ups-m-drop-close" id="ups-m-ext-close" aria-label="Close">×</button>' +
+            '<div class="grip"></div>' +
+            '<div class="title">Extend ' + U.escapeHtml(footerState.name) + '</div>' +
+            '<div class="sub" id="ups-m-ext-sub">Loading available options…</div>' +
+          '</div>' +
+          '<div class="ups-m-drop-body" id="ups-m-ext-body"></div>' +
+        '</div>' +
+      '</div>';
+    var mount = document.getElementById("ups-m-app");
+    if (!mount) return null;
+    mount.insertAdjacentHTML("beforeend", html);
+    document.body.style.overflow = "hidden";
+    var overlay = document.getElementById("ups-m-ext-overlay");
+    overlay.addEventListener("click", function (e) { if (e.target === overlay) closeExtSheet(); });
+    document.getElementById("ups-m-ext-close").addEventListener("click", closeExtSheet);
+    return overlay;
+  }
+  function closeExtSheet() {
+    var ov = document.getElementById("ups-m-ext-overlay");
+    if (ov) ov.remove();
+    document.body.style.overflow = "";
+  }
+  function showExtensionLoadingSheet() {
+    ensureExtMount();
+    var body = document.getElementById("ups-m-ext-body");
+    if (body) body.innerHTML = '<div class="ups-m-sheet-loading">Loading…</div>';
+  }
+  function showExtensionErrorSheet(msg) {
+    ensureExtMount();
+    var body = document.getElementById("ups-m-ext-body");
+    if (body) body.innerHTML = '<div class="ups-m-sheet-empty">' + U.escapeHtml(msg) + '</div>';
+  }
+  function renderExtensionOptionsSheet(options) {
+    ensureExtMount();
+    var sub = document.getElementById("ups-m-ext-sub");
+    var body = document.getElementById("ups-m-ext-body");
+    if (!body) return;
+    if (!options || !options.length) {
+      if (sub) sub.textContent = "No extension previews available for this player.";
+      body.innerHTML = '<div class="ups-m-sheet-empty">No options. Try the desktop Front Office for manual extension.</div>';
+      return;
+    }
+    if (sub) sub.textContent = "Pick the option to submit. Writes to MFL on confirm.";
+    var FOX = window.UPS_FRONT_OFFICE_EXT;
+    var html = options.map(function (opt) {
+      return '<button class="ups-m-drop-row" data-option-key="' + U.escapeHtml(opt.optionKey) + '">' +
+        '<div class="body">' +
+          '<div class="name">' + U.escapeHtml(FOX.extensionActionLabel(opt)) + '</div>' +
+          '<div class="sub">' + U.escapeHtml(FOX.extensionOptionSummary(opt)) + '</div>' +
+          '<div class="sub" style="margin-top:4px;font-family:monospace;font-size:10px;opacity:0.7">' +
+            U.escapeHtml((opt.contractInfo || "").slice(0, 120)) + '</div>' +
+        '</div>' +
+        '<div class="right">' +
+          '<div class="penalty" style="color:var(--accent)">' + U.escapeHtml(U.fmtUsd(opt.salaryToSend)) + ' Y1</div>' +
+          '<div class="after">TCV ' + U.escapeHtml(U.fmtUsd(opt.tcv)) + '</div>' +
+        '</div>' +
+      '</button>';
+    }).join("");
+    body.innerHTML = html;
+    var rows = body.querySelectorAll(".ups-m-drop-row");
+    for (var i = 0; i < rows.length; i++) {
+      rows[i].addEventListener("click", function () {
+        var key = this.getAttribute("data-option-key");
+        var picked = options.filter(function (o) { return o.optionKey === key; })[0];
+        if (picked) confirmAndSubmitExtension(picked);
+      });
+    }
+  }
+  function confirmAndSubmitExtension(option) {
+    var FOX = window.UPS_FRONT_OFFICE_EXT;
+    var s = window.UPS_MOBILE.state;
+    var rosterRow = footerState.rosterRow;
+    var msg = "Submit extension for " + footerState.name + "?\n\n" +
+              FOX.extensionActionLabel(option) + "\n" +
+              FOX.extensionOptionSummary(option) + "\n\n" +
+              "This writes to MFL and cannot be undone from the app.";
+    if (!window.confirm(msg)) return;
+
+    var body = document.getElementById("ups-m-ext-body");
+    if (body) body.innerHTML = '<div class="ups-m-sheet-loading">Submitting…</div>';
+
+    var player = window.UPS_MOBILE.data.playerById(footerState.pid);
+    FOX.submitExtension({
+      workerBase: window.UPS_MOBILE.api.workerBase(),
+      leagueId: s.ctx.leagueId,
+      year: s.ctx.year,
+      pid: footerState.pid,
+      playerName: U.safeStr(player && player.name) || footerState.name,
+      fid: s.viewerFranchiseId,
+      franchiseName: s.viewerFranchise && s.viewerFranchise.name || "",
+      position: U.safeStr(player && player.position),
+      option: option,
+      rosterRow: rosterRow,
+      dryRun: false,
+      commishOverride: false
+    }).then(function (resp) {
+      if (resp.ok) {
+        window.UPS_MOBILE.ui.showToast("Extension submitted ✓", "ok");
+        closeExtSheet();
+        return window.UPS_MOBILE.actions.reloadData().then(function () {
+          window.UPS_MOBILE.route.renderRoute();
+          close();
+        });
+      }
+      var slot = document.getElementById("ups-m-ext-body");
+      if (slot) slot.innerHTML = '<div class="ups-m-sheet-empty" style="color:var(--danger)">Extension failed: ' +
+        U.escapeHtml(resp.error || "unknown error") + '</div>';
+    }).catch(function (err) {
+      var slot = document.getElementById("ups-m-ext-body");
+      if (slot) slot.innerHTML = '<div class="ups-m-sheet-empty" style="color:var(--danger)">Extension failed: ' +
+        U.escapeHtml(err && err.message || String(err)) + '</div>';
+    });
+  }
+
+  // In-app Restructure — editor sheet with Y1 input + auto-derived
+  // Y2 (2yr) or Y2 input + auto-derived Y3 (3yr). Validation matches
+  // restructureCalc() (verbatim from roster_workbench.js).
+  var restructureState = { years: 2, tcv: 0, y1: 0, y2: 0 };
+
+  function handleRestructurePick() {
+    var FOR = window.UPS_FRONT_OFFICE_RSTR;
+    if (!FOR) return;
+    var rosterRow = footerState.rosterRow;
+    var adapted = FOR.adaptRosterRow(rosterRow);
+    var cy = parseInt(rosterRow && rosterRow.contractYear, 10) || 0;
+    var years = cy >= 3 ? 3 : 2;
+    var baseline = FOR.restructureBaselineForPlayer(adapted, years);
+    restructureState = {
+      years: years,
+      tcv: baseline.tcv,
+      y1: baseline.y1,
+      y2: years === 2 ? (baseline.tcv - baseline.y1) : baseline.y2
+    };
+    renderRestructureSheet();
+  }
+
+  function ensureRstrMount() {
+    var existing = document.getElementById("ups-m-rstr-overlay");
+    if (existing) existing.remove();
+    var html =
+      '<div class="ups-m-drop-overlay" id="ups-m-rstr-overlay">' +
+        '<div class="ups-m-drop-sheet">' +
+          '<div class="ups-m-drop-head">' +
+            '<button class="ups-m-drop-close" id="ups-m-rstr-close" aria-label="Close">×</button>' +
+            '<div class="grip"></div>' +
+            '<div class="title">Restructure ' + U.escapeHtml(footerState.name) + '</div>' +
+            '<div class="sub">TCV is preserved. Move money between years to flatten or front/back-load.</div>' +
+          '</div>' +
+          '<div class="ups-m-drop-body" id="ups-m-rstr-body" style="padding:14px 16px"></div>' +
+        '</div>' +
+      '</div>';
+    var mount = document.getElementById("ups-m-app");
+    if (!mount) return null;
+    mount.insertAdjacentHTML("beforeend", html);
+    document.body.style.overflow = "hidden";
+    var overlay = document.getElementById("ups-m-rstr-overlay");
+    overlay.addEventListener("click", function (e) { if (e.target === overlay) closeRstrSheet(); });
+    document.getElementById("ups-m-rstr-close").addEventListener("click", closeRstrSheet);
+    return overlay;
+  }
+  function closeRstrSheet() {
+    var ov = document.getElementById("ups-m-rstr-overlay");
+    if (ov) ov.remove();
+    document.body.style.overflow = "";
+  }
+  function renderRestructureSheet() {
+    ensureRstrMount();
+    var body = document.getElementById("ups-m-rstr-body");
+    var FOR = window.UPS_FRONT_OFFICE_RSTR;
+    if (!body) return;
+    var s = restructureState;
+    var calc = FOR.restructureCalc({ years: s.years, tcv: s.tcv, y1: s.y1, y2: s.y2 });
+    var minY1 = Math.ceil((s.tcv * 0.2) / 1000) * 1000;
+    body.innerHTML = '' +
+      '<div class="ups-m-rstr-summary">' +
+        '<div class="row"><span class="lbl">TCV (fixed):</span> <span class="val">' + U.fmtUsd(s.tcv) + '</span></div>' +
+        '<div class="row"><span class="lbl">Years:</span> <span class="val">' + s.years + '</span></div>' +
+      '</div>' +
+      '<div class="ups-m-rstr-field">' +
+        '<label>Year 1 salary (min ' + U.fmtUsd(minY1) + ', 1K increments)</label>' +
+        '<input type="number" step="1000" min="' + minY1 + '" max="' + (s.tcv - (s.years - 1) * 1000) + '" ' +
+          'value="' + s.y1 + '" id="ups-m-rstr-y1" inputmode="numeric" />' +
+      '</div>' +
+      (s.years === 3 ? '<div class="ups-m-rstr-field">' +
+        '<label>Year 2 salary (1K increments)</label>' +
+        '<input type="number" step="1000" min="1000" value="' + s.y2 + '" id="ups-m-rstr-y2" inputmode="numeric" />' +
+      '</div>' : '') +
+      '<div class="ups-m-rstr-derived">' +
+        (s.years === 2
+          ? '<div class="row"><span class="lbl">Year 2 (auto):</span> <span class="val">' + U.fmtUsd(s.tcv - s.y1) + '</span></div>'
+          : '<div class="row"><span class="lbl">Year 3 (auto):</span> <span class="val">' + U.fmtUsd(s.tcv - s.y1 - s.y2) + '</span></div>') +
+        '<div class="row"><span class="lbl">AAV:</span> <span class="val">' + U.fmtUsd(calc.aav) + '</span></div>' +
+        (calc.ok ? '<div class="row"><span class="lbl">GTD:</span> <span class="val">' + U.fmtUsd(calc.gtd) + '</span></div>' : '') +
+      '</div>' +
+      (calc.ok
+        ? '<div class="ups-m-rstr-ok">Ready to submit.</div>'
+        : '<div class="ups-m-rstr-err">' + U.escapeHtml(calc.error || "") + '</div>') +
+      '<button class="btn-act otb on" id="ups-m-rstr-submit" ' + (calc.ok ? "" : "disabled") + ' style="width:100%;margin-top:12px">' +
+        'Submit Restructure' +
+      '</button>';
+
+    var y1Inp = document.getElementById("ups-m-rstr-y1");
+    if (y1Inp) y1Inp.addEventListener("input", function (e) {
+      restructureState.y1 = parseInt(e.target.value, 10) || 0;
+      renderRestructureSheet();
+    });
+    var y2Inp = document.getElementById("ups-m-rstr-y2");
+    if (y2Inp) y2Inp.addEventListener("input", function (e) {
+      restructureState.y2 = parseInt(e.target.value, 10) || 0;
+      renderRestructureSheet();
+    });
+    var submit = document.getElementById("ups-m-rstr-submit");
+    if (submit && calc.ok) submit.addEventListener("click", function () { confirmAndSubmitRestructure(calc); });
+  }
+
+  function confirmAndSubmitRestructure(calc) {
+    var msg = "Submit restructure for " + footerState.name + "?\n\n" +
+              "Years: " + calc.years + "\n" +
+              "Year 1: " + U.fmtUsd(calc.y1) + "\n" +
+              "Year 2: " + U.fmtUsd(calc.y2) + "\n" +
+              (calc.years >= 3 ? "Year 3: " + U.fmtUsd(calc.y3) + "\n" : "") +
+              "TCV: " + U.fmtUsd(calc.tcv) + "\n" +
+              "AAV: " + U.fmtUsd(calc.aav) + "\n" +
+              "GTD: " + U.fmtUsd(calc.gtd);
+    if (!window.confirm(msg)) return;
+    var body = document.getElementById("ups-m-rstr-body");
+    if (body) body.innerHTML = '<div class="ups-m-sheet-loading">Submitting…</div>';
+
+    var FOR = window.UPS_FRONT_OFFICE_RSTR;
+    var s = window.UPS_MOBILE.state;
+    var rosterRow = footerState.rosterRow;
+    var player = window.UPS_MOBILE.data.playerById(footerState.pid);
+    FOR.submitRestructure({
+      workerBase: window.UPS_MOBILE.api.workerBase(),
+      leagueId: s.ctx.leagueId,
+      year: s.ctx.year,
+      pid: footerState.pid,
+      playerName: U.safeStr(player && player.name) || footerState.name,
+      fid: s.viewerFranchiseId,
+      franchiseName: s.viewerFranchise && s.viewerFranchise.name || "",
+      position: U.safeStr(player && player.position),
+      priorContractStatus: U.safeStr(rosterRow && rosterRow.contractStatus),
+      calc: calc,
+      commishOverride: false
+    }).then(function (resp) {
+      if (resp.ok) {
+        window.UPS_MOBILE.ui.showToast("Restructure submitted ✓", "ok");
+        closeRstrSheet();
+        return window.UPS_MOBILE.actions.reloadData().then(function () {
+          window.UPS_MOBILE.route.renderRoute();
+          close();
+        });
+      }
+      var slot = document.getElementById("ups-m-rstr-body");
+      if (slot) slot.innerHTML = '<div class="ups-m-rstr-err">Restructure failed: ' + U.escapeHtml(resp.error || "unknown error") + '</div>';
+    }).catch(function (err) {
+      var slot = document.getElementById("ups-m-rstr-body");
+      if (slot) slot.innerHTML = '<div class="ups-m-rstr-err">Restructure failed: ' + U.escapeHtml(err && err.message || String(err)) + '</div>';
+    });
+  }
+
+  // In-app Tag submit. Pipeline lives in front_office_tag_submit.js
+  // (verbatim mirror of roster_workbench.js submitTagPlanSelection).
+  function handleTagSubmit() {
+    var FOA = window.UPS_FRONT_OFFICE_ACTIONS;
+    var FOT = window.UPS_FRONT_OFFICE_TAG;
+    if (!FOA || !FOT) return;
+    var s = window.UPS_MOBILE.state;
+    // Re-run tagActionForPlayer to get the matched plan row.
+    var teamRows = (window.UPS_MOBILE.data.getRosterFor(s.viewerFranchiseId) || []).map(function (r) {
+      var p = window.UPS_MOBILE.data.playerById(r.id);
+      return { id: r.id, contractStatus: r.contractStatus, position: (p && p.position) || "" };
+    });
+    var action = FOA.tagActionForPlayer({
+      rosterRow: footerState.rosterRow,
+      fid: s.viewerFranchiseId,
+      rosterRowsWithPos: teamRows,
+      tagTracking: s.tagTracking || [],
+      tagSubmissions: s.tagSubmissions || []
+    });
+    if (action.kind !== "tag" || !action.row) {
+      window.UPS_MOBILE.ui.showToast("This player isn't in the tag plan.", "err");
+      return;
+    }
+    var row = action.row;
+    var salary = FOT.effectiveTagSalaryForRow(row);
+    var formula = FOT.effectiveTagFormulaForRow(row);
+    var msg = "Tag " + (row.player_name || footerState.name) + " for " + U.fmtUsd(salary) + "?\n\n" +
+              "Side: " + U.safeStr(row.tag_side || row.side) + "\n" +
+              (row.tag_tier ? "Tier: " + row.tag_tier + "\n" : "") +
+              (formula ? "Formula: " + formula + "\n" : "") +
+              "\nThis writes to MFL and logs to UPS tag history.";
+    if (!window.confirm(msg)) return;
+
+    var btn = document.querySelector('[data-act="tag"]') || document.querySelector('[data-ccc-action="tag"]');
+    setBusy(btn, true, "Tagging…");
+    FOT.submitTag({
+      workerBase: window.UPS_MOBILE.api.workerBase(),
+      leagueId: s.ctx.leagueId,
+      year: s.ctx.year,
+      row: row,
+      dryRun: false,
+      commishOverride: false
+    }).then(function (resp) {
+      setBusy(btn, false);
+      if (resp.ok) {
+        window.UPS_MOBILE.ui.showToast((row.player_name || footerState.name) + " tagged ✓", "ok");
+        return window.UPS_MOBILE.actions.reloadData().then(function () {
+          window.UPS_MOBILE.route.renderRoute();
+          close();
+        });
+      }
+      window.UPS_MOBILE.ui.showToast("Tag failed: " + (resp.error || "unknown error"), "err");
+    }).catch(function (err) {
+      setBusy(btn, false);
+      window.UPS_MOBILE.ui.showToast("Tag failed: " + (err && err.message || err), "err");
+    });
+  }
+
+  function handleUntagSubmit() {
+    var FOA = window.UPS_FRONT_OFFICE_ACTIONS;
+    var FOT = window.UPS_FRONT_OFFICE_TAG;
+    if (!FOA || !FOT) return;
+    var s = window.UPS_MOBILE.state;
+    var teamRows = (window.UPS_MOBILE.data.getRosterFor(s.viewerFranchiseId) || []).map(function (r) {
+      var p = window.UPS_MOBILE.data.playerById(r.id);
+      return { id: r.id, contractStatus: r.contractStatus, position: (p && p.position) || "" };
+    });
+    var action = FOA.tagActionForPlayer({
+      rosterRow: footerState.rosterRow,
+      fid: s.viewerFranchiseId,
+      rosterRowsWithPos: teamRows,
+      tagTracking: s.tagTracking || [],
+      tagSubmissions: s.tagSubmissions || []
+    });
+    if (action.kind !== "untag" || !action.row) {
+      window.UPS_MOBILE.ui.showToast("This player isn't currently tagged.", "err");
+      return;
+    }
+    var row = action.row;
+    if (!window.confirm("Untag " + (row.player_name || footerState.name) + "?\n\n" +
+        "Restore: " + U.safeStr(row.contract_status) + " at " + U.fmtUsd(row.salary) + "\n" +
+        "(Removes the tag and reverts the contract.)")) return;
+
+    var player = window.UPS_MOBILE.data.playerById(footerState.pid);
+    var btn = document.querySelector('[data-ccc-action="untag"]');
+    setBusy(btn, true, "Untagging…");
+    FOT.submitUntag({
+      workerBase: window.UPS_MOBILE.api.workerBase(),
+      leagueId: s.ctx.leagueId,
+      year: s.ctx.year,
+      fid: s.viewerFranchiseId,
+      pid: footerState.pid,
+      playerName: U.safeStr(player && player.name) || footerState.name,
+      franchiseName: s.viewerFranchise && s.viewerFranchise.name || "",
+      position: U.safeStr(player && player.position),
+      row: row,
+      dryRun: false,
+      commishOverride: false
+    }).then(function (resp) {
+      setBusy(btn, false);
+      if (resp.ok) {
+        window.UPS_MOBILE.ui.showToast((row.player_name || footerState.name) + " untagged ✓", "ok");
+        return window.UPS_MOBILE.actions.reloadData().then(function () {
+          window.UPS_MOBILE.route.renderRoute();
+          close();
+        });
+      }
+      window.UPS_MOBILE.ui.showToast("Untag failed: " + (resp.error || "unknown error"), "err");
+    }).catch(function (err) {
+      setBusy(btn, false);
+      window.UPS_MOBILE.ui.showToast("Untag failed: " + (err && err.message || err), "err");
+    });
   }
 
   function setBusy(btn, busy, busyText) {
