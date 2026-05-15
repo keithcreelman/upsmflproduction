@@ -2349,13 +2349,21 @@ export default {
       };
       // Detect MFL franchise for a session cookie via TYPE=myleagues. Mirror
       // of pipelines/etl/scripts/rookie_draft_bridge.py:_detect_mfl_user_from_cookie.
+      //
+      // Cookie URL-encoding (Keith 2026-05-15): MFL session tokens are base64
+      // strings that may contain '+', '/', '=' — per MFL docs we MUST URL-
+      // escape these in the Cookie header value, otherwise MFL's parser
+      // sees the bare '=' as a key/value separator and truncates the value
+      // to the substring before the first '='. Symptom: "not a member of
+      // league NNNN" because MFL looked up the truncated token + missed.
+      const _rdhMflCookieValue = (mflUserId) => encodeURIComponent(String(mflUserId || ""));
       const _rdhDetectFranchise = async (mflUserId) => {
         const leagueId = _rdhLeagueId();
         const year = _rdhYear();
         try {
           const r = await fetch(
             `https://www48.myfantasyleague.com/${encodeURIComponent(year)}/export?TYPE=myleagues&L=${encodeURIComponent(leagueId)}&JSON=1`,
-            { headers: { Cookie: `MFL_USER_ID=${mflUserId}`, "User-Agent": "upsmflproduction-worker" } }
+            { headers: { Cookie: `MFL_USER_ID=${_rdhMflCookieValue(mflUserId)}`, "User-Agent": "upsmflproduction-worker" } }
           );
           if (!r.ok) return { error: `HTTP ${r.status}` };
           const data = await r.json();
@@ -2595,7 +2603,8 @@ export default {
               headers: {
                 "Content-Type": "application/x-www-form-urlencoded",
                 "User-Agent": "upsmflproduction-worker",
-                "Cookie": `MFL_USER_ID=${mflUserId}`,
+                // URL-encode the cookie value — see _rdhMflCookieValue comment.
+                "Cookie": `MFL_USER_ID=${_rdhMflCookieValue(mflUserId)}`,
               },
               body: form.toString(),
             });
