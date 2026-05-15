@@ -2565,20 +2565,23 @@ export default {
                 ", cannot submit trade bait for " + fidReq,
             });
           }
-          const apiKey = safeStr(env.MFL_APIKEY || "");
-          if (!apiKey) return jsonOut(500, { ok: false, error: "MFL_APIKEY missing in worker env" });
-          // MFL import?TYPE=tradeBait — field naming + auth path probed
-          // 2026-05-15 after both WILL_TAKE_TEXT and IN_EXCHANGE_FOR returned
-          // HTTP 400 with empty body (no MFL diagnostic). The tradeProposal
-          // import uses WILL_GIVE_UP + COMMENTS; trying the same pattern here.
-          // Also forwarding the user's MFL_USER_ID cookie as auth — APIKEY
-          // alone may not satisfy MFL for franchise-scoped tradeBait writes.
-          const importUrl = `https://www48.myfantasyleague.com/${encodeURIComponent(year)}/import?TYPE=tradeBait&L=${encodeURIComponent(leagueId)}&APIKEY=${encodeURIComponent(apiKey)}&JSON=1`;
+          // MFL import?TYPE=tradeBait — per MFL Import Test Form docs:
+          //   "Access restricted to league owners."
+          //   Required: L, WILL_GIVE_UP
+          //   Optional: IN_EXCHANGE_FOR (max 256 chars)
+          //   FRANCHISE_ID is NOT a param — MFL infers it from the
+          //     authenticated owner's session.
+          //
+          // Auth: owner's MFL_USER_ID cookie, not commish APIKEY. APIKEY
+          // is a league-admin credential and per MFL doc this endpoint
+          // operates ON the owner's own bait, identified by session.
+          // (Earlier attempts WITH APIKEY in URL — even with cookie also
+          // forwarded — returned HTTP 400 empty-body. Dropping APIKEY.)
+          const importUrl = `https://www48.myfantasyleague.com/${encodeURIComponent(year)}/import?TYPE=tradeBait&L=${encodeURIComponent(leagueId)}&JSON=1`;
           const form = new URLSearchParams();
           form.set("L", String(leagueId));
-          form.set("FRANCHISE_ID", fidReq);
           form.set("WILL_GIVE_UP", willGiveUp.join(","));
-          if (lookingFor) form.set("COMMENTS", lookingFor);
+          if (lookingFor) form.set("IN_EXCHANGE_FOR", lookingFor.slice(0, 256));
           let mflResp = "";
           let mflStatus = 0;
           try {
@@ -2611,7 +2614,7 @@ export default {
               mfl_status: mflStatus,
               mfl_response: parsed || mflResp,
               mfl_request_preview: {
-                url: importUrl.replace(apiKey, "***APIKEY***"),
+                url: importUrl,
                 body: form.toString(),
               },
             });
