@@ -2483,6 +2483,88 @@ export default {
         }
       }
 
+      // ── POST /api/submit-trade-bait — set the franchise's trade bait ──
+      // Same auth pattern as /api/submit-lineup: caller franchise must
+      // match the body's franchiseId per MFL_USER_ID cookie. Worker uses
+      // env.MFL_APIKEY to POST to MFL import?TYPE=tradeBait. WILL_GIVE_UP
+      // is a CSV of player IDs the owner is willing to trade; WILL_TAKE_TEXT
+      // is the free-form "what I'm looking for" comment.
+      //
+      // Body: { franchiseId, willGiveUp: [pid, ...], lookingFor: "text" }
+      if (path === "/api/submit-trade-bait" && request.method === "POST") {
+        try {
+          const leagueId = _rdhLeagueId();
+          const year = _rdhYear();
+          let body = {};
+          try { body = await request.json(); } catch (_) {}
+          const fidReq = _rdhPadFid(safeStr(body.franchiseId || body.franchise_id || ""));
+          const willGiveUp = Array.isArray(body.willGiveUp || body.will_give_up)
+            ? (body.willGiveUp || body.will_give_up).map((s) => String(s).trim()).filter(Boolean)
+            : [];
+          const lookingFor = safeStr(body.lookingFor || body.looking_for || "");
+          if (!fidReq) return jsonOut(400, { ok: false, error: "franchiseId required" });
+          // Caller-franchise identity check via MFL_USER_ID cookie.
+          const cookieHeader = request.headers.get("Cookie") || "";
+          const cookieMatch = cookieHeader.match(/MFL_USER_ID=([^;]+)/i);
+          const mflUserId = (cookieMatch && cookieMatch[1]) || browserMflUserId || "";
+          if (!mflUserId) {
+            return jsonOut(401, { ok: false, error: "MFL_USER_ID cookie required (sign in to MFL first)" });
+          }
+          const det = await _rdhDetectFranchise(mflUserId);
+          if (det && det.error) return jsonOut(401, { ok: false, error: det.error });
+          if (!det || _rdhPadFid(det.franchise_id) !== fidReq) {
+            return jsonOut(403, {
+              ok: false,
+              error: "Cookie belongs to franchise " + (det && det.franchise_id || "?") +
+                ", cannot submit trade bait for " + fidReq,
+            });
+          }
+          const apiKey = safeStr(env.MFL_APIKEY || "");
+          if (!apiKey) return jsonOut(500, { ok: false, error: "MFL_APIKEY missing in worker env" });
+          const importUrl = `https://www48.myfantasyleague.com/${encodeURIComponent(year)}/import?TYPE=tradeBait&L=${encodeURIComponent(leagueId)}&APIKEY=${encodeURIComponent(apiKey)}&JSON=1`;
+          const form = new URLSearchParams();
+          form.set("L", String(leagueId));
+          form.set("FRANCHISE_ID", fidReq);
+          form.set("WILL_GIVE_UP", willGiveUp.join(","));
+          if (lookingFor) form.set("WILL_TAKE_TEXT", lookingFor);
+          let mflResp = "";
+          let mflStatus = 0;
+          try {
+            const r = await fetch(importUrl, {
+              method: "POST",
+              headers: { "Content-Type": "application/x-www-form-urlencoded", "User-Agent": "upsmflproduction-worker" },
+              body: form.toString(),
+            });
+            mflStatus = r.status;
+            mflResp = await r.text();
+          } catch (e) {
+            return jsonOut(502, { ok: false, error: `MFL fetch failed: ${e?.message || String(e)}` });
+          }
+          const mflOk = mflStatus >= 200 && mflStatus < 300 && !/error/i.test(mflResp);
+          let parsed = null;
+          try { parsed = JSON.parse(mflResp); } catch (_) { /* keep raw text */ }
+          if (!mflOk) {
+            const errMsg = (parsed && (parsed.error?.$t || parsed.error)) || mflResp.slice(0, 400);
+            return jsonOut(mflStatus || 502, {
+              ok: false,
+              error: String(errMsg || "MFL rejected trade bait"),
+              mfl_status: mflStatus,
+              mfl_response: parsed || mflResp,
+            });
+          }
+          return jsonOut(200, {
+            ok: true,
+            franchise_id: fidReq,
+            will_give_up: willGiveUp,
+            looking_for: lookingFor,
+            mfl_status: mflStatus,
+            mfl_response: parsed || mflResp,
+          });
+        } catch (e) {
+          return jsonOut(500, { ok: false, error: String(e && e.message || e) });
+        }
+      }
+
       // ── GET /api/players-search — name substring search across MFL players ──
       if (path === "/api/players-search" && request.method === "GET") {
         const q = safeStr(url.searchParams.get("q") || "").toLowerCase();
