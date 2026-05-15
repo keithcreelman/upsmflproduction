@@ -451,7 +451,11 @@
     { id: "front-office", label: "Front Office",   iframe: hubUrl("rosters/roster_workbench.html"),     message: "MESSAGE7" },
     { id: "player-stats", label: "Player Stats",   iframe: hubUrl("stats_workbench/stats_workbench.html"), message: "MESSAGE13" },
     { id: "trade-room",   label: "Trade War Room", iframe: hubUrl("trades/trade_workbench.html"),       message: "MESSAGE6=N" },
-    { id: "standings",    label: "Standings",      iframe: hubUrl("standings/mfl_hpm_standings.html"), message: "MESSAGE4" }
+    // Standings v2 — the new Playoff Preview + Division Race +
+    // H2H matrix module promoted via 0913829. Old non-v2 file
+    // (mfl_hpm_standings.html) stays in repo for now in case anything
+    // links to it externally, but Team Ops uses v2.
+    { id: "standings",    label: "Standings",      iframe: hubUrl("standings/mfl_hpm_standings_v2.html"), message: "MESSAGE4" }
   ];
 
   // Build the MFL-hosted MESSAGEnn URL for the given tab def. Falls back
