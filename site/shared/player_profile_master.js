@@ -321,11 +321,12 @@
     '.upm-modal .upm-season-table th, .upm-modal .upm-season-table td { padding: 6px 8px; }',
     '.upm-modal .upm-season-row:hover { background: rgba(91, 141, 255, 0.06); }',
     '.upm-modal .upm-career-row { border-top: 2px solid #2a3446; font-weight: 700; background: rgba(91, 141, 255, 0.04); }',
-    /* Mobile: tighten the headline cards + shrink season-table padding. */
+    /* Mobile: hide the big headline cards (Career Pts / PPG / Best Season /
+       APW) — the per-season table immediately below carries the same data
+       in a denser form. Keith 2026-05-15: cards eat too much vertical real
+       estate on phone-sized viewports. */
     '@media (max-width: 600px) {' +
-      ' .upm-modal .upm-headline-strip { grid-template-columns: repeat(2, 1fr); gap: 6px; }' +
-      ' .upm-modal .upm-headline-card { padding: 10px 10px; }' +
-      ' .upm-modal .upm-headline-val { font-size: 20px; }' +
+      ' .upm-modal .upm-headline-strip { display: none; }' +
       ' .upm-modal .upm-season-table th, .upm-modal .upm-season-table td { padding: 4px 6px; font-size: 11px; }' +
     ' }',
     /* Player news feed (inside the News tab). */
@@ -463,23 +464,33 @@
   }
 
   // ── Photo fallback chain ────────────────────────────────────────────────
-  // Photo chain — Keith 2026-05-14: dropped the www55 fflnetdynamic{YEAR}
-  // entry. That host is unreachable (TCP timeout, not 404) so it stalled
-  // the <img> for 15+s before onerror fired and the fallbacks were tried,
-  // leaving the modal with a blank placeholder in practice. The only
-  // MFL photo URL that reliably returns 200 across all pids is the
-  // stable archive at /player_photos_2014/{pid}_thumb.jpg — promote it
-  // to primary. Order:
-  //   1) MFL icon_url            — pro shot when MFL surfaces it (rare)
-  //   2) MFL stable archive      — www48/player_photos_2014/{pid}_thumb.jpg (reliable)
-  //   3) ESPN college            — fallback for college-id'd prospects
+  // Keith 2026-05-15: MFL's only-stored photo is the 110×110 _thumb, which
+  // looks pixelated at 110px display on retina screens (effectively 2x
+  // upscale). Promote high-res sources first:
+  //   1) ESPN NFL full headshot  — ~350×254 PNG, transparent bg, very crisp.
+  //      Available when pp.espn_id is set (MFL TYPE=players&DETAILS=1
+  //      returns espn_id for all rostered NFL players; merged into pp by
+  //      the worker /api/player-bundle).
+  //   2) MFL icon_url            — pro shot if MFL surfaces it (rare for
+  //      regular players; mostly for retired/historical entries).
+  //   3) MFL stable archive      — www48/player_photos_2014/{pid}_thumb.jpg.
+  //      Reliable 200 across all pids; pixelated but better than blank.
+  //   4) ESPN college             — fallback for college-id'd prospects
+  //      (pre-NFL rookies whose ESPN id comes from prospectRow.espn_id).
+  //
+  // Note 2026-05-14 (preserved): dropped the www55 fflnetdynamic{YEAR}
+  // entry because that host TCP-times-out, stalling onerror chains.
   function buildPhotoChain(pid, pp, prospectRow, ctxYear) {
-    var espnId = (prospectRow && prospectRow.espn_id) || pp.espn_id || null;
+    var proEspnId = pp && pp.espn_id ? pp.espn_id : null;
+    var prospectEspnId = prospectRow && prospectRow.espn_id ? prospectRow.espn_id : null;
     var chain = [];
+    if (proEspnId) {
+      chain.push("https://a.espncdn.com/i/headshots/nfl/players/full/" + proEspnId + ".png");
+    }
     if (pp.icon_url) chain.push(pp.icon_url);
     if (pid) chain.push("https://www48.myfantasyleague.com/player_photos_2014/" + pid + "_thumb.jpg");
-    if (espnId) {
-      chain.push("https://a.espncdn.com/i/headshots/college-football/players/full/" + espnId + ".png");
+    if (prospectEspnId && prospectEspnId !== proEspnId) {
+      chain.push("https://a.espncdn.com/i/headshots/college-football/players/full/" + prospectEspnId + ".png");
     }
     return chain;
   }
@@ -2076,7 +2087,23 @@
         logEl.innerHTML = '<p class="small muted">No MFL weekly data for this season.</p>';
         return;
       }
+      // Render the FULL season range (1..maxWeek) with blanks for weeks
+      // the player wasn't on a scoring roster, so the table reads as a
+      // proper season schedule. Keith 2026-05-15: "should be weeks 1-17
+      // or 1-16 depending on the yr."
+      //   - 2021+ NFL/UPS: 17 weeks (W1-14 reg, W15-17 playoffs)
+      //   - 2010-2020:     16 weeks (W1-13 reg, W14-16 playoffs)
+      //   - 2012:          had 4 playoff weeks per league_context_v1 §1.C —
+      //                    the max-over-data branch below catches this
+      //                    even without a hardcoded entry.
+      var yr = parseInt(seasonVal, 10);
+      var defaultMax = (yr >= 2021) ? 17 : 16;
       var sorted = weeks.slice().sort(function (a, b) { return a.week - b.week; });
+      var dataMax = sorted.reduce(function (m, w) { return w.week > m ? w.week : m; }, 0);
+      var maxWeek = Math.max(defaultMax, dataMax);
+      var byWeek = {};
+      sorted.forEach(function (w) { byWeek[w.week] = w; });
+      // Header summary aggregates over the played weeks only.
       var starts = 0, elite = 0, plus = 0, dud = 0, pts = 0;
       sorted.forEach(function (w) {
         if (w.status === "starter") starts++;
@@ -2086,19 +2113,43 @@
         pts += (w.score || 0);
       });
       var tot = sorted.length;
-      var rows = sorted.map(function (w) {
-        var playoffTag = w.is_reg === 0 ? ' <span class="small" style="color:#5b8dff;font-weight:600;" title="Playoffs">P</span>' : "";
-        return '<tr' + (w.is_reg === 0 ? ' style="background:rgba(255,158,77,0.06);"' : "") + '>'
-          + '<td class="num">' + w.week + playoffTag + '</td>'
-          + (snapSide ? snapCellHtml(snapPctForWeek(w.season, w.week)) : "")
-          + '<td class="num">' + (w.score != null ? w.score.toFixed(1) : "—") + '</td>'
-          + '<td class="num">' + (w.z_score != null ? (w.z_score > 0 ? "+" : "") + w.z_score.toFixed(2) : "—") + '</td>'
-          + '<td>' + (w.week_tier ? '<span class="tier ' + weekTierClass(w.week_tier) + '">' + w.week_tier + '</span>' : "—") + '</td>'
-          + '<td>' + escapeHtml(w.status || "") + '</td>'
-          + '<td class="small">' + escapeHtml(w.roster_franchise_name || "") + '</td>'
-          + '<td class="num">' + (w.pos_rank || "—") + '</td>'
-          + '</tr>';
-      }).join("");
+      // Heuristic for reg vs playoff boundary on blank rows (so the
+      // P-tag + tinted bg still apply to playoff weeks even when the
+      // player had no row that week).
+      var regSeasonWeeks = (yr >= 2021) ? 14 : 13;
+      var rowsArr = [];
+      for (var wkN = 1; wkN <= maxWeek; wkN += 1) {
+        var w = byWeek[wkN];
+        var isPlayoffWk = w ? (w.is_reg === 0) : (wkN > regSeasonWeeks);
+        var playoffTag = isPlayoffWk ? ' <span class="small" style="color:#5b8dff;font-weight:600;" title="Playoffs">P</span>' : "";
+        var rowStyle = isPlayoffWk ? ' style="background:rgba(255,158,77,0.06);"' : "";
+        if (w) {
+          rowsArr.push('<tr' + rowStyle + '>'
+            + '<td class="num">' + w.week + playoffTag + '</td>'
+            + (snapSide ? snapCellHtml(snapPctForWeek(w.season, w.week)) : "")
+            + '<td class="num">' + (w.score != null ? w.score.toFixed(1) : "—") + '</td>'
+            + '<td class="num">' + (w.z_score != null ? (w.z_score > 0 ? "+" : "") + w.z_score.toFixed(2) : "—") + '</td>'
+            + '<td>' + (w.week_tier ? '<span class="tier ' + weekTierClass(w.week_tier) + '">' + w.week_tier + '</span>' : "—") + '</td>'
+            + '<td>' + escapeHtml(w.status || "") + '</td>'
+            + '<td class="small">' + escapeHtml(w.roster_franchise_name || "") + '</td>'
+            + '<td class="num">' + (w.pos_rank || "—") + '</td>'
+            + '</tr>');
+        } else {
+          // Blank week — player not on a scoring roster. Render the week
+          // number + em-dashes so the table spans the full season.
+          rowsArr.push('<tr class="muted"' + rowStyle + '>'
+            + '<td class="num">' + wkN + playoffTag + '</td>'
+            + (snapSide ? '<td class="num muted">—</td>' : "")
+            + '<td class="num">—</td>'
+            + '<td class="num">—</td>'
+            + '<td>—</td>'
+            + '<td>—</td>'
+            + '<td class="small">—</td>'
+            + '<td class="num">—</td>'
+            + '</tr>');
+        }
+      }
+      var rows = rowsArr.join("");
       logEl.innerHTML = '<div class="small muted" style="margin-bottom:6px;">'
         + tot + ' games · ' + starts + ' MFL starts · ' + pts.toFixed(1) + ' pts (' + (pts/tot).toFixed(1) + ' ppg)'
         + ' · Elite ' + elite + ' (' + (elite/tot*100).toFixed(0) + '%) · Plus ' + plus + ' (' + (plus/tot*100).toFixed(0) + '%) · Dud ' + dud + ' (' + (dud/tot*100).toFixed(0) + '%)'
