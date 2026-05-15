@@ -2737,6 +2737,10 @@ export default {
             const val = safeStr(notesIn[k]).slice(0, 500);  // cap to keep table tidy
             if (pid) notes[pid] = val;
           }
+          // Dry-run flag: skip the MFL import + D1 notes persist, but
+          // still fire the OTB Discord announcement. Lets us verify the
+          // channel + format + GIF wiring without touching MFL state.
+          const dryRun = body.dryRun === true || body.dry_run === true;
           if (!fidReq) return jsonOut(400, { ok: false, error: "franchiseId required" });
           // Caller-franchise identity check via MFL_USER_ID cookie.
           const cookieHeader = request.headers.get("Cookie") || "";
@@ -2798,74 +2802,81 @@ export default {
           if (mflComment) form.set("IN_EXCHANGE_FOR", mflComment);
           let mflResp = "";
           let mflStatus = 0;
-          try {
-            const r = await fetch(importUrl, {
-              method: "POST",
-              redirect: "manual",  // surface 302s instead of POST→GET no-op
-              headers: {
-                "Content-Type": "application/x-www-form-urlencoded",
-                "User-Agent": "upsmflproduction-worker",
-                // URL-encode the cookie value — see _rdhMflCookieValue comment.
-                "Cookie": `MFL_USER_ID=${_rdhMflCookieValue(mflUserId)}`,
-              },
-              body: form.toString(),
-            });
-            mflStatus = r.status;
-            mflResp = await r.text();
-          } catch (e) {
-            return jsonOut(502, { ok: false, error: `MFL fetch failed: ${e?.message || String(e)}` });
-          }
-          const mflOk = mflStatus >= 200 && mflStatus < 300 && !/error/i.test(mflResp);
           let parsed = null;
-          try { parsed = JSON.parse(mflResp); } catch (_) { /* keep raw text */ }
-          if (!mflOk) {
-            const errMsg = (parsed && (parsed.error?.$t || parsed.error)) || mflResp.slice(0, 400);
-            // When MFL returns 400 with empty body (which it does for some
-            // tradeBait auth failures), include a request preview so we can
-            // diff field names / param order against MFL's expected shape.
-            // APIKEY redacted in the preview URL.
-            return jsonOut(mflStatus || 502, {
-              ok: false,
-              error: String(errMsg || ("MFL rejected trade bait — HTTP " + mflStatus + " with empty body. Check field names + auth.")),
-              mfl_status: mflStatus,
-              mfl_response: parsed || mflResp,
-              mfl_request_preview: {
-                url: importUrl,
+          if (dryRun) {
+            // Skip the MFL POST entirely — we just want to test the
+            // downstream OTB Discord post. Pretend MFL accepted.
+            mflStatus = 200;
+            mflResp = "<status>OK (dry-run, skipped MFL)</status>";
+            parsed = null;
+          } else {
+            try {
+              const r = await fetch(importUrl, {
+                method: "POST",
+                redirect: "manual",  // surface 302s instead of POST→GET no-op
+                headers: {
+                  "Content-Type": "application/x-www-form-urlencoded",
+                  "User-Agent": "upsmflproduction-worker",
+                  // URL-encode the cookie value — see _rdhMflCookieValue comment.
+                  "Cookie": `MFL_USER_ID=${_rdhMflCookieValue(mflUserId)}`,
+                },
                 body: form.toString(),
-              },
-            });
+              });
+              mflStatus = r.status;
+              mflResp = await r.text();
+            } catch (e) {
+              return jsonOut(502, { ok: false, error: `MFL fetch failed: ${e?.message || String(e)}` });
+            }
+            const mflOk = mflStatus >= 200 && mflStatus < 300 && !/error/i.test(mflResp);
+            try { parsed = JSON.parse(mflResp); } catch (_) { /* keep raw text */ }
+            if (!mflOk) {
+              const errMsg = (parsed && (parsed.error?.$t || parsed.error)) || mflResp.slice(0, 400);
+              return jsonOut(mflStatus || 502, {
+                ok: false,
+                error: String(errMsg || ("MFL rejected trade bait — HTTP " + mflStatus + " with empty body. Check field names + auth.")),
+                mfl_status: mflStatus,
+                mfl_response: parsed || mflResp,
+                mfl_request_preview: {
+                  url: importUrl,
+                  body: form.toString(),
+                },
+              });
+            }
           }
           // Persist per-player notes in D1 (UPS-side only — MFL doesn't
           // store these). Strategy: delete this franchise's rows for the
           // current (league, season) and re-insert from the submitted
           // payload. Blank/missing notes implicitly prune. Failures here
           // don't fail the whole submit — MFL trade bait already landed.
+          // Skipped under dryRun.
           let notesPersisted = 0;
           let notesError = null;
-          try {
-            const db = env.UPS_MFL_DB;
-            if (db) {
-              await db.prepare(
-                "DELETE FROM ups_trade_bait_notes WHERE league_id = ? AND season = ? AND franchise_id = ?"
-              ).bind(String(leagueId), Number(year), fidReq).run();
-              const nowIso = new Date().toISOString();
-              const inserts = [];
-              for (const pid of Object.keys(notes)) {
-                const txt = notes[pid];
-                if (!txt) continue;  // blank prunes
-                inserts.push(
-                  db.prepare(
-                    "INSERT INTO ups_trade_bait_notes (league_id, season, franchise_id, player_id, note, updated_at) VALUES (?, ?, ?, ?, ?, ?)"
-                  ).bind(String(leagueId), Number(year), fidReq, pid, txt, nowIso)
-                );
+          if (!dryRun) {
+            try {
+              const db = env.UPS_MFL_DB;
+              if (db) {
+                await db.prepare(
+                  "DELETE FROM ups_trade_bait_notes WHERE league_id = ? AND season = ? AND franchise_id = ?"
+                ).bind(String(leagueId), Number(year), fidReq).run();
+                const nowIso = new Date().toISOString();
+                const inserts = [];
+                for (const pid of Object.keys(notes)) {
+                  const txt = notes[pid];
+                  if (!txt) continue;  // blank prunes
+                  inserts.push(
+                    db.prepare(
+                      "INSERT INTO ups_trade_bait_notes (league_id, season, franchise_id, player_id, note, updated_at) VALUES (?, ?, ?, ?, ?, ?)"
+                    ).bind(String(leagueId), Number(year), fidReq, pid, txt, nowIso)
+                  );
+                }
+                if (inserts.length) await db.batch(inserts);
+                notesPersisted = inserts.length;
+              } else {
+                notesError = "D1 not bound; notes not persisted";
               }
-              if (inserts.length) await db.batch(inserts);
-              notesPersisted = inserts.length;
-            } else {
-              notesError = "D1 not bound; notes not persisted";
+            } catch (e) {
+              notesError = String(e && e.message || e);
             }
-          } catch (e) {
-            notesError = String(e && e.message || e);
           }
 
           // ── OTB Discord announcement (Keith 2026-05-15) ──
@@ -2891,6 +2902,7 @@ export default {
 
           return jsonOut(200, {
             ok: true,
+            dry_run: dryRun,
             franchise_id: fidReq,
             will_give_up: willGiveUp,
             looking_for: lookingFor,         // raw user input (echoes back unchanged)
