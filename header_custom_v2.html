@@ -2901,10 +2901,16 @@
         document.body;
       if (!anchor) return;
       var nav = buildSubnav();
+      // Insert BEFORE the hotlinks-shell rather than after it. The
+      // workbench autoloads (RWB/TWB/Stats) all insert their mount
+      // divs at `hotlinks-shell.nextSibling`, which would otherwise
+      // push this sub-nav down below their tall iframes and out of
+      // view. Inserting before keeps it pinned at the top — owners
+      // always see "My Hub" first.
       if (anchor === document.body) {
         anchor.insertBefore(nav, anchor.firstChild);
       } else if (anchor.parentNode) {
-        anchor.parentNode.insertBefore(nav, anchor.nextSibling);
+        anchor.parentNode.insertBefore(nav, anchor);
       }
     }
 
@@ -2928,6 +2934,115 @@
         }
       });
       try { mo.observe(document.documentElement, { childList: true, subtree: true }); } catch (e) {}
+    }
+  })();
+</script>
+
+<script>
+  // Standings v2 (MESSAGE4) auto-bootstrap.
+  //
+  // Mirrors the pattern used for Front Office (MESSAGE7) / Trade War
+  // Room (MESSAGE6) / Player Stats (MESSAGE13): when the page module
+  // is MESSAGE4, inject an iframe pointing at the standings v2 hub
+  // on Pages. Owner's HPM body for MESSAGE4 can stay as a one-line
+  // comment — header does all the work.
+  (function () {
+    var BUILD = "2026.05.15.1";
+    if (window.__ups_standings_header_autoload === BUILD) return;
+    window.__ups_standings_header_autoload = BUILD;
+
+    function safeStr(v) { return v == null ? "" : String(v).trim(); }
+    function safeUpper(v) { return safeStr(v).toUpperCase(); }
+
+    function getModuleName() {
+      try {
+        var u = new URL(window.location.href);
+        return safeUpper(u.searchParams.get("MODULE") || "");
+      } catch (e) { return ""; }
+    }
+
+    function getCurrentLeagueId() {
+      try {
+        var u = new URL(window.location.href);
+        var q = safeStr(u.searchParams.get("L"));
+        if (q) return q.replace(/\D/g, "");
+      } catch (e) {}
+      var m = safeStr(window.location.pathname).match(/\/home\/(\d+)(?:\/|$)/i);
+      return m && m[1] ? m[1].replace(/\D/g, "") : "";
+    }
+
+    function getCurrentYear() {
+      try {
+        var u = new URL(window.location.href);
+        var q = safeStr(u.searchParams.get("YEAR"));
+        if (q) return q.replace(/\D/g, "");
+      } catch (e) {}
+      var m = safeStr(window.location.pathname).match(/\/(\d{4})\//);
+      if (m && m[1]) return m[1];
+      return String(new Date().getUTCFullYear());
+    }
+
+    function ensureMountNearTop() {
+      var mount = document.getElementById("upsStandingsMount");
+      if (mount) return mount;
+      mount = document.createElement("div");
+      mount.id = "upsStandingsMount";
+      var anchor =
+        document.querySelector(".ups-hotlinks-shell") ||
+        document.getElementById("container-wrap") ||
+        document.body;
+      if (anchor && anchor.parentNode && anchor !== document.body) {
+        anchor.parentNode.insertBefore(mount, anchor.nextSibling);
+      } else {
+        document.body.appendChild(mount);
+      }
+      return mount;
+    }
+
+    function loadStandings() {
+      var leagueId = getCurrentLeagueId();
+      var year = getCurrentYear();
+      if (!leagueId) return;
+
+      var mount = ensureMountNearTop();
+      // Always replace prior content; idempotent re-runs are fine.
+      mount.innerHTML = "";
+
+      var cacheKey = encodeURIComponent(String(Date.now()));
+      var src = "https://keithcreelman.github.io/upsmflproduction/standings/mfl_hpm_standings_v2.html"
+        + "?L=" + encodeURIComponent(leagueId)
+        + "&YEAR=" + encodeURIComponent(year)
+        + "&v=" + cacheKey;
+
+      var iframe = document.createElement("iframe");
+      iframe.setAttribute("title", "UPS Standings");
+      iframe.setAttribute("loading", "lazy");
+      iframe.setAttribute("scrolling", "auto");
+      iframe.style.width = "100%";
+      iframe.style.minHeight = "1100px";
+      iframe.style.border = "0";
+      iframe.style.display = "block";
+      iframe.style.background = "transparent";
+      iframe.src = src;
+      mount.appendChild(iframe);
+
+      // Optional: receive a height postMessage from the iframe if the
+      // standings module emits one. Same protocol the trade workbench
+      // uses (data.type === "ups-standings-height").
+      window.addEventListener("message", function (e) {
+        if (!e || !e.data) return;
+        if (e.data.type === "ups-standings-height" && typeof e.data.height === "number") {
+          iframe.style.height = Math.max(600, e.data.height) + "px";
+        }
+      });
+    }
+
+    if (getModuleName().indexOf("MESSAGE4") !== 0) return;
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", loadStandings);
+    } else {
+      loadStandings();
     }
   })();
 </script>
