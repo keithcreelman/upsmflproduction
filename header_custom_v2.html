@@ -2959,11 +2959,15 @@
       { id: "acquisition",  label: "Player Acquisition", children: [
         { label: "Add/Drop",       href: buildMflPath("/add_drop") },
         { label: "Trade War Room", href: buildUrl("MESSAGE6=N") },
-        { label: "Trade Block",    href: buildMflPath("/trade_bait") }
+        // Trade Bait page in MFL is /options?O=133 (not /trade_bait).
+        // Keith confirmed 2026-05-15.
+        { label: "Trade Block",    href: buildMflPath("/options?O=133") }
       ]},
       { id: "gameday",      label: "Game Day", children: [
         { label: "Submit Lineup", href: buildMflPath("/lineup") },
-        { label: "Taxi Squad",    href: buildMflPath("/taxi_squad") },
+        // Taxi Squad lives at /options?O=98 in MFL, not /taxi_squad.
+        // Keith confirmed 2026-05-15.
+        { label: "Taxi Squad",    href: buildMflPath("/options?O=98") },
         { label: "Live Scoring",  href: buildMflPath("/ajax_ls") }
       ]}
     ];

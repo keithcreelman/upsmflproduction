@@ -5989,11 +5989,23 @@
                 // `points` + `bye` view modes left in place (renderers,
                 // state handling, etc.) so they can be revived without
                 // archaeology if needed.
-                '<div class="rwb-view-switch" role="tablist" aria-label="View mode">' +
-                  '<button type="button" id="rwbViewRoster" class="rwb-btn rwb-btn-ghost is-active" data-action="view-switch" data-view="roster" role="tab" aria-selected="true">Contract View</button>' +
-                  '<button type="button" id="rwbViewContract" class="rwb-btn rwb-btn-ghost" data-action="view-switch" data-view="contract" role="tab" aria-selected="false">Cap Plan</button>' +
-                  '<button type="button" id="rwbViewTag" class="rwb-btn rwb-btn-ghost" data-action="view-switch" data-view="tag" role="tab" aria-selected="false">Tagging</button>' +
-                '</div>' +
+                // is-active class is bound to state.view so the toolbar
+                // re-render after a view-switch click reflects the new
+                // selection. Previously this was hardcoded on Contract
+                // View so the button group always looked like Contract
+                // was selected even after switching to Cap Plan/Tagging
+                // (Keith 2026-05-15).
+                (function () {
+                  function viewBtn(id, view, label) {
+                    var isActive = state.view === view;
+                    return '<button type="button" id="' + id + '" class="rwb-btn rwb-btn-ghost' + (isActive ? ' is-active' : '') + '" data-action="view-switch" data-view="' + view + '" role="tab" aria-selected="' + (isActive ? 'true' : 'false') + '">' + label + '</button>';
+                  }
+                  return '<div class="rwb-view-switch" role="tablist" aria-label="View mode">' +
+                    viewBtn("rwbViewRoster",   "roster",   "Contract View") +
+                    viewBtn("rwbViewContract", "contract", "Cap Plan") +
+                    viewBtn("rwbViewTag",      "tag",      "Tagging") +
+                  '</div>';
+                })() +
               '</div>' +
               '<div class="rwb-toolbar-panel rwb-toolbar-panel-browse">' +
                 '<div class="rwb-toolbar-section-label">Browse</div>' +
