@@ -882,6 +882,33 @@
     return { ok: errors.length === 0, total: total, byGroup: byGroup, errors: errors };
   }
 
+  // Extract the most specific MFL error message we can from a worker
+  // response. Order of preference:
+  //   1. resp.body.error                                   (worker's structured error)
+  //   2. resp.body.mfl_response.error.$t                   (MFL wrapped JSON error)
+  //   3. resp.body.mfl_response.error                      (MFL plain-string error)
+  //   4. resp.body.mfl_response (if string, first 200 chars)
+  //   5. fallback "<msg> (HTTP <status>)"
+  // The "(HTTP X)" suffix gets appended when we have anything else, so
+  // we still log the status code for diagnostics without burying it.
+  function extractMflError(resp, fallbackMsg) {
+    var body = resp && resp.body;
+    var stat = resp && resp.status;
+    var statSfx = stat ? " (HTTP " + stat + ")" : "";
+    if (body) {
+      if (body.error) return String(body.error) + statSfx;
+      var mr = body.mfl_response;
+      if (mr) {
+        if (mr.error) {
+          if (typeof mr.error === "object" && mr.error.$t) return String(mr.error.$t) + statSfx;
+          if (typeof mr.error === "string") return mr.error + statSfx;
+        }
+        if (typeof mr === "string" && mr.length) return mr.slice(0, 200) + statSfx;
+      }
+    }
+    return fallbackMsg + statSfx;
+  }
+
   // Append MFL_USER_ID as a query param if available. The worker reads
   // either a Cookie header (same-origin) OR ?MFL_USER_ID=… (cross-origin
   // — our case). Browser fetch with credentials:include doesn't actually
@@ -913,7 +940,7 @@
         if (resp.body && resp.body.ok) {
           state.lineupMessage = { kind: "ok", text: "Lineup saved to MFL ✓" };
         } else {
-          var err = (resp.body && (resp.body.error || (resp.body.mfl_response && resp.body.mfl_response.error && resp.body.mfl_response.error.$t))) || ("MFL rejected lineup (HTTP " + resp.status + ")");
+          var err = extractMflError(resp, "MFL rejected lineup");
           state.lineupMessage = { kind: "err", text: String(err) };
         }
       })
@@ -983,7 +1010,7 @@
         if (resp.body && resp.body.ok) {
           state.tradeBaitMessage = { kind: "ok", text: "Trade bait saved to MFL ✓" };
         } else {
-          var err = (resp.body && (resp.body.error || (resp.body.mfl_response && resp.body.mfl_response.error && resp.body.mfl_response.error.$t))) || ("MFL rejected trade bait (HTTP " + resp.status + ")");
+          var err = extractMflError(resp, "MFL rejected trade bait");
           state.tradeBaitMessage = { kind: "err", text: String(err) };
         }
       })
