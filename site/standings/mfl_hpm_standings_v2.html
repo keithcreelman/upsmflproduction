@@ -819,11 +819,27 @@
       text-transform: uppercase;
     }
     .era-name {
-      font-size: 16px;
+      font-size: 18px;
       font-weight: 800;
       color: var(--gold);
-      margin: 4px 0 12px;
-      line-height: 1.3;
+      margin: 4px 0 8px;
+      line-height: 1.25;
+    }
+    .era-inprogress {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--muted);
+      letter-spacing: 0;
+      text-transform: none;
+    }
+    /* Hand-curated narrative per era — replaces the algorithmic
+       headliner + captain pills (Keith 2026-05-15). */
+    .era-blurb {
+      font-size: 13px;
+      line-height: 1.55;
+      color: var(--text);
+      margin-bottom: 14px;
+      opacity: 0.92;
     }
     .era-captains-label {
       font-size: 10px;
@@ -2202,6 +2218,38 @@
   // ────────────────────────────────────────────────────────────────────────
   // View 5 — 3-Year Eras
   // ────────────────────────────────────────────────────────────────────────
+  // Era stories — hand-curated narrative per era cycle, keyed by
+  // era_start year. Each entry: { name, blurb }. Replaces the
+  // algorithmic "The X & Y Era" headline. Keith 2026-05-15: the
+  // headlines should feel evolutionary (league development arc), not
+  // a rolling owner-name top-N. Drafts below; tweak as needed.
+  var ERA_STORIES = {
+    2011: {
+      name: "Birth of Something Beautiful",
+      blurb: "The dawn of UPS. Year 2 brought in four new owners as replacements — Kevin Bousquet (Ryan's brother) was booted mid-auction Y1 and replaced by Lake, who promptly won the league in his first season with the team Kev built. Steve Bousquet, Josh Martel, and Derrick Whitman also joined this stretch — three names that would shape the league's future."
+    },
+    2014: {
+      name: "Finding Our Stride",
+      blurb: "The league started to figure itself out. Rosters stabilized, rules settled, no major turnover. Cap mechanics and contract conventions hardened into the framework still in use today."
+    },
+    2017: {
+      name: "New Owners — Good & Bad",
+      blurb: "A wave of replacements with mixed results. Gerardi joined and was an instant hit. Nieber and Richard were dreadful — booted Week 13 (or 14) of their second season with a since-legendary email exchange on their way out. The Balderllis arrived this era and executed a trade within 34 minutes of joining — a clear sign of what was coming."
+    },
+    2020: {
+      name: "Covid, Collusion & Calling It Quits",
+      blurb: "COVID, collusion, and the end of an era. Some of the league's most contentious moments happened here. Whitman returned at the close of the auction (alongside E. Martel as a fellow replacement). After the season Steve Bousquet stepped away on his own accord, leaving with a phenomenal record and a stacked roster — a peaceful exit on top."
+    },
+    2023: {
+      name: "Tee Higgins & the 1.1 Dispersal Shit Show",
+      blurb: "The dispersal draft fiasco anchors this era. Josh Lima joined, made one bad decision after another, and was booted at the end of the 2024 auction — replaced by Cross. The 1.1 dispersal pick (Tee Higgins) became a flashpoint that defined the cycle."
+    },
+    2026: {
+      name: "The Modern Era",
+      blurb: "In progress. Stay tuned."
+    }
+  };
+
   function renderEras(host) {
     fetchD1("/api/eras", null).then(function (resp) {
       if (!resp || !resp.ok) return showError(host, "Couldn't load eras.");
@@ -2209,15 +2257,7 @@
       var hasFS = resp.has_final_standings;
       var currentYear = (new Date().getUTCFullYear());
       var fsBanner = hasFS ? "" : '<div class="banner">⚠ <code>src_final_standings</code> not loaded — championship + hawktuah counts show 0 until migration 0033 runs.</div>';
-      var html = fsBanner
-        + '<div class="methodology">'
-        + '⚠️ <strong>Methodology under review.</strong> '
-        + 'Era headliners = top 2 owners by All-Play <strong>%</strong> across the 3-year cycle, '
-        + '<strong>with a 3-full-season tenure floor</strong> (excludes mid-cycle joiners + dispersal departures). '
-        + 'Retro Captains = top 4 by AP % (same tenure rule). '
-        + 'Partial-tenure owners appear in the leaderboard tagged <span class="partial-badge">partial</span>. '
-        + 'See <code>docs/standings_advanced_stats_proposals.md</code> §1A + Appendix A.'
-        + '</div><div class="era-grid">';
+      var html = fsBanner + '<div class="era-grid">';
       eras.forEach(function (era) {
         var rows = (era.rows || []).slice();
         var eligible = rows.filter(function (r) { return (r.seasons_played || 0) >= 3; });
@@ -2244,54 +2284,28 @@
           // 2-team isn't clearly better than 3 — bump to 3
           headlinerCount = 3;
         }
-        var headliners = byPct.slice(0, headlinerCount);
-        var captains = byPct.slice(0, 4);
         var inProgress = (era.era_end >= currentYear);
         var eraTitle = inProgress ? era.era_start + "–" + era.era_end + " (in progress)" : era.era_start + "–" + era.era_end;
-        // Manual era-headline overrides. Two flavors:
-        //   (a) ERA_HEADLINE_OVERRIDES — keyed by `era_start` year.
-        //   (b) eraHeadlineOverrideByHeadliner — pattern match against
-        //       the algorithmic top headliner when the year isn't a
-        //       useful key (e.g., we want to promote a co-anchor any
-        //       time the same person leads).
-        //
-        // Both used when the algorithmic top-N-by-AP% headline misses
-        // what actually defined an era. Keith 2026-05-15.
-        var ERA_HEADLINE_OVERRIDES = {
-          // 2011: Blake won the inaugural title; Cutting + others were
-          // part-time. "The New Era" = league birth.
-          2011: "The Shawn Blake & the New Era"
+
+        // Hand-curated era story (name + blurb). Falls back to a generic
+        // "Era N" label + empty blurb if not in the map.
+        var story = ERA_STORIES[Number(era.era_start)] || {
+          name: "Era",
+          blurb: ""
         };
-        function eraHeadlineOverrideByHeadliner(headliners) {
-          if (!Array.isArray(headliners) || headliners.length !== 1) return null;
-          var top = (headliners[0] && headliners[0].owner_name) || "";
-          // Josh Martel solo era — Steve Bousquet anchored this stretch
-          // too (2 titles + near-identical AP%) and deserves co-billing.
-          if (top === "Josh Martel") {
-            return "The Josh Martel & Steve Bousquet Era";
-          }
-          return null;
-        }
-        var override =
-          ERA_HEADLINE_OVERRIDES[Number(era.era_start)] ||
-          eraHeadlineOverrideByHeadliner(headliners);
-        var headlinerText;
-        if (inProgress) {
-          headlinerText = "Era in progress — headliners pending";
-        } else if (override) {
-          headlinerText = override;
-        } else if (headliners.length === 1) {
-          headlinerText = "The " + (headliners[0].owner_name || "?") + " Era";
-        } else if (headliners.length === 2) {
-          headlinerText = "The " + (headliners[0].owner_name || "?") + " & " + (headliners[1].owner_name || "?") + " Era";
-        } else if (headliners.length === 3) {
-          headlinerText = "The " + (headliners[0].owner_name || "?") + ", " + (headliners[1].owner_name || "?") + " & " + (headliners[2].owner_name || "?") + " Era";
-        } else {
-          headlinerText = "No eligible owners";
-        }
-        var capPills = captains.length
-          ? captains.map(function (c) { return '<span class="cap-pill" title="AP% ' + fmtPct(c.ap_pct) + ' · ' + (c.seasons_played || 0) + ' seasons">' + escapeHtml(c.owner_name || "?") + '</span>'; }).join("")
-          : '<span class="cap-empty">No eligible owners yet (3-season minimum)</span>';
+
+        // PF Index: each owner's PF / era-mean-PF (mean across all
+        // owners in the era). 1.22 = +22% above era avg, 0.92 = -8%.
+        // Saves horizontal space vs raw PF numbers. Falls back to "—"
+        // when era PF totals aren't loaded.
+        var pfSum = 0;
+        var pfCount = 0;
+        rows.forEach(function (r) {
+          var pf = Number(r.pf || 0);
+          if (pf > 0) { pfSum += pf; pfCount += 1; }
+        });
+        var pfMean = pfCount > 0 ? pfSum / pfCount : 0;
+
         var byPctAll = rows.slice().sort(function (a, b) {
           var ea = (a.seasons_played || 0) >= 3 ? 1 : 0;
           var eb = (b.seasons_played || 0) >= 3 ? 1 : 0;
@@ -2299,16 +2313,18 @@
           if ((b.ap_pct || 0) !== (a.ap_pct || 0)) return (b.ap_pct || 0) - (a.ap_pct || 0);
           return (b.ap_w || 0) - (a.ap_w || 0);
         });
-        var lbHead = '<tr><th>Owner</th><th class="num">Yrs</th><th class="num">AP %</th><th class="num">AP W</th><th>H2H</th><th class="num">PF</th><th class="num">🏆</th><th class="num">🚽</th><th class="num">Avg Fin</th></tr>';
+        var lbHead = '<tr><th>Owner</th><th class="num">Yrs</th><th class="num">AP %</th><th class="num">AP W</th><th>H2H</th><th class="num" title="Points-For Index — owner PF ÷ era mean PF. 1.22 = +22% above era avg.">Idx</th><th class="num">🏆</th><th class="num">🚽</th><th class="num">Avg Fin</th></tr>';
         var lbBody = byPctAll.map(function (r) {
           var partial = (r.seasons_played || 0) < 3;
+          var idxNum = pfMean > 0 ? Number(r.pf || 0) / pfMean : 0;
+          var idxStr = idxNum > 0 ? idxNum.toFixed(2) : "—";
           return '<tr' + (partial ? ' class="partial"' : '') + '>'
             + '<td>' + escapeHtml(r.owner_name || "—") + (partial ? ' <span class="partial-badge" title="Did not play all 3 seasons of the cycle">partial</span>' : '') + '</td>'
             + '<td class="num">' + (r.seasons_played || 0) + '</td>'
             + '<td class="num">' + fmtPct(r.ap_pct) + '</td>'
             + '<td class="num">' + (r.ap_w || 0) + '</td>'
             + '<td>' + rec(r.h2h_w, r.h2h_l, r.h2h_t) + '</td>'
-            + '<td class="num">' + fmtCommas(r.pf, 1) + '</td>'
+            + '<td class="num">' + idxStr + '</td>'
             + '<td class="num">' + (r.championships || 0) + '</td>'
             + '<td class="num">' + (r.hawktuah_wins || 0) + '</td>'
             + '<td class="num">' + (r.avg_finish ? Number(r.avg_finish).toFixed(1) : "—") + '</td>'
@@ -2316,9 +2332,8 @@
         }).join("");
         html += '<section class="era-card">'
           + '<div class="era-cycle">' + escapeHtml(eraTitle) + '</div>'
-          + '<div class="era-name">' + escapeHtml(headlinerText) + '</div>'
-          + '<div class="era-captains-label">Retro Captains (top 4 AP %, 3-season tenure)</div>'
-          + '<div class="era-captains">' + capPills + '</div>'
+          + '<div class="era-name">' + escapeHtml(story.name) + (inProgress ? " <span class=\"era-inprogress\">(in progress)</span>" : "") + '</div>'
+          + (story.blurb ? '<div class="era-blurb">' + escapeHtml(story.blurb) + '</div>' : '')
           + '<div class="era-card-scroll"><table class="compact"><thead>' + lbHead + '</thead><tbody>' + lbBody + '</tbody></table></div>'
           + '</section>';
       });
