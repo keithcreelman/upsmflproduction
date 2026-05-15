@@ -6314,6 +6314,25 @@
   function renderToolbar() {
     if (!els.jumpTeam) return;
 
+    // Sync view-switch (Contract View / Cap Plan / Tagging) button
+    // is-active class against state.view. The viewBtn HTML is built
+    // once at toolbar creation time; without this refresh, clicking
+    // between views updates the data but leaves the old button visually
+    // highlighted (Keith 2026-05-15: clicked Contract View → data
+    // switched but Cap Plan stayed lit).
+    var VIEW_BTN_MAP = {
+      "rwbViewRoster":   "roster",
+      "rwbViewContract": "contract",
+      "rwbViewTag":      "tag",
+    };
+    Object.keys(VIEW_BTN_MAP).forEach(function (btnId) {
+      var btn = document.getElementById(btnId);
+      if (!btn) return;
+      var isActive = state.view === VIEW_BTN_MAP[btnId];
+      btn.classList.toggle("is-active", isActive);
+      btn.setAttribute("aria-selected", isActive ? "true" : "false");
+    });
+
     ensureSelectedTeamId();
     var jumpOptions = [{ value: ALL_TEAMS_VALUE, label: "All Teams" }];
     var orderedTeams = orderedTeamsForDropdown();

@@ -832,7 +832,13 @@ export default {
               // Capture raw fields; client parses contractInfo for CL/AAV
               const c = {};
               if (p.salary != null) c.salary = Number(p.salary) || 0;
-              if (p.contractYear != null) c.contractYear = Number(p.contractYear) || null;
+              // Preserve cy=0 (expired contract) — the `|| null` short-circuit
+              // was dropping it because 0 is falsy. cy=0 IS a real, meaningful
+              // value (expired rookie awaiting ERA). Fixed 2026-05-15.
+              if (p.contractYear != null && p.contractYear !== "") {
+                const cy = Number(p.contractYear);
+                if (Number.isFinite(cy)) c.contractYear = cy;
+              }
               if (p.contractInfo) c.contractInfo = String(p.contractInfo);
               if (p.contractStatus) c.contractStatus = String(p.contractStatus);
               if (Object.keys(c).length) pidToContract[pid] = c;

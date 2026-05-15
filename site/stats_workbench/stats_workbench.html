@@ -827,14 +827,16 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:13px}
       Object.keys(j.pid_to_fid || {}).forEach(function(pid){
         pidToFid[pid] = padFid(j.pid_to_fid[pid]);
       });
-      // Live contract overlay — parse contractInfo for total years (CL N)
-      // and AAV ("AAV NK"). MFL gives us contractYear directly. salary
-      // comes through as a number. yearsRemaining = CL - contractYear + 1.
+      // Live contract overlay — parse contractInfo for AAV ("AAV NK").
+      // MFL's contractYear field IS years remaining (cy=1 = LAST year of
+      // deal, cy=0 = expired). Don't transform it. Fixed 2026-05-15:
+      // prior code tried `totalYears - contractYear + 1` as if cy were
+      // 1-based-current-year-of-N-year-deal — which gave Puka (cy=0,
+      // CL=3) a phantom 3 years remaining instead of 0.
+      // (See feedback_mfl_contractyear_is_years_remaining + memory.)
       Object.keys(j.pid_to_contract || {}).forEach(function(pid){
         var c = j.pid_to_contract[pid] || {};
         var ci = String(c.contractInfo || "");
-        var clMatch = ci.match(/CL\s*(\d+)/i);
-        var totalYears = clMatch ? parseInt(clMatch[1], 10) : null;
         var aavMatch = ci.match(/AAV\s*([\d.]+)\s*([KkMm]?)/);
         var aav = null;
         if (aavMatch) {
@@ -842,7 +844,13 @@ table.asw-table{width:100%;border-collapse:collapse;font-size:13px}
           var unit = aavMatch[2].toUpperCase();
           aav = unit === "M" ? n * 1e6 : (unit === "K" ? n * 1e3 : n);
         }
-        var yr = (c.contractYear && totalYears) ? Math.max(0, totalYears - c.contractYear + 1) : null;
+        // MFL contractYear is years remaining directly. typeof check
+        // distinguishes "present in payload" (numeric, incl. 0) from
+        // "absent" (undefined) so we preserve cy=0 instead of falling
+        // back to a stale D1 leaderboard value.
+        var yr = (typeof c.contractYear === "number" && Number.isFinite(c.contractYear))
+          ? Math.max(0, c.contractYear)
+          : null;
         pidToContract[pid] = {
           salary: typeof c.salary === "number" ? c.salary : null,
           aav: aav,
