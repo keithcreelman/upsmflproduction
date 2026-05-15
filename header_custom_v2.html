@@ -601,12 +601,13 @@
   position: relative;
 }
 
+  /* UPS HOTLINKS shell hidden — replaced by the "My Hub" sub-nav
+     above (Keith 2026-05-15). Markup is retained so other scripts
+     that target `.ups-hotlinks-shell` as a position anchor keep
+     working (RWB/TWB/Stats/Standings mount autoloads all insert
+     their mount as nextSibling of this element). */
   .ups-hotlinks-shell {
-    max-width: min(98rem, calc(100% - 0.7rem));
-    width: 100%;
-    margin: 0.65rem auto 0.7rem;
-    padding: 0;
-    box-sizing: border-box;
+    display: none !important;
   }
 
   /* Team Ops persistent sub-nav — appears on every "owner module"
@@ -2944,17 +2945,21 @@
     // Each entry is either:
     //   • { id, label, module }                   → direct link to a MESSAGEnn
     //   • { id, label, children: [{label,href|module}…] } → dropdown submenu
+    //
+    // Order + grouping (Keith 2026-05-15):
+    //   Overview → Front Office → Trade War Room → Rookie Draft Hub
+    //   → Standings → Player Stats → Player Acquisition ▾ → Game Day ▾
     var TABS = [
       { id: "overview",     label: "Overview",       module: "MESSAGE11" },
       { id: "front-office", label: "Front Office",   module: "MESSAGE7"  },
-      { id: "player-stats", label: "Player Stats",   module: "MESSAGE13" },
       { id: "trade-room",   label: "Trade War Room", module: "MESSAGE6=N" },
+      { id: "rookie-hub",   label: "Rookie Draft Hub", module: "MESSAGE12" },
       { id: "standings",    label: "Standings",      module: "MESSAGE4"  },
+      { id: "player-stats", label: "Player Stats",   module: "MESSAGE13" },
       { id: "acquisition",  label: "Player Acquisition", children: [
-        { label: "Trades",           href: buildMflPath("/trade_offer") },
-        { label: "Add/Drop",         href: buildMflPath("/add_drop") },
-        { label: "Trade Block",      href: buildMflPath("/trade_bait") },
-        { label: "Rookie Draft Hub", href: buildUrl("MESSAGE12") }
+        { label: "Add/Drop",       href: buildMflPath("/add_drop") },
+        { label: "Trade War Room", href: buildUrl("MESSAGE6=N") },
+        { label: "Trade Block",    href: buildMflPath("/trade_bait") }
       ]},
       { id: "gameday",      label: "Game Day", children: [
         { label: "Submit Lineup", href: buildMflPath("/lineup") },
