@@ -1184,7 +1184,10 @@
         // Trade bait eligibility: any rostered player not on taxi (taxi
         // players can't be traded). IR + expired CAN still be marked
         // available — owners may shop expiring rookies before ERA.
-        var baitEligible = !r.isTaxi;
+        // Trade bait eligibility — taxi NOW allowed (Keith 2026-05-15:
+        // taxi players are tradeable; MFL's tradeBait accepts them).
+        // Only ineligible state today is no-player-id (shouldn't happen).
+        var baitEligible = true;
         var checkboxCell;
         if (mode === "tradeBait") {
           checkboxCell = baitEligible
