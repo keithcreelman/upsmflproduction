@@ -1277,6 +1277,22 @@ The local DB tables `franchises`, `schedule`, `weeklyresults`, `weeklyresults_su
 
 Follow-up: port the legacy fetcher into `pipelines/etl/scripts/` so this repo becomes the single source of truth. See `pipelines/etl/README.md` "External fetchers (not yet ported)".
 
+## F.1 Playoff seeding rule (added 2026-05-15)
+
+**Seeding is by All-Play %, NOT by head-to-head wins or "regular-season record".**
+
+- **4 division winners** receive automatic playoff bids.
+- **Top 2 seeds (1, 2) are RESERVED for division winners** — a non-division-winner cannot earn a top-2 seed no matter how high their AP%.
+- **Seeds 3–6 (or wherever the bracket ends)** rank by All-Play %, including the remaining 2 division winners alongside wild-card teams.
+- A division winner can be the **6th seed** (or lowest playoff seed) if they have the worst AP% among the qualifiers.
+- **Tiebreaker ladder (when AP% ties):** Overall → Points For → H2H (same ladder used for waivers, see §A4).
+
+Implications for narrative / analytics code:
+
+- **Never derive a seed from H2H W-L** ("overall_w/l" in standings JSON includes playoff games and is not a seed proxy).
+- **Never describe a team's seed using regular-season wins.** Use `all_play_pct` from `src_standings` plus the "must win division for top 2" rule.
+- For the "Who was the #N seed in season Y?" question: rank `src_standings` rows by (is_div_winner DESC for top 2, then all_play_pct DESC). Top 2 picks are the two division winners with the highest AP%; seeds 3..N then rank purely by AP% with division-winner status only ensuring playoff entry, not seed position.
+
 ## G. STILL-OPEN ITEMS for Section 3.5
 
 1. **2026 division composition** — locks at draft night. Backfill `src_franchises` 2026 rows once MFL publishes.
