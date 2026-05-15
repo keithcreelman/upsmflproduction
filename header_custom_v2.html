@@ -609,6 +609,66 @@
     box-sizing: border-box;
   }
 
+  /* Team Ops persistent sub-nav — appears on every "owner module"
+     page (MESSAGE4/6/7/11/13 + bare home) so owners can jump between
+     them without backing out to the league home first. */
+  .ups-teamops-subnav {
+    max-width: min(98rem, calc(100% - 0.7rem));
+    width: 100%;
+    margin: 0 auto 0.75rem;
+    padding: 0.55rem 0.75rem;
+    background: linear-gradient(180deg, rgba(15, 29, 52, 0.85), rgba(13, 25, 48, 0.85));
+    border: 1px solid #28466f;
+    border-radius: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+    box-sizing: border-box;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 0.85rem;
+  }
+  .ups-teamops-subnav-label {
+    color: #9fb3d1;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-right: 0.35rem;
+  }
+  /* Force the link styling against MFL's host stylesheet (which has
+     `a:visited{color:red}` globally — same pattern as .tops-iframe-pop). */
+  a.ups-teamops-subnav-link,
+  a.ups-teamops-subnav-link:link,
+  a.ups-teamops-subnav-link:visited,
+  a.ups-teamops-subnav-link:hover,
+  a.ups-teamops-subnav-link:active {
+    color: #e8f1ff !important;
+    text-decoration: none;
+    padding: 0.35rem 0.7rem;
+    border-radius: 6px;
+    border: 1px solid transparent;
+    font-weight: 600;
+    transition: background 0.12s, border-color 0.12s, color 0.12s;
+  }
+  a.ups-teamops-subnav-link:hover {
+    background: rgba(125, 232, 217, 0.1) !important;
+    border-color: rgba(125, 232, 217, 0.35) !important;
+    color: #7de8d9 !important;
+  }
+  a.ups-teamops-subnav-link[data-active="1"],
+  a.ups-teamops-subnav-link[data-active="1"]:link,
+  a.ups-teamops-subnav-link[data-active="1"]:visited {
+    color: #f3b61f !important;
+    background: rgba(243, 182, 31, 0.12);
+    border-color: rgba(243, 182, 31, 0.55);
+  }
+  .ups-teamops-subnav-arrow {
+    font-size: 0.75em;
+    opacity: 0.7;
+    margin-left: 0.15em;
+  }
+
   /* CCC message page only: center the UPS header shells without changing the
      home-page HPM alignment behavior. */
   body.ups-message2-ccc .ups-hero-shell,
@@ -2743,6 +2803,131 @@
       document.addEventListener("DOMContentLoaded", bootIfApplicable);
     } else {
       bootIfApplicable();
+    }
+  })();
+</script>
+
+<script>
+  // Team Ops persistent sub-nav.
+  //
+  // Renders a 5-link strip (Overview / Front Office / Player Stats /
+  // Trade War Room / Standings) on every "owner module" MFL page so
+  // owners can jump between them without backing out to the home
+  // page first. Active page is highlighted yellow.
+  //
+  // Scope: MESSAGE4 / MESSAGE6 / MESSAGE7 / MESSAGE11 / MESSAGE13
+  // plus the bare home page (no MODULE). Anywhere else, no nav is
+  // rendered.
+  (function () {
+    var BUILD = "2026.05.15.1";
+    if (window.__ups_teamops_subnav === BUILD) return;
+    window.__ups_teamops_subnav = BUILD;
+
+    function safeStr(v) { return v == null ? "" : String(v).trim(); }
+    function safeUpper(v) { return safeStr(v).toUpperCase(); }
+
+    function currentContext() {
+      try {
+        var u = new URL(window.location.href);
+        var path = safeStr(u.pathname);
+        var leagueId = "";
+        var year = "";
+        var m = path.match(/\/(\d{4})\/home\/(\d+)/);
+        if (m) { year = m[1]; leagueId = m[2]; }
+        if (!leagueId) leagueId = safeStr(u.searchParams.get("L"));
+        if (!year) year = safeStr(u.searchParams.get("YEAR")) || String(new Date().getFullYear());
+        var mod = safeUpper(u.searchParams.get("MODULE") || "");
+        return { host: u.host, leagueId: leagueId, year: year, module: mod, isHomePath: /\/home\/\d+/.test(path) };
+      } catch (e) { return { host: "", leagueId: "", year: "", module: "", isHomePath: false }; }
+    }
+
+    var ctx = currentContext();
+    // Bail if we can't resolve a league/year, or we're not on an MFL
+    // /home/<league> URL — sub-nav only makes sense in the owner-page
+    // context.
+    if (!ctx.leagueId || !ctx.isHomePath) return;
+
+    // Active-page detection. Bare home (no MODULE) → Overview.
+    // MESSAGE6 may carry "=N" suffix; treat anything starting MESSAGE6
+    // as Trade War Room. Same lenient match for the others.
+    var activeId = "";
+    if (!ctx.module || ctx.module === "MESSAGE11") activeId = "overview";
+    else if (/^MESSAGE7\b/.test(ctx.module)) activeId = "front-office";
+    else if (/^MESSAGE13\b/.test(ctx.module)) activeId = "player-stats";
+    else if (/^MESSAGE6\b/.test(ctx.module)) activeId = "trade-room";
+    else if (/^MESSAGE4\b/.test(ctx.module)) activeId = "standings";
+    // Any other MODULE → no active highlight, but we still render the
+    // strip so the user can navigate away.
+    else activeId = "";
+
+    function buildUrl(modulePath) {
+      return "//" + ctx.host + "/" + encodeURIComponent(ctx.year) +
+        "/home/" + encodeURIComponent(ctx.leagueId) +
+        (modulePath ? "?MODULE=" + modulePath : "");
+    }
+
+    var TABS = [
+      { id: "overview",     label: "Overview",       module: "MESSAGE11" },
+      { id: "front-office", label: "Front Office",   module: "MESSAGE7"  },
+      { id: "player-stats", label: "Player Stats",   module: "MESSAGE13" },
+      { id: "trade-room",   label: "Trade War Room", module: "MESSAGE6=N" },
+      { id: "standings",    label: "Standings",      module: "MESSAGE4"  }
+    ];
+
+    function buildSubnav() {
+      var nav = document.createElement("nav");
+      nav.className = "ups-teamops-subnav";
+      nav.setAttribute("aria-label", "Owner modules");
+      var lbl = document.createElement("span");
+      lbl.className = "ups-teamops-subnav-label";
+      lbl.textContent = "My Hub";
+      nav.appendChild(lbl);
+      TABS.forEach(function (t) {
+        var a = document.createElement("a");
+        a.className = "ups-teamops-subnav-link";
+        a.href = buildUrl(t.module);
+        a.textContent = t.label;
+        if (t.id === activeId) a.setAttribute("data-active", "1");
+        nav.appendChild(a);
+      });
+      return nav;
+    }
+
+    function injectSubnav() {
+      if (document.querySelector(".ups-teamops-subnav")) return;
+      var anchor =
+        document.querySelector(".ups-hotlinks-shell") ||
+        document.querySelector(".ups-hero-shell") ||
+        document.body;
+      if (!anchor) return;
+      var nav = buildSubnav();
+      if (anchor === document.body) {
+        anchor.insertBefore(nav, anchor.firstChild);
+      } else if (anchor.parentNode) {
+        anchor.parentNode.insertBefore(nav, anchor.nextSibling);
+      }
+    }
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", injectSubnav);
+    } else {
+      injectSubnav();
+    }
+
+    // Re-attempt once the page has fully painted in case MFL injects
+    // .ups-hotlinks-shell after DOMContentLoaded (rare but seen).
+    if (window.MutationObserver && !document.querySelector(".ups-teamops-subnav")) {
+      var mo = new MutationObserver(function () {
+        if (document.querySelector(".ups-teamops-subnav")) {
+          mo.disconnect();
+          return;
+        }
+        if (document.querySelector(".ups-hotlinks-shell")) {
+          injectSubnav();
+          mo.disconnect();
+        }
+      });
+      try { mo.observe(document.documentElement, { childList: true, subtree: true }); } catch (e) {}
     }
   })();
 </script>
