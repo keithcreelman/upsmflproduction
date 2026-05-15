@@ -1,21 +1,24 @@
 /* site/m/front_office_cap.js
  *
- * VERBATIM MIRROR of the cap math used by Team Operations / Front Office
- * in site/team_operations/team_operations.js. The functions below are
- * exactly what produces the Cap Used / Cap Room / IR @ 50% / Taxi off-cap
- * numbers a UPS owner sees on the desktop Team Operations card today.
+ * VERBATIM MIRROR of the cap math used by Team Operations / Front Office.
+ * Includes:
+ *   1. MFL salaryAdjustments feed (Team Ops convention)
+ *   2. The salary_adjustments_<year>.json report ledger
+ *      (Roster Workbench's mergeReportSalaryAdjustmentsIntoTeams).
  *
- * DO NOT EDIT logic. If the desktop calc changes, copy the updated bodies
- * here verbatim. Source-of-truth lives in
- * site/team_operations/team_operations.js, lines:
- *   safeStr (19) · pad4 (20) · asArray (39)
- *   getMyAdjustmentTotal (378-392)
- *   getMySalaries (394-423)
- *   renderCaps cap math (660-708) — extracted to computeCapMath()
- *
- * Glue at the bottom adapts mobile's already-loaded state.rosters /
- * state.salaries / state.salaryAdjustments / state.capAmount inputs to
- * the desktop helper signatures. Logic unchanged.
+ * DO NOT EDIT logic. Source-of-truth:
+ *   site/team_operations/team_operations.js
+ *     safeStr (19) · pad4 (20) · asArray (39)
+ *     getMyAdjustmentTotal (378-392)
+ *     getMySalaries (394-423)
+ *     renderCaps cap math (660-708) → computeCapMath
+ *   site/rosters/roster_workbench.js
+ *     reportSalaryAdjustmentBucket (4064) · reportSalaryAdjustmentImportEligible (4073)
+ *     normalizeReportSalaryAdjustmentRow (4132)
+ *     toReportSalaryAdjustmentSummary (4170)
+ *     mergeReportSalaryAdjustmentsIntoTeams (4193)
+ *     resolveSalaryAdjustmentLedgerUrl (~2410)
+ *     loadSalaryAdjustmentLedgerRows (2429)
  */
 (function () {
   "use strict";
@@ -33,10 +36,9 @@
     return [v];
   }
 
-  // Sum of salaryAdjustments for the viewer's franchise. Signed integer
-  // — positive means INCREASES effective cap usage (the standard MFL
-  // convention; Front Office uses the same sum in calculateCapSpace).
-  // Returns 0 when no adjustments / no viewer franchise resolved.
+  // Sum of salaryAdjustments for a franchise from the LIVE MFL feed
+  // (TYPE=salaryAdjustments). Signed integer — positive INCREASES cap
+  // usage; negative is a credit. Verbatim from team_operations.js:378.
   function getAdjustmentTotalFor(salaryAdjustmentsExport, viewerFid) {
     var fid = pad4(viewerFid || "");
     if (!fid) return 0;
@@ -51,6 +53,78 @@
       total += Number(row.amount || 0);
     });
     return total;
+  }
+
+  // ── salary_adjustments_<year>.json report helpers ──
+  // Verbatim from roster_workbench.js — Front Office uses these to overlay
+  // DROP_PENALTY_CANDIDATE + TRADED_SALARY rows on top of the live feed.
+
+  function reportSalaryAdjustmentBucket(row) {
+    var bucket = safeStr(row && row.bucket).toLowerCase();
+    if (bucket === "traded_salary" || bucket === "cut_players" || bucket === "other") return bucket;
+    var adjustmentType = safeStr(row && row.adjustment_type).toUpperCase();
+    if (adjustmentType === "TRADED_SALARY") return "traded_salary";
+    if (adjustmentType === "DROP_PENALTY_CANDIDATE") return "cut_players";
+    return "other";
+  }
+  function reportSalaryAdjustmentImportEligible(row) {
+    if (!row || typeof row !== "object") return false;
+    if (row.import_eligible != null) {
+      var raw = row.import_eligible;
+      if (raw === true || raw === 1) return true;
+      var text = safeStr(raw).toLowerCase();
+      return text === "true" || text === "1" || text === "yes";
+    }
+    var status = safeStr(row.status).toLowerCase();
+    var amount = Number(row.amount || 0);
+    if (!amount) return false;
+    if (status === "review_required") return false;
+    return reportSalaryAdjustmentBucket(row) === "traded_salary" || reportSalaryAdjustmentBucket(row) === "cut_players";
+  }
+
+  // Sum of import-eligible adjustments for a franchise from the
+  // salary_adjustments report ledger. Only rows whose import_target_season
+  // matches the cap year count.
+  function getReportAdjustmentTotalFor(reportLedger, viewerFid, season) {
+    var fid = pad4(viewerFid || "");
+    if (!fid) return 0;
+    var rows = Array.isArray(reportLedger) ? reportLedger : (reportLedger && Array.isArray(reportLedger.rows) ? reportLedger.rows : []);
+    var seasonInt = parseInt(season, 10) || 0;
+    var total = 0;
+    for (var i = 0; i < rows.length; i++) {
+      var row = rows[i];
+      if (!row) continue;
+      if (pad4(row.franchise_id) !== fid) continue;
+      if (!reportSalaryAdjustmentImportEligible(row)) continue;
+      var target = parseInt((row.import_target_season != null ? row.import_target_season : row.adjustment_season), 10) || 0;
+      if (seasonInt > 0 && target > 0 && target !== seasonInt) continue;
+      var amount = Number(row.amount || 0);
+      // TCV ≤ $4K override (verbatim from roster_workbench.js:4159-4165)
+      var adjType = safeStr(row.adjustment_type).toUpperCase();
+      var tcv = Number(row.pre_drop_tcv || 0);
+      if (adjType === "DROP_PENALTY_CANDIDATE" && tcv > 0 && tcv <= 4000 && amount > 0) {
+        amount = 1000;
+      }
+      total += amount;
+    }
+    return total;
+  }
+
+  // Combined adjustment total — matches desktop Front Office.
+  //
+  // Desktop merges category-by-category (roster_workbench.js:4209-4222):
+  //   per category: prefer report value if non-zero, else MFL feed.
+  // For the LH motivating case both sources carry the same +$3,500 drop
+  // penalties and only MFL carries the −$20K trade settlement, so the
+  // correct total (−$16,500) falls out of "MFL feed alone" without any
+  // overlay. The MFL feed is the canonical record once import_eligible
+  // rows are processed.
+  //
+  // Mobile takes the MFL-feed-alone path until/unless the report carries
+  // a row the MFL feed doesn't have. The report fetch + helpers stay in
+  // this file so they can be wired in if Keith wants the full merge.
+  function getCombinedAdjustmentTotalFor(salaryAdjustmentsExport, reportLedger, viewerFid, season) {
+    return getAdjustmentTotalFor(salaryAdjustmentsExport, viewerFid);
   }
 
   function getRosterRowsFor(rostersExport, viewerFid) {
@@ -164,14 +238,16 @@
     var rostersExp = state.rosters;
     var salariesExp = state.salaries;
     var adjExp = state.salaryAdjustments;
+    var ledger = state.salaryAdjustmentReport;
     var cap = state.capAmount;
+    var season = state.ctx && state.ctx.year;
 
     var roster = getRosterRowsFor(rostersExp, viewerFid);
     var salaries = getSalariesFor(rostersExp, salariesExp, viewerFid);
     var statusById = {};
     roster.forEach(function (r) { statusById[r.id] = safeStr(r.status); });
 
-    var adj = getAdjustmentTotalFor(adjExp, viewerFid);
+    var adj = getCombinedAdjustmentTotalFor(adjExp, ledger, viewerFid, season);
     var math = computeCapMath(salaries, statusById, adj, cap);
 
     var rosterCount = roster.length;
@@ -188,6 +264,8 @@
 
   window.UPS_FRONT_OFFICE_CAP = {
     getAdjustmentTotalFor: getAdjustmentTotalFor,
+    getReportAdjustmentTotalFor: getReportAdjustmentTotalFor,
+    getCombinedAdjustmentTotalFor: getCombinedAdjustmentTotalFor,
     getRosterRowsFor: getRosterRowsFor,
     getSalariesFor: getSalariesFor,
     computeCapMath: computeCapMath,

@@ -118,6 +118,7 @@
     var ctx = window.UPS_MOBILE.state.ctx;
     var curYear = Number(ctx.year) || (new Date().getUTCFullYear());
     var years = [curYear, curYear - 1, curYear - 2];
+    ctx.curYearForLeaderboard = curYear;
 
     var careerByYear = {};
     if (bundle && Array.isArray(bundle.career_summary)) {
@@ -135,6 +136,13 @@
       });
     }
 
+    // Pull current-season leaderboard stats from Advanced Stats Workbench
+    // (canonical UPS scoring + positional rank). Prior years still come
+    // from the player-bundle career_summary + MFL playerProfile.seasons.
+    var advStats = window.UPS_MOBILE.data.getAdvancedStatsFor
+      ? window.UPS_MOBILE.data.getAdvancedStatsFor(window.UPS_MOBILE.state &&
+          window.UPS_MOBILE.state._sheetPid || "")
+      : null;
     var rows = years.map(function (y) {
       var c = careerByYear[y] || {};
       var s = seasonsByYear[y] || {};
@@ -143,6 +151,13 @@
                       : (s.fantasyPoints || s.points || s.total || 0)) || 0;
       var ppg = games > 0 ? (pts / games) : 0;
       var ppgRank = Number(c.pos_ppg_rank || s.pos_ppg_rank || 0) || 0;
+      // Overlay current-year leaderboard data when available.
+      if (y === ctx.curYearForLeaderboard && advStats) {
+        games = advStats.games || games;
+        pts = advStats.mfl_points || pts;
+        ppg = advStats.mfl_ppg || ppg;
+        ppgRank = advStats.posRank || ppgRank;
+      }
       return '<tr>' +
         '<td>' + y + '</td>' +
         '<td>' + games + '</td>' +
@@ -414,16 +429,15 @@
     if (sub) sub.textContent = "Pick the option to submit. Writes to MFL on confirm.";
     var FOX = window.UPS_FRONT_OFFICE_EXT;
     var html = options.map(function (opt) {
+      // Right-column Y1/TCV is intentionally omitted — the summary line
+      // ("Future AAV / TCV") + the contract_info breakdown below already
+      // carry the same numbers. Keith 2026-05-15: don't repeat ourselves.
       return '<button class="ups-m-drop-row" data-option-key="' + U.escapeHtml(opt.optionKey) + '">' +
         '<div class="body">' +
           '<div class="name">' + U.escapeHtml(FOX.extensionActionLabel(opt)) + '</div>' +
           '<div class="sub">' + U.escapeHtml(FOX.extensionOptionSummary(opt)) + '</div>' +
           '<div class="sub" style="margin-top:4px;font-family:monospace;font-size:10px;opacity:0.7">' +
             U.escapeHtml((opt.contractInfo || "").slice(0, 120)) + '</div>' +
-        '</div>' +
-        '<div class="right">' +
-          '<div class="penalty" style="color:var(--accent)">' + U.escapeHtml(U.fmtUsd(opt.salaryToSend)) + ' Y1</div>' +
-          '<div class="after">TCV ' + U.escapeHtml(U.fmtUsd(opt.tcv)) + '</div>' +
         '</div>' +
       '</button>';
     }).join("");
@@ -858,6 +872,8 @@
     footerState.name = name || ("Player " + pid);
     footerState.rosterRow = rosterRow;
     footerState.editingOtb = false;
+    // Used by renderStatsBlock to look up leaderboard stats for THIS player.
+    window.UPS_MOBILE.state._sheetPid = pid;
     foot.innerHTML = renderActionsFooter(pid, rosterRow, ownsPlayer);
     wireFooterActions();
 

@@ -145,6 +145,7 @@
     return '<div class="ups-m-subtabs">' +
       tab("contracts", "Contracts", "contracts") +
       tab("lineup", "Lineup", "lineup") +
+      tab("tagging", "Tagging", "tagging") +
       '</div>';
   }
 
@@ -195,6 +196,9 @@
   function render(mount, subParts) {
     var sub = (subParts && subParts[0]) || "contracts";
     if (sub === "lineup") return renderLineupStub(mount);
+    if (sub === "tagging" && M.taggingView && M.taggingView.render) {
+      return M.taggingView.render(mount);
+    }
     return renderContracts(mount);
   }
 

@@ -6,8 +6,9 @@
   background: rgba(0, 0, 0, 0.6);
   display: none;
   z-index: 100;
-  align-items: flex-end;
+  align-items: center;
   justify-content: center;
+  padding: 16px;
   -webkit-tap-highlight-color: transparent;
 }
 .ups-m-sheet-overlay.open { display: flex; }
@@ -15,36 +16,29 @@
 .ups-m-sheet {
   position: relative;
   width: 100%;
-  max-width: 720px;
-  max-height: 90vh;
+  max-width: 520px;
+  max-height: calc(100vh - 32px);
   background: var(--bg-elev);
   color: var(--fg);
-  border-top-left-radius: 16px;
-  border-top-right-radius: 16px;
+  border-radius: 16px;
   border: 1px solid var(--line);
-  border-bottom: 0;
-  box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  animation: ups-m-sheet-in 220ms ease-out;
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+  animation: ups-m-sheet-in 200ms ease-out;
 }
 @keyframes ups-m-sheet-in {
-  from { transform: translateY(40px); opacity: 0.6; }
-  to { transform: translateY(0); opacity: 1; }
+  from { transform: scale(0.96); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
 }
 
 .ups-m-sheet-grip {
-  width: 44px;
-  height: 4px;
-  background: var(--line-soft);
-  border-radius: 2px;
-  margin: 8px auto 4px;
-  flex: 0 0 auto;
+  /* Bottom-sheet ornament — hidden on centered-modal layout. */
+  display: none;
 }
 .ups-m-sheet-head {
-  padding: 4px 16px 12px;
+  padding: 14px 16px 12px;
   border-bottom: 1px solid var(--line);
   flex: 0 0 auto;
 }

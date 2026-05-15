@@ -45,6 +45,7 @@
       tab("rosters", "Rosters", "rosters") +
       tab("standings", "Standings", "standings") +
       tab("otb", "On the Block", "otb") +
+      tab("draft", "Draft", "draft") +
       '</div>';
   }
 
@@ -297,6 +298,9 @@
     var sub = (subParts && subParts[0]) || "rosters";
     if (sub === "standings") return renderStandings(mount);
     if (sub === "otb") return renderOtb(mount);
+    if (sub === "draft" && M.draftView && M.draftView.render) {
+      return M.draftView.render(mount);
+    }
     return renderRosters(mount);
   }
 

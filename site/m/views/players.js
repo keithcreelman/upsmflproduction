@@ -69,8 +69,12 @@
 
   function buildFreeAgents() {
     var rostered = DATA.getAllRosteredPids();
+    // Canonical UPS-scored stats — from Advanced Stats Workbench leaderboard.
+    // Falls back to MFL YTD playerScores if the leaderboard didn't return
+    // a row for this pid (rare; usually means the player didn't play this season).
+    var advStats = DATA.getAdvancedStatsMap ? DATA.getAdvancedStatsMap() : {};
     var ytdScores = DATA.getYtdScoresMap();
-    var games = Math.max(1, approxGamesPlayed());
+    var fallbackGames = Math.max(1, approxGamesPlayed());
     var players = (M.state.players && M.state.players.players) || null;
     if (!players) return [];
     var list = U.asArray(players.player);
@@ -82,11 +86,11 @@
       if (rostered.has(pid)) continue;
       var pos = U.safeStr(p.position).toUpperCase();
       if (!pos) continue;
-      // Coerce IDP sub-positions into our group buckets.
       var group = POS_GROUP[pos] || pos;
-      var pts = Number(ytdScores[pid] || 0);
-      // Skip clearly-irrelevant players: 0 YTD pts AND not in main positions.
-      // Helps trim the export from 5000+ to a manageable size on mobile.
+      var stats = advStats[pid] || null;
+      var pts = stats ? stats.mfl_points : Number(ytdScores[pid] || 0);
+      var ppg = stats ? stats.mfl_ppg : (fallbackGames > 0 ? pts / fallbackGames : 0);
+      var rank = stats ? stats.posRank : 0;
       var keep = pts > 0 || ["QB", "RB", "WR", "TE", "PK", "PN"].indexOf(group) !== -1
                  || ["DL", "LB", "DB"].indexOf(group) !== -1;
       if (!keep) continue;
@@ -97,7 +101,8 @@
         group: group,
         team: U.safeStr(p.team),
         ytdPts: pts,
-        ppg: games > 0 ? (pts / games) : 0
+        ppg: ppg,
+        posRank: rank
       });
     }
     return out;
@@ -157,6 +162,7 @@
             (r.team ? '<span>' + U.escapeHtml(r.team) + '</span>' : '') +
             '<span>YTD ' + (Math.round(r.ytdPts * 10) / 10).toFixed(1) + '</span>' +
             '<span>PPG ' + (Math.round(r.ppg * 10) / 10).toFixed(1) + '</span>' +
+            (r.posRank > 0 ? '<span>#' + r.posRank + ' ' + U.escapeHtml(r.group) + '</span>' : '') +
           '</div>' +
         '</div>' +
         '<button class="ups-m-fa-add" data-act="add" data-pid="' + U.escapeHtml(r.id) + '">Add</button>' +
