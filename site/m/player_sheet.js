@@ -157,13 +157,15 @@
     return false;
   }
 
-  function renderActionsFooter(pid, rosterRow, ownsPlayer) {
+  function renderActionsFooter(pid, rosterRow, ownsPlayer, opts) {
+    opts = opts || {};
     if (!ownsPlayer) {
       return '<button class="btn" id="ups-m-sheet-foot-close">Close</button>';
     }
     var s = window.UPS_MOBILE.state;
     var otbIds = DATA.getMyTradeBaitIds();
     var onBlock = otbIds.has(String(pid));
+    var existingNote = DATA.getMyTradeBaitNoteFor(pid);
     var penalty = DATA.dropPenaltyFor(rosterRow, s.ctx.year);
     var penaltyLabel = "";
     if (penalty && typeof penalty.amount === "number") {
@@ -173,27 +175,78 @@
     } else {
       penaltyLabel = ' <span class="pn">(penalty TBD)</span>';
     }
-    return '' +
-      '<div class="ups-m-sheet-actions">' +
-        '<button class="btn-act otb' + (onBlock ? ' on' : '') + '" data-act="otb">' +
-          (onBlock ? '✓ On the Block' : 'Add to Block') +
-        '</button>' +
-        '<button class="btn-act drop" data-act="drop">Drop' + penaltyLabel + '</button>' +
-        '<button class="btn-act ext disabled" data-act="extend" disabled>Extend (use desktop)</button>' +
-        '<button class="btn-act tag disabled" data-act="tag" disabled>Tag (use desktop)</button>' +
-      '</div>' +
-      '<button class="btn" id="ups-m-sheet-foot-close">Close</button>';
+    var html = '';
+    if (opts.editingOtb) {
+      // Inline note editor — replaces the action grid until Save/Cancel.
+      var headerText = onBlock ? "Update Block note" : "Add to On the Block";
+      var initialNote = (typeof opts.noteDraft === "string") ? opts.noteDraft : existingNote;
+      html +=
+        '<div class="ups-m-otb-edit">' +
+          '<div class="ups-m-otb-edit-title">' + U.escapeHtml(headerText) + '</div>' +
+          '<textarea id="ups-m-otb-note" class="ups-m-otb-note" rows="3" maxlength="240" ' +
+            'placeholder="Optional note — what you want, condition, contender preference, etc.">' +
+            U.escapeHtml(initialNote) +
+          '</textarea>' +
+          '<div class="ups-m-otb-edit-actions">' +
+            (onBlock ? '<button class="btn-act drop" data-act="otb-remove">Remove from Block</button>' : '') +
+            '<button class="btn-act" data-act="otb-cancel">Cancel</button>' +
+            '<button class="btn-act otb on" data-act="otb-save">' + (onBlock ? "Update" : "Add to Block") + '</button>' +
+          '</div>' +
+        '</div>';
+    } else {
+      html +=
+        '<div class="ups-m-sheet-actions">' +
+          '<button class="btn-act otb' + (onBlock ? ' on' : '') + '" data-act="otb">' +
+            (onBlock ? '✓ On the Block' : 'Add to Block') +
+          '</button>' +
+          '<button class="btn-act drop" data-act="drop">Drop' + penaltyLabel + '</button>' +
+          '<button class="btn-act ext disabled" data-act="extend" disabled>Extend (use desktop)</button>' +
+          '<button class="btn-act tag disabled" data-act="tag" disabled>Tag (use desktop)</button>' +
+        '</div>';
+      if (onBlock && existingNote) {
+        html += '<div class="ups-m-otb-note-display"><span class="lbl">Note:</span> ' + U.escapeHtml(existingNote) + '</div>';
+      }
+    }
+    html += '<button class="btn" id="ups-m-sheet-foot-close">Close</button>';
+    return html;
   }
 
-  function wireFooterActions(pid, rosterRow, name) {
+  // Cached per-sheet state. Cleared each time `open` is called.
+  var footerState = { pid: null, name: "", rosterRow: null, editingOtb: false };
+
+  function rerenderFooter() {
+    var foot = document.getElementById("ups-m-sheet-foot");
+    if (!foot || !footerState.pid) return;
+    var ownsPlayer = isOwnRoster(footerState.pid);
+    foot.innerHTML = renderActionsFooter(footerState.pid, footerState.rosterRow, ownsPlayer, {
+      editingOtb: footerState.editingOtb
+    });
+    wireFooterActions();
+  }
+
+  function wireFooterActions() {
     var foot = document.getElementById("ups-m-sheet-foot");
     if (!foot) return;
     var close = document.getElementById("ups-m-sheet-foot-close");
     if (close) close.addEventListener("click", window.UPS_MOBILE.sheet.close);
     var otb = foot.querySelector('[data-act="otb"]');
     var drop = foot.querySelector('[data-act="drop"]');
-    if (otb) otb.addEventListener("click", function () { handleOTB(pid, name, otb); });
-    if (drop) drop.addEventListener("click", function () { handleDrop(pid, name, rosterRow, drop); });
+    var save = foot.querySelector('[data-act="otb-save"]');
+    var cancel = foot.querySelector('[data-act="otb-cancel"]');
+    var remove = foot.querySelector('[data-act="otb-remove"]');
+    if (otb) otb.addEventListener("click", function () {
+      footerState.editingOtb = true;
+      rerenderFooter();
+      var ta = document.getElementById("ups-m-otb-note");
+      if (ta) { ta.focus(); }
+    });
+    if (cancel) cancel.addEventListener("click", function () {
+      footerState.editingOtb = false;
+      rerenderFooter();
+    });
+    if (save) save.addEventListener("click", function () { handleOTBSave(save); });
+    if (remove) remove.addEventListener("click", function () { handleOTBRemove(remove); });
+    if (drop) drop.addEventListener("click", function () { handleDrop(footerState.pid, footerState.name, footerState.rosterRow, drop); });
   }
 
   function setBusy(btn, busy, busyText) {
@@ -212,24 +265,36 @@
     }
   }
 
-  function handleOTB(pid, name, btn) {
-    var on = btn.classList.contains("on");
-    var msg = on
-      ? "Remove " + name + " from On the Block?"
-      : "Add " + name + " to On the Block?\n\nThis updates MFL Trade Bait and posts to the War Room Discord.";
-    if (!window.confirm(msg)) return;
+  function handleOTBSave(btn) {
+    var ta = document.getElementById("ups-m-otb-note");
+    var note = ta ? String(ta.value || "").trim() : "";
     setBusy(btn, true, "Saving…");
-    ACT.submitOTBToggle(pid, name).then(function (res) {
+    ACT.submitOTBToggle(footerState.pid, footerState.name, { action: "add", note: note }).then(function (res) {
       return ACT.reloadData().then(function () {
         setBusy(btn, false);
-        window.UPS_MOBILE.ui.showToast(res.isOnBlock ? "Added to On the Block ✓" : "Removed from On the Block ✓", "ok");
-        // Re-render the sheet footer + the current route so badges refresh.
-        var rosterRow = (findRosterRowAcrossLeague(pid) || {}).row;
-        var footEl = document.getElementById("ups-m-sheet-foot");
-        if (footEl) {
-          footEl.innerHTML = renderActionsFooter(pid, rosterRow, isOwnRoster(pid));
-          wireFooterActions(pid, rosterRow, name);
-        }
+        footerState.editingOtb = false;
+        window.UPS_MOBILE.ui.showToast("Added to On the Block ✓", "ok");
+        // Refresh roster row reference (cy/salary unchanged but harmless).
+        footerState.rosterRow = (findRosterRowAcrossLeague(footerState.pid) || {}).row;
+        rerenderFooter();
+        window.UPS_MOBILE.route.renderRoute();
+      });
+    }).catch(function (err) {
+      setBusy(btn, false);
+      window.UPS_MOBILE.ui.showToast("Failed: " + (err && err.message || err), "err");
+    });
+  }
+
+  function handleOTBRemove(btn) {
+    if (!window.confirm("Remove " + footerState.name + " from On the Block?")) return;
+    setBusy(btn, true, "Removing…");
+    ACT.submitOTBToggle(footerState.pid, footerState.name, { action: "remove" }).then(function (res) {
+      return ACT.reloadData().then(function () {
+        setBusy(btn, false);
+        footerState.editingOtb = false;
+        window.UPS_MOBILE.ui.showToast("Removed from On the Block ✓", "ok");
+        footerState.rosterRow = (findRosterRowAcrossLeague(footerState.pid) || {}).row;
+        rerenderFooter();
         window.UPS_MOBILE.route.renderRoute();
       });
     }).catch(function (err) {
@@ -294,8 +359,12 @@
         '<div id="ups-m-sheet-stats"><div class="ups-m-sheet-loading">Loading…</div></div>' +
       '</div>';
 
+    footerState.pid = pid;
+    footerState.name = name || ("Player " + pid);
+    footerState.rosterRow = rosterRow;
+    footerState.editingOtb = false;
     foot.innerHTML = renderActionsFooter(pid, rosterRow, ownsPlayer);
-    wireFooterActions(pid, rosterRow, name || ("Player " + pid));
+    wireFooterActions();
 
     loadBundle(pid).then(function (bundle) {
       var slot = document.getElementById("ups-m-sheet-stats");

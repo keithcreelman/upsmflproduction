@@ -57,6 +57,7 @@
     salaryAdjustments: null,
     players: null,
     tradeBait: null,
+    tradeBaitNotes: null,     // { [pid]: "note text" } for viewer's franchise
     capAmount: 0,
     loaded: false,
     loadingPromise: null,
@@ -127,6 +128,31 @@
       .catch(function () { return null; });
   }
 
+  function fetchTradeBaitNotes(fid) {
+    if (!fid) return Promise.resolve(null);
+    return fetch(workerUrl("/api/trade-bait-notes?franchiseId=" + encodeURIComponent(fid)), { mode: "cors", credentials: "omit" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (resp) {
+        if (!resp) return {};
+        // Worker returns { ok, franchiseId, notes: [{ player_id, note }, ...] }
+        // OR { ok, notes: { [pid]: text } }. Normalize to a flat map.
+        if (resp.notes && Array.isArray(resp.notes)) {
+          var map = {};
+          resp.notes.forEach(function (row) {
+            if (row && row.player_id) map[String(row.player_id)] = safeStr(row.note);
+          });
+          return map;
+        }
+        if (resp.notes && typeof resp.notes === "object") {
+          var m = {};
+          Object.keys(resp.notes).forEach(function (k) { m[String(k)] = safeStr(resp.notes[k]); });
+          return m;
+        }
+        return {};
+      })
+      .catch(function () { return {}; });
+  }
+
   function loadAllData() {
     if (state.loadingPromise) return state.loadingPromise;
     var p = Promise.all([
@@ -146,8 +172,14 @@
       state.tradeBait = results[5];
       parseLeague();
       resolveViewerFranchise(results[6]);
-      state.loaded = true;
-      return state;
+      // Now that we know the viewer franchise, fetch their UPS-side trade
+      // bait notes (D1-backed). Keep state.loaded=true regardless so a
+      // notes-endpoint failure doesn't gate the rest of the app.
+      return fetchTradeBaitNotes(state.viewerFranchiseId).then(function (notes) {
+        state.tradeBaitNotes = notes || {};
+        state.loaded = true;
+        return state;
+      });
     });
     state.loadingPromise = p;
     return p;
@@ -287,6 +319,11 @@
     });
     return ids;
   }
+  function getMyTradeBaitNoteFor(pid) {
+    if (!state.tradeBaitNotes) return "";
+    return safeStr(state.tradeBaitNotes[String(pid)] || "");
+  }
+
   function getMyTradeBaitLookingFor() {
     var fid = state.viewerFranchiseId;
     if (!fid || !state.tradeBait) return "";
@@ -348,16 +385,28 @@
 
   // Toggle a player on/off the On-the-Block list.
   // /api/submit-trade-bait is a BULK OVERWRITE — we read the current list,
-  // flip the player, and re-submit. Preserves lookingFor + other players.
-  function submitOTBToggle(playerId, playerName) {
+  // flip the player, and re-submit. Preserves lookingFor + other players'
+  // notes. Accepts an optional per-player note when adding/updating.
+  //
+  // Args:
+  //   playerId — pid to toggle
+  //   playerName — display name (used in toast/Discord)
+  //   opts.action — "add" | "remove" | undefined (auto-toggle based on current state)
+  //   opts.note — string note to attach when adding/updating. Empty string = clear.
+  function submitOTBToggle(playerId, playerName, opts) {
+    opts = opts || {};
     var fid = state.viewerFranchiseId;
     if (!fid) return Promise.reject(new Error("No franchise"));
     if (state.busyActionKey) return Promise.reject(new Error("Another action is in progress"));
     state.busyActionKey = "otb:" + playerId;
+    var pid = String(playerId);
     var current = getMyTradeBaitIds();
-    var willBeOn = !current.has(String(playerId));
-    if (willBeOn) current.add(String(playerId));
-    else current.delete(String(playerId));
+    var willBeOn;
+    if (opts.action === "add") willBeOn = true;
+    else if (opts.action === "remove") willBeOn = false;
+    else willBeOn = !current.has(pid);
+    if (willBeOn) current.add(pid);
+    else current.delete(pid);
     var willGiveUp = [];
     current.forEach(function (id) { willGiveUp.push(id); });
     var playerNames = {};
@@ -365,6 +414,23 @@
       var p = playerById(id);
       playerNames[id] = safeStr(p && p.name) || id;
     });
+    // Preserve existing notes for OTHER players. Only mutate the toggled
+    // player's entry. If removing, drop the entry. If adding with no new
+    // note text supplied, retain any existing note for that pid.
+    var notes = {};
+    var existing = state.tradeBaitNotes || {};
+    Object.keys(existing).forEach(function (k) {
+      if (k !== pid && current.has(k)) notes[k] = existing[k];
+    });
+    if (willBeOn) {
+      if (typeof opts.note === "string") {
+        // Caller passed an explicit note (possibly empty string to clear).
+        if (opts.note) notes[pid] = opts.note;
+      } else if (existing[pid]) {
+        // No new note supplied — retain prior note if any.
+        notes[pid] = existing[pid];
+      }
+    }
     var franchiseName = state.viewerFranchise && state.viewerFranchise.name || "";
     var lookingFor = getMyTradeBaitLookingFor();
     return postJson(workerUrl("/api/submit-trade-bait"), {
@@ -372,11 +438,11 @@
       franchiseName: franchiseName,
       willGiveUp: willGiveUp,
       lookingFor: lookingFor,
-      notes: {},
+      notes: notes,
       playerNames: playerNames
     }).then(function (resp) {
       state.busyActionKey = "";
-      return { resp: resp, isOnBlock: willBeOn };
+      return { resp: resp, isOnBlock: willBeOn, note: notes[pid] || "" };
     }).catch(function (e) {
       state.busyActionKey = "";
       throw e;
@@ -660,7 +726,8 @@
       earnedToDate: earnedToDate,
       dropPenaltyFor: dropPenaltyFor,
       getMyTradeBaitIds: getMyTradeBaitIds,
-      getMyTradeBaitLookingFor: getMyTradeBaitLookingFor
+      getMyTradeBaitLookingFor: getMyTradeBaitLookingFor,
+      getMyTradeBaitNoteFor: getMyTradeBaitNoteFor
     },
     actions: {
       submitDrop: submitDrop,
