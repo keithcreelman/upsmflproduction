@@ -2248,9 +2248,22 @@
         var captains = byPct.slice(0, 4);
         var inProgress = (era.era_end >= currentYear);
         var eraTitle = inProgress ? era.era_start + "–" + era.era_end + " (in progress)" : era.era_start + "–" + era.era_end;
+        // Manual era-headline overrides — keyed by `era_start` year.
+        // Use when the algorithmic top-N-by-AP% headline misses what
+        // actually defined an era (e.g., part-time owners shouldn't
+        // share billing with the era's title-winning anchor).
+        //   2011: Blake won the inaugural title; Cutting + others were
+        //         part-time / minor — drop them. "The New Era" = league
+        //         birth (Keith 2026-05-15).
+        var ERA_HEADLINE_OVERRIDES = {
+          2011: "The Shawn Blake & the New Era"
+        };
+        var override = ERA_HEADLINE_OVERRIDES[Number(era.era_start)];
         var headlinerText;
         if (inProgress) {
           headlinerText = "Era in progress — headliners pending";
+        } else if (override) {
+          headlinerText = override;
         } else if (headliners.length === 1) {
           headlinerText = "The " + (headliners[0].owner_name || "?") + " Era";
         } else if (headliners.length === 2) {
