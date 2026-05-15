@@ -455,87 +455,25 @@
     return null;
   }
 
+  // Roster + cap math: delegate to the verbatim Front Office mirror so
+  // mobile shows identical numbers to desktop Team Operations.
+  // Source-of-truth: site/m/front_office_cap.js (verbatim from
+  // site/team_operations/team_operations.js). Never reimplement here.
   function getRosterFor(fid) {
-    if (!state.rosters || !state.rosters.rosters) return [];
-    var fr = asArray(state.rosters.rosters.franchise);
-    var f = fr.find(function (x) { return pad4(x.id) === pad4(fid); });
-    if (!f) return [];
-    return asArray(f.player).map(function (p) {
-      return {
-        id: String(p.id),
-        status: safeStr(p.status),
-        salary: Number(p.salary || 0),
-        contractYear: safeStr(p.contractYear),
-        contractStatus: safeStr(p.contractStatus),
-        contractInfo: safeStr(p.contractInfo)
-      };
-    });
+    if (!window.UPS_FRONT_OFFICE_CAP) return [];
+    return window.UPS_FRONT_OFFICE_CAP.getRosterRowsFor(state.rosters, fid);
   }
-
   function getAdjustmentTotalFor(fid) {
-    var f = pad4(fid);
-    if (!f) return 0;
-    var root = state.salaryAdjustments && state.salaryAdjustments.salaryAdjustments;
-    if (!root) return 0;
-    var rows = asArray(root.salaryAdjustment || root.adjustment);
-    var total = 0;
-    rows.forEach(function (row) {
-      if (!row) return;
-      var rowFid = pad4(row.franchise_id || row.franchise || row.id || "");
-      if (rowFid !== f) return;
-      total += Number(row.amount || 0);
-    });
-    return total;
+    if (!window.UPS_FRONT_OFFICE_CAP) return 0;
+    return window.UPS_FRONT_OFFICE_CAP.getAdjustmentTotalFor(state.salaryAdjustments, fid);
   }
-
-  // Cap math — mirrors team_operations.js:670-708 exactly.
-  // Returns { playerSalaryUsed, taxiSalary, irSalaryFull, expiredSalary,
-  //          adjustmentTotal, capTotal, capRoom, pct, capAmount,
-  //          rosterCount, activeCount, irCount, taxiCount }
   function computeCap(fid) {
-    var roster = getRosterFor(fid);
-    var playerSalaryUsed = 0, taxiSalary = 0, irSalaryFull = 0, expiredSalary = 0;
-    roster.forEach(function (r) {
-      var amt = Number(r.salary || 0);
-      var cy = parseInt(r.contractYear, 10);
-      if (cy === 0) {
-        expiredSalary += amt;
-      } else if (/taxi/i.test(r.status)) {
-        taxiSalary += amt;
-      } else if (/ir|injured/i.test(r.status)) {
-        irSalaryFull += amt;
-        playerSalaryUsed += Math.round(amt * 0.5);
-      } else {
-        playerSalaryUsed += amt;
-      }
-    });
-    var adjustmentTotal = getAdjustmentTotalFor(fid);
-    var cap = state.capAmount;
-    function roundToK(n) { return Math.round(Number(n || 0) / 1000) * 1000; }
-    var playerSalaryUsedR = roundToK(playerSalaryUsed);
-    var adjustmentTotalR = roundToK(adjustmentTotal);
-    var capTotalR = playerSalaryUsedR + adjustmentTotalR;
-    var capRoom = cap - capTotalR;
-    var pct = cap > 0 ? Math.min(100, Math.round((capTotalR / cap) * 100)) : 0;
-    var rosterCount = roster.length;
-    var irCount = roster.filter(function (p) { return /ir|injured/i.test(p.status); }).length;
-    var taxiCount = roster.filter(function (p) { return /taxi/i.test(p.status); }).length;
-    var activeCount = rosterCount - irCount - taxiCount;
-    return {
-      playerSalaryUsed: playerSalaryUsedR,
-      taxiSalary: taxiSalary,
-      irSalaryFull: irSalaryFull,
-      expiredSalary: expiredSalary,
-      adjustmentTotal: adjustmentTotalR,
-      capTotal: capTotalR,
-      capRoom: capRoom,
-      pct: pct,
-      capAmount: cap,
-      rosterCount: rosterCount,
-      activeCount: activeCount,
-      irCount: irCount,
-      taxiCount: taxiCount
-    };
+    if (!window.UPS_FRONT_OFFICE_CAP) {
+      return { capAmount: 0, playerSalaryUsed: 0, adjustmentTotal: 0, capTotal: 0,
+               capRoom: 0, pct: 0, taxiSalary: 0, irSalaryFull: 0, expiredSalary: 0,
+               rosterCount: 0, activeCount: 0, irCount: 0, taxiCount: 0 };
+    }
+    return window.UPS_FRONT_OFFICE_CAP.computeCapFor(state, fid);
   }
 
   // ---------- Router ----------

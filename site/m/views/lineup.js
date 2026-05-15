@@ -1,32 +1,24 @@
 /* My Team → Lineup view.
-   Mirrors site/team_operations/team_operations.js lineup builder
-   (LINEUP_GROUPS, lineupValidate, submitLineupDraft) — same eligibility,
-   same min/max, same 14-starter target, same POST shape.
-
-   UPS doesn't use Yahoo-style fixed slots (QB1/RB1/FLEX). It uses
-   min/max per position group adding to 14, so the UI is list-by-group
-   with tap-to-toggle checkboxes — same model as desktop. */
+   Lineup rules (LINEUP_GROUPS, eligibility, validate) come from the
+   verbatim mirror at site/m/front_office_lineup.js — same source-of-
+   truth that team_operations.js uses. Don't redefine groups here; if
+   the league adds/changes a position group, update the mirror file. */
 (function () {
   "use strict";
-  if (!window.UPS_MOBILE) return;
+  if (!window.UPS_MOBILE || !window.UPS_FRONT_OFFICE_LINEUP) return;
   var M = window.UPS_MOBILE;
   var U = M.util;
   var DATA = M.data;
   var API = M.api;
+  var FO_LINEUP = window.UPS_FRONT_OFFICE_LINEUP;
 
-  // Mirror team_operations.js:829 LINEUP_GROUPS exactly.
-  var LINEUP_GROUPS = [
-    { key: "QB", label: "QB",    min: 1, max: 1, positions: ["QB"] },
-    { key: "RB", label: "RB",    min: 1, max: 3, positions: ["RB"] },
-    { key: "WR", label: "WR",    min: 2, max: 4, positions: ["WR"] },
-    { key: "TE", label: "TE",    min: 1, max: 3, positions: ["TE"] },
-    { key: "PK", label: "PK",    min: 1, max: 1, positions: ["PK"] },
-    { key: "PN", label: "PN",    min: 1, max: 1, positions: ["PN"] },
-    { key: "DL", label: "DT/DE", min: 1, max: 3, positions: ["DT", "DE"] },
-    { key: "LB", label: "LB",    min: 1, max: 3, positions: ["LB"] },
-    { key: "DB", label: "CB/S",  min: 1, max: 3, positions: ["CB", "S"] }
-  ];
-  var TOTAL_STARTERS = 14;
+  // Visible-in-mobile lineup groups: drop the "Other" catch-all so the UI
+  // doesn't render an empty trailing section. The catch-all stays in the
+  // mirror so validation still counts mis-positioned players as ineligible.
+  var LINEUP_GROUPS = FO_LINEUP.LINEUP_GROUPS.filter(function (g) {
+    return g.positions && g.positions.length;
+  });
+  var TOTAL_STARTERS = FO_LINEUP.TOTAL_STARTERS;
 
   function nameFor(player) {
     var raw = U.safeStr(player && player.name);
@@ -39,13 +31,6 @@
     }
     return raw;
   }
-  function groupForPos(pos) {
-    var p = U.safeStr(pos).toUpperCase();
-    for (var i = 0; i < LINEUP_GROUPS.length; i += 1) {
-      if (LINEUP_GROUPS[i].positions.indexOf(p) !== -1) return LINEUP_GROUPS[i];
-    }
-    return null;
-  }
   function buildRows() {
     var fid = M.state.viewerFranchiseId;
     if (!fid) return [];
@@ -55,16 +40,20 @@
       var pos = U.safeStr(player && player.position).toUpperCase();
       var team = U.safeStr(player && player.team);
       var name = nameFor(player) || ("Player " + r.id);
-      var group = groupForPos(pos);
+      // Position → group via the verbatim Front Office mirror.
+      var group = FO_LINEUP.lineupGroupForPos(pos);
       var cy = parseInt(r.contractYear, 10);
       var isTaxi = /taxi/i.test(r.status || "");
       var isIr = /ir|injured/i.test(r.status || "");
       var isExpired = cy === 0;
-      return {
+      var row = {
         id: r.id, name: name, pos: pos, team: team, salary: r.salary,
-        group: group, isTaxi: isTaxi, isIr: isIr, isExpired: isExpired,
-        eligible: !!(group && !isTaxi && !isIr && !isExpired)
+        group: group, isTaxi: isTaxi, isIr: isIr, isExpired: isExpired
       };
+      // Eligibility goes through the verbatim mirror too — same predicate
+      // team_operations.js uses for the checkbox enable/disable state.
+      row.eligible = FO_LINEUP.lineupEligibleRow(row);
+      return row;
     });
   }
 
@@ -91,28 +80,8 @@
   function validate(rows, draft) {
     var rowsByPid = {};
     rows.forEach(function (r) { rowsByPid[r.id] = r; });
-    var byGroup = {};
-    LINEUP_GROUPS.forEach(function (g) {
-      byGroup[g.key] = { count: 0, min: g.min, max: g.max, label: g.label };
-    });
-    var total = 0, bad = 0;
-    draft.forEach(function (pid) {
-      var r = rowsByPid[pid];
-      if (!r || !r.eligible) { bad += 1; return; }
-      byGroup[r.group.key].count += 1;
-      total += 1;
-    });
-    var errors = [];
-    Object.keys(byGroup).forEach(function (k) {
-      var g = byGroup[k];
-      if (g.count < g.min) errors.push(g.label + " needs " + (g.min - g.count) + " more");
-      else if (g.count > g.max) errors.push(g.label + " over by " + (g.count - g.max));
-    });
-    if (bad) errors.push(bad + " ineligible (taxi/IR/expired) selected");
-    if (total !== TOTAL_STARTERS) errors.push(total < TOTAL_STARTERS
-      ? "Need " + (TOTAL_STARTERS - total) + " more starter(s)"
-      : (total - TOTAL_STARTERS) + " over " + TOTAL_STARTERS);
-    return { ok: errors.length === 0, total: total, byGroup: byGroup, errors: errors };
+    // Delegate to the verbatim Front Office mirror.
+    return FO_LINEUP.lineupValidate(draft, rowsByPid);
   }
 
   function subTabs(active) {
