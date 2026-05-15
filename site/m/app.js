@@ -7,6 +7,7 @@
   "use strict";
 
   // ---------- Constants ----------
+  var BUILD = "2026.05.15.phase-3-4";
   var WORKER_BASE_DEFAULT = "https://upsmflproduction.keith-creelman.workers.dev";
   var LEAGUE_ID_DEFAULT = "74598";
 
@@ -58,6 +59,7 @@
     players: null,
     tradeBait: null,
     tradeBaitNotes: null,     // { [pid]: "note text" } for viewer's franchise
+    playerScoresYtd: null,    // MFL playerScores W=YTD export
     capAmount: 0,
     loaded: false,
     loadingPromise: null,
@@ -162,6 +164,7 @@
       fetchJson(mflExportUrl("salaryAdjustments")),
       fetchJson(mflExportUrl("players", { DETAILS: 1 })),
       fetchJson(mflExportUrl("tradeBait")),
+      fetchJson(mflExportUrl("playerScores", { W: "YTD" })).catch(function () { return null; }),
       fetchMe()
     ]).then(function (results) {
       state.league = results[0];
@@ -170,8 +173,9 @@
       state.salaryAdjustments = results[3];
       state.players = results[4];
       state.tradeBait = results[5];
+      state.playerScoresYtd = results[6];
       parseLeague();
-      resolveViewerFranchise(results[6]);
+      resolveViewerFranchise(results[7]);
       // Now that we know the viewer franchise, fetch their UPS-side trade
       // bait notes (D1-backed). Keep state.loaded=true regardless so a
       // notes-endpoint failure doesn't gate the rest of the app.
@@ -190,6 +194,8 @@
   function reloadData() {
     state.loadingPromise = null;
     state.loaded = false;
+    state._rosteredCache = null;
+    state._ytdScoresCache = null;
     return loadAllData();
   }
 
@@ -243,58 +249,16 @@
     }
   }
 
-  // ---------- Contract helpers (ported from site/shared/player_profile_master.js:88-167) ----------
-  function parseContractMoney(s) {
-    if (s == null) return 0;
-    s = String(s).trim().replace(/[$,]/g, "");
-    var mult = 1;
-    if (/K$/i.test(s)) { mult = 1000; s = s.slice(0, -1); }
-    else if (/M$/i.test(s)) { mult = 1000000; s = s.slice(0, -1); }
-    var n = Number(s);
-    return isFinite(n) ? Math.round(n * mult) : 0;
-  }
-  function parseContractInfo(info) {
-    var s = String(info || "");
-    var out = { tcv: 0, length: 0, yearVals: {}, aav: 0, gtd: 0 };
-    if (!s) return out;
-    var m;
-    if ((m = s.match(/(?:^|\|)\s*TCV\s+([^|]+)/i))) out.tcv = parseContractMoney(m[1]);
-    if ((m = s.match(/(?:^|\|)\s*CL\s*:?\s*(\d+)/i))) out.length = parseInt(m[1], 10) || 0;
-    if ((m = s.match(/(?:^|\|)\s*AAV\s+([^|]+)/i))) out.aav = parseContractMoney(m[1]);
-    if ((m = s.match(/(?:^|\|)\s*GTD\s*:?\s*([^|]+)/i))) out.gtd = parseContractMoney(m[1]);
-    var yearRe = /(?:^|\|)\s*Y(\d+)\s*[=:]\s*([^|]+)/gi;
-    while ((m = yearRe.exec(s))) {
-      var idx = parseInt(m[1], 10);
-      if (idx > 0) out.yearVals[idx] = parseContractMoney(m[2]);
-    }
-    return out;
-  }
-  function earnedToDate(rosterRow, info) {
-    info = info || parseContractInfo(rosterRow && rosterRow.contractInfo);
-    var len = info.length || 0;
-    var cy = parseInt(rosterRow && rosterRow.contractYear, 10) || 0;
-    var played = Math.max(0, len - cy);
-    var earned = 0;
-    for (var i = 1; i <= played; i++) {
-      earned += info.yearVals[i] || 0;
-    }
-    return earned;
-  }
-  // Era-aware dead-cap if dropped today. (TCV × 75%) − Earned, 2019+. Returns
-  // null for pre-2019 (formula differs, see league_context_v1.md). Identical
-  // to player_profile_master.js:159 dropPenalty.
+  // Drop-penalty: delegate to the verbatim Front Office mirror so mobile
+  // shows the exact same number a UPS owner sees on the desktop Roster
+  // Workbench Front Office tab. Source-of-truth lives in
+  // site/m/front_office_penalty.js (verbatim from roster_workbench.js).
+  // Never reimplement the rules here — fix in the mirror file (and keep
+  // it in sync with desktop).
   function dropPenaltyFor(rosterRow, season) {
     if (!rosterRow) return null;
-    var cy = parseInt(rosterRow.contractYear, 10);
-    if (cy <= 0) return { amount: 0, note: "Expired contract — no penalty." };
-    if (/taxi/i.test(rosterRow.status || "")) return { amount: 0, note: "Taxi — no penalty." };
-    var info = parseContractInfo(rosterRow.contractInfo);
-    if (!info.tcv) return null;
-    var seasonNum = Number(season) || (new Date().getUTCFullYear());
-    if (seasonNum < 2019) return null;
-    var earned = earnedToDate(rosterRow, info);
-    var amount = Math.max(0, Math.round(info.tcv * 0.75) - earned);
-    return { amount: amount, note: amount === 0 ? "No dead-cap penalty." : "" };
+    if (!window.UPS_FRONT_OFFICE || !window.UPS_FRONT_OFFICE.dropPenaltyFor) return null;
+    return window.UPS_FRONT_OFFICE.dropPenaltyFor(rosterRow, season);
   }
 
   // ---------- Trade Bait helpers ----------
@@ -319,6 +283,38 @@
     });
     return ids;
   }
+  // Build a Set of all pids on ANY franchise's roster (used to identify FAs).
+  // Cached on state to avoid re-scanning roster export on every render.
+  function getAllRosteredPids() {
+    if (state._rosteredCache) return state._rosteredCache;
+    var ids = new Set();
+    if (state.rosters && state.rosters.rosters) {
+      var fr = asArray(state.rosters.rosters.franchise);
+      fr.forEach(function (f) {
+        asArray(f.player).forEach(function (p) {
+          if (p && p.id) ids.add(String(p.id));
+        });
+      });
+    }
+    state._rosteredCache = ids;
+    return ids;
+  }
+
+  // Build a map of pid → YTD score (number).
+  function getYtdScoresMap() {
+    if (state._ytdScoresCache) return state._ytdScoresCache;
+    var map = {};
+    if (state.playerScoresYtd && state.playerScoresYtd.playerScores) {
+      asArray(state.playerScoresYtd.playerScores.playerScore).forEach(function (ps) {
+        if (!ps || !ps.id) return;
+        var n = Number(ps.score);
+        map[String(ps.id)] = isFinite(n) ? n : 0;
+      });
+    }
+    state._ytdScoresCache = map;
+    return map;
+  }
+
   function getMyTradeBaitNoteFor(pid) {
     if (!state.tradeBaitNotes) return "";
     return safeStr(state.tradeBaitNotes[String(pid)] || "");
@@ -459,87 +455,25 @@
     return null;
   }
 
+  // Roster + cap math: delegate to the verbatim Front Office mirror so
+  // mobile shows identical numbers to desktop Team Operations.
+  // Source-of-truth: site/m/front_office_cap.js (verbatim from
+  // site/team_operations/team_operations.js). Never reimplement here.
   function getRosterFor(fid) {
-    if (!state.rosters || !state.rosters.rosters) return [];
-    var fr = asArray(state.rosters.rosters.franchise);
-    var f = fr.find(function (x) { return pad4(x.id) === pad4(fid); });
-    if (!f) return [];
-    return asArray(f.player).map(function (p) {
-      return {
-        id: String(p.id),
-        status: safeStr(p.status),
-        salary: Number(p.salary || 0),
-        contractYear: safeStr(p.contractYear),
-        contractStatus: safeStr(p.contractStatus),
-        contractInfo: safeStr(p.contractInfo)
-      };
-    });
+    if (!window.UPS_FRONT_OFFICE_CAP) return [];
+    return window.UPS_FRONT_OFFICE_CAP.getRosterRowsFor(state.rosters, fid);
   }
-
   function getAdjustmentTotalFor(fid) {
-    var f = pad4(fid);
-    if (!f) return 0;
-    var root = state.salaryAdjustments && state.salaryAdjustments.salaryAdjustments;
-    if (!root) return 0;
-    var rows = asArray(root.salaryAdjustment || root.adjustment);
-    var total = 0;
-    rows.forEach(function (row) {
-      if (!row) return;
-      var rowFid = pad4(row.franchise_id || row.franchise || row.id || "");
-      if (rowFid !== f) return;
-      total += Number(row.amount || 0);
-    });
-    return total;
+    if (!window.UPS_FRONT_OFFICE_CAP) return 0;
+    return window.UPS_FRONT_OFFICE_CAP.getAdjustmentTotalFor(state.salaryAdjustments, fid);
   }
-
-  // Cap math — mirrors team_operations.js:670-708 exactly.
-  // Returns { playerSalaryUsed, taxiSalary, irSalaryFull, expiredSalary,
-  //          adjustmentTotal, capTotal, capRoom, pct, capAmount,
-  //          rosterCount, activeCount, irCount, taxiCount }
   function computeCap(fid) {
-    var roster = getRosterFor(fid);
-    var playerSalaryUsed = 0, taxiSalary = 0, irSalaryFull = 0, expiredSalary = 0;
-    roster.forEach(function (r) {
-      var amt = Number(r.salary || 0);
-      var cy = parseInt(r.contractYear, 10);
-      if (cy === 0) {
-        expiredSalary += amt;
-      } else if (/taxi/i.test(r.status)) {
-        taxiSalary += amt;
-      } else if (/ir|injured/i.test(r.status)) {
-        irSalaryFull += amt;
-        playerSalaryUsed += Math.round(amt * 0.5);
-      } else {
-        playerSalaryUsed += amt;
-      }
-    });
-    var adjustmentTotal = getAdjustmentTotalFor(fid);
-    var cap = state.capAmount;
-    function roundToK(n) { return Math.round(Number(n || 0) / 1000) * 1000; }
-    var playerSalaryUsedR = roundToK(playerSalaryUsed);
-    var adjustmentTotalR = roundToK(adjustmentTotal);
-    var capTotalR = playerSalaryUsedR + adjustmentTotalR;
-    var capRoom = cap - capTotalR;
-    var pct = cap > 0 ? Math.min(100, Math.round((capTotalR / cap) * 100)) : 0;
-    var rosterCount = roster.length;
-    var irCount = roster.filter(function (p) { return /ir|injured/i.test(p.status); }).length;
-    var taxiCount = roster.filter(function (p) { return /taxi/i.test(p.status); }).length;
-    var activeCount = rosterCount - irCount - taxiCount;
-    return {
-      playerSalaryUsed: playerSalaryUsedR,
-      taxiSalary: taxiSalary,
-      irSalaryFull: irSalaryFull,
-      expiredSalary: expiredSalary,
-      adjustmentTotal: adjustmentTotalR,
-      capTotal: capTotalR,
-      capRoom: capRoom,
-      pct: pct,
-      capAmount: cap,
-      rosterCount: rosterCount,
-      activeCount: activeCount,
-      irCount: irCount,
-      taxiCount: taxiCount
-    };
+    if (!window.UPS_FRONT_OFFICE_CAP) {
+      return { capAmount: 0, playerSalaryUsed: 0, adjustmentTotal: 0, capTotal: 0,
+               capRoom: 0, pct: 0, taxiSalary: 0, irSalaryFull: 0, expiredSalary: 0,
+               rosterCount: 0, activeCount: 0, irCount: 0, taxiCount: 0 };
+    }
+    return window.UPS_FRONT_OFFICE_CAP.computeCapFor(state, fid);
   }
 
   // ---------- Router ----------
@@ -675,7 +609,20 @@
   }
   registerView("players", stubView("Players", "Free-agent browser ships in Phase 3."));
   registerView("league", stubView("League", "Rosters, standings, and On the Block ship in Phase 4."));
-  registerView("more", function (mount) {
+  registerView("more", function (mount, subParts) {
+    var sub = (subParts && subParts[0]) || "";
+    if (sub === "rules") {
+      var header = '<div class="ups-m-card" style="margin-bottom:0">' +
+        '<a href="#more" style="color:var(--accent);text-decoration:none;font-size:13px">← Back to More</a>' +
+      '</div>';
+      mount.innerHTML = header;
+      if (window.UPS_MOBILE.rulesView && window.UPS_MOBILE.rulesView.render) {
+        var slot = document.createElement("div");
+        mount.appendChild(slot);
+        window.UPS_MOBILE.rulesView.render(slot);
+      }
+      return;
+    }
     var accountLine = state.viewerFranchise
       ? escapeHtml(state.viewerFranchise.name) + (state.viewerFranchise.owner ? ' · ' + escapeHtml(state.viewerFranchise.owner) : '')
       : "No team selected";
@@ -685,8 +632,9 @@
         '<div style="font-size:14px;margin-bottom:10px">' + accountLine + '</div>' +
         '<button class="ups-m-pick-row" id="ups-m-switch-team" style="width:100%;justify-content:center"><span class="name">Switch team</span></button>' +
       '</div>' +
+      '<a class="ups-m-desktop-link" href="#more/rules">📖 Rules</a>' +
       '<a class="ups-m-desktop-link" href="https://www48.myfantasyleague.com/' + escapeHtml(state.ctx.year) + '/home/' + escapeHtml(state.ctx.leagueId) + '">Switch to Pro Site</a>' +
-      '<div class="ups-m-stub"><div>UPS Mobile · Phase 1</div><div style="font-size:11px;margin-top:6px">League ' + escapeHtml(state.ctx.leagueId) + ' · ' + escapeHtml(state.ctx.year) + '</div></div>';
+      '<div class="ups-m-stub"><div>UPS Mobile · ' + escapeHtml(BUILD) + '</div><div style="font-size:11px;margin-top:6px">League ' + escapeHtml(state.ctx.leagueId) + ' · ' + escapeHtml(state.ctx.year) + '</div></div>';
     var btn = document.getElementById("ups-m-switch-team");
     if (btn) btn.addEventListener("click", switchTeam);
   });
@@ -722,12 +670,16 @@
       getRosterFor: getRosterFor,
       getAdjustmentTotalFor: getAdjustmentTotalFor,
       computeCap: computeCap,
-      parseContractInfo: parseContractInfo,
-      earnedToDate: earnedToDate,
+      // Drop-penalty + contract math: delegated entirely to
+      // window.UPS_FRONT_OFFICE (site/m/front_office_penalty.js).
+      // Callers that need contract math should use UPS_FRONT_OFFICE.* directly
+      // so we don't fork copies of the formulas across the mobile codebase.
       dropPenaltyFor: dropPenaltyFor,
       getMyTradeBaitIds: getMyTradeBaitIds,
       getMyTradeBaitLookingFor: getMyTradeBaitLookingFor,
-      getMyTradeBaitNoteFor: getMyTradeBaitNoteFor
+      getMyTradeBaitNoteFor: getMyTradeBaitNoteFor,
+      getAllRosteredPids: getAllRosteredPids,
+      getYtdScoresMap: getYtdScoresMap
     },
     actions: {
       submitDrop: submitDrop,

@@ -199,6 +199,10 @@
   color: var(--teal);
 }
 .btn-act.drop { border-color: rgba(255, 107, 107, 0.45); color: var(--danger); }
+.btn-act.ext { border-color: rgba(91, 141, 255, 0.45); color: var(--accent); }
+.btn-act.ropt { border-color: rgba(255, 184, 107, 0.45); color: var(--warn); }
+.btn-act.rstr { border-color: rgba(139, 229, 139, 0.45); color: var(--ok); }
+.btn-act.tag { border-color: rgba(206, 147, 216, 0.45); color: #ce93d8; }
 .btn-act .pn {
   display: block;
   font-size: 10px;
