@@ -1,11 +1,41 @@
 {
   "meta": {
-    "generated_at": "2026-05-15 15:08:37",
+    "generated_at": "2026-05-15 16:57:53",
     "source": "contract-activity-log",
-    "count": 3,
+    "count": 4,
     "season": 2026
   },
   "activities": [
+    {
+      "activity_id": "3adac4236450f42cd1f7f75e",
+      "submission_id": "3adac4236450f42cd1f7f75e",
+      "activity_scope": "contract_mutation",
+      "activity_type": "Extension",
+      "season": "2026",
+      "league_id": "74598",
+      "franchise_id": "0010",
+      "franchise_name": "Blake Bombers",
+      "player_id": "16211",
+      "player_name": "Puka Nacua",
+      "position": "WR",
+      "salary": 22000,
+      "contract_year": 1,
+      "contract_status": "EXT2",
+      "contract_info": "CL 2|TCV 44K|AAV 22K|Y1-22K, Y2-22K|Ext: Bomb|GTD: 33K",
+      "tcv": 44000,
+      "aav": 22000,
+      "guaranteed": 33000,
+      "submitted_at_utc": "2026-05-15T16:57:38.660Z",
+      "source": "worker-contract-activity",
+      "test_flag": 0,
+      "commish_override_flag": 0,
+      "override_as_of_date": "",
+      "delivery_target": "test",
+      "discord_channel_id": "1089538054236160010",
+      "discord_message_id": "1504890527147884814",
+      "discord_pinned_flag": 0,
+      "notes": ""
+    },
     {
       "activity_id": "08638a9b1629d478805a8999",
       "submission_id": "08638a9b1629d478805a8999",
