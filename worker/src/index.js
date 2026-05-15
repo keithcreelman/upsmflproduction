@@ -2391,6 +2391,98 @@ export default {
         return jsonOut(200, det);
       }
 
+      // ── POST /api/submit-lineup — submit a starting lineup to MFL ──
+      // Phase 2 of the Team Ops roster + lineup card (Keith 2026-05-15).
+      // Caller's franchise is detected from the MFL_USER_ID cookie (same
+      // pattern as /api/me); only the matching owner can submit their own
+      // lineup (commish bypass intentionally omitted — commish overrides
+      // belong on a separate admin endpoint). Worker uses env.MFL_APIKEY
+      // to POST to MFL's import?TYPE=lineup form, which is how MFL itself
+      // routes Submit Lineup form posts.
+      //
+      // Body: { franchiseId, week, starters: [pid, ...] }
+      //   - week is optional; defaults to MFL's current scoring week.
+      //   - starters is the EXACT list of 14 starting player IDs.
+      //
+      // MFL response is forwarded through. On success: { ok:true,
+      // franchise_id, week, starters, mfl_response }. On failure:
+      // jsonOut(<status>, { ok:false, error, mfl_response? }).
+      if (path === "/api/submit-lineup" && request.method === "POST") {
+        try {
+          const leagueId = _rdhLeagueId();
+          const year = _rdhYear();
+          let body = {};
+          try { body = await request.json(); } catch (_) {}
+          const fidReq = _rdhPadFid(safeStr(body.franchiseId || body.franchise_id || ""));
+          const week = safeStr(body.week || "");  // empty → MFL default (current scoring week)
+          const starters = Array.isArray(body.starters)
+            ? body.starters.map((s) => String(s).trim()).filter(Boolean)
+            : [];
+          if (!fidReq) return jsonOut(400, { ok: false, error: "franchiseId required" });
+          if (!starters.length) return jsonOut(400, { ok: false, error: "starters[] required" });
+          // Caller-franchise identity check via MFL_USER_ID cookie.
+          const cookieHeader = request.headers.get("Cookie") || "";
+          const cookieMatch = cookieHeader.match(/MFL_USER_ID=([^;]+)/i);
+          const mflUserId = (cookieMatch && cookieMatch[1]) || browserMflUserId || "";
+          if (!mflUserId) {
+            return jsonOut(401, { ok: false, error: "MFL_USER_ID cookie required (sign in to MFL first)" });
+          }
+          const det = await _rdhDetectFranchise(mflUserId);
+          if (det && det.error) return jsonOut(401, { ok: false, error: det.error });
+          if (!det || _rdhPadFid(det.franchise_id) !== fidReq) {
+            return jsonOut(403, {
+              ok: false,
+              error: "Cookie belongs to franchise " + (det && det.franchise_id || "?") +
+                ", cannot submit lineup for " + fidReq,
+            });
+          }
+          const apiKey = safeStr(env.MFL_APIKEY || "");
+          if (!apiKey) return jsonOut(500, { ok: false, error: "MFL_APIKEY missing in worker env" });
+          const importUrl = `https://www48.myfantasyleague.com/${encodeURIComponent(year)}/import?TYPE=lineup&L=${encodeURIComponent(leagueId)}&APIKEY=${encodeURIComponent(apiKey)}&JSON=1`;
+          const form = new URLSearchParams();
+          form.set("L", String(leagueId));
+          form.set("FRANCHISE_ID", fidReq);
+          form.set("STARTERS", starters.join(","));
+          if (week) form.set("W", String(week));
+          let mflResp = "";
+          let mflStatus = 0;
+          try {
+            const r = await fetch(importUrl, {
+              method: "POST",
+              headers: { "Content-Type": "application/x-www-form-urlencoded", "User-Agent": "upsmflproduction-worker" },
+              body: form.toString(),
+            });
+            mflStatus = r.status;
+            mflResp = await r.text();
+          } catch (e) {
+            return jsonOut(502, { ok: false, error: `MFL fetch failed: ${e?.message || String(e)}` });
+          }
+          // MFL returns 200 even for some validation errors — sniff the body.
+          const mflOk = mflStatus >= 200 && mflStatus < 300 && !/error/i.test(mflResp);
+          let parsed = null;
+          try { parsed = JSON.parse(mflResp); } catch (_) { /* keep raw text */ }
+          if (!mflOk) {
+            const errMsg = (parsed && (parsed.error?.$t || parsed.error)) || mflResp.slice(0, 400);
+            return jsonOut(mflStatus || 502, {
+              ok: false,
+              error: String(errMsg || "MFL rejected lineup"),
+              mfl_status: mflStatus,
+              mfl_response: parsed || mflResp,
+            });
+          }
+          return jsonOut(200, {
+            ok: true,
+            franchise_id: fidReq,
+            week: week || null,
+            starters,
+            mfl_status: mflStatus,
+            mfl_response: parsed || mflResp,
+          });
+        } catch (e) {
+          return jsonOut(500, { ok: false, error: String(e && e.message || e) });
+        }
+      }
+
       // ── GET /api/players-search — name substring search across MFL players ──
       if (path === "/api/players-search" && request.method === "GET") {
         const q = safeStr(url.searchParams.get("q") || "").toLowerCase();
