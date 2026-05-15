@@ -7,6 +7,7 @@
   "use strict";
 
   // ---------- Constants ----------
+  var BUILD = "2026.05.15.phase-3-4";
   var WORKER_BASE_DEFAULT = "https://upsmflproduction.keith-creelman.workers.dev";
   var LEAGUE_ID_DEFAULT = "74598";
 
@@ -58,6 +59,7 @@
     players: null,
     tradeBait: null,
     tradeBaitNotes: null,     // { [pid]: "note text" } for viewer's franchise
+    playerScoresYtd: null,    // MFL playerScores W=YTD export
     capAmount: 0,
     loaded: false,
     loadingPromise: null,
@@ -162,6 +164,7 @@
       fetchJson(mflExportUrl("salaryAdjustments")),
       fetchJson(mflExportUrl("players", { DETAILS: 1 })),
       fetchJson(mflExportUrl("tradeBait")),
+      fetchJson(mflExportUrl("playerScores", { W: "YTD" })).catch(function () { return null; }),
       fetchMe()
     ]).then(function (results) {
       state.league = results[0];
@@ -170,8 +173,9 @@
       state.salaryAdjustments = results[3];
       state.players = results[4];
       state.tradeBait = results[5];
+      state.playerScoresYtd = results[6];
       parseLeague();
-      resolveViewerFranchise(results[6]);
+      resolveViewerFranchise(results[7]);
       // Now that we know the viewer franchise, fetch their UPS-side trade
       // bait notes (D1-backed). Keep state.loaded=true regardless so a
       // notes-endpoint failure doesn't gate the rest of the app.
@@ -190,6 +194,8 @@
   function reloadData() {
     state.loadingPromise = null;
     state.loaded = false;
+    state._rosteredCache = null;
+    state._ytdScoresCache = null;
     return loadAllData();
   }
 
@@ -446,6 +452,38 @@
     });
     return ids;
   }
+  // Build a Set of all pids on ANY franchise's roster (used to identify FAs).
+  // Cached on state to avoid re-scanning roster export on every render.
+  function getAllRosteredPids() {
+    if (state._rosteredCache) return state._rosteredCache;
+    var ids = new Set();
+    if (state.rosters && state.rosters.rosters) {
+      var fr = asArray(state.rosters.rosters.franchise);
+      fr.forEach(function (f) {
+        asArray(f.player).forEach(function (p) {
+          if (p && p.id) ids.add(String(p.id));
+        });
+      });
+    }
+    state._rosteredCache = ids;
+    return ids;
+  }
+
+  // Build a map of pid → YTD score (number).
+  function getYtdScoresMap() {
+    if (state._ytdScoresCache) return state._ytdScoresCache;
+    var map = {};
+    if (state.playerScoresYtd && state.playerScoresYtd.playerScores) {
+      asArray(state.playerScoresYtd.playerScores.playerScore).forEach(function (ps) {
+        if (!ps || !ps.id) return;
+        var n = Number(ps.score);
+        map[String(ps.id)] = isFinite(n) ? n : 0;
+      });
+    }
+    state._ytdScoresCache = map;
+    return map;
+  }
+
   function getMyTradeBaitNoteFor(pid) {
     if (!state.tradeBaitNotes) return "";
     return safeStr(state.tradeBaitNotes[String(pid)] || "");
@@ -802,7 +840,20 @@
   }
   registerView("players", stubView("Players", "Free-agent browser ships in Phase 3."));
   registerView("league", stubView("League", "Rosters, standings, and On the Block ship in Phase 4."));
-  registerView("more", function (mount) {
+  registerView("more", function (mount, subParts) {
+    var sub = (subParts && subParts[0]) || "";
+    if (sub === "rules") {
+      var header = '<div class="ups-m-card" style="margin-bottom:0">' +
+        '<a href="#more" style="color:var(--accent);text-decoration:none;font-size:13px">← Back to More</a>' +
+      '</div>';
+      mount.innerHTML = header;
+      if (window.UPS_MOBILE.rulesView && window.UPS_MOBILE.rulesView.render) {
+        var slot = document.createElement("div");
+        mount.appendChild(slot);
+        window.UPS_MOBILE.rulesView.render(slot);
+      }
+      return;
+    }
     var accountLine = state.viewerFranchise
       ? escapeHtml(state.viewerFranchise.name) + (state.viewerFranchise.owner ? ' · ' + escapeHtml(state.viewerFranchise.owner) : '')
       : "No team selected";
@@ -812,8 +863,9 @@
         '<div style="font-size:14px;margin-bottom:10px">' + accountLine + '</div>' +
         '<button class="ups-m-pick-row" id="ups-m-switch-team" style="width:100%;justify-content:center"><span class="name">Switch team</span></button>' +
       '</div>' +
+      '<a class="ups-m-desktop-link" href="#more/rules">📖 Rules</a>' +
       '<a class="ups-m-desktop-link" href="https://www48.myfantasyleague.com/' + escapeHtml(state.ctx.year) + '/home/' + escapeHtml(state.ctx.leagueId) + '">Switch to Pro Site</a>' +
-      '<div class="ups-m-stub"><div>UPS Mobile · Phase 1</div><div style="font-size:11px;margin-top:6px">League ' + escapeHtml(state.ctx.leagueId) + ' · ' + escapeHtml(state.ctx.year) + '</div></div>';
+      '<div class="ups-m-stub"><div>UPS Mobile · ' + escapeHtml(BUILD) + '</div><div style="font-size:11px;margin-top:6px">League ' + escapeHtml(state.ctx.leagueId) + ' · ' + escapeHtml(state.ctx.year) + '</div></div>';
     var btn = document.getElementById("ups-m-switch-team");
     if (btn) btn.addEventListener("click", switchTeam);
   });
@@ -856,7 +908,9 @@
       dropPenaltyFor: dropPenaltyFor,
       getMyTradeBaitIds: getMyTradeBaitIds,
       getMyTradeBaitLookingFor: getMyTradeBaitLookingFor,
-      getMyTradeBaitNoteFor: getMyTradeBaitNoteFor
+      getMyTradeBaitNoteFor: getMyTradeBaitNoteFor,
+      getAllRosteredPids: getAllRosteredPids,
+      getYtdScoresMap: getYtdScoresMap
     },
     actions: {
       submitDrop: submitDrop,
