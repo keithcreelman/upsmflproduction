@@ -2361,8 +2361,12 @@ export default {
         const leagueId = _rdhLeagueId();
         const year = _rdhYear();
         try {
+          // MFL routes export endpoints exclusively through api.myfantasyleague.com.
+          // Hitting www48.myfantasyleague.com returns:
+          //   { "error": { "$t": "Invalid request. This API request must go to api.myfantasyleague.com" } }
+          // (Keith 2026-05-15 — direct curl probe confirmed.)
           const r = await fetch(
-            `https://www48.myfantasyleague.com/${encodeURIComponent(year)}/export?TYPE=myleagues&L=${encodeURIComponent(leagueId)}&JSON=1`,
+            `https://api.myfantasyleague.com/${encodeURIComponent(year)}/export?TYPE=myleagues&L=${encodeURIComponent(leagueId)}&JSON=1`,
             { headers: { Cookie: `MFL_USER_ID=${_rdhMflCookieValue(mflUserId)}`, "User-Agent": "upsmflproduction-worker" } }
           );
           if (!r.ok) return { error: `HTTP ${r.status}` };
@@ -2484,12 +2488,13 @@ export default {
                 ", cannot submit lineup for " + fidReq,
             });
           }
-          const apiKey = safeStr(env.MFL_APIKEY || "");
-          if (!apiKey) return jsonOut(500, { ok: false, error: "MFL_APIKEY missing in worker env" });
-          const importUrl = `https://www48.myfantasyleague.com/${encodeURIComponent(year)}/import?TYPE=lineup&L=${encodeURIComponent(leagueId)}&APIKEY=${encodeURIComponent(apiKey)}&JSON=1`;
+          // MFL import?TYPE=lineup — owner cookie auth (per tradeBait pattern
+          // applied 2026-05-15). Use api. subdomain (www48 returns "Invalid
+          // request — must go to api.myfantasyleague.com" for imports too).
+          // Owner-scoped: MFL infers FRANCHISE_ID from the session cookie.
+          const importUrl = `https://api.myfantasyleague.com/${encodeURIComponent(year)}/import?TYPE=lineup&L=${encodeURIComponent(leagueId)}&JSON=1`;
           const form = new URLSearchParams();
           form.set("L", String(leagueId));
-          form.set("FRANCHISE_ID", fidReq);
           form.set("STARTERS", starters.join(","));
           if (week) form.set("W", String(week));
           let mflResp = "";
@@ -2497,7 +2502,11 @@ export default {
           try {
             const r = await fetch(importUrl, {
               method: "POST",
-              headers: { "Content-Type": "application/x-www-form-urlencoded", "User-Agent": "upsmflproduction-worker" },
+              headers: {
+                "Content-Type": "application/x-www-form-urlencoded",
+                "User-Agent": "upsmflproduction-worker",
+                "Cookie": `MFL_USER_ID=${_rdhMflCookieValue(mflUserId)}`,
+              },
               body: form.toString(),
             });
             mflStatus = r.status;
@@ -2590,7 +2599,9 @@ export default {
           // operates ON the owner's own bait, identified by session.
           // (Earlier attempts WITH APIKEY in URL — even with cookie also
           // forwarded — returned HTTP 400 empty-body. Dropping APIKEY.)
-          const importUrl = `https://www48.myfantasyleague.com/${encodeURIComponent(year)}/import?TYPE=tradeBait&L=${encodeURIComponent(leagueId)}&JSON=1`;
+          // MFL import endpoints also route through api.myfantasyleague.com
+          // per the login docs ("the login API at: https://api.myfantasyleague.com…").
+          const importUrl = `https://api.myfantasyleague.com/${encodeURIComponent(year)}/import?TYPE=tradeBait&L=${encodeURIComponent(leagueId)}&JSON=1`;
           const form = new URLSearchParams();
           form.set("L", String(leagueId));
           form.set("WILL_GIVE_UP", willGiveUp.join(","));
