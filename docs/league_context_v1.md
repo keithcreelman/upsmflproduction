@@ -306,6 +306,13 @@ These are transactions you can do TO a player who's already on your roster. Defi
   - **In-season trade-acquired final-year player:** extend within 4 weeks of acquisition.
 - **Length:** 1 or 2 years.
 - **`contract_type`:** **Ext1** for 1-year extension, **Ext2** for 2-year extension. (Case-insensitive.)
+- **FL / BL loading on extensions (Keith 2026-05-15):**
+  - **1-year extension (`Ext1`): FL/BL NOT allowed.** One year of extension → no salary curve possible. The MFL `contractStatus` stays `EXT1` with no `-FL` / `-BL` suffix.
+  - **2-year extension (`Ext2`): FL or BL allowed.** Status becomes `EXT2-FL` (Y1 > Y2) or `EXT2-BL` (Y1 < Y2). Flat distribution (Y1 = Y2) stays plain `EXT2` with no suffix.
+  - Same TCV-preservation + 20%-of-TCV-minimum-Y1 rules as the C2 MYAC loading rules apply.
+  - **Counts toward the 5-loaded-contracts roster cap** (combined with MYAC FL/BL deals + restructure FL/BL deals).
+  - **Worked example (LaPorta 2026-05-15):** 2-year extension at $50K TCV / $25K AAV. Owner chose Y1-$10K / Y2-$40K (back-loaded; Y2 > Y1). Status posts as `EXT2-BL`. If they'd flipped to Y1-$40K / Y2-$10K it would be `EXT2-FL`. Flat $25K/$25K stays plain `EXT2`.
+  - The extension submitter should **auto-derive** the `-FL` / `-BL` suffix from the per-year salary array — owners don't set it manually.
 - **AAV escalator** (applied to the extension years only, not the current year):
   - **Schedule 1 (QB / RB / WR / TE):** +$10K (1yr) / +$20K (2yr)
   - **Schedule 2 (DL / LB / DB / K / P):** +$3K (1yr) / +$5K (2yr)
