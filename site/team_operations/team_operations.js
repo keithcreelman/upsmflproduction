@@ -1000,7 +1000,7 @@
     var fid = pad4(state.viewerFranchiseId || (state.ctx && state.ctx.franchiseId));
     if (!fid) return;
     var willGiveUp = state.tradeBaitDraft ? Array.from(state.tradeBaitDraft) : [];
-    var lookingFor = String(state.tradeBaitLookingFor || "").trim();
+    var lookingForText = String(state.tradeBaitLookingFor || "").trim();
     // Only send notes for currently-checked players. Unchecking a player
     // prunes their note via the worker's delete-then-insert pattern.
     var notesPayload = {};
@@ -1011,6 +1011,28 @@
         }
       });
     }
+    // Concatenate "What I'm looking for" + per-player notes into the
+    // single comment MFL's tradeBait stores (the IN_EXCHANGE_FOR field).
+    // Format: "<looking-for> · <Player>: <note> · <Player>: <note> · …".
+    // MFL caps at 256 chars; truncate with an ellipsis. Per-player notes
+    // ALSO stay in D1 as structured rows for the Trade War Room UI.
+    var roster = getMyRoster();
+    var nameById = {};
+    roster.forEach(function (r) {
+      var p = playerById(r.id) || {};
+      nameById[String(r.id)] = safeStr(p.name) || String(r.id);
+    });
+    var pieces = [];
+    if (lookingForText) pieces.push(lookingForText);
+    Object.keys(notesPayload).forEach(function (pid) {
+      var note = String(notesPayload[pid] || "").trim();
+      if (!note) return;
+      var nm = nameById[String(pid)] || ("Player " + pid);
+      pieces.push(nm + ": " + note);
+    });
+    var lookingFor = pieces.join(" · ");
+    if (lookingFor.length > 256) lookingFor = lookingFor.slice(0, 253) + "…";
+
     state.tradeBaitSubmitting = true;
     state.tradeBaitMessage = { kind: "info", text: "Submitting trade bait to MFL…" };
     renderRoster();
@@ -1255,7 +1277,7 @@
     if (mode === "tradeBait") {
       modeHudHtml = '<div class="tops-lineup-hud">' + baitHud + '</div>';
       modeSaveBtn = baitSaveBtn;
-      modeHint = 'mark players available · drop a "looking for" note · save anytime';
+      modeHint = 'mark players available · per-player notes get published with your "looking for" line · save anytime';
     } else {
       modeHudHtml = '<div class="tops-lineup-hud ' + hudStatusClass + '">' + hudMessage + '</div>';
       modeSaveBtn = lineupSaveBtn;
