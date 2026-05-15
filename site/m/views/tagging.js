@@ -84,7 +84,14 @@
 
   function renderSlotsCard(slots) {
     function slotRow(side, label, active) {
-      var name = active ? (active.player_name || nameFor(active) || ("Player " + (active.id || active.player_id))) : "Open";
+      var name = "Open";
+      if (active) {
+        // The roster scan returns just { id, contractStatus, position }.
+        // Look up the actual player name from state.players.
+        var pid = active.id || active.player_id || "";
+        var p = pid ? M.data.playerById(pid) : null;
+        name = nameFor(p) || U.safeStr(active.player_name) || ("Player " + pid);
+      }
       var cls = active ? "filled" : "open";
       return '<div class="ups-m-tag-slot ' + cls + '">' +
         '<div class="lbl">' + label + '</div>' +

@@ -63,8 +63,10 @@
     tagTracking: null,        // site/ccc/tag_tracking.json rows
     tagSubmissions: null,     // site/ccc/tag_submissions.json rows
     salaryAdjustmentReport: null, // site/reports/salary_adjustments/<year>.json — overlays the MFL feed
-    advancedStatsByPid: null, // { [pid]: { mfl_points, mfl_ppg, games, pos, posRank } } from /api/advanced-stats-leaderboard
-    draftResults: null,       // /api/mfl-export?TYPE=draftResults
+    advancedStatsByPid: null,  // back-compat alias for advancedStatsByYear[curYear]
+    advancedStatsByYear: null, // { [year]: { [pid]: { mfl_points, mfl_ppg, games, pos, posRank } } }
+    rookieProspects: null,     // site/rookies/rookie_prospects_<year>.json rows
+    draftResults: null,        // /api/mfl-export?TYPE=draftResults
     capAmount: 0,
     loaded: false,
     loadingPromise: null,
@@ -153,30 +155,8 @@
   // /api/advanced-stats-leaderboard usage. We fetch once per position
   // and merge into a single pid-keyed map with positional ranks.
   var LEADERBOARD_POSITIONS = ["QB", "RB", "WR", "TE", "PK", "PN", "DL", "LB", "DB"];
-  function fetchAdvancedStatsLeaderboard(year) {
-    // Use the PRIOR season for ranks until we're in-season for `year`.
-    // Stats workbench uses the same logic; mirroring it keeps "PPG Rk"
-    // meaningful during offseason (which is when most contract work happens).
-    var seasonInt = parseInt(year, 10) || (new Date().getUTCFullYear());
-    // If the requested season hasn't started (no leaderboard rows yet),
-    // fall back to season-1 automatically — handled at the merge step.
-    var fetches = LEADERBOARD_POSITIONS.map(function (pos) {
-      var url = workerUrl("/api/advanced-stats-leaderboard?season=" + encodeURIComponent(seasonInt) +
-                          "&pos=" + encodeURIComponent(pos) + "&min_games=1");
-      return fetch(url, { mode: "cors", credentials: "omit" })
-        .then(function (r) { return r.ok ? r.json() : null; })
-        .then(function (j) { return (j && Array.isArray(j.rows)) ? j.rows : []; })
-        .catch(function () { return []; });
-    });
-    return Promise.all(fetches).then(function (perPosArrays) {
-      var totalRows = perPosArrays.reduce(function (s, a) { return s + a.length; }, 0);
-      // If current season has no rows anywhere, retry against (season-1).
-      if (totalRows === 0 && seasonInt > 2010) {
-        return fetchAdvancedStatsLeaderboardForSeason(seasonInt - 1);
-      }
-      return buildLeaderboardMap(perPosArrays);
-    });
-  }
+  // Fetch one season's leaderboard across all positions. Returns a
+  // pid-keyed map of { mfl_points, mfl_ppg, games, pos, posRank }.
   function fetchAdvancedStatsLeaderboardForSeason(seasonInt) {
     var fetches = LEADERBOARD_POSITIONS.map(function (pos) {
       var url = workerUrl("/api/advanced-stats-leaderboard?season=" + encodeURIComponent(seasonInt) +
@@ -187,6 +167,47 @@
         .catch(function () { return []; });
     });
     return Promise.all(fetches).then(buildLeaderboardMap);
+  }
+
+  // Fetch the last 3 seasons in parallel (curYear + 2 prior) so the
+  // player sheet's year-by-year table has real games/pts/PPG/rank for
+  // each year instead of zeros. Returns:
+  //   { [year]: pidMap }
+  function fetchAdvancedStatsLeaderboard(year) {
+    var seasonInt = parseInt(year, 10) || (new Date().getUTCFullYear());
+    var years = [seasonInt, seasonInt - 1, seasonInt - 2];
+    var fetches = years.map(function (y) {
+      return fetchAdvancedStatsLeaderboardForSeason(y).then(function (m) {
+        return { year: y, map: m };
+      });
+    });
+    return Promise.all(fetches).then(function (results) {
+      var byYear = {};
+      results.forEach(function (r) { byYear[r.year] = r.map; });
+      // Auto-fallback: if curYear has zero rows (preseason), use prior year
+      // for the "current" map alias so FA browser / player sheet still
+      // display meaningful ranks.
+      if (byYear[seasonInt] && Object.keys(byYear[seasonInt]).length === 0
+          && byYear[seasonInt - 1] && Object.keys(byYear[seasonInt - 1]).length > 0) {
+        byYear[seasonInt] = byYear[seasonInt - 1];
+      }
+      return byYear;
+    });
+  }
+
+  // Rookie prospects JSON — consensus rankings from rookie_draft_hub.
+  // Use this list as the "Available" rookie pool ordering on Draft view.
+  function fetchRookieProspects(year) {
+    var url = "/upsmflproduction/rookies/rookie_prospects_" + encodeURIComponent(year) + ".json";
+    return fetch(url, { mode: "cors", credentials: "omit", cache: "no-store" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) {
+        if (!j) return [];
+        if (Array.isArray(j)) return j;
+        if (Array.isArray(j.prospects)) return j.prospects;
+        return [];
+      })
+      .catch(function () { return []; });
   }
   function buildLeaderboardMap(perPosArrays) {
     var map = {};
@@ -279,6 +300,7 @@
       fetchTagSubmissions(),
       fetchSalaryAdjustmentReport(state.ctx.year),
       fetchAdvancedStatsLeaderboard(state.ctx.year),
+      fetchRookieProspects(state.ctx.year),
       fetchJson(mflExportUrl("draftResults")),
       fetchMe()
     ]).then(function (results) {
@@ -292,10 +314,15 @@
       state.tagTracking = results[7] || [];
       state.tagSubmissions = results[8] || [];
       state.salaryAdjustmentReport = results[9] || [];
-      state.advancedStatsByPid = results[10] || {};
-      state.draftResults = results[11] || null;
+      state.advancedStatsByYear = results[10] || {};
+      // Back-compat alias — current-year map keyed by pid (used by FA
+      // browser and the player sheet's old getAdvancedStatsFor entry).
+      var curYearInt = parseInt(state.ctx.year, 10) || (new Date().getUTCFullYear());
+      state.advancedStatsByPid = state.advancedStatsByYear[curYearInt] || {};
+      state.rookieProspects = results[11] || [];
+      state.draftResults = results[12] || null;
       parseLeague();
-      resolveViewerFranchise(results[12]);
+      resolveViewerFranchise(results[13]);
       // Now that we know the viewer franchise, fetch their UPS-side trade
       // bait notes (D1-backed). Keep state.loaded=true regardless so a
       // notes-endpoint failure doesn't gate the rest of the app.
@@ -800,11 +827,23 @@
       getMyTradeBaitNoteFor: getMyTradeBaitNoteFor,
       getAllRosteredPids: getAllRosteredPids,
       getYtdScoresMap: getYtdScoresMap,
-      getAdvancedStatsFor: function (pid) {
+      getAdvancedStatsFor: function (pid, year) {
+        // year-specific lookup. Defaults to current year.
+        var byYear = state.advancedStatsByYear || {};
+        if (year != null) {
+          var m = byYear[Number(year)];
+          return (m && m[String(pid)]) || null;
+        }
         if (!state.advancedStatsByPid) return null;
         return state.advancedStatsByPid[String(pid)] || null;
       },
-      getAdvancedStatsMap: function () { return state.advancedStatsByPid || {}; }
+      getAdvancedStatsMap: function (year) {
+        if (year != null) {
+          return (state.advancedStatsByYear && state.advancedStatsByYear[Number(year)]) || {};
+        }
+        return state.advancedStatsByPid || {};
+      },
+      getRookieProspects: function () { return state.rookieProspects || []; }
     },
     actions: {
       submitDrop: submitDrop,
