@@ -412,6 +412,9 @@ export default {
         path !== "/api/division-power-rankings" &&
         path !== "/api/hall-of-champions" &&
         path !== "/api/repo-html" &&
+        path !== "/api/submit-lineup" &&
+        path !== "/api/submit-trade-bait" &&
+        path !== "/api/trade-bait-notes" &&
         path !== "/bug-report" &&
         path !== "/bug-reports" &&
         !path.startsWith("/api/trades/proposals") &&
