@@ -199,9 +199,18 @@
     } else {
       penaltyLabel = ' <span class="pn">(penalty TBD)</span>';
     }
+    // Eligibility from the verbatim Front Office mirror (same predicate the
+    // desktop Roster Workbench uses). Tag is harder — desktop computes it
+    // from the per-cycle tag plan; for mobile we show the Tag button when
+    // the player has 0 years remaining (the basic gate) and let the CCC
+    // deep-link surface the actual side/salary on the desktop side.
+    var FOA = window.UPS_FRONT_OFFICE_ACTIONS;
+    var elig = FOA ? FOA.eligibilityForRosterRow(rosterRow) :
+               { extensionEligible: false, rookieOptionEligible: false, restructureEligible: false };
+    var cy = parseInt(rosterRow && rosterRow.contractYear, 10);
+    var tagEligible = cy === 0; // 0 years remaining → tag-eligible (offseason)
     var html = '';
     if (opts.editingOtb) {
-      // Inline note editor — replaces the action grid until Save/Cancel.
       var headerText = onBlock ? "Update Block note" : "Add to On the Block";
       var initialNote = (typeof opts.noteDraft === "string") ? opts.noteDraft : existingNote;
       html +=
@@ -218,15 +227,34 @@
           '</div>' +
         '</div>';
     } else {
-      html +=
-        '<div class="ups-m-sheet-actions">' +
-          '<button class="btn-act otb' + (onBlock ? ' on' : '') + '" data-act="otb">' +
-            (onBlock ? '✓ On the Block' : 'Add to Block') +
-          '</button>' +
-          '<button class="btn-act drop" data-act="drop">Drop' + penaltyLabel + '</button>' +
-          '<button class="btn-act ext disabled" data-act="extend" disabled>Extend (use desktop)</button>' +
-          '<button class="btn-act tag disabled" data-act="tag" disabled>Tag (use desktop)</button>' +
-        '</div>';
+      html += '<div class="ups-m-sheet-actions">' +
+        '<button class="btn-act otb' + (onBlock ? ' on' : '') + '" data-act="otb">' +
+          (onBlock ? '✓ On the Block' : 'Add to Block') +
+        '</button>' +
+        '<button class="btn-act drop" data-act="drop">Drop' + penaltyLabel + '</button>' +
+      '</div>';
+
+      // Contract-action grid: Extension / Rookie Option / Restructure /
+      // Tag — eligibility comes from the FO mirror. Each button opens the
+      // desktop Contract Command Center pre-targeted at this player + action.
+      var contractActions = [
+        { key: "extension", label: "Extend", eligible: elig.extensionEligible, css: "ext" },
+        { key: "rookie_option", label: "Rookie Option", eligible: elig.rookieOptionEligible, css: "ropt" },
+        { key: "restructure", label: "Restructure", eligible: elig.restructureEligible, css: "rstr" },
+        { key: "tag", label: "Tag", eligible: tagEligible, css: "tag" }
+      ];
+      var anyEligible = contractActions.some(function (a) { return a.eligible; });
+      if (anyEligible) {
+        html += '<div class="ups-m-sheet-actions">';
+        contractActions.forEach(function (a) {
+          if (!a.eligible) return;
+          html += '<button class="btn-act ' + a.css + '" data-act="ccc" data-ccc-action="' +
+            U.escapeHtml(a.key) + '">' + U.escapeHtml(a.label) +
+            ' <span class="pn">(open desktop)</span></button>';
+        });
+        html += '</div>';
+      }
+
       if (onBlock && existingNote) {
         html += '<div class="ups-m-otb-note-display"><span class="lbl">Note:</span> ' + U.escapeHtml(existingNote) + '</div>';
       }
@@ -271,6 +299,34 @@
     if (save) save.addEventListener("click", function () { handleOTBSave(save); });
     if (remove) remove.addEventListener("click", function () { handleOTBRemove(remove); });
     if (drop) drop.addEventListener("click", function () { handleDrop(footerState.pid, footerState.name, footerState.rosterRow, drop); });
+    var cccButtons = foot.querySelectorAll('[data-act="ccc"]');
+    for (var ci = 0; ci < cccButtons.length; ci++) {
+      cccButtons[ci].addEventListener("click", function () {
+        handleCccAction(this.getAttribute("data-ccc-action"));
+      });
+    }
+  }
+
+  // Open the desktop Contract Command Center deep-link for this player.
+  // URL builder lives in front_office_actions.js (verbatim mirror of
+  // roster_workbench.js:7265). Mobile does NOT reimplement the
+  // extension/tag/restructure picker — the user lands on the desktop CCC
+  // with the player + action pre-targeted and completes from there.
+  function handleCccAction(action) {
+    var FOA = window.UPS_FRONT_OFFICE_ACTIONS;
+    if (!FOA) return;
+    var pid = footerState.pid;
+    var s = window.UPS_MOBILE.state;
+    // Player's franchise (mobile only shows actions on own-roster players).
+    var fid = s.viewerFranchiseId;
+    var url = FOA.buildContractCenterActionUrl({
+      action: action,
+      pid: pid,
+      fid: fid,
+      year: s.ctx.year,
+      leagueId: s.ctx.leagueId
+    });
+    window.open(url, "_blank");
   }
 
   function setBusy(btn, busy, busyText) {
