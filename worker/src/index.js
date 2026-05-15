@@ -2610,11 +2610,17 @@ export default {
         const notes = args.notes || {};
         const lookingFor = safeStr(args.lookingForText || "").trim();
 
+        // Trade War Room deep link — drops the reader into MFL MESSAGE6
+        // (our Trade War Room iframe) with the franchise pre-selected, so
+        // they can propose a trade without hunting for the team.
+        const tradeWarRoomUrl =
+          `https://www48.myfantasyleague.com/${encodeURIComponent(_rdhYear())}/home/${encodeURIComponent(_rdhLeagueId())}?MODULE=MESSAGE6=N&FRANCHISE_ID=${encodeURIComponent(args.franchiseId)}`;
+
         // Build the body text. Full message — no 256-char truncation
         // (that limit only applies to MFL's IN_EXCHANGE_FOR field).
         const lines = [];
         lines.push("**ON THE BLOCK ANNOUNCEMENT:**");
-        lines.push("**Team:** " + franchiseName);
+        lines.push(`**Team:** [${franchiseName}](${tradeWarRoomUrl})`);
 
         let gifUrl = "";
         if (!willGiveUp.length) {
@@ -2657,6 +2663,8 @@ export default {
           lines.push("");
           lines.push(gifUrl);
         }
+        lines.push("");
+        lines.push(`→ [Propose a trade with ${franchiseName} in the War Room](${tradeWarRoomUrl})`);
         const messageContent = lines.join("\n");
 
         // Post the message to the channel.
