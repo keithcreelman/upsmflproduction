@@ -130,8 +130,11 @@
 }
 
 .tops-link-pill {
-  background: linear-gradient(180deg, #f3b61f 0%, #d99c10 100%);
-  color: #1a1306;
+  /* Keith 2026-05-15: teal across the board, consistent with the rest
+     of the UI accent system. Was gold (#f3b61f) — visually clashed with
+     the teal links elsewhere. */
+  background: linear-gradient(180deg, #7de8d9 0%, #4cc7b8 100%);
+  color: #0a1a18;
   font-weight: 800;
   text-decoration: none;
   padding: 0.4rem 0.75rem;
@@ -142,6 +145,7 @@
   transition: transform 0.12s ease, filter 0.12s ease;
 }
 .tops-link-pill:hover { filter: brightness(1.08); transform: translateY(-1px); }
+.tops-link-pill:visited { color: #0a1a18; }
 
 /* Grid -------------------------------------------------------------------- */
 .tops-grid {
@@ -842,6 +846,73 @@ a.tops-iframe-pop:hover {
 .tops-roster-group .tops-roster-table { margin: 0; }
 .tops-roster-table tr.is-expired { background: rgba(239, 68, 68, 0.05); }
 .tops-roster-table tr.is-ir { background: rgba(91, 141, 255, 0.04); }
+.tops-roster-table tr.is-starting { background: rgba(125, 232, 217, 0.07); }
+.tops-roster-table tr.is-starting td { font-weight: 600; }
+
+/* Lineup builder — per-group count chip + global HUD + Save button. */
+.tops-roster-group-status {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.55);
+  font-variant-numeric: tabular-nums;
+}
+.tops-roster-group-status.is-ok    { background: rgba(125, 232, 217, 0.15); color: #7de8d9; }
+.tops-roster-group-status.is-under { background: rgba(251, 191, 36, 0.15); color: #fbbf24; }
+.tops-roster-group-status.is-over  { background: rgba(239, 68, 68, 0.18);  color: #ef4444; }
+.tops-roster-slot-hint + .tops-roster-group-status { margin-left: 8px; }
+.tops-roster-check {
+  width: 1.4rem;
+  text-align: center;
+  padding: 0;
+}
+.tops-lineup-cbx {
+  width: 16px; height: 16px;
+  accent-color: #7de8d9;
+  cursor: pointer;
+}
+.tops-lineup-cbx-disabled {
+  color: rgba(255, 255, 255, 0.2);
+  font-size: 14px;
+}
+.tops-lineup-hud {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  margin: 6px 0 0;
+  border-radius: 8px;
+  font-size: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+.tops-lineup-hud.is-ok  { background: rgba(125, 232, 217, 0.08); border-color: rgba(125, 232, 217, 0.3); color: #c9f8f1; }
+.tops-lineup-hud.is-err { background: rgba(239, 68, 68, 0.06); border-color: rgba(239, 68, 68, 0.25); color: #ffb4b4; }
+.tops-lineup-msg {
+  margin: 6px 0 0;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  background: rgba(255, 255, 255, 0.04);
+}
+.tops-lineup-msg.is-ok  { background: rgba(125, 232, 217, 0.12); color: #c9f8f1; }
+.tops-lineup-msg.is-err { background: rgba(239, 68, 68, 0.10);   color: #ffb4b4; }
+.tops-lineup-save[disabled] {
+  opacity: 0.45;
+  cursor: not-allowed;
+  filter: grayscale(0.5);
+}
+.tops-roster-name {
+  cursor: pointer;
+  border-bottom: 1px dashed rgba(125, 232, 217, 0.35);
+}
+.tops-roster-name:hover { color: #7de8d9; }
+.tops-roster-name:focus-visible { outline: 2px solid #7de8d9; outline-offset: 2px; border-radius: 2px; }
 
 /* News feed — same tap pattern as roster rows so any news item opens
    the player profile modal. */

@@ -81,7 +81,13 @@
     // so once any hub primes a player, all three benefit (worker edge cache).
     playerBundles: {},
     teamNewsItems: null,
-    teamNewsLoading: false
+    teamNewsLoading: false,
+    // Lineup builder draft (Set of player IDs currently picked as starters).
+    // Mutated as the user toggles checkboxes in the roster card; cleared
+    // on successful submit. Phase 2 — Keith 2026-05-15.
+    lineupDraft: null,         // Set<string> | null
+    lineupSubmitting: false,
+    lineupMessage: null,       // { kind: "ok"|"err", text: string } | null
   };
 
   // Cloudflare worker base for /api/player-bundle calls. Override via
@@ -828,6 +834,76 @@
     return LINEUP_GROUPS[LINEUP_GROUPS.length - 1];
   }
 
+  // Lineup builder helpers.
+  // - lineupEligibleRow(r): row is a valid candidate for "start" (not
+  //   taxi, not IR, not expired-contract, has a known position group).
+  // - lineupValidate(draftSet, rowsByPid): aggregate per-group counts vs
+  //   LINEUP_GROUPS min/max + total = 14. Returns { ok, total, byGroup,
+  //   errors[] }.
+  function lineupEligibleRow(r) {
+    if (!r) return false;
+    if (r.isTaxi || r.isIr || r.isExpired) return false;
+    if (!r.group || !r.group.positions || !r.group.positions.length) return false;
+    return true;
+  }
+  function lineupValidate(draftSet, rowsByPid) {
+    var byGroup = {};
+    LINEUP_GROUPS.forEach(function (g) { byGroup[g.key] = { count: 0, min: g.min, max: g.max, label: g.label }; });
+    var total = 0;
+    var ineligibleCount = 0;
+    draftSet.forEach(function (pid) {
+      var r = rowsByPid[pid];
+      if (!r || !lineupEligibleRow(r)) { ineligibleCount += 1; return; }
+      byGroup[r.group.key].count += 1;
+      total += 1;
+    });
+    var errors = [];
+    Object.keys(byGroup).forEach(function (k) {
+      var g = byGroup[k];
+      if (!g.max && !g.min) return;
+      if (g.count < g.min) errors.push(g.label + " needs " + (g.min - g.count) + " more");
+      else if (g.count > g.max) errors.push(g.label + " over by " + (g.count - g.max));
+    });
+    if (ineligibleCount) errors.push(ineligibleCount + " ineligible (taxi/IR/expired) selected");
+    if (total !== 14) errors.push(total < 14 ? "Need " + (14 - total) + " more starter(s)" : (total - 14) + " over 14");
+    return { ok: errors.length === 0, total: total, byGroup: byGroup, errors: errors };
+  }
+
+  // POST the lineup draft to the worker. Worker validates the caller
+  // owns the franchise (via MFL_USER_ID cookie) before relaying to MFL.
+  function submitLineupDraft() {
+    if (state.lineupSubmitting) return;
+    if (!state.lineupDraft) return;
+    var fid = pad4(state.viewerFranchiseId || (state.ctx && state.ctx.franchiseId));
+    if (!fid) return;
+    var starters = Array.from(state.lineupDraft);
+    state.lineupSubmitting = true;
+    state.lineupMessage = { kind: "info", text: "Submitting lineup to MFL…" };
+    renderRoster();
+    fetch(workerBase() + "/api/submit-lineup", {
+      method: "POST",
+      credentials: "include",  // forward MFL_USER_ID cookie if present
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ franchiseId: fid, starters: starters }),
+    })
+      .then(function (r) { return r.json().then(function (j) { return { status: r.status, body: j }; }); })
+      .then(function (resp) {
+        if (resp.body && resp.body.ok) {
+          state.lineupMessage = { kind: "ok", text: "Lineup saved to MFL ✓" };
+        } else {
+          var err = (resp.body && (resp.body.error || (resp.body.mfl_response && resp.body.mfl_response.error && resp.body.mfl_response.error.$t))) || ("MFL rejected lineup (HTTP " + resp.status + ")");
+          state.lineupMessage = { kind: "err", text: String(err) };
+        }
+      })
+      .catch(function (e) {
+        state.lineupMessage = { kind: "err", text: "Submit failed: " + (e && e.message || e) };
+      })
+      .then(function () {
+        state.lineupSubmitting = false;
+        renderRoster();
+      });
+  }
+
   // ----- Card: My Roster + Lineup (position-grouped, with submit CTA) -----
   function renderRoster() {
     var el = els.cards.roster;
@@ -883,18 +959,37 @@
       });
     });
 
-    // Build Submit Lineup deep link to MFL's native /options?O=07 page.
-    // Carries L=, F= (franchise id), and YEAR= so MFL lands on the right
-    // franchise/year. Phase 2 will add an in-app submission flow that
-    // POSTs through the worker with TYPE=lineup auth — for now this is
-    // a one-click pass-through to MFL's own form.
+    // Lineup builder state — index rows by pid for O(1) eligibility lookup.
+    var rowsByPid = {};
+    rows.forEach(function (r) { rowsByPid[r.id] = r; });
+    // Initialize draft once: seed with the salary-desc top picks per group
+    // up to each group's `min` so the user starts with a sane baseline.
+    // Future iteration: fetch the franchise's current lineup from MFL and
+    // seed from that instead. For now this matches what an owner would
+    // pick if they did nothing — top of the depth chart by salary.
+    if (!state.lineupDraft) {
+      var seed = new Set();
+      LINEUP_GROUPS.forEach(function (g) {
+        if (!g.min) return;
+        var picks = (byGroup[g.key] || []).filter(lineupEligibleRow).slice(0, g.min);
+        picks.forEach(function (r) { seed.add(r.id); });
+      });
+      state.lineupDraft = seed;
+    }
+    var validation = lineupValidate(state.lineupDraft, rowsByPid);
+
+    // Build Submit Lineup deep link to MFL's native /lineup page.
+    // Carries L= + FRANCHISE= so MFL lands on the right franchise's
+    // Submit Lineup form (verified URL pattern per Keith 2026-05-15:
+    // /YEAR/lineup?L=&FRANCHISE=). Phase 2 will add in-app submission
+    // via worker auth proxy — for now this is a one-click pass-through.
     var fid = pad4(state.viewerFranchiseId || (state.ctx && state.ctx.franchiseId));
     var year = state.ctx && state.ctx.year;
     var leagueId = state.ctx && state.ctx.leagueId;
     var submitUrl = (year && leagueId && fid)
       ? "https://www48.myfantasyleague.com/" + encodeURIComponent(year)
-        + "/options?L=" + encodeURIComponent(leagueId)
-        + "&O=07&F=" + encodeURIComponent(fid)
+        + "/lineup?L=" + encodeURIComponent(leagueId)
+        + "&FRANCHISE=" + encodeURIComponent(fid)
       : "";
     var submitCta = submitUrl
       ? '<a class="tops-link-pill" href="' + escapeHtml(submitUrl) + '" target="_top" rel="noopener" '
@@ -911,6 +1006,14 @@
         : (g.min === g.max
             ? '<span class="tops-roster-slot-hint">Start ' + g.min + '</span>'
             : '<span class="tops-roster-slot-hint">Start ' + g.min + '–' + g.max + '</span>');
+      var groupValidation = validation.byGroup[g.key] || { count: 0, min: g.min, max: g.max };
+      var groupOver  = g.max > 0 && groupValidation.count > g.max;
+      var groupUnder = g.min > 0 && groupValidation.count < g.min;
+      var groupStatusClass = groupOver ? "is-over" : (groupUnder ? "is-under" : (groupValidation.count > 0 ? "is-ok" : ""));
+      var groupCountHud = g.min === 0
+        ? ""
+        : '<span class="tops-roster-group-status ' + groupStatusClass + '">'
+            + groupValidation.count + ' starting</span>';
       var bodyRows = groupRows.map(function (r) {
         var taxiBadge = r.isTaxi ? '<span class="taxi-pill" title="Taxi — off-cap, real for trade math">TAXI</span>' : '';
         var expiredBadge = r.isExpired ? '<span class="taxi-pill" style="background:rgba(239,68,68,0.18); color:#ef4444; border-color:rgba(239,68,68,0.45);" title="Contract expired (cy=0) — awaiting Expired Rookie Auction">EXP</span>' : '';
@@ -918,9 +1021,21 @@
         var salaryCell = r.isTaxi
           ? '<span style="color:var(--warn,#fbbf24); opacity:0.9;">' + fmtUsd(r.salary) + '</span>'
           : (r.salary > 0 ? fmtUsd(r.salary) : '—');
-        return '<tr class="tops-roster-row' + (r.isTaxi ? ' is-taxi' : '') + (r.isIr ? ' is-ir' : '') + (r.isExpired ? ' is-expired' : '') + '" data-pid="' + escapeHtml(r.id) + '" tabindex="0" role="button" aria-label="Open ' + escapeHtml(r.name) + ' profile">' +
+        var eligible = lineupEligibleRow(r);
+        var checked = state.lineupDraft && state.lineupDraft.has(r.id);
+        // Checkbox cell — disabled for ineligible (taxi/IR/expired) rows
+        // so users can't accidentally include them. The checkbox is a
+        // separate cell so the rest of the row still acts as a click target
+        // for the player profile modal.
+        var checkboxCell = eligible
+          ? '<td class="tops-roster-check"><input type="checkbox" class="tops-lineup-cbx" data-pid="' + escapeHtml(r.id) + '"' + (checked ? ' checked' : '') + ' aria-label="Start ' + escapeHtml(r.name) + '"></td>'
+          : '<td class="tops-roster-check"><span class="tops-lineup-cbx-disabled" title="' + (r.isTaxi ? "Taxi — can\'t start" : r.isIr ? "On IR — can\'t start" : "Expired contract — can\'t start") + '">—</span></td>';
+        // Player name cell now has separate click target since the
+        // checkbox needs its own click semantics.
+        return '<tr class="tops-roster-row' + (r.isTaxi ? ' is-taxi' : '') + (r.isIr ? ' is-ir' : '') + (r.isExpired ? ' is-expired' : '') + (checked ? ' is-starting' : '') + '" data-pid="' + escapeHtml(r.id) + '">' +
+          checkboxCell +
           '<td><span class="tops-pos tops-pos-' + escapeHtml(r.pos) + '">' + escapeHtml(r.pos) + '</span></td>' +
-          '<td>' + escapeHtml(r.name) + ' ' + r.injuryBadge + taxiBadge + expiredBadge + '</td>' +
+          '<td><span class="tops-roster-name" tabindex="0" role="button" aria-label="Open ' + escapeHtml(r.name) + ' profile" data-action="profile">' + escapeHtml(r.name) + '</span> ' + r.injuryBadge + taxiBadge + expiredBadge + '</td>' +
           '<td>' + escapeHtml(r.team) + '</td>' +
           '<td class="num">' + salaryCell + '</td>' +
           '<td>' + escapeHtml(r.contract) + '</td>' +
@@ -932,30 +1047,74 @@
         +   '<span class="tops-roster-group-label">' + escapeHtml(g.label) + '</span>'
         +   '<span class="tops-roster-group-count">' + groupRows.length + ' player' + (groupRows.length === 1 ? '' : 's') + '</span>'
         +   slotHint
+        +   groupCountHud
         + '</div>'
         + '<table class="tops-roster-table">'
-        +   '<thead><tr><th>Pos</th><th>Player</th><th>Team</th><th class="num">Salary</th><th>Contract</th><th>Status</th></tr></thead>'
+        +   '<thead><tr><th aria-label="Start"></th><th>Pos</th><th>Player</th><th>Team</th><th class="num">Salary</th><th>Contract</th><th>Status</th></tr></thead>'
         +   '<tbody>' + bodyRows + '</tbody>'
         + '</table>'
         + '</div>';
     }).join("");
 
+    // Validation HUD + Save Lineup button. The Save button is disabled
+    // while submitting OR when validation fails (wrong total, group over/
+    // under). The native MFL link stays in the corner so owners can fall
+    // back to MFL's own form if the in-app submit hits an MFL-side issue.
+    var hudStatusClass = validation.ok ? "is-ok" : "is-err";
+    var hudMessage = validation.ok
+      ? '<strong>14 / 14</strong> starters · ready to submit'
+      : '<strong>' + validation.total + ' / 14</strong> · ' + escapeHtml(validation.errors.join(" · "));
+    var saveBtn = '<button type="button" class="tops-link-pill tops-lineup-save"'
+      + (validation.ok && !state.lineupSubmitting ? "" : " disabled")
+      + '>' + (state.lineupSubmitting ? "Submitting…" : "Save Lineup") + '</button>';
+    var msgHtml = "";
+    if (state.lineupMessage) {
+      var msgClass = state.lineupMessage.kind === "ok" ? "is-ok"
+                  : state.lineupMessage.kind === "err" ? "is-err" : "";
+      msgHtml = '<div class="tops-lineup-msg ' + msgClass + '">' + escapeHtml(state.lineupMessage.text) + '</div>';
+    }
+
     el.innerHTML = [
       '<div class="tops-card-title">My Roster + Lineup '
         + '<span class="tops-count">' + rows.length + '</span> '
-        + '<span class="tops-card-hint">grouped by position · tap a player for profile + news</span>'
-        + (submitCta ? '<span class="tops-card-actions">' + submitCta + '</span>' : '')
+        + '<span class="tops-card-hint">grouped by position · check the 14 starters · click name for profile</span>'
+        + '<span class="tops-card-actions">' + saveBtn + (submitCta ? ' ' + submitCta : '') + '</span>'
       + '</div>',
+      '<div class="tops-lineup-hud ' + hudStatusClass + '">' + hudMessage + '</div>',
+      msgHtml,
       '<div class="tops-roster-grouped">',
       sections,
       '</div>'
     ].join("");
-    // Player row click → profile modal (shared with the previous flat-table
-    // implementation). Keyboard-actionable (Enter/Space).
-    el.querySelectorAll(".tops-roster-row").forEach(function (tr) {
-      tr.addEventListener("click", function () { openPlayerProfileModal(tr.getAttribute("data-pid")); });
-      tr.addEventListener("keydown", function (e) {
-        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openPlayerProfileModal(tr.getAttribute("data-pid")); }
+
+    // Wire checkboxes — toggle the draft set + re-render.
+    el.querySelectorAll(".tops-lineup-cbx").forEach(function (cbx) {
+      cbx.addEventListener("change", function (e) {
+        var pid = cbx.getAttribute("data-pid");
+        if (!state.lineupDraft) state.lineupDraft = new Set();
+        if (cbx.checked) state.lineupDraft.add(pid);
+        else state.lineupDraft.delete(pid);
+        // Any prior submit message is stale once the user starts editing.
+        state.lineupMessage = null;
+        renderRoster();
+      });
+    });
+    // Save Lineup → POST /api/submit-lineup.
+    var saveEl = el.querySelector(".tops-lineup-save");
+    if (saveEl) {
+      saveEl.addEventListener("click", function () {
+        if (saveEl.hasAttribute("disabled")) return;
+        submitLineupDraft();
+      });
+    }
+    // Player name click → profile modal. Keyboard actionable.
+    el.querySelectorAll('[data-action="profile"]').forEach(function (node) {
+      var row = node.closest(".tops-roster-row");
+      var pid = row && row.getAttribute("data-pid");
+      if (!pid) return;
+      node.addEventListener("click", function (e) { e.stopPropagation(); openPlayerProfileModal(pid); });
+      node.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openPlayerProfileModal(pid); }
       });
     });
   }
