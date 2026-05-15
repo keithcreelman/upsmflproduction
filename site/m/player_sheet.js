@@ -199,16 +199,35 @@
     } else {
       penaltyLabel = ' <span class="pn">(penalty TBD)</span>';
     }
-    // Eligibility from the verbatim Front Office mirror (same predicate the
-    // desktop Roster Workbench uses). Tag is harder — desktop computes it
-    // from the per-cycle tag plan; for mobile we show the Tag button when
-    // the player has 0 years remaining (the basic gate) and let the CCC
-    // deep-link surface the actual side/salary on the desktop side.
+    // Eligibility from the verbatim Front Office mirror (same predicates the
+    // desktop Roster Workbench uses). Tag check now consults the league
+    // tag plan (site/ccc/tag_tracking.json) + per-team-side conflict scan
+    // — matches Front Office exactly.
     var FOA = window.UPS_FRONT_OFFICE_ACTIONS;
     var elig = FOA ? FOA.eligibilityForRosterRow(rosterRow) :
                { extensionEligible: false, rookieOptionEligible: false, restructureEligible: false };
-    var cy = parseInt(rosterRow && rosterRow.contractYear, 10);
-    var tagEligible = cy === 0; // 0 years remaining → tag-eligible (offseason)
+    var tagAction = { kind: "none" };
+    if (FOA) {
+      // Build a roster-row list with position attached (player.position
+      // comes from state.players, not rosters export). That's what the
+      // FO tag scan needs to match offense/defense slots.
+      var s2 = window.UPS_MOBILE.state;
+      var teamRows = window.UPS_MOBILE.data.getRosterFor(footerState.pid ? s2.viewerFranchiseId : s2.viewerFranchiseId);
+      // Above line just gets the viewer franchise's roster — same fid
+      // as the sheet (we only show contract actions on own roster players).
+      var teamRowsWithPos = (teamRows || []).map(function (r) {
+        var p = window.UPS_MOBILE.data.playerById(r.id);
+        return { id: r.id, contractStatus: r.contractStatus, position: (p && p.position) || "" };
+      });
+      tagAction = FOA.tagActionForPlayer({
+        rosterRow: rosterRow,
+        fid: s2.viewerFranchiseId,
+        rosterRowsWithPos: teamRowsWithPos,
+        tagTracking: s2.tagTracking || [],
+        tagSubmissions: s2.tagSubmissions || []
+      });
+    }
+    var tagEligible = (tagAction.kind === "tag" || tagAction.kind === "untag");
     var html = '';
     if (opts.editingOtb) {
       var headerText = onBlock ? "Update Block note" : "Add to On the Block";
@@ -237,11 +256,13 @@
       // Contract-action grid: Extension / Rookie Option / Restructure /
       // Tag — eligibility comes from the FO mirror. Each button opens the
       // desktop Contract Command Center pre-targeted at this player + action.
+      var tagLabel = tagAction.kind === "untag" ? "Untag" : "Tag";
+      var tagAct = tagAction.kind === "untag" ? "untag" : "tag";
       var contractActions = [
         { key: "extension", label: "Extend", eligible: elig.extensionEligible, css: "ext" },
         { key: "rookie_option", label: "Rookie Option", eligible: elig.rookieOptionEligible, css: "ropt" },
         { key: "restructure", label: "Restructure", eligible: elig.restructureEligible, css: "rstr" },
-        { key: "tag", label: "Tag", eligible: tagEligible, css: "tag" }
+        { key: tagAct, label: tagLabel, eligible: tagEligible, css: "tag" }
       ];
       var anyEligible = contractActions.some(function (a) { return a.eligible; });
       if (anyEligible) {

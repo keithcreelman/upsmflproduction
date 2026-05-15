@@ -6,6 +6,8 @@
  *     (extension / rookie option / tag / restructure / untag)
  *   • build the same MFL Contract Command Center (CCC) deep-link URL
  *     that the desktop "open this action" buttons use
+ *   • check tag eligibility from site/ccc/tag_tracking.json the same way
+ *     Front Office does (per-player row + per-team-side conflict check)
  *
  * Mobile does NOT reimplement the option pickers, payload builders, or
  * submit handlers — those live on desktop and run there when the user
@@ -14,9 +16,12 @@
  * DO NOT EDIT logic. If desktop changes, copy the updated function
  * bodies here verbatim. Source-of-truth lines (roster_workbench.js):
  *   safeStr (201) · safeInt (226) · pad4 (315)
+ *   TAG_OFFENSE_POS (84) · normalizeTagSideValue (265) · getTagSideFromPos (272)
  *   rookieLikeContractStatus (553) · rosterContractEligibility (558)
  *   parseRookieOptionToken (578) · rookieOptionStateForPlayer (600)
  *   rookieOptionActionEligible (615)
+ *   isStaleTagFromPriorSeason (7128) · activeTaggedPlayerForTeamSide (7145)
+ *   conflictingTaggedPlayerForRow (7158)
  *   buildLeagueModuleUrl (7206) · buildLeagueModuleHashUrl (7224)
  *   buildContractCenterActionUrl (7265)
  */
@@ -42,6 +47,22 @@
   function rookieLikeContractStatus(value) {
     var status = safeStr(value).toLowerCase();
     return status === "r" || status.indexOf("r-") === 0 || status.indexOf("rookie") !== -1;
+  }
+
+  // ── Tag side mapping — verbatim from roster_workbench.js:84-89 + 265-276 ──
+  var TAG_OFFENSE_POS = { QB: 1, RB: 1, WR: 1, TE: 1 };
+
+  function normalizeTagSideValue(side) {
+    var raw = safeStr(side).toUpperCase();
+    if (raw === "OFFENSE" || raw === "OFF") return "OFFENSE";
+    if (raw === "DEFENSE" || raw === "DEF" || raw === "IDP" || raw === "IDP_K") return "DEFENSE";
+    return "";
+  }
+
+  function getTagSideFromPos(pos) {
+    var key = safeStr(pos).toUpperCase();
+    if (!key) return "";
+    return TAG_OFFENSE_POS[key] ? "OFFENSE" : "DEFENSE";
   }
 
   function parseRookieOptionToken(contractInfo) {
@@ -105,6 +126,107 @@
       rookieOptionEligible: !!(rookieOption && rookieOption.eligible && !rookieOption.exercised),
       restructureEligible: years >= 2 && years <= 3 && salary > 1000 && !rookieLikeContractStatus(status)
     };
+  }
+
+  // ── Tag eligibility (matches Front Office) ──────────────────────────
+  // Front Office gates Tag/Untag on TWO signals:
+  //   1. There's a row in tag_tracking.json for this player (the league
+  //      tag plan says they qualify).
+  //   2. No OTHER player on the same team has an active tag on the same
+  //      side (offense/defense slot not already used).
+  // Untag is shown when the player IS the active tagged player.
+  //
+  // Inputs come from app.js state — never reach into roster_workbench
+  // internals. The tag tracking + submissions JSON is fetched in app.js.
+
+  function trackedTaggedPlayerForFranchiseSide(tagSubmissions, fid, side) {
+    // Mirror of trackedTaggedPlayerForFranchiseSide: scan submissions for
+    // a tag submitted by this franchise on this side that hasn't been
+    // untagged. We don't have the full state graph mobile-side; treat any
+    // submission with action="tag" and the matching side/fid as active
+    // unless explicitly superseded by a later "untag" for the same player.
+    if (!Array.isArray(tagSubmissions) || !fid) return null;
+    var normalizedSide = normalizeTagSideValue(side);
+    var byPid = {};
+    tagSubmissions.forEach(function (row) {
+      if (!row) return;
+      if (pad4(row.franchise_id) !== pad4(fid)) return;
+      var rowSide = normalizeTagSideValue(row.tag_side || row.side);
+      if (rowSide && normalizedSide && rowSide !== normalizedSide) return;
+      var pid = String(row.player_id || "").replace(/\D/g, "");
+      if (!pid) return;
+      var ts = row.submitted_at_utc || row.timestamp || "";
+      var kind = String(row.submission_kind || row.kind || "tag").toLowerCase();
+      if (!byPid[pid] || ts > byPid[pid].ts) byPid[pid] = { ts: ts, kind: kind, row: row };
+    });
+    var pids = Object.keys(byPid);
+    for (var i = 0; i < pids.length; i++) {
+      if (byPid[pids[i]].kind === "tag") return byPid[pids[i]].row;
+    }
+    return null;
+  }
+
+  function activeTaggedPlayerForTeam(rosterRows, side, tagSubmissions, fid) {
+    // Roster-first: a player on this team with type="TAG" and matching side
+    // is the active tag (unless stale from a prior season — Front Office
+    // checks via isStaleTagFromPriorSeason which needs more state; mobile
+    // falls back to "if it's on roster as TAG, treat as active").
+    var normalizedSide = normalizeTagSideValue(side) || "OFFENSE";
+    var list = Array.isArray(rosterRows) ? rosterRows : [];
+    for (var i = 0; i < list.length; i++) {
+      var p = list[i];
+      if (!p) continue;
+      if (safeStr(p.contractStatus).toUpperCase() !== "TAG") continue;
+      var pos = safeStr(p.position || p.positionGroup).toUpperCase();
+      if ((getTagSideFromPos(pos) || "OFFENSE") !== normalizedSide) continue;
+      return p;
+    }
+    return trackedTaggedPlayerForFranchiseSide(tagSubmissions, fid, normalizedSide);
+  }
+
+  // Given the viewer's roster + tag tracking data, decide what tag action
+  // to show for `rosterRow` (the player being inspected in the mobile
+  // player sheet). Returns one of:
+  //   { kind: "none",  reason: "not_in_tag_plan"  }
+  //   { kind: "tag",   row: <tag_tracking_row>    }   ← show "Tag" button
+  //   { kind: "untag", row: <tag_tracking_row>    }   ← show "Untag" button
+  //   { kind: "locked", conflictingPlayer: <p>    }   ← show greyed-out "Locked"
+  function tagActionForPlayer(args) {
+    args = args || {};
+    var rosterRow = args.rosterRow;
+    var fid = args.fid;
+    var rosterRowsWithPos = args.rosterRowsWithPos || [];  // [{id, position, contractStatus}, ...]
+    var tagTracking = args.tagTracking || [];
+    var tagSubmissions = args.tagSubmissions || [];
+    if (!rosterRow || !fid) return { kind: "none", reason: "no_player_or_team" };
+
+    var pid = String(rosterRow.id).replace(/\D/g, "");
+
+    // Step 1 — find this player's row in the league tag plan.
+    var planRow = null;
+    for (var i = 0; i < tagTracking.length; i++) {
+      var t = tagTracking[i];
+      if (!t) continue;
+      if (String(t.player_id || "").replace(/\D/g, "") !== pid) continue;
+      if (pad4(t.franchise_id) !== pad4(fid)) continue;
+      planRow = t;
+      break;
+    }
+    if (!planRow) {
+      // Player not in tag plan = not eligible.
+      return { kind: "none", reason: "not_in_tag_plan" };
+    }
+
+    // Step 2 — is THIS player the team's currently-active tag on this side?
+    var side = normalizeTagSideValue(planRow.side) || getTagSideFromPos(planRow.position);
+    var active = activeTaggedPlayerForTeam(rosterRowsWithPos, side, tagSubmissions, fid);
+    var activePid = active ? String(active.id || active.player_id || "").replace(/\D/g, "") : "";
+
+    if (activePid && activePid === pid) return { kind: "untag", row: planRow };
+    if (activePid && activePid !== pid) {
+      return { kind: "locked", conflictingPlayer: active, row: planRow };
+    }
+    return { kind: "tag", row: planRow };
   }
 
   // ── END verbatim mirror ──────────────────────────────────────────────
@@ -178,6 +300,11 @@
     rookieOptionActionEligible: rookieOptionActionEligible,
     rosterContractEligibility: rosterContractEligibility,
     eligibilityForRosterRow: eligibilityForRosterRow,
-    buildContractCenterActionUrl: buildContractCenterActionUrl
+    buildContractCenterActionUrl: buildContractCenterActionUrl,
+    normalizeTagSideValue: normalizeTagSideValue,
+    getTagSideFromPos: getTagSideFromPos,
+    tagActionForPlayer: tagActionForPlayer,
+    activeTaggedPlayerForTeam: activeTaggedPlayerForTeam,
+    trackedTaggedPlayerForFranchiseSide: trackedTaggedPlayerForFranchiseSide
   };
 })();

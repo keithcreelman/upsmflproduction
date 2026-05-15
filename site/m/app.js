@@ -60,6 +60,8 @@
     tradeBait: null,
     tradeBaitNotes: null,     // { [pid]: "note text" } for viewer's franchise
     playerScoresYtd: null,    // MFL playerScores W=YTD export
+    tagTracking: null,        // site/ccc/tag_tracking.json rows
+    tagSubmissions: null,     // site/ccc/tag_submissions.json rows
     capAmount: 0,
     loaded: false,
     loadingPromise: null,
@@ -130,6 +132,32 @@
       .catch(function () { return null; });
   }
 
+  // Tag-plan data — mirrors what Front Office loads via loadTagPlanData
+  // (roster_workbench.js:3097). Same JSON files Pages serves, no auth.
+  function fetchTagTracking() {
+    return fetch("/upsmflproduction/ccc/tag_tracking.json", { mode: "cors", credentials: "omit", cache: "no-store" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) {
+        if (!j) return [];
+        if (Array.isArray(j)) return j;
+        if (Array.isArray(j.rows)) return j.rows;
+        return [];
+      })
+      .catch(function () { return []; });
+  }
+  function fetchTagSubmissions() {
+    return fetch("/upsmflproduction/ccc/tag_submissions.json", { mode: "cors", credentials: "omit", cache: "no-store" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) {
+        if (!j) return [];
+        if (Array.isArray(j)) return j;
+        if (Array.isArray(j.rows)) return j.rows;
+        if (Array.isArray(j.submissions)) return j.submissions;
+        return [];
+      })
+      .catch(function () { return []; });
+  }
+
   function fetchTradeBaitNotes(fid) {
     if (!fid) return Promise.resolve(null);
     return fetch(workerUrl("/api/trade-bait-notes?franchiseId=" + encodeURIComponent(fid)), { mode: "cors", credentials: "omit" })
@@ -165,6 +193,8 @@
       fetchJson(mflExportUrl("players", { DETAILS: 1 })),
       fetchJson(mflExportUrl("tradeBait")),
       fetchJson(mflExportUrl("playerScores", { W: "YTD" })).catch(function () { return null; }),
+      fetchTagTracking(),
+      fetchTagSubmissions(),
       fetchMe()
     ]).then(function (results) {
       state.league = results[0];
@@ -174,8 +204,10 @@
       state.players = results[4];
       state.tradeBait = results[5];
       state.playerScoresYtd = results[6];
+      state.tagTracking = results[7] || [];
+      state.tagSubmissions = results[8] || [];
       parseLeague();
-      resolveViewerFranchise(results[7]);
+      resolveViewerFranchise(results[9]);
       // Now that we know the viewer franchise, fetch their UPS-side trade
       // bait notes (D1-backed). Keep state.loaded=true regardless so a
       // notes-endpoint failure doesn't gate the rest of the app.
