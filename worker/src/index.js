@@ -3721,6 +3721,20 @@ export default {
             );
             const isDW = dRows.length ? String(dRows[0].franchise_id) === String(fid) : null;
 
+            // PF Index — champion's PF ÷ league-mean PF for the same season.
+            // Normalizes for scoring inflation across eras so 2025's 3,197.6
+            // is directly comparable to 2011's 2,904.7 (Keith 2026-05-15:
+            // replace PF Rank with IDX + IDX Rank in HoC summary).
+            const seasonMeanR = await db.prepare(
+              "SELECT AVG(pf) AS mean_pf FROM src_standings WHERE season = ? AND pf IS NOT NULL"
+            ).bind(yr).first();
+            const seasonMeanPf = seasonMeanR && Number.isFinite(Number(seasonMeanR.mean_pf))
+              ? Number(seasonMeanR.mean_pf)
+              : null;
+            const pfIndex = (seasonMeanPf && seasonMeanPf > 0 && stRow.pf != null)
+              ? (Number(stRow.pf) / seasonMeanPf)
+              : null;
+
             // MFL box-score URL (championship game).
             let boxUrl = null;
             if (titleGame && meta.league_id) {
@@ -3757,6 +3771,8 @@ export default {
               pf: stRow.pf,
               pp: stRow.pp,
               eff: stRow.eff,
+              pf_index: pfIndex,                 // own_pf / season_mean_pf
+              season_mean_pf: seasonMeanPf,      // for transparency
               seed_rank_overall: seedR && seedR.rank,
               division_winner: isDW,
               final_game: titleGame ? {
