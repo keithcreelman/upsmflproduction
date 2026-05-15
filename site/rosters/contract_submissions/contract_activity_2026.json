@@ -1,11 +1,41 @@
 {
   "meta": {
-    "generated_at": "2026-05-15 16:57:53",
+    "generated_at": "2026-05-15 17:19:33",
     "source": "contract-activity-log",
-    "count": 4,
+    "count": 5,
     "season": 2026
   },
   "activities": [
+    {
+      "activity_id": "08e36694f9666a7912998b33",
+      "submission_id": "08e36694f9666a7912998b33",
+      "activity_scope": "contract_mutation",
+      "activity_type": "Extension",
+      "season": "2026",
+      "league_id": "74598",
+      "franchise_id": "0010",
+      "franchise_name": "Blake Bombers",
+      "player_id": "16184",
+      "player_name": "Jayden Reed",
+      "position": "WR",
+      "salary": 15000,
+      "contract_year": 1,
+      "contract_status": "EXT1",
+      "contract_info": "CL 1|TCV 15K|AAV 15K|Y1-15K|Ext: Bomb|GTD: 11.3K",
+      "tcv": 15000,
+      "aav": 15000,
+      "guaranteed": 11300,
+      "submitted_at_utc": "2026-05-15T17:19:19.483Z",
+      "source": "worker-contract-activity",
+      "test_flag": 0,
+      "commish_override_flag": 0,
+      "override_as_of_date": "",
+      "delivery_target": "primary",
+      "discord_channel_id": "1059113303059730494",
+      "discord_message_id": "1504895991898439783",
+      "discord_pinned_flag": 0,
+      "notes": ""
+    },
     {
       "activity_id": "3adac4236450f42cd1f7f75e",
       "submission_id": "3adac4236450f42cd1f7f75e",
