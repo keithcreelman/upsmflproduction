@@ -674,6 +674,100 @@
       grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
       gap: 16px;
     }
+    /* Big single-champion detail card — same gold-trimmed look as
+       the original .hoc-card but full-width, with a larger logo and
+       roomier stat tiles. Used by the per-champion picker page. */
+    .hoc-detail-card {
+      background: linear-gradient(180deg, rgba(231,190,89,0.10), rgba(14,44,88,0.45) 35%);
+      border: 1px solid var(--gold);
+      border-radius: 12px;
+      padding: 22px 24px;
+      box-shadow: 0 10px 28px rgba(231,190,89,0.10);
+    }
+    .hoc-detail-head {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      padding-bottom: 16px;
+      margin-bottom: 16px;
+      border-bottom: 1px solid rgba(231,190,89,0.25);
+    }
+    .hoc-detail-logo {
+      width: 96px; height: 96px;
+      border-radius: 10px;
+      object-fit: cover;
+      border: 2px solid rgba(231,190,89,0.45);
+      background: var(--navy);
+      box-shadow: 0 6px 18px rgba(0,0,0,0.4);
+      flex-shrink: 0;
+    }
+    .hoc-detail-logo--blank {
+      background: linear-gradient(180deg, var(--navy), #0a1d3d);
+    }
+    .hoc-detail-titles { min-width: 0; }
+    .hoc-detail-season {
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin-bottom: 4px;
+    }
+    .hoc-detail-team {
+      font-size: 24px;
+      font-weight: 900;
+      color: var(--text);
+      line-height: 1.1;
+    }
+    .hoc-detail-owner {
+      font-size: 14px;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+    .hoc-detail-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .hoc-stat-big {
+      background: rgba(5, 24, 52, 0.5);
+      border: 1px solid rgba(231,190,89,0.18);
+      border-radius: 8px;
+      padding: 10px 12px;
+    }
+    .hoc-stat-big-k {
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .hoc-stat-big-v {
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--text);
+      font-variant-numeric: tabular-nums;
+      line-height: 1.2;
+    }
+    .hoc-stat-big-sub {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      margin-left: 4px;
+    }
+    .hoc-stat-big-rank {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--gold);
+      margin-top: 4px;
+      letter-spacing: 0.04em;
+    }
+    /* Summary-table sortable headers — mirror the Eras Summary look. */
+    .hoc-summary-th { cursor: pointer; user-select: none; }
+    .hoc-summary-th:hover { color: var(--gold); }
+    .hoc-summary-th.active { color: var(--gold); }
     .hoc-card {
       background: linear-gradient(180deg, rgba(231,190,89,0.10), rgba(14,44,88,0.45) 35%);
       border: 1px solid var(--gold);
@@ -1059,6 +1153,9 @@
     // Eras view: "all" = cross-era summary table; era_start year = single-era detail page.
     eraSelected: qs.get("era") || "all",
     eraSummary: { sortKey: "era_start", sortDir: "asc" },
+    // Hall of Champions view: "all" = summary table; season year = champion detail page.
+    champSelected: qs.get("champ") || "all",
+    champSummary: { sortKey: "season", sortDir: "asc" },
     cache: {}
   };
 
@@ -1105,6 +1202,11 @@
         u.searchParams.set("era", String(state.eraSelected || "all"));
       } else {
         u.searchParams.delete("era");
+      }
+      if (state.view === "hallOfChamps") {
+        u.searchParams.set("champ", String(state.champSelected || "all"));
+      } else {
+        u.searchParams.delete("champ");
       }
       window.history.replaceState(null, "", u.toString());
     } catch (e) {}
@@ -1195,6 +1297,16 @@
     + '(needs worker support to aggregate over a week subset). Bracket "True Draft Order" overlay '
     + '(maps each playoff result to next year\'s rookie pick 1.01-1.12 per league_context_v1.md §1) — '
     + 'requires <code>src_final_standings</code> to be loaded into D1.</div>';
+
+  // Shared "draft" banner used by the Eras + Hall of Champions views.
+  // Surfaces that the narratives + stat callouts haven't been fully
+  // reviewed yet, so owners know to send corrections rather than
+  // assume the page is canonical.
+  var DRAFT_CONTENT_BANNER = '<div class="hist-warn" role="status">'
+    + '<strong>Draft content — needs review.</strong> '
+    + 'Per-era and per-champion narratives, stat callouts, and rank claims are still being verified. '
+    + 'Spot something wrong? Send corrections in #commissioner-talk and we will fold them in.'
+    + '</div>';
 
   // ────────────────────────────────────────────────────────────────────────
   // Seed map helper — used by Overall view to badge Champ/Hawktuah seeds
@@ -1996,70 +2108,254 @@
   // historical AP rank across champions, and the championship game
   // (opponent, score, MFL box-score link).
   // ────────────────────────────────────────────────────────────────────────
+  // ────────────────────────────────────────────────────────────────────────
+  // Hall of Champions — picker + summary table + per-champion big-card view.
+  // Mirrors the Eras restructure (default "Summary" → wide sortable
+  // table of every champion; pick a specific season for the detailed
+  // page). Per-champion narratives keyed by season year in
+  // CHAMPION_STORIES; empty entries fall back to data-only rendering.
+  // ────────────────────────────────────────────────────────────────────────
+
+  // Hand-curated season blurbs per champion. Add as we draft them. Each
+  // value is multi-paragraph (separator = blank line); the renderer
+  // splits on \n\n and wraps each chunk in <p>. Same convention as
+  // ERA_STORIES.
+  var CHAMPION_STORIES = {
+    // Example shape:
+    // 2024: {
+    //   blurb:
+    // "Quarter 1 (W1-4): ...\n\n" +
+    // "Quarter 2 (W5-8): ...\n\n" +
+    // "Quarter 3 (W9-12): ...\n\n" +
+    // "Quarter 4 (W13-14): ...\n\n" +
+    // "Playoffs: ..."
+    // }
+  };
+
+  function hocRec3(w, l, t) { return (w || 0) + "-" + (l || 0) + (t ? "-" + t : ""); }
+  function hocRecPct(w, l, t) {
+    var g = (w || 0) + (l || 0) + (t || 0);
+    return g > 0 ? ((w + 0.5 * t) / g) : null;
+  }
+  // Render an HoC blurb (multi-paragraph) the same way era blurbs render.
+  function renderChampBlurbHtml(blurb) {
+    var s = String(blurb == null ? "" : blurb).trim();
+    if (!s) return "";
+    var paras = s.split(/\n\s*\n/);
+    return '<div class="era-blurb">'
+      + paras.map(function (p) {
+          return '<p>' + escapeHtml(p.trim()) + '</p>';
+        }).join("")
+      + '</div>';
+  }
+  // Rank champions on a numeric field — descending (#1 = highest value).
+  // Returns a map keyed by season → 1-based rank. Ties get the same rank.
+  function rankChampsDesc(champs, getter) {
+    var arr = champs.map(function (c) {
+      return { season: c.season, val: Number(getter(c)) };
+    }).filter(function (r) { return isFinite(r.val); });
+    arr.sort(function (a, b) { return b.val - a.val; });
+    var map = {};
+    var lastVal = null, lastRank = 0;
+    arr.forEach(function (r, i) {
+      var rank = (lastVal != null && r.val === lastVal) ? lastRank : (i + 1);
+      map[r.season] = rank;
+      lastVal = r.val;
+      lastRank = rank;
+    });
+    return map;
+  }
+
+  function renderChampPickerHtml(champs) {
+    var opts = ['<option value="all"' + (state.champSelected === "all" ? " selected" : "") + '>All Champions — Summary</option>'];
+    // Newest first in the picker so this year's champ is at top.
+    var sorted = champs.slice().sort(function (a, b) { return Number(b.season) - Number(a.season); });
+    sorted.forEach(function (c) {
+      var val = String(c.season);
+      var who = c.owner_name ? (" · " + c.owner_name) : "";
+      var label = c.season + " — " + (c.franchise_name || c.franchise_id || "Champion") + who;
+      opts.push('<option value="' + escapeHtml(val) + '"' + (state.champSelected === val ? " selected" : "") + '>' + escapeHtml(label) + '</option>');
+    });
+    return '<div class="era-picker-row"><label class="era-picker">View <select id="champSel">' + opts.join("") + '</select></label></div>';
+  }
+
+  function wireChampPicker(host) {
+    var sel = host.querySelector("#champSel");
+    if (sel) {
+      sel.addEventListener("change", function () {
+        state.champSelected = sel.value || "all";
+        pushQs();
+        render();
+      });
+    }
+    host.querySelectorAll("th.hoc-summary-th").forEach(function (h) {
+      h.addEventListener("click", function () {
+        var key = h.getAttribute("data-hoc-sort");
+        if (!key) return;
+        if (state.champSummary.sortKey === key) {
+          state.champSummary.sortDir = state.champSummary.sortDir === "asc" ? "desc" : "asc";
+        } else {
+          state.champSummary.sortKey = key;
+          state.champSummary.sortDir = (key === "season" || key === "owner_name" || key === "franchise_name") ? "asc" : "desc";
+        }
+        render();
+      });
+    });
+  }
+
+  function renderHocSummaryHtml(champs, ranks) {
+    function th(key, label, isNum) {
+      var active = state.champSummary.sortKey === key;
+      var arrow = active ? (state.champSummary.sortDir === "asc" ? " ▲" : " ▼") : "";
+      var cls = (isNum ? "num " : "") + "hoc-summary-th" + (active ? " active" : "");
+      return '<th class="' + cls + '" data-hoc-sort="' + key + '">' + escapeHtml(label) + arrow + '</th>';
+    }
+    var rows = champs.slice().sort(function (a, b) {
+      var sa = state.champSummary.sortKey;
+      var dir = state.champSummary.sortDir === "asc" ? 1 : -1;
+      var av = a[sa], bv = b[sa];
+      if (sa === "owner_name" || sa === "franchise_name") {
+        return String(av || "").localeCompare(String(bv || "")) * dir;
+      }
+      if (sa === "season") {
+        return (Number(a.season) - Number(b.season)) * dir;
+      }
+      if (sa === "ap_rank") {
+        return ((ranks.ap[a.season] || 99) - (ranks.ap[b.season] || 99)) * dir;
+      }
+      if (sa === "pf_rank") {
+        return ((ranks.pf[a.season] || 99) - (ranks.pf[b.season] || 99)) * dir;
+      }
+      av = Number(av || 0); bv = Number(bv || 0);
+      return (av - bv) * dir;
+    });
+    var head = '<tr>'
+      + th("season",         "Season",     false)
+      + th("franchise_name", "Franchise",  false)
+      + th("owner_name",     "Owner",      false)
+      + '<th class="num">Seed</th>'
+      + '<th class="num">Div Win</th>'
+      + th("total_ap_pct",   "Total AP %", true)
+      + th("ap_rank",        "AP Rank",    true)
+      + th("pf",             "PF",         true)
+      + th("pf_rank",        "PF Rank",    true)
+      + '<th>Final Score</th>'
+      + '</tr>';
+    var body = rows.map(function (c) {
+      var totalPct = c.total_ap_pct != null ? c.total_ap_pct : hocRecPct(c.total_ap_w, c.total_ap_l, c.total_ap_t);
+      var fg = c.final_game || null;
+      var finalScore = fg ? (fmtDec(fg.champion_score) + " – " + fmtDec(fg.opponent_score)) : "—";
+      var seed = c.seed_rank_overall != null ? "#" + c.seed_rank_overall : "—";
+      var divWin = c.division_winner === true ? "Yes" : (c.division_winner === false ? "No" : "—");
+      var apRank = ranks.ap[c.season] ? "#" + ranks.ap[c.season] : "—";
+      var pfRank = ranks.pf[c.season] ? "#" + ranks.pf[c.season] : "—";
+      return '<tr>'
+        + '<td>' + escapeHtml(c.season) + '</td>'
+        + '<td>' + escapeHtml(c.franchise_name || c.franchise_id || "—") + '</td>'
+        + '<td>' + escapeHtml(c.owner_name || "—") + '</td>'
+        + '<td class="num">' + seed + '</td>'
+        + '<td class="num">' + divWin + '</td>'
+        + '<td class="num">' + fmtPct(totalPct) + '</td>'
+        + '<td class="num">' + apRank + '</td>'
+        + '<td class="num">' + fmtCommas(c.pf, 1) + '</td>'
+        + '<td class="num">' + pfRank + '</td>'
+        + '<td>' + finalScore + '</td>'
+        + '</tr>';
+    }).join("");
+    return '<section class="era-detail-card">'
+      + '<div class="era-name">Hall of Champions — Summary</div>'
+      + '<div class="era-blurb">Every UPS champion since 2011, with key stats + all-time ranks within the championship cohort. Click any column header to sort. Pick a specific season from the dropdown above for that champion\'s detailed page.</div>'
+      + '<div class="era-card-scroll"><table class="compact era-summary-table"><thead>' + head + '</thead><tbody>' + body + '</tbody></table></div>'
+      + '</section>';
+  }
+
+  function renderChampDetailHtml(c, champs, ranks) {
+    var regPct = hocRecPct(c.regseason_ap_w, c.regseason_ap_l, c.regseason_ap_t);
+    var playPct = hocRecPct(c.playoff_ap_w, c.playoff_ap_l, c.playoff_ap_t);
+    var totalPct = c.total_ap_pct != null ? c.total_ap_pct : hocRecPct(c.total_ap_w, c.total_ap_l, c.total_ap_t);
+    var fg = c.final_game || null;
+    var fgScoreClass = fg ? (fg.champion_score > fg.opponent_score ? "champ-win" : "") : "";
+    var apRank = ranks.ap[c.season] ? "#" + ranks.ap[c.season] + " of " + champs.length : "—";
+    var pfRank = ranks.pf[c.season] ? "#" + ranks.pf[c.season] + " of " + champs.length : "—";
+    var story = CHAMPION_STORIES[Number(c.season)] || { blurb: "" };
+
+    return '<section class="hoc-detail-card">'
+      + '<header class="hoc-detail-head">'
+      +   (c.logo ? '<img class="hoc-detail-logo" src="' + escapeHtml(c.logo) + '" alt="">' : '<div class="hoc-detail-logo hoc-detail-logo--blank"></div>')
+      +   '<div class="hoc-detail-titles">'
+      +     '<div class="hoc-detail-season">' + escapeHtml(c.season) + ' UPS Champion 🏆</div>'
+      +     '<div class="hoc-detail-team">' + escapeHtml(c.franchise_name || c.franchise_id || "—") + '</div>'
+      +     '<div class="hoc-detail-owner">' + escapeHtml(c.owner_name || "") + '</div>'
+      +   '</div>'
+      + '</header>'
+      + renderChampBlurbHtml(story.blurb)
+      + '<div class="hoc-detail-stats">'
+      +   '<div class="hoc-stat-big"><div class="hoc-stat-big-k">Total AP</div><div class="hoc-stat-big-v">' + hocRec3(c.total_ap_w, c.total_ap_l, c.total_ap_t) + ' <span class="hoc-stat-big-sub">' + fmtPct(totalPct) + '</span></div><div class="hoc-stat-big-rank">' + apRank + '</div></div>'
+      +   '<div class="hoc-stat-big"><div class="hoc-stat-big-k">Reg Season AP</div><div class="hoc-stat-big-v">' + hocRec3(c.regseason_ap_w, c.regseason_ap_l, c.regseason_ap_t) + ' <span class="hoc-stat-big-sub">' + fmtPct(regPct) + '</span></div></div>'
+      +   '<div class="hoc-stat-big"><div class="hoc-stat-big-k">Playoff AP</div><div class="hoc-stat-big-v">' + hocRec3(c.playoff_ap_w, c.playoff_ap_l, c.playoff_ap_t) + ' <span class="hoc-stat-big-sub">' + fmtPct(playPct) + '</span></div></div>'
+      +   '<div class="hoc-stat-big"><div class="hoc-stat-big-k">Points For</div><div class="hoc-stat-big-v">' + fmtCommas(c.pf, 1) + '</div><div class="hoc-stat-big-rank">' + pfRank + '</div></div>'
+      +   '<div class="hoc-stat-big"><div class="hoc-stat-big-k">Playoff Seed</div><div class="hoc-stat-big-v">' + (c.seed_rank_overall != null ? "#" + c.seed_rank_overall : "—") + '</div></div>'
+      +   '<div class="hoc-stat-big"><div class="hoc-stat-big-k">Division Winner</div><div class="hoc-stat-big-v">' + (c.division_winner === true ? '<span style="color:var(--gold)">YES</span>' : (c.division_winner === false ? "No" : "—")) + '</div></div>'
+      + '</div>'
+      + (fg
+          ? '<div class="hoc-final"><div class="hoc-final-label">Championship — Week ' + fg.week + '</div>'
+            + '<div class="hoc-final-row">'
+            +   '<span class="hoc-final-team">' + escapeHtml(c.franchise_name || c.franchise_id) + '</span>'
+            +   '<span class="hoc-final-score ' + fgScoreClass + '">' + fmtDec(fg.champion_score) + '</span>'
+            + '</div>'
+            + '<div class="hoc-final-row">'
+            +   '<span class="hoc-final-team">' + escapeHtml(fg.opponent_franchise_name || fg.opponent_franchise_id) + ' <span class="hoc-final-owner">· ' + escapeHtml(fg.opponent_owner || "") + '</span></span>'
+            +   '<span class="hoc-final-score">' + fmtDec(fg.opponent_score) + '</span>'
+            + '</div>'
+            + (fg.box_score_url ? '<a class="hoc-box-link" href="' + escapeHtml(fg.box_score_url) + '" target="_blank" rel="noopener">Open MFL box score ↗</a>' : '')
+          + '</div>'
+          : ""
+        )
+      + '</section>';
+  }
+
   function renderHallOfChampions(host) {
     fetchD1("/api/hall-of-champions", null).then(function (resp) {
       if (!resp || !resp.ok) return showError(host, "Couldn't load Hall of Champions.");
       var champs = resp.champions || [];
       if (!champs.length) {
-        host.innerHTML = '<div class="banner">No champions identified yet — needs <code>src_final_standings</code> loaded or playoff schedule rows in D1.</div>';
+        host.innerHTML = DRAFT_CONTENT_BANNER + '<div class="banner">No champions identified yet — needs <code>src_final_standings</code> loaded or playoff schedule rows in D1.</div>';
         return;
       }
-      function rec3(w, l, t) { return (w || 0) + "-" + (l || 0) + (t ? "-" + t : ""); }
-      function recPct(w, l, t) {
-        var g = (w || 0) + (l || 0) + (t || 0);
-        return g > 0 ? ((w + 0.5 * t) / g) : null;
+      var fsBanner = resp.has_final_standings ? "" : '<div class="banner">⚠ <code>src_final_standings</code> not loaded — champion identification is heuristic.</div>';
+      var prefix = fsBanner + DRAFT_CONTENT_BANNER;
+
+      // Pre-compute all-time rank maps so the summary table + the
+      // per-champion detail page agree on the numbers shown.
+      var ranks = {
+        ap: rankChampsDesc(champs, function (c) {
+          return c.total_ap_pct != null ? c.total_ap_pct
+            : hocRecPct(c.total_ap_w, c.total_ap_l, c.total_ap_t);
+        }),
+        pf: rankChampsDesc(champs, function (c) { return c.pf; })
+      };
+
+      var pickerHtml = renderChampPickerHtml(champs);
+
+      if (state.champSelected === "all") {
+        host.innerHTML = prefix + pickerHtml + renderHocSummaryHtml(champs, ranks)
+          + '<div class="note">All-time ranks computed across UPS champions only (not all owners). Pick a specific season for the championship narrative + box-score detail.</div>'
+          + DEFERRED_NOTE;
+        wireChampPicker(host);
+        return;
       }
-      var html = '<div class="methodology">'
-        + '<strong>Hall of Champions.</strong> '
-        + 'Champion identified per season from <code>src_final_standings</code> when available, else from the playoff schedule. '
-        + 'Historical AP rank ranks all champions by total AP %.'
-        + (resp.has_final_standings ? "" : ' <strong style="color:var(--warn)">⚠ src_final_standings not loaded — champion identification is heuristic.</strong>')
-        + '</div><div class="hoc-grid">';
-      champs.forEach(function (c) {
-        var regPct = recPct(c.regseason_ap_w, c.regseason_ap_l, c.regseason_ap_t);
-        var playPct = recPct(c.playoff_ap_w, c.playoff_ap_l, c.playoff_ap_t);
-        var totalPct = c.total_ap_pct != null ? c.total_ap_pct : recPct(c.total_ap_w, c.total_ap_l, c.total_ap_t);
-        var fg = c.final_game || null;
-        var fgScoreClass = fg ? (fg.champion_score > fg.opponent_score ? "champ-win" : "") : "";
-        html += '<section class="hoc-card">'
-          + '<header class="hoc-card-head">'
-          +   '<div class="hoc-season">' + escapeHtml(c.season) + ' Season</div>'
-          +   '<div class="hoc-trophy">🏆</div>'
-          + '</header>'
-          + '<div class="hoc-team">'
-          +   (c.logo ? '<img class="hoc-logo" src="' + escapeHtml(c.logo) + '" alt="">' : '')
-          +   '<div>'
-          +     '<div class="hoc-team-name">' + escapeHtml(c.franchise_name || c.franchise_id) + '</div>'
-          +     '<div class="hoc-owner">' + escapeHtml(c.owner_name || "") + '</div>'
-          +   '</div>'
-          + '</div>'
-          + '<div class="hoc-stats">'
-          +   '<div class="hoc-stat"><div class="hoc-stat-k">Reg Season AP</div><div class="hoc-stat-v">' + rec3(c.regseason_ap_w, c.regseason_ap_l, c.regseason_ap_t) + '<span class="hoc-stat-pct">' + fmtPct(regPct) + '</span></div></div>'
-          +   '<div class="hoc-stat"><div class="hoc-stat-k">Playoff AP</div><div class="hoc-stat-v">' + rec3(c.playoff_ap_w, c.playoff_ap_l, c.playoff_ap_t) + '<span class="hoc-stat-pct">' + fmtPct(playPct) + '</span></div></div>'
-          +   '<div class="hoc-stat"><div class="hoc-stat-k">Total AP</div><div class="hoc-stat-v">' + rec3(c.total_ap_w, c.total_ap_l, c.total_ap_t) + '<span class="hoc-stat-pct">' + fmtPct(totalPct) + '</span></div></div>'
-          +   '<div class="hoc-stat"><div class="hoc-stat-k">Playoff Seed</div><div class="hoc-stat-v">' + (c.seed_rank_overall != null ? "#" + c.seed_rank_overall + ' overall' : "—") + '</div></div>'
-          +   '<div class="hoc-stat"><div class="hoc-stat-k">Division Winner</div><div class="hoc-stat-v">' + (c.division_winner === true ? '<span style="color:var(--gold)">YES</span>' : (c.division_winner === false ? "No" : "—")) + '</div></div>'
-          +   '<div class="hoc-stat"><div class="hoc-stat-k">Total Points (PF)</div><div class="hoc-stat-v">' + fmtCommas(c.pf, 1) + '</div></div>'
-          +   '<div class="hoc-stat hoc-stat-rank"><div class="hoc-stat-k">Historical AP Rank</div><div class="hoc-stat-v">#' + c.historical_ap_rank + ' of ' + champs.length + '</div></div>'
-          + '</div>'
-          + (fg
-              ? '<div class="hoc-final"><div class="hoc-final-label">Championship — Week ' + fg.week + '</div>'
-                + '<div class="hoc-final-row">'
-                +   '<span class="hoc-final-team">' + escapeHtml(c.franchise_name || c.franchise_id) + '</span>'
-                +   '<span class="hoc-final-score ' + fgScoreClass + '">' + fmtDec(fg.champion_score) + '</span>'
-                + '</div>'
-                + '<div class="hoc-final-row">'
-                +   '<span class="hoc-final-team">' + escapeHtml(fg.opponent_franchise_name || fg.opponent_franchise_id) + ' <span class="hoc-final-owner">· ' + escapeHtml(fg.opponent_owner || "") + '</span></span>'
-                +   '<span class="hoc-final-score">' + fmtDec(fg.opponent_score) + '</span>'
-                + '</div>'
-                + (fg.box_score_url ? '<a class="hoc-box-link" href="' + escapeHtml(fg.box_score_url) + '" target="_blank" rel="noopener">Open MFL box score ↗</a>' : '')
-              + '</div>'
-              : ""
-            )
-          + '</section>';
-      });
-      html += '</div>';
-      host.innerHTML = html + '<div class="note">Historical AP rank computed across all UPS champions only (not all owners). Click any "Open MFL box score" link to jump to the championship-game box score on MFL.</div>' + DEFERRED_NOTE;
+
+      var c = null;
+      for (var i = 0; i < champs.length; i += 1) {
+        if (String(champs[i].season) === String(state.champSelected)) { c = champs[i]; break; }
+      }
+      if (!c) {
+        host.innerHTML = prefix + pickerHtml + '<div class="banner">Season not found — pick another from the dropdown.</div>';
+        wireChampPicker(host);
+        return;
+      }
+      host.innerHTML = prefix + pickerHtml + renderChampDetailHtml(c, champs, ranks) + DEFERRED_NOTE;
+      wireChampPicker(host);
     }).catch(function (e) { showError(host, "Fetch failed: " + e.message); });
   }
 
@@ -2318,7 +2614,7 @@
       name: "Tee Higgins and the 1.1 Dispersal Shit Show",
       blurb:
 "The 2023-2025 era opened with a dispersal that immediately became a flashpoint. Tee Higgins, coming off strong back-to-back seasons, was the consensus 1.01 dispersal pick and everyone wanted him. Who got him, at what price, and whether he lived up to the billing became a running thread through the era [per Keith's recollection]. The drama was loud enough that an entire era gets named after it.\n\n" +
-"On the field, Shawn Blake finally broke through. His Blake Bombers had been a perennial tease for over a decade — multiple playoff appearances, never quite closing — and in 2023 he won the championship in a 259.7-to-256.9 photo finish over Bear Dunn. One point and change separated them. Eric Martel's HammerTime franchise, which had entered via the mid-2022 chaos, became a genuine force: he won the 2024 title in a 275.4-to-272.3 championship game thriller over Ryan Bousquet's CBP. Commissioner Keith Creelman's Pure Greatness won the 2025 title over Sex Manther, completing what might charitably be described as an awkward awards ceremony.\n\n" +
+"On the field, Shawn Blake finally broke through. His Blake Bombers had been a perennial tease for over a decade — multiple playoff appearances, never quite closing — and in 2023 he won the championship in a 259.7-to-256.9 photo finish over Bear Dunn. One point and change separated them. Eric Martel's HammerTime franchise, which had entered via the mid-2022 chaos, became a genuine force and took the 2024 title in a 275.4-to-272.3 championship game thriller over Ryan Bousquet's CBP. Commissioner Keith Creelman's Pure Greatness won the 2025 title over Sex Manther, completing what might charitably be described as an awkward awards ceremony.\n\n" +
 "Josh Lima entered in this era and promptly became a cautionary tale. His 2024 squad posted historically bad numbers by any measure — among the worst head-to-head records in league history. He was booted after the 2024 auction and replaced by Brian Cross, who inherited a roster that required patience and probably a stiff drink."
     },
     2026: {
@@ -2507,24 +2803,25 @@
       var hasFS = resp.has_final_standings;
       var currentYear = (new Date().getUTCFullYear());
       var fsBanner = hasFS ? "" : '<div class="banner">⚠ <code>src_final_standings</code> not loaded — championship + hawktuah counts show 0 until migration 0033 runs.</div>';
+      var prefix = fsBanner + DRAFT_CONTENT_BANNER;
 
       // Picker first; then either the cross-era summary, or the
       // existing per-era card filtered to a single era.
       var pickerHtml = renderEraPickerHtml(erasAll);
 
       if (state.eraSelected === "all") {
-        host.innerHTML = fsBanner + pickerHtml + renderErasSummaryHtml(erasAll);
+        host.innerHTML = prefix + pickerHtml + renderErasSummaryHtml(erasAll);
         wireEraPicker(host);
         return;
       }
 
       var eras = erasAll.filter(function (e) { return String(e.era_start) === String(state.eraSelected); });
       if (!eras.length) {
-        host.innerHTML = fsBanner + pickerHtml + '<div class="banner">Era not found — pick another from the dropdown.</div>';
+        host.innerHTML = prefix + pickerHtml + '<div class="banner">Era not found — pick another from the dropdown.</div>';
         wireEraPicker(host);
         return;
       }
-      var html = fsBanner + pickerHtml + '<div class="era-grid era-grid--single">';
+      var html = prefix + pickerHtml + '<div class="era-grid era-grid--single">';
       eras.forEach(function (era) {
         var rows = (era.rows || []).slice();
         var eligible = rows.filter(function (r) { return (r.seasons_played || 0) >= 3; });
